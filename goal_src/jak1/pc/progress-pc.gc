@@ -781,7 +781,17 @@
        ;; :param3 opens the grass-settings screen; real label via *grass-settings-label* (name-override).
        (new 'static 'game-option :option-type (game-option-type menu) :name (text-id ps2-options) :scale #t
             :param3 (game-option-menu grass-settings))
-       ;; 2 Back
+       ;; 2 LOAD CUSTOM ASSETS on-off toggle (Gload-custom-assets). Real label via *load-custom-assets-label*
+       ;; (name-override); value bound to *pc-settings* load-custom-assets? in init-game-options. The
+       ;; on-change pushes the 0/1 flag to the runtime and persists it immediately.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* load-custom-assets?) (the-as symbol val))
+              (pc-set-load-custom-assets! (if val 1 0))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 3 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
@@ -885,6 +895,10 @@
 (format (clear *recharged-settings-label*) "RECHARGED SETTINGS")
 (define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-hud-label*) "RECHARGED HUD")
+;; Gload-custom-assets: label for the "LOAD CUSTOM ASSETS" on-off toggle in the Recharged
+;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
+(define *load-custom-assets-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *load-custom-assets-label*) "LOAD CUSTOM ASSETS")
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
@@ -2964,6 +2978,9 @@
   ;; Grecharged-grass-poc POLISH#6: row 1 is now the "GRASS SETTINGS" sub-submenu launcher (label only;
   ;; its param3 opens *grass-options-pc*). All grass rows moved into that nested page (wired below).
   (set! (-> *recharged-options-pc* 1 name-override) *grass-settings-label*)
+  ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 2) inside the Recharged submenu.
+  (set! (-> *recharged-options-pc* 2 value-to-modify) (&-> *pc-settings* load-custom-assets?))
+  (set! (-> *recharged-options-pc* 2 name-override) *load-custom-assets-label*)
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)

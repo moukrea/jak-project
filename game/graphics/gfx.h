@@ -131,6 +131,10 @@ struct GfxGlobalSettings {
   // Set from GOAL (-> *pc-settings* recharged-grass?) via pc-set-recharged-grass!.
   // OFF (default) == byte-identical stock rendering (the renderer hook is skipped).
   bool recharged_grass = false;
+  // External-asset-root: when true, the loader looks up user PNG texture
+  // replacements under <root>/custom_assets/texture_replacements at runtime.
+  // Set from GOAL via pc-set-load-custom-assets!. OFF (default) == stock.
+  bool load_custom_assets = false;
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
   // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
   float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};

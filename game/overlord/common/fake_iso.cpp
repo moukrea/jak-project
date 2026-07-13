@@ -55,19 +55,46 @@ void fake_iso_init_globals() {
  * Initialize the file system.
  */
 int fake_iso_FS_Init() {
-  for (const auto& f : fs::directory_iterator(file_util::get_jak_project_dir() / "out" /
-                                              game_version_names[g_game_version] / "iso")) {
-    if (f.is_regular_file() || f.is_symlink()) {
-      ASSERT(fake_iso_entry_count < MAX_ISO_FILES);
-      FakeIsoEntry* e = &fake_iso_entries[fake_iso_entry_count];
-      std::string file_name = f.path().filename().string();
-      ASSERT(file_name.length() < 16);  // should be 8.3.
-      ASSERT_MSG(f.exists(),            // should only happen if the file is a symlink, afaik
-                 fmt::format("[FAKEISO] couldn't find {} -- broken symlink?", file_name));
-      strcpy(e->iso_name, file_name.c_str());
-      e->full_path = fmt::format("{}/out/{}/iso/{}", file_util::get_jak_project_dir().string(),
-                                 game_version_names[g_game_version], file_name);
-      fake_iso_entry_count++;
+  // Build the scan list: the (optional) per-arch iso overlay dir wins over the
+  // arch-independent iso out dir. When no overlay and no external root are set,
+  // this collapses to the single legacy scan.
+  std::vector<fs::path> scan_dirs;
+  if (auto overlay = file_util::get_iso_overlay_dir(); overlay && fs::exists(*overlay)) {
+    scan_dirs.push_back(*overlay);
+  }
+  scan_dirs.push_back(file_util::get_iso_out_dir(g_game_version));
+
+  for (size_t dir_idx = 0; dir_idx < scan_dirs.size(); dir_idx++) {
+    const auto& dir = scan_dirs[dir_idx];
+    if (!fs::exists(dir)) {
+      continue;
+    }
+    for (const auto& f : fs::directory_iterator(dir)) {
+      if (f.is_regular_file() || f.is_symlink()) {
+        std::string file_name = f.path().filename().string();
+        // When scanning the second (non-overlay) dir, the overlay wins: skip any
+        // file whose name is already in the table.
+        if (dir_idx > 0) {
+          bool already_present = false;
+          for (u32 i = 0; i < fake_iso_entry_count; i++) {
+            if (file_name == fake_iso_entries[i].iso_name) {
+              already_present = true;
+              break;
+            }
+          }
+          if (already_present) {
+            continue;
+          }
+        }
+        ASSERT(fake_iso_entry_count < MAX_ISO_FILES);
+        FakeIsoEntry* e = &fake_iso_entries[fake_iso_entry_count];
+        ASSERT(file_name.length() < 16);  // should be 8.3.
+        ASSERT_MSG(f.exists(),            // should only happen if the file is a symlink, afaik
+                   fmt::format("[FAKEISO] couldn't find {} -- broken symlink?", file_name));
+        strcpy(e->iso_name, file_name.c_str());
+        e->full_path = f.path().string();
+        fake_iso_entry_count++;
+      }
     }
   }
 

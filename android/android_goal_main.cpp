@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <thread>
 
 #include "common/common_types.h"
@@ -280,6 +281,26 @@ int goal_main(int argc, char** argv) {
                       "goal_main: selected game=%s (version=%d)",
                       game_name.c_str(), (int)g_game_version);
 
+  // External-asset-root feature (autoport 2026-07): Android bypasses the desktop
+  // main.cpp CLI parsing entirely, so the --game-root/--iso-overlay argv flags
+  // would be inert here — apply the FileUtil overrides DIRECTLY from the JNI
+  // globals, BEFORE any file_util consumer (fake_iso, fr3 loader, save dirs)
+  // runs. Empty globals = internal mode = no override, byte-identical behavior.
+  {
+    extern std::string g_iso_overlay;  // defined in gk_android_main.cpp
+    extern std::string g_game_root;    // (also read below for the symlink skip)
+    if (!g_game_root.empty()) {
+      file_util::set_external_game_root(fs::path(g_game_root));
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "goal_main: external game root -> %s", g_game_root.c_str());
+    }
+    if (!g_iso_overlay.empty()) {
+      file_util::set_iso_overlay_dir(fs::path(g_iso_overlay));
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "goal_main: iso overlay dir -> %s", g_iso_overlay.c_str());
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Phase D4 (autoport): set up the desktop-style project root so
   // upstream code that calls file_util::get_jak_project_dir() resolves
@@ -297,36 +318,52 @@ int goal_main(int argc, char** argv) {
   // ---------------------------------------------------------------------
   fs::path data_root_path(data_root);
   fs::path project_root = data_root_path.parent_path().parent_path();
-  // Gjak2-boot: per-game symlink dir (out/jak1, out/jak2, ...) so the overlord's
-  // fake_iso scan of <project>/out/<game>/iso resolves to the extracted assets.
-  fs::path iso_link_parent = project_root / "out" / game_name;
-  fs::path iso_link        = iso_link_parent / "iso";
+  // External-asset-root feature (autoport 2026-07): in EXTERNAL mode the runtime
+  // reads iso/fr3/saves straight from the user's on-storage <game-root> (FileUtil
+  // resolves them), so the out/<game>/iso -> data_root symlink farm is neither
+  // needed nor writable-appropriate — skip it entirely. We STILL call
+  // setup_project_path(project_root) with the files-derived root so shaders/dev
+  // leftovers under <files> resolve. In INTERNAL mode the symlink is created as
+  // before (an existing files/cgo overlay does not affect it).
+  extern std::string g_game_root;  // defined in gk_android_main.cpp
+  const bool external_mode = !g_game_root.empty();
   std::error_code ec;
-  fs::create_directories(iso_link_parent, ec);
-  if (ec) {
-    __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                        "goal_main: create_directories(%s) failed: %s",
-                        iso_link_parent.c_str(), ec.message().c_str());
-    ec.clear();
-  }
-  if (!fs::exists(iso_link, ec)) {
-    fs::create_directory_symlink(data_root_path, iso_link, ec);
+  if (external_mode) {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "goal_main: external mode (game-root=%s) — skipping "
+                        "out/<game>/iso symlink farm",
+                        g_game_root.c_str());
+  } else {
+    // Gjak2-boot: per-game symlink dir (out/jak1, out/jak2, ...) so the overlord's
+    // fake_iso scan of <project>/out/<game>/iso resolves to the extracted assets.
+    fs::path iso_link_parent = project_root / "out" / game_name;
+    fs::path iso_link        = iso_link_parent / "iso";
+    fs::create_directories(iso_link_parent, ec);
     if (ec) {
       __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                          "goal_main: symlink(%s -> %s) failed: %s",
-                          iso_link.c_str(), data_root_path.c_str(),
-                          ec.message().c_str());
-    } else {
-      __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                          "goal_main: symlink %s -> %s created",
-                          iso_link.c_str(), data_root_path.c_str());
+                          "goal_main: create_directories(%s) failed: %s",
+                          iso_link_parent.c_str(), ec.message().c_str());
+      ec.clear();
+    }
+    if (!fs::exists(iso_link, ec)) {
+      fs::create_directory_symlink(data_root_path, iso_link, ec);
+      if (ec) {
+        __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                            "goal_main: symlink(%s -> %s) failed: %s",
+                            iso_link.c_str(), data_root_path.c_str(),
+                            ec.message().c_str());
+      } else {
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "goal_main: symlink %s -> %s created",
+                            iso_link.c_str(), data_root_path.c_str());
+      }
     }
   }
   file_util::setup_project_path(project_root, /*skip_logs=*/false);
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "goal_main: project_path=%s, iso_link=%s -> %s",
-                      project_root.c_str(), iso_link.c_str(),
-                      data_root_path.c_str());
+                      "goal_main: project_path=%s, data_root=%s, external=%d",
+                      project_root.c_str(), data_root_path.c_str(),
+                      (int)external_mode);
 
   // ---------------------------------------------------------------------
   // kheap init — honest call into upstream kmalloc primitives.

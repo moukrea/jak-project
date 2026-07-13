@@ -630,7 +630,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   bool from_bake = false;
   // Resolve fr3 size (used both to validate a bake and as scan input).
   const std::string fr3_path =
-      (file_util::get_jak_project_dir() / "out" / "jak1" / "fr3" / "training.fr3").string();
+      (file_util::get_fr3_dir(GameVersion::Jak1) / "training.fr3").string();
   u64 fr3_size = 0;
   {
     std::error_code ec;
@@ -642,7 +642,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 
   if (want_pre && !floor_gap_overridden) {
     const std::string bake_path =
-        (file_util::get_jak_project_dir() / "out" / "jak1" / "fr3" / "training.grassbake").string();
+        (file_util::get_fr3_dir(GameVersion::Jak1) / "training.grassbake").string();
     grass_bake::BakeData loaded;
     std::string reason;
     if (!grass_bake::load_bake(loaded, bake_path)) {

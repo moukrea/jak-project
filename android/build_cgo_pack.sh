@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# External-asset-root feature (autoport 2026-07): build the SLIM "CGO pack" that
+# the assets-slim APK ships. Unlike build_asset_bundle.sh (which packs the FULL
+# ~1.6 GiB runtime set — iso data + fr3 + arm64 code), this packs ONLY the tiny
+# arch-specific code layer: every *.CGO/*.DGO from the ARM64 build, plus any
+# android *COMMON.TXT text overrides. The bulky iso data + fr3 come from the
+# user's external asset root instead; the CGO pack is unpacked to
+# <filesDir>/cgo/<game>/ and handed to fake_iso as the FIRST-scanned overlay dir,
+# so the freshly-built arm64 code (matching HEAD libgk.so) always wins over any
+# x86/older CGOs sitting in the external iso dir.
+#
+# Layout (zip root, FLAT — no subdirs):
+#   *.CGO / *.DGO   the 28 ARM64-compiled code files (jak1; >0 for jak2)
+#   *COMMON.TXT     android text overrides (out/<game>-android-text/, if present)
+#
+# Output:
+#   android/app/src/<game>/assets-slim/bundle/<game>_cgo.zip           (DEFLATE)
+#   android/app/src/<game>/assets-slim/bundle/<game>_cgo.manifest.properties
+#
+# HARD-FAILS if the arm64 iso dir is missing, if the code-file count is wrong
+# (jak1: exactly 28; jak2: >0), or if the arm64 KERNEL.CGO is missing / equals
+# the x86 oracle copy (a mixed/x86 pack would SIGILL on the arm64 device).
+# Mirrors build_asset_bundle.sh's rigor: content-derived VERSION, staleness skip,
+# completeness gates, KERNEL.CGO arm64!=x86 assertion.
+set -euo pipefail
+
+GAME="${1:-jak1}"
+
+cd "$(git rev-parse --show-toplevel)"
+
+ARM64_CODE="out/${GAME}-arm64-full/iso"
+# x86 oracle copies — used ONLY for the "arm64 != x86" KERNEL.CGO assertion.
+ISO_BUILD="out/${GAME}/iso"
+# android-only localized text overrides (per-arch-independent, but they ride the
+# CGO pack so a slim build still overlays them via fake_iso precedence).
+ANDROID_TEXT="out/${GAME}-android-text"
+OUT_DIR="android/app/src/${GAME}/assets-slim/bundle"
+STAGE="out/${GAME}-cgo-pack-stage"
+ZIP_REL="${OUT_DIR}/${GAME}_cgo.zip"
+MANIFEST="${OUT_DIR}/${GAME}_cgo.manifest.properties"
+ZIP_ABS="$(pwd)/${ZIP_REL}"
+ROOT="$(pwd)"
+
+fail(){ echo "[cgo-pack] FATAL: $*" >&2; exit 1; }
+
+[ -d "$ARM64_CODE" ] || fail "no $ARM64_CODE — run .autoport/build_arm64_full_consistent.sh first (need the consistent arm64 CGO/DGO set)"
+
+# Every *.CGO/*.DGO in the arm64 iso dir is a pack member.
+mapfile -t CODE_FILES < <(find "$ARM64_CODE" -maxdepth 1 -type f \( -name '*.CGO' -o -name '*.DGO' \) -printf '%f\n' | sort)
+N_CODE=${#CODE_FILES[@]}
+[ "$N_CODE" -gt 0 ] || fail "no CGO/DGO in $ARM64_CODE"
+if [ "$GAME" = "jak1" ]; then
+  [ "$N_CODE" -eq 28 ] || fail "jak1 expects exactly 28 CGO/DGO, found $N_CODE in $ARM64_CODE"
+fi
+[ -f "$ARM64_CODE/KERNEL.CGO" ] || fail "arm64 set missing KERNEL.CGO"
+
+# android *COMMON.TXT overrides (optional; present for jak1).
+mapfile -t TEXT_FILES < <([ -d "$ANDROID_TEXT" ] && find "$ANDROID_TEXT" -maxdepth 1 -type f -name '*COMMON.TXT' -printf '%f\n' | sort || true)
+N_TEXT=${#TEXT_FILES[@]}
+
+WANT_FC=$((N_CODE + N_TEXT))
+
+# Content-derived VERSION (md5 of all pack member contents), like
+# build_asset_bundle.sh — any code/text change forces on-device re-unpack.
+VERSION="${CGO_PACK_VERSION:-}"
+if [ -z "$VERSION" ]; then
+  VERSION="c$( {
+      for f in "${CODE_FILES[@]}"; do printf '%s\0' "$ARM64_CODE/$f"; done
+      for f in "${TEXT_FILES[@]}"; do printf '%s\0' "$ANDROID_TEXT/$f"; done
+    } | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
+fi
+
+mkdir -p "$OUT_DIR"
+
+# All source trees whose mtimes gate a repack.
+SRC_DIRS=("$ARM64_CODE")
+[ -d "$ANDROID_TEXT" ] && SRC_DIRS+=("$ANDROID_TEXT")
+
+# --- Staleness skip: zip current vs all sources AND version+count match. ---
+if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then
+  newest=$(find "${SRC_DIRS[@]}" -type f -printf '%T@\n' 2>/dev/null | awk 'BEGIN{m=0}{t=int($1); if(t>m)m=t} END{print m}')
+  zmt=$(stat -c %Y "$ZIP_REL")
+  cv=$(grep -E '^version=' "$MANIFEST" | cut -d= -f2 || echo "")
+  cfc=$(grep -E '^file_count=' "$MANIFEST" | cut -d= -f2 || echo "")
+  if [ -n "$newest" ] && [ "$zmt" -ge "$newest" ] && [ "$cv" = "$VERSION" ] && [ "$cfc" = "$WANT_FC" ]; then
+    echo "[cgo-pack] up to date: $ZIP_REL (version=$VERSION file_count=$cfc)"
+    exit 0
+  fi
+fi
+
+echo "[cgo-pack] assembling arm64 CGO pack for $GAME (symlink farm)…"
+rm -rf "$STAGE"
+mkdir -p "$STAGE"
+
+# 1. arm64 code files at zip root.
+for f in "${CODE_FILES[@]}"; do
+  ln -s "$ROOT/$ARM64_CODE/$f" "$STAGE/$f"
+done
+
+# 2. android text overrides at zip root (COMMON.TXT overlays win via fake_iso).
+for f in "${TEXT_FILES[@]}"; do
+  ln -sf "$ROOT/$ANDROID_TEXT/$f" "$STAGE/$f"
+done
+if [ "$N_TEXT" -gt 0 ]; then
+  echo "[cgo-pack] android text overlay: $N_TEXT bank(s)"
+fi
+
+# --- HARD completeness + consistency gates ---
+got=$(find -L "$STAGE" -type f | wc -l | tr -d ' ')
+[ "$got" -eq "$WANT_FC" ] || fail "staged $got files != expected $WANT_FC"
+
+# arm64 consistency: KERNEL.CGO must be the arm64 build, NOT the x86 oracle.
+k_stg=$(md5sum "$STAGE/KERNEL.CGO" | cut -d' ' -f1)
+k_arm=$(md5sum "$ARM64_CODE/KERNEL.CGO" | cut -d' ' -f1)
+[ "$k_stg" = "$k_arm" ] || fail "staged KERNEL.CGO != arm64 build (mixed/stale code)"
+if [ -f "$ISO_BUILD/KERNEL.CGO" ]; then
+  k_x86=$(md5sum "$ISO_BUILD/KERNEL.CGO" | cut -d' ' -f1)
+  [ "$k_stg" != "$k_x86" ] || fail "staged KERNEL.CGO == x86 oracle (would SIGILL on the arm64 device)"
+fi
+echo "[cgo-pack] completeness OK: code=$N_CODE text=$N_TEXT; arm64 KERNEL.CGO verified."
+
+RAW_BYTES=$(find -L "$STAGE" -type f -printf '%s\n' | awk '{s+=$1} END{print s+0}')
+FILE_COUNT=$(find -L "$STAGE" -type f | wc -l | tr -d ' ')
+[ "$FILE_COUNT" -eq "$WANT_FC" ] || fail "assembled $FILE_COUNT files, expected $WANT_FC"
+
+echo "[cgo-pack] packing $FILE_COUNT files → $ZIP_REL (DEFLATE)…"
+rm -f "$ZIP_ABS"
+# -6 balanced DEFLATE (CGOs compress well); -X drop extra metadata; -q quiet.
+# zip dereferences the farm symlinks and stores real content at the flat entry name.
+(
+  cd "$STAGE"
+  zip -6 -X -q "$ZIP_ABS" ./*
+)
+
+ZIP_BYTES=$(stat -c %s "$ZIP_ABS")
+
+cat > "$MANIFEST" <<EOF
+# Generated by android/build_cgo_pack.sh — do not edit.
+version=${VERSION}
+game=${GAME}
+file_count=${FILE_COUNT}
+raw_bytes=${RAW_BYTES}
+zip_bytes=${ZIP_BYTES}
+EOF
+
+rm -rf "$STAGE"   # the symlink farm is transient; the zip + manifest are the artifacts
+
+echo "[cgo-pack] done: ${ZIP_REL}"
+echo "[cgo-pack]   files=${FILE_COUNT} (code=${N_CODE} text=${N_TEXT})  raw=${RAW_BYTES}B  zip=${ZIP_BYTES}B  version=${VERSION}"

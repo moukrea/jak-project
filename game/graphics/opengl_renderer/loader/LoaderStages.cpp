@@ -1,5 +1,6 @@
 #include "LoaderStages.h"
 
+#include "CustomTextureReplacements.h"
 #include "Loader.h"
 
 #include "common/global_profiler/GlobalProfiler.h"
@@ -21,12 +22,22 @@ constexpr GLenum kRgbaTexType = GL_UNSIGNED_INT_8_8_8_8_REV;
  * Upload a texture to the GPU, and give it to the pool.
  */
 u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
+  // External-asset-root: record every texture key (for the optional dump_keys
+  // marker) and look up a user PNG replacement.
+  custom_tex::dump_key(tex.debug_tpage_name, tex.debug_name);
+  auto rep = custom_tex::lookup(tex.debug_tpage_name, tex.debug_name);
+
   GLuint gl_tex;
   glActiveTexture(GL_TEXTURE0);
   glGenTextures(1, &gl_tex);
   glBindTexture(GL_TEXTURE_2D, gl_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
-               tex.data.data());
+  if (rep) {
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rep->w, rep->h, 0, GL_RGBA, kRgbaTexType,
+                 rep->rgba.data());
+  } else {
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
+                 tex.data.data());
+  }
   glGenerateMipmap(GL_TEXTURE_2D);
   float aniso = 0.0f;
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &aniso);
@@ -35,11 +46,15 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     TextureInput in;
     in.debug_page_name = tex.debug_tpage_name;
     in.debug_name = tex.debug_name;
-    in.w = tex.w;
-    in.h = tex.h;
+    in.w = rep ? rep->w : tex.w;
+    in.h = rep ? rep->h : tex.h;
     in.gpu_texture = gl_tex;
     in.common = is_common;
     in.id = PcTextureId::from_combo_id(tex.combo_id);
+    // src_data is stored as a long-lived pointer by the pool (used for texture
+    // animation source comparison). The replacement's rgba buffer is local, so
+    // keep src_data pointing at the baked level data even when the GPU texture
+    // was swapped for a user PNG.
     in.src_data = (const u8*)tex.data.data();
     pool.give_texture(in);
   }

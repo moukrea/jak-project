@@ -563,6 +563,12 @@ void pc_set_recharged_grass(u32 on) {
   Gfx::g_global_settings.recharged_grass = (on != 0);
 }
 
+// External-asset-root: toggle runtime custom texture replacements (user PNGs
+// under <root>/custom_assets/texture_replacements). 0 = off (stock).
+void pc_set_load_custom_assets(u32 on) {
+  Gfx::g_global_settings.load_custom_assets = (on != 0);
+}
+
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
 // alpha overhang texture at every distance).
@@ -697,6 +703,8 @@ void InitMachine_PCPort() {
 
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);
+  // External-asset-root: runtime custom texture replacements toggle
+  make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);

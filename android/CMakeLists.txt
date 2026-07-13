@@ -721,6 +721,7 @@ add_library(gk SHARED
     # fr3 level loader — provides the REAL textures (font/hud/common)
     # that handle_upload_now links tpage slots to; without it everything
     # is the checkerboard placeholder.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/loader/CustomTextureReplacements.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/Loader.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/LoaderStages.cpp"
     "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"

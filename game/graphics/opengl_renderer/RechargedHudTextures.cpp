@@ -75,7 +75,7 @@ void load_recharged_hud_textures(TexturePool& pool, GameVersion version) {
     return;
   }
 
-  auto dir = file_util::get_jak_project_dir() / "recharged_assets";
+  auto dir = file_util::get_recharged_assets_dir();
 
   for (int i = 0; i < (int)(sizeof(kRechargedHudNames) / sizeof(kRechargedHudNames[0])); i++) {
     const int slot = 8300 + i;

@@ -33,8 +33,17 @@ if [ -n "${3:-}" ]; then ISO_DIR="$3"
 elif [ -d "out/${GAME}-arm64-full/iso" ]; then ISO_DIR="out/${GAME}-arm64-full/iso"
 elif [ -d "out/${GAME}-arm64/iso" ]; then ISO_DIR="out/${GAME}-arm64/iso"
 else ISO_DIR="out/${GAME}/iso"; fi
-DEV_DIR="files/iso_data/${GAME}"
 die() { echo "DEPLOY-ASSETS FAIL: $*" >&2; exit 1; }
+
+# Phase Grecharged-external-assets (2026-07): the slim APK ships the arm64
+# CGO/DGO set as a "CGO pack" that LoaderActivity unpacks to files/cgo/<game>/
+# (fake_iso scans it FIRST as an overlay). Prefer that location when populated;
+# fall back to the legacy adb-pushed files/iso_data/<game>/ for older installs.
+DEV_DIR="files/iso_data/${GAME}"
+if "$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'ls files/cgo/${GAME}/*.CGO'" >/dev/null 2>&1; then
+  DEV_DIR="files/cgo/${GAME}"
+fi
+echo "  device CGO dir: $DEV_DIR"
 
 [ -d "$ISO_DIR" ] || die "no build dir $ISO_DIR"
 echo "  ref arm64 build tree: $ISO_DIR"

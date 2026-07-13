@@ -330,8 +330,11 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
   // fr3/ assets (GAME.fr3 + level packs) there. Loader handles a missing
   // level file by logging; a missing GAME.fr3 would fail load_common, so
   // probe first and run textureless (placeholders) instead of aborting.
-  auto fr3_dir =
-      file_util::get_jak_project_dir() / "out" / game_version_names[g_game_version] / "fr3";
+  // External-asset-root feature (autoport 2026-07): get_fr3_dir returns
+  // <game-root>/assets/fr3 in external mode, else the legacy
+  // <project>/out/<game>/fr3 — so internal mode is byte-identical and external
+  // mode follows the user's on-storage root automatically.
+  auto fr3_dir = file_util::get_fr3_dir(g_game_version);
   const int fr3_levels =
       g_game_version == GameVersion::Jak2 ? jak2::LEVEL_TOTAL : jak1::LEVEL_TOTAL;
   if (fs::exists(fr3_dir / "GAME.fr3")) {

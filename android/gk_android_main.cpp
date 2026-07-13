@@ -46,6 +46,7 @@
 #include <cstring>
 #include <mutex>  // supervisor-diag: jak2 breadcrumb serialization
 #include <string>
+#include <vector>  // external-asset-root: argv assembly for --game-root / --iso-overlay
 #include <unordered_map>  // Gjak1-intermittent-events: EVTRIAL mode-2 transition map
 #include <unordered_set>
 
@@ -164,6 +165,23 @@ std::atomic<bool> g_runtime_booted{false};
 // complete before super.onCreate triggers the SDL thread.
 const char* g_selected_game = nullptr;
 const char* g_data_root = nullptr;
+
+// External-asset-root feature (autoport 2026-07): pushed from Java
+// (NativeGk.setGameRoot / setIsoOverlay) before the SDL thread launches, same
+// process-lifetime + ordering contract as g_data_root.
+//   g_game_root : per-game external root (<chosen>/jak_N). Non-empty selects
+//                 EXTERNAL mode: argv uses --game-root, drops --portable/-iso-data,
+//                 and the symlink farm in android_goal_main is skipped (FileUtil
+//                 resolves iso/fr3/saves under the root).
+//   g_iso_overlay : dir scanned FIRST by fake_iso for per-arch CGO/DGO + COMMON.TXT
+//                 overrides. Set in both modes when present.
+// std::string (not const char*) so android_goal_main can read it via
+// `extern std::string g_game_root;` and test .empty() — which also means they
+// need EXTERNAL linkage, so the anonymous namespace is closed around them.
+}  // namespace
+std::string g_game_root;
+std::string g_iso_overlay;
+namespace {
 
 // The app's EXTERNAL files dir (getExternalFilesDir(null)) pushed from Java via
 // setExternalFilesDir. Fixed-size so the fatal signal handler can read it without
@@ -9164,22 +9182,59 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   //      the D4 validator greps for.
   // `-debug-mem` mirrors the desktop validator smoke test so the
   // memory-layout behaviour matches Linux-arm64.
-  const char* argv[] = {
-      "gk",
-      "--game",     game_name,
-      "--portable",
-      "-fakeiso",
-      "-iso-data",  data_root,
-      "-boot",
-      "-debug-mem",
-      nullptr,
-  };
-  const int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+  // External-asset-root feature (autoport 2026-07): three argv shapes.
+  //   EXTERNAL (g_game_root non-empty):
+  //     gk --game <g> --game-root <root> --iso-overlay <overlay> -fakeiso -boot -debug-mem
+  //     NO --portable, NO -iso-data — FileUtil resolves iso/fr3/saves under
+  //     <root>, and fake_iso scans the overlay dir first for arm64 CGO/DGO +
+  //     COMMON.TXT overrides. (--iso-overlay omitted if g_iso_overlay empty.)
+  //   INTERNAL + overlay (g_iso_overlay non-empty, no game root):
+  //     today's argv + --iso-overlay <overlay> so fresh CGOs win over stale iso_data.
+  //   INTERNAL (both empty): today's argv, unchanged.
+  std::vector<const char*> argv_vec;
+  argv_vec.push_back("gk");
+  argv_vec.push_back("--game");
+  argv_vec.push_back(game_name);
+  if (!g_game_root.empty()) {
+    argv_vec.push_back("--game-root");
+    argv_vec.push_back(g_game_root.c_str());
+    if (!g_iso_overlay.empty()) {
+      argv_vec.push_back("--iso-overlay");
+      argv_vec.push_back(g_iso_overlay.c_str());
+    }
+    argv_vec.push_back("-fakeiso");
+    // android_goal_main still derives project_root (the app files dir, for
+    // residual get_jak_project_dir consumers) from -iso-data — keep passing it
+    // in external mode; the FileUtil external-root overrides win for actual
+    // iso/fr3/saves resolution.
+    argv_vec.push_back("-iso-data");
+    argv_vec.push_back(data_root);
+  } else {
+    argv_vec.push_back("--portable");
+    argv_vec.push_back("-fakeiso");
+    argv_vec.push_back("-iso-data");
+    argv_vec.push_back(data_root);
+    if (!g_iso_overlay.empty()) {
+      argv_vec.push_back("--iso-overlay");
+      argv_vec.push_back(g_iso_overlay.c_str());
+    }
+  }
+  argv_vec.push_back("-boot");
+  argv_vec.push_back("-debug-mem");
 
-  __android_log_print(
-      ANDROID_LOG_INFO, kGkLogTag,
-      "goal_main: argv=[%s,%s,%s,%s,%s,%s,%s,%s,%s]",
-      argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8]);
+  const int argc = (int)argv_vec.size();
+  argv_vec.push_back(nullptr);
+  const char** argv = argv_vec.data();
+
+  {
+    std::string joined;
+    for (int i = 0; i < argc; ++i) {
+      if (i) joined += ' ';
+      joined += argv[i];
+    }
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "goal_main: argv=[%s]",
+                        joined.c_str());
+  }
 
   const int rc = goal_main(argc, const_cast<char**>(argv));
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "goal_main: returned %d", rc);
@@ -9218,6 +9273,40 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
     __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                         "NativeGk.setDataRoot: %s",
                         g_data_root ? g_data_root : "(null)");
+  }
+}
+
+// External-asset-root feature (autoport 2026-07): store the per-game external
+// root pushed from Java. Non-empty selects EXTERNAL boot mode (see argv above).
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setGameRoot(JNIEnv* env, jclass /*clazz*/,
+                                          jstring j_path) {
+  if (!j_path) {
+    return;
+  }
+  const char* s = env->GetStringUTFChars(j_path, nullptr);
+  if (s) {
+    g_game_root = s;
+    env->ReleaseStringUTFChars(j_path, s);
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "NativeGk.setGameRoot: %s", g_game_root.c_str());
+  }
+}
+
+// External-asset-root feature (autoport 2026-07): store the fake_iso overlay dir
+// (per-arch CGO/DGO + COMMON.TXT overrides, scanned first). Set in both modes.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setIsoOverlay(JNIEnv* env, jclass /*clazz*/,
+                                            jstring j_path) {
+  if (!j_path) {
+    return;
+  }
+  const char* s = env->GetStringUTFChars(j_path, nullptr);
+  if (s) {
+    g_iso_overlay = s;
+    env->ReleaseStringUTFChars(j_path, s);
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "NativeGk.setIsoOverlay: %s", g_iso_overlay.c_str());
   }
 }
 

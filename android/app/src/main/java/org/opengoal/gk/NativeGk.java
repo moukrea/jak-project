@@ -53,6 +53,26 @@ public final class NativeGk {
     public static native void setDataRoot(String dataRoot);
 
     /**
+     * External-asset-root feature (autoport 2026-07): push the absolute path of
+     * the per-game external root (e.g. /storage/emulated/0/OpenGOAL/jak_1) into a
+     * process-lifetime native global. When set, gk_sdl_main boots with
+     * `--game-root <path>` (no --portable, no -iso-data): FileUtil resolves the
+     * iso/fr3/saves/custom-assets layout under it. Same call-ordering requirement
+     * as {@link #setSelectedGame(String)}. Empty/unset = internal mode.
+     */
+    public static native void setGameRoot(String path);
+
+    /**
+     * External-asset-root feature (autoport 2026-07): push the absolute path of a
+     * directory scanned FIRST by fake_iso (per-arch *.CGO/*.DGO + COMMON.TXT
+     * overrides) into a process-lifetime native global. gk_sdl_main appends
+     * `--iso-overlay <path>` when set. In external mode this is the unpacked
+     * CGO pack dir (<filesDir>/cgo/<game>); in internal mode it lets the fresh
+     * bundled CGOs win over any stale iso_data copies. Same ordering requirement.
+     */
+    public static native void setIsoOverlay(String path);
+
+    /**
      * Owner swamp-crash capture build (INSTRUMENTATION ONLY): push the app's
      * EXTERNAL files dir (getExternalFilesDir(null).getAbsolutePath(), e.g.
      * /sdcard/Android/data/org.opengoal.gk.jak1/files) into a native global so
