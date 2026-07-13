@@ -188,7 +188,7 @@
     "Grecharged-grass-poc": 16,
     "Grecharged-grass-precompute-mode": 2,
     "Gjak1-icache-flush": 1,
-    "Gjak1-intermittent-events": 1
+    "Gjak1-intermittent-events": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -370,6 +370,9 @@
     ],
     "Grecharged-grass-precompute-mode": [
       "2b68cf6bfdfe"
+    ],
+    "Gjak1-intermittent-events": [
+      "2f2083468bb6"
     ]
   },
   "stuck_reasons": {
@@ -735,7 +738,7 @@
     "Gjak1-icache-flush": 1783944437.3989332,
     "Gjak1-intermittent-events": 1783945325.6558416
   },
-  "last_update": "2026-07-13T14:26:48.581742+00:00",
+  "last_update": "2026-07-13T14:41:05.301472+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
