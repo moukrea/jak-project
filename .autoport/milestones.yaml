@@ -1951,6 +1951,17 @@ phases:
   device: false
   owner_verify: true
   no_code: true
+- id: Grecharged-grass-overhang3
+  name: 'RECHARGED ROUND 3 (owner 2026-07-13: round2 ''failure totale''): droop must be placed ON the fringe-textured tris
+    themselves (follow mesh+relief by construction, never sprout from walls below the floor), root at the shared rim edge
+    (reuse the global rim hash), per-tri length never exceeding the fringe texture extent, blade profile == adjacent platform
+    grass, CONTINUOUS upright->lean->droop gradient. Design note committed BEFORE code. Owner verbatim in prompt.'
+  prompt: prompts/phase-Grecharged-grass-overhang3.md
+  validator: validators/phase-Grecharged-grass-overhang3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Gjak1-shadow-cast
   name: 'PORT PARITY (owner 2026-07-12, right after the grass backlog items): Jak casts NO shadow on Android while the original
     PC build does — longstanding unnoticed bug. jak1 HAS the shadow system (engine/gfx/shadow/shadow-cpu.gc + shadow-vu1.gc,
