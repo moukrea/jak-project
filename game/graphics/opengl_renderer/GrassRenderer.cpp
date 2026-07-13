@@ -328,6 +328,7 @@ static std::vector<std::array<float, 4>> s_goal_stage_cull;
 static std::vector<std::array<float, 4>> s_goal_stage_tramp;
 static std::vector<std::array<float, 4>> s_goal_cull;
 static std::vector<std::array<float, 4>> s_goal_tramp;
+static double s_goal_snapshot_t = -1.0;  // R26: last goal_publish time (TTL fail-safe)
 
 void goal_clear() {
   s_goal_stage_cull.clear();
@@ -400,6 +401,9 @@ void goal_publish() {
     std::lock_guard<std::mutex> lk(s_goal_mutex);
     s_goal_cull = s_goal_stage_cull;
     s_goal_tramp = s_goal_stage_tramp;
+    s_goal_snapshot_t = std::chrono::duration<double>(
+                            std::chrono::steady_clock::now().time_since_epoch())
+                            .count();
   }
   static int s_pub_n = 0;
   s_pub_n++;
@@ -456,11 +460,21 @@ void goal_publish() {
 void publish(float dt) {
   // ROUND#21d: fold the GOAL actor snapshot into this frame's lists (Merc2 capture is DEAD/disabled;
   // the game side is the only actor source now). Jak's own trample stays on the u_jak_pos path.
+  // R26 SNAPSHOT TTL (owner: dummy grass stays flat until the debris/message ends): if the GOAL scan
+  // stops publishing for ANY reason (paused hook, scene, load), the last snapshot must NOT be replayed
+  // forever — stale > 0.6 s => treat the lists as EMPTY (fail-safe: no data = no flatten/cull; the
+  // ghosts then ease out on their own). Fresh publishes resume everything within one scan.
   {
     std::lock_guard<std::mutex> lk(s_goal_mutex);
+    const double now_s = std::chrono::duration<double>(
+                             std::chrono::steady_clock::now().time_since_epoch())
+                             .count();
+    const bool snapshot_fresh = (s_goal_snapshot_t > 0.0) && (now_s - s_goal_snapshot_t) < 0.6;
+    if (snapshot_fresh)
     for (const auto& e : s_goal_cull) {
       add(e[0], e[1], e[2], e[3]);
     }
+    if (snapshot_fresh)
     for (const auto& e : s_goal_tramp) {
       add_trample(e[0], e[1], e[2], e[3]);
     }

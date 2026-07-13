@@ -1794,11 +1794,16 @@
                     ;; exits the shader Y-band): the base sits where the designer placed it.
                     ((or (= tname 'warp-gate-switch) (= tname 'plat-eco) (= tname 'warpgate)
                          (= tname 'tra-iris-door) (= tname 'speaker) (= tname 'hutlamp))
+                     ;; R26 (owner: Samos's flying DRONE — a dynamically-spawned speaker circling Jak —
+                     ;; painted the gliding cull disc; "il ne touche pas le sol, faut l'ignorer"):
+                     ;; statics publish ONLY when ENTITY-BACKED (designer-placed machines always have a
+                     ;; level entity; dynamic spawns like the drone never do) and always at the entity's
+                     ;; ground trans. No entity -> never published, BY CONSTRUCTION.
                      (let ((ent (-> proc entity)))
                        (when (and (nonzero? (the-as int ent)) (!= (the-as basic ent) #f))
                          (let ((etr (-> ent extra trans)))
-                           (if etr (set! trans etr))))
-                       (pc-grass-occ-add! 0 trans r)))
+                           (if etr (set! trans etr)))
+                         (pc-grass-occ-add! 0 trans r))))
                     ;; everything else: NEVER published. Low-rate census names what the old
                     ;; catch-all would have culled (the offender detector's GOAL half).
                     (else
