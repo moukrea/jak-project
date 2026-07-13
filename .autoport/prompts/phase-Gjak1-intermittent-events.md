@@ -104,3 +104,13 @@ ADJACENT to the trigger (dump exact coords from <level>-actors.json / entity tab
 warp workflow), then ONE unmissable scripted debug action (single cpad burst: an attack press to break,
 a forward-hop onto a button, walking 2m into a volume). If a trigger can't be made unmissable that way,
 pick a different trigger from the census instead of attempting to play.
+
+## OWNER NOTE (2026-07-13 17:40, verbatim): "Peut-être que les ratés ont étés corrigés tout simplement !"
+=> Plausible: the owner's miss reports (07-09/07) PREDATE the Gjak1-icache-flush landing (2e1ec09e5,
+today). Verdict-shaping guidance: if the volume campaign stays 100% on BOTH arms, note that fresh-boot+
+warp trials only exercise INITIAL links — the stale-icache window opens on RE-links at reused addresses
+(long sessions, repeated level transitions). So "noflush fires 100%" does NOT falsify icache as the
+organic-session cause. Acceptable close: triggers 100% reliable under harness across N runs; likely
+fixed by the icache flush (mechanism fits the intermittent/game-wide/device-only fingerprint) or not
+reproducible; ship dispatcher instrumentation (debug-prop-gated) so the owner's next real-world miss is
+capturable; owner resumes normal play and reports if it EVER recurs.
