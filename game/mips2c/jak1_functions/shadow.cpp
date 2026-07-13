@@ -1,8 +1,39 @@
 //--------------------------MIPS2C---------------------
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_private.h"
+
+#if defined(__aarch64__) && defined(__ANDROID__)
+#include <cstdio>
+
+#include <sys/system_properties.h>
+#endif
+
 using namespace jak1;
 namespace Mips2C::jak1 {
+
+#if defined(__aarch64__)
+// [autoport/Gjak1-shadow-cast] rebuild-free kill-switch for shadow-execute:
+// setprop debug.opengoal.jak1.noshadow 1 -> cursor pass-through (see the
+// gate inside shadow_execute::execute). Read once per process.
+namespace {
+bool shadow_execute_disabled_via_prop() {
+#if defined(__ANDROID__)
+  static const bool s_off = []() {
+    char b[PROP_VALUE_MAX] = {0};
+    bool off = __system_property_get("debug.opengoal.jak1.noshadow", b) > 0 && b[0] == '1';
+    if (off) {
+      fprintf(stderr, "GJAK1SHADOW shadow-execute geometry DISABLED via prop\n");
+    }
+    return off;
+  }();
+  return s_off;
+#else
+  return false;
+#endif
+}
+}  // namespace
+#endif
+
 // clang-format off
 namespace {
 void exec_0(ExecutionContext* c) {
@@ -2161,27 +2192,21 @@ u64 execute(void* ctxt) {
   u32 call_addr = 0;
   bool cop1_bc = false;
 #if defined(__aarch64__)
-  // [autoport/Gnd] The arm64 shadow mips2c port is INCOMPLETE — the sibling
-  // geometry jalr calls (shadow-xform-verts/-calc-dual-verts/-scissor-*/-find-*)
-  // further down are commented out — so shadow-execute is NOT on the A37
-  // allowlist and fell to the shared no-op, which returns 0. shadow-execute-all
-  // (engine/gfx/shadow/shadow-cpu.gc:419) does
-  //   (set! (-> global-buf base) (shadow-execute packet (-> global-buf base)))
-  // so that 0 becomes the per-frame foreground DMA write-cursor. The bucket-NEXT
-  // tag built from it is then a low addr (0x1a50) -> the ndi ND/Daxter logo's
-  // DMA chain is rejected by the Android chain-copy guard (black logo); the
-  // climb from ~0 also stomps low EE memory (the intermittent boot sig=11).
-  // Return the INPUT cursor (a1 = the dma-buffer base passed in) UNCHANGED:
-  // append no shadow, keep base a valid absolute pointer, render the logo. This
-  // is the correct no-op for a cursor-returning stub (NOT a buffer-widen mask,
-  // NOT a faked/painted frame) until the shadow body is fully ported.
-  c->gprs[v0].du64[0] = c->sgpr64(a1);
-  (void)sadr;
-  (void)tadr;
-  (void)bc;
-  (void)call_addr;
-  (void)cop1_bc;
-  return c->gprs[v0].du64[0];
+  // [autoport/Gjak1-shadow-cast] The Gnd-era unconditional cursor pass-through
+  // is gone: the geometry chain below is portable C++ (the sibling jalr sites
+  // are direct ::execute(c) calls) and is the same family Gjak2-visuals proved
+  // on-device for jak2, so arm64 now runs the full body and Jak casts his
+  // shadow. Kill-switch for rebuild-free A/B fault isolation ONLY:
+  //   setprop debug.opengoal.jak1.noshadow 1
+  // restores the Gnd behavior — append no shadow geometry and return the INPUT
+  // cursor (a1) unchanged. It must stay a1 (never the shared noop's 0):
+  // shadow-execute-all (shadow-cpu.gc:419) stores this return into
+  // (-> global-buf base), and 0 collapses the frame DMA cursor (the Gnd
+  // black-logo + low-mem-stomp bug).
+  if (shadow_execute_disabled_via_prop()) {
+    c->gprs[v0].du64[0] = c->sgpr64(a1);
+    return c->gprs[v0].du64[0];
+  }
 #endif
   c->daddiu(sp, sp, -112);                          // daddiu sp, sp, -112
   c->sd(ra, 0, sp);                                 // sd ra, 0(sp)

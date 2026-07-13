@@ -18,6 +18,7 @@
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
+#include "game/graphics/opengl_renderer/ShadowRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureAnimator.h"
 #include "game/graphics/opengl_renderer/VisDataHandler.h"
@@ -335,6 +336,16 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // F1a — sprite (particles): desktop jak1 table line 865 parity.
   set_renderer(std::make_unique<Sprite3>("sprite", (int)BucketId::SPRITE), BucketId::SPRITE, true);
 
+  // Gjak1-shadow-cast — shadow: desktop jak1 table parity (OpenGLRenderer.cpp
+  // init_bucket_renderers_jak1: ShadowRenderer at bucket 47). Stencil-volume
+  // renderer; the Android offscreen framebuffer is DEPTH24_STENCIL8 and every
+  // frame clear includes GL_STENCIL_BUFFER_BIT, so the two-pass INCR/DECR
+  // stencil scheme works unmodified on GLES. Consumes the shadow-volume DMA
+  // built by the now-enabled shadow-cpu mips2c chain (shadow-execute full body
+  // on arm64, Gnd pass-through removed).
+  set_renderer(std::make_unique<ShadowRenderer>("shadow", (int)BucketId::SHADOW),
+               BucketId::SHADOW, true);
+
   // Gwater — ocean/water: the title flythrough flies over village1, which
   // carries the ocean. OceanMidAndFar handles the ocean-mid-far bucket (it owns
   // the OceanTexture render-to-texture + OceanMid mesh + the simple ocean-far
@@ -361,7 +372,7 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   const std::pair<BucketId, const char*> unported[] = {
       // TIE_LEVEL0/1 are now ported (Tie3WithEnvmapJak1 wired above).
       // SHRUB_NORMAL_LEVEL0/1 are now ported (Shrub renderer wired above).
-      {BucketId::SHADOW, "shadow"},
+      // SHADOW is now ported (ShadowRenderer wired above, Gjak1-shadow-cast).
       {BucketId::DEPTH_CUE, "depth-cue"},
   };
   for (auto& [id, name] : unported) {
