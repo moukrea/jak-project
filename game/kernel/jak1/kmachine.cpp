@@ -608,6 +608,16 @@ void pc_grass_occ_publish() {
   grass_occ::goal_publish();
 }
 
+// R28: called from the scarecrow break path at the exact clear-collide frame — instantly cancels the
+// trample at that spot (ghost erased + 8 s tombstone). No-op when grass is off (empty ghost lists).
+void pc_grass_tramp_break(u32 vec) {
+  if (!vec) {
+    return;
+  }
+  float* p = Ptr<float>(vec).c();
+  grass_occ::goal_break_at(p[0], p[1], p[2]);
+}
+
 // Grecharged-grass-poc POLISH#4: push Jak's ledge-grab point (a GOAL vector, xyz) while he hangs on
 // a ledge, so the grass on that ledge parts around his hands. GOAL passes a null vector (0) to clear
 // it the moment he lets go, so a stale grab point never keeps parting the grass.
@@ -650,6 +660,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-grass-occ-clear!", (void*)pc_grass_occ_clear);
   make_function_symbol_from_c("pc-grass-occ-add!", (void*)pc_grass_occ_add);
   make_function_symbol_from_c("pc-grass-occ-publish!", (void*)pc_grass_occ_publish);
+  make_function_symbol_from_c("pc-grass-tramp-break!", (void*)pc_grass_tramp_break);
 
   make_function_symbol_from_c("pc-discord-rpc-update", (void*)update_discord_rpc);
 

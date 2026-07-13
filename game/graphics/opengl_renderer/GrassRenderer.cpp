@@ -328,6 +328,8 @@ static std::vector<std::array<float, 4>> s_goal_stage_cull;
 static std::vector<std::array<float, 4>> s_goal_stage_tramp;
 static std::vector<std::array<float, 4>> s_goal_cull;
 static std::vector<std::array<float, 4>> s_goal_tramp;
+static double s_goal_snapshot_t = -1.0;  // R26: last goal_publish time (TTL fail-safe)
+static double s_goal_pub_interval = 0.3;  // R27: EMA of the real publish cadence (adaptive TTL)
 
 void goal_clear() {
   s_goal_stage_cull.clear();
@@ -356,11 +358,72 @@ void goal_add(int kind, float x, float y, float z, float r_world) {
     v.push_back({x, y, z, r_world});
   }
 }
+// R28 (owner directive, literal: "trouve le moment où il est cassé et cancel le trample"): called
+// from the scarecrow's break path at the EXACT clear-collide frame. Kills any trample ghost within
+// 1.2 m instantly (strength -> 0, entry gone next frame) and tombstones the spot for 8 s so nothing
+// in the debris window can re-flatten it. No-ops when grass is off.
+static std::vector<std::array<float, 3>> s_break_kills;
+void goal_break_at(float x, float y, float z) {
+  std::lock_guard<std::mutex> lk(s_goal_mutex);
+  if (s_break_kills.size() < 16) {
+    s_break_kills.push_back({x, y, z});
+  }
+}
+
 void goal_publish() {
+  // R24b ENFORCED static-stability (owner: the moving bald circle must be impossible BY CONSTRUCTION,
+  // not just unlikely): a kind-0 CULL entry is a static machine — if an entry's position moved > 0.3 m
+  // since the previous publish (matched by nearest-prev within 3 m), it is a MOVER that slipped the
+  // GOAL allowlist: DROP it (and log its coords once/s) instead of painting a gliding bald disc.
+  {
+    static std::vector<std::array<float, 4>> s_prev_cull;
+    constexpr float U = 4096.f;
+    std::vector<std::array<float, 4>> kept;
+    kept.reserve(s_goal_stage_cull.size());
+    for (const auto& e : s_goal_stage_cull) {
+      bool moved = false;
+      for (const auto& pv : s_prev_cull) {
+        float dx = e[0] - pv[0], dz = e[2] - pv[2];
+        float d2 = dx * dx + dz * dz;
+        if (d2 < (3.f * U) * (3.f * U)) {  // same actor neighbourhood
+          if (d2 > (0.3f * U) * (0.3f * U)) {
+            moved = true;
+          }
+          break;
+        }
+      }
+      if (moved) {
+        static double s_mv_log = -100.0;
+        double now = std::chrono::duration<double>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
+        if (now - s_mv_log > 1.0) {
+          s_mv_log = now;
+          lg::info("[recharged-grass] R24B-DROP moving kind-0 entry at ({:.1f},{:.1f},{:.1f}) r{:.2f} — "
+                   "allowlist leak, dropped",
+                   e[0] / U, e[1] / U, e[2] / U, e[3] / U);
+        }
+        continue;
+      }
+      kept.push_back(e);
+    }
+    s_prev_cull = s_goal_stage_cull;
+    s_goal_stage_cull.swap(kept);
+  }
   {
     std::lock_guard<std::mutex> lk(s_goal_mutex);
     s_goal_cull = s_goal_stage_cull;
     s_goal_tramp = s_goal_stage_tramp;
+    const double nowp = std::chrono::duration<double>(
+                            std::chrono::steady_clock::now().time_since_epoch())
+                            .count();
+    if (s_goal_snapshot_t > 0.0) {
+      const double iv = nowp - s_goal_snapshot_t;
+      if (iv > 0.01 && iv < 10.0) {
+        s_goal_pub_interval = 0.8 * s_goal_pub_interval + 0.2 * iv;  // EMA of the real cadence
+      }
+    }
+    s_goal_snapshot_t = nowp;
   }
   static int s_pub_n = 0;
   s_pub_n++;
@@ -417,11 +480,28 @@ void goal_publish() {
 void publish(float dt) {
   // ROUND#21d: fold the GOAL actor snapshot into this frame's lists (Merc2 capture is DEAD/disabled;
   // the game side is the only actor source now). Jak's own trample stays on the u_jak_pos path.
+  // R26 SNAPSHOT TTL (owner: dummy grass stays flat until the debris/message ends): if the GOAL scan
+  // stops publishing for ANY reason (paused hook, scene, load), the last snapshot must NOT be replayed
+  // forever — stale > 0.6 s => treat the lists as EMPTY (fail-safe: no data = no flatten/cull; the
+  // ghosts then ease out on their own). Fresh publishes resume everything within one scan.
   {
     std::lock_guard<std::mutex> lk(s_goal_mutex);
+    const double now_s = std::chrono::duration<double>(
+                             std::chrono::steady_clock::now().time_since_epoch())
+                             .count();
+    // R27 (owner Redmi obs: trample OSCILLATED rise/flatten in a loop at low fps): the fixed 0.6 s TTL
+    // was SHORTER than the publish interval at capture-load fps (15 game frames = 1.2-2.5 s at 6-12
+    // fps) -> snapshot expired between publishes -> flatten/release loop. TTL is now ADAPTIVE:
+    // stale only past max(2 s, 4x the observed publish interval) — still catches a genuinely frozen
+    // scan (the original purpose) at any framerate, never oscillates.
+    const bool snapshot_fresh =
+        (s_goal_snapshot_t > 0.0) &&
+        (now_s - s_goal_snapshot_t) < std::max(2.0, 4.0 * s_goal_pub_interval);
+    if (snapshot_fresh)
     for (const auto& e : s_goal_cull) {
       add(e[0], e[1], e[2], e[3]);
     }
+    if (snapshot_fresh)
     for (const auto& e : s_goal_tramp) {
       add_trample(e[0], e[1], e[2], e[3]);
     }
@@ -469,6 +549,61 @@ void publish(float dt) {
   for (auto& g : s_tramp_state) {
     g.seen = false;
   }
+  // R27 RELEASE TOMBSTONES (owner directive, literal: "s'il est cassé, redresser l'herbe
+  // immédiatement et ignorer toute la logique de débris"): when a trample ghost is released (its
+  // actor left the publish set = broken), its SPOT is banned from re-flattening for 8 s — whatever
+  // the debris window re-publishes there cannot press the grass again. A regenerated dummy
+  // (~30 s+) re-flattens normally after the tombstone expires.
+  struct Tombstone {
+    float x, z;
+    double t;
+  };
+  static std::vector<Tombstone> s_tombs;
+  const double tnow = std::chrono::duration<double>(
+                          std::chrono::steady_clock::now().time_since_epoch())
+                          .count();
+  s_tombs.erase(std::remove_if(s_tombs.begin(), s_tombs.end(),
+                               [&](const Tombstone& tb) { return tnow - tb.t > 8.0; }),
+                s_tombs.end());
+  {
+    std::vector<std::array<float, 4>> filt;
+    filt.reserve(g_tramp_building.size());
+    for (const auto& e : g_tramp_building) {
+      bool banned = false;
+      for (const auto& tb : s_tombs) {
+        float dx = e[0] - tb.x, dz = e[2] - tb.z;
+        if (dx * dx + dz * dz < (1.0f * 4096.f) * (1.0f * 4096.f)) {
+          banned = true;
+          break;
+        }
+      }
+      if (!banned) {
+        filt.push_back(e);
+      }
+    }
+    g_tramp_building.swap(filt);
+  }
+  // R28: consume break-kill events — erase matching ghosts NOW + tombstone their spots.
+  {
+    std::vector<std::array<float, 3>> kills;
+    {
+      std::lock_guard<std::mutex> lk(s_goal_mutex);
+      kills.swap(s_break_kills);
+    }
+    for (const auto& k : kills) {
+      s_tombs.push_back({k[0], k[2], tnow});
+      for (auto it = s_tramp_state.begin(); it != s_tramp_state.end();) {
+        float dx = it->e[0] - k[0], dz = it->e[2] - k[2];
+        if (dx * dx + dz * dz < (1.2f * 4096.f) * (1.2f * 4096.f)) {
+          it = s_tramp_state.erase(it);
+        } else {
+          ++it;
+        }
+      }
+      lg::info("[recharged-grass] R28 BREAK-KILL at ({:.1f},{:.1f},{:.1f}) — ghost erased, spot tombstoned",
+               k[0] / 4096.f, k[1] / 4096.f, k[2] / 4096.f);
+    }
+  }
   for (const auto& e : g_tramp_building) {
     TrampGhost* hit = nullptr;
     for (auto& g : s_tramp_state) {
@@ -496,6 +631,7 @@ void publish(float dt) {
       it->strength -= dtc / EASE_OUT_S;
     }
     if (it->strength <= 0.f) {
+      s_tombs.push_back({it->e[0], it->e[2], tnow});  // R27: spot released -> ban re-flatten 8 s
       it = s_tramp_state.erase(it);
       continue;
     }

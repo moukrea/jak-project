@@ -197,7 +197,7 @@ void main() {
   // R21f FINAL (Adreno): LITERAL-index unroll via macro — [16] uniform arrays spill and their
   // dynamic/loop reads return garbage on the Adreno 618 (mode-7 probe: [0] constant reads correct;
   // small [4] arrays like u_jak_trail work). 8 nearest entries are ample (CPU sorts by distance).
-#define OC_STEP(i) if (i < u_occ_count) { vec2 od = base.xz - u_occ[i].xz; float yd = base.y - u_occ[i].y; if (dot(od, od) < u_occ[i].w * u_occ[i].w && yd > -2.5 * 4096.0 && yd < 1.0 * 4096.0) { occ_cull = true; } }
+#define OC_STEP(i) if (i < u_occ_count) { vec2 od = base.xz - u_occ[i].xz; float yd = base.y - u_occ[i].y; if (dot(od, od) < u_occ[i].w * u_occ[i].w && yd > -1.2 * 4096.0 && yd < 1.0 * 4096.0) { occ_cull = true; } }
   OC_STEP(0) OC_STEP(1) OC_STEP(2) OC_STEP(3) OC_STEP(4) OC_STEP(5) OC_STEP(6) OC_STEP(7)
 #undef OC_STEP
   if (occ_cull) {
