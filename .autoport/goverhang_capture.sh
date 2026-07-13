@@ -50,8 +50,14 @@ boot_warp_retry(){ local POS="$1" LOG="$2" TRY ok
 SETFILE="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
 set_overhang(){ local VAL="$1" TMP=/tmp/gov_pcset.gc
   $ADB shell run-as $PKG cat "$SETFILE" </dev/null | tr -d '\r' > "$TMP" || return 1
-  grep -q 'recharged-grass-overhang?' "$TMP" || return 1
-  sed -i "s/(recharged-grass-overhang? [^)]*)/(recharged-grass-overhang? ${VAL})/" "$TMP"
+  # a pre-build settings file lacks the key: INSERT it after the recharged-grass? line
+  # (same pattern as grass_precompute_verify.sh::set_mode for the precomputed key)
+  if grep -q 'recharged-grass-overhang?' "$TMP"; then
+    sed -i "s/(recharged-grass-overhang? [^)]*)/(recharged-grass-overhang? ${VAL})/" "$TMP"
+  else
+    sed -i "s/(recharged-grass? #t)/(recharged-grass? #t)\n  (recharged-grass-overhang? ${VAL})/" "$TMP"
+    grep -q 'recharged-grass-overhang?' "$TMP" || return 1
+  fi
   $ADB push "$TMP" /data/local/tmp/gov_pcset.gc >/dev/null 2>&1 </dev/null || return 1
   $ADB shell run-as $PKG cp /data/local/tmp/gov_pcset.gc "$SETFILE" </dev/null || return 1
   $ADB shell run-as $PKG grep 'recharged-grass-overhang?' "$SETFILE" </dev/null | tr -d '\r'; }

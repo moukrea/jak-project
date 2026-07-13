@@ -1,0 +1,2 @@
+07-13 18:45:49.472 14480 14550 I opengoal-gk: [recharged-grass] GOVERHANG expand: droop_tris=1897 droop_instances=55242 (tail [616380..671622), toggle=ON — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)
+07-13 18:45:49.519 14480 14550 I opengoal-gk: [recharged-grass] PLACE-TIME mode=precomputed total=103ms (source=17ms expand+logs=58ms upload+light=29ms) instances=671622

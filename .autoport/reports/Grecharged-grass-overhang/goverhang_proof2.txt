@@ -1,0 +1,22 @@
+07-13 18:58:18.624 16143 16221 I opengoal-gk: [recharged-grass] GOVERHANG expand: droop_tris=1897 droop_instances=55242 (tail [616380..671622), toggle=OFF — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)
+07-13 18:59:23.779 16423 16490 I opengoal-gk: [recharged-grass] GOVERHANG expand: droop_tris=1897 droop_instances=55242 (tail [616380..671622), toggle=ON — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)
+
+=== frame luminance (mean; <15 = black/invalid) ===
+gov_rim_off_006.png YAVG=87.5076
+gov_rim_off_010.png YAVG=87.2811
+gov_rim_off_014.png YAVG=87.3165
+gov_rim_off_018.png YAVG=86.9673
+gov_rim_off_022.png YAVG=87.0659
+gov_rim_off_026.png YAVG=87.0094
+gov_rim_off_030.png YAVG=86.7168
+gov_rim_off_034.png YAVG=86.6623
+gov_rim_off_038.png YAVG=86.7076
+gov_rim_near15_006.png YAVG=86.8534
+gov_rim_near15_010.png YAVG=86.6556
+gov_rim_near15_014.png YAVG=86.612
+gov_rim_near15_018.png YAVG=86.3127
+gov_rim_near15_022.png YAVG=86.3429
+gov_rim_near15_026.png YAVG=86.3611
+gov_rim_near15_030.png YAVG=86.0397
+gov_rim_near15_034.png YAVG=86.0249
+gov_rim_near15_038.png YAVG=86.0121
