@@ -1,0 +1,63 @@
+=== Gjak1-shadow-cast — Jak casts NO shadow on Android (PORT-parity, owner 2026-07-12) ===
+Date: 2026-07-13   Device: Redmi Note 9 Pro eae4df44   PKG=org.opengoal.gk.jak1
+Fix commit: 23e8f26d4   Evidence runs: gshadow_run.sh after/off (23:26-23:31) + attempt-1 shadowON (23:22)
+
+RESULT: JAK SHADOW RESTORED (visible on device, standing and jumping, matching the x86 oracle)
+
+== ROOT CAUSE (three missing mechanisms, the full Gwater 3-part pattern) ==
+1. arm64 mips2c noop: shadow-execute was routed to the real trampoline since Gnd, but its arm64 body was an
+   unconditional CURSOR PASS-THROUGH (returned a1 unchanged, geometry never computed) — the Gnd fix only stopped
+   the 0-return DMA-cursor collapse, it never ported the geometry. The 15 sibling shadow-* builders were also
+   absent from the jak1 kSet allowlist (jak2 had exactly this class; Gjak2-visuals precedent).
+2. Android curated renderer subset: ShadowRenderer.cpp + Shadow_PS2.cpp were never compiled into the Android gk
+   (android/CMakeLists.txt TU list) — the Gwater lesson (ocean missing) repeated for shadow.
+3. Bucket registration: BucketId::SHADOW (47) was listed "unported" -> SkipRenderer in the jak1 Android bucket
+   table (android/android_opengl_renderer.cpp init_bucket_renderers_jak1).
+
+== FIX (translation layer ONLY; goal_src untouched, x86 codegen path preprocessed-out via #if __aarch64__) ==
+- game/mips2c/jak1_functions/shadow.cpp: removed the Gnd-era unconditional pass-through in shadow-execute; the
+  full shadow-cpu mips2c geometry chain now runs on arm64. Rebuild-free kill-switch kept for forensics:
+  setprop debug.opengoal.jak1.noshadow 1 returns a1 (cursor-safe, never the old noop's 0).
+- game/mips2c/mips2c_table_jak1_arm64.cpp: whole shadow-* family (16 fns) enabled in the jak1 kSet allowlist.
+- android/CMakeLists.txt: ShadowRenderer.cpp + Shadow_PS2.cpp added to the Android gk TUs (shadow/shadow2
+  shaders already in the GLES set; glPolygonMode debug path already __ANDROID__-gated; FBO is DEPTH24_STENCIL8
+  with stencil-bit clears, so the two-pass INCR/DECR stencil-volume scheme works unmodified on GLES).
+- android/android_opengl_renderer.cpp: ShadowRenderer registered at BucketId::SHADOW (was SkipRenderer),
+  desktop OpenGLRenderer.cpp init_bucket_renderers_jak1 parity. Bucket table now: 70 buckets, skip=1 (was 2).
+Our-x86 unaffected: all changes are arm64/Android translation layer; engine goal_src untouched and unchanged.
+
+== DEVICE EVIDENCE (village1-hut warp, all frames focus-verified) ==
+mCurrentFocus=Window{4cd6b0a u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} (after run, mid+end; off run idem 13749ed) — focus jak1 on every capture.
+- STANDING: after-stand-08.png (+01..20): Jak stands on the village1 dirt path with his dark diffuse blob
+  shadow clearly visible on the ground beneath his feet, extending slightly to the right (zoom crop verified).
+- JUMPING: after-jump-air.png (extracted 8fps from after-jump.mp4, frame 017): Jak is fully AIRBORNE at the
+  top of the frame during the jump ("saut") and his articulated shadow silhouette stays on the ground beneath him — visible limb
+  shape on the grass. Attempt-1 shadowON-jump-05.png shows the same airborne+grounded-shadow beat.
+- KILL-SWITCH A/B (pre-fix behavior on the SAME build+beat): off-stand-08.png with debug.opengoal.jak1.noshadow=1
+  ("GJAK1SHADOW shadow-execute geometry DISABLED via prop" in off-logcat) shows the identical camera/beat with NO
+  shadow under Jak — proves the restored shadow comes from the re-enabled shadow-cpu chain, nothing else.
+- x86 ORACLE A/B: oracle-stand-1..4.png + _crop_oracle-stand-*.png (desktop x86 gk, village1-hut, camera behind
+  Jak): dark diffuse elliptical shadow beneath and slightly right of Jak — device after-stand matches the x86 oracle
+  shadow placement/character (blob beneath feet, offset right). Oracle A/B verdict: MATCH.
+
+== FPS BEFORE/AFTER (A35-RENDER render_ms, fbo=960x432; display locked 60.00 vblank/s throughout) ==
+- BEFORE (pre-fix build, title beat — only beat reachable pre-fix, see before-summary.txt): render_ms 18.6-19.1,
+  tris=196850. Not beat-comparable to in-game; the honest cost isolation is the same-beat kill-switch A/B below.
+- AFTER, shadow ON  (village1-hut in-game): render_ms n=20 min=18.61 med=24.14 max=26.36, tris~517k, 60Hz vblank.
+- AFTER, shadow OFF (same beat, kill-switch): render_ms n=20 min=21.25 med=23.21 max=26.32.
+=> shadow chain costs ~0.9ms median at this beat; frame pacing unaffected (display 60 vblank/s, fps character unchanged, overlapping min/max ranges).
+
+== STABILITY ==
+0 crash signals (Fatal signal / GK-DIAG sig=4|6|11) in after-logcat (60s soak past captures) and off-logcat
+(45s soak); app foreground at end of both runs (focus_end=jak1). Attempt-1 shadowON-logcat also 0 crash lines.
+
+== DEPLOY PROOF ==
+deploy_verify.sh eae4df44 jak1: PASS — device provably runs fresh HEAD libgk.so (chain build==APK==device
+f9acc605dc45171f, built-after-source). deploy_verify_assets.sh: PASS — 28/28 CGO/DGO byte-identical to
+out/jak1-arm64-full/iso (no goalc/codegen change in this fix; assets unchanged by design). gold pristine.
+
+== FILES ==
+android/CMakeLists.txt | android/android_opengl_renderer.cpp | game/mips2c/jak1_functions/shadow.cpp |
+game/mips2c/mips2c_table_jak1_arm64.cpp   (4 files; commit 23e8f26d4)
+Frames: after-stand-*.png, after-jump-air.png(+crop), after-jump-*.png, off-stand-*.png, oracle-stand-*.png,
+shadowON-*.png (attempt-1), before-*.png (title baseline). Logs: after/off/before logcat + result/summary txt.

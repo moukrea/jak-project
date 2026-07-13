@@ -1,0 +1,30 @@
+=== gshadow_run off noshadow=1 2026-07-13T23:30:53+02:00 ===
+warped=1
+focus_mid:   mCurrentFocus=Window{13749ed u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+focus_end:   mCurrentFocus=Window{13749ed u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+--- render_ms samples (A35-RENDER, in-game beat) ---
+07-13 23:30:22.714 11750 11819 I opengoal-gk: A35-RENDER frame=2820 chain_bytes=606432 buckets_drawn=33 skipped=0 draws=711 tris=516953 fbo=960x432 render_ms=23.85 buckets_ms=23.44 pcrtc_ms=0.04
+07-13 23:30:24.305 11750 11819 I opengoal-gk: A35-RENDER frame=2880 chain_bytes=614640 buckets_drawn=33 skipped=0 draws=713 tris=517047 fbo=960x432 render_ms=23.28 buckets_ms=22.88 pcrtc_ms=0.05
+07-13 23:30:25.890 11750 11819 I opengoal-gk: A35-RENDER frame=2940 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=713 tris=517075 fbo=960x432 render_ms=26.32 buckets_ms=25.68 pcrtc_ms=0.25
+07-13 23:30:27.495 11750 11819 I opengoal-gk: A35-RENDER frame=3000 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=713 tris=516893 fbo=960x432 render_ms=23.31 buckets_ms=22.84 pcrtc_ms=0.06
+07-13 23:30:29.099 11750 11819 I opengoal-gk: A35-RENDER frame=3060 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=712 tris=517053 fbo=960x432 render_ms=22.84 buckets_ms=22.41 pcrtc_ms=0.04
+07-13 23:30:30.722 11750 11819 I opengoal-gk: A35-RENDER frame=3120 chain_bytes=631056 buckets_drawn=33 skipped=0 draws=712 tris=517207 fbo=960x432 render_ms=23.91 buckets_ms=23.43 pcrtc_ms=0.05
+07-13 23:30:32.300 11750 11819 I opengoal-gk: A35-RENDER frame=3180 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=713 tris=517201 fbo=960x432 render_ms=22.38 buckets_ms=21.94 pcrtc_ms=0.04
+07-13 23:30:33.913 11750 11819 I opengoal-gk: A35-RENDER frame=3240 chain_bytes=614640 buckets_drawn=33 skipped=0 draws=710 tris=516849 fbo=960x432 render_ms=23.21 buckets_ms=22.83 pcrtc_ms=0.05
+07-13 23:30:35.495 11750 11819 I opengoal-gk: A35-RENDER frame=3300 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=713 tris=516889 fbo=960x432 render_ms=22.96 buckets_ms=22.53 pcrtc_ms=0.04
+07-13 23:30:37.098 11750 11819 I opengoal-gk: A35-RENDER frame=3360 chain_bytes=631056 buckets_drawn=33 skipped=0 draws=712 tris=517127 fbo=960x432 render_ms=22.21 buckets_ms=21.81 pcrtc_ms=0.04
+07-13 23:30:38.700 11750 11819 I opengoal-gk: A35-RENDER frame=3420 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=710 tris=516981 fbo=960x432 render_ms=24.10 buckets_ms=23.67 pcrtc_ms=0.05
+07-13 23:30:40.309 11750 11819 I opengoal-gk: A35-RENDER frame=3480 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=709 tris=517277 fbo=960x432 render_ms=22.85 buckets_ms=22.48 pcrtc_ms=0.04
+07-13 23:30:41.911 11750 11819 I opengoal-gk: A35-RENDER frame=3540 chain_bytes=631072 buckets_drawn=33 skipped=0 draws=710 tris=517433 fbo=960x432 render_ms=23.92 buckets_ms=23.41 pcrtc_ms=0.06
+07-13 23:30:43.464 11750 11819 I opengoal-gk: A35-RENDER frame=3600 chain_bytes=639280 buckets_drawn=33 skipped=0 draws=713 tris=517409 fbo=960x432 render_ms=23.06 buckets_ms=22.65 pcrtc_ms=0.05
+07-13 23:30:45.058 11750 11819 I opengoal-gk: A35-RENDER frame=3660 chain_bytes=639280 buckets_drawn=33 skipped=0 draws=712 tris=517229 fbo=960x432 render_ms=24.73 buckets_ms=24.24 pcrtc_ms=0.05
+07-13 23:30:46.658 11750 11819 I opengoal-gk: A35-RENDER frame=3720 chain_bytes=639280 buckets_drawn=33 skipped=0 draws=713 tris=517319 fbo=960x432 render_ms=21.80 buckets_ms=21.33 pcrtc_ms=0.05
+07-13 23:30:48.273 11750 11819 I opengoal-gk: A35-RENDER frame=3780 chain_bytes=631056 buckets_drawn=33 skipped=0 draws=712 tris=517205 fbo=960x432 render_ms=22.77 buckets_ms=22.37 pcrtc_ms=0.06
+07-13 23:30:49.869 11750 11819 I opengoal-gk: A35-RENDER frame=3840 chain_bytes=631056 buckets_drawn=33 skipped=0 draws=712 tris=517297 fbo=960x432 render_ms=24.92 buckets_ms=24.46 pcrtc_ms=0.05
+07-13 23:30:51.463 11750 11819 I opengoal-gk: A35-RENDER frame=3900 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=711 tris=516989 fbo=960x432 render_ms=23.01 buckets_ms=22.60 pcrtc_ms=0.05
+07-13 23:30:53.036 11750 11819 I opengoal-gk: A35-RENDER frame=3960 chain_bytes=622848 buckets_drawn=33 skipped=0 draws=710 tris=517021 fbo=960x432 render_ms=21.25 buckets_ms=20.79 pcrtc_ms=0.05
+--- shadow bucket ---
+07-13 23:29:12.888 11750 11819 I opengoal-gk: A35-RENDER jak1 bucket table ready: 70 buckets, direct=3 tex=11 eye=1 skip=1
+--- kill-switch ---
+07-13 23:29:13.302 11750 11805 I GK_STDERR: GJAK1SHADOW shadow-execute geometry DISABLED via prop
+--- crash signals ---
