@@ -35,6 +35,10 @@ uniform float u_tilt;      // ROUND#19: normal-tilt blend (0 = world-up growth, 
 // droop arc's reach/drop so the hang reads like the original painted fringe's length, not curtains.
 // Tunable live: prop debug.opengoal.grass.droop_len (Android) / env GRASS_DROOP_LEN (desktop).
 uniform float u_droop_len;
+// Grecharged-grass-overhang3: 1 while the Recharged overhang toggle is ON. Gates the transition-band
+// COMB (negative-nspare walkable blades lie along their tri's down-slope) — with 0 the comb branch is
+// never taken and every tagged blade runs the stock else-branch bit-identical (OFF == stock).
+uniform float u_overhang;
 // OWNER ROUND#18: object occluders (crates / warp-gate button) captured per-frame in Merc2 (merc
 // actors, not in the static level data). xyz = world pos (GOAL units), w = ground-contact radius. A
 // blade whose base is within an occluder's XZ radius AND near its ground height is hidden, so no grass
@@ -133,6 +137,9 @@ void main() {
   bool is_droop = nsp > 1.5 && nsp < 2.5; // hanging droop on the lip faces (skips occ/trample)
   bool is_trans = nsp > 2.5;              // progressive rim-lean twin (keeps occ/trample)
   float trans_w = is_trans ? clamp(nsp - 3.0, 0.0, 1.0) : 0.0;
+  // ROUND3: negative nspare = transition-band walkable blade; comb weight tw = -nsp - 1 in [0,1].
+  bool is_comb = nsp < -0.5 && u_overhang > 0.5;
+  float comb_w = is_comb ? clamp(-nsp - 1.0, 0.0, 1.0) : 0.0;
   if (is_tail && u_mode == 1) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_color = vec3(0.0); v_alpha = 0.0; v_uv = vec2(0.0); v_is_card = 1; v_seed = 0.0;
@@ -364,17 +371,19 @@ void main() {
       // LENGTH (scaled to the face's vertical span at placement). No trample/occ/rim influence (it
       // is the intended overhang); the Adreno near-fill fade (nearf, in hw) is kept. Gentle pendulum
       // sway instead of the upright gust lean.
-      // ROUND2 (owner defect 2: "descend beaucoup trop bas"): the whole arc scales by u_droop_len so
-      // the hang drapes the lip like the painted fringe instead of hanging low curtains.
+      // ROUND3 droop: the blade grows ALONG its host tri's plane. inst_normal.xyz now carries the
+      // bake-computed unit IN-PLANE DOWN-SLOPE (dsl) of the fringe/lip face and H is the length,
+      // already capped at the tri's own exit distance -> the drape follows the mesh relief by
+      // construction and never extends past the painted fringe. u_droop_len is a live multiplier
+      // (default 1.0). Small gravity sag off the plane + gentle sway; pure mad math (no
+      // normalize(mix()) — the ROUND#19 Adreno-618 wedge class).
       float dlen = clamp(u_droop_len, 0.1, 1.5);
-      float arc = 0.75 + 0.5 * curve;                            // per-blade droop strength
-      float dhoriz = (0.62 - 0.20 * t) * t * H * dlen;           // outward reach, decelerating
-      float dvert = (0.24 * t - (0.90 + 0.35 * arc) * t * t) * H * dlen;  // slight rise, then droop below base
-      float dsway = sin(gust * 0.8) * t * t * 0.08 * H * dlen;   // lateral pendulum sway
+      vec3 dsl = inst_normal.xyz;
+      float dsway = sin(gust * 0.8) * t * t * 0.05 * H;
       pos = base
           + rightv * ((float(side) * 2.0 - 1.0) * hw + dsway)
-          + fwdv * (dhoriz + sin(gust) * t * t * 0.04 * H * dlen)
-          + vec3(0.0, dvert * nearf, 0.0);
+          + dsl * (t * H * dlen * nearf)
+          + vec3(0.0, -0.15 * t * t * H * dlen * nearf, 0.0);
     } else if (is_trans) {
       // ROUND2 (owner defect 3): PROGRESSIVE upright->droop transition twin. Placed on the walkable
       // top within the rim-taper band of a droop rim, yaw already outward. At w~0 (band's inner
@@ -384,16 +393,38 @@ void main() {
       float dlen = clamp(u_droop_len, 0.1, 1.5);
       float fade_in = smoothstep(0.02, 0.30, trans_w);  // no pop at the band's inner edge
       hw *= fade_in;
-      float arc2 = 0.75 + 0.5 * curve;
       float up_y   = t * H * heightMul * nearf;                          // stock upright growth
       float fwd_up = (bend + sway * 0.38) * H;                           // stock upright lean/sway
-      float dh = (0.62 - 0.20 * t) * t * H * dlen;                       // droop-lite outward reach
-      float dv = (0.24 * t - (0.90 + 0.35 * arc2) * t * t) * H * dlen;   // droop-lite drop
+      // ROUND3: the twin's target is the new COMB shape (lean outward toward horizontal, staying on
+      // the walkable top), not the old below-base parametric arc — so the flat-top lean continues
+      // seamlessly into the band comb and the rooted droop rows.
+      float dh = (0.85 - 0.25 * t) * t * H * dlen;
+      float dv = 0.25 * t * H;
       pos = base
           + rightv * ((float(side) * 2.0 - 1.0) * hw)
           + fwdv * mix(fwd_up, dh + sin(gust) * t * t * 0.04 * H * dlen, trans_w)
           + vec3(0.0, mix(up_y, dv * nearf, trans_w), 0.0)
           + trample * t * (1.0 - 0.5 * trans_w);
+    } else if (is_comb) {
+      // ROUND3 transition-band COMB (toggle ON only; OFF runs the stock branch below bit-identical).
+      // The blade's growth axis lerps from world-up to the in-plane down-slope of ITS OWN face by the
+      // baked tilt weight comb_w, so the curl's grass lies along the mesh instead of towering out of
+      // it — the middle of the upright->droop gradient. Down-slope derived analytically from the face
+      // normal (pure mads + one inversesqrt; NOT normalize(mix()) — Adreno-618 wedge class). The rim
+      // height-taper and the POLISH#11 horizontal clamp ease off as comb_w grows: a combed blade lies
+      // ON the surface, so crossing the rim's XZ projection is correct, not an overflow.
+      float ny2 = inst_normal.y * inst_normal.y;
+      float cinv = inversesqrt(max(1.0 - ny2, 1e-4));
+      vec3 dslv = vec3(inst_normal.x * inst_normal.y, ny2 - 1.0, inst_normal.z * inst_normal.y) * cinv;
+      float comb_rim = mix(rim_h, 1.0, comb_w);  // restore tapered height as combing takes over
+      float cgrow = t * H * heightMul * comb_rim * nearf;
+      vec3 up_axis = vec3(0.0, 1.0, 0.0) + vec3(inst_normal.x, 0.0, inst_normal.z) * u_tilt;
+      vec3 axis = up_axis * (1.0 - comb_w) + dslv * comb_w;
+      pos = base
+          + rightv * ((float(side) * 2.0 - 1.0) * hw)
+          + axis * cgrow
+          + fwdv * (fwd_amt * (1.0 - 0.6 * comb_w))
+          + trample * t * rim_h;
     } else {
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
@@ -425,6 +456,9 @@ void main() {
     vec2 uv = CARD[li];
     vec3 axis = (quad == 0) ? rightv : fwdv;       // two crossed quads
     float cardH = H * 1.25 * rim_h;                  // match near heights (+ ROUND#14 rim taper)
+    // ROUND3: transition-band cards shrink with the comb weight while the toggle is ON (the curl's
+    // mid-distance look = short tufts over the painted fringe); stock height when OFF.
+    cardH *= (1.0 - 0.75 * comb_w);
     float cardHW = H * 0.38 * rim_w;                 // POLISH#6: narrower clump (+ rim taper)
 
     // card wind sway: SAME gust as the blades but MUCH GENTLER than the near blades
@@ -534,8 +568,11 @@ void main() {
   {
     vec2 off_xz = pos.xz - base.xz;
     float off_m = length(off_xz);
-    if (off_m > rim_dist) {
-      pos.xz = base.xz + off_xz * (rim_dist / off_m);
+    // ROUND3: a combed blade lies along the surface past the rim's XZ projection by design — relax
+    // the clip with comb_w (comb_w = 0 when the toggle is OFF -> stock behavior).
+    float clip_dist = mix(rim_dist, 1.0e9, comb_w);
+    if (off_m > clip_dist) {
+      pos.xz = base.xz + off_xz * (clip_dist / off_m);
     }
   }
 

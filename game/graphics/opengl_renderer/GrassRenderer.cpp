@@ -88,12 +88,12 @@ inline float grass_tilt_amount() {
 }
 
 // Grecharged-grass-overhang2 (owner ROUND-2 defect 2: droop "descend beaucoup trop bas"): global
-// scale on the droop arc's reach/drop (u_droop_len). The round-1 arc dropped ~1x the baked blade
-// length below the lip — curtains; the painted fringe it replaces reads much shorter. Default picked
-// to visually match the original texture's length. Live-tunable without rebuild: Android prop
-// debug.opengoal.grass.droop_len / desktop env GRASS_DROOP_LEN (float, clamped 0.1..1.5), same
-// cached+throttled dual mechanism as grass_tilt_amount().
-constexpr float DROOP_LEN_DEFAULT = 0.55f;
+// scale on the droop arc's reach/drop (u_droop_len). Grecharged-grass-overhang3: the round-3 droop
+// length is BAKE-CAPPED per-tri at the face's own in-plane exit distance (a blade can never overshoot
+// the texture it covers), so this uniform is now a pure LIVE multiplier defaulting to neutral (1.0).
+// Live-tunable without rebuild: Android prop debug.opengoal.grass.droop_len / desktop env
+// GRASS_DROOP_LEN (float, clamped 0.1..1.5), same cached+throttled dual mechanism as grass_tilt_amount().
+constexpr float DROOP_LEN_DEFAULT = 1.0f;
 inline float grass_droop_len() {
   static float s_cached = DROOP_LEN_DEFAULT;
   static int s_throttle = 0;
@@ -689,11 +689,12 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   // ROUND2: the tail now also carries the progressive upright->droop transition twins (trans_*).
   lg::info(
       "[recharged-grass] GOVERHANG expand: droop_tris={} droop_instances={} trans_instances={} "
-      "droop_rims={} (tail [{}..{}), toggle={}"
+      "droop_rims={} (tail [{}..{}), toggle={} comb_tagged={}"
       " — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)",
       (int)m_bake.droop.size(), res.trans_start - m_droop_start,
       m_instance_count - res.trans_start, (int)m_bake.droop_rims.size(), m_droop_start,
-      m_instance_count, Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF");
+      m_instance_count, Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF",
+      res.comb_tagged);
 
   // Recompute `density` exactly as expand() did, for the STATIC place summary log.
   int budget;
@@ -1042,6 +1043,10 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glUniform1f(glGetUniformLocation(id, "u_tilt"), grass_tilt_amount());
   // Grecharged-grass-overhang2: droop arc length scale (owner defect 2 — see grass_droop_len()).
   glUniform1f(glGetUniformLocation(id, "u_droop_len"), grass_droop_len());
+  // Grecharged-grass-overhang3: gate the transition-band comb on the SAME Recharged overhang toggle
+  // that splits the draw range (below). OFF -> u_overhang=0 -> tagged blades run the stock else-branch.
+  glUniform1f(glGetUniformLocation(id, "u_overhang"),
+              Gfx::g_global_settings.recharged_grass_overhang ? 1.0f : 0.0f);
   // OWNER ROUND#18: object-clip — hide grass under crates / the warp-gate button (merc actors captured
   // by Merc2 this frame). Upload up to 16 as u_occ (xyz = world pos GOAL units, w = ground-contact
   // radius GOAL units); u_occ_count == 0 (no objects captured) makes the shader path byte-identical to
