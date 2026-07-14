@@ -2051,6 +2051,17 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-hd-models3
+  name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
+    mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
+    never merge distinct-UV verts), untextured draws (eyes/mask page binding), jaw draw missing/culled; FACE close-up captures
+    vs jak2-intro ground truth mandatory; honest partial beats carnage.'
+  prompt: prompts/phase-Grecharged-hd-models3.md
+  validator: validators/phase-Grecharged-hd-models3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-title-logo-fullres
   name: 'RECHARGED (owner 2026-07-09, backlog): title-screen Jak and Daxter logo renders mega-pixelated at low render scale
     on phones — draw it full-resolution like the HUD 3D models (which stay crisp while the world renders at a lower scale);
