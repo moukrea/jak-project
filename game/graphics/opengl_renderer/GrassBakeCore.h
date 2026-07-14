@@ -167,6 +167,35 @@ constexpr int   DROOP_MAX_ROWS = 6;        // row cap per face
 constexpr float DROOP_MIN_LEN_M = 0.07f;   // skip blades shorter than this (invisible slivers)
 constexpr float DROOP_EXIT_SAFETY = 0.95f; // blade length cap = this fraction of the tri exit distance
 
+// Grecharged-grass-overhang4 (owner 2026-07-14: round 3 "complètement loupé" — clip-through at the
+// floor→overhang transition, brutal per-tri seams, diagonal bands on the overhang). Root causes, all
+// per-tri / periodic structure: (a) droop ROWS (root-edge row per tri + 0.28m level-set rows) = the
+// diagonal bands; (b) comb weight from the FACE normal = whole triangles flipping state; (c) the
+// round-2 twins' straight horizontal chord passing through the curved lip mesh = the clip-through.
+// Round 4 removes every per-tri field from the visible math:
+//  (1) SMOOTH vertex normals (position-welded, area-weighted over the retained soup) interpolated
+//      barycentrically at each blade base — every per-blade quantity below is continuous across tri
+//      borders by construction.
+//  (2) Comb = PER-BLADE continuous weight w = tilt(n_smooth.y ramp UPNESS_HI->LO) * near(droop-rim
+//      distance), delivered as toggle-gated TAIL REPLACEMENT twins: the tagged original keeps its
+//      stock bytes except nspare=-(1+w) (unread when OFF -> OFF == stock byte-identical; when ON the
+//      shader collapses it in the blade pass and the twin — carrying the smooth normal in nx/ny/nz
+//      and w in nspare=5+w — takes over). The round-2/3 transition-twin class is DELETED; the
+//      continuous comb field IS the upright->droop transition.
+//  (3) Droop rows -> area-uniform barycentric SCATTER; per-blade direction = the smooth normal's
+//      in-plane down-slope; the below-plane sag term is gone.
+//  (4) Surface constraint: every tail blade's rest arc is plane-capped against nearby tris at
+//      placement time and the shader half-space-clamps vertices to the base tangent plane.
+constexpr float COMB_NEAR0_M = 0.8f;  // fully combable this close (XZ) to a droop rim ...
+constexpr float COMB_NEAR1_M = 1.3f;  // ... fading to zero here. MUST stay < RIM_ENC_MAX_M (1.4):
+                                      // the cheap per-blade rim_q pre-filter relies on it.
+constexpr float COMB_W_MIN = 0.01f;   // below this the twin would BE the stock blade: no tag
+constexpr int COMB_MAX = 60000;       // hard ceiling for comb replacement twins
+constexpr float NOFF_M = 0.03f;       // root offset along the smooth normal (shader scales by w)
+constexpr float DROOP_AREA_DENS = 130.0f;  // droop blades per m^2 of fringe/lip face (scatter)
+constexpr float PLANE_CLEAR_M = 0.02f;     // rest tip must clear every nearby tri plane by this
+constexpr float SHADER_TILT_DEFAULT = 0.30f;  // u_tilt the rest-pose plane cap assumes
+
 // Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
 // the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.
 // The tfrag/TIE renderers fade draws using these textures out near the camera while the overhang
@@ -278,10 +307,17 @@ struct ExpandResult {
   int droop_start = 0;          // == instances.size() when there is no droop data
   // Grecharged-grass-overhang2: the progressive upright->droop transition twins sit after the hang
   // blades, still inside the toggle-gated tail. Census only — the draw split is droop_start.
-  int trans_start = 0;          // == instances.size() when there are no transition twins
+  // Grecharged-grass-overhang4: the twins class is DELETED; this now marks where the COMB
+  // REPLACEMENT twins start (same tail, same census role).
+  int trans_start = 0;          // == instances.size() when there are no comb twins
   // Grecharged-grass-overhang3: how many BASE-range walkable blades carry the negative-nspare comb
   // tag (census only; their position/height/order are byte-identical to an untagged build).
   int comb_tagged = 0;
+  // Grecharged-grass-overhang4 census: emitted comb replacement twins (== final tagged originals),
+  // and how many tail blades the neighbor-plane cap shortened / dropped (the clip-through guard).
+  int comb_pairs = 0;
+  int plane_capped = 0;
+  int plane_dropped = 0;
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 
