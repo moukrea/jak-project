@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 203,
+  "current_phase_idx": 204,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -197,7 +197,8 @@
     "Gjak1-shadow-cast": 2,
     "Grecharged-external-assets": 1,
     "Grecharged-grass-overhang4": 2,
-    "Grecharged-hd-models": 1
+    "Grecharged-hd-models": 1,
+    "Grecharged-grass-overhang5": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -399,6 +400,9 @@
     ],
     "Grecharged-grass-overhang4": [
       "83c369880dac"
+    ],
+    "Grecharged-grass-overhang5": [
+      "83c369880dac"
     ]
   },
   "stuck_reasons": {
@@ -596,7 +600,8 @@
     "Grecharged-grass-overhang3",
     "Gjak1-shadow-cast",
     "Grecharged-external-assets",
-    "Grecharged-grass-overhang4"
+    "Grecharged-grass-overhang4",
+    "Grecharged-hd-models"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -780,9 +785,11 @@
     "Gjak1-shadow-cast": 1783975967.8912437,
     "Grecharged-external-assets": 1783978916.4218605,
     "Grecharged-grass-overhang4": 1783986348.8569052,
-    "Grecharged-hd-models": 1783993693.8224719
+    "Grecharged-hd-models": 1783993693.8224719,
+    "Grecharged-foliage-wind": 1784007686.6176143,
+    "Grecharged-grass-overhang5": 1784010979.895357
   },
-  "last_update": "2026-07-14T05:29:09.557213+00:00",
+  "last_update": "2026-07-14T08:08:47.559744+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -791,7 +798,8 @@
     "F1-gameplay-geyser-rock": 3,
     "Gperf-particles": 68,
     "Gjak2-render": 18,
-    "Grecharged-grass-overhang4": 1
+    "Grecharged-grass-overhang4": 1,
+    "Grecharged-grass-overhang5": 4
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",

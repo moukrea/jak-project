@@ -389,6 +389,13 @@ void main() {
       // default). dv derived analytically (pure mads + one inversesqrt; no normalize(mix()) — Adreno
       // wedge class). The half-space clamp at the end keeps the whole arc out of the host surface.
       float dlen = clamp(u_droop_len, 0.1, 1.5);
+      // Grecharged-grass-overhang5 RAGGED TIPS (owner rounds 1-4 rejected the drape as a uniform combed
+      // "green shelf"/brutal edge). Break the tip line with a STABLE per-blade length hash so the drape
+      // ends in natural ragged points, not a straight wall. rag in [0.72,1.0]: the DEEPEST blades still
+      // reach the full neighbour-plane-capped H (so drape depth is NOT reduced), shorter ones vary the
+      // silhouette. rag <= 1.0 keeps every tip within the metric-validated cap -> no new clip-through.
+      // Deterministic (no pop-in), pure mads, is_droop-only (OFF path & edge stack untouched).
+      float rag = 0.72 + 0.28 * fract(phase * 17.13 + tint * 5.27);
       vec3 n = inst_normal.xyz;
       float ny2 = n.y * n.y;
       float cinv = inversesqrt(max(1.0 - ny2, 1e-4));
@@ -397,7 +404,7 @@ void main() {
       pos = base
           + n * NOFF
           + rightv * ((float(side) * 2.0 - 1.0) * hw + dsway)
-          + dv * (t * H * dlen * nearf);
+          + dv * (t * H * dlen * nearf * rag);
     } else if (is_repl) {
       // Grecharged-grass-overhang4 COMB REPLACEMENT (tail, toggle ON only; the tagged walkable original
       // is collapsed above). The growth axis lerps from up_axis (a slight COMB_TILT lean toward the
