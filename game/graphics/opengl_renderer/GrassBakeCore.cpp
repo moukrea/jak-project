@@ -2105,6 +2105,108 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   // normal offsets for parallax; blades inherit the WALKABLE lawn colour+light (no darkening); cell
   // noise clumps density/length along the lip (ragged silhouette, no "eyeliner" band).
   int z3_placed = 0;
+  // ---- ROUND 9 LIP ROOT ROW (supervisor filter on R8-zone-cropA: rock line at the lawn->curtain
+  // junction). The face-scattered curtain can never reach the lip (its tri tops sit below the
+  // walkable edge), so root a dedicated contiguous row of fall blades directly ON the true-rim lip
+  // segments: 2 staggered rows at Z3_LIP_SPACING_M (< a root's full width -> neighbouring roots
+  // overlap), sunk Z3_LIP_SINK_M under the lawn plane (tucked beneath the lawn's overhanging
+  // silhouette; the sink also puts the base behind the lawn plane so tip_violates skips it).
+  // Runs BEFORE the face layers so the row can never be starved by the Z3_MAX cap.
+  int z3_lip = 0;
+  {
+    // hang-face centroid grid (GCELL cells): the lip row only roots on rim segments that actually
+    // have native-alpha hang faces below them — clean drop-offs keep their stock silhouette.
+    std::unordered_map<u64, std::vector<std::array<float, 3>>> hang_cent;
+    for (const auto& de : d.droop) {
+      if (de.tri >= d.tris.size()) continue;
+      const BakeTri& ht = d.tris[de.tri];
+      if (!(ht.flags & 32u)) continue;
+      float cx = ht.p0[0] + (ht.e1[0] + ht.e2[0]) * (1.0f / 3.0f);
+      float cy = ht.p0[1] + (ht.e1[1] + ht.e2[1]) * (1.0f / 3.0f);
+      float cz = ht.p0[2] + (ht.e1[2] + ht.e2[2]) * (1.0f / 3.0f);
+      hang_cent[gkey((s64)std::floor(cx / GCELL), (s64)std::floor(cz / GCELL))].push_back(
+          {cx, cy, cz});
+    }
+    auto hang_below = [&](float px, float py, float pz) -> bool {
+      s64 cx = (s64)std::floor(px / GCELL), cz = (s64)std::floor(pz / GCELL);
+      for (s64 dx = -1; dx <= 1; ++dx)
+        for (s64 dz = -1; dz <= 1; ++dz) {
+          auto it = hang_cent.find(gkey(cx + dx, cz + dz));
+          if (it == hang_cent.end()) continue;
+          for (const auto& c : it->second) {
+            float ddx = c[0] - px, ddz = c[2] - pz, dy = py - c[1];
+            if (dy > -0.3f * U && dy < Z3_LIP_NEAR_HANG_M * U &&
+                ddx * ddx + ddz * ddz < (1.5f * U) * (1.5f * U)) {
+              return true;
+            }
+          }
+        }
+      return false;
+    };
+    const float SP = Z3_LIP_SPACING_M * U;
+    for (u32 si = 0; si < (u32)d.rimdrape.size(); ++si) {
+      const RimDrapeSeg& rs = d.rimdrape[si];
+      float sx = rs.bx - rs.ax, sy = rs.by - rs.ay, sz = rs.bz - rs.az;
+      float seglen = std::sqrt(sx * sx + sy * sy + sz * sz);
+      if (seglen < 0.02f * U) continue;
+      float mx = rs.ax + 0.5f * sx, my = rs.ay + 0.5f * sy, mz = rs.az + 0.5f * sz;
+      if (!hang_below(mx, my, mz) && !hang_below(rs.ax, rs.ay, rs.az) &&
+          !hang_below(rs.bx, rs.by, rs.bz)) {
+        continue;
+      }
+      int nb = (int)(seglen / SP) + 1;
+      for (int row = 0; row < 2; ++row) {
+        for (int i = 0; i < nb; ++i) {
+          if (z3_placed >= Z3_MAX) break;
+          u32 sd = (rs.tri * 2654435761u) ^ (si * 0x9E3779B9u) ^ ((u32)i * 40503u) ^
+                   ((u32)row * 0x5bd1e995u);
+          float u01 =
+              (((float)i + 0.5f * (float)row) * SP + (hash_f(sd + 1u) - 0.5f) * 0.5f * SP) / seglen;
+          if (u01 < 0.f || u01 > 1.f) continue;
+          float bx = rs.ax + sx * u01;
+          float by = rs.ay + sy * u01 - Z3_LIP_SINK_M * U - (float)row * Z3_LIP_ROW2_DROP_M * U;
+          float bz = rs.az + sz * u01;
+          // same 0.7 m cell noise as the face pass: coherent LENGTH clumps (ragged silhouette);
+          // no density thinning here — the root line must be contiguous.
+          s64 ccx = (s64)std::floor(bx / (0.7f * U));
+          s64 ccz = (s64)std::floor(bz / (0.7f * U));
+          float cn = hash_f((u32)((u64)ccx * 73856093u) ^ (u32)((u64)ccz * 19349663u) ^ 0x5BD1u);
+          float species =
+              BASE_H * Z3_LEN_MUL * (0.70f + 0.55f * hash_f(sd + 3u)) * (0.85f + 0.35f * cn);
+          // plane-cap shrink mirrors the shader rest pose (SCALED horizontal outward normal so the
+          // root drapes over the rounded lip bulge, per-row loff) but is FLOORED, never dropped: a
+          // partially buried tip is invisible, a dropped root re-opens the rock line at the lip
+          // that round 8 was rejected for.
+          float osc = (row == 0) ? Z3_LIP_OUT_SCALE0 : Z3_LIP_OUT_SCALE1;
+          float loff = (0.03f + 0.09f * (0.5f * (float)row)) * U;  // == shader layer 0 / 0.5
+          float base[3] = {bx, by, bz};
+          float h = species;
+          for (int it = 0; it < 16; ++it) {
+            float tip[3] = {bx + rs.ox * osc * loff, by - h, bz + rs.oz * osc * loff};
+            if (!tip_violates(base, tip, rs.tri)) break;
+            h *= 0.8f;
+          }
+          if (h < 0.5f * species) h = 0.5f * species;
+          GrassInstance gi;
+          gi.px = bx; gi.py = by; gi.pz = bz;
+          gi.h = h;
+          gi.yaw = std::atan2(rs.ox, rs.oz) + (hash_f(sd + 4u) - 0.5f) * 0.6f;
+          gi.tint = hash_f(sd + 5u);
+          gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);
+          gi.phase = hash_f(sd + 7u);
+          gi.gr = rs.gr; gi.gg = rs.gg; gi.gb = rs.gb;  // walkable lawn colour (round-8 rule)
+          gi.gspare = 1.0e9f;  // NO_RIM: the fall over the lip is the intended overhang
+          // SCALED horizontal outward (shader offsets by the raw normal): drapes over the lip bulge
+          gi.nx = rs.ox * osc; gi.ny = 0.0f; gi.nz = rs.oz * osc;
+          gi.nspare = 7.0f + 0.25f * (float)row;  // fall class; row 1 = layer 0.5 (loff 7.5 cm)
+          res.instances.push_back(gi);
+          res.inst_tri.push_back(rs.tri);  // lawn tri light -> brightness continuity at the lip
+          z3_placed++;
+          z3_lip++;
+        }
+      }
+    }
+  }
   for (int layer = 0; layer < Z3_LAYERS; ++layer) {
     // Budget pre-pass: hang-subset area * Z3_AREA_DENS * Z3_LAYERS clamped to 0.9*Z3_MAX (per layer).
     float total_area = 0.f;
@@ -2141,15 +2243,14 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
         s64 ccx = (s64)std::floor(bx / (0.7f * U));
         s64 ccz = (s64)std::floor(bz / (0.7f * U));
         float cn = hash_f((u32)((u64)ccx * 73856093u) ^ (u32)((u64)ccz * 19349663u) ^ 0x5BD1u);
-        if (hash_f(sd + 8u) > 0.55f + 0.45f * cn) continue;  // clump thinning (mean keep ~0.78)
-        float sn[3];
-        bary_smooth(tri, 1.0f - r1d - r2d, r1d, r2d, sn);
-        if (sn[0] * de.ox + sn[2] * de.oz < 0.f) { sn[0] = -sn[0]; sn[2] = -sn[2]; }
         // ROUND 8 defect 1 (dark-olive drape vs bright lawn): inherit the nearest rim segment's
         // WALKABLE-TOP lawn colour and its baked-light tri — the drape must read as the SAME grass
         // folding over the lip, not the drop face's dark texture. Fallback: hang-face colour UNdarkened.
+        // ROUND 9: the query moved ABOVE the clump-thinning so its 3D rim distance can exempt the
+        // root band from thinning (supervisor: "roots contiguous", "connected mass").
         float cgr = tri.gr, cgg = tri.gg, cgb = tri.gb;
         u32 light_tri = de.tri;
+        bool near_root = false;
         {
           float ox2, oz2, ry, d2;
           u32 rsi = 0;
@@ -2157,8 +2258,16 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
             const RimDrapeSeg& rs = d.rimdrape[rsi];
             cgr = rs.gr; cgg = rs.gg; cgb = rs.gb;
             light_tri = rs.tri;
+            float dy = by - ry;
+            near_root = d2 + dy * dy < (Z3_ROOTBAND_M * U) * (Z3_ROOTBAND_M * U);
           }
         }
+        // ROUND 9 ("stringy detached tufts"): keep 0.70+0.30*cn (was 0.55+0.45, mean 0.78 -> 0.85)
+        // and NO thinning inside the root band — raggedness comes from length jitter, not root holes.
+        if (!near_root && hash_f(sd + 8u) > 0.70f + 0.30f * cn) continue;
+        float sn[3];
+        bary_smooth(tri, 1.0f - r1d - r2d, r1d, r2d, sn);
+        if (sn[0] * de.ox + sn[2] * de.oz < 0.f) { sn[0] = -sn[0]; sn[2] = -sn[2]; }
         // Wider per-blade length range * the clump factor (defect 3: ragged, defect 2: variation).
         float species = BASE_H * Z3_LEN_MUL * (0.65f + 0.75f * hash_f(sd + 3u)) * (0.85f + 0.35f * cn);
         float ex = exit_dist(tri, bx, by, bz);
@@ -2206,10 +2315,10 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   res.plane_capped = plane_capped;
   res.plane_dropped = plane_dropped;
   lg::info("[recharged-grass] GOVERHANG6 zones: lean_tagged={} lean_twins={} (band {:.2f}m) z2_strip={} "
-           "z3_fall={} (layers={}) comb_repl={} curl_blades={} curl_tilt0={} plane_capped={} "
+           "z3_fall={} (layers={} lip={}) comb_repl={} curl_blades={} curl_tilt0={} plane_capped={} "
            "plane_dropped={}",
            res.lean_tagged, res.lean_twins, LEAN_BAND_M, res.z2_count, res.z3_count, Z3_LAYERS,
-           res.comb_pairs, dbg_trans_blades, dbg_trans_tilt0, plane_capped, plane_dropped);
+           z3_lip, res.comb_pairs, dbg_trans_blades, dbg_trans_tilt0, plane_capped, plane_dropped);
   return res;
 }
 

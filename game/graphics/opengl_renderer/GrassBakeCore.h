@@ -237,10 +237,31 @@ constexpr float Z2_DEPTH_FULL_M = 1.2f;  // fully bent (w=1) this far below the 
 //  (3) RAGGED: 0.7 m world-XZ cell noise modulates density AND length in coherent clumps along the
 //      lip, plus per-blade exit-cap jitter — no uniform band, no outlined ledges.
 constexpr int   Z3_LAYERS = 3;           // owner: "au moins deux couches"; round 8: 3 for visible parallax
-constexpr float Z3_AREA_DENS = 150.0f;   // zone-3 blades per m^2 PER LAYER (pre clump-thinning, mean keep ~0.78)
+constexpr float Z3_AREA_DENS = 210.0f;   // zone-3 blades per m^2 PER LAYER (ROUND 9: 150 -> 210, the
+                                         // curtain read as separated tongues; budget-clamped below)
 constexpr int   Z3_MAX = 300000;         // all layers combined
 constexpr float Z3_LEN_MUL = 1.25f;      // fall length scale vs BASE_H (exit-capped so it covers the
                                          // painted strip without descending far past it)
+// ROUND 9 (supervisor filter on R8-zone-cropA): two rejects. (1) LIP SEAM — the curtain rooted only
+// on the hang FACES, whose top edge sits below the walkable lip, so a bare-rock line showed at the
+// lawn->curtain junction. A dedicated LIP ROOT ROW now roots fall blades directly on the true-rim
+// segments, sunk slightly UNDER the lawn plane: tucked beneath the lawn's overhanging silhouette,
+// and (sink > PLANE_CLEAR_M) exempt from the lawn-plane tip test that would false-kill edge roots.
+// (2) STRINGY TUFTS — root spacing along the lip is kept under a blade's root full width
+// (2*hw*wmul ~ 0.09-0.13 m) so neighbouring roots OVERLAP into a connected curtain, and face blades
+// inside the root band skip clump-thinning entirely (raggedness comes from length jitter, not holes).
+constexpr float Z3_LIP_SPACING_M = 0.075f;  // along-lip root spacing per row (2 staggered rows;
+                                            // tight enough to also cover convex segment corners)
+constexpr float Z3_LIP_SINK_M = 0.03f;      // root sink below the lawn plane (> PLANE_CLEAR_M 0.02)
+constexpr float Z3_LIP_ROW2_DROP_M = 0.10f; // second staggered row roots this far down the face
+// The lip GEOMETRY bulges outward past the walkable boundary (a rounded-over edge strip): a root
+// hanging at the shader's plain layer offset (3/7.5 cm) can sit INSIDE the bulge, leaving a brown
+// peek between the lean canopy and the curtain. The shader multiplies its normal offset by the RAW
+// per-instance normal, so scaling the lip row's outward normal drapes the roots OVER the bulge.
+constexpr float Z3_LIP_OUT_SCALE0 = 1.8f;   // row 0 outward-normal scale (3 cm -> 5.4 cm)
+constexpr float Z3_LIP_OUT_SCALE1 = 1.5f;   // row 1 outward-normal scale (7.5 cm -> 11.25 cm)
+constexpr float Z3_LIP_NEAR_HANG_M = 2.0f;  // lip row only where native-alpha hang faces are below
+constexpr float Z3_ROOTBAND_M = 0.40f;      // face blades this close (3D) to a rim skip thinning
 
 // Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
 // the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.

@@ -441,7 +441,9 @@ void main() {
       float loff = (0.03 + 0.09 * layer) * 4096.0;
       float rag = 0.72 + 0.28 * fract(phase * 17.13 + tint * 5.27);
       float fall = t * H * dlen * rag;
-      float wmul = 1.15 + 0.75 * fract(tint * 9.73 + phase * 3.91);
+      // ROUND 9 (supervisor: "stringy detached tufts"): wider still (mean 1.53 -> 1.78) so, with the
+      // bake's tighter root spacing, neighbouring roots overlap into a connected curtain.
+      float wmul = 1.35 + 0.85 * fract(tint * 9.73 + phase * 3.91);
       float bvar = 0.75 + 0.50 * fract(tint * 11.71 + phase * 2.33);
       float bow = (0.26 + 0.13 * layer) * bvar * H * t * (1.0 - t);
       float fsway = sin(gust * (0.9 + 0.2 * layer)) * t * t * (0.06 + 0.04 * layer) * H;
