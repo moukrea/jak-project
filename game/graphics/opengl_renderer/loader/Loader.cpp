@@ -1,8 +1,10 @@
 #include "Loader.h"
 
 #include <cstdio>
+#include <set>
 
 #include "common/global_profiler/GlobalProfiler.h"
+#include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
@@ -187,12 +189,13 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
   if (Gfx::g_global_settings.recharged_enhanced_models) {
     auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
     if (file_util::file_exists(enhanced.string())) {
-      fmt::print("HD-MODELS fr3-select {}: ENHANCED {}\n", name, enhanced.string());
+      // lg (not raw stdout): on Android only lg::* routes to logcat.
+      lg::info("HD-MODELS fr3-select {}: ENHANCED {}", name, enhanced.string());
       return enhanced;
     }
   }
-  fmt::print("HD-MODELS fr3-select {}: STOCK (enhanced-toggle={})\n", name,
-             Gfx::g_global_settings.recharged_enhanced_models);
+  lg::info("HD-MODELS fr3-select {}: STOCK (enhanced-toggle={})", name,
+           Gfx::g_global_settings.recharged_enhanced_models);
   return base / fmt::format("{}.fr3", name);
 }
 
@@ -209,8 +212,29 @@ static void log_merc_models(const std::string& lev, const tfrag3::Level& data) {
         draws++;
       }
     }
-    fmt::print("HD-MODELS merc-load lvl={} model={} tris={} draws={} effects={}\n", lev, model.name,
-               tris, draws, model.effects.size());
+    lg::info("HD-MODELS merc-load lvl={} model={} tris={} draws={} effects={}", lev, model.name,
+             tris, draws, model.effects.size());
+    // Grecharged-hd-models2 (owner hint: prove the HD mesh binds its OWN texture set, not stock
+    // jak1 pages): for the 4 replaced characters, log the texture debug-names their draws bind.
+    if (model.name == "eichar-lod0" || model.name == "sidekick-lod0" || model.name == "sage-lod0" ||
+        model.name == "assistant-lod0") {
+      std::set<std::string> tex_names;
+      for (const auto& e : model.effects) {
+        for (const auto& d : e.all_draws) {
+          if (d.tree_tex_id >= 0 && (size_t)d.tree_tex_id < data.textures.size()) {
+            tex_names.insert(data.textures[d.tree_tex_id].debug_name);
+          }
+        }
+      }
+      std::string tex_list;
+      for (const auto& t : tex_names) {
+        if (!tex_list.empty()) {
+          tex_list += ",";
+        }
+        tex_list += t;
+      }
+      lg::info("HD-MODELS merc-tex lvl={} model={} textures=[{}]", lev, model.name, tex_list);
+    }
   }
 }
 

@@ -586,8 +586,9 @@ void pc_set_recharged_enhanced_models(u32 on) {
   // seed and later level loads read STOCK fr3. Log transitions so runs carry the flip evidence.
   bool v = (on != 0);
   if (v != Gfx::g_global_settings.recharged_enhanced_models) {
-    fmt::print("HD-MODELS toggle push: {} -> {}\n",
-               Gfx::g_global_settings.recharged_enhanced_models, v);
+    // lg (not raw stdout): on Android only lg::* routes to logcat.
+    lg::info("HD-MODELS toggle push: {} -> {}", Gfx::g_global_settings.recharged_enhanced_models,
+             v);
   }
   Gfx::g_global_settings.recharged_enhanced_models = v;
 }
