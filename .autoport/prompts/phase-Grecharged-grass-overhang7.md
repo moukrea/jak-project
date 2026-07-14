@@ -66,3 +66,32 @@ devrait pas être le cas."
    do not spend more time on it now).
    3. Deliverable: the 3 zones looking right AT TRAINING, at his vantage (facing the terraced
    platforms), via the real flow, menu-toggle path proven, 10s video. That's the whole phase.
+
+## ROUND 8 INPUT — SUPERVISOR'S OWN READ of the owner's live view (2026-07-14 20:40, SUPERVISOR-OWNER-VIEW.png)
+The owner rejected the current render; I captured his exact view and SEE the defects myself:
+1. COLOR MISMATCH (the killer): the drape is dark olive/dull while the lawn above is bright green —
+   it reads as dark mold pasted on the rock, with a hard tonal seam at the lip. The drape must inherit
+   the WALKABLE TOP's ground color/brightness (sample the lawn tri's color, NOT the drop face; remove or
+   drastically reduce the 0.82 inner-layer darkening and any dirt-face color sampling). Same grass,
+   same green, continuous across the lip.
+2. NO VOLUME: fall blades are thin, sparse, plastered flat against the face. Owner asked "au moins deux
+   couches ... épaisseur ... believable": increase density + width + length variation, push the outward
+   belly so the curtain visibly stands OFF the face, layered parallax must be visible at this distance.
+3. "EYELINER" BAND: every ledge is outlined by a uniform dark strip — break the uniformity (length/
+   density jitter along the lip, ragged silhouette) so ledges don't look outlined.
+Acceptance for the next attempt: the SAME vantage (SUPERVISOR-OWNER-VIEW.png) re-captured, judged
+first by the supervisor against these 3 points, then by the owner. Do not present anything that still
+shows a dark uniform band.
+
+## OWNER REMINDER (2026-07-14 21:00 — the 3-zone spec re-sent verbatim; it REMAINS the design, unmet)
+(Same text as the round-6 spec: zone1 lean on the walkable boundary WITHOUT overshoot; zone2 blades ON
+the descending flat-green mesh strip following it EXACTLY, increasingly bent; zone3 >=2 ANIMATED layers
+falling fully down, ENTIRELY covering the native alpha texture, hidden near / restored at distance;
+depth/thickness, believable. "C'est toujours nul en l'état".)
+=> ENFORCEMENT ADDITIONS:
+- EVERY evaluation capture must be taken CLOSE to an edge ("te placer exactement près d'un bord") — the
+  Jak-on-Redmi position facing the platforms. Mid-distance shots hide zone continuity; they are NOT
+  acceptance evidence.
+- The report must include a ZONE-BY-ZONE self-assessment against the spec (zone1 present+no overshoot?
+  zone2 following the strip exactly? zone3 two visible layers, animated, covering the alpha, thick?)
+  with a close-up crop proving each, BEFORE the supervisor filter.
