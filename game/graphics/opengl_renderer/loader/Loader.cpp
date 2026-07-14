@@ -187,10 +187,31 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
   if (Gfx::g_global_settings.recharged_enhanced_models) {
     auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
     if (file_util::file_exists(enhanced.string())) {
+      fmt::print("HD-MODELS fr3-select {}: ENHANCED {}\n", name, enhanced.string());
       return enhanced;
     }
   }
+  fmt::print("HD-MODELS fr3-select {}: STOCK (enhanced-toggle={})\n", name,
+             Gfx::g_global_settings.recharged_enhanced_models);
   return base / fmt::format("{}.fr3", name);
+}
+
+// Grecharged-hd-models2: objective loaded-model discriminator. The bake-time "Replacing" line
+// (extract_merc.cpp) never appears at runtime, so a capture alone can't prove WHICH mesh (stock vs
+// HD) was loaded under a merc name. Log per-model triangle/draw counts at fr3 load so every run
+// carries the proof (HD meshes are several x the stock tri count under the same name).
+static void log_merc_models(const std::string& lev, const tfrag3::Level& data) {
+  for (const auto& model : data.merc_data.models) {
+    u32 tris = 0, draws = 0;
+    for (const auto& e : model.effects) {
+      for (const auto& d : e.all_draws) {
+        tris += d.num_triangles;
+        draws++;
+      }
+    }
+    fmt::print("HD-MODELS merc-load lvl={} model={} tris={} draws={} effects={}\n", lev, model.name,
+               tris, draws, model.effects.size());
+  }
 }
 
 /*!
@@ -237,6 +258,7 @@ void Loader::loader_thread() {
       result->serialize(ser);
       double import_time = import_timer.getSeconds();
       prof().end_event();
+      log_merc_models(lev, *result);
 
       // and finally "unpack", which creates the vertex data we'll upload to the GPU
 
@@ -297,6 +319,7 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
   Serializer ser(decomp_data.data(), decomp_data.size());
   m_common_level.level = std::make_unique<tfrag3::Level>();
   m_common_level.level->serialize(ser);
+  log_merc_models(name, *m_common_level.level);
   for (auto& tex : m_common_level.level->textures) {
     m_common_level.textures.push_back(add_texture(tex_pool, tex, true));
   }

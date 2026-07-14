@@ -581,7 +581,15 @@ void pc_set_grass_overhang(u32 on) {
 // village FR3 (Samos/Keira); the common FR3 (Jak/Daxter) is seeded from persisted settings at
 // renderer init, so toggling those takes effect on relaunch.
 void pc_set_recharged_enhanced_models(u32 on) {
-  Gfx::g_global_settings.recharged_enhanced_models = (on != 0);
+  // Grecharged-hd-models2 discriminator: the GOAL side pushes this EVERY frame from *pc-settings*
+  // (update-to-os), so a push of the pre-settings-load default silently flips the renderer-ctor
+  // seed and later level loads read STOCK fr3. Log transitions so runs carry the flip evidence.
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_enhanced_models) {
+    fmt::print("HD-MODELS toggle push: {} -> {}\n",
+               Gfx::g_global_settings.recharged_enhanced_models, v);
+  }
+  Gfx::g_global_settings.recharged_enhanced_models = v;
 }
 
 // Grecharged-grass-poc: push Jak's world position (a GOAL vector, xyzw) each frame
