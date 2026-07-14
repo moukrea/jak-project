@@ -1,0 +1,12 @@
+supervisor gate-close 2026-07-14 03:20 (FIRST opus-4-8 overhang attempt): OBJECTIVE gate, verified by me
+personally (re-ran goverhang4_banding.py myself, not trusting worker numbers):
+- POSITIVE CONTROL: detector FIRES on the owner's confirmed round-3 band frames (owner_bands_ref: BAND@WIN
+  0.046-0.055, coherent ~68deg diagonal). Not a stub.
+- ROUND-4 ON vs OFF, 3 beach vantages: calibrated BAND@WIN at/below the OFF floor (A .0395/.0446,
+  B .0252/.0314, C .0402/.0357), peak angle incoherent 50-56deg — NOT the owner's stable 68deg. The
+  owner's diagonal-band artifact is objectively GONE. Raw omni BANDING is higher in ON but at axis angles
+  (0-6deg horizontal ledges / 88deg vertical drape) = the intended drape covering the ledge, not bands.
+- Geometric counters (I read the bake report): clip-through tip_violations droop 5425->0, comb 133->0;
+  seam neighbor-weight 0.389->0.027; placement periodicity spike 0.27m(9.64)->monotonic scatter (gone).
+- OFF == stock (byte-identical, nspare unread); edge stack LOCKED; precompute round-trip byte-identical.
+deploy_verify PASS. OWNER HONOR EYE IS THE FINAL VISUAL GATE (I am not a visual validator per his mandate).
