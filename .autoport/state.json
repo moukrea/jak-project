@@ -198,7 +198,7 @@
     "Grecharged-external-assets": 1,
     "Grecharged-grass-overhang4": 2,
     "Grecharged-hd-models": 1,
-    "Grecharged-grass-overhang5": 2
+    "Grecharged-grass-overhang5": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -402,6 +402,7 @@
       "83c369880dac"
     ],
     "Grecharged-grass-overhang5": [
+      "83c369880dac",
       "83c369880dac"
     ]
   },
@@ -789,7 +790,7 @@
     "Grecharged-foliage-wind": 1784007686.6176143,
     "Grecharged-grass-overhang5": 1784010979.895357
   },
-  "last_update": "2026-07-14T08:08:47.559744+00:00",
+  "last_update": "2026-07-14T10:10:49.688853+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -856,7 +857,8 @@
     "Gjak1-shadow-cast",
     "Grecharged-external-assets",
     "Grecharged-grass-overhang4",
-    "Grecharged-hd-models"
+    "Grecharged-hd-models",
+    "Grecharged-grass-overhang5"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
