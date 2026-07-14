@@ -1,0 +1,14 @@
+supervisor gate-close 2026-07-14 14:45: every owner challenge answered WITH PROOF, self-verified:
+- CORRECT SOURCE: jakone/daxter/samos/keira-highres from INTROCST.DGO+LINTCSTB (the pre-rift intro cast);
+  round-1 Samos was even the WRONG CHARACTER (geologist NPC). Side-by-side source proof committed.
+- TEXTURES (owner hint 1): HD models' OWN pages ripped + runtime-bound (HD-MODELS merc-tex lines in the
+  same runs as frames).
+- SKELETON (owner hint 2): direct drop-in evaluated on the CORRECT models — joint orders diverge (Jak
+  idx17, Daxter 49-vs-62...) so raw indices provably land wrong; name-based remap used, 0.0 unmatched
+  weight on all 4, identity round-trip lossless, NO find_closest anywhere. Parrot/mask culled.
+- DISCRIMINATORS (owner challenge): all 3 in every run — ENHANCED fr3-select lines from the EXTERNAL
+  root, tri deltas ON/OFF (eichar 9886/3593, sidekick 9510/1296, sage 10074/5163, assistant 10528/5236),
+  unambiguous ON/OFF zoom pairs. Focus verified per run.
+- REAL INSTALL FLOW: slim APK + archive extraction only (no adb push), sha chain archive==device ALL
+  MATCH, deploy_verify PASS (5c058c2b7). Round-1 garbled village2 overlay killed by stock-identical
+  overwrite. OWNER HONOR EYE = FINAL (his round-1 verdicts are the checklist).
