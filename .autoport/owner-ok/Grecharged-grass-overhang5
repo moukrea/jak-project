@@ -1,0 +1,8 @@
+supervisor gate-close 2026-07-14 12:20: THE root cause of 5 failed rounds named + fixed: droop only ever
+existed on grass-textured fringe faces; the owner's Sandover terraces have DIRT drop faces -> zero blades
+where he looked, while metrics passed on fringe zones (round-4 FALSE PASS explained). Fix = GBK6 rim-drape:
+blades scattered along the TRUE-RIM lip edges (from the LOCKED edge data) regardless of drop-face texture,
+rooted at the lip, curling outward+down (32662 blades, toggle-gated tail, OFF==stock). PROVEN via the
+OWNER'S REAL INSTALL FLOW: slim APK + external archive, sha archive==device (727c33a0...), external asset
+mode boot, GBK6 through the real read path, precompute ON and OFF, ON/OFF lipzoom pairs on the dirt
+terraces. deploy_verify PASS (846d9afd8). Owner HONOR eye = final gate.

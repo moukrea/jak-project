@@ -2029,6 +2029,18 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-overhang6
+  name: 'ROUND 6 (owner 2026-07-14 Redmi: v5 rim-drape ''complètement pourri, pas exploitable''; his verbatim 3-zone SPEC):
+    zone1 walkable-top lean gradient at the boundary (no overshoot), zone2 blades ON the flat-green sub-lip mesh strip following
+    it EXACTLY with increasing lean, zone3 >=2 LAYERED animated grass falling down fully covering the native overhang alpha
+    (hide near/restore far LOD), volume/thickness ''believable''; NO blades from dirt faces (kill v5 bare-lip drape). Verify
+    at the owner''s exact Redmi vantage, real install flow.'
+  prompt: prompts/phase-Grecharged-grass-overhang6.md
+  validator: validators/phase-Grecharged-grass-overhang6.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-foliage-wind
   name: 'RECHARGED (owner 2026-07-09, backlog): jak1 palm leaves + shrubs are completely static — add light wind wobble/sway
     so foliage reacts to a light breeze; "FOLIAGE WIND"-style toggle in Recharged Settings, default OFF=stock (byte-identical
