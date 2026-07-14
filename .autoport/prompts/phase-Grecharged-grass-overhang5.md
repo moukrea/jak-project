@@ -19,3 +19,12 @@ it. THEN find why overhang4's changes don't manifest through that pipeline (gras
 overlay path? toggle/settings seeding? shader actually compiled into the shipped libgk?). Fix, and PROVE
 it via the same real-install flow with before/after captures. Edge stack LOCKED, OFF==stock.
 Max: max_turns 3000, max_retries 6.
+
+## SUPERVISOR HANDOFF (2026-07-14 11:50 — attempt 3 interrupted for the fable profile switch, NOT a failure)
+Attempt 3 state, PRESERVED in the supervisor WIP snapshot commit: a fix landed in GrassBakeCore.cpp/.h +
+grass.vert; the external jak1_assets.zip was rebuilt and its grassbake sha VERIFIED matching the fix; the
+real-flow proof (slim APK install + boot + before/after captures) was in flight when interrupted.
+ATTEMPT 4: resume from that commit — do NOT re-diagnose from scratch. Also: attempts 1-2 burned most of
+their budget on warp/foreground logistics (warp_ok=0 loops with the game NOT foregrounded — see
+diag/goverhang5_diag.txt); reuse the working capture harness from attempt 3's before/ + after/ runs and
+verify mCurrentFocus before every capture. Finish the real-flow proof, write the honest report, validator.
