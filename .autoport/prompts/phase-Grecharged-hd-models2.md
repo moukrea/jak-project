@@ -44,3 +44,19 @@ discriminator, all three where possible:
 3. A same-vantage ON/OFF pair where the silhouette/mesh density difference is unambiguous (zoomed).
 A capture without its discriminators is NOT evidence. If the HD model was in fact NOT loading, THAT is
 the bug to fix first (toggle seeding / custom_assets path / fr3 selection), before any quality claim.
+
+## OWNER HINTS (2026-07-14 14:05, verbatim — test BOTH before anything else)
+"Je pense que les textures sont pas bonnes, tu n'as pas pris celles du modèle HD je pense. Aussi, le
+squelette, peut-être qu'il faut même pas retargetter, t'as pas essayé !"
+
+1. TEXTURES: verify you ripped the HD model's OWN texture set (the intro-cutscene actors carry their own
+   hi-res textures in their DGO/level texture pages). If the drop-in reuses stock jak1 texture ids or the
+   wrong page, the mesh will read flat/low-poly even when loaded. Prove it: dump the texture list bound by
+   the HD mesh in the rip vs what the game binds at runtime (texture names/ids in the same run as the
+   frame), and show a textured offline render matching the jak2 intro look.
+2. NO-RETARGET FIRST: the round-1 "ZERO direct rig fits" prestudy was measured on the WRONG (in-game
+   highres) models. With the CORRECT intro-cutscene models, TRY THE DIRECT DROP-IN FIRST: keep the
+   model's own skin/joints as ripped, and test whether jak1's anims drive it as-is (the intro cast is the
+   jak1-look cast — its rig may match jak1's layout or be trivially compatible). Only if the direct
+   drop-in provably deforms wrong (evidence: specific joints, specific frames) fall back to name-based
+   remap. Document the joint-count/name comparison for the CORRECT models in the report.
