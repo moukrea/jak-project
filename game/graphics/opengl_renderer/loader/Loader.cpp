@@ -7,6 +7,7 @@
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
 
+#include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
 
 #include "third-party/imgui/imgui.h"
@@ -162,6 +163,36 @@ void Loader::draw_debug_window() {
   ImGui::End();
 }
 
+// Grecharged-hd-models: read the persisted ENHANCED MODELS choice straight from pc-settings.gc. The
+// common FR3 (HD Jak+Daxter) loads in the renderer ctor (via load_common) BEFORE GOAL's per-frame push,
+// so we seed the flag here to respect the toggle on relaunch. Shared by desktop + Android (both call
+// Loader::load_common). Missing file / #f -> false -> stock.
+static bool read_persisted_enhanced_models() {
+  try {
+    auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "pc-settings.gc";
+    if (!file_util::file_exists(p.string())) {
+      return false;
+    }
+    auto txt = file_util::read_text_file(p);
+    return txt.find("recharged-enhanced-models? #t") != std::string::npos;
+  } catch (...) {
+    return false;
+  }
+}
+
+// Grecharged-hd-models: resolve a level's FR3 path, preferring an enhanced (jak2 HD) variant under
+// fr3/enhanced/ when the ENHANCED MODELS toggle is on AND that file exists. Off / missing -> stock
+// path, so OFF is byte-identical to stock.
+static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
+  if (Gfx::g_global_settings.recharged_enhanced_models) {
+    auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
+    if (file_util::file_exists(enhanced.string())) {
+      return enhanced;
+    }
+  }
+  return base / fmt::format("{}.fr3", name);
+}
+
 /*!
  * Loader function that runs in a completely separate thread.
  * This is used for file I/O and unpacking.
@@ -187,7 +218,7 @@ void Loader::loader_thread() {
       // load the fr3 file
       prof().begin_event("read-file");
       Timer disk_timer;
-      auto data = file_util::read_binary_file(m_base_path / fmt::format("{}.fr3", lev));
+      auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, lev));
       double disk_load_time = disk_timer.getSeconds();
       prof().end_event();
 
@@ -257,7 +288,10 @@ void Loader::loader_thread() {
  * This should be called during initialization, before any threaded loading goes on.
  */
 const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::string& name) {
-  auto data = file_util::read_binary_file(m_base_path / fmt::format("{}.fr3", name));
+  // Grecharged-hd-models: seed the enhanced-models flag before the common FR3 (HD Jak+Daxter) is read,
+  // since this runs in the renderer ctor before GOAL's per-frame push. Shared by desktop + Android.
+  Gfx::g_global_settings.recharged_enhanced_models = read_persisted_enhanced_models();
+  auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, name));
 
   auto decomp_data = compression::decompress_zstd(data.data(), data.size());
   Serializer ser(decomp_data.data(), decomp_data.size());

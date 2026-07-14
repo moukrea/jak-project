@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 202,
+  "current_phase_idx": 203,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -196,7 +196,8 @@
     "Grecharged-grass-overhang3": 2,
     "Gjak1-shadow-cast": 2,
     "Grecharged-external-assets": 1,
-    "Grecharged-grass-overhang4": 2
+    "Grecharged-grass-overhang4": 2,
+    "Grecharged-hd-models": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -594,7 +595,8 @@
     "Grecharged-grass-wear",
     "Grecharged-grass-overhang3",
     "Gjak1-shadow-cast",
-    "Grecharged-external-assets"
+    "Grecharged-external-assets",
+    "Grecharged-grass-overhang4"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -777,9 +779,10 @@
     "Grecharged-grass-overhang3": 1783971742.5721552,
     "Gjak1-shadow-cast": 1783975967.8912437,
     "Grecharged-external-assets": 1783978916.4218605,
-    "Grecharged-grass-overhang4": 1783986348.8569052
+    "Grecharged-grass-overhang4": 1783986348.8569052,
+    "Grecharged-hd-models": 1783993693.8224719
   },
-  "last_update": "2026-07-14T01:35:22.240595+00:00",
+  "last_update": "2026-07-14T05:29:09.557213+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -844,7 +847,8 @@
     "Grecharged-grass-overhang3",
     "Gjak1-shadow-cast",
     "Grecharged-external-assets",
-    "Grecharged-grass-overhang4"
+    "Grecharged-grass-overhang4",
+    "Grecharged-hd-models"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

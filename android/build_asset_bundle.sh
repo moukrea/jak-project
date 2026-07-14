@@ -115,7 +115,11 @@ fail(){ echo "[asset-bundle] FATAL: $*" >&2; exit 1; }
 [ -d "$ISO_BUILD" ]  || fail "no $ISO_BUILD — run the PC extract/build first"
 [ -d "$FR3_BUILD" ]  || fail "no $FR3_BUILD — run the PC fr3 build first"
 if [ -z "$VERSION" ]; then
-  VERSION="c$( (find "$ISO_BUILD" -maxdepth 1 -type f -print0; find "$FR3_BUILD" -maxdepth 1 -type f \( -name '*.fr3' -o -name '*.grassbake' \) -print0) | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
+  # Grecharged-hd-models: also hash the OPTIONAL out/<game>/fr3/enhanced/*.fr3 overlay so a
+  # change to the enhanced HD set (or first appearance of it) bumps the content-derived
+  # version -> forces re-extraction. Absent enhanced/ => the extra find matches nothing =>
+  # version unchanged vs the stock build (backward compatible).
+  VERSION="c$( (find "$ISO_BUILD" -maxdepth 1 -type f -print0; find "$FR3_BUILD" -maxdepth 1 -type f \( -name '*.fr3' -o -name '*.grassbake' \) -print0; find "$FR3_BUILD/enhanced" -maxdepth 1 -type f -name '*.fr3' -print0 2>/dev/null) | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
 fi
 [ -d "$ARM64_CODE" ] || fail "no $ARM64_CODE — run .autoport/build_arm64_full_consistent.sh first (need the consistent arm64 CGO/DGO set)"
 # jak1 REQUIRES the android title-prompt overlay banks — matches the HARD-fail
@@ -157,13 +161,21 @@ N_FR3=$(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3' | wc -l | tr -d ' ')
 # ride the fr3/ zip path but are NOT part of the fixed fr3 completeness set. Count them
 # from disk so the file_count staleness gate stays exact when a bake is added/changed.
 N_GRASSBAKE_EXPECTED=$(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.grassbake' | wc -l | tr -d ' ')
+# Grecharged-hd-models: OPTIONAL enhanced-HD FR3 overlay. build_enhanced_models.sh
+# regenerates the 3 HD-swapped level packs into out/<game>/fr3/enhanced/ (base fr3/ stays
+# stock). They ride the SAME fr3/ zip path under the enhanced/ SUBDIR so LoaderActivity
+# lands them at out/<game>/fr3/enhanced/<name>.fr3, where the runtime get_fr3_dir()/enhanced/
+# lookup finds them behind the toggle. Present only when the enhanced bake ran (gated on
+# jak2 assets) — so this count is 0 in the stock build and the bundle is unchanged.
+ENHANCED_DIR="$FR3_BUILD/enhanced"
+N_ENHANCED_EXPECTED=$(find "$ENHANCED_DIR" -maxdepth 1 -type f -name '*.fr3' 2>/dev/null | wc -l | tr -d ' ')
 # Grecharged-hud: the recharged HUD sprite PNGs are bundled for jak1 only. Count
 # them from disk (like N_ISO/N_FR3) so the HARD completeness gate below stays exact.
 N_RHUD_EXPECTED=0
 if [ "$GAME" = "jak1" ]; then
   N_RHUD_EXPECTED=$(find "$ROOT/recharged_assets" -maxdepth 1 -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
 fi
-WANT_FC=$((N_ISO + N_FR3 + N_GRASSBAKE_EXPECTED + N_RHUD_EXPECTED))
+WANT_FC=$((N_ISO + N_FR3 + N_GRASSBAKE_EXPECTED + N_ENHANCED_EXPECTED + N_RHUD_EXPECTED))
 
 mkdir -p "$OUT_DIR"
 
@@ -249,6 +261,28 @@ else
   echo "[asset-bundle] no .grassbake tables staged (grass precompute optional)"
 fi
 
+# 3a-bis. Grecharged-hd-models: OPTIONAL enhanced-HD FR3 overlay. build_enhanced_models.sh
+#     writes the 3 HD-swapped level packs to out/<game>/fr3/enhanced/ (the base fr3/ stays
+#     STOCK). Stage them under STAGE/fr3/enhanced/ so `zip -r` stores them at the relative
+#     path fr3/enhanced/<name>.fr3 -> unpacks to <external_root>/assets/fr3/enhanced/ on
+#     device, where the runtime get_fr3_dir()/enhanced/ lookup finds them behind the toggle.
+#     Present ONLY when the enhanced bake ran (gated on jak2 assets); when absent this loop
+#     is a no-op and the bundle is byte-identical to the stock build (backward compatible).
+N_ENHANCED=0
+if [ -d "$ENHANCED_DIR" ]; then
+  mkdir -p "$STAGE/fr3/enhanced"
+  while IFS= read -r f; do
+    ln -s "$ROOT/$f" "$STAGE/fr3/enhanced/$(basename "$f")"
+    N_ENHANCED=$((N_ENHANCED + 1))
+  done < <(find "$ENHANCED_DIR" -maxdepth 1 -type f -name '*.fr3')
+fi
+if [ "$N_ENHANCED" -gt 0 ]; then
+  echo "[asset-bundle] staged $N_ENHANCED enhanced-HD FR3 overlay pack(s) under fr3/enhanced/:"
+  find "$ENHANCED_DIR" -maxdepth 1 -type f -name '*.fr3' -printf '    enhanced/%f (%s bytes)\n'
+else
+  echo "[asset-bundle] no enhanced-HD FR3 overlay staged (enhanced HD bake optional)"
+fi
+
 # 3b. Recharged HUD sprites (jak1): land verbatim under filesDir/recharged_assets/
 #     (Grecharged-hud). LoaderActivity maps recharged_assets/* alongside iso_data/fr3.
 N_RHUD=0
@@ -263,12 +297,18 @@ fi
 
 # --- HARD completeness + consistency gates (the false-green guard) ---
 got_iso=$(find -L "$STAGE/iso_data/$GAME" -type f | wc -l | tr -d ' ')
-# Count only *.fr3 for the completeness gate — optional *.grassbake tables also live
-# in STAGE/fr3 but are not part of the fixed >=26 fr3 set (Grecharged-grass-precompute-mode).
-got_fr3=$(find -L "$STAGE/fr3" -type f -name '*.fr3' | wc -l | tr -d ' ')
+# Count only TOP-LEVEL *.fr3 for the completeness gate — optional *.grassbake tables also
+# live in STAGE/fr3 but are not part of the fixed >=26 fr3 set (Grecharged-grass-precompute-mode),
+# and the optional enhanced-HD overlay lives in STAGE/fr3/enhanced/ (counted separately below),
+# so -maxdepth 1 keeps this gate on exactly the base stock set.
+got_fr3=$(find -L "$STAGE/fr3" -maxdepth 1 -type f -name '*.fr3' | wc -l | tr -d ' ')
+# Grecharged-hd-models: staged enhanced overlay count must match the on-disk expectation
+# (0 in a stock build; N_ENHANCED_EXPECTED otherwise).
+got_enhanced=$(find -L "$STAGE/fr3/enhanced" -maxdepth 1 -type f -name '*.fr3' 2>/dev/null | wc -l | tr -d ' ')
 [ "$got_iso" -eq "$N_ISO" ] || fail "iso incomplete: staged $got_iso != full $N_ISO"
 [ "$got_fr3" -eq "$N_FR3" ] || fail "fr3 incomplete: staged $got_fr3 != full $N_FR3 (slim regression?)"
 [ "$got_fr3" -ge 26 ]       || fail "fr3 looks slim ($got_fr3 < 26) — the bundle MUST ship the full fr3 set"
+[ "$got_enhanced" -eq "$N_ENHANCED_EXPECTED" ] || fail "enhanced-HD overlay incomplete: staged $got_enhanced != expected $N_ENHANCED_EXPECTED"
 # Grecharged-hud: staged recharged sprite count must match the on-disk expectation
 # (jak1 only; N_RHUD_EXPECTED is 0 for other games so this is a no-op there).
 if [ "$GAME" = "jak1" ]; then
@@ -281,7 +321,7 @@ k_x86=$(md5sum "$ISO_BUILD/KERNEL.CGO"  | cut -d' ' -f1)
 k_stg=$(md5sum "$STAGE/iso_data/$GAME/KERNEL.CGO" | cut -d' ' -f1)
 [ "$k_stg" = "$k_arm" ]  || fail "staged KERNEL.CGO != arm64 build (mixed/stale code)"
 [ "$k_stg" != "$k_x86" ] || fail "staged KERNEL.CGO == x86 oracle (would SIGILL on the arm64 device)"
-echo "[asset-bundle] completeness OK: iso=$got_iso (==$N_ISO) fr3=$got_fr3 (==$N_FR3); arm64 CGO/DGO verified."
+echo "[asset-bundle] completeness OK: iso=$got_iso (==$N_ISO) fr3=$got_fr3 (==$N_FR3) enhanced=$got_enhanced (==$N_ENHANCED_EXPECTED); arm64 CGO/DGO verified."
 
 # Raw totals (dereferenced) drive the device progress bar + storage precheck + integrity check.
 RAW_BYTES=$(find -L "$STAGE" -type f -printf '%s\n' | awk '{s+=$1} END{print s+0}')

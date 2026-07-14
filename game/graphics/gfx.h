@@ -160,6 +160,11 @@ struct GfxGlobalSettings {
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).
   float recharged_jak_ledge[4] = {0.f, 0.f, 0.f, 0.f};
+  // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
+  // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded
+  // in C++ from persisted pc-settings before the common FR3 loads, then kept live by the GOAL push.
+  // false = stock (byte-identical). Only meaningful when the build ships the enhanced FR3 set.
+  bool recharged_enhanced_models = false;
 };
 
 namespace Gfx {

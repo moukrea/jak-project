@@ -576,6 +576,14 @@ void pc_set_grass_overhang(u32 on) {
   Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
 }
 
+// Grecharged-hd-models: push the "enhanced models" on/off toggle from GOAL
+// (-> *pc-settings* recharged-enhanced-models?). 0 = off (stock low-poly). Applies live to
+// village FR3 (Samos/Keira); the common FR3 (Jak/Daxter) is seeded from persisted settings at
+// renderer init, so toggling those takes effect on relaunch.
+void pc_set_recharged_enhanced_models(u32 on) {
+  Gfx::g_global_settings.recharged_enhanced_models = (on != 0);
+}
+
 // Grecharged-grass-poc: push Jak's world position (a GOAL vector, xyzw) each frame
 // so the grass renderer can flatten blades where the player walks. w := 1.0 marks
 // the value valid (GOAL only calls this while *target* exists).
@@ -637,6 +645,15 @@ u64 pc_get_tod_hour() {
     s_cached = -1;
   }
   return (u64)s_cached;
+}
+
+// Grecharged-hd-models: 1 if the build carries the enhanced HD-model FR3 set (fr3/enhanced/GAME.fr3
+// present), else 0. Drives the ENHANCED MODELS menu-row visibility so the toggle only appears when
+// jak2 assets were available at build time. Works on x86 and Android (get_fr3_dir already resolves the
+// unpacked external asset root on device).
+u64 pc_get_enhanced_models_available() {
+  auto p = file_util::get_fr3_dir(GameVersion::Jak1) / "enhanced" / "GAME.fr3";
+  return file_util::file_exists(p.string()) ? 1 : 0;
 }
 
 // Grecharged-grass-poc ROUND#21d: ground-actor positions from GOAL (the pc-set-jak-pos! pattern —
@@ -707,6 +724,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
+  // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
+  make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);
+  make_function_symbol_from_c("pc-enhanced-models-available?", (void*)pc_get_enhanced_models_available);
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point
   make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);

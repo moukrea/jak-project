@@ -453,6 +453,7 @@
     (("recharged-grass-density") (set! (-> obj recharged-grass-density) (file-stream-read-float file)))
     (("recharged-grass-precomputed?") (set! (-> obj recharged-grass-precomputed?) (file-stream-read-symbol file)))
     (("recharged-grass-overhang?") (set! (-> obj recharged-grass-overhang?) (file-stream-read-symbol file)))
+    (("recharged-enhanced-models?") (set! (-> obj recharged-enhanced-models?) (file-stream-read-symbol file)))
     (("load-custom-assets?")
      (set! (-> obj load-custom-assets?) (file-stream-read-symbol file))
      ;; Gload-custom-assets: apply the persisted flag at settings-load (boot) time so the choice
@@ -500,6 +501,7 @@
   (format file "  (recharged-grass-density ~f)~%" (-> obj recharged-grass-density))
   (format file "  (recharged-grass-precomputed? ~A)~%" (-> obj recharged-grass-precomputed?))
   (format file "  (recharged-grass-overhang? ~A)~%" (-> obj recharged-grass-overhang?))
+  (format file "  (recharged-enhanced-models? ~A)~%" (-> obj recharged-enhanced-models?))
   (format file "  (load-custom-assets? ~A)~%" (-> obj load-custom-assets?))
   (format file "  (skip-movies? ~A)~%" (-> obj skip-movies?))
   (format file "  (subtitles? ~A)~%" (-> obj subtitles?))

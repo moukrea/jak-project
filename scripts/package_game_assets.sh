@@ -83,10 +83,22 @@ while IFS= read -r -d '' f; do
   printf 'iso/%s\t%s\n' "$base" "$ROOT/$f" >> "$INDEX"
 done < <(find "$ISO_DIR" -maxdepth 1 -type f -print0)
 
-# fr3/<file> for every file in out/<game>/fr3
+# fr3/<file> for every file in out/<game>/fr3 (TOP LEVEL — the base stock set;
+# the optional enhanced/ subdir is swept separately below so its relative path is kept).
 while IFS= read -r -d '' f; do
   printf 'fr3/%s\t%s\n' "$(basename "$f")" "$ROOT/$f" >> "$INDEX"
 done < <(find "$FR3_DIR" -maxdepth 1 -type f -print0)
+
+# Grecharged-hd-models: OPTIONAL enhanced-HD FR3 overlay (out/<game>/fr3/enhanced/*.fr3,
+# written by scripts/shell/build_enhanced_models.sh). Ship it under the relative in-zip
+# path fr3/enhanced/<file> so it unpacks alongside the base set and the runtime's
+# get_fr3_dir()/enhanced/ lookup finds it. Absent enhanced/ => this loop is a no-op and
+# the archive is byte-identical to the stock build (backward compatible).
+if [ -d "$FR3_DIR/enhanced" ]; then
+  while IFS= read -r -d '' f; do
+    printf 'fr3/enhanced/%s\t%s\n' "$(basename "$f")" "$ROOT/$f" >> "$INDEX"
+  done < <(find "$FR3_DIR/enhanced" -maxdepth 1 -type f -name '*.fr3' -print0)
+fi
 
 # recharged_assets/<file>.png (jak1 HUD), if the dir exists
 N_RHUD=0

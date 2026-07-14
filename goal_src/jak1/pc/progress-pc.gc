@@ -791,7 +791,20 @@
               (pc-set-load-custom-assets! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 3 Back
+       ;; 3 ENHANCED MODELS (Grecharged-hd-models) on-off toggle. Loads jak2 detailed character models
+       ;; (Jak/Daxter/Samos/Keira, jak1-look) in place of the stock low-poly meshes. Real label via
+       ;; *enhanced-models-label*; value bound to *pc-settings* recharged-enhanced-models? in
+       ;; init-game-options, where the row is HIDDEN unless the build ships the enhanced FR3 set
+       ;; (pc-enhanced-models-available?). on-change persists + pushes to the loader (relaunch to apply
+       ;; to Jak/Daxter — they live in the always-loaded common FR3; village NPCs apply on level reload).
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-enhanced-models?) (the-as symbol val))
+              (pc-set-recharged-enhanced-models! (if val 1 0))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 4 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
@@ -899,6 +912,10 @@
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 (define *load-custom-assets-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *load-custom-assets-label*) "LOAD CUSTOM ASSETS")
+;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
+;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
+(define *enhanced-models-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *enhanced-models-label*) "ENHANCED MODELS")
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
@@ -2981,6 +2998,16 @@
   ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 2) inside the Recharged submenu.
   (set! (-> *recharged-options-pc* 2 value-to-modify) (&-> *pc-settings* load-custom-assets?))
   (set! (-> *recharged-options-pc* 2 name-override) *load-custom-assets-label*)
+  ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row 3) only when the build ships the
+  ;; enhanced FR3 set; otherwise collapse the row (move Back from slot 4 into slot 3 and drop the live
+  ;; length to 4, so it disappears — renderer + nav key off (length arr)). Idempotent across re-inits.
+  (if (zero? (pc-enhanced-models-available?))
+      (when (= (-> *recharged-options-pc* length) 5)
+        (set! (-> *recharged-options-pc* 3) (-> *recharged-options-pc* 4))
+        (set! (-> *recharged-options-pc* length) 4))
+      (begin
+        (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-enhanced-models?))
+        (set! (-> *recharged-options-pc* 3 name-override) *enhanced-models-label*)))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
