@@ -140,8 +140,14 @@ void main() {
   //            stock else-branch bit-identical when OFF (nspare unread). Its CARD still draws.
   //   2        droop hang blade (tail; nx/ny/nz = SMOOTH normal, shader derives the down-slope + clamp).
   //   5+w      COMB REPLACEMENT twin (tail; nx/ny/nz = SMOOTH normal, w = nsp-5).
-  bool is_tail  = nsp > 1.5;              // droop OR comb replacement (toggle-gated tail)
+  bool is_tail  = nsp > 1.5;              // droop OR comb replacement OR rim-drape (toggle-gated tail)
   bool is_droop = nsp > 1.5 && nsp < 2.5; // hanging droop (skips occ/trample)
+  // Grecharged-grass-overhang5 RIM-DRAPE (nspare == 3): 3D grass rooted ON a walkable-top drop-off lip
+  // edge, curling OUTWARD over the convex edge and hanging DOWN the drop face. inst_normal.xz = the
+  // unit OUTWARD horizontal dir; inst_pos.w (H) = drape reach/drop scale. Toggle-gated tail (drawn only
+  // ON), NEAR-LOD only (card pass collapses it -> far = original alpha overhang texture), skips
+  // occ/trample and the surface half-space clamp (its arc is self-contained over the void).
+  bool is_rimdrape = nsp > 2.5 && nsp < 4.5;
   bool is_repl  = nsp > 4.5;             // comb replacement twin (skips occ/trample; drawn only ON)
   float comb_w  = is_repl ? clamp(nsp - 5.0, 0.0, 1.0) : 0.0;
   bool is_comb_orig = nsp < -0.5;        // comb-tagged walkable original
@@ -247,9 +253,9 @@ void main() {
 #define OC_STEP(i) if (i < u_occ_count) { vec2 od = base.xz - u_occ[i].xz; float yd = base.y - u_occ[i].y; if (dot(od, od) < u_occ[i].w * u_occ[i].w && yd > -1.2 * 4096.0 && yd < 1.0 * 4096.0) { occ_cull = true; } }
   OC_STEP(0) OC_STEP(1) OC_STEP(2) OC_STEP(3) OC_STEP(4) OC_STEP(5) OC_STEP(6) OC_STEP(7)
 #undef OC_STEP
-  // (droop blades hang on the lip faces past the walkable edge — object culls/tramples are a
-  // walkable-top concern and must not collapse or bend them, so droop skips both.)
-  if (occ_cull && !is_droop) {
+  // (droop AND rim-drape blades hang on/over the lip past the walkable edge — object culls/tramples are
+  // a walkable-top concern and must not collapse or bend them, so both skip it.)
+  if (occ_cull && !is_droop && !is_rimdrape) {
     if (u_debug == 4) {
       dbg_occ = 1.0;  // forensic: mark, don't collapse
     } else {
@@ -428,6 +434,28 @@ void main() {
           + axis * cgrow
           + fwdv * fwd
           + trample * t;
+    } else if (is_rimdrape) {
+      // Grecharged-grass-overhang5 RIM-DRAPE arc: rooted at the lip edge (t=0), rises slightly to clear
+      // the convex edge, then curls OUTWARD and DOWN (parabolic: +rise*s early, -drop*s^2 at the tip)
+      // so the blade hangs over the drop face. outw = baked unit outward horizontal dir; widthax is
+      // horizontal, perpendicular to it. reach/drop scale with H (baked drape length); nearf collapses
+      // the arc within ~1.1 m of the camera (Adreno fill guard). Pure mads; no world-up growth, no
+      // trample, no surface clamp — the arc is self-contained over the void.
+      float dlen = clamp(u_droop_len, 0.1, 1.5);
+      vec3 outw = normalize(vec3(inst_normal.x, 0.0, inst_normal.z) + vec3(1e-5, 0.0, 0.0));
+      vec3 widthax = normalize(cross(vec3(0.0, 1.0, 0.0), outw));
+      float s = t;
+      float ess = s * s * (3.0 - 2.0 * s);            // smoothstep(0,1,s)
+      float reach = H * 0.55 * dlen;                  // how far OUT over the edge
+      float drop  = H * 1.35 * dlen;                  // how far DOWN it hangs at the tip
+      float rise  = H * 0.35;                          // initial lift up over the convex edge
+      float outAmt  = reach * ess;
+      float vertAmt = rise * s - drop * s * s;         // + up early, - down at the tip
+      float dsway = sin(gust * 0.8) * s * s * 0.06 * H * nearf;
+      pos = base
+          + outw * (outAmt * nearf)
+          + vec3(0.0, vertAmt * nearf, 0.0)
+          + widthax * ((float(side) * 2.0 - 1.0) * hw + dsway);
     } else {
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
@@ -583,8 +611,10 @@ void main() {
   // INCLUDING the dynamic sway/trample — is projected back onto the OUTER side of the base's tangent
   // plane (the smooth normal inst_normal.xyz), so nothing dips through the host surface. Mirrors the
   // bake plane-cap's rest-pose clamp; pure mads, one data-independent branch. Walkable blades (not
-  // is_tail) carry a face normal here and are untouched.
-  if (is_tail) {
+  // is_tail) carry a face normal here and are untouched. Grecharged-grass-overhang5: rim-drape is
+  // EXCLUDED — its inst_normal is a horizontal OUTWARD dir (not a surface plane normal) and its arc is
+  // self-contained over the void, so the tangent-plane clamp does not apply to it.
+  if (is_droop || is_repl) {
     float dpl = dot(pos - base, inst_normal.xyz);
     if (dpl < 0.0) pos -= inst_normal.xyz * dpl;
   }

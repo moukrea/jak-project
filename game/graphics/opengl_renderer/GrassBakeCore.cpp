@@ -1423,6 +1423,43 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
              (int)sverts.size(), (int)bake_tris.size(), smoothed);
   }
 
+  // Grecharged-grass-overhang5: collect the walkable-top TRUE-RIM edges (drop-off lips) with their
+  // outward horizontal direction + owning tri, for the rim-drape pass in expand(). Reuses the same
+  // boundary-edge flags (r.bAB/bBC/bCA) the LOCKED edge clamp already computed above — purely additive,
+  // no change to walkable placement, rim distances or the droop/comb tail.
+  std::vector<RimDrapeSeg> rimdrape_segs;
+  {
+    const float min_e2 = (RIMDRAPE_MIN_EDGE_M * U) * (RIMDRAPE_MIN_EDGE_M * U);
+    for (size_t tj = 0; tj < tris.size(); ++tj) {
+      const auto& r = tris[tj];
+      if (r.is_dup || r.is_lip) continue;
+      float Ax = r.p0x, Ay = r.p0y, Az = r.p0z;
+      float Bx = r.p0x + r.e1x, By = r.p0y + r.e1y, Bz = r.p0z + r.e1z;
+      float Cx = r.p0x + r.e2x, Cy = r.p0y + r.e2y, Cz = r.p0z + r.e2z;
+      auto add_rd = [&](float ax, float ay, float az, float bx, float by, float bz, float tx,
+                        float tz) {
+        float dex = bx - ax, dey = by - ay, dez = bz - az;
+        if (dex * dex + dey * dey + dez * dez < min_e2) return;  // skip degenerate rim segments
+        float mx = (ax + bx) * 0.5f, mz = (az + bz) * 0.5f;      // edge midpoint (XZ)
+        float ox = mx - tx, oz = mz - tz;                        // away from interior (third) vertex
+        float ol = std::sqrt(ox * ox + oz * oz);
+        if (ol < 1e-4f) return;
+        RimDrapeSeg s;
+        s.ax = ax; s.ay = ay; s.az = az;
+        s.bx = bx; s.by = by; s.bz = bz;
+        s.ox = ox / ol; s.oz = oz / ol;
+        s.gr = r.gr; s.gg = r.gg; s.gb = r.gb;
+        s.tri = (u32)tj;
+        rimdrape_segs.push_back(s);
+      };
+      if (r.bAB) add_rd(Ax, Ay, Az, Bx, By, Bz, Cx, Cz);
+      if (r.bBC) add_rd(Bx, By, Bz, Cx, Cy, Cz, Ax, Az);
+      if (r.bCA) add_rd(Cx, Cy, Cz, Ax, Ay, Az, Bx, Bz);
+    }
+  }
+  lg::info("[recharged-grass] GOVERHANG5 rim-drape: {} true-rim edge segments collected (drape roots)",
+           (int)rimdrape_segs.size());
+
   BakeData out;
   out.level_name = level_name;
   out.tfrag3_version = (u32)tfrag3::TFRAG3_VERSION;
@@ -1435,6 +1472,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   out.rim_q = std::move(rimq_tbl);
   out.droop = std::move(droop_tbl);  // Grecharged-grass-overhang
   out.droop_rims = std::move(droop_rim_segs);  // Grecharged-grass-overhang2 (GBK3)
+  out.rimdrape = std::move(rimdrape_segs);      // Grecharged-grass-overhang5 (GBK6)
   out.stats.considered_draws = considered_draws;
   out.stats.tie_draws = tie_draws;
   out.stats.tris_kept = tris_kept;
@@ -1875,6 +1913,54 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
            "plane_capped={} plane_dropped={} — area-uniform scatter (no rows), per-blade continuous "
            "comb, neighbour-plane capped",
            res.trans_start - res.droop_start, comb_pairs, res.comb_tagged, plane_capped, plane_dropped);
+
+  // ---- Grecharged-grass-overhang5: RIM-DRAPE — 3D grass rooted ON the walkable-top drop-off lips,
+  // curling OUTWARD over the convex edge and hanging DOWN the drop face. This covers the dirt/rock-
+  // faced Sandover terraces that carry NO grass-textured fringe (so the round-4 fringe-face droop
+  // missed them entirely and they read like stock). Blades scatter along each true-rim edge at
+  // RIMDRAPE_PER_M (density-scaled like the lawn). Same toggle-gated tail (after droop_start) as
+  // droop/comb -> drawn only when the overhang toggle is ON, so OFF == stock byte-identical. NEAR-LOD
+  // only: nspare=3 -> the card pass collapses it, and far the original alpha overhang texture shows
+  // (LOD-alpha crossfade). gspare=NO_RIM -> no walkable rim taper touches it.
+  res.rimdrape_start = (int)res.instances.size();
+  int rimdrape_placed = 0;
+  for (size_t si = 0; si < d.rimdrape.size(); ++si) {
+    if (rimdrape_placed >= RIMDRAPE_MAX) break;
+    const auto& s = d.rimdrape[si];
+    float ex = s.bx - s.ax, ey = s.by - s.ay, ez = s.bz - s.az;
+    float elen = std::sqrt(ex * ex + ey * ey + ez * ez);
+    if (elen < 1e-3f) continue;
+    float fn = (elen / U) * RIMDRAPE_PER_M * dens_scale;
+    int n = (int)fn;
+    u32 tseed = ((u32)si * 2654435761u) ^ 0x51D3Au;
+    if (hash_f(tseed + 99u) < (fn - (float)n)) n += 1;
+    if (n < 1) n = 1;
+    for (int i = 0; i < n; ++i) {
+      if (rimdrape_placed >= RIMDRAPE_MAX) break;
+      u32 sd = tseed + (u32)i * 2246822519u;
+      float t = ((float)i + 0.15f + 0.70f * hash_f(sd + 1u)) / (float)n;  // jittered along the edge
+      GrassInstance gi;
+      gi.px = s.ax + ex * t;
+      gi.py = s.ay + ey * t;
+      gi.pz = s.az + ez * t;
+      gi.h = BASE_H * RIMDRAPE_H_MUL * (0.65f + 0.70f * hash_f(sd + 3u));  // drape reach/drop scale
+      gi.yaw = std::atan2(s.ox, s.oz);                                    // (unused by rim-drape math)
+      gi.tint = hash_f(sd + 5u);
+      gi.curve = 0.0f;
+      gi.phase = hash_f(sd + 7u);
+      gi.gr = s.gr; gi.gg = s.gg; gi.gb = s.gb;
+      gi.gspare = 1.0e9f;  // NO_RIM: the drape is the intended overhang; no rim taper
+      gi.nx = s.ox; gi.ny = 0.0f; gi.nz = s.oz;  // OUTWARD horizontal dir (shader curls it over + down)
+      gi.nspare = 3.0f;  // RIM-DRAPE marker (shader: 2.5 < nspare < 4.5)
+      res.instances.push_back(gi);
+      res.inst_tri.push_back(s.tri);
+      rimdrape_placed++;
+    }
+  }
+  res.rimdrape_count = rimdrape_placed;
+  lg::info("[recharged-grass] GOVERHANG5 rim-drape: placed={} over {} rim segments (per_m={:.1f} "
+           "dens_scale={:.2f})",
+           rimdrape_placed, (int)d.rimdrape.size(), RIMDRAPE_PER_M, dens_scale);
   return res;
 }
 
@@ -1891,7 +1977,10 @@ constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
 // Grecharged-grass-overhang4: v5 APPENDS three smooth vertex normals per tri (BakeTri.vn0/vn1/vn2)
 // AND re-defines the instance semantics — droop carries the SMOOTH NORMAL (not the down-slope) in
 // nx/ny/nz, comb is delivered as TAIL REPLACEMENT twins (nspare=5+w). A v4 bake fails the check below.
-constexpr u32 GBK_FORMAT_VERSION = 5;
+// Grecharged-grass-overhang5: v6 APPENDS the RIM-DRAPE section (walkable-top drop-off lip edges +
+// outward dir + owning tri) that expand() turns into the lip-hanging drape (nspare=3). A v5 bake fails
+// the version check -> the runtime's LIVE-scan fallback rebuilds it (scan_level also fills rimdrape).
+constexpr u32 GBK_FORMAT_VERSION = 6;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {
@@ -1980,6 +2069,23 @@ bool save_bake(const BakeData& d, const std::string& path) {
     put<float>(buf, s.bx);
     put<float>(buf, s.by);
     put<float>(buf, s.bz);
+  }
+
+  // Grecharged-grass-overhang5 (GBK6): rim-drape lip-edge section.
+  put<u32>(buf, (u32)d.rimdrape.size());
+  for (const auto& s : d.rimdrape) {
+    put<float>(buf, s.ax);
+    put<float>(buf, s.ay);
+    put<float>(buf, s.az);
+    put<float>(buf, s.bx);
+    put<float>(buf, s.by);
+    put<float>(buf, s.bz);
+    put<float>(buf, s.ox);
+    put<float>(buf, s.oz);
+    put<float>(buf, s.gr);
+    put<float>(buf, s.gg);
+    put<float>(buf, s.gb);
+    put<u32>(buf, s.tri);
   }
 
   std::vector<u8> comp = compression::compress_zstd(buf.data(), buf.size());
@@ -2111,6 +2217,28 @@ bool load_bake(BakeData& d, const std::string& path) {
     if (!get(buf, off, s.ax) || !get(buf, off, s.ay) || !get(buf, off, s.az) ||
         !get(buf, off, s.bx) || !get(buf, off, s.by) || !get(buf, off, s.bz)) {
       lg::warn("[recharged-grass] load_bake: truncated droop_rims[] in '{}'", path);
+      return false;
+    }
+  }
+
+  // Grecharged-grass-overhang5 (GBK6): rim-drape lip-edge section.
+  u32 nrd = 0;
+  if (!get(buf, off, nrd)) {
+    lg::warn("[recharged-grass] load_bake: truncated rim-drape count in '{}'", path);
+    return false;
+  }
+  tmp.rimdrape.resize(nrd);
+  for (u32 i = 0; i < nrd; ++i) {
+    RimDrapeSeg& s = tmp.rimdrape[i];
+    if (!get(buf, off, s.ax) || !get(buf, off, s.ay) || !get(buf, off, s.az) ||
+        !get(buf, off, s.bx) || !get(buf, off, s.by) || !get(buf, off, s.bz) ||
+        !get(buf, off, s.ox) || !get(buf, off, s.oz) || !get(buf, off, s.gr) ||
+        !get(buf, off, s.gg) || !get(buf, off, s.gb) || !get(buf, off, s.tri)) {
+      lg::warn("[recharged-grass] load_bake: truncated rimdrape[] in '{}'", path);
+      return false;
+    }
+    if (s.tri >= ntris) {
+      lg::warn("[recharged-grass] load_bake: rimdrape tri index out of range in '{}'", path);
       return false;
     }
   }

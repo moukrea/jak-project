@@ -196,6 +196,21 @@ constexpr float DROOP_AREA_DENS = 130.0f;  // droop blades per m^2 of fringe/lip
 constexpr float PLANE_CLEAR_M = 0.02f;     // rest tip must clear every nearby tri plane by this
 constexpr float SHADER_TILT_DEFAULT = 0.30f;  // u_tilt the rest-pose plane cap assumes
 
+// Grecharged-grass-overhang5 (owner 2026-07-14: shipped-APK play-test — overhang STILL reads like
+// stock, precompute ON or OFF no difference). ROOT CAUSE (device-confirmed): rounds 1-4 place droop
+// only on steep GRASS-TEXTURED "fringe" faces (upness <= GROUND_UPNESS). The stepped Sandover
+// TERRACES the owner actually looks at have DIRT/ROCK faces — no grass-textured fringe — so they get
+// ZERO droop and render identical to stock. Round 5 adds an independent RIM-DRAPE pass: 3D grass
+// rooted ON the walkable-grass TRUE-RIM edges (the drop-off lips, boundary edges of placed walkable
+// tris — already computed for the LOCKED edge clamp), curling OUTWARD over the convex lip and hanging
+// DOWN the face regardless of what texture the face carries. Toggle-gated TAIL (nspare=3) so OFF ==
+// stock byte-identical; NEAR-LOD only (the card pass collapses it -> far shows the original alpha
+// overhang texture, LOD-alpha crossfade); the walkable-top rim clamp is untouched (additive pass).
+constexpr float RIMDRAPE_PER_M = 6.0f;     // drape blades per metre of true-rim edge
+constexpr int   RIMDRAPE_MAX = 120000;     // hard ceiling for the whole rim-drape pass
+constexpr float RIMDRAPE_H_MUL = 1.9f;     // drape length scale (× BASE_H); shader reach=0.55H drop=1.35H
+constexpr float RIMDRAPE_MIN_EDGE_M = 0.06f;  // skip degenerate/near-zero rim segments
+
 // Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
 // the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.
 // The tfrag/TIE renderers fade draws using these textures out near the camera while the overhang
@@ -254,6 +269,17 @@ struct DroopRimSeg {
   float ax, ay, az, bx, by, bz;
 };
 
+// Grecharged-grass-overhang5: a true-rim (walkable-top drop-off lip) edge segment with its scan-
+// resolved OUTWARD horizontal direction (unit XZ, away from the platform interior) and the owning
+// walkable tri's baked ground colour + index (for per-instance light). expand() scatters rim-drape
+// blades ALONG the segment; each roots at the lip and curls outward+down over the edge.
+struct RimDrapeSeg {
+  float ax, ay, az, bx, by, bz;  // edge endpoints (world GOAL units)
+  float ox, oz;                  // unit outward XZ direction (away from interior, over the drop)
+  float gr, gg, gb;              // owning walkable tri ground colour
+  u32 tri;                       // owning walkable tri index (into BakeData::tris) for light sampling
+};
+
 struct BakeStats {
   int considered_draws = 0, tie_draws = 0, tris_kept = 0, giant_tris = 0;
   float max_area = 0.f;
@@ -274,6 +300,7 @@ struct BakeData {
   std::vector<u16> rim_q;         // per candidate: quantized rim_dist; 0xFFFF = NO_RIM/far
   std::vector<DroopTri> droop;    // Grecharged-grass-overhang: droop faces + outward dirs (GBK2)
   std::vector<DroopRimSeg> droop_rims;  // Grecharged-grass-overhang2: droop-zone rim segments (GBK3)
+  std::vector<RimDrapeSeg> rimdrape;    // Grecharged-grass-overhang5: walkable-top drop-off lip edges (GBK6)
   BakeStats stats;
 };
 
@@ -325,6 +352,9 @@ struct ExpandResult {
   int comb_pairs = 0;
   int plane_capped = 0;
   int plane_dropped = 0;
+  // Grecharged-grass-overhang5: rim-drape blades sit in the same toggle-gated tail (after droop_start).
+  int rimdrape_start = 0;       // == instances.size() when there is no rim-drape
+  int rimdrape_count = 0;       // census
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 
