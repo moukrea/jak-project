@@ -230,6 +230,13 @@ struct BakeTri {
   u32 cand_count;             // candidates enumerated at bake_density_pct
   u64 cand_base;              // first candidate index in keep[]/rim_q[]
   u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON)
+  // Grecharged-grass-overhang4 (GBK5): SMOOTH vertex normals — the area-weighted average of the
+  // adjacent face normals at each of the tri's three (welded) vertices, computed once over the whole
+  // retained soup (walkable + lip + fringe) at bake time. expand() interpolates these barycentrically
+  // at every blade base, so the comb tilt weight and the droop drape direction are CONTINUOUS across
+  // every tri border (no per-tri state -> no seams, defect 2). Computed on x86 at bake, read verbatim
+  // on device (no cross-platform weld); a v4 bake fails the version check and falls back to live scan.
+  float vn0[3], vn1[3], vn2[3];  // smooth normal at p0, p0+e1, p0+e2 (unit, ny>=0-oriented like nx/ny/nz)
 };
 
 // Grecharged-grass-overhang: one droop-placement face (a lip or fringe tri) with its scan-resolved

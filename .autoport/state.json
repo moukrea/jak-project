@@ -196,7 +196,7 @@
     "Grecharged-grass-overhang3": 2,
     "Gjak1-shadow-cast": 2,
     "Grecharged-external-assets": 1,
-    "Grecharged-grass-overhang4": 1
+    "Grecharged-grass-overhang4": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -395,6 +395,9 @@
     ],
     "Gjak1-shadow-cast": [
       "567b191319c4"
+    ],
+    "Grecharged-grass-overhang4": [
+      "83c369880dac"
     ]
   },
   "stuck_reasons": {
@@ -776,7 +779,7 @@
     "Grecharged-external-assets": 1783978916.4218605,
     "Grecharged-grass-overhang4": 1783986348.8569052
   },
-  "last_update": "2026-07-14T00:14:12.930009+00:00",
+  "last_update": "2026-07-14T01:35:22.240595+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -784,7 +787,8 @@
     "Gcine-camfov": 1,
     "F1-gameplay-geyser-rock": 3,
     "Gperf-particles": 68,
-    "Gjak2-render": 18
+    "Gjak2-render": 18,
+    "Grecharged-grass-overhang4": 1
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",
@@ -839,7 +843,8 @@
     "Grecharged-grass-wear",
     "Grecharged-grass-overhang3",
     "Gjak1-shadow-cast",
-    "Grecharged-external-assets"
+    "Grecharged-external-assets",
+    "Grecharged-grass-overhang4"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
