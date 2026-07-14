@@ -685,15 +685,15 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   m_inst_tri = std::move(res.inst_tri);
   m_instance_count = (int)m_instances.size();
   m_droop_start = res.droop_start;
-  // Grecharged-grass-overhang census: droop instances built (drawn only while the toggle is ON).
-  // ROUND2: the tail now also carries the progressive upright->droop transition twins (trans_*).
+  // Grecharged-grass-overhang6 census: the 3-zone tail (drawn only while the toggle is ON). Zone 2 =
+  // sub-lip strip blades (5+w comb-class), zone 1 = walkable-boundary lean twins, zone 3 = layered
+  // fall over the native-alpha overhang faces.
   lg::info(
-      "[recharged-grass] GOVERHANG expand: droop_tris={} droop_instances={} trans_instances={} "
-      "droop_rims={} (tail [{}..{}), toggle={} comb_tagged={}"
-      " — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)",
-      (int)m_bake.droop.size(), res.trans_start - m_droop_start,
-      m_instance_count - res.trans_start, (int)m_bake.droop_rims.size(), m_droop_start,
-      m_instance_count, Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF",
+      "[recharged-grass] GOVERHANG expand: droop_tris={} z2_strip={} comb_repl={} lean_twins={} "
+      "z3_fall={} (tail [{}..{}), toggle={}) lean_tagged={} comb_tagged={}",
+      (int)m_bake.droop.size(), res.z2_count, res.comb_pairs, res.lean_twins, res.z3_count,
+      m_droop_start, m_instance_count,
+      Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF", res.lean_tagged,
       res.comb_tagged);
 
   // Recompute `density` exactly as expand() did, for the STATIC place summary log.

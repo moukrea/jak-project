@@ -190,7 +190,10 @@ constexpr float COMB_NEAR0_M = 0.8f;  // fully combable this close (XZ) to a dro
 constexpr float COMB_NEAR1_M = 1.3f;  // ... fading to zero here. MUST stay < RIM_ENC_MAX_M (1.4):
                                       // the cheap per-blade rim_q pre-filter relies on it.
 constexpr float COMB_W_MIN = 0.01f;   // below this the twin would BE the stock blade: no tag
-constexpr int COMB_MAX = 60000;       // hard ceiling for comb replacement twins
+// ROUND 6: every blade on a TRANSITION (bit4) tri now combs by its pure tilt ramp (the owner's zone-2
+// "green descending mesh" — ~63k blades on training's 546 m2 curl band), so the old 60k ceiling would
+// truncate the curl mid-list. Raised to hold the full band plus the round-4 tilt*near stragglers.
+constexpr int COMB_MAX = 150000;      // hard ceiling for comb replacement twins
 constexpr float NOFF_M = 0.03f;       // root offset along the smooth normal (shader scales by w)
 constexpr float DROOP_AREA_DENS = 130.0f;  // droop blades per m^2 of fringe/lip face (scatter)
 constexpr float PLANE_CLEAR_M = 0.02f;     // rest tip must clear every nearby tri plane by this
@@ -206,10 +209,29 @@ constexpr float SHADER_TILT_DEFAULT = 0.30f;  // u_tilt the rest-pose plane cap 
 // DOWN the face regardless of what texture the face carries. Toggle-gated TAIL (nspare=3) so OFF ==
 // stock byte-identical; NEAR-LOD only (the card pass collapses it -> far shows the original alpha
 // overhang texture, LOD-alpha crossfade); the walkable-top rim clamp is untouched (additive pass).
-constexpr float RIMDRAPE_PER_M = 6.0f;     // drape blades per metre of true-rim edge
-constexpr int   RIMDRAPE_MAX = 120000;     // hard ceiling for the whole rim-drape pass
-constexpr float RIMDRAPE_H_MUL = 1.9f;     // drape length scale (× BASE_H); shader reach=0.55H drop=1.35H
+// ROUND 6 (owner 2026-07-14): the v6 rim-drape BLADE emission is DELETED (blades hanging from bare
+// dirt lip edges rejected). The scan still COLLECTS these true-rim edge segments — they now feed
+// ZONE-1's outward-lean directions (the walkable boundary lean twins) in expand().
 constexpr float RIMDRAPE_MIN_EDGE_M = 0.06f;  // skip degenerate/near-zero rim segments
+
+// Grecharged-grass-overhang6 (owner 2026-07-14, verbatim 3-zone spec). ZONE 1 = walkable-top blades
+// near the grass boundary progressively LEAN toward the void. ZONE 2 = blades ON the flat-green
+// sub-lip mesh strip (tra-grass), following it with increasing lean (emitted as 5+w comb-class).
+// ZONE 3 = >= 2 LAYERS of grass falling fully downward, covering the native-alpha overhang faces.
+constexpr float LEAN_BAND_M = 0.9f;      // zone-1: walkable blades this close (perp) to a true rim lean outward
+constexpr float LEAN_K_MIN = 0.04f;      // below this the lean is invisible: no twin, no tag
+constexpr int   LEAN_MAX = 90000;        // zone-1 twin ceiling
+constexpr float LEAN1_MAX = 0.55f;       // max up->outward axis blend at the rim; MUST equal the shader's
+                                         // LEAN1_MAX and Z2_K1 (zone-1 end == zone-2 start: continuity)
+constexpr float Z2_AREA_DENS = 110.0f;   // zone-2 blades per m^2 of flat-green sub-lip strip
+constexpr int   Z2_MAX = 90000;
+constexpr float Z2_K1 = 0.55f;           // zone-2 lean floor at the strip top (== LEAN1_MAX)
+constexpr float Z2_DEPTH_FULL_M = 1.2f;  // fully bent (w=1) this far below the owning rim
+constexpr int   Z3_LAYERS = 2;           // owner: "au moins deux couches" (volume/thickness)
+constexpr float Z3_AREA_DENS = 85.0f;    // zone-3 blades per m^2 PER LAYER of native-alpha overhang face
+constexpr int   Z3_MAX = 130000;         // both layers combined
+constexpr float Z3_LEN_MUL = 1.25f;      // fall length scale vs BASE_H (exit-capped so it covers the
+                                         // painted strip without descending far past it)
 
 // Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
 // the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.
@@ -244,7 +266,7 @@ struct BakeTri {
   float pal[8][3];            // day-cycle baked-light keyframes (time-of-day palette rows, centroid avg)
   u32 cand_count;             // candidates enumerated at bake_density_pct
   u64 cand_base;              // first candidate index in keep[]/rim_q[]
-  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON)
+  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON), bit5 is_hang (tri's source draw carries a native overhang-alpha hang texture — is_fringe_hang_tex)
   // Grecharged-grass-overhang4 (GBK5): SMOOTH vertex normals — the area-weighted average of the
   // adjacent face normals at each of the tri's three (welded) vertices, computed once over the whole
   // retained soup (walkable + lip + fringe) at bake time. expand() interpolates these barycentrically
@@ -352,9 +374,12 @@ struct ExpandResult {
   int comb_pairs = 0;
   int plane_capped = 0;
   int plane_dropped = 0;
-  // Grecharged-grass-overhang5: rim-drape blades sit in the same toggle-gated tail (after droop_start).
-  int rimdrape_start = 0;       // == instances.size() when there is no rim-drape
-  int rimdrape_count = 0;       // census
+  // Grecharged-grass-overhang6 census: zone-1 lean twins (walkable boundary), zone-2 strip scatter
+  // (flat-green sub-lip mesh, emitted as 5+w comb-class), zone-3 layered fall (native-alpha faces).
+  int lean_tagged = 0;   // walkable originals tagged for a lean twin
+  int lean_twins = 0;    // emitted zone-1 twins (== lean_tagged minus cap-dropped)
+  int z2_count = 0;
+  int z3_count = 0;
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 
