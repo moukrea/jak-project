@@ -1,0 +1,6 @@
+supervisor gate-close 2026-07-14 17:20: validator PASS + self-verified: motion-grid metric foliage-
+localized (village1 cells ~2x ON vs OFF, palm crown 1.5->7.5, non-foliage cells identical = camera-noise
+control), fps delta <=0.2 at both vantages, OFF == stock byte-identical arithmetic (strength 0 / literal
+1.0f), default OFF. Root-cause note kept: stiffness boost is self-cancelling through the wind integrator;
+shear-only boost (3.0x, tunable prop) is the correct lever. deploy_verify PASS (fa4faac32).
+Owner HONOR play-test = final gate ("légère brise" feel is his call).

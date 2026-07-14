@@ -2051,6 +2051,27 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-overhang7
+  name: 'ROUND 7 (owner: ''fini ce putain d''overhang'' — v6 still ''à chier'' on his Redmi; wind cross-hint: menu-toggled
+    features may not reach C++ at all): STEP1 reproduce HIS boot (his settings untouched, plain launch) and decide (a) zones
+    not rendering (state/toggle chain) vs (b) rendering but ugly; fix accordingly; prove via MENU toggle + 10s video at his
+    vantage. ONE task.'
+  prompt: prompts/phase-Grecharged-grass-overhang7.md
+  validator: validators/phase-Grecharged-grass-overhang7.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-asset-prompt-migration
+  name: 'OWNER 2026-07-14 (HONOR, latest GitHub slim APK): NO asset-location prompt on upgrade — silently reused old packaged
+    internal assets (his HONOR tests run STALE data!). Was part of the original request: prompt on upgrade + migration (saves
+    copied, old internal packaged assets DELETED after verified external boot). Both-branch device proof.'
+  prompt: prompts/phase-Grecharged-asset-prompt-migration.md
+  validator: validators/phase-Grecharged-asset-prompt-migration.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models3
   name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
     mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
@@ -2058,6 +2079,16 @@ phases:
     vs jak2-intro ground truth mandatory; honest partial beats carnage.'
   prompt: prompts/phase-Grecharged-hd-models3.md
   validator: validators/phase-Grecharged-hd-models3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-foliage-wind2
+  name: 'ROUND 2 (owner: ''aucune feuille qui bouge, nada'' — supervisor-reproduced: +9% palm motion = invisible, some trees
+    have ZERO wind draws): make the breeze VISIBLE — full coverage census, amplitude tuning (visible-but-natural), acceptance
+    = human-visible sway in a 10s video + supervisor-measured crown-motion ratio >=2.0. ONE task.'
+  prompt: prompts/phase-Grecharged-foliage-wind2.md
+  validator: validators/phase-Grecharged-foliage-wind2.sh
   max_turns: 3000
   max_retries: 6
   device: true

@@ -30,3 +30,11 @@ per run; NEW MANDATORY: close-up FACE captures (eyes/mask/jaw visible) per chara
 intro ground-truth still — the owner judged at face distance, the round-2 zooms were too far. OFF==stock.
 Honest per-character verdict; do NOT ship a character whose face is broken (honest partial beats carnage).
 Report RESULT + per-defect proof. Max: max_turns 3000, max_retries 6.
+
+## OWNER SYMPTOM ADDENDUM (2026-07-14 18:20, verbatim, Redmi with round-2 overlay + ENHANCED ON)
+"le build sur le Redmi montre des trucs où on dirait que les modèles n'ont pas d'assets et rendent des
+normales, très chelou"
+=> On some draws the texture pages are apparently NOT BOUND AT ALL (untextured/normal-ish fallback
+rendering), not merely mis-wrapped. Strengthens the per-draw texture audit: enumerate every draw's bound
+page at runtime; any draw with a missing/failed binding must be named + fixed (or the character not
+shipped). This is symptom #1 to reproduce and kill in round 3.
