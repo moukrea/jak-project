@@ -29,3 +29,18 @@ toggle ENHANCED MODELS, and CAPTURE each of the 4 characters. A pass requires cl
 geometry from the CORRECT source on the characters you claim, via THIS flow. OFF==stock. goal_src rules
 apply. Report RESULT: + honest per-character verdict + the install-flow evidence.
 Max: max_turns 3000, max_retries 6.
+
+## OWNER CHALLENGE (2026-07-14 13:40, verbatim — he is probably RIGHT)
+"Mhhhh pour hd-models t'es sûr que c'est le modèle HD qui est utilisé dans ta validation ? Me semble très
+low poly... Pas étonnant que ce soit ok 😅"
+=> Supervisor checked: ZERO "Replacing <name>-lod0 ..." loader lines and ZERO tri-count evidence anywhere
+in this phase's artifacts. The "x86-on" captures prove NOTHING about which model was loaded.
+MANDATORY from now on — every "HD ON" evidence (x86 AND device) must carry an OBJECTIVE loaded-model
+discriminator, all three where possible:
+1. The loader's "Replacing eichar-lod0 for common ..." (etc.) log line captured in the SAME run as the
+   frame — one per character claimed.
+2. A tri/vert-count delta for the character's merc model (HD mesh is several × stock; log it from the
+   importer or renderer counters) in the same run.
+3. A same-vantage ON/OFF pair where the silhouette/mesh density difference is unambiguous (zoomed).
+A capture without its discriminators is NOT evidence. If the HD model was in fact NOT loading, THAT is
+the bug to fix first (toggle seeding / custom_assets path / fr3 selection), before any quality claim.
