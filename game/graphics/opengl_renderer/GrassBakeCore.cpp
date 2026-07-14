@@ -1586,9 +1586,10 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   }
   // nearest true-rim seg to (px,py,pz): closest point on any segment within ywin (Y) and the 3x3 cell
   // neighbourhood. Returns false if none; else writes the seg's outward dir, the Y of the closest point
-  // on the segment, and the squared XZ distance to it.
+  // on the segment, and the squared XZ distance to it. ROUND 8: optional seg_out = the winning segment
+  // index, so zone-2/3 can inherit the owning WALKABLE lawn tri's colour + baked light (RimDrapeSeg).
   auto nearest_rim_seg = [&](float px, float py, float pz, float ywin, float& ox, float& oz,
-                             float& rim_y, float& d2out) -> bool {
+                             float& rim_y, float& d2out, u32* seg_out = nullptr) -> bool {
     float best = 1e30f;
     bool found = false;
     s64 gx = (s64)std::floor(px * RSEG_INV), gz = (s64)std::floor(pz * RSEG_INV);
@@ -1612,6 +1613,7 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
             ox = s.ox;
             oz = s.oz;
             rim_y = sy;
+            if (seg_out) *seg_out = si;
             found = true;
           }
         }
@@ -1973,15 +1975,24 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
         float tw = (TRANS_UPNESS_HI - sn[1]) / (TRANS_UPNESS_HI - TRANS_UPNESS_LO);
         tw = tw < 0.f ? 0.f : (tw > 1.f ? 1.f : tw);
         float w;
+        // ROUND 8 colour continuity: below-rim strip blades inherit the nearest rim's WALKABLE lawn
+        // colour + light tri (the drop face can be dirt-dark); curl blades sit ON walkable tris and
+        // keep their own tri colour.
+        float cgr = tri.gr, cgg = tri.gg, cgb = tri.gb;
+        u32 light_tri = zf.tri;
         if (zf.curl) {
           w = tw;  // the curl mesh's own steepness IS the gradient (upright top -> bent bottom)
           if (w <= COMB_W_MIN) continue;  // flat upper curl: the stock lawn already covers it
         } else {
           float dw;
           float ox2, oz2, ry, d2;
-          if (nearest_rim_seg(bx, by, bz, 2.5f * U, ox2, oz2, ry, d2)) {
+          u32 rsi = 0;
+          if (nearest_rim_seg(bx, by, bz, 2.5f * U, ox2, oz2, ry, d2, &rsi)) {
             float depth_m = (ry - by) / U;  // strip drops below the lip -> positive
             dw = Z2_K1 + (1.0f - Z2_K1) * std::clamp(depth_m / Z2_DEPTH_FULL_M, 0.0f, 1.0f);
+            const RimDrapeSeg& rs = d.rimdrape[rsi];
+            cgr = rs.gr; cgg = rs.gg; cgb = rs.gb;
+            light_tri = rs.tri;
           } else {
             dw = Z2_K1;
           }
@@ -2006,12 +2017,12 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
         gi.tint = hash_f(sd + 5u);
         gi.curve = curve;
         gi.phase = hash_f(sd + 7u);
-        gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb;
+        gi.gr = cgr; gi.gg = cgg; gi.gb = cgb;
         gi.gspare = 1.0e9f;  // NO_RIM: the strip blade lies along the sub-lip mesh past the rim
         gi.nx = sn[0]; gi.ny = sn[1]; gi.nz = sn[2];  // SMOOTH NORMAL (shader derives dsl + clamp plane)
         gi.nspare = 5.0f + w;  // COMB-class marker (shader band 4.5..6.5), w = nspare - 5
         res.instances.push_back(gi);
-        res.inst_tri.push_back(zf.tri);
+        res.inst_tri.push_back(light_tri);
         z2_placed++;
       }
     }
@@ -2090,8 +2101,9 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   // ---- ZONE 3 (owner round-6): >= 2 LAYERS of grass falling fully DOWNWARD over the faces carrying
   // the native overhang ALPHA texture (is_hang, flags bit5), entirely covering it at near LOD (the
   // tfrag/TIE fringe-fade hides the painted strip near; it restores at distance as these blades fade
-  // out — crossfade, no double-up). Two layers root at different normal offsets (shader) for real
-  // THICKNESS; per-layer densities/seeds decorrelated; inner layer slightly darkened for depth.
+  // out — crossfade, no double-up). ROUND 8 (supervisor read of the owner view): 3 layers at deeper
+  // normal offsets for parallax; blades inherit the WALKABLE lawn colour+light (no darkening); cell
+  // noise clumps density/length along the lip (ragged silhouette, no "eyeliner" band).
   int z3_placed = 0;
   for (int layer = 0; layer < Z3_LAYERS; ++layer) {
     // Budget pre-pass: hang-subset area * Z3_AREA_DENS * Z3_LAYERS clamped to 0.9*Z3_MAX (per layer).
@@ -2123,16 +2135,44 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
         float bx = tri.p0[0] + r1d * tri.e1[0] + r2d * tri.e2[0];
         float by = tri.p0[1] + r1d * tri.e1[1] + r2d * tri.e2[1];
         float bz = tri.p0[2] + r1d * tri.e1[2] + r2d * tri.e2[2];
+        // ROUND 8 defect 3 ("eyeliner"): coherent 0.7 m world-XZ cell noise modulates density AND
+        // length in clumps along the lip so the silhouette is ragged, not a uniform outlined band.
+        // Deterministic (position hash) so precomputed and live-scan boots agree blade-for-blade.
+        s64 ccx = (s64)std::floor(bx / (0.7f * U));
+        s64 ccz = (s64)std::floor(bz / (0.7f * U));
+        float cn = hash_f((u32)((u64)ccx * 73856093u) ^ (u32)((u64)ccz * 19349663u) ^ 0x5BD1u);
+        if (hash_f(sd + 8u) > 0.55f + 0.45f * cn) continue;  // clump thinning (mean keep ~0.78)
         float sn[3];
         bary_smooth(tri, 1.0f - r1d - r2d, r1d, r2d, sn);
         if (sn[0] * de.ox + sn[2] * de.oz < 0.f) { sn[0] = -sn[0]; sn[2] = -sn[2]; }
-        float species = BASE_H * Z3_LEN_MUL * (0.70f + 0.60f * hash_f(sd + 3u));
+        // ROUND 8 defect 1 (dark-olive drape vs bright lawn): inherit the nearest rim segment's
+        // WALKABLE-TOP lawn colour and its baked-light tri — the drape must read as the SAME grass
+        // folding over the lip, not the drop face's dark texture. Fallback: hang-face colour UNdarkened.
+        float cgr = tri.gr, cgg = tri.gg, cgb = tri.gb;
+        u32 light_tri = de.tri;
+        {
+          float ox2, oz2, ry, d2;
+          u32 rsi = 0;
+          if (nearest_rim_seg(bx, by, bz, 3.0f * U, ox2, oz2, ry, d2, &rsi)) {
+            const RimDrapeSeg& rs = d.rimdrape[rsi];
+            cgr = rs.gr; cgg = rs.gg; cgb = rs.gb;
+            light_tri = rs.tri;
+          }
+        }
+        // Wider per-blade length range * the clump factor (defect 3: ragged, defect 2: variation).
+        float species = BASE_H * Z3_LEN_MUL * (0.65f + 0.75f * hash_f(sd + 3u)) * (0.85f + 0.35f * cn);
         float ex = exit_dist(tri, bx, by, bz);
         float len = species;
-        if (ex > 0.f && ex * 1.05f < len) len = ex * 1.05f;  // covers strip, never descends far past it
+        // Per-blade exit-cap jitter: the old fixed 1.05 cap clamped every blade to the exact strip
+        // height = the dead-straight bottom edge of the "eyeliner". 0.80..1.15 keeps coverage while
+        // breaking the line.
+        float capm = 0.80f + 0.35f * hash_f(sd + 9u);
+        if (ex > 0.f && ex * capm < len) len = ex * capm;
         if (len < MINLEN_WU) continue;
         // fall cap: rest tip = base + n*loff + (0,-len,0); iterative 0.8 shrink like zone 1.
-        float loff = (0.02f + 0.055f * (float)layer) * U;
+        // ROUND 8 defect 2 (volume): deeper per-layer normal offsets (3/12/21 cm) — MUST mirror the
+        // shader's loff so the plane test sees the real rest pose.
+        float loff = (0.03f + 0.09f * (float)layer) * U;
         float base[3] = {bx, by, bz};
         float h = len;
         bool ok = true;
@@ -2151,13 +2191,12 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
         gi.tint = hash_f(sd + 5u);
         gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);
         gi.phase = hash_f(sd + 7u);
-        if (layer == 0) { gi.gr = tri.gr * 0.82f; gi.gg = tri.gg * 0.82f; gi.gb = tri.gb * 0.82f; }
-        else { gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb; }
+        gi.gr = cgr; gi.gg = cgg; gi.gb = cgb;  // lawn colour, NO layer darkening (round 8 defect 1)
         gi.gspare = 1.0e9f;  // NO_RIM: the fall is the intended overhang
         gi.nx = sn[0]; gi.ny = sn[1]; gi.nz = sn[2];  // SMOOTH NORMAL (outward-oriented)
         gi.nspare = 7.0f + 0.5f * (float)layer;  // ZONE-3 FALL marker (shader nsp > 6.5), layer=(nsp-7)*2
         res.instances.push_back(gi);
-        res.inst_tri.push_back(de.tri);
+        res.inst_tri.push_back(light_tri);  // lawn tri light -> brightness continuity across the lip
         z3_placed++;
       }
     }

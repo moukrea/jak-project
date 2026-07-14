@@ -227,9 +227,18 @@ constexpr float Z2_AREA_DENS = 110.0f;   // zone-2 blades per m^2 of flat-green 
 constexpr int   Z2_MAX = 90000;
 constexpr float Z2_K1 = 0.55f;           // zone-2 lean floor at the strip top (== LEAN1_MAX)
 constexpr float Z2_DEPTH_FULL_M = 1.2f;  // fully bent (w=1) this far below the owning rim
-constexpr int   Z3_LAYERS = 2;           // owner: "au moins deux couches" (volume/thickness)
-constexpr float Z3_AREA_DENS = 85.0f;    // zone-3 blades per m^2 PER LAYER of native-alpha overhang face
-constexpr int   Z3_MAX = 130000;         // both layers combined
+// ROUND 8 (supervisor's own read of the owner's live view, SUPERVISOR-OWNER-VIEW.png): the v7 fall
+// curtain read as a thin dark-olive "eyeliner" strip. Three fixes, all in the toggle-gated tail:
+//  (1) COLOR: fall blades inherit the nearest rim segment's WALKABLE-TOP lawn colour + baked-light
+//      tri (RimDrapeSeg.gr/gg/gb + .tri, already in GBK6+ bakes) instead of the dark drop-face tri;
+//      the 0.82 inner-layer darkening is deleted; the shader's vertical gradient is REVERSED for the
+//      fall class (root at the lip = lawn-tip bright) so the lip has no tonal seam.
+//  (2) VOLUME: 3 layers at deeper normal offsets + wider blades + a real outward belly (shader).
+//  (3) RAGGED: 0.7 m world-XZ cell noise modulates density AND length in coherent clumps along the
+//      lip, plus per-blade exit-cap jitter — no uniform band, no outlined ledges.
+constexpr int   Z3_LAYERS = 3;           // owner: "au moins deux couches"; round 8: 3 for visible parallax
+constexpr float Z3_AREA_DENS = 150.0f;   // zone-3 blades per m^2 PER LAYER (pre clump-thinning, mean keep ~0.78)
+constexpr int   Z3_MAX = 300000;         // all layers combined
 constexpr float Z3_LEN_MUL = 1.25f;      // fall length scale vs BASE_H (exit-capped so it covers the
                                          // painted strip without descending far past it)
 

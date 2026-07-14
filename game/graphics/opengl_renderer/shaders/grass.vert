@@ -133,9 +133,9 @@ void main() {
   //            horizontal dir, ny=0 — a walkable-top boundary blade leaning toward the void.
   //   5+w      COMB replacement twin (unchanged math) AND ZONE-2 sub-lip strip blade (shader band
   //            4.5<nsp<6.5), w = nsp-5; nx/ny/nz = SMOOTH normal.
-  //   7+0.5*L  ZONE-3 FALL blade (shader nsp>6.5), layer L=(nsp-7)*2, 0 or 1; nx/ny/nz = SMOOTH normal
-  //            (outward-oriented). >= 2 layers of grass falling fully DOWNWARD over the native-alpha
-  //            overhang faces (the deleted round-5 rim-drape class is gone).
+  //   7+0.5*L  ZONE-3 FALL blade (shader nsp>6.5), layer L=(nsp-7)*2, 0..2 (ROUND 8: 3 layers);
+  //            nx/ny/nz = SMOOTH normal (outward-oriented). Layers of grass falling fully DOWNWARD
+  //            over the native-alpha overhang faces (the deleted round-5 rim-drape class is gone).
   // All tail classes live in the toggle-gated buffer tail and never get a card.
   float nsp = inst_normal.w;
   bool is_tail  = nsp > 1.5;                       // any zone tail class (toggle-gated, never a card)
@@ -427,24 +427,27 @@ void main() {
       // ZONE 3 (owner round-6): >= 2 LAYERED animated grass falling fully DOWNWARD ("qui tombe
       // complètement vers le bas"), entirely covering the native overhang ALPHA texture at near LOD
       // (the tfrag/TIE fringe-fade hides the painted strip near and restores it at distance as these
-      // blades LOD-fade — crossfade, no double-up). inst_normal = the face's smooth normal (outward);
-      // the two layers root at different normal offsets + get different sway phase/amplitude and an
-      // outward belly, so the drape reads THICK ("de la profondeur, épaisseur"), not a flat card.
-      // Ragged per-blade tips (stable hash) keep the lower silhouette natural. Pure mads + nearf fill
-      // guard; the half-space clamp at the end keeps every vertex on the face's outer side.
-      float layer = clamp((nsp - 7.0) * 2.0, 0.0, 1.0);
+      // blades LOD-fade — crossfade, no double-up). inst_normal = the face's smooth normal (outward).
+      // ROUND 8 (supervisor read of the owner view, "no volume / eyeliner"): THREE layers (0..2) at
+      // deeper normal offsets (3/12/21 cm, mirrors the bake plane-cap), ~1.5x wider blades with
+      // per-blade width variation, a real outward BELLY so the curtain stands OFF the face, and a
+      // wider ragged-tip range — layered parallax at the owner's viewing distance. Pure mads + nearf
+      // fill guard; the half-space clamp at the end keeps every vertex on the face's outer side.
+      float layer = clamp((nsp - 7.0) * 2.0, 0.0, 2.0);
       float dlen = clamp(u_droop_len, 0.1, 1.5);
       vec3 n = inst_normal.xyz;
       vec3 outw = normalize(vec3(n.x, 0.0, n.z) + vec3(1e-5, 0.0, 0.0));
       vec3 widthax = normalize(cross(vec3(0.0, 1.0, 0.0), outw));
-      float loff = (0.02 + 0.055 * layer) * 4096.0;
-      float rag = 0.70 + 0.30 * fract(phase * 17.13 + tint * 5.27);
+      float loff = (0.03 + 0.09 * layer) * 4096.0;
+      float rag = 0.72 + 0.28 * fract(phase * 17.13 + tint * 5.27);
       float fall = t * H * dlen * rag;
-      float bow = (0.10 + 0.10 * layer) * H * t * (1.0 - t);
-      float fsway = sin(gust * (0.9 + 0.25 * layer)) * t * t * (0.07 + 0.05 * layer) * H;
+      float wmul = 1.15 + 0.75 * fract(tint * 9.73 + phase * 3.91);
+      float bvar = 0.75 + 0.50 * fract(tint * 11.71 + phase * 2.33);
+      float bow = (0.26 + 0.13 * layer) * bvar * H * t * (1.0 - t);
+      float fsway = sin(gust * (0.9 + 0.2 * layer)) * t * t * (0.06 + 0.04 * layer) * H;
       pos = base
           + n * loff
-          + widthax * ((float(side) * 2.0 - 1.0) * hw + fsway)
+          + widthax * ((float(side) * 2.0 - 1.0) * hw * wmul + fsway)
           + outw * (bow * nearf)
           + vec3(0.0, -fall * nearf, 0.0);
     } else {
@@ -455,7 +458,10 @@ void main() {
         + fwdv * fwd_amt
         + trample * t * rim_h;
     }
-    t_col = t;
+    // ROUND 8 defect 1 (hard tonal seam at the lip): a FALL blade's root (t=0) is its VISIBLE top
+    // edge at the lip line — the stock dark-base gradient painted a dark stripe exactly there. Reverse
+    // it for the fall class: root = lawn-TIP bright (t_col=1), darkening moderately down the hang.
+    t_col = is_fall ? (1.0 - 0.55 * t) : t;
     v_uv = vec2(0.0);
     v_is_card = 0;
   } else {
