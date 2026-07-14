@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 207,
+  "current_phase_idx": 208,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -201,7 +201,8 @@
     "Grecharged-grass-overhang5": 3,
     "Grecharged-hd-models2": 2,
     "Grecharged-grass-overhang6": 1,
-    "Grecharged-foliage-wind": 1
+    "Grecharged-foliage-wind": 1,
+    "Grecharged-grass-overhang7": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -407,6 +408,9 @@
     "Grecharged-grass-overhang5": [
       "83c369880dac",
       "83c369880dac"
+    ],
+    "Grecharged-grass-overhang7": [
+      "83c369880dac"
     ]
   },
   "stuck_reasons": {
@@ -608,7 +612,8 @@
     "Grecharged-hd-models",
     "Grecharged-grass-overhang5",
     "Grecharged-hd-models2",
-    "Grecharged-grass-overhang6"
+    "Grecharged-grass-overhang6",
+    "Grecharged-foliage-wind"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -796,9 +801,12 @@
     "Grecharged-foliage-wind": 1784037052.6722467,
     "Grecharged-grass-overhang5": 1784010979.895357,
     "Grecharged-hd-models2": 1784024024.5067194,
-    "Grecharged-grass-overhang6": 1784032762.9751992
+    "Grecharged-grass-overhang6": 1784032762.9751992,
+    "Grecharged-hd-models3": 1784042496.502384,
+    "Grecharged-foliage-wind2": 1784043787.4506938,
+    "Grecharged-grass-overhang7": 1784047763.064689
   },
-  "last_update": "2026-07-14T15:19:22.105848+00:00",
+  "last_update": "2026-07-14T18:17:48.006218+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -808,7 +816,8 @@
     "Gperf-particles": 68,
     "Gjak2-render": 18,
     "Grecharged-grass-overhang4": 1,
-    "Grecharged-grass-overhang5": 4
+    "Grecharged-grass-overhang5": 4,
+    "Grecharged-grass-overhang7": 1
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",
@@ -869,7 +878,8 @@
     "Grecharged-grass-overhang5",
     "Grecharged-hd-models2",
     "Grecharged-grass-overhang6",
-    "Grecharged-foliage-wind"
+    "Grecharged-foliage-wind",
+    "Grecharged-grass-overhang7"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
