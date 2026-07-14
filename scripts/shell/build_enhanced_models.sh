@@ -33,24 +33,28 @@ log(){ echo "[enhanced-models] $*"; }
 # 1. The 4 staged HD GLBs and their REQUIRED drop-in names (merc-ctrl name,
 #    i.e. <name>-lod0 WITHOUT the -mg suffix — proven empirically: with -mg the
 #    swap silently no-ops; stripping -mg fires "Replacing <name>-lod0 …").
-#      eichar-lod0    = Jak       -> COMMON  -> out/jak1/fr3/GAME.fr3
-#      sidekick-lod0  = Daxter    -> COMMON  -> out/jak1/fr3/GAME.fr3
-#      geologist-lod0 = Samos     -> village2 -> out/jak1/fr3/village2.fr3
-#      assistant-lod0 = Keira     -> village1 -> out/jak1/fr3/village1.fr3
+#    ROUND 2 (Grecharged-hd-models2): sources are the jak2 INTRO-cutscene
+#    (pre-rift, jak1-look) models, retargeted by NAME onto the jak1 rigs via
+#    scripts/shell/retarget_hd_models.py. Samos is jak1's `sage` (round 1's
+#    geologist-lod0 was the Rock Village geologist NPC — wrong character).
+#      eichar-lod0    = Jak   (jak2 jakone-highres,  INTROCST) -> COMMON   -> GAME.fr3
+#      sidekick-lod0  = Daxter(jak2 daxter-highres,  INTROCST) -> COMMON   -> GAME.fr3
+#      sage-lod0      = Samos (jak2 samos-highres,   LINTCSTB) -> village1 -> village1.fr3
+#      assistant-lod0 = Keira (jak2 keira-highres,   LINTCSTB) -> village1 -> village1.fr3
 # ---------------------------------------------------------------------------
 STAGE_DIR="recharged_assets/hd_models"
 # "<source-basename-in-stage>:<drop-in-name>" (both keep the .glb extension)
 GLBS=(
   "eichar-lod0.glb:eichar-lod0.glb"
   "sidekick-lod0.glb:sidekick-lod0.glb"
-  "geologist-lod0.glb:geologist-lod0.glb"
+  "sage-lod0.glb:sage-lod0.glb"
   "assistant-lod0.glb:assistant-lod0.glb"
 )
 # The merc-ctrl names whose "Replacing <name> for <lvl>" line MUST appear in the log.
-REPLACE_NAMES=(eichar-lod0 sidekick-lod0 geologist-lod0 assistant-lod0)
+REPLACE_NAMES=(eichar-lod0 sidekick-lod0 sage-lod0 assistant-lod0)
 
-# The 3 FR3 that the swaps regenerate (stock ones get backed up + restored).
-ENHANCED_FR3=(GAME.fr3 village1.fr3 village2.fr3)
+# The FR3 that the swaps regenerate (stock ones get backed up + restored).
+ENHANCED_FR3=(GAME.fr3 village1.fr3)
 
 FR3_DIR="out/jak1/fr3"
 ENHANCED_OUT="$FR3_DIR/enhanced"
@@ -141,10 +145,10 @@ log "populated $MERC_DIR with ${#GLBS[@]} HD GLB(s)"
 #    log and REQUIRE all 4 "Replacing <name>-lod0" lines.
 # ---------------------------------------------------------------------------
 DECOMP_LOG="$(mktemp)"
-log "running restricted decompile (KERNEL/GAME/VI1/VI2) — regenerating swapped FR3…"
+log "running restricted decompile (KERNEL/GAME/VI1) — regenerating swapped FR3…"
 set +e
 ./build/decompiler/decompiler decompiler/config/jak1/jak1_config.jsonc iso_data decompiler_out \
-  --config-override '{"levels_extract": true, "rip_levels": false, "save_texture_pngs": false, "dgo_names": ["CGO/KERNEL.CGO","CGO/GAME.CGO","DGO/VI1.DGO","DGO/VI2.DGO"]}' \
+  --config-override '{"levels_extract": true, "rip_levels": false, "save_texture_pngs": false, "dgo_names": ["CGO/KERNEL.CGO","CGO/GAME.CGO","DGO/VI1.DGO"]}' \
   2>&1 | tee "$DECOMP_LOG"
 DECOMP_RC="${PIPESTATUS[0]}"
 set -e
@@ -188,6 +192,15 @@ for f in "${ENHANCED_FR3[@]}"; do
   mv "$FR3_DIR/$f" "$ENHANCED_OUT/$f"
 done
 log "enhanced FR3 moved to $ENHANCED_OUT/"
+
+# Round-1 shipped a (wrong) enhanced/village2.fr3; archive extraction on device
+# OVERLAYS without cleaning, so an owner updating in place would keep the stale
+# garbled file. Ship a stock-identical enhanced/village2.fr3 to overwrite it —
+# behaviorally identical to stock whether the toggle is ON or OFF.
+if [ -f "$FR3_DIR/village2.fr3" ]; then
+  cp -p "$FR3_DIR/village2.fr3" "$ENHANCED_OUT/village2.fr3"
+  log "stock-identical enhanced/village2.fr3 shipped (kills round-1 stale garbled overlay)"
+fi
 
 # ---------------------------------------------------------------------------
 # 9. Restore the stock FR3 from the backup into out/jak1/fr3/ so the base set
