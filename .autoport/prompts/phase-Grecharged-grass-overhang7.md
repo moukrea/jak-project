@@ -95,3 +95,15 @@ depth/thickness, believable. "C'est toujours nul en l'état".)
 - The report must include a ZONE-BY-ZONE self-assessment against the spec (zone1 present+no overshoot?
   zone2 following the strip exactly? zone3 two visible layers, animated, covering the alpha, thick?)
   with a close-up crop proving each, BEFORE the supervisor filter.
+
+## SUPERVISOR FILTER — ROUND 8 REJECTED (2026-07-14 21:50, my own read of R8-zone-cropA/R8-crop-lip)
+Round 8 fixed COLOR (lawn green, good) and improved volume, but FAILS my filter on two precise points:
+1. LIP SEAM: a dark gap/liseré shows AT the lip between the zone-1 lean silhouette and the zone-3
+   hanging curtain — the rock face is visible through the junction. The fall blades must ROOT slightly
+   INSIDE/UNDER the lawn's overhanging silhouette (overlap the lip edge) so lawn->curtain is one
+   continuous surface with ZERO exposed rock line along the lip.
+2. STRINGY TUFTS: fall blades read as detached vertical strips floating off the face. Increase density
+   along the lip (target: neighboring blades overlap at the root line), keep the width variation, and
+   make roots contiguous so the curtain is a connected mass, not separated tongues.
+Acceptance: re-capture R8-zone-cropA's exact framing; I must see (a) no rock line at the lip junction,
+(b) a connected curtain. Then and only then it goes to the owner.
