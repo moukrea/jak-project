@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 
 #include "common/math/Vector.h"
 
@@ -78,6 +79,22 @@ struct GrassFringeFade {
   float end_m = 0.f;
 };
 GrassFringeFade grass_fringe_fade_params();
+
+// Grecharged-grass-overhang7: levels the recharged grass system covers. Round-7 root cause: the
+// whole system (placement + fringe fade) was hardcoded to "training" while the owner plays and
+// judges at Sentinel Beach — every lip there kept the stock painted overhang no matter the toggle.
+// The GBK7 texture set (tra-grass / bch-grassfringe / bch-leafyground-hang-2x1) matches ONLY these
+// two levels (16-level census 2026-07-14); other levels use differently-named grass textures and
+// stay stock until they get their own curated set + bake.
+inline constexpr const char* kGrassLevels[] = {"training", "beach"};
+inline bool grass_level_enabled(const std::string& name) {
+  for (const char* n : kGrassLevels) {
+    if (name == n) {
+      return true;
+    }
+  }
+  return false;
+}
 
 DoubleDraw setup_tfrag_shader(SharedRenderState* render_state, DrawMode mode, ShaderId shader);
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include "common/common_types.h"
@@ -10,9 +11,13 @@
 
 #include "third-party/glad/include/glad/glad.h"
 
-// Grecharged-grass-poc (jak1): scatters real 3D grass over the TRAINING level's
-// ground triangles whose tfrag texture is "tra-grass". Renderer-only, gated by
-// Gfx::g_global_settings.recharged_grass (OFF == byte-identical stock render).
+struct LevelData;  // Grecharged-grass-overhang7: loader/common.h; rebuild() now takes the level
+
+// Grecharged-grass-poc (jak1): scatters real 3D grass over the ground triangles whose tfrag
+// texture is in the grass set (tra-grass / bch-grassfringe / bch-leafyground-hang-2x1) for the
+// levels in the grass allowlist (background_common.h grass_level_enabled: training + beach as of
+// overhang7). Renderer-only, gated by Gfx::g_global_settings.recharged_grass (OFF ==
+// byte-identical stock render).
 //
 // CULLING FIX (owner feedback #2, 2026-07-10): placement is WHOLE-LEVEL and
 // CAMERA-INDEPENDENT — every qualifying training-ground triangle is scattered
@@ -35,7 +40,10 @@ class GrassRenderer {
 
  private:
   void ensure_gl();
-  void rebuild(SharedRenderState* render_state);
+  // Grecharged-grass-overhang7: rebuild takes the resolved grass level (allowlist lookup in
+  // render()) instead of hardcoding "training" — the owner plays/judges at Sentinel Beach, which
+  // carries the same bch-* grass/hang textures and was getting NOTHING from any toggle.
+  void rebuild(SharedRenderState* render_state, const LevelData* ld, const std::string& level_name);
   // POLISH#9: recompute the per-instance GROUND baked-light for the CURRENT time of day and
   // re-upload it (throttled to only when the time-of-day weights actually change). This is what
   // makes the grass track the ground's baked lighting BOTH by location (per-triangle) and by

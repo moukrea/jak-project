@@ -322,11 +322,11 @@ std::string TFragData::print() const {
 void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_kinds,
                             const LevelData* loader_data) {
   const auto* lev_data = loader_data->level.get();
-  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces. Training
-  // only — the recharged grass system is scoped to that level (GrassRenderer.cpp:572); the same bch-*
-  // textures elsewhere (e.g. Sentinel Beach, no droop) must keep their stock path.
+  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces.
+  // Grecharged-grass-overhang7: gate widened from "training" to the grass allowlist — the owner
+  // plays at Sentinel Beach, which uses the same bch-* textures and now gets the droop/fall tail.
   m_fringe_tex_a = m_fringe_tex_b = -1;
-  if (lev_data->level_name == "training") {
+  if (grass_level_enabled(lev_data->level_name)) {
     for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
       const auto& tn = lev_data->textures[ti].debug_name;
       if (tn == "bch-grassfringe") {

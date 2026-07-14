@@ -20,6 +20,7 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
+#include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 
 namespace {
@@ -586,7 +587,9 @@ void GrassRenderer::ensure_gl() {
   m_gl_ready = true;
 }
 
-void GrassRenderer::rebuild(SharedRenderState* rs) {
+void GrassRenderer::rebuild(SharedRenderState* rs,
+                            const LevelData* ld,
+                            const std::string& level_name) {
   using clk = std::chrono::steady_clock;
   m_instances.clear();
   m_instance_count = 0;
@@ -599,10 +602,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   m_light.clear();
   m_light_valid = false;
 
-  if (!rs->loader) {
-    return;
-  }
-  const LevelData* ld = rs->loader->get_tfrag3_level("training");
+  // Grecharged-grass-overhang7: the level is resolved by render()'s allowlist lookup and passed in.
   if (!ld || !ld->level) {
     return;
   }
@@ -630,7 +630,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   bool from_bake = false;
   // Resolve fr3 size (used both to validate a bake and as scan input).
   const std::string fr3_path =
-      (file_util::get_fr3_dir(GameVersion::Jak1) / "training.fr3").string();
+      (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".fr3")).string();
   u64 fr3_size = 0;
   {
     std::error_code ec;
@@ -642,12 +642,12 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 
   if (want_pre && !floor_gap_overridden) {
     const std::string bake_path =
-        (file_util::get_fr3_dir(GameVersion::Jak1) / "training.grassbake").string();
+        (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".grassbake")).string();
     grass_bake::BakeData loaded;
     std::string reason;
     if (!grass_bake::load_bake(loaded, bake_path)) {
       reason = "load failed";
-    } else if (loaded.level_name != "training") {
+    } else if (loaded.level_name != level_name) {
       reason = "level mismatch";
     } else {
       u64 cur_fr3 = 0;
@@ -675,7 +675,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   }
 
   if (!from_bake) {
-    m_bake = grass_bake::scan_level(*lev, "training", fr3_size,
+    m_bake = grass_bake::scan_level(*lev, level_name, fr3_size,
                                     {Gfx::g_global_settings.recharged_grass_density, floor_gap_m});
   }
 
@@ -772,7 +772,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   {
     const int occ_culled = res.occ_culled;
     lg::info(
-        "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
+        "[recharged-grass] {} STATIC place (whole-level, camera-independent): {} grass-ground "
         "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
         "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}). ROUND#13 PER-INSTANCE "
         "object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled {} of {} instances ({:.3f}%) — each "
@@ -780,7 +780,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         "within radius {:.2f}m + contact band [{:.2f},{:.2f}]m; a blade is culled ONLY if a real object "
         "vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped "
         "bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.",
-        m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
+        level_name, m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
         m_bake.stats.giant_tris, m_bake.stats.max_area, m_bake.total_area_m2, density,
         m_instance_count, (int)m_chunks.size(),
         Gfx::g_global_settings.recharged_grass_density, budget, occ_culled,
@@ -956,9 +956,22 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (!rs->has_pc_data) {
     return;
   }
-  // Hard-scope to the training level: get_tfrag3_level returns null anywhere else.
-  const LevelData* ld = rs->loader ? rs->loader->get_tfrag3_level("training") : nullptr;
-  if (!ld || !ld->level) {
+  // Grecharged-grass-overhang7: iterate the grass allowlist (background_common.h) — first loaded
+  // grass level wins. Single slot is correct today: training is an isolated island and beach's
+  // neighbour (village1) carries none of the grass textures, so two grass levels never co-load.
+  const LevelData* ld = nullptr;
+  std::string grass_level;
+  if (rs->loader) {
+    for (const char* name : kGrassLevels) {
+      const LevelData* cand = rs->loader->get_tfrag3_level(name);
+      if (cand && cand->level) {
+        ld = cand;
+        grass_level = name;
+        break;
+      }
+    }
+  }
+  if (!ld) {
     return;
   }
   // Rebuild ONLY on level change / reload, OR when the DENSITY slider changed (POLISH#5 —
@@ -968,7 +981,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id ||
       m_cached_density != Gfx::g_global_settings.recharged_grass_density ||
       m_cached_precomputed != Gfx::g_global_settings.recharged_grass_precomputed) {
-    rebuild(rs);
+    rebuild(rs, ld, grass_level);
   }
   if (m_instance_count <= 0) {
     return;
