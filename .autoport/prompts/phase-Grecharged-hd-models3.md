@@ -38,3 +38,22 @@ normales, très chelou"
 rendering), not merely mis-wrapped. Strengthens the per-draw texture audit: enumerate every draw's bound
 page at runtime; any draw with a missing/failed binding must be named + fixed (or the character not
 shipped). This is symptom #1 to reproduce and kill in round 3.
+
+## CORRECTION (owner 2026-07-14 18:25, verbatim): "On parle de modèles de sol, pas des modèles remplacés !"
+=> The untextured/normals-like rendering is on GROUND/level geometry, NOT the swapped characters. The
+enhanced/ fr3s are FULL LEVEL files (the HD bake rebuilds the whole level fr3) — so the round-2 enhanced
+bake CORRUPTED level-wide texture references (ground included), a bake-integrity failure, much bigger
+than character texture binding. MANDATORY in round 3:
+- Level-bake integrity gate: the enhanced <level>.fr3 must be IDENTICAL to stock for every non-character
+  draw (same texture ids/pages, same geometry) — diff the fr3 contents draw-by-draw (or rebuild with a
+  method that provably only touches the swapped merc models). Any diff outside the 4 characters = FAIL.
+- Quick confirmation available: toggling ENHANCED MODELS OFF selects the stock fr3 -> ground textures
+  should return instantly; if they do, the corrupted-enhanced-bake diagnosis is confirmed.
+
+## ESCALATION (2026-07-14 19:10): the round-2 enhanced overlay is ACTIVELY TOXIC
+Owner saw "tout violet" (all-magenta missing textures) on the Redmi — the corrupted round-2 enhanced
+LEVEL fr3s were still being loaded because recharged-enhanced-models? stayed #t on the device. The
+supervisor turned it #f (stock restored). RULES going forward:
+- NO phase may leave ENHANCED ON on a device after its runs (same discipline as force-stop).
+- Round 3 must treat the round-2 overlay as RECALLED: until the level-bake integrity gate passes, the
+  enhanced fr3s must not ship, and the release notes must tell the owner to keep the toggle OFF.
