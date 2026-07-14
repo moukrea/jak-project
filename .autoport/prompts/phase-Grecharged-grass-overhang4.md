@@ -69,3 +69,11 @@ banding detector ON THESE FRAMES FIRST: the metric must fire on them (they are t
 owner confirms) and stay at floor on an OFF capture at the same vantage. Do not trust anyone's eye to
 say which stripes "count" — the owner confirmed bands are visible in this state; the detector's job is
 to quantify them and then to go to ZERO-delta after the fix.
+
+## OWNER PLAY-TEST — FAILED (2026-07-14 08:xx, verbatim, HONOR, on the shipped jak-builds APK)
+"j'ai désactivé le pre-computed grass et c'est toujours autant claqué !"
+=> overhang4 is STILL broken on the owner's device, precompute ON or OFF. My objective banding-detector
+"PASS" (bands gone, clip->0) was a FALSE PASS — it did not reflect what the owner sees. The detector or
+its calibration is measuring the wrong thing, OR the fix doesn't manifest on a real install. DO NOT trust
+the offline/Redmi metrics again: reproduce the OWNER's exact flow (clean install jak-builds APK, no adb
+asset push) and see the defect before claiming anything. overhang remains OPEN.
