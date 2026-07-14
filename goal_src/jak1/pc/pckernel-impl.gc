@@ -86,6 +86,7 @@
    (recharged-grass-density   float) ;; Grecharged-grass-poc POLISH#5: grass density percent (100 = base), slider-adjustable
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
+   (recharged-foliage-wind? symbol) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
    (recharged-enhanced-models? symbol) ;; Grecharged-hd-models: load jak2 HD character models (Jak/Daxter/Samos/Keira, jak1-look) instead of stock low-poly. #f = stock. Only meaningful when the build ships the enhanced FR3 set.
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
@@ -108,6 +109,8 @@
 (define-extern pc-set-load-custom-assets! (function int none))
 ;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
 (define-extern pc-set-grass-overhang! (function int none))
+;; Grecharged-foliage-wind: pushes the light wind sway toggle (0/1) to the renderer.
+(define-extern pc-set-foliage-wind! (function int none))
 ;; Grecharged-hd-models: pushes the ENHANCED MODELS toggle (0/1) to the loader; queries whether the
 ;; enhanced FR3 set shipped in this build (1 = available, so the menu row is shown).
 (define-extern pc-set-recharged-enhanced-models! (function int none))
@@ -187,6 +190,7 @@
   (set! (-> obj recharged-grass-density) 150.0) ;; POLISH#5 default grass density percent (100 = base budget; owner wants denser)
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
   (set! (-> obj recharged-grass-overhang?) #t) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
+  (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
   (set! (-> obj recharged-enhanced-models?) #f)
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   ;; original settings, minus 25 to be a bit more conservative

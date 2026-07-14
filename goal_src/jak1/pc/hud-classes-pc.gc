@@ -1672,6 +1672,7 @@
   ((method-of-type pc-settings update-to-os) obj)
   (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))
   (pc-set-grass-overhang! (if (-> obj recharged-grass-overhang?) 1 0))
+  (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
   (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0))
   (when *target*
     (pc-set-jak-pos! (-> *target* control trans)))

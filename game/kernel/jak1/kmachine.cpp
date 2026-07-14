@@ -576,6 +576,17 @@ void pc_set_grass_overhang(u32 on) {
   Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
 }
 
+// Grecharged-foliage-wind: push the light-wind sway toggle from GOAL (pc-set-foliage-wind!).
+// 0 = off => byte-identical stock render (no palm/shrub displacement). Logs on CHANGE only
+// (update-to-os pushes this every frame), so a device log proves the GOAL->C++ link.
+void pc_set_foliage_wind(u32 on) {
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_foliage_wind) {
+    lg::info("[foliage-wind] toggle -> {}", v ? "ON" : "OFF");
+  }
+  Gfx::g_global_settings.recharged_foliage_wind = v;
+}
+
 // Grecharged-hd-models: push the "enhanced models" on/off toggle from GOAL
 // (-> *pc-settings* recharged-enhanced-models?). 0 = off (stock low-poly). Applies live to
 // village FR3 (Samos/Keira); the common FR3 (Jak/Daxter) is seeded from persisted settings at
@@ -733,6 +744,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
+  // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
+  make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
   // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
   make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);
   make_function_symbol_from_c("pc-enhanced-models-available?", (void*)pc_get_enhanced_models_available);

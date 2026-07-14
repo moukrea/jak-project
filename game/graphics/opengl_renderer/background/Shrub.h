@@ -61,6 +61,12 @@ class Shrub : public BucketRenderer {
     std::vector<std::pair<int, int>> cached_draw_idx;
     bool idx_cached = false;
     u32 cached_idx_count = 0;
+    // Grecharged-foliage-wind: Wx1 RGBA8 LUT indexed by color_index (constant per shrub
+    // instance): 16-bit packed (minY, height) per plant, for the sway base anchor + per-plant
+    // height normalization. Built once at load; sampled only when the toggle is ON.
+    GLuint wind_lut_texture = 0;
+    float wind_lut_base = 0.f;  // dequant: y = base + q16 * scale
+    float wind_lut_scale = 1.f;
 
     struct {
       u32 draws = 0;

@@ -156,6 +156,9 @@ struct GfxGlobalSettings {
   // stock alpha overhang texture). Set from GOAL via pc-set-grass-overhang!. Only draws when
   // recharged_grass is also on; the droop tail of the instance buffer is simply not drawn when off.
   bool recharged_grass_overhang = true;
+  // Grecharged-foliage-wind: light wind sway for jak1 palms (TIE) + shrubs. Set from GOAL via
+  // pc-set-foliage-wind!. Default OFF => byte-identical stock render (no displacement / mult ×1).
+  bool recharged_foliage_wind = false;
   // POLISH#4: Jak's ledge-grab point (GOAL units) pushed via pc-set-jak-ledge! while he
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).

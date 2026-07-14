@@ -1,11 +1,54 @@
 #include "Shrub.h"
 
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "common/log/log.h"
 
+#include "game/graphics/gfx.h"
 #include "game/mips2c/spart_prof.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
+namespace {
+// Grecharged-foliage-wind: live-tunable shrub sway amplitude (horizontal, in world units). Mirrors
+// GrassRenderer.cpp's grass_droop_len() dual mechanism EXACTLY (cached + throttled with
+// (s_throttle++ & 63) so it isn't re-read every frame): Android prop debug.opengoal.foliage.shrub_amp
+// / desktop env FOLIAGE_WIND_SHRUB_AMP, interpreted in METERS. Default 0.10 m (~410 world units;
+// device-tuned at the village1-hut vantage: clearly-alive shrubs OFF-vs-ON while still reading as
+// a light breeze — 0.045 was sub-pixel past a few meters), clamped [0.0, 0.3] m. Returns world
+// units (meters * 4096).
+constexpr float FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M = 0.10f;
+static float foliage_wind_shrub_amp() {
+  static float s_cached = FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M * 4096.0f;
+  static int s_throttle = 0;
+  if ((s_throttle++ & 63) != 0) {
+    return s_cached;
+  }
+  char buf[16] = {0};
+  bool have = false;
+#ifdef __ANDROID__
+  if (__system_property_get("debug.opengoal.foliage.shrub_amp", buf) > 0 && buf[0]) {
+    have = true;
+  }
+#else
+  const char* e = std::getenv("FOLIAGE_WIND_SHRUB_AMP");
+  if (e && e[0]) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+    have = true;
+  }
+#endif
+  float m = have ? (float)std::atof(buf) : FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M;
+  if (m < 0.0f) m = FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M;  // unparsable/negative -> default
+  if (m > 0.3f) m = 0.3f;
+  s_cached = m * 4096.0f;  // meters -> world units
+  return s_cached;
+}
+}  // namespace
 
 Shrub::Shrub(const std::string& name, int my_id) : BucketRenderer(name, my_id) {
   m_color_result.resize(TIME_OF_DAY_COLOR_COUNT);
@@ -98,6 +141,54 @@ void Shrub::update_load(const LevelData* loader_data) {
     time_of_day_count = std::max(tree.time_of_day_colors.color_count, time_of_day_count);
     max_inds = std::max(tree.indices.size(), max_inds);
     u32 verts = tree.unpacked.vertices.size();
+    // Grecharged-foliage-wind: per-plant sway anchor LUT. color_index is constant per shrub
+    // instance (extract_shrub assigns one time-of-day palette slot per instance), so a
+    // per-color_index (minY, height) table anchors each plant's own base and normalizes the sway
+    // by its own height. Packed 16+16 bit into the same Wx1 RGBA8 texture pattern as the TOD LUT
+    // (device-proven; no float textures on the Adreno path). Built once per level load; the
+    // shader samples it only when the toggle is ON.
+    {
+      auto& t = m_trees[l_tree];
+      std::vector<float> cmin(TIME_OF_DAY_COLOR_COUNT, 1e30f);
+      std::vector<float> cmax(TIME_OF_DAY_COLOR_COUNT, -1e30f);
+      float ymin_all = 1e30f, ymax_all = -1e30f;
+      for (const auto& v : tree.unpacked.vertices) {
+        u32 ci = v.color_index < TIME_OF_DAY_COLOR_COUNT ? v.color_index : 0;
+        if (v.y < cmin[ci]) cmin[ci] = v.y;
+        if (v.y > cmax[ci]) cmax[ci] = v.y;
+        if (v.y < ymin_all) ymin_all = v.y;
+        if (v.y > ymax_all) ymax_all = v.y;
+      }
+      if (ymax_all < ymin_all) {  // empty tree
+        ymin_all = 0.f;
+        ymax_all = 1.f;
+      }
+      float range = ymax_all - ymin_all;
+      if (range < 1.f) range = 1.f;
+      t.wind_lut_base = ymin_all;
+      t.wind_lut_scale = range / 65535.0f;
+      std::vector<u8> lut(TIME_OF_DAY_COLOR_COUNT * 4);
+      for (int ci = 0; ci < TIME_OF_DAY_COLOR_COUNT; ci++) {
+        u32 qm = 0, qh = 65535;  // unused entry: base anchor + huge height => zero sway
+        if (cmax[ci] >= cmin[ci]) {
+          float m = (cmin[ci] - ymin_all) / t.wind_lut_scale;
+          float h = (cmax[ci] - cmin[ci]) / t.wind_lut_scale;
+          qm = (u32)(m < 0.f ? 0.f : (m > 65535.f ? 65535.f : m));
+          qh = (u32)(h < 0.f ? 0.f : (h > 65535.f ? 65535.f : h));
+        }
+        lut[ci * 4 + 0] = (qm >> 8) & 0xff;
+        lut[ci * 4 + 1] = qm & 0xff;
+        lut[ci * 4 + 2] = (qh >> 8) & 0xff;
+        lut[ci * 4 + 3] = qh & 0xff;
+      }
+      glActiveTexture(GL_TEXTURE11);
+      glGenTextures(1, &t.wind_lut_texture);
+      glBindTexture(GL_TEXTURE_2D, t.wind_lut_texture);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, lut.data());
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
     glGenVertexArrays(1, &m_trees[l_tree].vao);
     glBindVertexArray(m_trees[l_tree].vao);
     m_trees[l_tree].vertex_buffer = loader_data->shrub_vertex_data[l_tree];
@@ -245,6 +336,8 @@ void Shrub::discard_tree_cache() {
     glDeleteTextures(1, &tree.time_of_day_texture);
     // Gperf-particles round 3: delete the ping-pong TOD texture too.
     glDeleteTextures(1, &tree.time_of_day_texture_pp);
+    // Grecharged-foliage-wind: delete the per-plant sway-anchor LUT (rebuilt each level load).
+    glDeleteTextures(1, &tree.wind_lut_texture);
     glDeleteBuffers(1, &tree.index_buffer);
     glDeleteBuffers(1, &tree.single_draw_index_buffer);
     glDeleteVertexArrays(1, &tree.vao);
@@ -367,6 +460,30 @@ void Shrub::render_tree(int idx,
     }
 
     first_tfrag_draw_setup(settings.camera, render_state, ShaderId::SHRUB);
+
+    // Grecharged-foliage-wind: drive the shrub breeze. Set every frame; strength 0 when OFF makes the
+    // shader's sway branch a no-op => byte-identical stock render.
+    {
+      GLuint sid = render_state->shaders[ShaderId::SHRUB].id();
+      static const auto s_t0 = std::chrono::steady_clock::now();
+      float u_time = std::chrono::duration<float>(std::chrono::steady_clock::now() - s_t0).count();
+      float amp = Gfx::g_global_settings.recharged_foliage_wind ? foliage_wind_shrub_amp() : 0.0f;
+      if (amp > 0.0f) {
+        static bool s_logged = false;
+        if (!s_logged) {
+          s_logged = true;
+          lg::info("[foliage-wind] shrub sway ACTIVE amp={} lut_base={} lut_scale={}", amp,
+                   tree.wind_lut_base, tree.wind_lut_scale);
+        }
+      }
+      glUniform1f(glGetUniformLocation(sid, "u_time"), u_time);
+      glUniform1f(glGetUniformLocation(sid, "u_wind_strength"), amp);
+      glUniform1f(glGetUniformLocation(sid, "u_wind_lut_base"), tree.wind_lut_base);
+      glUniform1f(glGetUniformLocation(sid, "u_wind_lut_scale"), tree.wind_lut_scale);
+      glUniform1i(glGetUniformLocation(sid, "tex_T11"), 11);
+      glActiveTexture(GL_TEXTURE11);
+      glBindTexture(GL_TEXTURE_2D, tree.wind_lut_texture);
+    }
 
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);

@@ -14,7 +14,10 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+# External-asset mode game root (Grecharged-external-assets): the game READS AND WRITES its
+# pc-settings on EXTERNAL storage. The old internal files/.config path still exists but is DEAD —
+# editing it is a silent no-op (cost this phase a full false-OFF A/B cycle).
+PCS='/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc'
 OUT=.autoport/reports/Grecharged-foliage-wind; DEV="$OUT/device"; mkdir -p "$DEV"
 say(){ echo; echo "######## $* ########"; }
 stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'"; }
@@ -48,6 +51,9 @@ do_aim(){
     for tok in $AIM; do pulse "$tok" 0.6 0.6; done
     stick neutral; return
   fi
+  # beach: walk forward ~4s toward the arch palms first (the beach-start spawn has all palms far;
+  # at range the light sway is sub-pixel). Same deterministic input on OFF and ON runs.
+  if [ "$VANT" = beach ]; then stick "ly=0"; sleep 4; stick neutral; sleep 1.5; fi
   sleep 2
   pulse "rx=160" 1.2 0.5      # slow pan right to sweep the beach line (palms)
   pulse "rx=160" 1.2 0.5
@@ -58,7 +64,7 @@ do_aim(){
 
 set_foliage(){ # $1 = t|f (ONLY flips recharged-foliage-wind?, leaves everything else stock incl. grass)
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  $ADB shell run-as $PKG cat "$PCS" > /tmp/pcs_fol.gc 2>/dev/null || true
+  $ADB shell cat "$PCS" > /tmp/pcs_fol.gc 2>/dev/null || true
   if grep -q 'recharged-foliage-wind?' /tmp/pcs_fol.gc 2>/dev/null; then
     sed -i "s/(recharged-foliage-wind? #[tf])/(recharged-foliage-wind? #$1)/" /tmp/pcs_fol.gc
   elif grep -q 'recharged-grass-overhang?' /tmp/pcs_fol.gc 2>/dev/null; then
@@ -68,10 +74,8 @@ set_foliage(){ # $1 = t|f (ONLY flips recharged-foliage-wind?, leaves everything
   else
     echo "  WARN: no grass-overhang anchor to inject after — settings schema unexpected"; return 1
   fi
-  $ADB push /tmp/pcs_fol.gc /data/local/tmp/pcs_fol.gc >/dev/null 2>&1
-  $ADB shell run-as $PKG cp /data/local/tmp/pcs_fol.gc "$PCS" 2>/dev/null || true
-  $ADB shell rm -f /data/local/tmp/pcs_fol.gc >/dev/null 2>&1
-  echo "  foliage-wind now: $($ADB shell run-as $PKG cat "$PCS" 2>/dev/null | grep -E 'recharged-foliage-wind\?' | tr -d '\r' | paste -sd' ')"; }
+  $ADB push /tmp/pcs_fol.gc "$PCS" >/dev/null 2>&1
+  echo "  foliage-wind now: $($ADB shell cat "$PCS" 2>/dev/null | grep -E 'recharged-foliage-wind\?' | tr -d '\r' | paste -sd' ')"; }
 
 boot_warp_retry(){ local LOG="$1" TRY ok
   for TRY in 1 2 3; do

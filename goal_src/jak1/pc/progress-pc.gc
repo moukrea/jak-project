@@ -804,7 +804,20 @@
               (pc-set-recharged-enhanced-models! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 4 Back
+       ;; 4 FOLIAGE WIND (Grecharged-foliage-wind) on-off toggle. Light wind sway on jak1 palms (TIE)
+       ;; + shrubs so the foliage reacts to a light breeze. Top-level Recharged row (owner: "un toggle
+       ;; supplémentaire dans les Recharged Settings"), NOT in the grass page — it isn't a grass
+       ;; setting, and the grass page already sits at PROGRESS_PC_PAGE_HEIGHT (7 rows). Real label via
+       ;; *foliage-wind-label*; value bound to *pc-settings* recharged-foliage-wind? in
+       ;; init-game-options. OFF (default) = stock render. on-change persists + pushes live (the
+       ;; per-frame update-to-os bridge also pushes it, so the effect applies without relaunch).
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-foliage-wind?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 5 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
@@ -940,6 +953,10 @@
 ;; menu font; shown via name-override, like *grass-mode-label* (not re-formatted).
 (define *grass-overhang-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *grass-overhang-label*) "GRASS OVERHANG")
+;; Grecharged-foliage-wind: label for the "FOLIAGE WIND" on-off toggle (light wind sway on palms + shrubs).
+;; English-only, uppercase ASCII for the menu font; shown via name-override, like *grass-overhang-label*.
+(define *foliage-wind-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *foliage-wind-label*) "FOLIAGE WIND")
 ;; Grecharged-grass-poc POLISH#6: label for the "GRASS SETTINGS" nested sub-submenu launcher row inside
 ;; the Recharged Settings submenu (English-only, uppercase ASCII for the menu font; shown via
 ;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
@@ -2998,13 +3015,22 @@
   ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 2) inside the Recharged submenu.
   (set! (-> *recharged-options-pc* 2 value-to-modify) (&-> *pc-settings* load-custom-assets?))
   (set! (-> *recharged-options-pc* 2 name-override) *load-custom-assets-label*)
+  ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle. It sits at index 4 while the ENHANCED
+  ;; MODELS row is present (static length 6) and at index 3 after that row collapsed (length 5) —
+  ;; wire by live length so re-inits stay correct in both states. Must run BEFORE the collapse
+  ;; below (the collapse moves this very row object; wiring rides along with it).
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) 6) 4 3)))
+    (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
+    (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row 3) only when the build ships the
-  ;; enhanced FR3 set; otherwise collapse the row (move Back from slot 4 into slot 3 and drop the live
-  ;; length to 4, so it disappears — renderer + nav key off (length arr)). Idempotent across re-inits.
+  ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND and Back up one slot and drop
+  ;; the live length to 5, so it disappears — renderer + nav key off (length arr)). Idempotent
+  ;; across re-inits (only fires while the static length 6 is intact).
   (if (zero? (pc-enhanced-models-available?))
-      (when (= (-> *recharged-options-pc* length) 5)
+      (when (= (-> *recharged-options-pc* length) 6)
         (set! (-> *recharged-options-pc* 3) (-> *recharged-options-pc* 4))
-        (set! (-> *recharged-options-pc* length) 4))
+        (set! (-> *recharged-options-pc* 4) (-> *recharged-options-pc* 5))
+        (set! (-> *recharged-options-pc* length) 5))
       (begin
         (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-enhanced-models?))
         (set! (-> *recharged-options-pc* 3 name-override) *enhanced-models-label*)))
