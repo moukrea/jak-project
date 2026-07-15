@@ -107,3 +107,20 @@ Round 8 fixed COLOR (lawn green, good) and improved volume, but FAILS my filter 
    make roots contiguous so the curtain is a connected mass, not separated tongues.
 Acceptance: re-capture R8-zone-cropA's exact framing; I must see (a) no rock line at the lip junction,
 (b) a connected curtain. Then and only then it goes to the owner.
+
+## ROUND 10 — SUPERVISOR CAPTURE AT THE OWNER'S TRUE JUDGING DISTANCE (OWNER-VIEW-R9-CLOSE.png, 07:05)
+Owner: "toujours aussi moche, ça ressemble à rien, rien à voir avec ce que je t'ai demandé" + re-sent
+his 3-zone spec. At HIS distance (extreme close-up at the terrace edge) I see exactly why:
+1. FALL BLADES ARE GIANT FLAT PLATES: the R9 "1.5x wider + wmul up to 1.90" blades render as wide flat
+   uniform-color quads — green shingles/scales plastered on the face, 5-10x the width of the lawn blades
+   above. WRONG APPROACH: volume must come from MANY THIN blades in MULTIPLE layers, not fewer wide
+   plates. Fall-blade width must be the SAME scale as the lawn blades; compensate with density
+   (multiply per-lip count) and the 3 layers.
+2. Per-blade FLAT color: lawn blades have a vertical gradient/texture feel; the fall plates are single
+   flat greens — give fall blades the same shading treatment as lawn blades (gradient along the blade,
+   subtle per-blade variation), never one flat quad color.
+3. The native alpha strip is STILL VISIBLE between/behind the plates at this distance — the near-hide
+   must actually cover the band at close range (check the fade distance vs the owner's typical camera
+   distance at the edge).
+ACCEPTANCE DISTANCE CHANGED: all judging crops at THIS zoom (OWNER-VIEW-R9-CLOSE.png framing — camera
+touching the edge). My filter failed by judging at mid-distance; that stops now.
