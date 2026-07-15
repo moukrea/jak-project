@@ -124,5 +124,10 @@ void main() {
   }
 
   float ao = clamp(1.0 - u_intensity * occ / float(n), 0.0, 1.0);
+  // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
+  // a contact/crease effect. Fade the term to 1.0 between 30 m and 60 m from the camera
+  // so distant scenery (incl. the sea and the seafloor seen through its transparency) is
+  // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
+  ao = mix(ao, 1.0, smoothstep(122880.0, 245760.0, dcam));
   color = vec4(vec3(ao), 1.0);
 }

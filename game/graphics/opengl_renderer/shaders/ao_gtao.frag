@@ -201,5 +201,10 @@ void main() {
   // visibility is in [0,1] for a flat facing plane -> ~1.0. Fold intensity into the
   // occlusion (1 - visibility) so the default look matches the other estimators.
   float ao = clamp(1.0 - u_intensity * (1.0 - clamp(visibility, 0.0, 1.0)), 0.0, 1.0);
+  // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
+  // a contact/crease effect. Fade the term to 1.0 between 30 m and 60 m from the camera
+  // so distant scenery (incl. the sea and the seafloor seen through its transparency) is
+  // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
+  ao = mix(ao, 1.0, smoothstep(122880.0, 245760.0, dcam));
   color = vec4(vec3(ao), 1.0);
 }

@@ -136,6 +136,7 @@ for m in MODES:
 # from off-a vs off-d (x1.5 margin, 1.5-luma absolute floor). Water mask = blue-dominant
 # pixels in the lower 60% of the frame (sand is R>B, sky is excluded by the row cut),
 # computed on the off-a RGB mean; the pose gate above guarantees framing is stable.
+wmask = None
 if vant == "shoreline":
     rgb_off, _ = mean_frames("off-a", rgb=True)
     h = rgb_off.shape[0]
@@ -187,10 +188,17 @@ for m in MODES:
     img = sum(accs) / len(accs)
     h = img.shape[0]
     sky = img[: h // 5, :]
-    white_frac = float((img > 200).mean())
-    dark_frac = float((img < 64).mean())
+    # shoreline: the water buckets draw AFTER the debug composite, so blue water covers
+    # ~57% of the debug frame and its tint under the >200 threshold swamps the whiteness
+    # stat (a threshold artifact, not a term defect — water is composite-EXCLUDED anyway).
+    # Measure the term whiteness over the NON-water region (floor + sky) there.
+    region = " (non-water region)" if (vant == "shoreline" and wmask is not None
+                                       and wmask.shape == img.shape) else ""
+    sel = ~wmask if region else np.ones_like(img, dtype=bool)
+    white_frac = float((img[sel] > 200).mean())
+    dark_frac = float((img[sel] < 64).mean())
     ok = white_frac > 0.5 and dark_frac < 0.15 and float(sky.mean()) > 200.0
-    print(f"[ao-gate5-debug] {vant} {m.upper()} AO-term view: white_frac={white_frac*100:.1f}% "
+    print(f"[ao-gate5-debug] {vant} {m.upper()} AO-term view{region}: white_frac={white_frac*100:.1f}% "
           f"dark_frac={dark_frac*100:.1f}% sky_mean={sky.mean():.0f} => {'PASS' if ok else 'FAIL'}")
     if not ok:
         gate_fail += 1
