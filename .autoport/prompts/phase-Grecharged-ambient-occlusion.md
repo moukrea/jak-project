@@ -89,3 +89,12 @@ sampler state) into subsequent level draws. MANDATORY:
   AO compiled in (all modes, including OFF). A purple/magenta world = automatic FAIL, do not proceed.
 - The device currently runs the published clean build + stock-verified fr3 set; leave it that way
   unless your build passes the textured-title check.
+
+## OWNER DATAPOINT on defect #4 (2026-07-15 12:50, verbatim): "C'est pas violet sur le build x86, le
+problème n'est visible que sur le Redmi, je pense que c'est un problème d'assets ou un truc du style"
+=> Asset FILES are excluded by the supervisor A/B (same stock-verified fr3 set on device; swapping ONLY
+libgk toggles the purple). Combined with the owner's x86-clean datapoint: the breakage is GLES/ANDROID-
+SPECIFIC in the AO pass — desktop GL tolerates what Adreno GLES does not. Prime suspects (known classes
+here): FBO attachment formats/completeness on GLES, texture-unit/sampler state not restored after the AO
+pass, glActiveTexture leakage, depth-texture sampling setup, mediump. Debug ON DEVICE (the x86 render
+proves nothing for this bug); the textured-title gate runs ON DEVICE before any redeploy.
