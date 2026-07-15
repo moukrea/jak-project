@@ -191,3 +191,20 @@ peut-être des soucis avec, c'est des retours rapides que je te fais !"
 has known issues (title crash defect #6, low-quality pixelation tuning #2) and may have more (over-
 darkening, artifacts, cost). ALL modes stay open to fixes and tuning; the owner's remarks are quick
 impressions, not sign-offs. Nothing in this phase is validated until his final play-test.
+
+## DEFECT #7 — GLOBAL FLOOR + WATER DARKENING ON DEVICE (owner 2026-07-16 00:15, verbatim)
+"SSAO n'est pas vraiment visible, et GTAO a tendance à assombrir les sols et l'eau au global (p'têtre
+les autres aussi), ce qui est bizarre, me semblait que l'AO c'était surtout du détail, pas du shading
+global"
+The owner is CORRECT: AO = local crease/contact darkening; open floors ~untouched, water untouched.
+1. WATER must be EXCLUDED from AO compositing entirely (it renders in the transparency path — AO must
+   apply to the OPAQUE resolve only; if the composite happens after water/transparents, that is a
+   bucket-ordering bug to fix, not tune).
+2. GTAO grazing-angle floors STILL darken globally ON DEVICE — the x86 whiteness proof (open 68%) did
+   NOT transfer. Verify the AO-term whiteness ON DEVICE (debug view capture on the Redmi at a beach/
+   water vantage): open floor and sky ~white, water untouched, creases dark. Device numbers, not x86.
+3. SSAO still not really visible in his quick test — tuning #3 bar stands (mid-game toggle immediately
+   visible); re-verify ON DEVICE after the floor fix (a correct floor term may change perceived
+   strength).
+Acceptance adds a WATER vantage (Sentinel Beach shoreline) to the proof set: OFF/each-mode A/B where the
+water pixels are byte-similar to OFF (delta ~0) and the floor delta stays within the open-area cap.
