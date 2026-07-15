@@ -230,3 +230,27 @@ scene lighting, so the COMPOSITE must not be. Implementation guidance for this e
   shading) and behind "AO = detail, not global shading" (owner). Related knobs from the tutorial that
   map to our settings: small AO distance/radius = tight contact detail (good default), large radius =
   broad soft occlusion (roomier feel) — per-mode radii already tuned, keep them in this frame.
+
+## OPTIONAL (owner-sourced tutorial, part 2): AO INTENSITY control
+The tutorial's workflow always ends with an intensity trim ("AO's default strength is usually a bit too
+high — brighten the black stop to weaken it"). If cheap: expose an "AO STRENGTH" row (or reuse quality
+row semantics) so the OWNER can trim intensity to taste on his device instead of us guessing the final
+look — a 0.5..1.5 multiplier on the AO term, persisted like the other settings. LOW priority: only after
+the 7 defects + 3 tunings are green; do not let it delay the gate.
+
+## OWNER OVERLAP + PERSISTENT FLOOR FLAT-SHADING (2026-07-16 01:25, verbatim)
+"j'ai p'têtre confu la collecte de preuves sur device, je testais les réglages moi-même avec le build
+qui tournait... (par contre j'ai remarqué que le sol continue de recevoir des aplats de shading qui
+obscurcissent le sol au complet en HBAO et GTAO, pour SSAO je peine à voir une différence quelconque)"
+1. EVIDENCE HYGIENE: the owner was manually changing settings on the device during your proof window —
+   any capture/AOPERF collected in that overlap is SUSPECT. Invalidate and re-run those proofs (your
+   harness seeds settings per run; verify the seed took by reading the settings file back + AOPERF mode
+   line before each capture).
+2. FLOOR FLAT-SHADING PERSISTS in HBAO and GTAO on the build he just tested (post near-field-fade
+   commit): the whole floor still darkens as a flat wash. The ambient-fraction/golden-rule scaling is
+   NOT landing on floors. Debug it with the AO debug view ON DEVICE at a floor vantage: the term must
+   be white on open floor. If the debug view is white but the composite still darkens, the bug is in
+   the COMPOSITE (double application / wrong ambient fraction); if the term is dark, it's still the
+   grazing-angle estimator. Name which, then fix.
+3. SSAO: still no visible difference at all (tuning #3 unmet). After the floor fix, re-tune SSAO
+   strength until mid-game toggle is immediately visible.
