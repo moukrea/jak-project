@@ -89,6 +89,11 @@ class GrassRenderer {
 
   const void* m_cached_level = nullptr;
   u64 m_cached_load_id = UINT64_MAX;
+  // Grecharged-grass-overhang7 ROUND 11: GL handles of the two native hang-alpha strip textures
+  // (bch-grassfringe / bch-leafyground-hang-2x1) resolved by debug_name from the loaded level's
+  // texture table — the zone-3 textured cards sample these exact resident texels (no new assets).
+  GLuint m_hang_tex[2] = {0, 0};
+  const void* m_hang_tex_src = nullptr;  // LevelData* the handles were resolved from
   // POLISH#5: the density-percent used at the last scatter. A density-slider change
   // (recharged_grass_density) differs from this -> re-scatter the whole static field.
   float m_cached_density = -1.f;

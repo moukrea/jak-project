@@ -236,37 +236,27 @@ constexpr float Z2_DEPTH_FULL_M = 1.2f;  // fully bent (w=1) this far below the 
 //  (2) VOLUME: 3 layers at deeper normal offsets + wider blades + a real outward belly (shader).
 //  (3) RAGGED: 0.7 m world-XZ cell noise modulates density AND length in coherent clumps along the
 //      lip, plus per-blade exit-cap jitter — no uniform band, no outlined ledges.
-constexpr int   Z3_LAYERS = 3;           // owner: "au moins deux couches"; round 8: 3 for visible parallax
-// ROUND 10 (supervisor at the owner's true judging distance): fall-blade WIDTH is now pinned to the
-// lawn scale in the shader (the R9 "1.5x wider" plates read as green shingles up close) — the lost
-// coverage is compensated HERE with count: area density 210 -> 300 per layer and the lip root spacing
-// halved (per-lip count x2), under a raised cap. Many thin blades in 3 layers, never wide plates.
-constexpr float Z3_AREA_DENS = 300.0f;   // zone-3 blades per m^2 PER LAYER (budget-clamped below)
-constexpr int   Z3_MAX = 420000;         // all layers combined
-constexpr float Z3_LEN_MUL = 1.25f;      // fall length scale vs BASE_H (exit-capped so it covers the
-                                         // painted strip without descending far past it)
-// ROUND 9 (supervisor filter on R8-zone-cropA): two rejects. (1) LIP SEAM — the curtain rooted only
-// on the hang FACES, whose top edge sits below the walkable lip, so a bare-rock line showed at the
-// lawn->curtain junction. A dedicated LIP ROOT ROW now roots fall blades directly on the true-rim
-// segments, sunk slightly UNDER the lawn plane: tucked beneath the lawn's overhanging silhouette,
-// and (sink > PLANE_CLEAR_M) exempt from the lawn-plane tip test that would false-kill edge roots.
-// (2) STRINGY TUFTS — root spacing along the lip is kept under a blade's root full width
-// (2*hw*wmul ~ 0.09-0.13 m) so neighbouring roots OVERLAP into a connected curtain, and face blades
-// inside the root band skip clump-thinning entirely (raggedness comes from length jitter, not holes).
-constexpr float Z3_LIP_SPACING_M = 0.0375f; // along-lip root spacing per row (2 staggered rows;
-                                            // ROUND 10: halved 0.075 -> 0.0375 — with lawn-scale
-                                            // blade width (root full width ~0.06-0.08 m) the roots
-                                            // must stay overlapped, and the per-lip count doubles)
-constexpr float Z3_LIP_SINK_M = 0.03f;      // root sink below the lawn plane (> PLANE_CLEAR_M 0.02)
-constexpr float Z3_LIP_ROW2_DROP_M = 0.10f; // second staggered row roots this far down the face
-// The lip GEOMETRY bulges outward past the walkable boundary (a rounded-over edge strip): a root
-// hanging at the shader's plain layer offset (3/7.5 cm) can sit INSIDE the bulge, leaving a brown
-// peek between the lean canopy and the curtain. The shader multiplies its normal offset by the RAW
-// per-instance normal, so scaling the lip row's outward normal drapes the roots OVER the bulge.
-constexpr float Z3_LIP_OUT_SCALE0 = 1.8f;   // row 0 outward-normal scale (3 cm -> 5.4 cm)
-constexpr float Z3_LIP_OUT_SCALE1 = 1.5f;   // row 1 outward-normal scale (7.5 cm -> 11.25 cm)
-constexpr float Z3_LIP_NEAR_HANG_M = 2.0f;  // lip row only where native-alpha hang faces are below
-constexpr float Z3_ROOTBAND_M = 0.40f;      // face blades this close (3D) to a rim skip thinning
+// ROUND 11 (supervisor DESIGN PIVOT, df1486b45): ten rounds prove solid-colour blade quads cannot
+// read as the game's grass art at the owner's judging distance (plates / strings / foam — R8-R10).
+// Zone 3 is REBUILT as textured CARDS sampling the game's OWN hang-alpha texels (bch-grassfringe /
+// bch-leafyground-hang-2x1 — the exact texels the native painted strip uses; alpha-cut like it),
+// hung from the true-rim lip segments in Z3C_LAYERS outward-offset layers with per-layer sway,
+// per-layer UV offset/flip (no ghosting) and per-card length jitter. Near view = the NATIVE art
+// (texel-identical tufts) with real depth from layering + animation; the flat painted strip stays
+// near-hidden (cards replace it, restored at far LOD). Zones 1-2 unchanged from round 10. The
+// solid-blade fall classes (nspare 7.x: face scatter + lip root rows) are DELETED.
+constexpr int   Z3C_LAYERS = 3;             // pivot spec: 2-3 offset layers; 3 for visible parallax
+constexpr float Z3C_SPACING_M = 0.55f;      // along-lip card spacing per layer (< Z3C_WIDTH_M => overlap)
+constexpr float Z3C_WIDTH_M = 0.80f;        // card width; MUST equal the shader's 2*CARD_HW
+constexpr float Z3C_REPEAT_W_M = 1.6f;      // world width of one full texture repeat (256x128 texels
+                                            // => square texels at a 0.8 m strip height); shader RPT
+constexpr float Z3C_SINK_M = 0.05f;         // root sink under the lawn plane (card top texels are
+                                            // dense grass -> the lip junction is grass-on-grass)
+constexpr float Z3C_DEPTH_MARGIN_M = 0.35f; // hang past the deepest strip bottom found below the root
+constexpr float Z3C_DEPTH_MIN_M = 0.45f;    // clamp: never shorter than a shallow strip band...
+constexpr float Z3C_DEPTH_MAX_M = 2.4f;     // ...never a floor-length curtain
+constexpr int   Z3C_MAX = 40000;            // card ceiling (~40x cheaper than the R10 420k blades)
+constexpr float Z3_LIP_NEAR_HANG_M = 2.0f;  // cards only where native-alpha hang faces are below
 
 // Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
 // the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.
@@ -301,7 +291,7 @@ struct BakeTri {
   float pal[8][3];            // day-cycle baked-light keyframes (time-of-day palette rows, centroid avg)
   u32 cand_count;             // candidates enumerated at bake_density_pct
   u64 cand_base;              // first candidate index in keep[]/rim_q[]
-  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON), bit5 is_hang (tri's source draw carries a native overhang-alpha hang texture — is_fringe_hang_tex)
+  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON), bit5 is_hang (tri's source draw carries a native overhang-alpha hang texture — is_fringe_hang_tex), bit6 is_hang_b (ROUND 11: that texture is bch-leafyground-hang-2x1, not bch-grassfringe — zone-3 cards sample the matching texels; 0 in pre-R11 bakes -> grassfringe fallback)
   // Grecharged-grass-overhang4 (GBK5): SMOOTH vertex normals — the area-weighted average of the
   // adjacent face normals at each of the tri's three (welded) vertices, computed once over the whole
   // retained soup (walkable + lip + fringe) at bake time. expand() interpolates these barycentrically

@@ -974,6 +974,26 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (!ld) {
     return;
   }
+  // Grecharged-grass-overhang7 ROUND 11: resolve the two native hang-alpha strip textures by
+  // debug_name from THIS level's texture table (index-parallel with the GL handle vector — exactly
+  // how TFragment/Tie3 bind them for the near-fade). The zone-3 textured cards sample these.
+  if ((const void*)ld != m_hang_tex_src) {
+    m_hang_tex[0] = m_hang_tex[1] = 0;
+    const auto& texs = ld->level->textures;
+    for (size_t i = 0; i < texs.size() && i < ld->textures.size(); ++i) {
+      if (texs[i].debug_name == "bch-grassfringe") {
+        m_hang_tex[0] = ld->textures[i];
+      } else if (texs[i].debug_name == "bch-leafyground-hang-2x1") {
+        m_hang_tex[1] = ld->textures[i];
+      }
+    }
+    // fallback: a level carrying only one of the strip textures still gets native art on every card
+    if (!m_hang_tex[1]) m_hang_tex[1] = m_hang_tex[0];
+    if (!m_hang_tex[0]) m_hang_tex[0] = m_hang_tex[1];
+    m_hang_tex_src = (const void*)ld;
+    lg::info("[recharged-grass] R11 hang-card textures resolved: grassfringe={} leafy2x1={}",
+             m_hang_tex[0], m_hang_tex[1]);
+  }
   // Rebuild ONLY on level change / reload, OR when the DENSITY slider changed (POLISH#5 —
   // a new density means a new instance budget, so the static field must be re-scattered).
   // Placement is otherwise camera-independent (whole-level, uniform), so walking NEVER
@@ -1164,6 +1184,15 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
 
   glBindVertexArray(m_vao);
   GLint mode_loc = glGetUniformLocation(id, "u_mode");
+
+  // ROUND 11: bind the native hang-alpha strip textures for the zone-3 textured cards (units 0/1 —
+  // the grass program samples nothing else; every other renderer re-binds its own units per draw).
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, m_hang_tex[1]);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_hang_tex[0]);
+  glUniform1i(glGetUniformLocation(id, "u_hang0"), 0);
+  glUniform1i(glGetUniformLocation(id, "u_hang1"), 1);
 
   // ROUND#19 GPU-wedge forensics (device props, read once at first frame):
   //   debug.opengoal.grass_maxinst=N  -> draw only the FIRST N instances of the SAME built buffer.

@@ -142,6 +142,8 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
     bool is_tie;                   // ROUND#13: from a TIE placed model (platform) vs tfrag terrain
     bool is_dup;                   // ROUND#16: coincident duplicate tri (fragment overlap) -> no topology/bases
     bool is_hang;                  // ROUND6: source draw carries a native overhang-alpha hang texture (bit5)
+    bool is_hang_b;                // ROUND 11: that texture is bch-leafyground-hang-2x1 (bit6) — the
+                                   // zone-3 cards sample the MATCHING native texels per face
     // POLISH#9 dynamic ground baked-light: this triangle's centroid palette rows (8 keyframes x rgb),
     // averaged over its 3 vertices, so update_light() can re-interpolate at the current time of day.
     float pal[8][3];
@@ -240,6 +242,9 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
       // ROUND6: does this draw's texture carry the native overhang ALPHA strip (the faces zone-3
       // covers with layered falling grass)? Captured by consider_tri's [&] into each TriRec.is_hang.
       bool draw_is_hang = is_fringe_hang_tex(tname);
+      // ROUND 11: WHICH strip texture — the zone-3 textured cards must sample the same texels the
+      // face below them natively shows (grassfringe vs the short leafyground fringe).
+      bool draw_is_hang_b = (tname == "bch-leafyground-hang-2x1");
       if (!matched) {
         if (looks_groundish(tname)) {
           unmatched_ground[tname]++;
@@ -409,6 +414,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
             fr.is_tie = is_tie;
             fr.is_dup = false;
             fr.is_hang = draw_is_hang;  // ROUND6: native-alpha hang face -> zone-3 fall placement
+            fr.is_hang_b = draw_is_hang_b;  // ROUND 11: which strip texture (card texel source)
             fr.gr = gcr; fr.gg = gcg; fr.gb = gcb;
             fr.raw_baked = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);
             fr.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u) ^ (is_tie ? 0x9e3779b9u : 0u));
@@ -446,6 +452,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
         r.is_lip = false;
         r.is_tie = is_tie;   // ROUND#13: tfrag-vs-TIE split for the lip/rim instrumentation
         r.is_hang = draw_is_hang;  // ROUND6: native-alpha hang face (bit5)
+        r.is_hang_b = draw_is_hang_b;  // ROUND 11: which strip texture (bit6, card texel source)
         r.gr = gcr; r.gg = gcg; r.gb = gcb;
         float bl = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);  // POLISH#6 triangle baked luma
         r.raw_baked = bl;
@@ -956,7 +963,8 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
     bt.gr = r.gr; bt.gg = r.gg; bt.gb = r.gb;
     bt.nx = r.nx; bt.ny = r.ny; bt.nz = r.nz;
     std::memcpy(bt.pal, r.pal, sizeof(bt.pal));
-    bt.flags = (r.is_tie ? 1u : 0u) | (r.is_lip ? 2u : 0u) | (r.is_dup ? 4u : 0u) | (r.is_hang ? 32u : 0u);
+    bt.flags = (r.is_tie ? 1u : 0u) | (r.is_lip ? 2u : 0u) | (r.is_dup ? 4u : 0u) |
+               (r.is_hang ? 32u : 0u) | (r.is_hang_b ? 64u : 0u);
     bt.cand_base = cand_running;
     bt.cand_count = 0;
 
@@ -1142,7 +1150,8 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
       bt.gr = fr.gr; bt.gg = fr.gg; bt.gb = fr.gb;
       bt.nx = fr.nx; bt.ny = fr.ny; bt.nz = fr.nz;
       std::memcpy(bt.pal, fr.pal, sizeof(bt.pal));
-      bt.flags = (fr.is_tie ? 1u : 0u) | 8u | (fr.is_hang ? 32u : 0u);  // bit3 = fringe; bit5 = native-alpha hang face
+      bt.flags = (fr.is_tie ? 1u : 0u) | 8u | (fr.is_hang ? 32u : 0u) |
+                 (fr.is_hang_b ? 64u : 0u);  // bit3 = fringe; bit5 = hang face; bit6 = leafy tex
       bt.cand_base = cand_running;
       bt.cand_count = 0;
       u32 tri_idx = (u32)bake_tris.size();
@@ -2098,25 +2107,27 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   }
   res.lean_twins = lean_twins;
 
-  // ---- ZONE 3 (owner round-6): >= 2 LAYERS of grass falling fully DOWNWARD over the faces carrying
-  // the native overhang ALPHA texture (is_hang, flags bit5), entirely covering it at near LOD (the
-  // tfrag/TIE fringe-fade hides the painted strip near; it restores at distance as these blades fade
-  // out — crossfade, no double-up). ROUND 8 (supervisor read of the owner view): 3 layers at deeper
-  // normal offsets for parallax; blades inherit the WALKABLE lawn colour+light (no darkening); cell
-  // noise clumps density/length along the lip (ragged silhouette, no "eyeliner" band).
+  // ---- ZONE 3 ROUND 11 (supervisor DESIGN PIVOT, df1486b45): textured CARDS sampling the game's
+  // OWN hang-alpha texels. Ten rounds proved solid-colour blade quads read as plates/strings/foam at
+  // the owner's judging distance (camera at the edge) — never as the native art. Each card is one
+  // tail instance the shader stretches into a 4-quad vertical strip hung from the true-rim lip,
+  // textured with bch-grassfringe / bch-leafyground-hang-2x1 (alpha-cut, the SAME texels the painted
+  // strip uses), in Z3C_LAYERS outward-offset layers with per-layer sway + UV offset/flip and
+  // per-card length jitter. Near LOD = animated multi-layer copies of the native strip replacing the
+  // flat one (the tfrag/TIE fringe-fade still hides it near; restored at distance as the cards LOD
+  // out — crossfade, no double-up). The R8-R10 solid fall classes (nspare 7.x) are DELETED.
   int z3_placed = 0;
-  // ---- ROUND 9 LIP ROOT ROW (supervisor filter on R8-zone-cropA: rock line at the lawn->curtain
-  // junction). The face-scattered curtain can never reach the lip (its tri tops sit below the
-  // walkable edge), so root a dedicated contiguous row of fall blades directly ON the true-rim lip
-  // segments: 2 staggered rows at Z3_LIP_SPACING_M (< a root's full width -> neighbouring roots
-  // overlap), sunk Z3_LIP_SINK_M under the lawn plane (tucked beneath the lawn's overhanging
-  // silhouette; the sink also puts the base behind the lawn plane so tip_violates skips it).
-  // Runs BEFORE the face layers so the row can never be starved by the Z3_MAX cap.
-  int z3_lip = 0;
+  int z3_texb = 0;
   {
-    // hang-face centroid grid (GCELL cells): the lip row only roots on rim segments that actually
-    // have native-alpha hang faces below them — clean drop-offs keep their stock silhouette.
-    std::unordered_map<u64, std::vector<std::array<float, 3>>> hang_cent;
+    // hang-face grid (GCELL cells): cards only hang from rim segments that actually have native-
+    // alpha strip faces below them — clean drop-offs keep their stock silhouette. Per entry we keep
+    // the face's LOWEST vertex (where the painted strip's texels end -> per-root hang depth) and its
+    // texture id (bit6) so each card samples the texels its own face natively shows.
+    struct HangPt {
+      float x, y, ymin, z;
+      bool texb;
+    };
+    std::unordered_map<u64, std::vector<HangPt>> hang_cent;
     for (const auto& de : d.droop) {
       if (de.tri >= d.tris.size()) continue;
       const BakeTri& ht = d.tris[de.tri];
@@ -2124,189 +2135,110 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
       float cx = ht.p0[0] + (ht.e1[0] + ht.e2[0]) * (1.0f / 3.0f);
       float cy = ht.p0[1] + (ht.e1[1] + ht.e2[1]) * (1.0f / 3.0f);
       float cz = ht.p0[2] + (ht.e1[2] + ht.e2[2]) * (1.0f / 3.0f);
+      float ymin = std::min(ht.p0[1], std::min(ht.p0[1] + ht.e1[1], ht.p0[1] + ht.e2[1]));
       hang_cent[gkey((s64)std::floor(cx / GCELL), (s64)std::floor(cz / GCELL))].push_back(
-          {cx, cy, cz});
+          {cx, cy, ymin, cz, (ht.flags & 64u) != 0u});
     }
-    auto hang_below = [&](float px, float py, float pz) -> bool {
+    // Probe the strip below a point: deepest strip bottom (hang depth) + majority texture.
+    auto hang_probe = [&](float px, float py, float pz, float& depth, bool& texb) -> bool {
       s64 cx = (s64)std::floor(px / GCELL), cz = (s64)std::floor(pz / GCELL);
+      bool found = false;
+      float deep = 0.f;
+      int votes_b = 0, votes_a = 0;
       for (s64 dx = -1; dx <= 1; ++dx)
         for (s64 dz = -1; dz <= 1; ++dz) {
           auto it = hang_cent.find(gkey(cx + dx, cz + dz));
           if (it == hang_cent.end()) continue;
           for (const auto& c : it->second) {
-            float ddx = c[0] - px, ddz = c[2] - pz, dy = py - c[1];
+            float ddx = c.x - px, ddz = c.z - pz, dy = py - c.y;
             if (dy > -0.3f * U && dy < Z3_LIP_NEAR_HANG_M * U &&
                 ddx * ddx + ddz * ddz < (1.5f * U) * (1.5f * U)) {
-              return true;
+              found = true;
+              deep = std::max(deep, py - c.ymin);
+              if (c.texb) {
+                votes_b++;
+              } else {
+                votes_a++;
+              }
             }
           }
         }
-      return false;
+      if (found) {
+        depth = deep;
+        texb = votes_b > votes_a;
+      }
+      return found;
     };
-    const float SP = Z3_LIP_SPACING_M * U;
+    const float SP = Z3C_SPACING_M * U;
+    const float RPT = Z3C_REPEAT_W_M * U;
     for (u32 si = 0; si < (u32)d.rimdrape.size(); ++si) {
       const RimDrapeSeg& rs = d.rimdrape[si];
       float sx = rs.bx - rs.ax, sy = rs.by - rs.ay, sz = rs.bz - rs.az;
       float seglen = std::sqrt(sx * sx + sy * sy + sz * sz);
       if (seglen < 0.02f * U) continue;
-      float mx = rs.ax + 0.5f * sx, my = rs.ay + 0.5f * sy, mz = rs.az + 0.5f * sz;
-      if (!hang_below(mx, my, mz) && !hang_below(rs.ax, rs.ay, rs.az) &&
-          !hang_below(rs.bx, rs.by, rs.bz)) {
-        continue;
+      // segment gate + fallback depth/tex: probe midpoint and both endpoints
+      float seg_depth = 0.f;
+      bool seg_texb = false, seg_found = false;
+      {
+        float mx = rs.ax + 0.5f * sx, my = rs.ay + 0.5f * sy, mz = rs.az + 0.5f * sz;
+        float dp;
+        bool tb;
+        if (hang_probe(mx, my, mz, dp, tb)) { seg_found = true; seg_depth = std::max(seg_depth, dp); seg_texb = tb; }
+        if (hang_probe(rs.ax, rs.ay, rs.az, dp, tb) && (!seg_found || dp > seg_depth)) { seg_found = true; seg_depth = dp; seg_texb = tb; }
+        if (hang_probe(rs.bx, rs.by, rs.bz, dp, tb) && (!seg_found || dp > seg_depth)) { seg_found = true; seg_depth = dp; seg_texb = tb; }
       }
+      if (!seg_found) continue;
       int nb = (int)(seglen / SP) + 1;
-      for (int row = 0; row < 2; ++row) {
+      for (int layer = 0; layer < Z3C_LAYERS; ++layer) {
         for (int i = 0; i < nb; ++i) {
-          if (z3_placed >= Z3_MAX) break;
+          if (z3_placed >= Z3C_MAX) break;
           u32 sd = (rs.tri * 2654435761u) ^ (si * 0x9E3779B9u) ^ ((u32)i * 40503u) ^
-                   ((u32)row * 0x5bd1e995u);
-          float u01 =
-              (((float)i + 0.5f * (float)row) * SP + (hash_f(sd + 1u) - 0.5f) * 0.5f * SP) / seglen;
+                   ((u32)layer * 0x5bd1e995u);
+          // per-layer stagger + jitter so no two layers share a root line
+          float arc = ((float)i + (float)layer / (float)Z3C_LAYERS +
+                       (hash_f(sd + 1u) - 0.5f) * 0.35f) *
+                      SP;
+          float u01 = arc / seglen;
           if (u01 < 0.f || u01 > 1.f) continue;
           float bx = rs.ax + sx * u01;
-          float by = rs.ay + sy * u01 - Z3_LIP_SINK_M * U - (float)row * Z3_LIP_ROW2_DROP_M * U;
+          float by = rs.ay + sy * u01 - Z3C_SINK_M * U;
           float bz = rs.az + sz * u01;
-          // same 0.7 m cell noise as the face pass: coherent LENGTH clumps (ragged silhouette);
-          // no density thinning here — the root line must be contiguous.
-          s64 ccx = (s64)std::floor(bx / (0.7f * U));
-          s64 ccz = (s64)std::floor(bz / (0.7f * U));
-          float cn = hash_f((u32)((u64)ccx * 73856093u) ^ (u32)((u64)ccz * 19349663u) ^ 0x5BD1u);
-          float species =
-              BASE_H * Z3_LEN_MUL * (0.70f + 0.55f * hash_f(sd + 3u)) * (0.85f + 0.35f * cn);
-          // plane-cap shrink mirrors the shader rest pose (SCALED horizontal outward normal so the
-          // root drapes over the rounded lip bulge, per-row loff) but is FLOORED, never dropped: a
-          // partially buried tip is invisible, a dropped root re-opens the rock line at the lip
-          // that round 8 was rejected for.
-          float osc = (row == 0) ? Z3_LIP_OUT_SCALE0 : Z3_LIP_OUT_SCALE1;
-          float loff = (0.03f + 0.09f * (0.5f * (float)row)) * U;  // == shader layer 0 / 0.5
-          float base[3] = {bx, by, bz};
-          float h = species;
+          // per-root depth/texture (falls back to the segment probe on gaps in the strip)
+          float depth = seg_depth;
+          bool texb = seg_texb;
+          hang_probe(bx, by, bz, depth, texb);
+          float h = std::min(std::max(depth + Z3C_DEPTH_MARGIN_M * U, Z3C_DEPTH_MIN_M * U),
+                             Z3C_DEPTH_MAX_M * U);
+          h *= 0.85f + 0.30f * hash_f(sd + 3u);  // per-card length jitter (ragged strip bottom)
+          // don't stab the terrace floor below: iterative shrink against nearby planes (rest tip =
+          // root + outw*loff - h, mirrors the shader), FLOORED so a root can never be dropped.
+          float loff = (0.05f + 0.105f * (float)layer) * U;  // MUST mirror the shader's card loff
+          float basep[3] = {bx, by, bz};
           for (int it = 0; it < 16; ++it) {
-            float tip[3] = {bx + rs.ox * osc * loff, by - h, bz + rs.oz * osc * loff};
-            if (!tip_violates(base, tip, rs.tri)) break;
-            h *= 0.8f;
+            float tip[3] = {bx + rs.ox * loff, by - h, bz + rs.oz * loff};
+            if (!tip_violates(basep, tip, rs.tri)) break;
+            h *= 0.85f;
           }
-          if (h < 0.5f * species) h = 0.5f * species;
+          if (h < 0.5f * Z3C_DEPTH_MIN_M * U) h = 0.5f * Z3C_DEPTH_MIN_M * U;
           GrassInstance gi;
           gi.px = bx; gi.py = by; gi.pz = bz;
           gi.h = h;
-          gi.yaw = std::atan2(rs.ox, rs.oz) + (hash_f(sd + 4u) - 0.5f) * 0.6f;
+          gi.yaw = std::atan2(rs.ox, rs.oz);
           gi.tint = hash_f(sd + 5u);
-          gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);
+          // u0: continuous along-lip texture phase (arc / one world repeat) — adjacent cards on the
+          // same segment continue the SAME texel run, so the strip art tiles like the native draw.
+          gi.curve = arc / RPT - std::floor(arc / RPT);
           gi.phase = hash_f(sd + 7u);
           gi.gr = rs.gr; gi.gg = rs.gg; gi.gb = rs.gb;  // walkable lawn colour (round-8 rule)
-          gi.gspare = 1.0e9f;  // NO_RIM: the fall over the lip is the intended overhang
-          // SCALED horizontal outward (shader offsets by the raw normal): drapes over the lip bulge
-          gi.nx = rs.ox * osc; gi.ny = 0.0f; gi.nz = rs.oz * osc;
-          gi.nspare = 7.0f + 0.25f * (float)row;  // fall class; row 1 = layer 0.5 (loff 7.5 cm)
+          gi.gspare = 1.0e9f;  // NO_RIM: the hang over the lip is the intended overhang
+          gi.nx = rs.ox; gi.ny = 0.0f; gi.nz = rs.oz;  // unit outward (shader offsets per layer)
+          // card class: 9 + layer, +0.5 encodes WHICH hang texture the card samples
+          gi.nspare = 9.0f + (float)layer + (texb ? 0.5f : 0.0f);
           res.instances.push_back(gi);
           res.inst_tri.push_back(rs.tri);  // lawn tri light -> brightness continuity at the lip
           z3_placed++;
-          z3_lip++;
+          if (texb) z3_texb++;
         }
-      }
-    }
-  }
-  for (int layer = 0; layer < Z3_LAYERS; ++layer) {
-    // Budget pre-pass: hang-subset area * Z3_AREA_DENS * Z3_LAYERS clamped to 0.9*Z3_MAX (per layer).
-    float total_area = 0.f;
-    for (const auto& de : d.droop) {
-      if (de.tri >= d.tris.size()) continue;
-      if (!(d.tris[de.tri].flags & 32u)) continue;  // native-alpha hang faces only
-      total_area += d.tris[de.tri].area_m2;
-    }
-    float adens = Z3_AREA_DENS * dens_scale;
-    if (total_area > 1.0f && total_area * adens * (float)Z3_LAYERS > 0.9f * (float)Z3_MAX) {
-      adens = 0.9f * (float)Z3_MAX / (total_area * (float)Z3_LAYERS);
-    }
-    for (const auto& de : d.droop) {
-      if (z3_placed >= Z3_MAX) break;
-      if (de.tri >= d.tris.size()) continue;
-      const BakeTri& tri = d.tris[de.tri];
-      if (!(tri.flags & 32u)) continue;  // native-alpha hang faces only
-      float fn = tri.area_m2 * adens;
-      int n = (int)fn;
-      u32 tseed = (tri.seed ^ 0xFA110u) + (u32)layer * 0x9E3779B9u;  // per-layer decorrelated seed
-      if (hash_f(tseed + 99u) < (fn - (float)n)) n += 1;
-      for (int i = 0; i < n; ++i) {
-        if (z3_placed >= Z3_MAX) break;
-        u32 sd = tseed + (u32)i * 2654435761u;
-        float r1d = hash_f(sd + 1u);
-        float r2d = hash_f(sd + 2u);
-        if (r1d + r2d > 1.0f) { r1d = 1.0f - r1d; r2d = 1.0f - r2d; }
-        float bx = tri.p0[0] + r1d * tri.e1[0] + r2d * tri.e2[0];
-        float by = tri.p0[1] + r1d * tri.e1[1] + r2d * tri.e2[1];
-        float bz = tri.p0[2] + r1d * tri.e1[2] + r2d * tri.e2[2];
-        // ROUND 8 defect 3 ("eyeliner"): coherent 0.7 m world-XZ cell noise modulates density AND
-        // length in clumps along the lip so the silhouette is ragged, not a uniform outlined band.
-        // Deterministic (position hash) so precomputed and live-scan boots agree blade-for-blade.
-        s64 ccx = (s64)std::floor(bx / (0.7f * U));
-        s64 ccz = (s64)std::floor(bz / (0.7f * U));
-        float cn = hash_f((u32)((u64)ccx * 73856093u) ^ (u32)((u64)ccz * 19349663u) ^ 0x5BD1u);
-        // ROUND 8 defect 1 (dark-olive drape vs bright lawn): inherit the nearest rim segment's
-        // WALKABLE-TOP lawn colour and its baked-light tri — the drape must read as the SAME grass
-        // folding over the lip, not the drop face's dark texture. Fallback: hang-face colour UNdarkened.
-        // ROUND 9: the query moved ABOVE the clump-thinning so its 3D rim distance can exempt the
-        // root band from thinning (supervisor: "roots contiguous", "connected mass").
-        float cgr = tri.gr, cgg = tri.gg, cgb = tri.gb;
-        u32 light_tri = de.tri;
-        bool near_root = false;
-        {
-          float ox2, oz2, ry, d2;
-          u32 rsi = 0;
-          if (nearest_rim_seg(bx, by, bz, 3.0f * U, ox2, oz2, ry, d2, &rsi)) {
-            const RimDrapeSeg& rs = d.rimdrape[rsi];
-            cgr = rs.gr; cgg = rs.gg; cgb = rs.gb;
-            light_tri = rs.tri;
-            float dy = by - ry;
-            near_root = d2 + dy * dy < (Z3_ROOTBAND_M * U) * (Z3_ROOTBAND_M * U);
-          }
-        }
-        // ROUND 9 ("stringy detached tufts"): keep 0.70+0.30*cn (was 0.55+0.45, mean 0.78 -> 0.85)
-        // and NO thinning inside the root band — raggedness comes from length jitter, not root holes.
-        if (!near_root && hash_f(sd + 8u) > 0.70f + 0.30f * cn) continue;
-        float sn[3];
-        bary_smooth(tri, 1.0f - r1d - r2d, r1d, r2d, sn);
-        if (sn[0] * de.ox + sn[2] * de.oz < 0.f) { sn[0] = -sn[0]; sn[2] = -sn[2]; }
-        // Wider per-blade length range * the clump factor (defect 3: ragged, defect 2: variation).
-        float species = BASE_H * Z3_LEN_MUL * (0.65f + 0.75f * hash_f(sd + 3u)) * (0.85f + 0.35f * cn);
-        float ex = exit_dist(tri, bx, by, bz);
-        float len = species;
-        // Per-blade exit-cap jitter: the old fixed 1.05 cap clamped every blade to the exact strip
-        // height = the dead-straight bottom edge of the "eyeliner". 0.80..1.15 keeps coverage while
-        // breaking the line.
-        float capm = 0.80f + 0.35f * hash_f(sd + 9u);
-        if (ex > 0.f && ex * capm < len) len = ex * capm;
-        if (len < MINLEN_WU) continue;
-        // fall cap: rest tip = base + n*loff + (0,-len,0); iterative 0.8 shrink like zone 1.
-        // ROUND 8 defect 2 (volume): deeper per-layer normal offsets (3/12/21 cm) — MUST mirror the
-        // shader's loff so the plane test sees the real rest pose.
-        float loff = (0.03f + 0.09f * (float)layer) * U;
-        float base[3] = {bx, by, bz};
-        float h = len;
-        bool ok = true;
-        for (int it = 0; it < 16; ++it) {
-          float tip[3] = {bx + sn[0] * loff, by + sn[1] * loff - h, bz + sn[2] * loff};
-          if (!tip_violates(base, tip, de.tri)) break;
-          h *= 0.8f;
-          if (h < MINLEN_WU) { ok = false; break; }
-        }
-        if (!ok) { plane_dropped++; continue; }
-        if (h < len - 1e-3f) plane_capped++;
-        GrassInstance gi;
-        gi.px = bx; gi.py = by; gi.pz = bz;
-        gi.h = h;
-        gi.yaw = std::atan2(sn[0], sn[2]) + (hash_f(sd + 4u) - 0.5f) * 0.6f;
-        gi.tint = hash_f(sd + 5u);
-        gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);
-        gi.phase = hash_f(sd + 7u);
-        gi.gr = cgr; gi.gg = cgg; gi.gb = cgb;  // lawn colour, NO layer darkening (round 8 defect 1)
-        gi.gspare = 1.0e9f;  // NO_RIM: the fall is the intended overhang
-        gi.nx = sn[0]; gi.ny = sn[1]; gi.nz = sn[2];  // SMOOTH NORMAL (outward-oriented)
-        gi.nspare = 7.0f + 0.5f * (float)layer;  // ZONE-3 FALL marker (shader nsp > 6.5), layer=(nsp-7)*2
-        res.instances.push_back(gi);
-        res.inst_tri.push_back(light_tri);  // lawn tri light -> brightness continuity across the lip
-        z3_placed++;
       }
     }
   }
@@ -2315,10 +2247,10 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   res.plane_capped = plane_capped;
   res.plane_dropped = plane_dropped;
   lg::info("[recharged-grass] GOVERHANG6 zones: lean_tagged={} lean_twins={} (band {:.2f}m) z2_strip={} "
-           "z3_fall={} (layers={} lip={}) comb_repl={} curl_blades={} curl_tilt0={} plane_capped={} "
-           "plane_dropped={}",
-           res.lean_tagged, res.lean_twins, LEAN_BAND_M, res.z2_count, res.z3_count, Z3_LAYERS,
-           z3_lip, res.comb_pairs, dbg_trans_blades, dbg_trans_tilt0, plane_capped, plane_dropped);
+           "z3_fall={} (CARDS layers={} texb={}) comb_repl={} curl_blades={} curl_tilt0={} "
+           "plane_capped={} plane_dropped={}",
+           res.lean_tagged, res.lean_twins, LEAN_BAND_M, res.z2_count, res.z3_count, Z3C_LAYERS,
+           z3_texb, res.comb_pairs, dbg_trans_blades, dbg_trans_tilt0, plane_capped, plane_dropped);
   return res;
 }
 

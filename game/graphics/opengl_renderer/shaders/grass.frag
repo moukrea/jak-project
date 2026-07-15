@@ -10,14 +10,33 @@
 
 in vec3 v_color;
 in float v_alpha;
-in vec2 v_uv;            // card-local coords (x in [-1,1], y in [0,1])
+in vec2 v_uv;            // card-local coords (x in [-1,1], y in [0,1]); class-2 = hang-texture UV
 flat in int v_is_card;
-in float v_seed;
+in float v_seed;         // class-2 cards: hang-texture select (0/1) instead of the tuft seed
+
+// Grecharged-grass-overhang7 ROUND 11 (design pivot): zone-3 hang cards sample the game's OWN
+// hang-alpha texels — the exact texture pages the native painted strip uses (already resident).
+uniform sampler2D u_hang0;  // bch-grassfringe
+uniform sampler2D u_hang1;  // bch-leafyground-hang-2x1
 
 out vec4 color;
 
 void main() {
   float a = v_alpha;
+
+  if (v_is_card == 2) {
+    // ZONE-3 TEXTURED HANG CARD: alpha-cut sampling of the native strip texels, so the card IS the
+    // game's own art (crisp ragged tips, no soft halo). u tiles along the lip (wrap); v is clamped
+    // in-shader (the shared level texture object's wrap state must not be touched — tfrag uses it).
+    vec2 uv = vec2(v_uv.x, clamp(v_uv.y, 0.002, 0.998));
+    vec4 tx = mix(texture(u_hang0, uv), texture(u_hang1, uv), clamp(v_seed, 0.0, 1.0));
+    if (tx.a < 0.45 || a < 0.02) {
+      discard;
+    }
+    // v_color = the ground's dynamic baked light (*2 factor), matching the native strip's own draw.
+    color = vec4(tx.rgb * v_color, a);
+    return;
+  }
 
   if (v_is_card == 1) {
     // Cut the card quad into a few vertical sub-blades so it reads as a tuft.
