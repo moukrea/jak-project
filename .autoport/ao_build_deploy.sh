@@ -79,25 +79,34 @@ if ! extract_done; then
   $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
 fi
 bash .autoport/Gconsolidate_deploy_cgos.sh 2>&1 | tail -5 || die "CGO push failed"
-bash .autoport/lib/deploy_verify_assets.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify_assets failed"
 
-say "5b. push rebuilt text banks (AO value strings) to the active overlay dir(s)"
-DEST_DIRS="files/iso_data/jak1"
-if $ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/GAME.CGO'" >/dev/null 2>&1; then
-  DEST_DIRS="files/cgo/jak1 files/iso_data/jak1"
-fi
-for f in out/jak1/iso/*.TXT; do
-  b=$(basename "$f")
-  lsha=$(sha256sum "$f" | cut -d' ' -f1)
-  $ADB -s $S push "$f" /data/local/tmp/"$b" >/dev/null 2>&1 || die "push $b to tmp failed"
-  for d in $DEST_DIRS; do
-    $ADB -s $S shell "run-as $PKG sh -c 'cp /data/local/tmp/$b $d/$b'" || die "cp $b -> $d failed"
-    dsha=$($ADB -s $S shell "run-as $PKG sha256sum $d/$b" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
-    [ "$lsha" = "$dsha" ] || die "sha mismatch for $d/$b (local $lsha device $dsha)"
+say "5b. push rebuilt text banks (AO value strings) — SPLIT per read path. Known hazard"
+say "    (feedback_slim_apk_fr3_staleness): desktop TXT over the android overlay banks loses"
+say "    the TAP-SCREEN override and desyncs deploy_verify_assets. Overlay files/cgo/jak1 <-"
+say "    out/jak1-android-text ONLY (strays removed); files/iso_data/jak1 <- out/jak1/iso."
+push_txt_set(){ local SRC="$1" DST="$2" f b lsha dsha
+  for f in "$SRC"/*.TXT; do
+    b=$(basename "$f")
+    lsha=$(sha256sum "$f" | cut -d' ' -f1)
+    $ADB -s $S push "$f" /data/local/tmp/"$b" >/dev/null 2>&1 || die "push $b to tmp failed"
+    $ADB -s $S shell "run-as $PKG sh -c 'cp /data/local/tmp/$b $DST/$b'" || die "cp $b -> $DST failed"
+    dsha=$($ADB -s $S shell "run-as $PKG sha256sum $DST/$b" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+    [ "$lsha" = "$dsha" ] || die "sha mismatch for $DST/$b (local $lsha device $dsha)"
+    $ADB -s $S shell rm -f /data/local/tmp/"$b" >/dev/null 2>&1 || true
   done
-  $ADB -s $S shell rm -f /data/local/tmp/"$b" >/dev/null 2>&1 || true
-done
-echo "  ok: $(ls out/jak1/iso/*.TXT | wc -l) TXT banks pushed + sha-verified to: $DEST_DIRS"
+}
+push_txt_set out/jak1/iso files/iso_data/jak1
+echo "  ok: $(ls out/jak1/iso/*.TXT | wc -l) desktop TXT banks -> files/iso_data/jak1 (sha-verified)"
+if $ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/GAME.CGO'" >/dev/null 2>&1; then
+  for b in $($ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/'" 2>/dev/null | tr -d '\r' | grep 'COMMON\.TXT$'); do
+    [ -f "out/jak1-android-text/$b" ] || {
+      echo "  removing stray overlay TXT: $b"
+      $ADB -s $S shell "run-as $PKG rm -f files/cgo/jak1/$b" >/dev/null 2>&1 || die "rm stray $b failed"; }
+  done
+  push_txt_set out/jak1-android-text files/cgo/jak1
+  echo "  ok: $(ls out/jak1-android-text/*.TXT | wc -l) android TXT banks -> files/cgo/jak1 (sha-verified, strays removed)"
+fi
+bash .autoport/lib/deploy_verify_assets.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify_assets failed"
 
 say "6. relaunch: reach live render, no crash, jak1 foreground"
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true

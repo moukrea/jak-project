@@ -24,12 +24,35 @@ SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
 tapb(){ inject "$1"; sleep 0.4; inject ""; sleep "${2:-0.9}"; }
-shot(){ adb exec-out screencap -p > "$OUT/$1.png" 2>/dev/null; }
+# focus-bracketed screenshot (supervisor hard rule 2026-07-15 16:20): mCurrentFocus is
+# checked immediately BEFORE and AFTER, saved next to the frame; a non-jak1 frame is
+# flagged loudly in the proof log.
+shot(){ local FB FA
+  FB=$(adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r')
+  adb exec-out screencap -p > "$OUT/$1.png" 2>/dev/null
+  FA=$(adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r')
+  printf 'before: %s\nafter:  %s\n' "$FB" "$FA" > "$OUT/$1.focus.txt"
+  case "$FB$FA" in *org.opengoal.gk.jak1*) ;; *)
+    say "  SHOT $1: NOT-JAK1-FOREGROUND ($FB / $FA) — frame is NOT evidence";; esac; }
 disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE "\((ambient-occlusion|ao-quality) [0-9]+\)" | tr '\n' ' '; echo; }
 aolines(){ adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null | grep -a "recharged-ao" | tail -4; }
 
 LOGF="$OUT/proof-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
+
+fg_ok(){ adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | grep -q "org.opengoal.gk.jak1"; }
+# MIUI early-boot launch bounces steal the foreground (the attempt-4 proof2 series was
+# 100% launcher frames). Hold jak1 foregrounded 30s continuous before ANY input/shot.
+stabilize_fg(){ local t0=$(date +%s) held=0
+  while [ $(( $(date +%s)-t0 )) -lt 360 ]; do
+    if fg_ok; then held=$((held+1)); [ "$held" -ge 4 ] && { say "  foreground STABLE (30s)"; return 0; }
+    else held=0; say "  (stabilize) FG-LOST — refront"
+      adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+      adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1; sleep 10
+    fi
+    sleep 8
+  done
+  say "  WARNING: foreground never stabilized (6 min) — proof frames will be non-evidence"; return 1; }
 
 # poll up to 8s for a "[recharged-ao] ... mode -> M ..." push line (quality NOT constrained:
 # a real push is "mode -> 3 quality -> 1", so pinning quality to an assumed value false-negatives)
@@ -83,7 +106,7 @@ fi
 say "dynamic-render-scale row: DOWNS_RECHARGED=$DOWNS_RECHARGED"
 adb logcat -c 2>/dev/null || true
 adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
-sleep 75; shot 00-title
+sleep 75; stabilize_fg; shot 00-title
 say "boot [recharged-ao]: $(aolines)"
 
 say "== nav: start -> 2x down -> X (OPTIONS) -> down, X (GRAPHIC OPTIONS) =="
@@ -128,9 +151,17 @@ adb shell am force-stop $PKG; sleep 2
 say "disk after quit: $(disk)"
 adb logcat -c 2>/dev/null || true
 adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
-sleep 70; shot 15-relaunch
+sleep 70; stabilize_fg; shot 15-relaunch
 say "disk after relaunch: $(disk)"
 say "relaunch [recharged-ao]: $(aolines)"
 adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null | grep -a "AOPERF" | tail -3 | tee -a "$LOGF"
-adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r' | tee -a "$LOGF"
+FOCUS_END=$(adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r')
+say "focus at end: $FOCUS_END"
+case "$FOCUS_END" in
+  *org.opengoal.gk.jak1*) ;;
+  *) say "  END-FOCUS NOT JAK1 — crash diagnosis (last fatal/signal lines):"
+     adb logcat -d 2>/dev/null | grep -aE 'signal [0-9]+ \(SIG|FATAL EXCEPTION|Fatal signal|beginning of crash' \
+       | tail -8 | sed 's/^/  /' | tee -a "$LOGF"
+     adb shell "ps -A | grep org.opengoal" 2>/dev/null | tr -d '\r' | sed 's/^/  ps: /' | tee -a "$LOGF" ;;
+esac
 say "[ao-menu-proof2] DONE (device left running; caller decides reset/force-stop)"

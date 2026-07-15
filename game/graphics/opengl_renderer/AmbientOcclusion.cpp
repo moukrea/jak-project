@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -29,9 +30,12 @@
 // ---------------------------------------------------------------------------
 // Live-tunable mode/quality resolution.
 //
-// Same cached+throttled dual mechanism the grass renderer uses (see
-// GrassRenderer.cpp grass_droop_len): re-read the debug override at most every 120
-// calls; a value that is absent/empty/-1 means "no override, use the game setting".
+// Re-read the debug override at most every 250 ms WALL TIME (a frame-count throttle
+// stalls for tens of seconds at the locked-full-res 4-12 fps the Redmi runs the capture
+// protocol at — attempt-4's mode flips landed mid-segment). A value that is
+// absent/empty/-1 means "no override, use the game setting". Every override CHANGE is
+// logged ("[recharged-ao] override <tag> -> <v>") so capture scripts can wait for the
+// flip deterministically instead of sleeping.
 // Android reads system properties debug.opengoal.ao.force_mode / .force_quality;
 // desktop reads env AO_FORCE_MODE / AO_FORCE_QUALITY.
 // ---------------------------------------------------------------------------
@@ -61,42 +65,49 @@ int read_ao_override(const char* android_prop, const char* env_name) {
   return v;  // -1 (explicitly written) also means "no override"
 }
 
+// Time-throttled, change-logged override cache. GL-thread only (all effective_* callers
+// are on the render thread).
+struct AoOverride {
+  const char* tag;
+  const char* prop;
+  const char* env;
+  int cached = -1;
+  double last_read_s = -1.0;
+
+  int read() {
+    const double now =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+            .count();
+    if (last_read_s < 0.0 || now - last_read_s >= 0.25) {
+      last_read_s = now;
+      const int v = read_ao_override(prop, env);
+      if (v != cached) {
+        lg::info("[recharged-ao] override {} -> {}", tag, v);
+        cached = v;
+      }
+    }
+    return cached;
+  }
+};
+
 }  // namespace
 
 int AmbientOcclusionPass::effective_mode() {
-  static int s_cached = -1;
-  static int s_throttle = 0;
-  if ((s_throttle++ % 120) == 0 || s_cached < 0) {
-    s_cached = read_ao_override("debug.opengoal.ao.force_mode", "AO_FORCE_MODE");
-  }
-  if (s_cached >= 0) {
-    return s_cached;
-  }
-  return Gfx::g_global_settings.recharged_ao_mode;
+  static AoOverride s_ov{"mode", "debug.opengoal.ao.force_mode", "AO_FORCE_MODE"};
+  const int v = s_ov.read();
+  return (v >= 0) ? v : Gfx::g_global_settings.recharged_ao_mode;
 }
 
 int AmbientOcclusionPass::effective_quality() {
-  static int s_cached = -1;
-  static int s_throttle = 0;
-  if ((s_throttle++ % 120) == 0 || s_cached < 0) {
-    s_cached = read_ao_override("debug.opengoal.ao.force_quality", "AO_FORCE_QUALITY");
-  }
-  if (s_cached >= 0) {
-    return s_cached;
-  }
-  return Gfx::g_global_settings.recharged_ao_quality;
+  static AoOverride s_ov{"quality", "debug.opengoal.ao.force_quality", "AO_FORCE_QUALITY"};
+  const int v = s_ov.read();
+  return (v >= 0) ? v : Gfx::g_global_settings.recharged_ao_quality;
 }
 
 int AmbientOcclusionPass::effective_debug() {
-  static int s_cached = -1;
-  static int s_throttle = 0;
-  if ((s_throttle++ % 120) == 0 || s_cached < 0) {
-    s_cached = read_ao_override("debug.opengoal.ao.debug", "AO_DEBUG");
-  }
-  if (s_cached >= 0) {
-    return s_cached;
-  }
-  return 0;
+  static AoOverride s_ov{"debug", "debug.opengoal.ao.debug", "AO_DEBUG"};
+  const int v = s_ov.read();
+  return (v >= 0) ? v : 0;
 }
 
 // ---------------------------------------------------------------------------

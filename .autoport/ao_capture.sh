@@ -26,6 +26,30 @@ ao_force(){ $ADB shell "setprop debug.opengoal.ao.force_mode '$1'" >/dev/null 2>
 ao_clear(){ $ADB shell "setprop debug.opengoal.ao.force_mode ''" >/dev/null 2>&1
             $ADB shell "setprop debug.opengoal.ao.force_quality ''" >/dev/null 2>&1; }
 
+# Wait for the renderer to CONFIRM an override flip: the build logs
+# "[recharged-ao] override <kind> -> <val>" on every change (250ms wall-time re-read).
+# Only waits on lines APPENDED to $LOG after the recorded mark; timeout=45s.
+# Usage: wait_override <kind> <val> <mark-lineno>
+wait_override(){ local KIND="$1" VAL="$2" MARK="$3" t0=$(date +%s)
+  while [ $(( $(date +%s)-t0 )) -lt 45 ]; do
+    if tail -n "+$((MARK+1))" "$LOG" 2>/dev/null | grep -aq "override $KIND -> $VAL"; then
+      echo "  override-confirm: $KIND -> $VAL ($(( $(date +%s)-t0 ))s)"; return 0
+    fi
+    sleep 1
+  done
+  echo "  override-confirm TIMEOUT: $KIND -> $VAL (45s) — segment evidence SUSPECT"; return 1; }
+
+# Force mode+quality and wait for the renderer's confirmation of every value that CHANGED
+# (an unchanged value logs nothing). Tracks PREV_M/PREV_Q globals (init -1 = unknown/cleared).
+PREV_M=-1; PREV_Q=-1
+ao_force_confirmed(){ local M="$1" Q="$2"
+  local MARK; MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+  ao_force "$M" "$Q"
+  [ "$M" != "$PREV_M" ] && wait_override mode "$M" "$MARK"
+  [ "$Q" != "$PREV_Q" ] && wait_override quality "$Q" "$MARK"
+  PREV_M="$M"; PREV_Q="$Q"
+  sleep 3; }  # FBO/targets settle after a 0<->N flip (one-frame AO skip + rebuild)
+
 VANT="${1:-village1}"
 case "$VANT" in
   village1|fpsmatrix) CONT=village1-hut;  POS="-156.0 34.0 188.0" ;;
@@ -72,16 +96,26 @@ boot_warp_retry(){ local LOG="$1" TRY ok
   return 1; }
 
 # low-level record+pull+extract for ONE segment (no gating); returns mp4 size in REC_SZ
-REC_SZ=0
+# and frame count in REC_FRAMES. Focus is BRACKETED (before+after, both saved next to the
+# frames — supervisor hard rule) and stray screenrecords are killed first (a leftover from
+# a killed run starves the encoder -> header-only mp4).
+REC_SZ=0; REC_FRAMES=0
 rec_core(){ local TAG="$1" SECS="${2:-8}"
+  $ADB shell pkill screenrecord >/dev/null 2>&1; sleep 1
+  local FB; FB=$(focus)
+  echo "  focus-before $TAG: $FB"
   $ADB shell rm -f /sdcard/${TAG}.mp4 >/dev/null 2>&1
-  $ADB shell screenrecord --time-limit "$SECS" --bit-rate 16000000 /sdcard/${TAG}.mp4 >/dev/null 2>&1
+  $ADB shell screenrecord --time-limit "$SECS" --bit-rate 16000000 /sdcard/${TAG}.mp4 2>&1 \
+    | tail -2 | sed 's/^/  [screenrecord] /'
   sleep 1; $ADB pull /sdcard/${TAG}.mp4 "$DEV/${TAG}.mp4" >/dev/null 2>&1
   $ADB shell rm -f /sdcard/${TAG}.mp4 >/dev/null 2>&1
   mkdir -p "$DEV/${TAG}_frames"; rm -f "$DEV/${TAG}_frames"/*.png
   ffmpeg -y -loglevel error -i "$DEV/${TAG}.mp4" -vf fps=1 "$DEV/${TAG}_frames/f_%03d.png" 2>/dev/null
   REC_SZ=$(stat -c %s "$DEV/${TAG}.mp4" 2>/dev/null || echo 0); REC_SZ=${REC_SZ:-0}
-  echo "  rec $TAG: mp4=${REC_SZ}B frames=$(ls "$DEV/${TAG}_frames" 2>/dev/null | wc -l) $(focus)"; }
+  REC_FRAMES=$(ls "$DEV/${TAG}_frames"/f_*.png 2>/dev/null | wc -l)
+  local FA; FA=$(focus)
+  printf 'before: %s\nafter:  %s\n' "$FB" "$FA" > "$DEV/${TAG}_frames/focus-bracket.txt"
+  echo "  rec $TAG: mp4=${REC_SZ}B frames=$REC_FRAMES focus-after: $FA"; }
 
 # foreground-gated, size-gated, settled capture of ONE segment.
 # $1=TAG $2=SECS.  Uses global $LOG for warp-recovery.
@@ -96,8 +130,10 @@ rec(){ local TAG="$1" SECS="${2:-8}"
   fi
   rec_core "$TAG" "$SECS"
   if ! fg_ok; then echo "  SEGMENT SUSPECT (foreground lost after record): $TAG"; fi
-  if [ "$REC_SZ" -lt 500000 ]; then
-    echo "  SEGMENT INVALID (mp4=${REC_SZ}B < 500000): $TAG — deleting frames, retrying once"
+  # validity = real frames (a static scene encodes small at any bitrate — the old 500KB
+  # size gate false-failed valid still captures; a dead recording yields 0-1 frames).
+  if [ "$REC_FRAMES" -lt 4 ] || [ "$REC_SZ" -lt 100000 ]; then
+    echo "  SEGMENT INVALID (mp4=${REC_SZ}B frames=$REC_FRAMES): $TAG — deleting frames, retrying once"
     rm -f "$DEV/${TAG}_frames"/*.png
     if ! fg_ok; then
       echo "  re-warp before retry ($TAG)"
@@ -105,16 +141,24 @@ rec(){ local TAG="$1" SECS="${2:-8}"
       if ! fg_ok; then echo "  SEGMENT FAILED (not foreground for retry): $TAG"; return 1; fi
     fi
     rec_core "$TAG" "$SECS"
-    if [ "$REC_SZ" -lt 500000 ]; then echo "  SEGMENT INVALID after retry (mp4=${REC_SZ}B): $TAG"; fi
+    if [ "$REC_FRAMES" -lt 4 ] || [ "$REC_SZ" -lt 100000 ]; then
+      echo "  SEGMENT INVALID after retry (mp4=${REC_SZ}B frames=$REC_FRAMES): $TAG"
+    fi
   fi
   return 0; }
 
-# capture a mode's debug-view segment: arm ao.debug, settle, record, disarm.
+# capture a mode's debug-view segment: arm ao.debug, WAIT for the renderer to confirm
+# (attempt-4 debugview frames were the normal render: the 4s sleep lost the race against
+# the old 120-call re-read throttle at 4fps), record, disarm + confirm.
 # $1=prefix (e.g. device-ao-village1) $2=mode
-rec_debugview(){ local PREFIX="$1" MODE="$2"
-  $ADB shell "setprop debug.opengoal.ao.debug 1" >/dev/null 2>&1; sleep 4
+rec_debugview(){ local PREFIX="$1" MODE="$2" MARK
+  MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+  $ADB shell "setprop debug.opengoal.ao.debug 1" >/dev/null 2>&1
+  wait_override debug 1 "$MARK"; sleep 2
   rec "${PREFIX}-${MODE}-debugview" 5
-  $ADB shell "setprop debug.opengoal.ao.debug 0" >/dev/null 2>&1; sleep 2; }
+  MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+  $ADB shell "setprop debug.opengoal.ao.debug 0" >/dev/null 2>&1
+  wait_override debug 0 "$MARK"; }
 
 if [ "$VANT" = fpsmatrix ]; then
   say "FPS MATRIX @ $CONT $POS — 10 combos, AOPERF harvest"
@@ -126,16 +170,18 @@ if [ "$VANT" = fpsmatrix ]; then
                "2 0 hbao-low" "2 1 hbao-med" "2 2 hbao-high" \
                "3 0 gtao-low" "3 1 gtao-med" "3 2 gtao-high"; do
     set -- $combo; M=$1; Q=$2; TAG=$3
-    ao_force "$M" "$Q"; sleep 4    # prop pickup + FBO/targets settle
-    # AOPERF fires every 300 presented frames (~10-30 s at 10-30 fps). Wait for TWO fresh
-    # lines with the right mode/quality so the EMA has converged.
+    MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+    ao_force_confirmed "$M" "$Q"
+    # AOPERF fires every 5 s wall time. Count only lines FRESHER than the flip (boot/disk
+    # settings can pre-seed identical mode/quality pairs); 3 fresh lines ≈ 15 s, EMA
+    # (time-constant ~2.5 s) converged.
     t0=$(date +%s); got=0
     while [ $(( $(date +%s)-t0 )) -lt 120 ]; do
-      got=$(grep -ac "AOPERF mode=$M quality=$Q" "$LOG" 2>/dev/null); got=${got:-0}
-      [ "$got" -ge 2 ] && break
+      got=$(tail -n "+$((MARK+1))" "$LOG" 2>/dev/null | grep -ac "AOPERF mode=$M quality=$Q"); got=${got:-0}
+      [ "$got" -ge 3 ] && break
       sleep 5
     done
-    LINE=$(grep -a "AOPERF mode=$M quality=$Q" "$LOG" | tail -1 | tr -d '\r')
+    LINE=$(tail -n "+$((MARK+1))" "$LOG" | grep -a "AOPERF mode=$M quality=$Q" | tail -1 | tr -d '\r')
     echo "$TAG :: ${LINE:-NO-AOPERF-LINE}" | tee -a "$DEV/ao-fpsmatrix-results.txt"
   done
   ao_clear
@@ -162,12 +208,12 @@ $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
 # so a moved camera (human touch mid-run) FAILS instead of poisoning the luminance gates.
 for combo in "0 1 off-a" "1 2 ssao" "0 1 off-b" "2 2 hbao" "0 1 off-c" "3 2 gtao" "0 1 off-d"; do
   set -- $combo; M=$1; Q=$2; TAG=$3
-  ao_force "$M" "$Q"; sleep 4    # prop pickup + FBO/targets settle (renderer re-reads ~2s)
+  ao_force_confirmed "$M" "$Q"
   rec "device-ao-${VANT}-${TAG}" 6
 done
 # debug-view (raw AO term) segments per mode, AFTER the A/B sequence (not luminance evidence)
 for M in 1 2 3; do
-  ao_force "$M" 2; sleep 4
+  ao_force_confirmed "$M" 2
   rec_debugview "device-ao-${VANT}" "$M"
 done
 ao_clear

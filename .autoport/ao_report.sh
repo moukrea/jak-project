@@ -10,7 +10,9 @@ die(){ echo "[ao-report FAIL] $*" >&2; exit 1; }
 
 # --- evidence preconditions -------------------------------------------------
 grep -q '\[TITLE-GATE PASS\]' "$OUT/title-gate/gate-log.txt" || die "title gate not PASS"
-grep -q '\[ao-build\] DONE' "$OUT/build-deploy-attempt5.log" || die "build+deploy not DONE"
+BUILD_LOG=$(ls -t "$OUT"/build-deploy-*.log 2>/dev/null | head -1)
+[ -n "$BUILD_LOG" ] || die "no build-deploy log"
+grep -q '\[ao-build\] DONE' "$BUILD_LOG" || die "build+deploy not DONE ($BUILD_LOG)"
 grep -q '\[ao-proof-battery\] DONE' "$OUT/proof-battery-log.txt" || die "proof battery not DONE"
 # menu push proof: the FIXED standalone menu run (menu-proof2/proof-log.txt) is the
 # authority — normalized start state, per-commit logcat clear. ALL THREE mode commits
@@ -45,7 +47,7 @@ echo "AO quality scales resolution + sample count: Low=quarter-res, Medium=half-
 echo
 echo "== Alpha/transparent exclusion (owner #1 risk) =="
 echo "The AO pass runs at the post-opaque bucket-31 insertion point: every alpha-blended/alpha-tested bucket (ALPHA_TEX foliage, water, sprites) and the recharged grass-card pass render AFTER the AO composite, so transparent/alpha-cut geometry never writes the AO depth source and is never darkened by the composite — alpha surfaces are structurally excluded from AO depth."
-echo "Beach vantage (palms+shrubs alpha-tested foliage) + training vantage (recharged grass cards) A/B captures show no boxy shadows and no halo artifacts on alpha-cut foliage or grass cards (diff heatmaps: crease-localized darkening only, defect-5 localization gate PASS on all vantages):"
+echo "Beach vantage (palms+shrubs alpha-tested foliage) A/B captures show no boxy shadows and no halo artifacts on alpha-cut foliage; the recharged grass cards share the same structural exclusion (they draw after the AO composite and never write the AO depth source; grass was OFF during capture runs per the owner's 2026-07-15 perf protocol). Training vantage = the owner's judging level. Diff heatmaps: crease-localized darkening only, defect-5 gates below:"
 grep -E '\[ao-gate5\] (village1|beach|training) (SSAO|HBAO|GTAO):' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
 echo
 echo "== Settings & menu (defect #2 + #3a) =="

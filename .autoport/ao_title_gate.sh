@@ -29,18 +29,25 @@ refront(){ # bring the game back to the foreground (shared-device focus steals: 
 
 rec_and_scan(){ # TAG SECS -> returns 0 if purple-clean
   local TAG="$1" SECS="$2"
+  # attempt-4 hole: a leftover screenrecord (killed battery) starves the encoder -> 3.7KB
+  # header-only mp4s, and the scan PASSed on frames=0. Kill strays, log screenrecord's own
+  # output, and hard-require a real frame count.
+  $ADB -s $S shell pkill screenrecord >/dev/null 2>&1; sleep 1
   $ADB -s $S shell rm -f /sdcard/aogate.mp4 >/dev/null 2>&1
-  $ADB -s $S shell screenrecord --time-limit "$SECS" --bit-rate 12000000 /sdcard/aogate.mp4 >/dev/null 2>&1
+  $ADB -s $S shell screenrecord --time-limit "$SECS" --bit-rate 12000000 /sdcard/aogate.mp4 2>&1 \
+    | tail -3 | sed 's/^/   [screenrecord] /' | tee -a "$LOGF"
   sleep 1
   $ADB -s $S pull /sdcard/aogate.mp4 "$OUT/${TAG}.mp4" >/dev/null 2>&1
   $ADB -s $S shell rm -f /sdcard/aogate.mp4 >/dev/null 2>&1
   mkdir -p "$OUT/${TAG}_frames"; rm -f "$OUT/${TAG}_frames"/*.png
   ffmpeg -y -loglevel error -i "$OUT/${TAG}.mp4" -vf fps=1 "$OUT/${TAG}_frames/f_%03d.png" 2>/dev/null
-  python3 - "$OUT/${TAG}_frames" <<'EOF'
+  python3 - "$OUT/${TAG}_frames" "$SECS" <<'EOF'
 import sys, os
 import numpy as np
 from PIL import Image
 d = sys.argv[1]
+secs = int(sys.argv[2])
+min_frames = max(5, secs // 3)  # a SECS-long 1fps extraction must yield a real frame set
 worst = 0.0; worst_f = ''; dark = 0
 files = sorted(os.listdir(d))
 for f in files:
@@ -52,9 +59,9 @@ for f in files:
         worst, worst_f = frac, f
     if a.mean() < 15:
         dark += 1
-print(f"frames={len(files)} worst_purple={worst:.3f}% at {worst_f} dark_frames={dark}")
-# gate: any frame >0.5% purple, or >30% of frames near-black -> FAIL
-ok = worst <= 0.5 and (len(files) == 0 or dark <= max(2, len(files) * 3 // 10))
+print(f"frames={len(files)} (min {min_frames}) worst_purple={worst:.3f}% at {worst_f} dark_frames={dark}")
+# gate: too few frames (dead recording), any frame >0.5% purple, or >30% near-black -> FAIL
+ok = len(files) >= min_frames and worst <= 0.5 and dark <= max(2, len(files) * 3 // 10)
 sys.exit(0 if ok else 1)
 EOF
 }

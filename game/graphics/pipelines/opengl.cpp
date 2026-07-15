@@ -730,12 +730,17 @@ void GLDisplay::render() {
         (s_fps_smoothed_dt > 0.f) ? (1.f / s_fps_smoothed_dt) : 0.f;
   }
 
-  // Grecharged-ambient-occlusion: fps-matrix harvest line. Every 300 frames, emit the
-  // resolved AO mode/quality alongside the measured framerate + busy-ms so the perf sweep
-  // can correlate each AO configuration with its cost on device.
+  // Grecharged-ambient-occlusion: fps-matrix harvest line. Every 5 s WALL TIME (a
+  // frame-count cadence stretches to 75+ s at the locked-full-res 4 fps the capture
+  // protocol runs at, starving the fps-matrix waits), emit the resolved AO mode/quality
+  // alongside the measured framerate + busy-ms so the perf sweep can correlate each AO
+  // configuration with its cost on device.
   {
-    static int s_ao_perf_counter = 0;
-    if ((s_ao_perf_counter++ % 300) == 0) {
+    static Timer s_ao_perf_timer;
+    static bool s_ao_perf_first = true;
+    if (s_ao_perf_first || s_ao_perf_timer.getSeconds() >= 5.0) {
+      s_ao_perf_first = false;
+      s_ao_perf_timer.start();
       lg::info("AOPERF mode={} quality={} fps={:.1f} busy_ms={:.2f}",
                AmbientOcclusionPass::effective_mode(),
                AmbientOcclusionPass::effective_quality(), Gfx::g_global_settings.measured_fps,
