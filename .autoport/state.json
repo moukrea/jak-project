@@ -203,7 +203,7 @@
     "Grecharged-grass-overhang6": 1,
     "Grecharged-foliage-wind": 1,
     "Grecharged-grass-overhang7": 5,
-    "Grecharged-ambient-occlusion": 3
+    "Grecharged-ambient-occlusion": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -412,10 +412,6 @@
     ],
     "Grecharged-grass-overhang7": [
       "83c369880dac"
-    ],
-    "Grecharged-ambient-occlusion": [
-      "d07ff241ab96",
-      "d07ff241ab96"
     ]
   },
   "stuck_reasons": {
@@ -813,7 +809,7 @@
     "Grecharged-grass-overhang7": 1784047763.064689,
     "Grecharged-ambient-occlusion": 1784102746.871413
   },
-  "last_update": "2026-07-15T12:21:19.730988+00:00",
+  "last_update": "2026-07-15T12:21:20.524976+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

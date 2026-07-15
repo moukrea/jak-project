@@ -111,3 +111,20 @@ screens sur de la résolution pourrie !"
 3. Capture at the TRAINING level (owner's judging level), camera near geometry with corners/crevices
    (hut, rocks, terraces) where AO reads.
 Low-res captures are NOT acceptance evidence — retake them.
+
+## DEFECT #5 — GLOBAL DARKENING (owner 2026-07-15 14:20, verbatim + supervisor capture OWNER-VIEW-GLOBAL-DARK.png)
+"Pourquoi tout est si foncé ??? On dirait que le jeu entier est occludé une fois l'occlusion ambiante
+activée ! Tout est extrêmement sombre..."
+Supervisor confirmed on his live view: the WHOLE scene is crushed dark (rocks near-black), not
+crease-localized. The AO term saturates everywhere — classic causes: wrong depth reconstruction on GLES
+(non-linearized depth -> everything "occluded"), AO multiplied over the full framebuffer including lit/
+sky areas, strength/radius mistuned, or double application.
+MANDATORY acceptance for the fix:
+1. Ship an AO-DEBUG view (prop: render the raw AO buffer) — verify the term is ~WHITE (1.0) on open flat
+   ground and sky, dark ONLY in creases/corners/contact areas. Include a debug capture in the report.
+2. Quantified gate: at the training vantage, mean luminance delta ON-vs-OFF over OPEN areas <= ~5%;
+   the darkening must be LOCALIZED (crease crops show it; open-field crops don't).
+3. AO must modulate the AMBIENT contribution, not multiply the final lit color wholesale (no darkening
+   of sky/emissive/fullbright).
+Judge at full resolution per the capture protocol. The owner's screenshot is the counter-example: that
+look = automatic FAIL.
