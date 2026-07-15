@@ -208,3 +208,13 @@ The owner is CORRECT: AO = local crease/contact darkening; open floors ~untouche
    strength).
 Acceptance adds a WATER vantage (Sentinel Beach shoreline) to the proof set: OFF/each-mode A/B where the
 water pixels are byte-similar to OFF (delta ~0) and the floor delta stays within the open-area cap.
+
+## OWNER PRECISION on defect #7 (2026-07-16 00:20, verbatim)
+"Après le sol peut quand même recevoir de l'occlusion ambiante hein ! Les objets au-dessus, ce qui le
+touche, etc... Mais juste pas être shaded comme tu dis incidence rasante qui assombrit (juste pour la
+précision)"
+=> Do NOT overcorrect into "floors always white". The floor SHOULD darken where geometry occludes it:
+contact shadows around crates/rocks/props, wall-floor junctions, under overhangs. What must NOT happen
+is the view-dependent grazing-incidence darkening of FLAT OPEN floor with nothing nearby. Acceptance:
+at the proof vantages, floor pixels near objects/walls show contact AO; open flat floor away from any
+occluder stays ~white; water untouched.
