@@ -56,3 +56,25 @@ the SSAO pass (depth source, half-res, blur, composite), the alpha-exclusion han
 toggle, fps ON/OFF, device captures ON vs OFF incl. the alpha-foliage risk beat.
 ## Locks: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; gold READ-ONLY; force-stop after tests.
 ## Max: max_turns 3500, max_retries 6. device: true, owner_verify: true.
+
+## OWNER DEVICE TEST — THREE DEFECTS (2026-07-15 11:45, verbatim, Redmi training level)
+"Déjà le build sur Redmi, à Sandover rend toujours quasiment tout sans texture (tout est violet)...
+j'ai été sur le niveau d'entraînement et j'ai testé tous les modes d'occlusion ambiante... ça dit
+unknown ID <number> pour quasiment toutes les entrées et en plus... il n'y a aucune différence quand
+c'est on ou off"
+1. PURPLE at Sandover: root cause was the RECALLED round-2 enhanced overlay being re-pushed by asset
+   syncs (it still lived in out/jak1/fr3/enhanced). SUPERVISOR FIXED: overlay moved out of out/jak1
+   (archived .autoport/recalled/), deleted on-device, setting #f. NO worker may reintroduce enhanced/
+   fr3s (feature recalled until hd-models3).
+2. "unknown ID <number>" on almost every AO menu row: the new menu strings are MISSING from the text
+   banks deployed on the device. Ship the TEXT entries with the build: regenerate the text banks (TXT
+   in the iso set) as part of the full consistent build and deploy them (deploy_verify_assets covers
+   iso files). A menu with unknown IDs is an automatic gate FAIL.
+3. AO ON vs OFF: NO VISIBLE DIFFERENCE on device (owner cycled all modes at training). Required proof:
+   (a) AOPERF line showing mode CHANGES when the menu row changes (the earlier log only ever showed
+   mode=0 — verify the menu->settings->renderer push end-to-end on DEVICE, same class as past toggle
+   bugs); (b) same-beat A/B captures where SSAO/HBAO/GTAO each produce a VISIBLE darkening difference
+   vs OFF (corner/contact shadows) measurable by pixel-diff in the occluded regions AND visible to a
+   human; (c) mode differences also visible between variants at High quality.
+The owner tested mid-phase: after fixes, redo the full device proof and leave the device in a clean
+bootable state (no mixed deploys).
