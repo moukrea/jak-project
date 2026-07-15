@@ -137,3 +137,16 @@ mCurrentFocus` must show org.opengoal.gk.jak1 IMMEDIATELY BEFORE AND AFTER each 
 values must be saved next to the frame. A capture without its focus bracket is garbage; a launcher
 frame in a proof set = automatic FAIL. Also DIAGNOSE why the game wasn't up (crash during menu nav?
 check the logcat for the session) before re-capturing.
+
+## DEFECT #6 — TITLE CRASH WITH PERSISTED AO MODE (owner report + supervisor repro, 2026-07-15 16:45)
+With the AO-WIP build and the owner's persisted (ambient-occlusion 3)+(ao-quality 2), boot reaches the
+title flythrough, AOPERF flips to mode=3 ~7s in, fps sag 39->29, and the process DIES natively ~15-25s
+later (no Java FATAL; ActivityManager "has died") — the renderscale-resize window. Your glFinish+skip-
+one-frame mitigation is INCOMPLETE for GTAO. Requirements:
+1. The on-device TITLE GATE now runs with EACH persisted mode (off/ssao/hbao/gtao × low/med/high seeded
+   in pc-settings before boot): 2+ minutes alive at title for every combo, textured world, focus checks.
+2. Use the A34 crash-forensics loop on the tombstone to NAME the faulting site (fp-walk + lr windows).
+3. RESILIENCE (required): a crash must never brick boot — implement a safe-boot fallback (e.g. if the
+   previous session died within N seconds of AO enable, boot with AO forced off once and log it).
+4. Supervisor restored the device (published clean APK + ambient-occlusion 0). Do NOT redeploy until
+   the full mode-matrix title gate passes locally on your build.
