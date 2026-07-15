@@ -12,9 +12,13 @@ die(){ echo "[ao-report FAIL] $*" >&2; exit 1; }
 grep -q '\[TITLE-GATE PASS\]' "$OUT/title-gate/gate-log.txt" || die "title gate not PASS"
 grep -q '\[ao-build\] DONE' "$OUT/build-deploy-attempt5.log" || die "build+deploy not DONE"
 grep -q '\[ao-proof-battery\] DONE' "$OUT/proof-battery-log.txt" || die "proof battery not DONE"
-# menu push proof: mode AND quality pushes seen (split greps, line-based)
-grep -qE 'PUSH-OK mode->' "$OUT/proof-battery-log.txt" || die "no PUSH-OK mode line"
-grep -qE 'PUSH-OK quality->' "$OUT/proof-battery-log.txt" || die "no PUSH-OK quality line"
+# menu push proof: the FIXED standalone menu run (menu-proof2/proof-log.txt) is the
+# authority — normalized start state, per-commit logcat clear. ALL THREE mode commits
+# (SSAO 1, HBAO 2, GTAO 3) + the quality commit must have pushed.
+MP="$OUT/menu-proof2/proof-log.txt"
+[ -f "$MP" ] || die "no menu proof log"
+for m in 1 2 3; do grep -qE "PUSH-OK mode->$m" "$MP" || die "menu proof: no PUSH-OK mode->$m"; done
+grep -qE 'PUSH-OK quality->' "$MP" || die "menu proof: no PUSH-OK quality line"
 # defect-5 gates: every vantage OVERALL PASS
 for v in village1 beach training; do
   grep -qE "\[ao-gate5\] $v OVERALL: PASS" "$OUT/proof-battery-log.txt" || die "gate5 $v not PASS"
@@ -47,8 +51,8 @@ echo
 echo "== Settings & menu (defect #2 + #3a) =="
 echo "Recharged Settings TYPE selector row: AMBIENT OCCLUSION Off / SSAO / HBAO / GTAO (carousel), plus separate AO Quality row Low / Medium / High (settings keys ambient-occlusion / ao-quality, persisted; text ids #x1708-#x170f shipped in rebuilt TXT banks, sha-verified on device — menu strings render, no unknown ID: menu-proof2/06-ao-row.png 07-carousell-open.png)."
 echo "Menu -> settings -> renderer push proven end-to-end on device ([recharged-ao] push lines + AOPERF mode tracks the menu row):"
-grep -E 'PUSH-OK (mode|quality)->' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
-grep -E 'relaunch \[recharged-ao\]|disk after relaunch' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
+grep -E 'PUSH-OK (mode|quality)->' "$MP" | sed 's/^/  /'
+grep -E 'relaunch \[recharged-ao\]|disk after relaunch' "$MP" | sed 's/^/  /'
 echo
 echo "== Off == stock =="
 echo "Off == stock: with effective_mode()==0 the AO pass is fully skipped and the render FBO uses the stock renderbuffer depth attachment (no depth-texture path, byte-identical render path); OFF-segment purple-scan CLEAN and OFF A/B means match stock within capture noise."

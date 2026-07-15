@@ -63,7 +63,24 @@ adb shell am force-stop $PKG; sleep 2
 adb shell setprop debug.opengoal.ao.force_mode '""' >/dev/null 2>&1 || true
 adb shell setprop debug.opengoal.ao.force_quality '""' >/dev/null 2>&1 || true
 adb shell setprop debug.opengoal.level.warp '""'; adb shell setprop debug.opengoal.level.warp.pos '""'
+# NORMALIZE the disk pre-state: carousel edits are RELATIVE (X, right, X = +1 step), so
+# the Off->SSAO->HBAO->GTAO sequence only proves pushes 1/2/3 if we START at Off; quality
+# High(2) so the X,left,X edit lands Medium(1). (Leftover state from a killed battery
+# made every commit a no-op in the attempt-4 run.)
+if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa 'ambient-occlusion'; then
+  adb shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_menu.gc 2>/dev/null
+  sed -i 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/; s/(ao-quality [0-9]*)/(ao-quality 2)/' /tmp/pcs_ao_menu.gc
+  adb push /tmp/pcs_ao_menu.gc "$SETTINGS_DEV" >/dev/null 2>&1
+fi
 say "disk pre: $(disk)"
+# Downs to RECHARGED SETTINGS depend on the Min Target FPS row, which is visible ONLY
+# while Dynamic Render Scale is ON (apply-dynamic-rs-menu-mode!, progress-pc.gc:1057).
+if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa '(dynamic-render-scale? #t)'; then
+  DOWNS_RECHARGED=8
+else
+  DOWNS_RECHARGED=7
+fi
+say "dynamic-render-scale row: DOWNS_RECHARGED=$DOWNS_RECHARGED"
 adb logcat -c 2>/dev/null || true
 adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
 sleep 75; shot 00-title
@@ -73,8 +90,8 @@ say "== nav: start -> 2x down -> X (OPTIONS) -> down, X (GRAPHIC OPTIONS) =="
 tapb "start" 2.5; shot 01-main-menu
 tapb "down" 0.7; tapb "down" 0.7; tapb "x" 2.0; shot 02-options
 tapb "down" 0.8; tapb "x" 2.0; shot 03-graphics
-say "== 8x down = RECHARGED SETTINGS (android layout, Dynamic ON) =="
-for i in $(seq 1 8); do tapb "down" 0.7; done
+say "== ${DOWNS_RECHARGED}x down = RECHARGED SETTINGS (android layout; MinTargetFPS row only when Dynamic ON) =="
+for i in $(seq 1 "$DOWNS_RECHARGED"); do tapb "down" 0.7; done
 shot 04-recharged-row
 tapb "x" 1.8; shot 05-recharged-page
 say "== 4x down = AMBIENT OCCLUSION row (enhanced-models row collapsed) =="
@@ -82,16 +99,22 @@ for i in $(seq 1 4); do tapb "down" 0.7; done
 shot 06-ao-row
 
 say "== AO commits: Off->SSAO->HBAO->GTAO (X, right, X each; each must push) =="
+# logcat cleared before EACH commit: wait_push_* must match the FRESH change-push, not the
+# boot push or an earlier commit's line (the attempt-4 GTAO 'PUSH-OK' was the boot line).
+adb logcat -c 2>/dev/null || true
 tapb "x" 0.9; shot 07-carousell-open
 tapb "right" 0.9; shot 08-ssao-selected
 tapb "x" 1.6; shot 09-ssao-committed
 say "SSAO: $(wait_push_mode 1) | disk: $(disk)"
+adb logcat -c 2>/dev/null || true
 tapb "x" 0.9; tapb "right" 0.9; tapb "x" 1.6; shot 10-hbao-committed
 say "HBAO: $(wait_push_mode 2) | disk: $(disk)"
+adb logcat -c 2>/dev/null || true
 tapb "x" 0.9; tapb "right" 0.9; tapb "x" 1.6; shot 11-gtao-committed
 say "GTAO: $(wait_push_mode 3) | disk: $(disk)"
 
 say "== AO QUALITY: 1x down, X, left (High->Medium), X =="
+adb logcat -c 2>/dev/null || true
 tapb "down" 0.8; shot 12-quality-row
 tapb "x" 0.9; tapb "left" 0.9; tapb "x" 1.6; shot 13-quality-committed
 say "QUALITY: $(wait_push_quality 1) | disk: $(disk)"

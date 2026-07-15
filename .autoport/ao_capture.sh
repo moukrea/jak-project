@@ -145,17 +145,30 @@ if [ "$VANT" = fpsmatrix ]; then
   exit 0
 fi
 
-say "VANTAGE $VANT ($CONT @ $POS) — AO off/ssao/hbao/gtao at matched pose (live prop flip)"
+say "VANTAGE $VANT ($CONT @ $POS) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated)"
 LOG="$DEV/ao-${VANT}.log"
 ao_clear
 boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] $VANT boot"; exit 1; }
 
-for combo in "0 1 off" "1 2 ssao" "2 2 hbao" "3 2 gtao"; do
+# Walk-settle: a short forward walk parks the follow cam BEHIND Jak deterministically
+# (the post-warp camera keeps re-framing for minutes if Jak never moves — attempt-4
+# village1 captured three DIFFERENT poses across its segments).
+$ADB shell setprop debug.opengoal.cpad_inject up >/dev/null 2>&1; sleep 1.5
+$ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
+
+# TIGHT interleave: off-a ssao off-b hbao off-c gtao off-d (~2 min total). Each AO mode
+# is judged against its BRACKETING offs, so slow time-of-day drift cancels; off-a vs
+# off-d measures the residual drift; the analyzer NCC-gates every segment against off-a
+# so a moved camera (human touch mid-run) FAILS instead of poisoning the luminance gates.
+for combo in "0 1 off-a" "1 2 ssao" "0 1 off-b" "2 2 hbao" "0 1 off-c" "3 2 gtao" "0 1 off-d"; do
   set -- $combo; M=$1; Q=$2; TAG=$3
   ao_force "$M" "$Q"; sleep 4    # prop pickup + FBO/targets settle (renderer re-reads ~2s)
-  rec "device-ao-${VANT}-${TAG}" 8
-  # debug-view (raw AO) segment for AO-on modes only (1 ssao, 2 hbao, 3 gtao) — not off(0)
-  if [ "$M" != 0 ]; then rec_debugview "device-ao-${VANT}" "$M"; fi
+  rec "device-ao-${VANT}-${TAG}" 6
+done
+# debug-view (raw AO term) segments per mode, AFTER the A/B sequence (not luminance evidence)
+for M in 1 2 3; do
+  ao_force "$M" 2; sleep 4
+  rec_debugview "device-ao-${VANT}" "$M"
 done
 ao_clear
 $ADB shell am force-stop $PKG >/dev/null 2>&1
