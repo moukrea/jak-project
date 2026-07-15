@@ -189,7 +189,7 @@
   (set! (-> obj recharged-grass-card-dist) 95.0) ;; POLISH#4 default grass-card view distance (m; pushed further)
   (set! (-> obj recharged-grass-density) 150.0) ;; POLISH#5 default grass density percent (100 = base budget; owner wants denser)
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
-  (set! (-> obj recharged-grass-overhang?) #t) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
+  (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
   (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
   (set! (-> obj recharged-enhanced-models?) #f)
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
