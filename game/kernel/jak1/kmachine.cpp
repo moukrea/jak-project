@@ -576,6 +576,27 @@ void pc_set_grass_overhang(u32 on) {
   Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
 }
 
+// Grecharged-ambient-occlusion defect #6 resilience (safe-boot fallback): a crashy
+// persisted AO mode must never brick boot. A sentinel file is armed next to pc-settings
+// when AO becomes active and cleared after 60s of healthy pushes (or on a clean AO-off).
+// If a session dies inside that window the sentinel survives, and the NEXT boot pins AO
+// off (one boot only, loudly logged). The latch clears the moment the user picks a
+// DIFFERENT mode in the menu, so the setting stays user-controllable.
+namespace {
+constexpr double kAoGuardHealthySecs = 60.0;
+fs::path ao_boot_guard_path() {
+  return file_util::get_user_settings_dir(g_game_version) / "ao-boot-guard";
+}
+double ao_now_s() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+bool s_ao_safeboot_latched = false;  // this boot runs with AO pinned off
+int s_ao_safeboot_mode = -1;         // the refused persisted mode (a different pick clears)
+double s_ao_enable_t = -1.0;         // when AO became active this session (-1 = inactive)
+bool s_ao_guard_armed = false;       // sentinel currently on disk for this session
+}  // namespace
+
 // Grecharged-ambient-occlusion: push the AO algorithm selector + quality from GOAL
 // (-> *pc-settings* ambient-occlusion / ao-quality). mode: 0 off / 1 SSAO / 2 HBAO / 3 GTAO;
 // quality: 0 low / 1 medium / 2 high. Logs on CHANGE only (pushed every frame by
@@ -588,6 +609,44 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality) {
   }
   if (q < 0 || q > 2) {
     q = 1;
+  }
+  if (s_ao_safeboot_latched) {
+    if (m == 0 || m == s_ao_safeboot_mode) {
+      m = 0;  // pinned off for this boot
+    } else {
+      lg::info("[recharged-ao] SAFE-BOOT latch cleared by user mode change -> {}", m);
+      s_ao_safeboot_latched = false;
+    }
+  }
+  if (m > 0 && s_ao_enable_t < 0.0 && !s_ao_safeboot_latched) {
+    const auto guard = ao_boot_guard_path();
+    if (file_util::file_exists(guard.string())) {
+      lg::warn(
+          "[recharged-ao] SAFE-BOOT: previous session died within {}s of AO enable — "
+          "forcing AO OFF for this boot (persisted mode {} quality {})",
+          (int)kAoGuardHealthySecs, m, q);
+      std::error_code ec;
+      fs::remove(guard, ec);  // one forced-off boot per incident
+      s_ao_safeboot_latched = true;
+      s_ao_safeboot_mode = m;
+      m = 0;
+    } else {
+      file_util::write_text_file(guard, "ao-enable\n");
+      s_ao_guard_armed = true;
+      s_ao_enable_t = ao_now_s();
+    }
+  }
+  if (s_ao_guard_armed) {
+    if (m == 0) {  // clean disable: disarm and allow a later re-enable to re-arm
+      std::error_code ec;
+      fs::remove(ao_boot_guard_path(), ec);
+      s_ao_guard_armed = false;
+      s_ao_enable_t = -1.0;
+    } else if (ao_now_s() - s_ao_enable_t > kAoGuardHealthySecs) {
+      std::error_code ec;
+      fs::remove(ao_boot_guard_path(), ec);
+      s_ao_guard_armed = false;  // healthy: sentinel gone, s_ao_enable_t stays (no re-arm)
+    }
   }
   if (m != Gfx::g_global_settings.recharged_ao_mode ||
       q != Gfx::g_global_settings.recharged_ao_quality) {

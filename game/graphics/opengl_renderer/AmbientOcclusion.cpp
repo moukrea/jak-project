@@ -212,6 +212,9 @@ void AmbientOcclusionPass::ensure_quad() {
 
 void AmbientOcclusionPass::free_targets() {
   if (m_ao_fbo[0]) {
+    // defect #6: drain before deleting targets the previous frame's blur/composite may
+    // still reference in Adreno's deferred queue (only runs on a resolution change).
+    glFinish();
     glDeleteFramebuffers(2, m_ao_fbo);
     glDeleteTextures(2, m_ao_tex);
     m_ao_fbo[0] = m_ao_fbo[1] = 0;
@@ -250,6 +253,7 @@ void AmbientOcclusionPass::ensure_depth_resolve(int w, int h) {
     return;
   }
   if (m_depth_resolve_fbo) {
+    glFinish();  // defect #6: same Adreno deferred-delete hazard class as free_targets
     glDeleteFramebuffers(1, &m_depth_resolve_fbo);
     glDeleteTextures(1, &m_depth_resolve_tex);
     glDeleteTextures(1, &m_depth_resolve_color);

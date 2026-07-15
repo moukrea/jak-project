@@ -1056,16 +1056,20 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
     lg::info("A35-RENDER FBO setup: {}x{} (game_res {}x{} scale {}% window {}x{})", fbo_w, fbo_h,
              settings.game_res_w, settings.game_res_h, scale, settings.window_fb_w,
              settings.window_fb_h);
-    // Drain in-flight GPU work before deleting a depth TEXTURE the previous frame's AO
-    // pass may still be sampling (Adreno deferred execution; renderscale resize storms
-    // recreate this FBO several times per second under GTAO load).
-    if (m_fbo_state.render_buffer.zbuf_is_texture) {
+    // Drain in-flight GPU work before deleting ANY attachment the previous frame's work
+    // may still reference (Adreno deferred execution; renderscale resize storms recreate
+    // this FBO several times per second under GTAO load — defect #6: the depth-texture-
+    // only drain left the color attachment + AO composite in flight).
+    if (m_fbo_state.render_buffer.valid) {
       glFinish();
     }
     m_fbo_state.render_buffer.clear();
     m_fbo_state.render_buffer = a35_make_fbo(fbo_w, fbo_h, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.render_buffer;
-    m_ao_defer_frames = 1;  // fresh depth attachment: give it one rendered frame first
+    // fresh depth attachment: require 3 recreate-free frames before AO touches it. A
+    // renderscale STORM (recreate every 1-2 frames) therefore holds AO off entirely,
+    // breaking the AO-cost -> fps-sag -> resize -> AO feedback loop (defect #6 window).
+    m_ao_defer_frames = 3;
   }
 
   ASSERT_MSG(fbo_w > 0 && fbo_h > 0,
@@ -1146,6 +1150,9 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
       (fbo_w < native_ui_w || fbo_h < native_ui_h) && native_ui_w > 0 && native_ui_h > 0;
   if (split_active) {
     if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
+      if (m_fbo_state.ui_buffer.valid) {
+        glFinish();  // defect #6: drain before deleting a buffer the last frame's UI
+      }              // composite blit may still reference (same Adreno hazard class)
       m_fbo_state.ui_buffer.clear();
       m_fbo_state.ui_buffer = a35_make_fbo(native_ui_w, native_ui_h, false);
     }
