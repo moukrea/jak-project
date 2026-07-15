@@ -77,6 +77,12 @@ struct GrassFringeFade {
   bool on = false;
   float start_m = 0.f;
   float end_m = 0.f;
+  // Grecharged-grass-overhang7 ROUND 10 forensics (painted strip still visible at the owner's close
+  // judging distance): debug.opengoal.grass.fringe_dbg (Android) / GRASS_FRINGE_DBG (desktop).
+  // 0 = stock (default). 1 = ignore the steepness gate (fade EVERY texel of the two fringe textures
+  // near). 2 = don't fade; paint the gate state instead (magenta = would-fade steep face, cyan =
+  // gate-blocked flat-ish face) — one close capture then names WHY a tuft survived the fade.
+  float dbg = 0.f;
 };
 GrassFringeFade grass_fringe_fade_params();
 

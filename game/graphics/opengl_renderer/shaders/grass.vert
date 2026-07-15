@@ -441,9 +441,14 @@ void main() {
       float loff = (0.03 + 0.09 * layer) * 4096.0;
       float rag = 0.72 + 0.28 * fract(phase * 17.13 + tint * 5.27);
       float fall = t * H * dlen * rag;
-      // ROUND 9 (supervisor: "stringy detached tufts"): wider still (mean 1.53 -> 1.78) so, with the
-      // bake's tighter root spacing, neighbouring roots overlap into a connected curtain.
-      float wmul = 1.35 + 0.85 * fract(tint * 9.73 + phase * 3.91);
+      // ROUND 10 (supervisor capture at the owner's TRUE judging distance, OWNER-VIEW-R9-CLOSE): the
+      // R9 wide blades rendered as GIANT FLAT PLATES up close — hw scales with H, and a fall species
+      // runs up to ~2x the lawn's BASE_H, so long blades were up to ~2x wider ON TOP of wmul 1.35..2.20
+      // (5-10x a lawn blade on screen). Width is now DECOUPLED from the fall length and pinned to the
+      // LAWN blade scale: hw*wmul == 0.092*1550*(0.85..1.15) whatever H is (1550 mirrors the bake's
+      // BASE_H). Volume/coverage now comes from MANY thin blades — the bake halves the lip root
+      // spacing and raises the area density — across the 3 layers, never from width.
+      float wmul = min(1.6, 1550.0 / max(H, 1.0)) * (0.85 + 0.30 * fract(tint * 9.73 + phase * 3.91));
       float bvar = 0.75 + 0.50 * fract(tint * 11.71 + phase * 2.33);
       float bow = (0.26 + 0.13 * layer) * bvar * H * t * (1.0 - t);
       float fsway = sin(gust * (0.9 + 0.2 * layer)) * t * t * (0.06 + 0.04 * layer) * H;
@@ -462,8 +467,12 @@ void main() {
     }
     // ROUND 8 defect 1 (hard tonal seam at the lip): a FALL blade's root (t=0) is its VISIBLE top
     // edge at the lip line — the stock dark-base gradient painted a dark stripe exactly there. Reverse
-    // it for the fall class: root = lawn-TIP bright (t_col=1), darkening moderately down the hang.
-    t_col = is_fall ? (1.0 - 0.55 * t) : t;
+    // it for the fall class: root = lawn-TIP bright (t_col=1), darkening down the hang.
+    // ROUND 10 defect 2 (per-blade FLAT color): the 0.55 range left each fall blade within a narrow
+    // band that read as one flat green at the owner's close distance. Deepen to 0.75 so a fall blade
+    // spans (almost) the lawn's full root->tip gradient contrast — same shading treatment, reversed
+    // direction (bright at the lip, dark toward the hanging tip); per-blade tint variation unchanged.
+    t_col = is_fall ? (1.0 - 0.75 * t) : t;
     v_uv = vec2(0.0);
     v_is_card = 0;
   } else {

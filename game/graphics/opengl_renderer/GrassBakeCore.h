@@ -237,9 +237,12 @@ constexpr float Z2_DEPTH_FULL_M = 1.2f;  // fully bent (w=1) this far below the 
 //  (3) RAGGED: 0.7 m world-XZ cell noise modulates density AND length in coherent clumps along the
 //      lip, plus per-blade exit-cap jitter — no uniform band, no outlined ledges.
 constexpr int   Z3_LAYERS = 3;           // owner: "au moins deux couches"; round 8: 3 for visible parallax
-constexpr float Z3_AREA_DENS = 210.0f;   // zone-3 blades per m^2 PER LAYER (ROUND 9: 150 -> 210, the
-                                         // curtain read as separated tongues; budget-clamped below)
-constexpr int   Z3_MAX = 300000;         // all layers combined
+// ROUND 10 (supervisor at the owner's true judging distance): fall-blade WIDTH is now pinned to the
+// lawn scale in the shader (the R9 "1.5x wider" plates read as green shingles up close) — the lost
+// coverage is compensated HERE with count: area density 210 -> 300 per layer and the lip root spacing
+// halved (per-lip count x2), under a raised cap. Many thin blades in 3 layers, never wide plates.
+constexpr float Z3_AREA_DENS = 300.0f;   // zone-3 blades per m^2 PER LAYER (budget-clamped below)
+constexpr int   Z3_MAX = 420000;         // all layers combined
 constexpr float Z3_LEN_MUL = 1.25f;      // fall length scale vs BASE_H (exit-capped so it covers the
                                          // painted strip without descending far past it)
 // ROUND 9 (supervisor filter on R8-zone-cropA): two rejects. (1) LIP SEAM — the curtain rooted only
@@ -250,8 +253,10 @@ constexpr float Z3_LEN_MUL = 1.25f;      // fall length scale vs BASE_H (exit-ca
 // (2) STRINGY TUFTS — root spacing along the lip is kept under a blade's root full width
 // (2*hw*wmul ~ 0.09-0.13 m) so neighbouring roots OVERLAP into a connected curtain, and face blades
 // inside the root band skip clump-thinning entirely (raggedness comes from length jitter, not holes).
-constexpr float Z3_LIP_SPACING_M = 0.075f;  // along-lip root spacing per row (2 staggered rows;
-                                            // tight enough to also cover convex segment corners)
+constexpr float Z3_LIP_SPACING_M = 0.0375f; // along-lip root spacing per row (2 staggered rows;
+                                            // ROUND 10: halved 0.075 -> 0.0375 — with lawn-scale
+                                            // blade width (root full width ~0.06-0.08 m) the roots
+                                            // must stay overlapped, and the per-lip count doubles)
 constexpr float Z3_LIP_SINK_M = 0.03f;      // root sink below the lawn plane (> PLANE_CLEAR_M 0.02)
 constexpr float Z3_LIP_ROW2_DROP_M = 0.10f; // second staggered row roots this far down the face
 // The lip GEOMETRY bulges outward past the walkable boundary (a rounded-over edge strip): a root

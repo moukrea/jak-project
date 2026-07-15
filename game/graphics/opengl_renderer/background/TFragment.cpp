@@ -809,7 +809,8 @@ void TFragment::render_tree(int geom,
       fringe_loc = glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "u_fringe_fade");
     }
     if (fringe_loc >= 0) {
-      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m, 0.f);
+      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m,
+                  fringe_fade.dbg);
     }
     fringe_on_state = want;
   };
