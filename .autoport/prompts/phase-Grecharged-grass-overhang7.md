@@ -139,3 +139,17 @@ Requirements: sample the same texture pages already resident (no new assets); al
 strip; per-layer UV offset/flip so layers don't ghost; keep the near-hide of the FLAT painted strip
 (cards replace it, restored at far LOD). Judge at OWNER-VIEW framing (camera at the edge).
 NOTE: supervisor kill for re-prompt — this does NOT count as a failed attempt (retry counter reset).
+
+## OWNER DECISION (2026-07-15 09:30, verbatim — end-game protocol for this phase)
+"En vrai si tu y arrives pas ce coup-ci, on parke et tu notes tes attempts histoire de pas retourner en
+rond quand on reprend... Next subject: l'occlusion ambiante ! Mais finis ton itération avant quand même !
+Et en cas d'échec, tu mets la feature d'overhang à off par défaut dans les recharged settings en
+attendant qu'on y revienne."
+=> Round 11 (textured cards) finishes normally. THEN:
+- If the supervisor filter + owner PASS: normal close/ship.
+- If it FAILS: (1) set recharged-grass-overhang? DEFAULT #f (pckernel-impl.gc default + fresh-install
+  default; existing settings files: flip to #f in the shipped archive's defaults path — the owner's
+  device files get flipped by the supervisor), build+deploy that, prove OFF==stock; (2) write
+  .autoport/reports/Grecharged-grass-overhang7/PARKED.md = the full attempt journal (what was tried
+  rounds 1-11, what failed and WHY, dead ends not to retry, the current best state, resume hints);
+  (3) the phase closes as PARKED (honest), the pipeline moves to Grecharged-ambient-occlusion.

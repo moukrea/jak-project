@@ -2062,6 +2062,19 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-ambient-occlusion
+  name: 'RECHARGED (owner 2026-07-11, backlog): screen-space AMBIENT OCCLUSION (SSAO) for depth/relief across the whole game
+    — GLES post-process pass sampling the existing depth FBO (reconstruct pos/normal, darken creases/contacts), half-res +
+    blur for Adreno 618 perf, composited into the final image. TOGGLE "AMBIENT OCCLUSION" in Recharged Settings, default OFF
+    (OFF == stock). #1 RISK (owner-flagged): alpha-cut/transparent meshes (foliage, grass cards, fences) must be EXCLUDED
+    from the AO depth or they get boxy shadows/halos on their transparent parts. Grass: contact-AO at blade base is nice but
+    keep grass cards out of AO-depth'
+  prompt: prompts/phase-Grecharged-ambient-occlusion.md
+  validator: validators/phase-Grecharged-ambient-occlusion.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-asset-prompt-migration
   name: 'OWNER 2026-07-14 (HONOR, latest GitHub slim APK): NO asset-location prompt on upgrade — silently reused old packaged
     internal assets (his HONOR tests run STALE data!). Was part of the original request: prompt on upgrade + migration (saves
@@ -2100,19 +2113,6 @@ phases:
   prompt: prompts/phase-Grecharged-title-logo-fullres.md
   validator: validators/phase-Grecharged-title-logo-fullres.sh
   max_turns: 3000
-  max_retries: 6
-  device: true
-  owner_verify: true
-- id: Grecharged-ambient-occlusion
-  name: 'RECHARGED (owner 2026-07-11, backlog): screen-space AMBIENT OCCLUSION (SSAO) for depth/relief across the whole game
-    — GLES post-process pass sampling the existing depth FBO (reconstruct pos/normal, darken creases/contacts), half-res +
-    blur for Adreno 618 perf, composited into the final image. TOGGLE "AMBIENT OCCLUSION" in Recharged Settings, default OFF
-    (OFF == stock). #1 RISK (owner-flagged): alpha-cut/transparent meshes (foliage, grass cards, fences) must be EXCLUDED
-    from the AO depth or they get boxy shadows/halos on their transparent parts. Grass: contact-AO at blade base is nice but
-    keep grass cards out of AO-depth'
-  prompt: prompts/phase-Grecharged-ambient-occlusion.md
-  validator: validators/phase-Grecharged-ambient-occlusion.sh
-  max_turns: 3500
   max_retries: 6
   device: true
   owner_verify: true
