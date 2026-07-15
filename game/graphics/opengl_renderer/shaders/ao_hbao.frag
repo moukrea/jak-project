@@ -23,6 +23,7 @@ uniform float u_intensity;
 uniform int u_samples;  // unused here
 uniform int u_dirs;
 uniform int u_steps;
+uniform int u_debug;
 
 vec3 world_from_depth(vec2 uv, float d) {
   vec3 ndc = vec3(uv * 2.0 - 1.0, d * 2.0 - 1.0);
@@ -60,6 +61,11 @@ void main() {
   float dd = texture(u_depth, tex_coord - vec2(0.0, px.y)).r;
 
   vec3 P = world_from_depth(tex_coord, d);
+  float dcam = distance(P, u_cam_pos.xyz);
+  if (u_debug == 2) {  // depth-band debug: 10m bands from the camera; sky already white
+    color = vec4(vec3(fract(dcam / 40960.0)), 1.0);
+    return;
+  }
   vec3 dh = (abs(dr - d) < abs(dl - d))
                 ? world_from_depth(tex_coord + vec2(px.x, 0.0), dr) - P
                 : P - world_from_depth(tex_coord - vec2(px.x, 0.0), dl);
@@ -133,7 +139,7 @@ void main() {
       }
     }
 
-    float ao_dir = max(0.0, sinH - max(sinT, 0.0)) * W_at_H;
+    float ao_dir = max(0.0, sinH - max(sinT, 0.0) - 0.08) * W_at_H;
     occ += ao_dir;
   }
 

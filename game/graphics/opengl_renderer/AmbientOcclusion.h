@@ -23,6 +23,7 @@ class AmbientOcclusionPass {
   // 0=off/1=SSAO/2=HBAO/3=GTAO ; quality 0=low/1=med/2=high.
   static int effective_mode();
   static int effective_quality();
+  static int effective_debug();
 
   // Store the shader library for render-time use (mirrors the bucket-renderer flow).
   void init_shaders(ShaderLibrary& shaders);
@@ -56,4 +57,6 @@ class AmbientOcclusionPass {
   GLuint m_depth_resolve_color = 0;  // 1x1-completeness color
   int m_depth_resolve_w = 0;
   int m_depth_resolve_h = 0;
+
+  int m_err_logged = 0;
 };

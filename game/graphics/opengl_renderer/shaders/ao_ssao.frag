@@ -24,6 +24,7 @@ uniform float u_intensity;
 uniform int u_samples;
 uniform int u_dirs;   // unused here (kept for a uniform interface across passes)
 uniform int u_steps;  // unused here
+uniform int u_debug;
 
 // ---- shared reconstruction (GS-style transform, reverse-Z) ----
 vec3 world_from_depth(vec2 uv, float d) {
@@ -63,6 +64,11 @@ void main() {
   float dd = texture(u_depth, tex_coord - vec2(0.0, px.y)).r;
 
   vec3 P = world_from_depth(tex_coord, d);
+  float dcam = distance(P, u_cam_pos.xyz);
+  if (u_debug == 2) {  // depth-band debug: 10m bands from the camera; sky already white
+    color = vec4(vec3(fract(dcam / 40960.0)), 1.0);
+    return;
+  }
   vec3 dh = (abs(dr - d) < abs(dl - d))
                 ? world_from_depth(tex_coord + vec2(px.x, 0.0), dr) - P
                 : P - world_from_depth(tex_coord - vec2(px.x, 0.0), dl);
@@ -85,7 +91,7 @@ void main() {
                     fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
 
   float occ = 0.0;
-  float bias = 0.01 * u_radius;
+  float bias = 0.02 * u_radius + 0.005 * dcam;  // distance-proportional: 24-bit GS depth quantizes coarsely at range
   int n = u_samples;
   for (int i = 0; i < n; i++) {
     float a = ign * 6.28318530718 + float(i) * 2.399963;
@@ -104,10 +110,10 @@ void main() {
     vec3 Ps = world_from_depth(proj.xy, ds);
     float dist_Ps = distance(Ps, u_cam_pos.xyz);
     float dist_sp = distance(sp, u_cam_pos.xyz);
-    if (dist_Ps < dist_sp - bias) {
-      float w = clamp(smoothstep(0.0, 1.0,
-                                 u_radius / max(abs(distance(P, Ps)), 1e-3)),
-                      0.0, 1.0);
+    float dPPs = distance(P, Ps);
+    if (dist_Ps < dist_sp - bias && dPPs < u_radius * 1.5) {
+      // bounded occluders only: full weight inside the radius, fading to 0 by 1.5r
+      float w = 1.0 - smoothstep(u_radius, u_radius * 1.5, dPPs);
       occ += w;
     }
   }

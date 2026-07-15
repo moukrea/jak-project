@@ -87,6 +87,18 @@ int AmbientOcclusionPass::effective_quality() {
   return Gfx::g_global_settings.recharged_ao_quality;
 }
 
+int AmbientOcclusionPass::effective_debug() {
+  static int s_cached = -1;
+  static int s_throttle = 0;
+  if ((s_throttle++ % 120) == 0 || s_cached < 0) {
+    s_cached = read_ao_override("debug.opengoal.ao.debug", "AO_DEBUG");
+  }
+  if (s_cached >= 0) {
+    return s_cached;
+  }
+  return 0;
+}
+
 // ---------------------------------------------------------------------------
 // Small math helpers (CPU-side inverse camera).
 // ---------------------------------------------------------------------------
@@ -309,6 +321,7 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   if (quality > 2) {
     quality = 2;
   }
+  const int dbg = effective_debug();  // 0=off, 1=view blurred AO term, 2=view raw estimator debug (depth bands)
 
   // (1) resolution scale by quality
   const float scale = (quality == 0) ? 0.25f : (quality == 1) ? 0.5f : 1.0f;
@@ -338,6 +351,16 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   for (int i = 0; i < 16; i++) {
     invf[i] = (float)invd[i];
   }
+
+  auto ao_glerr = [&](const char* stage) {
+    for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) {
+      if (m_err_logged < 24) {
+        lg::error("AOERR stage={} gl=0x{:x}", stage, (unsigned)e);
+        m_err_logged++;
+      }
+    }
+  };
+  ao_glerr("pre");  // drain pre-existing errors so later reads are ours
 
   // (2) full GL state snapshot (restored before returning). The pass runs mid-frame
   // between opaque and alpha buckets: ANY state it inherits can silently break it (a
@@ -399,6 +422,7 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_depth_resolve_fbo);
     glBlitFramebuffer(0, 0, full_w, full_h, 0, 0, full_w, full_h, GL_DEPTH_BUFFER_BIT,
                       GL_NEAREST);
+    ao_glerr("blit");
     depth_tex = m_depth_resolve_tex;
   } else {
     depth_tex = *render_fbo->zbuf_stencil_id;  // validated in (2a)
@@ -431,7 +455,8 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
       break;
   }
   const float u_radius = 1434.0f;   // ~0.35 m in GOAL world units
-  const float u_intensity = 1.2f;
+  const float u_intensity = 1.0f;
+  const float u_ao_strength = 0.55f;  // max fraction of the lit color AO may remove (ambient-term bound)
 
   glBindVertexArray(m_quad_vao);
   glDisable(GL_BLEND);
@@ -457,11 +482,13 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     glUniform1i(glGetUniformLocation(id, "u_samples"), u_samples);
     glUniform1i(glGetUniformLocation(id, "u_dirs"), u_dirs);
     glUniform1i(glGetUniformLocation(id, "u_steps"), u_steps);
+    glUniform1i(glGetUniformLocation(id, "u_debug"), (dbg == 2) ? 2 : 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   }
+  ao_glerr("estimate");
 
   // (8) Bilateral blur: pass H (tex0 raw -> tex1), pass V (tex1 -> tex0). Result in tex0.
-  {
+  if (dbg != 2) {
     auto& shader = (*m_shaders)[ShaderId::AO_BLUR];
     for (int p = 0; p < 2; p++) {
       shader.activate();
@@ -486,23 +513,34 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     }
     glActiveTexture(GL_TEXTURE0);
   }
+  ao_glerr("blur");
 
   // (9) Composite: multiply scene by AO (final AO in m_ao_tex[0]).
   {
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
     auto& shader = (*m_shaders)[ShaderId::AO_COMPOSITE];
     shader.activate();
     GLuint id = shader.id();
     glBindFramebuffer(GL_FRAMEBUFFER, render_fbo->fbo_id);
     glViewport(0, 0, full_w, full_h);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ZERO, GL_SRC_COLOR);  // dst *= src
+    if (dbg != 0) {
+      glDisable(GL_BLEND);  // debug view replaces the scene with the AO term
+    } else {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_ZERO, GL_SRC_COLOR);  // dst *= src
+    }
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_ao_tex[0]);
     glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
+    glUniform1i(glGetUniformLocation(id, "u_debug"), dbg);
+    glUniform1f(glGetUniformLocation(id, "u_strength"), u_ao_strength);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   }
+  ao_glerr("composite");
 
   // (10) restore EVERY piece of state the pass touched (defect #4: any leak here
   // corrupts the following alpha/sprite/HUD buckets — most dangerously the render

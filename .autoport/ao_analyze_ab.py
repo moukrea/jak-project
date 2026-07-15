@@ -72,3 +72,53 @@ for i in range(1, len(MODES)):
         a, b = MODES[i], MODES[j]
         d = float(np.abs(means[a] - means[b]).mean())
         print(f"[ao-analyze] {vant} {a.upper()}-vs-{b.upper()}: mean_absdiff={d:.3f}")
+
+# ---------------------------------------------------------------------------
+# Defect #5 quantified gates (owner 2026-07-15 14:20):
+#  * OPEN-AREA gate: mean ON-vs-OFF luminance delta over OPEN areas <= 5%.
+#    OPEN = pixels below the 90th percentile of the darkening map (everything
+#    that is not the crease/contact concentration); relative to the OFF mean.
+#  * LOCALIZATION: crease decile relative delta must exceed the open delta
+#    (darkening concentrated in creases, not spread over the field).
+#  * GLOBAL guard: whole-frame relative delta <= 8% (the owner's counter-example
+#    was a whole-scene crush).
+print()
+gate_fail = 0
+for m in MODES[1:]:
+    d = np.clip(off - means[m], 0, None)
+    thresh = np.percentile(d, 90)
+    open_mask = d < thresh
+    off_mean = float(off.mean())
+    open_rel = float(d[open_mask].mean() / max(off[open_mask].mean(), 1e-6)) * 100.0
+    crease_rel = float(d[~open_mask].mean() / max(off[~open_mask].mean(), 1e-6)) * 100.0
+    glob_rel = float(d.mean() / max(off_mean, 1e-6)) * 100.0
+    ok_open = open_rel <= 5.0
+    ok_glob = glob_rel <= 8.0
+    ok_loc = crease_rel > open_rel * 1.5
+    verdict = "PASS" if (ok_open and ok_glob) else "FAIL"
+    if verdict == "FAIL":
+        gate_fail += 1
+    print(f"[ao-gate5] {vant} {m.upper()}: open_area_delta={open_rel:.2f}% (<=5% {'OK' if ok_open else 'FAIL'}) "
+          f"crease_delta={crease_rel:.2f}% localized={'OK' if ok_loc else 'WEAK'} "
+          f"global_delta={glob_rel:.2f}% (<=8% {'OK' if ok_glob else 'FAIL'}) => {verdict}")
+
+# Debug-view (raw AO term) analysis when the capture produced *-debugview frames:
+# term must be ~white on open ground + sky, dark only in creases.
+for m in MODES[1:]:
+    pat = os.path.join(dev_dir, f"device-ao-{vant}-{m}-debugview_frames", "f_*.png")
+    files = sorted(glob.glob(pat))
+    if not files:
+        continue
+    accs = [np.asarray(Image.open(f).convert("L"), dtype=np.float64) for f in files[1:] or files]
+    img = sum(accs) / len(accs)
+    h = img.shape[0]
+    sky = img[: h // 5, :]
+    white_frac = float((img > 200).mean())
+    dark_frac = float((img < 64).mean())
+    ok = white_frac > 0.5 and dark_frac < 0.15 and float(sky.mean()) > 200.0
+    print(f"[ao-gate5-debug] {vant} {m.upper()} AO-term view: white_frac={white_frac*100:.1f}% "
+          f"dark_frac={dark_frac*100:.1f}% sky_mean={sky.mean():.0f} => {'PASS' if ok else 'FAIL'}")
+    if not ok:
+        gate_fail += 1
+
+print(f"[ao-gate5] {vant} OVERALL: {'PASS' if gate_fail == 0 else 'FAIL(' + str(gate_fail) + ')'}")

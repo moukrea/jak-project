@@ -31,17 +31,31 @@ aolines(){ adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null | grep -a "rec
 LOGF="$OUT/proof-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
 
-# poll up to 8s for a "[recharged-ao] mode -> M quality -> Q" line matching $1/$2
-wait_push(){
-  local want_m="$1" want_q="$2" i
+# poll up to 8s for a "[recharged-ao] ... mode -> M ..." push line (quality NOT constrained:
+# a real push is "mode -> 3 quality -> 1", so pinning quality to an assumed value false-negatives)
+wait_push_mode(){
+  local want_m="$1" i
   for i in $(seq 1 16); do
     if adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null \
-       | grep -a "recharged-ao" | grep -aq "mode -> $want_m quality -> $want_q"; then
-      echo "PUSH-OK mode->$want_m quality->$want_q"; return 0
+       | grep -a "recharged-ao" | grep -aq "mode -> $want_m "; then
+      echo "PUSH-OK mode->$want_m"; return 0
     fi
     sleep 0.5
   done
-  echo "PUSH-MISSING (wanted mode->$want_m quality->$want_q)"; return 1
+  echo "PUSH-MISSING (wanted mode->$want_m)"; return 1
+}
+
+# poll up to 8s for a "[recharged-ao] ... quality -> Q" push line (end-of-line tolerant)
+wait_push_quality(){
+  local want_q="$1" i
+  for i in $(seq 1 16); do
+    if adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null \
+       | grep -a "recharged-ao" | grep -aqE "quality -> $want_q(\s|\$)"; then
+      echo "PUSH-OK quality->$want_q"; return 0
+    fi
+    sleep 0.5
+  done
+  echo "PUSH-MISSING (wanted quality->$want_q)"; return 1
 }
 
 say "== boot (ao force props cleared, fresh logcat) =="
@@ -71,16 +85,16 @@ say "== AO commits: Off->SSAO->HBAO->GTAO (X, right, X each; each must push) =="
 tapb "x" 0.9; shot 07-carousell-open
 tapb "right" 0.9; shot 08-ssao-selected
 tapb "x" 1.6; shot 09-ssao-committed
-say "SSAO: $(wait_push 1 2) | disk: $(disk)"
+say "SSAO: $(wait_push_mode 1) | disk: $(disk)"
 tapb "x" 0.9; tapb "right" 0.9; tapb "x" 1.6; shot 10-hbao-committed
-say "HBAO: $(wait_push 2 2) | disk: $(disk)"
+say "HBAO: $(wait_push_mode 2) | disk: $(disk)"
 tapb "x" 0.9; tapb "right" 0.9; tapb "x" 1.6; shot 11-gtao-committed
-say "GTAO: $(wait_push 3 2) | disk: $(disk)"
+say "GTAO: $(wait_push_mode 3) | disk: $(disk)"
 
 say "== AO QUALITY: 1x down, X, left (High->Medium), X =="
 tapb "down" 0.8; shot 12-quality-row
 tapb "x" 0.9; tapb "left" 0.9; tapb "x" 1.6; shot 13-quality-committed
-say "QUALITY: $(wait_push 3 1) | disk: $(disk)"
+say "QUALITY: $(wait_push_quality 1) | disk: $(disk)"
 
 say "== back out: 1x down (Back = index 6, from quality row 5), X, then triangle x2 to title =="
 tapb "down" 0.7; tapb "x" 1.6

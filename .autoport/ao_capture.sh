@@ -17,8 +17,10 @@ ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=.autoport/reports/Grecharged-ambient-occlusion; DEV="$OUT/device"; mkdir -p "$DEV"
+$ADB shell "setprop debug.opengoal.ao.debug 0" >/dev/null 2>&1  # defensive: never leave debug-view armed
 say(){ echo; echo "######## $* ########"; }
 focus(){ $ADB shell dumpsys window 2>/dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
+fg_ok(){ $ADB shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | grep -q "org.opengoal.gk.jak1" ; }
 ao_force(){ $ADB shell "setprop debug.opengoal.ao.force_mode '$1'" >/dev/null 2>&1
             $ADB shell "setprop debug.opengoal.ao.force_quality '$2'" >/dev/null 2>&1; }
 ao_clear(){ $ADB shell "setprop debug.opengoal.ao.force_mode ''" >/dev/null 2>&1
@@ -49,18 +51,70 @@ boot_warp_retry(){ local LOG="$1" TRY ok
       sleep 3
     done
     echo "  try#$TRY warp_ok=$ok $(focus)"
-    [ "$ok" = 1 ] && { sleep 8; return 0; }
+    if [ "$ok" = 1 ]; then
+      sleep 8
+      # Early-boot MIUI launch bounces steal the foreground for the first ~1-2 min:
+      # refront (am start on the LIVE process keeps the warp) until fg holds 30s.
+      local st=$(date +%s) held=0
+      while [ $(( $(date +%s)-st )) -lt 360 ]; do
+        if fg_ok; then held=$((held+1)); [ "$held" -ge 4 ] && break
+        else held=0; echo "  (stabilize) FG-LOST — refront"
+          $ADB shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+          $ADB shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1; sleep 10
+        fi
+        sleep 8
+      done
+      [ "$held" -ge 4 ] && { echo "  foreground STABLE"; return 0; }
+      echo "  foreground never stabilized — rebooting app (try $TRY)"
+      continue
+    fi
   done
   return 1; }
 
-rec(){ local TAG="$1" SECS="${2:-8}"
+# low-level record+pull+extract for ONE segment (no gating); returns mp4 size in REC_SZ
+REC_SZ=0
+rec_core(){ local TAG="$1" SECS="${2:-8}"
   $ADB shell rm -f /sdcard/${TAG}.mp4 >/dev/null 2>&1
   $ADB shell screenrecord --time-limit "$SECS" --bit-rate 16000000 /sdcard/${TAG}.mp4 >/dev/null 2>&1
   sleep 1; $ADB pull /sdcard/${TAG}.mp4 "$DEV/${TAG}.mp4" >/dev/null 2>&1
   $ADB shell rm -f /sdcard/${TAG}.mp4 >/dev/null 2>&1
   mkdir -p "$DEV/${TAG}_frames"; rm -f "$DEV/${TAG}_frames"/*.png
   ffmpeg -y -loglevel error -i "$DEV/${TAG}.mp4" -vf fps=1 "$DEV/${TAG}_frames/f_%03d.png" 2>/dev/null
-  echo "  rec $TAG: mp4=$(stat -c %s "$DEV/${TAG}.mp4" 2>/dev/null)B frames=$(ls "$DEV/${TAG}_frames" 2>/dev/null | wc -l) $(focus)"; }
+  REC_SZ=$(stat -c %s "$DEV/${TAG}.mp4" 2>/dev/null || echo 0); REC_SZ=${REC_SZ:-0}
+  echo "  rec $TAG: mp4=${REC_SZ}B frames=$(ls "$DEV/${TAG}_frames" 2>/dev/null | wc -l) $(focus)"; }
+
+# foreground-gated, size-gated, settled capture of ONE segment.
+# $1=TAG $2=SECS.  Uses global $LOG for warp-recovery.
+rec(){ local TAG="$1" SECS="${2:-8}"
+  if ! fg_ok; then
+    echo "  FG-LOST before $TAG — attempting ONE recovery re-warp"
+    boot_warp_retry "${LOG:-$DEV/ao-recover.log}" || true
+    if ! fg_ok; then
+      echo "  SEGMENT FAILED (not foreground after recovery): $TAG — skipped, not recording launcher"
+      return 1
+    fi
+  fi
+  rec_core "$TAG" "$SECS"
+  if ! fg_ok; then echo "  SEGMENT SUSPECT (foreground lost after record): $TAG"; fi
+  if [ "$REC_SZ" -lt 500000 ]; then
+    echo "  SEGMENT INVALID (mp4=${REC_SZ}B < 500000): $TAG — deleting frames, retrying once"
+    rm -f "$DEV/${TAG}_frames"/*.png
+    if ! fg_ok; then
+      echo "  re-warp before retry ($TAG)"
+      boot_warp_retry "${LOG:-$DEV/ao-recover.log}" || true
+      if ! fg_ok; then echo "  SEGMENT FAILED (not foreground for retry): $TAG"; return 1; fi
+    fi
+    rec_core "$TAG" "$SECS"
+    if [ "$REC_SZ" -lt 500000 ]; then echo "  SEGMENT INVALID after retry (mp4=${REC_SZ}B): $TAG"; fi
+  fi
+  return 0; }
+
+# capture a mode's debug-view segment: arm ao.debug, settle, record, disarm.
+# $1=prefix (e.g. device-ao-village1) $2=mode
+rec_debugview(){ local PREFIX="$1" MODE="$2"
+  $ADB shell "setprop debug.opengoal.ao.debug 1" >/dev/null 2>&1; sleep 4
+  rec "${PREFIX}-${MODE}-debugview" 5
+  $ADB shell "setprop debug.opengoal.ao.debug 0" >/dev/null 2>&1; sleep 2; }
 
 if [ "$VANT" = fpsmatrix ]; then
   say "FPS MATRIX @ $CONT $POS — 10 combos, AOPERF harvest"
@@ -98,8 +152,10 @@ boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] $VANT boot"; exit 1; }
 
 for combo in "0 1 off" "1 2 ssao" "2 2 hbao" "3 2 gtao"; do
   set -- $combo; M=$1; Q=$2; TAG=$3
-  ao_force "$M" "$Q"; sleep 4
+  ao_force "$M" "$Q"; sleep 4    # prop pickup + FBO/targets settle (renderer re-reads ~2s)
   rec "device-ao-${VANT}-${TAG}" 8
+  # debug-view (raw AO) segment for AO-on modes only (1 ssao, 2 hbao, 3 gtao) — not off(0)
+  if [ "$M" != 0 ]; then rec_debugview "device-ao-${VANT}" "$M"; fi
 done
 ao_clear
 $ADB shell am force-stop $PKG >/dev/null 2>&1

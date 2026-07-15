@@ -1056,9 +1056,16 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
     lg::info("A35-RENDER FBO setup: {}x{} (game_res {}x{} scale {}% window {}x{})", fbo_w, fbo_h,
              settings.game_res_w, settings.game_res_h, scale, settings.window_fb_w,
              settings.window_fb_h);
+    // Drain in-flight GPU work before deleting a depth TEXTURE the previous frame's AO
+    // pass may still be sampling (Adreno deferred execution; renderscale resize storms
+    // recreate this FBO several times per second under GTAO load).
+    if (m_fbo_state.render_buffer.zbuf_is_texture) {
+      glFinish();
+    }
     m_fbo_state.render_buffer.clear();
     m_fbo_state.render_buffer = a35_make_fbo(fbo_w, fbo_h, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.render_buffer;
+    m_ao_defer_frames = 1;  // fresh depth attachment: give it one rendered frame first
   }
 
   ASSERT_MSG(fbo_w > 0 && fbo_h > 0,
@@ -1335,8 +1342,12 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // surfaces neither contribute to the AO depth nor get darkened (owner's #1 risk is
     // excluded by construction).
     if (bucket_id == 31 - 1 && AmbientOcclusionPass::effective_mode() != 0) {
-      auto p = prof.make_scoped_child("ao-draw");
-      m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
+      if (m_ao_defer_frames > 0) {
+        m_ao_defer_frames--;  // FBO was just recreated: skip AO this frame (see setup_frame)
+      } else {
+        auto p = prof.make_scoped_child("ao-draw");
+        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
+      }
     }
 
     // Grecharged-grass-poc: draw procedural grass over the training ground at the

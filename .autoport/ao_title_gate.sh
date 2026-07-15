@@ -20,6 +20,13 @@ ao_force(){ $ADB -s $S shell "setprop debug.opengoal.ao.force_mode '$1'" >/dev/n
 ao_clear(){ $ADB -s $S shell "setprop debug.opengoal.ao.force_mode ''" >/dev/null 2>&1
             $ADB -s $S shell "setprop debug.opengoal.ao.force_quality ''" >/dev/null 2>&1; }
 
+fg_ok(){ $ADB -s $S shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | grep -q "org.opengoal.gk.jak1"; }
+refront(){ # bring the game back to the foreground (shared-device focus steals: MIUI home / parallel project)
+  $ADB -s $S shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+  $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
+  sleep 12
+  fg_ok; }
+
 rec_and_scan(){ # TAG SECS -> returns 0 if purple-clean
   local TAG="$1" SECS="$2"
   $ADB -s $S shell rm -f /sdcard/aogate.mp4 >/dev/null 2>&1
@@ -82,16 +89,43 @@ $ADB -s $S logcat -c 2>/dev/null || true
 $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
 sleep 30
 say "focus at start: $(focus)"
+# Early-boot focus steals (MIUI popups over a fresh boot) hit the first segment: wait
+# until jak1 holds the foreground CONTINUOUSLY for 30s (refront as needed, max 6 min).
+t0=$(date +%s); held=0
+while [ $(( $(date +%s)-t0 )) -lt 360 ]; do
+  if fg_ok; then
+    held=$((held+1)); [ "$held" -ge 4 ] && break
+  else
+    held=0; say "  (stabilize) FG-LOST — refront"; refront || true
+  fi
+  sleep 8
+done
+[ "$held" -ge 4 ] && say "foreground STABLE (30s continuous)" || say "WARNING: foreground never stabilized in 6 min"
 
 GATE_OK=1
 for combo in "off:100:: " "ssao:60:1:2" "hbao:60:2:2" "gtao:60:3:2"; do
   IFS=: read -r TAG SECS M Q <<<"$combo"
   if [ -n "${M// /}" ]; then ao_force "$M" "$Q"; sleep 6; else ao_clear; fi
   say "-- segment $TAG (${SECS}s) --"
-  if rec_and_scan "$TAG" "$SECS" | tee -a "$LOGF"; then
-    say "   $TAG: purple-scan CLEAN"
+  # focus-gated: a recording of the MIUI launcher is not evidence either way.
+  if ! fg_ok; then
+    say "   FG-LOST before $TAG — re-fronting"
+    refront || { say "   $TAG: FOCUS FAIL (cannot re-front jak1)"; GATE_OK=0; continue; }
+  fi
+  seg_ok=0
+  for attempt in 1 2; do
+    if rec_and_scan "$TAG" "$SECS" | tee -a "$LOGF"; then
+      if fg_ok; then seg_ok=1; break
+      else say "   $TAG: focus lost DURING attempt#$attempt — refront + retry"; refront || break; fi
+    else
+      if fg_ok; then break   # genuine purple/black with app fronted: real FAIL
+      else say "   $TAG: attempt#$attempt recorded a non-jak1 screen — refront + retry"; refront || break; fi
+    fi
+  done
+  if [ "$seg_ok" = 1 ]; then
+    say "   $TAG: purple-scan CLEAN (jak1 foreground)"
   else
-    say "   $TAG: purple-scan FAIL (untextured/black frames)"; GATE_OK=0
+    say "   $TAG: purple-scan FAIL (untextured/black frames or focus unrecoverable)"; GATE_OK=0
   fi
 done
 ao_clear
