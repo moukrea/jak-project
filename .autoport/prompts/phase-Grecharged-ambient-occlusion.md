@@ -78,3 +78,14 @@ c'est on ou off"
    human; (c) mode differences also visible between variants at High quality.
 The owner tested mid-phase: after fixes, redo the full device proof and leave the device in a clean
 bootable state (no mixed deploys).
+
+## DEFECT #4 — THE AO PASS BREAKS LEVEL TEXTURING (2026-07-15 12:40, supervisor-proven)
+The owner's "tout violet à Sandover" was NOT data: with the AO-WIP libgk, the title flythrough renders
+the world purple (missing textures); after restoring the published (pre-AO) libgk on the SAME
+stock-verified fr3 set, textures are back. The AO pass leaks GL state (texture unit binding / FBO /
+sampler state) into subsequent level draws. MANDATORY:
+- Fix the state leak (save/restore all GL state the AO pass touches; rebind after the pass).
+- PROOF before ANY device redeploy: boot to the title flythrough and verify the world is TEXTURED with
+  AO compiled in (all modes, including OFF). A purple/magenta world = automatic FAIL, do not proceed.
+- The device currently runs the published clean build + stock-verified fr3 set; leave it that way
+  unless your build passes the textured-title check.
