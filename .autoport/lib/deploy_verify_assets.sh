@@ -78,3 +78,34 @@ done <<< "$LOCAL_FILES"
 [ "$MISSING" -eq 0 ] || die "$MISSING asset(s) missing on device — push the full set to $DEV_DIR"
 [ "$MISMATCH" -eq 0 ] || die "$MISMATCH asset(s) STALE on device — device runs OLD GOAL code (re-push out/$GAME/iso/ to $DEV_DIR)"
 echo "DEPLOY-ASSETS PASS: device $SERIAL runs the fresh GOAL set ($N_LOCAL/$N_LOCAL CGO/DGO byte-identical to $ISO_DIR)."
+
+# 3. *COMMON.TXT match (jak1 only). The text banks carry the menu strings (e.g. the
+# AO carousell values); they ride BOTH the cgo pack overlay (files/cgo/<game>) and
+# the adb-pushed iso_data dir. A stale re-extract or a never-pushed bank shows the
+# owner "unknown ID". Match every device TXT against the correct local source:
+#   - files/cgo/<game>/*COMMON.TXT  vs  out/<game>-android-text/  (android overlay banks)
+#   - files/iso_data/<game>/*COMMON.TXT  vs  out/<game>/iso/      (desktop-flavored banks)
+# We only assert on TXT files PRESENT on the device: fail on content mismatch, or on
+# a device TXT with no local counterpart; do NOT fail on extra local files.
+if [ "$GAME" = "jak1" ]; then
+  txt_match(){ # $1=device dir  $2=local dir  $3=label
+    local ddir="$1" ldir="$2" label="$3"
+    "$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'ls $ddir/*COMMON.TXT'" >/dev/null 2>&1 || { echo "  ($label) no device TXT at $ddir — skip"; return 0; }
+    [ -d "$ldir" ] || { echo "  ($label) no local dir $ldir — skip"; return 0; }
+    local dtxt lmd5 dmd5 tmiss=0 tmis=0 n=0
+    dtxt=$("$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'cd $ddir 2>/dev/null && md5sum *COMMON.TXT 2>/dev/null'" 2>/dev/null | tr -d '\r')
+    [ -n "$dtxt" ] || { echo "  ($label) no device TXT at $ddir — skip"; return 0; }
+    while read -r dmd5 df; do
+      [ -n "$dmd5" ] || continue
+      df=$(basename "$df"); n=$((n+1))
+      if [ ! -f "$ldir/$df" ]; then echo "  ($label) device TXT $df has NO local counterpart in $ldir"; tmiss=$((tmiss+1)); continue; fi
+      lmd5=$(md5sum "$ldir/$df" | cut -d' ' -f1)
+      if [ "$lmd5" != "$dmd5" ]; then echo "  ($label) STALE TXT on device: $df (build=$lmd5 dev=$dmd5)"; tmis=$((tmis+1)); fi
+    done <<< "$dtxt"
+    [ "$tmiss" -eq 0 ] || die "$tmiss device TXT($label) lack a local counterpart — text source out of sync"
+    [ "$tmis"  -eq 0 ] || die "$tmis device TXT($label) STALE — device shows OLD text (re-push $label banks)"
+    echo "  ok ($label): $n device *COMMON.TXT byte-identical to $ldir"
+  }
+  txt_match "files/cgo/${GAME}"      "out/${GAME}-android-text"  "overlay"
+  txt_match "files/iso_data/${GAME}" "out/${GAME}/iso"          "iso_data"
+fi

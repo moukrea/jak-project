@@ -28,6 +28,14 @@ n=$(ls out/jak1-arm64-full/iso/*.CGO out/jak1-arm64-full/iso/*.DGO 2>/dev/null |
 # the x86 restore pass regenerates out/jak1/iso incl. the text banks with the AO ids
 grep -q "HBAO" <(strings -a out/jak1/iso/0COMMON.TXT) || die "0COMMON.TXT missing AO strings (text not rebuilt)"
 
+say "1b. regenerate android-text overlay + cgo pack (text banks ride the pack; a stale pack re-extracts over pushed TXT)"
+bash .autoport/gtt_build_android_text.sh || die "android-text overlay rebuild failed"
+grep -q "HBAO" <(strings -a out/jak1-android-text/0COMMON.TXT) || die "out/jak1-android-text/0COMMON.TXT missing AO strings"
+bash android/build_cgo_pack.sh jak1 || die "cgo pack rebuild failed"
+# NOTE grep -c, not -q: under pipefail, grep -q's early exit SIGPIPEs unzip/strings and
+# fails the pipeline even on a successful match (same class as the validator grep -q bug).
+[ "$(unzip -p android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip 0COMMON.TXT | strings -a | grep -c 'HBAO')" -gt 0 ] || die "cgo pack 0COMMON.TXT still stale"
+
 say "2. build android libgk (AO pass + shaders enter the GLES blob)"
 cmake --build build-android --target gk -j"$(nproc)" 2>&1 | tail -12
 [ -f build-android/lib/arm64-v8a/libgk.so ] || die "libgk.so not built"
@@ -52,7 +60,12 @@ $ADB -s $S install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -3 || die 
 bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify (libgk) failed"
 
 say "5. ensure extraction done (boot once if needed) then push consistent CGOs + text"
-extract_done(){ $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 \
+# A STALE stamp must NOT satisfy extract_done: if the pack version changed, the
+# next relaunch re-extracts files/cgo/jak1 AFTER we push TXT, clobbering it. Gate
+# the fast-path on the on-device cgo-pack stamp CONTENT == the current pack version.
+PACK_VER=$(grep '^version=' android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties | cut -d= -f2)
+extract_done(){ [ "$($ADB -s $S shell run-as $PKG cat files/.cgo_pack_stamp_jak1 2>/dev/null | tr -d '\r')" = "$PACK_VER" ] \
+  && $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 \
   && [ "$($ADB -s $S shell run-as $PKG ls files/iso_data/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
 if ! extract_done; then
   echo "  bundle stamp/CGOs missing -> boot once to extract (can take minutes)"
@@ -106,4 +119,8 @@ FOCUS=$($ADB -s $S shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus' |
 echo "  reached_render=$ok focus=$FOCUS"
 case "$FOCUS" in *org.opengoal.gk.jak1*) : ;; *) die "app not foreground: $FOCUS" ;; esac
 [ "$ok" = 1 ] || die "did not reach render (crash or hang)"
+# End-state proof: after the FINAL relaunch (which may have re-extracted the pack),
+# the active overlay TXT must still carry the AO strings — else a late re-extract
+# clobbered the pushed banks and the menu will show "unknown ID".
+[ "$($ADB -s $S shell "run-as $PKG cat files/cgo/jak1/0COMMON.TXT" 2>/dev/null | strings -a | grep -c 'HBAO')" -gt 0 ] || die "device overlay 0COMMON.TXT lacks AO strings after final boot"
 echo "[ao-build] DONE — AO build on device, boots to render, deploy_verify + assets + text PASS."

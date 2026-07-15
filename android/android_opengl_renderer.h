@@ -26,6 +26,7 @@
 
 #include "common/dma/dma_chain_read.h"
 
+#include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/Fbo.h"
 #include "game/graphics/opengl_renderer/GrassRenderer.h"
@@ -116,6 +117,8 @@ class AndroidOpenGLRenderer {
 
   FullScreenDraw m_blackout_renderer;
   GrassRenderer m_grass_renderer;  // Grecharged-grass-poc (jak1 training)
+  // post-opaque screen-space AO pass (Grecharged-ambient-occlusion), invoked at the bucket-30 hook when mode != 0.
+  AmbientOcclusionPass m_ao_pass;
   float m_last_pmode_alp = 1.f;
 
   struct {

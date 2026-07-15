@@ -314,12 +314,12 @@ int android_renderer_run() {
             (s_fps_smoothed_dt > 0.f) ? (1.f / s_fps_smoothed_dt) : 0.f;
         // Grecharged-ambient-occlusion: fps-matrix harvest line (mirrors the desktop
         // AOPERF line in pipelines/opengl.cpp, which is not compiled on Android). Every
-        // 300 presented frames, emit the RESOLVED AO mode/quality (settings or the
+        // 120 presented frames, emit the RESOLVED AO mode/quality (settings or the
         // debug.opengoal.ao.force_* prop override) + measured fps + render busy-ms so
         // the per-combo cost curve can be harvested from logcat.
         {
           static unsigned s_aoperf_n = 0;
-          if ((s_aoperf_n++ % 300) == 0) {
+          if ((s_aoperf_n++ % 120) == 0) {
             __android_log_print(ANDROID_LOG_INFO, kLogTag,
                                 "AOPERF mode=%d quality=%d fps=%.1f busy_ms=%.2f",
                                 AmbientOcclusionPass::effective_mode(),
