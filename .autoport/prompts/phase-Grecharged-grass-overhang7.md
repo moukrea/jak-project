@@ -124,3 +124,18 @@ his 3-zone spec. At HIS distance (extreme close-up at the terrace edge) I see ex
    distance at the edge).
 ACCEPTANCE DISTANCE CHANGED: all judging crops at THIS zoom (OWNER-VIEW-R9-CLOSE.png framing — camera
 touching the edge). My filter failed by judging at mid-distance; that stops now.
+
+## ROUND 11 — DESIGN PIVOT (owner on R10 live: "toujours autant à CHIER"; my capture OWNER-VIEW-R10.png)
+R10 at the owner's distance = a uniform lumpy green ROLL hugging the lip (foam glued on the edge). Ten
+rounds prove the primitive is wrong: solid-color blade quads (any width/density) read as plates, strings
+or foam — never as the game's grass art.
+PIVOT (zone 3 only): use the game's OWN hang-alpha TEXTURE as the fall primitive — textured CARDS
+sampling bch-grassfringe / bch-leafyground-hang-2x1 texels (alpha-cut, same texels the native strip
+uses), hung from the lip in 2-3 offset layers with per-layer sway and length jitter. The near view then
+shows EXACTLY the native art style (texel-identical tufts) with real depth from layering + animation —
+"recouvrant entièrement où serait la texture" becomes literal: animated multi-layer copies of the strip
+replacing the flat one. Zones 1-2 (thin lean/comb blades on real surfaces) stay as-is from R10.
+Requirements: sample the same texture pages already resident (no new assets); alpha-test like the native
+strip; per-layer UV offset/flip so layers don't ghost; keep the near-hide of the FLAT painted strip
+(cards replace it, restored at far LOD). Judge at OWNER-VIEW framing (camera at the edge).
+NOTE: supervisor kill for re-prompt — this does NOT count as a failed attempt (retry counter reset).
