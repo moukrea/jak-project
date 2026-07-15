@@ -98,3 +98,16 @@ SPECIFIC in the AO pass — desktop GL tolerates what Adreno GLES does not. Prim
 here): FBO attachment formats/completeness on GLES, texture-unit/sampler state not restored after the AO
 pass, glActiveTexture leakage, depth-texture sampling setup, mediump. Debug ON DEVICE (the x86 render
 proves nothing for this bug); the textured-title gate runs ON DEVICE before any redeploy.
+
+## OWNER CAPTURE PROTOCOL (2026-07-15 13:50, verbatim — applies to EVERY device capture in this phase)
+"Le rendu sur le Redmi est en ultra basse résolution... va sur un niveau genre le niveau d'entraînement,
+bloque en pleine résolution et désactive l'herbe pour gagner un peu de perf, ça t'évitera de faire des
+screens sur de la résolution pourrie !"
+=> For ALL AO evidence captures on the Redmi:
+1. LOCK FULL render resolution: disable dynamic render scale / force scale 1.0 in pc-settings (the PC
+   options system rows exist — find the keys, set them for the run; restore after).
+2. DISABLE recharged-grass? (#f) during AO capture runs to reclaim the perf headroom that keeps the
+   resolution up (restore #t after the phase's final state).
+3. Capture at the TRAINING level (owner's judging level), camera near geometry with corners/crevices
+   (hut, rocks, terraces) where AO reads.
+Low-res captures are NOT acceptance evidence — retake them.
