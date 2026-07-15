@@ -14,7 +14,11 @@ uniform float u_strength;
 
 void main() {
   float ao = texture(u_ao, tex_coord).r;
-  if (u_debug != 0) {
+  if (u_debug == 3) {
+    // defect #7 water pixels: excluded from the composite by the stencil tag, so the
+    // effective AO term is exactly 1.0 — the debug views show them white.
+    color = vec4(1.0);
+  } else if (u_debug != 0) {
     color = vec4(vec3(ao), 1.0);  // raw AO term view
   } else {
     // bounded ambient-fraction modulation: AO may remove at most u_strength of the

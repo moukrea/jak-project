@@ -10,6 +10,9 @@
 #   ao_capture.sh village1   -> village1-hut vantage (hut walls/corners: crease/contact beat)
 #   ao_capture.sh beach      -> beach-start vantage (palms+shrubs: alpha-TESTED foliage beat)
 #   ao_capture.sh training   -> training main-lawn ledge (recharged grass CARDS: alpha beat)
+#   ao_capture.sh shoreline  -> Sentinel Beach waterline (defect #7: WATER must be untouched
+#                               by AO + grazing wet-sand floor whiteness; beach-start faces
+#                               SW = seaward, pos at the sea edge next to the crab cluster)
 #   ao_capture.sh fpsmatrix  -> village1 vantage, 10-combo AOPERF sweep (3 algos x 3 quality + off)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -55,6 +58,7 @@ case "$VANT" in
   village1|fpsmatrix) CONT=village1-hut;  POS="-156.0 34.0 188.0" ;;
   beach)              CONT=beach-start;   POS="-123.3 2.3 -54.6" ;;
   training)           CONT=training-start; POS="-1187.4 16.2 932.3" ;;
+  shoreline)          CONT=beach-start;   POS="-195.0 3.5 -415.0" ;;
   *) echo "unknown vantage $VANT"; exit 2 ;;
 esac
 

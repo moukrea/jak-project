@@ -28,7 +28,7 @@ BRACKET = {"ssao": ("off-a", "off-b"), "hbao": ("off-b", "off-c"), "gtao": ("off
 gate_fail = 0
 
 
-def mean_frames(tag):
+def mean_frames(tag, rgb=False):
     pat = os.path.join(dev_dir, f"device-ao-{vant}-{tag}_frames", "f_*.png")
     files = sorted(glob.glob(pat))
     if not files:
@@ -37,7 +37,8 @@ def mean_frames(tag):
         files = files[1:]  # skip recording ramp frame
     acc = None
     for f in files:
-        a = np.asarray(Image.open(f).convert("L"), dtype=np.float64)
+        im = Image.open(f)
+        a = np.asarray(im.convert("RGB") if rgb else im.convert("L"), dtype=np.float64)
         acc = a if acc is None else acc + a
     return acc / len(files), len(files)
 
@@ -127,6 +128,48 @@ for m in MODES:
     print(f"[ao-gate5] {vant} {m.upper()}: open_area_delta={open_rel:.2f}% (<=5% {'OK' if ok_open else 'FAIL'}) "
           f"crease_delta={crease_rel:.2f}% localized={'OK' if ok_loc else 'WEAK'} "
           f"global_delta={glob_rel:.2f}% (<=8% {'OK' if ok_glob else 'FAIL'}) => {verdict}")
+
+# --- defect-7 water gate (shoreline vantage) ----------------------------------
+# Owner 2026-07-16: AO must not touch water. The sea ANIMATES (waves/envmap sparkle),
+# so "delta ~0" is judged against the off-vs-off wave-noise baseline: each mode's
+# water-region delta vs its bracketing offs must be statistically indistinguishable
+# from off-a vs off-d (x1.5 margin, 1.5-luma absolute floor). Water mask = blue-dominant
+# pixels in the lower 60% of the frame (sand is R>B, sky is excluded by the row cut),
+# computed on the off-a RGB mean; the pose gate above guarantees framing is stable.
+if vant == "shoreline":
+    rgb_off, _ = mean_frames("off-a", rgb=True)
+    h = rgb_off.shape[0]
+    blue_dom = (rgb_off[:, :, 2] > rgb_off[:, :, 0] + 8.0)
+    rows = np.zeros_like(blue_dom)
+    rows[int(h * 0.40):, :] = True
+    wmask = blue_dom & rows
+    wfrac = float(wmask.mean())
+    print()
+    if wfrac < 0.08:
+        print(f"[ao-gate7] {vant} WATER MASK: only {wfrac*100:.1f}% of frame is water (<8%) "
+              f"=> FAIL (vantage does not show the sea; re-frame)")
+        gate_fail += 1
+    else:
+        Image.fromarray((wmask * 255).astype(np.uint8)).save(
+            os.path.join(dev_dir, f"ao-watermask-{vant}.png"))
+        off_w_mean = float(means["off-a"][wmask].mean())
+        wnoise = float(np.abs(means["off-a"] - means["off-d"])[wmask].mean())
+        wnoise_rel = wnoise / max(off_w_mean, 1e-6) * 100.0
+        print(f"[ao-gate7] {vant} water mask {wfrac*100:.1f}% of frame, off-off wave-noise "
+              f"baseline {wnoise:.3f} luma ({wnoise_rel:.2f}%)")
+        for m in MODES:
+            b0, b1 = BRACKET[m]
+            off = (means[b0] + means[b1]) / 2.0
+            wdelta = float(np.abs(means[m] - off)[wmask].mean())
+            wdark = float(np.clip(off - means[m], 0, None)[wmask].mean())
+            wdark_rel = wdark / max(off_w_mean, 1e-6) * 100.0
+            lim = max(wnoise * 1.5, 1.5)
+            ok = wdelta <= lim and wdark_rel <= 1.5
+            if not ok:
+                gate_fail += 1
+            print(f"[ao-gate7] {vant} {m.upper()} water: absdelta={wdelta:.3f} (lim {lim:.3f}) "
+                  f"darkening={wdark:.3f} ({wdark_rel:.2f}% <=1.5%) => "
+                  f"{'PASS' if ok else 'FAIL'} (water untouched by AO)")
 
 # --- debug-view (raw AO term) gates ------------------------------------------
 MODE_NUM = {"ssao": 1, "hbao": 2, "gtao": 3}

@@ -25,7 +25,7 @@ say "=== 1b. safe-boot fallback proof ==="
 bash .autoport/ao_safeboot_proof.sh 2>&1 | tee -a "$LOGF"
 
 say "=== 2+3. vantage A/B captures + analysis ==="
-for v in village1 beach training; do
+for v in village1 beach training shoreline; do
   bash .autoport/ao_capture.sh "$v" 2>&1 | tee -a "$LOGF"
   python3 .autoport/ao_analyze_ab.py "$OUT/device" "$v" 2>&1 | tee -a "$LOGF"
 done

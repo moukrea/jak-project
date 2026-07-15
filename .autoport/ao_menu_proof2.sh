@@ -1,19 +1,33 @@
 #!/usr/bin/env bash
-# ao_menu_proof2.sh — Grecharged-ambient-occlusion OWNER PROOF (a), corrected navigation.
+# ao_menu_proof2.sh — Grecharged-ambient-occlusion OWNER PROOF (a), corrected navigation, v3.
 #
-# Root cause of the previous "mode stays 0" false-negative: the old scripts pressed DOWN
-# only 7x on the ANDROID graphics page, landing on MSAA (index 7) and editing the MSAA
-# carousell — never the AO row. Per progress-pc.gc (Goptions-reorder + Grecharged-hud-jak1),
-# the android graphics page is: 0 Aspect, 1 GameRes, 2 Dynamic, 3 RenderScale,
-# 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 RECHARGED SETTINGS, 9 Advanced,
-# 10 Vulkan, 11 Back  (MinTargetFPS row visible while Dynamic ON -> 8 downs).
-# Recharged page (enhanced-models row collapsed, length 7): 0 RechargedHud, 1 GrassSettings,
-# 2 LoadCustomAssets, 3 FoliageWind, 4 AMBIENT OCCLUSION, 5 AO QUALITY, 6 Back -> 4 downs.
+# v2 root cause (attempt-4): pressed DOWN only 7x on the ANDROID graphics page, landing on
+# MSAA. Page layout per progress-pc.gc (Goptions-reorder + Grecharged-hud-jak1):
+# android graphics page: 0 Aspect, 1 GameRes, 2 Dynamic, 3 RenderScale, 4 MinTargetFPS,
+# 5 FPSCounter, 6 VSync, 7 MSAA, 8 RECHARGED SETTINGS, 9 Advanced, 10 Vulkan, 11 Back
+# (MinTargetFPS row visible while Dynamic ON -> 8 downs). Recharged page (enhanced-models
+# row collapsed, length 7): 0 RechargedHud, 1 GrassSettings, 2 LoadCustomAssets,
+# 3 FoliageWind, 4 AMBIENT OCCLUSION, 5 AO QUALITY, 6 Back -> 4 downs.
 #
-# Self-verifying: every commit MUST produce a "[recharged-ao] mode -> N" logcat push line
-# within a few seconds (update-to-os pushes per frame, logs on change) — the script polls
-# for it and reports PASS/FAIL per commit. Persistence proven by external settings file +
-# relaunch boot push. Screenshots at every step for post-hoc verification.
+# v3 root causes (attempt-6 forensics, menu-proof2 frame md5s): INTERMITTENT INPUT LOSS —
+# consecutive proof frames byte-identical in bursts (taps 03-05 dead, 06-09 alive, 10+
+# dead). Menus are edge-triggered (cpad-pressed?), so a 0.4s hold inside a level-load
+# hitch or a slow frame is simply never sampled. Fixes:
+#   * hold every press 0.8s + >=2s gaps (edge-triggered rows/carousels never repeat on
+#     hold — progress-pc.gc uses cpad-pressed? for up/down and carousell l/r — so a long
+#     hold is still EXACTLY one step);
+#   * seed a RESPONSIVE render config for the menu run (dynamic-render-scale #t,
+#     render-scale 50, grass off): menu semantics are resolution-independent, and menu
+#     commits progressively enable AO up to GTAO which tanks fps at locked full res;
+#   * mark-based fresh-line greps over a persistent logcat reader (MIUI `logcat -c` is
+#     unreliable: the attempt-6 "boot mode -> 1" line was impossible for the normalized
+#     disk state = presumed stale survivor);
+#   * whole-sequence retry (max 3): the four PUSH-OKs must land in ONE coherent attempt,
+#     summarized as "[ao-menu-proof2] COMMIT-SEQUENCE PASS (attempt N)".
+#
+# Self-verifying: every commit MUST produce a fresh "[recharged-ao] mode -> N" push line
+# (update-to-os pushes per frame, C++ logs on change). Persistence proven by the external
+# settings file + relaunch boot push. Screenshots at every step, focus-bracketed.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
@@ -22,14 +36,15 @@ INJECT="/data/data/$PKG/files/cpad_inject"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/menu-proof2; mkdir -p "$OUT"
 SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
 # Safe-boot sentinel (C++ commit b057c73d6). This script ENABLES AO then force-stops within
-# 60s (the menu commits + the persist-relaunch quit), so the sentinel survives the dirty
-# death; without removing it the relaunch boots SAFE-BOOT-pinned (AO forced off once) and
-# the persist proof false-fails. We rm it before the first boot AND right before the
-# persist-relaunch (see below).
+# 60s of the enable (menu commits + persist-relaunch quit), so the sentinel survives the
+# dirty death; without removing it the relaunch boots SAFE-BOOT-pinned (AO forced off once)
+# and the persist proof false-fails. rm before every boot + right before the relaunch.
 SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
-tapb(){ inject "$1"; sleep 0.4; inject ""; sleep "${2:-0.9}"; }
+# v3: 0.8s hold (see header) + slow default gap. Menus are edge-triggered so the long
+# hold is exactly one step at any frame rate that samples it at all.
+tapb(){ inject "$1"; sleep 0.8; inject ""; sleep "${2:-2.0}"; }
 # focus-bracketed screenshot (supervisor hard rule 2026-07-15 16:20): mCurrentFocus is
 # checked immediately BEFORE and AFTER, saved next to the frame; a non-jak1 frame is
 # flagged loudly in the proof log.
@@ -41,7 +56,6 @@ shot(){ local FB FA
   case "$FB$FA" in *org.opengoal.gk.jak1*) ;; *)
     say "  SHOT $1: NOT-JAK1-FOREGROUND ($FB / $FA) — frame is NOT evidence";; esac; }
 disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE "\((ambient-occlusion|ao-quality) [0-9]+\)" | tr '\n' ' '; echo; }
-aolines(){ adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null | grep -a "recharged-ao" | tail -4; }
 
 LOGF="$OUT/proof-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
@@ -60,26 +74,29 @@ stabilize_fg(){ local t0=$(date +%s) held=0
   done
   say "  WARNING: foreground never stabilized (6 min) — proof frames will be non-evidence"; return 1; }
 
-# poll up to 8s for a "[recharged-ao] ... mode -> M ..." push line (quality NOT constrained:
-# a real push is "mode -> 3 quality -> 1", so pinning quality to an assumed value false-negatives)
-wait_push_mode(){
-  local want_m="$1" i
-  for i in $(seq 1 16); do
-    if adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null \
-       | grep -a "recharged-ao" | grep -aq "mode -> $want_m "; then
+# --- persistent logcat reader + mark-based freshness (v3) ----------------------
+GKLOG="$OUT/gk-lc.log"
+start_lc(){ kill "$(cat /tmp/ao_menu_lc.pid 2>/dev/null)" 2>/dev/null || true
+  ( adb logcat -v brief opengoal-gk:I '*:S' > "$GKLOG" 2>/dev/null & echo $! > /tmp/ao_menu_lc.pid ); sleep 1; }
+stop_lc(){ kill "$(cat /tmp/ao_menu_lc.pid 2>/dev/null)" 2>/dev/null || true; }
+mark(){ wc -l < "$GKLOG" 2>/dev/null || echo 0; }
+fresh(){ tail -n "+$(( $1 + 1 ))" "$GKLOG" 2>/dev/null; }
+
+# poll up to 10s for a FRESH "[recharged-ao] ... mode -> M ..." push line after mark $2
+# (quality NOT constrained: a real push is "mode -> 3 quality -> 1")
+wait_push_mode(){ local want_m="$1" mk="$2" i
+  for i in $(seq 1 20); do
+    if fresh "$mk" | grep -a "recharged-ao" | grep -aq "mode -> $want_m "; then
       echo "PUSH-OK mode->$want_m"; return 0
     fi
     sleep 0.5
   done
   echo "PUSH-MISSING (wanted mode->$want_m)"; return 1
 }
-
-# poll up to 8s for a "[recharged-ao] ... quality -> Q" push line (end-of-line tolerant)
-wait_push_quality(){
-  local want_q="$1" i
-  for i in $(seq 1 16); do
-    if adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null \
-       | grep -a "recharged-ao" | grep -aqE "quality -> $want_q(\s|\$)"; then
+# poll up to 10s for a FRESH "[recharged-ao] ... quality -> Q" push line (eol tolerant)
+wait_push_quality(){ local want_q="$1" mk="$2" i
+  for i in $(seq 1 20); do
+    if fresh "$mk" | grep -a "recharged-ao" | grep -aqE "quality -> $want_q(\s|\$|\r)"; then
       echo "PUSH-OK quality->$want_q"; return 0
     fi
     sleep 0.5
@@ -87,80 +104,116 @@ wait_push_quality(){
   echo "PUSH-MISSING (wanted quality->$want_q)"; return 1
 }
 
-say "== boot (ao force props cleared, fresh logcat) =="
-adb shell am force-stop $PKG; sleep 2
-adb shell setprop debug.opengoal.ao.force_mode '""' >/dev/null 2>&1 || true
-adb shell setprop debug.opengoal.ao.force_quality '""' >/dev/null 2>&1 || true
-adb shell setprop debug.opengoal.level.warp '""'; adb shell setprop debug.opengoal.level.warp.pos '""'
-# NORMALIZE the disk pre-state: carousel edits are RELATIVE (X, right, X = +1 step), so
-# the Off->SSAO->HBAO->GTAO sequence only proves pushes 1/2/3 if we START at Off; quality
-# High(2) so the X,left,X edit lands Medium(1). (Leftover state from a killed battery
-# made every commit a no-op in the attempt-4 run.)
-if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa 'ambient-occlusion'; then
+# --- normalize + boot (one per attempt) ----------------------------------------
+normalize_and_boot(){ local A="$1"
+  adb shell am force-stop $PKG; sleep 2
+  adb shell setprop debug.opengoal.ao.force_mode '""' >/dev/null 2>&1 || true
+  adb shell setprop debug.opengoal.ao.force_quality '""' >/dev/null 2>&1 || true
+  adb shell setprop debug.opengoal.ao.debug 0 >/dev/null 2>&1 || true
+  adb shell setprop debug.opengoal.level.warp '""'; adb shell setprop debug.opengoal.level.warp.pos '""'
+  # NORMALIZE the disk pre-state: carousel edits are RELATIVE (X, right, X = +1 step), so
+  # Off->SSAO->HBAO->GTAO only proves pushes 1/2/3 if we START at Off; quality High(2) so
+  # the X,left,X edit lands Medium(1). v3: also seed the RESPONSIVE render config
+  # (dynamic RS on, scale 50, grass off) so menu inputs are sampled reliably — the
+  # battery's owner-reset (step 5) restores grass/dynamic afterwards.
   adb shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_menu.gc 2>/dev/null
-  sed -i 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/; s/(ao-quality [0-9]*)/(ao-quality 2)/' /tmp/pcs_ao_menu.gc
+  grep -qa 'ambient-occlusion' /tmp/pcs_ao_menu.gc || { say "[ao-menu-proof2 FAIL] no ambient-occlusion key on device settings"; exit 1; }
+  sed -i \
+    -e 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/' \
+    -e 's/(ao-quality [0-9]*)/(ao-quality 2)/' \
+    -e 's/(dynamic-render-scale? #[tf])/(dynamic-render-scale? #t)/' \
+    -e 's/(render-scale [0-9.]*)/(render-scale 50.0000)/' \
+    -e 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' \
+    /tmp/pcs_ao_menu.gc
   adb push /tmp/pcs_ao_menu.gc "$SETTINGS_DEV" >/dev/null 2>&1
+  # VERIFY the normalize LANDED (attempt-4 false-negative root cause: silently failed push)
+  NORM_BACK=$(disk)
+  case "$NORM_BACK" in *"(ambient-occlusion 0)"*) ;; *)
+    say "[ao-menu-proof2 FAIL] normalize did not land: $NORM_BACK"; exit 1 ;; esac
+  adb shell rm -f "$SENTINEL" >/dev/null 2>&1
+  say "disk pre (attempt $A): $NORM_BACK"
+  # Downs to RECHARGED SETTINGS depend on the MinTargetFPS row (visible while Dynamic ON,
+  # apply-dynamic-rs-menu-mode!, progress-pc.gc:1057). We just seeded dynamic #t -> 8.
+  if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa '(dynamic-render-scale? #t)'; then
+    DOWNS_RECHARGED=8
+  else
+    DOWNS_RECHARGED=7
+  fi
+  say "dynamic-render-scale row: DOWNS_RECHARGED=$DOWNS_RECHARGED"
+  start_lc
+  adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
+  sleep 75; stabilize_fg; shot "a$A-00-title"
+  APP_PID=$(adb shell pidof $PKG 2>/dev/null | tr -d '\r')
+  say "app pid: ${APP_PID:-unknown}"
+  say "boot [recharged-ao] (fresh log only): $(fresh 0 | grep -a 'recharged-ao' | tail -3 | tr '\n' ' | ' )"
+  BOOTPERF=$(fresh 0 | grep -a "AOPERF" | tail -1 | tr -d '\r')
+  say "boot AOPERF: ${BOOTPERF:-none}"
+  # normalized disk = mode 0: a non-0 boot mode means the game did NOT read the file we
+  # seeded — dump read-path candidates for diagnosis instead of guessing (attempt-6 saw a
+  # 'mode -> 1' boot line; presumed a stale logcat survivor, now structurally excluded).
+  case "${BOOTPERF:-mode=0}" in *"mode=0"*) ;; *)
+    say "  !!! boot AOPERF mode != normalized 0 — settings read-path diagnosis:"
+    say "  external: $(disk)"
+    say "  internal candidates: $(adb shell run-as $PKG sh -c 'ls -la files/ 2>/dev/null | head -20' | tr '\r' ' ' | tr '\n' ' ')" ;;
+  esac
+}
+
+# --- one full nav + commit sequence; returns 0 iff ALL FOUR pushes landed --------
+do_nav_and_commits(){ local A="$1" MK R1 R2 R3 R4
+  say "== attempt $A nav: start -> 2x down -> X (OPTIONS) -> down, X (GRAPHIC OPTIONS) =="
+  tapb "start" 3.0; shot "a$A-01-main-menu"
+  tapb "down"; tapb "down"; tapb "x" 3.0; shot "a$A-02-options"
+  tapb "down"; tapb "x" 3.0; shot "a$A-03-graphics"
+  say "== ${DOWNS_RECHARGED}x down = RECHARGED SETTINGS row =="
+  for i in $(seq 1 "$DOWNS_RECHARGED"); do tapb "down" 1.6; done
+  shot "a$A-04-recharged-row"
+  tapb "x" 2.5; shot "a$A-05-recharged-page"
+  say "== 4x down = AMBIENT OCCLUSION row (enhanced-models row collapsed) =="
+  for i in $(seq 1 4); do tapb "down" 1.6; done
+  shot "a$A-06-ao-row"
+
+  say "== AO commits: Off->SSAO->HBAO->GTAO (X, right, X each; each must push fresh) =="
+  MK=$(mark)
+  tapb "x" 1.5; shot "a$A-07-carousell-open"
+  tapb "right" 1.5; shot "a$A-08-ssao-selected"
+  tapb "x" 2.0; shot "a$A-09-ssao-committed"
+  R1=$(wait_push_mode 1 "$MK"); say "SSAO: $R1 | disk: $(disk)"
+  MK=$(mark)
+  tapb "x" 1.5; tapb "right" 1.5; tapb "x" 2.0; shot "a$A-10-hbao-committed"
+  R2=$(wait_push_mode 2 "$MK"); say "HBAO: $R2 | disk: $(disk)"
+  MK=$(mark)
+  tapb "x" 1.5; tapb "right" 1.5; tapb "x" 2.0; shot "a$A-11-gtao-committed"
+  R3=$(wait_push_mode 3 "$MK"); say "GTAO: $R3 | disk: $(disk)"
+
+  say "== AO QUALITY: 1x down, X, left (High->Medium), X =="
+  MK=$(mark)
+  tapb "down" 1.6; shot "a$A-12-quality-row"
+  tapb "x" 1.5; tapb "left" 1.5; tapb "x" 2.0; shot "a$A-13-quality-committed"
+  R4=$(wait_push_quality 1 "$MK"); say "QUALITY: $R4 | disk: $(disk)"
+
+  case "$R1$R2$R3$R4" in *MISSING*) return 1 ;; esac
+  return 0
+}
+
+# --- attempts loop ----------------------------------------------------------------
+SEQ_PASS=0; ATT=1
+while [ $ATT -le 3 ]; do
+  say "== boot (attempt $ATT; ao force props cleared, responsive render seed, fresh reader) =="
+  normalize_and_boot "$ATT"
+  if do_nav_and_commits "$ATT"; then
+    say "[ao-menu-proof2] COMMIT-SEQUENCE PASS (attempt $ATT)"
+    SEQ_PASS=1; break
+  fi
+  say "== attempt $ATT INCOMPLETE (input drop / nav landed wrong) — retrying fresh =="
+  ATT=$((ATT+1))
+done
+if [ "$SEQ_PASS" != 1 ]; then
+  say "[ao-menu-proof2] COMMIT-SEQUENCE FAIL after 3 attempts"
 fi
-# VERIFY the normalize LANDED (attempt-4's false-negative root cause was a silently failed
-# push: every commit then edited the wrong base and read a stale disk value).
-NORM_BACK=$(disk)
-case "$NORM_BACK" in
-  *"(ambient-occlusion 0)"*) ;;
-  *) say "[ao-menu-proof2 FAIL] normalize did not land"; exit 1 ;;
-esac
-# rm the safe-boot sentinel before the FIRST boot (a prior killed run may have left it armed,
-# which would pin AO off and confuse the boot [recharged-ao] baseline).
-adb shell rm -f "$SENTINEL" >/dev/null 2>&1
-say "disk pre: $NORM_BACK"
-# Downs to RECHARGED SETTINGS depend on the Min Target FPS row, which is visible ONLY
-# while Dynamic Render Scale is ON (apply-dynamic-rs-menu-mode!, progress-pc.gc:1057).
-if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa '(dynamic-render-scale? #t)'; then
-  DOWNS_RECHARGED=8
-else
-  DOWNS_RECHARGED=7
-fi
-say "dynamic-render-scale row: DOWNS_RECHARGED=$DOWNS_RECHARGED"
-adb logcat -c 2>/dev/null || true
-adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
-sleep 75; stabilize_fg; shot 00-title
-say "boot [recharged-ao]: $(aolines)"
-
-say "== nav: start -> 2x down -> X (OPTIONS) -> down, X (GRAPHIC OPTIONS) =="
-tapb "start" 2.5; shot 01-main-menu
-tapb "down" 0.7; tapb "down" 0.7; tapb "x" 2.0; shot 02-options
-tapb "down" 0.8; tapb "x" 2.0; shot 03-graphics
-say "== ${DOWNS_RECHARGED}x down = RECHARGED SETTINGS (android layout; MinTargetFPS row only when Dynamic ON) =="
-for i in $(seq 1 "$DOWNS_RECHARGED"); do tapb "down" 0.7; done
-shot 04-recharged-row
-tapb "x" 1.8; shot 05-recharged-page
-say "== 4x down = AMBIENT OCCLUSION row (enhanced-models row collapsed) =="
-for i in $(seq 1 4); do tapb "down" 0.7; done
-shot 06-ao-row
-
-say "== AO commits: Off->SSAO->HBAO->GTAO (X, right, X each; each must push) =="
-# logcat cleared before EACH commit: wait_push_* must match the FRESH change-push, not the
-# boot push or an earlier commit's line (the attempt-4 GTAO 'PUSH-OK' was the boot line).
-adb logcat -c 2>/dev/null || true
-tapb "x" 0.9; shot 07-carousell-open
-tapb "right" 0.9; shot 08-ssao-selected
-tapb "x" 1.6; shot 09-ssao-committed
-say "SSAO: $(wait_push_mode 1) | disk: $(disk)"
-adb logcat -c 2>/dev/null || true
-tapb "x" 0.9; tapb "right" 0.9; tapb "x" 1.6; shot 10-hbao-committed
-say "HBAO: $(wait_push_mode 2) | disk: $(disk)"
-adb logcat -c 2>/dev/null || true
-tapb "x" 0.9; tapb "right" 0.9; tapb "x" 1.6; shot 11-gtao-committed
-say "GTAO: $(wait_push_mode 3) | disk: $(disk)"
-
-say "== AO QUALITY: 1x down, X, left (High->Medium), X =="
-adb logcat -c 2>/dev/null || true
-tapb "down" 0.8; shot 12-quality-row
-tapb "x" 0.9; tapb "left" 0.9; tapb "x" 1.6; shot 13-quality-committed
-say "QUALITY: $(wait_push_quality 1) | disk: $(disk)"
 
 say "== back out: 1x down (Back = index 6, from quality row 5), X, then triangle x2 to title =="
-tapb "down" 0.7; tapb "x" 1.6
-tapb "triangle" 1.2; tapb "triangle" 1.5; shot 14-backed-out
+tapb "down" 1.6; tapb "x" 2.0
+tapb "triangle" 1.5; tapb "triangle" 2.0; shot "14-backed-out"
 
 say "== persist: relaunch; boot push must carry GTAO/Medium =="
 adb shell am force-stop $PKG; sleep 2
@@ -169,16 +222,17 @@ say "disk after quit: $(disk)"
 # the dirty death. rm it here so the relaunch runs AO ACTIVE (persisted GTAO), NOT the
 # one-shot SAFE-BOOT (AO off) fallback — otherwise the persist proof false-fails.
 adb shell rm -f "$SENTINEL" >/dev/null 2>&1
-adb logcat -c 2>/dev/null || true
+start_lc
+RELMARK=0
 adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
-sleep 70; stabilize_fg; shot 15-relaunch
+sleep 70; stabilize_fg; shot "15-relaunch"
 say "disk after relaunch: $(disk)"
-say "relaunch [recharged-ao]: $(aolines)"
+say "relaunch [recharged-ao]: $(fresh $RELMARK | grep -a 'recharged-ao' | tail -3 | tr '\n' ' | ')"
 # If SAFE-BOOT still shows, the sentinel rm was missed/failed and the relaunch ran AO off.
-if adb logcat -d 2>/dev/null | grep -aq "SAFE-BOOT"; then
+if fresh $RELMARK | grep -aq "SAFE-BOOT"; then
   say "  !!! WARNING: SAFE-BOOT present on relaunch — sentinel rm missed/failed, persist proof INVALID"
 fi
-adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null | grep -a "AOPERF" | tail -3 | tee -a "$LOGF"
+fresh $RELMARK | grep -a "AOPERF" | tail -3 | tee -a "$LOGF"
 FOCUS_END=$(adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r')
 say "focus at end: $FOCUS_END"
 case "$FOCUS_END" in
@@ -188,4 +242,5 @@ case "$FOCUS_END" in
        | tail -8 | sed 's/^/  /' | tee -a "$LOGF"
      adb shell "ps -A | grep org.opengoal" 2>/dev/null | tr -d '\r' | sed 's/^/  ps: /' | tee -a "$LOGF" ;;
 esac
+stop_lc
 say "[ao-menu-proof2] DONE (device left running; caller decides reset/force-stop)"

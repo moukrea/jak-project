@@ -25,10 +25,14 @@ MP="$OUT/menu-proof2/proof-log.txt"
 [ -f "$MP" ] || die "no menu proof log"
 for m in 1 2 3; do grep -qE "PUSH-OK mode->$m" "$MP" || die "menu proof: no PUSH-OK mode->$m"; done
 grep -qE 'PUSH-OK quality->' "$MP" || die "menu proof: no PUSH-OK quality line"
-# defect-5 gates: every vantage OVERALL PASS
-for v in village1 beach training; do
+# v3: the four pushes must land in ONE coherent attempt (not stitched across retries)
+grep -qE '\[ao-menu-proof2\] COMMIT-SEQUENCE PASS' "$MP" || die "menu proof: no single-attempt COMMIT-SEQUENCE PASS"
+# defect-5 gates: every vantage OVERALL PASS (shoreline = defect #7 water vantage; its
+# OVERALL includes the [ao-gate7] water-untouched checks)
+for v in village1 beach training shoreline; do
   grep -qE "\[ao-gate5\] $v OVERALL: PASS" "$OUT/proof-battery-log.txt" || die "gate5 $v not PASS"
 done
+grep -qE '\[ao-gate7\] shoreline .*water.*PASS' "$OUT/proof-battery-log.txt" || die "defect-7 water gate not PASS"
 # fps matrix complete (10 combos, no NO-AOPERF-LINE)
 FPM="$OUT/device/ao-fpsmatrix-results.txt"
 [ -f "$FPM" ] || die "no fps matrix"
@@ -42,7 +46,7 @@ focus_line=$(grep -o 'mCurrentFocus=Window{[^}]*org.opengoal.gk.jak1[^}]*}' "$OU
 fpsrow(){ grep -a "^$1 ::" "$FPM" | sed -E 's/.*(AOPERF[^\r]*)/\1/'; }
 
 {
-echo "RESULT: AMBIENT OCCLUSION PASS — SSAO/HBAO/GTAO screen-space AO live on device, menu-driven, Off == stock, alpha-cut foliage excluded, defect 1-5 fixes proven"
+echo "RESULT: AMBIENT OCCLUSION PASS — SSAO/HBAO/GTAO screen-space AO live on device, menu-driven, Off == stock, alpha-cut foliage excluded, water excluded, defect 1-7 fixes proven"
 echo
 echo "== Implementation =="
 echo "Screen-space AO post-process sampling the existing render FBO depth buffer (depth FBO attachment as texture, blit-resolved when multisampled): reconstruct world-space position+normal from depth, estimate occlusion, depth-aware bilateral blur whose V pass runs at FULL render resolution (doubles as a depth-aware upsample so sub-full-res AO never composites blocky/pixelated — owner tuning #2, GTAO-low reference case), multiplicative composite (GL_ZERO/GL_SRC_COLOR) over the OPAQUE scene only."
@@ -55,7 +59,7 @@ echo "Beach vantage (palms+shrubs alpha-tested foliage) A/B captures show no box
 grep -E '\[ao-gate5\] (village1|beach|training) (SSAO|HBAO|GTAO):' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
 echo
 echo "== Settings & menu (defect #2 + #3a) =="
-echo "Recharged Settings TYPE selector row: AMBIENT OCCLUSION Off / SSAO / HBAO / GTAO (carousel), plus separate AO Quality row Low / Medium / High (settings keys ambient-occlusion / ao-quality, persisted; text ids #x1708-#x170f shipped in rebuilt TXT banks, sha-verified on device — menu strings render, no unknown ID: menu-proof2/06-ao-row.png 07-carousell-open.png)."
+echo "Recharged Settings TYPE selector row: AMBIENT OCCLUSION Off / SSAO / HBAO / GTAO (carousel), plus separate AO Quality row Low / Medium / High (settings keys ambient-occlusion / ao-quality, persisted; text ids #x1708-#x170f shipped in rebuilt TXT banks, sha-verified on device — menu strings render, no unknown ID: menu-proof2/a<N>-06-ao-row.png a<N>-07-carousell-open.png)."
 echo "Menu -> settings -> renderer push proven end-to-end on device ([recharged-ao] push lines + AOPERF mode tracks the menu row):"
 grep -E 'PUSH-OK (mode|quality)->' "$MP" | sed 's/^/  /'
 grep -E 'relaunch \[recharged-ao\]|disk after relaunch' "$MP" | sed 's/^/  /'
@@ -80,6 +84,14 @@ echo "Root cause fixed in the estimators (not by weakening strength): the GTAO s
 grep -E '\[ao-gate5-debug\]' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
 echo "Quantified open-area gates (mean ON-vs-OFF luminance delta over open areas <=5%, global <=8%, crease-localized):"
 grep -E '\[ao-gate5\].*OVERALL' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
+echo
+echo "== Defect #7 (owner 2026-07-16): water excluded from AO compositing =="
+echo "AO = local crease/contact detail, never global shading. Water is excluded from AO compositing entirely: the water buckets proper (WATER_TEX/MERC_WATER/GENERIC_WATER 57-62, OCEAN_NEAR 63) render in the transparency path AFTER the post-opaque composite and were structurally untouched; OCEAN_MID_AND_FAR (bucket 4) renders BEFORE it and writes depth (flush_mid GL_ALWAYS), so its pixels are stencil-tagged at draw time, un-tagged by any later covering opaque draw, and the composite stencil-tests EQUAL 0 — visible ocean pixels are skipped by the AO multiply and render byte-identical to OFF. The stencil buffer is cleared after the composite so the shadow-volume bucket (47) sees its expected zeroed state; the tag choreography is latched per-frame."
+echo "Sentinel Beach shoreline vantage (water + grazing wet-sand floor + sky in frame): water-region ON-vs-OFF delta judged against the off-vs-off wave-animation noise baseline (the sea animates, so 'delta ~0' == indistinguishable from off-off noise):"
+grep -aE '\[ao-gate7\]' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
+echo "Device AO-term whiteness at the shoreline (debug view captured ON DEVICE, not x86: open floor + sky ~white, water painted white = excluded/term 1.0, creases dark):"
+grep -aE '\[ao-gate5-debug\] shoreline' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
+echo "GTAO grazing-floor whiteness verified on device via the same debug views + the shoreline/training open-area gates above (device numbers, not x86)."
 echo
 echo "== Capture protocol (owner 2026-07-15 13:50) =="
 echo "All captures at locked FULL render resolution (render-scale 100, dynamic-render-scale? #f) with recharged-grass? #f for perf headroom, at the training level + village1 (creases) + beach (alpha foliage), camera near corner/crevice geometry. Each recorded segment asserts a captured frame HEIGHT >=1000px (the Redmi is 2400x1080 landscape) so a dynamic-renderscale'd low-res frame is rejected as non-evidence."

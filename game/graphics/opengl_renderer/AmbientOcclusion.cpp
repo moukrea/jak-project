@@ -629,12 +629,29 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     }
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
+    // defect #7: skip water. The dispatch loop keeps stencil!=0 exactly on pixels whose
+    // final opaque content is the ocean surface (tagged at OCEAN_MID_AND_FAR, un-tagged
+    // by any later covering opaque draw). No stencil writes here (mask 0); the dispatch
+    // loop clears the buffer right after this pass returns.
+    glEnable(GL_STENCIL_TEST);
+    glStencilMask(0x00);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, (dbg == 2) ? m_ao_tex[0] : m_ao_full_tex);
     glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
     glUniform1i(glGetUniformLocation(id, "u_debug"), dbg);
     glUniform1f(glGetUniformLocation(id, "u_strength"), u_ao_strength);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    if (dbg != 0) {
+      // water pixels are excluded from the composite, so their effective AO term is
+      // exactly 1.0 — paint them white in the debug views (u_debug==3 branch).
+      glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
+      glUniform1i(glGetUniformLocation(id, "u_debug"), 3);
+      glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+    glStencilMask(0xFF);
+    glDisable(GL_STENCIL_TEST);
   }
   ao_glerr("composite");
 

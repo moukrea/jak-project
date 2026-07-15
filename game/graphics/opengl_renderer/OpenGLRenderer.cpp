@@ -1476,11 +1476,29 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
   ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
   m_render_state.next_bucket += 16;
 
+  // Grecharged-ambient-occlusion defect #7 (water exclusion): latch the AO mode ONCE per
+  // frame — the override cache re-reads every 250ms and can flip mid-frame, and the
+  // stencil water-tag choreography below (tag at the ocean bucket, maintain through the
+  // opaque buckets, consume + clear at the composite) must run all-or-nothing.
+  const bool ao_frame_on = AmbientOcclusionPass::effective_mode() != 0;
+
   // loop over the buckets!
   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
     auto& renderer = m_bucket_renderers[bucket_id];
     auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
     g_current_renderer = renderer->name_and_id();
+    // Grecharged-ambient-occlusion defect #7: ocean-mid/far draws BEFORE the post-opaque
+    // AO composite and writes depth (flush_mid: GL_ALWAYS + depth-write), so without a
+    // mask the composite darkens open water (owner: AO must never touch water). Tag its
+    // pixels in the stencil buffer (zeroed by the frame clear); the composite skips
+    // stencil!=0. Water buckets proper (WATER_TEX/OCEAN_NEAR, 57+) draw after the
+    // composite and were never affected.
+    if (ao_frame_on && bucket_id == (int)jak1::BucketId::OCEAN_MID_AND_FAR) {
+      glEnable(GL_STENCIL_TEST);
+      glStencilMask(0xFF);
+      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+      glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    }
     // Grender-split: the DirectRenderer UI buckets (DEBUG/DEBUG_NO_ZBUF/SUBTITLE
     // carry all 2D text/HUD numbers/menu/subtitles) come after the 3D scene. Make
     // sure the native UI pass has begun before them — a fallback for the case where
@@ -1502,13 +1520,36 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     vif_interrupt_callback(bucket_id);
     m_category_times[(int)m_bucket_categories[bucket_id]] += bucket_prof.get_elapsed_time();
 
+    // defect #7: after the ocean bucket, every later opaque draw that covers a tagged
+    // pixel un-tags it (depth-pass REPLACE 0), so only water that stays VISIBLE keeps
+    // the tag at composite time (terrain/characters over water get normal AO).
+    if (ao_frame_on && bucket_id == (int)jak1::BucketId::OCEAN_MID_AND_FAR) {
+      glStencilFunc(GL_ALWAYS, 0, 0xFF);
+    }
+
     // Grecharged-ambient-occlusion: screen-space AO over the OPAQUE scene only. Runs at the
     // same post-opaque insertion point: every alpha bucket (ALPHA_TEX/water/sprites) and the
     // recharged grass cards draw AFTER this, so transparent surfaces neither contribute to the
     // AO depth nor get darkened (the owner's #1 alpha-artifact risk is excluded by construction).
-    if (bucket_id == 31 - 1 && AmbientOcclusionPass::effective_mode() != 0) {
-      auto p = prof.make_scoped_child("ao-draw");
-      m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
+    if (bucket_id == 31 - 1 && ao_frame_on) {
+      {
+        auto p = prof.make_scoped_child("ao-draw");
+        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
+      }
+      // defect #7: water tag consumed — zero the stencil for the shadow-volume bucket
+      // (SHADOW=47 INCR/DECRs from 0 and draws where NOTEQUAL 0; a leftover tag would
+      // paint shadow on open water) and stop tag maintenance for the alpha buckets.
+      // The stencil clear honors the scissor box, so drop it for the clear.
+      const GLboolean had_scissor = glIsEnabled(GL_SCISSOR_TEST);
+      if (had_scissor) {
+        glDisable(GL_SCISSOR_TEST);
+      }
+      glStencilMask(0xFF);
+      glClear(GL_STENCIL_BUFFER_BIT);
+      glDisable(GL_STENCIL_TEST);
+      if (had_scissor) {
+        glEnable(GL_SCISSOR_TEST);
+      }
     }
 
     // hack to draw the collision mesh in the middle the drawing
