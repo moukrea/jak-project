@@ -317,38 +317,13 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   const int ao_w = std::max(1, (int)(full_w * scale));
   const int ao_h = std::max(1, (int)(full_h * scale));
 
-  // (2) full GL state snapshot (restored before returning)
-  GLint prev_fbo = 0;
-  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
-  GLint prev_viewport[4];
-  glGetIntegerv(GL_VIEWPORT, prev_viewport);
-  const GLboolean prev_blend = glIsEnabled(GL_BLEND);
-  GLint prev_blend_src = GL_ONE, prev_blend_dst = GL_ZERO;
-  glGetIntegerv(GL_BLEND_SRC_RGB, &prev_blend_src);
-  glGetIntegerv(GL_BLEND_DST_RGB, &prev_blend_dst);
-  const GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
-  GLboolean prev_depth_mask = GL_TRUE;
-  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
-
-  // (3) depth source
-  GLuint depth_tex = 0;
-  if (render_fbo->multisampled) {
-    // resolve depth into an owned full-res depth texture via a blit.
-    ensure_depth_resolve(full_w, full_h);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_fbo->fbo_id);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_depth_resolve_fbo);
-    glBlitFramebuffer(0, 0, full_w, full_h, 0, 0, full_w, full_h, GL_DEPTH_BUFFER_BIT,
-                      GL_NEAREST);
-    depth_tex = m_depth_resolve_tex;
-  } else {
-    if (!render_fbo->zbuf_is_texture || !render_fbo->zbuf_stencil_id) {
-      // transition frame: depth attachment isn't a texture yet. Skip cleanly.
-      return;
-    }
-    depth_tex = *render_fbo->zbuf_stencil_id;
+  // (2a) pure-CPU early-outs FIRST — after this point the function must not return
+  // without running the state-restore block at the end.
+  if (!render_fbo->multisampled &&
+      (!render_fbo->zbuf_is_texture || !render_fbo->zbuf_stencil_id)) {
+    // transition frame: depth attachment isn't a texture yet. Skip cleanly.
+    return;
   }
-
-  // (4) inverse camera in double precision
   double cam[16];
   for (int c = 0; c < 4; c++) {
     for (int r = 0; r < 4; r++) {
@@ -362,6 +337,71 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   float invf[16];
   for (int i = 0; i < 16; i++) {
     invf[i] = (float)invd[i];
+  }
+
+  // (2) full GL state snapshot (restored before returning). The pass runs mid-frame
+  // between opaque and alpha buckets: ANY state it inherits can silently break it (a
+  // leftover GL_CULL_FACE culls the CW fullscreen quad; scissor clips it) and ANY state
+  // it leaks breaks the following buckets (defect #4: the render FBO's own depth
+  // attachment left bound as a sampler is a GLES feedback-loop hazard on Adreno).
+  GLint prev_fbo = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+  GLint prev_viewport[4];
+  glGetIntegerv(GL_VIEWPORT, prev_viewport);
+  const GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  GLint prev_blend_src_rgb = GL_ONE, prev_blend_dst_rgb = GL_ZERO;
+  GLint prev_blend_src_a = GL_ONE, prev_blend_dst_a = GL_ZERO;
+  glGetIntegerv(GL_BLEND_SRC_RGB, &prev_blend_src_rgb);
+  glGetIntegerv(GL_BLEND_DST_RGB, &prev_blend_dst_rgb);
+  glGetIntegerv(GL_BLEND_SRC_ALPHA, &prev_blend_src_a);
+  glGetIntegerv(GL_BLEND_DST_ALPHA, &prev_blend_dst_a);
+  GLint prev_blend_eq_rgb = GL_FUNC_ADD, prev_blend_eq_a = GL_FUNC_ADD;
+  glGetIntegerv(GL_BLEND_EQUATION_RGB, &prev_blend_eq_rgb);
+  glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &prev_blend_eq_a);
+  const GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  GLboolean prev_depth_mask = GL_TRUE;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  const GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+  const GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+  const GLboolean prev_stencil = glIsEnabled(GL_STENCIL_TEST);
+  GLboolean prev_color_mask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask);
+  GLint prev_program = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  GLint prev_vao = 0;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+  GLint prev_array_buffer = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prev_array_buffer);
+  GLint prev_active_tex = GL_TEXTURE0;
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &prev_active_tex);
+  // the pass only ever touches texture units 0 and 1 — snapshot their 2D bindings.
+  GLint prev_tex0 = 0, prev_tex1 = 0;
+  glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex0);
+  glActiveTexture(GL_TEXTURE1);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex1);
+  // pin unit 0 active so every glBindTexture in the ensure_* helpers below lands on a
+  // unit we snapshot+restore (they would otherwise bind on whatever unit was active).
+  glActiveTexture(GL_TEXTURE0);
+  // neutralize inherited state that would break the fullscreen passes.
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_SCISSOR_TEST);
+  glDisable(GL_STENCIL_TEST);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glBlendEquation(GL_FUNC_ADD);
+
+  // (3) depth source
+  GLuint depth_tex = 0;
+  if (render_fbo->multisampled) {
+    // resolve depth into an owned full-res depth texture via a blit.
+    ensure_depth_resolve(full_w, full_h);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_fbo->fbo_id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_depth_resolve_fbo);
+    glBlitFramebuffer(0, 0, full_w, full_h, 0, 0, full_w, full_h, GL_DEPTH_BUFFER_BIT,
+                      GL_NEAREST);
+    depth_tex = m_depth_resolve_tex;
+  } else {
+    depth_tex = *render_fbo->zbuf_stencil_id;  // validated in (2a)
   }
 
   // (5) targets + (6) quad
@@ -464,21 +504,42 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   }
 
-  glBindVertexArray(0);
-
-  // (2) restore state; rebind the render FBO + original viewport for the following buckets.
+  // (10) restore EVERY piece of state the pass touched (defect #4: any leak here
+  // corrupts the following alpha/sprite/HUD buckets — most dangerously the render
+  // FBO's own depth attachment left bound as a sampler).
+  glBindVertexArray(prev_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, prev_array_buffer);
+  glUseProgram(prev_program);
+  // restore unit 0/1 2D bindings (this also unbinds depth_tex + the AO textures),
+  // then the previously-active unit.
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, prev_tex0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, prev_tex1);
+  glActiveTexture(prev_active_tex);
   if (prev_blend) {
     glEnable(GL_BLEND);
   } else {
     glDisable(GL_BLEND);
   }
-  glBlendFunc(prev_blend_src, prev_blend_dst);
+  glBlendFuncSeparate(prev_blend_src_rgb, prev_blend_dst_rgb, prev_blend_src_a, prev_blend_dst_a);
+  glBlendEquationSeparate(prev_blend_eq_rgb, prev_blend_eq_a);
   if (prev_depth_test) {
     glEnable(GL_DEPTH_TEST);
   } else {
     glDisable(GL_DEPTH_TEST);
   }
   glDepthMask(prev_depth_mask);
+  if (prev_cull) {
+    glEnable(GL_CULL_FACE);
+  }
+  if (prev_scissor) {
+    glEnable(GL_SCISSOR_TEST);
+  }
+  if (prev_stencil) {
+    glEnable(GL_STENCIL_TEST);
+  }
+  glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
   glBindFramebuffer(GL_FRAMEBUFFER, render_fbo->fbo_id);
   glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
   (void)prev_fbo;
