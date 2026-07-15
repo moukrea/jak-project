@@ -128,3 +128,12 @@ MANDATORY acceptance for the fix:
    of sky/emissive/fullbright).
 Judge at full resolution per the capture protocol. The owner's screenshot is the counter-example: that
 look = automatic FAIL.
+
+## SUPERVISOR CATCH (2026-07-15 16:20): menu-proof2/* = the MIUI LAUNCHER, not the game
+Your entire menu-proof2 capture series (00-title..04-recharged-row) shows the MIUI home screen — the
+game was NOT foregrounded (crashed or never started) and no focus check was performed. HARD RULE
+(long-standing, violated here): EVERY capture must be focus-bracketed — `dumpsys window | grep
+mCurrentFocus` must show org.opengoal.gk.jak1 IMMEDIATELY BEFORE AND AFTER each screenshot, and the
+values must be saved next to the frame. A capture without its focus bracket is garbage; a launcher
+frame in a proof set = automatic FAIL. Also DIAGNOSE why the game wasn't up (crash during menu nav?
+check the logcat for the session) before re-capturing.
