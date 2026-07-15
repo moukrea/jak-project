@@ -168,6 +168,15 @@ struct GfxGlobalSettings {
   // in C++ from persisted pc-settings before the common FR3 loads, then kept live by the GOAL push.
   // false = stock (byte-identical). Only meaningful when the build ships the enhanced FR3 set.
   bool recharged_enhanced_models = false;
+  // Grecharged-ambient-occlusion: screen-space AO post-pass over the OPAQUE scene only
+  // (sampled/composited at the bucket-30 hook, before any alpha bucket — alpha-cut foliage
+  // and grass cards never enter the AO depth nor get darkened). Set from GOAL via
+  // pc-set-ambient-occlusion!. mode 0 = OFF => byte-identical stock (renderbuffer depth,
+  // zero AO GL calls). 1 = SSAO, 2 = HBAO, 3 = GTAO.
+  int recharged_ao_mode = 0;
+  // AO quality: 0 = low (quarter-res, few samples), 1 = medium (half-res), 2 = high
+  // (full-res, full samples). Only read when recharged_ao_mode != 0.
+  int recharged_ao_quality = 1;
 };
 
 namespace Gfx {

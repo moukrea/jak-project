@@ -627,6 +627,9 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/GrassRenderer.cpp"
     # Grecharged-grass-precompute-mode: GL-free SCAN->TABLES->EXPAND core + serializer for GrassRenderer.
     "${JAK_ROOT}/game/graphics/opengl_renderer/GrassBakeCore.cpp"
+    # Grecharged-ambient-occlusion: SSAO/HBAO/GTAO screen-space AO pass (same reason as
+    # GrassRenderer: the Android build has its own source list).
+    "${JAK_ROOT}/game/graphics/opengl_renderer/AmbientOcclusion.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
     # Gjak2-visuals: vis/fog bucket — copies the per-level vis strings AND the

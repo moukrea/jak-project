@@ -1,0 +1,485 @@
+#include "AmbientOcclusion.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
+#include "common/log/log.h"
+
+#include "game/graphics/gfx.h"
+
+// ============================================================================
+// Grecharged-ambient-occlusion
+// ============================================================================
+// Screen-space AO composited over the OPAQUE scene at the post-opaque bucket-31
+// insertion point (before grass / alpha buckets). Three interchangeable estimators
+// keyed off recharged_ao_mode; per-quality resolution scale off recharged_ao_quality.
+// The depth source is the render FBO's depth attachment sampled as a texture (the
+// FBO is created with a depth *texture* whenever AO is on, non-multisampled; when the
+// scene is multisampled we blit-resolve depth into an owned full-res depth texture).
+//
+// OFF == stock: when effective_mode()==0 this whole pass is skipped and the render FBO
+// is built with the stock renderbuffer depth attachment.
+
+// ---------------------------------------------------------------------------
+// Live-tunable mode/quality resolution.
+//
+// Same cached+throttled dual mechanism the grass renderer uses (see
+// GrassRenderer.cpp grass_droop_len): re-read the debug override at most every 120
+// calls; a value that is absent/empty/-1 means "no override, use the game setting".
+// Android reads system properties debug.opengoal.ao.force_mode / .force_quality;
+// desktop reads env AO_FORCE_MODE / AO_FORCE_QUALITY.
+// ---------------------------------------------------------------------------
+namespace {
+
+// Returns the parsed override (>=0) or -1 for "no override".
+int read_ao_override(const char* android_prop, const char* env_name) {
+  char buf[32] = {0};
+  bool have = false;
+#ifdef __ANDROID__
+  if (__system_property_get(android_prop, buf) > 0 && buf[0]) {
+    have = true;
+  }
+  (void)env_name;
+#else
+  (void)android_prop;
+  const char* e = std::getenv(env_name);
+  if (e && e[0]) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+    have = true;
+  }
+#endif
+  if (!have) {
+    return -1;
+  }
+  int v = std::atoi(buf);
+  return v;  // -1 (explicitly written) also means "no override"
+}
+
+}  // namespace
+
+int AmbientOcclusionPass::effective_mode() {
+  static int s_cached = -1;
+  static int s_throttle = 0;
+  if ((s_throttle++ % 120) == 0 || s_cached < 0) {
+    s_cached = read_ao_override("debug.opengoal.ao.force_mode", "AO_FORCE_MODE");
+  }
+  if (s_cached >= 0) {
+    return s_cached;
+  }
+  return Gfx::g_global_settings.recharged_ao_mode;
+}
+
+int AmbientOcclusionPass::effective_quality() {
+  static int s_cached = -1;
+  static int s_throttle = 0;
+  if ((s_throttle++ % 120) == 0 || s_cached < 0) {
+    s_cached = read_ao_override("debug.opengoal.ao.force_quality", "AO_FORCE_QUALITY");
+  }
+  if (s_cached >= 0) {
+    return s_cached;
+  }
+  return Gfx::g_global_settings.recharged_ao_quality;
+}
+
+// ---------------------------------------------------------------------------
+// Small math helpers (CPU-side inverse camera).
+// ---------------------------------------------------------------------------
+namespace {
+
+// Full 4x4 inverse in double precision. Column-major storage m[col*4 + row], matching
+// the way camera_matrix[col] is laid out (each math::Vector4f is a column). Returns
+// false if the matrix is (near-)singular (skip AO that frame).
+bool invert4x4(const double m[16], double out[16]) {
+  double inv[16];
+  inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] +
+           m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
+  inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] -
+           m[8] * m[7] * m[14] - m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
+  inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] +
+           m[8] * m[7] * m[13] + m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
+  inv[12] = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] -
+            m[8] * m[6] * m[13] - m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
+  inv[1] = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] -
+           m[9] * m[3] * m[14] - m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
+  inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] +
+           m[8] * m[3] * m[14] + m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
+  inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] -
+           m[8] * m[3] * m[13] - m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
+  inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] +
+            m[8] * m[2] * m[13] + m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
+  inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] +
+           m[5] * m[3] * m[14] + m[13] * m[2] * m[7] - m[13] * m[3] * m[6];
+  inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] -
+           m[4] * m[3] * m[14] - m[12] * m[2] * m[7] + m[12] * m[3] * m[6];
+  inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] +
+            m[4] * m[3] * m[13] + m[12] * m[1] * m[7] - m[12] * m[3] * m[5];
+  inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] -
+            m[4] * m[2] * m[13] - m[12] * m[1] * m[6] + m[12] * m[2] * m[5];
+  inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] -
+           m[5] * m[3] * m[10] - m[9] * m[2] * m[7] + m[9] * m[3] * m[6];
+  inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] +
+           m[4] * m[3] * m[10] + m[8] * m[2] * m[7] - m[8] * m[3] * m[6];
+  inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] -
+            m[4] * m[3] * m[9] - m[8] * m[1] * m[7] + m[8] * m[3] * m[5];
+  inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] +
+            m[4] * m[2] * m[9] + m[8] * m[1] * m[6] - m[8] * m[2] * m[5];
+
+  double det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+  if (std::abs(det) < 1e-12) {
+    return false;
+  }
+  double idet = 1.0 / det;
+  for (int i = 0; i < 16; i++) {
+    out[i] = inv[i] * idet;
+  }
+  return true;
+}
+
+}  // namespace
+
+AmbientOcclusionPass::~AmbientOcclusionPass() {
+  // GL context is generally torn down before renderers; deleting 0 handles is a no-op
+  // and the driver/context teardown reclaims anything still live. Kept minimal.
+  free_targets();
+  if (m_depth_resolve_fbo) {
+    glDeleteFramebuffers(1, &m_depth_resolve_fbo);
+    glDeleteTextures(1, &m_depth_resolve_tex);
+    glDeleteTextures(1, &m_depth_resolve_color);
+  }
+  if (m_quad_vbo) {
+    glDeleteBuffers(1, &m_quad_vbo);
+  }
+  if (m_quad_vao) {
+    glDeleteVertexArrays(1, &m_quad_vao);
+  }
+}
+
+void AmbientOcclusionPass::init_shaders(ShaderLibrary& shaders) {
+  m_shaders = &shaders;
+}
+
+void AmbientOcclusionPass::ensure_quad() {
+  if (m_quad_ready) {
+    return;
+  }
+  // Same layout as OpenGLRenderer's screen_vao/vbo: 4 vec2 verts, TRIANGLE_STRIP,
+  // attribute location 0. post_processing.vert consumes it (position_in).
+  struct Vertex {
+    float x, y;
+  };
+  const std::array<Vertex, 4> verts = {Vertex{-1, -1}, Vertex{-1, 1}, Vertex{1, -1},
+                                       Vertex{1, 1}};
+  glGenVertexArrays(1, &m_quad_vao);
+  glGenBuffers(1, &m_quad_vbo);
+  glBindVertexArray(m_quad_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, m_quad_vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * 4, verts.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, sizeof(Vertex), nullptr);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  m_quad_ready = true;
+}
+
+void AmbientOcclusionPass::free_targets() {
+  if (m_ao_fbo[0]) {
+    glDeleteFramebuffers(2, m_ao_fbo);
+    glDeleteTextures(2, m_ao_tex);
+    m_ao_fbo[0] = m_ao_fbo[1] = 0;
+    m_ao_tex[0] = m_ao_tex[1] = 0;
+  }
+}
+
+void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h) {
+  if (m_ao_fbo[0] && m_ao_w == ao_w && m_ao_h == ao_h) {
+    return;
+  }
+  free_targets();
+  m_ao_w = ao_w;
+  m_ao_h = ao_h;
+  glGenFramebuffers(2, m_ao_fbo);
+  glGenTextures(2, m_ao_tex);
+  for (int i = 0; i < 2; i++) {
+    glBindTexture(GL_TEXTURE_2D, m_ao_tex[i]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, ao_w, ao_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_ao_fbo[i]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ao_tex[i], 0);
+    GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+    glDrawBuffers(1, bufs);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      lg::error("AO: ao target FBO {} incomplete ({}x{})", i, ao_w, ao_h);
+    }
+  }
+}
+
+void AmbientOcclusionPass::ensure_depth_resolve(int w, int h) {
+  if (m_depth_resolve_fbo && m_depth_resolve_w == w && m_depth_resolve_h == h) {
+    return;
+  }
+  if (m_depth_resolve_fbo) {
+    glDeleteFramebuffers(1, &m_depth_resolve_fbo);
+    glDeleteTextures(1, &m_depth_resolve_tex);
+    glDeleteTextures(1, &m_depth_resolve_color);
+    m_depth_resolve_fbo = 0;
+  }
+  m_depth_resolve_w = w;
+  m_depth_resolve_h = h;
+  glGenFramebuffers(1, &m_depth_resolve_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_depth_resolve_fbo);
+
+  glGenTextures(1, &m_depth_resolve_tex);
+  glBindTexture(GL_TEXTURE_2D, m_depth_resolve_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, w, h, 0, GL_DEPTH_STENCIL,
+               GL_UNSIGNED_INT_24_8, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
+                         m_depth_resolve_tex, 0);
+
+  // A tiny R8 color attachment guarantees completeness on both GL4.1 and GLES3.2.
+  glGenTextures(1, &m_depth_resolve_color);
+  glBindTexture(GL_TEXTURE_2D, m_depth_resolve_color);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         m_depth_resolve_color, 0);
+  GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+  glDrawBuffers(1, bufs);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("AO: depth-resolve FBO incomplete ({}x{})", w, h);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Uniform upload helper: the shared world<->screen transform uniforms every AO/blur
+// pass needs. Uploads camera + inverse + hvdf + fog + cam_pos + sizes.
+// ---------------------------------------------------------------------------
+namespace {
+
+void upload_common_uniforms(GLuint id,
+                            SharedRenderState* rs,
+                            const float inv[16],
+                            float depth_w,
+                            float depth_h,
+                            float ao_w,
+                            float ao_h) {
+  // u_camera: same column layout the grass renderer uploads (camera_matrix[0].data()
+  // is 16 contiguous floats, column-major).
+  glUniformMatrix4fv(glGetUniformLocation(id, "u_camera"), 1, GL_FALSE,
+                     rs->camera_matrix[0].data());
+  glUniformMatrix4fv(glGetUniformLocation(id, "u_inv_camera"), 1, GL_FALSE, inv);
+  glUniform4f(glGetUniformLocation(id, "u_hvdf_offset"), rs->camera_hvdf_off[0],
+              rs->camera_hvdf_off[1], rs->camera_hvdf_off[2], rs->camera_hvdf_off[3]);
+  glUniform1f(glGetUniformLocation(id, "u_fog"), rs->camera_fog.x());
+  glUniform4f(glGetUniformLocation(id, "u_cam_pos"), rs->camera_pos[0], rs->camera_pos[1],
+              rs->camera_pos[2], rs->camera_pos[3]);
+  glUniform2f(glGetUniformLocation(id, "u_depth_size"), depth_w, depth_h);
+  glUniform2f(glGetUniformLocation(id, "u_ao_size"), ao_w, ao_h);
+}
+
+}  // namespace
+
+void AmbientOcclusionPass::render(SharedRenderState* rs,
+                                  ScopedProfilerNode& /*prof*/,
+                                  Fbo* render_fbo) {
+  if (!render_fbo || !render_fbo->valid || !m_shaders) {
+    return;
+  }
+  const int mode = effective_mode();  // 1=SSAO,2=HBAO,3=GTAO
+  if (mode == 0) {
+    return;
+  }
+  int quality = effective_quality();
+  if (quality < 0) {
+    quality = 0;
+  }
+  if (quality > 2) {
+    quality = 2;
+  }
+
+  // (1) resolution scale by quality
+  const float scale = (quality == 0) ? 0.25f : (quality == 1) ? 0.5f : 1.0f;
+  const int full_w = render_fbo->width;
+  const int full_h = render_fbo->height;
+  const int ao_w = std::max(1, (int)(full_w * scale));
+  const int ao_h = std::max(1, (int)(full_h * scale));
+
+  // (2) full GL state snapshot (restored before returning)
+  GLint prev_fbo = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+  GLint prev_viewport[4];
+  glGetIntegerv(GL_VIEWPORT, prev_viewport);
+  const GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  GLint prev_blend_src = GL_ONE, prev_blend_dst = GL_ZERO;
+  glGetIntegerv(GL_BLEND_SRC_RGB, &prev_blend_src);
+  glGetIntegerv(GL_BLEND_DST_RGB, &prev_blend_dst);
+  const GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  GLboolean prev_depth_mask = GL_TRUE;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+
+  // (3) depth source
+  GLuint depth_tex = 0;
+  if (render_fbo->multisampled) {
+    // resolve depth into an owned full-res depth texture via a blit.
+    ensure_depth_resolve(full_w, full_h);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_fbo->fbo_id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_depth_resolve_fbo);
+    glBlitFramebuffer(0, 0, full_w, full_h, 0, 0, full_w, full_h, GL_DEPTH_BUFFER_BIT,
+                      GL_NEAREST);
+    depth_tex = m_depth_resolve_tex;
+  } else {
+    if (!render_fbo->zbuf_is_texture || !render_fbo->zbuf_stencil_id) {
+      // transition frame: depth attachment isn't a texture yet. Skip cleanly.
+      return;
+    }
+    depth_tex = *render_fbo->zbuf_stencil_id;
+  }
+
+  // (4) inverse camera in double precision
+  double cam[16];
+  for (int c = 0; c < 4; c++) {
+    for (int r = 0; r < 4; r++) {
+      cam[c * 4 + r] = (double)rs->camera_matrix[c][r];
+    }
+  }
+  double invd[16];
+  if (!invert4x4(cam, invd)) {
+    return;  // singular camera -> skip AO this frame
+  }
+  float invf[16];
+  for (int i = 0; i < 16; i++) {
+    invf[i] = (float)invd[i];
+  }
+
+  // (5) targets + (6) quad
+  ensure_targets(ao_w, ao_h);
+  ensure_quad();
+
+  const float depth_wf = (float)full_w;
+  const float depth_hf = (float)full_h;
+  const float ao_wf = (float)ao_w;
+  const float ao_hf = (float)ao_h;
+
+  // per-quality kernel sizes
+  int u_samples = 16, u_dirs = 6, u_steps = 6;
+  switch (mode) {
+    case 1:  // SSAO
+      u_samples = (quality == 0) ? 8 : (quality == 1) ? 16 : 24;
+      break;
+    case 2:  // HBAO
+      u_dirs = (quality == 0) ? 4 : (quality == 1) ? 6 : 8;
+      u_steps = (quality == 0) ? 4 : (quality == 1) ? 6 : 8;
+      break;
+    case 3:  // GTAO
+      u_dirs = (quality == 0) ? 2 : (quality == 1) ? 4 : 6;
+      u_steps = (quality == 0) ? 4 : (quality == 1) ? 6 : 10;
+      break;
+    default:
+      break;
+  }
+  const float u_radius = 1434.0f;   // ~0.35 m in GOAL world units
+  const float u_intensity = 1.2f;
+
+  glBindVertexArray(m_quad_vao);
+  glDisable(GL_BLEND);
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+
+  // (7) Pass 1: AO estimate -> m_ao_tex[0]
+  {
+    ShaderId sid = (mode == 1) ? ShaderId::AO_SSAO
+                   : (mode == 2) ? ShaderId::AO_HBAO
+                                 : ShaderId::AO_GTAO;
+    auto& shader = (*m_shaders)[sid];
+    shader.activate();
+    GLuint id = shader.id();
+    glBindFramebuffer(GL_FRAMEBUFFER, m_ao_fbo[0]);
+    glViewport(0, 0, ao_w, ao_h);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, depth_tex);
+    glUniform1i(glGetUniformLocation(id, "u_depth"), 0);
+    upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
+    glUniform1f(glGetUniformLocation(id, "u_radius"), u_radius);
+    glUniform1f(glGetUniformLocation(id, "u_intensity"), u_intensity);
+    glUniform1i(glGetUniformLocation(id, "u_samples"), u_samples);
+    glUniform1i(glGetUniformLocation(id, "u_dirs"), u_dirs);
+    glUniform1i(glGetUniformLocation(id, "u_steps"), u_steps);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  }
+
+  // (8) Bilateral blur: pass H (tex0 raw -> tex1), pass V (tex1 -> tex0). Result in tex0.
+  {
+    auto& shader = (*m_shaders)[ShaderId::AO_BLUR];
+    for (int p = 0; p < 2; p++) {
+      shader.activate();
+      GLuint id = shader.id();
+      const int src = (p == 0) ? 0 : 1;
+      const int dst = (p == 0) ? 1 : 0;
+      glBindFramebuffer(GL_FRAMEBUFFER, m_ao_fbo[dst]);
+      glViewport(0, 0, ao_w, ao_h);
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, m_ao_tex[src]);
+      glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_2D, depth_tex);
+      glUniform1i(glGetUniformLocation(id, "u_depth"), 1);
+      upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
+      if (p == 0) {
+        glUniform2f(glGetUniformLocation(id, "u_dir"), 1.0f / ao_wf, 0.0f);
+      } else {
+        glUniform2f(glGetUniformLocation(id, "u_dir"), 0.0f, 1.0f / ao_hf);
+      }
+      glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+    glActiveTexture(GL_TEXTURE0);
+  }
+
+  // (9) Composite: multiply scene by AO (final AO in m_ao_tex[0]).
+  {
+    auto& shader = (*m_shaders)[ShaderId::AO_COMPOSITE];
+    shader.activate();
+    GLuint id = shader.id();
+    glBindFramebuffer(GL_FRAMEBUFFER, render_fbo->fbo_id);
+    glViewport(0, 0, full_w, full_h);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ZERO, GL_SRC_COLOR);  // dst *= src
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_ao_tex[0]);
+    glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  }
+
+  glBindVertexArray(0);
+
+  // (2) restore state; rebind the render FBO + original viewport for the following buckets.
+  if (prev_blend) {
+    glEnable(GL_BLEND);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  glBlendFunc(prev_blend_src, prev_blend_dst);
+  if (prev_depth_test) {
+    glEnable(GL_DEPTH_TEST);
+  } else {
+    glDisable(GL_DEPTH_TEST);
+  }
+  glDepthMask(prev_depth_mask);
+  glBindFramebuffer(GL_FRAMEBUFFER, render_fbo->fbo_id);
+  glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
+  (void)prev_fbo;
+}

@@ -397,6 +397,12 @@
 
 (define *carousell-frame-rate* *carousell-frame-rate-150fps*)
 
+;; Grecharged-ambient-occlusion: the AO mode carousell (Off/SSAO/HBAO/GTAO) and the AO quality carousell
+;; (Low/Medium/High). The value strings live in game_custom_text_*.json (ids #x1708-#x170d) with matching
+;; pc-text-* enum entries in text-h.gc (static arrays need compile-time text-id constants).
+(def-progress-carousell *carousell-ambient-occlusion* (off pc-text-ssao pc-text-hbao pc-text-gtao))
+(def-progress-carousell *carousell-ao-quality* (pc-text-ao-low pc-text-ao-medium pc-text-ao-high))
+
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
 
@@ -817,7 +823,22 @@
               (set! (-> *pc-settings* recharged-foliage-wind?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 5 Back
+       ;; 5 AMBIENT OCCLUSION (Grecharged-ambient-occlusion) carousell row: Off/SSAO/HBAO/GTAO. Multi-value
+       ;; carousell like MSAA — :name is a placeholder (text-id msaa); the real label comes from
+       ;; *ambient-occlusion-label* (name-override, wired in init-game-options). backup/select/write-back
+       ;; mirror the msaa arms in respond-common (map 1:1 to *pc-settings* ambient-occlusion).
+       (new 'static 'game-option :option-type (game-option-type ambient-occlusion) :name (text-id msaa) :scale #t)
+       ;; 6 AO QUALITY carousell row: Low/Medium/High. Disabled (greyed) while AO is Off, mirroring the
+       ;; display-mode disabled predicate. Real label via *ao-quality-label* (name-override).
+       (new 'static
+            'game-option
+            :option-type (game-option-type ao-quality)
+            :name (text-id msaa)
+            :scale #t
+            :option-disabled-func
+            (lambda ()
+              (zero? (-> *pc-settings* ambient-occlusion))))
+       ;; 7 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
@@ -962,6 +983,13 @@
 ;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
 (define *grass-settings-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *grass-settings-label*) "GRASS SETTINGS")
+;; Grecharged-ambient-occlusion: labels for the two AO carousell rows (uppercase ASCII for the menu font;
+;; shown via name-override). Runtime BUFFERS re-formatted from the text bank in refresh-runtime-option-labels!
+;; so they follow the TEXT language — ids #x170e / #x170f. English defaults cover boot-before-text-load.
+(define *ambient-occlusion-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *ambient-occlusion-label*) "AMBIENT OCCLUSION")
+(define *ao-quality-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *ao-quality-label*) "AO QUALITY")
 
 ;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
 ;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
@@ -986,7 +1014,12 @@
     (let ((s (lookup-text! *common-text* (the-as text-id #x1706) #t)))
       (if s (format (clear *recharged-settings-label*) "~S" s)))
     (let ((s (lookup-text! *common-text* (the-as text-id #x1707) #t)))
-      (if s (format (clear *recharged-hud-label*) "~S" s))))
+      (if s (format (clear *recharged-hud-label*) "~S" s)))
+    ;; Grecharged-ambient-occlusion
+    (let ((s (lookup-text! *common-text* (the-as text-id #x170e) #t)))
+      (if s (format (clear *ambient-occlusion-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x170f) #t)))
+      (if s (format (clear *ao-quality-label*) "~S" s))))
   (none))
 
 ;; Goptions-reorder: stable pointers to the Min Target FPS row (physical index 4) in each graphics
@@ -3016,21 +3049,32 @@
   (set! (-> *recharged-options-pc* 2 value-to-modify) (&-> *pc-settings* load-custom-assets?))
   (set! (-> *recharged-options-pc* 2 name-override) *load-custom-assets-label*)
   ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle. It sits at index 4 while the ENHANCED
-  ;; MODELS row is present (static length 6) and at index 3 after that row collapsed (length 5) —
+  ;; MODELS row is present (static length 8) and at index 3 after that row collapsed (length 7) —
   ;; wire by live length so re-inits stay correct in both states. Must run BEFORE the collapse
   ;; below (the collapse moves this very row object; wiring rides along with it).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) 6) 4 3)))
+  ;; Grecharged-ambient-occlusion: the two AO carousell rows sit right after FOLIAGE WIND (indices
+  ;; 5,6 full / 4,5 collapsed). They also ride along with the collapse (wired here, pre-collapse).
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) 8) 4 3)))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
-    (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*))
+    (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
+    ;; Grecharged-ambient-occlusion: AO mode + quality carousell rows follow FOLIAGE WIND. Both point
+    ;; value-to-modify at the shared *progress-carousell* int-backup scratch (the MSAA carousell pattern);
+    ;; backup/write-back in respond-common map it 1:1 to *pc-settings* ambient-occlusion / ao-quality.
+    (set! (-> *recharged-options-pc* (+ fw-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
+    (set! (-> *recharged-options-pc* (+ fw-idx 1) name-override) *ambient-occlusion-label*)
+    (set! (-> *recharged-options-pc* (+ fw-idx 2) value-to-modify) (&-> *progress-carousell* int-backup))
+    (set! (-> *recharged-options-pc* (+ fw-idx 2) name-override) *ao-quality-label*))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row 3) only when the build ships the
-  ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND and Back up one slot and drop
-  ;; the live length to 5, so it disappears — renderer + nav key off (length arr)). Idempotent
-  ;; across re-inits (only fires while the static length 6 is intact).
+  ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the two AO rows and Back up one
+  ;; slot and drop the live length to 7, so it disappears — renderer + nav key off (length arr)).
+  ;; Idempotent across re-inits (only fires while the static length 8 is intact).
   (if (zero? (pc-enhanced-models-available?))
-      (when (= (-> *recharged-options-pc* length) 6)
+      (when (= (-> *recharged-options-pc* length) 8)
         (set! (-> *recharged-options-pc* 3) (-> *recharged-options-pc* 4))
         (set! (-> *recharged-options-pc* 4) (-> *recharged-options-pc* 5))
-        (set! (-> *recharged-options-pc* length) 5))
+        (set! (-> *recharged-options-pc* 5) (-> *recharged-options-pc* 6))
+        (set! (-> *recharged-options-pc* 6) (-> *recharged-options-pc* 7))
+        (set! (-> *recharged-options-pc* length) 7))
       (begin
         (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-enhanced-models?))
         (set! (-> *recharged-options-pc* 3 name-override) *enhanced-models-label*)))
@@ -3190,6 +3234,8 @@
                    (set! (-> *progress-state* on-off-backup) #t))
                   (((game-option-type display-mode)
                     (game-option-type msaa)
+                    (game-option-type ambient-occlusion)
+                    (game-option-type ao-quality)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3276,6 +3322,8 @@
                    (set! (-> *progress-state* on-off-backup) #f))
                   (((game-option-type display-mode)
                     (game-option-type msaa)
+                    (game-option-type ambient-occlusion)
+                    (game-option-type ao-quality)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3595,6 +3643,11 @@
                     ((8) (set! (-> *progress-carousell* int-backup) 3))
                     ((16) (set! (-> *progress-carousell* int-backup) 4))
                     (else (set! (-> *progress-carousell* int-backup) 0))))
+                 ;; Grecharged-ambient-occlusion: AO mode + quality carousells map 1:1 (no value translation).
+                 (((game-option-type ambient-occlusion))
+                  (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ambient-occlusion)))
+                 (((game-option-type ao-quality))
+                  (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-quality)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
                     ((0) (set! (-> *progress-carousell* int-backup) 0))
@@ -3640,6 +3693,8 @@
                   (case (-> options (-> obj option-index) option-type)
                     (((game-option-type display-mode)) (set! (-> *progress-carousell* current-carousell) *carousell-display-mode*))
                     (((game-option-type msaa)) (set! (-> *progress-carousell* current-carousell) *carousell-msaa*))
+                    (((game-option-type ambient-occlusion)) (set! (-> *progress-carousell* current-carousell) *carousell-ambient-occlusion*))
+                    (((game-option-type ao-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-quality*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type speaker)) (set! (-> *progress-carousell* current-carousell) *carousell-speaker*))
@@ -3684,6 +3739,12 @@
                  ((2) (set! (-> *pc-settings* gfx-msaa) 4))
                  ((3) (set! (-> *pc-settings* gfx-msaa) 8))
                  ((4) (set! (-> *pc-settings* gfx-msaa) 16))))
+              ;; Grecharged-ambient-occlusion: write the selected carousell index straight back (1:1). The
+              ;; shared (commit-to-file *pc-settings*) at the end of this else-branch persists it.
+              (((game-option-type ambient-occlusion))
+               (set! (-> *pc-settings* ambient-occlusion) (-> *progress-carousell* int-backup)))
+              (((game-option-type ao-quality))
+               (set! (-> *pc-settings* ao-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -4092,6 +4153,8 @@
                          (else (set! option-str (string-format "~S" *pc-cpp-temp-string*))))))
                     (((game-option-type display-mode)
                       (game-option-type msaa)
+                      (game-option-type ambient-occlusion)
+                      (game-option-type ao-quality)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -4174,6 +4237,8 @@
                     (((game-option-type aspect-ratio)
                       (game-option-type display-mode)
                       (game-option-type msaa)
+                      (game-option-type ambient-occlusion)
+                      (game-option-type ao-quality)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)

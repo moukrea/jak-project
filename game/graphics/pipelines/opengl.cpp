@@ -730,6 +730,19 @@ void GLDisplay::render() {
         (s_fps_smoothed_dt > 0.f) ? (1.f / s_fps_smoothed_dt) : 0.f;
   }
 
+  // Grecharged-ambient-occlusion: fps-matrix harvest line. Every 300 frames, emit the
+  // resolved AO mode/quality alongside the measured framerate + busy-ms so the perf sweep
+  // can correlate each AO configuration with its cost on device.
+  {
+    static int s_ao_perf_counter = 0;
+    if ((s_ao_perf_counter++ % 300) == 0) {
+      lg::info("AOPERF mode={} quality={} fps={:.1f} busy_ms={:.2f}",
+               AmbientOcclusionPass::effective_mode(),
+               AmbientOcclusionPass::effective_quality(), Gfx::g_global_settings.measured_fps,
+               Gfx::g_global_settings.measured_frame_busy_ms);
+    }
+  }
+
   {
     auto p = scoped_prof("imgui-render");
     ImGui::Render();

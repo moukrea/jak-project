@@ -168,7 +168,11 @@
      (monitor)
      (controller)
      (binding-assignment)
-     (confirmation))) ;; end of PC_PORT = #t branch for enum initialization
+     (confirmation)
+     ;; Grecharged-ambient-occlusion: two multi-value carousell rows in the Recharged Settings menu.
+     ;; ambient-occlusion = Off/SSAO/HBAO/GTAO; ao-quality = Low/Medium/High (disabled while AO Off).
+     (ambient-occlusion)
+     (ao-quality))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

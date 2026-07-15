@@ -576,6 +576,27 @@ void pc_set_grass_overhang(u32 on) {
   Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
 }
 
+// Grecharged-ambient-occlusion: push the AO algorithm selector + quality from GOAL
+// (-> *pc-settings* ambient-occlusion / ao-quality). mode: 0 off / 1 SSAO / 2 HBAO / 3 GTAO;
+// quality: 0 low / 1 medium / 2 high. Logs on CHANGE only (pushed every frame by
+// update-to-os), so a device log proves the GOAL->C++ link.
+void pc_set_ambient_occlusion(u32 mode, u32 quality) {
+  int m = (int)mode;
+  int q = (int)quality;
+  if (m < 0 || m > 3) {
+    m = 0;
+  }
+  if (q < 0 || q > 2) {
+    q = 1;
+  }
+  if (m != Gfx::g_global_settings.recharged_ao_mode ||
+      q != Gfx::g_global_settings.recharged_ao_quality) {
+    lg::info("[recharged-ao] mode -> {} quality -> {}", m, q);
+    Gfx::g_global_settings.recharged_ao_mode = m;
+    Gfx::g_global_settings.recharged_ao_quality = q;
+  }
+}
+
 // Grecharged-foliage-wind: push the light-wind sway toggle from GOAL (pc-set-foliage-wind!).
 // 0 = off => byte-identical stock render (no palm/shrub displacement). Logs on CHANGE only
 // (update-to-os pushes this every frame), so a device log proves the GOAL->C++ link.
@@ -746,6 +767,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
+  // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
+  make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
   // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
   make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);
   make_function_symbol_from_c("pc-enhanced-models-available?", (void*)pc_get_enhanced_models_available);

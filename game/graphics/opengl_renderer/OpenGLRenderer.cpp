@@ -882,6 +882,9 @@ void OpenGLRenderer::init_bucket_renderers_jak1() {
     m_bucket_renderers[i]->init_shaders(m_render_state.shaders);
     m_bucket_renderers[i]->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   }
+  // Grecharged-ambient-occlusion: the AO pass is not a bucket renderer, so hook its
+  // shader init here alongside the bucket renderers (once, after the loop).
+  m_ao_pass.init_shaders(m_render_state.shaders);
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, m_version);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, m_version);
 
@@ -889,7 +892,11 @@ void OpenGLRenderer::init_bucket_renderers_jak1() {
 }
 
 namespace {
-Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil) {
+// Grecharged-ambient-occlusion: zbuf_as_texture makes the depth/stencil attachment
+// a sampleable GL_TEXTURE_2D (DEPTH24_STENCIL8) instead of a renderbuffer, so the AO
+// pass can read scene depth. Only honored on the non-multisampled path; MSAA keeps the
+// renderbuffer (AO forces msaa=1 when it needs the texture). Default false == stock.
+Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil, bool zbuf_as_texture = false) {
   Fbo result;
   bool use_multisample = msaa > 1;
 
@@ -912,16 +919,32 @@ Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil) {
   }
   // make depth and stencil buffers that will hold the... depth and stencil buffers
   if (make_zbuf_and_stencil) {
-    GLuint zbuf;
-    glGenRenderbuffers(1, &zbuf);
-    result.zbuf_stencil_id = zbuf;
-    glBindRenderbuffer(GL_RENDERBUFFER, zbuf);
-    if (use_multisample) {
-      glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH24_STENCIL8, w, h);
+    if (zbuf_as_texture && !use_multisample) {
+      // Grecharged-ambient-occlusion: sampleable depth texture (AO reads it).
+      GLuint zbuf;
+      glGenTextures(1, &zbuf);
+      result.zbuf_stencil_id = zbuf;
+      result.zbuf_is_texture = true;
+      glBindTexture(GL_TEXTURE_2D, zbuf);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, w, h, 0, GL_DEPTH_STENCIL,
+                   GL_UNSIGNED_INT_24_8, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, zbuf, 0);
     } else {
-      glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+      GLuint zbuf;
+      glGenRenderbuffers(1, &zbuf);
+      result.zbuf_stencil_id = zbuf;
+      glBindRenderbuffer(GL_RENDERBUFFER, zbuf);
+      if (use_multisample) {
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH24_STENCIL8, w, h);
+      } else {
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+      }
+      glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, zbuf);
     }
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, zbuf);
   }
   // attach texture to framebuffer as target for colors
 
@@ -1242,10 +1265,19 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   window_fb.multisample_count = 1;
   window_fb.multisampled = false;
 
+  // Grecharged-ambient-occlusion: the AO pass samples scene depth, which needs the
+  // render FBO's depth attachment to be a TEXTURE (only possible non-multisampled).
+  // When AO is OFF (or MSAA is on) this is false and make_fbo takes the EXACT stock
+  // renderbuffer path -> OFF == stock at the GL level. Live-toggling AO flips
+  // want_depth_tex, mismatches the current FBO, and recreates it next frame.
+  const bool want_depth_tex =
+      (AmbientOcclusionPass::effective_mode() != 0) && (settings.msaa_samples == 1);
+
   // see if the render FBO is still applicable
   if (settings.save_screenshot || window_resized || !m_fbo_state.render_fbo ||
       !m_fbo_state.render_fbo->matches(settings.game_res_w, settings.game_res_h,
-                                       settings.msaa_samples)) {
+                                       settings.msaa_samples) ||
+      m_fbo_state.resources.render_buffer.zbuf_is_texture != want_depth_tex) {
     // doesn't match, set up a new one for these settings
     lg::info("FBO Setup: requested {}x{}, msaa {}", settings.game_res_w, settings.game_res_h,
              settings.msaa_samples);
@@ -1258,8 +1290,8 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
     // window framebuffer.
 
     // create a fbo to render to, with the desired settings
-    m_fbo_state.resources.render_buffer =
-        make_fbo(settings.game_res_w, settings.game_res_h, settings.msaa_samples, true);
+    m_fbo_state.resources.render_buffer = make_fbo(
+        settings.game_res_w, settings.game_res_h, settings.msaa_samples, true, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.resources.render_buffer;
 
     if (settings.msaa_samples != 1) {
@@ -1469,6 +1501,15 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     m_render_state.next_bucket += 16;
     vif_interrupt_callback(bucket_id);
     m_category_times[(int)m_bucket_categories[bucket_id]] += bucket_prof.get_elapsed_time();
+
+    // Grecharged-ambient-occlusion: screen-space AO over the OPAQUE scene only. Runs at the
+    // same post-opaque insertion point: every alpha bucket (ALPHA_TEX/water/sprites) and the
+    // recharged grass cards draw AFTER this, so transparent surfaces neither contribute to the
+    // AO depth nor get darkened (the owner's #1 alpha-artifact risk is excluded by construction).
+    if (bucket_id == 31 - 1 && AmbientOcclusionPass::effective_mode() != 0) {
+      auto p = prof.make_scoped_child("ao-draw");
+      m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
+    }
 
     // hack to draw the collision mesh in the middle the drawing
     if (bucket_id == 31 - 1 && Gfx::g_global_settings.collision_enable) {

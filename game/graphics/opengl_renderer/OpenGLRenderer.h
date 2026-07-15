@@ -5,6 +5,7 @@
 
 #include "common/dma/dma_chain_read.h"
 
+#include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/CollideMeshRenderer.h"
 #include "game/graphics/opengl_renderer/Fbo.h"
@@ -134,6 +135,7 @@ class OpenGLRenderer {
   FullScreenDraw m_blackout_renderer;
   CollideMeshRenderer m_collide_renderer;
   GrassRenderer m_grass_renderer;  // Grecharged-grass-poc (jak1 training)
+  AmbientOcclusionPass m_ao_pass;  // Grecharged-ambient-occlusion (SSAO/HBAO/GTAO)
 
   float m_last_pmode_alp = 1.;
   bool m_enable_fast_blackout_loads = true;

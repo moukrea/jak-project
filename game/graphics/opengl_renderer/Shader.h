@@ -69,6 +69,12 @@ enum class ShaderId {
   SLOW_TIME = 42,
   SPRITE3_INSTANCED = 43,
   GRASS = 44,  // Grecharged-grass-poc: procedural 3D grass (jak1 training)
+  // Grecharged-ambient-occlusion: screen-space AO passes (estimator + blur + composite)
+  AO_SSAO = 45,
+  AO_HBAO = 46,
+  AO_GTAO = 47,
+  AO_BLUR = 48,
+  AO_COMPOSITE = 49,
   MAX_SHADERS
 };
 

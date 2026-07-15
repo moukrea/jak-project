@@ -16,6 +16,12 @@ struct Fbo {
   bool multisampled = false;
   int multisample_count = 0;  // Should be 1 if multisampled is disabled
 
+  // Grecharged-ambient-occlusion: when set, zbuf_stencil_id names a GL_TEXTURE_2D
+  // (DEPTH24_STENCIL8) instead of a renderbuffer, so the AO pass can sample scene
+  // depth. Only ever true on the non-multisampled render FBO with AO enabled;
+  // OFF == the stock renderbuffer path (clear() deletes it as a renderbuffer).
+  bool zbuf_is_texture = false;
+
   bool is_window = false;
   int width = 640;
   int height = 480;
@@ -45,8 +51,15 @@ struct Fbo {
       }
 
       if (zbuf_stencil_id) {
-        glDeleteRenderbuffers(1, &zbuf_stencil_id.value());
+        // Grecharged-ambient-occlusion: the depth attachment is a texture when AO is
+        // on (so it can be sampled), a renderbuffer otherwise (stock path).
+        if (zbuf_is_texture) {
+          glDeleteTextures(1, &zbuf_stencil_id.value());
+        } else {
+          glDeleteRenderbuffers(1, &zbuf_stencil_id.value());
+        }
         zbuf_stencil_id.reset();
+        zbuf_is_texture = false;
       }
 
       valid = false;

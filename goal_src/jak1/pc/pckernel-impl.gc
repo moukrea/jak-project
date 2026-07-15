@@ -87,6 +87,8 @@
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
    (recharged-foliage-wind? symbol) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
+   (ambient-occlusion   int32) ;; Grecharged-ambient-occlusion: 0=off 1=ssao 2=hbao 3=gtao. Default OFF (0).
+   (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
    (recharged-enhanced-models? symbol) ;; Grecharged-hd-models: load jak2 HD character models (Jak/Daxter/Samos/Keira, jak1-look) instead of stock low-poly. #f = stock. Only meaningful when the build ships the enhanced FR3 set.
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
@@ -109,6 +111,9 @@
 (define-extern pc-set-load-custom-assets! (function int none))
 ;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
 (define-extern pc-set-grass-overhang! (function int none))
+;; Grecharged-ambient-occlusion: pushes (mode quality) to the C++ renderer (registered in kmachine.cpp).
+;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high.
+(define-extern pc-set-ambient-occlusion! (function int int none))
 ;; Grecharged-foliage-wind: pushes the light wind sway toggle (0/1) to the renderer.
 (define-extern pc-set-foliage-wind! (function int none))
 ;; Grecharged-hd-models: pushes the ENHANCED MODELS toggle (0/1) to the loader; queries whether the
@@ -191,6 +196,8 @@
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
   (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
   (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
+  (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
+  (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality
   (set! (-> obj recharged-enhanced-models?) #f)
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   ;; original settings, minus 25 to be a bit more conservative
