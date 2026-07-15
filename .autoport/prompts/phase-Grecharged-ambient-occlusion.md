@@ -150,3 +150,37 @@ one-frame mitigation is INCOMPLETE for GTAO. Requirements:
    previous session died within N seconds of AO enable, boot with AO forced off once and log it).
 4. Supervisor restored the device (published clean APK + ambient-occlusion 0). Do NOT redeploy until
    the full mode-matrix title gate passes locally on your build.
+
+## OWNER TUNING FEEDBACK (2026-07-15 17:05, verbatim — per-mode strength calibration)
+"SSAO est quasiment impossible à voir une différence avec l'AO off complet, HBAO on voit un poil plus
+mais vraiment bof (du coup aucune valeur ajoutée quasiment) et GTAO on voit la diff pour de vrai"
+=> Calibrate so EVERY tier earns its place, without violating defect #5 (open-area delta <= ~5%):
+- SSAO must be CLEARLY visible vs OFF (raise strength/radius/sample contribution until the crease
+  darkening at the training vantage is unmistakable — target a measured crease-region delta in the same
+  order as GTAO's current one, softer falloff acceptable).
+- HBAO must sit visibly BETWEEN SSAO and GTAO (quality and/or intensity distinguishable from both).
+- GTAO = the current look is the reference ("on voit la diff pour de vrai") — don't regress it.
+- Report per-mode measured crease-delta + open-delta numbers side by side, plus same-vantage crops
+  OFF/SSAO/HBAO/GTAO so the progression is obvious to a human.
+
+## OWNER TUNING #2 (2026-07-15 17:15, verbatim): "la qualité faible fait un rendu pixelisé alors qu'on
+est à pleine résolution, faut flouter ! sinon c'est affreux"
+=> The low-quality AO (computed at reduced internal resolution) composites UNFILTERED — blocky/pixelated
+term over a full-res frame. REQUIRED (and it was in the owner's ORIGINAL spec: "demi-résolution + blur"):
+a depth-aware (bilateral) blur pass on the AO term before compositing, at EVERY quality that computes
+below full res (low certainly, medium if applicable). No visible pixelation/stair-stepping in the AO at
+any quality — close-up crop proof per quality tier (low/med/high at the same vantage). The blur must not
+bleed across depth edges (bilateral weights), or it will halo.
+(Owner precision 17:18: the pixelation was observed on GTAO at low quality specifically — GTAO-low is
+the reference case to fix and prove first; apply the same blur discipline to all modes' sub-full-res
+qualities.)
+
+## OWNER TUNING #3 (2026-07-15 17:25, verbatim — reinforces #1, raises the bar)
+"En vrai SSAO et HBAO sont tous les deux à peine remarquables, dans la plupart des cas on a quasiment
+aucune différence avec l'AO OFF complètement."
+=> BOTH SSAO and HBAO are near-invisible in normal play, not just at one vantage. The calibration target
+is not a marginal measured delta — it is: A PLAYER TOGGLING THE MODE MID-GAME MUST SEE THE CHANGE
+IMMEDIATELY, for EVERY mode. Concretely: boost SSAO and HBAO strength/radius aggressively (their
+character may differ — SSAO soft/broad, HBAO sharper — but both must be unmistakable vs OFF in a normal
+gameplay view, not only in crease close-ups). Keep the defect-#5 open-area cap. Prove with mid-gameplay
+same-vantage A/B for each mode (not just the training crease corner), judged at a glance.
