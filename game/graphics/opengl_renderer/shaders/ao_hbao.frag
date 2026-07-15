@@ -113,7 +113,13 @@ void main() {
     vec3 Tsurf = wdir - N * dot(wdir, N);
     float tl = length(Tsurf);
     float sinT = (tl > 1e-6) ? dot(Tsurf / tl, V) : 0.0;
-    sinT += 0.08;  // angle bias (kills residual reconstruction-noise shimmer)
+    // defect #7 grazing-floor whiteness: the old flat "+0.08" sine bias shrinks to
+    // nothing exactly where grazing depth noise peaks (sinT -> 1 on grazing ground —
+    // shoreline term read only 45% white). Bias in the ANGLE domain instead: a uniform
+    // ~7deg horizon tolerance at every surface slope. sin(a+B) = sinA cosB + cosA sinB.
+    const float ABIAS_SIN = 0.11971;  // sin(0.12)
+    const float ABIAS_COS = 0.99281;  // cos(0.12)
+    sinT = clamp(sinT * ABIAS_COS + sqrt(max(0.0, 1.0 - sinT * sinT)) * ABIAS_SIN, -1.0, 1.0);
 
     float sinH = sinT;
     float W_at_H = 0.0;

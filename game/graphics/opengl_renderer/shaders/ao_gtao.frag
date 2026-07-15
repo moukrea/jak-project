@@ -166,6 +166,16 @@ void main() {
     float h1 = -acos(clamp(cH_neg, -1.0, 1.0));  // negative side, in [-pi/2 region .. 0)
     float h2 = acos(clamp(cH_pos, -1.0, 1.0));    // positive side, in (0 .. +pi/2 region]
 
+    // defect #7 grazing-floor whiteness: depth quantization at range lifts the apparent
+    // horizon a few degrees above a truly flat plane (worst on grazing open ground —
+    // shoreline sand read term ~0.93 => 5.3% open-area darkening). Push both horizons
+    // OUTWARD by a fixed angle bias before the hemisphere clamp: flat ground clamps back
+    // to the full arc (integrates to 1.0), while real crease horizons sit tens of degrees
+    // inside and barely move.
+    const float HBIAS = 0.12;
+    h1 -= HBIAS;
+    h2 += HBIAS;
+
     // component of N in the slice plane basis (slice_dir, V):
     float n_along_dir = dot(N, slice_dir);
     float n_along_V = dot(N, V);
