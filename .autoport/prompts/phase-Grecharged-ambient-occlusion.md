@@ -184,3 +184,10 @@ IMMEDIATELY, for EVERY mode. Concretely: boost SSAO and HBAO strength/radius agg
 character may differ — SSAO soft/broad, HBAO sharper — but both must be unmistakable vs OFF in a normal
 gameplay view, not only in crease close-ups). Keep the defect-#5 open-area cap. Prove with mid-gameplay
 same-vantage A/B for each mode (not just the training crease corner), judged at a glance.
+
+## OWNER CORRECTION (2026-07-15 17:30, verbatim): "GTAO n'est pas la référence intouchable, il y a
+peut-être des soucis avec, c'est des retours rapides que je te fais !"
+=> Retract the "GTAO = untouched reference" framing. GTAO is merely the most VISIBLE so far — it already
+has known issues (title crash defect #6, low-quality pixelation tuning #2) and may have more (over-
+darkening, artifacts, cost). ALL modes stay open to fixes and tuning; the owner's remarks are quick
+impressions, not sign-offs. Nothing in this phase is validated until his final play-test.
