@@ -218,3 +218,15 @@ contact shadows around crates/rocks/props, wall-floor junctions, under overhangs
 is the view-dependent grazing-incidence darkening of FLAT OPEN floor with nothing nearby. Acceptance:
 at the proof vantages, floor pixels near objects/walls show contact AO; open flat floor away from any
 occluder stays ~white; water untouched.
+
+## DESIGN PRINCIPLE (owner-sourced, 2026-07-16 — the "golden rule" from a solid AO tutorial he shared)
+"If AO is darkening an area that's already well lit by DIRECT light, it breaks realism. Pros mask AO
+out of directly-lit zones." AO approximates the loss of AMBIENT/indirect light only — it is blind to
+scene lighting, so the COMPOSITE must not be. Implementation guidance for this engine:
+- Scale the AO contribution by the ambient fraction of the pixel's lighting (the bounded ambient-
+  fraction compositing already started is the right shape) — in strongly sun/direct-lit areas the AO
+  effect should approach zero; in shadowed/ambient-dominated areas it reads fully.
+- This is the principled fix behind defect #7's symptoms (grazing floors/water reading as global
+  shading) and behind "AO = detail, not global shading" (owner). Related knobs from the tutorial that
+  map to our settings: small AO distance/radius = tight contact detail (good default), large radius =
+  broad soft occlusion (roomier feel) — per-mode radii already tuned, keep them in this frame.
