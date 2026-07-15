@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #ifdef __ANDROID__
@@ -220,15 +221,25 @@ void AmbientOcclusionPass::free_targets() {
     m_ao_fbo[0] = m_ao_fbo[1] = 0;
     m_ao_tex[0] = m_ao_tex[1] = 0;
   }
+  if (m_ao_full_fbo) {
+    glFinish();
+    glDeleteFramebuffers(1, &m_ao_full_fbo);
+    glDeleteTextures(1, &m_ao_full_tex);
+    m_ao_full_fbo = 0;
+    m_ao_full_tex = 0;
+  }
 }
 
-void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h) {
-  if (m_ao_fbo[0] && m_ao_w == ao_w && m_ao_h == ao_h) {
+void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int full_h) {
+  if (m_ao_fbo[0] && m_ao_w == ao_w && m_ao_h == ao_h && m_ao_full_fbo &&
+      m_ao_full_w == full_w && m_ao_full_h == full_h) {
     return;
   }
   free_targets();
   m_ao_w = ao_w;
   m_ao_h = ao_h;
+  m_ao_full_w = full_w;
+  m_ao_full_h = full_h;
   glGenFramebuffers(2, m_ao_fbo);
   glGenTextures(2, m_ao_tex);
   for (int i = 0; i < 2; i++) {
@@ -245,6 +256,22 @@ void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h) {
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
       lg::error("AO: ao target FBO {} incomplete ({}x{})", i, ao_w, ao_h);
     }
+  }
+  // full-res target for the upsampling V blur pass (owner tuning #2).
+  glGenFramebuffers(1, &m_ao_full_fbo);
+  glGenTextures(1, &m_ao_full_tex);
+  glBindTexture(GL_TEXTURE_2D, m_ao_full_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, full_w, full_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_ao_full_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ao_full_tex, 0);
+  GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+  glDrawBuffers(1, bufs);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("AO: full-res ao target FBO incomplete ({}x{})", full_w, full_h);
   }
 }
 
@@ -444,7 +471,7 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   }
 
   // (5) targets + (6) quad
-  ensure_targets(ao_w, ao_h);
+  ensure_targets(ao_w, ao_h, full_w, full_h);
   ensure_quad();
 
   const float depth_wf = (float)full_w;
@@ -469,9 +496,33 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     default:
       break;
   }
-  const float u_radius = 1434.0f;   // ~0.35 m in GOAL world units
-  const float u_intensity = 1.0f;
-  const float u_ao_strength = 0.55f;  // max fraction of the lit color AO may remove (ambient-term bound)
+  // Per-mode look calibration (owner tuning #1/#3, 2026-07-15): every tier must be
+  // UNMISTAKABLE vs OFF when toggled mid-game, with distinct characters — SSAO broad/soft
+  // (large radius), HBAO mid, GTAO sharp/physical. The defect-#5 open-area cap (<=5%) is
+  // held by the estimators returning ~1.0 on flat surfaces (aligned-slice / analytic-
+  // tangent / tangent-plane fixes), NOT by keeping strength low. 4096 units = 1 m.
+  float u_radius = 1434.0f;
+  float u_intensity = 1.0f;
+  float u_ao_strength = 0.55f;  // max fraction of the lit color AO may remove (ambient-term bound)
+  switch (mode) {
+    case 1:  // SSAO
+      u_radius = 4096.0f;
+      u_intensity = 1.7f;
+      u_ao_strength = 0.75f;
+      break;
+    case 2:  // HBAO
+      u_radius = 2867.0f;
+      u_intensity = 1.4f;
+      u_ao_strength = 0.78f;
+      break;
+    case 3:  // GTAO
+      u_radius = 2048.0f;
+      u_intensity = 1.2f;
+      u_ao_strength = 0.82f;
+      break;
+    default:
+      break;
+  }
 
   glBindVertexArray(m_quad_vao);
   glDisable(GL_BLEND);
@@ -498,22 +549,51 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     glUniform1i(glGetUniformLocation(id, "u_dirs"), u_dirs);
     glUniform1i(glGetUniformLocation(id, "u_steps"), u_steps);
     glUniform1i(glGetUniformLocation(id, "u_debug"), (dbg == 2) ? 2 : 0);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // defect #6 residual (gtao-high title kill): the estimator is the one potentially
+    // GPU-heavy draw (GTAO High = full-res x 6 slices x 20 samples ~ 1s+ on Adreno 618).
+    // A single mega-draw trips the KGSL GPU watchdog under level-load churn — the
+    // combo-gtao-high log shows IOCTL_KGSL_* EDEADLK then a tombstone-less process
+    // death. Split into scissored horizontal bands: the driver preempts and the
+    // watchdog resets at draw boundaries, so each submission stays bounded.
+    const int bands = std::min(8, 1 + (ao_w * ao_h) / 400000);
+    if (bands > 1) {
+      glEnable(GL_SCISSOR_TEST);
+    }
+    for (int b = 0; b < bands; b++) {
+      const int y0 = (int)((int64_t)ao_h * b / bands);
+      const int y1 = (int)((int64_t)ao_h * (b + 1) / bands);
+      if (bands > 1) {
+        glScissor(0, y0, ao_w, y1 - y0);
+      }
+      glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+    if (bands > 1) {
+      glDisable(GL_SCISSOR_TEST);  // pass invariant: scissor off (restored at the end)
+    }
   }
   ao_glerr("estimate");
 
-  // (8) Bilateral blur: pass H (tex0 raw -> tex1), pass V (tex1 -> tex0). Result in tex0.
+  // (8) Bilateral blur: pass H at AO res (tex0 raw -> tex1), pass V at FULL res
+  // (tex1 -> m_ao_full_tex). The full-res V pass doubles as a depth-aware upsample
+  // (owner tuning #2: a sub-full-res AO term composited raw is blocky at full render
+  // res; the linear-filtered low-res source + full-res depth weights kill the
+  // stair-stepping without bleeding across depth edges).
   if (dbg != 2) {
     auto& shader = (*m_shaders)[ShaderId::AO_BLUR];
     for (int p = 0; p < 2; p++) {
       shader.activate();
       GLuint id = shader.id();
-      const int src = (p == 0) ? 0 : 1;
-      const int dst = (p == 0) ? 1 : 0;
-      glBindFramebuffer(GL_FRAMEBUFFER, m_ao_fbo[dst]);
-      glViewport(0, 0, ao_w, ao_h);
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, m_ao_tex[src]);
+      if (p == 0) {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_ao_fbo[1]);
+        glViewport(0, 0, ao_w, ao_h);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, m_ao_tex[0]);
+      } else {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_ao_full_fbo);
+        glViewport(0, 0, full_w, full_h);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, m_ao_tex[1]);
+      }
       glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_2D, depth_tex);
@@ -530,7 +610,8 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   }
   ao_glerr("blur");
 
-  // (9) Composite: multiply scene by AO (final AO in m_ao_tex[0]).
+  // (9) Composite: multiply scene by AO (final full-res AO in m_ao_full_tex; the raw
+  // dbg==2 estimator view stays at AO res in m_ao_tex[0]).
   {
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -549,7 +630,7 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_ao_tex[0]);
+    glBindTexture(GL_TEXTURE_2D, (dbg == 2) ? m_ao_tex[0] : m_ao_full_tex);
     glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
     glUniform1i(glGetUniformLocation(id, "u_debug"), dbg);
     glUniform1f(glGetUniformLocation(id, "u_strength"), u_ao_strength);

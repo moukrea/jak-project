@@ -21,6 +21,12 @@ S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/menu-proof2; mkdir -p "$OUT"
 SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+# Safe-boot sentinel (C++ commit b057c73d6). This script ENABLES AO then force-stops within
+# 60s (the menu commits + the persist-relaunch quit), so the sentinel survives the dirty
+# death; without removing it the relaunch boots SAFE-BOOT-pinned (AO forced off once) and
+# the persist proof false-fails. We rm it before the first boot AND right before the
+# persist-relaunch (see below).
+SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
 tapb(){ inject "$1"; sleep 0.4; inject ""; sleep "${2:-0.9}"; }
@@ -95,7 +101,17 @@ if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa 'ambient-occlusion'; the
   sed -i 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/; s/(ao-quality [0-9]*)/(ao-quality 2)/' /tmp/pcs_ao_menu.gc
   adb push /tmp/pcs_ao_menu.gc "$SETTINGS_DEV" >/dev/null 2>&1
 fi
-say "disk pre: $(disk)"
+# VERIFY the normalize LANDED (attempt-4's false-negative root cause was a silently failed
+# push: every commit then edited the wrong base and read a stale disk value).
+NORM_BACK=$(disk)
+case "$NORM_BACK" in
+  *"(ambient-occlusion 0)"*) ;;
+  *) say "[ao-menu-proof2 FAIL] normalize did not land"; exit 1 ;;
+esac
+# rm the safe-boot sentinel before the FIRST boot (a prior killed run may have left it armed,
+# which would pin AO off and confuse the boot [recharged-ao] baseline).
+adb shell rm -f "$SENTINEL" >/dev/null 2>&1
+say "disk pre: $NORM_BACK"
 # Downs to RECHARGED SETTINGS depend on the Min Target FPS row, which is visible ONLY
 # while Dynamic Render Scale is ON (apply-dynamic-rs-menu-mode!, progress-pc.gc:1057).
 if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa '(dynamic-render-scale? #t)'; then
@@ -149,11 +165,19 @@ tapb "triangle" 1.2; tapb "triangle" 1.5; shot 14-backed-out
 say "== persist: relaunch; boot push must carry GTAO/Medium =="
 adb shell am force-stop $PKG; sleep 2
 say "disk after quit: $(disk)"
+# The menu just enabled AO (GTAO) and we force-stopped within 60s -> the sentinel survived
+# the dirty death. rm it here so the relaunch runs AO ACTIVE (persisted GTAO), NOT the
+# one-shot SAFE-BOOT (AO off) fallback — otherwise the persist proof false-fails.
+adb shell rm -f "$SENTINEL" >/dev/null 2>&1
 adb logcat -c 2>/dev/null || true
 adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
 sleep 70; stabilize_fg; shot 15-relaunch
 say "disk after relaunch: $(disk)"
 say "relaunch [recharged-ao]: $(aolines)"
+# If SAFE-BOOT still shows, the sentinel rm was missed/failed and the relaunch ran AO off.
+if adb logcat -d 2>/dev/null | grep -aq "SAFE-BOOT"; then
+  say "  !!! WARNING: SAFE-BOOT present on relaunch — sentinel rm missed/failed, persist proof INVALID"
+fi
 adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null | grep -a "AOPERF" | tail -3 | tee -a "$LOGF"
 FOCUS_END=$(adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r')
 say "focus at end: $FOCUS_END"

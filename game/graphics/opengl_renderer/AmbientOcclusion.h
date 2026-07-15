@@ -33,7 +33,7 @@ class AmbientOcclusionPass {
 
  private:
   void ensure_quad();
-  void ensure_targets(int ao_w, int ao_h);
+  void ensure_targets(int ao_w, int ao_h, int full_w, int full_h);
   void ensure_depth_resolve(int w, int h);
   void free_targets();
 
@@ -49,6 +49,14 @@ class AmbientOcclusionPass {
   GLuint m_ao_tex[2] = {0, 0};
   int m_ao_w = 0;
   int m_ao_h = 0;
+
+  // full-res AO target (R8): the V blur pass writes here at FULL resolution, doubling as
+  // a depth-aware upsample so a sub-full-res AO term never composites blocky (owner
+  // tuning #2: GTAO-low pixelation at full render res).
+  GLuint m_ao_full_fbo = 0;
+  GLuint m_ao_full_tex = 0;
+  int m_ao_full_w = 0;
+  int m_ao_full_h = 0;
 
   // depth-resolve FBO (only used when the render FBO is multisampled): a full-res
   // DEPTH24_STENCIL8 texture + a tiny R8 color for guaranteed completeness.

@@ -92,17 +92,23 @@ void main() {
   vec4 p0 = project_world(P);
   vec4 p1 = project_world(P + wt * u_radius);
   float screen_r = (p0.w > 0.0 && p1.w > 0.0) ? distance(p0.xy, p1.xy) : 0.05;
-  screen_r = clamp(screen_r, 2.0 * max(px.x, px.y), 0.25);
+  // max clamp 0.10 (was 0.25): a whole-screen march on degenerate transition-frame depth
+  // is texture-cache-hostile and multiplies the draw time into the GPU-watchdog zone
+  // (defect #6 residual); 0.10 * 2400px is still a 240px radius, visually equivalent.
+  screen_r = clamp(screen_r, 2.0 * max(px.x, px.y), 0.10);
 
   float ign = fract(52.9829189 *
                     fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
 
-  // world-space slice basis: two screen-plane tangents orthogonal to V.
-  vec3 sx_axis = normalize(cross(V, vec3(0.0, 0.0, 1.0)));
-  if (length(cross(V, vec3(0.0, 0.0, 1.0))) < 1e-4) {
-    sx_axis = normalize(cross(V, vec3(1.0, 0.0, 0.0)));
-  }
-  vec3 sy_axis = cross(V, sx_axis);
+  // world-space image of the screen axes at P: unproject uv +/- eps AT THE SAME window
+  // depth and subtract. The slice basis must be aligned with the ACTUAL march sides — an
+  // assumed cross-product basis has the wrong handedness for vertical slices (the GS
+  // projection flips Y), swapping the toward/away horizon sides relative to gamma and
+  // collapsing the visible arc to ~2*(90-gamma) on grazing flat ground (defect #5's
+  // measured 54% open-area darkening).
+  vec2 eps = px * 4.0;
+  vec3 du_world = (world_from_depth(tex_coord + vec2(eps.x, 0.0), d) - P) / eps.x;
+  vec3 dv_world = (world_from_depth(tex_coord + vec2(0.0, eps.y), d) - P) / eps.y;
 
   float visibility = 0.0;
   int slices = u_dirs;
@@ -110,8 +116,15 @@ void main() {
 
   for (int k = 0; k < slices; k++) {
     float phi = ign * PI + float(k) * PI / float(slices);
-    vec3 slice_dir = sx_axis * cos(phi) + sy_axis * sin(phi);  // in-plane world dir
-    vec2 dir_uv = vec2(cos(phi), sin(phi));                    // matching screen dir
+    vec2 dir_uv = vec2(cos(phi), sin(phi));  // screen march dir
+    // in-plane world dir MATCHING the +uv march side by construction.
+    vec3 w = du_world * dir_uv.x + dv_world * dir_uv.y;
+    vec3 w_in = w - V * dot(w, V);
+    float wl = length(w_in);
+    if (wl < 1e-6) {
+      continue;
+    }
+    vec3 slice_dir = w_in / wl;
     vec2 step_uv = dir_uv * (screen_r / float(steps));
 
     // In the slice plane, angle is measured from V. cos(angle)=dot(dir,V).
@@ -153,8 +166,6 @@ void main() {
     float h1 = -acos(clamp(cH_neg, -1.0, 1.0));  // negative side, in [-pi/2 region .. 0)
     float h2 = acos(clamp(cH_pos, -1.0, 1.0));    // positive side, in (0 .. +pi/2 region]
 
-    // project N into the slice plane (spanned by slice_dir and V), get gamma.
-    vec3 n_proj = N - V * dot(N, V);  // remove component along V? -> keep component in slice
     // component of N in the slice plane basis (slice_dir, V):
     float n_along_dir = dot(N, slice_dir);
     float n_along_V = dot(N, V);

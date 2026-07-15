@@ -10,6 +10,10 @@ die(){ echo "[ao-report FAIL] $*" >&2; exit 1; }
 
 # --- evidence preconditions -------------------------------------------------
 grep -q '\[TITLE-GATE PASS\]' "$OUT/title-gate/gate-log.txt" || die "title gate not PASS"
+# defect #6: the persisted-mode matrix (12 boots) must ALL pass.
+[ "$(grep -c 'combo .*: PASS' "$OUT/title-gate/gate-log.txt")" -eq 12 ] || die "title gate: not all 12 persisted combos PASS"
+# defect #6: safe-boot fallback proof must PASS.
+grep -q '\[ao-safeboot PASS\]' "$OUT/safeboot/proof-log.txt" || die "safe-boot proof not PASS"
 BUILD_LOG=$(ls -t "$OUT"/build-deploy-*.log 2>/dev/null | head -1)
 [ -n "$BUILD_LOG" ] || die "no build-deploy log"
 grep -q '\[ao-build\] DONE' "$BUILD_LOG" || die "build+deploy not DONE ($BUILD_LOG)"
@@ -41,9 +45,9 @@ fpsrow(){ grep -a "^$1 ::" "$FPM" | sed -E 's/.*(AOPERF[^\r]*)/\1/'; }
 echo "RESULT: AMBIENT OCCLUSION PASS — SSAO/HBAO/GTAO screen-space AO live on device, menu-driven, Off == stock, alpha-cut foliage excluded, defect 1-5 fixes proven"
 echo
 echo "== Implementation =="
-echo "Screen-space AO post-process sampling the existing render FBO depth buffer (depth FBO attachment as texture, blit-resolved when multisampled): reconstruct view-space position+normal from depth, estimate occlusion, depth-aware bilateral blur, multiplicative composite (GL_ZERO/GL_SRC_COLOR) over the OPAQUE scene only."
-echo "Three estimators share the pipeline and differ only in the occlusion shader: SSAO (hemisphere kernel), HBAO (horizon-based ray march), GTAO (ground-truth cosine-weighted horizon integral). Files: game/graphics/opengl_renderer/AmbientOcclusion.{h,cpp} + shaders/ao_ssao.frag ao_hbao.frag ao_gtao.frag ao_blur.frag ao_composite.frag; hook in OpenGLRenderer.cpp at the bucket-31 post-opaque insertion point."
-echo "AO quality scales resolution + sample count: Low=quarter-res, Medium=half-res, High=full-res."
+echo "Screen-space AO post-process sampling the existing render FBO depth buffer (depth FBO attachment as texture, blit-resolved when multisampled): reconstruct world-space position+normal from depth, estimate occlusion, depth-aware bilateral blur whose V pass runs at FULL render resolution (doubles as a depth-aware upsample so sub-full-res AO never composites blocky/pixelated — owner tuning #2, GTAO-low reference case), multiplicative composite (GL_ZERO/GL_SRC_COLOR) over the OPAQUE scene only."
+echo "Three estimators share the pipeline and differ only in the occlusion shader: SSAO (hemisphere kernel, tangent-plane occluder test), HBAO (horizon-based ray march, analytic surface tangent), GTAO (ground-truth cosine-weighted horizon integral, slice basis derived from the actual screen march so grazing flat ground stays unoccluded). Files: game/graphics/opengl_renderer/AmbientOcclusion.{h,cpp} + shaders/ao_ssao.frag ao_hbao.frag ao_gtao.frag ao_blur.frag ao_composite.frag; hook in OpenGLRenderer.cpp at the bucket-31 post-opaque insertion point."
+echo "AO quality scales resolution + sample count: Low=quarter-res, Medium=half-res, High=full-res. Per-mode look (owner tuning #1/#3, every tier unmistakable when toggled): SSAO broad/soft 1.0m radius strength 0.75, HBAO mid 0.7m strength 0.78, GTAO sharp 0.5m strength 0.82."
 echo
 echo "== Alpha/transparent exclusion (owner #1 risk) =="
 echo "The AO pass runs at the post-opaque bucket-31 insertion point: every alpha-blended/alpha-tested bucket (ALPHA_TEX foliage, water, sprites) and the recharged grass-card pass render AFTER the AO composite, so transparent/alpha-cut geometry never writes the AO depth source and is never darkened by the composite — alpha surfaces are structurally excluded from AO depth."
@@ -61,16 +65,24 @@ echo "Off == stock: with effective_mode()==0 the AO pass is fully skipped and th
 echo
 echo "== Defect #4 (GL state leak -> purple world): title gate =="
 echo "AO pass wrapped in full GL state save/restore (texture units 0/1, program, VAO, array buffer, active unit, blend eq/funcs, colorMask, cull/scissor/stencil). On-device textured-title gate with AO compiled in, all modes:"
-tail -20 "$OUT/title-gate/gate-log.txt" | grep -E 'segment|purple-scan|TITLE-GATE' | sed 's/^/  /'
+tail -20 "$OUT/title-gate/gate-log.txt" | grep -E 'combo|purple-scan|TITLE-GATE' | sed 's/^/  /'
+echo
+echo "== Defect #6 (GTAO title crash) =="
+echo "Hardening: an unconditional glFinish drain runs before every render/UI FBO recreate, a 3-frame AO defer holds AO off through renderscale-resize storms, and drains run before AO-target deletes."
+echo "safe-boot fallback: a session dying within 60s of AO enable boots the next session with AO forced off once, logged."
+echo "Persisted-mode title matrix (12 boots, mode x quality, seeded on disk then booted fresh; each must render textured, stay alive >=2 min, track AOPERF, and log no SAFE-BOOT):"
+grep -E 'combo .*: (PASS|FAIL)' "$OUT/title-gate/gate-log.txt" | sed 's/^/  /'
+echo "Safe-boot fallback proof (arm within 60s, survive a dirty death, SAFE-BOOT + AO-off on the next boot, AO active again after):"
+grep -E 'ARMED-OK|SAFE-BOOT|\[ao-safeboot' "$OUT/safeboot/proof-log.txt" | tail -6 | sed 's/^/  /'
 echo
 echo "== Defect #5 (global darkening) =="
-echo "Composite is a bounded ambient-fraction modulation (u_strength=0.55 max removal; estimators output 1.0 at far depth so sky/emissive stay white — AO modulates the ambient contribution approximation, never crushes the whole lit frame). AO-DEBUG view (debug.opengoal.ao.debug=1) shows the raw AO term ~white on open ground and sky, dark only in creases/contacts:"
+echo "Root cause fixed in the estimators (not by weakening strength): the GTAO slice basis had wrong handedness vs the actual screen march (GS Y-flip) which collapsed the visible arc on grazing flat ground to ~36deg (= the owner's 'tout est occlude' 54% open-area darkening); HBAO's first-sample tangent inherited range depth noise (31%); SSAO's radial-distance compare was ill-conditioned at grazing (16%). After the fixes flat/open surfaces integrate to ~1.0 (no darkening) at any view angle, so per-mode strength could be RAISED (0.75-0.82 bounded ambient-fraction modulation; estimators output 1.0 at far depth so sky/emissive stay white). AO-DEBUG view (debug.opengoal.ao.debug=1) shows the raw AO term ~white on open ground and sky, dark only in creases/contacts:"
 grep -E '\[ao-gate5-debug\]' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
 echo "Quantified open-area gates (mean ON-vs-OFF luminance delta over open areas <=5%, global <=8%, crease-localized):"
 grep -E '\[ao-gate5\].*OVERALL' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
 echo
 echo "== Capture protocol (owner 2026-07-15 13:50) =="
-echo "All captures at locked FULL render resolution (render-scale 100, dynamic-render-scale? #f) with recharged-grass? #f for perf headroom, at the training level + village1 (creases) + beach (alpha foliage), camera near corner/crevice geometry."
+echo "All captures at locked FULL render resolution (render-scale 100, dynamic-render-scale? #f) with recharged-grass? #f for perf headroom, at the training level + village1 (creases) + beach (alpha foliage), camera near corner/crevice geometry. Each recorded segment asserts a captured frame HEIGHT >=1000px (the Redmi is 2400x1080 landscape) so a dynamic-renderscale'd low-res frame is rejected as non-evidence."
 echo
 echo "== FPS cost curve (Redmi Note 9 Pro / Adreno 618 — informational, NOT a gate) =="
 echo "Per-combo AOPERF (mode x quality) at the village1 vantage; low fps at High/GTAO is expected (strong-device settings):"

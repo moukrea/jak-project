@@ -111,7 +111,12 @@ void main() {
     float dist_Ps = distance(Ps, u_cam_pos.xyz);
     float dist_sp = distance(sp, u_cam_pos.xyz);
     float dPPs = distance(P, Ps);
-    if (dist_Ps < dist_sp - bias && dPPs < u_radius * 1.5) {
+    // tangent-plane test: a real occluder must sit ABOVE the surface plane at P. Points
+    // of the surface itself (flat ground at grazing view) have dot(Ps-P, N) ~= 0 and the
+    // radial-distance compare alone is ill-conditioned there (defect #5's 16% open-area
+    // darkening came from range-quantized depth noise passing it).
+    float above = dot(Ps - P, N);
+    if (dist_Ps < dist_sp - bias && dPPs < u_radius * 1.5 && above > 0.05 * u_radius) {
       // bounded occluders only: full weight inside the radius, fading to 0 by 1.5r
       float w = 1.0 - smoothstep(u_radius, u_radius * 1.5, dPPs);
       occ += w;

@@ -1,19 +1,49 @@
 #!/usr/bin/env bash
-# ao_title_gate.sh — Grecharged-ambient-occlusion DEFECT #4 MANDATORY GATE.
+# ao_title_gate.sh — Grecharged-ambient-occlusion DEFECT #4 + #6 MANDATORY GATE.
 # With the AO build deployed, the title flythrough must render fully TEXTURED (no
-# purple/magenta untextured meshes) in ALL modes: OFF (settings, no props) and each of
-# SSAO/HBAO/GTAO forced live via debug props. A purple world = automatic FAIL — do not
-# proceed to any further device testing.
-# Produces: .autoport/reports/Grecharged-ambient-occlusion/title-gate/{TAG}.mp4 + frames +
-# purple-scan verdicts + AOPERF lines per segment + GATE PASS/FAIL summary.
+# purple/magenta untextured meshes) AND survive >=2 min alive at title in EVERY
+# PERSISTED mode/quality combo. Defect #6 (native GTAO title crash on a persisted-high
+# boot) means props are NOT sufficient: the crash only reproduces on the persisted
+# settings path (renderscale-resize storm at boot), so this gate seeds the on-disk
+# pc-settings.gc and BOOTS each of 12 combos fresh, instead of live-flipping props on one
+# boot. Matrix (mode,quality): off/ssao/hbao/gtao x low/med/high = 12 boots.
+# Per combo we assert: textured (purple-scan CLEAN on both recorded segments), >=120s
+# alive at title, AOPERF mode/quality tracks the seeded values, and NO "SAFE-BOOT" line
+# (the sentinel is cleared before each boot, so a SAFE-BOOT means seeding/clear failed).
+# Produces: .autoport/reports/Grecharged-ambient-occlusion/title-gate/{TAG}-{a,b}.mp4 +
+# frames + purple-scan verdicts + combo-{TAG}.log (full logcat) + crash-{TAG}/ evidence +
+# libgk-under-test.so (A34 forensics archive) + per-combo PASS/FAIL + GATE summary.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 export ANDROID_SERIAL=eae4df44
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/title-gate; mkdir -p "$OUT"
 LOGF="$OUT/gate-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
+
+# Seed the on-disk pc-settings.gc with a persisted AO mode+quality, then READ BACK and die
+# if the values did not land (a failed push was the attempt-4 false-negative root cause).
+# Returns 0 on verified seed, 1 otherwise. Args: MODE QUALITY.
+seed_ao(){ local M="$1" Q="$2"
+  $ADB -s $S shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_gate.gc 2>/dev/null
+  if ! grep -qa 'ambient-occlusion' /tmp/pcs_ao_gate.gc; then
+    say "  SEED FAIL: no ambient-occlusion key on device settings"; return 1; fi
+  sed -i "s/(ambient-occlusion [0-9]*)/(ambient-occlusion $M)/; s/(ao-quality [0-9]*)/(ao-quality $Q)/" /tmp/pcs_ao_gate.gc
+  $ADB -s $S push /tmp/pcs_ao_gate.gc "$SETTINGS_DEV" >/dev/null 2>&1
+  local BACK; BACK=$($ADB -s $S shell cat "$SETTINGS_DEV" 2>/dev/null \
+    | grep -aoE "\((ambient-occlusion|ao-quality) [0-9]+\)" | tr '\n' ' ')
+  case "$BACK" in
+    *"(ambient-occlusion $M)"*) : ;;
+    *) say "  SEED READBACK FAIL: wanted (ambient-occlusion $M), got: $BACK"; return 1 ;;
+  esac
+  case "$BACK" in
+    *"(ao-quality $Q)"*) : ;;
+    *) say "  SEED READBACK FAIL: wanted (ao-quality $Q), got: $BACK"; return 1 ;;
+  esac
+  say "  seeded+verified: $BACK"; return 0; }
 focus(){ $ADB -s $S shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
 ao_force(){ $ADB -s $S shell "setprop debug.opengoal.ao.force_mode '$1'" >/dev/null 2>&1
             $ADB -s $S shell "setprop debug.opengoal.ao.force_quality '$2'" >/dev/null 2>&1; }
@@ -87,63 +117,132 @@ done
 [ "$FR3_BAD" = 0 ] && say "  fr3 set OK (all device fr3 == stock out/jak1/fr3)" \
                    || { say "[TITLE-GATE FAIL] fr3 repair failed"; exit 1; }
 
-say "== ao_title_gate: boot to title with AO build, settings-OFF (props cleared) =="
+say "== ao_title_gate: PERSISTED-MODE MATRIX (12 boots) — defect #6 =="
+# Archive the EXACT binary under test for A34 forensics (build-id ties any crash-TAG
+# dropbox tombstone back to this .so).
 $ADB -s $S shell am force-stop $PKG; sleep 2
-ao_clear
-$ADB -s $S shell setprop debug.opengoal.level.warp '""'
-$ADB -s $S shell setprop debug.opengoal.level.warp.pos '""'
-$ADB -s $S logcat -c 2>/dev/null || true
-$ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
-sleep 30
-say "focus at start: $(focus)"
-# Early-boot focus steals (MIUI popups over a fresh boot) hit the first segment: wait
-# until jak1 holds the foreground CONTINUOUSLY for 30s (refront as needed, max 6 min).
-t0=$(date +%s); held=0
-while [ $(( $(date +%s)-t0 )) -lt 360 ]; do
-  if fg_ok; then
-    held=$((held+1)); [ "$held" -ge 4 ] && break
-  else
-    held=0; say "  (stabilize) FG-LOST — refront"; refront || true
-  fi
-  sleep 8
-done
-[ "$held" -ge 4 ] && say "foreground STABLE (30s continuous)" || say "WARNING: foreground never stabilized in 6 min"
+cp build-android/lib/arm64-v8a/libgk.so "$OUT/libgk-under-test.so"
+readelf -n "$OUT/libgk-under-test.so" | grep -i 'build id' | tee -a "$LOGF"
+# The matrix tests the PERSISTED path: ALL ao debug + warp props MUST be empty (a forced
+# prop would mask the persisted-boot crash we are hunting).
+$ADB -s $S shell "setprop debug.opengoal.ao.force_mode ''" >/dev/null 2>&1
+$ADB -s $S shell "setprop debug.opengoal.ao.force_quality ''" >/dev/null 2>&1
+$ADB -s $S shell "setprop debug.opengoal.ao.debug 0" >/dev/null 2>&1
+$ADB -s $S shell setprop debug.opengoal.level.warp '""' >/dev/null 2>&1
+$ADB -s $S shell setprop debug.opengoal.level.warp.pos '""' >/dev/null 2>&1
 
-GATE_OK=1
-for combo in "off:100:: " "ssao:60:1:2" "hbao:60:2:2" "gtao:60:3:2"; do
-  IFS=: read -r TAG SECS M Q <<<"$combo"
-  if [ -n "${M// /}" ]; then ao_force "$M" "$Q"; sleep 6; else ao_clear; fi
-  say "-- segment $TAG (${SECS}s) --"
-  # focus-gated: a recording of the MIUI launcher is not evidence either way.
-  if ! fg_ok; then
-    say "   FG-LOST before $TAG — re-fronting"
-    refront || { say "   $TAG: FOCUS FAIL (cannot re-front jak1)"; GATE_OK=0; continue; }
+GATE_OK=1; FAILN=0; PASSN=0
+# TAG:MODE:QUALITY — off/ssao/hbao/gtao x low(0)/med(1)/high(2)
+for combo in \
+  "off-low:0:0"  "off-med:0:1"  "off-high:0:2" \
+  "ssao-low:1:0" "ssao-med:1:1" "ssao-high:1:2" \
+  "hbao-low:2:0" "hbao-med:2:1" "hbao-high:2:2" \
+  "gtao-low:3:0" "gtao-med:3:1" "gtao-high:3:2" ; do
+  IFS=: read -r TAG M Q <<<"$combo"
+  say "-- combo $TAG (mode=$M quality=$Q, persisted boot) --"
+  CLOG="$OUT/combo-$TAG.log"
+
+  # 1. force-stop, seed disk + verify, clear the safe-boot sentinel (else this boot, which
+  #    follows the previous combo's within-60s force-stop, would run AO forced-off).
+  $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1; sleep 2
+  if ! seed_ao "$M" "$Q"; then
+    say "combo $TAG: FAIL(seed)"; GATE_OK=0; FAILN=$((FAILN+1)); continue
   fi
-  seg_ok=0
-  for attempt in 1 2; do
-    if rec_and_scan "$TAG" "$SECS" | tee -a "$LOGF"; then
-      if fg_ok; then seg_ok=1; break
-      else say "   $TAG: focus lost DURING attempt#$attempt — refront + retry"; refront || break; fi
-    else
-      if fg_ok; then break   # genuine purple/black with app fronted: real FAIL
-      else say "   $TAG: attempt#$attempt recorded a non-jak1 screen — refront + retry"; refront || break; fi
-    fi
+  $ADB -s $S shell rm -f "$SENTINEL" >/dev/null 2>&1
+
+  # 2. fresh full logcat into the per-combo log (kill any prior logcat first).
+  $ADB -s $S logcat -c -b all 2>/dev/null || true
+  kill "$(cat /tmp/ao_lc.pid 2>/dev/null)" 2>/dev/null || true
+  ( $ADB -s $S logcat -b all -v threadtime > "$CLOG" 2>/dev/null & echo $! > /tmp/ao_lc.pid )
+
+  # 3. boot + stabilize (foreground held 30s continuous, refront on loss, max 6 min).
+  $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
+  sleep 30
+  say "   focus at start: $(focus)"
+  t0=$(date +%s); held=0
+  while [ $(( $(date +%s)-t0 )) -lt 360 ]; do
+    if fg_ok; then held=$((held+1)); [ "$held" -ge 4 ] && break
+    else held=0; say "   (stabilize) FG-LOST — refront"; refront || true; fi
+    sleep 8
   done
-  if [ "$seg_ok" = 1 ]; then
-    say "   $TAG: purple-scan CLEAN (jak1 foreground)"
-  else
-    say "   $TAG: purple-scan FAIL (untextured/black frames or focus unrecoverable)"; GATE_OK=0
+  [ "$held" -ge 4 ] && say "   foreground STABLE (30s continuous)" \
+                    || say "   WARNING: foreground never stabilized in 6 min"
+
+  # 4. record the PID for the aliveness check.
+  PID=$($ADB -s $S shell pidof $PKG 2>/dev/null | tr -d '\r')
+
+  # 5. two recorded segments (>=120s total alive at title past stabilization); purple/dark
+  #    scan must pass on BOTH (retry-once-on-focus-loss, like the old loop).
+  seg_all_ok=1
+  for SUB in a b; do
+    STAG="$TAG-$SUB"
+    if ! fg_ok; then
+      say "   FG-LOST before $STAG — re-fronting"
+      refront || { say "   $STAG: FOCUS FAIL (cannot re-front jak1)"; seg_all_ok=0; break; }
+    fi
+    seg_ok=0
+    for attempt in 1 2; do
+      if rec_and_scan "$STAG" 55 | tee -a "$LOGF"; then
+        if fg_ok; then seg_ok=1; break
+        else say "   $STAG: focus lost DURING attempt#$attempt — refront + retry"; refront || break; fi
+      else
+        if fg_ok; then break   # genuine purple/black with app fronted: real FAIL
+        else say "   $STAG: attempt#$attempt recorded a non-jak1 screen — refront + retry"; refront || break; fi
+      fi
+    done
+    if [ "$seg_ok" = 1 ]; then say "   $STAG: purple-scan CLEAN (jak1 foreground)"
+    else say "   $STAG: purple-scan FAIL (untextured/black or focus unrecoverable)"; seg_all_ok=0; fi
+  done
+
+  # 6. AOPERF assertion (mode+quality must track the seeded values): >=3 lines. And NO
+  #    SAFE-BOOT (sentinel was cleared, so its presence means the seed/clear failed).
+  APCOUNT=$(grep -ac "AOPERF mode=$M quality=$Q" "$CLOG" 2>/dev/null); APCOUNT=${APCOUNT:-0}
+  say "   AOPERF mode=$M quality=$Q count: $APCOUNT (need >=3)"
+  SB=0
+  if grep -aq "SAFE-BOOT" "$CLOG" 2>/dev/null; then
+    SB=1; say "   SAFE-BOOT present in combo log — seed/clear failed, AO ran forced-off"
   fi
+
+  # 7. aliveness at end: pidof non-empty AND == the boot PID, and foreground jak1.
+  ENDPID=$($ADB -s $S shell pidof $PKG 2>/dev/null | tr -d '\r')
+  ALIVE=1
+  if [ -z "$ENDPID" ] || [ "$ENDPID" != "$PID" ] || ! fg_ok; then
+    ALIVE=0
+    say "   ALIVENESS FAIL: boot PID=$PID end PID=$ENDPID fg=$(fg_ok && echo jak1 || echo other)"
+    mkdir -p "$OUT/crash-$TAG"
+    $ADB -s $S logcat -b crash -d > "$OUT/crash-$TAG/logcat-crash.txt" 2>/dev/null || true
+    $ADB -s $S shell dumpsys dropbox --print 2>/dev/null | tail -200 > "$OUT/crash-$TAG/dropbox.txt" || true
+    tail -400 "$CLOG" > "$OUT/crash-$TAG/combo-tail.txt" 2>/dev/null || true
+  fi
+
+  # combo verdict
+  if [ "$seg_all_ok" = 1 ] && [ "$APCOUNT" -ge 3 ] && [ "$SB" = 0 ] && [ "$ALIVE" = 1 ]; then
+    say "combo $TAG: PASS"; PASSN=$((PASSN+1))
+  else
+    REASON=""
+    [ "$seg_all_ok" != 1 ] && REASON="$REASON purple/focus"
+    [ "$APCOUNT" -lt 3 ] && REASON="$REASON aoperf<3"
+    [ "$SB" != 0 ] && REASON="$REASON safe-boot"
+    [ "$ALIVE" != 1 ] && REASON="$REASON died"
+    say "combo $TAG: FAIL(${REASON# })"; GATE_OK=0; FAILN=$((FAILN+1))
+  fi
+
+  # 8. force-stop + kill the logcat before the next combo.
+  $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1
+  kill "$(cat /tmp/ao_lc.pid 2>/dev/null)" 2>/dev/null || true
 done
-ao_clear
-say "focus at end: $(focus)"
-say "AOPERF lines per segment (mode must track the forced prop):"
-$ADB -s $S logcat -d 2>/dev/null | grep -a "AOPERF" | tail -25 | tee -a "$LOGF"
+
+# restore the owner's default persisted state, clear the sentinel, force-stop.
+say "== restore settings to AO Off / quality Medium =="
+seed_ao 0 1 || true
+$ADB -s $S shell rm -f "$SENTINEL" >/dev/null 2>&1
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1
+say "focus at end: $(focus)"
+
 if [ "$GATE_OK" = 1 ]; then
-  say "[TITLE-GATE PASS] world textured in OFF + SSAO + HBAO + GTAO"
+  say "[TITLE-GATE PASS] all 12 persisted combos: textured title, 2min alive, AOPERF tracks seeding"
   exit 0
 else
-  say "[TITLE-GATE FAIL] purple/untextured frames detected — DO NOT PROCEED"
+  say "[TITLE-GATE FAIL] $FAILN combos failed"
   exit 1
 fi

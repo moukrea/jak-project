@@ -58,6 +58,37 @@ case "$VANT" in
   *) echo "unknown vantage $VANT"; exit 2 ;;
 esac
 
+# Owner capture protocol (2026-07-15 13:50): every A/B and the fps matrix must be measured
+# at LOCKED FULL render resolution with recharged grass OFF and the PERSISTED AO setting at
+# 0 (the A/B flips still use the debug props; the persisted setting stays 0, so props do NOT
+# arm the safe-boot sentinel). We seed the on-disk pc-settings.gc + read it back + die on a
+# failed push (attempt-4 false-negative root cause). Floats print via ~f, e.g. 100.0000, so
+# the sed pattern must accept a decimal tail. ao_proof_battery.sh step 5 restores grass +
+# dynamic-RS after the whole phase.
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
+seed_capture_protocol(){
+  $ADB shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_cap.gc 2>/dev/null
+  if ! grep -qa 'ambient-occlusion' /tmp/pcs_ao_cap.gc; then
+    echo "  SEED FAIL: no ambient-occlusion key on device settings"; exit 1; fi
+  sed -i \
+    -e 's/(dynamic-render-scale? #[tf])/(dynamic-render-scale? #f)/' \
+    -e 's/(render-scale [0-9.]*)/(render-scale 100.0000)/' \
+    -e 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' \
+    -e 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/' \
+    -e 's/(ao-quality [0-9]*)/(ao-quality 1)/' \
+    /tmp/pcs_ao_cap.gc
+  $ADB push /tmp/pcs_ao_cap.gc "$SETTINGS_DEV" >/dev/null 2>&1
+  local BACK; BACK=$($ADB shell cat "$SETTINGS_DEV" 2>/dev/null \
+    | grep -aoE "\((dynamic-render-scale\? #[tf]|render-scale [0-9.]+|recharged-grass\? #[tf]|ambient-occlusion [0-9]+|ao-quality [0-9]+)\)" | tr '\n' ' ')
+  case "$BACK" in *"(dynamic-render-scale? #f)"*) : ;; *) echo "  SEED READBACK FAIL (dynamic-render-scale? #f): $BACK"; exit 1 ;; esac
+  case "$BACK" in *"(recharged-grass? #f)"*) : ;; *) echo "  SEED READBACK FAIL (recharged-grass? #f): $BACK"; exit 1 ;; esac
+  case "$BACK" in *"(ambient-occlusion 0)"*) : ;; *) echo "  SEED READBACK FAIL (ambient-occlusion 0): $BACK"; exit 1 ;; esac
+  case "$BACK" in *"(ao-quality 1)"*) : ;; *) echo "  SEED READBACK FAIL (ao-quality 1): $BACK"; exit 1 ;; esac
+  case "$BACK" in *"(render-scale 100"*) : ;; *) echo "  SEED READBACK FAIL (render-scale 100.x): $BACK"; exit 1 ;; esac
+  $ADB shell rm -f "$SENTINEL" >/dev/null 2>&1
+  echo "  capture-protocol seeded+verified: $BACK"; }
+
 boot_warp_retry(){ local LOG="$1" TRY ok
   for TRY in 1 2 3; do
     $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 2
@@ -88,7 +119,22 @@ boot_warp_retry(){ local LOG="$1" TRY ok
         fi
         sleep 8
       done
-      [ "$held" -ge 4 ] && { echo "  foreground STABLE"; return 0; }
+      if [ "$held" -ge 4 ]; then
+        echo "  foreground STABLE"
+        # Owner protocol PROOF of locked full res: screenrecord always captures at display
+        # res, so the frame-height gate can't see the INTERNAL render scale. The renderer
+        # logs "A35-RENDER FBO setup: WxH (game_res WxH scale N% ...)" — the last one must
+        # say scale 100% (seed_capture_protocol set render-scale 100, dynamic RS off).
+        local SCALE_LINE
+        SCALE_LINE=$(grep -a "A35-RENDER FBO setup" "$LOG" | tail -1 | tr -d '\r')
+        echo "  fbo-scale check: ${SCALE_LINE:-NO-A35-RENDER-LINE}"
+        case "$SCALE_LINE" in
+          *"scale 100%"*) : ;;
+          *) echo "  RENDER-SCALE NOT LOCKED AT 100% — capture would be low-res evidence; FAIL"
+             return 1 ;;
+        esac
+        return 0
+      fi
       echo "  foreground never stabilized — rebooting app (try $TRY)"
       continue
     fi
@@ -99,7 +145,7 @@ boot_warp_retry(){ local LOG="$1" TRY ok
 # and frame count in REC_FRAMES. Focus is BRACKETED (before+after, both saved next to the
 # frames — supervisor hard rule) and stray screenrecords are killed first (a leftover from
 # a killed run starves the encoder -> header-only mp4).
-REC_SZ=0; REC_FRAMES=0
+REC_SZ=0; REC_FRAMES=0; REC_H=0
 rec_core(){ local TAG="$1" SECS="${2:-8}"
   $ADB shell pkill screenrecord >/dev/null 2>&1; sleep 1
   local FB; FB=$(focus)
@@ -113,9 +159,21 @@ rec_core(){ local TAG="$1" SECS="${2:-8}"
   ffmpeg -y -loglevel error -i "$DEV/${TAG}.mp4" -vf fps=1 "$DEV/${TAG}_frames/f_%03d.png" 2>/dev/null
   REC_SZ=$(stat -c %s "$DEV/${TAG}.mp4" 2>/dev/null || echo 0); REC_SZ=${REC_SZ:-0}
   REC_FRAMES=$(ls "$DEV/${TAG}_frames"/f_*.png 2>/dev/null | wc -l)
+  # Owner protocol: assert LOCKED FULL RES. The Redmi is 2400x1080 landscape; a
+  # dynamic-renderscale'd low-res capture is not acceptance evidence. Probe the first
+  # frame's dimensions and expose the height in REC_H (0 if no frames).
+  local FIRST W H
+  FIRST=$(ls "$DEV/${TAG}_frames"/f_*.png 2>/dev/null | head -1)
+  REC_H=0; W=0; H=0
+  if [ -n "$FIRST" ]; then
+    read -r W H < <(python3 -c "from PIL import Image;import sys;i=Image.open(sys.argv[1]);print(i.width,i.height)" "$FIRST" 2>/dev/null \
+      || ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=' ' "$FIRST" 2>/dev/null)
+    W=${W:-0}; H=${H:-0}; REC_H=$H
+  fi
+  echo "  res $TAG: ${W}x${H}"
   local FA; FA=$(focus)
   printf 'before: %s\nafter:  %s\n' "$FB" "$FA" > "$DEV/${TAG}_frames/focus-bracket.txt"
-  echo "  rec $TAG: mp4=${REC_SZ}B frames=$REC_FRAMES focus-after: $FA"; }
+  echo "  rec $TAG: mp4=${REC_SZ}B frames=$REC_FRAMES res=${W}x${H} focus-after: $FA"; }
 
 # foreground-gated, size-gated, settled capture of ONE segment.
 # $1=TAG $2=SECS.  Uses global $LOG for warp-recovery.
@@ -132,8 +190,10 @@ rec(){ local TAG="$1" SECS="${2:-8}"
   if ! fg_ok; then echo "  SEGMENT SUSPECT (foreground lost after record): $TAG"; fi
   # validity = real frames (a static scene encodes small at any bitrate — the old 500KB
   # size gate false-failed valid still captures; a dead recording yields 0-1 frames).
-  if [ "$REC_FRAMES" -lt 4 ] || [ "$REC_SZ" -lt 100000 ]; then
-    echo "  SEGMENT INVALID (mp4=${REC_SZ}B frames=$REC_FRAMES): $TAG — deleting frames, retrying once"
+  # validity = real frames AND locked full res (owner protocol: HEIGHT < 1000px = a
+  # dynamic-renderscale'd low-res capture, NOT acceptance evidence).
+  if [ "$REC_FRAMES" -lt 4 ] || [ "$REC_SZ" -lt 100000 ] || [ "${REC_H:-0}" -lt 1000 ]; then
+    echo "  SEGMENT INVALID (mp4=${REC_SZ}B frames=$REC_FRAMES h=${REC_H}px<1000): $TAG — deleting frames, retrying once"
     rm -f "$DEV/${TAG}_frames"/*.png
     if ! fg_ok; then
       echo "  re-warp before retry ($TAG)"
@@ -141,8 +201,8 @@ rec(){ local TAG="$1" SECS="${2:-8}"
       if ! fg_ok; then echo "  SEGMENT FAILED (not foreground for retry): $TAG"; return 1; fi
     fi
     rec_core "$TAG" "$SECS"
-    if [ "$REC_FRAMES" -lt 4 ] || [ "$REC_SZ" -lt 100000 ]; then
-      echo "  SEGMENT INVALID after retry (mp4=${REC_SZ}B frames=$REC_FRAMES): $TAG"
+    if [ "$REC_FRAMES" -lt 4 ] || [ "$REC_SZ" -lt 100000 ] || [ "${REC_H:-0}" -lt 1000 ]; then
+      echo "  SEGMENT INVALID after retry (mp4=${REC_SZ}B frames=$REC_FRAMES h=${REC_H}px): $TAG"
     fi
   fi
   return 0; }
@@ -164,6 +224,8 @@ if [ "$VANT" = fpsmatrix ]; then
   say "FPS MATRIX @ $CONT $POS — 10 combos, AOPERF harvest"
   LOG="$DEV/ao-fpsmatrix.log"
   ao_clear
+  # cost curve must be measured at locked full res, grass off (same protocol as the A/Bs).
+  seed_capture_protocol
   boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] fpsmatrix boot"; exit 1; }
   : > "$DEV/ao-fpsmatrix-results.txt"
   for combo in "0 1 off" "1 0 ssao-low" "1 1 ssao-med" "1 2 ssao-high" \
@@ -194,6 +256,7 @@ fi
 say "VANTAGE $VANT ($CONT @ $POS) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated)"
 LOG="$DEV/ao-${VANT}.log"
 ao_clear
+seed_capture_protocol
 boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] $VANT boot"; exit 1; }
 
 # Walk-settle: a short forward walk parks the follow cam BEHIND Jak deterministically

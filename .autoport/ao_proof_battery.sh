@@ -21,6 +21,9 @@ SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
 say "=== 1. menu proof (corrected nav) ==="
 bash .autoport/ao_menu_proof2.sh 2>&1 | tee -a "$LOGF"
 
+say "=== 1b. safe-boot fallback proof ==="
+bash .autoport/ao_safeboot_proof.sh 2>&1 | tee -a "$LOGF"
+
 say "=== 2+3. vantage A/B captures + analysis ==="
 for v in village1 beach training; do
   bash .autoport/ao_capture.sh "$v" 2>&1 | tee -a "$LOGF"

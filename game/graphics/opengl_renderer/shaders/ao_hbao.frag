@@ -84,10 +84,20 @@ void main() {
   vec4 p0 = project_world(P);
   vec4 p1 = project_world(P + wt * u_radius);
   float screen_r = (p0.w > 0.0 && p1.w > 0.0) ? distance(p0.xy, p1.xy) : 0.05;
-  screen_r = clamp(screen_r, 2.0 * max(px.x, px.y), 0.25);
+  // max clamp 0.10 (was 0.25): same GPU-watchdog/cache-thrash bound as ao_gtao.frag.
+  screen_r = clamp(screen_r, 2.0 * max(px.x, px.y), 0.10);
 
   float ign = fract(52.9829189 *
                     fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+
+  // world-space image of the screen axes at P (same-window-depth unprojection): gives the
+  // march direction's TRUE world direction, so the tangent below is analytic (N-based)
+  // instead of first-sample-based. The old first-sample tangent inherited depth noise at
+  // range: a noisy near sample lowered sinT while a farther sample raised sinH -> false
+  // occlusion across flat ground at grazing angles (defect #5's 31% open-area darkening).
+  vec2 eps = px * 4.0;
+  vec3 du_world = (world_from_depth(tex_coord + vec2(eps.x, 0.0), d) - P) / eps.x;
+  vec3 dv_world = (world_from_depth(tex_coord + vec2(0.0, eps.y), d) - P) / eps.y;
 
   float occ = 0.0;
   int dirs = u_dirs;
@@ -97,10 +107,16 @@ void main() {
     vec2 dirv = vec2(cos(a), sin(a));
     vec2 step_uv = dirv * (screen_r / float(steps));
 
-    float sinH = 0.0;
+    // analytic tangent: the march direction's world image projected onto the surface
+    // plane. sinT is the horizon floor — the flat surface itself never occludes.
+    vec3 wdir = du_world * dirv.x + dv_world * dirv.y;
+    vec3 Tsurf = wdir - N * dot(wdir, N);
+    float tl = length(Tsurf);
+    float sinT = (tl > 1e-6) ? dot(Tsurf / tl, V) : 0.0;
+    sinT += 0.08;  // angle bias (kills residual reconstruction-noise shimmer)
+
+    float sinH = sinT;
     float W_at_H = 0.0;
-    vec3 firstD = vec3(0.0);
-    bool have_first = false;
 
     for (int s = 1; s <= steps; s++) {
       vec2 suv = tex_coord + step_uv * float(s);
@@ -117,10 +133,6 @@ void main() {
       if (len > u_radius || len < 1e-4) {
         continue;
       }
-      if (!have_first) {
-        firstD = D;
-        have_first = true;
-      }
       float sinS = dot(D / len, V);
       float atten = 1.0 - (len / u_radius) * (len / u_radius);
       if (sinS > sinH) {
@@ -129,17 +141,7 @@ void main() {
       }
     }
 
-    // tangent term: the slice direction projected onto the surface at the first hit.
-    float sinT = 0.0;
-    if (have_first) {
-      vec3 Tsurf = firstD - N * dot(firstD, N);
-      float tl = length(Tsurf);
-      if (tl > 1e-5) {
-        sinT = dot(Tsurf / tl, V) + 0.05;  // small tangent bias
-      }
-    }
-
-    float ao_dir = max(0.0, sinH - max(sinT, 0.0) - 0.08) * W_at_H;
+    float ao_dir = max(0.0, sinH - sinT) * W_at_H;
     occ += ao_dir;
   }
 
