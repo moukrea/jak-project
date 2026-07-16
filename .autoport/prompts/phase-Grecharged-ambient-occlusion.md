@@ -277,3 +277,11 @@ référence) qui signifierait la strength par défaut (Default) pour chacun, et 
 3. Proofs: same-vantage A/B grid (3 modes × 3 strengths) at training; the defect-5 open-area caps still
    hold at Stronger; menu proof with focus brackets incl. row hidden when Off; persistence across
    relaunch; title-gate spot-check (one boot per mode at Stronger).
+
+## OWNER ORDER (2026-07-16 14:25, verbatim): "tu peux drop cette validation alors, 40 minutes de test à
+chaque modif c'est impossible"
+=> The FULL title matrix is DROPPED as a per-change gate. Replacement (fast stability gate, ~3 min):
+ONE persisted boot on the historical worst case (GTAO + High + Stronger), 90s alive at title, purple-scan
++ AOPERF seed check. That's it. The full 15-combo matrix already ran and passed once on the near-final
+build — that stands as the one-time certification; do NOT re-run it. If the current matrix run is still
+in progress, ABORT the remaining combos now and proceed to the report.
