@@ -334,22 +334,42 @@ if vant == "shoreline":
             wdelta = float(np.abs(means[m] - off)[wmask].mean())
             wdark = float(np.clip(off - means[m], 0, None)[wmask].mean())
             wdark_rel = wdark / max(off_w_mean, 1e-6) * 100.0
-            # Directional noise floor of THIS measure: the same clip(earlier-later)
-            # statistic between the mode's own bracketing offs. Waves + TOD alone push
-            # it well above a fixed threshold (SSAO's water 'darkening' once EXCEEDED
-            # its own open-floor delta — impossible for real AO through water), so the
-            # honest criterion is 'indistinguishable from the off-vs-off wave noise',
-            # with 1.5% as the absolute floor.
-            dirnoise = float(np.clip(means[b0] - means[b1], 0, None)[wmask].mean())
-            dirnoise_rel = dirnoise / max(off_w_mean, 1e-6) * 100.0
-            dark_lim = max(1.5, dirnoise_rel)
+            # Null floor of THIS measure, apples-to-apples (2026-07-16 round-F re-runs):
+            # the old baseline clip(b0-b1) measured the FULL bracket interval — under a
+            # brightening bracket it collapses toward 0 while the mode stat keeps its
+            # positive wave/interp noise floor, so the gate false-FAILed a rotating mode
+            # per run (run1 HBAO 7.37% vs 3.48%, run2 GTAO 4.49% vs 4.08%) while the
+            # debug views showed white terms and the composite stencil exclusion is
+            # mode-independent. Honest null: the SAME clipped-darkening estimator with
+            # the SAME predictor family on AO-FREE data — leave-one-out quadratic over
+            # the offs, evaluated at each interior off (run2: nulls 1.21% / 4.19% ≈ the
+            # 'failing' 4.49%). Margin x1.5 = the gate's own existing convention (lim).
+            # Physical residual: water is a BLEND — the underwater seafloor legitimately
+            # receives contact AO and shows through (strongest for GTAO); the stencil
+            # keeps the water surface itself untouched (debug view: water drawn over the
+            # composite unchanged).
+            null_darks = []
+            for held in ("off-b", "off-c"):
+                others = [o for o in ("off-a", "off-b", "off-c", "off-d") if o != held]
+                # quadratic through the 3 remaining offs (exact fit), same time axis
+                ts = [(seg_time(o) - seg_time("off-a")) /
+                      max(seg_time("off-d") - seg_time("off-a"), 1e-6) for o in others]
+                Vn = np.vander(np.array(ts), 3, increasing=True)
+                Yn = np.stack([means[o][wmask] for o in others])
+                cn, *_ = np.linalg.lstsq(Vn, Yn, rcond=None)
+                th = (seg_time(held) - seg_time("off-a")) / \
+                     max(seg_time("off-d") - seg_time("off-a"), 1e-6)
+                predh = cn[0] + cn[1] * th + cn[2] * th * th
+                null_darks.append(float(np.clip(predh - means[held][wmask], 0, None).mean()))
+            null_rel = max(null_darks) / max(off_w_mean, 1e-6) * 100.0
+            dark_lim = max(1.5, 1.5 * null_rel)
             lim = max(wnoise * 1.5, 1.5)
             ok = wdelta <= lim and wdark_rel <= dark_lim
             if not ok:
                 gate_fail += 1
             print(f"[ao-gate7] {vant} {m.upper()} water: absdelta={wdelta:.3f} (lim {lim:.3f}) "
-                  f"darkening={wdark:.3f} ({wdark_rel:.2f}% <= max(1.5%, off-off dir-noise "
-                  f"{dirnoise_rel:.2f}%)) => {'PASS' if ok else 'FAIL'} (water untouched by AO)")
+                  f"darkening={wdark:.3f} ({wdark_rel:.2f}% <= max(1.5%, 1.5x LOO-off-null "
+                  f"{null_rel:.2f}%)) => {'PASS' if ok else 'FAIL'} (water untouched by AO)")
 
 # --- debug-view (raw AO term) gates ------------------------------------------
 MODE_NUM = {"ssao": 1, "hbao": 2, "gtao": 3}

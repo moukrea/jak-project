@@ -302,8 +302,15 @@ void main() {
   float ao = clamp(1.0 - u_intensity * occ, 0.0, 1.0);
   // round F: multiply in the SSAO-model broad soft depth term (own SSAO-matched
   // 20->45 m fade; the contact term below keeps GTAO's 30->70 m fade unchanged).
+  // GTAO-specific saturation (device strengthgrid, 2x reproduced): at Stronger the
+  // linear broad scaling (2.0 * 1.5 = 3.0) pushed the whole-frame delta to 8.12-8.18%,
+  // breaching the defect-5 global<=8% cap while open/crease/ordering all held. GTAO's
+  // contact term already scales with strength; saturating the broad intensity at 2.7
+  // (Weaker/Default 1.2/2.0 untouched) lands global ~7.5% with crease ~46% > default
+  // 41.5%, so the Stronger step stays visible without breaching the cap.
   if (u_broad > 0.0) {
-    float ao_b = clamp(1.0 - u_broad * broad_occ(P, N, V, dcam, ign), 0.0, 1.0);
+    float broad_k = min(u_broad, 2.7);
+    float ao_b = clamp(1.0 - broad_k * broad_occ(P, N, V, dcam, ign), 0.0, 1.0);
     ao_b = mix(ao_b, 1.0, smoothstep(81920.0, 184320.0, dcam));
     ao = clamp(ao * ao_b, 0.0, 1.0);
   }
