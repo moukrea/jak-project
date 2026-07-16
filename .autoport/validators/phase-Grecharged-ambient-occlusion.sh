@@ -25,3 +25,9 @@ R=.autoport/reports/Grecharged-ambient-occlusion/report.txt
 grep -qiE 'AO STRENGTH|ao-strength' "$R" || { echo "[Gao FAIL] CLOSING-ROUND: no AO STRENGTH row proof in report"; exit 1; }
 grep -qiE 'Weaker' "$R" || { echo "[Gao FAIL] CLOSING-ROUND: no Weaker/Default/Stronger proof"; exit 1; }
 grep -qiE 'variance|consisten' "$R" || { echo "[Gao FAIL] CLOSING-ROUND: no GTAO variance/consistency analysis"; exit 1; }
+# Supervisor 2026-07-16: ROUND-F gate — SSAO low/med banding fix + HBAO/GTAO depth rework must be proven
+R=.autoport/reports/Grecharged-ambient-occlusion/report.txt
+grep -qiE 'horizontal band|banding.*(fix|free)|band-free' "$R" || { echo "[Gao FAIL] ROUND-F: no SSAO low/med horizontal-banding fix proof"; exit 1; }
+grep -qiE 'depth A/B|broad.*(term|component|depth)|as deep as SSAO' "$R" || { echo "[Gao FAIL] ROUND-F: no HBAO/GTAO broad-depth rework proof"; exit 1; }
+# fraîcheur: le rapport doit être plus récent que le mandat round-F (16:50)
+[ "$(stat -c %Y "$R")" -gt "$(date -d '2026-07-16 16:50' +%s)" ] || { echo "[Gao FAIL] ROUND-F: stale report (predates the round-F mandate)"; exit 1; }
