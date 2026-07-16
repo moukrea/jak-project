@@ -20,3 +20,8 @@ grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "device jak1 evidence"
 bash .autoport/lib/deploy_verify.sh eae4df44 jak1 >/dev/null 2>&1 || fail "deploy_verify FAIL"
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
 echo "[Gao PASS]"
+# Supervisor 2026-07-16: closing-round gate — the report must prove the owner's final tuning items
+R=.autoport/reports/Grecharged-ambient-occlusion/report.txt
+grep -qiE 'AO STRENGTH|ao-strength' "$R" || { echo "[Gao FAIL] CLOSING-ROUND: no AO STRENGTH row proof in report"; exit 1; }
+grep -qiE 'Weaker' "$R" || { echo "[Gao FAIL] CLOSING-ROUND: no Weaker/Default/Stronger proof"; exit 1; }
+grep -qiE 'variance|consisten' "$R" || { echo "[Gao FAIL] CLOSING-ROUND: no GTAO variance/consistency analysis"; exit 1; }
