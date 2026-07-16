@@ -558,8 +558,22 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   // per-mode multiplier on the ESTIMATOR intensity, not the composite k — on flat open
   // ground occ~0 so intensity*occ stays ~0 and the defect-#5 open-area cap holds
   // structurally even at Stronger.
+  // Round G (owner 2026-07-16 22:20, final tweak): HBAO/GTAO Default was "beaucoup trop
+  // intense pour être une valeur par défaut" — their ladder shifts DOWN one notch:
+  // new Default == old Weaker EXACTLY (same 0.6f literal -> bit-identical uniforms),
+  // new Stronger == old Default (1.0), new Weaker = one proportional step below
+  // (ladder step ratio 0.6 -> 0.36). SSAO's ladder is strictly untouched.
   const int ao_strength_sel = effective_strength();
-  const float ao_strength_mul = (ao_strength_sel == 0) ? 0.6f : (ao_strength_sel == 2) ? 1.5f : 1.0f;
+  const float ao_strength_mul =
+      (mode == 1) ? ((ao_strength_sel == 0) ? 0.6f : (ao_strength_sel == 2) ? 1.5f : 1.0f)
+                  : ((ao_strength_sel == 0) ? 0.36f : (ao_strength_sel == 2) ? 1.0f : 0.6f);
+  static int s_ladder_logged_mode = -1, s_ladder_logged_sel = -1;
+  if (mode != s_ladder_logged_mode || ao_strength_sel != s_ladder_logged_sel) {
+    lg::info("[recharged-ao] ladder mode={} strength={} mul={:.2f}", mode, ao_strength_sel,
+             ao_strength_mul);
+    s_ladder_logged_mode = mode;
+    s_ladder_logged_sel = ao_strength_sel;
+  }
   u_intensity *= ao_strength_mul;
 
   glBindVertexArray(m_quad_vao);
