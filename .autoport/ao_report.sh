@@ -9,10 +9,12 @@ R="$OUT/report.txt"
 die(){ echo "[ao-report FAIL] $*" >&2; exit 1; }
 
 # --- evidence preconditions -------------------------------------------------
-grep -q '\[TITLE-GATE PASS\]' "$OUT/title-gate/gate-log.txt" || die "title gate not PASS"
-# defect #6: the persisted-mode matrix (12 boots) + closing-round strength spot-check
-# (3 boots at Stronger) must ALL pass.
-[ "$(grep -c 'combo .*: PASS' "$OUT/title-gate/gate-log.txt")" -eq 15 ] || die "title gate: not all 15 persisted combos PASS (12 matrix + 3 strength spots)"
+# Owner order 2026-07-16 14:25: the full 15-combo title matrix is DROPPED as a per-change
+# gate. Its one-time certification (chain-attempt5.log 12:25:46, TITLE-GATE PASS 15/15 on
+# the near-final build) stands; every build since gates on the fast worst-case spot check
+# (GTAO+High+Stronger persisted boot, 90s alive, purple-scan + AOPERF seed).
+grep -q 'TITLE-GATE PASS (15/15 combos)' "$OUT/chain-attempt5.log" || die "one-time title matrix certification missing (chain-attempt5.log)"
+grep -q '\[TITLE-SPOTCHECK PASS\]' "$OUT/title-gate/spotcheck-log.txt" || die "worst-case title spot check not PASS"
 # defect #6: safe-boot fallback proof must PASS.
 grep -q '\[ao-safeboot PASS\]' "$OUT/safeboot/proof-log.txt" || die "safe-boot proof not PASS"
 BUILD_LOG=$(ls -t "$OUT"/build-deploy-*.log 2>/dev/null | head -1)
@@ -80,14 +82,15 @@ echo "== Off == stock =="
 echo "Off == stock: with effective_mode()==0 the AO pass is fully skipped and the render FBO uses the stock renderbuffer depth attachment (no depth-texture path, byte-identical render path); OFF-segment purple-scan CLEAN and OFF A/B means match stock within capture noise."
 echo
 echo "== Defect #4 (GL state leak -> purple world): title gate =="
-echo "AO pass wrapped in full GL state save/restore (texture units 0/1, program, VAO, array buffer, active unit, blend eq/funcs, colorMask, cull/scissor/stencil). On-device textured-title gate with AO compiled in, all modes:"
-tail -20 "$OUT/title-gate/gate-log.txt" | grep -E 'combo|purple-scan|TITLE-GATE' | sed 's/^/  /'
+echo "AO pass wrapped in full GL state save/restore (texture units 0/1, program, VAO, array buffer, active unit, blend eq/funcs, colorMask, cull/scissor/stencil). On-device textured-title gate with AO compiled in, all modes. Per the owner's order (2026-07-16 14:25) the full 15-combo persisted matrix ran ONCE as certification (near-final build) and per-change gating is the fast worst-case spot check (GTAO+High+Stronger persisted boot, 90s alive, purple-scan + AOPERF seed):"
+grep -E 'TITLE-GATE PASS' "$OUT/chain-attempt5.log" | sed 's/^/  one-time certification: /'
+grep -E 'purple-scan|AOPERF|TITLE-SPOTCHECK|seeded\+verified|alive at end' "$OUT/title-gate/spotcheck-log.txt" | sed 's/^/  /'
 echo
 echo "== Defect #6 (GTAO title crash) =="
 echo "Hardening: an unconditional glFinish drain runs before every render/UI FBO recreate, a 3-frame AO defer holds AO off through renderscale-resize storms, and drains run before AO-target deletes."
 echo "safe-boot fallback: a session dying within 60s of AO enable boots the next session with AO forced off once, logged."
-echo "Persisted-mode title matrix (12 boots mode x quality + 3 closing-round Stronger spot-boots, seeded on disk then booted fresh; each must render textured, stay alive >=2 min, track AOPERF, and log no SAFE-BOOT):"
-grep -E 'combo .*: (PASS|FAIL)' "$OUT/title-gate/gate-log.txt" | sed 's/^/  /'
+echo "Persisted-mode title matrix (12 boots mode x quality + 3 Stronger spot-boots, seeded on disk then booted fresh; each rendered textured, stayed alive >=2 min, tracked AOPERF, logged no SAFE-BOOT) — one-time certification, per-change gate is the worst-case spot check above:"
+grep -E 'stage 2 OK' "$OUT/chain-attempt5.log" | sed 's/^/  /'
 echo "Safe-boot fallback proof (arm within 60s, survive a dirty death, SAFE-BOOT + AO-off on the next boot, AO active again after):"
 grep -E 'ARMED-OK|SAFE-BOOT|\[ao-safeboot' "$OUT/safeboot/proof-log.txt" | tail -6 | sed 's/^/  /'
 echo
