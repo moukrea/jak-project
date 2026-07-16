@@ -254,3 +254,26 @@ obscurcissent le sol au complet en HBAO et GTAO, pour SSAO je peine à voir une 
    grazing-angle estimator. Name which, then fix.
 3. SSAO: still no visible difference at all (tuning #3 unmet). After the floor fix, re-tune SSAO
    strength until mid-game toggle is immediately visible.
+
+## OWNER PLAY-TEST VERDICT — FINAL TUNING ROUND (2026-07-16 09:20, verbatim)
+"SSAO a l'air pas mal, HBAO est très muted on dirait qu'il y a quasiment pas de différence... GTAO est
+très fort à certains endroits mais complètement inexistant à d'autres. Je pense que c'est (pour HBAO et
+GTAO) une histoire de balance. D'ailleurs faut trouver un équilibre pour les trois (SSAO étant la
+référence) qui signifierait la strength par défaut (Default) pour chacun, et ajouter une option
+'<AO_TYPE> strength' visible uniquement quand l'AO est activé où on peut mettre Weaker/Default/Stronger
+(Stronger étant plus accentué que les valeurs de chaque AO type et Weaker étant moins accentué), comme
+ça les utilisateurs peuvent ajuster à leur goût ayant un défaut explicite défini."
+=> WORK ITEMS (the core AO system is owner-accepted in principle; this is the closing round):
+1. BALANCE, SSAO = the perceptual REFERENCE: retune HBAO Default so its visible strength at the same
+   vantages matches SSAO's overall level (currently "très muted"); retune GTAO for CONSISTENCY — its
+   issue is variance (very strong some places, absent others): investigate why (grazing rejection
+   over-culling? radius too small for some geometry scales? near-field fade too aggressive?) and even
+   it out so its Default reads uniformly, at SSAO-comparable overall strength.
+2. NEW MENU ROW: "AO STRENGTH" (localized text, new TXT ids), values Weaker / Default / Stronger,
+   VISIBLE ONLY when ambient-occlusion != Off (same conditional-row mechanism as existing rows).
+   Semantics: a per-mode multiplier triple — Weaker < Default < Stronger — applied on top of each
+   mode's calibrated Default (suggest ~0.6 / 1.0 / 1.5, tune to taste); persisted (ao-strength key);
+   pushed live like mode/quality; AOPERF logs it.
+3. Proofs: same-vantage A/B grid (3 modes × 3 strengths) at training; the defect-5 open-area caps still
+   hold at Stronger; menu proof with focus brackets incl. row hidden when Off; persistence across
+   relaunch; title-gate spot-check (one boot per mode at Stronger).
