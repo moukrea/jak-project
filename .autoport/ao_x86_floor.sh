@@ -10,6 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 TAG="${1:?tag}"
 MODE="${2:?mode}"
 DBG="${3:-1}"
+QUAL="${QUAL_OVERRIDE:-2}"   # round F: banding repro needs quality 0/1
 OUT=/tmp/ao_x86_floor
 DEST=".autoport/reports/Grecharged-ambient-occlusion/x86-floor/$TAG"
 SHOTDIR="build/game/OpenGOAL/jak1/screenshots"
@@ -59,7 +60,7 @@ LOG="$DEST/gk.log"
 echo "== AO-X86-FLOOR tag=$TAG mode=$MODE debug=$DBG cont=$CONT pos=$POS =="
 DISPLAY=:0 XAUTHORITY=/run/user/1000/.mutter-Xwaylandauth.RKSTQ3 \
 LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
-AO_FORCE_MODE="$MODE" AO_FORCE_QUALITY=2 AO_DEBUG="$DBG" \
+AO_FORCE_MODE="$MODE" AO_FORCE_QUALITY="$QUAL" AO_DEBUG="$DBG" \
 OG_LEVEL_WARP="$CONT" OG_LEVEL_WARP_POS="$POS" \
 stdbuf -oL -eL ./build/game/gk --game jak1 --portable -fakeiso --verbose --disable-ansi \
   -iso-data out/jak1/iso -- -boot -debug-mem > "$LOG" 2>&1 &
@@ -80,7 +81,7 @@ done
 sleep 12
 # AOPERF confirmation: the forced mode must be live before shots count.
 grep -a "AOPERF" "$LOG" | tail -2
-grep -qa "AOPERF mode=$MODE " "$LOG" || { echo "  AOPERF MODE MISMATCH (wanted $MODE)"; }
+grep -qa "AOPERF mode=$MODE quality=$QUAL" "$LOG" || { echo "  AOPERF MODE MISMATCH (wanted $MODE)"; }
 shot "shot1"; sleep 3; shot "shot2"; sleep 3; shot "shot3"
 grep -a "AOERR" "$LOG" | tail -5
 python3 .autoport/ao_floor_metrics.py "$DEST"/shot*.png

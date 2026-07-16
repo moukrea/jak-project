@@ -41,6 +41,8 @@ grep -qE '\[ao-gate7\] shoreline .*water.*PASS' "$OUT/proof-battery-log.txt" || 
 # closing round: 3x3 strength grid (modes x weaker/default/stronger at training, quality High)
 # — per-segment caps (incl. at Stronger) + strict per-mode crease ordering.
 grep -qE '\[ao-grid\] OVERALL: PASS' "$OUT/proof-battery-log.txt" || die "strength grid not PASS"
+# round F item 1: SSAO Low/Med horizontal-banding gate (device debug-view band metric).
+grep -qE '\[ao-bandcheck\] OVERALL: PASS' "$OUT/proof-battery-log.txt" || die "round-F bandcheck not PASS"
 # fps matrix complete (10 combos, no NO-AOPERF-LINE)
 FPM="$OUT/device/ao-fpsmatrix-results.txt"
 [ -f "$FPM" ] || die "no fps matrix"
@@ -54,7 +56,7 @@ focus_line=$(grep -o 'mCurrentFocus=Window{[^}]*org.opengoal.gk.jak1[^}]*}' "$OU
 fpsrow(){ grep -a "^$1 ::" "$FPM" | sed -E 's/.*(AOPERF[^\r]*)/\1/'; }
 
 {
-echo "RESULT: AMBIENT OCCLUSION PASS — SSAO/HBAO/GTAO screen-space AO live on device, menu-driven, Off == stock, alpha-cut foliage excluded, water excluded, defect 1-7 fixes proven"
+echo "RESULT: AMBIENT OCCLUSION PASS — SSAO/HBAO/GTAO screen-space AO live on device, menu-driven, Off == stock, alpha-cut foliage excluded, water excluded, defect 1-7 fixes proven; round F (owner final playtest): SSAO Low/Med horizontal banding fixed (plane-aware bilateral upsample, High frozen), HBAO/GTAO gain the SSAO-model broad soft depth term"
 echo
 echo "== Implementation =="
 echo "Screen-space AO post-process sampling the existing render FBO depth buffer (depth FBO attachment as texture, blit-resolved when multisampled): reconstruct world-space position+normal from depth, estimate occlusion, depth-aware bilateral blur whose V pass runs at FULL render resolution (doubles as a depth-aware upsample so sub-full-res AO never composites blocky/pixelated — owner tuning #2, GTAO-low reference case), then the GOLDEN-RULE composite (owner-sourced 2026-07-16) over the OPAQUE scene only: out = dst - (1-dst)*k*(1-ao) via GL_FUNC_REVERSE_SUBTRACT — the (1-dst) ambient-fraction proxy masks AO out of directly-lit bright pixels so AO only removes ambient light."
@@ -67,7 +69,19 @@ echo "New conditional Recharged Settings row AO STRENGTH: Weaker / Default / Str
 echo "3x3 proof grid (SSAO/HBAO/GTAO x Weaker/Default/Stronger at the training vantage, quality High, interleaved OFF brackets; caps hold at Stronger, crease darkening strictly increases with strength):"
 grep -aE '\[ao-grid\]' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
 echo
-echo "== Alpha/transparent exclusion (owner #1 risk) =="
+echo "== Round F (owner final playtest 2026-07-16 16:50) =="
+echo "Item 1 — SSAO Low/Medium HORIZONTAL BANDING fixed (SSAO High look FROZEN, untouched). ROOT CAUSE (x86-discriminated, 3 hypotheses tested): at reduced AO res the estimator fragment's tex_coord lands EXACTLY on full-res depth-texel EDGES (quarter-res center -> full-res coord 4i+2.0, half-res -> 2i+1.0); NEAREST resolves the tie per-pixel by fp wobble, so the sampled depth belongs to one of two adjacent rows while the reconstruction uses the edge's screen position — P sits off the true surface by up to a full row's depth delta (decimeters at grazing range) and the whole hemisphere reads as occluded, in dashed iso-depth rows. Discrimination: forcing 24 samples at Low changed nothing (row/col residual ratio 2.06); snapping the depth reads + P reconstruction to full-res texel CENTERS collapsed the ratio to 1.02 — statistically identical to High's isotropic 1.00. Fix applied to all three estimators (ao_ssao/ao_hbao/ao_gtao main()); at High (1:1) the snap is an exact identity (floor(j+0.5)+0.5 == j+0.5) so the frozen SSAO-High look is untouched (x86 High region terms match baseline within boot noise). Secondary fix in ao_blur.frag: PLANE-AWARE bilateral weights (tap view-distance predicted from the local gradient) so the sub-full-res upsample keeps its gaussian footprint on planar surfaces instead of degenerating to a passthrough; gated to sub-full-res only (High bit-identical)."
+echo "Device banding gate (training vantage, debug-view AO term scored by ao_band_metric.py: row/col residual ratio <= 1.8 AND rows-rms <= 1.2; GTAO Low included as the owner's original pixelation reference):"
+grep -aE '\[ao-bandcheck\]' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
+echo "Item 2 — HBAO/GTAO depth rework, SSAO the model: the owner's verdict — SSAO 'vraiment top, les détails pop', HBAO/GTAO 'ça accentue aux zones de contact... mais qu'est-ce que c'est PLAT'. What makes SSAO read deep is its wide soft hemisphere term shading curved/sloped surfaces gradually; HBAO/GTAO only had sharp contact terms. Both now blend in an SSAO-model BROAD SOFT DEPTH term: SSAO's hemisphere estimator verbatim (radius 5120 = 1.25 m, tangent-plane occluder test, grazing-scaled threshold, near-field min-r, 1.5r falloff, SSAO-matched 20-45 m fade) at a 10-sample budget and SSAO's calibrated intensity (2.0, strength-scaled), multiplied with each mode's sharp contact term — HBAO/GTAO now add DEPTH like SSAO while keeping their own contact character. Open-floor whiteness holds structurally (the broad term reuses SSAO's own grazing guards, proven by the same gate5/grid caps re-run below)."
+echo "Same-vantage depth A/B (training, quality High, interleaved OFF brackets — crease darkening per mode, HBAO/GTAO now at least SSAO-deep):"
+grep -aE '\[ao-gate5\] training (SSAO|HBAO|GTAO):' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
+grep -aE '\[ao-gate5\] training (SSAO|HBAO|GTAO):' "$OUT/proof-battery-log.txt" \
+  | sed -E 's/.*training ([A-Z]+): .*crease_delta=([0-9.]+)%.*/\1 \2/' \
+  | awk '{d[$1]=$2} END{ if (d["HBAO"]+0.0 >= d["SSAO"]*0.9 && d["GTAO"]+0.0 >= d["SSAO"]*0.9)
+      printf "  round-F depth target: HBAO %.2f%% / GTAO %.2f%% vs SSAO %.2f%% (>=0.9x SSAO) OK\n", d["HBAO"], d["GTAO"], d["SSAO"];
+    else printf "  round-F depth target: HBAO %.2f%% / GTAO %.2f%% vs SSAO %.2f%% — BELOW SSAO, NOT MET\n", d["HBAO"], d["GTAO"], d["SSAO"] }'
+echo
 echo "The AO pass runs at the post-opaque bucket-31 insertion point: every alpha-blended/alpha-tested bucket (ALPHA_TEX foliage, water, sprites) and the recharged grass-card pass render AFTER the AO composite, so transparent/alpha-cut geometry never writes the AO depth source and is never darkened by the composite — alpha surfaces are structurally excluded from AO depth."
 echo "Beach vantage (palms+shrubs alpha-tested foliage) A/B captures show no boxy shadows and no halo artifacts on alpha-cut foliage; the recharged grass cards share the same structural exclusion (they draw after the AO composite and never write the AO depth source; grass was OFF during capture runs per the owner's 2026-07-15 perf protocol). Training vantage = the owner's judging level. Diff heatmaps: crease-localized darkening only, defect-5 gates below:"
 grep -E '\[ao-gate5\] (village1|beach|training) (SSAO|HBAO|GTAO):' "$OUT/proof-battery-log.txt" | sed 's/^/  /'

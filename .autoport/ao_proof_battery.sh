@@ -36,6 +36,9 @@ say "=== 3b. strength grid (3 modes x 3 strengths @ training) ==="
 bash .autoport/ao_capture.sh strengthgrid 2>&1 | tee -a "$LOGF"
 python3 .autoport/ao_analyze_ab.py "$OUT/device" strengthgrid 2>&1 | tee -a "$LOGF"
 
+say "=== 3c. round F: SSAO Low/Med banding gate (debug-view band metric) ==="
+bash .autoport/ao_capture.sh bandcheck 2>&1 | tee -a "$LOGF"
+
 say "=== 4. fps matrix (3 algos x 3 qualities + off) ==="
 bash .autoport/ao_capture.sh fpsmatrix 2>&1 | tee -a "$LOGF"
 

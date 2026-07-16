@@ -20,6 +20,7 @@ uniform vec2 u_depth_size;
 uniform vec2 u_ao_size;
 uniform float u_radius;
 uniform float u_intensity;
+uniform float u_broad;  // round F: SSAO-equivalent broad-term intensity (0 = off)
 uniform int u_samples;  // unused here
 uniform int u_dirs;
 uniform int u_steps;
@@ -47,31 +48,86 @@ vec4 project_world(vec3 p) {
   return vec4(vec2(nx, ny) * 0.5 + 0.5, nz * 0.5 + 0.5, 1.0);
 }
 
+// Round F (owner 2026-07-16 16:50): HBAO/GTAO accentuate contacts but read FLAT — no
+// broad ambient depth. What makes SSAO read deep is its wide soft hemisphere term
+// shading curved/sloped surfaces gradually. This is SSAO's hemisphere estimator
+// verbatim (radius 5120 = 1.25 m, tangent-plane occluder test, grazing-scaled
+// threshold, near-field min-r, 1.5r falloff) at a fixed 10-sample budget; the result
+// is blended multiplicatively with the sharp contact term so each mode adds DEPTH
+// like SSAO while keeping its own character. Guards are SSAO's own, so the open-floor
+// whiteness (defect #5/#7 caps) holds structurally.
+float broad_occ(vec3 P, vec3 N, vec3 V, float dcam, float ign) {
+  const float BR = 5120.0;  // SSAO's broad radius — SSAO is the model
+  vec3 up_b = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+  vec3 Tb = normalize(cross(up_b, N));
+  vec3 Bb = cross(N, Tb);
+  float bias_b = 0.02 * BR + 0.005 * dcam;
+  float grz_b = 1.0 - abs(dot(N, V));
+  float above_b = 0.05 * BR * (1.0 + 4.5 * grz_b * grz_b);
+  float minr_b = min(0.025 * dcam, 0.35 * BR);
+  const int NB = 10;
+  float occ_b = 0.0;
+  for (int i = 0; i < NB; i++) {
+    float a = ign * 6.28318530718 + float(i) * 2.399963;
+    float r = sqrt((float(i) + 0.5) / float(NB));
+    vec3 dirb = Tb * (cos(a) * r) + Bb * (sin(a) * r) + N * sqrt(max(0.0, 1.0 - r * r));
+    vec3 sp = P + N * (0.02 * BR) + dirb * (BR * mix(0.25, 1.0, r));
+    vec4 proj = project_world(sp);
+    if (proj.w <= 0.0 || proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0) {
+      continue;
+    }
+    float ds = texture(u_depth, proj.xy).r;
+    if (ds <= 0.000001) {
+      continue;
+    }
+    vec3 Ps = world_from_depth(proj.xy, ds);
+    float dPPs = distance(P, Ps);
+    float above = dot(Ps - P, N);
+    if (distance(Ps, u_cam_pos.xyz) < distance(sp, u_cam_pos.xyz) - bias_b &&
+        dPPs < BR * 1.5 && dPPs > minr_b && above > above_b) {
+      occ_b += 1.0 - smoothstep(BR, BR * 1.5, dPPs);
+    }
+  }
+  return occ_b / float(NB);
+}
+
 void main() {
-  float d = texture(u_depth, tex_coord).r;
+  // Round F item 1 (owner 2026-07-16 16:50) ROOT CAUSE of the constant horizontal
+  // bands at AO quality Low/Medium: at reduced AO res the fragment's tex_coord lands
+  // EXACTLY on full-res depth-texel EDGES (quarter-res center -> full-res coord 4i+2.0,
+  // half-res -> 2i+1.0). NEAREST resolves the tie per-pixel by fp interpolation wobble,
+  // so the depth belongs to one of two adjacent rows while the reconstruction uses the
+  // edge's screen position -> P sits off the true surface by up to a full row's depth
+  // delta (decimeters at grazing range) -> the whole hemisphere/horizon reads as
+  // occluded in dashed iso-depth rows. Fix: snap the center + neighbor reads AND the
+  // P reconstruction to the full-res texel CENTER. At High (1:1) snapping is an exact
+  // identity (floor(j+0.5)+0.5 == j+0.5), so the frozen SSAO-High look is untouched
+  // (x86 proof: Low row/col residual ratio 2.05 -> 1.02, High's isotropic 1.00).
+  vec2 snapped = (floor(tex_coord * u_depth_size) + 0.5) / u_depth_size;
+  float d = texture(u_depth, snapped).r;
   if (d <= 0.000001) {
     color = vec4(1.0);
     return;
   }
 
   vec2 px = 1.0 / u_depth_size;
-  float dl = texture(u_depth, tex_coord - vec2(px.x, 0.0)).r;
-  float dr = texture(u_depth, tex_coord + vec2(px.x, 0.0)).r;
-  float du = texture(u_depth, tex_coord + vec2(0.0, px.y)).r;
-  float dd = texture(u_depth, tex_coord - vec2(0.0, px.y)).r;
+  float dl = texture(u_depth, snapped - vec2(px.x, 0.0)).r;
+  float dr = texture(u_depth, snapped + vec2(px.x, 0.0)).r;
+  float du = texture(u_depth, snapped + vec2(0.0, px.y)).r;
+  float dd = texture(u_depth, snapped - vec2(0.0, px.y)).r;
 
-  vec3 P = world_from_depth(tex_coord, d);
+  vec3 P = world_from_depth(snapped, d);
   float dcam = distance(P, u_cam_pos.xyz);
   if (u_debug == 2) {  // depth-band debug: 10m bands from the camera; sky already white
     color = vec4(vec3(fract(dcam / 40960.0)), 1.0);
     return;
   }
   vec3 dh = (abs(dr - d) < abs(dl - d))
-                ? world_from_depth(tex_coord + vec2(px.x, 0.0), dr) - P
-                : P - world_from_depth(tex_coord - vec2(px.x, 0.0), dl);
+                ? world_from_depth(snapped + vec2(px.x, 0.0), dr) - P
+                : P - world_from_depth(snapped - vec2(px.x, 0.0), dl);
   vec3 dv = (abs(du - d) < abs(dd - d))
-                ? world_from_depth(tex_coord + vec2(0.0, px.y), du) - P
-                : P - world_from_depth(tex_coord - vec2(0.0, px.y), dd);
+                ? world_from_depth(snapped + vec2(0.0, px.y), du) - P
+                : P - world_from_depth(snapped - vec2(0.0, px.y), dd);
   vec3 N = normalize(cross(dh, dv));
   vec3 V = normalize(u_cam_pos.xyz - P);
   if (dot(N, V) < 0.0) {
@@ -96,8 +152,8 @@ void main() {
   // range: a noisy near sample lowered sinT while a farther sample raised sinH -> false
   // occlusion across flat ground at grazing angles (defect #5's 31% open-area darkening).
   vec2 eps = px * 4.0;
-  vec3 du_world = (world_from_depth(tex_coord + vec2(eps.x, 0.0), d) - P) / eps.x;
-  vec3 dv_world = (world_from_depth(tex_coord + vec2(0.0, eps.y), d) - P) / eps.y;
+  vec3 du_world = (world_from_depth(snapped + vec2(eps.x, 0.0), d) - P) / eps.x;
+  vec3 dv_world = (world_from_depth(snapped + vec2(0.0, eps.y), d) - P) / eps.y;
 
   // defect #7 floor flat-wash (attempt 5): HBAO's single-max-horizon estimator reads
   // grazing terrain micro-relief + D24 quantization lift at FULL weight (no cosine arc
@@ -193,6 +249,13 @@ void main() {
   float gate_lo = 0.02 + 0.26 * grz * grz;
   occ *= smoothstep(gate_lo, gate_lo + 0.12, occ);
   float ao = clamp(1.0 - u_intensity * occ, 0.0, 1.0);
+  // round F: multiply in the SSAO-model broad soft depth term (own SSAO-matched
+  // 20->45 m fade; the contact term below keeps HBAO's mid-field fade unchanged).
+  if (u_broad > 0.0) {
+    float ao_b = clamp(1.0 - u_broad * broad_occ(P, N, V, dcam, ign), 0.0, 1.0);
+    ao_b = mix(ao_b, 1.0, smoothstep(81920.0, 184320.0, dcam));
+    ao = clamp(ao * ao_b, 0.0, 1.0);
+  }
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
   // a contact/crease effect. Closing round: fade the term to 1.0 between 20 m and 45 m from
   // the camera, matching SSAO (HBAO read too muted; the old 15->35 m fade cut mid-field

@@ -16,6 +16,9 @@
 #   ao_capture.sh fpsmatrix  -> village1 vantage, 10-combo AOPERF sweep (3 algos x 3 quality + off)
 #   ao_capture.sh strengthgrid -> training vantage, 3 modes x 3 strengths (weaker/default/
 #                               stronger @ quality High) with off brackets — AO STRENGTH proof
+#   ao_capture.sh bandcheck  -> training vantage, round-F item 1 proof: SSAO Low/Med/High +
+#                               GTAO Low debug-view segments scored by ao_band_metric.py
+#                               (horizontal-banding row/col residual gate) + scene close-ups
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
@@ -79,6 +82,7 @@ case "$VANT" in
   beach)              CONT=beach-start;   POS="-123.3 2.3 -54.6" ;;
   training)           CONT=training-start; POS="-1187.4 16.2 932.3" ;;
   strengthgrid)       CONT=training-start; POS="-1187.4 16.2 932.3" ;;
+  bandcheck)          CONT=training-start; POS="-1187.4 16.2 932.3" ;;
   shoreline)          CONT=beach-start;   POS="-195.0 3.5 -415.0" ;;
   *) echo "unknown vantage $VANT"; exit 2 ;;
 esac
@@ -359,6 +363,41 @@ if [ "$VANT" = strengthgrid ]; then
   done
   ao_clear
   say "DONE strengthgrid — frames under $DEV/device-ao-strengthgrid-*_frames/"
+  exit 0
+fi
+
+if [ "$VANT" = bandcheck ]; then
+  # Round F item 1 (owner 2026-07-16 16:50): "bandes ombrées HORIZONTALES constamment à
+  # l'écran" at AO quality != High. Proof: per-quality DEBUG-VIEW (raw blurred AO term)
+  # segments scored by ao_band_metric.py (detrended row-mean residual must not exceed the
+  # column residual by >1.8x, abs rows-rms <= 1.2) + scene close-ups for the human eye.
+  # GTAO Low included (owner tuning #2 named GTAO-low as the pixelation reference case).
+  say "BANDCHECK @ $CONT $POS — SSAO Low/Med/High + GTAO Low, debug-view band metric"
+  LOG="$DEV/ao-bandcheck.log"
+  ao_clear
+  seed_capture_protocol
+  boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] bandcheck boot"; exit 1; }
+  $ADB shell setprop debug.opengoal.cpad_inject up >/dev/null 2>&1; sleep 1.5
+  $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
+  BAND_OK=1
+  for combo in "1 0 ssao-low" "1 1 ssao-med" "1 2 ssao-high" "3 0 gtao-low"; do
+    set -- $combo; M=$1; Q=$2; TAG=$3
+    ao_force_confirmed "$M" "$Q" 1
+    rec "device-ao-bandcheck-${TAG}-scene" 6
+    rec_debugview "device-ao-bandcheck-${TAG}" "$M"
+    FRDIR="$DEV/device-ao-bandcheck-${TAG}-${M}-debugview_frames"
+    MID=$(ls "$FRDIR"/f_*.png 2>/dev/null | sort | awk 'NR>0{a[NR]=$0} END{print a[(NR+1)/2]}')
+    if [ -n "$MID" ] && python3 .autoport/ao_band_metric.py "$MID" | sed "s|^|  [ao-bandcheck] ${TAG}: |"; then
+      echo "  [ao-bandcheck] ${TAG}: PASS"
+    else
+      echo "  [ao-bandcheck] ${TAG}: FAIL (banded or no frames)"; BAND_OK=0
+    fi
+  done
+  ao_clear
+  $ADB shell am force-stop $PKG >/dev/null 2>&1
+  kill "$(cat /tmp/ao_lc.pid 2>/dev/null)" 2>/dev/null || true
+  if [ "$BAND_OK" = 1 ]; then echo "[ao-bandcheck] OVERALL: PASS"; else echo "[ao-bandcheck] OVERALL: FAIL"; fi
+  say "DONE bandcheck — frames under $DEV/device-ao-bandcheck-*_frames/"
   exit 0
 fi
 

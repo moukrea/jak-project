@@ -40,6 +40,29 @@ void main() {
   float cvd = distance(world_from_depth(tex_coord, d0), u_cam_pos.xyz);
   const float sigma = 2048.0;  // ~0.5 m
 
+  // Round F item 1 (owner 2026-07-16 16:50), SECONDARY fix. The banding ROOT CAUSE was
+  // the ESTIMATORS' texel-edge depth reads at reduced AO res (see ao_ssao.frag main());
+  // this pass had an independent lesser flaw of the same family: taps step in AO-RES
+  // texel units (u_dir), and on grazing floors one sub-full-res step spans several
+  // meters of view distance — every tap fails the fixed-sigma depth test and the
+  // blur/upsample degenerates to a passthrough exactly at the qualities that need
+  // smoothing. PLANE-AWARE weights: predict each tap's view distance from the local
+  // view-distance gradient along u_dir (central difference) and weight by the deviation
+  // from that plane: planar surfaces regain the full gaussian footprint, true depth
+  // edges still reject (prediction breaks there, no halo). Gated to sub-full-res AO
+  // only: at High (1:1) slope stays 0 and this path is bit-identical to the frozen
+  // SSAO-High look.
+  float slope = 0.0;
+  if (u_ao_size.y < u_depth_size.y - 0.5) {
+    float dp = texture(u_depth, tex_coord + u_dir).r;
+    float dm = texture(u_depth, tex_coord - u_dir).r;
+    if (dp > 0.000001 && dm > 0.000001) {
+      float vp = distance(world_from_depth(tex_coord + u_dir, dp), u_cam_pos.xyz);
+      float vm = distance(world_from_depth(tex_coord - u_dir, dm), u_cam_pos.xyz);
+      slope = 0.5 * (vp - vm);
+    }
+  }
+
   // gaussian weights for offsets -2,-1,0,1,2
   float gw0 = 6.0 / 16.0;
   float gw1 = 4.0 / 16.0;
@@ -58,7 +81,7 @@ void main() {
       continue;  // sky tap
     }
     float tvd = distance(world_from_depth(tuv, td), u_cam_pos.xyz);
-    float dv = tvd - cvd;
+    float dv = tvd - (cvd + slope * off);  // deviation from the local tangent plane
     float dw = exp(-(dv * dv) / (2.0 * sigma * sigma));
     float w = gw * dw;
     sum += texture(u_ao, tuv).r * w;

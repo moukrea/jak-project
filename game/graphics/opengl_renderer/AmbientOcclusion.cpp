@@ -583,6 +583,11 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
     glUniform1f(glGetUniformLocation(id, "u_radius"), u_radius);
     glUniform1f(glGetUniformLocation(id, "u_intensity"), u_intensity);
+    // round F (owner 2026-07-16 16:50): HBAO/GTAO get an SSAO-model broad soft depth
+    // term at SSAO's calibrated intensity (2.0, strength-scaled like the contact term).
+    // SSAO itself has no u_broad uniform (location -1, upload ignored).
+    glUniform1f(glGetUniformLocation(id, "u_broad"),
+                (mode == 1) ? 0.0f : 2.0f * ao_strength_mul);
     glUniform1i(glGetUniformLocation(id, "u_samples"), u_samples);
     glUniform1i(glGetUniformLocation(id, "u_dirs"), u_dirs);
     glUniform1i(glGetUniformLocation(id, "u_steps"), u_steps);

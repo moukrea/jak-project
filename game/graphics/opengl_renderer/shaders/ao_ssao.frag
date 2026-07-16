@@ -51,30 +51,42 @@ vec4 project_world(vec3 p) {
 }
 
 void main() {
-  float d = texture(u_depth, tex_coord).r;
+  // Round F item 1 (owner 2026-07-16 16:50) ROOT CAUSE of the constant horizontal
+  // bands at AO quality Low/Medium: at reduced AO res the fragment's tex_coord lands
+  // EXACTLY on full-res depth-texel EDGES (quarter-res center -> full-res coord 4i+2.0,
+  // half-res -> 2i+1.0). NEAREST resolves the tie per-pixel by fp interpolation wobble,
+  // so the depth belongs to one of two adjacent rows while the reconstruction uses the
+  // edge's screen position -> P sits off the true surface by up to a full row's depth
+  // delta (decimeters at grazing range) -> the whole hemisphere/horizon reads as
+  // occluded in dashed iso-depth rows. Fix: snap the center + neighbor reads AND the
+  // P reconstruction to the full-res texel CENTER. At High (1:1) snapping is an exact
+  // identity (floor(j+0.5)+0.5 == j+0.5), so the frozen SSAO-High look is untouched
+  // (x86 proof: Low row/col residual ratio 2.05 -> 1.02, High's isotropic 1.00).
+  vec2 snapped = (floor(tex_coord * u_depth_size) + 0.5) / u_depth_size;
+  float d = texture(u_depth, snapped).r;
   if (d <= 0.000001) {  // sky / far -> fully lit
     color = vec4(1.0);
     return;
   }
 
   vec2 px = 1.0 / u_depth_size;
-  float dl = texture(u_depth, tex_coord - vec2(px.x, 0.0)).r;
-  float dr = texture(u_depth, tex_coord + vec2(px.x, 0.0)).r;
-  float du = texture(u_depth, tex_coord + vec2(0.0, px.y)).r;
-  float dd = texture(u_depth, tex_coord - vec2(0.0, px.y)).r;
+  float dl = texture(u_depth, snapped - vec2(px.x, 0.0)).r;
+  float dr = texture(u_depth, snapped + vec2(px.x, 0.0)).r;
+  float du = texture(u_depth, snapped + vec2(0.0, px.y)).r;
+  float dd = texture(u_depth, snapped - vec2(0.0, px.y)).r;
 
-  vec3 P = world_from_depth(tex_coord, d);
+  vec3 P = world_from_depth(snapped, d);
   float dcam = distance(P, u_cam_pos.xyz);
   if (u_debug == 2) {  // depth-band debug: 10m bands from the camera; sky already white
     color = vec4(vec3(fract(dcam / 40960.0)), 1.0);
     return;
   }
   vec3 dh = (abs(dr - d) < abs(dl - d))
-                ? world_from_depth(tex_coord + vec2(px.x, 0.0), dr) - P
-                : P - world_from_depth(tex_coord - vec2(px.x, 0.0), dl);
+                ? world_from_depth(snapped + vec2(px.x, 0.0), dr) - P
+                : P - world_from_depth(snapped - vec2(px.x, 0.0), dl);
   vec3 dv = (abs(du - d) < abs(dd - d))
-                ? world_from_depth(tex_coord + vec2(0.0, px.y), du) - P
-                : P - world_from_depth(tex_coord - vec2(0.0, px.y), dd);
+                ? world_from_depth(snapped + vec2(0.0, px.y), du) - P
+                : P - world_from_depth(snapped - vec2(0.0, px.y), dd);
   vec3 N = normalize(cross(dh, dv));
   vec3 V = normalize(u_cam_pos.xyz - P);
   if (dot(N, V) < 0.0) {
