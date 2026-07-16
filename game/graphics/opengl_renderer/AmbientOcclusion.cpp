@@ -105,6 +105,12 @@ int AmbientOcclusionPass::effective_quality() {
   return (v >= 0) ? v : Gfx::g_global_settings.recharged_ao_quality;
 }
 
+int AmbientOcclusionPass::effective_strength() {
+  static AoOverride s_ov{"strength", "debug.opengoal.ao.force_strength", "AO_FORCE_STRENGTH"};
+  const int v = s_ov.read();
+  return (v >= 0) ? v : Gfx::g_global_settings.recharged_ao_strength;
+}
+
 int AmbientOcclusionPass::effective_debug() {
   static AoOverride s_ov{"debug", "debug.opengoal.ao.debug", "AO_DEBUG"};
   const int v = s_ov.read();
@@ -490,8 +496,8 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
       u_steps = (quality == 0) ? 4 : (quality == 1) ? 6 : 8;
       break;
     case 3:  // GTAO
-      u_dirs = (quality == 0) ? 2 : (quality == 1) ? 4 : 6;
-      u_steps = (quality == 0) ? 4 : (quality == 1) ? 6 : 10;
+      u_dirs = (quality == 0) ? 3 : (quality == 1) ? 6 : 8;
+      u_steps = (quality == 0) ? 6 : (quality == 1) ? 8 : 10;
       break;
     default:
       break;
@@ -525,17 +531,28 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
       break;
     case 2:  // HBAO
       u_radius = 2867.0f;
-      u_intensity = 1.6f;
+      u_intensity = 1.8f;  // closing round: +0.2 recovers crease punch lost to the wash guards
       u_ao_strength = 0.60f;
       break;
     case 3:  // GTAO
-      u_radius = 2048.0f;
-      u_intensity = 1.25f;
+      u_radius = 3072.0f;  // 0.75 m — read large-scale concavities, not just tight creases
+      // closing round (owner: balance the three, SSAO = reference): 1.25 read ~2.3x SSAO's
+      // p95 crease darkening on the cr7 x86 A/B (15.3% vs 6.7%); 0.65 lands GTAO near the
+      // reference while its cosine-horizon character stays the sharpest of the three.
+      u_intensity = 0.65f;
       u_ao_strength = 0.70f;
       break;
     default:
       break;
   }
+
+  // AO STRENGTH row (owner closing round 2026-07-16): Weaker/Default/Stronger applies a
+  // per-mode multiplier on the ESTIMATOR intensity, not the composite k — on flat open
+  // ground occ~0 so intensity*occ stays ~0 and the defect-#5 open-area cap holds
+  // structurally even at Stronger.
+  const int ao_strength_sel = effective_strength();
+  const float ao_strength_mul = (ao_strength_sel == 0) ? 0.6f : (ao_strength_sel == 2) ? 1.5f : 1.0f;
+  u_intensity *= ao_strength_mul;
 
   glBindVertexArray(m_quad_vao);
   glDisable(GL_BLEND);

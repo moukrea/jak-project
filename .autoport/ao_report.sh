@@ -10,8 +10,9 @@ die(){ echo "[ao-report FAIL] $*" >&2; exit 1; }
 
 # --- evidence preconditions -------------------------------------------------
 grep -q '\[TITLE-GATE PASS\]' "$OUT/title-gate/gate-log.txt" || die "title gate not PASS"
-# defect #6: the persisted-mode matrix (12 boots) must ALL pass.
-[ "$(grep -c 'combo .*: PASS' "$OUT/title-gate/gate-log.txt")" -eq 12 ] || die "title gate: not all 12 persisted combos PASS"
+# defect #6: the persisted-mode matrix (12 boots) + closing-round strength spot-check
+# (3 boots at Stronger) must ALL pass.
+[ "$(grep -c 'combo .*: PASS' "$OUT/title-gate/gate-log.txt")" -eq 15 ] || die "title gate: not all 15 persisted combos PASS (12 matrix + 3 strength spots)"
 # defect #6: safe-boot fallback proof must PASS.
 grep -q '\[ao-safeboot PASS\]' "$OUT/safeboot/proof-log.txt" || die "safe-boot proof not PASS"
 BUILD_LOG=$(ls -t "$OUT"/build-deploy-*.log 2>/dev/null | head -1)
@@ -25,6 +26,8 @@ MP="$OUT/menu-proof2/proof-log.txt"
 [ -f "$MP" ] || die "no menu proof log"
 for m in 1 2 3; do grep -qE "PUSH-OK mode->$m" "$MP" || die "menu proof: no PUSH-OK mode->$m"; done
 grep -qE 'PUSH-OK quality->' "$MP" || die "menu proof: no PUSH-OK quality line"
+# closing round: the AO STRENGTH row edit must have pushed too.
+grep -qE 'PUSH-OK strength->' "$MP" || die "menu proof: no PUSH-OK strength line"
 # v3: the four pushes must land in ONE coherent attempt (not stitched across retries)
 grep -qE '\[ao-menu-proof2\] COMMIT-SEQUENCE PASS' "$MP" || die "menu proof: no single-attempt COMMIT-SEQUENCE PASS"
 # defect-5 gates: every vantage OVERALL PASS (shoreline = defect #7 water vantage; its
@@ -33,6 +36,9 @@ for v in village1 beach training shoreline; do
   grep -qE "\[ao-gate5\] $v OVERALL: PASS" "$OUT/proof-battery-log.txt" || die "gate5 $v not PASS"
 done
 grep -qE '\[ao-gate7\] shoreline .*water.*PASS' "$OUT/proof-battery-log.txt" || die "defect-7 water gate not PASS"
+# closing round: 3x3 strength grid (modes x weaker/default/stronger at training, quality High)
+# — per-segment caps (incl. at Stronger) + strict per-mode crease ordering.
+grep -qE '\[ao-grid\] OVERALL: PASS' "$OUT/proof-battery-log.txt" || die "strength grid not PASS"
 # fps matrix complete (10 combos, no NO-AOPERF-LINE)
 FPM="$OUT/device/ao-fpsmatrix-results.txt"
 [ -f "$FPM" ] || die "no fps matrix"
@@ -51,7 +57,12 @@ echo
 echo "== Implementation =="
 echo "Screen-space AO post-process sampling the existing render FBO depth buffer (depth FBO attachment as texture, blit-resolved when multisampled): reconstruct world-space position+normal from depth, estimate occlusion, depth-aware bilateral blur whose V pass runs at FULL render resolution (doubles as a depth-aware upsample so sub-full-res AO never composites blocky/pixelated — owner tuning #2, GTAO-low reference case), then the GOLDEN-RULE composite (owner-sourced 2026-07-16) over the OPAQUE scene only: out = dst - (1-dst)*k*(1-ao) via GL_FUNC_REVERSE_SUBTRACT — the (1-dst) ambient-fraction proxy masks AO out of directly-lit bright pixels so AO only removes ambient light."
 echo "Three estimators share the pipeline and differ only in the occlusion shader: SSAO (hemisphere kernel, tangent-plane occluder test), HBAO (horizon-based ray march, analytic surface tangent), GTAO (ground-truth cosine-weighted horizon integral, slice basis derived from the actual screen march so grazing flat ground stays unoccluded). Files: game/graphics/opengl_renderer/AmbientOcclusion.{h,cpp} + shaders/ao_ssao.frag ao_hbao.frag ao_gtao.frag ao_blur.frag ao_composite.frag; hook in OpenGLRenderer.cpp at the bucket-31 post-opaque insertion point."
-echo "AO quality scales resolution + sample count: Low=quarter-res, Medium=half-res, High=full-res. Per-mode look (owner tuning #1/#3, every tier unmistakable when toggled, ordering SSAO soft < HBAO mid < GTAO sharp/strongest): SSAO broad/soft 1.25m radius intensity 2.0 k 0.48, HBAO mid 0.7m intensity 1.6 k 0.66, GTAO sharp 0.5m intensity 1.25 k 0.70 (x86 hut-crease A/B p95 darkening 5.3% / 5.7% / 8.6%, global |delta| <= 0.3%)."
+echo "AO quality scales resolution + sample count: Low=quarter-res, Medium=half-res, High=full-res. Per-mode look (owner closing round 2026-07-16, SSAO = the perceptual reference): SSAO broad/soft 1.25m radius intensity 2.0 k 0.45; HBAO mid 0.7m radius intensity 1.6 k 0.60, un-muted by relaxing the grazing angle bias (0.50->0.30 grz^2) + near-field min-r cap (0.60->0.45 radius) + fade matched to SSAO (20->45m); GTAO 0.75m radius intensity 1.25 k 0.70, evened out for CONSISTENCY (radius 0.5->0.75m reads large-scale concavities, fade pushed 30->70m out of the visible mid-field, slice/step floors raised 3/6/8 + 6/8/10 against azimuthal patchiness)."
+echo
+echo "== AO STRENGTH row (owner closing round 2026-07-16) =="
+echo "New conditional Recharged Settings row AO STRENGTH: Weaker / Default / Stronger (settings key ao-strength 0/1/2, default 1, persisted; text ids #x1710-#x1713 in the rebuilt TXT banks; row greyed while AMBIENT OCCLUSION is Off, same conditional mechanism as AO QUALITY). Semantics: a per-mode multiplier (0.6x / 1.0x / 1.5x) applied on the ESTIMATOR intensity — not the composite k — so flat open ground (occ~0) stays ~1.0 and the defect-5 open-area cap holds structurally even at Stronger. Pushed live like mode/quality (update-to-os -> pc-set-ambient-occlusion! 3-arg); AOPERF logs strength=."
+echo "3x3 proof grid (SSAO/HBAO/GTAO x Weaker/Default/Stronger at the training vantage, quality High, interleaved OFF brackets; caps hold at Stronger, crease darkening strictly increases with strength):"
+grep -aE '\[ao-grid\]' "$OUT/proof-battery-log.txt" | sed 's/^/  /'
 echo
 echo "== Alpha/transparent exclusion (owner #1 risk) =="
 echo "The AO pass runs at the post-opaque bucket-31 insertion point: every alpha-blended/alpha-tested bucket (ALPHA_TEX foliage, water, sprites) and the recharged grass-card pass render AFTER the AO composite, so transparent/alpha-cut geometry never writes the AO depth source and is never darkened by the composite — alpha surfaces are structurally excluded from AO depth."
@@ -61,7 +72,7 @@ echo
 echo "== Settings & menu (defect #2 + #3a) =="
 echo "Recharged Settings TYPE selector row: AMBIENT OCCLUSION Off / SSAO / HBAO / GTAO (carousel), plus separate AO Quality row Low / Medium / High (settings keys ambient-occlusion / ao-quality, persisted; text ids #x1708-#x170f shipped in rebuilt TXT banks, sha-verified on device — menu strings render, no unknown ID: menu-proof2/a<N>-06-ao-row.png a<N>-07-carousell-open.png)."
 echo "Menu -> settings -> renderer push proven end-to-end on device ([recharged-ao] push lines + AOPERF mode tracks the menu row):"
-grep -E 'PUSH-OK (mode|quality)->' "$MP" | sed 's/^/  /'
+grep -E 'PUSH-OK (mode|quality|strength)->' "$MP" | sed 's/^/  /'
 grep -E 'relaunch \[recharged-ao\]|disk after relaunch' "$MP" | sed 's/^/  /'
 echo
 echo "== Off == stock =="
@@ -74,7 +85,7 @@ echo
 echo "== Defect #6 (GTAO title crash) =="
 echo "Hardening: an unconditional glFinish drain runs before every render/UI FBO recreate, a 3-frame AO defer holds AO off through renderscale-resize storms, and drains run before AO-target deletes."
 echo "safe-boot fallback: a session dying within 60s of AO enable boots the next session with AO forced off once, logged."
-echo "Persisted-mode title matrix (12 boots, mode x quality, seeded on disk then booted fresh; each must render textured, stay alive >=2 min, track AOPERF, and log no SAFE-BOOT):"
+echo "Persisted-mode title matrix (12 boots mode x quality + 3 closing-round Stronger spot-boots, seeded on disk then booted fresh; each must render textured, stay alive >=2 min, track AOPERF, and log no SAFE-BOOT):"
 grep -E 'combo .*: (PASS|FAIL)' "$OUT/title-gate/gate-log.txt" | sed 's/^/  /'
 echo "Safe-boot fallback proof (arm within 60s, survive a dirty death, SAFE-BOOT + AO-off on the next boot, AO active again after):"
 grep -E 'ARMED-OK|SAFE-BOOT|\[ao-safeboot' "$OUT/safeboot/proof-log.txt" | tail -6 | sed 's/^/  /'
@@ -111,7 +122,7 @@ echo "  gtao-high  : $(fpsrow gtao-high)"
 echo
 echo "== Device evidence =="
 echo "Device: Redmi Note 9 Pro eae4df44, package org.opengoal.gk.jak1, app foreground during captures: $focus_line"
-echo "deploy_verify + deploy_verify_assets PASS (build==APK==device libgk + consistent 28-CGO set + TXT sha-verified); force-stop + AO Off / quality Medium owner reset after tests."
+echo "deploy_verify + deploy_verify_assets PASS (build==APK==device libgk + consistent 28-CGO set + TXT sha-verified); force-stop + AO Off / quality Medium / strength Default owner reset after tests."
 echo "Artifacts: title-gate/*.mp4+frames, device/device-ao-{village1,beach,training}-{off,ssao,hbao,gtao}*.mp4+frames + per-mode debugview segments + ao-diffheat-*.png, menu-proof2/*.png, x86-defect5/* (desktop cross-check), proof-battery-log.txt."
 } > "$R"
 echo "[ao-report] wrote $R"

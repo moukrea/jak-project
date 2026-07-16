@@ -233,9 +233,10 @@ void main() {
   // occlusion (1 - visibility) so the default look matches the other estimators.
   float ao = clamp(1.0 - u_intensity * (1.0 - clamp(visibility, 0.0, 1.0)), 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
-  // a contact/crease effect. Fade the term to 1.0 between 20 m and 45 m from the camera
-  // so distant scenery (incl. the sea and the seafloor seen through its transparency) is
-  // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
-  ao = mix(ao, 1.0, smoothstep(81920.0, 184320.0, dcam));
+  // a contact/crease effect. Closing round (GTAO consistency): fade the term to 1.0 between
+  // 30 m and 70 m from the camera — push the fade boundary out of the visible mid-field so
+  // GTAO reads consistently across the scene, while distant scenery (incl. the sea and the
+  // seafloor seen through its transparency) still fades out. 4096 units = 1 m.
+  ao = mix(ao, 1.0, smoothstep(122880.0, 286720.0, dcam));
   color = vec4(vec3(ao), 1.0);
 }

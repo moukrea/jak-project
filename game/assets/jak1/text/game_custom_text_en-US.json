@@ -245,5 +245,9 @@
   "170c": "MEDIUM",
   "170d": "HIGH",
   "170e": "AMBIENT OCCLUSION",
-  "170f": "AO QUALITY"
+  "170f": "AO QUALITY",
+  "1710": "WEAKER",
+  "1711": "DEFAULT",
+  "1712": "STRONGER",
+  "1713": "AO STRENGTH"
 }

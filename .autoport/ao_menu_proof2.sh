@@ -6,8 +6,8 @@
 # android graphics page: 0 Aspect, 1 GameRes, 2 Dynamic, 3 RenderScale, 4 MinTargetFPS,
 # 5 FPSCounter, 6 VSync, 7 MSAA, 8 RECHARGED SETTINGS, 9 Advanced, 10 Vulkan, 11 Back
 # (MinTargetFPS row visible while Dynamic ON -> 8 downs). Recharged page (enhanced-models
-# row collapsed, length 7): 0 RechargedHud, 1 GrassSettings, 2 LoadCustomAssets,
-# 3 FoliageWind, 4 AMBIENT OCCLUSION, 5 AO QUALITY, 6 Back -> 4 downs.
+# row collapsed, length 8): 0 RechargedHud, 1 GrassSettings, 2 LoadCustomAssets,
+# 3 FoliageWind, 4 AMBIENT OCCLUSION, 5 AO QUALITY, 6 AO STRENGTH, 7 Back -> 4 downs to AO.
 #
 # v3 root causes (attempt-6 forensics, menu-proof2 frame md5s): INTERMITTENT INPUT LOSS —
 # consecutive proof frames byte-identical in bursts (taps 03-05 dead, 06-09 alive, 10+
@@ -55,7 +55,7 @@ shot(){ local FB FA
   printf 'before: %s\nafter:  %s\n' "$FB" "$FA" > "$OUT/$1.focus.txt"
   case "$FB$FA" in *org.opengoal.gk.jak1*) ;; *)
     say "  SHOT $1: NOT-JAK1-FOREGROUND ($FB / $FA) — frame is NOT evidence";; esac; }
-disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE "\((ambient-occlusion|ao-quality) [0-9]+\)" | tr '\n' ' '; echo; }
+disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE "\((ambient-occlusion|ao-quality|ao-strength) [0-9]+\)" | tr '\n' ' '; echo; }
 
 LOGF="$OUT/proof-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
@@ -103,6 +103,16 @@ wait_push_quality(){ local want_q="$1" mk="$2" i
   done
   echo "PUSH-MISSING (wanted quality->$want_q)"; return 1
 }
+# poll up to 10s for a FRESH "[recharged-ao] ... strength -> S" push line (eol tolerant)
+wait_push_strength(){ local want_s="$1" mk="$2" i
+  for i in $(seq 1 20); do
+    if fresh "$mk" | grep -a "recharged-ao" | grep -aqE "strength -> $want_s(\s|\$|\r)"; then
+      echo "PUSH-OK strength->$want_s"; return 0
+    fi
+    sleep 0.5
+  done
+  echo "PUSH-MISSING (wanted strength->$want_s)"; return 1
+}
 
 # --- normalize + boot (one per attempt) ----------------------------------------
 normalize_and_boot(){ local A="$1"
@@ -121,10 +131,13 @@ normalize_and_boot(){ local A="$1"
   sed -i \
     -e 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/' \
     -e 's/(ao-quality [0-9]*)/(ao-quality 2)/' \
+    -e 's/(ao-strength [0-9]*)/(ao-strength 1)/' \
     -e 's/(dynamic-render-scale? #[tf])/(dynamic-render-scale? #t)/' \
     -e 's/(render-scale [0-9.]*)/(render-scale 50.0000)/' \
     -e 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' \
     /tmp/pcs_ao_menu.gc
+  # OLD device settings files predate the ao-strength key: insert it after ao-quality.
+  grep -qa '(ao-strength' /tmp/pcs_ao_menu.gc || sed -i '/(ao-quality [0-9]*)/a\  (ao-strength 1)' /tmp/pcs_ao_menu.gc
   adb push /tmp/pcs_ao_menu.gc "$SETTINGS_DEV" >/dev/null 2>&1
   # VERIFY the normalize LANDED (attempt-4 false-negative root cause: silently failed push)
   NORM_BACK=$(disk)
@@ -159,7 +172,7 @@ normalize_and_boot(){ local A="$1"
 }
 
 # --- one full nav + commit sequence; returns 0 iff ALL FOUR pushes landed --------
-do_nav_and_commits(){ local A="$1" MK R1 R2 R3 R4
+do_nav_and_commits(){ local A="$1" MK R1 R2 R3 R4 R5
   say "== attempt $A nav: start -> 2x down -> X (OPTIONS) -> down, X (GRAPHIC OPTIONS) =="
   tapb "start" 3.0; shot "a$A-01-main-menu"
   tapb "down"; tapb "down"; tapb "x" 3.0; shot "a$A-02-options"
@@ -168,6 +181,10 @@ do_nav_and_commits(){ local A="$1" MK R1 R2 R3 R4
   for i in $(seq 1 "$DOWNS_RECHARGED"); do tapb "down" 1.6; done
   shot "a$A-04-recharged-row"
   tapb "x" 2.5; shot "a$A-05-recharged-page"
+  # AO is STILL Off here (normalize seeded ambient-occlusion 0): capture the recharged page
+  # with the AO STRENGTH row present-but-disabled (greyed, option-disabled while AO==0, same
+  # as AO QUALITY). This is the earliest point the page is visible with AO still Off.
+  shot "a$A-05b-strength-row-disabled"
   say "== 4x down = AMBIENT OCCLUSION row (enhanced-models row collapsed) =="
   for i in $(seq 1 4); do tapb "down" 1.6; done
   shot "a$A-06-ao-row"
@@ -191,7 +208,13 @@ do_nav_and_commits(){ local A="$1" MK R1 R2 R3 R4
   tapb "x" 1.5; tapb "left" 1.5; tapb "x" 2.0; shot "a$A-13-quality-committed"
   R4=$(wait_push_quality 1 "$MK"); say "QUALITY: $R4 | disk: $(disk)"
 
-  case "$R1$R2$R3$R4" in *MISSING*) return 1 ;; esac
+  say "== AO STRENGTH: 1x down, X, right (Default->Stronger), X =="
+  MK=$(mark)
+  tapb "down" 1.6; shot "a$A-14-strength-row"
+  tapb "x" 1.5; tapb "right" 1.5; tapb "x" 2.0; shot "a$A-15-strength-committed"
+  R5=$(wait_push_strength 2 "$MK"); say "STRENGTH: $R5 | disk: $(disk)"
+
+  case "$R1$R2$R3$R4$R5" in *MISSING*) return 1 ;; esac
   return 0
 }
 
@@ -211,13 +234,20 @@ if [ "$SEQ_PASS" != 1 ]; then
   say "[ao-menu-proof2] COMMIT-SEQUENCE FAIL after 3 attempts"
 fi
 
-say "== back out: 1x down (Back = index 6, from quality row 5), X, then triangle x2 to title =="
+say "== back out: 1x down (Back = index 7, from strength row 6), X, then triangle x2 to title =="
 tapb "down" 1.6; tapb "x" 2.0
-tapb "triangle" 1.5; tapb "triangle" 2.0; shot "14-backed-out"
+tapb "triangle" 1.5; tapb "triangle" 2.0; shot "16-backed-out"
 
-say "== persist: relaunch; boot push must carry GTAO/Medium =="
+say "== persist: relaunch; boot push must carry GTAO/Medium/Stronger =="
 adb shell am force-stop $PKG; sleep 2
-say "disk after quit: $(disk)"
+DISK_QUIT=$(disk); say "disk after quit: $DISK_QUIT"
+# Disk-persistence assertion: the menu edits (GTAO/Medium/Stronger) must have written to the
+# external settings file. AO STRENGTH is the new key — assert (ao-strength 2) landed too.
+DISK_OK=1
+case "$DISK_QUIT" in *"(ambient-occlusion 3)"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no (ambient-occlusion 3)";; esac
+case "$DISK_QUIT" in *"(ao-quality 1)"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no (ao-quality 1)";; esac
+case "$DISK_QUIT" in *"(ao-strength 2)"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no (ao-strength 2)";; esac
+[ "$DISK_OK" = 1 ] && say "  DISK-PERSIST OK: GTAO/Medium/Stronger on external settings"
 # The menu just enabled AO (GTAO) and we force-stopped within 60s -> the sentinel survived
 # the dirty death. rm it here so the relaunch runs AO ACTIVE (persisted GTAO), NOT the
 # one-shot SAFE-BOOT (AO off) fallback — otherwise the persist proof false-fails.
@@ -225,9 +255,12 @@ adb shell rm -f "$SENTINEL" >/dev/null 2>&1
 start_lc
 RELMARK=0
 adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
-sleep 70; stabilize_fg; shot "15-relaunch"
+sleep 70; stabilize_fg; shot "17-relaunch"
 say "disk after relaunch: $(disk)"
 say "relaunch [recharged-ao]: $(fresh $RELMARK | grep -a 'recharged-ao' | tail -3 | tr '\n' ' | ')"
+# The boot push logs mode/quality/strength together on the first change: the relaunch must
+# re-push the persisted STRENGTH Stronger(2) too (mirrors the mode->3 / quality->1 re-push).
+REL_STR=$(wait_push_strength 2 "$RELMARK"); say "relaunch strength re-push: $REL_STR"
 # If SAFE-BOOT still shows, the sentinel rm was missed/failed and the relaunch ran AO off.
 if fresh $RELMARK | grep -aq "SAFE-BOOT"; then
   say "  !!! WARNING: SAFE-BOOT present on relaunch — sentinel rm missed/failed, persist proof INVALID"
@@ -243,4 +276,5 @@ case "$FOCUS_END" in
      adb shell "ps -A | grep org.opengoal" 2>/dev/null | tr -d '\r' | sed 's/^/  ps: /' | tee -a "$LOGF" ;;
 esac
 stop_lc
+say "[ao-menu-proof2] SUMMARY: commit-seq=$( [ "$SEQ_PASS" = 1 ] && echo PASS || echo FAIL ) (mode/quality/strength pushes) | disk-persist=$( [ "${DISK_OK:-0}" = 1 ] && echo OK || echo MISS ) | relaunch-strength-repush=${REL_STR:-N/A}"
 say "[ao-menu-proof2] DONE (device left running; caller decides reset/force-stop)"

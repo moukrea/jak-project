@@ -6,7 +6,8 @@
 # boot) means props are NOT sufficient: the crash only reproduces on the persisted
 # settings path (renderscale-resize storm at boot), so this gate seeds the on-disk
 # pc-settings.gc and BOOTS each of 12 combos fresh, instead of live-flipping props on one
-# boot. Matrix (mode,quality): off/ssao/hbao/gtao x low/med/high = 12 boots.
+# boot. Matrix (mode,quality): off/ssao/hbao/gtao x low/med/high @ strength Default = 12
+# boots, plus a STRENGTH SPOT-CHECK trio (ssao/hbao/gtao x high x strength Stronger) = 15.
 # Per combo we assert: textured (purple-scan CLEAN on both recorded segments), >=120s
 # alive at title, AOPERF mode/quality tracks the seeded values, and NO "SAFE-BOOT" line
 # (the sentinel is cleared before each boot, so a SAFE-BOOT means seeding/clear failed).
@@ -26,15 +27,20 @@ say(){ echo "$*" | tee -a "$LOGF"; }
 
 # Seed the on-disk pc-settings.gc with a persisted AO mode+quality, then READ BACK and die
 # if the values did not land (a failed push was the attempt-4 false-negative root cause).
-# Returns 0 on verified seed, 1 otherwise. Args: MODE QUALITY.
-seed_ao(){ local M="$1" Q="$2"
+# Returns 0 on verified seed, 1 otherwise. Args: MODE QUALITY STRENGTH.
+seed_ao(){ local M="$1" Q="$2" STRV="$3"
+  # NOTE: the 3rd local was named S and SHADOWED the global adb serial S=eae4df44 —
+  # every `$ADB -s $S` in here ran `adb -s <strength-value>` and returned nothing,
+  # FAIL(seed)-ing all 15 combos. Never local-name anything S in this script.
   $ADB -s $S shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_gate.gc 2>/dev/null
   if ! grep -qa 'ambient-occlusion' /tmp/pcs_ao_gate.gc; then
     say "  SEED FAIL: no ambient-occlusion key on device settings"; return 1; fi
-  sed -i "s/(ambient-occlusion [0-9]*)/(ambient-occlusion $M)/; s/(ao-quality [0-9]*)/(ao-quality $Q)/" /tmp/pcs_ao_gate.gc
+  sed -i "s/(ambient-occlusion [0-9]*)/(ambient-occlusion $M)/; s/(ao-quality [0-9]*)/(ao-quality $Q)/; s/(ao-strength [0-9]*)/(ao-strength $STRV)/" /tmp/pcs_ao_gate.gc
+  # OLD device settings files predate the ao-strength key: insert it after ao-quality.
+  grep -qa '(ao-strength' /tmp/pcs_ao_gate.gc || sed -i "/(ao-quality [0-9]*)/a\\  (ao-strength $STRV)" /tmp/pcs_ao_gate.gc
   $ADB -s $S push /tmp/pcs_ao_gate.gc "$SETTINGS_DEV" >/dev/null 2>&1
   local BACK; BACK=$($ADB -s $S shell cat "$SETTINGS_DEV" 2>/dev/null \
-    | grep -aoE "\((ambient-occlusion|ao-quality) [0-9]+\)" | tr '\n' ' ')
+    | grep -aoE "\((ambient-occlusion|ao-quality|ao-strength) [0-9]+\)" | tr '\n' ' ')
   case "$BACK" in
     *"(ambient-occlusion $M)"*) : ;;
     *) say "  SEED READBACK FAIL: wanted (ambient-occlusion $M), got: $BACK"; return 1 ;;
@@ -42,6 +48,10 @@ seed_ao(){ local M="$1" Q="$2"
   case "$BACK" in
     *"(ao-quality $Q)"*) : ;;
     *) say "  SEED READBACK FAIL: wanted (ao-quality $Q), got: $BACK"; return 1 ;;
+  esac
+  case "$BACK" in
+    *"(ao-strength $STRV)"*) : ;;
+    *) say "  SEED READBACK FAIL: wanted (ao-strength $STRV), got: $BACK"; return 1 ;;
   esac
   say "  seeded+verified: $BACK"; return 0; }
 focus(){ $ADB -s $S shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
@@ -117,7 +127,7 @@ done
 [ "$FR3_BAD" = 0 ] && say "  fr3 set OK (all device fr3 == stock out/jak1/fr3)" \
                    || { say "[TITLE-GATE FAIL] fr3 repair failed"; exit 1; }
 
-say "== ao_title_gate: PERSISTED-MODE MATRIX (12 boots) — defect #6 =="
+say "== ao_title_gate: PERSISTED-MODE MATRIX (12 boots) + STRENGTH SPOT-CHECK (3 boots) — defect #6 =="
 # Archive the EXACT binary under test for A34 forensics (build-id ties any crash-TAG
 # dropbox tombstone back to this .so).
 $ADB -s $S shell am force-stop $PKG; sleep 2
@@ -132,20 +142,22 @@ $ADB -s $S shell setprop debug.opengoal.level.warp '""' >/dev/null 2>&1
 $ADB -s $S shell setprop debug.opengoal.level.warp.pos '""' >/dev/null 2>&1
 
 GATE_OK=1; FAILN=0; PASSN=0
-# TAG:MODE:QUALITY — off/ssao/hbao/gtao x low(0)/med(1)/high(2)
+# TAG:MODE:QUALITY:STRENGTH — off/ssao/hbao/gtao x low(0)/med(1)/high(2) at default strength(1),
+# then a STRENGTH SPOT-CHECK trio (mode x high x stronger(2)) => 15 persisted boots total.
 for combo in \
-  "off-low:0:0"  "off-med:0:1"  "off-high:0:2" \
-  "ssao-low:1:0" "ssao-med:1:1" "ssao-high:1:2" \
-  "hbao-low:2:0" "hbao-med:2:1" "hbao-high:2:2" \
-  "gtao-low:3:0" "gtao-med:3:1" "gtao-high:3:2" ; do
-  IFS=: read -r TAG M Q <<<"$combo"
-  say "-- combo $TAG (mode=$M quality=$Q, persisted boot) --"
+  "off-low:0:0:1"  "off-med:0:1:1"  "off-high:0:2:1" \
+  "ssao-low:1:0:1" "ssao-med:1:1:1" "ssao-high:1:2:1" \
+  "hbao-low:2:0:1" "hbao-med:2:1:1" "hbao-high:2:2:1" \
+  "gtao-low:3:0:1" "gtao-med:3:1:1" "gtao-high:3:2:1" \
+  "ssao-strong:1:2:2" "hbao-strong:2:2:2" "gtao-strong:3:2:2" ; do
+  IFS=: read -r TAG M Q STR <<<"$combo"
+  say "-- combo $TAG (mode=$M quality=$Q strength=$STR, persisted boot) --"
   CLOG="$OUT/combo-$TAG.log"
 
   # 1. force-stop, seed disk + verify, clear the safe-boot sentinel (else this boot, which
   #    follows the previous combo's within-60s force-stop, would run AO forced-off).
   $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1; sleep 2
-  if ! seed_ao "$M" "$Q"; then
+  if ! seed_ao "$M" "$Q" "$STR"; then
     say "combo $TAG: FAIL(seed)"; GATE_OK=0; FAILN=$((FAILN+1)); continue
   fi
   $ADB -s $S shell rm -f "$SENTINEL" >/dev/null 2>&1
@@ -196,8 +208,8 @@ for combo in \
 
   # 6. AOPERF assertion (mode+quality must track the seeded values): >=3 lines. And NO
   #    SAFE-BOOT (sentinel was cleared, so its presence means the seed/clear failed).
-  APCOUNT=$(grep -ac "AOPERF mode=$M quality=$Q" "$CLOG" 2>/dev/null); APCOUNT=${APCOUNT:-0}
-  say "   AOPERF mode=$M quality=$Q count: $APCOUNT (need >=3)"
+  APCOUNT=$(grep -ac "AOPERF mode=$M quality=$Q strength=$STR" "$CLOG" 2>/dev/null); APCOUNT=${APCOUNT:-0}
+  say "   AOPERF mode=$M quality=$Q strength=$STR count: $APCOUNT (need >=3)"
   SB=0
   if grep -aq "SAFE-BOOT" "$CLOG" 2>/dev/null; then
     SB=1; say "   SAFE-BOOT present in combo log — seed/clear failed, AO ran forced-off"
@@ -233,14 +245,14 @@ for combo in \
 done
 
 # restore the owner's default persisted state, clear the sentinel, force-stop.
-say "== restore settings to AO Off / quality Medium =="
-seed_ao 0 1 || true
+say "== restore settings to AO Off / quality Medium / strength Default =="
+seed_ao 0 1 1 || true
 $ADB -s $S shell rm -f "$SENTINEL" >/dev/null 2>&1
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1
 say "focus at end: $(focus)"
 
 if [ "$GATE_OK" = 1 ]; then
-  say "[TITLE-GATE PASS] all 12 persisted combos: textured title, 2min alive, AOPERF tracks seeding"
+  say "[TITLE-GATE PASS] all 15 persisted combos (12 mode/quality + 3 strength-stronger spot-checks): textured title, 2min alive, AOPERF tracks seeding"
   exit 0
 else
   say "[TITLE-GATE FAIL] $FAILN combos failed"

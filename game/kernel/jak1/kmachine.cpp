@@ -597,11 +597,11 @@ double s_ao_enable_t = -1.0;         // when AO became active this session (-1 =
 bool s_ao_guard_armed = false;       // sentinel currently on disk for this session
 }  // namespace
 
-// Grecharged-ambient-occlusion: push the AO algorithm selector + quality from GOAL
-// (-> *pc-settings* ambient-occlusion / ao-quality). mode: 0 off / 1 SSAO / 2 HBAO / 3 GTAO;
-// quality: 0 low / 1 medium / 2 high. Logs on CHANGE only (pushed every frame by
-// update-to-os), so a device log proves the GOAL->C++ link.
-void pc_set_ambient_occlusion(u32 mode, u32 quality) {
+// Grecharged-ambient-occlusion: push the AO algorithm selector + quality + strength from GOAL
+// (-> *pc-settings* ambient-occlusion / ao-quality / ao-strength). mode: 0 off / 1 SSAO / 2 HBAO
+// / 3 GTAO; quality: 0 low / 1 medium / 2 high; strength: 0 weaker / 1 default / 2 stronger. Logs
+// on CHANGE only (pushed every frame by update-to-os), so a device log proves the GOAL->C++ link.
+void pc_set_ambient_occlusion(u32 mode, u32 quality, u32 strength) {
   int m = (int)mode;
   int q = (int)quality;
   if (m < 0 || m > 3) {
@@ -609,6 +609,10 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality) {
   }
   if (q < 0 || q > 2) {
     q = 1;
+  }
+  int s = (int)strength;
+  if (s < 0 || s > 2) {
+    s = 1;
   }
   if (s_ao_safeboot_latched) {
     if (m == 0 || m == s_ao_safeboot_mode) {
@@ -649,10 +653,12 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality) {
     }
   }
   if (m != Gfx::g_global_settings.recharged_ao_mode ||
-      q != Gfx::g_global_settings.recharged_ao_quality) {
-    lg::info("[recharged-ao] mode -> {} quality -> {}", m, q);
+      q != Gfx::g_global_settings.recharged_ao_quality ||
+      s != Gfx::g_global_settings.recharged_ao_strength) {
+    lg::info("[recharged-ao] mode -> {} quality -> {} strength -> {}", m, q, s);
     Gfx::g_global_settings.recharged_ao_mode = m;
     Gfx::g_global_settings.recharged_ao_quality = q;
+    Gfx::g_global_settings.recharged_ao_strength = s;
   }
 }
 

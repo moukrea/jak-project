@@ -177,6 +177,7 @@ struct GfxGlobalSettings {
   // AO quality: 0 = low (quarter-res, few samples), 1 = medium (half-res), 2 = high
   // (full-res, full samples). Only read when recharged_ao_mode != 0.
   int recharged_ao_quality = 1;
+  int recharged_ao_strength = 1;  // Grecharged-ambient-occlusion closing round: 0 weaker, 1 default, 2 stronger
 };
 
 namespace Gfx {

@@ -741,9 +741,10 @@ void GLDisplay::render() {
     if (s_ao_perf_first || s_ao_perf_timer.getSeconds() >= 5.0) {
       s_ao_perf_first = false;
       s_ao_perf_timer.start();
-      lg::info("AOPERF mode={} quality={} fps={:.1f} busy_ms={:.2f}",
+      lg::info("AOPERF mode={} quality={} strength={} fps={:.1f} busy_ms={:.2f}",
                AmbientOcclusionPass::effective_mode(),
-               AmbientOcclusionPass::effective_quality(), Gfx::g_global_settings.measured_fps,
+               AmbientOcclusionPass::effective_quality(),
+               AmbientOcclusionPass::effective_strength(), Gfx::g_global_settings.measured_fps,
                Gfx::g_global_settings.measured_frame_busy_ms);
     }
   }

@@ -23,6 +23,7 @@ class AmbientOcclusionPass {
   // 0=off/1=SSAO/2=HBAO/3=GTAO ; quality 0=low/1=med/2=high.
   static int effective_mode();
   static int effective_quality();
+  static int effective_strength();
   static int effective_debug();
 
   // Store the shader library for render-time use (mirrors the bucket-renderer flow).

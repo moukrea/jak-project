@@ -245,5 +245,9 @@
   "170c": "MOYEN",
   "170d": "ÉLEVÉ",
   "170e": "OCCLUSION AMBIANTE",
-  "170f": "QUALITÉ AO"
+  "170f": "QUALITÉ AO",
+  "1710": "PLUS FAIBLE",
+  "1711": "DÉFAUT",
+  "1712": "PLUS FORT",
+  "1713": "FORCE AO"
 }

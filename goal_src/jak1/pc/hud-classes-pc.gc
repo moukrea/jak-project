@@ -1674,8 +1674,8 @@
   (pc-set-grass-overhang! (if (-> obj recharged-grass-overhang?) 1 0))
   (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
   (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0))
-  ;; Grecharged-ambient-occlusion: push the AO mode + quality every frame (1:1, no translation).
-  (pc-set-ambient-occlusion! (-> obj ambient-occlusion) (-> obj ao-quality))
+  ;; Grecharged-ambient-occlusion: push the AO mode + quality + strength every frame (1:1, no translation).
+  (pc-set-ambient-occlusion! (-> obj ambient-occlusion) (-> obj ao-quality) (-> obj ao-strength))
   (when *target*
     (pc-set-jak-pos! (-> *target* control trans)))
   ;; Grecharged-grass-poc POLISH#4/#5: push the two adjustable grass view-distances + density every frame.

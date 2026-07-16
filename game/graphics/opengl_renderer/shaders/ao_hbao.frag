@@ -107,21 +107,22 @@ void main() {
   // ~0.37 rad of horizon tolerance, which flattens micro-relief but leaves real
   // walls/props (horizons 45deg+) intact.
   float grz = 1.0 - abs(dot(N, V));
-  // attempt 6: 0.35 -> 0.50 grazing coefficient. The 0.35 tune left HBAO the only mode
-  // over the defect-5 device cap on big grazing floors (training open 5.49% vs SSAO 1.16
-  // / GTAO 1.80; x86 farfloor 0.783). Up to ~0.62 rad horizon tolerance at full grazing
-  // still leaves real walls/props (45 deg+ horizons) occluding.
-  float abias = 0.12 + 0.50 * grz * grz;
+  // closing round: 0.50 -> 0.38 grazing coefficient. SSAO is the perceptual reference and
+  // HBAO read too muted at 0.50; but the first cut (0.30) brought the grazing floor wash
+  // back (cr7 x86: farfloor +3.2% / nearfloor +3.9% vs SSAO ~0). 0.38 + the estimator
+  // intensity raise recovers crease punch without re-washing open floor; real walls/props
+  // (45 deg+ horizons) still occlude.
+  float abias = 0.12 + 0.38 * grz * grz;
   // Near-field micro-relief rejection (see ao_gtao.frag): HBAO's single-max horizon has
   // no cosine suppression, so a centimeter bump near P reads as a 20-30 deg horizon at
   // grazing regardless of the angle bias (x86 floor term stuck at 0.756). Capped so
   // distant creases keep contact AO.
-  // attempt 6: cap 0.42 -> 0.60 of radius. Beyond ~8 m the cap pegs min-r, so mid-range
-  // grazing micro-relief inside 0.3-0.7 m of P still washed the floor (device training
-  // open 5.49%); a fade tighten instead killed cliffbase contact (0.999) — the wash and
-  // the contact live at the same DISTANCE, they differ in sample RANGE. Uncapped min-r
-  // killed cliffbase too (v5 sweep, 0.996), 0.60 is between.
-  float minr = min(0.035 * dcam, 0.60 * u_radius);
+  // closing round: cap 0.60 -> 0.52 of radius. 0.60 muted HBAO (owner); the first cut
+  // (0.45) re-admitted the near-band micro-relief that washes grazing floors (cr7 x86
+  // term floor 0.856 vs SSAO 0.913). 0.52 sits between; the visible-strength recovery
+  // comes from the estimator intensity instead. Uncapped min-r killed cliffbase contact
+  // (v5 sweep, 0.996) — keep the cap.
+  float minr = min(0.035 * dcam, 0.52 * u_radius);
   float abias_s = sin(abias);
   float abias_c = cos(abias);
 
@@ -177,11 +178,11 @@ void main() {
   occ /= float(dirs);
   float ao = clamp(1.0 - u_intensity * occ, 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
-  // a contact/crease effect. Fade the term to 1.0 between 15 m and 35 m from the camera
-  // (tighter than SSAO/GTAO: HBAO's max-horizon estimator reads range micro-relief the
-  // hardest — x86 farfloor 0.78 — and its tier character is tight near contact anyway)
-  // so distant scenery (incl. the sea and the seafloor seen through its transparency) is
-  // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
-  ao = mix(ao, 1.0, smoothstep(61440.0, 143360.0, dcam));
+  // a contact/crease effect. Closing round: fade the term to 1.0 between 20 m and 45 m from
+  // the camera, matching SSAO (HBAO read too muted; the old 15->35 m fade cut mid-field
+  // occlusion too early) so distant scenery (incl. the sea and the seafloor seen through
+  // its transparency) is untouched; platformer contact shadows live well inside 40 m.
+  // 4096 units = 1 m.
+  ao = mix(ao, 1.0, smoothstep(81920.0, 184320.0, dcam));
   color = vec4(vec3(ao), 1.0);
 }

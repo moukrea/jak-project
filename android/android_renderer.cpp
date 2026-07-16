@@ -321,9 +321,10 @@ int android_renderer_run() {
           static unsigned s_aoperf_n = 0;
           if ((s_aoperf_n++ % 120) == 0) {
             __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                                "AOPERF mode=%d quality=%d fps=%.1f busy_ms=%.2f",
+                                "AOPERF mode=%d quality=%d strength=%d fps=%.1f busy_ms=%.2f",
                                 AmbientOcclusionPass::effective_mode(),
                                 AmbientOcclusionPass::effective_quality(),
+                                AmbientOcclusionPass::effective_strength(),
                                 Gfx::g_global_settings.measured_fps,
                                 Gfx::g_global_settings.measured_frame_busy_ms);
           }

@@ -59,6 +59,129 @@ def ncc(a, b):
     return float((a * b).mean())
 
 
+# --- strengthgrid vantage (AO STRENGTH proof): 3 modes x 3 strengths @ training ----------
+# Segments: off-a ssao-{weak,def,strong} off-b hbao-{...} off-c gtao-{...} off-d. Each
+# strength trio is judged against its BRACKETING offs (ssao: off-a/off-b, hbao: off-b/off-c,
+# gtao: off-c/off-d) — the same adjacency the main vantage uses — with the same NCC pose
+# gate, quadratic-TOD drift model and open/crease region logic. Per segment: caps
+# (open<=5%, global<=8%); per mode: strictly-increasing crease ordering weaker<def<strong.
+if vant == "strengthgrid":
+    GRID_MODES = ["ssao", "hbao", "gtao"]
+    STRENGTHS = ["weak", "def", "strong"]
+    STR_LABEL = {"weak": "weaker", "def": "default", "strong": "stronger"}
+    GRID_OFFS = ["off-a", "off-b", "off-c", "off-d"]
+    # bracketing offs per mode (mirrors the main-vantage BRACKET adjacency)
+    GRID_BRACKET = {"ssao": ("off-a", "off-b"), "hbao": ("off-b", "off-c"),
+                    "gtao": ("off-c", "off-d")}
+
+    def seg_time_g(tag):
+        p = os.path.join(dev_dir, f"device-ao-{vant}-{tag}.mp4")
+        try:
+            return os.path.getmtime(p)
+        except OSError:
+            return None
+
+    gmeans = {}
+    all_tags = list(GRID_OFFS) + [f"{m}-{s}" for m in GRID_MODES for s in STRENGTHS]
+    for tag in all_tags:
+        img, n = mean_frames(tag)
+        if img is None:
+            print(f"[ao-grid] {vant}/{tag}: NO FRAMES => FAIL")
+            sys.exit(1)
+        gmeans[tag] = img
+        print(f"[ao-grid] {vant}/{tag}: {n} frames averaged, mean_luma={img.mean():.2f}")
+
+    # POSE gate: full ordered sequence, adjacent NCC (same as the vantage pose gate).
+    print()
+    grid_seq = ["off-a", "ssao-weak", "ssao-def", "ssao-strong", "off-b",
+                "hbao-weak", "hbao-def", "hbao-strong", "off-c",
+                "gtao-weak", "gtao-def", "gtao-strong", "off-d"]
+    gpose_ok = True
+    for t0, t1 in zip(grid_seq, grid_seq[1:]):
+        c = ncc(gmeans[t0], gmeans[t1])
+        ok = c >= 0.75
+        if not ok:
+            gpose_ok = False
+        print(f"[ao-pose] {vant} {t0} vs {t1}: ncc={c:.3f} => {'OK' if ok else 'POSE MISMATCH'}")
+    if not gpose_ok:
+        gate_fail += 1
+        print(f"[ao-pose] {vant} POSE GATE FAIL — camera moved; strength verdicts VOID")
+
+    gdrift = float(np.abs(gmeans["off-a"] - gmeans["off-d"]).mean())
+    gdrift_rel = gdrift / max(float(gmeans["off-a"].mean()), 1e-6) * 100.0
+    print(f"[ao-drift] {vant} off-a vs off-d: mean_absdiff={gdrift:.3f} ({gdrift_rel:.2f}% of off-a mean)")
+
+    # Per-pixel quadratic TOD fit through the 4 offs, evaluated at each segment's mp4 mtime;
+    # bracket-mean fallback when any mtime is missing.
+    _gtoff = [seg_time_g(t) for t in GRID_OFFS]
+    _goff_stack = np.stack([gmeans[t] for t in GRID_OFFS], axis=0)
+    _gfit = None
+    if all(t is not None for t in _gtoff):
+        _gt0 = _gtoff[0]
+        _gts = np.array([t - _gt0 for t in _gtoff], dtype=np.float64)
+        _gspan = _gts[-1] if _gts[-1] > 0 else 1.0
+        _gts /= _gspan
+        _gA = np.stack([np.ones_like(_gts), _gts, _gts * _gts], axis=1)
+        _gcoef, *_ = np.linalg.lstsq(_gA, _goff_stack.reshape(4, -1), rcond=None)
+        _glo = _goff_stack.min(axis=0) - 8.0
+        _ghi = _goff_stack.max(axis=0) + 8.0
+        _gfit = (_gcoef, _gt0, _gspan, _glo, _ghi)
+        print(f"[ao-drift] {vant} off model: quadratic-TOD-fit(4 offs, mp4 mtimes)")
+    else:
+        print(f"[ao-drift] {vant} off model: bracket-midpoint (mp4 mtimes missing)")
+
+    def goff_pred(mode, seg_tag):
+        b0, b1 = GRID_BRACKET[mode]
+        if _gfit is None:
+            return (gmeans[b0] + gmeans[b1]) / 2.0
+        coef, t0, span, lo, hi = _gfit
+        tt = seg_time_g(seg_tag)
+        if tt is None:
+            return (gmeans[b0] + gmeans[b1]) / 2.0
+        tm = (tt - t0) / span
+        v = (coef[0] + coef[1] * tm + coef[2] * tm * tm).reshape(gmeans["off-a"].shape)
+        return np.clip(v, lo, hi)
+
+    print()
+    grid_fail = 0
+    crease_by = {}  # (mode -> {strength: crease_rel}) for the ordering check
+    for m in GRID_MODES:
+        crease_by[m] = {}
+        b0, b1 = GRID_BRACKET[m]
+        for s in STRENGTHS:
+            seg = f"{m}-{s}"
+            off = goff_pred(m, seg)
+            d = np.clip(off - gmeans[seg], 0, None)
+            thresh = np.percentile(d, 90)
+            open_mask = d < thresh
+            open_rel = float(d[open_mask].mean() / max(off[open_mask].mean(), 1e-6)) * 100.0
+            crease_rel = float(d[~open_mask].mean() / max(off[~open_mask].mean(), 1e-6)) * 100.0
+            glob_rel = float(d.mean() / max(float(off.mean()), 1e-6)) * 100.0
+            crease_by[m][s] = crease_rel
+            ok_open = open_rel <= 5.0
+            ok_glob = glob_rel <= 8.0
+            verdict = "PASS" if (ok_open and ok_glob) else "FAIL"
+            if verdict == "FAIL":
+                grid_fail += 1
+            heat = np.clip(d * 8.0, 0, 255).astype(np.uint8)
+            Image.fromarray(heat).save(os.path.join(dev_dir, f"ao-diffheat-{vant}-{seg}.png"))
+            print(f"[ao-grid] {m} {STR_LABEL[s]}: open_area_delta={open_rel:.2f}% "
+                  f"crease_delta={crease_rel:.2f}% global_delta={glob_rel:.2f}% => {verdict}")
+
+    print()
+    for m in GRID_MODES:
+        w = crease_by[m]["weak"]; dd = crease_by[m]["def"]; st = crease_by[m]["strong"]
+        ordered = w < dd < st
+        if not ordered:
+            grid_fail += 1
+        print(f"[ao-grid] {m} ordering crease weaker<default<stronger: "
+              f"{w:.2f} < {dd:.2f} < {st:.2f} => {'PASS' if ordered else 'FAIL'}")
+
+    overall_ok = (grid_fail == 0) and gpose_ok
+    print(f"[ao-grid] OVERALL: {'PASS' if overall_ok else 'FAIL'}")
+    sys.exit(0 if overall_ok else 1)
+
+
 means = {}
 for tag in ["off-a", "off-b", "off-c", "off-d"] + MODES:
     img, n = mean_frames(tag)

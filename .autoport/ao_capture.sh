@@ -14,6 +14,8 @@
 #                               by AO + grazing wet-sand floor whiteness; beach-start faces
 #                               SW = seaward, pos at the sea edge next to the crab cluster)
 #   ao_capture.sh fpsmatrix  -> village1 vantage, 10-combo AOPERF sweep (3 algos x 3 quality + off)
+#   ao_capture.sh strengthgrid -> training vantage, 3 modes x 3 strengths (weaker/default/
+#                               stronger @ quality High) with off brackets — AO STRENGTH proof
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
@@ -25,9 +27,11 @@ say(){ echo; echo "######## $* ########"; }
 focus(){ $ADB shell dumpsys window 2>/dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
 fg_ok(){ $ADB shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | grep -q "org.opengoal.gk.jak1" ; }
 ao_force(){ $ADB shell "setprop debug.opengoal.ao.force_mode '$1'" >/dev/null 2>&1
-            $ADB shell "setprop debug.opengoal.ao.force_quality '$2'" >/dev/null 2>&1; }
+            $ADB shell "setprop debug.opengoal.ao.force_quality '$2'" >/dev/null 2>&1
+            $ADB shell "setprop debug.opengoal.ao.force_strength '$3'" >/dev/null 2>&1; }
 ao_clear(){ $ADB shell "setprop debug.opengoal.ao.force_mode ''" >/dev/null 2>&1
-            $ADB shell "setprop debug.opengoal.ao.force_quality ''" >/dev/null 2>&1; }
+            $ADB shell "setprop debug.opengoal.ao.force_quality ''" >/dev/null 2>&1
+            $ADB shell "setprop debug.opengoal.ao.force_strength ''" >/dev/null 2>&1; }
 
 # Wait for the renderer to CONFIRM an override flip: the build logs
 # "[recharged-ao] override <kind> -> <val>" on every change (250ms wall-time re-read).
@@ -46,26 +50,27 @@ wait_override(){ local KIND="$1" VAL="$2" MARK="$3" t0=$(date +%s)
 # (Owner-overlap invalidation root cause: the 01:06-01:15 battery confirmed only the prop
 # FLIP; no AOPERF line inside any A/B window ever confirmed a non-zero mode. AOPERF fires
 # every 5 s wall time on the current build, so 30 s is 6 cadences of margin.)
-wait_aoperf(){ local M="$1" Q="$2" MARK="$3" t0=$(date +%s)
+wait_aoperf(){ local M="$1" Q="$2" S="$3" MARK="$4" t0=$(date +%s)
   while [ $(( $(date +%s)-t0 )) -lt 30 ]; do
-    if tail -n "+$((MARK+1))" "$LOG" 2>/dev/null | grep -aq "AOPERF mode=$M quality=$Q"; then
-      echo "  aoperf-confirm: mode=$M quality=$Q ($(( $(date +%s)-t0 ))s)"; return 0
+    if tail -n "+$((MARK+1))" "$LOG" 2>/dev/null | grep -aq "AOPERF mode=$M quality=$Q strength=$S"; then
+      echo "  aoperf-confirm: mode=$M quality=$Q strength=$S ($(( $(date +%s)-t0 ))s)"; return 0
     fi
     sleep 2
   done
-  echo "  aoperf-confirm TIMEOUT: mode=$M quality=$Q (30s) — segment evidence SUSPECT"; return 1; }
+  echo "  aoperf-confirm TIMEOUT: mode=$M quality=$Q strength=$S (30s) — segment evidence SUSPECT"; return 1; }
 
-# Force mode+quality and wait for the renderer's confirmation of every value that CHANGED
-# (an unchanged value logs nothing), THEN for an AOPERF line at the forced pair. Tracks
-# PREV_M/PREV_Q globals (init -1 = unknown/cleared).
-PREV_M=-1; PREV_Q=-1
-ao_force_confirmed(){ local M="$1" Q="$2"
+# Force mode+quality+strength and wait for the renderer's confirmation of every value that
+# CHANGED (an unchanged value logs nothing), THEN for an AOPERF line at the forced triple.
+# Tracks PREV_M/PREV_Q/PREV_S globals (init -1 = unknown/cleared).
+PREV_M=-1; PREV_Q=-1; PREV_S=-1
+ao_force_confirmed(){ local M="$1" Q="$2" S="$3"
   local MARK; MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
-  ao_force "$M" "$Q"
+  ao_force "$M" "$Q" "$S"
   [ "$M" != "$PREV_M" ] && wait_override mode "$M" "$MARK"
   [ "$Q" != "$PREV_Q" ] && wait_override quality "$Q" "$MARK"
-  PREV_M="$M"; PREV_Q="$Q"
-  wait_aoperf "$M" "$Q" "$MARK"
+  [ "$S" != "$PREV_S" ] && wait_override strength "$S" "$MARK"
+  PREV_M="$M"; PREV_Q="$Q"; PREV_S="$S"
+  wait_aoperf "$M" "$Q" "$S" "$MARK"
   sleep 3; }  # FBO/targets settle after a 0<->N flip (one-frame AO skip + rebuild)
 
 VANT="${1:-village1}"
@@ -73,6 +78,7 @@ case "$VANT" in
   village1|fpsmatrix) CONT=village1-hut;  POS="-156.0 34.0 188.0" ;;
   beach)              CONT=beach-start;   POS="-123.3 2.3 -54.6" ;;
   training)           CONT=training-start; POS="-1187.4 16.2 932.3" ;;
+  strengthgrid)       CONT=training-start; POS="-1187.4 16.2 932.3" ;;
   shoreline)          CONT=beach-start;   POS="-195.0 3.5 -415.0" ;;
   *) echo "unknown vantage $VANT"; exit 2 ;;
 esac
@@ -96,14 +102,18 @@ seed_capture_protocol(){
     -e 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' \
     -e 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/' \
     -e 's/(ao-quality [0-9]*)/(ao-quality 1)/' \
+    -e 's/(ao-strength [0-9]*)/(ao-strength 1)/' \
     /tmp/pcs_ao_cap.gc
+  # OLD device settings files predate the ao-strength key: insert it after ao-quality.
+  grep -qa '(ao-strength' /tmp/pcs_ao_cap.gc || sed -i '/(ao-quality [0-9]*)/a\  (ao-strength 1)' /tmp/pcs_ao_cap.gc
   $ADB push /tmp/pcs_ao_cap.gc "$SETTINGS_DEV" >/dev/null 2>&1
   local BACK; BACK=$($ADB shell cat "$SETTINGS_DEV" 2>/dev/null \
-    | grep -aoE "\((dynamic-render-scale\? #[tf]|render-scale [0-9.]+|recharged-grass\? #[tf]|ambient-occlusion [0-9]+|ao-quality [0-9]+)\)" | tr '\n' ' ')
+    | grep -aoE "\((dynamic-render-scale\? #[tf]|render-scale [0-9.]+|recharged-grass\? #[tf]|ambient-occlusion [0-9]+|ao-quality [0-9]+|ao-strength [0-9]+)\)" | tr '\n' ' ')
   case "$BACK" in *"(dynamic-render-scale? #f)"*) : ;; *) echo "  SEED READBACK FAIL (dynamic-render-scale? #f): $BACK"; exit 1 ;; esac
   case "$BACK" in *"(recharged-grass? #f)"*) : ;; *) echo "  SEED READBACK FAIL (recharged-grass? #f): $BACK"; exit 1 ;; esac
   case "$BACK" in *"(ambient-occlusion 0)"*) : ;; *) echo "  SEED READBACK FAIL (ambient-occlusion 0): $BACK"; exit 1 ;; esac
   case "$BACK" in *"(ao-quality 1)"*) : ;; *) echo "  SEED READBACK FAIL (ao-quality 1): $BACK"; exit 1 ;; esac
+  case "$BACK" in *"(ao-strength 1)"*) : ;; *) echo "  SEED READBACK FAIL (ao-strength 1): $BACK"; exit 1 ;; esac
   case "$BACK" in *"(render-scale 100"*) : ;; *) echo "  SEED READBACK FAIL (render-scale 100.x): $BACK"; exit 1 ;; esac
   $ADB shell rm -f "$SENTINEL" >/dev/null 2>&1
   echo "  capture-protocol seeded+verified: $BACK"; }
@@ -273,28 +283,73 @@ if [ "$VANT" = fpsmatrix ]; then
   seed_capture_protocol
   boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] fpsmatrix boot"; exit 1; }
   : > "$DEV/ao-fpsmatrix-results.txt"
-  for combo in "0 1 off" "1 0 ssao-low" "1 1 ssao-med" "1 2 ssao-high" \
-               "2 0 hbao-low" "2 1 hbao-med" "2 2 hbao-high" \
-               "3 0 gtao-low" "3 1 gtao-med" "3 2 gtao-high"; do
-    set -- $combo; M=$1; Q=$2; TAG=$3
+  for combo in "0 1 1 off" "1 0 1 ssao-low" "1 1 1 ssao-med" "1 2 1 ssao-high" \
+               "2 0 1 hbao-low" "2 1 1 hbao-med" "2 2 1 hbao-high" \
+               "3 0 1 gtao-low" "3 1 1 gtao-med" "3 2 1 gtao-high"; do
+    set -- $combo; M=$1; Q=$2; S=$3; TAG=$4
     MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
-    ao_force_confirmed "$M" "$Q"
+    ao_force_confirmed "$M" "$Q" "$S"
     # AOPERF fires every 5 s wall time. Count only lines FRESHER than the flip (boot/disk
     # settings can pre-seed identical mode/quality pairs); 3 fresh lines ≈ 15 s, EMA
     # (time-constant ~2.5 s) converged.
     t0=$(date +%s); got=0
     while [ $(( $(date +%s)-t0 )) -lt 120 ]; do
-      got=$(tail -n "+$((MARK+1))" "$LOG" 2>/dev/null | grep -ac "AOPERF mode=$M quality=$Q"); got=${got:-0}
+      got=$(tail -n "+$((MARK+1))" "$LOG" 2>/dev/null | grep -ac "AOPERF mode=$M quality=$Q strength=$S"); got=${got:-0}
       [ "$got" -ge 3 ] && break
       sleep 5
     done
-    LINE=$(tail -n "+$((MARK+1))" "$LOG" | grep -a "AOPERF mode=$M quality=$Q" | tail -1 | tr -d '\r')
+    LINE=$(tail -n "+$((MARK+1))" "$LOG" | grep -a "AOPERF mode=$M quality=$Q strength=$S" | tail -1 | tr -d '\r')
     echo "$TAG :: ${LINE:-NO-AOPERF-LINE}" | tee -a "$DEV/ao-fpsmatrix-results.txt"
   done
   ao_clear
   $ADB shell am force-stop $PKG >/dev/null 2>&1
   kill "$(cat /tmp/ao_lc.pid 2>/dev/null)" 2>/dev/null || true
   say "DONE fpsmatrix — $DEV/ao-fpsmatrix-results.txt"
+  exit 0
+fi
+
+if [ "$VANT" = strengthgrid ]; then
+  # 3 modes x 3 strengths @ training (quality High=2 throughout), interleaved with off
+  # brackets like the vantage A/B so TOD-drift cancels. NO debugview loop (strength changes
+  # the composite weight, not the raw AO term; the analyzer compares each trio to its offs).
+  say "STRENGTH GRID @ $CONT $POS — 3 modes x 3 strengths (weaker/default/stronger), off brackets"
+  LOG="$DEV/ao-strengthgrid.log"
+  ao_clear
+  seed_capture_protocol
+  boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] strengthgrid boot"; exit 1; }
+
+  # Walk-settle: park the follow cam BEHIND Jak deterministically (see vantage branch).
+  $ADB shell setprop debug.opengoal.cpad_inject up >/dev/null 2>&1; sleep 1.5
+  $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
+
+  for combo in "0 2 1 off-a" "1 2 0 ssao-weak" "1 2 1 ssao-def" "1 2 2 ssao-strong" \
+               "0 2 1 off-b" "2 2 0 hbao-weak" "2 2 1 hbao-def" "2 2 2 hbao-strong" \
+               "0 2 1 off-c" "3 2 0 gtao-weak" "3 2 1 gtao-def" "3 2 2 gtao-strong" \
+               "0 2 1 off-d"; do
+    set -- $combo; M=$1; Q=$2; S=$3; TAG=$4
+    ao_force_confirmed "$M" "$Q" "$S"
+    RECMARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+    rec "device-ao-strengthgrid-${TAG}" 10
+    FRDIR="$DEV/device-ao-strengthgrid-${TAG}_frames"
+    GOODC=0; BADC=0; BR0=$(date +%s)
+    while [ $(( $(date +%s)-BR0 )) -lt 45 ]; do
+      tail -n "+$((RECMARK+1))" "$LOG" | grep -a "AOPERF" | tr -d '\r' > "$FRDIR/aoperf-bracket.txt" || true
+      GOODC=$(grep -ac "AOPERF mode=$M quality=$Q strength=$S" "$FRDIR/aoperf-bracket.txt" 2>/dev/null); GOODC=${GOODC:-0}
+      BADC=$(grep -a "AOPERF" "$FRDIR/aoperf-bracket.txt" 2>/dev/null | grep -acv "mode=$M quality=$Q strength=$S"); BADC=${BADC:-0}
+      { [ "$GOODC" -ge 1 ] || [ "$BADC" -ge 1 ]; } && break
+      sleep 5
+    done
+    if [ "${GOODC:-0}" -ge 1 ] && [ "${BADC:-0}" -eq 0 ]; then
+      echo "  aoperf-bracket OK ${TAG}: $GOODC matching line(s)"
+    else
+      echo "  AOPERF-BRACKET FAIL ${TAG}: good=$GOODC bad=$BADC — SEGMENT INVALID, deleting frames"
+      rm -f "$FRDIR"/f_*.png
+    fi
+  done
+  ao_clear
+  $ADB shell am force-stop $PKG >/dev/null 2>&1
+  kill "$(cat /tmp/ao_lc.pid 2>/dev/null)" 2>/dev/null || true
+  say "DONE strengthgrid — frames under $DEV/device-ao-strengthgrid-*_frames/"
   exit 0
 fi
 
@@ -314,9 +369,9 @@ $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
 # is judged against its BRACKETING offs, so slow time-of-day drift cancels; off-a vs
 # off-d measures the residual drift; the analyzer NCC-gates every segment against off-a
 # so a moved camera (human touch mid-run) FAILS instead of poisoning the luminance gates.
-for combo in "0 1 off-a" "1 2 ssao" "0 1 off-b" "2 2 hbao" "0 1 off-c" "3 2 gtao" "0 1 off-d"; do
-  set -- $combo; M=$1; Q=$2; TAG=$3
-  ao_force_confirmed "$M" "$Q"
+for combo in "0 1 1 off-a" "1 2 1 ssao" "0 1 1 off-b" "2 2 1 hbao" "0 1 1 off-c" "3 2 1 gtao" "0 1 1 off-d"; do
+  set -- $combo; M=$1; Q=$2; S=$3; TAG=$4
+  ao_force_confirmed "$M" "$Q" "$S"
   RECMARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
   rec "device-ao-${VANT}-${TAG}" 10
   # AOPERF bracket (supervisor invalidation fix): every AOPERF line logged DURING the
@@ -334,8 +389,8 @@ for combo in "0 1 off-a" "1 2 ssao" "0 1 off-b" "2 2 hbao" "0 1 off-c" "3 2 gtao
   GOODC=0; BADC=0; BR0=$(date +%s)
   while [ $(( $(date +%s)-BR0 )) -lt 45 ]; do
     tail -n "+$((RECMARK+1))" "$LOG" | grep -a "AOPERF" | tr -d '\r' > "$FRDIR/aoperf-bracket.txt" || true
-    GOODC=$(grep -ac "AOPERF mode=$M quality=$Q" "$FRDIR/aoperf-bracket.txt" 2>/dev/null); GOODC=${GOODC:-0}
-    BADC=$(grep -a "AOPERF" "$FRDIR/aoperf-bracket.txt" 2>/dev/null | grep -acv "mode=$M quality=$Q"); BADC=${BADC:-0}
+    GOODC=$(grep -ac "AOPERF mode=$M quality=$Q strength=$S" "$FRDIR/aoperf-bracket.txt" 2>/dev/null); GOODC=${GOODC:-0}
+    BADC=$(grep -a "AOPERF" "$FRDIR/aoperf-bracket.txt" 2>/dev/null | grep -acv "mode=$M quality=$Q strength=$S"); BADC=${BADC:-0}
     { [ "$GOODC" -ge 1 ] || [ "$BADC" -ge 1 ]; } && break
     sleep 5
   done
@@ -348,7 +403,7 @@ for combo in "0 1 off-a" "1 2 ssao" "0 1 off-b" "2 2 hbao" "0 1 off-c" "3 2 gtao
 done
 # debug-view (raw AO term) segments per mode, AFTER the A/B sequence (not luminance evidence)
 for M in 1 2 3; do
-  ao_force_confirmed "$M" 2
+  ao_force_confirmed "$M" 2 1
   rec_debugview "device-ao-${VANT}" "$M"
 done
 ao_clear

@@ -807,6 +807,11 @@
   (pc-text-ao-high #x170d)
   (pc-text-ambient-occlusion #x170e)
   (pc-text-ao-quality #x170f)
+  ;; Grecharged-ambient-occlusion closing round: AO STRENGTH row strings (ids #x1710-#x1713).
+  (pc-text-ao-weaker #x1710)
+  (pc-text-ao-default #x1711)
+  (pc-text-ao-stronger #x1712)
+  (pc-text-ao-strength #x1713)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 
