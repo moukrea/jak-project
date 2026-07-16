@@ -501,24 +501,37 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   // (large radius), HBAO mid, GTAO sharp/physical. The defect-#5 open-area cap (<=5%) is
   // held by the estimators returning ~1.0 on flat surfaces (aligned-slice / analytic-
   // tangent / tangent-plane fixes), NOT by keeping strength low. 4096 units = 1 m.
+  // Composite strengths are calibrated for the GOLDEN-RULE blend (owner-sourced,
+  // 2026-07-16): out = dst - (1-dst) * k * (1-ao). The (1-dst) weight is the ambient-
+  // fraction proxy — strongly-lit (bright) pixels receive ~zero AO, shadowed/ambient
+  // pixels receive it fully. Equivalent mid-tone effect to the old multiplicative
+  // strengths, ~0.25x on sunlit floors (the owner-visible defect-#7 class), ~1.15x in
+  // dark creases (mode toggles stay unmistakable — tuning #1/#3).
   float u_radius = 1434.0f;
   float u_intensity = 1.0f;
-  float u_ao_strength = 0.55f;  // max fraction of the lit color AO may remove (ambient-term bound)
+  float u_ao_strength = 0.35f;  // k in the golden-rule blend (ambient-fraction weighted)
+  // Attempt-5 recalibration (owner tuning #3: "SSAO et HBAO à peine remarquables"):
+  // with the grazing-floor wash fixed in the estimators (uniform-slice GTAO, adaptive
+  // angle-bias HBAO, grazing tangent-threshold SSAO), open floors read ~1.0, so the
+  // per-mode strengths can rise until each toggle is unmistakable without re-creating
+  // the defect-#5/#7 wash. SSAO broad+soft, HBAO mid, GTAO sharp+strongest.
+  // Ordering (owner tuning #1): SSAO soft/broad but clearly visible, HBAO between,
+  // GTAO sharp + strongest.
   switch (mode) {
     case 1:  // SSAO
-      u_radius = 4096.0f;
-      u_intensity = 1.7f;
-      u_ao_strength = 0.75f;
+      u_radius = 5120.0f;
+      u_intensity = 2.0f;
+      u_ao_strength = 0.45f;
       break;
     case 2:  // HBAO
       u_radius = 2867.0f;
-      u_intensity = 1.4f;
-      u_ao_strength = 0.78f;
+      u_intensity = 1.6f;
+      u_ao_strength = 0.60f;
       break;
     case 3:  // GTAO
       u_radius = 2048.0f;
-      u_intensity = 1.2f;
-      u_ao_strength = 0.82f;
+      u_intensity = 1.25f;
+      u_ao_strength = 0.70f;
       break;
     default:
       break;
@@ -624,8 +637,15 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     if (dbg != 0) {
       glDisable(GL_BLEND);  // debug view replaces the scene with the AO term
     } else {
+      // GOLDEN RULE (owner-sourced, 2026-07-16): AO darkening an area already well lit
+      // by DIRECT light breaks realism — pros mask AO out of directly-lit zones. AO is
+      // blind to scene lighting, so the BLEND is not: out = dst - (1-dst)*src with
+      // src = k*(1-ao). Bright (direct-lit) pixels: (1-dst)~0 => untouched; shadowed/
+      // ambient pixels: full effect. Replaces the flat multiply (dst*src), which darkened
+      // bright sunlit floors the MOST in absolute terms — the defect-#7 look.
       glEnable(GL_BLEND);
-      glBlendFunc(GL_ZERO, GL_SRC_COLOR);  // dst *= src
+      glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+      glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
     }
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);

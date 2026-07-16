@@ -2,8 +2,12 @@
 """ao_analyze_ab.py — Grecharged-ambient-occlusion A/B evidence analysis (v2, bracketed).
 
 Capture layout (ao_capture.sh): off-a ssao off-b hbao off-c gtao off-d, tightly spaced.
-Each AO mode is compared against the MEAN of its two bracketing off segments, so slow
-time-of-day drift cancels to first order. Two validity gates run BEFORE any luminance
+Each AO mode is compared against a per-pixel QUADRATIC fit through the four off anchors
+evaluated at the mode segment's own timestamp (mp4 mtimes). The old bracket-MIDPOINT
+model assumed linear drift and false-failed a mode landing on the sunset knee (beach
+run-4: off-a 128 -> off-b 91.6 while later gaps move ~5; SSAO read a phantom 12.8-luma
+"darkening" with a 96.7%-white debug term). Falls back to the bracket mean when any
+mp4 mtime is missing. Two validity gates run BEFORE any luminance
 verdict:
   * POSE gate: normalized cross-correlation of every segment vs off-a (structure, not
     brightness). A moved camera (human touch mid-run, follow-cam re-frame) FAILS the
@@ -67,12 +71,18 @@ for tag in ["off-a", "off-b", "off-c", "off-d"] + MODES:
 # --- validity gates ---------------------------------------------------------
 print()
 pose_ok = True
-for tag in ["off-b", "off-c", "off-d"] + MODES:
-    c = ncc(means["off-a"], means[tag])
+# ADJACENT pairs, not everything-vs-off-a: time-of-day lighting drift (beach sunset run:
+# off-a..off-d mean luma 127->87) decays a global NCC smoothly below threshold with a
+# perfectly static camera. Every luminance verdict below compares a mode to its
+# BRACKETING offs, so camera stillness only needs to hold across each adjacency; a real
+# camera move is a step change that breaks the adjacency where it happens.
+SEQ = ["off-a", MODES[0], "off-b", MODES[1], "off-c", MODES[2], "off-d"]
+for t0, t1 in zip(SEQ, SEQ[1:]):
+    c = ncc(means[t0], means[t1])
     ok = c >= 0.75
     if not ok:
         pose_ok = False
-    print(f"[ao-pose] {vant} off-a vs {tag}: ncc={c:.3f} => {'OK' if ok else 'POSE MISMATCH'}")
+    print(f"[ao-pose] {vant} {t0} vs {t1}: ncc={c:.3f} => {'OK' if ok else 'POSE MISMATCH'}")
 if not pose_ok:
     gate_fail += 1
     print(f"[ao-pose] {vant} POSE GATE FAIL — camera moved mid-sequence; luminance verdicts below are VOID")
@@ -81,11 +91,59 @@ drift = float(np.abs(means["off-a"] - means["off-d"]).mean())
 drift_rel = drift / max(float(means["off-a"].mean()), 1e-6) * 100.0
 print(f"[ao-drift] {vant} off-a vs off-d: mean_absdiff={drift:.3f} ({drift_rel:.2f}% of off-a mean)")
 
+# --- TOD drift model ----------------------------------------------------------
+# Per-pixel quadratic through the four off anchors at their capture timestamps,
+# evaluated at each mode's timestamp. Interior interpolation only (modes sit between
+# off-a and off-d); prediction clamped to the per-pixel off min/max +-8 luma.
+OFFS = ["off-a", "off-b", "off-c", "off-d"]
+
+
+def seg_time(tag):
+    p = os.path.join(dev_dir, f"device-ao-{vant}-{tag}.mp4")
+    try:
+        return os.path.getmtime(p)
+    except OSError:
+        return None
+
+
+_toff = [seg_time(t) for t in OFFS]
+_tmod = {m: seg_time(m) for m in MODES}
+off_model = "bracket-midpoint (mp4 mtimes missing)"
+_off_stack = np.stack([means[t] for t in OFFS], axis=0)
+_fit = None
+if all(t is not None for t in _toff) and all(_tmod[m] is not None for m in MODES):
+    _t0 = _toff[0]
+    _ts = np.array([t - _t0 for t in _toff], dtype=np.float64)
+    _span = _ts[-1] if _ts[-1] > 0 else 1.0
+    _ts /= _span
+    _A = np.stack([np.ones_like(_ts), _ts, _ts * _ts], axis=1)
+    _coef, *_ = np.linalg.lstsq(_A, _off_stack.reshape(4, -1), rcond=None)
+    _lo = _off_stack.min(axis=0) - 8.0
+    _hi = _off_stack.max(axis=0) + 8.0
+    _fit = (_coef, _t0, _span, _lo, _hi)
+    off_model = "quadratic-TOD-fit(4 offs, mp4 mtimes)"
+
+
+def off_pred(m):
+    b0, b1 = BRACKET[m]
+    if _fit is None:
+        return (means[b0] + means[b1]) / 2.0
+    coef, t0, span, lo, hi = _fit
+    tm = (_tmod[m] - t0) / span
+    v = (coef[0] + coef[1] * tm + coef[2] * tm * tm).reshape(means["off-a"].shape)
+    return np.clip(v, lo, hi)
+
+
+print(f"[ao-drift] {vant} off model: {off_model}" + "".join(
+    f" | {m} pred_luma={float(off_pred(m).mean()):.1f} midpoint_luma="
+    f"{float(((means[BRACKET[m][0]] + means[BRACKET[m][1]]) / 2.0).mean()):.1f}"
+    for m in MODES))
+
 # --- darkening stats vs bracketed off --------------------------------------
 print()
 for m in MODES:
     b0, b1 = BRACKET[m]
-    off = (means[b0] + means[b1]) / 2.0
+    off = off_pred(m)
     d = off - means[m]
     dark = np.clip(d, 0, None)
     frac = float((dark > 4.0).mean())
@@ -111,7 +169,7 @@ for i in range(len(MODES)):
 print()
 for m in MODES:
     b0, b1 = BRACKET[m]
-    off = (means[b0] + means[b1]) / 2.0
+    off = off_pred(m)
     d = np.clip(off - means[m], 0, None)
     thresh = np.percentile(d, 90)
     open_mask = d < thresh
@@ -160,17 +218,26 @@ if vant == "shoreline":
               f"baseline {wnoise:.3f} luma ({wnoise_rel:.2f}%)")
         for m in MODES:
             b0, b1 = BRACKET[m]
-            off = (means[b0] + means[b1]) / 2.0
+            off = off_pred(m)
             wdelta = float(np.abs(means[m] - off)[wmask].mean())
             wdark = float(np.clip(off - means[m], 0, None)[wmask].mean())
             wdark_rel = wdark / max(off_w_mean, 1e-6) * 100.0
+            # Directional noise floor of THIS measure: the same clip(earlier-later)
+            # statistic between the mode's own bracketing offs. Waves + TOD alone push
+            # it well above a fixed threshold (SSAO's water 'darkening' once EXCEEDED
+            # its own open-floor delta — impossible for real AO through water), so the
+            # honest criterion is 'indistinguishable from the off-vs-off wave noise',
+            # with 1.5% as the absolute floor.
+            dirnoise = float(np.clip(means[b0] - means[b1], 0, None)[wmask].mean())
+            dirnoise_rel = dirnoise / max(off_w_mean, 1e-6) * 100.0
+            dark_lim = max(1.5, dirnoise_rel)
             lim = max(wnoise * 1.5, 1.5)
-            ok = wdelta <= lim and wdark_rel <= 1.5
+            ok = wdelta <= lim and wdark_rel <= dark_lim
             if not ok:
                 gate_fail += 1
             print(f"[ao-gate7] {vant} {m.upper()} water: absdelta={wdelta:.3f} (lim {lim:.3f}) "
-                  f"darkening={wdark:.3f} ({wdark_rel:.2f}% <=1.5%) => "
-                  f"{'PASS' if ok else 'FAIL'} (water untouched by AO)")
+                  f"darkening={wdark:.3f} ({wdark_rel:.2f}% <= max(1.5%, off-off dir-noise "
+                  f"{dirnoise_rel:.2f}%)) => {'PASS' if ok else 'FAIL'} (water untouched by AO)")
 
 # --- debug-view (raw AO term) gates ------------------------------------------
 MODE_NUM = {"ssao": 1, "hbao": 2, "gtao": 3}

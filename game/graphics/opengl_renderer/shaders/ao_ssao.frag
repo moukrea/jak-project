@@ -92,6 +92,15 @@ void main() {
 
   float occ = 0.0;
   float bias = 0.02 * u_radius + 0.005 * dcam;  // distance-proportional: 24-bit GS depth quantizes coarsely at range
+  // defect #7 (attempt 5): grazing-scaled tangent-plane threshold — at grazing incidence
+  // the reconstructed height noise + terrain micro-relief pass the flat 5cm test and
+  // wash the open floor; a real crate/wall contact occluder sits far above either bar.
+  float grz = 1.0 - abs(dot(N, V));
+  float above_thresh = 0.05 * u_radius * (1.0 + 4.5 * grz * grz);
+  // Near-field micro-relief rejection (see ao_gtao.frag): occluders closer than ~2.5%
+  // of the camera distance are noise/bumps at grazing; capped vs radius so distant
+  // contact shadows survive.
+  float minr = min(0.025 * dcam, 0.35 * u_radius);
   int n = u_samples;
   for (int i = 0; i < n; i++) {
     float a = ign * 6.28318530718 + float(i) * 2.399963;
@@ -116,7 +125,8 @@ void main() {
     // radial-distance compare alone is ill-conditioned there (defect #5's 16% open-area
     // darkening came from range-quantized depth noise passing it).
     float above = dot(Ps - P, N);
-    if (dist_Ps < dist_sp - bias && dPPs < u_radius * 1.5 && above > 0.05 * u_radius) {
+    if (dist_Ps < dist_sp - bias && dPPs < u_radius * 1.5 && dPPs > minr &&
+        above > above_thresh) {
       // bounded occluders only: full weight inside the radius, fading to 0 by 1.5r
       float w = 1.0 - smoothstep(u_radius, u_radius * 1.5, dPPs);
       occ += w;
@@ -125,9 +135,9 @@ void main() {
 
   float ao = clamp(1.0 - u_intensity * occ / float(n), 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
-  // a contact/crease effect. Fade the term to 1.0 between 30 m and 60 m from the camera
+  // a contact/crease effect. Fade the term to 1.0 between 20 m and 45 m from the camera
   // so distant scenery (incl. the sea and the seafloor seen through its transparency) is
   // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
-  ao = mix(ao, 1.0, smoothstep(122880.0, 245760.0, dcam));
+  ao = mix(ao, 1.0, smoothstep(81920.0, 184320.0, dcam));
   color = vec4(vec3(ao), 1.0);
 }

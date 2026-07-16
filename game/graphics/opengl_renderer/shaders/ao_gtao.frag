@@ -100,6 +100,13 @@ void main() {
   float ign = fract(52.9829189 *
                     fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
 
+  // defect #7 residual (attempt 5): near-field micro-relief/quantization rejection.
+  // A centimeter bump at r->0 subtends an arbitrarily large horizon angle (theta =
+  // atan(h/r)), so no fixed angle bias can cover it. Reject march samples closer than
+  // ~2.5% of the camera distance, CAPPED at 35% of the radius so distant creases
+  // (whose whole march projects inside the min-r at range) keep their contact AO.
+  float minr = min(0.03 * dcam, 0.35 * u_radius);
+
   // world-space image of the screen axes at P: unproject uv +/- eps AT THE SAME window
   // depth and subtract. The slice basis must be aligned with the ACTUAL march sides — an
   // assumed cross-product basis has the wrong handedness for vertical slices (the GS
@@ -110,21 +117,45 @@ void main() {
   vec3 du_world = (world_from_depth(tex_coord + vec2(eps.x, 0.0), d) - P) / eps.x;
   vec3 dv_world = (world_from_depth(tex_coord + vec2(0.0, eps.y), d) - P) / eps.y;
 
+  // defect #7 floor flat-wash ROOT CAUSE (attempt 5): uniform slice azimuths around V.
+  // The GTAO slice-sum identity
+  // (sum projLen*(a1+a2)/n == 1 on ANY unoccluded plane) requires the slice planes
+  // uniformly distributed in azimuth around V. Screen-uniform march azimuths mapped
+  // through the anisotropic chord basis (256:128 uv scale + ray obliquity) cluster
+  // toward the horizontal, which UNDER-integrates exactly at grazing (gamma large)
+  // -> the deterministic open-floor wash (v1-nosamples still measured farfloor 0.85).
+  // Fix: orthonormal basis (e1,e2) perpendicular to V, uniform azimuth phi there,
+  // and the screen march direction recovered through the INVERSE 2x2 chord map so
+  // the +uv march side still lands on the +slice_dir horizon side (handedness safe).
+  vec3 e1 = du_world - V * dot(du_world, V);
+  float e1l = length(e1);
+  e1 = (e1l > 1e-6) ? e1 / e1l : vec3(0.0);
+  vec3 e2 = dv_world - V * dot(dv_world, V);
+  e2 -= e1 * dot(e2, e1);
+  float e2l = length(e2);
+  e2 = (e2l > 1e-6) ? e2 / e2l : vec3(0.0);
+  float m00 = dot(du_world, e1), m01 = dot(dv_world, e1);
+  float m10 = dot(du_world, e2), m11 = dot(dv_world, e2);
+  float mdet = m00 * m11 - m01 * m10;
+
   float visibility = 0.0;
   int slices = u_dirs;
   int steps = u_steps;
 
   for (int k = 0; k < slices; k++) {
     float phi = ign * PI + float(k) * PI / float(slices);
-    vec2 dir_uv = vec2(cos(phi), sin(phi));  // screen march dir
-    // in-plane world dir MATCHING the +uv march side by construction.
-    vec3 w = du_world * dir_uv.x + dv_world * dir_uv.y;
-    vec3 w_in = w - V * dot(w, V);
-    float wl = length(w_in);
-    if (wl < 1e-6) {
+    float cphi = cos(phi);
+    float sphi = sin(phi);
+    vec3 slice_dir = e1 * cphi + e2 * sphi;  // uniform azimuth around V
+    // screen march direction whose ray-bundle chord lies in THIS slice plane:
+    // dir_uv = M^-1 * (cphi, sphi), sign-fixed so +uv marches the +slice_dir side.
+    vec2 dir_uv = vec2(m11 * cphi - m01 * sphi, -m10 * cphi + m00 * sphi);
+    dir_uv *= sign(mdet);
+    float dl_uv = length(dir_uv);
+    if (dl_uv < 1e-8 || abs(mdet) < 1e-12) {
       continue;
     }
-    vec3 slice_dir = w_in / wl;
+    dir_uv /= dl_uv;
     vec2 step_uv = dir_uv * (screen_r / float(steps));
 
     // In the slice plane, angle is measured from V. cos(angle)=dot(dir,V).
@@ -139,7 +170,7 @@ void main() {
         if (sdp > 0.000001) {
           vec3 Dp = world_from_depth(uvp, sdp) - P;
           float lp = length(Dp);
-          if (lp > 1e-4) {
+          if (lp > max(1e-4, minr)) {
             float hs = dot(Dp / lp, V);
             hs = mix(hs, -1.0, clamp((lp - u_radius) / (0.5 * u_radius), 0.0, 1.0));
             cH_pos = max(cH_pos, hs);
@@ -153,7 +184,7 @@ void main() {
         if (sdn > 0.000001) {
           vec3 Dn = world_from_depth(uvn, sdn) - P;
           float ln = length(Dn);
-          if (ln > 1e-4) {
+          if (ln > max(1e-4, minr)) {
             float hs = dot(Dn / ln, V);
             hs = mix(hs, -1.0, clamp((ln - u_radius) / (0.5 * u_radius), 0.0, 1.0));
             cH_neg = max(cH_neg, hs);
@@ -202,9 +233,9 @@ void main() {
   // occlusion (1 - visibility) so the default look matches the other estimators.
   float ao = clamp(1.0 - u_intensity * (1.0 - clamp(visibility, 0.0, 1.0)), 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
-  // a contact/crease effect. Fade the term to 1.0 between 30 m and 60 m from the camera
+  // a contact/crease effect. Fade the term to 1.0 between 20 m and 45 m from the camera
   // so distant scenery (incl. the sea and the seafloor seen through its transparency) is
   // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
-  ao = mix(ao, 1.0, smoothstep(122880.0, 245760.0, dcam));
+  ao = mix(ao, 1.0, smoothstep(81920.0, 184320.0, dcam));
   color = vec4(vec3(ao), 1.0);
 }

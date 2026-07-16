@@ -21,10 +21,12 @@ void main() {
   } else if (u_debug != 0) {
     color = vec4(vec3(ao), 1.0);  // raw AO term view
   } else {
-    // bounded ambient-fraction modulation: AO may remove at most u_strength of the
-    // lit color (approximates ambient-only AO in a pipeline with no separate ambient
-    // buffer); sky stays white because the estimators output 1.0 at far depth.
-    float m = 1.0 - u_strength * (1.0 - ao);
-    color = vec4(vec3(m), 1.0);
+    // GOLDEN-RULE composite (owner-sourced 2026-07-16): the C++ side binds
+    // GL_FUNC_REVERSE_SUBTRACT with (GL_ONE_MINUS_DST_COLOR, GL_ONE), i.e.
+    // out = dst - (1-dst) * src. We output the OCCLUSION src = k*(1-ao): direct-lit
+    // (bright) pixels are masked out by the (1-dst) ambient-fraction proxy, shadowed
+    // pixels read the AO fully. Sky stays untouched because the estimators output 1.0
+    // at far depth (src = 0).
+    color = vec4(vec3(u_strength * (1.0 - ao)), 1.0);
   }
 }

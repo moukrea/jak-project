@@ -42,8 +42,22 @@ wait_override(){ local KIND="$1" VAL="$2" MARK="$3" t0=$(date +%s)
   done
   echo "  override-confirm TIMEOUT: $KIND -> $VAL (45s) — segment evidence SUSPECT"; return 1; }
 
+# Wait for a FRESH AOPERF line proving the renderer actually RUNS mode=M quality=Q.
+# (Owner-overlap invalidation root cause: the 01:06-01:15 battery confirmed only the prop
+# FLIP; no AOPERF line inside any A/B window ever confirmed a non-zero mode. AOPERF fires
+# every 5 s wall time on the current build, so 30 s is 6 cadences of margin.)
+wait_aoperf(){ local M="$1" Q="$2" MARK="$3" t0=$(date +%s)
+  while [ $(( $(date +%s)-t0 )) -lt 30 ]; do
+    if tail -n "+$((MARK+1))" "$LOG" 2>/dev/null | grep -aq "AOPERF mode=$M quality=$Q"; then
+      echo "  aoperf-confirm: mode=$M quality=$Q ($(( $(date +%s)-t0 ))s)"; return 0
+    fi
+    sleep 2
+  done
+  echo "  aoperf-confirm TIMEOUT: mode=$M quality=$Q (30s) — segment evidence SUSPECT"; return 1; }
+
 # Force mode+quality and wait for the renderer's confirmation of every value that CHANGED
-# (an unchanged value logs nothing). Tracks PREV_M/PREV_Q globals (init -1 = unknown/cleared).
+# (an unchanged value logs nothing), THEN for an AOPERF line at the forced pair. Tracks
+# PREV_M/PREV_Q globals (init -1 = unknown/cleared).
 PREV_M=-1; PREV_Q=-1
 ao_force_confirmed(){ local M="$1" Q="$2"
   local MARK; MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
@@ -51,6 +65,7 @@ ao_force_confirmed(){ local M="$1" Q="$2"
   [ "$M" != "$PREV_M" ] && wait_override mode "$M" "$MARK"
   [ "$Q" != "$PREV_Q" ] && wait_override quality "$Q" "$MARK"
   PREV_M="$M"; PREV_Q="$Q"
+  wait_aoperf "$M" "$Q" "$MARK"
   sleep 3; }  # FBO/targets settle after a 0<->N flip (one-frame AO skip + rebuild)
 
 VANT="${1:-village1}"
@@ -215,11 +230,37 @@ rec(){ local TAG="$1" SECS="${2:-8}"
 # (attempt-4 debugview frames were the normal render: the 4s sleep lost the race against
 # the old 120-call re-read throttle at 4fps), record, disarm + confirm.
 # $1=prefix (e.g. device-ao-village1) $2=mode
-rec_debugview(){ local PREFIX="$1" MODE="$2" MARK
+rec_debugview(){ local PREFIX="$1" MODE="$2" MARK TRY
   MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
   $ADB shell "setprop debug.opengoal.ao.debug 1" >/dev/null 2>&1
   wait_override debug 1 "$MARK"; sleep 2
-  rec "${PREFIX}-${MODE}-debugview" 5
+  for TRY in 1 2; do
+    rec "${PREFIX}-${MODE}-debugview" 5
+    # Verify the segment really shows the TERM VIEW, not a raced normal render
+    # (training attempt: SSAO debugview read white=1% sky=149 — a normal-render frame).
+    # Discriminator: the term view's sky is grey/white (saturation ~0); the normal
+    # render's sky is saturated blue.
+    local SKY_SAT
+    SKY_SAT=$(python3 - "$DEV/${PREFIX}-${MODE}-debugview_frames" <<'PYEOF'
+import glob, sys
+import numpy as np
+from PIL import Image
+fs = sorted(glob.glob(sys.argv[1] + "/f_*.png"))
+if not fs:
+    print("999"); raise SystemExit
+a = np.asarray(Image.open(fs[len(fs)//2]).convert("RGB"), dtype=float)
+sky = a[: a.shape[0] // 5, :, :]
+sat = (sky.max(axis=2) - sky.min(axis=2)).mean()
+print(f"{sat:.1f}")
+PYEOF
+)
+    echo "  debugview sky-saturation ${PREFIX}-${MODE}: ${SKY_SAT} (term view expects <20)"
+    case "$SKY_SAT" in
+      99*|"") echo "  DEBUGVIEW INVALID (no frames) — retry $TRY";;
+      *) if python3 -c "import sys;sys.exit(0 if float('$SKY_SAT')<20.0 else 1)"; then break
+         else echo "  DEBUGVIEW SUSPECT (saturated sky = normal render raced in) — retry $TRY"; sleep 3; fi;;
+    esac
+  done
   MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
   $ADB shell "setprop debug.opengoal.ao.debug 0" >/dev/null 2>&1
   wait_override debug 0 "$MARK"; }
@@ -276,7 +317,34 @@ $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
 for combo in "0 1 off-a" "1 2 ssao" "0 1 off-b" "2 2 hbao" "0 1 off-c" "3 2 gtao" "0 1 off-d"; do
   set -- $combo; M=$1; Q=$2; TAG=$3
   ao_force_confirmed "$M" "$Q"
-  rec "device-ao-${VANT}-${TAG}" 6
+  RECMARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+  rec "device-ao-${VANT}-${TAG}" 10
+  # AOPERF bracket (supervisor invalidation fix): every AOPERF line logged DURING the
+  # recording window must match the forced pair, and there must be at least one (10 s
+  # window vs 5 s cadence). Saved next to the frames like the focus bracket; a mismatch
+  # (owner touching settings mid-run) deletes the segment — honest absence over fiction.
+  FRDIR="$DEV/device-ao-${VANT}-${TAG}_frames"
+  # The bracket must WAIT for its evidence: AOPERF is 5 s wall-time, but logcat delivery
+  # lags and heavy AO frames (GTAO ~10 fps) stall the frame loop, so an instant sample
+  # can see ZERO lines for a healthy segment (beach/gtao run-2 flake). The forced pair is
+  # already aoperf-confirmed BEFORE rec; here we poll up to 45 s for at least one fresh
+  # line since RECMARK — any NON-matching line in the same span is still contamination.
+  # NB: grep -c prints "0" AND exits 1 on zero matches — `|| echo 0` would emit a second
+  # line ("0\n0") and break the integer tests (feedback_validator_pipefail_grep_q).
+  GOODC=0; BADC=0; BR0=$(date +%s)
+  while [ $(( $(date +%s)-BR0 )) -lt 45 ]; do
+    tail -n "+$((RECMARK+1))" "$LOG" | grep -a "AOPERF" | tr -d '\r' > "$FRDIR/aoperf-bracket.txt" || true
+    GOODC=$(grep -ac "AOPERF mode=$M quality=$Q" "$FRDIR/aoperf-bracket.txt" 2>/dev/null); GOODC=${GOODC:-0}
+    BADC=$(grep -a "AOPERF" "$FRDIR/aoperf-bracket.txt" 2>/dev/null | grep -acv "mode=$M quality=$Q"); BADC=${BADC:-0}
+    { [ "$GOODC" -ge 1 ] || [ "$BADC" -ge 1 ]; } && break
+    sleep 5
+  done
+  if [ "${GOODC:-0}" -ge 1 ] && [ "${BADC:-0}" -eq 0 ]; then
+    echo "  aoperf-bracket OK ${TAG}: $GOODC matching line(s)"
+  else
+    echo "  AOPERF-BRACKET FAIL ${TAG}: good=$GOODC bad=$BADC — SEGMENT INVALID, deleting frames"
+    rm -f "$FRDIR"/f_*.png
+  fi
 done
 # debug-view (raw AO term) segments per mode, AFTER the A/B sequence (not luminance evidence)
 for M in 1 2 3; do

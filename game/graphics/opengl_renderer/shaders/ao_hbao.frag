@@ -99,6 +99,32 @@ void main() {
   vec3 du_world = (world_from_depth(tex_coord + vec2(eps.x, 0.0), d) - P) / eps.x;
   vec3 dv_world = (world_from_depth(tex_coord + vec2(0.0, eps.y), d) - P) / eps.y;
 
+  // defect #7 floor flat-wash (attempt 5): HBAO's single-max-horizon estimator reads
+  // grazing terrain micro-relief + D24 quantization lift at FULL weight (no cosine arc
+  // weighting like GTAO), so a fixed 7-deg bias leaves a broad wash on open ground
+  // (x86 floor term 0.756). Scale the angle bias with grazing incidence: face-on
+  // surfaces keep the tight 0.12 rad contact response, grazing floors get up to
+  // ~0.37 rad of horizon tolerance, which flattens micro-relief but leaves real
+  // walls/props (horizons 45deg+) intact.
+  float grz = 1.0 - abs(dot(N, V));
+  // attempt 6: 0.35 -> 0.50 grazing coefficient. The 0.35 tune left HBAO the only mode
+  // over the defect-5 device cap on big grazing floors (training open 5.49% vs SSAO 1.16
+  // / GTAO 1.80; x86 farfloor 0.783). Up to ~0.62 rad horizon tolerance at full grazing
+  // still leaves real walls/props (45 deg+ horizons) occluding.
+  float abias = 0.12 + 0.50 * grz * grz;
+  // Near-field micro-relief rejection (see ao_gtao.frag): HBAO's single-max horizon has
+  // no cosine suppression, so a centimeter bump near P reads as a 20-30 deg horizon at
+  // grazing regardless of the angle bias (x86 floor term stuck at 0.756). Capped so
+  // distant creases keep contact AO.
+  // attempt 6: cap 0.42 -> 0.60 of radius. Beyond ~8 m the cap pegs min-r, so mid-range
+  // grazing micro-relief inside 0.3-0.7 m of P still washed the floor (device training
+  // open 5.49%); a fade tighten instead killed cliffbase contact (0.999) — the wash and
+  // the contact live at the same DISTANCE, they differ in sample RANGE. Uncapped min-r
+  // killed cliffbase too (v5 sweep, 0.996), 0.60 is between.
+  float minr = min(0.035 * dcam, 0.60 * u_radius);
+  float abias_s = sin(abias);
+  float abias_c = cos(abias);
+
   float occ = 0.0;
   int dirs = u_dirs;
   int steps = u_steps;
@@ -113,13 +139,10 @@ void main() {
     vec3 Tsurf = wdir - N * dot(wdir, N);
     float tl = length(Tsurf);
     float sinT = (tl > 1e-6) ? dot(Tsurf / tl, V) : 0.0;
-    // defect #7 grazing-floor whiteness: the old flat "+0.08" sine bias shrinks to
-    // nothing exactly where grazing depth noise peaks (sinT -> 1 on grazing ground —
-    // shoreline term read only 45% white). Bias in the ANGLE domain instead: a uniform
-    // ~7deg horizon tolerance at every surface slope. sin(a+B) = sinA cosB + cosA sinB.
-    const float ABIAS_SIN = 0.11971;  // sin(0.12)
-    const float ABIAS_COS = 0.99281;  // cos(0.12)
-    sinT = clamp(sinT * ABIAS_COS + sqrt(max(0.0, 1.0 - sinT * sinT)) * ABIAS_SIN, -1.0, 1.0);
+    // defect #7 grazing-floor whiteness: bias in the ANGLE domain (a flat sine bias
+    // shrinks to nothing exactly where grazing depth noise peaks, sinT -> 1 on grazing
+    // ground). sin(a+B) = sinA cosB + cosA sinB, with B grazing-adaptive (see above).
+    sinT = clamp(sinT * abias_c + sqrt(max(0.0, 1.0 - sinT * sinT)) * abias_s, -1.0, 1.0);
 
     float sinH = sinT;
     float W_at_H = 0.0;
@@ -136,7 +159,7 @@ void main() {
       vec3 S = world_from_depth(suv, sd);
       vec3 D = S - P;
       float len = length(D);
-      if (len > u_radius || len < 1e-4) {
+      if (len > u_radius || len < max(1e-4, minr)) {
         continue;
       }
       float sinS = dot(D / len, V);
@@ -154,9 +177,11 @@ void main() {
   occ /= float(dirs);
   float ao = clamp(1.0 - u_intensity * occ, 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
-  // a contact/crease effect. Fade the term to 1.0 between 30 m and 60 m from the camera
+  // a contact/crease effect. Fade the term to 1.0 between 15 m and 35 m from the camera
+  // (tighter than SSAO/GTAO: HBAO's max-horizon estimator reads range micro-relief the
+  // hardest — x86 farfloor 0.78 — and its tier character is tight near contact anyway)
   // so distant scenery (incl. the sea and the seafloor seen through its transparency) is
   // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
-  ao = mix(ao, 1.0, smoothstep(122880.0, 245760.0, dcam));
+  ao = mix(ao, 1.0, smoothstep(61440.0, 143360.0, dcam));
   color = vec4(vec3(ao), 1.0);
 }
