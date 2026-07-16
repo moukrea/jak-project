@@ -285,3 +285,26 @@ ONE persisted boot on the historical worst case (GTAO + High + Stronger), 90s al
 + AOPERF seed check. That's it. The full 15-combo matrix already ran and passed once on the near-final
 build — that stands as the one-time certification; do NOT re-run it. If the current matrix run is still
 in progress, ABORT the remaining combos now and proceed to the report.
+
+## OWNER FINAL PLAYTEST — ROUND F (2026-07-16 16:50, verbatim)
+"Le SSAO est vraiment top ! Ça donne vraiment de la profondeur, les détails pop... Seule critique, en
+résolutions inférieures (qualité AO autre que Élevée) on a des bandes ombrées HORIZONTALES constamment à
+l'écran — je pense une mauvaise gestion du flou lors de la superposition, étant rendu à une résolution
+inférieure. Par contre HBAO et GTAO, oui ça accentue aux zones de contact... mais qu'est-ce que c'est
+PLAT ! Aucune profondeur supplémentaire. SSAO est le meilleur rendu alors que c'est même pas le plus
+coûteux. Donc le SSAO on n'y touche plus (sauf les bandes en résolutions inférieures), et HBAO et GTAO
+doivent prendre inspiration de SSAO, le meilleur élève !"
+=> TWO work items, nothing else:
+1. SSAO LOW/MEDIUM HORIZONTAL BANDING: constant horizontal shaded bands when AO quality != High —
+   upsample/blur bug (suspects: the separable blur V-pass full-res upsample Y-coordinate/texel-offset
+   mismatch against the half/quarter-res H-pass output; or row-aligned sample pattern aliasing at
+   reduced res). Fix so Low/Medium are band-free; SSAO's High look is FROZEN (no estimator/tuning
+   changes — regression = fail).
+2. HBAO/GTAO DEPTH REWORK, SSAO as the model: their contact darkening is fine but they are FLAT — no
+   broad ambient depth. What makes SSAO read deep is its wide soft hemisphere term shading curved/
+   sloped surfaces gradually. Give HBAO and GTAO an SSAO-like broad/soft component (wider radius and/or
+   a second broad-radius term blended with their sharp contact term) so each adds DEPTH like SSAO while
+   keeping its own character. Target: at Default strength, HBAO/GTAO read at least as deep as SSAO in
+   the same vantage A/B. All prior gates hold (open-area caps, water, grazing gate, spot-check 90s).
+Proofs: SSAO low/med band-free close-ups (before/after), same-vantage depth A/B SSAO-vs-HBAO-vs-GTAO,
+spot-check title. Report updates the closing section.
