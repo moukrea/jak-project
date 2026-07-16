@@ -176,6 +176,22 @@ void main() {
   }
 
   occ /= float(dirs);
+  // closing round, defect-5 cap at Stronger: GRAZING-MODULATED OCCLUSION GATE. HBAO's
+  // single-max horizon accumulates a broad low-level occ (~0.05-0.12, x86 training term:
+  // floor 0.865 / farfloor 0.791 vs SSAO 0.894) on open terrain — decimeter relief at
+  // grazing incidence that the angle-bias/min-r guards cannot kill without muting creases
+  // (0.50/0.60 sweep). A FLAT occ gate cannot either: the wash occ (0.075-0.12) overlaps
+  // the shallow-crease occ (0.15-0.3), and both flat variants (floor subtraction and flat
+  // smoothstep) cut the x86 top-decile crease 23.7% -> ~14%. The discriminator is the
+  // owner's own precision (2026-07-16 00:20): the wash is view-GRAZING flat floor; contact
+  // AO is either high-occ (objects on the floor) or non-grazing (walls/creases). So the
+  // gate threshold scales with grz^2: grazing floors gate at ~0.2-0.28 (wash dead, crate
+  // contact occ 0.4+ passes), walls/creases gate near 0 (full response). Strength (the AO
+  // STRENGTH row) multiplies u_intensity AFTER this, so open ground stays ~white even at
+  // Stronger and at dusk, where the (1-dst) ambient-fraction composite no longer masks the
+  // wash — the owner's "aplats de shading" (defect-5 open cap, per strength-grid segment).
+  float gate_lo = 0.02 + 0.26 * grz * grz;
+  occ *= smoothstep(gate_lo, gate_lo + 0.12, occ);
   float ao = clamp(1.0 - u_intensity * occ, 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
   // a contact/crease effect. Closing round: fade the term to 1.0 between 20 m and 45 m from

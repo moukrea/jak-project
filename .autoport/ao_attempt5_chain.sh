@@ -6,7 +6,7 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 OUT=.autoport/reports/Grecharged-ambient-occlusion
-BDLOG="$OUT/build-deploy-attempt16.log"
+BDLOG="$OUT/build-deploy-attempt17.log"
 mark(){ echo "[chain $(date +%H:%M:%S)] $*"; }
 
 mark "stage 1: wait for deploy resume to finish"

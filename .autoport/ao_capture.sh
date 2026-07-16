@@ -309,46 +309,55 @@ if [ "$VANT" = fpsmatrix ]; then
 fi
 
 if [ "$VANT" = strengthgrid ]; then
-  # 3 modes x 3 strengths @ training (quality High=2 throughout), interleaved with off
-  # brackets like the vantage A/B so TOD-drift cancels. NO debugview loop (strength changes
-  # the composite weight, not the raw AO term; the analyzer compares each trio to its offs).
-  say "STRENGTH GRID @ $CONT $POS — 3 modes x 3 strengths (weaker/default/stronger), off brackets"
-  LOG="$DEV/ao-strengthgrid.log"
-  ao_clear
+  # 3 modes x 3 strengths @ training (quality High=2 throughout). closing round v2:
+  # PER-TRIO BOOTS (TOD measurement control). The single-boot 13-segment run drifted
+  # ~40 min into the in-game sunset (off-bracket luma 98.7 -> 52.8); the golden-rule
+  # composite's (1-dst) ambient weight grows as the scene dims, so the late trios (gtao)
+  # were measured in an amplified regime the daylight caps were never calibrated for.
+  # Each trio now boots FRESH — the warp lands at the same deterministic early-boot TOD —
+  # and brackets itself with its own off-pre/off-post from the SAME boot (an off model
+  # must never span a boot boundary: game TOD resets there). NO debugview loop (strength
+  # changes the composite weight, not the raw AO term).
+  say "STRENGTH GRID @ $CONT $POS — 3 modes x 3 strengths (weaker/default/stronger), PER-TRIO BOOTS + off brackets"
+  rm -f "$DEV"/device-ao-strengthgrid-*.mp4
+  rm -rf "$DEV"/device-ao-strengthgrid-*_frames
   seed_capture_protocol
-  boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] strengthgrid boot"; exit 1; }
+  for TRIO in "1 ssao" "2 hbao" "3 gtao"; do
+    set -- $TRIO; TM=$1; MNAME=$2
+    LOG="$DEV/ao-strengthgrid-$MNAME.log"
+    ao_clear
+    boot_warp_retry "$LOG" || { echo "[ao-capture FAIL] strengthgrid boot ($MNAME)"; exit 1; }
 
-  # Walk-settle: park the follow cam BEHIND Jak deterministically (see vantage branch).
-  $ADB shell setprop debug.opengoal.cpad_inject up >/dev/null 2>&1; sleep 1.5
-  $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
+    # Walk-settle: park the follow cam BEHIND Jak deterministically (see vantage branch).
+    $ADB shell setprop debug.opengoal.cpad_inject up >/dev/null 2>&1; sleep 1.5
+    $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1; sleep 12
 
-  for combo in "0 2 1 off-a" "1 2 0 ssao-weak" "1 2 1 ssao-def" "1 2 2 ssao-strong" \
-               "0 2 1 off-b" "2 2 0 hbao-weak" "2 2 1 hbao-def" "2 2 2 hbao-strong" \
-               "0 2 1 off-c" "3 2 0 gtao-weak" "3 2 1 gtao-def" "3 2 2 gtao-strong" \
-               "0 2 1 off-d"; do
-    set -- $combo; M=$1; Q=$2; S=$3; TAG=$4
-    ao_force_confirmed "$M" "$Q" "$S"
-    RECMARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
-    rec "device-ao-strengthgrid-${TAG}" 10
-    FRDIR="$DEV/device-ao-strengthgrid-${TAG}_frames"
-    GOODC=0; BADC=0; BR0=$(date +%s)
-    while [ $(( $(date +%s)-BR0 )) -lt 45 ]; do
-      tail -n "+$((RECMARK+1))" "$LOG" | grep -a "AOPERF" | tr -d '\r' > "$FRDIR/aoperf-bracket.txt" || true
-      GOODC=$(grep -ac "AOPERF mode=$M quality=$Q strength=$S" "$FRDIR/aoperf-bracket.txt" 2>/dev/null); GOODC=${GOODC:-0}
-      BADC=$(grep -a "AOPERF" "$FRDIR/aoperf-bracket.txt" 2>/dev/null | grep -acv "mode=$M quality=$Q strength=$S"); BADC=${BADC:-0}
-      { [ "$GOODC" -ge 1 ] || [ "$BADC" -ge 1 ]; } && break
-      sleep 5
+    for combo in "0 2 1 ${MNAME}-off-pre" "$TM 2 0 ${MNAME}-weak" "$TM 2 1 ${MNAME}-def" \
+                 "$TM 2 2 ${MNAME}-strong" "0 2 1 ${MNAME}-off-post"; do
+      set -- $combo; M=$1; Q=$2; S=$3; TAG=$4
+      ao_force_confirmed "$M" "$Q" "$S"
+      RECMARK=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+      rec "device-ao-strengthgrid-${TAG}" 10
+      FRDIR="$DEV/device-ao-strengthgrid-${TAG}_frames"
+      GOODC=0; BADC=0; BR0=$(date +%s)
+      while [ $(( $(date +%s)-BR0 )) -lt 45 ]; do
+        tail -n "+$((RECMARK+1))" "$LOG" | grep -a "AOPERF" | tr -d '\r' > "$FRDIR/aoperf-bracket.txt" || true
+        GOODC=$(grep -ac "AOPERF mode=$M quality=$Q strength=$S" "$FRDIR/aoperf-bracket.txt" 2>/dev/null); GOODC=${GOODC:-0}
+        BADC=$(grep -a "AOPERF" "$FRDIR/aoperf-bracket.txt" 2>/dev/null | grep -acv "mode=$M quality=$Q strength=$S"); BADC=${BADC:-0}
+        { [ "$GOODC" -ge 1 ] || [ "$BADC" -ge 1 ]; } && break
+        sleep 5
+      done
+      if [ "${GOODC:-0}" -ge 1 ] && [ "${BADC:-0}" -eq 0 ]; then
+        echo "  aoperf-bracket OK ${TAG}: $GOODC matching line(s)"
+      else
+        echo "  AOPERF-BRACKET FAIL ${TAG}: good=$GOODC bad=$BADC — SEGMENT INVALID, deleting frames"
+        rm -f "$FRDIR"/f_*.png
+      fi
     done
-    if [ "${GOODC:-0}" -ge 1 ] && [ "${BADC:-0}" -eq 0 ]; then
-      echo "  aoperf-bracket OK ${TAG}: $GOODC matching line(s)"
-    else
-      echo "  AOPERF-BRACKET FAIL ${TAG}: good=$GOODC bad=$BADC — SEGMENT INVALID, deleting frames"
-      rm -f "$FRDIR"/f_*.png
-    fi
+    $ADB shell am force-stop $PKG >/dev/null 2>&1
+    kill "$(cat /tmp/ao_lc.pid 2>/dev/null)" 2>/dev/null || true
   done
   ao_clear
-  $ADB shell am force-stop $PKG >/dev/null 2>&1
-  kill "$(cat /tmp/ao_lc.pid 2>/dev/null)" 2>/dev/null || true
   say "DONE strengthgrid — frames under $DEV/device-ao-strengthgrid-*_frames/"
   exit 0
 fi

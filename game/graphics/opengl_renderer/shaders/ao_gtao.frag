@@ -231,7 +231,22 @@ void main() {
   visibility /= float(slices);
   // visibility is in [0,1] for a flat facing plane -> ~1.0. Fold intensity into the
   // occlusion (1 - visibility) so the default look matches the other estimators.
-  float ao = clamp(1.0 - u_intensity * (1.0 - clamp(visibility, 0.0, 1.0)), 0.0, 1.0);
+  float occ = 1.0 - clamp(visibility, 0.0, 1.0);
+  // closing round, defect-5 cap at Stronger + GTAO consistency: GRAZING-MODULATED
+  // OCCLUSION GATE (see ao_hbao.frag for the full rationale — a flat gate cannot separate
+  // the wash from shallow creases; the discriminator is grazing incidence, the owner's own
+  // precision). GTAO's horizon integral reads the bumpy open terrain at grazing as a broad
+  // ~0.20-0.30 occ (x86 training term floor 0.902 at int 0.65; still 0.961 after a flat
+  // 0.22-0.42 gate). In daylight the (1-dst) ambient-fraction composite masks it (device
+  // open 2.4%); at dusk/in shadow the mask approaches 1 and it blooms into a whole-floor
+  // wash (device dusk grid: open 6.7-8.2% at every strength) — the owner's "sols au
+  // global" / "fort a certains endroits, inexistant a d'autres" variance. Grazing floors
+  // gate at ~0.3-0.43 (wash dead, on-floor object contact occ 0.5+ passes); walls and
+  // creases gate near 0 (calibrated look unchanged) — at every strength and time of day.
+  float grzg = 1.0 - abs(dot(N, V));
+  float gate_lo = 0.05 + 0.38 * grzg * grzg;
+  occ *= smoothstep(gate_lo, gate_lo + 0.14, occ);
+  float ao = clamp(1.0 - u_intensity * occ, 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
   // a contact/crease effect. Closing round (GTAO consistency): fade the term to 1.0 between
   // 30 m and 70 m from the camera — push the fade boundary out of the visible mid-field so

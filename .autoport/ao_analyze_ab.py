@@ -60,19 +60,22 @@ def ncc(a, b):
 
 
 # --- strengthgrid vantage (AO STRENGTH proof): 3 modes x 3 strengths @ training ----------
-# Segments: off-a ssao-{weak,def,strong} off-b hbao-{...} off-c gtao-{...} off-d. Each
-# strength trio is judged against its BRACKETING offs (ssao: off-a/off-b, hbao: off-b/off-c,
-# gtao: off-c/off-d) — the same adjacency the main vantage uses — with the same NCC pose
-# gate, quadratic-TOD drift model and open/crease region logic. Per segment: caps
-# (open<=5%, global<=8%); per mode: strictly-increasing crease ordering weaker<def<strong.
+# closing round v2 (TOD measurement control): each trio boots FRESH (ao_capture.sh) so it
+# lands at the same deterministic early-boot TOD, and brackets itself with its own
+# off-pre/off-post from the SAME boot: {m}-off-pre {m}-weak {m}-def {m}-strong {m}-off-post.
+# The off model is a linear mtime interpolation WITHIN the trio only — never across a boot
+# boundary, where the game TOD resets (the old single-boot 13-segment run drifted into the
+# in-game sunset, off luma 98.7 -> 52.8, and measured the late trios in the amplified
+# dusk regime the daylight caps were never calibrated for). Same NCC pose gate and
+# open/crease region logic. Per segment: caps (open<=5%, global<=8%); per mode:
+# strictly-increasing crease ordering weaker<def<strong.
 if vant == "strengthgrid":
     GRID_MODES = ["ssao", "hbao", "gtao"]
     STRENGTHS = ["weak", "def", "strong"]
     STR_LABEL = {"weak": "weaker", "def": "default", "strong": "stronger"}
-    GRID_OFFS = ["off-a", "off-b", "off-c", "off-d"]
-    # bracketing offs per mode (mirrors the main-vantage BRACKET adjacency)
-    GRID_BRACKET = {"ssao": ("off-a", "off-b"), "hbao": ("off-b", "off-c"),
-                    "gtao": ("off-c", "off-d")}
+    GRID_OFFS = [f"{m}-off-{p}" for m in GRID_MODES for p in ("pre", "post")]
+    # bracketing offs per mode: the trio's OWN same-boot off-pre/off-post
+    GRID_BRACKET = {m: (f"{m}-off-pre", f"{m}-off-post") for m in GRID_MODES}
 
     def seg_time_g(tag):
         p = os.path.join(dev_dir, f"device-ao-{vant}-{tag}.mp4")
@@ -91,56 +94,42 @@ if vant == "strengthgrid":
         gmeans[tag] = img
         print(f"[ao-grid] {vant}/{tag}: {n} frames averaged, mean_luma={img.mean():.2f}")
 
-    # POSE gate: full ordered sequence, adjacent NCC (same as the vantage pose gate).
+    # POSE gate: adjacent NCC WITHIN each trio (fresh boots re-warp deterministically, but
+    # cross-boot NCC would gate on warp repeatability, not mid-run camera drift).
     print()
-    grid_seq = ["off-a", "ssao-weak", "ssao-def", "ssao-strong", "off-b",
-                "hbao-weak", "hbao-def", "hbao-strong", "off-c",
-                "gtao-weak", "gtao-def", "gtao-strong", "off-d"]
     gpose_ok = True
-    for t0, t1 in zip(grid_seq, grid_seq[1:]):
-        c = ncc(gmeans[t0], gmeans[t1])
-        ok = c >= 0.75
-        if not ok:
-            gpose_ok = False
-        print(f"[ao-pose] {vant} {t0} vs {t1}: ncc={c:.3f} => {'OK' if ok else 'POSE MISMATCH'}")
+    for m in GRID_MODES:
+        trio_seq = [f"{m}-off-pre", f"{m}-weak", f"{m}-def", f"{m}-strong", f"{m}-off-post"]
+        for t0, t1 in zip(trio_seq, trio_seq[1:]):
+            c = ncc(gmeans[t0], gmeans[t1])
+            ok = c >= 0.75
+            if not ok:
+                gpose_ok = False
+            print(f"[ao-pose] {vant} {t0} vs {t1}: ncc={c:.3f} => {'OK' if ok else 'POSE MISMATCH'}")
     if not gpose_ok:
         gate_fail += 1
         print(f"[ao-pose] {vant} POSE GATE FAIL — camera moved; strength verdicts VOID")
 
-    gdrift = float(np.abs(gmeans["off-a"] - gmeans["off-d"]).mean())
-    gdrift_rel = gdrift / max(float(gmeans["off-a"].mean()), 1e-6) * 100.0
-    print(f"[ao-drift] {vant} off-a vs off-d: mean_absdiff={gdrift:.3f} ({gdrift_rel:.2f}% of off-a mean)")
-
-    # Per-pixel quadratic TOD fit through the 4 offs, evaluated at each segment's mp4 mtime;
-    # bracket-mean fallback when any mtime is missing.
-    _gtoff = [seg_time_g(t) for t in GRID_OFFS]
-    _goff_stack = np.stack([gmeans[t] for t in GRID_OFFS], axis=0)
-    _gfit = None
-    if all(t is not None for t in _gtoff):
-        _gt0 = _gtoff[0]
-        _gts = np.array([t - _gt0 for t in _gtoff], dtype=np.float64)
-        _gspan = _gts[-1] if _gts[-1] > 0 else 1.0
-        _gts /= _gspan
-        _gA = np.stack([np.ones_like(_gts), _gts, _gts * _gts], axis=1)
-        _gcoef, *_ = np.linalg.lstsq(_gA, _goff_stack.reshape(4, -1), rcond=None)
-        _glo = _goff_stack.min(axis=0) - 8.0
-        _ghi = _goff_stack.max(axis=0) + 8.0
-        _gfit = (_gcoef, _gt0, _gspan, _glo, _ghi)
-        print(f"[ao-drift] {vant} off model: quadratic-TOD-fit(4 offs, mp4 mtimes)")
-    else:
-        print(f"[ao-drift] {vant} off model: bracket-midpoint (mp4 mtimes missing)")
+    # honesty metrics: per-trio off-pre vs off-post residual drift, and the cross-boot TOD
+    # repeatability (each trio's off-pre mean luma should be comparable — a dim late trio
+    # means a boot did NOT reset to the expected early-boot TOD).
+    for m in GRID_MODES:
+        gd = float(np.abs(gmeans[f"{m}-off-pre"] - gmeans[f"{m}-off-post"]).mean())
+        gd_rel = gd / max(float(gmeans[f"{m}-off-pre"].mean()), 1e-6) * 100.0
+        print(f"[ao-drift] {vant} {m} off-pre vs off-post: mean_absdiff={gd:.3f} ({gd_rel:.2f}% of off-pre mean)")
+    _pres = {m: float(gmeans[f"{m}-off-pre"].mean()) for m in GRID_MODES}
+    print(f"[ao-drift] {vant} boot-TOD repeatability (off-pre mean luma): " +
+          " ".join(f"{m}={_pres[m]:.1f}" for m in GRID_MODES))
 
     def goff_pred(mode, seg_tag):
+        # linear mtime interpolation between the trio's SAME-BOOT off brackets;
+        # bracket-mean fallback when any mtime is missing.
         b0, b1 = GRID_BRACKET[mode]
-        if _gfit is None:
+        t0, t1, tt = seg_time_g(b0), seg_time_g(b1), seg_time_g(seg_tag)
+        if t0 is None or t1 is None or tt is None or t1 <= t0:
             return (gmeans[b0] + gmeans[b1]) / 2.0
-        coef, t0, span, lo, hi = _gfit
-        tt = seg_time_g(seg_tag)
-        if tt is None:
-            return (gmeans[b0] + gmeans[b1]) / 2.0
-        tm = (tt - t0) / span
-        v = (coef[0] + coef[1] * tm + coef[2] * tm * tm).reshape(gmeans["off-a"].shape)
-        return np.clip(v, lo, hi)
+        w = min(max((tt - t0) / (t1 - t0), 0.0), 1.0)
+        return gmeans[b0] * (1.0 - w) + gmeans[b1] * w
 
     print()
     grid_fail = 0

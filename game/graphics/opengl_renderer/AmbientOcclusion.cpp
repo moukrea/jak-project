@@ -531,7 +531,12 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
       break;
     case 2:  // HBAO
       u_radius = 2867.0f;
-      u_intensity = 1.8f;  // closing round: +0.2 recovers crease punch lost to the wash guards
+      // closing round v2: the open-terrain wash is killed by the grazing-modulated occ
+      // GATE in ao_hbao.frag (runs BEFORE intensity, so this scales creases only). 2.0
+      // lands the x86 top-decile crease at ~20% vs SSAO's 21.9% reference (gated 1.8 read
+      // 18.0 — "tres muted" is the owner's repeated HBAO complaint, err hotter); open
+      // stays <=2% even at Stronger because the gate already zeroed the wash occ.
+      u_intensity = 2.0f;
       u_ao_strength = 0.60f;
       break;
     case 3:  // GTAO
@@ -539,6 +544,9 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
       // closing round (owner: balance the three, SSAO = reference): 1.25 read ~2.3x SSAO's
       // p95 crease darkening on the cr7 x86 A/B (15.3% vs 6.7%); 0.65 lands GTAO near the
       // reference while its cosine-horizon character stays the sharpest of the three.
+      // v2: the open-terrain wash (dusk "sols au global") is killed by the occ smoothstep
+      // GATE in ao_gtao.frag, which passes crease occ unchanged — the 0.65 calibration
+      // stands — no compensation.
       u_intensity = 0.65f;
       u_ao_strength = 0.70f;
       break;
