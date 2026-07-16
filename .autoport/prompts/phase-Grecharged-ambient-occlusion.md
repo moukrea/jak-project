@@ -308,3 +308,17 @@ doivent prendre inspiration de SSAO, le meilleur élève !"
    the same vantage A/B. All prior gates hold (open-area caps, water, grazing gate, spot-check 90s).
 Proofs: SSAO low/med band-free close-ups (before/after), same-vantage depth A/B SSAO-vs-HBAO-vs-GTAO,
 spot-check title. Report updates the closing section.
+
+## OWNER FINAL TWEAK — ROUND G, LAST ONE (2026-07-16 22:20, verbatim)
+"C'est vraiment pas mal, mais pour GTAO, la force AO par défaut devrait être exactement celle que c'est
+quand on la passe en Weaker (et donc réduire les valeurs de Weaker et Stronger en conséquence, comme si
+on descendait d'un cran dans l'intensité) car le mode par défaut est beaucoup trop intense pour être une
+valeur par défaut (mais collerait donc très bien au mode 'Stronger'). Exactement pareil pour HBAO. Mais
+on est vraiment pas mal sinon ! Beau travail !"
+=> ONE tiny change, HBAO and GTAO ONLY (SSAO strictly untouched): shift each mode's strength ladder DOWN
+one notch — new Default == current Weaker look EXACTLY; new Stronger == current Default look EXACTLY;
+new Weaker == one proportional notch below new Default (same ratio as the ladder step). Implement as a
+per-mode multiplier-table change (e.g. HBAO/GTAO triples 0.6/1.0/1.5 -> 0.36/0.6/1.0), NOT an estimator
+change. Proof: quick same-vantage A/B (new Default vs old Weaker byte-similar; new Stronger vs old
+Default byte-similar), caps re-check at new Stronger (trivially holds — it's the old Default), 90s
+spot-check, report note. Then the phase is DONE pending the owner's confirmation.
