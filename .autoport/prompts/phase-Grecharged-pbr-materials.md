@@ -147,3 +147,20 @@ occlusion mapping), SUBSURFACE SCATTERING ("scattering color"), ORM packing (cur
 REALTIME PROOF owed: a single continuous clip (or TOD sweep) where the specular highlight MOVES with the
 sun — the un-fakeable "realtime" tell the owner asked for.
 The bar is now: make it look UNMISTAKABLY like PBR (relief that catches moving light), not a pasted photo.
+
+## REPORTING DISCIPLINE (MANDATORY — 3 attempts died on "no report" = session exhausted before writing it)
+The last 3 attempts produced real code (tangents, pbr_ndiff.py, device runbook) but NEVER wrote
+.autoport/reports/Grecharged-pbr-materials/report.txt before the session ended -> validator "[Gpbr FAIL]
+no report" -> orchestrator STUCK-halted 3x on the same fingerprint. Break the cycle:
+1. BUDGET THE SESSION. This is a big feature — do NOT spend the whole session building. Reserve the LAST
+   third of your turns to: rebuild -> deploy_verify -> device capture -> WRITE THE REPORT. A perfect build
+   with no report is a guaranteed FAIL and wastes the whole attempt.
+2. WRITE report.txt EARLY AND KEEP UPDATING IT. Create it as soon as you have ANY device evidence; rewrite
+   it as you progress. It must exist at session end no matter what.
+3. Only write `RESULT: PASS` when `bash validators/phase-Grecharged-pbr-materials.sh` truly exits 0. If you
+   are not there yet, write `RESULT: WIP — <precise state + exact next step>` so the fingerprint reflects
+   REAL progress (not the null "no report"), the orchestrator sees movement, and the next attempt resumes
+   from your documented state instead of restarting. An honest WIP report with device captures beats silence.
+4. Prefer ONE tractable, verifiable win per attempt (e.g. "robust tangents + normal A/B proves relief")
+   over trying to land every channel at once and reporting nothing. Land it, capture it, report it, then
+   build on it next attempt.
