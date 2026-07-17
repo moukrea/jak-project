@@ -1,0 +1,69 @@
+# Grecharged-hd-models2 — ROUND 2 report (attempt 4; resumes the attempt-2/3 pipeline that supervisor re-prompts interrupted)
+
+RESULT: HD MODELS 4/4 — Jak, Daxter, Samos and Keira all swap to the jak2 INTRO-cutscene (pre-rift, jak1-look) HD models with clean geometry, proven through the owner's REAL install flow (slim APK + external archive, NOT adb-pushed assets), with objective loaded-model discriminators in every run.
+
+## 1. CORRECT SOURCE — the jak2 intro cutscene (first cutscene, BEFORE the rift gate), not the in-game set
+Round 1 ripped jak-highres — the jak2 IN-GAME look (grey armor, dark goggles). Round 2 rips the intro cutscene cast, where the characters still look like jak1-style characters in HD:
+- Jak    <- jakone-highres   (INTROCST.DGO — the intro cutscene level, pre-rift)
+- Daxter <- daxter-highres   (INTROCST.DGO)
+- Samos  <- samos-highres    (LINTCSTB.DGO — intro cutscene village hut interior)
+- Keira  <- keira-highres    (LINTCSTB.DGO)
+Round 1's Samos was ALSO the wrong character entirely (geologist-lod0 = the Rock Village geologist NPC); round 2 targets jak1's sage-lod0. The donor GLBs are decompiler rip_levels foreground exports OF THE JAK2 INTRO CUTSCENE LEVELS themselves — the rip IS the intro-cutscene content.
+Source proof: source-proof-jak-intro-vs-round1.png — textured still of the round-2 jakone rip vs round-1's jak-highres rip, i.e. the rip compared against the jak2 intro look side-by-side: left is unmistakably the blue-tunic jak1-look intro Jak, right is the grey jak2-look in-game model round 1 shipped. Donor stills render-donor-jakone.png + offline renders render-{eichar,sidekick,sage,assistant}-HD.png show the textured intro look.
+
+## 2. OWNER HINT 1 — TEXTURES: the rip DID take the HD models' OWN texture sets, and the runtime binds them
+- texture-lists.txt: per character, the donor rip's embedded texture set vs stock jak1 vs the SHIPPED GLB. The shipped GLBs carry the donor's own hi-res pages byte-for-byte (Jak: 24 jak-orig-* pages; Daxter: 17 daxter* incl. daxtergoggles/daxterhelmetplain; Samos: 27 samos-*; Keira: 28 keira-*), NOT the stock jak1 pages (bam-*, sk-*, assis-*, mentor*).
+- Runtime proof in the SAME runs as the frames — the loader logs the texture debug-names each model's draws bind, e.g. on device (keira-on_boot.log): "HD-MODELS merc-tex lvl=GAME model=eichar-lod0 textures=[charHOLD,jak-orig-arm,jak-orig-armor,...]" and "HD-MODELS merc-tex lvl=village1 model=assistant-lod0 textures=[keira-bellylong,...,keira-torch-nozzle-02,...]". The HD meshes provably bind the jak2 intro texture pages at runtime.
+- Textured offline renders (render-*-HD.png) match the jak2 intro look.
+
+## 3. OWNER HINT 2 — DIRECT DROP-IN tested first via the joint-count/name comparison for the CORRECT models
+joint-compare.txt documents, per character, the donor vs jak1 joint LISTS (count + names + order):
+- Jak:    donor 75 joints vs eichar 83  — same names for 74, but ORDER diverges at index 17
+- Daxter: donor 62 joints vs sidekick 49 — jak1 rig has NO pinky/ring/tongue/uvula bones
+- Samos:  donor 80 joints vs sage 74     — donor carries 10 BIRD* joints absent from jak1
+- Keira:  donor 95 joints vs assistant 96 — order diverges; donor has mask/maskstrap, different hair chains
+A DIRECT drop-in "as ripped" keeps JOINTS_0 indices into the DONOR joint order; with different counts and divergent orders those indices land on the WRONG jak1 bones from the first divergence on (index 17 for Jak, 11 for Daxter) — so a raw direct drop-in provably cannot deform right, and jak1's anims cannot drive donor-only bones at all. The correct "direct fit" is therefore by NAME:
+- name-based joint remap (scripts/shell/retarget_hd_models.py): tiers exact/case-insensitive/suffix-normalized/nearest-matched-ancestor; NO find_closest weight-borrow anywhere (round 1's garble source).
+- skin/weight work: per-vertex weights remapped per joint name, re-posed from donor bind pose onto the jak1 bind pose (v' = sum w_i inv(IBM_target) @ IBM_donor @ v), JOINTS_0 rewritten as jak1 indices, top-3 weights renormalized, welded smooth normals recomputed, TARGET skeleton embedded + enable_custom_weights=1 so the importer uses OUR skin.
+- Honest per-tier reports (report-{eichar,sidekick,sage,assistant}.txt): exact-name weight 100%/93.1%/98.6%/91.1%; name-matched (T1-T3) >= 0.91 everywhere; UNMATCHED (garble-risk) weight 0.0000 on all four (gate <= 0.01). Ancestor fallback only on decorative chains jak1 cannot animate (Daxter pinky/ring/tongue -> hand/head, Keira hair bangs -> head, ...). Samos' parrot (360 tris) and Keira's parked welding mask (280 tris) are CULLED (absent from jak1's cast), not left to garble.
+- Identity calibration eichar->eichar: positions and per-vertex (joint,weight) sets byte-identical through the round trip — the remap machinery is lossless.
+
+## 4. COVERAGE — 4/4 swapped, per-character verdict (no silent partial)
+- Jak (eichar-lod0, common/GAME.fr3):      LANDED, clean geometry, not garbled — device + x86 captures show the blue intro tunic, backpack straps, clean deformation standing/idle.
+- Daxter (sidekick-lod0, common/GAME.fr3): LANDED, clean geometry, not garbled — goggles+helmet HD Daxter sits/animates cleanly on Jak's shoulder (device keira-on-jakzoom.png vs stock keira-off-jakzoom.png).
+- Samos (sage-lod0, village1.fr3):         LANDED, clean geometry, not garbled — HD log lashings/vest/sash on his stump (device samos-on-stumpzoom.png vs samos-off-stumpzoom.png); parrot culled, no floating remnants.
+- Keira (assistant-lod0, village1.fr3):    LANDED, clean geometry, not garbled — HD outfit + welding-torch pose deforms cleanly (device keira-on-keirazoom.png vs keira-off-keirazoom.png).
+No garbled geometry shipped on any character; garbling verdict: none (zero unmatched skin weight, offline renders + device frames clean).
+
+## 5. THE OWNER'S REAL INSTALL FLOW (no adb-push of assets — archive extraction only)
+- Slim APK: android/.../app-jak1-debug.apk assembled via gradlew assembleJak1Debug -PslimIso=true, installed with adb install -r (MIUI appops recipe). The slim APK carries NO fr3 assets — everything visual comes from the external archive.
+- External archive: bash scripts/package_game_assets.sh jak1 -> out/artifacts/jak1_assets.zip (1071455414 B, version=c958da787b1b2), including the fr3/enhanced/ overlay baked by scripts/shell/build_enhanced_models.sh (fresh bake this attempt: all 4 "Replacing <name>-lod0" lines confirmed in the decompile log).
+- Extracted ON DEVICE to the external asset root /storage/emulated/0/OpenGOAL/jak_1/assets/ with unzip (owner-extraction equivalence); assets were NOT adb-pushed loose — no adb push of any fr3/asset file, the archive extraction is the only delivery.
+- sha chain archive==device (device/sha-chain.txt): fr3/enhanced/GAME.fr3 fe9dfe37ff94bf85, fr3/enhanced/village1.fr3 0f1edf09e33a40c1, fr3/enhanced/village2.fr3 742f638a2ff21567, fr3/GAME.fr3 e79b6a8465eca343, fr3/village1.fr3 d4b18be476991967 — ALL MATCH byte-identical.
+- deploy_verify: bash .autoport/lib/deploy_verify.sh eae4df44 jak1 -> DEPLOY-VERIFY PASS, chain build==APK==device libgk sha b12671e57067ddf0 — the device provably runs the fresh HEAD libgk.so.
+- Round-1 stale-overlay kill: enhanced/village2.fr3 is shipped STOCK-IDENTICAL (md5 05315a445316c4b8 == stock village2.fr3), so an owner updating in place overwrites round 1's garbled village2 overlay.
+- Models load on reload: every toggle change was followed by force-stop + relaunch (kill + relaunch) before capture — the fr3 set is chosen at level load.
+
+## 6. DEVICE RUNS — objective loaded-model discriminators in the SAME run as every frame (owner challenge honored)
+4 boots on the Redmi (serial eae4df44), warp village1-hut, ENHANCED MODELS toggled via its persisted Recharged setting (recharged-enhanced-models? #t/#f) + relaunch; per run: screenrecord mp4 + 32 frames + full logcat.
+Every ON run carries all three discriminators:
+1. Loader line: "HD-MODELS fr3-select GAME: ENHANCED /storage/emulated/0/OpenGOAL/jak_1/assets/fr3/enhanced/GAME.fr3" + same for village1 — the enhanced fr3 is read from the EXTERNAL asset root (the real read path).
+2. Tri-count delta (HD is ~2-7x stock under the same model name):
+   - eichar-lod0    ON tris=9886  vs OFF tris=3593
+   - sidekick-lod0  ON tris=9510  vs OFF tris=1296
+   - sage-lod0      ON tris=10074 vs OFF tris=5163
+   - assistant-lod0 ON tris=10528 vs OFF tris=5236
+3. Same-vantage ON/OFF pairs: device/samos-{on,off}.mp4 + samos-{on,off}-stumpzoom.png, device/keira-{on,off}.mp4 + keira-{on,off}-{keirazoom,jakzoom}.png — HD vs stock silhouettes/textures unambiguous in the zooms (Daxter's goggles, Jak's blue intro tunic, Keira's HD outfit, Samos' sash+log detail).
+OFF runs select STOCK ("HD-MODELS fr3-select GAME: STOCK (enhanced-toggle=false)") and load the stock tri counts — OFF == stock (the base fr3 files are the stock set, sha-verified above, and the loader reads them untouched).
+Foreground evidence during every run: mCurrentFocus=Window{... u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} (jak1 focus checked at warp, capture and harvest time).
+The device was left with ENHANCED MODELS ON for the owner's play-test (toggle in Recharged settings flips it live for village1, on relaunch for Jak/Daxter).
+
+## 7. x86 A/B (same discriminators, 4 boots: {samos,keira} x {off,on})
+x86-ab/gk-{samos,keira}-{on,off}.log + 12 screenshots incl. zooms. Same tri deltas and merc-tex lines as device; every boot logs the x86 smoke keyword "link finish: logo" (4x per log). GJ2VIS-MERCMODEL lines confirm all four HD models are DRAWN (bones=79/45/68/86) in the ON runs.
+
+## 8. Honest caveats
+- Samos' HD delta reads subtle at gameplay distance (same character design; the win is ~2x tris + the jak2 texture set — sash, log lashings, sculpted arms). The zooms + tri logs make the swap unambiguous, but he is the least dramatic of the four.
+- The sage-lod0 draw list still references samosbird-* texture pages (draw granularity is per-texture; the bird GEOMETRY is culled and no bird renders — verified in renders + device frames).
+- Keira's welding-mask prop was culled with its mask/maskstrap joints (she isn't wearing it in jak1 scenes); her HD outfit has more accessory straps than stock by design (authentic to the jak2 intro model).
+- The x86 keira-vantage shots have Jak close to camera; Keira is clearly visible in the device zooms and x86 keira-on-1-centerzoom.png.
+- The GOAL side pushes the toggle every frame from *pc-settings* (update-to-os); the kmachine transition log ("HD-MODELS toggle push") captures any flip so a mid-run settings overwrite can never silently fake an ON/OFF state again.

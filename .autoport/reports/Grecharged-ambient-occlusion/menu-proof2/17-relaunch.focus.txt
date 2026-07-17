@@ -1,0 +1,2 @@
+before:   mCurrentFocus=Window{14dbc1 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+after:    mCurrentFocus=Window{14dbc1 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

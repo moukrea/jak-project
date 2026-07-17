@@ -77,13 +77,13 @@ FRAME=$(grep -aoE 'A35-RENDER frame=[0-9]+' "$LOG"|grep -oE '[0-9]+$'|sort -n|ta
 FOC=$(A shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus' | grep -q "$PKG" && echo yes || echo no)
 SIG=$(grep -aoE 'GK-DIAG sig=[0-9]+|Fatal signal [0-9]+' "$LOG" | tail -1)
 STAMP=$(A shell run-as "$PKG" cat files/.asset_bundle_stamp 2>/dev/null | tr -d '\r')
-NISO=$(A shell run-as "$PKG" ls files/iso_data/jak1/ 2>/dev/null | tr -d '\r' | wc -l)
-NVIS=$(A shell run-as "$PKG" ls files/iso_data/jak1/ 2>/dev/null | tr -d '\r' | grep -ic VIS)
+NISO=$(A shell run-as "$PKG" ls files/cgo/jak1/ 2>/dev/null | tr -d '\r' | wc -l)
+NVIS=$(A shell run-as "$PKG" ls files/cgo/jak1/ 2>/dev/null | tr -d '\r' | grep -ic VIS)
 
 {
 echo "=== Gapk-selfcontained ($TAG) $(date -Is) ==="
 echo "RESULT unpack_ok=$UNPACK_OK title_frame=$FRAME focus=$FOC sig=${SIG:-none}"
-echo "  device files/iso_data/jak1 count=$NISO  VIS=$NVIS  asset_bundle_stamp=$STAMP"
+echo "  device files/cgo/jak1 count=$NISO  VIS=$NVIS  asset_bundle_stamp=$STAMP"
 echo "  last link-finish: $(grep -aoE 'link finish: [a-z0-9-]+' "$LOG"|tail -6|tr '\n' ' ')"
 } | tee "$OUT/$TAG-result.txt"
 kill $LCPID 2>/dev/null || true

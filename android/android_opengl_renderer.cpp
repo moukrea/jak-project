@@ -13,11 +13,14 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
+#ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
+#endif
 #include "game/graphics/opengl_renderer/ShadowRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureAnimator.h"
@@ -43,7 +46,7 @@ constexpr const char* kLogTag = "opengoal-gk";
 
 // Identical to the desktop make_fbo (OpenGLRenderer.cpp), msaa stripped:
 // the Android skeleton always renders single-sampled.
-Fbo a35_make_fbo(int w, int h) {
+Fbo a35_make_fbo(int w, int h, bool zbuf_as_texture) {
   Fbo result;
   glGenFramebuffers(1, &result.fbo_id);
   glBindFramebuffer(GL_FRAMEBUFFER, result.fbo_id);
@@ -57,11 +60,26 @@ Fbo a35_make_fbo(int w, int h) {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
   GLuint zbuf;
-  glGenRenderbuffers(1, &zbuf);
-  result.zbuf_stencil_id = zbuf;
-  glBindRenderbuffer(GL_RENDERBUFFER, zbuf);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, zbuf);
+  if (zbuf_as_texture) {
+    // Grecharged-ambient-occlusion: sampleable depth texture (AO reads it).
+    glGenTextures(1, &zbuf);
+    result.zbuf_stencil_id = zbuf;
+    result.zbuf_is_texture = true;
+    glBindTexture(GL_TEXTURE_2D, zbuf);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, w, h, 0, GL_DEPTH_STENCIL,
+                 GL_UNSIGNED_INT_24_8, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, zbuf, 0);
+  } else {
+    glGenRenderbuffers(1, &zbuf);
+    result.zbuf_stencil_id = zbuf;
+    glBindRenderbuffer(GL_RENDERBUFFER, zbuf);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, zbuf);
+  }
 
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
 
@@ -391,6 +409,9 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
     m_bucket_renderers[i]->init_shaders(m_render_state.shaders);
     m_bucket_renderers[i]->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   }
+  // Grecharged-ambient-occlusion: the AO pass is not a bucket renderer, so hook its
+  // shader init here alongside the bucket renderers (once, after the loop).
+  m_ao_pass.init_shaders(m_render_state.shaders);
   // The sky blenders are not bucket renderers — desktop inits their VRAM
   // textures explicitly after the bucket loop (OpenGLRenderer.cpp:883).
   // Without this, SkyBlendCPU::do_sky_blends hands a null GpuTexture to
@@ -398,7 +419,9 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   // recharged hud sprites (Grecharged-hud): same runtime slots 8300+ as desktop.
+#ifdef OG_FEAT_RECHARGED_HUD
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
+#endif
   lg::info("A35-RENDER jak1 bucket table ready: {} buckets, direct=3 tex=11 eye=1 skip={}",
            m_bucket_renderers.size(), sizeof(unported) / sizeof(unported[0]));
 }
@@ -1024,14 +1047,33 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   m_stats.fbo_w = fbo_w;
   m_stats.fbo_h = fbo_h;
 
+  // Grecharged-ambient-occlusion: AO samples scene depth, which requires the render
+  // FBO's depth attachment to be a TEXTURE. When AO is OFF this is false and
+  // a35_make_fbo takes the EXACT stock renderbuffer path -> OFF == stock at the GL
+  // level. Live-toggling AO flips want_depth_tex, mismatches the current FBO, and
+  // recreates it next frame. (Android render FBO is always single-sampled.)
+  const bool want_depth_tex = AmbientOcclusionPass::effective_mode() != 0;
+
   if (window_resized || !m_fbo_state.render_fbo ||
-      !m_fbo_state.render_fbo->matches(fbo_w, fbo_h, 1)) {
+      !m_fbo_state.render_fbo->matches(fbo_w, fbo_h, 1) ||
+      m_fbo_state.render_buffer.zbuf_is_texture != want_depth_tex) {
     lg::info("A35-RENDER FBO setup: {}x{} (game_res {}x{} scale {}% window {}x{})", fbo_w, fbo_h,
              settings.game_res_w, settings.game_res_h, scale, settings.window_fb_w,
              settings.window_fb_h);
+    // Drain in-flight GPU work before deleting ANY attachment the previous frame's work
+    // may still reference (Adreno deferred execution; renderscale resize storms recreate
+    // this FBO several times per second under GTAO load — defect #6: the depth-texture-
+    // only drain left the color attachment + AO composite in flight).
+    if (m_fbo_state.render_buffer.valid) {
+      glFinish();
+    }
     m_fbo_state.render_buffer.clear();
-    m_fbo_state.render_buffer = a35_make_fbo(fbo_w, fbo_h);
+    m_fbo_state.render_buffer = a35_make_fbo(fbo_w, fbo_h, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.render_buffer;
+    // fresh depth attachment: require 3 recreate-free frames before AO touches it. A
+    // renderscale STORM (recreate every 1-2 frames) therefore holds AO off entirely,
+    // breaking the AO-cost -> fps-sag -> resize -> AO feedback loop (defect #6 window).
+    m_ao_defer_frames = 3;
   }
 
   ASSERT_MSG(fbo_w > 0 && fbo_h > 0,
@@ -1112,8 +1154,11 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
       (fbo_w < native_ui_w || fbo_h < native_ui_h) && native_ui_w > 0 && native_ui_h > 0;
   if (split_active) {
     if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
+      if (m_fbo_state.ui_buffer.valid) {
+        glFinish();  // defect #6: drain before deleting a buffer the last frame's UI
+      }              // composite blit may still reference (same Adreno hazard class)
       m_fbo_state.ui_buffer.clear();
-      m_fbo_state.ui_buffer = a35_make_fbo(native_ui_w, native_ui_h);
+      m_fbo_state.ui_buffer = a35_make_fbo(native_ui_w, native_ui_h, false);
     }
     m_render_state.begin_2d_ui_pass = [this]() { begin_ui_pass(); };
     // a35_make_fbo bound the new UI fbo; restore the scaled scene target for the 3D pass.
@@ -1301,6 +1346,20 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
     m_render_state.next_bucket += 16;
     vif_interrupt_callback(bucket_id);
+
+    // Grecharged-ambient-occlusion: screen-space AO over the OPAQUE scene only, at the
+    // same post-opaque bucket-30 insertion point as desktop and BEFORE the grass cards:
+    // every alpha bucket and the recharged grass draw AFTER the composite, so alpha-cut
+    // surfaces neither contribute to the AO depth nor get darkened (owner's #1 risk is
+    // excluded by construction).
+    if (bucket_id == 31 - 1 && AmbientOcclusionPass::effective_mode() != 0) {
+      if (m_ao_defer_frames > 0) {
+        m_ao_defer_frames--;  // FBO was just recreated: skip AO this frame (see setup_frame)
+      } else {
+        auto p = prof.make_scoped_child("ao-draw");
+        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
+      }
+    }
 
     // Grecharged-grass-poc: draw procedural grass over the training ground at the
     // same post-opaque-background insertion point as desktop (bucket 30). Gated OFF

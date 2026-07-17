@@ -13,13 +13,13 @@ plugins {
 
 // Phase Glauncher-collection (autoport 2026-07-02): ASSET-DRIVEN game detection.
 //
-// The set of games an APK contains == which per-game asset bundles
-// (`<game>_assets.zip`) are present under that flavor's assets bundle dir at
+// The set of games an APK contains == which per-game slim CGO packs
+// (`<game>_cgo.zip`) are present under that flavor's assets-slim bundle dir at
 // BUILD time. Exactly ONE game => single-game APK: boots STRAIGHT into that game
 // with its own launcher name + icon (no menu). MORE THAN ONE => COLLECTION APK:
 // label "Jak and Daxter: The Recharged Jak-pot" + a boot selection menu. The
 // same detection runs at runtime in LoaderActivity (it enumerates the bundle
-// dir), so dropping a 2nd game's bundle into a flavor flips it to collection
+// dir), so dropping a 2nd game's pack into a flavor flips it to collection
 // with no other code change.
 //
 // These are `val` lambdas (not top-level `fun`s) so they capture the Project
@@ -33,13 +33,25 @@ val gameTitles = mapOf(
 )
 val collectionTitle = "Jak and Daxter: The Recharged Jak-pot"
 val titleFor: (String) -> String = { id -> gameTitles[id] ?: id }
+// Grecharged-buildsys-packaging (autoport 2026-07-17): the APK is ALWAYS slim —
+// it ships ONLY the port artifacts (arm64 CGO pack + port-custom pack); vanilla
+// source-derived data lives OUTSIDE the APK, in <game>_assets.zip (produced by
+// scripts/packaging/build_assets_archive.sh and delivered to the external asset
+// root). A game is "present" in a flavor if its slim CGO pack (<game>_cgo.zip,
+// assets-slim) is staged.
 val detectBundledGames: (String) -> List<String> = { flavor ->
-    val dir = file("src/$flavor/assets-bundled/bundle")
-    if (!dir.isDirectory) emptyList()
-    else (dir.listFiles() ?: emptyArray())
-        .filter { it.isFile && it.name.endsWith("_assets.zip") }
-        .map { it.name.removeSuffix("_assets.zip") }
-        .sorted()
+    val games = sortedSetOf<String>()
+    listOf(
+        Pair("src/$flavor/assets-slim/bundle", "_cgo.zip")
+    ).forEach { (path, suffix) ->
+        val dir = file(path)
+        if (dir.isDirectory) {
+            (dir.listFiles() ?: emptyArray())
+                .filter { it.isFile && it.name.endsWith(suffix) }
+                .forEach { games.add(it.name.removeSuffix(suffix)) }
+        }
+    }
+    games.toList()
 }
 // Resolve the launcher label from the detected bundle set. A flavor with no
 // bundle staged yet falls back to its own game id (a single-game flavor is a
@@ -131,37 +143,28 @@ android {
         getByName("main") {
             jniLibs.srcDirs("src/main/jniLibs")
         }
-        // Phase Gpkg-distributable (autoport 2026-06-27): the normal jak1
-        // APK no longer bundles the raw ~1.34 GiB iso_data/fr3 dirs. Instead
-        // it ships ONE DEFLATE archive — src/jak1/assets-bundled/bundle/
-        // jak1_assets.zip (+ manifest.properties) produced on PC by
-        // build_asset_bundle.sh (wired via the bundleJak1Assets task below) —
-        // which LoaderActivity decompresses into filesDir on first run. So
-        // the default assets srcDir becomes assets-bundled, NOT the raw
-        // src/jak1/assets (which stays on disk as the bundle's input only).
-        //
-        // A40 `-PslimIso=true` still builds an assets-light APK (fr3 only,
-        // no payload) for fast libgk.so iteration: the device keeps its
-        // already-unpacked files/iso_data/<game>/, so a slim install costs
-        // ~100 MB instead of the full ~1 GB compressed bundle.
+        // Grecharged-buildsys-packaging (autoport 2026-07-17): the APK is ALWAYS
+        // slim. The owner rule is absolute — the APK must NEVER embed vanilla
+        // source-derived data (verbatim disc files, stock fr3). It ships ONLY the
+        // port artifacts:
+        //   src/<game>/assets-slim/bundle/<game>_cgo.zip     arm64 CGO/DGO code
+        //     (build_cgo_pack.sh)
+        //   src/<game>/assets-slim/bundle/<game>_custom.zip  port-custom data
+        //     (.grassbake, enhanced HD fr3, recharged PNGs — build_custom_pack.sh)
+        // The bulky vanilla iso data + stock fr3 ship SEPARATELY as
+        // <game>_assets.zip (scripts/packaging/build_assets_archive.sh) delivered
+        // to the user's external asset root; LoaderActivity/gk read them from
+        // there. The old self-contained "bundledIso" APK mode is REMOVED.
         getByName("jak1") {
-            assets.setSrcDirs(listOf(
-                if (project.findProperty("slimIso") == "true") "src/jak1/assets-slim"
-                else "src/jak1/assets-bundled"
-            ))
+            assets.setSrcDirs(listOf("src/jak1/assets-slim"))
         }
-        // Gjak2-boot: jak2 mirrors jak1 — its DEFLATE bundle
-        // (src/jak2/assets-bundled/bundle/jak2_assets.zip) is produced by
-        // bundleJak2Assets and unpacked into filesDir/iso_data/jak2 on first run.
+        // Gjak2-boot: jak2 mirrors jak1 (slim-only).
         getByName("jak2") {
-            assets.setSrcDirs(listOf(
-                if (project.findProperty("slimIso") == "true") "src/jak2/assets-slim"
-                else "src/jak2/assets-bundled"
-            ))
+            assets.setSrcDirs(listOf("src/jak2/assets-slim"))
         }
         // Phase Glauncher-collection: the collection flavor ships MULTIPLE
-        // per-game bundles from its own assets-bundled dir. Empty today (only
-        // jak1 assets exist); STEP-1 stages jak2/jak3 zips here.
+        // per-game packs from its own assets-bundled dir. Empty today (only
+        // jak1 assets exist); STEP-1 stages jak2/jak3 packs here.
         getByName("collection") {
             assets.setSrcDirs(listOf("src/collection/assets-bundled"))
         }
@@ -191,12 +194,10 @@ android {
     }
 
     androidResources {
-        // Phase Gpkg-distributable: the runtime payload now ships as ONE
-        // already-DEFLATE'd archive (assets/bundle/<game>_assets.zip). Storing
-        // it (noCompress) is essential: AGP re-DEFLATE of a ~1 GB compressed
-        // file buys ~nothing AND walks straight into the mergeAssets/package
-        // GC death-spiral the raw-payload build hit. The tiny manifest stays
-        // compressible. (assets-slim's fr3 files are already small.)
+        // Grecharged-buildsys-packaging: the slim APK ships already-DEFLATE'd
+        // packs (assets/bundle/<game>_cgo.zip + <game>_custom.zip). Storing them
+        // (noCompress) avoids a pointless AGP re-DEFLATE of already-compressed
+        // content. The tiny manifests stay compressible.
         noCompress += listOf("zip")
     }
 }
@@ -275,46 +276,59 @@ tasks.named("preBuild") {
     dependsOn(copyNativeLibs)
 }
 
-// Phase Gpkg-distributable (autoport 2026-06-27): build the COMPRESSED
-// runtime-asset archive that the normal jak1 APK ships and LoaderActivity
-// decompresses on first run. The script assembles the FULL, internally
-// consistent set straight from the authoritative PC build outputs —
-// out/jak1/iso (data) + out/jak1-arm64-full/iso (the arm64 CGO/DGO) +
-// out/jak1/fr3 (all 26 texture packs) — and packs them into
-// src/jak1/assets-bundled/bundle/jak1_assets.zip (+ manifest.properties)
-// just before AGP merges that flavor's assets. Sourcing the build outputs
-// (not the on-disk staging dirs, which drifted to a slim/stale set and
-// caused a false-green) makes the bundle complete + consistent by
-// construction; the script HARD-FAILS if anything is missing or stale. It
-// is idempotent and returns in ~1s when the zip is already current, so it
-// runs every assemble without a repack cost. Skipped for -PslimIso=true (the
-// slim build ships no payload — fr3 only — for fast libgk.so iteration).
-val bundleJak1Assets by tasks.registering(Exec::class) {
+// Grecharged-buildsys-packaging (autoport 2026-07-17): the APK is ALWAYS slim and
+// ships ONLY port artifacts. Two packs are assembled into the flavor's assets-slim
+// bundle dir just before AGP merges that flavor's assets:
+//
+//   <game>_cgo.zip     the arm64-compiled CGO/DGO code (android/build_cgo_pack.sh),
+//                      unpacked to <filesDir>/cgo/<game>/ as the first-scanned
+//                      fake_iso overlay so the HEAD arm64 code always wins.
+//   <game>_custom.zip  the port-CUSTOM data — .grassbake, enhanced HD fr3, and
+//                      recharged HUD PNGs — gated by the build's feature flags
+//                      (android/build_custom_pack.sh).
+//
+// The vanilla source-derived runtime data (verbatim iso files + stock fr3) is NOT
+// in the APK. It ships separately as <game>_assets.zip, produced by
+// scripts/packaging/build_assets_archive.sh and delivered to the user's external
+// asset root, from which LoaderActivity/gk read it. The old self-contained
+// "bundledIso" APK mode and android/build_asset_bundle.sh are REMOVED.
+//
+// Both scripts are idempotent (return in ~1s when their zip is already current),
+// so they run every assemble without a repack cost, and HARD-FAIL if a required
+// input is missing or a mixed flag-set is detected.
+val bundleJak1CgoPack by tasks.registering(Exec::class) {
     workingDir = rootProject.file("..")
-    commandLine("bash", "android/build_asset_bundle.sh", "jak1")
-    onlyIf { project.findProperty("slimIso") != "true" }
+    commandLine("bash", "android/build_cgo_pack.sh", "jak1")
+}
+
+val bundleJak1CustomPack by tasks.registering(Exec::class) {
+    workingDir = rootProject.file("..")
+    commandLine("bash", "android/build_custom_pack.sh", "jak1")
 }
 
 tasks.matching {
     it.name.startsWith("merge") && it.name.contains("Jak1") && it.name.endsWith("Assets")
 }.configureEach {
-    dependsOn(bundleJak1Assets)
+    dependsOn(bundleJak1CgoPack)
+    dependsOn(bundleJak1CustomPack)
 }
 
-// Gjak2-boot: jak2 asset bundle — same shape as jak1's. Repacks
-// src/jak2/assets-bundled/bundle/jak2_assets.zip from the build outputs
-// (out/jak2/iso non-code + out/jak2-arm64-full/iso code + out/jak2/fr3) just
-// before AGP merges the jak2 flavor's assets.
-val bundleJak2Assets by tasks.registering(Exec::class) {
+// Gjak2-boot: jak2 mirrors jak1 — slim CGO pack + port-custom pack.
+val bundleJak2CgoPack by tasks.registering(Exec::class) {
     workingDir = rootProject.file("..")
-    commandLine("bash", "android/build_asset_bundle.sh", "jak2")
-    onlyIf { project.findProperty("slimIso") != "true" }
+    commandLine("bash", "android/build_cgo_pack.sh", "jak2")
+}
+
+val bundleJak2CustomPack by tasks.registering(Exec::class) {
+    workingDir = rootProject.file("..")
+    commandLine("bash", "android/build_custom_pack.sh", "jak2")
 }
 
 tasks.matching {
     it.name.startsWith("merge") && it.name.contains("Jak2") && it.name.endsWith("Assets")
 }.configureEach {
-    dependsOn(bundleJak2Assets)
+    dependsOn(bundleJak2CgoPack)
+    dependsOn(bundleJak2CustomPack)
 }
 
 // Phase Glauncher-collection (autoport 2026-07-02): ASSET-DRIVEN detection

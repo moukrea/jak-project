@@ -12,8 +12,16 @@
 
 extern "C" {
 
+#if defined(__GNUC__) || defined(__clang__)
 __attribute__((weak)) void __goal_runtime_trace_kheap(uint64_t /*top*/) {}
 __attribute__((weak)) void __goal_runtime_trace_symbol_intern(void) {}
 __attribute__((weak)) void __goal_runtime_trace_goal_call(void) {}
+#else
+// MSVC has no weak-symbol linkage; the weak-override harness is Linux-only, so
+// plain (non-weak) definitions are correct on Windows.
+void __goal_runtime_trace_kheap(uint64_t /*top*/) {}
+void __goal_runtime_trace_symbol_intern(void) {}
+void __goal_runtime_trace_goal_call(void) {}
+#endif
 
 }  // extern "C"

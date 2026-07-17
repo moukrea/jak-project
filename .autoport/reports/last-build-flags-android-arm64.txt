@@ -1,0 +1,8 @@
+target=android-arm64
+flags=
+flag_hash=e3b0c44298fc
+marker=ogflags:e3b0c44298fc:android-arm64
+libgk_sha=fe6da869cbdc439b
+apk=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+date=2026-07-17T08:43:36+02:00
+cgo_cache=.autoport/cgo-cache/jak1/arm64-e3b0c44298fc-5710c43bf7965489

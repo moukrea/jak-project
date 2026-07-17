@@ -3,7 +3,7 @@
 # Only goal_src/jak1/pc/hud-classes-pc.gc changed (cell-body fast-merc fix), so libgk /
 # asset-bundle / APK are UNCHANGED (already == HEAD on device per deploy_verify). Just:
 #   1. rebuild the consistent arm64 CGO/DGO set (28) with the fix
-#   2. push it to files/iso_data/jak1 (sha-verified, keeps .extracted_v1 — no re-extract)
+#   2. push it to files/cgo/jak1 (sha-verified, keeps .extracted_v1 — no re-extract)
 #   3. deploy_verify_assets + deploy_verify (device provably runs the fresh set)
 #   4. boot + attract render gate (the fix must not crash)
 set -uo pipefail

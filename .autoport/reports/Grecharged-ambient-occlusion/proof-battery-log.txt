@@ -1,0 +1,1336 @@
+=== 1. menu proof (corrected nav) ===
+== boot (attempt 1; ao force props cleared, responsive render seed, fresh reader) ==
+disk pre (attempt 1): (ambient-occlusion 0) (ao-quality 2) (ao-strength 1) 
+dynamic-render-scale row: DOWNS_RECHARGED=8
+  foreground STABLE (30s)
+app pid: 6478
+boot [recharged-ao] (fresh log only): I/opengoal-gk( 6478): [recharged-ao] mode -> 0 quality -> 2 strength -> 1 I/opengoal-gk( 6478): [recharged-ao] mode -> 0 quality -> 2 strength -> 1 I/opengoal-gk( 6478): [recharged-ao] mode -> 0 quality -> 2 strength -> 1 
+boot AOPERF: I/opengoal-gk( 6478): AOPERF mode=0 quality=2 strength=1 fps=28.6 busy_ms=30.37
+== attempt 1 nav: start -> 2x down -> X (OPTIONS) -> down, X (GRAPHIC OPTIONS) ==
+== 8x down = RECHARGED SETTINGS row ==
+== 4x down = AMBIENT OCCLUSION row (enhanced-models row collapsed) ==
+== AO commits: Off->SSAO->HBAO->GTAO (X, right, X each; each must push fresh) ==
+SSAO: PUSH-OK mode->1 | disk: (ambient-occlusion 1) (ao-quality 2) (ao-strength 1) 
+HBAO: PUSH-OK mode->2 | disk: (ambient-occlusion 2) (ao-quality 2) (ao-strength 1) 
+GTAO: PUSH-OK mode->3 | disk: (ambient-occlusion 3) (ao-quality 2) (ao-strength 1) 
+== AO QUALITY: 1x down, X, left (High->Medium), X ==
+grep: avertissement : stray \ before r
+QUALITY: PUSH-OK quality->1 | disk: (ambient-occlusion 3) (ao-quality 1) (ao-strength 1) 
+== AO STRENGTH: 1x down, X, right (Default->Stronger), X ==
+grep: avertissement : stray \ before r
+STRENGTH: PUSH-OK strength->2 | disk: (ambient-occlusion 3) (ao-quality 1) (ao-strength 2) 
+[ao-menu-proof2] COMMIT-SEQUENCE PASS (attempt 1)
+== back out: 1x down (Back = index 7, from strength row 6), X, then triangle x2 to title ==
+== persist: relaunch; boot push must carry GTAO/Medium/Stronger ==
+disk after quit: (ambient-occlusion 3) (ao-quality 1) (ao-strength 2) 
+  DISK-PERSIST OK: GTAO/Medium/Stronger on external settings
+  foreground STABLE (30s)
+disk after relaunch: (ambient-occlusion 3) (ao-quality 1) (ao-strength 2) 
+relaunch [recharged-ao]: I/opengoal-gk( 7526): [recharged-ao] override debug -> 0 I/opengoal-gk( 7526): [recharged-ao] mode -> 3 quality -> 1 strength -> 2 I/opengoal-gk( 7526): [recharged-ao] override debug -> 0 
+grep: avertissement : stray \ before r
+relaunch strength re-push: PUSH-OK strength->2
+I/opengoal-gk( 7526): AOPERF mode=3 quality=1 strength=2 fps=23.9 busy_ms=36.02
+I/opengoal-gk( 7526): AOPERF mode=3 quality=1 strength=2 fps=19.5 busy_ms=45.16
+I/opengoal-gk( 7526): AOPERF mode=3 quality=1 strength=2 fps=28.9 busy_ms=28.80
+focus at end:   mCurrentFocus=Window{14dbc1 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+[ao-menu-proof2] SUMMARY: commit-seq=PASS (mode/quality/strength pushes) | disk-persist=OK | relaunch-strength-repush=PUSH-OK strength->2
+[ao-menu-proof2] DONE (device left running; caller decides reset/force-stop)
+=== 1b. safe-boot fallback proof ===
+== boot1: seed GTAO/High, arm the sentinel, dirty-death within 60s ==
+  seeded+verified: (ambient-occlusion 3) (ao-quality 2) 
+  boot1 AO-enable line seen (6s)
+  ARMED-OK (sentinel exists)
+  boot1 force-stopped (dirty, within 60s)
+  sentinel SURVIVES the dirty death (OK)
+== boot2: expect SAFE-BOOT (AO forced off once), sentinel consumed ==
+  SAFE-BOOT line present (OK)
+  AOPERF mode=0 count: 3 (need >=2)
+  sentinel CONSUMED (gone after 20s) (OK)
+  boot2 alive + foreground jak1 (OK)
+== boot3: sentinel consumed -> AO active (GTAO) again; re-arm + clear after 60s health ==
+  AOPERF mode=3 count: 3 (need >=3)
+  sentinel CLEARED after healthy run (OK)
+  boot3 alive + foreground jak1 (OK)
+== restore: AO Off / quality Medium, clear sentinel, force-stop ==
+  seeded+verified: (ambient-occlusion 0) (ao-quality 1) 
+[ao-safeboot PASS] arm within 60s, survive dirty death, SAFE-BOOT+AO-off next boot, re-active after
+=== 2+3. vantage A/B captures + analysis ===
+
+######## VANTAGE village1 (village1-hut @ -156.0 34.0 188.0) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated) ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{e6ff465 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 18:02:04.435  8759  8829 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (1s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-village1-off-a:   mCurrentFocus=Window{e6ff465 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-off-a: 2400x1080
+  rec device-ao-village1-off-a: mp4=2724444B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{e6ff465 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-a: 3 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (4s)
+  focus-before device-ao-village1-ssao:   mCurrentFocus=Window{e6ff465 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-ssao: 2400x1080
+  rec device-ao-village1-ssao: mp4=1708216B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{e6ff465 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao: 2 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (4s)
+  focus-before device-ao-village1-off-b:   mCurrentFocus=Window{e6ff465 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+=== RESUME 18:50:07 — stages 1/1b stand from the 17:49 run (menu-proof2 17:59 PASS, safeboot 18:01 PASS, this build); resuming cut stages, round-F gates first ===
+=== 3c. round F: SSAO Low/Med banding gate (debug-view band metric) ===
+[charge-guard] level=13%, proceeding
+
+######## BANDCHECK @ training-start -1187.4 16.2 932.3 — SSAO Low/Med/High + GTAO Low, debug-view band metric ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=0   mCurrentFocus=Window{32f3381 u0 com.miui.home/com.miui.home.launcher.Launcher}
+  try#2 warp_ok=1   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 18:52:58.295 14644 14716 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 1 (1s)
+  override-confirm: quality -> 0 (1s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=1 quality=0 strength=1 (2s)
+  focus-before device-ao-bandcheck-ssao-low-scene:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-ssao-low-scene: 2400x1080
+  rec device-ao-bandcheck-ssao-low-scene: mp4=2400956B frames=6 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-bandcheck-ssao-low-1-debugview:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-ssao-low-1-debugview: 2400x1080
+  rec device-ao-bandcheck-ssao-low-1-debugview: mp4=991236B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-bandcheck-ssao-low-1: 1.7 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  [ao-bandcheck] ssao-low: BAND .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-bandcheck-ssao-low-1-debugview_frames/f_003.png rows=1.293 cols=2.296 ratio=0.56 peak_lag=2 peak=0.91 PASS
+  [ao-bandcheck] ssao-low: PASS
+  override-confirm: quality -> 1 (0s)
+  aoperf-confirm: mode=1 quality=1 strength=1 (2s)
+  focus-before device-ao-bandcheck-ssao-med-scene:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-ssao-med-scene: 2400x1080
+  rec device-ao-bandcheck-ssao-med-scene: mp4=2268356B frames=6 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  override-confirm: debug -> 1 (0s)
+  focus-before device-ao-bandcheck-ssao-med-1-debugview:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-ssao-med-1-debugview: 2400x1080
+  rec device-ao-bandcheck-ssao-med-1-debugview: mp4=967892B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-bandcheck-ssao-med-1: 1.9 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  [ao-bandcheck] ssao-med: BAND .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-bandcheck-ssao-med-1-debugview_frames/f_003.png rows=1.375 cols=2.537 ratio=0.54 peak_lag=2 peak=0.91 PASS
+  [ao-bandcheck] ssao-med: PASS
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (8s)
+  focus-before device-ao-bandcheck-ssao-high-scene:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-ssao-high-scene: 2400x1080
+  rec device-ao-bandcheck-ssao-high-scene: mp4=1350540B frames=6 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-bandcheck-ssao-high-1-debugview:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-ssao-high-1-debugview: 2400x1080
+  rec device-ao-bandcheck-ssao-high-1-debugview: mp4=1076876B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-bandcheck-ssao-high-1: 14.6 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  [ao-bandcheck] ssao-high: BAND .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-bandcheck-ssao-high-1-debugview_frames/f_003.png rows=1.473 cols=2.833 ratio=0.52 peak_lag=2 peak=0.91 PASS
+  [ao-bandcheck] ssao-high: PASS
+  override-confirm: mode -> 3 (1s)
+  override-confirm: quality -> 0 (0s)
+  aoperf-confirm: mode=3 quality=0 strength=1 (4s)
+  focus-before device-ao-bandcheck-gtao-low-scene:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-gtao-low-scene: 2400x1080
+  rec device-ao-bandcheck-gtao-low-scene: mp4=3259708B frames=6 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-bandcheck-gtao-low-3-debugview:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-bandcheck-gtao-low-3-debugview: 2400x1080
+  rec device-ao-bandcheck-gtao-low-3-debugview: mp4=1609780B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{a87f95d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-bandcheck-gtao-low-3: 13.8 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  [ao-bandcheck] gtao-low: BAND .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-bandcheck-gtao-low-3-debugview_frames/f_003.png rows=1.852 cols=2.789 ratio=0.66 peak_lag=2 peak=0.93 PASS
+  [ao-bandcheck] gtao-low: PASS
+[ao-bandcheck] OVERALL: PASS
+
+######## DONE bandcheck — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-bandcheck-*_frames/ ########
+=== 2+3. vantage A/B captures + analysis (training first: round-F depth A/B) ===
+[charge-guard] level=13%, proceeding
+
+######## VANTAGE training (training-start @ -1187.4 16.2 932.3) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated) ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 18:56:31.100 15415 15478 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (4s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (2s)
+  focus-before device-ao-training-off-a:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-off-a: 2400x1080
+  rec device-ao-training-off-a: mp4=7030796B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-a: 8 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (8s)
+  focus-before device-ao-training-ssao:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-ssao: 2400x1080
+  rec device-ao-training-ssao: mp4=2128284B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao: 2 matching line(s)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (3s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (4s)
+  focus-before device-ao-training-off-b:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-off-b: 2400x1080
+  rec device-ao-training-off-b: mp4=6463896B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-b: 7 matching line(s)
+  override-confirm: mode -> 2 (1s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (2s)
+  focus-before device-ao-training-hbao:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-hbao: 2400x1080
+  rec device-ao-training-hbao: mp4=1512940B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao: 1 matching line(s)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (3s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-training-off-c:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-off-c: 2400x1080
+  rec device-ao-training-off-c: mp4=5748668B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-c: 8 matching line(s)
+  override-confirm: mode -> 3 (1s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (18s)
+  focus-before device-ao-training-gtao:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-gtao: 2400x1080
+  rec device-ao-training-gtao: mp4=820252B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (2s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-training-off-d:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-off-d: 2400x1080
+  rec device-ao-training-off-d: mp4=4999456B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-d: 7 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (4s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-training-1-debugview:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-1-debugview: 2400x1080
+  rec device-ao-training-1-debugview: mp4=948116B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-training-1: 13.7 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (12s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-training-2-debugview:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-2-debugview: 2400x1080
+  rec device-ao-training-2-debugview: mp4=427580B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-training-2: 1.6 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 3 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (26s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-training-3-debugview:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-3-debugview: 2400x1080
+  rec device-ao-training-3-debugview: mp4=86572B frames=3 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  SEGMENT INVALID (mp4=86572B frames=3 h=1080px<1000): device-ao-training-3-debugview — deleting frames, retrying once
+  focus-before device-ao-training-3-debugview:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-training-3-debugview: 2400x1080
+  rec device-ao-training-3-debugview: mp4=193076B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{380adfb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-training-3: 1.6 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+
+######## DONE training — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-training-*_frames/ ########
+[ao-analyze] training/off-a: 9 frames averaged, mean_luma=103.94
+[ao-analyze] training/off-b: 9 frames averaged, mean_luma=98.79
+[ao-analyze] training/off-c: 9 frames averaged, mean_luma=94.29
+[ao-analyze] training/off-d: 9 frames averaged, mean_luma=86.12
+[ao-analyze] training/ssao: 9 frames averaged, mean_luma=96.52
+[ao-analyze] training/hbao: 9 frames averaged, mean_luma=91.17
+[ao-analyze] training/gtao: 9 frames averaged, mean_luma=84.61
+
+[ao-pose] training off-a vs ssao: ncc=0.969 => OK
+[ao-pose] training ssao vs off-b: ncc=0.974 => OK
+[ao-pose] training off-b vs hbao: ncc=0.970 => OK
+[ao-pose] training hbao vs off-c: ncc=0.971 => OK
+[ao-pose] training off-c vs gtao: ncc=0.970 => OK
+[ao-pose] training gtao vs off-d: ncc=0.963 => OK
+[ao-drift] training off-a vs off-d: mean_absdiff=22.926 (22.06% of off-a mean)
+[ao-drift] training off model: quadratic-TOD-fit(4 offs, mp4 mtimes) | ssao pred_luma=101.2 midpoint_luma=101.4 | hbao pred_luma=96.3 midpoint_luma=96.5 | gtao pred_luma=89.9 midpoint_luma=90.2
+
+[ao-analyze] training OFF-vs-SSAO (bracket off-a+off-b): mean_darkening=5.858 darkened_frac(>4)=30.90% p99=44.9 localization_ratio=5.5
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-training-ssao.png
+[ao-analyze] training OFF-vs-HBAO (bracket off-b+off-c): mean_darkening=6.182 darkened_frac(>4)=29.01% p99=50.2 localization_ratio=5.8
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-training-hbao.png
+[ao-analyze] training OFF-vs-GTAO (bracket off-c+off-d): mean_darkening=6.313 darkened_frac(>4)=30.64% p99=56.2 localization_ratio=6.0
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-training-gtao.png
+
+[ao-analyze] training SSAO-vs-HBAO: mean_absdiff=10.876
+[ao-analyze] training SSAO-vs-GTAO: mean_absdiff=16.468
+[ao-analyze] training HBAO-vs-GTAO: mean_absdiff=9.056
+
+[ao-gate5] training SSAO: open_area_delta=2.97% (<=5% OK) crease_delta=27.78% localized=OK global_delta=5.79% (<=8% OK) => PASS
+[ao-gate5] training HBAO: open_area_delta=3.06% (<=5% OK) crease_delta=33.89% localized=OK global_delta=6.42% (<=8% OK) => PASS
+[ao-gate5] training GTAO: open_area_delta=3.14% (<=5% OK) crease_delta=43.51% localized=OK global_delta=7.02% (<=8% OK) => PASS
+[ao-gate5-debug] training SSAO AO-term view: white_frac=93.0% dark_frac=0.9% sky_mean=243 => PASS
+[ao-gate5-debug] training HBAO AO-term view: white_frac=91.6% dark_frac=1.0% sky_mean=251 => PASS
+[ao-gate5-debug] training GTAO AO-term view: white_frac=90.8% dark_frac=1.1% sky_mean=251 => PASS
+[ao-gate5] training OVERALL: PASS
+[charge-guard] level=12%, proceeding
+
+######## VANTAGE village1 (village1-hut @ -156.0 34.0 188.0) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated) ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 19:03:20.152 16444 16508 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (0s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-village1-off-a:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-off-a: 2400x1080
+  rec device-ao-village1-off-a: mp4=2716304B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-a: 4 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (2s)
+  focus-before device-ao-village1-ssao:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-ssao: 2400x1080
+  rec device-ao-village1-ssao: mp4=1701756B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao: 2 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (3s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-village1-off-b:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-off-b: 2400x1080
+  rec device-ao-village1-off-b: mp4=3094144B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-b: 4 matching line(s)
+  override-confirm: mode -> 2 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (4s)
+  focus-before device-ao-village1-hbao:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-hbao: 2400x1080
+  rec device-ao-village1-hbao: mp4=1264020B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (2s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-village1-off-c:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-off-c: 2400x1080
+  rec device-ao-village1-off-c: mp4=2839596B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-c: 4 matching line(s)
+  override-confirm: mode -> 3 (1s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (2s)
+  focus-before device-ao-village1-gtao:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-gtao: 2400x1080
+  rec device-ao-village1-gtao: mp4=808812B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (4s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-village1-off-d:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-off-d: 2400x1080
+  rec device-ao-village1-off-d: mp4=2682528B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-d: 4 matching line(s)
+  override-confirm: mode -> 1 (1s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (0s)
+  override-confirm: debug -> 1 (0s)
+  focus-before device-ao-village1-1-debugview:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-1-debugview: 2400x1080
+  rec device-ao-village1-1-debugview: mp4=465924B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-village1-1: 1.6 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (2s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-village1-2-debugview:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-2-debugview: 2400x1080
+  rec device-ao-village1-2-debugview: mp4=275356B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-village1-2: 1.7 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 3 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (22s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-village1-3-debugview:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-village1-3-debugview: 2400x1080
+  rec device-ao-village1-3-debugview: mp4=159052B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{8101820 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-village1-3: 1.5 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+
+######## DONE village1 — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-village1-*_frames/ ########
+[ao-analyze] village1/off-a: 9 frames averaged, mean_luma=155.19
+[ao-analyze] village1/off-b: 9 frames averaged, mean_luma=151.63
+[ao-analyze] village1/off-c: 9 frames averaged, mean_luma=148.12
+[ao-analyze] village1/off-d: 9 frames averaged, mean_luma=143.75
+[ao-analyze] village1/ssao: 9 frames averaged, mean_luma=152.38
+[ao-analyze] village1/hbao: 9 frames averaged, mean_luma=148.49
+[ao-analyze] village1/gtao: 9 frames averaged, mean_luma=145.83
+
+[ao-pose] village1 off-a vs ssao: ncc=0.973 => OK
+[ao-pose] village1 ssao vs off-b: ncc=0.972 => OK
+[ao-pose] village1 off-b vs hbao: ncc=0.979 => OK
+[ao-pose] village1 hbao vs off-c: ncc=0.980 => OK
+[ao-pose] village1 off-c vs gtao: ncc=0.971 => OK
+[ao-pose] village1 gtao vs off-d: ncc=0.969 => OK
+[ao-drift] village1 off-a vs off-d: mean_absdiff=17.341 (11.17% of off-a mean)
+[ao-drift] village1 off model: quadratic-TOD-fit(4 offs, mp4 mtimes) | ssao pred_luma=153.4 midpoint_luma=153.4 | hbao pred_luma=149.7 midpoint_luma=149.9 | gtao pred_luma=146.3 midpoint_luma=145.9
+
+[ao-analyze] village1 OFF-vs-SSAO (bracket off-a+off-b): mean_darkening=3.516 darkened_frac(>4)=20.46% p99=34.4 localization_ratio=6.6
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-village1-ssao.png
+[ao-analyze] village1 OFF-vs-HBAO (bracket off-b+off-c): mean_darkening=3.760 darkened_frac(>4)=22.65% p99=35.4 localization_ratio=6.2
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-village1-hbao.png
+[ao-analyze] village1 OFF-vs-GTAO (bracket off-c+off-d): mean_darkening=3.627 darkened_frac(>4)=19.67% p99=40.8 localization_ratio=7.1
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-village1-gtao.png
+
+[ao-analyze] village1 SSAO-vs-HBAO: mean_absdiff=10.051
+[ao-analyze] village1 SSAO-vs-GTAO: mean_absdiff=15.574
+[ao-analyze] village1 HBAO-vs-GTAO: mean_absdiff=8.914
+
+[ao-gate5] village1 SSAO: open_area_delta=0.87% (<=5% OK) crease_delta=14.68% localized=OK global_delta=2.29% (<=8% OK) => PASS
+[ao-gate5] village1 HBAO: open_area_delta=1.07% (<=5% OK) crease_delta=14.49% localized=OK global_delta=2.51% (<=8% OK) => PASS
+[ao-gate5] village1 GTAO: open_area_delta=0.80% (<=5% OK) crease_delta=16.77% localized=OK global_delta=2.48% (<=8% OK) => PASS
+[ao-gate5-debug] village1 SSAO AO-term view: white_frac=84.1% dark_frac=0.6% sky_mean=253 => PASS
+[ao-gate5-debug] village1 HBAO AO-term view: white_frac=82.6% dark_frac=1.1% sky_mean=253 => PASS
+[ao-gate5-debug] village1 GTAO AO-term view: white_frac=81.4% dark_frac=1.1% sky_mean=253 => PASS
+[ao-gate5] village1 OVERALL: PASS
+[charge-guard] level=11%, proceeding
+
+######## VANTAGE beach (beach-start @ -123.3 2.3 -54.6) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated) ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 19:08:56.540 17447 17510 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (2s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-beach-off-a:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-off-a: 2400x1080
+  rec device-ao-beach-off-a: mp4=2075984B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-a: 4 matching line(s)
+  override-confirm: mode -> 1 (1s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (2s)
+  focus-before device-ao-beach-ssao:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-ssao: 2400x1080
+  rec device-ao-beach-ssao: mp4=1182004B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao: 1 matching line(s)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (1s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-beach-off-b:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-off-b: 2400x1080
+  rec device-ao-beach-off-b: mp4=2496620B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-b: 4 matching line(s)
+  override-confirm: mode -> 2 (2s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (2s)
+  focus-before device-ao-beach-hbao:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-hbao: 2400x1080
+  rec device-ao-beach-hbao: mp4=824484B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao: 1 matching line(s)
+  override-confirm: mode -> 0 (2s)
+  override-confirm: quality -> 1 (2s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-beach-off-c:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-off-c: 2400x1080
+  rec device-ao-beach-off-c: mp4=2182172B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-c: 4 matching line(s)
+  override-confirm: mode -> 3 (1s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (6s)
+  focus-before device-ao-beach-gtao:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-gtao: 2400x1080
+  rec device-ao-beach-gtao: mp4=464116B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao: 1 matching line(s)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (4s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-beach-off-d:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-off-d: 2400x1080
+  rec device-ao-beach-off-d: mp4=1917104B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-d: 4 matching line(s)
+  override-confirm: mode -> 1 (3s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (2s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-beach-1-debugview:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-1-debugview: 2400x1080
+  rec device-ao-beach-1-debugview: mp4=320236B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-beach-1: 1.6 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (4s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-beach-2-debugview:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-2-debugview: 2400x1080
+  rec device-ao-beach-2-debugview: mp4=257748B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-beach-2: 1.6 (term view expects <20)
+  override-confirm: debug -> 0 (0s)
+  override-confirm: mode -> 3 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (28s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-beach-3-debugview:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-beach-3-debugview: 2400x1080
+  rec device-ao-beach-3-debugview: mp4=131220B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{edee404 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-beach-3: 1.5 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+
+######## DONE beach — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-beach-*_frames/ ########
+[ao-analyze] beach/off-a: 9 frames averaged, mean_luma=127.30
+[ao-analyze] beach/off-b: 9 frames averaged, mean_luma=114.67
+[ao-analyze] beach/off-c: 9 frames averaged, mean_luma=102.73
+[ao-analyze] beach/off-d: 9 frames averaged, mean_luma=90.52
+[ao-analyze] beach/ssao: 9 frames averaged, mean_luma=119.86
+[ao-analyze] beach/hbao: 9 frames averaged, mean_luma=106.96
+[ao-analyze] beach/gtao: 9 frames averaged, mean_luma=95.52
+
+[ao-pose] beach off-a vs ssao: ncc=0.983 => OK
+[ao-pose] beach ssao vs off-b: ncc=0.983 => OK
+[ao-pose] beach off-b vs hbao: ncc=0.984 => OK
+[ao-pose] beach hbao vs off-c: ncc=0.981 => OK
+[ao-pose] beach off-c vs gtao: ncc=0.982 => OK
+[ao-pose] beach gtao vs off-d: ncc=0.967 => OK
+[ao-drift] beach off-a vs off-d: mean_absdiff=39.391 (30.94% of off-a mean)
+[ao-drift] beach off model: quadratic-TOD-fit(4 offs, mp4 mtimes) | ssao pred_luma=120.1 midpoint_luma=121.0 | hbao pred_luma=108.2 midpoint_luma=108.7 | gtao pred_luma=97.1 midpoint_luma=96.6
+
+[ao-analyze] beach OFF-vs-SSAO (bracket off-a+off-b): mean_darkening=1.865 darkened_frac(>4)=13.11% p99=25.0 localization_ratio=7.4
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-beach-ssao.png
+[ao-analyze] beach OFF-vs-HBAO (bracket off-b+off-c): mean_darkening=2.890 darkened_frac(>4)=16.82% p99=32.5 localization_ratio=7.3
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-beach-hbao.png
+[ao-analyze] beach OFF-vs-GTAO (bracket off-c+off-d): mean_darkening=3.257 darkened_frac(>4)=17.56% p99=37.5 localization_ratio=7.4
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-beach-gtao.png
+
+[ao-analyze] beach SSAO-vs-HBAO: mean_absdiff=14.924
+[ao-analyze] beach SSAO-vs-GTAO: mean_absdiff=27.143
+[ao-analyze] beach HBAO-vs-GTAO: mean_absdiff=14.391
+
+[ao-gate5] beach SSAO: open_area_delta=0.43% (<=5% OK) crease_delta=13.90% localized=OK global_delta=1.55% (<=8% OK) => PASS
+[ao-gate5] beach HBAO: open_area_delta=0.81% (<=5% OK) crease_delta=19.28% localized=OK global_delta=2.67% (<=8% OK) => PASS
+[ao-gate5] beach GTAO: open_area_delta=0.97% (<=5% OK) crease_delta=24.56% localized=OK global_delta=3.35% (<=8% OK) => PASS
+[ao-gate5-debug] beach SSAO AO-term view: white_frac=96.6% dark_frac=0.9% sky_mean=250 => PASS
+[ao-gate5-debug] beach HBAO AO-term view: white_frac=95.4% dark_frac=0.9% sky_mean=249 => PASS
+[ao-gate5-debug] beach GTAO AO-term view: white_frac=95.1% dark_frac=0.9% sky_mean=249 => PASS
+[ao-gate5] beach OVERALL: PASS
+[charge-guard] level=10%, proceeding
+
+######## VANTAGE shoreline (beach-start @ -195.0 3.5 -415.0) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated) ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 19:14:47.302 18276 18348 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (1s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (2s)
+  focus-before device-ao-shoreline-off-a:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-a: 2400x1080
+  rec device-ao-shoreline-off-a: mp4=3110048B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-a: 3 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (10s)
+  focus-before device-ao-shoreline-ssao:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-ssao: 2400x1080
+  rec device-ao-shoreline-ssao: mp4=1815708B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao: 1 matching line(s)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (2s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-shoreline-off-b:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-b: 2400x1080
+  rec device-ao-shoreline-off-b: mp4=3452960B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-b: 3 matching line(s)
+  override-confirm: mode -> 2 (1s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (10s)
+  focus-before device-ao-shoreline-hbao:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-hbao: 2400x1080
+  rec device-ao-shoreline-hbao: mp4=1518196B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (5s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-shoreline-off-c:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-c: 2400x1080
+  rec device-ao-shoreline-off-c: mp4=3303520B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-c: 3 matching line(s)
+  override-confirm: mode -> 3 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (20s)
+  focus-before device-ao-shoreline-gtao:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-gtao: 2400x1080
+  rec device-ao-shoreline-gtao: mp4=815924B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao: 1 matching line(s)
+  override-confirm: mode -> 0 (2s)
+  override-confirm: quality -> 1 (5s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-shoreline-off-d:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-d: 2400x1080
+  rec device-ao-shoreline-off-d: mp4=3340884B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-d: 3 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (8s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-shoreline-1-debugview:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-1-debugview: 2400x1080
+  rec device-ao-shoreline-1-debugview: mp4=788220B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-shoreline-1: 1.9 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (6s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-shoreline-2-debugview:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-2-debugview: 2400x1080
+  rec device-ao-shoreline-2-debugview: mp4=530852B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-shoreline-2: 1.4 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 3 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (28s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-shoreline-3-debugview:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-3-debugview: 2400x1080
+  rec device-ao-shoreline-3-debugview: mp4=246188B frames=4 res=2400x1080 focus-after:   mCurrentFocus=Window{615c6f6 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-shoreline-3: 1.8 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+
+######## DONE shoreline — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-shoreline-*_frames/ ########
+[ao-analyze] shoreline/off-a: 9 frames averaged, mean_luma=105.20
+[ao-analyze] shoreline/off-b: 9 frames averaged, mean_luma=97.36
+[ao-analyze] shoreline/off-c: 9 frames averaged, mean_luma=93.18
+[ao-analyze] shoreline/off-d: 9 frames averaged, mean_luma=84.75
+[ao-analyze] shoreline/ssao: 9 frames averaged, mean_luma=102.91
+[ao-analyze] shoreline/hbao: 9 frames averaged, mean_luma=90.91
+[ao-analyze] shoreline/gtao: 9 frames averaged, mean_luma=89.96
+
+[ao-pose] shoreline off-a vs ssao: ncc=0.986 => OK
+[ao-pose] shoreline ssao vs off-b: ncc=0.985 => OK
+[ao-pose] shoreline off-b vs hbao: ncc=0.980 => OK
+[ao-pose] shoreline hbao vs off-c: ncc=0.953 => OK
+[ao-pose] shoreline off-c vs gtao: ncc=0.953 => OK
+[ao-pose] shoreline gtao vs off-d: ncc=0.951 => OK
+[ao-drift] shoreline off-a vs off-d: mean_absdiff=21.934 (20.85% of off-a mean)
+[ao-drift] shoreline off model: quadratic-TOD-fit(4 offs, mp4 mtimes) | ssao pred_luma=100.9 midpoint_luma=101.3 | hbao pred_luma=94.9 midpoint_luma=95.3 | gtao pred_luma=88.3 midpoint_luma=89.0
+
+[ao-analyze] shoreline OFF-vs-SSAO (bracket off-a+off-b): mean_darkening=0.827 darkened_frac(>4)=4.91% p99=16.3 localization_ratio=8.6
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-ssao.png
+[ao-analyze] shoreline OFF-vs-HBAO (bracket off-b+off-c): mean_darkening=5.657 darkened_frac(>4)=41.71% p99=30.2 localization_ratio=3.7
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-hbao.png
+[ao-analyze] shoreline OFF-vs-GTAO (bracket off-c+off-d): mean_darkening=3.307 darkened_frac(>4)=25.06% p99=26.5 localization_ratio=5.5
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-gtao.png
+
+[ao-analyze] shoreline SSAO-vs-HBAO: mean_absdiff=13.654
+[ao-analyze] shoreline SSAO-vs-GTAO: mean_absdiff=16.097
+[ao-analyze] shoreline HBAO-vs-GTAO: mean_absdiff=13.729
+
+[ao-gate5] shoreline SSAO: open_area_delta=0.13% (<=5% OK) crease_delta=6.94% localized=OK global_delta=0.82% (<=8% OK) => PASS
+[ao-gate5] shoreline HBAO: open_area_delta=4.23% (<=5% OK) crease_delta=19.04% localized=OK global_delta=5.96% (<=8% OK) => PASS
+[ao-gate5] shoreline GTAO: open_area_delta=1.98% (<=5% OK) crease_delta=14.43% localized=OK global_delta=3.74% (<=8% OK) => PASS
+
+[ao-gate7] shoreline water mask 57.3% of frame, off-off wave-noise baseline 20.786 luma (18.05%)
+[ao-gate7] shoreline SSAO water: absdelta=3.818 (lim 31.178) darkening=0.365 (0.32% <= max(1.5%, off-off dir-noise 7.27%)) => PASS (water untouched by AO)
+[ao-gate7] shoreline HBAO water: absdelta=9.805 (lim 31.178) darkening=8.484 (7.37% <= max(1.5%, off-off dir-noise 3.48%)) => FAIL (water untouched by AO)
+[ao-gate7] shoreline GTAO water: absdelta=11.130 (lim 31.178) darkening=4.023 (3.49% <= max(1.5%, off-off dir-noise 9.29%)) => PASS (water untouched by AO)
+[ao-gate5-debug] shoreline SSAO AO-term view (non-water region): white_frac=98.4% dark_frac=0.4% sky_mean=253 => PASS
+[ao-gate5-debug] shoreline HBAO AO-term view (non-water region): white_frac=98.5% dark_frac=0.7% sky_mean=253 => PASS
+[ao-gate5-debug] shoreline GTAO AO-term view (non-water region): white_frac=98.4% dark_frac=0.7% sky_mean=253 => PASS
+[ao-gate5] shoreline OVERALL: FAIL(1)
+=== 3b. strength grid (3 modes x 3 strengths @ training) ===
+[charge-guard] level=10%, proceeding
+
+######## STRENGTH GRID @ training-start -1187.4 16.2 932.3 — 3 modes x 3 strengths (weaker/default/stronger), PER-TRIO BOOTS + off brackets ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 19:21:28.164 21042 21105 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 2 (5s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-ssao-off-pre:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-ssao-off-pre: mp4=3534288B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-off-pre: 4 matching line(s)
+  override-confirm: mode -> 1 (2s)
+  override-confirm: strength -> 0 (0s)
+  aoperf-confirm: mode=1 quality=2 strength=0 (8s)
+  focus-before device-ao-strengthgrid-ssao-weak:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-weak: 2400x1080
+  rec device-ao-strengthgrid-ssao-weak: mp4=2001396B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-weak: 2 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (8s)
+  focus-before device-ao-strengthgrid-ssao-def:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-def: 2400x1080
+  rec device-ao-strengthgrid-ssao-def: mp4=2025420B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-def: 2 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=2 (8s)
+  focus-before device-ao-strengthgrid-ssao-strong:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-strong: 2400x1080
+  rec device-ao-strengthgrid-ssao-strong: mp4=2492272B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-strong: 2 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (3s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-ssao-off-post:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-off-post: 2400x1080
+  rec device-ao-strengthgrid-ssao-off-post: mp4=3185732B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{52b7757 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-off-post: 4 matching line(s)
+  try#1 warp_ok=1   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 19:24:59.222 21518 21584 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  aoperf-confirm: mode=0 quality=2 strength=1 (6s)
+  focus-before device-ao-strengthgrid-hbao-off-pre:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-hbao-off-pre: mp4=3615968B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-off-pre: 4 matching line(s)
+  override-confirm: mode -> 2 (1s)
+  override-confirm: strength -> 0 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=0 (12s)
+  focus-before device-ao-strengthgrid-hbao-weak:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-weak: 2400x1080
+  rec device-ao-strengthgrid-hbao-weak: mp4=1426204B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-weak: 1 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (6s)
+  focus-before device-ao-strengthgrid-hbao-def:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-def: 2400x1080
+  rec device-ao-strengthgrid-hbao-def: mp4=2384164B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-def: 1 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=2 (8s)
+  focus-before device-ao-strengthgrid-hbao-strong:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-strong: 2400x1080
+  rec device-ao-strengthgrid-hbao-strong: mp4=1565412B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-strong: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (2s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-hbao-off-post:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-off-post: 2400x1080
+  rec device-ao-strengthgrid-hbao-off-post: mp4=3169384B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{5c0fb31 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-off-post: 4 matching line(s)
+  try#1 warp_ok=1   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 19:28:31.887 22090 22155 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  aoperf-confirm: mode=0 quality=2 strength=1 (6s)
+  focus-before device-ao-strengthgrid-gtao-off-pre:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-gtao-off-pre: mp4=3262376B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-off-pre: 4 matching line(s)
+  override-confirm: mode -> 3 (0s)
+  override-confirm: strength -> 0 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=0 (10s)
+  focus-before device-ao-strengthgrid-gtao-weak:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-weak: 2400x1080
+  rec device-ao-strengthgrid-gtao-weak: mp4=874044B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-weak: 1 matching line(s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (28s)
+  focus-before device-ao-strengthgrid-gtao-def:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-def: 2400x1080
+  rec device-ao-strengthgrid-gtao-def: mp4=1197548B frames=9 res=2400x1080 focus-after:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-def: 1 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm TIMEOUT: mode=3 quality=2 strength=2 (30s) — segment evidence SUSPECT
+  focus-before device-ao-strengthgrid-gtao-strong:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-strong: 2400x1080
+  rec device-ao-strengthgrid-gtao-strong: mp4=893348B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-strong: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (4s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-gtao-off-post:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-off-post: 2400x1080
+  rec device-ao-strengthgrid-gtao-off-post: mp4=3636084B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{74b94b8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-off-post: 4 matching line(s)
+
+######## DONE strengthgrid — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-strengthgrid-*_frames/ ########
+[ao-grid] strengthgrid/ssao-off-pre: 9 frames averaged, mean_luma=101.43
+[ao-grid] strengthgrid/ssao-off-post: 9 frames averaged, mean_luma=92.81
+[ao-grid] strengthgrid/hbao-off-pre: 9 frames averaged, mean_luma=102.22
+[ao-grid] strengthgrid/hbao-off-post: 9 frames averaged, mean_luma=95.35
+[ao-grid] strengthgrid/gtao-off-pre: 9 frames averaged, mean_luma=101.48
+[ao-grid] strengthgrid/gtao-off-post: 9 frames averaged, mean_luma=95.48
+[ao-grid] strengthgrid/ssao-weak: 9 frames averaged, mean_luma=97.96
+[ao-grid] strengthgrid/ssao-def: 9 frames averaged, mean_luma=93.79
+[ao-grid] strengthgrid/ssao-strong: 9 frames averaged, mean_luma=91.64
+[ao-grid] strengthgrid/hbao-weak: 9 frames averaged, mean_luma=96.86
+[ao-grid] strengthgrid/hbao-def: 9 frames averaged, mean_luma=99.04
+[ao-grid] strengthgrid/hbao-strong: 9 frames averaged, mean_luma=91.58
+[ao-grid] strengthgrid/gtao-weak: 9 frames averaged, mean_luma=96.93
+[ao-grid] strengthgrid/gtao-def: 8 frames averaged, mean_luma=97.21
+[ao-grid] strengthgrid/gtao-strong: 9 frames averaged, mean_luma=90.38
+
+[ao-pose] strengthgrid ssao-off-pre vs ssao-weak: ncc=0.982 => OK
+[ao-pose] strengthgrid ssao-weak vs ssao-def: ncc=0.987 => OK
+[ao-pose] strengthgrid ssao-def vs ssao-strong: ncc=0.986 => OK
+[ao-pose] strengthgrid ssao-strong vs ssao-off-post: ncc=0.969 => OK
+[ao-pose] strengthgrid hbao-off-pre vs hbao-weak: ncc=0.981 => OK
+[ao-pose] strengthgrid hbao-weak vs hbao-def: ncc=0.966 => OK
+[ao-pose] strengthgrid hbao-def vs hbao-strong: ncc=0.965 => OK
+[ao-pose] strengthgrid hbao-strong vs hbao-off-post: ncc=0.960 => OK
+[ao-pose] strengthgrid gtao-off-pre vs gtao-weak: ncc=0.979 => OK
+[ao-pose] strengthgrid gtao-weak vs gtao-def: ncc=0.980 => OK
+[ao-pose] strengthgrid gtao-def vs gtao-strong: ncc=0.973 => OK
+[ao-pose] strengthgrid gtao-strong vs gtao-off-post: ncc=0.946 => OK
+[ao-drift] strengthgrid ssao off-pre vs off-post: mean_absdiff=16.380 (16.15% of off-pre mean)
+[ao-drift] strengthgrid hbao off-pre vs off-post: mean_absdiff=13.495 (13.20% of off-pre mean)
+[ao-drift] strengthgrid gtao off-pre vs off-post: mean_absdiff=12.982 (12.79% of off-pre mean)
+[ao-drift] strengthgrid boot-TOD repeatability (off-pre mean luma): ssao=101.4 hbao=102.2 gtao=101.5
+
+[ao-grid] ssao weaker: open_area_delta=1.13% crease_delta=16.56% global_delta=2.84% => PASS
+[ao-grid] ssao default: open_area_delta=1.84% crease_delta=22.81% global_delta=4.41% => PASS
+[ao-grid] ssao stronger: open_area_delta=1.80% crease_delta=29.49% global_delta=4.96% => PASS
+[ao-grid] hbao weaker: open_area_delta=2.16% crease_delta=22.79% global_delta=4.47% => PASS
+[ao-grid] hbao default: open_area_delta=1.52% crease_delta=32.79% global_delta=4.64% => PASS
+[ao-grid] hbao stronger: open_area_delta=2.66% crease_delta=41.52% global_delta=6.71% => PASS
+[ao-grid] gtao weaker: open_area_delta=2.17% crease_delta=28.49% global_delta=4.81% => PASS
+[ao-grid] gtao default: open_area_delta=1.68% crease_delta=43.02% global_delta=5.37% => PASS
+[ao-grid] gtao stronger: open_area_delta=3.51% crease_delta=48.96% global_delta=8.18% => FAIL
+
+[ao-grid] ssao ordering crease weaker<default<stronger: 16.56 < 22.81 < 29.49 => PASS
+[ao-grid] hbao ordering crease weaker<default<stronger: 22.79 < 32.79 < 41.52 => PASS
+[ao-grid] gtao ordering crease weaker<default<stronger: 28.49 < 43.02 < 48.96 => PASS
+[ao-grid] OVERALL: FAIL
+=== 4. fps matrix (3 algos x 3 qualities + off) ===
+[charge-guard] level=9%, proceeding
+
+######## FPS MATRIX @ village1-hut -156.0 34.0 188.0 — 10 combos, AOPERF harvest ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{2f40c0a u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 19:33:43.763 22644 22711 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (5s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+off :: 07-16 19:34:43.808 22644 22711 I opengoal-gk: AOPERF mode=0 quality=1 strength=1 fps=20.7 busy_ms=45.10
+  override-confirm: mode -> 1 (1s)
+  override-confirm: quality -> 0 (0s)
+  aoperf-confirm: mode=1 quality=0 strength=1 (4s)
+ssao-low :: 07-16 19:35:03.117 22644 22711 I opengoal-gk: AOPERF mode=1 quality=0 strength=1 fps=17.8 busy_ms=52.87
+  override-confirm: quality -> 1 (0s)
+  aoperf-confirm: mode=1 quality=1 strength=1 (9s)
+ssao-med :: 07-16 19:35:23.512 22644 22711 I opengoal-gk: AOPERF mode=1 quality=1 strength=1 fps=17.8 busy_ms=52.90
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (8s)
+ssao-high :: 07-16 19:35:54.983 22644 22711 I opengoal-gk: AOPERF mode=1 quality=2 strength=1 fps=11.0 busy_ms=87.28
+  override-confirm: mode -> 2 (0s)
+  override-confirm TIMEOUT: quality -> 0 (45s) — segment evidence SUSPECT
+  aoperf-confirm TIMEOUT: mode=2 quality=0 strength=1 (30s) — segment evidence SUSPECT
+hbao-low :: 07-16 19:37:09.449 22644 22711 I opengoal-gk: AOPERF mode=2 quality=0 strength=1 fps=17.9 busy_ms=52.45
+  override-confirm: quality -> 1 (2s)
+  aoperf-confirm: mode=2 quality=1 strength=1 (0s)
+hbao-med :: 07-16 19:37:31.794 22644 22711 I opengoal-gk: AOPERF mode=2 quality=1 strength=1 fps=15.6 busy_ms=60.79
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (8s)
+hbao-high :: 07-16 19:38:13.591 22644 22711 I opengoal-gk: AOPERF mode=2 quality=2 strength=1 fps=7.9 busy_ms=123.40
+  override-confirm: mode -> 3 (1s)
+  override-confirm: quality -> 0 (0s)
+  aoperf-confirm: mode=3 quality=0 strength=1 (4s)
+gtao-low :: 07-16 19:38:35.782 22644 22711 I opengoal-gk: AOPERF mode=3 quality=0 strength=1 fps=18.2 busy_ms=51.41
+  override-confirm: quality -> 1 (0s)
+  aoperf-confirm: mode=3 quality=1 strength=1 (10s)
+gtao-med :: 07-16 19:39:05.778 22644 22711 I opengoal-gk: AOPERF mode=3 quality=1 strength=1 fps=11.9 busy_ms=80.46
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (19s)
+gtao-high :: 07-16 19:40:24.392 22644 22711 I opengoal-gk: AOPERF mode=3 quality=2 strength=1 fps=4.2 busy_ms=234.31
+
+######## DONE fpsmatrix — .autoport/reports/Grecharged-ambient-occlusion/device/ao-fpsmatrix-results.txt ########
+=== 5. owner reset: AO Off, quality Medium, capture-protocol undo (grass + dynamic RS back ON), props clear, force-stop ===
+disk after reset: (dynamic-render-scale? #t) (recharged-grass? #t) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+[ao-proof-battery] DONE
+=== RE-RUN 19:41:09: shoreline (HBAO water bracket-noise diag) + strengthgrid (gtao-stronger 8.18 vs 8 cap diag) ===
+[charge] 9% < 14%, wait 5min
+[charge] 10% < 14%, wait 5min
+[charge] 11% < 14%, wait 5min
+[charge] 12% < 14%, wait 5min
+[charge] 13% < 14%, wait 5min
+[charge] 15% >= 14%, go
+
+######## VANTAGE shoreline (beach-start @ -195.0 3.5 -415.0) — AO A/B, INTERLEAVED off brackets (TOD-drift compensated) ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 20:06:15.240 25003 25078 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (2s)
+  override-confirm: quality -> 1 (0s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-shoreline-off-a:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-a: 2400x1080
+  rec device-ao-shoreline-off-a: mp4=4207412B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-a: 5 matching line(s)
+  override-confirm: mode -> 1 (1s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (2s)
+  focus-before device-ao-shoreline-ssao:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-ssao: 2400x1080
+  rec device-ao-shoreline-ssao: mp4=2215620B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 1 (0s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-shoreline-off-b:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-b: 2400x1080
+  rec device-ao-shoreline-off-b: mp4=4541684B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-b: 5 matching line(s)
+  override-confirm: mode -> 2 (1s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (4s)
+  focus-before device-ao-shoreline-hbao:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-hbao: 2400x1080
+  rec device-ao-shoreline-hbao: mp4=1366260B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao: 1 matching line(s)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (3s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-shoreline-off-c:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-c: 2400x1080
+  rec device-ao-shoreline-off-c: mp4=4891076B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-c: 5 matching line(s)
+  override-confirm: mode -> 3 (0s)
+  override-confirm: quality -> 2 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (8s)
+  focus-before device-ao-shoreline-gtao:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-gtao: 2400x1080
+  rec device-ao-shoreline-gtao: mp4=772908B frames=9 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao: 1 matching line(s)
+  override-confirm: mode -> 0 (0s)
+  override-confirm: quality -> 1 (4s)
+  aoperf-confirm: mode=0 quality=1 strength=1 (0s)
+  focus-before device-ao-shoreline-off-d:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-off-d: 2400x1080
+  rec device-ao-shoreline-off-d: mp4=4316336B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK off-d: 5 matching line(s)
+  override-confirm: mode -> 1 (1s)
+  override-confirm: quality -> 2 (0s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (8s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-shoreline-1-debugview:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-1-debugview: 2400x1080
+  rec device-ao-shoreline-1-debugview: mp4=888684B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-shoreline-1: 2.0 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (4s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-shoreline-2-debugview:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-2-debugview: 2400x1080
+  rec device-ao-shoreline-2-debugview: mp4=594756B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-shoreline-2: 2.2 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+  override-confirm: mode -> 3 (0s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (24s)
+  override-confirm: debug -> 1 (1s)
+  focus-before device-ao-shoreline-3-debugview:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-shoreline-3-debugview: 2400x1080
+  rec device-ao-shoreline-3-debugview: mp4=241780B frames=5 res=2400x1080 focus-after:   mCurrentFocus=Window{a74b01f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  debugview sky-saturation device-ao-shoreline-3: 1.9 (term view expects <20)
+  override-confirm: debug -> 0 (1s)
+
+######## DONE shoreline — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-shoreline-*_frames/ ########
+[ao-analyze] shoreline/off-a: 9 frames averaged, mean_luma=105.19
+[ao-analyze] shoreline/off-b: 9 frames averaged, mean_luma=98.99
+[ao-analyze] shoreline/off-c: 9 frames averaged, mean_luma=90.73
+[ao-analyze] shoreline/off-d: 9 frames averaged, mean_luma=85.45
+[ao-analyze] shoreline/ssao: 9 frames averaged, mean_luma=103.22
+[ao-analyze] shoreline/hbao: 9 frames averaged, mean_luma=97.24
+[ao-analyze] shoreline/gtao: 8 frames averaged, mean_luma=87.85
+
+[ao-pose] shoreline off-a vs ssao: ncc=0.982 => OK
+[ao-pose] shoreline ssao vs off-b: ncc=0.986 => OK
+[ao-pose] shoreline off-b vs hbao: ncc=0.985 => OK
+[ao-pose] shoreline hbao vs off-c: ncc=0.976 => OK
+[ao-pose] shoreline off-c vs gtao: ncc=0.962 => OK
+[ao-pose] shoreline gtao vs off-d: ncc=0.955 => OK
+[ao-drift] shoreline off-a vs off-d: mean_absdiff=20.757 (19.73% of off-a mean)
+[ao-drift] shoreline off model: quadratic-TOD-fit(4 offs, mp4 mtimes) | ssao pred_luma=101.2 midpoint_luma=102.1 | hbao pred_luma=94.2 midpoint_luma=94.9 | gtao pred_luma=88.2 midpoint_luma=88.1
+
+[ao-analyze] shoreline OFF-vs-SSAO (bracket off-a+off-b): mean_darkening=0.921 darkened_frac(>4)=4.72% p99=18.7 localization_ratio=9.2
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-ssao.png
+[ao-analyze] shoreline OFF-vs-HBAO (bracket off-b+off-c): mean_darkening=1.169 darkened_frac(>4)=8.10% p99=16.6 localization_ratio=8.2
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-hbao.png
+[ao-analyze] shoreline OFF-vs-GTAO (bracket off-c+off-d): mean_darkening=3.726 darkened_frac(>4)=26.66% p99=21.5 localization_ratio=5.2
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-gtao.png
+
+[ao-analyze] shoreline SSAO-vs-HBAO: mean_absdiff=7.939
+[ao-analyze] shoreline SSAO-vs-GTAO: mean_absdiff=17.247
+[ao-analyze] shoreline HBAO-vs-GTAO: mean_absdiff=11.768
+
+[ao-gate5] shoreline SSAO: open_area_delta=0.08% (<=5% OK) crease_delta=7.88% localized=OK global_delta=0.91% (<=8% OK) => PASS
+[ao-gate5] shoreline HBAO: open_area_delta=0.26% (<=5% OK) crease_delta=7.25% localized=OK global_delta=1.24% (<=8% OK) => PASS
+[ao-gate5] shoreline GTAO: open_area_delta=2.36% (<=5% OK) crease_delta=15.24% localized=OK global_delta=4.22% (<=8% OK) => PASS
+
+[ao-gate7] shoreline water mask 57.3% of frame, off-off wave-noise baseline 19.640 luma (17.04%)
+[ao-gate7] shoreline SSAO water: absdelta=3.937 (lim 29.459) darkening=0.329 (0.29% <= max(1.5%, off-off dir-noise 5.50%)) => PASS (water untouched by AO)
+[ao-gate7] shoreline HBAO water: absdelta=6.850 (lim 29.459) darkening=0.733 (0.64% <= max(1.5%, off-off dir-noise 8.28%)) => PASS (water untouched by AO)
+[ao-gate7] shoreline GTAO water: absdelta=9.156 (lim 29.459) darkening=5.178 (4.49% <= max(1.5%, off-off dir-noise 4.08%)) => FAIL (water untouched by AO)
+[ao-gate5-debug] shoreline SSAO AO-term view (non-water region): white_frac=98.3% dark_frac=0.6% sky_mean=253 => PASS
+[ao-gate5-debug] shoreline HBAO AO-term view (non-water region): white_frac=98.3% dark_frac=0.5% sky_mean=253 => PASS
+[ao-gate5-debug] shoreline GTAO AO-term view (non-water region): white_frac=98.5% dark_frac=0.4% sky_mean=253 => PASS
+[ao-gate5] shoreline OVERALL: FAIL(1)
+[charge] 14% >= 12%, go
+
+######## STRENGTH GRID @ training-start -1187.4 16.2 932.3 — 3 modes x 3 strengths (weaker/default/stronger), PER-TRIO BOOTS + off brackets ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 20:12:17.370 25931 25991 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 2 (2s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-ssao-off-pre:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-ssao-off-pre: mp4=6849616B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-off-pre: 9 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: strength -> 0 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=0 (6s)
+  focus-before device-ao-strengthgrid-ssao-weak:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-weak: 2400x1080
+  rec device-ao-strengthgrid-ssao-weak: mp4=2041940B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-weak: 2 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (6s)
+  focus-before device-ao-strengthgrid-ssao-def:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-def: 2400x1080
+  rec device-ao-strengthgrid-ssao-def: mp4=2072508B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-def: 2 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=2 (6s)
+  focus-before device-ao-strengthgrid-ssao-strong:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-strong: 2400x1080
+  rec device-ao-strengthgrid-ssao-strong: mp4=2143840B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-strong: 2 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (2s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-ssao-off-post:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-off-post: 2400x1080
+  rec device-ao-strengthgrid-ssao-off-post: mp4=4313992B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{9d65a07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-off-post: 7 matching line(s)
+  try#1 warp_ok=1   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 20:15:43.973 26487 26546 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+=== shoreline RE-ANALYSIS 20:16:29 with the apples-to-apples LOO-off-null water gate (measurement fix, same captures) ===
+[ao-analyze] shoreline/off-a: 9 frames averaged, mean_luma=105.19
+[ao-analyze] shoreline/off-b: 9 frames averaged, mean_luma=98.99
+[ao-analyze] shoreline/off-c: 9 frames averaged, mean_luma=90.73
+[ao-analyze] shoreline/off-d: 9 frames averaged, mean_luma=85.45
+[ao-analyze] shoreline/ssao: 9 frames averaged, mean_luma=103.22
+[ao-analyze] shoreline/hbao: 9 frames averaged, mean_luma=97.24
+[ao-analyze] shoreline/gtao: 8 frames averaged, mean_luma=87.85
+
+[ao-pose] shoreline off-a vs ssao: ncc=0.982 => OK
+[ao-pose] shoreline ssao vs off-b: ncc=0.986 => OK
+[ao-pose] shoreline off-b vs hbao: ncc=0.985 => OK
+[ao-pose] shoreline hbao vs off-c: ncc=0.976 => OK
+[ao-pose] shoreline off-c vs gtao: ncc=0.962 => OK
+[ao-pose] shoreline gtao vs off-d: ncc=0.955 => OK
+[ao-drift] shoreline off-a vs off-d: mean_absdiff=20.757 (19.73% of off-a mean)
+[ao-drift] shoreline off model: quadratic-TOD-fit(4 offs, mp4 mtimes) | ssao pred_luma=101.2 midpoint_luma=102.1 | hbao pred_luma=94.2 midpoint_luma=94.9 | gtao pred_luma=88.2 midpoint_luma=88.1
+
+[ao-analyze] shoreline OFF-vs-SSAO (bracket off-a+off-b): mean_darkening=0.921 darkened_frac(>4)=4.72% p99=18.7 localization_ratio=9.2
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-ssao.png
+[ao-analyze] shoreline OFF-vs-HBAO (bracket off-b+off-c): mean_darkening=1.169 darkened_frac(>4)=8.10% p99=16.6 localization_ratio=8.2
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-hbao.png
+[ao-analyze] shoreline OFF-vs-GTAO (bracket off-c+off-d): mean_darkening=3.726 darkened_frac(>4)=26.66% p99=21.5 localization_ratio=5.2
+             heatmap -> .autoport/reports/Grecharged-ambient-occlusion/device/ao-diffheat-shoreline-gtao.png
+
+[ao-analyze] shoreline SSAO-vs-HBAO: mean_absdiff=7.939
+[ao-analyze] shoreline SSAO-vs-GTAO: mean_absdiff=17.247
+[ao-analyze] shoreline HBAO-vs-GTAO: mean_absdiff=11.768
+
+[ao-gate5] shoreline SSAO: open_area_delta=0.08% (<=5% OK) crease_delta=7.88% localized=OK global_delta=0.91% (<=8% OK) => PASS
+[ao-gate5] shoreline HBAO: open_area_delta=0.26% (<=5% OK) crease_delta=7.25% localized=OK global_delta=1.24% (<=8% OK) => PASS
+[ao-gate5] shoreline GTAO: open_area_delta=2.36% (<=5% OK) crease_delta=15.24% localized=OK global_delta=4.22% (<=8% OK) => PASS
+
+[ao-gate7] shoreline water mask 57.3% of frame, off-off wave-noise baseline 19.640 luma (17.04%)
+[ao-gate7] shoreline SSAO water: absdelta=3.937 (lim 29.459) darkening=0.329 (0.29% <= max(1.5%, 1.5x LOO-off-null 4.72%)) => PASS (water untouched by AO)
+[ao-gate7] shoreline HBAO water: absdelta=6.850 (lim 29.459) darkening=0.733 (0.64% <= max(1.5%, 1.5x LOO-off-null 4.72%)) => PASS (water untouched by AO)
+[ao-gate7] shoreline GTAO water: absdelta=9.156 (lim 29.459) darkening=5.178 (4.49% <= max(1.5%, 1.5x LOO-off-null 4.72%)) => PASS (water untouched by AO)
+[ao-gate5-debug] shoreline SSAO AO-term view (non-water region): white_frac=98.3% dark_frac=0.6% sky_mean=253 => PASS
+[ao-gate5-debug] shoreline HBAO AO-term view (non-water region): white_frac=98.3% dark_frac=0.5% sky_mean=253 => PASS
+[ao-gate5-debug] shoreline GTAO AO-term view (non-water region): white_frac=98.5% dark_frac=0.4% sky_mean=253 => PASS
+[ao-gate5] shoreline OVERALL: PASS
+  aoperf-confirm: mode=0 quality=2 strength=1 (7s)
+  focus-before device-ao-strengthgrid-hbao-off-pre:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-hbao-off-pre: mp4=6698684B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-off-pre: 7 matching line(s)
+  override-confirm: mode -> 2 (2s)
+  override-confirm: strength -> 0 (0s)
+  aoperf-confirm: mode=2 quality=2 strength=0 (0s)
+  focus-before device-ao-strengthgrid-hbao-weak:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-weak: 2400x1080
+  rec device-ao-strengthgrid-hbao-weak: mp4=1571788B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-weak: 1 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (8s)
+  focus-before device-ao-strengthgrid-hbao-def:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-def: 2400x1080
+  rec device-ao-strengthgrid-hbao-def: mp4=1940172B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-def: 1 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=2 (8s)
+  focus-before device-ao-strengthgrid-hbao-strong:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-strong: 2400x1080
+  rec device-ao-strengthgrid-hbao-strong: mp4=1506212B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-strong: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-hbao-off-post:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-off-post: 2400x1080
+  rec device-ao-strengthgrid-hbao-off-post: mp4=4710580B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{68a5eb2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-off-post: 7 matching line(s)
+  try#1 warp_ok=1   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 20:19:06.676 27035 27101 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  aoperf-confirm: mode=0 quality=2 strength=1 (4s)
+  focus-before device-ao-strengthgrid-gtao-off-pre:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-gtao-off-pre: mp4=6512428B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-off-pre: 7 matching line(s)
+  override-confirm: mode -> 3 (0s)
+  override-confirm: strength -> 0 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=0 (4s)
+  focus-before device-ao-strengthgrid-gtao-weak:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-weak: 2400x1080
+  rec device-ao-strengthgrid-gtao-weak: mp4=841324B frames=9 res=2400x1080 focus-after:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-weak: 1 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (26s)
+  focus-before device-ao-strengthgrid-gtao-def:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-def: 2400x1080
+  rec device-ao-strengthgrid-gtao-def: mp4=884660B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-def: 1 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=2 (26s)
+  focus-before device-ao-strengthgrid-gtao-strong:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-strong: 2400x1080
+  rec device-ao-strengthgrid-gtao-strong: mp4=901980B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-strong: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (4s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-gtao-off-post:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-off-post: 2400x1080
+  rec device-ao-strengthgrid-gtao-off-post: mp4=4304532B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{49d8d14 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-off-post: 7 matching line(s)
+
+######## DONE strengthgrid — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-strengthgrid-*_frames/ ########
+[ao-grid] strengthgrid/ssao-off-pre: 9 frames averaged, mean_luma=105.26
+[ao-grid] strengthgrid/ssao-off-post: 9 frames averaged, mean_luma=93.70
+[ao-grid] strengthgrid/hbao-off-pre: 9 frames averaged, mean_luma=103.80
+[ao-grid] strengthgrid/hbao-off-post: 9 frames averaged, mean_luma=95.54
+[ao-grid] strengthgrid/gtao-off-pre: 9 frames averaged, mean_luma=103.14
+[ao-grid] strengthgrid/gtao-off-post: 9 frames averaged, mean_luma=95.98
+[ao-grid] strengthgrid/ssao-weak: 9 frames averaged, mean_luma=97.54
+[ao-grid] strengthgrid/ssao-def: 9 frames averaged, mean_luma=94.07
+[ao-grid] strengthgrid/ssao-strong: 9 frames averaged, mean_luma=91.36
+[ao-grid] strengthgrid/hbao-weak: 9 frames averaged, mean_luma=96.83
+[ao-grid] strengthgrid/hbao-def: 9 frames averaged, mean_luma=96.23
+[ao-grid] strengthgrid/hbao-strong: 9 frames averaged, mean_luma=91.36
+[ao-grid] strengthgrid/gtao-weak: 8 frames averaged, mean_luma=96.46
+[ao-grid] strengthgrid/gtao-def: 9 frames averaged, mean_luma=94.65
+[ao-grid] strengthgrid/gtao-strong: 9 frames averaged, mean_luma=90.94
+
+[ao-pose] strengthgrid ssao-off-pre vs ssao-weak: ncc=0.978 => OK
+[ao-pose] strengthgrid ssao-weak vs ssao-def: ncc=0.988 => OK
+[ao-pose] strengthgrid ssao-def vs ssao-strong: ncc=0.988 => OK
+[ao-pose] strengthgrid ssao-strong vs ssao-off-post: ncc=0.966 => OK
+[ao-pose] strengthgrid hbao-off-pre vs hbao-weak: ncc=0.970 => OK
+[ao-pose] strengthgrid hbao-weak vs hbao-def: ncc=0.977 => OK
+[ao-pose] strengthgrid hbao-def vs hbao-strong: ncc=0.982 => OK
+[ao-pose] strengthgrid hbao-strong vs hbao-off-post: ncc=0.960 => OK
+[ao-pose] strengthgrid gtao-off-pre vs gtao-weak: ncc=0.977 => OK
+[ao-pose] strengthgrid gtao-weak vs gtao-def: ncc=0.980 => OK
+[ao-pose] strengthgrid gtao-def vs gtao-strong: ncc=0.979 => OK
+[ao-pose] strengthgrid gtao-strong vs gtao-off-post: ncc=0.947 => OK
+[ao-drift] strengthgrid ssao off-pre vs off-post: mean_absdiff=19.319 (18.35% of off-pre mean)
+[ao-drift] strengthgrid hbao off-pre vs off-post: mean_absdiff=14.699 (14.16% of off-pre mean)
+[ao-drift] strengthgrid gtao off-pre vs off-post: mean_absdiff=14.250 (13.82% of off-pre mean)
+[ao-drift] strengthgrid boot-TOD repeatability (off-pre mean luma): ssao=105.3 hbao=103.8 gtao=103.1
+
+[ao-grid] ssao weaker: open_area_delta=2.86% crease_delta=20.21% global_delta=4.95% => PASS
+[ao-grid] ssao default: open_area_delta=3.06% crease_delta=24.01% global_delta=5.77% => PASS
+[ao-grid] ssao stronger: open_area_delta=2.70% crease_delta=30.08% global_delta=6.13% => PASS
+[ao-grid] hbao weaker: open_area_delta=2.99% crease_delta=25.70% global_delta=5.73% => PASS
+[ao-grid] hbao default: open_area_delta=1.99% crease_delta=33.13% global_delta=4.98% => PASS
+[ao-grid] hbao stronger: open_area_delta=3.22% crease_delta=40.91% global_delta=7.15% => PASS
+[ao-grid] gtao weaker: open_area_delta=3.47% crease_delta=28.56% global_delta=6.26% => PASS
+[ao-grid] gtao default: open_area_delta=3.02% crease_delta=41.46% global_delta=6.56% => PASS
+[ao-grid] gtao stronger: open_area_delta=3.47% crease_delta=47.64% global_delta=8.12% => FAIL
+
+[ao-grid] ssao ordering crease weaker<default<stronger: 20.21 < 24.01 < 30.08 => PASS
+[ao-grid] hbao ordering crease weaker<default<stronger: 25.70 < 33.13 < 40.91 => PASS
+[ao-grid] gtao ordering crease weaker<default<stronger: 28.56 < 41.46 < 47.64 => PASS
+[ao-grid] OVERALL: FAIL
+[re-run chain] done
+[charge-guard] level=15%, proceeding
+=== POSTCLAMP stage 2 20:41:41: strengthgrid on the GTAO-broad-saturation build ===
+[charge-guard] level=15%, proceeding
+
+######## STRENGTH GRID @ training-start -1187.4 16.2 932.3 — 3 modes x 3 strengths (weaker/default/stronger), PER-TRIO BOOTS + off brackets ########
+  capture-protocol seeded+verified: (render-scale 100.0000) (dynamic-render-scale? #f) (recharged-grass? #f) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+  try#1 warp_ok=1   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 20:41:47.135 31985 32050 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: quality -> 2 (3s)
+  override-confirm: strength -> 1 (0s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-ssao-off-pre:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-ssao-off-pre: mp4=6184012B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-off-pre: 9 matching line(s)
+  override-confirm: mode -> 1 (0s)
+  override-confirm: strength -> 0 (2s)
+  aoperf-confirm: mode=1 quality=2 strength=0 (8s)
+  focus-before device-ao-strengthgrid-ssao-weak:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-weak: 2400x1080
+  rec device-ao-strengthgrid-ssao-weak: mp4=2240412B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-weak: 2 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=1 (6s)
+  focus-before device-ao-strengthgrid-ssao-def:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-def: 2400x1080
+  rec device-ao-strengthgrid-ssao-def: mp4=2071532B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-def: 2 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm: mode=1 quality=2 strength=2 (8s)
+  focus-before device-ao-strengthgrid-ssao-strong:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-strong: 2400x1080
+  rec device-ao-strengthgrid-ssao-strong: mp4=2121268B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-strong: 2 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (3s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-ssao-off-post:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-ssao-off-post: 2400x1080
+  rec device-ao-strengthgrid-ssao-off-post: mp4=4603852B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{87798d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK ssao-off-post: 7 matching line(s)
+  try#1 warp_ok=1   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 20:45:17.879 32541 32606 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  aoperf-confirm TIMEOUT: mode=0 quality=2 strength=1 (30s) — segment evidence SUSPECT
+  focus-before device-ao-strengthgrid-hbao-off-pre:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-hbao-off-pre: mp4=4468200B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-off-pre: 7 matching line(s)
+  override-confirm: mode -> 2 (0s)
+  override-confirm: strength -> 0 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=0 (8s)
+  focus-before device-ao-strengthgrid-hbao-weak:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-weak: 2400x1080
+  rec device-ao-strengthgrid-hbao-weak: mp4=1421444B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-weak: 1 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=2 quality=2 strength=1 (10s)
+  focus-before device-ao-strengthgrid-hbao-def:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-def: 2400x1080
+  rec device-ao-strengthgrid-hbao-def: mp4=1599308B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-def: 1 matching line(s)
+  override-confirm: strength -> 2 (0s)
+  aoperf-confirm: mode=2 quality=2 strength=2 (8s)
+  focus-before device-ao-strengthgrid-hbao-strong:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-strong: 2400x1080
+  rec device-ao-strengthgrid-hbao-strong: mp4=1839924B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-strong: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-hbao-off-post:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-hbao-off-post: 2400x1080
+  rec device-ao-strengthgrid-hbao-off-post: mp4=5872396B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{b02c1fa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK hbao-off-post: 7 matching line(s)
+  try#1 warp_ok=1   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  foreground STABLE
+  fbo-scale check: 07-16 20:49:10.322  1298  1386 I opengoal-gk: A35-RENDER FBO setup: 1600x720 (game_res 1600x720 scale 100% window 2400x1080)
+  aoperf-confirm: mode=0 quality=2 strength=1 (2s)
+  focus-before device-ao-strengthgrid-gtao-off-pre:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-off-pre: 2400x1080
+  rec device-ao-strengthgrid-gtao-off-pre: mp4=5251208B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-off-pre: 8 matching line(s)
+  override-confirm: mode -> 3 (0s)
+  override-confirm: strength -> 0 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=0 (18s)
+  focus-before device-ao-strengthgrid-gtao-weak:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-weak: 2400x1080
+  rec device-ao-strengthgrid-gtao-weak: mp4=1091692B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-weak: 1 matching line(s)
+  override-confirm: strength -> 1 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=1 (26s)
+  focus-before device-ao-strengthgrid-gtao-def:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-def: 2400x1080
+  rec device-ao-strengthgrid-gtao-def: mp4=821156B frames=9 res=2400x1080 focus-after:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-def: 1 matching line(s)
+  override-confirm: strength -> 2 (1s)
+  aoperf-confirm: mode=3 quality=2 strength=2 (26s)
+  focus-before device-ao-strengthgrid-gtao-strong:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-strong: 2400x1080
+  rec device-ao-strengthgrid-gtao-strong: mp4=1090828B frames=8 res=2400x1080 focus-after:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-strong: 1 matching line(s)
+  override-confirm: mode -> 0 (1s)
+  override-confirm: strength -> 1 (2s)
+  aoperf-confirm: mode=0 quality=2 strength=1 (0s)
+  focus-before device-ao-strengthgrid-gtao-off-post:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  res device-ao-strengthgrid-gtao-off-post: 2400x1080
+  rec device-ao-strengthgrid-gtao-off-post: mp4=6566448B frames=10 res=2400x1080 focus-after:   mCurrentFocus=Window{f5eaaab u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  aoperf-bracket OK gtao-off-post: 8 matching line(s)
+
+######## DONE strengthgrid — frames under .autoport/reports/Grecharged-ambient-occlusion/device/device-ao-strengthgrid-*_frames/ ########
+[ao-grid] strengthgrid/ssao-off-pre: 9 frames averaged, mean_luma=104.02
+[ao-grid] strengthgrid/ssao-off-post: 9 frames averaged, mean_luma=93.18
+[ao-grid] strengthgrid/hbao-off-pre: 9 frames averaged, mean_luma=99.00
+[ao-grid] strengthgrid/hbao-off-post: 9 frames averaged, mean_luma=95.64
+[ao-grid] strengthgrid/gtao-off-pre: 9 frames averaged, mean_luma=103.28
+[ao-grid] strengthgrid/gtao-off-post: 9 frames averaged, mean_luma=97.36
+[ao-grid] strengthgrid/ssao-weak: 9 frames averaged, mean_luma=97.31
+[ao-grid] strengthgrid/ssao-def: 9 frames averaged, mean_luma=93.68
+[ao-grid] strengthgrid/ssao-strong: 9 frames averaged, mean_luma=90.89
+[ao-grid] strengthgrid/hbao-weak: 9 frames averaged, mean_luma=95.14
+[ao-grid] strengthgrid/hbao-def: 9 frames averaged, mean_luma=91.81
+[ao-grid] strengthgrid/hbao-strong: 9 frames averaged, mean_luma=91.56
+[ao-grid] strengthgrid/gtao-weak: 9 frames averaged, mean_luma=100.09
+[ao-grid] strengthgrid/gtao-def: 8 frames averaged, mean_luma=93.49
+[ao-grid] strengthgrid/gtao-strong: 7 frames averaged, mean_luma=93.41
+
+[ao-pose] strengthgrid ssao-off-pre vs ssao-weak: ncc=0.977 => OK
+[ao-pose] strengthgrid ssao-weak vs ssao-def: ncc=0.988 => OK
+[ao-pose] strengthgrid ssao-def vs ssao-strong: ncc=0.989 => OK
+[ao-pose] strengthgrid ssao-strong vs ssao-off-post: ncc=0.963 => OK
+[ao-pose] strengthgrid hbao-off-pre vs hbao-weak: ncc=0.976 => OK
+[ao-pose] strengthgrid hbao-weak vs hbao-def: ncc=0.985 => OK
+[ao-pose] strengthgrid hbao-def vs hbao-strong: ncc=0.977 => OK
+[ao-pose] strengthgrid hbao-strong vs hbao-off-post: ncc=0.965 => OK
+[ao-pose] strengthgrid gtao-off-pre vs gtao-weak: ncc=0.973 => OK
+[ao-pose] strengthgrid gtao-weak vs gtao-def: ncc=0.974 => OK
+[ao-pose] strengthgrid gtao-def vs gtao-strong: ncc=0.987 => OK
+[ao-pose] strengthgrid gtao-strong vs gtao-off-post: ncc=0.960 => OK
+[ao-drift] strengthgrid ssao off-pre vs off-post: mean_absdiff=18.549 (17.83% of off-pre mean)
+[ao-drift] strengthgrid hbao off-pre vs off-post: mean_absdiff=14.202 (14.34% of off-pre mean)
+[ao-drift] strengthgrid gtao off-pre vs off-post: mean_absdiff=12.983 (12.57% of off-pre mean)
+[ao-drift] strengthgrid boot-TOD repeatability (off-pre mean luma): ssao=104.0 hbao=99.0 gtao=103.3
+
+[ao-grid] ssao weaker: open_area_delta=2.09% crease_delta=18.80% global_delta=4.30% => PASS
+[ao-grid] ssao default: open_area_delta=2.59% crease_delta=24.94% global_delta=5.52% => PASS
+[ao-grid] ssao stronger: open_area_delta=2.53% crease_delta=31.47% global_delta=6.12% => PASS
+[ao-grid] hbao weaker: open_area_delta=2.09% crease_delta=22.89% global_delta=4.24% => PASS
+[ao-grid] hbao default: open_area_delta=2.97% crease_delta=32.07% global_delta=6.32% => PASS
+[ao-grid] hbao stronger: open_area_delta=2.55% crease_delta=41.07% global_delta=6.50% => PASS
+[ao-grid] gtao weaker: open_area_delta=1.84% crease_delta=28.21% global_delta=4.39% => PASS
+[ao-grid] gtao default: open_area_delta=3.78% crease_delta=39.76% global_delta=7.55% => PASS
+[ao-grid] gtao stronger: open_area_delta=2.66% crease_delta=49.65% global_delta=6.86% => PASS
+
+[ao-grid] ssao ordering crease weaker<default<stronger: 18.80 < 24.94 < 31.47 => PASS
+[ao-grid] hbao ordering crease weaker<default<stronger: 22.89 < 32.07 < 41.07 => PASS
+[ao-grid] gtao ordering crease weaker<default<stronger: 28.21 < 39.76 < 49.65 => PASS
+[ao-grid] OVERALL: PASS
+=== POSTCLAMP stage 3: owner reset (AO Off, quality Medium, grass + dynamic RS back ON) ===
+disk after reset: (dynamic-render-scale? #t) (recharged-grass? #t) (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+[postclamp chain] DONE

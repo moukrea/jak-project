@@ -1,0 +1,35 @@
+== fresh boot (default flag-set build) ==
+BOOT OK: pid=11263 foreground, 0 fatal signals in 90s; device GAME.CGO marker=ogflags:e3b0c44298fc:android-arm64
+  [shot 00-title-90s] 1920697B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+== nav: title -> OPTIONS -> GRAPHIC OPTIONS ==
+  [shot 01-title-menu] 1918672B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 02-options] 1886138B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 03-graphics-top] 2004193B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+== graphics page: capture every row (expect NO 'VULKAN RENDERER' row) ==
+  [shot 04-gfx-row1] 2004333B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row2] 2000020B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row3] 2004240B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row4] 2004058B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row5] 2004167B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row6] 2020500B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row7] 2043972B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row8] 1993478B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row9] 1994074B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row10] 1999359B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 04-gfx-row11] 2004333B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+== re-enter graphics top, 7x down -> RECHARGED SETTINGS, X ==
+  [shot 05-back-options] 1886264B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 06-recharged-highlight] 2043972B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 07-recharged-top] 1941535B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+== recharged page: capture every row (expect NO hud/enhanced-models/grass-overhang rows; grass + AO present) ==
+  [shot 08-rch-row1] 1942386B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row2] 1941697B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row3] 1941224B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row4] 1944093B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row5] 1942740B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row6] 1939864B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row7] 1941535B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row8] 1942832B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row9] 1941697B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  [shot 08-rch-row10] 1941224B focus=  mCurrentFocus=Window{4b5562b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+SPOTCHECK PASS: 90s clean boot + menu captures at .autoport/reports/Grecharged-buildsys-flags/device-spotcheck (pid stable 11263, foreground, 0 fatal signals)

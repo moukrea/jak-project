@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Gconsolidate_deploy_cgos.sh — push the CONSISTENT current-HEAD 28-file CGO/DGO set
-# (out/jak1-arm64-full/iso) onto the device runtime (files/iso_data/jak1) via run-as,
+# (out/jak1-arm64-full/iso) onto the device runtime (files/cgo/jak1) via run-as,
 # sha256-verifying every file. Keeps .extracted_v1 so the app does NOT re-extract the
 # APK's bundled assets on next launch. libgk/APK already == HEAD on device (deploy_verify).
 # Does NOT restore known-good — this phase LEAVES the consolidated build on the device.
@@ -17,19 +17,32 @@ n=$(ls "$SRC"/*.CGO "$SRC"/*.DGO 2>/dev/null | wc -l); [ "$n" -eq 28 ] || die "e
 # bundle v14 (025f68399): the loader's marker is now files/.asset_bundle_stamp (the old
 # per-iso .extracted_v1 is gone). Extraction-done = stamp present + iso_data/jak1 populated.
 $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 || die "run-as / .asset_bundle_stamp missing (CE-locked or not extracted?)"
-$ADB -s $S shell run-as $PKG ls files/iso_data/jak1/GAME.CGO >/dev/null 2>&1 || die "iso_data/jak1 not populated (extraction incomplete?)"
+# The runtime (fake_iso) scans files/cgo/jak1/ FIRST as the active overlay (the slim-APK CGO-pack
+# unpack dir), then falls back to the legacy adb-push dir files/cgo/jak1/. A push into iso_data/
+# is INVISIBLE when cgo/ is populated -> the 2026-07-14 overhang5 mixed-build boot crash (fresh libgk
+# + STALE GAME/ENGINE left in cgo/ after an extraction-skip). Deploy to the ACTIVE dir (cgo/ if
+# present) AND iso_data/ for older installs.
+DEST_DIRS="files/cgo/jak1"
+if $ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/GAME.CGO'" >/dev/null 2>&1; then
+  DEST_DIRS="files/cgo/jak1 files/cgo/jak1"
+fi
+$ADB -s $S shell run-as $PKG ls files/cgo/jak1/GAME.CGO >/dev/null 2>&1 || die "iso_data/jak1 not populated (extraction incomplete?)"
 
-echo "== push 28 consistent HEAD CGO/DGO -> files/iso_data/jak1 (sha256-verified) =="
+echo "== push 28 consistent HEAD CGO/DGO -> $DEST_DIRS (sha256-verified) =="
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
 fail=0; cnt=0
 for f in "$SRC"/*.CGO "$SRC"/*.DGO; do
   bn=$(basename "$f"); want=$(sha256sum "$f" | awk '{print $1}')
   $ADB -s $S push "$f" "/data/local/tmp/$bn" >/dev/null 2>&1 || { echo "  PUSH-FAIL $bn"; fail=1; continue; }
-  $ADB -s $S shell run-as $PKG cp "/data/local/tmp/$bn" "files/iso_data/jak1/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
+  ok_all=1
+  for DD in $DEST_DIRS; do
+    $ADB -s $S shell run-as $PKG cp "/data/local/tmp/$bn" "$DD/$bn" || { echo "  CP-FAIL $DD/$bn"; fail=1; ok_all=0; }
+    got=$($ADB -s $S shell run-as $PKG sha256sum "$DD/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+    [ "$want" = "$got" ] || { echo "  VERIFY-FAIL $DD/$bn want=$want got=$got"; fail=1; ok_all=0; }
+  done
   $ADB -s $S shell rm -f "/data/local/tmp/$bn" >/dev/null 2>&1 || true
-  got=$($ADB -s $S shell run-as $PKG sha256sum "files/iso_data/jak1/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
-  [ "$want" = "$got" ] && cnt=$((cnt+1)) || { echo "  VERIFY-FAIL $bn want=$want got=$got"; fail=1; }
+  [ "$ok_all" = 1 ] && cnt=$((cnt+1))
 done
 [ "$fail" -eq 0 ] || die "one or more files failed to push/verify"
-echo "[deploy-cgos] pushed + sha256-verified all $cnt/28 consistent HEAD files into files/iso_data/jak1"
+echo "[deploy-cgos] pushed + sha256-verified all $cnt/28 consistent HEAD files into $DEST_DIRS"
 echo "[deploy-cgos] bundle stamp kept; device will boot the consolidated build on next launch."

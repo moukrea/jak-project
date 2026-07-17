@@ -1,0 +1,18 @@
+== boot1: seed GTAO/High, arm the sentinel, dirty-death within 60s ==
+  seeded+verified: (ambient-occlusion 3) (ao-quality 2) 
+  boot1 AO-enable line seen (6s)
+  ARMED-OK (sentinel exists)
+  boot1 force-stopped (dirty, within 60s)
+  sentinel SURVIVES the dirty death (OK)
+== boot2: expect SAFE-BOOT (AO forced off once), sentinel consumed ==
+  SAFE-BOOT line present (OK)
+  AOPERF mode=0 count: 3 (need >=2)
+  sentinel CONSUMED (gone after 20s) (OK)
+  boot2 alive + foreground jak1 (OK)
+== boot3: sentinel consumed -> AO active (GTAO) again; re-arm + clear after 60s health ==
+  AOPERF mode=3 count: 3 (need >=3)
+  sentinel CLEARED after healthy run (OK)
+  boot3 alive + foreground jak1 (OK)
+== restore: AO Off / quality Medium, clear sentinel, force-stop ==
+  seeded+verified: (ambient-occlusion 0) (ao-quality 1) 
+[ao-safeboot PASS] arm within 60s, survive dirty death, SAFE-BOOT+AO-off next boot, re-active after

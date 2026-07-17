@@ -1,12 +1,15 @@
 #include "Loader.h"
 
 #include <cstdio>
+#include <set>
 
 #include "common/global_profiler/GlobalProfiler.h"
+#include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
 
+#include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
 
 #include "third-party/imgui/imgui.h"
@@ -162,6 +165,94 @@ void Loader::draw_debug_window() {
   ImGui::End();
 }
 
+// Grecharged-hd-models: read the persisted ENHANCED MODELS choice straight from settings.ini. The
+// common FR3 (HD Jak+Daxter) loads in the renderer ctor (via load_common) BEFORE GOAL's per-frame push,
+// so we seed the flag here to respect the toggle on relaunch. Shared by desktop + Android (both call
+// Loader::load_common). Missing file / #f -> false -> stock.
+#ifdef OG_FEAT_HD_MODELS
+static bool read_persisted_enhanced_models() {
+  try {
+    auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "settings.ini";
+    if (!file_util::file_exists(p.string())) {
+      return false;
+    }
+    auto txt = file_util::read_text_file(p);
+    // INI line format: `recharged-enhanced-models? = #t`.
+    return txt.find("recharged-enhanced-models? = #t") != std::string::npos;
+  } catch (...) {
+    return false;
+  }
+}
+#endif
+
+// Grecharged-hd-models: resolve a level's FR3 path, preferring an enhanced (jak2 HD) variant under
+// fr3/enhanced/ when the ENHANCED MODELS toggle is on AND that file exists. Off / missing -> stock
+// path, so OFF is byte-identical to stock.
+static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
+#ifdef OG_FEAT_HD_MODELS
+  if (Gfx::g_global_settings.recharged_enhanced_models) {
+    // Prefer the package-shipped custom fr3/enhanced/ when the custom root is set.
+    if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
+      auto custom_enhanced = *custom_fr3 / "enhanced" / fmt::format("{}.fr3", name);
+      if (file_util::file_exists(custom_enhanced.string())) {
+        // lg (not raw stdout): on Android only lg::* routes to logcat.
+        lg::info("HD-MODELS fr3-select {}: ENHANCED (custom) {}", name, custom_enhanced.string());
+        return custom_enhanced;
+      }
+    }
+    auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
+    if (file_util::file_exists(enhanced.string())) {
+      // lg (not raw stdout): on Android only lg::* routes to logcat.
+      lg::info("HD-MODELS fr3-select {}: ENHANCED {}", name, enhanced.string());
+      return enhanced;
+    }
+  }
+  lg::info("HD-MODELS fr3-select {}: STOCK (enhanced-toggle={})", name,
+           Gfx::g_global_settings.recharged_enhanced_models);
+#endif
+  // OG_FEAT_HD_MODELS OFF (default): always the stock fr3 path.
+  return base / fmt::format("{}.fr3", name);
+}
+
+// Grecharged-hd-models2: objective loaded-model discriminator. The bake-time "Replacing" line
+// (extract_merc.cpp) never appears at runtime, so a capture alone can't prove WHICH mesh (stock vs
+// HD) was loaded under a merc name. Log per-model triangle/draw counts at fr3 load so every run
+// carries the proof (HD meshes are several x the stock tri count under the same name).
+static void log_merc_models(const std::string& lev, const tfrag3::Level& data) {
+  for (const auto& model : data.merc_data.models) {
+    u32 tris = 0, draws = 0;
+    for (const auto& e : model.effects) {
+      for (const auto& d : e.all_draws) {
+        tris += d.num_triangles;
+        draws++;
+      }
+    }
+    lg::info("HD-MODELS merc-load lvl={} model={} tris={} draws={} effects={}", lev, model.name,
+             tris, draws, model.effects.size());
+    // Grecharged-hd-models2 (owner hint: prove the HD mesh binds its OWN texture set, not stock
+    // jak1 pages): for the 4 replaced characters, log the texture debug-names their draws bind.
+    if (model.name == "eichar-lod0" || model.name == "sidekick-lod0" || model.name == "sage-lod0" ||
+        model.name == "assistant-lod0") {
+      std::set<std::string> tex_names;
+      for (const auto& e : model.effects) {
+        for (const auto& d : e.all_draws) {
+          if (d.tree_tex_id >= 0 && (size_t)d.tree_tex_id < data.textures.size()) {
+            tex_names.insert(data.textures[d.tree_tex_id].debug_name);
+          }
+        }
+      }
+      std::string tex_list;
+      for (const auto& t : tex_names) {
+        if (!tex_list.empty()) {
+          tex_list += ",";
+        }
+        tex_list += t;
+      }
+      lg::info("HD-MODELS merc-tex lvl={} model={} textures=[{}]", lev, model.name, tex_list);
+    }
+  }
+}
+
 /*!
  * Loader function that runs in a completely separate thread.
  * This is used for file I/O and unpacking.
@@ -187,7 +278,7 @@ void Loader::loader_thread() {
       // load the fr3 file
       prof().begin_event("read-file");
       Timer disk_timer;
-      auto data = file_util::read_binary_file(m_base_path / fmt::format("{}.fr3", lev));
+      auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, lev));
       double disk_load_time = disk_timer.getSeconds();
       prof().end_event();
 
@@ -206,6 +297,7 @@ void Loader::loader_thread() {
       result->serialize(ser);
       double import_time = import_timer.getSeconds();
       prof().end_event();
+      log_merc_models(lev, *result);
 
       // and finally "unpack", which creates the vertex data we'll upload to the GPU
 
@@ -257,12 +349,18 @@ void Loader::loader_thread() {
  * This should be called during initialization, before any threaded loading goes on.
  */
 const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::string& name) {
-  auto data = file_util::read_binary_file(m_base_path / fmt::format("{}.fr3", name));
+#ifdef OG_FEAT_HD_MODELS
+  // Grecharged-hd-models: seed the enhanced-models flag before the common FR3 (HD Jak+Daxter) is read,
+  // since this runs in the renderer ctor before GOAL's per-frame push. Shared by desktop + Android.
+  Gfx::g_global_settings.recharged_enhanced_models = read_persisted_enhanced_models();
+#endif
+  auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, name));
 
   auto decomp_data = compression::decompress_zstd(data.data(), data.size());
   Serializer ser(decomp_data.data(), decomp_data.size());
   m_common_level.level = std::make_unique<tfrag3::Level>();
   m_common_level.level->serialize(ser);
+  log_merc_models(name, *m_common_level.level);
   for (auto& tex : m_common_level.level->textures) {
     m_common_level.textures.push_back(add_texture(tex_pool, tex, true));
   }

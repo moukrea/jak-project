@@ -43,7 +43,18 @@ void main() {
     float upness = fl > 1e-6 ? abs(fnrm.y) / fl : 1.0;
     float steep_w = 1.0 - smoothstep(0.30, 0.40, upness);
     float dist_f = smoothstep(u_fringe_fade.y, u_fringe_fade.z, length(v_fringe_rel));
-    color.a *= mix(1.0, dist_f, steep_w);
+    // Grecharged-grass-overhang7 ROUND 10 forensics (u_fringe_fade.w, prop
+    // debug.opengoal.grass.fringe_dbg; 0 = stock): mode 2 paints the gate state instead of fading
+    // (magenta = steep/would-fade, cyan = gate-blocked flat-ish) so one close capture names WHY a
+    // painted tuft survived the near-fade; mode 1 ignores the steepness gate entirely (A/B).
+    if (u_fringe_fade.w > 1.5) {
+      color.rgb = mix(color.rgb, mix(vec3(0.0, 1.0, 1.0), vec3(1.0, 0.0, 1.0), steep_w), 0.8);
+    } else {
+      if (u_fringe_fade.w > 0.5) {
+        steep_w = 1.0;
+      }
+      color.a *= mix(1.0, dist_f, steep_w);
+    }
   }
 
   if (color.a < alpha_min || color.a > alpha_max) {

@@ -1,0 +1,41 @@
+# Grecharged-grass-overhang5 — ROUND 5 report (attempt 4, resumed from attempt-3 WIP snapshot 78e25b9c8)
+
+RESULT: GRASS OVERHANG rim-drape fix PROVEN through the owner's REAL install flow (slim APK + external jak1_assets.zip extracted to the external root, NO adb asset push): 3D drooping grass now curls over and hangs downward over the dirt-terrace drop-off lips on device, precompute ON and OFF.
+
+## 1. Why round 4 was a FALSE PASS (root cause, device-confirmed)
+Rounds 1-4 placed the 3D droop ONLY on steep GRASS-TEXTURED "fringe" faces (upness <= GROUND_UPNESS gate in GrassBakeCore).
+The stepped Sandover terraces the owner actually looks at have DIRT/ROCK-textured drop faces — no grass-textured fringe exists there — so those lips received ZERO droop blades and rendered pixel-identical to stock.
+Round 4's banding/clip metrics measured the (grass-fringe) zones where droop DID exist, so they went green while the owner's zone was untouched. The fix manifested through the pipeline; it simply did nothing where the owner was looking.
+
+## 2. The round-5 fix (GBK6 rim-drape, additive toggle-gated tail)
+- GrassBakeCore.{h,cpp}: scan_level() now collects TRUE-RIM edge segments (boundary edges of placed walkable-grass tris — the drop-off lips already computed for the LOCKED edge clamp) as RimDrapeSeg{edge, unit OUTWARD XZ dir, ground colour, owning tri}, regardless of what texture the drop face below carries. 1989 segments in training.
+- expand() scatters RIMDRAPE_PER_M=6.0 blades per metre along each lip edge (jittered), nspare=3.0, normal = outward horizontal dir: placed=32662 rim-drape blades in the toggle-gated tail (tail range [616380..712650)).
+- grass.vert: new is_rimdrape branch (2.5 < nspare < 4.5) — blade roots AT the lip, rises slightly to clear the convex edge, then curls OUTWARD and hangs DOWN the drop face (parabolic +rise*s − drop*s^2, reach=0.55H, drop=1.35H, scaled by the droop-length slider). Skips occ/trample and the droop tangent-plane clamp (its inst_normal is an outward dir, not a surface normal; the arc is self-contained over the void).
+- Bake format bumped to GBK_FORMAT_VERSION=6; a stale bake fails the version check and falls back to live scan (no mixed-format reads).
+
+## 3. Owner-flow delivery proof (the part round 4 never did)
+- Fresh libgk: bash .autoport/lib/deploy_verify.sh eae4df44 jak1 → DEPLOY-VERIFY PASS, chain build==APK==device (libgk sha 4e93f5db02676bd7), device provably runs the HEAD libgk.so with the fix compiled in (grass.vert is embedded in libgk).
+- External archive: out/artifacts/jak1_assets.zip rebuilt 2026-07-14 11:47; its fr3/training.grassbake sha256 = 727c33a02a0a321e999eaecfded678ab9d1c140d199ba5c14298aed1ec9f0d9e.
+- Device external root: /storage/emulated/0/OpenGOAL/jak_1/assets/fr3/training.grassbake sha256 = 727c33a02a0a321e999eaecfded678ab9d1c140d199ba5c14298aed1ec9f0d9e — BYTE-IDENTICAL to the shipped archive entry.
+- Archive==device spot checks (owner extraction equivalence): fr3/beach.fr3 3cde2c417340204b, fr3/training.fr3 17710ec0b23d237b, fr3/GAME.fr3 e79b6a8465eca343 — all MATCH.
+- Boot ran in external asset mode: "external asset mode: gameRoot=/storage/emulated/0/OpenGOAL/jak_1", "[recharged-grass] PLACE-TIME mode=precomputed ... instances=712650" — the GBK6 bake loaded from EXTERNAL storage through the real read path (a format/version mismatch would have warned and fallen back to live scan; it did not).
+
+## 4. Device runs (realflow/, warp training-start, serial eae4df44)
+- Foreground evidence (dumpsys during the run): mCurrentFocus=Window{4daf582 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+- terr ON  (realflow/terr_on.log):  GOVERHANG5 rim-drape: placed=32662 over 1989 rim segments; GOVERHANG expand ... toggle=ON
+- terr OFF (realflow/terr_off.log): same bake loaded, toggle=OFF — the tail [616380..712650) is not drawn.
+- Visual A/B at the owner's terrace zone, SAME vantage (realflow/realflow_terr_OFF_frames/f_014.png vs realflow_terr_ON_frames/f_014.png, lip zooms realflow/g5_terr_{OFF,ON}_lipzoom.png): OFF = stock clean-cut lip, bare dirt face below; ON = grass blades visibly curl over the lip and hang down the dirt face along the whole edge. rim vantage (rim_on) additionally shows the drape over the ocean-platform lip.
+
+## 5. Precompute OFF (the owner's exact toggle test)
+scanproof/scan_on.log, live-scan run with (recharged-grass-precomputed? #f): "PLACE-TIME mode=live", "GOVERHANG5 rim-drape: 1989 true-rim edge segments collected (drape roots)" (this line only prints in scan_level, proving the on-device LIVE path), "rim-drape: placed=32662", toggle=ON; scanproof/frames/f_04.png shows the identical drape. So the fix renders with precompute ON and OFF — the owner's "précalculé désactivé, toujours claqué" state is covered.
+
+## 6. LOD / crossfade / regressions
+- Far LOD: rim-drape is NEAR-LOD only — the card pass collapses it, so the far LOD stays the stock painted alpha overhang texture, no grass cards at distance.
+- Near-3D vs the painted overhang alpha texture: the existing GBK3 hang-strip crossfade machinery fades the painted strip out where the 3D drape fades in — no double-up, no visible seam pop.
+- Walkable-top: the LOCKED edge stack (FLOORBELOW+FLOORGAP clamp) is untouched; the rim-drape is a purely ADDITIVE tail pass, so the clean walkable-top rim does not regress and grass still stops clean at the lip when the feature is off.
+- Toggle: recharged-grass-overhang? in the Recharged settings gates the whole tail at draw time; OFF == stock (the tail instances are simply not drawn, nspare unread by the stock branch) — OFF frames match the stock look (realflow terr/rim OFF captures).
+
+## 7. Honest caveats
+- The rim-vantage OFF/ON captures ended at different camera aims (ON run had the touch overlay up and panned further); the matched-vantage A/B is the terrace pair (f_014), which is also the owner's actual complaint zone.
+- Drape look (length 1.35H, density 6/m) is a first calibration; RIMDRAPE_* constants in GrassBakeCore.h are the tuning knobs if the owner wants it longer/denser. The owner's eye on the shipped build remains the final gate.
+- Attempts 1-2 burned budget on warp loops with the launcher foregrounded (diag/goverhang5_diag.txt); attempt-3's harness (goverhang5_capture.sh) with per-run focus checks is the one that worked and was reused here.

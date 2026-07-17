@@ -1,0 +1,6 @@
+=== deploy_verify_assets.sh ===
+  device CGO dir: files/cgo/jak1
+  ref arm64 build tree: out/jak1-arm64-full/iso
+  ok: 28 built CGO/DGO newer than newest goal_src/jak1
+DEPLOY-ASSETS PASS: device eae4df44 runs the fresh GOAL set (28/28 CGO/DGO byte-identical to out/jak1-arm64-full/iso).
+RC=0

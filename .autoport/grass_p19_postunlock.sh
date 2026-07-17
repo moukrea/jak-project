@@ -7,7 +7,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 S=eae4df44; PKG=org.opengoal.gk.jak1
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 die(){ echo "[postunlock FAIL] $*" >&2; exit 1; }
 
@@ -19,10 +19,10 @@ echo "  install OK"
 
 echo "## 2. restore DEFAULT grass settings"
 $ADB shell am force-stop $PKG; sleep 1
-$ADB shell run-as $PKG cat "$PCS" > /tmp/pcs19r.gc || die "cannot read pc-settings"
-sed -i 's/(recharged-grass? #[tf])/(recharged-grass? #t)/;s/(recharged-grass-near-dist [0-9.]*)/(recharged-grass-near-dist 30.0000)/;s/(recharged-grass-card-dist [0-9.]*)/(recharged-grass-card-dist 95.0000)/;s/(recharged-grass-density [0-9.]*)/(recharged-grass-density 150.0000)/' /tmp/pcs19r.gc
-$ADB push /tmp/pcs19r.gc /data/local/tmp/p.gc >/dev/null && $ADB shell run-as $PKG cp /data/local/tmp/p.gc "$PCS" && $ADB shell rm -f /data/local/tmp/p.gc
-$ADB shell run-as $PKG cat "$PCS" | grep -E 'recharged-grass' | tr -d '\r'
+$ADB shell cat "$PCS" > /tmp/pcs19r.gc || die "cannot read pc-settings"
+sed -i 's/^recharged-grass? = #[tf]/recharged-grass? = #t/;s/^recharged-grass-near-dist = [0-9.]*/recharged-grass-near-dist = 30.0000/;s/^recharged-grass-card-dist = [0-9.]*/recharged-grass-card-dist = 95.0000/;s/^recharged-grass-density = [0-9.]*/recharged-grass-density = 150.0000/' /tmp/pcs19r.gc
+$ADB push /tmp/pcs19r.gc /data/local/tmp/p.gc >/dev/null && $ADB shell cp /data/local/tmp/p.gc "$PCS" && $ADB shell rm -f /data/local/tmp/p.gc
+$ADB shell cat "$PCS" | grep -E 'recharged-grass' | tr -d '\r'
 
 echo "## 3. deploy_verify"
 bash .autoport/lib/deploy_verify.sh $S jak1 2>&1 | tail -2 | grep -q PASS || die "deploy_verify failed"

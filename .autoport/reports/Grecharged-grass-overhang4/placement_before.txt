@@ -1,0 +1,10 @@
+G4METRIC spacing_hist_peak_ratio=9.6444
+G4METRIC spacing_hist_peak_at=0.2700
+G4METRIC spacing_pairs=1848433
+G4METRIC tip_violations_droop=5425 of=72248 rate=0.0751
+G4METRIC tip_violations_twins=38 of=21850 rate=0.0017
+G4METRIC tip_violations_comb=133 of=2048 rate=0.0649
+G4METRIC seam_pairs=5
+G4METRIC seam_dw_max=0.3894 G4METRIC seam_dw_p99=0.3890
+G4METRIC seam_axis_deg_max=68.8939 G4METRIC seam_axis_deg_p99=68.2881
+G4METRIC boundary_w_max=1.0000

@@ -131,6 +131,10 @@ struct GfxGlobalSettings {
   // Set from GOAL (-> *pc-settings* recharged-grass?) via pc-set-recharged-grass!.
   // OFF (default) == byte-identical stock rendering (the renderer hook is skipped).
   bool recharged_grass = false;
+  // External-asset-root: when true, the loader looks up user PNG texture
+  // replacements under <root>/custom_assets/texture_replacements at runtime.
+  // Set from GOAL via pc-set-load-custom-assets!. OFF (default) == stock.
+  bool load_custom_assets = false;
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
   // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
   float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};
@@ -152,10 +156,28 @@ struct GfxGlobalSettings {
   // stock alpha overhang texture). Set from GOAL via pc-set-grass-overhang!. Only draws when
   // recharged_grass is also on; the droop tail of the instance buffer is simply not drawn when off.
   bool recharged_grass_overhang = true;
+  // Grecharged-foliage-wind: light wind sway for jak1 palms (TIE) + shrubs. Set from GOAL via
+  // pc-set-foliage-wind!. Default OFF => byte-identical stock render (no displacement / mult ×1).
+  bool recharged_foliage_wind = false;
   // POLISH#4: Jak's ledge-grab point (GOAL units) pushed via pc-set-jak-ledge! while he
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).
   float recharged_jak_ledge[4] = {0.f, 0.f, 0.f, 0.f};
+  // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
+  // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded
+  // in C++ from persisted pc-settings before the common FR3 loads, then kept live by the GOAL push.
+  // false = stock (byte-identical). Only meaningful when the build ships the enhanced FR3 set.
+  bool recharged_enhanced_models = false;
+  // Grecharged-ambient-occlusion: screen-space AO post-pass over the OPAQUE scene only
+  // (sampled/composited at the bucket-30 hook, before any alpha bucket — alpha-cut foliage
+  // and grass cards never enter the AO depth nor get darkened). Set from GOAL via
+  // pc-set-ambient-occlusion!. mode 0 = OFF => byte-identical stock (renderbuffer depth,
+  // zero AO GL calls). 1 = SSAO, 2 = HBAO, 3 = GTAO.
+  int recharged_ao_mode = 0;
+  // AO quality: 0 = low (quarter-res, few samples), 1 = medium (half-res), 2 = high
+  // (full-res, full samples). Only read when recharged_ao_mode != 0.
+  int recharged_ao_quality = 1;
+  int recharged_ao_strength = 1;  // Grecharged-ambient-occlusion closing round: 0 weaker, 1 default, 2 stronger
 };
 
 namespace Gfx {

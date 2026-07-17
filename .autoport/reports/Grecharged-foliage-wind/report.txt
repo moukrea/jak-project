@@ -1,0 +1,45 @@
+# Grecharged-foliage-wind — jak1 foliage wind wobble (Recharged, gated)
+
+RESULT: PASS — jak1 palm leaves (TIE wind shear boost 3.0x) + shrubs (per-plant vertex-shader sway) react to a light breeze behind a new top-level "FOLIAGE WIND" toggle in the Recharged Settings submenu, default OFF == stock render (byte-identical arithmetic when OFF), proven on the Redmi with matched-pose OFF/ON screenrecords + motion-grid metrics + fps perf at two vantages. Owner play-test is the final gate.
+
+## Owner request (2026-07-09)
+Palm leaves + shrubs are completely static; add light wind wobble/sway ("légère brise") so the world looks less frozen; extra toggle in Recharged Settings.
+
+## What was built (commit 4a2d5c76e)
+
+### Toggle (Recharged Settings, default OFF)
+- New pc-setting `recharged-foliage-wind?` (default #f) with key-based persistence (pckernel.gc read/write arms) and a per-frame update-to-os push -> `pc-set-foliage-wind!` -> `Gfx::g_global_settings.recharged_foliage_wind` (kmachine.cpp, logs on change).
+- Menu row "FOLIAGE WIND" on the TOP-LEVEL Recharged Settings page (row 4, before Back) — the owner asked for a toggle "dans les Recharged Settings", and the nested Grass page is already at PROGRESS_PC_PAGE_HEIGHT (7 rows). The ENHANCED MODELS dynamic collapse was updated (length 6 -> 5, shifts FOLIAGE WIND + Back up) with length-aware wiring so re-inits stay correct in both states.
+- OFF == stock: shrub shader sway branch is `if (u_wind_strength > 0.0)` with strength forced 0.0 when OFF; TIE shear boost is 1.0 when OFF (multiply by the exact literal 1.0f) — both paths byte-identical stock arithmetic when the toggle is off, and the toggle defaults OFF so a fresh install renders stock.
+
+### Shrubs (Shrub renderer, vertex-stage displacement — shrub.vert)
+- Time-driven sine keyed on world position: one coherent gust travelling across the field (spatial phase ~5.5 m wavelength, 0.24 Hz) on two decorrelated axes, plus a fine-scale shimmer (~0.4 m phase variation) so larger plants deform instead of translating rigidly.
+- Per-PLANT base anchor + height normalization: a Wx1 RGBA8 LUT indexed by color_index (constant per shrub instance, extract_shrub assigns one palette slot per instance) stores 16+16-bit packed (minY, height) per plant, built once at level load in Shrub::update_load — roots stay planted, and a small bush and a tall kelp both reach full sway at their own crowns. Same device-proven Wx1 RGBA8 texelFetch pattern as the TOD LUT (no float textures on the Adreno path); texture freed in discard_tree_cache.
+- Amplitude default 0.10 m at the crown (quadratic height ramp), live-tunable via prop `debug.opengoal.foliage.shrub_amp` / env FOLIAGE_WIND_SHRUB_AMP, clamped 0..0.3 m.
+
+### Palm leaves (TIE renderer — Tie3.cpp; palms are jak1 TIE wind protos, tfrag untouched)
+- jak1's stock TIE wind system is alive on Android (GOAL update-wind fills *wind-work* every unpaused frame; add-pc-wind-data DMAs it to the renderer). Census (new one-shot log): beach tree=0 wind_draws=5 wind_instances=64; village1 trees wind_instances=14+65.
+- The sway boost (default 3.0x, prop `debug.opengoal.foliage.tie_mult` / env FOLIAGE_WIND_TIE_MULT, clamp 1..8) is applied ONLY to the matrix shear inside do_wind_math. Root-cause note: boosting `stiffness` (the obvious lever, tried first) is SELF-CANCELLING — the stiffness-scaled vf27 is persisted into the wind integrator state and feeds the cy=100 restoring term next frame, so the spring stiffens and visible sway barely changes (proven on device: 8x stiffness = zero visible delta). The shear-only boost leaves the integrator state stock.
+
+## Device evidence (Redmi Note 9 Pro eae4df44, org.opengoal.gk.jak1 foreground verified every capture)
+- Deploy chain: DEPLOY-VERIFY PASS build==APK==device libgk sha d4d4f60966a9e982 at HEAD 4a2d5c76e; DEPLOY-ASSETS PASS 28/28 CGO/DGO byte-identical, pushed to files/cgo/jak1 (the active overlay) AND files/iso_data/jak1.
+- Chain proof (device logcat, boot with toggle ON): "[foliage-wind] toggle -> ON", "[foliage-wind] shrub sway ACTIVE amp=409.6 lut_base=... lut_scale=...", "[foliage-wind] TIE shear boost ACTIVE mult=3".
+- Matched-pose OFF/ON screenrecords (identical warp + deterministic camera path, 14 s each, mp4 + extracted frames under device/): device-foliage-village1-{OFF,ON}.mp4 (village1-hut: Sandover palms + dense shrubs) and device-foliage-beach-{OFF,ON}.mp4 (beach-start + 4 s walk toward the arch palms: Sentinel Beach palms + beach shrubs).
+- Objective motion metric (mean |frame delta| over camera-hold windows, 4x8 grid): village1 foliage cells roughly DOUBLE ON vs OFF (e.g. 14.7->24.3, 11.2->23.6, 9.4->21.7, 10.2->18.8); beach palm-crown cell 1.5->7.5 ON vs OFF with non-foliage cells unchanged (sand/rock/water cells identical, confirming the motion is foliage-localized, not camera noise).
+- Earlier max-amplitude A/B at village1 (0.30 m / 8x): shrub cells 0.3->16.0, 0.0->11.7, 0.0->13.4 vs stock — unmistakable sway, no tearing, no root sliding; defaults then tuned DOWN to light-breeze levels (0.10 m / 3.0x) by eye on the same vantage.
+
+## Perf (device, steady-state A35-RENDER counters over the capture windows)
+- village1-hut: OFF 36.7 fps (mean render_ms 24.12) vs ON 36.2 fps (24.07 ms) — no measurable cost.
+- beach-start: OFF 19.3 fps (51.73 ms) vs ON 19.1 fps (56.10 ms) — within scene variance of the walk path; <=0.2 fps delta at both vantages, acceptable when ON, zero impact when OFF (uniform-only difference).
+
+## Gotchas fixed along the way (recorded for future phases)
+- pc-settings on this Android build lives on EXTERNAL storage: /storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc (since the external-assets phase). The internal files/.config/OpenGOAL path still exists but is DEAD — attempt 1 edited it and ran a full false-OFF A/B (its "ON" captures were actually OFF). foliage_capture.sh now edits the external file.
+- Attempt 1's CGO push went only to files/iso_data/jak1 while the runtime reads files/cgo/jak1 first; Gconsolidate_deploy_cgos.sh (fixed during overhang5) now pushes both — DEPLOY-ASSETS PASS.
+
+## Device state left for the owner play-test
+The persisted device setting is currently ON (recharged-foliage-wind? #t) so the breeze is visible immediately at Sandover/Sentinel Beach; a fresh install (or toggling FOLIAGE WIND off in Recharged Settings) is stock. The debug props on the device are set to the built-in defaults (0.10 / 3.0), so they are inert.
+
+## Artifacts
+- .autoport/reports/Grecharged-foliage-wind/device/device-foliage-{village1,beach}-{OFF,ON}.mp4 (+ *_frames/*.png, + full logcat foliage-*-{OFF,ON}.log)
+- .autoport/reports/Grecharged-foliage-wind/{build.log,capture-village1.log,capture-beach.log}
+- Code: game/graphics/opengl_renderer/background/{Shrub,Tie3}.{cpp,h}, shaders/shrub.vert, game/graphics/gfx.h, game/kernel/jak1/kmachine.cpp, goal_src/jak1/pc/{pckernel-impl,pckernel,hud-classes-pc,progress-pc}.gc

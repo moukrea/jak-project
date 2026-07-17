@@ -28,13 +28,16 @@ static void usage() {
       "  <level-name>   e.g. training (loads <fr3-dir>/<level>.fr3)\n"
       "  --fr3-dir DIR  fr3 directory (default: <repo>/out/jak1/fr3)\n"
       "  --out PATH     output path (default: <fr3-dir>/<level>.grassbake)\n"
-      "  --density PCT  bake candidate density (default: 250 = slider max)\n");
+      "  --density PCT  bake candidate density (default: 250 = slider max)\n"
+      "  --dump PREFIX  write PREFIX_instances.csv + PREFIX_tris.csv of the ship-default\n"
+      "                 (slider 150) expansion, for offline placement analysis\n");
 }
 
 int main(int argc, char** argv) {
   std::string level_name;
   std::string fr3_dir;
   std::string out_path;
+  std::string dump_prefix;
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
 
   for (int i = 1; i < argc; ++i) {
@@ -51,6 +54,8 @@ int main(int argc, char** argv) {
       fr3_dir = need_val("--fr3-dir");
     } else if (a == "--out") {
       out_path = need_val("--out");
+    } else if (a == "--dump") {
+      dump_prefix = need_val("--dump");
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "-h" || a == "--help") {
@@ -176,6 +181,38 @@ int main(int argc, char** argv) {
              "occ_culled={}\n",
              density, (u64)eBake.instances.size(), eBake.scatter_kept, eBake.occ_culled);
   fmt::print("[grass_bake] wrote '{}' ({} bytes compressed)\n", out_path, out_size);
+
+  // Grecharged-grass-overhang4: offline placement dump (ship-default expansion) so the banding /
+  // seam / tip-violation metrics can be computed by .autoport analysis and compared across
+  // placement generations (round-3 rows vs round-4 scatter) with ONE metric implementation.
+  if (!dump_prefix.empty()) {
+    FILE* fi = std::fopen((dump_prefix + "_instances.csv").c_str(), "w");
+    FILE* ft = std::fopen((dump_prefix + "_tris.csv").c_str(), "w");
+    if (!fi || !ft) {
+      fmt::print("error: --dump cannot open '{}_*.csv'\n", dump_prefix);
+      return 1;
+    }
+    std::fprintf(fi, "idx,px,py,pz,h,yaw,tint,curve,phase,gspare,nx,ny,nz,nspare,tri\n");
+    for (size_t i = 0; i < e150.instances.size(); ++i) {
+      const auto& g = e150.instances[i];
+      std::fprintf(fi, "%zu,%.3f,%.3f,%.3f,%.3f,%.5f,%.5f,%.5f,%.5f,%.3f,%.6f,%.6f,%.6f,%.5f,%u\n",
+                   i, g.px, g.py, g.pz, g.h, g.yaw, g.tint, g.curve, g.phase, g.gspare, g.nx, g.ny,
+                   g.nz, g.nspare, e150.inst_tri[i]);
+    }
+    std::fprintf(ft, "idx,p0x,p0y,p0z,e1x,e1y,e1z,e2x,e2y,e2z,nx,ny,nz,flags,area_m2\n");
+    for (size_t t = 0; t < bake.tris.size(); ++t) {
+      const auto& tr = bake.tris[t];
+      std::fprintf(ft, "%zu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.6f,%.6f,%.6f,%u,%.4f\n",
+                   t, tr.p0[0], tr.p0[1], tr.p0[2], tr.e1[0], tr.e1[1], tr.e1[2], tr.e2[0],
+                   tr.e2[1], tr.e2[2], tr.nx, tr.ny, tr.nz, tr.flags, tr.area_m2);
+    }
+    std::fclose(fi);
+    std::fclose(ft);
+    fmt::print("[grass_bake] dumped {} instances (droop_start={} trans_start={}) + {} tris to "
+               "'{}_*.csv'\n",
+               (u64)e150.instances.size(), e150.droop_start, e150.trans_start,
+               (u64)bake.tris.size(), dump_prefix);
+  }
 
   // Grecharged-grass-overhang: round-trip self-check — load the written bake back and prove the
   // expanded field (walkable + droop tail) is byte-identical to the in-memory scan's expansion.

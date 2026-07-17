@@ -1,0 +1,110 @@
+RESULT: PASS — PILLAR P3 first-boot delivered end-to-end: native pickers, <root>/jakN tree, settings.ini INI bridge, custom_assets override, full harness migration, Redmi cutover done with proofs on device.
+
+== Phase Grecharged-buildsys-firstboot — 2026-07-17 ==
+Commits: 3b8a2b7-era checkpoint 1 (main delivery), 0a213d6f9 (texture OOB fix), a9ac986af (KERNEL.CGO
+overlay fix), cd745fa37 (Android file-helper stub fix). Device = Redmi eae4df44 at HEAD cd745fa37
+(deploy_verify PASS: redmi-deploy-verify-final.log).
+
+== (1) First-boot native picker per OS ==
+- Android: existing SAF flow (ACTION_OPEN_DOCUMENT_TREE) is now THE first-boot flow — internal-asset
+  mode, unpackBundleIfNeeded, copyInternalAssetsOut and the saves-migration copyTree were DELETED
+  (owner: no migration, no legacy). Chooser = RETRY / CHOOSE ASSETS FOLDER (SAF) / TYPE PATH MANUALLY.
+  Device proof: the real SAF picker flow was driven on the Redmi — video redmi-firstboot.mp4 + frames
+  redmi-firstboot-frame1-chooser.png (in-app browser chooser), frame2-saf-foldername.png (native SAF
+  create-folder), frame3-title.png (game at title after CONTINUE). SAF gotcha noted: DocumentsUI
+  create-folder OK button sits under the IME; hide keyboard before tapping.
+- Linux: native_pick_directory() in game/main.cpp — zenity file-selection --directory, kdialog
+  fallback, gated on DISPLAY/WAYLAND_DISPLAY; stdin prompt stays as last fallback and --game-root
+  stays as the headless/harness path (risk R3 covered). First boot with an empty chosen dir creates
+  <chosen>/jakN/{assets, custom_assets, saves} and instructs extracting <game>_assets.zip.
+- Windows: IFileDialog (FOS_PICKFOLDERS) under #ifdef _WIN32; macOS: osascript choose-folder. Both
+  compile-gated to the P4 CI targets (no local machine) — code present, desktop Linux build green.
+
+== (2) The jakN tree ==
+<root>/jak1/{assets/{iso,fr3}, custom_assets/, saves/, settings.ini} — jak_1 renamed to jak1
+everywhere (gameFolder() in LoaderActivity+MainActivity, resolve_game_root in main.cpp, FileUtil
+comments/help). get_user_settings_dir(external) = the game root itself; saves stay <root>/saves.
+Device tree proof: redmi-tree.txt. No legacy path remains (grep sweep clean; harness smoke greps
+jak_1/pc-settings.gc/files/iso_data across the live harness and passes).
+
+== (3) settings.ini INI bridge (risk R4) ==
+GOAL pc-settings stays the single source of truth; only the serialization changed. The proven
+s-expr reader/writer machinery in pckernel-common.gc (SHARED into jak1/jak2/jak3) was converted to
+INI: [settings] + version = #x... + one `key = value...` line per setting, sections [secrets] /
+[music] (jak2: [stats.kill-stats.<enemy>] per-enemy sections) emitted after plain keys; write-through
+persistence parsed at boot, version-gated. jak2/jak3 overrides converted the same way; all three
+games compile (goalc make-group engine: 343/447/472 targets).
+Two real bugs were found by testing and fixed (not shipped broken):
+  (a) file-stream-get-next-char clobbers *pc-temp-string* (it scratches raw stream bytes over the
+      shared temp buffer), destroying the just-read key before dispatch -> the reader now consumes
+      `=` and `]` via single-byte getc reads (pckernel-common.gc doini-keys + section loop).
+  (b) Android bound pc-filepath-exists?/pc-mkdir-file-path to the a17_pc_default 0-return stub; 0 is
+      not #f to a compiled GOAL (if) test, so every path "existed" and first boot never committed
+      defaults (this also explains why the OLD pc-settings.gc only ever appeared after a menu commit
+      on device). Real stat()/mkdir-p bodies now bound for jak1+jak2 (gk_android_main.cpp).
+Proofs:
+  Desktop: fresh root writes valid settings.ini (81 keys, all sections; desktop-boot1.log,
+  settings-ini-firstboot.txt); unmodified reboot parses clean — "pc settings file read" with zero
+  errors and no defaults fallback (desktop-boot2.log); hand-edited flags apply through boot
+  (desktop-boot3.log: FPS counter drawn + custom-assets scan ran).
+  Device: menu -> ini -> reboot -> applied round-trip: Graphics Options "COMPTEUR FPS" toggled to OUI
+  via cpad_inject (redmi-roundtrip-menu-fps-oui.png), committed `fps-counter? = #t` into settings.ini
+  (redmi-roundtrip-fps-counter-flip.txt), relaunch reads it ("pc settings file read", no defaults)
+  and renders the FPS counter on the title (redmi-roundtrip-fps.png). Fresh first boot now commits
+  defaults: "PC Settings not found ... initializing with defaults!" + "pc settings file write:"
+  (redmi-firstboot-settings-write-proof.txt).
+
+== (4) custom_assets filename override (textures first) ==
+Flat drop dir <root>/custom_assets/ (get_custom_assets_replacements_dir external branch); the
+runtime custom_tex loader already keys PNGs by tpage/name AND bare filename, recursive scan, gated
+on the load-custom-assets? setting. Discovery aid: the dump_keys marker produces
+texture_keys_dump.txt (1048 keys).
+Proofs: desktop screenshot custom-override-desktop.png — magenta vil1-jng-leafyground across the
+title terrain, 191,946 pure-magenta pixels (objective numpy count), with the FPS counter proving the
+ini edit applied. Device: redmi-custom-override.png — magenta leafy-ground in the village flythrough,
+21,934 magenta pixels + logcat "custom texture replacement: village1-vis-tfrag/vil1-jng-leafyground".
+Bonus fix: pre-existing OOB crash when a replacement PNG is LARGER than the native texture (pool
+carried replacement dims over the original src_data buffer) — found by this proof, fixed in
+LoaderStages.cpp (commit 0a213d6f9); desktop repro was a core dump with a 256x256 override.
+
+== (5) Device harness migration (risk R5) ==
+116 files migrated in one pass: new canonical .autoport/lib/device_env.sh (S/PKG/DEVICE_GAME_ROOT/
+DEVICE_ASSETS/DEVICE_SAVES/DEVICE_CUSTOM_ASSETS/DEVICE_SETTINGS_INI), deploy_verify.sh legacy
+files/iso_data check removed, deploy_verify_assets.sh retargeted (CGO/TXT only in files/cgo, vanilla
+under the external root), ao_build_deploy* retargeted, e3_run.sh -> $DEVICE_SAVES, ~70 device scripts:
+old settings path (both run-as internal and external jak_1 spellings) -> $DEVICE_SETTINGS_INI with
+s-expr sed/grep patterns converted to anchored INI form; x86 oracle scripts renamed to settings.ini.
+Standing gate: .autoport/tools/harness_smoke.sh — static stale-literal scan + device layout assert.
+HARNESS-SMOKE PASS (static + device halves; redmi-harness-smoke.log).
+
+== (6) Redmi cutover + Honor procedure ==
+Executed on the Redmi (eae4df44): saves backed up first (9 memory-card .bin, 67584 B each, manifest
+redmi-backup-manifest.txt) -> assets stashed on-device -> app uninstalled + /storage/emulated/0/
+OpenGOAL wiped -> clean install (MIUI NEW-install dialog tapped; redmi-install.log) -> MANAGE_
+EXTERNAL_STORAGE granted -> first boot: SAF picker -> app creates the jak1 tree -> assets moved in ->
+CONTINUE ANYWAY -> title renders (60 fps flythrough) -> saves restored into <root>/jak1/saves ->
+second boot goes STRAIGHT to game, no prompt (redmi-boot2-logcat.log: "external asset mode:
+gameRoot=/storage/emulated/0/OpenGOAL/jak1", no chooser) -> deploy_verify PASS at HEAD
+(redmi-deploy-verify-final.log).
+Cutover exposed a real fresh-install crash the old tree had been masking: android_goal_main loaded
+KERNEL.CGO from the deleted internal-mode files/iso_data path -> SIGABRT (tombstone at
+android_goal_main.cpp:515, redmi-boot-crash-logcat.log). Fixed to load from the cgo overlay
+(files/cgo/<game>); proven on-device with the workaround dir deleted (redmi-cgo-overlay-fix-proof.txt:
+"KERNEL.CGO: opening .../files/cgo/jak1/KERNEL.CGO ... loaded 159664 bytes"). Without this fix the
+owner's Honor fresh install would have crashed the same way.
+Honor cutover: written procedure at docs/android-honor-cutover.md (French, owner-facing), executed
+only when the owner asks, per his instruction.
+
+== Honest limitations ==
+- redmi-firstboot.mp4 shows chooser + SAF create-folder; the title beat overran the 170 s recording
+  window (SAF IME fight) — the picker->tree->game chain is proven by the frame trio + tree listing +
+  logcat instead.
+- Windows IFileDialog / macOS osascript pickers are code-complete but unproven locally (no machine);
+  P4 CI covers them.
+- jak2/jak3 INI conversions compile but are not play-tested (jak2 parked by owner; same shared
+  machinery as jak1).
+- Desktop dev-mode (running from the repo with out/<game>/iso present) keeps the project-dir layout —
+  that is the build/oracle workflow, not a user path; packaged desktop builds resolve via pointer
+  file -> picker like Android.
+- The settings.ini INI reader accepts machine-written files and simple hand edits; INI comments are
+  not supported (a malformed file falls back to defaults and is rewritten on the next menu commit).

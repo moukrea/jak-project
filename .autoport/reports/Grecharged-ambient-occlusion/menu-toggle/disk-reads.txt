@@ -1,0 +1,4 @@
+  disk BEFORE: (ambient-occlusion 0) (ao-quality 2) 
+  disk AFTER AO=SSAO: (ambient-occlusion 0) (ao-quality 2) 
+  logcat: I/opengoal-gk(13912): [recharged-ao] mode -> 0 quality -> 2
+I/opengoal-gk(14507): [recharged-ao] mode -> 0 quality -> 2

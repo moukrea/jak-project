@@ -1,0 +1,6 @@
+retarget decompiler_out/jak2/levels/introcst/daxter-highres-lod0.glb -> decompiler_out/jak1/levels/common/sidekick-lod0.glb
+  verts=8082 donor_joints=62 target_joints=49
+  weight by tier: exact=7527.5 ci=0.0 suffix=0.0 ancestor=554.5 unmatched=0.0 dropped=0.0
+  name-matched (T1-T3): 0.9314; UNMATCHED (garble-risk) fraction: 0.0000 (gate <= 0.01)
+  ancestor-fallback joints: LpinkyA->Lhand, LpinkyB->Lhand, LringA->Lhand, LringB->Lhand, RpinkyA->Rhand, RpinkyB->Rhand, RringA->Rhand, RringB->Rhand, tailFirst->tailBase, tongueBase->head, tongueMaster->head, tongueMidA->head, tongueMidB->head, tongueTip->head, uvula->head
+  re-pose max vertex displacement: 0.1253

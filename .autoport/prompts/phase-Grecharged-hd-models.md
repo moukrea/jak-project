@@ -59,3 +59,22 @@ entirely. Known artifact risk: far-from-surface parts (fingers/hair/mole) — in
 honest per-character verdict stands. Jak + Daxter need `copy_eye_draws`/`copy_mod_draws` GLB extras
 or eyes/breakable meshes break. GAP 2: on-device validation — highres verts/bones may stress arm64
 merc/bone paths the port never hit; soak + the A34 forensics loop if it faults.
+
+## OWNER PLAY-TEST — FAILED (2026-07-14 08:xx, verbatim, HONOR + confirmed on-device flow)
+"j'ai tué puis relancé le jeu, ça a effectivement chargé les modèles PS2 (mais je pense les modèles
+in game du 2 au lieu des modèles que je disais)... Ils sont cursed as fuck, les polygones sont garbled,
+il manque des éléments, le retargeting est complètement foiré (mais c'est pas les bone modèles anyway)
+et [...] Pour les modèles d'ailleurs seuls Jak and Daxter sont changés"
+
+=> HARD FACTS (the report's "HD MODELS 4/4 ... render HD and deform acceptably" is FALSE on device):
+1. WRONG SOURCE MODELS. Owner wanted the jak2 FIRST-CUTSCENE models (the intro cinematic BEFORE the
+   rift gate, where the cast still looks Jak1-style in HD). The rip pulled jak2 IN-GAME/highres models
+   instead. Re-identify and rip the correct intro-cutscene actor models.
+2. RETARGET IS BROKEN, not "one Daxter-tail caveat": polygons GARBLED, elements MISSING. The
+   weight-borrow find_closest approach produces cursed geometry. Needs a real rig/skin solution, not
+   the spatial-proximity hack — or it's not shippable.
+3. ONLY 2/4 SWAP: only Jak + Daxter change; Samos + Keira do NOT change on device (report claimed all 4).
+   The other two either failed to load or their toggle/loader path is dead.
+NOTE: kill+relaunch DID load the swapped models — so delivery + the reload requirement are FINE; the
+defect is entirely in WHICH models + retarget QUALITY + coverage. My deploy_verify + worker captures +
+"objective" checks did NOT catch any of this because I never installed the jak-builds APK and looked.

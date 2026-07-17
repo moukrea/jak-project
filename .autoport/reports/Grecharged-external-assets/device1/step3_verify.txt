@@ -1,0 +1,15 @@
+=== new versionName ===
+    versionCode=1 minSdk=29 targetSdk=34
+    versionName=0.1-autoport-phase13-jak1
+    lastUpdateTime=2026-07-14 00:53:18
+--- iso_data still present (update kept data) ---
+0COMMON.TXT
+0SUBTIT.TXT
+10COMMON.TXT
+--- saves still present ---
+bank0.bin
+bank1.bin
+bank2.bin
+bank3.bin
+--- asset_root.txt (should still be absent) ---
+cat: files/asset_root.txt: No such file or directory

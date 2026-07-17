@@ -1,0 +1,2 @@
+07-17 08:20:52.141  5916  5982 I opengoal-gk: custom texture replacements: 1 files found in /storage/emulated/0/OpenGOAL/jak1/custom_assets
+07-17 08:20:54.846  5916  5982 I opengoal-gk: custom texture replacement: village1-vis-tfrag/vil1-jng-leafyground <- /storage/emulated/0/OpenGOAL/jak1/custom_assets/vil1-jng-leafyground.png

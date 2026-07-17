@@ -1,0 +1,7 @@
+=== SIGABRT-fix proof: fresh APK (HEAD a9ac986af) boots from cgo overlay with NO iso_data workaround ===
+workaround dir files/iso_data was DELETED before this launch.
+
+07-17 08:20:04.901  5679  5773 I opengoal-gk: KERNEL.CGO: opening /data/user/0/org.opengoal.gk.jak1/files/cgo/jak1/KERNEL.CGO
+07-17 08:20:04.902  5679  5773 I opengoal-gk: KERNEL.CGO: loaded 159664 bytes (first4=08 00 00 00)
+07-17 08:20:05.053  5679  5773 D opengoal-gk: [Begin Loading DGO RPC] KERNEL.CGO, 0x3eb82c0, 0x42b82c0, 0x184dc0
+07-17 08:20:05.057  5679  5785 I opengoal-gk: [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects

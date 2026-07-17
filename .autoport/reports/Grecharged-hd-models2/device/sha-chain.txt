@@ -1,0 +1,7 @@
+fr3/enhanced/GAME.fr3 zip=fe9dfe37ff94bf85 dev=fe9dfe37ff94bf85 MATCH
+fr3/enhanced/village1.fr3 zip=0f1edf09e33a40c1 dev=0f1edf09e33a40c1 MATCH
+fr3/enhanced/village2.fr3 zip=742f638a2ff21567 dev=742f638a2ff21567 MATCH
+fr3/GAME.fr3 zip=e79b6a8465eca343 dev=e79b6a8465eca343 MATCH
+fr3/village1.fr3 zip=d4b18be476991967 dev=d4b18be476991967 MATCH
+05315a445316c4b87d532048664f3541  out/jak1/fr3/enhanced/village2.fr3
+05315a445316c4b87d532048664f3541  out/jak1/fr3/village2.fr3

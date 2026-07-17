@@ -1,0 +1,14 @@
+=== redmi saves backup manifest ven. 17 juil. 2026 05:54:45 UTC ===
+2517	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/pc-settings.gc
+2517	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/settings/pc-settings.gc
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/backup_pre_cell/bank0.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/backup_pre_cell/bank1.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/backup_pre_cell/bank2.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/backup_pre_cell/bank3.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/BASCUS-97124AYBABTU!/bank0.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/BASCUS-97124AYBABTU!/bank1.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/BASCUS-97124AYBABTU!/bank2.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/BASCUS-97124AYBABTU!/bank3.bin
+67584	/home/emeric/code/jak-project/.autoport/reports/Grecharged-buildsys-firstboot/redmi-backup/saves/BASCUS-97124AYBABTU!/bank6.bin
+--- bin count ---
+9

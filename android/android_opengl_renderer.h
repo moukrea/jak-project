@@ -26,6 +26,7 @@
 
 #include "common/dma/dma_chain_read.h"
 
+#include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/Fbo.h"
 #include "game/graphics/opengl_renderer/GrassRenderer.h"
@@ -116,6 +117,12 @@ class AndroidOpenGLRenderer {
 
   FullScreenDraw m_blackout_renderer;
   GrassRenderer m_grass_renderer;  // Grecharged-grass-poc (jak1 training)
+  // post-opaque screen-space AO pass (Grecharged-ambient-occlusion), invoked at the bucket-30 hook when mode != 0.
+  AmbientOcclusionPass m_ao_pass;
+  // Frames to skip the AO pass after a render-FBO recreation: Adreno executes deferred;
+  // sampling a depth texture whose FBO generation just changed (renderscale resize storm,
+  // AO toggle) raced the teardown in the attempt-3 village1 heap-stomp crash.
+  int m_ao_defer_frames = 0;
   float m_last_pmode_alp = 1.f;
 
   struct {

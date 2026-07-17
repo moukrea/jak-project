@@ -1,0 +1,8 @@
+  set_key_both recharged-grass?=#t: int= ext=  (recharged-grass? #t)
+  set_key_both recharged-grass-precomputed?=#t: int= ext=  (recharged-grass-precomputed? #t)
+######## RIM / OFF (overhang #f, droop_len 1.0, grass_dbg 0) — STOCK lips baseline ########
+  set_key_both recharged-grass-overhang?=#f: int= ext=  (recharged-grass-overhang? #f)
+  try#1 warp_ok=0 died=0   mCurrentFocus=Window{1adbfae u0 com.miui.home/com.miui.home.launcher.Launcher}
+  try#2 warp_ok=0 died=0   mCurrentFocus=Window{1adbfae u0 com.miui.home/com.miui.home.launcher.Launcher}
+  try#3 warp_ok=0 died=0   mCurrentFocus=Window{1adbfae u0 com.miui.home/com.miui.home.launcher.Launcher}
+  try#4 warp_ok=0 died=0   mCurrentFocus=Window{1adbfae u0 com.miui.home/com.miui.home.launcher.Launcher}

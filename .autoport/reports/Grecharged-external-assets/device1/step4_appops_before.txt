@@ -1,0 +1,3 @@
+=== MANAGE_EXTERNAL_STORAGE state (expect not allowed) ===
+No operations.
+Default mode: default

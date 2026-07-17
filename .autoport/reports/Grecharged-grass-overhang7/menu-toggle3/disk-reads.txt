@@ -1,0 +1,7 @@
+  disk BEFORE flip: (recharged-grass-overhang? #t)
+  disk AFTER OFF flip: (recharged-grass-overhang? #f)
+  disk AFTER ON flip: (recharged-grass-overhang? #f)
+  disk FINAL: (recharged-grass-overhang? #f)
+  disk AFTER ON flip (left): (recharged-grass-overhang? #t)
+  disk FINAL: (recharged-grass-overhang? #t)
+  settings pre==post byte-identical

@@ -44,17 +44,17 @@ push_dgos() {
   for f in TIT.DGO; do
     [ -f "$DGO_SRC/$f" ] || { echo "  push_dgos: MISSING $DGO_SRC/$f" >&2; continue; }
     adb push "$DGO_SRC/$f" "/data/local/tmp/$f" >/dev/null 2>&1 || { echo "  push_dgos: push $f failed" >&2; continue; }
-    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/iso_data/jak1/$f" || { echo "  push_dgos: run-as cp $f failed" >&2; continue; }
+    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/cgo/jak1/$f" || { echo "  push_dgos: run-as cp $f failed" >&2; continue; }
     adb shell rm -f "/data/local/tmp/$f" >/dev/null 2>&1 || true
     local local_sz dev_sz
     local_sz=$(stat -c %s "$DGO_SRC/$f" 2>/dev/null || echo 0)
-    dev_sz=$(adb shell run-as "$PKG" wc -c "files/iso_data/jak1/$f" 2>/dev/null | awk '{print $1}' | tr -d '\r ' || echo 0)
+    dev_sz=$(adb shell run-as "$PKG" wc -c "files/cgo/jak1/$f" 2>/dev/null | awk '{print $1}' | tr -d '\r ' || echo 0)
     echo "  push_dgos: $f local=$local_sz device=$dev_sz $([ "$local_sz" = "$dev_sz" ] && echo OK || echo MISMATCH)"
   done
 }
 clear_pc_settings() {
-  adb shell run-as "$PKG" sh -c 'rm -f files/.config/OpenGOAL/jak1/settings/pc-settings.gc; for p in $(find files -name "pc-settings.gc" 2>/dev/null); do rm -f "$p"; done' 2>/dev/null || true
-  echo "  clear_pc_settings: remaining pc-settings.gc: $(adb shell run-as "$PKG" sh -c 'find files -name "pc-settings.gc" 2>/dev/null' | tr -d '\r' | wc -l)"
+  adb shell rm -f /storage/emulated/0/OpenGOAL/jak1/settings.ini 2>/dev/null || true
+  echo "  clear_pc_settings: remaining settings.ini: $(adb shell 'ls /storage/emulated/0/OpenGOAL/jak1/settings.ini 2>/dev/null' | tr -d '\r' | wc -l)"
 }
 
 INTERLOPERS=(com.xiaoji.egggameplus com.ghplus.patcher dev.moukrea.sshxmobile dev.moukrea.sshxmobile.debug)

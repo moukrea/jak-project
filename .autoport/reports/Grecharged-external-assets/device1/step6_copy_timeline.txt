@@ -1,0 +1,5 @@
+COPY START (host): mar. 14 juil. 2026 00:56:07 CEST
+device time: Tue Jul 14 00:56:07 CEST 2026
+confirmed copy at mar. 14 juil. 2026 00:56:07 CEST
+[1] 00:56:16 du=375828 KB  copy-done-loglines=0
+[2] 00:56:36 du=1384103 KB  copy-done-loglines=1

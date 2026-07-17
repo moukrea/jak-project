@@ -63,7 +63,7 @@ else
     device_stayon_on || true
     bash .autoport/restore_knowngood_device.sh || true
     "$ADB" -s "$SERIAL" shell run-as "$PACKAGE" sh -c \
-        'cd files/iso_data/jak1 2>/dev/null && : > .extracted_v1' >/dev/null 2>&1 || true
+        'cd files/cgo/jak1 2>/dev/null && : > .extracted_v1' >/dev/null 2>&1 || true
 
     : > "$BOOT_LOG"
     echo "== Grstick 4/5: install + launch =="

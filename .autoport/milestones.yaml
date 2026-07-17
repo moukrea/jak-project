@@ -1987,6 +1987,17 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-overhang4
+  name: 'RECHARGED ROUND 4 (owner 2026-07-14: round3 ''complètement loupé''): comb clips through the transition mesh (surface-constrain
+    the comb: down-slope tangent + normal offset + tip-plane clamp, geometric self-check counters), transition brutal (per-BLADE
+    continuous weight from rim distance + interpolated vertex normals, no per-tri seams), weird diagonal bands on HONOR (investigate
+    placement rows vs mediump precision; force highp; honest if not reproducible on Redmi). Owner verbatim in prompt.'
+  prompt: prompts/phase-Grecharged-grass-overhang4.md
+  validator: validators/phase-Grecharged-grass-overhang4.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models
   name: 'RECHARGED (owner 2026-07-07): use jak2 intro-era detailed models of Jak/Daxter/Samos/Keira (jak1 look, pre-timeskip)
     to replace jak1 low-poly models — extract via decompiler, retarget to jak1 skeletons via the custom-model (.glb->merc)
@@ -1994,6 +2005,38 @@ phases:
     without jak2), default OFF=stock; honest per-character partial OK'
   prompt: prompts/phase-Grecharged-hd-models.md
   validator: validators/phase-Grecharged-hd-models.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-overhang5
+  name: 'ROUND 5 (owner 2026-07-14, shipped-APK test): overhang STILL broken (clip/bands/transition), precompute on/off no
+    diff. overhang4 objective PASS was FALSE. Reproduce the OWNER install flow (slim APK + external archive, NO adb push),
+    find why the fix doesn''t manifest through the real pipeline, prove via real-install captures.'
+  prompt: prompts/phase-Grecharged-grass-overhang5.md
+  validator: validators/phase-Grecharged-grass-overhang5.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-hd-models2
+  name: 'ROUND 2 (owner 2026-07-14, HONOR): round-1 models CURSED — WRONG source (jak2 in-game not the intro/first-cutscene
+    jak1-look highres), GARBLED retarget (weight-borrow fails), only 2/4 swap. Rip correct intro-cutscene source, name-based
+    rig remap (no garbled geo), all-4-or-honest-partial. Verify via the OWNER real install flow, not adb-push.'
+  prompt: prompts/phase-Grecharged-hd-models2.md
+  validator: validators/phase-Grecharged-hd-models2.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-overhang6
+  name: 'ROUND 6 (owner 2026-07-14 Redmi: v5 rim-drape ''complètement pourri, pas exploitable''; his verbatim 3-zone SPEC):
+    zone1 walkable-top lean gradient at the boundary (no overshoot), zone2 blades ON the flat-green sub-lip mesh strip following
+    it EXACTLY with increasing lean, zone3 >=2 LAYERED animated grass falling down fully covering the native overhang alpha
+    (hide near/restore far LOD), volume/thickness ''believable''; NO blades from dirt faces (kill v5 bare-lip drape). Verify
+    at the owner''s exact Redmi vantage, real install flow.'
+  prompt: prompts/phase-Grecharged-grass-overhang6.md
+  validator: validators/phase-Grecharged-grass-overhang6.sh
   max_turns: 3000
   max_retries: 6
   device: true
@@ -2008,12 +2051,13 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
-- id: Grecharged-title-logo-fullres
-  name: 'RECHARGED (owner 2026-07-09, backlog): title-screen Jak and Daxter logo renders mega-pixelated at low render scale
-    on phones — draw it full-resolution like the HUD 3D models (which stay crisp while the world renders at a lower scale);
-    toggle in Recharged Settings, default OFF=stock'
-  prompt: prompts/phase-Grecharged-title-logo-fullres.md
-  validator: validators/phase-Grecharged-title-logo-fullres.sh
+- id: Grecharged-grass-overhang7
+  name: 'ROUND 7 (owner: ''fini ce putain d''overhang'' — v6 still ''à chier'' on his Redmi; wind cross-hint: menu-toggled
+    features may not reach C++ at all): STEP1 reproduce HIS boot (his settings untouched, plain launch) and decide (a) zones
+    not rendering (state/toggle chain) vs (b) rendering but ugly; fix accordingly; prove via MENU toggle + 10s video at his
+    vantage. ONE task.'
+  prompt: prompts/phase-Grecharged-grass-overhang7.md
+  validator: validators/phase-Grecharged-grass-overhang7.sh
   max_turns: 3000
   max_retries: 6
   device: true
@@ -2028,6 +2072,78 @@ phases:
   prompt: prompts/phase-Grecharged-ambient-occlusion.md
   validator: validators/phase-Grecharged-ambient-occlusion.sh
   max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-flags
+  name: 'PILLAR P1 (owner 2026-07-17 top priority): unified build CLI (linux-x86_64 + android-arm64) + build-time feature
+    flags --recharged-hud/--grass-overhang/--hd-models/--vulkan-support/--yolo via DUAL plumbing (CMake defines + generated
+    GOAL defconstants -> off features absent from binary AND menus), flag-set-hash keyed CGO cache + verifies; Android-hidden
+    menus stay on desktop. Plan: .autoport/plans/build-system-pillar.md'
+  prompt: prompts/phase-Grecharged-buildsys-flags.md
+  validator: validators/phase-Grecharged-buildsys-flags.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-packaging
+  name: 'PILLAR P2: package vs assets.zip split by the diff-vanilla rule — package = engine + ALL port-custom (CGO/DGO, rebuilt
+    TXT, HD overlays, recharged PNGs); assets.zip = ONLY unaltered source-derived (iso_data + stock fr3, all VAGWAD langs);
+    per game+target producers; verifies re-keyed'
+  prompt: prompts/phase-Grecharged-buildsys-packaging.md
+  validator: validators/phase-Grecharged-buildsys-packaging.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-firstboot
+  name: 'PILLAR P3: native file pickers (SAF/xdg/IFileDialog, --game-root fallback), <root>/jakN/{assets,custom_assets,saves,settings.ini}
+    tree, settings.ini INI bridge (GOAL stays truth), custom_assets filename override, FULL device-harness path migration,
+    Redmi cutover (ADB saves -> wipe -> clean install); NO migration/legacy code'
+  prompt: prompts/phase-Grecharged-buildsys-firstboot.md
+  validator: validators/phase-Grecharged-buildsys-firstboot.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-cidocs
+  name: 'PILLAR P4: CI matrix (windows msvc/clang, macos-arm, linux) adapted to the new CLI/flags/packaging, windows artifact
+    green; README full non-dev rewrite + docs/build-<target>.md + per-OS user guides (''tonton Jeanot'' bar); jak-builds release
+    switched to the new artifacts'
+  prompt: prompts/phase-Grecharged-buildsys-cidocs.md
+  validator: validators/phase-Grecharged-buildsys-cidocs.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grecharged-hd-models3
+  name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
+    mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
+    never merge distinct-UV verts), untextured draws (eyes/mask page binding), jaw draw missing/culled; FACE close-up captures
+    vs jak2-intro ground truth mandatory; honest partial beats carnage.'
+  prompt: prompts/phase-Grecharged-hd-models3.md
+  validator: validators/phase-Grecharged-hd-models3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-foliage-wind2
+  name: 'ROUND 2 (owner: ''aucune feuille qui bouge, nada'' — supervisor-reproduced: +9% palm motion = invisible, some trees
+    have ZERO wind draws): make the breeze VISIBLE — full coverage census, amplitude tuning (visible-but-natural), acceptance
+    = human-visible sway in a 10s video + supervisor-measured crown-motion ratio >=2.0. ONE task.'
+  prompt: prompts/phase-Grecharged-foliage-wind2.md
+  validator: validators/phase-Grecharged-foliage-wind2.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-title-logo-fullres
+  name: 'RECHARGED (owner 2026-07-09, backlog): title-screen Jak and Daxter logo renders mega-pixelated at low render scale
+    on phones — draw it full-resolution like the HUD 3D models (which stay crisp while the world renders at a lower scale);
+    toggle in Recharged Settings, default OFF=stock'
+  prompt: prompts/phase-Grecharged-title-logo-fullres.md
+  validator: validators/phase-Grecharged-title-logo-fullres.sh
+  max_turns: 3000
   max_retries: 6
   device: true
   owner_verify: true

@@ -89,9 +89,7 @@ struct GraphicsData {
   GraphicsData(GameVersion version)
       : dma_copier(EE_MAIN_MEM_SIZE),
         texture_pool(std::make_shared<TexturePool>(version)),
-        loader(std::make_shared<Loader>(
-            file_util::get_jak_project_dir() / "out" / game_version_names[version] / "fr3",
-            fr3_level_count[version])),
+        loader(std::make_shared<Loader>(file_util::get_fr3_dir(version), fr3_level_count[version])),
         ogl_renderer(texture_pool, loader, version),
         debug_gui(),
         version(version) {}
@@ -730,6 +728,25 @@ void GLDisplay::render() {
     }
     Gfx::g_global_settings.measured_fps =
         (s_fps_smoothed_dt > 0.f) ? (1.f / s_fps_smoothed_dt) : 0.f;
+  }
+
+  // Grecharged-ambient-occlusion: fps-matrix harvest line. Every 5 s WALL TIME (a
+  // frame-count cadence stretches to 75+ s at the locked-full-res 4 fps the capture
+  // protocol runs at, starving the fps-matrix waits), emit the resolved AO mode/quality
+  // alongside the measured framerate + busy-ms so the perf sweep can correlate each AO
+  // configuration with its cost on device.
+  {
+    static Timer s_ao_perf_timer;
+    static bool s_ao_perf_first = true;
+    if (s_ao_perf_first || s_ao_perf_timer.getSeconds() >= 5.0) {
+      s_ao_perf_first = false;
+      s_ao_perf_timer.start();
+      lg::info("AOPERF mode={} quality={} strength={} fps={:.1f} busy_ms={:.2f}",
+               AmbientOcclusionPass::effective_mode(),
+               AmbientOcclusionPass::effective_quality(),
+               AmbientOcclusionPass::effective_strength(), Gfx::g_global_settings.measured_fps,
+               Gfx::g_global_settings.measured_frame_busy_ms);
+    }
   }
 
   {

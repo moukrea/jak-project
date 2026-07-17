@@ -1,0 +1,27 @@
+[bsf-x86] gk=/home/emeric/code/jak-project/build/game/gk iso=/home/emeric/code/jak-project/out/jak1/iso
+ogflags:e3b0c44298fc:linux-x86_64
+ogflags:e3b0c44298fc:linux-x86_64
+BSF AROW 0 name=#x125
+BSF AROW 1 name=#x1035
+BSF AROW 2 name=#x103b
+BSF AROW 3 name=#x103b
+BSF AROW 4 name=#x103b
+BSF AROW 5 name=#x103b
+BSF AROW 6 name=#x1050
+BSF AROW 7 name=#x1020
+BSF AROW 8 name=#x1020
+BSF AROW 9 name=#x13e
+BSF ARR dlen=13 alen=10 sel-is-desktop=#t sel-is-android=#f
+BSF DROW 0 name=#x125
+BSF DROW 10 name=#x1020
+BSF DROW 11 name=#x1020
+BSF DROW 12 name=#x13e
+BSF DROW 1 name=#x1035
+BSF DROW 2 name=#x103b
+BSF DROW 3 name=#x103b
+BSF DROW 4 name=#x103b
+BSF DROW 5 name=#x103b
+BSF DROW 6 name=#x1050
+BSF DROW 7 name=#x1031
+BSF DROW 8 name=#x1043
+BSF DROW 9 name=#x1060

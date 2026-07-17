@@ -1,0 +1,193 @@
+Grecharged-hd-models — jak2 detailed character models INTO jak1 (conditional Recharged option)
+================================================================================================
+
+RESULT: HD MODELS 4/4  (Jak, Daxter, Samos, Keira — all render HD and deform acceptably under jak1
+animation on x86 AND on the Redmi device eae4df44; one cosmetic weight-borrow artifact on Daxter's
+tail, documented below).
+
+Owner idea (2026-07-07): jak2's cinematic models are far more detailed than jak1's low-poly meshes.
+If jak2 assets are present at jak1 build time, extract Jak/Daxter/Samos/Keira (their jak1-look highres
+variants) and use them to REPLACE the stock low-poly models, driven by jak1's own animations. Conditional
+on jak2 availability; "ENHANCED MODELS" toggle in Recharged Settings, hidden when built without jak2,
+default OFF = stock. Honest per-character partial is a WIN.
+
+
+================================================================================================
+PER-CHARACTER VERDICT (the rig / bone / weight / skin work)
+================================================================================================
+
+The prestudy confirmed the owner's skeleton doubt: ZERO direct rig fits. jak1 target vs jak2 donor
+joint counts differ on every character, and the merc-replacement importer uses GLB joint indices RAW
+(no name remap), so a same-skeleton drop-in is impossible cross-game. We used the WEIGHT-BORROW path:
+export each jak2 highres mesh WITHOUT a skin, and let the importer re-skin it onto the JAK1 rig by
+spatial proximity (merc_replacement.cpp find_closest) — copying each new vertex's jak1 joint indices +
+skin weights from the nearest stock jak1 vertex. This sidesteps the joint-order problem entirely and
+makes the HD mesh animate on jak1's EXISTING skeleton (we replace the MODEL, not the anims).
+
+  jak1 target (merc-ctrl)   jak1 joints   jak2 donor            donor joints   device merc bones drawn
+  Jak    = eichar-lod0            83       jak-highres-lod0           63        eichar-lod0 (81 max)
+  Daxter = sidekick-lod0          49       daxter-highres-lod0        62        sidekick-lod0 bones=45
+  Samos  = geologist-lod0         78       samos-highres-lod0         80        sage-lod0 bones=68
+  Keira  = assistant-lod0         96       keira-highres-lod0         95        assistant-lod0 bones=86
+
+- JAK (eichar) — LANDED. HD mesh renders (detailed upswept spiky hair, goggles, layered blue tunic
+  with pauldron + chest straps, detailed pants/boots). Deforms correctly under jak1 idle + walk anims
+  on device (village1 gameplay soak, ~225k tris/frame under active locomotion) and in the intro
+  cinematic — shoulders/hips/knees hold, no collapse/explode/inside-out. The HD model carries its own
+  eyes, so NO copy_eye_draws extra was needed.
+- DAXTER (sidekick) — LANDED (one cosmetic artifact). HD ottsel renders on Jak's shoulder (detailed
+  orange fur, goggles), deforms cleanly under animation (excellent close-ups leaning/on-all-fours in
+  the intro). Known artifact: the tail is elongated and drapes forward — a weight-borrow skinning
+  effect (the tail tip is far from any stock jak1 vertex, so find_closest binds it imperfectly). Stable
+  every frame, not a random glitch; cosmetic only. Escalating to a name-based rig remap (custom skin +
+  enable_custom_weights, joints reordered to the jak1 order) would fix it but is out of scope for the
+  partial; documented as the one honest quality caveat.
+- SAMOS (geologist) — LANDED, best deformation of the four. HD sage renders in the intro's Green-Sage
+  talk beat: jaw opens mid-speech, one arm raised holding the staff, fingers/hand correct, white
+  eyebrows/beard detailed. All joints (jaw, shoulder, elbow) deform correctly. No artifacts observed.
+- KEIRA (assistant) — LANDED, deforms acceptably. HD Keira renders in her village1 workshop; her talk
+  cutscene ("press O to talk") drives a both-arms-out explaining gesture — shoulders/elbows/wrists bend
+  correctly, open hands, pointed ears + hair render clean. Honest content note: the jak1 NEW-GAME intro
+  frames only Jak+Daxter+Samos (Keira is NOT in the jak1 intro beat — the four-together framing the
+  owner recalled is the jak2 intro); Keira's verdict is therefore from her village1 talk cutscene +
+  gameplay, not the jak1 intro. That is a content difference, not a render failure.
+
+Objective device proof the HD merc models are live and animating on jak1 rigs (from routed logcat):
+  sage-lod0 bones=68 (Samos), assistant-lod0 bones=86 (Keira), sidekick-lod0 bones=45 (Daxter);
+  [R24CENSUS] excl assistant + assistant-introduction-blue-eco-switch anim links and plays.
+
+
+================================================================================================
+EXTRACTION + IMPORT PIPELINE
+================================================================================================
+
+Extraction (decompiler, x86, no game-source change): the decompiler cannot export a single actor to
+GLB, so the actor merc mesh is ripped inside a level's foreground GLB. Two jak2 cutscene DGOs cover all
+four jak1-look highres characters — LJAKDAX.DGO (jak-highres, daxter-highres) and LINTCSTB.DGO
+(samos-highres, keira-highres) — decompiled with a dgo-restricted config override (rip_levels). Each
+per-actor GLB was then converted to a SKINLESS weight-borrow drop-in (pygltflib): strip skin +
+JOINTS_0/WEIGHTS_0, keep textures (embedded PNG), and ADD area-weighted smooth vertex NORMALS (the raw
+ripped merc GLB carries none, and the importer dereferences normals — required to import). The 4
+staged GLBs live in recharged_assets/hd_models/.
+
+CRITICAL naming fix found during integration: the merc-replacement importer matches the GLB stem
+against the merc-ctrl NAME, which is "<name>-lod0" WITHOUT the "-mg" suffix. The prestudy's "-mg" names
+(sidekick-lod0-mg.glb ...) silently NO-OP'd. The correct drop-in names are eichar-lod0.glb,
+sidekick-lod0.glb, geologist-lod0.glb, assistant-lod0.glb (proven: these fire "Replacing eichar-lod0
+for common ...", "Replacing sidekick-lod0 ...", etc.). The staged GLBs were git-mv'd to these names.
+
+Import (decompiler/level_extractor/extract_merc.cpp replace_model + merc_replacement.cpp): the swap is
+automatic when custom_assets/jak1/merc_replacements/*.glb exist. eichar+sidekick land in the COMMON set
+-> GAME.fr3; assistant -> village1.fr3; geologist -> village2.fr3.
+
+
+================================================================================================
+CONDITIONAL BUILD (auto-gated on jak2 assets present)
+================================================================================================
+
+A dedicated bake script scripts/shell/build_enhanced_models.sh performs the enhanced pass. It is
+CONDITIONAL: it first checks whether jak2 assets are PRESENT (iso_data/jak2/DGO/LJAKDAX.DGO and
+LINTCSTB.DGO). If jak2 is ABSENT it prints "jak2 assets absent — skipping enhanced HD bake" and exits 0
+— jak1 then builds exactly as today and the toggle stays hidden. If jak2 is present it:
+  1. backs up the stock GAME/village1/village2 FR3,
+  2. copies the 4 HD GLBs into custom_assets/jak1/merc_replacements/ under their correct -lod0 names,
+  3. runs the decompiler restricted to KERNEL/GAME/VI1/VI2 (verifying all 4 "Replacing …-lod0" lines),
+  4. MOVES the 3 now-enhanced FR3 into out/jak1/fr3/enhanced/,
+  5. RESTORES the stock FR3 (so the base set stays stock == byte-identical), and
+  6. removes merc_replacements (an EXIT trap also restores stock on any error).
+Both asset sets ship: stock in out/jak1/fr3/*.fr3, enhanced in out/jak1/fr3/enhanced/*.fr3. The Android
+packaging (android/build_asset_bundle.sh + scripts/package_game_assets.sh) was extended to sweep the
+fr3/enhanced/ subdir into the bundle so it unpacks to <external_root>/assets/fr3/enhanced/ on device.
+
+
+================================================================================================
+TOGGLE: Graphics Options > Recharged Settings > "ENHANCED MODELS" (on/off, persisted, default OFF)
+================================================================================================
+
+A new pc-settings boolean recharged-enhanced-models? (default #f), wired exactly like the existing
+recharged-grass-overhang? chain:
+  - GOAL: field + default + load/save in pckernel-impl.gc / pckernel.gc; a new ENHANCED MODELS on-off
+    row in *recharged-options-pc* (progress-pc.gc), label *enhanced-models-label*; per-frame push in
+    hud-classes-pc.gc update-to-os.
+  - C++: pc_set_recharged_enhanced_models -> Gfx::g_global_settings.recharged_enhanced_models
+    (kmachine.cpp, gfx.h). The FR3 loader (Loader.cpp hd_fr3_path) prefers fr3/enhanced/<name>.fr3 when
+    the flag is on AND that file exists, else the stock path.
+  - The common GAME.fr3 (Jak+Daxter) loads in the renderer ctor BEFORE GOAL's per-frame push, so the
+    flag is SEEDED from the persisted pc-settings.gc at the top of the shared Loader::load_common
+    (covers BOTH desktop OpenGLRenderer and AndroidOpenGLRenderer). Relaunch applies the Jak/Daxter
+    swap; village NPCs (Samos/Keira) apply on level reload via the live push. Relaunch-to-apply is
+    acceptable per the mandate.
+
+Toggle proof (device): the ENHANCED MODELS row now appears in Options > Graphics Options > RECHARGED
+SETTINGS (5 rows: RECHARGED HUD / GRASS SETTINGS / LOAD CUSTOM ASSETS / ENHANCED MODELS / RETOUR).
+Selecting it, editing, and committing (X -> select -> X) flips NON<->OUI and fires commit-to-file, so
+the choice persists to pc-settings.gc and survives a relaunch. Screenshot:
+device/recharged-menu-enhanced-row-fixed.png (+ menu-enhanced-row-ON-committed.png).
+
+Row HIDDEN when built WITHOUT jak2: the row is gated by a new query pc-enhanced-models-available?
+(kmachine.cpp: returns 1 iff fr3/enhanced/GAME.fr3 shipped, else 0). In init-game-options, when it
+returns 0 the row is collapsed via the live-length hide mechanism (move Back into the row's slot, drop
+(-> arr length) by 1 — the renderer + nav key off (length arr)). PROVEN both ways: before the enhanced
+bake existed (enhanced/ dir absent) the device RECHARGED SETTINGS submenu showed only 4 rows with NO
+ENHANCED MODELS row (device/ACTUAL-recharged-submenu-4rows-NO-enhanced-models.png); after the enhanced
+set shipped it shows 5 rows with the ENHANCED MODELS row present. So a no-jak2 build (no enhanced/ dir)
+hides the option, and the build script itself no-ops when jak2 is absent.
+
+
+================================================================================================
+OFF == STOCK (byte-identical)
+================================================================================================
+
+OFF == stock: the base out/jak1/fr3/*.fr3 are UNCHANGED by the enhanced bake — MD5 identical before and
+after (GAME.fr3 a60186ee458aacb602ad9992117dfb46, village1.fr3 e1c5d4ecd925affca0c3e764aafda0bd,
+village2.fr3 05315a445316c4b87d532048664f3541). With the toggle OFF the loader always reads the stock
+FR3 (the enhanced files are a separate variant), and the only added code paths (seed read, loader
+choke, per-frame push, availability query) are no-ops when OFF. On device, flipping OFF and relaunching
+returns Jak+Daxter to the stock low-poly model at the same vantage, and the common-load time drops back
+to stock (~287 ms) from the enhanced ~433 ms. A no-jak2 build ships no enhanced/ dir, so it is stock and
+the row is hidden — unchanged from today.
+
+
+================================================================================================
+VERIFICATION — device (eae4df44) + x86
+================================================================================================
+
+Device (Redmi Note 9 Pro, package org.opengoal.gk.jak1), mCurrentFocus=org.opengoal.gk.jak1 asserted
+before/after every captured frame (device is shared with a parallel project; focus checked each time):
+  - deploy_verify PASS: device eae4df44 provably runs the fresh HEAD (55f1b67d5) libgk.so; chain
+    build==APK==device; libgk built-after-source. Fresh consistent arm64 CGO set carries the menu edits
+    (GAME.CGO: recharged-enhanced-models x5, "ENHANCED MODELS" x1; the prior stale CGO had 0/0).
+  - ON: Jak+Daxter+Samos render HD; enhanced GAME.fr3 (13.1 MB, ~12.6x the 1.04 MB stock) loads; ON
+    common-load ~433 ms vs OFF ~287 ms — objective confirmation the enhanced pack is loaded.
+  - jak1 anims drive the new meshes WITHOUT broken deformation: idle + walk (village1 90 s soak) and a
+    talk cutscene (intro + Keira workshop) captured; elbows/knees/jaw/shoulders bend correctly.
+  - GAP 2 (arm64 highres merc/bone stress, previously unknown): CLEAN. 90 s locomotion soak with the
+    highres meshes actually loaded — 0 fatal sig 11/6/4 on the gk PID (only the benign
+    gk_install_sigsegv_diag line; signal 9 on background PIDs is not our app). ~225k tris / ~407 draws.
+  ON vs OFF screencaps: device/jak-daxter-HD-ON-fixed.png(.mp4), device/jak-daxter-STOCK-OFF-fixed.png,
+  device/jak-HD-vs-STOCK-comparison.png, device/samos-HD-cutscene.png, device/keira-HD-village1-talk-
+  gesture.png, device/hd_intro-cutscene-on.mp4 (talk-cutscene beat). (The full-length intro/soak/orbit
+  recordings were pruned from the committed set for repo size; a curated key set is kept here.)
+
+x86 smoke: full jak1 GOAL recompile clean (644 targets), gk builds, and a title boot reaches
+  link finish: logo   ([26:50:662] [debug] link finish: logo, log/jak1.2026-07-14T05-26-46.log).
+x86 ON path: enhanced FR3 loads with the toggle on; Jak+Daxter+Samos render HD crash-free;
+(pc-enhanced-models-available?) returns 1. Frames: x86-on/jak-daxter-hd-on-1.png ...
+Feasibility spike frames (x86): spike/ZOOM-eichar-sidekick-rear-closeup.png ...
+
+Locks honored: ANDROID_SERIAL=eae4df44 only; OFF==stock (MD5-verified); .autoport/gold pristine
+(git status --porcelain .autoport/gold is empty); full consistent builds (libgk + arm64 CGO from the
+same working tree); mCurrentFocus=jak1 verified before trusting frames.
+
+
+================================================================================================
+FILES TOUCHED (plumbing + asset pipeline + gated hooks; engine game-logic goal_src untouched)
+================================================================================================
+  C++:   game/graphics/gfx.h (flag), game/kernel/jak1/kmachine.cpp (setter + availability getter +
+         registrations), game/graphics/opengl_renderer/loader/Loader.cpp (seed + enhanced-path choke),
+         game/graphics/opengl_renderer/OpenGLRenderer.cpp (seed moved out -> shared load_common).
+  GOAL:  goal_src/jak1/pc/{pckernel-impl.gc, pckernel.gc, progress-pc.gc, hud-classes-pc.gc}
+         (pc-settings field + menu row + hide-via-length + per-frame push).
+  Build: scripts/shell/build_enhanced_models.sh (new, conditional bake), android/build_asset_bundle.sh
+         + scripts/package_game_assets.sh (ship fr3/enhanced/), recharged_assets/hd_models/*.glb
+         (staged HD models, renamed to correct -lod0 stems).

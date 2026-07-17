@@ -3,7 +3,12 @@
 #include "background_common.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <unordered_map>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include "common/log/log.h"
 #include "common/util/os.h"
@@ -13,8 +18,43 @@
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/pipelines/opengl.h"
 
+#ifdef OG_FEAT_GRASS_OVERHANG
+// ROUND 10 forensics switch (see GrassFringeFade::dbg). Cached + throttled like grass_droop_len():
+// a debug prop/env read must never sit on the per-frame draw path uncached.
+// Grecharged-buildsys-flags: overhang-only (only called from grass_fringe_fade_params' ON branch).
+static float grass_fringe_dbg() {
+  static float s_cached = 0.f;
+  static int s_throttle = 0;
+  if ((s_throttle++ & 63) != 0) {
+    return s_cached;
+  }
+  char buf[16] = {0};
+  bool have = false;
+#ifdef __ANDROID__
+  if (__system_property_get("debug.opengoal.grass.fringe_dbg", buf) > 0 && buf[0]) {
+    have = true;
+  }
+#else
+  const char* e = std::getenv("GRASS_FRINGE_DBG");
+  if (e && e[0]) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+    have = true;
+  }
+#endif
+  float v = have ? (float)std::atof(buf) : 0.f;
+  if (v < 0.f || v > 2.f) v = 0.f;
+  s_cached = v;
+  return v;
+}
+#endif  // OG_FEAT_GRASS_OVERHANG
+
 GrassFringeFade grass_fringe_fade_params() {
   GrassFringeFade r;
+#ifndef OG_FEAT_GRASS_OVERHANG
+  // Grecharged-buildsys-flags: overhang compiled OUT (default) -> fringe-fade is an
+  // overhang-only LOD; always return the disabled default (identical to toggle-off).
+  return r;
+#else
   if (!Gfx::g_global_settings.recharged_grass || !Gfx::g_global_settings.recharged_grass_overhang) {
     return r;
   }
@@ -24,7 +64,9 @@ GrassFringeFade grass_fringe_fade_params() {
   r.on = true;
   r.start_m = near_m * 0.55f;
   r.end_m = near_m;
+  r.dbg = grass_fringe_dbg();
   return r;
+#endif
 }
 
 // Pure (zero GL calls) computation of the DoubleDraw settings and the

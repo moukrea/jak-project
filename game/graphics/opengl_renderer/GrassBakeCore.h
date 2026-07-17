@@ -167,6 +167,97 @@ constexpr int   DROOP_MAX_ROWS = 6;        // row cap per face
 constexpr float DROOP_MIN_LEN_M = 0.07f;   // skip blades shorter than this (invisible slivers)
 constexpr float DROOP_EXIT_SAFETY = 0.95f; // blade length cap = this fraction of the tri exit distance
 
+// Grecharged-grass-overhang4 (owner 2026-07-14: round 3 "complètement loupé" — clip-through at the
+// floor→overhang transition, brutal per-tri seams, diagonal bands on the overhang). Root causes, all
+// per-tri / periodic structure: (a) droop ROWS (root-edge row per tri + 0.28m level-set rows) = the
+// diagonal bands; (b) comb weight from the FACE normal = whole triangles flipping state; (c) the
+// round-2 twins' straight horizontal chord passing through the curved lip mesh = the clip-through.
+// Round 4 removes every per-tri field from the visible math:
+//  (1) SMOOTH vertex normals (position-welded, area-weighted over the retained soup) interpolated
+//      barycentrically at each blade base — every per-blade quantity below is continuous across tri
+//      borders by construction.
+//  (2) Comb = PER-BLADE continuous weight w = tilt(n_smooth.y ramp UPNESS_HI->LO) * near(droop-rim
+//      distance), delivered as toggle-gated TAIL REPLACEMENT twins: the tagged original keeps its
+//      stock bytes except nspare=-(1+w) (unread when OFF -> OFF == stock byte-identical; when ON the
+//      shader collapses it in the blade pass and the twin — carrying the smooth normal in nx/ny/nz
+//      and w in nspare=5+w — takes over). The round-2/3 transition-twin class is DELETED; the
+//      continuous comb field IS the upright->droop transition.
+//  (3) Droop rows -> area-uniform barycentric SCATTER; per-blade direction = the smooth normal's
+//      in-plane down-slope; the below-plane sag term is gone.
+//  (4) Surface constraint: every tail blade's rest arc is plane-capped against nearby tris at
+//      placement time and the shader half-space-clamps vertices to the base tangent plane.
+constexpr float COMB_NEAR0_M = 0.8f;  // fully combable this close (XZ) to a droop rim ...
+constexpr float COMB_NEAR1_M = 1.3f;  // ... fading to zero here. MUST stay < RIM_ENC_MAX_M (1.4):
+                                      // the cheap per-blade rim_q pre-filter relies on it.
+constexpr float COMB_W_MIN = 0.01f;   // below this the twin would BE the stock blade: no tag
+// ROUND 6: every blade on a TRANSITION (bit4) tri now combs by its pure tilt ramp (the owner's zone-2
+// "green descending mesh" — ~63k blades on training's 546 m2 curl band), so the old 60k ceiling would
+// truncate the curl mid-list. Raised to hold the full band plus the round-4 tilt*near stragglers.
+constexpr int COMB_MAX = 150000;      // hard ceiling for comb replacement twins
+constexpr float NOFF_M = 0.03f;       // root offset along the smooth normal (shader scales by w)
+constexpr float DROOP_AREA_DENS = 130.0f;  // droop blades per m^2 of fringe/lip face (scatter)
+constexpr float PLANE_CLEAR_M = 0.02f;     // rest tip must clear every nearby tri plane by this
+constexpr float SHADER_TILT_DEFAULT = 0.30f;  // u_tilt the rest-pose plane cap assumes
+
+// Grecharged-grass-overhang5 (owner 2026-07-14: shipped-APK play-test — overhang STILL reads like
+// stock, precompute ON or OFF no difference). ROOT CAUSE (device-confirmed): rounds 1-4 place droop
+// only on steep GRASS-TEXTURED "fringe" faces (upness <= GROUND_UPNESS). The stepped Sandover
+// TERRACES the owner actually looks at have DIRT/ROCK faces — no grass-textured fringe — so they get
+// ZERO droop and render identical to stock. Round 5 adds an independent RIM-DRAPE pass: 3D grass
+// rooted ON the walkable-grass TRUE-RIM edges (the drop-off lips, boundary edges of placed walkable
+// tris — already computed for the LOCKED edge clamp), curling OUTWARD over the convex lip and hanging
+// DOWN the face regardless of what texture the face carries. Toggle-gated TAIL (nspare=3) so OFF ==
+// stock byte-identical; NEAR-LOD only (the card pass collapses it -> far shows the original alpha
+// overhang texture, LOD-alpha crossfade); the walkable-top rim clamp is untouched (additive pass).
+// ROUND 6 (owner 2026-07-14): the v6 rim-drape BLADE emission is DELETED (blades hanging from bare
+// dirt lip edges rejected). The scan still COLLECTS these true-rim edge segments — they now feed
+// ZONE-1's outward-lean directions (the walkable boundary lean twins) in expand().
+constexpr float RIMDRAPE_MIN_EDGE_M = 0.06f;  // skip degenerate/near-zero rim segments
+
+// Grecharged-grass-overhang6 (owner 2026-07-14, verbatim 3-zone spec). ZONE 1 = walkable-top blades
+// near the grass boundary progressively LEAN toward the void. ZONE 2 = blades ON the flat-green
+// sub-lip mesh strip (tra-grass), following it with increasing lean (emitted as 5+w comb-class).
+// ZONE 3 = >= 2 LAYERS of grass falling fully downward, covering the native-alpha overhang faces.
+constexpr float LEAN_BAND_M = 0.9f;      // zone-1: walkable blades this close (perp) to a true rim lean outward
+constexpr float LEAN_K_MIN = 0.04f;      // below this the lean is invisible: no twin, no tag
+constexpr int   LEAN_MAX = 90000;        // zone-1 twin ceiling
+constexpr float LEAN1_MAX = 0.55f;       // max up->outward axis blend at the rim; MUST equal the shader's
+                                         // LEAN1_MAX and Z2_K1 (zone-1 end == zone-2 start: continuity)
+constexpr float Z2_AREA_DENS = 110.0f;   // zone-2 blades per m^2 of flat-green sub-lip strip
+constexpr int   Z2_MAX = 90000;
+constexpr float Z2_K1 = 0.55f;           // zone-2 lean floor at the strip top (== LEAN1_MAX)
+constexpr float Z2_DEPTH_FULL_M = 1.2f;  // fully bent (w=1) this far below the owning rim
+// ROUND 8 (supervisor's own read of the owner's live view, SUPERVISOR-OWNER-VIEW.png): the v7 fall
+// curtain read as a thin dark-olive "eyeliner" strip. Three fixes, all in the toggle-gated tail:
+//  (1) COLOR: fall blades inherit the nearest rim segment's WALKABLE-TOP lawn colour + baked-light
+//      tri (RimDrapeSeg.gr/gg/gb + .tri, already in GBK6+ bakes) instead of the dark drop-face tri;
+//      the 0.82 inner-layer darkening is deleted; the shader's vertical gradient is REVERSED for the
+//      fall class (root at the lip = lawn-tip bright) so the lip has no tonal seam.
+//  (2) VOLUME: 3 layers at deeper normal offsets + wider blades + a real outward belly (shader).
+//  (3) RAGGED: 0.7 m world-XZ cell noise modulates density AND length in coherent clumps along the
+//      lip, plus per-blade exit-cap jitter — no uniform band, no outlined ledges.
+// ROUND 11 (supervisor DESIGN PIVOT, df1486b45): ten rounds prove solid-colour blade quads cannot
+// read as the game's grass art at the owner's judging distance (plates / strings / foam — R8-R10).
+// Zone 3 is REBUILT as textured CARDS sampling the game's OWN hang-alpha texels (bch-grassfringe /
+// bch-leafyground-hang-2x1 — the exact texels the native painted strip uses; alpha-cut like it),
+// hung from the true-rim lip segments in Z3C_LAYERS outward-offset layers with per-layer sway,
+// per-layer UV offset/flip (no ghosting) and per-card length jitter. Near view = the NATIVE art
+// (texel-identical tufts) with real depth from layering + animation; the flat painted strip stays
+// near-hidden (cards replace it, restored at far LOD). Zones 1-2 unchanged from round 10. The
+// solid-blade fall classes (nspare 7.x: face scatter + lip root rows) are DELETED.
+constexpr int   Z3C_LAYERS = 3;             // pivot spec: 2-3 offset layers; 3 for visible parallax
+constexpr float Z3C_SPACING_M = 0.55f;      // along-lip card spacing per layer (< Z3C_WIDTH_M => overlap)
+constexpr float Z3C_WIDTH_M = 0.80f;        // card width; MUST equal the shader's 2*CARD_HW
+constexpr float Z3C_REPEAT_W_M = 1.6f;      // world width of one full texture repeat (256x128 texels
+                                            // => square texels at a 0.8 m strip height); shader RPT
+constexpr float Z3C_SINK_M = 0.05f;         // root sink under the lawn plane (card top texels are
+                                            // dense grass -> the lip junction is grass-on-grass)
+constexpr float Z3C_DEPTH_MARGIN_M = 0.35f; // hang past the deepest strip bottom found below the root
+constexpr float Z3C_DEPTH_MIN_M = 0.45f;    // clamp: never shorter than a shallow strip band...
+constexpr float Z3C_DEPTH_MAX_M = 2.4f;     // ...never a floor-length curtain
+constexpr int   Z3C_MAX = 40000;            // card ceiling (~40x cheaper than the R10 420k blades)
+constexpr float Z3_LIP_NEAR_HANG_M = 2.0f;  // cards only where native-alpha hang faces are below
+
 // Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
 // the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.
 // The tfrag/TIE renderers fade draws using these textures out near the camera while the overhang
@@ -200,7 +291,14 @@ struct BakeTri {
   float pal[8][3];            // day-cycle baked-light keyframes (time-of-day palette rows, centroid avg)
   u32 cand_count;             // candidates enumerated at bake_density_pct
   u64 cand_base;              // first candidate index in keep[]/rim_q[]
-  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON)
+  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON), bit5 is_hang (tri's source draw carries a native overhang-alpha hang texture — is_fringe_hang_tex), bit6 is_hang_b (ROUND 11: that texture is bch-leafyground-hang-2x1, not bch-grassfringe — zone-3 cards sample the matching texels; 0 in pre-R11 bakes -> grassfringe fallback)
+  // Grecharged-grass-overhang4 (GBK5): SMOOTH vertex normals — the area-weighted average of the
+  // adjacent face normals at each of the tri's three (welded) vertices, computed once over the whole
+  // retained soup (walkable + lip + fringe) at bake time. expand() interpolates these barycentrically
+  // at every blade base, so the comb tilt weight and the droop drape direction are CONTINUOUS across
+  // every tri border (no per-tri state -> no seams, defect 2). Computed on x86 at bake, read verbatim
+  // on device (no cross-platform weld); a v4 bake fails the version check and falls back to live scan.
+  float vn0[3], vn1[3], vn2[3];  // smooth normal at p0, p0+e1, p0+e2 (unit, ny>=0-oriented like nx/ny/nz)
 };
 
 // Grecharged-grass-overhang: one droop-placement face (a lip or fringe tri) with its scan-resolved
@@ -216,6 +314,17 @@ struct DroopTri {
 // stored in the bake (GBK3) because precomputed mode's rim_q has only a DISTANCE, no direction.
 struct DroopRimSeg {
   float ax, ay, az, bx, by, bz;
+};
+
+// Grecharged-grass-overhang5: a true-rim (walkable-top drop-off lip) edge segment with its scan-
+// resolved OUTWARD horizontal direction (unit XZ, away from the platform interior) and the owning
+// walkable tri's baked ground colour + index (for per-instance light). expand() scatters rim-drape
+// blades ALONG the segment; each roots at the lip and curls outward+down over the edge.
+struct RimDrapeSeg {
+  float ax, ay, az, bx, by, bz;  // edge endpoints (world GOAL units)
+  float ox, oz;                  // unit outward XZ direction (away from interior, over the drop)
+  float gr, gg, gb;              // owning walkable tri ground colour
+  u32 tri;                       // owning walkable tri index (into BakeData::tris) for light sampling
 };
 
 struct BakeStats {
@@ -238,6 +347,7 @@ struct BakeData {
   std::vector<u16> rim_q;         // per candidate: quantized rim_dist; 0xFFFF = NO_RIM/far
   std::vector<DroopTri> droop;    // Grecharged-grass-overhang: droop faces + outward dirs (GBK2)
   std::vector<DroopRimSeg> droop_rims;  // Grecharged-grass-overhang2: droop-zone rim segments (GBK3)
+  std::vector<RimDrapeSeg> rimdrape;    // Grecharged-grass-overhang5: walkable-top drop-off lip edges (GBK6)
   BakeStats stats;
 };
 
@@ -278,10 +388,23 @@ struct ExpandResult {
   int droop_start = 0;          // == instances.size() when there is no droop data
   // Grecharged-grass-overhang2: the progressive upright->droop transition twins sit after the hang
   // blades, still inside the toggle-gated tail. Census only — the draw split is droop_start.
-  int trans_start = 0;          // == instances.size() when there are no transition twins
+  // Grecharged-grass-overhang4: the twins class is DELETED; this now marks where the COMB
+  // REPLACEMENT twins start (same tail, same census role).
+  int trans_start = 0;          // == instances.size() when there are no comb twins
   // Grecharged-grass-overhang3: how many BASE-range walkable blades carry the negative-nspare comb
   // tag (census only; their position/height/order are byte-identical to an untagged build).
   int comb_tagged = 0;
+  // Grecharged-grass-overhang4 census: emitted comb replacement twins (== final tagged originals),
+  // and how many tail blades the neighbor-plane cap shortened / dropped (the clip-through guard).
+  int comb_pairs = 0;
+  int plane_capped = 0;
+  int plane_dropped = 0;
+  // Grecharged-grass-overhang6 census: zone-1 lean twins (walkable boundary), zone-2 strip scatter
+  // (flat-green sub-lip mesh, emitted as 5+w comb-class), zone-3 layered fall (native-alpha faces).
+  int lean_tagged = 0;   // walkable originals tagged for a lean twin
+  int lean_twins = 0;    // emitted zone-1 twins (== lean_tagged minus cap-dropped)
+  int z2_count = 0;
+  int z3_count = 0;
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 

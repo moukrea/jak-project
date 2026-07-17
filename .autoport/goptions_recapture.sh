@@ -37,5 +37,5 @@ sleep 0.8
 shot 06-graphics-bottom-advanced
 echo "== restore fresh defaults (Dynamic ON) for the owner's next boot =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
-adb shell run-as $PKG rm -f "files/.config/OpenGOAL/jak1/settings/pc-settings.gc" 2>/dev/null || true
+adb shell rm -f "/storage/emulated/0/OpenGOAL/jak1/settings.ini" 2>/dev/null || true
 echo "[recap] DONE"

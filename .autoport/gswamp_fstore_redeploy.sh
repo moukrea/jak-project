@@ -24,7 +24,7 @@ say "0. preflight: device attached + unlocked + run-as OK"
 $ADB -s "$S" get-state >/dev/null 2>&1 || die "device $S not attached"
 $ADB -s "$S" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
 $ADB -s "$S" shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1' && die "DEVICE_LOCKED — needs owner unlock"
-$ADB -s "$S" shell run-as $PKG ls files/iso_data/jak1/ENGINE.CGO >/dev/null 2>&1 || die "run-as fails (CE locked / not extracted)"
+$ADB -s "$S" shell run-as $PKG ls files/cgo/jak1/ENGINE.CGO >/dev/null 2>&1 || die "run-as fails (CE locked / not extracted)"
 
 say "1. rebuild gk (asm fix already in tree; cmake incremental) + confirm fix bytes"
 cmake --build build-android --target gk -j"$(nproc)" 2>&1 | tail -6
@@ -47,7 +47,7 @@ APK_SHA=$(unzip -p "$APK" lib/arm64-v8a/libgk.so 2>/dev/null | sha256sum | cut -
 echo "  jniLibs==APK==build: ${BUILT_SHA:0:32}"
 
 say "4. capture device ENGINE.CGO BEFORE reinstall (must be unchanged: libgk-only change)"
-CGO_BEFORE=$($ADB -s "$S" shell run-as $PKG sha256sum files/iso_data/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+CGO_BEFORE=$($ADB -s "$S" shell run-as $PKG sha256sum files/cgo/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
 echo "  ENGINE.CGO before: ${CGO_BEFORE:-<none>}"
 
 say "5. install APK (keep app data => extracted CGOs persist, loader skips re-extract)"
@@ -68,7 +68,7 @@ echo "  focus: $FOCUS"
 echo "$FOCUS" | grep -q "$PKG" || echo "  WARN: jak1 not in foreground (may still be extracting/loading)"
 
 say "8. confirm ENGINE.CGO UNCHANGED across reinstall (consistency)"
-CGO_AFTER=$($ADB -s "$S" shell run-as $PKG sha256sum files/iso_data/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+CGO_AFTER=$($ADB -s "$S" shell run-as $PKG sha256sum files/cgo/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
 echo "  ENGINE.CGO after:  ${CGO_AFTER:-<none>}"
 if [ -n "$CGO_BEFORE" ] && [ -n "$CGO_AFTER" ] && [ "$CGO_BEFORE" != "$CGO_AFTER" ]; then
   die "ENGINE.CGO CHANGED across reinstall ($CGO_BEFORE -> $CGO_AFTER) — CGOs re-extracted; consistency risk"

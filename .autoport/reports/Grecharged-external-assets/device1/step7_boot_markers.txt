@@ -1,0 +1,20 @@
+=== KEY BOOT MARKERS ===
+--- [CGO pack unpacked] ---
+--- [CGO pack current] ---
+--- [external asset root chosen] ---
+07-14 00:55:41.459 18860 18860 I opengoal-gk: external asset root chosen: /storage/emulated/0/OpenGOAL (gameRoot=/storage/emulated/0/OpenGOAL/jak_1)
+--- [internal asset copy done] ---
+07-14 00:56:26.117 18860 19466 I opengoal-gk: internal asset copy done: 331 files -> /storage/emulated/0/OpenGOAL/jak_1 (originals kept)
+--- [migrated] ---
+07-14 00:56:26.254 18860 19466 I opengoal-gk: migrated 5 save/settings file(s) to /storage/emulated/0/OpenGOAL/jak_1/saves (internal originals kept)
+--- [external asset mode] ---
+07-14 00:56:26.486 18860 18860 I opengoal-gk: external asset mode: gameRoot=/storage/emulated/0/OpenGOAL/jak_1 isoOverlay=/data/user/0/org.opengoal.gk.jak1/files/cgo/jak1
+--- [setGameRoot] ---
+07-14 00:56:26.486 18860 18860 I opengoal-gk: NativeGk.setGameRoot: /storage/emulated/0/OpenGOAL/jak_1
+--- [external game root] ---
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: external game root -> /storage/emulated/0/OpenGOAL/jak_1
+--- [iso overlay dir] ---
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: iso overlay dir -> /data/user/0/org.opengoal.gk.jak1/files/cgo/jak1
+--- [argv=\[] ---
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: argv=[gk --game jak1 --game-root /storage/emulated/0/OpenGOAL/jak_1 --iso-overlay /data/user/0/org.opengoal.gk.jak1/files/cgo/jak1 -fakeiso -iso-data /data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1 -boot -debug-mem]
+--- [--game-root] ---

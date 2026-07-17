@@ -1,0 +1,4 @@
+=== a17 file-helper fix proof: fresh boot with NO settings.ini takes the not-found branch and commits defaults (was: a17_pc_default 0-return stub read truthy -> 'found' branch -> no write) ===
+07-17 08:44:12.179  8658  8901 I opengoal-gk: [PC] PC Settings not found at '/storage/emulated/0/OpenGOAL/jak1/settings.ini'...initializing with defaults!
+07-17 08:44:12.200  8658  8901 I opengoal-gk: pc settings file write: "/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+-rw-rw---- 1 root everybody 2154 2026-07-17 08:44 /storage/emulated/0/OpenGOAL/jak1/settings.ini

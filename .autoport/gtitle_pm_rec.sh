@@ -41,11 +41,11 @@ push_dgos() {
   for f in TIT.DGO; do
     [ -f "$DGO_SRC/$f" ] || { echo "  push_dgos: MISSING $DGO_SRC/$f" >&2; continue; }
     adb push "$DGO_SRC/$f" "/data/local/tmp/$f" >/dev/null 2>&1 || { echo "  push_dgos: push $f failed" >&2; continue; }
-    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/iso_data/jak1/$f" || { echo "  push_dgos: run-as cp $f failed" >&2; continue; }
+    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/cgo/jak1/$f" || { echo "  push_dgos: run-as cp $f failed" >&2; continue; }
     adb shell rm -f "/data/local/tmp/$f" >/dev/null 2>&1 || true
     local local_sz dev_sz
     local_sz=$(stat -c %s "$DGO_SRC/$f" 2>/dev/null || echo 0)
-    dev_sz=$(adb shell run-as "$PKG" wc -c "files/iso_data/jak1/$f" 2>/dev/null | awk '{print $1}' | tr -d '\r ' || echo 0)
+    dev_sz=$(adb shell run-as "$PKG" wc -c "files/cgo/jak1/$f" 2>/dev/null | awk '{print $1}' | tr -d '\r ' || echo 0)
     echo "  push_dgos: $f local=$local_sz device=$dev_sz $([ "$local_sz" = "$dev_sz" ] && echo OK || echo MISMATCH)"
   done
 }

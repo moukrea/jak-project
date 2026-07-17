@@ -1,15 +1,57 @@
 #include "Tie3.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 
+#include "game/graphics/gfx.h"
 #include "game/mips2c/spart_prof.h"
 
 #include "third-party/imgui/imgui.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
+namespace {
+// Grecharged-foliage-wind: live-tunable TIE (palm/foliage) wind-shear multiplier applied on top of the
+// stock per-instance wind when the toggle is ON. Mirrors GrassRenderer.cpp's grass_droop_len() dual
+// mechanism EXACTLY (cached + throttled with (s_throttle++ & 63) so it isn't re-read every frame):
+// Android prop debug.opengoal.foliage.tie_mult / desktop env FOLIAGE_WIND_TIE_MULT. Default 3.0
+// (device-tuned at the village1-hut vantage: palms/trees roughly double their motion-energy vs
+// stock, gentle not stormy; 8.0 bends palms comically), clamped [1.0, 8.0] (1.0 == neutral ==
+// stock arithmetic).
+constexpr float FOLIAGE_WIND_TIE_MULT_DEFAULT = 3.0f;
+static float foliage_wind_tie_mult() {
+  static float s_cached = FOLIAGE_WIND_TIE_MULT_DEFAULT;
+  static int s_throttle = 0;
+  if ((s_throttle++ & 63) != 0) {
+    return s_cached;
+  }
+  char buf[16] = {0};
+  bool have = false;
+#ifdef __ANDROID__
+  if (__system_property_get("debug.opengoal.foliage.tie_mult", buf) > 0 && buf[0]) {
+    have = true;
+  }
+#else
+  const char* e = std::getenv("FOLIAGE_WIND_TIE_MULT");
+  if (e && e[0]) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+    have = true;
+  }
+#endif
+  float v = have ? (float)std::atof(buf) : FOLIAGE_WIND_TIE_MULT_DEFAULT;
+  if (v < 1.0f) v = FOLIAGE_WIND_TIE_MULT_DEFAULT;  // unparsable/zero -> default, never < neutral
+  if (v > 8.0f) v = 8.0f;
+  s_cached = v;
+  return v;
+}
+}  // namespace
 
 Tie3::Tie3(const std::string& name,
            int my_id,
@@ -65,11 +107,11 @@ void Tie3::init_shaders(ShaderLibrary& shaders) {
 void Tie3::load_from_fr3_data(const LevelData* loader_data) {
   auto ul = scoped_prof("update-load");
   const tfrag3::Level* lev_data = loader_data->level.get();
-  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces. Training
-  // only — the recharged grass system is scoped to that level (GrassRenderer.cpp:572); the same bch-*
-  // textures elsewhere (e.g. Sentinel Beach, no droop) must keep their stock path.
+  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces.
+  // Grecharged-grass-overhang7: gate widened from "training" to the grass allowlist — the owner
+  // plays at Sentinel Beach, which uses the same bch-* textures and now gets the droop/fall tail.
   m_fringe_tex_a = m_fringe_tex_b = -1;
-  if (lev_data->level_name == "training") {
+  if (grass_level_enabled(lev_data->level_name)) {
     for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
       const auto& tn = lev_data->textures[ti].debug_name;
       if (tn == "bch-grassfringe") {
@@ -131,6 +173,15 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       // wind metadata
       lod_tree[l_tree].instance_info = &tree.wind_instance_info;
       lod_tree[l_tree].wind_draws = &tree.instanced_wind_draws;
+      // Grecharged-foliage-wind: one-shot census so a device log can PROVE whether this level's
+      // TIE protos are wind-enabled (stiffness != 0 => instances here). If instances == 0 the
+      // wind pass early-returns and the sway boost is a silent no-op — this line makes that
+      // failure mode visible instead of invisible.
+      if (l_geo == 0) {
+        lg::info("[foliage-wind] TIE census lev={} tree={} wind_draws={} wind_instances={}",
+                 lev_data->level_name, l_tree, tree.instanced_wind_draws.size(),
+                 tree.wind_instance_info.size());
+      }
       // OpenGL index buffer (fixed index buffer for multidraw system)
       lod_tree[l_tree].index_buffer = loader_data->tie_data[l_geo][l_tree].index_buffer;
       lod_tree[l_tree].category_draw_indices = tree.category_draw_indices;
@@ -686,7 +737,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       fringe_loc = glGetUniformLocation(render_state->shaders[shader_id].id(), "u_fringe_fade");
     }
     if (fringe_loc >= 0) {
-      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m, 0.f);
+      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m,
+                  fringe_fade.dbg);
     }
     fringe_on_state = want;
   };
@@ -1075,6 +1127,7 @@ void do_wind_math(u16 wind_idx,
                   float* wind_vector_data,
                   const Tie3::WindWork& wind_work,
                   float stiffness,
+                  float shear_boost,
                   std::array<math::Vector4f, 4>& mat) {
   float* my_vector = wind_vector_data + (4 * wind_idx);
   const auto& work_vector = wind_work.wind_array[(wind_work.wind_time + wind_idx) & 63];
@@ -1132,11 +1185,18 @@ void do_wind_math(u16 wind_idx,
   // vmulw.xyzw vf27, vf27, vf15
   vf27 *= stiffness;
 
+  // Grecharged-foliage-wind: amplify ONLY the applied matrix shear, never the persisted
+  // integrator state (my_vector below keeps the stock vf27). Boosting `stiffness` instead is
+  // self-cancelling: vf27 feeds back into next frame's restoring term (cy=100 * vf17), so the
+  // spring just stiffens and the visible sway barely changes. shear_boost == 1.0 (toggle OFF)
+  // multiplies by the exact literal 1.0f => byte-identical stock arithmetic.
+  const math::Vector4f vf27s = vf27 * shear_boost;
+
   // vmulax.yw acc, vf0, vf0
   // vmulay.xz acc, vf27, vf10
   // vmadd.xyzw vf10, vf1, vf10
-  mat[0].x() += vf27.x() * mat[0].y();
-  mat[0].z() += vf27.z() * mat[0].y();
+  mat[0].x() += vf27s.x() * mat[0].y();
+  mat[0].z() += vf27s.z() * mat[0].y();
 
   // qmfc2.i s2, vf27
   if (!wind_work.paused) {
@@ -1149,15 +1209,15 @@ void do_wind_math(u16 wind_idx,
   // vmulax.yw acc, vf0, vf0
   // vmulay.xz acc, vf27, vf11
   // vmadd.xyzw vf11, vf1, vf11
-  mat[1].x() += vf27.x() * mat[1].y();
-  mat[1].z() += vf27.z() * mat[1].y();
+  mat[1].x() += vf27s.x() * mat[1].y();
+  mat[1].z() += vf27s.z() * mat[1].y();
 
   // ppacw s2, r0, s2
   // vmulax.yw acc, vf0, vf0
   // vmulay.xz acc, vf27, vf12
   // vmadd.xyzw vf12, vf1, vf12
-  mat[2].x() += vf27.x() * mat[2].y();
-  mat[2].z() += vf27.z() * mat[2].y();
+  mat[2].x() += vf27s.x() * mat[2].y();
+  mat[2].z() += vf27s.z() * mat[2].y();
 
   //
   // if not paused
@@ -1184,6 +1244,22 @@ void Tie3::render_tree_wind(int idx,
     cam[i] = cam_bad[i];
   }
 
+  // Grecharged-foliage-wind: when the toggle is ON, amplify the per-instance TIE wind shear so the
+  // jak1 palms/foliage react to a stronger-but-still-light breeze. The boost is applied ONLY to the
+  // matrix shear inside do_wind_math (the integrator state stays stock — boosting stiffness is
+  // self-cancelling via the restoring feedback). OFF => boost 1.0 => byte-identical stock
+  // arithmetic. Live-tunable for A/B (prop/env), clamped to a sane range.
+  float rc_wind_boost = 1.0f;
+  if (Gfx::g_global_settings.recharged_foliage_wind) {
+    rc_wind_boost = foliage_wind_tie_mult();  // helper above, default 2.0
+    static bool s_logged = false;
+    if (!s_logged) {
+      s_logged = true;
+      lg::info("[foliage-wind] TIE shear boost ACTIVE mult={} instances={}", rc_wind_boost,
+               tree.instance_info->size());
+    }
+  }
+
   for (size_t inst_id = 0; inst_id < tree.instance_info->size(); inst_id++) {
     auto& info = tree.instance_info->operator[](inst_id);
     auto& out = tree.wind_matrix_cache[inst_id];
@@ -1192,7 +1268,7 @@ void Tie3::render_tree_wind(int idx,
 
     ASSERT(info.wind_idx * 4 <= m_wind_vectors.size());
     do_wind_math(info.wind_idx, m_wind_vectors.data(), m_wind_data,
-                 info.stiffness * m_wind_multiplier, mat);
+                 info.stiffness * m_wind_multiplier, rc_wind_boost, mat);
 
     // vmulax.xyzw acc, vf20, vf10
     // vmadday.xyzw acc, vf21, vf10

@@ -1,0 +1,9 @@
+07-16 20:42:54.039 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=27.6 busy_ms=33.86
+07-16 20:42:57.240 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=40.5 busy_ms=22.25
+07-16 20:43:00.223 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=39.1 busy_ms=23.23
+07-16 20:43:03.348 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=38.0 busy_ms=23.84
+07-16 20:43:06.235 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=42.6 busy_ms=21.06
+07-16 20:43:08.904 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=45.2 busy_ms=20.23
+07-16 20:43:11.568 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=45.0 busy_ms=20.31
+07-16 20:43:14.219 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=45.2 busy_ms=19.79
+07-16 20:43:16.959 31985 32050 I opengoal-gk: AOPERF mode=0 quality=2 strength=1 fps=42.2 busy_ms=21.42

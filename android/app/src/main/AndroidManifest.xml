@@ -19,6 +19,20 @@
     <uses-permission android:name="android.permission.INTERNET"
                      tools:node="remove"/>
 
+    <!-- External-asset-root feature (autoport 2026-07): the user can point the
+         app at an on-storage OpenGOAL folder (shared by all games) holding the
+         PS2 ISO extract, fr3 textures, saves and custom assets. Reading that
+         arbitrary path needs broad storage access:
+           - API >= 30 (Android 11+): MANAGE_EXTERNAL_STORAGE (All Files Access),
+             granted via Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION.
+           - API <= 29 (Android 10): legacy READ/WRITE_EXTERNAL_STORAGE plus
+             requestLegacyExternalStorage so raw filesystem paths still work. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+                     android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                     android:maxSdkVersion="29"/>
+
     <uses-feature android:glEsVersion="0x00030000" android:required="true"/>
     <uses-feature android:name="android.hardware.touchscreen"
                   android:required="false"/>
@@ -30,6 +44,7 @@
         android:allowBackup="false"
         android:hasFragileUserData="false"
         android:hardwareAccelerated="true"
+        android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenGoal">
 

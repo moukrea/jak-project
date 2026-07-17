@@ -1,0 +1,2 @@
+=== fps-counter round-trip: menu toggled ON -> committed to settings.ini ===
+fps-counter? = #t

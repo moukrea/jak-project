@@ -1,0 +1,117 @@
+RESULT: EXTERNAL ASSETS 1197MB->165MB (jak1 APK; slim binary + separate data archive on every build)
+
+Phase Grecharged-external-assets — binary/assets split + external storage layout, jak1+jak2, x86+Android.
+Branch autoport/android-port; fix commits a03f9e17f + 033457588 (+ this report). Device eae4df44 (Android 12, API 31).
+
+== THE SPLIT (design) ==============================================================
+- ARCHIVE = pure arch-independent extracted-original data (never changes across releases):
+  iso data files (STR/VAG/TXT/VIS/SBK/MUS + ALL VAGWAD languages), fr3 texture packs,
+  recharged_assets HUD pngs. Producer: scripts/package_game_assets.sh (python-zipfile, zip64).
+  Archive artifacts produced at path out/artifacts/ (archive path reported per game below):
+    jak1_assets.zip  975,816,002 B (331 files, VAGWAD ENG,FRE,GER,ITA,JAP,SPA)
+    jak2_assets.zip  3,546,954,952 B (613 files, VAGWAD ENG,FRE,GER,ITA,JAP,KOR,SPA)
+  jak2: ALL 7 language VAGWADs restored — this REPLACES the AGP-2GB-cap workaround that
+  dropped non-English audio (FR audio back). The runtime ENG-fallback in iso_api.cpp is KEPT
+  as the mandate's graceful-degradation path for genuinely absent language files.
+- BINARY carries the per-arch compiled *.CGO/*.DGO ("CGO pack") + android-text COMMON.TXT
+  overrides: android/build_cgo_pack.sh -> APK asset bundle/<game>_cgo.zip
+  (jak1: 28 code files, 111.6MB; jak2: 151 code files, 290.7MB; content-versioned,
+  arm64!=x86 KERNEL.CGO hard gate). Compiled code riding the binary kills the mixed-build
+  SIGILL class (CGOs always match libgk) — that's why CGOs are NOT in the data archive.
+  fake_iso gained an overlay-dir scan (overlay first, dup filenames skipped) to merge the two.
+- APK: slim is the DEFAULT (assets-bundled only via -PbundledIso=true). jak1 APK size
+  1,197,179,428 B before -> 164,523,835 B after (157MB; libgk 106MB + cgo pack + dex).
+  x86: scripts/package_game_release.sh emits gk + data/{x86 CGO-DGO,shaders,game assets,
+  goal_src/user} as the binary tarball artifact next to the shared assets archive.
+
+== LAYOUT + RUNTIME (game reads a user-chosen location) ============================
+<chosen>/jak_1/assets/{iso,fr3,recharged_assets}  <- archive decompressed here (jak_2/jak_3 same)
+<chosen>/jak_1/saves/                              <- memcard banks + settings/ configs beside saves
+<chosen>/jak_1/custom_assets/texture_replacements/ <- player texture packs
+gk: new --game-root <chosen>/jak_N + --iso-overlay <cgo dir> flags (shared x86+Android);
+FileUtil routes iso/fr3/recharged/custom_assets + memcard/settings/misc/screenshots/features
+under the root when set; UNSET = byte-identical legacy behavior (dev flow regression-tested).
+
+== FIRST-BOOT PROMPT + PERSISTENCE =================================================
+- x86: resolution = --game-root flag > pointer file <config>/asset-root.txt > legacy repo/data
+  dir (must hold non-CGO data files, so a release binary pack still prompts) > stdin prompt.
+  TTY prompt accepts the chosen folder and persists it; non-TTY prints a clear --game-root
+  error and exits 1. Re-prompt happens when the pointer target goes invalid (try_accept fails).
+- Android: LoaderActivity chooser screen (touch + D-pad): CHOOSE ASSETS FOLDER (SAF
+  ACTION_OPEN_DOCUMENT_TREE picker, tree-URI converted to a real path), TYPE PATH MANUALLY
+  (dialog), USE INTERNAL ASSETS (existing installs). Choice persisted in SharedPreferences
+  + mirrored to files/asset_root.txt; MainActivity re-validates every boot and bounces back
+  to the chooser when the root goes invalid (re-prompt proven by design + banner path).
+
+== ANDROID STORAGE PERMISSIONS (not forgotten) =====================================
+Manifest: MANAGE_EXTERNAL_STORAGE + READ_EXTERNAL_STORAGE(maxSdk32) +
+WRITE_EXTERNAL_STORAGE(maxSdk29) + requestLegacyExternalStorage. Runtime: API>=30 All-Files-
+Access Settings intent (scoped-storage model), API<=29 legacy runtime request; graceful deny
+returns to the chooser with a STORAGE ACCESS REQUIRED banner + retry (never crashes/loops).
+Device proof: selecting CHOOSE ASSETS FOLDER opened the AppManageExternalStorageActivity
+grant screen (02-allfiles-settings.png), BACK produced the deny banner (03-deny-banner.png),
+appops grant then unblocked the flow.
+
+== DEVICE VERIFICATION (eae4df44, fresh-config slim install -r, owner data kept) ===
+- Saves backed up FIRST (device1/saves_backup.tar; bank0-3 verified inside).
+- Fresh state -> chooser PROMPT shown (01-chooser.png). TYPE PATH MANUALLY ->
+  /storage/emulated/0/OpenGOAL -> populate menu (04-populate.png) -> COPY INSTALLED ASSETS:
+  migration copy of existing app-private assets: 331 files (CGO/DGOs excluded) + "migrated 5
+  save/settings file(s)" -> originals kept (compat with existing installs; nothing deleted).
+- Boot from the chosen location: argv --game-root /storage/emulated/0/OpenGOAL/jak_1,
+  goal_main external mode, fake_iso overlay files/cgo/jak1 (35 files), boots to title
+  flythrough (05-title-*.png, focus-checked, not black). jak_1/assets/iso = 293 files with
+  ZERO CGO/DGO on external storage; fr3 = 27.
+- SAVES: game READS the migrated banks (CONTINUE loaded the owner's ROCHER DU GEYSER save
+  from /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/) and WRITES there: in-game
+  SAUVEGARDER UNE PARTIE -> save created and verified — bank0.bin lands in jak_1/saves with
+  md5 3ebd5518...->a42a82fe... and mtime 00:56->01:37 (device3/bank-before.txt/bank-after.txt);
+  configs also land there (pc-settings.gc freshly written under jak_1/saves/settings on every
+  commit: 00:58 -> 01:10 -> 01:17). Owner progress preserved (legitimately advanced to 2/100
+  cells; pre-write bank copies kept on-device + locally).
+- Crash-free: no sig 11/6/4 on our pid across all runs; 60s in-game soak foreground at end.
+- deploy_verify.sh PASS (build==APK==device libgk sha) + deploy_verify_assets.sh PASS
+  (28/28 arm64 CGO/DGO byte-identical at the new files/cgo/jak1 location).
+
+== LOAD CUSTOM ASSETS toggle (Graphics Options > Recharged Settings) ===============
+pc/ only: pc-settings-jak1 field load-custom-assets? (default OFF/#f) + read/write persistence
++ menu row "LOAD CUSTOM ASSETS" (row 2 of Recharged Settings) + pc-set-load-custom-assets!
+bridge -> Gfx flag -> runtime PNG replacement hooked at the single fr3 texture-upload
+chokepoint (LoaderStages add_texture; keys tpage/name with bare-name fallback; stb_image;
+level/model textures — TextureAnimator/eyes/HUD excluded by design). Device A/B/A proof:
+row exists + toggled ON via the real menu (menu-row-load-custom-ON-final.png) and persisted
+((load-custom-assets? #t) in the external pc-settings.gc); custom toggle ON = magenta test
+textures visible on beach/rock/grass (on-title-09/13.png, up to 14.6% magenta px, logcat
+"custom texture replacements: 5 files found" + per-key hits); OFF = 0.0% magenta, stock
+render, zero scan lines (off-title-*, off2-title-*). custom_assets/dump_keys marker dumps
+the 524 replaceable keys for pack authors (texture_keys_dump.txt).
+
+== x86 FLOW (Linux desktop, same split) ============================================
+- Legacy regression guard: repo run, no flags -> boots normally, zero prompt (test1 log).
+- External: --game-root /tmp/.../chosen/jak_1 --iso-overlay out/jak1/iso -> boots, saves +
+  settings written under chosen/jak_1/saves/settings (pc-settings.gc, display-settings.json).
+- Binary-pack prompt flow: CGO-only pack -> non-TTY exits 1 with a clear message; TTY prompt
+  accepted /tmp/gextassets_x86/chosen, persisted asset-root.txt, and the follow-up run booted
+  silently with the marker line observed: link finish: logo (test3c, 24 hits). Boot with the
+  chosen dir reaches the logo/title sequence at 60fps.
+
+== MIGRATION / COMPAT ==============================================================
+- Existing installs: internal assets detected -> USE INTERNAL ASSETS keeps today's behavior;
+  external choice offers COPY INSTALLED ASSETS (copy, never delete) + saves migration (skipped
+  if external saves already exist — never clobbers). Old self-contained bundled APKs persist
+  internal mode silently (zero new UI). Slim-safety fix: the legacy unpack path now no-ops
+  when no bundle zip is present instead of wiping adb-maintained internal data.
+- The device's existing saves were preserved end-to-end (backup + copy-migration + final
+  banks intact/advanced only by the deliberate in-game save).
+
+== DEFERRED (honest) ===============================================================
+- jak2 on-device external-mode run (artifacts + code paths in place: slim gradle default,
+  jak2_cgo.zip 151 files, 3.5GB all-language archive produced; device flow untested this
+  phase — jak1 was the gate; jak2 first-boot uses the identical LoaderActivity flow).
+- jak2/jak3 LOAD CUSTOM ASSETS menu row (jak1-only this phase; C++ hook is game-agnostic).
+- SAF DocumentFile streaming for non-convertible tree URIs (cloud providers): falls back to
+  the manual-path dialog; real-path volumes (primary + SD UUIDs) covered.
+- Windows file-dialog prompt (CLI prompt is cross-platform; mandate allowed CLI/config).
+- In-APK small fr3 leftovers of the old dev-slim variant (14MB, unused in external mode).
+
+Validator: bash .autoport/validators/phase-Grecharged-external-assets.sh

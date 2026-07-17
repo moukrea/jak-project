@@ -1,0 +1,1 @@
+07-16 15:17:03.488 19164 19235 I opengoal-gk: AOPERF mode=1 quality=2 strength=1 fps=9.3 busy_ms=103.13

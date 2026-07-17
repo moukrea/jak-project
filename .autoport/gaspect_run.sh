@@ -6,8 +6,8 @@
 #   - the title / PRESS START flythrough slow-camera beat        -> Gaspect/title/
 # No input injected (the attract auto-plays the sequence).
 #
-# CRITICAL (the deploy caveat): a stale device pc-settings.gc carrying
-# (aspect-state aspect4x3 ... #f) would, via read-from-file -> set-game-setting!,
+# CRITICAL (the deploy caveat): a stale device settings.ini carrying
+# ^aspect-state = aspect4x3 ... #f would, via read-from-file -> set-game-setting!,
 # overwrite the 16:9 boot default back to 4:3 and defeat the fix. So we DELETE the
 # persisted settings file before the measured launch; with no file the auto-on
 # default regenerates and the Android window auto-derivation is inert (stub), so
@@ -52,22 +52,23 @@ push_dgos() {
   for f in TIT.DGO; do
     [ -f "$DGO_SRC/$f" ] || { echo "  push_dgos: MISSING $DGO_SRC/$f" >&2; continue; }
     adb push "$DGO_SRC/$f" "/data/local/tmp/$f" >/dev/null 2>&1 || { echo "  push_dgos: push $f failed" >&2; continue; }
-    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/iso_data/jak1/$f" || { echo "  push_dgos: run-as cp $f failed" >&2; continue; }
+    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/cgo/jak1/$f" || { echo "  push_dgos: run-as cp $f failed" >&2; continue; }
     adb shell rm -f "/data/local/tmp/$f" >/dev/null 2>&1 || true
     local local_sz dev_sz
     local_sz=$(stat -c %s "$DGO_SRC/$f" 2>/dev/null || echo 0)
-    dev_sz=$(adb shell run-as "$PKG" wc -c "files/iso_data/jak1/$f" 2>/dev/null | awk '{print $1}' | tr -d '\r ' || echo 0)
+    dev_sz=$(adb shell run-as "$PKG" wc -c "files/cgo/jak1/$f" 2>/dev/null | awk '{print $1}' | tr -d '\r ' || echo 0)
     echo "  push_dgos: $f local=$local_sz device=$dev_sz $([ "$local_sz" = "$dev_sz" ] && echo OK || echo MISMATCH)"
   done
 }
 
 # Delete the persisted PC settings so the 16:9 boot default stands (deploy caveat).
+# Settings now live ONLY at the external settings.ini (world-accessible, no run-as).
 clear_pc_settings() {
   echo "  clear_pc_settings: persisted settings BEFORE:"
-  adb shell run-as "$PKG" sh -c 'ls -l files/.config/OpenGOAL/jak1/settings/ 2>/dev/null; find files -name "pc-settings.gc" 2>/dev/null' | sed 's/^/    /' || true
-  adb shell run-as "$PKG" sh -c 'rm -f files/.config/OpenGOAL/jak1/settings/pc-settings.gc; for p in $(find files -name "pc-settings.gc" 2>/dev/null); do rm -f "$p"; done' 2>/dev/null || true
+  adb shell 'ls -l /storage/emulated/0/OpenGOAL/jak1/ 2>/dev/null' | sed 's/^/    /' || true
+  adb shell rm -f /storage/emulated/0/OpenGOAL/jak1/settings.ini 2>/dev/null || true
   echo "  clear_pc_settings: persisted settings AFTER:"
-  adb shell run-as "$PKG" sh -c 'find files -name "pc-settings.gc" 2>/dev/null' | sed 's/^/    /' || true
+  adb shell 'ls -l /storage/emulated/0/OpenGOAL/jak1/settings.ini 2>/dev/null' | sed 's/^/    /' || true
 }
 
 INTERLOPERS=(com.xiaoji.egggameplus com.ghplus.patcher dev.moukrea.sshxmobile dev.moukrea.sshxmobile.debug)

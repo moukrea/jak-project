@@ -1,0 +1,6 @@
+retarget decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb -> decompiler_out/jak1/levels/common/eichar-lod0.glb
+  verts=6966 donor_joints=75 target_joints=83
+  weight by tier: exact=6966.0 ci=0.0 suffix=0.0 ancestor=0.0 unmatched=0.0 dropped=0.0
+  name-matched (T1-T3): 1.0000; UNMATCHED (garble-risk) fraction: 0.0000 (gate <= 0.01)
+  ancestor-fallback joints: extra->main
+  re-pose max vertex displacement: 0.1235

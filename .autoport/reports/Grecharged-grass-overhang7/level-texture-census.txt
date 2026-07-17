@@ -1,0 +1,188 @@
+== training ==
+[06:43:044] [info] [recharged-grass] UNMATCHED ground-ish texture 'v2-coral-rockbase' (1 draws) — not placed
+[06:43:044] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-smallrocks01' (2 draws) — not placed
+[06:43:044] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-grass' (1 draws) — not placed
+[06:43:044] [info] [recharged-grass] UNMATCHED ground-ish texture 'tra-beachrock' (9 draws) — not placed
+[06:43:044] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-beach-01' (1 draws) — not placed
+[06:43:044] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-rock' (5 draws) — not placed
+[grass_bake] scan: considered_draws=8 tie_draws=2 tris_kept=9829 giant_tris=0 max_area=10.2 m2
+[grass_bake] expand @slider=250 (bake density): instances=1243161 scatter_kept=1371829 occ_culled=344669
+== beach ==
+[06:48:128] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-beach-01' (1 draws) — not placed
+[06:48:128] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-beachrock' (9 draws) — not placed
+[06:48:128] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-leafyground' (2 draws) — not placed
+[06:48:128] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-statue-rock-nose' (1 draws) — not placed
+[06:48:128] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-statue-rock-round' (1 draws) — not placed
+[06:48:128] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-statue-rock' (1 draws) — not placed
+[grass_bake] scan: considered_draws=2 tie_draws=1 tris_kept=3208 giant_tris=0 max_area=4.5 m2
+[grass_bake] expand @slider=250 (bake density): instances=269288 scatter_kept=67784 occ_culled=16748
+== village1 ==
+[06:51:474] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil-beach-01path' (2 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil-beach-01' (2 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-jng-leafyground-hang-2x1-hitweak' (1 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-grass' (1 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-jng-leafyground-hitweak' (1 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-jng-leafyground' (2 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-jng-leafyground-hang-2x1' (3 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-rock' (4 draws) — not placed
+[06:51:475] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil-beachrock' (9 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== village2 ==
+[06:54:351] [info] [recharged-grass] UNMATCHED ground-ish texture 'v2-coral-rockbase' (1 draws) — not placed
+[06:54:351] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil2-burned-ground-small' (1 draws) — not placed
+[06:54:351] [info] [recharged-grass] UNMATCHED ground-ish texture 'v2-burnt-ground' (2 draws) — not placed
+[06:54:351] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil2-beach-01' (2 draws) — not placed
+[06:54:351] [info] [recharged-grass] UNMATCHED ground-ish texture 'v2-grass-ground-hirez-fringe' (1 draws) — not placed
+[06:54:351] [info] [recharged-grass] UNMATCHED ground-ish texture 'v2-grass-ground-hirez' (1 draws) — not placed
+[06:54:351] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil2-rockwall' (8 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== village3 ==
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-miner-camprock' (1 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-dirtybrass-miners' (2 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-grass' (1 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-cave-groundcrystal' (1 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-rock' (5 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-rockwall-lower-merge' (2 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-ground-01' (3 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-beach' (2 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-rockwall-upper-merge' (2 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-plain-rock' (4 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-rockwall-upper' (8 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-cave-ground' (1 draws) — not placed
+[06:55:983] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-rockwall-lower' (4 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== jungle ==
+[06:58:442] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-beach-01path' (1 draws) — not placed
+[06:58:442] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-leafyground-hang-2x1long' (1 draws) — not placed
+[06:58:442] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-leafyground-hang-2x1' (2 draws) — not placed
+[06:58:442] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-smallrocks01' (2 draws) — not placed
+[06:58:442] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-beach-01' (1 draws) — not placed
+[06:58:442] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-leafyground' (2 draws) — not placed
+[06:58:442] [info] [recharged-grass] UNMATCHED ground-ish texture 'jng-rockwall-01' (11 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== jungleb ==
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== misty ==
+[07:02:395] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-rock' (3 draws) — not placed
+[07:02:395] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-grass' (1 draws) — not placed
+[07:02:395] [info] [recharged-grass] UNMATCHED ground-ish texture 'mis-rockwall-trim' (3 draws) — not placed
+[07:02:395] [info] [recharged-grass] UNMATCHED ground-ish texture 'mis-ground' (1 draws) — not placed
+[07:02:395] [info] [recharged-grass] UNMATCHED ground-ish texture 'mis-rockwall' (7 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== firecanyon ==
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'fcn-painstripe-ground' (4 draws) — not placed
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'fcn-rockwall-bttm' (3 draws) — not placed
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'fcn-rockwall' (4 draws) — not placed
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-leafyground' (1 draws) — not placed
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'fcn-rockblockin-bottom' (1 draws) — not placed
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'fcn-rockblockin' (2 draws) — not placed
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'bch-beachrock' (8 draws) — not placed
+[07:05:175] [info] [recharged-grass] UNMATCHED ground-ish texture 'fcn-rockwall-cliffside' (8 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== rolling ==
+[07:09:818] [info] [recharged-grass] UNMATCHED ground-ish texture 'rol-grass-fringe' (3 draws) — not placed
+[07:09:819] [info] [recharged-grass] UNMATCHED ground-ish texture 'rol-dirt' (7 draws) — not placed
+[07:09:819] [info] [recharged-grass] UNMATCHED ground-ish texture 'v2-grass-ground-hirez' (1 draws) — not placed
+[07:09:819] [info] [recharged-grass] UNMATCHED ground-ish texture 'rol-grass-fringe-large' (3 draws) — not placed
+[07:09:819] [info] [recharged-grass] UNMATCHED ground-ish texture 'rol-grass-ground-hirez-fringe' (4 draws) — not placed
+[07:09:819] [info] [recharged-grass] UNMATCHED ground-ish texture 'rol-grass-ground-hirez' (3 draws) — not placed
+[07:09:819] [info] [recharged-grass] UNMATCHED ground-ish texture 'rol-rockwall' (13 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== swamp ==
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-painstripe-ground' (3 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-mud-bot' (2 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-mud-trans' (4 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-stand-rock' (2 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-leafyground' (7 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-leafyground-hang-2x1' (4 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-mud-floor-tar' (1 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-moss-hang' (1 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-mud-top' (11 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-beachrock' (6 draws) — not placed
+[07:13:603] [info] [recharged-grass] UNMATCHED ground-ish texture 'swp-mud-floor' (4 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== sunken ==
+[07:16:041] [info] [recharged-grass] UNMATCHED ground-ish texture 'sun-rockwall' (4 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== sunkenb ==
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== snow ==
+[07:20:294] [info] [recharged-grass] UNMATCHED ground-ish texture 'snow-rock-hi' (7 draws) — not placed
+[07:20:294] [info] [recharged-grass] UNMATCHED ground-ish texture 'snow-rock-trim' (2 draws) — not placed
+[07:20:294] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil3-plain-rock' (3 draws) — not placed
+[07:20:294] [info] [recharged-grass] UNMATCHED ground-ish texture 'snow-rock' (8 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== ogre ==
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-rockwall-small-trim' (1 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-vil2rockwall' (4 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-vil2grassfringe' (2 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-rock-floor' (1 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-rockwall' (11 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-rockwall-bttm' (4 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-vil2grass' (2 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-rockwall-small' (5 draws) — not placed
+[07:25:261] [info] [recharged-grass] UNMATCHED ground-ish texture 'ogr-largerock-test' (13 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== lavatube ==
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-ground-hot-corner' (1 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-woodplank-dirty' (1 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-ground-hot-trim' (1 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-ground-hot-blend' (1 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-ground-hi' (4 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-ground-floor-blend' (2 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-ground' (8 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-ground-hot' (3 draws) — not placed
+[07:31:425] [info] [recharged-grass] UNMATCHED ground-ish texture 'lava-rockwall' (5 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== citadel ==
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== maincave ==
+[07:36:091] [info] [recharged-grass] UNMATCHED ground-ish texture 'cv-wall-to-ground-01' (2 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== robocave ==
+[07:36:909] [info] [recharged-grass] UNMATCHED ground-ish texture 'cv-wall-to-ground-01' (3 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== darkcave ==
+[07:37:312] [info] [recharged-grass] UNMATCHED ground-ish texture 'cv-wall-to-ground-01' (2 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== finalboss ==
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'medres-snow-rock' (1 draws) — not placed
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-grass' (1 draws) — not placed
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-beach' (3 draws) — not placed
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'fin-leafygroundBACK' (1 draws) — not placed
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'fin-leafygroundBACKdirt' (1 draws) — not placed
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'fin-largerock' (6 draws) — not placed
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'fin-leafyground' (7 draws) — not placed
+[07:38:510] [info] [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-rock' (4 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== intro ==
+[07:38:950] [info] [recharged-grass] UNMATCHED ground-ish texture 'mis-rockwall-trim' (2 draws) — not placed
+[07:38:950] [info] [recharged-grass] UNMATCHED ground-ish texture 'mis-rockwall' (4 draws) — not placed
+[07:38:950] [info] [recharged-grass] UNMATCHED ground-ish texture 'mis-ground' (1 draws) — not placed
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== demo ==
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0
+== test-zone ==
+[grass_bake] scan: considered_draws=0 tie_draws=0 tris_kept=0 giant_tris=0 max_area=0.0 m2
+[grass_bake] expand @slider=250 (bake density): instances=0 scatter_kept=0 occ_culled=0

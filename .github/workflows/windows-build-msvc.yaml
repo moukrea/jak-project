@@ -9,6 +9,21 @@ on:
       cachePrefix:
         required: true
         type: string
+      # Port CI (Grecharged-buildsys-cidocs): extra cmake defines (feature flags +
+      # ogflags marker), optional target restriction, and a test toggle. Defaults
+      # keep the upstream behavior byte-identical.
+      cmakeArgs:
+        required: false
+        type: string
+        default: ""
+      buildTargets:
+        required: false
+        type: string
+        default: ""
+      runTests:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -48,15 +63,16 @@ jobs:
 
       - name: CMake Generation - MSVC
         shell: cmd
-        run: cmake -B build --preset=${{ inputs.cmakePreset }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache .
+        run: cmake -B build --preset=${{ inputs.cmakePreset }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.cmakeArgs }} .
 
       - name: Build Project
         shell: cmd
         run: |
           set CL=/MP
-          cmake --build build --parallel %NUMBER_OF_PROCESSORS%
+          cmake --build build --parallel %NUMBER_OF_PROCESSORS% ${{ inputs.buildTargets != '' && format('--target {0}', inputs.buildTargets) || '' }}
 
       - name: Run Tests
+        if: ${{ inputs.runTests }}
         timeout-minutes: 10
         env:
           GTEST_OUTPUT: "xml:opengoal-test-report.xml"

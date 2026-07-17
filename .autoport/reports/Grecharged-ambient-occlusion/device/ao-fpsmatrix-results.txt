@@ -1,0 +1,10 @@
+off :: 07-16 19:34:43.808 22644 22711 I opengoal-gk: AOPERF mode=0 quality=1 strength=1 fps=20.7 busy_ms=45.10
+ssao-low :: 07-16 19:35:03.117 22644 22711 I opengoal-gk: AOPERF mode=1 quality=0 strength=1 fps=17.8 busy_ms=52.87
+ssao-med :: 07-16 19:35:23.512 22644 22711 I opengoal-gk: AOPERF mode=1 quality=1 strength=1 fps=17.8 busy_ms=52.90
+ssao-high :: 07-16 19:35:54.983 22644 22711 I opengoal-gk: AOPERF mode=1 quality=2 strength=1 fps=11.0 busy_ms=87.28
+hbao-low :: 07-16 19:37:09.449 22644 22711 I opengoal-gk: AOPERF mode=2 quality=0 strength=1 fps=17.9 busy_ms=52.45
+hbao-med :: 07-16 19:37:31.794 22644 22711 I opengoal-gk: AOPERF mode=2 quality=1 strength=1 fps=15.6 busy_ms=60.79
+hbao-high :: 07-16 19:38:13.591 22644 22711 I opengoal-gk: AOPERF mode=2 quality=2 strength=1 fps=7.9 busy_ms=123.40
+gtao-low :: 07-16 19:38:35.782 22644 22711 I opengoal-gk: AOPERF mode=3 quality=0 strength=1 fps=18.2 busy_ms=51.41
+gtao-med :: 07-16 19:39:05.778 22644 22711 I opengoal-gk: AOPERF mode=3 quality=1 strength=1 fps=11.9 busy_ms=80.46
+gtao-high :: 07-16 19:40:24.392 22644 22711 I opengoal-gk: AOPERF mode=3 quality=2 strength=1 fps=4.2 busy_ms=234.31

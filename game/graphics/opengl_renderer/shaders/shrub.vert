@@ -13,6 +13,18 @@ uniform float fog_max;
 uniform int decal;
 uniform vec4 cam_trans;
 uniform mat4 pc_camera;
+// Grecharged-foliage-wind: light breeze sway for shrubs. u_wind_strength is the horizontal
+// amplitude in world units (4096 = 1 m); 0 = OFF (branch below is skipped => byte-identical stock).
+// tex_T11 is a Wx1 RGBA8 LUT indexed by time_of_day_index (constant per shrub instance —
+// extract_shrub assigns one palette slot per instance): 16-bit packed (minY, height) of that
+// plant, dequantized with u_wind_lut_base/_scale. Anchors each plant's own base (roots stay put)
+// and normalizes sway by its own height so a small bush and a tall kelp both reach full sway at
+// their crowns. u_time = seconds (monotonic), drives the gust. All set from Shrub.cpp render_tree.
+uniform float u_time;
+uniform float u_wind_strength;
+uniform float u_wind_lut_base;
+uniform float u_wind_lut_scale;
+uniform sampler2D tex_T11; // Wx1 RGBA8 wind-anchor LUT (same Wx1 pattern as tex_T10, unit 11)
 // Wx1 2D LUT instead of 1D — GLES has no sampler1D/glTexImage1D (the arm64
 // device BLR'd into the NULL glTexImage1D loader slot). texelFetch on a Wx1
 // sampler2D is texel-exact on desktop GL too; Shrub.cpp uploads it as a Wx1
@@ -39,7 +51,29 @@ void main() {
   // the itof0 is done in the preprocessing step.  now we have floats.
   
   // Step 3, the camera transform
-  vec3 vert = position_in - cam_trans.xyz;
+  vec3 wpos = position_in;
+  if (u_wind_strength > 0.0) {
+    // per-plant base anchor + height from the LUT (16-bit packed; texelFetch returns 0..1 per
+    // channel, wl.r*65280+wl.g*255 == hi_byte*256+lo_byte exactly in fp32).
+    vec4 wl = texelFetch(tex_T11, ivec2(time_of_day_index, 0), 0);
+    float plant_ymin = u_wind_lut_base + (wl.r * 65280.0 + wl.g * 255.0) * u_wind_lut_scale;
+    float plant_h    = (wl.b * 65280.0 + wl.a * 255.0) * u_wind_lut_scale;
+    // sway weight: 0 at the plant's own base, ->1 near its crown (85% of its height, floor 0.3 m),
+    // grows quadratically so roots barely move and the top rustles.
+    float span = max(plant_h * 0.85, 0.3 * 4096.0);
+    float h = clamp((wpos.y - plant_ymin) / span, 0.0, 1.0);
+    float hw = h * h;
+    // one coherent gust travelling across the field (spatial phase) + gentle time drive; two slightly
+    // decorrelated axes so the sway isn't a pure line. Frequencies tuned for a light breeze.
+    float ph = (wpos.x + wpos.z) * 0.00028 + u_time * 1.5;
+    wpos.x += sin(ph) * u_wind_strength * hw;
+    wpos.z += cos(ph * 0.8 + 1.3) * u_wind_strength * hw * 0.7;
+    // fine-scale shimmer so a larger plant deforms instead of translating rigidly (phase varies
+    // across ~0.4 m within one plant); small fraction of the main amplitude.
+    float ph2 = wpos.x * 0.004 + wpos.y * 0.003 + u_time * 3.1;
+    wpos.x += sin(ph2) * u_wind_strength * hw * 0.25;
+  }
+  vec3 vert = wpos - cam_trans.xyz;
   vec4 transformed = -pc_camera[3];
   transformed -= pc_camera[0] * vert.x;
   transformed -= pc_camera[1] * vert.y;

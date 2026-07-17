@@ -1,0 +1,11 @@
+== ao_title_spotcheck: worst-case persisted boot GTAO+High+Stronger (owner fast gate 2026-07-16) ==
+  seeded+verified: (ambient-occlusion 3) (ao-quality 2) (ao-strength 2) 
+   focus at start:   mCurrentFocus=Window{4a9137e u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=88 (min 30) worst_purple=0.002% at f_055.png dark_frames=0
+   gtao-strong-spot: purple-scan CLEAN (jak1 foreground, 90s)
+   AOPERF mode=3 quality=2 strength=2 count: 18 (need >=3)
+   alive at end: PID 31608 stable, focus   mCurrentFocus=Window{4a9137e u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  seeded+verified: (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+[TITLE-SPOTCHECK PASS] worst-case GTAO+High+Stronger persisted boot: textured, 90s alive, AOPERF tracks seed, no SAFE-BOOT
+[TITLE-SPOTCHECK PASS] worst-case GTAO+High+Stronger persisted boot: textured, 90s alive, AOPERF tracks seed, no SAFE-BOOT

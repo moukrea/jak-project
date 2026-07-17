@@ -1035,6 +1035,8 @@
 ;; recharged-hud? toggle; when it is OFF nothing below runs and the stock hud
 ;; is untouched.
 
+;; Grecharged-buildsys-flags: the recharged HUD types/methods/helpers are compiled only with --recharged-hud.
+(#when FLAG_RECHARGED_HUD
 ;; replacement for the stock hud-health (the 3-pip heart)
 (deftype hud-recharged-health (hud-pc)
   ((active-flag symbol) ;; last-seen state of the toggle, for transition handling
@@ -1043,7 +1045,7 @@
    ))
 
 ;; replacement for the stock hud-power (the eco gauge)
-(deftype hud-recharged-power (hud-pc) ())
+(deftype hud-recharged-power (hud-pc) ()))
 
 ;;;----------------------------------------------
 ;;  direct-renderer draw helpers
@@ -1268,6 +1270,8 @@
       (set-yaw-angle-clear-roll-pitch! (-> ic 0 root) 0.0)))
   (none))
 
+;; Grecharged-buildsys-flags: the four hud-recharged-health helpers below are compiled only with --recharged-hud.
+(#when FLAG_RECHARGED_HUD
 (defun rhud-add-buzzer-icon ((this hud-recharged-health))
   "add the real scout-fly 3d model as an icon on the stock hud-buzzers element
    and hide its flat sprite particle."
@@ -1397,11 +1401,14 @@
     (if pk (set! (-> pk 0 skip-particle) -1)))
   (if (-> this buzz-proc) (rhud-remove-buzzer-icon this))
   (none))
+)  ;; #when FLAG_RECHARGED_HUD (rhud-* helpers)
 
 ;;;----------------------------------------------
 ;;  hud-recharged-health
 ;;;----------------------------------------------
 
+;; Grecharged-buildsys-flags: all hud-recharged-health / hud-recharged-power methods below compile only with --recharged-hud.
+(#when FLAG_RECHARGED_HUD
 (defmethod init-particles! ((this hud-recharged-health) (arg0 int))
   ;; owner round-3 item 4: the REAL green-eco pickup particle system, at the stock
   ;; hud-pickups sprite slot (mirrors hud-pickups::init-particles! exactly)
@@ -1630,6 +1637,7 @@
                   (if (< idx (-> this nb-of-particles)) (spawn (-> this particles idx part) *null-vector*))))))))))
   0
   (none))
+)  ;; #when FLAG_RECHARGED_HUD (hud-recharged-* methods)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;  hud helper funcs
@@ -1646,10 +1654,11 @@
   (deactivate-hud-pc)
   (set! (-> *hud-parts-pc* battle-enemy)
         (process-spawn hud-battle-enemy :init hud-init-by-other 0 :from *pc-dead-pool* :to tree))
+  (#when FLAG_RECHARGED_HUD
   (set! (-> *hud-parts-pc* recharged-health)
         (the-as (pointer hud-pc) (process-spawn hud-recharged-health :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
   (set! (-> *hud-parts-pc* recharged-power)
-        (the-as (pointer hud-pc) (process-spawn hud-recharged-power :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
+        (the-as (pointer hud-pc) (process-spawn hud-recharged-power :init hud-init-by-other 0 :from *pc-dead-pool* :to tree))))
   0)
 
 (activate-hud-pc *display-pool*)
@@ -1671,7 +1680,11 @@
 (defmethod update-to-os ((obj pc-settings-jak1))
   ((method-of-type pc-settings update-to-os) obj)
   (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))
-  (pc-set-grass-overhang! (if (-> obj recharged-grass-overhang?) 1 0))
+  (#when FLAG_GRASS_OVERHANG (pc-set-grass-overhang! (if (-> obj recharged-grass-overhang?) 1 0)))
+  (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
+  (#when FLAG_HD_MODELS (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0)))
+  ;; Grecharged-ambient-occlusion: push the AO mode + quality + strength every frame (1:1, no translation).
+  (pc-set-ambient-occlusion! (-> obj ambient-occlusion) (-> obj ao-quality) (-> obj ao-strength))
   (when *target*
     (pc-set-jak-pos! (-> *target* control trans)))
   ;; Grecharged-grass-poc POLISH#4/#5: push the two adjustable grass view-distances + density every frame.

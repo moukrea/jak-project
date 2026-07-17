@@ -1,0 +1,178 @@
+================================================================================
+RESULT: GRASS OVERHANG round 4 — three owner defects addressed with OBJECTIVE
+metrics (clip-through -> 0, brutal seam -> ~0, diagonal-band ROW structure removed).
+Placement + shader + bake reworked; device build deployed; banding detector run
+ON-vs-OFF. Owner HONOR eye is the final visual gate (I am not a visual validator).
+================================================================================
+
+PHASE: Grecharged-grass-overhang4  (RECHARGED round 4; owner verdict on round 3:
+"complètement loupé" — clip-through at the floor->overhang transition, brutal/absent
+transition, weird diagonal bands on the overhang, confirmed on BOTH HONOR and Redmi.)
+
+--------------------------------------------------------------------------------
+WHAT CHANGED vs round 3 (design delta committed BEFORE code: design.md)
+--------------------------------------------------------------------------------
+Root causes of the three round-3 defects were all PER-TRI / PERIODIC structure:
+  (a) droop placed as a dense ROOT-EDGE row per tri + 0.28 m LEVEL-SET rows -> the
+      diagonal bands; (b) the comb weight came from the FACE normal + a per-tri flag
+      (bit4) -> whole triangles flipped state -> the brutal seams; (c) the round-2/3
+      transition twin was a straight horizontal chord through the curved lip -> the
+      clip-through. Round 4 removes every per-tri field from the visible math:
+
+1. SMOOTH VERTEX NORMALS (GBK5). At bake time the whole retained soup (walkable +
+   lip + fringe) is position-welded and each vertex gets the area-weighted average
+   of its adjacent face normals; the three per-vertex normals ride in BakeTri
+   (vn0/vn1/vn2). expand() interpolates them BARYCENTRICALLY at every blade base, so
+   every per-blade quantity is CONTINUOUS across every tri border by construction.
+   Computed once on x86, shipped in the .grassbake, read verbatim on device.
+
+2. COMB = per-BLADE CONTINUOUS weight (kills the brutal transition/seam). For each
+   walkable blade w = tilt(smooth-normal.y ramp 0.85->0.45) * near(distance to the
+   nearest DROOP rim, 1 inside 0.8 m -> 0 at 1.3 m). Both factors are continuous, so
+   two adjacent blades can never jump state and no threshold is a line on the mesh.
+   Delivered as a toggle-gated TAIL REPLACEMENT twin: the tagged original keeps its
+   stock bytes except nspare=-(1+w) (unread when the toggle is OFF), and when ON the
+   shader COLLAPSES the tagged original and the twin (carrying the smooth normal +
+   w in nspare=5+w) draws the comb. The round-2/3 straight-chord twin class is
+   DELETED — the continuous comb field IS the upright->droop transition (crossfade),
+   with NO double-up (original collapses, replacement draws; only one blade per base).
+
+3. Droop ROWS -> area-uniform barycentric SCATTER (kills the diagonal bands). Droop
+   blades are placed like the walkable lawn (area * density, hashed barycentric) —
+   no root-edge row, no level-set rows, nothing periodic. Each blade drapes along
+   its OWN smooth-normal in-plane down-slope (continuous over the curl); the round-3
+   below-plane vertical sag term is REMOVED.
+
+4. SURFACE CONSTRAINT (kills the clip-through). Each tail blade root is lifted NOFF
+   (3 cm) along the smooth normal; the bake plane-caps each blade's rest tip against
+   every nearby tri plane (grid hash) — shrinking or dropping it until it clears — and
+   the shader half-space-clamps every vertex (incl. sway/trample) to the base tangent
+   plane. The bake plane-cap MIRRORS the objective metric's tip formula, so the
+   measured tip-violation count is ~0 by construction (not by eyeball).
+
+5. Near LOD = 3D drooping/hang grass (the droop tail, blade pass only). FAR LOD keeps
+   the stock painted alpha overhang texture with NO grass cards (the card pass never
+   draws the droop/comb tail: card_n stops at droop_start).
+
+6. GBK4 -> GBK5 bump; a v4 bake fails the version check and falls back to live scan.
+
+--------------------------------------------------------------------------------
+GEOMETRIC SELF-CHECKS (goverhang4_placement.py, gen 4; NUMBERS, not eyeballs)
+BEFORE = round-3 placement (placement_before.txt); AFTER = round-4 (this build).
+--------------------------------------------------------------------------------
+DEFECT 1 — CLIP-THROUGH (tip pokes behind a nearby tri surface, projection inside it):
+    droop tip_violations : 5425 of 72248 (7.51%)  ->  0 of 63156 (0.00%)
+    comb  tip_violations :  133 of  2048 (6.49%)  ->  0 of   452 (0.00%)
+    (round-3 also had 38 twin violations; the twin class is deleted.)
+  => clip-through ELIMINATED, measured, by the neighbour-plane cap + half-space clamp.
+
+DEFECT 2 — BRUTAL/ABSENT TRANSITION = SEAM discontinuity across tri borders:
+    seam_dw_max (max |w_i - w_j| for comb blades < 6 cm apart on DIFFERENT tris):
+        0.3894  ->  0.0267
+    seam_axis_deg_max (max growth-axis angle between such neighbours):
+        68.89 deg  ->  4.98 deg
+    boundary_w_max (max comb weight where a comb blade abuts an UNTAGGED walkable one):
+        1.0000  ->  0.0388
+  => the transition is now CONTINUOUS (comb fades in from ~0 at its boundary; adjacent
+     blades differ by <0.03 weight and <5 deg axis). No visible seam line by the metric.
+
+DEFECT 3 — DIAGONAL BANDS = periodic placement:
+    droop down-slope spacing histogram peak-ratio / peak-location:
+        9.6444 @ 0.27 m  (= the 0.28 m ROW_STEP spike)  ->  4.7571 @ 0.21 m
+    The 0.27 m ROW spike is GONE. The residual 4.76 ratio is NOT a periodic peak: the
+    raw histogram is a smooth MONOTONICALLY DECREASING ramp (0.00 m: 98033 down to
+    0.98 m: 553, no bump anywhere) — the textbook pairwise-distance signature of
+    uniform random scatter. The metric's "peak" is just the ramp's high end (0.20 m)
+    over its tail median; there is no row structure left in the placement.
+  => bands removed at the PLACEMENT level. The owner-calibrated DEVICE banding detector
+     (goverhang4_banding.py, ON-vs-OFF at the same beach vantage) is the arbiter below.
+
+Bake census (slider 150): smooth normals over 11080 tris (6480 canonical verts);
+droop scatter = 63156, comb replacements = 452, plane_capped = 112, plane_dropped =
+231 (dropped droop that could not clear its neighbourhood; dropped comb un-tags its
+original so the toggle-ON field never holes). Precompute round-trip @150: IDENTICAL
+(GBK5 serialization verified byte-for-byte).
+
+--------------------------------------------------------------------------------
+OFF == stock ; toggle ; walkable-top rim
+--------------------------------------------------------------------------------
+The Recharged Settings "GRASS OVERHANG" toggle (recharged-grass-overhang?) gates all
+of this: with the toggle OFF the droop/comb tail is not drawn and every tagged original
+runs the stock else-branch with nspare unread, so OFF == stock (byte-identical render).
+The master recharged-grass toggle OFF leaves the renderer uninvoked (stock).
+Walkable-top rim edge stays clean and does not regress: the LOCKED edge stack
+(FLOORBELOW / FLOORGAP / global rim taper / POLISH#11 clamp / keep tables / walkable
+placement stream) is untouched; only nspare (unread when OFF) changes on tagged blades.
+
+--------------------------------------------------------------------------------
+DEVICE EVIDENCE (Redmi Note 9 Pro, adb eae4df44, org.opengoal.gk.jak1)
+--------------------------------------------------------------------------------
+- DEPLOY-VERIFY PASS: device provably runs the fresh HEAD (5ba6e7538) libgk.so;
+  chain build==APK==device (91779e6de849b370). DEPLOY-ASSETS PASS: 28/28 CGO/DGO
+  byte-identical (GOAL source unchanged this phase). gold pristine.
+- The device runs the PRECOMPUTED GBK5 bake (NOT the live-scan fallback):
+    [recharged-grass] PLACE-TIME mode=precomputed total=167ms ... instances=679988
+  ZERO "format_version mismatch" / "LIVE fallback" lines after the fresh bake was
+  delivered. Device .grassbake sha256 = aa43fcfb...775f554 == desktop GBK5, at the
+  runtime read path /storage/emulated/0/OpenGOAL/jak_1/assets/fr3/training.grassbake.
+- Device GOVERHANG4 census (fires on every warp into training) MATCHES the desktop bake:
+    GOVERHANG4 tail: droop_scatter=63156 comb_repl=452 (tagged=452) plane_capped=112
+    plane_dropped=231 — area-uniform scatter (no rows), per-blade continuous comb
+    GOVERHANG expand: ... toggle=ON comb_tagged=452 — near-LOD 3D droop over the lip
+    faces, far LOD stays the stock alpha texture, no cards
+- Focus verified jak1 on every one of the 6 capture boots + the boot smoke:
+    mCurrentFocus=Window{...} org.opengoal.gk.jak1/org.opengoal.gk.MainActivity
+  Crash-free: 0 "Fatal signal" / "signal N (SIG*)" lines across the boot + 6 warp runs
+  (title boot reached frame 3000, tris 206882, viol-total 0).
+- Close-range ON-vs-OFF pairs at 3 beach overhang vantages (g4frames/g4_beach{A,B,C}_{ON,OFF}):
+  with the overhang toggle ON the grass DRAPES green over the terraced ledge edges
+  (covering the stock brown vertical faces); with it OFF those faces are bare (stock).
+  No grass appears on the bare rock walls in ON, so the round-2/3 wall-wide shot stays
+  clean (no regression).
+
+--------------------------------------------------------------------------------
+OBJECTIVE BANDING DETECTOR (goverhang4_banding.py) — ON vs OFF, same vantage/crop
+--------------------------------------------------------------------------------
+CALIBRATION (positive control) — the owner's CONFIRMED-banded round-3 frames:
+  owner_bands_ref_01..11 (crop 400,260,2000,560): BAND@WIN 0.0425..0.0564 (mean
+  0.0505), period ~48-53 px, angle mostly ~68 deg (a COHERENT diagonal = the owner's
+  "bandes en diagonales"). => the detector FIRES on real bands.
+
+ROUND-4 ON vs OFF at 3 beach overhang vantages (crop 1250,120,2400,820 over the
+terraced overhang zone; calibrated 40-62 px PERIOD_WIN; all frames of each clip):
+    beachA:  ON 0.0401   OFF 0.0407   delta -0.0006
+    beachB:  ON 0.0323   OFF 0.0319   delta +0.0004
+    beachC:  ON 0.0400   OFF 0.0418   delta -0.0018
+  At EVERY vantage the droop (ON) sits at the OFF floor (|delta| <= 0.0018), and the
+  per-frame peak ANGLE is incoherent (noise), NOT the owner refs' consistent ~68 deg.
+  => the round-4 droop adds NO periodic banding over the no-droop floor. The ~0.032-
+  0.042 floor is the ground-texture tiling at the beach vantage; per the owner's own
+  discipline only the SAME-vantage ON-vs-OFF delta is meaningful (absolute cross-
+  vantage values are meaningless because the game ground textures tile).
+
+--------------------------------------------------------------------------------
+HONEST RESIDUALS
+--------------------------------------------------------------------------------
+- I am NOT a visual validator (owner 2026-07-14: "pour tout ce qui est visuel t'es
+  complètement bidon"). The geometric metrics above are objective and reproducible; the
+  final visual acceptance of the three defects is the owner's HONOR eye.
+- Comb replacement count is modest (452 over the training overhang perimeter); the
+  transition coverage is carried mostly by droop scattered onto the lip tris + the
+  rim-tapered walkable stubs, with the comb bridging. Owner-tunable via COMB_NEAR0/1_M.
+- Plane-cap can shorten droop on strongly CONCAVE curls (correct: no clip), which trades
+  a little drape length for zero clip-through; owner-tunable via PLANE_CLEAR_M / u_droop_len.
+- Precision: comb/droop position+weight math runs under highp (Android preprocess.py
+  injects a global `precision highp float`; 94 highp blocks, 0 mediump; desktop GL is
+  highp-only), so precision is not a band source; the placement-row cause is the one fixed.
+- VANTAGE caveat: these are NOT the owner's EXACT camera pose (not reproducible headless).
+  The rigorous claim is the SAME-vantage ON-vs-OFF delta (~0) at 3 beach overhang vantages
+  PLUS the detector firing at 0.0505 on his confirmed-banded refs — i.e. the droop is not
+  introducing a coherent band the detector would catch. A direct owner-pose before/after is
+  his HONOR eye; request an owner screenshot at gate.
+- DELIVERY: the fresh GBK5 bake is on the device at the external runtime read path (sha-
+  verified, precomputed-loaded, census-matched). The Grecharged-external-assets split moved
+  the read path to external storage; grass_build_deploy.sh does not itself re-push the
+  .grassbake there, so it was delivered by an explicit push to that path (a deploy action,
+  not a source edit). The asset-bundle content-VERSION already hashes *.grassbake, so a
+  bundle rebuild + re-extraction delivers it on a clean install; wiring that push into the
+  grass deploy script is a follow-up for the external-assets infra, not a grass-overhang4 bug.

@@ -1,0 +1,3 @@
+=== GRANT MANAGE_EXTERNAL_STORAGE ===
+--- verify ---
+Uid mode: MANAGE_EXTERNAL_STORAGE: allow

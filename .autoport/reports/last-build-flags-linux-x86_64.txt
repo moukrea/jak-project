@@ -1,0 +1,7 @@
+target=linux-x86_64
+flags=
+flag_hash=e3b0c44298fc
+marker=ogflags:e3b0c44298fc:linux-x86_64
+gk_sha=c59224e35d0582f8
+date=2026-07-17T07:24:50+02:00
+cgo_cache=.autoport/cgo-cache/jak1/x86-e3b0c44298fc-ba0e71b6e339b93d

@@ -53,6 +53,36 @@ public final class NativeGk {
     public static native void setDataRoot(String dataRoot);
 
     /**
+     * Grecharged-buildsys-firstboot (autoport 2026-07): push the absolute path of
+     * the per-game external root (e.g. /storage/emulated/0/OpenGOAL/jak1) into a
+     * process-lifetime native global. This is the ONLY data-source mode: gk_sdl_main
+     * boots with `--game-root <path>`, and FileUtil resolves the
+     * assets/custom_assets/saves/settings.ini layout under it. Same call-ordering
+     * requirement as {@link #setSelectedGame(String)}. Required (there is no
+     * internal / portable fallback).
+     */
+    public static native void setGameRoot(String path);
+
+    /**
+     * External-asset-root feature (autoport 2026-07): push the absolute path of a
+     * directory scanned FIRST by fake_iso (per-arch *.CGO/*.DGO + COMMON.TXT
+     * overrides) into a process-lifetime native global. gk_sdl_main appends
+     * `--iso-overlay <path>` when set: the unpacked CGO pack dir
+     * (<filesDir>/cgo/<game>), scanned first so fresh code always wins over the
+     * user-folder assets/iso. Same ordering requirement.
+     */
+    public static native void setIsoOverlay(String path);
+
+    /**
+     * Grecharged-buildsys-packaging: push the absolute path of the unpacked
+     * package-shipped custom-assets dir (<filesDir>/custom/<game>, holding
+     * recharged_assets/ and fr3/) into a process-lifetime native global.
+     * gk_sdl_main appends `--custom-assets <path>` when set; FileUtil then
+     * prefers it over the vanilla data tree. Same ordering requirement.
+     */
+    public static native void setCustomRoot(String path);
+
+    /**
      * Owner swamp-crash capture build (INSTRUMENTATION ONLY): push the app's
      * EXTERNAL files dir (getExternalFilesDir(null).getAbsolutePath(), e.g.
      * /sdcard/Android/data/org.opengoal.gk.jak1/files) into a native global so

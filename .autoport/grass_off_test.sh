@@ -7,7 +7,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 F=.autoport/reports/Grecharged-grass-poc/frames; mkdir -p "$F"
 LOG=/tmp/grass_off.log
 pulse(){ $ADB shell setprop debug.opengoal.cpad_inject "$1"; sleep "${2:-0.4}"; $ADB shell setprop debug.opengoal.cpad_inject "neutral"; sleep "${3:-1.0}"; }
@@ -17,11 +17,11 @@ cap(){ $ADB exec-out screencap -p > "$F/$1.png" 2>/dev/null; echo "  cap $1 = $(
 echo "== force-stop FIRST, then edit settings (no live rewrite) =="
 $ADB shell am force-stop $PKG >/dev/null 2>&1
 sleep 1
-$ADB shell run-as $PKG cat "$PCS" > /tmp/pcs_off.gc 2>/dev/null
-sed -i 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' /tmp/pcs_off.gc
+$ADB shell cat "$PCS" > /tmp/pcs_off.gc 2>/dev/null
+sed -i 's/^recharged-grass? = #[tf]/recharged-grass? = #f/' /tmp/pcs_off.gc
 $ADB push /tmp/pcs_off.gc /data/local/tmp/pcs_off.gc >/dev/null 2>&1
-$ADB shell run-as $PKG cp /data/local/tmp/pcs_off.gc "$PCS"; $ADB shell rm -f /data/local/tmp/pcs_off.gc >/dev/null 2>&1
-echo "  file now: $($ADB shell run-as $PKG cat "$PCS" | grep recharged-grass | tr -d '\r')"
+$ADB shell cp /data/local/tmp/pcs_off.gc "$PCS"; $ADB shell rm -f /data/local/tmp/pcs_off.gc >/dev/null 2>&1
+echo "  file now: $($ADB shell cat "$PCS" | grep recharged-grass | tr -d '\r')"
 
 echo "== boot =="
 $ADB shell setprop debug.opengoal.cpad_inject "neutral" >/dev/null 2>&1

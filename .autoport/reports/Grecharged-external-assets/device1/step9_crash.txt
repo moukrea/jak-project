@@ -1,0 +1,8 @@
+=== fatal signal / tombstone / FATAL lines ===
+07-14 00:56:26.608 18860 19497 I opengoal-gk: gk_install_sigsegv_diag: installed (+A37 SIGUSR2 hang dump)
+07-14 00:56:26.608 18860 19497 I opengoal-gk: Gjak2-render: installed jak2 pc-* bind hook (a11 mips2c + a14 mem-move + a17_bind_pc_helpers_jak2 — pc-* surface RESTORED so pckernel top-level doesn't SIGILL; Gjak2-pcmenus: + post-InitMachineScheme a35 re-upgrade hook)
+--- (empty above = no crash) ---
+=== app still foreground at end ===
+  mCurrentFocus=Window{6ff8556 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+=== our pid still alive ===
+18860

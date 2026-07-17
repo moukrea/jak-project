@@ -1,0 +1,10 @@
+=== zone_warp_device TRAINING (continue=training-start) 2026-07-17T05:53:57+02:00 ===
+RESULT zone=TRAINING continue=training-start status=LOADS+RENDERS(frame+900,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1500 advanced=900 focus_app=yes screencap_bytes=3609669
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level training;
+  last link-finish: link finish: trainingcam link finish: warp-gate-switch link finish: warpgate link finish: water-anim-training link finish: training-vis link finish: eichar-ambient-1 
+  a34-fp-walk: none

@@ -86,12 +86,18 @@
    (recharged-grass-density   float) ;; Grecharged-grass-poc POLISH#5: grass density percent (100 = base), slider-adjustable
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
+   (recharged-foliage-wind? symbol) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
+   (ambient-occlusion   int32) ;; Grecharged-ambient-occlusion: 0=off 1=ssao 2=hbao 3=gtao. Default OFF (0).
+   (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
+   (ao-strength         int32) ;; Grecharged-ambient-occlusion closing round: 0=weaker 1=default 2=stronger. Default DEFAULT (1). Per-mode multiplier on the AO estimator intensity.
+   (recharged-enhanced-models? symbol) ;; Grecharged-hd-models: load jak2 HD character models (Jak/Daxter/Samos/Keira, jak1-look) instead of stock low-poly. #f = stock. Only meaningful when the build ships the enhanced FR3 set.
+   (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
    (scenes-seen         uint8 PC_SPOOL_LOG_LENGTH) ;; cutscenes that have been seen, by spool-anim (maybe use 8-char name or bits instead?)
    (memcard-play-hints? symbol)
    ;; Gvulkan-option: menu mirror of (-> obj gfx-renderer) as an on/off symbol for the "VULKAN RENDERER"
    ;; Graphics Options toggle (off = OpenGL/GLES default, on = Vulkan). RUNTIME ONLY — derived from
-   ;; gfx-renderer on menu open; not persisted itself (gfx-renderer is what persists to pc-settings.gc).
+   ;; gfx-renderer on menu open; not persisted itself (gfx-renderer is what persists to settings.ini).
    (gfx-renderer-vulkan? symbol)))
 
 (define *pc-settings* (the pc-settings-jak1 #f))
@@ -102,8 +108,23 @@
 ;; per-frame push (the update-to-os override) lives in hud-classes-pc.gc: this file
 ;; compiles BEFORE target-h, so *target* is not yet visible here.
 (define-extern pc-set-recharged-grass! (function int none))
+;; Gload-custom-assets: pushes the "load custom assets" toggle (0/1) to the runtime.
+(define-extern pc-set-load-custom-assets! (function int none))
 ;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
-(define-extern pc-set-grass-overhang! (function int none))
+;; Grecharged-buildsys-flags: extern present only with --grass-overhang (C++ side gated by OG_FEAT_GRASS_OVERHANG).
+(#when FLAG_GRASS_OVERHANG
+(define-extern pc-set-grass-overhang! (function int none)))
+;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
+;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
+(define-extern pc-set-ambient-occlusion! (function int int int none))
+;; Grecharged-foliage-wind: pushes the light wind sway toggle (0/1) to the renderer.
+(define-extern pc-set-foliage-wind! (function int none))
+;; Grecharged-hd-models: pushes the ENHANCED MODELS toggle (0/1) to the loader; queries whether the
+;; enhanced FR3 set shipped in this build (1 = available, so the menu row is shown).
+;; Grecharged-buildsys-flags: externs present only with --hd-models (C++ side gated by OG_FEAT_HD_MODELS).
+(#when FLAG_HD_MODELS
+(define-extern pc-set-recharged-enhanced-models! (function int none))
+(define-extern pc-enhanced-models-available? (function int)))
 (define-extern pc-set-jak-pos! (function vector none))
 (define-extern pc-grass-tramp-break! (function vector none)) ;; R28: instant grass-trample cancel at a breakable's break frame
 ;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances (a vector: x=near m, y=card m)
@@ -178,7 +199,13 @@
   (set! (-> obj recharged-grass-card-dist) 95.0) ;; POLISH#4 default grass-card view distance (m; pushed further)
   (set! (-> obj recharged-grass-density) 150.0) ;; POLISH#5 default grass density percent (100 = base budget; owner wants denser)
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
-  (set! (-> obj recharged-grass-overhang?) #t) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
+  (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
+  (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
+  (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
+  (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality
+  (set! (-> obj ao-strength) 1) ;; Grecharged-ambient-occlusion closing round: default DEFAULT strength
+  (set! (-> obj recharged-enhanced-models?) #f)
+  (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)

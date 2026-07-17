@@ -4,12 +4,15 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
+#include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DepthCue.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
+#ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
+#endif
 #include "game/graphics/opengl_renderer/ShadowRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
@@ -881,14 +884,23 @@ void OpenGLRenderer::init_bucket_renderers_jak1() {
     m_bucket_renderers[i]->init_shaders(m_render_state.shaders);
     m_bucket_renderers[i]->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   }
+  // Grecharged-ambient-occlusion: the AO pass is not a bucket renderer, so hook its
+  // shader init here alongside the bucket renderers (once, after the loop).
+  m_ao_pass.init_shaders(m_render_state.shaders);
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, m_version);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, m_version);
 
+#ifdef OG_FEAT_RECHARGED_HUD
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
+#endif
 }
 
 namespace {
-Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil) {
+// Grecharged-ambient-occlusion: zbuf_as_texture makes the depth/stencil attachment
+// a sampleable GL_TEXTURE_2D (DEPTH24_STENCIL8) instead of a renderbuffer, so the AO
+// pass can read scene depth. Only honored on the non-multisampled path; MSAA keeps the
+// renderbuffer (AO forces msaa=1 when it needs the texture). Default false == stock.
+Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil, bool zbuf_as_texture = false) {
   Fbo result;
   bool use_multisample = msaa > 1;
 
@@ -911,16 +923,32 @@ Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil) {
   }
   // make depth and stencil buffers that will hold the... depth and stencil buffers
   if (make_zbuf_and_stencil) {
-    GLuint zbuf;
-    glGenRenderbuffers(1, &zbuf);
-    result.zbuf_stencil_id = zbuf;
-    glBindRenderbuffer(GL_RENDERBUFFER, zbuf);
-    if (use_multisample) {
-      glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH24_STENCIL8, w, h);
+    if (zbuf_as_texture && !use_multisample) {
+      // Grecharged-ambient-occlusion: sampleable depth texture (AO reads it).
+      GLuint zbuf;
+      glGenTextures(1, &zbuf);
+      result.zbuf_stencil_id = zbuf;
+      result.zbuf_is_texture = true;
+      glBindTexture(GL_TEXTURE_2D, zbuf);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, w, h, 0, GL_DEPTH_STENCIL,
+                   GL_UNSIGNED_INT_24_8, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, zbuf, 0);
     } else {
-      glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+      GLuint zbuf;
+      glGenRenderbuffers(1, &zbuf);
+      result.zbuf_stencil_id = zbuf;
+      glBindRenderbuffer(GL_RENDERBUFFER, zbuf);
+      if (use_multisample) {
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH24_STENCIL8, w, h);
+      } else {
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+      }
+      glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, zbuf);
     }
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, zbuf);
   }
   // attach texture to framebuffer as target for colors
 
@@ -1241,10 +1269,19 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   window_fb.multisample_count = 1;
   window_fb.multisampled = false;
 
+  // Grecharged-ambient-occlusion: the AO pass samples scene depth, which needs the
+  // render FBO's depth attachment to be a TEXTURE (only possible non-multisampled).
+  // When AO is OFF (or MSAA is on) this is false and make_fbo takes the EXACT stock
+  // renderbuffer path -> OFF == stock at the GL level. Live-toggling AO flips
+  // want_depth_tex, mismatches the current FBO, and recreates it next frame.
+  const bool want_depth_tex =
+      (AmbientOcclusionPass::effective_mode() != 0) && (settings.msaa_samples == 1);
+
   // see if the render FBO is still applicable
   if (settings.save_screenshot || window_resized || !m_fbo_state.render_fbo ||
       !m_fbo_state.render_fbo->matches(settings.game_res_w, settings.game_res_h,
-                                       settings.msaa_samples)) {
+                                       settings.msaa_samples) ||
+      m_fbo_state.resources.render_buffer.zbuf_is_texture != want_depth_tex) {
     // doesn't match, set up a new one for these settings
     lg::info("FBO Setup: requested {}x{}, msaa {}", settings.game_res_w, settings.game_res_h,
              settings.msaa_samples);
@@ -1257,8 +1294,8 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
     // window framebuffer.
 
     // create a fbo to render to, with the desired settings
-    m_fbo_state.resources.render_buffer =
-        make_fbo(settings.game_res_w, settings.game_res_h, settings.msaa_samples, true);
+    m_fbo_state.resources.render_buffer = make_fbo(
+        settings.game_res_w, settings.game_res_h, settings.msaa_samples, true, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.resources.render_buffer;
 
     if (settings.msaa_samples != 1) {
@@ -1443,11 +1480,29 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
   ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
   m_render_state.next_bucket += 16;
 
+  // Grecharged-ambient-occlusion defect #7 (water exclusion): latch the AO mode ONCE per
+  // frame — the override cache re-reads every 250ms and can flip mid-frame, and the
+  // stencil water-tag choreography below (tag at the ocean bucket, maintain through the
+  // opaque buckets, consume + clear at the composite) must run all-or-nothing.
+  const bool ao_frame_on = AmbientOcclusionPass::effective_mode() != 0;
+
   // loop over the buckets!
   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
     auto& renderer = m_bucket_renderers[bucket_id];
     auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
     g_current_renderer = renderer->name_and_id();
+    // Grecharged-ambient-occlusion defect #7: ocean-mid/far draws BEFORE the post-opaque
+    // AO composite and writes depth (flush_mid: GL_ALWAYS + depth-write), so without a
+    // mask the composite darkens open water (owner: AO must never touch water). Tag its
+    // pixels in the stencil buffer (zeroed by the frame clear); the composite skips
+    // stencil!=0. Water buckets proper (WATER_TEX/OCEAN_NEAR, 57+) draw after the
+    // composite and were never affected.
+    if (ao_frame_on && bucket_id == (int)jak1::BucketId::OCEAN_MID_AND_FAR) {
+      glEnable(GL_STENCIL_TEST);
+      glStencilMask(0xFF);
+      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+      glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    }
     // Grender-split: the DirectRenderer UI buckets (DEBUG/DEBUG_NO_ZBUF/SUBTITLE
     // carry all 2D text/HUD numbers/menu/subtitles) come after the 3D scene. Make
     // sure the native UI pass has begun before them — a fallback for the case where
@@ -1468,6 +1523,38 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     m_render_state.next_bucket += 16;
     vif_interrupt_callback(bucket_id);
     m_category_times[(int)m_bucket_categories[bucket_id]] += bucket_prof.get_elapsed_time();
+
+    // defect #7: after the ocean bucket, every later opaque draw that covers a tagged
+    // pixel un-tags it (depth-pass REPLACE 0), so only water that stays VISIBLE keeps
+    // the tag at composite time (terrain/characters over water get normal AO).
+    if (ao_frame_on && bucket_id == (int)jak1::BucketId::OCEAN_MID_AND_FAR) {
+      glStencilFunc(GL_ALWAYS, 0, 0xFF);
+    }
+
+    // Grecharged-ambient-occlusion: screen-space AO over the OPAQUE scene only. Runs at the
+    // same post-opaque insertion point: every alpha bucket (ALPHA_TEX/water/sprites) and the
+    // recharged grass cards draw AFTER this, so transparent surfaces neither contribute to the
+    // AO depth nor get darkened (the owner's #1 alpha-artifact risk is excluded by construction).
+    if (bucket_id == 31 - 1 && ao_frame_on) {
+      {
+        auto p = prof.make_scoped_child("ao-draw");
+        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
+      }
+      // defect #7: water tag consumed — zero the stencil for the shadow-volume bucket
+      // (SHADOW=47 INCR/DECRs from 0 and draws where NOTEQUAL 0; a leftover tag would
+      // paint shadow on open water) and stop tag maintenance for the alpha buckets.
+      // The stencil clear honors the scissor box, so drop it for the clear.
+      const GLboolean had_scissor = glIsEnabled(GL_SCISSOR_TEST);
+      if (had_scissor) {
+        glDisable(GL_SCISSOR_TEST);
+      }
+      glStencilMask(0xFF);
+      glClear(GL_STENCIL_BUFFER_BIT);
+      glDisable(GL_STENCIL_TEST);
+      if (had_scissor) {
+        glEnable(GL_SCISSOR_TEST);
+      }
+    }
 
     // hack to draw the collision mesh in the middle the drawing
     if (bucket_id == 31 - 1 && Gfx::g_global_settings.collision_enable) {

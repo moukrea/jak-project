@@ -1,0 +1,11 @@
+record started PID=3394630 wallclock=1784094440.317316333
+[t4 walk-fwd] 07-15 07:47:24.837 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=870 *target* 0x1c7714 =(-5365313.0 216176.4 4050051.8) master-mode=game
+[t10 step-edge] 07-15 07:47:30.282 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=900 *target* 0x1c7714 =(-5356011.0 214948.8 4043361.5) master-mode=game
+[t17 rot] 07-15 07:47:38.293 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=945 *target* 0x1c7714 =(-5345280.0 213957.6 4035843.8) master-mode=game
+[t24 rot] 07-15 07:47:43.426 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=975 *target* 0x1c7714 =(-5345280.0 213957.6 4035843.8) master-mode=game
+[t31 tilt] 07-15 07:47:50.819 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=1020 *target* 0x1c7714 =(-5345280.0 213957.6 4035843.8) master-mode=game
+[t38 tilt-back] 07-15 07:47:58.084 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=1065 *target* 0x1c7714 =(-5345280.0 213957.6 4035843.8) master-mode=game
+[t45 turn] 07-15 07:48:05.353 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=1110 *target* 0x1c7714 =(-5345280.0 213957.6 4035843.8) master-mode=game
+[t50 walk-along] 07-15 07:48:10.108 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=1140 *target* 0x1c7714 =(-5353531.0 214630.0 4042769.5) master-mode=game
+[t58 rot-back] 07-15 07:48:17.174 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=1185 *target* 0x1c7714 =(-5365802.0 215818.0 4035014.5) master-mode=game
+[t65 against-edge] 07-15 07:48:24.779 22251 22330 F opengoal-gk: GK-DIAG F1D target-pos f=1230 *target* 0x1c7714 =(-5365802.0 215818.0 4035014.5) master-mode=game

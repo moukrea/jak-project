@@ -10,7 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Goptions-reorder; SHOTS="$OUT/shots"; mkdir -p "$SHOTS"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; echo "    inject '$1'"; }

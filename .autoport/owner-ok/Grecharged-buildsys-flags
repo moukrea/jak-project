@@ -1,0 +1,8 @@
+supervisor gate-close 2026-07-17 04:25 (infra phase, objective proofs self-verified): ./build.sh CLI live
+(linux-x86_64 + android-arm64, 4 flags + --yolo); dual plumbing verified (generated recharged-flags.gc
+tracked-default + OG_FEAT_* defines); default builds contain NONE of the 4 features (nm symbol absences +
+CGO greps 0), --yolo ALL 4 (distinct flag-hash 46df661b7643); R1 anti-staleness LIVE end-to-end (marker
+ogflags:<hash>:<target> in binary+CGOs, asserted by build.sh, deploy_verify — re-run by me: PASS with
+pairing line — and release_verify refusing mixed APKs); CGO cache keyed by flag-hash with proven HIT;
+desktop keeps Android-hidden rows (deterministic listener state-dump: dlen=13 w/ Display/Frame-rate ids
+vs alen=10); device 90s spot-check clean. Validated features (grass/AO/shadow) present in both defaults.

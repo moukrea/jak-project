@@ -137,3 +137,10 @@ goal-prompt/
 # autoport: never track huge device logcat dumps
 .autoport/reports/**/*logcat*.txt
 .autoport/reports/**/*-logcat-*.log
+android/app/src/*/assets-slim/bundle/*_cgo.zip
+android/app/src/*/assets-slim/bundle/*_custom.zip
+.autoport/cgo-cache/
+
+# >100MB blobs block GitHub pushes (P4 cidocs): big binary proofs stay local-only
+.autoport/tmp/
+.autoport/reports/**/libgk-under-test.so

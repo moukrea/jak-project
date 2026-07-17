@@ -1,0 +1,6 @@
+      524  01-01-1981 01:01   assets/bundle/manifest.properties
+107507496  01-01-1981 01:01   lib/arm64-v8a/libgk.so
+      185  01-01-1981 01:01   assets/bundle/jak1_cgo.manifest.properties
+112809990  01-01-1981 01:01   assets/bundle/jak1_cgo.zip
+      165  01-01-1981 01:01   assets/bundle/jak1_custom.manifest.properties
+  3436373  01-01-1981 01:01   assets/bundle/jak1_custom.zip

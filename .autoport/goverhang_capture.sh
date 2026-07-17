@@ -47,20 +47,20 @@ boot_warp_retry(){ local POS="$1" LOG="$2" TRY ok
   done
   return 1; }
 # device pc-settings toggle (gdfix_run.sh pattern): sed the overhang symbol in place.
-SETFILE="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETFILE="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 set_overhang(){ local VAL="$1" TMP=/tmp/gov_pcset.gc
-  $ADB shell run-as $PKG cat "$SETFILE" </dev/null | tr -d '\r' > "$TMP" || return 1
+  $ADB shell cat "$SETFILE" </dev/null | tr -d '\r' > "$TMP" || return 1
   # a pre-build settings file lacks the key: INSERT it after the recharged-grass? line
   # (same pattern as grass_precompute_verify.sh::set_mode for the precomputed key)
   if grep -q 'recharged-grass-overhang?' "$TMP"; then
-    sed -i "s/(recharged-grass-overhang? [^)]*)/(recharged-grass-overhang? ${VAL})/" "$TMP"
+    sed -i "s/^recharged-grass-overhang? = [^]*)/^recharged-grass-overhang? = ${VAL}/" "$TMP"
   else
-    sed -i "s/(recharged-grass? #t)/(recharged-grass? #t)\n  (recharged-grass-overhang? ${VAL})/" "$TMP"
+    sed -i "s/^recharged-grass? = #t/recharged-grass? = #t\nrecharged-grass-overhang? = ${VAL}/" "$TMP"
     grep -q 'recharged-grass-overhang?' "$TMP" || return 1
   fi
   $ADB push "$TMP" /data/local/tmp/gov_pcset.gc >/dev/null 2>&1 </dev/null || return 1
-  $ADB shell run-as $PKG cp /data/local/tmp/gov_pcset.gc "$SETFILE" </dev/null || return 1
-  $ADB shell run-as $PKG grep 'recharged-grass-overhang?' "$SETFILE" </dev/null | tr -d '\r'; }
+  $ADB shell cp /data/local/tmp/gov_pcset.gc "$SETFILE" </dev/null || return 1
+  $ADB shell grep 'recharged-grass-overhang?' "$SETFILE" </dev/null | tr -d '\r'; }
 
 RIM="-1324.5 52.2 973.9"     # RIMCAND10: raised grass platform over the ocean (owner-validated rim)
 TERR="-1310.2 52.8 989.0"    # RIMCAND4: stepped terraces (lips between storeys)

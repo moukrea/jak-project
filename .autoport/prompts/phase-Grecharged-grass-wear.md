@@ -129,3 +129,8 @@ The 8 analysis deliverables above; the proposed architecture (influence fields +
 the MVP definition; the ordered sub-task backlog with dependencies + acceptance criteria + debug tooling.
 ## Locks: engine goal_src untouched (analysis may read everything); gold READ-ONLY; NO implementation.
 ## Max: max_turns 2000, max_retries 4. device: false, owner_verify: true.
+
+## NOTE (2026-07-16, owner clarification): the "AO-as-texturing-mask" analogy (dust/wear gathering where
+objects meet, from the Blender tutorial the owner shared) is an IDEA TO EXPLORE when this phase resumes
+— explicitly NOT a chosen direction or a fact. The design spike's influence-field architecture remains
+the baseline; any AO-mask-inspired approach must be proposed and argued on its merits, not assumed.

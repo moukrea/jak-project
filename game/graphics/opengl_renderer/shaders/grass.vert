@@ -123,26 +123,43 @@ void main() {
   // units). ~1e9 for interior blades -> the edge clamp at the end of main() never triggers for them.
   float rim_dist = inst_gcol.w;
 
-  // Grecharged-grass-overhang: nspare (inst_normal.w) == 2 marks a DROOP instance — 3D grass placed
-  // on the overhang lip/fringe faces, draping DOWN over the platform edge to cover the game's painted
-  // alpha overhang texture. Droop renders in the NEAR blade pass only: the card pass collapses it
-  // (owner: at distance the ORIGINAL texture shows, no grass cards). Its gspare is NO_RIM, so the
-  // rim height-taper and the POLISH#11 horizontal clamp never touch it (it is the intended overhang).
-  // Grecharged-grass-overhang2 (owner defect 3): nspare in [3,4] marks a TRANSITION twin — a
-  // walkable-top blade near a droop rim, yaw pre-pointed outward, whose shape blends upright ->
-  // droop-lite by the baked lean weight w = nspare - 3 (0 at the band's inner edge, 1 at the rim).
-  // Both classes live in the toggle-gated buffer tail and never get a card.
+  // Grecharged-grass-overhang6 (owner 2026-07-14, verbatim 3-zone spec) instance classes (nspare):
+  //   0        plain walkable blade.
+  //   -(1+w)   TAGGED walkable original (by comb OR by zone-1 lean) — COLLAPSED in the blade pass when
+  //            the toggle is ON (its tail twin takes over); runs the stock else-branch bit-identical
+  //            when OFF (nspare unread). Its CARD still draws.
+  //   2        droop hang class: DELETED in round 6 (no emission, shader branch removed).
+  //   3+k      ZONE-1 LEAN twin (shader band 2.5<nsp<4.5), k = nsp-3. inst_normal.xz = unit outward
+  //            horizontal dir, ny=0 — a walkable-top boundary blade leaning toward the void.
+  //   5+w      COMB replacement twin (unchanged math) AND ZONE-2 sub-lip strip blade (shader band
+  //            4.5<nsp<6.5), w = nsp-5; nx/ny/nz = SMOOTH normal.
+  //   9+L+t/2  ZONE-3 TEXTURED CARD (shader nsp>8.5; ROUND 11 design pivot — the 7.x solid fall
+  //            classes are DELETED). layer L = floor(nsp-9) in 0..2, +0.5 selects the hang texture
+  //            (bch-leafyground-hang-2x1 instead of bch-grassfringe). nx/nz = unit outward XZ from
+  //            the owning true-rim segment; the card hangs straight down sampling the native strip
+  //            texels (alpha-cut), per-layer outward offset + sway + UV offset/flip.
+  // All tail classes live in the toggle-gated buffer tail and never get a card.
   float nsp = inst_normal.w;
-  bool is_tail  = nsp > 1.5;              // droop hang OR transition twin
-  bool is_droop = nsp > 1.5 && nsp < 2.5; // hanging droop on the lip faces (skips occ/trample)
-  bool is_trans = nsp > 2.5;              // progressive rim-lean twin (keeps occ/trample)
-  float trans_w = is_trans ? clamp(nsp - 3.0, 0.0, 1.0) : 0.0;
-  // ROUND3: negative nspare = transition-band walkable blade; comb weight tw = -nsp - 1 in [0,1].
-  bool is_comb = nsp < -0.5 && u_overhang > 0.5;
-  float comb_w = is_comb ? clamp(-nsp - 1.0, 0.0, 1.0) : 0.0;
+  bool is_tail  = nsp > 1.5;                       // any zone tail class (toggle-gated, never a card)
+  bool is_lean  = nsp > 2.5 && nsp < 4.5;          // ZONE-1 boundary lean twin (k = nsp - 3)
+  bool is_repl  = nsp > 4.5 && nsp < 6.5;          // comb replacement twin / ZONE-2 strip blade (w = nsp-5)
+  bool is_fcard = nsp > 8.5;                       // ZONE-3 textured hang card (ROUND 11)
+  float comb_w  = is_repl ? clamp(nsp - 5.0, 0.0, 1.0) : 0.0;
+  bool is_comb_orig = nsp < -0.5;                  // tagged walkable original (comb OR lean)
+  // Comb/droop math runs under the Android-injected global `precision highp float` (audited: 94 highp
+  // blocks, 0 mediump) and desktop GL's highp-only default. COMB_TILT/NOFF mirror the bake plane-cap.
+  const float COMB_TILT = 0.30;          // == SHADER_TILT_DEFAULT (bake plane-cap assumption); FIXED
+  const float NOFF = 0.03 * 4096.0;      // root offset along the smooth normal (world units)
   if (is_tail && u_mode == 1) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_color = vec3(0.0); v_alpha = 0.0; v_uv = vec2(0.0); v_is_card = 1; v_seed = 0.0;
+    return;
+  }
+  // When the overhang toggle is ON, collapse the comb-tagged walkable ORIGINAL in the BLADE pass — its
+  // tail replacement (is_repl) takes over. The card pass keeps drawing it (u_mode==1 falls through).
+  if (is_comb_orig && u_overhang > 0.5 && u_mode == 0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_color = vec3(0.0); v_alpha = 0.0; v_uv = vec2(0.0); v_is_card = 0; v_seed = 0.0;
     return;
   }
 
@@ -231,9 +248,10 @@ void main() {
 #define OC_STEP(i) if (i < u_occ_count) { vec2 od = base.xz - u_occ[i].xz; float yd = base.y - u_occ[i].y; if (dot(od, od) < u_occ[i].w * u_occ[i].w && yd > -1.2 * 4096.0 && yd < 1.0 * 4096.0) { occ_cull = true; } }
   OC_STEP(0) OC_STEP(1) OC_STEP(2) OC_STEP(3) OC_STEP(4) OC_STEP(5) OC_STEP(6) OC_STEP(7)
 #undef OC_STEP
-  // (droop blades hang on the lip faces past the walkable edge — object culls/tramples are a
-  // walkable-top concern and must not collapse or bend them, so droop skips both.)
-  if (occ_cull && !is_droop) {
+  // Grecharged-grass-overhang6: dynamic object culls apply to walkable-top classes only (stock, tagged
+  // originals, zone-1 lean twins). Zone-2 strip (is_repl) + zone-3 cards (is_fcard) hang below the lip and
+  // must NOT collapse — so any tail class OTHER than the zone-1 lean skips the occ cull.
+  if (occ_cull && (!is_tail || is_lean)) {
     if (u_debug == 4) {
       dbg_occ = 1.0;  // forensic: mark, don't collapse
     } else {
@@ -332,6 +350,8 @@ void main() {
 
   vec3 pos;
   float t_col;
+  vec2 fc_uv = vec2(0.0);    // ROUND 11: zone-3 textured-card UV (set only by the is_fcard branch)
+  float fc_texb = 0.0;       // ROUND 11: which hang texture the card samples (0 = grassfringe)
   if (u_mode == 0) {
     // ---------- NEAR: curved, tapered blade ----------
     int seg = gl_VertexID / 2;
@@ -364,67 +384,87 @@ void main() {
     // (pure multiply-adds) renders the same 30%-blend look without the wedge.
     float grow_h = t * H * heightMul * rim_h * nearf;  // ROUND#14 rim taper + trample (+ lens near-fade)
 
-    if (is_droop) {
-      // Grecharged-grass-overhang DROOP blade: emerges from the lip face, reaches OUTWARD over the
-      // drop (fwdv = the scan-resolved outward direction, encoded in yaw) and arcs DOWNWARD below
-      // its base — gravity-biased, covering the painted alpha fringe strip. H here is the droop
-      // LENGTH (scaled to the face's vertical span at placement). No trample/occ/rim influence (it
-      // is the intended overhang); the Adreno near-fill fade (nearf, in hw) is kept. Gentle pendulum
-      // sway instead of the upright gust lean.
-      // ROUND3 droop: the blade grows ALONG its host tri's plane. inst_normal.xyz now carries the
-      // bake-computed unit IN-PLANE DOWN-SLOPE (dsl) of the fringe/lip face and H is the length,
-      // already capped at the tri's own exit distance -> the drape follows the mesh relief by
-      // construction and never extends past the painted fringe. u_droop_len is a live multiplier
-      // (default 1.0). Small gravity sag off the plane + gentle sway; pure mad math (no
-      // normalize(mix()) — the ROUND#19 Adreno-618 wedge class).
-      float dlen = clamp(u_droop_len, 0.1, 1.5);
-      vec3 dsl = inst_normal.xyz;
-      float dsway = sin(gust * 0.8) * t * t * 0.05 * H;
-      pos = base
-          + rightv * ((float(side) * 2.0 - 1.0) * hw + dsway)
-          + dsl * (t * H * dlen * nearf)
-          + vec3(0.0, -0.15 * t * t * H * dlen * nearf, 0.0);
-    } else if (is_trans) {
-      // ROUND2 (owner defect 3): PROGRESSIVE upright->droop transition twin. Placed on the walkable
-      // top within the rim-taper band of a droop rim, yaw already outward. At w~0 (band's inner
-      // edge) it is a faded-in upright blade; at w=1 (the rim) it is a droop-lite arc — while the
-      // stock upright originals shrink to stubs over the same band (LOCKED rim taper), so together
-      // the field bends gradually over the lip. Keeps trample/occ (it IS walkable-top grass).
-      float dlen = clamp(u_droop_len, 0.1, 1.5);
-      float fade_in = smoothstep(0.02, 0.30, trans_w);  // no pop at the band's inner edge
-      hw *= fade_in;
-      float up_y   = t * H * heightMul * nearf;                          // stock upright growth
-      float fwd_up = (bend + sway * 0.38) * H;                           // stock upright lean/sway
-      // ROUND3: the twin's target is the new COMB shape (lean outward toward horizontal, staying on
-      // the walkable top), not the old below-base parametric arc — so the flat-top lean continues
-      // seamlessly into the band comb and the rooted droop rows.
-      float dh = (0.85 - 0.25 * t) * t * H * dlen;
-      float dv = 0.25 * t * H;
+    if (is_lean) {
+      // ZONE 1 (owner round-6): walkable-top blade near the grass boundary, progressively LEANING toward
+      // the void ("l'herbe commence à s'incliner vers le vide"). Replaces its collapsed tagged original.
+      // inst_normal.xz = baked unit outward horizontal dir (from the nearest true-rim edge segment); the
+      // growth axis blends up -> outward by kk = k*LEAN1_MAX, so the gradient runs upright (band inner
+      // edge) -> ~33 deg at the lip, continuing seamlessly into the zone-2 strip blades (is_repl, w floor
+      // Z2_K1 == LEAN1_MAX) just below. Pure mads (no normalize(mix()) — Adreno wedge class). Keeps the
+      // lawn's bend/sway/trample so it stays alive; plane-capped at bake against inner-corner walls.
+      const float LEAN1_MAX = 0.55;
+      float k = clamp(nsp - 3.0, 0.0, 1.0);
+      float kk = k * LEAN1_MAX;
+      vec3 outw = normalize(vec3(inst_normal.x, 0.0, inst_normal.z) + vec3(1e-5, 0.0, 0.0));
+      vec3 axis = vec3(0.0, 1.0, 0.0) * (1.0 - kk) + outw * kk;
+      float lgrow = t * H * heightMul * nearf * (1.0 - 0.15 * k);   // slight shorten right at the rim
+      float lfwd = (bend + sway * 0.38) * H * (1.0 - 0.4 * kk);     // stock bend/sway, damped as it leans
       pos = base
           + rightv * ((float(side) * 2.0 - 1.0) * hw)
-          + fwdv * mix(fwd_up, dh + sin(gust) * t * t * 0.04 * H * dlen, trans_w)
-          + vec3(0.0, mix(up_y, dv * nearf, trans_w), 0.0)
-          + trample * t * (1.0 - 0.5 * trans_w);
-    } else if (is_comb) {
-      // ROUND3 transition-band COMB (toggle ON only; OFF runs the stock branch below bit-identical).
-      // The blade's growth axis lerps from world-up to the in-plane down-slope of ITS OWN face by the
-      // baked tilt weight comb_w, so the curl's grass lies along the mesh instead of towering out of
-      // it — the middle of the upright->droop gradient. Down-slope derived analytically from the face
-      // normal (pure mads + one inversesqrt; NOT normalize(mix()) — Adreno-618 wedge class). The rim
-      // height-taper and the POLISH#11 horizontal clamp ease off as comb_w grows: a combed blade lies
-      // ON the surface, so crossing the rim's XZ projection is correct, not an overflow.
-      float ny2 = inst_normal.y * inst_normal.y;
+          + axis * lgrow
+          + fwdv * lfwd
+          + trample * t;
+    } else if (is_repl) {
+      // Grecharged-grass-overhang4 COMB REPLACEMENT (tail, toggle ON only; the tagged walkable original
+      // is collapsed above). The growth axis lerps from up_axis (a slight COMB_TILT lean toward the
+      // smooth normal) to that normal's in-plane DOWN-SLOPE by the per-blade continuous weight comb_w,
+      // so the curl's grass lies along the mesh across a seamless upright->droop gradient. Root lifted
+      // n*NOFF*w; full height (gspare = NO_RIM -> rim_h = 1, no taper); static curve+sway matched to the
+      // bake plane-cap tip formula. Pure mads + one inversesqrt (no normalize(mix())). The half-space
+      // clamp at the end keeps it ON the surface past the rim's XZ projection (correct, not an overflow).
+      float w = comb_w;
+      vec3 n = inst_normal.xyz;
+      float ny2 = n.y * n.y;
       float cinv = inversesqrt(max(1.0 - ny2, 1e-4));
-      vec3 dslv = vec3(inst_normal.x * inst_normal.y, ny2 - 1.0, inst_normal.z * inst_normal.y) * cinv;
-      float comb_rim = mix(rim_h, 1.0, comb_w);  // restore tapered height as combing takes over
-      float cgrow = t * H * heightMul * comb_rim * nearf;
-      vec3 up_axis = vec3(0.0, 1.0, 0.0) + vec3(inst_normal.x, 0.0, inst_normal.z) * u_tilt;
-      vec3 axis = up_axis * (1.0 - comb_w) + dslv * comb_w;
+      vec3 dv = vec3(n.x * n.y, ny2 - 1.0, n.z * n.y) * cinv;
+      vec3 up_axis = vec3(n.x * COMB_TILT, 1.0, n.z * COMB_TILT);
+      vec3 axis = up_axis * (1.0 - w) + dv * w;
+      float cgrow = t * H * heightMul * nearf;                  // full height (no rim taper)
+      float fwd = (bend + sway * 0.38) * H * (1.0 - 0.6 * w);   // matches bake fwdv*curve*h*(1-0.6w)
       pos = base
+          + n * (NOFF * w)
           + rightv * ((float(side) * 2.0 - 1.0) * hw)
           + axis * cgrow
-          + fwdv * (fwd_amt * (1.0 - 0.6 * comb_w))
-          + trample * t * rim_h;
+          + fwdv * fwd
+          + trample * t;
+    } else if (is_fcard) {
+      // ZONE 3 ROUND 11 (supervisor DESIGN PIVOT): TEXTURED CARD sampling the game's own hang-alpha
+      // texels — the 10-vert strip becomes 4 stacked quads of one wide card hung from the lip, so
+      // the per-layer sway can bend down its length. The frag samples bch-grassfringe /
+      // bch-leafyground-hang-2x1 (alpha-cut) => the near view shows EXACTLY the native art style,
+      // with depth from 3 outward-offset layers + per-layer animation. Solid fall blades are gone.
+      float rel = nsp - 9.0;
+      float layer = clamp(floor(rel + 0.26), 0.0, 2.0);
+      fc_texb = (rel - layer) > 0.26 ? 1.0 : 0.0;    // +0.5 encodes the leafyground texture
+      vec3 outw = normalize(vec3(inst_normal.x, 0.0, inst_normal.z) + vec3(1e-5, 0.0, 0.0));
+      vec3 lipax = normalize(cross(vec3(0.0, 1.0, 0.0), outw));   // along the lip line
+      float loff = (0.05 + 0.105 * layer) * 4096.0;  // 5/15.5/26 cm out per layer (bake mirror)
+      const float CARD_HW = 0.40 * 4096.0;           // == Z3C_WIDTH_M / 2
+      const float RPT = 1.6 * 4096.0;                // == Z3C_REPEAT_W_M (one full u repeat)
+      float cu = float(side);                        // 0..1 across the card width
+      float cv = t;                                  // 0 at the lip -> 1 at the hanging bottom
+      float dlen = clamp(u_droop_len, 0.1, 1.5);
+      float hang = H * dlen;                         // H = bake depth (strip bottom + margin, capped)
+      // per-layer sway (the pivot's animation ask): gentle pendulum along the lip, bottom-weighted,
+      // per-layer frequency/phase so the layers show moving parallax and never ghost-lock.
+      float sw = sin(gust * (0.8 + 0.25 * layer) + layer * 1.7 + phase * TWO_PI) * cv * cv
+               * (0.035 + 0.020 * layer) * 4096.0;
+      // fill guard: collapse only when the camera is basically INSIDE the curtain. The blade-pass
+      // 1.1 m guard is WRONG here — the owner judges with the camera AT the edge (R10 defect 3: the
+      // painted strip showed through up close exactly because the cover vanished near).
+      float cnearf = smoothstep(0.12 * 4096.0, 0.30 * 4096.0, cam_dist);
+      pos = base
+          + outw * loff
+          + lipax * ((cu - 0.5) * 2.0 * CARD_HW + sw)
+          + vec3(0.0, -cv * hang * cnearf, 0.0);
+      // UVs: u continuous along the lip (curve = bake arc phase at card center; the texture tiles
+      // horizontally like the native strip), v spans the card top->bottom (vertical stretch = the
+      // per-card length jitter of the native strands). Per-layer flip/offset: layers never show the
+      // same texels at the same spot, so the parallax reads as depth, not ghosting.
+      float uu = curve + (cu - 0.5) * ((2.0 * CARD_HW) / RPT);
+      if (layer > 0.5 && layer < 1.5) uu = 0.31 - uu;
+      if (layer > 1.5) uu += 0.47;
+      fc_uv = vec2(uu, cv);
     } else {
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
@@ -433,9 +473,11 @@ void main() {
         + fwdv * fwd_amt
         + trample * t * rim_h;
     }
+    // ROUND 11: textured cards bypass the procedural colour gradient entirely (the texel IS the
+    // art); v_is_card = 2 routes the frag to the hang-texture sampling branch.
     t_col = t;
-    v_uv = vec2(0.0);
-    v_is_card = 0;
+    v_uv = is_fcard ? fc_uv : vec2(0.0);
+    v_is_card = is_fcard ? 2 : 0;
   } else {
     // ---------- MID: X-cross grass card ----------
     // OWNER POLISH#6: the cards read "trop denses ... beaucoup plus touffue que la vraie herbe".
@@ -538,6 +580,10 @@ void main() {
   // and per TIME OF DAY. Where the baked light darkens the ground the grass darkens with it (owner:
   // grass "fait tâche quand le baked lighting rend le sol plus sombre"). The old build multiplied by a
   // FROZEN, level-MEAN-centred luma (inst_gcol.w) sampled once at load -> it never tracked the ground.
+  // ROUND 11: a textured card's colour comes from its TEXELS — v_color carries only the ground's
+  // dynamic baked light (the exact (palette/255)*2 factor tfrag/TIE multiply the native strip by),
+  // sampled from the owning WALKABLE lawn tri => brightness-continuous across the lip, per time of day.
+  if (is_fcard) col = vec3(1.0);
   col *= inst_light.rgb * 2.0;
   col = clamp(col, vec3(0.0), vec3(1.5));
 
@@ -558,7 +604,9 @@ void main() {
     else if (dbg_tr > 0.5) v_color = vec3(0.0, 1.0, 1.0);
   }
   v_alpha = alpha;
-  v_seed = tint * 331.0 + phase * 71.0;   // per-instance tuft seed
+  // ROUND 11: for a textured card v_seed carries the hang-texture select (0/1) instead of the
+  // procedural tuft seed (the frag's v_is_card==1 tuft path never runs for class-2 cards).
+  v_seed = is_fcard ? fc_texb : tint * 331.0 + phase * 71.0;
 
   // OWNER POLISH#11: HARD geometric edge clip. Clamp the blade's TOTAL horizontal offset from its base
   // to rim_dist (the distance to the nearest true platform rim), so nothing — width, static bend,
@@ -574,6 +622,21 @@ void main() {
     if (off_m > clip_dist) {
       pos.xz = base.xz + off_xz * (clip_dist / off_m);
     }
+  }
+
+  // Grecharged-grass-overhang4 HALF-SPACE CLAMP (defect 1: clip-through). Every tail-blade vertex —
+  // INCLUDING the dynamic sway/trample — is projected back onto the OUTER side of the base's tangent
+  // plane (the smooth normal inst_normal.xyz), so nothing dips through the host surface. Mirrors the
+  // bake plane-cap's rest-pose clamp; pure mads, one data-independent branch. Walkable blades (not
+  // is_tail) carry a face normal here and are untouched. Grecharged-grass-overhang6: the zone-2 strip
+  // blades (is_repl) must stay on the face's OUTER side (their inst_normal is the surface plane
+  // normal). ZONE-1's lean (is_lean) is EXCLUDED — its inst_normal is a horizontal OUTWARD dir (not a
+  // surface plane normal). ROUND 11: the zone-3 cards join the clamp with their outward-XZ normal —
+  // it pins every card vertex on the outer side of the vertical plane through its lip root (a no-op
+  // for the rest pose; belt-and-braces against sway pushing texels behind the rock).
+  if (is_repl || is_fcard) {
+    float dpl = dot(pos - base, inst_normal.xyz);
+    if (dpl < 0.0) pos -= inst_normal.xyz * dpl;
   }
 
   gl_Position = world_to_clip(pos);

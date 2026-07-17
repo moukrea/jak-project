@@ -11,6 +11,7 @@
 
 package org.opengoal.gk;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -40,6 +41,12 @@ public class MainActivity extends SDLActivity {
     // if a pad is already attached, true otherwise). Once written the
     // user's choice persists across launches independent of pad state.
     private static final String PREFS_NAME = "opengoal-gk";
+    // External-asset-root feature (autoport 2026-07): the chosen-folder state is
+    // written by LoaderActivity into this separate prefs file; MainActivity reads it.
+    private static final String ASSET_PREFS = "recharged_assets";
+    private static final String PREF_ASSET_ROOT = "asset_root";
+    private static final String PREF_ASSET_MODE = "asset_mode";
+    private static final String MODE_EXTERNAL = "external";
     private static final String PREF_TOUCH_OVERLAY_ENABLED =
             "touch_overlay_enabled";
     private static final String PREF_TOUCH_OVERLAY_INITIALISED =
@@ -56,6 +63,17 @@ public class MainActivity extends SDLActivity {
     // gamepad auto-hide keeps it touch-capable (never View.GONE) instead of
     // removing it from hit-testing. Rationale below in setupTouchOverlay().
     private boolean mInputRecordArmed = false;
+
+    // External-asset-root feature (autoport 2026-07): true when booting from an
+    // on-storage external root; gates the internal-only iso_data FATAL check.
+    private boolean mExternalMode = false;
+
+    /** The per-game external-layout folder IS the game id ("jak1"/"jak2"/"jak3"):
+     *  the on-storage tree is <root>/jak1/{assets, custom_assets, saves, settings.ini}.
+     *  Keep in sync with LoaderActivity.gameFolder(). */
+    private static String gameFolder(String game) {
+        return game;
+    }
 
     @Override
     protected String[] getLibraries() {
@@ -118,6 +136,70 @@ public class MainActivity extends SDLActivity {
         NativeGk.setSelectedGame(gameName);
         NativeGk.setDataRoot(isoDir.getAbsolutePath());
 
+        // Grecharged-buildsys-firstboot (autoport 2026-07): the ONLY boot mode is
+        // EXTERNAL — a user-picked root with the layout <root>/jak1/{assets,
+        // custom_assets, saves, settings.ini}. LoaderActivity guarantees a valid
+        // root is persisted in the "recharged_assets" prefs before launching here.
+        //   gameRoot = <asset_root>/jak1; require <gameRoot>/assets/iso readable,
+        //   then setGameRoot(gameRoot) + setIsoOverlay(<filesDir>/cgo/<game>).
+        //   If the root went invalid, bounce back to LoaderActivity (re-prompt).
+        // (The native runtime requires g_game_root now; there is no internal /
+        // --portable mode.)
+        SharedPreferences assetPrefs = getSharedPreferences(ASSET_PREFS, MODE_PRIVATE);
+        String assetMode = assetPrefs.getString(PREF_ASSET_MODE, null);
+        String assetRoot = assetPrefs.getString(PREF_ASSET_ROOT, null);
+        mExternalMode = MODE_EXTERNAL.equals(assetMode)
+                && assetRoot != null && !assetRoot.isEmpty();
+
+        final File cgoDir = new File(getFilesDir(), "cgo/" + gameName);
+        final boolean cgoReady = cgoDir.isDirectory()
+                && cgoDir.list() != null && cgoDir.list().length > 0;
+
+        // Grecharged-buildsys-packaging: the unpacked package-shipped custom
+        // assets (recharged_assets/, fr3/). When present+non-empty, push it so
+        // FileUtil prefers it over the vanilla data tree. Set in both modes.
+        final File customDir = new File(getFilesDir(), "custom/" + gameName);
+        final boolean customReady = customDir.isDirectory()
+                && customDir.list() != null && customDir.list().length > 0;
+
+        if (!mExternalMode) {
+            // No valid external root persisted (fresh install, or the "remember
+            // my choice" pref was cleared). The native runtime has no internal
+            // mode to fall back on, so send the user back to the picker.
+            Log.e(TAG, "no external asset root configured — returning to LoaderActivity picker");
+            Intent back = new Intent(this, LoaderActivity.class);
+            back.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(back);
+            finish();
+            return;
+        }
+
+        final File gameRoot = new File(assetRoot, gameFolder(gameName));
+        final File extIso = new File(gameRoot, "assets/iso");
+        String[] extIsoEntries = extIso.list();
+        if (!extIso.isDirectory() || extIsoEntries == null || extIsoEntries.length == 0) {
+            // Root went invalid (folder moved, storage unmounted, permission
+            // revoked). Bounce back to LoaderActivity to re-prompt.
+            Log.e(TAG, "external asset root invalid: " + extIso.getAbsolutePath()
+                    + " not a readable non-empty dir — returning to LoaderActivity");
+            Intent back = new Intent(this, LoaderActivity.class);
+            back.putExtra("org.opengoal.gk.ASSET_ROOT_INVALID", true);
+            back.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(back);
+            finish();
+            return;
+        }
+        NativeGk.setGameRoot(gameRoot.getAbsolutePath());
+        if (cgoReady) {
+            NativeGk.setIsoOverlay(cgoDir.getAbsolutePath());
+        }
+        if (customReady) {
+            NativeGk.setCustomRoot(customDir.getAbsolutePath());
+        }
+        Log.i(TAG, "external asset mode: gameRoot=" + gameRoot.getAbsolutePath()
+                + " isoOverlay=" + (cgoReady ? cgoDir.getAbsolutePath() : "(none)")
+                + " customRoot=" + (customReady ? customDir.getAbsolutePath() : "(none)"));
+
         // Owner swamp-crash capture build (INSTRUMENTATION ONLY): push the app's
         // EXTERNAL files dir so a JAK_SWAMP_CAPTURE libgk can write the crash
         // forensic to a file the owner retrieves from the Files app without adb.
@@ -152,18 +234,9 @@ public class MainActivity extends SDLActivity {
         // ahead of SDLActivity's own load.)
         super.onCreate(savedInstanceState);
 
-        // LoaderActivity should have completed extraction before transitioning
-        // here. If iso_data is missing now it's a Loader regression; surface
-        // it loudly in logcat. The phase 18 validator greps for this marker
-        // to confirm the Loader→Main handoff actually happened.
-        String[] isoEntries = isoDir.list();
-        if (!isoDir.isDirectory() || isoEntries == null || isoEntries.length == 0) {
-            Log.e(TAG, "FATAL: " + gameName + " iso_data missing at "
-                       + isoDir.getAbsolutePath()
-                       + " — LoaderActivity did not extract.");
-        } else {
-            Log.i(TAG, gameName + " iso_data present at " + isoDir.getAbsolutePath());
-        }
+        // Grecharged-buildsys-firstboot (autoport 2026-07): the runtime reads from
+        // <game-root>/assets/iso (already validated above), NOT files/iso_data/<game>.
+        // There is no internal iso_data check anymore — external is the only mode.
 
         // Phase E2 (autoport): bring back the on-screen PS2-button overlay
         // behind a SharedPreferences flag. Default mirrors the desktop

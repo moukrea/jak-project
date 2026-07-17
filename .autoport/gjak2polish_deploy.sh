@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # gjak2polish_deploy.sh — Gjak2-polish deploy: fresh arm64 libgk (items 1 mips2c
 # method-17 + 5 GlowRenderer) via a SLIM APK, plus the fresh consistent arm64
-# jak2 CGO/DGO set (items 2 aspect + 3 menu + 4 fps) pushed to files/iso_data/jak2.
+# jak2 CGO/DGO set (items 2 aspect + 3 menu + 4 fps) pushed to files/cgo/jak2.
 # The device already has the full jak2 bundle extracted (.extracted_v1), so the slim
 # APK only delivers libgk and the push overrides the CGOs (no 1.8GB re-extract).
 # deploy_verify (libgk build==device) + deploy_verify_assets (CGO md5 match) gate it.
@@ -42,7 +42,7 @@ $ADB -s $S shell pm trim-caches 999G 2>/dev/null || true
 $ADB -s $S install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -3 || die "apk install failed"
 $ADB -s $S shell pm list packages | grep -q "$PKG" || die "jak2 not installed"
 
-say "3. push $n fresh consistent arm64 CGO/DGO -> files/iso_data/jak2 (sha256-verified)"
+say "3. push $n fresh consistent arm64 CGO/DGO -> files/cgo/jak2 (sha256-verified)"
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
 $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp_jak2 >/dev/null 2>&1 \
   || die "asset bundle stamp gone after install (re-extract triggered) — CGO push would be clobbered"
@@ -50,9 +50,9 @@ fail=0; cnt=0
 for f in "$SRC"/*.CGO "$SRC"/*.DGO; do
   bn=$(basename "$f"); want=$(sha256sum "$f" | awk '{print $1}')
   $ADB -s $S push "$f" "/data/local/tmp/$bn" >/dev/null 2>&1 || { echo "  PUSH-FAIL $bn"; fail=1; continue; }
-  $ADB -s $S shell run-as $PKG cp "/data/local/tmp/$bn" "files/iso_data/jak2/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
+  $ADB -s $S shell run-as $PKG cp "/data/local/tmp/$bn" "files/cgo/jak2/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
   $ADB -s $S shell rm -f "/data/local/tmp/$bn" >/dev/null 2>&1 || true
-  got=$($ADB -s $S shell run-as $PKG sha256sum "files/iso_data/jak2/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$($ADB -s $S shell run-as $PKG sha256sum "files/cgo/jak2/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] && cnt=$((cnt+1)) || { echo "  VERIFY-FAIL $bn want=$want got=$got"; fail=1; }
 done
 [ "$fail" -eq 0 ] || die "one or more CGO/DGO failed to push/verify ($cnt/$n ok)"
@@ -67,9 +67,9 @@ for f in "$TSRC"/*COMMON.TXT "$TSRC"/*SUBTI2.TXT; do
   [ -f "$f" ] || continue
   bn=$(basename "$f"); want=$(sha256sum "$f" | awk '{print $1}'); tn=$((tn+1))
   $ADB -s $S push "$f" "/data/local/tmp/$bn" >/dev/null 2>&1 || { echo "  TXT-PUSH-FAIL $bn"; tfail=1; continue; }
-  $ADB -s $S shell run-as $PKG cp "/data/local/tmp/$bn" "files/iso_data/jak2/$bn" || { echo "  TXT-CP-FAIL $bn"; tfail=1; }
+  $ADB -s $S shell run-as $PKG cp "/data/local/tmp/$bn" "files/cgo/jak2/$bn" || { echo "  TXT-CP-FAIL $bn"; tfail=1; }
   $ADB -s $S shell rm -f "/data/local/tmp/$bn" >/dev/null 2>&1 || true
-  got=$($ADB -s $S shell run-as $PKG sha256sum "files/iso_data/jak2/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$($ADB -s $S shell run-as $PKG sha256sum "files/cgo/jak2/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] && tcnt=$((tcnt+1)) || { echo "  TXT-VERIFY-FAIL $bn"; tfail=1; }
 done
 [ "$tfail" -eq 0 ] || die "one or more text banks failed to push/verify ($tcnt/$tn ok)"

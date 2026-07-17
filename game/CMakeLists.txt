@@ -56,6 +56,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/foreground/Merc2.cpp
         graphics/opengl_renderer/foreground/Merc2BucketRenderer.cpp
         graphics/opengl_renderer/foreground/Shadow2.cpp
+        graphics/opengl_renderer/loader/CustomTextureReplacements.cpp
         graphics/opengl_renderer/loader/Loader.cpp
         graphics/opengl_renderer/loader/LoaderStages.cpp
         graphics/opengl_renderer/ocean/CommonOceanRenderer.cpp
@@ -68,11 +69,11 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/ocean/OceanTexture.cpp
         graphics/opengl_renderer/GrassRenderer.cpp
         graphics/opengl_renderer/GrassBakeCore.cpp
+        graphics/opengl_renderer/AmbientOcclusion.cpp
         graphics/opengl_renderer/opengl_utils.cpp
         graphics/opengl_renderer/OpenGLRenderer.cpp
         graphics/opengl_renderer/Profiler.cpp
         graphics/opengl_renderer/ProgressRenderer.cpp
-        graphics/opengl_renderer/RechargedHudTextures.cpp
         graphics/opengl_renderer/Shader.cpp
         graphics/opengl_renderer/Shadow_PS2.cpp
         graphics/opengl_renderer/ShadowRenderer.cpp
@@ -90,7 +91,6 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/VisDataHandler.cpp
         graphics/opengl_renderer/Warp.cpp
         graphics/pipelines/opengl.cpp
-        graphics/pipelines/vulkan.cpp
         graphics/sceGraphicsInterface.cpp
         graphics/texture/jak1_tpage_dir.cpp
         graphics/texture/jak2_tpage_dir.cpp
@@ -368,27 +368,58 @@ add_subdirectory(sound)
 # contraction here makes the arm64 collision pipeline BIT-IDENTICAL to x86 (proven:
 # .autoport/reports/Gcollision-arm/). No-op on the x86 build (GCC has no FMA to
 # disable). See .autoport/reports/Gcollision-arm-fix-summary.md.
-set_source_files_properties(
-        mips2c/jak1_functions/collide_cache.cpp
-        mips2c/jak1_functions/collide_edge_grab.cpp
-        mips2c/jak1_functions/collide_func.cpp
-        mips2c/jak1_functions/collide_mesh.cpp
-        mips2c/jak1_functions/collide_probe.cpp
-        # Gperf-particles2: the 2d-NEON sparticle fast-path (sparticle.cpp) replaces the
-        # scalar VU0 aging loop with inlined float math that MUST stay two-rounding
-        # (multiply-then-add, no FMA) to be bit-identical to the PS2/x86 scalar path.
-        # Its in-file comment asserted "-ffp-contract=off" but the file was NOT on this
-        # list (it only passed by luck: the current NDK emitted no fmadd). Add it so the
-        # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
-        # collide TUs above. No-op on today's build (already non-contracted).
-        mips2c/jak1_functions/sparticle.cpp
-        PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+# Real MSVC `cl` rejects `-ffp-contract=off` (clang-cl accepts it, hence the
+# compiler-id guard); on MSVC the equivalent no-FMA-fusion mode is /fp:precise.
+if(NOT (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
+        set_source_files_properties(
+                mips2c/jak1_functions/collide_cache.cpp
+                mips2c/jak1_functions/collide_edge_grab.cpp
+                mips2c/jak1_functions/collide_func.cpp
+                mips2c/jak1_functions/collide_mesh.cpp
+                mips2c/jak1_functions/collide_probe.cpp
+                # Gperf-particles2: the 2d-NEON sparticle fast-path (sparticle.cpp) replaces the
+                # scalar VU0 aging loop with inlined float math that MUST stay two-rounding
+                # (multiply-then-add, no FMA) to be bit-identical to the PS2/x86 scalar path.
+                # Its in-file comment asserted "-ffp-contract=off" but the file was NOT on this
+                # list (it only passed by luck: the current NDK emitted no fmadd). Add it so the
+                # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
+                # collide TUs above. No-op on today's build (already non-contracted).
+                mips2c/jak1_functions/sparticle.cpp
+                PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
-# Grecharged-grass-precompute-mode: keep the x86 bake tool and the arm64 runtime float-identical —
-# no FMA contraction divergence between the machine that writes <level>.grassbake and the one that
-# reads/expands it (bit-identical placement across x86 desktop and arm64 device).
-set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
-        PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+        # Grecharged-grass-precompute-mode: keep the x86 bake tool and the arm64 runtime float-identical —
+        # no FMA contraction divergence between the machine that writes <level>.grassbake and the one that
+        # reads/expands it (bit-identical placement across x86 desktop and arm64 device).
+        set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
+                PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+else()
+        set_source_files_properties(
+                mips2c/jak1_functions/collide_cache.cpp
+                mips2c/jak1_functions/collide_edge_grab.cpp
+                mips2c/jak1_functions/collide_func.cpp
+                mips2c/jak1_functions/collide_mesh.cpp
+                mips2c/jak1_functions/collide_probe.cpp
+                mips2c/jak1_functions/sparticle.cpp
+                PROPERTIES COMPILE_OPTIONS "/fp:precise")
+        set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
+                PROPERTIES COMPILE_OPTIONS "/fp:precise")
+endif()
+
+# Grecharged-buildsys-flags: feature-gated TUs are appended to RUNTIME_SOURCE
+# only when their flag is ON (default OFF => symbol absent from gk). The
+# runtime code that calls into them is #ifdef'd on the same OG_FEAT_* macro.
+if(OG_FEAT_RECHARGED_HUD)
+        list(APPEND RUNTIME_SOURCE graphics/opengl_renderer/RechargedHudTextures.cpp)
+endif()
+if(OG_FEAT_VULKAN_SUPPORT)
+        list(APPEND RUNTIME_SOURCE graphics/pipelines/vulkan.cpp)
+endif()
+
+# Grecharged-buildsys-flags: stamp the flag-set id onto the marker TU only
+# (kboot.cpp is shared with the android_kernel build). Source-file properties
+# are directory-scoped under cmake 3.10, hence set here in the game/ scope.
+set_source_files_properties(kernel/common/kboot.cpp
+        PROPERTIES COMPILE_DEFINITIONS "OG_FLAG_SET_ID=\"${OG_FLAG_SET_ID}\"")
 
 # we build the runtime as a static library.
 add_library(runtime STATIC ${RUNTIME_SOURCE} "../third-party/glad/src/glad.c")

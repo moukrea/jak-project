@@ -1,0 +1,7 @@
+retarget decompiler_out/jak2/levels/lintcstb/samos-highres-lod0.glb -> decompiler_out/jak1/levels/village1/sage-lod0.glb
+  verts=7707 donor_joints=80 target_joints=74
+  weight by tier: exact=7597.4 ci=0.0 suffix=0.0 ancestor=109.6 unmatched=0.0 dropped=0.0
+  name-matched (T1-T3): 0.9858; UNMATCHED (garble-risk) fraction: 0.0000 (gate <= 0.01)
+  culled 360 triangles on dropped joints (['BIRD1', 'BIRDL1', 'BIRDL2', 'BIRDR1', 'BIRDR2', 'BIRDfeet1', 'BIRDhead1', 'Birdfeather', 'Birdjaw', 'Birdtail'])
+  ancestor-fallback joints: BIRDL2->BIRDL1, BIRDR2->BIRDR1, Birdfeather->BIRDhead1, Birdjaw->BIRDhead1, Birdtail->BIRD1, Rhair->head, RhairBASE->head, beardDriver->head
+  re-pose max vertex displacement: 0.6368

@@ -1,0 +1,22 @@
+device time now: Tue Jul 14 00:59:41 CEST 2026
+=== iso file count (expect 293) ===
+293
+=== CGO/DGO count in iso (expect 0) ===
+0
+=== fr3 count (expect ~27) ===
+27
+=== migrated save banks ===
+total 272
+-rw-rw---- 1 root everybody 67584 2026-07-14 00:56 bank0.bin
+-rw-rw---- 1 root everybody 67584 2026-07-14 00:56 bank1.bin
+-rw-rw---- 1 root everybody 67584 2026-07-14 00:56 bank2.bin
+-rw-rw---- 1 root everybody 67584 2026-07-14 00:56 bank3.bin
+=== saves/settings (freshly written pc-settings.gc) ===
+total 4
+-rw-rw---- 1 root everybody 2390 2026-07-14 00:58 pc-settings.gc
+=== custom_assets dir ===
+total 0
+=== asset_root.txt ===
+/storage/emulated/0/OpenGOAL/jak_1
+=== cgo/jak1 count (expect 35) ===
+35

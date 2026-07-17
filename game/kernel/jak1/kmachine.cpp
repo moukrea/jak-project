@@ -563,12 +563,136 @@ void pc_set_recharged_grass(u32 on) {
   Gfx::g_global_settings.recharged_grass = (on != 0);
 }
 
+// External-asset-root: toggle runtime custom texture replacements (user PNGs
+// under <root>/custom_assets/texture_replacements). 0 = off (stock).
+void pc_set_load_custom_assets(u32 on) {
+  Gfx::g_global_settings.load_custom_assets = (on != 0);
+}
+
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
 // alpha overhang texture at every distance).
+#ifdef OG_FEAT_GRASS_OVERHANG
 void pc_set_grass_overhang(u32 on) {
   Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
 }
+#endif
+
+// Grecharged-ambient-occlusion defect #6 resilience (safe-boot fallback): a crashy
+// persisted AO mode must never brick boot. A sentinel file is armed next to pc-settings
+// when AO becomes active and cleared after 60s of healthy pushes (or on a clean AO-off).
+// If a session dies inside that window the sentinel survives, and the NEXT boot pins AO
+// off (one boot only, loudly logged). The latch clears the moment the user picks a
+// DIFFERENT mode in the menu, so the setting stays user-controllable.
+namespace {
+constexpr double kAoGuardHealthySecs = 60.0;
+fs::path ao_boot_guard_path() {
+  return file_util::get_user_settings_dir(g_game_version) / "ao-boot-guard";
+}
+double ao_now_s() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+bool s_ao_safeboot_latched = false;  // this boot runs with AO pinned off
+int s_ao_safeboot_mode = -1;         // the refused persisted mode (a different pick clears)
+double s_ao_enable_t = -1.0;         // when AO became active this session (-1 = inactive)
+bool s_ao_guard_armed = false;       // sentinel currently on disk for this session
+}  // namespace
+
+// Grecharged-ambient-occlusion: push the AO algorithm selector + quality + strength from GOAL
+// (-> *pc-settings* ambient-occlusion / ao-quality / ao-strength). mode: 0 off / 1 SSAO / 2 HBAO
+// / 3 GTAO; quality: 0 low / 1 medium / 2 high; strength: 0 weaker / 1 default / 2 stronger. Logs
+// on CHANGE only (pushed every frame by update-to-os), so a device log proves the GOAL->C++ link.
+void pc_set_ambient_occlusion(u32 mode, u32 quality, u32 strength) {
+  int m = (int)mode;
+  int q = (int)quality;
+  if (m < 0 || m > 3) {
+    m = 0;
+  }
+  if (q < 0 || q > 2) {
+    q = 1;
+  }
+  int s = (int)strength;
+  if (s < 0 || s > 2) {
+    s = 1;
+  }
+  if (s_ao_safeboot_latched) {
+    if (m == 0 || m == s_ao_safeboot_mode) {
+      m = 0;  // pinned off for this boot
+    } else {
+      lg::info("[recharged-ao] SAFE-BOOT latch cleared by user mode change -> {}", m);
+      s_ao_safeboot_latched = false;
+    }
+  }
+  if (m > 0 && s_ao_enable_t < 0.0 && !s_ao_safeboot_latched) {
+    const auto guard = ao_boot_guard_path();
+    if (file_util::file_exists(guard.string())) {
+      lg::warn(
+          "[recharged-ao] SAFE-BOOT: previous session died within {}s of AO enable — "
+          "forcing AO OFF for this boot (persisted mode {} quality {})",
+          (int)kAoGuardHealthySecs, m, q);
+      std::error_code ec;
+      fs::remove(guard, ec);  // one forced-off boot per incident
+      s_ao_safeboot_latched = true;
+      s_ao_safeboot_mode = m;
+      m = 0;
+    } else {
+      file_util::write_text_file(guard, "ao-enable\n");
+      s_ao_guard_armed = true;
+      s_ao_enable_t = ao_now_s();
+    }
+  }
+  if (s_ao_guard_armed) {
+    if (m == 0) {  // clean disable: disarm and allow a later re-enable to re-arm
+      std::error_code ec;
+      fs::remove(ao_boot_guard_path(), ec);
+      s_ao_guard_armed = false;
+      s_ao_enable_t = -1.0;
+    } else if (ao_now_s() - s_ao_enable_t > kAoGuardHealthySecs) {
+      std::error_code ec;
+      fs::remove(ao_boot_guard_path(), ec);
+      s_ao_guard_armed = false;  // healthy: sentinel gone, s_ao_enable_t stays (no re-arm)
+    }
+  }
+  if (m != Gfx::g_global_settings.recharged_ao_mode ||
+      q != Gfx::g_global_settings.recharged_ao_quality ||
+      s != Gfx::g_global_settings.recharged_ao_strength) {
+    lg::info("[recharged-ao] mode -> {} quality -> {} strength -> {}", m, q, s);
+    Gfx::g_global_settings.recharged_ao_mode = m;
+    Gfx::g_global_settings.recharged_ao_quality = q;
+    Gfx::g_global_settings.recharged_ao_strength = s;
+  }
+}
+
+// Grecharged-foliage-wind: push the light-wind sway toggle from GOAL (pc-set-foliage-wind!).
+// 0 = off => byte-identical stock render (no palm/shrub displacement). Logs on CHANGE only
+// (update-to-os pushes this every frame), so a device log proves the GOAL->C++ link.
+void pc_set_foliage_wind(u32 on) {
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_foliage_wind) {
+    lg::info("[foliage-wind] toggle -> {}", v ? "ON" : "OFF");
+  }
+  Gfx::g_global_settings.recharged_foliage_wind = v;
+}
+
+// Grecharged-hd-models: push the "enhanced models" on/off toggle from GOAL
+// (-> *pc-settings* recharged-enhanced-models?). 0 = off (stock low-poly). Applies live to
+// village FR3 (Samos/Keira); the common FR3 (Jak/Daxter) is seeded from persisted settings at
+// renderer init, so toggling those takes effect on relaunch.
+#ifdef OG_FEAT_HD_MODELS
+void pc_set_recharged_enhanced_models(u32 on) {
+  // Grecharged-hd-models2 discriminator: the GOAL side pushes this EVERY frame from *pc-settings*
+  // (update-to-os), so a push of the pre-settings-load default silently flips the renderer-ctor
+  // seed and later level loads read STOCK fr3. Log transitions so runs carry the flip evidence.
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_enhanced_models) {
+    // lg (not raw stdout): on Android only lg::* routes to logcat.
+    lg::info("HD-MODELS toggle push: {} -> {}", Gfx::g_global_settings.recharged_enhanced_models,
+             v);
+  }
+  Gfx::g_global_settings.recharged_enhanced_models = v;
+}
+#endif
 
 // Grecharged-grass-poc: push Jak's world position (a GOAL vector, xyzw) each frame
 // so the grass renderer can flatten blades where the player walks. w := 1.0 marks
@@ -632,6 +756,17 @@ u64 pc_get_tod_hour() {
   }
   return (u64)s_cached;
 }
+
+// Grecharged-hd-models: 1 if the build carries the enhanced HD-model FR3 set (fr3/enhanced/GAME.fr3
+// present), else 0. Drives the ENHANCED MODELS menu-row visibility so the toggle only appears when
+// jak2 assets were available at build time. Works on x86 and Android (get_fr3_dir already resolves the
+// unpacked external asset root on device).
+#ifdef OG_FEAT_HD_MODELS
+u64 pc_get_enhanced_models_available() {
+  auto p = file_util::get_fr3_dir(GameVersion::Jak1) / "enhanced" / "GAME.fr3";
+  return file_util::file_exists(p.string()) ? 1 : 0;
+}
+#endif
 
 // Grecharged-grass-poc ROUND#21d: ground-actor positions from GOAL (the pc-set-jak-pos! pattern —
 // exact world coords from each actor's root trans; the Merc2 camera-space recovery is dead). The pc
@@ -697,8 +832,21 @@ void InitMachine_PCPort() {
 
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);
+  // External-asset-root: runtime custom texture replacements toggle
+  make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
+#ifdef OG_FEAT_GRASS_OVERHANG
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
+#endif
+  // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
+  make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
+  // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
+  make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
+#ifdef OG_FEAT_HD_MODELS
+  // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
+  make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);
+  make_function_symbol_from_c("pc-enhanced-models-available?", (void*)pc_get_enhanced_models_available);
+#endif
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point
   make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);

@@ -9,7 +9,7 @@ ROOT=/home/emeric/code/jak-project/.autoport/reports/Grecharged-hud-jak1
 SHOTS="$ROOT/shots"
 R2="$ROOT/round2"
 LOGCAT="$R2/device-R3-logcat.txt"
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 mkdir -p "$SHOTS" "$R2"
 
 a(){ "$ADB" -s eae4df44 "$@"; }
@@ -51,20 +51,20 @@ warp_launch(){
   log "+10s settle"; sleep 10
   echo "post-launch focus: $(focus)"; }
 
-# toggle (recharged-hud? #t|#f) via pull-edit-push (parens break device sed)
+# toggle ^recharged-hud? = #t|#f via pull-edit-push (parens break device sed)
 set_recharged(){ # $1 = "#t" or "#f"
   local want="$1"; local tmp=/tmp/pcs_r3.gc
-  ashell "run-as $PKG cat $PCS" > "$tmp" 2>/dev/null
-  if [ "$want" = "#f" ]; then sed -i 's/(recharged-hud? #t)/(recharged-hud? #f)/' "$tmp"
-  else sed -i 's/(recharged-hud? #f)/(recharged-hud? #t)/' "$tmp"; fi
+  ashell "cat $PCS" > "$tmp" 2>/dev/null
+  if [ "$want" = "#f" ]; then sed -i 's/^recharged-hud? = #t/recharged-hud? = #f/' "$tmp"
+  else sed -i 's/^recharged-hud? = #f/recharged-hud? = #t/' "$tmp"; fi
   a push "$tmp" /data/local/tmp/pcs_r3.gc >/dev/null 2>&1
-  ashell "run-as $PKG cp /data/local/tmp/pcs_r3.gc $PCS"
+  ashell "cp /data/local/tmp/pcs_r3.gc $PCS"
   ashell "rm -f /data/local/tmp/pcs_r3.gc" 2>/dev/null; }
 
 ######## SESSION SETUP ########
 log "=== session setup ==="
-echo "settings check (recharged-hud? should be #t):"
-ashell "run-as $PKG cat $PCS 2>/dev/null | grep -a recharged-hud" | tr -d '\r' || echo "  (not readable via run-as)"
+echo "settings check ^recharged-hud? = should be #t:"
+ashell "cat $PCS 2>/dev/null | grep -a recharged-hud" | tr -d '\r' || echo "  (not readable via run-as)"
 warp_launch
 
 ######## BEAT A — green waver by heart (5 close shots) ########
@@ -126,14 +126,14 @@ log "=== BEAT E: OFF spot-check ==="
 if devok; then
   log "push settings recharged-hud? #f (pull-edit-push)"
   set_recharged "#f"
-  ashell "run-as $PKG cat $PCS 2>/dev/null | grep -a recharged-hud" | tr -d '\r'
+  ashell "cat $PCS 2>/dev/null | grep -a recharged-hud" | tr -d '\r'
   warp_launch
   setp debug.opengoal.cpad_inject l2; sleep 2
   shot device-R3-off-1; sleep 1.0; shot device-R3-off-2
   setp debug.opengoal.cpad_inject ""
   log "RESTORE settings recharged-hud? #t (pull-edit-push)"
   set_recharged "#t"
-  ashell "run-as $PKG cat $PCS 2>/dev/null | grep -a recharged-hud" | tr -d '\r'
+  ashell "cat $PCS 2>/dev/null | grep -a recharged-hud" | tr -d '\r'
 else log "DEVICE VANISHED before beat E"; fi
 
 ######## CLEANUP ########

@@ -11,7 +11,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1/round4; mkdir -p "$OUT"
 adb(){ "$ADB" -s "$S" "$@"; }
 setp(){ adb shell "setprop $1 '$2'"; }   # wrap remote cmd so multi-token value = 1 arg
@@ -36,7 +36,7 @@ adb shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1' && { echo "DEVICE
 
 echo "== confirm recharged-hud? ON =="
 CUR=$(adb shell run-as $PKG cat "$SETF" 2>/dev/null | grep -a recharged | tr -d '\r'); echo "  flag: $CUR"
-echo "$CUR" | grep -q '(recharged-hud? #t)' || { echo "  FLAG NOT ON — aborting (menu-set needed)"; }
+echo "$CUR" | grep -q '^recharged-hud? = #t' || { echo "  FLAG NOT ON — aborting (menu-set needed)"; }
 
 echo "== warp ON to Geyser Rock, GREEN eco close-spawn =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true

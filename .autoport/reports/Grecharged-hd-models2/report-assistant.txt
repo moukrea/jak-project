@@ -1,0 +1,7 @@
+retarget decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb -> decompiler_out/jak1/levels/village1/assistant-lod0.glb
+  verts=7790 donor_joints=95 target_joints=96
+  weight by tier: exact=6947.9 ci=0.0 suffix=151.7 ancestor=690.4 unmatched=0.0 dropped=0.0
+  name-matched (T1-T3): 0.9114; UNMATCHED (garble-risk) fraction: 0.0000 (gate <= 0.01)
+  culled 280 triangles on dropped joints (['mask', 'maskstrap'])
+  ancestor-fallback joints: Lanklestrap->Lknee, Lbanga->head, Lbangb->head, Lbangc->head, Lmidhaira->head, Lmidhairb->head, Ranklestrap->Rknee, Rbanga->head, Rbangb->head, Rbangc->head, Rmidhaira->head, Rmidhairb->head, mask->prejoint, maskstrap->prejoint
+  re-pose max vertex displacement: 0.9285

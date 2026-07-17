@@ -20,6 +20,7 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
+#include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 
 namespace {
@@ -586,7 +587,9 @@ void GrassRenderer::ensure_gl() {
   m_gl_ready = true;
 }
 
-void GrassRenderer::rebuild(SharedRenderState* rs) {
+void GrassRenderer::rebuild(SharedRenderState* rs,
+                            const LevelData* ld,
+                            const std::string& level_name) {
   using clk = std::chrono::steady_clock;
   m_instances.clear();
   m_instance_count = 0;
@@ -599,10 +602,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   m_light.clear();
   m_light_valid = false;
 
-  if (!rs->loader) {
-    return;
-  }
-  const LevelData* ld = rs->loader->get_tfrag3_level("training");
+  // Grecharged-grass-overhang7: the level is resolved by render()'s allowlist lookup and passed in.
   if (!ld || !ld->level) {
     return;
   }
@@ -628,9 +628,10 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   const auto tA = clk::now();
 
   bool from_bake = false;
+  std::string resolved_bake_path;
   // Resolve fr3 size (used both to validate a bake and as scan input).
   const std::string fr3_path =
-      (file_util::get_jak_project_dir() / "out" / "jak1" / "fr3" / "training.fr3").string();
+      (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".fr3")).string();
   u64 fr3_size = 0;
   {
     std::error_code ec;
@@ -641,13 +642,22 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   }
 
   if (want_pre && !floor_gap_overridden) {
-    const std::string bake_path =
-        (file_util::get_jak_project_dir() / "out" / "jak1" / "fr3" / "training.grassbake").string();
+    // Prefer the package-shipped custom fr3 grassbake when present, else the
+    // vanilla fr3 dir. The resolved path is echoed in the PLACE-TIME log below.
+    std::string bake_path =
+        (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".grassbake")).string();
+    if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
+      const std::string custom_bake = (*custom_fr3 / (level_name + ".grassbake")).string();
+      if (file_util::file_exists(custom_bake)) {
+        bake_path = custom_bake;
+      }
+    }
+    resolved_bake_path = bake_path;
     grass_bake::BakeData loaded;
     std::string reason;
     if (!grass_bake::load_bake(loaded, bake_path)) {
       reason = "load failed";
-    } else if (loaded.level_name != "training") {
+    } else if (loaded.level_name != level_name) {
       reason = "level mismatch";
     } else {
       u64 cur_fr3 = 0;
@@ -675,7 +685,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   }
 
   if (!from_bake) {
-    m_bake = grass_bake::scan_level(*lev, "training", fr3_size,
+    m_bake = grass_bake::scan_level(*lev, level_name, fr3_size,
                                     {Gfx::g_global_settings.recharged_grass_density, floor_gap_m});
   }
 
@@ -685,15 +695,15 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   m_inst_tri = std::move(res.inst_tri);
   m_instance_count = (int)m_instances.size();
   m_droop_start = res.droop_start;
-  // Grecharged-grass-overhang census: droop instances built (drawn only while the toggle is ON).
-  // ROUND2: the tail now also carries the progressive upright->droop transition twins (trans_*).
+  // Grecharged-grass-overhang6 census: the 3-zone tail (drawn only while the toggle is ON). Zone 2 =
+  // sub-lip strip blades (5+w comb-class), zone 1 = walkable-boundary lean twins, zone 3 = layered
+  // fall over the native-alpha overhang faces.
   lg::info(
-      "[recharged-grass] GOVERHANG expand: droop_tris={} droop_instances={} trans_instances={} "
-      "droop_rims={} (tail [{}..{}), toggle={} comb_tagged={}"
-      " — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)",
-      (int)m_bake.droop.size(), res.trans_start - m_droop_start,
-      m_instance_count - res.trans_start, (int)m_bake.droop_rims.size(), m_droop_start,
-      m_instance_count, Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF",
+      "[recharged-grass] GOVERHANG expand: droop_tris={} z2_strip={} comb_repl={} lean_twins={} "
+      "z3_fall={} (tail [{}..{}), toggle={}) lean_tagged={} comb_tagged={}",
+      (int)m_bake.droop.size(), res.z2_count, res.comb_pairs, res.lean_twins, res.z3_count,
+      m_droop_start, m_instance_count,
+      Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF", res.lean_tagged,
       res.comb_tagged);
 
   // Recompute `density` exactly as expand() did, for the STATIC place summary log.
@@ -772,7 +782,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   {
     const int occ_culled = res.occ_culled;
     lg::info(
-        "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
+        "[recharged-grass] {} STATIC place (whole-level, camera-independent): {} grass-ground "
         "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
         "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}). ROUND#13 PER-INSTANCE "
         "object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled {} of {} instances ({:.3f}%) — each "
@@ -780,7 +790,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         "within radius {:.2f}m + contact band [{:.2f},{:.2f}]m; a blade is culled ONLY if a real object "
         "vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped "
         "bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.",
-        m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
+        level_name, m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
         m_bake.stats.giant_tris, m_bake.stats.max_area, m_bake.total_area_m2, density,
         m_instance_count, (int)m_chunks.size(),
         Gfx::g_global_settings.recharged_grass_density, budget, occ_culled,
@@ -818,10 +828,10 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   };
   // source = tA..tB (load_bake OR scan); expand+logs = tB..tExpandEnd; upload+light = tExpandEnd..tC.
   lg::info(
-      "[recharged-grass] PLACE-TIME mode={} total={:.0f}ms (source={:.0f}ms expand+logs={:.0f}ms "
-      "upload+light={:.0f}ms) instances={}",
-      from_bake ? "precomputed" : "live", ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd),
-      ms(tExpandEnd, tC), m_instance_count);
+      "[recharged-grass] PLACE-TIME mode={} bake={} total={:.0f}ms (source={:.0f}ms "
+      "expand+logs={:.0f}ms upload+light={:.0f}ms) instances={}",
+      from_bake ? "precomputed" : "live", resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
+      ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC), m_instance_count);
 }
 
 
@@ -956,10 +966,43 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (!rs->has_pc_data) {
     return;
   }
-  // Hard-scope to the training level: get_tfrag3_level returns null anywhere else.
-  const LevelData* ld = rs->loader ? rs->loader->get_tfrag3_level("training") : nullptr;
-  if (!ld || !ld->level) {
+  // Grecharged-grass-overhang7: iterate the grass allowlist (background_common.h) — first loaded
+  // grass level wins. Single slot is correct today: training is an isolated island and beach's
+  // neighbour (village1) carries none of the grass textures, so two grass levels never co-load.
+  const LevelData* ld = nullptr;
+  std::string grass_level;
+  if (rs->loader) {
+    for (const char* name : kGrassLevels) {
+      const LevelData* cand = rs->loader->get_tfrag3_level(name);
+      if (cand && cand->level) {
+        ld = cand;
+        grass_level = name;
+        break;
+      }
+    }
+  }
+  if (!ld) {
     return;
+  }
+  // Grecharged-grass-overhang7 ROUND 11: resolve the two native hang-alpha strip textures by
+  // debug_name from THIS level's texture table (index-parallel with the GL handle vector — exactly
+  // how TFragment/Tie3 bind them for the near-fade). The zone-3 textured cards sample these.
+  if ((const void*)ld != m_hang_tex_src) {
+    m_hang_tex[0] = m_hang_tex[1] = 0;
+    const auto& texs = ld->level->textures;
+    for (size_t i = 0; i < texs.size() && i < ld->textures.size(); ++i) {
+      if (texs[i].debug_name == "bch-grassfringe") {
+        m_hang_tex[0] = ld->textures[i];
+      } else if (texs[i].debug_name == "bch-leafyground-hang-2x1") {
+        m_hang_tex[1] = ld->textures[i];
+      }
+    }
+    // fallback: a level carrying only one of the strip textures still gets native art on every card
+    if (!m_hang_tex[1]) m_hang_tex[1] = m_hang_tex[0];
+    if (!m_hang_tex[0]) m_hang_tex[0] = m_hang_tex[1];
+    m_hang_tex_src = (const void*)ld;
+    lg::info("[recharged-grass] R11 hang-card textures resolved: grassfringe={} leafy2x1={}",
+             m_hang_tex[0], m_hang_tex[1]);
   }
   // Rebuild ONLY on level change / reload, OR when the DENSITY slider changed (POLISH#5 —
   // a new density means a new instance budget, so the static field must be re-scattered).
@@ -968,7 +1011,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id ||
       m_cached_density != Gfx::g_global_settings.recharged_grass_density ||
       m_cached_precomputed != Gfx::g_global_settings.recharged_grass_precomputed) {
-    rebuild(rs);
+    rebuild(rs, ld, grass_level);
   }
   if (m_instance_count <= 0) {
     return;
@@ -1046,7 +1089,12 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // Grecharged-grass-overhang3: gate the transition-band comb on the SAME Recharged overhang toggle
   // that splits the draw range (below). OFF -> u_overhang=0 -> tagged blades run the stock else-branch.
   glUniform1f(glGetUniformLocation(id, "u_overhang"),
+#ifdef OG_FEAT_GRASS_OVERHANG
               Gfx::g_global_settings.recharged_grass_overhang ? 1.0f : 0.0f);
+#else
+              // Grecharged-buildsys-flags: overhang compiled OUT -> shader stock else-branch.
+              0.0f);
+#endif
   // OWNER ROUND#18: object-clip — hide grass under crates / the warp-gate button (merc actors captured
   // by Merc2 this frame). Upload up to 16 as u_occ (xyz = world pos GOAL units, w = ground-contact
   // radius GOAL units); u_occ_count == 0 (no objects captured) makes the shader path byte-identical to
@@ -1152,6 +1200,15 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glBindVertexArray(m_vao);
   GLint mode_loc = glGetUniformLocation(id, "u_mode");
 
+  // ROUND 11: bind the native hang-alpha strip textures for the zone-3 textured cards (units 0/1 —
+  // the grass program samples nothing else; every other renderer re-binds its own units per draw).
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, m_hang_tex[1]);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_hang_tex[0]);
+  glUniform1i(glGetUniformLocation(id, "u_hang0"), 0);
+  glUniform1i(glGetUniformLocation(id, "u_hang1"), 1);
+
   // ROUND#19 GPU-wedge forensics (device props, read once at first frame):
   //   debug.opengoal.grass_maxinst=N  -> draw only the FIRST N instances of the SAME built buffer.
   //     Same data + same scatter, smaller drawn count: discriminates COUNT/workload (maxinst at the
@@ -1181,7 +1238,13 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // these counts — no rebuild, and OFF is bit-identical to a build without the droop tail.
   const int nondroop_n = std::min(m_droop_start, m_instance_count);
   const int blade_total =
+#ifdef OG_FEAT_GRASS_OVERHANG
       Gfx::g_global_settings.recharged_grass_overhang ? m_instance_count : nondroop_n;
+#else
+      // Grecharged-buildsys-flags: overhang compiled OUT -> never draw the droop tail
+      // (bit-identical to a build without the droop instances). See comment above.
+      nondroop_n;
+#endif
   const int draw_n = (s_maxinst > 0 && s_maxinst < blade_total) ? s_maxinst : blade_total;
   const int card_n = (s_maxinst > 0 && s_maxinst < nondroop_n) ? s_maxinst : nondroop_n;
 

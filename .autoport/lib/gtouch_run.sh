@@ -75,7 +75,7 @@ bash .autoport/restore_knowngood_device.sh || true
 # Guarantee LoaderActivity skips re-extraction (which would clobber the
 # restored full CGOs with the slim APK's). The sentinel survives `install -r`.
 "$ADB" -s "$SERIAL" shell run-as "$PACKAGE" sh -c \
-    'cd files/iso_data/jak1 2>/dev/null && : > .extracted_v1' >/dev/null 2>&1 || true
+    'cd files/cgo/jak1 2>/dev/null && : > .extracted_v1' >/dev/null 2>&1 || true
 
 : > "$BOOT_LOG"
 

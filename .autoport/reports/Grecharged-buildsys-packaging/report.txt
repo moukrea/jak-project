@@ -1,0 +1,83 @@
+PHASE Grecharged-buildsys-packaging — PILLAR P2: package vs assets.zip split by the diff-vanilla rule
+Date: 2026-07-17    Branch: autoport/android-port    Flag set proven: default (none), hash e3b0c44298fc
+
+RESULT: PASS — package/assets.zip split live on both targets: jak1_assets.zip (273 vanilla-only members, manifest-reviewed, zero misplaced file) + slim APK / linux tarball carrying ALL port-custom artifacts; verifies re-keyed (content+flags); device boots from the new pair with the custom set provably read from APK-internal storage.
+
+== The owner's rule, implemented mechanically ==
+Sort rule: a file ships in <game>_assets.zip iff a diff against the vanilla OpenGOAL pipeline output is
+empty; everything port-modified/custom ships in the game package. Implemented as a CLASSIFIER, not a
+hand list: an out/<game>/iso member is vanilla iff byte-identical to a file under iso_data/<game>/
+(sha256 index); stock .fr3 are vanilla-derived, attested live by the producer (git diff 107f26a44..HEAD
+of decompiler/level_extractor + decompiler/config must be EMPTY or the producer dies). Verified census:
+out/jak1/iso = 321 files = 247 verbatim disc data (all byte-match iso_data) + 28 CGO/DGO (goalc, port)
++ 46 TXT banks (23 COMMON + 23 SUBTIT — carry custom text ids 1700-1713/16e, port). out/jak1/fr3 =
+26 stock .fr3 (vanilla) + 2 .grassbake (port tool output).
+
+== Artifacts (out/artifacts/) ==
+- jak1_assets.zip           1.03 GB, 273 members (assets/iso/* 247 + assets/fr3/*.fr3 26), version cbe586bbc6cba
+  + jak1_assets.manifest.txt (sidecar; one line per member: path sha256 bytes class source) + .properties
+  Manifest census: 247 vanilla-verbatim + 26 vanilla-derived-fr3, ZERO port artifact (0 CGO/DGO/TXT/
+  grassbake/enhanced). NO manifest inside the zip (archive = pure unaltered data). Flag-INDEPENDENT.
+- app-jak1-android-arm64.apk  165 MB slim APK: engine (libgk.so) + assets/bundle/{jak1_cgo.zip (74 =
+  28 arm64 CGO/DGO + 46 TXT with android COMMON overrides), jak1_custom.zip (2 grassbake; recharged
+  PNGs iff --recharged-hud, enhanced fr3 iff --hd-models), 2 manifests}. NOTHING else in assets/.
+  + app-jak1-android-arm64.manifest.txt (full APK listing + nested pack listings, classified).
+- app-jak1-linux-x86_64.tar.gz  172 MB: gk + run.sh + iso/ (74 port-code) + custom/ (grassbake, flag-
+  gated PNGs/enhanced) + data/ (104 shaders, fonts, sdl_controller_db, game/assets/jak1 runtime jsons,
+  empty goal_src/user) + manifest (74 port-code / 2 port-custom / 200 port-engine).
+Producers (per game+target, jak2/jak3 auto when their out/ + iso_data/ sources exist):
+scripts/packaging/build_assets_archive.sh, scripts/packaging/package_release.sh,
+android/build_custom_pack.sh (flag set recovered by inverting the ogflags hash over the 16 subsets),
+android/build_cgo_pack.sh (extended: ALL 46 TXT banks ride the pack — the archive ships none),
+./build.sh <target> --package orchestrates. The bundledIso self-contained APK mode is REMOVED
+(build_asset_bundle.sh deleted); tracked stray vanilla staging purged (assets-slim/fr3 symlink,
+src/jak1/assets/fr3/*.fr3, legacy full-bundle manifest.properties).
+
+== Runtime plumbing (translation layers only; goal_src untouched) ==
+--custom-assets <dir> / FileUtil g_custom_assets_root: get_recharged_assets_dir precedence custom >
+external > project; get_custom_fr3_dir feeds GrassRenderer bake resolution + Loader hd_fr3_path
+enhanced lookup (custom first, fall back to fr3 dir). Android: LoaderActivity unpacks
+bundle/<game>_custom.zip -> files/custom/<game>/ (version-stamped wipe/unpack/stamp-last, subpaths
+preserved, zip-slip guarded); MainActivity -> NativeGk.setCustomRoot -> android_goal_main wires
+file_util::set_custom_assets_root directly (the argv flag is inert on Android — found on device when
+the first proof run fell back to the external path; fixed + re-proven). Desktop: run.sh passes
+--proj-path data --game-root <extracted archive> --iso-overlay iso --custom-assets custom.
+
+== Verifies re-keyed (content + flags) ==
+release_verify.sh rewritten: (1) cgo-pack version == recomputed content hash (arm64 code + effective
+TXT with android overrides); (2) custom-pack member-level md5 + MEMBERSHIP == flag set inverted from
+the APK's own ogflags marker (PNGs iff hud, enhanced iff hd, grassbake always, nothing else);
+(3) R1 3-way pairing libgk == GAME.CGO == custom-pack flags=; (4) NEGATIVE gate: zero vanilla data in
+the APK (no _assets.zip, no iso_data/, no .fr3); (5) archive: members == manifest, paths limited to
+assets/iso/* + assets/fr3/*.fr3, zero port artifact, 6-member random sha256 spot-check, flag-free.
+deploy_verify.sh check 5 added: device files/custom/<game> member md5s == built pack + stamp == version.
+Anti-stub proof: the gate REJECTED two real defects before passing — (a) the stale APK (cgo version
+mismatch), (b) 4 stray stock fr3 leaked into the APK by a tracked assets-slim/fr3 symlink. The build-side
+negative gate had false-PASSed (b) via the pipefail+grep-q SIGPIPE class; both gates now grep a file.
+
+== Proofs ==
+- release_verify PASS (all 5 sections) on the final APK: .autoport/reports/Grecharged-buildsys-packaging/release-verify-2.log + rerun after the android fix.
+- Desktop boot from the split pair alone (tarball + archive extracted in a scratch dir, no repo paths):
+  kernel 2.0 loaded, title + village1 streamed, 59.9 fps at 90 s kill. desktop-boot-pass.log.
+- Device (Redmi eae4df44): external tree reconciled to the archive contract (assets/iso 247, assets/fr3
+  26, name-diff clean vs manifest, 3-file sha256 spot-check OK; all port artifacts removed) —
+  device-tree-reconcile.log. Fresh install: cgo pack re-unpacked (74 files, version c4efba74a2226),
+  custom pack unpacked (2 files, version cdf80aec09571), external mode with
+  customRoot=/data/user/0/org.opengoal.gk.jak1/files/custom/jak1 — device-launch-logcat.log.
+- Custom-set read proof (the requirement that first FAILED honestly): with ZERO .grassbake in the
+  external tree, logcat shows goal_main: custom assets root -> files/custom/jak1 and
+  [recharged-grass] PLACE-TIME mode=precomputed bake=/data/user/0/org.opengoal.gk.jak1/files/custom/jak1/fr3/training.grassbake (257 ms, 726670 instances)
+  after a training warp; before the android_goal_main fix the same run read the external path and fell
+  back to live-scan — device-grassbake-proof-2.log vs device-grassbake-proof.log.
+- deploy_verify final: ALL checks ok incl. build==APK==device chain (51d1afe5893ed28a) and the new
+  custom-pack check — deploy-verify-final-2.log. In-game frame captured, app foreground verified.
+
+== Honest residuals / notes ==
+- SCREEN1.USA boot splash resolves via get_jak_project_dir()/out/<game>/iso (upstream quirk, warn-only):
+  absent in the packaged layouts -> no splash image; cosmetic, both targets, pre-existing on Android.
+- jak2/jak3 packaging inherits the generic producers but is unproven (their sources not present/needed).
+- Windows/macOS packaging + docs = P4 per the pillar plan; first-boot pickers + <root>/jakN layout +
+  assets.zip ingest UX + device-harness migration = P3 (the device external tree keeps jak_1 until then).
+- The training live-scan fallback path remains slow (~6 fps, pre-existing known flag) — irrelevant when
+  the precomputed bake loads, which is the shipped configuration.
+- AWAITING OWNER PLAY-TEST per pillar convention (validator + gates green; owner eye = final).

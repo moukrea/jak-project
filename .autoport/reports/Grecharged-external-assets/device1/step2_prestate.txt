@@ -1,0 +1,12 @@
+=== PRE-STATE ===
+--- ls /sdcard/OpenGOAL (expect missing) ---
+ls: /sdcard/OpenGOAL: No such file or directory
+--- df -h /data ---
+Filesystem       Size Used Avail Use% Mounted on
+/dev/block/sda18 105G  79G   26G  76% /data/user/0
+--- asset_root.txt (expect missing) ---
+cat: files/asset_root.txt: No such file or directory
+--- iso_data present? ---
+0COMMON.TXT
+0SUBTIT.TXT
+10COMMON.TXT

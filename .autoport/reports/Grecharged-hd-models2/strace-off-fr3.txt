@@ -1,0 +1,3 @@
+fopen /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3
+fopen /home/emeric/code/jak-project/out/jak1/fr3/title.fr3
+fopen /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3

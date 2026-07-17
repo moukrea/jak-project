@@ -59,7 +59,7 @@ device_stayon_on
 # a `.extracted_v1` sentinel. Wipe it so the fresh APK-bundled arm64
 # CGOs reach the device (vs. a stale x86 extraction left over from an
 # earlier APK install).
-adb shell run-as "$PACKAGE" rm -f "files/iso_data/jak1/.extracted_v1" >/dev/null 2>&1 || true
+adb shell run-as "$PACKAGE" rm -f "files/cgo/jak1/.extracted_v1" >/dev/null 2>&1 || true
 
 device_install_and_launch "$PACKAGE" "$ACTIVITY" "$APK"
 

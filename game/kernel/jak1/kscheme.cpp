@@ -12,7 +12,9 @@
 // Gjak2-render JAK1-ON-JAK2 call-site enumerator: log when jak1 symbol-table
 // functions fire during a jak2 boot (should be ZERO). Instrumentation only.
 #include <atomic>
+#ifndef _WIN32
 #include <dlfcn.h>
+#endif
 
 #include "common/versions/versions.h"  // GameVersion
 
@@ -59,6 +61,7 @@ void kscheme_init_globals() {
 // atomic counter so it can't spam-loop. Symbolizes the caller via dladdr.
 // Instrumentation only; no behavior change; never fires for a jak1 run.
 static std::atomic<int> g_jak1_on_jak2_log_count{0};
+#ifndef _WIN32
 static inline void jak1_on_jak2_guard_log(const char* fn, void* ra) {
   if (g_game_version != GameVersion::Jak2) {
     return;
@@ -72,6 +75,21 @@ static inline void jak1_on_jak2_guard_log(const char* fn, void* ra) {
 }
 #define JAK1_ON_JAK2_GUARD_LOG() \
   jak1_on_jak2_guard_log(__func__, __builtin_return_address(0))
+#else
+// Windows has no dlfcn.h / __builtin_return_address symbolization. Keep the
+// same bounded, log-only diagnostic but without caller symbolization so every
+// call site still compiles.
+static inline void jak1_on_jak2_guard_log(const char* fn) {
+  if (g_game_version != GameVersion::Jak2) {
+    return;
+  }
+  if (g_jak1_on_jak2_log_count.fetch_add(1) >= 40) {
+    return;
+  }
+  fprintf(stderr, "JAK1-ON-JAK2 fn=%s\n", fn);
+}
+#define JAK1_ON_JAK2_GUARD_LOG() jak1_on_jak2_guard_log(__func__)
+#endif
 
 /*!
  * New method for types which cannot have "new" used on them.
@@ -103,8 +121,13 @@ u64 alloc_from_heap(u32 heapSymbol, u32 type, s32 size, u32 pp) {
   // bits[16:31] and would SIGSEGV on the Ptr<Type> deref below. jak1 behavior
   // is otherwise unchanged. Cheap: single unsigned compare on the happy path.
   if (type != 0 && (u32)type >= (u32)EE_MAIN_MEM_SIZE) {
+#ifndef _WIN32
+    void* _ra = __builtin_return_address(0);
+#else
+    void* _ra = nullptr;
+#endif
     std::fprintf(stderr, "JAK2-BADPTR-ALLOC type=0x%x size=%d obj=%s caller=%p\n",
-                 type, size, g_gk_current_link_object, __builtin_return_address(0));
+                 type, size, g_gk_current_link_object, _ra);
   }
   ASSERT(size > 0);
 

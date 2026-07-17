@@ -1,0 +1,224 @@
+RESULT: GRASS OVERHANG round 7 — verdict (a) ROOT-CAUSED AND FIXED, then owner-rescoped deliverable proven at TRAINING: the v6 3-zone overhang renders at the owner vantage via the REAL flow, and the LIVE menu-toggle chain (menu -> disk -> C++ draw) is proven working end-to-end on the Redmi.
+
+== Verdict: (a) zones were NOT RENDERING where the owner judged — root cause + fix ==
+Root cause (commit e8005f593): the grass system was HARDCODED to level 'training' while the owner
+judged at Sentinel Beach / Sandover (his session log had village1+beach only, zero PLACE-TIME lines).
+Fix: grass level allowlist {training, beach} in background_common.h; GrassRenderer render/rebuild
+resolve the level (bake path, scan, census); beach.grassbake baked (GBK7, 269288 inst).
+The menu/toggle chain itself was NEVER broken — proven live below (the owner's wind cross-hint
+suspicion is disproven for this build).
+Owner rescope 2026-07-14 19:15: overhang judged on TRAINING (Geyser Rock) as originally planned;
+village1/Sandover bake + game-wide allowlist audit = DEFERRED follow-up (supervisor flag on record).
+PURPLE: fixed at the root before this proof — corrupted enhanced fr3s deleted from device, toggle #f,
+absent-file falls back to stock, all-magenta impossible; no enhanced fr3 recreated in this phase.
+
+== Deliverable at TRAINING (owner vantage: training-start terraces, facing the platforms) ==
+Real flow: force-stop, plain am start (launcher path), owner settings file UNTOUCHED, warp to
+vantage (-1310.2 52.8 989.0). Focus proof every capture:
+  mCurrentFocus=Window{345ba4d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+Boot census (T-training-boot-logcat.log, zero sig 11/6/4 crashes, mode=precomputed GBK7 355ms):
+  [recharged-grass] GOVERHANG expand: droop_tris=1897 z2_strip=32354 comb_repl=452 lean_twins=65842 z3_fall=92928 (tail [616380..807956), toggle=ON)
+  [recharged-grass] training STATIC place: 8 grass-ground draws, 9829 tris kept, 807956 instances
+3D drooping grass on the lip: zone1 boundary lean twins (0.9m band), zone2 tilt-ramp comb on the
+curl mesh (the green descending mesh), zone3 two-layer straight-DOWN fall — the downward hang
+curtain is visible on the terrace lip edges in every ON capture (blades hang below the lip line).
+Far LOD stays the painted level texture — no grass card, cards stop at GRASS CARD DISTANCE 95.
+Near-3D vs the stock alpha overhang texture uses the v2 fringe-fade crossfade (no double-up: the
+zone3 fall covers the hang-alpha faces and the fade blends them; no visible seam at the vantage).
+Walkable-top rim not regressed: the walkable-top stays clean (FLOORBELOW+FLOORGAP per-blade point tests, r#20 LOCKED, untouched; tops in all captures show grass ending at the edge, no floor bleed).
+
+== LIVE menu-toggle proof (menu-toggle3/, cpad nav, NOT file edits) ==
+Recharged Settings toggle row: PAUSE -> CIRCLE -> GRAPHIC OPTIONS -> RECHARGED SETTINGS ->
+GRASS SETTINGS -> GRASS OVERHANG row (N-06/R-06 screenshots confirm highlighted row pre-flip).
+Disk reads after every menu commit (disk-reads.txt):
+  pre-run  (recharged-grass-overhang? #t)
+  after menu OFF flip: (recharged-grass-overhang? #f)   <- menu wrote the file
+  after menu ON flip (left): (recharged-grass-overhang? #t)
+  settings pre==post byte-identical (settings-prerun.gc vs settings-postrun.gc)
+OFF == stock: the toggle is draw-time (GrassRenderer.cpp:1197 draws nondroop_n only when OFF —
+bit-identical to a build without the droop tail); OFF still shows ONLY the stock painted fringe.
+Visual A/B on matched stills: diff heatmap localizes to a bright curtain along the ledge lip
+(the zone3 fall present ON, absent OFF); rest is blade-shimmer noise. 16.11% px >30 field-wide.
+10s in-game videos at the vantage, all jak1 focus-bracketed: live-on.mp4 (ON baseline),
+live-off.mp4 (after menu OFF — overhang gone live, no reboot), live-on2.mp4 (after menu ON —
+overhang restored live). T-training-on.mp4 = boot-time ON baseline from the real-flow boot.
+
+== Tooling bug found + fixed (was attempt-1's blocker, NOT game code) ==
+toggle2's resume (circle x4 + start) never closed the custom grass page — circle ENTERS EDIT on
+these rows and start is ignored deep in the menu; triangle is not whitelisted for grass-settings.
+Proven resume: down -> X on RETOUR -> TRIANGLE (recharged) -> TRIANGLE -> TRIANGLE -> START at root.
+On-off edit mode is DIRECTIONAL: LEFT=OUI, RIGHT=NON (right cannot turn a NON row back on —
+attempt-1's R-stage also nav'd from a menu-open state and edited GRASS DENSITY by mistake; both
+mistakes are gated in toggle3 by pre-flip row screenshots).
+
+== Gates ==
+deploy_verify PASS: device eae4df44 provably runs fresh HEAD libgk.so (chain a2663de4ca08878c).
+Zero crashes in all session logcats. .autoport/gold pristine (untouched).
+DEFERRED (per owner rescope): village1.grassbake + enumeration of remaining grass levels
+(jungle/misty/etc.) so the base lawn is game-wide — queued as the follow-up phase.
+
+== ROUND 8 (supervisor's own read of SUPERVISOR-OWNER-VIEW.png: dark-olive drape / no volume / uniform "eyeliner") ==
+All three defects fixed in the toggle-gated tail only; NO rebake needed (the GBK7 bake's rim-segment
+table already carries the walkable lawn colour + owning-tri per lip edge, serialized since GBK6).
+1. COLOR (the killer): zone-3 fall blades now inherit the nearest TRUE-RIM segment's WALKABLE-TOP lawn
+   colour AND its baked-light tri (RimDrapeSeg.gr/gg/gb + .tri) instead of the dark drop-face tri; the
+   0.82 inner-layer darkening is DELETED; zone-2 below-rim strip blades inherit the same; and the
+   shader's vertical colour gradient is REVERSED for the fall class (a fall blade's root is its VISIBLE
+   top edge at the lip — the stock dark-base gradient painted the dark stripe exactly there). The drape
+   is now the same green, same brightness as the lawn, continuous across the lip (crop R8-zone-cropA.png).
+2. VOLUME: Z3_LAYERS 2 -> 3 at deeper normal offsets (3/12/21 cm, bake plane-cap mirrored in the
+   shader), ~1.5x wider fall blades with per-blade width variation (wmul 1.15..1.90), a real outward
+   BELLY (bow 2.6-3.9x the v7 term, per-blade varied) so the curtain stands OFF the face with layered
+   parallax. Device census: z3_fall=164167 (layers=3) vs v7's 92928 (layers=2).
+3. EYELINER: deterministic 0.7 m world-XZ cell noise modulates density (mean keep ~0.78) AND length
+   (clump factor 0.85..1.20) in coherent clumps along the lip + per-blade exit-cap jitter (0.80..1.15
+   replaces the fixed 1.05 cap that clamped every blade to the exact strip height = the dead-straight
+   band edge). The silhouette is ragged; ledges are no longer outlined (crops A/B, pan6 lip crops).
+Zone-by-zone self-assessment (owner-reminder enforcement; captures CLOSE to the edge at his vantage,
+warp -1310.2 52.8 989.0 facing the platforms, plus the main-lawn ledge at -1187.4 16.2 932.3):
+  ZONE 1 (walkable boundary lean, no overshoot): R8-zone-cropA.png top edge — lawn blades lean outward
+    over the lip (LEAN1_MAX 0.55 = ~33 deg max, unchanged), no blade shoots past the silhouette.
+  ZONE 2 (blades ON the descending flat-green mesh, following it exactly): R8-zone2b.png — the combed
+    field bends over the curl band and follows the descending surface into the fall; z2_strip=32354
+    (placement unchanged from the proven v7; colour source fixed to the lawn for below-rim strip faces).
+  ZONE 3 (>=2 layers, animated, fully covering the alpha, thick): 3 layers on-device (census layers=3),
+    R8-zone-cropA/C.png show the thick same-green curtain; animation PROVEN by frame diff — 79428 px
+    differ (fuzz 8%) between video frames 2.5 s apart on the drape crop (R8-anim-diff.png), whole-band
+    sway; the near fringe-fade still hides the painted strip (no double-up, crossfade unchanged).
+Evidence set: R8-training.png + R8-training-on.mp4 (boot vantage), R8-edge-rest.mp4 + R8-edge-down.mp4
+(10-12 s at the edge, focus-bracketed jak1 both ends, R8-edge.focus), R8-pan6 series (main-lawn ledge
+straight-on), crops R8-zone-cropA/B/C, R8-zone2b/c, R8-anim-t0/t1/diff. mCurrentFocus=org.opengoal.gk.jak1
+in every capture. Boot: mode=precomputed GBK7 (unchanged bake), PLACE-TIME 515ms, 879195 instances,
+zero sig 11/6/4.
+OFF == stock unchanged: every round-8 edit lives in tail classes (nspare>=3) emitted after droop_start;
+the OFF draw path (nondroop_n, GrassRenderer.cpp:1197) and the walkable field are byte-identical; the
+round-7 LIVE menu-toggle proof (menu->disk->draw) stands.
+deploy_verify PASS round-8 build: chain 2a76129befa74286, device provably runs the round-8 libgk.so.
+
+== ROUND 9 (supervisor filter on R8-zone-cropA REJECTED round 8: dark lip seam + stringy detached tufts) ==
+Both defects are geometry-rooted and fixed in the toggle-gated tail only (no rebake, GBK7 kept; the
+rim-segment table already carries everything needed):
+1. LIP SEAM root cause: the zone-3 curtain rooted ONLY on the hang-alpha FACES, whose top edge sits
+   BELOW the walkable lip — a bare-rock band could always show at the lawn->curtain junction. Fix: a
+   dedicated LIP ROOT ROW of fall blades rooted directly ON the true-rim lip segments (RimDrapeSeg),
+   2 staggered rows at 0.075 m spacing, roots SUNK 0.03 m UNDER the lawn plane (tucked beneath the
+   lawn's overhanging silhouette; the sink also exempts the roots from the lawn-plane tip test), with
+   OUTWARD-SCALED normals (1.8x/1.5x -> 5.4/11.25 cm) so the roots drape OVER the rounded lip bulge
+   instead of hiding inside it. Plane-cap shrink is FLOORED (never dropped): a partially buried tip is
+   invisible, a dropped root re-opens the rock line. The fall blades root slightly inside/under the
+   lawn silhouette and overlap the lip edge: lawn->curtain is one continuous surface, no exposed rock
+   line at the junction (R9-zone-cropA.png, same framing as R8-zone-cropA via template match:
+   R9-edge-down_frames/f_020 == R8-edge-down_frames/f_012 vantage, crop box 496,688 800x380).
+2. STRINGY TUFTS root cause: face-area scatter density (150/m2/layer) + clump thinning (mean keep
+   0.78) left the curtain as separated vertical tongues. Fix: Z3_AREA_DENS 150->210 (budget-clamped),
+   thinning keep 0.55+0.45*cn -> 0.70+0.30*cn (mean 0.85), NO thinning at all within 0.40 m (3D) of a
+   rim (contiguous root line; raggedness comes from length jitter, not root holes), lip-row roots
+   spaced 0.075 m < a root's full width (2*hw*wmul) so neighbouring roots OVERLAP, and wider fall
+   blades in the shader (wmul 1.35..2.20, mean 1.78). The curtain is a connected mass; the ragged
+   bottom silhouette is preserved (length jitter + cell-noise length clumps unchanged).
+Device census (R9b-boot-logcat.log, real flow: plain am start, owner settings untouched, warp
+training-start pos -1310.2 52.8 989.0): GOVERHANG6 zones ... z3_fall=254492 (layers=3 lip=57029),
+mode=precomputed GBK7 unchanged, PLACE-TIME 678ms, instances=969520, ZERO sig 11/6/4 in the session.
+Zone-by-zone self-assessment (all crops CLOSE to the edge at the owner vantage, camera outside the
+ledge looking back — the exact rejected framing):
+  ZONE 1 (boundary lean, no overshoot): R9-crop-z1.png — lawn leans over the lip, no blade shoots
+    past the silhouette; placement code untouched this round (lean_twins=65842 == r8).
+  ZONE 2 (strip following the descending mesh exactly): placement untouched (z2_strip=32354 == r8,
+    same census line); mid-band visible in R9-crop-z2z3.png between the lean band and the curtain;
+    round-8 evidence (R8-zone2b/c) remains the reference for the strip-following.
+  ZONE 3 (>=2 layers, animated, covering the alpha, thick): 3 layers + lip rows on-device (census
+    layers=3 lip=57029); R9-zone-cropA.png shows the thick connected curtain rooted AT the lip;
+    ANIMATED proven by frame diff 2.5 s apart on the same crop: 57370 px differ (R9-anim-t0/t1/diff);
+    the near fringe-fade still hides the painted strip (no double-up, crossfade unchanged).
+Supervisor acceptance points, self-judged on R9-zone-cropA at 2x/4x zoom BEFORE this report:
+  (a) no rock line at the lip junction — the junction is grass-on-grass; the only dark interface left
+      is the thin natural shadow under the lean canopy (grass-dark, not rock; 4x-zoom verified);
+  (b) connected curtain — roots overlap along the lip line, no detached vertical strips.
+Walkable-top rim not regressed (r#20 FLOORBELOW/FLOORGAP untouched; tops in all captures clean at the
+edge). Far LOD unchanged: texture only, no grass card past the card band.
+OFF == stock unchanged: every round-9 blade lives in the tail fall class (nspare>=7) emitted after
+droop_start; the OFF draw path (nondroop_n, GrassRenderer.cpp:1197) is byte-identical; the round-7
+LIVE menu-toggle proof (menu -> disk -> C++ draw, cpad nav) stands — no toggle-chain code touched.
+Perf note (honest): training renders ~10.6M tris at 166 render_ms vs r8's 9.9M/157ms (+7%, the lip
+rows + density). The heavy training render PRE-DATES round 9 (r7 logs: 135-153ms) — flagged as a
+possible follow-up (grass LOD budget at training), not a round-9 regression.
+deploy_verify PASS round-9 build: chain ad95e24349629ec5, device provably runs the round-9 libgk.so.
+mCurrentFocus=org.opengoal.gk.jak1 bracketed in every capture (R9-edge.focus, R9-pan.focus).
+Evidence: R9-zone-cropA.png (the acceptance recapture), R9-edge-down.mp4 (13 s at the edge),
+R9-crop-z1.png, R9-crop-z2z3.png, R9-anim-t0/t1/diff.png, R9-pan.mp4/R9-pan2.mp4/R9-below.mp4
+(approach + below sequences), R9-boot-logcat.log + R9b-boot-logcat.log (census, zero crashes).
+
+== ROUND 11 (supervisor DESIGN PIVOT df1486b45 after the owner's R10 reject "toujours autant à CHIER":
+zone-3 fall = TEXTURED CARDS sampling the game's own hang-alpha texels; solid-colour quads are dead) ==
+RESULT: GRASS OVERHANG round 11 — zone-3 rebuilt as textured hang cards; deployed + captured on the Redmi.
+WHAT CHANGED (all in the toggle-gated tail + bake scan; zones 1-2 byte-identical to round 10):
+1. PRIMITIVE: the R8-R10 solid fall classes (nspare 7.x face scatter + lip root rows, 254492 blades)
+   are DELETED. Zone 3 is now 11642 CARDS (nspare 9+layer, +0.5 = texture select) rooted on the
+   RimDrapeSeg true-rim lip segments (0.55 m spacing/layer, 0.80 m width => roots overlap, sunk 5 cm
+   under the lawn plane), in 3 outward-offset layers (5/15.5/26 cm). Each card is the existing
+   10-vert blade strip stretched into 4 stacked quads hanging straight down over the drop face.
+2. TEXELS: the frag samples bch-grassfringe / bch-leafyground-hang-2x1 — the EXACT resident texture
+   pages the native painted strip uses (renderer resolves them by debug_name from the level texture
+   table, the same lookup TFragment/Tie3 use for the near-fade; no new assets). Alpha-cut 0.45 like
+   the native strip => texel-identical tufts, crisp ragged silhouette. Card colour = texel * the
+   ground's DYNAMIC baked light from the owning WALKABLE lawn tri => same green, same time-of-day
+   response as the lawn above (no tonal seam at the lip; R8 rule kept).
+3. PER-FACE ART: the bake scan now records WHICH strip texture each hang face carries (BakeTri flags
+   bit6; layout unchanged, GBK format 7 kept — an old bake reads bit6=0 and falls back to grassfringe).
+   Cards over leafyground faces sample leafyground (training: texb=3176 of 11642; beach: all 6874).
+4. DEPTH: per-root hang depth = deepest strip-bottom vertex below the lip (+0.35 m margin, clamped
+   0.45..2.4 m, tip_violates-shrunk FLOORED) => the cards cover the full painted band and stop —
+   "recouvrant entièrement où serait la texture" is now literal: animated multi-layer copies of the
+   strip replace the flat one.
+5. ANIMATION: per-layer sway (frequency 0.8+0.25*layer, bottom-weighted, per-card phase) + per-layer
+   UV offset/flip so layers never ghost; per-card length jitter (0.85..1.15) raggs the bottom.
+6. NEAR GUARD: cards collapse only within 0.12-0.30 m of the camera (NOT the 1.1 m blade guard —
+   R10 defect 3 "strip visible up close" was the cover vanishing exactly where the owner stands).
+   Fill is bounded: 11642 cards total vs 254k blades; worst-case near overdraw is a handful of cards.
+SUPERVISOR R10 POINTS, self-judged at the acceptance distance (camera at the edge, 2x/4x crops):
+1. NO PLATES: the hang is native strand art at texel scale (R11-cropF-lip3x.png, R11-cropA-lip4x.png)
+   — individual pointed strands, not wide flat quads; width impression comes from the texture itself.
+2. NO FLAT COLOUR: each strand carries the texture's own gradient/variation — the same shading the
+   native strip shows, because it IS the native art.
+3. STRIP NOT VISIBLE NEAR: the tfrag/TIE fringe-fade band is unchanged and what the camera sees at
+   the lip IS the card band — proven ANIMATED (R11-anim-t0/t1/diff.png: 70206 px differ, fuzz 8%,
+   between frames 2.5 s apart on the A lip band; the painted strip is static) and the cards no longer
+   vanish at close range (near guard 0.30 m, item 6).
+ZONE-BY-ZONE self-assessment (owner-reminder enforcement; captures CLOSE to the edge at his vantage):
+  ZONE 1 (walkable boundary lean, no overshoot): placement code untouched (census lean_twins=65842
+    == R10); the lawn leans over the lip continuously into the card band (R11-cropA-lip4x.png top).
+  ZONE 2 (blades ON the descending strip, following it exactly): untouched (z2_strip=32354 == R10);
+    the combed field still bends over the curl band into the fall (R11-A.mp4, R8-zone2b reference).
+  ZONE 3 (>=2 layers, animated, entirely covering the alpha, thick): 3 card layers on-device (census
+    CARDS layers=3), animation frame-diff proof above, per-root depth covers the strip band, layered
+    parallax visible in the F lip-pass frames (R11-device-frames-F/f_020-f_026, best f_022).
+DEVICE EVIDENCE (real flow: plain am start, owner settings file UNTOUCHED and verified verbatim —
+recharged-grass? #t / precomputed? #t / overhang? #t persisted from R10; R11-owner-settings-asis.gc):
+  census [recharged-grass] GOVERHANG6 zones: ... z3_fall=11642 (CARDS layers=3 texb=3176) ... on
+  EVERY session (A/B/C/D/E/F, ==desktop x86 bake exactly); R11 hang-card textures resolved:
+  grassfringe=1157 leafy2x1=1156; PLACE-TIME mode=precomputed total=239-248ms (vs R9 678ms, 2.8x
+  faster) instances=726670; ZERO sig 11/6/4 across all six sessions (signal 9 lines = our own
+  force-stop between sessions, per the signal-9 rule).
+  mCurrentFocus=org.opengoal.gk.jak1 bracketed before AND after every capture (R11-A/B/C/D/E/F.focus).
+  Captures: R11-A.mp4 (12 s owner vantage -1310.2 52.8 989.0 facing the platforms), R11-B.mp4 (12 s
+  main-lawn ledge -1187.4 16.2 932.3), R11-F.mp4 (18 s lip-pass: backward walk over the ledge, the
+  follow-cam passes the lip at the owner's judging distance — frames f_020/f_022/f_024/f_026).
+  Acceptance crops: R11-cropF-lip3x.png (the 3x lip crop: grass-on-grass junction, no rock line,
+  connected native-art curtain, ragged bottom), R11-cropA-lip2x/4x.png, R11-anim-t0/t1/diff.png.
+PERF: training render 8.68M tris @ 145-158 ms vs R9's 10.6M @ 166 ms (tail -18% tris; the training
+  heaviness PRE-DATES the overhang work and remains a flagged follow-up). Placement 2.8x faster.
+FAR LOD unchanged: cards live in the blade pass with the standard near-LOD fade-out, so at distance
+only the original alpha overhang texture shows, no grass card past the band — far = texture, no cards.
+CROSSFADE unchanged: the tfrag/TIE fringe-fade hides the painted strip near over the exact band the
+cards fade in, so there is no double-up and no seam in the transition.
+WALKABLE-TOP rim not regressed: r#20 FLOORBELOW/FLOORGAP untouched, tops clean at the edge in every
+capture — the walkable-top edge does not regress.
+TOGGLE / OFF == stock: every round-11 instance lives in the tail after droop_start; the OFF draw path
+(nondroop_n, GrassRenderer.cpp) is byte-identical and OFF == stock untouched; the Recharged settings
+menu toggle chain is unchanged — the round-7 LIVE menu-toggle proof (menu -> disk -> C++ draw, cpad
+nav) stands. Texture binds are GL-state-only inside the recharged grass pass.
+DEPLOY: deploy_verify PASS — chain a54a7fb8d1c47c66 (build==APK==device), device provably runs the
+round-11 libgk.so; fresh GBK7 bakes pushed (training b6e387876b245285, beach f0b5c0b443c67199,
+device sha == local) plus their exact matching fr3s (stale-fr3 'size mismatch -> live fallback' found
+on first boot and fixed by pushing the consistent pair — same build tree, no mixed build).
+DEFERRED (unchanged from the owner rescope): village1/Sandover bake + game-wide grass allowlist audit.

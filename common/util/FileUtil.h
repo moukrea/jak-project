@@ -38,6 +38,24 @@ fs::path get_jak_project_dir();
 fs::path get_iso_dir_for_game(GameVersion game_version);
 void set_iso_data_dir(const fs::path& directory);
 
+// External per-game "game root" support. When set, arch-independent assets and
+// saves resolve under this root instead of the legacy jak-project/out + config
+// directories. When unset, behavior is EXACTLY the legacy behavior.
+void set_external_game_root(const fs::path& root);
+std::optional<fs::path> get_external_game_root();
+void set_iso_overlay_dir(const fs::path& p);
+std::optional<fs::path> get_iso_overlay_dir();
+// Custom-assets root: port-custom assets (recharged PNGs, .grassbake, enhanced
+// fr3) shipped inside the package (APK-internal / desktop archive), distinct
+// from the external/vanilla data tree. When set, takes precedence.
+void set_custom_assets_root(const fs::path& p);
+std::optional<fs::path> get_custom_assets_root();
+std::optional<fs::path> get_custom_fr3_dir();
+fs::path get_iso_out_dir(GameVersion game_version);
+fs::path get_fr3_dir(GameVersion game_version);
+fs::path get_recharged_assets_dir();
+fs::path get_custom_assets_replacements_dir(GameVersion game_version);
+
 bool create_dir_if_needed(const fs::path& path);
 bool create_dir_if_needed_for_file(const std::string& path);
 bool create_dir_if_needed_for_file(const fs::path& path);

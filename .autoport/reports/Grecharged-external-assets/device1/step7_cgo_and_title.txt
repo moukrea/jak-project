@@ -1,0 +1,35 @@
+=== CGO-related lines ===
+07-14 00:56:26.486 18860 18860 I opengoal-gk: NativeGk.setIsoOverlay: /data/user/0/org.opengoal.gk.jak1/files/cgo/jak1
+07-14 00:56:26.486 18860 18860 I opengoal-gk: external asset mode: gameRoot=/storage/emulated/0/OpenGOAL/jak_1 isoOverlay=/data/user/0/org.opengoal.gk.jak1/files/cgo/jak1
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: argv=[gk --game jak1 --game-root /storage/emulated/0/OpenGOAL/jak_1 --iso-overlay /data/user/0/org.opengoal.gk.jak1/files/cgo/jak1 -fakeiso -iso-data /data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1 -boot -debug-mem]
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: argv[6]=/data/user/0/org.opengoal.gk.jak1/files/cgo/jak1
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: iso overlay dir -> /data/user/0/org.opengoal.gk.jak1/files/cgo/jak1
+=== game-root in argv (fixed grep) ===
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: argv=[gk --game jak1 --game-root /storage/emulated/0/OpenGOAL/jak_1 --iso-overlay /data/user/0/org.opengoal.gk.jak1/files/cgo/jak1 -fakeiso -iso-data /data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1 -boot -debug-mem]
+07-14 00:56:26.862 18860 19497 I opengoal-gk: goal_main: argv[3]=--game-root
+=== link finish / logo / title / vblank markers ===
+07-14 00:58:30.368 18860 19508 D opengoal-gk: link finish: logo-loop
+07-14 00:58:32.155 18860 19484 I GK_STDOUT: A42-STRCLK vblank=7501 strpos=36975 id=66826 fake=1/0
+07-14 00:58:32.586 18860 18860 I opengoal-gk: GTT-TAP: title-screen tap -> synthetic START pulse (button0 bit 3 for 4 cpad polls)
+07-14 00:58:35.998 18860 19484 I GK_STDOUT: A36-STR-DIAG rpc name="logo-loop" chunk=0 ee_addr=0xc1c00 maxlen=0x3fc00
+07-14 00:58:36.028 18860 19508 D opengoal-gk: link finish: logo-loop
+07-14 00:58:36.521 18860 19508 I opengoal-gk: GAMEPLAY: enter title
+07-14 00:58:36.537 18860 19508 I opengoal-gk: Discarding level title
+07-14 00:58:36.537 18860 19508 I opengoal-gk: ----------- kill #<level active title @ #x5119d4> (status active)
+07-14 00:58:36.637 18860 19508 D opengoal-gk: link finish: training-obs
+07-14 00:58:36.721 18860 19508 D opengoal-gk: link finish: training-part
+07-14 00:58:36.787 18860 19508 D opengoal-gk: link finish: tpage-1309
+07-14 00:58:36.805 18860 19508 D opengoal-gk: link finish: tpage-1311
+07-14 00:58:36.822 18860 19508 D opengoal-gk: link finish: tpage-1310
+07-14 00:58:36.837 18860 19508 D opengoal-gk: link finish: tpage-1308
+07-14 00:58:36.855 18860 19508 D opengoal-gk: link finish: tpage-775
+07-14 00:58:36.871 18860 19508 D opengoal-gk: link finish: ecovalve
+07-14 00:58:36.888 18860 19508 D opengoal-gk: link finish: jng-iris-door
+07-14 00:58:36.904 18860 19508 D opengoal-gk: link finish: plat-eco
+07-14 00:58:36.921 18860 19508 D opengoal-gk: link finish: pontoonfive
+07-14 00:58:36.938 18860 19508 D opengoal-gk: link finish: scarecrow-a
+07-14 00:58:36.955 18860 19508 D opengoal-gk: link finish: scarecrow-b
+07-14 00:58:36.972 18860 19508 D opengoal-gk: link finish: sharkey
+07-14 00:58:36.989 18860 19508 D opengoal-gk: link finish: trainingcam
+07-14 00:58:37.005 18860 19508 D opengoal-gk: link finish: warp-gate-switch
+07-14 00:58:37.022 18860 19508 D opengoal-gk: link finish: warpgate

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# gres_refine_deploy.sh — deploy the Gres-picker REFINEMENT (aspect-adaptive NATIVE).
+# gres_refine_deploy.sh — deploy the Gres-picker REFINEMENT ^aspect-adaptive = NATIVE.
 # GOAL-only change (progress-pc.gc) -> rebuild arm64 CGOs only; libgk unchanged from
 # the on-device 90a7a1dce build, so this is a CGO-only consistent push on a fixed
 # libgk (the established practice for the prior 3 Gres iterations). Pushes the 28
-# consistent arm64 CGO/DGO from out/jak1-arm64-full/iso to files/iso_data/jak1, sha256-
+# consistent arm64 CGO/DGO from out/jak1-arm64-full/iso to files/cgo/jak1, sha256-
 # verifies each, runs deploy_verify, then boots to the attract.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -21,16 +21,16 @@ if adb shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; then die "DEV
 ncgo=$(ls "$CGO_SRC"/*.CGO "$CGO_SRC"/*.DGO 2>/dev/null | wc -l)
 [ "$ncgo" -eq 28 ] || die "expected 28 CGO/DGO in $CGO_SRC, got $ncgo"
 
-echo "== 1. push the CONSISTENT arm64 CGO/DGO set (28 files) -> files/iso_data/jak1 =="
+echo "== 1. push the CONSISTENT arm64 CGO/DGO set (28 files) -> files/cgo/jak1 =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
 fail=0
 for f in "$CGO_SRC"/*.CGO "$CGO_SRC"/*.DGO; do
   n=$(basename "$f")
   want=$(sha256sum "$f" | awk '{print $1}')
   adb push "$f" "/data/local/tmp/$n" >/dev/null 2>&1 || { echo "  PUSH-FAIL $n"; fail=1; continue; }
-  adb shell run-as $PKG cp "/data/local/tmp/$n" "files/iso_data/jak1/$n" || { echo "  CP-FAIL $n"; fail=1; }
+  adb shell run-as $PKG cp "/data/local/tmp/$n" "files/cgo/jak1/$n" || { echo "  CP-FAIL $n"; fail=1; }
   adb shell rm -f "/data/local/tmp/$n" >/dev/null 2>&1 || true
-  got=$(adb shell run-as $PKG sha256sum "files/iso_data/jak1/$n" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$(adb shell run-as $PKG sha256sum "files/cgo/jak1/$n" 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] || { echo "  VERIFY-FAIL $n want=$want got=$got"; fail=1; }
 done
 [ "$fail" -eq 0 ] || die "consistent CGO push failed (one or more files)"

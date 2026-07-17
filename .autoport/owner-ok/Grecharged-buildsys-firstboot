@@ -1,0 +1,29 @@
+gate-close Grecharged-buildsys-firstboot (PILLAR P3) — supervisor-verified 2026-07-17
+
+Validator PASSED (in state.validator_passed). I verified the device proofs MYSELF, not worker
+metrics:
+- jakN tree: redmi-tree.txt shows /storage/emulated/0/OpenGOAL/jak1/{assets,custom_assets,saves}
+  (jak_1 -> jak1 rename confirmed; fr3/iso/recharged_assets present).
+- settings.ini round-trip: menu toggled FPS counter ON -> committed `fps-counter? = #t` into
+  settings.ini (redmi-roundtrip-fps-counter-flip.txt) -> reboot -> I EYEBALLED redmi-roundtrip-fps.png:
+  title renders correctly with "FPS 55" overlay = the flag was read back and applied. Fresh boot
+  commits defaults ("PC Settings not found ... initializing with defaults!" + write). settings.ini
+  is valid INI (version hex + 81 keys).
+- custom_assets override: redmi-custom-override.png shows magenta vil1-jng-leafyground on device
+  during the title flythrough (+ logcat "custom texture replacement: village1-vis-tfrag/
+  vil1-jng-leafyground"). Bonus OOB crash (replacement PNG larger than native) fixed (0a213d6f9).
+- Redmi cutover with saves preserved: redmi-backup-manifest.txt = 9 memory-card banks (67584 B each)
+  + pc-settings.gc backed up before wipe; clean install -> SAF picker -> tree created -> saves
+  restored -> 2nd boot straight to game (external asset mode gameRoot=.../jak1, no chooser).
+- Fresh-install SIGABRT fixed: KERNEL.CGO now loads from files/cgo/jak1 overlay (159664 bytes,
+  redmi-cgo-overlay-fix-proof.txt) — this would have crashed the owner's Honor fresh install.
+- Harness migration (116 files) + harness_smoke static+device PASS.
+
+Honest limitations accepted: first-boot video overran the title beat (chain proven by frame trio +
+tree + logcat instead); Windows/macOS pickers code-complete but unproven locally (P4 CI); jak2/3 INI
+conversions compile but not play-tested (jak2 parked).
+
+NOT pushed to jak-builds — the pillar is incomplete until P4 (CI + docs) produces the real per-target
+build artifacts. Owner's Honor cutover stays owner-triggered per his mandate.
+
+Advancing to P4 Grecharged-buildsys-cidocs.

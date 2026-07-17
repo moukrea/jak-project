@@ -1,0 +1,6 @@
+OWNER VALIDATED 2026-07-17 (verbatim): "Parfait ! On y reviendra peut-être un jour sur le tuning, mais on
+a quelque chose qui tient la route là, c'est parfait, beau boulot !"
+Phase complete: SSAO/HBAO/GTAO + AO Quality (Low/Med/High) + AO Strength (Weaker/Default/Stronger,
+conditional row), golden-rule ambient-fraction composite, water/alpha excluded, grazing gates, safe-boot,
+banding fixed (texel-center snap), HBAO/GTAO broad depth (SSAO model), round-G ladder shift
+(HBAO/GTAO Default=old Weaker). 7 defects + rounds F/G, all supervisor-verified + owner play-tested.

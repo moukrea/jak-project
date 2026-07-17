@@ -1,5 +1,6 @@
 #include "TFragment.h"
 
+#include <bit>
 #include <cstdio>
 #include <cstring>
 
@@ -130,7 +131,7 @@ void TFragment::render(DmaFollower& dma,
         for (int i = 0; i < render_state->num_vis_to_copy && i < 2; i++) {
           if (transfers[i].size_bytes == 128 * 16) {
             for (int b = 0; b < 128 * 16; b++) {
-              pc[i] += __builtin_popcount(transfers[i].data[b]);
+              pc[i] += std::popcount(static_cast<unsigned char>(transfers[i].data[b]));
             }
           } else {
             pc[i] = -1;  // empty (level not active)
@@ -322,11 +323,11 @@ std::string TFragData::print() const {
 void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_kinds,
                             const LevelData* loader_data) {
   const auto* lev_data = loader_data->level.get();
-  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces. Training
-  // only — the recharged grass system is scoped to that level (GrassRenderer.cpp:572); the same bch-*
-  // textures elsewhere (e.g. Sentinel Beach, no droop) must keep their stock path.
+  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces.
+  // Grecharged-grass-overhang7: gate widened from "training" to the grass allowlist — the owner
+  // plays at Sentinel Beach, which uses the same bch-* textures and now gets the droop/fall tail.
   m_fringe_tex_a = m_fringe_tex_b = -1;
-  if (lev_data->level_name == "training") {
+  if (grass_level_enabled(lev_data->level_name)) {
     for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
       const auto& tn = lev_data->textures[ti].debug_name;
       if (tn == "bch-grassfringe") {
@@ -809,7 +810,8 @@ void TFragment::render_tree(int geom,
       fringe_loc = glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "u_fringe_fade");
     }
     if (fringe_loc >= 0) {
-      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m, 0.f);
+      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m,
+                  fringe_fade.dbg);
     }
     fringe_on_state = want;
   };

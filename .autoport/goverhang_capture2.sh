@@ -43,19 +43,18 @@ boot_warp_retry(){ local POS="$1" LOG="$2" TRY ok
     [ "$ok" = 1 ] && { sleep 14; return 0; }
   done
   return 1; }
-SETFILE="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETFILE="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 # set a key to a value; INSERTS the overhang key after recharged-grass? when missing
 set_key(){ local KEY="$1" VAL="$2" TMP=/tmp/gov2_pcset.gc
-  $ADB shell run-as $PKG cat "$SETFILE" </dev/null | tr -d '\r' > "$TMP" || return 1
-  if grep -q "(${KEY} " "$TMP"; then
-    sed -i "s/(${KEY} [^)]*)/(${KEY} ${VAL})/" "$TMP"
+  $ADB shell cat "$SETFILE" </dev/null | tr -d '\r' > "$TMP" || return 1
+  if grep -q "^${KEY} = " "$TMP"; then
+    sed -i "s/^${KEY} = .*/${KEY} = ${VAL}/" "$TMP"
   else
-    sed -i "s/(recharged-grass? #t)/(recharged-grass? #t)\n  (${KEY} ${VAL})/" "$TMP"
-    grep -q "(${KEY} " "$TMP" || return 1
+    sed -i "s/^recharged-grass? = #t/recharged-grass? = #t\n${KEY} = ${VAL}/" "$TMP"
+    grep -q "^${KEY} = " "$TMP" || return 1
   fi
-  $ADB push "$TMP" /data/local/tmp/gov2_pcset.gc >/dev/null 2>&1 </dev/null || return 1
-  $ADB shell run-as $PKG cp /data/local/tmp/gov2_pcset.gc "$SETFILE" </dev/null || return 1
-  $ADB shell "run-as $PKG grep -E 'recharged-grass-overhang\?|recharged-grass-near-dist' $SETFILE" </dev/null | tr -d '\r'; }
+  $ADB push "$TMP" "$SETFILE" >/dev/null 2>&1 </dev/null || return 1
+  $ADB shell "grep -E '^(recharged-grass-overhang\?|recharged-grass-near-dist) = ' $SETFILE" </dev/null | tr -d '\r'; }
 
 RIM="-1324.5 52.2 973.9"   # same RIMCAND10 vantage as gov_rim_on
 

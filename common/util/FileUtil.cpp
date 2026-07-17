@@ -65,6 +65,54 @@ struct {
   bool use_overridden_config_dir_for_saves = true;
 } g_file_path_info;
 
+// External per-game "game root" directory (e.g. /sdcard/OpenGOAL/jak1). When
+// set, arch-independent assets and saves resolve under this root. The tree
+// shape is:
+//   <root>/assets/          (unaltered source-derived vanilla data)
+//   <root>/custom_assets/   (user-dropped texture replacements)
+//   <root>/saves/           (memory cards / save games)
+//   <root>/settings.ini     (persisted user settings, at the root)
+// Unset == legacy behavior.
+std::optional<fs::path> g_external_game_root;
+// Separate iso overlay dir holding per-arch compiled *.CGO/*.DGO (+ platform
+// COMMON.TXT overrides) shipped with the binary.
+std::optional<fs::path> g_iso_overlay_dir;
+// Port-custom assets (recharged PNGs, .grassbake, enhanced fr3) shipped inside
+// the package (APK-internal / desktop archive), distinct from the external
+// vanilla data tree. When set, takes precedence over external/project roots.
+std::optional<fs::path> g_custom_assets_root;
+
+void set_external_game_root(const fs::path& root) {
+  g_external_game_root = root;
+}
+
+std::optional<fs::path> get_external_game_root() {
+  return g_external_game_root;
+}
+
+void set_iso_overlay_dir(const fs::path& p) {
+  g_iso_overlay_dir = p;
+}
+
+std::optional<fs::path> get_iso_overlay_dir() {
+  return g_iso_overlay_dir;
+}
+
+void set_custom_assets_root(const fs::path& p) {
+  g_custom_assets_root = p;
+}
+
+std::optional<fs::path> get_custom_assets_root() {
+  return g_custom_assets_root;
+}
+
+std::optional<fs::path> get_custom_fr3_dir() {
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / "fr3";
+  }
+  return {};
+}
+
 fs::path get_user_config_dir() {
   fs::path config_base_path;
 #ifdef _WIN32
@@ -87,6 +135,11 @@ fs::path get_user_config_dir() {
 }
 
 fs::path get_user_settings_dir(GameVersion game_version) {
+  // External game root takes precedence over the --portable/--config-path override.
+  if (g_external_game_root) {
+    // settings.ini lives at the game root itself (<root>/settings.ini).
+    return *g_external_game_root;
+  }
   auto game_version_name = game_version_names[game_version];
   auto config_dir = get_user_config_dir();
   if (!g_file_path_info.user_config_dir_override.empty()) {
@@ -96,6 +149,10 @@ fs::path get_user_settings_dir(GameVersion game_version) {
 }
 
 fs::path get_user_memcard_dir(GameVersion game_version) {
+  // External game root takes precedence over the --portable/--config-path override.
+  if (g_external_game_root) {
+    return *g_external_game_root / "saves";
+  }
   auto game_version_name = game_version_names[game_version];
   auto config_dir = get_user_config_dir();
   if (!g_file_path_info.user_config_dir_override.empty() &&
@@ -106,6 +163,10 @@ fs::path get_user_memcard_dir(GameVersion game_version) {
 }
 
 fs::path get_user_screenshots_dir(GameVersion game_version) {
+  // External game root takes precedence over the --portable/--config-path override.
+  if (g_external_game_root) {
+    return *g_external_game_root / "saves" / "screenshots";
+  }
   auto game_version_name = game_version_names[game_version];
   auto config_dir = get_user_config_dir();
   if (!g_file_path_info.user_config_dir_override.empty()) {
@@ -115,6 +176,10 @@ fs::path get_user_screenshots_dir(GameVersion game_version) {
 }
 
 fs::path get_user_misc_dir(GameVersion game_version) {
+  // External game root takes precedence over the --portable/--config-path override.
+  if (g_external_game_root) {
+    return *g_external_game_root / "saves" / "misc";
+  }
   auto game_version_name = game_version_names[game_version];
   auto config_dir = get_user_config_dir();
   if (!g_file_path_info.user_config_dir_override.empty()) {
@@ -124,6 +189,12 @@ fs::path get_user_misc_dir(GameVersion game_version) {
 }
 
 fs::path get_user_features_dir(GameVersion game_version) {
+  // External game root takes precedence over the --portable/--config-path override.
+  if (g_external_game_root) {
+    auto path = *g_external_game_root / "saves" / "features";
+    file_util::create_dir_if_needed(path);
+    return path;
+  }
   auto game_version_name = game_version_names[game_version];
   auto config_dir = get_user_config_dir();
   if (!g_file_path_info.user_config_dir_override.empty()) {
@@ -268,6 +339,40 @@ fs::path get_iso_dir_for_game(GameVersion game_version) {
 
 void set_iso_data_dir(const fs::path& directory) {
   g_iso_data_directory = directory;
+}
+
+fs::path get_iso_out_dir(GameVersion game_version) {
+  if (g_external_game_root) {
+    return *g_external_game_root / "assets" / "iso";
+  }
+  return get_jak_project_dir() / "out" / game_version_names[game_version] / "iso";
+}
+
+fs::path get_fr3_dir(GameVersion game_version) {
+  if (g_external_game_root) {
+    return *g_external_game_root / "assets" / "fr3";
+  }
+  return get_jak_project_dir() / "out" / game_version_names[game_version] / "fr3";
+}
+
+fs::path get_recharged_assets_dir() {
+  // Precedence: package-shipped custom assets > external vanilla tree > project.
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / "recharged_assets";
+  }
+  if (g_external_game_root) {
+    return *g_external_game_root / "assets" / "recharged_assets";
+  }
+  return get_jak_project_dir() / "recharged_assets";
+}
+
+fs::path get_custom_assets_replacements_dir(GameVersion game_version) {
+  if (g_external_game_root) {
+    // Flat user drop dir: <root>/custom_assets.
+    return *g_external_game_root / "custom_assets";
+  }
+  return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] /
+         "texture_replacements";
 }
 
 std::string get_file_path(const std::vector<std::string>& input) {

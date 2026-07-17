@@ -56,3 +56,269 @@ the SSAO pass (depth source, half-res, blur, composite), the alpha-exclusion han
 toggle, fps ON/OFF, device captures ON vs OFF incl. the alpha-foliage risk beat.
 ## Locks: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; gold READ-ONLY; force-stop after tests.
 ## Max: max_turns 3500, max_retries 6. device: true, owner_verify: true.
+
+## OWNER DEVICE TEST — THREE DEFECTS (2026-07-15 11:45, verbatim, Redmi training level)
+"Déjà le build sur Redmi, à Sandover rend toujours quasiment tout sans texture (tout est violet)...
+j'ai été sur le niveau d'entraînement et j'ai testé tous les modes d'occlusion ambiante... ça dit
+unknown ID <number> pour quasiment toutes les entrées et en plus... il n'y a aucune différence quand
+c'est on ou off"
+1. PURPLE at Sandover: root cause was the RECALLED round-2 enhanced overlay being re-pushed by asset
+   syncs (it still lived in out/jak1/fr3/enhanced). SUPERVISOR FIXED: overlay moved out of out/jak1
+   (archived .autoport/recalled/), deleted on-device, setting #f. NO worker may reintroduce enhanced/
+   fr3s (feature recalled until hd-models3).
+2. "unknown ID <number>" on almost every AO menu row: the new menu strings are MISSING from the text
+   banks deployed on the device. Ship the TEXT entries with the build: regenerate the text banks (TXT
+   in the iso set) as part of the full consistent build and deploy them (deploy_verify_assets covers
+   iso files). A menu with unknown IDs is an automatic gate FAIL.
+3. AO ON vs OFF: NO VISIBLE DIFFERENCE on device (owner cycled all modes at training). Required proof:
+   (a) AOPERF line showing mode CHANGES when the menu row changes (the earlier log only ever showed
+   mode=0 — verify the menu->settings->renderer push end-to-end on DEVICE, same class as past toggle
+   bugs); (b) same-beat A/B captures where SSAO/HBAO/GTAO each produce a VISIBLE darkening difference
+   vs OFF (corner/contact shadows) measurable by pixel-diff in the occluded regions AND visible to a
+   human; (c) mode differences also visible between variants at High quality.
+The owner tested mid-phase: after fixes, redo the full device proof and leave the device in a clean
+bootable state (no mixed deploys).
+
+## DEFECT #4 — THE AO PASS BREAKS LEVEL TEXTURING (2026-07-15 12:40, supervisor-proven)
+The owner's "tout violet à Sandover" was NOT data: with the AO-WIP libgk, the title flythrough renders
+the world purple (missing textures); after restoring the published (pre-AO) libgk on the SAME
+stock-verified fr3 set, textures are back. The AO pass leaks GL state (texture unit binding / FBO /
+sampler state) into subsequent level draws. MANDATORY:
+- Fix the state leak (save/restore all GL state the AO pass touches; rebind after the pass).
+- PROOF before ANY device redeploy: boot to the title flythrough and verify the world is TEXTURED with
+  AO compiled in (all modes, including OFF). A purple/magenta world = automatic FAIL, do not proceed.
+- The device currently runs the published clean build + stock-verified fr3 set; leave it that way
+  unless your build passes the textured-title check.
+
+## OWNER DATAPOINT on defect #4 (2026-07-15 12:50, verbatim): "C'est pas violet sur le build x86, le
+problème n'est visible que sur le Redmi, je pense que c'est un problème d'assets ou un truc du style"
+=> Asset FILES are excluded by the supervisor A/B (same stock-verified fr3 set on device; swapping ONLY
+libgk toggles the purple). Combined with the owner's x86-clean datapoint: the breakage is GLES/ANDROID-
+SPECIFIC in the AO pass — desktop GL tolerates what Adreno GLES does not. Prime suspects (known classes
+here): FBO attachment formats/completeness on GLES, texture-unit/sampler state not restored after the AO
+pass, glActiveTexture leakage, depth-texture sampling setup, mediump. Debug ON DEVICE (the x86 render
+proves nothing for this bug); the textured-title gate runs ON DEVICE before any redeploy.
+
+## OWNER CAPTURE PROTOCOL (2026-07-15 13:50, verbatim — applies to EVERY device capture in this phase)
+"Le rendu sur le Redmi est en ultra basse résolution... va sur un niveau genre le niveau d'entraînement,
+bloque en pleine résolution et désactive l'herbe pour gagner un peu de perf, ça t'évitera de faire des
+screens sur de la résolution pourrie !"
+=> For ALL AO evidence captures on the Redmi:
+1. LOCK FULL render resolution: disable dynamic render scale / force scale 1.0 in pc-settings (the PC
+   options system rows exist — find the keys, set them for the run; restore after).
+2. DISABLE recharged-grass? (#f) during AO capture runs to reclaim the perf headroom that keeps the
+   resolution up (restore #t after the phase's final state).
+3. Capture at the TRAINING level (owner's judging level), camera near geometry with corners/crevices
+   (hut, rocks, terraces) where AO reads.
+Low-res captures are NOT acceptance evidence — retake them.
+
+## DEFECT #5 — GLOBAL DARKENING (owner 2026-07-15 14:20, verbatim + supervisor capture OWNER-VIEW-GLOBAL-DARK.png)
+"Pourquoi tout est si foncé ??? On dirait que le jeu entier est occludé une fois l'occlusion ambiante
+activée ! Tout est extrêmement sombre..."
+Supervisor confirmed on his live view: the WHOLE scene is crushed dark (rocks near-black), not
+crease-localized. The AO term saturates everywhere — classic causes: wrong depth reconstruction on GLES
+(non-linearized depth -> everything "occluded"), AO multiplied over the full framebuffer including lit/
+sky areas, strength/radius mistuned, or double application.
+MANDATORY acceptance for the fix:
+1. Ship an AO-DEBUG view (prop: render the raw AO buffer) — verify the term is ~WHITE (1.0) on open flat
+   ground and sky, dark ONLY in creases/corners/contact areas. Include a debug capture in the report.
+2. Quantified gate: at the training vantage, mean luminance delta ON-vs-OFF over OPEN areas <= ~5%;
+   the darkening must be LOCALIZED (crease crops show it; open-field crops don't).
+3. AO must modulate the AMBIENT contribution, not multiply the final lit color wholesale (no darkening
+   of sky/emissive/fullbright).
+Judge at full resolution per the capture protocol. The owner's screenshot is the counter-example: that
+look = automatic FAIL.
+
+## SUPERVISOR CATCH (2026-07-15 16:20): menu-proof2/* = the MIUI LAUNCHER, not the game
+Your entire menu-proof2 capture series (00-title..04-recharged-row) shows the MIUI home screen — the
+game was NOT foregrounded (crashed or never started) and no focus check was performed. HARD RULE
+(long-standing, violated here): EVERY capture must be focus-bracketed — `dumpsys window | grep
+mCurrentFocus` must show org.opengoal.gk.jak1 IMMEDIATELY BEFORE AND AFTER each screenshot, and the
+values must be saved next to the frame. A capture without its focus bracket is garbage; a launcher
+frame in a proof set = automatic FAIL. Also DIAGNOSE why the game wasn't up (crash during menu nav?
+check the logcat for the session) before re-capturing.
+
+## DEFECT #6 — TITLE CRASH WITH PERSISTED AO MODE (owner report + supervisor repro, 2026-07-15 16:45)
+With the AO-WIP build and the owner's persisted (ambient-occlusion 3)+(ao-quality 2), boot reaches the
+title flythrough, AOPERF flips to mode=3 ~7s in, fps sag 39->29, and the process DIES natively ~15-25s
+later (no Java FATAL; ActivityManager "has died") — the renderscale-resize window. Your glFinish+skip-
+one-frame mitigation is INCOMPLETE for GTAO. Requirements:
+1. The on-device TITLE GATE now runs with EACH persisted mode (off/ssao/hbao/gtao × low/med/high seeded
+   in pc-settings before boot): 2+ minutes alive at title for every combo, textured world, focus checks.
+2. Use the A34 crash-forensics loop on the tombstone to NAME the faulting site (fp-walk + lr windows).
+3. RESILIENCE (required): a crash must never brick boot — implement a safe-boot fallback (e.g. if the
+   previous session died within N seconds of AO enable, boot with AO forced off once and log it).
+4. Supervisor restored the device (published clean APK + ambient-occlusion 0). Do NOT redeploy until
+   the full mode-matrix title gate passes locally on your build.
+
+## OWNER TUNING FEEDBACK (2026-07-15 17:05, verbatim — per-mode strength calibration)
+"SSAO est quasiment impossible à voir une différence avec l'AO off complet, HBAO on voit un poil plus
+mais vraiment bof (du coup aucune valeur ajoutée quasiment) et GTAO on voit la diff pour de vrai"
+=> Calibrate so EVERY tier earns its place, without violating defect #5 (open-area delta <= ~5%):
+- SSAO must be CLEARLY visible vs OFF (raise strength/radius/sample contribution until the crease
+  darkening at the training vantage is unmistakable — target a measured crease-region delta in the same
+  order as GTAO's current one, softer falloff acceptable).
+- HBAO must sit visibly BETWEEN SSAO and GTAO (quality and/or intensity distinguishable from both).
+- GTAO = the current look is the reference ("on voit la diff pour de vrai") — don't regress it.
+- Report per-mode measured crease-delta + open-delta numbers side by side, plus same-vantage crops
+  OFF/SSAO/HBAO/GTAO so the progression is obvious to a human.
+
+## OWNER TUNING #2 (2026-07-15 17:15, verbatim): "la qualité faible fait un rendu pixelisé alors qu'on
+est à pleine résolution, faut flouter ! sinon c'est affreux"
+=> The low-quality AO (computed at reduced internal resolution) composites UNFILTERED — blocky/pixelated
+term over a full-res frame. REQUIRED (and it was in the owner's ORIGINAL spec: "demi-résolution + blur"):
+a depth-aware (bilateral) blur pass on the AO term before compositing, at EVERY quality that computes
+below full res (low certainly, medium if applicable). No visible pixelation/stair-stepping in the AO at
+any quality — close-up crop proof per quality tier (low/med/high at the same vantage). The blur must not
+bleed across depth edges (bilateral weights), or it will halo.
+(Owner precision 17:18: the pixelation was observed on GTAO at low quality specifically — GTAO-low is
+the reference case to fix and prove first; apply the same blur discipline to all modes' sub-full-res
+qualities.)
+
+## OWNER TUNING #3 (2026-07-15 17:25, verbatim — reinforces #1, raises the bar)
+"En vrai SSAO et HBAO sont tous les deux à peine remarquables, dans la plupart des cas on a quasiment
+aucune différence avec l'AO OFF complètement."
+=> BOTH SSAO and HBAO are near-invisible in normal play, not just at one vantage. The calibration target
+is not a marginal measured delta — it is: A PLAYER TOGGLING THE MODE MID-GAME MUST SEE THE CHANGE
+IMMEDIATELY, for EVERY mode. Concretely: boost SSAO and HBAO strength/radius aggressively (their
+character may differ — SSAO soft/broad, HBAO sharper — but both must be unmistakable vs OFF in a normal
+gameplay view, not only in crease close-ups). Keep the defect-#5 open-area cap. Prove with mid-gameplay
+same-vantage A/B for each mode (not just the training crease corner), judged at a glance.
+
+## OWNER CORRECTION (2026-07-15 17:30, verbatim): "GTAO n'est pas la référence intouchable, il y a
+peut-être des soucis avec, c'est des retours rapides que je te fais !"
+=> Retract the "GTAO = untouched reference" framing. GTAO is merely the most VISIBLE so far — it already
+has known issues (title crash defect #6, low-quality pixelation tuning #2) and may have more (over-
+darkening, artifacts, cost). ALL modes stay open to fixes and tuning; the owner's remarks are quick
+impressions, not sign-offs. Nothing in this phase is validated until his final play-test.
+
+## DEFECT #7 — GLOBAL FLOOR + WATER DARKENING ON DEVICE (owner 2026-07-16 00:15, verbatim)
+"SSAO n'est pas vraiment visible, et GTAO a tendance à assombrir les sols et l'eau au global (p'têtre
+les autres aussi), ce qui est bizarre, me semblait que l'AO c'était surtout du détail, pas du shading
+global"
+The owner is CORRECT: AO = local crease/contact darkening; open floors ~untouched, water untouched.
+1. WATER must be EXCLUDED from AO compositing entirely (it renders in the transparency path — AO must
+   apply to the OPAQUE resolve only; if the composite happens after water/transparents, that is a
+   bucket-ordering bug to fix, not tune).
+2. GTAO grazing-angle floors STILL darken globally ON DEVICE — the x86 whiteness proof (open 68%) did
+   NOT transfer. Verify the AO-term whiteness ON DEVICE (debug view capture on the Redmi at a beach/
+   water vantage): open floor and sky ~white, water untouched, creases dark. Device numbers, not x86.
+3. SSAO still not really visible in his quick test — tuning #3 bar stands (mid-game toggle immediately
+   visible); re-verify ON DEVICE after the floor fix (a correct floor term may change perceived
+   strength).
+Acceptance adds a WATER vantage (Sentinel Beach shoreline) to the proof set: OFF/each-mode A/B where the
+water pixels are byte-similar to OFF (delta ~0) and the floor delta stays within the open-area cap.
+
+## OWNER PRECISION on defect #7 (2026-07-16 00:20, verbatim)
+"Après le sol peut quand même recevoir de l'occlusion ambiante hein ! Les objets au-dessus, ce qui le
+touche, etc... Mais juste pas être shaded comme tu dis incidence rasante qui assombrit (juste pour la
+précision)"
+=> Do NOT overcorrect into "floors always white". The floor SHOULD darken where geometry occludes it:
+contact shadows around crates/rocks/props, wall-floor junctions, under overhangs. What must NOT happen
+is the view-dependent grazing-incidence darkening of FLAT OPEN floor with nothing nearby. Acceptance:
+at the proof vantages, floor pixels near objects/walls show contact AO; open flat floor away from any
+occluder stays ~white; water untouched.
+
+## DESIGN PRINCIPLE (owner-sourced, 2026-07-16 — the "golden rule" from a solid AO tutorial he shared)
+"If AO is darkening an area that's already well lit by DIRECT light, it breaks realism. Pros mask AO
+out of directly-lit zones." AO approximates the loss of AMBIENT/indirect light only — it is blind to
+scene lighting, so the COMPOSITE must not be. Implementation guidance for this engine:
+- Scale the AO contribution by the ambient fraction of the pixel's lighting (the bounded ambient-
+  fraction compositing already started is the right shape) — in strongly sun/direct-lit areas the AO
+  effect should approach zero; in shadowed/ambient-dominated areas it reads fully.
+- This is the principled fix behind defect #7's symptoms (grazing floors/water reading as global
+  shading) and behind "AO = detail, not global shading" (owner). Related knobs from the tutorial that
+  map to our settings: small AO distance/radius = tight contact detail (good default), large radius =
+  broad soft occlusion (roomier feel) — per-mode radii already tuned, keep them in this frame.
+
+## OPTIONAL (owner-sourced tutorial, part 2): AO INTENSITY control
+The tutorial's workflow always ends with an intensity trim ("AO's default strength is usually a bit too
+high — brighten the black stop to weaken it"). If cheap: expose an "AO STRENGTH" row (or reuse quality
+row semantics) so the OWNER can trim intensity to taste on his device instead of us guessing the final
+look — a 0.5..1.5 multiplier on the AO term, persisted like the other settings. LOW priority: only after
+the 7 defects + 3 tunings are green; do not let it delay the gate.
+
+## OWNER OVERLAP + PERSISTENT FLOOR FLAT-SHADING (2026-07-16 01:25, verbatim)
+"j'ai p'têtre confu la collecte de preuves sur device, je testais les réglages moi-même avec le build
+qui tournait... (par contre j'ai remarqué que le sol continue de recevoir des aplats de shading qui
+obscurcissent le sol au complet en HBAO et GTAO, pour SSAO je peine à voir une différence quelconque)"
+1. EVIDENCE HYGIENE: the owner was manually changing settings on the device during your proof window —
+   any capture/AOPERF collected in that overlap is SUSPECT. Invalidate and re-run those proofs (your
+   harness seeds settings per run; verify the seed took by reading the settings file back + AOPERF mode
+   line before each capture).
+2. FLOOR FLAT-SHADING PERSISTS in HBAO and GTAO on the build he just tested (post near-field-fade
+   commit): the whole floor still darkens as a flat wash. The ambient-fraction/golden-rule scaling is
+   NOT landing on floors. Debug it with the AO debug view ON DEVICE at a floor vantage: the term must
+   be white on open floor. If the debug view is white but the composite still darkens, the bug is in
+   the COMPOSITE (double application / wrong ambient fraction); if the term is dark, it's still the
+   grazing-angle estimator. Name which, then fix.
+3. SSAO: still no visible difference at all (tuning #3 unmet). After the floor fix, re-tune SSAO
+   strength until mid-game toggle is immediately visible.
+
+## OWNER PLAY-TEST VERDICT — FINAL TUNING ROUND (2026-07-16 09:20, verbatim)
+"SSAO a l'air pas mal, HBAO est très muted on dirait qu'il y a quasiment pas de différence... GTAO est
+très fort à certains endroits mais complètement inexistant à d'autres. Je pense que c'est (pour HBAO et
+GTAO) une histoire de balance. D'ailleurs faut trouver un équilibre pour les trois (SSAO étant la
+référence) qui signifierait la strength par défaut (Default) pour chacun, et ajouter une option
+'<AO_TYPE> strength' visible uniquement quand l'AO est activé où on peut mettre Weaker/Default/Stronger
+(Stronger étant plus accentué que les valeurs de chaque AO type et Weaker étant moins accentué), comme
+ça les utilisateurs peuvent ajuster à leur goût ayant un défaut explicite défini."
+=> WORK ITEMS (the core AO system is owner-accepted in principle; this is the closing round):
+1. BALANCE, SSAO = the perceptual REFERENCE: retune HBAO Default so its visible strength at the same
+   vantages matches SSAO's overall level (currently "très muted"); retune GTAO for CONSISTENCY — its
+   issue is variance (very strong some places, absent others): investigate why (grazing rejection
+   over-culling? radius too small for some geometry scales? near-field fade too aggressive?) and even
+   it out so its Default reads uniformly, at SSAO-comparable overall strength.
+2. NEW MENU ROW: "AO STRENGTH" (localized text, new TXT ids), values Weaker / Default / Stronger,
+   VISIBLE ONLY when ambient-occlusion != Off (same conditional-row mechanism as existing rows).
+   Semantics: a per-mode multiplier triple — Weaker < Default < Stronger — applied on top of each
+   mode's calibrated Default (suggest ~0.6 / 1.0 / 1.5, tune to taste); persisted (ao-strength key);
+   pushed live like mode/quality; AOPERF logs it.
+3. Proofs: same-vantage A/B grid (3 modes × 3 strengths) at training; the defect-5 open-area caps still
+   hold at Stronger; menu proof with focus brackets incl. row hidden when Off; persistence across
+   relaunch; title-gate spot-check (one boot per mode at Stronger).
+
+## OWNER ORDER (2026-07-16 14:25, verbatim): "tu peux drop cette validation alors, 40 minutes de test à
+chaque modif c'est impossible"
+=> The FULL title matrix is DROPPED as a per-change gate. Replacement (fast stability gate, ~3 min):
+ONE persisted boot on the historical worst case (GTAO + High + Stronger), 90s alive at title, purple-scan
++ AOPERF seed check. That's it. The full 15-combo matrix already ran and passed once on the near-final
+build — that stands as the one-time certification; do NOT re-run it. If the current matrix run is still
+in progress, ABORT the remaining combos now and proceed to the report.
+
+## OWNER FINAL PLAYTEST — ROUND F (2026-07-16 16:50, verbatim)
+"Le SSAO est vraiment top ! Ça donne vraiment de la profondeur, les détails pop... Seule critique, en
+résolutions inférieures (qualité AO autre que Élevée) on a des bandes ombrées HORIZONTALES constamment à
+l'écran — je pense une mauvaise gestion du flou lors de la superposition, étant rendu à une résolution
+inférieure. Par contre HBAO et GTAO, oui ça accentue aux zones de contact... mais qu'est-ce que c'est
+PLAT ! Aucune profondeur supplémentaire. SSAO est le meilleur rendu alors que c'est même pas le plus
+coûteux. Donc le SSAO on n'y touche plus (sauf les bandes en résolutions inférieures), et HBAO et GTAO
+doivent prendre inspiration de SSAO, le meilleur élève !"
+=> TWO work items, nothing else:
+1. SSAO LOW/MEDIUM HORIZONTAL BANDING: constant horizontal shaded bands when AO quality != High —
+   upsample/blur bug (suspects: the separable blur V-pass full-res upsample Y-coordinate/texel-offset
+   mismatch against the half/quarter-res H-pass output; or row-aligned sample pattern aliasing at
+   reduced res). Fix so Low/Medium are band-free; SSAO's High look is FROZEN (no estimator/tuning
+   changes — regression = fail).
+2. HBAO/GTAO DEPTH REWORK, SSAO as the model: their contact darkening is fine but they are FLAT — no
+   broad ambient depth. What makes SSAO read deep is its wide soft hemisphere term shading curved/
+   sloped surfaces gradually. Give HBAO and GTAO an SSAO-like broad/soft component (wider radius and/or
+   a second broad-radius term blended with their sharp contact term) so each adds DEPTH like SSAO while
+   keeping its own character. Target: at Default strength, HBAO/GTAO read at least as deep as SSAO in
+   the same vantage A/B. All prior gates hold (open-area caps, water, grazing gate, spot-check 90s).
+Proofs: SSAO low/med band-free close-ups (before/after), same-vantage depth A/B SSAO-vs-HBAO-vs-GTAO,
+spot-check title. Report updates the closing section.
+
+## OWNER FINAL TWEAK — ROUND G, LAST ONE (2026-07-16 22:20, verbatim)
+"C'est vraiment pas mal, mais pour GTAO, la force AO par défaut devrait être exactement celle que c'est
+quand on la passe en Weaker (et donc réduire les valeurs de Weaker et Stronger en conséquence, comme si
+on descendait d'un cran dans l'intensité) car le mode par défaut est beaucoup trop intense pour être une
+valeur par défaut (mais collerait donc très bien au mode 'Stronger'). Exactement pareil pour HBAO. Mais
+on est vraiment pas mal sinon ! Beau travail !"
+=> ONE tiny change, HBAO and GTAO ONLY (SSAO strictly untouched): shift each mode's strength ladder DOWN
+one notch — new Default == current Weaker look EXACTLY; new Stronger == current Default look EXACTLY;
+new Weaker == one proportional notch below new Default (same ratio as the ladder step). Implement as a
+per-mode multiplier-table change (e.g. HBAO/GTAO triples 0.6/1.0/1.5 -> 0.36/0.6/1.0), NOT an estimator
+change. Proof: quick same-vantage A/B (new Default vs old Weaker byte-similar; new Stronger vs old
+Default byte-similar), caps re-check at new Stronger (trivially holds — it's the old Default), 90s
+spot-check, report note. Then the phase is DONE pending the owner's confirmation.

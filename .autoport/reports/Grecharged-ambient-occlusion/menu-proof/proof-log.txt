@@ -1,0 +1,11 @@
+== boot (props cleared, fresh logcat) ==
+disk pre: (ambient-occlusion 0) (ao-quality 2) 
+boot [recharged-ao]: 
+== nav to AO row (start, 2x down, X, down, X, 7x down, X, 4x down) ==
+== AO edits: Off->SSAO->HBAO->GTAO (X, right, X each) ==
+after SSAO commit: disk  | 
+after HBAO commit: disk  | 
+after GTAO commit: disk  | 
+== AO QUALITY: High->Medium (down, X, left, X) ==
+after quality commit: disk  | 
+== back out (down to Retour, X, triangle x2) ==

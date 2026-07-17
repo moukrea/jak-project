@@ -1,0 +1,4 @@
+07-16 15:25:59.591 20139 20204 I opengoal-gk: AOPERF mode=0 quality=1 strength=1 fps=20.7 busy_ms=43.70
+07-16 15:26:05.052 20139 20204 I opengoal-gk: AOPERF mode=0 quality=1 strength=1 fps=23.2 busy_ms=39.13
+07-16 15:26:10.035 20139 20204 I opengoal-gk: AOPERF mode=0 quality=1 strength=1 fps=24.5 busy_ms=36.89
+07-16 15:26:15.425 20139 20204 I opengoal-gk: AOPERF mode=0 quality=1 strength=1 fps=21.5 busy_ms=42.06

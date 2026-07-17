@@ -1,0 +1,79 @@
+== fr3 integrity preamble: device files/out/jak1/fr3 must == out/jak1/fr3 (stock) ==
+  fr3 set OK (all device fr3 == stock out/jak1/fr3)
+== ao_title_gate: PERSISTED-MODE MATRIX (12 boots) + STRENGTH SPOT-CHECK (3 boots) — defect #6 ==
+-- combo off-low (mode=0 quality=0 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 0) (ao-quality 0) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{3fecddd u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.002% at f_006.png dark_frames=0
+   off-low-a: purple-scan CLEAN (jak1 foreground)
+frames=55 (min 18) worst_purple=0.002% at f_013.png dark_frames=0
+   off-low-b: purple-scan CLEAN (jak1 foreground)
+   AOPERF mode=0 quality=0 strength=1 count: 77 (need >=3)
+combo off-low: PASS
+-- combo off-med (mode=0 quality=1 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 0) (ao-quality 1) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{8f92bdf u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.001% at f_006.png dark_frames=0
+   off-med-a: purple-scan CLEAN (jak1 foreground)
+frames=55 (min 18) worst_purple=0.001% at f_038.png dark_frames=0
+   off-med-b: purple-scan CLEAN (jak1 foreground)
+   AOPERF mode=0 quality=1 strength=1 count: 75 (need >=3)
+combo off-med: PASS
+-- combo off-high (mode=0 quality=2 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 0) (ao-quality 2) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{eec38eb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.001% at f_006.png dark_frames=0
+   off-high-a: purple-scan CLEAN (jak1 foreground)
+frames=55 (min 18) worst_purple=0.003% at f_035.png dark_frames=0
+   off-high-b: purple-scan CLEAN (jak1 foreground)
+   AOPERF mode=0 quality=2 strength=1 count: 76 (need >=3)
+combo off-high: PASS
+-- combo ssao-low (mode=1 quality=0 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 1) (ao-quality 0) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{e5dc1bd u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.005% at f_027.png dark_frames=0
+   ssao-low-a: purple-scan CLEAN (jak1 foreground)
+frames=55 (min 18) worst_purple=0.001% at f_024.png dark_frames=0
+   ssao-low-b: purple-scan CLEAN (jak1 foreground)
+   AOPERF mode=1 quality=0 strength=1 count: 66 (need >=3)
+combo ssao-low: PASS
+-- combo ssao-med (mode=1 quality=1 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 1) (ao-quality 1) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{9d46567 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.001% at f_030.png dark_frames=0
+   ssao-med-a: purple-scan CLEAN (jak1 foreground)
+frames=55 (min 18) worst_purple=0.001% at f_007.png dark_frames=0
+   ssao-med-b: purple-scan CLEAN (jak1 foreground)
+   AOPERF mode=1 quality=1 strength=1 count: 59 (need >=3)
+combo ssao-med: PASS
+-- combo ssao-high (mode=1 quality=2 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 1) (ao-quality 2) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{9a4c232 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.001% at f_039.png dark_frames=0
+   ssao-high-a: purple-scan CLEAN (jak1 foreground)
+frames=55 (min 18) worst_purple=0.008% at f_019.png dark_frames=0
+   ssao-high-b: purple-scan CLEAN (jak1 foreground)
+   AOPERF mode=1 quality=2 strength=1 count: 38 (need >=3)
+combo ssao-high: PASS
+-- combo hbao-low (mode=2 quality=0 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 2) (ao-quality 0) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{83946a9 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.001% at f_006.png dark_frames=0
+   hbao-low-a: purple-scan CLEAN (jak1 foreground)
+frames=55 (min 18) worst_purple=0.002% at f_051.png dark_frames=0
+   hbao-low-b: purple-scan CLEAN (jak1 foreground)
+   AOPERF mode=2 quality=0 strength=1 count: 64 (need >=3)
+combo hbao-low: PASS
+-- combo hbao-med (mode=2 quality=1 strength=1, persisted boot) --
+  seeded+verified: (ambient-occlusion 2) (ao-quality 1) (ao-strength 1) 
+   focus at start:   mCurrentFocus=Window{7924b9a u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   foreground STABLE (30s continuous)
+frames=55 (min 18) worst_purple=0.001% at f_004.png dark_frames=0
+   hbao-med-a: purple-scan CLEAN (jak1 foreground)

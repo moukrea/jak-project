@@ -1,0 +1,33 @@
+== boot (attempt 1; ao force props cleared, responsive render seed, fresh reader) ==
+disk pre (attempt 1): (ambient-occlusion 0) (ao-quality 2) (ao-strength 1) 
+dynamic-render-scale row: DOWNS_RECHARGED=8
+  foreground STABLE (30s)
+app pid: 6478
+boot [recharged-ao] (fresh log only): I/opengoal-gk( 6478): [recharged-ao] mode -> 0 quality -> 2 strength -> 1 I/opengoal-gk( 6478): [recharged-ao] mode -> 0 quality -> 2 strength -> 1 I/opengoal-gk( 6478): [recharged-ao] mode -> 0 quality -> 2 strength -> 1 
+boot AOPERF: I/opengoal-gk( 6478): AOPERF mode=0 quality=2 strength=1 fps=28.6 busy_ms=30.37
+== attempt 1 nav: start -> 2x down -> X (OPTIONS) -> down, X (GRAPHIC OPTIONS) ==
+== 8x down = RECHARGED SETTINGS row ==
+== 4x down = AMBIENT OCCLUSION row (enhanced-models row collapsed) ==
+== AO commits: Off->SSAO->HBAO->GTAO (X, right, X each; each must push fresh) ==
+SSAO: PUSH-OK mode->1 | disk: (ambient-occlusion 1) (ao-quality 2) (ao-strength 1) 
+HBAO: PUSH-OK mode->2 | disk: (ambient-occlusion 2) (ao-quality 2) (ao-strength 1) 
+GTAO: PUSH-OK mode->3 | disk: (ambient-occlusion 3) (ao-quality 2) (ao-strength 1) 
+== AO QUALITY: 1x down, X, left (High->Medium), X ==
+QUALITY: PUSH-OK quality->1 | disk: (ambient-occlusion 3) (ao-quality 1) (ao-strength 1) 
+== AO STRENGTH: 1x down, X, right (Default->Stronger), X ==
+STRENGTH: PUSH-OK strength->2 | disk: (ambient-occlusion 3) (ao-quality 1) (ao-strength 2) 
+[ao-menu-proof2] COMMIT-SEQUENCE PASS (attempt 1)
+== back out: 1x down (Back = index 7, from strength row 6), X, then triangle x2 to title ==
+== persist: relaunch; boot push must carry GTAO/Medium/Stronger ==
+disk after quit: (ambient-occlusion 3) (ao-quality 1) (ao-strength 2) 
+  DISK-PERSIST OK: GTAO/Medium/Stronger on external settings
+  foreground STABLE (30s)
+disk after relaunch: (ambient-occlusion 3) (ao-quality 1) (ao-strength 2) 
+relaunch [recharged-ao]: I/opengoal-gk( 7526): [recharged-ao] override debug -> 0 I/opengoal-gk( 7526): [recharged-ao] mode -> 3 quality -> 1 strength -> 2 I/opengoal-gk( 7526): [recharged-ao] override debug -> 0 
+relaunch strength re-push: PUSH-OK strength->2
+I/opengoal-gk( 7526): AOPERF mode=3 quality=1 strength=2 fps=23.9 busy_ms=36.02
+I/opengoal-gk( 7526): AOPERF mode=3 quality=1 strength=2 fps=19.5 busy_ms=45.16
+I/opengoal-gk( 7526): AOPERF mode=3 quality=1 strength=2 fps=28.9 busy_ms=28.80
+focus at end:   mCurrentFocus=Window{14dbc1 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+[ao-menu-proof2] SUMMARY: commit-seq=PASS (mode/quality/strength pushes) | disk-persist=OK | relaunch-strength-repush=PUSH-OK strength->2
+[ao-menu-proof2] DONE (device left running; caller decides reset/force-stop)

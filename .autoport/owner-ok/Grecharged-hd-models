@@ -1,0 +1,7 @@
+supervisor gate-close 2026-07-14 07:30 (opus): validator PASS + verified myself: deploy_verify PASS (device
+runs HEAD 8f7f5be30); OFF==stock proven (base fr3 MD5-identical, HD models live in a separate fr3/enhanced/
+overlay read only when the ENHANCED MODELS toggle is ON, default OFF; menu shows 4 rows w/o jak2, 5 with).
+4/4 chars HD via weight-borrow onto jak1 rig (Jak/Daxter/Samos/Keira) render+deform on x86 AND device; ONE
+honest cosmetic caveat: Daxter's tail drapes (weight-borrow far-from-vertex bind), documented, stable.
+Shipped in the FULL APK: bundle cb0bcf74e0541 nests enhanced HD overlay + overhang4 grassbake + CGOs;
+release_verify PASS (fixed to hash fr3/enhanced/ like build_asset_bundle). OWNER HONOR eye = final visual gate.

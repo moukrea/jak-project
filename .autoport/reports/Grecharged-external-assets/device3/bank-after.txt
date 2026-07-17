@@ -1,0 +1,10 @@
+=== BANK STATE AFTER SAVE (OUI confirmed) 2026-07-14T01:37:44+02:00 ===
+-rw-rw---- 1 root everybody 67584 2026-07-14 01:37 /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank0.bin
+-rw-rw---- 1 root everybody 67584 2026-07-14 00:56 /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank1.bin
+-rw-rw---- 1 root everybody 67584 2026-07-14 00:56 /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank2.bin
+-rw-rw---- 1 root everybody 67584 2026-07-14 00:56 /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank3.bin
+
+a42a82fea87ffcc55b19b7bdec32aaaa  /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank0.bin
+7375f61f22a08e72d781741b6154466a  /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank1.bin
+fbf8a1e00710b240031529b7377fee6c  /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank2.bin
+62bc82f76b9e2c0dc0b829277233a454  /sdcard/OpenGOAL/jak_1/saves/BASCUS-97124AYBABTU!/bank3.bin

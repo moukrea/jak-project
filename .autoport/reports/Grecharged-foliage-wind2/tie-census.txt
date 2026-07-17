@@ -1,0 +1,207 @@
+================================================================================
+ jak1 NAMED per-proto TIE WIND CENSUS  —  levels: beach (BEA) + village1 (VI1)
+================================================================================
+
+SOURCE / METHODOLOGY
+  Producer : build/decompiler/decompiler (desktop build dir 'build'), rebuilt
+             2026-07-14 after adding an env-guarded per-proto census print.
+  Print    : decompiler/level_extractor/extract_tie.cpp, in extract_tie(), right
+             after update_proto_info(). Emitted ONLY when env var TIE_CENSUS is
+             set, ONLY for geo==0 (the base LOD) so each proto appears once per
+             tie tree. Line format:
+               [tie-census] level=<debug_name> geo=0 proto=<name> \
+                            instances=<n> stiffness=<f> wind=<0/1>
+  Classify : wind is ENABLED iff stiffness != 0.  This mirrors the exact
+             classifier the extractor uses for the wind draw set:
+               extract_tie.cpp:2583  bool using_wind = proto.stiffness != 0.f;
+             (jak1 keeps wind; on jak2 using_wind is force-disabled.)
+  Run      : TIE_CENSUS=1 build/decompiler/decompiler \
+               decompiler/config/jak1/jak1_config.jsonc iso_data \
+               /tmp/tie_census_out --version ntsc_v1 --disable-ansi
+             FULL extraction (levels_extract already true, decompile_code false)
+             so texture/tpage lookups are complete. Output went to a TEMP dir;
+             out/jak1 (shipped fr3s) was NOT touched.
+  Level id : 'level=' is the extractor debug_name (DGO + tie-tree index). A DGO
+             can hold several tie trees:
+               BEA.DGO-2-tie             = beach   (single tie tree)
+               VI1.DGO-2/3/4-tie         = village1 (THREE tie trees:
+                                            -2 = main exterior/structures,
+                                            -3 = interiors/props,
+                                            -4 = far/LOD ring incl. palms+trees)
+
+WIND-ENABLED PROTOS (stiffness != 0) — the actual jak1 wind set for these levels
+  beach    : palm-02.mb   stiffness=0.10  instances=42
+  beach    : palm-01.mb   stiffness=0.10  instances=22
+  village1 : palm-02.mb   stiffness=0.10  instances=65   (VI1.DGO-4-tie)
+  village1 : vil1-fish-01.mb stiffness=0.25 instances=14 (VI1.DGO-3-tie, hanging fish)
+  Everything else in both levels has stiffness=0 -> wind=0.
+
+COVERAGE HOLES (foliage-named protos with stiffness==0, i.e. NO wind)
+  village1 : palm-01.mb          stiffness=0  instances=27  (VI1.DGO-4-tie)
+             *** Same asset that IS wind-enabled on beach (0.1). In village1 the
+                 palm-01 trunk proto is NOT in the wind set — draw-trees using it
+                 get wind_draws==0. ***
+  beach    : bch-palmplant-base.mb stiffness=0 instances=80  (palm base/roots)
+  village1 : palmplant-base.mb      stiffness=0 instances=37  (palm base/roots)
+  village1 : v1-lores-trees.mb      stiffness=0 instances=54  (far LOD tree ring)
+  (palm-base protos are the static ground collar of the palm; only the -01/-02
+   trunk+frond protos carry stiffness, and only some of them.)
+
+FOLIAGE / PALM-NAMED PROTOS SUMMARY (name heuristics: palm, tree, plant, leaf...)
+  proto                     level     tree           instances  stiffness  wind
+  palm-01.mb                beach     BEA.DGO-2-tie      22        0.1       1
+  palm-02.mb                beach     BEA.DGO-2-tie      42        0.1       1
+  bch-palmplant-base.mb     beach     BEA.DGO-2-tie      80        0         0
+  palm-01.mb                village1  VI1.DGO-4-tie      27        0         0   <-- HOLE
+  palm-02.mb                village1  VI1.DGO-4-tie      65        0.1       1
+  palmplant-base.mb         village1  VI1.DGO-4-tie      37        0         0
+  v1-lores-trees.mb         village1  VI1.DGO-4-tie      54        0         0
+  (No proto named fern/bush/shrub/leaf exists in either level's TIE set; foliage
+   here is entirely palms + far-LOD trees. Shrubs/plants, if present, are merc
+   or sprite, not TIE.)
+
+--------------------------------------------------------------------------------
+FULL CENSUS (every TIE proto, both levels, base LOD geo=0)
+--------------------------------------------------------------------------------
+level=BEA.DGO-2-tie geo=0 proto=wallmed-01.mb instances=57 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=walltall-02.mb instances=78 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=wallsmall-01.mb instances=43 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=wallsmall-04.mb instances=27 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=walllarge-01.mb instances=65 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=lil-bigrock-02.mb instances=64 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=wallmed-02.mb instances=65 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=groundlarge.mb instances=21 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=walltall-01.mb instances=59 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=cliffsmall.mb instances=23 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=cliffmed-8m.mb instances=33 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=cliffmed.mb instances=58 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=clifflarge.mb instances=13 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=cliffmed-4m.mb instances=13 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=lil-rock-06.mb instances=20 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=groundsmall.mb instances=2 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=wallmed-03.mb instances=39 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=groundonlyrock-02.mb instances=81 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-palmplant-base.mb instances=80 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=palm-02.mb instances=42 stiffness=0.1 wind=1
+level=BEA.DGO-2-tie geo=0 proto=bch-ecovalve-outside.mb instances=7 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=groundonlyrock-01.mb instances=2 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-launcher.mb instances=4 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=cliffplatsmall.mb instances=13 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=boulder-01.mb instances=5 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=boulder-02.mb instances=11 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=boulder-04.mb instances=22 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=palm-01.mb instances=22 stiffness=0.1 wind=1
+level=BEA.DGO-2-tie geo=0 proto=boulder-03.mb instances=2 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=sand-rocks.mb instances=89 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=orb-cache-base.mb instances=2 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=window.mb instances=3 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-arch-beam.mb instances=8 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=out-plat.mb instances=3 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-idol-dome.mb instances=6 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-idol-block1.mb instances=18 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-idol-round.mb instances=6 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-idol-eye.mb instances=5 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-idolbrokenblock-01.mb instances=23 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-plank2.mb instances=33 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=bch-rooftile-1.mb instances=236 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=window-pane.mb instances=6 stiffness=0 wind=0
+level=BEA.DGO-2-tie geo=0 proto=lantern.mb instances=12 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=lil-rock-06.mb instances=38 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=lil-bigrock-02.mb instances=78 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=wallsmall-04.mb instances=80 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=groundlarge.mb instances=69 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=cliffsmall-bottomed.mb instances=43 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=cliffmed-8m-bottomed.mb instances=37 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=wallmed-01.mb instances=76 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=groundsmall.mb instances=29 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=walltall-02.mb instances=49 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=walltall-01.mb instances=47 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=wallsmall-02.mb instances=101 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=cliffplatsmall.mb instances=19 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-plank3.mb instances=95 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-roofsupport.mb instances=158 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-hut-post.mb instances=138 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-plank1.mb instances=73 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=fishermanboat.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=orb-cache-base.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=oracle-base.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=oracle-foot.mb instances=2 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=oracle-spine.mb instances=3 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=oracle-bump.mb instances=5 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-outdoor-light.mb instances=26 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=pegs.mb instances=105 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=thick.mb instances=24 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=sand-rocks.mb instances=81 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=walllarge-01.mb instances=41 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=wallmed-03.mb instances=47 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-boulder-big.mb instances=30 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-boulder-small.mb instances=39 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-fountain-stone.mb instances=6 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-fountain-center.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-outertrim.mb instances=48 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-stonebase.mb instances=52 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-rooftile-1.mb instances=892 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-pillow-02.mb instances=26 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-hutplanks.mb instances=48 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-windmill-conductor.mb instances=16 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-plank-ramp1.mb instances=12 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-plank2.mb instances=13 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-hutwallpole.mb instances=27 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-pole-brace.mb instances=5 stiffness=0 wind=0
+level=VI1.DGO-2-tie geo=0 proto=vil1-hut-door.mb instances=6 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-hut-roofcap.mb instances=5 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-hut-beam-back.mb instances=5 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-hut-beam-front.mb instances=11 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-feedbag.mb instances=34 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-planterbox-01.mb instances=23 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-fireplace-01.mb instances=6 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-barrel-01.mb instances=34 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-bucket-01.mb instances=24 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-bed-01.mb instances=7 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-rug-01.mb instances=19 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-haybale-block.mb instances=18 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-shelf-01.mb instances=28 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-shelfitems-01.mb instances=5 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-curtain-01.mb instances=7 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-windowplanter-01.mb instances=11 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-shelfbooks01.mb instances=9 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-bench-01.mb instances=9 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-trunk-01.mb instances=9 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-stool-01.mb instances=10 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-birdcage-01.mb instances=8 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-birdcage-02.mb instances=3 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-binoculars-01.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-chisel-01.mb instances=8 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-pillow-01.mb instances=26 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-hammer-01.mb instances=4 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-picture-frame.mb instances=2 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-bookrow.mb instances=20 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-singlebook.mb instances=40 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-sagebookcase.mb instances=4 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-fishingpole.mb instances=4 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-sharkjaws.mb instances=6 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-nets-01.mb instances=3 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-fishrope.mb instances=7 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-fish-01.mb instances=14 stiffness=0.25 wind=1
+level=VI1.DGO-3-tie geo=0 proto=vil1-mayordesk-01.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-sagebeams.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-warpgate.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-warpgatebeam.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-upperdeck-trim.mb instances=189 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-inside-beam.mb instances=229 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-windowframe-small.mb instances=16 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-windowframe-large.mb instances=11 stiffness=0 wind=0
+level=VI1.DGO-3-tie geo=0 proto=vil1-windowframe-large-cap.mb instances=11 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=vil1-portal.mb instances=1 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=vil1-sagemachine-ring.mb instances=13 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=vil1-sagemachine-bamboo.mb instances=22 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=vil1-sagemachine-joint45.mb instances=23 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=vil1-sagemachine-joint.mb instances=8 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=palm-01.mb instances=27 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=palm-02.mb instances=65 stiffness=0.1 wind=1
+level=VI1.DGO-4-tie geo=0 proto=palmplant-base.mb instances=37 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=v1-lores-mountains.mb instances=14 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=v1-lores-rockwall.mb instances=17 stiffness=0 wind=0
+level=VI1.DGO-4-tie geo=0 proto=v1-lores-trees.mb instances=54 stiffness=0 wind=0
+
+=== END (140 protos: BEA=43, VI1=97) ===

@@ -45,9 +45,9 @@ else
   echo "== 3. overlay the Gndlogo-fixed arm64 TIT.DGO =="
   want=$(sha256sum "$FIXED_TIT" | awk '{print $1}')
   adb push "$FIXED_TIT" /data/local/tmp/TIT.DGO >/dev/null || die "push TIT.DGO failed"
-  adb shell run-as $PKG cp /data/local/tmp/TIT.DGO files/iso_data/jak1/TIT.DGO || die "cp TIT.DGO failed"
+  adb shell run-as $PKG cp /data/local/tmp/TIT.DGO files/cgo/jak1/TIT.DGO || die "cp TIT.DGO failed"
   adb shell rm -f /data/local/tmp/TIT.DGO >/dev/null 2>&1 || true
-  got=$(adb shell run-as $PKG sha256sum files/iso_data/jak1/TIT.DGO 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$(adb shell run-as $PKG sha256sum files/cgo/jak1/TIT.DGO 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] || die "TIT.DGO sha mismatch (want $want got $got)"
   echo "  fixed TIT.DGO in place (sha ${got:0:12}…)"
 fi

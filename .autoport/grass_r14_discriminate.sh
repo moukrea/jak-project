@@ -14,7 +14,7 @@ ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 OUT=.autoport/reports/Grecharged-grass-poc; F="$OUT/frames"; mkdir -p "$F"
 say(){ echo; echo "######## $* ########"; }
 die(){ echo "[r14disc FAIL] $*" >&2; exit 1; }
@@ -33,14 +33,14 @@ quad(){ # $1 = tag
 
 set_grass(){ # $1 = t|f
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  $ADB shell run-as $PKG cat "$PCS" > /tmp/pcs14.gc 2>/dev/null || true
+  $ADB shell cat "$PCS" > /tmp/pcs14.gc 2>/dev/null || true
   if grep -q 'recharged-grass?' /tmp/pcs14.gc 2>/dev/null; then
-    sed -i "s/(recharged-grass? #[tf])/(recharged-grass? #$1)/" /tmp/pcs14.gc
+    sed -i "s/^recharged-grass? = #[tf]/recharged-grass? = #$1/" /tmp/pcs14.gc
     $ADB push /tmp/pcs14.gc /data/local/tmp/pcs14.gc >/dev/null 2>&1
-    $ADB shell run-as $PKG cp /data/local/tmp/pcs14.gc "$PCS" 2>/dev/null || true
+    $ADB shell cp /data/local/tmp/pcs14.gc "$PCS" 2>/dev/null || true
     $ADB shell rm -f /data/local/tmp/pcs14.gc >/dev/null 2>&1
   fi
-  echo "  setting now: $($ADB shell run-as $PKG cat "$PCS" 2>/dev/null | grep recharged-grass | tr -d '\r')"
+  echo "  setting now: $($ADB shell cat "$PCS" 2>/dev/null | grep recharged-grass | tr -d '\r')"
 }
 
 load_geyser(){
