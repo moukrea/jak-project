@@ -2173,6 +2173,19 @@ phases:
   max_retries: 10
   device: true
   owner_verify: true
+- id: Grecharged-materials-modern-parity
+  name: 'RECHARGED backlog (owner 2026-07-17): EVOLUTION of the generic PBR (Grecharged-pbr-materials) toward what the best
+    MODERN game engines do materials-wise, so fork materials can approach that bar. Starts ONLY once the generic PBR is nailed
+    (robust tangents, visible per-channel contribution, realtime mood-sun proven). Scope to define when reached: full modern
+    material stack — height/DISPLACEMENT (parallax-occlusion), SUBSURFACE SCATTERING (scattering color), ORM packing, clearcoat/
+    anisotropy where it matters, image-based ambient/IBL, energy-conserving multi-light — flag-gated (--pbr family), per-material
+    opt-in, OFF==stock. NOT NOW: parked in backlog behind the generic-PBR PoC; owner will re-scope at start.'
+  prompt: prompts/phase-Grecharged-materials-modern-parity.md
+  validator: validators/phase-Grecharged-materials-modern-parity.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Gjak2-polish
   name: 'OWNER 2026-07-08 round-2 (movement confirmed): L1/R1 overlay=jak2 crouch-lock (own mapping), cutscenes must follow
     aspect setting (forced 16:9 now), menu order/label parity vs jak1 + FPS counter option, rift-gate glow too bright pre-metalheads'

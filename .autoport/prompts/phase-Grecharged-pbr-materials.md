@@ -93,3 +93,57 @@ assets as the proof). Redmi max-settings fps is informational only.
 ## Budget
 max_turns 3500, max_retries 6. device: true, owner_verify: true.
 Flag plumbing must pass the pillar's anti-staleness marker checks (ogflags hash) like every other flag.
+
+## OWNER-REPORTED DEFECTS (2026-07-17 evening) — supervisor could NOT reproduce on the current build, but HARDEN
+Owner, looking at a device state (build/attempt unknown), reported TWO things:
+1. "beaucoup de violet" — a LOT of magenta/purple across the render (low render-scale, which is just the
+   render-scaling blur = NOT a problem per owner).
+2. "rendu à plein res ça a crash instant" — setting render-scale to 100% (full) crashed the game instantly.
+
+Supervisor repro (build ogflags:465b53fe1394, Redmi eae4df44, render-scale=100, PBR active, material
+vil-beach-01 N=1 R=1 M=0 AO=1, 2 PBR materials, village1-hut spot): 40s STABLE, NO crash, NO magenta,
+sharp render. Could NOT reproduce EITHER symptom. Evidence: reports/Grecharged-pbr-materials/device/
+supervisor-repro/. IMPORTANT FIND: the device drop dir was half-cleaned (only vil-beach-01.png albedo, the
+_normal/_roughness/_ao were gone) — so a PARTIAL map set is a real on-device state.
+
+HARDEN against both regardless (these are the prime suspects — verify and fix):
+A) MAGENTA ("beaucoup de violet"): almost certainly a PBR GL texture-unit STATE LEAK — the PBR tfrag path
+   binds sampler units for N/R/M/AO and does not fully restore unit state, so subsequent NON-PBR draws
+   sample a stale/unbound unit -> magenta ACROSS the scene ("beaucoup", not one patch). This is the SAME
+   class as the old AO GL-state leak (fixed by full save/restore). ALSO: an absent map (e.g. metallic M=0,
+   or a partial set) must bind a 1x1 neutral default, never leave a sampler unbound (unbound sampler2D on
+   Adreno = garbage/magenta). Fix: full save/restore of texture-unit + sampler bindings around the PBR
+   draw; neutral 1x1 defaults for every absent PBR map; prove OFF==stock and a partial-set renders albedo
+   cleanly (no magenta).
+B) FULL-RES CRASH: booting at render-scale=100 does NOT crash. The prime suspect is CHANGING render-scale
+   AT RUNTIME via the menu slider (FBO/framebuffer realloc while PBR textures/FBO are bound) -> GL crash.
+   Reproduce the RUNTIME render-scale change path (not just boot-at-100) and make PBR resources survive an
+   FBO resize. Test: boot low -> menu -> slide render-scale to 100 -> must not crash.
+Add both to the device proof: a magenta-scan (no pixels near (255,0,255)) ON at the spot, and a
+runtime-render-scale-to-100 no-crash clip.
+
+## OWNER CRITIQUE 2 (2026-07-17 late) — "looks like just a diffuse/base-color swap, no normals/rough/etc; can't tell if realtime"
+Owner saw the PoC briefly and said it looks like ONLY the base-color photo of pavers was swapped over the
+sand — no visible normals / metallic / ORM / roughness / scattering / displacement / AO — and he can't tell
+if the lighting is realtime or baked.
+
+SUPERVISOR CODE VERIFICATION (so the next attempt targets the REAL gap, not a rewrite):
+- It IS real PBR in code: tfrag3.frag does full Cook-Torrance GGX (D/G/F), samples tex_PBR_N/R/M/AO, gamma
+  correct. Maps ARE fed into the BRDF. NOT a plain albedo swap.
+- It IS realtime: hud-classes-pc.gc:1686-1689 pushes `*time-of-day-context* current-shadow / current-sun
+  sun-color / env-color` EVERY FRAME via pc-set-pbr-sun! -> kmachine pc_set_pbr_sun -> g_global_settings ->
+  background_common.cpp:507-544 binds u_pbr_sun_dir/color/ambient per frame. So it tracks the day cycle.
+WHY IT STILL READS AS A FLAT PHOTO (the real weaknesses to fix — this is the mandate):
+1. NO REAL TANGENTS: tfrag has no tangent attribute, so the normal map uses a screen-space-derivative
+   cotangent frame (tfrag3.frag:52-63). On near-flat surfaces that frame is weak/degenerate -> normal relief
+   barely shows. Fix: robust tangents (from UV gradients with proper handedness, or precomputed), and PROVE
+   the normal map changes shading (toggle N on/off A/B).
+2. BAD TEST SURFACE/LIGHT: flat water at high sun -> specular off-screen, normal flat. Use a surface + sun
+   angle where relief + a specular highlight actually READ (a wall / stone floor, rake the sun).
+3. WEAK/rich channels: make EACH channel visibly contribute (a per-channel debug viz: albedo-only,
+   +normal, +roughness, +spec, +AO) so the owner can SEE each map do work.
+MISSING CHANNELS the owner explicitly listed (implement or explicitly scope): height/DISPLACEMENT (parallax
+occlusion mapping), SUBSURFACE SCATTERING ("scattering color"), ORM packing (currently separate R/M/AO).
+REALTIME PROOF owed: a single continuous clip (or TOD sweep) where the specular highlight MOVES with the
+sun — the un-fakeable "realtime" tell the owner asked for.
+The bar is now: make it look UNMISTAKABLY like PBR (relief that catches moving light), not a pasted photo.
