@@ -322,8 +322,8 @@ static bool resolve_game_root(GameVersion game_version) {
     persist_pointer(chosen);
     lg::error(
         "OpenGOAL created a game folder at '{}' but no assets are present yet.\n"
-        "Extract '{}_assets.zip' into '{}' and relaunch.",
-        root.string(), name, (root / "assets").string());
+        "Extract '{}_assets.zip' into '{}' (so that '{}' exists) and relaunch.",
+        root.string(), name, root.string(), (root / "assets" / "iso").string());
     return false;
   };
 

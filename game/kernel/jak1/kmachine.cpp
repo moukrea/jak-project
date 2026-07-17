@@ -1485,7 +1485,13 @@ static u64 task_close_run() {
   std::strncpy(buf, s_task_close_spec, sizeof(buf) - 1);
   buf[sizeof(buf) - 1] = 0;
   char* save = nullptr;
-  for (char* tok = strtok_r(buf, ",", &save); tok; tok = strtok_r(nullptr, ",", &save)) {
+#ifdef _WIN32
+  // no strtok_r on Windows; strtok_s has the same (str, delim, ctx) contract.
+#define OG_STRTOK_R strtok_s
+#else
+#define OG_STRTOK_R strtok_r
+#endif
+  for (char* tok = OG_STRTOK_R(buf, ",", &save); tok; tok = OG_STRTOK_R(nullptr, ",", &save)) {
     int task = 0;
     int status = 7;  // (task-status need-resolution)
     if (std::sscanf(tok, "%d:%d", &task, &status) < 1 || task <= 0) {

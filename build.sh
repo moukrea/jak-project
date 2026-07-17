@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # build.sh — unified build CLI (phase Grecharged-buildsys-flags, P1 of the build-system pillar).
 #
-#   ./build.sh <linux-x86_64|android-arm64> [--recharged-hud] [--grass-overhang]
-#              [--hd-models] [--vulkan-support] [--yolo] [--game jak1] [--no-cache]
-#              [--no-apk] [--package]
+#   ./build.sh <linux-x86_64|android-arm64|windows-x86_64> [--recharged-hud]
+#              [--grass-overhang] [--hd-models] [--vulkan-support] [--yolo]
+#              [--game jak1] [--no-cache] [--no-apk] [--package]
+#              [--win-bin-dir <dir>]
 #   --package: after the build, emit the distributable game PACKAGE + the separate
 #              source-derived <game>_assets.zip under out/artifacts/.
+#   --win-bin-dir: windows-x86_64 only — dir holding CI gk.exe (default out/ci/windows-x86_64).
 #
 # One command per target, wrapping the full pipeline (cmake + goalc CGOs + gradle APK).
 # BUILD-TIME feature flags (owner 2026-07-17): a feature that is not requested is NOT in
@@ -30,9 +32,10 @@ log() { echo "[build] $*"; }
 # ---------------- argument parsing -> canonical flag set ----------------
 [ $# -ge 1 ] || usage
 TARGET="$1"; shift
-case "$TARGET" in linux-x86_64|android-arm64) ;; *) die "unknown target '$TARGET' (linux-x86_64|android-arm64)";; esac
+case "$TARGET" in linux-x86_64|android-arm64|windows-x86_64) ;; *) die "unknown target '$TARGET' (linux-x86_64|android-arm64|windows-x86_64)";; esac
 GAME="jak1"; USE_CACHE=1; BUILD_APK=1; DO_PACKAGE=0
 F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_VULKAN=0
+WIN_BIN_DIR="out/ci/windows-x86_64"
 while [ $# -gt 0 ]; do
   case "$1" in
     --recharged-hud)  F_HUD=1;;
@@ -44,6 +47,7 @@ while [ $# -gt 0 ]; do
     --no-cache)       USE_CACHE=0;;
     --no-apk)         BUILD_APK=0;;
     --package)        DO_PACKAGE=1;;
+    --win-bin-dir)    WIN_BIN_DIR="$2"; shift;;
     *) die "unknown option '$1'";;
   esac
   shift
@@ -280,6 +284,74 @@ build_android() {
   log "DONE android-arm64: libgk.so + $STAGE + APK, marker $MARKER"
 }
 
+verify_winbin_flags() { # $1 = gk.exe path ; strings-based per-flag proof (PE has no reliable nm)
+  local bin="$1"
+  check() { # name, expected 0/1, pattern
+    local c; c=$(strings "$bin" | grep -c -- "$3" || true)
+    if [ "$2" -eq 1 ]; then [ "$c" -ge 1 ] || die "$bin: flag $1 ON but marker '$3' absent"
+    else [ "$c" -eq 0 ] || die "$bin: flag $1 OFF but marker '$3' present ($c)"; fi
+  }
+  check grass-overhang "$F_OVERHANG" "pc-set-grass-overhang!"
+  check hd-models "$F_HDMODELS" "pc-enhanced-models-available?"
+  # positive control: validated feature must ALWAYS be present
+  local pc; pc=$(strings "$bin" | grep -c "pc-set-recharged-grass!" || true)
+  [ "$pc" -ge 1 ] || die "$bin: validated feature control pc-set-recharged-grass! missing"
+  log "winbin flag proof OK: $bin"
+}
+
+build_windows() {
+  # x86-backend goalc builds the CGOs locally (same tool as build_linux).
+  [ -x build/goalc/goalc ] || die "build/goalc/goalc (x86) missing — build the linux goalc tree first (./build.sh linux-x86_64)"
+  build/goalc/goalc --version 2>&1 | grep -q x86 || die "build/goalc/goalc is not the x86 backend"
+
+  # CI-provided Windows engine binaries (GitHub artifact 'opengoal-windows-port' = build/bin).
+  [ -f "$WIN_BIN_DIR/gk.exe" ] || die "no $WIN_BIN_DIR/gk.exe — download from a green Port CI run: gh run download -R moukrea/jak-project -n opengoal-windows-port -D out/ci/windows-x86_64"
+
+  # gk.exe marker check (strings only; PE has no reliable nm). || true: grep -m1 SIGPIPE guard.
+  local m_gk
+  m_gk=$(strings "$WIN_BIN_DIR/gk.exe" | grep -m1 '^ogflags:' || true)
+  [ "$m_gk" = "$MARKER" ] || die "$WIN_BIN_DIR/gk.exe marker '$m_gk' != expected '$MARKER' (mixed flag-set / stale CI artifact?)"
+  verify_winbin_flags "$WIN_BIN_DIR/gk.exe"
+
+  # x86 CGOs with the WINDOWS marker, staged like the android path.
+  local fp fp_x86 cache STAGE="out/${GAME}-windows/iso"
+  fp=$(src_fingerprint build/goalc/goalc)
+  fp_x86="$fp"
+  cache="$CACHE_ROOT/x86win-${FLAG_HASH}-${fp}"
+  mkdir -p "$STAGE"
+  if [ $USE_CACHE -eq 1 ] && [ -f "$cache/CACHE_MANIFEST" ]; then
+    log "x86win CGO cache HIT ($cache) — restoring stage"
+    rm -f "$STAGE"/*.CGO "$STAGE"/*.DGO "$STAGE"/*.TXT
+    cache_restore "$cache" "$STAGE"
+  else
+    if [ $USE_CACHE -eq 1 ]; then log "x86win CGO cache MISS ($cache)"; fi
+    run_goalc_iso build/goalc/goalc "x86win-${FLAG_HASH}"
+    assert_iso_set "out/${GAME}/iso"
+    rm -f "$STAGE"/*.CGO "$STAGE"/*.DGO "$STAGE"/*.TXT
+    # cache_store/cache_restore copy CGO/DGO + TXT — the package ships the TXT banks too.
+    cache_store "$cache" "out/${GAME}/iso"
+    cache_restore "$cache" "$STAGE"
+    # restore the x86 oracle in out/<game>/iso (desktop/harness expects the linux-marker
+    # oracle there); same flag set. Mirror build_android's restore path faithfully.
+    local cache_x86_restore="$CACHE_ROOT/x86-${FLAG_HASH}-${fp_x86}"
+    if [ $USE_CACHE -eq 1 ] && [ -f "$cache_x86_restore/CACHE_MANIFEST" ]; then
+      log "x86 oracle restore from cache ($cache_x86_restore)"
+      cache_restore "$cache_x86_restore" "out/${GAME}/iso"
+    else
+      run_goalc_iso build/goalc/goalc "x86-restore-${FLAG_HASH}"
+      if [ $USE_CACHE -eq 1 ]; then cache_store "$cache_x86_restore" "out/${GAME}/iso"; fi
+    fi
+  fi
+  assert_iso_set "$STAGE"
+  local n; n=$(ls "$STAGE"/*.CGO "$STAGE"/*.DGO | wc -l)
+  log "windows consistent set: $n files at $STAGE"
+
+  { echo "target=$TARGET"; echo "flags=$FLAG_STR"; echo "flag_hash=$FLAG_HASH"; echo "marker=$MARKER";
+    echo "gk_exe_sha=$(sha256sum "$WIN_BIN_DIR/gk.exe" | cut -c1-16)"; echo "date=$(date -Is)";
+    echo "cgo_cache=$cache"; } > "$REPORT_DIR/last-build-flags-windows-x86_64.txt"
+  log "DONE windows-x86_64: $WIN_BIN_DIR/gk.exe + $STAGE (windows-marker CGOs), marker $MARKER"
+}
+
 mkdir -p .autoport/logs
 case "$TARGET" in
   linux-x86_64)
@@ -298,6 +370,14 @@ case "$TARGET" in
       scripts/packaging/package_release.sh android-arm64 "$GAME"
     elif [ $DO_PACKAGE -eq 1 ]; then
       log "--package requested but --no-apk given: skipping android-arm64 package (needs the APK)"
+    fi
+    ;;
+  windows-x86_64)
+    build_windows
+    if [ $DO_PACKAGE -eq 1 ]; then
+      log "== --package: source-derived assets archive + windows-x86_64 package =="
+      scripts/packaging/build_assets_archive.sh "$GAME"
+      WIN_BIN_DIR="$WIN_BIN_DIR" scripts/packaging/package_release.sh windows-x86_64 "$GAME"
     fi
     ;;
 esac

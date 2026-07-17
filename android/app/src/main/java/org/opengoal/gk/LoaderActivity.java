@@ -909,6 +909,10 @@ public class LoaderActivity extends AppCompatActivity {
                     while ((e = zin.getNextEntry()) != null) {
                         String name = e.getName();
                         if (e.isDirectory()) { zin.closeEntry(); continue; }
+                        // <game>_assets.zip members are prefixed "assets/" (the archive
+                        // maps 1:1 onto <gameRoot>/); we extract INTO assets/ already,
+                        // so strip the prefix (and tolerate prefix-less archives).
+                        if (name.startsWith("assets/")) name = name.substring("assets/".length());
                         File outFile = new File(assetsDir, name);
                         if (!outFile.getCanonicalPath().startsWith(canonRoot)) {
                             throw new IOException("refusing unsafe archive entry: " + name);
