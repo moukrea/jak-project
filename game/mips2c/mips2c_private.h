@@ -32,6 +32,12 @@ extern u8* g_ee_main_mem;
 #ifdef __aarch64__
 #include <atomic>
 #include <cstring>
+#ifdef __APPLE__
+// macOS-arm64 compiles the aarch64 mips2c path but not the android-only TU
+// (mips2c_table_jak1_arm64.cpp) that defines g_gnd_oob_armed/gnd_oob_report —
+// the watch is an Android diagnostic; no-op it on Apple so gk links.
+inline void gnd_oob_check(char, unsigned int, const void*, int) {}
+#else
 // Gnd OOB write-watch: name the arm64 mips2c store that scribbles a low
 // garbage address into the per-frame DMA bucket-NEXT (calc-buffer band) during
 // the ndi logo. Quiet until a store targets the forbidden window, so it is
@@ -53,6 +59,7 @@ inline void gnd_oob_check(char kind, unsigned int target, const void* valptr, in
     }
   }
 }
+#endif  // __APPLE__
 #endif
 
 extern "C" {

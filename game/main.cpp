@@ -12,6 +12,10 @@
 #include <string>
 
 #ifdef _WIN32
+// shobjidl pulls in windows.h whose min/max macros poison CLI11/std headers.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <io.h>
 #include <objbase.h>
 #include <shobjidl.h>

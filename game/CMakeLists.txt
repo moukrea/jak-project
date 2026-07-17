@@ -436,6 +436,8 @@ if(NOT OG_ARM64_BOOT_STUB)
     target_link_libraries(gk runtime)
     if(WIN32)
         set_target_properties(gk PROPERTIES VS_DPI_AWARE "PerMonitor")
+        # first-boot native folder picker (IFileOpenDialog) in main.cpp
+        target_link_libraries(gk ole32 uuid)
     endif()
 endif()
 # When OG_ARM64_BOOT_STUB is on, the `gk` target is defined at the root scope
