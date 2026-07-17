@@ -18,8 +18,10 @@
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/pipelines/opengl.h"
 
+#ifdef OG_FEAT_GRASS_OVERHANG
 // ROUND 10 forensics switch (see GrassFringeFade::dbg). Cached + throttled like grass_droop_len():
 // a debug prop/env read must never sit on the per-frame draw path uncached.
+// Grecharged-buildsys-flags: overhang-only (only called from grass_fringe_fade_params' ON branch).
 static float grass_fringe_dbg() {
   static float s_cached = 0.f;
   static int s_throttle = 0;
@@ -44,9 +46,15 @@ static float grass_fringe_dbg() {
   s_cached = v;
   return v;
 }
+#endif  // OG_FEAT_GRASS_OVERHANG
 
 GrassFringeFade grass_fringe_fade_params() {
   GrassFringeFade r;
+#ifndef OG_FEAT_GRASS_OVERHANG
+  // Grecharged-buildsys-flags: overhang compiled OUT (default) -> fringe-fade is an
+  // overhang-only LOD; always return the disabled default (identical to toggle-off).
+  return r;
+#else
   if (!Gfx::g_global_settings.recharged_grass || !Gfx::g_global_settings.recharged_grass_overhang) {
     return r;
   }
@@ -58,6 +66,7 @@ GrassFringeFade grass_fringe_fade_params() {
   r.end_m = near_m;
   r.dbg = grass_fringe_dbg();
   return r;
+#endif
 }
 
 // Pure (zero GL calls) computation of the DoubleDraw settings and the

@@ -138,3 +138,4 @@ goal-prompt/
 .autoport/reports/**/*logcat*.txt
 .autoport/reports/**/*-logcat-*.log
 android/app/src/*/assets-slim/bundle/*_cgo.zip
+.autoport/cgo-cache/

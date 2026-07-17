@@ -10,6 +10,10 @@
 	See pckernel-common.gc for the bulk of the pckernel.
 |#
 
+;; Grecharged-buildsys-flags: flag-set marker embedded in the shipped object so verifies
+;; can pair CGOs with the libgk/gk binary built from the same flag set (grep -a "ogflags:").
+(define *og-flag-set-marker* OG_FLAG_SET_MARKER)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

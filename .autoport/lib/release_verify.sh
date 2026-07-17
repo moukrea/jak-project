@@ -10,5 +10,26 @@ TMP=$(mktemp -d /home/emeric/tmp_j2audit/relverif.XXXX)
 unzip -o -q "$APK" "assets/bundle/${GAME}.manifest.properties" -d "$TMP" || { echo "[release FAIL] pas de manifest dans l'APK"; exit 1; }
 GOT=$(grep -E '^version=' "$TMP/assets/bundle/${GAME}.manifest.properties" | cut -d= -f2)
 rm -rf "$TMP"
-if [ "$GOT" = "$EXPECT" ]; then echo "[release PASS] bundle version=$GOT == contenu out/${GAME} (ré-extraction garantie chez l'owner si contenu changé)"; exit 0
-else echo "[release FAIL] bundle version=$GOT != attendu=$EXPECT — l'APK embarque des CGOs périmés, PUSH INTERDIT"; exit 1; fi
+if [ "$GOT" != "$EXPECT" ]; then echo "[release FAIL] bundle version=$GOT != attendu=$EXPECT — l'APK embarque des CGOs périmés, PUSH INTERDIT"; exit 1; fi
+echo "[release PASS] bundle version=$GOT == contenu out/${GAME} (ré-extraction garantie chez l'owner si contenu changé)"
+
+# 3. Grecharged-buildsys-flags (risque R1) : appairage flag-set DANS l'APK — le marqueur
+# "ogflags:<hash>:<cible>" du libgk.so doit == celui des CGO du pack. Un APK mixte est refusé.
+T2=$(mktemp -d /home/emeric/tmp_j2audit/relverif.XXXX)
+MARK_SO=$(unzip -p "$APK" lib/arm64-v8a/libgk.so 2>/dev/null | strings | grep -m1 '^ogflags:' || true)
+if [ -n "$MARK_SO" ]; then
+  unzip -o -q "$APK" "assets/bundle/${GAME}_cgo.zip" -d "$T2" 2>/dev/null || true
+  MARK_CGO=""
+  if [ -f "$T2/assets/bundle/${GAME}_cgo.zip" ]; then
+    unzip -o -q "$T2/assets/bundle/${GAME}_cgo.zip" GAME.CGO -d "$T2" 2>/dev/null || true
+    [ -f "$T2/GAME.CGO" ] && MARK_CGO=$(grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' "$T2/GAME.CGO" | head -1 || true)
+  fi
+  rm -rf "$T2"
+  if [ -n "$MARK_CGO" ] && [ "$MARK_SO" != "$MARK_CGO" ]; then
+    echo "[release FAIL] flag-set mixte dans l'APK: libgk '$MARK_SO' != CGO '$MARK_CGO' — PUSH INTERDIT (R1)"; exit 1
+  fi
+  echo "[release PASS] appairage flag-set APK: $MARK_SO (libgk == CGO pack)"
+else
+  rm -rf "$T2"
+fi
+exit 0

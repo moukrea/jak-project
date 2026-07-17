@@ -10,7 +10,9 @@
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
+#ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
+#endif
 #include "game/graphics/opengl_renderer/ShadowRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
@@ -888,7 +890,9 @@ void OpenGLRenderer::init_bucket_renderers_jak1() {
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, m_version);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, m_version);
 
+#ifdef OG_FEAT_RECHARGED_HUD
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
+#endif
 }
 
 namespace {

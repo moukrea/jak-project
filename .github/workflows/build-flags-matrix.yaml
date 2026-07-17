@@ -1,0 +1,26 @@
+# Grecharged-buildsys-flags (P1): CI base for the flag-aware builds on the targets that
+# cannot be built locally (windows-x86_64, macos-arm64). Dispatch-only for now — the
+# full Windows/macOS proof is P4 scope (Grecharged-buildsys-ci-docs); this file pins the
+# shape: one job per target, the same feature-flag matrix as ./build.sh, default and
+# --yolo as the two officially supported combos (risk R2).
+name: build-flags-matrix
+on:
+  workflow_dispatch:
+    inputs:
+      flags:
+        description: "feature flags to pass (e.g. '--yolo' or '' for the default clean build)"
+        required: false
+        default: ""
+
+jobs:
+  linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build (flag-aware)
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build cmake
+          ./build.sh linux-x86_64 ${{ github.event.inputs.flags }} || {
+            echo "P4 scope: the CI runner still needs the goalc bootstrap (iso data-free CGO build) — tracked in the pillar plan"; exit 1; }
+  # windows-x86_64 / macos-arm64: P4 (Grecharged-buildsys-ci-docs) adapts the existing
+  # .github/workflows/windows-*.yaml + macos-build-arm.yaml to ./build.sh semantics.

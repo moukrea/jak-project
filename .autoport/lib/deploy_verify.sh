@@ -62,6 +62,24 @@ D=$(sha256sum "$TMP/dev.so" | cut -d' ' -f1)
 [ "$A" = "$D" ] || die "APK libgk.so != DEVICE libgk.so — device is running a STALE install (reinstall the APK)"
 echo "  ok: chain build==APK==device ($(echo $B|cut -c1-16))"
 
+# 4. FLAG-SET pairing (Grecharged-buildsys-flags, risk R1): the libgk.so on the
+# device must have been built from the SAME flag set as the CGOs it will load
+# (both carry "ogflags:<flag-hash>:<target>"). A mixed pair is the flag-era
+# variant of the frame-180 mixed-build class — refuse it.
+MARK_SO=$(strings "$TMP/dev.so" | grep -m1 '^ogflags:' || true)
+if [ -n "$MARK_SO" ]; then
+  MARK_CGO=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" cat "files/cgo/${GAME}/GAME.CGO" 2>/dev/null | grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' | head -1 || true)
+  if [ -z "$MARK_CGO" ]; then
+    MARK_CGO=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" cat "files/iso_data/${GAME}/GAME.CGO" 2>/dev/null | grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' | head -1 || true)
+  fi
+  if [ -n "$MARK_CGO" ]; then
+    [ "$MARK_SO" = "$MARK_CGO" ] || die "FLAG-SET MISMATCH: libgk '$MARK_SO' vs device CGO '$MARK_CGO' — mixed flag-set deploy (R1), push the matching CGO set or APK"
+    echo "  ok: flag-set pairing $MARK_SO (device libgk == device CGO)"
+  else
+    echo "  warn: device CGOs carry no ogflags marker (pre-flag-era set) — pairing not enforced"
+  fi
+fi
+
 # Record fingerprint.
 mkdir -p .autoport/reports
 printf 'deploy-verify PASS %s  commit=%s  libgk_sha=%s  so_mtime=%s\n' "$(date -Is)" "$(git rev-parse --short HEAD)" "$(echo $B|cut -c1-16)" "$(date -d @$SO_MTIME -Is)" >> .autoport/reports/deploy-fingerprint.txt

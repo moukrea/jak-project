@@ -18,7 +18,9 @@
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
+#ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
+#endif
 #include "game/graphics/opengl_renderer/ShadowRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureAnimator.h"
@@ -417,7 +419,9 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   // recharged hud sprites (Grecharged-hud): same runtime slots 8300+ as desktop.
+#ifdef OG_FEAT_RECHARGED_HUD
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
+#endif
   lg::info("A35-RENDER jak1 bucket table ready: {} buckets, direct=3 tex=11 eye=1 skip={}",
            m_bucket_renderers.size(), sizeof(unported) / sizeof(unported[0]));
 }

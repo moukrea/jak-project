@@ -22,7 +22,9 @@
 #include "game/kernel/common/kscheme.h"
 #include "game/runtime.h"
 #include "pipelines/opengl.h"
+#ifdef OG_FEAT_VULKAN_SUPPORT
 #include "pipelines/vulkan.h"
+#endif
 
 namespace Gfx {
 
@@ -39,11 +41,17 @@ const GfxRendererModule* GetRenderer(GfxPipeline pipeline) {
     case GfxPipeline::OpenGL:
       return &gRendererOpenGL;
     case GfxPipeline::Vulkan:
+#ifdef OG_FEAT_VULKAN_SUPPORT
       // Gvulkan-option: minimal SDL_gpu-based Vulkan backend (pipelines/vulkan.cpp). Desktop only —
       // this TU (gfx.cpp) does not compile on Android, which keeps its GLES module. Selecting Vulkan
       // presents a live Vulkan-cleared surface; the game geometry pipeline is not yet ported (see
       // pipelines/vulkan.cpp header).
       return &gRendererVulkan;
+#else
+      // OG_FEAT_VULKAN_SUPPORT OFF (default): the Vulkan pipeline is not compiled in.
+      // A settings file from an older build may still persist renderer==vulkan; fall back to OpenGL.
+      return &gRendererOpenGL;
+#endif
     default:
       lg::error("Requested unknown renderer {}", fmt::underlying(pipeline));
       return NULL;
@@ -70,8 +78,14 @@ u32 Init(GameVersion version) {
     // Default is OpenGL (renderer == 0), so nothing changes for users who don't opt in.
     game_settings::DisplaySettings display_settings;
     display_settings.load_settings();
+#ifdef OG_FEAT_VULKAN_SUPPORT
     GfxPipeline pipeline =
         display_settings.renderer == 1 ? GfxPipeline::Vulkan : GfxPipeline::OpenGL;
+#else
+    // OG_FEAT_VULKAN_SUPPORT OFF (default): Vulkan is not compiled in, so a persisted
+    // renderer==vulkan choice from an older build falls back to OpenGL.
+    GfxPipeline pipeline = GfxPipeline::OpenGL;
+#endif
     g_global_settings.renderer = GetRenderer(pipeline);
   }
 

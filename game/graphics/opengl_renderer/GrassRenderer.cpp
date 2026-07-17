@@ -1079,7 +1079,12 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // Grecharged-grass-overhang3: gate the transition-band comb on the SAME Recharged overhang toggle
   // that splits the draw range (below). OFF -> u_overhang=0 -> tagged blades run the stock else-branch.
   glUniform1f(glGetUniformLocation(id, "u_overhang"),
+#ifdef OG_FEAT_GRASS_OVERHANG
               Gfx::g_global_settings.recharged_grass_overhang ? 1.0f : 0.0f);
+#else
+              // Grecharged-buildsys-flags: overhang compiled OUT -> shader stock else-branch.
+              0.0f);
+#endif
   // OWNER ROUND#18: object-clip — hide grass under crates / the warp-gate button (merc actors captured
   // by Merc2 this frame). Upload up to 16 as u_occ (xyz = world pos GOAL units, w = ground-contact
   // radius GOAL units); u_occ_count == 0 (no objects captured) makes the shader path byte-identical to
@@ -1223,7 +1228,13 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // these counts — no rebuild, and OFF is bit-identical to a build without the droop tail.
   const int nondroop_n = std::min(m_droop_start, m_instance_count);
   const int blade_total =
+#ifdef OG_FEAT_GRASS_OVERHANG
       Gfx::g_global_settings.recharged_grass_overhang ? m_instance_count : nondroop_n;
+#else
+      // Grecharged-buildsys-flags: overhang compiled OUT -> never draw the droop tail
+      // (bit-identical to a build without the droop instances). See comment above.
+      nondroop_n;
+#endif
   const int draw_n = (s_maxinst > 0 && s_maxinst < blade_total) ? s_maxinst : blade_total;
   const int card_n = (s_maxinst > 0 && s_maxinst < nondroop_n) ? s_maxinst : nondroop_n;
 

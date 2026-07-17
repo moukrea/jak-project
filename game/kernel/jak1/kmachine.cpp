@@ -572,9 +572,11 @@ void pc_set_load_custom_assets(u32 on) {
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
 // alpha overhang texture at every distance).
+#ifdef OG_FEAT_GRASS_OVERHANG
 void pc_set_grass_overhang(u32 on) {
   Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
 }
+#endif
 
 // Grecharged-ambient-occlusion defect #6 resilience (safe-boot fallback): a crashy
 // persisted AO mode must never brick boot. A sentinel file is armed next to pc-settings
@@ -677,6 +679,7 @@ void pc_set_foliage_wind(u32 on) {
 // (-> *pc-settings* recharged-enhanced-models?). 0 = off (stock low-poly). Applies live to
 // village FR3 (Samos/Keira); the common FR3 (Jak/Daxter) is seeded from persisted settings at
 // renderer init, so toggling those takes effect on relaunch.
+#ifdef OG_FEAT_HD_MODELS
 void pc_set_recharged_enhanced_models(u32 on) {
   // Grecharged-hd-models2 discriminator: the GOAL side pushes this EVERY frame from *pc-settings*
   // (update-to-os), so a push of the pre-settings-load default silently flips the renderer-ctor
@@ -689,6 +692,7 @@ void pc_set_recharged_enhanced_models(u32 on) {
   }
   Gfx::g_global_settings.recharged_enhanced_models = v;
 }
+#endif
 
 // Grecharged-grass-poc: push Jak's world position (a GOAL vector, xyzw) each frame
 // so the grass renderer can flatten blades where the player walks. w := 1.0 marks
@@ -757,10 +761,12 @@ u64 pc_get_tod_hour() {
 // present), else 0. Drives the ENHANCED MODELS menu-row visibility so the toggle only appears when
 // jak2 assets were available at build time. Works on x86 and Android (get_fr3_dir already resolves the
 // unpacked external asset root on device).
+#ifdef OG_FEAT_HD_MODELS
 u64 pc_get_enhanced_models_available() {
   auto p = file_util::get_fr3_dir(GameVersion::Jak1) / "enhanced" / "GAME.fr3";
   return file_util::file_exists(p.string()) ? 1 : 0;
 }
+#endif
 
 // Grecharged-grass-poc ROUND#21d: ground-actor positions from GOAL (the pc-set-jak-pos! pattern —
 // exact world coords from each actor's root trans; the Merc2 camera-space recovery is dead). The pc
@@ -828,15 +834,19 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
+#ifdef OG_FEAT_GRASS_OVERHANG
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
+#endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
   // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
+#ifdef OG_FEAT_HD_MODELS
   // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
   make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);
   make_function_symbol_from_c("pc-enhanced-models-available?", (void*)pc_get_enhanced_models_available);
+#endif
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point
   make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);

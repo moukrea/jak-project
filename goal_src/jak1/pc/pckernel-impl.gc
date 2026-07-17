@@ -111,7 +111,9 @@
 ;; Gload-custom-assets: pushes the "load custom assets" toggle (0/1) to the runtime.
 (define-extern pc-set-load-custom-assets! (function int none))
 ;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
-(define-extern pc-set-grass-overhang! (function int none))
+;; Grecharged-buildsys-flags: extern present only with --grass-overhang (C++ side gated by OG_FEAT_GRASS_OVERHANG).
+(#when FLAG_GRASS_OVERHANG
+(define-extern pc-set-grass-overhang! (function int none)))
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
 (define-extern pc-set-ambient-occlusion! (function int int int none))
@@ -119,8 +121,10 @@
 (define-extern pc-set-foliage-wind! (function int none))
 ;; Grecharged-hd-models: pushes the ENHANCED MODELS toggle (0/1) to the loader; queries whether the
 ;; enhanced FR3 set shipped in this build (1 = available, so the menu row is shown).
+;; Grecharged-buildsys-flags: externs present only with --hd-models (C++ side gated by OG_FEAT_HD_MODELS).
+(#when FLAG_HD_MODELS
 (define-extern pc-set-recharged-enhanced-models! (function int none))
-(define-extern pc-enhanced-models-available? (function int))
+(define-extern pc-enhanced-models-available? (function int)))
 (define-extern pc-set-jak-pos! (function vector none))
 (define-extern pc-grass-tramp-break! (function vector none)) ;; R28: instant grass-trample cancel at a breakable's break frame
 ;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances (a vector: x=near m, y=card m)

@@ -74,7 +74,6 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/OpenGLRenderer.cpp
         graphics/opengl_renderer/Profiler.cpp
         graphics/opengl_renderer/ProgressRenderer.cpp
-        graphics/opengl_renderer/RechargedHudTextures.cpp
         graphics/opengl_renderer/Shader.cpp
         graphics/opengl_renderer/Shadow_PS2.cpp
         graphics/opengl_renderer/ShadowRenderer.cpp
@@ -92,7 +91,6 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/VisDataHandler.cpp
         graphics/opengl_renderer/Warp.cpp
         graphics/pipelines/opengl.cpp
-        graphics/pipelines/vulkan.cpp
         graphics/sceGraphicsInterface.cpp
         graphics/texture/jak1_tpage_dir.cpp
         graphics/texture/jak2_tpage_dir.cpp
@@ -391,6 +389,22 @@ set_source_files_properties(
 # reads/expands it (bit-identical placement across x86 desktop and arm64 device).
 set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+
+# Grecharged-buildsys-flags: feature-gated TUs are appended to RUNTIME_SOURCE
+# only when their flag is ON (default OFF => symbol absent from gk). The
+# runtime code that calls into them is #ifdef'd on the same OG_FEAT_* macro.
+if(OG_FEAT_RECHARGED_HUD)
+        list(APPEND RUNTIME_SOURCE graphics/opengl_renderer/RechargedHudTextures.cpp)
+endif()
+if(OG_FEAT_VULKAN_SUPPORT)
+        list(APPEND RUNTIME_SOURCE graphics/pipelines/vulkan.cpp)
+endif()
+
+# Grecharged-buildsys-flags: stamp the flag-set id onto the marker TU only
+# (kboot.cpp is shared with the android_kernel build). Source-file properties
+# are directory-scoped under cmake 3.10, hence set here in the game/ scope.
+set_source_files_properties(kernel/common/kboot.cpp
+        PROPERTIES COMPILE_DEFINITIONS "OG_FLAG_SET_ID=\"${OG_FLAG_SET_ID}\"")
 
 # we build the runtime as a static library.
 add_library(runtime STATIC ${RUNTIME_SOURCE} "../third-party/glad/src/glad.c")

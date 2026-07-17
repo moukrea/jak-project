@@ -169,6 +169,7 @@ void Loader::draw_debug_window() {
 // common FR3 (HD Jak+Daxter) loads in the renderer ctor (via load_common) BEFORE GOAL's per-frame push,
 // so we seed the flag here to respect the toggle on relaunch. Shared by desktop + Android (both call
 // Loader::load_common). Missing file / #f -> false -> stock.
+#ifdef OG_FEAT_HD_MODELS
 static bool read_persisted_enhanced_models() {
   try {
     auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "pc-settings.gc";
@@ -181,11 +182,13 @@ static bool read_persisted_enhanced_models() {
     return false;
   }
 }
+#endif
 
 // Grecharged-hd-models: resolve a level's FR3 path, preferring an enhanced (jak2 HD) variant under
 // fr3/enhanced/ when the ENHANCED MODELS toggle is on AND that file exists. Off / missing -> stock
 // path, so OFF is byte-identical to stock.
 static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
+#ifdef OG_FEAT_HD_MODELS
   if (Gfx::g_global_settings.recharged_enhanced_models) {
     auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
     if (file_util::file_exists(enhanced.string())) {
@@ -196,6 +199,8 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
   }
   lg::info("HD-MODELS fr3-select {}: STOCK (enhanced-toggle={})", name,
            Gfx::g_global_settings.recharged_enhanced_models);
+#endif
+  // OG_FEAT_HD_MODELS OFF (default): always the stock fr3 path.
   return base / fmt::format("{}.fr3", name);
 }
 
@@ -334,9 +339,11 @@ void Loader::loader_thread() {
  * This should be called during initialization, before any threaded loading goes on.
  */
 const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::string& name) {
+#ifdef OG_FEAT_HD_MODELS
   // Grecharged-hd-models: seed the enhanced-models flag before the common FR3 (HD Jak+Daxter) is read,
   // since this runs in the renderer ctor before GOAL's per-frame push. Shared by desktop + Android.
   Gfx::g_global_settings.recharged_enhanced_models = read_persisted_enhanced_models();
+#endif
   auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, name));
 
   auto decomp_data = compression::decompress_zstd(data.data(), data.size());

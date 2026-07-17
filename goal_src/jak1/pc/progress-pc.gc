@@ -561,10 +561,25 @@
 ;;   11 Advanced settings (renamed "PS2 Options" via name-override), 12 Back.
 ;; Row 4 (Min Target FPS) and row 3 (Render Scale) are position-locked: apply-dynamic-rs-menu-mode!
 ;; relabels/re-points row 3 and shows/hides row 4 by mutating the live `length` (see helper below).
-(define *graphic-options-pc*
-  (new 'static
-       'boxed-array
-       :type
+;; Grecharged-buildsys-flags: build-time row exclusion. A (flag-row FLAG <row>) entry is
+;; spliced into the static array ONLY when FLAG (a defglobalconstant from the generated
+;; pc/recharged-flags.gc) is #t at compile time — off rows are truly absent from the CGO
+;; (bare #when cannot drop elements inside a static boxed-array literal; the macro filters
+;; at GOOS expansion time, before the static compiler counts elements).
+(defmacro define-options-array (name elt-type &rest entries)
+  `(define ,name
+     (new 'static 'boxed-array :type ,elt-type
+          ,@(apply (lambda (e) (if (eq? (car e) 'flag-row) (third e) e))
+                   (filter (lambda (e) (if (eq? (car e) 'flag-row) (eval (second e)) #t))
+                           entries)))))
+;; full (Min-Target-FPS visible) lengths of the two graphics arrays; vulkan row is flagged.
+(#if FLAG_VULKAN_SUPPORT
+  (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 15)
+  (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 14))
+(#if FLAG_VULKAN_SUPPORT
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 12)
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 11))
+(define-options-array *graphic-options-pc*
        game-option
        ;; 0 Aspect Ratio
        (new 'static
@@ -659,6 +674,8 @@
        ;; name-override; value-to-modify = gfx-renderer-vulkan? (bound in init-game-options). on-change
        ;; maps the toggle to *pc-settings* gfx-renderer, persists it, and tells the C++ runtime, which
        ;; selects the backend at the next launch (surface recreation ⇒ restart to switch).
+       ;; row present only with --vulkan-support (Back shifts to 13 otherwise).
+       (flag-row FLAG_VULKAN_SUPPORT
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
@@ -667,9 +684,9 @@
                     (if val (pc-gfx-renderer vulkan) (pc-gfx-renderer opengl)))
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
-              (none)))
+              (none))))
        ;; 14 Back
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Android-only graphics options. Same owner order as *graphic-options-pc* but with the menu
 ;; items that don't make sense on a single-display phone HIDDEN (truly omitted, since the progress
@@ -680,10 +697,7 @@
 ;; Goptions-reorder order: 0 Aspect Ratio, 1 Game Resolution, 2 Dynamic Render Scale,
 ;;   3 Render Scale/Min Render Scale, 4 Min Target FPS (HIDDEN when Dynamic OFF), 5 FPS Counter,
 ;;   6 V-Sync, 7 MSAA, 8 Advanced settings (renamed "PS2 Options"), 9 Back. Wired in init-game-options.
-(define *graphic-options-pc-android*
-  (new 'static
-       'boxed-array
-       :type
+(define-options-array *graphic-options-pc-android*
        game-option
        ;; 0 Aspect Ratio
        (new 'static
@@ -754,6 +768,8 @@
        ;; maps the toggle to *pc-settings* gfx-renderer, persists it, and tells the C++ runtime (which
        ;; applies the new backend on the next launch). NOTE: on Android the Vulkan runtime is deferred —
        ;; the toggle persists the preference but the build keeps rendering with GLES for now.
+       ;; row present only with --vulkan-support (Back shifts to 10 otherwise).
+       (flag-row FLAG_VULKAN_SUPPORT
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
@@ -762,27 +778,25 @@
                     (if val (pc-gfx-renderer vulkan) (pc-gfx-renderer opengl)))
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
-              (none)))
+              (none))))
        ;; 11 Back
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Grecharged-hud-jak1: the "Recharged Settings" submenu (reached from Graphics Options, row before
 ;; Advanced). One row for now: a "RECHARGED HUD" on-off toggle (label via name-override, value bound
 ;; to *pc-settings* recharged-hud? in init-game-options), then Back. The on-change persists the flag
 ;; immediately so the choice survives a relaunch even without a full menu commit.
-(define *recharged-options-pc*
-  (new 'static
-       'boxed-array
-       :type
+(define-options-array *recharged-options-pc*
        game-option
        ;; 0 RECHARGED HUD toggle. :name is a placeholder (text-id vsync) like the other name-override
-       ;; on-off rows; the real label comes from *recharged-hud-label*.
+       ;; on-off rows; the real label comes from *recharged-hud-label*. row present only with --recharged-hud.
+       (flag-row FLAG_RECHARGED_HUD
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-hud?) (the-as symbol val))
               (commit-to-file *pc-settings*)
-              (none)))
+              (none))))
        ;; 1 GRASS SETTINGS sub-submenu launcher (Grecharged-grass-poc POLISH#6). All grass settings
        ;; (toggle + near-dist + card-dist + density) moved into their OWN nested page (*grass-options-pc*)
        ;; so they reliably appear on device — owner: "les réglages n'apparaissent toujours pas ... ça
@@ -806,13 +820,15 @@
        ;; init-game-options, where the row is HIDDEN unless the build ships the enhanced FR3 set
        ;; (pc-enhanced-models-available?). on-change persists + pushes to the loader (relaunch to apply
        ;; to Jak/Daxter — they live in the always-loaded common FR3; village NPCs apply on level reload).
+       ;; row present only with --hd-models.
+       (flag-row FLAG_HD_MODELS
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-enhanced-models?) (the-as symbol val))
               (pc-set-recharged-enhanced-models! (if val 1 0))
               (commit-to-file *pc-settings*)
-              (none)))
+              (none))))
        ;; 4 FOLIAGE WIND (Grecharged-foliage-wind) on-off toggle. Light wind sway on jak1 palms (TIE)
        ;; + shrubs so the foliage reacts to a light breeze. Top-level Recharged row (owner: "un toggle
        ;; supplémentaire dans les Recharged Settings"), NOT in the grass page — it isn't a grass
@@ -853,7 +869,7 @@
             (lambda ()
               (zero? (-> *pc-settings* ambient-occlusion))))
        ;; 8 Back
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
 ;; Settings submenu. Holds ALL grass settings on their own page (owner wanted a sub-submenu so they show
@@ -861,10 +877,7 @@
 ;; density slider, the GRASS MODE toggle, the GRASS OVERHANG toggle, then Back (7 rows, ==
 ;; PROGRESS_PC_PAGE_HEIGHT (7) so all show — the scroll machinery only engages when length > 7).
 ;; Values/labels are wired at runtime in init-game-options; on-change persists to *pc-settings*.
-(define *grass-options-pc*
-  (new 'static
-       'boxed-array
-       :type
+(define-options-array *grass-options-pc*
        game-option
        ;; 0 RECHARGED GRASS toggle (real label via *recharged-grass-label*).
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
@@ -903,14 +916,16 @@
               (commit-to-file *pc-settings*)
               (none)))
        ;; 5 GRASS OVERHANG: 3D drooping grass over platform edges (near); far keeps the stock alpha texture
+       ;; row present only with --grass-overhang.
+       (flag-row FLAG_GRASS_OVERHANG
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-grass-overhang?) (the-as symbol val))
               (commit-to-file *pc-settings*)
-              (none)))
+              (none))))
        ;; 6 Back
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
 ;; via the game-option name-override path which progress-pc.gc honors for on-off rows)
@@ -945,8 +960,9 @@
 ;; Gvulkan-option: label for the "VULKAN RENDERER" on-off toggle (uppercase ASCII for the menu font;
 ;; shown via the name-override path). OFF = OpenGL/GLES (default), ON = Vulkan. Changing it persists and
 ;; takes effect after a restart (the render surface is recreated at startup).
+(#when FLAG_VULKAN_SUPPORT
 (define *vulkan-renderer-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *vulkan-renderer-label*) "VULKAN RENDERER")
+(format (clear *vulkan-renderer-label*) "VULKAN RENDERER"))
 
 ;; Grecharged-hud-jak1: labels for the new "Recharged Settings" submenu row (in Graphics Options,
 ;; before Advanced) and the "Recharged HUD" on-off toggle inside it (uppercase ASCII for the menu
@@ -954,16 +970,18 @@
 ;; refresh-runtime-option-labels! so they follow the TEXT language — ids #x1706 / #x1707).
 (define *recharged-settings-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-settings-label*) "RECHARGED SETTINGS")
+(#when FLAG_RECHARGED_HUD
 (define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-hud-label*) "RECHARGED HUD")
+(format (clear *recharged-hud-label*) "RECHARGED HUD"))
 ;; Gload-custom-assets: label for the "LOAD CUSTOM ASSETS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 (define *load-custom-assets-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *load-custom-assets-label*) "LOAD CUSTOM ASSETS")
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
+(#when FLAG_HD_MODELS
 (define *enhanced-models-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *enhanced-models-label*) "ENHANCED MODELS")
+(format (clear *enhanced-models-label*) "ENHANCED MODELS"))
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
@@ -986,8 +1004,9 @@
 ;; Grecharged-grass-overhang: label for the "GRASS OVERHANG" on-off toggle (ON = 3D drooping edge grass
 ;; over platform edges, near LOD only / OFF = stock alpha texture). English-only, uppercase ASCII for the
 ;; menu font; shown via name-override, like *grass-mode-label* (not re-formatted).
+(#when FLAG_GRASS_OVERHANG
 (define *grass-overhang-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *grass-overhang-label*) "GRASS OVERHANG")
+(format (clear *grass-overhang-label*) "GRASS OVERHANG"))
 ;; Grecharged-foliage-wind: label for the "FOLIAGE WIND" on-off toggle (light wind sway on palms + shrubs).
 ;; English-only, uppercase ASCII for the menu font; shown via name-override, like *grass-overhang-label*.
 (define *foliage-wind-label* (new 'global 'string 64 (the-as string #f)))
@@ -1030,8 +1049,9 @@
     ;; Grecharged-hud-jak1
     (let ((s (lookup-text! *common-text* (the-as text-id #x1706) #t)))
       (if s (format (clear *recharged-settings-label*) "~S" s)))
+    (#when FLAG_RECHARGED_HUD
     (let ((s (lookup-text! *common-text* (the-as text-id #x1707) #t)))
-      (if s (format (clear *recharged-hud-label*) "~S" s)))
+      (if s (format (clear *recharged-hud-label*) "~S" s))))
     ;; Grecharged-ambient-occlusion
     (let ((s (lookup-text! *common-text* (the-as text-id #x170e) #t)))
       (if s (format (clear *ambient-occlusion-label*) "~S" s)))
@@ -1086,8 +1106,8 @@
           (if dyn? *min-render-scale-label* *render-scale-label*))
     ;; Gvulkan-option + Grecharged-hud-jak1: full lengths now 15 desktop / 12 android (VULKAN RENDERER
     ;; and RECHARGED SETTINGS rows both inserted after index 4, so the MTF stable pointers are unaffected).
-    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 15 dyn?)
-    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 12 dyn?))
+    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* GFX_OPTIONS_PC_FULL_LEN dyn?)
+    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* GFX_OPTIONS_ANDROID_FULL_LEN dyn?))
   (none))
 
 ;; label for the NATIVE (panel resolution) entry at the top of the Game Resolution
@@ -2919,9 +2939,11 @@
   (set! (-> *options-remap* (progress-screen settings))
         (if (or *cheat-mode* (nonzero? (-> *pc-settings* cheats-known))) *main-options-secrets* *main-options-pc*))
   (set! (-> *options-remap* (progress-screen game-settings)) *game-options-pc*)
-  ;; on Android use the trimmed graphics-options array (Display mode / Display / Frame rate hidden)
+  ;; Grecharged-buildsys-flags: the graphics-options array is now selected at COMPILE time per target
+  ;; build — android builds get the trimmed array (Display mode / Display / Frame rate hidden); desktop
+  ;; keeps Display mode / Display / Frame rate.
   (set! (-> *options-remap* (progress-screen graphic-settings))
-        (if (= (-> *pc-settings* os) 'android) *graphic-options-pc-android* *graphic-options-pc*))
+        (#if PLATFORM_ANDROID *graphic-options-pc-android* *graphic-options-pc*))
   (let ((max-refresh-rate (pc-get-active-display-refresh-rate)))
     (cond
       ((> max-refresh-rate 100) (set! *carousell-frame-rate* *carousell-frame-rate-150fps*))
@@ -3011,8 +3033,8 @@
   ;; removed), which would shift the indices below. apply-dynamic-rs-menu-mode! re-hides row 4 at the end.
   ;; Grecharged-hud-jak1: full lengths bumped to 15 desktop / 12 android for the inserted RECHARGED
   ;; SETTINGS row (see the reindexed Advanced / Vulkan / new-submenu wiring below).
-  (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 15 #t)
-  (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 12 #t)
+  (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* GFX_OPTIONS_PC_FULL_LEN #t)
+  (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* GFX_OPTIONS_ANDROID_FULL_LEN #t)
   ;; desktop graphics-options (Goptions-reorder + Grecharged-hud-jak1 order): 0 Aspect, 1 GameRes,
   ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 DisplayMode, 9 Display,
   ;; 10 FrameRate, 11 RechargedSettings, 12 Advanced(=PS2 Options renamed), 13 Vulkan, 14 Back.
@@ -3034,10 +3056,11 @@
   ;; Gvulkan-option: derive the VULKAN RENDERER toggle from the persisted backend choice, then wire the
   ;; desktop row (now index 13, after RECHARGED SETTINGS + Advanced, before Back). Bound here at FULL
   ;; menu length (MTF forced visible just above), so index 13 is the Renderer object regardless of MTF hiding.
+  (#when FLAG_VULKAN_SUPPORT
   (set! (-> *pc-settings* gfx-renderer-vulkan?)
         (= (-> *pc-settings* gfx-renderer) (pc-gfx-renderer vulkan)))
   (set! (-> *graphic-options-pc* 13 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
-  (set! (-> *graphic-options-pc* 13 name-override) *vulkan-renderer-label*)
+  (set! (-> *graphic-options-pc* 13 name-override) *vulkan-renderer-label*))
   ;; android graphics-options (Goptions-reorder + Grecharged-hud-jak1 order): 0 Aspect, 1 GameRes,
   ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 RechargedSettings,
   ;; 9 Advanced, 10 Vulkan, 11 Back.
@@ -3056,24 +3079,32 @@
   ;; Gvulkan-option: wire the VULKAN RENDERER row on Android (now index 10, after RECHARGED SETTINGS +
   ;; Advanced, before Back). Same gfx-renderer-vulkan? mirror field (derived just above for desktop). On
   ;; Android the Vulkan runtime is deferred, so the toggle persists the preference but keeps GLES for now.
+  (#when FLAG_VULKAN_SUPPORT
   (set! (-> *graphic-options-pc-android* 10 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
-  (set! (-> *graphic-options-pc-android* 10 name-override) *vulkan-renderer-label*)
+  (set! (-> *graphic-options-pc-android* 10 name-override) *vulkan-renderer-label*))
   ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle (row 0) inside the Recharged submenu.
+  (#when FLAG_RECHARGED_HUD
   (set! (-> *recharged-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-hud?))
-  (set! (-> *recharged-options-pc* 0 name-override) *recharged-hud-label*)
+  (set! (-> *recharged-options-pc* 0 name-override) *recharged-hud-label*))
   ;; Grecharged-grass-poc POLISH#6: row 1 is now the "GRASS SETTINGS" sub-submenu launcher (label only;
   ;; its param3 opens *grass-options-pc*). All grass rows moved into that nested page (wired below).
-  (set! (-> *recharged-options-pc* 1 name-override) *grass-settings-label*)
+  (set! (-> *recharged-options-pc* FLAG_RECHARGED_HUD_N name-override) *grass-settings-label*)
   ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 2) inside the Recharged submenu.
-  (set! (-> *recharged-options-pc* 2 value-to-modify) (&-> *pc-settings* load-custom-assets?))
-  (set! (-> *recharged-options-pc* 2 name-override) *load-custom-assets-label*)
+  (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* load-custom-assets?))
+  (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) name-override) *load-custom-assets-label*)
   ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle. It sits at index 4 while the ENHANCED
   ;; MODELS row is present (static length 9) and at index 3 after that row collapsed (length 8) —
   ;; wire by live length so re-inits stay correct in both states. Must run BEFORE the collapse
   ;; below (the collapse moves this very row object; wiring rides along with it).
   ;; Grecharged-ambient-occlusion: the three AO carousell rows sit right after FOLIAGE WIND (indices
   ;; 5,6,7 full / 4,5,6 collapsed). They also ride along with the collapse (wired here, pre-collapse).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) 9) 4 3)))
+  ;; Grecharged-buildsys-flags: fw-idx = first FOLIAGE WIND slot. HD-MODELS present => static length is
+  ;; (+ 7 hud-N hd-N) and FOLIAGE WIND sits at (+ 2 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
+  ;; to (+ 2 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 2 FLAG_RECHARGED_HUD_N) — the static
+  ;; length is then (+ 7 hud-N) and no collapse ever fires.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N))
+                    (+ 2 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N)
+                    (+ 2 FLAG_RECHARGED_HUD_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
     ;; Grecharged-ambient-occlusion: AO mode + quality + strength carousell rows follow FOLIAGE WIND. All
@@ -3086,21 +3117,23 @@
     (set! (-> *recharged-options-pc* (+ fw-idx 2) name-override) *ao-quality-label*)
     (set! (-> *recharged-options-pc* (+ fw-idx 3) value-to-modify) (&-> *progress-carousell* int-backup))
     (set! (-> *recharged-options-pc* (+ fw-idx 3) name-override) *ao-strength-label*))
-  ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row 3) only when the build ships the
+  ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 2 hud-N)) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
-  ;; slot and drop the live length to 8, so it disappears — renderer + nav key off (length arr)).
-  ;; Idempotent across re-inits (only fires while the static length 9 is intact).
+  ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
+  ;; Idempotent across re-inits (only fires while the full static length is intact). The whole block is
+  ;; compiled only with --hd-models; without it the ENHANCED MODELS row is absent from the static array.
+  (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
-      (when (= (-> *recharged-options-pc* length) 9)
-        (set! (-> *recharged-options-pc* 3) (-> *recharged-options-pc* 4))
-        (set! (-> *recharged-options-pc* 4) (-> *recharged-options-pc* 5))
-        (set! (-> *recharged-options-pc* 5) (-> *recharged-options-pc* 6))
-        (set! (-> *recharged-options-pc* 6) (-> *recharged-options-pc* 7))
-        (set! (-> *recharged-options-pc* 7) (-> *recharged-options-pc* 8))
-        (set! (-> *recharged-options-pc* length) 8))
+      (when (= (-> *recharged-options-pc* length) (+ 8 FLAG_RECHARGED_HUD_N))
+        (let ((i (+ 2 FLAG_RECHARGED_HUD_N)))
+          (while (< i (+ 7 FLAG_RECHARGED_HUD_N))
+            (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
+            (+! i 1)))
+        (set! (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N)))
       (begin
-        (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-enhanced-models?))
-        (set! (-> *recharged-options-pc* 3 name-override) *enhanced-models-label*)))
+        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) value-to-modify)
+              (&-> *pc-settings* recharged-enhanced-models?))
+        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) name-override) *enhanced-models-label*))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
@@ -3113,9 +3146,10 @@
   ;; Grecharged-grass-precompute-mode: row 4 = GRASS MODE toggle (ON = PRECOMPUTED / OFF = LIVE).
   (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-precomputed?))
   (set! (-> *grass-options-pc* 4 name-override) *grass-mode-label*)
-  ;; Grecharged-grass-overhang: row 5 GRASS OVERHANG on-off toggle
+  ;; Grecharged-grass-overhang: row 5 GRASS OVERHANG on-off toggle (present only with --grass-overhang)
+  (#when FLAG_GRASS_OVERHANG
   (set! (-> *grass-options-pc* 5 value-to-modify) (&-> *pc-settings* recharged-grass-overhang?))
-  (set! (-> *grass-options-pc* 5 name-override) *grass-overhang-label*)
+  (set! (-> *grass-options-pc* 5 name-override) *grass-overhang-label*))
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))

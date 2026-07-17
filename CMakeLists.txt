@@ -22,6 +22,37 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third-party/cmake/modules/)
 # Activity-libgk.so divert is preserved unmodified.
 option(OG_ANDROID_ARM64 "Build the bucket-D android-arm64 gk (NDK cross-toolchain)" OFF)
 
+# Grecharged-buildsys-flags: build-time feature flags. Each of the four
+# "recharged" features is compiled OUT of the binary when its flag is OFF
+# (the default => a build byte-for-byte equivalent to stock with all
+# toggles off). build.sh flips these ON per flag-set. They are declared
+# and applied HERE, before the if(ANDROID) divert, so BOTH the desktop gk
+# tree AND the android/ (libgk.so) subtree inherit the compile definitions.
+option(OG_FEAT_RECHARGED_HUD   "Compile in the recharged HUD textures/loader"          OFF)
+option(OG_FEAT_GRASS_OVERHANG  "Compile in the grass-overhang (rim-drape/3-zone) paths" OFF)
+option(OG_FEAT_HD_MODELS       "Compile in the HD/enhanced-models fr3 selection path"   OFF)
+option(OG_FEAT_VULKAN_SUPPORT  "Compile in the Vulkan render pipeline (desktop only)"   OFF)
+# Flag-set hash + target triple. build.sh overrides this. It is NOT applied
+# globally (that would recompile the world on every flag-set change) — it is
+# stamped onto the single marker TU below via set_source_files_properties.
+set(OG_FLAG_SET_ID "e3b0c44298fc:linux-x86_64" CACHE STRING "flag-set hash:target stamped into g_og_flag_set_marker")
+
+foreach(feat RECHARGED_HUD GRASS_OVERHANG HD_MODELS VULKAN_SUPPORT)
+  if(OG_FEAT_${feat})
+    add_compile_definitions(OG_FEAT_${feat}=1)
+  endif()
+endforeach()
+
+# The flag-set marker TU is game/kernel/common/kboot.cpp — it is compiled
+# into BOTH the desktop gk executable and the android_kernel static lib
+# (=> libgk.so), and pulls no graphics deps, so it is the one guaranteed
+# shared pairing-proof site. OG_FLAG_SET_ID is stamped onto just that file
+# (via set_source_files_properties) so changing the flag-set id only
+# recompiles kboot.cpp, not the whole tree. NOTE: source-file properties are
+# directory-scoped under cmake 3.10, so the stamp is applied inside each
+# subdirectory that adds kboot.cpp (game/CMakeLists.txt and
+# android/CMakeLists.txt), reading the OG_FLAG_SET_ID cache var declared above.
+
 # Phase 10 (autoport): Android NDK cross-build entry point.
 # The NDK's android.toolchain.cmake sets CMAKE_SYSTEM_NAME=Android which
 # in turn makes CMake define ANDROID=1. When that's the case, divert to

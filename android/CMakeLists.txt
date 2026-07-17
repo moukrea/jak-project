@@ -620,7 +620,7 @@ add_library(gk SHARED
     # Grecharged-hud: PC recharged HUD sprite loader (slots 8300+). Compiled into
     # the desktop gk via game/CMakeLists.txt; the Android build has its own source
     # list, so it must be listed here too or load_recharged_hud_textures is undefined.
-    "${JAK_ROOT}/game/graphics/opengl_renderer/RechargedHudTextures.cpp"
+    # Grecharged-buildsys-flags: appended conditionally below (OG_FEAT_RECHARGED_HUD).
     # Grecharged-grass-poc: procedural 3D grass renderer (jak1 training). Desktop
     # lists it in game/CMakeLists.txt; the Android build has its own source list,
     # so it must be listed here too or GrassRenderer's symbols are undefined.
@@ -745,6 +745,19 @@ add_library(gk SHARED
     # undefined at link time.
     "${JAK_ROOT}/third-party/stb_image/stb_image.cpp"
 )
+
+# Grecharged-buildsys-flags: feature-gated TUs join libgk.so only when their
+# flag is ON (default OFF => symbol absent from the .so). The runtime callers
+# are #ifdef'd on the same OG_FEAT_* macro (inherited from the root CMakeLists).
+if(OG_FEAT_RECHARGED_HUD)
+    target_sources(gk PRIVATE "${JAK_ROOT}/game/graphics/opengl_renderer/RechargedHudTextures.cpp")
+endif()
+
+# Grecharged-buildsys-flags: stamp the flag-set id onto the marker TU only
+# (kboot.cpp is compiled into android_kernel here). Source-file properties are
+# directory-scoped under cmake 3.10, hence set here in the android/ scope.
+set_source_files_properties("${JAK_ROOT}/game/kernel/common/kboot.cpp"
+    PROPERTIES COMPILE_DEFINITIONS "OG_FLAG_SET_ID=\"${OG_FLAG_SET_ID}\"")
 
 add_dependencies(gk gen_android_shaders)
 target_include_directories(gk PRIVATE

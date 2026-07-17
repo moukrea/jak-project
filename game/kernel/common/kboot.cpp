@@ -2,6 +2,21 @@
 
 #include <cstring>
 
+// Grecharged-buildsys-flags: flag-set marker paired with the GOAL-side
+// *og-flag-set-marker* (generated pc/recharged-flags.gc). deploy_verify/
+// release_verify grep both artifacts and refuse mixed flag-set builds
+// (libgk vs CGOs). OG_FLAG_SET_ID is stamped onto THIS TU only (see root
+// CMakeLists set_source_files_properties). Fallback keeps a stable string
+// if the define is somehow absent (e.g. a raw single-file compile).
+#ifndef OG_FLAG_SET_ID
+#define OG_FLAG_SET_ID "unknown:unknown"
+#endif
+#ifdef __GNUC__
+extern "C" __attribute__((used)) const char g_og_flag_set_marker[] = "ogflags:" OG_FLAG_SET_ID;
+#else
+extern "C" const char g_og_flag_set_marker[] = "ogflags:" OG_FLAG_SET_ID;
+#endif
+
 // Set to 1 to kill GOAL kernel
 RuntimeExitStatus MasterExit;
 
