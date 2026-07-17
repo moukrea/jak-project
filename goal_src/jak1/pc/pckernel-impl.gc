@@ -86,6 +86,7 @@
    (recharged-grass-density   float) ;; Grecharged-grass-poc POLISH#5: grass density percent (100 = base), slider-adjustable
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
+   (pbr-materials? symbol) ;; Grecharged-pbr-materials: realtime PBR lighting/shading over custom-asset materials. #f = stock shading.
    (recharged-foliage-wind? symbol) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
    (ambient-occlusion   int32) ;; Grecharged-ambient-occlusion: 0=off 1=ssao 2=hbao 3=gtao. Default OFF (0).
    (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
@@ -114,6 +115,11 @@
 ;; Grecharged-buildsys-flags: extern present only with --grass-overhang (C++ side gated by OG_FEAT_GRASS_OVERHANG).
 (#when FLAG_GRASS_OVERHANG
 (define-extern pc-set-grass-overhang! (function int none)))
+;; Grecharged-pbr-materials: pushes the PBR toggle and the current sun/shadow lighting to the renderer.
+;; Grecharged-buildsys-flags: externs present only with --pbr (C++ side gated by OG_FEAT_PBR).
+(#when FLAG_PBR
+(define-extern pc-set-pbr! (function int none))
+(define-extern pc-set-pbr-sun! (function vector vector vector none)))
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
 (define-extern pc-set-ambient-occlusion! (function int int int none))
@@ -200,6 +206,7 @@
   (set! (-> obj recharged-grass-density) 150.0) ;; POLISH#5 default grass density percent (100 = base budget; owner wants denser)
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
   (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
+  (set! (-> obj pbr-materials?) #t) ;; Grecharged-pbr-materials: default ON (toggle still exists; OFF == stock shading)
   (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
   (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
   (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality

@@ -337,6 +337,21 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
       }
     }
   }
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: resolve every texture in this level that has a
+  // registered PBR material set (no level-name gating).
+  m_pbr_draws.clear();
+  for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
+    if (const auto* maps = custom_tex::find_pbr_material(lev_data->textures[ti].debug_name)) {
+      m_pbr_draws.push_back({(s32)ti, *maps});
+    }
+  }
+  if (!m_pbr_draws.empty()) {
+    lg::info("Grecharged-pbr-materials: level {} has {} PBR material(s)", lev_data->level_name,
+             m_pbr_draws.size());
+  }
+#endif
+
   discard_tree_cache();
   for (int geom = 0; geom < GEOM_MAX; ++geom) {
     m_cached_trees[geom].clear();
@@ -816,6 +831,65 @@ void TFragment::render_tree(int geom,
     fringe_on_state = want;
   };
 
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: per-draw PBR material bind. Units 11-14 are free in
+  // this renderer (base tex = 0, TOD LUT = 10); shared TFRAG3 program so u_pbr_mode
+  // is always restored to 0 at the end of the draw loop.
+  GLint pbr_mode_loc = -2;
+  int pbr_cur_mode = 0;
+  auto set_pbr = [&](s32 tex_id, const DrawMode& mode) {
+    int want = 0;
+    const custom_tex::PbrMaterialMaps* maps = nullptr;
+    // Grecharged-pbr-materials: alpha-blended + decal draws keep the legacy path (same
+    // opaque-only rule as AO); PBR keys on the texture, resolved once per level.
+    if (Gfx::g_global_settings.recharged_pbr_enable && tex_id >= 0 && !mode.get_ab_enable() &&
+        !mode.get_decal() && !m_pbr_draws.empty()) {
+      for (auto& e : m_pbr_draws) {
+        if (e.tex_idx == tex_id) {
+          maps = &e.maps;
+          break;
+        }
+      }
+      if (maps) {
+        want = (maps->normal_tex ? 1 : 0) | (maps->rough_tex ? 2 : 0) |
+               (maps->metal_tex ? 4 : 0) | (maps->ao_tex ? 8 : 0);
+      }
+    }
+    if (want == 0 && pbr_cur_mode == 0) {
+      return;
+    }
+    if (pbr_mode_loc == -2) {
+      pbr_mode_loc = glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "u_pbr_mode");
+    }
+    if (pbr_mode_loc < 0) {
+      return;
+    }
+    if (want != 0) {
+      if (maps->normal_tex) {
+        glActiveTexture(GL_TEXTURE11);
+        glBindTexture(GL_TEXTURE_2D, maps->normal_tex);
+      }
+      if (maps->rough_tex) {
+        glActiveTexture(GL_TEXTURE12);
+        glBindTexture(GL_TEXTURE_2D, maps->rough_tex);
+      }
+      if (maps->metal_tex) {
+        glActiveTexture(GL_TEXTURE13);
+        glBindTexture(GL_TEXTURE_2D, maps->metal_tex);
+      }
+      if (maps->ao_tex) {
+        glActiveTexture(GL_TEXTURE14);
+        glBindTexture(GL_TEXTURE_2D, maps->ao_tex);
+      }
+      glActiveTexture(GL_TEXTURE0);
+    }
+    if (want != pbr_cur_mode) {
+      glUniform1i(pbr_mode_loc, want);
+      pbr_cur_mode = want;
+    }
+  };
+#endif
+
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws that share texture+mode into one
     // glDrawElements. The single-draw index list packs draw ranges adjacently
@@ -847,6 +921,9 @@ void TFragment::render_tree(int geom,
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
       set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                  (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+#ifdef OG_FEAT_PBR
+      set_pbr(draw.tree_tex_id, draw.mode);
+#endif
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -916,6 +993,9 @@ void TFragment::render_tree(int geom,
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
     set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+#ifdef OG_FEAT_PBR
+    set_pbr(draw.tree_tex_id, draw.mode);
+#endif
     tree.tris_this_frame += draw.num_triangles;
     tree.draws_this_frame++;
 
@@ -963,6 +1043,14 @@ void TFragment::render_tree(int geom,
   }
   // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
   set_fringe(false);
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: the TFRAG3 program is shared; reset PBR mode to 0 so
+  // other users of the program are unaffected.
+  if (pbr_cur_mode != 0) {
+    glUniform1i(pbr_mode_loc, 0);
+    pbr_cur_mode = 0;
+  }
+#endif
 #ifdef __ANDROID__
   // A42 probe tail: GL error state + an FBO readback where the village
   // should be (left third, mid height) right after this tree's draws.

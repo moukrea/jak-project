@@ -813,6 +813,30 @@ void pc_set_jak_ledge(u32 vec) {
   Gfx::g_global_settings.recharged_jak_ledge[3] = 1.0f;
 }
 
+#ifdef OG_FEAT_PBR
+// Grecharged-pbr-materials: runtime PBR toggle pushed from GOAL.
+void pc_set_pbr(u32 sym) {
+  Gfx::g_global_settings.recharged_pbr_enable = (sym != 0);
+}
+
+// Grecharged-pbr-materials: per-frame mood/TOD sun state (three GOAL vectors, xyz each):
+// shadow = current-shadow light-travel dir, sun_color = mood-sun sun-color, env = env-color.
+void pc_set_pbr_sun(u32 shadow_vec, u32 sun_color_vec, u32 env_color_vec) {
+  float* s = Ptr<float>(shadow_vec).c();
+  Gfx::g_global_settings.recharged_pbr_shadow[0] = s[0];
+  Gfx::g_global_settings.recharged_pbr_shadow[1] = s[1];
+  Gfx::g_global_settings.recharged_pbr_shadow[2] = s[2];
+  float* c = Ptr<float>(sun_color_vec).c();
+  Gfx::g_global_settings.recharged_pbr_sun_color[0] = c[0];
+  Gfx::g_global_settings.recharged_pbr_sun_color[1] = c[1];
+  Gfx::g_global_settings.recharged_pbr_sun_color[2] = c[2];
+  float* e = Ptr<float>(env_color_vec).c();
+  Gfx::g_global_settings.recharged_pbr_ambient[0] = e[0];
+  Gfx::g_global_settings.recharged_pbr_ambient[1] = e[1];
+  Gfx::g_global_settings.recharged_pbr_ambient[2] = e[2];
+}
+#endif
+
 void InitMachine_PCPort() {
   // PC Port added functions
   init_common_pc_port_functions(
@@ -837,6 +861,11 @@ void InitMachine_PCPort() {
 #ifdef OG_FEAT_GRASS_OVERHANG
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
+#endif
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: runtime toggle + mood/TOD sun push
+  make_function_symbol_from_c("pc-set-pbr!", (void*)pc_set_pbr);
+  make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);

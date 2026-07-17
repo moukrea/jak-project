@@ -14,7 +14,7 @@
 #   windows-x86_64 -> out/artifacts/app-<game>-windows-x86_64.zip   (CI engine + custom)
 #
 # Flag-set (risk R1): the flag SET is recovered from the binary/CGO ogflags marker
-# by inverting the 12-char hash over the 16 subsets of the 4 flags; the gk marker
+# by inverting the 12-char hash over the 32 subsets of the 5 flags; the gk marker
 # MUST equal the GAME.CGO marker (no mixed flag-set package).
 set -euo pipefail
 
@@ -29,15 +29,15 @@ fail(){ echo "[package] FATAL: $*" >&2; exit 1; }
 OUT_DIR="out/artifacts"
 mkdir -p "$OUT_DIR"
 
-ALL_FLAGS=(grass-overhang hd-models recharged-hud vulkan-support)
+ALL_FLAGS=(grass-overhang hd-models pbr recharged-hud vulkan-support)
 # invert_hash <12-char-hash> -> echoes the matched canonical flag string (may be
 # empty); returns 1 if no subset matches.
 invert_hash() {
   local hash="$1" mask bit cand h
   local -a set_list
-  for mask in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  for mask in $(seq 0 31); do
     set_list=()
-    for bit in 0 1 2 3; do
+    for bit in 0 1 2 3 4; do
       if (( (mask >> bit) & 1 )); then set_list+=("${ALL_FLAGS[$bit]}"); fi
     done
     cand=$(IFS=,; echo "${set_list[*]-}")

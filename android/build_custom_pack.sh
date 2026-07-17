@@ -10,8 +10,8 @@
 #   fr3/enhanced/<name>.fr3       (flag hd-models ON)
 #
 # The flag SET is recovered from the compiled arm64 GAME.CGO marker
-# ("ogflags:<hash>:<target>"): the 12-char hash is inverted by enumerating the 16
-# subsets of {grass-overhang, hd-models, recharged-hud, vulkan-support}, hashing
+# ("ogflags:<hash>:<target>"): the 12-char hash is inverted by enumerating the 32
+# subsets of {grass-overhang, hd-models, pbr, recharged-hud, vulkan-support}, hashing
 # each alphabetical comma-join, and matching. (Same canonical scheme as build.sh.)
 #
 # Output:
@@ -46,14 +46,14 @@ MARKER=$(grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' "$GAME_CGO" | head -1 || true)
 HASH="${MARKER#ogflags:}"; HASH="${HASH%%:*}"
 [ -n "$HASH" ] || fail "malformed marker '$MARKER'"
 
-# Enumerate 16 subsets of the 4 flags (alphabetical universe), hash each canonical
+# Enumerate 32 subsets of the 5 flags (alphabetical universe), hash each canonical
 # (alphabetical comma-join) string, match against HASH.
-ALL_FLAGS=(grass-overhang hd-models recharged-hud vulkan-support)
-F_OVERHANG=0; F_HDMODELS=0; F_HUD=0; F_VULKAN=0
+ALL_FLAGS=(grass-overhang hd-models pbr recharged-hud vulkan-support)
+F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0
 FOUND=0; MATCHED_STR=""
-for mask in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+for mask in $(seq 0 31); do
   set_list=()
-  for bit in 0 1 2 3; do
+  for bit in 0 1 2 3 4; do
     if (( (mask >> bit) & 1 )); then set_list+=("${ALL_FLAGS[$bit]}"); fi
   done
   cand=$(IFS=,; echo "${set_list[*]-}")
@@ -64,6 +64,7 @@ for mask in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
       case "$fl" in
         grass-overhang) F_OVERHANG=1;;
         hd-models)      F_HDMODELS=1;;
+        pbr)            F_PBR=1;;
         recharged-hud)  F_HUD=1;;
         vulkan-support) F_VULKAN=1;;
       esac
@@ -72,7 +73,7 @@ for mask in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   fi
 done
 [ "$FOUND" -eq 1 ] || fail "pre-flag-era CGO set — rebuild via ./build.sh android-arm64"
-echo "[custom-pack] marker=$MARKER  flags='${MATCHED_STR:-<none>}' (hud=$F_HUD overhang=$F_OVERHANG hd-models=$F_HDMODELS vulkan=$F_VULKAN)"
+echo "[custom-pack] marker=$MARKER  flags='${MATCHED_STR:-<none>}' (hud=$F_HUD overhang=$F_OVERHANG hd-models=$F_HDMODELS pbr=$F_PBR vulkan=$F_VULKAN)"
 
 mkdir -p "$OUT_DIR"
 rm -rf "$STAGE"

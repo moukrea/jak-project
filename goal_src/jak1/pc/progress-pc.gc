@@ -814,6 +814,17 @@
               (pc-set-load-custom-assets! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none)))
+       ;; 2b PBR MATERIALS (Grecharged-pbr-materials) on-off toggle. Cloned from LOAD CUSTOM ASSETS.
+       ;; Real label via *pbr-materials-label* (name-override); value bound to *pc-settings* pbr-materials?
+       ;; in init-game-options. The on-change ONLY persists (the per-frame update-to-os push in
+       ;; hud-classes-pc.gc applies pc-set-pbr! + pc-set-pbr-sun!). Row present only with --pbr.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* pbr-materials?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none))))
        ;; 3 ENHANCED MODELS (Grecharged-hd-models) on-off toggle. Loads jak2 detailed character models
        ;; (Jak/Daxter/Samos/Keira, jak1-look) in place of the stock low-poly meshes. Real label via
        ;; *enhanced-models-label*; value bound to *pc-settings* recharged-enhanced-models? in
@@ -977,6 +988,11 @@
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 (define *load-custom-assets-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *load-custom-assets-label*) "LOAD CUSTOM ASSETS")
+;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
+;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
+(#when FLAG_PBR
+(define *pbr-materials-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *pbr-materials-label*) "PBR MATERIALS"))
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
@@ -3092,6 +3108,12 @@
   ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 2) inside the Recharged submenu.
   (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* load-custom-assets?))
   (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) name-override) *load-custom-assets-label*)
+  ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 2 hud-N)) inside the
+  ;; Recharged submenu. Present only with --pbr; downstream rows (ENHANCED MODELS, FOLIAGE WIND, AO,
+  ;; Back) are shifted up by FLAG_PBR_N in the index arithmetic below (0 when --pbr is off).
+  (#when FLAG_PBR
+  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* pbr-materials?))
+  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) name-override) *pbr-materials-label*))
   ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle. It sits at index 4 while the ENHANCED
   ;; MODELS row is present (static length 9) and at index 3 after that row collapsed (length 8) —
   ;; wire by live length so re-inits stay correct in both states. Must run BEFORE the collapse
@@ -3102,9 +3124,9 @@
   ;; (+ 7 hud-N hd-N) and FOLIAGE WIND sits at (+ 2 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 2 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 2 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 7 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N))
-                    (+ 2 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N)
-                    (+ 2 FLAG_RECHARGED_HUD_N))))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N))
+                    (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
+                    (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
     ;; Grecharged-ambient-occlusion: AO mode + quality + strength carousell rows follow FOLIAGE WIND. All
@@ -3124,16 +3146,16 @@
   ;; compiled only with --hd-models; without it the ENHANCED MODELS row is absent from the static array.
   (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
-      (when (= (-> *recharged-options-pc* length) (+ 8 FLAG_RECHARGED_HUD_N))
-        (let ((i (+ 2 FLAG_RECHARGED_HUD_N)))
-          (while (< i (+ 7 FLAG_RECHARGED_HUD_N))
+      (when (= (-> *recharged-options-pc* length) (+ 8 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
+        (let ((i (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+          (while (< i (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
             (+! i 1)))
-        (set! (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N)))
+        (set! (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
       (begin
-        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) value-to-modify)
+        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
-        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) name-override) *enhanced-models-label*))))
+        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N) name-override) *enhanced-models-label*))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)

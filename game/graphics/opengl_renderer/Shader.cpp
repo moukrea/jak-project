@@ -57,6 +57,24 @@ Shader::Shader(const std::string& shader_name, GameVersion version) : m_name(sha
   frag_src = std::regex_replace(frag_src, std::regex("SCISSOR_HEIGHT"), scissor_height);
   vert_src = std::regex_replace(vert_src, std::regex("SCISSOR_ADJUST"), "(" + scissor_adjust + ")");
 
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: inject the shader-side feature define right after the
+  // #version directive (which is NOT the first line on desktop — the source files
+  // open with comments; GLSL requires #version to stay first-in-effect, so the
+  // define must land after it). Guards the OG_PBR preprocessor block in tfrag3.frag.
+  auto inject_pbr_define = [](std::string& src) {
+    auto v = src.find("#version");
+    auto nl = v == std::string::npos ? std::string::npos : src.find('\n', v);
+    if (nl != std::string::npos) {
+      src.insert(nl + 1, "#define OG_PBR 1\n");
+    } else {
+      src += "\n#define OG_PBR 1\n";
+    }
+  };
+  inject_pbr_define(vert_src);
+  inject_pbr_define(frag_src);
+#endif
+
   m_vert_shader = glCreateShader(GL_VERTEX_SHADER);
   const char* src = vert_src.c_str();
   glShaderSource(m_vert_shader, 1, &src, nullptr);

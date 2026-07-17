@@ -6,6 +6,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <unordered_map>
+#ifdef OG_FEAT_PBR
+#include <cmath>
+#endif
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #endif
@@ -490,6 +493,32 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform4f(glGetUniformLocation(id, "fog_color"), render_state->fog_color[0] / 255.f,
               render_state->fog_color[1] / 255.f, render_state->fog_color[2] / 255.f,
               render_state->fog_intensity / 255);
+
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: frame-constant PBR uniforms; glGetUniformLocation returns -1
+  // for programs without them (glUniform on -1 is a no-op), so this is safe for every ShaderId.
+  glUniform1i(glGetUniformLocation(id, "u_pbr_mode"), 0);
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_N"), 11);
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_R"), 12);
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_AO"), 14);
+  const auto& gs = Gfx::g_global_settings;
+  // Sun direction is surface->sun; the GOAL shadow vector is light-travel (sun->surface), so negate.
+  float sd[3] = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1], -gs.recharged_pbr_shadow[2]};
+  float sl = std::sqrt(sd[0] * sd[0] + sd[1] * sd[1] + sd[2] * sd[2]);
+  if (sl < 1e-5f) {
+    sd[0] = 0.f;
+    sd[1] = 1.f;
+    sd[2] = 0.f;
+    sl = 1.f;
+  }
+  glUniform3f(glGetUniformLocation(id, "u_pbr_sun_dir"), sd[0] / sl, sd[1] / sl, sd[2] / sl);
+  glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0],
+              gs.recharged_pbr_sun_color[1], gs.recharged_pbr_sun_color[2]);
+  glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0],
+              gs.recharged_pbr_ambient[1], gs.recharged_pbr_ambient[2]);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"), gs.recharged_pbr_exposure);
+#endif
 }
 
 void interp_time_of_day_slow(const math::Vector<s32, 4> itimes[4],

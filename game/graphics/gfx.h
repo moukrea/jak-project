@@ -163,6 +163,14 @@ struct GfxGlobalSettings {
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).
   float recharged_jak_ledge[4] = {0.f, 0.f, 0.f, 0.f};
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: runtime toggle + per-frame mood/TOD sun state (raw GOAL vectors)
+  bool recharged_pbr_enable = true;
+  float recharged_pbr_shadow[3] = {0.f, -1.f, 0.f};     // *time-of-day-context* current-shadow (light travel dir)
+  float recharged_pbr_sun_color[3] = {1.f, 1.f, 1.f};   // mood-sun sun-color
+  float recharged_pbr_ambient[3] = {0.25f, 0.25f, 0.3f}; // mood-sun env-color
+  float recharged_pbr_exposure = 1.0f;
+#endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded
   // in C++ from persisted pc-settings before the common FR3 loads, then kept live by the GOAL push.

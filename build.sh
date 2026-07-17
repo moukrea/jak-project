@@ -2,7 +2,7 @@
 # build.sh — unified build CLI (phase Grecharged-buildsys-flags, P1 of the build-system pillar).
 #
 #   ./build.sh <linux-x86_64|android-arm64|windows-x86_64> [--recharged-hud]
-#              [--grass-overhang] [--hd-models] [--vulkan-support] [--yolo]
+#              [--grass-overhang] [--hd-models] [--pbr] [--vulkan-support] [--yolo]
 #              [--game jak1] [--no-cache] [--no-apk] [--package]
 #              [--win-bin-dir <dir>]
 #   --package: after the build, emit the distributable game PACKAGE + the separate
@@ -34,15 +34,16 @@ log() { echo "[build] $*"; }
 TARGET="$1"; shift
 case "$TARGET" in linux-x86_64|android-arm64|windows-x86_64) ;; *) die "unknown target '$TARGET' (linux-x86_64|android-arm64|windows-x86_64)";; esac
 GAME="jak1"; USE_CACHE=1; BUILD_APK=1; DO_PACKAGE=0
-F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_VULKAN=0
+F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_VULKAN=0
 WIN_BIN_DIR="out/ci/windows-x86_64"
 while [ $# -gt 0 ]; do
   case "$1" in
     --recharged-hud)  F_HUD=1;;
     --grass-overhang) F_OVERHANG=1;;
     --hd-models)      F_HDMODELS=1;;
+    --pbr)            F_PBR=1;;
     --vulkan-support) F_VULKAN=1;;
-    --yolo)           F_HUD=1; F_OVERHANG=1; F_HDMODELS=1; F_VULKAN=1;;
+    --yolo)           F_HUD=1; F_OVERHANG=1; F_HDMODELS=1; F_PBR=1; F_VULKAN=1;;
     --game)           GAME="$2"; shift;;
     --no-cache)       USE_CACHE=0;;
     --no-apk)         BUILD_APK=0;;
@@ -58,6 +59,7 @@ done
 FLAG_LIST=()
 [ $F_OVERHANG -eq 1 ] && FLAG_LIST+=("grass-overhang")
 [ $F_HDMODELS -eq 1 ] && FLAG_LIST+=("hd-models")
+[ $F_PBR -eq 1 ]      && FLAG_LIST+=("pbr")
 [ $F_HUD -eq 1 ]      && FLAG_LIST+=("recharged-hud")
 [ $F_VULKAN -eq 1 ]   && FLAG_LIST+=("vulkan-support")
 FLAG_STR=$(IFS=,; echo "${FLAG_LIST[*]-}")
@@ -89,6 +91,8 @@ cat > "$FLAGS_GC" <<EOF
 (defglobalconstant FLAG_GRASS_OVERHANG_N $F_OVERHANG)
 (defglobalconstant FLAG_HD_MODELS $(b $F_HDMODELS))
 (defglobalconstant FLAG_HD_MODELS_N $F_HDMODELS)
+(defglobalconstant FLAG_PBR $(b $F_PBR))
+(defglobalconstant FLAG_PBR_N $F_PBR)
 (defglobalconstant FLAG_VULKAN_SUPPORT $(b $F_VULKAN))
 (defglobalconstant FLAG_VULKAN_SUPPORT_N $F_VULKAN)
 (defglobalconstant PLATFORM_ANDROID $(b $PLAT_ANDROID))
@@ -100,6 +104,7 @@ CMAKE_FEATURE_ARGS=(
   "-DOG_FEAT_RECHARGED_HUD=$(o $F_HUD)"
   "-DOG_FEAT_GRASS_OVERHANG=$(o $F_OVERHANG)"
   "-DOG_FEAT_HD_MODELS=$(o $F_HDMODELS)"
+  "-DOG_FEAT_PBR=$(o $F_PBR)"
   "-DOG_FEAT_VULKAN_SUPPORT=$(o $F_VULKAN)"
   "-DOG_FLAG_SET_ID=${FLAG_HASH}:${TARGET}"
 )
@@ -161,6 +166,7 @@ verify_binary_flags() { # $1 = binary path (gk or libgk.so) ; symbol-level per-f
   }
   check grass-overhang "$F_OVERHANG" "pc-set-grass-overhang!"
   check hd-models "$F_HDMODELS" "pc-enhanced-models-available?"
+  check pbr "$F_PBR" "pc-set-pbr!"
   ncheck() { # name, expected 0/1, nm symbol substring
     local c; c=$(nm -C "$bin" 2>/dev/null | grep -ci -- "$3" || true)
     if [ "$2" -eq 1 ]; then [ "$c" -ge 1 ] || die "$bin: flag $1 ON but symbol '$3' absent"
@@ -293,6 +299,7 @@ verify_winbin_flags() { # $1 = gk.exe path ; strings-based per-flag proof (PE ha
   }
   check grass-overhang "$F_OVERHANG" "pc-set-grass-overhang!"
   check hd-models "$F_HDMODELS" "pc-enhanced-models-available?"
+  check pbr "$F_PBR" "pc-set-pbr!"
   # positive control: validated feature must ALWAYS be present
   local pc; pc=$(strings "$bin" | grep -c "pc-set-recharged-grass!" || true)
   [ "$pc" -ge 1 ] || die "$bin: validated feature control pc-set-recharged-grass! missing"
@@ -381,4 +388,4 @@ case "$TARGET" in
     fi
     ;;
 esac
-log "flag matrix: recharged-hud=$(o $F_HUD) grass-overhang=$(o $F_OVERHANG) hd-models=$(o $F_HDMODELS) vulkan-support=$(o $F_VULKAN)  hash=$FLAG_HASH"
+log "flag matrix: recharged-hud=$(o $F_HUD) grass-overhang=$(o $F_OVERHANG) hd-models=$(o $F_HDMODELS) pbr=$(o $F_PBR) vulkan-support=$(o $F_VULKAN)  hash=$FLAG_HASH"

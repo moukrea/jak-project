@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 213,
+  "current_phase_idx": 214,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -207,7 +207,8 @@
     "Grecharged-buildsys-flags": 2,
     "Grecharged-buildsys-packaging": 1,
     "Grecharged-buildsys-firstboot": 1,
-    "Grecharged-buildsys-cidocs": 2
+    "Grecharged-buildsys-cidocs": 2,
+    "Grecharged-pbr-materials": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -626,7 +627,8 @@
     "Grecharged-ambient-occlusion",
     "Grecharged-buildsys-flags",
     "Grecharged-buildsys-packaging",
-    "Grecharged-buildsys-firstboot"
+    "Grecharged-buildsys-firstboot",
+    "Grecharged-buildsys-cidocs"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -822,9 +824,10 @@
     "Grecharged-buildsys-flags": 1784240074.3947632,
     "Grecharged-buildsys-packaging": 1784254798.503252,
     "Grecharged-buildsys-firstboot": 1784261686.4652958,
-    "Grecharged-buildsys-cidocs": 1784271233.8922036
+    "Grecharged-buildsys-cidocs": 1784271233.8922036,
+    "Grecharged-pbr-materials": 1784301214.1679
   },
-  "last_update": "2026-07-17T09:38:52.891870+00:00",
+  "last_update": "2026-07-17T16:32:20.115395+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

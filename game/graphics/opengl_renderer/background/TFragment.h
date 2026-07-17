@@ -6,6 +6,9 @@
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
+#ifdef OG_FEAT_PBR
+#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
+#endif
 
 using math::Matrix4f;
 using math::Vector4f;
@@ -191,4 +194,14 @@ class TFragment : public BucketRenderer {
   // the droop toggle is ON.
   s32 m_fringe_tex_a = -1;
   s32 m_fringe_tex_b = -1;
+
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: per-level list of textures with a registered PBR
+  // material set (resolved in update_load; no level-name gating).
+  struct PbrDrawEntry {
+    s32 tex_idx;
+    custom_tex::PbrMaterialMaps maps;
+  };
+  std::vector<PbrDrawEntry> m_pbr_draws;
+#endif
 };

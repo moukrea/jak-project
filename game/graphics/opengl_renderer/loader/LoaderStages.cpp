@@ -5,6 +5,11 @@
 
 #include "common/global_profiler/GlobalProfiler.h"
 
+#ifdef OG_FEAT_PBR
+// Grecharged-pbr-materials: add_texture reads the custom-assets toggle directly.
+#include "game/graphics/gfx.h"
+#endif
+
 constexpr float LOAD_BUDGET = 4.5f;
 
 #ifdef __ANDROID__
@@ -62,6 +67,68 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     in.src_data = (const u8*)tex.data.data();
     pool.give_texture(in);
   }
+
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: create the companion PBR maps for this texture from
+  // suffixed user PNGs, using the SAME toggle condition as the base replacement.
+  if (Gfx::g_global_settings.load_custom_assets) {
+    const auto* n = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal");
+    const auto* r = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness");
+    const auto* m = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic");
+    const auto* a = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao");
+    // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
+    // buffer, so it must be consumed (uploaded) before the next call. Below we
+    // re-fetch each map immediately before its upload to keep that contract.
+    if (n || r || m) {
+      auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
+        if (!img) {
+          return 0;
+        }
+        GLuint id = 0;
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img->w, img->h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     img->rgba.data());
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        return id;
+      };
+      custom_tex::PbrMaterialMaps maps;
+      // Re-fetch each present map immediately before upload (thread-local buffer reuse).
+      if (n) {
+        maps.normal_tex =
+            make_map(custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal"));
+      }
+      if (r) {
+        maps.rough_tex = make_map(
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness"));
+      }
+      if (m) {
+        maps.metal_tex = make_map(
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic"));
+      }
+      if (a) {
+        maps.ao_tex =
+            make_map(custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao"));
+      }
+      // Overwrite registry; free any stale GL ids from a prior level load of the same name.
+      auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
+      GLuint old_ids[4] = {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex};
+      for (GLuint oid : old_ids) {
+        if (oid) {
+          glDeleteTextures(1, &oid);
+        }
+      }
+      // Restore the base texture binding on unit 0 (what the surrounding loader
+      // flow left bound before this block).
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, gl_tex);
+    }
+  }
+#endif
 
   return gl_tex;
 }

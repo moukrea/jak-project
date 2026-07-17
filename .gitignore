@@ -144,3 +144,4 @@ android/app/src/*/assets-slim/bundle/*_custom.zip
 # >100MB blobs block GitHub pushes (P4 cidocs): big binary proofs stay local-only
 .autoport/tmp/
 .autoport/reports/**/libgk-under-test.so
+build-pbrtest/

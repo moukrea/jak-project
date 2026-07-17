@@ -14,6 +14,8 @@
 (defglobalconstant FLAG_GRASS_OVERHANG_N 0)
 (defglobalconstant FLAG_HD_MODELS #f)
 (defglobalconstant FLAG_HD_MODELS_N 0)
+(defglobalconstant FLAG_PBR #f)
+(defglobalconstant FLAG_PBR_N 0)
 (defglobalconstant FLAG_VULKAN_SUPPORT #f)
 (defglobalconstant FLAG_VULKAN_SUPPORT_N 0)
 (defglobalconstant PLATFORM_ANDROID #t)
