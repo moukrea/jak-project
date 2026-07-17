@@ -1,0 +1,84 @@
+PHASE Grecharged-buildsys-cidocs — PILLAR P4: CI matrix green + docs user-centric + release jak-builds au nouveau format
+Date: 2026-07-17    Branch: autoport/android-port (HEAD local)    CI branch: autoport/android-port-ci
+
+RESULT: PASS — Port CI 100% vert sur les 4 cibles (windows-msvc, windows-clang artifact, macos-arm64, linux) + flag-matrix default/yolo vert; README réécrit intégralement en français non-dev + 7 sous-docs (3 guides d'install pas-à-pas, 4 docs build par cible); package windows-x86_64 produit et apparié R1; release jak-builds jak1-buildsys-v1 publiée au nouveau layout (9 assets). AWAITING OWNER REVIEW (docs + zip Windows jamais exécuté sur machine physique).
+
+== Deliverable 1: CI matrix VERTE (workflows du fork adaptés à la CLI/flags/packaging) ==
+Run Port CI vert (4/4 jobs success): https://github.com/moukrea/jak-project/actions/runs/29568545093
+  jobs: "Windows / MSVC" success, "Windows / Clang" success (artifact opengoal-windows-port: gk.exe+goalc.exe,
+  preset Release-windows-clang-static), "macOS / ARM" success (artifact opengoal-macos-arm-port, preset
+  Release-macos-arm64-clang, runner Apple Silicon), "Linux / Clang" success (Release-linux-clang-static).
+Run build-flags-matrix vert (default + yolo): https://github.com/moukrea/jak-project/actions/runs/29568544961
+  chaque combo compile gk avec les -DOG_FEAT_* correspondants puis PROUVE les gates binaires (nm/strings:
+  load_recharged_hud_textures, gRendererVulkan, pc-set-grass-overhang!, pc-enhanced-models-available? —
+  absents en default, présents en yolo; contrôle positif pc-set-recharged-grass! toujours présent).
+Adaptation: port-ci.yaml (nouveau caller: push sur les branches du port + dispatch); les 4 workflows
+réutilisables upstream (windows-build-msvc/clang, macos-build-arm, linux-build-clang) gagnent les inputs
+cmakeArgs/buildTargets/runTests (défauts = comportement upstream inchangé). Chaque job CI stampe le
+marqueur du flag-set défaut -DOG_FLAG_SET_ID=e3b0c44298fc:<target> -> binaires CI package-ready.
+Smoke réel SUR le runner (mieux que wine, absent localement): goalc.exe --version exécuté sur Windows +
+grep du marqueur ogflags dans gk.exe (idem goalc sur macOS/linux). Les CGO/packaging restent locaux par
+construction: iso_data (données du disque) n'entre jamais en CI.
+Portabilité (la vraie substance du "vert" — 11 classes corrigées, translation layers uniquement, goal_src intact):
+dlfcn/dladdr+__builtin_return_address gated _WIN32 (kscheme jak1/jak2), __attribute__((weak)) gated (runtime_trace),
+OG_M2C_NOINLINE/UNLIKELY portables (mips2c_private.h), std::popcount (TFragment), -ffp-contract=off -> /fp:precise
+pour cl réel (game/CMakeLists), strtok_r -> strtok_s _WIN32 (kmachine), cxxabi/__cxa_demangle -> __has_include
+(goalc CodeGenerator), NOMINMAX avant les includes COM du picker + ole32/uuid linkés (main.cpp/game/CMakeLists),
+capstone exclu de WIN32 (ses objets C dupliquent __inbyte&co sous lld-link; decode_arm64 stub _WIN32 — l'outil
+codegen-diff est linux-side), capstone CMP0048 OLD->NEW (CMake 4.x runners), macOS-arm64: gnd-oob no-op __APPLE__
+(mips2c_private.h+dma.h, TU définisseur android-only), a37 arena gated !__APPLE__ (klink), _call_goal8_asm_systemv
+lié via wrapper mac vers _call_goal8_asm_arm64 (décl asm-name contre le préfixe underscore Mach-O).
+CI-branch: l'historique réel d'autoport/android-port porte des blobs >100MB pré-P4 (5x libgk-under-test.so 107MB,
+ancien jak1_cgo.zip 111MB) -> pre-receive GitHub refuse tout push; PAS de rewrite/force-push (règle owner).
+La CI tourne sur autoport/android-port-ci = commits squash-snapshot de l'arbre HEAD (fast-forward, aucun gros blob
+ne voyage); l'arbre HEAD lui-même nettoyé (2 artefacts >90MB untrackés + .gitignore). Rewrite historique = décision owner.
+
+== Deliverable 2: README réécrit intégralement (barre "tonton Jeanot") ==
+README.md 100% réécrit en FRANÇAIS pour non-dev: ce que c'est (pas un émulateur, jeu recompilé natif),
+ce que le fork apporte (portage Android, Recharged validées, packages prêts), légal (posséder le jeu),
+section Jouer (2 fichiers + tableau OS -> guides), arbre <dossier>/jak1/ expliqué (assets/custom_assets/
+saves/settings.ini), section Compiler (tableau cible -> doc), crédits OpenGOAL. Badge Port CI en tête.
+L'ancien README upstream préservé: docs/dev/README-upstream-opengoal.md.
+
+== Deliverable 3: docs/ par cible + guides d'install ==
+Guides notice non-dev (étapes numérotées, une action par étape, "Si ça ne marche pas"):
+  docs/install-android.md (APK -> CHOOSE ASSETS FOLDER -> EXTRACT ASSET ARCHIVE in-app -> jeu),
+  docs/install-windows.md (unzip -> double-clic run.bat -> picker natif -> extraire jak1_assets.zip dans
+  <dossier>\jak1 -> relancer; SmartScreen expliqué), docs/install-linux.md (tar -> ./run.sh -> picker zenity/kdialog).
+Docs build dev: docs/build-linux-x86_64.md, docs/build-android-arm64.md, docs/build-windows-x86_64.md
+(binaires via CI + gh run download + ./build.sh windows-x86_64 --package en local), docs/build-macos-arm64.md
+(CI-only, meilleur effort). Tous les liens relatifs vérifiés résolus.
+Fix UX découvert EN écrivant les guides (bug latent P3, jamais exercé — le cutover Redmi passait par ADB):
+jak1_assets.zip a un préfixe interne assets/ mais l'extracteur in-app Android écrivait les entrées SOUS
+<root>/jak1/assets/ (=> assets/assets/) et le message desktop premier-boot disait d'extraire dans .../jak1/assets
+(même piège). Corrigé des deux côtés (strip du préfixe optionnel + message ciblant le dossier jak1, LoaderActivity.java
++ game/main.cpp). Launchers repensés pour le double-clic: run.sh/run.bat SANS argument -> picker natif premier-boot
+(mémorisé), --game-root/<dossier> reste la forme explicite pour harnais/initiés.
+
+== Deliverable 4: package windows-x86_64 + release jak-builds au nouveau layout ==
+./build.sh windows-x86_64 --package (nouveau target): consomme l'artifact CI opengoal-windows-port
+(gh run download, gk.exe statique du run vert ci-dessus), vérifie le marqueur ogflags:e3b0c44298fc:windows-x86_64
+dans gk.exe (strings, preuve par-flag), construit les 28 CGO/DGO x86 AVEC le marqueur windows (stage
+out/jak1-windows/iso, cache keyé, oracle x86 linux restauré ensuite), package_release.sh windows-x86_64 ->
+out/artifacts/app-jak1-windows-x86_64.zip (gk.exe + data/ + iso/ 74 fichiers + custom/ 2 grassbake + run.bat),
+appairage R1 STRICT gk.exe==GAME.CGO, manifest sha256 par membre. sha256 zip=47c0978aa82f...
+APK re-packagé propre après détection du dead-space gradle connu (277MB -> 155MB, :app:clean assembleJak1Debug,
+classe mémorisée feedback_gradle_deadspace_apk_2gb); release_verify.sh PASS 5/5 sur l'APK final.
+RELEASE PUBLIÉE: https://github.com/moukrea/jak-builds/releases/tag/jak1-buildsys-v1 — layout switché de
+{app-jak1-debug.apk, jak1_assets.zip} vers les 9 assets canoniques: app-jak1-android-arm64.apk (155MB),
+app-jak1-linux-x86_64.tar.gz (177MB), app-jak1-windows-x86_64.zip (125MB), leurs 3 .manifest.txt,
+jak1_assets.zip (1.03GB, 273 membres, nouvelle archive à préfixe assets/) + manifest + properties.
+Producteur: scripts/release_jak_builds.sh (gate release_verify.sh AVANT tout upload, --with-assets).
+Notes de release FR expliquant le nouveau format + lien guides.
+
+== Honest residuals ==
+- gk.exe/goalc.exe Windows et macOS: compilés + exécution goalc --version + marqueur vérifiés sur les runners;
+  le JEU n'a jamais tourné sur une machine Windows/mac physique (aucune dispo — R6 du plan pilier: l'owner teste
+  le zip s'il veut). wine absent localement, smoke wine remplacé par l'exécution native sur runner (plus forte).
+- Suites de tests upstream non exécutées en CI (buildTargets restreint gk+goalc): la suite du fork échoue
+  localement sur un assert émetteur arm64 pré-existant (IGenARM64.cpp:1478 store128_gpr64_simd128) — la
+  validation du fork reste l'oracle x86 + le harnais device, comme depuis A1.
+- Le vrai branch autoport/android-port reste non-pushable (blobs >100MB dans l'historique pré-P4);
+  décision de rewrite = owner. Les snapshots CI couvrent le besoin GitHub (CI + docs visibles en ligne).
+- macOS: binaires CI uniquement, pas de package applicatif (docs/build-macos-arm64.md l'assume).
+- Guides relus contre le code (flux picker/extracteur vérifiés source), pas encore par un humain non-dev réel.
