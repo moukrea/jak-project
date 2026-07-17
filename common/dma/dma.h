@@ -56,8 +56,15 @@ struct DmaTag {
 };
 
 #ifdef __aarch64__
+#ifdef __APPLE__
+// the reporter lives in an android-only TU (mips2c_table_jak1_arm64.cpp);
+// macOS-arm64 compiles the aarch64 path but must not require that symbol.
+static inline void gnd_oob_report(char, unsigned int, unsigned long long, unsigned long long, int) {
+}
+#else
 extern void gnd_oob_report(char kind, unsigned int target, unsigned long long lo,
                            unsigned long long hi, int nbytes);
+#endif
 static inline bool gnd_in_band(unsigned long long goff, unsigned long long nbytes) {
   return goff < 0x80000ull || (goff < 0x51c000ull && goff + nbytes > 0x514000ull);
 }

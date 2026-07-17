@@ -11,11 +11,10 @@ if(POLICY CMP0042)
 endif(POLICY CMP0042)
 
 if (POLICY CMP0048)
-  # use old policy to honor version set using VERSION_* variables to preserve backwards
-  # compatibility. change OLD to NEW when minimum cmake version is updated to 3.* and
-  # set VERSION using project(capstone VERSION 4.0.0).
-  # http://www.cmake.org/cmake/help/v3.0/policy/CMP0048.html
-  cmake_policy (SET CMP0048 OLD)
+  # autoport: CMake 4.x (GitHub CI runners) removed CMP0048 OLD support. NEW is
+  # safe here: we only build capstone-static (no soname/versioned shared lib),
+  # and the VERSION_* variables above are plain variables unaffected by the policy.
+  cmake_policy (SET CMP0048 NEW)
 endif()
 
 # to configure the options specify them in in the command line or change them in the cmake UI.

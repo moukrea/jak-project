@@ -225,8 +225,13 @@ u64 alloc_from_heap(u32 heap_symbol, u32 type, s32 size, u32 pp) {
   // the READ/use side of the bug: caller shows WHO passed the garbage type.
   // Cheap: single unsigned compare on the happy path.
   if (type != 0 && (u32)type >= (u32)EE_MAIN_MEM_SIZE) {
+#if defined(_MSC_VER) && !defined(__clang__)
+    void* _ra = nullptr;
+#else
+    void* _ra = __builtin_return_address(0);
+#endif
     std::fprintf(stderr, "JAK2-BADPTR-ALLOC type=0x%x size=%d obj=%s caller=%p\n",
-                 type, size, g_gk_current_link_object, __builtin_return_address(0));
+                 type, size, g_gk_current_link_object, _ra);
   }
   auto heap_ptr = Ptr<Symbol4<Ptr<kheapinfo>>>(heap_symbol)->value();
 
@@ -1681,7 +1686,11 @@ u64 method_set(u32 type_, u32 method_id, u32 method) {
   // the type is born corrupt (see JAK2-NEWTYPE-BADRET) or corrupted after
   // creation by GOAL codegen. Cheap: single unsigned compare on the happy path.
   if (type_ == 0 || (u32)type_ >= (u32)EE_MAIN_MEM_SIZE) {
+#if defined(_MSC_VER) && !defined(__clang__)
+    void* ra = nullptr;
+#else
     void* ra = __builtin_return_address(0);
+#endif
     uintptr_t base = (uintptr_t)g_ee_main_mem;
     uintptr_t ra_u = (uintptr_t)ra;
     u32 caller_ee;

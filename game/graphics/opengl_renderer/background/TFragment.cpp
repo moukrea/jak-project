@@ -1,5 +1,6 @@
 #include "TFragment.h"
 
+#include <bit>
 #include <cstdio>
 #include <cstring>
 
@@ -130,7 +131,7 @@ void TFragment::render(DmaFollower& dma,
         for (int i = 0; i < render_state->num_vis_to_copy && i < 2; i++) {
           if (transfers[i].size_bytes == 128 * 16) {
             for (int b = 0; b < 128 * 16; b++) {
-              pc[i] += __builtin_popcount(transfers[i].data[b]);
+              pc[i] += std::popcount(static_cast<unsigned char>(transfers[i].data[b]));
             }
           } else {
             pc[i] = -1;  // empty (level not active)

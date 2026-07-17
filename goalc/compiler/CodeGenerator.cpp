@@ -9,7 +9,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#if __has_include(<cxxabi.h>)
 #include <cxxabi.h>
+#define OG_HAVE_CXXABI 1
+#endif
 #include <fstream>
 #include <stdexcept>
 #include <typeindex>
@@ -41,11 +44,17 @@ std::unordered_map<std::type_index, Counter> g_counters;
 std::string g_output_path;
 
 std::string demangle(const char* mangled) {
+#ifdef OG_HAVE_CXXABI
   int status = 0;
   char* dem = abi::__cxa_demangle(mangled, nullptr, nullptr, &status);
   std::string out = (status == 0 && dem) ? std::string(dem) : std::string(mangled);
   std::free(dem);
   return out;
+#else
+  // MSVC's runtime has no cxxabi.h; the raw type_info name (used for the
+  // IR-op census printout only) is good enough there.
+  return std::string(mangled);
+#endif
 }
 }  // namespace
 

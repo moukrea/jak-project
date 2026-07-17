@@ -1112,6 +1112,21 @@ void InitMachineScheme() {
 // a thin wrapper to _call_goal8_asm_arm64 (linux_arm64_runtime_compat.cpp).
 extern "C" u64 _call_goal8_asm_systemv(void* func, u64* arg_array, u64 zero, u64 pp, u64 st,
                                        void* off);
+#if defined(__APPLE__) && defined(__aarch64__)
+// macOS has no linux_arm64_runtime_compat.cpp; bind the wrapper here. The
+// asm-name declaration matches the .s label exactly (Mach-O would otherwise
+// prepend an extra underscore to the C reference).
+extern "C" u64 _call_goal8_asm_arm64(void* func,
+                                     u64* arg_array,
+                                     u64 zero,
+                                     u64 pp,
+                                     u64 st,
+                                     void* off) asm("_call_goal8_asm_arm64");
+extern "C" u64 _call_goal8_asm_systemv(void* func, u64* arg_array, u64 zero, u64 pp, u64 st,
+                                       void* off) {
+  return _call_goal8_asm_arm64(func, arg_array, zero, pp, st, off);
+}
+#endif
 
 // Builds a GOAL-callable trampoline around a C function (jak1/kscheme.cpp). Not
 // declared in any header, so forward-declare it here.
@@ -1485,7 +1500,13 @@ static u64 task_close_run() {
   std::strncpy(buf, s_task_close_spec, sizeof(buf) - 1);
   buf[sizeof(buf) - 1] = 0;
   char* save = nullptr;
-  for (char* tok = strtok_r(buf, ",", &save); tok; tok = strtok_r(nullptr, ",", &save)) {
+#ifdef _WIN32
+  // no strtok_r on Windows; strtok_s has the same (str, delim, ctx) contract.
+#define OG_STRTOK_R strtok_s
+#else
+#define OG_STRTOK_R strtok_r
+#endif
+  for (char* tok = OG_STRTOK_R(buf, ",", &save); tok; tok = OG_STRTOK_R(nullptr, ",", &save)) {
     int task = 0;
     int status = 7;  // (task-status need-resolution)
     if (std::sscanf(tok, "%d:%d", &task, &status) < 1 || task <= 0) {

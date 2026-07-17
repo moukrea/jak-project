@@ -13,6 +13,21 @@ on:
         required: false
         type: boolean
         default: false
+      # Port CI (Grecharged-buildsys-cidocs): extra cmake defines (feature flags +
+      # ogflags marker), optional target restriction, and a test toggle. Defaults
+      # keep the upstream behavior byte-identical.
+      cmakeArgs:
+        required: false
+        type: string
+        default: ""
+      buildTargets:
+        required: false
+        type: string
+        default: ""
+      runTests:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -64,13 +79,24 @@ jobs:
 
       - name: CMake Generation
         shell: cmd
-        run: cmake -B build --preset=${{ inputs.cmakePreset }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache .
+        run: cmake -B build --preset=${{ inputs.cmakePreset }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.cmakeArgs }} .
 
       - name: Build Project
         shell: cmd
-        run: cmake --build build --parallel %NUMBER_OF_PROCESSORS%
+        run: cmake --build build --parallel %NUMBER_OF_PROCESSORS% ${{ inputs.buildTargets != '' && format('--target {0}', inputs.buildTargets) || '' }}
+
+      # Real execution on the Windows runner (better than a wine smoke): proves the
+      # binaries load and run, and that the flag-set marker survived the link.
+      - name: Binary smoke (run on Windows)
+        if: ${{ inputs.uploadArtifacts }}
+        run: |
+          ./build/bin/goalc.exe --version
+          $marker = Select-String -Path ./build/bin/gk.exe -Pattern "ogflags:[0-9a-f]+:[a-z0-9_-]+" -Encoding ascii | Select-Object -First 1
+          if (-not $marker) { throw "no ogflags marker in gk.exe" }
+          Write-Output "gk.exe marker: $($marker.Matches[0].Value)"
 
       - name: Run Tests
+        if: ${{ inputs.runTests }}
         env:
           GTEST_OUTPUT: "xml:opengoal-test-report.xml"
         run: ./build/bin/goalc-test.exe --gtest_color=yes --gtest_brief=0 --gtest_filter="-*MANUAL_TEST*"

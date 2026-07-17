@@ -1,0 +1,75 @@
+---
+# Port CI (Grecharged-buildsys-cidocs, P4 of the build-system pillar).
+#
+# The fork's CI matrix, adapted to the port's build pipeline:
+# - every job passes the DEFAULT flag set (no OG_FEAT_* -> all features off) and
+#   stamps the canonical default flag-set marker ogflags:e3b0c44298fc:<target>
+#   (sha256("") first 12 hex = the empty flag list), so CI binaries are
+#   package-ready for scripts/packaging/package_release.sh.
+# - CGO/DGO builds and game packaging need the owner's game data (iso_data/),
+#   which never enters CI: jobs build + smoke the ENGINE binaries only
+#   (gk, goalc). `./build.sh windows-x86_64 --package` consumes the Windows
+#   artifact locally and pairs it with locally-built CGOs (R1 marker check).
+# - upstream test suites are not run here (the fork is validated by the local
+#   x86 oracle + the Android device harness); the Windows/macOS jobs execute
+#   goalc --version on the runner as a real load-and-run smoke.
+name: Port CI
+
+on:
+  push:
+    branches:
+      - autoport/android-port
+      # squash-snapshot mirror: the real branch history carries >100MB blobs that
+      # GitHub's pre-receive hook rejects, so CI runs on single-commit snapshots
+      # of the working tree pushed to this ref (no history rewrite, no force push).
+      - autoport/android-port-ci
+      - master
+  workflow_dispatch: {}
+
+jobs:
+  windows_msvc_check:
+    name: "🖥️ Windows"
+    uses: ./.github/workflows/windows-build-msvc.yaml
+    with:
+      cmakePreset: "Release-windows-msvc"
+      cachePrefix: "port"
+      cmakeArgs: "-DOG_FLAG_SET_ID=e3b0c44298fc:windows-x86_64"
+      buildTargets: "gk goalc"
+      runTests: false
+    secrets: inherit
+
+  windows_x86_64_artifact:
+    name: "🖥️ Windows"
+    uses: ./.github/workflows/windows-build-clang.yaml
+    with:
+      cmakePreset: "Release-windows-clang-static"
+      cachePrefix: "port"
+      uploadArtifacts: true
+      cmakeArgs: "-DOG_FLAG_SET_ID=e3b0c44298fc:windows-x86_64"
+      buildTargets: "gk goalc"
+      runTests: false
+    secrets: inherit
+
+  macos_arm64:
+    name: "🍎 macOS"
+    uses: ./.github/workflows/macos-build-arm.yaml
+    with:
+      cmakePreset: "Release-macos-arm64-clang"
+      cachePrefix: "port"
+      uploadArtifacts: true
+      cmakeArgs: "-DOG_FLAG_SET_ID=e3b0c44298fc:macos-arm64"
+      buildTargets: "gk goalc"
+      runTests: false
+    secrets: inherit
+
+  linux_x86_64:
+    name: "🐧 Linux"
+    uses: ./.github/workflows/linux-build-clang.yaml
+    with:
+      cmakePreset: "Release-linux-clang-static"
+      cachePrefix: "port"
+      uploadArtifacts: true
+      cmakeArgs: "-DOG_FLAG_SET_ID=e3b0c44298fc:linux-x86_64"
+      buildTargets: "gk goalc"
+      runTests: false
+    secrets: inherit

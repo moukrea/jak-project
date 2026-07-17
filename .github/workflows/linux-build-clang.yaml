@@ -13,6 +13,21 @@ on:
         required: false
         type: boolean
         default: false
+      # Port CI (Grecharged-buildsys-cidocs): extra cmake defines (feature flags +
+      # ogflags marker), optional target restriction, and a test toggle. Defaults
+      # keep the upstream behavior byte-identical.
+      cmakeArgs:
+        required: false
+        type: string
+        default: ""
+      buildTargets:
+        required: false
+        type: string
+        default: ""
+      runTests:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -57,23 +72,28 @@ jobs:
         run: |
           cmake -B build --preset=${{ inputs.cmakePreset }} \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.cmakeArgs }}
 
       - name: Build Project
-        run: cmake --build build --parallel $((`nproc`))
+        run: cmake --build build --parallel $((`nproc`)) ${{ inputs.buildTargets != '' && format('--target {0}', inputs.buildTargets) || '' }}
+
+      - name: Binary smoke
+        if: ${{ inputs.uploadArtifacts }}
+        run: ./build/goalc/goalc --version
 
       - name: Run Tests
+        if: ${{ inputs.runTests }}
         env:
           GTEST_OUTPUT: "xml:opengoal-test-report.xml"
         run: ./test.sh
 
       - name: Prepare artifacts
         if: ${{ inputs.uploadArtifacts }}
+        # tolerant: with a restricted buildTargets set, extractor/lsp may not exist
         run: |
-          strip ./build/goalc/goalc
-          strip ./build/decompiler/extractor
-          strip ./build/game/gk
-          strip ./build/lsp/lsp
+          for f in goalc/goalc decompiler/extractor game/gk lsp/lsp; do
+            [ -f "./build/$f" ] && strip "./build/$f" || true
+          done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

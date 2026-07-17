@@ -1,26 +1,77 @@
-# Grecharged-buildsys-flags (P1): CI base for the flag-aware builds on the targets that
-# cannot be built locally (windows-x86_64, macos-arm64). Dispatch-only for now — the
-# full Windows/macOS proof is P4 scope (Grecharged-buildsys-ci-docs); this file pins the
-# shape: one job per target, the same feature-flag matrix as ./build.sh, default and
-# --yolo as the two officially supported combos (risk R2).
+# Grecharged-buildsys P1/P4: CI proof of the BUILD-TIME feature-flag plumbing on the
+# C++ side. The two officially supported combos (risk R2) are built and the binary is
+# checked for feature-symbol presence/absence — the same gates as build.sh's
+# verify_binary_flags. The GOAL/menu side (generated recharged-flags.gc -> CGOs) needs
+# the owner's game data and is proven locally by ./build.sh, never in CI.
 name: build-flags-matrix
 on:
-  workflow_dispatch:
-    inputs:
-      flags:
-        description: "feature flags to pass (e.g. '--yolo' or '' for the default clean build)"
-        required: false
-        default: ""
+  workflow_dispatch: {}
+  # dispatch-by-name needs the workflow registered, which requires a triggering
+  # event: self-register + run when this file itself changes in a snapshot push.
+  push:
+    branches:
+      - autoport/android-port-ci
+    paths:
+      - ".github/workflows/build-flags-matrix.yaml"
 
 jobs:
-  linux-x86_64:
-    runs-on: ubuntu-latest
+  flags:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - combo: default
+            feat: "OFF"
+            hash: "e3b0c44298fc"
+          - combo: yolo
+            feat: "ON"
+            hash: "46df661b7643"
+    name: "flags: ${{ matrix.combo }}"
     steps:
-      - uses: actions/checkout@v4
-      - name: build (flag-aware)
+      - uses: actions/checkout@v6
+
+      - name: Install Package Dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y ninja-build cmake
-          ./build.sh linux-x86_64 ${{ github.event.inputs.flags }} || {
-            echo "P4 scope: the CI runner still needs the goalc bootstrap (iso data-free CGO build) — tracked in the pillar plan"; exit 1; }
-  # windows-x86_64 / macos-arm64: P4 (Grecharged-buildsys-ci-docs) adapts the existing
-  # .github/workflows/windows-*.yaml + macos-build-arm.yaml to ./build.sh semantics.
+          sudo apt update
+          sudo apt install build-essential cmake clang nasm libxrandr-dev \
+            libxinerama-dev libxcursor-dev libpulse-dev libxi-dev \
+            ninja-build libgl1-mesa-dev libssl-dev
+
+      - name: CMake Generation
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          cmake -B build --preset=Release-linux-clang \
+            -DOG_FEAT_RECHARGED_HUD=${{ matrix.feat }} \
+            -DOG_FEAT_GRASS_OVERHANG=${{ matrix.feat }} \
+            -DOG_FEAT_HD_MODELS=${{ matrix.feat }} \
+            -DOG_FEAT_VULKAN_SUPPORT=${{ matrix.feat }} \
+            -DOG_FLAG_SET_ID=${{ matrix.hash }}:linux-x86_64
+
+      - name: Build gk
+        run: cmake --build build --parallel $((`nproc`)) --target gk
+
+      - name: Verify flag gates in the binary
+        run: |
+          set -e
+          BIN=build/game/gk
+          marker=$(strings "$BIN" | grep -m1 '^ogflags:' || true)
+          echo "marker: $marker"
+          [ "$marker" = "ogflags:${{ matrix.hash }}:linux-x86_64" ]
+          want=1; [ "${{ matrix.feat }}" = "OFF" ] && want=0
+          check_nm() { c=$(nm -C "$BIN" 2>/dev/null | grep -ci -- "$1" || true)
+            echo "nm $1 -> $c (want>=1: $want)"
+            if [ "$want" = 1 ]; then [ "$c" -ge 1 ]; else [ "$c" -eq 0 ]; fi; }
+          check_str() { c=$(strings "$BIN" | grep -c -- "$1" || true)
+            echo "strings $1 -> $c (want>=1: $want)"
+            if [ "$want" = 1 ]; then [ "$c" -ge 1 ]; else [ "$c" -eq 0 ]; fi; }
+          check_nm load_recharged_hud_textures
+          check_nm gRendererVulkan
+          check_str "pc-set-grass-overhang!"
+          check_str "pc-enhanced-models-available?"
+          # positive control: validated (never-flagged) features are always in
+          c=$(strings "$BIN" | grep -c "pc-set-recharged-grass!" || true); [ "$c" -ge 1 ]
+          echo "flag matrix ${{ matrix.combo }}: OK"

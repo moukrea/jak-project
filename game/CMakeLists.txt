@@ -368,27 +368,42 @@ add_subdirectory(sound)
 # contraction here makes the arm64 collision pipeline BIT-IDENTICAL to x86 (proven:
 # .autoport/reports/Gcollision-arm/). No-op on the x86 build (GCC has no FMA to
 # disable). See .autoport/reports/Gcollision-arm-fix-summary.md.
-set_source_files_properties(
-        mips2c/jak1_functions/collide_cache.cpp
-        mips2c/jak1_functions/collide_edge_grab.cpp
-        mips2c/jak1_functions/collide_func.cpp
-        mips2c/jak1_functions/collide_mesh.cpp
-        mips2c/jak1_functions/collide_probe.cpp
-        # Gperf-particles2: the 2d-NEON sparticle fast-path (sparticle.cpp) replaces the
-        # scalar VU0 aging loop with inlined float math that MUST stay two-rounding
-        # (multiply-then-add, no FMA) to be bit-identical to the PS2/x86 scalar path.
-        # Its in-file comment asserted "-ffp-contract=off" but the file was NOT on this
-        # list (it only passed by luck: the current NDK emitted no fmadd). Add it so the
-        # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
-        # collide TUs above. No-op on today's build (already non-contracted).
-        mips2c/jak1_functions/sparticle.cpp
-        PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+# Real MSVC `cl` rejects `-ffp-contract=off` (clang-cl accepts it, hence the
+# compiler-id guard); on MSVC the equivalent no-FMA-fusion mode is /fp:precise.
+if(NOT (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
+        set_source_files_properties(
+                mips2c/jak1_functions/collide_cache.cpp
+                mips2c/jak1_functions/collide_edge_grab.cpp
+                mips2c/jak1_functions/collide_func.cpp
+                mips2c/jak1_functions/collide_mesh.cpp
+                mips2c/jak1_functions/collide_probe.cpp
+                # Gperf-particles2: the 2d-NEON sparticle fast-path (sparticle.cpp) replaces the
+                # scalar VU0 aging loop with inlined float math that MUST stay two-rounding
+                # (multiply-then-add, no FMA) to be bit-identical to the PS2/x86 scalar path.
+                # Its in-file comment asserted "-ffp-contract=off" but the file was NOT on this
+                # list (it only passed by luck: the current NDK emitted no fmadd). Add it so the
+                # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
+                # collide TUs above. No-op on today's build (already non-contracted).
+                mips2c/jak1_functions/sparticle.cpp
+                PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
-# Grecharged-grass-precompute-mode: keep the x86 bake tool and the arm64 runtime float-identical —
-# no FMA contraction divergence between the machine that writes <level>.grassbake and the one that
-# reads/expands it (bit-identical placement across x86 desktop and arm64 device).
-set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
-        PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+        # Grecharged-grass-precompute-mode: keep the x86 bake tool and the arm64 runtime float-identical —
+        # no FMA contraction divergence between the machine that writes <level>.grassbake and the one that
+        # reads/expands it (bit-identical placement across x86 desktop and arm64 device).
+        set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
+                PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+else()
+        set_source_files_properties(
+                mips2c/jak1_functions/collide_cache.cpp
+                mips2c/jak1_functions/collide_edge_grab.cpp
+                mips2c/jak1_functions/collide_func.cpp
+                mips2c/jak1_functions/collide_mesh.cpp
+                mips2c/jak1_functions/collide_probe.cpp
+                mips2c/jak1_functions/sparticle.cpp
+                PROPERTIES COMPILE_OPTIONS "/fp:precise")
+        set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
+                PROPERTIES COMPILE_OPTIONS "/fp:precise")
+endif()
 
 # Grecharged-buildsys-flags: feature-gated TUs are appended to RUNTIME_SOURCE
 # only when their flag is ON (default OFF => symbol absent from gk). The
@@ -421,6 +436,8 @@ if(NOT OG_ARM64_BOOT_STUB)
     target_link_libraries(gk runtime)
     if(WIN32)
         set_target_properties(gk PROPERTIES VS_DPI_AWARE "PerMonitor")
+        # first-boot native folder picker (IFileOpenDialog) in main.cpp
+        target_link_libraries(gk ole32 uuid)
     endif()
 endif()
 # When OG_ARM64_BOOT_STUB is on, the `gk` target is defined at the root scope

@@ -11,8 +11,13 @@
 #ifndef OG_FLAG_SET_ID
 #define OG_FLAG_SET_ID "unknown:unknown"
 #endif
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 extern "C" __attribute__((used)) const char g_og_flag_set_marker[] = "ogflags:" OG_FLAG_SET_ID;
+#elif defined(_MSC_VER)
+// MSVC has no `used` attribute; /include pins the symbol against /OPT:REF so
+// the marker string always survives into gk.exe (packaging greps it).
+extern "C" const char g_og_flag_set_marker[] = "ogflags:" OG_FLAG_SET_ID;
+#pragma comment(linker, "/include:g_og_flag_set_marker")
 #else
 extern "C" const char g_og_flag_set_marker[] = "ogflags:" OG_FLAG_SET_ID;
 #endif
