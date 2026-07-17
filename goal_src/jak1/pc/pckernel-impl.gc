@@ -97,7 +97,7 @@
    (memcard-play-hints? symbol)
    ;; Gvulkan-option: menu mirror of (-> obj gfx-renderer) as an on/off symbol for the "VULKAN RENDERER"
    ;; Graphics Options toggle (off = OpenGL/GLES default, on = Vulkan). RUNTIME ONLY — derived from
-   ;; gfx-renderer on menu open; not persisted itself (gfx-renderer is what persists to pc-settings.gc).
+   ;; gfx-renderer on menu open; not persisted itself (gfx-renderer is what persists to settings.ini).
    (gfx-renderer-vulkan? symbol)))
 
 (define *pc-settings* (the pc-settings-jak1 #f))

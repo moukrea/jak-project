@@ -7,7 +7,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1/round4/final; mkdir -p "$OUT"
 adb(){ "$ADB" -s "$S" "$@"; }
 setp(){ adb shell "setprop $1 '$2'"; }
@@ -15,7 +15,7 @@ inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev
 clr(){ inject ""; }
 fg(){ adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
 setflag(){ adb shell run-as $PKG cat "$SETF" 2>/dev/null | tr -d '\r' > /tmp/of.gc
-  sed -i "s/(recharged-hud? #[tf])/(recharged-hud? $1)/" /tmp/of.gc
+  sed -i "s/^recharged-hud? = #[tf]/recharged-hud? = $1/" /tmp/of.gc
   adb push /tmp/of.gc /data/local/tmp/of.gc >/dev/null 2>&1; adb shell run-as $PKG cp /data/local/tmp/of.gc "$SETF" >/dev/null 2>&1
   echo "  FILE FLAG: $(adb shell run-as $PKG cat "$SETF" 2>/dev/null | grep -a recharged | tr -d '\r')"; }
 run(){ # $1 label  $2 flag

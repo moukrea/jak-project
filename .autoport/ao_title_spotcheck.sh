@@ -12,26 +12,26 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 export ANDROID_SERIAL=eae4df44
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
-SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+SENTINEL="/storage/emulated/0/OpenGOAL/jak1/ao-boot-guard"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/title-gate; mkdir -p "$OUT"
 LOGF="$OUT/spotcheck-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
 
-# Seed the on-disk pc-settings.gc, READ BACK, die if the values did not land.
+# Seed the on-disk settings.ini, READ BACK, die if the values did not land.
 # (Never local-name anything S in here — the S-shadow bug FAIL(seed)-ed 15 combos once.)
 seed_ao(){ local M="$1" Q="$2" STRV="$3"
   $ADB -s $S shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_spot.gc 2>/dev/null
   if ! grep -qa 'ambient-occlusion' /tmp/pcs_ao_spot.gc; then
     say "  SEED FAIL: no ambient-occlusion key on device settings"; return 1; fi
-  sed -i "s/(ambient-occlusion [0-9]*)/(ambient-occlusion $M)/; s/(ao-quality [0-9]*)/(ao-quality $Q)/; s/(ao-strength [0-9]*)/(ao-strength $STRV)/" /tmp/pcs_ao_spot.gc
-  grep -qa '(ao-strength' /tmp/pcs_ao_spot.gc || sed -i "/(ao-quality [0-9]*)/a\\  (ao-strength $STRV)" /tmp/pcs_ao_spot.gc
+  sed -i "s/^ambient-occlusion = [0-9]*/ambient-occlusion = $M/; s/^ao-quality = [0-9]*/ao-quality = $Q/; s/^ao-strength = [0-9]*/ao-strength = $STRV/" /tmp/pcs_ao_spot.gc
+  grep -qa '^ao-strength = ' /tmp/pcs_ao_spot.gc || sed -i "/^ao-quality = [0-9]*/a\\ao-strength = $STRV" /tmp/pcs_ao_spot.gc
   $ADB -s $S push /tmp/pcs_ao_spot.gc "$SETTINGS_DEV" >/dev/null 2>&1
   local BACK; BACK=$($ADB -s $S shell cat "$SETTINGS_DEV" 2>/dev/null \
-    | grep -aoE "\((ambient-occlusion|ao-quality|ao-strength) [0-9]+\)" | tr '\n' ' ')
-  case "$BACK" in *"(ambient-occlusion $M)"*) : ;; *) say "  SEED READBACK FAIL: wanted (ambient-occlusion $M), got: $BACK"; return 1 ;; esac
-  case "$BACK" in *"(ao-quality $Q)"*) : ;; *) say "  SEED READBACK FAIL: wanted (ao-quality $Q), got: $BACK"; return 1 ;; esac
-  case "$BACK" in *"(ao-strength $STRV)"*) : ;; *) say "  SEED READBACK FAIL: wanted (ao-strength $STRV), got: $BACK"; return 1 ;; esac
+    | grep -aoE "^(ambient-occlusion|ao-quality|ao-strength) = [0-9]+" | tr '\n' ' ')
+  case "$BACK" in *"ambient-occlusion = $M"*) : ;; *) say "  SEED READBACK FAIL: wanted ambient-occlusion = $M, got: $BACK"; return 1 ;; esac
+  case "$BACK" in *"ao-quality = $Q"*) : ;; *) say "  SEED READBACK FAIL: wanted ao-quality = $Q, got: $BACK"; return 1 ;; esac
+  case "$BACK" in *"ao-strength = $STRV"*) : ;; *) say "  SEED READBACK FAIL: wanted ao-strength = $STRV, got: $BACK"; return 1 ;; esac
   say "  seeded+verified: $BACK"; return 0; }
 focus(){ $ADB -s $S shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
 fg_ok(){ $ADB -s $S shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | grep -q "org.opengoal.gk.jak1"; }

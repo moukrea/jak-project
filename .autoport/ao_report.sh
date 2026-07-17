@@ -123,7 +123,7 @@ grep -aE '\[ao-gate5-debug\] shoreline' "$OUT/proof-battery-log.txt" | tail -3 |
 echo "GTAO grazing-floor whiteness verified on device via the same debug views + the shoreline/training open-area gates above (device numbers, not x86)."
 echo
 echo "== Capture protocol (owner 2026-07-15 13:50) =="
-echo "All captures at locked FULL render resolution (render-scale 100, dynamic-render-scale? #f) with recharged-grass? #f for perf headroom, at the training level + village1 (creases) + beach (alpha foliage), camera near corner/crevice geometry. Each recorded segment asserts a captured frame HEIGHT >=1000px (the Redmi is 2400x1080 landscape) so a dynamic-renderscale'd low-res frame is rejected as non-evidence."
+echo "All captures at locked FULL render resolution ^render-scale = 100, dynamic-render-scale? #f with recharged-grass? #f for perf headroom, at the training level + village1 (creases) + beach (alpha foliage), camera near corner/crevice geometry. Each recorded segment asserts a captured frame HEIGHT >=1000px (the Redmi is 2400x1080 landscape) so a dynamic-renderscale'd low-res frame is rejected as non-evidence."
 echo
 echo "== FPS cost curve (Redmi Note 9 Pro / Adreno 618 — informational, NOT a gate) =="
 echo "Per-combo AOPERF (mode x quality) at the village1 vantage; low fps at High/GTAO is expected (strong-device settings):"

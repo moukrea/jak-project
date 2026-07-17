@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # glm_repro.sh — Glang-mixed repro driver.
-# Plants a pc-settings.gc with a chosen audio/text/subtitle language mix, warps Jak
+# Plants a settings.ini with a chosen audio/text/subtitle language mix, warps Jak
 # next to a talkable NPC (default: village1 farmer), and screencaps the interaction
 # prompt so its language can be checked against the TEXT-language setting.
 # Usage: glm_repro.sh <tag> [audio_lang] [text_lang] [cont] [pos_m]
@@ -30,18 +30,17 @@ if A shell dumpsys window 2>/dev/null | grep -q 'mDreamingLockscreen=true'; then
   echo "PIN-LOCKED: needs owner unlock" | tee "$RES"; exit 2
 fi
 
-# --- plant settings: template from the desktop build, languages overridden ---
+# --- plant settings: template from the desktop build, languages overridden (INI form) ---
 TMP=$(mktemp)
 sed -E \
-  -e "s/\(game-language [0-9]+\)/(game-language $AUD)/" \
-  -e "s/\(text-language [0-9]+\)/(text-language $TXT)/" \
-  -e "s/\(subtitle-language [0-9]+\)/(subtitle-language $TXT)/" \
-  /home/emeric/.config/OpenGOAL/jak1/settings/pc-settings.gc > "$TMP"
-A shell "run-as $PACKAGE mkdir -p files/.config/OpenGOAL/jak1/settings" >/dev/null 2>&1
-A push "$TMP" /data/local/tmp/glm-settings.gc >/dev/null
-A shell "run-as $PACKAGE sh -c 'cp /data/local/tmp/glm-settings.gc files/.config/OpenGOAL/jak1/settings/pc-settings.gc'"
+  -e "s/^game-language = [0-9]+/game-language = $AUD/" \
+  -e "s/^text-language = [0-9]+/text-language = $TXT/" \
+  -e "s/^subtitle-language = [0-9]+/subtitle-language = $TXT/" \
+  /home/emeric/.config/OpenGOAL/jak1/settings/settings.ini > "$TMP"
+A shell "mkdir -p /storage/emulated/0/OpenGOAL/jak1" >/dev/null 2>&1
+A push "$TMP" /storage/emulated/0/OpenGOAL/jak1/settings.ini >/dev/null
 echo "  planted settings: audio=$AUD text=$TXT subtitle=$TXT"
-A shell "run-as $PACKAGE grep -E 'language' files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+A shell "grep -E 'language' /storage/emulated/0/OpenGOAL/jak1/settings.ini"
 rm -f "$TMP"
 
 # --- warp props ---

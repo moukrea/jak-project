@@ -165,19 +165,20 @@ void Loader::draw_debug_window() {
   ImGui::End();
 }
 
-// Grecharged-hd-models: read the persisted ENHANCED MODELS choice straight from pc-settings.gc. The
+// Grecharged-hd-models: read the persisted ENHANCED MODELS choice straight from settings.ini. The
 // common FR3 (HD Jak+Daxter) loads in the renderer ctor (via load_common) BEFORE GOAL's per-frame push,
 // so we seed the flag here to respect the toggle on relaunch. Shared by desktop + Android (both call
 // Loader::load_common). Missing file / #f -> false -> stock.
 #ifdef OG_FEAT_HD_MODELS
 static bool read_persisted_enhanced_models() {
   try {
-    auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "pc-settings.gc";
+    auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "settings.ini";
     if (!file_util::file_exists(p.string())) {
       return false;
     }
     auto txt = file_util::read_text_file(p);
-    return txt.find("recharged-enhanced-models? #t") != std::string::npos;
+    // INI line format: `recharged-enhanced-models? = #t`.
+    return txt.find("recharged-enhanced-models? = #t") != std::string::npos;
   } catch (...) {
     return false;
   }

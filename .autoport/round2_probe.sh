@@ -15,7 +15,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1/round2; mkdir -p "$OUT"
 adb(){ "$ADB" -s "$S" "$@"; }
 fg(){ adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
@@ -89,9 +89,9 @@ echo "  device ok, unlocked"
 echo "== settings: ensure recharged-hud? #t =="
 adb shell run-as $PKG cat "$SETF" 2>/dev/null | tr -d '\r' > "$OUT/probe-settings-before.gc"
 grep -a recharged "$OUT/probe-settings-before.gc" || echo "  (no recharged line?)"
-if grep -aq '(recharged-hud? #f)' "$OUT/probe-settings-before.gc"; then
+if grep -aq '^recharged-hud? = #f' "$OUT/probe-settings-before.gc"; then
   echo "  flipping #f -> #t"
-  sed 's/(recharged-hud? #f)/(recharged-hud? #t)/' "$OUT/probe-settings-before.gc" > /tmp/r2-on.gc
+  sed 's/^recharged-hud? = #f/recharged-hud? = #t/' "$OUT/probe-settings-before.gc" > /tmp/r2-on.gc
   push_appfile /tmp/r2-on.gc "$SETF" || { echo "settings ON push failed"; exit 1; }
 else
   cp "$OUT/probe-settings-before.gc" /tmp/r2-on.gc
@@ -101,11 +101,11 @@ echo "== arming warp + mouche.buzz props =="
 adb shell setprop debug.opengoal.f1.warp 1 || true
 adb shell setprop debug.opengoal.mouche.buzz 1 || true
 
-echo "== ON round (recharged-hud? #t) =="
+echo "== ON round ^recharged-hud? = #t =="
 run_round ON "$OUT/probe-ON-logcat.txt" || { echo "ON round failed"; }
 
 echo "== OFF round: flip #t -> #f =="
-sed 's/(recharged-hud? #t)/(recharged-hud? #f)/' /tmp/r2-on.gc > /tmp/r2-off.gc
+sed 's/^recharged-hud? = #t/recharged-hud? = #f/' /tmp/r2-on.gc > /tmp/r2-off.gc
 push_appfile /tmp/r2-off.gc "$SETF" || { echo "settings OFF push failed"; exit 1; }
 echo "  device flag now: $(adb shell run-as $PKG cat "$SETF" 2>/dev/null | grep -a recharged | tr -d '\r')"
 run_round OFF "$OUT/probe-OFF-logcat.txt" || { echo "OFF round failed"; }

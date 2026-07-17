@@ -2,7 +2,7 @@
 # goptions_deploy.sh — Goptions-reorder: deploy the CONSISTENT current-source arm64
 # build (28 CGO/DGO, includes the menu reorder + new defaults) alongside the unchanged
 # HEAD libgk, boot crash-free, and PROVE the new graphics defaults are written to the
-# settings file (load-settings commits reset-gfx defaults when pc-settings.gc is absent).
+# settings file (load-settings commits reset-gfx defaults when settings.ini is absent).
 # Device eae4df44 ONLY. Real measurements only. Leaves app running on PASS.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -36,26 +36,24 @@ else
 fi
 echo "  installed versionCode: $(adb shell dumpsys package $PKG | grep -m1 versionCode | tr -d '\r')"
 
-echo "== 2. push 28 consistent arm64 CGO/DGO -> files/iso_data/jak1 (sha-verified) =="
+echo "== 2. push 28 consistent arm64 CGO/DGO -> files/cgo/jak1 (sha-verified) =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
 fail=0
 for f in "$CGO_SRC"/*.CGO "$CGO_SRC"/*.DGO; do
   bn=$(basename "$f"); want=$(sha256sum "$f" | awk '{print $1}')
   adb push "$f" "/data/local/tmp/$bn" >/dev/null 2>&1 || { echo "  PUSH-FAIL $bn"; fail=1; continue; }
-  adb shell run-as $PKG cp "/data/local/tmp/$bn" "files/iso_data/jak1/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
+  adb shell run-as $PKG cp "/data/local/tmp/$bn" "files/cgo/jak1/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
   adb shell rm -f "/data/local/tmp/$bn" >/dev/null 2>&1 || true
-  got=$(adb shell run-as $PKG sha256sum "files/iso_data/jak1/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$(adb shell run-as $PKG sha256sum "files/cgo/jak1/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] || { echo "  VERIFY-FAIL $bn ($want != $got)"; fail=1; }
 done
 [ "$fail" -eq 0 ] || die "consistent CGO push failed"
 echo "  pushed + sha256-verified all 28 files"
 
-echo "== 3. WIPE pc-settings.gc (fresh state so boot writes the NEW defaults) =="
-SETF=$(adb shell run-as $PKG sh -c 'find files -name pc-settings.gc 2>/dev/null' | tr -d '\r' | head -1)
-echo "  device settings path: ${SETF:-<none-yet>}"
-[ -n "$SETF" ] && adb shell run-as $PKG rm -f "$SETF" 2>/dev/null || true
-# also clear any stray copies
-adb shell run-as $PKG sh -c 'find files -name pc-settings.gc -delete 2>/dev/null' || true
+echo "== 3. WIPE settings.ini (fresh state so boot writes the NEW defaults) =="
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+echo "  device settings path: $SETF"
+adb shell rm -f "$SETF" 2>/dev/null || true
 
 echo "== 4. boot smoke: launch + watch 130s for link-finish progress, no fatal signal, fg=jak1 =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
@@ -78,16 +76,16 @@ echo "  foreground: $FG"
 grep -aE 'GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG' "$LOG" 2>/dev/null | head -4
 [ "$crash" = 1 ] && die "BOOT CRASH (fatal signal in logcat)"
 
-echo "== 5. DEFAULTS proof: pull the boot-written pc-settings.gc, check the new graphics defaults =="
+echo "== 5. DEFAULTS proof: pull the boot-written settings.ini, check the new graphics defaults =="
 sleep 3
-SETF=$(adb shell run-as $PKG sh -c 'find files -name pc-settings.gc 2>/dev/null' | tr -d '\r' | head -1)
-[ -n "$SETF" ] || die "pc-settings.gc not created at boot (load-settings should have committed defaults)"
-adb shell run-as $PKG cat "$SETF" > "$OUT/device-pc-settings-defaults.gc" 2>/dev/null || die "could not read $SETF"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+adb shell test -f "$SETF" || die "settings.ini not created at boot (load-settings should have committed defaults)"
+adb shell cat "$SETF" > "$OUT/device-pc-settings-defaults.gc" 2>/dev/null || die "could not read $SETF"
 echo "  pulled: $OUT/device-pc-settings-defaults.gc ($(wc -l < "$OUT/device-pc-settings-defaults.gc") lines)"
 echo "  --- graphics-relevant keys on device (fresh defaults) ---"
-grep -nE 'dynamic-render-scale\?|min-render-scale|dyn-target-fps|render-scale|fps-counter\?|vsync|msaa|aspect-state|game-size' "$OUT/device-pc-settings-defaults.gc"
+grep -nE '^(dynamic-render-scale\?|min-render-scale|dyn-target-fps|render-scale|fps-counter\?|vsync|msaa|aspect-state|game-size) =' "$OUT/device-pc-settings-defaults.gc"
 echo "  --- default assertions ---"
-grep -qE '\(dynamic-render-scale\? #t\)' "$OUT/device-pc-settings-defaults.gc" && echo "  OK dynamic-render-scale? = #t (ON)" || echo "  FAIL dynamic-render-scale? not #t"
-grep -qE '\(min-render-scale 40' "$OUT/device-pc-settings-defaults.gc" && echo "  OK min-render-scale = 40" || echo "  FAIL min-render-scale not 40"
-grep -qE '\(dyn-target-fps 60' "$OUT/device-pc-settings-defaults.gc" && echo "  OK dyn-target-fps = 60" || echo "  FAIL dyn-target-fps not 60"
+grep -qE '^dynamic-render-scale\? = #t' "$OUT/device-pc-settings-defaults.gc" && echo "  OK dynamic-render-scale? = #t (ON)" || echo "  FAIL dynamic-render-scale? not #t"
+grep -qE '^min-render-scale = 40' "$OUT/device-pc-settings-defaults.gc" && echo "  OK min-render-scale = 40" || echo "  FAIL min-render-scale not 40"
+grep -qE '^dyn-target-fps = 60' "$OUT/device-pc-settings-defaults.gc" && echo "  OK dyn-target-fps = 60" || echo "  FAIL dyn-target-fps not 60"
 echo "[gopt] deploy+boot+defaults DONE — app left RUNNING at title."

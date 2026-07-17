@@ -5,7 +5,7 @@
 # PERSISTED mode/quality combo. Defect #6 (native GTAO title crash on a persisted-high
 # boot) means props are NOT sufficient: the crash only reproduces on the persisted
 # settings path (renderscale-resize storm at boot), so this gate seeds the on-disk
-# pc-settings.gc and BOOTS each of 12 combos fresh, instead of live-flipping props on one
+# settings.ini and BOOTS each of 12 combos fresh, instead of live-flipping props on one
 # boot. Matrix (mode,quality): off/ssao/hbao/gtao x low/med/high @ strength Default = 12
 # boots, plus a STRENGTH SPOT-CHECK trio (ssao/hbao/gtao x high x strength Stronger) = 15.
 # Per combo we assert: textured (purple-scan CLEAN on both recorded segments), >=120s
@@ -19,13 +19,13 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 export ANDROID_SERIAL=eae4df44
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
-SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+SENTINEL="/storage/emulated/0/OpenGOAL/jak1/ao-boot-guard"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/title-gate; mkdir -p "$OUT"
 LOGF="$OUT/gate-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
 
-# Seed the on-disk pc-settings.gc with a persisted AO mode+quality, then READ BACK and die
+# Seed the on-disk settings.ini with a persisted AO mode+quality, then READ BACK and die
 # if the values did not land (a failed push was the attempt-4 false-negative root cause).
 # Returns 0 on verified seed, 1 otherwise. Args: MODE QUALITY STRENGTH.
 seed_ao(){ local M="$1" Q="$2" STRV="$3"
@@ -35,23 +35,23 @@ seed_ao(){ local M="$1" Q="$2" STRV="$3"
   $ADB -s $S shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_gate.gc 2>/dev/null
   if ! grep -qa 'ambient-occlusion' /tmp/pcs_ao_gate.gc; then
     say "  SEED FAIL: no ambient-occlusion key on device settings"; return 1; fi
-  sed -i "s/(ambient-occlusion [0-9]*)/(ambient-occlusion $M)/; s/(ao-quality [0-9]*)/(ao-quality $Q)/; s/(ao-strength [0-9]*)/(ao-strength $STRV)/" /tmp/pcs_ao_gate.gc
+  sed -i "s/^ambient-occlusion = [0-9]*/ambient-occlusion = $M/; s/^ao-quality = [0-9]*/ao-quality = $Q/; s/^ao-strength = [0-9]*/ao-strength = $STRV/" /tmp/pcs_ao_gate.gc
   # OLD device settings files predate the ao-strength key: insert it after ao-quality.
-  grep -qa '(ao-strength' /tmp/pcs_ao_gate.gc || sed -i "/(ao-quality [0-9]*)/a\\  (ao-strength $STRV)" /tmp/pcs_ao_gate.gc
+  grep -qa '^ao-strength = ' /tmp/pcs_ao_gate.gc || sed -i "/^ao-quality = [0-9]*/a\\ao-strength = $STRV" /tmp/pcs_ao_gate.gc
   $ADB -s $S push /tmp/pcs_ao_gate.gc "$SETTINGS_DEV" >/dev/null 2>&1
   local BACK; BACK=$($ADB -s $S shell cat "$SETTINGS_DEV" 2>/dev/null \
-    | grep -aoE "\((ambient-occlusion|ao-quality|ao-strength) [0-9]+\)" | tr '\n' ' ')
+    | grep -aoE "^(ambient-occlusion|ao-quality|ao-strength) = [0-9]+" | tr '\n' ' ')
   case "$BACK" in
-    *"(ambient-occlusion $M)"*) : ;;
-    *) say "  SEED READBACK FAIL: wanted (ambient-occlusion $M), got: $BACK"; return 1 ;;
+    *"ambient-occlusion = $M"*) : ;;
+    *) say "  SEED READBACK FAIL: wanted ambient-occlusion = $M, got: $BACK"; return 1 ;;
   esac
   case "$BACK" in
-    *"(ao-quality $Q)"*) : ;;
-    *) say "  SEED READBACK FAIL: wanted (ao-quality $Q), got: $BACK"; return 1 ;;
+    *"ao-quality = $Q"*) : ;;
+    *) say "  SEED READBACK FAIL: wanted ao-quality = $Q, got: $BACK"; return 1 ;;
   esac
   case "$BACK" in
-    *"(ao-strength $STRV)"*) : ;;
-    *) say "  SEED READBACK FAIL: wanted (ao-strength $STRV), got: $BACK"; return 1 ;;
+    *"ao-strength = $STRV"*) : ;;
+    *) say "  SEED READBACK FAIL: wanted ao-strength = $STRV, got: $BACK"; return 1 ;;
   esac
   say "  seeded+verified: $BACK"; return 0; }
 focus(){ $ADB -s $S shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }

@@ -29,7 +29,7 @@ say "2. assemble APK (now with useLegacyPackaging=true -> extractNativeLibs)"
 ( cd android && ./gradlew assembleJak1Debug 2>&1 | tail -5 ) || die "gradle assemble failed"
 [ -f "$APK" ] || die "no APK"
 
-say "3. reinstall (-r preserves files/iso_data default-ON CGOs; extracts libgk)"
+say "3. reinstall (-r preserves files/cgo default-ON CGOs; extracts libgk)"
 $ADB shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
 $ADB shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1' && die "DEVICE_LOCKED"
 $ADB shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow 2>/dev/null || true

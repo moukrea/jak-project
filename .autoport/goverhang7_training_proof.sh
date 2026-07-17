@@ -12,16 +12,16 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1
 OUT=.autoport/reports/Grecharged-grass-overhang7; mkdir -p "$OUT"
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 adb(){ "$ADB" -s "$S" "$@"; }
 fg(){ adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
 
 echo "== 1: training.grassbake sha (build vs device) =="
 sha256sum out/jak1/fr3/training.grassbake | awk '{print "  build  "$1}'
-adb shell sha256sum /storage/emulated/0/OpenGOAL/jak_1/assets/fr3/training.grassbake | awk '{print "  device "$1}'
+adb shell sha256sum /storage/emulated/0/OpenGOAL/jak1/assets/fr3/training.grassbake | awk '{print "  device "$1}'
 
 adb shell cat "$SETTINGS_DEV" > "$OUT/T-settings-before.gc"
-grep -o "(recharged-grass-overhang? #[tf])" "$OUT/T-settings-before.gc" | sed 's/^/  pre-run: /'
+grep -o "^recharged-grass-overhang? = #[tf]" "$OUT/T-settings-before.gc" | sed 's/^/  pre-run: /'
 
 echo "== 2: warp boot to training vantage =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2

@@ -17,8 +17,8 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 export ANDROID_SERIAL=eae4df44
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
-SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+SENTINEL="/storage/emulated/0/OpenGOAL/jak1/ao-boot-guard"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/safeboot; mkdir -p "$OUT"
 LOGF="$OUT/proof-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
@@ -33,12 +33,12 @@ seed_ao(){ local M="$1" Q="$2"
   $ADB -s $S shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_sb.gc 2>/dev/null
   if ! grep -qa 'ambient-occlusion' /tmp/pcs_ao_sb.gc; then
     say "  SEED FAIL: no ambient-occlusion key on device settings"; return 1; fi
-  sed -i "s/(ambient-occlusion [0-9]*)/(ambient-occlusion $M)/; s/(ao-quality [0-9]*)/(ao-quality $Q)/" /tmp/pcs_ao_sb.gc
+  sed -i "s/^ambient-occlusion = [0-9]*/ambient-occlusion = $M/; s/^ao-quality = [0-9]*/ao-quality = $Q/" /tmp/pcs_ao_sb.gc
   $ADB -s $S push /tmp/pcs_ao_sb.gc "$SETTINGS_DEV" >/dev/null 2>&1
   local BACK; BACK=$($ADB -s $S shell cat "$SETTINGS_DEV" 2>/dev/null \
-    | grep -aoE "\((ambient-occlusion|ao-quality) [0-9]+\)" | tr '\n' ' ')
-  case "$BACK" in *"(ambient-occlusion $M)"*) : ;; *) say "  SEED READBACK FAIL: wanted (ambient-occlusion $M), got: $BACK"; return 1 ;; esac
-  case "$BACK" in *"(ao-quality $Q)"*) : ;; *) say "  SEED READBACK FAIL: wanted (ao-quality $Q), got: $BACK"; return 1 ;; esac
+    | grep -aoE "^(ambient-occlusion|ao-quality) = [0-9]+" | tr '\n' ' ')
+  case "$BACK" in *"ambient-occlusion = $M"*) : ;; *) say "  SEED READBACK FAIL: wanted ambient-occlusion = $M, got: $BACK"; return 1 ;; esac
+  case "$BACK" in *"ao-quality = $Q"*) : ;; *) say "  SEED READBACK FAIL: wanted ao-quality = $Q, got: $BACK"; return 1 ;; esac
   say "  seeded+verified: $BACK"; return 0; }
 
 sentinel_exists(){ $ADB -s $S shell "ls $SENTINEL" 2>/dev/null | grep -q "$SENTINEL"; }

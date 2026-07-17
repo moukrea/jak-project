@@ -11,7 +11,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 OUT=.autoport/reports/Grecharged-grass-poc; F="$OUT/frames"; mkdir -p "$F"
 say(){ echo; echo "######## $* ########"; }
 stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'"; }
@@ -33,14 +33,14 @@ pick(){ local TAG="$1" IDX="$2" NAME="$3"   # copy frame #IDX of rec TAG under N
   local src=$(ls /tmp/rec_$TAG/f_*.png 2>/dev/null | sed -n "${IDX}p")
   [ -n "$src" ] && cp "$src" "$F/$NAME.png" && echo "  pick $NAME = $(stat -c %s "$F/$NAME.png")B (from $src)"; }
 set_grass(){ $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  $ADB shell run-as $PKG cat "$PCS" > /tmp/pcs21d.gc 2>/dev/null || true
+  $ADB shell cat "$PCS" > /tmp/pcs21d.gc 2>/dev/null || true
   if grep -q 'recharged-grass?' /tmp/pcs21d.gc 2>/dev/null; then
-    sed -i "s/(recharged-grass? #[tf])/(recharged-grass? #$1)/" /tmp/pcs21d.gc
+    sed -i "s/^recharged-grass? = #[tf]/recharged-grass? = #$1/" /tmp/pcs21d.gc
     $ADB push /tmp/pcs21d.gc /data/local/tmp/pcs21d.gc >/dev/null 2>&1
-    $ADB shell run-as $PKG cp /data/local/tmp/pcs21d.gc "$PCS" 2>/dev/null || true
+    $ADB shell cp /data/local/tmp/pcs21d.gc "$PCS" 2>/dev/null || true
     $ADB shell rm -f /data/local/tmp/pcs21d.gc >/dev/null 2>&1
   fi
-  echo "  grass: $($ADB shell run-as $PKG cat "$PCS" 2>/dev/null | grep recharged-grass? | tr -d '\r')"; }
+  echo "  grass: $($ADB shell cat "$PCS" 2>/dev/null | grep recharged-grass? | tr -d '\r')"; }
 boot_warp(){ local POS="$1" LOG="$2"
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 2
   $ADB shell setprop debug.opengoal.cpad_inject neutral >/dev/null 2>&1

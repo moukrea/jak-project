@@ -34,12 +34,12 @@ ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/menu-proof2; mkdir -p "$OUT"
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 # Safe-boot sentinel (C++ commit b057c73d6). This script ENABLES AO then force-stops within
 # 60s of the enable (menu commits + persist-relaunch quit), so the sentinel survives the
 # dirty death; without removing it the relaunch boots SAFE-BOOT-pinned (AO forced off once)
 # and the persist proof false-fails. rm before every boot + right before the relaunch.
-SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
+SENTINEL="/storage/emulated/0/OpenGOAL/jak1/ao-boot-guard"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
 # v3: 0.8s hold (see header) + slow default gap. Menus are edge-triggered so the long
@@ -55,7 +55,7 @@ shot(){ local FB FA
   printf 'before: %s\nafter:  %s\n' "$FB" "$FA" > "$OUT/$1.focus.txt"
   case "$FB$FA" in *org.opengoal.gk.jak1*) ;; *)
     say "  SHOT $1: NOT-JAK1-FOREGROUND ($FB / $FA) — frame is NOT evidence";; esac; }
-disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE "\((ambient-occlusion|ao-quality|ao-strength) [0-9]+\)" | tr '\n' ' '; echo; }
+disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE "^(ambient-occlusion|ao-quality|ao-strength) = [0-9]+" | tr '\n' ' '; echo; }
 
 LOGF="$OUT/proof-log.txt"; : > "$LOGF"
 say(){ echo "$*" | tee -a "$LOGF"; }
@@ -129,25 +129,25 @@ normalize_and_boot(){ local A="$1"
   adb shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_menu.gc 2>/dev/null
   grep -qa 'ambient-occlusion' /tmp/pcs_ao_menu.gc || { say "[ao-menu-proof2 FAIL] no ambient-occlusion key on device settings"; exit 1; }
   sed -i \
-    -e 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/' \
-    -e 's/(ao-quality [0-9]*)/(ao-quality 2)/' \
-    -e 's/(ao-strength [0-9]*)/(ao-strength 1)/' \
-    -e 's/(dynamic-render-scale? #[tf])/(dynamic-render-scale? #t)/' \
-    -e 's/(render-scale [0-9.]*)/(render-scale 50.0000)/' \
-    -e 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' \
+    -e 's/^ambient-occlusion = [0-9]*/ambient-occlusion = 0/' \
+    -e 's/^ao-quality = [0-9]*/ao-quality = 2/' \
+    -e 's/^ao-strength = [0-9]*/ao-strength = 1/' \
+    -e 's/^dynamic-render-scale? = #[tf]/dynamic-render-scale? = #t/' \
+    -e 's/^render-scale = [0-9.]*/render-scale = 50.0000/' \
+    -e 's/^recharged-grass? = #[tf]/recharged-grass? = #f/' \
     /tmp/pcs_ao_menu.gc
   # OLD device settings files predate the ao-strength key: insert it after ao-quality.
-  grep -qa '(ao-strength' /tmp/pcs_ao_menu.gc || sed -i '/(ao-quality [0-9]*)/a\  (ao-strength 1)' /tmp/pcs_ao_menu.gc
+  grep -qa '^ao-strength = ' /tmp/pcs_ao_menu.gc || sed -i '/^ao-quality = [0-9]*/a\ao-strength = 1' /tmp/pcs_ao_menu.gc
   adb push /tmp/pcs_ao_menu.gc "$SETTINGS_DEV" >/dev/null 2>&1
   # VERIFY the normalize LANDED (attempt-4 false-negative root cause: silently failed push)
   NORM_BACK=$(disk)
-  case "$NORM_BACK" in *"(ambient-occlusion 0)"*) ;; *)
+  case "$NORM_BACK" in *"ambient-occlusion = 0"*) ;; *)
     say "[ao-menu-proof2 FAIL] normalize did not land: $NORM_BACK"; exit 1 ;; esac
   adb shell rm -f "$SENTINEL" >/dev/null 2>&1
   say "disk pre (attempt $A): $NORM_BACK"
   # Downs to RECHARGED SETTINGS depend on the MinTargetFPS row (visible while Dynamic ON,
   # apply-dynamic-rs-menu-mode!, progress-pc.gc:1057). We just seeded dynamic #t -> 8.
-  if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa '(dynamic-render-scale? #t)'; then
+  if adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -qa '^dynamic-render-scale? = #t'; then
     DOWNS_RECHARGED=8
   else
     DOWNS_RECHARGED=7
@@ -242,11 +242,11 @@ say "== persist: relaunch; boot push must carry GTAO/Medium/Stronger =="
 adb shell am force-stop $PKG; sleep 2
 DISK_QUIT=$(disk); say "disk after quit: $DISK_QUIT"
 # Disk-persistence assertion: the menu edits (GTAO/Medium/Stronger) must have written to the
-# external settings file. AO STRENGTH is the new key — assert (ao-strength 2) landed too.
+# external settings file. AO STRENGTH is the new key — assert ^ao-strength = 2 landed too.
 DISK_OK=1
-case "$DISK_QUIT" in *"(ambient-occlusion 3)"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no (ambient-occlusion 3)";; esac
-case "$DISK_QUIT" in *"(ao-quality 1)"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no (ao-quality 1)";; esac
-case "$DISK_QUIT" in *"(ao-strength 2)"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no (ao-strength 2)";; esac
+case "$DISK_QUIT" in *"ambient-occlusion = 3"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no ambient-occlusion = 3";; esac
+case "$DISK_QUIT" in *"ao-quality = 1"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no ao-quality = 1";; esac
+case "$DISK_QUIT" in *"ao-strength = 2"*) ;; *) DISK_OK=0; say "  DISK-PERSIST MISS: no ao-strength = 2";; esac
 [ "$DISK_OK" = 1 ] && say "  DISK-PERSIST OK: GTAO/Medium/Stronger on external settings"
 # The menu just enabled AO (GTAO) and we force-stopped within 60s -> the sentinel survived
 # the dirty death. rm it here so the relaunch runs AO ACTIVE (persisted GTAO), NOT the

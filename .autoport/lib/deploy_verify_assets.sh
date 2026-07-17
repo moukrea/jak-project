@@ -5,8 +5,8 @@
 #
 # WHY THIS EXISTS (2026-07-09): the HUD/menu/gameplay logic lives in GOAL code
 # that compiles into out/<game>/iso/*.CGO|*.DGO. On the dev Redmi these are
-# adb-pushed to  run-as <pkg> files/iso_data/<game>/  (the APK-bundled copy is
-# stale by design). deploy_verify.sh passed while the device ran an INTERMEDIATE
+# delivered via the slim-APK CGO pack unpacked to  run-as <pkg> files/cgo/<game>/
+# (fake_iso scans it as an overlay). deploy_verify.sh passed while the device ran an INTERMEDIATE
 # round-3 GAME.CGO — a fix "committed + built + libgk-deployed" but the GOAL
 # CGOs never re-pushed => the owner saw stale HUD behavior. This guard catches it.
 #
@@ -14,7 +14,7 @@
 #   1. FRESHNESS: newest out/<game>/iso/*.CGO|*.DGO is NEWER than the newest
 #      goal_src/<game> source mtime (catches "edited GOAL but didn't rebuild").
 #   2. FULL-SET MATCH: every *.CGO|*.DGO in out/<game>/iso/ has a byte-identical
-#      (md5) counterpart at files/iso_data/<game>/ on the device (catches a
+#      (md5) counterpart at files/cgo/<game>/ on the device (catches a
 #      partial/stale/never-pushed asset set).
 #
 # Usage: deploy_verify_assets.sh [SERIAL] [GAME]   (defaults: eae4df44 jak1)
@@ -37,12 +37,11 @@ die() { echo "DEPLOY-ASSETS FAIL: $*" >&2; exit 1; }
 
 # Phase Grecharged-external-assets (2026-07): the slim APK ships the arm64
 # CGO/DGO set as a "CGO pack" that LoaderActivity unpacks to files/cgo/<game>/
-# (fake_iso scans it FIRST as an overlay). Prefer that location when populated;
-# fall back to the legacy adb-pushed files/iso_data/<game>/ for older installs.
-DEV_DIR="files/iso_data/${GAME}"
-if "$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'ls files/cgo/${GAME}/*.CGO'" >/dev/null 2>&1; then
-  DEV_DIR="files/cgo/${GAME}"
-fi
+# (fake_iso scans it FIRST as an overlay). This is now the ONLY device engine
+# location — the legacy adb-pushed engine-overlay path is retired.
+DEV_DIR="files/cgo/${GAME}"
+"$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'ls files/cgo/${GAME}/*.CGO'" >/dev/null 2>&1 \
+  || die "no CGO overlay on device at $DEV_DIR (run-as $PKG) — engine pack never unpacked?"
 echo "  device CGO dir: $DEV_DIR"
 
 [ -d "$ISO_DIR" ] || die "no build dir $ISO_DIR"
@@ -80,11 +79,10 @@ done <<< "$LOCAL_FILES"
 echo "DEPLOY-ASSETS PASS: device $SERIAL runs the fresh GOAL set ($N_LOCAL/$N_LOCAL CGO/DGO byte-identical to $ISO_DIR)."
 
 # 3. *COMMON.TXT match (jak1 only). The text banks carry the menu strings (e.g. the
-# AO carousell values); they ride BOTH the cgo pack overlay (files/cgo/<game>) and
-# the adb-pushed iso_data dir. A stale re-extract or a never-pushed bank shows the
-# owner "unknown ID". Match every device TXT against the correct local source:
+# AO carousell values); they ride the cgo pack overlay (files/cgo/<game>). A stale
+# re-extract or a never-pushed bank shows the owner "unknown ID". Match every device
+# TXT against the android overlay source:
 #   - files/cgo/<game>/*COMMON.TXT  vs  out/<game>-android-text/  (android overlay banks)
-#   - files/iso_data/<game>/*COMMON.TXT  vs  out/<game>/iso/      (desktop-flavored banks)
 # We only assert on TXT files PRESENT on the device: fail on content mismatch, or on
 # a device TXT with no local counterpart; do NOT fail on extra local files.
 if [ "$GAME" = "jak1" ]; then
@@ -107,5 +105,4 @@ if [ "$GAME" = "jak1" ]; then
     echo "  ok ($label): $n device *COMMON.TXT byte-identical to $ldir"
   }
   txt_match "files/cgo/${GAME}"      "out/${GAME}-android-text"  "overlay"
-  txt_match "files/iso_data/${GAME}" "out/${GAME}/iso"          "iso_data"
 fi

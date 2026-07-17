@@ -69,9 +69,6 @@ echo "  ok: chain build==APK==device ($(echo $B|cut -c1-16))"
 MARK_SO=$(strings "$TMP/dev.so" | grep -m1 '^ogflags:' || true)
 if [ -n "$MARK_SO" ]; then
   MARK_CGO=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" cat "files/cgo/${GAME}/GAME.CGO" 2>/dev/null | grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' | head -1 || true)
-  if [ -z "$MARK_CGO" ]; then
-    MARK_CGO=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" cat "files/iso_data/${GAME}/GAME.CGO" 2>/dev/null | grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' | head -1 || true)
-  fi
   if [ -n "$MARK_CGO" ]; then
     [ "$MARK_SO" = "$MARK_CGO" ] || die "FLAG-SET MISMATCH: libgk '$MARK_SO' vs device CGO '$MARK_CGO' — mixed flag-set deploy (R1), push the matching CGO set or APK"
     echo "  ok: flag-set pairing $MARK_SO (device libgk == device CGO)"

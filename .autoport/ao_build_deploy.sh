@@ -66,7 +66,7 @@ say "5. ensure extraction done (boot once if needed) then push consistent CGOs +
 PACK_VER=$(grep '^version=' android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties | cut -d= -f2)
 extract_done(){ [ "$($ADB -s $S shell run-as $PKG cat files/.cgo_pack_stamp_jak1 2>/dev/null | tr -d '\r')" = "$PACK_VER" ] \
   && $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 \
-  && [ "$($ADB -s $S shell run-as $PKG ls files/iso_data/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
+  && [ "$($ADB -s $S shell run-as $PKG ls files/cgo/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
 if ! extract_done; then
   echo "  bundle stamp/CGOs missing -> boot once to extract (can take minutes)"
   $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
@@ -80,10 +80,9 @@ if ! extract_done; then
 fi
 bash .autoport/Gconsolidate_deploy_cgos.sh 2>&1 | tail -5 || die "CGO push failed"
 
-say "5b. push rebuilt text banks (AO value strings) — SPLIT per read path. Known hazard"
-say "    (feedback_slim_apk_fr3_staleness): desktop TXT over the android overlay banks loses"
-say "    the TAP-SCREEN override and desyncs deploy_verify_assets. Overlay files/cgo/jak1 <-"
-say "    out/jak1-android-text ONLY (strays removed); files/iso_data/jak1 <- out/jak1/iso."
+say "5b. push rebuilt text banks (AO value strings) — engine TXT lives ONLY in the"
+say "    files/cgo overlay now (Grecharged-buildsys-firstboot: the legacy adb-push"
+say "    dir is retired). Overlay files/cgo/jak1 <- out/jak1-android-text ONLY (strays removed)."
 push_txt_set(){ local SRC="$1" DST="$2" f b lsha dsha
   for f in "$SRC"/*.TXT; do
     b=$(basename "$f")
@@ -95,8 +94,6 @@ push_txt_set(){ local SRC="$1" DST="$2" f b lsha dsha
     $ADB -s $S shell rm -f /data/local/tmp/"$b" >/dev/null 2>&1 || true
   done
 }
-push_txt_set out/jak1/iso files/iso_data/jak1
-echo "  ok: $(ls out/jak1/iso/*.TXT | wc -l) desktop TXT banks -> files/iso_data/jak1 (sha-verified)"
 if $ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/GAME.CGO'" >/dev/null 2>&1; then
   for b in $($ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/'" 2>/dev/null | tr -d '\r' | grep 'COMMON\.TXT$'); do
     [ -f "out/jak1-android-text/$b" ] || {

@@ -20,7 +20,7 @@ cmake --build build-android --target gk -j"$(nproc)" 2>&1 | tail -6
 [ -f "$APK" ] || die "APK not produced"
 
 say "2. capture device ENGINE.CGO hash BEFORE reinstall (must be unchanged after)"
-CGO_BEFORE=$($ADB -s $S shell run-as $PKG sha256sum files/iso_data/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+CGO_BEFORE=$($ADB -s $S shell run-as $PKG sha256sum files/cgo/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
 echo "  ENGINE.CGO before: ${CGO_BEFORE:-<none>}"
 
 say "3. install APK (keeps app data => fixed CGOs persist, loader skips re-extract)"
@@ -37,7 +37,7 @@ say "5. confirm ENGINE.CGO UNCHANGED (this was a libgk-only change)"
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
 $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
 sleep 8
-CGO_AFTER=$($ADB -s $S shell run-as $PKG sha256sum files/iso_data/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+CGO_AFTER=$($ADB -s $S shell run-as $PKG sha256sum files/cgo/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
 echo "  ENGINE.CGO after:  ${CGO_AFTER:-<none>}"
 if [ -n "$CGO_BEFORE" ] && [ "$CGO_BEFORE" != "$CGO_AFTER" ]; then
   die "ENGINE.CGO CHANGED across libgk reinstall ($CGO_BEFORE -> $CGO_AFTER) — CGOs got re-extracted; consistency risk"

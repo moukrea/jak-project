@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 211,
+  "current_phase_idx": 212,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -205,7 +205,8 @@
     "Grecharged-grass-overhang7": 5,
     "Grecharged-ambient-occlusion": 2,
     "Grecharged-buildsys-flags": 2,
-    "Grecharged-buildsys-packaging": 1
+    "Grecharged-buildsys-packaging": 1,
+    "Grecharged-buildsys-firstboot": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -619,7 +620,8 @@
     "Grecharged-foliage-wind",
     "Grecharged-grass-overhang7",
     "Grecharged-ambient-occlusion",
-    "Grecharged-buildsys-flags"
+    "Grecharged-buildsys-flags",
+    "Grecharged-buildsys-packaging"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -813,9 +815,10 @@
     "Grecharged-grass-overhang7": 1784047763.064689,
     "Grecharged-ambient-occlusion": 1784102746.871413,
     "Grecharged-buildsys-flags": 1784240074.3947632,
-    "Grecharged-buildsys-packaging": 1784254798.503252
+    "Grecharged-buildsys-packaging": 1784254798.503252,
+    "Grecharged-buildsys-firstboot": 1784261686.4652958
   },
-  "last_update": "2026-07-17T04:12:37.346694+00:00",
+  "last_update": "2026-07-17T06:48:48.231294+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -892,7 +895,8 @@
     "Grecharged-grass-overhang7",
     "Grecharged-ambient-occlusion",
     "Grecharged-buildsys-flags",
-    "Grecharged-buildsys-packaging"
+    "Grecharged-buildsys-packaging",
+    "Grecharged-buildsys-firstboot"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

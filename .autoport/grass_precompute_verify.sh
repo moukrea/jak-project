@@ -14,7 +14,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 OUT=.autoport/reports/Grecharged-grass-precompute-mode; F="$OUT/frames"; mkdir -p "$F"
 PROOF="$OUT/verify_proof.txt"; : > "$PROOF"
 POS="-1297.5 7.8 1035.0"   # r22 crates plateau — dense grass, proven warp target
@@ -31,17 +31,17 @@ rec(){ local TAG="$1" SECS="$2"
 # set the GRASS MODE key in pc-settings (insert after recharged-grass? if the key is new)
 set_mode(){ local V="$1"  # t = precomputed, f = live
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  $ADB shell run-as $PKG cat "$PCS" > /tmp/pcs_pre.gc 2>/dev/null || true
-  sed -i "s/(recharged-grass? #[tf])/(recharged-grass? #t)/" /tmp/pcs_pre.gc
+  $ADB shell cat "$PCS" > /tmp/pcs_pre.gc 2>/dev/null || true
+  sed -i "s/^recharged-grass? = #[tf]/recharged-grass? = #t/" /tmp/pcs_pre.gc
   if grep -q 'recharged-grass-precomputed?' /tmp/pcs_pre.gc 2>/dev/null; then
-    sed -i "s/(recharged-grass-precomputed? #[tf])/(recharged-grass-precomputed? #$V)/" /tmp/pcs_pre.gc
+    sed -i "s/^recharged-grass-precomputed? = #[tf]/recharged-grass-precomputed? = #$V/" /tmp/pcs_pre.gc
   else
-    sed -i "s/(recharged-grass? #t)/(recharged-grass? #t)\n  (recharged-grass-precomputed? #$V)/" /tmp/pcs_pre.gc
+    sed -i "s/^recharged-grass? = #t/recharged-grass? = #t\nrecharged-grass-precomputed? = #$V/" /tmp/pcs_pre.gc
   fi
   $ADB push /tmp/pcs_pre.gc /data/local/tmp/pcs_pre.gc >/dev/null 2>&1
-  $ADB shell run-as $PKG cp /data/local/tmp/pcs_pre.gc "$PCS" 2>/dev/null || true
+  $ADB shell cp /data/local/tmp/pcs_pre.gc "$PCS" 2>/dev/null || true
   $ADB shell rm -f /data/local/tmp/pcs_pre.gc >/dev/null 2>&1
-  echo "  mode: $($ADB shell run-as $PKG cat "$PCS" 2>/dev/null | grep -E 'recharged-grass\?|recharged-grass-precomputed' | tr -d '\r' | tr '\n' ' ')"; }
+  echo "  mode: $($ADB shell cat "$PCS" 2>/dev/null | grep -E 'recharged-grass\?|recharged-grass-precomputed' | tr -d '\r' | tr '\n' ' ')"; }
 boot_warp_retry(){ local LOG="$1" TODH="$2" TRY ok
   for TRY in 1 2 3; do
     $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 2

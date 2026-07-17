@@ -7,7 +7,7 @@
 #                         + kmachine pc-set-foliage-wind! symbol; shrub.vert re-embeds via the
 #                         android shader blob custom-command DEPENDS)
 #   * APK                (bundles the fresh libgk)
-# No new PNG/texture assets -> asset bundle reused; -r install preserves files/iso_data, then the
+# No new PNG/texture assets -> asset bundle reused; -r install preserves files/cgo, then the
 # fresh consistent CGO set is pushed over it. deploy_verify + deploy_verify_assets prove the device
 # runs fresh HEAD.
 set -uo pipefail
@@ -56,7 +56,7 @@ bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -5 || die "deploy_veri
 
 say "5. ensure extraction done (boot once if needed) then push consistent CGOs"
 extract_done(){ $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 \
-  && [ "$($ADB -s $S shell run-as $PKG ls files/iso_data/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
+  && [ "$($ADB -s $S shell run-as $PKG ls files/cgo/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
 if ! extract_done; then
   echo "  bundle stamp/CGOs missing -> boot once to extract (can take minutes)"
   $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true

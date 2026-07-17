@@ -13,7 +13,7 @@ PAN="${PAN:-18}"
 echo "=== wait for FRESH ENGINE.CGO on device (extraction complete) ==="
 ok=0
 for i in $(seq 1 60); do
-  H=$($ADB shell run-as org.opengoal.gk.jak1 sha256sum files/iso_data/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+  H=$($ADB shell run-as org.opengoal.gk.jak1 sha256sum files/cgo/jak1/ENGINE.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
   if [ "$H" = "$FRESH" ]; then echo "  fresh CGO present (t~$((i*5))s)"; ok=1; break; fi
   sleep 5
 done

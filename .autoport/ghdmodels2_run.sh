@@ -13,10 +13,10 @@ source .autoport/ghdmodels2_capture.sh
 # replace-or-insert (attempt-2 lesson: sed on an absent key silently no-ops)
 set_models(){ # $1 = t|f
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  if $ADB shell grep -q "recharged-enhanced-models?" $EXT 2>/dev/null; then
-    $ADB shell "sed -i 's/(recharged-enhanced-models? #[tf])/(recharged-enhanced-models? #$1)/' $EXT" >/dev/null 2>&1
+  if $ADB shell grep -q "^recharged-enhanced-models? = " $EXT 2>/dev/null; then
+    $ADB shell "sed -i 's/^recharged-enhanced-models? = #[tf]/recharged-enhanced-models? = #$1/' $EXT" >/dev/null 2>&1
   else
-    $ADB shell "sed -i 's/^  (skip-movies?/  (recharged-enhanced-models? #$1)\n  (skip-movies?/' $EXT" >/dev/null 2>&1
+    $ADB shell "sed -i 's/^\[settings\]/[settings]\nrecharged-enhanced-models? = #$1/' $EXT" >/dev/null 2>&1
   fi
   local now; now=$($ADB shell grep -E 'recharged-enhanced-models\?' $EXT 2>/dev/null | tr -d '\r')
   echo "  models set #$1: ext=$now"

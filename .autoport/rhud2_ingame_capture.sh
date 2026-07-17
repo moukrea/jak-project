@@ -17,7 +17,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1; SHOTS="$OUT/shots"; mkdir -p "$SHOTS"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
@@ -52,12 +52,12 @@ adb shell am force-stop $PKG >/dev/null 2>&1 || true
 fail=0; cnt=0
 for f in out/jak1/iso/*COMMON.TXT out/jak1/iso/*SUBTIT.TXT; do
   [ -f "$f" ] || continue
-  push_appfile "$f" "files/iso_data/jak1/$(basename "$f")" || fail=1
+  push_appfile "$f" "files/cgo/jak1/$(basename "$f")" || fail=1
   cnt=$((cnt+1))
 done
 [ "$fail" -eq 0 ] || { echo "TXT push failed"; exit 1; }
 echo "  pushed + sha256-verified $cnt text files"
-n=$(adb shell run-as $PKG cat files/iso_data/jak1/1COMMON.TXT 2>/dev/null | strings | grep -c RECHARG || true)
+n=$(adb shell run-as $PKG cat files/cgo/jak1/1COMMON.TXT 2>/dev/null | strings | grep -c RECHARG || true)
 echo "  device 1COMMON.TXT RECHARG hits: $n (want >=2)"
 
 echo "== 1. menu shots with FR labels (warp off; toggle should read OUI from run7) =="
@@ -88,8 +88,8 @@ echo "  ON logcat markers:"; grep -acE 'F1-WARP' "$OUT/device-ingame-ON-logcat.t
 echo "== 3. OFF round: settings #t->#f, same warp+walk (stock HUD baseline) =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
 adb shell run-as $PKG cat "$SETF" 2>/dev/null | tr -d '\r' > /tmp/rhud2-settings-on.gc
-grep -q '(recharged-hud? #t)' /tmp/rhud2-settings-on.gc || { echo "settings missing ON flag?"; cat /tmp/rhud2-settings-on.gc | grep recharged; }
-sed 's/(recharged-hud? #t)/(recharged-hud? #f)/' /tmp/rhud2-settings-on.gc > /tmp/rhud2-settings-off.gc
+grep -q '^recharged-hud? = #t' /tmp/rhud2-settings-on.gc || { echo "settings missing ON flag?"; cat /tmp/rhud2-settings-on.gc | grep recharged; }
+sed 's/^recharged-hud? = #t/recharged-hud? = #f/' /tmp/rhud2-settings-on.gc > /tmp/rhud2-settings-off.gc
 push_appfile /tmp/rhud2-settings-off.gc "$SETF" || { echo "settings push failed"; exit 1; }
 echo "  device flag now: $(adb shell run-as $PKG cat "$SETF" 2>/dev/null | grep -a recharged | tr -d '\r')"
 adb logcat -c >/dev/null 2>&1 || true

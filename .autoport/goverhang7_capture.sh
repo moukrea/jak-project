@@ -13,7 +13,7 @@ ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1
 INJECT="/data/data/$PKG/files/cpad_inject"
 OUT=.autoport/reports/Grecharged-grass-overhang7; mkdir -p "$OUT"
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
 clr(){ inject ""; }
@@ -67,7 +67,7 @@ A)
   guard_free
   echo "== A: pre-fix HIS boot (settings untouched, plain launch, continue to his save) =="
   adb shell cat "$SETTINGS_DEV" > "$OUT/A-settings-before.gc"
-  grep -o "(recharged[^)]*)" "$OUT/A-settings-before.gc" | sed 's/^/  /'
+  grep -oE "^recharged[^ ]* = .*" "$OUT/A-settings-before.gc" | sed 's/^/  /'
   stop_app
   plain_boot 45
   continue_to_save 35
@@ -104,10 +104,10 @@ C)
   adb shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow 2>/dev/null || true
   adb shell pm trim-caches 999G 2>/dev/null || true
   adb install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -2
-  adb push out/jak1/fr3/beach.grassbake /storage/emulated/0/OpenGOAL/jak_1/assets/fr3/beach.grassbake
+  adb push out/jak1/fr3/beach.grassbake /storage/emulated/0/OpenGOAL/jak1/assets/fr3/beach.grassbake
   echo "  bake shas (build vs device vs archive):"
   sha256sum out/jak1/fr3/beach.grassbake | awk '{print "  build  "$1}'
-  adb shell sha256sum /storage/emulated/0/OpenGOAL/jak_1/assets/fr3/beach.grassbake | awk '{print "  device "$1}'
+  adb shell sha256sum /storage/emulated/0/OpenGOAL/jak1/assets/fr3/beach.grassbake | awk '{print "  device "$1}'
   unzip -p out/artifacts/jak1_assets.zip fr3/beach.grassbake 2>/dev/null | sha256sum | awk '{print "  archive "$1}'
   bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -4
   ;;

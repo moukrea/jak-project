@@ -507,8 +507,23 @@ int goal_main(int argc, char** argv) {
 
   // ---------------------------------------------------------------------
   // KERNEL.CGO load — open the real file and read it into memory.
+  // Grecharged-buildsys-firstboot: KERNEL.CGO ships in the per-arch cgo
+  // overlay (files/cgo/<game>, unpacked from the APK's cgo pack). The old
+  // files/iso_data copy came from the deleted internal-asset mode and does
+  // NOT exist on a fresh install — reading data_root here was the fresh-
+  // install SIGABRT (open ENOENT -> 0 bytes -> abort). Try the overlay
+  // first, then the external root's assets/iso (full-iso setups).
   // ---------------------------------------------------------------------
-  size_t cgo_bytes = load_kernel_cgo(data_root);
+  size_t cgo_bytes = 0;
+  if (auto overlay = file_util::get_iso_overlay_dir()) {
+    cgo_bytes = load_kernel_cgo(overlay->string().c_str());
+  }
+  if (cgo_bytes == 0) {
+    const std::string iso_out = file_util::get_iso_out_dir(g_game_version).string();
+    if (!iso_out.empty()) {
+      cgo_bytes = load_kernel_cgo(iso_out.c_str());
+    }
+  }
   if (cgo_bytes == 0) {
     __android_log_print(ANDROID_LOG_ERROR, kLogTag,
                         "KERNEL.CGO load returned 0 bytes; aborting");

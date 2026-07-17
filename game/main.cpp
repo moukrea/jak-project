@@ -6,11 +6,15 @@
 #define STBI_WINDOWS_UTF8
 
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <string>
 
 #ifdef _WIN32
 #include <io.h>
+#include <objbase.h>
+#include <shobjidl.h>
 #else
 #include <unistd.h>
 #endif
@@ -93,24 +97,136 @@ std::string game_arg_documentation() {
   return output;
 }
 
+// Returns a user-picked directory via the platform's native dialog, or nullopt.
+static std::optional<std::string> native_pick_directory(const std::string& title) {
+#if defined(_WIN32)
+  std::optional<std::string> result;
+  HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+  bool did_init = SUCCEEDED(hr);
+  // RPC_E_CHANGED_MODE means COM is already initialized in another mode; we can
+  // still use the dialog but must not call CoUninitialize for our (failed) init.
+  if (SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE) {
+    IFileOpenDialog* dialog = nullptr;
+    hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
+                          IID_PPV_ARGS(&dialog));
+    if (SUCCEEDED(hr) && dialog) {
+      DWORD opts = 0;
+      if (SUCCEEDED(dialog->GetOptions(&opts))) {
+        dialog->SetOptions(opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+      } else {
+        dialog->SetOptions(FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+      }
+      std::wstring wtitle(title.begin(), title.end());
+      dialog->SetTitle(wtitle.c_str());
+      if (SUCCEEDED(dialog->Show(nullptr))) {
+        IShellItem* item = nullptr;
+        if (SUCCEEDED(dialog->GetResult(&item)) && item) {
+          PWSTR path = nullptr;
+          if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path)) && path) {
+            int len = WideCharToMultiByte(CP_UTF8, 0, path, -1, nullptr, 0, nullptr, nullptr);
+            if (len > 0) {
+              std::string utf8(len - 1, '\0');
+              WideCharToMultiByte(CP_UTF8, 0, path, -1, utf8.data(), len, nullptr, nullptr);
+              if (!utf8.empty()) {
+                result = utf8;
+              }
+            }
+            CoTaskMemFree(path);
+          }
+          item->Release();
+        }
+      }
+      dialog->Release();
+    }
+    if (did_init) {
+      CoUninitialize();
+    }
+  }
+  return result;
+#elif defined(__APPLE__)
+  std::string cmd =
+      "osascript -e 'POSIX path of (choose folder with prompt \"" + title + "\")' 2>/dev/null";
+  FILE* p = popen(cmd.c_str(), "r");
+  if (!p) {
+    return std::nullopt;
+  }
+  char buf[4096] = {0};
+  std::string line;
+  if (fgets(buf, sizeof(buf), p)) {
+    line = buf;
+  }
+  int status = pclose(p);
+  while (!line.empty() && (line.back() == '\n' || line.back() == '\r' || line.back() == ' ' ||
+                           line.back() == '\t')) {
+    line.pop_back();
+  }
+  if (status == 0 && !line.empty()) {
+    return line;
+  }
+  return std::nullopt;
+#else
+  // Linux: only attempt a GUI dialog when a display is available.
+  if (std::getenv("DISPLAY") == nullptr && std::getenv("WAYLAND_DISPLAY") == nullptr) {
+    return std::nullopt;
+  }
+  auto run = [](const std::string& cmd) -> std::optional<std::string> {
+    FILE* p = popen(cmd.c_str(), "r");
+    if (!p) {
+      return std::nullopt;
+    }
+    char buf[4096] = {0};
+    std::string line;
+    if (fgets(buf, sizeof(buf), p)) {
+      line = buf;
+    }
+    int status = pclose(p);
+    while (!line.empty() && (line.back() == '\n' || line.back() == '\r' || line.back() == ' ' ||
+                             line.back() == '\t')) {
+      line.pop_back();
+    }
+    if (status == 0 && !line.empty()) {
+      return line;
+    }
+    return std::nullopt;
+  };
+  // Use a fixed, single-quote-free title to avoid shell escaping issues.
+  (void)title;
+  const char* safe_title = "Select the game folder";
+  auto z = run(std::string("zenity --file-selection --directory --title='") + safe_title +
+               "' 2>/dev/null");
+  if (z) {
+    return z;
+  }
+  auto k = run(std::string("kdialog --getexistingdirectory ~ --title '") + safe_title +
+               "' 2>/dev/null");
+  if (k) {
+    return k;
+  }
+  return std::nullopt;
+#endif
+}
+
 /*!
  * External-asset-root resolution (desktop). Runs when --game-root was NOT
  * given. Tries, in order:
  *   a. a saved pointer file (config/asset-root.txt) pointing at a chosen dir
- *      that contains jak_<n>/assets/iso;
+ *      that contains jak<n>/assets/iso;
  *   b. the legacy dev iso dir (out/<name>/iso) with at least one file — leave
  *      behavior unchanged;
- *   c. prompt the user on stdin (3 attempts), persisting the chosen dir.
+ *   c. a native directory picker (3 attempts), then a stdin prompt (3 attempts)
+ *      as last fallback, persisting the chosen dir. On first boot, if the
+ *      chosen tree doesn't yet hold assets, create the skeleton and instruct
+ *      the user to extract the assets archive.
  * Returns false only on an unrecoverable non-TTY / give-up path (caller exits).
  */
 static bool resolve_game_root(GameVersion game_version) {
   const std::string name = game_version_names[game_version];
-  // jak_<n> subdir uses an underscore (jak_1 / jak_2 / jak_3).
-  std::string jak_underscore = "jak_1";
+  // jak<n> subdir (jak1 / jak2 / jak3).
+  std::string game_subdir = "jak1";
   if (game_version == GameVersion::Jak2) {
-    jak_underscore = "jak_2";
+    game_subdir = "jak2";
   } else if (game_version == GameVersion::Jak3) {
-    jak_underscore = "jak_3";
+    game_subdir = "jak3";
   }
 
   const fs::path legacy_iso_dir = file_util::get_jak_project_dir() / "out" / name / "iso";
@@ -136,9 +252,9 @@ static bool resolve_game_root(GameVersion game_version) {
     return false;
   };
 
-  // Accept a chosen base dir: <chosen>/jak_<n>/assets/iso must exist.
+  // Accept a chosen base dir: <chosen>/jak<n>/assets/iso must exist.
   auto try_accept = [&](const fs::path& chosen) -> bool {
-    const fs::path root = chosen / jak_underscore;
+    const fs::path root = chosen / game_subdir;
     if (fs::exists(root / "assets" / "iso")) {
       file_util::set_external_game_root(root);
       // Bind the legacy compiled-iso dir as the overlay (binary pack CGOs) when
@@ -176,7 +292,66 @@ static bool resolve_game_root(GameVersion game_version) {
     return true;
   }
 
-  // c. prompt
+  // Persist the chosen base dir to the pointer file.
+  auto persist_pointer = [&](const std::string& chosen) {
+    try {
+      file_util::create_dir_if_needed(pointer_file.parent_path());
+      file_util::write_text_file(pointer_file, chosen);
+    } catch (const std::exception& e) {
+      lg::warn("Failed to persist asset-root pointer file: {}", e.what());
+    }
+  };
+
+  // First-boot skeleton: <chosen>/<game_subdir>/{assets, custom_assets, saves}.
+  // Persist the pointer so the next launch reuses the same tree, but return
+  // false because the game cannot run until the user extracts the assets.
+  auto create_skeleton_and_bail = [&](const std::string& chosen) -> bool {
+    const fs::path base(chosen);
+    if (!fs::exists(base) || !fs::is_directory(base)) {
+      return false;
+    }
+    const fs::path root = base / game_subdir;
+    try {
+      fs::create_directories(root / "assets");
+      fs::create_directories(root / "custom_assets");
+      fs::create_directories(root / "saves");
+    } catch (const std::exception& e) {
+      lg::error("Failed to create game-root skeleton under '{}': {}", root.string(), e.what());
+      return false;
+    }
+    persist_pointer(chosen);
+    lg::error(
+        "OpenGOAL created a game folder at '{}' but no assets are present yet.\n"
+        "Extract '{}_assets.zip' into '{}' and relaunch.",
+        root.string(), name, (root / "assets").string());
+    return false;
+  };
+
+  // c. native directory picker (preferred), then stdin (fallback).
+  const std::string picker_title =
+      "Select the folder that contains (or should contain) " + game_subdir + "/assets";
+  for (int attempt = 0; attempt < 3; attempt++) {
+    auto picked = native_pick_directory(picker_title);
+    if (!picked) {
+      break;
+    }
+    std::string chosen = *picked;
+    while (!chosen.empty() && (chosen.back() == '\n' || chosen.back() == '\r' ||
+                              chosen.back() == ' ' || chosen.back() == '\t')) {
+      chosen.pop_back();
+    }
+    if (chosen.empty()) {
+      continue;
+    }
+    if (try_accept(fs::path(chosen))) {
+      persist_pointer(chosen);
+      lg::info("Using external game root: {}/{}", chosen, game_subdir);
+      return true;
+    }
+    // Tree doesn't hold assets yet -> first-boot skeleton create + bail.
+    return create_skeleton_and_bail(chosen);
+  }
+
 #ifdef _WIN32
   const bool stdin_is_tty = _isatty(_fileno(stdin)) != 0;
 #else
@@ -186,7 +361,7 @@ static bool resolve_game_root(GameVersion game_version) {
     lg::error(
         "OpenGOAL could not find game assets. Re-run with --game-root <path> pointing at the "
         "per-game root directory (the folder that contains {}/assets).",
-        jak_underscore);
+        game_subdir);
     return false;
   }
 
@@ -195,7 +370,7 @@ static bool resolve_game_root(GameVersion game_version) {
         "\nOpenGOAL could not find game assets.\n"
         "Enter the folder that contains (or should contain) {}/assets\n"
         "(absolute path expected): ",
-        jak_underscore);
+        game_subdir);
     std::string input;
     if (!std::getline(std::cin, input)) {
       break;
@@ -209,17 +384,12 @@ static bool resolve_game_root(GameVersion game_version) {
       continue;
     }
     if (try_accept(fs::path(input))) {
-      // persist the chosen base dir to the pointer file
-      try {
-        file_util::create_dir_if_needed(pointer_file.parent_path());
-        file_util::write_text_file(pointer_file, input);
-      } catch (const std::exception& e) {
-        lg::warn("Failed to persist asset-root pointer file: {}", e.what());
-      }
-      lg::info("Using external game root: {}/{}", input, jak_underscore);
+      persist_pointer(input);
+      lg::info("Using external game root: {}/{}", input, game_subdir);
       return true;
     }
-    lg::print("Could not find {}/assets/iso under '{}'. Try again.\n", jak_underscore, input);
+    // Tree doesn't hold assets yet -> first-boot skeleton create + bail.
+    return create_skeleton_and_bail(input);
   }
   lg::error("No valid game root provided.");
   return false;
@@ -333,7 +503,7 @@ int goal_main(int argc, char** argv) {
                  "Override the location where all user configuration and saves are saved");
   app.add_option("--game-root", game_root_override,
                  "The per-game root directory holding arch-independent assets and saves "
-                 "(e.g. /sdcard/OpenGOAL/jak_1)");
+                 "(e.g. /sdcard/OpenGOAL/jak1)");
   app.add_option("--iso-overlay", iso_overlay_override,
                  "Directory holding the per-arch compiled *.CGO/*.DGO iso overlay");
   app.add_option("--custom-assets", custom_assets_override,

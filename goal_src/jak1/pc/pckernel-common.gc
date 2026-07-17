@@ -76,7 +76,7 @@
 
 (defmethod commit-to-file ((obj pc-settings))
   "commits the current settings to the file"
-  (format (clear *pc-temp-string-1*) "~S/pc-settings.gc" *pc-settings-folder*)
+  (format (clear *pc-temp-string-1*) "~S/settings.ini" *pc-settings-folder*)
   (pc-mkdir-file-path *pc-temp-string-1*)
   (write-to-file obj *pc-temp-string-1*)
   (none))
@@ -577,7 +577,9 @@
     *pc-temp-string*))
 
 (defmacro is-whitespace-or-bracket? (c)
-  `(or (is-whitespace-char? ,c) (= #x28 ,c) (= #x29 ,c)))
+  ;; Grecharged-buildsys-firstboot: word reading for the INI settings format stops at
+  ;; whitespace, parens, AND the INI delimiters '=' (#x3D), '[' (#x5B), ']' (#x5D).
+  `(or (is-whitespace-char? ,c) (= #x28 ,c) (= #x29 ,c) (= #x3D ,c) (= #x5B ,c) (= #x5D ,c)))
 
 (defun file-stream-seek-past-whitespace ((file file-stream))
   (file-stream-seek-until file not-whitespace-char?))
@@ -654,6 +656,24 @@
           (pc-settings-read-throw-error ,fs (string-format "invalid char, ) not found, got #x~X ~A" c *pc-temp-string*))))
       (file-stream-seek ,fs -1 SCE_SEEK_CUR))))
 
+(defmacro doini-keys (bindings &rest body)
+  "iterate over `key = value...` lines until the next section header '[' or EOF.
+   key name is left in *pc-temp-string*; body must consume the value words."
+  (let ((fs (first bindings)))
+    `(let ((c -1))
+       (while (begin (set! c (file-stream-get-next-char-ret ,fs))
+                     (and (!= c #x5B) (!= c 255) (!= c 0)))
+         (file-stream-read-word ,fs)
+         ;; consume the `=` with single-byte getc reads, NOT file-stream-get-next-char:
+         ;; its seek-past-whitespace scratches raw stream bytes over *pc-temp-string*
+         ;; and would destroy the key before ,@body dispatches on it.
+         (let ((eqc (file-stream-getc ,fs)))
+           (while (is-whitespace-char? eqc)
+             (set! eqc (file-stream-getc ,fs)))
+           (when (!= eqc #x3D)
+             (pc-settings-read-throw-error ,fs (string-format "expected = after ~A got #x~X" *pc-temp-string* eqc))))
+         ,@body))))
+
 (defmethod read-from-file ((obj pc-settings) (filename string))
   "read settings from a file"
   (if (not filename) (return #f))
@@ -661,32 +681,63 @@
     (when (not (file-stream-valid? file))
       (return #f))
     (let ((version PC_KERNEL_VERSION))
-      (with-settings-scope (file)
-                           (case-str (file-stream-read-word file)
-                             (("settings")
-                              (set! version (the pckernel-version (file-stream-read-int file)))
-                              (cond
-                                ((and (= (-> version major) PC_KERNEL_VER_MAJOR) (= (-> version minor) PC_KERNEL_VER_MINOR))
-                                 ;; minor or no difference
-                                 )
-                                (else
-                                 ;; major difference
-                                 (format 0
-                                         "PC kernel version mismatch! Got ~D.~D vs ~D.~D~%"
-                                         PC_KERNEL_VER_MAJOR
-                                         PC_KERNEL_VER_MINOR
-                                         (-> version major)
-                                         (-> version minor))
-                                 (file-stream-close file)
-                                 (return #f)))
-                              (dosettings (file) (handle-input-settings obj file))
-                              ;; upgrade settings if minor changes
-                              ;; remember to delete this when major changes to the version number are made
-                              (when (and (= PC_KERNEL_VER_MAJOR 1)
-                                         (= PC_KERNEL_VER_MINOR 10)
-                                         (or (> 3 (-> version build)) (and (= 3 (-> version build)) (> 1 (-> version revision)))))
-                                ;; 1.10 upgrade: turn envmap on
-                                (set! (-> obj force-envmap?) #t))))))
+      ;; expect the "[settings]" section header
+      (file-stream-seek-past-whitespace file)
+      (when (!= #x5B (file-stream-getc file))
+        (pc-settings-read-throw-error file "invalid char, [ not found"))
+      (file-stream-seek-past-whitespace file)
+      (file-stream-read-word file)
+      (case-str *pc-temp-string*
+        (("settings"))
+        (else
+         (pc-settings-read-throw-error file (string-format "expected [settings] got [~A]" *pc-temp-string*))))
+      (when (!= #x5D (file-stream-get-next-char file))
+        (pc-settings-read-throw-error file "expected ] after settings"))
+      ;; first key MUST be version = #x...
+      ;; (read-word does NOT skip leading whitespace; we sit on the newline after "[settings]")
+      (file-stream-seek-past-whitespace file)
+      (file-stream-read-word file)
+      (case-str *pc-temp-string*
+        (("version"))
+        (else
+         (pc-settings-read-throw-error file (string-format "expected version key got ~A" *pc-temp-string*))))
+      (when (!= #x3D (file-stream-get-next-char file))
+        (pc-settings-read-throw-error file "expected = after version"))
+      (set! version (the pckernel-version (file-stream-read-int file)))
+      (cond
+        ((and (= (-> version major) PC_KERNEL_VER_MAJOR) (= (-> version minor) PC_KERNEL_VER_MINOR))
+         ;; minor or no difference
+         )
+        (else
+         ;; major difference
+         (format 0
+                 "PC kernel version mismatch! Got ~D.~D vs ~D.~D~%"
+                 PC_KERNEL_VER_MAJOR
+                 PC_KERNEL_VER_MINOR
+                 (-> version major)
+                 (-> version minor))
+         (file-stream-close file)
+         (return #f)))
+      ;; the plain keys of the [settings] section
+      (doini-keys (file) (handle-input-settings obj file))
+      ;; then the trailing sections; dispatch on the SECTION name
+      (while (= #x5B (file-stream-get-next-char file))
+        (file-stream-seek-past-whitespace file)
+        (file-stream-read-word file)                       ;; section name in *pc-temp-string*
+        ;; consume the `]` with single-byte getc reads (file-stream-get-next-char would
+        ;; scratch over *pc-temp-string* and destroy the section name before dispatch)
+        (let ((cc (file-stream-getc file)))
+          (while (is-whitespace-char? cc)
+            (set! cc (file-stream-getc file)))
+          (when (!= cc #x5D) (pc-settings-read-throw-error file "expected ] after section name")))
+        (handle-input-settings obj file))
+      ;; upgrade settings if minor changes
+      ;; remember to delete this when major changes to the version number are made
+      (when (and (= PC_KERNEL_VER_MAJOR 1)
+                 (= PC_KERNEL_VER_MINOR 10)
+                 (or (> 3 (-> version build)) (and (= 3 (-> version build)) (> 1 (-> version revision)))))
+        ;; 1.10 upgrade: turn envmap on
+        (set! (-> obj force-envmap?) #t)))
     (file-stream-close file))
   (format 0 "pc settings file read: ~A~%" filename)
   ;; restore the windowed mode resolution properly
@@ -832,82 +883,82 @@
 
 (defmethod handle-output-settings ((obj pc-settings) (file file-stream))
   "handle the text writing output for the 'settings' group"
-  (format file "  (fps ~D)~%" (-> obj target-fps))
-  (format file "  (msaa ~D)~%" (-> obj gfx-msaa))
-  (format file "  (fps-counter? ~A)~%" (-> obj fps-counter?))
-  (format file "  (render-scale ~f)~%" (-> obj render-scale))
-  (format file "  (min-render-scale ~f)~%" (-> obj min-render-scale))
-  (format file "  (dynamic-render-scale? ~A)~%" (-> obj dynamic-render-scale?))
-  (format file "  (dyn-target-fps ~f)~%" (-> obj dyn-target-fps))
+  (format file "fps = ~D~%" (-> obj target-fps))
+  (format file "msaa = ~D~%" (-> obj gfx-msaa))
+  (format file "fps-counter? = ~A~%" (-> obj fps-counter?))
+  (format file "render-scale = ~f~%" (-> obj render-scale))
+  (format file "min-render-scale = ~f~%" (-> obj min-render-scale))
+  (format file "dynamic-render-scale? = ~A~%" (-> obj dynamic-render-scale?))
+  (format file "dyn-target-fps = ~f~%" (-> obj dyn-target-fps))
   (format file
-          "  (aspect-state ~A ~D ~D ~A)~%"
+          "aspect-state = ~A ~D ~D ~A~%"
           (get-game-setting obj 'aspect-ratio)
           (-> obj aspect-custom-x)
           (-> obj aspect-custom-y)
           (-> obj aspect-ratio-auto?))
-  (format file "  (window-size ~D ~D)~%" (-> obj window-width) (-> obj window-height))
-  (format file "  (game-size ~D ~D)~%" (-> obj width) (-> obj height))
-  (format file "  (letterbox ~A)~%" (-> obj letterbox?))
-  (format file "  (vsync ~A)~%" (-> obj vsync?))
-  ;(format file "  (font-scale ~f)~%" (-> obj font-scale))
-  (format file "  (debug-font-scale ~f)~%" (-> obj debug-font-scale))
-  (format file "  (debug-font-scale-auto? ~A)~%" (-> obj debug-font-scale-auto?))
-  ;(format file "  (audio-latency-ms ~D)~%" (-> obj audio-latency-ms))
-  ;(format file "  (audio-pan-override ~f)~%" (-> obj audio-pan-override))
-  ;(format file "  (audio-volume-override ~f)~%" (-> obj audio-volume-override))
-  ;(format file "  (audio-channel-nb ~D)~%" (-> obj audio-channel-nb))
+  (format file "window-size = ~D ~D~%" (-> obj window-width) (-> obj window-height))
+  (format file "game-size = ~D ~D~%" (-> obj width) (-> obj height))
+  (format file "letterbox = ~A~%" (-> obj letterbox?))
+  (format file "vsync = ~A~%" (-> obj vsync?))
+  ;(format file "font-scale = ~f~%" (-> obj font-scale))
+  (format file "debug-font-scale = ~f~%" (-> obj debug-font-scale))
+  (format file "debug-font-scale-auto? = ~A~%" (-> obj debug-font-scale-auto?))
+  ;(format file "audio-latency-ms = ~D~%" (-> obj audio-latency-ms))
+  ;(format file "audio-pan-override = ~f~%" (-> obj audio-pan-override))
+  ;(format file "audio-volume-override = ~f~%" (-> obj audio-volume-override))
+  ;(format file "audio-channel-nb = ~D~%" (-> obj audio-channel-nb))
   ;; Gvulkan-option: persist the renderer backend choice (deserializer already exists above). Written
   ;; so the "VULKAN RENDERER" menu toggle survives across launches. The desktop backend selection ALSO
   ;; comes from display-settings.json (written by pc-set-gfx-renderer!) — this keeps the two in sync.
-  (format file "  (gfx-renderer ~D)~%" (-> obj gfx-renderer))
-  ;(format file "  (gfx-resolution ~f)~%" (-> obj gfx-resolution))
-  ;(format file "  (gfx-anisotropy ~f)~%" (-> obj gfx-anisotropy))
-  ;(format file "  (shrub-dist-mod ~f)~%" (-> obj shrub-dist-mod))
-  ;(format file "  (lod-dist-mod ~f)~%" (-> obj lod-dist-mod))
-  (format file "  (lod-force-tfrag ~D)~%" (-> obj lod-force-tfrag))
-  (format file "  (lod-force-tie ~D)~%" (-> obj lod-force-tie))
-  (format file "  (lod-force-ocean ~D)~%" (-> obj lod-force-ocean))
-  (format file "  (lod-force-actor ~D)~%" (-> obj lod-force-actor))
-  (format file "  (ignore-controller-win-unfocused? ~A)~%" (-> obj ignore-controller-win-unfocused?))
-  (format file "  (controller-hp-led? ~A)~%" (-> obj controller-led-hp?))
-  (format file "  (controller-eco-led? ~A)~%" (-> obj controller-led-eco?))
-  (format file "  (controller-heat-led? ~A)~%" (-> obj controller-led-heat?))
-  (format file "  (controller-led-brightness ~f)~%" (-> obj controller-led-brightness))
-  (format file "  (controller-led-min-brightness ~f)~%" (-> obj controller-led-min-brightness))
-  (format file "  (controller-led-max-brightness ~f)~%" (-> obj controller-led-max-brightness))
-  (format file "  (stick-deadzone ~f)~%" (-> obj stick-deadzone))
-  (format file "  (mouse-enabled? ~A)~%" (-> obj mouse-enabled?))
-  (format file "  (mouse-camera? ~A)~%" (-> obj mouse-camera?))
-  (format file "  (mouse-xsens ~f)~%" (-> obj mouse-xsens))
-  (format file "  (mouse-ysens ~f)~%" (-> obj mouse-ysens))
-  (format file "  (mouse-movement? ~A)~%" (-> obj mouse-movement?))
-  (format file "  (auto-hide-cursor? ~A)~%" (-> obj auto-hide-cursor?))
-  (format file "  (ps2-read-speed? ~A)~%" (-> obj ps2-read-speed?))
-  (format file "  (ps2-parts? ~A)~%" (-> obj ps2-parts?))
-  (format file "  (ps2-music? ~A)~%" (-> obj ps2-music?))
-  (format file "  (ps2-se? ~A)~%" (-> obj ps2-se?))
-  (format file "  (ps2-hints? ~A)~%" (-> obj ps2-hints?))
-  (format file "  (ps2-shadow? ~A)~%" (-> obj ps2-shadow?))
-  (format file "  (ps2-lod-dist? ~A)~%" (-> obj ps2-lod-dist?))
-  (format file "  (force-envmap? ~A)~%" (-> obj force-envmap?))
-  (format file "  (use-vis? ~A)~%" (-> obj use-vis?))
-  (format file "  (discord-rpc? ~A)~%" (-> obj discord-rpc?))
-  (format file "  (speedrunner-mode? ~A)~%" (-> obj speedrunner-mode?))
-  (format file "  (first-camera-h-inverted? ~A)~%" (-> obj first-camera-h-inverted?))
-  (format file "  (first-camera-v-inverted? ~A)~%" (-> obj first-camera-v-inverted?))
-  (format file "  (third-camera-h-inverted? ~A)~%" (-> obj third-camera-h-inverted?))
-  (format file "  (third-camera-v-inverted? ~A)~%" (-> obj third-camera-v-inverted?))
-  (format file "  (force-actors? ~A)~%" (not (-> obj ps2-actor-vis?)))
-  (format file "  (music-fadein? ~A)~%" (-> obj music-fadein?))
-  (format file "  (music-fadeout? ~A)~%" (-> obj music-fadeout?))
-  (format file "  (hinttitles? ~A)~%" (-> obj hinttitles?))
-  (format file "  (game-language ~D)~%" (get-game-language obj))
-  (format file "  (subtitle-speaker ~A)~%" (-> obj subtitle-speaker?))
-  (format file "  (territory ~D)~%" (-> obj territory))
-  (format file "  (memcard-volume-sfx ~f)~%" (-> obj memcard-volume-sfx))
-  (format file "  (memcard-volume-music ~f)~%" (-> obj memcard-volume-music))
-  (format file "  (memcard-volume-dialog ~f)~%" (-> obj memcard-volume-dialog))
-  (format file "  (memcard-vibration? ~A)~%" (-> obj memcard-vibration?))
+  (format file "gfx-renderer = ~D~%" (-> obj gfx-renderer))
+  ;(format file "gfx-resolution = ~f~%" (-> obj gfx-resolution))
+  ;(format file "gfx-anisotropy = ~f~%" (-> obj gfx-anisotropy))
+  ;(format file "shrub-dist-mod = ~f~%" (-> obj shrub-dist-mod))
+  ;(format file "lod-dist-mod = ~f~%" (-> obj lod-dist-mod))
+  (format file "lod-force-tfrag = ~D~%" (-> obj lod-force-tfrag))
+  (format file "lod-force-tie = ~D~%" (-> obj lod-force-tie))
+  (format file "lod-force-ocean = ~D~%" (-> obj lod-force-ocean))
+  (format file "lod-force-actor = ~D~%" (-> obj lod-force-actor))
+  (format file "ignore-controller-win-unfocused? = ~A~%" (-> obj ignore-controller-win-unfocused?))
+  (format file "controller-hp-led? = ~A~%" (-> obj controller-led-hp?))
+  (format file "controller-eco-led? = ~A~%" (-> obj controller-led-eco?))
+  (format file "controller-heat-led? = ~A~%" (-> obj controller-led-heat?))
+  (format file "controller-led-brightness = ~f~%" (-> obj controller-led-brightness))
+  (format file "controller-led-min-brightness = ~f~%" (-> obj controller-led-min-brightness))
+  (format file "controller-led-max-brightness = ~f~%" (-> obj controller-led-max-brightness))
+  (format file "stick-deadzone = ~f~%" (-> obj stick-deadzone))
+  (format file "mouse-enabled? = ~A~%" (-> obj mouse-enabled?))
+  (format file "mouse-camera? = ~A~%" (-> obj mouse-camera?))
+  (format file "mouse-xsens = ~f~%" (-> obj mouse-xsens))
+  (format file "mouse-ysens = ~f~%" (-> obj mouse-ysens))
+  (format file "mouse-movement? = ~A~%" (-> obj mouse-movement?))
+  (format file "auto-hide-cursor? = ~A~%" (-> obj auto-hide-cursor?))
+  (format file "ps2-read-speed? = ~A~%" (-> obj ps2-read-speed?))
+  (format file "ps2-parts? = ~A~%" (-> obj ps2-parts?))
+  (format file "ps2-music? = ~A~%" (-> obj ps2-music?))
+  (format file "ps2-se? = ~A~%" (-> obj ps2-se?))
+  (format file "ps2-hints? = ~A~%" (-> obj ps2-hints?))
+  (format file "ps2-shadow? = ~A~%" (-> obj ps2-shadow?))
+  (format file "ps2-lod-dist? = ~A~%" (-> obj ps2-lod-dist?))
+  (format file "force-envmap? = ~A~%" (-> obj force-envmap?))
+  (format file "use-vis? = ~A~%" (-> obj use-vis?))
+  (format file "discord-rpc? = ~A~%" (-> obj discord-rpc?))
+  (format file "speedrunner-mode? = ~A~%" (-> obj speedrunner-mode?))
+  (format file "first-camera-h-inverted? = ~A~%" (-> obj first-camera-h-inverted?))
+  (format file "first-camera-v-inverted? = ~A~%" (-> obj first-camera-v-inverted?))
+  (format file "third-camera-h-inverted? = ~A~%" (-> obj third-camera-h-inverted?))
+  (format file "third-camera-v-inverted? = ~A~%" (-> obj third-camera-v-inverted?))
+  (format file "force-actors? = ~A~%" (not (-> obj ps2-actor-vis?)))
+  (format file "music-fadein? = ~A~%" (-> obj music-fadein?))
+  (format file "music-fadeout? = ~A~%" (-> obj music-fadeout?))
+  (format file "hinttitles? = ~A~%" (-> obj hinttitles?))
+  (format file "game-language = ~D~%" (get-game-language obj))
+  (format file "subtitle-speaker = ~A~%" (-> obj subtitle-speaker?))
+  (format file "territory = ~D~%" (-> obj territory))
+  (format file "memcard-volume-sfx = ~f~%" (-> obj memcard-volume-sfx))
+  (format file "memcard-volume-music = ~f~%" (-> obj memcard-volume-music))
+  (format file "memcard-volume-dialog = ~f~%" (-> obj memcard-volume-dialog))
+  (format file "memcard-vibration? = ~A~%" (-> obj memcard-vibration?))
   0)
 
 (defmethod write-to-file ((obj pc-settings) (filename string))
@@ -915,16 +966,15 @@
   (if (not filename) (return #f))
   (let ((file (new 'stack 'file-stream filename 'write)))
     (if (not (file-stream-valid? file)) (return #f))
-    (format file "(settings #x~X~%" PC_KERNEL_VERSION)
+    (format file "[settings]~%version = #x~X~%" PC_KERNEL_VERSION)
     (handle-output-settings obj file)
-    (format file "  )~%")
     (file-stream-close file))
   (format 0 "pc settings file write: ~A~%" filename)
   #t)
 
 (defmethod load-settings ((obj pc-settings))
   "load"
-  (format (clear *pc-temp-string-1*) "~S/pc-settings.gc" *pc-settings-folder*)
+  (format (clear *pc-temp-string-1*) "~S/settings.ini" *pc-settings-folder*)
   (cond
     ((pc-filepath-exists? *pc-temp-string-1*)
      (format 0 "[PC] PC Settings found at '~S'...loading!~%" *pc-temp-string-1*)

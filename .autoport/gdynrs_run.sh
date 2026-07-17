@@ -19,8 +19,8 @@ export ANDROID_SERIAL=eae4df44
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb} -s eae4df44"
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=.autoport/reports/Gdynamic-renderscale; EV="$OUT/evidence"; mkdir -p "$EV"
-SETDIR="files/.config/OpenGOAL/jak1/settings"
-SETFILE="$SETDIR/pc-settings.gc"
+SETDIR="/storage/emulated/0/OpenGOAL/jak1"
+SETFILE="$SETDIR/settings.ini"
 VERHEX="1000A00040000"   # (static-pckernel-version 1 10 4 0): major<<48|minor<<32|rev<<16|build
 die(){ echo "[gdynrs FAIL] $*" >&2; exit 1; }
 log(){ echo "[gdynrs] $*"; }
@@ -52,27 +52,27 @@ cmd_deploy(){
   else
     log "SKIP_BUILD=1 — reusing existing libgk/APK + staged out/jak1-arm64-full/iso"
   fi
-  log "5/6 push 28 consistent CGO/DGO into files/iso_data/jak1 (sha256-verified, inline)"
+  log "5/6 push 28 consistent CGO/DGO into files/cgo/jak1 (sha256-verified, inline)"
   local SRC=out/jak1-arm64-full/iso
   local n; n=$(ls "$SRC"/*.CGO "$SRC"/*.DGO 2>/dev/null | wc -l)
   [ "$n" -eq 28 ] || die "expected 28 CGO/DGO in $SRC, got $n"
   # accept EITHER extraction marker (the app's marker name changed across versions) or
   # an already-populated iso_data dir — the data must persist (no re-extract overwrite).
   $ADB shell run-as "$PKG" sh -c \
-    'ls files/iso_data/jak1/.extracted_v1 >/dev/null 2>&1 || ls files/.asset_bundle_stamp >/dev/null 2>&1 || ls files/iso_data/jak1/KERNEL.CGO >/dev/null 2>&1' \
+    'ls files/cgo/jak1/.extracted_v1 >/dev/null 2>&1 || ls files/.asset_bundle_stamp >/dev/null 2>&1 || ls files/cgo/jak1/KERNEL.CGO >/dev/null 2>&1' \
     || die "iso_data not extracted on device — a full-bundle install is needed"
   $ADB shell am force-stop "$PKG" >/dev/null 2>&1 || true
   local fail=0 cnt=0 f bn want got
   for f in "$SRC"/*.CGO "$SRC"/*.DGO; do
     bn=$(basename "$f"); want=$(sha256sum "$f" | awk '{print $1}')
     $ADB push "$f" "/data/local/tmp/$bn" >/dev/null 2>&1 || { echo "  PUSH-FAIL $bn"; fail=1; continue; }
-    $ADB shell run-as "$PKG" cp "/data/local/tmp/$bn" "files/iso_data/jak1/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
+    $ADB shell run-as "$PKG" cp "/data/local/tmp/$bn" "files/cgo/jak1/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
     $ADB shell rm -f "/data/local/tmp/$bn" >/dev/null 2>&1 || true
-    got=$($ADB shell run-as "$PKG" sha256sum "files/iso_data/jak1/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+    got=$($ADB shell run-as "$PKG" sha256sum "files/cgo/jak1/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
     [ "$want" = "$got" ] && cnt=$((cnt+1)) || { echo "  VERIFY-FAIL $bn want=$want got=$got"; fail=1; }
   done
   [ "$fail" -eq 0 ] || die "consistent CGO push failed ($cnt/28 verified)"
-  echo "  pushed + sha256-verified $cnt/28 consistent CGO/DGO into files/iso_data/jak1"
+  echo "  pushed + sha256-verified $cnt/28 consistent CGO/DGO into files/cgo/jak1"
   log "6/6 deploy_verify (build==APK==device libgk)"
   bash .autoport/lib/deploy_verify.sh eae4df44 || die "deploy_verify FAILED"
   log "DEPLOY OK — consistent HEAD build live on device"
@@ -122,7 +122,7 @@ cmd_recover(){
   log "R5 verify device iso_data/jak1 = my arm64 build (KERNEL.CGO sha)"
   local want got
   want=$(sha256sum out/jak1-arm64-full/iso/KERNEL.CGO | awk '{print $1}')
-  got=$($ADB shell run-as "$PKG" sha256sum files/iso_data/jak1/KERNEL.CGO 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$($ADB shell run-as "$PKG" sha256sum files/cgo/jak1/KERNEL.CGO 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] && echo "  KERNEL.CGO matches arm64 build ($got)" || die "KERNEL.CGO mismatch (want $want got $got) — bundle shipped wrong backend"
   log "R6 deploy_verify (build==APK==device libgk)"
   bash .autoport/lib/deploy_verify.sh eae4df44 || die "deploy_verify FAILED"
@@ -133,24 +133,22 @@ cmd_cfg(){
   local mode="${1:?on|off}" tgt="${2:?target}" floor="${3:?floor}"
   local dyn='#f'; [ "$mode" = on ] && dyn='#t'
   log "cfg dynamic=$dyn dyn-target-fps=$tgt min-render-scale=$floor -> device $SETFILE"
-  $ADB shell run-as "$PKG" mkdir -p "$SETDIR" || die "mkdir settings dir failed (CE-locked?)"
-  # craft a minimal but version-correct settings file (reader checks major.minor=1.10,
+  $ADB shell mkdir -p "$SETDIR" || die "mkdir settings dir failed"
+  # craft a minimal but version-correct settings.ini (reader checks the version line,
   # then reads only the keys present; everything else keeps android surface defaults).
   local TMP; TMP=$(mktemp)
   {
-    printf '(settings #x%s\n' "$VERHEX"
-    printf '  (render-scale 100.0)\n'
-    printf '  (min-render-scale %s.0)\n' "${floor%.*}"
-    printf '  (dynamic-render-scale? %s)\n' "$dyn"
-    printf '  (dyn-target-fps %s.0)\n' "${tgt%.*}"
-    printf '  )\n'
+    printf '[settings]\n'
+    printf 'version = #x%s\n' "$VERHEX"
+    printf 'render-scale = 100.0\n'
+    printf 'min-render-scale = %s.0\n' "${floor%.*}"
+    printf 'dynamic-render-scale? = %s\n' "$dyn"
+    printf 'dyn-target-fps = %s.0\n' "${tgt%.*}"
   } > "$TMP"
-  $ADB push "$TMP" /data/local/tmp/pc-settings.gc >/dev/null 2>&1 || die "push settings failed"
-  $ADB shell run-as "$PKG" cp /data/local/tmp/pc-settings.gc "$SETFILE" || die "cp settings failed"
-  $ADB shell rm -f /data/local/tmp/pc-settings.gc >/dev/null 2>&1 || true
+  $ADB push "$TMP" "$SETFILE" >/dev/null 2>&1 || die "push settings failed"
   rm -f "$TMP"
   echo "  --- device settings now ---"
-  $ADB shell run-as "$PKG" cat "$SETFILE" 2>/dev/null | sed 's/^/    /'
+  $ADB shell cat "$SETFILE" 2>/dev/null | sed 's/^/    /'
 }
 
 maxframe(){ grep -aoE 'A35-RENDER frame=[0-9]+' "$1" 2>/dev/null | grep -oE '[0-9]+$' | sort -n | tail -1; }

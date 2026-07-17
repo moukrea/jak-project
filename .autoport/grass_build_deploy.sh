@@ -6,7 +6,7 @@
 #   * libgk.so           (GrassRenderer + GLES grass.vert/frag + renderer hooks)
 #   * APK                (bundles the fresh libgk)
 # Grass is FLAT-COLOR (no textures) so NO new PNG assets -> the asset bundle is
-# reused unchanged; -r install preserves files/iso_data + .extracted_v1, then the
+# reused unchanged; -r install preserves files/cgo + .extracted_v1, then the
 # fresh consistent CGO set is pushed over it. deploy_verify + deploy_verify_assets
 # prove the device runs the fresh HEAD build.
 set -uo pipefail
@@ -53,7 +53,7 @@ say "5. ensure extraction done (boot once if needed) then push consistent CGOs"
 # .asset_bundle_stamp (files/ root). Extraction is done when the stamp exists AND the CGO set is
 # present; the consistent HEAD CGOs are then pushed OVER the extracted set.
 extract_done(){ $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 \
-  && [ "$($ADB -s $S shell run-as $PKG ls files/iso_data/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
+  && [ "$($ADB -s $S shell run-as $PKG ls files/cgo/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
 if ! extract_done; then
   echo "  bundle stamp/CGOs missing -> boot once to extract (can take minutes)"
   $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true

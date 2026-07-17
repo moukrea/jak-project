@@ -35,16 +35,16 @@ adb shell pm trim-caches 999G 2>/dev/null || true
 adb install -r -d -t -i com.android.vending "$APK" || die "apk install failed"
 echo "  installed: $(adb shell dumpsys package $PKG | grep -m1 versionCode | tr -d '\r')"
 
-echo "== 2. push the CONSISTENT 3deef arm64 CGO/DGO set (28 files) over files/iso_data =="
+echo "== 2. push the CONSISTENT 3deef arm64 CGO/DGO set (28 files) over files/cgo =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
 fail=0
 for f in "$CGO_SRC"/*.CGO "$CGO_SRC"/*.DGO; do
   n=$(basename "$f")
   want=$(sha256sum "$f" | awk '{print $1}')
   adb push "$f" "/data/local/tmp/$n" >/dev/null 2>&1 || { echo "  PUSH-FAIL $n"; fail=1; continue; }
-  adb shell run-as $PKG cp "/data/local/tmp/$n" "files/iso_data/jak1/$n" || { echo "  CP-FAIL $n"; fail=1; }
+  adb shell run-as $PKG cp "/data/local/tmp/$n" "files/cgo/jak1/$n" || { echo "  CP-FAIL $n"; fail=1; }
   adb shell rm -f "/data/local/tmp/$n" >/dev/null 2>&1 || true
-  got=$(adb shell run-as $PKG sha256sum "files/iso_data/jak1/$n" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$(adb shell run-as $PKG sha256sum "files/cgo/jak1/$n" 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] || { echo "  VERIFY-FAIL $n"; fail=1; }
 done
 [ "$fail" -eq 0 ] || die "consistent CGO push failed (one or more files)"

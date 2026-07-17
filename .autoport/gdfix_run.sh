@@ -2,7 +2,7 @@
 # gdfix_run.sh — Gdynamic-fix device verification (eae4df44), real Adreno hardware.
 # libgk is UNCHANGED (pure GOAL fix -> ENGINE.CGO/GAME.CGO); deploy_verify already PASSES.
 # We push the fresh CONSISTENT arm64 28-CGO/DGO set (with the new dynamic-render-scale-update)
-# into files/iso_data/jak1 (sha-verified), then run cfg-driven scenarios and capture [dyn-rs].
+# into files/cgo/jak1 (sha-verified), then run cfg-driven scenarios and capture [dyn-rs].
 #
 # Subcommands:
 #   push                   sha-verified push of out/jak1-arm64-full/iso/*.{CGO,DGO} -> device
@@ -15,7 +15,7 @@ export ANDROID_SERIAL=eae4df44
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb} -s eae4df44"
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=.autoport/reports/Gdynamic-fix; EV="$OUT/evidence"; mkdir -p "$EV"
-SETDIR="files/.config/OpenGOAL/jak1/settings"; SETFILE="$SETDIR/pc-settings.gc"
+SETDIR="/storage/emulated/0/OpenGOAL/jak1"; SETFILE="$SETDIR/settings.ini"
 VERHEX="1000A00040000"
 SRC=out/jak1-arm64-full/iso
 die(){ echo "[gdfix FAIL] $*" >&2; exit 1; }
@@ -27,20 +27,20 @@ cmd_push(){
   wake; locked && die "DEVICE_LOCKED — needs owner unlock"
   local n; n=$(ls "$SRC"/*.CGO "$SRC"/*.DGO 2>/dev/null | wc -l)
   [ "$n" -eq 28 ] || die "expected 28 CGO/DGO in $SRC, got $n (run build_arm64_full_consistent.sh)"
-  $ADB shell run-as "$PKG" sh -c 'ls files/iso_data/jak1/KERNEL.CGO >/dev/null 2>&1' \
-    || die "iso_data not extracted on device — full-bundle install needed"
+  $ADB shell run-as "$PKG" sh -c 'ls files/cgo/jak1/KERNEL.CGO >/dev/null 2>&1' \
+    || die "cgo overlay not unpacked on device — full-bundle install needed"
   $ADB shell am force-stop "$PKG" >/dev/null 2>&1 || true
   local fail=0 cnt=0 f bn want got
   for f in "$SRC"/*.CGO "$SRC"/*.DGO; do
     bn=$(basename "$f"); want=$(sha256sum "$f" | awk '{print $1}')
     $ADB push "$f" "/data/local/tmp/$bn" >/dev/null 2>&1 || { echo "  PUSH-FAIL $bn"; fail=1; continue; }
-    $ADB shell run-as "$PKG" cp "/data/local/tmp/$bn" "files/iso_data/jak1/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
+    $ADB shell run-as "$PKG" cp "/data/local/tmp/$bn" "files/cgo/jak1/$bn" || { echo "  CP-FAIL $bn"; fail=1; }
     $ADB shell rm -f "/data/local/tmp/$bn" >/dev/null 2>&1 || true
-    got=$($ADB shell run-as "$PKG" sha256sum "files/iso_data/jak1/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+    got=$($ADB shell run-as "$PKG" sha256sum "files/cgo/jak1/$bn" 2>/dev/null | awk '{print $1}' | tr -d '\r')
     [ "$want" = "$got" ] && cnt=$((cnt+1)) || { echo "  VERIFY-FAIL $bn want=$want got=$got"; fail=1; }
   done
   [ "$fail" -eq 0 ] || die "consistent CGO push failed ($cnt/28 verified)"
-  log "pushed + sha256-verified $cnt/28 consistent arm64 CGO/DGO into files/iso_data/jak1"
+  log "pushed + sha256-verified $cnt/28 consistent arm64 CGO/DGO into files/cgo/jak1"
   bash .autoport/lib/deploy_verify.sh eae4df44 || die "deploy_verify FAILED"
   log "PUSH OK — fresh Gdynamic-fix CGOs live; libgk verified"
 }
@@ -49,21 +49,20 @@ cmd_cfg(){
   local mode="${1:?on|off}" tgt="${2:?target}" floor="${3:?floor}"
   local dyn='#f'; [ "$mode" = on ] && dyn='#t'
   log "cfg dynamic=$dyn dyn-target-fps=$tgt min-render-scale=$floor -> $SETFILE"
-  $ADB shell run-as "$PKG" mkdir -p "$SETDIR" || die "mkdir settings dir failed (CE-locked?)"
+  $ADB shell mkdir -p "$SETDIR" || die "mkdir settings dir failed"
   local TMP; TMP=$(mktemp)
   {
-    printf '(settings #x%s\n' "$VERHEX"
-    printf '  (render-scale 55.0)\n'
-    printf '  (min-render-scale %s.0)\n' "${floor%.*}"
-    printf '  (dynamic-render-scale? %s)\n' "$dyn"
-    printf '  (dyn-target-fps %s.0)\n' "${tgt%.*}"
-    printf '  )\n'
+    printf '[settings]\n'
+    printf 'version = #x%s\n' "$VERHEX"
+    printf 'render-scale = 55.0\n'
+    printf 'min-render-scale = %s.0\n' "${floor%.*}"
+    printf 'dynamic-render-scale? = %s\n' "$dyn"
+    printf 'dyn-target-fps = %s.0\n' "${tgt%.*}"
   } > "$TMP"
-  $ADB push "$TMP" /data/local/tmp/pc-settings.gc >/dev/null 2>&1 || die "push settings failed"
-  $ADB shell run-as "$PKG" cp /data/local/tmp/pc-settings.gc "$SETFILE" || die "cp settings failed"
-  $ADB shell rm -f /data/local/tmp/pc-settings.gc >/dev/null 2>&1 || true; rm -f "$TMP"
+  $ADB push "$TMP" "$SETFILE" >/dev/null 2>&1 || die "push settings failed"
+  rm -f "$TMP"
   echo "  --- device settings now ---"
-  $ADB shell run-as "$PKG" cat "$SETFILE" 2>/dev/null | sed 's/^/    /'
+  $ADB shell cat "$SETFILE" 2>/dev/null | sed 's/^/    /'
 }
 
 maxframe(){ grep -aoE 'A35-RENDER frame=[0-9]+' "$1" 2>/dev/null | grep -oE '[0-9]+$' | sort -n | tail -1; }

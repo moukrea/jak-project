@@ -21,7 +21,7 @@ shot(){ adb exec-out screencap -p > "$SHOTS/device-$1.png" 2>/dev/null; echo "  
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
 if adb shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; then echo "DEVICE_LOCKED"; exit 1; fi
 echo "== ON redo: warp + mouche window rapid shots =="
-V=$(adb shell run-as $PKG cat files/.config/OpenGOAL/jak1/settings/pc-settings.gc 2>/dev/null | grep -a recharged | tr -d '\r'); echo "  flag: $V"
+V=$(adb shell cat /storage/emulated/0/OpenGOAL/jak1/settings.ini 2>/dev/null | grep -a recharged | tr -d '\r'); echo "  flag: $V"
 case "$V" in *'#t'*) : ;; *) echo "FLAG NOT ON — abort"; exit 1;; esac
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
 adb logcat -c >/dev/null 2>&1 || true

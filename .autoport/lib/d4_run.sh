@@ -60,7 +60,7 @@ device_stayon_on
 : > "$BOOT_LOG"
 
 # A5: LoaderActivity caches iso_data extraction across launches via a
-# `.extracted_v1` sentinel inside files/iso_data/<game>. `pm install -r`
+# `.extracted_v1` sentinel inside files/cgo/<game>. `pm install -r`
 # preserves /data/data/<pkg>, so an APK whose bundled iso_data has been
 # updated (e.g., A5 regenerated KERNEL.CGO as the arm64 variant) does
 # NOT take effect on device — the launch sees the sentinel, skips
@@ -73,7 +73,7 @@ device_stayon_on
 # missing sentinel, treat the existing target as a half-copy from a
 # crashed run, wipe it, and re-extract the APK-bundled iso_data fresh.
 # Best-effort `run-as` so a never-installed device path still proceeds.
-adb shell run-as "$PACKAGE" rm -f "files/iso_data/jak1/.extracted_v1" >/dev/null 2>&1 || true
+adb shell run-as "$PACKAGE" rm -f "files/cgo/jak1/.extracted_v1" >/dev/null 2>&1 || true
 
 device_install_and_launch "$PACKAGE" "$ACTIVITY" "$APK"
 

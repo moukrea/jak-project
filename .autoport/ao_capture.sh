@@ -90,35 +90,35 @@ esac
 # Owner capture protocol (2026-07-15 13:50): every A/B and the fps matrix must be measured
 # at LOCKED FULL render resolution with recharged grass OFF and the PERSISTED AO setting at
 # 0 (the A/B flips still use the debug props; the persisted setting stays 0, so props do NOT
-# arm the safe-boot sentinel). We seed the on-disk pc-settings.gc + read it back + die on a
+# arm the safe-boot sentinel). We seed the on-disk settings.ini + read it back + die on a
 # failed push (attempt-4 false-negative root cause). Floats print via ~f, e.g. 100.0000, so
 # the sed pattern must accept a decimal tail. ao_proof_battery.sh step 5 restores grass +
 # dynamic-RS after the whole phase.
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
-SENTINEL="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/ao-boot-guard"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+SENTINEL="/storage/emulated/0/OpenGOAL/jak1/ao-boot-guard"
 seed_capture_protocol(){
   $ADB shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_cap.gc 2>/dev/null
   if ! grep -qa 'ambient-occlusion' /tmp/pcs_ao_cap.gc; then
     echo "  SEED FAIL: no ambient-occlusion key on device settings"; exit 1; fi
   sed -i \
-    -e 's/(dynamic-render-scale? #[tf])/(dynamic-render-scale? #f)/' \
-    -e 's/(render-scale [0-9.]*)/(render-scale 100.0000)/' \
-    -e 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' \
-    -e 's/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/' \
-    -e 's/(ao-quality [0-9]*)/(ao-quality 1)/' \
-    -e 's/(ao-strength [0-9]*)/(ao-strength 1)/' \
+    -e 's/^dynamic-render-scale? = #[tf]/dynamic-render-scale? = #f/' \
+    -e 's/^render-scale = [0-9.]*/render-scale = 100.0000/' \
+    -e 's/^recharged-grass? = #[tf]/recharged-grass? = #f/' \
+    -e 's/^ambient-occlusion = [0-9]*/ambient-occlusion = 0/' \
+    -e 's/^ao-quality = [0-9]*/ao-quality = 1/' \
+    -e 's/^ao-strength = [0-9]*/ao-strength = 1/' \
     /tmp/pcs_ao_cap.gc
   # OLD device settings files predate the ao-strength key: insert it after ao-quality.
-  grep -qa '(ao-strength' /tmp/pcs_ao_cap.gc || sed -i '/(ao-quality [0-9]*)/a\  (ao-strength 1)' /tmp/pcs_ao_cap.gc
+  grep -qa '^ao-strength = ' /tmp/pcs_ao_cap.gc || sed -i '/^ao-quality = [0-9]*/a\ao-strength = 1' /tmp/pcs_ao_cap.gc
   $ADB push /tmp/pcs_ao_cap.gc "$SETTINGS_DEV" >/dev/null 2>&1
   local BACK; BACK=$($ADB shell cat "$SETTINGS_DEV" 2>/dev/null \
-    | grep -aoE "\((dynamic-render-scale\? #[tf]|render-scale [0-9.]+|recharged-grass\? #[tf]|ambient-occlusion [0-9]+|ao-quality [0-9]+|ao-strength [0-9]+)\)" | tr '\n' ' ')
-  case "$BACK" in *"(dynamic-render-scale? #f)"*) : ;; *) echo "  SEED READBACK FAIL (dynamic-render-scale? #f): $BACK"; exit 1 ;; esac
-  case "$BACK" in *"(recharged-grass? #f)"*) : ;; *) echo "  SEED READBACK FAIL (recharged-grass? #f): $BACK"; exit 1 ;; esac
-  case "$BACK" in *"(ambient-occlusion 0)"*) : ;; *) echo "  SEED READBACK FAIL (ambient-occlusion 0): $BACK"; exit 1 ;; esac
-  case "$BACK" in *"(ao-quality 1)"*) : ;; *) echo "  SEED READBACK FAIL (ao-quality 1): $BACK"; exit 1 ;; esac
-  case "$BACK" in *"(ao-strength 1)"*) : ;; *) echo "  SEED READBACK FAIL (ao-strength 1): $BACK"; exit 1 ;; esac
-  case "$BACK" in *"(render-scale 100"*) : ;; *) echo "  SEED READBACK FAIL (render-scale 100.x): $BACK"; exit 1 ;; esac
+    | grep -aoE "^(dynamic-render-scale\? = #[tf]|render-scale = [0-9.]+|recharged-grass\? = #[tf]|ambient-occlusion = [0-9]+|ao-quality = [0-9]+|ao-strength = [0-9]+)" | tr '\n' ' ')
+  case "$BACK" in *"dynamic-render-scale? = #f"*) : ;; *) echo "  SEED READBACK FAIL dynamic-render-scale? = #f: $BACK"; exit 1 ;; esac
+  case "$BACK" in *"recharged-grass? = #f"*) : ;; *) echo "  SEED READBACK FAIL recharged-grass? = #f: $BACK"; exit 1 ;; esac
+  case "$BACK" in *"ambient-occlusion = 0"*) : ;; *) echo "  SEED READBACK FAIL ambient-occlusion = 0: $BACK"; exit 1 ;; esac
+  case "$BACK" in *"ao-quality = 1"*) : ;; *) echo "  SEED READBACK FAIL ao-quality = 1: $BACK"; exit 1 ;; esac
+  case "$BACK" in *"ao-strength = 1"*) : ;; *) echo "  SEED READBACK FAIL ao-strength = 1: $BACK"; exit 1 ;; esac
+  case "$BACK" in *"render-scale = 100"*) : ;; *) echo "  SEED READBACK FAIL render-scale = 100.x: $BACK"; exit 1 ;; esac
   $ADB shell rm -f "$SENTINEL" >/dev/null 2>&1
   echo "  capture-protocol seeded+verified: $BACK"; }
 

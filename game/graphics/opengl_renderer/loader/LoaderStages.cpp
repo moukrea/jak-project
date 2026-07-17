@@ -46,8 +46,12 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     TextureInput in;
     in.debug_page_name = tex.debug_tpage_name;
     in.debug_name = tex.debug_name;
-    in.w = rep ? rep->w : tex.w;
-    in.h = rep ? rep->h : tex.h;
+    // Logical dims must stay the ORIGINAL texture's: src_data below points at the
+    // baked buffer, and pool consumers read w*h*4 from it — replacement-sized dims
+    // over the original buffer are an OOB crash when the user PNG is larger. The
+    // GL object holds the (possibly higher-res) replacement; sampling is normalized.
+    in.w = tex.w;
+    in.h = tex.h;
     in.gpu_texture = gl_tex;
     in.common = is_common;
     in.id = PcTextureId::from_combo_id(tex.combo_id);

@@ -12,8 +12,8 @@ ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=".autoport/reports/Grecharged-grass-overhang6"; mkdir -p "$OUT"
-EXT=/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc
-INT=files/.config/OpenGOAL/jak1/settings/pc-settings.gc
+EXT=/storage/emulated/0/OpenGOAL/jak1/settings.ini
+INT=/storage/emulated/0/OpenGOAL/jak1/settings.ini
 say(){ echo; echo "######## $* ########"; }
 stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null >/dev/null 2>&1; }
 pulse(){ stick "$1"; sleep "${2:-0.4}"; stick neutral; sleep "${3:-0.7}"; }
@@ -22,16 +22,9 @@ focus(){ $ADB shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurre
 TERR="-1310.2 52.8 989.0"
 EDGE="-1324.5 52.2 973.9"
 
-# --- generic settings symbol flipper: $1=symbol $2=t|f ---
+# --- generic settings symbol flipper: $1=symbol $2=t|f (INI form, sole external file) ---
 set_sym(){ local SYM="$1" V="$2"
-  $ADB shell "sed -i 's/($SYM #[tf])/($SYM #$V)/' $EXT" >/dev/null 2>&1
-  $ADB shell run-as $PKG cat $INT > /tmp/g6_int.gc 2>/dev/null || true
-  if grep -q "$SYM" /tmp/g6_int.gc 2>/dev/null; then
-    sed -i "s/($SYM #[tf])/($SYM #$V)/" /tmp/g6_int.gc
-    $ADB push /tmp/g6_int.gc /data/local/tmp/g6_int.gc >/dev/null 2>&1
-    $ADB shell run-as $PKG cp /data/local/tmp/g6_int.gc $INT 2>/dev/null || true
-    $ADB shell rm -f /data/local/tmp/g6_int.gc >/dev/null 2>&1
-  fi
+  $ADB shell "sed -i 's/^$SYM = #[tf]/$SYM = #$V/' $EXT" >/dev/null 2>&1
 }
 set_overhang(){ # $1=t|f — keep grass ON
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1

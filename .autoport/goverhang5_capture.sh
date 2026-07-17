@@ -14,8 +14,8 @@ export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 TAG="${TAG:-cap}"
 OUT=".autoport/reports/Grecharged-grass-overhang5/${TAG}"; mkdir -p "$OUT"
-EXT=/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc
-INT=files/.config/OpenGOAL/jak1/settings/pc-settings.gc
+EXT=/storage/emulated/0/OpenGOAL/jak1/settings.ini
+INT=/storage/emulated/0/OpenGOAL/jak1/settings.ini
 say(){ echo; echo "######## $* ########"; }
 stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null >/dev/null 2>&1; }
 pulse(){ stick "$1"; sleep "${2:-0.4}"; stick neutral; sleep "${3:-0.7}"; }
@@ -29,13 +29,13 @@ TERR="-1310.2 52.8 989.0"
 set_overhang(){ # $1 = t|f  -> flip recharged-grass-overhang? in BOTH settings files, keep grass ON
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
   # external
-  $ADB shell "sed -i 's/(recharged-grass-overhang? #[tf])/(recharged-grass-overhang? #$1)/' $EXT" >/dev/null 2>&1
-  $ADB shell "sed -i 's/(recharged-grass? #[tf])/(recharged-grass? #t)/' $EXT" >/dev/null 2>&1
+  $ADB shell "sed -i 's/^recharged-grass-overhang? = #[tf]/recharged-grass-overhang? = #$1/' $EXT" >/dev/null 2>&1
+  $ADB shell "sed -i 's/^recharged-grass? = #[tf]/recharged-grass? = #t/' $EXT" >/dev/null 2>&1
   # internal (run-as bounce)
   $ADB shell run-as $PKG cat $INT > /tmp/g5_int.gc 2>/dev/null || true
   if grep -q 'recharged-grass-overhang?' /tmp/g5_int.gc 2>/dev/null; then
-    sed -i "s/(recharged-grass-overhang? #[tf])/(recharged-grass-overhang? #$1)/" /tmp/g5_int.gc
-    sed -i "s/(recharged-grass? #[tf])/(recharged-grass? #t)/" /tmp/g5_int.gc
+    sed -i "s/^recharged-grass-overhang? = #[tf]/recharged-grass-overhang? = #$1/" /tmp/g5_int.gc
+    sed -i "s/^recharged-grass? = #[tf]/recharged-grass? = #t/" /tmp/g5_int.gc
     $ADB push /tmp/g5_int.gc /data/local/tmp/g5_int.gc >/dev/null 2>&1
     $ADB shell run-as $PKG cp /data/local/tmp/g5_int.gc $INT 2>/dev/null || true
     $ADB shell rm -f /data/local/tmp/g5_int.gc >/dev/null 2>&1

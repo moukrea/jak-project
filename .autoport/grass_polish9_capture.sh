@@ -12,7 +12,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 OUT=.autoport/reports/Grecharged-grass-poc
 F="$OUT/frames"; mkdir -p "$F"
 say(){ echo; echo "######## $* ########"; }
@@ -49,11 +49,11 @@ load_geyser(){
 say "ON RUN — load Geyser Rock (grass default ON)"
 LOG_ON=/tmp/gp9_on.log
 $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-$ADB shell run-as $PKG cat "$PCS" > /tmp/pcs_now.gc 2>/dev/null || true
+$ADB shell cat "$PCS" > /tmp/pcs_now.gc 2>/dev/null || true
 if grep -q 'recharged-grass?' /tmp/pcs_now.gc 2>/dev/null; then
-  sed -i 's/(recharged-grass? #[tf])/(recharged-grass? #t)/' /tmp/pcs_now.gc
+  sed -i 's/^recharged-grass? = #[tf]/recharged-grass? = #t/' /tmp/pcs_now.gc
   $ADB push /tmp/pcs_now.gc /data/local/tmp/pcs_now.gc >/dev/null 2>&1
-  $ADB shell run-as $PKG cp /data/local/tmp/pcs_now.gc "$PCS"; $ADB shell rm -f /data/local/tmp/pcs_now.gc >/dev/null 2>&1
+  $ADB shell cp /data/local/tmp/pcs_now.gc "$PCS"; $ADB shell rm -f /data/local/tmp/pcs_now.gc >/dev/null 2>&1
 fi
 load_geyser "$LOG_ON"
 
@@ -117,13 +117,13 @@ echo "  focus: $($ADB shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus
 say "OFF RUN — settings toggle recharged-grass? #f (OFF == stock)"
 LOG_OFF=/tmp/gp9_off.log
 $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-$ADB shell run-as $PKG cat "$PCS" > /tmp/pcs_off.gc 2>/dev/null
-sed -i 's/(recharged-grass? #[tf])/(recharged-grass? #f)/' /tmp/pcs_off.gc
+$ADB shell cat "$PCS" > /tmp/pcs_off.gc 2>/dev/null
+sed -i 's/^recharged-grass? = #[tf]/recharged-grass? = #f/' /tmp/pcs_off.gc
 $ADB push /tmp/pcs_off.gc /data/local/tmp/pcs_off.gc >/dev/null 2>&1
-$ADB shell run-as $PKG cp /data/local/tmp/pcs_off.gc "$PCS" 2>/dev/null || \
-  $ADB shell run-as $PKG cp /data/local/tmp/pcs_off.gc "$PCS"
+$ADB shell cp /data/local/tmp/pcs_off.gc "$PCS" 2>/dev/null || \
+  $ADB shell cp /data/local/tmp/pcs_off.gc "$PCS"
 $ADB shell rm -f /data/local/tmp/pcs_off.gc >/dev/null 2>&1
-echo "  setting now: $($ADB shell run-as $PKG cat "$PCS" | grep recharged-grass | tr -d '\r')"
+echo "  setting now: $($ADB shell cat "$PCS" | grep recharged-grass | tr -d '\r')"
 load_geyser "$LOG_OFF"
 cap p9_geyser_OFF
 gl=$(grep -acaE 'recharged-grass\] training STATIC place|recharged-grass\] frame |recharged-grass\] POLISH#9' "$LOG_OFF")
@@ -139,10 +139,10 @@ grep -aE 'GK-DIAG F1D target-pos f=' "$LOG_OFF" | tail -40 | \
 # ---- restore default ON + device hygiene ----
 say "restore recharged-grass? #t, FORCE-STOP (device hygiene)"
 $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-$ADB shell run-as $PKG cat "$PCS" > /tmp/pcs_on.gc 2>/dev/null
-sed -i 's/(recharged-grass? #[tf])/(recharged-grass? #t)/' /tmp/pcs_on.gc
+$ADB shell cat "$PCS" > /tmp/pcs_on.gc 2>/dev/null
+sed -i 's/^recharged-grass? = #[tf]/recharged-grass? = #t/' /tmp/pcs_on.gc
 $ADB push /tmp/pcs_on.gc /data/local/tmp/pcs_on.gc >/dev/null 2>&1
-$ADB shell run-as $PKG cp /data/local/tmp/pcs_on.gc "$PCS" 2>/dev/null || true
+$ADB shell cp /data/local/tmp/pcs_on.gc "$PCS" 2>/dev/null || true
 $ADB shell rm -f /data/local/tmp/pcs_on.gc >/dev/null 2>&1
 $ADB shell setprop debug.opengoal.cpad_inject "neutral" >/dev/null 2>&1
 kill $(cat /tmp/gp9_lc.pid 2>/dev/null) 2>/dev/null || true

@@ -40,11 +40,11 @@ echo "== push fresh arm64 CGO/DGO set (28 files) + stamp =="
 # slim APK ships manifest version=2 but no assets zip (see gbe_run.sh); stamping
 # it prevents LoaderActivity.unpackBundleIfNeeded from wiping the pushed set.
 SLIM_VER="${SLIM_VER:-2}"
-A shell run-as "$PACKAGE" mkdir -p files/iso_data/jak1 files/out/jak1/fr3 >/dev/null 2>&1 || true
+A shell run-as "$PACKAGE" mkdir -p files/cgo/jak1 files/out/jak1/fr3 >/dev/null 2>&1 || true
 for f in "$SRC"/*.CGO "$SRC"/*.DGO; do
   n=$(basename "$f")
   A push "$f" "/data/local/tmp/$n" >/dev/null 2>&1 && \
-    A shell run-as "$PACKAGE" cp "/data/local/tmp/$n" "files/iso_data/jak1/$n" >/dev/null 2>&1 \
+    A shell run-as "$PACKAGE" cp "/data/local/tmp/$n" "files/cgo/jak1/$n" >/dev/null 2>&1 \
     || { echo "FAIL: push $n"; exit 1; }
   A shell rm -f "/data/local/tmp/$n" >/dev/null 2>&1 || true
 done
@@ -55,7 +55,7 @@ if [ -n "${SLIM_VER:-}" ]; then
 fi
 echo "== verify pushed GAME.CGO hash =="
 LOCAL=$(sha256sum "$SRC/GAME.CGO" | cut -d' ' -f1)
-REMOTE=$(A shell run-as "$PACKAGE" sha256sum files/iso_data/jak1/GAME.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+REMOTE=$(A shell run-as "$PACKAGE" sha256sum files/cgo/jak1/GAME.CGO 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
 echo "  local=$LOCAL"
 echo "  device=$REMOTE"
 [ "$LOCAL" = "$REMOTE" ] || { echo "FAIL: GAME.CGO mismatch on device"; exit 1; }

@@ -21,7 +21,7 @@ $ADB -s $S logcat -c >/dev/null 2>&1 || true
 $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
 t0=$(date +%s); EXTRACTED=0
 while [ $(( $(date +%s) - t0 )) -lt 600 ]; do
-  if $ADB -s $S shell run-as $PKG ls files/iso_data/jak1/.extracted_v1 >/dev/null 2>&1; then EXTRACTED=1; break; fi
+  if $ADB -s $S shell run-as $PKG ls files/cgo/jak1/.extracted_v1 >/dev/null 2>&1; then EXTRACTED=1; break; fi
   sleep 10
 done
 [ "$EXTRACTED" = 1 ] || { $ADB -s $S shell run-as $PKG cat files/.asset_bundle_stamp 2>/dev/null; die "extraction marker never appeared in 600s"; }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Gconsolidate_deploy_cgos.sh — push the CONSISTENT current-HEAD 28-file CGO/DGO set
-# (out/jak1-arm64-full/iso) onto the device runtime (files/iso_data/jak1) via run-as,
+# (out/jak1-arm64-full/iso) onto the device runtime (files/cgo/jak1) via run-as,
 # sha256-verifying every file. Keeps .extracted_v1 so the app does NOT re-extract the
 # APK's bundled assets on next launch. libgk/APK already == HEAD on device (deploy_verify).
 # Does NOT restore known-good — this phase LEAVES the consolidated build on the device.
@@ -18,15 +18,15 @@ n=$(ls "$SRC"/*.CGO "$SRC"/*.DGO 2>/dev/null | wc -l); [ "$n" -eq 28 ] || die "e
 # per-iso .extracted_v1 is gone). Extraction-done = stamp present + iso_data/jak1 populated.
 $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 || die "run-as / .asset_bundle_stamp missing (CE-locked or not extracted?)"
 # The runtime (fake_iso) scans files/cgo/jak1/ FIRST as the active overlay (the slim-APK CGO-pack
-# unpack dir), then falls back to the legacy adb-push dir files/iso_data/jak1/. A push into iso_data/
+# unpack dir), then falls back to the legacy adb-push dir files/cgo/jak1/. A push into iso_data/
 # is INVISIBLE when cgo/ is populated -> the 2026-07-14 overhang5 mixed-build boot crash (fresh libgk
 # + STALE GAME/ENGINE left in cgo/ after an extraction-skip). Deploy to the ACTIVE dir (cgo/ if
 # present) AND iso_data/ for older installs.
-DEST_DIRS="files/iso_data/jak1"
+DEST_DIRS="files/cgo/jak1"
 if $ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/GAME.CGO'" >/dev/null 2>&1; then
-  DEST_DIRS="files/cgo/jak1 files/iso_data/jak1"
+  DEST_DIRS="files/cgo/jak1 files/cgo/jak1"
 fi
-$ADB -s $S shell run-as $PKG ls files/iso_data/jak1/GAME.CGO >/dev/null 2>&1 || die "iso_data/jak1 not populated (extraction incomplete?)"
+$ADB -s $S shell run-as $PKG ls files/cgo/jak1/GAME.CGO >/dev/null 2>&1 || die "iso_data/jak1 not populated (extraction incomplete?)"
 
 echo "== push 28 consistent HEAD CGO/DGO -> $DEST_DIRS (sha256-verified) =="
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true

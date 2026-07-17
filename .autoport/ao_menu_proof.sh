@@ -12,12 +12,12 @@ ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
 OUT=.autoport/reports/Grecharged-ambient-occlusion/menu-proof; mkdir -p "$OUT"
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
 tapb(){ inject "$1"; sleep 0.4; inject ""; sleep "${2:-0.9}"; }
 shot(){ adb exec-out screencap -p > "$OUT/$1.png" 2>/dev/null; }
-disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -oE "\((ambient-occlusion|ao-quality) [0-9]+\)" | tr '\n' ' '; echo; }
+disk(){ adb shell cat "$SETTINGS_DEV" 2>/dev/null | grep -oE "^(ambient-occlusion|ao-quality) = [0-9]+" | tr '\n' ' '; echo; }
 aolines(){ adb logcat -d -v brief opengoal-gk:I '*:S' 2>/dev/null | grep -a "recharged-ao" | tail -6; }
 
 LOGF="$OUT/proof-log.txt"; : > "$LOGF"

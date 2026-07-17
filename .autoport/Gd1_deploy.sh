@@ -38,26 +38,26 @@ install_apk(){
   ok "APK installed"
 }
 
-# 2. Ensure files/iso_data/jak1 exists (launch once to extract if needed).
-if ! $ADB -s $SERIAL shell run-as $PKG ls files/iso_data/jak1/ENGINE.CGO >/dev/null 2>&1; then
+# 2. Ensure files/cgo/jak1 exists (launch once to extract if needed).
+if ! $ADB -s $SERIAL shell run-as $PKG ls files/cgo/jak1/ENGINE.CGO >/dev/null 2>&1; then
   echo "[Gd1_deploy] iso_data not extracted yet — launching once to extract (up to 5min)"
   $ADB -s $SERIAL shell am start -W -n "$PKG/.LoaderActivity" >/dev/null 2>&1 || true
   for i in $(seq 1 60); do
     sleep 5
-    $ADB -s $SERIAL shell run-as $PKG ls files/iso_data/jak1/GAME.CGO >/dev/null 2>&1 && break
+    $ADB -s $SERIAL shell run-as $PKG ls files/cgo/jak1/GAME.CGO >/dev/null 2>&1 && break
   done
   $ADB -s $SERIAL shell am force-stop $PKG >/dev/null 2>&1 || true
-  $ADB -s $SERIAL shell run-as $PKG ls files/iso_data/jak1/GAME.CGO >/dev/null 2>&1 || die "extraction did not produce GAME.CGO"
+  $ADB -s $SERIAL shell run-as $PKG ls files/cgo/jak1/GAME.CGO >/dev/null 2>&1 || die "extraction did not produce GAME.CGO"
 fi
 ok "filesDir iso_data present"
 
 # 3. Push the 3 fixed boot CGOs as a consistent set; verify on-device hashes.
 for c in "${CGOS[@]}"; do
   $ADB -s $SERIAL push "$ARM64/$c" "/data/local/tmp/$c" >/dev/null || die "push $c to tmp failed"
-  $ADB -s $SERIAL shell run-as $PKG cp "/data/local/tmp/$c" "files/iso_data/jak1/$c" || die "run-as cp $c failed"
+  $ADB -s $SERIAL shell run-as $PKG cp "/data/local/tmp/$c" "files/cgo/jak1/$c" || die "run-as cp $c failed"
   $ADB -s $SERIAL shell rm -f "/data/local/tmp/$c" >/dev/null 2>&1 || true
   want=$(sha256sum "$ARM64/$c" | awk '{print $1}')
-  got=$($ADB -s $SERIAL shell run-as $PKG sha256sum "files/iso_data/jak1/$c" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+  got=$($ADB -s $SERIAL shell run-as $PKG sha256sum "files/cgo/jak1/$c" 2>/dev/null | awk '{print $1}' | tr -d '\r')
   [ "$want" = "$got" ] || die "$c on-device hash $got != built $want"
   echo "[Gd1_deploy]   $c on-device hash == built ($want)"
 done
@@ -70,10 +70,10 @@ if ! bash .autoport/lib/deploy_verify.sh $SERIAL; then
   install_apk
   for c in "${CGOS[@]}"; do
     $ADB -s $SERIAL push "$ARM64/$c" "/data/local/tmp/$c" >/dev/null || die "re-push $c failed"
-    $ADB -s $SERIAL shell run-as $PKG cp "/data/local/tmp/$c" "files/iso_data/jak1/$c" || die "re-cp $c failed"
+    $ADB -s $SERIAL shell run-as $PKG cp "/data/local/tmp/$c" "files/cgo/jak1/$c" || die "re-cp $c failed"
     $ADB -s $SERIAL shell rm -f "/data/local/tmp/$c" >/dev/null 2>&1 || true
     want=$(sha256sum "$ARM64/$c" | awk '{print $1}')
-    got=$($ADB -s $SERIAL shell run-as $PKG sha256sum "files/iso_data/jak1/$c" 2>/dev/null | awk '{print $1}' | tr -d '\r')
+    got=$($ADB -s $SERIAL shell run-as $PKG sha256sum "files/cgo/jak1/$c" 2>/dev/null | awk '{print $1}' | tr -d '\r')
     [ "$want" = "$got" ] || die "$c on-device hash $got != built $want (after reinstall)"
   done
   bash .autoport/lib/deploy_verify.sh $SERIAL || die "deploy_verify still failing after reinstall"

@@ -6,7 +6,7 @@ ADB="/home/emeric/Android/platform-tools/adb -s eae4df44"
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=".autoport/reports/Grecharged-hd-models2/device"; mkdir -p "$OUT"
-EXT=/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc
+EXT=/storage/emulated/0/OpenGOAL/jak1/settings.ini
 say(){ echo; echo "######## $* ########"; }
 stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null >/dev/null 2>&1; }
 pulse(){ stick "$1"; sleep "${2:-0.4}"; stick neutral; sleep "${3:-0.7}"; }
@@ -14,7 +14,7 @@ focus(){ $ADB shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurre
 
 set_models(){ # $1 = t|f  -> flip recharged-enhanced-models? in EXTERNAL settings (authoritative)
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  $ADB shell "sed -i 's/(recharged-enhanced-models? #[tf])/(recharged-enhanced-models? #$1)/' $EXT" >/dev/null 2>&1
+  $ADB shell "sed -i 's/^recharged-enhanced-models? = #[tf]/recharged-enhanced-models? = #$1/' $EXT" >/dev/null 2>&1
   echo "  models set #$1: ext=$($ADB shell grep -E 'recharged-enhanced-models\?' $EXT 2>/dev/null | tr -d '\r')"
 }
 

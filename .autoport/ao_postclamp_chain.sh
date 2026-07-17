@@ -12,7 +12,7 @@ S=eae4df44; PKG=org.opengoal.gk.jak1
 OUT=.autoport/reports/Grecharged-ambient-occlusion
 LOGF="$OUT/proof-battery-log.txt"
 say(){ echo "$*" | tee -a "$LOGF"; }
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 
 wait_charge(){
   while :; do
@@ -42,14 +42,14 @@ $ADB -s $S shell "setprop debug.opengoal.ao.force_quality ''" >/dev/null 2>&1
 $ADB -s $S shell "setprop debug.opengoal.ao.force_strength ''" >/dev/null 2>&1
 $ADB -s $S shell "setprop debug.opengoal.ao.debug 0" >/dev/null 2>&1
 $ADB -s $S shell cat "$SETTINGS_DEV" > /tmp/pcs_ao_reset.gc 2>/dev/null
-sed -i "s/(ambient-occlusion [0-9]*)/(ambient-occlusion 0)/" /tmp/pcs_ao_reset.gc
-sed -i "s/(ao-quality [0-9]*)/(ao-quality 1)/" /tmp/pcs_ao_reset.gc
-sed -i "s/(ao-strength [0-9]*)/(ao-strength 1)/" /tmp/pcs_ao_reset.gc
-grep -qa '(ao-strength' /tmp/pcs_ao_reset.gc || sed -i '/(ao-quality [0-9]*)/a\  (ao-strength 1)' /tmp/pcs_ao_reset.gc
-sed -i "s/(recharged-grass? #f)/(recharged-grass? #t)/" /tmp/pcs_ao_reset.gc
-sed -i "s/(dynamic-render-scale? #f)/(dynamic-render-scale? #t)/" /tmp/pcs_ao_reset.gc
-sed -i "s/(render-scale [0-9.]*)/(render-scale 100.0000)/" /tmp/pcs_ao_reset.gc
+sed -i "s/^ambient-occlusion = [0-9]*/ambient-occlusion = 0/" /tmp/pcs_ao_reset.gc
+sed -i "s/^ao-quality = [0-9]*/ao-quality = 1/" /tmp/pcs_ao_reset.gc
+sed -i "s/^ao-strength = [0-9]*/ao-strength = 1/" /tmp/pcs_ao_reset.gc
+grep -qa '^ao-strength = ' /tmp/pcs_ao_reset.gc || sed -i '/^ao-quality = [0-9]*/a\ao-strength = 1' /tmp/pcs_ao_reset.gc
+sed -i "s/^recharged-grass? = #f/recharged-grass? = #t/" /tmp/pcs_ao_reset.gc
+sed -i "s/^dynamic-render-scale? = #f/dynamic-render-scale? = #t/" /tmp/pcs_ao_reset.gc
+sed -i "s/^render-scale = [0-9.]*/render-scale = 100.0000/" /tmp/pcs_ao_reset.gc
 $ADB -s $S push /tmp/pcs_ao_reset.gc "$SETTINGS_DEV" >/dev/null 2>&1
-say "disk after reset: $($ADB -s $S shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE '\((ambient-occlusion [0-9]+|ao-quality [0-9]+|ao-strength [0-9]+|recharged-grass\? #[tf]|dynamic-render-scale\? #[tf])\)' | tr '\n' ' ')"
+say "disk after reset: $($ADB -s $S shell cat "$SETTINGS_DEV" 2>/dev/null | grep -aoE '^(ambient-occlusion = [0-9]+|ao-quality = [0-9]+|ao-strength = [0-9]+|recharged-grass\? = #[tf]|dynamic-render-scale\? = #[tf])' | tr '\n' ' ')"
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1
 say "[postclamp chain] DONE"

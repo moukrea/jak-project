@@ -30,7 +30,7 @@ push_dgos() {
   for f in TIT.DGO GAME.CGO; do
     [ -f "$DGO_SRC/$f" ] || continue
     adb push "$DGO_SRC/$f" "/data/local/tmp/$f" >/dev/null 2>&1 || continue
-    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/iso_data/jak1/$f" || true
+    adb shell run-as "$PKG" cp "/data/local/tmp/$f" "files/cgo/jak1/$f" || true
     adb shell rm -f "/data/local/tmp/$f" >/dev/null 2>&1 || true
     echo "  push_dgos: $f $(stat -c %s "$DGO_SRC/$f")"
   done

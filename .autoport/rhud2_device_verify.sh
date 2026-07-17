@@ -2,7 +2,7 @@
 # rhud2_device_verify.sh — Grecharged-hud-jak1 on-device verify (eae4df44).
 # A: fresh settings -> menu placement (RECHARGED SETTINGS before ADVANCED) + submenu default OFF
 # B: in-game OFF baseline shots (stock HUD)
-# C: toggle ON via menu -> commit -> pull pc-settings (recharged-hud? #t)
+# C: toggle ON via menu -> commit -> pull pc-settings ^recharged-hud? = #t
 # D: relaunch -> menu shows ON (persistence) -> in-game ON shots (A/B vs B)
 # Leaves the toggle ON for the owner. Reuses the Goptions cpad_inject file-token drive.
 set -uo pipefail
@@ -10,7 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1; SHOTS="$OUT/shots"; mkdir -p "$SHOTS"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }

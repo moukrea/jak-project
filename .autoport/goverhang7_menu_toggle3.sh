@@ -12,13 +12,13 @@ ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1
 INJECT="/data/data/$PKG/files/cpad_inject"
 OUT=.autoport/reports/Grecharged-grass-overhang7/menu-toggle3; mkdir -p "$OUT"
-SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"
+SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
 tapb(){ inject "$1"; sleep 0.4; inject ""; sleep "${2:-0.9}"; }
 fg(){ adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
 shot(){ adb exec-out screencap -p > "$OUT/$1.png" 2>/dev/null; echo "  shot $1 ($(stat -c%s "$OUT/$1.png" 2>/dev/null||echo 0)B)"; }
-disk(){ adb shell cat "$SETTINGS_DEV" | grep -o "(recharged-grass-overhang? #[tf])" || echo "(key missing)"; }
+disk(){ adb shell cat "$SETTINGS_DEV" | grep -o "^recharged-grass-overhang? = #[tf]" || echo "(key missing)"; }
 rec(){ local N="$1" SEC="${2:-10}"
   fg > "$OUT/$N.focus"
   adb shell "screenrecord --time-limit $SEC /sdcard/gov7mt3_$N.mp4" & local P=$!

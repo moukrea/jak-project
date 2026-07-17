@@ -17,7 +17,7 @@ PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 # External-asset mode game root (Grecharged-external-assets): the game READS AND WRITES its
 # pc-settings on EXTERNAL storage. The old internal files/.config path still exists but is DEAD —
 # editing it is a silent no-op (cost this phase a full false-OFF A/B cycle).
-PCS='/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 OUT=.autoport/reports/Grecharged-foliage-wind; DEV="$OUT/device"; mkdir -p "$DEV"
 say(){ echo; echo "######## $* ########"; }
 stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'"; }
@@ -66,11 +66,11 @@ set_foliage(){ # $1 = t|f (ONLY flips recharged-foliage-wind?, leaves everything
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
   $ADB shell cat "$PCS" > /tmp/pcs_fol.gc 2>/dev/null || true
   if grep -q 'recharged-foliage-wind?' /tmp/pcs_fol.gc 2>/dev/null; then
-    sed -i "s/(recharged-foliage-wind? #[tf])/(recharged-foliage-wind? #$1)/" /tmp/pcs_fol.gc
+    sed -i "s/^recharged-foliage-wind? = #[tf]/recharged-foliage-wind? = #$1/" /tmp/pcs_fol.gc
   elif grep -q 'recharged-grass-overhang?' /tmp/pcs_fol.gc 2>/dev/null; then
     # field not persisted yet (settings predate this build): inject it right after grass-overhang.
     # The settings reader is key-based, so position among the block doesn't matter; it will read on boot.
-    sed -i "s/\(  (recharged-grass-overhang? #[tf])\)/\1\n  (recharged-foliage-wind? #$1)/" /tmp/pcs_fol.gc
+    sed -i "s/^recharged-grass-overhang? = #[tf]/&\nrecharged-foliage-wind? = #$1/" /tmp/pcs_fol.gc
   else
     echo "  WARN: no grass-overhang anchor to inject after — settings schema unexpected"; return 1
   fi

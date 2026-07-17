@@ -10,7 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 OUT=.autoport/reports/Grecharged-grass-overhang4; F="$OUT/g4frames"; mkdir -p "$F"
 say(){ echo; echo "######## $* ########"; }
 stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'"; }
@@ -26,13 +26,13 @@ rec(){ local TAG="$1" SECS="$2"
   echo "  rec $TAG: mp4=$(stat -c %s /tmp/${TAG}.mp4 2>/dev/null)B frames=$(ls "$F/$TAG" 2>/dev/null | wc -l) $(focus)"; }
 set_overhang(){ # $1 = t|f ; recharged-grass stays ON
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  $ADB shell run-as $PKG cat "$PCS" > /tmp/pcsg4.gc 2>/dev/null || true
-  sed -i "s/(recharged-grass? #[tf])/(recharged-grass? #t)/" /tmp/pcsg4.gc
-  sed -i "s/(recharged-grass-overhang? #[tf])/(recharged-grass-overhang? #$1)/" /tmp/pcsg4.gc
+  $ADB shell cat "$PCS" > /tmp/pcsg4.gc 2>/dev/null || true
+  sed -i "s/^recharged-grass? = #[tf]/recharged-grass? = #t/" /tmp/pcsg4.gc
+  sed -i "s/^recharged-grass-overhang? = #[tf]/recharged-grass-overhang? = #$1/" /tmp/pcsg4.gc
   $ADB push /tmp/pcsg4.gc /data/local/tmp/pcsg4.gc >/dev/null 2>&1
-  $ADB shell run-as $PKG cp /data/local/tmp/pcsg4.gc "$PCS" 2>/dev/null || true
+  $ADB shell cp /data/local/tmp/pcsg4.gc "$PCS" 2>/dev/null || true
   $ADB shell rm -f /data/local/tmp/pcsg4.gc >/dev/null 2>&1
-  echo "  grass/overhang: $($ADB shell run-as $PKG cat "$PCS" 2>/dev/null | grep -E 'recharged-grass\?|overhang\?' | tr -d '\r' | paste -sd' ')"; }
+  echo "  grass/overhang: $($ADB shell cat "$PCS" 2>/dev/null | grep -E 'recharged-grass\?|overhang\?' | tr -d '\r' | paste -sd' ')"; }
 boot_warp_retry(){ local POS="$1" LOG="$2" TRY ok
   for TRY in 1 2 3; do
     $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 2

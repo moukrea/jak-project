@@ -11,7 +11,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1; SHOTS="$OUT/round4"; mkdir -p "$SHOTS"
 adb(){ "$ADB" -s "$S" "$@"; }
 inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true; }
@@ -28,11 +28,11 @@ if adb shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; then echo "DE
 echo "== settings: confirm recharged-hud? ON =="
 CUR=$(adb shell run-as $PKG cat "$SETF" 2>/dev/null | grep -a recharged | tr -d '\r')
 echo "  device flag: $CUR"
-if ! echo "$CUR" | grep -q '(recharged-hud? #t)'; then
+if ! echo "$CUR" | grep -q '^recharged-hud? = #t'; then
   echo "  flag not ON — patching to #t"
   adb shell run-as $PKG cat "$SETF" 2>/dev/null | tr -d '\r' > /tmp/rhud4-set.gc
   if grep -q 'recharged-hud?' /tmp/rhud4-set.gc; then
-    sed -i 's/(recharged-hud? #f)/(recharged-hud? #t)/' /tmp/rhud4-set.gc
+    sed -i 's/^recharged-hud? = #f/recharged-hud? = #t/' /tmp/rhud4-set.gc
   else
     echo "  WARN: no recharged-hud? line; leaving as-is"
   fi

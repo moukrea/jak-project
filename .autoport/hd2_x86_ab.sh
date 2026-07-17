@@ -12,20 +12,20 @@ cd "$(git rev-parse --show-toplevel)"
 OUT=/tmp/hd2_ab
 DEST=".autoport/reports/Grecharged-hd-models2/x86-ab"
 SHOTDIR="build/game/OpenGOAL/jak1/screenshots"
-SETTINGS="build/game/OpenGOAL/jak1/settings/pc-settings.gc"
+SETTINGS="build/game/OpenGOAL/jak1/settings/settings.ini"
 mkdir -p "$OUT" "$DEST" "$SHOTDIR"
 
 pkill -f 'build/game/gk' 2>/dev/null; sleep 1
 pkill -f 'goalc --user-auto' 2>/dev/null; sleep 1
 
-set_toggle(){ # t|f — replace-or-insert (attempt-2 sed silently no-opped: key was ABSENT)
-  if grep -q "recharged-enhanced-models?" "$SETTINGS"; then
-    sed -i "s/(recharged-enhanced-models? #[tf])/(recharged-enhanced-models? #$1)/" "$SETTINGS"
+set_toggle(){ # t|f — replace-or-insert (INI form, under the [settings] header)
+  if grep -q "^recharged-enhanced-models? = " "$SETTINGS"; then
+    sed -i "s/^recharged-enhanced-models? = #[tf]/recharged-enhanced-models? = #$1/" "$SETTINGS"
   else
-    sed -i "s/^  (skip-movies?/  (recharged-enhanced-models? #$1)\n  (skip-movies?/" "$SETTINGS"
+    sed -i "s/^\[settings\]/[settings]\nrecharged-enhanced-models? = #$1/" "$SETTINGS"
   fi
-  grep -q "(recharged-enhanced-models? #$1)" "$SETTINGS" || { echo "TOGGLE INJECT FAILED"; exit 9; }
-  echo "  toggle in portable settings: $(grep -o '(recharged-enhanced-models? #[tf])' "$SETTINGS")"
+  grep -q "^recharged-enhanced-models? = #$1" "$SETTINGS" || { echo "TOGGLE INJECT FAILED"; exit 9; }
+  echo "  toggle in portable settings: $(grep -o '^recharged-enhanced-models? = #[tf]' "$SETTINGS")"
 }
 
 # goalc listener (for pc-screen-shot only — NO (mi): CGOs must stay as-committed)

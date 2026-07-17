@@ -16,22 +16,23 @@
 //     real device (dry-run) without shipping a 2nd game. Games listed in the
 //     override but with no bundled archive are shown but reported "not included".
 //
-// Phase Grecharged-external-assets (autoport 2026-07): the slim APK no longer
-// embeds the iso assets. Per game the flow is now:
+// Phase Grecharged-buildsys-firstboot (autoport 2026-07): the slim APK no longer
+// embeds the iso assets, and there is NO internal / bundled data mode any more.
+// Per game the flow is:
 //   1. Always unpack the small per-arch CGO pack (assets/bundle/<game>_cgo.zip,
 //      compiled *.CGO/*.DGO + android text banks) to <filesDir>/cgo/<game>/ —
-//      fake_iso scans it FIRST so fresh code always wins.
-//   2. Decide the DATA source: "internal" (legacy filesDir extraction, kept
-//      byte-compatible for old self-contained builds and dev installs) or
-//      "external" (a user-chosen storage folder with the layout
-//      <chosen>/jak_N/{assets/{iso,fr3,recharged_assets},saves,custom_assets}).
-//      First boot with neither configured shows a chooser screen (folder picker /
-//      manual path / keep-internal), including one-time migration copies of the
-//      already-extracted internal assets and the user's saves. The choice is
-//      persisted in SharedPreferences("recharged_assets") — the contract
-//      MainActivity reads — and mirrored to <filesDir>/asset_root.txt for adb
-//      tooling. If a configured external root later goes invalid (moved,
-//      unmounted, access revoked) MainActivity bounces back here to re-prompt.
+//      fake_iso scans it FIRST so fresh code always wins; plus the package-shipped
+//      custom-asset pack (<game>_custom.zip) to <filesDir>/custom/<game>/.
+//   2. The DATA source is ALWAYS a user-chosen storage folder with the layout
+//      <root>/jak1/{assets, custom_assets, saves, settings.ini}
+//      (settings.ini is created by the game on first run). First boot with no
+//      valid root persisted shows the folder picker; the chosen root is scaffolded,
+//      and if <root>/jak1/assets/iso is empty the user extracts a
+//      <game>_assets.zip into it. The choice is persisted in
+//      SharedPreferences("recharged_assets") — the contract MainActivity reads —
+//      and mirrored to <filesDir>/asset_root.txt for adb tooling. If a configured
+//      root later goes invalid (moved, unmounted, access revoked) MainActivity
+//      bounces back here to re-prompt. NO migration, NO legacy paths.
 //
 // Correctness guarantees preserved: background worker thread (no ANR), a visible
 // determinate progress bar, an idempotent version stamp, a low-storage precheck,
@@ -109,7 +110,6 @@ public class LoaderActivity extends AppCompatActivity {
     private static final String PREF_ASSET_ROOT = "asset_root";
     private static final String PREF_ASSET_MODE = "asset_mode";
     private static final String MODE_EXTERNAL = "external";
-    private static final String MODE_INTERNAL = "internal";
     // MainActivity bounces back here with this extra when the configured
     // external root stopped being readable.
     private static final String EXTRA_ASSET_ROOT_INVALID =
@@ -265,12 +265,10 @@ public class LoaderActivity extends AppCompatActivity {
         return t != null ? t : game;
     }
 
-    /** Map a game id ("jak1") to its external-layout folder ("jak_1"). Keep in
-     *  sync with MainActivity.gameFolder(). */
+    /** The per-game external-layout folder IS the game id ("jak1"/"jak2"/"jak3"):
+     *  the on-storage tree is <root>/jak1/{assets, custom_assets, saves, settings.ini}.
+     *  Keep in sync with MainActivity.gameFolder(). */
     private static String gameFolder(String game) {
-        if (game != null && game.length() > 3 && game.startsWith("jak")) {
-            return "jak_" + game.substring(3);
-        }
         return game;
     }
 
@@ -495,9 +493,9 @@ public class LoaderActivity extends AppCompatActivity {
     // --- boot orchestration ---------------------------------------------------
 
     /**
-     * External-asset-root feature: per-game boot pipeline.
-     *   1. unpack the CGO code pack (always, cheap, version-stamped);
-     *   2. route on the persisted asset mode (external / internal / unset).
+     * Per-game boot pipeline.
+     *   1. unpack the CGO code pack + custom pack (always, cheap, version-stamped);
+     *   2. route to the game (valid external root persisted) or the picker.
      */
     private void beginUnpackAndLaunch(final String gameName) {
         Log.i(TAG, "LoaderActivity: boot pipeline for " + gameName);
@@ -521,7 +519,11 @@ public class LoaderActivity extends AppCompatActivity {
         worker.start();
     }
 
-    /** Route on the persisted mode. Runs on the UI thread. */
+    /**
+     * The only boot mode is EXTERNAL: a user-chosen root already configured +
+     * populated goes straight to the game with no prompt; anything else shows the
+     * folder picker. Runs on the UI thread.
+     */
     private void decideBootMode(String gameName) {
         SharedPreferences prefs = getSharedPreferences(ASSET_PREFS, MODE_PRIVATE);
         String mode = prefs.getString(PREF_ASSET_MODE, null);
@@ -534,6 +536,7 @@ public class LoaderActivity extends AppCompatActivity {
             boolean valid = hasStorageAccess()
                     && iso.isDirectory() && entries != null && entries.length > 0;
             if (valid) {
+                // Already configured — straight to the game, no prompt.
                 launchGame(gameName);
                 return;
             }
@@ -548,43 +551,8 @@ public class LoaderActivity extends AppCompatActivity {
             return;
         }
 
-        if (MODE_INTERNAL.equals(mode)) {
-            startInternalUnpackAndLaunch(gameName);
-            return;
-        }
-
-        // Mode unset. Old self-contained builds (full bundle in the APK) keep
-        // behaving exactly as before — no new UI, persist internal silently.
-        if (assetExists(BUNDLE_DIR + "/" + gameName + ZIP_SUFFIX)) {
-            Log.i(TAG, "full bundle present + no mode set -> internal (legacy behavior)");
-            persistChoice(gameName, MODE_INTERNAL, null);
-            startInternalUnpackAndLaunch(gameName);
-            return;
-        }
-
-        // Fresh slim install (or an update over an internal-data install).
+        // First boot (no valid root persisted): route to the picker.
         showChooserUi(gameName);
-    }
-
-    private void startInternalUnpackAndLaunch(final String gameName) {
-        showProgressUi();
-        worker = new Thread(() -> {
-            try {
-                unpackBundleIfNeeded(gameName);
-                launchGame(gameName);
-            } catch (Throwable t) {
-                Log.e(TAG, "LoaderActivity: asset setup failed", t);
-                final String msg = "Setup failed:\n" + t.getMessage();
-                runOnUiThread(() -> {
-                    if (status != null) status.setText(msg);
-                    if (progress != null) {
-                        progress.setIndeterminate(false);
-                        progress.setProgress(0);
-                    }
-                });
-            }
-        }, "opengoal-loader");
-        worker.start();
     }
 
     /** Hand off to MainActivity. Safe to call from any thread. */
@@ -598,12 +566,6 @@ public class LoaderActivity extends AppCompatActivity {
     }
 
     // --- external-asset-root: chooser screen ----------------------------------
-
-    private boolean hasInternalAssets(String gameName) {
-        File iso = new File(getFilesDir(), "iso_data/" + gameName);
-        String[] entries = iso.list();
-        return iso.isDirectory() && entries != null && entries.length > 0;
-    }
 
     private void showChooserUi(String gameName) {
         chooserGame = gameName;
@@ -632,20 +594,13 @@ public class LoaderActivity extends AppCompatActivity {
         labels.add("TYPE PATH MANUALLY");
         actions.add(() -> ensureStorageAccess(() -> showManualPathDialog(null)));
 
-        if (hasInternalAssets(gameName)) {
-            labels.add("USE INTERNAL ASSETS");
-            actions.add(() -> {
-                persistChoice(gameName, MODE_INTERNAL, null);
-                startInternalUnpackAndLaunch(gameName);
-            });
-        }
-
         menuGames = null;
         menuActions = actions;
         buildRowScreen(titleFor(gameName) + " — game assets",
-                "Game assets now live in a folder you choose (one folder serves all\n"
-                        + "games: jak_1 / jak_2 / jak_3 subfolders). Pick where they are —\n"
-                        + "or should go.",
+                "Game assets live in a folder you choose. Pick where they are — or\n"
+                        + "should go. The game data goes under "
+                        + gameFolder(gameName) + "/\n"
+                        + "(assets, custom_assets, saves, settings.ini).",
                 banner, labels);
         Log.i(TAG, "asset chooser shown for " + gameName
                 + (banner != null ? " (banner: " + banner + ")" : ""));
@@ -865,7 +820,6 @@ public class LoaderActivity extends AppCompatActivity {
         File iso = new File(gameRoot, "assets/iso");
         String[] entries = iso.list();
         if (iso.isDirectory() && entries != null && entries.length > 0) {
-            migrateSavesIfNeeded(gameName, gameRoot);
             launchGame(gameName);
         } else {
             showPopulateUi(gameName);
@@ -878,11 +832,6 @@ public class LoaderActivity extends AppCompatActivity {
         List<String> labels = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
 
-        if (hasInternalAssets(gameName)) {
-            labels.add("COPY INSTALLED ASSETS TO FOLDER");
-            actions.add(() -> startInternalCopy(gameName));
-        }
-
         labels.add("EXTRACT ASSET ARCHIVE (ZIP)");
         actions.add(this::openArchivePicker);
 
@@ -892,7 +841,6 @@ public class LoaderActivity extends AppCompatActivity {
             File iso = new File(gameRoot, "assets/iso");
             String[] entries = iso.list();
             if (iso.isDirectory() && entries != null && entries.length > 0) {
-                migrateSavesIfNeeded(gameName, gameRoot);
                 launchGame(gameName);
             } else {
                 chooserBanner = "ASSETS NOT FOUND AT " + iso.getAbsolutePath();
@@ -918,8 +866,8 @@ public class LoaderActivity extends AppCompatActivity {
 
     /**
      * Persist the user's choice — SharedPreferences for MainActivity, plus the
-     * <filesDir>/asset_root.txt mirror adb tooling reads (per-game root path for
-     * external, the literal line "internal" otherwise).
+     * <filesDir>/asset_root.txt mirror adb tooling reads (the per-game root path
+     * <chosenBase>/<game>). The only mode is external ("remember my choice").
      */
     private void persistChoice(String gameName, String mode, String chosenBase) {
         SharedPreferences.Editor ed =
@@ -928,140 +876,9 @@ public class LoaderActivity extends AppCompatActivity {
         if (chosenBase != null) ed.putString(PREF_ASSET_ROOT, chosenBase);
         ed.apply();
         try (FileWriter w = new FileWriter(new File(getFilesDir(), "asset_root.txt"))) {
-            w.write(MODE_EXTERNAL.equals(mode)
-                    ? new File(chosenBase, gameFolder(gameName)).getAbsolutePath() + "\n"
-                    : "internal\n");
+            w.write(new File(chosenBase, gameFolder(gameName)).getAbsolutePath() + "\n");
         } catch (IOException e) {
             Log.w(TAG, "could not write asset_root.txt", e);
-        }
-    }
-
-    // --- external-asset-root: migration copies ---------------------------------
-
-    /** Copy the already-extracted internal assets out to the chosen folder. */
-    private void startInternalCopy(final String gameName) {
-        showProgressUi();
-        setStatus("Copying installed assets…");
-        worker = new Thread(() -> {
-            try {
-                File gameRoot = externalGameRoot(gameName);
-                File filesDir = getFilesDir();
-
-                // Build the copy list first so progress has a denominator.
-                List<File> src = new ArrayList<>();
-                List<File> dst = new ArrayList<>();
-                File isoSrc = new File(filesDir, "iso_data/" + gameName);
-                File[] isoFiles = isoSrc.listFiles();
-                if (isoFiles != null) {
-                    for (File f : isoFiles) {
-                        if (!f.isFile()) continue;
-                        String n = f.getName();
-                        // Compiled code stays with the binary (the CGO pack) —
-                        // the external folder carries only the data files.
-                        if (n.endsWith(".CGO") || n.endsWith(".DGO")) continue;
-                        src.add(f);
-                        dst.add(new File(gameRoot, "assets/iso/" + n));
-                    }
-                }
-                File fr3Src = new File(filesDir, "out/" + gameName + "/fr3");
-                File[] fr3Files = fr3Src.listFiles();
-                if (fr3Files != null) {
-                    for (File f : fr3Files) {
-                        if (!f.isFile()) continue;
-                        src.add(f);
-                        dst.add(new File(gameRoot, "assets/fr3/" + f.getName()));
-                    }
-                }
-                File rhSrc = new File(filesDir, "recharged_assets");
-                File[] rhFiles = rhSrc.listFiles();
-                if (rhFiles != null) {
-                    for (File f : rhFiles) {
-                        if (!f.isFile()) continue;
-                        src.add(f);
-                        dst.add(new File(gameRoot, "assets/recharged_assets/" + f.getName()));
-                    }
-                }
-
-                for (int i = 0; i < src.size(); i++) {
-                    copyFile(src.get(i), dst.get(i));
-                    final int done = i + 1, total = src.size();
-                    setStatus("Copying installed assets…\n" + done + " / " + total);
-                    setProgressPermille(total > 0 ? (done * 1000) / total : 0);
-                }
-                Log.i(TAG, "internal asset copy done: " + src.size()
-                        + " files -> " + gameRoot.getAbsolutePath()
-                        + " (originals kept)");
-
-                migrateSavesIfNeeded(gameName, gameRoot);
-                launchGame(gameName);
-            } catch (Throwable t) {
-                Log.e(TAG, "internal asset copy failed", t);
-                final String msg = t.getMessage();
-                runOnUiThread(() -> {
-                    chooserBanner = "COPY FAILED: " + msg;
-                    showPopulateUi(gameName);
-                });
-            }
-        }, "opengoal-asset-copy");
-        worker.start();
-    }
-
-    /**
-     * One-time saves migration: copy internal saves/settings out to
-     * <gameRoot>/saves once the game switches to the external layout, so the
-     * user's progress follows. COPY only — internal originals are kept.
-     * Skipped when the external saves dir already has content.
-     */
-    private void migrateSavesIfNeeded(String gameName, File gameRoot) {
-        try {
-            File savesDst = new File(gameRoot, "saves");
-            String[] existing = savesDst.list();
-            if (existing != null && existing.length > 0) {
-                return; // external saves already in place — never clobber them
-            }
-            File cfg = new File(getFilesDir(), ".config/OpenGOAL/" + gameName);
-            int n = 0;
-            n += copyTree(new File(cfg, "saves"), savesDst);
-            n += copyTree(new File(cfg, "settings"), new File(savesDst, "settings"));
-            if (n > 0) {
-                Log.i(TAG, "migrated " + n + " save/settings file(s) to "
-                        + savesDst.getAbsolutePath() + " (internal originals kept)");
-            }
-        } catch (Throwable t) {
-            // Migration must never block the boot; the game will simply start
-            // with fresh saves at the new location.
-            Log.w(TAG, "saves migration failed (continuing)", t);
-        }
-    }
-
-    /** Recursive copy; returns the number of files copied. Missing src = 0. */
-    private int copyTree(File srcDir, File dstDir) throws IOException {
-        if (!srcDir.isDirectory()) return 0;
-        File[] kids = srcDir.listFiles();
-        if (kids == null) return 0;
-        int n = 0;
-        for (File k : kids) {
-            File d = new File(dstDir, k.getName());
-            if (k.isDirectory()) {
-                n += copyTree(k, d);
-            } else if (k.isFile()) {
-                copyFile(k, d);
-                n++;
-            }
-        }
-        return n;
-    }
-
-    private void copyFile(File src, File dst) throws IOException {
-        File parent = dst.getParentFile();
-        if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
-            throw new IOException("could not create " + parent.getAbsolutePath());
-        }
-        byte[] buf = new byte[COPY_BUFFER_BYTES];
-        try (InputStream in = new FileInputStream(src);
-             OutputStream out = new FileOutputStream(dst)) {
-            int r;
-            while ((r = in.read(buf)) > 0) out.write(buf, 0, r);
         }
     }
 
@@ -1122,7 +939,14 @@ public class LoaderActivity extends AppCompatActivity {
                 Log.i(TAG, "external archive extracted: " + files + " files, "
                         + bytes + " bytes -> " + externalGameRoot(gameName)
                         + "/assets");
-                migrateSavesIfNeeded(gameName, externalGameRoot(gameName));
+                // Make sure the sibling tree exists (custom_assets/, saves/);
+                // settings.ini is created by the game on first run.
+                File gameRoot = externalGameRoot(gameName);
+                for (String sub : new String[] { "custom_assets", "saves" }) {
+                    File d = new File(gameRoot, sub);
+                    if (!d.isDirectory()) //noinspection ResultOfMethodCallIgnored
+                        d.mkdirs();
+                }
                 launchGame(gameName);
             } catch (Throwable t) {
                 Log.e(TAG, "archive extraction failed after " + files + " files", t);
@@ -1134,43 +958,6 @@ public class LoaderActivity extends AppCompatActivity {
             }
         }, "opengoal-archive-extract");
         worker.start();
-    }
-
-    // --- bundle manifest -----------------------------------------------------
-
-    private static final class Manifest {
-        String version = "0";
-        int fileCount = -1;
-        long rawBytes = -1;
-        String zipName = "";
-    }
-
-    private Manifest readManifest(String gameName) throws IOException {
-        // Per-game manifest first (collection layout: bundle/<game>.manifest.properties),
-        // else the legacy single-manifest (bundle/manifest.properties).
-        String perGame = BUNDLE_DIR + "/" + gameName + ".manifest.properties";
-        String manifestAsset = assetExists(perGame)
-                ? perGame : (BUNDLE_DIR + "/manifest.properties");
-        Manifest m = new Manifest();
-        Properties p = new Properties();
-        try (InputStream in = getAssets().open(manifestAsset)) {
-            p.load(in);
-        }
-        m.version = p.getProperty("version", "0");
-        m.fileCount = Integer.parseInt(p.getProperty("file_count", "-1").trim());
-        m.rawBytes = Long.parseLong(p.getProperty("raw_bytes", "-1").trim());
-        m.zipName = BUNDLE_DIR + "/" + gameName + ZIP_SUFFIX;
-        Log.i(TAG, "manifest for " + gameName + " <- " + manifestAsset
-                + " (version=" + m.version + " files=" + m.fileCount + ")");
-        return m;
-    }
-
-    // jak1 keeps its historical stamp name so an existing jak1 install is not
-    // forced into a full re-decompress on upgrade; other games are per-game.
-    private static String stampName(String game) {
-        return "jak1".equals(game)
-                ? ".asset_bundle_stamp"
-                : ".asset_bundle_stamp_" + game;
     }
 
     // --- the CGO code-pack decompress (external-asset-root feature) -----------
@@ -1367,177 +1154,6 @@ public class LoaderActivity extends AppCompatActivity {
     // private files dir only. The DIAG2 public-Downloads exporter + boot toast were
     // a temporary HONOR-debug aid and have been removed (owner 2026-07-09: leftover
     // toast at boot). Nothing surfaces these files to the user anymore.
-
-    private void unpackBundleIfNeeded(String gameName) throws IOException {
-        // External-asset-root feature: a slim APK ships NO full bundle. Internal
-        // mode then simply keeps whatever iso_data is already on the device
-        // (dev installs maintain it via adb) — the old wipe-then-unpack path
-        // must never run without a zip to refill it from.
-        if (!assetExists(BUNDLE_DIR + "/" + gameName + ZIP_SUFFIX)) {
-            Log.i(TAG, "no full asset bundle in this APK for " + gameName
-                    + " — keeping existing internal data as-is");
-            return;
-        }
-
-        Manifest mf = readManifest(gameName);
-        File filesDir = getFilesDir();
-        File stamp = new File(filesDir, stampName(gameName));
-
-        // Idempotent fast path: stamp present AND version matches → already
-        // unpacked from this APK; boot straight through.
-        if (stamp.isFile()) {
-            String have = readStamp(stamp);
-            if (mf.version.equals(have)) {
-                Log.i(TAG, gameName + " asset bundle already unpacked (version="
-                        + have + ") — skipping decompress, data ready");
-                return;
-            }
-            Log.w(TAG, gameName + " asset bundle version changed (" + have + " -> "
-                    + mf.version + ") — re-decompressing");
-        }
-
-        // Targets this bundle owns. Wipe both (and the stale stamp) so a
-        // version bump or an interrupted previous run never boots off mixed
-        // or half-written data.
-        File isoTarget = new File(filesDir, "iso_data/" + gameName);
-        File fr3Target = new File(filesDir, "out/" + gameName + "/fr3");
-        if (stamp.exists()) stamp.delete();
-        deleteRecursive(isoTarget);
-        deleteRecursive(fr3Target);
-
-        // Low-storage pre-check: refuse with a clear message rather than
-        // unpacking until the disk fills mid-write.
-        if (mf.rawBytes > 0) {
-            long need = (long) (mf.rawBytes * STORAGE_MARGIN);
-            long avail = availableBytes(filesDir);
-            if (avail < need) {
-                throw new IOException("Not enough free storage. Need "
-                        + humanBytes(need) + ", only " + humanBytes(avail)
-                        + " free. Free up space and relaunch.");
-            }
-            Log.i(TAG, "storage ok: need " + humanBytes(need) + ", have "
-                    + humanBytes(avail));
-        }
-
-        runOnUiThread(() -> status.setText("Decompressing game data…\n0%"));
-
-        // supervisor-diag: record unpack progress for jak2 so a failed/partial unpack
-        // on the owner's HONOR (no adb) is visible in the exported diag file. jak2-only
-        // so jak1 file-side behavior is unchanged.
-        final boolean diagUnpack = "jak2".equals(gameName);
-        if (diagUnpack) {
-            appendJak2Diag("unpack START game=" + gameName + " zip=" + mf.zipName
-                    + " expect_files=" + mf.fileCount + " expect_bytes=" + mf.rawBytes);
-        }
-
-        final long startMs = System.currentTimeMillis();
-        long bytesWritten = 0;
-        int filesWritten = 0;
-        long lastUiUpdate = -1;
-        byte[] buf = new byte[COPY_BUFFER_BYTES];
-
-        AssetManager am = getAssets();
-        // STREAMING access → the ~1 GiB archive is never materialised in RAM;
-        // ZipInputStream inflates it entry-by-entry as we read.
-        try {
-        try (InputStream rawIn = am.open(mf.zipName, AssetManager.ACCESS_STREAMING);
-             ZipInputStream zin = new ZipInputStream(rawIn)) {
-            ZipEntry e;
-            while ((e = zin.getNextEntry()) != null) {
-                String name = e.getName();
-                if (e.isDirectory()) {
-                    zin.closeEntry();
-                    continue;
-                }
-                // Map zip-relative entry → on-device home:
-                //   fr3/<f>            -> out/<game>/fr3/<f>
-                //   iso_data/<game>/<f> -> iso_data/<game>/<f>  (as-is)
-                String rel = name.startsWith("fr3/")
-                        ? ("out/" + gameName + "/" + name)
-                        : name;
-                File outFile = new File(filesDir, rel);
-                // Defend against zip path traversal (../ entries).
-                String canonRoot = filesDir.getCanonicalPath() + File.separator;
-                if (!outFile.getCanonicalPath().startsWith(canonRoot)) {
-                    throw new IOException("refusing unsafe bundle entry: " + name);
-                }
-                File parent = outFile.getParentFile();
-                if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
-                    throw new IOException("could not create " + parent.getAbsolutePath());
-                }
-
-                try (FileOutputStream out = new FileOutputStream(outFile)) {
-                    int r;
-                    while ((r = zin.read(buf)) > 0) {
-                        out.write(buf, 0, r);
-                        bytesWritten += r;
-                    }
-                }
-                // closeEntry() validates the entry's CRC32 against the zip's
-                // stored value — a corrupt/truncated archive throws here.
-                zin.closeEntry();
-                filesWritten++;
-
-                if (diagUnpack && (filesWritten % 100) == 0) {
-                    appendJak2Diag("unpack progress files=" + filesWritten
-                            + " bytes=" + bytesWritten);
-                }
-
-                // Throttle UI updates to ~each permille so we don't flood the
-                // main-thread looper on 300+ small files.
-                long permille = mf.rawBytes > 0
-                        ? Math.min(1000, (bytesWritten * 1000) / mf.rawBytes)
-                        : 0;
-                if (permille != lastUiUpdate) {
-                    lastUiUpdate = permille;
-                    final int pm = (int) permille;
-                    final long shown = bytesWritten;
-                    runOnUiThread(() -> {
-                        progress.setProgress(pm);
-                        status.setText("Decompressing game data…\n"
-                                + (pm / 10) + "%   " + humanBytes(shown));
-                    });
-                }
-            }
-        }
-
-        // Integrity: cross-check what we actually wrote against the manifest.
-        // CRC was already verified per entry; this catches a short/extra
-        // archive or a truncated stream the CRC pass alone wouldn't.
-        if (mf.fileCount >= 0 && filesWritten != mf.fileCount) {
-            throw new IOException("integrity check failed: unpacked "
-                    + filesWritten + " files, manifest expects " + mf.fileCount);
-        }
-        if (mf.rawBytes >= 0 && bytesWritten != mf.rawBytes) {
-            throw new IOException("integrity check failed: unpacked "
-                    + bytesWritten + " bytes, manifest expects " + mf.rawBytes);
-        }
-        } catch (IOException ioe) {
-            // supervisor-diag: record the failed/partial unpack for the owner before
-            // propagating (the caller surfaces the failure to the UI).
-            if (diagUnpack) {
-                appendJak2Diag("unpack FAILED files=" + filesWritten
-                        + " bytes=" + bytesWritten + " err=" + ioe.getMessage());
-            }
-            throw ioe;
-        }
-
-        // Stamp LAST: only a fully-verified unpack is trusted on next launch.
-        writeStamp(stamp, mf.version);
-
-        long elapsedMs = System.currentTimeMillis() - startMs;
-        Log.i(TAG, gameName + " asset bundle decompressed: " + filesWritten
-                + " files, " + bytesWritten + " bytes in " + elapsedMs
-                + "ms (version=" + mf.version + ")");
-        if (diagUnpack) {
-            appendJak2Diag("unpack DONE files=" + filesWritten + " bytes=" + bytesWritten
-                    + " ms=" + elapsedMs);
-        }
-        runOnUiThread(() -> {
-            progress.setProgress(1000);
-            status.setText("Setup complete — starting game…");
-        });
-    }
 
     // --- helpers -------------------------------------------------------------
 

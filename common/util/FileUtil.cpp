@@ -65,9 +65,14 @@ struct {
   bool use_overridden_config_dir_for_saves = true;
 } g_file_path_info;
 
-// External per-game "game root" directory (e.g. /sdcard/OpenGOAL/jak_1). When
-// set, arch-independent assets and saves resolve under this root. Unset ==
-// legacy behavior.
+// External per-game "game root" directory (e.g. /sdcard/OpenGOAL/jak1). When
+// set, arch-independent assets and saves resolve under this root. The tree
+// shape is:
+//   <root>/assets/          (unaltered source-derived vanilla data)
+//   <root>/custom_assets/   (user-dropped texture replacements)
+//   <root>/saves/           (memory cards / save games)
+//   <root>/settings.ini     (persisted user settings, at the root)
+// Unset == legacy behavior.
 std::optional<fs::path> g_external_game_root;
 // Separate iso overlay dir holding per-arch compiled *.CGO/*.DGO (+ platform
 // COMMON.TXT overrides) shipped with the binary.
@@ -132,7 +137,8 @@ fs::path get_user_config_dir() {
 fs::path get_user_settings_dir(GameVersion game_version) {
   // External game root takes precedence over the --portable/--config-path override.
   if (g_external_game_root) {
-    return *g_external_game_root / "saves" / "settings";
+    // settings.ini lives at the game root itself (<root>/settings.ini).
+    return *g_external_game_root;
   }
   auto game_version_name = game_version_names[game_version];
   auto config_dir = get_user_config_dir();
@@ -362,7 +368,8 @@ fs::path get_recharged_assets_dir() {
 
 fs::path get_custom_assets_replacements_dir(GameVersion game_version) {
   if (g_external_game_root) {
-    return *g_external_game_root / "custom_assets" / "texture_replacements";
+    // Flat user drop dir: <root>/custom_assets.
+    return *g_external_game_root / "custom_assets";
   }
   return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] /
          "texture_replacements";

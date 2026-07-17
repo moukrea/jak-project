@@ -12,7 +12,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1/round4/final; mkdir -p "$OUT"
 adb(){ "$ADB" -s "$S" "$@"; }
 setp(){ adb shell "setprop $1 '$2'"; }
@@ -23,7 +23,7 @@ fg(){ adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'
 shot(){ adb exec-out screencap -p > "$OUT/device-$1.png" 2>/dev/null; echo "    shot device-$1.png ($(stat -c%s "$OUT/device-$1.png" 2>/dev/null||echo 0) B) fg=$(fg)"; }
 setflag(){ # $1 = #t or #f
   adb shell run-as $PKG cat "$SETF" 2>/dev/null | tr -d '\r' > /tmp/rhud4-set.gc
-  sed -i "s/(recharged-hud? #[tf])/(recharged-hud? $1)/" /tmp/rhud4-set.gc
+  sed -i "s/^recharged-hud? = #[tf]/recharged-hud? = $1/" /tmp/rhud4-set.gc
   adb push /tmp/rhud4-set.gc /data/local/tmp/rhud4-set.gc >/dev/null 2>&1
   adb shell run-as $PKG cp /data/local/tmp/rhud4-set.gc "$SETF" >/dev/null 2>&1
   echo "  flag now: $(adb shell run-as $PKG cat "$SETF" 2>/dev/null | grep -a recharged | tr -d '\r')"

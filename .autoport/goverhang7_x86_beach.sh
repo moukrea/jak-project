@@ -8,21 +8,21 @@ cd "$(git rev-parse --show-toplevel)"
 OUT=/tmp/gov7_x86
 DEST=".autoport/reports/Grecharged-grass-overhang7/x86-beach"
 SHOTDIR="build/game/OpenGOAL/jak1/screenshots"
-SETTINGS="build/game/OpenGOAL/jak1/settings/pc-settings.gc"
+SETTINGS="build/game/OpenGOAL/jak1/settings/settings.ini"
 POS="${POS_OVERRIDE:--90 22 -268}"   # ~10m from the owner's published crates (-79,21,-276)
 mkdir -p "$OUT" "$DEST" "$SHOTDIR"
 
 pkill -f 'build/game/gk' 2>/dev/null; sleep 1
 pkill -f 'goalc --user-auto' 2>/dev/null; sleep 1
 
-set_key(){ # key value  — replace-or-insert before skip-movies?
+set_key(){ # key value  — replace-or-insert (INI form)
   local k="$1" v="$2"
-  if grep -q "($k " "$SETTINGS"; then
-    sed -i "s/($k [^)]*)/($k $v)/" "$SETTINGS"
+  if grep -q "^$k = " "$SETTINGS"; then
+    sed -i "s/^$k = .*/$k = $v/" "$SETTINGS"
   else
-    sed -i "s/^  (skip-movies?/  ($k $v)\n  (skip-movies?/" "$SETTINGS"
+    sed -i "s/^\[settings\]/[settings]\n$k = $v/" "$SETTINGS"
   fi
-  grep -q "($k $v)" "$SETTINGS" || { echo "KEY INJECT FAILED: $k"; exit 9; }
+  grep -q "^$k = $v" "$SETTINGS" || { echo "KEY INJECT FAILED: $k"; exit 9; }
 }
 
 # Mirror the OWNER's file: grass ON, precomputed ON, density 150, near 30, card 95.

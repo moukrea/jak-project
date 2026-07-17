@@ -25,6 +25,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 . .autoport/lib/android-env.sh
 . .autoport/lib/device-validate.sh
+. .autoport/lib/device_env.sh
 
 PACKAGE="org.opengoal.gk.jak1"
 ACTIVITY=".SaveActivity"
@@ -36,12 +37,12 @@ STATUS_TXT="$REPORT_DIR/E3-status.txt"
 REPORT_MD="$REPORT_DIR/E3-launch.md"
 SAVE_OUT="/tmp/E3-android-save.bin"
 
-# Where the in-app SaveActivity will write the deterministic save. We
-# use the app's private filesDir (filesDir-backed, per the E3 prompt's
-# Android-appropriate-path rule). adb pull from there needs run-as
-# since it's mode 0700 to the app uid; the cat-through-run-as pattern
-# is what every other autoport phase uses for filesDir reads.
-DEVICE_SAVE_DIR="/data/data/$PACKAGE/files/saves"
+# Where the in-app SaveActivity will write the deterministic save.
+# Grecharged-buildsys-firstboot: saves now live in the per-game external
+# root ($DEVICE_SAVES = /storage/emulated/0/OpenGOAL/jak1/saves), which is
+# world-accessible under the app's MANAGE_EXTERNAL_STORAGE — direct adb
+# reads/writes work, no run-as needed.
+DEVICE_SAVE_DIR="$DEVICE_SAVES"
 DEVICE_SAVE_PATH="$DEVICE_SAVE_DIR/E3-android-save.bin"
 
 export LOGCAT_LOG="$BOOT_LOG"
@@ -65,7 +66,8 @@ device_stayon_on
 
 # Wipe any prior save so we can be sure the bytes we pull came from this
 # run's write_test_save_to_path call and not a stale carry-over.
-adb shell run-as "$PACKAGE" rm -f "$DEVICE_SAVE_PATH" >/dev/null 2>&1 || true
+adb -s "$S" shell mkdir -p "$DEVICE_SAVE_DIR" >/dev/null 2>&1 || true
+adb -s "$S" shell rm -f "$DEVICE_SAVE_PATH" >/dev/null 2>&1 || true
 
 # Decide whether the device already has the exact APK installed. Re-
 # installing a 1.18 GB jak1 APK on every iteration is expensive enough
@@ -148,21 +150,19 @@ if device_wait_for_marker 'test save written: ' 30; then MARKER_HIT=0; fi
 # JNI clean-up (no-op today, but be defensive) is done.
 sleep 1
 
-echo "== E3 step 5/5: pull save file via run-as =="
+echo "== E3 step 5/5: pull save file from external saves dir =="
 
-# The save is in the app's mode 0700 filesDir, so adb pull won't work
-# directly — but `run-as <pkg> cat` does. The cat-through-run-as
-# pattern preserves bytes verbatim and is what the autoport phases use
-# whenever they need to inspect filesDir on a non-rooted device.
-if ! adb shell "run-as $PACKAGE test -f $DEVICE_SAVE_PATH"; then
+# The save is on world-accessible external storage ($DEVICE_SAVES), so a
+# plain adb read works — no run-as needed.
+if ! adb -s "$S" shell "test -f $DEVICE_SAVE_PATH"; then
     device_fail "save file not present at $DEVICE_SAVE_PATH on device"
 fi
 
-# Use base64 to ferry binary bytes through adb shell — `cat`-through-
-# `run-as` mixes the bytes with shell stderr / TTY translations on some
-# devices and produces a CRLF-translated copy of the file. base64
+# Use base64 to ferry binary bytes through adb shell — a plain `cat`
+# through adb shell mixes the bytes with shell stderr / TTY translations
+# on some devices and produces a CRLF-translated copy of the file. base64
 # armours the bytes against any of that.
-adb shell "run-as $PACKAGE base64 $DEVICE_SAVE_PATH" 2>/tmp/e3-pull.err \
+adb -s "$S" shell "base64 $DEVICE_SAVE_PATH" 2>/tmp/e3-pull.err \
     | base64 -d > "$SAVE_OUT" || true
 if [ ! -s "$SAVE_OUT" ]; then
     cat /tmp/e3-pull.err >&2 || true

@@ -14,8 +14,7 @@ export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=.autoport/reports/Grecharged-grass-overhang5/diag; mkdir -p "$OUT"
 PROOF="$OUT/goverhang5_diag.txt"; : > "$PROOF"
-INT="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"        # internal (run-as)
-EXT="/storage/emulated/0/OpenGOAL/jak_1/saves/settings/pc-settings.gc"  # external (direct)
+EXT="/storage/emulated/0/OpenGOAL/jak1/settings.ini"  # external (direct; sole settings file)
 
 RIM="-1324.5 52.2 973.9"     # raised grass platform over the OCEAN — lip silhouette vs sky
 TERR="-1310.2 52.8 989.0"    # stepped terraces — dirt walls/lips between storeys (owner's view)
@@ -25,27 +24,15 @@ stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null; }
 pulse(){ stick "$1"; sleep "${2:-0.4}"; stick neutral; sleep "${3:-0.6}"; }
 focus(){ $ADB shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
 
-# --- set one (key val) pair in BOTH settings files (internal run-as bounce + external direct) ---
+# --- set one key = value line in the (sole, external) settings.ini (INI form, direct adb) ---
 set_key_both(){ local KEY="$1" VAL="$2"
-  # internal
-  local T=/tmp/gov5_int.gc
-  if $ADB shell run-as $PKG cat "$INT" </dev/null 2>/dev/null | tr -d '\r' > "$T" && [ -s "$T" ]; then
-    if grep -q "(${KEY} " "$T"; then sed -i "s/(${KEY} [^)]*)/(${KEY} ${VAL})/" "$T"
-    else sed -i "s/(recharged-grass? #t)/(recharged-grass? #t)\n  (${KEY} ${VAL})/" "$T"; fi
-    $ADB push "$T" /data/local/tmp/gov5_int.gc >/dev/null 2>&1 </dev/null
-    $ADB shell run-as $PKG cp /data/local/tmp/gov5_int.gc "$INT" </dev/null 2>/dev/null
-    $ADB shell rm -f /data/local/tmp/gov5_int.gc </dev/null 2>&1
-  fi
-  # external
   local E=/tmp/gov5_ext.gc
   if $ADB shell "cat '$EXT'" </dev/null 2>/dev/null | tr -d '\r' > "$E" && [ -s "$E" ]; then
-    if grep -q "(${KEY} " "$E"; then sed -i "s/(${KEY} [^)]*)/(${KEY} ${VAL})/" "$E"
-    else sed -i "s/(recharged-grass? #t)/(recharged-grass? #t)\n  (${KEY} ${VAL})/" "$E"; fi
-    $ADB push "$E" /sdcard/gov5_ext.gc >/dev/null 2>&1 </dev/null
-    $ADB shell "cp /sdcard/gov5_ext.gc '$EXT'" </dev/null 2>/dev/null
-    $ADB shell rm -f /sdcard/gov5_ext.gc </dev/null 2>&1
+    if grep -q "^${KEY} = " "$E"; then sed -i "s/^${KEY} = .*/${KEY} = ${VAL}/" "$E"
+    else sed -i "s/^recharged-grass? = #t/recharged-grass? = #t\n${KEY} = ${VAL}/" "$E"; fi
+    $ADB push "$E" "$EXT" >/dev/null 2>&1 </dev/null
   fi
-  echo "  set_key_both ${KEY}=${VAL}: int=$($ADB shell run-as $PKG grep -F "(${KEY} " "$INT" </dev/null 2>/dev/null | tr -d '\r' | paste -sd' ') ext=$($ADB shell "grep -F '(${KEY} ' '$EXT'" </dev/null 2>/dev/null | tr -d '\r' | paste -sd' ')" | tee -a "$PROOF"; }
+  echo "  set_key_both ${KEY}=${VAL}: ext=$($ADB shell "grep '^${KEY} = ' '$EXT'" </dev/null 2>/dev/null | tr -d '\r' | paste -sd' ')" | tee -a "$PROOF"; }
 
 ensure_grass_on(){ set_key_both 'recharged-grass?' '#t'; set_key_both 'recharged-grass-precomputed?' '#t'; }
 

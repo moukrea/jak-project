@@ -53,6 +53,7 @@
 #include "common/versions/versions.h"
 
 #include "common/goal_constants.h"
+#include "common/symbols.h"  // true_symbol_offset (a17 real file helpers)
 
 #include "game/kernel/common/kboot.h"
 #include "game/kernel/common/kdgo.h"  // Gjak2-render: g_gk_current_link_object breadcrumb
@@ -169,12 +170,13 @@ const char* g_data_root = nullptr;
 // External-asset-root feature (autoport 2026-07): pushed from Java
 // (NativeGk.setGameRoot / setIsoOverlay) before the SDL thread launches, same
 // process-lifetime + ordering contract as g_data_root.
-//   g_game_root : per-game external root (<chosen>/jak_N). Non-empty selects
-//                 EXTERNAL mode: argv uses --game-root, drops --portable/-iso-data,
-//                 and the symlink farm in android_goal_main is skipped (FileUtil
-//                 resolves iso/fr3/saves under the root).
+//   g_game_root : per-game external root (<chosen>/jakN). REQUIRED — the legacy
+//                 internal/--portable mode has been removed. argv uses
+//                 --game-root, and the symlink farm in android_goal_main is
+//                 skipped (FileUtil resolves iso/fr3/saves under the root). An
+//                 empty value is a fatal boot error.
 //   g_iso_overlay : dir scanned FIRST by fake_iso for per-arch CGO/DGO + COMMON.TXT
-//                 overrides. Set in both modes when present.
+//                 overrides. Set when present.
 // std::string (not const char*) so android_goal_main can read it via
 // `extern std::string g_game_root;` and test .empty() — which also means they
 // need EXTERNAL linkage, so the anonymous namespace is closed around them.
@@ -626,6 +628,40 @@ extern "C" u64 a17_pc_default() {
   // return without touching state. Same shape as upstream
   // pc_get_active_display_refresh_rate's fall-through return 0.
   return 0;
+}
+
+// Grecharged-buildsys-firstboot: REAL bodies for the two file helpers. The
+// a17_pc_default 0-return is NOT #f to a compiled GOAL (if ...) test (0 !=
+// s7), so the stubbed pc-filepath-exists? read TRUE for every path —
+// load-settings always took the "found" branch, read-from-file then failed on
+// the missing file and fell back to defaults WITHOUT committing, so a fresh
+// install never produced settings.ini until the first menu commit.
+extern "C" u64 a17_pc_filepath_exists(u32 filepath) {
+  const char* path = Ptr<String>(filepath).c()->data();
+  struct stat st {};
+  const bool exists = ::stat(path, &st) == 0;
+  return exists ? (u64)s7.offset + true_symbol_offset(g_game_version) : (u64)s7.offset;
+}
+
+extern "C" u64 a17_pc_mkdir_filepath(u32 filepath) {
+  // mkdir -p on the DIRNAME of the given file path (mirrors desktop
+  // file_util::create_dir_if_needed_for_file).
+  std::string p(Ptr<String>(filepath).c()->data());
+  bool ok = true;
+  auto slash = p.find_last_of('/');
+  if (slash != std::string::npos && slash > 0) {
+    const std::string dir = p.substr(0, slash);
+    for (size_t i = 1; i <= dir.size(); ++i) {
+      if (i == dir.size() || dir[i] == '/') {
+        const std::string cur = dir.substr(0, i);
+        if (::mkdir(cur.c_str(), 0775) != 0 && errno != EEXIST) {
+          ok = false;
+          break;
+        }
+      }
+    }
+  }
+  return ok ? (u64)s7.offset + true_symbol_offset(g_game_version) : (u64)s7.offset;
 }
 
 // A37: a32_mips2c_get_noop (the A32-era shared no-op for every def-mips2c
@@ -1269,9 +1305,10 @@ void a17_bind_pc_helpers() {
   klink_mfsfc_for_game("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
   klink_mfsfc_for_game("pc-treat-pad0-as-pad1", d);
   klink_mfsfc_for_game("pc-is-imgui-visible?", d);
-  // File
-  klink_mfsfc_for_game("pc-filepath-exists?", d);
-  klink_mfsfc_for_game("pc-mkdir-file-path", d);
+  // File — Grecharged-buildsys-firstboot: REAL bodies (the 0-return stub read
+  // as TRUE in GOAL, breaking load-settings' not-found -> write-defaults path).
+  klink_mfsfc_for_game("pc-filepath-exists?", (void*)a17_pc_filepath_exists);
+  klink_mfsfc_for_game("pc-mkdir-file-path", (void*)a17_pc_mkdir_filepath);
   // Discord
   klink_mfsfc_for_game("pc-discord-rpc-set", d);
   klink_mfsfc_for_game("pc-discord-rpc-update", d);
@@ -1487,9 +1524,9 @@ void a17_bind_pc_helpers_jak2() {
   jak2::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
   jak2::make_function_symbol_from_c("pc-treat-pad0-as-pad1", d);
   jak2::make_function_symbol_from_c("pc-is-imgui-visible?", d);
-  // File
-  jak2::make_function_symbol_from_c("pc-filepath-exists?", d);
-  jak2::make_function_symbol_from_c("pc-mkdir-file-path", d);
+  // File — Grecharged-buildsys-firstboot: REAL bodies (see the jak1 list).
+  jak2::make_function_symbol_from_c("pc-filepath-exists?", (void*)a17_pc_filepath_exists);
+  jak2::make_function_symbol_from_c("pc-mkdir-file-path", (void*)a17_pc_mkdir_filepath);
   // Discord
   jak2::make_function_symbol_from_c("pc-discord-rpc-set", d);
   // Profiler
@@ -9172,8 +9209,8 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
     }
   }
 
-  // Canonical argv shape:
-  //   gk --game <name> --portable -fakeiso -iso-data <data_root> -boot -debug-mem
+  // Canonical argv shape (EXTERNAL mode — the only supported mode):
+  //   gk --game <name> --game-root <root> [--iso-overlay <ov>] -fakeiso -iso-data <data_root> -boot -debug-mem
   // The runtime accepts CLI11 long flags AND the legacy kmachine `-foo`
   // flags interleaved; main.cpp re-parses both layers (CLI11 first, the
   // rest passed through to InitParms).
@@ -9186,51 +9223,45 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   //      the D4 validator greps for.
   // `-debug-mem` mirrors the desktop validator smoke test so the
   // memory-layout behaviour matches Linux-arm64.
-  // External-asset-root feature (autoport 2026-07): three argv shapes.
+  // External-asset-root feature (autoport 2026-07): EXTERNAL argv shape only.
   //   EXTERNAL (g_game_root non-empty):
   //     gk --game <g> --game-root <root> --iso-overlay <overlay> -fakeiso -boot -debug-mem
-  //     NO --portable, NO -iso-data — FileUtil resolves iso/fr3/saves under
-  //     <root>, and fake_iso scans the overlay dir first for arm64 CGO/DGO +
-  //     COMMON.TXT overrides. (--iso-overlay omitted if g_iso_overlay empty.)
-  //   INTERNAL + overlay (g_iso_overlay non-empty, no game root):
-  //     today's argv + --iso-overlay <overlay> so fresh CGOs win over stale iso_data.
-  //   INTERNAL (both empty): today's argv, unchanged.
+  //     NO --portable, NO -iso-data for asset resolution — FileUtil resolves
+  //     iso/fr3/saves under <root>, and fake_iso scans the overlay dir first for
+  //     arm64 CGO/DGO + COMMON.TXT overrides. (--iso-overlay omitted if
+  //     g_iso_overlay empty.)
+  //
+  // The legacy INTERNAL / --portable mode has been removed (owner: no legacy
+  // paths). A user-picked external game root is now mandatory; without it the
+  // game cannot resolve assets and we bail cleanly.
+  if (g_game_root.empty()) {
+    __android_log_print(
+        ANDROID_LOG_ERROR, kGkLogTag,
+        "goal_main: FATAL — no external game root set (g_game_root empty). The internal/portable "
+        "mode has been removed; a user-picked game root is required. Aborting boot.");
+    return -1;
+  }
   std::vector<const char*> argv_vec;
   argv_vec.push_back("gk");
   argv_vec.push_back("--game");
   argv_vec.push_back(game_name);
-  if (!g_game_root.empty()) {
-    argv_vec.push_back("--game-root");
-    argv_vec.push_back(g_game_root.c_str());
-    if (!g_iso_overlay.empty()) {
-      argv_vec.push_back("--iso-overlay");
-      argv_vec.push_back(g_iso_overlay.c_str());
-    }
-    if (!g_custom_root.empty()) {
-      argv_vec.push_back("--custom-assets");
-      argv_vec.push_back(g_custom_root.c_str());
-    }
-    argv_vec.push_back("-fakeiso");
-    // android_goal_main still derives project_root (the app files dir, for
-    // residual get_jak_project_dir consumers) from -iso-data — keep passing it
-    // in external mode; the FileUtil external-root overrides win for actual
-    // iso/fr3/saves resolution.
-    argv_vec.push_back("-iso-data");
-    argv_vec.push_back(data_root);
-  } else {
-    argv_vec.push_back("--portable");
-    argv_vec.push_back("-fakeiso");
-    argv_vec.push_back("-iso-data");
-    argv_vec.push_back(data_root);
-    if (!g_iso_overlay.empty()) {
-      argv_vec.push_back("--iso-overlay");
-      argv_vec.push_back(g_iso_overlay.c_str());
-    }
-    if (!g_custom_root.empty()) {
-      argv_vec.push_back("--custom-assets");
-      argv_vec.push_back(g_custom_root.c_str());
-    }
+  argv_vec.push_back("--game-root");
+  argv_vec.push_back(g_game_root.c_str());
+  if (!g_iso_overlay.empty()) {
+    argv_vec.push_back("--iso-overlay");
+    argv_vec.push_back(g_iso_overlay.c_str());
   }
+  if (!g_custom_root.empty()) {
+    argv_vec.push_back("--custom-assets");
+    argv_vec.push_back(g_custom_root.c_str());
+  }
+  argv_vec.push_back("-fakeiso");
+  // android_goal_main still derives project_root (the app files dir, for
+  // residual get_jak_project_dir consumers) from -iso-data — keep passing it
+  // in external mode; the FileUtil external-root overrides win for actual
+  // iso/fr3/saves resolution.
+  argv_vec.push_back("-iso-data");
+  argv_vec.push_back(data_root);
   argv_vec.push_back("-boot");
   argv_vec.push_back("-debug-mem");
 

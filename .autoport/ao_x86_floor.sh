@@ -14,7 +14,7 @@ QUAL="${QUAL_OVERRIDE:-2}"   # round F: banding repro needs quality 0/1
 OUT=/tmp/ao_x86_floor
 DEST=".autoport/reports/Grecharged-ambient-occlusion/x86-floor/$TAG"
 SHOTDIR="build/game/OpenGOAL/jak1/screenshots"
-SETTINGS="build/game/OpenGOAL/jak1/settings/pc-settings.gc"
+SETTINGS="build/game/OpenGOAL/jak1/settings/settings.ini"
 POS="${POS_OVERRIDE:--1187.4 16.2 932.3}"   # ao_capture.sh training vantage
 CONT="${CONT_OVERRIDE:-training-start}"     # warp container (e.g. village1-hut for crease A/B)
 mkdir -p "$OUT" "$DEST" "$SHOTDIR"
@@ -22,14 +22,14 @@ mkdir -p "$OUT" "$DEST" "$SHOTDIR"
 pkill -f 'build/game/gk' 2>/dev/null; sleep 1
 pkill -f 'goalc --user-auto' 2>/dev/null; sleep 1
 
-set_key(){ # key value
+set_key(){ # key value (INI form)
   local k="$1" v="$2"
-  if grep -q "($k " "$SETTINGS"; then
-    sed -i "s/($k [^)]*)/($k $v)/" "$SETTINGS"
+  if grep -q "^$k = " "$SETTINGS"; then
+    sed -i "s/^$k = .*/$k = $v/" "$SETTINGS"
   else
-    sed -i "s/^  (skip-movies?/  ($k $v)\n  (skip-movies?/" "$SETTINGS"
+    sed -i "s/^\[settings\]/[settings]\n$k = $v/" "$SETTINGS"
   fi
-  grep -q "($k $v)" "$SETTINGS" || { echo "KEY INJECT FAILED: $k"; exit 9; }
+  grep -q "^$k = $v" "$SETTINGS" || { echo "KEY INJECT FAILED: $k"; exit 9; }
 }
 set_key "recharged-grass?" "#f"          # capture protocol: grass off
 set_key "ambient-occlusion" "0"          # env force is authoritative; keep disk clean

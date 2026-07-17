@@ -19,7 +19,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 INJECT="/data/data/$PKG/files/cpad_inject"
-SETF="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
+SETF="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 OUT=.autoport/reports/Grecharged-hud-jak1; SHOTS="$OUT/shots"; R2="$OUT/round2"
 mkdir -p "$SHOTS" "$R2"
 adb(){ "$ADB" -s "$S" "$@"; }
@@ -46,10 +46,10 @@ push_appfile(){ local bn want got; bn=$(basename "$1"); want=$(sha256sum "$1" | 
 set_flag(){ # $1 = #t or #f  -> rewrite the recharged-hud? line, push sha-verified
   adb shell run-as $PKG cat "$SETF" 2>/dev/null | tr -d '\r' > /tmp/r2-set.gc
   if grep -qa 'recharged-hud?' /tmp/r2-set.gc; then
-    sed -i "s/(recharged-hud? #[tf])/(recharged-hud? $1)/" /tmp/r2-set.gc
+    sed -i "s/^recharged-hud? = #[tf]/recharged-hud? = $1/" /tmp/r2-set.gc
   else
     echo "  WARN: recharged-hud? line not present in settings; appending"
-    printf '\n(recharged-hud? %s)\n' "$1" >> /tmp/r2-set.gc
+    printf '\n^recharged-hud? = %s\n' "$1" >> /tmp/r2-set.gc
   fi
   push_appfile /tmp/r2-set.gc "$SETF" || return 1
   echo "  device flag: $(adb shell run-as $PKG cat "$SETF" 2>/dev/null | grep -a recharged | tr -d '\r')"; }

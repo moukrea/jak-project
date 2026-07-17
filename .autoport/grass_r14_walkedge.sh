@@ -9,7 +9,7 @@ cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
 export ANDROID_SERIAL=eae4df44
 S=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
-PCS='files/.config/OpenGOAL/jak1/settings/pc-settings.gc'
+PCS='/storage/emulated/0/OpenGOAL/jak1/settings.ini'
 OUT=.autoport/reports/Grecharged-grass-poc; F="$OUT/frames"; mkdir -p "$F"
 WARP_POS="-1296.8 55.0 987.2"
 say(){ echo; echo "######## $* ########"; }
@@ -18,13 +18,13 @@ stick(){ $ADB shell "setprop debug.opengoal.cpad_inject '$1'"; }
 dbg(){ $ADB shell setprop debug.opengoal.grass_dbg "$1"; sleep 1.0; }
 
 set_grass(){ $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1
-  $ADB shell run-as $PKG cat "$PCS" > /tmp/pcs14we.gc 2>/dev/null || true
+  $ADB shell cat "$PCS" > /tmp/pcs14we.gc 2>/dev/null || true
   if grep -q 'recharged-grass?' /tmp/pcs14we.gc 2>/dev/null; then
-    sed -i "s/(recharged-grass? #[tf])/(recharged-grass? #$1)/" /tmp/pcs14we.gc
+    sed -i "s/^recharged-grass? = #[tf]/recharged-grass? = #$1/" /tmp/pcs14we.gc
     $ADB push /tmp/pcs14we.gc /data/local/tmp/pcs14we.gc >/dev/null 2>&1
-    $ADB shell run-as $PKG cp /data/local/tmp/pcs14we.gc "$PCS" 2>/dev/null || true; $ADB shell rm -f /data/local/tmp/pcs14we.gc >/dev/null 2>&1
+    $ADB shell cp /data/local/tmp/pcs14we.gc "$PCS" 2>/dev/null || true; $ADB shell rm -f /data/local/tmp/pcs14we.gc >/dev/null 2>&1
   fi
-  echo "  grass now: $($ADB shell run-as $PKG cat "$PCS" 2>/dev/null | grep recharged-grass | tr -d '\r')"; }
+  echo "  grass now: $($ADB shell cat "$PCS" 2>/dev/null | grep recharged-grass | tr -d '\r')"; }
 
 boot_warp(){ local LOG="$1"
   $ADB shell am force-stop $PKG >/dev/null 2>&1; sleep 1

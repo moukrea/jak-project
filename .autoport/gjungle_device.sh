@@ -51,17 +51,17 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   bash .autoport/lib/deploy_verify.sh "$SERIAL" || { echo "FAIL: deploy_verify"; exit 1; }
   # The slim APK ships manifest version=2 but NO jak1_assets.zip. If the device's
   # .asset_bundle_stamp != 2, LoaderActivity.unpackBundleIfNeeded WIPES
-  # files/iso_data/jak1 + files/out/jak1/fr3 then fails to re-unpack (no zip) ->
+  # files/cgo/jak1 + files/out/jak1/fr3 then fails to re-unpack (no zip) ->
   # "asset setup failed" -> boot aborts. So: restore the asset set under test
   # (CGO/DGO from $ASSET_SRC, fr3 textures from out/jak1/fr3) and stamp the device
   # to the slim manifest version so the boot fast-path skips decompress.
   echo "== restore data set under test + stamp (slim-APK data-wipe guard) =="
   ASSET_SRC="${ASSET_SRC:-.autoport/backups/jungle-arm64-withfix}"
-  A shell run-as "$PACKAGE" mkdir -p files/iso_data/jak1 files/out/jak1/fr3 >/dev/null 2>&1 || true
+  A shell run-as "$PACKAGE" mkdir -p files/cgo/jak1 files/out/jak1/fr3 >/dev/null 2>&1 || true
   for f in "$ASSET_SRC"/*.CGO "$ASSET_SRC"/*.DGO; do
     n=$(basename "$f")
     A push "$f" "/data/local/tmp/$n" >/dev/null 2>&1 && \
-      A shell run-as "$PACKAGE" cp "/data/local/tmp/$n" "files/iso_data/jak1/$n" >/dev/null 2>&1
+      A shell run-as "$PACKAGE" cp "/data/local/tmp/$n" "files/cgo/jak1/$n" >/dev/null 2>&1
     A shell rm -f "/data/local/tmp/$n" >/dev/null 2>&1 || true
   done
   for f in out/jak1/fr3/*.fr3; do
@@ -71,7 +71,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     A shell rm -f "/data/local/tmp/$n" >/dev/null 2>&1 || true
   done
   A shell "run-as $PACKAGE sh -c 'printf 2 > files/.asset_bundle_stamp'" >/dev/null 2>&1 || true
-  echo "   restored $(A shell run-as "$PACKAGE" ls files/iso_data/jak1/ 2>/dev/null | tr -d '\r' | wc -l) iso files, $(A shell run-as "$PACKAGE" ls files/out/jak1/fr3/ 2>/dev/null | tr -d '\r' | wc -l) fr3; stamp=$(A shell run-as "$PACKAGE" cat files/.asset_bundle_stamp 2>/dev/null | tr -d '\r')"
+  echo "   restored $(A shell run-as "$PACKAGE" ls files/cgo/jak1/ 2>/dev/null | tr -d '\r' | wc -l) iso files, $(A shell run-as "$PACKAGE" ls files/out/jak1/fr3/ 2>/dev/null | tr -d '\r' | wc -l) fr3; stamp=$(A shell run-as "$PACKAGE" cat files/.asset_bundle_stamp 2>/dev/null | tr -d '\r')"
 else
   device_require_attached; device_stayon_on
   A shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
@@ -79,7 +79,7 @@ else
 fi
 
 echo "== device CGO/DGO set (what's being tested) =="
-A shell run-as "$PACKAGE" sha256sum files/iso_data/jak1/JUN.DGO files/iso_data/jak1/KERNEL.CGO files/iso_data/jak1/GAME.CGO 2>/dev/null | tr -d '\r' | tee "$OUT_DIR/$RUN_TAG-deviceset.txt"
+A shell run-as "$PACKAGE" sha256sum files/cgo/jak1/JUN.DGO files/cgo/jak1/KERNEL.CGO files/cgo/jak1/GAME.CGO 2>/dev/null | tr -d '\r' | tee "$OUT_DIR/$RUN_TAG-deviceset.txt"
 
 echo "== arm JUNGLE-WARP; tag=$RUN_TAG =="
 A shell setprop debug.opengoal.jungle.warp 1 >/dev/null 2>&1 || true

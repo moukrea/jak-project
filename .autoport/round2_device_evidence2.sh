@@ -60,7 +60,7 @@ waitlog(){ # pattern seconds label
 log "=== session setup ==="
 # verify recharged-hud setting is #t
 echo "settings check:"
-ashell "run-as $PKG cat files/pc-settings.gc 2>/dev/null | grep -a recharged" | tr -d '\r' || echo "  (pc-settings recharged line not readable via run-as)"
+ashell "cat /storage/emulated/0/OpenGOAL/jak1/settings.ini 2>/dev/null | grep -a recharged" | tr -d '\r' || echo "  (settings.ini recharged line not readable)"
 
 setp debug.opengoal.f1.warp 1
 

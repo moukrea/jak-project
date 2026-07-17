@@ -52,18 +52,17 @@ boot_warp_retry(){ local POS="$1" LOG="$2" TRY ok
     [ "$ok" = 1 ] && { sleep 14; return 0; }   # settle: warp glow fades, grass field placed
   done
   return 1; }
-SETFILE="files/.config/OpenGOAL/jak1/settings/pc-settings.gc"
-set_key(){ local KEY="$1" VAL="$2" TMP=/tmp/gov3_pcset.gc   # sed one (key value) pair in place
-  $ADB shell run-as $PKG cat "$SETFILE" </dev/null | tr -d '\r' > "$TMP" || return 1
-  if grep -q "(${KEY} " "$TMP"; then
-    sed -i "s/(${KEY} [^)]*)/(${KEY} ${VAL})/" "$TMP"
+SETFILE="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+set_key(){ local KEY="$1" VAL="$2" TMP=/tmp/gov3_pcset.gc   # set one key = value line in place (INI)
+  $ADB shell cat "$SETFILE" </dev/null | tr -d '\r' > "$TMP" || return 1
+  if grep -q "^${KEY} = " "$TMP"; then
+    sed -i "s/^${KEY} = .*/${KEY} = ${VAL}/" "$TMP"
   else
-    sed -i "s/(recharged-grass? #t)/(recharged-grass? #t)\n  (${KEY} ${VAL})/" "$TMP"
-    grep -q "(${KEY} " "$TMP" || return 1
+    sed -i "s/^recharged-grass? = #t/recharged-grass? = #t\n${KEY} = ${VAL}/" "$TMP"
+    grep -q "^${KEY} = " "$TMP" || return 1
   fi
-  $ADB push "$TMP" /data/local/tmp/gov3_pcset.gc >/dev/null 2>&1 </dev/null || return 1
-  $ADB shell run-as $PKG cp /data/local/tmp/gov3_pcset.gc "$SETFILE" </dev/null || return 1
-  $ADB shell "run-as $PKG grep -F '(${KEY} ' '$SETFILE'" </dev/null | tr -d '\r'; }
+  $ADB push "$TMP" "$SETFILE" >/dev/null 2>&1 </dev/null || return 1
+  $ADB shell "grep '^${KEY} = ' '$SETFILE'" </dev/null | tr -d '\r'; }
 
 RIM="-1324.5 52.2 973.9"     # RIMCAND10: raised grass platform over the ocean (owner-validated rim)
 TERR="-1310.2 52.8 989.0"    # RIMCAND4: stepped terraces (lips between storeys + walls below lips)
@@ -123,7 +122,7 @@ for i in 004 008 012 016 020 024 028 032 036 040 044 048 052 056; do
 
 say "E. restore + force-stop (device hygiene)"
 $ADB shell am force-stop $PKG >/dev/null 2>&1 </dev/null; sleep 2
-$ADB shell "run-as $PKG grep -F '(recharged-grass-overhang? ' '$SETFILE'" </dev/null | tr -d '\r' || true
+$ADB shell "grep '^recharged-grass-overhang? = ' '$SETFILE'" </dev/null | tr -d '\r' || true
 $ADB shell setprop debug.opengoal.level.warp '""' >/dev/null 2>&1 </dev/null
 $ADB shell setprop debug.opengoal.level.warp.pos '""' >/dev/null 2>&1 </dev/null
 $ADB shell setprop debug.opengoal.cpad_inject '""' >/dev/null 2>&1 </dev/null
