@@ -129,6 +129,22 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             SharedRenderState* render_state,
                             ShaderId shader);
 
+#ifdef OG_FEAT_PBR
+// Grecharged-pbr-materials hardening (owner "beaucoup de violet" class): 1x1 neutral
+// PBR maps. The tfrag3 program declares tex_PBR_N/R/M/AO on units 11-14 whenever the
+// build has PBR; Adreno samples garbage/magenta from an incomplete or unbound unit
+// regardless of the u_pbr_mode branch, so those units must ALWAYS carry a complete
+// texture during tfrag draws — including when zero PBR materials are registered
+// (e.g. a partial albedo-only drop dir). Texel values match the shader's absent-map
+// constants (flat normal, rough 0.7, metal 0, ao 1). GL-thread only.
+struct PbrNeutralMaps {
+  GLuint normal_tex = 0, rough_tex = 0, metal_tex = 0, ao_tex = 0;
+};
+const PbrNeutralMaps& pbr_neutral_maps();
+// Bind the neutrals to units 11-14 and restore active unit 0.
+void pbr_park_neutral_maps();
+#endif
+
 void interp_time_of_day(const math::Vector<s32, 4> itimes[4],
                         const tfrag3::PackedTimeOfDay& packed_colors,
                         math::Vector<u8, 4>* out);

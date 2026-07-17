@@ -837,6 +837,7 @@ void TFragment::render_tree(int geom,
   // is always restored to 0 at the end of the draw loop.
   GLint pbr_mode_loc = -2;
   int pbr_cur_mode = 0;
+  bool pbr_bound_any = false;
   auto set_pbr = [&](s32 tex_id, const DrawMode& mode) {
     int want = 0;
     const custom_tex::PbrMaterialMaps* maps = nullptr;
@@ -865,23 +866,20 @@ void TFragment::render_tree(int geom,
       return;
     }
     if (want != 0) {
-      if (maps->normal_tex) {
-        glActiveTexture(GL_TEXTURE11);
-        glBindTexture(GL_TEXTURE_2D, maps->normal_tex);
-      }
-      if (maps->rough_tex) {
-        glActiveTexture(GL_TEXTURE12);
-        glBindTexture(GL_TEXTURE_2D, maps->rough_tex);
-      }
-      if (maps->metal_tex) {
-        glActiveTexture(GL_TEXTURE13);
-        glBindTexture(GL_TEXTURE_2D, maps->metal_tex);
-      }
-      if (maps->ao_tex) {
-        glActiveTexture(GL_TEXTURE14);
-        glBindTexture(GL_TEXTURE_2D, maps->ao_tex);
-      }
+      // Bind ALL FOUR units every time: the real map when present, the 1x1 neutral
+      // default when absent (e.g. a set with no _metallic). No unit is ever left
+      // unbound or holding another draw's map while the PBR shader path is active.
+      const auto& neutral = pbr_neutral_maps();
+      glActiveTexture(GL_TEXTURE11);
+      glBindTexture(GL_TEXTURE_2D, maps->normal_tex ? maps->normal_tex : neutral.normal_tex);
+      glActiveTexture(GL_TEXTURE12);
+      glBindTexture(GL_TEXTURE_2D, maps->rough_tex ? maps->rough_tex : neutral.rough_tex);
+      glActiveTexture(GL_TEXTURE13);
+      glBindTexture(GL_TEXTURE_2D, maps->metal_tex ? maps->metal_tex : neutral.metal_tex);
+      glActiveTexture(GL_TEXTURE14);
+      glBindTexture(GL_TEXTURE_2D, maps->ao_tex ? maps->ao_tex : neutral.ao_tex);
       glActiveTexture(GL_TEXTURE0);
+      pbr_bound_any = true;
     }
     if (want != pbr_cur_mode) {
       glUniform1i(pbr_mode_loc, want);
@@ -1049,6 +1047,12 @@ void TFragment::render_tree(int geom,
   if (pbr_cur_mode != 0) {
     glUniform1i(pbr_mode_loc, 0);
     pbr_cur_mode = 0;
+  }
+  // Hardening (magenta class): park units 11-14 on the neutral 1x1 defaults so no
+  // material map leaks into later draws this frame; restores active unit 0.
+  if (pbr_bound_any) {
+    pbr_park_neutral_maps();
+    pbr_bound_any = false;
   }
 #endif
 #ifdef __ANDROID__

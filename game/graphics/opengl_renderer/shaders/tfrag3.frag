@@ -25,6 +25,12 @@ uniform vec3 u_pbr_sun_dir;    // world-space, surface->sun, normalized
 uniform vec3 u_pbr_sun_color;
 uniform vec3 u_pbr_ambient;
 uniform float u_pbr_exposure;
+// Per-channel isolation viz on the PBR draws only (legacy neighbours untouched, so the
+// patch outline shows in every mode). 0=off, 1=albedo passthrough (what a plain
+// photo-swap would look like), 2=geometric normal, 3=final shading normal (shows the
+// normal map's perturbation vs 2), 4=roughness, 5=specular term only, 6=AO,
+// 7=full PBR with the normal map DISABLED (the N on/off A/B pair with 0).
+uniform int u_pbr_debug;
 uniform sampler2D tex_PBR_N;
 uniform sampler2D tex_PBR_R;
 uniform sampler2D tex_PBR_M;
@@ -49,7 +55,7 @@ void main() {
       vec3 Ngeo = normalize(cross(dp1, dp2));
       if (dot(Ngeo, V) < 0.0) Ngeo = -Ngeo;
       vec3 N = Ngeo;
-      if ((u_pbr_mode & 1) != 0) {
+      if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
         // cotangent frame from screen-space derivatives (no vertex tangents in tfrag data)
         vec2 duv1 = dFdx(tex_coord.xy);
         vec2 duv2 = dFdy(tex_coord.xy);
@@ -85,6 +91,20 @@ void main() {
       vec3 lit = (kd * albedo / 3.14159265 + spec) * u_pbr_sun_color * NdL
                + u_pbr_ambient * albedo * ao;
       color.rgb = pow(max(lit * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
+      if (u_pbr_debug == 1) {
+        color.rgb = T0.rgb;
+      } else if (u_pbr_debug == 2) {
+        color.rgb = Ngeo * 0.5 + 0.5;
+      } else if (u_pbr_debug == 3) {
+        color.rgb = N * 0.5 + 0.5;
+      } else if (u_pbr_debug == 4) {
+        color.rgb = vec3(rough);
+      } else if (u_pbr_debug == 5) {
+        color.rgb = pow(max(spec * u_pbr_sun_color * NdL * u_pbr_exposure, vec3(0.0)),
+                        vec3(1.0 / 2.2));
+      } else if (u_pbr_debug == 6) {
+        color.rgb = vec3(ao);
+      }
     }
 #endif
   } else {

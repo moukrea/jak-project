@@ -447,6 +447,48 @@ std::array<math::Vector4f, 4> make_new_cam_mat(const math::Vector4f cam_T_w[4],
   return result;
 }
 
+#ifdef OG_FEAT_PBR
+const PbrNeutralMaps& pbr_neutral_maps() {
+  static PbrNeutralMaps s;
+  if (!s.normal_tex) {
+    // Create on unit 11 so the lazy-create binds never clobber the caller's active
+    // unit binding — every caller rebinds 11-14 immediately after.
+    GLint prev_active = GL_TEXTURE0;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &prev_active);
+    glActiveTexture(GL_TEXTURE11);
+    auto make1x1 = [](u8 r, u8 g, u8 b) {
+      GLuint id = 0;
+      glGenTextures(1, &id);
+      glBindTexture(GL_TEXTURE_2D, id);
+      const u8 px[4] = {r, g, b, 255};
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      return id;
+    };
+    s.normal_tex = make1x1(128, 128, 255);  // flat tangent-space normal
+    s.rough_tex = make1x1(179, 179, 179);   // 0.7, the shader's absent-map default
+    s.metal_tex = make1x1(0, 0, 0);
+    s.ao_tex = make1x1(255, 255, 255);
+    glActiveTexture(prev_active);
+  }
+  return s;
+}
+
+void pbr_park_neutral_maps() {
+  const auto& neutral = pbr_neutral_maps();
+  glActiveTexture(GL_TEXTURE11);
+  glBindTexture(GL_TEXTURE_2D, neutral.normal_tex);
+  glActiveTexture(GL_TEXTURE12);
+  glBindTexture(GL_TEXTURE_2D, neutral.rough_tex);
+  glActiveTexture(GL_TEXTURE13);
+  glBindTexture(GL_TEXTURE_2D, neutral.metal_tex);
+  glActiveTexture(GL_TEXTURE14);
+  glBindTexture(GL_TEXTURE_2D, neutral.ao_tex);
+  glActiveTexture(GL_TEXTURE0);
+}
+#endif
+
 void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             SharedRenderState* render_state,
                             ShaderId shader) {
@@ -502,6 +544,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1i(glGetUniformLocation(id, "tex_PBR_R"), 12);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_AO"), 14);
+  // Units 11-14 must be complete for EVERY draw of this program — including when zero
+  // PBR materials are registered this level (see pbr_neutral_maps in background_common.h).
+  pbr_park_neutral_maps();
   const auto& gs = Gfx::g_global_settings;
   // Sun direction is surface->sun; the GOAL shadow vector is light-travel (sun->surface), so negate.
   float sd[3] = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1], -gs.recharged_pbr_shadow[2]};
@@ -513,11 +558,46 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     sl = 1.f;
   }
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_dir"), sd[0] / sl, sd[1] / sl, sd[2] / sl);
-  glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0],
-              gs.recharged_pbr_sun_color[1], gs.recharged_pbr_sun_color[2]);
-  glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0],
-              gs.recharged_pbr_ambient[1], gs.recharged_pbr_ambient[2]);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"), gs.recharged_pbr_exposure);
+  // The mood tables store sun-color / env-color as 0..255-scale floats (e.g.
+  // village1 sun-color (255,128,0)); pushing them raw made lit explode ~100x and
+  // clamp to saturated hues. Scale to 0..1 HERE (GL boundary) so GOAL keeps
+  // pushing the raw engine values (1:1 pass-through in the pc layer).
+  float sun_scale = 1.0f / 255.0f;
+  float amb_scale = 1.0f / 255.0f;
+  float exposure = gs.recharged_pbr_exposure;
+  // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
+  // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
+  int pbr_debug = 0;
+#ifdef __ANDROID__
+  // Device-tunable calibration for the PoC: debug props override the defaults so
+  // exposure/scale can be dialed without a rebuild. Absent props = defaults.
+  {
+    char v[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.pbr.sunscale", v) > 0) {
+      sun_scale = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.ambscale", v) > 0) {
+      amb_scale = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.exposure", v) > 0) {
+      exposure = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.debug", v) > 0) {
+      pbr_debug = atoi(v);
+    }
+  }
+#else
+  if (const char* e = getenv("OG_PBR_DEBUG")) {
+    pbr_debug = atoi(e);
+  }
+#endif
+  glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
+  glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
+              gs.recharged_pbr_sun_color[1] * sun_scale,
+              gs.recharged_pbr_sun_color[2] * sun_scale);
+  glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
+              gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"), exposure);
 #endif
 }
 
