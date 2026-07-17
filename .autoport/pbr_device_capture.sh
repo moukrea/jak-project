@@ -35,6 +35,11 @@ material)
     [ -f "$SRC/${TEX}${suf}.png" ] || { echo "[pbr-cap FAIL] missing $SRC/${TEX}${suf}.png"; exit 1; }
   done
   adb shell mkdir -p "$DROP/village1-vis-tfrag" </dev/null
+  # Stray PNGs anywhere under custom_assets replace textures via the bare-name
+  # fallback and invalidate the A/B (root cause of the owner's "beaucoup de
+  # violet": a stray solid-magenta vil1-jng-leafyground.png at the DROP root).
+  STRAYS="$(adb shell "ls $DROP/*.png 2>/dev/null" </dev/null | tr -d '\r')"
+  [ -n "$STRAYS" ] && { echo "--- removing stray root PNGs: $STRAYS"; adb shell "rm -f $DROP/*.png" </dev/null; }
   adb shell "rm -f $DROP/village1-vis-tfrag/*.png" </dev/null
   for suf in "" _normal _roughness _ao; do
     adb push "$SRC/${TEX}${suf}.png" "$DROP/village1-vis-tfrag/${TEX}${suf}.png" >/dev/null
@@ -162,15 +167,17 @@ viz)
   [ "$ok" = 1 ] || { echo "[pbr-cap FAIL] warp never spawned (viz)"; exit 1; }
   sleep 12
   FOCUS_LINE="$(focus)"
+  rm -f /tmp/pbr_viz_times.txt   # MUST precede the writer spawn (attempt-3 race
+                                 # deleted the writer's first line -> misparsed
+                                 # offsets -> 7 identical stills)
+  BG_START=$(date +%s.%N)
   ( sleep 2
-    T_REC_GUESS=$(date +%s.%N)
     for m in 0 1 2 3 4 5 6 7; do
       adb shell "setprop debug.opengoal.pbr.debug $m" </dev/null
       echo "$m $(date +%s.%N)" >> /tmp/pbr_viz_times.txt
       sleep 8
     done ) &
   KICK=$!
-  rm -f /tmp/pbr_viz_times.txt
   adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
   REC_START=$(date +%s.%N)
   adb shell screenrecord --time-limit 70 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
@@ -186,9 +193,19 @@ viz)
   # start latency guess; mid-segment tolerates the jitter)
   mkdir -p "$OUT/viz"; rm -f "$OUT/viz"/mode*.png
   while read -r m tset; do
+    # validate: m must be a single mode digit and tset a wall-clock float;
+    # anything else (partial line) falls through to the schedule fallback below.
+    case "$m" in [0-7]) ;; *) continue ;; esac
+    [ -n "${tset:-}" ] || continue
     off=$(python3 -c "print(max(0.5, $tset - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
   done < /tmp/pbr_viz_times.txt
+  # schedule fallback: mode m was set at ~BG_START+2+8m; mid-segment extract.
+  for m in 0 1 2 3 4 5 6 7; do
+    [ -f "$OUT/viz/mode$m.png" ] && continue
+    off=$(python3 -c "print(max(0.5, $BG_START + 2 + 8*$m - $REC_START - 0.8 + 4.0))")
+    ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
+  done
   { echo "=== run viz $(date -Is) ==="
     echo "focus-at-record: $FOCUS_LINE"
     echo "focus-at-END: $FOCUS_END"
@@ -210,6 +227,8 @@ material_partial)
   KIND="${2:?albedo|normalonly}"
   TEX="${PBR_TEX:-vil-beach-01}"
   adb shell mkdir -p "$DROP/village1-vis-tfrag" </dev/null
+  STRAYS="$(adb shell "ls $DROP/*.png 2>/dev/null" </dev/null | tr -d '\r')"
+  [ -n "$STRAYS" ] && { echo "--- removing stray root PNGs: $STRAYS"; adb shell "rm -f $DROP/*.png" </dev/null; }
   adb shell "rm -f $DROP/village1-vis-tfrag/*.png" </dev/null
   adb push "$SRC/${TEX}.png" "$DROP/village1-vis-tfrag/${TEX}.png" >/dev/null
   if [ "$KIND" = normalonly ]; then
@@ -261,11 +280,12 @@ renderscale)
          printf '' | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev/null 2>&1 || true
          sleep "${2:-0.9}"; }
   ( sleep 3
-    btn "start" 2.5                                   # pause menu
+    btn "start" 2.5                                   # pause menu root
     for i in 1 2 3 4; do adb exec-out screencap -p > "$OUT/rs_nav_pre$i.png" 2>/dev/null; sleep 0.3; done
-    btn "down" 0.7; btn "down" 0.7                    # to OPTIONS (pause menu row 2)
+    # proven path (goverhang7_menu_toggle3.sh): CIRCLE opens OPTIONS from pause
+    # root (on-screen legend), then one DOWN + X enters GRAPHICS.
+    btn "circle" 2.0                                  # into OPTIONS
     adb exec-out screencap -p > "$OUT/rs_nav_options_row.png" 2>/dev/null
-    btn "x" 2.0                                       # into options
     btn "down" 0.8; btn "x" 2.0                       # into GRAPHICS
     adb exec-out screencap -p > "$OUT/rs_nav_graphics.png" 2>/dev/null
     btn "down" 0.6; btn "down" 0.6; btn "down" 0.6    # row 3 = RENDER SCALE
