@@ -1112,6 +1112,21 @@ void InitMachineScheme() {
 // a thin wrapper to _call_goal8_asm_arm64 (linux_arm64_runtime_compat.cpp).
 extern "C" u64 _call_goal8_asm_systemv(void* func, u64* arg_array, u64 zero, u64 pp, u64 st,
                                        void* off);
+#if defined(__APPLE__) && defined(__aarch64__)
+// macOS has no linux_arm64_runtime_compat.cpp; bind the wrapper here. The
+// asm-name declaration matches the .s label exactly (Mach-O would otherwise
+// prepend an extra underscore to the C reference).
+extern "C" u64 _call_goal8_asm_arm64(void* func,
+                                     u64* arg_array,
+                                     u64 zero,
+                                     u64 pp,
+                                     u64 st,
+                                     void* off) asm("_call_goal8_asm_arm64");
+extern "C" u64 _call_goal8_asm_systemv(void* func, u64* arg_array, u64 zero, u64 pp, u64 st,
+                                       void* off) {
+  return _call_goal8_asm_arm64(func, arg_array, zero, pp, st, off);
+}
+#endif
 
 // Builds a GOAL-callable trampoline around a C function (jak1/kscheme.cpp). Not
 // declared in any header, so forward-declare it here.

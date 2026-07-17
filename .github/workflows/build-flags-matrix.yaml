@@ -6,6 +6,13 @@
 name: build-flags-matrix
 on:
   workflow_dispatch: {}
+  # dispatch-by-name needs the workflow registered, which requires a triggering
+  # event: self-register + run when this file itself changes in a snapshot push.
+  push:
+    branches:
+      - autoport/android-port-ci
+    paths:
+      - ".github/workflows/build-flags-matrix.yaml"
 
 jobs:
   flags:

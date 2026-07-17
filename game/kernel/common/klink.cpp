@@ -488,9 +488,9 @@ u64 a11_pc_get_mips2c_impl(u32 name) {
 }
 }  // namespace
 
-#ifdef __aarch64__
-// A37: defined in game/mips2c/mips2c_table_jak1_arm64.cpp (arm64 builds
-// only). Pre-allocates the mips2c trampoline arena + the shared noop
+#if defined(__aarch64__) && !defined(__APPLE__)
+// A37: defined in game/mips2c/mips2c_table_jak1_arm64.cpp (android/linux-arm64
+// builds only — the TU is not part of the macOS build). Pre-allocates the mips2c trampoline arena + the shared noop
 // while the global-heap cursor is still in the stable early region —
 // mid-DGO-link heap allocs get reused by later heap traffic on this
 // path (run-9 forensics: DMA bucket tags overwrote a trampoline emitted
@@ -518,7 +518,7 @@ void klink_a11_ensure_pc_mips2c_bound() {
 
   auto fn = klink_mfsfc_for_game("__pc-get-mips2c",
                                  (void*)a11_pc_get_mips2c_impl);
-#ifdef __aarch64__
+#if defined(__aarch64__) && !defined(__APPLE__)
   // Gjak2-render: each game pre-allocates its OWN trampoline arena with its own
   // symbol-read idiom. The jak1 arena uses jak1_symbols::FIX_SYM_* (GLOBAL_HEAP
   // 0x140, FUNCTION_TYPE 0x10) + a raw *(s7+off) deref; the jak2 arena uses

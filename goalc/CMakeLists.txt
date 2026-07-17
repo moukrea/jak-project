@@ -83,7 +83,13 @@ add_library(compiler
         regalloc/Allocator_v2.cpp
         compiler/docs/DocTypes.cpp)
 
-target_link_libraries(compiler common Zydis capstone-static tiny_gltf decomp)
+if(WIN32)
+  # capstone is not built on Windows (see root CMakeLists) — disassemble.cpp
+  # stubs the arm64 decoder there.
+  target_link_libraries(compiler common Zydis tiny_gltf decomp)
+else()
+  target_link_libraries(compiler common Zydis capstone-static tiny_gltf decomp)
+endif()
 
 if (WIN32)
     target_link_libraries(compiler mman)

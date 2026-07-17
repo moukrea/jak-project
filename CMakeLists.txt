@@ -495,6 +495,11 @@ build_third_party_lib(zydis Zydis)
 # Only the AArch64 decoder is needed; everything else is disabled to keep the
 # build small. Normal variables are honored by capstone's option() calls under
 # CMake policy CMP0077.
+# NOT on Windows: capstone's C objects each emit MSVC intrinsic port-IO shims
+# (__inbyte & co) under GNU-driver clang -> duplicate symbols at lld-link, and
+# the codegen-diff tool that consumes it is a linux-side tool anyway
+# (goalc/debugger/disassemble.cpp stubs decode_arm64 on _WIN32).
+if(NOT WIN32)
 set(CAPSTONE_ARCHITECTURE_DEFAULT OFF CACHE BOOL "" FORCE)
 set(CAPSTONE_ARM64_SUPPORT ON CACHE BOOL "" FORCE)
 set(CAPSTONE_BUILD_SHARED OFF CACHE BOOL "" FORCE)
@@ -508,6 +513,7 @@ target_include_directories(capstone-static SYSTEM INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/third-party/capstone/include)
 # consumed by the (potentially shared) compiler lib, so it must be PIC.
 set_target_properties(capstone-static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # windows memory management lib
 if(WIN32)

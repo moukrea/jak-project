@@ -7,7 +7,9 @@
 #include "Zydis/Decoder.h"
 #include "Zydis/Formatter.h"
 
+#ifndef _WIN32
 #include "capstone/capstone.h"
+#endif
 #include "fmt/color.h"
 #include "fmt/format.h"
 
@@ -243,6 +245,14 @@ static std::string normalize_arm64_reg(const char* name) {
 
 std::vector<DecodedInstr> decode_arm64(u8* data, int len, u64 base_addr) {
   std::vector<DecodedInstr> out;
+#ifdef _WIN32
+  // capstone is not built on Windows (its C objects duplicate MSVC intrinsic
+  // shims under lld-link); the arm64 codegen-diff tool is a linux-side tool.
+  (void)data;
+  (void)len;
+  (void)base_addr;
+  return out;
+#else
   csh handle;
   if (cs_open(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, &handle) != CS_ERR_OK) {
     return out;
@@ -336,6 +346,7 @@ std::vector<DecodedInstr> decode_arm64(u8* data, int len, u64 base_addr) {
   cs_free(insn, 1);
   cs_close(&handle);
   return out;
+#endif
 }
 
 std::string disassemble_arm64(u8* data, int len, u64 base_addr) {
