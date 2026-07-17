@@ -154,6 +154,13 @@ public class MainActivity extends SDLActivity {
         final boolean cgoReady = cgoDir.isDirectory()
                 && cgoDir.list() != null && cgoDir.list().length > 0;
 
+        // Grecharged-buildsys-packaging: the unpacked package-shipped custom
+        // assets (recharged_assets/, fr3/). When present+non-empty, push it so
+        // FileUtil prefers it over the vanilla data tree. Set in both modes.
+        final File customDir = new File(getFilesDir(), "custom/" + gameName);
+        final boolean customReady = customDir.isDirectory()
+                && customDir.list() != null && customDir.list().length > 0;
+
         if (mExternalMode) {
             final File gameRoot = new File(assetRoot, gameFolder(gameName));
             final File extIso = new File(gameRoot, "assets/iso");
@@ -174,14 +181,22 @@ public class MainActivity extends SDLActivity {
             if (cgoReady) {
                 NativeGk.setIsoOverlay(cgoDir.getAbsolutePath());
             }
+            if (customReady) {
+                NativeGk.setCustomRoot(customDir.getAbsolutePath());
+            }
             Log.i(TAG, "external asset mode: gameRoot=" + gameRoot.getAbsolutePath()
-                    + " isoOverlay=" + (cgoReady ? cgoDir.getAbsolutePath() : "(none)"));
+                    + " isoOverlay=" + (cgoReady ? cgoDir.getAbsolutePath() : "(none)")
+                    + " customRoot=" + (customReady ? customDir.getAbsolutePath() : "(none)"));
         } else {
             // INTERNAL mode: fresh CGOs from the unpacked pack win over any stale
             // iso_data CGO copies (overlay scanned first by fake_iso).
             if (cgoReady) {
                 NativeGk.setIsoOverlay(cgoDir.getAbsolutePath());
                 Log.i(TAG, "internal asset mode: isoOverlay=" + cgoDir.getAbsolutePath());
+            }
+            if (customReady) {
+                NativeGk.setCustomRoot(customDir.getAbsolutePath());
+                Log.i(TAG, "internal asset mode: customRoot=" + customDir.getAbsolutePath());
             }
         }
 

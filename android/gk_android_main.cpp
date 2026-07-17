@@ -181,6 +181,10 @@ const char* g_data_root = nullptr;
 }  // namespace
 std::string g_game_root;
 std::string g_iso_overlay;
+// g_custom_root : package-shipped port-custom assets dir (recharged_assets/, fr3/).
+//                 Non-empty appends --custom-assets in both modes; FileUtil then
+//                 prefers it over the vanilla data tree.
+std::string g_custom_root;
 namespace {
 
 // The app's EXTERNAL files dir (getExternalFilesDir(null)) pushed from Java via
@@ -9202,6 +9206,10 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
       argv_vec.push_back("--iso-overlay");
       argv_vec.push_back(g_iso_overlay.c_str());
     }
+    if (!g_custom_root.empty()) {
+      argv_vec.push_back("--custom-assets");
+      argv_vec.push_back(g_custom_root.c_str());
+    }
     argv_vec.push_back("-fakeiso");
     // android_goal_main still derives project_root (the app files dir, for
     // residual get_jak_project_dir consumers) from -iso-data — keep passing it
@@ -9217,6 +9225,10 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
     if (!g_iso_overlay.empty()) {
       argv_vec.push_back("--iso-overlay");
       argv_vec.push_back(g_iso_overlay.c_str());
+    }
+    if (!g_custom_root.empty()) {
+      argv_vec.push_back("--custom-assets");
+      argv_vec.push_back(g_custom_root.c_str());
     }
   }
   argv_vec.push_back("-boot");
@@ -9307,6 +9319,24 @@ Java_org_opengoal_gk_NativeGk_setIsoOverlay(JNIEnv* env, jclass /*clazz*/,
     env->ReleaseStringUTFChars(j_path, s);
     __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                         "NativeGk.setIsoOverlay: %s", g_iso_overlay.c_str());
+  }
+}
+
+// Grecharged-buildsys-packaging: store the package-shipped custom-assets dir
+// (recharged_assets/, fr3/) that FileUtil prefers over the vanilla data tree.
+// Appended as --custom-assets in both modes when non-empty.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setCustomRoot(JNIEnv* env, jclass /*clazz*/,
+                                            jstring j_path) {
+  if (!j_path) {
+    return;
+  }
+  const char* s = env->GetStringUTFChars(j_path, nullptr);
+  if (s) {
+    g_custom_root = s;
+    env->ReleaseStringUTFChars(j_path, s);
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "NativeGk.setCustomRoot: %s", g_custom_root.c_str());
   }
 }
 

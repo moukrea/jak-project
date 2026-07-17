@@ -73,6 +73,15 @@ public final class NativeGk {
     public static native void setIsoOverlay(String path);
 
     /**
+     * Grecharged-buildsys-packaging: push the absolute path of the unpacked
+     * package-shipped custom-assets dir (<filesDir>/custom/<game>, holding
+     * recharged_assets/ and fr3/) into a process-lifetime native global.
+     * gk_sdl_main appends `--custom-assets <path>` when set; FileUtil then
+     * prefers it over the vanilla data tree. Same ordering requirement.
+     */
+    public static native void setCustomRoot(String path);
+
+    /**
      * Owner swamp-crash capture build (INSTRUMENTATION ONLY): push the app's
      * EXTERNAL files dir (getExternalFilesDir(null).getAbsolutePath(), e.g.
      * /sdcard/Android/data/org.opengoal.gk.jak1/files) into a native global so

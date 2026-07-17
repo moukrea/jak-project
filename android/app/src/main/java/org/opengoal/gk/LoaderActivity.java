@@ -96,6 +96,8 @@ public class LoaderActivity extends AppCompatActivity {
     private static final String ZIP_SUFFIX = "_assets.zip";
     // External-asset-root feature: the slim per-arch code pack.
     private static final String CGO_SUFFIX = "_cgo.zip";
+    // Grecharged-buildsys-packaging: the package-shipped port-custom asset pack.
+    private static final String CUSTOM_SUFFIX = "_custom.zip";
 
     private static final int COPY_BUFFER_BYTES = 256 * 1024;
     // Free-space safety margin over the raw uncompressed size.
@@ -502,6 +504,7 @@ public class LoaderActivity extends AppCompatActivity {
         worker = new Thread(() -> {
             try {
                 unpackCgoPackIfNeeded(gameName);
+                unpackCustomPackIfNeeded(gameName);
                 runOnUiThread(() -> decideBootMode(gameName));
             } catch (Throwable t) {
                 Log.e(TAG, "LoaderActivity: CGO pack setup failed", t);
@@ -1239,6 +1242,92 @@ public class LoaderActivity extends AppCompatActivity {
         }
         writeStamp(stamp, version);
         Log.i(TAG, gameName + " CGO pack unpacked: " + filesWritten
+                + " files (version=" + version + ")");
+    }
+
+    // Grecharged-buildsys-packaging: unpack the package-shipped port-custom asset
+    // pack (recharged_assets/*.png, fr3/*.grassbake, fr3/enhanced/*.fr3) into
+    // <filesDir>/custom/<game>/. Mirrors unpackCgoPackIfNeeded (version-stamped,
+    // wipe-then-unpack-then-stamp-LAST) with two differences: (a) zip entry
+    // subpaths are PRESERVED (parent dirs created); (b) if the pack is ABSENT
+    // from the APK but a stamp exists, the previously-unpacked custom dir is
+    // wiped and the stamp deleted (pack removed from build) — not an error.
+    private void unpackCustomPackIfNeeded(String gameName) throws IOException {
+        File filesDir = getFilesDir();
+        File stamp = new File(filesDir, ".custom_pack_stamp_" + gameName);
+        File target = new File(filesDir, "custom/" + gameName);
+
+        String zipAsset = BUNDLE_DIR + "/" + gameName + CUSTOM_SUFFIX;
+        String manifestAsset = BUNDLE_DIR + "/" + gameName + "_custom.manifest.properties";
+        if (!assetExists(manifestAsset)) {
+            // Pack removed from this build: drop any previously-unpacked dir so we
+            // don't boot custom assets the build no longer ships.
+            if (stamp.isFile()) {
+                Log.i(TAG, "custom pack removed from APK for " + gameName
+                        + " — wiping " + target.getAbsolutePath());
+                deleteRecursive(target);
+                stamp.delete();
+            } else {
+                Log.i(TAG, "no custom pack in this APK for " + gameName + " — skipping");
+            }
+            return;
+        }
+
+        Properties p = new Properties();
+        try (InputStream in = getAssets().open(manifestAsset)) {
+            p.load(in);
+        }
+        String version = p.getProperty("version", "0");
+        int wantFiles = Integer.parseInt(p.getProperty("file_count", "-1").trim());
+
+        if (stamp.isFile() && version.equals(readStamp(stamp))) {
+            Log.i(TAG, gameName + " custom pack current (version=" + version + ")");
+            return;
+        }
+        Log.i(TAG, gameName + " custom pack unpack (version=" + version
+                + ", files=" + wantFiles + ")");
+        setStatus("Updating game assets…");
+
+        // Wipe target + stale stamp first so an interrupted unpack never leaves a
+        // mixed asset set behind.
+        if (stamp.exists()) stamp.delete();
+        deleteRecursive(target);
+        if (!target.mkdirs()) {
+            throw new IOException("could not create " + target.getAbsolutePath());
+        }
+
+        int filesWritten = 0;
+        byte[] buf = new byte[COPY_BUFFER_BYTES];
+        String canonRoot = target.getCanonicalPath() + File.separator;
+        try (InputStream rawIn = getAssets().open(zipAsset, AssetManager.ACCESS_STREAMING);
+             ZipInputStream zin = new ZipInputStream(rawIn)) {
+            ZipEntry e;
+            while ((e = zin.getNextEntry()) != null) {
+                if (e.isDirectory()) { zin.closeEntry(); continue; }
+                // PRESERVE the entry subpath (recharged_assets/x.png, fr3/y.grassbake,
+                // fr3/enhanced/z.fr3) — create parent dirs.
+                File outFile = new File(target, e.getName());
+                if (!outFile.getCanonicalPath().startsWith(canonRoot)) {
+                    throw new IOException("refusing unsafe custom pack entry: " + e.getName());
+                }
+                File parent = outFile.getParentFile();
+                if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+                    throw new IOException("could not create " + parent.getAbsolutePath());
+                }
+                try (FileOutputStream out = new FileOutputStream(outFile)) {
+                    int r;
+                    while ((r = zin.read(buf)) > 0) out.write(buf, 0, r);
+                }
+                zin.closeEntry(); // CRC32 validation
+                filesWritten++;
+            }
+        }
+        if (wantFiles >= 0 && filesWritten != wantFiles) {
+            throw new IOException("custom pack integrity: unpacked " + filesWritten
+                    + " files, manifest expects " + wantFiles);
+        }
+        writeStamp(stamp, version);
+        Log.i(TAG, gameName + " custom pack unpacked: " + filesWritten
                 + " files (version=" + version + ")");
     }
 

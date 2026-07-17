@@ -628,6 +628,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs,
   const auto tA = clk::now();
 
   bool from_bake = false;
+  std::string resolved_bake_path;
   // Resolve fr3 size (used both to validate a bake and as scan input).
   const std::string fr3_path =
       (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".fr3")).string();
@@ -641,8 +642,17 @@ void GrassRenderer::rebuild(SharedRenderState* rs,
   }
 
   if (want_pre && !floor_gap_overridden) {
-    const std::string bake_path =
+    // Prefer the package-shipped custom fr3 grassbake when present, else the
+    // vanilla fr3 dir. The resolved path is echoed in the PLACE-TIME log below.
+    std::string bake_path =
         (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".grassbake")).string();
+    if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
+      const std::string custom_bake = (*custom_fr3 / (level_name + ".grassbake")).string();
+      if (file_util::file_exists(custom_bake)) {
+        bake_path = custom_bake;
+      }
+    }
+    resolved_bake_path = bake_path;
     grass_bake::BakeData loaded;
     std::string reason;
     if (!grass_bake::load_bake(loaded, bake_path)) {
@@ -818,10 +828,10 @@ void GrassRenderer::rebuild(SharedRenderState* rs,
   };
   // source = tA..tB (load_bake OR scan); expand+logs = tB..tExpandEnd; upload+light = tExpandEnd..tC.
   lg::info(
-      "[recharged-grass] PLACE-TIME mode={} total={:.0f}ms (source={:.0f}ms expand+logs={:.0f}ms "
-      "upload+light={:.0f}ms) instances={}",
-      from_bake ? "precomputed" : "live", ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd),
-      ms(tExpandEnd, tC), m_instance_count);
+      "[recharged-grass] PLACE-TIME mode={} bake={} total={:.0f}ms (source={:.0f}ms "
+      "expand+logs={:.0f}ms upload+light={:.0f}ms) instances={}",
+      from_bake ? "precomputed" : "live", resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
+      ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC), m_instance_count);
 }
 
 

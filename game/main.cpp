@@ -300,6 +300,7 @@ int goal_main(int argc, char** argv) {
   fs::path user_config_dir_override;
   fs::path game_root_override;
   fs::path iso_overlay_override;
+  fs::path custom_assets_override;
   std::vector<std::string> game_args;
   CLI::App app{"OpenGOAL Game Runtime"};
   app.add_flag("--version", show_version, "Display the built revision");
@@ -335,6 +336,9 @@ int goal_main(int argc, char** argv) {
                  "(e.g. /sdcard/OpenGOAL/jak_1)");
   app.add_option("--iso-overlay", iso_overlay_override,
                  "Directory holding the per-arch compiled *.CGO/*.DGO iso overlay");
+  app.add_option("--custom-assets", custom_assets_override,
+                 "Directory holding port-custom assets (recharged_assets/, fr3/) shipped in the "
+                 "package, taking precedence over the vanilla data tree");
   app.footer(game_arg_documentation());
   app.add_option("Game Args", game_args,
                  "Remaining arguments (after '--') that are passed-through to the game itself");
@@ -365,6 +369,10 @@ int goal_main(int argc, char** argv) {
   if (!iso_overlay_override.empty()) {
     lg::info("Using iso overlay dir: {}", iso_overlay_override.string());
     file_util::set_iso_overlay_dir(iso_overlay_override);
+  }
+  if (!custom_assets_override.empty()) {
+    lg::info("Using custom assets root: {}", custom_assets_override.string());
+    file_util::set_custom_assets_root(custom_assets_override);
   }
 
   if (show_version) {

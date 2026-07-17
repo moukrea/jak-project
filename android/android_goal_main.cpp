@@ -299,6 +299,16 @@ int goal_main(int argc, char** argv) {
       __android_log_print(ANDROID_LOG_INFO, kLogTag,
                           "goal_main: iso overlay dir -> %s", g_iso_overlay.c_str());
     }
+    // Grecharged-buildsys-packaging: same direct wiring for the package-shipped
+    // custom-assets root (recharged PNGs, .grassbake, enhanced fr3 read from
+    // <filesDir>/custom/<game> instead of the vanilla external tree). The
+    // --custom-assets argv flag is inert here for the same reason as above.
+    extern std::string g_custom_root;  // defined in gk_android_main.cpp
+    if (!g_custom_root.empty()) {
+      file_util::set_custom_assets_root(fs::path(g_custom_root));
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "goal_main: custom assets root -> %s", g_custom_root.c_str());
+    }
   }
 
   // ---------------------------------------------------------------------

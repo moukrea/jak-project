@@ -190,6 +190,15 @@ static bool read_persisted_enhanced_models() {
 static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
 #ifdef OG_FEAT_HD_MODELS
   if (Gfx::g_global_settings.recharged_enhanced_models) {
+    // Prefer the package-shipped custom fr3/enhanced/ when the custom root is set.
+    if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
+      auto custom_enhanced = *custom_fr3 / "enhanced" / fmt::format("{}.fr3", name);
+      if (file_util::file_exists(custom_enhanced.string())) {
+        // lg (not raw stdout): on Android only lg::* routes to logcat.
+        lg::info("HD-MODELS fr3-select {}: ENHANCED (custom) {}", name, custom_enhanced.string());
+        return custom_enhanced;
+      }
+    }
     auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
     if (file_util::file_exists(enhanced.string())) {
       // lg (not raw stdout): on Android only lg::* routes to logcat.

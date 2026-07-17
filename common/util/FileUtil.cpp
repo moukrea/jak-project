@@ -72,6 +72,10 @@ std::optional<fs::path> g_external_game_root;
 // Separate iso overlay dir holding per-arch compiled *.CGO/*.DGO (+ platform
 // COMMON.TXT overrides) shipped with the binary.
 std::optional<fs::path> g_iso_overlay_dir;
+// Port-custom assets (recharged PNGs, .grassbake, enhanced fr3) shipped inside
+// the package (APK-internal / desktop archive), distinct from the external
+// vanilla data tree. When set, takes precedence over external/project roots.
+std::optional<fs::path> g_custom_assets_root;
 
 void set_external_game_root(const fs::path& root) {
   g_external_game_root = root;
@@ -87,6 +91,21 @@ void set_iso_overlay_dir(const fs::path& p) {
 
 std::optional<fs::path> get_iso_overlay_dir() {
   return g_iso_overlay_dir;
+}
+
+void set_custom_assets_root(const fs::path& p) {
+  g_custom_assets_root = p;
+}
+
+std::optional<fs::path> get_custom_assets_root() {
+  return g_custom_assets_root;
+}
+
+std::optional<fs::path> get_custom_fr3_dir() {
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / "fr3";
+  }
+  return {};
 }
 
 fs::path get_user_config_dir() {
@@ -331,6 +350,10 @@ fs::path get_fr3_dir(GameVersion game_version) {
 }
 
 fs::path get_recharged_assets_dir() {
+  // Precedence: package-shipped custom assets > external vanilla tree > project.
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / "recharged_assets";
+  }
   if (g_external_game_root) {
     return *g_external_game_root / "assets" / "recharged_assets";
   }

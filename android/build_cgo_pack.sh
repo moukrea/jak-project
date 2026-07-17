@@ -11,7 +11,12 @@
 #
 # Layout (zip root, FLAT — no subdirs):
 #   *.CGO / *.DGO   the 28 ARM64-compiled code files (jak1; >0 for jak2)
-#   *COMMON.TXT     android text overrides (out/<game>-android-text/, if present)
+#   *.TXT           ALL rebuilt text banks (out/<game>/iso/*.TXT — COMMON + SUBTIT,
+#                   every language; they carry port-custom text ids so they are
+#                   PACKAGE artifacts per the Grecharged-buildsys-packaging rule;
+#                   the source-derived <game>_assets.zip ships NO TXT), with the
+#                   android *COMMON.TXT overrides (out/<game>-android-text/)
+#                   overlaid over the same-named desktop banks.
 #
 # Output:
 #   android/app/src/<game>/assets-slim/bundle/<game>_cgo.zip           (DEFLATE)
@@ -54,26 +59,43 @@ if [ "$GAME" = "jak1" ]; then
 fi
 [ -f "$ARM64_CODE/KERNEL.CGO" ] || fail "arm64 set missing KERNEL.CGO"
 
-# android *COMMON.TXT overrides (optional; present for jak1).
+# ALL rebuilt text banks from the desktop iso build (COMMON + SUBTIT, every
+# language). Grecharged-buildsys-packaging: the separate <game>_assets.zip ships
+# ONLY vanilla data (no TXT), so the pack is now the ONLY delivery path for the
+# rebuilt banks — a missing bank here = missing language/subtitles on device.
+mapfile -t DESKTOP_TXT < <(find "$ISO_BUILD" -maxdepth 1 -type f -name '*.TXT' -printf '%f\n' 2>/dev/null | sort)
+N_DTXT=${#DESKTOP_TXT[@]}
+[ "$N_DTXT" -gt 0 ] || fail "no *.TXT banks in $ISO_BUILD — run the PC text build first"
+if [ "$GAME" = "jak1" ]; then
+  [ "$N_DTXT" -eq 46 ] || fail "jak1 expects exactly 46 TXT banks (23 COMMON + 23 SUBTIT), found $N_DTXT in $ISO_BUILD"
+fi
+
+# android *COMMON.TXT overrides (optional; present for jak1). They REPLACE the
+# same-named desktop banks (no count change).
 mapfile -t TEXT_FILES < <([ -d "$ANDROID_TEXT" ] && find "$ANDROID_TEXT" -maxdepth 1 -type f -name '*COMMON.TXT' -printf '%f\n' | sort || true)
 N_TEXT=${#TEXT_FILES[@]}
 
-WANT_FC=$((N_CODE + N_TEXT))
+WANT_FC=$((N_CODE + N_DTXT))
 
 # Content-derived VERSION (md5 of all pack member contents), like
 # build_asset_bundle.sh — any code/text change forces on-device re-unpack.
 VERSION="${CGO_PACK_VERSION:-}"
 if [ -z "$VERSION" ]; then
+  # Hash the EFFECTIVE member contents: arm64 code + every TXT bank, where an
+  # android override (same name) wins over the desktop copy.
   VERSION="c$( {
       for f in "${CODE_FILES[@]}"; do printf '%s\0' "$ARM64_CODE/$f"; done
-      for f in "${TEXT_FILES[@]}"; do printf '%s\0' "$ANDROID_TEXT/$f"; done
+      for f in "${DESKTOP_TXT[@]}"; do
+        if [ -f "$ANDROID_TEXT/$f" ]; then printf '%s\0' "$ANDROID_TEXT/$f"; else printf '%s\0' "$ISO_BUILD/$f"; fi
+      done
     } | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
 fi
 
 mkdir -p "$OUT_DIR"
 
-# All source trees whose mtimes gate a repack.
-SRC_DIRS=("$ARM64_CODE")
+# All source trees whose mtimes gate a repack (ISO_BUILD gates the desktop TXT
+# banks; over-invalidation from unrelated iso files is safe, stale reuse is not).
+SRC_DIRS=("$ARM64_CODE" "$ISO_BUILD")
 [ -d "$ANDROID_TEXT" ] && SRC_DIRS+=("$ANDROID_TEXT")
 
 # --- Staleness skip: zip current vs all sources AND version+count match. ---
@@ -97,13 +119,16 @@ for f in "${CODE_FILES[@]}"; do
   ln -s "$ROOT/$ARM64_CODE/$f" "$STAGE/$f"
 done
 
-# 2. android text overrides at zip root (COMMON.TXT overlays win via fake_iso).
+# 2. ALL rebuilt TXT banks at zip root (desktop set), then the android
+#    *COMMON.TXT overrides overlaid over their same-named desktop banks.
+for f in "${DESKTOP_TXT[@]}"; do
+  ln -s "$ROOT/$ISO_BUILD/$f" "$STAGE/$f"
+done
 for f in "${TEXT_FILES[@]}"; do
+  [ -e "$STAGE/$f" ] || fail "android text override $f has no desktop bank counterpart in $ISO_BUILD"
   ln -sf "$ROOT/$ANDROID_TEXT/$f" "$STAGE/$f"
 done
-if [ "$N_TEXT" -gt 0 ]; then
-  echo "[cgo-pack] android text overlay: $N_TEXT bank(s)"
-fi
+echo "[cgo-pack] text banks: $N_DTXT (android overrides: $N_TEXT)"
 
 # --- HARD completeness + consistency gates ---
 got=$(find -L "$STAGE" -type f | wc -l | tr -d ' ')
@@ -152,4 +177,4 @@ EOF
 rm -rf "$STAGE"   # the symlink farm is transient; the zip + manifest are the artifacts
 
 echo "[cgo-pack] done: ${ZIP_REL}"
-echo "[cgo-pack]   files=${FILE_COUNT} (code=${N_CODE} text=${N_TEXT})  raw=${RAW_BYTES}B  zip=${ZIP_BYTES}B  version=${VERSION}"
+echo "[cgo-pack]   files=${FILE_COUNT} (code=${N_CODE} txt=${N_DTXT} android-overrides=${N_TEXT})  raw=${RAW_BYTES}B  zip=${ZIP_BYTES}B  version=${VERSION}"

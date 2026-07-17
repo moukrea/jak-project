@@ -80,6 +80,35 @@ if [ -n "$MARK_SO" ]; then
   fi
 fi
 
+# 5. CUSTOM PACK landing (Grecharged-buildsys-packaging): the port-custom asset
+# set the APK ships (grassbake / enhanced fr3 / recharged PNGs) must be unpacked
+# on device at the version the build produced — a stale custom set is the asset
+# variant of the mixed-build class. Member-level md5 compare (packs are tiny).
+CUS_MAN="android/app/src/${GAME}/assets-slim/bundle/${GAME}_custom.manifest.properties"
+CUS_ZIP="android/app/src/${GAME}/assets-slim/bundle/${GAME}_custom.zip"
+if [ -f "$CUS_MAN" ] && [ -f "$CUS_ZIP" ]; then
+  CUS_VER=$(grep -E '^version=' "$CUS_MAN" | cut -d= -f2)
+  CUS_FC=$(grep -E '^file_count=' "$CUS_MAN" | cut -d= -f2)
+  DEV_STAMP=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" cat "files/.custom_pack_stamp_${GAME}" 2>/dev/null | tr -d '\r\n' || true)
+  if [ "$CUS_FC" -gt 0 ]; then
+    [ "$DEV_STAMP" = "$CUS_VER" ] || die "custom pack STALE on device: stamp '$DEV_STAMP' != built version '$CUS_VER' (relaunch the app so LoaderActivity re-unpacks, or reinstall)"
+    while IFS= read -r m; do
+      [ -n "$m" ] || continue
+      M_LOCAL=$(unzip -p "$CUS_ZIP" "$m" | md5sum | cut -d' ' -f1)
+      M_DEV=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" md5sum "files/custom/${GAME}/${m}" 2>/dev/null | cut -d' ' -f1 | tr -d '\r' || true)
+      [ "$M_LOCAL" = "$M_DEV" ] || die "custom pack member $m: device md5 '$M_DEV' != pack '$M_LOCAL'"
+    done < <(python3 -c "
+import zipfile
+for n in zipfile.ZipFile('$CUS_ZIP').namelist():
+    if not n.endswith('/'): print(n)")
+    echo "  ok: custom pack on device == built pack (version $CUS_VER, $CUS_FC member(s))"
+  else
+    echo "  ok: custom pack empty for this flag set (nothing to verify on device)"
+  fi
+else
+  echo "  warn: no built custom pack ($CUS_MAN) — pre-packaging-era build, custom-set check skipped"
+fi
+
 # Record fingerprint.
 mkdir -p .autoport/reports
 printf 'deploy-verify PASS %s  commit=%s  libgk_sha=%s  so_mtime=%s\n' "$(date -Is)" "$(git rev-parse --short HEAD)" "$(echo $B|cut -c1-16)" "$(date -d @$SO_MTIME -Is)" >> .autoport/reports/deploy-fingerprint.txt

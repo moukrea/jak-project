@@ -45,6 +45,12 @@ void set_external_game_root(const fs::path& root);
 std::optional<fs::path> get_external_game_root();
 void set_iso_overlay_dir(const fs::path& p);
 std::optional<fs::path> get_iso_overlay_dir();
+// Custom-assets root: port-custom assets (recharged PNGs, .grassbake, enhanced
+// fr3) shipped inside the package (APK-internal / desktop archive), distinct
+// from the external/vanilla data tree. When set, takes precedence.
+void set_custom_assets_root(const fs::path& p);
+std::optional<fs::path> get_custom_assets_root();
+std::optional<fs::path> get_custom_fr3_dir();
 fs::path get_iso_out_dir(GameVersion game_version);
 fs::path get_fr3_dir(GameVersion game_version);
 fs::path get_recharged_assets_dir();

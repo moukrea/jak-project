@@ -2,7 +2,10 @@
 # build.sh — unified build CLI (phase Grecharged-buildsys-flags, P1 of the build-system pillar).
 #
 #   ./build.sh <linux-x86_64|android-arm64> [--recharged-hud] [--grass-overhang]
-#              [--hd-models] [--vulkan-support] [--yolo] [--game jak1] [--no-cache] [--no-apk]
+#              [--hd-models] [--vulkan-support] [--yolo] [--game jak1] [--no-cache]
+#              [--no-apk] [--package]
+#   --package: after the build, emit the distributable game PACKAGE + the separate
+#              source-derived <game>_assets.zip under out/artifacts/.
 #
 # One command per target, wrapping the full pipeline (cmake + goalc CGOs + gradle APK).
 # BUILD-TIME feature flags (owner 2026-07-17): a feature that is not requested is NOT in
@@ -20,7 +23,7 @@
 set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 
-usage() { sed -n '3,6p' "$0"; exit 1; }
+usage() { sed -n '3,8p' "$0"; exit 1; }
 die() { echo "[build FAIL] $*" >&2; exit 1; }
 log() { echo "[build] $*"; }
 
@@ -28,7 +31,7 @@ log() { echo "[build] $*"; }
 [ $# -ge 1 ] || usage
 TARGET="$1"; shift
 case "$TARGET" in linux-x86_64|android-arm64) ;; *) die "unknown target '$TARGET' (linux-x86_64|android-arm64)";; esac
-GAME="jak1"; USE_CACHE=1; BUILD_APK=1
+GAME="jak1"; USE_CACHE=1; BUILD_APK=1; DO_PACKAGE=0
 F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_VULKAN=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -40,6 +43,7 @@ while [ $# -gt 0 ]; do
     --game)           GAME="$2"; shift;;
     --no-cache)       USE_CACHE=0;;
     --no-apk)         BUILD_APK=0;;
+    --package)        DO_PACKAGE=1;;
     *) die "unknown option '$1'";;
   esac
   shift
@@ -278,7 +282,23 @@ build_android() {
 
 mkdir -p .autoport/logs
 case "$TARGET" in
-  linux-x86_64)  build_linux;;
-  android-arm64) build_android;;
+  linux-x86_64)
+    build_linux
+    if [ $DO_PACKAGE -eq 1 ]; then
+      log "== --package: source-derived assets archive + linux-x86_64 package =="
+      scripts/packaging/build_assets_archive.sh "$GAME"
+      scripts/packaging/package_release.sh linux-x86_64 "$GAME"
+    fi
+    ;;
+  android-arm64)
+    build_android
+    if [ $DO_PACKAGE -eq 1 ] && [ $BUILD_APK -eq 1 ]; then
+      log "== --package: source-derived assets archive + android-arm64 package =="
+      scripts/packaging/build_assets_archive.sh "$GAME"
+      scripts/packaging/package_release.sh android-arm64 "$GAME"
+    elif [ $DO_PACKAGE -eq 1 ]; then
+      log "--package requested but --no-apk given: skipping android-arm64 package (needs the APK)"
+    fi
+    ;;
 esac
 log "flag matrix: recharged-hud=$(o $F_HUD) grass-overhang=$(o $F_OVERHANG) hd-models=$(o $F_HDMODELS) vulkan-support=$(o $F_VULKAN)  hash=$FLAG_HASH"
