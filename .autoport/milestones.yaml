@@ -2116,6 +2116,21 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Grecharged-pbr-materials
+  name: 'RECHARGED (owner 2026-07-17 REPRIORITIZED to next, most autonomous): add REALTIME LIGHTING + full PBR shading path,
+    test with a REAL PBR material DOWNLOADED from the internet (CC0) dropped over ONE existing texture via the custom_assets
+    override (the P3 filename-override system extended to multi-map sets: <tex>.png albedo + <tex>_normal/_roughness/_metallic/_ao).
+    Modern path lit by the EXISTING mood/TOD light env (current-sun / mood-shadow-direction / 9 per-level light-groups) + a
+    realtime specular/BRDF response; baked vertex lighting IGNORED for that surface (no double-dose). No PBR map / toggle OFF ->
+    legacy texture x baked-vertex path UNCHANGED (OFF==stock, byte-identical). Build-flag gated (--pbr, pillar dual-plumbing) +
+    Recharged Settings toggle. Full offline conversion pipeline DEFERRED (owner: "on verra plus tard"). Deliverable = realtime
+    PBR path + 1 downloaded-material device PoC A/B ON/OFF + elegant fallback proof. NOT faux-PBR.'
+  prompt: prompts/phase-Grecharged-pbr-materials.md
+  validator: validators/phase-Grecharged-pbr-materials.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models3
   name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
     mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
@@ -2144,19 +2159,6 @@ phases:
   prompt: prompts/phase-Grecharged-title-logo-fullres.md
   validator: validators/phase-Grecharged-title-logo-fullres.sh
   max_turns: 3000
-  max_retries: 6
-  device: true
-  owner_verify: true
-- id: Grecharged-pbr-materials
-  name: 'RECHARGED (owner 2026-07-11, backlog, architecture SPIKE): REAL PBR with elegant per-material fallback. Extract game
-    textures -> AI/tooling batch material-gen (de-light albedo + normal/roughness/metal, ORM-packed), per-material opt-in
-    flag. PBR material present+toggle ON -> modern path lit by the EXISTING mood/TOD light env (current-sun / mood-shadow-direction
-    / 9 per-level light-groups), baked vertex lighting IGNORED for that surface (no double-dose). No PBR / OFF -> legacy texture
-    x baked-vertex path UNCHANGED (OFF==stock). Deliverable = arch doc + 1-material device PoC A/B + fallback proof. Staging
-    P0 AO..P4 world. NOT faux-PBR.'
-  prompt: prompts/phase-Grecharged-pbr-materials.md
-  validator: validators/phase-Grecharged-pbr-materials.sh
-  max_turns: 3500
   max_retries: 6
   device: true
   owner_verify: true
