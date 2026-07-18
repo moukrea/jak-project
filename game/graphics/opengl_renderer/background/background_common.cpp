@@ -692,45 +692,47 @@ static bool pbr_shadowmap_enabled_for_frame(u64 frame_idx) {
 
 void pbr_shadow_ensure_resources() {
   auto& st = pbr_shadow_state();
-  if (st.fbo || st.depth_tex) {
+  if (st.fbo[0] || st.depth_tex[0]) {
     return;  // already tried once (valid or permanently failed)
   }
-  // Save FBO + viewport; we bind our own to clear the fresh depth texture to 1.0.
+  // Save FBO + viewport; we bind our own to clear the fresh depth textures to 1.0.
   GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
   glGetIntegerv(GL_VIEWPORT, prev_vp);
 
-  glGenTextures(1, &st.depth_tex);
-  glBindTexture(GL_TEXTURE_2D, st.depth_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, st.size, st.size, 0, GL_DEPTH_COMPONENT,
-               GL_UNSIGNED_INT, nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+  st.valid = true;
+  for (int i = 0; i < 2; i++) {
+    glGenTextures(1, &st.depth_tex[i]);
+    glBindTexture(GL_TEXTURE_2D, st.depth_tex[i]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, st.size, st.size, 0, GL_DEPTH_COMPONENT,
+                 GL_UNSIGNED_INT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 
-  glGenFramebuffers(1, &st.fbo);
-  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st.depth_tex, 0);
-  GLenum none = GL_NONE;
-  glDrawBuffers(1, &none);
-  glReadBuffer(GL_NONE);  // GLES3 has glReadBuffer, so unguarded is fine.
+    glGenFramebuffers(1, &st.fbo[i]);
+    glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[i]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st.depth_tex[i], 0);
+    GLenum none = GL_NONE;
+    glDrawBuffers(1, &none);
+    glReadBuffer(GL_NONE);  // GLES3 has glReadBuffer, so unguarded is fine.
 
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    lg::error("Grecharged-pbr-materials: shadow-map FBO incomplete; disabling sun shadows");
-    st.valid = false;
-  } else {
-    // Clear the depth texture to 1.0 so an unrendered map means fully lit.
-    glViewport(0, 0, st.size, st.size);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      lg::error("Grecharged-pbr-materials: shadow-map FBO incomplete; disabling sun shadows");
+      st.valid = false;
+    } else {
+      // Clear the depth texture to 1.0 so an unrendered map means fully lit.
+      glViewport(0, 0, st.size, st.size);
 #ifdef __ANDROID__
-    glClearDepthf(1.0f);
+      glClearDepthf(1.0f);
 #else
-    glClearDepth(1.0);
+      glClearDepth(1.0);
 #endif
-    glClear(GL_DEPTH_BUFFER_BIT);
-    st.valid = true;
+      glClear(GL_DEPTH_BUFFER_BIT);
+    }
   }
 
   // Restore prior FBO + viewport.
@@ -741,11 +743,12 @@ void pbr_shadow_ensure_resources() {
 
 bool pbr_shadow_begin_frame(u64 frame_idx) {
   auto& st = pbr_shadow_state();
-  st.have_mvp = false;
-  if (!Gfx::g_global_settings.recharged_pbr_enable) {
-    return false;
-  }
-  if (!pbr_shadowmap_enabled_for_frame(frame_idx)) {
+  if (!Gfx::g_global_settings.recharged_pbr_enable ||
+      !pbr_shadowmap_enabled_for_frame(frame_idx)) {
+    // Feature off: also invalidate the read side so receivers stop sampling a map that
+    // will no longer be refreshed (stale-matrix shadows glued to the old camera pos).
+    st.read_valid = false;
+    st.have_mvp = false;
     return false;
   }
   pbr_shadow_ensure_resources();
@@ -754,11 +757,38 @@ bool pbr_shadow_begin_frame(u64 frame_idx) {
   }
 
   if (st.frame == frame_idx) {
-    // Same frame: the map was already cleared + mvp computed this frame; keep rendering
-    // additively across trees/levels without re-clearing.
-    st.have_mvp = true;
-    return true;
+    // Same frame: the write map was already cleared + mvp computed this frame; keep
+    // rendering additively across trees/renderers without re-clearing.
+    return st.have_mvp;
   }
+
+  // NEW FRAME: promote last frame's completed write buffer to the read side (receivers
+  // sample it with its matching matrix), then start writing into the other buffer. On a
+  // frame gap (pause, level load) the pair may be stale; keep it read_valid anyway — map
+  // and matrix are still mutually consistent, shadows just freeze until the next pass.
+  if (st.have_mvp) {
+    memcpy(st.read_mvp, st.mvp, sizeof(st.read_mvp));
+    st.read_valid = true;
+    st.write = 1 - st.write;
+  }
+  st.have_mvp = false;
+
+  // Legacy-receiver darkening strength (owner clarification 2026-07-18: the world's
+  // shadow must land on NON-PBR ground too). Prop-tunable for device calibration so
+  // already-baked painted shadows don't double-darken into black.
+  st.legacy_strength = 0.35f;
+#ifdef __ANDROID__
+  {
+    char v[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.pbr.legacyshadow", v) > 0 && v[0]) {
+      st.legacy_strength = (float)atof(v);
+    }
+  }
+#else
+  if (const char* e = std::getenv("OG_PBR_LEGACY_SHADOW")) {
+    st.legacy_strength = (float)std::atof(e);
+  }
+#endif
 
   // ---- Compute the light matrix (camera-relative meters). ----
   const auto& gs = Gfx::g_global_settings;
@@ -815,11 +845,11 @@ bool pbr_shadow_begin_frame(u64 frame_idx) {
   st.have_mvp = true;
   st.frame = frame_idx;
 
-  // Clear the depth map for the new frame (state save/restore).
+  // Clear the WRITE depth map for the new frame (state save/restore).
   GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
   glGetIntegerv(GL_VIEWPORT, prev_vp);
-  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[st.write]);
   glViewport(0, 0, st.size, st.size);
   GLboolean prev_depth_mask = GL_TRUE;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
@@ -844,20 +874,26 @@ void pbr_shadow_bind_receiver(GLuint program) {
   GLint mvp_loc = glGetUniformLocation(program, "u_pbr_shadow_mvp");
   GLint tex_loc = glGetUniformLocation(program, "tex_PBR_SHADOW");
   GLint on_loc = glGetUniformLocation(program, "u_pbr_shadow_on");
+  GLint leg_loc = glGetUniformLocation(program, "u_pbr_legacy_shadow");
   if (tex_loc >= 0) {
     glUniform1i(tex_loc, 9);
   }
-  // ALWAYS bind the depth texture on unit 9 (even when the pass did not run this frame:
-  // the map is cleared-to-1.0 = fully lit). Prevents the unbound/type-mismatch sampler
-  // class (the old magenta lesson).
+  // ALWAYS bind the READ-side depth texture on unit 9 (even when no completed map exists
+  // yet: it is cleared-to-1.0 = fully lit). Receivers sample LAST frame's completed map —
+  // the write side is mid-accumulation and would miss casters drawn in later buckets
+  // (tie hut onto tfrag ground). Prevents the unbound/type-mismatch sampler class (the
+  // old magenta lesson).
   glActiveTexture(GL_TEXTURE9);
-  glBindTexture(GL_TEXTURE_2D, st.depth_tex);
+  glBindTexture(GL_TEXTURE_2D, st.depth_tex[1 - st.write]);
   glActiveTexture(GL_TEXTURE0);
   if (mvp_loc >= 0) {
-    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, st.mvp);
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, st.read_mvp);
   }
   if (on_loc >= 0) {
-    glUniform1i(on_loc, (st.valid && st.have_mvp) ? 1 : 0);
+    glUniform1i(on_loc, (st.valid && st.read_valid) ? 1 : 0);
+  }
+  if (leg_loc >= 0) {
+    glUniform1f(leg_loc, st.legacy_strength);
   }
 }
 #endif
@@ -926,7 +962,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1i(glGetUniformLocation(id, "u_pbr_shadow_on"), 0);
   if (pbr_shadow_state().valid) {
     glActiveTexture(GL_TEXTURE9);
-    glBindTexture(GL_TEXTURE_2D, pbr_shadow_state().depth_tex);
+    // Park the READ-side map (the one receivers sample; any complete depth tex works
+    // here since u_pbr_shadow_on defaults OFF — this is unit-completeness hardening).
+    glBindTexture(GL_TEXTURE_2D,
+                  pbr_shadow_state().depth_tex[1 - pbr_shadow_state().write]);
     glActiveTexture(GL_TEXTURE0);
   }
   // Units 11-15 must be complete for EVERY draw of this program — including when zero

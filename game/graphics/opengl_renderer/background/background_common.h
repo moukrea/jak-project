@@ -185,21 +185,34 @@ class PbrDrawBinder {
   bool m_bound_any = false;
 };
 
-// Grecharged-pbr-materials round-4 mandate B: classic sun SHADOW MAPPING for the PBR
-// direct term. A depth-only pass renders the camera-vis-culled tfrag NORMAL geometry into
-// a 1024x1024 depth FBO from the mood-sun direction, in the SAME camera-relative-meters
-// space as v_fringe_rel = (position_in - cam_trans.xyz)/4096. The PBR fragment path then
-// multiplies its ENTIRE direct (multi-light) term by a PCF shadow factor. Indirect/baked-GI
-// term untouched. Merc/actor casters are OUT of scope (the stock stencil shadow system
-// covers actors). GL-thread only.
+// Grecharged-pbr-materials round-4 mandate B: classic sun SHADOW MAPPING, WORLD-scale
+// (owner clarification 2026-07-18: the hut's shadow on the ground, not characters). A
+// depth-only pass renders the camera-vis-culled tfrag NORMAL trees AND the TIE NORMAL
+// category into a 1024x1024 depth FBO from the mood-sun direction, in the SAME
+// camera-relative-meters space as v_fringe_rel = (position_in - cam_trans.xyz)/4096.
+// Receivers: the PBR fragment path multiplies its ENTIRE direct (multi-light) term by a
+// PCF shadow factor; LEGACY (non-PBR) fragments in the same program get a calibrated
+// darkening (legacy_strength) so the hut's shadow lands on the non-PBR ground too.
+// Indirect/baked-GI term untouched.
+//
+// DOUBLE-BUFFERED: casters render in bucket order (tfrag before tie), so a same-frame map
+// is incomplete when early receivers (the ground) sample it — the TIE hut's depth would
+// never be seen. Receivers therefore sample the READ side = LAST frame's completed map
+// with its matching matrix (standard 1-frame shadow latency); casters accumulate into the
+// WRITE side. Merc/actor casters are OUT of scope (the stock stencil shadow system covers
+// actors). GL-thread only.
 struct PbrShadowState {
-  GLuint fbo = 0;
-  GLuint depth_tex = 0;
+  GLuint fbo[2] = {0, 0};
+  GLuint depth_tex[2] = {0, 0};
   int size = 1024;
-  u64 frame = ~0ull;   // frame_idx that last cleared the map
+  u64 frame = ~0ull;   // frame_idx that last cleared the write map
   bool valid = false;  // resources created OK
-  bool have_mvp = false;  // mvp computed for the current frame
-  float mvp[16];          // column-major light view-proj (camera-relative meters)
+  int write = 0;          // buffer index this frame's depth pass renders into
+  bool have_mvp = false;  // write-side mvp computed for the current frame
+  float mvp[16];          // write-side column-major light view-proj (cam-relative meters)
+  bool read_valid = false;  // read side (1 - write) holds last frame's COMPLETED map
+  float read_mvp[16];       // matrix matching the read-side map
+  float legacy_strength = 0.35f;  // calibrated legacy-receiver darkening (prop-tunable)
 };
 PbrShadowState& pbr_shadow_state();
 void pbr_shadow_ensure_resources();             // lazy FBO/tex creation

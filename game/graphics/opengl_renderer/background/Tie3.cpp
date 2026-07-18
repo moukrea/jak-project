@@ -732,6 +732,91 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   glPrimitiveRestartIndex(UINT32_MAX);
 #endif
 
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4, owner clarification 2026-07-18 (WORLD-scale
+  // shadows): TIE geometry — the sage hut, bridges, buildings — must CAST into the sun
+  // shadow map, else the owner's acceptance image (hut shadow on the ground) is
+  // impossible. Depth-only pass over this tree's NORMAL-category draws into the
+  // double-buffered write map; receivers sample last frame's completed map, so bucket
+  // order (tfrag before tie) does not matter. Same GL-state dance as the TFragment
+  // caster pass. Vertex layout is compatible: TIE draws with the TFRAG3 program, so
+  // attribute 0 is the world position pbr_depth.vert consumes.
+  if (!use_envmap && category == tfrag3::TieCategory::NORMAL &&
+      Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
+      pbr_shadow_begin_frame(render_state->frame_idx)) {
+    auto& sh_st = pbr_shadow_state();
+    GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
+    GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+    GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+    GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+    GLboolean prev_depth_mask = GL_TRUE;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+    glGetIntegerv(GL_VIEWPORT, prev_vp);
+    glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, sh_st.fbo[sh_st.write]);
+    glViewport(0, 0, sh_st.size, sh_st.size);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(2.0f, 4.0f);
+
+    const auto& depth_sh = render_state->shaders[ShaderId::PBR_DEPTH];
+    depth_sh.activate();
+    GLuint depth_id = depth_sh.id();
+    glUniformMatrix4fv(glGetUniformLocation(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
+    const auto& ct = settings.camera.trans;
+    glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
+
+    // Draw the category's camera-vis-culled index ranges, same data the main loop uses.
+    for (size_t di = tree.category_draw_indices[(int)category];
+         di < tree.category_draw_indices[(int)category + 1]; di++) {
+      if (render_state->no_multidraw) {
+        const auto& sd = tree.draw_idx_temp[di];
+        if (sd.second == 0) {
+          continue;
+        }
+        glDrawElements(tree.draw_mode, sd.second, GL_UNSIGNED_INT,
+                       (void*)(sd.first * sizeof(u32)));
+      } else {
+        const auto& md = tree.multidraw_offset_per_stripdraw[di];
+        if (md.second == 0) {
+          continue;
+        }
+        glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[md.first],
+                            GL_UNSIGNED_INT, &tree.multidraw_index_offset_buffer[md.first],
+                            md.second);
+      }
+    }
+
+    glUseProgram((GLuint)prev_program);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+    glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+    if (prev_scissor) {
+      glEnable(GL_SCISSOR_TEST);
+    } else {
+      glDisable(GL_SCISSOR_TEST);
+    }
+    if (prev_cull) {
+      glEnable(GL_CULL_FACE);
+    } else {
+      glDisable(GL_CULL_FACE);
+    }
+    if (prev_poly_off) {
+      glEnable(GL_POLYGON_OFFSET_FILL);
+    } else {
+      glDisable(GL_POLYGON_OFFSET_FILL);
+    }
+    glPolygonOffset(0.0f, 0.0f);
+    glDepthMask(prev_depth_mask);
+    glDepthFunc(prev_depth_func);
+  }
+#endif
+
   // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
   BgDrawStateCache draw_state_cache;
   GLuint bound_tex = 0;

@@ -66,6 +66,11 @@ uniform sampler2D tex_PBR_H;
 uniform mat4 u_pbr_shadow_mvp;
 uniform int u_pbr_shadow_on;
 uniform highp sampler2DShadow tex_PBR_SHADOW;
+// Owner clarification 2026-07-18 (WORLD shadows): legacy (non-PBR) fragments in this
+// program also receive the sun shadow as a calibrated darkening, so the hut's shadow
+// lands on the non-PBR ground. 0 disables; ~0.35 default, prop-tunable so already-baked
+// painted shadows don't double-darken into black.
+uniform float u_pbr_legacy_shadow;
 #endif
 
 
@@ -75,6 +80,32 @@ void main() {
     vec4 T0 = texture(tex_T0, tex_coord.xy);
     color = fragment_color * T0;
 #ifdef OG_PBR
+    // Round-4 mandate B: sun shadow-map factor, shared by the PBR direct term AND the
+    // legacy receiver darkening below. Sample position is v_fringe_rel (camera-relative
+    // meters), the SAME space the depth pass rendered in. 4 taps, each HW-PCF'd by the
+    // LINEAR compare sampler => ~4x4 effective. Slope-scaled bias from the derivative
+    // face normal. Fades out toward the 80m ortho box edge so the coverage boundary
+    // doesn't show as a hard shadow cutoff.
+    float sm_shadow = 1.0;
+    if (u_pbr_shadow_on != 0) {
+      vec4 sp = u_pbr_shadow_mvp * vec4(v_fringe_rel, 1.0);
+      vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
+      if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
+        vec3 sng = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
+        float sngl = length(sng);
+        float ndl0 = sngl > 1e-6 ? abs(dot(sng / sngl, u_pbr_light_dir[0])) : 1.0;
+        float bias = max(0.0035 * (1.0 - ndl0), 0.0012);
+        float ref = suv.z - bias;
+        float texel = 1.0 / 1024.0;
+        sm_shadow  = texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5, -0.5) * texel, ref));
+        sm_shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5, -0.5) * texel, ref));
+        sm_shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5,  0.5) * texel, ref));
+        sm_shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5,  0.5) * texel, ref));
+        sm_shadow *= 0.25;
+        float edge_fade = 1.0 - smoothstep(30.0, 39.0, length(v_fringe_rel));
+        sm_shadow = mix(1.0, sm_shadow, edge_fade);
+      }
+    }
     // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun.
     // Owner round-3 mandate: the baked per-vertex TOD color (fragment_color.rgb) is
     // reintegrated as the INDIRECT/GI term — it carries the level's MACRO shading
@@ -150,26 +181,8 @@ void main() {
       float a2 = a * a;
       float k = (rough + 1.0) * (rough + 1.0) / 8.0;
       vec3 F0 = mix(vec3(0.04), albedo, metal);
-      // Round-4 mandate B: sun shadow-map factor for the whole direct term. Sample position
-      // is v_fringe_rel (camera-relative meters), the SAME space the depth pass rendered in.
-      // 4 taps, each HW-PCF'd by the LINEAR compare sampler => ~4x4 effective. Slope-scaled
-      // bias uses the dominant sun (light 0) against the geometric normal.
-      float shadow = 1.0;
-      if (u_pbr_shadow_on != 0) {
-        vec4 sp = u_pbr_shadow_mvp * vec4(v_fringe_rel, 1.0);
-        vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
-        if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
-          float ndl0 = max(dot(Ngeo, u_pbr_light_dir[0]), 0.0);
-          float bias = max(0.0035 * (1.0 - ndl0), 0.0012);
-          float ref = suv.z - bias;
-          float texel = 1.0 / 1024.0;
-          shadow  = texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5, -0.5) * texel, ref));
-          shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5, -0.5) * texel, ref));
-          shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5,  0.5) * texel, ref));
-          shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5,  0.5) * texel, ref));
-          shadow *= 0.25;
-        }
-      }
+      // Round-4 mandate B: the shared sun shadow-map factor computed above.
+      float shadow = sm_shadow;
       // Round-4 multi-light accumulation: sum the Cook-Torrance direct response of every
       // non-black light in light-group 0 (soleil + lune verte + fill). D/G/F math is
       // identical to the old single-sun path; kd/F depend on VdH so they're per-light.
@@ -238,6 +251,16 @@ void main() {
       } else if (u_pbr_debug == 13) {
         // Round-4: direct contribution of lights 1+2 ONLY (moon/fill isolation viz).
         color.rgb = pow(max(direct12 * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
+      }
+    } else if (u_pbr_shadow_on != 0) {
+      // Owner clarification 2026-07-18: LEGACY receivers. The non-PBR world (the ground
+      // under the hut) darkens by the calibrated legacy strength where the sun map says
+      // shadowed — this is what makes the hut's shadow visible outside the PBR patch.
+      // The baked painted shadows survive: a fully-baked-dark texel just gets the same
+      // fractional multiply, and strength is tuned so that never crushes to black.
+      color.rgb *= 1.0 - u_pbr_legacy_shadow * (1.0 - sm_shadow);
+      if (u_pbr_debug == 12) {
+        color.rgb = vec3(sm_shadow);
       }
     }
 #endif

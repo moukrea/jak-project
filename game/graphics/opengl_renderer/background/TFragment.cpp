@@ -619,9 +619,14 @@ void TFragment::render_tree(int geom,
   // these strips (see the glEnable(GL_PRIMITIVE_RESTART[_FIXED_INDEX]) above). Renders the
   // camera-vis-culled geometry into the 1024 depth FBO from the mood-sun direction, in the
   // SAME camera-relative-meters space as the tfrag3.vert v_fringe_rel varying.
-  if (Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
-      tree.kind == tfrag3::TFragmentTreeKind::NORMAL && pbr_depth_index_count > 0 &&
-      pbr_shadow_begin_frame(render_state->frame_idx)) {
+  // begin_frame runs for EVERY tree kind (not just NORMAL casters): the frame transition
+  // inside it promotes last frame's completed map to the read side, which receivers of
+  // any kind need before their draws sample it.
+  const bool pbr_shadow_frame_ok = Gfx::g_global_settings.recharged_pbr_enable &&
+                                   !m_pbr_draws.empty() &&
+                                   pbr_shadow_begin_frame(render_state->frame_idx);
+  if (pbr_shadow_frame_ok && tree.kind == tfrag3::TFragmentTreeKind::NORMAL &&
+      pbr_depth_index_count > 0) {
     auto& sh_st = pbr_shadow_state();
     // Save the GL state the depth pass mutates.
     GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
@@ -635,7 +640,7 @@ void TFragment::render_tree(int geom,
     glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
     glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, sh_st.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, sh_st.fbo[sh_st.write]);
     glViewport(0, 0, sh_st.size, sh_st.size);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_CULL_FACE);

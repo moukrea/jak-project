@@ -184,7 +184,7 @@ viz)
                                  # offsets -> 7 identical stills)
   BG_START=$(date +%s.%N)
   ( sleep 2
-    for m in 0 1 2 3 4 5 6 7 8 9 10 11; do
+    for m in 0 1 2 3 4 5 6 7 8 9 10 11 12 13; do
       adb shell "setprop debug.opengoal.pbr.debug $m" </dev/null
       echo "$m $(date +%s.%N)" >> /tmp/pbr_viz_times.txt
       sleep 8
@@ -192,7 +192,7 @@ viz)
   KICK=$!
   adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
   REC_START=$(date +%s.%N)
-  adb shell screenrecord --time-limit 105 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
+  adb shell screenrecord --time-limit 125 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
   wait $KICK 2>/dev/null || true
   FOCUS_END="$(focus)"
   sleep 1
@@ -213,7 +213,7 @@ viz)
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
   done < /tmp/pbr_viz_times.txt
   # schedule fallback: mode m was set at ~BG_START+2+8m; mid-segment extract.
-  for m in 0 1 2 3 4 5 6 7 8 9 10 11; do
+  for m in 0 1 2 3 4 5 6 7 8 9 10 11 12 13; do
     [ -f "$OUT/viz/mode$m.png" ] && continue
     off=$(python3 -c "print(max(0.5, $BG_START + 2 + 8*$m - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
