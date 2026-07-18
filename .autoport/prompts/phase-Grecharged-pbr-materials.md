@@ -189,3 +189,31 @@ D) PROOF at the OWNER'S vantage: close-up captures/video AT THE SAGE WALL (warp 
    TOD hour 8) — NOT the stock spawn (mid-distance viz stills are void as owner evidence). Required: A/B
    POM on/off at grazing camera angle, normal on/off, and a slow camera arc where brick depth visibly
    parallaxes. Owner's eye is the gate: "unmistakably 3D relief, not a flat photo".
+
+## OWNER GATE VERDICT ROUND 3 (2026-07-18 ~09:20): up-close relief OK, BUT the WHOLE BUILDING reads
+## FLATTER than stock — "le retrait du baked lighting serait bien si ça recevait VRAIMENT de la lumière
+## et le shading était vraiment fait selon la lumière; là c'est juste plus plat qu'avant, avec une
+## texture 3D. Un peu nul non ?"
+Diagnosis (supervisor, confirmed by the owner's eye): dropping the baked per-vertex TOD color on the PBR
+path also dropped ALL the MACRO shading it carried — the round building's curvature gradient, the
+under-thatch darkening, the doorway occlusion. Replacing that with "directional sun + CONSTANT ambient"
+lights every fragment of the shaded side identically -> the building goes uniform/flat, POM micro-relief
+notwithstanding. This is the known risk 3 (boundary/macro coherence) biting for real.
+
+NEW MANDATE — reintegrate the baked lighting as the INDIRECT/GI term (modern-engine pattern, no runtime GI):
+A) Split the lighting: direct = Cook-Torrance vs the mood sun (keep as-is, keeps relief + realtime);
+   indirect/ambient = REPLACE the flat u_pbr_ambient constant with a per-fragment term MODULATED BY THE
+   BAKED VERTEX COLOR (fragment_color), e.g. indirect = albedo * baked_rgb * ambient_calib — so under-roof
+   stays dark, curvature gradients return, doorway occlusion returns. The baked color acts as baked
+   GI/AO, NOT as a second direct-light dose.
+B) Double-dose control: the baked color also contains the baked sun. Either scale down the direct term by
+   a calibration factor, or subtract/normalize the baked term's directional component — pick the simplest
+   approach that looks right at the owner vantage; document the choice. The failure modes to avoid:
+   (1) flat building (current defect), (2) obviously double-lit hot side.
+C) The macro test (owner's eye): at the sage-wall vantage, PBR ON must show the SAME macro light
+   distribution as OFF (curvature gradient, under-roof darkening — compare luminance PROFILES along the
+   wall band, not just mean deltas) PLUS the POM relief PLUS the realtime sun response (TOD sweep still
+   changes the wall). Metric: correlation of ON-vs-OFF luminance profiles along the building's curve
+   > 0.8 while POM ndiff stays > noise.
+D) Keep everything already won: POM, punchy Bricks059, normal-strength, magenta 0, no-crash, OFF==stock.
+Proof at the owner vantage (-112 42 205 h8) as before + the TOD sweep. Owner's eye closes the gate.
