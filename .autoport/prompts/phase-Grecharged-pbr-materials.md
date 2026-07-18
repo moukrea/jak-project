@@ -340,3 +340,19 @@ double-brighten (the baked already contains sun; reuse the round-3 calibration a
 surfaces keep their full BRDF; non-PBR world surfaces get this lightweight N.L relight. Acceptance: at the
 vantage, hut walls facing the sun are brighter than faces away from it, and the contrast FOLLOWS the sun
 across the TOD sweep — while camera orbits change NOTHING (stability proof shared with round-5).
+
+## ROUND 5 EXECUTION ORDER (supervisor 2026-07-18 23:45) — the scope is too big for one session; SPLIT IT
+Three attempts died on "no report" = the session runs out finishing multi-material downloads + shadow
+rebuilds + orbit captures before writing. Converge by prioritizing:
+PRIORITY 1 (the owner's actual pain — land + PROVE + report this ALONE, do not touch materials until done):
+  the SHADOW BUG. Stable under camera orbit (no swim/pop), direction matches the VISIBLE sun (h8+h16
+  alignment), every world object casts (no camera-vis cull), attached at caster base (bias), AND the
+  world-wide N.L mood-light relight so the whole world responds to the sun like Jak. Capture the orbit
+  clip + sun-alignment stills, WRITE THE REPORT with RESULT: PASS-worthy shadow evidence (or RESULT: WIP
+  with exactly what remains). Reserve the last third of the session for capture+report — a shadow fix with
+  no report is a wasted attempt.
+PRIORITY 2 (only after P1 is reported): matching multi-materials (thatch/planks/sandstone). If the session
+  is short, leave these as a documented WIP follow-up — do NOT let them starve the P1 report.
+The validator already requires orbit + world-relight + matching markers; if P2 isn't done this session,
+write RESULT: WIP (honest) so the gate stays open and P1 progress is preserved for the next attempt.
+Budget every session so report.txt ALWAYS exists at end.
