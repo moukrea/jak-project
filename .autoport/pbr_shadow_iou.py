@@ -94,6 +94,7 @@ def main():
     thresh = "auto"
     min_area = 200
     align = True
+    cap = 24
     i = 1
     while i < len(args):
         if args[i] == "--band":
@@ -104,6 +105,15 @@ def main():
             i += 2
         elif args[i] == "--min-area":
             min_area = int(args[i + 1])
+            i += 2
+        elif args[i] == "--cap":
+            # Max plausible per-frame camera translation (px) the phase-correlation
+            # aligner will trust. The default 24 saturates on a fast CLOSE orbit (per-frame
+            # screen translation exceeds 24 px -> the estimate is discarded and the pair is
+            # scored with ZERO camera-motion compensation, inflating apparent shadow swim).
+            # A larger cap lets the aligner subtract real camera motion so the residual IoU
+            # reflects genuine shadow drift only. Report both when they differ materially.
+            cap = int(args[i + 1])
             i += 2
         elif args[i] == "--no-align":
             align = False
@@ -138,7 +148,7 @@ def main():
             empties += 1
             continue
         if align:
-            dy, dx = phase_shift(bands[k], bands[k + 1])
+            dy, dx = phase_shift(bands[k], bands[k + 1], cap=cap)
             a, b = shifted_overlap(a, b, dy, dx)
         inter = np.logical_and(a, b).sum()
         union = np.logical_or(a, b).sum()
