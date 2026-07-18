@@ -208,7 +208,7 @@
     "Grecharged-buildsys-packaging": 1,
     "Grecharged-buildsys-firstboot": 1,
     "Grecharged-buildsys-cidocs": 2,
-    "Grecharged-pbr-materials": 2
+    "Grecharged-pbr-materials": 0
   },
   "fingerprints": {
     "00-harness": [
@@ -907,8 +907,7 @@
     "Grecharged-buildsys-flags",
     "Grecharged-buildsys-packaging",
     "Grecharged-buildsys-firstboot",
-    "Grecharged-buildsys-cidocs",
-    "Grecharged-pbr-materials"
+    "Grecharged-buildsys-cidocs"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

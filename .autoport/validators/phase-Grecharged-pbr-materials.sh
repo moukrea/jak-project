@@ -18,4 +18,6 @@ grep -qiE 'off.*(stock|identical|byte)|stock.*off' "$R" || fail "OFF must == sto
 grep -qiE 'albedo|normal|roughness|metal|orm' "$R" || fail "must show the PBR material maps"
 grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "device jak1 evidence"
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
+grep -qiE 'parallax|POM|height' "$R" || fail "no parallax/height (POM) evidence — owner mandate"
+grep -qiE '\-112|sage.wall|owner.vantage' "$R" || fail "no proof at the owner's sage-wall vantage"
 echo "[Gpbr PASS]"

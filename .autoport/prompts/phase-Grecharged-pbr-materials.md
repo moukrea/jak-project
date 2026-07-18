@@ -164,3 +164,28 @@ no report" -> orchestrator STUCK-halted 3x on the same fingerprint. Break the cy
 4. Prefer ONE tractable, verifiable win per attempt (e.g. "robust tangents + normal A/B proves relief")
    over trying to land every channel at once and reporting nothing. Land it, capture it, report it, then
    build on it next attempt.
+
+## OWNER GATE VERDICT (2026-07-18 morning): REJECTED — "ça paraît toujours giga flat, on n'a pas de normal
+## maps ou displacement qui fait l'effet 3D, c'est pas possible ! c'est p't-être la texture qui est naze"
+Owner looked at the LIVE device at the close sage-wall vantage (warp pos -112.0 42.0 205.0, TOD hour 8,
+PBR ON, material registered) and the wall reads FLAT. Supervisor forensics agree on three compounding causes:
+1. MATERIAL TOO SOFT: PavingStones070 normal map deviation mean 18.3/255 (p95 58) = gentle; roughness map
+   nearly UNIFORM (mean 132, std 11.7) => zero visible per-pixel spec variation. The owner's "texture naze"
+   suspicion is partially right.
+2. NO DISPLACEMENT: the "3D pop" the owner expects IS parallax. POM was deferred — that deferral is now
+   REVOKED by the owner's verdict.
+3. Screen-space-derivative TBN further weakens normal response on flat walls.
+
+NEW MANDATE (this phase, not backlog):
+A) Implement PARALLAX OCCLUSION MAPPING: support <tex>_height.png in the custom_assets set; POM in
+   tfrag3.frag (mobile-tuned steps w/ early-out, quality-gated), silhouette not required. The bricks must
+   visibly OFFSET/occlude at grazing view — the un-fakeable 3D tell.
+B) Swap to a PUNCHY CC0 material: pick one with DEEP height + strong normals + VARIED roughness (e.g.
+   ambientCG Bricks075A/CastleWall — verify stats before adopting: normal dev mean > 35, roughness std > 30,
+   height map full-range). Download WITH the Displacement map. Keep license credit.
+C) Add a normal-strength multiplier (uniform, debug-prop tunable; default calibrated so relief is obvious
+   at 1-3m) and consider 2-3x UV tiling on the test wall if native texel density hides the detail.
+D) PROOF at the OWNER'S vantage: close-up captures/video AT THE SAGE WALL (warp pos -112.0 42.0 205.0,
+   TOD hour 8) — NOT the stock spawn (mid-distance viz stills are void as owner evidence). Required: A/B
+   POM on/off at grazing camera angle, normal on/off, and a slow camera arc where brick depth visibly
+   parallaxes. Owner's eye is the gate: "unmistakably 3D relief, not a flat photo".
