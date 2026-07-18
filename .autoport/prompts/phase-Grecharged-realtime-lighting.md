@@ -72,3 +72,22 @@ passing, so the fingerprint reflects progress). ONE tractable correct win beats 
 ANDROID_SERIAL=eae4df44 only; no adb reboot; engine goal_src stays 1:1 (renderer / pc layer / GLES shaders
 / custom_assets only); gold READ-ONLY; force-stop after every device window.
 max_turns 3500, max_retries 6. device: true, owner_verify: true.
+
+## SUPERVISOR CORRECTION (owner 2026-07-19 01:45): do NOT inherit the round-5 shadow map — REBUILD it clean
+Owner doubts "keeping" the shadow map because the round-1..5 lighting was bad. He is right about the CODE
+(not the technique). Adjust the mandate:
+- The shadow-MAP TECHNIQUE stays (it is the correct, cheap, standard way to cast shadows — the owner's ask;
+  dropping it = no cast shadows at all). But do NOT reuse the round-5 patched implementation the owner
+  never validated. REBUILD the depth pass + sampling MINIMALLY FROM SCRATCH as part of this sun-only system.
+- Stage it so each half is independently correct and provable:
+  STAGE 1 — DIRECTIONAL SUN SHADING (no shadow map needed): per-face N.L from the visible-sun direction,
+    sun-side lit / opposite dark, NO ambient, baked OFF. This is trivially correct — land it, prove
+    criteria 1 + 3 + 4 + 5, report it. A correct Stage 1 alone is a real win.
+  STAGE 2 — CAST SHADOWS (fresh minimal shadow map): a clean single-cascade depth pass from the SAME
+    visible-sun direction, casters = full static world, camera-stable fit, contact bias. Prove criterion 2
+    (object casts a shadow at its base, opposite the visible sun) AND that it stays attributable + pinned
+    under a 360 orbit. Build this ONLY after Stage 1 is solid; if the shadow map fights you, ship Stage 1
+    and report Stage 2 as WIP with the exact blocker — do NOT let a broken shadow map sink the whole phase.
+- Treat attributability as a first-class check: in a still, ONE shadow must visibly connect to ONE caster
+  at its base. If you cannot point at a shadow and name its caster, Stage 2 is not done.
+The point: a clean, minimal, CORRECT sun. No inherited complexity, no unproven code carried forward.
