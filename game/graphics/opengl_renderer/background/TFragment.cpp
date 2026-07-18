@@ -622,9 +622,9 @@ void TFragment::render_tree(int geom,
   // begin_frame runs for EVERY tree kind (not just NORMAL casters): the frame transition
   // inside it promotes last frame's completed map to the read side, which receivers of
   // any kind need before their draws sample it.
-  const bool pbr_shadow_frame_ok = Gfx::g_global_settings.recharged_pbr_enable &&
-                                   !m_pbr_draws.empty() &&
-                                   pbr_shadow_begin_frame(render_state->frame_idx);
+  const bool pbr_shadow_frame_ok =
+      Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
+      pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data());
   if (pbr_shadow_frame_ok && tree.kind == tfrag3::TFragmentTreeKind::NORMAL &&
       pbr_depth_index_count > 0) {
     auto& sh_st = pbr_shadow_state();
@@ -666,8 +666,21 @@ void TFragment::render_tree(int geom,
       while (glGetError() != GL_NO_ERROR) {
       }
     }
-    glDrawElements(tree.draw_mode, pbr_depth_index_count, GL_UNSIGNED_INT, nullptr);
-    sh_st.cast_indices += (u64)pbr_depth_index_count;
+    if (sh_st.cast_full && tree.index_count > 0) {
+      // Round-5 owner bug fix: the caster set must IGNORE camera visibility (an off-screen
+      // hut must keep casting its on-screen shadow — vis-culled casters pop shadows in/out
+      // on camera rotation). Draw the FULL static tree index buffer, then rebind the
+      // frame's element buffer for the main pass.
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
+      glDrawElements(tree.draw_mode, tree.index_count, GL_UNSIGNED_INT, nullptr);
+      sh_st.cast_indices += (u64)tree.index_count;
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_state->no_multidraw
+                                                ? tree.single_draw_index_buffer
+                                                : tree.index_buffer);
+    } else {
+      glDrawElements(tree.draw_mode, pbr_depth_index_count, GL_UNSIGNED_INT, nullptr);
+      sh_st.cast_indices += (u64)pbr_depth_index_count;
+    }
     if (sh_st.debug) {
       GLenum dbg_err = glGetError();
       if (dbg_err != GL_NO_ERROR) {

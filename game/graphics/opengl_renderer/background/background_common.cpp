@@ -751,7 +751,7 @@ void pbr_shadow_ensure_resources() {
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-bool pbr_shadow_begin_frame(u64 frame_idx) {
+bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   auto& st = pbr_shadow_state();
   if (!Gfx::g_global_settings.recharged_pbr_enable ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
@@ -833,16 +833,24 @@ bool pbr_shadow_begin_frame(u64 frame_idx) {
   // shadow must land on NON-PBR ground too). Prop-tunable for device calibration so
   // already-baked painted shadows don't double-darken into black.
   st.legacy_strength = 0.35f;
+  // Round-5: full-caster-set toggle (default ON = the fix; 0 = old vis-culled repro).
+  st.cast_full = true;
 #ifdef __ANDROID__
   {
     char v[PROP_VALUE_MAX];
     if (__system_property_get("debug.opengoal.pbr.legacyshadow", v) > 0 && v[0]) {
       st.legacy_strength = (float)atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.castfull", v) > 0 && v[0]) {
+      st.cast_full = atoi(v) != 0;
+    }
   }
 #else
   if (const char* e = std::getenv("OG_PBR_LEGACY_SHADOW")) {
     st.legacy_strength = (float)std::atof(e);
+  }
+  if (const char* e = std::getenv("OG_PBR_CASTFULL")) {
+    st.cast_full = std::atoi(e) != 0;
   }
 #endif
 
@@ -882,17 +890,23 @@ bool pbr_shadow_begin_frame(u64 frame_idx) {
   float view[16];
   pbr_look_at(eye, target, up, view);
 
-  // TEXEL SNAP (stable-shadow trick): transform the world origin into light view space,
-  // snap x/y to multiples of the world-per-texel size, add the delta back into the view
-  // translation. Ortho spans 80 world units across 1024 texels.
+  // TEXEL SNAP (stable-shadow trick), round-5 corrected: the shadow space is
+  // CAMERA-RELATIVE meters (shaders subtract cam_trans), so the camera's translation is
+  // what shifts world geometry across the light-space texel grid — quantize ITS projection
+  // onto the light right/up axes to whole texels. (The previous snap quantized the view
+  // translation of the space's origin, which depends only on the sun direction — a no-op
+  // for camera movement.) The window itself is a constant-size box centered on the camera
+  // position, so camera ROTATION cannot change the fit (the round-5 rotation bug was the
+  // vis-culled caster set, fixed in the depth passes). Ortho spans 80 world units across
+  // 1024 texels.
   const float texel_world = 80.0f / 1024.0f;
-  // origin in view space = view * (0,0,0,1) = column 3 translation.
-  float ox = view[12];
-  float oy = view[13];
-  float sx = std::floor(ox / texel_world) * texel_world;
-  float sy = std::floor(oy / texel_world) * texel_world;
-  view[12] += (sx - ox);
-  view[13] += (sy - oy);
+  // Camera position in meters; its light-space x/y via the s/u rows of the view matrix.
+  const float cmx = cam_trans[0] / 4096.f, cmy = cam_trans[1] / 4096.f,
+              cmz = cam_trans[2] / 4096.f;
+  float tx = view[0] * cmx + view[4] * cmy + view[8] * cmz;
+  float ty = view[1] * cmx + view[5] * cmy + view[9] * cmz;
+  view[12] += tx - std::floor(tx / texel_world) * texel_world;
+  view[13] += ty - std::floor(ty / texel_world) * texel_world;
 
   float proj[16];
   pbr_ortho(-40.f, 40.f, -40.f, 40.f, 0.5f, 200.0f, proj);

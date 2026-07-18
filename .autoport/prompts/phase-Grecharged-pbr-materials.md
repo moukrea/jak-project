@@ -306,3 +306,21 @@ light-group ambient. MANDATE E (this attempt if the build allows, else immediate
    objective check: per-frame shadow-mask IoU across the orbit (>0.9 between consecutive frames on the
    static scene band).
 Keep everything else won (POM, baked-GI hybrid, bakedw, multi-light, coverage). Owner's eye closes.
+
+## OWNER ROUND 5 ADDENDUM (20:30) — "on n'arrive pas à identifier la provenance d'UNE SEULE ombre projetée"
+Beyond instability: the shadows are INCOHERENT — no shadow visually connects to its caster. Additional
+root-cause suspects (verify each):
+c) LIGHT DIRECTION != VISIBLE SUN: the depth pass uses the weighted dominant light-group dir; if that
+   direction does not match where the sun VISIBLY sits in the sky at the test hour, every shadow points
+   "wrong" and becomes unattributable. FIX: drive the shadow direction from the same vector that places
+   the visible sun (mood current-sun / update-mood-shadow-direction), and PROVE alignment: at h8 and h16,
+   a pole/hut shadow must extend exactly opposite the on-screen sun.
+d) DOUBLE-BUFFER MATRIX LAG: receivers sample last frame's map+matrix — one frame of camera/TOD motion
+   displaces every shadow from its caster continuously. If this contributes, consider same-frame ordering
+   (depth pass before ALL receivers in the frame — bucket order permitting) or accept lag only when
+   provably imperceptible (static-scene IoU unaffected by rotation is NOT enough; test while orbiting).
+e) BIAS/RES sanity at the vantage: peter-panning (shadow detached from caster base) makes attribution
+   impossible even when the direction is right — verify polygon-offset bias so contact points touch.
+ATTRIBUTABILITY ACCEPTANCE (owner's words): at the vantage, ONE clearly identifiable shadow per caster —
+the hut's shadow starts AT the hut base and extends away from the visible sun; a fence post's shadow
+touches the post. Device clip walking the eye from caster to shadow + a still annotated in the report.

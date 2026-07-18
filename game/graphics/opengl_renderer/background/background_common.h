@@ -215,10 +215,19 @@ struct PbrShadowState {
   float legacy_strength = 0.35f;  // calibrated legacy-receiver darkening (prop-tunable)
   u64 cast_indices = 0;  // indices drawn into the write map this frame (debug telemetry)
   bool debug = false;    // telemetry on (env OG_PBR_SHADOW_DEBUG / prop ...pbr.shadowdbg)
+  // Round-5 owner bug (shadows pop/swim on camera ROTATION): the caster set must ignore
+  // camera visibility. true (default) = depth passes draw the FULL static tree index
+  // buffers; false (prop debug.opengoal.pbr.castfull=0 / env OG_PBR_CASTFULL=0) = the old
+  // camera-vis-culled caster set, kept only as a perf/repro A/B fallback.
+  bool cast_full = true;
 };
 PbrShadowState& pbr_shadow_state();
-void pbr_shadow_ensure_resources();             // lazy FBO/tex creation
-bool pbr_shadow_begin_frame(u64 frame_idx);     // true if the depth pass should run
+void pbr_shadow_ensure_resources();  // lazy FBO/tex creation
+// true if the depth pass should run. cam_trans = the frame's camera translation in game
+// units (settings.camera.trans) — the light ortho window is anchored to it (constant-size
+// camera-position-centered box, rotation cannot change it) and the texel snap quantizes
+// its light-space projection so camera TRANSLATION moves the window in whole-texel steps.
+bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans);
 void pbr_shadow_bind_receiver(GLuint program);  // bind matrix+sampler on a TFRAG3-family program
 #endif
 
