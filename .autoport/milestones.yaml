@@ -2131,6 +2131,21 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-realtime-lighting
+  name: 'RECHARGED (owner 2026-07-19, FURIOUS at round-1..5 lighting, COMPLETE REWRITE): PBR Materials On/Off kept as good-enough;
+    NEW separate "Realtime Lighting On/Off" toggle + a sub-option to disable baked lighting when it is ON (dev state = baked OFF).
+    Redo realtime lighting from scratch, dead simple + correct: ONE light = the SUN (dir from the VISIBLE sun / current-sun /
+    mood-shadow-direction), sun-facing side LIT + opposite side DARK (N.L per-face), object CASTS a shadow on whatever is behind
+    it. NO OTHER LIGHTS, NO ambient, baked OFF everywhere. Strip the round-1..5 accretion (ambient/multi-light/moon/baked-GI/bakedw);
+    keep+simplify the world shadow map + camera-stable fit + per-face N.L. Obvious-model acceptance (sun-side lit/dark-side dark,
+    cast shadow at base opposite the visible sun, h8/h16 flip, 360-orbit pinned, no-ambient genuinely dark, baked-off proven).
+    OFF==stock. Owner eye gates. "Comme c est cense l etre."'
+  prompt: prompts/phase-Grecharged-realtime-lighting.md
+  validator: validators/phase-Grecharged-realtime-lighting.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models3
   name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
     mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
