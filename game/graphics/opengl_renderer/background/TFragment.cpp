@@ -832,7 +832,7 @@ void TFragment::render_tree(int geom,
   };
 
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: per-draw PBR material bind. Units 11-14 are free in
+  // Grecharged-pbr-materials: per-draw PBR material bind. Units 11-15 are free in
   // this renderer (base tex = 0, TOD LUT = 10); shared TFRAG3 program so u_pbr_mode
   // is always restored to 0 at the end of the draw loop.
   GLint pbr_mode_loc = -2;
@@ -853,7 +853,8 @@ void TFragment::render_tree(int geom,
       }
       if (maps) {
         want = (maps->normal_tex ? 1 : 0) | (maps->rough_tex ? 2 : 0) |
-               (maps->metal_tex ? 4 : 0) | (maps->ao_tex ? 8 : 0);
+               (maps->metal_tex ? 4 : 0) | (maps->ao_tex ? 8 : 0) |
+               (maps->height_tex ? 16 : 0);
       }
     }
     if (want == 0 && pbr_cur_mode == 0) {
@@ -866,7 +867,7 @@ void TFragment::render_tree(int geom,
       return;
     }
     if (want != 0) {
-      // Bind ALL FOUR units every time: the real map when present, the 1x1 neutral
+      // Bind ALL FIVE units every time: the real map when present, the 1x1 neutral
       // default when absent (e.g. a set with no _metallic). No unit is ever left
       // unbound or holding another draw's map while the PBR shader path is active.
       const auto& neutral = pbr_neutral_maps();
@@ -878,6 +879,8 @@ void TFragment::render_tree(int geom,
       glBindTexture(GL_TEXTURE_2D, maps->metal_tex ? maps->metal_tex : neutral.metal_tex);
       glActiveTexture(GL_TEXTURE14);
       glBindTexture(GL_TEXTURE_2D, maps->ao_tex ? maps->ao_tex : neutral.ao_tex);
+      glActiveTexture(GL_TEXTURE15);
+      glBindTexture(GL_TEXTURE_2D, maps->height_tex ? maps->height_tex : neutral.height_tex);
       glActiveTexture(GL_TEXTURE0);
       pbr_bound_any = true;
     }

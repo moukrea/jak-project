@@ -136,12 +136,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 // regardless of the u_pbr_mode branch, so those units must ALWAYS carry a complete
 // texture during tfrag draws — including when zero PBR materials are registered
 // (e.g. a partial albedo-only drop dir). Texel values match the shader's absent-map
-// constants (flat normal, rough 0.7, metal 0, ao 1). GL-thread only.
+// constants (flat normal, rough 0.7, metal 0, ao 1, height 1 = zero POM depth).
+// GL-thread only.
 struct PbrNeutralMaps {
-  GLuint normal_tex = 0, rough_tex = 0, metal_tex = 0, ao_tex = 0;
+  GLuint normal_tex = 0, rough_tex = 0, metal_tex = 0, ao_tex = 0, height_tex = 0;
 };
 const PbrNeutralMaps& pbr_neutral_maps();
-// Bind the neutrals to units 11-14 and restore active unit 0.
+// Bind the neutrals to units 11-15 and restore active unit 0.
 void pbr_park_neutral_maps();
 #endif
 

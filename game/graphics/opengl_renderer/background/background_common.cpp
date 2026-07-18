@@ -470,6 +470,7 @@ const PbrNeutralMaps& pbr_neutral_maps() {
     s.rough_tex = make1x1(179, 179, 179);   // 0.7, the shader's absent-map default
     s.metal_tex = make1x1(0, 0, 0);
     s.ao_tex = make1x1(255, 255, 255);
+    s.height_tex = make1x1(255, 255, 255);  // surface level -> POM depth 0, zero offset
     glActiveTexture(prev_active);
   }
   return s;
@@ -485,6 +486,8 @@ void pbr_park_neutral_maps() {
   glBindTexture(GL_TEXTURE_2D, neutral.metal_tex);
   glActiveTexture(GL_TEXTURE14);
   glBindTexture(GL_TEXTURE_2D, neutral.ao_tex);
+  glActiveTexture(GL_TEXTURE15);
+  glBindTexture(GL_TEXTURE_2D, neutral.height_tex);
   glActiveTexture(GL_TEXTURE0);
 }
 #endif
@@ -544,7 +547,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1i(glGetUniformLocation(id, "tex_PBR_R"), 12);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_AO"), 14);
-  // Units 11-14 must be complete for EVERY draw of this program — including when zero
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_H"), 15);
+  // Units 11-15 must be complete for EVERY draw of this program — including when zero
   // PBR materials are registered this level (see pbr_neutral_maps in background_common.h).
   pbr_park_neutral_maps();
   const auto& gs = Gfx::g_global_settings;
@@ -565,6 +569,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float sun_scale = 1.0f / 255.0f;
   float amb_scale = 1.0f / 255.0f;
   float exposure = gs.recharged_pbr_exposure;
+  // Owner mandate 2026-07-18 ("giga flat"): relief tunables, defaults CALIBRATED on
+  // device at the owner sage-wall vantage (-112 42 205 h8; calib combo C beat A/B/D/E:
+  // deep mortar relief, no grazing smear — see device/calib/). Extra UV tiling 1.0 =
+  // native texel density (2x read busier and smeared at grazing on this wall).
+  float normal_strength = 3.0f;
+  float height_scale = 0.07f;
+  float uv_tile = 1.0f;
   // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
   // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
   int pbr_debug = 0;
@@ -585,10 +596,28 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.debug", v) > 0) {
       pbr_debug = atoi(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.nstrength", v) > 0) {
+      normal_strength = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.height", v) > 0) {
+      height_scale = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.uvtile", v) > 0) {
+      uv_tile = atof(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
     pbr_debug = atoi(e);
+  }
+  if (const char* e = getenv("OG_PBR_NSTRENGTH")) {
+    normal_strength = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_HEIGHT")) {
+    height_scale = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_UVTILE")) {
+    uv_tile = atof(e);
   }
 #endif
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
@@ -598,6 +627,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
               gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
   glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"), exposure);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_normal_strength"), normal_strength);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_height_scale"), height_scale);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
 #endif
 }
 

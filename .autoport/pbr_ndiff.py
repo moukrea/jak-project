@@ -30,7 +30,12 @@ def main():
         return 2
     d = sys.argv[1]
     crop = float(sys.argv[2]) if len(sys.argv) > 2 else 0.6
-    for a_name, b_name in (("mode0.png", "mode7.png"), ("mode2.png", "mode3.png")):
+    pairs = [("mode0.png", "mode7.png"), ("mode2.png", "mode3.png")]
+    # POM contribution (owner mandate 2026-07-18): mode8 = full PBR with the parallax
+    # march disabled — a clear mode0-vs-mode8 delta proves the height map offsets UVs.
+    if os.path.exists(os.path.join(d, "mode8.png")):
+        pairs.append(("mode0.png", "mode8.png"))
+    for a_name, b_name in pairs:
         a = load(d, a_name, crop)
         b = load(d, b_name, crop)
         if a.shape != b.shape:

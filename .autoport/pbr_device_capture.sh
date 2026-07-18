@@ -31,7 +31,7 @@ case "${1:?stage material|toggle on/off|run TAG|reset}" in
 material)
   # ONE material on device (owner mandate): TEX names the base texture the set covers.
   TEX="${PBR_TEX:-vil1-sages-stonewall-01}"
-  for suf in "" _normal _roughness _ao; do
+  for suf in "" _normal _roughness _ao _height; do
     [ -f "$SRC/${TEX}${suf}.png" ] || { echo "[pbr-cap FAIL] missing $SRC/${TEX}${suf}.png"; exit 1; }
   done
   adb shell mkdir -p "$DROP/village1-vis-tfrag" </dev/null
@@ -41,7 +41,7 @@ material)
   STRAYS="$(adb shell "ls $DROP/*.png 2>/dev/null" </dev/null | tr -d '\r')"
   [ -n "$STRAYS" ] && { echo "--- removing stray root PNGs: $STRAYS"; adb shell "rm -f $DROP/*.png" </dev/null; }
   adb shell "rm -f $DROP/village1-vis-tfrag/*.png" </dev/null
-  for suf in "" _normal _roughness _ao; do
+  for suf in "" _normal _roughness _ao _height; do
     adb push "$SRC/${TEX}${suf}.png" "$DROP/village1-vis-tfrag/${TEX}${suf}.png" >/dev/null
   done
   echo "--- device drop dir:"; adb shell ls -la "$DROP/village1-vis-tfrag/" </dev/null
@@ -101,6 +101,16 @@ run)
   # sweep across the beach -> a REALTIME specular highlight visibly moves.
   ( [ -n "${PBR_NO_WALK:-}" ] && exit 0   # static vantage (TOD-sweep realtime clip:
                                           # ONLY the sun moves -> un-fakeable)
+    if [ "${PBR_WALK_STYLE:-}" = arc ]; then
+      # Owner-mandate grazing arc at the sage wall: SLOW continuous lateral walk
+      # past the wall so the view angle rakes across it — brick depth must visibly
+      # parallax (near bricks slide over far mortar). One slow pass each way.
+      sleep 4
+      pulse "lx=100" 6.0 1.5
+      pulse "lx=158" 12.0 1.5
+      pulse "lx=100" 6.0 1.0
+      exit 0
+    fi
     sleep 4
     pulse "ly=100" 1.2 0.8; pulse "ly=158" 1.2 0.8
     pulse "lx=100" 1.4 0.8; pulse "lx=158" 1.4 0.8
@@ -141,9 +151,10 @@ run)
 viz)
   # Critique 2 "prove each map does work": ONE boot at the wall vantage with the sun
   # pinned low (PBR_TOD_HOUR, default 8), one screenrecord while the per-frame-read
-  # debug.opengoal.pbr.debug prop steps 0..7 every 8s. Modes (tfrag3.frag u_pbr_debug):
-  # 0 full PBR | 1 albedo passthrough | 2 geo normal | 3 final normal | 4 roughness |
-  # 5 spec-only | 6 AO | 7 full PBR with normal map OFF (the N A/B pair with 0).
+  # debug.opengoal.pbr.debug prop steps 0..9 every 8s. Modes (tfrag3.frag u_pbr_debug):
+  # 0 full PBR | 1 albedo passthrough (POM-offset -> parallax viz) | 2 geo normal |
+  # 3 final normal | 4 roughness | 5 spec-only | 6 AO | 7 full PBR normal-map OFF
+  # (the N A/B pair with 0) | 8 full PBR POM OFF (the POM A/B pair with 0) | 9 height.
   # Frames are extracted mid-segment from prop-set wall-clock offsets vs record start.
   TAG=viz
   LOG="$OUT/logcat_$TAG.log"
@@ -172,7 +183,7 @@ viz)
                                  # offsets -> 7 identical stills)
   BG_START=$(date +%s.%N)
   ( sleep 2
-    for m in 0 1 2 3 4 5 6 7; do
+    for m in 0 1 2 3 4 5 6 7 8 9; do
       adb shell "setprop debug.opengoal.pbr.debug $m" </dev/null
       echo "$m $(date +%s.%N)" >> /tmp/pbr_viz_times.txt
       sleep 8
@@ -180,7 +191,7 @@ viz)
   KICK=$!
   adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
   REC_START=$(date +%s.%N)
-  adb shell screenrecord --time-limit 70 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
+  adb shell screenrecord --time-limit 90 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
   wait $KICK 2>/dev/null || true
   FOCUS_END="$(focus)"
   sleep 1
@@ -195,13 +206,13 @@ viz)
   while read -r m tset; do
     # validate: m must be a single mode digit and tset a wall-clock float;
     # anything else (partial line) falls through to the schedule fallback below.
-    case "$m" in [0-7]) ;; *) continue ;; esac
+    case "$m" in [0-9]) ;; *) continue ;; esac
     [ -n "${tset:-}" ] || continue
     off=$(python3 -c "print(max(0.5, $tset - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
   done < /tmp/pbr_viz_times.txt
   # schedule fallback: mode m was set at ~BG_START+2+8m; mid-segment extract.
-  for m in 0 1 2 3 4 5 6 7; do
+  for m in 0 1 2 3 4 5 6 7 8 9; do
     [ -f "$OUT/viz/mode$m.png" ] && continue
     off=$(python3 -c "print(max(0.5, $BG_START + 2 + 8*$m - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"

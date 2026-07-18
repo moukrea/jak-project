@@ -76,10 +76,11 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     const auto* r = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness");
     const auto* m = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic");
     const auto* a = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao");
+    const auto* h = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height");
     // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
     // buffer, so it must be consumed (uploaded) before the next call. Below we
     // re-fetch each map immediately before its upload to keep that contract.
-    if (n || r || m) {
+    if (n || r || m || h) {
       auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
           return 0;
@@ -114,9 +115,14 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
         maps.ao_tex =
             make_map(custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao"));
       }
+      if (h) {
+        maps.height_tex = make_map(
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height"));
+      }
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
       auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
-      GLuint old_ids[4] = {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex};
+      GLuint old_ids[5] = {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex,
+                           prev.height_tex};
       for (GLuint oid : old_ids) {
         if (oid) {
           glDeleteTextures(1, &oid);

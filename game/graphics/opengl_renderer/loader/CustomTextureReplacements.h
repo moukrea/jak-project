@@ -41,6 +41,7 @@ struct PbrMaterialMaps {
   u32 rough_tex = 0;
   u32 metal_tex = 0;
   u32 ao_tex = 0;
+  u32 height_tex = 0;  // <tex>_height.png — drives parallax occlusion mapping
 };
 
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by

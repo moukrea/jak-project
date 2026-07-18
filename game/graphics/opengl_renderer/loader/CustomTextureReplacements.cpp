@@ -180,9 +180,9 @@ PbrMaterialMaps register_pbr_material(const std::string& tex_debug_name,
   } else {
     g_pbr_materials.emplace(tex_debug_name, maps);
   }
-  lg::info("custom pbr material registered: {} (N={} R={} M={} AO={})", tex_debug_name,
+  lg::info("custom pbr material registered: {} (N={} R={} M={} AO={} H={})", tex_debug_name,
            maps.normal_tex ? 1 : 0, maps.rough_tex ? 1 : 0, maps.metal_tex ? 1 : 0,
-           maps.ao_tex ? 1 : 0);
+           maps.ao_tex ? 1 : 0, maps.height_tex ? 1 : 0);
   return prev;
 }
 
