@@ -324,3 +324,19 @@ e) BIAS/RES sanity at the vantage: peter-panning (shadow detached from caster ba
 ATTRIBUTABILITY ACCEPTANCE (owner's words): at the vantage, ONE clearly identifiable shadow per caster —
 the hut's shadow starts AT the hut base and extends away from the visible sun; a fence post's shadow
 touches the post. Device clip walking the eye from caster to shadow + a still annotated in the report.
+
+## OWNER ROUND 5 ADDENDUM 2 (20:50) — "Jak est éclairé par une source qui match le soleil — pourquoi pas
+## pareil pour tous les objets et le monde au global ?"
+Owner's observation is the design key: ACTORS are lit per-vertex by the mood light-group on their normals
+-> stable, geometry-attached, sun-tracking shading. The world only has static baked + our (buggy) shadow
+map "floating like badly-attached projected sprites". MANDATE F — WORLD-WIDE MOOD-LIGHT SHADING
+("light the world like Jak"): when the feature is ON, apply the SAME directional response the actors get
+to ALL world geometry (tfrag+tie): geometric normal (screen-derivative per-face is fine — it is stable and
+camera-independent for shading) x the mood light-group (sun + fill + moon, energy-conserving) as the
+DIRECT term, x the shadow factor; indirect stays baked*bakedw. Per-face N.L shading is attached to the
+geometry by construction — it CANNOT swim with the camera (unlike the shadow lookup) and instantly makes
+the whole world respond to the sun exactly like Jak does. Calibrate direct/indirect so the world does not
+double-brighten (the baked already contains sun; reuse the round-3 calibration approach). The PBR-mapped
+surfaces keep their full BRDF; non-PBR world surfaces get this lightweight N.L relight. Acceptance: at the
+vantage, hut walls facing the sun are brighter than faces away from it, and the contrast FOLLOWS the sun
+across the TOD sweep — while camera orbits change NOTHING (stability proof shared with round-5).

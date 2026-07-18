@@ -27,4 +27,5 @@ grep -qiE 'coverage|vis-alpha|tie|half.?pbr|unif' "$R" || fail "no coverage-unif
 grep -qiE 'baked.?w|bakedw|baked.?weight|full.?realtime' "$R" || fail "no baked-weight full-realtime A/B evidence — owner round-4bis"
 grep -qiE 'orbit|IoU|rotation.*(stable|pinned)|stable.*orbit' "$R" || fail "no camera-orbit shadow-stability proof — owner round-5"
 grep -qiE 'raccord|matching|thatch|plank|sandstone|multi.?material' "$R" || fail "no matching multi-material evidence — owner round-5"
+grep -qiE 'world.?relight|light.*world.*like|N.?dot.?L.*world|monde.*(eclaire|relight)|world.*mood.*shading' "$R" || fail "no world-wide mood-light shading evidence — owner round-5 addendum 2"
 echo "[Gpbr PASS]"
