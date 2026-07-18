@@ -280,3 +280,29 @@ light-group ambient. MANDATE E (this attempt if the build allows, else immediate
   hour + a night beat — so the owner judges by eye which world he wants. Report both captures.
 - Watch for the failure modes: double-shadowing (baked painted + realtime) at w=1 with shadows on ->
   document/calibrate; flat-under-roof at w=0 if AO off -> note that full-realtime pairs with AO ON.
+
+## OWNER ROUND 5 (2026-07-18 ~20:20, playtest on HIS Honor, round-4 build + his saves) — two verdicts
+1. GOOD: "Le PBR brique rend pas mal" — BUT the material must be RACCORD (faithful) with what it
+   replaces: the brick does NOT match the original sage-wall look. MANDATE A — MULTI-MATERIAL MATCHING SET:
+   pick 3-5 world surfaces around the owner vantage (sage wall, thatch roof, wooden walkway planks,
+   village stone/sand) and for EACH download a CC0 material whose ALBEDO/look matches the ORIGINAL surface
+   it replaces (thatch->straw/thatch, planks->worn wood planks, sage wall->sandstone/adobe matching the
+   original palette, NOT red brick). Stats-verify punch (normal dev>35 / rough std>30 / height full-range —
+   post-process via pbr_material_prep.py as before if raw fails). Report a side-by-side original-vs-PBR
+   per material: the goal is "the same surface, upgraded", not "a different surface".
+2. BUG (the important one): "les ombres/shading temps réel a l'air perdu — ombres qui apparaissent/
+   disparaissent/bougent/changent de forme sur SIMPLE ROTATION CAMÉRA". Classic shadow-map instability,
+   two known root causes to fix:
+   a) CASTER SET IS CAMERA-VIS-CULLED: the depth pass renders the camera-PVS/vis-culled tree draws, so an
+      off-screen caster stops casting -> its shadow pops in/out as the camera rotates. FIX: the depth pass
+      must ignore camera visibility — render ALL NORMAL-tree draws (or light-frustum-cull), never the
+      camera vis set.
+   b) VIEW-DEPENDENT ORTHO FIT: the +/-40m box is fit/centered relative to the camera view, so rotating
+      the camera changes the light-space projection -> shadows swim/change shape. FIX: standard stabilized
+      fit — light-space axis-aligned box of CONSTANT size from a camera-position-anchored bounding SPHERE
+      (radius fixed; rotation cannot change a sphere), center snapped to the shadow-texel grid each frame.
+   ACCEPTANCE (owner's exact repro): a device clip at the vantage doing a FULL CAMERA ORBIT with the sun
+   pinned — every shadow must stay PINNED to the ground (no pop, no swim, no shape change). Add an
+   objective check: per-frame shadow-mask IoU across the orbit (>0.9 between consecutive frames on the
+   static scene band).
+Keep everything else won (POM, baked-GI hybrid, bakedw, multi-light, coverage). Owner's eye closes.
