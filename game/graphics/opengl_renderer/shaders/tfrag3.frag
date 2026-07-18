@@ -43,6 +43,12 @@ uniform float u_pbr_uv_tile;
 // specular, and the moving highlight is the realtime tell.
 uniform float u_pbr_direct;
 uniform float u_pbr_indirect;
+// Round-4bis mandate E (owner: "si notre vrai lighting realtime marche vraiment, on n'a
+// plus besoin du baked quand activé"): 1.0 = round-3 hybrid (indirect = baked vertex GI),
+// 0.0 = FULL REALTIME (indirect = light-group ambient * AO; baked term gone). At low
+// weight the u_pbr_direct double-dose damping also fades back to 1.0 — it exists only
+// because the baked term carries the baked sun, which is no longer added at w=0.
+uniform float u_pbr_baked_weight;
 // Per-channel isolation viz on the PBR draws only (legacy neighbours untouched, so the
 // patch outline shows in every mode). 0=off, 1=albedo passthrough (what a plain
 // photo-swap would look like; POM still offsets it, so this is also the cleanest
@@ -65,12 +71,19 @@ uniform sampler2D tex_PBR_H;
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
 uniform mat4 u_pbr_shadow_mvp;
 uniform int u_pbr_shadow_on;
-uniform highp sampler2DShadow tex_PBR_SHADOW;
+// Plain sampler2D + manual in-shader compare: the Adreno 618 HW compare path
+// (sampler2DShadow + COMPARE_REF_TO_TEXTURE) returns a constant 1.0 on-device
+// (proven with a 0.25-cleared map). Depth-as-float sampling is portable.
+uniform highp sampler2D tex_PBR_SHADOW;
 // Owner clarification 2026-07-18 (WORLD shadows): legacy (non-PBR) fragments in this
 // program also receive the sun shadow as a calibrated darkening, so the hut's shadow
 // lands on the non-PBR ground. 0 disables; ~0.35 default, prop-tunable so already-baked
 // painted shadows don't double-darken into black.
 uniform float u_pbr_legacy_shadow;
+// Debug-only bias override added to the compare ref (prop debug.opengoal.pbr.shadowbias /
+// OG_PBR_SHADOWBIAS, default 0.0 = no effect). +0.5 must black out every in-box receiver
+// if the HW depth compare works — the Adreno-driver binary test.
+uniform float u_pbr_shadow_bias;
 #endif
 
 
@@ -87,20 +100,28 @@ void main() {
     // face normal. Fades out toward the 80m ortho box edge so the coverage boundary
     // doesn't show as a hard shadow cutoff.
     float sm_shadow = 1.0;
+    vec3 sm_dbg_suv = vec3(-1.0);  // viz mode 14: shadow-space UV + in-box flag
+    float sm_dbg_inbox = 0.0;
     if (u_pbr_shadow_on != 0) {
       vec4 sp = u_pbr_shadow_mvp * vec4(v_fringe_rel, 1.0);
       vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
+      sm_dbg_suv = suv;
       if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
+        sm_dbg_inbox = 1.0;
         vec3 sng = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
         float sngl = length(sng);
         float ndl0 = sngl > 1e-6 ? abs(dot(sng / sngl, u_pbr_light_dir[0])) : 1.0;
         float bias = max(0.0035 * (1.0 - ndl0), 0.0012);
-        float ref = suv.z - bias;
+        // u_pbr_shadow_bias: debug override (prop ...pbr.shadowbias); +0.5 forces every
+        // in-box fragment SHADOWED — a binary compare-path test.
+        float ref = suv.z - bias + u_pbr_shadow_bias;
         float texel = 1.0 / 1024.0;
-        sm_shadow  = texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5, -0.5) * texel, ref));
-        sm_shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5, -0.5) * texel, ref));
-        sm_shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5,  0.5) * texel, ref));
-        sm_shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5,  0.5) * texel, ref));
+        // Manual 4-tap PCF: each tap samples the raw depth and compares in-shader
+        // (see the sampler declaration above for why not HW sampler2DShadow).
+        sm_shadow  = ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5, -0.5) * texel).r ? 1.0 : 0.0;
+        sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5, -0.5) * texel).r ? 1.0 : 0.0;
+        sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5,  0.5) * texel).r ? 1.0 : 0.0;
+        sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5,  0.5) * texel).r ? 1.0 : 0.0;
         sm_shadow *= 0.25;
         float edge_fade = 1.0 - smoothstep(30.0, 39.0, length(v_fringe_rel));
         sm_shadow = mix(1.0, sm_shadow, edge_fade);
@@ -183,6 +204,11 @@ void main() {
       vec3 F0 = mix(vec3(0.04), albedo, metal);
       // Round-4 mandate B: the shared sun shadow-map factor computed above.
       float shadow = sm_shadow;
+      // Round-4bis mandate E: baked weight. The u_pbr_direct diffuse damping is the
+      // double-dose control against the baked sun; as the baked term fades out the
+      // realtime sun must carry the full diffuse load again.
+      float bakedw = clamp(u_pbr_baked_weight, 0.0, 1.0);
+      float direct_diff_scale = mix(1.0, u_pbr_direct, bakedw);
       // Round-4 multi-light accumulation: sum the Cook-Torrance direct response of every
       // non-black light in light-group 0 (soleil + lune verte + fill). D/G/F math is
       // identical to the old single-sun path; kd/F depend on VdH so they're per-light.
@@ -205,7 +231,7 @@ void main() {
         vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);
         vec3 spec = D * G * F / max(4.0 * NdV * NdL, 1e-4);
         vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
-        vec3 contrib = (kd * albedo / 3.14159265 * u_pbr_direct + spec) * lc * NdL;
+        vec3 contrib = (kd * albedo / 3.14159265 * direct_diff_scale + spec) * lc * NdL;
         direct += contrib;
         spec_sum += spec * lc * NdL;
         if (i > 0) {
@@ -224,7 +250,13 @@ void main() {
       // building matches OFF wherever the sun doesn't add on top. The baked color is
       // TOD-palette-interpolated per frame, so this term still tracks the day cycle.
       vec3 baked_gi = pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2));
-      vec3 indirect = albedo * baked_gi * ao * u_pbr_indirect;
+      // Round-4bis mandate E: blend the hybrid baked-GI indirect toward the FULL-REALTIME
+      // indirect (light-group ambient * AO) as bakedw -> 0. At w=0 the baked vertex color
+      // no longer influences the PBR surface at all: sun+moon+fill direct is shadow-mapped
+      // realtime, ambient comes from the level light-group, occlusion from the AO map.
+      vec3 indirect_baked = albedo * baked_gi * ao * u_pbr_indirect;
+      vec3 indirect_rt = albedo * u_pbr_ambient * ao;
+      vec3 indirect = mix(indirect_rt, indirect_baked, bakedw);
       vec3 lit = direct + indirect;
       color.rgb = pow(max(lit * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       if (u_pbr_debug == 1) {
@@ -251,6 +283,15 @@ void main() {
       } else if (u_pbr_debug == 13) {
         // Round-4: direct contribution of lights 1+2 ONLY (moon/fill isolation viz).
         color.rgb = pow(max(direct12 * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
+      } else if (u_pbr_debug == 14) {
+        // Shadow-space debug: R/G = shadow-map UV, B = in-box flag.
+        color.rgb = vec3(fract(sm_dbg_suv.x), fract(sm_dbg_suv.y), sm_dbg_inbox);
+      } else if (u_pbr_debug == 15) {
+        // Shadow-space depth debug: gray = suv.z (light-space depth of this fragment).
+        color.rgb = vec3(clamp(sm_dbg_suv.z, 0.0, 1.0));
+      } else if (u_pbr_debug == 16) {
+        // Raw map depth the receiver reads at this fragment's shadow UV.
+        color.rgb = vec3(texture(tex_PBR_SHADOW, clamp(sm_dbg_suv.xy, 0.0, 1.0)).r);
       }
     } else if (u_pbr_shadow_on != 0) {
       // Owner clarification 2026-07-18: LEGACY receivers. The non-PBR world (the ground
@@ -261,6 +302,12 @@ void main() {
       color.rgb *= 1.0 - u_pbr_legacy_shadow * (1.0 - sm_shadow);
       if (u_pbr_debug == 12) {
         color.rgb = vec3(sm_shadow);
+      } else if (u_pbr_debug == 14) {
+        color.rgb = vec3(fract(sm_dbg_suv.x), fract(sm_dbg_suv.y), sm_dbg_inbox);
+      } else if (u_pbr_debug == 15) {
+        color.rgb = vec3(clamp(sm_dbg_suv.z, 0.0, 1.0));
+      } else if (u_pbr_debug == 16) {
+        color.rgb = vec3(texture(tex_PBR_SHADOW, clamp(sm_dbg_suv.xy, 0.0, 1.0)).r);
       }
     }
 #endif

@@ -207,7 +207,7 @@ viz)
   while read -r m tset; do
     # validate: m must be a mode number and tset a wall-clock float;
     # anything else (partial line) falls through to the schedule fallback below.
-    case "$m" in [0-9]|1[01]) ;; *) continue ;; esac
+    case "$m" in [0-9]|1[0-3]) ;; *) continue ;; esac
     [ -n "${tset:-}" ] || continue
     off=$(python3 -c "print(max(0.5, $tset - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"

@@ -749,6 +749,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
     GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
     GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+    // DEPTH_TEST is per-DrawMode state — force it on for the depth-only pass (depth
+    // writes only happen when the test is enabled; the device chain reaches here with
+    // it off → empty map). Same fix as the TFragment caster pass.
+    GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
     GLboolean prev_depth_mask = GL_TRUE;
     glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
@@ -760,6 +764,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     glViewport(0, 0, sh_st.size, sh_st.size);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -782,6 +787,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         }
         glDrawElements(tree.draw_mode, sd.second, GL_UNSIGNED_INT,
                        (void*)(sd.first * sizeof(u32)));
+        sh_st.cast_indices += (u64)sd.second;
       } else {
         const auto& md = tree.multidraw_offset_per_stripdraw[di];
         if (md.second == 0) {
@@ -790,6 +796,15 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[md.first],
                             GL_UNSIGNED_INT, &tree.multidraw_index_offset_buffer[md.first],
                             md.second);
+        for (int mdi = 0; mdi < md.second; mdi++) {
+          sh_st.cast_indices += (u64)tree.multidraw_count_buffer[md.first + mdi];
+        }
+      }
+    }
+    if (sh_st.debug) {
+      GLenum dbg_err = glGetError();
+      if (dbg_err != GL_NO_ERROR) {
+        lg::warn("PBR-SHADOW-DBG tie depth pass glerr=0x{:x}", (u32)dbg_err);
       }
     }
 
@@ -812,6 +827,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       glDisable(GL_POLYGON_OFFSET_FILL);
     }
     glPolygonOffset(0.0f, 0.0f);
+    if (!prev_depth_test) {
+      glDisable(GL_DEPTH_TEST);
+    }
     glDepthMask(prev_depth_mask);
     glDepthFunc(prev_depth_func);
   }

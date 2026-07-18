@@ -14,6 +14,9 @@
 #endif
 
 #include "common/log/log.h"
+#ifndef __ANDROID__
+#include "game/graphics/screenshot.h"
+#endif
 #include "common/util/os.h"
 #include "common/util/simd_util.h"
 
@@ -704,14 +707,21 @@ void pbr_shadow_ensure_resources() {
   for (int i = 0; i < 2; i++) {
     glGenTextures(1, &st.depth_tex[i]);
     glBindTexture(GL_TEXTURE_2D, st.depth_tex[i]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, st.size, st.size, 0, GL_DEPTH_COMPONENT,
-                 GL_UNSIGNED_INT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // DEPTH_COMPONENT16 + NEAREST: the maximally-compatible shadow-map config on mobile
+    // (Adreno 618 returned constant 1.0 from the compare sampler with the classier
+    // DEPTH_COMPONENT24 + LINEAR config — device-proven this phase). The 4-tap PCF in
+    // tfrag3.frag still smooths the edge.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, st.size, st.size, 0, GL_DEPTH_COMPONENT,
+                 GL_UNSIGNED_SHORT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    // MANUAL compare (COMPARE_MODE NONE + plain sampler2D + in-shader ref<=d test):
+    // the Adreno 618 GLES driver returned a constant 1.0 through the HW compare path
+    // (sampler2DShadow, REF_TO_TEXTURE, proven with a 0.25-cleared map this phase);
+    // depth-as-float sampling works everywhere. tfrag3.frag does 4 manual PCF taps.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
     glGenFramebuffers(1, &st.fbo[i]);
     glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[i]);
@@ -761,6 +771,52 @@ bool pbr_shadow_begin_frame(u64 frame_idx) {
     // rendering additively across trees/renderers without re-clearing.
     return st.have_mvp;
   }
+
+  // Debug telemetry (env OG_PBR_SHADOW_DEBUG / prop debug.opengoal.pbr.shadowdbg=1):
+  // caster index count + buffer state once a second; on desktop also a depth readback of
+  // last frame's completed write map (glReadPixels on a depth attachment is desktop-GL
+  // only) + a periodic internal screenshot. Answers "did the depth pass draw anything
+  // and does the map contain occluders" without needing a visual capture.
+#ifdef __ANDROID__
+  {
+    char v[PROP_VALUE_MAX];
+    st.debug = __system_property_get("debug.opengoal.pbr.shadowdbg", v) > 0 && v[0] == '1';
+  }
+#else
+  st.debug = std::getenv("OG_PBR_SHADOW_DEBUG") != nullptr;
+#endif
+  if (st.debug && st.valid && st.have_mvp && frame_idx % 60 == 0) {
+#ifndef __ANDROID__
+    GLint dbg_prev_fbo = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &dbg_prev_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[st.write]);
+    static std::vector<float> dbg_buf;
+    dbg_buf.resize((size_t)st.size * st.size);
+    glReadPixels(0, 0, st.size, st.size, GL_DEPTH_COMPONENT, GL_FLOAT, dbg_buf.data());
+    size_t lt = 0;
+    float mn = 1.f;
+    for (float d : dbg_buf) {
+      if (d < 0.999f) {
+        lt++;
+      }
+      if (d < mn) {
+        mn = d;
+      }
+    }
+    lg::info("PBR-SHADOW-DBG frame={} cast_idx={} frac(depth<0.999)={:.4f} min={:.4f}",
+             frame_idx, st.cast_indices, (double)lt / dbg_buf.size(), mn);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)dbg_prev_fbo);
+    if (frame_idx % 600 == 0) {
+      // Periodic internal screenshot (headless-friendly visual): lands in the standard
+      // screenshots dir via the engine's own pipeline.
+      g_want_screenshot = true;
+    }
+#else
+    lg::info("PBR-SHADOW-DBG frame={} cast_idx={} write={} read_valid={} legacy={:.2f}",
+             frame_idx, st.cast_indices, st.write, (int)st.read_valid, st.legacy_strength);
+#endif
+  }
+  st.cast_indices = 0;
 
   // NEW FRAME: promote last frame's completed write buffer to the read side (receivers
   // sample it with its matching matrix), then start writing into the other buffer. On a
@@ -854,10 +910,23 @@ bool pbr_shadow_begin_frame(u64 frame_idx) {
   GLboolean prev_depth_mask = GL_TRUE;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
   glDepthMask(GL_TRUE);
+  // Debug probe (prop debug.opengoal.pbr.cleardepth / OG_PBR_CLEARDEPTH): clearing the
+  // map to e.g. 0.25 must darken every in-box receiver if the compare+binding chain
+  // works — isolates receiver-side failures from caster-side ones. Default 1.0 = normal.
+  float clear_depth = 1.0f;
 #ifdef __ANDROID__
-  glClearDepthf(1.0f);
+  {
+    char cv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.pbr.cleardepth", cv) > 0 && cv[0]) {
+      clear_depth = atof(cv);
+    }
+  }
+  glClearDepthf(clear_depth);
 #else
-  glClearDepth(1.0);
+  if (const char* ce = std::getenv("OG_PBR_CLEARDEPTH")) {
+    clear_depth = (float)std::atof(ce);
+  }
+  glClearDepth(clear_depth);
 #endif
   glClear(GL_DEPTH_BUFFER_BIT);
   glDepthMask(prev_depth_mask);
@@ -894,6 +963,16 @@ void pbr_shadow_bind_receiver(GLuint program) {
   }
   if (leg_loc >= 0) {
     glUniform1f(leg_loc, st.legacy_strength);
+  }
+  if (st.debug) {
+    static int dbg_calls = 0;
+    if (dbg_calls++ % 240 == 0) {
+      lg::info(
+          "PBR-SHADOW-DBG bind_receiver prog={} mvp_loc={} tex_loc={} on_loc={} leg_loc={} "
+          "on={} read_mvp0={:.4f}",
+          program, mvp_loc, tex_loc, on_loc, leg_loc, (st.valid && st.read_valid) ? 1 : 0,
+          st.read_mvp[0]);
+    }
   }
 }
 #endif
@@ -1005,6 +1084,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // (refined sweep corr_h 0.933 / coarse boot 0.822; ratio 1.10; 0.5 scored 0.78=FAIL).
   float pbr_direct = 0.3f;
   float pbr_indirect = 1.0f;
+  // Round-4bis mandate E: 1.0 = round-3 hybrid (indirect = baked vertex GI), 0.0 = FULL
+  // REALTIME (indirect = light-group ambi * AO, baked term gone). Prop-tunable for the
+  // owner's day/night A/B; default stays the owner-accepted round-3 hybrid.
+  float pbr_baked_weight = 1.0f;
+  float pbr_shadow_bias = 0.0f;  // debug compare-ref override (see tfrag3.frag)
   // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
   // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
   int pbr_debug = 0;
@@ -1040,6 +1124,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.indirect", v) > 0) {
       pbr_indirect = atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.bakedw", v) > 0) {
+      pbr_baked_weight = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.shadowbias", v) > 0) {
+      pbr_shadow_bias = atof(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -1059,6 +1149,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
   if (const char* e = getenv("OG_PBR_INDIRECT")) {
     pbr_indirect = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_BAKEDW")) {
+    pbr_baked_weight = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_SHADOWBIAS")) {
+    pbr_shadow_bias = atof(e);
   }
 #endif
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
@@ -1115,7 +1211,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform3fv(glGetUniformLocation(id, "u_pbr_light_color"), 3, light_color);
 
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
-  // env-color). Not read by the lit path (zero visual risk); kept for viz completeness.
+  // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis
+  // full-realtime indirect); at the default weight 1.0 it stays viz-only.
   if (gs.recharged_pbr_lg_valid) {
     glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_lg_ambi[0] * amb_scale,
                 gs.recharged_pbr_lg_ambi[1] * amb_scale, gs.recharged_pbr_lg_ambi[2] * amb_scale);
@@ -1129,6 +1226,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
   glUniform1f(glGetUniformLocation(id, "u_pbr_direct"), pbr_direct);
   glUniform1f(glGetUniformLocation(id, "u_pbr_indirect"), pbr_indirect);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_baked_weight"), pbr_baked_weight);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_shadow_bias"), pbr_shadow_bias);
 #endif
 }
 

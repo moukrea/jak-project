@@ -633,6 +633,10 @@ void TFragment::render_tree(int geom,
     GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
     GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
     GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+    // DEPTH_TEST is per-DrawMode state (setup_opengl_from_draw_mode) — whatever the last
+    // draw left. Depth WRITES only happen when the test is enabled, so the depth-only
+    // pass must force it on (device chain reaches here with it off → empty map).
+    GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
     GLboolean prev_depth_mask = GL_TRUE;
     glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
@@ -644,6 +648,7 @@ void TFragment::render_tree(int geom,
     glViewport(0, 0, sh_st.size, sh_st.size);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -657,7 +662,19 @@ void TFragment::render_tree(int geom,
     const auto& ct = settings.camera.trans;
     glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
+    if (sh_st.debug) {
+      while (glGetError() != GL_NO_ERROR) {
+      }
+    }
     glDrawElements(tree.draw_mode, pbr_depth_index_count, GL_UNSIGNED_INT, nullptr);
+    sh_st.cast_indices += (u64)pbr_depth_index_count;
+    if (sh_st.debug) {
+      GLenum dbg_err = glGetError();
+      if (dbg_err != GL_NO_ERROR) {
+        lg::warn("PBR-SHADOW-DBG tfrag depth pass glerr=0x{:x} idx={}", (u32)dbg_err,
+                 pbr_depth_index_count);
+      }
+    }
 
     // Restore everything.
     glUseProgram((GLuint)prev_program);
@@ -679,6 +696,9 @@ void TFragment::render_tree(int geom,
       glDisable(GL_POLYGON_OFFSET_FILL);
     }
     glPolygonOffset(0.0f, 0.0f);
+    if (!prev_depth_test) {
+      glDisable(GL_DEPTH_TEST);
+    }
     glDepthMask(prev_depth_mask);
     glDepthFunc(prev_depth_func);
   }

@@ -213,6 +213,8 @@ struct PbrShadowState {
   bool read_valid = false;  // read side (1 - write) holds last frame's COMPLETED map
   float read_mvp[16];       // matrix matching the read-side map
   float legacy_strength = 0.35f;  // calibrated legacy-receiver darkening (prop-tunable)
+  u64 cast_indices = 0;  // indices drawn into the write map this frame (debug telemetry)
+  bool debug = false;    // telemetry on (env OG_PBR_SHADOW_DEBUG / prop ...pbr.shadowdbg)
 };
 PbrShadowState& pbr_shadow_state();
 void pbr_shadow_ensure_resources();             // lazy FBO/tex creation
