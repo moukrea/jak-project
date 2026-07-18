@@ -265,3 +265,18 @@ Owner verbatim: "je vois bien les ombres de Jak, mais moi je te parlais du monde
   * PROOF the owner asked for: the HUT casting a visible shadow on the ground that MOVES across the
     TOD sweep (video at his vantage). That's the acceptance image.
 - Everything stays inside the --pbr flag + runtime toggle (OFF==stock untouched).
+
+## OWNER ROUND 4bis (2026-07-18 14:15) — "si notre vrai lighting realtime marche vraiment, on n'a plus
+## besoin du baked quand activé !"
+The owner wants the FULL-REALTIME end state: once world shadow map + multi-light work, the baked term
+should become unnecessary with the feature ON. Honest decomposition (share in the report): baked carries
+(1) direct sun + painted shadows -> replaced by realtime sun+shadow map (keeping both = DOUBLE shadows,
+so the baked DIRECT component must fade out when shadows are on); (2) occlusion -> covered by the shipped
+AO feature (SSAO/HBAO/GTAO) when enabled; (3) colored bounce/GI -> the only real loss; approximated by the
+light-group ambient. MANDATE E (this attempt if the build allows, else immediately next):
+- Add u_pbr_baked_weight (1.0 = round-3 hybrid, 0.0 = FULL REALTIME: indirect = light-group ambi * AO
+  only), prop-tunable (debug.opengoal.pbr.bakedw) + a settings-exposed choice later if the owner picks it.
+- Device A/B AT THE OWNER VANTAGE: bakedw=1.0 vs bakedw=0.0 with world shadows + multi-light ON, same
+  hour + a night beat — so the owner judges by eye which world he wants. Report both captures.
+- Watch for the failure modes: double-shadowing (baked painted + realtime) at w=1 with shadows on ->
+  document/calibrate; flat-under-roof at w=0 if AO off -> note that full-realtime pairs with AO ON.

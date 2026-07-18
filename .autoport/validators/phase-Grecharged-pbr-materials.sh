@@ -24,4 +24,5 @@ grep -qiE 'indirect|baked.*(gi|ambient|indirect)|macro.*(shading|luminance|profi
 grep -qiE 'shadow.?map|depth.?map|PCF' "$R" || fail "no sun shadow-map evidence — owner round-4 mandate"
 grep -qiE 'light.?group|multi.?light|moon|dir[012]' "$R" || fail "no multi-light (light-group/moon) evidence"
 grep -qiE 'coverage|vis-alpha|tie|half.?pbr|unif' "$R" || fail "no coverage-unification evidence"
+grep -qiE 'baked.?w|bakedw|baked.?weight|full.?realtime' "$R" || fail "no baked-weight full-realtime A/B evidence — owner round-4bis"
 echo "[Gpbr PASS]"
