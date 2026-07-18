@@ -220,6 +220,14 @@ struct PbrShadowState {
   // buffers; false (prop debug.opengoal.pbr.castfull=0 / env OG_PBR_CASTFULL=0) = the old
   // camera-vis-culled caster set, kept only as a perf/repro A/B fallback.
   bool cast_full = true;
+  // Round-5 addendum suspect (d): the shadow space is CAMERA-relative, so the read-side
+  // map is anchored to the camera position of the frame that WROTE it. Receivers compute
+  // v_fringe_rel with the CURRENT camera — without correction every shadow is displaced
+  // by one frame of camera motion. write_cam = cam_trans captured at begin_frame;
+  // read_cam = the cam the READ map was written around (promoted on buffer swap); the
+  // receiver uniform u_pbr_shadow_cam_delta = (cam_now - read_cam)/4096 re-anchors it.
+  float write_cam[3] = {0.f, 0.f, 0.f};
+  float read_cam[3] = {0.f, 0.f, 0.f};
 };
 PbrShadowState& pbr_shadow_state();
 void pbr_shadow_ensure_resources();  // lazy FBO/tex creation
@@ -228,7 +236,10 @@ void pbr_shadow_ensure_resources();  // lazy FBO/tex creation
 // camera-position-centered box, rotation cannot change it) and the texel snap quantizes
 // its light-space projection so camera TRANSLATION moves the window in whole-texel steps.
 bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans);
-void pbr_shadow_bind_receiver(GLuint program);  // bind matrix+sampler on a TFRAG3-family program
+// Bind matrix+sampler(+cam-delta re-anchor) on a TFRAG3-family program. cam_trans = the
+// CURRENT frame's camera translation in game units (same vector the program's cam_trans
+// uniform gets) so the 1-frame-stale read map is sampled in its own camera anchor.
+void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans);
 #endif
 
 void interp_time_of_day(const math::Vector<s32, 4> itimes[4],

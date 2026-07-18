@@ -124,6 +124,10 @@
 ;; light-group (engine lights-h.gc) is not resolvable in this early pc compile context, so
 ;; the extern is typed as (function pointer none); the caller in hud-classes-pc.gc passes
 ;; the address of light-group 0 (which the renderer reads as a raw float block).
+;; Round-5 suspect (c): push the VISIBLE sun's dome direction (*sky-parms* upload-data
+;; sun 0 pos — the vector the sun sprite is placed with) so world shadows extend opposite
+;; the on-screen sun (current-shadow is hard-clamped ~65deg and cannot).
+(define-extern pc-set-pbr-sky-sun! (function vector none))
 (define-extern pc-set-pbr-lights! (function pointer none)))
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.

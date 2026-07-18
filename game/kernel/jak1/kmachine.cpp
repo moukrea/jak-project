@@ -836,6 +836,16 @@ void pc_set_pbr_sun(u32 shadow_vec, u32 sun_color_vec, u32 env_color_vec) {
   Gfx::g_global_settings.recharged_pbr_ambient[2] = e[2];
 }
 
+// Round-5 addendum suspect (c): the VISIBLE sun's dome direction — *sky-parms* upload-data
+// sun 0 pos, the exact vector the sun sprite is placed with (sparticle-track-sun:
+// sun_world = camera + pos*4096). Camera->sun; magnitude ~ orbit dist (not unit).
+void pc_set_pbr_sky_sun(u32 pos_vec) {
+  float* p = Ptr<float>(pos_vec).c();
+  Gfx::g_global_settings.recharged_pbr_sky_sun[0] = p[0];
+  Gfx::g_global_settings.recharged_pbr_sky_sun[1] = p[1];
+  Gfx::g_global_settings.recharged_pbr_sky_sun[2] = p[2];
+}
+
 // Round-4 multi-light: GOAL passes (-> *time-of-day-context* light-group 0) — a light-group,
 // four inline `light`s (dir0/dir1/dir2/ambi), each 48 bytes: direction vec16 @+0, color rgbaf16
 // @+16, levels vec16 @+32 (levels.x = morph weight). Raw 0..255 colors; scaled at the GL boundary.
@@ -885,6 +895,7 @@ void InitMachine_PCPort() {
   // Grecharged-pbr-materials: runtime toggle + mood/TOD sun push
   make_function_symbol_from_c("pc-set-pbr!", (void*)pc_set_pbr);
   make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
+  make_function_symbol_from_c("pc-set-pbr-sky-sun!", (void*)pc_set_pbr_sky_sun);
   make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)

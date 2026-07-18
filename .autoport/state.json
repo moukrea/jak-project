@@ -208,7 +208,7 @@
     "Grecharged-buildsys-packaging": 1,
     "Grecharged-buildsys-firstboot": 1,
     "Grecharged-buildsys-cidocs": 2,
-    "Grecharged-pbr-materials": 0
+    "Grecharged-pbr-materials": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -832,7 +832,7 @@
     "Grecharged-buildsys-cidocs": 1784271233.8922036,
     "Grecharged-pbr-materials": 1784301214.1679
   },
-  "last_update": "2026-07-18T18:30:33.162407+00:00",
+  "last_update": "2026-07-18T20:30:26.545834+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

@@ -1687,6 +1687,9 @@
     (pc-set-pbr-sun! (-> *time-of-day-context* current-shadow)
                      (-> *time-of-day-context* current-sun sun-color)
                      (-> *time-of-day-context* current-sun env-color))
+    ;; Round-5 suspect (c): the VISIBLE sun's dome direction (what sparticle-track-sun
+    ;; places the sun sprite with) — current-shadow is elevation-clamped and cannot align.
+    (pc-set-pbr-sky-sun! (-> *sky-parms* upload-data sun 0 pos))
     ;; Round-4 multi-light: push light-group 0 (soleil + lune verte + fill) every frame.
     ;; Extern is (function pointer none) (light-group unresolvable in the early pc context);
     ;; pass the address of group 0 as a raw pointer — the renderer reads it as a float block.

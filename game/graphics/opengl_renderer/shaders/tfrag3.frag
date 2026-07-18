@@ -71,6 +71,11 @@ uniform sampler2D tex_PBR_H;
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
 uniform mat4 u_pbr_shadow_mvp;
 uniform int u_pbr_shadow_on;
+// Round-5 suspect (d): the read-side map is anchored to the camera position of the frame
+// that WROTE it (camera-relative space), but v_fringe_rel uses the CURRENT camera —
+// without correction every shadow trails camera motion by one frame (continuous
+// displacement during the owner's orbit repro). cam_delta = (cam_now - cam_at_write)/4096.
+uniform vec3 u_pbr_shadow_cam_delta;
 // Plain sampler2D + manual in-shader compare: the Adreno 618 HW compare path
 // (sampler2DShadow + COMPARE_REF_TO_TEXTURE) returns a constant 1.0 on-device
 // (proven with a 0.25-cleared map). Depth-as-float sampling is portable.
@@ -84,6 +89,16 @@ uniform float u_pbr_legacy_shadow;
 // OG_PBR_SHADOWBIAS, default 0.0 = no effect). +0.5 must black out every in-box receiver
 // if the HW depth compare works — the Adreno-driver binary test.
 uniform float u_pbr_shadow_bias;
+// Round-5 addendum 2, MANDATE F ("light the world like Jak"): world-wide mood-light
+// shading for LEGACY (non-PBR-mapped) world fragments. Direct term = per-face geometric
+// normal (screen-derivative — camera-independent for planar level tris, so it CANNOT swim
+// with the camera) dotted with the light-group lights (sun + fill + moon), times the sun
+// shadow factor; indirect stays the baked vertex color. u_pbr_world_relight blends the
+// whole effect (0 = old flat legacy darkening path); wr_direct/wr_indirect are the
+// anti-double-brightening calibration (the baked color already contains the baked sun).
+uniform float u_pbr_world_relight;
+uniform float u_pbr_wr_direct;
+uniform float u_pbr_wr_indirect;
 #endif
 
 
@@ -103,7 +118,7 @@ void main() {
     vec3 sm_dbg_suv = vec3(-1.0);  // viz mode 14: shadow-space UV + in-box flag
     float sm_dbg_inbox = 0.0;
     if (u_pbr_shadow_on != 0) {
-      vec4 sp = u_pbr_shadow_mvp * vec4(v_fringe_rel, 1.0);
+      vec4 sp = u_pbr_shadow_mvp * vec4(v_fringe_rel + u_pbr_shadow_cam_delta, 1.0);
       vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
       sm_dbg_suv = suv;
       if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
@@ -300,6 +315,32 @@ void main() {
       // The baked painted shadows survive: a fully-baked-dark texel just gets the same
       // fractional multiply, and strength is tuned so that never crushes to black.
       color.rgb *= 1.0 - u_pbr_legacy_shadow * (1.0 - sm_shadow);
+      if (u_pbr_world_relight > 0.0) {
+        // MANDATE F (round-5 addendum 2): per-face N.L mood-light relight of the legacy
+        // world — the same directional response actors get from the light-group, attached
+        // to the geometry (stable under camera orbit by construction). In full shadow /
+        // facing away, wr_indirect * baked reproduces (a calibrated fraction of) the
+        // legacy product in linear space — the same round-3 trick the PBR indirect uses.
+        vec3 wrn = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
+        float wrl = length(wrn);
+        vec3 wrN = wrl > 1e-6 ? wrn / wrl : vec3(0.0, 1.0, 0.0);
+        vec3 wrV = -normalize(v_fringe_rel);
+        if (dot(wrN, wrV) < 0.0) wrN = -wrN;
+        vec3 wr_direct = vec3(0.0);
+        for (int i = 0; i < 3; i++) {
+          wr_direct += u_pbr_light_color[i] * max(dot(wrN, u_pbr_light_dir[i]), 0.0);
+        }
+        wr_direct *= sm_shadow * u_pbr_wr_direct;
+        vec3 wr_alb = pow(T0.rgb, vec3(2.2));
+        vec3 wr_baked = pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2));
+        vec3 wr_lit = wr_alb * (wr_baked * u_pbr_wr_indirect + wr_direct);
+        vec3 wr_srgb = pow(max(wr_lit * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
+        color.rgb = mix(color.rgb, wr_srgb, clamp(u_pbr_world_relight, 0.0, 1.0));
+        if (u_pbr_debug == 17) {
+          // Viz: world-relight DIRECT term only (face contrast must follow the sun).
+          color.rgb = pow(max(wr_direct * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
+        }
+      }
       if (u_pbr_debug == 12) {
         color.rgb = vec3(sm_shadow);
       } else if (u_pbr_debug == 14) {

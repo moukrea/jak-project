@@ -145,6 +145,16 @@ class Tie3 : public BucketRenderer {
     std::vector<GLsizei> multidraw_count_buffer;
     std::vector<void*> multidraw_index_offset_buffer;
     u64 draw_mode = 0;  // strip or not, GL enum
+#ifdef OG_FEAT_PBR
+    // Grecharged-pbr-materials round-5 (owner: shadows pop/swim on camera rotation): the
+    // sun-shadow depth pass must draw the NORMAL category's FULL static index ranges,
+    // never the per-frame camera-vis-culled set. Built lazily from each StripDraw's
+    // unpacked.idx_of_first_idx_in_full_buffer + its vis_groups index total (the groups
+    // tile the draw's span in the full buffer), coalesced when adjacent. Pairs are
+    // (first_index, index_count) into tree.index_buffer.
+    std::vector<std::pair<u32, u32>> pbr_full_ranges;
+    bool pbr_full_ranges_built = false;
+#endif
   };
 
   void envmap_second_pass_draw(const Tree& tree,

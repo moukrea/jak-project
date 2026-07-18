@@ -200,6 +200,11 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       lod_tree[l_tree].index_buffer = loader_data->tie_data[l_geo][l_tree].index_buffer;
       lod_tree[l_tree].category_draw_indices = tree.category_draw_indices;
       lod_tree[l_tree].draw_mode = tree.use_strips ? GL_TRIANGLE_STRIP : GL_TRIANGLES;
+#ifdef OG_FEAT_PBR
+      // New level data invalidates the cached full-caster ranges (round-5 shadow fix).
+      lod_tree[l_tree].pbr_full_ranges.clear();
+      lod_tree[l_tree].pbr_full_ranges_built = false;
+#endif
 
       // set up vertex attributes
       glBindBuffer(GL_ARRAY_BUFFER, lod_tree[l_tree].vertex_buffer);
@@ -741,9 +746,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // order (tfrag before tie) does not matter. Same GL-state dance as the TFragment
   // caster pass. Vertex layout is compatible: TIE draws with the TFRAG3 program, so
   // attribute 0 is the world position pbr_depth.vert consumes.
+  // Round-5 addendum 2 (mandate F): world-wide — no m_pbr_draws gate (see TFragment).
   if (!use_envmap && category == tfrag3::TieCategory::NORMAL &&
-      Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
-      pbr_shadow_begin_frame(render_state->frame_idx)) {
+      Gfx::g_global_settings.recharged_pbr_enable &&
+      pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
     auto& sh_st = pbr_shadow_state();
     GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
     GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
@@ -777,27 +783,69 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     const auto& ct = settings.camera.trans;
     glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
-    // Draw the category's camera-vis-culled index ranges, same data the main loop uses.
-    for (size_t di = tree.category_draw_indices[(int)category];
-         di < tree.category_draw_indices[(int)category + 1]; di++) {
-      if (render_state->no_multidraw) {
-        const auto& sd = tree.draw_idx_temp[di];
-        if (sd.second == 0) {
-          continue;
+    if (sh_st.cast_full) {
+      // Round-5 owner bug fix (same as TFragment): the caster set must IGNORE camera
+      // visibility — an off-screen hut must keep casting its on-screen shadow, else
+      // shadows pop in/out on camera rotation. Draw the NORMAL category's FULL static
+      // index ranges from tree.index_buffer (already the bound EBO in multidraw mode;
+      // rebind for no_multidraw and restore after). Ranges are built lazily per tree:
+      // each StripDraw's vis_groups tile its span in the full buffer, so the draw's
+      // total index count is the sum of its groups' num_inds.
+      if (!tree.pbr_full_ranges_built) {
+        tree.pbr_full_ranges.clear();
+        for (size_t di = tree.category_draw_indices[(int)tfrag3::TieCategory::NORMAL];
+             di < tree.category_draw_indices[(int)tfrag3::TieCategory::NORMAL + 1]; di++) {
+          const auto& draw = (*tree.draws)[di];
+          u32 count = 0;
+          for (const auto& vg : draw.vis_groups) {
+            count += vg.num_inds;
+          }
+          if (count == 0) {
+            continue;
+          }
+          u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+          if (!tree.pbr_full_ranges.empty() &&
+              tree.pbr_full_ranges.back().first + tree.pbr_full_ranges.back().second ==
+                  first) {
+            tree.pbr_full_ranges.back().second += count;  // coalesce adjacent draws
+          } else {
+            tree.pbr_full_ranges.emplace_back(first, count);
+          }
         }
-        glDrawElements(tree.draw_mode, sd.second, GL_UNSIGNED_INT,
-                       (void*)(sd.first * sizeof(u32)));
-        sh_st.cast_indices += (u64)sd.second;
-      } else {
-        const auto& md = tree.multidraw_offset_per_stripdraw[di];
-        if (md.second == 0) {
-          continue;
-        }
-        glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[md.first],
-                            GL_UNSIGNED_INT, &tree.multidraw_index_offset_buffer[md.first],
-                            md.second);
-        for (int mdi = 0; mdi < md.second; mdi++) {
-          sh_st.cast_indices += (u64)tree.multidraw_count_buffer[md.first + mdi];
+        tree.pbr_full_ranges_built = true;
+      }
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
+      for (const auto& r : tree.pbr_full_ranges) {
+        glDrawElements(tree.draw_mode, r.second, GL_UNSIGNED_INT,
+                       (void*)((size_t)r.first * sizeof(u32)));
+        sh_st.cast_indices += (u64)r.second;
+      }
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_state->no_multidraw
+                                                ? tree.single_draw_index_buffer
+                                                : tree.index_buffer);
+    } else {
+      // Old camera-vis-culled caster set (prop castfull=0), kept as the perf/repro A/B.
+      for (size_t di = tree.category_draw_indices[(int)category];
+           di < tree.category_draw_indices[(int)category + 1]; di++) {
+        if (render_state->no_multidraw) {
+          const auto& sd = tree.draw_idx_temp[di];
+          if (sd.second == 0) {
+            continue;
+          }
+          glDrawElements(tree.draw_mode, sd.second, GL_UNSIGNED_INT,
+                         (void*)(sd.first * sizeof(u32)));
+          sh_st.cast_indices += (u64)sd.second;
+        } else {
+          const auto& md = tree.multidraw_offset_per_stripdraw[di];
+          if (md.second == 0) {
+            continue;
+          }
+          glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[md.first],
+                              GL_UNSIGNED_INT, &tree.multidraw_index_offset_buffer[md.first],
+                              md.second);
+          for (int mdi = 0; mdi < md.second; mdi++) {
+            sh_st.cast_indices += (u64)tree.multidraw_count_buffer[md.first + mdi];
+          }
         }
       }
     }
@@ -872,9 +920,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     // replaced TIE surface receives the same shadowed direct term as tfrag. The depth pass
     // itself is driven by TFragment (tfrag NORMAL casters); Tie3 is receiver-only. TFRAG3
     // is the active program here (first_tfrag_draw_setup above, non-envmap).
-    if (Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
-        pbr_shadow_state().valid) {
-      pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id());
+    if (Gfx::g_global_settings.recharged_pbr_enable && pbr_shadow_state().valid) {
+      pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id(),
+                               settings.camera.trans.data());
     }
   }
 #endif

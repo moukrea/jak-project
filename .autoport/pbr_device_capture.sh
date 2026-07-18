@@ -8,6 +8,11 @@
 #   run TAG      force-stop -> warp village1-hut @ beach (villa-starfish vantage)
 #                -> settle -> screenrecord 45s while walk strokes move Jak/camera
 #                -> harvest logcat markers + focus into the proof file
+#   orbit TAG    like run but holds a continuous slow RIGHT-STICK camera orbit (sun
+#                pinned) 45s -> dense fps=5 frames for pbr_shadow_iou.py (shadow pin);
+#                PBR_CASTFULL=0 = camera-vis-cull regression-control variant
+#   align TAG    warp+settle then a slow full look-around (rx=180) 20s -> fps=2 stills
+#                for the h8/h16 sun-alignment proof (caller pins PBR_TOD_HOUR)
 #   reset        restore pre-run settings.ini keys, clear warp props, force-stop
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -30,20 +35,37 @@ focus(){ adb shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurren
 case "${1:?stage material|toggle on/off|run TAG|reset}" in
 material)
   # ONE material on device (owner mandate): TEX names the base texture the set covers.
-  TEX="${PBR_TEX:-vil1-sages-stonewall-01}"
-  for suf in "" _normal _roughness _ao _height; do
-    [ -f "$SRC/${TEX}${suf}.png" ] || { echo "[pbr-cap FAIL] missing $SRC/${TEX}${suf}.png"; exit 1; }
-  done
+  # MULTI-MATERIAL (round-5): PBR_TEX_LIST (space-separated base names) pushes every
+  # listed set instead of the single PBR_TEX — fidelity across chaume/planches/gres.
   adb shell mkdir -p "$DROP/village1-vis-tfrag" </dev/null
   # Stray PNGs anywhere under custom_assets replace textures via the bare-name
   # fallback and invalidate the A/B (root cause of the owner's "beaucoup de
   # violet": a stray solid-magenta vil1-jng-leafyground.png at the DROP root).
+  # Run the stray-clean ONCE (not per material) before pushing any set.
   STRAYS="$(adb shell "ls $DROP/*.png 2>/dev/null" </dev/null | tr -d '\r')"
   [ -n "$STRAYS" ] && { echo "--- removing stray root PNGs: $STRAYS"; adb shell "rm -f $DROP/*.png" </dev/null; }
   adb shell "rm -f $DROP/village1-vis-tfrag/*.png" </dev/null
-  for suf in "" _normal _roughness _ao _height; do
-    adb push "$SRC/${TEX}${suf}.png" "$DROP/village1-vis-tfrag/${TEX}${suf}.png" >/dev/null
-  done
+  if [ -n "${PBR_TEX_LIST:-}" ]; then
+    for TEX in $PBR_TEX_LIST; do
+      # base albedo is mandatory per set; the map suffixes are optional (skip absent).
+      [ -f "$SRC/${TEX}.png" ] || { echo "[pbr-cap FAIL] missing base $SRC/${TEX}.png"; exit 1; }
+      for suf in "" _normal _roughness _ao _height; do
+        if [ -f "$SRC/${TEX}${suf}.png" ]; then
+          adb push "$SRC/${TEX}${suf}.png" "$DROP/village1-vis-tfrag/${TEX}${suf}.png" >/dev/null
+        else
+          echo "  [pbr-cap warn] skipping absent $SRC/${TEX}${suf}.png"
+        fi
+      done
+    done
+  else
+    TEX="${PBR_TEX:-vil1-sages-stonewall-01}"
+    for suf in "" _normal _roughness _ao _height; do
+      [ -f "$SRC/${TEX}${suf}.png" ] || { echo "[pbr-cap FAIL] missing $SRC/${TEX}${suf}.png"; exit 1; }
+    done
+    for suf in "" _normal _roughness _ao _height; do
+      adb push "$SRC/${TEX}${suf}.png" "$DROP/village1-vis-tfrag/${TEX}${suf}.png" >/dev/null
+    done
+  fi
   echo "--- device drop dir:"; adb shell ls -la "$DROP/village1-vis-tfrag/" </dev/null
   ;;
 toggle)
@@ -148,6 +170,132 @@ run)
   } >> "$PROOF"
   echo "  run $TAG done: $(tail -2 "$PROOF" | head -1)"
   ;;
+orbit)
+  # Round-5 shadow-attribution proof: same warp/settle flow as `run`, but hold a
+  # continuous slow RIGHT-STICK rotation so the camera ORBITS around Jak with the
+  # sun PINNED (PBR_TOD_HOUR). Shadows must stay PINNED to their casters as the
+  # view sweeps -> pbr_shadow_iou.py on the dense fps=5 frames catches pops.
+  # PBR_CASTFULL=0 sets the regression-control (depth pass honours camera vis-cull).
+  TAG="${2:?tag}"
+  LOG="$OUT/logcat_$TAG.log"
+  ok=0
+  for TRY in 1 2 3; do
+    adb shell am force-stop $PKG </dev/null; sleep 2
+    stick neutral
+    adb shell "setprop debug.opengoal.tod.hour '${PBR_TOD_HOUR:-}'" </dev/null
+    adb shell "setprop debug.opengoal.tod.fast '${PBR_TOD_FAST:-}'" </dev/null
+    adb shell "setprop debug.opengoal.pbr.debug '${PBR_DEBUG_MODE:-}'" </dev/null
+    adb shell setprop debug.opengoal.level.warp village1-hut </dev/null
+    adb shell "setprop debug.opengoal.level.warp.pos '$POS'" </dev/null
+    adb logcat -b all -c </dev/null || true
+    kill "$(cat /tmp/pbr_lc.pid 2>/dev/null)" 2>/dev/null || true
+    ( adb logcat -b all -v threadtime </dev/null > "$LOG" 2>/dev/null & echo $! > /tmp/pbr_lc.pid )
+    adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 </dev/null
+    t0=$(date +%s)
+    while [ $(( $(date +%s)-t0 )) -lt 300 ]; do
+      grep -qa 'LEVEL-WARP-SPAWN name=village1-hut' "$LOG" && { ok=1; break; }
+      grep -qaE 'signal (4|6|11) \(SIG' "$LOG" && break
+      sleep 3
+    done
+    echo "  try#$TRY warp_ok=$ok $(focus)"
+    [ "$ok" = 1 ] && break
+  done
+  [ "$ok" = 1 ] || { echo "[pbr-cap FAIL] warp never spawned ($TAG)"; exit 1; }
+  sleep 12
+  FOCUS_LINE="$(focus)"
+  # regression-control variant: depth pass honours the camera vis-cull (shadows drop
+  # as their casters leave the frustum). Reset to empty (default full) after.
+  if [ "${PBR_CASTFULL:-}" = 0 ]; then
+    adb shell "setprop debug.opengoal.pbr.castfull 0" </dev/null
+  fi
+  # continuous slow RIGHT-STICK orbit (rx=200 ~ gentle right rotation; ly<127=up ref
+  # android_input_audio.cpp:615). Refresh every 2s for the record duration (45s).
+  ( sleep 4
+    for _ in $(seq 1 22); do stick "rx=200"; sleep 2; done
+    stick "rx=127" ) &
+  KICK=$!
+  adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
+  adb shell screenrecord --time-limit 45 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
+  wait $KICK 2>/dev/null || true
+  stick "rx=127"
+  [ "${PBR_CASTFULL:-}" = 0 ] && adb shell "setprop debug.opengoal.pbr.castfull ''" </dev/null
+  sleep 1
+  adb pull /sdcard/pbr_$TAG.mp4 "$OUT/pbr_$TAG.mp4" >/dev/null
+  adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
+  mkdir -p "$OUT/frames_$TAG"; rm -f "$OUT/frames_$TAG"/*.png
+  ffmpeg -y -loglevel error -i "$OUT/pbr_$TAG.mp4" -vf fps=5 "$OUT/frames_$TAG/f_%03d.png"
+  sleep 2; kill "$(cat /tmp/pbr_lc.pid 2>/dev/null)" 2>/dev/null || true
+  adb shell am force-stop $PKG </dev/null
+  { echo "=== orbit $TAG $(date -Is) ==="
+    echo "focus-at-record: $FOCUS_LINE"
+    echo "warp: village1-hut pos=$POS  (camera orbit rx=200, sun pinned)"
+    echo "tod: hour='${PBR_TOD_HOUR:-}' fast='${PBR_TOD_FAST:-}' castfull='${PBR_CASTFULL:-}'"
+    echo "--- crash scan (narrow sig pattern, own PID only):"
+    grep -aE 'signal (4|6|11) \(SIG' "$LOG" | head -3 || true
+    echo "video: $OUT/pbr_$TAG.mp4 ($(stat -c %s "$OUT/pbr_$TAG.mp4" 2>/dev/null)B) frames=$(ls "$OUT/frames_$TAG" | wc -l)"
+    echo
+  } >> "$PROOF"
+  echo "  orbit $TAG done: frames=$(ls "$OUT/frames_$TAG" | wc -l)"
+  ;;
+align)
+  # h8/h16 sun-alignment proof: warp+settle like run, then a slow full look-around
+  # (hold rx=180 for the whole 20s so the camera pans past the sun AND the hut) so
+  # the still shows the shadow direction is OPPOSITE the VISIBLE sun. Caller pins
+  # PBR_TOD_HOUR (8 or 16) before invoking.
+  TAG="${2:?tag}"
+  LOG="$OUT/logcat_$TAG.log"
+  ok=0
+  for TRY in 1 2 3; do
+    adb shell am force-stop $PKG </dev/null; sleep 2
+    stick neutral
+    adb shell "setprop debug.opengoal.tod.hour '${PBR_TOD_HOUR:-}'" </dev/null
+    adb shell "setprop debug.opengoal.tod.fast ''" </dev/null
+    adb shell "setprop debug.opengoal.pbr.debug '${PBR_DEBUG_MODE:-}'" </dev/null
+    adb shell setprop debug.opengoal.level.warp village1-hut </dev/null
+    adb shell "setprop debug.opengoal.level.warp.pos '$POS'" </dev/null
+    adb logcat -b all -c </dev/null || true
+    kill "$(cat /tmp/pbr_lc.pid 2>/dev/null)" 2>/dev/null || true
+    ( adb logcat -b all -v threadtime </dev/null > "$LOG" 2>/dev/null & echo $! > /tmp/pbr_lc.pid )
+    adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 </dev/null
+    t0=$(date +%s)
+    while [ $(( $(date +%s)-t0 )) -lt 300 ]; do
+      grep -qa 'LEVEL-WARP-SPAWN name=village1-hut' "$LOG" && { ok=1; break; }
+      grep -qaE 'signal (4|6|11) \(SIG' "$LOG" && break
+      sleep 3
+    done
+    echo "  try#$TRY warp_ok=$ok $(focus)"
+    [ "$ok" = 1 ] && break
+  done
+  [ "$ok" = 1 ] || { echo "[pbr-cap FAIL] warp never spawned ($TAG)"; exit 1; }
+  sleep 12
+  FOCUS_LINE="$(focus)"
+  # slow full look-around: hold rx=180 for the whole 20s (pans past sun + hut).
+  ( sleep 3
+    for _ in $(seq 1 10); do stick "rx=180"; sleep 2; done
+    stick "rx=127" ) &
+  KICK=$!
+  adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
+  adb shell screenrecord --time-limit 20 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
+  wait $KICK 2>/dev/null || true
+  stick "rx=127"
+  sleep 1
+  adb pull /sdcard/pbr_$TAG.mp4 "$OUT/pbr_$TAG.mp4" >/dev/null
+  adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
+  mkdir -p "$OUT/frames_$TAG"; rm -f "$OUT/frames_$TAG"/*.png
+  ffmpeg -y -loglevel error -i "$OUT/pbr_$TAG.mp4" -vf fps=2 "$OUT/frames_$TAG/f_%03d.png"
+  sleep 2; kill "$(cat /tmp/pbr_lc.pid 2>/dev/null)" 2>/dev/null || true
+  adb shell am force-stop $PKG </dev/null
+  { echo "=== align $TAG $(date -Is) ==="
+    echo "focus-at-record: $FOCUS_LINE"
+    echo "warp: village1-hut pos=$POS  (look-around rx=180)"
+    echo "tod: hour='${PBR_TOD_HOUR:-}' (sun-alignment proof)"
+    echo "--- crash scan (narrow sig pattern, own PID only):"
+    grep -aE 'signal (4|6|11) \(SIG' "$LOG" | head -3 || true
+    echo "video: $OUT/pbr_$TAG.mp4 ($(stat -c %s "$OUT/pbr_$TAG.mp4" 2>/dev/null)B) frames=$(ls "$OUT/frames_$TAG" | wc -l)"
+    echo
+  } >> "$PROOF"
+  echo "  align $TAG done: frames=$(ls "$OUT/frames_$TAG" | wc -l)"
+  ;;
 viz)
   # Critique 2 "prove each map does work": ONE boot at the wall vantage with the sun
   # pinned low (PBR_TOD_HOUR, default 8), one screenrecord while the per-frame-read
@@ -184,7 +332,7 @@ viz)
                                  # offsets -> 7 identical stills)
   BG_START=$(date +%s.%N)
   ( sleep 2
-    for m in 0 1 2 3 4 5 6 7 8 9 10 11 12 13; do
+    for m in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 17; do
       adb shell "setprop debug.opengoal.pbr.debug $m" </dev/null
       echo "$m $(date +%s.%N)" >> /tmp/pbr_viz_times.txt
       sleep 8
@@ -207,13 +355,13 @@ viz)
   while read -r m tset; do
     # validate: m must be a mode number and tset a wall-clock float;
     # anything else (partial line) falls through to the schedule fallback below.
-    case "$m" in [0-9]|1[0-3]) ;; *) continue ;; esac
+    case "$m" in [0-9]|1[0-3]|17) ;; *) continue ;; esac
     [ -n "${tset:-}" ] || continue
     off=$(python3 -c "print(max(0.5, $tset - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
   done < /tmp/pbr_viz_times.txt
   # schedule fallback: mode m was set at ~BG_START+2+8m; mid-segment extract.
-  for m in 0 1 2 3 4 5 6 7 8 9 10 11 12 13; do
+  for m in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 17; do
     [ -f "$OUT/viz/mode$m.png" ] && continue
     off=$(python3 -c "print(max(0.5, $BG_START + 2 + 8*$m - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
@@ -415,6 +563,7 @@ reset)
   adb shell "setprop debug.opengoal.tod.hour ''" </dev/null
   adb shell "setprop debug.opengoal.tod.fast ''" </dev/null
   adb shell "setprop debug.opengoal.pbr.debug ''" </dev/null
+  adb shell "setprop debug.opengoal.pbr.castfull ''" </dev/null
   stick neutral
   adb shell am force-stop $PKG </dev/null
   ;;

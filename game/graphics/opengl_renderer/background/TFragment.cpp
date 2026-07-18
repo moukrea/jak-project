@@ -622,11 +622,17 @@ void TFragment::render_tree(int geom,
   // begin_frame runs for EVERY tree kind (not just NORMAL casters): the frame transition
   // inside it promotes last frame's completed map to the read side, which receivers of
   // any kind need before their draws sample it.
+  // Round-5 addendum 2 (mandate F, world-wide): no m_pbr_draws gate — the sun shadow +
+  // world relight apply to the whole world when the feature is on, not just levels with
+  // a registered PBR material.
   const bool pbr_shadow_frame_ok =
-      Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
+      Gfx::g_global_settings.recharged_pbr_enable &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data());
+  // cast_full: the vis-culled count being 0 (camera facing away from every caster) is
+  // EXACTLY the owner's pop-on-rotation repro — the full static buffer must still cast.
   if (pbr_shadow_frame_ok && tree.kind == tfrag3::TFragmentTreeKind::NORMAL &&
-      pbr_depth_index_count > 0) {
+      (pbr_depth_index_count > 0 ||
+       (pbr_shadow_state().cast_full && tree.index_count > 0))) {
     auto& sh_st = pbr_shadow_state();
     // Save the GL state the depth pass mutates.
     GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
@@ -718,9 +724,9 @@ void TFragment::render_tree(int geom,
   // Round-4 mandate B receiver bind: bind the shadow matrix + sampler on the TFRAG3
   // program for this tree's draws. Runs regardless of whether the depth pass ran this
   // frame (last frame's map, or the cleared-to-1.0 map, is acceptable).
-  if (Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
-      pbr_shadow_state().valid) {
-    pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id());
+  if (Gfx::g_global_settings.recharged_pbr_enable && pbr_shadow_state().valid) {
+    pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id(),
+                             settings.camera.trans.data());
   }
 #endif
   // Gjak2-visuals TOD state dump — the diffable our-x86-vs-device probe (the

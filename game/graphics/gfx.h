@@ -177,6 +177,12 @@ struct GfxGlobalSettings {
   float recharged_pbr_lg_color[3][3];  // rgb 0..255 raw
   float recharged_pbr_lg_level[3];     // levels.x morph weight per light
   float recharged_pbr_lg_ambi[3];      // ambi color rgb 0..255 raw
+  // Round-5 addendum suspect (c): the VISIBLE sun's dome direction — *sky-parms*
+  // upload-data sun 0 pos (camera->sun offset, the vector sparticle-track-sun places the
+  // sun sprite with). Unlike current-shadow (hard-clamped to a constant ~65 deg by
+  // update-mood-shadow-direction) this tracks the real sun elevation, so shadows extend
+  // opposite the on-screen sun. Zero until the first GOAL push (renderer falls back).
+  float recharged_pbr_sky_sun[3] = {0.f, 0.f, 0.f};
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

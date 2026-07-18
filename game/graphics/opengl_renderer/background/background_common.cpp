@@ -824,6 +824,9 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // and matrix are still mutually consistent, shadows just freeze until the next pass.
   if (st.have_mvp) {
     memcpy(st.read_mvp, st.mvp, sizeof(st.read_mvp));
+    // Suspect (d): promote the camera anchor together with the matrix — the read map is
+    // only meaningful around the cam_trans it was written with.
+    memcpy(st.read_cam, st.write_cam, sizeof(st.read_cam));
     st.read_valid = true;
     st.write = 1 - st.write;
   }
@@ -856,8 +859,29 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
 
   // ---- Compute the light matrix (camera-relative meters). ----
   const auto& gs = Gfx::g_global_settings;
+  // Round-5 addendum suspect (c) — ATTRIBUTABILITY: shadows must extend opposite the
+  // VISIBLE sun. Primary = the sky-dome sun direction (*sky-parms* upload-data sun 0 pos,
+  // the exact camera->sun vector sparticle-track-sun places the sun sprite with) — it
+  // tracks the true sun elevation across the TOD. current-shadow CANNOT align: update-
+  // mood-shadow-direction hard-clamps it to a constant ~65deg (y=-0.9063), which is why
+  // every world shadow was short+steep and unattributable. Fallbacks: current-shadow
+  // (sun below horizon / pre-push), then the light-group blend (pre-any-push).
   PbrV3 dir = {0.f, 0.f, 0.f};
-  if (gs.recharged_pbr_lg_valid) {
+  {
+    PbrV3 ss = {gs.recharged_pbr_sky_sun[0], gs.recharged_pbr_sky_sun[1],
+                gs.recharged_pbr_sky_sun[2]};
+    float ssl = std::sqrt(pv_dot(ss, ss));
+    if (ssl > 1e-3f && ss.y / ssl > 0.02f) {
+      dir = {ss.x / ssl, ss.y / ssl, ss.z / ssl};  // camera->sun == surface->light (distant sun)
+    }
+  }
+  if (pv_dot(dir, dir) < 1e-8f) {
+    // current-shadow is light-travel; negate for surface->light.
+    dir = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1],
+           -gs.recharged_pbr_shadow[2]};
+  }
+  if (pv_dot(dir, dir) < 1e-8f && gs.recharged_pbr_lg_valid) {
+    // Fallback (shadow vector not pushed yet): weighted light-group blend as before.
     for (int i = 0; i < 3; i++) {
       PbrV3 ld = {-gs.recharged_pbr_lg_dir[i][0], -gs.recharged_pbr_lg_dir[i][1],
                   -gs.recharged_pbr_lg_dir[i][2]};  // GOAL dir is light-travel; want surface->light
@@ -873,10 +897,6 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
       dir.y += (ld.y / ll) * wi;
       dir.z += (ld.z / ll) * wi;
     }
-  }
-  if (pv_dot(dir, dir) < 1e-8f) {
-    // Fall back to -recharged_pbr_shadow (light-travel -> surface->light).
-    dir = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1], -gs.recharged_pbr_shadow[2]};
   }
   PbrV3 L = pv_norm(dir);  // surface->sun unit vector
   if (pv_dot(L, L) < 1e-4f) {
@@ -912,6 +932,9 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   pbr_ortho(-40.f, 40.f, -40.f, 40.f, 0.5f, 200.0f, proj);
 
   pbr_mat_mul(proj, view, st.mvp);
+  st.write_cam[0] = cam_trans[0];
+  st.write_cam[1] = cam_trans[1];
+  st.write_cam[2] = cam_trans[2];
   st.have_mvp = true;
   st.frame = frame_idx;
 
@@ -949,7 +972,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   return true;
 }
 
-void pbr_shadow_bind_receiver(GLuint program) {
+void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   auto& st = pbr_shadow_state();
   if (!st.valid) {
     return;
@@ -958,6 +981,7 @@ void pbr_shadow_bind_receiver(GLuint program) {
   GLint tex_loc = glGetUniformLocation(program, "tex_PBR_SHADOW");
   GLint on_loc = glGetUniformLocation(program, "u_pbr_shadow_on");
   GLint leg_loc = glGetUniformLocation(program, "u_pbr_legacy_shadow");
+  GLint cd_loc = glGetUniformLocation(program, "u_pbr_shadow_cam_delta");
   if (tex_loc >= 0) {
     glUniform1i(tex_loc, 9);
   }
@@ -971,6 +995,15 @@ void pbr_shadow_bind_receiver(GLuint program) {
   glActiveTexture(GL_TEXTURE0);
   if (mvp_loc >= 0) {
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, st.read_mvp);
+  }
+  if (cd_loc >= 0) {
+    // Suspect (d) re-anchor: the read map was written around read_cam; the receiver's
+    // v_fringe_rel uses the CURRENT camera. rel_at_write = v_fringe_rel + (cam_now -
+    // read_cam)/4096 — without this every shadow trails the camera by one frame of motion
+    // (continuous displacement during the owner's orbit repro).
+    glUniform3f(cd_loc, (cam_trans[0] - st.read_cam[0]) / 4096.f,
+                (cam_trans[1] - st.read_cam[1]) / 4096.f,
+                (cam_trans[2] - st.read_cam[2]) / 4096.f);
   }
   if (on_loc >= 0) {
     glUniform1i(on_loc, (st.valid && st.read_valid) ? 1 : 0);
@@ -1103,6 +1136,14 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // owner's day/night A/B; default stays the owner-accepted round-3 hybrid.
   float pbr_baked_weight = 1.0f;
   float pbr_shadow_bias = 0.0f;  // debug compare-ref override (see tfrag3.frag)
+  // Round-5 addendum 2 MANDATE F ("light the world like Jak"): world-wide per-face N.L
+  // mood-light relight of LEGACY world fragments. 1.0 = on (blend fully to the relit
+  // term), 0.0 = old flat legacy-darkening only. wr_direct/wr_indirect calibrate against
+  // double-brightening (the baked vertex color already carries the baked sun): indirect
+  // slightly below 1 makes headroom for the directional term the sun-facing faces gain.
+  float world_relight = 1.0f;
+  float wr_direct = 0.25f;
+  float wr_indirect = 0.85f;
   // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
   // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
   int pbr_debug = 0;
@@ -1144,6 +1185,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.shadowbias", v) > 0) {
       pbr_shadow_bias = atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.worldrelight", v) > 0) {
+      world_relight = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.wrdirect", v) > 0) {
+      wr_direct = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.wrindirect", v) > 0) {
+      wr_indirect = atof(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -1169,6 +1219,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
   if (const char* e = getenv("OG_PBR_SHADOWBIAS")) {
     pbr_shadow_bias = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_WORLDRELIGHT")) {
+    world_relight = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_WR_DIRECT")) {
+    wr_direct = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_WR_INDIRECT")) {
+    wr_indirect = atof(e);
   }
 #endif
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
@@ -1221,6 +1280,19 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       light_color[k] = 0.f;
     }
   }
+  // Round-5 suspect (c) coherence: when the visible-sun dome vector is valid (pushed +
+  // above horizon), light 0's DIRECTION follows it — so N.L shading (PBR + mandate-F
+  // world relight), the slope bias, and the shadow map all agree on where the sun is.
+  // Colors/levels stay the mood light-group's (energy/palette unchanged).
+  {
+    const float* ss = gs.recharged_pbr_sky_sun;
+    float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
+    if (ssl > 1e-3f && ss[1] / ssl > 0.02f) {
+      light_dir[0] = ss[0] / ssl;
+      light_dir[1] = ss[1] / ssl;
+      light_dir[2] = ss[2] / ssl;
+    }
+  }
   glUniform3fv(glGetUniformLocation(id, "u_pbr_light_dir"), 3, light_dir);
   glUniform3fv(glGetUniformLocation(id, "u_pbr_light_color"), 3, light_color);
 
@@ -1242,6 +1314,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_indirect"), pbr_indirect);
   glUniform1f(glGetUniformLocation(id, "u_pbr_baked_weight"), pbr_baked_weight);
   glUniform1f(glGetUniformLocation(id, "u_pbr_shadow_bias"), pbr_shadow_bias);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_world_relight"), world_relight);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_wr_direct"), wr_direct);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_wr_indirect"), wr_indirect);
 #endif
 }
 
