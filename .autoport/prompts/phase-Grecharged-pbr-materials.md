@@ -250,3 +250,18 @@ D) COVERAGE UNIFICATION (the owner-seen defect): the custom texture replacement 
    PBR-capable paths so no surface is half-PBR. No surface may show the new albedo without the new shading.
 Proofs at the owner vantage + a night/moon beat + a shadow beat (an actor or the hut casting a sun-relative
 shadow that MOVES with the TOD sweep). Owner's eye closes the gate.
+
+## OWNER CLARIFICATION (2026-07-18 13:45) — shadows: he means the WORLD, not characters
+Owner verbatim: "je vois bien les ombres de Jak, mais moi je te parlais du monde, pas des personnages!"
+- DROP the stock-stencil-shadow device-proof task (audit item A): the owner confirms character shadows
+  visibly work. Zero effort there.
+- The sun shadow map (item B) is THE deliverable, and it must be WORLD-scale:
+  * CASTERS: world geometry (tfrag+tie: the sage hut, terrain, bridges...) into the 1024 depth pass.
+  * RECEIVERS: not just the PBR-mapped surfaces — the LEGACY world too, else the hut's shadow on the
+    (non-PBR) ground is invisible and the owner sees nothing. When pbr-materials? is ON, apply the
+    shadow factor as a calibrated darkening on legacy receivers (e.g. lerp towards a shadow tint on
+    fragment_color output, strength tunable ~0.35), and on the PBR path multiply the DIRECT term as
+    designed. Calibrate so already-baked painted shadows don't double-darken into black.
+  * PROOF the owner asked for: the HUT casting a visible shadow on the ground that MOVES across the
+    TOD sweep (video at his vantage). That's the acceptance image.
+- Everything stays inside the --pbr flag + runtime toggle (OFF==stock untouched).
