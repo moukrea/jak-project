@@ -154,7 +154,8 @@ viz)
   # debug.opengoal.pbr.debug prop steps 0..9 every 8s. Modes (tfrag3.frag u_pbr_debug):
   # 0 full PBR | 1 albedo passthrough (POM-offset -> parallax viz) | 2 geo normal |
   # 3 final normal | 4 roughness | 5 spec-only | 6 AO | 7 full PBR normal-map OFF
-  # (the N A/B pair with 0) | 8 full PBR POM OFF (the POM A/B pair with 0) | 9 height.
+  # (the N A/B pair with 0) | 8 full PBR POM OFF (the POM A/B pair with 0) | 9 height |
+  # 10 indirect/baked-GI only (round-3 macro reintegration viz) | 11 direct-only.
   # Frames are extracted mid-segment from prop-set wall-clock offsets vs record start.
   TAG=viz
   LOG="$OUT/logcat_$TAG.log"
@@ -183,7 +184,7 @@ viz)
                                  # offsets -> 7 identical stills)
   BG_START=$(date +%s.%N)
   ( sleep 2
-    for m in 0 1 2 3 4 5 6 7 8 9; do
+    for m in 0 1 2 3 4 5 6 7 8 9 10 11; do
       adb shell "setprop debug.opengoal.pbr.debug $m" </dev/null
       echo "$m $(date +%s.%N)" >> /tmp/pbr_viz_times.txt
       sleep 8
@@ -191,7 +192,7 @@ viz)
   KICK=$!
   adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
   REC_START=$(date +%s.%N)
-  adb shell screenrecord --time-limit 90 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
+  adb shell screenrecord --time-limit 105 --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
   wait $KICK 2>/dev/null || true
   FOCUS_END="$(focus)"
   sleep 1
@@ -204,15 +205,15 @@ viz)
   # start latency guess; mid-segment tolerates the jitter)
   mkdir -p "$OUT/viz"; rm -f "$OUT/viz"/mode*.png
   while read -r m tset; do
-    # validate: m must be a single mode digit and tset a wall-clock float;
+    # validate: m must be a mode number and tset a wall-clock float;
     # anything else (partial line) falls through to the schedule fallback below.
-    case "$m" in [0-9]) ;; *) continue ;; esac
+    case "$m" in [0-9]|1[01]) ;; *) continue ;; esac
     [ -n "${tset:-}" ] || continue
     off=$(python3 -c "print(max(0.5, $tset - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
   done < /tmp/pbr_viz_times.txt
   # schedule fallback: mode m was set at ~BG_START+2+8m; mid-segment extract.
-  for m in 0 1 2 3 4 5 6 7 8 9; do
+  for m in 0 1 2 3 4 5 6 7 8 9 10 11; do
     [ -f "$OUT/viz/mode$m.png" ] && continue
     off=$(python3 -c "print(max(0.5, $BG_START + 2 + 8*$m - $REC_START - 0.8 + 4.0))")
     ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/viz/mode$m.png"
@@ -228,6 +229,74 @@ viz)
     echo
   } >> "$PROOF"
   echo "  viz done: $(ls "$OUT/viz" | wc -l) stills"
+  ;;
+dsweep)
+  # Round-3 double-dose calibration: ONE boot at the vantage (sun pinned), one
+  # screenrecord while debug.opengoal.pbr.direct steps through candidate values
+  # (indirect stays at its default 1.0 — it is principled: legacy match in full baked
+  # shadow by construction). One still per value -> pbr_macro_profile.py vs the OFF
+  # median frame picks the value whose macro profile correlates AND whose mean ratio
+  # is closest to 1.0 (no double-lit hot side, no flat building).
+  TAG=dsweep
+  VALS="${PBR_DSWEEP_VALS:-0.3 0.4 0.5 0.6 0.8 1.0}"
+  LOG="$OUT/logcat_$TAG.log"
+  adb shell am force-stop $PKG </dev/null; sleep 2
+  stick neutral
+  adb shell "setprop debug.opengoal.tod.hour '${PBR_TOD_HOUR:-8}'" </dev/null
+  adb shell "setprop debug.opengoal.tod.fast ''" </dev/null
+  adb shell "setprop debug.opengoal.pbr.debug 0" </dev/null
+  adb shell setprop debug.opengoal.level.warp village1-hut </dev/null
+  adb shell "setprop debug.opengoal.level.warp.pos '$POS'" </dev/null
+  adb logcat -b all -c </dev/null || true
+  kill "$(cat /tmp/pbr_lc.pid 2>/dev/null)" 2>/dev/null || true
+  ( adb logcat -b all -v threadtime </dev/null > "$LOG" 2>/dev/null & echo $! > /tmp/pbr_lc.pid )
+  adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 </dev/null
+  t0=$(date +%s); ok=0
+  while [ $(( $(date +%s)-t0 )) -lt 300 ]; do
+    grep -qa 'LEVEL-WARP-SPAWN name=village1-hut' "$LOG" && { ok=1; break; }
+    grep -qaE 'signal (4|6|11) \(SIG' "$LOG" && break
+    sleep 3
+  done
+  [ "$ok" = 1 ] || { echo "[pbr-cap FAIL] warp never spawned (dsweep)"; exit 1; }
+  sleep 12
+  FOCUS_LINE="$(focus)"
+  rm -f /tmp/pbr_dsweep_times.txt
+  BG_START=$(date +%s.%N)
+  ( sleep 2
+    for dv in $VALS; do
+      adb shell "setprop debug.opengoal.pbr.direct $dv" </dev/null
+      echo "$dv $(date +%s.%N)" >> /tmp/pbr_dsweep_times.txt
+      sleep 8
+    done ) &
+  KICK=$!
+  adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
+  REC_START=$(date +%s.%N)
+  NVAL=$(echo $VALS | wc -w)
+  adb shell screenrecord --time-limit $(( NVAL * 8 + 10 )) --bit-rate 12000000 /sdcard/pbr_$TAG.mp4 </dev/null
+  wait $KICK 2>/dev/null || true
+  FOCUS_END="$(focus)"
+  sleep 1
+  adb pull /sdcard/pbr_$TAG.mp4 "$OUT/pbr_$TAG.mp4" >/dev/null
+  adb shell rm -f /sdcard/pbr_$TAG.mp4 </dev/null
+  adb shell "setprop debug.opengoal.pbr.direct ''" </dev/null
+  adb shell am force-stop $PKG </dev/null
+  sleep 2; kill "$(cat /tmp/pbr_lc.pid 2>/dev/null)" 2>/dev/null || true
+  mkdir -p "$OUT/dsweep"; rm -f "$OUT/dsweep"/direct_*.png
+  while read -r dv tset; do
+    [ -n "${tset:-}" ] || continue
+    off=$(python3 -c "print(max(0.5, $tset - $REC_START - 0.8 + 4.0))")
+    ffmpeg -y -loglevel error -ss "$off" -i "$OUT/pbr_$TAG.mp4" -frames:v 1 "$OUT/dsweep/direct_$dv.png"
+  done < /tmp/pbr_dsweep_times.txt
+  { echo "=== run dsweep $(date -Is) ==="
+    echo "focus-at-record: $FOCUS_LINE"
+    echo "focus-at-END: $FOCUS_END"
+    echo "warp: village1-hut pos=$POS  tod-hour=${PBR_TOD_HOUR:-8}  vals: $VALS"
+    echo "--- crash scan (narrow sig pattern):"
+    grep -aE 'signal (4|6|11) \(SIG' "$LOG" | head -3 || true
+    echo "dsweep stills: $(ls "$OUT/dsweep" 2>/dev/null | tr '\n' ' ')"
+    echo
+  } >> "$PROOF"
+  echo "  dsweep done: $(ls "$OUT/dsweep" | wc -l) stills"
   ;;
 material_partial)
   # Hardening proofs (owner "beaucoup de violet" + the half-cleaned drop dir the

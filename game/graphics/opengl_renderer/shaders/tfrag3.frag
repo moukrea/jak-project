@@ -31,13 +31,22 @@ uniform float u_pbr_exposure;
 uniform float u_pbr_normal_strength;
 uniform float u_pbr_height_scale;
 uniform float u_pbr_uv_tile;
+// Owner round-3 mandate 2026-07-18: lighting split calibration. u_pbr_direct scales the
+// realtime direct DIFFUSE (the baked vertex color already contains the baked sun's
+// diffuse — this is the double-dose control); u_pbr_indirect scales the baked-GI
+// indirect term. Specular is deliberately NOT scaled by u_pbr_direct: baked carries no
+// specular, and the moving highlight is the realtime tell.
+uniform float u_pbr_direct;
+uniform float u_pbr_indirect;
 // Per-channel isolation viz on the PBR draws only (legacy neighbours untouched, so the
 // patch outline shows in every mode). 0=off, 1=albedo passthrough (what a plain
 // photo-swap would look like; POM still offsets it, so this is also the cleanest
 // parallax viz), 2=geometric normal, 3=final shading normal (shows the normal map's
 // perturbation vs 2), 4=roughness, 5=specular term only, 6=AO,
 // 7=full PBR with the normal map DISABLED (the N on/off A/B pair with 0),
-// 8=full PBR with POM DISABLED (the POM on/off A/B pair with 0), 9=height map.
+// 8=full PBR with POM DISABLED (the POM on/off A/B pair with 0), 9=height map,
+// 10=indirect/baked-GI term only (the round-3 macro-shading reintegration viz),
+// 11=direct term only (diffuse+spec vs the mood sun — what round 2 shipped alone).
 uniform int u_pbr_debug;
 uniform sampler2D tex_PBR_N;
 uniform sampler2D tex_PBR_R;
@@ -53,9 +62,13 @@ void main() {
     vec4 T0 = texture(tex_T0, tex_coord.xy);
     color = fragment_color * T0;
 #ifdef OG_PBR
-    // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun. The baked
-    // per-vertex TOD color (fragment_color.rgb) is deliberately NOT applied — the mood
-    // light replaces it (no double-dose); alpha keeps the legacy product for discard.
+    // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun.
+    // Owner round-3 mandate: the baked per-vertex TOD color (fragment_color.rgb) is
+    // reintegrated as the INDIRECT/GI term — it carries the level's MACRO shading
+    // (building curvature, under-roof darkening, doorway occlusion) that a constant
+    // ambient flattened. It is NOT a second direct dose: the realtime direct diffuse
+    // is scaled down by u_pbr_direct to compensate for the baked sun it contains.
+    // Alpha keeps the legacy product for discard.
     if (u_pbr_mode != 0 && gfx_hack_no_tex == 0) {
       vec3 p = v_fringe_rel;
       vec3 dp1 = dFdx(p);
@@ -135,8 +148,15 @@ void main() {
       vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);
       vec3 spec = D * G * F / max(4.0 * NdV * NdL, 1e-4);
       vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
-      vec3 lit = (kd * albedo / 3.14159265 + spec) * u_pbr_sun_color * NdL
-               + u_pbr_ambient * albedo * ao;
+      // Indirect = baked vertex TOD color as GI. pow 2.2 linearizes it so a fragment in
+      // full baked shadow (no direct term) reproduces the legacy sRGB product
+      // fragment_color * T0 by construction — the macro luminance profile of the
+      // building matches OFF wherever the sun doesn't add on top. The baked color is
+      // TOD-palette-interpolated per frame, so this term still tracks the day cycle.
+      vec3 baked_gi = pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2));
+      vec3 indirect = albedo * baked_gi * ao * u_pbr_indirect;
+      vec3 direct = (kd * albedo / 3.14159265 * u_pbr_direct + spec) * u_pbr_sun_color * NdL;
+      vec3 lit = direct + indirect;
       color.rgb = pow(max(lit * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       if (u_pbr_debug == 1) {
         color.rgb = T0p.rgb;
@@ -153,6 +173,10 @@ void main() {
         color.rgb = vec3(ao);
       } else if (u_pbr_debug == 9) {
         color.rgb = vec3(texture(tex_PBR_H, uv).r);
+      } else if (u_pbr_debug == 10) {
+        color.rgb = pow(max(indirect * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
+      } else if (u_pbr_debug == 11) {
+        color.rgb = pow(max(direct * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       }
     }
 #endif

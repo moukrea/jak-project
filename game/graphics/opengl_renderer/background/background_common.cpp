@@ -576,6 +576,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float normal_strength = 3.0f;
   float height_scale = 0.07f;
   float uv_tile = 1.0f;
+  // Owner round-3 mandate (macro shading): lighting-split calibration. Indirect 1.0 =
+  // the baked-GI term reproduces legacy brightness in full baked shadow by construction
+  // (see tfrag3.frag); direct scales the realtime sun DIFFUSE because the baked color
+  // already carries the baked sun (double-dose control). 0.3 = device-calibrated at the
+  // owner sage-wall vantage (-112 42 205 h8): largest value whose ON-vs-OFF macro
+  // luminance-profile correlation passed the 0.8 gate across BOTH calibration boots
+  // (refined sweep corr_h 0.933 / coarse boot 0.822; ratio 1.10; 0.5 scored 0.78=FAIL).
+  float pbr_direct = 0.3f;
+  float pbr_indirect = 1.0f;
   // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
   // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
   int pbr_debug = 0;
@@ -605,6 +614,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.uvtile", v) > 0) {
       uv_tile = atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.direct", v) > 0) {
+      pbr_direct = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.indirect", v) > 0) {
+      pbr_indirect = atof(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -619,6 +634,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_PBR_UVTILE")) {
     uv_tile = atof(e);
   }
+  if (const char* e = getenv("OG_PBR_DIRECT")) {
+    pbr_direct = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_INDIRECT")) {
+    pbr_indirect = atof(e);
+  }
 #endif
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
@@ -630,6 +651,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_normal_strength"), normal_strength);
   glUniform1f(glGetUniformLocation(id, "u_pbr_height_scale"), height_scale);
   glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_direct"), pbr_direct);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_indirect"), pbr_indirect);
 #endif
 }
 
