@@ -24,15 +24,16 @@ New structure (owner's words):
 Delete / hard-gate-off when realtime-lighting is ON with baked OFF:
 - u_pbr_ambient constant term, the multi-light light-group loop, the green-moon light, the baked-GI
   indirect blend, u_pbr_baked_weight lerp machinery. Gone from the active path.
-KEEP + simplify (reuse the working infra, do not rebuild it):
-- The world-scale sun shadow map: depth pass from the sun dir, Adreno-safe plain sampler2D + manual 4-tap
-  PCF, casters = FULL static world index (NOT camera-vis-culled), camera-stable ortho (sphere-anchored,
-  texel-snapped), polygon-offset bias for contact.
-- Per-face geometric normal N.L (camera-independent).
+REBUILD clean (do NOT carry the round-5 patched code forward — see SUPERVISOR CORRECTION below):
+- Per-face geometric normal N.L from the visible-sun direction (camera-independent) — the Stage 1 base.
+- The sun shadow map is REBUILT minimally from scratch in Stage 2 (fresh depth pass + Adreno-safe
+  sampler2D + manual PCF, casters = FULL static world, camera-stable sphere-fit, contact bias). Reference
+  the round-5 code only to avoid known pitfalls (Adreno HW-compare returns 1.0; bucket-order; vis-cull) —
+  do not inherit it wholesale.
 - PBR-mapped surfaces keep their Cook-Torrance+POM BRDF, but lit by the SAME single sun with NO ambient —
   so material and lighting are consistent (no special-casing).
-The point: the ENTIRE visible world (tfrag + tie + actors already do) is lit by one sun and casts/receives
-one set of shadows. Nothing else.
+The point: the ENTIRE visible world (tfrag + tie + actors) is lit by ONE sun and casts/receives ONE set of
+shadows. Nothing else.
 
 ## OBVIOUS-MODEL ACCEPTANCE (hard criteria FIRST, per feedback_acceptance_obvious_first)
 At a spot with a clear caster (sage hut / fence post / crate), sun pinned:
