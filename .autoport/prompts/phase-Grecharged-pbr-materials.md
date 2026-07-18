@@ -217,3 +217,36 @@ C) The macro test (owner's eye): at the sage-wall vantage, PBR ON must show the 
    > 0.8 while POM ndiff stays > noise.
 D) Keep everything already won: POM, punchy Bricks059, normal-strength, magenta 0, no-crash, OFF==stock.
 Proof at the owner vantage (-112 42 205 h8) as before + the TOD sweep. Owner's eye closes the gate.
+
+## OWNER ROUND 4 (2026-07-18 ~10:30): round-3 accepted as better ("OK ça fonctionne mieux") + THREE deeper asks
+Owner verbatim (condensed): (1) "fou qu'avec le soleil + la 'lune' (étoile verte) éclairant la scène on
+n'ait pas un ombrage naturel comme dans les logiciels 3D, et qu'on soit obligé de mettre du baked — ça n'a
+pas trop de sens"; (2) "les modèles 3D ne castent pas d'ombre relative à la position de l'éclairage. PARS
+PAS SUR DU RAY TRACING — ces techniques existent depuis bien avant, peu coûteuses"; (3) "des endroits où la
+texture PBR est utilisée mais seulement sa texture, pas le reste (normals etc) — bizarre".
+
+Context for the worker — what stays true: baked-as-indirect IS the modern hybrid (UE/Unity bake indirect
+GI too); do NOT remove it. What's missing is the DIRECT half being properly occluded — i.e. SHADOWS.
+
+MANDATE (classic techniques ONLY, no ray tracing):
+A) AUDIT FIRST (researcher): jak1 has a real shadow system (shadow renderer + update-mood-shadow-direction,
+   light-relative projected geometry shadows on PS2). Establish its CURRENT state on Android arm64: ported?
+   noop'd in the mips2c allowlist class? direction static? Which casters are enabled (Jak only? NPCs?)?
+   The 1:1 rule says restore the stock behavior first if the port dropped it. Report findings BEFORE
+   building anything new.
+B) SUN SHADOW MAPPING for the PBR direct term (the "ombrage naturel"): classic depth-map from the mood-sun
+   direction (single cascade, small res 1024, PCF 2x2, mobile-tuned for Adreno 618), world+actors rendered
+   depth-only into it; the PBR path multiplies its DIRECT term by the shadow factor (indirect/baked term
+   untouched — shadows don't kill GI). Gated inside --pbr + a quality/off toggle. Casters: start with the
+   world tfrag + merc actors near the camera. This is 1978 tech, cheap, exactly what the owner asked.
+C) MULTI-LIGHT: consume the level light-group (dir0/dir1/dir2 + ambi — includes the green 'moon' star when
+   the mood drives it) in the PBR direct term instead of only current-sun; energy-conserving sum. The
+   'moon' must visibly light the scene at night sweep.
+D) COVERAGE UNIFICATION (the owner-seen defect): the custom texture replacement is texture-pool-global but
+   the BRDF path exists only in the tfrag renderer -> the same replaced texture drawn via the vis-alpha
+   tree / TIE / other renderers shows the swapped ALBEDO with NO PBR shading (logcat proof: maps register
+   under BOTH village1-vis-tfrag AND village1-vis-alpha). Audit every draw path that samples a replaced
+   texture; extend the PBR path (uniforms + maps + POM) to those renderers OR restrict the albedo swap to
+   PBR-capable paths so no surface is half-PBR. No surface may show the new albedo without the new shading.
+Proofs at the owner vantage + a night/moon beat + a shadow beat (an actor or the hut casting a sun-relative
+shadow that MOVES with the TOD sweep). Owner's eye closes the gate.

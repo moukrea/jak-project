@@ -21,4 +21,7 @@ git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not 
 grep -qiE 'parallax|POM|height' "$R" || fail "no parallax/height (POM) evidence — owner mandate"
 grep -qiE '\-112|sage.wall|owner.vantage' "$R" || fail "no proof at the owner's sage-wall vantage"
 grep -qiE 'indirect|baked.*(gi|ambient|indirect)|macro.*(shading|luminance|profile)|correlation' "$R" || fail "no baked-GI/macro-shading reintegration evidence — owner round-3 mandate"
+grep -qiE 'shadow.?map|depth.?map|PCF' "$R" || fail "no sun shadow-map evidence — owner round-4 mandate"
+grep -qiE 'light.?group|multi.?light|moon|dir[012]' "$R" || fail "no multi-light (light-group/moon) evidence"
+grep -qiE 'coverage|vis-alpha|tie|half.?pbr|unif' "$R" || fail "no coverage-unification evidence"
 echo "[Gpbr PASS]"
