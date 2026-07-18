@@ -1686,7 +1686,11 @@
     (pc-set-pbr! (if (-> obj pbr-materials?) 1 0))
     (pc-set-pbr-sun! (-> *time-of-day-context* current-shadow)
                      (-> *time-of-day-context* current-sun sun-color)
-                     (-> *time-of-day-context* current-sun env-color)))
+                     (-> *time-of-day-context* current-sun env-color))
+    ;; Round-4 multi-light: push light-group 0 (soleil + lune verte + fill) every frame.
+    ;; Extern is (function pointer none) (light-group unresolvable in the early pc context);
+    ;; pass the address of group 0 as a raw pointer — the renderer reads it as a float block.
+    (pc-set-pbr-lights! (the-as pointer (-> *time-of-day-context* light-group 0))))
   (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
   (#when FLAG_HD_MODELS (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0)))
   ;; Grecharged-ambient-occlusion: push the AO mode + quality + strength every frame (1:1, no translation).

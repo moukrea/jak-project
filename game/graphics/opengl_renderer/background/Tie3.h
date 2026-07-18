@@ -189,6 +189,15 @@ class Tie3 : public BucketRenderer {
   // the droop toggle is ON.
   s32 m_fringe_tex_a = -1;
   s32 m_fringe_tex_b = -1;
+
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4 coverage unification: per-level list of textures
+  // with a registered PBR material set (resolved in load_from_fr3_data; no level-name
+  // gating). Mirrors TFragment::m_pbr_draws; bound on the non-envmap TFRAG3 draw paths
+  // via the shared PbrDrawBinder so a replaced TIE texture gets the BRDF, not just its
+  // albedo (the owner-seen half-PBR).
+  PbrDrawList m_pbr_draws;
+#endif
   static_assert(sizeof(WindWork) == 84 * 16);
 };
 

@@ -121,6 +121,20 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       }
     }
   }
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4: resolve every texture in this level that has a
+  // registered PBR material set (no level-name gating). Mirrors TFragment::update_load.
+  m_pbr_draws.clear();
+  for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
+    if (const auto* maps = custom_tex::find_pbr_material(lev_data->textures[ti].debug_name)) {
+      m_pbr_draws.push_back({(s32)ti, *maps});
+    }
+  }
+  if (!m_pbr_draws.empty()) {
+    lg::info("Grecharged-pbr-materials: Tie3 level {} has {} PBR material(s)", lev_data->level_name,
+             m_pbr_draws.size());
+  }
+#endif
   m_wind_vectors.clear();
 
   // We changed level! free opengl resources allocated for the previous
@@ -743,6 +757,25 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     fringe_on_state = want;
   };
 
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4 coverage unification: bind PBR material maps on the
+  // NON-envmap TFRAG3 path only (envmap uses ETIE_BASE — left untouched, no PBR). Shared
+  // PbrDrawBinder; u_pbr_mode restored to 0 + neutrals parked in finish() below.
+  PbrDrawBinder pbr_binder;
+  const bool pbr_on = !use_envmap;
+  if (pbr_on) {
+    pbr_binder.begin(render_state->shaders[ShaderId::TFRAG3].id(), &m_pbr_draws);
+    // Round-4 mandate B: bind the sun shadow matrix + sampler on the TFRAG3 program so a
+    // replaced TIE surface receives the same shadowed direct term as tfrag. The depth pass
+    // itself is driven by TFragment (tfrag NORMAL casters); Tie3 is receiver-only. TFRAG3
+    // is the active program here (first_tfrag_draw_setup above, non-envmap).
+    if (Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
+        pbr_shadow_state().valid) {
+      pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id());
+    }
+  }
+#endif
+
   int last_texture = -1;
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
@@ -777,6 +810,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                   draw.mode.get_decal() ? 1 : 0);
       set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
                  (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+#ifdef OG_FEAT_PBR
+      if (pbr_on) {
+        pbr_binder.set(draw.tree_tex_id, draw.mode);
+      }
+#endif
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -840,6 +878,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                 draw.mode.get_decal() ? 1 : 0);
     set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
                (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+#ifdef OG_FEAT_PBR
+    if (pbr_on) {
+      pbr_binder.set(draw.tree_tex_id, draw.mode);
+    }
+#endif
 
     prof.add_draw_call();
 
@@ -886,6 +929,12 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   }
   // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
   set_fringe(false);
+#ifdef OG_FEAT_PBR
+  // Reset u_pbr_mode to 0 + park neutral maps so no material leaks into later TFRAG3 users.
+  if (pbr_on) {
+    pbr_binder.finish();
+  }
+#endif
 
   if (!m_hide_wind && category == tfrag3::TieCategory::NORMAL) {
     auto wind_prof = prof.make_scoped_child("wind");

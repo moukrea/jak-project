@@ -21,8 +21,13 @@ uniform vec4 u_fringe_fade;
 
 #ifdef OG_PBR
 uniform int u_pbr_mode;        // 0=legacy; bit1 normal, bit2 rough, bit4 metal, bit8 ao, bit16 height/POM
-uniform vec3 u_pbr_sun_dir;    // world-space, surface->sun, normalized
+uniform vec3 u_pbr_sun_dir;    // world-space, surface->sun, normalized (viz/legacy)
 uniform vec3 u_pbr_sun_color;
+// Round-4 multi-light: 3 direct lights from light-group 0 (soleil + lune verte + fill),
+// surface->light dirs + rgb colors. Each color is pre-weighted by its levels.x morph
+// weight in C++ so dir0+dir1 sum ~1 across hour transitions (energy conserved).
+uniform vec3 u_pbr_light_dir[3];
+uniform vec3 u_pbr_light_color[3];
 uniform vec3 u_pbr_ambient;
 uniform float u_pbr_exposure;
 // Owner mandate 2026-07-18: relief must be unmistakable. Normal-map x/y perturbation
@@ -42,17 +47,25 @@ uniform float u_pbr_indirect;
 // patch outline shows in every mode). 0=off, 1=albedo passthrough (what a plain
 // photo-swap would look like; POM still offsets it, so this is also the cleanest
 // parallax viz), 2=geometric normal, 3=final shading normal (shows the normal map's
-// perturbation vs 2), 4=roughness, 5=specular term only, 6=AO,
+// perturbation vs 2), 4=roughness, 5=accumulated specular term (all lights), 6=AO,
 // 7=full PBR with the normal map DISABLED (the N on/off A/B pair with 0),
 // 8=full PBR with POM DISABLED (the POM on/off A/B pair with 0), 9=height map,
 // 10=indirect/baked-GI term only (the round-3 macro-shading reintegration viz),
-// 11=direct term only (diffuse+spec vs the mood sun — what round 2 shipped alone).
+// 11=direct term only (accumulated diffuse+spec of ALL lights — round-4 multi-light),
+// 12=sun shadow-map factor (round-4 mandate B; white=lit, black=shadowed),
+// 13=direct contribution of lights 1+2 ONLY (moon/fill isolation, skips the sun).
 uniform int u_pbr_debug;
 uniform sampler2D tex_PBR_N;
 uniform sampler2D tex_PBR_R;
 uniform sampler2D tex_PBR_M;
 uniform sampler2D tex_PBR_AO;
 uniform sampler2D tex_PBR_H;
+// Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
+// meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
+// map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
+uniform mat4 u_pbr_shadow_mvp;
+uniform int u_pbr_shadow_on;
+uniform highp sampler2DShadow tex_PBR_SHADOW;
 #endif
 
 
@@ -132,22 +145,66 @@ void main() {
       float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.7;
       float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
       float ao    = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
-      vec3 L = u_pbr_sun_dir;
-      vec3 H = normalize(L + V);
-      float NdL = max(dot(N, L), 0.0);
       float NdV = max(dot(N, V), 1e-4);
-      float NdH = max(dot(N, H), 0.0);
-      float VdH = max(dot(V, H), 0.0);
       float a = max(rough * rough, 0.002);
       float a2 = a * a;
-      float dd = NdH * NdH * (a2 - 1.0) + 1.0;
-      float D = a2 / (3.14159265 * dd * dd);
       float k = (rough + 1.0) * (rough + 1.0) / 8.0;
-      float G = (NdV / (NdV * (1.0 - k) + k)) * (NdL / (NdL * (1.0 - k) + k));
       vec3 F0 = mix(vec3(0.04), albedo, metal);
-      vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);
-      vec3 spec = D * G * F / max(4.0 * NdV * NdL, 1e-4);
-      vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
+      // Round-4 mandate B: sun shadow-map factor for the whole direct term. Sample position
+      // is v_fringe_rel (camera-relative meters), the SAME space the depth pass rendered in.
+      // 4 taps, each HW-PCF'd by the LINEAR compare sampler => ~4x4 effective. Slope-scaled
+      // bias uses the dominant sun (light 0) against the geometric normal.
+      float shadow = 1.0;
+      if (u_pbr_shadow_on != 0) {
+        vec4 sp = u_pbr_shadow_mvp * vec4(v_fringe_rel, 1.0);
+        vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
+        if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
+          float ndl0 = max(dot(Ngeo, u_pbr_light_dir[0]), 0.0);
+          float bias = max(0.0035 * (1.0 - ndl0), 0.0012);
+          float ref = suv.z - bias;
+          float texel = 1.0 / 1024.0;
+          shadow  = texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5, -0.5) * texel, ref));
+          shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5, -0.5) * texel, ref));
+          shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2(-0.5,  0.5) * texel, ref));
+          shadow += texture(tex_PBR_SHADOW, vec3(suv.xy + vec2( 0.5,  0.5) * texel, ref));
+          shadow *= 0.25;
+        }
+      }
+      // Round-4 multi-light accumulation: sum the Cook-Torrance direct response of every
+      // non-black light in light-group 0 (soleil + lune verte + fill). D/G/F math is
+      // identical to the old single-sun path; kd/F depend on VdH so they're per-light.
+      vec3 direct = vec3(0.0);
+      vec3 spec_sum = vec3(0.0);   // for viz mode 5 (accumulated spec)
+      vec3 direct12 = vec3(0.0);   // for viz mode 13 (lights 1+2 only = moon/fill isolation)
+      for (int i = 0; i < 3; i++) {
+        vec3 lc = u_pbr_light_color[i];
+        if (dot(lc, vec3(1.0)) <= 1e-5) {
+          continue;  // black / disabled light
+        }
+        vec3 L = u_pbr_light_dir[i];
+        vec3 H = normalize(L + V);
+        float NdL = max(dot(N, L), 0.0);
+        float NdH = max(dot(N, H), 0.0);
+        float VdH = max(dot(V, H), 0.0);
+        float dd = NdH * NdH * (a2 - 1.0) + 1.0;
+        float D = a2 / (3.14159265 * dd * dd);
+        float G = (NdV / (NdV * (1.0 - k) + k)) * (NdL / (NdL * (1.0 - k) + k));
+        vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);
+        vec3 spec = D * G * F / max(4.0 * NdV * NdL, 1e-4);
+        vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
+        vec3 contrib = (kd * albedo / 3.14159265 * u_pbr_direct + spec) * lc * NdL;
+        direct += contrib;
+        spec_sum += spec * lc * NdL;
+        if (i > 0) {
+          direct12 += contrib;
+        }
+      }
+      // Round-4 mandate B: shadow the ENTIRE direct term (diffuse + spec of all lights).
+      // Under a roof there is no direct light at all; the indirect/baked-GI term is
+      // deliberately NOT shadowed (baked already carries the level's macro occlusion).
+      direct *= shadow;
+      spec_sum *= shadow;
+      direct12 *= shadow;
       // Indirect = baked vertex TOD color as GI. pow 2.2 linearizes it so a fragment in
       // full baked shadow (no direct term) reproduces the legacy sRGB product
       // fragment_color * T0 by construction — the macro luminance profile of the
@@ -155,7 +212,6 @@ void main() {
       // TOD-palette-interpolated per frame, so this term still tracks the day cycle.
       vec3 baked_gi = pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2));
       vec3 indirect = albedo * baked_gi * ao * u_pbr_indirect;
-      vec3 direct = (kd * albedo / 3.14159265 * u_pbr_direct + spec) * u_pbr_sun_color * NdL;
       vec3 lit = direct + indirect;
       color.rgb = pow(max(lit * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       if (u_pbr_debug == 1) {
@@ -167,8 +223,7 @@ void main() {
       } else if (u_pbr_debug == 4) {
         color.rgb = vec3(rough);
       } else if (u_pbr_debug == 5) {
-        color.rgb = pow(max(spec * u_pbr_sun_color * NdL * u_pbr_exposure, vec3(0.0)),
-                        vec3(1.0 / 2.2));
+        color.rgb = pow(max(spec_sum * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       } else if (u_pbr_debug == 6) {
         color.rgb = vec3(ao);
       } else if (u_pbr_debug == 9) {
@@ -177,6 +232,12 @@ void main() {
         color.rgb = pow(max(indirect * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       } else if (u_pbr_debug == 11) {
         color.rgb = pow(max(direct * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
+      } else if (u_pbr_debug == 12) {
+        // Round-4 mandate B: sun shadow factor viz (1=lit, 0=shadowed).
+        color.rgb = vec3(shadow);
+      } else if (u_pbr_debug == 13) {
+        // Round-4: direct contribution of lights 1+2 ONLY (moon/fill isolation viz).
+        color.rgb = pow(max(direct12 * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       }
     }
 #endif

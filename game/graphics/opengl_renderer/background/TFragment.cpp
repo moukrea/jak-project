@@ -388,6 +388,9 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
         tree_cache.colors = &tree.colors;
         tree_cache.vis = &tree.bvh;
         tree_cache.index_data = tree.unpacked.indices.data();
+#ifdef OG_FEAT_PBR
+        tree_cache.index_count = (u32)tree.unpacked.indices.size();
+#endif
         tree_cache.draw_mode = tree.use_strips ? GL_TRIANGLE_STRIP : GL_TRIANGLES;
         vis_temp_len = std::max(vis_temp_len, tree.bvh.vis_nodes.size());
         glBindBuffer(GL_ARRAY_BUFFER, tree_cache.vertex_buffer);
@@ -581,19 +584,107 @@ void TFragment::render_tree(int geom,
                       m_cache.vis_temp.data());
 
   u32 total_tris;
+#ifdef OG_FEAT_PBR
+  // Round-4 mandate B: index count of the buffer currently bound to
+  // GL_ELEMENT_ARRAY_BUFFER, for the sun shadow depth pass below.
+  //   no_multidraw path: the freshly-built single-draw index list (length = idx_buffer_size).
+  //   multidraw path: the resident static full index buffer (tree.index_count, from load).
+  u32 pbr_depth_index_count = 0;
+#endif
   if (render_state->no_multidraw) {
     u32 idx_buffer_size = make_index_list_from_vis_string(
         m_cache.draw_idx_temp.data(), m_cache.index_temp.data(), *tree.draws, m_cache.vis_temp,
         tree.index_data, &total_tris);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32), m_cache.index_temp.data(),
                  GL_STREAM_DRAW);
+#ifdef OG_FEAT_PBR
+    pbr_depth_index_count = idx_buffer_size;
+#endif
   } else {
     total_tris = make_multidraws_from_vis_string(
         m_cache.multidraw_offset_per_stripdraw.data(), m_cache.multidraw_count_buffer.data(),
         m_cache.multidraw_index_offset_buffer.data(), *tree.draws, m_cache.vis_temp);
+#ifdef OG_FEAT_PBR
+    pbr_depth_index_count = tree.index_count;
+#endif
   }
 
   prof.add_tri(total_tris);
+
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4 mandate B: sun shadow depth pass. Perf-gated — only
+  // runs when a PBR material is registered in this level (m_pbr_draws non-empty) and the
+  // runtime PBR toggle is on. Only for NORMAL tfrag geometry (kind == NORMAL). The tree
+  // VAO + element buffer are already bound; primitive restart is enabled process-wide for
+  // these strips (see the glEnable(GL_PRIMITIVE_RESTART[_FIXED_INDEX]) above). Renders the
+  // camera-vis-culled geometry into the 1024 depth FBO from the mood-sun direction, in the
+  // SAME camera-relative-meters space as the tfrag3.vert v_fringe_rel varying.
+  if (Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
+      tree.kind == tfrag3::TFragmentTreeKind::NORMAL && pbr_depth_index_count > 0 &&
+      pbr_shadow_begin_frame(render_state->frame_idx)) {
+    auto& sh_st = pbr_shadow_state();
+    // Save the GL state the depth pass mutates.
+    GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
+    GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+    GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+    GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+    GLboolean prev_depth_mask = GL_TRUE;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+    glGetIntegerv(GL_VIEWPORT, prev_vp);
+    glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, sh_st.fbo);
+    glViewport(0, 0, sh_st.size, sh_st.size);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(2.0f, 4.0f);
+
+    const auto& depth_sh = render_state->shaders[ShaderId::PBR_DEPTH];
+    depth_sh.activate();
+    GLuint depth_id = depth_sh.id();
+    glUniformMatrix4fv(glGetUniformLocation(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
+    // cam_trans = the SAME source the main pass uploads (settings.camera.trans).
+    const auto& ct = settings.camera.trans;
+    glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
+
+    glDrawElements(tree.draw_mode, pbr_depth_index_count, GL_UNSIGNED_INT, nullptr);
+
+    // Restore everything.
+    glUseProgram((GLuint)prev_program);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+    glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+    if (prev_scissor) {
+      glEnable(GL_SCISSOR_TEST);
+    } else {
+      glDisable(GL_SCISSOR_TEST);
+    }
+    if (prev_cull) {
+      glEnable(GL_CULL_FACE);
+    } else {
+      glDisable(GL_CULL_FACE);
+    }
+    if (prev_poly_off) {
+      glEnable(GL_POLYGON_OFFSET_FILL);
+    } else {
+      glDisable(GL_POLYGON_OFFSET_FILL);
+    }
+    glPolygonOffset(0.0f, 0.0f);
+    glDepthMask(prev_depth_mask);
+    glDepthFunc(prev_depth_func);
+  }
+  // Round-4 mandate B receiver bind: bind the shadow matrix + sampler on the TFRAG3
+  // program for this tree's draws. Runs regardless of whether the depth pass ran this
+  // frame (last frame's map, or the cleared-to-1.0 map, is acceptable).
+  if (Gfx::g_global_settings.recharged_pbr_enable && !m_pbr_draws.empty() &&
+      pbr_shadow_state().valid) {
+    pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id());
+  }
+#endif
   // Gjak2-visuals TOD state dump — the diffable our-x86-vs-device probe (the
   // x86-first discipline): full itimes weights, frame fog color, first TOD
   // colors. Device: always, ~5 s cadence; desktop: env GJ2VIS_TFTREE only, so
@@ -832,63 +923,16 @@ void TFragment::render_tree(int geom,
   };
 
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: per-draw PBR material bind. Units 11-15 are free in
-  // this renderer (base tex = 0, TOD LUT = 10); shared TFRAG3 program so u_pbr_mode
-  // is always restored to 0 at the end of the draw loop.
-  GLint pbr_mode_loc = -2;
-  int pbr_cur_mode = 0;
-  bool pbr_bound_any = false;
-  auto set_pbr = [&](s32 tex_id, const DrawMode& mode) {
-    int want = 0;
-    const custom_tex::PbrMaterialMaps* maps = nullptr;
-    // Grecharged-pbr-materials: alpha-blended + decal draws keep the legacy path (same
-    // opaque-only rule as AO); PBR keys on the texture, resolved once per level.
-    if (Gfx::g_global_settings.recharged_pbr_enable && tex_id >= 0 && !mode.get_ab_enable() &&
-        !mode.get_decal() && !m_pbr_draws.empty()) {
-      for (auto& e : m_pbr_draws) {
-        if (e.tex_idx == tex_id) {
-          maps = &e.maps;
-          break;
-        }
-      }
-      if (maps) {
-        want = (maps->normal_tex ? 1 : 0) | (maps->rough_tex ? 2 : 0) |
-               (maps->metal_tex ? 4 : 0) | (maps->ao_tex ? 8 : 0) |
-               (maps->height_tex ? 16 : 0);
-      }
-    }
-    if (want == 0 && pbr_cur_mode == 0) {
-      return;
-    }
-    if (pbr_mode_loc == -2) {
-      pbr_mode_loc = glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "u_pbr_mode");
-    }
-    if (pbr_mode_loc < 0) {
-      return;
-    }
-    if (want != 0) {
-      // Bind ALL FIVE units every time: the real map when present, the 1x1 neutral
-      // default when absent (e.g. a set with no _metallic). No unit is ever left
-      // unbound or holding another draw's map while the PBR shader path is active.
-      const auto& neutral = pbr_neutral_maps();
-      glActiveTexture(GL_TEXTURE11);
-      glBindTexture(GL_TEXTURE_2D, maps->normal_tex ? maps->normal_tex : neutral.normal_tex);
-      glActiveTexture(GL_TEXTURE12);
-      glBindTexture(GL_TEXTURE_2D, maps->rough_tex ? maps->rough_tex : neutral.rough_tex);
-      glActiveTexture(GL_TEXTURE13);
-      glBindTexture(GL_TEXTURE_2D, maps->metal_tex ? maps->metal_tex : neutral.metal_tex);
-      glActiveTexture(GL_TEXTURE14);
-      glBindTexture(GL_TEXTURE_2D, maps->ao_tex ? maps->ao_tex : neutral.ao_tex);
-      glActiveTexture(GL_TEXTURE15);
-      glBindTexture(GL_TEXTURE_2D, maps->height_tex ? maps->height_tex : neutral.height_tex);
-      glActiveTexture(GL_TEXTURE0);
-      pbr_bound_any = true;
-    }
-    if (want != pbr_cur_mode) {
-      glUniform1i(pbr_mode_loc, want);
-      pbr_cur_mode = want;
-    }
-  };
+  // Grecharged-pbr-materials round-4: per-draw PBR material bind via the shared
+  // PbrDrawBinder (same code Tie3 now uses). Units 11-15 are free in this renderer
+  // (base tex = 0, TOD LUT = 10); shared TFRAG3 program so u_pbr_mode is restored to 0
+  // in binder.finish() at the end of the draw loop. Round-4 coverage unification: the
+  // binder no longer excludes alpha-blended (TRANS "vis-alpha" tree) draws — those now
+  // take the PBR path too; alpha still comes from the legacy fragment_color*T0 product
+  // in the shader, only rgb is relit.
+  PbrDrawBinder pbr_binder;
+  pbr_binder.begin(render_state->shaders[ShaderId::TFRAG3].id(), &m_pbr_draws);
+  auto set_pbr = [&](s32 tex_id, const DrawMode& mode) { pbr_binder.set(tex_id, mode); };
 #endif
 
   if (render_state->no_multidraw && render_state->batch_singledraw) {
@@ -1045,18 +1089,10 @@ void TFragment::render_tree(int geom,
   // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
   set_fringe(false);
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: the TFRAG3 program is shared; reset PBR mode to 0 so
-  // other users of the program are unaffected.
-  if (pbr_cur_mode != 0) {
-    glUniform1i(pbr_mode_loc, 0);
-    pbr_cur_mode = 0;
-  }
-  // Hardening (magenta class): park units 11-14 on the neutral 1x1 defaults so no
-  // material map leaks into later draws this frame; restores active unit 0.
-  if (pbr_bound_any) {
-    pbr_park_neutral_maps();
-    pbr_bound_any = false;
-  }
+  // Grecharged-pbr-materials: the TFRAG3 program is shared; reset PBR mode to 0 and
+  // park units 11-15 on the neutral 1x1 defaults (magenta-class hardening) so no
+  // material map leaks into later draws this frame. Restores active unit 0.
+  pbr_binder.finish();
 #endif
 #ifdef __ANDROID__
   // A42 probe tail: GL error state + an FBO readback where the village

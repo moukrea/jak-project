@@ -137,6 +137,13 @@ class TFragment : public BucketRenderer {
     const tfrag3::BVH* vis = nullptr;
     const u32* index_data = nullptr;
     u64 draw_mode = 0;
+#ifdef OG_FEAT_PBR
+    // Grecharged-pbr-materials round-4 mandate B: total index count of the resident static
+    // full index buffer (tree.index_buffer) uploaded at load. The sun shadow depth pass
+    // draws the whole tree on the multidraw path where no per-frame count is otherwise
+    // computed.
+    u32 index_count = 0;
+#endif
 
     void reset_stats() {
       rendered_this_frame = false;
@@ -197,11 +204,8 @@ class TFragment : public BucketRenderer {
 
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials: per-level list of textures with a registered PBR
-  // material set (resolved in update_load; no level-name gating).
-  struct PbrDrawEntry {
-    s32 tex_idx;
-    custom_tex::PbrMaterialMaps maps;
-  };
-  std::vector<PbrDrawEntry> m_pbr_draws;
+  // material set (resolved in update_load; no level-name gating). Type + per-draw
+  // bind now shared with Tie3 via background_common's PbrDrawBinder (round-4).
+  PbrDrawList m_pbr_draws;
 #endif
 };

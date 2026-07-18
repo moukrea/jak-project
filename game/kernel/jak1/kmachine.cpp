@@ -835,6 +835,25 @@ void pc_set_pbr_sun(u32 shadow_vec, u32 sun_color_vec, u32 env_color_vec) {
   Gfx::g_global_settings.recharged_pbr_ambient[1] = e[1];
   Gfx::g_global_settings.recharged_pbr_ambient[2] = e[2];
 }
+
+// Round-4 multi-light: GOAL passes (-> *time-of-day-context* light-group 0) — a light-group,
+// four inline `light`s (dir0/dir1/dir2/ambi), each 48 bytes: direction vec16 @+0, color rgbaf16
+// @+16, levels vec16 @+32 (levels.x = morph weight). Raw 0..255 colors; scaled at the GL boundary.
+void pc_set_pbr_lights(u32 lg) {
+  auto* base = Ptr<float>(lg).c();
+  auto& gs = Gfx::g_global_settings;
+  for (int i = 0; i < 3; i++) {
+    const float* l = base + i * 12;  // 48 bytes = 12 floats
+    for (int j = 0; j < 3; j++) {
+      gs.recharged_pbr_lg_dir[i][j] = l[j];
+      gs.recharged_pbr_lg_color[i][j] = l[4 + j];
+    }
+    gs.recharged_pbr_lg_level[i] = l[8];
+  }
+  const float* ambi = base + 3 * 12;
+  for (int j = 0; j < 3; j++) gs.recharged_pbr_lg_ambi[j] = ambi[4 + j];
+  gs.recharged_pbr_lg_valid = true;
+}
 #endif
 
 void InitMachine_PCPort() {
@@ -866,6 +885,7 @@ void InitMachine_PCPort() {
   // Grecharged-pbr-materials: runtime toggle + mood/TOD sun push
   make_function_symbol_from_c("pc-set-pbr!", (void*)pc_set_pbr);
   make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
+  make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);

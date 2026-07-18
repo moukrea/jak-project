@@ -170,6 +170,13 @@ struct GfxGlobalSettings {
   float recharged_pbr_sun_color[3] = {1.f, 1.f, 1.f};   // mood-sun sun-color
   float recharged_pbr_ambient[3] = {0.25f, 0.25f, 0.3f}; // mood-sun env-color
   float recharged_pbr_exposure = 1.0f;
+  // Round-4 multi-light: *time-of-day-context* light-group 0 (soleil + lune verte + fill).
+  // Pushed raw from GOAL via pc-set-pbr-lights!; scaled/normalized at the GL boundary.
+  bool recharged_pbr_lg_valid = false;
+  float recharged_pbr_lg_dir[3][3];    // light-travel dirs, dir0/1/2 raw from GOAL
+  float recharged_pbr_lg_color[3][3];  // rgb 0..255 raw
+  float recharged_pbr_lg_level[3];     // levels.x morph weight per light
+  float recharged_pbr_lg_ambi[3];      // ambi color rgb 0..255 raw
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

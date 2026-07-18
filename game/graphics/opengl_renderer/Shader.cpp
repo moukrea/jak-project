@@ -195,6 +195,9 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::AO_GTAO) = {"ao_gtao", version};
   at(ShaderId::AO_BLUR) = {"ao_blur", version};
   at(ShaderId::AO_COMPOSITE) = {"ao_composite", version};
+#ifdef OG_FEAT_PBR
+  at(ShaderId::PBR_DEPTH) = {"pbr_depth", version};
+#endif
 
 #ifdef __ANDROID__
   // A35: name every failing shader instead of dying on the first one — a

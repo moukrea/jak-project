@@ -3,10 +3,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
+#include "common/dma/gs.h"
 #include "common/math/Vector.h"
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#ifdef OG_FEAT_PBR
+#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
+#endif
 
 // Gjak2-visuals probe: one-shot per background (tie/tfrag) anim-slot bind —
 // diffable our-x86 (env GJ2VIS_SKY) vs device (always) to see which title
@@ -144,6 +149,62 @@ struct PbrNeutralMaps {
 const PbrNeutralMaps& pbr_neutral_maps();
 // Bind the neutrals to units 11-15 and restore active unit 0.
 void pbr_park_neutral_maps();
+
+// Grecharged-pbr-materials round-4 coverage unification: the per-draw PBR material
+// bind was originally a lambda local to TFragment's draw loop. Tie3 draws its
+// non-envmap categories with the SAME TFRAG3 program but never bound PBR maps, so a
+// replaced TIE texture rendered its albedo without the BRDF (the owner-seen
+// half-PBR). This helper factors that exact lambda so TFragment and Tie3 share ONE
+// implementation. Semantics are byte-identical to the original TFragment lambda when
+// no PBR material is registered (empty draw list => set() early-returns, finish() is
+// a no-op).
+struct PbrDrawEntry {
+  s32 tex_idx;
+  custom_tex::PbrMaterialMaps maps;
+};
+using PbrDrawList = std::vector<PbrDrawEntry>;
+
+class PbrDrawBinder {
+ public:
+  // program = the TFRAG3 program id (u_pbr_mode lives there); draws = the level's
+  // resolved PBR material list. ONLY use on paths where the active program IS TFRAG3
+  // (never ETIE/ETIE_BASE/envmap).
+  void begin(GLuint program, const PbrDrawList* draws);
+  // Per-draw: look up tex_id, gate on the runtime toggle + opaque/non-decal rule,
+  // bind units 11-15 real-or-neutral, set u_pbr_mode.
+  void set(s32 tex_id, const DrawMode& mode);
+  // Restore u_pbr_mode to 0 and park the neutral maps if anything was bound. Must be
+  // called before the TFRAG3 program is handed to any other renderer.
+  void finish();
+
+ private:
+  GLuint m_program = 0;
+  const PbrDrawList* m_draws = nullptr;
+  GLint m_mode_loc = -2;
+  int m_cur_mode = 0;
+  bool m_bound_any = false;
+};
+
+// Grecharged-pbr-materials round-4 mandate B: classic sun SHADOW MAPPING for the PBR
+// direct term. A depth-only pass renders the camera-vis-culled tfrag NORMAL geometry into
+// a 1024x1024 depth FBO from the mood-sun direction, in the SAME camera-relative-meters
+// space as v_fringe_rel = (position_in - cam_trans.xyz)/4096. The PBR fragment path then
+// multiplies its ENTIRE direct (multi-light) term by a PCF shadow factor. Indirect/baked-GI
+// term untouched. Merc/actor casters are OUT of scope (the stock stencil shadow system
+// covers actors). GL-thread only.
+struct PbrShadowState {
+  GLuint fbo = 0;
+  GLuint depth_tex = 0;
+  int size = 1024;
+  u64 frame = ~0ull;   // frame_idx that last cleared the map
+  bool valid = false;  // resources created OK
+  bool have_mvp = false;  // mvp computed for the current frame
+  float mvp[16];          // column-major light view-proj (camera-relative meters)
+};
+PbrShadowState& pbr_shadow_state();
+void pbr_shadow_ensure_resources();             // lazy FBO/tex creation
+bool pbr_shadow_begin_frame(u64 frame_idx);     // true if the depth pass should run
+void pbr_shadow_bind_receiver(GLuint program);  // bind matrix+sampler on a TFRAG3-family program
 #endif
 
 void interp_time_of_day(const math::Vector<s32, 4> itimes[4],

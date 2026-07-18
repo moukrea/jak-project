@@ -75,6 +75,10 @@ enum class ShaderId {
   AO_GTAO = 47,
   AO_BLUR = 48,
   AO_COMPOSITE = 49,
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4 mandate B: depth-only sun shadow-map pass.
+  PBR_DEPTH = 50,
+#endif
   MAX_SHADERS
 };
 

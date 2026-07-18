@@ -490,6 +490,376 @@ void pbr_park_neutral_maps() {
   glBindTexture(GL_TEXTURE_2D, neutral.height_tex);
   glActiveTexture(GL_TEXTURE0);
 }
+
+// Grecharged-pbr-materials round-4: shared per-draw PBR material bind (was a lambda
+// local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
+// the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
+void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
+  m_program = program;
+  m_draws = draws;
+  m_mode_loc = -2;
+  m_cur_mode = 0;
+  m_bound_any = false;
+}
+
+void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
+  int want = 0;
+  const custom_tex::PbrMaterialMaps* maps = nullptr;
+  // alpha-blended (TRANS "vis-alpha" tree) draws now take the PBR path too — round-4
+  // coverage unification; alpha still comes from the legacy fragment_color*T0 product
+  // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
+  // the texture, resolved once per level.
+  if (Gfx::g_global_settings.recharged_pbr_enable && tex_id >= 0 && !mode.get_decal() && m_draws &&
+      !m_draws->empty()) {
+    for (auto& e : *m_draws) {
+      if (e.tex_idx == tex_id) {
+        maps = &e.maps;
+        break;
+      }
+    }
+    if (maps) {
+      want = (maps->normal_tex ? 1 : 0) | (maps->rough_tex ? 2 : 0) | (maps->metal_tex ? 4 : 0) |
+             (maps->ao_tex ? 8 : 0) | (maps->height_tex ? 16 : 0);
+    }
+  }
+  if (want == 0 && m_cur_mode == 0) {
+    return;
+  }
+  if (m_mode_loc == -2) {
+    m_mode_loc = glGetUniformLocation(m_program, "u_pbr_mode");
+  }
+  if (m_mode_loc < 0) {
+    return;
+  }
+  if (want != 0) {
+    // Bind ALL FIVE units every time: the real map when present, the 1x1 neutral
+    // default when absent. No unit is ever left unbound or holding another draw's map
+    // while the PBR shader path is active.
+    const auto& neutral = pbr_neutral_maps();
+    glActiveTexture(GL_TEXTURE11);
+    glBindTexture(GL_TEXTURE_2D, maps->normal_tex ? maps->normal_tex : neutral.normal_tex);
+    glActiveTexture(GL_TEXTURE12);
+    glBindTexture(GL_TEXTURE_2D, maps->rough_tex ? maps->rough_tex : neutral.rough_tex);
+    glActiveTexture(GL_TEXTURE13);
+    glBindTexture(GL_TEXTURE_2D, maps->metal_tex ? maps->metal_tex : neutral.metal_tex);
+    glActiveTexture(GL_TEXTURE14);
+    glBindTexture(GL_TEXTURE_2D, maps->ao_tex ? maps->ao_tex : neutral.ao_tex);
+    glActiveTexture(GL_TEXTURE15);
+    glBindTexture(GL_TEXTURE_2D, maps->height_tex ? maps->height_tex : neutral.height_tex);
+    glActiveTexture(GL_TEXTURE0);
+    m_bound_any = true;
+  }
+  if (want != m_cur_mode) {
+    glUniform1i(m_mode_loc, want);
+    m_cur_mode = want;
+  }
+}
+
+void PbrDrawBinder::finish() {
+  // The TFRAG3 program is shared; reset PBR mode to 0 so other users are unaffected.
+  if (m_cur_mode != 0) {
+    if (m_mode_loc == -2) {
+      m_mode_loc = glGetUniformLocation(m_program, "u_pbr_mode");
+    }
+    if (m_mode_loc >= 0) {
+      glUniform1i(m_mode_loc, 0);
+    }
+    m_cur_mode = 0;
+  }
+  // Park units 11-15 on the neutral 1x1 defaults so no material map leaks into later
+  // draws this frame; restores active unit 0.
+  if (m_bound_any) {
+    pbr_park_neutral_maps();
+    m_bound_any = false;
+  }
+}
+
+// ===========================================================================
+// Grecharged-pbr-materials round-4 mandate B: sun shadow mapping.
+// ===========================================================================
+
+PbrShadowState& pbr_shadow_state() {
+  static PbrShadowState s;
+  return s;
+}
+
+// Tiny column-major matrix helpers. Column-major = element[col*4 + row], the layout
+// glUniformMatrix4fv(..., GL_FALSE, ...) expects. lookAt/ortho follow the standard
+// right-handed GL conventions so proj*view maps eye-space z to NDC [-1,1].
+namespace {
+struct PbrV3 {
+  float x, y, z;
+};
+static PbrV3 pv_sub(PbrV3 a, PbrV3 b) {
+  return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+static float pv_dot(PbrV3 a, PbrV3 b) {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+static PbrV3 pv_cross(PbrV3 a, PbrV3 b) {
+  return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+static PbrV3 pv_norm(PbrV3 a) {
+  float l = std::sqrt(pv_dot(a, a));
+  if (l < 1e-8f) {
+    return {0.f, 0.f, 0.f};
+  }
+  return {a.x / l, a.y / l, a.z / l};
+}
+
+// Right-handed lookAt into column-major float[16].
+static void pbr_look_at(PbrV3 eye, PbrV3 center, PbrV3 up, float out[16]) {
+  PbrV3 f = pv_norm(pv_sub(center, eye));  // forward (-z)
+  PbrV3 s = pv_norm(pv_cross(f, up));      // right (+x)
+  PbrV3 u = pv_cross(s, f);                // true up (+y)
+  // column 0
+  out[0] = s.x;
+  out[1] = u.x;
+  out[2] = -f.x;
+  out[3] = 0.f;
+  // column 1
+  out[4] = s.y;
+  out[5] = u.y;
+  out[6] = -f.y;
+  out[7] = 0.f;
+  // column 2
+  out[8] = s.z;
+  out[9] = u.z;
+  out[10] = -f.z;
+  out[11] = 0.f;
+  // column 3 (translation)
+  out[12] = -pv_dot(s, eye);
+  out[13] = -pv_dot(u, eye);
+  out[14] = pv_dot(f, eye);
+  out[15] = 1.f;
+}
+
+// Right-handed orthographic projection into column-major float[16], NDC z in [-1,1].
+static void pbr_ortho(float l,
+                      float r,
+                      float b,
+                      float t,
+                      float n,
+                      float fpl,
+                      float out[16]) {
+  for (int i = 0; i < 16; i++) {
+    out[i] = 0.f;
+  }
+  out[0] = 2.f / (r - l);
+  out[5] = 2.f / (t - b);
+  out[10] = -2.f / (fpl - n);
+  out[12] = -(r + l) / (r - l);
+  out[13] = -(t + b) / (t - b);
+  out[14] = -(fpl + n) / (fpl - n);
+  out[15] = 1.f;
+}
+
+// out = a * b, all column-major float[16].
+static void pbr_mat_mul(const float a[16], const float b[16], float out[16]) {
+  for (int col = 0; col < 4; col++) {
+    for (int row = 0; row < 4; row++) {
+      float sum = 0.f;
+      for (int k = 0; k < 4; k++) {
+        sum += a[k * 4 + row] * b[col * 4 + k];
+      }
+      out[col * 4 + row] = sum;
+    }
+  }
+}
+
+// Read the shadow-map quality prop ONCE per frame (Android prop / desktop env), cached on
+// frame_idx so this never re-reads on every begin_frame call within a frame. Default ON.
+static bool pbr_shadowmap_enabled_for_frame(u64 frame_idx) {
+  static u64 s_frame = ~0ull;
+  static bool s_on = true;
+  if (frame_idx != s_frame) {
+    s_frame = frame_idx;
+    s_on = true;
+#ifdef __ANDROID__
+    char v[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.pbr.shadowmap", v) > 0 && v[0]) {
+      s_on = atoi(v) != 0;
+    }
+#else
+    if (const char* e = std::getenv("OG_PBR_SHADOWMAP")) {
+      s_on = std::atoi(e) != 0;
+    }
+#endif
+  }
+  return s_on;
+}
+}  // namespace
+
+void pbr_shadow_ensure_resources() {
+  auto& st = pbr_shadow_state();
+  if (st.fbo || st.depth_tex) {
+    return;  // already tried once (valid or permanently failed)
+  }
+  // Save FBO + viewport; we bind our own to clear the fresh depth texture to 1.0.
+  GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+  glGetIntegerv(GL_VIEWPORT, prev_vp);
+
+  glGenTextures(1, &st.depth_tex);
+  glBindTexture(GL_TEXTURE_2D, st.depth_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, st.size, st.size, 0, GL_DEPTH_COMPONENT,
+               GL_UNSIGNED_INT, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+
+  glGenFramebuffers(1, &st.fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st.depth_tex, 0);
+  GLenum none = GL_NONE;
+  glDrawBuffers(1, &none);
+  glReadBuffer(GL_NONE);  // GLES3 has glReadBuffer, so unguarded is fine.
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("Grecharged-pbr-materials: shadow-map FBO incomplete; disabling sun shadows");
+    st.valid = false;
+  } else {
+    // Clear the depth texture to 1.0 so an unrendered map means fully lit.
+    glViewport(0, 0, st.size, st.size);
+#ifdef __ANDROID__
+    glClearDepthf(1.0f);
+#else
+    glClearDepth(1.0);
+#endif
+    glClear(GL_DEPTH_BUFFER_BIT);
+    st.valid = true;
+  }
+
+  // Restore prior FBO + viewport.
+  glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+  glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+bool pbr_shadow_begin_frame(u64 frame_idx) {
+  auto& st = pbr_shadow_state();
+  st.have_mvp = false;
+  if (!Gfx::g_global_settings.recharged_pbr_enable) {
+    return false;
+  }
+  if (!pbr_shadowmap_enabled_for_frame(frame_idx)) {
+    return false;
+  }
+  pbr_shadow_ensure_resources();
+  if (!st.valid) {
+    return false;
+  }
+
+  if (st.frame == frame_idx) {
+    // Same frame: the map was already cleared + mvp computed this frame; keep rendering
+    // additively across trees/levels without re-clearing.
+    st.have_mvp = true;
+    return true;
+  }
+
+  // ---- Compute the light matrix (camera-relative meters). ----
+  const auto& gs = Gfx::g_global_settings;
+  PbrV3 dir = {0.f, 0.f, 0.f};
+  if (gs.recharged_pbr_lg_valid) {
+    for (int i = 0; i < 3; i++) {
+      PbrV3 ld = {-gs.recharged_pbr_lg_dir[i][0], -gs.recharged_pbr_lg_dir[i][1],
+                  -gs.recharged_pbr_lg_dir[i][2]};  // GOAL dir is light-travel; want surface->light
+      float ll = std::sqrt(pv_dot(ld, ld));
+      if (ll < 1e-5f) {
+        continue;  // degenerate dir
+      }
+      float lum = 0.2126f * gs.recharged_pbr_lg_color[i][0] +
+                  0.7152f * gs.recharged_pbr_lg_color[i][1] +
+                  0.0722f * gs.recharged_pbr_lg_color[i][2];
+      float wi = gs.recharged_pbr_lg_level[i] * lum;
+      dir.x += (ld.x / ll) * wi;
+      dir.y += (ld.y / ll) * wi;
+      dir.z += (ld.z / ll) * wi;
+    }
+  }
+  if (pv_dot(dir, dir) < 1e-8f) {
+    // Fall back to -recharged_pbr_shadow (light-travel -> surface->light).
+    dir = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1], -gs.recharged_pbr_shadow[2]};
+  }
+  PbrV3 L = pv_norm(dir);  // surface->sun unit vector
+  if (pv_dot(L, L) < 1e-4f) {
+    return false;
+  }
+
+  PbrV3 eye = {L.x * 100.f, L.y * 100.f, L.z * 100.f};
+  PbrV3 target = {0.f, 0.f, 0.f};
+  PbrV3 up = std::fabs(L.y) > 0.95f ? PbrV3{1.f, 0.f, 0.f} : PbrV3{0.f, 1.f, 0.f};
+
+  float view[16];
+  pbr_look_at(eye, target, up, view);
+
+  // TEXEL SNAP (stable-shadow trick): transform the world origin into light view space,
+  // snap x/y to multiples of the world-per-texel size, add the delta back into the view
+  // translation. Ortho spans 80 world units across 1024 texels.
+  const float texel_world = 80.0f / 1024.0f;
+  // origin in view space = view * (0,0,0,1) = column 3 translation.
+  float ox = view[12];
+  float oy = view[13];
+  float sx = std::floor(ox / texel_world) * texel_world;
+  float sy = std::floor(oy / texel_world) * texel_world;
+  view[12] += (sx - ox);
+  view[13] += (sy - oy);
+
+  float proj[16];
+  pbr_ortho(-40.f, 40.f, -40.f, 40.f, 0.5f, 200.0f, proj);
+
+  pbr_mat_mul(proj, view, st.mvp);
+  st.have_mvp = true;
+  st.frame = frame_idx;
+
+  // Clear the depth map for the new frame (state save/restore).
+  GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+  glGetIntegerv(GL_VIEWPORT, prev_vp);
+  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo);
+  glViewport(0, 0, st.size, st.size);
+  GLboolean prev_depth_mask = GL_TRUE;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  glDepthMask(GL_TRUE);
+#ifdef __ANDROID__
+  glClearDepthf(1.0f);
+#else
+  glClearDepth(1.0);
+#endif
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glDepthMask(prev_depth_mask);
+  glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+  glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+  return true;
+}
+
+void pbr_shadow_bind_receiver(GLuint program) {
+  auto& st = pbr_shadow_state();
+  if (!st.valid) {
+    return;
+  }
+  GLint mvp_loc = glGetUniformLocation(program, "u_pbr_shadow_mvp");
+  GLint tex_loc = glGetUniformLocation(program, "tex_PBR_SHADOW");
+  GLint on_loc = glGetUniformLocation(program, "u_pbr_shadow_on");
+  if (tex_loc >= 0) {
+    glUniform1i(tex_loc, 9);
+  }
+  // ALWAYS bind the depth texture on unit 9 (even when the pass did not run this frame:
+  // the map is cleared-to-1.0 = fully lit). Prevents the unbound/type-mismatch sampler
+  // class (the old magenta lesson).
+  glActiveTexture(GL_TEXTURE9);
+  glBindTexture(GL_TEXTURE_2D, st.depth_tex);
+  glActiveTexture(GL_TEXTURE0);
+  if (mvp_loc >= 0) {
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, st.mvp);
+  }
+  if (on_loc >= 0) {
+    glUniform1i(on_loc, (st.valid && st.have_mvp) ? 1 : 0);
+  }
+}
 #endif
 
 void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
@@ -548,6 +918,17 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_AO"), 14);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_H"), 15);
+  // Round-4 mandate B (shadow map): always advertise the shadow sampler on unit 9 and
+  // default u_pbr_shadow_on OFF; pbr_shadow_bind_receiver upgrades it per-renderer. Parking
+  // the depth texture on unit 9 here mismatch-proofs every TFRAG3-family user (magenta
+  // class) even before/without a receiver bind.
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_SHADOW"), 9);
+  glUniform1i(glGetUniformLocation(id, "u_pbr_shadow_on"), 0);
+  if (pbr_shadow_state().valid) {
+    glActiveTexture(GL_TEXTURE9);
+    glBindTexture(GL_TEXTURE_2D, pbr_shadow_state().depth_tex);
+    glActiveTexture(GL_TEXTURE0);
+  }
   // Units 11-15 must be complete for EVERY draw of this program — including when zero
   // PBR materials are registered this level (see pbr_neutral_maps in background_common.h).
   pbr_park_neutral_maps();
@@ -645,8 +1026,64 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);
-  glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
-              gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
+
+  // Round-4 multi-light (mandate C): build 3 direct lights from *time-of-day-context*
+  // light-group 0 (soleil dir0 + lune verte dir1 + fill dir2). Bound as arrays for the
+  // shader's accumulation loop. u_pbr_sun_dir/u_pbr_sun_color stay set above (viz/other
+  // code reads them). Each color is pre-weighted by its levels.x morph weight in GOAL's
+  // TOD interpolation, so dir0+dir1 sum ~1 across hour transitions (energy conserved).
+  float light_dir[9];
+  float light_color[9];
+  if (gs.recharged_pbr_lg_valid) {
+    for (int i = 0; i < 3; i++) {
+      // GOAL dir is light-travel (sun->surface); shader wants surface->light, so negate.
+      float d[3] = {-gs.recharged_pbr_lg_dir[i][0], -gs.recharged_pbr_lg_dir[i][1],
+                    -gs.recharged_pbr_lg_dir[i][2]};
+      float dl = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+      float lvl = gs.recharged_pbr_lg_level[i];
+      if (dl < 1e-5f || lvl <= 0.0f) {
+        // Degenerate / disabled light: black it out so the shader loop skips it.
+        light_dir[i * 3 + 0] = 0.f;
+        light_dir[i * 3 + 1] = 1.f;
+        light_dir[i * 3 + 2] = 0.f;
+        light_color[i * 3 + 0] = 0.f;
+        light_color[i * 3 + 1] = 0.f;
+        light_color[i * 3 + 2] = 0.f;
+      } else {
+        light_dir[i * 3 + 0] = d[0] / dl;
+        light_dir[i * 3 + 1] = d[1] / dl;
+        light_dir[i * 3 + 2] = d[2] / dl;
+        light_color[i * 3 + 0] = gs.recharged_pbr_lg_color[i][0] * lvl * sun_scale;
+        light_color[i * 3 + 1] = gs.recharged_pbr_lg_color[i][1] * lvl * sun_scale;
+        light_color[i * 3 + 2] = gs.recharged_pbr_lg_color[i][2] * lvl * sun_scale;
+      }
+    }
+  } else {
+    // Startup fallback (no GOAL push yet): light0 = the single-sun computation above,
+    // lights 1/2 black.
+    light_dir[0] = sd[0] / sl;
+    light_dir[1] = sd[1] / sl;
+    light_dir[2] = sd[2] / sl;
+    light_color[0] = gs.recharged_pbr_sun_color[0] * sun_scale;
+    light_color[1] = gs.recharged_pbr_sun_color[1] * sun_scale;
+    light_color[2] = gs.recharged_pbr_sun_color[2] * sun_scale;
+    for (int k = 3; k < 9; k++) {
+      light_dir[k] = (k % 3 == 1) ? 1.f : 0.f;  // (0,1,0) dirs
+      light_color[k] = 0.f;
+    }
+  }
+  glUniform3fv(glGetUniformLocation(id, "u_pbr_light_dir"), 3, light_dir);
+  glUniform3fv(glGetUniformLocation(id, "u_pbr_light_color"), 3, light_color);
+
+  // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
+  // env-color). Not read by the lit path (zero visual risk); kept for viz completeness.
+  if (gs.recharged_pbr_lg_valid) {
+    glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_lg_ambi[0] * amb_scale,
+                gs.recharged_pbr_lg_ambi[1] * amb_scale, gs.recharged_pbr_lg_ambi[2] * amb_scale);
+  } else {
+    glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
+                gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
+  }
   glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"), exposure);
   glUniform1f(glGetUniformLocation(id, "u_pbr_normal_strength"), normal_strength);
   glUniform1f(glGetUniformLocation(id, "u_pbr_height_scale"), height_scale);

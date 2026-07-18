@@ -119,7 +119,12 @@
 ;; Grecharged-buildsys-flags: externs present only with --pbr (C++ side gated by OG_FEAT_PBR).
 (#when FLAG_PBR
 (define-extern pc-set-pbr! (function int none))
-(define-extern pc-set-pbr-sun! (function vector vector vector none)))
+(define-extern pc-set-pbr-sun! (function vector vector vector none))
+;; Round-4 multi-light: push light-group 0 (soleil + lune verte + fill) to the renderer.
+;; light-group (engine lights-h.gc) is not resolvable in this early pc compile context, so
+;; the extern is typed as (function pointer none); the caller in hud-classes-pc.gc passes
+;; the address of light-group 0 (which the renderer reads as a raw float block).
+(define-extern pc-set-pbr-lights! (function pointer none)))
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
 (define-extern pc-set-ambient-occlusion! (function int int int none))
