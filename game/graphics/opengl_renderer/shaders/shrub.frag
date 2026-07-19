@@ -22,9 +22,16 @@ uniform int gfx_hack_no_tex;
 // entirely in a stock (non-OG_PBR) build => OFF == stock byte-identical.
 in vec3 v_fringe_rel;
 uniform int u_rt_light_on;
-uniform int u_rt_use_baked;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
+// Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). u_rt_ambient_on
+// = master (1 => directional sky/ground base by world normal, 0 => the legacy flat floor for A/B).
+// u_rt_sky_color = up-hemisphere (sky) tint, u_rt_ground_color = down-hemisphere (ground bounce) tint;
+// both track the mood/TOD ambient and already carry the ambient LEVEL (strength x gentle night-fade),
+// so shadowed / away-from-sun faces regain FORM (top-lit, underside-dark) with AO fully OFF.
+uniform int u_rt_ambient_on;
+uniform vec3 u_rt_sky_color;
+uniform vec3 u_rt_ground_color;
 uniform float u_rt_shadow_range;
 uniform float u_rt_shadow_res;
 // ROUND-5 (mirror of tfrag3.frag): cast-shadow RESIDUAL — brightness a fully-occluded
@@ -111,13 +118,20 @@ void main() {
       // like a cast shadow, so BOTH keep ~0.2 (nothing pure black). floor = 1 - Shadow
       // Strength; the sun adds on top gated by N.L and the cast-shadow occlusion:
       //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ.
-      float floorlvl = clamp(u_rt_shadow_residual, 0.0, 1.0);
       // ROUND-7 NIGHT FADE: * u_rt_sun_elev so the direct sun (and any mood tint) goes to 0 at
-      // night, leaving only the ~0.2 floor. Identical in all four world shaders.
+      // night. Identical in all four world shaders.
       float sun_scalar = ndl * shadow * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
+      // Grecharged-directional-ambient: DIRECTIONAL hemisphere ambient base (sky up / ground down
+      // by the world normal) replaces the flat ~0.2 floor => form in shadow with AO off. Toggle
+      // OFF = the legacy flat floor. GOLDEN RULE: the direct-sun term is unchanged, so sunlit
+      // surfaces are unaffected by the ambient reshaping.
+      float hemi = clamp(N.y * 0.5 + 0.5, 0.0, 1.0);  // 1 = up (sky), 0 = down (ground)
+      vec3 base = u_rt_ambient_on != 0 ? mix(u_rt_ground_color, u_rt_sky_color, hemi)
+                                       : vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
+      base = clamp(base, 0.0, 1.0);
       vec3 albedo = pow(T0.rgb, vec3(2.2));
-      vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
-      vec3 lit = albedo * baked * (vec3(floorlvl) + (1.0 - floorlvl) * u_rt_sun_color * sun_scalar);
+      // baked hardwired OFF (realtime ON => baked off; realtime OFF = stock legacy path above).
+      vec3 lit = albedo * (base + (vec3(1.0) - base) * u_rt_sun_color * sun_scalar);
       vec3 sun_disp = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
       // ROUND-4 item #2: beyond the Shadow Distance, crossfade back to the stock BAKED
       // lighting (fragment_color * T0 = AO/painted macro detail) so far geometry reads
@@ -128,7 +142,7 @@ void main() {
       color.rgb = mix(sun_disp, baked_disp, far_t);
       if (u_pbr_debug == 1) { color.rgb = vec3(ndl); }
       else if (u_pbr_debug == 2) { color.rgb = N * 0.5 + 0.5; }
-      else if (u_pbr_debug == 12) { color.rgb = vec3(floorlvl + (1.0 - floorlvl) * sun_scalar); }
+      else if (u_pbr_debug == 12) { float bl = dot(base, vec3(0.299, 0.587, 0.114)); color.rgb = vec3(bl + (1.0 - bl) * sun_scalar); }
     }
 #endif
   } else {

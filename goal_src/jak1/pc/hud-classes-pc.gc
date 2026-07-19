@@ -1698,7 +1698,9 @@
     ;; toggle + the baked sub-option every frame. The sun DIRECTION already reaches the
     ;; renderer via pc-set-pbr-sky-sun! above (the visible-sun dome vector).
     (pc-set-rt-light! (if (-> obj realtime-lighting?) 1 0))
-    (pc-set-rt-baked! (if (-> obj realtime-lighting-baked?) 1 0))
+    (pc-set-rt-ambient! (if (-> obj realtime-ambient?) 1 0))
+    ;; Grecharged-directional-ambient: send strength (0..0.5 float) as an int PERCENT 0..50 (int-FFI).
+    (pc-set-rt-ambient-strength! (the int (* 100.0 (-> obj realtime-ambient-strength))))
     (pc-set-rt-shadow-dist! (the int (-> obj realtime-shadow-dist)))
     ;; ROUND-5: send strength (0..1 float) as an int PERCENT 0..100 (int-FFI convention).
     (pc-set-rt-shadow-strength! (the int (* 100.0 (-> obj realtime-shadow-strength))))

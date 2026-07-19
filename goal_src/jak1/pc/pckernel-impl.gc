@@ -88,7 +88,8 @@
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
    (pbr-materials? symbol) ;; Grecharged-pbr-materials: realtime PBR lighting/shading over custom-asset materials. #f = stock shading.
    (realtime-lighting? symbol) ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting (one sun, N.L per face, NO ambient). #f = stock/pbr-materials shading.
-   (realtime-lighting-baked? symbol) ;; Grecharged-realtime-lighting: keep baked vertex lighting when realtime lighting is ON. #f (default) = baked OFF (pure sun, the dev state).
+   (realtime-ambient? symbol)
+   (realtime-ambient-strength float)
    (realtime-shadow-dist float)
    (realtime-shadow-strength float) ;; Grecharged-realtime-lighting ROUND-5: cast-shadow darkening (0..1). shader residual = 1 - this.
    (realtime-shadow-quality int32)
@@ -134,9 +135,12 @@
 ;; the on-screen sun (current-shadow is hard-clamped ~65deg and cannot).
 (define-extern pc-set-pbr-sky-sun! (function vector none))
 (define-extern pc-set-pbr-lights! (function pointer none))
-;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting master toggle + baked sub-option.
+;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting master toggle + directional-ambient toggle.
 (define-extern pc-set-rt-light! (function int none))
-(define-extern pc-set-rt-baked! (function int none))
+(define-extern pc-set-rt-ambient! (function int none))
+;; Grecharged-directional-ambient: strength sent as an int PERCENT 0..50 (0.2 -> 20) — GOAL passes args
+;; in GPRs so the C side takes an int (same int-FFI convention as dist/res/strength below).
+(define-extern pc-set-rt-ambient-strength! (function int none))
 (define-extern pc-set-rt-shadow-dist! (function int none))
 ;; ROUND-5: cast-shadow strength. GOAL passes args in GPRs so the C side takes an int; we send
 ;; it as an int PERCENT 0..100 (0.8 -> 80), matching the int-FFI convention of dist/res.
@@ -230,7 +234,8 @@
   (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
   (set! (-> obj pbr-materials?) #t) ;; Grecharged-pbr-materials: default ON (toggle still exists; OFF == stock shading)
   (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
-  (set! (-> obj realtime-lighting-baked?) #f) ;; Grecharged-realtime-lighting: default baked OFF (pure sun, the dev/working state)
+  (set! (-> obj realtime-ambient?) #t)
+  (set! (-> obj realtime-ambient-strength) 0.2)
   (set! (-> obj realtime-shadow-dist) 150.0)
   (set! (-> obj realtime-shadow-strength) 0.8) ;; Grecharged-realtime-lighting ROUND-5: default cast-shadow darkening (residual 0.2)
   (set! (-> obj realtime-shadow-quality) 2) ;; 0=VLow(512) 1=Low(1024) 2=Med(2048) 3=High(4096) 4=VHigh(8192)

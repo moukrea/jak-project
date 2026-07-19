@@ -102,15 +102,22 @@ uniform float u_pbr_wr_indirect;
 // Grecharged-realtime-lighting (2026-07-19 REWRITE): a clean SUN-ONLY path that
 // REPLACES the round-1..5 accretion (ambient / multi-light / moon / baked-GI /
 // baked-weight) when it is ON. u_rt_light_on = master (1 => this path taken,
-// every round-1..5 branch below skipped). u_rt_use_baked = sub-option (0 =>
-// baked vertex lighting OFF, the dev/default state; 1 => fold baked macro shading
-// back in). u_rt_sun_dir = surface->sun, world space, == the vector that places
+// every round-1..5 branch below skipped). baked vertex lighting is hardwired OFF in
+// this path (realtime ON => baked off; realtime OFF takes the stock legacy baked path).
+// u_rt_sun_dir = surface->sun, world space, == the vector that places
 // the VISIBLE sun sprite (sky-sun dome dir). u_rt_sun_color carries the sun tint
 // AND intensity. ONE light, NO ambient — the opposite side is genuinely dark.
 uniform int u_rt_light_on;
-uniform int u_rt_use_baked;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
+// Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). u_rt_ambient_on
+// = master (1 => directional sky/ground base by world normal, 0 => the legacy flat floor for A/B).
+// u_rt_sky_color = up-hemisphere (sky) tint, u_rt_ground_color = down-hemisphere (ground bounce) tint;
+// both track the mood/TOD ambient and already carry the ambient LEVEL (strength x gentle night-fade),
+// so shadowed / away-from-sun faces regain FORM (top-lit, underside-dark) with AO fully OFF.
+uniform int u_rt_ambient_on;
+uniform vec3 u_rt_sky_color;
+uniform vec3 u_rt_ground_color;
 // Grecharged-realtime-lighting ROUND 2: sun shadow-map RANGE (ortho half-extent in meters,
 // == the Shadow Distance setting) and RESOLUTION (depth-tex edge in texels, == the Shadow
 // Quality setting). Range drives the smooth distance FADE at the realtime-zone edge (no hard
@@ -265,17 +272,24 @@ void main() {
       // The sun adds on top, gated by BOTH N.L and the cast-shadow occlusion:
       //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ
       // => away-from-sun faces AND cast shadows sit at the SAME floor level (measure both).
-      float floorlvl = clamp(u_rt_shadow_residual, 0.0, 1.0);
       // ROUND-7 NIGHT FADE: multiply the direct-sun gate by the real sun-elevation fade so the
-      // sun (and any mood tint carried in u_rt_sun_color) goes to EXACTLY 0 at night — only the
-      // ~0.2 floor remains. Identical in all four world shaders => no geometry stays lit at night.
+      // sun (and any mood tint carried in u_rt_sun_color) goes to EXACTLY 0 at night. Identical
+      // in all four world shaders => no geometry stays lit at night.
       float sun_scalar = ndl * occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
+      // Grecharged-directional-ambient: the ambient BASE is now DIRECTIONAL (hemisphere) — sky
+      // color on up-facing faces, ground bounce on down-facing faces, blended by the world
+      // normal's up-component. Shadowed / away-from-sun surfaces regain FORM (top-lit,
+      // underside-dark) with AO fully OFF. Toggle OFF => the legacy flat ~0.2 floor (for A/B).
+      float hemi = clamp(N.y * 0.5 + 0.5, 0.0, 1.0);  // 1 = up (sky), 0 = down (ground)
+      vec3 base = u_rt_ambient_on != 0 ? mix(u_rt_ground_color, u_rt_sky_color, hemi)
+                                       : vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
+      base = clamp(base, 0.0, 1.0);
       vec3 albedo = pow(T0.rgb, vec3(2.2));
-      // baked OFF (dev/default): ignore the baked vertex TOD color entirely so the surface
-      // is lit PURELY by the sun (+ the uniform floor). baked ON (sub-option): fold the
-      // baked macro shading back in as a multiplier.
-      vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
-      vec3 lit = albedo * baked * (vec3(floorlvl) + (1.0 - floorlvl) * u_rt_sun_color * sun_scalar);
+      // baked is hardwired OFF in the realtime path (owner: realtime ON => baked OFF; realtime
+      // OFF takes the stock legacy baked path above). GOLDEN RULE: the direct-sun term below is
+      // UNCHANGED, so sunlit surfaces are unaffected by this ambient reshaping (base's weight
+      // vanishes as the sun term saturates).
+      vec3 lit = albedo * (base + (vec3(1.0) - base) * u_rt_sun_color * sun_scalar);
       vec3 sun_disp = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
       // ROUND-4 item #2 OUT-OF-RANGE FALLBACK = BAKED (revises round-3's bare-N.L far).
       // Within the realtime shadow zone the surface is lit by the realtime sun + cast
@@ -296,9 +310,10 @@ void main() {
       } else if (u_pbr_debug == 2) {
         color.rgb = N * 0.5 + 0.5;
       } else if (u_pbr_debug == 12) {
-        // total lighting fraction (grayscale): 1.0 in full sun, floor (~0.2) on away-faces
-        // AND in cast shadows — proves away-face level == cast-shadow level == floor.
-        color.rgb = vec3(floorlvl + (1.0 - floorlvl) * sun_scalar);
+        // total lighting fraction (grayscale): 1.0 in full sun, the directional ambient base
+        // luminance on away-faces / in cast shadows (top faces brighter than undersides = form).
+        float bl = dot(base, vec3(0.299, 0.587, 0.114));
+        color.rgb = vec3(bl + (1.0 - bl) * sun_scalar);
       }
     } else if (u_pbr_mode != 0 && gfx_hack_no_tex == 0) {
       // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun.

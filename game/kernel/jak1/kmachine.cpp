@@ -866,13 +866,19 @@ void pc_set_pbr_lights(u32 lg) {
 }
 
 // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting toggles,
-// pushed from GOAL each frame. rt-light! = master; rt-baked! = the "keep baked lighting"
-// sub-option (off => baked lighting disabled everywhere, the pure-sun dev state).
+// pushed from GOAL each frame. rt-light! = master.
 void pc_set_rt_light(u32 sym) {
   Gfx::g_global_settings.recharged_rt_light_enable = (sym != 0);
 }
-void pc_set_rt_baked(u32 sym) {
-  Gfx::g_global_settings.recharged_rt_use_baked = (sym != 0);
+// Grecharged-directional-ambient: hemisphere ambient enable + base strength. rt-ambient! =
+// enable (mirrors rt-light!); rt-ambient-strength! = base level (mirrors pc-set-rt-shadow-dist!:
+// takes a plain u32 from GOAL, stored as a float; the GL side clamps out-of-range back to 0.2).
+void pc_set_rt_ambient(u32 sym) {
+  Gfx::g_global_settings.recharged_rt_ambient_enable = (sym != 0);
+}
+void pc_set_rt_ambient_strength(u32 pct) {
+  // GOAL sends an int PERCENT 0..50 (0.2 -> 20); mirror pc_set_rt_shadow_strength's *0.01 convention.
+  Gfx::g_global_settings.recharged_rt_ambient_strength = (float)pct * 0.01f;
 }
 // ROUND 2: sun shadow-map Quality (resolution, texels) + Distance (range, meters). Both
 // take a plain u32 from GOAL (res e.g. 2048; dist e.g. 100) — no float-ABI concern.
@@ -922,12 +928,14 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
   make_function_symbol_from_c("pc-set-pbr-sky-sun!", (void*)pc_set_pbr_sky_sun);
   make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
-  // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master + baked sub-option
+  // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master
   make_function_symbol_from_c("pc-set-rt-light!", (void*)pc_set_rt_light);
-  make_function_symbol_from_c("pc-set-rt-baked!", (void*)pc_set_rt_baked);
   make_function_symbol_from_c("pc-set-rt-shadow-res!", (void*)pc_set_rt_shadow_res);
   make_function_symbol_from_c("pc-set-rt-shadow-dist!", (void*)pc_set_rt_shadow_dist);
   make_function_symbol_from_c("pc-set-rt-shadow-strength!", (void*)pc_set_rt_shadow_strength);
+  // Grecharged-directional-ambient: hemisphere ambient enable + base strength
+  make_function_symbol_from_c("pc-set-rt-ambient!", (void*)pc_set_rt_ambient);
+  make_function_symbol_from_c("pc-set-rt-ambient-strength!", (void*)pc_set_rt_ambient_strength);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);

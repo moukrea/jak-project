@@ -1414,23 +1414,18 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform3fv(glGetUniformLocation(id, "u_pbr_light_color"), 3, light_color);
 
   // === Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path uniforms. ===
-  // Master toggle + baked sub-option come from the pc-settings (recharged_rt_*), each
-  // overridable per-frame by a debug prop / env so the device can flip lighting ON/OFF
-  // and baked ON/OFF for A/B capture WITHOUT menu navigation. u_rt_sun_dir reuses the
-  // visible-sun-overridden light_dir[0] (== the on-screen sun sprite direction), so the
-  // sun-only shading, the shadow-map slope bias and the depth-pass MVP all agree on
-  // where the sun is. u_rt_sun_color carries tint AND intensity.
+  // Master toggle comes from the pc-settings (recharged_rt_*), overridable per-frame by a
+  // debug prop / env so the device can flip lighting ON/OFF for A/B capture WITHOUT menu
+  // navigation. u_rt_sun_dir reuses the visible-sun-overridden light_dir[0] (== the
+  // on-screen sun sprite direction), so the sun-only shading, the shadow-map slope bias and
+  // the depth-pass MVP all agree on where the sun is. u_rt_sun_color carries tint AND intensity.
   int rt_light_on = gs.recharged_rt_light_enable ? 1 : 0;
-  int rt_use_baked = gs.recharged_rt_use_baked ? 1 : 0;
   float rt_intensity = 1.5f;
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
     if (__system_property_get("debug.opengoal.rt.light", rv) > 0 && rv[0]) {
       rt_light_on = atoi(rv);
-    }
-    if (__system_property_get("debug.opengoal.rt.baked", rv) > 0 && rv[0]) {
-      rt_use_baked = atoi(rv);
     }
     if (__system_property_get("debug.opengoal.rt.intensity", rv) > 0 && rv[0]) {
       rt_intensity = atof(rv);
@@ -1440,16 +1435,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_RT_LIGHT")) {
     rt_light_on = atoi(e);
   }
-  if (const char* e = getenv("OG_RT_BAKED")) {
-    rt_use_baked = atoi(e);
-  }
   if (const char* e = getenv("OG_RT_INTENSITY")) {
     rt_intensity = atof(e);
   }
 #endif
   // ROUND-5 cast-shadow Strength (0..1): how much a shadowed fragment darkens. The shader
   // wants the RESIDUAL brightness a fully-occluded fragment keeps = clamp(1 - strength, 0, 1)
-  // (default strength 0.8 => residual 0.2). Overridable per-frame like rt.baked / rt.intensity.
+  // (default strength 0.8 => residual 0.2). Overridable per-frame like rt.intensity.
   float rt_shadow_strength = gs.recharged_rt_shadow_strength;  // default 0.8
 #ifdef __ANDROID__
   {
@@ -1467,7 +1459,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float rt_shadow_residual =
       (rt_shadow_strength >= 0.0f && rt_shadow_strength <= 1.0f) ? (1.0f - rt_shadow_strength) : 0.0f;
   glUniform1i(glGetUniformLocation(id, "u_rt_light_on"), rt_light_on);
-  glUniform1i(glGetUniformLocation(id, "u_rt_use_baked"), rt_use_baked);
   glUniform3f(glGetUniformLocation(id, "u_rt_sun_dir"), light_dir[0], light_dir[1], light_dir[2]);
   // Sun color: normalize the mood sun tint to unit max, blend 50% toward white so it
   // reads as a natural sun (not an oversaturated hue), then scale by intensity.
@@ -1523,6 +1514,67 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_rt_sun_elev"), rt_sun_elev);
   // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
   glUniform1f(glGetUniformLocation(id, "u_rt_shadow_residual"), rt_shadow_residual);
+
+  // === Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). ===
+  // The ambient base is directional: an up-hemisphere SKY tint and a down-hemisphere GROUND bounce,
+  // blended per-fragment by the world normal in the shader. Both track the mood/TOD ambient so the day
+  // cycle drives the HUE; the LEVEL is the Ambient Strength setting, gently faded by the real sun
+  // elevation (reusing rt_sun_elev) so night stays calm — NO mood night presets feed the brightness
+  // (round-7 night-leak discipline). Golden rule: this only reshapes the ambient base; the direct-sun
+  // term is untouched so sunlit surfaces are unchanged.
+  int rt_ambient_on = gs.recharged_rt_ambient_enable ? 1 : 0;
+  float rt_ambient_strength = gs.recharged_rt_ambient_strength;  // default ~0.2 (== old floor)
+#ifdef __ANDROID__
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.ambient", rv) > 0 && rv[0]) {
+      rt_ambient_on = atoi(rv);
+    }
+    if (__system_property_get("debug.opengoal.rt.ambientstrength", rv) > 0 && rv[0]) {
+      rt_ambient_strength = atof(rv);
+    }
+  }
+#else
+  if (const char* e = getenv("OG_RT_AMBIENT")) {
+    rt_ambient_on = atoi(e);
+  }
+  if (const char* e = getenv("OG_RT_AMBIENTSTRENGTH")) {
+    rt_ambient_strength = atof(e);
+  }
+#endif
+  if (!(rt_ambient_strength >= 0.0f && rt_ambient_strength <= 1.0f)) {
+    rt_ambient_strength = 0.2f;
+  }
+  {
+    // SKY hue: the mood ambient (light-group ambi when valid, else the mood env ambient), normalized to
+    // unit-max so the mood's *brightness* can't re-brighten night (only its HUE is used); blended 50%
+    // toward white so it reads as natural skylight. amb_scale (1/255) converts the raw GOAL 0..255 color.
+    const float* asrc =
+        gs.recharged_pbr_lg_valid ? gs.recharged_pbr_lg_ambi : gs.recharged_pbr_ambient;
+    float sh[3] = {asrc[0] * amb_scale, asrc[1] * amb_scale, asrc[2] * amb_scale};
+    float smx = sh[0];
+    if (sh[1] > smx) smx = sh[1];
+    if (sh[2] > smx) smx = sh[2];
+    if (smx < 1e-3f) {
+      sh[0] = 0.6f;
+      sh[1] = 0.7f;
+      sh[2] = 1.0f;
+      smx = 1.0f;
+    }
+    // LEVEL: strength, gently faded by sun elevation so night is calmer (never below 0.7x, never brighter
+    // than day). rt_sun_elev is 1 (day) .. 0 (night below horizon).
+    float lvl = rt_ambient_strength * (0.7f + 0.3f * rt_sun_elev);
+    const float gtint[3] = {0.65f, 0.55f, 0.45f};  // warm, darker ground bounce
+    float sky[3], ground[3];
+    for (int i = 0; i < 3; i++) {
+      float hue = 0.5f + 0.5f * (sh[i] / smx);  // toward white
+      sky[i] = hue * lvl;
+      ground[i] = sky[i] * gtint[i];
+    }
+    glUniform1i(glGetUniformLocation(id, "u_rt_ambient_on"), rt_ambient_on);
+    glUniform3f(glGetUniformLocation(id, "u_rt_sky_color"), sky[0], sky[1], sky[2]);
+    glUniform3f(glGetUniformLocation(id, "u_rt_ground_color"), ground[0], ground[1], ground[2]);
+  }
 
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
   // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis

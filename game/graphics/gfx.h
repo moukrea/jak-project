@@ -185,13 +185,10 @@ struct GfxGlobalSettings {
   float recharged_pbr_sky_sun[3] = {0.f, 0.f, 0.f};
   // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting, a clean
   // rewrite separate from the pbr-materials toggle above. recharged_rt_light_enable = master
-  // (the tfrag3 sun-only path is taken only when this is on); recharged_rt_use_baked = the
-  // "keep baked lighting" sub-option (default false => baked OFF, the dev/working state: the
-  // world is lit PURELY by one sun with NO ambient). Set from GOAL via pc-set-rt-light! /
-  // pc-set-rt-baked!. Both default OFF => a --pbr build with the toggle off is the existing
-  // owner-accepted pbr-materials behavior; a non-pbr build has none of this (stock).
+  // (the tfrag3 sun-only path is taken only when this is on). Set from GOAL via pc-set-rt-light!.
+  // Default OFF => a --pbr build with the toggle off is the existing owner-accepted
+  // pbr-materials behavior; a non-pbr build has none of this (stock).
   bool recharged_rt_light_enable = false;
-  bool recharged_rt_use_baked = false;
   // Grecharged-realtime-lighting ROUND 2: sun shadow-map QUALITY (resolution) + DISTANCE.
   // recharged_rt_shadow_res = depth-texture edge in texels (1024 Low / 2048 Med / 4096 High
   // on mobile); recharged_rt_shadow_dist = the realtime shadow range = the ortho box HALF-
@@ -201,6 +198,9 @@ struct GfxGlobalSettings {
   int recharged_rt_shadow_res = 2048;
   float recharged_rt_shadow_dist = 150.0f;
   float recharged_rt_shadow_strength = 0.8f;  // ROUND-5: cast-shadow darkening (0..1); shader residual = 1 - this
+  // Grecharged-directional-ambient: hemisphere ambient (replaces the flat ~0.2 floor).
+  bool recharged_rt_ambient_enable = true;     // ON by default (the improvement over the flat floor)
+  float recharged_rt_ambient_strength = 0.2f;  // ambient base level (== the old ~0.2 flat floor)
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded
