@@ -882,6 +882,13 @@ void pc_set_rt_shadow_res(u32 res) {
 void pc_set_rt_shadow_dist(u32 dist_m) {
   Gfx::g_global_settings.recharged_rt_shadow_dist = (float)dist_m;
 }
+// ROUND 5: cast-shadow Strength (how much a shadow darkens). GOAL passes call args in GPRs,
+// so a C float parameter would read an unset FP register (garbage) — every pc-set setter
+// therefore takes an integer. Strength arrives as an INT PERCENT 0..100 (0.8 -> 80); store
+// it back as a float 0..1. The shader residual is computed 1 - this.
+void pc_set_rt_shadow_strength(u32 pct) {
+  Gfx::g_global_settings.recharged_rt_shadow_strength = (float)pct * 0.01f;
+}
 #endif
 
 void InitMachine_PCPort() {
@@ -920,6 +927,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-rt-baked!", (void*)pc_set_rt_baked);
   make_function_symbol_from_c("pc-set-rt-shadow-res!", (void*)pc_set_rt_shadow_res);
   make_function_symbol_from_c("pc-set-rt-shadow-dist!", (void*)pc_set_rt_shadow_dist);
+  make_function_symbol_from_c("pc-set-rt-shadow-strength!", (void*)pc_set_rt_shadow_strength);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);

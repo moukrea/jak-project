@@ -119,6 +119,24 @@ uniform vec3 u_rt_sun_color;
 // in-shader to the round-1 values (40 m half, 1024) when unset.
 uniform float u_rt_shadow_range;
 uniform float u_rt_shadow_res;
+// Grecharged-realtime-lighting ROUND 5: cast-shadow RESIDUAL — the brightness a fully
+// occluded fragment KEEPS (owner real-world obs: a clear-sky cast shadow is only ~80-85%
+// darker than lit, it still catches ~15-20% skylight, so it must NOT be pure black). We
+// have no ambient yet, so this is a cheat: 0.0 == black (round-4 look), 0.2 == default
+// (clear-sky). Fed from the "Shadow Strength" setting as (1 - strength). Applies to the
+// CAST-SHADOW occlusion term ONLY — the N.L dark side (ndl->0) stays genuinely black
+// (owner: un-lit black is intended, do not change it).
+uniform float u_rt_shadow_residual;
+// ROUND 5: 16-tap Poisson disk for a wide-penumbra SOFT PCF (replaces the round-4 3x3
+// grid — a regular grid aliases against the shadow-map texel lattice => the staircase the
+// owner still saw; a Poisson disk does not). Rotated per fragment (see the PCF loop).
+const vec2 RT_POISSON16[16] = vec2[](
+  vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725), vec2(-0.094184101, -0.92938870),
+  vec2(0.34495938, 0.29387760),   vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
+  vec2(-0.38277543, 0.27676845),  vec2(0.97484398, 0.75648379),  vec2(0.44323325, -0.97511554),
+  vec2(0.53742981, -0.47373420),  vec2(-0.26496911, -0.41893023),vec2(0.79197514, 0.19090188),
+  vec2(-0.24188840, 0.99706507),  vec2(-0.81409955, 0.91437590), vec2(0.19984126, 0.78641367),
+  vec2(0.14383161, -0.14100790));
 #endif
 
 
@@ -179,20 +197,26 @@ void main() {
         // The 9-tap grid is ROTATED by a per-fragment hash so no blocky grid pattern survives
         // even at Very Low (512) where each texel is large. Manual compare (Adreno HW-compare
         // returns constant 1.0 — proven this phase).
+        // ROUND-5 (owner: the round-4 3x3-grid blur FAILED — distant cast shadows were
+        // STILL staircased). A real wide-penumbra soft shadow: a 16-tap POISSON disk
+        // (a regular grid aliases against the shadow-texel lattice => staircase; a Poisson
+        // disk does not), ROTATED per fragment, with a penumbra RADIUS that grows STRONGLY
+        // with camera distance so a far caster's shadow becomes a wide soft gradient (never
+        // blocky) while a near caster stays crisp (small radius => the Shadow Quality
+        // resolution still reads as edge sharpness). Owner: "more blur is GOOD" — a distant
+        // occluder has a wide penumbra. Absolute: no staircase anywhere in the FOV, ever.
         float sdist = length(v_fringe_rel);
-        float soft = 0.75 + 6.5 * smoothstep(0.0, rng, sdist);   // PCF radius in texels
+        float soft = 1.5 + 18.0 * smoothstep(0.0, rng, sdist);   // penumbra radius in texels
         float rr = texel * soft;
         float hang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
         vec2 hc = vec2(cos(hang), sin(hang));
         mat2 hrot = mat2(hc.x, -hc.y, hc.y, hc.x);
         sm_shadow = 0.0;
-        for (int iy = -1; iy <= 1; iy++) {
-          for (int ix = -1; ix <= 1; ix++) {
-            vec2 o = hrot * (vec2(float(ix), float(iy)) * rr);
-            sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + o).r ? 1.0 : 0.0;
-          }
+        for (int i = 0; i < 16; i++) {
+          vec2 o = hrot * (RT_POISSON16[i] * rr);
+          sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + o).r ? 1.0 : 0.0;
         }
-        sm_shadow *= (1.0 / 9.0);
+        sm_shadow *= (1.0 / 16.0);
         // ROUND-2 no-pop fade (owner defect #2): fade the CAST shadow smoothly to 'lit'
         // toward the realtime-zone edge, tied to the Shadow Distance setting (rng), instead
         // of the old hard 30..39 m band. (Round-4: just past the edge the whole surface then
@@ -223,9 +247,13 @@ void main() {
       // visible sun sprite (sky-sun dome dir when above the horizon).
       vec3 L = normalize(u_rt_sun_dir);
       float ndl = max(dot(N, L), 0.0);           // opposite side -> 0 = dark
-      // Stage 2: cast-shadow factor from the sun depth map (1.0 when the map
-      // is off). NO ambient anywhere, so a cast shadow / dark side is 0 = dark.
-      float shadow = u_pbr_shadow_on != 0 ? sm_shadow : 1.0;
+      // Stage 2: cast-shadow factor from the sun depth map (1.0 when the map is off).
+      // ROUND-5: partial (NOT pure black) cast shadow. occ = the raw occlusion (1 = lit,
+      // 0 = fully occluded); remap so a fully-occluded fragment keeps the residual
+      // (clear-sky skylight cheat, ~0.2) rather than 0. This is the CAST-SHADOW term ONLY —
+      // the N.L dark side below (ndl->0) still multiplies to genuine black (owner intent).
+      float occ = u_pbr_shadow_on != 0 ? sm_shadow : 1.0;
+      float shadow = mix(u_rt_shadow_residual, 1.0, occ);
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       // baked OFF (dev/default): ignore the baked vertex TOD color entirely so
       // the surface is lit PURELY by the sun. baked ON (sub-option): fold the

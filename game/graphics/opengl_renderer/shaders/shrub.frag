@@ -27,6 +27,19 @@ uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
 uniform float u_rt_shadow_range;
 uniform float u_rt_shadow_res;
+// ROUND-5 (mirror of tfrag3.frag): cast-shadow RESIDUAL — brightness a fully-occluded
+// fragment keeps (~0.2 clear-sky, 0.0 == black). Fed as (1 - Shadow Strength); CAST-SHADOW
+// term only, the N.L dark side stays black.
+uniform float u_rt_shadow_residual;
+// ROUND-5: 16-tap Poisson disk for the wide-penumbra soft PCF (replaces the round-4 grid
+// that aliased the shadow-texel lattice => staircase). Rotated per fragment in the PCF loop.
+const vec2 RT_POISSON16[16] = vec2[](
+  vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725), vec2(-0.094184101, -0.92938870),
+  vec2(0.34495938, 0.29387760),   vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
+  vec2(-0.38277543, 0.27676845),  vec2(0.97484398, 0.75648379),  vec2(0.44323325, -0.97511554),
+  vec2(0.53742981, -0.47373420),  vec2(-0.26496911, -0.41893023),vec2(0.79197514, 0.19090188),
+  vec2(-0.24188840, 0.99706507),  vec2(-0.81409955, 0.91437590), vec2(0.19984126, 0.78641367),
+  vec2(0.14383161, -0.14100790));
 uniform int u_pbr_shadow_on;
 uniform mat4 u_pbr_shadow_mvp;
 uniform vec3 u_pbr_shadow_cam_delta;
@@ -67,24 +80,30 @@ void main() {
           // ROUND-4 item #3 ANTI-PIXELATION: distance-adaptive PCF radius grows with camera
           // distance so far cast shadows are smoothed (never pixelated in the FOV), near stays
           // crisp; a per-fragment rotation dithers the 9-tap grid (smooth even at Very Low 512).
+          // ROUND-5 (owner: round-4 grid blur FAILED — distant shadows STILL staircased):
+          // 16-tap Poisson disk (a grid aliases the shadow-texel lattice), rotated per
+          // fragment, penumbra radius grows strongly with distance => wide soft far shadow,
+          // crisp near. No staircase anywhere in the FOV.
           float sdist = length(v_fringe_rel);
-          float soft = 0.75 + 6.5 * smoothstep(0.0, rng, sdist);
+          float soft = 1.5 + 18.0 * smoothstep(0.0, rng, sdist);
           float rr = texel * soft;
           float hang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
           vec2 hc = vec2(cos(hang), sin(hang));
           mat2 hrot = mat2(hc.x, -hc.y, hc.y, hc.x);
           float sm = 0.0;
-          for (int iy = -1; iy <= 1; iy++) {
-            for (int ix = -1; ix <= 1; ix++) {
-              vec2 o = hrot * (vec2(float(ix), float(iy)) * rr);
-              sm += ref <= texture(tex_PBR_SHADOW, suv.xy + o).r ? 1.0 : 0.0;
-            }
+          for (int i = 0; i < 16; i++) {
+            vec2 o = hrot * (RT_POISSON16[i] * rr);
+            sm += ref <= texture(tex_PBR_SHADOW, suv.xy + o).r ? 1.0 : 0.0;
           }
-          sm *= (1.0 / 9.0);
+          sm *= (1.0 / 16.0);
           float edge_fade = 1.0 - smoothstep(rng * 0.72, rng * 0.96, length(v_fringe_rel));
           shadow = mix(1.0, sm, edge_fade);
         }
       }
+      // ROUND-5: partial (not pure black) cast shadow — an occluded fragment keeps the
+      // residual (clear-sky skylight cheat, ~0.2) instead of 0. CAST-SHADOW term only;
+      // the N.L dark side (ndl->0) still multiplies to black (owner: un-lit black intended).
+      shadow = mix(u_rt_shadow_residual, 1.0, shadow);
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
       vec3 lit = albedo * baked * u_rt_sun_color * (ndl * shadow);

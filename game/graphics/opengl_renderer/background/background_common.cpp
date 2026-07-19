@@ -1447,6 +1447,25 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     rt_intensity = atof(e);
   }
 #endif
+  // ROUND-5 cast-shadow Strength (0..1): how much a shadowed fragment darkens. The shader
+  // wants the RESIDUAL brightness a fully-occluded fragment keeps = clamp(1 - strength, 0, 1)
+  // (default strength 0.8 => residual 0.2). Overridable per-frame like rt.baked / rt.intensity.
+  float rt_shadow_strength = gs.recharged_rt_shadow_strength;  // default 0.8
+#ifdef __ANDROID__
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.shadowstrength", rv) > 0 && rv[0]) {
+      rt_shadow_strength = atof(rv);
+    }
+  }
+#else
+  if (const char* e = getenv("OG_RT_SHADOWSTRENGTH")) {
+    rt_shadow_strength = atof(e);
+  }
+#endif
+  // residual = clamp(1 - strength, 0, 1); guard NaN / out-of-range to a sane 0..1.
+  float rt_shadow_residual =
+      (rt_shadow_strength >= 0.0f && rt_shadow_strength <= 1.0f) ? (1.0f - rt_shadow_strength) : 0.0f;
   glUniform1i(glGetUniformLocation(id, "u_rt_light_on"), rt_light_on);
   glUniform1i(glGetUniformLocation(id, "u_rt_use_baked"), rt_use_baked);
   glUniform3f(glGetUniformLocation(id, "u_rt_sun_dir"), light_dir[0], light_dir[1], light_dir[2]);
@@ -1469,6 +1488,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
     glUniform3f(glGetUniformLocation(id, "u_rt_sun_color"), rc[0], rc[1], rc[2]);
   }
+  // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
+  glUniform1f(glGetUniformLocation(id, "u_rt_shadow_residual"), rt_shadow_residual);
 
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
   // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis

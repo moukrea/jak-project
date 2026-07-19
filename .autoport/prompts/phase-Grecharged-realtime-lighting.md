@@ -216,3 +216,20 @@ Owner is outside looking at real sunlit shadows. Two corrections (still perfecti
 ACCEPTANCE: cast shadow is a soft, ~0.2-residual darkening (not black), tunable; a distant caster's cast
 shadow is visibly SMOOTH (no staircase) at every quality tier. Everything else (round-1..4) preserved.
 Still sun-only; ambient + other lights are the NEXT phase, after the owner signs off the sun.
+
+## OWNER ROUND 5 CORRECTION (2026-07-19 16:45) — the ~0.2 residual is UNIFORM (away-face == cast shadow)
+Owner (correct physics): a face turned AWAY from the sun is lit only by skylight, EXACTLY like a cast
+shadow — so it must ALSO keep ~20% brightness, not be pure black. My earlier "N·L dark side stays black"
+was inconsistent — OVERRIDE it. The residual ~0.2 is a UNIFORM SKY-FILL FLOOR applied to everything not in
+direct sun:
+  final = floor(~0.2) + (1 - floor) * sun_color * max(N·L, 0) * shadow_factor
+  - Face toward sun, unshadowed: ~full brightness.
+  - Face AWAY from sun (N·L<=0): the ~0.2 floor (NOT black).
+  - In a cast shadow (shadow_factor->0): the ~0.2 floor (NOT black).
+So the darkest anything gets anywhere = ~20%, consistently, whether self-shadowed (away-face) or
+cast-shadowed. Nothing is pure black. This uniform floor IS the "cheat" the owner asked for; it is NOT the
+full ambient/bounce/multi-light system (colored GI, per-mood ambient, other lights) — that richer ambient
+is still the NEXT phase. Tie the floor to the same tunable Shadow Strength (floor = 1 - strength) so one
+control governs "how dark is not-in-sun". Default strength ~0.8 -> floor ~0.2.
+ACCEPTANCE update: at a vantage, the away-from-sun faces AND the cast shadows sit at the SAME ~20% level
+(measure both — they should match), and nothing in view is pure black. Everything else round-1..5 preserved.
