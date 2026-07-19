@@ -1296,6 +1296,63 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform3fv(glGetUniformLocation(id, "u_pbr_light_dir"), 3, light_dir);
   glUniform3fv(glGetUniformLocation(id, "u_pbr_light_color"), 3, light_color);
 
+  // === Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path uniforms. ===
+  // Master toggle + baked sub-option come from the pc-settings (recharged_rt_*), each
+  // overridable per-frame by a debug prop / env so the device can flip lighting ON/OFF
+  // and baked ON/OFF for A/B capture WITHOUT menu navigation. u_rt_sun_dir reuses the
+  // visible-sun-overridden light_dir[0] (== the on-screen sun sprite direction), so the
+  // sun-only shading, the shadow-map slope bias and the depth-pass MVP all agree on
+  // where the sun is. u_rt_sun_color carries tint AND intensity.
+  int rt_light_on = gs.recharged_rt_light_enable ? 1 : 0;
+  int rt_use_baked = gs.recharged_rt_use_baked ? 1 : 0;
+  float rt_intensity = 1.5f;
+#ifdef __ANDROID__
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.light", rv) > 0 && rv[0]) {
+      rt_light_on = atoi(rv);
+    }
+    if (__system_property_get("debug.opengoal.rt.baked", rv) > 0 && rv[0]) {
+      rt_use_baked = atoi(rv);
+    }
+    if (__system_property_get("debug.opengoal.rt.intensity", rv) > 0 && rv[0]) {
+      rt_intensity = atof(rv);
+    }
+  }
+#else
+  if (const char* e = getenv("OG_RT_LIGHT")) {
+    rt_light_on = atoi(e);
+  }
+  if (const char* e = getenv("OG_RT_BAKED")) {
+    rt_use_baked = atoi(e);
+  }
+  if (const char* e = getenv("OG_RT_INTENSITY")) {
+    rt_intensity = atof(e);
+  }
+#endif
+  glUniform1i(glGetUniformLocation(id, "u_rt_light_on"), rt_light_on);
+  glUniform1i(glGetUniformLocation(id, "u_rt_use_baked"), rt_use_baked);
+  glUniform3f(glGetUniformLocation(id, "u_rt_sun_dir"), light_dir[0], light_dir[1], light_dir[2]);
+  // Sun color: normalize the mood sun tint to unit max, blend 50% toward white so it
+  // reads as a natural sun (not an oversaturated hue), then scale by intensity.
+  {
+    float msc[3] = {gs.recharged_pbr_sun_color[0] * sun_scale,
+                    gs.recharged_pbr_sun_color[1] * sun_scale,
+                    gs.recharged_pbr_sun_color[2] * sun_scale};
+    float mx = msc[0];
+    if (msc[1] > mx) mx = msc[1];
+    if (msc[2] > mx) mx = msc[2];
+    if (mx < 1e-3f) {
+      msc[0] = msc[1] = msc[2] = 1.f;
+      mx = 1.f;
+    }
+    float rc[3];
+    for (int i = 0; i < 3; i++) {
+      rc[i] = (0.5f + 0.5f * (msc[i] / mx)) * rt_intensity;
+    }
+    glUniform3f(glGetUniformLocation(id, "u_rt_sun_color"), rc[0], rc[1], rc[2]);
+  }
+
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
   // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis
   // full-realtime indirect); at the default weight 1.0 it stays viz-only.

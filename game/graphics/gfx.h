@@ -183,6 +183,15 @@ struct GfxGlobalSettings {
   // update-mood-shadow-direction) this tracks the real sun elevation, so shadows extend
   // opposite the on-screen sun. Zero until the first GOAL push (renderer falls back).
   float recharged_pbr_sky_sun[3] = {0.f, 0.f, 0.f};
+  // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting, a clean
+  // rewrite separate from the pbr-materials toggle above. recharged_rt_light_enable = master
+  // (the tfrag3 sun-only path is taken only when this is on); recharged_rt_use_baked = the
+  // "keep baked lighting" sub-option (default false => baked OFF, the dev/working state: the
+  // world is lit PURELY by one sun with NO ambient). Set from GOAL via pc-set-rt-light! /
+  // pc-set-rt-baked!. Both default OFF => a --pbr build with the toggle off is the existing
+  // owner-accepted pbr-materials behavior; a non-pbr build has none of this (stock).
+  bool recharged_rt_light_enable = false;
+  bool recharged_rt_use_baked = false;
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

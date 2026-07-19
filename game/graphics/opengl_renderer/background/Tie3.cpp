@@ -748,7 +748,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // attribute 0 is the world position pbr_depth.vert consumes.
   // Round-5 addendum 2 (mandate F): world-wide — no m_pbr_draws gate (see TFragment).
   if (!use_envmap && category == tfrag3::TieCategory::NORMAL &&
-      Gfx::g_global_settings.recharged_pbr_enable &&
+      (Gfx::g_global_settings.recharged_pbr_enable ||
+       Gfx::g_global_settings.recharged_rt_light_enable) &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
     auto& sh_st = pbr_shadow_state();
     GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
@@ -920,7 +921,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     // replaced TIE surface receives the same shadowed direct term as tfrag. The depth pass
     // itself is driven by TFragment (tfrag NORMAL casters); Tie3 is receiver-only. TFRAG3
     // is the active program here (first_tfrag_draw_setup above, non-envmap).
-    if (Gfx::g_global_settings.recharged_pbr_enable && pbr_shadow_state().valid) {
+    if ((Gfx::g_global_settings.recharged_pbr_enable ||
+         Gfx::g_global_settings.recharged_rt_light_enable) &&
+        pbr_shadow_state().valid) {
       pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id(),
                                settings.camera.trans.data());
     }

@@ -87,6 +87,8 @@
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
    (pbr-materials? symbol) ;; Grecharged-pbr-materials: realtime PBR lighting/shading over custom-asset materials. #f = stock shading.
+   (realtime-lighting? symbol) ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting (one sun, N.L per face, NO ambient). #f = stock/pbr-materials shading.
+   (realtime-lighting-baked? symbol) ;; Grecharged-realtime-lighting: keep baked vertex lighting when realtime lighting is ON. #f (default) = baked OFF (pure sun, the dev state).
    (recharged-foliage-wind? symbol) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
    (ambient-occlusion   int32) ;; Grecharged-ambient-occlusion: 0=off 1=ssao 2=hbao 3=gtao. Default OFF (0).
    (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
@@ -128,7 +130,10 @@
 ;; sun 0 pos — the vector the sun sprite is placed with) so world shadows extend opposite
 ;; the on-screen sun (current-shadow is hard-clamped ~65deg and cannot).
 (define-extern pc-set-pbr-sky-sun! (function vector none))
-(define-extern pc-set-pbr-lights! (function pointer none)))
+(define-extern pc-set-pbr-lights! (function pointer none))
+;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting master toggle + baked sub-option.
+(define-extern pc-set-rt-light! (function int none))
+(define-extern pc-set-rt-baked! (function int none)))
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
 (define-extern pc-set-ambient-occlusion! (function int int int none))
@@ -216,6 +221,8 @@
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
   (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
   (set! (-> obj pbr-materials?) #t) ;; Grecharged-pbr-materials: default ON (toggle still exists; OFF == stock shading)
+  (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
+  (set! (-> obj realtime-lighting-baked?) #f) ;; Grecharged-realtime-lighting: default baked OFF (pure sun, the dev/working state)
   (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
   (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
   (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality

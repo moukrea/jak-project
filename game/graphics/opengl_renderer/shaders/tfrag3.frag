@@ -99,6 +99,18 @@ uniform float u_pbr_shadow_bias;
 uniform float u_pbr_world_relight;
 uniform float u_pbr_wr_direct;
 uniform float u_pbr_wr_indirect;
+// Grecharged-realtime-lighting (2026-07-19 REWRITE): a clean SUN-ONLY path that
+// REPLACES the round-1..5 accretion (ambient / multi-light / moon / baked-GI /
+// baked-weight) when it is ON. u_rt_light_on = master (1 => this path taken,
+// every round-1..5 branch below skipped). u_rt_use_baked = sub-option (0 =>
+// baked vertex lighting OFF, the dev/default state; 1 => fold baked macro shading
+// back in). u_rt_sun_dir = surface->sun, world space, == the vector that places
+// the VISIBLE sun sprite (sky-sun dome dir). u_rt_sun_color carries the sun tint
+// AND intensity. ONE light, NO ambient — the opposite side is genuinely dark.
+uniform int u_rt_light_on;
+uniform int u_rt_use_baked;
+uniform vec3 u_rt_sun_dir;
+uniform vec3 u_rt_sun_color;
 #endif
 
 
@@ -126,7 +138,14 @@ void main() {
         vec3 sng = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
         float sngl = length(sng);
         float ndl0 = sngl > 1e-6 ? abs(dot(sng / sngl, u_pbr_light_dir[0])) : 1.0;
-        float bias = max(0.0035 * (1.0 - ndl0), 0.0012);
+        // Grecharged-realtime-lighting: the SUN-ONLY path renders with baked lighting OFF
+        // (no ambient), so shadow-map self-shadow ACNE is unmasked — the pbr-materials path's
+        // baked indirect term hides it. Use a larger depth+slope bias on the sun-only path
+        // (device-tuned at the sage-wall h16 grazing-deck vantage: ~0.03 total kills the
+        // acne with no visible peter-panning). The pbr-materials path (u_rt_light_on == 0)
+        // keeps its original small bias byte-for-byte.
+        float bias = u_rt_light_on != 0 ? max(0.03 * (1.0 - ndl0), 0.025)
+                                        : max(0.0035 * (1.0 - ndl0), 0.0012);
         // u_pbr_shadow_bias: debug override (prop ...pbr.shadowbias); +0.5 forces every
         // in-box fragment SHADOWED — a binary compare-path test.
         float ref = suv.z - bias + u_pbr_shadow_bias;
@@ -142,14 +161,54 @@ void main() {
         sm_shadow = mix(1.0, sm_shadow, edge_fade);
       }
     }
-    // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun.
-    // Owner round-3 mandate: the baked per-vertex TOD color (fragment_color.rgb) is
-    // reintegrated as the INDIRECT/GI term — it carries the level's MACRO shading
-    // (building curvature, under-roof darkening, doorway occlusion) that a constant
-    // ambient flattened. It is NOT a second direct dose: the realtime direct diffuse
-    // is scaled down by u_pbr_direct to compensate for the baked sun it contains.
-    // Alpha keeps the legacy product for discard.
-    if (u_pbr_mode != 0 && gfx_hack_no_tex == 0) {
+    // ===================================================================
+    // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path.
+    // When ON this REPLACES every round-1..5 branch below. ONE light = the
+    // visible sun; per-face N.L; NO ambient; baked OFF by default. The whole
+    // point: sun-side lit / opposite side genuinely dark, pinned to world
+    // geometry under any camera orbit.
+    // ===================================================================
+    if (u_rt_light_on != 0) {
+      // Per-face WORLD normal. v_fringe_rel is the camera-TRANSLATED (not
+      // rotated) world position, so its screen-space derivatives give a
+      // camera-INDEPENDENT world-space face normal — the lit/dark terminator
+      // is pinned to geometry and cannot swim as the camera orbits.
+      vec3 gN = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
+      float gNl = length(gN);
+      vec3 N = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
+      vec3 Vv = -normalize(v_fringe_rel);
+      if (dot(N, Vv) < 0.0) N = -N;              // double-sided level tris
+      // The sun: surface->sun, world space, == the vector that places the
+      // visible sun sprite (sky-sun dome dir when above the horizon).
+      vec3 L = normalize(u_rt_sun_dir);
+      float ndl = max(dot(N, L), 0.0);           // opposite side -> 0 = dark
+      // Stage 2: cast-shadow factor from the sun depth map (1.0 when the map
+      // is off). NO ambient anywhere, so a cast shadow / dark side is 0 = dark.
+      float shadow = u_pbr_shadow_on != 0 ? sm_shadow : 1.0;
+      vec3 albedo = pow(T0.rgb, vec3(2.2));
+      // baked OFF (dev/default): ignore the baked vertex TOD color entirely so
+      // the surface is lit PURELY by the sun. baked ON (sub-option): fold the
+      // baked macro shading back in as a multiplier.
+      vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
+      vec3 lit = albedo * baked * u_rt_sun_color * (ndl * shadow);
+      color.rgb = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
+      // Debug viz (shared prop u_pbr_debug): 1=N.L factor, 2=world normal,
+      // 12=shadow factor.
+      if (u_pbr_debug == 1) {
+        color.rgb = vec3(ndl);
+      } else if (u_pbr_debug == 2) {
+        color.rgb = N * 0.5 + 0.5;
+      } else if (u_pbr_debug == 12) {
+        color.rgb = vec3(shadow);
+      }
+    } else if (u_pbr_mode != 0 && gfx_hack_no_tex == 0) {
+      // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun.
+      // Owner round-3 mandate: the baked per-vertex TOD color (fragment_color.rgb) is
+      // reintegrated as the INDIRECT/GI term — it carries the level's MACRO shading
+      // (building curvature, under-roof darkening, doorway occlusion) that a constant
+      // ambient flattened. It is NOT a second direct dose: the realtime direct diffuse
+      // is scaled down by u_pbr_direct to compensate for the baked sun it contains.
+      // Alpha keeps the legacy product for discard.
       vec3 p = v_fringe_rel;
       vec3 dp1 = dFdx(p);
       vec3 dp2 = dFdy(p);

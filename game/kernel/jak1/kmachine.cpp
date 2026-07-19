@@ -864,6 +864,16 @@ void pc_set_pbr_lights(u32 lg) {
   for (int j = 0; j < 3; j++) gs.recharged_pbr_lg_ambi[j] = ambi[4 + j];
   gs.recharged_pbr_lg_valid = true;
 }
+
+// Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting toggles,
+// pushed from GOAL each frame. rt-light! = master; rt-baked! = the "keep baked lighting"
+// sub-option (off => baked lighting disabled everywhere, the pure-sun dev state).
+void pc_set_rt_light(u32 sym) {
+  Gfx::g_global_settings.recharged_rt_light_enable = (sym != 0);
+}
+void pc_set_rt_baked(u32 sym) {
+  Gfx::g_global_settings.recharged_rt_use_baked = (sym != 0);
+}
 #endif
 
 void InitMachine_PCPort() {
@@ -897,6 +907,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
   make_function_symbol_from_c("pc-set-pbr-sky-sun!", (void*)pc_set_pbr_sky_sun);
   make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
+  // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master + baked sub-option
+  make_function_symbol_from_c("pc-set-rt-light!", (void*)pc_set_rt_light);
+  make_function_symbol_from_c("pc-set-rt-baked!", (void*)pc_set_rt_baked);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
