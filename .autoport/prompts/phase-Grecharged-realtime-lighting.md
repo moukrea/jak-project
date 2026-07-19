@@ -92,3 +92,37 @@ Owner doubts "keeping" the shadow map because the round-1..5 lighting was bad. H
 - Treat attributability as a first-class check: in a still, ONE shadow must visibly connect to ONE caster
   at its base. If you cannot point at a shadow and name its caster, Stage 2 is not done.
 The point: a clean, minimal, CORRECT sun. No inherited complexity, no unproven code carried forward.
+
+## OWNER ROUND 2 (2026-07-19 09:20, playtest on Honor) — the DIRECTION is validated, now PERFECT THE SUN
+Owner CONFIRMS the design: sun-only for now, un-lit = genuinely BLACK is INTENDED ("c'est voulu"), ambient
+(indirect/bounce) and other light sources come LATER, only once the sun is PERFECT. Do NOT add ambient or
+other lights this phase. Fix the SUN's cast shadows — specific defects the owner saw:
+
+1. SHADOW DOESN'T FOLLOW GROUND RELIEF (top priority — a correctness bug): the cast shadow looks like a
+   FLAT DECAL laid on a plane, not draping over the terrain's bumps. Root cause to fix: the shadow factor
+   must be computed per RECEIVER FRAGMENT at its TRUE world position (including height), i.e. a real
+   per-fragment shadow-map depth compare using the fragment's reconstructed world pos — NOT a planar
+   projection / flat ground-darkening. The shadow must conform to whatever surface it lands on.
+2. POP IN/OUT ON APPROACH/RECEDE + BEYOND THE REALTIME ZONE: shadows appear/disappear as the camera moves
+   toward/away. The shadow frustum/range has a hard boundary being crossed. Fix: (a) stabilize the range so
+   normal movement doesn't cross a hard edge; (b) at the realtime-zone edge, FADE the shadow out smoothly
+   (distance fade) instead of a hard cut; (c) beyond the realtime zone, fall back to something COHERENT and
+   STABLE (a low-freq/pre-baked or faded approximation) so distant geometry doesn't pop. Fade, never cut.
+3. NOT ALL GEOMETRY PARTICIPATES: some objects neither cast nor receive. Complete the sets — EVERY world
+   caster (all tfrag + all tie categories, not a subset) writes depth; every world receiver samples. Audit
+   which draw paths are missing and add them.
+4. RESOLUTION PIXELATED + NO CONTROLS: add a "Shadow Quality" setting (shadow-map resolution: e.g.
+   Low 1024 / Med 2048 / High 4096, mobile-safe) AND a "Shadow Distance" setting (the realtime shadow
+   range). Expose both in Recharged Settings (under Realtime Lighting) + prop-tunable for headless A/B.
+   Higher quality = crisper shadow edges (visible on device).
+
+DESIGN GUARDRAILS (unchanged): ONE light = the sun. NO ambient, NO other lights, baked OFF, un-lit = black
+(intended). Keep the round-1 wins (per-face N.L sun shading, sun dir = visible sun, camera-independent).
+
+ROUND-2 ACCEPTANCE (device, owner vantage + a relief/terrain vantage):
+- Walk a caster toward/away: its shadow does NOT pop in/out — it fades smoothly at the range edge.
+- The cast shadow DRAPES over ground relief (follows terrain bumps, not a flat decal) — prove on a bumpy
+  surface, not just the flat deck.
+- Every clearly-occluding object in view has a shadow (no missing casters).
+- Shadow Quality setting visibly changes edge crispness; Shadow Distance setting visibly changes range.
+- Still sun-only, un-lit still black. OFF==stock.

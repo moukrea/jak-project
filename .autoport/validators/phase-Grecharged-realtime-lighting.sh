@@ -21,4 +21,8 @@ grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "no device jak1 focus e
 ls "$D"/*.mp4 >/dev/null 2>&1 || fail "no device video (orbit clip)"
 ls "$D"/*.png >/dev/null 2>&1 || fail "no device still"
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
+grep -qiE 'relief|drape|terrain|conform|per-fragment world' "$R" || fail "no shadow-follows-relief evidence (round-2)"
+grep -qiE 'fade|no pop|does not pop|smooth.*edge|distance fade' "$R" || fail "no no-pop/fade-at-range evidence (round-2)"
+grep -qiE 'shadow quality|shadow.?map res|shadow distance|quality.*setting' "$R" || fail "no shadow quality/distance settings (round-2)"
+grep -qiE 'all (casters|geometry|tie)|complete.*caster|every.*caster' "$R" || fail "no complete-geometry evidence (round-2)"
 echo "[Grtl PASS]"
