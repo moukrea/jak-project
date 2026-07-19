@@ -25,4 +25,7 @@ grep -qiE 'relief|drape|terrain|conform|per-fragment world' "$R" || fail "no sha
 grep -qiE 'fade|no pop|does not pop|smooth.*edge|distance fade' "$R" || fail "no no-pop/fade-at-range evidence (round-2)"
 grep -qiE 'shadow quality|shadow.?map res|shadow distance|quality.*setting' "$R" || fail "no shadow quality/distance settings (round-2)"
 grep -qiE 'all (casters|geometry|tie)|complete.*caster|every.*caster' "$R" || fail "no complete-geometry evidence (round-2)"
+grep -qiE 'beyond.*range.*(lit|shad|N.?L)|distant.*(lit|shaded)|N.?L.*(everywhere|global|whole world|unconditional)' "$R" || fail "no global-N.L-beyond-shadow-range evidence (round-3 defect A)"
+grep -qiE 'shrub' "$R" || fail "no shrub cast/receive evidence (round-3 defect B)"
+grep -qiE 'menu row|Recharged Settings.*(row|toggle|slider)|in-game menu|4 (rows|settings)' "$R" || fail "no in-menu settings evidence (round-3 defect D)"
 echo "[Grtl PASS]"

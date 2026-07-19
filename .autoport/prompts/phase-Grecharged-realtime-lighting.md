@@ -126,3 +126,38 @@ ROUND-2 ACCEPTANCE (device, owner vantage + a relief/terrain vantage):
 - Every clearly-occluding object in view has a shadow (no missing casters).
 - Shadow Quality setting visibly changes edge crispness; Shadow Distance setting visibly changes range.
 - Still sun-only, un-lit still black. OFF==stock.
+
+## OWNER ROUND 3 (2026-07-19 13:10, Honor playtest — "c'est bien mieux! au moins t'as fait du progrès!")
+Direction confirmed good, polishing continues. Four defects:
+
+DEFECT A (TOP PRIORITY — a real bug the round-2 report mis-described): OUT-OF-RANGE = NO SHADING AT ALL.
+  Owner: "les zones hors de portée n'ont aucun shading, un rendu 3D tout pourri sans shading dès que c'est
+  pas dans la zone ombrée realtime, ça fait tâche." The round-2 report CLAIMED per-face N.L continues
+  beyond the shadow zone — it DOES NOT on device. ROOT ISSUE: the directional sun N.L shading is being
+  gated to the shadow ortho box / shadow range. FIX: the sun's DIRECTIONAL N.L shading (sun-side lit /
+  dark-side dark) must apply to the ENTIRE WORLD, everywhere, unconditionally — it is per-face and free.
+  ONLY the high-frequency CAST SHADOW (occlusion lookup) is range-limited and fades. Beyond the shadow
+  range a surface must STILL be sun-lit/dark-shaded (just without a cast shadow on it). PROVE it: a distant
+  object well beyond the shadow range still shows a lit side and a dark side.
+
+DEFECT B: SHRUBS neither cast nor receive (they were "documented out"). Add shrub geometry to BOTH the
+  depth/caster pass AND the receiver shading (shrub has its own shader program — extend it with the same
+  sun N.L + shadow sample). Shrubs must be lit and cast/receive like the rest of the world.
+
+DEFECT C: SHADOW RANGE TOO SHORT — the fade is "à peine quelques mètres devant Jak". Raise the DEFAULT
+  shadow distance substantially (the near-field cast-shadow zone should extend well ahead, not a few
+  meters), and verify the fade band lands far out, not in Jak's face. Re-check the fade math vs the range.
+
+DEFECT D: PUT ALL SETTINGS IN THE RECHARGED-SETTINGS MENU (deferred twice as "destabilizing" — NOT
+  acceptable anymore, solve the menu instability): four real menu rows —
+   1. Realtime Lighting: On/Off
+   2. Baked Lighting: On/Off (sub, when Realtime Lighting is On)
+   3. Shadow Distance: a value/slider
+   4. Shadow Quality: Low/Med/High (1024/2048/4096)
+  They must be adjustable ON DEVICE via the menu (not adb), take effect live, and persist. If the jak1 menu
+  widget is unstable for value rows, fix that — do not defer again.
+
+ACCEPTANCE (device): distant object beyond shadow range is STILL sun-lit/dark-shaded (defect A); a shrub
+  casts AND receives (defect B); the cast-shadow zone reaches well ahead of Jak with the fade far out
+  (defect C); all 4 rows work from the in-game menu, live + persisted (defect D). Sun-only, no ambient,
+  baked OFF stay. OFF==stock.
