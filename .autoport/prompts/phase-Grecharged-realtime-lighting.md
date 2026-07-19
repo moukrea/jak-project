@@ -233,3 +233,87 @@ is still the NEXT phase. Tie the floor to the same tunable Shadow Strength (floo
 control governs "how dark is not-in-sun". Default strength ~0.8 -> floor ~0.2.
 ACCEPTANCE update: at a vantage, the away-from-sun faces AND the cast shadows sit at the SAME ~20% level
 (measure both — they should match), and nothing in view is pure black. Everything else round-1..5 preserved.
+
+## OWNER ROUND 6 (2026-07-19 18:20, discussed) — FORM-AO on the skylight floor (relief in shadow)
+Owner tested round-5 ("pas mal du tout!"). One addition: shadowed areas (the ~0.2 uniform sky-fill floor)
+look FLAT — no relief. Add a WIDE-radius ambient occlusion that modulates ONLY the ~0.2 skylight floor so
+shadowed surfaces regain their FORM (a surface that "sees" less sky — nooks, undersides, valleys — gets
+darker; open surfaces keep the full floor). This is the LARGE-SCALE / form counterpart of the shipped
+contact-AO (owner: "l'opposé de l'AO de contact, beaucoup plus large pour donner du relief à tous les
+objets").
+
+DESIGN (owner-decided):
+- SEPARATE, INDEPENDENT FEATURE from the shipped standalone AO (Grecharged-ambient-occlusion: Off/SSAO/
+  HBAO/GTAO + Quality + Strength). That existing AO keeps ALL its settings and MUST keep working with this
+  new one OFF; this new one must work with the existing AO OFF. They are decoupled; the two scales may
+  stack (contact + form) or run alone.
+- OWN CONTROLS (new, in Recharged Settings under Realtime Lighting): a Form-AO On/Off toggle + a Form-AO
+  Strength. (Owner: "nouveaux toggles on off, et strength pour ça, en plus du type d'AO et qualité
+  actuelle" of the existing AO.)
+- GOLDEN RULE (from the AO saga, non-negotiable): the Form-AO darkens ONLY the ambient/skylight floor term,
+  NEVER the direct-sun-lit surfaces. Sunlit areas stay identical. Prove it: a sunlit face is unchanged
+  Form-AO on vs off; only shadowed/floor-lit areas gain the occlusion form.
+- Implementation left to the worker (dedicated pass or reuse): may borrow the GTAO horizon-based math
+  internally, but it is its OWN toggle/path with a WIDE (form-scale, not contact-scale) radius, mobile-
+  tuned, and BLURRED/denoised so it never looks noisy or pixelated (consistent with round-5's no-pixel
+  requirement). Runs inside the --pbr / realtime-lighting flag.
+
+ACCEPTANCE (device): a currently-flat shadowed object visibly regains relief/form with Form-AO on; sunlit
+areas byte-comparable on/off (golden rule); the new On/Off + Strength work in the menu and are live; the
+shipped standalone AO feature still works independently (test both-on, both-off, each-alone). This is the
+LAST realtime-sky item; ambient/colored-bounce/other light sources remain the NEXT phase after owner sign-off.
+Keep all round-1..5 wins (uniform floor, partial shadow, blur, distance 150, baked fallback, 5 tiers, menu).
+
+## OWNER ROUND 6 ADDENDUM — NIGHT SUN-FADE (mood night-lights leaking into the sun-only path)
+Owner watched the title fast day/night cycle: when the sun lights, perfect; but when the SUN IS ABSENT
+(night), "3 other lighting combinations succeed each other with no sense, like spotlights turning on/off,
+no visible source." ROOT CAUSE (verified in code): the realtime sun's COLOR/INTENSITY is pulled from
+`*time-of-day-context* current-sun sun-color / env-color` (hud-classes-pc.gc:1688) = the MOOD system, which
+at night still supplies non-zero night-mood light presets and interpolates between discrete moods -> the
+"3 spotlights". And there is NO night fade (rt_intensity is a constant 1.5). Direction is the real sun
+(sky-parms, below horizon at night) so it doesn't move. Net: the mood's night lights LEAK into the
+sun-only path.
+
+FIX: the realtime SUN's direct contribution must be gated by the SUN's ACTUAL ELEVATION / visibility (from
+the sky-parms sun dome vector — e.g. its up-component, or the sky sun fade), NOT by the mood current-sun
+presets. Sun high -> full; sun near the horizon -> smooth fade; sun BELOW the horizon (night) -> ZERO
+direct sun. At night only the ~0.2 uniform floor remains => the world goes genuinely dark, NO phantom
+lights, no discrete mood-light jumps. Sun-only stays pure: no visible sun = no direct light. (Sunrise/
+sunset warm tint is fine as long as it is driven by the sun's own position and fades with elevation, not by
+the mood night presets.) Do NOT consume current-sun/env-color as a light when the sun is down. Moonlight /
+other sources are the NEXT phase.
+ACCEPTANCE: run the title (or in-game) day/night cycle — as the sun sets the direct light fades smoothly to
+nothing; at night the scene is the dark ~0.2 floor only, with NO spotlight-like discrete lighting appearing
+from nowhere; as the sun rises it fades back in. Prove with a cycle clip (sun-up bright -> dusk fade ->
+night dark/floor-only -> dawn) showing no phantom night lights.
+
+## OWNER ROUND 7 (2026-07-19 21:50, Honor playtest) — DROP Form-AO + FIX the night leak (CRUCIAL, before any ambient)
+Daytime sun = OK. Two directives:
+
+1. DROP THE FORM-AO ENTIRELY. Owner: "le second niveau d'AO qu'on a ajouté tu peux complètement drop,
+   c'est un carnage, vraiment vilain et mal foutu." REMOVE it — the round-6 Form-AO code, its shader terms,
+   its On/Off + Strength toggle, its menu row. Revert to the flat uniform ~0.2 sky-fill floor as the
+   baseline. (Directional ambient — hemisphere/SH/IBL — is the SEPARATE next phase Grecharged-directional-
+   ambient, NOT this ad-hoc AO.) Make sure removing it does not regress round-1..5.
+
+2. FIX THE NIGHT LEAK — TOP PRIORITY, must be clean BEFORE the ambient phase (owner: "règle ça avant
+   l'hémisphère ambiant, SH/probes et IBL, c'est crucial"). At night (sun absent / below horizon) the owner
+   STILL sees lit zones "as if it were day" in places — inconsistent, some geometry lit, some dark. We said
+   NO light except the sun to start, so at night the ONLY thing anywhere must be the ~0.2 floor (dark).
+   The round-6 night sun-fade did NOT fully work. AUDIT EVERY LIT WORLD PATH and kill every night light
+   source except the floor:
+   - The sun shading was extended to FOUR shaders (tfrag3.frag, etie_base.frag, shrub.frag, tie_wind.frag).
+     The night sun-fade (sun elevation -> 0 at night) MUST be applied IDENTICALLY in ALL of them. A path
+     that skipped it leaves its geometry (envmap tie / shrubs / wind-tie) lit at night = the "some zones lit"
+     the owner sees. Verify each shader's direct-sun term goes to exactly 0 at night.
+   - NO path may consume `current-sun sun-color / env-color` (the mood) as a light — that is the discrete
+     night-preset leak. Drive intensity ONLY from the real sun elevation (sky-parms sun pos up-component).
+   - Check for MULTIPLE sun indices (sky-parms sun 0 vs sun 1...) or any other directional term a path
+     might use.
+   - Ensure the floor itself has no bright/directional component at night (no Form-AO/hemisphere leaking in).
+   PROVE IT: a night beat (or the fast TOD cycle) where EVERY surface in view is the dark ~0.2 floor — NO
+   lit zone anywhere, across tfrag AND tie AND shrub AND envmap. Sweep the camera; nothing lights up.
+
+Keep round-1..5 wins (uniform floor, partial shadow ~0.2, blur, distance 150, baked-far fallback, 5 quality
+tiers, menu Realtime/Baked/Distance/Quality). Sun-only; ambient/other lights = next phase after owner signs
+off the sun+night.

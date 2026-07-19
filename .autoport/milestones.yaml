@@ -2146,6 +2146,20 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-directional-ambient
+  name: 'RECHARGED (owner 2026-07-19, chosen Option B): make the ~0.2 sky-fill floor DIRECTIONAL (the pro way shadowed
+    areas keep their form without AO). Progression: (1) HEMISPHERE ambient — blend sky-color (up-facing) vs ground-color
+    (down-facing) by the per-face normal (cheap, uses existing normals, immediate form); (2) SH / light-probe ambient
+    (low-freq directional); (3) IBL from a prefiltered sky env map (real PBR ambient). Replaces the flat constant floor
+    from Grecharged-realtime-lighting. THEN other light sources / colored bounce. Golden rule preserved: ambient only,
+    never touches direct sun. Sky/ground colors driven by the mood/TOD env so it tracks the day cycle. Owner re-scopes
+    at phase start; start with hemisphere, prove form-in-shadow AO-off, then climb.'
+  prompt: prompts/phase-Grecharged-directional-ambient.md
+  validator: validators/phase-Grecharged-directional-ambient.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models3
   name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
     mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
