@@ -1488,6 +1488,39 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
     glUniform3f(glGetUniformLocation(id, "u_rt_sun_color"), rc[0], rc[1], rc[2]);
   }
+  // === Grecharged-realtime-lighting ROUND 7: NIGHT SUN-FADE ===
+  // Gate the direct sun by the REAL sun ELEVATION (the visible-sun dome vector's up-component
+  // from sky-parms — recharged_pbr_sky_sun, camera->sun, non-unit), NOT the mood current-sun.
+  // Sun above the horizon => 1; smooth ramp near the horizon; sun BELOW the horizon (night)
+  // => 0. This single uniform reaches ALL FOUR world shaders (tfrag3/shrub/etie/tie_wind all
+  // share this setup), where it multiplies the direct-sun term to EXACTLY 0 at night — so at
+  // night no path consumes the mood sun-color/intensity as a light and the whole world sits at
+  // the ~0.2 sky-fill floor (kills the phantom night "spotlights"). Defaults to 1.0 (day) when
+  // the sky-sun vector is not yet populated, so daytime is never wrongly darkened.
+  float rt_sun_elev = 1.0f;
+  {
+    const float* ss = gs.recharged_pbr_sky_sun;
+    float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
+    if (ssl > 1e-4f) {
+      float up = ss[1] / ssl;  // sin(sun elevation): >0 above the horizon, <0 below (night)
+      float t = up / 0.10f;    // smooth ramp from horizon to ~5.7 deg elevation
+      t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+      rt_sun_elev = t * t * (3.0f - 2.0f * t);  // smoothstep
+    }
+  }
+#ifdef __ANDROID__
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.sunelev", rv) > 0 && rv[0]) {
+      rt_sun_elev = atof(rv);  // device A/B: force the night-fade value without waiting for TOD
+    }
+  }
+#else
+  if (const char* e = getenv("OG_RT_SUNELEV")) {
+    rt_sun_elev = atof(e);
+  }
+#endif
+  glUniform1f(glGetUniformLocation(id, "u_rt_sun_elev"), rt_sun_elev);
   // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
   glUniform1f(glGetUniformLocation(id, "u_rt_shadow_residual"), rt_shadow_residual);
 

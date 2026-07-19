@@ -31,6 +31,12 @@ uniform float u_rt_shadow_res;
 // fragment keeps (~0.2 clear-sky, 0.0 == black). Fed as (1 - Shadow Strength); CAST-SHADOW
 // term only, the N.L dark side stays black.
 uniform float u_rt_shadow_residual;
+// Grecharged-realtime-lighting ROUND 7: NIGHT SUN-FADE (mirror of tfrag3.frag). Gates the
+// direct-sun term by the REAL sun elevation (sky-parms visible-sun up-component), NOT the
+// mood current-sun: 1 = sun up, smooth ramp near the horizon, 0 = below horizon (night) =>
+// direct sun (and any mood tint) vanishes, leaving ONLY the ~0.2 floor. Identical across all
+// four world shaders so nothing stays lit at night.
+uniform float u_rt_sun_elev;
 // ROUND-5: 16-tap Poisson disk for the wide-penumbra soft PCF (replaces the round-4 grid
 // that aliased the shadow-texel lattice => staircase). Rotated per fragment in the PCF loop.
 const vec2 RT_POISSON16[16] = vec2[](
@@ -106,7 +112,9 @@ void main() {
       // Strength; the sun adds on top gated by N.L and the cast-shadow occlusion:
       //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ.
       float floorlvl = clamp(u_rt_shadow_residual, 0.0, 1.0);
-      float sun_scalar = ndl * shadow;           // shadow here = raw occlusion (1=lit, 0=occluded)
+      // ROUND-7 NIGHT FADE: * u_rt_sun_elev so the direct sun (and any mood tint) goes to 0 at
+      // night, leaving only the ~0.2 floor. Identical in all four world shaders.
+      float sun_scalar = ndl * shadow * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
       vec3 lit = albedo * baked * (vec3(floorlvl) + (1.0 - floorlvl) * u_rt_sun_color * sun_scalar);

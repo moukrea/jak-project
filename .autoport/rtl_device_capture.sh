@@ -35,6 +35,13 @@ set_feature_props(){
   adb shell "setprop debug.opengoal.rt.baked '$BAKED'" </dev/null
   adb shell "setprop debug.opengoal.pbr.shadowmap '$SHADOW'" </dev/null
   [ -n "${RTL_INTENSITY:-}" ] && adb shell "setprop debug.opengoal.rt.intensity '${RTL_INTENSITY}'" </dev/null
+  # ROUND-6 FORM-AO: own toggle (form_ao.on) + strength (form_ao.strength). Default OFF so a
+  # stage that does not set FORM_AO reproduces the round-5 look exactly.
+  adb shell "setprop debug.opengoal.form_ao.on '${FORM_AO:-0}'" </dev/null
+  [ -n "${FORM_AO_STRENGTH:-}" ] && adb shell "setprop debug.opengoal.form_ao.strength '${FORM_AO_STRENGTH}'" </dev/null
+  # Independence test: drive the SHIPPED standalone AO separately (0=off,1=SSAO,2=HBAO,3=GTAO).
+  # -1/unset => no override (use the menu/settings value, default OFF).
+  adb shell "setprop debug.opengoal.ao.force_mode '${AO_MODE:--1}'" </dev/null
   # keep pbr-materials shader path out of the way: rt-light branch takes priority in the
   # shader regardless, but pbr.debug off ensures no viz override.
   adb shell "setprop debug.opengoal.pbr.debug '${RTL_DEBUG_MODE:-}'" </dev/null

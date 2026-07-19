@@ -127,6 +127,13 @@ uniform float u_rt_shadow_res;
 // CAST-SHADOW occlusion term ONLY — the N.L dark side (ndl->0) stays genuinely black
 // (owner: un-lit black is intended, do not change it).
 uniform float u_rt_shadow_residual;
+// Grecharged-realtime-lighting ROUND 7: NIGHT SUN-FADE. The direct-sun term is gated by the
+// REAL sun elevation (the sky-parms visible-sun dome vector's up-component), NOT the mood
+// current-sun. 1.0 = sun well above the horizon; smooth ramp near the horizon; 0.0 = sun
+// below the horizon (night) => the direct sun (and thus any mood tint in u_rt_sun_color)
+// vanishes here, leaving ONLY the ~0.2 sky-fill floor. Set identically for all four world
+// shaders (they share first_tfrag_draw_setup), so no path stays lit at night.
+uniform float u_rt_sun_elev;
 // ROUND 5: 16-tap Poisson disk for a wide-penumbra SOFT PCF (replaces the round-4 3x3
 // grid — a regular grid aliases against the shadow-map texel lattice => the staircase the
 // owner still saw; a Poisson disk does not). Rotated per fragment (see the PCF loop).
@@ -259,7 +266,10 @@ void main() {
       //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ
       // => away-from-sun faces AND cast shadows sit at the SAME floor level (measure both).
       float floorlvl = clamp(u_rt_shadow_residual, 0.0, 1.0);
-      float sun_scalar = ndl * occ;              // direct-sun gate = N.L * cast-shadow occlusion
+      // ROUND-7 NIGHT FADE: multiply the direct-sun gate by the real sun-elevation fade so the
+      // sun (and any mood tint carried in u_rt_sun_color) goes to EXACTLY 0 at night — only the
+      // ~0.2 floor remains. Identical in all four world shaders => no geometry stays lit at night.
+      float sun_scalar = ndl * occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       // baked OFF (dev/default): ignore the baked vertex TOD color entirely so the surface
       // is lit PURELY by the sun (+ the uniform floor). baked ON (sub-option): fold the
