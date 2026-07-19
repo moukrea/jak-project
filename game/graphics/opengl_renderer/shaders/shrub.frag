@@ -100,13 +100,16 @@ void main() {
           shadow = mix(1.0, sm, edge_fade);
         }
       }
-      // ROUND-5: partial (not pure black) cast shadow — an occluded fragment keeps the
-      // residual (clear-sky skylight cheat, ~0.2) instead of 0. CAST-SHADOW term only;
-      // the N.L dark side (ndl->0) still multiplies to black (owner: un-lit black intended).
-      shadow = mix(u_rt_shadow_residual, 1.0, shadow);
+      // ROUND-5 CORRECTION (owner, correct physics): the residual ~0.2 is a UNIFORM sky-fill
+      // FLOOR, not a cast-shadow-only term. An away-from-sun face is skylight-only EXACTLY
+      // like a cast shadow, so BOTH keep ~0.2 (nothing pure black). floor = 1 - Shadow
+      // Strength; the sun adds on top gated by N.L and the cast-shadow occlusion:
+      //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ.
+      float floorlvl = clamp(u_rt_shadow_residual, 0.0, 1.0);
+      float sun_scalar = ndl * shadow;           // shadow here = raw occlusion (1=lit, 0=occluded)
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
-      vec3 lit = albedo * baked * u_rt_sun_color * (ndl * shadow);
+      vec3 lit = albedo * baked * (vec3(floorlvl) + (1.0 - floorlvl) * u_rt_sun_color * sun_scalar);
       vec3 sun_disp = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
       // ROUND-4 item #2: beyond the Shadow Distance, crossfade back to the stock BAKED
       // lighting (fragment_color * T0 = AO/painted macro detail) so far geometry reads
@@ -117,7 +120,7 @@ void main() {
       color.rgb = mix(sun_disp, baked_disp, far_t);
       if (u_pbr_debug == 1) { color.rgb = vec3(ndl); }
       else if (u_pbr_debug == 2) { color.rgb = N * 0.5 + 0.5; }
-      else if (u_pbr_debug == 12) { color.rgb = vec3(shadow); }
+      else if (u_pbr_debug == 12) { color.rgb = vec3(floorlvl + (1.0 - floorlvl) * sun_scalar); }
     }
 #endif
   } else {

@@ -247,19 +247,25 @@ void main() {
       // visible sun sprite (sky-sun dome dir when above the horizon).
       vec3 L = normalize(u_rt_sun_dir);
       float ndl = max(dot(N, L), 0.0);           // opposite side -> 0 = dark
-      // Stage 2: cast-shadow factor from the sun depth map (1.0 when the map is off).
-      // ROUND-5: partial (NOT pure black) cast shadow. occ = the raw occlusion (1 = lit,
-      // 0 = fully occluded); remap so a fully-occluded fragment keeps the residual
-      // (clear-sky skylight cheat, ~0.2) rather than 0. This is the CAST-SHADOW term ONLY —
-      // the N.L dark side below (ndl->0) still multiplies to genuine black (owner intent).
+      // Stage 2: cast-shadow occlusion from the sun depth map (1.0 = lit, 0.0 = fully
+      // occluded; 1.0 when the map is off). occ is the RAW occlusion — the ~0.2 residual is
+      // NOT applied here anymore; it is folded into the uniform floor below (round-5 corr).
       float occ = u_pbr_shadow_on != 0 ? sm_shadow : 1.0;
-      float shadow = mix(u_rt_shadow_residual, 1.0, occ);
+      // ROUND-5 CORRECTION (owner, correct physics 2026-07-19): the residual ~0.2 is a
+      // UNIFORM SKY-FILL FLOOR, not a cast-shadow-only term. A face turned AWAY from the
+      // sun is lit only by skylight EXACTLY like a cast shadow, so BOTH keep ~0.2 —
+      // nothing is pure black anywhere. floor = 1 - Shadow Strength (u_rt_shadow_residual).
+      // The sun adds on top, gated by BOTH N.L and the cast-shadow occlusion:
+      //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ
+      // => away-from-sun faces AND cast shadows sit at the SAME floor level (measure both).
+      float floorlvl = clamp(u_rt_shadow_residual, 0.0, 1.0);
+      float sun_scalar = ndl * occ;              // direct-sun gate = N.L * cast-shadow occlusion
       vec3 albedo = pow(T0.rgb, vec3(2.2));
-      // baked OFF (dev/default): ignore the baked vertex TOD color entirely so
-      // the surface is lit PURELY by the sun. baked ON (sub-option): fold the
+      // baked OFF (dev/default): ignore the baked vertex TOD color entirely so the surface
+      // is lit PURELY by the sun (+ the uniform floor). baked ON (sub-option): fold the
       // baked macro shading back in as a multiplier.
       vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
-      vec3 lit = albedo * baked * u_rt_sun_color * (ndl * shadow);
+      vec3 lit = albedo * baked * (vec3(floorlvl) + (1.0 - floorlvl) * u_rt_sun_color * sun_scalar);
       vec3 sun_disp = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
       // ROUND-4 item #2 OUT-OF-RANGE FALLBACK = BAKED (revises round-3's bare-N.L far).
       // Within the realtime shadow zone the surface is lit by the realtime sun + cast
@@ -280,7 +286,9 @@ void main() {
       } else if (u_pbr_debug == 2) {
         color.rgb = N * 0.5 + 0.5;
       } else if (u_pbr_debug == 12) {
-        color.rgb = vec3(shadow);
+        // total lighting fraction (grayscale): 1.0 in full sun, floor (~0.2) on away-faces
+        // AND in cast shadows — proves away-face level == cast-shadow level == floor.
+        color.rgb = vec3(floorlvl + (1.0 - floorlvl) * sun_scalar);
       }
     } else if (u_pbr_mode != 0 && gfx_hack_no_tex == 0) {
       // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun.
