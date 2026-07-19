@@ -192,6 +192,14 @@ struct GfxGlobalSettings {
   // owner-accepted pbr-materials behavior; a non-pbr build has none of this (stock).
   bool recharged_rt_light_enable = false;
   bool recharged_rt_use_baked = false;
+  // Grecharged-realtime-lighting ROUND 2: sun shadow-map QUALITY (resolution) + DISTANCE.
+  // recharged_rt_shadow_res = depth-texture edge in texels (1024 Low / 2048 Med / 4096 High
+  // on mobile); recharged_rt_shadow_dist = the realtime shadow range = the ortho box HALF-
+  // extent in meters (box = 2x). Defaults reproduce round-1 (1024, 40 m half = 80 m box).
+  // Driven from GOAL via pc-set-rt-shadow-res! / pc-set-rt-shadow-dist!, overridable by the
+  // debug props debug.opengoal.rt.shadowres / .shadowdist (env OG_RT_SHADOWRES/DIST) for A/B.
+  int recharged_rt_shadow_res = 1024;
+  float recharged_rt_shadow_dist = 40.0f;
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

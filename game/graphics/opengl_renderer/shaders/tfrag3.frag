@@ -111,6 +111,14 @@ uniform int u_rt_light_on;
 uniform int u_rt_use_baked;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
+// Grecharged-realtime-lighting ROUND 2: sun shadow-map RANGE (ortho half-extent in meters,
+// == the Shadow Distance setting) and RESOLUTION (depth-tex edge in texels, == the Shadow
+// Quality setting). Range drives the smooth distance FADE at the realtime-zone edge (no hard
+// pop as the camera approaches/recedes); resolution drives the PCF texel size and the
+// world-space normal-offset bias (crisper edges + correct relief at higher res). Both default
+// in-shader to the round-1 values (40 m half, 1024) when unset.
+uniform float u_rt_shadow_range;
+uniform float u_rt_shadow_res;
 #endif
 
 
@@ -120,44 +128,62 @@ void main() {
     vec4 T0 = texture(tex_T0, tex_coord.xy);
     color = fragment_color * T0;
 #ifdef OG_PBR
-    // Round-4 mandate B: sun shadow-map factor, shared by the PBR direct term AND the
-    // legacy receiver darkening below. Sample position is v_fringe_rel (camera-relative
-    // meters), the SAME space the depth pass rendered in. 4 taps, each HW-PCF'd by the
-    // LINEAR compare sampler => ~4x4 effective. Slope-scaled bias from the derivative
-    // face normal. Fades out toward the 80m ortho box edge so the coverage boundary
-    // doesn't show as a hard shadow cutoff.
+    // Round-4 mandate B / ROUND-2 rewrite: sun shadow-map factor, a real PER-FRAGMENT
+    // world-position depth compare — the receiver projects ITS OWN v_fringe_rel (camera-
+    // relative meters, height included) into the light's clip space and tests depth, so the
+    // shadow DRAPES over whatever surface it lands on (owner round-2 defect #1: it must
+    // follow ground relief, not sit like a flat decal). The heavy lifting for acne is done
+    // by a WORLD-SPACE NORMAL OFFSET (push the sample toward the light hemisphere a couple
+    // of texels) instead of the old ~0.025 suv.z depth bias — that bias was ~5 m of depth
+    // slack, which peter-panned the contact AND flattened the shadow's response to bumps.
+    // Range/res come from the Shadow Distance / Shadow Quality settings.
     float sm_shadow = 1.0;
     vec3 sm_dbg_suv = vec3(-1.0);  // viz mode 14: shadow-space UV + in-box flag
     float sm_dbg_inbox = 0.0;
     if (u_pbr_shadow_on != 0) {
-      vec4 sp = u_pbr_shadow_mvp * vec4(v_fringe_rel + u_pbr_shadow_cam_delta, 1.0);
+      float rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 40.0;
+      float res = u_rt_shadow_res > 1.0 ? u_rt_shadow_res : 1024.0;
+      float texel = 1.0 / res;
+      float texel_world = (2.0 * rng) / res;  // world meters per shadow texel
+      // Per-face WORLD normal for the normal-offset bias (camera-independent: v_fringe_rel
+      // is camera-TRANSLATED, not rotated). Double-sided for level tris.
+      vec3 sng = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
+      float sngl = length(sng);
+      vec3 snrm = sngl > 1e-6 ? sng / sngl : vec3(0.0, 1.0, 0.0);
+      vec3 svv = -normalize(v_fringe_rel);
+      if (dot(snrm, svv) < 0.0) snrm = -snrm;
+      float ndl0 = max(dot(snrm, u_pbr_light_dir[0]), 0.0);
+      // NORMAL OFFSET in world meters, scaled by texel size (so it stays ~constant in
+      // texels across every Shadow Quality / Distance combo) and by grazing angle. The
+      // sun-only (no-ambient) path needs a bit more (acne is unmasked without baked
+      // indirect); the pbr-materials path keeps a lighter offset.
+      float noff = texel_world * (u_rt_light_on != 0 ? mix(1.5, 5.0, 1.0 - ndl0)
+                                                     : mix(0.75, 2.0, 1.0 - ndl0));
+      vec3 sworld = v_fringe_rel + u_pbr_shadow_cam_delta + snrm * noff;
+      vec4 sp = u_pbr_shadow_mvp * vec4(sworld, 1.0);
       vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
       sm_dbg_suv = suv;
       if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
         sm_dbg_inbox = 1.0;
-        vec3 sng = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
-        float sngl = length(sng);
-        float ndl0 = sngl > 1e-6 ? abs(dot(sng / sngl, u_pbr_light_dir[0])) : 1.0;
-        // Grecharged-realtime-lighting: the SUN-ONLY path renders with baked lighting OFF
-        // (no ambient), so shadow-map self-shadow ACNE is unmasked — the pbr-materials path's
-        // baked indirect term hides it. Use a larger depth+slope bias on the sun-only path
-        // (device-tuned at the sage-wall h16 grazing-deck vantage: ~0.03 total kills the
-        // acne with no visible peter-panning). The pbr-materials path (u_rt_light_on == 0)
-        // keeps its original small bias byte-for-byte.
-        float bias = u_rt_light_on != 0 ? max(0.03 * (1.0 - ndl0), 0.025)
-                                        : max(0.0035 * (1.0 - ndl0), 0.0012);
+        // Tiny residual constant depth bias; the normal offset does the acne work, so this
+        // stays small and the shadow stays in CONTACT at the caster base (no peter-panning).
         // u_pbr_shadow_bias: debug override (prop ...pbr.shadowbias); +0.5 forces every
-        // in-box fragment SHADOWED — a binary compare-path test.
-        float ref = suv.z - bias + u_pbr_shadow_bias;
-        float texel = 1.0 / 1024.0;
-        // Manual 4-tap PCF: each tap samples the raw depth and compares in-shader
-        // (see the sampler declaration above for why not HW sampler2DShadow).
+        // in-box fragment SHADOWED — the binary compare-path test.
+        float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
+        float ref = suv.z - bias;
+        // Manual 4-tap PCF (Adreno HW-compare returns constant 1.0 — proven this phase).
+        // Higher resolution -> smaller texel -> crisper edge = the Shadow Quality lever.
         sm_shadow  = ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5, -0.5) * texel).r ? 1.0 : 0.0;
         sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5, -0.5) * texel).r ? 1.0 : 0.0;
         sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5,  0.5) * texel).r ? 1.0 : 0.0;
         sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5,  0.5) * texel).r ? 1.0 : 0.0;
         sm_shadow *= 0.25;
-        float edge_fade = 1.0 - smoothstep(30.0, 39.0, length(v_fringe_rel));
+        // ROUND-2 no-pop fade (owner defect #2): fade the CAST shadow smoothly to 'lit'
+        // toward the realtime-zone edge, tied to the Shadow Distance setting (rng), instead
+        // of the old hard 30..39 m band. Beyond the zone the coherent, stable fallback is
+        // pure directional N.L sun shading (no cast shadow) — it never swims and there is no
+        // hard cut as the camera approaches or recedes.
+        float edge_fade = 1.0 - smoothstep(rng * 0.72, rng * 0.96, length(v_fringe_rel));
         sm_shadow = mix(1.0, sm_shadow, edge_fade);
       }
     }

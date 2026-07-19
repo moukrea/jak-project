@@ -874,6 +874,14 @@ void pc_set_rt_light(u32 sym) {
 void pc_set_rt_baked(u32 sym) {
   Gfx::g_global_settings.recharged_rt_use_baked = (sym != 0);
 }
+// ROUND 2: sun shadow-map Quality (resolution, texels) + Distance (range, meters). Both
+// take a plain u32 from GOAL (res e.g. 2048; dist e.g. 100) — no float-ABI concern.
+void pc_set_rt_shadow_res(u32 res) {
+  Gfx::g_global_settings.recharged_rt_shadow_res = (int)res;
+}
+void pc_set_rt_shadow_dist(u32 dist_m) {
+  Gfx::g_global_settings.recharged_rt_shadow_dist = (float)dist_m;
+}
 #endif
 
 void InitMachine_PCPort() {
@@ -910,6 +918,8 @@ void InitMachine_PCPort() {
   // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master + baked sub-option
   make_function_symbol_from_c("pc-set-rt-light!", (void*)pc_set_rt_light);
   make_function_symbol_from_c("pc-set-rt-baked!", (void*)pc_set_rt_baked);
+  make_function_symbol_from_c("pc-set-rt-shadow-res!", (void*)pc_set_rt_shadow_res);
+  make_function_symbol_from_c("pc-set-rt-shadow-dist!", (void*)pc_set_rt_shadow_dist);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);

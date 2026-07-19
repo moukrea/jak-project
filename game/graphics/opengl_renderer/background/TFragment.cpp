@@ -631,7 +631,15 @@ void TFragment::render_tree(int geom,
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data());
   // cast_full: the vis-culled count being 0 (camera facing away from every caster) is
   // EXACTLY the owner's pop-on-rotation repro — the full static buffer must still cast.
-  if (pbr_shadow_frame_ok && tree.kind == tfrag3::TFragmentTreeKind::NORMAL &&
+  // ROUND 2 (owner defect #3 — complete caster set): cast from ALL opaque tfrag kinds, not
+  // just NORMAL. NORMAL/LOWRES/DIRT/ICE are solid ground/terrain and must occlude the sun;
+  // TRANS / LOWRES_TRANS / WATER are transparent and are deliberately excluded.
+  const bool pbr_tfrag_opaque_caster =
+      tree.kind == tfrag3::TFragmentTreeKind::NORMAL ||
+      tree.kind == tfrag3::TFragmentTreeKind::LOWRES ||
+      tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
+      tree.kind == tfrag3::TFragmentTreeKind::ICE;
+  if (pbr_shadow_frame_ok && pbr_tfrag_opaque_caster &&
       (pbr_depth_index_count > 0 ||
        (pbr_shadow_state().cast_full && tree.index_count > 0))) {
     auto& sh_st = pbr_shadow_state();

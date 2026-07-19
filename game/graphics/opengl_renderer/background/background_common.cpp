@@ -753,13 +753,78 @@ void pbr_shadow_ensure_resources() {
 
 bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   auto& st = pbr_shadow_state();
-  if (!Gfx::g_global_settings.recharged_pbr_enable ||
+  // ROUND 2: shadows are driven by EITHER the pbr-materials toggle OR the sun-only realtime-
+  // lighting toggle (they are independent — the dev state is pbr-materials OFF, realtime
+  // lighting ON, so gating on pbr_enable alone would silently kill the sun's cast shadows).
+  if (!(Gfx::g_global_settings.recharged_pbr_enable ||
+        Gfx::g_global_settings.recharged_rt_light_enable) ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
     // Feature off: also invalidate the read side so receivers stop sampling a map that
     // will no longer be refreshed (stale-matrix shadows glued to the old camera pos).
     st.read_valid = false;
     st.have_mvp = false;
     return false;
+  }
+  // ROUND 2 Shadow Quality (resolution) + Shadow Distance settings. Read once per frame
+  // (statics), overridable by debug prop / env for headless A/B. A resolution change
+  // reallocates the depth textures (this runs on the GL thread). Distance sets shadow_half.
+  static u64 s_cfg_frame = ~0ull;
+  static int s_req_res = 1024;
+  static float s_req_dist = 40.0f;
+  if (frame_idx != s_cfg_frame) {
+    s_cfg_frame = frame_idx;
+    int rr = Gfx::g_global_settings.recharged_rt_shadow_res;
+    float rd = Gfx::g_global_settings.recharged_rt_shadow_dist;
+#ifdef __ANDROID__
+    {
+      char v[PROP_VALUE_MAX];
+      if (__system_property_get("debug.opengoal.rt.shadowres", v) > 0 && v[0]) {
+        rr = atoi(v);
+      }
+      if (__system_property_get("debug.opengoal.rt.shadowdist", v) > 0 && v[0]) {
+        rd = (float)atof(v);
+      }
+    }
+#else
+    if (const char* e = std::getenv("OG_RT_SHADOWRES")) {
+      rr = std::atoi(e);
+    }
+    if (const char* e = std::getenv("OG_RT_SHADOWDIST")) {
+      rd = (float)std::atof(e);
+    }
+#endif
+    // Snap resolution to the three supported tiers; clamp distance to a sane range.
+    if (rr >= 3072) {
+      rr = 4096;
+    } else if (rr >= 1536) {
+      rr = 2048;
+    } else {
+      rr = 1024;
+    }
+    if (rd < 15.0f) {
+      rd = 15.0f;
+    }
+    if (rd > 200.0f) {
+      rd = 200.0f;
+    }
+    s_req_res = rr;
+    s_req_dist = rd;
+  }
+  st.shadow_half = s_req_dist;
+  if (st.depth_tex[0] && s_req_res != st.size) {
+    // Resolution changed at runtime: tear down + rebuild the depth textures at the new size.
+    glDeleteFramebuffers(2, st.fbo);
+    glDeleteTextures(2, st.depth_tex);
+    st.fbo[0] = 0;
+    st.fbo[1] = 0;
+    st.depth_tex[0] = 0;
+    st.depth_tex[1] = 0;
+    st.size = s_req_res;
+    st.read_valid = false;
+    st.have_mvp = false;
+    st.frame = ~0ull;
+  } else if (!st.depth_tex[0]) {
+    st.size = s_req_res;  // first allocation happens at the requested resolution
   }
   pbr_shadow_ensure_resources();
   if (!st.valid) {
@@ -903,7 +968,11 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
     return false;
   }
 
-  PbrV3 eye = {L.x * 100.f, L.y * 100.f, L.z * 100.f};
+  // ROUND 2: the sun "eye" distance and ortho far plane scale with the Shadow Distance so
+  // the whole box stays enclosed at any range (eye must sit beyond the box half-extent).
+  const float half = st.shadow_half;        // Shadow Distance: ortho half-extent (meters)
+  const float eyed = half * 2.0f + 40.0f;   // sun eye distance from the box center
+  PbrV3 eye = {L.x * eyed, L.y * eyed, L.z * eyed};
   PbrV3 target = {0.f, 0.f, 0.f};
   PbrV3 up = std::fabs(L.y) > 0.95f ? PbrV3{1.f, 0.f, 0.f} : PbrV3{0.f, 1.f, 0.f};
 
@@ -919,7 +988,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // position, so camera ROTATION cannot change the fit (the round-5 rotation bug was the
   // vis-culled caster set, fixed in the depth passes). Ortho spans 80 world units across
   // 1024 texels.
-  const float texel_world = 80.0f / 1024.0f;
+  const float texel_world = (2.0f * half) / (float)st.size;
   // Camera position in meters; its light-space x/y via the s/u rows of the view matrix.
   const float cmx = cam_trans[0] / 4096.f, cmy = cam_trans[1] / 4096.f,
               cmz = cam_trans[2] / 4096.f;
@@ -929,7 +998,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   view[13] += ty - std::floor(ty / texel_world) * texel_world;
 
   float proj[16];
-  pbr_ortho(-40.f, 40.f, -40.f, 40.f, 0.5f, 200.0f, proj);
+  pbr_ortho(-half, half, -half, half, 0.5f, eyed + half + 10.0f, proj);
 
   pbr_mat_mul(proj, view, st.mvp);
   st.write_cam[0] = cam_trans[0];
@@ -1010,6 +1079,16 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   }
   if (leg_loc >= 0) {
     glUniform1f(leg_loc, st.legacy_strength);
+  }
+  // ROUND 2: feed the shader the Shadow Distance (range) + Shadow Quality (resolution) so it
+  // can do the smooth distance fade and size the PCF texel + normal-offset bias.
+  GLint rng_loc = glGetUniformLocation(program, "u_rt_shadow_range");
+  if (rng_loc >= 0) {
+    glUniform1f(rng_loc, st.shadow_half);
+  }
+  GLint res_loc = glGetUniformLocation(program, "u_rt_shadow_res");
+  if (res_loc >= 0) {
+    glUniform1f(res_loc, (float)st.size);
   }
   if (st.debug) {
     static int dbg_calls = 0;

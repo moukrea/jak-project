@@ -747,7 +747,12 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // caster pass. Vertex layout is compatible: TIE draws with the TFRAG3 program, so
   // attribute 0 is the world position pbr_depth.vert consumes.
   // Round-5 addendum 2 (mandate F): world-wide — no m_pbr_draws gate (see TFragment).
-  if (!use_envmap && category == tfrag3::TieCategory::NORMAL &&
+  // ROUND 2 (owner defect #3): the envmap TIE geometry (shiny huts, metal props, bridges)
+  // must ALSO cast — its opaque base draw is the NORMAL_ENVMAP category. Cast for both the
+  // plain NORMAL and the NORMAL_ENVMAP base draws (never the TRANS/WATER or *_SECOND_DRAW
+  // shiny-overlay categories, which would double-cast the same geometry).
+  if (((!use_envmap && category == tfrag3::TieCategory::NORMAL) ||
+       (use_envmap && category == tfrag3::TieCategory::NORMAL_ENVMAP)) &&
       (Gfx::g_global_settings.recharged_pbr_enable ||
        Gfx::g_global_settings.recharged_rt_light_enable) &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
@@ -787,15 +792,21 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     if (sh_st.cast_full) {
       // Round-5 owner bug fix (same as TFragment): the caster set must IGNORE camera
       // visibility — an off-screen hut must keep casting its on-screen shadow, else
-      // shadows pop in/out on camera rotation. Draw the NORMAL category's FULL static
+      // shadows pop in/out on camera rotation. Draw the current category's FULL static
       // index ranges from tree.index_buffer (already the bound EBO in multidraw mode;
       // rebind for no_multidraw and restore after). Ranges are built lazily per tree:
       // each StripDraw's vis_groups tile its span in the full buffer, so the draw's
-      // total index count is the sum of its groups' num_inds.
-      if (!tree.pbr_full_ranges_built) {
-        tree.pbr_full_ranges.clear();
-        for (size_t di = tree.category_draw_indices[(int)tfrag3::TieCategory::NORMAL];
-             di < tree.category_draw_indices[(int)tfrag3::TieCategory::NORMAL + 1]; di++) {
+      // total index count is the sum of its groups' num_inds. ROUND 2: keyed by category
+      // so NORMAL and NORMAL_ENVMAP each get their own cached ranges (no clobber, no
+      // double-cast — the two categories occupy distinct index spans in the same buffer).
+      const int cast_cat = (int)category;
+      const bool env_cat = (category == tfrag3::TieCategory::NORMAL_ENVMAP);
+      auto& ranges = env_cat ? tree.pbr_full_ranges_env : tree.pbr_full_ranges;
+      bool& ranges_built = env_cat ? tree.pbr_full_ranges_env_built : tree.pbr_full_ranges_built;
+      if (!ranges_built) {
+        ranges.clear();
+        for (size_t di = tree.category_draw_indices[cast_cat];
+             di < tree.category_draw_indices[cast_cat + 1]; di++) {
           const auto& draw = (*tree.draws)[di];
           u32 count = 0;
           for (const auto& vg : draw.vis_groups) {
@@ -805,18 +816,17 @@ void Tie3::draw_matching_draws_for_tree(int idx,
             continue;
           }
           u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
-          if (!tree.pbr_full_ranges.empty() &&
-              tree.pbr_full_ranges.back().first + tree.pbr_full_ranges.back().second ==
-                  first) {
-            tree.pbr_full_ranges.back().second += count;  // coalesce adjacent draws
+          if (!ranges.empty() &&
+              ranges.back().first + ranges.back().second == first) {
+            ranges.back().second += count;  // coalesce adjacent draws
           } else {
-            tree.pbr_full_ranges.emplace_back(first, count);
+            ranges.emplace_back(first, count);
           }
         }
-        tree.pbr_full_ranges_built = true;
+        ranges_built = true;
       }
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
-      for (const auto& r : tree.pbr_full_ranges) {
+      for (const auto& r : ranges) {
         glDrawElements(tree.draw_mode, r.second, GL_UNSIGNED_INT,
                        (void*)((size_t)r.first * sizeof(u32)));
         sh_st.cast_indices += (u64)r.second;

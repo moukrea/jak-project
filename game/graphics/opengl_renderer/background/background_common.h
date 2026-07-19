@@ -205,6 +205,7 @@ struct PbrShadowState {
   GLuint fbo[2] = {0, 0};
   GLuint depth_tex[2] = {0, 0};
   int size = 1024;
+  float shadow_half = 40.0f;  // ROUND-2 Shadow Distance: ortho half-extent in meters (box=2x)
   u64 frame = ~0ull;   // frame_idx that last cleared the write map
   bool valid = false;  // resources created OK
   int write = 0;          // buffer index this frame's depth pass renders into

@@ -154,6 +154,10 @@ class Tie3 : public BucketRenderer {
     // (first_index, index_count) into tree.index_buffer.
     std::vector<std::pair<u32, u32>> pbr_full_ranges;
     bool pbr_full_ranges_built = false;
+    // ROUND 2: envmap-TIE casters (shiny buildings/props) use their OWN cached full-index
+    // ranges for the NORMAL_ENVMAP category so they don't clobber the NORMAL ranges above.
+    std::vector<std::pair<u32, u32>> pbr_full_ranges_env;
+    bool pbr_full_ranges_env_built = false;
 #endif
   };
 
