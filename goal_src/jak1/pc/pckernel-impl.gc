@@ -89,6 +89,8 @@
    (pbr-materials? symbol) ;; Grecharged-pbr-materials: realtime PBR lighting/shading over custom-asset materials. #f = stock shading.
    (realtime-lighting? symbol) ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting (one sun, N.L per face, NO ambient). #f = stock/pbr-materials shading.
    (realtime-lighting-baked? symbol) ;; Grecharged-realtime-lighting: keep baked vertex lighting when realtime lighting is ON. #f (default) = baked OFF (pure sun, the dev state).
+   (realtime-shadow-dist float)
+   (realtime-shadow-quality int32)
    (recharged-foliage-wind? symbol) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
    (ambient-occlusion   int32) ;; Grecharged-ambient-occlusion: 0=off 1=ssao 2=hbao 3=gtao. Default OFF (0).
    (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
@@ -133,7 +135,9 @@
 (define-extern pc-set-pbr-lights! (function pointer none))
 ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting master toggle + baked sub-option.
 (define-extern pc-set-rt-light! (function int none))
-(define-extern pc-set-rt-baked! (function int none)))
+(define-extern pc-set-rt-baked! (function int none))
+(define-extern pc-set-rt-shadow-dist! (function int none))
+(define-extern pc-set-rt-shadow-res! (function int none)))
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
 (define-extern pc-set-ambient-occlusion! (function int int int none))
@@ -223,6 +227,8 @@
   (set! (-> obj pbr-materials?) #t) ;; Grecharged-pbr-materials: default ON (toggle still exists; OFF == stock shading)
   (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
   (set! (-> obj realtime-lighting-baked?) #f) ;; Grecharged-realtime-lighting: default baked OFF (pure sun, the dev/working state)
+  (set! (-> obj realtime-shadow-dist) 90.0)
+  (set! (-> obj realtime-shadow-quality) 1) ;; 0=Low(1024) 1=Med(2048) 2=High(4096)
   (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
   (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
   (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality

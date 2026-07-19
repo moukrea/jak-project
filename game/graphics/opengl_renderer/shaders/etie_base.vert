@@ -18,11 +18,17 @@ uniform int decal;
 out vec4 fragment_color;
 out vec3 tex_coord;
 out float fogginess;
+#ifdef OG_PBR
+out vec3 v_fringe_rel;
+#endif
 
 // etie stuff
 uniform vec4 persp0;
 uniform vec4 persp1;
 uniform mat4 cam_no_persp;
+#ifdef OG_PBR
+uniform vec4 cam_trans;
+#endif
 
 void main() {
   float fog1 = camera[3].w + camera[0].w * position_in.x + camera[1].w * position_in.y + camera[2].w * position_in.z;
@@ -31,6 +37,9 @@ void main() {
   vf17 += cam_no_persp[0] * position_in.x;
   vf17 += cam_no_persp[1] * position_in.y;
   vf17 += cam_no_persp[2] * position_in.z;
+#ifdef OG_PBR
+  v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
+#endif
   vec4 p_proj = vec4(persp1.x * vf17.x, persp1.y * vf17.y, persp1.z, persp1.w);
   p_proj += persp0 * vf17.z;
 

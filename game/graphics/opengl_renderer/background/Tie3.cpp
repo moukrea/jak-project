@@ -937,6 +937,16 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id(),
                                settings.camera.trans.data());
     }
+  } else {
+    // Round-3 defect A/B: envmap-tie base (ETIE_BASE) receives the sun N.L in-shader; also
+    // bind the shadow receiver so it RECEIVES cast shadows (round-2 known gap). ETIE_BASE is
+    // the active program here (first_tfrag_draw_setup, envmap branch).
+    if ((Gfx::g_global_settings.recharged_pbr_enable ||
+         Gfx::g_global_settings.recharged_rt_light_enable) &&
+        pbr_shadow_state().valid) {
+      pbr_shadow_bind_receiver(render_state->shaders[ShaderId::ETIE_BASE].id(),
+                               settings.camera.trans.data());
+    }
   }
 #endif
 
@@ -1507,6 +1517,16 @@ void Tie3::render_tree_wind(int idx,
 
   auto shader_id = ShaderId::TIE_WIND;
   first_tfrag_draw_setup(settings.camera, render_state, shader_id);
+#ifdef OG_FEAT_PBR
+  // Round-3 defect A/B: wind-tie foliage receives the sun N.L in-shader; bind the shadow
+  // receiver so it also RECEIVES cast shadows. TIE_WIND is the active program here.
+  if ((Gfx::g_global_settings.recharged_pbr_enable ||
+       Gfx::g_global_settings.recharged_rt_light_enable) &&
+      pbr_shadow_state().valid) {
+    pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TIE_WIND].id(),
+                             settings.camera.trans.data());
+  }
+#endif
   glBindVertexArray(tree.vao);
   glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,

@@ -28,4 +28,8 @@ grep -qiE 'all (casters|geometry|tie)|complete.*caster|every.*caster' "$R" || fa
 grep -qiE 'beyond.*range.*(lit|shad|N.?L)|distant.*(lit|shaded)|N.?L.*(everywhere|global|whole world|unconditional)' "$R" || fail "no global-N.L-beyond-shadow-range evidence (round-3 defect A)"
 grep -qiE 'shrub' "$R" || fail "no shrub cast/receive evidence (round-3 defect B)"
 grep -qiE 'menu row|Recharged Settings.*(row|toggle|slider)|in-game menu|4 (rows|settings)' "$R" || fail "no in-menu settings evidence (round-3 defect D)"
+grep -qiE '150' "$R" || fail "no default-distance-150 evidence (round-4)"
+grep -qiE 'baked.*fallback|fallback.*baked|crossfade.*baked|far.*baked' "$R" || fail "no far=baked fallback evidence (round-4)"
+grep -qiE 'anti.?pixel|never.*pixel|adaptive PCF|distance-aware.*(blur|pcf|soft)|smooth.*distant' "$R" || fail "no shadow anti-pixelation evidence (round-4)"
+grep -qiE 'very low|very high|5 (tier|quality|level)|512.*8192' "$R" || fail "no 5-tier quality evidence (round-4)"
 echo "[Grtl PASS]"

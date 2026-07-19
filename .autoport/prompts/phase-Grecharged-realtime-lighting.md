@@ -161,3 +161,34 @@ ACCEPTANCE (device): distant object beyond shadow range is STILL sun-lit/dark-sh
   casts AND receives (defect B); the cast-shadow zone reaches well ahead of Jak with the fade far out
   (defect C); all 4 rows work from the in-game menu, live + persisted (defect D). Sun-only, no ambient,
   baked OFF stay. OFF==stock.
+
+## OWNER ROUND 4 (2026-07-19 15:15, Honor playtest — "c'est vraiment pas mal je trouve!") — final sun polish
+Owner pleased; these are the LAST sun refinements before moving to other light sources (owner: "fais ce
+que je t'ai demandé et on pourra ENFIN passer aux autres sources de lumière, mais APRÈS!"). Four items:
+
+1. DEFAULT SHADOW DISTANCE = 150 (was 40). Set recharged_rt_shadow_dist default to 150 m.
+
+2. OUT-OF-RANGE FALLBACK = BAKED (revises round-3's "bare N.L far"): within the realtime shadow zone the
+   surface is lit by the realtime sun + cast shadows (baked suppressed there if the baked-off toggle is
+   on); BEYOND the shadow distance, CROSSFADE BACK TO THE BAKED lighting so distant areas stay coherent
+   (baked carries AO/bounce/painted detail — better than bare N.L far). The baked-off toggle only
+   suppresses baked INSIDE the realtime zone; the far fallback always uses baked. Smooth distance
+   crossfade at the range boundary (reuse/extend the existing fade band). Result: no flat/unshaded far,
+   the world reads coherently to the horizon.
+
+3. SHADOW ANTI-PIXELATION — shadows must NEVER look pixelated in the field of view, EVER (owner emphatic).
+   Distant-object cast shadows are "très très pixelisées, c'est pas beau". Add distance-aware softening:
+   adaptive/wider PCF kernel that grows with shadow-map texel footprint at distance (and/or a screen-space
+   blur of the shadow term), so a far caster's shadow is SMOOTH, never blocky. The requirement is absolute:
+   nowhere in the FOV should a shadow edge look pixelated. Prove it on a distant caster (its shadow is
+   smooth) and at Very-Low quality (still smooth, just softer).
+
+4. QUALITY = 5 TIERS (add Very Low + Very High to the current Low/Med/High): e.g. Very Low 512 / Low 1024 /
+   Med 2048 / High 4096 / Very High 8192. Very High targets strong GPUs (owner's Honor = Snapdragon 8
+   Elite); guard VRAM so a weak GPU (Redmi Adreno 618) does not crash at the top tier (clamp or fail-safe).
+   Update the menu Shadow Quality row to cycle all 5.
+
+ACCEPTANCE (device): default distance 150 (visibly far); far areas fall back to baked (coherent, not flat);
+NO pixelated shadow anywhere in view incl. distant casters + Very-Low tier (smooth); 5 quality tiers
+selectable in the menu, each visibly different. Keep round-1..3 wins. Sun-only still (ambient/other lights
+come in the NEXT phase, after this). OFF==stock.

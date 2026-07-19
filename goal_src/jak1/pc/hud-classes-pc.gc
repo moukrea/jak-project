@@ -1698,7 +1698,11 @@
     ;; toggle + the baked sub-option every frame. The sun DIRECTION already reaches the
     ;; renderer via pc-set-pbr-sky-sun! above (the visible-sun dome vector).
     (pc-set-rt-light! (if (-> obj realtime-lighting?) 1 0))
-    (pc-set-rt-baked! (if (-> obj realtime-lighting-baked?) 1 0)))
+    (pc-set-rt-baked! (if (-> obj realtime-lighting-baked?) 1 0))
+    (pc-set-rt-shadow-dist! (the int (-> obj realtime-shadow-dist)))
+    (pc-set-rt-shadow-res! (cond ((= (-> obj realtime-shadow-quality) 0) 1024)
+                                 ((= (-> obj realtime-shadow-quality) 2) 4096)
+                                 (else 2048))))
   (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
   (#when FLAG_HD_MODELS (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0)))
   ;; Grecharged-ambient-occlusion: push the AO mode + quality + strength every frame (1:1, no translation).

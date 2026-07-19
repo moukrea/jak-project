@@ -14,16 +14,25 @@ uniform float fog_max;
 // texel-exact on desktop GL and required on GLES (no sampler1D).
 uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 uniform int decal;
+#ifdef OG_PBR
+uniform vec4 cam_trans;
+#endif
 
 out vec4 fragment_color;
 out vec3 tex_coord;
 out float fogginess;
+#ifdef OG_PBR
+out vec3 v_fringe_rel;
+#endif
 
 void main() {
   vec4 transformed = -camera[3];
   transformed -= camera[0] * position_in.x;
   transformed -= camera[1] * position_in.y;
   transformed -= camera[2] * position_in.z;
+#ifdef OG_PBR
+  v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
+#endif
   float Q = fog_constant / transformed.w;
 
   fogginess = 255.0 - clamp(-transformed.w + hvdf_offset.w, fog_min, fog_max);

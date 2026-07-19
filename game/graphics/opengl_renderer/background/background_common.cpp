@@ -769,8 +769,8 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // (statics), overridable by debug prop / env for headless A/B. A resolution change
   // reallocates the depth textures (this runs on the GL thread). Distance sets shadow_half.
   static u64 s_cfg_frame = ~0ull;
-  static int s_req_res = 1024;
-  static float s_req_dist = 40.0f;
+  static int s_req_res = 2048;
+  static float s_req_dist = 90.0f;
   if (frame_idx != s_cfg_frame) {
     s_cfg_frame = frame_idx;
     int rr = Gfx::g_global_settings.recharged_rt_shadow_res;

@@ -34,6 +34,9 @@ uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 out vec4 fragment_color;
 out vec3 tex_coord;
 out float fogginess;
+#ifdef OG_PBR
+out vec3 v_fringe_rel;
+#endif
 
 void main() {
   // old system:
@@ -74,6 +77,9 @@ void main() {
     wpos.x += sin(ph2) * u_wind_strength * hw * 0.25;
   }
   vec3 vert = wpos - cam_trans.xyz;
+#ifdef OG_PBR
+  v_fringe_rel = vert * (1.0 / 4096.0);
+#endif
   vec4 transformed = -pc_camera[3];
   transformed -= pc_camera[0] * vert.x;
   transformed -= pc_camera[1] * vert.y;

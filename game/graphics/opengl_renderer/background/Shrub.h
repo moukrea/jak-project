@@ -33,6 +33,7 @@ class Shrub : public BucketRenderer {
   struct Tree {
     GLuint vertex_buffer;
     GLuint index_buffer;
+    u32 index_count = 0;  // Grecharged-realtime-lighting round-3: full static strip index count, for the shadow caster pass
     GLuint single_draw_index_buffer;
     GLuint time_of_day_texture;
     // Gperf-particles round 3: second TOD texture for the ping-pong path, plus

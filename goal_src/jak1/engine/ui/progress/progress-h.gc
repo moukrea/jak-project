@@ -174,7 +174,8 @@
      ;; ao-strength = Weaker/Default/Stronger (closing round; disabled while AO Off).
      (ambient-occlusion)
      (ao-quality)
-     (ao-strength))) ;; end of PC_PORT = #t branch for enum initialization
+     (ao-strength)
+     (shadow-quality))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

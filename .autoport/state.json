@@ -209,7 +209,7 @@
     "Grecharged-buildsys-firstboot": 1,
     "Grecharged-buildsys-cidocs": 2,
     "Grecharged-pbr-materials": 4,
-    "Grecharged-realtime-lighting": 0
+    "Grecharged-realtime-lighting": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -842,7 +842,7 @@
     "Grecharged-pbr-materials": 1784301214.1679,
     "Grecharged-realtime-lighting": 1784417601.6690388
   },
-  "last_update": "2026-07-19T09:20:13.631940+00:00",
+  "last_update": "2026-07-19T13:20:24.680738+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
