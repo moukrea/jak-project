@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# r4_build_deploy.sh — Grecharged-realtime-lighting ROUND 4 full consistent build + deploy.
+# Adapted from ao_build_deploy.sh (same --pbr GOAL+shader+text deploy pattern). Rebuilds, in
+# one consistent pass:
+#   * 28 arm64 CGO/DGO   (round-4 GOAL: 5-tier shadow-quality carousell + hud-classes cond +
+#                         pckernel defaults dist=150/quality=Med + text-h ids 1714/1715)
+#   * game text TXT      (game_custom_text ids 1714/1715 = VERY LOW / VERY HIGH -> 0COMMON.TXT)
+#   * libgk.so           (round-4 shaders in the GLES blob: adaptive anti-pixel PCF + far=baked
+#                         crossfade; background_common 5-tier snap + VRAM guard; gfx.h dist 150)
+#   * APK                (bundles the fresh libgk)
+# deploy_verify + deploy_verify_assets prove the device runs fresh HEAD.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
+SDEV=eae4df44; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
+APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+OUT=.autoport/reports/Grecharged-realtime-lighting; mkdir -p "$OUT/device"
+say(){ echo; echo "######## $* ########"; }
+die(){ echo "[r4-build FAIL] $*" >&2; exit 1; }
+
+say "1. FULL consistent arm64 build (28 CGO/DGO) + x86 oracle restore"
+bash .autoport/build_arm64_full_consistent.sh || die "full arm64 build failed (GOAL error?)"
+n=$(ls out/jak1-arm64-full/iso/*.CGO out/jak1-arm64-full/iso/*.DGO 2>/dev/null | wc -l)
+[ "$n" -eq 28 ] || die "expected 28 staged arm64 files, got $n"
+# the x86 restore pass regenerates out/jak1/iso incl. the text banks with the round-4 ids
+grep -q "VERY HIGH" <(strings -a out/jak1/iso/0COMMON.TXT) || die "0COMMON.TXT missing round-4 strings (text not rebuilt)"
+
+say "1b. regenerate android-text overlay + cgo pack (text banks ride the pack; a stale pack re-extracts over pushed TXT)"
+bash .autoport/gtt_build_android_text.sh || die "android-text overlay rebuild failed"
+grep -q "VERY HIGH" <(strings -a out/jak1-android-text/0COMMON.TXT) || die "out/jak1-android-text/0COMMON.TXT missing round-4 strings"
+bash android/build_cgo_pack.sh jak1 || die "cgo pack rebuild failed"
+[ "$(unzip -p android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip 0COMMON.TXT | strings -a | grep -c 'VERY HIGH')" -gt 0 ] || die "cgo pack 0COMMON.TXT still stale"
+
+say "2. build android libgk (round-4 shaders enter the GLES blob; C++ 5-tier + VRAM guard)"
+cmake --build build-android --target gk -j"$(nproc)" 2>&1 | tail -12
+[ -f build-android/lib/arm64-v8a/libgk.so ] || die "libgk.so not built"
+SHD_FAR=$(strings -a build-android/lib/arm64-v8a/libgk.so | grep -ciE 'far_rng')
+SHD_PCF=$(strings -a build-android/lib/arm64-v8a/libgk.so | grep -ciE 'hrot')
+CPP_VRAM=$(strings -a build-android/lib/arm64-v8a/libgk.so | grep -ciE 'falling back to 2048')
+RT_UNI=$(strings -a build-android/lib/arm64-v8a/libgk.so | grep -ciE 'u_rt_shadow_range')
+echo "  libgk round-4 proof: far_rng=${SHD_FAR:-0} hrot(anti-pixel PCF)=${SHD_PCF:-0} VRAM-guard=${CPP_VRAM:-0} u_rt_shadow_range=${RT_UNI:-0}"
+[ "${SHD_FAR:-0}" -gt 0 ] || die "libgk.so missing far=baked crossfade shader (far_rng) — round-4 shaders not embedded"
+[ "${SHD_PCF:-0}" -gt 0 ] || die "libgk.so missing adaptive anti-pixel PCF (hrot)"
+[ "${CPP_VRAM:-0}" -gt 0 ] || die "libgk.so missing VRAM-guard C++ (5-tier) — background_common not rebuilt"
+[ "${RT_UNI:-0}" -gt 0 ]  || die "libgk.so missing rt shadow uniforms"
+
+say "3. assemble APK"
+( cd android && ./gradlew assembleJak1Debug 2>&1 | tail -8 ) || die "gradle assemble failed"
+[ -f "$APK" ] || die "APK not produced"
+
+say "4. install APK + deploy_verify (build==APK==device libgk)"
+$ADB -s $SDEV shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+if $ADB -s $SDEV shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; then die "DEVICE_LOCKED — needs owner unlock"; fi
+$ADB -s $SDEV shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow 2>/dev/null || true
+$ADB -s $SDEV shell pm trim-caches 999G 2>/dev/null || true
+$ADB -s $SDEV install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -3 || die "apk install failed"
+bash .autoport/lib/deploy_verify.sh "$SDEV" jak1 2>&1 | tail -5 || die "deploy_verify (libgk) failed"
+
+say "5. ensure extraction done (boot once if needed) then push consistent CGOs + text"
+PACK_VER=$(grep '^version=' android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties | cut -d= -f2)
+extract_done(){ [ "$($ADB -s $SDEV shell run-as $PKG cat files/.cgo_pack_stamp_jak1 2>/dev/null | tr -d '\r')" = "$PACK_VER" ] \
+  && $ADB -s $SDEV shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 \
+  && [ "$($ADB -s $SDEV shell run-as $PKG ls files/cgo/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
+if ! extract_done; then
+  echo "  bundle stamp/CGOs missing -> boot once to extract (can take minutes)"
+  $ADB -s $SDEV shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
+  t0=$(date +%s)
+  while [ $(( $(date +%s) - t0 )) -lt 900 ]; do
+    extract_done && break
+    sleep 10
+  done
+  extract_done || die "asset bundle stamp/CGO set never appeared in 900s"
+  $ADB -s $SDEV shell am force-stop $PKG >/dev/null 2>&1 || true
+fi
+bash .autoport/Gconsolidate_deploy_cgos.sh 2>&1 | tail -5 || die "CGO push failed"
+
+say "5b. push rebuilt text banks (round-4 VERY LOW/VERY HIGH) into the files/cgo overlay"
+push_txt_set(){ local SRC="$1" DST="$2" f b lsha dsha
+  for f in "$SRC"/*.TXT; do
+    b=$(basename "$f")
+    lsha=$(sha256sum "$f" | cut -d' ' -f1)
+    $ADB -s $SDEV push "$f" /data/local/tmp/"$b" >/dev/null 2>&1 || die "push $b to tmp failed"
+    $ADB -s $SDEV shell "run-as $PKG sh -c 'cp /data/local/tmp/$b $DST/$b'" || die "cp $b -> $DST failed"
+    dsha=$($ADB -s $SDEV shell "run-as $PKG sha256sum $DST/$b" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+    [ "$lsha" = "$dsha" ] || die "sha mismatch for $DST/$b (local $lsha device $dsha)"
+    $ADB -s $SDEV shell rm -f /data/local/tmp/"$b" >/dev/null 2>&1 || true
+  done
+}
+if $ADB -s $SDEV shell "run-as $PKG sh -c 'ls files/cgo/jak1/GAME.CGO'" >/dev/null 2>&1; then
+  for b in $($ADB -s $SDEV shell "run-as $PKG sh -c 'ls files/cgo/jak1/'" 2>/dev/null | tr -d '\r' | grep 'COMMON\.TXT$'); do
+    [ -f "out/jak1-android-text/$b" ] || {
+      echo "  removing stray overlay TXT: $b"
+      $ADB -s $SDEV shell "run-as $PKG rm -f files/cgo/jak1/$b" >/dev/null 2>&1 || die "rm stray $b failed"; }
+  done
+  push_txt_set out/jak1-android-text files/cgo/jak1
+  echo "  ok: $(ls out/jak1-android-text/*.TXT | wc -l) android TXT banks -> files/cgo/jak1 (sha-verified)"
+fi
+bash .autoport/lib/deploy_verify_assets.sh "$SDEV" jak1 2>&1 | tail -5 || die "deploy_verify_assets failed"
+
+say "6. relaunch: reach live render, no crash, jak1 foreground"
+$ADB -s $SDEV shell am force-stop $PKG >/dev/null 2>&1 || true
+$ADB -s $SDEV logcat -c >/dev/null 2>&1 || true
+LOG="$OUT/device/r4-boot-logcat.log"; : > "$LOG"
+( $ADB -s $SDEV logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
+   | grep --line-buffered -aE 'A35-RENDER frame=|link finish|Fatal signal|signal [0-9]+ \(SIG|GK-DIAG sig=' >> "$LOG" ) 2>/dev/null &
+LCP=$!
+trap 'kill ${LCP:-0} 2>/dev/null || true' EXIT
+$ADB -s $SDEV shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
+t0=$(date +%s); ok=0
+while [ $(( $(date +%s) - t0 )) -lt 240 ]; do
+  if grep -aqE 'GK-DIAG sig=11|Fatal signal (11|6|4)|signal (11|6|4) \(SIG' "$LOG" 2>/dev/null; then echo "  CRASH during boot"; break; fi
+  rf=$(grep -acE 'A35-RENDER frame=' "$LOG" 2>/dev/null); rf=${rf:-0}
+  [ "$rf" -ge 5 ] 2>/dev/null && { ok=1; break; }
+  sleep 3
+done
+FOCUS=$($ADB -s $SDEV shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus' | head -1 | tr -d '\r')
+echo "  reached_render=$ok focus=$FOCUS"
+case "$FOCUS" in *org.opengoal.gk.jak1*) : ;; *) die "app not foreground: $FOCUS" ;; esac
+[ "$ok" = 1 ] || die "did not reach render (crash or hang)"
+# End-state proof: the active overlay TXT still carries the round-4 strings after final boot.
+[ "$($ADB -s $SDEV shell "run-as $PKG cat files/cgo/jak1/0COMMON.TXT" 2>/dev/null | strings -a | grep -c 'VERY HIGH')" -gt 0 ] || die "device overlay 0COMMON.TXT lacks round-4 strings after final boot"
+$ADB -s $SDEV shell am force-stop $PKG >/dev/null 2>&1 || true
+echo "[r4-build] DONE — round-4 build on device, boots to render, deploy_verify + assets + text PASS."

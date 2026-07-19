@@ -812,6 +812,9 @@
   (pc-text-ao-default #x1711)
   (pc-text-ao-stronger #x1712)
   (pc-text-ao-strength #x1713)
+  ;; Grecharged-realtime-lighting round-4: SHADOW QUALITY 5-tier extremes (Very Low / Very High).
+  (pc-text-ao-very-low #x1714)
+  (pc-text-ao-very-high #x1715)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

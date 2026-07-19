@@ -227,8 +227,8 @@
   (set! (-> obj pbr-materials?) #t) ;; Grecharged-pbr-materials: default ON (toggle still exists; OFF == stock shading)
   (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
   (set! (-> obj realtime-lighting-baked?) #f) ;; Grecharged-realtime-lighting: default baked OFF (pure sun, the dev/working state)
-  (set! (-> obj realtime-shadow-dist) 90.0)
-  (set! (-> obj realtime-shadow-quality) 1) ;; 0=Low(1024) 1=Med(2048) 2=High(4096)
+  (set! (-> obj realtime-shadow-dist) 150.0)
+  (set! (-> obj realtime-shadow-quality) 2) ;; 0=VLow(512) 1=Low(1024) 2=Med(2048) 3=High(4096) 4=VHigh(8192)
   (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
   (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
   (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality

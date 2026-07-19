@@ -407,7 +407,7 @@
 (def-progress-carousell *carousell-ao-strength* (pc-text-ao-weaker pc-text-ao-default pc-text-ao-stronger))
 ;; Grecharged-realtime-lighting: SHADOW QUALITY carousell (Low/Med/High = 1024/2048/4096 shadow-map res).
 ;; Reuses the AO low/med/high text-ids (they render LOW/MEDIUM/HIGH, which fits Shadow Quality).
-(def-progress-carousell *carousell-shadow-quality* (pc-text-ao-low pc-text-ao-medium pc-text-ao-high))
+(def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons

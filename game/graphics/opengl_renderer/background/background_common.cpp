@@ -703,6 +703,19 @@ void pbr_shadow_ensure_resources() {
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
   glGetIntegerv(GL_VIEWPORT, prev_vp);
 
+  // ROUND-4 Very High (8192) tier VRAM/limit guard: clamp the requested shadow-map size to
+  // the driver's GL_MAX_TEXTURE_SIZE so a weak GPU (Adreno 618) never asks for an
+  // unsupported allocation. (Genuine OOM at the top tier is caught below via glGetError.)
+  {
+    GLint max_tex = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_tex);
+    if (max_tex > 0 && st.size > max_tex) {
+      st.size = max_tex;
+    }
+    while (glGetError() != GL_NO_ERROR) {
+    }
+  }
+
   st.valid = true;
   for (int i = 0; i < 2; i++) {
     glGenTextures(1, &st.depth_tex[i]);
@@ -745,6 +758,26 @@ void pbr_shadow_ensure_resources() {
     }
   }
 
+  // ROUND-4: if the driver rejected the top-tier allocation (GL_OUT_OF_MEMORY / unsupported),
+  // fall back to a safe 2048 map and re-allocate instead of crashing or rendering broken.
+  if (glGetError() != GL_NO_ERROR && st.size > 2048) {
+    lg::warn("Grecharged-realtime-lighting: shadow-map {}x{} alloc failed; falling back to 2048",
+             st.size, st.size);
+    glDeleteFramebuffers(2, st.fbo);
+    glDeleteTextures(2, st.depth_tex);
+    st.fbo[0] = 0;
+    st.fbo[1] = 0;
+    st.depth_tex[0] = 0;
+    st.depth_tex[1] = 0;
+    st.size = 2048;
+    st.valid = true;
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+    glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    pbr_shadow_ensure_resources();
+    return;
+  }
+
   // Restore prior FBO + viewport.
   glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
   glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
@@ -770,7 +803,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // reallocates the depth textures (this runs on the GL thread). Distance sets shadow_half.
   static u64 s_cfg_frame = ~0ull;
   static int s_req_res = 2048;
-  static float s_req_dist = 90.0f;
+  static float s_req_dist = 150.0f;
   if (frame_idx != s_cfg_frame) {
     s_cfg_frame = frame_idx;
     int rr = Gfx::g_global_settings.recharged_rt_shadow_res;
@@ -793,13 +826,18 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
       rd = (float)std::atof(e);
     }
 #endif
-    // Snap resolution to the three supported tiers; clamp distance to a sane range.
-    if (rr >= 3072) {
+    // ROUND-4: snap resolution to the FIVE supported tiers (Very Low 512 / Low 1024 /
+    // Med 2048 / High 4096 / Very High 8192); clamp distance to a sane range.
+    if (rr >= 6144) {
+      rr = 8192;
+    } else if (rr >= 3072) {
       rr = 4096;
     } else if (rr >= 1536) {
       rr = 2048;
-    } else {
+    } else if (rr >= 768) {
       rr = 1024;
+    } else {
+      rr = 512;
     }
     if (rd < 15.0f) {
       rd = 15.0f;

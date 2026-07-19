@@ -141,8 +141,8 @@ void main() {
     vec3 sm_dbg_suv = vec3(-1.0);  // viz mode 14: shadow-space UV + in-box flag
     float sm_dbg_inbox = 0.0;
     if (u_pbr_shadow_on != 0) {
-      float rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 40.0;
-      float res = u_rt_shadow_res > 1.0 ? u_rt_shadow_res : 1024.0;
+      float rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
+      float res = u_rt_shadow_res > 1.0 ? u_rt_shadow_res : 2048.0;
       float texel = 1.0 / res;
       float texel_world = (2.0 * rng) / res;  // world meters per shadow texel
       // Per-face WORLD normal for the normal-offset bias (camera-independent: v_fringe_rel
@@ -171,18 +171,33 @@ void main() {
         // in-box fragment SHADOWED — the binary compare-path test.
         float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
         float ref = suv.z - bias;
-        // Manual 4-tap PCF (Adreno HW-compare returns constant 1.0 — proven this phase).
-        // Higher resolution -> smaller texel -> crisper edge = the Shadow Quality lever.
-        sm_shadow  = ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5, -0.5) * texel).r ? 1.0 : 0.0;
-        sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5, -0.5) * texel).r ? 1.0 : 0.0;
-        sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5,  0.5) * texel).r ? 1.0 : 0.0;
-        sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5,  0.5) * texel).r ? 1.0 : 0.0;
-        sm_shadow *= 0.25;
+        // ROUND-4 item #3 ANTI-PIXELATION (owner: a shadow must NEVER look pixelated
+        // anywhere in the FOV, ever). Distance-adaptive PCF: the kernel RADIUS grows with
+        // the fragment's camera distance, so a far caster's shadow (few shadow-texels per
+        // screen pixel = blocky) is smoothed into a soft gradient, while near casters stay
+        // crisp (small radius => the Shadow Quality resolution still reads as edge sharpness).
+        // The 9-tap grid is ROTATED by a per-fragment hash so no blocky grid pattern survives
+        // even at Very Low (512) where each texel is large. Manual compare (Adreno HW-compare
+        // returns constant 1.0 — proven this phase).
+        float sdist = length(v_fringe_rel);
+        float soft = 0.75 + 6.5 * smoothstep(0.0, rng, sdist);   // PCF radius in texels
+        float rr = texel * soft;
+        float hang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+        vec2 hc = vec2(cos(hang), sin(hang));
+        mat2 hrot = mat2(hc.x, -hc.y, hc.y, hc.x);
+        sm_shadow = 0.0;
+        for (int iy = -1; iy <= 1; iy++) {
+          for (int ix = -1; ix <= 1; ix++) {
+            vec2 o = hrot * (vec2(float(ix), float(iy)) * rr);
+            sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + o).r ? 1.0 : 0.0;
+          }
+        }
+        sm_shadow *= (1.0 / 9.0);
         // ROUND-2 no-pop fade (owner defect #2): fade the CAST shadow smoothly to 'lit'
         // toward the realtime-zone edge, tied to the Shadow Distance setting (rng), instead
-        // of the old hard 30..39 m band. Beyond the zone the coherent, stable fallback is
-        // pure directional N.L sun shading (no cast shadow) — it never swims and there is no
-        // hard cut as the camera approaches or recedes.
+        // of the old hard 30..39 m band. (Round-4: just past the edge the whole surface then
+        // crossfades to the stock BAKED lighting — see the sun block below — so there is no
+        // hard cut and no flat/unshaded far; the shadow simply softens out first.)
         float edge_fade = 1.0 - smoothstep(rng * 0.72, rng * 0.96, length(v_fringe_rel));
         sm_shadow = mix(1.0, sm_shadow, edge_fade);
       }
@@ -217,7 +232,19 @@ void main() {
       // baked macro shading back in as a multiplier.
       vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
       vec3 lit = albedo * baked * u_rt_sun_color * (ndl * shadow);
-      color.rgb = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
+      vec3 sun_disp = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
+      // ROUND-4 item #2 OUT-OF-RANGE FALLBACK = BAKED (revises round-3's bare-N.L far).
+      // Within the realtime shadow zone the surface is lit by the realtime sun + cast
+      // shadow (baked suppressed here when the baked-off sub-option is on). BEYOND the
+      // Shadow Distance, CROSSFADE BACK to the stock baked lighting (fragment_color * T0 —
+      // it carries AO / bounce / painted macro detail) so distant geometry reads coherent
+      // to the horizon instead of flat/unshaded. The baked-off toggle only suppresses baked
+      // INSIDE the zone; the far fallback ALWAYS uses baked. Smooth distance crossfade tied
+      // to the Shadow Distance setting (rng) — no flat far, no hard pop.
+      float far_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
+      float far_t = smoothstep(far_rng * 0.82, far_rng * 1.05, length(v_fringe_rel));
+      vec3 baked_disp = max(fragment_color.rgb * T0.rgb, vec3(0.0));
+      color.rgb = mix(sun_disp, baked_disp, far_t);
       // Debug viz (shared prop u_pbr_debug): 1=N.L factor, 2=world normal,
       // 12=shadow factor.
       if (u_pbr_debug == 1) {

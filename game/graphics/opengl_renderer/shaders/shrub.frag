@@ -54,8 +54,8 @@ void main() {
       float ndl = max(dot(N, L), 0.0);
       float shadow = 1.0;
       if (u_pbr_shadow_on != 0) {
-        float rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 40.0;
-        float res = u_rt_shadow_res > 1.0 ? u_rt_shadow_res : 1024.0;
+        float rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
+        float res = u_rt_shadow_res > 1.0 ? u_rt_shadow_res : 2048.0;
         float texel = 1.0 / res;
         float texel_world = (2.0 * rng) / res;
         float noff = texel_world * mix(1.5, 5.0, 1.0 - ndl);
@@ -64,12 +64,23 @@ void main() {
         vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
         if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
           float ref = suv.z - (0.0010 + u_pbr_shadow_bias);
+          // ROUND-4 item #3 ANTI-PIXELATION: distance-adaptive PCF radius grows with camera
+          // distance so far cast shadows are smoothed (never pixelated in the FOV), near stays
+          // crisp; a per-fragment rotation dithers the 9-tap grid (smooth even at Very Low 512).
+          float sdist = length(v_fringe_rel);
+          float soft = 0.75 + 6.5 * smoothstep(0.0, rng, sdist);
+          float rr = texel * soft;
+          float hang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+          vec2 hc = vec2(cos(hang), sin(hang));
+          mat2 hrot = mat2(hc.x, -hc.y, hc.y, hc.x);
           float sm = 0.0;
-          sm += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5, -0.5) * texel).r ? 1.0 : 0.0;
-          sm += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5, -0.5) * texel).r ? 1.0 : 0.0;
-          sm += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2(-0.5,  0.5) * texel).r ? 1.0 : 0.0;
-          sm += ref <= texture(tex_PBR_SHADOW, suv.xy + vec2( 0.5,  0.5) * texel).r ? 1.0 : 0.0;
-          sm *= 0.25;
+          for (int iy = -1; iy <= 1; iy++) {
+            for (int ix = -1; ix <= 1; ix++) {
+              vec2 o = hrot * (vec2(float(ix), float(iy)) * rr);
+              sm += ref <= texture(tex_PBR_SHADOW, suv.xy + o).r ? 1.0 : 0.0;
+            }
+          }
+          sm *= (1.0 / 9.0);
           float edge_fade = 1.0 - smoothstep(rng * 0.72, rng * 0.96, length(v_fringe_rel));
           shadow = mix(1.0, sm, edge_fade);
         }
@@ -77,7 +88,14 @@ void main() {
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       vec3 baked = u_rt_use_baked != 0 ? pow(max(fragment_color.rgb, vec3(0.0)), vec3(2.2)) : vec3(1.0);
       vec3 lit = albedo * baked * u_rt_sun_color * (ndl * shadow);
-      color.rgb = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
+      vec3 sun_disp = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
+      // ROUND-4 item #2: beyond the Shadow Distance, crossfade back to the stock BAKED
+      // lighting (fragment_color * T0 = AO/painted macro detail) so far geometry reads
+      // coherent, not flat. baked-off only suppresses baked INSIDE the zone.
+      float far_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
+      float far_t = smoothstep(far_rng * 0.82, far_rng * 1.05, length(v_fringe_rel));
+      vec3 baked_disp = max(fragment_color.rgb * T0.rgb, vec3(0.0));
+      color.rgb = mix(sun_disp, baked_disp, far_t);
       if (u_pbr_debug == 1) { color.rgb = vec3(ndl); }
       else if (u_pbr_debug == 2) { color.rgb = N * 0.5 + 0.5; }
       else if (u_pbr_debug == 12) { color.rgb = vec3(shadow); }

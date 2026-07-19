@@ -199,7 +199,7 @@ struct GfxGlobalSettings {
   // Driven from GOAL via pc-set-rt-shadow-res! / pc-set-rt-shadow-dist!, overridable by the
   // debug props debug.opengoal.rt.shadowres / .shadowdist (env OG_RT_SHADOWRES/DIST) for A/B.
   int recharged_rt_shadow_res = 2048;
-  float recharged_rt_shadow_dist = 90.0f;
+  float recharged_rt_shadow_dist = 150.0f;
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded
