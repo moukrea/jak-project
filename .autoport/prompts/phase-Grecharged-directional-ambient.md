@@ -1,5 +1,25 @@
 # Phase Grecharged-directional-ambient — the "pro way" ambient (form in shadow without AO)
 
+
+## PREREQUISITE FIXES (owner 2026-07-19, at realtime-lighting sign-off) — do these FIRST, they are correctness bugs
+The realtime-lighting feature has two toggle bugs to fix before/with the hemisphere work:
+1. REALTIME-LIGHTING OFF MUST == STOCK, BYTE-IDENTICAL. Owner: "quand on désactive le lighting dans les
+   paramètres rechargés, ça revient pas à comme c'est sensé être par défaut." When realtime-lighting? is #f,
+   every world shader (tfrag3/etie/shrub/tie_wind) must take the EXACT legacy baked-vertex×texture path,
+   pixel-identical to a build without the feature — no residual uniforms, no leftover floor/fade/shadow
+   state. Prove: realtime OFF frame == stock frame (diff ~0).
+2. REMOVE the useless separate baked toggle; HARDWIRE baked = NOT realtime-lighting. Owner: "le toggle
+   on/off du baked lighting sert à rien; quand on active le realtime, le baked doit être off, et il est on
+   quand on désactive le realtime — exactement comme par défaut, comme si on n'avait jamais implémenté la
+   feature." So: realtime ON -> baked suppressed; realtime OFF -> baked ON = stock. Delete the
+   realtime-lighting-baked? setting + its menu row; drive baked purely from realtime-lighting?.
+These land as part of this phase (they touch the same lighting path the hemisphere ambient does).
+
+## WHY THIS PHASE (owner motivation)
+Owner: with realtime sun-only ON, shadowed models look FLAT — "en l'état c'est moins beau que du baked
+lighting." The flat ~0.2 floor is the cause. This phase's hemisphere/SH/IBL directional ambient fixes that
+(form in shadow without AO), so realtime-lighting ON finally beats the baked look.
+
 ## Owner mandate (2026-07-19, chose Option B after the flat-floor discussion)
 Realtime-lighting shipped a FLAT ~0.2 sky-fill floor, so shadowed areas look flat. Owner (correct): modern
 games keep shadowed parts non-flat EVEN WITH AO OFF because the AMBIENT ITSELF IS DIRECTIONAL, not a

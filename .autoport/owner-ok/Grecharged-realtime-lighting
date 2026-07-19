@@ -1,0 +1,14 @@
+gate-close Grecharged-realtime-lighting — owner 2026-07-19 ~23:40 "Bon ça a l'air OK! Go pour la suite".
+
+Approved: the SUN-ONLY realtime lighting after 7 rounds — sun-side lit / dark-side floor, cast shadows
+(follow relief, blurred/no-pixel, distance 150, baked-far fallback), 5 quality tiers, uniform ~0.2
+sky-fill floor, partial (not-black) shadow, night sun-fade (Form-AO DROPPED per owner; night is the dark
+uniform floor with no phantom lights — supervisor-verified on device + owner Honor playtest). Menu rows
+present. Verified myself: validator PASS, night frames uniform (no lit zones), fresh round-7 report,
+deploy chain 7aabd88d9872c.
+
+CARRIED FORWARD into Grecharged-directional-ambient (owner raised at approval, folded into next phase as
+prerequisites): (a) realtime-lighting OFF must == stock BYTE-IDENTICAL (currently does not fully revert);
+(b) REMOVE the useless separate baked toggle — hardwire baked = NOT realtime (realtime ON -> baked OFF,
+realtime OFF -> baked ON = stock), so OFF is exactly as if the feature was never implemented. (c) the flat
+shadowed-model look ("moins beau que du baked") = the headline of directional-ambient (hemisphere).

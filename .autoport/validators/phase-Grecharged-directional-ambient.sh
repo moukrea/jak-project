@@ -14,4 +14,6 @@ grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "no device jak1 focus e
 ls "$D"/*.mp4 >/dev/null 2>&1 || fail "no device video"
 ls "$D"/*.png >/dev/null 2>&1 || fail "no device still"
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
+grep -qiE 'off ?== ?stock|byte-identical|realtime off.*stock|diff ~?0|pixel-identical' "$R" || fail "no realtime-OFF==stock byte-identical evidence (prereq 1)"
+grep -qiE 'baked toggle removed|removed.*baked.*toggle|hardwire.*baked|baked = ?not|baked.*driven.*realtime' "$R" || fail "no baked-toggle-removed/hardwired evidence (prereq 2)"
 echo "[Gda PASS]"
