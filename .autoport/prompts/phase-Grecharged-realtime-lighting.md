@@ -192,3 +192,27 @@ ACCEPTANCE (device): default distance 150 (visibly far); far areas fall back to 
 NO pixelated shadow anywhere in view incl. distant casters + Very-Low tier (smooth); 5 quality tiers
 selectable in the menu, each visibly different. Keep round-1..3 wins. Sun-only still (ambient/other lights
 come in the NEXT phase, after this). OFF==stock.
+
+## OWNER ROUND 5 (2026-07-19 16:20, real-world observation outside) — cast shadow must NOT be pure black + blur harder
+Owner is outside looking at real sunlit shadows. Two corrections (still perfecting the sun, before other lights):
+
+1. CAST SHADOW = PARTIAL DARKENING, NOT PURE BLACK. For testing, shadow=black was fine, but real cast
+   shadows under a CLEAR SKY are only ~80-85% darker than the lit area (the shadow still receives ~15-20%
+   from skylight). We have no ambient yet, so CHEAT: the cast-shadow term MULTIPLIES the surface by a
+   residual factor (~0.2 = shadow keeps ~20% brightness), NOT 0. Make it a tunable "Shadow Strength" /
+   opacity (default = 0.8 darkening i.e. shadow ≈ 0.2× lit, realistic clear-sky). This applies to the CAST
+   SHADOW occlusion term specifically. (The N·L dark side stays as before — owner previously said un-lit
+   black is intended; do NOT change that unless the owner asks. This item is about the projected shadow.)
+   Real-world reference the owner asked for: direct sun ~100k lux, clear-sky shade ~10-20k lux → shadow ≈
+   15-20% of lit. Default the residual to ~0.2, expose a strength control.
+
+2. BLUR HARDER — the round-4 adaptive blur DID NOT work: distant cast shadows are STILL staircased/
+   pixelated ("toujours pixelisé"). Fix it for real: widen the PCF kernel substantially, make the penumbra
+   GROW with distance (a real distance-scaled soft edge), more taps / Poisson or a genuine separable blur
+   on the shadow term. Owner: more blur is GOOD, it adds realism (distant-occluder shadows have wide
+   penumbra). ABSOLUTE requirement (repeat): NO shadow anywhere in the FOV may look pixelated/staircased —
+   prove specifically on a DISTANT caster's shadow that it is smooth, not blocky.
+
+ACCEPTANCE: cast shadow is a soft, ~0.2-residual darkening (not black), tunable; a distant caster's cast
+shadow is visibly SMOOTH (no staircase) at every quality tier. Everything else (round-1..4) preserved.
+Still sun-only; ambient + other lights are the NEXT phase, after the owner signs off the sun.

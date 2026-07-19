@@ -433,7 +433,8 @@
       "bb27e3a722ab",
       "4575406dcb54",
       "9148fdc53b8a",
-      "11aa929054d6"
+      "11aa929054d6",
+      "4575406dcb54"
     ]
   },
   "stuck_reasons": {
@@ -843,7 +844,7 @@
     "Grecharged-pbr-materials": 1784301214.1679,
     "Grecharged-realtime-lighting": 1784417601.6690388
   },
-  "last_update": "2026-07-19T14:12:27.119048+00:00",
+  "last_update": "2026-07-19T14:12:27.753390+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
