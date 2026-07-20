@@ -210,7 +210,7 @@
     "Grecharged-buildsys-cidocs": 2,
     "Grecharged-pbr-materials": 4,
     "Grecharged-realtime-lighting": 1,
-    "Grecharged-directional-ambient": 3
+    "Grecharged-directional-ambient": 4
   },
   "fingerprints": {
     "00-harness": [
@@ -432,7 +432,8 @@
     ],
     "Grecharged-directional-ambient": [
       "f4d66d02c229",
-      "f4d66d02c229"
+      "f4d66d02c229",
+      "fe61ea218742"
     ]
   },
   "stuck_reasons": {
@@ -844,7 +845,7 @@
     "Grecharged-realtime-lighting": 1784417601.6690388,
     "Grecharged-directional-ambient": 1784497329.8718266
   },
-  "last_update": "2026-07-20T08:50:56.482291+00:00",
+  "last_update": "2026-07-20T09:16:47.079703+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

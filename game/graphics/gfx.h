@@ -207,7 +207,7 @@ struct GfxGlobalSettings {
   // N.y-only so it must not be the download default; SH varies over the full normal + carries the
   // daytime sky sun-glow lobe for shadowed-area form). Hemisphere stays available via the selector.
   int recharged_rt_ambient_model = 1;
-  float recharged_rt_ambient_contrast = 0.9f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5)
+  float recharged_rt_ambient_contrast = 1.0f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5); owner-validated shipped default (playtest 2026-07-20: SH + strength 0.2 + contrast 1.0)
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded
