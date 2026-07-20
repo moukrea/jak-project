@@ -361,3 +361,26 @@ FIX (empirical, on the DEFAULT render, at a ROCK-FACE / VERTICAL vantage on the 
   NOT acceptable as the proof.
 ACCEPTANCE OVERRIDE: the phase does NOT pass until a shadowed VERTICAL surface (rock/wall) shows visible form
 in the DEFAULT colored render on the Redmi (not the viz). This is the owner's repeated core complaint.
+
+## OWNER — THE definitive framing (2026-07-20 ~09:45): ADD LIGHT on the sun side; ambient must SCULPT on its own; NEVER a flat "shadow overlay"
+Owner nailed the nuance I kept missing. Current behaviour = effectively "ADD SHADOW": a flat ~0.2 base
+everywhere, so anything without direct sun stays a flat 20% -> reads as a pixelated 20%-opacity shadow
+projected everywhere that FLATTENS everything. WRONG. The correct model = "ADD LIGHT":
+- The AMBIENT is the BASE LIGHTING and it must SCULPT every object's relief BY ITSELF (from geometry), so
+  that WITH THE SUN FULLY OFF the scene is dark BUT every object clearly shows its form — NOT big flat
+  shapes. This is the hard requirement.
+- The SUN then ADDS light on the exposed side (that side gets brighter). It does NOT add darkness anywhere.
+  Areas the sun doesn't reach are simply "ambient only" — and the ambient already carries the relief, so
+  they are NOT flat. No shadow-multiply, no flattening overlay.
+=> The current flat ~0.2 base is the whole bug: it makes "no sun" look flat. Replace it with an ambient
+   that genuinely sculpts (varies across the FULL normal — SH/IBL, real contrast, enough level), so sun-off
+   shows relief. Also make the sun's ADD strong enough that the lit side is clearly brighter (add light,
+   not a capped screen blend that barely lifts it).
+
+THE GATE (owner's acceptance, non-negotiable, on the DEFAULT render on the Redmi):
+  Turn the realtime SUN fully OFF (ambient only, e.g. debug.opengoal.rt.sunelev 0 or midnight, realtime
+  lighting ON). The scene is dark, but EVERY object (rocks incl. vertical faces, huts, terrain) must
+  clearly show its RELIEF/form from the ambient alone — NOT flat. Capture this on the DEFAULT colored
+  render and prove faces at different orientations differ. THEN turn the sun on: it ADDS light on the lit
+  side (brighter), the shadowed side keeps its ambient relief. If sun-off looks flat, the phase FAILS.
+This supersedes prior framings. Owner eye is the final gate; the debug viz is NOT acceptable as proof.

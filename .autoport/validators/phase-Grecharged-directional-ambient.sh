@@ -23,4 +23,5 @@ grep -qiE 'shadow.*(rock|terrain|form|sculpt)|rocks?.*(form|sculpt|not flat)|for
 grep -qiE 'research|investigat|cost.*(Adreno|Snapdragon|618|8 Elite)|recommend' "$R" || fail "no real-research evidence — round-2"
 grep -qiE 'ambient.*base|base.*ambient|additive.*sun|sun.*(add|on top)|compositing order|shadow.*(removes|only).*direct|varies by normal.*shadow' "$R" || fail "no ambient-base + additive-sun compositing evidence (owner root cause)"
 grep -qiE 'default (colored )?render|vertical (surface|rock|wall)|rock face.*form|SH.*(vertical|form)|IBL.*(vertical|form)|NOT (the )?(dbg|viz)|real render' "$R" || fail "no default-render vertical-surface form evidence (supervisor correction — viz not acceptable)"
+grep -qiE 'sun off.*(relief|form|sculpt)|ambient (only|alone).*(relief|form|sculpt)|sun-off.*(relief|form)|add light.*not.*shadow' "$R" || fail "no sun-OFF-shows-relief evidence (owner core gate)"
 echo "[Gda PASS]"
