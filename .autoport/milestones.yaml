@@ -2157,7 +2157,7 @@ phases:
   prompt: prompts/phase-Grecharged-directional-ambient.md
   validator: validators/phase-Grecharged-directional-ambient.sh
   max_turns: 3500
-  max_retries: 6
+  max_retries: 10
   device: true
   owner_verify: true
 - id: Grecharged-hd-models3
