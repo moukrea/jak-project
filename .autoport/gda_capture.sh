@@ -39,6 +39,12 @@ set_feature_props(){
   [ -n "${RTL_AMBIENTMODEL:-}" ] && adb shell "setprop debug.opengoal.rt.ambientmodel '${RTL_AMBIENTMODEL}'" </dev/null
   # ROOT-CAUSE FIX A/B: 0 = SMOOTH per-vertex normal (the fix), 1 = force OLD flat per-face normal.
   adb shell "setprop debug.opengoal.rt.flatnormal '${RTL_FLATNORMAL:-0}'" </dev/null
+  # SUN-OFF proof: force the real sun-elevation night-fade. 0 => sun fully OFF (ambient-only, the owner's
+  # core gate: relief must come from the ambient alone); 1 => full day sun (deterministic golden-rule A/B).
+  [ -n "${RTL_SUNELEV:-}" ] && adb shell "setprop debug.opengoal.rt.sunelev '${RTL_SUNELEV}'" </dev/null
+  # AZIMUTHAL AMBIENT CONTRAST A/B: the directional spread that sculpts VERTICAL faces sun-off. 0 =>
+  # flat (pre-fix look, no azimuthal form); 0.9 => default (form on rock/curved-wall faces).
+  [ -n "${RTL_AMBIENTCONTRAST:-}" ] && adb shell "setprop debug.opengoal.rt.ambientcontrast '${RTL_AMBIENTCONTRAST}'" </dev/null
   # ROUND-2 CREASE A/B: crease angle (deg) for the smooth-normal weld, read at LEVEL LOAD (set before the
   # relaunch below). Default 45 (fix). 179 => reproduce round-1's unconditional weld (the masonry artifact).
   [ -n "${RTL_CREASE:-}" ] && adb shell "setprop debug.opengoal.tfrag.crease '${RTL_CREASE}'" </dev/null

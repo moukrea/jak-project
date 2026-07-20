@@ -1701,6 +1701,8 @@
     (pc-set-rt-ambient! (if (-> obj realtime-ambient?) 1 0))
     ;; Grecharged-directional-ambient: send strength (0..0.5 float) as an int PERCENT 0..50 (int-FFI).
     (pc-set-rt-ambient-strength! (the int (* 100.0 (-> obj realtime-ambient-strength))))
+    ;; Grecharged-directional-ambient: send contrast (0..1.5 float) as an int PERCENT 0..150 (int-FFI).
+    (pc-set-rt-ambient-contrast! (the int (* 100.0 (-> obj realtime-ambient-contrast))))
     ;; Grecharged-directional-ambient ROUND 2: ambient MODEL index (0 hemisphere / 1 SH / 2 IBL).
     (pc-set-rt-ambient-model! (-> obj realtime-ambient-model))
     (pc-set-rt-shadow-dist! (the int (-> obj realtime-shadow-dist)))

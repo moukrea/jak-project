@@ -924,6 +924,18 @@
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none))))
+       ;; Ambient Contrast slider (0.0 .. 1.5; disabled when Realtime Lighting off). Bound directly to
+       ;; the *pc-settings* realtime-ambient-contrast float (ambient contrast level).
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
+            :param1 0.0 :param2 1.5 :slider-step-size 0.1 :slider-show-decimal? #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* realtime-lighting?)))
+            :on-change
+            (lambda ((val object))
+              (commit-to-file *pc-settings*)
+              (none))))
        ;; Shadow Distance slider (realtime cast-shadow range, meters)
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
@@ -1064,6 +1076,8 @@
 (format (clear *hemisphere-ambient-label*) "DIRECTIONAL AMBIENT")
 (define *ambient-strength-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *ambient-strength-label*) "AMBIENT STRENGTH")
+(define *ambient-contrast-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *ambient-contrast-label*) "AMBIENT CONTRAST")
 (define *shadow-distance-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *shadow-distance-label*) "SHADOW DISTANCE")
 (define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
@@ -3201,7 +3215,7 @@
   ;; (+ 7 hud-N hd-N) and FOLIAGE WIND sits at (+ 2 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 2 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 2 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 7 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 6 FLAG_PBR_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 7 FLAG_PBR_N)))
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -3216,10 +3230,10 @@
     (set! (-> *recharged-options-pc* (+ fw-idx 2) name-override) *ao-quality-label*)
     (set! (-> *recharged-options-pc* (+ fw-idx 3) value-to-modify) (&-> *progress-carousell* int-backup))
     (set! (-> *recharged-options-pc* (+ fw-idx 3) name-override) *ao-strength-label*)
-    ;; Grecharged-realtime-lighting: wire the 4 realtime-lighting rows (always present with --pbr, so they
-    ;; sit right after AO STRENGTH at fw-idx+4..+7, before Back). REALTIME/BAKED bind to the pc-settings
-    ;; symbols; SHADOW DISTANCE binds the float; SHADOW QUALITY is a carousell (int-backup scratch, mapped
-    ;; 1:1 to realtime-shadow-quality in respond-common).
+    ;; Grecharged-realtime-lighting: wire the realtime-lighting rows (always present with --pbr, so they
+    ;; sit right after AO STRENGTH at fw-idx+4..+10, before Back). REALTIME/BAKED bind to the pc-settings
+    ;; symbols; AMBIENT STRENGTH/CONTRAST + SHADOW DISTANCE bind floats; AMBIENT MODEL + SHADOW QUALITY are
+    ;; carousells (int-backup scratch, mapped 1:1 to their pc-settings ints in respond-common).
     (#when FLAG_PBR
       (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* realtime-lighting?))
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
@@ -3231,10 +3245,13 @@
       (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-model-label*)
       (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
       (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *ambient-strength-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-distance-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-quality-label*)))
+      ;; Grecharged-directional-ambient: AMBIENT CONTRAST slider bound directly to the float.
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *pc-settings* realtime-ambient-contrast))
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *ambient-contrast-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-distance-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *shadow-quality-label*)))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 2 hud-N)) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).

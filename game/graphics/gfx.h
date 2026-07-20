@@ -204,6 +204,7 @@ struct GfxGlobalSettings {
   // Grecharged-directional-ambient ROUND 2: ambient MODEL (0 = HEMISPHERE, 1 = SH, 2 = IBL). Selectable
   // in Recharged Settings (a quality tier). Only read on the rt path; OFF==stock unaffected.
   int recharged_rt_ambient_model = 0;
+  float recharged_rt_ambient_contrast = 0.9f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5)
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

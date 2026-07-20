@@ -40,6 +40,15 @@ uniform vec3 u_rt_ground_color;
 // reflected radiance directly. u_rt_env_zenith/horizon/ground + u_rt_sun_glow drive the IBL procedural
 // sky (mean-normalized C++-side to the hemisphere mean). All read ONLY inside u_rt_light_on => OFF==stock.
 uniform int u_rt_ambient_model;
+// Grecharged-directional-ambient: AZIMUTHAL directional-contrast fill. u_rt_ambient_key = a tilted
+// world direction (horizontal component = the sun azimuth so it tracks TOD, fixed upward tilt), NOT
+// elevation-faded so it PERSISTS with the sun off. u_rt_ambient_contrast = the owner's Ambient
+// Contrast control (directional SPREAD around the ambient mean, a levels/contrast notion, NOT a
+// brightness scalar). base *= (1 + contrast * dot(N, key)) => faces at different horizontal
+// orientations (rock bumps, the curved hut wall; N.y≈0) differ even sun-off => FORM. Read ONLY
+// inside u_rt_light_on => OFF==stock.
+uniform vec3 u_rt_ambient_key;
+uniform float u_rt_ambient_contrast;
 uniform int u_rt_flat_normal;  // Grecharged-directional-ambient A/B: 1 forces the old flat per-face normal
 uniform vec3 u_rt_sh[9];
 uniform vec3 u_rt_env_zenith;
@@ -194,6 +203,13 @@ void main() {
         base = mix(u_rt_ground_color, u_rt_sky_color, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
       }
       base = clamp(base, 0.0, 1.0);
+      // AZIMUTHAL DIRECTIONAL CONTRAST — the fix for flat VERTICAL faces with the sun OFF. Applied to
+      // the directional models only (skip the flat-floor A/B reference). Multiplies base => mean is
+      // preserved, spread scales with the ambient level (TOD-safe), golden rule intact.
+      if (u_rt_ambient_on != 0) {
+        base = base * (1.0 + u_rt_ambient_contrast * dot(N, u_rt_ambient_key));
+        base = clamp(base, 0.0, 1.0);
+      }
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       // baked hardwired OFF (realtime ON => baked off; realtime OFF = stock legacy path above).
       vec3 lit = albedo * (base + (vec3(1.0) - base) * u_rt_sun_color * sun_scalar);

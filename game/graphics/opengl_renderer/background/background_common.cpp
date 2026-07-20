@@ -1545,6 +1545,22 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (!(rt_ambient_strength >= 0.0f && rt_ambient_strength <= 1.0f)) {
     rt_ambient_strength = 0.2f;
   }
+  // Grecharged-directional-ambient: AZIMUTHAL ambient CONTRAST — the owner's Ambient Contrast control =
+  // the directional SPREAD of the ambient base around its mean (a levels/contrast notion, NOT a
+  // brightness). From pc-settings; overridable per-frame by a debug prop / env for on-device A/B.
+  float rt_ambient_contrast = gs.recharged_rt_ambient_contrast;
+#ifdef __ANDROID__
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.ambientcontrast", rv) > 0 && rv[0]) {
+      rt_ambient_contrast = atof(rv);
+    }
+  }
+#else
+  if (const char* e = getenv("OG_RT_AMBIENTCONTRAST")) {
+    rt_ambient_contrast = atof(e);
+  }
+#endif
   // Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 HEMISPHERE, 1 SH, 2 IBL). From
   // pc-settings; overridable per-frame by a debug prop / env for on-device A/B without menu navigation.
   int rt_ambient_model = gs.recharged_rt_ambient_model;
@@ -1708,8 +1724,21 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
         shc[c][i] *= fnorm[i];
       }
     }
+    // Grecharged-directional-ambient: AZIMUTHAL ambient key = the sun's horizontal azimuth (tracks
+    // TOD) with a FIXED upward tilt, NOT elevation-faded (so it persists sun-off => form at night).
+    float amb_key[3];
+    {
+      float hx = light_dir[0], hz = light_dir[2];
+      float hl = std::sqrt(hx * hx + hz * hz);
+      if (hl > 1e-4f) { float s = 0.85f / hl; amb_key[0] = hx * s; amb_key[1] = 0.5f; amb_key[2] = hz * s; }
+      else { amb_key[0] = 0.f; amb_key[1] = 1.f; amb_key[2] = 0.f; }
+      float kl = std::sqrt(amb_key[0]*amb_key[0] + amb_key[1]*amb_key[1] + amb_key[2]*amb_key[2]);
+      amb_key[0] /= kl; amb_key[1] /= kl; amb_key[2] /= kl;
+    }
     glUniform1i(glGetUniformLocation(id, "u_rt_ambient_on"), rt_ambient_on);
     glUniform1i(glGetUniformLocation(id, "u_rt_ambient_model"), rt_ambient_model);
+    glUniform3f(glGetUniformLocation(id, "u_rt_ambient_key"), amb_key[0], amb_key[1], amb_key[2]);
+    glUniform1f(glGetUniformLocation(id, "u_rt_ambient_contrast"), rt_ambient_contrast);
     glUniform1i(glGetUniformLocation(id, "u_rt_flat_normal"), rt_flat_normal);
     glUniform3f(glGetUniformLocation(id, "u_rt_sky_color"), sky[0], sky[1], sky[2]);
     glUniform3f(glGetUniformLocation(id, "u_rt_ground_color"), ground[0], ground[1], ground[2]);
