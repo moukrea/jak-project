@@ -210,7 +210,7 @@
     "Grecharged-buildsys-cidocs": 2,
     "Grecharged-pbr-materials": 4,
     "Grecharged-realtime-lighting": 1,
-    "Grecharged-directional-ambient": 9
+    "Grecharged-directional-ambient": 10
   },
   "fingerprints": {
     "00-harness": [
@@ -435,6 +435,7 @@
       "f4d66d02c229",
       "fe61ea218742",
       "ad896b15343b",
+      "8b3ff34f0e38",
       "8b3ff34f0e38"
     ]
   },
@@ -847,7 +848,7 @@
     "Grecharged-realtime-lighting": 1784417601.6690388,
     "Grecharged-directional-ambient": 1784497329.8718266
   },
-  "last_update": "2026-07-20T17:34:08.757614+00:00",
+  "last_update": "2026-07-20T21:40:46.210838+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -930,7 +931,8 @@
     "Grecharged-buildsys-firstboot",
     "Grecharged-buildsys-cidocs",
     "Grecharged-pbr-materials",
-    "Grecharged-realtime-lighting"
+    "Grecharged-realtime-lighting",
+    "Grecharged-directional-ambient"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

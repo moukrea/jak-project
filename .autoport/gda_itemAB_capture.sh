@@ -38,6 +38,9 @@ set_common_props(){
   adb shell "setprop debug.opengoal.pbr.debug ''" </dev/null
   # NB: rt.sunelev is CLEARED for the sweep so the REAL sky-sun elevation drives the day/night fade.
   adb shell "setprop debug.opengoal.rt.sunelev '${RTL_SUNELEV:-}'" </dev/null
+  # attempt-10: yellow<->green HANDOFF temporal low-pass. '' => shipped default (alpha 0.12 = smooth);
+  # '0' => raw (alpha 1, no smoothing = the pre-fix single-frame step). Same-build A/B for playtest #4.
+  adb shell "setprop debug.opengoal.rt.handoffsmooth '${RTL_HANDOFFSMOOTH:-}'" </dev/null
 }
 
 warp_boot(){ # $1 LOG ; uses $MODE (sweep|still) to pick tod.fast vs tod.hour ; sets ok

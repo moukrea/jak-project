@@ -1562,7 +1562,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     rt_sun_elev = atof(e);
   }
 #endif
-  glUniform1f(glGetUniformLocation(id, "u_rt_sun_elev"), rt_sun_elev);
+  // u_rt_sun_elev is uploaded AFTER the attempt-10 handoff low-pass below (so the SMOOTHED value reaches
+  // the shaders); the raw rt_sun_elev computed here is the EMA target, still used by the prop override above.
   // === Grecharged-directional-ambient (owner playtest #3): the GREEN SUN = Jak's 2ND SUN ===
   // Owner reframe: the green star is NOT a night-only synthesised moon — it is the precursor GREEN
   // SUN (sky upload-data sun index 1, colour 194,254,120), symmetric to the yellow sun. Item 2:
@@ -1628,6 +1629,70 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // SHADOW waits for non-grazing elevation. Golden rule intact (this gates only the direct-sun cast shadow).
   float owning_up = (pbr_shadow_state().shadow_light == 1) ? green_up_raw : sun_up_raw;
   float rt_shadow_conf = rt_smoothstep(0.05f, 0.30f, owning_up);
+
+  // === OWNER PLAYTEST #4 (attempt-10) — TEMPORAL per-frame low-pass of the sun<->green-sun HANDOFF ===
+  // The yellow<->green handoff must be smooth PER-CHANNEL (R,G,B), not just in luminance. The three handoff
+  // scalars (rt_sun_elev = yellow direct-light night-fade, moon_scale = green-sun fill, rt_shadow_conf =
+  // cast-shadow strength) each smoothstep the sun ELEVATION — smooth at real TOD, but NOT under the tod.fast
+  // 18000x stress metric: at ~25 game-min/frame the sun crosses a whole elevation ramp band between two
+  // captured frames, so the shadow/green terms SNAP 0->full in ONE frame (the measured isolated ~14/255
+  // per-channel spike — a hue-tinted step the luminance-only metric let through). FIX = the SAME proven
+  // low-pass item-B used for the mood colours, applied to these scalars: an exponential moving average
+  // toward the raw target, advanced ONCE PER FRAME (first_tfrag_draw_setup runs ~5x/frame => guard on
+  // render_state->frame_idx so all shader families read one consistent value). alpha 0.10 == the exact
+  // per-frame weight of the owner-ACCEPTED item-B mood low-pass (~0.7s ramp) => a fast elevation ramp is
+  // spread over ~10 frames => stepless at ANY TOD speed; at real play speed it is a sub-second lag on the
+  // dawn/dusk fade, imperceptible. GOLDEN RULE + daylight intact: at full day rt_sun_elev==1 / conf==1 /
+  // moon_scale==0 STEADILY, so the EMA converges to those constants and the sunlit term is byte-identical
+  // (no daylight regression, sunlit A/B unchanged). Runs unconditionally; OFF==stock preserved by the
+  // shader u_rt_light_on gate. A/B-defeatable (raw = the pre-fix step) via debug.opengoal.rt.handoffsmooth
+  // ("0"/invalid => alpha 1 => no smoothing).
+  float handoff_alpha = 0.10f;
+#ifdef __ANDROID__
+  { char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.handoffsmooth", rv) > 0 && rv[0]) handoff_alpha = atof(rv); }
+#else
+  if (const char* e = getenv("OG_RT_HANDOFFSMOOTH")) handoff_alpha = atof(e);
+#endif
+  if (!(handoff_alpha > 0.0f && handoff_alpha <= 1.0f)) handoff_alpha = 1.0f;  // invalid/0 => raw (no smoothing)
+  // === OWNER PLAYTEST #5 (attempt-11) — AMBIENT-ORIENTATION per-sun elevation weights (the real fix) ===
+  // Owner's CORRECTED diagnosis: the brutal sun<->green-sun handoff is the shading ORIENTATION snapping ~180deg
+  // (the KEY light AND the ambient's directional bias), not a colour step. The direct terms already fade per-sun
+  // (rt_sun_elev / moon_scale), but the ambient directional bias (amb_key) was LOCKED to the yellow azimuth at
+  // full strength and never faded => in the dark middle it kept a strong yellow orientation that then flipped to
+  // green. FIX = weight the ambient orientation by EACH sun's OWN elevation so it eases OUT into a dark NEUTRAL
+  // MIDDLE (both weights ~0 => near-uniform ambient, no orientation to flip) then eases IN toward green. These
+  // weights use the NATURAL elevation sines (sun_up_raw / green_up_raw), NOT the debug-overridable rt_sun_elev/
+  // green_elev, so the daytime sun-off A/B (debug.opengoal.rt.sunelev 0, natural sun still high) keeps its
+  // ambient form while the real night handoff collapses the orientation. EMA-smoothed with the same accepted
+  // handoff low-pass => stepless at any TOD speed; steady day => ambW_y==1/ambW_g==0 (daylight byte-identical).
+  float ambW_y_raw = rt_smoothstep(-0.05f, 0.18f, sun_up_raw);
+  float ambW_g_raw = rt_smoothstep(-0.05f, 0.18f, green_up_raw);
+  float ambW_y = ambW_y_raw, ambW_g = ambW_g_raw;
+  {
+    static u64 s_ho_frame = ~0ull;
+    static float s_ho_sunelev = 1.0f, s_ho_moon = 0.0f, s_ho_conf = 0.0f;
+    static float s_ho_ambY = 1.0f, s_ho_ambG = 0.0f;  // ambient-orientation elevation weights (playtest #5)
+    static bool s_ho_seed = false;
+    if (!s_ho_seed) {  // seed to the current raw values so we don't ramp from the defaults on boot
+      s_ho_sunelev = rt_sun_elev; s_ho_moon = moon_scale; s_ho_conf = rt_shadow_conf;
+      s_ho_ambY = ambW_y_raw; s_ho_ambG = ambW_g_raw; s_ho_seed = true;
+    }
+    if (render_state->frame_idx != s_ho_frame) {  // advance the EMA exactly once per frame
+      s_ho_frame = render_state->frame_idx;
+      s_ho_sunelev += handoff_alpha * (rt_sun_elev - s_ho_sunelev);
+      s_ho_moon += handoff_alpha * (moon_scale - s_ho_moon);
+      s_ho_conf += handoff_alpha * (rt_shadow_conf - s_ho_conf);
+      s_ho_ambY += handoff_alpha * (ambW_y_raw - s_ho_ambY);
+      s_ho_ambG += handoff_alpha * (ambW_g_raw - s_ho_ambG);
+    }
+    rt_sun_elev = s_ho_sunelev;
+    moon_scale = s_ho_moon;
+    rt_shadow_conf = s_ho_conf;
+    ambW_y = s_ho_ambY;
+    ambW_g = s_ho_ambG;
+  }
+  glUniform1f(glGetUniformLocation(id, "u_rt_sun_elev"), rt_sun_elev);  // moved: upload the SMOOTHED value
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
   // elevation, green direction, shadow-handoff confidence, and which sun currently owns the shadow map.
@@ -1860,16 +1925,47 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
         shc[c][i] *= fnorm[i];
       }
     }
-    // Grecharged-directional-ambient: AZIMUTHAL ambient key = the sun's horizontal azimuth (tracks
-    // TOD) with a FIXED upward tilt, NOT elevation-faded (so it persists sun-off => form at night).
+    // Grecharged-directional-ambient (owner playtest #5): AMBIENT orientation = a per-sun elevation-weighted
+    // BLEND of the YELLOW-sun and GREEN-sun azimuths (each an azimuthal key + fixed 0.5 up-tilt). Each sun's
+    // azimuthal contribution is scaled by its OWN smoothed natural elevation weight (ambW_y / ambW_g), and the
+    // MAGNITUDE of the summed key carries the directionality (the shader's rt_shape = 1 + k*dot(N,amb_key) is
+    // unchanged):
+    //   - one sun comfortably up  => key ~= that sun's unit azimuth (mag ~1) => full directional form;
+    //   - DARK NEUTRAL MIDDLE (both suns below the horizon) => both weights ~0 => key -> ~0 => rt_shape -> 1
+    //     => the ambient collapses to its near-uniform SH/hemisphere base, NO lateral orientation to "flip";
+    //   - the two suns are ANTIPHASE so their azimuthal parts CANCEL through the crossover => the orientation
+    //     eases OUT (fades toward neutral) then IN toward green, never snapping ~180deg. Symmetric at dawn.
+    // A/B: debug.opengoal.rt.ambfade "0" restores the OLD locked-yellow full-strength key (reproduces the snap).
     float amb_key[3];
     {
-      float hx = light_dir[0], hz = light_dir[2];
-      float hl = std::sqrt(hx * hx + hz * hz);
-      if (hl > 1e-4f) { float s = 0.85f / hl; amb_key[0] = hx * s; amb_key[1] = 0.5f; amb_key[2] = hz * s; }
-      else { amb_key[0] = 0.f; amb_key[1] = 1.f; amb_key[2] = 0.f; }
-      float kl = std::sqrt(amb_key[0]*amb_key[0] + amb_key[1]*amb_key[1] + amb_key[2]*amb_key[2]);
-      amb_key[0] /= kl; amb_key[1] /= kl; amb_key[2] /= kl;
+      float amb_fade = 1.0f;
+#ifdef __ANDROID__
+      { char rv[PROP_VALUE_MAX];
+        if (__system_property_get("debug.opengoal.rt.ambfade", rv) > 0 && rv[0]) amb_fade = atof(rv); }
+#else
+      if (const char* e = getenv("OG_RT_AMBFADE")) amb_fade = atof(e);
+#endif
+      float wY = (amb_fade > 0.5f) ? ambW_y : 1.0f;   // ambfade off => OLD behaviour (yellow, full directionality)
+      float wG = (amb_fade > 0.5f) ? ambW_g : 0.0f;
+      // per-sun azimuthal key (unit): the sun's horizontal azimuth + a fixed 0.5 up-tilt, normalized.
+      float yk[3], gk[3];
+      for (int pass = 0; pass < 2; pass++) {
+        const float* d = (pass == 0) ? light_dir : moon_dir;  // yellow sun, then green sun
+        float* out = (pass == 0) ? yk : gk;
+        float hx = d[0], hz = d[2];
+        float hl = std::sqrt(hx * hx + hz * hz);
+        if (hl > 1e-4f) { float s = 0.85f / hl; out[0] = hx * s; out[1] = 0.5f; out[2] = hz * s; }
+        else { out[0] = 0.f; out[1] = 1.f; out[2] = 0.f; }
+        float l = std::sqrt(out[0]*out[0] + out[1]*out[1] + out[2]*out[2]);
+        out[0] /= l; out[1] /= l; out[2] /= l;
+      }
+      amb_key[0] = wY * yk[0] + wG * gk[0];
+      amb_key[1] = wY * yk[1] + wG * gk[1];
+      amb_key[2] = wY * yk[2] + wG * gk[2];
+      // clamp magnitude to <=1 (one sun up => full directionality; dark middle => ->0 = neutral). Do NOT
+      // re-normalize below 1 — the faded magnitude IS the dark-middle orientation collapse.
+      float akl = std::sqrt(amb_key[0]*amb_key[0] + amb_key[1]*amb_key[1] + amb_key[2]*amb_key[2]);
+      if (akl > 1.0f) { amb_key[0] /= akl; amb_key[1] /= akl; amb_key[2] /= akl; }
     }
     glUniform1i(glGetUniformLocation(id, "u_rt_ambient_on"), rt_ambient_on);
     glUniform1i(glGetUniformLocation(id, "u_rt_ambient_model"), rt_ambient_model);
