@@ -66,4 +66,10 @@ grep -qiE 'hfrag|ground.*(SH|IBL|ambient|relief|rt path|directional)|floor.*(SH|
 # old sun<->moon crossover mention can't false-pass.
 grep -qiE 'per.?channel|per.?colou?r channel|R/G/B (max.?step|delta|step)' "$R" || fail "no PER-CHANNEL smoothness MEASUREMENT (owner playtest #4: luminance-only missed the yellow->green hue jump; measure R,G,B frame-to-frame step across the handoff)"
 grep -qiE '(yellow|day).?sun.*(->|to|<->|hand.?off|cross).*green|green.?sun.*(->|<->|hand.?off|cross).*(yellow|day).?sun|colou?r crossfade.*(sun|handoff)|smooth.*(colou?r|hue).*(sun.?<->.?green|handoff)' "$R" || fail "no smooth yellow<->green-sun COLOUR crossfade evidence at the handoff (owner playtest #4)"
+# OWNER PLAYTEST #5 (2026-07-20): the real bug is the shading ORIENTATION snapping (incl. the AMBIENT), not
+# colour. Require (a) the dark-neutral-middle / per-sun elevation-fade orientation model, and (b) a STRUCTURAL
+# per-pixel measurement (SSIM / per-pixel mean-abs frame-to-frame) — a MEAN/per-channel metric averages away
+# an orientation flip, so it's insufficient.
+grep -qiE 'orientation|re.?orient|dark (neutral )?middle|dark (neutral )?trough|elevation.?weight.*(fade|zero|below horizon)|per.?sun.*(fade|elevation)|ambient.*(not snap|no.*snap|smooth.*orient|near.?uniform.*middle)|directional.*(fade (out|in)|to zero)' "$R" || fail "no shading-ORIENTATION-smoothness / dark-neutral-middle model evidence (owner playtest #5: the ambient+key-light orientation snaps at the handoff; fix = per-sun elevation fade through a dark neutral middle, not a colour crossfade)"
+grep -qiE 'per.?pixel|ssim|structural (delta|change|similarity)|spatial (delta|diff)|frame.?to.?frame.*(per.?pixel|ssim|structural)|mean.?abs.*(per.?pixel|consecutive frame)' "$R" || fail "no STRUCTURAL per-pixel smoothness MEASUREMENT (owner playtest #5: a mean/per-channel metric cancels an orientation flip; measure per-pixel/SSIM frame-to-frame across the sunset->dark->green-rise transition, no structural spike)"
 echo "[Gda PASS]"

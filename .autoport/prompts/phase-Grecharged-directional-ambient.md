@@ -543,3 +543,46 @@ OBJECTIVE GATE (device): a TOD sweep through the sun<->green-sun handoff, measur
 show NO brutal step — max per-channel frame-to-frame delta bounded (not just luminance). Explicitly capture
 and measure the dawn/dusk handoff window where yellow hands off to green. Report the per-channel max-step and
 show the handoff is a smooth colour crossfade, not a switch.
+
+---
+## OWNER PLAYTEST 2026-07-20 #5 — CORRECTED DIAGNOSIS: the SHADING ORIENTATION snaps (incl. AMBIENT), not colour
+The per-channel COLOUR crossfade (playtest #4 work) fixed the WRONG symptom. Owner, precisely:
+"quand le soleil se couche d'un coup c'est comme si la lumière AMBIANTE, même sans soleil, shiftait d'un coup
+sec (l'ombrage sur les bâtiments... change complètement d'ORIENTATION), et exactement pareil au lever. Alors
+que logiquement: le soleil se couche -> de plus en plus SOMBRE -> puis de plus en plus LUMINEUX avec la bonne
+orientation quand le soleil vert (la lune) se lève. Une transition douce, symétrique. Là c'est pas ça du tout."
+
+TRUE ROOT CAUSE (the ORIENTATION of the shading jumps at the handoff, not the colour/mean):
+- The two suns are ANTIPHASE (~180° apart). Currently the DIRECTIONAL shading (key light AND the SH/IBL
+  ambient's directional bias) switches from the yellow-sun orientation to the green-sun orientation abruptly
+  when the sun crosses the horizon — an instant ~180° re-orientation of the shading on buildings/terrain.
+- The owner says even the AMBIENT re-orients suddenly ("même sans soleil"). So the SH/IBL ambient's
+  directional distribution is snapping (it's driven by the sun/sky and recomputes hard at the crossover).
+
+THE MODEL TO IMPLEMENT (owner's, correct):
+1. Each sun's DIRECTIONAL contribution (key light N·L + its bias on the ambient) is weighted by a SMOOTH
+   function of ITS OWN elevation (smoothstep over a WIDE band around the horizon) and goes to ZERO below the
+   horizon. As the yellow sun sinks, its directional contribution eases to 0 => the scene gets progressively
+   DARKER and its orientation fades OUT (not flips).
+2. There is a DARK NEUTRAL MIDDLE: when both suns are low/below horizon, BOTH directional contributions are
+   ~0, so the scene is dark and dominated by a LOW-DIRECTIONALITY ambient base — there is NO strong
+   orientation, hence nothing to "flip". Do NOT try to force an overlap crossfade between the two directions
+   (antiphase => no real overlap); instead let each fade independently through this neutral middle.
+3. As the green sun rises, its directional contribution eases IN from 0 => the scene gets progressively
+   BRIGHTER and its orientation builds up toward the GREEN sun's direction. Symmetric at dawn (green fades
+   out into the dark middle, yellow fades in).
+4. The AMBIENT (SH/IBL) must NOT snap orientation: its directional bias must follow the SAME smooth per-sun
+   elevation weighting (or reduce to a near-uniform base in the dark middle), so the ambient shading eases
+   out/in rather than re-orienting instantly.
+
+The net: sunset = smooth darkening (orientation fading out), a dark neutral trough, then smooth brightening
+with the green orientation. No abrupt re-orientation at any point. This SUPERSEDES the "tiny below-horizon
+overlap crossfade" — that was aimed at colour and does not fix the orientation snap.
+
+OBJECTIVE GATE (device, per the owner: numbers, and HIS eye is final — do NOT self-certify by eyeball):
+capture the full sunset->dark->green-rise transition and measure FRAME-TO-FRAME STRUCTURAL change, i.e. a
+PER-PIXEL spatial delta (mean-abs per-pixel diff and/or SSIM) between consecutive frames — NOT a mean or
+per-channel average, which cancels an orientation flip. There must be NO structural spike at the handoff
+(the reorientation shows up as a per-pixel spike even when the mean is continuous). Report the per-pixel
+max frame-to-frame delta across the transition. Then hand the build to the owner (push to his HONOR /
+jak-builds) for the final visual call.

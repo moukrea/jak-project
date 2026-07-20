@@ -2160,6 +2160,25 @@ phases:
   max_retries: 14
   device: true
   owner_verify: true
+- id: Grecharged-lightprobes
+  name: 'RECHARGED (owner 2026-07-20, "killer truc qui change la donne"): replace the GLOBAL-per-level
+    analytic hemisphere/SH/IBL ambient with precomputed LOCAL environment probes, baked PROGRAMMATICALLY
+    from the STOCK game (baked light probes / irradiance volumes + reflection probes). GO ALL IN (full
+    quality, automation not scope-cut). Auto probe placement: 3D grid over ALL explorable heights (a layer
+    above each walkable collision surface) + volume layers + a probe at each inside-box/inside-sphere ROOM
+    CENTER, collision-clipped. Bake without actors/player/collectibles, at all 8 TOD keys, INCLUDING the
+    suns (a real HDRI of the lit world — excluding them falsifies it / dead reflections). Process to L2
+    irradiance SH (diffuse) + GGX-prefiltered roughness-mip cubemaps (reflections). NOT a redite: env INPUT
+    to a dynamic relight, composed WITHOUT double-counting the sun. Consumers each adapted: realtime ambient
+    (local SH replaces global), PBR IBL, metal/Precursor/water reflections, color grading; Adreno tiers;
+    coherent Recharged menu (no unknown-ID); OFF==stock byte-identical. PROVE ON VILLAGE1 first; roll out to
+    the rest in one block afterwards.'
+  prompt: prompts/phase-Grecharged-lightprobes.md
+  validator: validators/phase-Grecharged-lightprobes.sh
+  max_turns: 4000
+  max_retries: 12
+  device: true
+  owner_verify: true
 - id: Grecharged-pbr-realtime-fusion
   name: 'RECHARGED (owner 2026-07-20): PBR materials must be LIT BY the realtime lighting (sun +
     green-sun + SH/IBL ambient) — that is where PBR shines. Today the rt-lighting shader branch
