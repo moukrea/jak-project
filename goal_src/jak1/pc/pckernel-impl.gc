@@ -243,7 +243,7 @@
   (set! (-> obj realtime-ambient?) #t)
   (set! (-> obj realtime-ambient-strength) 0.2)
   (set! (-> obj realtime-ambient-contrast) 0.9) ;; Grecharged-directional-ambient: default ambient contrast
-  (set! (-> obj realtime-ambient-model) 0) ;; default HEMISPHERE (prove the climb up to SH/IBL)
+  (set! (-> obj realtime-ambient-model) 1) ;; default SH (directional over the full normal; shipped/out-of-box model, supervisor 2026-07-20). Hemisphere/IBL selectable.
   (set! (-> obj realtime-shadow-dist) 150.0)
   (set! (-> obj realtime-shadow-strength) 0.8) ;; Grecharged-realtime-lighting ROUND-5: default cast-shadow darkening (residual 0.2)
   (set! (-> obj realtime-shadow-quality) 2) ;; 0=VLow(512) 1=Low(1024) 2=Med(2048) 3=High(4096) 4=VHigh(8192)

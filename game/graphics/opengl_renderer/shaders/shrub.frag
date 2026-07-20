@@ -188,11 +188,18 @@ void main() {
         base = mix(u_rt_ground_color, u_rt_sky_color, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
       }
       base = clamp(base, 0.0, 1.0);
-      // AZIMUTHAL DIRECTIONAL CONTRAST — the fix for flat VERTICAL faces with the sun OFF. Applied to
-      // the directional models only (skip the flat-floor A/B reference). Multiplies base => mean is
-      // preserved, spread scales with the ambient level (TOD-safe), golden rule intact.
+      // AZIMUTHAL DIRECTIONAL CONTRAST — the fix for flat VERTICAL faces (rocks/walls, N.y~0) with the
+      // sun OFF. A GAIN-boosted, FLOORED directional wrap toward the ambient key (sun-azimuth horizontal
+      // + up-tilt, NOT elevation-faded so it PERSISTS sun-off): faces toward the key brighten as a soft
+      // skylight, faces away keep a DIM FLOOR (form, NOT crushed to black => away-faces stay sculpted).
+      // The 2.0 gain makes the shipped default contrast (0.9) sculpt HARD on the DEFAULT colored render
+      // (0.9 alone was too subtle — the owner's repeated "still flat" complaint); the max() floor stops
+      // the high-gain away-faces from clamping to pure black (which would re-flatten them). contrast 0 =>
+      // shape 1 => the pure-hemisphere flat A/B reference. Golden rule intact: the direct-sun term below
+      // is untouched, and base's weight vanishes as the sun saturates (sunlit byte-identical).
       if (u_rt_ambient_on != 0) {
-        base = base * (1.0 + u_rt_ambient_contrast * dot(N, u_rt_ambient_key));
+        float rt_shape = 1.0 + (u_rt_ambient_contrast * 2.0) * dot(N, u_rt_ambient_key);
+        base = base * max(rt_shape, 0.15);
         base = clamp(base, 0.0, 1.0);
       }
       vec3 albedo = pow(T0.rgb, vec3(2.2));
