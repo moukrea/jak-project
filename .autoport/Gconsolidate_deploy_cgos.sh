@@ -14,9 +14,10 @@ die(){ echo "[deploy-cgos FAIL] $*" >&2; exit 1; }
 $ADB -s $S get-state >/dev/null 2>&1 || die "device $S not attached"
 [ -d "$SRC" ] || die "consistent CGO set missing: $SRC"
 n=$(ls "$SRC"/*.CGO "$SRC"/*.DGO 2>/dev/null | wc -l); [ "$n" -eq 28 ] || die "expected 28 CGO/DGO in $SRC, got $n"
-# bundle v14 (025f68399): the loader's marker is now files/.asset_bundle_stamp (the old
-# per-iso .extracted_v1 is gone). Extraction-done = stamp present + iso_data/jak1 populated.
-$ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 || die "run-as / .asset_bundle_stamp missing (CE-locked or not extracted?)"
+# bundle v15+ (LoaderActivity.java:991): the loader's completion marker is now
+# files/.cgo_pack_stamp_<game> (written LAST); the old .asset_bundle_stamp is gone.
+# Extraction-done = per-game cgo stamp present + files/cgo/<game> populated.
+$ADB -s $S shell run-as $PKG ls files/.cgo_pack_stamp_jak1 >/dev/null 2>&1 || die "run-as / .cgo_pack_stamp_jak1 missing (CE-locked or not extracted?)"
 # The runtime (fake_iso) scans files/cgo/jak1/ FIRST as the active overlay (the slim-APK CGO-pack
 # unpack dir), then falls back to the legacy adb-push dir files/cgo/jak1/. A push into iso_data/
 # is INVISIBLE when cgo/ is populated -> the 2026-07-14 overhang5 mixed-build boot crash (fresh libgk

@@ -484,6 +484,13 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   std::vector<u32> cl_packed;            // packed 2-10-10-10 normal per cluster
   std::vector<int> rec_cluster;          // cluster chosen per incidence record
   std::vector<char> has_normal(n, 0);
+  // Grecharged-directional-ambient ROUND 2 — crease-fix DATA PROOF (camera-independent): count, per
+  // tfrag tree, how many weld-groups split into MORE THAN ONE cluster. A multi-cluster group == a
+  // HARD EDGE the crease logic preserved (a masonry corner). At crease~45 a masonry tree yields many;
+  // at crease>=179 (the round-1 unconditional weld) ~every group collapses to a single cluster (0
+  // multi). Logged once per tree so an on-device A/B (debug.opengoal.tfrag.crease 45 vs 179) proves
+  // the hard-edge preservation on the REAL level data, no screenshot framing required.
+  u32 dbg_groups = 0, dbg_multi = 0, dbg_clusters = 0;
   for (u32 g = 0; g < num_groups; g++) {
     auto& recs = group_incid[g];
     if (recs.empty()) {
@@ -517,6 +524,11 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
       }
       rec_cluster[r] = found;
     }
+    dbg_groups++;
+    dbg_clusters += (u32)cl_accum.size();
+    if (cl_accum.size() > 1) {
+      dbg_multi++;  // this shared position kept >=2 distinct face normals == a hard edge
+    }
     cl_packed.assign(cl_accum.size(), 0);
     for (size_t c = 0; c < cl_accum.size(); c++) {
       math::Vector3f nn = cl_accum[c];
@@ -545,6 +557,11 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
       tree.unpacked.vertices[i].nor = 0;
     }
   }
+  // crease-fix data proof (see counters above): one line per tfrag tree. multi>0 == hard edges kept.
+  float crease_deg = std::acos(crease_cos < -1.f ? -1.f : (crease_cos > 1.f ? 1.f : crease_cos)) *
+                     (180.f / 3.14159265f);
+  lg::info("[gda-crease] tfrag tree verts={} groups={} multicluster(hardedge)={} clusters={} crease={:.0f}deg",
+           n, dbg_groups, dbg_multi, dbg_clusters, crease_deg);
 }
 
 void TfragTree::unpack() {

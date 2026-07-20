@@ -210,7 +210,7 @@
     "Grecharged-buildsys-cidocs": 2,
     "Grecharged-pbr-materials": 4,
     "Grecharged-realtime-lighting": 1,
-    "Grecharged-directional-ambient": 0
+    "Grecharged-directional-ambient": 4
   },
   "fingerprints": {
     "00-harness": [
@@ -433,7 +433,9 @@
     "Grecharged-directional-ambient": [
       "bff76ef92fa2",
       "2815324859cf",
-      "a688fec7f07e"
+      "a688fec7f07e",
+      "c3d412f385ba",
+      "9148fdc53b8a"
     ]
   },
   "stuck_reasons": {
@@ -845,7 +847,7 @@
     "Grecharged-realtime-lighting": 1784417601.6690388,
     "Grecharged-directional-ambient": 1784497329.8718266
   },
-  "last_update": "2026-07-20T04:59:44.927660+00:00",
+  "last_update": "2026-07-20T07:10:39.669266+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -928,7 +930,8 @@
     "Grecharged-buildsys-firstboot",
     "Grecharged-buildsys-cidocs",
     "Grecharged-pbr-materials",
-    "Grecharged-realtime-lighting"
+    "Grecharged-realtime-lighting",
+    "Grecharged-directional-ambient"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
