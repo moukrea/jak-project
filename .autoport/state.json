@@ -210,7 +210,7 @@
     "Grecharged-buildsys-cidocs": 2,
     "Grecharged-pbr-materials": 4,
     "Grecharged-realtime-lighting": 1,
-    "Grecharged-directional-ambient": 4
+    "Grecharged-directional-ambient": 0
   },
   "fingerprints": {
     "00-harness": [
@@ -429,13 +429,6 @@
       "62d483ccaf30",
       "7dc308a3b290",
       "00c3539423ca"
-    ],
-    "Grecharged-directional-ambient": [
-      "bff76ef92fa2",
-      "2815324859cf",
-      "a688fec7f07e",
-      "c3d412f385ba",
-      "9148fdc53b8a"
     ]
   },
   "stuck_reasons": {
@@ -930,8 +923,7 @@
     "Grecharged-buildsys-firstboot",
     "Grecharged-buildsys-cidocs",
     "Grecharged-pbr-materials",
-    "Grecharged-realtime-lighting",
-    "Grecharged-directional-ambient"
+    "Grecharged-realtime-lighting"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

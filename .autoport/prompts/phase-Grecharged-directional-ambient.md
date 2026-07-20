@@ -337,3 +337,27 @@ the sun reach this fragment? THE implementation must be exactly this — NOT a s
 This is the single source of truth for the compositing; the earlier "shadow multiplies only the sun term"
 note is equivalent but this framing is cleaner — implement THIS. Confirm against real-engine references
 (forward/deferred: sun contribution gated by NdotL and shadow visibility, added to the indirect/ambient).
+
+## SUPERVISOR CORRECTION (2026-07-20 ~09:40, owner still sees FLAT shadows) — hemisphere can't sculpt VERTICAL surfaces; verify the REAL render, not the debug viz
+Owner tested the WIP build: shadowed areas STILL flat. Two findings (verified in code):
+1. My earlier "form proven" was on the dbg12 VIZ (amplified grayscale lighting fraction), NOT the DEFAULT
+   colored render. The default render (tfrag3.frag: lit = albedo*(base + ...)) has the form mathematically
+   but it is TOO SUBTLE. NEVER again claim the fix works from the dbg viz — verify the DEFAULT render.
+2. The HEMISPHERE ambient varies ONLY by N.y (up/down): base = mix(ground, sky, N.y*0.5+0.5). VERTICAL
+   surfaces (rock faces, walls — N.y~0) all get the SAME base -> FLAT no matter the contrast. The hemisphere
+   fundamentally cannot sculpt vertical geometry. Also gtint={0.65,0.55,0.45} at strength 0.2 is weak.
+FIX (empirical, on the DEFAULT render, at a ROCK-FACE / VERTICAL vantage on the Redmi):
+- The form on ALL orientations (not just up/down) needs a FULLER directional ambient. The SH and IBL models
+  vary in every direction (not just N.y) — MAKE THEM WORK and be the answer for vertical-surface form. Test
+  each model (Hemisphere / SH / IBL) on the DEFAULT colored render at a vertical rock face; the SH/IBL must
+  visibly give a left/right/forward gradient (form) that the hemisphere cannot. If they don't, they are
+  mis-implemented — fix them.
+- BOOST the ambient CONTRAST (the sky<->ground and the directional spread) so the form is clearly visible in
+  the REAL render, not just the viz. Expose it as the owner's "Ambient Contrast" control (a levels/spread
+  notion, not the brightness level). Default it high enough to sculpt.
+- Verify: at a shadowed VERTICAL rock face on the Redmi, the DEFAULT render shows the rock's form (faces at
+  different orientations visibly different) — with SH or IBL, contrast up. Capture the DEFAULT render (NOT
+  dbg12) A/B: hemisphere-flat vs SH/IBL-with-form, at the rock face. Owner eye is the gate; the debug viz is
+  NOT acceptable as the proof.
+ACCEPTANCE OVERRIDE: the phase does NOT pass until a shadowed VERTICAL surface (rock/wall) shows visible form
+in the DEFAULT colored render on the Redmi (not the viz). This is the owner's repeated core complaint.
