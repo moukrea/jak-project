@@ -24,4 +24,13 @@ grep -qiE 'research|investigat|cost.*(Adreno|Snapdragon|618|8 Elite)|recommend' 
 grep -qiE 'ambient.*base|base.*ambient|additive.*sun|sun.*(add|on top)|compositing order|shadow.*(removes|only).*direct|varies by normal.*shadow' "$R" || fail "no ambient-base + additive-sun compositing evidence (owner root cause)"
 grep -qiE 'default (colored )?render|vertical (surface|rock|wall)|rock face.*form|SH.*(vertical|form)|IBL.*(vertical|form)|NOT (the )?(dbg|viz)|real render' "$R" || fail "no default-render vertical-surface form evidence (supervisor correction — viz not acceptable)"
 grep -qiE 'sun off.*(relief|form|sculpt)|ambient (only|alone).*(relief|form|sculpt)|sun-off.*(relief|form)|add light.*not.*shadow' "$R" || fail "no sun-OFF-shows-relief evidence (owner core gate)"
+# SHIPPED-DEFAULT gate (supervisor 2026-07-20): the model the owner downloads out-of-box must be the one
+# that sculpts vertical surfaces. hemisphere (model 0) is N.y-only => FLAT on vertical rocks/walls by
+# construction. A prop-forced SH capture can false-pass the report greps while the shipped build stays flat.
+# So the gfx.h default MUST be a directional model (SH=1 / IBL=2), not hemisphere.
+DEFMODEL=$(grep -oE 'recharged_rt_ambient_model *= *[0-9]+' game/graphics/gfx.h | grep -oE '[0-9]+$' | head -1)
+[ -n "$DEFMODEL" ] || fail "cannot read recharged_rt_ambient_model default from gfx.h"
+[ "$DEFMODEL" != "0" ] || fail "shipped default ambient model is 0 (hemisphere = flat on vertical); must ship SH/IBL as default so the downloaded build sculpts (supervisor 2026-07-20)"
+# and the default-render capture must be documented as taken OUT-OF-BOX (no rt.ambientmodel setprop override)
+grep -qiE 'out.?of.?box|no.*(setprop|prop).*override|shipped default|fresh install.*(capture|render)|default model.*(no|without) prop|as shipped' "$R" || fail "default-render capture not proven out-of-box (could be a prop-forced model that the download does not use)"
 echo "[Gda PASS]"

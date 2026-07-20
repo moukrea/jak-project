@@ -384,3 +384,21 @@ THE GATE (owner's acceptance, non-negotiable, on the DEFAULT render on the Redmi
   render and prove faces at different orientations differ. THEN turn the sun on: it ADDS light on the lit
   side (brighter), the shadowed side keeps its ambient relief. If sun-off looks flat, the phase FAILS.
 This supersedes prior framings. Owner eye is the final gate; the debug viz is NOT acceptable as proof.
+
+---
+## SUPERVISOR HARD GATE (2026-07-20) — SHIP THE RELIEF AS THE DEFAULT
+The owner has twice downloaded a jak-builds build and found it STILL FLAT, because the relief only
+showed when a debug prop (`debug.opengoal.rt.ambientmodel`) forced SH, while the SHIPPED default stayed
+`recharged_rt_ambient_model = 0` (hemisphere). Hemisphere is N.y-only → FLAT on vertical rock faces /
+walls BY CONSTRUCTION. It can never satisfy the owner's gate.
+
+Therefore, NON-NEGOTIABLE:
+1. Set the shipped default `recharged_rt_ambient_model` in `game/graphics/gfx.h` to a DIRECTIONAL model
+   (SH=1 or IBL=2) — the one that sculpts vertical surfaces. hemisphere stays selectable but is NOT the
+   out-of-box default. (Validator now asserts default != 0.)
+2. The default-render / sun-off-relief capture that proves the gate MUST be taken OUT-OF-BOX: fresh state,
+   NO `setprop debug.opengoal.rt.ambientmodel` override. State this explicitly in the report
+   ("out-of-box, no prop override, shipped default"). A prop-forced capture is a false green — the owner's
+   download does not run your setprop.
+3. Verify the DEFAULT colored render (not the dbg/viz) at a VERTICAL rock face or wall, sun OFF: the dark
+   scene must show the object's form. That is the owner's verbatim gate.
