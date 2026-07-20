@@ -286,3 +286,54 @@ right):
 ACCEPTANCE (device, shadowed rock/terrain vantage): shadowed geometry shows FORM (faces at different normals
 have visibly different brightness) with the sun off/occluded — NOT a uniform flat floor. Sunlit adds on top.
 OFF==stock. This is the owner's core fix; verify at the stone building + rocks, not just the sage hut.
+
+## CLARIFICATION (owner 2026-07-20 ~07:00) — the sun ADDS light, it does NOT add shadow. Verify vs real engines.
+Owner asked: does the sun add light on an already-shaded surface, or add shadow on top? ANSWER (the standard
+rendering equation, forward+deferred): light is ACCUMULATED ADDITIVELY. The sun ADDS a light contribution;
+it never "adds darkness."
+  final = ambient(N)                              // indirect base, always present, gives form
+        + sun_color * max(N·L,0) * shadow_factor  // sun's contribution, ADDED where it reaches
+A cast shadow = shadow_factor -> 0 => the sun's term is simply NOT added there => that fragment has ONLY the
+ambient (identical to a face turned away from the sun). Shadow is the ABSENCE of the sun's added light, NOT a
+painted-on dark overlay. So a shadowed rock == ambient-only (with form); a sunlit rock == ambient + sun
+(brighter + directional highlight on top). Never subtract/flatten the ambient in shadow.
+REQUIREMENT: the researcher must CONFIRM this additive model against real-engine references (the rendering
+equation; forward/deferred light accumulation; shadow maps multiplying ONLY the light's own term) and cite
+them in the report, so our compositing matches how contemporary engines actually do it — no hand-waving.
+
+## OWNER CLARIFICATION 2 (2026-07-20 ~07:15) — blend semantics + the ambient control is CONTRAST, not brightness
+Owner (rendering-literate, correct) framed it in Photoshop blend terms; confirm + implement exactly:
+1. SUNLIT = ADD / Linear Dodge of the sun term onto the ambient-shaded base: final = ambient(N) +
+   sun·N·L·shadow. (Screen is a soft approximation; true light accumulation is ADD, then tone-map so the
+   sunlit side doesn't blow to white.)
+2. SHADOW is NOT a Multiply over the whole model. The shadow_factor multiplies ONLY the sun's own term
+   (before it is added). In shadow: sun·0 = 0 -> the AMBIENT remains FULLY intact. NEVER multiply the whole
+   surface / the ambient by the shadow (that would flatten the ambient relief — the exact bug). 
+   => Both sunlit AND shadowed fragments KEEP their full ambient relief; sunlit just adds the sun on top,
+   shadowed is ambient-only. Verify neither loses ambient form.
+3. THE AMBIENT CONTROL IS CONTRAST/LEVELS, NOT A BRIGHTNESS SLIDER. The current ~0.2 is a brightness scalar
+   that shifts every face equally -> adds NO form. What creates form is the CONTRAST: the spread between
+   sky-lit (up-facing) and ground-lit (down-facing) ambient. Make ~0.2 the MEAN, and expose/tune the
+   CONTRAST = the sky-colour-vs-ground-colour delta (the range around the mean). A strong sky<->ground
+   spread makes the normal gradient visibly sculpt shadowed rocks/terrain. The Recharged-Settings control
+   for the ambient should be this contrast/strength (levels), not a flat brightness. Tune it so shadowed
+   geometry reads as sculpted, not washed flat.
+ACCEPTANCE add: prove (a) shadowed fragment = ambient-only with full normal-varying form (no flattening),
+(b) sunlit = ambient + additive sun, tone-mapped (not blown out), ambient form still visible under the sun,
+(c) raising the ambient CONTRAST visibly increases shadowed-rock form (not just overall brightness).
+
+## OWNER CLARIFICATION 3 (2026-07-20 ~07:25) — DEFINITIVE clean model: cast shadow = sun VISIBILITY, not a darkening op
+Owner (correct, cleaner than the earlier "multiply" framing): the ambient IS "not directly sun-lit" and it
+already carries the relief, so there is NO "shadow to apply" as a separate darkening. There is only: does
+the sun reach this fragment? THE implementation must be exactly this — NOT a shadow-multiply overlay:
+  sun_visible = (N·L > 0) AND (not occluded per the sun shadow-map)   // soft (PCF) at the penumbra
+  final = ambient(N)  +  sun_color * N·L * sun_visible
+- Sun reaches -> ambient + sun. Sun does NOT reach (away-facing N·L<=0 OR cast-shadow-occluded) -> AMBIENT
+  ONLY, with full normal-varying relief. A cast-shadowed fragment and an away-facing fragment are the SAME
+  state (ambient only). Unify them; do not treat cast shadow as a separate multiply/darken over the surface.
+- There is NO flat floor, NO "shadow term added", NO multiply of the ambient. The ambient(N) term is the
+  complete appearance of anything the sun doesn't directly hit, and it varies by normal (contrast/levels
+  tunable) so it shows form.
+This is the single source of truth for the compositing; the earlier "shadow multiplies only the sun term"
+note is equivalent but this framing is cleaner — implement THIS. Confirm against real-engine references
+(forward/deferred: sun contribution gated by NdotL and shadow visibility, added to the indirect/ambient).
