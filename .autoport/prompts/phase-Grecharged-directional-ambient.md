@@ -133,3 +133,26 @@ ACCEPTANCE: realtime-lighting ON now looks BETTER than stock baked (owner's bar)
 baked FORM/richness AND gain the moving realtime sun + dynamic cast shadows; no flat areas; no double-dose;
 sunlit reads as sun; OFF==stock. Device A/B: realtime-ON vs stock-baked at a shadowed vantage, owner eye.
 This supersedes the hemisphere/SH/IBL headline above for the STATIC world.
+
+## SUPERVISOR CORRECTION 2 (owner 2026-07-20 ~02:10, FURIOUS) — the PIVOT above is WRONG, IGNORE IT. KEEP FULL REALTIME LIGHTING.
+The "baked as indirect" PIVOT section above is REVOKED. Owner: "on abandonne PAS le realtime lighting."
+The goal is a FULL realtime lighting pipeline that stands on its own and BEATS the baked look — NOT falling
+back to baked as a crutch. Do NOT use baked as the indirect. Do NOT revert to stock-baked-look for the
+shadowed areas.
+
+STAY THE COURSE, within full realtime (no baked crutch):
+- KEEP: realtime direct sun (per-face N.L) + dynamic cast shadows + night sun-fade + distance/quality/menu.
+- KEEP the OWNER'S REQUESTED PATH: continue the computed directional ambient ladder — hemisphere -> SH
+  (L1/L2 irradiance from the mood sky) -> IBL (prefiltered sky env, diffuse irradiance). These are REALTIME/
+  computed ambient (no baked), which is exactly the full-realtime vision. The Hemisphere/SH/IBL selector in
+  Recharged Settings stays.
+- The FLAT-SHADOW problem is real and must be solved WITHIN realtime. AO was a false lead (contact-only, no
+  model relief — confirmed). SH/IBL give richer directional ambient than the flat hemisphere; if that is
+  still not enough form on flat surfaces, the realtime answer is SCREEN-SPACE DIRECTIONAL occlusion / GI
+  (SSDO / SSGI) — directional bounce that sculpts form, unlike plain uniform AO — NOT baked, NOT plain AO.
+  Investigate SSDO/SSGI as the realtime form-giver if SH/IBL alone falls short, and report the honest
+  assessment.
+- Golden rule on any occlusion (ambient only, never the direct sun). OFF==stock byte-identical.
+ACCEPTANCE (unchanged bar): full realtime lighting ON looks BETTER than stock baked at a shadowed vantage —
+achieved with a REALTIME/computed ambient (hemisphere/SH/IBL [+SSDO/SSGI if needed]), NEVER by using the
+baked as the indirect. Owner eye gates.

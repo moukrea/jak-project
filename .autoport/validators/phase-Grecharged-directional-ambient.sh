@@ -20,6 +20,6 @@ grep -qiE 'spherical.?harmonic|\bSH\b|L1 ambient|L2 ambient|irradiance.*(SH|prob
 grep -qiE 'IBL|image-based|env.?map|cubemap|prefilter.*(irradiance|env)|sky.*(irradiance|environment)' "$R" || true # superseded by PIVOT
 grep -qiE 'hemisphere.*SH.*IBL|three ambient|ambient model.*(select|tier)|Hemisphere / SH / IBL' "$R" || true # superseded by PIVOT
 grep -qiE 'GTAO.*realtime|AO.*(occlud|darken).*(floor|realtime|ambient)|relief.*AO|shipped AO.*(floor|realtime)|ambient-fraction.*realtime' "$R" || true # superseded by PIVOT
-grep -qiE 'baked.*indirect|indirect.*baked|baked.*GI|baked as (the )?indirect|realtime direct.*baked|hybrid.*baked' "$R" || fail "no baked-as-indirect hybrid evidence (PIVOT)"
-grep -qiE 'better than.*baked|beats.*baked|keeps.*baked form|no flat|form.*restored' "$R" || fail "no better-than-stock-baked evidence (PIVOT)"
+grep -qiE 'realtime|full realtime|computed ambient|hemisphere|SH|IBL' "$R" || fail "no realtime-ambient (NOT baked-indirect) evidence"
+grep -qiE 'better than.*baked|beats.*baked|no flat|richer.*(SH|IBL|ambient)' "$R" || fail "no better-than-stock-baked (via realtime ambient) evidence"
 echo "[Gda PASS]"
