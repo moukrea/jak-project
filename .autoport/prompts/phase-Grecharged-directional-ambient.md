@@ -209,3 +209,55 @@ the realtime-lighting path. When OFF: the stock baked-vertex-color path runs unt
 attribute is ignored (or not uploaded), zero pixel difference vs a build without the feature. Prove OFF==
 stock with the normal reconstruction present (diff ~0). The smooth-normal precompute must not alter the
 shipped stock assets either (keep it in the realtime path / a separate attribute, gold READ-ONLY).
+
+## OWNER ROUND 2 (2026-07-20 morning, Honor) — smooth-normal reconstruction ARTIFACTS + missing menu selector
+Owner walked to the STONE BUILDING (the round warp-gate tower in Sandover) — evidence:
+device/OWNER-artifact-stone-building.png. The stone wall shows WEIRD facets / incoherent bright & dark
+zones that do NOT follow any single light direction (random-looking lit patches on the masonry, on BOTH
+buildings present). Supervisor mea culpa: I verified only the rounded sage hut vantage and missed this.
+
+DEFECT 1 — the smooth-normal reconstruction is WRONG on hard-edged geometry. It is welding/averaging
+normals ACROSS SHARP EDGES (a stone block / wall corner must KEEP its distinct face normals; smoothing them
+into one smears the normal in wrong directions -> the random bright/dark patches). FIX: crease-angle-aware
+reconstruction — only average face normals at a shared vertex when the angle between faces is below a crease
+threshold (~30-45 deg); above it, keep SEPARATE normals (hard edge). Also: angle/area-weighted averaging,
+weld strictly by POSITION (not across UV/material seams incorrectly), skip degenerate/zero-area tris, and
+handle the tfrag STRIP topology adjacency correctly. Validate on the STONE BUILDING + several other
+buildings/props (NOT just the sage hut): the lit gradient must follow a coherent light direction with NO
+random patches; hard edges stay crisp, curved surfaces stay smooth.
+
+DEFECT 2 — the ambient-model SELECTOR is missing from Recharged Settings (owner sees only the default
+hemisphere). SH and IBL exist in code (captures gda_sh/gda_ibl) but are NOT menu-selectable. WIRE the
+Hemisphere / SH / IBL selector as a real Recharged-Settings row (live, persisted), so the owner can A/B the
+three on device.
+
+ACCEPTANCE (device, multiple building vantages incl. the stone tower): no random/incoherent lit patches —
+lighting follows one coherent direction; hard edges crisp, curves smooth; the 3-model ambient selector works
+in-menu; OFF==stock; sun-only; golden rule. Owner eye gates. Test AT the artifact location, not just the hut.
+
+## OWNER ROUND 2 — PRIORITY: SHADOWED AREAS STILL FLAT (the core issue, NOT fixed by smooth normals)
+Owner: "dans les parties à l'ombre du soleil, genre sur les rochers, ça fait toujours super plat, t'as pas
+corrigé le soucis." IMPORTANT distinction: smooth normals fixed the FACETING artifact, but shadowed static
+geometry (rocks, terrain, wall undersides) still looks FLAT — because in shadow the ONLY light is the
+hemisphere ambient (a very low-frequency up/down-by-normal gradient) which does NOT sculpt fine form. This
+is THE headline problem and it is still open. Supervisor has guessed wrong twice (AO-only; baked-as-indirect)
+— so DO REAL RESEARCH before implementing, do not guess.
+
+RESEARCH TASK (delegate to autoport-researcher, deep + honest, report findings first):
+"How do contemporary AND ~2010-era game engines make SHADOWED STATIC geometry (rocks/terrain) show FORM
+cheaply, WITHOUT baked lightmaps and WITHOUT expensive GI, on modest hardware?" Investigate and cost each,
+then recommend a cheap default + a scalable ladder:
+- SSAO/HBAO/GTAO applied to the AMBIENT term at a MODEL-SCALE radius (not tiny contact): does a medium-
+  radius AO on the ambient sculpt rock form in shadow? (The shipped GTAO may currently NOT occlude the
+  realtime floor — verify.) Owner felt "AO is contact only"; test whether a larger radius / proper wiring
+  actually gives form. Be empirical on device.
+- Richer directional ambient: higher-order SH vs hemisphere, and whether sky/ground CONTRAST (currently
+  maybe too weak) is the missing bit — a strong sky-vs-ground colour delta makes the N.y gradient visibly
+  sculpt form.
+- The real cheap classic: is it actually a combination (medium-radius SSAO on ambient + directional
+  ambient), which is what most 2010 games shipped? 
+- SSDO/SSGI only as the expensive top tier.
+Report: for each, the expected look + the cost on Adreno 618 (Redmi) and Snapdragon 8 Elite (Honor), then
+implement the recommended CHEAP one so shadowed rocks/terrain show form on the Redmi. This is the acceptance
+that matters: shadowed rocks look sculpted (form), not flat, at a shadowed vantage, cheaply — the owner's
+core, repeated complaint. Prove on device at a shadowed rock/terrain spot, AO off vs on, ambient tiers.
