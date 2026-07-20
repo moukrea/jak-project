@@ -21,4 +21,5 @@ grep -qiE 'selector.*(menu|Recharged|row|live)|Hemisphere / SH / IBL.*menu|3.*(m
 grep -qiE 'stone|warp.?gate|multiple.*building|several.*(building|vantage)' "$R" || fail "no test-at-stone-building/multiple-vantages evidence (round-2)"
 grep -qiE 'shadow.*(rock|terrain|form|sculpt)|rocks?.*(form|sculpt|not flat)|form in shadow' "$R" || fail "no shadowed-form (rocks not flat) evidence — round-2 CORE"
 grep -qiE 'research|investigat|cost.*(Adreno|Snapdragon|618|8 Elite)|recommend' "$R" || fail "no real-research evidence — round-2"
+grep -qiE 'ambient.*base|base.*ambient|additive.*sun|sun.*(add|on top)|compositing order|shadow.*(removes|only).*direct|varies by normal.*shadow' "$R" || fail "no ambient-base + additive-sun compositing evidence (owner root cause)"
 echo "[Gda PASS]"

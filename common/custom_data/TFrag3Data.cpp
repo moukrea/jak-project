@@ -2,12 +2,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <functional>
 #include <unordered_map>
 
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 #include "common/util/simd_util.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 namespace tfrag3 {
 
@@ -344,42 +349,74 @@ void ShrubTree::unpack() {
   ASSERT(i == unpacked.vertices.size());
 }
 
-// Grecharged-directional-ambient ROOT-CAUSE FIX (smooth per-vertex normals).
+// Grecharged-directional-ambient ROOT-CAUSE FIX (smooth per-vertex normals) — ROUND 2 CREASE-AWARE.
 // Static tfrag geometry ships with NO per-vertex normal (the PS2 game baked its lighting into the
 // vertex COLORS instead of storing normals), so the realtime-lighting shaders used to synthesize a
 // FLAT per-face normal via screen-space derivatives (cross(dFdx,dFdy)). On any curved surface
 // (rounded huts, terrain, arches) that reads as faceted/flat in shadow — direct AND ambient — which
 // is exactly the "3D en ombre a l'air plat" the owner reported. Contemporary engines solve this the
-// cheap way: reconstruct smooth vertex normals. Here we do it once at level-load (runs on modest HW):
-// accumulate adjacent FACE normals at every vertex (area-weighted via the raw edge cross product),
-// WELDED by exact packed position so UV/material-seam copies still share one smooth normal, then
-// normalize and pack into the 2-10-10-10 `nor` attribute the GL vertex already carries (TIE already
-// ships real authored normals there; tfrag was leaving it 0). The shader keeps the per-face geometric
-// normal only as an outward-sign reference + degenerate fallback, so the global winding chosen here is
-// irrelevant and the worst case (missing/degenerate normal) reproduces the old flat behaviour exactly.
+// cheap way: reconstruct smooth vertex normals. Here we do it once at level-load (runs on modest HW).
+//
+// ROUND-2 DEFECT (owner, stone building / masonry): round-1 welded EVERY vertex sharing a position into
+// ONE averaged normal, unconditionally. On hard-edged geometry (a stone wall / block corner) that smears
+// the two face normals of a 90-degree corner into a diagonal average -> the incoherent random bright/dark
+// patches the owner saw. FIX = CREASE-ANGLE-AWARE reconstruction: for every weld group (vertices sharing an
+// exact packed position) we CLUSTER the incident faces by the angle between their normals. Faces within the
+// crease threshold (default 45 deg) weld into one smooth cluster; faces meeting ABOVE it stay in SEPARATE
+// clusters (a hard edge). Each unpacked vertex is then assigned the cluster carrying its largest incident
+// face — so a rounded surface welds smooth (a single cluster == the round-1 result exactly, so the approved
+// hut is unchanged) while a masonry corner keeps its two crisp face normals. Area-weighted (raw edge cross),
+// strip-parity aware, degenerate tris skipped, welded strictly by position. Packs into the 2-10-10-10 `nor`
+// attribute the GL vertex already carries. The shader keeps the per-face geometric normal only as the
+// outward-sign reference + degenerate fallback, so global winding is irrelevant and a missing normal
+// reproduces the old flat behaviour exactly.
+static float tfrag_crease_cos() {
+  // Crease threshold in degrees: adjacent faces at a shared position weld (smooth) only when the angle
+  // between them is below this; above it stays a hard edge. Default 45. Overridable for on-device A/B
+  // (level-reload picks it up); >=179 reproduces round-1's unconditional single-cluster weld ("before").
+  float deg = 45.0f;
+#ifdef __ANDROID__
+  char rv[PROP_VALUE_MAX];
+  if (__system_property_get("debug.opengoal.tfrag.crease", rv) > 0 && rv[0]) {
+    deg = (float)atof(rv);
+  }
+#else
+  if (const char* e = getenv("OG_TFRAG_CREASE_DEG")) {
+    deg = (float)atof(e);
+  }
+#endif
+  if (!(deg > 0.0f)) {
+    deg = 45.0f;
+  }
+  if (deg > 179.0f) {
+    deg = 179.0f;
+  }
+  return std::cos(deg * 0.017453292519943295f);
+}
+
 static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   const auto& packed = tree.packed_vertices.vertices;
   const size_t n = tree.unpacked.vertices.size();
   if (n == 0 || packed.size() != n) {
     return;
   }
+  const float crease_cos = tfrag_crease_cos();
 
-  // Weld by exact packed position (cluster + 16-bit offsets -> unique 64-bit key). Vertices split
-  // only for UV/material seams share a key, so the reconstructed normal is smooth across the seam.
+  // Weld GROUPS by exact packed position (cluster + 16-bit offsets -> unique 64-bit key). Vertices split
+  // only for UV/material seams (or strip boundaries) share a key; the crease clustering below decides which
+  // of them actually merge.
   std::unordered_map<u64, u32> pos_to_group;
   pos_to_group.reserve(n * 2);
   std::vector<u32> vert_group(n);
-  std::vector<math::Vector3f> group_normal;
-  group_normal.reserve(n);
+  u32 num_groups = 0;
   for (size_t i = 0; i < n; i++) {
     const auto& p = packed[i];
     u64 key = ((u64)p.cluster_idx << 48) | ((u64)p.xoff << 32) | ((u64)p.yoff << 16) | (u64)p.zoff;
     auto it = pos_to_group.find(key);
     if (it == pos_to_group.end()) {
-      u32 g = (u32)group_normal.size();
-      pos_to_group.emplace(key, g);
-      group_normal.emplace_back(0.f, 0.f, 0.f);
-      vert_group[i] = g;
+      pos_to_group.emplace(key, num_groups);
+      vert_group[i] = num_groups;
+      num_groups++;
     } else {
       vert_group[i] = it->second;
     }
@@ -389,14 +426,28 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
     const auto& v = tree.unpacked.vertices[idx];
     return math::Vector3f(v.x, v.y, v.z);
   };
+
+  // Collect, per weld group, one record per triangle-corner incident to it: the area-weighted (raw edge
+  // cross) face normal + which unpacked vertex the corner is. Strip-parity keeps the winding consistent
+  // within a strip. Degenerate (zero-area) triangles are skipped so they can't inject a garbage normal.
+  struct Incid {
+    math::Vector3f nraw;  // raw edge cross => length == 2*triangle area (area weighting)
+    u32 vert;
+  };
+  std::vector<std::vector<Incid>> group_incid(num_groups);
+
   auto add_tri = [&](u32 i0, u32 i1, u32 i2, bool flip) {
-    math::Vector3f fn = (pos_of(i1) - pos_of(i0)).cross(pos_of(i2) - pos_of(i0));
-    if (flip) {
-      fn = fn * -1.f;  // triangle-strip parity: keep a consistent orientation within a strip
+    math::Vector3f nraw = (pos_of(i1) - pos_of(i0)).cross(pos_of(i2) - pos_of(i0));
+    float len = nraw.length();
+    if (!(len > 1e-3f)) {
+      return;  // degenerate / zero-area triangle: no reliable normal
     }
-    group_normal[vert_group[i0]] += fn;
-    group_normal[vert_group[i1]] += fn;
-    group_normal[vert_group[i2]] += fn;
+    if (flip) {
+      nraw = nraw * -1.f;  // triangle-strip parity: keep a consistent winding within a strip
+    }
+    group_incid[vert_group[i0]].push_back({nraw, i0});
+    group_incid[vert_group[i1]].push_back({nraw, i1});
+    group_incid[vert_group[i2]].push_back({nraw, i2});
   };
 
   const auto& idx = tree.unpacked.indices;
@@ -425,17 +476,74 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
     }
   }
 
-  // Normalize per weld-group and pack into the 10-bit signed 2-10-10-10 normal attribute.
-  for (auto& gn : group_normal) {
-    float len = gn.length();
-    gn = len > 1e-6f ? gn * (1.f / len) : math::Vector3f(0.f, 1.f, 0.f);
+  // For each group, cluster its incident faces by crease angle, then give every unpacked vertex the packed
+  // normal of the cluster holding its LARGEST incident face. Smooth surface => one cluster (bit-identical to
+  // round-1); hard edge => a cluster per face-group (crisp corners). Reused scratch avoids per-group allocs.
+  std::vector<math::Vector3f> cl_accum;  // area-weighted normal accumulator per cluster
+  std::vector<math::Vector3f> cl_unit;   // unit reference normal per cluster (largest face establishes it)
+  std::vector<u32> cl_packed;            // packed 2-10-10-10 normal per cluster
+  std::vector<int> rec_cluster;          // cluster chosen per incidence record
+  std::vector<char> has_normal(n, 0);
+  for (u32 g = 0; g < num_groups; g++) {
+    auto& recs = group_incid[g];
+    if (recs.empty()) {
+      continue;
+    }
+    // Largest faces first so the dominant surface establishes the cluster references (order-stable).
+    std::sort(recs.begin(), recs.end(), [](const Incid& x, const Incid& y) {
+      return x.nraw.dot(x.nraw) > y.nraw.dot(y.nraw);
+    });
+    cl_accum.clear();
+    cl_unit.clear();
+    rec_cluster.assign(recs.size(), -1);
+    for (size_t r = 0; r < recs.size(); r++) {
+      float len = recs[r].nraw.length();
+      math::Vector3f unit = recs[r].nraw * (1.f / len);
+      int found = -1;
+      for (size_t c = 0; c < cl_unit.size(); c++) {
+        // SIGNED dot on parity-consistent normals: coplanar-enough (< crease) welds; a >=crease fold
+        // (90 deg corner == dot 0, or a sharper back-fold) starts a new cluster => hard edge preserved.
+        if (unit.dot(cl_unit[c]) >= crease_cos) {
+          found = (int)c;
+          break;
+        }
+      }
+      if (found < 0) {
+        found = (int)cl_accum.size();
+        cl_accum.push_back(recs[r].nraw);
+        cl_unit.push_back(unit);
+      } else {
+        cl_accum[found] += recs[r].nraw;  // same hemisphere by the signed test => plain add
+      }
+      rec_cluster[r] = found;
+    }
+    cl_packed.assign(cl_accum.size(), 0);
+    for (size_t c = 0; c < cl_accum.size(); c++) {
+      math::Vector3f nn = cl_accum[c];
+      float l = nn.length();
+      nn = l > 1e-6f ? nn * (1.f / l) : math::Vector3f(0.f, 1.f, 0.f);
+      s16 nx = (s16)std::lround(nn.x() * 511.f);
+      s16 ny = (s16)std::lround(nn.y() * 511.f);
+      s16 nz = (s16)std::lround(nn.z() * 511.f);
+      cl_packed[c] = pack_to_gl_normal(nx, ny, nz);
+    }
+    // recs is sorted by area desc, so the FIRST record seen for a vertex is its largest incident face:
+    // that face's cluster is the surface the vertex belongs to (crisp side on a corner, the single smooth
+    // cluster on a curve).
+    for (size_t r = 0; r < recs.size(); r++) {
+      u32 v = recs[r].vert;
+      if (!has_normal[v]) {
+        tree.unpacked.vertices[v].nor = cl_packed[rec_cluster[r]];
+        has_normal[v] = 1;
+      }
+    }
   }
+  // Vertices with no (non-degenerate) incident face keep nor == 0 -> the shader falls back to the flat
+  // per-face normal, exactly the pre-fix behaviour.
   for (size_t i = 0; i < n; i++) {
-    const math::Vector3f& gn = group_normal[vert_group[i]];
-    s16 nx = (s16)std::lround(gn.x() * 511.f);
-    s16 ny = (s16)std::lround(gn.y() * 511.f);
-    s16 nz = (s16)std::lround(gn.z() * 511.f);
-    tree.unpacked.vertices[i].nor = pack_to_gl_normal(nx, ny, nz);
+    if (!has_normal[i]) {
+      tree.unpacked.vertices[i].nor = 0;
+    }
   }
 }
 

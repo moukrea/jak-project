@@ -39,6 +39,9 @@ set_feature_props(){
   [ -n "${RTL_AMBIENTMODEL:-}" ] && adb shell "setprop debug.opengoal.rt.ambientmodel '${RTL_AMBIENTMODEL}'" </dev/null
   # ROOT-CAUSE FIX A/B: 0 = SMOOTH per-vertex normal (the fix), 1 = force OLD flat per-face normal.
   adb shell "setprop debug.opengoal.rt.flatnormal '${RTL_FLATNORMAL:-0}'" </dev/null
+  # ROUND-2 CREASE A/B: crease angle (deg) for the smooth-normal weld, read at LEVEL LOAD (set before the
+  # relaunch below). Default 45 (fix). 179 => reproduce round-1's unconditional weld (the masonry artifact).
+  [ -n "${RTL_CREASE:-}" ] && adb shell "setprop debug.opengoal.tfrag.crease '${RTL_CREASE}'" </dev/null
   adb shell "setprop debug.opengoal.pbr.shadowmap '$SHADOW'" </dev/null
   # Standalone AO forced OFF by default => the form we show comes from the hemisphere ambient, NOT AO.
   adb shell "setprop debug.opengoal.ao.force_mode '${AO_MODE:-0}'" </dev/null

@@ -261,3 +261,28 @@ Report: for each, the expected look + the cost on Adreno 618 (Redmi) and Snapdra
 implement the recommended CHEAP one so shadowed rocks/terrain show form on the Redmi. This is the acceptance
 that matters: shadowed rocks look sculpted (form), not flat, at a shadowed vantage, cheaply — the owner's
 core, repeated complaint. Prove on device at a shadowed rock/terrain spot, AO off vs on, ambient tiers.
+
+## OWNER FOUND THE ROOT CAUSE (2026-07-20 ~06:50) — COMPOSITING ORDER: ambient is the BASE (form on every face), sun ADDS on top
+This SUPERSEDES the SSAO/research-guessing for the shadowed-flatness. Owner nailed it: shadowed faces
+currently get a FLAT ~0.2 floor (SAME value for every face regardless of normal) -> all faces identical ->
+FLAT. Introduced when we added the ~0.2 shadow attenuation. The CORRECT model (owner's, and it is exactly
+right):
+  final = AMBIENT(normal)                                   // BASE — indirect, varies by normal, applied
+                                                            //   to EVERY fragment ALWAYS -> form on every
+                                                            //   face even with no sun
+        + sun_color * max(dot(N,L),0) * cast_shadow_factor  // DIRECT — sun ADDS on top only where it
+                                                            //   reaches; cast shadow removes ONLY this
+                                                            //   direct term, NEVER flattens the ambient
+- In shadow (sun/NdL/shadow -> 0): final = AMBIENT(normal) -> STILL varies by normal -> rock/terrain form.
+  The ~0.2 becomes the ambient's MEAN, not a constant; it must VARY by normal (hemisphere/SH).
+- The bug to remove: any code path that, when a fragment is in cast shadow or facing away, sets it to a
+  CONSTANT floor. Replace with the normal-varying ambient term. Direct sun is ADDITIVE on top of that base.
+- This is the compositing ORDER the owner intuited: indirect ambient reveals geometry first; directional
+  sun + cast shadows come over it, darkening an already-present shaded base.
+- Cheap: we already compute a normal-varying hemisphere; make it the ALWAYS-ON base, drop the flat floor.
+  No SSAO/GI needed for this base form (AO/SSDO stay OPTIONAL bonus tiers for extra crevice/GI detail).
+- Ensure enough normal-contrast in the ambient (sky vs ground colour delta) that the form is clearly
+  visible on shadowed rocks/terrain, not washed to near-uniform.
+ACCEPTANCE (device, shadowed rock/terrain vantage): shadowed geometry shows FORM (faces at different normals
+have visibly different brightness) with the sun off/occluded — NOT a uniform flat floor. Sunlit adds on top.
+OFF==stock. This is the owner's core fix; verify at the stone building + rocks, not just the sage hut.
