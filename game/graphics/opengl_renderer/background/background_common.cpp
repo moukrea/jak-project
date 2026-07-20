@@ -983,11 +983,11 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   st.shadow_light = 0;  // default: the yellow sun owns the shadow (day)
   // OWNER PLAYTEST #4 — the yellow<->green shadow-map handoff must not be a brutal step. The single
   // depth map is rendered from whichever sun is HIGHER in the sky (max elevation), so ownership flips
-  // at the elevation CROSSOVER (where the two suns are comparably weighted) rather than the instant the
-  // yellow sun clips the horizon. Combined with u_rt_shadow_conf (which fades the cast-shadow strength
-  // to ~0 near that crossover / in the both-suns overlap), the map handoff is stepless. A sun may own
-  // the map while it is slightly below the horizon (down to the ambient-ramp low end -0.30) because its
-  // light term is still non-zero there (item 1: the green sun casts symmetrically to the yellow sun).
+  // at the elevation CROSSOVER rather than the instant the yellow sun clips the horizon. The cast-shadow
+  // STRENGTH is faded by the owning sun's own elevation weight (u_rt_shadow_conf, computed in
+  // first_tfrag_draw_setup): at the crossover both suns are below the ramp so their weights (and the
+  // shadow) are ~0 => the ownership flip is invisible (stepless). A sun owns the map only while it is
+  // within its elevation ramp (down to the low end -0.05); below that its light term (and its shadow) is 0.
   {
     PbrV3 ss = {gs.recharged_pbr_sky_sun[0], gs.recharged_pbr_sky_sun[1],
                 gs.recharged_pbr_sky_sun[2]};
@@ -997,7 +997,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
     float gln = std::sqrt(pv_dot(gsun, gsun));
     float sun_up = (ssl > 1e-3f) ? ss.y / ssl : -2.f;    // yellow elevation sine (-2 = unpushed)
     float grn_up = (gln > 1e-3f) ? gsun.y / gln : -2.f;  // green  elevation sine
-    const float OWN_LO = -0.30f;                          // == ambient elevation-ramp low end
+    const float OWN_LO = -0.05f;                          // == ambient elevation-ramp low end (attempt-9)
     if (sun_up >= grn_up && sun_up > OWN_LO) {
       dir = {ss.x / ssl, ss.y / ssl, ss.z / ssl};  // yellow is the higher sun -> it casts
       st.shadow_light = 0;
@@ -1531,17 +1531,23 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // the ~0.2 sky-fill floor (kills the phantom night "spotlights"). Defaults to 1.0 (day) when
   // the sky-sun vector is not yet populated, so daytime is never wrongly darkened.
   float rt_sun_elev = 1.0f;
+  float sun_up_raw = 1.0f;  // yellow-sun elevation sine (default fully-up until the first sky-sun push)
   {
     const float* ss = gs.recharged_pbr_sky_sun;
     float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
     if (ssl > 1e-4f) {
       float up = ss[1] / ssl;  // sin(sun elevation): >0 above the horizon, <0 below (night)
-      // OWNER PLAYTEST #4: WIDEN the elevation ramp to a generous twilight window that STARTS below the
-      // horizon (-0.30) and reaches full at ~+0.20 (~11.5 deg) — ~2.8x wider than the old 0.18 ramp. The
-      // yellow sun's contribution now eases in/out over many more frames, so the yellow<->green handoff
-      // (and the day<->night fade) is gradual in intensity AND colour, no brutal step. Daytime (sun well
-      // above 0.20) still reads full; deep night (sun below -0.30) still fades to EXACTLY 0 (no leak).
-      rt_sun_elev = rt_smoothstep(-0.30f, 0.20f, up);
+      sun_up_raw = up;
+      // OWNER PLAYTEST #4 (attempt-9): the attempt-8 WIDE ramp (-0.30..0.20) only widened the brightness
+      // swing and MEASURED WORSE per-channel (world-crop perchan max 14.1 vs the narrow ramp's 7.3) with
+      // no benefit — the "overlap crossfade" it aimed for does not exist because the two suns are ANTIPHASE
+      // with a dark twilight GAP (never both up at once). So restore a narrow ramp near the owner-accepted
+      // value (horizon..+0.18, ~10deg) but START it just below the horizon (-0.05) for a tiny overlap so the
+      // yellow/green contributions blend for a moment at the handoff. The smooth yellow->green COLOUR
+      // transition across the gap is carried by the continuously-interpolated ambient mood tone (todsmooth)
+      // plus this small overlap; the shadow pop is killed by the owning-sun shadow fade below. Deep night
+      // (sun below -0.05) still fades to EXACTLY 0 (no leak).
+      rt_sun_elev = rt_smoothstep(-0.05f, 0.18f, up);
     }
   }
 #ifdef __ANDROID__
@@ -1571,13 +1577,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // night-only vector with weight 1-sun_elev — the exact thing the owner flagged as wrong.)
   float moon_dir[3] = {0.0f, 1.0f, 0.0f};  // safe default (up) until the first green-sun push arrives
   float green_elev = 0.0f;                 // green sun's OWN elevation weight (0 below horizon / unpushed)
+  float green_up_raw = -1.0f;              // green-sun elevation sine (default below horizon until pushed)
   {
     const float* gsun = gs.recharged_pbr_green_sun;
     float gln = std::sqrt(gsun[0] * gsun[0] + gsun[1] * gsun[1] + gsun[2] * gsun[2]);
     if (gln > 1e-4f) {
       moon_dir[0] = gsun[0] / gln; moon_dir[1] = gsun[1] / gln; moon_dir[2] = gsun[2] / gln;  // surface->green-sun
       float up = gsun[1] / gln;  // sin(green-sun elevation): >0 above the horizon
-      green_elev = rt_smoothstep(-0.30f, 0.20f, up);  // SAME wide ramp as the yellow sun => symmetric smooth crossfade
+      green_up_raw = up;
+      green_elev = rt_smoothstep(-0.05f, 0.18f, up);  // SAME narrow ramp as the yellow sun => symmetric handoff (attempt-9)
     }
   }
   const float MOON_GREEN[3] = {0.76f, 1.0f, 0.47f};   // precursor green-sun colour (194,254,120)/255
@@ -1605,21 +1613,21 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
 #endif
   float moon_scale = moon_intensity * green_elev;  // real green-sun elevation weight => day+night when up
-  // OWNER PLAYTEST #4 — SHADOW-HANDOFF CONFIDENCE. The single cast-shadow map belongs to whichever sun is
-  // higher (selected above). When the two suns are comparably weighted — the elevation CROSSOVER, and the
-  // both-suns overlap — the map's owner is ambiguous and a discrete flip would pop a shadow on/off. Fade
-  // the cast-shadow STRENGTH toward 0 there (dominance = |wy-wg|/(wy+wg) near 0) and keep it FULL when one
-  // sun clearly dominates (normal single-sun daylight AND night -> full shadows preserved). wy/wg are the
-  // wide-ramp elevation weights (rt_sun_elev / green_elev). This makes the yellow<->green shadow handoff
-  // stepless without a second depth pass. Golden rule intact (shadows only gate the direct sun term).
-  float rt_shadow_conf = 1.0f;
-  {
-    float wsum = rt_sun_elev + green_elev;
-    if (wsum > 1e-3f) {
-      float dominance = std::fabs(rt_sun_elev - green_elev) / wsum;  // 1 = one sun dominates, 0 = tie
-      rt_shadow_conf = rt_smoothstep(0.30f, 0.72f, dominance);
-    }
-  }
+  // OWNER PLAYTEST #4 (attempt-9b fix) — SHADOW-HANDOFF via a GRAZING-GATED elevation fade of the OWNING sun.
+  // History: attempt-8's dominance formula was DEAD CODE (conf==1 always, the antiphase suns are never both
+  // up). Attempt-9a tied conf to the owning sun's LIGHT weight, but that STILL left a single-frame ~14/255
+  // pop at the ownership flip: the one depth map re-renders from the GRAZING (near-horizon) green sun the
+  // instant it out-elevates the set yellow sun, casting long shadows that snap in — a discrete step visible
+  // at any TOD speed (measured: an isolated 14.45/255 spike between otherwise ~0.5/255 neighbours).
+  // FIX: gate the cast shadow on the owning sun's ELEVATION with a HIGHER window than the light ramp, so a
+  // sun casts NO shadow while it is near the horizon (grazing) and only fades its shadow in once it is
+  // comfortably up. conf = smoothstep(0.05, 0.30, owning_sun_up). Across the whole near-horizon handoff
+  // BOTH suns are below 0.05 => conf==0 => the depth-map ownership flip is invisible (stepless). Full
+  // daylight (yellow well up) keeps full shadows; deep-night green-sun shadows return once the green sun is
+  // high. The direct LIGHT still ramps in at the horizon (rt_sun_elev/green_elev, -0.05..0.18) — only the
+  // SHADOW waits for non-grazing elevation. Golden rule intact (this gates only the direct-sun cast shadow).
+  float owning_up = (pbr_shadow_state().shadow_light == 1) ? green_up_raw : sun_up_raw;
+  float rt_shadow_conf = rt_smoothstep(0.05f, 0.30f, owning_up);
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
   // elevation, green direction, shadow-handoff confidence, and which sun currently owns the shadow map.

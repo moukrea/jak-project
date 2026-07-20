@@ -33,7 +33,7 @@ set_common_props(){
   adb shell "setprop debug.opengoal.rt.intensity '${RTL_INTENSITY:-}'" </dev/null
   adb shell "setprop debug.opengoal.rt.todsmooth '${RTL_TODSMOOTH:-}'" </dev/null
   adb shell "setprop debug.opengoal.rt.moonintensity '${RTL_MOONINTENSITY:-}'" </dev/null
-  adb shell "setprop debug.opengoal.pbr.shadowmap 1" </dev/null
+  adb shell "setprop debug.opengoal.pbr.shadowmap ${RTL_SHADOWMAP:-1}" </dev/null
   adb shell "setprop debug.opengoal.ao.force_mode 0" </dev/null
   adb shell "setprop debug.opengoal.pbr.debug ''" </dev/null
   # NB: rt.sunelev is CLEARED for the sweep so the REAL sky-sun elevation drives the day/night fade.
