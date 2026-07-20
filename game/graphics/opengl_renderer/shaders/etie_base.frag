@@ -220,7 +220,22 @@ void main() {
       }
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       // baked hardwired OFF (realtime ON => baked off; realtime OFF = stock legacy path above).
-      vec3 lit = albedo * (base + (vec3(1.0) - base) * u_rt_sun_color * sun_scalar);
+      // OWNER'S DEFINITIVE ADDITIVE COMPOSITE (clarification 3, 2026-07-20): the ambient base is the
+      // ALWAYS-ON indirect light that carries the relief; the sun ADDS its own light on top, gated only
+      // by N.L and cast-shadow visibility (sun_scalar) — NOT a screen blend. The old
+      // base + (1-base)*sun converged to a FLAT albedo as the sun saturated, ERASING the ambient relief
+      // on the LIT side (the owner's "additive sun blows out / re-flattens the relief" = the WIP sun that
+      // looked bizarre). True ADD keeps base's normal-varying relief on BOTH the shadowed side
+      // (sun_scalar->0 => ambient only) AND the lit side (ambient + sun). A C1 soft-shoulder tone-map
+      // (identity below the knee, smooth asymptote to 1) stops the bright sun side from blowing to a flat
+      // white while leaving the dim ambient/shadow region — far below the knee — BYTE-untouched (the
+      // accepted sun-off relief is preserved exactly; sun_scalar==0 => lit==albedo*base as before).
+      vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar;
+      {
+        const float RT_KNEE = 0.8;
+        vec3 e = exp(-max(lit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));  // max() guards 0*inf NaN
+        lit = mix(lit, vec3(1.0) - (1.0 - RT_KNEE) * e, step(vec3(RT_KNEE), lit));
+      }
       vec3 sun_disp = pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2));
       // ROUND-4 item #2: beyond the Shadow Distance, crossfade back to the stock BAKED
       // lighting (fragment_color * T0 = AO/painted macro detail) so far geometry reads
