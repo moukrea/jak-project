@@ -519,3 +519,27 @@ OBJECTIVE GATES (device): (1) green-sun shadow visible in a night/low-green-sun 
 the green-sun direction); (2) a DAYTIME capture where the green sun is up shows its green directional
 contribution (A/B green-sun on vs off in daylight); (4) the ground shows SH relief (A/B ambient-model 0 vs
 SH on the ground, or ground normal-variation present) — not a flat uniform tone. KEEP the smoothness proof.
+
+---
+## OWNER PLAYTEST 2026-07-20 #4 — BRUTAL sun<->green-sun REGIME TRANSITION (regression from the 2nd-sun rework)
+Owner: "La transition est brutale entre l'éclairage par le soleil du jour et le soleil vert, ça devrait
+transiter doucement." The luminance à-coups the owner accepted earlier are STILL gone — but making the green
+sun a real 2nd sun (its own sky position + day influence, attempt 7) RE-INTRODUCED a brutal handoff between
+the YELLOW-SUN lighting regime and the GREEN-SUN lighting regime (when one sets as the other rises).
+
+ROOT CAUSE (likely, verify): the old smooth `(1-sun_elev)` crossfade was replaced by two INDEPENDENT suns
+each weighted by its own elevation. At the handoff the combined light jumps — AND crucially it's mostly a
+COLOUR shift (warm yellow -> green), so the previous LUMINANCE-only smoothness metric passed while the HUE
+transition is perceptually brutal.
+
+FIX: the yellow-sun and green-sun contributions must CROSSFADE SMOOTHLY across the handoff — continuous in
+BOTH intensity AND colour (per-channel), no sudden yellow->green switch. Weight each sun by a smooth function
+of its OWN elevation (smoothstep, generous overlap window at the horizon) so that as the day sun sinks its
+warm contribution eases out while the green sun's eases in, with a continuous blended sun colour through the
+overlap. Keep both suns' real sky directions (do NOT revert to the synthesised night-only moon). Keep the
+already-accepted TOD luminance smoothness (no regression).
+
+OBJECTIVE GATE (device): a TOD sweep through the sun<->green-sun handoff, measured PER-CHANNEL (R,G,B), must
+show NO brutal step — max per-channel frame-to-frame delta bounded (not just luminance). Explicitly capture
+and measure the dawn/dusk handoff window where yellow hands off to green. Report the per-channel max-step and
+show the handoff is a smooth colour crossfade, not a switch.

@@ -58,4 +58,12 @@ grep -qiE 'green.?sun.*(shadow|cast)|moon.*(shadow|cast)|second.*(sun|light).*(s
 grep -qiE 'sky.?sun.*(index )?1|sun (index|idx) ?1|real (green.?sun|moon) (sky )?pos|green.?sun.*(day|daytime|whenever.*up|above.*horizon)|day.*green.?sun|not (synthes|night-only)|actual sky.*(green|moon).*(pos|dir)' "$R" || fail "no green-sun REAL-sky-position / day-influence evidence (owner playtest #3 item 2: drive from sky-sun index 1, contribute in daytime when up, not a synthesised night-only vector)"
 # Item 4 — the GROUND (hfrag / heightmap terrain, or whichever bucket) must get the SH/IBL directional ambient (was flat).
 grep -qiE 'hfrag|ground.*(SH|IBL|ambient|relief|rt path|directional)|floor.*(SH|IBL|ambient|relief)|terrain.*(SH|ambient|rt|relief)|heightmap.*(ambient|rt|lighting)|sol.*(SH|ambient|relief)' "$R" || fail "no ground/hfrag directional-ambient evidence (owner playtest #3 item 4: the ground renders flat — extend the rt SH ambient path to the ground shader/geometry)"
+# OWNER PLAYTEST #4 (2026-07-20): the yellow-sun <-> green-sun REGIME handoff is brutal (a COLOUR shift the
+# luminance-only smoothness metric missed). Require a SMOOTH per-channel crossfade at the handoff, measured
+# PER-CHANNEL (R,G,B), not just luminance.
+# Require the LITERAL per-channel measurement (attempt-7 report had 0 "per-channel" — luminance-only), AND a
+# reference to the yellow<->green-sun handoff being a smooth crossfade. Both, so incidental RGB values / the
+# old sun<->moon crossover mention can't false-pass.
+grep -qiE 'per.?channel|per.?colou?r channel|R/G/B (max.?step|delta|step)' "$R" || fail "no PER-CHANNEL smoothness MEASUREMENT (owner playtest #4: luminance-only missed the yellow->green hue jump; measure R,G,B frame-to-frame step across the handoff)"
+grep -qiE '(yellow|day).?sun.*(->|to|<->|hand.?off|cross).*green|green.?sun.*(->|<->|hand.?off|cross).*(yellow|day).?sun|colou?r crossfade.*(sun|handoff)|smooth.*(colou?r|hue).*(sun.?<->.?green|handoff)' "$R" || fail "no smooth yellow<->green-sun COLOUR crossfade evidence at the handoff (owner playtest #4)"
 echo "[Gda PASS]"
