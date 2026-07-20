@@ -175,6 +175,10 @@ uniform float u_rt_sun_elev;
 // 0 = yellow sun (day), 1 = green sun (night, when the yellow is below the horizon). The cast-
 // shadow occlusion is applied to the MATCHING directional term so the green sun casts shadows too.
 uniform int u_rt_shadow_light;
+// OWNER PLAYTEST #4: shadow-handoff confidence [0..1]. 1 => one sun clearly dominates (full cast
+// shadow); ->0 near the yellow<->green elevation crossover / both-suns overlap (fade the shadow out
+// so the single-map ownership flip is stepless). Fades ONLY the direct-sun cast shadow (golden rule).
+uniform float u_rt_shadow_conf;
 // ROUND 5: 16-tap Poisson disk for a wide-penumbra SOFT PCF (replaces the round-4 3x3
 // grid — a regular grid aliases against the shadow-map texel lattice => the staircase the
 // owner still saw; a Poisson disk does not). Rotated per fragment (see the PCF loop).
@@ -342,6 +346,7 @@ void main() {
       // occluded; 1.0 when the map is off). occ is the RAW occlusion — the ~0.2 residual is
       // NOT applied here anymore; it is folded into the uniform floor below (round-5 corr).
       float occ = u_pbr_shadow_on != 0 ? sm_shadow : 1.0;
+      occ = mix(1.0, occ, u_rt_shadow_conf);  // playtest #4: fade shadow at the yellow<->green handoff (stepless)
       // ROUND-5 CORRECTION (owner, correct physics 2026-07-19): the residual ~0.2 is a
       // UNIFORM SKY-FILL FLOOR, not a cast-shadow-only term. A face turned AWAY from the
       // sun is lit only by skylight EXACTLY like a cast shadow, so BOTH keep ~0.2 —

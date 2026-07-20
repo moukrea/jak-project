@@ -72,6 +72,9 @@ uniform float u_rt_sun_elev;
 // Item 1 (owner playtest #3): which sun the single shadow map was rendered from — 0 = yellow
 // sun (day), 1 = green sun (night). The occlusion attenuates the MATCHING directional term.
 uniform int u_rt_shadow_light;
+// OWNER PLAYTEST #4: shadow-handoff confidence [0..1] — fades the cast shadow near the yellow<->green
+// elevation crossover / both-suns overlap so the single-map ownership flip is stepless (golden rule).
+uniform float u_rt_shadow_conf;
 // ROUND-5: 16-tap Poisson disk for the wide-penumbra soft PCF (replaces the round-4 grid
 // that aliased the shadow-texel lattice => staircase). Rotated per fragment in the PCF loop.
 const vec2 RT_POISSON16[16] = vec2[](
@@ -179,6 +182,7 @@ void main() {
       // night. Identical in all four world shaders.
       // Item 1: single shadow map driven by the key sun (u_rt_shadow_light: 0=yellow day / 1=green night).
       // Apply the occlusion ONLY to that light's own term; the other stays unshadowed (its map isn't drawn).
+      shadow = mix(1.0, shadow, u_rt_shadow_conf);  // playtest #4: fade shadow at the yellow<->green handoff (stepless)
       float sun_occ  = (u_rt_shadow_light == 1) ? 1.0 : shadow;  // yellow-sun cast shadow (or 1 at night)
       float moon_occ = (u_rt_shadow_light == 1) ? shadow : 1.0;  // green-sun cast shadow (night)
       float sun_scalar = ndl * sun_occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade

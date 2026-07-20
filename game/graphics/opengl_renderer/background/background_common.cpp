@@ -609,6 +609,13 @@ static PbrV3 pv_norm(PbrV3 a) {
   }
   return {a.x / l, a.y / l, a.z / l};
 }
+// GLSL-style smoothstep (C1 Hermite ramp), clamped to [0,1]. Used for the sun/green-sun
+// elevation crossfade so the yellow<->green handoff is gradual in BOTH intensity and colour.
+static inline float rt_smoothstep(float e0, float e1, float x) {
+  float t = (x - e0) / (e1 - e0);
+  t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+  return t * t * (3.f - 2.f * t);
+}
 
 // Right-handed lookAt into column-major float[16].
 static void pbr_look_at(PbrV3 eye, PbrV3 center, PbrV3 up, float out[16]) {
@@ -974,26 +981,29 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // (sun below horizon / pre-push), then the light-group blend (pre-any-push).
   PbrV3 dir = {0.f, 0.f, 0.f};
   st.shadow_light = 0;  // default: the yellow sun owns the shadow (day)
+  // OWNER PLAYTEST #4 — the yellow<->green shadow-map handoff must not be a brutal step. The single
+  // depth map is rendered from whichever sun is HIGHER in the sky (max elevation), so ownership flips
+  // at the elevation CROSSOVER (where the two suns are comparably weighted) rather than the instant the
+  // yellow sun clips the horizon. Combined with u_rt_shadow_conf (which fades the cast-shadow strength
+  // to ~0 near that crossover / in the both-suns overlap), the map handoff is stepless. A sun may own
+  // the map while it is slightly below the horizon (down to the ambient-ramp low end -0.30) because its
+  // light term is still non-zero there (item 1: the green sun casts symmetrically to the yellow sun).
   {
     PbrV3 ss = {gs.recharged_pbr_sky_sun[0], gs.recharged_pbr_sky_sun[1],
                 gs.recharged_pbr_sky_sun[2]};
-    float ssl = std::sqrt(pv_dot(ss, ss));
-    if (ssl > 1e-3f && ss.y / ssl > 0.02f) {
-      dir = {ss.x / ssl, ss.y / ssl, ss.z / ssl};  // camera->sun == surface->light (distant sun)
-      st.shadow_light = 0;                          // yellow sun casts (its N.L term gets the occlusion)
-    }
-  }
-  // Item 1 (owner playtest #3): when the yellow sun is BELOW the horizon (night), the GREEN sun
-  // (Jak's 2nd sun) becomes the key light and casts the shadows — drive the single shadow map from
-  // ITS real sky direction (recharged_pbr_green_sun) and attribute the occlusion to the green term.
-  // Symmetric to the yellow sun; no second depth pass (the depth machinery is direction-agnostic).
-  if (pv_dot(dir, dir) < 1e-8f) {
     PbrV3 gsun = {gs.recharged_pbr_green_sun[0], gs.recharged_pbr_green_sun[1],
                   gs.recharged_pbr_green_sun[2]};
+    float ssl = std::sqrt(pv_dot(ss, ss));
     float gln = std::sqrt(pv_dot(gsun, gsun));
-    if (gln > 1e-3f && gsun.y / gln > 0.02f) {
-      dir = {gsun.x / gln, gsun.y / gln, gsun.z / gln};  // camera->green-sun == surface->green-light
-      st.shadow_light = 1;                               // green sun casts (its term gets the occlusion)
+    float sun_up = (ssl > 1e-3f) ? ss.y / ssl : -2.f;    // yellow elevation sine (-2 = unpushed)
+    float grn_up = (gln > 1e-3f) ? gsun.y / gln : -2.f;  // green  elevation sine
+    const float OWN_LO = -0.30f;                          // == ambient elevation-ramp low end
+    if (sun_up >= grn_up && sun_up > OWN_LO) {
+      dir = {ss.x / ssl, ss.y / ssl, ss.z / ssl};  // yellow is the higher sun -> it casts
+      st.shadow_light = 0;
+    } else if (grn_up > sun_up && grn_up > OWN_LO) {
+      dir = {gsun.x / gln, gsun.y / gln, gsun.z / gln};  // green is the higher sun -> it casts (item 1)
+      st.shadow_light = 1;
     }
   }
   if (pv_dot(dir, dir) < 1e-8f) {
@@ -1526,11 +1536,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
     if (ssl > 1e-4f) {
       float up = ss[1] / ssl;  // sin(sun elevation): >0 above the horizon, <0 below (night)
-      // ITEM B (owner insight): widen the horizon ramp 0.10 -> 0.18 (~10 deg) so the sunrise/sunset fade
-      // is GENTLER and the sun<->moon crossover below spans a wider twilight window (no abrupt sunrise step).
-      float t = up / 0.18f;    // smooth ramp from horizon to ~10 deg elevation (gentler dawn/dusk)
-      t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
-      rt_sun_elev = t * t * (3.0f - 2.0f * t);  // smoothstep
+      // OWNER PLAYTEST #4: WIDEN the elevation ramp to a generous twilight window that STARTS below the
+      // horizon (-0.30) and reaches full at ~+0.20 (~11.5 deg) — ~2.8x wider than the old 0.18 ramp. The
+      // yellow sun's contribution now eases in/out over many more frames, so the yellow<->green handoff
+      // (and the day<->night fade) is gradual in intensity AND colour, no brutal step. Daytime (sun well
+      // above 0.20) still reads full; deep night (sun below -0.30) still fades to EXACTLY 0 (no leak).
+      rt_sun_elev = rt_smoothstep(-0.30f, 0.20f, up);
     }
   }
 #ifdef __ANDROID__
@@ -1566,9 +1577,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (gln > 1e-4f) {
       moon_dir[0] = gsun[0] / gln; moon_dir[1] = gsun[1] / gln; moon_dir[2] = gsun[2] / gln;  // surface->green-sun
       float up = gsun[1] / gln;  // sin(green-sun elevation): >0 above the horizon
-      float t = up / 0.18f;      // SAME gentle horizon ramp as the yellow sun => symmetric smooth crossover
-      t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
-      green_elev = t * t * (3.0f - 2.0f * t);  // smoothstep
+      green_elev = rt_smoothstep(-0.30f, 0.20f, up);  // SAME wide ramp as the yellow sun => symmetric smooth crossfade
     }
   }
   const float MOON_GREEN[3] = {0.76f, 1.0f, 0.47f};   // precursor green-sun colour (194,254,120)/255
@@ -1596,19 +1605,36 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
 #endif
   float moon_scale = moon_intensity * green_elev;  // real green-sun elevation weight => day+night when up
+  // OWNER PLAYTEST #4 — SHADOW-HANDOFF CONFIDENCE. The single cast-shadow map belongs to whichever sun is
+  // higher (selected above). When the two suns are comparably weighted — the elevation CROSSOVER, and the
+  // both-suns overlap — the map's owner is ambiguous and a discrete flip would pop a shadow on/off. Fade
+  // the cast-shadow STRENGTH toward 0 there (dominance = |wy-wg|/(wy+wg) near 0) and keep it FULL when one
+  // sun clearly dominates (normal single-sun daylight AND night -> full shadows preserved). wy/wg are the
+  // wide-ramp elevation weights (rt_sun_elev / green_elev). This makes the yellow<->green shadow handoff
+  // stepless without a second depth pass. Golden rule intact (shadows only gate the direct sun term).
+  float rt_shadow_conf = 1.0f;
+  {
+    float wsum = rt_sun_elev + green_elev;
+    if (wsum > 1e-3f) {
+      float dominance = std::fabs(rt_sun_elev - green_elev) / wsum;  // 1 = one sun dominates, 0 = tie
+      rt_shadow_conf = rt_smoothstep(0.30f, 0.72f, dominance);
+    }
+  }
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
-  // elevation, green direction, and which sun currently owns the shadow map. Silent unless prop==1.
+  // elevation, green direction, shadow-handoff confidence, and which sun currently owns the shadow map.
   { char dv[PROP_VALUE_MAX]; static int gdbg = 0;
     if (__system_property_get("debug.opengoal.rt.greendbg", dv) > 0 && dv[0] == '1' && (gdbg++ % 120) == 0) {
-      lg::info("GDA-GREENSUN green_elev={:.3f} sun_elev={:.3f} gdir=({:.2f},{:.2f},{:.2f}) shadow_light={}",
-               green_elev, rt_sun_elev, moon_dir[0], moon_dir[1], moon_dir[2], pbr_shadow_state().shadow_light);
+      lg::info("GDA-GREENSUN green_elev={:.3f} sun_elev={:.3f} conf={:.3f} gdir=({:.2f},{:.2f},{:.2f}) shadow_light={}",
+               green_elev, rt_sun_elev, rt_shadow_conf, moon_dir[0], moon_dir[1], moon_dir[2],
+               pbr_shadow_state().shadow_light);
     }
   }
 #endif
   glUniform3f(glGetUniformLocation(id, "u_rt_moon_dir"), moon_dir[0], moon_dir[1], moon_dir[2]);
   glUniform3f(glGetUniformLocation(id, "u_rt_moon_color"),
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
+  glUniform1f(glGetUniformLocation(id, "u_rt_shadow_conf"), rt_shadow_conf);  // playtest #4 stepless shadow handoff
   // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
   glUniform1f(glGetUniformLocation(id, "u_rt_shadow_residual"), rt_shadow_residual);
 
