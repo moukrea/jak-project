@@ -51,4 +51,11 @@ grep -qiE 'cross(over|-?fade)|sun.{0,6}(<->|to|/).{0,6}moon|hand.?off|fade (the 
 # ITEM A — sun-lit vs shadow contrast too weak / mood-match to stock baked. Require contrast tuning + a
 # device A/B vs the STOCK BAKED tone at the same vantage/TOD (mood preserved).
 grep -qiE '(sun.?lit|lit side).*(contrast|separation).*(stronger|raised|increas|tuned)|contrast.*(sun.?lit|lit vs shadow|lit/shadow)|mood.?match|match.*(stock )?baked.*(tone|mood|colou?r)|baked.*(tone|colou?r).*match|tone.?match.*baked' "$R" || fail "no sun-lit contrast / stock-baked mood-match evidence (owner playtest #2 item A)"
+# OWNER PLAYTEST #3 (2026-07-20): à-coups CONFIRMED fixed. Green star = Jak's 2ND SUN (not a night-only moon).
+# Item 1 — green sun CASTS SHADOWS like the yellow sun.
+grep -qiE 'green.?sun.*(shadow|cast)|moon.*(shadow|cast)|second.*(sun|light).*(shadow|cast)|green.?star.*(shadow|cast)|shadow.*(from|by).*(green|moon)|two shadow' "$R" || fail "no green-sun shadow-casting evidence (owner playtest #3 item 1: the green sun must cast shadows like the yellow sun)"
+# Item 2 — green sun uses its REAL sky position (sky-sun index 1) and INFLUENCES the DAY when up, not synthesised night-only.
+grep -qiE 'sky.?sun.*(index )?1|sun (index|idx) ?1|real (green.?sun|moon) (sky )?pos|green.?sun.*(day|daytime|whenever.*up|above.*horizon)|day.*green.?sun|not (synthes|night-only)|actual sky.*(green|moon).*(pos|dir)' "$R" || fail "no green-sun REAL-sky-position / day-influence evidence (owner playtest #3 item 2: drive from sky-sun index 1, contribute in daytime when up, not a synthesised night-only vector)"
+# Item 4 — the GROUND (hfrag / heightmap terrain, or whichever bucket) must get the SH/IBL directional ambient (was flat).
+grep -qiE 'hfrag|ground.*(SH|IBL|ambient|relief|rt path|directional)|floor.*(SH|IBL|ambient|relief)|terrain.*(SH|ambient|rt|relief)|heightmap.*(ambient|rt|lighting)|sol.*(SH|ambient|relief)' "$R" || fail "no ground/hfrag directional-ambient evidence (owner playtest #3 item 4: the ground renders flat — extend the rt SH ambient path to the ground shader/geometry)"
 echo "[Gda PASS]"

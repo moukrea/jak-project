@@ -2160,6 +2160,21 @@ phases:
   max_retries: 10
   device: true
   owner_verify: true
+- id: Grecharged-pbr-realtime-fusion
+  name: 'RECHARGED (owner 2026-07-20): PBR materials must be LIT BY the realtime lighting (sun +
+    green-sun + SH/IBL ambient) — that is where PBR shines. Today the rt-lighting shader branch
+    (u_rt_light_on) ignores the PBR material maps and the standalone u_pbr_mode path is the weak
+    "bidon" fallback. FUSE: inside the rt path, when pbr-materials is ON, run Cook-Torrance GGX
+    (normal/roughness/metallic/ao/height/specular/emissive) lit by the realtime analytic lights +
+    ambient. WIRE specular + emissive (currently not even loaded). Keep the standalone pbr path as the
+    rt-OFF fallback. Golden rule: rt-off+pbr-off == stock byte-identical; rt-on+pbr-off == accepted
+    directional-ambient (no regression). Test material vil1-sages-stonewall-01 full map set.'
+  prompt: prompts/phase-Grecharged-pbr-realtime-fusion.md
+  validator: validators/phase-Grecharged-pbr-realtime-fusion.sh
+  max_turns: 3500
+  max_retries: 10
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models3
   name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
     mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,

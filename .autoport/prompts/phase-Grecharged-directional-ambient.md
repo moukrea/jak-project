@@ -486,3 +486,36 @@ is no controlled directional night light — so the night looks wrong AND jumps.
 CONTINUOUSLY with NO brutal step at night or sunrise (max single-step delta bounded, report the metric), and
 (b) at night the green-star KEY light produces DIRECTIONAL relief (a lit side vs an away side, green-tinted),
 not a flat uniform ambient. Show the sweep video + a night still where the green-star direction is legible.
+
+---
+## OWNER PLAYTEST 2026-07-20 #3 — à-coups CONFIRMED FIXED ("ça c'est très bien!"); REFRAME + 4 items
+The temporal brutal-step fix is owner-ACCEPTED — do NOT regress the smooth sun<->moon crossover.
+KEY REFRAME: the green star is **Jak's SECOND SUN** (the green/precursor sun, sky "sun" index 1), NOT a
+night-only synthesised moon. Treat it SYMMETRICALLY to the yellow sun. Attempt-6 synthesised it as
+"opposite the sun azimuth, night-peaking" — that's the root of items 1&2 below. Use its REAL sky position.
+
+1. **GREEN SUN CASTS SHADOWS (like the yellow sun).** The yellow sun casts shadows (shadow map); the green
+   sun currently does not. Give the green sun its own shadow contribution from ITS direction, same as the
+   sun. (Second shadow pass, or reuse the shadow machinery with the green-sun light vector.)
+2. **GREEN SUN INFLUENCES THE DAY when it's up.** It is sometimes visible in DAYTIME and must contribute to
+   daytime lighting then — not night-only. Drive its direction+visibility from the REAL green-sun sky
+   position (sky-parms "sun" index 1, the one the research already identified as (194,254,120)/255), NOT a
+   synthesised opposite-of-yellow-sun vector. It contributes whenever it is above the horizon, day OR night,
+   weighted by its own elevation — exactly like the yellow sun, just weaker + green.
+3. **(OWNER DEFERS — "on tweakera après", lower priority, do NOT over-invest yet):** when BOTH suns are
+   off/down, the ambient-only scene should be ~equally dark whether day or night (a constant dark ambient
+   BASE; the suns provide the day brightness). Currently daytime ambient is brighter (LEVEL tracks TOD).
+   Note it, maybe make the ambient LEVEL TOD-independent, but the owner will tune this later — don't let it
+   block the phase.
+4. **THE GROUND does NOT get the SH/IBL directional ambient → renders FLAT.** The rt SH ambient is only in
+   tfrag3/shrub/tie_wind/etie_base. STRONG SUSPECT: the ground is **HFRAG** (heightmap terrain, bucket 8,
+   `game/graphics/opengl_renderer/background/Hfrag.cpp` + `shaders/hfrag.frag`) which is NOT in the rt path.
+   Also check `tfrag3_no_tex.frag`. Identify on device which bucket renders the flat ground, then EXTEND the
+   rt lighting path (SH ambient base + sun + green-sun + smooth normals) to that shader/geometry — same
+   3-part pattern as the other renderer-family fixes (shader + C++ uniform push + smooth normals for its
+   geometry). The ground must sculpt with relief like every other surface.
+
+OBJECTIVE GATES (device): (1) green-sun shadow visible in a night/low-green-sun capture (a cast shadow from
+the green-sun direction); (2) a DAYTIME capture where the green sun is up shows its green directional
+contribution (A/B green-sun on vs off in daylight); (4) the ground shows SH relief (A/B ambient-model 0 vs
+SH on the ground, or ground normal-variation present) — not a flat uniform tone. KEEP the smoothness proof.
