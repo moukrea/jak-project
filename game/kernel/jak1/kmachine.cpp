@@ -880,6 +880,10 @@ void pc_set_rt_ambient_strength(u32 pct) {
   // GOAL sends an int PERCENT 0..50 (0.2 -> 20); mirror pc_set_rt_shadow_strength's *0.01 convention.
   Gfx::g_global_settings.recharged_rt_ambient_strength = (float)pct * 0.01f;
 }
+// Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 hemisphere / 1 SH / 2 IBL).
+void pc_set_rt_ambient_model(u32 model) {
+  Gfx::g_global_settings.recharged_rt_ambient_model = (int)model;
+}
 // ROUND 2: sun shadow-map Quality (resolution, texels) + Distance (range, meters). Both
 // take a plain u32 from GOAL (res e.g. 2048; dist e.g. 100) — no float-ABI concern.
 void pc_set_rt_shadow_res(u32 res) {
@@ -936,6 +940,7 @@ void InitMachine_PCPort() {
   // Grecharged-directional-ambient: hemisphere ambient enable + base strength
   make_function_symbol_from_c("pc-set-rt-ambient!", (void*)pc_set_rt_ambient);
   make_function_symbol_from_c("pc-set-rt-ambient-strength!", (void*)pc_set_rt_ambient_strength);
+  make_function_symbol_from_c("pc-set-rt-ambient-model!", (void*)pc_set_rt_ambient_model);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);

@@ -815,6 +815,10 @@
   ;; Grecharged-realtime-lighting round-4: SHADOW QUALITY 5-tier extremes (Very Low / Very High).
   (pc-text-ao-very-low #x1714)
   (pc-text-ao-very-high #x1715)
+  ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell strings (Hemisphere/SH/IBL).
+  (pc-text-model-hemisphere #x1716)
+  (pc-text-model-sh #x1717)
+  (pc-text-model-ibl #x1718)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

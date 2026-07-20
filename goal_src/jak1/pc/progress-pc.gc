@@ -408,6 +408,8 @@
 ;; Grecharged-realtime-lighting: SHADOW QUALITY carousell (Low/Med/High = 1024/2048/4096 shadow-map res).
 ;; Reuses the AO low/med/high text-ids (they render LOW/MEDIUM/HIGH, which fits Shadow Quality).
 (def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
+;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (Hemisphere / SH / IBL).
+(def-progress-carousell *carousell-rt-ambient-model* (pc-text-model-hemisphere pc-text-model-sh pc-text-model-ibl))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
@@ -903,6 +905,13 @@
               (set! (-> *pc-settings* realtime-ambient?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
+       ;; Ambient Model carousell (Grecharged-directional-ambient ROUND 2: Hemisphere / SH / IBL; disabled
+       ;; when Realtime Lighting off). Carousell writes via respond-common; no on-change needed.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* realtime-lighting?)))))
        ;; Ambient Strength slider (0.0 .. 0.5; disabled when Realtime Lighting off). Bound directly to
        ;; the *pc-settings* realtime-ambient-strength float (the ambient base level).
        (flag-row FLAG_PBR
@@ -1058,7 +1067,9 @@
 (define *shadow-distance-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *shadow-distance-label*) "SHADOW DISTANCE")
 (define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *shadow-quality-label*) "SHADOW QUALITY"))
+(format (clear *shadow-quality-label*) "SHADOW QUALITY")
+(define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *ambient-model-label*) "AMBIENT MODEL"))
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
@@ -3190,7 +3201,7 @@
   ;; (+ 7 hud-N hd-N) and FOLIAGE WIND sits at (+ 2 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 2 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 2 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 7 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 5 FLAG_PBR_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 6 FLAG_PBR_N)))
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -3214,12 +3225,16 @@
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
       (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *pc-settings* realtime-ambient?))
       (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *hemisphere-ambient-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-strength-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *shadow-distance-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-quality-label*)))
+      ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (int-backup scratch, mapped 1:1
+      ;; to realtime-ambient-model in respond-common).
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-model-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
+      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *ambient-strength-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-distance-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-quality-label*)))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 2 hud-N)) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
@@ -3398,6 +3413,7 @@
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
+                    (game-option-type rt-ambient-model)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3488,6 +3504,7 @@
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
+                    (game-option-type rt-ambient-model)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3816,6 +3833,7 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-strength)))
                  (((game-option-type shadow-quality))
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
+                 (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
                     ((0) (set! (-> *progress-carousell* int-backup) 0))
@@ -3865,6 +3883,7 @@
                     (((game-option-type ao-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-quality*))
                     (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
+                    (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type speaker)) (set! (-> *progress-carousell* current-carousell) *carousell-speaker*))
@@ -3919,6 +3938,7 @@
                (set! (-> *pc-settings* ao-strength) (-> *progress-carousell* int-backup)))
               (((game-option-type shadow-quality))
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
+              (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -4331,6 +4351,7 @@
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
+                      (game-option-type rt-ambient-model)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -4417,6 +4438,7 @@
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
+                      (game-option-type rt-ambient-model)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)

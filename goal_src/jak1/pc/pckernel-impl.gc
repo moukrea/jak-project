@@ -90,6 +90,7 @@
    (realtime-lighting? symbol) ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting (one sun, N.L per face, NO ambient). #f = stock/pbr-materials shading.
    (realtime-ambient? symbol)
    (realtime-ambient-strength float)
+   (realtime-ambient-model int32) ;; Grecharged-directional-ambient ROUND 2: 0 HEMISPHERE, 1 SH, 2 IBL
    (realtime-shadow-dist float)
    (realtime-shadow-strength float) ;; Grecharged-realtime-lighting ROUND-5: cast-shadow darkening (0..1). shader residual = 1 - this.
    (realtime-shadow-quality int32)
@@ -141,6 +142,8 @@
 ;; Grecharged-directional-ambient: strength sent as an int PERCENT 0..50 (0.2 -> 20) — GOAL passes args
 ;; in GPRs so the C side takes an int (same int-FFI convention as dist/res/strength below).
 (define-extern pc-set-rt-ambient-strength! (function int none))
+;; Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 hemisphere / 1 SH / 2 IBL).
+(define-extern pc-set-rt-ambient-model! (function int none))
 (define-extern pc-set-rt-shadow-dist! (function int none))
 ;; ROUND-5: cast-shadow strength. GOAL passes args in GPRs so the C side takes an int; we send
 ;; it as an int PERCENT 0..100 (0.8 -> 80), matching the int-FFI convention of dist/res.
@@ -236,6 +239,7 @@
   (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
   (set! (-> obj realtime-ambient?) #t)
   (set! (-> obj realtime-ambient-strength) 0.2)
+  (set! (-> obj realtime-ambient-model) 0) ;; default HEMISPHERE (prove the climb up to SH/IBL)
   (set! (-> obj realtime-shadow-dist) 150.0)
   (set! (-> obj realtime-shadow-strength) 0.8) ;; Grecharged-realtime-lighting ROUND-5: default cast-shadow darkening (residual 0.2)
   (set! (-> obj realtime-shadow-quality) 2) ;; 0=VLow(512) 1=Low(1024) 2=Med(2048) 3=High(4096) 4=VHigh(8192)

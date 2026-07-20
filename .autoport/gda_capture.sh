@@ -35,6 +35,8 @@ set_feature_props(){
   adb shell "setprop debug.opengoal.rt.light '$LIGHT'" </dev/null
   adb shell "setprop debug.opengoal.rt.ambient '$AMBIENT'" </dev/null
   [ -n "${RTL_AMBIENTSTR:-}" ] && adb shell "setprop debug.opengoal.rt.ambientstrength '${RTL_AMBIENTSTR}'" </dev/null
+  # ROUND 2: ambient MODEL selector (0 HEMISPHERE, 1 SH, 2 IBL) for on-device A/B of the three tiers.
+  [ -n "${RTL_AMBIENTMODEL:-}" ] && adb shell "setprop debug.opengoal.rt.ambientmodel '${RTL_AMBIENTMODEL}'" </dev/null
   adb shell "setprop debug.opengoal.pbr.shadowmap '$SHADOW'" </dev/null
   # Standalone AO forced OFF by default => the form we show comes from the hemisphere ambient, NOT AO.
   adb shell "setprop debug.opengoal.ao.force_mode '${AO_MODE:-0}'" </dev/null

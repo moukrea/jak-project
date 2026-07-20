@@ -106,3 +106,30 @@ ACCEPTANCE add: realtime-lighting ON + shipped AO ON -> shadowed surfaces show o
 undersides darker), not just a uniform brighten; AO OFF -> the flat brighten (current); sunlit byte-identical
 (golden rule); AO still works standalone with realtime OFF (stock). Prove on device with AO on/off A/B at a
 shadowed vantage.
+
+## SUPERVISOR PIVOT (owner 2026-07-20 ~02:00 — I was WRONG about AO; corrected) — INDIRECT = the BAKED GI, not a synthetic floor
+Owner (correct, I erred): AO is contact-only, gives NO model relief; real games (even ~10yr old) with
+realtime lighting + AO OFF are NOT flat; the realtime sun is cool but the flat shadowed models make it
+still uglier than the original BAKED. Root cause (correct this time): the FORM in shadowed areas comes from
+INDIRECT light (bounce/GI). In games it is BAKED (lightmaps / SH probes). Jak's baked VERTEX colors ARE its
+GI — rich per-location light transport (gradients, darker recesses, form). Our flat/hemisphere floor THREW
+THAT AWAY -> flat. Synthetic ambient (hemisphere / SH / IBL from the sky) is a WORSE approximation than the
+real baked lightmap for STATIC geometry -> a downgrade. Baked looks better because baked IS the good indirect.
+
+PIVOT — abandon the synthetic-ambient path for the static world. The correct model (what pros do, and what
+we had at realtime-lighting round-3 that the owner approved "OK ça fonctionne mieux"):
+  final = BAKED (as the INDIRECT/ambient term, carrying GI/form) + REALTIME DIRECT (sun N.L * cast-shadow).
+- INDIRECT/ambient = the game's BAKED per-vertex lighting (keep it, it is the GI — do NOT replace it with a
+  flat floor / hemisphere / SH / IBL). This restores all the shadowed-area FORM the owner misses.
+- DIRECT = the realtime sun (per-face N.L, cast shadow map, night sun-fade) added ON TOP — the moving sun +
+  dynamic shadows the baked lacks. Calibrate so it does not double-dose (baked already contains some sun):
+  scale the realtime direct and/or use the baked as pure indirect fill; tune at the owner vantage so lit
+  faces read like sun and shadowed faces keep the baked form (NOT flat, NOT double-bright).
+- DROP the hemisphere floor + the SH/IBL synthesis for the world (they are inferior to baked here). SH/IBL
+  stay POTENTIALLY relevant ONLY for DYNAMIC actors that lack baked lighting — DEFER that, it is niche.
+- Keep: OFF==stock byte-identical, baked=!realtime hardwire is REVISED (baked is now USED as indirect when
+  realtime ON), the sun-only wins (shadows/night-fade/distance/quality/menu), golden rule on any AO.
+ACCEPTANCE: realtime-lighting ON now looks BETTER than stock baked (owner's bar) — shadowed models keep the
+baked FORM/richness AND gain the moving realtime sun + dynamic cast shadows; no flat areas; no double-dose;
+sunlit reads as sun; OFF==stock. Device A/B: realtime-ON vs stock-baked at a shadowed vantage, owner eye.
+This supersedes the hemisphere/SH/IBL headline above for the STATIC world.

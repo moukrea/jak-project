@@ -1545,20 +1545,38 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (!(rt_ambient_strength >= 0.0f && rt_ambient_strength <= 1.0f)) {
     rt_ambient_strength = 0.2f;
   }
+  // Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 HEMISPHERE, 1 SH, 2 IBL). From
+  // pc-settings; overridable per-frame by a debug prop / env for on-device A/B without menu navigation.
+  int rt_ambient_model = gs.recharged_rt_ambient_model;
+#ifdef __ANDROID__
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.ambientmodel", rv) > 0 && rv[0]) {
+      rt_ambient_model = atoi(rv);
+    }
+  }
+#else
+  if (const char* e = getenv("OG_RT_AMBIENTMODEL")) {
+    rt_ambient_model = atoi(e);
+  }
+#endif
+  if (rt_ambient_model < 0 || rt_ambient_model > 2) {
+    rt_ambient_model = 0;
+  }
   {
     // SKY hue: the mood ambient (light-group ambi when valid, else the mood env ambient), normalized to
     // unit-max so the mood's *brightness* can't re-brighten night (only its HUE is used); blended 50%
     // toward white so it reads as natural skylight. amb_scale (1/255) converts the raw GOAL 0..255 color.
     const float* asrc =
         gs.recharged_pbr_lg_valid ? gs.recharged_pbr_lg_ambi : gs.recharged_pbr_ambient;
-    float sh[3] = {asrc[0] * amb_scale, asrc[1] * amb_scale, asrc[2] * amb_scale};
-    float smx = sh[0];
-    if (sh[1] > smx) smx = sh[1];
-    if (sh[2] > smx) smx = sh[2];
+    float shue[3] = {asrc[0] * amb_scale, asrc[1] * amb_scale, asrc[2] * amb_scale};
+    float smx = shue[0];
+    if (shue[1] > smx) smx = shue[1];
+    if (shue[2] > smx) smx = shue[2];
     if (smx < 1e-3f) {
-      sh[0] = 0.6f;
-      sh[1] = 0.7f;
-      sh[2] = 1.0f;
+      shue[0] = 0.6f;
+      shue[1] = 0.7f;
+      shue[2] = 1.0f;
       smx = 1.0f;
     }
     // LEVEL: strength, gently faded by sun elevation so night is calmer (never below 0.7x, never brighter
@@ -1567,13 +1585,121 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     const float gtint[3] = {0.65f, 0.55f, 0.45f};  // warm, darker ground bounce
     float sky[3], ground[3];
     for (int i = 0; i < 3; i++) {
-      float hue = 0.5f + 0.5f * (sh[i] / smx);  // toward white
+      float hue = 0.5f + 0.5f * (shue[i] / smx);  // toward white
       sky[i] = hue * lvl;
       ground[i] = sky[i] * gtint[i];
     }
+    // === ROUND 2: SH (model 1) + IBL procedural-sky (model 2) from the SAME sky, MEAN-NORMALIZED to the
+    // hemisphere mean so all 3 models carry identical average ambient energy (=> sunlit byte-identical
+    // across models: the golden rule) and differ only in DIRECTIONAL distribution (=> shadowed FORM). ===
+    float env_zenith[3], env_horizon[3], env_ground[3], sun_glow[3];
+    float gsc[3] = {gs.recharged_pbr_sun_color[0] * sun_scale, gs.recharged_pbr_sun_color[1] * sun_scale,
+                    gs.recharged_pbr_sun_color[2] * sun_scale};
+    float gmx = gsc[0];
+    if (gsc[1] > gmx) gmx = gsc[1];
+    if (gsc[2] > gmx) gmx = gsc[2];
+    if (gmx < 1e-3f) {
+      gsc[0] = 1.0f;
+      gsc[1] = 0.9f;
+      gsc[2] = 0.75f;
+      gmx = 1.0f;
+    }
+    const float GLOW_GAIN = 0.35f;
+    for (int i = 0; i < 3; i++) {
+      env_zenith[i] = sky[i];
+      env_ground[i] = ground[i];
+      float h = (sky[i] * 0.6f + ground[i] * 0.4f) * 1.4f;  // brighter warm horizon band (clear-sky look)
+      env_horizon[i] = h > 1.0f ? 1.0f : h;
+      float ghue = 0.5f + 0.5f * (gsc[i] / gmx);
+      sun_glow[i] = ghue * lvl * GLOW_GAIN * rt_sun_elev;  // elevation-faded => 0 at night (no phantom light)
+    }
+    // Project that procedural sky into L2 SH (deterministic Fibonacci-sphere Monte-Carlo, no RNG) and
+    // accumulate its spherical AVERAGE for the mean-normalization. sun_d = surface->sun (light 0).
+    float sun_d[3] = {light_dir[0], light_dir[1], light_dir[2]};
+    float shc[9][3];
+    for (int c = 0; c < 9; c++) {
+      shc[c][0] = shc[c][1] = shc[c][2] = 0.0f;
+    }
+    float avg_env[3] = {0.0f, 0.0f, 0.0f};
+    {
+      const int NS = 256;
+      const float GA = 2.399963229728653f;  // golden angle
+      const float wsphere = 4.0f * 3.14159265358979f / (float)NS;
+      for (int k = 0; k < NS; k++) {
+        float sy = 1.0f - 2.0f * ((float)k + 0.5f) / (float)NS;
+        float rr = 1.0f - sy * sy;
+        float sr = rr > 0.0f ? std::sqrt(rr) : 0.0f;
+        float phi = (float)k * GA;
+        float sx = sr * std::cos(phi);
+        float sz = sr * std::sin(phi);
+        // sky_env(dir) — MUST mirror the shader rt_ibl_ambient()
+        float uu = sy;
+        float su = uu / 0.55f;
+        su = su < 0.0f ? 0.0f : (su > 1.0f ? 1.0f : su);
+        su = su * su * (3.0f - 2.0f * su);
+        float sd = -uu / 0.45f;
+        sd = sd < 0.0f ? 0.0f : (sd > 1.0f ? 1.0f : sd);
+        sd = sd * sd * (3.0f - 2.0f * sd);
+        float g = sx * sun_d[0] + sy * sun_d[1] + sz * sun_d[2];
+        if (g < 0.0f) g = 0.0f;
+        g = g * g;
+        g = g * g;
+        float Y[9];
+        Y[0] = 0.282095f;
+        Y[1] = 0.488603f * sy;
+        Y[2] = 0.488603f * sz;
+        Y[3] = 0.488603f * sx;
+        Y[4] = 1.092548f * sx * sy;
+        Y[5] = 1.092548f * sy * sz;
+        Y[6] = 0.315392f * (3.0f * sz * sz - 1.0f);
+        Y[7] = 1.092548f * sx * sz;
+        Y[8] = 0.546274f * (sx * sx - sy * sy);
+        for (int i = 0; i < 3; i++) {
+          float band = uu >= 0.0f ? (env_horizon[i] + (env_zenith[i] - env_horizon[i]) * su)
+                                  : (env_horizon[i] + (env_ground[i] - env_horizon[i]) * sd);
+          float e = band + sun_glow[i] * g;
+          avg_env[i] += e * (1.0f / (float)NS);
+          for (int c = 0; c < 9; c++) {
+            shc[c][i] += e * Y[c] * wsphere;
+          }
+        }
+      }
+    }
+    // cosine-convolution (A_l/pi): l0=1, l1=2/3, l2=1/4 (Lambert diffuse baked into the coeffs).
+    const float Al[9] = {1.0f, 2.0f / 3.0f, 2.0f / 3.0f, 2.0f / 3.0f,
+                         0.25f, 0.25f, 0.25f, 0.25f, 0.25f};
+    for (int c = 0; c < 9; c++) {
+      for (int i = 0; i < 3; i++) {
+        shc[c][i] *= Al[c];
+      }
+    }
+    // MEAN-NORMALIZE SH coeffs AND IBL bands so the sky mean == hemisphere mean (sky+ground)/2 per
+    // channel (golden rule: identical average energy across models).
+    float fnorm[3];
+    for (int i = 0; i < 3; i++) {
+      float target = 0.5f * (sky[i] + ground[i]);
+      float f = avg_env[i] > 1e-5f ? target / avg_env[i] : 1.0f;
+      f = f < 0.25f ? 0.25f : (f > 4.0f ? 4.0f : f);
+      fnorm[i] = f;
+      env_zenith[i] *= f;
+      env_horizon[i] *= f;
+      env_ground[i] *= f;
+      sun_glow[i] *= f;
+    }
+    for (int c = 0; c < 9; c++) {
+      for (int i = 0; i < 3; i++) {
+        shc[c][i] *= fnorm[i];
+      }
+    }
     glUniform1i(glGetUniformLocation(id, "u_rt_ambient_on"), rt_ambient_on);
+    glUniform1i(glGetUniformLocation(id, "u_rt_ambient_model"), rt_ambient_model);
     glUniform3f(glGetUniformLocation(id, "u_rt_sky_color"), sky[0], sky[1], sky[2]);
     glUniform3f(glGetUniformLocation(id, "u_rt_ground_color"), ground[0], ground[1], ground[2]);
+    glUniform3f(glGetUniformLocation(id, "u_rt_env_zenith"), env_zenith[0], env_zenith[1], env_zenith[2]);
+    glUniform3f(glGetUniformLocation(id, "u_rt_env_horizon"), env_horizon[0], env_horizon[1], env_horizon[2]);
+    glUniform3f(glGetUniformLocation(id, "u_rt_env_ground"), env_ground[0], env_ground[1], env_ground[2]);
+    glUniform3f(glGetUniformLocation(id, "u_rt_sun_glow"), sun_glow[0], sun_glow[1], sun_glow[2]);
+    glUniform3fv(glGetUniformLocation(id, "u_rt_sh[0]"), 9, &shc[0][0]);
   }
 
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun

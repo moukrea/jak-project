@@ -201,6 +201,9 @@ struct GfxGlobalSettings {
   // Grecharged-directional-ambient: hemisphere ambient (replaces the flat ~0.2 floor).
   bool recharged_rt_ambient_enable = true;     // ON by default (the improvement over the flat floor)
   float recharged_rt_ambient_strength = 0.2f;  // ambient base level (== the old ~0.2 flat floor)
+  // Grecharged-directional-ambient ROUND 2: ambient MODEL (0 = HEMISPHERE, 1 = SH, 2 = IBL). Selectable
+  // in Recharged Settings (a quality tier). Only read on the rt path; OFF==stock unaffected.
+  int recharged_rt_ambient_model = 0;
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

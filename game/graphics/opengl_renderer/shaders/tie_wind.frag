@@ -32,6 +32,18 @@ uniform vec3 u_rt_sun_color;
 uniform int u_rt_ambient_on;
 uniform vec3 u_rt_sky_color;
 uniform vec3 u_rt_ground_color;
+// Grecharged-directional-ambient ROUND 2: ambient MODEL selector + SH / IBL inputs. u_rt_ambient_model:
+// 0 = HEMISPHERE, 1 = SH (L2 irradiance of the mood/TOD sky), 2 = IBL (procedural sky environment
+// sampled by N). All three feed the SAME base->composite below (golden rule + night-fade automatic).
+// u_rt_sh[9] = L2 SH coeffs pre-scaled C++-side by the cosine-convolution A_l/pi, so the eval returns
+// reflected radiance directly. u_rt_env_zenith/horizon/ground + u_rt_sun_glow drive the IBL procedural
+// sky (mean-normalized C++-side to the hemisphere mean). All read ONLY inside u_rt_light_on => OFF==stock.
+uniform int u_rt_ambient_model;
+uniform vec3 u_rt_sh[9];
+uniform vec3 u_rt_env_zenith;
+uniform vec3 u_rt_env_horizon;
+uniform vec3 u_rt_env_ground;
+uniform vec3 u_rt_sun_glow;
 uniform float u_rt_shadow_range;
 uniform float u_rt_shadow_res;
 // ROUND-5 (mirror of tfrag3.frag): cast-shadow RESIDUAL — brightness a fully-occluded
@@ -59,6 +71,35 @@ uniform vec3 u_pbr_shadow_cam_delta;
 uniform highp sampler2D tex_PBR_SHADOW;
 uniform float u_pbr_shadow_bias;
 uniform int u_pbr_debug;
+// Grecharged-directional-ambient ROUND 2 — SH (L2) ambient irradiance. Coeffs pre-scaled C++-side by
+// the Lambert cosine-convolution (A_l/pi) so this returns reflected ambient radiance directly. max()
+// guards SH ringing. Richer than the 2-color hemisphere: a smooth directional quadratic.
+vec3 rt_sh_ambient(vec3 n) {
+  float x = n.x, y = n.y, z = n.z;
+  vec3 r = u_rt_sh[0] * 0.282095
+         + u_rt_sh[1] * (0.488603 * y)
+         + u_rt_sh[2] * (0.488603 * z)
+         + u_rt_sh[3] * (0.488603 * x)
+         + u_rt_sh[4] * (1.092548 * x * y)
+         + u_rt_sh[5] * (1.092548 * y * z)
+         + u_rt_sh[6] * (0.315392 * (3.0 * z * z - 1.0))
+         + u_rt_sh[7] * (1.092548 * x * z)
+         + u_rt_sh[8] * (0.546274 * (x * x - y * y));
+  return max(r, vec3(0.0));
+}
+// Grecharged-directional-ambient ROUND 2 — IBL: a procedural SKY ENVIRONMENT sampled by the normal
+// (prefiltered sky irradiance). Vertical bands ground->warm HORIZON->zenith, plus a soft sun-ward glow
+// (elevation-faded C++-side => 0 at night). Sharper horizon + defined glow than the L2 SH => reads as
+// the actual sky, richest of the three. Golden-rule/night-safe via the shared composite below.
+vec3 rt_ibl_ambient(vec3 d) {
+  float u = clamp(d.y, -1.0, 1.0);
+  vec3 up = mix(u_rt_env_horizon, u_rt_env_zenith, smoothstep(0.0, 0.55, u));
+  vec3 dn = mix(u_rt_env_horizon, u_rt_env_ground, smoothstep(0.0, 0.45, -u));
+  vec3 band = u >= 0.0 ? up : dn;
+  float g = max(dot(d, normalize(u_rt_sun_dir)), 0.0);
+  g = g * g; g = g * g;   // pow 4 soft glow lobe
+  return band + u_rt_sun_glow * g;
+}
 #endif
 
 
@@ -127,9 +168,18 @@ void main() {
       // by the world normal) replaces the flat ~0.2 floor => form in shadow with AO off. Toggle
       // OFF = the legacy flat floor. GOLDEN RULE: the direct-sun term is unchanged, so sunlit
       // surfaces are unaffected by the ambient reshaping.
-      float hemi = clamp(N.y * 0.5 + 0.5, 0.0, 1.0);  // 1 = up (sky), 0 = down (ground)
-      vec3 base = u_rt_ambient_on != 0 ? mix(u_rt_ground_color, u_rt_sky_color, hemi)
-                                       : vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
+      // Grecharged-directional-ambient ROUND 2: base = directional ambient irradiance sampled by the
+      // world normal N via the selected MODEL (0 hemisphere / 1 SH / 2 IBL). OFF => legacy flat floor.
+      vec3 base;
+      if (u_rt_ambient_on == 0) {
+        base = vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
+      } else if (u_rt_ambient_model == 1) {
+        base = rt_sh_ambient(N);
+      } else if (u_rt_ambient_model == 2) {
+        base = rt_ibl_ambient(N);
+      } else {
+        base = mix(u_rt_ground_color, u_rt_sky_color, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
+      }
       base = clamp(base, 0.0, 1.0);
       vec3 albedo = pow(T0.rgb, vec3(2.2));
       // baked hardwired OFF (realtime ON => baked off; realtime OFF = stock legacy path above).

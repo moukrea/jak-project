@@ -175,7 +175,8 @@
      (ambient-occlusion)
      (ao-quality)
      (ao-strength)
-     (shadow-quality))) ;; end of PC_PORT = #t branch for enum initialization
+     (shadow-quality)
+     (rt-ambient-model))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu
