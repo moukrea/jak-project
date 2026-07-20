@@ -200,3 +200,12 @@ ACCEPTANCE: with smooth normals, curved shadowed MODELS/geometry show RELIEF (no
 LOW tier on the Redmi; realtime-ON beats stock baked at a shadowed vantage; SH/IBL are visible step-ups;
 sun-only; OFF==stock; golden rule. Device A/B: flat-per-face-normal (before) vs smooth-normal (after), and
 realtime-ON vs stock-baked. Owner eye gates. This is the killer feature — do it properly.
+
+## OWNER REMINDER (2026-07-20) — EVERYTHING DISABLEABLE, EXACT ORIGINAL GRAPHICS WHEN OFF (as always)
+Non-negotiable: realtime-lighting OFF (or the --pbr flag absent) => the render is BYTE-IDENTICAL to stock,
+the exact original graphics. Subtle point given we now RECONSTRUCT smooth vertex normals + add a vertex
+attribute: the reconstructed normals + all ambient tiers (hemisphere/SH/IBL/SSDO) must be consumed ONLY by
+the realtime-lighting path. When OFF: the stock baked-vertex-color path runs untouched, the extra normal
+attribute is ignored (or not uploaded), zero pixel difference vs a build without the feature. Prove OFF==
+stock with the normal reconstruction present (diff ~0). The smooth-normal precompute must not alter the
+shipped stock assets either (keep it in the realtime path / a separate attribute, gold READ-ONLY).
