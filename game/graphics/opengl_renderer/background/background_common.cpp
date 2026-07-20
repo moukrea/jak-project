@@ -1420,6 +1420,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // on-screen sun sprite direction), so the sun-only shading, the shadow-map slope bias and
   // the depth-pass MVP all agree on where the sun is. u_rt_sun_color carries tint AND intensity.
   int rt_light_on = gs.recharged_rt_light_enable ? 1 : 0;
+  // ITEM A (owner playtest #2): I tried raising the sun intensity 1.5->1.75 to widen the sun-lit vs
+  // ambient-only separation, but a device A/B measured NO contrast change (P90/std identical) — at the
+  // owner vantage the sun-lit term is already tone-mapped/vantage-limited, so intensity does not move
+  // the lit-vs-shadow gap. Reverted to the owner-ACCEPTED 1.5 (daylight "nickel") to avoid regressing
+  // the validated look. Still per-frame overridable via debug.opengoal.rt.intensity.
   float rt_intensity = 1.5f;
 #ifdef __ANDROID__
   {
@@ -1494,7 +1499,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
     if (ssl > 1e-4f) {
       float up = ss[1] / ssl;  // sin(sun elevation): >0 above the horizon, <0 below (night)
-      float t = up / 0.10f;    // smooth ramp from horizon to ~5.7 deg elevation
+      // ITEM B (owner insight): widen the horizon ramp 0.10 -> 0.18 (~10 deg) so the sunrise/sunset fade
+      // is GENTLER and the sun<->moon crossover below spans a wider twilight window (no abrupt sunrise step).
+      float t = up / 0.18f;    // smooth ramp from horizon to ~10 deg elevation (gentler dawn/dusk)
       t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
       rt_sun_elev = t * t * (3.0f - 2.0f * t);  // smoothstep
     }
@@ -1512,6 +1519,41 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
 #endif
   glUniform1f(glGetUniformLocation(id, "u_rt_sun_elev"), rt_sun_elev);
+  // === ITEM B (owner playtest #2 insight): GREEN-STAR / MOON directional NIGHT key light + sun<->moon crossover ===
+  // The owner's night model: the night KEY light comes from the GREEN STAR / MOON — a DIRECTIONAL light,
+  // GREEN, WEAKER than the sun — not an uncontrolled ambient tone; and the sun<->moon handoff must be a
+  // smooth CROSSOVER (the fade that kills the brutal night/sunrise steps). We synthesise it here: the green
+  // star sits OPPOSITE the sun's azimuth, elevated (a real key direction => night FORM), and its weight is
+  // (1 - sun_elev) so it fades IN exactly as the sun fades OUT — a continuous elevation-weighted crossover.
+  // Green colour = the precursor green-star colour (194,254,120)/255. Weaker than the sun (moon_intensity).
+  // By DAY sun_elev -> 1 => moon weight 0 => NO daytime contribution (golden rule: sunlit unchanged); the
+  // shader term is under u_rt_light_on too (OFF==stock). The sky-sun vector we already read is continuous.
+  float moon_dir[3] = {0.30f, 0.85f, 0.30f};  // fallback: elevated key direction
+  {
+    const float* ss = gs.recharged_pbr_sky_sun;
+    float hx = ss[0], hz = ss[2];
+    float hl = std::sqrt(hx * hx + hz * hz);
+    if (hl > 1e-3f) {
+      float ox = -hx / hl, oz = -hz / hl;  // opposite the sun's horizontal azimuth
+      moon_dir[0] = ox * 0.57f; moon_dir[1] = 0.82f; moon_dir[2] = oz * 0.57f;  // elevated ~55 deg
+      float ml = std::sqrt(moon_dir[0]*moon_dir[0] + moon_dir[1]*moon_dir[1] + moon_dir[2]*moon_dir[2]);
+      moon_dir[0] /= ml; moon_dir[1] /= ml; moon_dir[2] /= ml;
+    }
+  }
+  float moon_w = 1.0f - rt_sun_elev;                  // complementary crossover (sun_elev is a smoothstep)
+  const float MOON_GREEN[3] = {0.76f, 1.0f, 0.47f};   // precursor green-star colour (194,254,120)/255
+  float moon_intensity = 0.40f;                        // WEAKER than the sun (owner: night key weaker than sun)
+#ifdef __ANDROID__
+  { char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.moonintensity", rv) > 0 && rv[0]) moon_intensity = atof(rv); }
+#else
+  if (const char* e = getenv("OG_RT_MOONINTENSITY")) moon_intensity = atof(e);
+#endif
+  if (!(moon_intensity >= 0.0f && moon_intensity <= 2.0f)) moon_intensity = 0.40f;
+  float moon_scale = moon_intensity * moon_w;  // fold the crossover weight into the colour => 0 by day
+  glUniform3f(glGetUniformLocation(id, "u_rt_moon_dir"), moon_dir[0], moon_dir[1], moon_dir[2]);
+  glUniform3f(glGetUniformLocation(id, "u_rt_moon_color"),
+              MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
   // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
   glUniform1f(glGetUniformLocation(id, "u_rt_shadow_residual"), rt_shadow_residual);
 
@@ -1617,8 +1659,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     float lvl = rt_ambient_strength * (0.7f + 0.3f * rt_sun_elev);
     const float gtint[3] = {0.65f, 0.55f, 0.45f};  // warm, darker ground bounce
     float sky[3], ground[3];
+    // ITEM A (owner playtest #2) — MOOD-MATCH. I tried lowering the hue white-floor 0.50 -> 0.44 to carry
+    // more mood hue, but a device A/B measured it drifted the tone WARMER (rt warmth R-B +7.4) AWAY from
+    // the stock baked mood, which at this vantage/TOD is cooler/neutral (baked R-B +1.7). Reverted to the
+    // owner-ACCEPTED 0.50: the accepted-default rt ambient already tracks the baked mood/luma closely
+    // (device: rt-on luma 53.8 vs baked 54.4), so the mood is preserved without a warm drift.
     for (int i = 0; i < 3; i++) {
-      float hue = 0.5f + 0.5f * (shue[i] / smx);  // toward white
+      float hue = 0.5f + 0.5f * (shue[i] / smx);  // toward white (owner-accepted mood, matches baked luma)
       sky[i] = hue * lvl;
       ground[i] = sky[i] * gtint[i];
     }

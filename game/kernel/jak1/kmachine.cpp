@@ -819,21 +819,75 @@ void pc_set_pbr(u32 sym) {
   Gfx::g_global_settings.recharged_pbr_enable = (sym != 0);
 }
 
+// Grecharged-directional-ambient ITEM B (owner playtest #2, 2026-07-20): the mood COLOR values the
+// realtime-lighting path consumes — current-sun sun-color/env-color, light-group 0 colors, and
+// current-shadow — are the OUTPUT of a 2-snapshot lerp (update-mood-sky-texture / update-mood-palette
+// over *default-interp-table*) that HARD-SWITCHES which two of the 8 moods it lerps between at the
+// hour boundaries ~04:00 / 07:00 / 08-09:00 (snapshot1 defaults to 0). Each basis switch is a 1-frame
+// DISCONTINUITY in the value => the owner's "2 brutal light steps at night + 1 at sunrise". The stock
+// BAKED path is smooth because it crossfades all 8 palette slots per-vertex; there is no single
+// continuous sun/ambient COLOR to read instead. So we TEMPORALLY LOW-PASS the stepped color inputs
+// here (translation-layer fix, once per frame at the FFI push): a 1-frame step becomes a smooth ~0.7s
+// ramp => continuous like the baked path. Smoothing runs UNCONDITIONALLY (seeded on the first frame):
+// OFF==stock is preserved by the SHADER gate — with realtime-lighting AND pbr-materials off the world
+// shaders take the stock baked path and never read these fields, so a smoothed value is invisible
+// (byte-identical). Running it always also means a later menu-enable sees an already-tracked value (no
+// enable ramp). It is NOT gated on the pc-setting because the on-device A/B forces the realtime path via
+// the debug.opengoal.rt.light PROP, which the FFI push cannot see. Tunable / A-B-defeatable via
+// debug.opengoal.rt.todsmooth ("0" => raw stepped = the before; a float in (0,1] => that per-frame EMA
+// weight; empty => the shipped default below).
+static float rt_tod_smooth_alpha() {
+  float a = 0.10f;  // per-frame EMA weight toward the new raw value (~0.7 s ramp @30 fps)
+#ifdef __ANDROID__
+  char b[PROP_VALUE_MAX];
+  if (__system_property_get("debug.opengoal.rt.todsmooth", b) > 0 && b[0]) {
+    a = (float)atof(b);
+  }
+#else
+  if (const char* e = std::getenv("OG_RT_TODSMOOTH")) {
+    a = (float)atof(e);
+  }
+#endif
+  if (!(a >= 0.0f && a <= 1.0f)) {
+    a = 0.10f;
+  }
+  return a;
+}
+// Exponential moving average of an n-float array in place toward `raw`. When `seed` (first frame,
+// realtime lighting off, or smoothing disabled) it SNAPS to raw so a later enable starts from the
+// true value (no boot ramp / stale-value flash).
+static void rt_ema(float* dst, const float* raw, int n, float alpha, bool seed) {
+  if (seed || alpha <= 0.0f) {
+    for (int i = 0; i < n; i++) {
+      dst[i] = raw[i];
+    }
+    return;
+  }
+  for (int i = 0; i < n; i++) {
+    dst[i] += alpha * (raw[i] - dst[i]);
+  }
+}
+
 // Grecharged-pbr-materials: per-frame mood/TOD sun state (three GOAL vectors, xyz each):
 // shadow = current-shadow light-travel dir, sun_color = mood-sun sun-color, env = env-color.
+// ITEM B: the three colors are EMA-smoothed (see rt_ema above) so the day/night snapshot steps ramp
+// smoothly. The visible-sun DIRECTION is taken elsewhere from the already-continuous *sky-parms* sun
+// position, so current-shadow is smoothed only for the night-time azimuthal ambient key.
 void pc_set_pbr_sun(u32 shadow_vec, u32 sun_color_vec, u32 env_color_vec) {
+  auto& gs = Gfx::g_global_settings;
   float* s = Ptr<float>(shadow_vec).c();
-  Gfx::g_global_settings.recharged_pbr_shadow[0] = s[0];
-  Gfx::g_global_settings.recharged_pbr_shadow[1] = s[1];
-  Gfx::g_global_settings.recharged_pbr_shadow[2] = s[2];
   float* c = Ptr<float>(sun_color_vec).c();
-  Gfx::g_global_settings.recharged_pbr_sun_color[0] = c[0];
-  Gfx::g_global_settings.recharged_pbr_sun_color[1] = c[1];
-  Gfx::g_global_settings.recharged_pbr_sun_color[2] = c[2];
   float* e = Ptr<float>(env_color_vec).c();
-  Gfx::g_global_settings.recharged_pbr_ambient[0] = e[0];
-  Gfx::g_global_settings.recharged_pbr_ambient[1] = e[1];
-  Gfx::g_global_settings.recharged_pbr_ambient[2] = e[2];
+  float raw_s[3] = {s[0], s[1], s[2]};
+  float raw_c[3] = {c[0], c[1], c[2]};
+  float raw_e[3] = {e[0], e[1], e[2]};
+  static bool s_seed_sun = true;
+  float alpha = rt_tod_smooth_alpha();
+  bool seed = s_seed_sun || alpha <= 0.0f;
+  rt_ema(gs.recharged_pbr_shadow, raw_s, 3, alpha, seed);
+  rt_ema(gs.recharged_pbr_sun_color, raw_c, 3, alpha, seed);
+  rt_ema(gs.recharged_pbr_ambient, raw_e, 3, alpha, seed);
+  s_seed_sun = false;
 }
 
 // Round-5 addendum suspect (c): the VISIBLE sun's dome direction — *sky-parms* upload-data
@@ -852,17 +906,29 @@ void pc_set_pbr_sky_sun(u32 pos_vec) {
 void pc_set_pbr_lights(u32 lg) {
   auto* base = Ptr<float>(lg).c();
   auto& gs = Gfx::g_global_settings;
+  // Gather the raw light-group into flat arrays first, then EMA-smooth the DIRECTIONS + COLORS + ambi
+  // (ITEM B: the light-group colors snapshot-step across TOD exactly like current-sun). The morph
+  // LEVEL is a per-light blend weight, left raw.
+  float raw_dir[9], raw_col[9], raw_ambi[3], raw_lvl[3];
   for (int i = 0; i < 3; i++) {
     const float* l = base + i * 12;  // 48 bytes = 12 floats
     for (int j = 0; j < 3; j++) {
-      gs.recharged_pbr_lg_dir[i][j] = l[j];
-      gs.recharged_pbr_lg_color[i][j] = l[4 + j];
+      raw_dir[i * 3 + j] = l[j];
+      raw_col[i * 3 + j] = l[4 + j];
     }
-    gs.recharged_pbr_lg_level[i] = l[8];
+    raw_lvl[i] = l[8];
   }
   const float* ambi = base + 3 * 12;
-  for (int j = 0; j < 3; j++) gs.recharged_pbr_lg_ambi[j] = ambi[4 + j];
+  for (int j = 0; j < 3; j++) raw_ambi[j] = ambi[4 + j];
+  static bool s_seed_lights = true;
+  float alpha = rt_tod_smooth_alpha();
+  bool seed = s_seed_lights || alpha <= 0.0f;
+  rt_ema(&gs.recharged_pbr_lg_dir[0][0], raw_dir, 9, alpha, seed);
+  rt_ema(&gs.recharged_pbr_lg_color[0][0], raw_col, 9, alpha, seed);
+  rt_ema(gs.recharged_pbr_lg_ambi, raw_ambi, 3, alpha, seed);
+  for (int i = 0; i < 3; i++) gs.recharged_pbr_lg_level[i] = raw_lvl[i];
   gs.recharged_pbr_lg_valid = true;
+  s_seed_lights = false;
 }
 
 // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting toggles,

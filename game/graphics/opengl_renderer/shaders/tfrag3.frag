@@ -111,6 +111,11 @@ uniform float u_pbr_wr_indirect;
 uniform int u_rt_light_on;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
+// ITEM B (owner insight): GREEN-STAR / MOON directional NIGHT key light. u_rt_moon_dir = surface->moon
+// (elevated, opposite the sun's azimuth); u_rt_moon_color = the green colour already scaled C++-side by
+// its intensity (weaker than sun) AND the (1-sun_elev) crossover weight => 0 by day, full at night.
+uniform vec3 u_rt_moon_dir;
+uniform vec3 u_rt_moon_color;
 // Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). u_rt_ambient_on
 // = master (1 => directional sky/ground base by world normal, 0 => the legacy flat floor for A/B).
 // u_rt_sky_color = up-hemisphere (sky) tint, u_rt_ground_color = down-hemisphere (ground bounce) tint;
@@ -390,7 +395,10 @@ void main() {
       // (identity below the knee, smooth asymptote to 1) stops the bright sun side from blowing to a flat
       // white while leaving the dim ambient/shadow region — far below the knee — BYTE-untouched (the
       // accepted sun-off relief is preserved exactly; sun_scalar==0 => lit==albedo*base as before).
-      vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar;
+      // ITEM B: the GREEN MOON adds a directional key at night (weight folded into u_rt_moon_color =>
+      // 0 by day, golden rule). Same additive model as the sun; the sun<->moon crossover is smooth.
+      float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0);
+      vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar + albedo * u_rt_moon_color * moon_ndl;
       {
         const float RT_KNEE = 0.8;
         vec3 e = exp(-max(lit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));  // max() guards 0*inf NaN

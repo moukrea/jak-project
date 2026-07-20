@@ -24,6 +24,10 @@ in vec3 v_fringe_rel;
 uniform int u_rt_light_on;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
+// ITEM B: GREEN-STAR / MOON directional NIGHT key light (weaker than sun); u_rt_moon_color already
+// carries green*intensity*(1-sun_elev) crossover weight (0 by day => golden rule).
+uniform vec3 u_rt_moon_dir;
+uniform vec3 u_rt_moon_color;
 // Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). u_rt_ambient_on
 // = master (1 => directional sky/ground base by world normal, 0 => the legacy flat floor for A/B).
 // u_rt_sky_color = up-hemisphere (sky) tint, u_rt_ground_color = down-hemisphere (ground bounce) tint;
@@ -214,7 +218,8 @@ void main() {
       // (identity below the knee, smooth asymptote to 1) stops the bright sun side from blowing to a flat
       // white while leaving the dim ambient/shadow region — far below the knee — BYTE-untouched (the
       // accepted sun-off relief is preserved exactly; sun_scalar==0 => lit==albedo*base as before).
-      vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar;
+      float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0);  // ITEM B: green moon night key
+      vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar + albedo * u_rt_moon_color * moon_ndl;
       {
         const float RT_KNEE = 0.8;
         vec3 e = exp(-max(lit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));  // max() guards 0*inf NaN
