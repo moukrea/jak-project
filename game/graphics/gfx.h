@@ -183,6 +183,13 @@ struct GfxGlobalSettings {
   // update-mood-shadow-direction) this tracks the real sun elevation, so shadows extend
   // opposite the on-screen sun. Zero until the first GOAL push (renderer falls back).
   float recharged_pbr_sky_sun[3] = {0.f, 0.f, 0.f};
+  // Grecharged-directional-ambient (owner playtest #3, 2026-07-20): the GREEN SUN is Jak's
+  // 2ND SUN (sky upload-data sun index 1, colour 0xc2,0xfe,0x78 = 194,254,120). Its REAL sky
+  // position (camera->green-sun, magnitude ~ orbit dist) pushed from GOAL via
+  // pc-set-pbr-green-sun! every frame. Drives the realtime green directional light + (when it
+  // is the dominant/only sun above the horizon, i.e. night) the cast-shadow direction. Zero
+  // until the first push (renderer treats a below-horizon / zero green sun as no contribution).
+  float recharged_pbr_green_sun[3] = {0.f, 0.f, 0.f};
   // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting, a clean
   // rewrite separate from the pbr-materials toggle above. recharged_rt_light_enable = master
   // (the tfrag3 sun-only path is taken only when this is on). Set from GOAL via pc-set-rt-light!.

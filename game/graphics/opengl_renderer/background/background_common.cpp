@@ -930,6 +930,9 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
     // Suspect (d): promote the camera anchor together with the matrix — the read map is
     // only meaningful around the cam_trans it was written with.
     memcpy(st.read_cam, st.write_cam, sizeof(st.read_cam));
+    // Item 1: promote which light (yellow=0 / green=1) this completed map was rendered from,
+    // together with its matrix, so receivers attribute the occlusion to the matching term.
+    st.read_shadow_light = st.shadow_light;
     st.read_valid = true;
     st.write = 1 - st.write;
   }
@@ -970,16 +973,34 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // every world shadow was short+steep and unattributable. Fallbacks: current-shadow
   // (sun below horizon / pre-push), then the light-group blend (pre-any-push).
   PbrV3 dir = {0.f, 0.f, 0.f};
+  st.shadow_light = 0;  // default: the yellow sun owns the shadow (day)
   {
     PbrV3 ss = {gs.recharged_pbr_sky_sun[0], gs.recharged_pbr_sky_sun[1],
                 gs.recharged_pbr_sky_sun[2]};
     float ssl = std::sqrt(pv_dot(ss, ss));
     if (ssl > 1e-3f && ss.y / ssl > 0.02f) {
       dir = {ss.x / ssl, ss.y / ssl, ss.z / ssl};  // camera->sun == surface->light (distant sun)
+      st.shadow_light = 0;                          // yellow sun casts (its N.L term gets the occlusion)
+    }
+  }
+  // Item 1 (owner playtest #3): when the yellow sun is BELOW the horizon (night), the GREEN sun
+  // (Jak's 2nd sun) becomes the key light and casts the shadows — drive the single shadow map from
+  // ITS real sky direction (recharged_pbr_green_sun) and attribute the occlusion to the green term.
+  // Symmetric to the yellow sun; no second depth pass (the depth machinery is direction-agnostic).
+  if (pv_dot(dir, dir) < 1e-8f) {
+    PbrV3 gsun = {gs.recharged_pbr_green_sun[0], gs.recharged_pbr_green_sun[1],
+                  gs.recharged_pbr_green_sun[2]};
+    float gln = std::sqrt(pv_dot(gsun, gsun));
+    if (gln > 1e-3f && gsun.y / gln > 0.02f) {
+      dir = {gsun.x / gln, gsun.y / gln, gsun.z / gln};  // camera->green-sun == surface->green-light
+      st.shadow_light = 1;                               // green sun casts (its term gets the occlusion)
     }
   }
   if (pv_dot(dir, dir) < 1e-8f) {
-    // current-shadow is light-travel; negate for surface->light.
+    // Neither sun above the horizon: fall back to current-shadow (light-travel; negate for
+    // surface->light). Attribute to the yellow-sun term (shadow_light=0) — that term is ~0 here
+    // (night fade), so the fallback map is effectively invisible, no artifact.
+    st.shadow_light = 0;
     dir = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1],
            -gs.recharged_pbr_shadow[2]};
   }
@@ -1114,6 +1135,12 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   }
   if (on_loc >= 0) {
     glUniform1i(on_loc, (st.valid && st.read_valid) ? 1 : 0);
+  }
+  // Item 1: which light (0 = yellow sun / 1 = green sun) the READ-side map was rendered from,
+  // so the shader applies the cast-shadow occlusion to the MATCHING directional term.
+  GLint sl_loc = glGetUniformLocation(program, "u_rt_shadow_light");
+  if (sl_loc >= 0) {
+    glUniform1i(sl_loc, st.read_shadow_light);
   }
   if (leg_loc >= 0) {
     glUniform1f(leg_loc, st.legacy_strength);
@@ -1519,30 +1546,33 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
 #endif
   glUniform1f(glGetUniformLocation(id, "u_rt_sun_elev"), rt_sun_elev);
-  // === ITEM B (owner playtest #2 insight): GREEN-STAR / MOON directional NIGHT key light + sun<->moon crossover ===
-  // The owner's night model: the night KEY light comes from the GREEN STAR / MOON — a DIRECTIONAL light,
-  // GREEN, WEAKER than the sun — not an uncontrolled ambient tone; and the sun<->moon handoff must be a
-  // smooth CROSSOVER (the fade that kills the brutal night/sunrise steps). We synthesise it here: the green
-  // star sits OPPOSITE the sun's azimuth, elevated (a real key direction => night FORM), and its weight is
-  // (1 - sun_elev) so it fades IN exactly as the sun fades OUT — a continuous elevation-weighted crossover.
-  // Green colour = the precursor green-star colour (194,254,120)/255. Weaker than the sun (moon_intensity).
-  // By DAY sun_elev -> 1 => moon weight 0 => NO daytime contribution (golden rule: sunlit unchanged); the
-  // shader term is under u_rt_light_on too (OFF==stock). The sky-sun vector we already read is continuous.
-  float moon_dir[3] = {0.30f, 0.85f, 0.30f};  // fallback: elevated key direction
+  // === Grecharged-directional-ambient (owner playtest #3): the GREEN SUN = Jak's 2ND SUN ===
+  // Owner reframe: the green star is NOT a night-only synthesised moon — it is the precursor GREEN
+  // SUN (sky upload-data sun index 1, colour 194,254,120), symmetric to the yellow sun. Item 2:
+  // drive it from its REAL sky position (recharged_pbr_green_sun == camera->green-sun, pushed from
+  // GOAL via pc-set-pbr-green-sun!) and weight it by its OWN elevation smoothstep, so it is a real
+  // directional light whenever it is above the horizon — DAY as well as night — exactly like the
+  // yellow sun, just weaker + green. This also makes the sun<->green handoff fully SYMMETRIC (both
+  // are smooth elevation-weighted directional lights), so the crossover stays continuous — the
+  // owner-accepted à-coups fix is preserved (both weights are smoothsteps of a continuous orbit).
+  // Golden rule + OFF==stock unchanged: the whole term is under u_rt_light_on and vanishes to 0 when
+  // the green sun is below the horizon (green_elev -> 0). (Old code synthesised an opposite-of-sun,
+  // night-only vector with weight 1-sun_elev — the exact thing the owner flagged as wrong.)
+  float moon_dir[3] = {0.0f, 1.0f, 0.0f};  // safe default (up) until the first green-sun push arrives
+  float green_elev = 0.0f;                 // green sun's OWN elevation weight (0 below horizon / unpushed)
   {
-    const float* ss = gs.recharged_pbr_sky_sun;
-    float hx = ss[0], hz = ss[2];
-    float hl = std::sqrt(hx * hx + hz * hz);
-    if (hl > 1e-3f) {
-      float ox = -hx / hl, oz = -hz / hl;  // opposite the sun's horizontal azimuth
-      moon_dir[0] = ox * 0.57f; moon_dir[1] = 0.82f; moon_dir[2] = oz * 0.57f;  // elevated ~55 deg
-      float ml = std::sqrt(moon_dir[0]*moon_dir[0] + moon_dir[1]*moon_dir[1] + moon_dir[2]*moon_dir[2]);
-      moon_dir[0] /= ml; moon_dir[1] /= ml; moon_dir[2] /= ml;
+    const float* gsun = gs.recharged_pbr_green_sun;
+    float gln = std::sqrt(gsun[0] * gsun[0] + gsun[1] * gsun[1] + gsun[2] * gsun[2]);
+    if (gln > 1e-4f) {
+      moon_dir[0] = gsun[0] / gln; moon_dir[1] = gsun[1] / gln; moon_dir[2] = gsun[2] / gln;  // surface->green-sun
+      float up = gsun[1] / gln;  // sin(green-sun elevation): >0 above the horizon
+      float t = up / 0.18f;      // SAME gentle horizon ramp as the yellow sun => symmetric smooth crossover
+      t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+      green_elev = t * t * (3.0f - 2.0f * t);  // smoothstep
     }
   }
-  float moon_w = 1.0f - rt_sun_elev;                  // complementary crossover (sun_elev is a smoothstep)
-  const float MOON_GREEN[3] = {0.76f, 1.0f, 0.47f};   // precursor green-star colour (194,254,120)/255
-  float moon_intensity = 0.40f;                        // WEAKER than the sun (owner: night key weaker than sun)
+  const float MOON_GREEN[3] = {0.76f, 1.0f, 0.47f};   // precursor green-sun colour (194,254,120)/255
+  float moon_intensity = 0.40f;                        // WEAKER than the yellow sun (owner: green sun weaker)
 #ifdef __ANDROID__
   { char rv[PROP_VALUE_MAX];
     if (__system_property_get("debug.opengoal.rt.moonintensity", rv) > 0 && rv[0]) moon_intensity = atof(rv); }
@@ -1550,7 +1580,32 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_RT_MOONINTENSITY")) moon_intensity = atof(e);
 #endif
   if (!(moon_intensity >= 0.0f && moon_intensity <= 2.0f)) moon_intensity = 0.40f;
-  float moon_scale = moon_intensity * moon_w;  // fold the crossover weight into the colour => 0 by day
+  // Device A/B: force the green-sun elevation weight (like debug.opengoal.rt.sunelev for the yellow sun)
+  // so the green-sun contribution can be isolated on/off at a fixed vantage (0 = green off, 1 = full).
+#ifdef __ANDROID__
+  { char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.greenelev", rv) > 0 && rv[0]) {
+      float g = atof(rv);
+      if (g >= 0.0f) green_elev = g;  // NEGATIVE sentinel (-1) => keep the REAL green-sun elevation
+    }                                  // (a prop cannot be cleared headlessly, so -1 = "release override")
+  }
+#else
+  if (const char* e = getenv("OG_RT_GREENELEV")) {
+    float g = atof(e);
+    if (g >= 0.0f) green_elev = g;
+  }
+#endif
+  float moon_scale = moon_intensity * green_elev;  // real green-sun elevation weight => day+night when up
+#ifdef __ANDROID__
+  // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
+  // elevation, green direction, and which sun currently owns the shadow map. Silent unless prop==1.
+  { char dv[PROP_VALUE_MAX]; static int gdbg = 0;
+    if (__system_property_get("debug.opengoal.rt.greendbg", dv) > 0 && dv[0] == '1' && (gdbg++ % 120) == 0) {
+      lg::info("GDA-GREENSUN green_elev={:.3f} sun_elev={:.3f} gdir=({:.2f},{:.2f},{:.2f}) shadow_light={}",
+               green_elev, rt_sun_elev, moon_dir[0], moon_dir[1], moon_dir[2], pbr_shadow_state().shadow_light);
+    }
+  }
+#endif
   glUniform3f(glGetUniformLocation(id, "u_rt_moon_dir"), moon_dir[0], moon_dir[1], moon_dir[2]);
   glUniform3f(glGetUniformLocation(id, "u_rt_moon_color"),
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);

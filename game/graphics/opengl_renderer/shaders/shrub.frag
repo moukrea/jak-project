@@ -69,6 +69,9 @@ uniform float u_rt_shadow_residual;
 // direct sun (and any mood tint) vanishes, leaving ONLY the ~0.2 floor. Identical across all
 // four world shaders so nothing stays lit at night.
 uniform float u_rt_sun_elev;
+// Item 1 (owner playtest #3): which sun the single shadow map was rendered from — 0 = yellow
+// sun (day), 1 = green sun (night). The occlusion attenuates the MATCHING directional term.
+uniform int u_rt_shadow_light;
 // ROUND-5: 16-tap Poisson disk for the wide-penumbra soft PCF (replaces the round-4 grid
 // that aliased the shadow-texel lattice => staircase). Rotated per fragment in the PCF loop.
 const vec2 RT_POISSON16[16] = vec2[](
@@ -174,7 +177,11 @@ void main() {
       //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ.
       // ROUND-7 NIGHT FADE: * u_rt_sun_elev so the direct sun (and any mood tint) goes to 0 at
       // night. Identical in all four world shaders.
-      float sun_scalar = ndl * shadow * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
+      // Item 1: single shadow map driven by the key sun (u_rt_shadow_light: 0=yellow day / 1=green night).
+      // Apply the occlusion ONLY to that light's own term; the other stays unshadowed (its map isn't drawn).
+      float sun_occ  = (u_rt_shadow_light == 1) ? 1.0 : shadow;  // yellow-sun cast shadow (or 1 at night)
+      float moon_occ = (u_rt_shadow_light == 1) ? shadow : 1.0;  // green-sun cast shadow (night)
+      float sun_scalar = ndl * sun_occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
       // Grecharged-directional-ambient: DIRECTIONAL hemisphere ambient base (sky up / ground down
       // by the world normal) replaces the flat ~0.2 floor => form in shadow with AO off. Toggle
       // OFF = the legacy flat floor. GOLDEN RULE: the direct-sun term is unchanged, so sunlit
@@ -218,7 +225,7 @@ void main() {
       // (identity below the knee, smooth asymptote to 1) stops the bright sun side from blowing to a flat
       // white while leaving the dim ambient/shadow region — far below the knee — BYTE-untouched (the
       // accepted sun-off relief is preserved exactly; sun_scalar==0 => lit==albedo*base as before).
-      float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0);  // ITEM B: green moon night key
+      float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0) * moon_occ;  // green-sun N.L * its cast shadow (item 1)
       vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar + albedo * u_rt_moon_color * moon_ndl;
       {
         const float RT_KNEE = 0.8;

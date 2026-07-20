@@ -136,6 +136,10 @@
 ;; sun 0 pos — the vector the sun sprite is placed with) so world shadows extend opposite
 ;; the on-screen sun (current-shadow is hard-clamped ~65deg and cannot).
 (define-extern pc-set-pbr-sky-sun! (function vector none))
+;; Grecharged-directional-ambient (owner playtest #3): push the GREEN SUN's real sky position
+;; (*sky-parms* upload-data sun 1 pos) so it is a real 2nd directional light (day+night) that
+;; also casts shadows at night — not the old synthesised opposite-of-sun night-only vector.
+(define-extern pc-set-pbr-green-sun! (function vector none))
 (define-extern pc-set-pbr-lights! (function pointer none))
 ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting master toggle + directional-ambient toggle.
 (define-extern pc-set-rt-light! (function int none))

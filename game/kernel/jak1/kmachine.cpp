@@ -900,6 +900,18 @@ void pc_set_pbr_sky_sun(u32 pos_vec) {
   Gfx::g_global_settings.recharged_pbr_sky_sun[2] = p[2];
 }
 
+// Grecharged-directional-ambient (owner playtest #3): the GREEN SUN's REAL sky position —
+// *sky-parms* upload-data sun 1 pos (sun index 1 = the precursor green sun, computed every
+// frame by sky-make-sun-data 1). Same camera->sun convention as the yellow sun above. Feeds
+// the realtime green directional light (day AND night when it is above the horizon) + the
+// night cast-shadow direction.
+void pc_set_pbr_green_sun(u32 pos_vec) {
+  float* p = Ptr<float>(pos_vec).c();
+  Gfx::g_global_settings.recharged_pbr_green_sun[0] = p[0];
+  Gfx::g_global_settings.recharged_pbr_green_sun[1] = p[1];
+  Gfx::g_global_settings.recharged_pbr_green_sun[2] = p[2];
+}
+
 // Round-4 multi-light: GOAL passes (-> *time-of-day-context* light-group 0) — a light-group,
 // four inline `light`s (dir0/dir1/dir2/ambi), each 48 bytes: direction vec16 @+0, color rgbaf16
 // @+16, levels vec16 @+32 (levels.x = morph weight). Raw 0..255 colors; scaled at the GL boundary.
@@ -1001,6 +1013,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-pbr!", (void*)pc_set_pbr);
   make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
   make_function_symbol_from_c("pc-set-pbr-sky-sun!", (void*)pc_set_pbr_sky_sun);
+  make_function_symbol_from_c("pc-set-pbr-green-sun!", (void*)pc_set_pbr_green_sun);
   make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
   // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master
   make_function_symbol_from_c("pc-set-rt-light!", (void*)pc_set_rt_light);

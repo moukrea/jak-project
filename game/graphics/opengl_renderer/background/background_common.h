@@ -229,6 +229,16 @@ struct PbrShadowState {
   // receiver uniform u_pbr_shadow_cam_delta = (cam_now - read_cam)/4096 re-anchors it.
   float write_cam[3] = {0.f, 0.f, 0.f};
   float read_cam[3] = {0.f, 0.f, 0.f};
+  // Grecharged-directional-ambient (owner playtest #3 item 1): the green sun (Jak's 2nd sun)
+  // casts shadows like the yellow sun. There is ONE shadow map; it is driven by the DOMINANT
+  // sun each frame — the yellow sun when it is above the horizon (day), the GREEN sun when the
+  // yellow is below the horizon (night). shadow_light records which light this frame's WRITE map
+  // was rendered from (0 = yellow sun, 1 = green sun); read_shadow_light is its promoted read-side
+  // twin (matches read_mvp), pushed to receivers as u_rt_shadow_light so the shader applies the
+  // occlusion to the matching term (yellow-sun term for 0, green-sun term for 1). No second depth
+  // pass — the depth machinery is direction-agnostic, so this is just a direction+attribution swap.
+  int shadow_light = 0;
+  int read_shadow_light = 0;
 };
 PbrShadowState& pbr_shadow_state();
 void pbr_shadow_ensure_resources();  // lazy FBO/tex creation

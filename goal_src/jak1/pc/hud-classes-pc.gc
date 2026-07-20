@@ -1690,6 +1690,10 @@
     ;; Round-5 suspect (c): the VISIBLE sun's dome direction (what sparticle-track-sun
     ;; places the sun sprite with) — current-shadow is elevation-clamped and cannot align.
     (pc-set-pbr-sky-sun! (-> *sky-parms* upload-data sun 0 pos))
+    ;; Grecharged-directional-ambient (owner playtest #3): the GREEN SUN = Jak's 2nd sun (sun
+    ;; index 1). Push its REAL sky position so it is a real directional light day+night and
+    ;; casts shadows at night (was a synthesised opposite-of-sun night-only vector).
+    (pc-set-pbr-green-sun! (-> *sky-parms* upload-data sun 1 pos))
     ;; Round-4 multi-light: push light-group 0 (soleil + lune verte + fill) every frame.
     ;; Extern is (function pointer none) (light-group unresolvable in the early pc context);
     ;; pass the address of group 0 as a raw pointer — the renderer reads it as a float block.

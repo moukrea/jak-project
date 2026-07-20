@@ -171,6 +171,10 @@ uniform float u_rt_shadow_residual;
 // vanishes here, leaving ONLY the ~0.2 sky-fill floor. Set identically for all four world
 // shaders (they share first_tfrag_draw_setup), so no path stays lit at night.
 uniform float u_rt_sun_elev;
+// Item 1 (owner playtest #3): which sun the single shadow map was rendered from this frame —
+// 0 = yellow sun (day), 1 = green sun (night, when the yellow is below the horizon). The cast-
+// shadow occlusion is applied to the MATCHING directional term so the green sun casts shadows too.
+uniform int u_rt_shadow_light;
 // ROUND 5: 16-tap Poisson disk for a wide-penumbra SOFT PCF (replaces the round-4 3x3
 // grid — a regular grid aliases against the shadow-map texel lattice => the staircase the
 // owner still saw; a Poisson disk does not). Rotated per fragment (see the PCF loop).
@@ -348,7 +352,12 @@ void main() {
       // ROUND-7 NIGHT FADE: multiply the direct-sun gate by the real sun-elevation fade so the
       // sun (and any mood tint carried in u_rt_sun_color) goes to EXACTLY 0 at night. Identical
       // in all four world shaders => no geometry stays lit at night.
-      float sun_scalar = ndl * occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
+      // Item 1: the single shadow map is driven by whichever sun is the key this frame
+      // (u_rt_shadow_light: 0 = yellow by day, 1 = green at night). Apply the occlusion ONLY to
+      // that light's own term; the other light stays unshadowed (its map isn't the one drawn).
+      float sun_occ  = (u_rt_shadow_light == 1) ? 1.0 : occ;   // yellow-sun cast shadow (or 1 at night)
+      float moon_occ = (u_rt_shadow_light == 1) ? occ : 1.0;   // green-sun cast shadow (night)
+      float sun_scalar = ndl * sun_occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
       // Grecharged-directional-ambient: the ambient BASE is now DIRECTIONAL (hemisphere) — sky
       // color on up-facing faces, ground bounce on down-facing faces, blended by the world
       // normal's up-component. Shadowed / away-from-sun surfaces regain FORM (top-lit,
@@ -397,7 +406,7 @@ void main() {
       // accepted sun-off relief is preserved exactly; sun_scalar==0 => lit==albedo*base as before).
       // ITEM B: the GREEN MOON adds a directional key at night (weight folded into u_rt_moon_color =>
       // 0 by day, golden rule). Same additive model as the sun; the sun<->moon crossover is smooth.
-      float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0);
+      float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0) * moon_occ;  // green-sun N.L * its cast shadow (item 1)
       vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar + albedo * u_rt_moon_color * moon_ndl;
       {
         const float RT_KNEE = 0.8;
