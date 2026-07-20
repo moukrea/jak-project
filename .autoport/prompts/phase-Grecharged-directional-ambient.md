@@ -402,3 +402,25 @@ Therefore, NON-NEGOTIABLE:
    download does not run your setprop.
 3. Verify the DEFAULT colored render (not the dbg/viz) at a VERTICAL rock face or wall, sun OFF: the dark
    scene must show the object's form. That is the owner's verbatim gate.
+
+---
+## OWNER PLAYTEST 2026-07-20 — RELIEF ACCEPTED, 2 items remain
+The owner tested the SH build on device and ACCEPTED the ambient relief: "les modèles ont un relief...
+c'est ce qu'on a eu de mieux jusqu'à présent", with **SH + ambient strength 0.2 + contrast 1.0**. So:
+
+1. **PIN THESE AS SHIPPED DEFAULTS in `game/graphics/gfx.h`**: `recharged_rt_ambient_model = 1` (SH),
+   `recharged_rt_ambient_strength = 0.2`, `recharged_rt_ambient_contrast = 1.0`. That exact combo is
+   what the owner validated — a fresh download must land on it (no prop/menu fiddling required).
+
+2. **SUN looks "bizarre" in the current WIP build** — the owner reads it as a mid-test intermediate,
+   not a design bug. LAND A COHERENT BUILD: the additive sun must sit correctly ON TOP of the new strong
+   SH ambient — sun ADDS light on the lit side, it must NOT blow out / re-flatten the relief the ambient
+   just gave. Verify BOTH in the report with device captures: (a) sun OFF → relief visible (already good),
+   AND (b) sun ON → coherent, lit side brighter but relief preserved, terminator clean. Do not ship a
+   build where sun-ON looks weird.
+
+3. **Normals still mishandled on STONE BUILDINGS + other places** (owner). The crease-aware smooth-normal
+   reconstruction still leaves facet/weird-zone artifacts on the stone huts/walls and elsewhere. Another
+   pass: verify the stone-building faces shade smoothly (no random lit patches) in the DEFAULT colored
+   render, at multiple vantages, and report the specific fix (crease angle / weld tolerance / degenerate-
+   tri skip) with before/after device stills.

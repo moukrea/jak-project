@@ -31,6 +31,12 @@ grep -qiE 'sun off.*(relief|form|sculpt)|ambient (only|alone).*(relief|form|scul
 DEFMODEL=$(grep -oE 'recharged_rt_ambient_model *= *[0-9]+' game/graphics/gfx.h | grep -oE '[0-9]+$' | head -1)
 [ -n "$DEFMODEL" ] || fail "cannot read recharged_rt_ambient_model default from gfx.h"
 [ "$DEFMODEL" != "0" ] || fail "shipped default ambient model is 0 (hemisphere = flat on vertical); must ship SH/IBL as default so the downloaded build sculpts (supervisor 2026-07-20)"
+# owner playtest 2026-07-20 validated the exact combo SH(1) + strength 0.2 + contrast 1.0 — ship THAT default.
+[ "$DEFMODEL" = "1" ] || fail "owner validated SH (model 1) as default; gfx.h default is $DEFMODEL (require 1=SH unless owner re-approves IBL)"
+grep -qE 'recharged_rt_ambient_strength *= *0\.2' game/graphics/gfx.h || fail "shipped default ambient strength != 0.2 (owner-validated value)"
+grep -qE 'recharged_rt_ambient_contrast *= *1\.0' game/graphics/gfx.h || fail "shipped default ambient contrast != 1.0 (owner-validated value)"
+# sun must be coherent ON TOP of the strong ambient (owner: current WIP sun looks bizarre) — prove sun-ON too.
+grep -qiE 'sun on.*(coheren|preserv|relief|lit side|adds? light|not.*(blow|flat))|sun-on.*(coheren|clean|relief)|both sun (on|off)' "$R" || fail "no sun-ON coherence evidence (owner: WIP sun bizarre; additive sun must not re-flatten the relief)"
 # and the default-render capture must be documented as taken OUT-OF-BOX (no rt.ambientmodel setprop override)
 grep -qiE 'out.?of.?box|no.*(setprop|prop).*override|shipped default|fresh install.*(capture|render)|default model.*(no|without) prop|as shipped' "$R" || fail "default-render capture not proven out-of-box (could be a prop-forced model that the download does not use)"
 echo "[Gda PASS]"
