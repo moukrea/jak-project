@@ -39,4 +39,16 @@ grep -qE 'recharged_rt_ambient_contrast *= *1\.0' game/graphics/gfx.h || fail "s
 grep -qiE 'sun on.*(coheren|preserv|relief|lit side|adds? light|not.*(blow|flat))|sun-on.*(coheren|clean|relief)|both sun (on|off)' "$R" || fail "no sun-ON coherence evidence (owner: WIP sun bizarre; additive sun must not re-flatten the relief)"
 # and the default-render capture must be documented as taken OUT-OF-BOX (no rt.ambientmodel setprop override)
 grep -qiE 'out.?of.?box|no.*(setprop|prop).*override|shipped default|fresh install.*(capture|render)|default model.*(no|without) prop|as shipped' "$R" || fail "default-render capture not proven out-of-box (could be a prop-forced model that the download does not use)"
+# OWNER PLAYTEST #2 (2026-07-20): daylight nickel + "plus flat, excellent" (relief ACCEPTED). Two items:
+# ITEM B — NIGHT abrupt steps: "deux changements brutaux de lumière la nuit + un au lever de soleil". The rt
+# lighting must vary CONTINUOUSLY across the TOD cycle (no discrete jumps). Require a device TOD-sweep with a
+# measured max-frame-to-frame step proving smoothness.
+grep -qiE 'tod.?sweep|day.?night.*(sweep|cycle).*(smooth|delta|step)|no (brutal|abrupt|discrete).*(step|jump|transition)|frame.?to.?frame.*(delta|luminance).*(smooth|below|max.?step)|sunrise.*(smooth|no jump|continuous)|night.*(transition|step).*(smooth|fixed|no jump)' "$R" || fail "no NIGHT/TOD smoothness evidence (owner playtest #2: 2 brutal night light changes + 1 at sunrise — rt lighting must vary continuously across TOD, prove with a measured device sweep, no discrete step)"
+# OWNER INSIGHT: the night KEY light must be the GREEN STAR / MOON (directional, weaker than sun, green),
+# not an uncontrolled ambient tone. Require the moon/green-star directional light + smooth sun<->moon crossover.
+grep -qiE 'green.?star|moon.?light|moon.?dir|u_rt_moon|sky-moon|moon key light|green.?sun|second (directional )?light' "$R" || fail "no green-star/moon directional night-light evidence (owner: night key light must come from the green star/moon, weaker than sun, not an uncontrolled source)"
+grep -qiE 'cross(over|-?fade)|sun.{0,6}(<->|to|/).{0,6}moon|hand.?off|fade (the )?(sun|moon).*(in|out)|continuous.*(blend|handoff).*(sun|moon)|elevation.*(weight|blend)' "$R" || fail "no smooth sun<->moon crossover evidence (the fade that kills the brutal night/sunrise steps)"
+# ITEM A — sun-lit vs shadow contrast too weak / mood-match to stock baked. Require contrast tuning + a
+# device A/B vs the STOCK BAKED tone at the same vantage/TOD (mood preserved).
+grep -qiE '(sun.?lit|lit side).*(contrast|separation).*(stronger|raised|increas|tuned)|contrast.*(sun.?lit|lit vs shadow|lit/shadow)|mood.?match|match.*(stock )?baked.*(tone|mood|colou?r)|baked.*(tone|colou?r).*match|tone.?match.*baked' "$R" || fail "no sun-lit contrast / stock-baked mood-match evidence (owner playtest #2 item A)"
 echo "[Gda PASS]"

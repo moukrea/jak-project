@@ -424,3 +424,65 @@ c'est ce qu'on a eu de mieux jusqu'à présent", with **SH + ambient strength 0.
    pass: verify the stone-building faces shade smoothly (no random lit patches) in the DEFAULT colored
    render, at multiple vantages, and report the specific fix (crease angle / weld tolerance / degenerate-
    tri skip) with before/after device stills.
+
+---
+## OWNER PLAYTEST 2026-07-20 #2 — RELIEF ACCEPTED ("plus flat, excellent!"), 2 items remain
+Owner tested the sun-fix build on device. Verdict: **full daylight = nickel**, and **"c'est plus flat, et
+ça c'est excellent!"** — the flat-shading problem is SOLVED and owner-accepted. Do NOT regress daylight.
+Two refinements remain before he signs off:
+
+### ITEM A — sun-lit vs shadow CONTRAST too weak (owner "peut-être")
+The directly-sun-lit side may not contrast ENOUGH against the not-directly-lit (ambient-only) side. Owner's
+own suggestion: **match the TONE of the NON-realtime (stock baked) version to preserve the mood.** So: raise
+the perceived separation between sun-lit and ambient-only WITHOUT blowing out (keep the soft-shoulder), and
+tune the ambient/sun tones so the overall MOOD matches the stock baked look at the same TOD (sample the
+stock baked colour at a vantage, match it). Prove with a device A/B: rt-on vs stock-baked at the same
+vantage/TOD — the mood/tone should read the same, only the relief+contrast improved.
+
+### ITEM B — NIGHT: abrupt lighting steps (CONCRETE BUG, priority)
+Owner: "durant la nuit on a **deux changements brutaux de lumière + un au lever de soleil**, c'est bizarre!"
+The realtime lighting JUMPS discretely across the day/night cycle — 2 hard steps at night + 1 at sunrise —
+instead of varying smoothly. Root-cause it (likely: the rt ambient reads a mood/TOD value that snaps at
+keyframe boundaries, or the per-frame normalization / sun-elevation fade steps, or sun on/off is binary at
+the horizon). FIX = the rt ambient level+colour AND the sun term must vary CONTINUOUSLY across the whole
+TOD cycle, tracking the same smooth interpolation the stock baked path uses — no discrete jumps.
+OBJECTIVE GATE: capture a full TOD sweep on device (fixed vantage, sun sweeping dawn→day→dusk→night→dawn),
+measure frame-to-frame scene luminance delta, and prove there is NO brutal step (no single-step delta
+spike at mood-keyframe / sunrise boundaries; the curve is smooth). Report the max-step metric and show the
+sweep video. This is the item the owner will re-check first.
+
+---
+## OWNER INSIGHT 2026-07-20 — ITEM B ROOT CAUSE + DESIGN: the NIGHT KEY LIGHT is the GREEN STAR (moon)
+Owner refined the night "brutal transitions" diagnosis: "c'est comme s'il y avait une source de lumière
+NON MAÎTRISÉE... certes elle donne le ton, mais la source de lumière devrait provenir de l'ÉTOILE VERTE
+(moins puissante que le soleil) et pas d'un endroit non identifié!"
+
+So the brutal night steps are because, once the sun fades below the horizon, the scene's lighting is driven
+ONLY by the ambient mood-tone which SHIFTS to night presets from "nowhere" and STEPS at TOD keyframes. There
+is no controlled directional night light — so the night looks wrong AND jumps.
+
+**DESIGN (this is the long-planned "second light source", now unblocked because the sun is owner-accepted):**
+1. Add a SECOND realtime directional light = the GREEN STAR / MOON. Direction from the moon's sky position;
+   colour GREEN-tinted (the precursor green); intensity WEAKER than the sun (a fraction, e.g. ~0.25-0.4x —
+   tune to taste). It sculpts geometry at night the same way the sun does by day (N·L relief), so night is
+   no longer a flat/uncontrolled ambient tone.
+2. The ambient (SH) still provides the base MOOD/tone — keep it. The green star is the KEY (directional)
+   light at night, the ambient is fill. Do NOT let the ambient mood-tone be the dominant "uncontrolled source".
+3. SMOOTH CROSSOVER kills the brutal steps: as the sun elevation drops below the horizon, FADE THE SUN OUT
+   and FADE THE GREEN STAR IN over a continuous window (single smooth blend, both weighted by elevation), and
+   interpolate the ambient mood continuously across TOD keyframes (no snap). Dawn = green star fades out, sun
+   fades in, symmetric. The result: one continuous handoff, zero discrete jump at night or at sunrise.
+
+**ENGINE HOOKS (already exist — do NOT reinvent):**
+- `goal_src/jak1/engine/gfx/sky/sky-h.gc`: `sky-moon-data` (deftype), `moon` field on sky-parms upload-data,
+  and a **`moon-lights` light-group** (a directional moon light group already modelled).
+- `goal_src/jak1/engine/gfx/sky/sky.gc:29` `sky-make-moon-data` (moon position/direction at a given time);
+  `sky.gc:52` selects moon vs sun upload-data.
+- `goal_src/jak1/engine/gfx/mood/time-of-day-h.gc:39` "star/sun/moon/**green-sun** particle" — the green star.
+- The realtime SUN direction already comes from the sky-parms sun pos (sparticle-track-sun) pushed per-frame
+  from hud-classes-pc.gc — push the MOON direction the same way to a new u_rt_moon_* uniform set.
+
+**OBJECTIVE GATE (device):** full TOD sweep at a fixed vantage; prove (a) frame-to-frame luminance varies
+CONTINUOUSLY with NO brutal step at night or sunrise (max single-step delta bounded, report the metric), and
+(b) at night the green-star KEY light produces DIRECTIONAL relief (a lit side vs an away side, green-tinted),
+not a flat uniform ambient. Show the sweep video + a night still where the green-star direction is legible.
