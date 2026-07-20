@@ -6,6 +6,7 @@ in vec4 fragment_color;
 in vec3 tex_coord;
 in float fogginess;
 in vec3 v_fringe_rel;  // Grecharged-grass-overhang2: camera-relative world pos (meters)
+in vec3 v_normal;      // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
 uniform sampler2D tex_T0;
 
 uniform float alpha_min;
@@ -125,6 +126,9 @@ uniform vec3 u_rt_ground_color;
 // reflected radiance directly. u_rt_env_zenith/horizon/ground + u_rt_sun_glow drive the IBL procedural
 // sky (mean-normalized C++-side to the hemisphere mean). All read ONLY inside u_rt_light_on => OFF==stock.
 uniform int u_rt_ambient_model;
+// Grecharged-directional-ambient ROOT-CAUSE FIX: debug/A-B toggle. 0 (default) = SMOOTH per-vertex
+// normal (the fix); 1 = force the OLD flat per-face screen-derivative normal (pre-fix look, same build).
+uniform int u_rt_flat_normal;
 uniform vec3 u_rt_sh[9];
 uniform vec3 u_rt_env_zenith;
 uniform vec3 u_rt_env_horizon;
@@ -293,11 +297,25 @@ void main() {
       // rotated) world position, so its screen-space derivatives give a
       // camera-INDEPENDENT world-space face normal — the lit/dark terminator
       // is pinned to geometry and cannot swim as the camera orbits.
+      // Grecharged-directional-ambient ROOT-CAUSE FIX: use the SMOOTH per-vertex normal (v_normal)
+      // reconstructed at load, not the flat per-face screen-derivative normal. The per-face geometric
+      // normal gN is kept only as the outward-sign reference (renderer's double-sided convention) and
+      // as the degenerate fallback, so this reconstruction's global winding is irrelevant and the
+      // worst case (missing normal) == the old flat behaviour exactly.
       vec3 gN = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
       float gNl = length(gN);
-      vec3 N = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
+      gN = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
       vec3 Vv = -normalize(v_fringe_rel);
-      if (dot(N, Vv) < 0.0) N = -N;              // double-sided level tris
+      if (dot(gN, Vv) < 0.0) gN = -gN;           // double-sided level tris (outward convention)
+      vec3 Ns = v_normal;
+      float Nsl2 = dot(Ns, Ns);
+      vec3 N;
+      if (u_rt_flat_normal == 0 && Nsl2 > 0.2) {  // valid smooth normal present (default)
+        Ns *= inversesqrt(Nsl2);
+        N = dot(Ns, gN) < 0.0 ? -Ns : Ns;        // align smooth normal to the outward face sign
+      } else {
+        N = gN;                                  // forced-flat A/B or no reconstructed normal (stock)
+      }
       // The sun: surface->sun, world space, == the vector that places the
       // visible sun sprite (sky-sun dome dir when above the horizon).
       vec3 L = normalize(u_rt_sun_dir);

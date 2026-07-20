@@ -37,6 +37,8 @@ set_feature_props(){
   [ -n "${RTL_AMBIENTSTR:-}" ] && adb shell "setprop debug.opengoal.rt.ambientstrength '${RTL_AMBIENTSTR}'" </dev/null
   # ROUND 2: ambient MODEL selector (0 HEMISPHERE, 1 SH, 2 IBL) for on-device A/B of the three tiers.
   [ -n "${RTL_AMBIENTMODEL:-}" ] && adb shell "setprop debug.opengoal.rt.ambientmodel '${RTL_AMBIENTMODEL}'" </dev/null
+  # ROOT-CAUSE FIX A/B: 0 = SMOOTH per-vertex normal (the fix), 1 = force OLD flat per-face normal.
+  adb shell "setprop debug.opengoal.rt.flatnormal '${RTL_FLATNORMAL:-0}'" </dev/null
   adb shell "setprop debug.opengoal.pbr.shadowmap '$SHADOW'" </dev/null
   # Standalone AO forced OFF by default => the form we show comes from the hemisphere ambient, NOT AO.
   adb shell "setprop debug.opengoal.ao.force_mode '${AO_MODE:-0}'" </dev/null
@@ -73,7 +75,7 @@ harvest(){ # $1 stage $2 TAG $3 LOG $4 FOCUS
   { echo "=== $1 $2 $(date -Is) ==="
     echo "focus-at-record: $4"
     echo "warp: village1-hut pos=$POS"
-    echo "tod-hour: $HOUR rt.light=$LIGHT rt.ambient=$AMBIENT ao.force_mode='${AO_MODE:-0}' pbr.shadowmap=$SHADOW debug='${RTL_DEBUG_MODE:-}' ambstr='${RTL_AMBIENTSTR:-def}'"
+    echo "tod-hour: $HOUR rt.light=$LIGHT rt.ambient=$AMBIENT ao.force_mode='${AO_MODE:-0}' pbr.shadowmap=$SHADOW debug='${RTL_DEBUG_MODE:-}' ambstr='${RTL_AMBIENTSTR:-def}' flatnormal='${RTL_FLATNORMAL:-0}' ambmodel='${RTL_AMBIENTMODEL:-def}'"
     echo "--- crash scan (narrow sig pattern):"
     grep -aE 'signal (4|6|11) \(SIG' "$3" | head -3 || true
     echo "video: $OUT/gda_$2.mp4 ($(stat -c %s "$OUT/gda_$2.mp4" 2>/dev/null)B) frames=$(ls "$OUT/frames_$2" 2>/dev/null | wc -l)"

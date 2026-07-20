@@ -3,6 +3,12 @@
 layout (location = 0) in vec3 position_in;
 layout (location = 1) in vec3 tex_coord_in;
 layout (location = 2) in int time_of_day_index;
+#ifdef OG_PBR
+// Grecharged-directional-ambient ROOT-CAUSE FIX: real authored per-vertex TIE normal (world space),
+// bound at location 3 by Tie3.cpp (same VAO as the base pass). Feeds the realtime-lighting smooth-
+// normal path instead of the flat per-face screen-derivative normal.
+layout (location = 3) in vec3 normal_in;
+#endif
 
 uniform vec4 hvdf_offset;
 uniform mat4 camera;
@@ -23,6 +29,7 @@ out vec3 tex_coord;
 out float fogginess;
 #ifdef OG_PBR
 out vec3 v_fringe_rel;
+out vec3 v_normal;  // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
 #endif
 
 void main() {
@@ -32,6 +39,7 @@ void main() {
   transformed -= camera[2] * position_in.z;
 #ifdef OG_PBR
   v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
+  v_normal = normal_in;  // world-space authored TIE normal (wind sways position; base normal is fine)
 #endif
   float Q = fog_constant / transformed.w;
 

@@ -423,6 +423,18 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
                                sizeof(tfrag3::PreloadedVertex),  // stride
                                (void*)offsetof(tfrag3::PreloadedVertex, color_index)  // offset (0)
         );
+
+        // Grecharged-directional-ambient ROOT-CAUSE FIX: smooth per-vertex normal (2-10-10-10),
+        // reconstructed at load in TfragTree::unpack(). Feeds the realtime-lighting smooth-normal
+        // path; harmless (unread) on the stock path, matching the TIE VAO which already binds this.
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3,                                // location 3 in the shader
+                              4,                                // 2-10-10-10 packed
+                              GL_INT_2_10_10_10_REV,            // signed 10-bit per component
+                              GL_TRUE,                          // normalized to [-1, 1]
+                              sizeof(tfrag3::PreloadedVertex),  // stride
+                              (void*)offsetof(tfrag3::PreloadedVertex, nor)  // offset
+        );
         glGenBuffers(1, &tree_cache.single_draw_index_buffer);
         glGenBuffers(1, &tree_cache.index_buffer);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree_cache.index_buffer);

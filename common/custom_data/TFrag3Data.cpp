@@ -1,7 +1,9 @@
 #include "Tfrag3Data.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
+#include <unordered_map>
 
 #include "common/log/log.h"
 #include "common/util/Assert.h"
@@ -342,6 +344,101 @@ void ShrubTree::unpack() {
   ASSERT(i == unpacked.vertices.size());
 }
 
+// Grecharged-directional-ambient ROOT-CAUSE FIX (smooth per-vertex normals).
+// Static tfrag geometry ships with NO per-vertex normal (the PS2 game baked its lighting into the
+// vertex COLORS instead of storing normals), so the realtime-lighting shaders used to synthesize a
+// FLAT per-face normal via screen-space derivatives (cross(dFdx,dFdy)). On any curved surface
+// (rounded huts, terrain, arches) that reads as faceted/flat in shadow — direct AND ambient — which
+// is exactly the "3D en ombre a l'air plat" the owner reported. Contemporary engines solve this the
+// cheap way: reconstruct smooth vertex normals. Here we do it once at level-load (runs on modest HW):
+// accumulate adjacent FACE normals at every vertex (area-weighted via the raw edge cross product),
+// WELDED by exact packed position so UV/material-seam copies still share one smooth normal, then
+// normalize and pack into the 2-10-10-10 `nor` attribute the GL vertex already carries (TIE already
+// ships real authored normals there; tfrag was leaving it 0). The shader keeps the per-face geometric
+// normal only as an outward-sign reference + degenerate fallback, so the global winding chosen here is
+// irrelevant and the worst case (missing/degenerate normal) reproduces the old flat behaviour exactly.
+static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
+  const auto& packed = tree.packed_vertices.vertices;
+  const size_t n = tree.unpacked.vertices.size();
+  if (n == 0 || packed.size() != n) {
+    return;
+  }
+
+  // Weld by exact packed position (cluster + 16-bit offsets -> unique 64-bit key). Vertices split
+  // only for UV/material seams share a key, so the reconstructed normal is smooth across the seam.
+  std::unordered_map<u64, u32> pos_to_group;
+  pos_to_group.reserve(n * 2);
+  std::vector<u32> vert_group(n);
+  std::vector<math::Vector3f> group_normal;
+  group_normal.reserve(n);
+  for (size_t i = 0; i < n; i++) {
+    const auto& p = packed[i];
+    u64 key = ((u64)p.cluster_idx << 48) | ((u64)p.xoff << 32) | ((u64)p.yoff << 16) | (u64)p.zoff;
+    auto it = pos_to_group.find(key);
+    if (it == pos_to_group.end()) {
+      u32 g = (u32)group_normal.size();
+      pos_to_group.emplace(key, g);
+      group_normal.emplace_back(0.f, 0.f, 0.f);
+      vert_group[i] = g;
+    } else {
+      vert_group[i] = it->second;
+    }
+  }
+
+  auto pos_of = [&](u32 idx) {
+    const auto& v = tree.unpacked.vertices[idx];
+    return math::Vector3f(v.x, v.y, v.z);
+  };
+  auto add_tri = [&](u32 i0, u32 i1, u32 i2, bool flip) {
+    math::Vector3f fn = (pos_of(i1) - pos_of(i0)).cross(pos_of(i2) - pos_of(i0));
+    if (flip) {
+      fn = fn * -1.f;  // triangle-strip parity: keep a consistent orientation within a strip
+    }
+    group_normal[vert_group[i0]] += fn;
+    group_normal[vert_group[i1]] += fn;
+    group_normal[vert_group[i2]] += fn;
+  };
+
+  const auto& idx = tree.unpacked.indices;
+  if (tree.use_strips) {
+    // Triangle strips with UINT32_MAX primitive restart; winding alternates each step.
+    u32 a = UINT32_MAX, b = UINT32_MAX, k = 0;
+    for (u32 vi : idx) {
+      if (vi == UINT32_MAX) {
+        a = b = UINT32_MAX;
+        k = 0;
+        continue;
+      }
+      if (a != UINT32_MAX && b != UINT32_MAX) {
+        add_tri(a, b, vi, (k & 1) != 0);
+      }
+      a = b;
+      b = vi;
+      k++;
+    }
+  } else {
+    for (size_t t = 0; t + 2 < idx.size(); t += 3) {
+      if (idx[t] == UINT32_MAX || idx[t + 1] == UINT32_MAX || idx[t + 2] == UINT32_MAX) {
+        continue;
+      }
+      add_tri(idx[t], idx[t + 1], idx[t + 2], false);
+    }
+  }
+
+  // Normalize per weld-group and pack into the 10-bit signed 2-10-10-10 normal attribute.
+  for (auto& gn : group_normal) {
+    float len = gn.length();
+    gn = len > 1e-6f ? gn * (1.f / len) : math::Vector3f(0.f, 1.f, 0.f);
+  }
+  for (size_t i = 0; i < n; i++) {
+    const math::Vector3f& gn = group_normal[vert_group[i]];
+    s16 nx = (s16)std::lround(gn.x() * 511.f);
+    s16 ny = (s16)std::lround(gn.y() * 511.f);
+    s16 nz = (s16)std::lround(gn.z() * 511.f);
+    tree.unpacked.vertices[i].nor = pack_to_gl_normal(nx, ny, nz);
+  }
+}
+
 void TfragTree::unpack() {
   unpacked.vertices.resize(packed_vertices.vertices.size());
   for (size_t i = 0; i < unpacked.vertices.size(); i++) {
@@ -375,6 +472,11 @@ void TfragTree::unpack() {
     unpacked.indices.insert(unpacked.indices.end(), draw.plain_indices.begin(),
                             draw.plain_indices.end());
   }
+
+  // Reconstruct smooth per-vertex normals now that positions + the index topology are built. This is
+  // the root-cause fix for the flat/faceted look of curved geometry under the realtime lighting; it
+  // is inert unless a shader reads the location-3 normal attribute (realtime-lighting path only).
+  reconstruct_tfrag_smooth_normals(*this);
 }
 
 void TieTree::serialize(Serializer& ser) {

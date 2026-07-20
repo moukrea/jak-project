@@ -3,6 +3,11 @@
 layout (location = 0) in vec3 position_in;
 layout (location = 1) in vec3 tex_coord_in;
 layout (location = 2) in int time_of_day_index;
+// Grecharged-directional-ambient ROOT-CAUSE FIX: smooth per-vertex WORLD normal, reconstructed at
+// load (angle/area-weighted, position-welded) into the 2-10-10-10 nor attribute. Replaces the flat
+// per-face screen-derivative normal so curved geometry regains relief in shadow. Inert unless the
+// realtime-lighting frag path reads v_normal (stock path ignores it => byte-identical).
+layout (location = 3) in vec3 normal_in;
 
 uniform vec4 hvdf_offset;
 uniform vec4 cam_trans;
@@ -21,6 +26,7 @@ uniform int decal;
 out vec4 fragment_color;
 out vec3 tex_coord;
 out float fogginess;
+out vec3 v_normal;  // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
 // Grecharged-grass-overhang2: camera-relative world pos in METERS (mediump-safe on GLES — GOAL units
 // would overflow half-float range). The frag derives camera distance + face steepness from it for
 // the grass-fringe near-fade. Costless when u_fringe_fade.x == 0 (stock path).
@@ -45,6 +51,7 @@ void main() {
   // Step 3, the camera transform
   vec3 vert = position_in - cam_trans.xyz;
   v_fringe_rel = vert * (1.0 / 4096.0);  // Grecharged-grass-overhang2: meters, for the fringe fade
+  v_normal = normal_in;  // world-space smooth normal (tfrag verts are already in world space)
   vec4 transformed = -pc_camera[3];
   transformed.w = 0.0;
   transformed -= pc_camera[0] * vert.x;

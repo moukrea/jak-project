@@ -1563,6 +1563,23 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (rt_ambient_model < 0 || rt_ambient_model > 2) {
     rt_ambient_model = 0;
   }
+  // Grecharged-directional-ambient ROOT-CAUSE FIX: debug/A-B toggle to force the OLD flat per-face
+  // screen-derivative normal instead of the reconstructed SMOOTH per-vertex normal. Default 0 = smooth
+  // (the fix). Set 1 to reproduce the pre-fix faceted look for a same-build before/after comparison.
+  // Not exposed in the menu (debug-only); driven by a prop/env during device capture.
+  int rt_flat_normal = 0;
+#ifdef __ANDROID__
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.rt.flatnormal", rv) > 0 && rv[0]) {
+      rt_flat_normal = atoi(rv);
+    }
+  }
+#else
+  if (const char* e = getenv("OG_RT_FLATNORMAL")) {
+    rt_flat_normal = atoi(e);
+  }
+#endif
   {
     // SKY hue: the mood ambient (light-group ambi when valid, else the mood env ambient), normalized to
     // unit-max so the mood's *brightness* can't re-brighten night (only its HUE is used); blended 50%
@@ -1693,6 +1710,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
     glUniform1i(glGetUniformLocation(id, "u_rt_ambient_on"), rt_ambient_on);
     glUniform1i(glGetUniformLocation(id, "u_rt_ambient_model"), rt_ambient_model);
+    glUniform1i(glGetUniformLocation(id, "u_rt_flat_normal"), rt_flat_normal);
     glUniform3f(glGetUniformLocation(id, "u_rt_sky_color"), sky[0], sky[1], sky[2]);
     glUniform3f(glGetUniformLocation(id, "u_rt_ground_color"), ground[0], ground[1], ground[2]);
     glUniform3f(glGetUniformLocation(id, "u_rt_env_zenith"), env_zenith[0], env_zenith[1], env_zenith[2]);

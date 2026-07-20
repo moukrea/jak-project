@@ -21,6 +21,7 @@ uniform int gfx_hack_no_tex;
 // pbr_shadow_bind_receiver; absent locations are -1 (glUniform no-ops). Stripped
 // entirely in a stock (non-OG_PBR) build => OFF == stock byte-identical.
 in vec3 v_fringe_rel;
+in vec3 v_normal;  // Grecharged-directional-ambient: smooth authored TIE normal (root-cause fix)
 uniform int u_rt_light_on;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
@@ -39,6 +40,7 @@ uniform vec3 u_rt_ground_color;
 // reflected radiance directly. u_rt_env_zenith/horizon/ground + u_rt_sun_glow drive the IBL procedural
 // sky (mean-normalized C++-side to the hemisphere mean). All read ONLY inside u_rt_light_on => OFF==stock.
 uniform int u_rt_ambient_model;
+uniform int u_rt_flat_normal;  // Grecharged-directional-ambient A/B: 1 forces the old flat per-face normal
 uniform vec3 u_rt_sh[9];
 uniform vec3 u_rt_env_zenith;
 uniform vec3 u_rt_env_horizon;
@@ -114,11 +116,23 @@ void main() {
     // NO ambient (opposite side genuinely dark), baked OFF by default, plus the cast-
     // shadow factor (only when a shadow map is bound and this fragment is in range).
     if (u_rt_light_on != 0) {
+      // Grecharged-directional-ambient ROOT-CAUSE FIX: SMOOTH per-vertex normal (v_normal = the real
+      // authored TIE normal) instead of the flat per-face screen-derivative normal. gN kept only as
+      // the outward-sign reference + degenerate fallback (worst case == old flat behaviour).
       vec3 gN = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
       float gNl = length(gN);
-      vec3 N = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
+      gN = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
       vec3 Vv = -normalize(v_fringe_rel);
-      if (dot(N, Vv) < 0.0) N = -N;
+      if (dot(gN, Vv) < 0.0) gN = -gN;
+      vec3 Ns = v_normal;
+      float Nsl2 = dot(Ns, Ns);
+      vec3 N;
+      if (u_rt_flat_normal == 0 && Nsl2 > 0.2) {
+        Ns *= inversesqrt(Nsl2);
+        N = dot(Ns, gN) < 0.0 ? -Ns : Ns;
+      } else {
+        N = gN;
+      }
       vec3 L = normalize(u_rt_sun_dir);
       float ndl = max(dot(N, L), 0.0);
       float shadow = 1.0;
