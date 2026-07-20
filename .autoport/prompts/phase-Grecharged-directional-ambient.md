@@ -156,3 +156,47 @@ STAY THE COURSE, within full realtime (no baked crutch):
 ACCEPTANCE (unchanged bar): full realtime lighting ON looks BETTER than stock baked at a shadowed vantage —
 achieved with a REALTIME/computed ambient (hemisphere/SH/IBL [+SSDO/SSGI if needed]), NEVER by using the
 baked as the indirect. Owner eye gates.
+
+## SUPERVISOR ROOT-CAUSE + DEFINITIVE MANDATE (2026-07-20 ~02:30) — the flat look = FLAT PER-FACE NORMALS, fix = SMOOTH VERTEX NORMALS
+Owner wants this done like contemporary engines, a killer feature, cheap on modest HW + scalable to high.
+SUN ONLY for now (night later). No baked when realtime ON (baked=!realtime); OFF==stock. Golden rule.
+
+ROOT CAUSE (supervisor-verified in code, this is the research result — confirm + build on it):
+- Static world tfrag3.vert has attributes position(0)/tex_coord(1)/time_of_day(2) — NO per-vertex normal.
+  So the realtime shading synthesizes a normal via screen-space derivative cross(dFdx,dFdy) (tfrag3.frag:94)
+  = a FLAT PER-FACE normal (faceted). On any curved surface (rounded huts, terrain, models) this looks FLAT
+  in shadow — direct AND ambient — because the normal does not vary smoothly across the surface. THIS is
+  why "3D in shadow looks flat"; it is NOT an AO or ambient-color problem.
+- Actors: merc2.vert:5 HAS `normal_in` (per-vertex, bone-skinned) — real smooth normals exist for characters.
+- Jak is a PS2 game: it BAKED lighting into vertex colors instead of storing normals for static geometry —
+  that is why the normals are missing and why the baked looks good (it encodes the smooth light transport).
+
+THE CHEAP FIX (what every engine does, ~15yr-old-cheap, runs on modest HW):
+1. RECONSTRUCT SMOOTH PER-VERTEX NORMALS for the static world (tfrag + tie). Compute offline in the asset
+   pipeline (preferred, one-time) OR at load: for each mesh, accumulate adjacent FACE normals at each shared
+   vertex position (angle/area-weighted), normalize -> smooth vertex normals. Handle UV/material seams
+   (weld by position). Add the normal as a new vertex attribute (tfrag3.vert location 3, tie equivalent).
+2. USE the smooth interpolated normal for the realtime N.L direct + the ambient (replace the screen-
+   derivative flat normal in tfrag3/etie/shrub/tie_wind). Curved surfaces regain smooth relief.
+3. VERIFY actors: ensure the merc realtime sun path uses normal_in (smooth) — if actors also read flat, wire
+   normal_in. Characters must have relief in shadow too.
+
+TIERED AMBIENT (owner's ladder — all using the smooth normals; a selector in Recharged Settings):
+- LOW (modest HW default): smooth normals + hemisphere ambient (sky-up/ground-down by normal).
+- MID: SH ambient (L1/L2 irradiance from the mood sky), richer directional.
+- HIGH: IBL (prefiltered procedural sky env, diffuse irradiance by normal).
+- BONUS/TOP (optional, gated for strong HW): SSDO / SSGI — screen-space DIRECTIONAL occlusion/GI that adds
+  bounce-driven form. Only if the owner wants the high end; NOT the cheap default.
+Each tier is a visible step up; low tier must run on modest HW and already give relief (thanks to the smooth
+normals). Owner eye picks the default.
+
+REAL RESEARCH REQUIRED (delegate to autoport-researcher; report findings before/with implementation):
+- The best smooth-normal reconstruction for jak's tfrag/tie data (angle-weighted, seam welding, where in the
+  pipeline: decompiler/asset-build vs runtime loader). Confirm actors already have usable normals.
+- Contemporary-engine ambient structure (SH probes vs hemisphere vs IBL) and the cheap/scalable tiering, so
+  our tiers mirror how "the greats" do it.
+- Honest cost assessment per tier on Adreno 618 (Redmi, modest) vs Snapdragon 8 Elite (Honor, strong).
+ACCEPTANCE: with smooth normals, curved shadowed MODELS/geometry show RELIEF (not faceted/flat) even at the
+LOW tier on the Redmi; realtime-ON beats stock baked at a shadowed vantage; SH/IBL are visible step-ups;
+sun-only; OFF==stock; golden rule. Device A/B: flat-per-face-normal (before) vs smooth-normal (after), and
+realtime-ON vs stock-baked. Owner eye gates. This is the killer feature — do it properly.
