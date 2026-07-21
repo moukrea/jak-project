@@ -404,3 +404,13 @@ phase. Diagnose the QUALITY of the darkening. Usual industry culprits (check eac
 4. Noise/banding splotches (low sample count, no blur where needed) reading as scorch marks.
 Fix = soft, physically-plausible occlusion applied to the right term in the right space. Prove with an A/B
 close-up of a previously "cramé" area (owner-visible), plus the term/space audit documented.
+
+---
+## SUPERVISOR (2026-07-21 soir) — DEVICE CAPTURES ARE STRICTLY SEQUENTIAL (root cause of the wedges)
+Post-mortem: the previous attempt spawned 7 capture scripts IN PARALLEL as background tasks; they fought
+over the single device (each force-stops the game / sets props / waits for warp), so NONE progressed —
+that was the recurring "wedged capture" the supervisor kept killing. RULE: exactly ONE device
+script at a time, run SEQUENTIALLY (foreground, or strictly chained); never overlap two glp_* runs. The
+existing capture stamps + battery RESUME already support sequential completion. Also: acceptance captures
+r_deck_van/r_night_d1/r_int2_d1/r_deck_d0/r_deck_d1 mp4s ALREADY EXIST on disk from earlier — harvest and
+measure them FIRST; only re-capture what is missing or invalid.
