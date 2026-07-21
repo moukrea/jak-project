@@ -297,3 +297,49 @@ Cap the device-evidence budget at ~20 minutes TOTAL: ONE vantage per core metric
 Skip every other stage (TOD sweeps, multi-vantage redundancy, orbit passes). The owner judges the rest on
 his Honor in minutes — that IS the final gate. Report the 4 numbers + RESULT and stop. Do not spend tokens
 narrating captures.
+
+---
+## SUPERVISOR (2026-07-21) — EVIDENCE CAPTURES WERE CONTAMINATED BY STALE TEST PBR; PURGED, RE-CAPTURE
+Owner spotted busted old TEST PBR materials (PavingStones on the sage hut) in the captures. Facts:
+- The PROBE BAKE is clean BY CONSTRUCTION (ProbeBakeCore reads only the stock fr3 vertex data — verified,
+  zero custom_assets/PNG references). No action needed there.
+- BUT the Redmi still had the OLD TEST custom_assets (village1-vis-tfrag PavingStones set) and the capture
+  scripts do NOT force custom-assets/PBR OFF → the evidence captures (incl. stage A interiors at the sage
+  hut) were polluted. The supervisor PURGED the stale set from the device.
+RULES: (1) evidence captures for the PROBE gates must run with load-custom-assets OFF and pbr-materials OFF
+(vanilla + only the feature under test) — add the props/settings to the capture scripts; (2) RE-CAPTURE every
+stage that included the sage hut / stale-PBR surfaces (stage A interiors at minimum — delete their stamps so
+RESUME redoes them); (3) never trust a capture made before the purge.
+
+---
+## OWNER (2026-07-21) — RENDER SCALE MUST HONOR THE USER SETTINGS (real fix, not the debug prop) + ALL captures full-res
+Owner (furious, rightly): "toujours le problème de la résolution pas à 100% avec un render scale FORCÉ à
+100% — tu perds en qualité de fou, tes captures sont inacceptables en l'état."
+1. **FIX THE REAL BUG**: the runtime dynamic-render-scale controller IGNORES the persisted user settings
+   (menu Dynamic Render Scale OFF + Render Scale 100 => the game must render at TRUE 100% native, ALWAYS,
+   heavy vantage or not; Dynamic ON => respect min-render-scale floor + target fps as configured). Wire the
+   controller to the pc-settings values (they persist but are ignored today). The `debug.opengoal.
+   renderscale.native` FBO override was a measurement workaround — after the fix the normal settings path
+   must be sufficient (keep the prop as a debug tool only).
+2. **ALL evidence captures at FULL native resolution** — including the WALK/moving captures (stage E ran
+   "owner-realistic" dynamic RS = degraded; NO. Full res everywhere; framerate during captures is
+   irrelevant). Re-capture any degraded stage.
+GATE (added): report proves (a) menu-set 100%/Dynamic-OFF yields a native-res FBO in a heavy vantage
+(measured FBO size or equivalent), (b) every evidence capture ran at native res.
+
+---
+## OWNER (2026-07-21) — VANILLA BASELINES MUST BE **TRULY** VANILLA (zero recharged tweaks)
+Owner: "quand tu captures du vanilla, t'as des settings qui restent actifs (AO, realtime lighting, ambient,
+etc.). Les passes vanilla ne doivent avoir AUCUN de nos tweaks — mode original (comme le futur toggle global)."
+1. Add a **FORCE-VANILLA mode** to the capture harness: before ANY baseline/"OFF"/stock-reference capture,
+   explicitly switch OFF **every** recharged feature — custom assets, PBR materials, enhanced models,
+   recharged HUD, grass (all), foliage wind, AO (mode 0), realtime lighting (sun/green-sun/shadows), ambient
+   (all models), probes/baked ambient + reflections — via the existing props/settings. Not just the feature
+   under test.
+2. **Prove it**: log a PROP/SETTINGS CHECKLIST (dump each recharged flag state) immediately before each
+   vanilla capture and include it in the report — a baseline without the logged all-off checklist is invalid.
+3. A/B semantics: "feature-OFF" comparisons (probe on/off) keep the rest of the configured stack; "VANILLA
+   reference" comparisons force everything off. Label each capture clearly as one or the other.
+4. This prefigures the queued Grecharged-master-toggle phase (its debug.opengoal.recharged prop will replace
+   the per-flag checklist later).
+GATE (added): vanilla baselines carry the all-off checklist proof.
