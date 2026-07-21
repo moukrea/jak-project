@@ -274,3 +274,26 @@ battery => reboot => PIN-lock => CE-storage lockout (catastrophic, see memory). 
   builds/compiles are fine.
 - If all code work is done and the device is still <30%, write an honest RESULT: WIP report explaining the
   battery blocker and exit cleanly. Do NOT burn the battery.
+
+---
+## SUPERVISOR CORRECTION (2026-07-21 ~16h) — BATTERY GUARD LIFTED (the level reading is BOGUS)
+Owner: the Redmi is plugged 24/7 in debug — its battery-LEVEL indicator is unreliable garbage ("3%" is not
+real); the phone WORKS. The 2h battery pause was a supervisor mistake. Therefore:
+- **IGNORE the battery level entirely.** Do NOT gate any device work on `dumpsys battery` level.
+- Only remaining device-health guard: if temperature ≥ 45.0C (dumpsys battery temperature ≥ 450), pause
+  device load a few minutes to cool. That's it.
+- The unified build (2e901a33c) is ALREADY DEPLOYED on the device (deploy_verify PASS 12:56) — do NOT
+  rebuild; go STRAIGHT to the evidence captures (`bash .autoport/glp2_battery.sh` per the round-2 state
+  note) and fill the report.
+
+---
+## SUPERVISOR (2026-07-21) — EVIDENCE BUDGET CAPPED AT ~20 MIN (owner: 75 min of captures = waste)
+The evidence captures exist ONLY to feed OBJECTIVE numeric measures — but the full 75-min battery is bloat.
+Cap the device-evidence budget at ~20 minutes TOTAL: ONE vantage per core metric, nothing more:
+1. interiors: ONE A/B pair on 2 interiors (not 4) → luma numbers;
+2. ground checkerboard: ONE flat-ground still → FFT/gradient periodicity number;
+3. AO flicker: ONE short moving clip (≤20 s) → frame-to-frame AO delta;
+4. moon shadow: ONE night still probes-ON → shadow contrast number.
+Skip every other stage (TOD sweeps, multi-vantage redundancy, orbit passes). The owner judges the rest on
+his Honor in minutes — that IS the final gate. Report the 4 numbers + RESULT and stop. Do not spend tokens
+narrating captures.
