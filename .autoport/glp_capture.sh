@@ -89,7 +89,7 @@ echo "[glp-cap] $TAG done: probe=$PROBE refl=$REFL qual=$QUAL model='${MODEL}' w
 # PROP/SETTINGS CHECKLIST (owner 2026-07-21 force-vanilla mandate): dump every recharged
 # flag state (persisted settings.ini fields + override props) for THIS capture. A vanilla
 # baseline without this logged all-off checklist is invalid.
-echo "  [checklist] settings.ini: $(adb shell grep -E 'recharged|pbr-materials|load-custom|ambient-occlusion|extra-hud|enhanced-models' /storage/emulated/0/OpenGOAL/jak1/settings.ini </dev/null 2>/dev/null | tr -d '\r' | tr '\n' ';' )"
+echo "  [checklist] settings.ini: $(adb shell "grep -E 'recharged|pbr-materials|load-custom|ambient-occlusion|extra-hud|enhanced-models' /storage/emulated/0/OpenGOAL/jak1/settings.ini" </dev/null 2>/dev/null | tr -d '\r' | tr '\n' ';' )"
 CKP=""
 for p in rt.light rt.ambient rt.probe rt.probrefl ao.force_mode renderscale.native render.scale; do
   CKP="$CKP $p=$(adb shell getprop debug.opengoal.$p </dev/null 2>/dev/null | tr -d '\r')"
