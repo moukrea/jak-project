@@ -5,7 +5,8 @@
 #   * game text TXT     (unchanged — probe rows use in-code labels + reuse ao-low/high ids)
 #   * libgk.so          (LightProbeGrid + ProbeBakeCore + the 4 world shaders' probe path)
 #   * APK               (bundles the fresh libgk)
-#   * village1.probes    pushed to the external assets/fr3 dir (the probe grid asset)
+#   * village1.probes    committed (custom_assets/jak1/probes) + BUNDLED IN THE APK custom pack
+#                        (build_custom_pack.sh) — extracted on install, NO manual push (owner 2026-07-20)
 # deploy_verify + deploy_verify_assets prove the device runs fresh HEAD.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -93,14 +94,16 @@ if $ADB -s $S shell "run-as $PKG sh -c 'ls files/cgo/jak1/GAME.CGO'" >/dev/null 
 fi
 bash .autoport/lib/deploy_verify_assets.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify_assets failed"
 
-say "5c. push the village1.probes LOCAL probe grid to the external assets/fr3 dir"
-[ -f out/jak1/fr3/village1.probes ] || die "out/jak1/fr3/village1.probes missing — run probe_bake first"
-LSZ=$(stat -c%s out/jak1/fr3/village1.probes)
-$ADB -s $S shell "mkdir -p $EXT_FR3" >/dev/null 2>&1 || true
-$ADB -s $S push out/jak1/fr3/village1.probes "$EXT_FR3/village1.probes" 2>&1 | tail -1 || die "probe asset push failed"
-DSZ=$($ADB -s $S shell "stat -c%s $EXT_FR3/village1.probes" 2>/dev/null | tr -d '\r')
-echo "  village1.probes local=$LSZ device=$DSZ"
-[ "$LSZ" = "$DSZ" ] || die "probe asset size mismatch (local $LSZ device $DSZ)"
+say "5c. verify village1.probes shipped IN the APK (custom pack) — NO manual push (owner 2026-07-20)"
+# The .probes is committed (custom_assets/jak1/probes) + bundled into jak1_custom.zip by
+# build_custom_pack.sh + packaged into the APK. LoaderActivity unpacks it to the app-private
+# custom dir, which LightProbeGrid reads with priority. So there is NO separate adb push.
+# (Airtight clean-install-only proof is .autoport/glp_clean_install_verify.sh.)
+[ -f custom_assets/jak1/probes/village1.probes ] || die "committed custom_assets/jak1/probes/village1.probes missing"
+LSZ=$(stat -c%s custom_assets/jak1/probes/village1.probes)
+DSZ=$($ADB -s $S shell "run-as $PKG stat -c%s files/custom/jak1/fr3/village1.probes 2>/dev/null" | tr -d '\r')
+echo "  village1.probes committed=$LSZ  APK-extracted(custom dir)=${DSZ:-MISSING}"
+[ "$LSZ" = "$DSZ" ] || die "APK did not deliver village1.probes to the custom dir (got '${DSZ:-MISSING}') — rebuild+reinstall the APK"
 
 say "6. relaunch: reach live render, no crash, jak1 foreground"
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
@@ -122,4 +125,4 @@ FOCUS=$($ADB -s $S shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus' |
 echo "  reached_render=$ok focus=$FOCUS"
 case "$FOCUS" in *org.opengoal.gk.jak1*) : ;; *) die "app not foreground: $FOCUS" ;; esac
 [ "$ok" = 1 ] || die "did not reach render (crash or hang)"
-echo "[glp-build] DONE — probe runtime + menu on device, village1.probes pushed, boots to render, deploy_verify + assets PASS."
+echo "[glp-build] DONE — probe runtime + menu on device, village1.probes APK-bundled (no manual push), boots to render, deploy_verify + assets PASS."

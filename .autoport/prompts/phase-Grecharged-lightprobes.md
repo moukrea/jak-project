@@ -107,3 +107,116 @@ resolution downscale, no "weird render scaling"). Use a high cube-face resolutio
 higher) — take as long as needed per probe; quality is the only goal. The runtime render-scale / dynamic
 resolution system must NOT apply to the probe capture path. Prove in the report the capture resolution used
 and that render scaling was off.
+
+---
+## OWNER 2026-07-21 — SHIP THE PROBES IN THE REPO + THE APK (no manual side-load)
+Owner: "Les probes, étant faites par NOUS, doivent être INCLUSES AU REPO et EMBARQUÉES DANS L'APK !"
+Right now `village1.probes` (~36 MB) is a loose file the user must copy into `.../assets/fr3/`. That is not
+acceptable — our own baked data is a first-party asset. Make it ship automatically:
+
+1. **Commit the probe asset(s) to the repo** in a tracked assets location (e.g. alongside the other bundled
+   fr3/level assets the android build already packages, or a dedicated `custom_assets/`/recharged asset dir
+   that is checked in). `out/jak1/fr3/village1.probes` is a build OUTPUT — put the shipping copy where the
+   repo + build expect first-party assets, and commit it.
+2. **Bundle it into the APK** so a plain `adb install` (no separate probes push) already has it: add the
+   `.probes` to the android asset packaging / LoaderActivity extraction (the same path that ships the other
+   fr3 assets to `/storage/emulated/0/OpenGOAL/jak1/assets/fr3/`), so the runtime `LightProbeGrid` finds it
+   with ZERO manual placement. The `.autoport/glp_build_deploy.sh` separate-push step becomes unnecessary.
+3. **Keep the bake reproducible**: the bake tool (`tools/probe_bake` + ProbeBakeCore) stays — document how to
+   regenerate `<level>.probes` from the stock fr3. (Committing the baked binary is fine per the owner; the
+   tool is how we rebuild/rollout. If a build-time bake is cleaner than a committed 36 MB binary, that is
+   acceptable too — the hard requirement is: APK-install-only, no manual side-load, asset tracked by the repo.)
+
+GATE (added): prove a CLEAN `adb install` of the APK (WITHOUT any separate `adb push` of `.probes`) loads the
+probe grid on device — i.e. the `.probes` is bundled/extracted from the APK, and `LightProbeGrid` logs
+"loaded '<...>/village1.probes'" after a fresh install with no side-load. Confirm the asset is committed
+(git-tracked) and that OFF==stock is preserved.
+
+---
+## OWNER PLAYTEST #1 (2026-07-21) — QUALITY REWORK (priority over packaging)
+Owner tested village1 on device. "Là où ça fonctionne, ça fonctionne bien" (the concept is validated) BUT
+5 real problems — fix these FIRST (packaging = secondary):
+
+1. **Not all interiors get their probe — most are very MUTED when you enter.** Either interior detection
+   misses many village1 interiors, OR the runtime selects an EXTERIOR probe inside (the trilinear grid blend
+   "reaches through walls"). FIX: (a) verify interior coverage over ALL village1 interiors (not just the hut
+   that was measured), (b) select the interior probe by **containment / occlusion-aware** selection, not just
+   nearest-grid trilinear that bleeds exterior light through walls. Prove on SEVERAL interiors A/B, not one.
+
+2. **Muted details/contrast.** The colour TONE is right but the probe "mute un peu les détails/contrastes".
+   The low-freq SH ambient is over-lifting the shadows / washing the albedo detail. FIX: the probe is a FILL
+   that must PRESERVE the sun-driven contrast and the albedo/texture detail — rebalance (lower base weight /
+   don't flatten the direct-vs-shadow separation). Measure contrast preserved vs the probe-OFF build.
+
+3. **Probe REFLECTIONS grey everything out ("tout grisaillé", owner unsure it's useful).** The reflection
+   cube is applied too broadly = a flat grey specular wash on non-reflective surfaces. FIX: reflections must
+   apply ONLY to genuinely reflective materials (metal / water / Precursor, via roughness/metalness), NOT as
+   an ambient grey on everything. If PBR material data isn't available on a surface, DON'T add reflection
+   there. Correct-or-off — a grey wash is worse than nothing.
+
+4. **Visible CHECKERBOARD of probes on the GROUND ("un damier de probes non maîtrisé, ça se voit au sol").**
+   The probe SH is evaluated PER-VERTEX on a coarse ~4 m grid → visible probe cells / interpolation facets on
+   the flat ground. FIX: make the ground ambient SEAMLESS — evaluate the probe SH **per-pixel** (sample the 3D
+   SH texture in the fragment shader) instead of per-vertex, and/or a finer near-ground grid, and/or smooth
+   the grid. The trilinear blend between probes must show NO grid pattern. This is the most visible defect.
+
+5. **"Je suis pas sûr qu'on l'utilise proprement."** Review the whole runtime composition (selection,
+   interpolation, energy, per-pixel vs per-vertex) against the above.
+
+OBJECTIVE GATES (added): (1) MULTIPLE village1 interiors each get correct local (non-muted) probe light,
+measured A/B; (2) contrast/detail preserved vs probe-OFF (measured, not washed); (3) reflections do NOT grey
+non-reflective surfaces (measured: a non-reflective wall's luma/chroma ~unchanged with reflections ON);
+(4) NO checkerboard on the ground — per-pixel SH eval, measured grid-pattern absence (e.g. FFT/gradient of a
+flat-ground capture shows no ~4 m periodicity). Owner's eye on his Honor is the final gate.
+
+---
+## OWNER 2026-07-21 #2 — INDUSTRY-STANDARD & CLEAN; REFLECTIONS BELONG TO PBR + WATER, NOT THE PROBE SYSTEM
+Owner: "Il faut faire ça comme dans la GAMING INDUSTRY, vraiment bien, PROPRE. Pour les reflets tu connais
+pas les matériaux réfléchissants, tu devrais laisser ça aux PBR et à l'eau quand on s'en occupera."
+
+This SUPERSEDES playtest-#1 point 3. The correct architecture:
+- The light-probe system does NOT apply reflections to the world by itself. It has NO material info (it does
+  not know which surfaces are reflective) → applying a reflection cube broadly is exactly the "tout grisaillé"
+  grey wash. **Remove the broad probe-reflection application from the world shaders.**
+- The light-probe system PRODUCES the reflection cubemaps (prefiltered mips) as a **RESOURCE** and EXPOSES
+  them (per-probe / nearest anchor). The APPLICATION of reflections is a CONSUMER concern:
+  - **PBR materials** (the Grecharged-pbr-realtime-fusion phase) consume the probe cubemap as IBL specular,
+    weighted by the material's roughness/metalness — because PBR KNOWS which surfaces are reflective.
+  - **Water** (a future water phase) consumes it as the water reflection source.
+- So in THIS phase: keep baking + exposing the reflection cubemaps, but the light-probe **diffuse SH ambient
+  is the only thing the probe system applies to the world**. The "Probe Reflections" toggle should either be
+  removed from the light-probe menu, or made a no-op resource-enable that only matters once PBR/water consume
+  it — do NOT let it grey the world. Document the hand-off contract (uniform/binding) so PBR-fusion picks it up.
+
+Overall quality bar: **do it like the gaming industry — really well, clean.** That means: seamless per-pixel
+probe interpolation (no checkerboard), proper containment-based interior selection (no wall-bleed), the probe
+as a physically-plausible LOCAL irradiance fill that preserves contrast/detail — not a flat wash.
+
+---
+## OWNER PLAYTEST #1b (2026-07-21) — 3 more (likely same root causes)
+1. **AO FLICKERS on camera movement (regression — did NOT before).** All AO types flicker now. LIKELY the
+   SAME root as the ground checkerboard: per-VERTEX probe SH on a coarse grid → as the camera moves the
+   per-vertex samples jump (spatial checkerboard = temporal flicker). The per-pixel stable SH eval fix should
+   kill BOTH. FIRST determine on device: does it flicker with probes OFF too (→ a shader regression from the
+   probe build, fix that) or ONLY probes ON (→ the probe interaction)? Fix so AO is temporally STABLE on
+   movement, both probes on and off.
+2. **Green-sun / moon CAST SHADOW becomes INVISIBLE when probes are ON.** The probe ambient FILL over-lifts
+   the shadowed areas and washes out the dynamic cast shadow (same root as "mutes contrast"). FIX: the probe
+   fill must PRESERVE the dynamic cast shadows of BOTH suns (yellow AND green) — the shadow must stay clearly
+   visible with probes ON. Measure the green-sun shadow contrast probes-ON vs the accepted directional-ambient
+   build (must not vanish).
+3. **RENAME "probes" in the menu** — owner: in-game they don't capture anything, they're BAKED/precomputed, so
+   "probes" is misleading. Rename the USER-FACING menu label to something clear (e.g. "BAKED AMBIENT" /
+   "LOCAL AMBIENT") — reflect that it's precomputed local lighting. (Internal code name can stay.) Keep it
+   coherent with the Recharged menu (no unknown-ID).
+
+GATES (added): AO temporally stable on movement (measured: frame-to-frame AO delta on a moving capture, both
+probes on/off, no flicker); green-sun cast shadow still clearly visible with probes ON (measured contrast vs
+the accepted build); menu label no longer says "probe" (renamed, no unknown-ID).
+
+---
+## OWNER STANDING RULE — keep the menu-tree doc in sync
+Whenever you MODIFY menu entries (here: rename "probes" -> "BAKED/LOCAL AMBIENT", and change/remove the
+"Probe Reflections" toggle since reflections move to PBR/water), you MUST UPDATE `.autoport/menu-tree.md`
+to match (the Recharged Settings section + the removed/renamed rows), keeping the [R]/[SUPPR] legend
+accurate. The menu-tree doc must always reflect the shipped menu.
