@@ -447,3 +447,20 @@ ACCEPTANCE (10-second obvious checks FIRST — feedback_acceptance_obvious_first
 2. Realtime ON keeps the baked richness (owner-confirmed acquired) AND the shadows from #1.
 3. AO ON vs OFF: visibly different in crevices (not burnt, not invisible).
 Then the numbers. Owner's Honor = final.
+
+---
+## OWNER PROTOCOL CHANGE (2026-07-21) — THE OWNER IS THE VISUAL VERIFIER, NOT US
+Owner: "les règles de sortie visuelles, j'ai pas confiance. Utilisez-MOI pour la vérif visuelle."
+The "10-second obvious checks" are NOT to be self-certified by the worker (nor the supervisor). New exit
+protocol for every round from now on:
+1. Implement + verify MECHANICALLY only: it compiles, deploys, boots to gameplay on the device without
+   crash, the feature is wired (source-level greps / logs), OFF==stock intact. NO visual self-assessment,
+   no capture batteries for "visual proof", no claims like "the shadow is obviously visible".
+2. Write the report with RESULT: PASS once the MECHANICAL bar is met, stating explicitly: "READY FOR OWNER
+   VISUAL CHECK — <one-line summary of what changed and what to look at>". List the 2-4 things the owner
+   should look at (shadows under objects, AO in crevices, richness ON vs OFF) — as PLAYTEST GUIDANCE, not
+   as verified claims.
+3. The supervisor pushes the build to the owner's Honor; the OWNER does the visual verification; owner-ok
+   (or his defect list) decides. This replaces the previous visual acceptance gates.
+Keep captures ONLY where a NUMBER is genuinely needed for a regression guard (cheap, one vantage) — never
+as visual proof.

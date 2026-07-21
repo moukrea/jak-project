@@ -73,6 +73,6 @@ grep -qiE 'AO.*(cram|burnt|crush|harsh|ugly|dirty).*(fix|diagnos|correct|soft)|A
 grep -qiE 'flicker.*(re-?diagnos|fixed for real|hold|verified.*(honor|moving))|temporal.*(instab|stab).*(AO|fixed)' "$R" || fail "no AO-flicker REAL fix evidence (previous fix did not hold on the owner device)"
 # OWNER #3: sun killed by double-count fix — shadow-the-baked model + visible AO middle.
 grep -qiE 'shadow.*(the )?baked|mix.*(ambient|probe).*(baked|lit).*(visibilit|shadow)|attenuat.*baked.*(toward|to).*(ambient|probe)|de.?light.*shadow|sun_visibility.*mix' "$R" || fail "no shadow-the-baked energy model evidence (owner #3: dynamic sun was zeroed to avoid double-count => shadows vanished; correct = attenuate baked toward ambient in shadowed areas)"
-grep -qiE 'cast shadow.*(obvious|visible|clearly|moves)|10.?second.*(shadow|check)|shadow.*(walk|under|noon).*(visible|obvious)' "$R" || fail "no OBVIOUS-cast-shadow acceptance evidence (10-second check: walk under an object, the shadow is clearly there and moves)"
-grep -qiE 'AO.*(middle|calibrat|noticeable|clearly visible).*(soft|not burnt|crevice)|AO.*(visible|obvious).*(crevice|corner|contact)' "$R" || fail "no AO-visible-middle calibration evidence (owner: burnt -> now invisible; need soft but clearly noticeable)"
+grep -qiE 'READY FOR OWNER VISUAL CHECK|ready for owner' "$R" || fail "no READY-FOR-OWNER-VISUAL-CHECK marker (owner protocol: mechanical bar only, the owner does the visual verification)"
+grep -qiE 'AO.*(strength|calibrat|middle|default).*(raised|adjust|set|tuned)|playtest guidance.*AO|AO.*(look at|check)' "$R" || fail "no AO recalibration + playtest-guidance evidence (mechanical: strength adjusted; owner judges visually)"
 echo "[Glp PASS]"
