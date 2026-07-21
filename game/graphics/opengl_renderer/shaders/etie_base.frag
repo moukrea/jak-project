@@ -122,15 +122,92 @@ vec3 rt_ibl_ambient(vec3 d) {
   g = g * g; g = g * g;   // pow 4 soft glow lobe
   return band + u_rt_sun_glow * g;
 }
-// Grecharged-lightprobes: the LOCAL probe irradiance is evaluated PER-VERTEX (see the .vert) and
-// arrives interpolated as v_probe_amb / v_probe_w. The fragment only needs the composition gate +
-// the per-pixel prefiltered reflection cube.
+// Grecharged-lightprobes PLAYTEST#1: the LOCAL probe SH is evaluated PER-PIXEL here from the dense
+// hardware-trilinear 3D SH grid at the fragment's world position v_world. This fixes #4 (the ~4 m
+// probe-cell "damier" the old per-vertex eval showed on the flat ground) and #1 (interiors muted):
+// the interior-mask lives in u_rt_probe_l1a.a (255 indoors / 0 outdoors); where a fragment is indoors
+// we SNAP toward its CONTAINING cell (point-sampled) so the smooth trilinear no longer bleeds bright
+// exterior light through the walls -> the room keeps its true LOCAL light.
 uniform int u_rt_probe_on;
+uniform int u_rt_probe_quality;
+uniform vec3 u_rt_probe_origin;
+uniform float u_rt_probe_inv_cell;
+uniform vec3 u_rt_probe_dims;
+uniform float u_rt_probe_range;
+uniform sampler3D u_rt_probe_dc;    // DC.rgb + validity.a
+uniform sampler3D u_rt_probe_l1a;   // L1 coeff1 .rgb + interior-mask .a
+uniform sampler3D u_rt_probe_l1b;   // L1 coeff2 .rgb
+uniform sampler3D u_rt_probe_l1c;   // L1 coeff3 .rgb
 uniform int u_rt_probe_reflections;
 uniform float u_rt_probe_strength;
-uniform samplerCube u_rt_probe_cube;
-in vec3 v_probe_amb;
-in float v_probe_w;
+uniform samplerCube u_rt_probe_cube;   // prefiltered LOCAL reflection env (nearest anchor)
+
+// SH (DC + L1) -> ambient radiance toward N from 4 already-decoded coeffs (same Y-basis + Al cosine
+// convolution as rt_sh_ambient(): DC*Y0 + c1*Y1(N.y) + c2*Y1(N.z) + c3*Y1(N.x)).
+vec3 rt_probe_eval(vec3 dcrgb, vec3 c1, vec3 c2, vec3 c3, vec3 N, int quality) {
+  vec3 amb = dcrgb * 0.282095;
+  if (quality >= 1) amb += c1 * (0.488603 * N.y) + c2 * (0.488603 * N.z) + c3 * (0.488603 * N.x);
+  return max(amb, vec3(0.0));
+}
+
+// PER-PIXEL local probe SH with CONTAINMENT. Returns local ambient radiance; w = grid coverage.
+vec3 rt_probe_sh(vec3 wp, vec3 N, out float w) {
+  w = 0.0;
+  if (u_rt_probe_on == 0) return vec3(0.0);
+  vec3 gc = (wp - u_rt_probe_origin) * u_rt_probe_inv_cell;   // grid coords, in cells
+  // +0.5: probe (i,j,k) is stored at texel (i,j,k) whose CENTER is (i+0.5)/dims, and origin is
+  // the CENTER of cell 0 -> gc==i at probe i. Without the half-texel shift the whole field samples
+  // ~half a cell (~2 m) off (part of the visible grid pattern).
+  vec3 uvw = (gc + vec3(0.5)) / u_rt_probe_dims;              // normalized 3D-tex coords, texel-center aligned
+  if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0)))) return vec3(0.0);
+  float R = u_rt_probe_range;
+  // (a) SMOOTH hardware-trilinear sample -> seamless per-pixel ambient (no ground damier).
+  vec4 dc = texture(u_rt_probe_dc, uvw);
+  w = dc.a;
+  if (w < 0.02) { w = 0.0; return vec3(0.0); }
+  vec4 l1a = texture(u_rt_probe_l1a, uvw);
+  vec3 c1 = (l1a.rgb - 0.5) * R;
+  vec3 c2 = (texture(u_rt_probe_l1b, uvw).rgb - 0.5) * R;
+  vec3 c3 = (texture(u_rt_probe_l1c, uvw).rgb - 0.5) * R;
+  vec3 amb = rt_probe_eval(dc.rgb * R, c1, c2, c3, N, u_rt_probe_quality);
+  // (b) CONTAINMENT: l1a.a is the interior fraction around this point (trilinearly interpolated). Where
+  // the fragment is indoors, snap toward the CONTAINING cell's own SH (point-sampled, no trilinear) so
+  // the exterior light the smooth blend pulled through the walls is rejected -> interiors stay local.
+  float interior = l1a.a;
+  if (interior > 0.02) {
+    // CONTAINMENT (industry-standard validity-weighted trilinear, like irradiance-volume renderers):
+    // redo the trilinear over the 8 surrounding lattice corners but keep ONLY corners whose exact
+    // per-cell flag (texelFetch, no filtering) says INTERIOR, renormalizing the weights. Exterior
+    // probes past a wall get weight 0 -> no bleed; the weights vary continuously in space (and a
+    // corner enters/leaves the set only where its weight is 0) -> NO seams inside multi-cell rooms,
+    // unlike a nearest-probe snap which would be piecewise-constant.
+    ivec3 dim = ivec3(u_rt_probe_dims);
+    ivec3 i0 = ivec3(floor(gc));
+    vec3 fpos = clamp(gc - vec3(i0), 0.0, 1.0);
+    vec3 sum = vec3(0.0);
+    float wsum = 0.0;
+    for (int k = 0; k < 8; ++k) {
+      ivec3 o = ivec3(k & 1, (k >> 1) & 1, (k >> 2) & 1);
+      ivec3 ci = clamp(i0 + o, ivec3(0), dim - ivec3(1));
+      vec3 tw = mix(1.0 - fpos, fpos, vec3(o));
+      float wk = tw.x * tw.y * tw.z;
+      if (wk < 1e-4) continue;
+      vec4 ca = texelFetch(u_rt_probe_l1a, ci, 0);
+      if (ca.a < 0.5) continue;                        // exterior/invalid corner: no wall bleed
+      vec4 cdc = texelFetch(u_rt_probe_dc, ci, 0);
+      if (cdc.a < 0.5) continue;
+      vec3 kc1 = (ca.rgb - 0.5) * R;
+      vec3 kc2 = (texelFetch(u_rt_probe_l1b, ci, 0).rgb - 0.5) * R;
+      vec3 kc3 = (texelFetch(u_rt_probe_l1c, ci, 0).rgb - 0.5) * R;
+      sum += wk * rt_probe_eval(cdc.rgb * R, kc1, kc2, kc3, N, u_rt_probe_quality);
+      wsum += wk;
+    }
+    if (wsum > 1e-3) {
+      amb = mix(amb, sum / wsum, smoothstep(0.35, 0.85, interior));
+    }
+  }
+  return amb;
+}
 #endif
 
 
@@ -233,9 +310,9 @@ void main() {
       // where the grid covers this fragment (interiors get their true local light).
       float probe_w = 0.0;
       if (u_rt_probe_on != 0) {
-        probe_w = v_probe_w;
+        vec3 pamb = rt_probe_sh(v_world, N, probe_w);  // PER-PIXEL local SH (+containment): no damier, no wall bleed
         if (probe_w > 0.02) {
-          base = mix(base, clamp(v_probe_amb, 0.0, 1.0), clamp(probe_w, 0.0, 1.0) * clamp(u_rt_probe_strength, 0.0, 1.0));
+          base = mix(base, clamp(pamb, 0.0, 1.0), clamp(probe_w, 0.0, 1.0) * clamp(u_rt_probe_strength, 0.0, 1.0));
         }
       }
       // AZIMUTHAL DIRECTIONAL CONTRAST — the fix for flat VERTICAL faces (rocks/walls, N.y~0) with the
@@ -270,16 +347,25 @@ void main() {
       // scale the additive analytic sun WAY down; the dynamic layer only adds the delta (moving shadow +
       // crisp highlight + specular reflections). probe off/uncovered => byte-identical to before.
       float probe_active = (u_rt_probe_on != 0 && probe_w > 0.02) ? 1.0 : 0.0;
-      float shadowVis = mix(1.0, mix(0.6, 1.0, sun_occ), probe_active);
-      float sun_k = mix(1.0, 0.20, probe_active);
+      // PLAYTEST#1 #2 (muted details/contrast): the probe is a FILL that must PRESERVE the sun-driven
+      // contrast + albedo detail. The old floor 0.6 lifted the cast-shadow (washed relief) and the old
+      // sun_k 0.20 muted the lit/shadow separation. Deepen the shadow and restore a stronger direct-sun
+      // delta: the probe still holds the SOFT/ambient sun (no full double-count), while the SHARP
+      // lit-vs-shadow contrast is the runtime delta. Device-tunable; the owner tunes the final look.
+      // PLAYTEST#1b #2: the single shadow map routes to sun_occ by DAY and moon_occ by NIGHT
+      // (u_rt_shadow_light). shadowVis must use the ACTIVE sun's occlusion or the green-sun/moon cast
+      // shadow never darkens the probe-lit base (probe base dominates at night => shadow invisible).
+      float both_occ = min(sun_occ, moon_occ);
+      float shadowVis = mix(1.0, mix(0.32, 1.0, both_occ), probe_active);  // moving shadow (either sun) darkens local irradiance
+      float sun_k = mix(1.0, 0.5, probe_active);                          // sun contrast restored (soft sun already in probe)
       vec3 lit = albedo * base * shadowVis
                + albedo * u_rt_sun_color * sun_scalar * sun_k
                + albedo * u_rt_moon_color * moon_ndl * sun_k;
-      if (probe_active > 0.5 && u_rt_probe_reflections != 0) {
-        vec3 Rf = reflect(normalize(v_fringe_rel), N);
-        vec3 spec = textureLod(u_rt_probe_cube, Rf, 2.0).rgb;
-        lit += spec * (0.25 * clamp(u_rt_probe_strength, 0.0, 1.0));
-      }
+      // PLAYTEST#1 #3 (reflections grey EVERYTHING): the blanket reflection add that lived HERE painted a
+      // flat grey specular wash on every diffuse surface. These shaders have NO reflective PBR material
+      // path, so the reflection is REMOVED here entirely (correct-or-off; a grey wash is worse than
+      // nothing). u_rt_probe_cube stays declared but unused. Reflections apply only on genuinely
+      // reflective PBR materials (the Cook-Torrance branch in tfrag3.frag), never as an ambient wash.
       {
         const float RT_KNEE = 0.8;
         vec3 e = exp(-max(lit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));  // max() guards 0*inf NaN

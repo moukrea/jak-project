@@ -28,7 +28,71 @@ static void usage() {
       "  --out PATH     output path (default: <fr3-dir>/<level>.probes)\n"
       "  --cell M       grid cell size in meters (default 4.0)\n"
       "  --gain F       probe irradiance gain (default 1.0)\n"
-      "  --skygain F    sky/ground fill gain (default 1.0)\n");
+      "  --skygain F    sky/ground fill gain (default 1.0)\n"
+      "  --dump-interiors PATH  load an existing .probes and print the interior-cell clusters\n"
+      "                         (world coords in meters, warp-ready); no bake\n");
+}
+
+// --dump-interiors: connected-component clustering of the interior cells (26-neighbourhood) so the
+// device A/B harness can warp to EVERY auto-detected interior, not just the one known hut.
+static int dump_interiors(const std::string& probes_path) {
+  probe_bake::ProbeGrid g;
+  if (!probe_bake::load_probes(g, probes_path)) {
+    fmt::print("error: load_probes failed on '{}'\n", probes_path);
+    return 1;
+  }
+  struct IC {
+    s16 ix, iy, iz;
+    int cluster = -1;
+  };
+  std::vector<IC> ic;
+  for (const auto& c : g.cells)
+    if (c.interior)
+      ic.push_back({c.ix, c.iy, c.iz, -1});
+  fmt::print("[probe_dump] level='{}' dims={}x{}x{} cell={:.1f}m interior_cells={}\n", g.level_name,
+             g.dims[0], g.dims[1], g.dims[2], g.cell_gu / 4096.f, ic.size());
+  int n_clusters = 0;
+  for (size_t seed = 0; seed < ic.size(); ++seed) {
+    if (ic[seed].cluster >= 0)
+      continue;
+    int id = n_clusters++;
+    std::vector<size_t> stack{seed};
+    ic[seed].cluster = id;
+    while (!stack.empty()) {
+      size_t cur = stack.back();
+      stack.pop_back();
+      for (size_t j = 0; j < ic.size(); ++j) {
+        if (ic[j].cluster >= 0)
+          continue;
+        if (std::abs(ic[j].ix - ic[cur].ix) <= 1 && std::abs(ic[j].iy - ic[cur].iy) <= 1 &&
+            std::abs(ic[j].iz - ic[cur].iz) <= 1) {
+          ic[j].cluster = id;
+          stack.push_back(j);
+        }
+      }
+    }
+  }
+  for (int id = 0; id < n_clusters; ++id) {
+    double sx = 0, sy = 0, sz = 0;
+    int n = 0;
+    float min_y = 1e9f;
+    for (const auto& c : ic)
+      if (c.cluster == id) {
+        sx += c.ix;
+        sy += c.iy;
+        sz += c.iz;
+        min_y = std::min(min_y, (float)c.iy);
+        n++;
+      }
+    auto wm = [&](double i, int axis) {
+      return (g.origin_gu[axis] + i * g.cell_gu) / 4096.0;
+    };
+    fmt::print(
+        "[probe_dump] interior_cluster id={} cells={} center_m=({:.1f},{:.1f},{:.1f}) floor_y_m={:.1f}\n",
+        id, n, wm(sx / n, 0), wm(sy / n, 1), wm(sz / n, 2), wm(min_y, 1));
+  }
+  fmt::print("[probe_dump] clusters={} DONE.\n", n_clusters);
+  return 0;
 }
 
 int main(int argc, char** argv) {
@@ -45,7 +109,9 @@ int main(int argc, char** argv) {
       }
       return argv[++i];
     };
-    if (a == "--fr3-dir") {
+    if (a == "--dump-interiors") {
+      return dump_interiors(need_val("--dump-interiors"));
+    } else if (a == "--fr3-dir") {
       fr3_dir = need_val("--fr3-dir");
     } else if (a == "--out") {
       out_path = need_val("--out");

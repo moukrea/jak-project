@@ -23,34 +23,10 @@ uniform float fog_max;
 uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 uniform int decal;
 
-// Grecharged-lightprobes: LOCAL probe grid, evaluated PER-VERTEX (SH ambient is low-frequency, so a
-// per-vertex eval + interpolation is visually equivalent to per-pixel but ~100x cheaper on Adreno).
-uniform int u_rt_probe_on;
-uniform int u_rt_probe_quality;
-uniform vec3 u_rt_probe_origin;
-uniform float u_rt_probe_inv_cell;
-uniform vec3 u_rt_probe_dims;
-uniform float u_rt_probe_range;
-uniform sampler3D u_rt_probe_dc;
-uniform sampler3D u_rt_probe_l1a;
-uniform sampler3D u_rt_probe_l1b;
-uniform sampler3D u_rt_probe_l1c;
-vec3 rt_probe_sh(vec3 wp, vec3 N, out float w) {
-  vec3 uvw = (wp - u_rt_probe_origin) * u_rt_probe_inv_cell / u_rt_probe_dims;
-  if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0)))) { w = 0.0; return vec3(0.0); }
-  vec4 dc = texture(u_rt_probe_dc, uvw);
-  w = dc.a;
-  if (w < 0.02) return vec3(0.0);
-  float R = u_rt_probe_range;
-  vec3 amb = (dc.rgb * R) * 0.282095;
-  if (u_rt_probe_quality >= 1) {
-    vec3 c1 = (texture(u_rt_probe_l1a, uvw).rgb - 0.5) * R;
-    vec3 c2 = (texture(u_rt_probe_l1b, uvw).rgb - 0.5) * R;
-    vec3 c3 = (texture(u_rt_probe_l1c, uvw).rgb - 0.5) * R;
-    amb += c1 * (0.488603 * N.y) + c2 * (0.488603 * N.z) + c3 * (0.488603 * N.x);
-  }
-  return max(amb, vec3(0.0));
-}
+// Grecharged-lightprobes PLAYTEST#1 #4 (checkerboard): the LOCAL probe SH is now evaluated PER-PIXEL
+// in the fragment shader (see tfrag3.frag rt_probe_sh) using the interpolated world position v_world.
+// The old per-vertex eval + varying interpolation showed a visible ~4 m probe-cell facet pattern
+// ("damier") on the flat ground; per-pixel 3D-texture sampling makes the grid blend seamless.
 
 out vec4 fragment_color;
 out vec3 tex_coord;
@@ -63,10 +39,6 @@ out vec3 v_fringe_rel;
 // Grecharged-lightprobes: absolute world position (GOAL game units, 4096 = 1 m) for sampling the
 // LOCAL probe grid by world position. tfrag verts are already world-space. Costless when probes off.
 out vec3 v_world;
-// Grecharged-lightprobes: PER-VERTEX local probe ambient (irradiance) + grid coverage; interpolated
-// to the fragment. Costless when probes off (u_rt_probe_on == 0 => w stays 0 => analytic fallback).
-out vec3 v_probe_amb;
-out float v_probe_w;
 
 void main() {
   // old system:
@@ -87,13 +59,7 @@ void main() {
   // Step 3, the camera transform
   vec3 vert = position_in - cam_trans.xyz;
   v_fringe_rel = vert * (1.0 / 4096.0);  // Grecharged-grass-overhang2: meters, for the fringe fade
-  v_world = position_in;                 // Grecharged-lightprobes: world pos (game units) for probe lookup
-  // Grecharged-lightprobes: evaluate the LOCAL probe irradiance here (per-vertex), interpolate to frags.
-  v_probe_w = 0.0;
-  v_probe_amb = vec3(0.0);
-  if (u_rt_probe_on != 0) {
-    v_probe_amb = rt_probe_sh(position_in, normal_in, v_probe_w);
-  }
+  v_world = position_in;                 // Grecharged-lightprobes: world pos (game units) for PER-PIXEL probe lookup
   v_normal = normal_in;  // world-space smooth normal (tfrag verts are already in world space)
   vec4 transformed = -pc_camera[3];
   transformed.w = 0.0;

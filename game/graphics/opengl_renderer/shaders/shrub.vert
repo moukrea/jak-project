@@ -30,36 +30,7 @@ uniform sampler2D tex_T11; // Wx1 RGBA8 wind-anchor LUT (same Wx1 pattern as tex
 // sampler2D is texel-exact on desktop GL too; Shrub.cpp uploads it as a Wx1
 // GL_TEXTURE_2D. Matches tfrag3.vert/the TIE shaders.
 uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
-#ifdef OG_PBR
-// Grecharged-lightprobes: LOCAL probe grid, evaluated PER-VERTEX (SH ambient is low-frequency, so a
-// per-vertex eval + interpolation is visually equivalent to per-pixel but ~100x cheaper on Adreno).
-uniform int u_rt_probe_on;
-uniform int u_rt_probe_quality;
-uniform vec3 u_rt_probe_origin;
-uniform float u_rt_probe_inv_cell;
-uniform vec3 u_rt_probe_dims;
-uniform float u_rt_probe_range;
-uniform sampler3D u_rt_probe_dc;
-uniform sampler3D u_rt_probe_l1a;
-uniform sampler3D u_rt_probe_l1b;
-uniform sampler3D u_rt_probe_l1c;
-vec3 rt_probe_sh(vec3 wp, vec3 N, out float w) {
-  vec3 uvw = (wp - u_rt_probe_origin) * u_rt_probe_inv_cell / u_rt_probe_dims;
-  if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0)))) { w = 0.0; return vec3(0.0); }
-  vec4 dc = texture(u_rt_probe_dc, uvw);
-  w = dc.a;
-  if (w < 0.02) return vec3(0.0);
-  float R = u_rt_probe_range;
-  vec3 amb = (dc.rgb * R) * 0.282095;
-  if (u_rt_probe_quality >= 1) {
-    vec3 c1 = (texture(u_rt_probe_l1a, uvw).rgb - 0.5) * R;
-    vec3 c2 = (texture(u_rt_probe_l1b, uvw).rgb - 0.5) * R;
-    vec3 c3 = (texture(u_rt_probe_l1c, uvw).rgb - 0.5) * R;
-    amb += c1 * (0.488603 * N.y) + c2 * (0.488603 * N.z) + c3 * (0.488603 * N.x);
-  }
-  return max(amb, vec3(0.0));
-}
-#endif
+  // Grecharged-lightprobes PLAYTEST#1 #4: probe SH now evaluated PER-PIXEL in the fragment (see .frag).
 
 out vec4 fragment_color;
 out vec3 tex_coord;
@@ -68,8 +39,6 @@ out float fogginess;
 out vec3 v_fringe_rel;
 // Grecharged-lightprobes: absolute world position (GOAL game units) for probe lookup.
 out vec3 v_world;
-out vec3 v_probe_amb;
-out float v_probe_w;
 #endif
 
 void main() {
@@ -113,12 +82,7 @@ void main() {
   vec3 vert = wpos - cam_trans.xyz;
 #ifdef OG_PBR
   v_fringe_rel = vert * (1.0 / 4096.0);
-  v_world = position_in;                 // Grecharged-lightprobes: world pos for probe lookup
-  v_probe_w = 0.0;
-  v_probe_amb = vec3(0.0);
-  if (u_rt_probe_on != 0) {
-    v_probe_amb = rt_probe_sh(position_in, vec3(0.0, 1.0, 0.0), v_probe_w);
-  }
+  v_world = position_in;                 // Grecharged-lightprobes: world pos for PER-PIXEL probe lookup
 #endif
   vec4 transformed = -pc_camera[3];
   transformed -= pc_camera[0] * vert.x;

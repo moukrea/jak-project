@@ -1118,13 +1118,17 @@
 (format (clear *shadow-quality-label*) "SHADOW QUALITY")
 (define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *ambient-model-label*) "AMBIENT MODEL")
-;; Grecharged-lightprobes: labels for the three LOCAL PROBES rows (English-only, uppercase ASCII).
+;; Grecharged-lightprobes: labels for the three BAKED AMBIENT rows (English-only, uppercase ASCII).
+;; PLAYTEST#1b #3 (owner): in-game the probes don't capture anything — they're PRECOMPUTED baked
+;; lighting, so "PROBES" was misleading; the user-facing labels say BAKED AMBIENT. (Internal code
+;; names keep "probe".) BAKED REFLECTIONS = the baked reflection cubemaps as a RESOURCE, applied
+;; only by material-aware consumers (PBR roughness/metalness IBL, later water) — never a world wash.
 (define *probe-enable-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *probe-enable-label*) "LOCAL PROBES")
+(format (clear *probe-enable-label*) "BAKED AMBIENT")
 (define *probe-reflections-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *probe-reflections-label*) "PROBE REFLECTIONS")
+(format (clear *probe-reflections-label*) "BAKED REFLECTIONS")
 (define *probe-quality-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *probe-quality-label*) "PROBE QUALITY"))
+(format (clear *probe-quality-label*) "BAKED AMBIENT QUALITY"))
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS

@@ -106,9 +106,9 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 13 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (cond: Realtime OFF) | {FLAG_PBR} |
 | 14 | Shadow Distance | slider | 20..200 m pas 10 (cond: Realtime OFF) | {FLAG_PBR} |
 | 15 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF) | {FLAG_PBR} |
-| 16 | **Local Probes** | on-off | `realtime-probe?` (cond: Realtime OFF) — **NOUVEAU (Grecharged-lightprobes)** | {FLAG_PBR} |
-| 17 | **Probe Reflections** | on-off | `realtime-probe-reflections?` (cond: Realtime OFF) — **NOUVEAU** | {FLAG_PBR} |
-| 18 | **Probe Quality** | carousell | **Low / High** (cond: Realtime OFF) — **NOUVEAU** | {FLAG_PBR} |
+| 16 | **Baked Ambient** | on-off | `realtime-probe?` (cond: Realtime OFF) — **(Grecharged-lightprobes)** ex-"Local Probes", renommé playtest #1b (précomputé, pas de capture in-game) | {FLAG_PBR} |
+| 17 | **Baked Reflections** | on-off | `realtime-probe-reflections?` (cond: Realtime OFF) — ex-"Probe Reflections". Cubemaps bakées = RESSOURCE consommée uniquement par les matériaux PBR (roughness/metalness IBL) et plus tard l'eau ; n'applique JAMAIS de reflet sur le monde diffus (le "gris partout" du playtest #1 est supprimé) | {FLAG_PBR} |
+| 18 | **Baked Ambient Quality** | carousell | **Low / High** (cond: Realtime OFF) — ex-"Probe Quality" | {FLAG_PBR} |
 | 19 | Back | button | | — |
 
 > **Observation pour la réorganisation** : ce menu est devenu **long et plat** (jusqu'à ~19 lignes),

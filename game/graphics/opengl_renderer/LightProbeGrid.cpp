@@ -204,12 +204,16 @@ void LightProbeGrid::rebuild_sh_textures() {
         d[0] = enc(sh[0] * inv);
         d[1] = enc(sh[1] * inv);
         d[2] = enc(sh[2] * inv);
-        d[3] = 255;  // valid
+        d[3] = 255;  // validity/coverage
       } else {
         d[0] = enc(sh[0] * inv + 0.5f);
         d[1] = enc(sh[1] * inv + 0.5f);
         d[2] = enc(sh[2] * inv + 0.5f);
-        d[3] = 255;
+        // PLAYTEST#1 #1 (containment): the L1a alpha carries the INTERIOR MASK (255 indoors / 0
+        // outdoors) so the fragment shader can detect indoor fragments and SNAP to the containing
+        // cell instead of letting the smooth trilinear bleed exterior light through the walls.
+        // Bands l1b/l1c keep 255 (unused alpha). Invalid cells stay 0 (set in the default fill).
+        d[3] = (b == 1) ? (c.interior ? 255 : 0) : 255;
       }
     }
     glBindTexture(GL_TEXTURE_3D, m_tex_sh[b]);
