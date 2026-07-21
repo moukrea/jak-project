@@ -464,3 +464,53 @@ protocol for every round from now on:
    (or his defect list) decides. This replaces the previous visual acceptance gates.
 Keep captures ONLY where a NUMBER is genuinely needed for a regression guard (cheap, one vantage) — never
 as visual proof.
+
+---
+## OWNER FINAL ARCHITECTURE (2026-07-21 soir, "voilà le plan") — BAKED-MODULATION. THIS SUPERSEDES ALL PRIOR AMBIENT MODELS.
+The owner has decided the definitive model after A/B-ing everything:
+
+1. **The baked is NEVER removed. It is the base; we INFLUENCE it.**
+2. **Sun-LIT areas** (N·L toward the sun AND not cast-shadowed): slightly BRIGHTEN the baked —
+   MULTIPLICATIVE (× >1 preserves contrast BY CONSTRUCTION; never additive/flattening; "ça shift vers du
+   plus lumineux sans retirer de contraste") + push hue/saturation slightly TOWARD THE SUN's tint (warm).
+3. **SHADOWED areas** (faces opposite the sun OR under a cast shadow): MULTIPLY the baked toward darker
+   (contrast kept) + slightly COOL the hue/saturation.
+4. **Both suns**: yellow sun (warm tint) by day; green sun at night = same model, green-tinted lit boost,
+   weaker amplitude. All amplitudes SCALE with each sun's elevation weight (night: yellow→0) — this keeps
+   the owner-accepted smooth TOD transitions (no snapping, no ghost shadows at night).
+5. **Terminator smooth**: the lit↔shadow boundary via smoothstep on N·L (no hard edge); cast-shadow edges
+   keep PCF softness.
+6. **Probes (hemisphere/SH/IBL): KEEP the system but STOP projecting it onto world geometry.** It becomes a
+   RESOURCE for future PBR rendering + water. The world-projection toggle ("Baked Ambient") STAYS in the
+   menu as a curiosity but DEFAULTS OFF (gfx.h default off). PERF: when the world projection is off and no
+   consumer is active, SKIP the probe GPU upload (3D textures/cubemap) — keep the asset load lazy; free
+   perf for the 18fps hut.
+7. Tunables via debug props (lit boost amplitude, shadow darken amplitude, tint strengths) so the owner can
+   dial amplitudes quickly; sensible modest defaults (e.g. lit ~×1.10-1.20, shadow ~×0.55-0.75 TOD-scaled).
+8. OFF==stock byte-identical (Realtime Lighting OFF = pure vanilla baked). Update `.autoport/menu-tree.md`.
+
+EXIT = the owner protocol: MECHANICAL bar only (compiles, deploys, boots to gameplay, wired, OFF==stock) +
+"READY FOR OWNER VISUAL CHECK" + playtest guidance (lit warm-brighten visible? shadows dark-cool with
+contrast intact? moving cast shadows? night green behaviour?). The supervisor pushes to the Honor; the
+OWNER verifies visually.
+
+---
+## OWNER REFINEMENT (2026-07-21, ultrathink) — NO TOD SMOOTHING ON THE BAKED + GREEN STAR FULL SYMMETRY
+1. **KILL the TOD-smoothing machinery for the baked path.** The temporal low-pass (rt_ema/rt_tod_smooth on
+   mood colours) + crossfade hacks were built when OUR computed ambient replaced the baked and inherited the
+   mood-keyframe snapping. We now EMBRACE the baked: it interpolates its 8 keyframes NATIVELY — that native
+   rhythm IS the game's style (fast dawns, colour pops). NOTHING temporal may sit between the baked and the
+   screen — no EMA, no extra crossfade, baked timing/style untouched ("on se bat plus contre le baked, on
+   l'embrasse"). Prune the now-dead EMA/crossfade code paths that only served the removed computed-ambient.
+2. **Our modulation layer needs NO smoothing either**: its amplitudes derive from each sun's ELEVATION,
+   which is continuous by construction (sky-parms positions interpolate) → day↔night handoff is naturally
+   smooth, per-sun, no crossfade code. The WARM TINT input must NOT come from the snapping mood palette:
+   either procedural-from-elevation (low sun = redder, high = yellow-white; continuous) or, if mood-derived,
+   smooth OUR overlay input only — never the baked.
+3. **GREEN STAR = FULL SYMMETRY with the sun (lighting + shadow projection):** areas SHE lights get the
+   slight multiplicative brighten with a GREEN tint; her CAST SHADOWS (shadow map from HER direction) and
+   her away-faces darken — same machinery as the yellow sun. LESS influential (weaker amplitudes; she is
+   mainly the night key) but STILL CLEARLY VISIBLE — including in DAYTIME when she is up. Her amplitude
+   scales with HER OWN elevation. Shadow-map cost strategy on Adreno (both suns up): render her shadow map
+   when her amplitude is above a threshold; if two maps are too costly, dominant-sun-only is the low tier
+   and both-maps the high tier — document the choice.

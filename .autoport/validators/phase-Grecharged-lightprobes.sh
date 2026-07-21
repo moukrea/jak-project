@@ -7,72 +7,24 @@ D=.autoport/reports/Grecharged-lightprobes/device
 [ -f "$R" ] || fail "no report"
 grep -qE '^RESULT: PASS' "$R" || fail "no RESULT: PASS (WIP does not gate)"
 grep -qiE '^RESULT: WIP' "$R" && fail "report is WIP"
-
-# --- SOURCE-LEVEL (un-stubbable) ---
-# A programmatic bake tool/harness must exist.
-ls .autoport/*probe*bake* .autoport/*lightprobe* game/graphics/**/probe* tools/**/probe* 2>/dev/null | grep -qi . \
-  || grep -rliE 'probe.?bake|bake.?probe|lightprobe|light_probe|irradiance.?(grid|volume|probe)' game/ .autoport/ common/ 2>/dev/null | grep -qi . \
-  || fail "no programmatic probe-bake harness/code found"
-# A village1 probe ASSET must have been produced (non-trivial size).
-PROBE=$(find . -path ./.git -prune -o \( -iname '*village1*probe*' -o -iname '*probe*village1*' -o -iname '*lightprobe*village1*' -o -iname 'village1*.probes' \) -type f -print 2>/dev/null | head -1)
-[ -n "$PROBE" ] || fail "no village1 probe asset file produced by the bake"
-SZ=$(stat -c%s "$PROBE" 2>/dev/null || echo 0)
-[ "$SZ" -gt 4096 ] || fail "village1 probe asset is trivially small ($SZ bytes) — likely a stub"
-# A world shader must consume the probe (runtime integration), not just the analytic SH.
-grep -rliE 'u_.*probe|probe.?sh|probe.?irr|probe.?cube|lightprobe' game/graphics/opengl_renderer/shaders/*.frag 2>/dev/null | grep -qi . \
-  || fail "no world shader references the local probe (runtime ambient/IBL integration missing)"
-
-# --- REPORT EVIDENCE ---
-grep -qiE 'village1' "$R" || fail "no village1 (proving level) evidence"
-grep -qiE 'programmatic|auto.?place|automated bake|no manual' "$R" || fail "no programmatic-bake evidence"
-grep -qiE 'all (explorable )?heights?|per.?height|above each.*(walkable|collision|surface)|height layer|multi.?height' "$R" || fail "no all-explorable-heights grid evidence (owner)"
-grep -qiE 'inside.?box|inside.?sphere|room center|interior probe|each room' "$R" || fail "no interior room-center probe evidence (inside-box)"
-grep -qiE 'suns? included|full lit|includ.*sun|HDRI|not (zero|exclud).*sun|lit environment' "$R" || fail "no suns-INCLUDED full-lit-environment capture evidence (owner: excluding the suns falsifies it)"
-grep -qiE 'double.?count|energy.?(consistent|conserv)|no.*(blow.?out|double).*sun|not.*re-?add.*sun|delta (only|the)' "$R" || fail "no no-double-count / energy-consistent composition evidence (the design crux)"
-grep -qiE 'interior.*(A/B|local|correct|darker|different from.*(global|sky))|local ambient.*interior' "$R" || fail "no interior LOCAL-ambient A/B evidence (probe SH != global sky SH)"
-grep -qiE 'reflection|IBL|prefilter|cubemap.*(metal|water|precursor|env)|metal.*reflect|water.*reflect' "$R" || fail "no reflection/IBL consumer evidence (metal/water/Precursor sampling the local cubemap)"
-grep -qiE 'menu|recharged setting|toggle.*(probe|reflection)|no unknown.?id|selector' "$R" || fail "no coherent Recharged menu-entry evidence (no unknown-ID)"
-grep -qiE 'off ?== ?stock|byte-identical|probes? off.*(stock|unchanged)' "$R" || fail "no OFF==stock byte-identical evidence"
-grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "no device jak1 focus"
-ls "$D"/*.mp4 >/dev/null 2>&1 || fail "no device video"
-ls "$D"/*.png >/dev/null 2>&1 || fail "no device still"
+grep -qiE 'READY FOR OWNER VISUAL CHECK' "$R" || fail "no READY-FOR-OWNER marker (owner protocol)"
+# FINAL ARCHITECTURE (owner plan): baked-modulation — multiplicative lit-brighten warm / shadow-darken cool.
+grep -qiE 'baked.*(never removed|base|kept).*(modulat|influence)|modulat.*baked|multiplicative.*(brighten|lit)|lit.*(boost|brighten).*multiplicativ' "$R" || fail "no baked-modulation model evidence (owner final plan: baked = base, multiplicative influence)"
+grep -qiE '(warm|sun).*(tint|hue|saturat).*(lit|brighten)|lit.*(warm|toward the sun)' "$R" || fail "no warm-tint-on-lit evidence"
+grep -qiE '(cool|blue).*(tint|hue).*(shadow|dark)|shadow.*(cool|refroid)' "$R" || fail "no cool-tint-on-shadow evidence"
+grep -qiE 'contrast (preserved|kept|intact|by construction)|multiplicat.*preserv.*contrast' "$R" || fail "no contrast-preserved evidence"
+grep -qiE '(elevation|TOD).*(scale|weight).*(amplitude|boost|darken)|night.*(yellow|sun).*(zero|->0|fades)' "$R" || fail "no TOD/elevation amplitude scaling evidence (no ghost night shadows)"
+grep -qiE 'green.?sun.*(tint|weaker|visible)|both suns' "$R" || fail "no green-sun modulation evidence"
+grep -qiE 'green.?(sun|star).*(shadow map|cast shadow|projection)|shadow.*(from|her).*(green|star)' "$R" || fail "no green-star CAST-SHADOW projection evidence (owner: lighting + projection, symmetric with the sun, weaker but visible)"
+grep -qiE 'no (temporal|EMA|tod).?smooth.*(baked)|baked.*(native|untouched).*(interp|timing|style)|prune.*(ema|crossfade)|removed.*(ema|tod.?smooth)' "$R" || fail "no NO-TOD-smoothing-on-baked evidence (owner: baked native keyframe rhythm = the style; EMA/crossfade era pruned)"
+grep -qiE 'smoothstep|terminator.*(smooth|soft)|soft.*(boundary|terminator)' "$R" || fail "no smooth-terminator evidence"
+# probes: world projection defaults OFF; resource kept for PBR/water; GPU upload skipped when unused.
+grep -qE 'recharged_rt_probe_enable *= *false' game/graphics/gfx.h || fail "probe world-projection default is not OFF in gfx.h (owner: toggle kept as curiosity, default off)"
+grep -qiE 'probe.*(resource|pbr|water).*(future|kept|reserved)|skip.*(gpu )?upload.*(probe|3d tex)|lazy.*(probe|upload)' "$R" || fail "no probes-as-resource + skip-GPU-upload-when-off evidence"
+grep -qiE 'debug prop|tunable|rt\.(litboost|shadowmul|tint)' "$R" || fail "no tunable-amplitude debug props evidence"
+grep -qiE 'off ?== ?stock|byte-identical' "$R" || fail "no OFF==stock evidence"
+grep -qiE 'menu-tree' "$R" || fail "menu-tree.md not updated (standing rule)"
+grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "no device jak1 focus (boots to gameplay)"
+ls "$D"/*.png >/dev/null 2>&1 || fail "no device still (mechanical boot proof)"
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
-grep -qiE 'full ?res|native res|render scal(e|ing) (off|disabled)|no (dynamic )?render.?scal|512|1024|cube.?face.*(res|resolution)' "$R" || fail "no full-resolution HDRI capture evidence (owner: full res, render scaling off, framerate irrelevant)"
-# OWNER 2026-07-21: probes must SHIP in the repo + APK (no manual side-load).
-# (owner-approved location = a committed first-party dir e.g. custom_assets/<game>/probes,
-#  NOT the git-ignored out/ build output; either a tracked out/ copy or ANY tracked .probes
-#  satisfies "in the repo". NOTE: `git ls-files | grep -q` SIGPIPEs git under `set -o pipefail`
-#  even on a match -> capture into a var and test emptiness instead of piping to grep -q.)
-git ls-files --error-unmatch out/jak1/fr3/village1.probes >/dev/null 2>&1 \
-  || [ -n "$(git ls-files -- '*.probes' 2>/dev/null)" ] \
-  || fail "the .probes asset is not committed to the repo (owner: our probes must be IN the repo)"
-grep -qiE 'bundle.*apk|embed.*apk|apk.*(bundle|asset|ship).*probe|probe.*(bundle|embed|ship).*apk|install-?only|no (manual )?side-?load|LoaderActivity.*probe|packaged.*probe' "$R" \
-  || fail "no APK-bundled probes evidence (owner: probes embedded in the APK, clean install-only, no manual side-load)"
-# OWNER PLAYTEST #1 (2026-07-21) — QUALITY gates (priority):
-grep -qiE 'multiple interiors?|several interiors?|all (village1 )?interiors?|[3-9] interiors?|interiors? .*(each|all).*(probe|covered)|containment|occlusion.?aware.*select' "$R" || fail "no MULTI-interior coverage/selection evidence (owner: most interiors muted; cover ALL + select by containment, not just the one hut)"
-grep -qiE 'contrast (preserv|kept|retain|unchanged)|detail (preserv|kept)|not (washed|muted|flatten)|albedo detail|preserve.*(contrast|detail)' "$R" || fail "no contrast/detail-preserved evidence (owner: probe mutes details/contrast)"
-grep -qiE 'reflection.*(resource|expose|hand.?off|for pbr|to pbr|to water|not applied|no broad|removed from.*shader|cubemap.*(resource|input))|probe (system|grid) (does not|no longer) appl.*reflect|leave.*reflect.*(pbr|water)|reflect.*(deferred|handed).*(pbr|water)' "$R" || fail "reflections not deferred to PBR/water (owner: probe system must NOT apply reflections broadly = grey wash; bake+expose the cubemaps as a RESOURCE, let PBR/water apply them)"
-grep -qiE 'per.?pixel.*(sh|probe|ambient|3d tex)|no (checker|damier|grid pattern)|seamless.*(probe|grid|interp)|checker.?board.*(fixed|removed|gone)|grid pattern.*(absent|none|no)|fft.*(no|absent).*period' "$R" || fail "no ground-checkerboard fix evidence (owner: visible probe checkerboard on the ground; per-pixel SH eval / seamless interp)"
-# OWNER PLAYTEST #1b (2026-07-21):
-grep -qiE 'AO.*(stable|no flicker|flicker.*(fixed|gone)|temporal(ly)? stable)|no (AO )?flicker|flicker.*movement.*(fixed|removed)|frame.?to.?frame.*AO.*(stable|low)' "$R" || fail "no AO-flicker-on-movement fix evidence (owner regression: AO flickers when moving; likely per-vertex->per-pixel root)"
-grep -qiE 'green.?sun.*shadow.*(visible|preserv|kept|not (wash|vanish|invisible))|moon.*shadow.*(visible|preserv)|cast shadow.*(preserv|visible).*(probe|on)|shadow.*not.*(washed|invisible).*probe' "$R" || fail "no green-sun/moon shadow-still-visible-with-probes-ON evidence (owner regression: probe fill washes out the moon cast shadow)"
-grep -qiE 'renam.*(probe|baked ambient|local ambient)|baked ambient|local ambient|no longer.*probe.*(label|menu)|menu.*(baked|local) ambient' "$R" || fail "no menu rename evidence (owner: 'probes' misleading since baked/precomputed; rename user-facing label)"
-# OWNER #3 (2026-07-21): H/SH/IBL must be FED BY PROBE DATA (one unified ambient), analytic = fallback only; menu rows merged.
-grep -qiE 'probe.?fed|(hemisphere|sh|ibl).*(probe (data|tex|sh)|fed by|from the probe)|unif(y|ied).*ambient|ambient.*(unif|merged|single system)|model.*(fidelity|eval).*(probe)|analytic.*(fallback only|only.*fallback)' "$R" || fail "no probe-fed H/SH/IBL unification evidence (owner: ambient models must evaluate the PROBE data, analytic = fallback only, menu merged)"
-# OWNER #4: ambient must coexist with BOTH suns' direct light+shadows (no washing), industry-standard direct review.
-grep -qiE 'both suns.*(shadow|light)|(sun|moon).*(shadow|light).*(preserved|intact|alive|on top).*(probe|ambient)|ambient.*(never|not).*(wash|cancel|fight).*(direct|sun|shadow)|industry.?standard.*(review|direct|light)|layering contract' "$R" || fail "no ambient+direct coexistence / industry-standard direct-lighting review evidence (owner #4)"
-# OWNER: render-scale settings honored (real fix) + all captures native.
-grep -qiE 'render.?scale.*(honor|respect|wired|fixed|obey)|settings.*(honor|respect).*(render|scale)|dynamic (off|OFF).*(true|native|100%)|controller.*(read|respect).*(setting|pc-settings)' "$R" || fail "no render-scale-honors-settings fix evidence (owner: menu 100%/Dynamic-OFF must give true native, controller ignores settings today)"
-# OWNER: vanilla baselines truly vanilla (all recharged features off, logged checklist).
-grep -qiE 'force.?vanilla|all.?(recharged|features?).?(off|disabled).*(baseline|vanilla|checklist)|checklist.*(vanilla|all.?off)|vanilla.*(checklist|all (flags|features) off|zero tweak)' "$R" || fail "no force-vanilla baseline checklist evidence (owner: vanilla passes had AO/rt/ambient still active — every recharged flag must be OFF and logged)"
-# OWNER VERDICT (reopened): root-cause why baked>realtime + detail-layer fix + AO burn/flicker.
-grep -qiE 'gradient.?energy|local.?contrast.*(spectrum|baked|realtime)|frequency.*(analysis|spectra|content).*(baked|lighting)|low.?pass.*(probe|SH|filter)|meso|high.?freq.*(detail|lighting)' "$R" || fail "no quantitative baked-vs-realtime richness DIAGNOSIS (owner: find WHY baked is richer — measure frequency/local-contrast, don't guess)"
-grep -qiE 'baked.?detail|detail (layer|ratio|modulation)|baked_vertex.*(ratio|lowpass|divide)|re.?inject.*(baked|detail)|superset of baked' "$R" || fail "no baked-detail-layer re-injection design evidence (keep vanilla richness + dynamic on top)"
-grep -qiE 'realtime.*(>=|at least|superset|richer|matches).*baked|richness.*(>=|parity|restored)' "$R" || fail "no realtime>=baked measured-richness acceptance evidence"
-grep -qiE 'AO.*(cram|burnt|crush|harsh|ugly|dirty).*(fix|diagnos|correct|soft)|AO.*(ambient (term|only)|linear space|soft.?(knee|falloff|curve))|occlusion.*(soft|gentle|ambient-only)' "$R" || fail "no AO-quality fix evidence (owner: AO darkening looks CRAME/burnt-ugly since forever — audit term/space/curve: ambient-only, linear, soft falloff)"
-grep -qiE 'flicker.*(re-?diagnos|fixed for real|hold|verified.*(honor|moving))|temporal.*(instab|stab).*(AO|fixed)' "$R" || fail "no AO-flicker REAL fix evidence (previous fix did not hold on the owner device)"
-# OWNER #3: sun killed by double-count fix — shadow-the-baked model + visible AO middle.
-grep -qiE 'shadow.*(the )?baked|mix.*(ambient|probe).*(baked|lit).*(visibilit|shadow)|attenuat.*baked.*(toward|to).*(ambient|probe)|de.?light.*shadow|sun_visibility.*mix' "$R" || fail "no shadow-the-baked energy model evidence (owner #3: dynamic sun was zeroed to avoid double-count => shadows vanished; correct = attenuate baked toward ambient in shadowed areas)"
-grep -qiE 'READY FOR OWNER VISUAL CHECK|ready for owner' "$R" || fail "no READY-FOR-OWNER-VISUAL-CHECK marker (owner protocol: mechanical bar only, the owner does the visual verification)"
-grep -qiE 'AO.*(strength|calibrat|middle|default).*(raised|adjust|set|tuned)|playtest guidance.*AO|AO.*(look at|check)' "$R" || fail "no AO recalibration + playtest-guidance evidence (mechanical: strength adjusted; owner judges visually)"
 echo "[Glp PASS]"
