@@ -1047,12 +1047,15 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   // Grecharged-lightprobes: owner NATIVE-RES eval override. The GOAL dynamic render-scale controller
   // downscales game_res on heavy vantages (village1-hut is ~18 fps at BASELINE, probe or not), so a
   // quality eval must FORCE a full-resolution FBO and ignore the framerate. debug.opengoal.renderscale.native
-  // '1' => a fixed native 1600x720 FBO (render scaling OFF for the eval; framerate irrelevant to quality).
+  // '1' => the render FBO at the TRUE native window size (render scaling OFF for the eval; framerate
+  // irrelevant to quality). Owner 2026-07-21: native means the PANEL (2400x1080 on the Redmi), not the
+  // old hardcoded 1600x720 eval size — the normal settings path (Dynamic OFF + RENDER SCALE 100) now
+  // reaches native by itself (pckernel update-to-os legacy-base fix); this prop stays a debug tool only.
   {
     char rv[PROP_VALUE_MAX];
     if (__system_property_get("debug.opengoal.renderscale.native", rv) > 0 && atoi(rv) != 0) {
-      fbo_w = 1600;
-      fbo_h = 720;
+      fbo_w = settings.window_fb_w > 0 ? settings.window_fb_w : 1600;
+      fbo_h = settings.window_fb_h > 0 ? settings.window_fb_h : 720;
     }
   }
   m_stats.fbo_w = fbo_w;

@@ -88,6 +88,13 @@ stick neutral
 adb shell am force-stop $PKG </dev/null
 NF=$(ls "$OUT/frames_$TAG" 2>/dev/null | wc -l)
 echo "[glp2-walk] $TAG done: probe=$PROBE ao=$AOM warp='$WARP' pos='$POS' hour=$HOUR native=$NATIVE frames=$NF"
+# PROP/SETTINGS CHECKLIST (owner 2026-07-21 force-vanilla mandate): recharged flag state.
+echo "  [checklist] settings.ini: $(adb shell grep -E 'recharged|pbr-materials|load-custom|ambient-occlusion|extra-hud|enhanced-models' /storage/emulated/0/OpenGOAL/jak1/settings.ini </dev/null 2>/dev/null | tr -d '\r' | tr '\n' ';' )"
+CKP=""
+for p in rt.light rt.ambient rt.probe ao.force_mode renderscale.native render.scale; do
+  CKP="$CKP $p=$(adb shell getprop debug.opengoal.$p </dev/null 2>/dev/null | tr -d '\r')"
+done
+echo "  [checklist] props:$CKP"
 echo "  focus=$FOCUS_LINE"
 echo "  spawn=$(grep -aE 'LEVEL-WARP-SPAWN' "$LOG" | tail -1 | tr -d '\r')"
 echo "  probe-load=$(grep -aE 'lightprobe' "$LOG" | tail -1 | tr -d '\r')"

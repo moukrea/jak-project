@@ -367,10 +367,25 @@
                    (else eff-scale)))
          (rs-frac (/ rs 100.0))
          (base-w (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-width) (-> obj width)))
-         (base-h (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-height) (-> obj height)))
-         (rw (max 1 (the int (* (the float base-w) rs-frac))))
-         (rh (max 1 (the int (* (the float base-h) rs-frac)))))
-    (pc-set-game-resolution rw rh))
+         (base-h (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-height) (-> obj height))))
+    ;; Glightprobes render-scale-honors-settings (owner 2026-07-21): on Android a
+    ;; 640x480 BASE is the legacy pre-picker boot default, not a real user pick (the
+    ;; auto-aspect Game Resolution ladder cannot produce 640x480 on the panel), and it
+    ;; silently broke the menu promise "Dynamic OFF + RENDER SCALE 100% = native":
+    ;; 100% of the stale 640x480 base is still 640x480, never the panel. Substitute the
+    ;; native display size at USE time — robust to both stale settings.ini files and
+    ;; fresh defaults; a real picker choice (never 640x480 under the panel aspect)
+    ;; still rules. The stored game-size is left untouched.
+    (when (and (= (-> obj os) 'android) (= base-w 640) (= base-h 480))
+      (let ((native-w 0)
+            (native-h 0))
+        (pc-get-active-display-size (& native-w) (& native-h))
+        (when (and (> native-w 0) (> native-h 0))
+          (set! base-w native-w)
+          (set! base-h native-h))))
+    (let ((rw (max 1 (the int (* (the float base-w) rs-frac))))
+          (rh (max 1 (the int (* (the float base-h) rs-frac)))))
+      (pc-set-game-resolution rw rh)))
   ;; set msaa sample rate. if invalid, just reset to 2.
   (let ((valid? #f))
     (dotimes (i 31)

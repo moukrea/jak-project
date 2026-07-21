@@ -25,9 +25,14 @@ while [ -n "${TEMP:-}" ] && [ "$TEMP" -ge 450 ]; do
   TEMP=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  temperature' | grep -o '[0-9]*')
 done
 
+# FORCE-VANILLA (owner 2026-07-21): VANILLA=1 => a stock-reference capture — every recharged
+# prop forced OFF here (the caller pushes the all-off settings.ini variant for the persisted
+# fields and passes probe/refl args = 0). Default (VANILLA unset) = feature-OFF A/B semantics:
+# the configured recharged stack stays on, only the feature under test varies.
+RTON=$([ "${VANILLA:-0}" = 1 ] && echo 0 || echo 1)
 set_props(){
-  adb shell "setprop debug.opengoal.rt.light 1" </dev/null
-  adb shell "setprop debug.opengoal.rt.ambient 1" </dev/null
+  adb shell "setprop debug.opengoal.rt.light $RTON" </dev/null
+  adb shell "setprop debug.opengoal.rt.ambient $RTON" </dev/null
   adb shell "setprop debug.opengoal.rt.ambientmodel '$MODEL'" </dev/null
   adb shell "setprop debug.opengoal.ao.force_mode 0" </dev/null
   adb shell "setprop debug.opengoal.pbr.debug ''" </dev/null
@@ -80,7 +85,16 @@ NF=$(ls "$OUT/frames_$TAG" 2>/dev/null | wc -l)
 # static-vantage sanity: a STATIC capture must be temporally stable (good ~1-2; falling/respawn >>10).
 STAB=$(python3 .autoport/glp2_measure.py flicker "$OUT/frames_$TAG" 2>/dev/null | grep -oE 'd_mean= *[0-9.]+' | grep -oE '[0-9.]+' | head -1)
 SVERD="OK"; awk -v s="${STAB:-99}" 'BEGIN{exit !(s>5.0)}' && SVERD="UNSTABLE (bad vantage — falling/respawn/FX; do NOT use as A/B evidence)"
-echo "[glp-cap] $TAG done: probe=$PROBE refl=$REFL qual=$QUAL model='${MODEL}' warp='$WARP' pos='$POS' hour=$HOUR frames=$NF"
+echo "[glp-cap] $TAG done: probe=$PROBE refl=$REFL qual=$QUAL model='${MODEL}' warp='$WARP' pos='$POS' hour=$HOUR frames=$NF vanilla=${VANILLA:-0}"
+# PROP/SETTINGS CHECKLIST (owner 2026-07-21 force-vanilla mandate): dump every recharged
+# flag state (persisted settings.ini fields + override props) for THIS capture. A vanilla
+# baseline without this logged all-off checklist is invalid.
+echo "  [checklist] settings.ini: $(adb shell grep -E 'recharged|pbr-materials|load-custom|ambient-occlusion|extra-hud|enhanced-models' /storage/emulated/0/OpenGOAL/jak1/settings.ini </dev/null 2>/dev/null | tr -d '\r' | tr '\n' ';' )"
+CKP=""
+for p in rt.light rt.ambient rt.probe rt.probrefl ao.force_mode renderscale.native render.scale; do
+  CKP="$CKP $p=$(adb shell getprop debug.opengoal.$p </dev/null 2>/dev/null | tr -d '\r')"
+done
+echo "  [checklist] props:$CKP"
 echo "  focus=$FOCUS_LINE"
 echo "  spawn=$(grep -aE 'LEVEL-WARP-SPAWN' "$LOG" | tail -1 | tr -d '\r')"
 echo "  probe-load=$(grep -aE 'lightprobe' "$LOG" | tail -1 | tr -d '\r')"
