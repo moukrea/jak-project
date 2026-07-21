@@ -374,7 +374,12 @@ void main() {
       // terms on top of the same fill — the layering needs no rewrite.
       const float RT_PROBE_IND = 0.45;
       float probe_active = (u_rt_probe_on != 0 && probe_w > 0.02) ? 1.0 : 0.0;
-      float ind_k = mix(1.0, mix(RT_PROBE_IND, 1.0, probe_int), probe_active);
+      // ATTEMPT-7 SHADE-ADAPTIVE ind_k (see tfrag3.frag): in baked SHADE the stored value is all
+      // indirect — no direct-sun share to subtract — so the uniform 0.45 cut crushed shade to
+      // ~0.70x vanilla. r = baked/lowpass(baked) estimates per-pixel sun-litness in the bake:
+      // r~1 -> RT_PROBE_IND as accepted, r small -> ind_k -> 1 (probe_int's interior reasoning
+      // extended to outdoor shade). Computed AFTER the detail block (needs r); u_rt_detail==0
+      // keeps the pre-reopen uniform ind_k exactly.
       // REOPEN 2026-07-21 (owner: realtime much flatter/less rich than baked) — BAKED-DETAIL
       // RE-INJECTION. The baked per-vertex color carries the meso-scale lighting (crevice AO,
       // contact shadows, local bounce) that the 4 m probe-SH grid low-passes away (measured:
@@ -390,12 +395,24 @@ void main() {
       // suns/shadows on top. detail == 1 where the probe has no data (fallback unchanged) and
       // fades in with probe_w; u_rt_detail==0 => the pre-reopen composite, byte-identical.
       vec3 rt_detail = vec3(1.0);
+      float shade_est = 0.0;
       if (probe_active > 0.5 && u_rt_detail != 0) {
         vec3 baked_lut = max(v_todc, vec3(0.0));  // shrub: raw TOD LUT units (its fragment_color carries a x4 + per-plant base)
         vec3 lp = max(probe_pamb * max(u_rt_detail_norm, 1e-3), vec3(0.02));
         vec3 r = clamp(baked_lut / lp, vec3(0.25), vec3(1.6));  // bounded: division noise / systematic offsets can't blow out the suns
         rt_detail = mix(vec3(1.0), pow(r, vec3(2.2)), clamp(probe_w, 0.0, 1.0));
+        shade_est = (1.0 - smoothstep(0.55, 0.95, dot(r, vec3(0.299, 0.587, 0.114)))) *
+                    clamp(probe_w, 0.0, 1.0);
+        // r is a HIGH-PASS: flat shade has r~1, so the r-based estimator alone left ind_k=0.45
+        // there, double-removing its all-indirect baked energy (measured d1/van ~0.75 in every
+        // non-sunlit band vs 0.99 sunlit). Second estimator: the dynamic suns' own visibility
+        // (the same N.L * cast-shadow * elevation terms the direct layer uses) -- a pixel the
+        // dynamic suns don't reach was un-sunlit in the bake too, so its baked energy is all
+        // indirect and there is no direct share to subtract.
+        float vis_dyn = clamp(sun_scalar + moon_ndl * clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0), 0.0, 1.0);
+        shade_est = max(shade_est, (1.0 - smoothstep(0.05, 0.45, vis_dyn)) * clamp(probe_w, 0.0, 1.0));
       }
+      float ind_k = mix(1.0, mix(mix(RT_PROBE_IND, 1.0, shade_est), 1.0, probe_int), probe_active);
       vec3 lit = albedo * rt_detail * (base * ind_k
                + u_rt_sun_color * sun_scalar
                + u_rt_moon_color * moon_ndl);
