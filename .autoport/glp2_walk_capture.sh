@@ -18,6 +18,12 @@ adb(){ "$ADB" -s "$ANDROID_SERIAL" "$@"; }
 focus(){ adb shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
 stick(){ adb shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null; }
 
+# SUPERVISOR DEVICE GUARD: no battery-draining device work under 30% (PIN-lock risk on a dead battery).
+BATT=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  level' | grep -o '[0-9]*')
+if [ -n "${BATT:-}" ] && [ "$BATT" -lt 30 ]; then
+  echo "[glp2-walk ABORT] $TAG: battery ${BATT}% < 30 — device guard, no capture"; exit 3
+fi
+
 set_props(){
   adb shell "setprop debug.opengoal.rt.light 1" </dev/null
   adb shell "setprop debug.opengoal.rt.ambient 1" </dev/null
@@ -41,6 +47,7 @@ for TRY in 1 2 3; do
   set_props
   adb shell setprop debug.opengoal.level.warp "$WARP" </dev/null
   adb shell "setprop debug.opengoal.level.warp.pos '$POS'" </dev/null
+  adb logcat -c </dev/null 2>/dev/null   # drop buffer history: stale lines from the PREVIOUS boot
   ( adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
       | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|lightprobe|A35-RENDER frame=|Fatal signal|signal [0-9]+ \(SIG' >> "$LOG" ) 2>/dev/null &
   LCP=$!; echo $LCP > /tmp/glp2_lc.pid

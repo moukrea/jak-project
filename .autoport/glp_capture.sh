@@ -16,6 +16,12 @@ WARP="${5:-village1-hut}"; POS="${6:--112.0 42.0 205.0}"; HOUR="${7:-8}"; MODEL=
 adb(){ "$ADB" -s "$ANDROID_SERIAL" "$@"; }
 focus(){ adb shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
 
+# SUPERVISOR DEVICE GUARD: no battery-draining device work under 30% (PIN-lock risk on a dead battery).
+BATT=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  level' | grep -o '[0-9]*')
+if [ -n "${BATT:-}" ] && [ "$BATT" -lt 30 ]; then
+  echo "[glp-cap ABORT] $TAG: battery ${BATT}% < 30 — device guard, no capture"; exit 3
+fi
+
 set_props(){
   adb shell "setprop debug.opengoal.rt.light 1" </dev/null
   adb shell "setprop debug.opengoal.rt.ambient 1" </dev/null
@@ -38,6 +44,7 @@ for TRY in 1 2 3; do
   set_props
   adb shell setprop debug.opengoal.level.warp "$WARP" </dev/null
   adb shell "setprop debug.opengoal.level.warp.pos '$POS'" </dev/null
+  adb logcat -c </dev/null 2>/dev/null   # drop buffer history: stale lines from the PREVIOUS boot
   ( adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
       | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|lightprobe|A35-RENDER frame=|Fatal signal|signal [0-9]+ \(SIG' >> "$LOG" ) 2>/dev/null &
   LCP=$!; echo $LCP > /tmp/glp_lc.pid
@@ -67,7 +74,11 @@ ffmpeg -y -loglevel error -i "$OUT/glp_$TAG.mp4" -vf fps=2 "$OUT/frames_$TAG/f_%
 kill "$(cat /tmp/glp_lc.pid 2>/dev/null)" 2>/dev/null || true
 adb shell am force-stop $PKG </dev/null
 NF=$(ls "$OUT/frames_$TAG" 2>/dev/null | wc -l)
+# static-vantage sanity: a STATIC capture must be temporally stable (good ~1-2; falling/respawn >>10).
+STAB=$(python3 .autoport/glp2_measure.py flicker "$OUT/frames_$TAG" 2>/dev/null | grep -oE 'd_mean= *[0-9.]+' | grep -oE '[0-9.]+' | head -1)
+SVERD="OK"; awk -v s="${STAB:-99}" 'BEGIN{exit !(s>5.0)}' && SVERD="UNSTABLE (bad vantage — falling/respawn/FX; do NOT use as A/B evidence)"
 echo "[glp-cap] $TAG done: probe=$PROBE refl=$REFL qual=$QUAL model='${MODEL}' warp='$WARP' pos='$POS' hour=$HOUR frames=$NF"
 echo "  focus=$FOCUS_LINE"
 echo "  spawn=$(grep -aE 'LEVEL-WARP-SPAWN' "$LOG" | tail -1 | tr -d '\r')"
 echo "  probe-load=$(grep -aE 'lightprobe' "$LOG" | tail -1 | tr -d '\r')"
+echo "  static-stability d_mean=${STAB:-n/a} => $SVERD"
