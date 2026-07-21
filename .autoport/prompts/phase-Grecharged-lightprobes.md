@@ -414,3 +414,36 @@ script at a time, run SEQUENTIALLY (foreground, or strictly chained); never over
 existing capture stamps + battery RESUME already support sequential completion. Also: acceptance captures
 r_deck_van/r_night_d1/r_int2_d1/r_deck_d0/r_deck_d1 mp4s ALREADY EXIST on disk from earlier — harvest and
 measure them FIRST; only re-capture what is missing or invalid.
+
+---
+## OWNER VERDICT #3 (2026-07-21 soir) — "clairement mieux" MAIS le soleil est mort + AO invisible. REOPENED.
+Owner on the detail-layer build: "C'est CLAIREMENT MIEUX, mais le soleil ne caste plus d'ombre — même pas
+sûr qu'il éclaire quoi que ce soit. L'AO ne fait plus l'effet cramé mais elle est toned down, quasi pas
+remarquable. Cherchez sérieusement, on y est toujours pas."
+
+DIAGNOSIS (the structural trap you fell into): to avoid double-counting (the baked ALREADY contains the
+suns), you scaled the dynamic sun delta to ~nothing (the 0.20 delta) → with the baked detail now carrying
+the lighting, the analytic sun became invisible and its cast shadows (which only modulate that tiny term)
+vanished. You solved double-count by KILLING the dynamic layer — the exact opposite of the layering
+contract (#4: both suns fully alive with visible cast shadows on all objects).
+
+THE CORRECT ENERGY BALANCE (industry, de-lighting-by-shadowing): don't zero the sun — SHADOW THE BAKED.
+The baked pixel value = ambient_part + baked_sun_part (mixed). The dynamic cast-shadow test tells you where
+the sun is NOT reaching NOW:
+  lit area   : keep the full baked (detail+level) [+ a modest dynamic sun boost for direction/specular]
+  shadowed   : attenuate the baked TOWARD ITS AMBIENT-ONLY estimate (the probe ambient = exactly that
+               estimate!) => the moving shadow VISIBLY darkens the baked-lit surface to ambient level.
+  final = albedo_detail x mix(probe_ambient_level, baked_level, sun_visibility) (+ green-sun analog)
+This gives REAL, OBVIOUS moving cast shadows (10-second check) with zero double-count: the sun's energy is
+already in the baked for lit areas; shadows REMOVE it where blocked. The dynamic sun boost on top stays
+subtle; the SHADOWS are the visible dynamic element (+ TOD sweep via the probe/baked blend).
+
+AO: you over-corrected burnt -> invisible. Calibrate the middle: a SOFT but CLEARLY NOTICEABLE occlusion
+(crevices/contacts visibly darker at normal viewing distance), ambient-term-only, linear, gentle curve.
+A/B at default strength must be obvious in a corner/crevice close-up without being dirty.
+
+ACCEPTANCE (10-second obvious checks FIRST — feedback_acceptance_obvious_first):
+1. Walk under an object at noon: a cast shadow is OBVIOUSLY there and moves with TOD. Both suns.
+2. Realtime ON keeps the baked richness (owner-confirmed acquired) AND the shadows from #1.
+3. AO ON vs OFF: visibly different in crevices (not burnt, not invisible).
+Then the numbers. Owner's Honor = final.
