@@ -145,6 +145,7 @@ uniform samplerCube u_rt_probe_cube;   // prefiltered LOCAL reflection env (near
 // the units-matched default: v_todc (raw LUT) and the probe SH are both in stored LUT units).
 uniform int u_rt_detail;
 uniform float u_rt_detail_norm;
+uniform float u_rt_sun_boost;
 
 // SH (DC + L1) -> ambient radiance toward N from 4 already-decoded coeffs (same Y-basis + Al cosine
 // convolution as rt_sh_ambient(): DC*Y0 + c1*Y1(N.y) + c2*Y1(N.z) + c3*Y1(N.x)).
@@ -374,12 +375,6 @@ void main() {
       // terms on top of the same fill — the layering needs no rewrite.
       const float RT_PROBE_IND = 0.45;
       float probe_active = (u_rt_probe_on != 0 && probe_w > 0.02) ? 1.0 : 0.0;
-      // ATTEMPT-7 SHADE-ADAPTIVE ind_k (see tfrag3.frag): in baked SHADE the stored value is all
-      // indirect — no direct-sun share to subtract — so the uniform 0.45 cut crushed shade to
-      // ~0.70x vanilla. r = baked/lowpass(baked) estimates per-pixel sun-litness in the bake:
-      // r~1 -> RT_PROBE_IND as accepted, r small -> ind_k -> 1 (probe_int's interior reasoning
-      // extended to outdoor shade). Computed AFTER the detail block (needs r); u_rt_detail==0
-      // keeps the pre-reopen uniform ind_k exactly.
       // REOPEN 2026-07-21 (owner: realtime much flatter/less rich than baked) — BAKED-DETAIL
       // RE-INJECTION. The baked per-vertex color carries the meso-scale lighting (crevice AO,
       // contact shadows, local bounce) that the 4 m probe-SH grid low-passes away (measured:
@@ -394,28 +389,52 @@ void main() {
       // the direct light too => realtime = the baked richness (strict superset) + the dynamic
       // suns/shadows on top. detail == 1 where the probe has no data (fallback unchanged) and
       // fades in with probe_w; u_rt_detail==0 => the pre-reopen composite, byte-identical.
+      // REOPEN #3 (owner: 'clairement mieux' BUT the sun casts no shadow / barely lights) —
+      // SHADOW-THE-BAKED. The attempt-8 shade estimator included the DYNAMIC sun visibility
+      // (vis_dyn): circular — exactly where the cast shadow blocked the sun, ind_k snapped to
+      // 1.0 and the FULL baked (which contains the sun) re-brightened the area => the moving
+      // shadow cancelled itself, and lit areas (0.45*base + sun) could even sit BELOW shadowed
+      // ones => "sun dead". Correct energy balance (industry de-lighting-by-shadowing): don't
+      // zero/re-add the sun — SHADOW THE BAKED. baked = ambient_share + sun_share; the dynamic
+      // cast-shadow test says where the sun is NOT reaching NOW:
+      //   lit    : keep the FULL baked (its sun share is real there) + a modest dynamic boost
+      //   shadow : attenuate the baked TOWARD ITS AMBIENT-ONLY estimate (RT_PROBE_IND * base,
+      //            the established no-double-count scaling)
+      //   ind_k  = mix(ambient_estimate, full_baked, sun_visibility)
+      // => real, OBVIOUS moving cast shadows with ZERO double-count. u_rt_detail==0 => the
+      // pre-reopen composite exactly (d0 A/B semantics preserved).
       vec3 rt_detail = vec3(1.0);
-      float shade_est = 0.0;
+      float ind_k;
+      float boost_k = 1.0;  // full direct when the detail path is off (pre-reopen semantics)
       if (probe_active > 0.5 && u_rt_detail != 0) {
         vec3 baked_lut = max(v_todc, vec3(0.0));  // shrub: raw TOD LUT units (its fragment_color carries a x4 + per-plant base)
         vec3 lp = max(probe_pamb * max(u_rt_detail_norm, 1e-3), vec3(0.02));
         vec3 r = clamp(baked_lut / lp, vec3(0.25), vec3(1.6));  // bounded: division noise / systematic offsets can't blow out the suns
         rt_detail = mix(vec3(1.0), pow(r, vec3(2.2)), clamp(probe_w, 0.0, 1.0));
-        shade_est = (1.0 - smoothstep(0.55, 0.95, dot(r, vec3(0.299, 0.587, 0.114)))) *
-                    clamp(probe_w, 0.0, 1.0);
-        // r is a HIGH-PASS: flat shade has r~1, so the r-based estimator alone left ind_k=0.45
-        // there, double-removing its all-indirect baked energy (measured d1/van ~0.75 in every
-        // non-sunlit band vs 0.99 sunlit). Second estimator: the dynamic suns' own visibility
-        // (the same N.L * cast-shadow * elevation terms the direct layer uses) -- a pixel the
-        // dynamic suns don't reach was un-sunlit in the bake too, so its baked energy is all
-        // indirect and there is no direct share to subtract.
-        float vis_dyn = clamp(sun_scalar + moon_ndl * clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0), 0.0, 1.0);
-        shade_est = max(shade_est, (1.0 - smoothstep(0.05, 0.45, vis_dyn)) * clamp(probe_w, 0.0, 1.0));
+        // Bake-time "was this pixel sun-lit" (lit_bake): GEOMETRY ONLY per sun — N.L *
+        // presence, NO cast-shadow occlusion (putting the dynamic occlusion in here was the
+        // attempt-8 circularity) — times the r-ratio flatness term (crevices / baked shade
+        // carry no sun share to remove; backfaces and interiors neither).
+        float r_flat = smoothstep(0.55, 0.95, dot(r, vec3(0.299, 0.587, 0.114)));
+        float moon_amp = clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0);
+        float g_sun = smoothstep(0.05, 0.45, ndl * u_rt_sun_elev);
+        float g_moon = smoothstep(0.05, 0.45, max(dot(N, normalize(u_rt_moon_dir)), 0.0) * moon_amp);
+        float lit_bake = max(g_sun, g_moon) * r_flat * clamp(probe_w, 0.0, 1.0);
+        // Dynamic sun visibility = the cast-shadow occlusion of whichever sun lights this
+        // pixel (the geometry factor already lives in lit_bake; the non-owning sun's occ is 1).
+        float occ_eff = (g_sun * sun_occ + g_moon * moon_occ + 1e-3) / (g_sun + g_moon + 1e-3);
+        float sun_share = (1.0 - RT_PROBE_IND) * lit_bake * (1.0 - probe_int);
+        ind_k = 1.0 - sun_share * (1.0 - occ_eff);
+        // The dynamic suns stay a MODEST boost on top (direction/specular cue; their energy is
+        // already in the baked for lit areas — the SHADOWS are the visible dynamic element).
+        boost_k = clamp(u_rt_sun_boost, 0.0, 1.0);
+      } else {
+        // detail layer off / no probe coverage: the pre-reopen composite exactly (uniform
+        // indirect scaling + FULL direct suns).
+        ind_k = mix(1.0, mix(RT_PROBE_IND, 1.0, probe_int), probe_active);
       }
-      float ind_k = mix(1.0, mix(mix(RT_PROBE_IND, 1.0, shade_est), 1.0, probe_int), probe_active);
       vec3 lit = albedo * rt_detail * (base * ind_k
-               + u_rt_sun_color * sun_scalar
-               + u_rt_moon_color * moon_ndl);
+               + (u_rt_sun_color * sun_scalar + u_rt_moon_color * moon_ndl) * boost_k);
       // PLAYTEST#1 #3 (reflections grey EVERYTHING): the blanket reflection add that lived HERE painted a
       // flat grey specular wash on every diffuse surface. These shaders have NO reflective PBR material
       // path, so the reflection is REMOVED here entirely (correct-or-off; a grey wash is worse than

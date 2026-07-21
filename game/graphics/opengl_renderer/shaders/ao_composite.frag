@@ -33,6 +33,14 @@ void main() {
     // a pure per-pixel MULTIPLY <= 1 (C++ binds GL_ZERO / GL_ONE_MINUS_SRC_COLOR, i.e.
     // out = dst * (1 - src)): AO can ONLY DARKEN — never add light, never shift hue.
     float lum = clamp(dot(texture(u_scene, tex_coord).rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
-    color = vec4(vec3(clamp(u_strength * (1.0 - ao) * (1.0 - lum), 0.0, 1.0)), 1.0);
+    // REOPEN #3 (owner: burnt -> then invisible; calibrate the VISIBLE-SOFT MIDDLE): the
+    // linear (1-lum) mask throttled AO ~2x exactly in the mid tones where crevices/contacts
+    // live => "quasi pas remarquable". Soft-knee mask instead: FULL occlusion up to mid
+    // luminance, fading to zero only across genuinely sun-bright pixels (golden rule kept:
+    // direct-lit still gets ~zero AO — sunlit lum~0.75 keeps the old ~0.25 weight; lum 0.5
+    // doubles from 0.5 to ~0.97). Max darkening stays bounded by u_strength (never full
+    // black) and the multiply is hue-preserving => soft but clearly noticeable, not burnt.
+    float mask = 1.0 - smoothstep(0.45, 0.90, lum);
+    color = vec4(vec3(clamp(u_strength * (1.0 - ao) * mask, 0.0, 1.0)), 1.0);
   }
 }

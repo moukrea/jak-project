@@ -73,6 +73,8 @@ void LightProbeGrid::refresh_effective_flags() {
     m_dbg_detail = atoi(v);
   if (__system_property_get("debug.opengoal.rt.detailnorm", v) > 0 && v[0])
     m_dbg_detail_norm = atoi(v);
+  if (__system_property_get("debug.opengoal.rt.sunboost", v) > 0 && v[0])
+    m_dbg_sunboost = atoi(v);
 #endif
 }
 
@@ -385,6 +387,9 @@ void LightProbeGrid::bind_and_upload(GLuint program) {
   glUniform1i(loc("u_rt_detail"), (m_dbg_detail >= 0) ? m_dbg_detail : 1);
   glUniform1f(loc("u_rt_detail_norm"),
               (m_dbg_detail_norm > 0) ? (float)m_dbg_detail_norm / 100.0f : 1.0f);
+  // REOPEN #3 modest dynamic-sun boost over the shadowed-baked composite (percent prop).
+  glUniform1f(loc("u_rt_sun_boost"),
+              (m_dbg_sunboost >= 0) ? (float)m_dbg_sunboost / 100.0f : 0.25f);
   glUniform3f(loc("u_rt_probe_origin"), m_grid.origin_gu[0], m_grid.origin_gu[1],
               m_grid.origin_gu[2]);
   glUniform1f(loc("u_rt_probe_inv_cell"), 1.0f / m_grid.cell_gu);
