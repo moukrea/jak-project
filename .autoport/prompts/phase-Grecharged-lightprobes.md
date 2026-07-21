@@ -343,3 +343,64 @@ etc.). Les passes vanilla ne doivent avoir AUCUN de nos tweaks — mode original
 4. This prefigures the queued Grecharged-master-toggle phase (its debug.opengoal.recharged prop will replace
    the per-flag checklist later).
 GATE (added): vanilla baselines carry the all-off checklist proof.
+
+---
+## OWNER VERDICT (2026-07-21 soir) — REALTIME STILL MUCH WORSE THAN BAKED. FIND THE ROOT CAUSE. (REOPENED)
+Owner, after testing the full quality round: "C'est toujours BEAUCOUP plus beau et riche en relief avec le
+Realtime Lighting OFF. Tous les décors ont plus de profondeur, de richesse, de volume. Les probes/ambient
+n'apportent pas grand chose; ambient on/off = différence minime; c'est toujours très plat. L'AO clignote
+toujours, et elle BRULE ce qu'elle ombre au lieu de l'obscurcir. FAUT QUE TU TROUVES LA RAISON pourquoi on
+n'arrive pas à faire aussi bien (et donc mieux) en realtime qu'en vanilla."
+
+This is now a ROOT-CAUSE DIAGNOSTIC phase, not another patch round. Mandatory approach:
+
+### 1. DIAGNOSE — WHY is baked richer? (measure it, don't guess)
+Strong hypothesis to CONFIRM/REFUTE first: the baked per-vertex colors carry HIGH-SPATIAL-FREQUENCY lighting
+detail (crevice AO, contact shadows, local bounce, artist meso-shading at ~0.1-1m scale). The realtime path
+REPLACES that with albedo x (probe-SH + sun N.L) where the probe SH (4m grid, L2) is a MASSIVE LOW-PASS
+filter => all meso-scale lighting detail is destroyed => flat. Prove it quantitatively: same vantage, same
+TOD, capture baked vs realtime; compare LOCAL CONTRAST / gradient-energy spectra (esp. in shadowed and
+mid-lit areas). If the baked render has significantly more mid/high-frequency lighting energy, the
+hypothesis is confirmed and the fix is #2. Also decompose WHERE the realtime loses it: ambient term? sun
+term? missing AO-in-lighting? (Render the layers separately if needed.)
+
+### 2. FIX DIRECTION (industry-standard: keep the baked DETAIL layer, drive the LIGHTING dynamically)
+Modern remasters do NOT discard baked lighting; they split it:
+  baked_detail = baked_vertex_color / lowpass(baked_vertex_color)   (the TOD-stable high-freq part:
+  crevice AO, contact, meso-shading — ratio ~1.0 on flat areas, <1 in crevices)
+  realtime_composite = albedo x baked_detail x (probe_ambient + sun_direct) [+ dynamic shadows]
+i.e. RE-INJECT the baked high-frequency detail as a modulation layer while the probes+suns drive the
+overall lighting/TOD/direction. The lowpass can be computed per-vertex at load (neighbourhood average or
+the probe-SH itself sampled at the vertex = the smooth version). This preserves ALL the vanilla richness
+AND adds the dynamic sun/shadows on top — realtime becomes a strict SUPERSET of baked, which is the
+owner's actual acceptance bar. Design carefully (energy consistency, TOD behaviour of the detail ratio, no
+double-AO with SSAO); document the exact math in the report.
+
+### 3. AO REGRESSIONS (still broken, owner)
+(a) AO STILL FLICKERS on movement — the previous "fix" did not hold on his Honor. Re-diagnose for real
+(temporal instability source: depth/noise/TAA-less sampling? per-frame jitter?), fix, and prove with a
+frame-to-frame AO-delta metric ON A MOVING capture that actually matches his repro.
+(b) AO BURNS instead of darkening: where it should occlude, it BRIGHTENS ("elle brule ce qu'elle ombre").
+Likely an inverted term or wrong blend (additive instead of multiplicative) somewhere in the AO composite
+with the realtime path. Find it, fix it: AO must only DARKEN (multiply <= 1), never add light.
+
+### 4. ACCEPTANCE (the bar that matters)
+Realtime ON must be AT LEAST as rich as baked at every vantage (measured local-contrast/gradient energy
+realtime >= baked on matched captures) PLUS the dynamic sun/moon shadows on top. If the measured richness
+is below baked anywhere visible, it is NOT done. The owner's eye on his Honor remains the final gate.
+
+---
+## OWNER CORRECTION (2026-07-21) — AO defect restated: it looks "CRAMÉ" (burnt/ugly), NOT brightened
+Owner: "non ça éclaircit pas, mais c'est comme si c'était CRAMÉ, pas juste assombri — ça fait dégueulasse
+(ça l'a TOUJOURS fait)." So: NOT an inverted/additive blend; NOT a regression. The AO darkening itself is
+UGLY — burnt/crushed/dirty instead of a soft occlusion shadow, and it has been like that since the AO
+phase. Diagnose the QUALITY of the darkening. Usual industry culprits (check each):
+1. AO applied to the FINAL colour (darkening direct sunlight too) instead of attenuating ONLY the
+   ambient/indirect term → dirty burnt patches in lit areas. Industry rule: AO multiplies the ambient term
+   only; direct light untouched (our probe/ambient split makes this natural now).
+2. Applied in GAMMA space instead of LINEAR → darkening curves crush to burnt blacks.
+3. Strength/falloff too harsh → crushed blacks, halo edges; needs a gentle curve (e.g. pow/soft-knee),
+   never full black.
+4. Noise/banding splotches (low sample count, no blur where needed) reading as scorch marks.
+Fix = soft, physically-plausible occlusion applied to the right term in the right space. Prove with an A/B
+close-up of a previously "cramé" area (owner-visible), plus the term/space audit documented.
