@@ -410,6 +410,9 @@
 (def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (Hemisphere / SH / IBL).
 (def-progress-carousell *carousell-rt-ambient-model* (pc-text-model-hemisphere pc-text-model-sh pc-text-model-ibl))
+;; Grecharged-lightprobes: PROBE QUALITY carousell (Low/High). Reuses the AO low/high text-ids
+;; (they render LOW/HIGH, which fits Probe Quality) to avoid any new/unknown text-id.
+(def-progress-carousell *carousell-rt-probe-quality* (pc-text-ao-low pc-text-ao-high))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
@@ -953,6 +956,37 @@
             :option-disabled-func
             (lambda ()
               (not (-> *pc-settings* realtime-lighting?)))))
+       ;; LOCAL PROBES On/Off (Grecharged-lightprobes; disabled when Realtime Lighting off). Cloned from the
+       ;; Directional Ambient on/off row. Value bound to *pc-settings* realtime-probe?.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* realtime-lighting?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* realtime-probe?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none))))
+       ;; PROBE REFLECTIONS On/Off (Grecharged-lightprobes; disabled when Realtime Lighting off). Cloned from
+       ;; the Directional Ambient on/off row. Value bound to *pc-settings* realtime-probe-reflections?.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* realtime-lighting?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* realtime-probe-reflections?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none))))
+       ;; PROBE QUALITY carousell (Grecharged-lightprobes: Low / High; disabled when Realtime Lighting off).
+       ;; Carousell writes via respond-common; no on-change needed. Cloned from the Ambient Model carousell row.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type rt-probe-quality) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* realtime-lighting?)))))
        ;; 8 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
@@ -1083,7 +1117,14 @@
 (define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *shadow-quality-label*) "SHADOW QUALITY")
 (define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ambient-model-label*) "AMBIENT MODEL"))
+(format (clear *ambient-model-label*) "AMBIENT MODEL")
+;; Grecharged-lightprobes: labels for the three LOCAL PROBES rows (English-only, uppercase ASCII).
+(define *probe-enable-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *probe-enable-label*) "LOCAL PROBES")
+(define *probe-reflections-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *probe-reflections-label*) "PROBE REFLECTIONS")
+(define *probe-quality-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *probe-quality-label*) "PROBE QUALITY"))
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
@@ -3215,7 +3256,7 @@
   ;; (+ 7 hud-N hd-N) and FOLIAGE WIND sits at (+ 2 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 2 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 2 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 7 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 7 FLAG_PBR_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 10 FLAG_PBR_N)))
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -3251,7 +3292,16 @@
       (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
       (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-distance-label*)
       (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *shadow-quality-label*)))
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *shadow-quality-label*)
+      ;; Grecharged-lightprobes: LOCAL PROBES + PROBE REFLECTIONS bind the pc-settings symbols; PROBE QUALITY
+      ;; is a carousell (int-backup scratch, mapped 1:1 to realtime-probe-quality in respond-common). Rows
+      ;; +11..+13, right after SHADOW QUALITY and before Back.
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* realtime-probe?))
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *probe-enable-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *pc-settings* realtime-probe-reflections?))
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *probe-reflections-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *probe-quality-label*)))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 2 hud-N)) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
@@ -3431,6 +3481,7 @@
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
+                    (game-option-type rt-probe-quality)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3522,6 +3573,7 @@
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
+                    (game-option-type rt-probe-quality)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3851,6 +3903,7 @@
                  (((game-option-type shadow-quality))
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
+                 (((game-option-type rt-probe-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-probe-quality)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
                     ((0) (set! (-> *progress-carousell* int-backup) 0))
@@ -3901,6 +3954,7 @@
                     (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
+                    (((game-option-type rt-probe-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-probe-quality*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type speaker)) (set! (-> *progress-carousell* current-carousell) *carousell-speaker*))
@@ -3956,6 +4010,7 @@
               (((game-option-type shadow-quality))
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
+              (((game-option-type rt-probe-quality)) (set! (-> *pc-settings* realtime-probe-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -4369,6 +4424,7 @@
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
+                      (game-option-type rt-probe-quality)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -4456,6 +4512,7 @@
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
+                      (game-option-type rt-probe-quality)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)

@@ -966,6 +966,17 @@ void pc_set_rt_ambient_contrast(u32 pct) {
 void pc_set_rt_ambient_model(u32 model) {
   Gfx::g_global_settings.recharged_rt_ambient_model = (int)model;
 }
+// Grecharged-lightprobes: LOCAL PROBES enable + PROBE REFLECTIONS enable (GOAL sends 0/1, mirror the
+// != 0 idiom of pc_set_rt_ambient) + PROBE QUALITY selector (0 LOW / 1 HIGH, mirror pc_set_rt_ambient_model).
+void pc_set_rt_probe_enable(u32 v) {
+  Gfx::g_global_settings.recharged_rt_probe_enable = (v != 0);
+}
+void pc_set_rt_probe_reflections(u32 v) {
+  Gfx::g_global_settings.recharged_rt_probe_reflections = (v != 0);
+}
+void pc_set_rt_probe_quality(u32 q) {
+  Gfx::g_global_settings.recharged_rt_probe_quality = (int)q;
+}
 // ROUND 2: sun shadow-map Quality (resolution, texels) + Distance (range, meters). Both
 // take a plain u32 from GOAL (res e.g. 2048; dist e.g. 100) — no float-ABI concern.
 void pc_set_rt_shadow_res(u32 res) {
@@ -1025,6 +1036,10 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-rt-ambient-strength!", (void*)pc_set_rt_ambient_strength);
   make_function_symbol_from_c("pc-set-rt-ambient-contrast!", (void*)pc_set_rt_ambient_contrast);
   make_function_symbol_from_c("pc-set-rt-ambient-model!", (void*)pc_set_rt_ambient_model);
+  // Grecharged-lightprobes: LOCAL PROBES enable + PROBE REFLECTIONS enable + PROBE QUALITY selector
+  make_function_symbol_from_c("pc-set-rt-probe-enable!", (void*)pc_set_rt_probe_enable);
+  make_function_symbol_from_c("pc-set-rt-probe-reflections!", (void*)pc_set_rt_probe_reflections);
+  make_function_symbol_from_c("pc-set-rt-probe-quality!", (void*)pc_set_rt_probe_quality);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);

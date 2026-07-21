@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "game/graphics/opengl_renderer/LightProbeGrid.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 #include "game/kernel/jak2/kscheme.h"
 
@@ -323,6 +324,11 @@ std::string TFragData::print() const {
 void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_kinds,
                             const LevelData* loader_data) {
   const auto* lev_data = loader_data->level.get();
+#ifdef OG_FEAT_PBR
+  // Grecharged-lightprobes: load this level's LOCAL probe grid (<level>.probes) if it exists. Cheap
+  // no-op after the first load; levels without a probe asset fail fast and never retry.
+  LightProbeGrid::get().ensure_loaded(lev_data->level_name);
+#endif
   // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces.
   // Grecharged-grass-overhang7: gate widened from "training" to the grass allowlist — the owner
   // plays at Sentinel Beach, which uses the same bch-* textures and now gets the droop/fall tail.

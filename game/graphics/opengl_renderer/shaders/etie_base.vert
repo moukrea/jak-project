@@ -26,6 +26,10 @@ out vec3 tex_coord;
 out float fogginess;
 #ifdef OG_PBR
 out vec3 v_fringe_rel;
+// Grecharged-lightprobes: absolute world position (GOAL game units) for probe lookup.
+out vec3 v_world;
+out vec3 v_probe_amb;
+out float v_probe_w;
 out vec3 v_normal;  // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
 #endif
 
@@ -35,6 +39,34 @@ uniform vec4 persp1;
 uniform mat4 cam_no_persp;
 #ifdef OG_PBR
 uniform vec4 cam_trans;
+// Grecharged-lightprobes: LOCAL probe grid, evaluated PER-VERTEX (SH ambient is low-frequency, so a
+// per-vertex eval + interpolation is visually equivalent to per-pixel but ~100x cheaper on Adreno).
+uniform int u_rt_probe_on;
+uniform int u_rt_probe_quality;
+uniform vec3 u_rt_probe_origin;
+uniform float u_rt_probe_inv_cell;
+uniform vec3 u_rt_probe_dims;
+uniform float u_rt_probe_range;
+uniform sampler3D u_rt_probe_dc;
+uniform sampler3D u_rt_probe_l1a;
+uniform sampler3D u_rt_probe_l1b;
+uniform sampler3D u_rt_probe_l1c;
+vec3 rt_probe_sh(vec3 wp, vec3 N, out float w) {
+  vec3 uvw = (wp - u_rt_probe_origin) * u_rt_probe_inv_cell / u_rt_probe_dims;
+  if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0)))) { w = 0.0; return vec3(0.0); }
+  vec4 dc = texture(u_rt_probe_dc, uvw);
+  w = dc.a;
+  if (w < 0.02) return vec3(0.0);
+  float R = u_rt_probe_range;
+  vec3 amb = (dc.rgb * R) * 0.282095;
+  if (u_rt_probe_quality >= 1) {
+    vec3 c1 = (texture(u_rt_probe_l1a, uvw).rgb - 0.5) * R;
+    vec3 c2 = (texture(u_rt_probe_l1b, uvw).rgb - 0.5) * R;
+    vec3 c3 = (texture(u_rt_probe_l1c, uvw).rgb - 0.5) * R;
+    amb += c1 * (0.488603 * N.y) + c2 * (0.488603 * N.z) + c3 * (0.488603 * N.x);
+  }
+  return max(amb, vec3(0.0));
+}
 #endif
 
 void main() {
@@ -46,6 +78,12 @@ void main() {
   vf17 += cam_no_persp[2] * position_in.z;
 #ifdef OG_PBR
   v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
+  v_world = position_in;                 // Grecharged-lightprobes: world pos for probe lookup
+  v_probe_w = 0.0;
+  v_probe_amb = vec3(0.0);
+  if (u_rt_probe_on != 0) {
+    v_probe_amb = rt_probe_sh(position_in, normal_in, v_probe_w);
+  }
   v_normal = normal_in;  // world-space authored TIE normal (already rotated by the instance matrix)
 #endif
   vec4 p_proj = vec4(persp1.x * vf17.x, persp1.y * vf17.y, persp1.z, persp1.w);

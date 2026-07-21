@@ -69,6 +69,8 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/ocean/OceanTexture.cpp
         graphics/opengl_renderer/GrassRenderer.cpp
         graphics/opengl_renderer/GrassBakeCore.cpp
+        graphics/opengl_renderer/ProbeBakeCore.cpp
+        graphics/opengl_renderer/LightProbeGrid.cpp
         graphics/opengl_renderer/AmbientOcclusion.cpp
         graphics/opengl_renderer/opengl_utils.cpp
         graphics/opengl_renderer/OpenGLRenderer.cpp
@@ -392,6 +394,9 @@ if(NOT (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
         # reads/expands it (bit-identical placement across x86 desktop and arm64 device).
         set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
                 PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+        # Grecharged-lightprobes: same float-identity rationale between the probe baker and runtime.
+        set_source_files_properties(graphics/opengl_renderer/ProbeBakeCore.cpp
+                PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 else()
         set_source_files_properties(
                 mips2c/jak1_functions/collide_cache.cpp
@@ -402,6 +407,8 @@ else()
                 mips2c/jak1_functions/sparticle.cpp
                 PROPERTIES COMPILE_OPTIONS "/fp:precise")
         set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
+                PROPERTIES COMPILE_OPTIONS "/fp:precise")
+        set_source_files_properties(graphics/opengl_renderer/ProbeBakeCore.cpp
                 PROPERTIES COMPILE_OPTIONS "/fp:precise")
 endif()
 

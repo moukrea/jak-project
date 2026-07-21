@@ -6,6 +6,7 @@ in vec4 fragment_color;
 in vec3 tex_coord;
 in float fogginess;
 in vec3 v_fringe_rel;  // Grecharged-grass-overhang2: camera-relative world pos (meters)
+in vec3 v_world;       // Grecharged-lightprobes: absolute world pos (game units) for probe lookup
 in vec3 v_normal;      // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
 uniform sampler2D tex_T0;
 
@@ -218,6 +219,15 @@ vec3 rt_ibl_ambient(vec3 d) {
   g = g * g; g = g * g;   // pow 4 soft glow lobe
   return band + u_rt_sun_glow * g;
 }
+// Grecharged-lightprobes: the LOCAL probe irradiance is evaluated PER-VERTEX (see tfrag3.vert) and
+// arrives interpolated as v_probe_amb / v_probe_w (grid coverage). The fragment only needs the
+// composition gate + the per-pixel prefiltered reflection cube (metal/water/Precursor/PBR IBL).
+uniform int u_rt_probe_on;
+uniform int u_rt_probe_reflections;
+uniform float u_rt_probe_strength;
+uniform samplerCube u_rt_probe_cube;   // prefiltered LOCAL reflection env (nearest anchor)
+in vec3 v_probe_amb;                    // per-vertex local probe irradiance (interpolated)
+in float v_probe_w;                     // per-vertex grid coverage (interpolated)
 #endif
 
 
@@ -380,6 +390,16 @@ void main() {
         base = mix(u_rt_ground_color, u_rt_sky_color, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
       }
       base = clamp(base, 0.0, 1.0);
+      // Grecharged-lightprobes: where a LOCAL probe grid covers this fragment, REPLACE the global
+      // analytic ambient base with the LOCAL probe irradiance (interiors get their true local light).
+      // probe_w = grid coverage; fades cleanly back to the analytic base at the grid boundary.
+      float probe_w = 0.0;
+      if (u_rt_probe_on != 0) {
+        probe_w = v_probe_w;              // per-vertex probe ambient, interpolated (cheap)
+        if (probe_w > 0.02) {
+          base = mix(base, clamp(v_probe_amb, 0.0, 1.0), clamp(probe_w, 0.0, 1.0) * clamp(u_rt_probe_strength, 0.0, 1.0));
+        }
+      }
       // AZIMUTHAL DIRECTIONAL CONTRAST — the fix for flat VERTICAL faces (rocks/walls, N.y~0) with the
       // sun OFF. A GAIN-boosted, FLOORED directional wrap toward the ambient key (sun-azimuth horizontal
       // + up-tilt, NOT elevation-faded so it PERSISTS sun-off): faces toward the key brighten as a soft
@@ -389,7 +409,7 @@ void main() {
       // the high-gain away-faces from clamping to pure black (which would re-flatten them). contrast 0 =>
       // shape 1 => the pure-hemisphere flat A/B reference. Golden rule intact: the direct-sun term below
       // is untouched, and base's weight vanishes as the sun saturates (sunlit byte-identical).
-      if (u_rt_ambient_on != 0) {
+      if (u_rt_ambient_on != 0 && probe_w <= 0.02) {  // probe carries its OWN local directionality
         float rt_shape = 1.0 + (u_rt_ambient_contrast * 2.0) * dot(N, u_rt_ambient_key);
         base = base * max(rt_shape, 0.15);
         base = clamp(base, 0.0, 1.0);
@@ -412,7 +432,25 @@ void main() {
       // ITEM B: the GREEN MOON adds a directional key at night (weight folded into u_rt_moon_color =>
       // 0 by day, golden rule). Same additive model as the sun; the sun<->moon crossover is smooth.
       float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0) * moon_occ;  // green-sun N.L * its cast shadow (item 1)
-      vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar + albedo * u_rt_moon_color * moon_ndl;
+      // Grecharged-lightprobes ENERGY-CONSISTENT COMPOSITION (no double-count of the sun): the probe
+      // base already contains the suns (baked HDRI). So where the probe is authoritative we (a) modulate
+      // the local irradiance by the DYNAMIC (moving) shadow so cast shadows still show, and (b) scale the
+      // ADDITIVE analytic sun WAY down (its energy is already in the probe) — the dynamic layer only adds
+      // the delta the bake can't: moving shadows + a crisp sun highlight + specular reflections. When the
+      // probe is off/uncovered, probe_active=0 => the accepted directional-ambient composite is byte-identical.
+      float probe_active = (u_rt_probe_on != 0 && probe_w > 0.02) ? 1.0 : 0.0;
+      float shadowVis = mix(1.0, mix(0.6, 1.0, sun_occ), probe_active);   // moving shadow darkens local irradiance
+      float sun_k = mix(1.0, 0.20, probe_active);                        // sun already in the probe => small delta
+      vec3 lit = albedo * base * shadowVis
+               + albedo * u_rt_sun_color * sun_scalar * sun_k
+               + albedo * u_rt_moon_color * moon_ndl * sun_k;
+      // Reflection consumer: PBR IBL specular from the LOCAL prefiltered environment cube (the local
+      // world reflects — interior wood vs exterior sky — not a flat global cube).
+      if (probe_active > 0.5 && u_rt_probe_reflections != 0) {
+        vec3 Rf = reflect(normalize(v_fringe_rel), N);     // reflect (cam->surface) about the world normal
+        vec3 spec = textureLod(u_rt_probe_cube, Rf, 2.0).rgb;
+        lit += spec * (0.25 * clamp(u_rt_probe_strength, 0.0, 1.0));
+      }
       {
         const float RT_KNEE = 0.8;
         vec3 e = exp(-max(lit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));  // max() guards 0*inf NaN

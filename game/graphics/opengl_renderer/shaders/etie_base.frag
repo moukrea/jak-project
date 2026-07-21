@@ -21,6 +21,7 @@ uniform int gfx_hack_no_tex;
 // pbr_shadow_bind_receiver; absent locations are -1 (glUniform no-ops). Stripped
 // entirely in a stock (non-OG_PBR) build => OFF == stock byte-identical.
 in vec3 v_fringe_rel;
+in vec3 v_world;  // Grecharged-lightprobes: absolute world pos (game units) for probe lookup
 in vec3 v_normal;  // Grecharged-directional-ambient: smooth authored TIE normal (root-cause fix)
 uniform int u_rt_light_on;
 uniform vec3 u_rt_sun_dir;
@@ -121,6 +122,15 @@ vec3 rt_ibl_ambient(vec3 d) {
   g = g * g; g = g * g;   // pow 4 soft glow lobe
   return band + u_rt_sun_glow * g;
 }
+// Grecharged-lightprobes: the LOCAL probe irradiance is evaluated PER-VERTEX (see the .vert) and
+// arrives interpolated as v_probe_amb / v_probe_w. The fragment only needs the composition gate +
+// the per-pixel prefiltered reflection cube.
+uniform int u_rt_probe_on;
+uniform int u_rt_probe_reflections;
+uniform float u_rt_probe_strength;
+uniform samplerCube u_rt_probe_cube;
+in vec3 v_probe_amb;
+in float v_probe_w;
 #endif
 
 
@@ -219,6 +229,15 @@ void main() {
         base = mix(u_rt_ground_color, u_rt_sky_color, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
       }
       base = clamp(base, 0.0, 1.0);
+      // Grecharged-lightprobes: replace the global analytic ambient with the LOCAL probe irradiance
+      // where the grid covers this fragment (interiors get their true local light).
+      float probe_w = 0.0;
+      if (u_rt_probe_on != 0) {
+        probe_w = v_probe_w;
+        if (probe_w > 0.02) {
+          base = mix(base, clamp(v_probe_amb, 0.0, 1.0), clamp(probe_w, 0.0, 1.0) * clamp(u_rt_probe_strength, 0.0, 1.0));
+        }
+      }
       // AZIMUTHAL DIRECTIONAL CONTRAST — the fix for flat VERTICAL faces (rocks/walls, N.y~0) with the
       // sun OFF. A GAIN-boosted, FLOORED directional wrap toward the ambient key (sun-azimuth horizontal
       // + up-tilt, NOT elevation-faded so it PERSISTS sun-off): faces toward the key brighten as a soft
@@ -228,7 +247,7 @@ void main() {
       // the high-gain away-faces from clamping to pure black (which would re-flatten them). contrast 0 =>
       // shape 1 => the pure-hemisphere flat A/B reference. Golden rule intact: the direct-sun term below
       // is untouched, and base's weight vanishes as the sun saturates (sunlit byte-identical).
-      if (u_rt_ambient_on != 0) {
+      if (u_rt_ambient_on != 0 && probe_w <= 0.02) {  // probe carries its OWN local directionality
         float rt_shape = 1.0 + (u_rt_ambient_contrast * 2.0) * dot(N, u_rt_ambient_key);
         base = base * max(rt_shape, 0.15);
         base = clamp(base, 0.0, 1.0);
@@ -246,7 +265,21 @@ void main() {
       // white while leaving the dim ambient/shadow region — far below the knee — BYTE-untouched (the
       // accepted sun-off relief is preserved exactly; sun_scalar==0 => lit==albedo*base as before).
       float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0) * moon_occ;  // green-sun N.L * its cast shadow (item 1)
-      vec3 lit = albedo * base + albedo * u_rt_sun_color * sun_scalar + albedo * u_rt_moon_color * moon_ndl;
+      // Grecharged-lightprobes energy-consistent composition (no double-count of the sun): the probe base
+      // already contains the suns, so where it is authoritative we modulate it by the moving shadow and
+      // scale the additive analytic sun WAY down; the dynamic layer only adds the delta (moving shadow +
+      // crisp highlight + specular reflections). probe off/uncovered => byte-identical to before.
+      float probe_active = (u_rt_probe_on != 0 && probe_w > 0.02) ? 1.0 : 0.0;
+      float shadowVis = mix(1.0, mix(0.6, 1.0, sun_occ), probe_active);
+      float sun_k = mix(1.0, 0.20, probe_active);
+      vec3 lit = albedo * base * shadowVis
+               + albedo * u_rt_sun_color * sun_scalar * sun_k
+               + albedo * u_rt_moon_color * moon_ndl * sun_k;
+      if (probe_active > 0.5 && u_rt_probe_reflections != 0) {
+        vec3 Rf = reflect(normalize(v_fringe_rel), N);
+        vec3 spec = textureLod(u_rt_probe_cube, Rf, 2.0).rgb;
+        lit += spec * (0.25 * clamp(u_rt_probe_strength, 0.0, 1.0));
+      }
       {
         const float RT_KNEE = 0.8;
         vec3 e = exp(-max(lit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));  // max() guards 0*inf NaN

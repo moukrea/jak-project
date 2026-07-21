@@ -215,6 +215,15 @@ struct GfxGlobalSettings {
   // daytime sky sun-glow lobe for shadowed-area form). Hemisphere stays available via the selector.
   int recharged_rt_ambient_model = 1;
   float recharged_rt_ambient_contrast = 1.0f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5); owner-validated shipped default (playtest 2026-07-20: SH + strength 0.2 + contrast 1.0)
+  // Grecharged-lightprobes: precomputed LOCAL environment probes (irradiance-volume ambient replaces
+  // the GLOBAL analytic SH where a probe grid exists, + a prefiltered reflection cube for PBR IBL /
+  // metal / water). Default OFF => render byte-identical to the directional-ambient path (code-gated
+  // in the 4 world shaders behind u_rt_probe_on). Quality tier: 0 = DC-only (cheapest, still local),
+  // 1 = L1 directional (default). reflections = sample the local cube. strength = probe blend amount.
+  bool recharged_rt_probe_enable = false;
+  bool recharged_rt_probe_reflections = false;
+  int recharged_rt_probe_quality = 1;
+  float recharged_rt_probe_strength = 1.0f;
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

@@ -1042,8 +1042,19 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   if (scale > 400) scale = 400;
   const int scaled_w = (settings.game_res_w * scale + 50) / 100;
   const int scaled_h = (settings.game_res_h * scale + 50) / 100;
-  const int fbo_w = scaled_w > 0 ? scaled_w : 1;
-  const int fbo_h = scaled_h > 0 ? scaled_h : 1;
+  int fbo_w = scaled_w > 0 ? scaled_w : 1;
+  int fbo_h = scaled_h > 0 ? scaled_h : 1;
+  // Grecharged-lightprobes: owner NATIVE-RES eval override. The GOAL dynamic render-scale controller
+  // downscales game_res on heavy vantages (village1-hut is ~18 fps at BASELINE, probe or not), so a
+  // quality eval must FORCE a full-resolution FBO and ignore the framerate. debug.opengoal.renderscale.native
+  // '1' => a fixed native 1600x720 FBO (render scaling OFF for the eval; framerate irrelevant to quality).
+  {
+    char rv[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.renderscale.native", rv) > 0 && atoi(rv) != 0) {
+      fbo_w = 1600;
+      fbo_h = 720;
+    }
+  }
   m_stats.fbo_w = fbo_w;
   m_stats.fbo_h = fbo_h;
 

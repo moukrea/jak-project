@@ -22,6 +22,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/LightProbeGrid.h"
 #include "game/graphics/pipelines/opengl.h"
 
 #ifdef OG_FEAT_GRASS_OVERHANG
@@ -2002,6 +2003,19 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_world_relight"), world_relight);
   glUniform1f(glGetUniformLocation(id, "u_pbr_wr_direct"), wr_direct);
   glUniform1f(glGetUniformLocation(id, "u_pbr_wr_indirect"), wr_indirect);
+
+  // Grecharged-lightprobes: LOCAL environment probe grid. update_for_frame is a per-frame no-op after
+  // the first shader (guarded on frame_idx); bind_and_upload sets u_rt_probe_* on this program. When
+  // the feature is OFF or no grid is resident it uploads u_rt_probe_on=0 => shader OFF==stock.
+  {
+    s32 it[4][4];
+    for (int a = 0; a < 4; a++)
+      for (int b = 0; b < 4; b++)
+        it[a][b] = settings.itimes[a][b];
+    float cam[3] = {settings.trans[0], settings.trans[1], settings.trans[2]};
+    LightProbeGrid::get().update_for_frame(it, cam, render_state->frame_idx);
+    LightProbeGrid::get().bind_and_upload(id);
+  }
 #endif
 }
 
