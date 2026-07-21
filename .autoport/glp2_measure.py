@@ -107,6 +107,33 @@ def mode_flicker(dirs):
         print(f"{os.path.basename(d):30s} pairs={len(deltas):3d} d_mean={deltas.mean():7.3f} "
               f"d_p95={np.percentile(deltas,95):7.3f} d_std={deltas.std():7.3f}")
 
+def mode_pairdiff(dirs):
+    # OWNER #3 gate: per-pixel |diff| between the time-AVERAGED frame of dir A and dir B (both static
+    # captures at the SAME deterministic warp vantage). Discriminates the probe-fed MODEL tiers
+    # (Hemisphere/SH/IBL differ in the DIRECTIONAL distribution, not necessarily the crop mean —
+    # a whole-crop mean can cancel; a per-pixel diff cannot). Reports mean + p95 |dLuma| and mean |dRGB|.
+    if len(dirs) < 2:
+        print("pairdiff needs >= 2 dirs"); return
+    def avg_img(d):
+        fs = frames(d)
+        if not fs:
+            return None
+        acc = None
+        for f in fs:
+            c = world_crop(np.asarray(Image.open(f).convert("RGB")).astype(np.float64))
+            acc = c if acc is None else acc + c
+        return acc / len(fs)
+    imgs = {d: avg_img(d) for d in dirs}
+    for i in range(len(dirs)):
+        for j in range(i + 1, len(dirs)):
+            a, b = imgs[dirs[i]], imgs[dirs[j]]
+            na, nb = os.path.basename(dirs[i]), os.path.basename(dirs[j])
+            if a is None or b is None or a.shape != b.shape:
+                print(f"{na} vs {nb}: NO FRAMES / SHAPE MISMATCH"); continue
+            dl = np.abs(luma(a) - luma(b))
+            drgb = np.abs(a - b).mean()
+            print(f"{na:22s} vs {nb:22s} dLuma_mean={dl.mean():7.3f} dLuma_p95={np.percentile(dl,95):7.3f} dRGB_mean={drgb:7.3f}")
+
 def mode_shadowcontrast(dirs):
     # Cast-shadow visibility on the ground: ratio of the darkest-decile mean to the brightest-decile
     # mean of the ground crop. A clearly visible cast shadow keeps the ratio LOW; a washed-out
@@ -129,4 +156,5 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     mode, dirs = sys.argv[1], sys.argv[2:]
     {"luma": mode_luma, "contrast": mode_contrast, "gridfft": mode_gridfft,
-     "flicker": mode_flicker, "shadowcontrast": mode_shadowcontrast}[mode](dirs)
+     "flicker": mode_flicker, "shadowcontrast": mode_shadowcontrast,
+     "pairdiff": mode_pairdiff}[mode](dirs)

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # glp_capture.sh — Grecharged-lightprobes device A/B captures (deterministic warp, STATIC camera so the
-# ONLY difference between a pair is the probe prop). Usage: glp_capture.sh <tag> <probe> <refl> <qual> <warp> <pos> <hour>
+# ONLY difference between a pair is the probe prop). Usage: glp_capture.sh <tag> <probe> <refl> <qual> <warp> <pos> <hour> [model]
 #   probe/refl 0|1 ; qual 0|1 ; warp e.g. village1-hut ; pos "X Y Z" meters ; hour 0..24
+#   model (optional, OWNER #3 unification) = 0|1|2 forces the AMBIENT MODEL fidelity tier
+#   (Hemisphere/SH/IBL of the PROBE data when probes are on); '' = leave the setting default.
 # Records ~12s static, pulls the mp4, extracts a mid frame. Then use glp_measure.py to compare pairs.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -10,14 +12,14 @@ export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=.autoport/reports/Grecharged-lightprobes/device; mkdir -p "$OUT"
 TAG="${1:?tag}"; PROBE="${2:-1}"; REFL="${3:-0}"; QUAL="${4:-1}"
-WARP="${5:-village1-hut}"; POS="${6:--112.0 42.0 205.0}"; HOUR="${7:-8}"
+WARP="${5:-village1-hut}"; POS="${6:--112.0 42.0 205.0}"; HOUR="${7:-8}"; MODEL="${8:-}"
 adb(){ "$ADB" -s "$ANDROID_SERIAL" "$@"; }
 focus(){ adb shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
 
 set_props(){
   adb shell "setprop debug.opengoal.rt.light 1" </dev/null
   adb shell "setprop debug.opengoal.rt.ambient 1" </dev/null
-  adb shell "setprop debug.opengoal.rt.ambientmodel ''" </dev/null
+  adb shell "setprop debug.opengoal.rt.ambientmodel '$MODEL'" </dev/null
   adb shell "setprop debug.opengoal.ao.force_mode 0" </dev/null
   adb shell "setprop debug.opengoal.pbr.debug ''" </dev/null
   adb shell "setprop debug.opengoal.renderscale.native 1" </dev/null   # FULL-RES eval, render scaling OFF
@@ -65,7 +67,7 @@ ffmpeg -y -loglevel error -i "$OUT/glp_$TAG.mp4" -vf fps=2 "$OUT/frames_$TAG/f_%
 kill "$(cat /tmp/glp_lc.pid 2>/dev/null)" 2>/dev/null || true
 adb shell am force-stop $PKG </dev/null
 NF=$(ls "$OUT/frames_$TAG" 2>/dev/null | wc -l)
-echo "[glp-cap] $TAG done: probe=$PROBE refl=$REFL qual=$QUAL warp='$WARP' pos='$POS' hour=$HOUR frames=$NF"
+echo "[glp-cap] $TAG done: probe=$PROBE refl=$REFL qual=$QUAL model='${MODEL}' warp='$WARP' pos='$POS' hour=$HOUR frames=$NF"
 echo "  focus=$FOCUS_LINE"
 echo "  spawn=$(grep -aE 'LEVEL-WARP-SPAWN' "$LOG" | tail -1 | tr -d '\r')"
 echo "  probe-load=$(grep -aE 'lightprobe' "$LOG" | tail -1 | tr -d '\r')"

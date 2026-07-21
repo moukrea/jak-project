@@ -100,21 +100,19 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 7 | AO Quality | carousell | **Low / Medium / High** (cond: AO == Off) | — |
 | 8 | AO Strength | carousell | **Weaker / Default / Stronger** (cond: AO == Off) | — |
 | 9 | **Realtime Lighting** | on-off | `realtime-lighting?` — **maître** de tout le bloc lighting ci-dessous | {FLAG_PBR} |
-| 10 | Directional Ambient | on-off | `realtime-ambient?` (cond: Realtime OFF) | {FLAG_PBR} |
-| 11 | **Ambient Model** | carousell | **Hemisphere / SH / IBL** (cond: Realtime OFF) | {FLAG_PBR} |
+| 10 | Ambient | on-off | `realtime-ambient?` (cond: Realtime OFF) — groupe ambient unifié probe-fed (ex-"Directional Ambient") ; gate le LightProbeGrid (actif quand ON), l'estimation analytique = fallback no-probe uniquement | {FLAG_PBR} |
+| 11 | **Ambient Model** | carousell | **Hemisphere / SH / IBL = FIDÉLITÉ D'ÉVALUATION des données PROBE (probe-fed)** ; estimation analytique seulement là où il n'y a pas de couverture probe (cond: Realtime OFF) | {FLAG_PBR} |
 | 12 | Ambient Strength | slider | 0.0..0.5 pas 0.05 (déc.) → `realtime-ambient-strength` (cond: Realtime OFF) | {FLAG_PBR} |
 | 13 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (cond: Realtime OFF) | {FLAG_PBR} |
 | 14 | Shadow Distance | slider | 20..200 m pas 10 (cond: Realtime OFF) | {FLAG_PBR} |
 | 15 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF) | {FLAG_PBR} |
-| 16 | **Baked Ambient** | on-off | `realtime-probe?` (cond: Realtime OFF) — **(Grecharged-lightprobes)** ex-"Local Probes", renommé playtest #1b (précomputé, pas de capture in-game) | {FLAG_PBR} |
-| 17 | **Baked Reflections** | on-off | `realtime-probe-reflections?` (cond: Realtime OFF) — ex-"Probe Reflections". Cubemaps bakées = RESSOURCE consommée uniquement par les matériaux PBR (roughness/metalness IBL) et plus tard l'eau ; n'applique JAMAIS de reflet sur le monde diffus (le "gris partout" du playtest #1 est supprimé) | {FLAG_PBR} |
-| 18 | **Baked Ambient Quality** | carousell | **Low / High** (cond: Realtime OFF) — ex-"Probe Quality" | {FLAG_PBR} |
-| 19 | Back | button | | — |
+| 16 | Back | button | | — |
 
-> **Observation pour la réorganisation** : ce menu est devenu **long et plat** (jusqu'à ~19 lignes),
-> mélange HUD / assets / matériaux / modèles / foliage / AO / lighting / probes. Candidat évident à un
-> regroupement en sous-catégories (ex : *Lighting* [Realtime + Ambient + Shadows + Probes], *Materials* [PBR
-> + Custom Assets], *Vegetation* [Grass + Foliage], *AO*, *Models*, *HUD*).
+> **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
+> BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié
+> ci-dessus — les données probe alimentent désormais les paliers de l'Ambient Model. Le menu reste
+> long et plat (HUD / assets / matériaux / modèles / foliage / AO / lighting) ; regroupement en
+> sous-catégories toujours envisageable (ex : *Lighting*, *Materials*, *Vegetation*, *AO*, *Models*, *HUD*).
 
 ---
 
@@ -244,6 +242,17 @@ loading / saving / formatting / creating / insert / removed / no-data · memcard
   Grecharged-directional-ambient (prereq 2) : simplification 2-toggles→1. Désormais **baked = !realtime** en
   dur (Realtime ON ⇒ baked off ; Realtime OFF ⇒ chemin baked stock). Raison : l'owner trouvait le double
   toggle confus ("ne revient pas au défaut").
+- **Baked Ambient (on/off)** (`realtime-probe?` + ligne + label `*probe-enable-label*` + wiring) — supprimé
+  2026-07-21 par OWNER #3 UNIFICATION : fusionné dans le groupe AMBIENT unifié ci-dessus. Les données probe
+  alimentent désormais les paliers de l'Ambient Model (Hemisphere/SH/IBL) ; plus de ligne dédiée.
+- **Baked Reflections (on/off)** (`realtime-probe-reflections?` + ligne + label `*probe-reflections-label*` +
+  wiring) — supprimé 2026-07-21 par OWNER #3 UNIFICATION : fusionné dans le groupe AMBIENT unifié. Les cubemaps
+  bakées restent bakées et exposées comme **RESSOURCE** consommée uniquement par les phases PBR/eau (roughness/
+  metalness IBL) — jamais d'application sur le monde.
+- **Baked Ambient Quality (carousell)** (`realtime-probe-quality` + ligne + label `*probe-quality-label*` +
+  wiring) — supprimé 2026-07-21 par OWNER #3 UNIFICATION : fusionné dans le groupe AMBIENT unifié. La fidélité
+  d'évaluation est désormais portée par l'Ambient Model ; l'enum quality reste réservé (dead-but-compiling)
+  pour le handoff PBR-fusion.
 - (Rien d'autre de supprimé au niveau menu à ce jour ; les autres tweaks sont des ajouts/reorders.)
 
 ---

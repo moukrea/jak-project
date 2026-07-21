@@ -52,6 +52,12 @@ bash .autoport/glp2_walk_capture.sh b_walk_p1_ao1 1 1 village1-hut "$DECK" 8 0 2
 bash .autoport/glp2_walk_capture.sh b_walk_p0_ao1 0 1 village1-hut "$DECK" 8 0 2>&1 | tail -4 | tee -a "$SUM"
 bash .autoport/glp2_walk_capture.sh b_walk_p1_ao0 1 0 village1-hut "$DECK" 8 0 2>&1 | tail -4 | tee -a "$SUM"
 
+say "G. PROBE-FED MODEL TIERS (OWNER #3: Hemisphere/SH/IBL = eval fidelity of the PROBE data; probes ON, deck)"
+bash .autoport/glp_capture.sh b_model0 1 0 1 village1-hut "$DECK" 8 0 2>&1 | tail -4 | tee -a "$SUM"
+bash .autoport/glp_capture.sh b_model1 1 0 1 village1-hut "$DECK" 8 1 2>&1 | tail -4 | tee -a "$SUM"
+bash .autoport/glp_capture.sh b_model2 1 0 1 village1-hut "$DECK" 8 2 2>&1 | tail -4 | tee -a "$SUM"
+# analytic-fallback reference at the same vantage/model = b_ctr_off (probe=0, model default SH)
+
 say "F. MENU sweep (screenrecord a full DOWN-sweep of the Recharged Settings page)"
 stick(){ adb shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null; }
 tapb(){ stick "$1"; sleep 0.8; stick ""; sleep "${2:-1.8}"; }
@@ -105,4 +111,7 @@ python3 .autoport/glp2_measure.py shadowcontrast "$OUT"/frames_b_night_on "$OUT"
 python3 .autoport/glp2_measure.py luma "$OUT"/frames_b_night_on "$OUT"/frames_b_night_off 2>&1 | tee -a "$SUM"
 say "-- AO temporal stability on movement (probe ON vs OFF vs AO-off)"
 python3 .autoport/glp2_measure.py flicker "$OUT"/frames_b_walk_p1_ao1 "$OUT"/frames_b_walk_p0_ao1 "$OUT"/frames_b_walk_p1_ao0 2>&1 | tee -a "$SUM"
+say "-- probe-fed model tiers (H vs SH vs IBL must DIFFER with probes ON; each vs analytic b_ctr_off)"
+python3 .autoport/glp2_measure.py luma "$OUT"/frames_b_model0 "$OUT"/frames_b_model1 "$OUT"/frames_b_model2 "$OUT"/frames_b_ctr_off 2>&1 | tee -a "$SUM"
+python3 .autoport/glp2_measure.py pairdiff "$OUT"/frames_b_model0 "$OUT"/frames_b_model1 "$OUT"/frames_b_model2 "$OUT"/frames_b_ctr_off 2>&1 | tee -a "$SUM"
 say "battery DONE"

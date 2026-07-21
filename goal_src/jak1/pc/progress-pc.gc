@@ -895,9 +895,10 @@
               (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; Directional Ambient On/Off (Grecharged-directional-ambient; disabled when Realtime Lighting off).
-       ;; Hemisphere sky/ground ambient that replaces the flat ~0.2 floor => shadowed surfaces keep FORM
-       ;; with AO off. OFF = the legacy flat floor (A/B). Value bound to *pc-settings* realtime-ambient?.
+       ;; UNIFIED AMBIENT On/Off (Grecharged-lightprobes OWNER #3, probe-fed; disabled when Realtime Lighting
+       ;; off). Gates the WHOLE probe-fed local ambient: LightProbeGrid is active when this is ON (analytic
+       ;; estimation is used only as a no-probe fallback where the level has no probe coverage). OFF = the
+       ;; legacy flat ~0.2 floor (A/B). Value bound to *pc-settings* realtime-ambient?.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :option-disabled-func
@@ -908,8 +909,9 @@
               (set! (-> *pc-settings* realtime-ambient?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; Ambient Model carousell (Grecharged-directional-ambient ROUND 2: Hemisphere / SH / IBL; disabled
-       ;; when Realtime Lighting off). Carousell writes via respond-common; no on-change needed.
+       ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
+       ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
+       ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t
             :option-disabled-func
@@ -956,37 +958,10 @@
             :option-disabled-func
             (lambda ()
               (not (-> *pc-settings* realtime-lighting?)))))
-       ;; LOCAL PROBES On/Off (Grecharged-lightprobes; disabled when Realtime Lighting off). Cloned from the
-       ;; Directional Ambient on/off row. Value bound to *pc-settings* realtime-probe?.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* realtime-probe?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; PROBE REFLECTIONS On/Off (Grecharged-lightprobes; disabled when Realtime Lighting off). Cloned from
-       ;; the Directional Ambient on/off row. Value bound to *pc-settings* realtime-probe-reflections?.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* realtime-probe-reflections?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; PROBE QUALITY carousell (Grecharged-lightprobes: Low / High; disabled when Realtime Lighting off).
-       ;; Carousell writes via respond-common; no on-change needed. Cloned from the Ambient Model carousell row.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type rt-probe-quality) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))))
+       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
+       ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
+       ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
+       ;; are a resource for PBR/water only. See menu-tree.md §11 [SUPPR] history.
        ;; 8 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
@@ -1107,7 +1082,7 @@
 (define *realtime-lighting-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *realtime-lighting-label*) "REALTIME LIGHTING")
 (define *hemisphere-ambient-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *hemisphere-ambient-label*) "DIRECTIONAL AMBIENT")
+(format (clear *hemisphere-ambient-label*) "AMBIENT")
 (define *ambient-strength-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *ambient-strength-label*) "AMBIENT STRENGTH")
 (define *ambient-contrast-label* (new 'global 'string 64 (the-as string #f)))
@@ -1117,18 +1092,10 @@
 (define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *shadow-quality-label*) "SHADOW QUALITY")
 (define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ambient-model-label*) "AMBIENT MODEL")
-;; Grecharged-lightprobes: labels for the three BAKED AMBIENT rows (English-only, uppercase ASCII).
-;; PLAYTEST#1b #3 (owner): in-game the probes don't capture anything — they're PRECOMPUTED baked
-;; lighting, so "PROBES" was misleading; the user-facing labels say BAKED AMBIENT. (Internal code
-;; names keep "probe".) BAKED REFLECTIONS = the baked reflection cubemaps as a RESOURCE, applied
-;; only by material-aware consumers (PBR roughness/metalness IBL, later water) — never a world wash.
-(define *probe-enable-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *probe-enable-label*) "BAKED AMBIENT")
-(define *probe-reflections-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *probe-reflections-label*) "BAKED REFLECTIONS")
-(define *probe-quality-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *probe-quality-label*) "BAKED AMBIENT QUALITY"))
+;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
+;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
+;; rows; the probe data now feeds the unified AMBIENT tiers (Hemisphere/SH/IBL).
+(format (clear *ambient-model-label*) "AMBIENT MODEL"))
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
@@ -3260,7 +3227,7 @@
   ;; (+ 7 hud-N hd-N) and FOLIAGE WIND sits at (+ 2 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 2 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 2 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 7 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 10 FLAG_PBR_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 7 FLAG_PBR_N)))
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -3297,15 +3264,9 @@
       (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-distance-label*)
       (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *shadow-quality-label*)
-      ;; Grecharged-lightprobes: LOCAL PROBES + PROBE REFLECTIONS bind the pc-settings symbols; PROBE QUALITY
-      ;; is a carousell (int-backup scratch, mapped 1:1 to realtime-probe-quality in respond-common). Rows
-      ;; +11..+13, right after SHADOW QUALITY and before Back.
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* realtime-probe?))
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *probe-enable-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *pc-settings* realtime-probe-reflections?))
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *probe-reflections-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *probe-quality-label*)))
+      ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
+      ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
+      ))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 2 hud-N)) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).

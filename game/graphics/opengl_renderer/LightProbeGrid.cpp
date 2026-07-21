@@ -43,7 +43,11 @@ LightProbeGrid& LightProbeGrid::get() {
 void LightProbeGrid::refresh_effective_flags() {
 #ifdef OG_FEAT_PBR
   const auto& gs = Gfx::g_global_settings;
-  m_eff_on = gs.recharged_rt_probe_enable;
+  // OWNER #3 UNIFICATION: the probe grid IS the ambient data source — it is active whenever the
+  // unified AMBIENT is on (recharged_rt_ambient_enable). The old separate probe-enable flag no
+  // longer gates it (its menu row was folded away); the Android debug prop below still overrides
+  // for headless A/B captures.
+  m_eff_on = gs.recharged_rt_ambient_enable;
   m_eff_refl = gs.recharged_rt_probe_reflections;
   m_eff_qual = gs.recharged_rt_probe_quality;
   m_eff_str = gs.recharged_rt_probe_strength;
@@ -348,6 +352,7 @@ void LightProbeGrid::bind_and_upload(GLuint program) {
   auto loc = [&](const char* n) { return glGetUniformLocation(program, n); };
   bool feat_refl = m_eff_refl;
   int feat_quality = m_eff_qual;
+  (void)feat_quality;  // OWNER #3: u_rt_probe_quality uniform folded away; m_eff_qual reserved for PBR-fusion.
   float feat_strength = m_eff_str;
   bool on = m_loaded && m_gl_ready && m_eff_on;
   glUniform1i(loc("u_rt_probe_on"), on ? 1 : 0);
@@ -368,7 +373,6 @@ void LightProbeGrid::bind_and_upload(GLuint program) {
     return;
   }
 
-  glUniform1i(loc("u_rt_probe_quality"), feat_quality);
   glUniform1i(loc("u_rt_probe_reflections"), feat_refl ? 1 : 0);
   glUniform1f(loc("u_rt_probe_strength"), feat_strength);
   glUniform3f(loc("u_rt_probe_origin"), m_grid.origin_gu[0], m_grid.origin_gu[1],

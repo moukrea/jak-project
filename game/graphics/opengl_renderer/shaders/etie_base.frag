@@ -129,7 +129,6 @@ vec3 rt_ibl_ambient(vec3 d) {
 // we SNAP toward its CONTAINING cell (point-sampled) so the smooth trilinear no longer bleeds bright
 // exterior light through the walls -> the room keeps its true LOCAL light.
 uniform int u_rt_probe_on;
-uniform int u_rt_probe_quality;
 uniform vec3 u_rt_probe_origin;
 uniform float u_rt_probe_inv_cell;
 uniform vec3 u_rt_probe_dims;
@@ -144,15 +143,24 @@ uniform samplerCube u_rt_probe_cube;   // prefiltered LOCAL reflection env (near
 
 // SH (DC + L1) -> ambient radiance toward N from 4 already-decoded coeffs (same Y-basis + Al cosine
 // convolution as rt_sh_ambient(): DC*Y0 + c1*Y1(N.y) + c2*Y1(N.z) + c3*Y1(N.x)).
-vec3 rt_probe_eval(vec3 dcrgb, vec3 c1, vec3 c2, vec3 c3, vec3 N, int quality) {
+// OWNER #3 UNIFICATION: the AMBIENT MODEL selector (u_rt_ambient_model) is the EVALUATION FIDELITY
+// of this same PROBE data (probe-fed), not a separate analytic system: 0 HEMISPHERE = DC + the
+// VERTICAL L1 band only (cheapest local eval, sky-over-ground character), 1 SH = full L1, 2 IBL =
+// full L1 + the prefiltered probe CUBE as the ambient env term (added at the call site). The
+// analytic rt_sh_ambient()/rt_ibl_ambient() estimation survives ONLY as the no-probe fallback.
+vec3 rt_probe_eval(vec3 dcrgb, vec3 c1, vec3 c2, vec3 c3, vec3 N, int model) {
   vec3 amb = dcrgb * 0.282095;
-  if (quality >= 1) amb += c1 * (0.488603 * N.y) + c2 * (0.488603 * N.z) + c3 * (0.488603 * N.x);
+  if (model == 0) amb += c1 * (0.488603 * N.y);
+  else            amb += c1 * (0.488603 * N.y) + c2 * (0.488603 * N.z) + c3 * (0.488603 * N.x);
   return max(amb, vec3(0.0));
 }
 
-// PER-PIXEL local probe SH with CONTAINMENT. Returns local ambient radiance; w = grid coverage.
-vec3 rt_probe_sh(vec3 wp, vec3 N, out float w) {
+// PER-PIXEL local probe SH with CONTAINMENT. Returns local ambient radiance; w = grid coverage;
+// interior_o = the trilinear interior fraction at this point (0 outdoors .. 1 deep inside a room),
+// used by the composition: indoors the baked probe energy is already almost entirely INDIRECT.
+vec3 rt_probe_sh(vec3 wp, vec3 N, out float w, out float interior_o) {
   w = 0.0;
+  interior_o = 0.0;
   if (u_rt_probe_on == 0) return vec3(0.0);
   vec3 gc = (wp - u_rt_probe_origin) * u_rt_probe_inv_cell;   // grid coords, in cells
   // +0.5: probe (i,j,k) is stored at texel (i,j,k) whose CENTER is (i+0.5)/dims, and origin is
@@ -169,11 +177,12 @@ vec3 rt_probe_sh(vec3 wp, vec3 N, out float w) {
   vec3 c1 = (l1a.rgb - 0.5) * R;
   vec3 c2 = (texture(u_rt_probe_l1b, uvw).rgb - 0.5) * R;
   vec3 c3 = (texture(u_rt_probe_l1c, uvw).rgb - 0.5) * R;
-  vec3 amb = rt_probe_eval(dc.rgb * R, c1, c2, c3, N, u_rt_probe_quality);
+  vec3 amb = rt_probe_eval(dc.rgb * R, c1, c2, c3, N, u_rt_ambient_model);
   // (b) CONTAINMENT: l1a.a is the interior fraction around this point (trilinearly interpolated). Where
   // the fragment is indoors, snap toward the CONTAINING cell's own SH (point-sampled, no trilinear) so
   // the exterior light the smooth blend pulled through the walls is rejected -> interiors stay local.
   float interior = l1a.a;
+  interior_o = clamp(interior, 0.0, 1.0);
   if (interior > 0.02) {
     // CONTAINMENT (industry-standard validity-weighted trilinear, like irradiance-volume renderers):
     // redo the trilinear over the 8 surrounding lattice corners but keep ONLY corners whose exact
@@ -199,7 +208,7 @@ vec3 rt_probe_sh(vec3 wp, vec3 N, out float w) {
       vec3 kc1 = (ca.rgb - 0.5) * R;
       vec3 kc2 = (texelFetch(u_rt_probe_l1b, ci, 0).rgb - 0.5) * R;
       vec3 kc3 = (texelFetch(u_rt_probe_l1c, ci, 0).rgb - 0.5) * R;
-      sum += wk * rt_probe_eval(cdc.rgb * R, kc1, kc2, kc3, N, u_rt_probe_quality);
+      sum += wk * rt_probe_eval(cdc.rgb * R, kc1, kc2, kc3, N, u_rt_ambient_model);
       wsum += wk;
     }
     if (wsum > 1e-3) {
@@ -306,12 +315,24 @@ void main() {
         base = mix(u_rt_ground_color, u_rt_sky_color, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
       }
       base = clamp(base, 0.0, 1.0);
-      // Grecharged-lightprobes: replace the global analytic ambient with the LOCAL probe irradiance
-      // where the grid covers this fragment (interiors get their true local light).
+      // Grecharged-lightprobes + OWNER #3 UNIFICATION: where the LOCAL probe grid covers this
+      // fragment, the PROBE DATA is the ambient data source and the AMBIENT MODEL above becomes its
+      // EVALUATION FIDELITY (Hemisphere = probe DC + vertical band, SH = full probe L1, IBL = probe
+      // SH + the prefiltered probe CUBE as the ambient env term). The analytic base computed above
+      // is reachable ONLY as the no-probe fallback (grid absent / fragment outside coverage);
+      // probe_w = grid coverage, fades cleanly back to the analytic base at the grid boundary.
       float probe_w = 0.0;
+      float probe_int = 0.0;
       if (u_rt_probe_on != 0) {
-        vec3 pamb = rt_probe_sh(v_world, N, probe_w);  // PER-PIXEL local SH (+containment): no damier, no wall bleed
+        vec3 pamb = rt_probe_sh(v_world, N, probe_w, probe_int);  // PER-PIXEL local SH (+containment): no damier, no wall bleed
         if (probe_w > 0.02) {
+          if (u_rt_ambient_model == 2) {
+            // IBL fidelity tier: the probe's prefiltered cube (nearest anchor) supplies the ambient
+            // ENV term — sampled by the normal at a broad mip (~diffuse-convolved local env). This
+            // is the probe-fed replacement of the procedural-sky rt_ibl_ambient() estimation.
+            vec3 penv = textureLod(u_rt_probe_cube, N, 2.0).rgb;
+            pamb = mix(pamb, penv, 0.35);
+          }
           base = mix(base, clamp(pamb, 0.0, 1.0), clamp(probe_w, 0.0, 1.0) * clamp(u_rt_probe_strength, 0.0, 1.0));
         }
       }
@@ -342,25 +363,28 @@ void main() {
       // white while leaving the dim ambient/shadow region — far below the knee — BYTE-untouched (the
       // accepted sun-off relief is preserved exactly; sun_scalar==0 => lit==albedo*base as before).
       float moon_ndl = max(dot(N, normalize(u_rt_moon_dir)), 0.0) * moon_occ;  // green-sun N.L * its cast shadow (item 1)
-      // Grecharged-lightprobes energy-consistent composition (no double-count of the sun): the probe base
-      // already contains the suns, so where it is authoritative we modulate it by the moving shadow and
-      // scale the additive analytic sun WAY down; the dynamic layer only adds the delta (moving shadow +
-      // crisp highlight + specular reflections). probe off/uncovered => byte-identical to before.
+      // OWNER #4 LAYERING CONTRACT (the industry-standard split): the probe ambient is the INDIRECT
+      // FILL layer ONLY; the DIRECT realtime layer — the DAY SUN and the GREEN SUN/MOON, each with
+      // its own N.L and its own cast-shadow occlusion (inside sun_scalar / moon_ndl) — stays fully
+      // alive ON TOP at FULL strength. A cast shadow removes ONLY its sun's direct term and NEVER
+      // darkens the ambient fill (ambient fills where direct doesn't reach). This both preserves the
+      // sun-driven lit-vs-shadow CONTRAST (the separation == the full direct term, exactly as in the
+      // accepted probe-OFF build => details/albedo not washed) and keeps BOTH suns' cast shadows
+      // clearly visible with probes ON (the invisible-moon-shadow bug was ambient washing direct).
+      // ENERGY (no double-count): the probe was baked from the FULL-LIT world (suns included), so as
+      // an indirect fill it is scaled by RT_PROBE_IND OUTDOORS — the suns' direct share is what the
+      // dynamic layer re-adds (occluded by its own moving shadows). INDOORS (probe_int -> 1) the
+      // baked energy is already almost entirely indirect (the suns don't reach) so the probe is used
+      // at full value — no direct share to subtract, interiors keep their true local brightness.
+      // probe_active=0 => ind_k=1 + full direct = the accepted directional-ambient composite,
+      // byte-identical. Extensible: N future point lights (fires/lanterns/eco) just add more direct
+      // terms on top of the same fill — the layering needs no rewrite.
+      const float RT_PROBE_IND = 0.45;
       float probe_active = (u_rt_probe_on != 0 && probe_w > 0.02) ? 1.0 : 0.0;
-      // PLAYTEST#1 #2 (muted details/contrast): the probe is a FILL that must PRESERVE the sun-driven
-      // contrast + albedo detail. The old floor 0.6 lifted the cast-shadow (washed relief) and the old
-      // sun_k 0.20 muted the lit/shadow separation. Deepen the shadow and restore a stronger direct-sun
-      // delta: the probe still holds the SOFT/ambient sun (no full double-count), while the SHARP
-      // lit-vs-shadow contrast is the runtime delta. Device-tunable; the owner tunes the final look.
-      // PLAYTEST#1b #2: the single shadow map routes to sun_occ by DAY and moon_occ by NIGHT
-      // (u_rt_shadow_light). shadowVis must use the ACTIVE sun's occlusion or the green-sun/moon cast
-      // shadow never darkens the probe-lit base (probe base dominates at night => shadow invisible).
-      float both_occ = min(sun_occ, moon_occ);
-      float shadowVis = mix(1.0, mix(0.32, 1.0, both_occ), probe_active);  // moving shadow (either sun) darkens local irradiance
-      float sun_k = mix(1.0, 0.5, probe_active);                          // sun contrast restored (soft sun already in probe)
-      vec3 lit = albedo * base * shadowVis
-               + albedo * u_rt_sun_color * sun_scalar * sun_k
-               + albedo * u_rt_moon_color * moon_ndl * sun_k;
+      float ind_k = mix(1.0, mix(RT_PROBE_IND, 1.0, probe_int), probe_active);
+      vec3 lit = albedo * base * ind_k
+               + albedo * u_rt_sun_color * sun_scalar
+               + albedo * u_rt_moon_color * moon_ndl;
       // PLAYTEST#1 #3 (reflections grey EVERYTHING): the blanket reflection add that lived HERE painted a
       // flat grey specular wash on every diffuse surface. These shaders have NO reflective PBR material
       // path, so the reflection is REMOVED here entirely (correct-or-off; a grey wash is worse than
