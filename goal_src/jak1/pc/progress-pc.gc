@@ -895,10 +895,11 @@
               (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; UNIFIED AMBIENT On/Off (Grecharged-lightprobes OWNER #3, probe-fed; disabled when Realtime Lighting
-       ;; off). Gates the WHOLE probe-fed local ambient: LightProbeGrid is active when this is ON (analytic
-       ;; estimation is used only as a no-probe fallback where the level has no probe coverage). OFF = the
-       ;; legacy flat ~0.2 floor (A/B). Value bound to *pc-settings* realtime-ambient?.
+       ;; "BAKED AMBIENT" On/Off (Grecharged-lightprobes OWNER FINAL ARCHITECTURE 2026-07-21; disabled when
+       ;; Realtime Lighting off). The probe WORLD-PROJECTION curiosity toggle, DEFAULT OFF: the default
+       ;; realtime look is BAKED-MODULATION (baked never removed, suns modulate it); flipping this ON
+       ;; projects the probe-fed local ambient composite onto the world instead (the probes otherwise stay
+       ;; a resource for future PBR/water). Value bound to *pc-settings* realtime-probe?.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :option-disabled-func
@@ -906,7 +907,7 @@
               (not (-> *pc-settings* realtime-lighting?)))
             :on-change
             (lambda ((val object))
-              (set! (-> *pc-settings* realtime-ambient?) (the-as symbol val))
+              (set! (-> *pc-settings* realtime-probe?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
        ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
@@ -1082,7 +1083,10 @@
 (define *realtime-lighting-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *realtime-lighting-label*) "REALTIME LIGHTING")
 (define *hemisphere-ambient-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *hemisphere-ambient-label*) "AMBIENT")
+;; OWNER FINAL ARCHITECTURE 2026-07-21: renamed AMBIENT -> BAKED AMBIENT (the probe
+;; world-projection curiosity toggle, default OFF; existing valid text-id + name-override
+;; convention => no unknown-ID garbage).
+(format (clear *hemisphere-ambient-label*) "BAKED AMBIENT")
 (define *ambient-strength-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *ambient-strength-label*) "AMBIENT STRENGTH")
 (define *ambient-contrast-label* (new 'global 'string 64 (the-as string #f)))
@@ -3249,7 +3253,10 @@
     (#when FLAG_PBR
       (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* realtime-lighting?))
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *pc-settings* realtime-ambient?))
+      ;; OWNER FINAL ARCHITECTURE 2026-07-21: row +5 is the "BAKED AMBIENT" world-projection
+      ;; curiosity toggle (realtime-probe?, default OFF) — the default realtime look is the
+      ;; baked-modulation path; this row projects the probe ambient onto the world when ON.
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *pc-settings* realtime-probe?))
       (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *hemisphere-ambient-label*)
       ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (int-backup scratch, mapped 1:1
       ;; to realtime-ambient-model in respond-common).

@@ -72,6 +72,17 @@ class LightProbeGrid {
   int m_dbg_detail = -1;       // debug.opengoal.rt.detail (int: 0 off / 1 on)
   int m_dbg_detail_norm = -1;  // debug.opengoal.rt.detailnorm (int percent)
   int m_dbg_sunboost = -1;     // debug.opengoal.rt.sunboost (int percent; default 25 => 0.25)
+  // OWNER FINAL ARCHITECTURE (baked-modulation) amplitude tunables (int percent, -1 = unset =>
+  // shader-side defaults noted below). Uploaded BEFORE the probe early-out in bind_and_upload —
+  // they drive the default world path independent of the probe world-projection state.
+  int m_dbg_litboost = -1;    // debug.opengoal.rt.litboost   (115 => x1.15 lit brighten)
+  int m_dbg_shadowmul = -1;   // debug.opengoal.rt.shadowmul  (65  => x0.65 shadow darken)
+  int m_dbg_tintlit = -1;     // debug.opengoal.rt.tintlit    (12  => 0.12 warm/sun tint)
+  int m_dbg_tintshadow = -1;  // debug.opengoal.rt.tintshadow (12  => 0.12 cool tint)
+  int m_dbg_greenamp = -1;    // debug.opengoal.rt.greenamp   (60  => 0.60 green-sun amplitude)
+  // OWNER FINAL: lazy asset load — the level whose .probes we skipped loading because no
+  // consumer (world projection / reflections) was active; loaded on a later enable.
+  std::string m_pending_level;
   void refresh_effective_flags();
 
   // GL

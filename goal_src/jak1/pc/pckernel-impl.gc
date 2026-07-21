@@ -8,8 +8,12 @@
 ;;;; constants
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; version: 1.10.4.0
-(defconstant PC_KERNEL_VERSION (static-pckernel-version 1 10 4 0))
+;; version: 1.11.0.0
+;; Grecharged-lightprobes OWNER FINAL ARCHITECTURE (2026-07-21): MINOR bump => saved settings
+;; reset to the shipped defaults on first load (a stale persisted realtime-probe? #t from the
+;; probe playtest rounds would otherwise re-enable the pre-final probe world-projection
+;; composite instead of the default baked-modulation path).
+(defconstant PC_KERNEL_VERSION (static-pckernel-version 1 11 0 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; types and enums

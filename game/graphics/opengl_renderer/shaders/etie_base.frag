@@ -147,6 +147,15 @@ uniform samplerCube u_rt_probe_cube;   // prefiltered LOCAL reflection env (near
 uniform int u_rt_detail;
 uniform float u_rt_detail_norm;
 uniform float u_rt_sun_boost;
+// OWNER FINAL ARCHITECTURE (2026-07-21) — BAKED-MODULATION amplitude tunables (percent props
+// debug.opengoal.rt.litboost / .shadowmul / .tintlit / .tintshadow / .greenamp, set in
+// LightProbeGrid::bind_and_upload BEFORE its probe early-out so they live independent of the
+// probe world-projection state).
+uniform float u_rt_lit_boost;    // sun-lit multiplicative brighten, > 1 (default 1.15)
+uniform float u_rt_shadow_mul;   // shadowed multiplicative darken, < 1 (default 0.65)
+uniform float u_rt_tint_lit;     // lit hue push toward the owning sun's chroma (default 0.12)
+uniform float u_rt_tint_shadow;  // shadow hue push toward cool/blue (default 0.12)
+uniform float u_rt_green_amp;    // green-sun amplitude scale vs the day sun (default 0.60)
 
 // SH (DC + L1) -> ambient radiance toward N from 4 already-decoded coeffs (same Y-basis + Al cosine
 // convolution as rt_sh_ambient(): DC*Y0 + c1*Y1(N.y) + c2*Y1(N.z) + c3*Y1(N.x)).
@@ -305,6 +314,56 @@ void main() {
       float sun_occ  = (u_rt_shadow_light == 1) ? 1.0 : shadow;  // yellow-sun cast shadow (or 1 at night)
       float moon_occ = (u_rt_shadow_light == 1) ? shadow : 1.0;  // green-sun cast shadow (night)
       float sun_scalar = ndl * sun_occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
+      // ===================================================================================
+      // OWNER FINAL ARCHITECTURE (2026-07-21, "voilà le plan") — BAKED-MODULATION.
+      // The baked (fragment_color * T0, already sitting in `color`) is NEVER removed: it is
+      // the base and the realtime layer only INFLUENCES it, MULTIPLICATIVELY (a x-k shift
+      // preserves the baked's own ratios => contrast preserved BY CONSTRUCTION, never the
+      // additive/flattening wash):
+      //   sun-LIT  (N.L toward the sun AND not cast-shadowed): x lit_boost (>1) + hue/sat
+      //            pushed slightly TOWARD THE SUN's tint (warm yellow by day; the green sun
+      //            uses its own green chroma at night);
+      //   SHADOWED (faces away from the sun OR under a cast shadow): x shadow_mul (<1) +
+      //            slightly COOL hue.
+      // Both suns run the same model; each amplitude SCALES with its sun's elevation weight
+      // (w_y = u_rt_sun_elev -> 0 at night = no yellow ghost shadows; the green sun's night
+      // weight is already folded into u_rt_moon_color C++-side -> 0 by day), green at a
+      // weaker amplitude (u_rt_green_amp). The lit<->shadow terminator is SMOOTHSTEPPED on
+      // N.L (no hard edge); cast-shadow edges keep the 16-tap Poisson PCF softness carried
+      // inside sun_occ / moon_occ (and the shadow-conf handoff fade already mixed into occ).
+      // The probe system no longer projects onto world geometry on this default path — it is
+      // a RESOURCE for future PBR/water; the old probe-fed composite survives only behind
+      // the default-OFF "BAKED AMBIENT" curiosity toggle (u_rt_probe_on), the else below.
+      // Realtime Lighting OFF never reaches here => pure vanilla baked (OFF == stock).
+      if (u_rt_probe_on == 0) {
+        float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
+        float term_g = smoothstep(0.0, 0.35, dot(N, normalize(u_rt_moon_dir)));
+        float lit_y = term_y * sun_occ;    // toward the sun AND not cast-shadowed
+        float lit_g = term_g * moon_occ;
+        float w_y = clamp(u_rt_sun_elev, 0.0, 1.0);
+        float w_g = clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0) * clamp(u_rt_green_amp, 0.0, 2.0);
+        // luma-neutral chromas: the tint shifts hue/saturation only; lit_boost / shadow_mul
+        // alone set the energy (guarded divisions; a zero-color sun also has weight ~0).
+        vec3 sun_ch = u_rt_sun_color / max(dot(u_rt_sun_color, vec3(0.299, 0.587, 0.114)), 1e-3);
+        vec3 moon_ch = u_rt_moon_color / max(dot(u_rt_moon_color, vec3(0.299, 0.587, 0.114)), 1e-3);
+        const vec3 RT_COOL = vec3(0.896, 1.001, 1.265);  // luma-normalized cool (blue-shifted) chroma
+        vec3 lit_mul_y = u_rt_lit_boost * mix(vec3(1.0), sun_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
+        vec3 lit_mul_g = u_rt_lit_boost * mix(vec3(1.0), moon_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
+        vec3 shd_mul = u_rt_shadow_mul * mix(vec3(1.0), RT_COOL, clamp(u_rt_tint_shadow, 0.0, 1.0));
+        vec3 mod_y = mix(shd_mul, lit_mul_y, lit_y);
+        vec3 mod_g = mix(shd_mul, lit_mul_g, lit_g);
+        vec3 rt_mod = mix(vec3(1.0), mod_y, w_y) * mix(vec3(1.0), mod_g, w_g);
+        color.rgb = max(color.rgb * rt_mod, vec3(0.0));
+        if (u_pbr_debug == 1) {
+          color.rgb = vec3(ndl);
+        } else if (u_pbr_debug == 2) {
+          color.rgb = N * 0.5 + 0.5;
+        } else if (u_pbr_debug == 12) {
+          // modulation-factor luma viz: 0.5 = neutral (x1), brighter = lit boost, darker = shadow
+          color.rgb = vec3(dot(rt_mod, vec3(0.299, 0.587, 0.114)) * 0.5);
+        }
+      } else {
+      // ======= "BAKED AMBIENT" curiosity path (default OFF): the pre-final probe-fed composite =======
       // Grecharged-directional-ambient: DIRECTIONAL hemisphere ambient base (sky up / ground down
       // by the world normal) replaces the flat ~0.2 floor => form in shadow with AO off. Toggle
       // OFF = the legacy flat floor. GOLDEN RULE: the direct-sun term is unchanged, so sunlit
@@ -471,6 +530,7 @@ void main() {
       if (u_pbr_debug == 1) { color.rgb = vec3(ndl); }
       else if (u_pbr_debug == 2) { color.rgb = N * 0.5 + 0.5; }
       else if (u_pbr_debug == 12) { float bl = dot(base, vec3(0.299, 0.587, 0.114)); color.rgb = vec3(bl + (1.0 - bl) * sun_scalar); }
+      }  // end "BAKED AMBIENT" curiosity probe-projection path (u_rt_probe_on != 0)
     }
 #endif
   } else {

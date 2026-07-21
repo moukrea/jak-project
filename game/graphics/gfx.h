@@ -215,11 +215,14 @@ struct GfxGlobalSettings {
   // daytime sky sun-glow lobe for shadowed-area form). Hemisphere stays available via the selector.
   int recharged_rt_ambient_model = 1;
   float recharged_rt_ambient_contrast = 1.0f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5); owner-validated shipped default (playtest 2026-07-20: SH + strength 0.2 + contrast 1.0)
-  // Grecharged-lightprobes: precomputed LOCAL environment probes (irradiance-volume ambient replaces
-  // the GLOBAL analytic SH where a probe grid exists, + a prefiltered reflection cube for PBR IBL /
-  // metal / water). Default OFF => render byte-identical to the directional-ambient path (code-gated
-  // in the 4 world shaders behind u_rt_probe_on). Quality tier: 0 = DC-only (cheapest, still local),
-  // 1 = L1 directional (default). reflections = sample the local cube. strength = probe blend amount.
+  // Grecharged-lightprobes OWNER FINAL ARCHITECTURE (2026-07-21): the probes are a RESOURCE
+  // (irradiance SH grid + prefiltered reflection cubes) for future PBR/water — they no longer
+  // project onto world geometry by default. The default realtime world look is BAKED-MODULATION
+  // (in the 4 world shaders): the baked is never removed, the suns only modulate it. probe_enable
+  // is the "BAKED AMBIENT" world-projection CURIOSITY toggle (menu row kept, DEFAULT OFF per the
+  // owner plan); with it (and reflections) off, the .probes asset load stays lazy and the GPU
+  // upload (3D SH textures + cubemap) is skipped entirely. reflections = expose the local cube to
+  // the PBR IBL consumer. strength = probe blend amount (curiosity path only).
   bool recharged_rt_probe_enable = false;
   bool recharged_rt_probe_reflections = false;
   int recharged_rt_probe_quality = 1;

@@ -100,10 +100,10 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 7 | AO Quality | carousell | **Low / Medium / High** (cond: AO == Off) | — |
 | 8 | AO Strength | carousell | **Weaker / Default / Stronger** (cond: AO == Off) | — |
 | 9 | **Realtime Lighting** | on-off | `realtime-lighting?` — **maître** de tout le bloc lighting ci-dessous | {FLAG_PBR} |
-| 10 | Ambient | on-off | `realtime-ambient?` (cond: Realtime OFF) — groupe ambient unifié probe-fed (ex-"Directional Ambient") ; gate le LightProbeGrid (actif quand ON), l'estimation analytique = fallback no-probe uniquement | {FLAG_PBR} |
-| 11 | **Ambient Model** | carousell | **Hemisphere / SH / IBL = FIDÉLITÉ D'ÉVALUATION des données PROBE (probe-fed)** ; estimation analytique seulement là où il n'y a pas de couverture probe (cond: Realtime OFF) | {FLAG_PBR} |
-| 12 | Ambient Strength | slider | 0.0..0.5 pas 0.05 (déc.) → `realtime-ambient-strength` (cond: Realtime OFF) | {FLAG_PBR} |
-| 13 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (cond: Realtime OFF) | {FLAG_PBR} |
+| 10 | **Baked Ambient** [R] | on-off | `realtime-probe?` (cond: Realtime OFF) — **DÉFAUT OFF** (OWNER FINAL ARCHITECTURE 2026-07-21) : toggle "curiosité" de la PROJECTION-MONDE des probes (l'ancien composite probe-fed). Par défaut le rendu realtime = **BAKED-MODULATION** (le baked n'est jamais retiré, les soleils le modulent ×) et les probes restent une **RESSOURCE** pour PBR/eau (chargement lazy + upload GPU sauté quand OFF). Ex-ligne "Ambient" (`realtime-ambient?`) recâblée | {FLAG_PBR} |
+| 11 | **Ambient Model** | carousell | **Hemisphere / SH / IBL = FIDÉLITÉ D'ÉVALUATION des données PROBE (probe-fed)** — ne s'applique qu'au chemin curiosité "Baked Ambient" ON ; estimation analytique seulement là où il n'y a pas de couverture probe (cond: Realtime OFF) | {FLAG_PBR} |
+| 12 | Ambient Strength | slider | 0.0..0.5 pas 0.05 (déc.) → `realtime-ambient-strength` (chemin curiosité uniquement ; cond: Realtime OFF) | {FLAG_PBR} |
+| 13 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (chemin curiosité uniquement ; cond: Realtime OFF) | {FLAG_PBR} |
 | 14 | Shadow Distance | slider | 20..200 m pas 10 (cond: Realtime OFF) | {FLAG_PBR} |
 | 15 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF) | {FLAG_PBR} |
 | 16 | Back | button | | — |
@@ -245,6 +245,10 @@ loading / saving / formatting / creating / insert / removed / no-data · memcard
 - **Baked Ambient (on/off)** (`realtime-probe?` + ligne + label `*probe-enable-label*` + wiring) — supprimé
   2026-07-21 par OWNER #3 UNIFICATION : fusionné dans le groupe AMBIENT unifié ci-dessus. Les données probe
   alimentent désormais les paliers de l'Ambient Model (Hemisphere/SH/IBL) ; plus de ligne dédiée.
+  **[RESTAURÉ 2026-07-21 soir, OWNER FINAL ARCHITECTURE]** : la ligne 10 redevient "Baked Ambient"
+  (`realtime-probe?`, défaut OFF) en recâblant l'ex-ligne "Ambient" (label `*hemisphere-ambient-label*`
+  réutilisé, pas de nouveau text-id) — toggle curiosité de la projection-monde ; `realtime-ambient?` n'a
+  plus de ligne de menu (interne au chemin curiosité).
 - **Baked Reflections (on/off)** (`realtime-probe-reflections?` + ligne + label `*probe-reflections-label*` +
   wiring) — supprimé 2026-07-21 par OWNER #3 UNIFICATION : fusionné dans le groupe AMBIENT unifié. Les cubemaps
   bakées restent bakées et exposées comme **RESSOURCE** consommée uniquement par les phases PBR/eau (roughness/

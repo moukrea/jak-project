@@ -43,11 +43,12 @@ LightProbeGrid& LightProbeGrid::get() {
 void LightProbeGrid::refresh_effective_flags() {
 #ifdef OG_FEAT_PBR
   const auto& gs = Gfx::g_global_settings;
-  // OWNER #3 UNIFICATION: the probe grid IS the ambient data source — it is active whenever the
-  // unified AMBIENT is on (recharged_rt_ambient_enable). The old separate probe-enable flag no
-  // longer gates it (its menu row was folded away); the Android debug prop below still overrides
-  // for headless A/B captures.
-  m_eff_on = gs.recharged_rt_ambient_enable;
+  // OWNER FINAL ARCHITECTURE (2026-07-21): the probes STOP projecting onto world geometry by
+  // default — the world look is BAKED-MODULATION (in the world shaders). The grid is kept as a
+  // RESOURCE for future PBR/water; its world projection is the "BAKED AMBIENT" curiosity toggle
+  // (recharged_rt_probe_enable, gfx.h default false, menu row default OFF). The Android debug
+  // prop below still overrides for headless A/B captures.
+  m_eff_on = gs.recharged_rt_probe_enable;
   m_eff_refl = gs.recharged_rt_probe_reflections;
   m_eff_qual = gs.recharged_rt_probe_quality;
   m_eff_str = gs.recharged_rt_probe_strength;
@@ -75,6 +76,18 @@ void LightProbeGrid::refresh_effective_flags() {
     m_dbg_detail_norm = atoi(v);
   if (__system_property_get("debug.opengoal.rt.sunboost", v) > 0 && v[0])
     m_dbg_sunboost = atoi(v);
+  // OWNER FINAL (baked-modulation) amplitude tunables, int percent (litboost 115 = x1.15) —
+  // live-dialable on device without a rebuild.
+  if (__system_property_get("debug.opengoal.rt.litboost", v) > 0 && v[0])
+    m_dbg_litboost = atoi(v);
+  if (__system_property_get("debug.opengoal.rt.shadowmul", v) > 0 && v[0])
+    m_dbg_shadowmul = atoi(v);
+  if (__system_property_get("debug.opengoal.rt.tintlit", v) > 0 && v[0])
+    m_dbg_tintlit = atoi(v);
+  if (__system_property_get("debug.opengoal.rt.tintshadow", v) > 0 && v[0])
+    m_dbg_tintshadow = atoi(v);
+  if (__system_property_get("debug.opengoal.rt.greenamp", v) > 0 && v[0])
+    m_dbg_greenamp = atoi(v);
 #endif
 }
 
@@ -83,6 +96,14 @@ bool LightProbeGrid::ensure_loaded(const std::string& level_name) {
     return true;
   if (m_load_failed_level && m_level == level_name)
     return false;  // don't retry a known-missing level every frame
+
+  // OWNER FINAL: keep the asset load LAZY — with no consumer active (world projection off AND
+  // reflections off, the shipped default) skip the multi-MB .probes parse entirely; remember
+  // the level so flipping a consumer on later loads it from update_for_frame.
+  m_pending_level = level_name;
+  refresh_effective_flags();
+  if (!m_eff_on && !m_eff_refl)
+    return false;
 
   // resolve <level>.probes: external assets/fr3 dir, custom (package) dir wins if present.
   std::string path =
@@ -276,13 +297,18 @@ void LightProbeGrid::update_for_frame(const s32 itimes[4][4],
     return;
   m_last_frame = frame_idx;
   refresh_effective_flags();
+  // OWNER FINAL: a consumer (world-projection curiosity toggle or reflections) flipped on after
+  // the lazy skip at level load — do the real .probes load now.
+  if ((m_eff_on || m_eff_refl) && !m_loaded && !m_pending_level.empty())
+    ensure_loaded(m_pending_level);
   if (!m_loaded)
     return;
-  // PLAYTEST#1b #1 (perf/temporal stability): with the BAKED AMBIENT toggle OFF, do ZERO per-frame
-  // probe work — previously the loaded grid kept running the periodic dense-3D-texture rebuild even
-  // when off, a GL-thread hitch source in the "probes OFF" state (OFF must cost nothing, not just
-  // render identically). Re-enabling picks up on the next frame (rebuild triggers immediately).
-  if (!m_eff_on) {
+  // PLAYTEST#1b #1 (perf/temporal stability) + OWNER FINAL: with NO consumer active (world
+  // projection off AND reflections off — the shipped default), do ZERO per-frame probe work and
+  // SKIP the GPU upload entirely (alloc_textures/rebuild_* below never run => no 3D textures, no
+  // cubemap on the GPU). OFF must cost nothing, not just render identically. Re-enabling picks up
+  // on the next frame (lazy load above + rebuild triggers immediately).
+  if (!m_eff_on && !m_eff_refl) {
     m_pending_band = -1;
     return;
   }
@@ -363,6 +389,19 @@ void LightProbeGrid::bind_and_upload(GLuint program) {
   float feat_strength = m_eff_str;
   bool on = m_loaded && m_gl_ready && m_eff_on;
   glUniform1i(loc("u_rt_probe_on"), on ? 1 : 0);
+  // OWNER FINAL ARCHITECTURE (baked-modulation) amplitude tunables — the DEFAULT world path's
+  // uniforms, needed whenever realtime lighting is on, INDEPENDENT of the probe world-projection
+  // state, so they are set BEFORE the probe early-out below. Percent props (-1 = unset =>
+  // owner-plan defaults: lit x1.15 warm 0.12, shadow x0.65 cool 0.12, green amplitude 0.60).
+  glUniform1f(loc("u_rt_lit_boost"),
+              (m_dbg_litboost > 0) ? (float)m_dbg_litboost / 100.0f : 1.15f);
+  glUniform1f(loc("u_rt_shadow_mul"),
+              (m_dbg_shadowmul > 0) ? (float)m_dbg_shadowmul / 100.0f : 0.65f);
+  glUniform1f(loc("u_rt_tint_lit"), (m_dbg_tintlit >= 0) ? (float)m_dbg_tintlit / 100.0f : 0.12f);
+  glUniform1f(loc("u_rt_tint_shadow"),
+              (m_dbg_tintshadow >= 0) ? (float)m_dbg_tintshadow / 100.0f : 0.12f);
+  glUniform1f(loc("u_rt_green_amp"),
+              (m_dbg_greenamp >= 0) ? (float)m_dbg_greenamp / 100.0f : 0.60f);
   if (!on) {
     // still bind dummies so the declared samplers are valid on strict drivers.
     for (int b = 0; b < 4; b++) {
