@@ -2179,6 +2179,19 @@ phases:
   max_retries: 12
   device: true
   owner_verify: true
+- id: Grecharged-master-toggle
+  name: 'RECHARGED (owner 2026-07-21): GLOBAL Recharged ON/OFF master toggle — OFF forces the stock state
+    of EVERY recharged feature at runtime (custom assets, PBR, HD models, HUD, grass, foliage wind, AO,
+    realtime lighting, probes) => byte-identical VANILLA render, WITHOUT resetting the user''s individual
+    toggles (restored exactly on re-enable). Single effective-flag helper consumed at every feature gate
+    (no drift copies). Rows greyed when OFF; menu-tree.md synced; debug.opengoal.recharged prop for
+    headless vanilla (probe captures). Device A/B vs stock baseline.'
+  prompt: prompts/phase-Grecharged-master-toggle.md
+  validator: validators/phase-Grecharged-master-toggle.sh
+  max_turns: 2500
+  max_retries: 8
+  device: true
+  owner_verify: true
 - id: Grecharged-pbr-realtime-fusion
   name: 'RECHARGED (owner 2026-07-20): PBR materials must be LIT BY the realtime lighting (sun +
     green-sun + SH/IBL ambient) — that is where PBR shines. Today the rt-lighting shader branch
