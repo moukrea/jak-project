@@ -18,11 +18,14 @@ adb(){ "$ADB" -s "$ANDROID_SERIAL" "$@"; }
 focus(){ adb shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
 stick(){ adb shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null; }
 
-# SUPERVISOR DEVICE GUARD: no battery-draining device work under 30% (PIN-lock risk on a dead battery).
-BATT=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  level' | grep -o '[0-9]*')
-if [ -n "${BATT:-}" ] && [ "$BATT" -lt 30 ]; then
-  echo "[glp2-walk ABORT] $TAG: battery ${BATT}% < 30 — device guard, no capture"; exit 3
-fi
+# SUPERVISOR 2026-07-21 correction: the Redmi's battery-LEVEL reading is BOGUS (plugged 24/7 debug) —
+# IGNORE it. Only device-health guard = temperature >= 45.0C -> pause to cool before loading the device.
+TEMP=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  temperature' | grep -o '[0-9]*')
+while [ -n "${TEMP:-}" ] && [ "$TEMP" -ge 450 ]; do
+  echo "[glp2-walk] $TAG: device temp ${TEMP} (0.1C) >= 45.0C — cooling pause 180s"
+  adb shell am force-stop $PKG </dev/null; sleep 180
+  TEMP=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  temperature' | grep -o '[0-9]*')
+done
 
 set_props(){
   adb shell "setprop debug.opengoal.rt.light 1" </dev/null

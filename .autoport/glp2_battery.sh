@@ -28,9 +28,12 @@ fi
 say(){ echo "== $*" | tee -a "$SUM"; }
 fresh(){ local m="$OUT/glp_$1.mp4"; [ -f "$m" ] || m="$OUT/glp2_$1.mp4"
   [ "${RESUME:-0}" = 1 ] && [ -f "$m" ] && [ "$m" -nt "$STAMP" ] && [ "$(ls "$OUT/frames_$1" 2>/dev/null | wc -l)" -ge 15 ]; }
-# SUPERVISOR DEVICE GUARD: stop the run cleanly if the battery dips below 30% (PIN-lock risk).
-batt_guard(){ local B; B=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  level' | grep -o '[0-9]*')
-  if [ -n "${B:-}" ] && [ "$B" -lt 30 ]; then say "BATTERY ABORT: ${B}% < 30 (device guard) — rerun later with RESUME=1"; exit 3; fi; }
+# SUPERVISOR 2026-07-21 correction: battery LEVEL is BOGUS on this Redmi (plugged 24/7) — IGNORE it.
+# Only guard = temperature >= 45.0C -> cooling pause between sections (never abort on level).
+batt_guard(){ local T; T=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  temperature' | grep -o '[0-9]*')
+  while [ -n "${T:-}" ] && [ "$T" -ge 450 ]; do say "TEMP GUARD: ${T} (0.1C) >= 45.0C — cooling 180s"
+    adb shell am force-stop $PKG </dev/null; sleep 180
+    T=$(adb shell dumpsys battery </dev/null 2>/dev/null | grep -m1 -E '^  temperature' | grep -o '[0-9]*'); done; }
 cap(){ local t="$1"; shift; if fresh "$t"; then say "skip $t (fresh)"; else batt_guard; bash .autoport/glp_capture.sh "$t" "$@" 2>&1 | tail -5 | tee -a "$SUM"; fi; }
 wcap(){ local t="$1"; shift; if fresh "$t"; then say "skip $t (fresh)"; else batt_guard; bash .autoport/glp2_walk_capture.sh "$t" "$@" 2>&1 | tail -4 | tee -a "$SUM"; fi; }
 
