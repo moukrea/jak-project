@@ -220,3 +220,45 @@ Whenever you MODIFY menu entries (here: rename "probes" -> "BAKED/LOCAL AMBIENT"
 "Probe Reflections" toggle since reflections move to PBR/water), you MUST UPDATE `.autoport/menu-tree.md`
 to match (the Recharged Settings section + the removed/renamed rows), keeping the [R]/[SUPPR] legend
 accurate. The menu-tree doc must always reflect the shipped menu.
+
+---
+## OWNER 2026-07-21 #3 — UNIFY: the H/SH/IBL ambient MODELS must be FED BY THE PROBE DATA (one ambient system)
+Owner: "le ambient model actuel utilise une estimation un peu nulle pour H/SH/IBL; nous on a les probes —
+faudrait que ça utilise ces données probées pour H/SH/IBL, et du coup on fusionne tout ça proprement."
+
+He is right. CURRENT (wrong): Hemisphere/SH/IBL are ANALYTIC estimations (sky/mood-derived, global) and the
+probe SH is a SEPARATE parallel system. TARGET (unified, industry-standard):
+1. **The probe data is THE ambient data source.** The "Ambient Model" selector becomes the EVALUATION
+   FIDELITY of that same probe data:
+   - Hemisphere = cheapest eval of the probe SH (DC + vertical axis only),
+   - SH        = full L2 probe SH per-pixel,
+   - IBL       = probe SH + the probe cubemap for the ambient env term.
+2. **The analytic estimation survives ONLY as the fallback** where no probe data exists (levels not yet
+   baked, out-of-grid). Automatic — not a user choice.
+3. **MERGE the menu rows**: no more "Directional Ambient" vs "Baked Ambient" duplication. One coherent
+   AMBIENT group: on/off, Model [Hemisphere/SH/IBL] (= fidelity of the probe-fed ambient), Strength,
+   Contrast. The separate "Baked Ambient" on/off + "Baked Ambient Quality" rows fold into this (quality can
+   merge into Model or stay as a probe-resolution setting — pick the cleanest, document it). Update
+   `.autoport/menu-tree.md` accordingly (mark folded rows [SUPPR] with history).
+GATE (added): the shader's Hemisphere/SH/IBL paths read the PROBE textures as their data (probe-fed), the
+analytic path is reachable only as no-probe fallback; the menu no longer has the redundant duplicated rows.
+
+---
+## OWNER 2026-07-21 #4 — the unified ambient must WORK WITH the realtime direct lighting, never fight it
+Non-negotiable layering contract (the industry-standard split):
+- **AMBIENT (probe-fed, indirect)** = the base/fill layer ONLY.
+- **DIRECT (realtime)** stays fully alive ON TOP: the DAY SUN with its light + cast shadows, AND the GREEN
+  SUN / moon with ITS light + cast shadows — both shadowing ALL objects as designed ("comme font les jeux
+  actuels"). The probe fill must NEVER wash out / cancel either sun's light or shadows (the invisible
+  moon-shadow bug is exactly this violation). Energy-consistent: ambient fills where direct doesn't reach;
+  direct adds on top; shadows remove ONLY the direct term.
+- **REVIEW the direct-lighting implementation against INDUSTRY STANDARDS** (owner ask): verify our sun +
+  green-sun direct pass (N·L, BRDF, shadow mapping quality/bias/PCF, all-objects coverage incl. actors/merc,
+  energy conservation vs the ambient layer) matches how current engines do a two-directional-light + probe-GI
+  setup. Fix deviations found. Document the review in the report.
+
+FUTURE ROADMAP (owner, explicitly LATER — do NOT implement now, just keep the architecture open):
+- POINT LIGHTS everywhere that cast light + shadows (fires, lanterns when lit, etc.).
+- ECO collectibles (green/blue/yellow/red) integrated into the realtime lighting as tinted point lights with
+  their influence radius (their light tints the mood locally).
+The ambient/direct layering + light-loop design must be extensible to N point lights without a rewrite.
