@@ -2192,6 +2192,18 @@ phases:
   max_retries: 8
   device: true
   owner_verify: true
+- id: Grecharged-bundled-textures
+  name: 'RECHARGED (owner 2026-07-21): first-party PBR texture set (owner-made from scratch, 7 village1
+    textures committed at custom_assets/jak1/recharged_textures/<tpage>/<tex>/) shipped BUNDLED in the
+    APK (LoaderActivity recharged channel, install-only). NEW "Recharged Textures" on/off menu row =
+    base replacements; _height/_normal/_roughness feed the PBR pipeline when PBR is ON. PRECEDENCE:
+    user custom_assets > bundled recharged > stock. OFF==stock; menu-tree synced; device A/B proof.'
+  prompt: prompts/phase-Grecharged-bundled-textures.md
+  validator: validators/phase-Grecharged-bundled-textures.sh
+  max_turns: 2500
+  max_retries: 8
+  device: true
+  owner_verify: true
 - id: Grecharged-pbr-realtime-fusion
   name: 'RECHARGED (owner 2026-07-20): PBR materials must be LIT BY the realtime lighting (sun +
     green-sun + SH/IBL ambient) — that is where PBR shines. Today the rt-lighting shader branch

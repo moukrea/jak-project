@@ -262,3 +262,15 @@ FUTURE ROADMAP (owner, explicitly LATER — do NOT implement now, just keep the 
 - ECO collectibles (green/blue/yellow/red) integrated into the realtime lighting as tinted point lights with
   their influence radius (their light tints the mood locally).
 The ambient/direct layering + light-loop design must be extensible to N point lights without a rewrite.
+
+---
+## SUPERVISOR DEVICE GUARD (2026-07-21 ~15h) — REDMI BATTERY CRITICAL
+The Redmi (eae4df44) is at 3% and NOT charging (weak/dead charger, owner alerted for physical fix). A dead
+battery => reboot => PIN-lock => CE-storage lockout (catastrophic, see memory). Therefore:
+- **Before ANY device step**: `adb -s eae4df44 shell dumpsys battery` — if level < 30, do NOT launch the
+  game, captures, installs, or any battery-draining work on the device. No exceptions.
+- Do ALL CODE-side work first (per-pixel/containment/unification/probe-fed H-SH-IBL, menu merge+rename,
+  APK packaging of .probes, contrast preservation, AO stability, industry-standard direct review). Desktop
+  builds/compiles are fine.
+- If all code work is done and the device is still <30%, write an honest RESULT: WIP report explaining the
+  battery blocker and exit cleanly. Do NOT burn the battery.
