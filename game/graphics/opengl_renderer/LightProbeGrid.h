@@ -46,8 +46,9 @@ class LightProbeGrid {
 
  private:
   void alloc_textures();
-  void rebuild_sh_textures();  // from m_cur_sh (current TOD)
-  void rebuild_cube();         // from the selected anchor
+  void rebuild_sh_textures();   // from m_cur_sh (current TOD): all 4 bands at once
+  void rebuild_sh_band(int b);  // one band only (amortized TOD upload: 1/4 of the hitch per frame)
+  void rebuild_cube();          // from the selected anchor
 
   bool m_loaded = false;
   bool m_load_failed_level = false;
@@ -60,6 +61,7 @@ class LightProbeGrid {
   bool m_have_last_itimes = false;
   u64 m_last_frame = (u64)-1;
   u64 m_last_sh_frame = (u64)-1;  // last frame the dense SH textures were rebuilt (rate-limit)
+  int m_pending_band = -1;        // next SH band to upload (amortized rebuild); -1 = none pending
 
   // effective feature state for this frame (gfx flags + optional device prop overrides for A/B).
   bool m_eff_on = false, m_eff_refl = false;

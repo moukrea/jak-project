@@ -173,6 +173,11 @@ void LightProbeGrid::alloc_textures() {
 }
 
 void LightProbeGrid::rebuild_sh_textures() {
+  for (int b = 0; b < 4; b++)
+    rebuild_sh_band(b);
+}
+
+void LightProbeGrid::rebuild_sh_band(int b) {
   const s32 DX = m_grid.dims[0], DY = m_grid.dims[1], DZ = m_grid.dims[2];
   const size_t ntex = (size_t)DX * DY * DZ * 4;
   const float inv = 1.0f / LightProbeGrid::SH_RANGE;
@@ -180,7 +185,7 @@ void LightProbeGrid::rebuild_sh_textures() {
     int i = (int)std::lround(v * 255.0f);
     return (u8)(i < 0 ? 0 : (i > 255 ? 255 : i));
   };
-  for (int b = 0; b < 4; b++) {
+  {
     m_upload.assign(ntex, 0);
     // default all texels to invalid: DC neutral 0, others 0.5-bias; validity(a)=0.
     for (size_t t = 0; t < (size_t)DX * DY * DZ; t++) {
@@ -262,6 +267,14 @@ void LightProbeGrid::update_for_frame(const s32 itimes[4][4],
   refresh_effective_flags();
   if (!m_loaded)
     return;
+  // PLAYTEST#1b #1 (perf/temporal stability): with the BAKED AMBIENT toggle OFF, do ZERO per-frame
+  // probe work — previously the loaded grid kept running the periodic dense-3D-texture rebuild even
+  // when off, a GL-thread hitch source in the "probes OFF" state (OFF must cost nothing, not just
+  // render identically). Re-enabling picks up on the next frame (rebuild triggers immediately).
+  if (!m_eff_on) {
+    m_pending_band = -1;
+    return;
+  }
 
   alloc_textures();
   if (!m_gl_ready)
@@ -299,7 +312,17 @@ void LightProbeGrid::update_for_frame(const s32 itimes[4][4],
         }
       }
     }
-    rebuild_sh_textures();
+    // PLAYTEST#1b #1: AMORTIZED upload — one SH band per frame over the next 4 frames instead of a
+    // single 4-band (~6.4MB) glTexSubImage3D burst. The burst was a periodic GL-thread hitch (every
+    // REBUILD_INTERVAL frames while the TOD advances) => micro-stutter the owner reads as flicker on
+    // movement. m_cur_sh stays fixed while the 4 bands drain, so the bands are mutually consistent;
+    // REBUILD_INTERVAL(20) >> 4 so a drain never overlaps the next rebuild.
+    m_pending_band = 0;
+  }
+  if (m_pending_band >= 0) {
+    rebuild_sh_band(m_pending_band);
+    if (++m_pending_band >= 4)
+      m_pending_band = -1;
   }
 
   // nearest reflection anchor to the camera.
