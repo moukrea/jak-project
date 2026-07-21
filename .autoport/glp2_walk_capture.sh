@@ -13,7 +13,7 @@ export ANDROID_SERIAL=eae4df44
 PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=.autoport/reports/Grecharged-lightprobes/device; mkdir -p "$OUT"
 TAG="${1:?tag}"; PROBE="${2:-1}"; AOM="${3:-1}"
-WARP="${4:-village1-hut}"; POS="${5:--112.0 42.0 205.0}"; HOUR="${6:-8}"; NATIVE="${7:-0}"
+WARP="${4:-village1-hut}"; POS="${5:--112.0 42.0 205.0}"; HOUR="${6:-8}"; NATIVE="${7:-1}"  # owner mandate: ALL evidence captures FULL native res (was 0 = degraded walk captures)
 adb(){ "$ADB" -s "$ANDROID_SERIAL" "$@"; }
 focus(){ adb shell dumpsys window 2>/dev/null </dev/null | grep -m1 -iE 'mCurrentFocus' | tr -d '\r'; }
 stick(){ adb shell "setprop debug.opengoal.cpad_inject '$1'" </dev/null; }
