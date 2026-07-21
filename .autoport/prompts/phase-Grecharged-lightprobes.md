@@ -40,8 +40,10 @@ NON-NEGOTIABLE constraints (owner, verbatim intent):
   garbage**.
 
 ## GROUNDED CODE HOOKS (verified — use these, don't reinvent)
-- Sun/ambient separation (anti-redite): the mood has a SEPARATE `current-sun sun-color` / `mood-lights`
-  distinct from ambient (`goal_src/jak1/engine/gfx/mood/`). Bake with the sun light-group ZEROED → indirect only.
+- Sun/ambient are separable in the mood (`current-sun sun-color` / `mood-lights` distinct from ambient,
+  `goal_src/jak1/engine/gfx/mood/`). NOTE (corrected): do NOT zero the sun in the capture — the owner wants
+  the suns INCLUDED (full lit HDRI). This separation is instead useful at RUNTIME to compose the probe env
+  with the dynamic sun WITHOUT double-counting (the design crux above).
 - Interiors: levels carry `inside-box` / `inside-sphere` / `meta-inside?` volumes (`level.gc`) → auto-place a
   probe at each ROOM CENTER programmatically.
 - 6-face capture: offscreen FBO infra exists (`DepthCue.cpp`, `OpenGLRenderer.cpp` glGenFramebuffers,
@@ -96,3 +98,12 @@ NON-NEGOTIABLE constraints (owner, verbatim intent):
 5. Coherent Recharged menu entries present, no unknown-ID; OFF==stock byte-identical (code-gated).
 6. Report `RESULT: PASS` + device mp4/png + `mCurrentFocus ... jak1`, on the DEFAULT colored render (not a
    debug viz). Verification is OBJECTIVE/numeric; the visual/aesthetic call is the owner's (push to his Honor).
+
+---
+## OWNER 2026-07-21 — HDRI CAPTURES AT FULL RESOLUTION (quality, not perf)
+The bake is OFFLINE — framerate is IRRELEVANT during capture. So the 6-face cubemap HDRI captures MUST be at
+FULL / NATIVE resolution: **DISABLE render scaling entirely during the bake** (no dynamic render-scale, no
+resolution downscale, no "weird render scaling"). Use a high cube-face resolution (e.g. 512²+ per face, or
+higher) — take as long as needed per probe; quality is the only goal. The runtime render-scale / dynamic
+resolution system must NOT apply to the probe capture path. Prove in the report the capture resolution used
+and that render scaling was off.
