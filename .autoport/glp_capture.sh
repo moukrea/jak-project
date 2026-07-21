@@ -34,7 +34,8 @@ set_props(){
   adb shell "setprop debug.opengoal.rt.light $RTON" </dev/null
   adb shell "setprop debug.opengoal.rt.ambient $RTON" </dev/null
   adb shell "setprop debug.opengoal.rt.ambientmodel '$MODEL'" </dev/null
-  adb shell "setprop debug.opengoal.ao.force_mode 0" </dev/null
+  adb shell "setprop debug.opengoal.ao.force_mode ${AOM:-0}" </dev/null   # REOPEN: statics can force an AO mode (aodarken A/B)
+  adb shell "setprop debug.opengoal.rt.detail '${DETAIL:-}'" </dev/null   # REOPEN: baked-detail layer A/B ('' = shipped default ON)
   adb shell "setprop debug.opengoal.pbr.debug ''" </dev/null
   adb shell "setprop debug.opengoal.renderscale.native 1" </dev/null   # FULL-RES eval, render scaling OFF
   adb shell "setprop debug.opengoal.rt.probe '$PROBE'" </dev/null

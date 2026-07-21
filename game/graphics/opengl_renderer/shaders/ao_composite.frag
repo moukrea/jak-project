@@ -1,14 +1,18 @@
 #version 410 core
 
 // Grecharged-ambient-occlusion: composite pass. Samples the final (blurred) AO factor
-// and outputs it as a grey color; the C++ side binds GL_ZERO/GL_SRC_COLOR multiplicative
-// blend so the opaque scene is darkened by (1 - occlusion) with no touch to transparents.
+// and outputs a per-pixel grey MULTIPLIER (<=1); the C++ side binds
+// GL_ZERO / GL_ONE_MINUS_SRC_COLOR (out = dst * (1 - src)) so the opaque scene can ONLY be
+// darkened by the occlusion term — never lit, never hue-shifted. Direct-lit (bright) pixels
+// are masked out via the SCALAR scene luminance (owner GOLDEN-RULE semantic preserved: pros
+// keep AO out of directly-lit zones). Transparents are untouched (pass runs pre-alpha).
 precision highp float;
 
 in vec2 tex_coord;
 out vec4 color;
 
 uniform highp sampler2D u_ao;
+uniform highp sampler2D u_scene;
 uniform int u_debug;
 uniform float u_strength;
 
@@ -21,12 +25,14 @@ void main() {
   } else if (u_debug != 0) {
     color = vec4(vec3(ao), 1.0);  // raw AO term view
   } else {
-    // GOLDEN-RULE composite (owner-sourced 2026-07-16): the C++ side binds
-    // GL_FUNC_REVERSE_SUBTRACT with (GL_ONE_MINUS_DST_COLOR, GL_ONE), i.e.
-    // out = dst - (1-dst) * src. We output the OCCLUSION src = k*(1-ao): direct-lit
-    // (bright) pixels are masked out by the (1-dst) ambient-fraction proxy, shadowed
-    // pixels read the AO fully. Sky stays untouched because the estimators output 1.0
-    // at far depth (src = 0).
-    color = vec4(vec3(u_strength * (1.0 - ao)), 1.0);
+    // GOLDEN RULE kept, BURN fixed (owner reopen 2026-07-21 "elle brule ce qu'elle ombre"):
+    // the old per-channel (1-dst) reverse-subtract crushed a warm pixel's dark channels far
+    // harder than its bright ones ((0.8,0.5,0.25) lost 6%/22%/67% R/G/B) — every crease
+    // shifted toward saturated warm = the burn. The direct-lit mask is now the SCALAR scene
+    // luminance (same owner semantic: bright/direct-lit pixels get ~zero AO) and the blend is
+    // a pure per-pixel MULTIPLY <= 1 (C++ binds GL_ZERO / GL_ONE_MINUS_SRC_COLOR, i.e.
+    // out = dst * (1 - src)): AO can ONLY DARKEN — never add light, never shift hue.
+    float lum = clamp(dot(texture(u_scene, tex_coord).rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+    color = vec4(vec3(clamp(u_strength * (1.0 - ao) * (1.0 - lum), 0.0, 1.0)), 1.0);
   }
 }

@@ -143,8 +143,17 @@ void main() {
   // max clamp 0.10 (was 0.25): same GPU-watchdog/cache-thrash bound as ao_gtao.frag.
   screen_r = clamp(screen_r, 2.0 * max(px.x, px.y), 0.10);
 
-  float ign = fract(52.9829189 *
-                    fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  // REOPEN 2026-07-21 (owner: AO still flickers on movement): the rotation noise was pinned
+  // to gl_FragCoord — as the camera moves a world point slides across pixels and re-rolls its
+  // kernel rotation every frame with no temporal filter = the crawl on all three modes.
+  // Anchor the noise to the WORLD cell instead (P is the true reconstructed world position):
+  // a surface point keeps the SAME rotation frame after frame => temporally stable by
+  // construction. Cells grow with distance so depth-reconstruction error stays << cell; the
+  // 45 m near-field fade means far cells never re-roll visibly. (4096 units = 1 m.)
+  vec3 q = floor(P / max(1024.0, dcam * 0.02));
+  vec3 p3 = fract(q * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  float ign = fract((p3.x + p3.y) * p3.z);
 
   // world-space image of the screen axes at P (same-window-depth unprojection): gives the
   // march direction's TRUE world direction, so the tangent below is analytic (N-based)

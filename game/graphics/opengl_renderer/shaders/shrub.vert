@@ -39,6 +39,8 @@ out float fogginess;
 out vec3 v_fringe_rel;
 // Grecharged-lightprobes: absolute world position (GOAL game units) for probe lookup.
 out vec3 v_world;
+// REOPEN 2026-07-21: raw stored TOD LUT units (pre x4 / pre rgba_base) for the baked-detail ratio.
+out vec3 v_todc;
 #endif
 
 void main() {
@@ -101,6 +103,9 @@ void main() {
   fragment_color =  vec4(rgba_base, 1);
   // get the time of day multiplier
   vec4 tod_color = texelFetch(tex_T10, ivec2(time_of_day_index, 0), 0);
+#ifdef OG_PBR
+  v_todc = tod_color.rgb;  // raw stored LUT units (pre x4/pre rgba_base) for the baked-detail ratio
+#endif
   // combine
   fragment_color *= tod_color * 4.0;
 

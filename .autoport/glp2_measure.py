@@ -134,6 +134,91 @@ def mode_pairdiff(dirs):
             drgb = np.abs(a - b).mean()
             print(f"{na:22s} vs {nb:22s} dLuma_mean={dl.mean():7.3f} dLuma_p95={np.percentile(dl,95):7.3f} dRGB_mean={drgb:7.3f}")
 
+def _gauss1d(sigma):
+    r = max(1, int(3.0 * sigma))
+    x = np.arange(-r, r + 1, dtype=np.float64)
+    k = np.exp(-0.5 * (x / sigma) ** 2)
+    return k / k.sum()
+
+def _blur(img, sigma):
+    k = _gauss1d(sigma)
+    p = len(k) // 2
+    a = np.pad(img, ((p, p), (0, 0)), mode="reflect")
+    a = np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 0, a)
+    a = np.pad(a, ((0, 0), (p, p)), mode="reflect")
+    return np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 1, a)
+
+def _paths(d):
+    # accept a frame DIR or a single still PNG
+    if os.path.isfile(d):
+        return [d]
+    return frames(d)
+
+def mode_richness(dirs):
+    # REOPEN mandate (owner: realtime much flatter than baked): quantify the SPATIAL-FREQUENCY
+    # richness of the shading. Per input (dir or single png), on the world-crop luma:
+    #   - grad_norm: mean |gradient| / mean luma (exposure-independent local-contrast energy)
+    #   - DoG band CONTRAST (std of difference-of-gaussians / mean luma), 3 bands:
+    #       high  = luma - blur(s=2)          (~2-8 px structures: texture/albedo detail)
+    #       meso  = blur(s=2) - blur(s=8)     (~8-32 px: crevice AO / contact shading — the
+    #                                          baked meso-lighting band the probe SH low-passes away)
+    #       mid   = blur(s=8) - blur(s=32)    (~32-128 px: macro shading / form)
+    # Compare baked (rt OFF) vs realtime (rt ON) at the SAME vantage: if baked shows markedly higher
+    # meso/mid contrast, the probe-SH-replaces-baked low-pass hypothesis is CONFIRMED (measured).
+    for d in dirs:
+        fs = _paths(d)
+        if not fs:
+            print(f"{os.path.basename(d):30s} NO FRAMES"); continue
+        crop = ground_crop if os.environ.get("GROUND") == "1" else world_crop
+        gn, hi, me, mi = [], [], [], []
+        for f in fs:
+            c = luma(crop(np.asarray(Image.open(f).convert("RGB")).astype(np.float64)))
+            m = c.mean() + 1e-9
+            gx = np.abs(np.diff(c, axis=1)).mean(); gy = np.abs(np.diff(c, axis=0)).mean()
+            gn.append((gx + gy) / m * 100.0)
+            b2, b8, b32 = _blur(c, 2.0), _blur(c, 8.0), _blur(c, 32.0)
+            hi.append((c - b2).std() / m * 100.0)
+            me.append((b2 - b8).std() / m * 100.0)
+            mi.append((b8 - b32).std() / m * 100.0)
+        print(f"{os.path.basename(d):30s} n={len(fs):3d} grad_norm={np.mean(gn):6.3f} "
+              f"band_high={np.mean(hi):6.3f} band_meso={np.mean(me):6.3f} band_mid={np.mean(mi):6.3f}"
+              f"  (percent local contrast per band)")
+
+def mode_aodarken(dirs):
+    # REOPEN AO-burn gate: signed comparison of AO-ON vs AO-OFF statics at the SAME vantage.
+    # AO must ONLY DARKEN (multiply <= 1): mean signed dLuma <= 0, ~no pixels brighter ON than
+    # OFF, and the darkening must be HUE-PRESERVING (per-channel darkening ratios ~equal; the
+    # old per-channel (1-dst) blend crushed B far harder than R = the saturated-warm 'burn').
+    if len(dirs) != 2:
+        print("aodarken needs exactly 2 inputs: <ao_on> <ao_off>"); return
+    def avg_img(d):
+        fs = _paths(d)
+        if not fs:
+            return None
+        acc = None
+        for f in fs:
+            c = world_crop(np.asarray(Image.open(f).convert("RGB")).astype(np.float64))
+            acc = c if acc is None else acc + c
+        return acc / len(fs)
+    on, off = avg_img(dirs[0]), avg_img(dirs[1])
+    if on is None or off is None or on.shape != off.shape:
+        print("NO FRAMES / SHAPE MISMATCH"); return
+    dl = luma(on) - luma(off)
+    pos = dl[dl > 0]
+    brighter_frac = (dl > 2.0).mean() * 100.0
+    # hue preservation among clearly darkened pixels: per-channel ratio spread R vs B
+    dark = dl < -2.0
+    ratio_spread = float("nan")
+    if dark.any():
+        eps = 1e-6
+        rr = on[..., 0][dark] / np.maximum(off[..., 0][dark], eps)
+        rb = on[..., 2][dark] / np.maximum(off[..., 2][dark], eps)
+        ratio_spread = np.abs(np.clip(rr, 0, 2) - np.clip(rb, 0, 2)).mean()
+    print(f"{os.path.basename(dirs[0]):22s} vs {os.path.basename(dirs[1]):22s} "
+          f"dLuma_mean={dl.mean():7.3f} pos_p99={np.percentile(pos, 99) if pos.size else 0.0:6.3f} "
+          f"brighter_frac%={brighter_frac:6.3f} dark_frac%={(dark.mean()*100):6.2f} "
+          f"hue_ratio_spread_RvsB={ratio_spread:6.4f}")
+
 def mode_shadowcontrast(dirs):
     # Cast-shadow visibility on the ground: ratio of the darkest-decile mean to the brightest-decile
     # mean of the ground crop. A clearly visible cast shadow keeps the ratio LOW; a washed-out
@@ -157,4 +242,5 @@ if __name__ == "__main__":
     mode, dirs = sys.argv[1], sys.argv[2:]
     {"luma": mode_luma, "contrast": mode_contrast, "gridfft": mode_gridfft,
      "flicker": mode_flicker, "shadowcontrast": mode_shadowcontrast,
-     "pairdiff": mode_pairdiff}[mode](dirs)
+     "pairdiff": mode_pairdiff, "richness": mode_richness,
+     "aodarken": mode_aodarken}[mode](dirs)

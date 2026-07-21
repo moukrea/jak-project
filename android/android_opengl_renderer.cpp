@@ -1028,6 +1028,11 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   window_fb.multisample_count = 1;
   window_fb.multisampled = false;
 
+  // Grecharged-ambient-occlusion (REOPEN blink fix): size the AO/blur chain by the WINDOW,
+  // not the render-scale-sized scene FBO, so a dynamic render-scale change never recreates
+  // the AO targets (which was one root of the AO clignote).
+  m_ao_pass.set_output_hint(settings.window_fb_w, settings.window_fb_h);
+
   // Render-scaling: the 3D scene FBO is game_res * (render_scale_pct/100),
   // keeping the GOAL 4:3 aspect. do_pcrtc_effects resample-blits it to the
   // native draw region, so 100 == original 640x480 behavior, <100 trades
@@ -1367,10 +1372,14 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // surfaces neither contribute to the AO depth nor get darkened (owner's #1 risk is
     // excluded by construction).
     if (bucket_id == 31 - 1 && AmbientOcclusionPass::effective_mode() != 0) {
+      auto p = prof.make_scoped_child("ao-draw");
       if (m_ao_defer_frames > 0) {
-        m_ao_defer_frames--;  // FBO was just recreated: skip AO this frame (see setup_frame)
+        m_ao_defer_frames--;
+        // REOPEN blink fix: the FBO was just recreated (render-scale change) — skip only the
+        // depth-sampling ESTIMATOR, keep COMPOSITING the last AO term so AO never pops off for
+        // 3 frames (the owner's "AO clignote"; our native-forced captures had masked it).
+        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo, /*estimate=*/false);
       } else {
-        auto p = prof.make_scoped_child("ao-draw");
         m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
       }
     }

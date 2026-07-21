@@ -237,6 +237,12 @@ uniform sampler3D u_rt_probe_l1c;   // L1 coeff3 .rgb
 uniform int u_rt_probe_reflections;
 uniform float u_rt_probe_strength;
 uniform samplerCube u_rt_probe_cube;   // prefiltered LOCAL reflection env (nearest anchor)
+// REOPEN 2026-07-21 — BAKED-DETAIL RE-INJECTION. u_rt_detail gates the layer (default ON,
+// set by LightProbeGrid; 0 = the pre-reopen flat composite for A/B). u_rt_detail_norm
+// recenters the baked/lowpass ratio (prop debug.opengoal.rt.detailnorm, percent; 1.0 =
+// the units-matched default: fragment_color/2 and the probe SH are both in stored LUT units).
+uniform int u_rt_detail;
+uniform float u_rt_detail_norm;
 
 // SH (DC + L1) -> ambient radiance toward N from 4 already-decoded coeffs (same Y-basis + Al cosine
 // convolution as rt_sh_ambient(): DC*Y0 + c1*Y1(N.y) + c2*Y1(N.z) + c3*Y1(N.x)).
@@ -484,8 +490,10 @@ void main() {
       // probe_w = grid coverage, fades cleanly back to the analytic base at the grid boundary.
       float probe_w = 0.0;
       float probe_int = 0.0;
+      vec3 probe_pamb = vec3(0.0);
       if (u_rt_probe_on != 0) {
         vec3 pamb = rt_probe_sh(v_world, N, probe_w, probe_int);  // PER-PIXEL local SH (+containment): no damier, no wall bleed
+        probe_pamb = pamb;  // smooth local SH BEFORE the IBL-cube mix: the low-pass reference for the detail ratio
         if (probe_w > 0.02) {
           if (u_rt_ambient_model == 2) {
             // IBL fidelity tier: the probe's prefiltered cube (nearest anchor) supplies the ambient
@@ -548,9 +556,30 @@ void main() {
       const float RT_PROBE_IND = 0.45;
       float probe_active = (u_rt_probe_on != 0 && probe_w > 0.02) ? 1.0 : 0.0;
       float ind_k = mix(1.0, mix(RT_PROBE_IND, 1.0, probe_int), probe_active);
-      vec3 lit = albedo * base * ind_k
-               + albedo * u_rt_sun_color * sun_scalar
-               + albedo * u_rt_moon_color * moon_ndl;
+      // REOPEN 2026-07-21 (owner: realtime much flatter/less rich than baked) — BAKED-DETAIL
+      // RE-INJECTION. The baked per-vertex color carries the meso-scale lighting (crevice AO,
+      // contact shadows, local bounce) that the 4 m probe-SH grid low-passes away (measured:
+      // the baked ground band has ~17-19% more meso/high local-contrast energy). The per-pixel
+      // probe SH evaluated HERE is the low-pass of that same baked data (the probes are baked
+      // from these very vertex colors, stored LUT units), so the ratio
+      //   r = (fragment_color/2) / probe_SH      (both stored-space; ~1.0 on flat areas,
+      //                                           <1 in crevices, >1 on baked bounce)
+      // is the TOD-tracking high-frequency detail layer. pow(r, 2.2) is the linear-space
+      // modulation whose DISPLAY-space effect equals the baked render's own local contrast
+      // exactly. It modulates the WHOLE composite (ambient fill + both suns) so crevices dim
+      // the direct light too => realtime = the baked richness (strict superset) + the dynamic
+      // suns/shadows on top. detail == 1 where the probe has no data (fallback unchanged) and
+      // fades in with probe_w; u_rt_detail==0 => the pre-reopen composite, byte-identical.
+      vec3 rt_detail = vec3(1.0);
+      if (probe_active > 0.5 && u_rt_detail != 0) {
+        vec3 baked_lut = max(fragment_color.rgb, vec3(0.0)) * 0.5;  // undo the x2 GS doubling -> stored LUT units
+        vec3 lp = max(probe_pamb * max(u_rt_detail_norm, 1e-3), vec3(0.02));
+        vec3 r = clamp(baked_lut / lp, vec3(0.25), vec3(1.6));  // bounded: division noise / systematic offsets can't blow out the suns
+        rt_detail = mix(vec3(1.0), pow(r, vec3(2.2)), clamp(probe_w, 0.0, 1.0));
+      }
+      vec3 lit = albedo * rt_detail * (base * ind_k
+               + u_rt_sun_color * sun_scalar
+               + u_rt_moon_color * moon_ndl);
       // PLAYTEST#1 #3 (reflections grey EVERYTHING): the blanket reflection add that lived HERE painted a
       // flat grey specular wash on every diffuse surface (terrain/walls are NOT reflective). It is REMOVED
       // from this diffuse branch. Reflections now apply ONLY on genuinely reflective PBR materials, gated

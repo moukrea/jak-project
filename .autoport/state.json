@@ -211,7 +211,7 @@
     "Grecharged-pbr-materials": 4,
     "Grecharged-realtime-lighting": 1,
     "Grecharged-directional-ambient": 10,
-    "Grecharged-lightprobes": 5
+    "Grecharged-lightprobes": 6
   },
   "fingerprints": {
     "00-harness": [
@@ -855,7 +855,7 @@
     "Grecharged-directional-ambient": 1784497329.8718266,
     "Grecharged-lightprobes": 1784610690.5813682
   },
-  "last_update": "2026-07-21T13:52:06.433576+00:00",
+  "last_update": "2026-07-21T15:29:34.466115+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -939,8 +939,7 @@
     "Grecharged-buildsys-cidocs",
     "Grecharged-pbr-materials",
     "Grecharged-realtime-lighting",
-    "Grecharged-directional-ambient",
-    "Grecharged-lightprobes"
+    "Grecharged-directional-ambient"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

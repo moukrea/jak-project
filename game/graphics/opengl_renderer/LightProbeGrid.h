@@ -67,6 +67,10 @@ class LightProbeGrid {
   bool m_eff_on = false, m_eff_refl = false;
   int m_eff_qual = 1;
   float m_eff_str = 1.0f;
+  // REOPEN 2026-07-21 baked-detail re-injection A/B overrides (device props, -1 = unset =>
+  // shader defaults: layer ON, ratio recentering 1.0). See bind_and_upload().
+  int m_dbg_detail = -1;       // debug.opengoal.rt.detail (int: 0 off / 1 on)
+  int m_dbg_detail_norm = -1;  // debug.opengoal.rt.detailnorm (int percent)
   void refresh_effective_flags();
 
   // GL

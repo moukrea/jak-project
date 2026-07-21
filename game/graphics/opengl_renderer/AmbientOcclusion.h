@@ -29,13 +29,27 @@ class AmbientOcclusionPass {
   // Store the shader library for render-time use (mirrors the bucket-renderer flow).
   void init_shaders(ShaderLibrary& shaders);
 
-  // Estimate + blur + composite AO over the opaque scene currently in render_fbo.
-  void render(SharedRenderState* rs, ScopedProfilerNode& prof, Fbo* render_fbo);
+  // Size the AO/blur chain by the WINDOW (not the render-scale-sized FBO) so a dynamic
+  // render-scale change never recreates the chain (no churn / no blink). 0 == "no hint,
+  // fall back to the render FBO size" (the desktop path leaves it unset).
+  void set_output_hint(int w, int h) {
+    m_hint_w = w;
+    m_hint_h = h;
+  }
+
+  // Estimate + blur + composite AO over the opaque scene currently in render_fbo. With
+  // estimate=false ("composite-only" defer path) the depth-sampling estimator/blur are
+  // skipped and the last AO term is composited over the freshly-recreated FBO.
+  void render(SharedRenderState* rs,
+              ScopedProfilerNode& prof,
+              Fbo* render_fbo,
+              bool estimate = true);
 
  private:
   void ensure_quad();
   void ensure_targets(int ao_w, int ao_h, int full_w, int full_h);
   void ensure_depth_resolve(int w, int h);
+  void ensure_scene_copy(int w, int h);
   void free_targets();
 
   ShaderLibrary* m_shaders = nullptr;
@@ -66,6 +80,16 @@ class AmbientOcclusionPass {
   GLuint m_depth_resolve_color = 0;  // 1x1-completeness color
   int m_depth_resolve_w = 0;
   int m_depth_resolve_h = 0;
+
+  // Scene-color copy (RGBA8): the composite reads its SCALAR luminance to mask AO out of
+  // direct-lit pixels (REOPEN burn fix). Sized to the AO output (ao_w/ao_h), recreated only
+  // on size change.
+  GLuint m_scene_tex = 0;
+  GLuint m_scene_fbo = 0;
+  int m_scene_w = 0, m_scene_h = 0;
+
+  // Output-size hint (window-keyed AO chain sizing; 0 == fall back to render FBO size).
+  int m_hint_w = 0, m_hint_h = 0;
 
   int m_err_logged = 0;
 };
