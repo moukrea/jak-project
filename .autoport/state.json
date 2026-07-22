@@ -212,7 +212,7 @@
     "Grecharged-realtime-lighting": 1,
     "Grecharged-directional-ambient": 10,
     "Grecharged-lightprobes": 13,
-    "Grecharged-master-toggle": 1
+    "Grecharged-master-toggle": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -446,6 +446,9 @@
       "9148fdc53b8a",
       "f17b56fa5594",
       "8a00c3f97391"
+    ],
+    "Grecharged-master-toggle": [
+      "ecaa586670f9"
     ]
   },
   "stuck_reasons": {
@@ -861,7 +864,7 @@
     "Grecharged-lightprobes": 1784610690.5813682,
     "Grecharged-master-toggle": 1784714502.0934844
   },
-  "last_update": "2026-07-22T10:45:29.844729+00:00",
+  "last_update": "2026-07-22T10:50:15.908085+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
