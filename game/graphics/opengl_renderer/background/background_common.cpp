@@ -792,6 +792,26 @@ void pbr_shadow_ensure_resources() {
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+int pbr_shadow_caster_mask(u64 frame_idx) {
+  static u64 s_mask_frame = ~0ull;
+  static int s_mask = 7;
+  if (frame_idx != s_mask_frame) {
+    s_mask_frame = frame_idx;
+    s_mask = 7;
+#ifdef __ANDROID__
+    char v[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.pbr.castermask", v) > 0 && v[0]) {
+      s_mask = atoi(v);
+    }
+#else
+    if (const char* e = std::getenv("OG_PBR_CASTER_MASK")) {
+      s_mask = std::atoi(e);
+    }
+#endif
+  }
+  return s_mask;
+}
+
 bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   auto& st = pbr_shadow_state();
   // ROUND 2: shadows are driven by EITHER the pbr-materials toggle OR the sun-only realtime-
@@ -916,6 +936,37 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
     }
     lg::info("PBR-SHADOW-DBG frame={} cast_idx={} frac(depth<0.999)={:.4f} min={:.4f}",
              frame_idx, st.cast_indices, (double)lt / dbg_buf.size(), mn);
+    // Owner-repro phantom-lines diagnostic: env OG_PBR_SHADOW_DUMP=<dir> also writes the
+    // raw depth map as an 8-bit PGM + the matrix/meta, so sliver/bogus casters are visible
+    // directly in the map instead of inferred from the ground artifact. Desktop-only.
+    if (const char* dump_dir = std::getenv("OG_PBR_SHADOW_DUMP")) {
+      char path[512];
+      snprintf(path, sizeof(path), "%s/shadowmap_f%06llu.pgm", dump_dir,
+               (unsigned long long)frame_idx);
+      if (FILE* f = fopen(path, "wb")) {
+        fprintf(f, "P5\n%d %d\n255\n", st.size, st.size);
+        static std::vector<unsigned char> dump8;
+        dump8.resize(dbg_buf.size());
+        for (size_t i = 0; i < dbg_buf.size(); i++) {
+          float d = dbg_buf[i];
+          dump8[i] = (unsigned char)(d >= 1.0f ? 255 : (d < 0.f ? 0 : d * 255.f));
+        }
+        fwrite(dump8.data(), 1, dump8.size(), f);
+        fclose(f);
+        snprintf(path, sizeof(path), "%s/shadowmap_f%06llu.txt", dump_dir,
+                 (unsigned long long)frame_idx);
+        if (FILE* m = fopen(path, "w")) {
+          fprintf(m, "size=%d half=%.2f light=%d cam=%.2f %.2f %.2f\nmvp=", st.size,
+                  st.shadow_half, st.shadow_light, st.write_cam[0] / 4096.f,
+                  st.write_cam[1] / 4096.f, st.write_cam[2] / 4096.f);
+          for (int i = 0; i < 16; i++) {
+            fprintf(m, "%.6f ", st.mvp[i]);
+          }
+          fprintf(m, "\n");
+          fclose(m);
+        }
+      }
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)dbg_prev_fbo);
     if (frame_idx % 600 == 0) {
       // Periodic internal screenshot (headless-friendly visual): lands in the standard

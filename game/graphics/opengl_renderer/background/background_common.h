@@ -247,6 +247,10 @@ void pbr_shadow_ensure_resources();  // lazy FBO/tex creation
 // camera-position-centered box, rotation cannot change it) and the texel snap quantizes
 // its light-space projection so camera TRANSLATION moves the window in whole-texel steps.
 bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans);
+// Phantom-lines bisect tool: bitmask gating which renderers cast into the sun shadow map
+// (bit0 tfrag, bit1 tie, bit2 shrub). Default 7 (all). Debug-only override via env
+// OG_PBR_CASTER_MASK / prop debug.opengoal.pbr.castermask; cached once per frame.
+int pbr_shadow_caster_mask(u64 frame_idx);
 // Bind matrix+sampler(+cam-delta re-anchor) on a TFRAG3-family program. cam_trans = the
 // CURRENT frame's camera translation in game units (same vector the program's cam_trans
 // uniform gets) so the 1-frame-stale read map is sampled in its own camera anchor.

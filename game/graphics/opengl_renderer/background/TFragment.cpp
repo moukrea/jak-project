@@ -663,6 +663,7 @@ void TFragment::render_tree(int geom,
       tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
       tree.kind == tfrag3::TFragmentTreeKind::ICE;
   if (pbr_shadow_frame_ok && pbr_tfrag_opaque_caster &&
+      (pbr_shadow_caster_mask(render_state->frame_idx) & 1) &&
       (pbr_depth_index_count > 0 ||
        (pbr_shadow_state().cast_full && tree.index_count > 0))) {
     auto& sh_st = pbr_shadow_state();

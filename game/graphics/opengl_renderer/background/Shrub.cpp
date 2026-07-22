@@ -247,6 +247,61 @@ void Shrub::update_load(const LevelData* loader_data) {
                  GL_STATIC_DRAW);
     m_trees[l_tree].index_count = (u32)tree.indices.size();
 
+#ifdef OG_FEAT_PBR
+    // Owner #4 phantom-lines fix: build the SANITIZED caster index list for the sun shadow
+    // depth pass. The static strip stream knits some consecutive instance-groups (no restart
+    // at those boundaries — extract_shrub defect), producing sliver triangles hundreds of
+    // meters long (village1: 34 with an edge > 30 m, worst 363 m). Drawn into the shadow map
+    // by the full-buffer caster pass, they are the owner's long straight phantom shadow
+    // lines / the X on the ground. Walk the strip, keep every triangle whose longest edge is
+    // sane, store as a plain GL_TRIANGLES list. Main (visible) draws keep the stock stream.
+    {
+      constexpr float kMaxEdgeMeters = 30.f;
+      constexpr float kMaxEdgeSq = (kMaxEdgeMeters * 4096.f) * (kMaxEdgeMeters * 4096.f);
+      const auto& vtx = tree.unpacked.vertices;
+      std::vector<u32> caster;
+      caster.reserve(tree.indices.size() * 3);
+      u32 a = UINT32_MAX, b = UINT32_MAX;
+      u32 dropped = 0;
+      auto edge_sq = [&](u32 i, u32 j) {
+        float dx = vtx[i].x - vtx[j].x;
+        float dy = vtx[i].y - vtx[j].y;
+        float dz = vtx[i].z - vtx[j].z;
+        return dx * dx + dy * dy + dz * dz;
+      };
+      for (u32 idx : tree.indices) {
+        if (idx == UINT32_MAX) {
+          a = UINT32_MAX;
+          b = UINT32_MAX;
+          continue;
+        }
+        if (a != UINT32_MAX && b != UINT32_MAX) {
+          if (edge_sq(a, b) <= kMaxEdgeSq && edge_sq(b, idx) <= kMaxEdgeSq &&
+              edge_sq(a, idx) <= kMaxEdgeSq) {
+            caster.push_back(a);
+            caster.push_back(b);
+            caster.push_back(idx);
+          } else {
+            dropped++;
+          }
+        }
+        a = b;
+        b = idx;
+      }
+      glGenBuffers(1, &m_trees[l_tree].caster_index_buffer);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_trees[l_tree].caster_index_buffer);
+      glBufferData(GL_ELEMENT_ARRAY_BUFFER, caster.size() * sizeof(u32), caster.data(),
+                   GL_STATIC_DRAW);
+      m_trees[l_tree].caster_index_count = (u32)caster.size();
+      // restore the VAO's element binding to the stock stream for the main draws.
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_trees[l_tree].index_buffer);
+      if (dropped > 0) {
+        lg::info("shrub caster sanitize: tree {} kept {} tris, dropped {} sliver tris (> {} m)",
+                 l_tree, caster.size() / 3, dropped, (int)kMaxEdgeMeters);
+      }
+    }
+#endif
+
     // The shrub.vert time-of-day LUT uniform tex_T10 is declared sampler2D
     // (a Wx1 texture, texelFetch(ivec2(i,0))). GLES has no glTexImage1D / 1D
     // textures (the arm64 loader binds those slots to NULL), so upload and
@@ -340,6 +395,10 @@ void Shrub::discard_tree_cache() {
     // Grecharged-foliage-wind: delete the per-plant sway-anchor LUT (rebuilt each level load).
     glDeleteTextures(1, &tree.wind_lut_texture);
     glDeleteBuffers(1, &tree.index_buffer);
+    if (tree.caster_index_buffer) {
+      glDeleteBuffers(1, &tree.caster_index_buffer);
+      tree.caster_index_buffer = 0;
+    }
     glDeleteBuffers(1, &tree.single_draw_index_buffer);
     glDeleteVertexArrays(1, &tree.vao);
   }
@@ -510,6 +569,7 @@ void Shrub::render_tree(int idx,
     if ((Gfx::g_global_settings.recharged_pbr_enable ||
          Gfx::g_global_settings.recharged_rt_light_enable) &&
         tree.index_count > 0 &&
+        (pbr_shadow_caster_mask(render_state->frame_idx) & 4) &&
         pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
       auto& sh_st = pbr_shadow_state();
       GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
@@ -542,11 +602,13 @@ void Shrub::render_tree(int idx,
       glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
       // Full static shrub geometry (ignore per-frame vis: an off-screen bush must keep
-      // casting its on-screen shadow). GL_TRIANGLE_STRIP + primitive restart (enabled above)
-      // matches the main shrub draw.
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
-      glDrawElements(GL_TRIANGLE_STRIP, tree.index_count, GL_UNSIGNED_INT, nullptr);
-      sh_st.cast_indices += (u64)tree.index_count;
+      // casting its on-screen shadow). Owner #4 phantom-lines fix: draw the SANITIZED
+      // GL_TRIANGLES caster list (built at load, giant cross-instance sliver tris dropped)
+      // instead of the raw strip stream — the slivers were the long straight phantom
+      // shadow lines (the X on the ground), under both suns since the map is shared.
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
+      glDrawElements(GL_TRIANGLES, tree.caster_index_count, GL_UNSIGNED_INT, nullptr);
+      sh_st.cast_indices += (u64)tree.caster_index_count;
 
       // Restore the state the main shrub draw expects.
       glUseProgram((GLuint)prev_program);

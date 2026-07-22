@@ -755,6 +755,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
        (use_envmap && category == tfrag3::TieCategory::NORMAL_ENVMAP)) &&
       (Gfx::g_global_settings.recharged_pbr_enable ||
        Gfx::g_global_settings.recharged_rt_light_enable) &&
+      (pbr_shadow_caster_mask(render_state->frame_idx) & 2) &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
     auto& sh_st = pbr_shadow_state();
     GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;

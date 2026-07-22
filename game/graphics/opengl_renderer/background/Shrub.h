@@ -34,6 +34,13 @@ class Shrub : public BucketRenderer {
     GLuint vertex_buffer;
     GLuint index_buffer;
     u32 index_count = 0;  // Grecharged-realtime-lighting round-3: full static strip index count, for the shadow caster pass
+    // Owner #4 phantom-lines fix: sanitized GL_TRIANGLES caster buffer for the sun shadow
+    // depth pass. The static strip stream knits some consecutive instance-groups together
+    // (the extractor omits the restart at those boundaries), creating hundreds-of-meters
+    // sliver triangles that cast the long straight phantom shadow lines (the owner's X).
+    // Same triangles minus any with an edge above the sanity threshold; main draws untouched.
+    GLuint caster_index_buffer = 0;
+    u32 caster_index_count = 0;
     GLuint single_draw_index_buffer;
     GLuint time_of_day_texture;
     // Gperf-particles round 3: second TOD texture for the ping-pong path, plus
