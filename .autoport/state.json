@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 217,
+  "current_phase_idx": 218,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -211,7 +211,8 @@
     "Grecharged-pbr-materials": 4,
     "Grecharged-realtime-lighting": 1,
     "Grecharged-directional-ambient": 10,
-    "Grecharged-lightprobes": 13
+    "Grecharged-lightprobes": 13,
+    "Grecharged-master-toggle": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -656,7 +657,8 @@
     "Grecharged-buildsys-cidocs",
     "Grecharged-pbr-materials",
     "Grecharged-realtime-lighting",
-    "Grecharged-directional-ambient"
+    "Grecharged-directional-ambient",
+    "Grecharged-lightprobes"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -856,9 +858,10 @@
     "Grecharged-pbr-materials": 1784301214.1679,
     "Grecharged-realtime-lighting": 1784417601.6690388,
     "Grecharged-directional-ambient": 1784497329.8718266,
-    "Grecharged-lightprobes": 1784610690.5813682
+    "Grecharged-lightprobes": 1784610690.5813682,
+    "Grecharged-master-toggle": 1784714502.0934844
   },
-  "last_update": "2026-07-22T09:09:42.349934+00:00",
+  "last_update": "2026-07-22T10:45:29.844729+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
