@@ -2204,6 +2204,18 @@ phases:
   max_retries: 8
   device: true
   owner_verify: true
+- id: Grecharged-naming
+  name: 'RECHARGED (owner 2026-07-22): product renaming — collection = "Jak and Daxter: Recharged
+    Collection" (was The Recharged Jak-pot); Jak1 = "Jak and Daxter: Recharged" (Warped nod); Jak II =
+    "Jak II: Recharged"; Jak 3 = "Jak 3: Recharged". USER-FACING strings only (launcher label, collection
+    UI, README, window titles); package ids org.opengoal.gk.* and save identifiers UNTOUCHED (installs/
+    saves compat). menu-tree synced if menu strings change.'
+  prompt: prompts/phase-Grecharged-naming.md
+  validator: validators/phase-Grecharged-naming.sh
+  max_turns: 1500
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-pbr-realtime-fusion
   name: 'RECHARGED (owner 2026-07-20): PBR materials must be LIT BY the realtime lighting (sun +
     green-sun + SH/IBL ambient) — that is where PBR shines. Today the rt-lighting shader branch
