@@ -1,6 +1,8 @@
 #include "Loader.h"
 
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <set>
 
 #include "common/global_profiler/GlobalProfiler.h"
@@ -165,10 +167,34 @@ void Loader::draw_debug_window() {
   ImGui::End();
 }
 
+// Grecharged-master-toggle: the settings.ini seeds below must agree with what the GOAL side
+// will conclude from the SAME file. GOAL's read-from-file (goal_src/jak1/pc/pckernel-common.gc)
+// DISCARDS the whole file when its version's major.minor differs from the compiled
+// PC_KERNEL_VERSION and resets every setting to its default — so a raw substring seed would
+// diverge from the runtime state for exactly one stale-versioned boot (observed on device:
+// seed=OFF from an old file, GOAL reset to default ON mid-boot). Mirror the guard here.
+// These constants mirror goal_src/jak1/pc/pckernel-impl.gc (static-pckernel-version MAJOR
+// MINOR rev build); gmt_build_deploy.sh greps both files and dies on drift.
+static constexpr int kGoalPckernelVersionMajor = 1;
+static constexpr int kGoalPckernelVersionMinor = 11;
+
+// True when settings.ini's `version = #x...` line (layout major<<48|minor<<32|rev<<16|build)
+// matches the compiled GOAL pckernel major.minor — i.e. GOAL will actually LOAD this file
+// instead of resetting to defaults.
+static bool settings_ini_version_current(const std::string& txt) {
+  auto pos = txt.find("version = #x");
+  if (pos == std::string::npos) {
+    return false;
+  }
+  u64 v = strtoull(txt.c_str() + pos + strlen("version = #x"), nullptr, 16);
+  return (int)((v >> 48) & 0xffff) == kGoalPckernelVersionMajor &&
+         (int)((v >> 32) & 0xffff) == kGoalPckernelVersionMinor;
+}
+
 // Grecharged-hd-models: read the persisted ENHANCED MODELS choice straight from settings.ini. The
 // common FR3 (HD Jak+Daxter) loads in the renderer ctor (via load_common) BEFORE GOAL's per-frame push,
 // so we seed the flag here to respect the toggle on relaunch. Shared by desktop + Android (both call
-// Loader::load_common). Missing file / #f -> false -> stock.
+// Loader::load_common). Missing file / stale version / #f -> false -> stock (GOAL's reset default).
 #ifdef OG_FEAT_HD_MODELS
 static bool read_persisted_enhanced_models() {
   try {
@@ -177,6 +203,9 @@ static bool read_persisted_enhanced_models() {
       return false;
     }
     auto txt = file_util::read_text_file(p);
+    if (!settings_ini_version_current(txt)) {
+      return false;
+    }
     // INI line format: `recharged-enhanced-models? = #t`.
     return txt.find("recharged-enhanced-models? = #t") != std::string::npos;
   } catch (...) {
@@ -189,8 +218,9 @@ static bool read_persisted_enhanced_models() {
 // load_common runs in the renderer ctor BEFORE GOAL's per-frame push, and the early loader
 // gates (enhanced FR3 select, custom texture replacements) go through Gfx::recharged_active,
 // which consults the master — so seed it here or a saved master-OFF would still load
-// recharged assets for the first frames. Missing file / missing key -> ON (the default);
-// only an explicit `recharged-master? = #f` line disables.
+// recharged assets for the first frames. Missing file / stale version / missing key -> ON
+// (GOAL's reset default); only an explicit `recharged-master? = #f` line in a
+// version-current file disables.
 static bool read_persisted_recharged_master() {
   try {
     auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "settings.ini";
@@ -198,6 +228,9 @@ static bool read_persisted_recharged_master() {
       return true;
     }
     auto txt = file_util::read_text_file(p);
+    if (!settings_ini_version_current(txt)) {
+      return true;
+    }
     return txt.find("recharged-master? = #f") == std::string::npos;
   } catch (...) {
     return true;

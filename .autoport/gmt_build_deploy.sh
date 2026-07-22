@@ -21,6 +21,13 @@ say "0. adb server refresh (wedged daemon => false 'not installed')"
 "$ADB" kill-server >/dev/null 2>&1 || true; sleep 1; "$ADB" start-server >/dev/null 2>&1 || true; sleep 2
 $ADB -s $S wait-for-device
 
+say "0b. settings-version mirror sync (Loader.cpp seed guard vs GOAL pckernel version)"
+GV=$(grep -oE 'static-pckernel-version [0-9]+ [0-9]+' goal_src/jak1/pc/pckernel-impl.gc | head -1)
+CMAJ=$(grep -oE 'kGoalPckernelVersionMajor = [0-9]+' game/graphics/opengl_renderer/loader/Loader.cpp | grep -oE '[0-9]+$')
+CMIN=$(grep -oE 'kGoalPckernelVersionMinor = [0-9]+' game/graphics/opengl_renderer/loader/Loader.cpp | grep -oE '[0-9]+$')
+[ "$GV" = "static-pckernel-version $CMAJ $CMIN" ] || die "settings-version drift: GOAL '$GV' vs Loader.cpp seed guard $CMAJ.$CMIN"
+echo "  ok: GOAL $GV == Loader.cpp seed guard $CMAJ.$CMIN"
+
 say "1. FULL consistent arm64 build (28 CGO/DGO) + x86 oracle restore"
 bash .autoport/build_arm64_full_consistent.sh || die "full arm64 build failed (GOAL error?)"
 n=$(ls out/jak1-arm64-full/iso/*.CGO out/jak1-arm64-full/iso/*.DGO 2>/dev/null | wc -l)

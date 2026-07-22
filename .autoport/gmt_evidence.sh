@@ -34,13 +34,22 @@ disk_master(){ adb shell cat "$PCS" 2>/dev/null | grep -aE '^recharged-master\?'
 
 set_kv(){ # set_kv <file> <key-regex-escaped> <value-line>
   local f="$1" k="$2" v="$3"
-  if grep -qE "^$k = " "$f"; then sed -i "s/^$k = .*/$v/" "$f"; else sed -i "/^\[secrets\]/i $v" "$f"; fi
+  # NB: -E on the replace too — k is ERE-escaped ('\?' = literal ?); plain sed is BRE where
+  # '\?' means optional-previous-char and silently never matches these keys.
+  if grep -qE "^$k = " "$f"; then sed -i -E "s/^$k = .*/$v/" "$f"; else sed -i "/^\[secrets\]/i $v" "$f"; fi
 }
 
 settings_config(){ # rec | masteroff | alloff
   adb shell am force-stop $PKG; sleep 2
   adb shell cat "$PCS" > /tmp/gmt_pcs.ini 2>/dev/null || die "cannot read $PCS"
   tr -d '\r' < /tmp/gmt_pcs.ini > /tmp/gmt_pcs2.ini && mv /tmp/gmt_pcs2.ini /tmp/gmt_pcs.ini
+  # Pin the version line to THIS build's GOAL pckernel version. A stale minor makes GOAL
+  # read-from-file DISCARD the whole file and reset every setting to defaults — every A/B
+  # config would silently run the default-recharged config (bit us: three identical frames).
+  # Layout major<<48|minor<<32|rev<<16|build; derived from pckernel-impl.gc, die on drift.
+  grep -q 'static-pckernel-version 1 11 0 0' goal_src/jak1/pc/pckernel-impl.gc \
+    || die "GOAL pckernel version no longer 1 11 0 0 — update the pinned hex below"
+  set_kv /tmp/gmt_pcs.ini 'version' 'version = #x1000b00000000'
   case "$1" in
     rec) # master ON + a visibly-recharged config (grass/pbr/realtime/wind ON). AO stays 0:
          # enabling AO arms the safe-boot sentinel, and our short capture boots end in a
@@ -77,7 +86,8 @@ settings_config(){ # rec | masteroff | alloff
   esac
   adb push /tmp/gmt_pcs.ini /data/local/tmp/gmt_pcs.ini >/dev/null 2>&1 || die "push failed"
   adb shell cp /data/local/tmp/gmt_pcs.ini "$PCS" || die "cp to settings failed"
-  echo "  config '$1' applied:"; adb shell cat "$PCS" | grep -aE '^(recharged-master|recharged-grass|pbr-materials|realtime-lighting|recharged-foliage-wind|ambient-occlusion|load-custom-assets|recharged-enhanced-models)' | sed 's/^/    /'
+  adb shell cat "$PCS" | tr -d '\r' | grep -q '^version = #x1000b00000000$' || die "version pin did not land on device"
+  echo "  config '$1' applied:"; adb shell cat "$PCS" | grep -aE '^(version|recharged-master|recharged-grass|pbr-materials|realtime-lighting|recharged-foliage-wind|ambient-occlusion|load-custom-assets|recharged-enhanced-models)' | sed 's/^/    /'
 }
 
 warp_props(){
@@ -96,11 +106,14 @@ clear_props(){
 
 boot_to_vantage(){ # -> waits for LEVEL-WARP-SPAWN + settle
   adb shell am force-stop $PKG; sleep 2
+  # kill leftover logcat streamers from earlier cap stages — they keep appending later
+  # sessions' lines to earlier tags' log files (poisoned the first A/B forensics)
+  pkill -f "$ADB -s $S logcat" 2>/dev/null; sleep 1
   adb logcat -c 2>/dev/null || true
   warp_props
   LOG="$OUT/logcat-$1.log"; : > "$LOG"
   ( adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
-     | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|recharged-master|recharged-ao|foliage-wind|HD-MODELS|Fatal signal|GK-DIAG sig=' >> "$LOG" ) 2>/dev/null &
+     | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|recharged-master|recharged-ao|foliage-wind|HD-MODELS|pc settings|PC [Kk]ernel version|PC Settings|Fatal signal|GK-DIAG sig=' >> "$LOG" ) 2>/dev/null &
   LCP=$!
   adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
   t0=$(date +%s)
