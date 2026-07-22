@@ -53,7 +53,9 @@ std::string normalize_key(std::string key) {
 // extension ("village1-tpage-2/sand-01"), the bare stem ("sand-01"), and — for nested
 // per-texture layouts like <tpage>/<tex>/<tex>.png (the committed first-party set) —
 // "<top-level-dir>/<stem>" so the exact tpage/name lookup still hits without relying on
-// the bare-name fallback.
+// the bare-name fallback. A leading "texture_replacements/" wrapper (how internet packs
+// ship: texture_replacements/<tpage>/<name>.png) is stripped before key derivation, so
+// wrapped and unwrapped layouts produce the same keys on both the user and bundled sides.
 int scan_dir(const fs::path& dir, std::map<std::string, fs::path>& index) {
   if (!fs::exists(dir)) {
     return 0;
@@ -72,12 +74,23 @@ int scan_dir(const fs::path& dir, std::map<std::string, fs::path>& index) {
     rel.replace_extension();
     std::string rel_key = normalize_key(rel.string());
     index[rel_key] = p;
+    // Internet texture packs ship wrapped as texture_replacements/<tpage>/... (the upstream
+    // OpenGOAL convention). Strip the wrapper so the same <tpage>/<name> keys come out as for
+    // an unwrapped layout — the user and bundled sides share this exact derivation.
+    std::string sub_key = rel_key;
+    constexpr const char* kWrapper = "texture_replacements/";
+    if (sub_key.rfind(kWrapper, 0) == 0) {
+      sub_key = sub_key.substr(std::string(kWrapper).size());
+      if (!sub_key.empty() && index.find(sub_key) == index.end()) {
+        index[sub_key] = p;
+      }
+    }
     std::string bare_key = p.stem().string();
     // "<tpage>/<stem>" for nested layouts (first path component + stem).
-    auto slash = rel_key.find('/');
+    auto slash = sub_key.find('/');
     if (slash != std::string::npos) {
-      std::string tpage_key = rel_key.substr(0, slash) + "/" + bare_key;
-      if (tpage_key != rel_key && index.find(tpage_key) == index.end()) {
+      std::string tpage_key = sub_key.substr(0, slash) + "/" + bare_key;
+      if (tpage_key != sub_key && index.find(tpage_key) == index.end()) {
         index[tpage_key] = p;
       }
     }

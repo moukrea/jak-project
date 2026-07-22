@@ -18,6 +18,14 @@
 #   preccheck    logcat-prec must show 'custom texture replacement (user)' for the overridden name
 #                AND '(bundled)' for the others; frame prec.png MUST MISMATCH texon.png (roof went
 #                magenta => user custom_assets WINS over bundled); then REMOVES the user file
+#   precnpush    NESTED-layout user overrides (the owner's real internet-pack scenario): three
+#                garish PNGs pushed in the three nested layouts —
+#                  texture_replacements/<tpage>/<name>.png  (internet-pack wrapper, GREEN)
+#                  <tpage>/<name>.png                       (tpage subdir, CYAN)
+#                  <tpage>/<tex>/<tex>.png                  (per-texture nested, ORANGE)
+#   precncheck   logcat-precn must show '(user)' loads for all three FROM their nested paths,
+#                '(bundled)' for the untouched textures, and NO bundled load for the overridden
+#                three; frame precn.png MUST MISMATCH texon.png; then REMOVES the user files
 #   menu <stage> boot|nav|texflip|greych|texflipback — the user flow on the new row
 #   cleanup      clear props, remove user override, force-stop
 #
@@ -220,6 +228,70 @@ preccheck)
   echo "  user override removed from device"
   echo "[gbt-ev preccheck] PASS"
   ;;
+precnpush)
+  # NESTED user overrides — the owner's real scenario ("un pack de textures d'internet"):
+  # packs ship wrapped in texture_replacements/<tpage>/, plus the two other nested layouts
+  # the bundled side supports. Same key-derivation both sides => filename wins user-first.
+  python3 - "$OUT" <<'EOF'
+import sys, struct, zlib, os
+out = sys.argv[1]
+def png(rgba):
+    w = h = 64
+    raw = b''.join(b'\x00' + rgba * w for _ in range(h))
+    def chunk(t, d):
+        c = struct.pack('>I', len(d)) + t + d
+        return c + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(raw))
+            + chunk(b'IEND', b''))
+for name, rgba in [('nested-green', b'\x00\xff\x00\xff'),
+                   ('nested-cyan', b'\x00\xff\xff\xff'),
+                   ('nested-orange', b'\xff\x80\x00\xff')]:
+    p = os.path.join(out, f'user-override-{name}.png')
+    open(p, 'wb').write(png(rgba))
+    print('  wrote', p)
+EOF
+  adb shell mkdir -p "$USER_DROP/texture_replacements/village1-vis-tfrag" \
+                     "$USER_DROP/village1-vis-tfrag/vil1-sages-strawroof-01"
+  adb push "$OUT/user-override-nested-green.png" \
+    "$USER_DROP/texture_replacements/village1-vis-tfrag/vil-hut-roof-tile-01.png" || die "push nested-green failed"
+  adb push "$OUT/user-override-nested-cyan.png" \
+    "$USER_DROP/village1-vis-tfrag/vil-wallplaster.png" || die "push nested-cyan failed"
+  adb push "$OUT/user-override-nested-orange.png" \
+    "$USER_DROP/village1-vis-tfrag/vil1-sages-strawroof-01/vil1-sages-strawroof-01.png" || die "push nested-orange failed"
+  adb shell find "$USER_DROP" -name '*.png' | sed 's/^/    /'
+  echo "[gbt-ev precnpush] 3 nested user overrides in place"
+  ;;
+precncheck)
+  L="$OUT/logcat-precn.log"
+  [ -f "$L" ] || die "no $L — run: precnpush && abset prec && cap precn first"
+  echo "== NESTED precedence: user files in nested layouts WIN over bundled =="
+  grep -a 'custom texture replacement (user): village1-vis-tfrag/vil-hut-roof-tile-01 ' "$L" \
+    | grep -aq '/custom_assets/texture_replacements/village1-vis-tfrag/' \
+    || die "texture_replacements/<tpage>/<name>.png user file did not win (no user load from the wrapped path)"
+  grep -a 'custom texture replacement (user): village1-vis-tfrag/vil-wallplaster ' "$L" \
+    | grep -aq '/custom_assets/village1-vis-tfrag/vil-wallplaster.png' \
+    || die "<tpage>/<name>.png user file did not win"
+  grep -a 'custom texture replacement (user): village1-vis-tfrag/vil1-sages-strawroof-01 ' "$L" \
+    | grep -aq '/custom_assets/village1-vis-tfrag/vil1-sages-strawroof-01/vil1-sages-strawroof-01.png' \
+    || die "<tpage>/<tex>/<tex>.png user file did not win"
+  for t in vil-hut-roof-tile-01 vil-wallplaster vil1-sages-strawroof-01; do
+    grep -a "custom texture replacement (bundled): village1-vis-tfrag/$t " "$L" | grep -q . \
+      && die "overridden $t ALSO loaded from bundle (precedence broken)"
+  done
+  grep -aq 'custom texture replacement (bundled): village1-vis-tfrag/vil-beachrock ' "$L" \
+    || die "untouched textures no longer bundled (expected user WINS only for the overridden three)"
+  echo "  user lines:";    grep -a 'custom texture replacement (user)' "$L" | sed 's/^/    /'
+  echo "  bundled lines:"; grep -a 'custom texture replacement (bundled)' "$L" | sed 's/^/    /'
+  echo "== frame: precn vs texon MUST MISMATCH (green roof + cyan plaster + orange straw) =="
+  python3 .autoport/lib/frame_compare.py "$OUT/texon.png" "$OUT/precn.png" --threshold 24 --tolerance 0.02 \
+    --diff "$OUT/diff_precn_vs_texon.png" | tee "$OUT/compare_precn_texon.txt" || true
+  grep -q '^MISMATCH ' "$OUT/compare_precn_texon.txt" || die "precn vs texon did not MISMATCH (nested user overrides invisible)"
+  adb shell rm -rf "$USER_DROP/texture_replacements" "$USER_DROP/village1-vis-tfrag"
+  echo "  nested user overrides removed from device"
+  echo "[gbt-ev precncheck] PASS"
+  ;;
 menu)
   ST=${2:?boot|nav|texflip|greych|texflipback}
   case "$ST" in
@@ -279,6 +351,7 @@ menu)
 cleanup)
   clear_props
   adb shell rm -f "$USER_DROP/vil-hut-roof-tile-01.png" 2>/dev/null || true
+  adb shell rm -rf "$USER_DROP/texture_replacements" "$USER_DROP/village1-vis-tfrag" 2>/dev/null || true
   adb shell am force-stop $PKG
   ;;
 *) die "unknown stage $1";;
