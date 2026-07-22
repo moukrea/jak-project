@@ -34,3 +34,11 @@ vil1-sages-stonewall-01, vil-beach-01, vil-wallplaster}`, each with:
 - Device: A/B toggle ON/OFF (owner textures visibly land, measured diff on the right tpage surfaces);
   precedence test (a user custom override wins); OFF==stock.
 - menu-tree.md updated. Report RESULT: PASS + evidence. owner_verify: the owner judges his own textures.
+
+---
+## SUPERVISOR — REPORT DISCIPLINE (attempts 1-2 exited with ZERO report)
+Create `.autoport/reports/Grecharged-bundled-textures/report.txt` in your FIRST 10 turns (RESULT: WIP) and
+fill it as you go; flip to RESULT: PASS + "READY FOR OWNER VISUAL CHECK" the moment the mechanical bar is
+met (build installs, boots, textures land, toggle wired, precedence proven by grep/log — NO capture
+batteries). Reserve the last 20% of your budget for finishing the report. An attempt that exits without a
+report wastes everyone's time.
