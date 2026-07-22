@@ -42,3 +42,21 @@ fill it as you go; flip to RESULT: PASS + "READY FOR OWNER VISUAL CHECK" the mom
 met (build installs, boots, textures land, toggle wired, precedence proven by grep/log — NO capture
 batteries). Reserve the last 20% of your budget for finishing the report. An attempt that exits without a
 report wastes everyone's time.
+
+---
+## OWNER PLAYTEST (2026-07-22 soir) — TEXTURES LOAD ✅ BUT PRECEDENCE IS BROKEN. Fix = the last item.
+Owner on device: "les textures rechargées chargent ! EN REVANCHE si ces mêmes textures (même FILENAME)
+existent aussi dans les custom assets de l'utilisateur, elles doivent prendre la PRIORITÉ. J'ai un pack de
+textures d'internet en custom qui remplace TOUTES les textures, et malgré tout ce sont les textures
+rechargées qui apparaissent. Hormis ça, validé."
+THE BUG: the lookup resolves the BUNDLED recharged texture even when a USER file with the same
+tpage/filename exists in the device custom_assets dir. Required order, BY FILENAME, at lookup time:
+  1. user custom_assets (the customisation channel — always wins)
+  2. bundled recharged (our first-party set)
+  3. stock
+Check the actual lookup path (custom_tex::lookup / the recharged-bundled resolution added this phase) — the
+bundled source was probably checked FIRST or the user dir scan misses when the recharged toggle is ON.
+PROVE on device with the owner's scenario: a USER custom file with the SAME name as a bundled one (e.g.
+vil1-sages-stonewall-01.png) must visibly/log-provably be the one loaded ("custom texture replacements: N
+user files" scanner line + which source won per file). Mechanical bar + READY then; the owner re-verifies
+with his internet texture pack.
