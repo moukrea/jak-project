@@ -75,3 +75,19 @@ got the nested-layout support, the owner's pack loses exactly as he reported. RE
    vil1-sages-stonewall-01.png) beating the bundled one — not just the flat magenta.
 3. Log per-file source (already there) must show the nested user file winning.
 Then READY; the owner re-verifies with his actual internet pack.
+
+---
+## OWNER SEMANTICS (2026-07-22, verbatim — this replaces my nested-layout hypothesis)
+His pack: `OpenGoal/jak1/custom_assets/` + ARBITRARY subdirectories of .png named like the game textures.
+- "L'arborescence importe peu" — matching is BY FILENAME regardless of depth (the existing recursive user
+  scan already does this and MUST NOT change).
+- Among MULTIPLE user files with the same filename: alphabetical order of the tree, THE LAST ONE WINS —
+  existing behaviour, works today, DO NOT change it.
+- THE ONLY BUG: user custom assets don't take priority over Recharged Textures. Required order:
+  **user custom_assets (when enabled) > recharged bundled (when enabled) > stock. "C'est pas compliqué !"**
+LIKELY MECHANISM (verify): the bundled entries were merged into the SAME last-wins index and the bundled
+scan runs after the user scan => bundled clobbers user. FIX: separate the sources (two indexes or explicit
+source priority at lookup) so a user entry ALWAYS beats a bundled entry with the same filename — while the
+user-internal alphabetical-last-wins rule stays exactly as is.
+DEVICE PROOF: a user .png in an ARBITRARY subdir (any depth) with a bundled texture's filename wins over
+the bundled one (per-file source log); plus one user-duplicate case proving alphabetical-last-wins intact.
