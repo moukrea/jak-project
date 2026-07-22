@@ -569,6 +569,12 @@ void pc_set_load_custom_assets(u32 on) {
   Gfx::g_global_settings.load_custom_assets = (on != 0);
 }
 
+// Grecharged-bundled-textures: 0/1 toggle for the package-bundled first-party replacement
+// textures (base albedo swaps only; the bundle's PBR maps follow the PBR path instead).
+void pc_set_recharged_textures(u32 on) {
+  Gfx::g_global_settings.recharged_textures = (on != 0);
+}
+
 // Grecharged-master-toggle: push the GLOBAL Recharged master from GOAL
 // (-> *pc-settings* recharged-master?). 0 = every recharged feature forced to its stock
 // state via Gfx::recharged_active() (the individual flags keep the user's values, so the
@@ -1031,6 +1037,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-recharged-master!", (void*)pc_set_recharged_master);
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
+  make_function_symbol_from_c("pc-set-recharged-textures!", (void*)pc_set_recharged_textures);
 #ifdef OG_FEAT_GRASS_OVERHANG
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);

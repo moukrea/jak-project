@@ -23,9 +23,12 @@ namespace {
 // bare filename without extension ("sand-01").
 struct ScanState {
   bool scanned = false;
-  bool last_enable = false;
-  fs::path scanned_dir;
-  std::map<std::string, fs::path> index;
+  bool last_user_enable = false;
+  bool last_bundled_enable = false;
+  // USER drop dir (get_custom_assets_replacements_dir) — always wins over bundled.
+  std::map<std::string, fs::path> user_index;
+  // Package-BUNDLED first-party set (get_bundled_recharged_textures_dir).
+  std::map<std::string, fs::path> bundled_index;
 } g_state;
 
 #ifdef OG_FEAT_PBR
@@ -46,22 +49,15 @@ std::string normalize_key(std::string key) {
   return key;
 }
 
-void ensure_scanned() {
-  const bool enabled = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
-  // Rescan on an off->on transition so a freshly-dropped directory is picked up.
-  if (g_state.scanned && g_state.last_enable == enabled) {
-    return;
-  }
-  g_state.last_enable = enabled;
-  g_state.scanned = true;
-  g_state.index.clear();
-
-  const auto dir = file_util::get_custom_assets_replacements_dir(g_game_version);
-  g_state.scanned_dir = dir;
+// Scan one replacements root into an index. Keys per file: the relative path without
+// extension ("village1-tpage-2/sand-01"), the bare stem ("sand-01"), and — for nested
+// per-texture layouts like <tpage>/<tex>/<tex>.png (the committed first-party set) —
+// "<top-level-dir>/<stem>" so the exact tpage/name lookup still hits without relying on
+// the bare-name fallback.
+int scan_dir(const fs::path& dir, std::map<std::string, fs::path>& index) {
   if (!fs::exists(dir)) {
-    return;
+    return 0;
   }
-
   int file_count = 0;
   for (const auto& entry : fs::recursive_directory_iterator(dir)) {
     if (!entry.is_regular_file()) {
@@ -72,46 +68,91 @@ void ensure_scanned() {
       continue;
     }
     file_count++;
-    // relative path key, without extension
     auto rel = fs::relative(p, dir);
     rel.replace_extension();
     std::string rel_key = normalize_key(rel.string());
-    g_state.index[rel_key] = p;
-    // bare filename key, without extension (fallback)
+    index[rel_key] = p;
     std::string bare_key = p.stem().string();
+    // "<tpage>/<stem>" for nested layouts (first path component + stem).
+    auto slash = rel_key.find('/');
+    if (slash != std::string::npos) {
+      std::string tpage_key = rel_key.substr(0, slash) + "/" + bare_key;
+      if (tpage_key != rel_key && index.find(tpage_key) == index.end()) {
+        index[tpage_key] = p;
+      }
+    }
     // don't clobber a more-specific relative key with a bare-name collision
-    if (g_state.index.find(bare_key) == g_state.index.end()) {
-      g_state.index[bare_key] = p;
+    if (index.find(bare_key) == index.end()) {
+      index[bare_key] = p;
     }
   }
+  return file_count;
+}
 
-  lg::info("custom texture replacements: {} files found in {}", file_count, dir.string());
+// Exact tpage/name key first, then the bare-name fallback. Returns nullptr on miss.
+const fs::path* find_key(const std::map<std::string, fs::path>& index,
+                         const std::string& exact_key,
+                         const std::string& bare_key) {
+  auto it = index.find(exact_key);
+  if (it == index.end()) {
+    it = index.find(bare_key);
+    if (it == index.end()) {
+      return nullptr;
+    }
+  }
+  return &it->second;
+}
+
+void ensure_scanned() {
+  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
+  // The bundled set serves two consumers (base swaps gated by recharged_textures, PBR maps
+  // gated by the PBR path) — scan it whenever the master is up; per-lookup gates pick sources.
+  const bool bundled_on = Gfx::recharged_master_active();
+  // Rescan on any gate transition so a freshly-dropped directory is picked up.
+  if (g_state.scanned && g_state.last_user_enable == user_on &&
+      g_state.last_bundled_enable == bundled_on) {
+    return;
+  }
+  g_state.last_user_enable = user_on;
+  g_state.last_bundled_enable = bundled_on;
+  g_state.scanned = true;
+  g_state.user_index.clear();
+  g_state.bundled_index.clear();
+
+  const auto user_dir = file_util::get_custom_assets_replacements_dir(g_game_version);
+  const int user_count = scan_dir(user_dir, g_state.user_index);
+  const auto bundled_dir = file_util::get_bundled_recharged_textures_dir(g_game_version);
+  const int bundled_count = scan_dir(bundled_dir, g_state.bundled_index);
+
+  lg::info("custom texture replacements: {} user files in {}, {} bundled files in {}",
+           user_count, user_dir.string(), bundled_count, bundled_dir.string());
 }
 }  // namespace
 
 std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std::string& tex_name) {
-  if (!Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets)) {
+  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
+  const bool bundled_on = Gfx::recharged_active(Gfx::g_global_settings.recharged_textures);
+  if (!user_on && !bundled_on) {
     return std::nullopt;
   }
   ensure_scanned();
-  if (g_state.index.empty()) {
+
+  const std::string exact_key = normalize_key(tpage_name + "/" + tex_name);
+  // PRECEDENCE (owner): user custom_assets > bundled recharged > stock.
+  const fs::path* path = user_on ? find_key(g_state.user_index, exact_key, tex_name) : nullptr;
+  const char* src = "user";
+  if (!path && bundled_on) {
+    path = find_key(g_state.bundled_index, exact_key, tex_name);
+    src = "bundled";
+  }
+  if (!path) {
     return std::nullopt;
   }
 
-  const std::string exact_key = normalize_key(tpage_name + "/" + tex_name);
-  auto it = g_state.index.find(exact_key);
-  if (it == g_state.index.end()) {
-    // bare-name fallback
-    it = g_state.index.find(tex_name);
-    if (it == g_state.index.end()) {
-      return std::nullopt;
-    }
-  }
-
   int w = 0, h = 0;
-  auto* data = stbi_load(it->second.string().c_str(), &w, &h, nullptr, STBI_rgb_alpha);
+  auto* data = stbi_load(path->string().c_str(), &w, &h, nullptr, STBI_rgb_alpha);
   if (!data) {
-    lg::warn("custom texture replacement: failed to load {}", it->second.string());
+    lg::warn("custom texture replacement: failed to load {}", path->string());
     return std::nullopt;
   }
 
@@ -122,7 +163,7 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
   memcpy(out.rgba.data(), data, out.rgba.size());
   stbi_image_free(data);
 
-  lg::info("custom texture replacement: {} <- {}", exact_key, it->second.string());
+  lg::info("custom texture replacement ({}): {} <- {}", src, exact_key, path->string());
   return out;
 }
 
@@ -130,30 +171,36 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
 const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
                                         const std::string& tex_name,
                                         const char* suffix) {
-  if (!Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets)) {
+  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
+  // Bundled PBR maps apply whenever the PBR pipeline asks (the caller sits in the PBR path);
+  // only the MASTER gates them — deliberately NOT the base-swap toggle (owner: PBR maps
+  // whenever PBR is ON, base replacement only when RECHARGED TEXTURES is ON).
+  const bool bundled_on = Gfx::recharged_master_active();
+  if (!user_on && !bundled_on) {
     return nullptr;
   }
   ensure_scanned();
-  if (g_state.index.empty()) {
-    return nullptr;
-  }
 
   // Same key logic as lookup(), but the suffix is appended to the NAME part of
   // both candidate keys (exact "tpage/name<suffix>" first, bare "name<suffix>").
   const std::string suffixed_name = tex_name + suffix;
   const std::string exact_key = normalize_key(tpage_name + "/" + suffixed_name);
-  auto it = g_state.index.find(exact_key);
-  if (it == g_state.index.end()) {
-    it = g_state.index.find(suffixed_name);
-    if (it == g_state.index.end()) {
-      return nullptr;
-    }
+  // PRECEDENCE (owner): user custom_assets > bundled recharged > stock.
+  const fs::path* path =
+      user_on ? find_key(g_state.user_index, exact_key, suffixed_name) : nullptr;
+  const char* src = "user";
+  if (!path && bundled_on) {
+    path = find_key(g_state.bundled_index, exact_key, suffixed_name);
+    src = "bundled";
+  }
+  if (!path) {
+    return nullptr;
   }
 
   int w = 0, h = 0;
-  auto* data = stbi_load(it->second.string().c_str(), &w, &h, nullptr, STBI_rgb_alpha);
+  auto* data = stbi_load(path->string().c_str(), &w, &h, nullptr, STBI_rgb_alpha);
   if (!data) {
-    lg::warn("custom pbr map: failed to load {}", it->second.string());
+    lg::warn("custom pbr map: failed to load {}", path->string());
     return nullptr;
   }
 
@@ -166,7 +213,7 @@ const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
   memcpy(s_out.rgba.data(), data, s_out.rgba.size());
   stbi_image_free(data);
 
-  lg::info("custom pbr map: {} <- {}", exact_key, it->second.string());
+  lg::info("custom pbr map ({}): {} <- {}", src, exact_key, path->string());
   return &s_out;
 }
 
@@ -194,7 +241,8 @@ const PbrMaterialMaps* find_pbr_material(const std::string& tex_debug_name) {
 
 void invalidate() {
   g_state.scanned = false;
-  g_state.index.clear();
+  g_state.user_index.clear();
+  g_state.bundled_index.clear();
 }
 
 void dump_key(const std::string& tpage_name, const std::string& tex_name) {

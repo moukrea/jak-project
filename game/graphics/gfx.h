@@ -151,6 +151,13 @@ struct GfxGlobalSettings {
   // replacements under <root>/custom_assets/texture_replacements at runtime.
   // Set from GOAL via pc-set-load-custom-assets!. OFF (default) == stock.
   bool load_custom_assets = false;
+  // Grecharged-bundled-textures: use the package-BUNDLED first-party replacement textures
+  // (the owner's Recharged set, extracted from the APK custom pack). Set from GOAL via
+  // pc-set-recharged-textures!. OFF == stock base textures (user custom_assets replacements
+  // keep their own load_custom_assets gate and always win over the bundle; the bundle's
+  // _height/_normal/_roughness PBR maps follow the PBR path, not this flag). Default ON so a
+  // plain install shows the Recharged look; the MASTER still forces stock when OFF.
+  bool recharged_textures = true;
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
   // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
   float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};

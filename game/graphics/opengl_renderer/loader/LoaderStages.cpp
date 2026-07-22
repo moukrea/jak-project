@@ -70,8 +70,11 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
 
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials: create the companion PBR maps for this texture from
-  // suffixed user PNGs, using the SAME toggle condition as the base replacement.
-  if (Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets)) {
+  // suffixed PNGs (user dir or the package-bundled set; see lookup_suffixed for source gating).
+  // Grecharged-bundled-textures: PBR maps may come from the USER dir (load_custom_assets-
+  // gated inside lookup_suffixed) or the package-BUNDLED set (master-gated) — probe whenever
+  // the master is up; lookup_suffixed applies the per-source gates.
+  if (Gfx::recharged_master_active()) {
     const auto* n = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal");
     const auto* r = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness");
     const auto* m = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic");

@@ -1,11 +1,17 @@
 #pragma once
 
-// External-asset-root: runtime user PNG texture replacements.
+// Runtime PNG texture replacements from TWO sources.
 //
-// When Gfx::g_global_settings.load_custom_assets is enabled, textures uploaded
-// by the loader are looked up against a directory of user-supplied PNGs at
-// <root>/custom_assets/texture_replacements and, on a hit, the PNG is uploaded
-// in place of the baked fr3 texture.
+// Textures uploaded by the loader are looked up against two PNG indexes and, on a
+// hit, the PNG is uploaded in place of the baked fr3 texture:
+//   1. the USER drop dir (get_custom_assets_replacements_dir), gated by
+//      Gfx::g_global_settings.load_custom_assets, and
+//   2. the package-BUNDLED first-party set under
+//      custom_assets/<game>/recharged_textures (get_bundled_recharged_textures_dir):
+//      base swaps gated by Gfx::g_global_settings.recharged_textures, the bundle's
+//      _height/_normal/_roughness PBR maps gated by the PBR path instead.
+// Precedence is user > bundled > stock, and every gate is composed with the Recharged
+// master via Gfx::recharged_active().
 
 #include <optional>
 #include <string>

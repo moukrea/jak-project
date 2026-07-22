@@ -95,20 +95,21 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 1 | Recharged HUD | on-off | HUD optionnel du fork Recharged ; grisé si RECHARGED MASTER OFF | {FLAG_RECHARGED_HUD} |
 | 2 | **Grass Settings** | menu → grass-settings | sous-sous-menu (voir §4) ; grisé si RECHARGED MASTER OFF | — |
 | 3 | Load Custom Assets | on-off | pousse le flag runtime (`pc-set-load-custom-assets!`) ; grisé si RECHARGED MASTER OFF | — |
-| 4 | PBR Materials | on-off | matériaux Cook-Torrance via custom_assets ; grisé si RECHARGED MASTER OFF | {FLAG_PBR} |
-| 5 | Enhanced Models | on-off | modèles HD jak2 (Jak/Daxter/Samos/Keira) ; caché si FR3 HD absent ; grisé si RECHARGED MASTER OFF | {FLAG_HD_MODELS} |
-| 6 | Foliage Wind | on-off | vent léger sur palmiers TIE + shrubs ; grisé si RECHARGED MASTER OFF | — |
-| 7 | Ambient Occlusion | carousell | **Off / SSAO / HBAO / GTAO** ; grisé si RECHARGED MASTER OFF | — |
-| 8 | AO Quality | carousell | **Low / Medium / High** (cond: AO == Off ou RECHARGED MASTER OFF) | — |
-| 9 | AO Strength | carousell | **Weaker / Default / Stronger** (cond: AO == Off ou RECHARGED MASTER OFF) | — |
-| 10 | **Realtime Lighting** | on-off | `realtime-lighting?` — **maître** de tout le bloc lighting ci-dessous ; grisé si RECHARGED MASTER OFF | {FLAG_PBR} |
-| 11 | **Baked Ambient** [R] | on-off | `realtime-probe?` (cond: Realtime OFF ou RECHARGED MASTER OFF) — **DÉFAUT OFF** (OWNER FINAL ARCHITECTURE 2026-07-21) : toggle "curiosité" de la PROJECTION-MONDE des probes (l'ancien composite probe-fed). Par défaut le rendu realtime = **BAKED-MODULATION** (le baked n'est jamais retiré, les soleils le modulent ×) et les probes restent une **RESSOURCE** pour PBR/eau (chargement lazy + upload GPU sauté quand OFF). Ex-ligne "Ambient" (`realtime-ambient?`) recâblée | {FLAG_PBR} |
-| 12 | **Ambient Model** | carousell | **Hemisphere / SH / IBL = FIDÉLITÉ D'ÉVALUATION des données PROBE (probe-fed)** — ne s'applique qu'au chemin curiosité "Baked Ambient" ON ; estimation analytique seulement là où il n'y a pas de couverture probe (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
-| 13 | Ambient Strength | slider | 0.0..0.5 pas 0.05 (déc.) → `realtime-ambient-strength` (chemin curiosité uniquement ; cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
-| 14 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (chemin curiosité uniquement ; cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
-| 15 | Shadow Distance | slider | 20..200 m pas 10 (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
-| 16 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
-| 17 | Back | button | (jamais grisé) | — |
+| 4 | **Recharged Textures** [R] | on-off | Grecharged-bundled-textures (2026-07-22) : textures de remplacement first-party de l'owner, EMBARQUÉES dans l'APK (pack custom → `<custom root>/recharged_textures/`) ; ON = base swaps bundled, OFF = stock ; les maps `_height/_normal/_roughness` du bundle suivent le toggle PBR (pas cette ligne) ; précédence user custom_assets > bundled > stock ; `pc-set-recharged-textures!`, défaut ON, appliqué au prochain chargement de niveau ; grisé si RECHARGED MASTER OFF | — |
+| 5 | PBR Materials | on-off | matériaux Cook-Torrance via custom_assets ; grisé si RECHARGED MASTER OFF | {FLAG_PBR} |
+| 6 | Enhanced Models | on-off | modèles HD jak2 (Jak/Daxter/Samos/Keira) ; caché si FR3 HD absent ; grisé si RECHARGED MASTER OFF | {FLAG_HD_MODELS} |
+| 7 | Foliage Wind | on-off | vent léger sur palmiers TIE + shrubs ; grisé si RECHARGED MASTER OFF | — |
+| 8 | Ambient Occlusion | carousell | **Off / SSAO / HBAO / GTAO** ; grisé si RECHARGED MASTER OFF | — |
+| 9 | AO Quality | carousell | **Low / Medium / High** (cond: AO == Off ou RECHARGED MASTER OFF) | — |
+| 10 | AO Strength | carousell | **Weaker / Default / Stronger** (cond: AO == Off ou RECHARGED MASTER OFF) | — |
+| 11 | **Realtime Lighting** | on-off | `realtime-lighting?` — **maître** de tout le bloc lighting ci-dessous ; grisé si RECHARGED MASTER OFF | {FLAG_PBR} |
+| 12 | **Baked Ambient** [R] | on-off | `realtime-probe?` (cond: Realtime OFF ou RECHARGED MASTER OFF) — **DÉFAUT OFF** (OWNER FINAL ARCHITECTURE 2026-07-21) : toggle "curiosité" de la PROJECTION-MONDE des probes (l'ancien composite probe-fed). Par défaut le rendu realtime = **BAKED-MODULATION** (le baked n'est jamais retiré, les soleils le modulent ×) et les probes restent une **RESSOURCE** pour PBR/eau (chargement lazy + upload GPU sauté quand OFF). Ex-ligne "Ambient" (`realtime-ambient?`) recâblée | {FLAG_PBR} |
+| 13 | **Ambient Model** | carousell | **Hemisphere / SH / IBL = FIDÉLITÉ D'ÉVALUATION des données PROBE (probe-fed)** — ne s'applique qu'au chemin curiosité "Baked Ambient" ON ; estimation analytique seulement là où il n'y a pas de couverture probe (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
+| 14 | Ambient Strength | slider | 0.0..0.5 pas 0.05 (déc.) → `realtime-ambient-strength` (chemin curiosité uniquement ; cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
+| 15 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (chemin curiosité uniquement ; cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
+| 16 | Shadow Distance | slider | 20..200 m pas 10 (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
+| 17 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
+| 18 | Back | button | (jamais grisé) | — |
 
 > **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
 > BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié

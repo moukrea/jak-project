@@ -8,6 +8,7 @@
 #   recharged_assets/<name>.png   (flag recharged-hud ON, jak1 only)
 #   fr3/<name>.grassbake          (ALWAYS — validated feature)
 #   fr3/enhanced/<name>.fr3       (flag hd-models ON)
+#   recharged_textures/<tpage>/<tex>/<tex>[ _height|_normal|_roughness].png  (ALWAYS — first-party set)
 #
 # The flag SET is recovered from the compiled arm64 GAME.CGO marker
 # ("ogflags:<hash>:<target>"): the 12-char hash is inverted by enumerating the 32
@@ -130,6 +131,26 @@ if [ -d "$ROOT/$PROBE_SRC" ]; then
   echo "[custom-pack] light-probe grids: $n_prb"
 fi
 
+# 2c. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at
+#     custom_assets/<game>/recharged_textures/<tpage>/<texname>/{<texname>.png + _height/
+#     _normal/_roughness}; the base swap needs no build flag, the PBR maps feed the PBR
+#     pipeline when compiled in). Extracted by LoaderActivity to <custom root>/
+#     recharged_textures/** (zip paths preserved); runtime scans
+#     get_bundled_recharged_textures_dir(). 0 is OK (set absent).
+RTEX_SRC="custom_assets/${GAME}/recharged_textures"
+if [ -d "$ROOT/$RTEX_SRC" ]; then
+  n_rtex=0
+  while IFS= read -r tf; do
+    [ -n "$tf" ] || continue
+    rel="${tf#"$ROOT/$RTEX_SRC/"}"
+    mkdir -p "$STAGE/recharged_textures/$(dirname "$rel")"
+    ln -s "$tf" "$STAGE/recharged_textures/$rel"
+    MEMBERS+=("recharged_textures/$rel")
+    n_rtex=$((n_rtex + 1))
+  done < <(find "$ROOT/$RTEX_SRC" -type f -name '*.png' 2>/dev/null | sort)
+  echo "[custom-pack] recharged textures: $n_rtex"
+fi
+
 # 3. enhanced HD fr3 — ONLY when hd-models ON.
 if [ "$F_HDMODELS" -eq 1 ]; then
   ENH="$FR3_DIR/enhanced"
@@ -167,6 +188,7 @@ if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then
   cfc=$(grep -E '^file_count=' "$MANIFEST" | cut -d= -f2 || echo "")
   SRC_DIRS=("$FR3_DIR")
   [ -d "$ROOT/custom_assets/${GAME}/probes" ] && SRC_DIRS+=("$ROOT/custom_assets/${GAME}/probes")
+  [ -d "$ROOT/custom_assets/${GAME}/recharged_textures" ] && SRC_DIRS+=("$ROOT/custom_assets/${GAME}/recharged_textures")
   [ "$F_HUD" -eq 1 ] && [ "$GAME" = "jak1" ] && [ -d "$ROOT/recharged_assets" ] && SRC_DIRS+=("$ROOT/recharged_assets")
   newest=$(find "${SRC_DIRS[@]}" -type f -printf '%T@\n' 2>/dev/null | awk 'BEGIN{m=0}{t=int($1); if(t>m)m=t} END{print m}')
   zmt=$(stat -c %Y "$ZIP_REL")

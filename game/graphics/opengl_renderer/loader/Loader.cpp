@@ -237,6 +237,28 @@ static bool read_persisted_recharged_master() {
   }
 }
 
+// Grecharged-bundled-textures: read the persisted RECHARGED TEXTURES base-swap toggle straight
+// from settings.ini — the common FR3 textures upload in the renderer ctor BEFORE GOAL's first
+// per-frame push, and add_texture consults the flag then. Missing file / stale version /
+// missing key -> ON (GOAL's reset default); only an explicit `recharged-textures? = #f` line
+// in a version-current file disables. NO pckernel version bump was needed for this key: an
+// absent key falls through to the same default on both sides.
+static bool read_persisted_recharged_textures() {
+  try {
+    auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "settings.ini";
+    if (!file_util::file_exists(p.string())) {
+      return true;
+    }
+    auto txt = file_util::read_text_file(p);
+    if (!settings_ini_version_current(txt)) {
+      return true;
+    }
+    return txt.find("recharged-textures? = #f") == std::string::npos;
+  } catch (...) {
+    return true;
+  }
+}
+
 // Grecharged-hd-models: resolve a level's FR3 path, preferring an enhanced (jak2 HD) variant under
 // fr3/enhanced/ when the ENHANCED MODELS toggle is on AND that file exists. Off / missing -> stock
 // path, so OFF is byte-identical to stock.
@@ -403,6 +425,8 @@ void Loader::loader_thread() {
 const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::string& name) {
   // Grecharged-master-toggle: seed the GLOBAL master before the first fr3-path resolution.
   Gfx::g_global_settings.recharged_master = read_persisted_recharged_master();
+  // Grecharged-bundled-textures: seed the base-swap toggle before the first add_texture.
+  Gfx::g_global_settings.recharged_textures = read_persisted_recharged_textures();
 #ifdef OG_FEAT_HD_MODELS
   // Grecharged-hd-models: seed the enhanced-models flag before the common FR3 (HD Jak+Daxter) is read,
   // since this runs in the renderer ctor before GOAL's per-frame push. Shared by desktop + Android.

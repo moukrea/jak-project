@@ -55,6 +55,7 @@ fs::path get_iso_out_dir(GameVersion game_version);
 fs::path get_fr3_dir(GameVersion game_version);
 fs::path get_recharged_assets_dir();
 fs::path get_custom_assets_replacements_dir(GameVersion game_version);
+fs::path get_bundled_recharged_textures_dir(GameVersion game_version);
 
 bool create_dir_if_needed(const fs::path& path);
 bool create_dir_if_needed_for_file(const std::string& path);

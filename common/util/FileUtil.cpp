@@ -375,6 +375,19 @@ fs::path get_custom_assets_replacements_dir(GameVersion game_version) {
          "texture_replacements";
 }
 
+// Grecharged-bundled-textures: first-party replacement textures shipped INSIDE the game
+// package (owner-made Recharged set, committed at custom_assets/<game>/recharged_textures/).
+// On Android the custom pack extracts them under <custom root>/recharged_textures; on desktop
+// the checked-out repo tree is read directly. Distinct from the USER drop dir above —
+// the user > bundled precedence is applied by the texture-replacement scanner, not here.
+fs::path get_bundled_recharged_textures_dir(GameVersion game_version) {
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / "recharged_textures";
+  }
+  return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] /
+         "recharged_textures";
+}
+
 std::string get_file_path(const std::vector<std::string>& input) {
   // TODO - clean this behaviour up, it causes unexpected behaviour when working with files
   // the project path should be explicitly provided by whatever if needed

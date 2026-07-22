@@ -109,6 +109,7 @@
    (ao-strength         int32) ;; Grecharged-ambient-occlusion closing round: 0=weaker 1=default 2=stronger. Default DEFAULT (1). Per-mode multiplier on the AO estimator intensity.
    (recharged-enhanced-models? symbol) ;; Grecharged-hd-models: load jak2 HD character models (Jak/Daxter/Samos/Keira, jak1-look) instead of stock low-poly. #f = stock. Only meaningful when the build ships the enhanced FR3 set.
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
+   (recharged-textures? symbol) ;; Grecharged-bundled-textures: use the package-bundled first-party Recharged replacement textures. #f = stock base textures.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
    (scenes-seen         uint8 PC_SPOOL_LOG_LENGTH) ;; cutscenes that have been seen, by spool-anim (maybe use 8-char name or bits instead?)
    (memcard-play-hints? symbol)
@@ -130,6 +131,8 @@
 (define-extern pc-set-recharged-master! (function int none))
 ;; Gload-custom-assets: pushes the "load custom assets" toggle (0/1) to the runtime.
 (define-extern pc-set-load-custom-assets! (function int none))
+;; Grecharged-bundled-textures: pushes the bundled-textures toggle (0/1) to the runtime.
+(define-extern pc-set-recharged-textures! (function int none))
 ;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
 ;; Grecharged-buildsys-flags: extern present only with --grass-overhang (C++ side gated by OG_FEAT_GRASS_OVERHANG).
 (#when FLAG_GRASS_OVERHANG
@@ -278,6 +281,7 @@
   (set! (-> obj ao-strength) 1) ;; Grecharged-ambient-occlusion closing round: default DEFAULT strength
   (set! (-> obj recharged-enhanced-models?) #f)
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
+  (set! (-> obj recharged-textures?) #t) ;; Grecharged-bundled-textures: default ON — a plain install shows the owner's Recharged textures (the MASTER still forces stock when OFF)
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)
