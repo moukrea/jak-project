@@ -60,3 +60,18 @@ PROVE on device with the owner's scenario: a USER custom file with the SAME name
 vil1-sages-stonewall-01.png) must visibly/log-provably be the one loaded ("custom texture replacements: N
 user files" scanner line + which source won per file). Mechanical bar + READY then; the owner re-verifies
 with his internet texture pack.
+
+---
+## SUPERVISOR ANALYSIS (2026-07-22 soir) — the magenta flat-file test does NOT cover the owner's real pack
+The user-first lookup works for a FLAT bare-name user file (your magenta proof) — but the owner's real
+scenario is "un pack de textures d'internet qui remplace TOUTES les textures", which ships NESTED
+(typically `texture_replacements/<tpage>/<name>.png` — the upstream OpenGOAL convention — or
+`<tpage>/<name>.png` subdirs). If the USER-side scan only indexes flat/bare names while the BUNDLED side
+got the nested-layout support, the owner's pack loses exactly as he reported. REQUIRED:
+1. The USER custom_assets scan must support AT LEAST the same layouts as the bundled scan: flat bare-name,
+   `<tpage>/<name>.png`, `<tpage>/<tex>/<tex>.png`, AND `texture_replacements/<tpage>/<name>.png` (internet
+   packs). Same key-derivation for both sides so filename collisions resolve user-first.
+2. DEVICE PROOF with a NESTED user file (e.g. custom_assets/texture_replacements/village1-vis-tfrag/
+   vil1-sages-stonewall-01.png) beating the bundled one — not just the flat magenta.
+3. Log per-file source (already there) must show the nested user file winning.
+Then READY; the owner re-verifies with his actual internet pack.
