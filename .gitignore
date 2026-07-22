@@ -145,3 +145,14 @@ android/app/src/*/assets-slim/bundle/*_custom.zip
 .autoport/tmp/
 .autoport/reports/**/libgk-under-test.so
 build-pbrtest/
+
+# --- history-clean 2026-07-22: runtime/scratch artifacts never tracked again ---
+.autoport/reports/
+.autoport/logs/
+.autoport/tmp/
+.autoport/backups/
+.autoport/recalled/
+.autoport/gtf-arm64-set/
+.autoport/*.mp4
+.autoport/**/*.mp4
+build-*/
