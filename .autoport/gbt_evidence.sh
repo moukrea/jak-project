@@ -236,7 +236,11 @@ menu)
     tapb "down" 0.7; tapb "down" 0.7
     tapb "x" 2.0; shot menu-02-options
     tapb "down" 0.8; tapb "x" 2.0; shot menu-03-graphics
-    for i in $(seq 1 7); do tapb "down" 0.55; done
+    # GRAPHICS-page row count is STATE-DEPENDENT: the MIN TARGET FRAMERATE slider row is
+    # hidden while DYNAMIC RENDER SCALE is OFF (gmt ran with it OFF => down x7). This device
+    # now has it ON (menu-03 shows FPS CIBLE MIN) => RECHARGED SETTINGS is at down x8.
+    # down x7 lands on MSAA and X opens its carousel — the bug that sank the first menu run.
+    for i in $(seq 1 8); do tapb "down" 0.55; done
     tapb "x" 1.8; shot menu-04-recharged-page
     # rows (this build: hud-N=0, pbr-N=1, hd collapsed/absent): 0 MASTER, 1 GRASS SETTINGS,
     # 2 LOAD CUSTOM ASSETS, 3 RECHARGED TEXTURES, 4 PBR MATERIALS, ...
