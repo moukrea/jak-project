@@ -213,7 +213,7 @@
     "Grecharged-directional-ambient": 10,
     "Grecharged-lightprobes": 13,
     "Grecharged-master-toggle": 3,
-    "Grecharged-bundled-textures": 2
+    "Grecharged-bundled-textures": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -449,6 +449,7 @@
       "8a00c3f97391"
     ],
     "Grecharged-bundled-textures": [
+      "7f9bb509746f",
       "7f9bb509746f"
     ]
   },
@@ -867,7 +868,7 @@
     "Grecharged-master-toggle": 1784714502.0934844,
     "Grecharged-bundled-textures": 1784735254.4058251
   },
-  "last_update": "2026-07-22T16:49:44.334525+00:00",
+  "last_update": "2026-07-22T18:12:40.081854+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -953,7 +954,8 @@
     "Grecharged-realtime-lighting",
     "Grecharged-directional-ambient",
     "Grecharged-lightprobes",
-    "Grecharged-master-toggle"
+    "Grecharged-master-toggle",
+    "Grecharged-bundled-textures"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
