@@ -31,3 +31,12 @@ custom assets, sans l'herbe dynamique, sans le realtime lighting, sans les probe
   individual settings restored exactly (no reset).
 - Menu: master row present, rows greyed when OFF, menu-tree.md updated, no unknown-ID.
 - Report RESULT: PASS + device evidence + jak1 focus. owner_verify: the owner flips it on his Honor.
+
+---
+## SUPERVISOR (2026-07-22 ~17h) — CONCLUDE NOW. The mechanical bar is ALREADY MET.
+The owner is waiting ("c'est très long"). Your own gmt_build_deploy_run2.log already proves the FULL
+mechanical bar: build deployed, deploy_verify PASS, boots to render, jak1 foreground. STOP producing more
+evidence. The owner protocol says MECHANICAL BAR ONLY — no capture batteries. Write the report NOW from the
+artifacts you already have (deploy log + source greps for the effective-flag helper + menu wiring +
+settings-restore design), RESULT: PASS + "READY FOR OWNER VISUAL CHECK" + the 3-line playtest guidance
+(master OFF = all vanilla; re-ON = settings restored; rows greyed). The OWNER verifies on his Honor. Exit.
