@@ -64,29 +64,34 @@ say "3. assemble APK"
 [ -f "$APK" ] || die "APK not produced"
 ls -la "$APK"
 
-say "4. install APK + deploy_verify (build==APK==device libgk)"
+say "4. install APK"
 $ADB -s $S shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
 if $ADB -s $S shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; then die "DEVICE_LOCKED — needs owner unlock"; fi
 $ADB -s $S shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow 2>/dev/null || true
 $ADB -s $S shell settings put global verifier_verify_adb_installs 0 >/dev/null 2>&1 || true
 $ADB -s $S shell pm trim-caches 999G 2>/dev/null || true
 $ADB -s $S install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -3 || die "apk install failed"
-bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify (libgk) failed"
 
-say "5. ensure extraction done (boot once if needed) then push consistent CGOs + text"
+say "4b. boot once so LoaderActivity re-extracts THIS pack (custom pack version changed:"
+say "    28 bundled textures -> stamp differs until first boot; deploy_verify must come AFTER)"
 PACK_VER=$(grep '^version=' android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties | cut -d= -f2)
 CUST_VER=$(grep '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties | cut -d= -f2)
 extract_done(){ [ "$($ADB -s $S shell run-as $PKG cat files/.cgo_pack_stamp_jak1 2>/dev/null | tr -d '\r')" = "$PACK_VER" ] \
   && [ "$($ADB -s $S shell run-as $PKG cat files/.custom_pack_stamp_jak1 2>/dev/null | tr -d '\r')" = "$CUST_VER" ] \
   && [ "$($ADB -s $S shell run-as $PKG ls files/cgo/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
 if ! extract_done; then
-  echo "  bundle stamps/CGOs missing -> boot once to extract (can take minutes)"
+  echo "  bundle stamps/CGOs stale/missing -> boot once to extract (can take minutes)"
   $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
   t0=$(date +%s)
   while [ $(( $(date +%s) - t0 )) -lt 900 ]; do extract_done && break; sleep 10; done
   extract_done || die "asset bundle stamps/CGO set never appeared in 900s"
   $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
 fi
+
+say "4c. deploy_verify (build==APK==device libgk + custom pack stamp/members)"
+bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -6 || die "deploy_verify (libgk) failed"
+
+say "5. push consistent CGOs + text"
 bash .autoport/Gconsolidate_deploy_cgos.sh 2>&1 | tail -5 || die "CGO push failed"
 
 say "5b. push rebuilt text banks into files/cgo overlay"
