@@ -27,4 +27,6 @@ grep -qiE 'menu-tree' "$R" || fail "menu-tree.md not updated (standing rule)"
 grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "no device jak1 focus (boots to gameplay)"
 ls "$D"/*.png >/dev/null 2>&1 || fail "no device still (mechanical boot proof)"
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
+# OWNER #4: phantom straight shadow lines (longstanding) root-caused + fixed.
+grep -qiE 'phantom.*(shadow|line)|shadow.*(line|frustum|boundary|border).*(fix|root|cause|clamp)|out.?of.?(map|frustum|range).*(lit|no.?shadow|clamp)|bogus caster|depth pass.*(cull|audit)|straight.*(line|shadow).*(fixed|gone|cause)' "$R" || fail "no phantom-shadow-lines root-cause+fix evidence (owner #4: long straight cast shadows from nothing — frustum border/bogus casters/distance cut/near clip)"
 echo "[Glp PASS]"

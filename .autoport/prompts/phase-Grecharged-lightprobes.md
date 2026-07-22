@@ -514,3 +514,22 @@ OWNER verifies visually.
    scales with HER OWN elevation. Shadow-map cost strategy on Adreno (both suns up): render her shadow map
    when her amplitude is above a threshold; if two maps are too costly, dominant-sun-only is the low tier
    and both-maps the high tier — document the choice.
+
+---
+## OWNER VERDICT #4 (2026-07-22) — ARCHITECTURE VALIDATED ("le meilleur résultat depuis le début!") — ONE last defect: PHANTOM SHADOW LINES
+Owner on the baked-modulation build: "C'est NICKEL... clairement le meilleur résultat qu'on ait eu depuis
+le début!" The architecture is his-eye-validated. ONE remaining defect (longstanding, predates recent
+rounds): **long straight cast-shadow LINES that correspond to NOTHING** — no object exists that could cast
+them ("des traits droits super longs"). Root-cause and fix. Usual suspects, check in order:
+1. **Shadow-frustum boundary**: sampling OUTSIDE the shadow map (beyond the ortho bounds / far plane) with
+   wrong border/clamp semantics → the edge of the shadow coverage renders as a long straight shadow line
+   across terrain. Fix = proper border handling (texture border = no-shadow / clamp with out-of-range test
+   returning LIT, on all 4 edges AND depth range).
+2. **Bogus casters in the depth pass**: distant LOD chunks / sky or far geometry / degenerate tris rendered
+   into the shadow map casting huge straight shadows. Audit what the depth pass draws; cull non-casters.
+3. **The shadow-distance transition** (~150m fallback) manifesting as a straight boundary line — must be
+   FADED (smooth), not a hard cut.
+4. Near-plane clipping of the shadow camera slicing geometry (straight clipped edges as shadows).
+Reproduce first (find a vantage showing the lines — the owner sees them in normal play), identify which
+suspect it is, fix, verify mechanically (the fix targets the identified mechanism), then READY FOR OWNER.
+Do NOT regress anything else — the owner just validated the whole stack; this is a surgical fix.
