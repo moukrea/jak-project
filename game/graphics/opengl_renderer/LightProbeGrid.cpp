@@ -48,8 +48,8 @@ void LightProbeGrid::refresh_effective_flags() {
   // RESOURCE for future PBR/water; its world projection is the "BAKED AMBIENT" curiosity toggle
   // (recharged_rt_probe_enable, gfx.h default false, menu row default OFF). The Android debug
   // prop below still overrides for headless A/B captures.
-  m_eff_on = gs.recharged_rt_probe_enable;
-  m_eff_refl = gs.recharged_rt_probe_reflections;
+  m_eff_on = Gfx::recharged_active(gs.recharged_rt_probe_enable);
+  m_eff_refl = Gfx::recharged_active(gs.recharged_rt_probe_reflections);
   m_eff_qual = gs.recharged_rt_probe_quality;
   m_eff_str = gs.recharged_rt_probe_strength;
 #else

@@ -47,7 +47,7 @@ std::string normalize_key(std::string key) {
 }
 
 void ensure_scanned() {
-  const bool enabled = Gfx::g_global_settings.load_custom_assets;
+  const bool enabled = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
   // Rescan on an off->on transition so a freshly-dropped directory is picked up.
   if (g_state.scanned && g_state.last_enable == enabled) {
     return;
@@ -90,7 +90,7 @@ void ensure_scanned() {
 }  // namespace
 
 std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std::string& tex_name) {
-  if (!Gfx::g_global_settings.load_custom_assets) {
+  if (!Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets)) {
     return std::nullopt;
   }
   ensure_scanned();
@@ -130,7 +130,7 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
 const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
                                         const std::string& tex_name,
                                         const char* suffix) {
-  if (!Gfx::g_global_settings.load_custom_assets) {
+  if (!Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets)) {
     return nullptr;
   }
   ensure_scanned();

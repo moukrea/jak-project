@@ -96,7 +96,9 @@ struct AoOverride {
 int AmbientOcclusionPass::effective_mode() {
   static AoOverride s_ov{"mode", "debug.opengoal.ao.force_mode", "AO_FORCE_MODE"};
   const int v = s_ov.read();
-  return (v >= 0) ? v : Gfx::g_global_settings.recharged_ao_mode;
+  // Grecharged-master-toggle: the master composes with the SETTINGS value; the explicit
+  // debug force-prop keeps top precedence (it is a bisect tool, not a user path).
+  return (v >= 0) ? v : Gfx::recharged_active_mode(Gfx::g_global_settings.recharged_ao_mode);
 }
 
 int AmbientOcclusionPass::effective_quality() {

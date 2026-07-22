@@ -1434,7 +1434,8 @@
 
 (defmethod hud-update ((this hud-recharged-health))
   (cond
-    ((not (-> *pc-settings* recharged-hud?))
+    ;; Grecharged-master-toggle: master OFF forces the stock HUD (recharged-hud? keeps the user's value)
+    ((not (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?)))
      (set! (-> this force-on-screen) #f)
      (when (-> this active-flag)
        (set! (-> this active-flag) #f)
@@ -1497,7 +1498,7 @@
   ;; owner round-3 item 2: the base hud draw-hud spawns the real green-eco
   ;; particle whenever this element is shown
   (let ((t9-0 (method-of-type hud draw-hud))) (t9-0 this))
-  (when (and (-> *pc-settings* recharged-hud?) *target* (not (hidden? this)) (not (paused?)))
+  (when (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) *target* (not (hidden? this)) (not (paused?)))
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
       (let ((cx (+ RHUD_HEART_X (the float (* (-> this x-sgn) (-> this offset)))))
             (cy (+ RHUD_HEART_Y (the float (* (-> this y-sgn) (-> this offset)))))
@@ -1568,7 +1569,7 @@
 
 (defmethod hud-update ((this hud-recharged-power))
   (cond
-    ((not (-> *pc-settings* recharged-hud?))
+    ((not (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?)))
      ;; hide-quick is handled SYNCHRONOUSLY and the handler re-enters (hud-update self)
      ;; BEFORE its (go hud-hidden) lands — an unguarded re-send here is infinite
      ;; recursion -> stack-overflow SIGSEGV (toggle OFF while the gauge is visible,
@@ -1589,7 +1590,7 @@
   (none))
 
 (defmethod draw-hud ((this hud-recharged-power))
-  (when (and (-> *pc-settings* recharged-hud?) (not (hidden? this)) (not (paused?)))
+  (when (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) (not (hidden? this)) (not (paused?)))
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
       (let ((cx (+ RHUD_GAUGE_X (the float (* (-> this x-sgn) (-> this offset)))))
             (cy (+ RHUD_GAUGE_Y (the float (* (-> this y-sgn) (-> this offset)))))
@@ -1679,6 +1680,10 @@
 ;; pc-settings update-to-os, which the display loop calls once per frame.
 (defmethod update-to-os ((obj pc-settings-jak1))
   ((method-of-type pc-settings update-to-os) obj)
+  ;; Grecharged-master-toggle: push the GLOBAL master FIRST each frame (the C++ side composes
+  ;; it with every individual flag via Gfx::recharged_active — the individual pushes below
+  ;; stay the user's values, so re-enabling the master restores the config exactly).
+  (pc-set-recharged-master! (if (-> obj recharged-master?) 1 0))
   (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))
   (#when FLAG_GRASS_OVERHANG (pc-set-grass-overhang! (if (-> obj recharged-grass-overhang?) 1 0)))
   ;; Grecharged-pbr-materials: push the PBR toggle + the current sun/shadow lighting every frame.

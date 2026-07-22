@@ -62,7 +62,8 @@ GrassFringeFade grass_fringe_fade_params() {
   // overhang-only LOD; always return the disabled default (identical to toggle-off).
   return r;
 #else
-  if (!Gfx::g_global_settings.recharged_grass || !Gfx::g_global_settings.recharged_grass_overhang) {
+  if (!Gfx::recharged_active(Gfx::g_global_settings.recharged_grass) ||
+      !Gfx::recharged_active(Gfx::g_global_settings.recharged_grass_overhang)) {
     return r;
   }
   // Mirror GrassRenderer's near-LOD clamp (GrassRenderer.cpp:990): the texture fades IN over the
@@ -513,7 +514,8 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
   // coverage unification; alpha still comes from the legacy fragment_color*T0 product
   // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
   // the texture, resolved once per level.
-  if (Gfx::g_global_settings.recharged_pbr_enable && tex_id >= 0 && !mode.get_decal() && m_draws &&
+  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) && tex_id >= 0 &&
+      !mode.get_decal() && m_draws &&
       !m_draws->empty()) {
     for (auto& e : *m_draws) {
       if (e.tex_idx == tex_id) {
@@ -817,8 +819,8 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // ROUND 2: shadows are driven by EITHER the pbr-materials toggle OR the sun-only realtime-
   // lighting toggle (they are independent — the dev state is pbr-materials OFF, realtime
   // lighting ON, so gating on pbr_enable alone would silently kill the sun's cast shadows).
-  if (!(Gfx::g_global_settings.recharged_pbr_enable ||
-        Gfx::g_global_settings.recharged_rt_light_enable) ||
+  if (!(Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+        Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
     // Feature off: also invalidate the read side so receivers stop sampling a map that
     // will no longer be refreshed (stale-matrix shadows glued to the old camera pos).
@@ -1508,7 +1510,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // navigation. u_rt_sun_dir reuses the visible-sun-overridden light_dir[0] (== the
   // on-screen sun sprite direction), so the sun-only shading, the shadow-map slope bias and
   // the depth-pass MVP all agree on where the sun is. u_rt_sun_color carries tint AND intensity.
-  int rt_light_on = gs.recharged_rt_light_enable ? 1 : 0;
+  int rt_light_on = Gfx::recharged_active(gs.recharged_rt_light_enable) ? 1 : 0;
   // ITEM A (owner playtest #2): I tried raising the sun intensity 1.5->1.75 to widen the sun-lit vs
   // ambient-only separation, but a device A/B measured NO contrast change (P90/std identical) — at the
   // owner vantage the sun-lit term is already tone-mapped/vantage-limited, so intensity does not move
@@ -1770,7 +1772,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // elevation (reusing rt_sun_elev) so night stays calm — NO mood night presets feed the brightness
   // (round-7 night-leak discipline). Golden rule: this only reshapes the ambient base; the direct-sun
   // term is untouched so sunlit surfaces are unchanged.
-  int rt_ambient_on = gs.recharged_rt_ambient_enable ? 1 : 0;
+  int rt_ambient_on = Gfx::recharged_active(gs.recharged_rt_ambient_enable) ? 1 : 0;
   float rt_ambient_strength = gs.recharged_rt_ambient_strength;  // default ~0.2 (== old floor)
 #ifdef __ANDROID__
   {

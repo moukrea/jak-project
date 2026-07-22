@@ -724,7 +724,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // column-major: translation = floats 12,13,14). Gated by the grass toggle so OFF is byte-identical
   // stock (zero extra work). Substring match covers all crate variants ("crate-wood-lod0" etc.) and the
   // warp-gate switch/arch. radius is the visible ground-contact footprint (kept tight to avoid a halo).
-  if (Gfx::g_global_settings.recharged_grass && i > 0) {
+  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_grass) && i > 0) {
     // OWNER Q&A 2026-07-12: STATIC unbreakable actors (warp-gate button, blue eco valve) -> CULL the
     // grass; BREAKABLE actors (crates, scarecrows) -> TRAMPLE it (flatten like Jak, NOT hidden), so
     // when they break the grass at their spot returns. Substring match covers every lod/variant name.

@@ -10,10 +10,17 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <chrono>
+#include <cstdlib>
 
 #include "common/common_types.h"
+#include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/versions/versions.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include "game/kernel/common/kboot.h"
 #include "game/settings/settings.h"
@@ -126,6 +133,15 @@ struct GfxGlobalSettings {
   u32 collision_skip_mask = 0;
   u32 collision_skip_hide_mask = 0;
   bool collision_skip_nomask_allowed = true;
+
+  // Grecharged-master-toggle (owner 2026-07-21): GLOBAL Recharged ON/OFF. OFF forces the
+  // stock state of EVERY recharged feature at runtime; the individual flags below keep the
+  // user's values (they are simply not consulted while the master is off), so flipping the
+  // master back ON restores the configuration exactly. Pushed per-frame from GOAL
+  // (-> *pc-settings* recharged-master?) via pc-set-recharged-master!. Feature gates must
+  // NEVER read their flag directly — only through Gfx::recharged_active() /
+  // recharged_active_mode() below (single-helper rule; no per-feature drift copies).
+  bool recharged_master = true;
 
   // Grecharged-grass-poc: optional procedural 3D grass on the jak1 training level.
   // Set from GOAL (-> *pc-settings* recharged-grass?) via pc-set-recharged-grass!.
@@ -251,6 +267,56 @@ extern GfxGlobalSettings g_global_settings;
 extern game_settings::DebugSettings g_debug_settings;
 
 const GfxRendererModule* GetCurrentRenderer();
+
+// Grecharged-master-toggle: the SINGLE effective-flag helper family. Every recharged
+// feature gate consults its flag THROUGH these (recharged_active for bools,
+// recharged_active_mode for 0==off int modes like the AO mode) so the global master —
+// and the headless vanilla override — compose with every feature exactly once.
+//
+// Headless override (probe captures / tooling): Android system property
+// debug.opengoal.recharged (desktop env OG_RECHARGED). Unset/empty = follow the
+// persisted master setting; "0" = force VANILLA (master effectively OFF); any other
+// integer = force recharged ON. The override never touches the saved settings.
+// Cached with a 0.25 s wall-time throttle (the AmbientOcclusion AoOverride pattern).
+// Header-inline on purpose: g_global_settings is defined per-platform (gfx.cpp /
+// linux_arm64_runtime_compat.cpp / android_arm64_runtime_compat.cpp), so an out-of-line
+// home TU shared by all three does not exist. Callers span the GL + loader threads;
+// the int cache race is benign (same as AoOverride).
+inline bool recharged_master_active() {
+  static int s_override = -1;  // -1 = no override; 0 = force vanilla; 1 = force recharged
+  static double s_last_read_s = -1.0;
+  const double now =
+      std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (s_last_read_s < 0.0 || now - s_last_read_s >= 0.25) {
+    s_last_read_s = now;
+    int ov = -1;
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.recharged", buf) > 0 && buf[0]) {
+      ov = (std::atoi(buf) != 0) ? 1 : 0;
+    }
+#else
+    const char* e = std::getenv("OG_RECHARGED");
+    if (e && e[0]) {
+      ov = (std::atoi(e) != 0) ? 1 : 0;
+    }
+#endif
+    if (ov != s_override) {
+      lg::info("[recharged-master] override -> {} (setting {})", ov,
+               g_global_settings.recharged_master ? "ON" : "OFF");
+      s_override = ov;
+    }
+  }
+  return (s_override >= 0) ? (s_override != 0) : g_global_settings.recharged_master;
+}
+
+inline bool recharged_active(bool feature_flag) {
+  return feature_flag && recharged_master_active();
+}
+
+inline int recharged_active_mode(int feature_mode) {
+  return recharged_master_active() ? feature_mode : 0;
+}
 
 u32 Init(GameVersion version);
 void Loop(std::function<bool()> f);

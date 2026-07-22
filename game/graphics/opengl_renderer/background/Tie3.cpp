@@ -753,8 +753,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // shiny-overlay categories, which would double-cast the same geometry).
   if (((!use_envmap && category == tfrag3::TieCategory::NORMAL) ||
        (use_envmap && category == tfrag3::TieCategory::NORMAL_ENVMAP)) &&
-      (Gfx::g_global_settings.recharged_pbr_enable ||
-       Gfx::g_global_settings.recharged_rt_light_enable) &&
+      (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+       Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
       (pbr_shadow_caster_mask(render_state->frame_idx) & 2) &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
     auto& sh_st = pbr_shadow_state();
@@ -932,8 +932,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     // replaced TIE surface receives the same shadowed direct term as tfrag. The depth pass
     // itself is driven by TFragment (tfrag NORMAL casters); Tie3 is receiver-only. TFRAG3
     // is the active program here (first_tfrag_draw_setup above, non-envmap).
-    if ((Gfx::g_global_settings.recharged_pbr_enable ||
-         Gfx::g_global_settings.recharged_rt_light_enable) &&
+    if ((Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+         Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
         pbr_shadow_state().valid) {
       pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id(),
                                settings.camera.trans.data());
@@ -942,8 +942,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     // Round-3 defect A/B: envmap-tie base (ETIE_BASE) receives the sun N.L in-shader; also
     // bind the shadow receiver so it RECEIVES cast shadows (round-2 known gap). ETIE_BASE is
     // the active program here (first_tfrag_draw_setup, envmap branch).
-    if ((Gfx::g_global_settings.recharged_pbr_enable ||
-         Gfx::g_global_settings.recharged_rt_light_enable) &&
+    if ((Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+         Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
         pbr_shadow_state().valid) {
       pbr_shadow_bind_receiver(render_state->shaders[ShaderId::ETIE_BASE].id(),
                                settings.camera.trans.data());
@@ -1474,7 +1474,7 @@ void Tie3::render_tree_wind(int idx,
   // self-cancelling via the restoring feedback). OFF => boost 1.0 => byte-identical stock
   // arithmetic. Live-tunable for A/B (prop/env), clamped to a sane range.
   float rc_wind_boost = 1.0f;
-  if (Gfx::g_global_settings.recharged_foliage_wind) {
+  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_foliage_wind)) {
     rc_wind_boost = foliage_wind_tie_mult();  // helper above, default 2.0
     static bool s_logged = false;
     if (!s_logged) {
@@ -1521,8 +1521,8 @@ void Tie3::render_tree_wind(int idx,
 #ifdef OG_FEAT_PBR
   // Round-3 defect A/B: wind-tie foliage receives the sun N.L in-shader; bind the shadow
   // receiver so it also RECEIVES cast shadows. TIE_WIND is the active program here.
-  if ((Gfx::g_global_settings.recharged_pbr_enable ||
-       Gfx::g_global_settings.recharged_rt_light_enable) &&
+  if ((Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+       Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TIE_WIND].id(),
                              settings.camera.trans.data());

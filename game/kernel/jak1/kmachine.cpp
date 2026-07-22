@@ -569,6 +569,19 @@ void pc_set_load_custom_assets(u32 on) {
   Gfx::g_global_settings.load_custom_assets = (on != 0);
 }
 
+// Grecharged-master-toggle: push the GLOBAL Recharged master from GOAL
+// (-> *pc-settings* recharged-master?). 0 = every recharged feature forced to its stock
+// state via Gfx::recharged_active() (the individual flags keep the user's values, so the
+// configuration comes back exactly when the master returns ON). Logs on CHANGE only
+// (pushed every frame by update-to-os), so a device log proves the GOAL->C++ link.
+void pc_set_recharged_master(u32 on) {
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_master) {
+    lg::info("[recharged-master] toggle -> {}", v ? "ON" : "OFF");
+  }
+  Gfx::g_global_settings.recharged_master = v;
+}
+
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
 // alpha overhang texture at every distance).
@@ -1013,6 +1026,9 @@ void InitMachine_PCPort() {
 
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);
+  // Grecharged-master-toggle: GLOBAL Recharged ON/OFF master (single effective-flag helper
+  // Gfx::recharged_active composes it at every feature gate)
+  make_function_symbol_from_c("pc-set-recharged-master!", (void*)pc_set_recharged_master);
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
 #ifdef OG_FEAT_GRASS_OVERHANG

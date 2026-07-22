@@ -644,8 +644,8 @@ void TFragment::render_tree(int geom,
   // world relight apply to the whole world when the feature is on, not just levels with
   // a registered PBR material.
   const bool pbr_shadow_frame_ok =
-      (Gfx::g_global_settings.recharged_pbr_enable ||
-       Gfx::g_global_settings.recharged_rt_light_enable) &&
+      (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+       Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data());
   // cast_full: the vis-culled count being 0 (camera facing away from every caster) is
   // EXACTLY the owner's pop-on-rotation repro — the full static buffer must still cast.
@@ -757,8 +757,8 @@ void TFragment::render_tree(int geom,
   // Round-4 mandate B receiver bind: bind the shadow matrix + sampler on the TFRAG3
   // program for this tree's draws. Runs regardless of whether the depth pass ran this
   // frame (last frame's map, or the cleared-to-1.0 map, is acceptable).
-  if ((Gfx::g_global_settings.recharged_pbr_enable ||
-       Gfx::g_global_settings.recharged_rt_light_enable) &&
+  if ((Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+       Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id(),
                              settings.camera.trans.data());

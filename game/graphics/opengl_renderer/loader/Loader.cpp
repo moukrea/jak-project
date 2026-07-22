@@ -185,12 +185,31 @@ static bool read_persisted_enhanced_models() {
 }
 #endif
 
+// Grecharged-master-toggle: read the persisted GLOBAL master straight from settings.ini.
+// load_common runs in the renderer ctor BEFORE GOAL's per-frame push, and the early loader
+// gates (enhanced FR3 select, custom texture replacements) go through Gfx::recharged_active,
+// which consults the master — so seed it here or a saved master-OFF would still load
+// recharged assets for the first frames. Missing file / missing key -> ON (the default);
+// only an explicit `recharged-master? = #f` line disables.
+static bool read_persisted_recharged_master() {
+  try {
+    auto p = file_util::get_user_settings_dir(GameVersion::Jak1) / "settings.ini";
+    if (!file_util::file_exists(p.string())) {
+      return true;
+    }
+    auto txt = file_util::read_text_file(p);
+    return txt.find("recharged-master? = #f") == std::string::npos;
+  } catch (...) {
+    return true;
+  }
+}
+
 // Grecharged-hd-models: resolve a level's FR3 path, preferring an enhanced (jak2 HD) variant under
 // fr3/enhanced/ when the ENHANCED MODELS toggle is on AND that file exists. Off / missing -> stock
 // path, so OFF is byte-identical to stock.
 static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
 #ifdef OG_FEAT_HD_MODELS
-  if (Gfx::g_global_settings.recharged_enhanced_models) {
+  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_enhanced_models)) {
     // Prefer the package-shipped custom fr3/enhanced/ when the custom root is set.
     if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
       auto custom_enhanced = *custom_fr3 / "enhanced" / fmt::format("{}.fr3", name);
@@ -349,6 +368,8 @@ void Loader::loader_thread() {
  * This should be called during initialization, before any threaded loading goes on.
  */
 const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::string& name) {
+  // Grecharged-master-toggle: seed the GLOBAL master before the first fr3-path resolution.
+  Gfx::g_global_settings.recharged_master = read_persisted_recharged_master();
 #ifdef OG_FEAT_HD_MODELS
   // Grecharged-hd-models: seed the enhanced-models flag before the common FR3 (HD Jak+Daxter) is read,
   // since this runs in the renderer ctor before GOAL's per-frame push. Shared by desktop + Android.

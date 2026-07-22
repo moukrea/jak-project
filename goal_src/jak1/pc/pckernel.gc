@@ -450,6 +450,11 @@
   (case-str *pc-temp-string*
     (("money-starburst?") (set! (-> obj money-starburst?) (file-stream-read-symbol file)))
     (("extra-hud?") (set! (-> obj extra-hud?) (file-stream-read-symbol file)))
+    (("recharged-master?")
+     (set! (-> obj recharged-master?) (file-stream-read-symbol file))
+     ;; Grecharged-master-toggle: apply at settings-load (boot) like load-custom-assets? —
+     ;; the C++ loader gates consult the master before the first per-frame update-to-os push.
+     (pc-set-recharged-master! (if (-> obj recharged-master?) 1 0)))
     (("recharged-hud?") (set! (-> obj recharged-hud?) (file-stream-read-symbol file)))
     (("recharged-grass?") (set! (-> obj recharged-grass?) (file-stream-read-symbol file)))
     (("recharged-grass-near-dist") (set! (-> obj recharged-grass-near-dist) (file-stream-read-float file)))
@@ -512,6 +517,7 @@
   ((method-of-type pc-settings handle-output-settings) obj file)
   (format file "money-starburst? = ~A~%" (-> obj money-starburst?))
   (format file "extra-hud? = ~A~%" (-> obj extra-hud?))
+  (format file "recharged-master? = ~A~%" (-> obj recharged-master?))
   (format file "recharged-hud? = ~A~%" (-> obj recharged-hud?))
   (format file "recharged-grass? = ~A~%" (-> obj recharged-grass?))
   (format file "recharged-grass-near-dist = ~f~%" (-> obj recharged-grass-near-dist))

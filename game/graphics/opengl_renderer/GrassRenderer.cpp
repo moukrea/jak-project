@@ -1090,7 +1090,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // that splits the draw range (below). OFF -> u_overhang=0 -> tagged blades run the stock else-branch.
   glUniform1f(glGetUniformLocation(id, "u_overhang"),
 #ifdef OG_FEAT_GRASS_OVERHANG
-              Gfx::g_global_settings.recharged_grass_overhang ? 1.0f : 0.0f);
+              Gfx::recharged_active(Gfx::g_global_settings.recharged_grass_overhang) ? 1.0f : 0.0f);
 #else
               // Grecharged-buildsys-flags: overhang compiled OUT -> shader stock else-branch.
               0.0f);
@@ -1239,7 +1239,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   const int nondroop_n = std::min(m_droop_start, m_instance_count);
   const int blade_total =
 #ifdef OG_FEAT_GRASS_OVERHANG
-      Gfx::g_global_settings.recharged_grass_overhang ? m_instance_count : nondroop_n;
+      Gfx::recharged_active(Gfx::g_global_settings.recharged_grass_overhang) ? m_instance_count : nondroop_n;
 #else
       // Grecharged-buildsys-flags: overhang compiled OUT -> never draw the droop tail
       // (bit-identical to a build without the droop instances). See comment above.

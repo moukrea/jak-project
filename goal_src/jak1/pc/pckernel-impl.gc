@@ -83,6 +83,7 @@
    (subtitle-language   pc-language) ;; language for subtitles
    (money-starburst?    symbol) ;; add a starburst to the money
    (extra-hud?          symbol) ;; extra hud elements.
+   (recharged-master?   symbol) ;; Grecharged-master-toggle (owner 2026-07-21): GLOBAL Recharged ON/OFF. #f forces the stock state of EVERY recharged feature at runtime (C++ Gfx::recharged_active composes it at every gate; GOAL-side gates AND with it) WITHOUT resetting the individual toggles below — they come back exactly as configured when this returns #t.
    (recharged-hud?      symbol) ;; Grecharged-hud-jak1: optional "Recharged" HUD (heart/gauge/model). OFF = stock HUD.
    (recharged-grass?    symbol) ;; Grecharged-grass-poc: optional 3D grass on the training level. OFF = stock render.
    (recharged-grass-near-dist float) ;; Grecharged-grass-poc POLISH#4: near-blade view distance (m), slider-adjustable
@@ -124,6 +125,9 @@
 ;; per-frame push (the update-to-os override) lives in hud-classes-pc.gc: this file
 ;; compiles BEFORE target-h, so *target* is not yet visible here.
 (define-extern pc-set-recharged-grass! (function int none))
+;; Grecharged-master-toggle: pushes the GLOBAL Recharged master (0/1) to the runtime — C++
+;; composes it with every individual feature flag via the single Gfx::recharged_active helper.
+(define-extern pc-set-recharged-master! (function int none))
 ;; Gload-custom-assets: pushes the "load custom assets" toggle (0/1) to the runtime.
 (define-extern pc-set-load-custom-assets! (function int none))
 ;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
@@ -248,6 +252,7 @@
     (else))
   (set! (-> obj money-starburst?) #f)
   (set! (-> obj extra-hud?) #f)
+  (set! (-> obj recharged-master?) #t) ;; Grecharged-master-toggle: default ON (all shipped recharged defaults apply; OFF == pure vanilla)
   (set! (-> obj recharged-hud?) #f) ;; Grecharged-hud-jak1: default OFF so a fresh install matches stock exactly
   (set! (-> obj recharged-grass?) #t) ;; Grecharged-grass-poc: OWNER OVERRIDE 2026-07-10 — ships DEFAULT ON (toggle still exists; OFF == stock)
   (set! (-> obj recharged-grass-near-dist) 30.0) ;; POLISH#4 default near-blade view distance (m)

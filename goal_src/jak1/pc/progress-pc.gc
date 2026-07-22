@@ -796,10 +796,27 @@
 ;; immediately so the choice survives a relaunch even without a full menu commit.
 (define-options-array *recharged-options-pc*
        game-option
+       ;; 0 RECHARGED MASTER (Grecharged-master-toggle, owner 2026-07-21): the GLOBAL Recharged
+       ;; ON/OFF. OFF forces the stock state of EVERY recharged feature at runtime (C++ composes
+       ;; via the single Gfx::recharged_active helper; GOAL-side HUD gates AND with it) WITHOUT
+       ;; resetting the individual toggles below — they grey out (option-disabled-func) and come
+       ;; back exactly as configured when the master returns ON. Real label via
+       ;; *recharged-master-label* (name-override; :name is the usual placeholder text-id => no
+       ;; unknown-ID risk). All later rows shift +1 (see the init-game-options index arithmetic).
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-master?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
        ;; 0 RECHARGED HUD toggle. :name is a placeholder (text-id vsync) like the other name-override
        ;; on-off rows; the real label comes from *recharged-hud-label*. row present only with --recharged-hud.
        (flag-row FLAG_RECHARGED_HUD
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            ;; Grecharged-master-toggle: greyed while the master is OFF (like the realtime-lighting block rows)
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-hud?) (the-as symbol val))
@@ -811,11 +828,17 @@
        ;; devrait être un sous-menu de ce sous-menu avec tous les settings pour l'herbe". A menu-type row:
        ;; :param3 opens the grass-settings screen; real label via *grass-settings-label* (name-override).
        (new 'static 'game-option :option-type (game-option-type menu) :name (text-id ps2-options) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
             :param3 (game-option-menu grass-settings))
        ;; 2 LOAD CUSTOM ASSETS on-off toggle (Gload-custom-assets). Real label via *load-custom-assets-label*
        ;; (name-override); value bound to *pc-settings* load-custom-assets? in init-game-options. The
        ;; on-change pushes the 0/1 flag to the runtime and persists it immediately.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* load-custom-assets?) (the-as symbol val))
@@ -828,6 +851,9 @@
        ;; hud-classes-pc.gc applies pc-set-pbr! + pc-set-pbr-sun!). Row present only with --pbr.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* pbr-materials?) (the-as symbol val))
@@ -842,6 +868,9 @@
        ;; row present only with --hd-models.
        (flag-row FLAG_HD_MODELS
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-enhanced-models?) (the-as symbol val))
@@ -856,6 +885,9 @@
        ;; init-game-options. OFF (default) = stock render. on-change persists + pushes live (the
        ;; per-frame update-to-os bridge also pushes it, so the effect applies without relaunch).
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-foliage-wind?) (the-as symbol val))
@@ -865,7 +897,10 @@
        ;; carousell like MSAA — :name is a placeholder (text-id msaa); the real label comes from
        ;; *ambient-occlusion-label* (name-override, wired in init-game-options). backup/select/write-back
        ;; mirror the msaa arms in respond-common (map 1:1 to *pc-settings* ambient-occlusion).
-       (new 'static 'game-option :option-type (game-option-type ambient-occlusion) :name (text-id msaa) :scale #t)
+       (new 'static 'game-option :option-type (game-option-type ambient-occlusion) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?))))
        ;; 6 AO QUALITY carousell row: Low/Medium/High. Disabled (greyed) while AO is Off, mirroring the
        ;; display-mode disabled predicate. Real label via *ao-quality-label* (name-override).
        (new 'static
@@ -875,7 +910,7 @@
             :scale #t
             :option-disabled-func
             (lambda ()
-              (zero? (-> *pc-settings* ambient-occlusion))))
+              (or (not (-> *pc-settings* recharged-master?)) (zero? (-> *pc-settings* ambient-occlusion)))))
        ;; 7 AO STRENGTH carousell row (closing round): Weaker/Default/Stronger per-mode multiplier on the
        ;; estimator intensity. Disabled (greyed) while AO is Off, same conditional mechanism as AO QUALITY.
        ;; Real label via *ao-strength-label* (name-override).
@@ -886,10 +921,13 @@
             :scale #t
             :option-disabled-func
             (lambda ()
-              (zero? (-> *pc-settings* ambient-occlusion))))
+              (or (not (-> *pc-settings* recharged-master?)) (zero? (-> *pc-settings* ambient-occlusion)))))
        ;; Realtime Lighting On/Off (Grecharged-realtime-lighting)
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
@@ -904,7 +942,7 @@
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :option-disabled-func
             (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* realtime-probe?) (the-as symbol val))
@@ -917,7 +955,7 @@
        (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t
             :option-disabled-func
             (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))))
        ;; Ambient Strength slider (0.0 .. 0.5; disabled when Realtime Lighting off). Bound directly to
        ;; the *pc-settings* realtime-ambient-strength float (the ambient base level).
        (flag-row FLAG_PBR
@@ -925,7 +963,7 @@
             :param1 0.0 :param2 0.5 :slider-step-size 0.05 :slider-show-decimal? #t
             :option-disabled-func
             (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -937,7 +975,7 @@
             :param1 0.0 :param2 1.5 :slider-step-size 0.1 :slider-show-decimal? #t
             :option-disabled-func
             (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -948,7 +986,7 @@
             :param1 20.0 :param2 200.0 :slider-step-size 10.0 :slider-show-decimal? #f
             :option-disabled-func
             (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -958,7 +996,7 @@
        (new 'static 'game-option :option-type (game-option-type shadow-quality) :name (text-id msaa) :scale #t
             :option-disabled-func
             (lambda ()
-              (not (-> *pc-settings* realtime-lighting?)))))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))))
        ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
@@ -1065,6 +1103,10 @@
 ;; refresh-runtime-option-labels! so they follow the TEXT language — ids #x1706 / #x1707).
 (define *recharged-settings-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-settings-label*) "RECHARGED SETTINGS")
+;; Grecharged-master-toggle: label for the GLOBAL "RECHARGED MASTER" on-off row (uppercase ASCII
+;; for the menu font; shown via name-override — English-only, not re-formatted).
+(define *recharged-master-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *recharged-master-label*) "RECHARGED MASTER")
 (#when FLAG_RECHARGED_HUD
 (define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-hud-label*) "RECHARGED HUD"))
@@ -3205,35 +3247,41 @@
   (#when FLAG_VULKAN_SUPPORT
   (set! (-> *graphic-options-pc-android* 10 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
   (set! (-> *graphic-options-pc-android* 10 name-override) *vulkan-renderer-label*))
-  ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle (row 0) inside the Recharged submenu.
+  ;; Grecharged-master-toggle: row 0 = the GLOBAL RECHARGED MASTER on/off (every later
+  ;; *recharged-options-pc* index below shifted +1 for it).
+  (set! (-> *recharged-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-master?))
+  (set! (-> *recharged-options-pc* 0 name-override) *recharged-master-label*)
+  ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle (row 1) inside the Recharged submenu.
   (#when FLAG_RECHARGED_HUD
-  (set! (-> *recharged-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-hud?))
-  (set! (-> *recharged-options-pc* 0 name-override) *recharged-hud-label*))
-  ;; Grecharged-grass-poc POLISH#6: row 1 is now the "GRASS SETTINGS" sub-submenu launcher (label only;
-  ;; its param3 opens *grass-options-pc*). All grass rows moved into that nested page (wired below).
-  (set! (-> *recharged-options-pc* FLAG_RECHARGED_HUD_N name-override) *grass-settings-label*)
-  ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 2) inside the Recharged submenu.
-  (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* load-custom-assets?))
-  (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) name-override) *load-custom-assets-label*)
-  ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 2 hud-N)) inside the
-  ;; Recharged submenu. Present only with --pbr; downstream rows (ENHANCED MODELS, FOLIAGE WIND, AO,
-  ;; Back) are shifted up by FLAG_PBR_N in the index arithmetic below (0 when --pbr is off).
+  (set! (-> *recharged-options-pc* 1 value-to-modify) (&-> *pc-settings* recharged-hud?))
+  (set! (-> *recharged-options-pc* 1 name-override) *recharged-hud-label*))
+  ;; Grecharged-grass-poc POLISH#6: row 2 (+1 for the master row) is now the "GRASS SETTINGS"
+  ;; sub-submenu launcher (label only; its param3 opens *grass-options-pc*). All grass rows moved
+  ;; into that nested page (wired below).
+  (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) name-override) *grass-settings-label*)
+  ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 3, +1 for the master row).
+  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* load-custom-assets?))
+  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) name-override) *load-custom-assets-label*)
+  ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 3 hud-N), +1 for the
+  ;; master row) inside the Recharged submenu. Present only with --pbr; downstream rows (ENHANCED
+  ;; MODELS, FOLIAGE WIND, AO, Back) are shifted up by FLAG_PBR_N in the index arithmetic below
+  ;; (0 when --pbr is off).
   (#when FLAG_PBR
-  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* pbr-materials?))
-  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) name-override) *pbr-materials-label*))
-  ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle. It sits at index 4 while the ENHANCED
-  ;; MODELS row is present (static length 9) and at index 3 after that row collapsed (length 8) —
-  ;; wire by live length so re-inits stay correct in both states. Must run BEFORE the collapse
-  ;; below (the collapse moves this very row object; wiring rides along with it).
+  (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* pbr-materials?))
+  (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) name-override) *pbr-materials-label*))
+  ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle (+1 for the master row throughout). It sits
+  ;; at index 5 while the ENHANCED MODELS row is present (static length 10) and at index 4 after that
+  ;; row collapsed (length 9) — wire by live length so re-inits stay correct in both states. Must run
+  ;; BEFORE the collapse below (the collapse moves this very row object; wiring rides along with it).
   ;; Grecharged-ambient-occlusion: the three AO carousell rows sit right after FOLIAGE WIND (indices
-  ;; 5,6,7 full / 4,5,6 collapsed). They also ride along with the collapse (wired here, pre-collapse).
+  ;; 6,7,8 full / 5,6,7 collapsed). They also ride along with the collapse (wired here, pre-collapse).
   ;; Grecharged-buildsys-flags: fw-idx = first FOLIAGE WIND slot. HD-MODELS present => static length is
-  ;; (+ 7 hud-N hd-N) and FOLIAGE WIND sits at (+ 2 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
-  ;; to (+ 2 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 2 FLAG_RECHARGED_HUD_N) — the static
-  ;; length is then (+ 7 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 7 FLAG_PBR_N)))
-                    (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
-                    (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
+  ;; (+ 8 hud-N hd-N) and FOLIAGE WIND sits at (+ 3 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
+  ;; to (+ 3 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 3 FLAG_RECHARGED_HUD_N) — the static
+  ;; length is then (+ 8 hud-N) and no collapse ever fires.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 8 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 7 FLAG_PBR_N)))
+                    (+ 3 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
+                    (+ 3 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
     ;; Grecharged-ambient-occlusion: AO mode + quality + strength carousell rows follow FOLIAGE WIND. All
@@ -3274,23 +3322,23 @@
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
-  ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 2 hud-N)) only when the build ships the
+  ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 3 hud-N), +1 for the master row) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
   ;; Idempotent across re-inits (only fires while the full static length is intact). The whole block is
   ;; compiled only with --hd-models; without it the ENHANCED MODELS row is absent from the static array.
   (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
-      (when (= (-> *recharged-options-pc* length) (+ 8 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
-        (let ((i (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
-          (while (< i (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
+      (when (= (-> *recharged-options-pc* length) (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
+        (let ((i (+ 3 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+          (while (< i (+ 8 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
             (+! i 1)))
-        (set! (-> *recharged-options-pc* length) (+ 7 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+        (set! (-> *recharged-options-pc* length) (+ 8 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
       (begin
-        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
+        (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
-        (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N FLAG_PBR_N) name-override) *enhanced-models-label*))))
+        (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N FLAG_PBR_N) name-override) *enhanced-models-label*))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
