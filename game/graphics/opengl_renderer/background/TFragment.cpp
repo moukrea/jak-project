@@ -650,11 +650,16 @@ void TFragment::render_tree(int geom,
   // cast_full: the vis-culled count being 0 (camera facing away from every caster) is
   // EXACTLY the owner's pop-on-rotation repro — the full static buffer must still cast.
   // ROUND 2 (owner defect #3 — complete caster set): cast from ALL opaque tfrag kinds, not
-  // just NORMAL. NORMAL/LOWRES/DIRT/ICE are solid ground/terrain and must occlude the sun;
-  // TRANS / LOWRES_TRANS / WATER are transparent and are deliberately excluded.
+  // just NORMAL. TRANS / LOWRES_TRANS / WATER are transparent and are deliberately excluded.
+  // OWNER #4 (phantom straight shadow lines): LOWRES is EXCLUDED from the caster set. The
+  // lowres far-LOD hull is a coarse duplicate of the world (village1: 1900 tris, mean edge
+  // 85m) that sits up to +57m ABOVE the walkable hires ground in 465 measured 2m-cells; the
+  // main pass hides it near the player (PVS / hires draws instead) but cast_full ignores
+  // vis, so its giant straight-edged plates shadowed the real terrain from nothing — the
+  // long straight phantom lines. The hires NORMAL/DIRT/ICE kinds cover every surface the
+  // player sees inside the shadow box; distant-surround shading is already in the baked.
   const bool pbr_tfrag_opaque_caster =
       tree.kind == tfrag3::TFragmentTreeKind::NORMAL ||
-      tree.kind == tfrag3::TFragmentTreeKind::LOWRES ||
       tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
       tree.kind == tfrag3::TFragmentTreeKind::ICE;
   if (pbr_shadow_frame_ok && pbr_tfrag_opaque_caster &&
