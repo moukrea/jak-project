@@ -446,10 +446,6 @@
       "9148fdc53b8a",
       "f17b56fa5594",
       "8a00c3f97391"
-    ],
-    "Grecharged-master-toggle": [
-      "ecaa586670f9",
-      "ecaa586670f9"
     ]
   },
   "stuck_reasons": {
@@ -865,7 +861,7 @@
     "Grecharged-lightprobes": 1784610690.5813682,
     "Grecharged-master-toggle": 1784714502.0934844
   },
-  "last_update": "2026-07-22T15:13:35.626025+00:00",
+  "last_update": "2026-07-22T15:17:47.724906+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -950,7 +946,8 @@
     "Grecharged-pbr-materials",
     "Grecharged-realtime-lighting",
     "Grecharged-directional-ambient",
-    "Grecharged-lightprobes"
+    "Grecharged-lightprobes",
+    "Grecharged-master-toggle"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
