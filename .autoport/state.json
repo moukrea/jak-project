@@ -213,7 +213,7 @@
     "Grecharged-directional-ambient": 10,
     "Grecharged-lightprobes": 13,
     "Grecharged-master-toggle": 3,
-    "Grecharged-bundled-textures": 4
+    "Grecharged-bundled-textures": 5
   },
   "fingerprints": {
     "00-harness": [
@@ -450,7 +450,8 @@
     ],
     "Grecharged-bundled-textures": [
       "7f9bb509746f",
-      "7f9bb509746f"
+      "7f9bb509746f",
+      "7c38d878397e"
     ]
   },
   "stuck_reasons": {
@@ -868,7 +869,7 @@
     "Grecharged-master-toggle": 1784714502.0934844,
     "Grecharged-bundled-textures": 1784735254.4058251
   },
-  "last_update": "2026-07-22T18:20:06.679527+00:00",
+  "last_update": "2026-07-22T18:23:24.901624+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
