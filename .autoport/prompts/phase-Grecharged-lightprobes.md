@@ -533,3 +533,28 @@ them ("des traits droits super longs"). Root-cause and fix. Usual suspects, chec
 Reproduce first (find a vantage showing the lines — the owner sees them in normal play), identify which
 suspect it is, fix, verify mechanically (the fix targets the identified mechanism), then READY FOR OWNER.
 Do NOT regress anything else — the owner just validated the whole stack; this is a surgical fix.
+
+---
+## OWNER REPRO (2026-07-22 09:40) — PHANTOM LINES **PERSIST** AFTER THE LOWRES FIX. New facts, refined target.
+The LOWRES-caster exclusion did NOT fix it. Owner reproduces on his Honor with build 2e8338e3:
+- The long straight shadow lines are STILL there, forming an **X on the ground**;
+- Observed at **NIGHT under the GREEN SUN's shadows** (his words: "je suis en train de tester sur le soleil
+  vert de la nuit... ça fait un X sur le sol");
+- His exact repro screenshots are at `.autoport/reports/Grecharged-lightprobes/device/owner_repro/`
+  (x_lines_2.jpg = the night blue-eco-vent vantage, village1 beach side; x_lines_1.jpg = grass area).
+REFINED ANALYSIS: an **X = two crossing straight lines** under the green-sun shadow regime strongly points
+AWAY from casters and toward **suspect #1: shadow-map FRUSTUM BOUNDARY / border-clamp** — and with TWO suns
+each having a shadow map, two frustum edges can cross = the X. Check, on BOTH suns' maps:
+1. Out-of-map sampling on ALL FOUR edges AND outside the depth range MUST return LIT (no shadow). Verify the
+   sampler border/clamp config AND the shader-side range test (uv outside [0,1] or depth beyond far => lit).
+2. The ortho frustum FIT for the green-sun pass (its direction is different; a mis-fit frustum's edge crosses
+   the visible ground differently => the second line of the X).
+3. The shadow-distance fade must also apply to the green-sun pass (a hard cut there = a line).
+REPRODUCE AT THE OWNER'S VANTAGE (his screenshots give the location + night TOD + green-sun regime) — the
+previous attempt's "mechanical verification" clearly did not reproduce the owner's case. A fix that doesn't
+kill the X at HIS vantage is not a fix. Then READY FOR OWNER.
+
+**OWNER ADDENDUM (09:52): "c'est pareil avec le soleil du jour"** — the X lines appear under BOTH suns'
+shadow regimes. => The bug is in the SHARED shadow-map machinery (border/clamp/out-of-range semantics or
+frustum-fit code common to both passes), NOT specific to the green-sun pass. Fix the COMMON mechanism once;
+verify under BOTH suns at the owner's vantages (day AND night screenshots both show it).

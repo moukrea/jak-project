@@ -2176,7 +2176,7 @@ phases:
   prompt: prompts/phase-Grecharged-lightprobes.md
   validator: validators/phase-Grecharged-lightprobes.sh
   max_turns: 4000
-  max_retries: 12
+  max_retries: 16
   device: true
   owner_verify: true
 - id: Grecharged-master-toggle
