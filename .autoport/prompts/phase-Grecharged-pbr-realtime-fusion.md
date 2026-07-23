@@ -75,3 +75,38 @@ metallic, ao, height, specular, emissive). Drop under the device custom_assets f
    NOT a debug viz. Owner's eye is the final gate (owner_verify).
 
 Reserve the last third of the run for the report + device evidence. Write the report EARLY, fill as you go.
+
+---
+## OWNER PLAYTEST (2026-07-23) — RELIEF GAINED ✅ BUT PLASTIC SHINE ❌. REOPENED — industry-standard BRDF, "on veut que ça claque".
+Owner: "les textures ont gagné en relief, c'est stylé, MAIS ça rend comme une surcouche PLASTIQUE brillante
+— surtout sur les textures AU SOL et aux ANGLES EXTRÊMES. La plupart des PBR ont height/normal/roughness —
+se baser là-dessus. TOUJOURS conserver le baked en influence (le relief des objets, notre meilleur rendu).
+Utiliser les probes pour la cohérence des matériaux PBR. Pas joli pour l'instant. Standards de l'industrie."
+
+DIAGNOSIS (the classic plastic-look causes — audit and fix EACH):
+1. **Grazing-angle Fresnel blowout** (his "angles extrêmes" + ground sheen): Schlick F→1.0 at grazing with
+   no roughness attenuation and no proper visibility term ⇒ white plastic sheen on floors seen at an angle.
+   FIX: full Cook-Torrance with the SMITH-GGX VISIBILITY term (not just D*F), and roughness-aware Fresnel
+   (e.g. F0 + (max(1-roughness, F0) - F0) * pow(1-NdotV, 5)) so ROUGH surfaces never get the mirror-edge glow.
+2. **Roughness map under-respected**: rough surfaces (ground!) must produce BROAD, DIM highlights — if the
+   ground looks glossy, the roughness sampling/mapping is wrong (check channel, sRGB-vs-linear read,
+   perceptual-vs-alpha roughness squaring: use alpha = roughness^2 industry convention).
+3. **Dielectric F0**: these materials (stone/straw/dirt/sand) are DIELECTRICS — F0 = 0.04 constant (NO
+   metallic assumption; most sets have only height/normal/roughness — treat missing metallic as 0.0).
+4. **Energy conservation**: kd = (1-F) on the diffuse; specular never ADDS free energy on top of full baked.
+5. **Specular occlusion**: crevices/AO (from the baked detail layer we already have!) must attenuate the
+   specular too — shiny pits = plastic. Use the baked-detail ratio as cheap specular occlusion.
+6. **Specular aliasing/sparkle** on normal-mapped ground: apply geometric specular AA (Toksvig-style
+   roughness widening from normal-map variance) or clamp minimum roughness (~0.045) — no fireflies.
+
+ARCHITECTURE (owner-mandated layering — do NOT regress it):
+- BASE = the owner-validated BAKED-MODULATION composite (the object relief we fought for). The PBR layer
+  sits ON TOP: normal-map detail perturbs the shading, roughness shapes the specular, height (optional
+  cheap parallax) — the baked influence ALWAYS remains.
+- PROBES = the coherence source for the PBR: IBL diffuse/specular from the probe SH + prefiltered cube at
+  the correct ROUGHNESS MIP (a rough ground samples a blurry mip — never the sharp mip0), tinted/leveled by
+  the local probe so materials sit IN the scene ("cohérence").
+- Suns' specular via the GGX above; shadows kill the sun specular where blocked.
+ACCEPTANCE: ground/rough materials show NO plastic sheen at any angle (esp. grazing); highlights match
+roughness (broad+dim on rough, tight+bright only on genuinely smooth); baked relief unchanged; the owner
+wants "ça claque" — industry-standard, his eye decides. Mechanical bar + READY; his Honor verifies.
