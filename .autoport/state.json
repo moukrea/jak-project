@@ -215,7 +215,7 @@
     "Grecharged-master-toggle": 3,
     "Grecharged-bundled-textures": 6,
     "Grecharged-naming": 1,
-    "Grecharged-pbr-realtime-fusion": 5
+    "Grecharged-pbr-realtime-fusion": 6
   },
   "fingerprints": {
     "00-harness": [
@@ -881,7 +881,7 @@
     "Grecharged-naming": 1784780438.2196877,
     "Grecharged-pbr-realtime-fusion": 1784783149.315742
   },
-  "last_update": "2026-07-23T09:05:19.796175+00:00",
+  "last_update": "2026-07-23T10:03:48.765148+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -969,8 +969,7 @@
     "Grecharged-lightprobes",
     "Grecharged-master-toggle",
     "Grecharged-bundled-textures",
-    "Grecharged-naming",
-    "Grecharged-pbr-realtime-fusion"
+    "Grecharged-naming"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

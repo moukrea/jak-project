@@ -124,7 +124,7 @@ cap(){ # TAG [HOUR=8] [NSTRENGTH=] [KEEPMP4=0]
   adb shell "setprop debug.opengoal.pbr.shadowmap 1"
   LOG="$OUT/logcat-$TAG.log"; : > "$LOG"
   ( adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
-     | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|custom texture replacement|custom pbr|PC [Kk]ernel version|Fatal signal|GK-DIAG sig=|shader.*[Ee]rror|link.*[Ff]ail' >> "$LOG" ) 2>/dev/null &
+     | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|custom texture replacement|custom pbr|pbr binding|PC [Kk]ernel version|Fatal signal|GK-DIAG sig=|shader.*[Ee]rror|link.*[Ff]ail' >> "$LOG" ) 2>/dev/null &
   adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
   local t0=$(date +%s)
   while [ $(( $(date +%s) - t0 )) -lt 300 ]; do
