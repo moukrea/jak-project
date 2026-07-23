@@ -28,6 +28,8 @@ fg_require(){ local f; f=$(adb shell dumpsys window 2>/dev/null | grep -m1 mCurr
 
 MASKS="${MASKS:-0 1 2 4 8 16 32 64 128 256 512 1024}"
 HOUR="${HOUR:-8}"
+# boot vantage override (verify run uses the beach-grazing ground vantage too)
+WARP_POS="${WARP_POS:--112.0 42.0 205.0}"
 
 case "${1:?stage (boot|sweep|spec0|metrics|cleanup)}" in
 boot)
@@ -36,7 +38,7 @@ boot)
   adb logcat -c 2>/dev/null || true
   adb shell "setprop debug.opengoal.cpad_inject neutral"
   adb shell setprop debug.opengoal.level.warp village1-hut
-  adb shell "setprop debug.opengoal.level.warp.pos '-112.0 42.0 205.0'"
+  adb shell "setprop debug.opengoal.level.warp.pos '$WARP_POS'"
   adb shell "setprop debug.opengoal.tod.hour '$HOUR'"
   adb shell "setprop debug.opengoal.tod.fast ''"
   adb shell setprop debug.opengoal.renderscale.native 1

@@ -554,7 +554,10 @@ void main() {
             (u_pbr_bisect & 128) == 0) {
           vec3 Vt = normalize(vec3(dot(Vv, fTn), dot(Vv, fBn), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.12);
-          float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
+          // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);
+          // the loop bound below already allows 32. Occlusion test + secant interpolation
+          // (the industry steep-parallax + refinement) were already in place.
+          float n_layers = mix(32.0, 16.0, clamp(Vt.z, 0.0, 1.0));
           vec2 duv_step = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile / n_layers;
           float layer_d = 1.0 / n_layers;
           float cur_d = 0.0;
@@ -577,9 +580,18 @@ void main() {
         // Normal map (bit 1) perturbs the SMOOTH normal => surface detail that shades
         // correctly as the realtime suns move (the fusion's whole point).
         vec3 Nm = N;
+        // REOPEN #3 SHIMMER FIX: Toksvig widening FROM THE FITTED MIP. texture() samples
+        // the normal map at the hardware-fitted mip (maps upload with glGenerateMipmap +
+        // LINEAR_MIPMAP_LINEAR); mip-averaged normals SHORTEN, and that lost length IS the
+        // sub-pixel normal variance the renormalize below would otherwise throw away —
+        // exactly the high-relief sparkle. Captured (strength-scaled, so the relief slider
+        // widens it too) into fnmip_var and added to the GGX alpha at the spec-AA site.
+        float fnmip_var = 0.0;
         if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7 && (u_pbr_bisect & 64) == 0) {
           vec3 nmt = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
           nmt.xy *= u_pbr_normal_strength;
+          float fnlen = clamp(length(nmt), 1e-4, 1.0);
+          fnmip_var = (1.0 - fnlen) / max(fnlen, 0.5);
           nmt = normalize(nmt);
           Nm = normalize(mat3(fTn, fBn, N) * nmt);
           if (dot(Nm, gN) < 0.0) Nm = N;  // never flip past the face
@@ -599,9 +611,19 @@ void main() {
         // constant F0 = 0.04; never assume metalness).
         float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
         float ao = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
-        vec3 F0 = ((u_pbr_mode & 32) != 0 && (u_pbr_bisect & 16) == 0)
-                      ? pow(texture(tex_PBR_S, uv).rgb, vec3(2.2))
-                      : mix(vec3(0.04), albedo, metal);
+        // REOPEN #3 BISECT VERDICT (mask 16): _specular read as RAW F0 (the test map's
+        // linear mean is 0.217, p95 0.426 — 5-10x the 0.04 dielectric norm) inflated
+        // Fresnel on every texel and the ambient-specular term turned that into the
+        // plastic film. Industry (UE) convention: on a DIELECTRIC a "specular" map only
+        // tunes F0 within [0, 0.08]; the raw map survives as a true specular COLOR only
+        // where _metallic declares metalness.
+        vec3 F0;
+        if ((u_pbr_mode & 32) != 0 && (u_pbr_bisect & 16) == 0) {
+          vec3 spec_raw = pow(texture(tex_PBR_S, uv).rgb, vec3(2.2));
+          F0 = mix(min(spec_raw, vec3(0.08)), spec_raw, metal);
+        } else {
+          F0 = mix(vec3(0.04), albedo, metal);
+        }
         float NdV = max(dot(Nm, Vv), 1e-4);
         // REOPEN geometric SPECULAR AA: widen the GGX alpha by the normal-map's screen-
         // space variance (Toksvig-style) so normal-mapped ground never sparkles. One-way:
@@ -611,7 +633,10 @@ void main() {
         vec3 fnddx = dFdx(Nm);
         vec3 fnddy = dFdy(Nm);
         float fnvar = 0.25 * (dot(fnddx, fnddx) + dot(fnddy, fnddy));
-        fa = clamp(fa + min(fnvar, 0.18), 0.002, 1.0);
+        // REOPEN #3: screen-derivative variance (geometric edges) + Toksvig-from-mip
+        // variance (sub-texel normal detail at the fitted mip) both widen the lobe;
+        // perceptual min-rough 0.045 above stays the floor. One-way: only ever rougher.
+        fa = clamp(fa + min(fnvar, 0.18) + min(fnmip_var, 0.35), 0.002, 1.0);
         float fa2 = fa * fa;
         // REOPEN roughness-aware FRESNEL ceiling (Fdez-Aguera): the grazing-angle limit is
         // max(1-roughness, F0), NOT 1.0 — a rough floor seen edge-on can no longer blow out
@@ -662,9 +687,11 @@ void main() {
         // fragment_color is the TOD LUT x2 (lit ~0.5-1.0, crevices < ~0.2).
         float fbklum = dot(fragment_color.rgb, vec3(0.299, 0.587, 0.114));
         float fspecocc = ao * smoothstep(0.05, 0.45, fbklum);
-        vec3 Fenv = F0 + (Fceil - F0) * pow(1.0 - NdV, 5.0);
-        // bisect bit 8: drop the view-dependent Fresnel kd-darkening on the diffuse only.
-        fbase_lin *= ((u_pbr_bisect & 8) != 0 ? vec3(1.0) : (vec3(1.0) - Fenv * fspecocc)) *
+        // REOPEN #3 fix: kd is the INDUSTRY constant (1 - F0)(1 - metal) (UE/Frostbite
+        // diffuse). The old view-dependent (1 - Fenv) grayed rough surfaces seen edge-on
+        // (the ground at grazing) — a film NOT scaled by the specular slider, which is
+        // exactly the owner's "sheen survives specular=0" datapoint.
+        fbase_lin *= ((u_pbr_bisect & 8) != 0 ? vec3(1.0) : (vec3(1.0) - F0 * fspecocc)) *
                      (1.0 - metal);
         // BOTH analytic suns, Cook-Torrance with the HEIGHT-CORRELATED SMITH VISIBILITY
         // term (REOPEN: the old separable Schlick G + naive F was exactly the grazing-
@@ -726,7 +753,16 @@ void main() {
           fenv_sharp = famb_base;
         }
         vec3 famb_env = mix(fenv_sharp, famb_base, smoothstep(0.25, 0.9, rough));
-        vec3 famb_spec = famb_env * Fenv;
+        // REOPEN #3 fix — THE bisect-identified culprit (mask 4: zeroing this term halved
+        // the wall luma; the plastic film lived here). The raw Fresnel multiply (famb_env *
+        // Fenv, grazing ceiling max(1-rough, F0)) is replaced by the industry SPLIT-SUM env
+        // BRDF (Karis mobile approximation): famb_spec = env * (F0*A + B), A/B folding the
+        // GGX lobe energy over (roughness, NdV). Rough ground at grazing now reflects ~5%
+        // of the ambient instead of 30-45% — bounded by construction, no mirror-edge film.
+        vec4 kr = rough * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
+        float ka004 = min(kr.x * kr.x, exp2(-9.28 * NdV)) * kr.x + kr.y;
+        vec2 kAB = vec2(-1.04, 1.04) * ka004 + vec2(kr.z, kr.w);
+        vec3 famb_spec = famb_env * (F0 * kAB.x + kAB.y);
         if ((u_pbr_bisect & 4) != 0) famb_spec = vec3(0.0);  // bisect: ambient/IBL specular off
         // EMISSIVE (bit 64): unlit, added on top — glows in full shadow / at night.
         vec3 emissive = ((u_pbr_mode & 64) != 0 && (u_pbr_bisect & 32) == 0)
