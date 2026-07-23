@@ -17,7 +17,7 @@ plugins {
 // (`<game>_cgo.zip`) are present under that flavor's assets-slim bundle dir at
 // BUILD time. Exactly ONE game => single-game APK: boots STRAIGHT into that game
 // with its own launcher name + icon (no menu). MORE THAN ONE => COLLECTION APK:
-// label "Jak and Daxter: The Recharged Jak-pot" + a boot selection menu. The
+// label "Jak and Daxter: Recharged Collection" + a boot selection menu. The
 // same detection runs at runtime in LoaderActivity (it enumerates the bundle
 // dir), so dropping a 2nd game's pack into a flavor flips it to collection
 // with no other code change.
@@ -25,13 +25,17 @@ plugins {
 // These are `val` lambdas (not top-level `fun`s) so they capture the Project
 // receiver and can call file(); they must be declared before the android {}
 // block that consumes appLabelFor().
+// Grecharged-naming (owner 2026-07-22): per-game titles are the Recharged
+// line-up ("Jak and Daxter: Recharged" is a nod to "Crash Bandicoot 3:
+// Warped"). USER-FACING strings only — applicationId suffixes and save
+// identifiers are untouched.
 val gameTitles = mapOf(
-    "jak1" to "Jak & Daxter",
-    "jak2" to "Jak II",
-    "jak3" to "Jak 3",
+    "jak1" to "Jak and Daxter: Recharged",
+    "jak2" to "Jak II: Recharged",
+    "jak3" to "Jak 3: Recharged",
     "jakx" to "Jak X",
 )
-val collectionTitle = "Jak and Daxter: The Recharged Jak-pot"
+val collectionTitle = "Jak and Daxter: Recharged Collection"
 val titleFor: (String) -> String = { id -> gameTitles[id] ?: id }
 // Grecharged-buildsys-packaging (autoport 2026-07-17): the APK is ALWAYS slim —
 // it ships ONLY the port artifacts (arm64 CGO pack + port-custom pack); vanilla
@@ -95,7 +99,7 @@ android {
         // Phase Glauncher-collection (autoport 2026-07-02): the launcher label
         // (app_name) is now ASSET-DRIVEN and set per flavor via resValue() from
         // appLabelFor() — a single-game flavor gets that game's title, the
-        // collection flavor gets "Jak and Daxter: The Recharged Jak-pot".
+        // collection flavor gets "Jak and Daxter: Recharged Collection".
         // app_name was REMOVED from res/values/strings.xml so the per-flavor
         // resValue is the single source (they collide if both are present —
         // that is why Gpkg-branding had kept it only in strings.xml). game_name
@@ -342,7 +346,7 @@ tasks.matching {
 //
 // The -PdetectDir dry-run lets a test stage a synthetic 2-game bundle dir
 // (touch jak1_assets.zip jak2_assets.zip) and prove detection flips to COLLECTION
-// + "The Recharged Jak-pot" WITHOUT shipping a real 2nd game.
+// + "Recharged Collection" WITHOUT shipping a real 2nd game.
 tasks.register("printGameDetection") {
     description = "Asset-driven game detection: per flavor (or -PdetectDir), print bundled games + mode + app label."
     group = "verification"

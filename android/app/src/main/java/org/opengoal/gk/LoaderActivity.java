@@ -122,15 +122,17 @@ public class LoaderActivity extends AppCompatActivity {
 
     // Human-facing titles for the collection menu + single-game label. Keep in
     // sync with build.gradle.kts gameTitles / appLabelFor.
+    // Grecharged-naming (owner 2026-07-22): Recharged line-up; package ids and
+    // save identifiers untouched.
     private static final Map<String, String> GAME_TITLES = new LinkedHashMap<>();
     static {
-        GAME_TITLES.put("jak1", "Jak & Daxter");
-        GAME_TITLES.put("jak2", "Jak II");
-        GAME_TITLES.put("jak3", "Jak 3");
+        GAME_TITLES.put("jak1", "Jak and Daxter: Recharged");
+        GAME_TITLES.put("jak2", "Jak II: Recharged");
+        GAME_TITLES.put("jak3", "Jak 3: Recharged");
         GAME_TITLES.put("jakx", "Jak X");
     }
     private static final String COLLECTION_TITLE =
-            "Jak and Daxter: The Recharged Jak-pot";
+            "Jak and Daxter: Recharged Collection";
 
     // Palette (matches the placeholder launcher icon).
     private static final int COL_BG        = 0xFF101820;

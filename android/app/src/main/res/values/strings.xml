@@ -2,9 +2,10 @@
 <resources>
     <!-- Phase Glauncher-collection (autoport 2026-07-02): app_name is now
          ASSET-DRIVEN and provided PER FLAVOR via resValue("string","app_name",…)
-         in build.gradle.kts (appLabelFor()): jak1 -> "Jak & Daxter",
-         jak2 -> "Jak II", jak3 -> "Jak 3", collection ->
-         "Jak and Daxter: The Recharged Jak-pot". It was removed from here
+         in build.gradle.kts (appLabelFor()). Grecharged-naming (owner
+         2026-07-22): jak1 -> "Jak and Daxter: Recharged",
+         jak2 -> "Jak II: Recharged", jak3 -> "Jak 3: Recharged", collection ->
+         "Jak and Daxter: Recharged Collection". It was removed from here
          because a per-flavor resValue and a strings.xml entry of the same name
          collide as a duplicate resource (see Gpkg-branding). game_name is also a
          per-flavor resValue; the loader/MainActivity read R.string.game_name as

@@ -39,13 +39,15 @@ std::string version_to_game_name(GameVersion v) {
 }
 
 std::string version_to_game_name_external(GameVersion v) {
+  // Grecharged-naming (owner 2026-07-22): user-facing per-game titles (window
+  // title, LSP status). Internal ids (version_to_game_name) are untouched.
   switch (v) {
     case GameVersion::Jak1:
-      return "Jak 1";
+      return "Jak and Daxter: Recharged";
     case GameVersion::Jak2:
-      return "Jak 2";
+      return "Jak II: Recharged";
     case GameVersion::Jak3:
-      return "Jak 3";
+      return "Jak 3: Recharged";
     case GameVersion::JakX:
       return "Jak X";
     default:
