@@ -2231,6 +2231,16 @@ phases:
   max_retries: 10
   device: true
   owner_verify: true
+- id: Grecharged-texture-hotreload
+  name: 'RECHARGED (owner 2026-07-23): LIVE texture toggling — Recharged Textures / custom assets
+    ON<->OFF must apply without restarting the game (rescan + GPU re-upload / pool invalidation).
+    Precedence semantics unchanged (user > bundled > stock, alpha-last-wins among user dupes).'
+  prompt: prompts/phase-Grecharged-texture-hotreload.md
+  validator: validators/phase-Grecharged-texture-hotreload.sh
+  max_turns: 2000
+  max_retries: 8
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models3
   name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
     mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
