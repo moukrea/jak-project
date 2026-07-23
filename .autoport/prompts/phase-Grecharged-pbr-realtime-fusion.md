@@ -375,3 +375,27 @@ ACCEPTANCE (owner vantages, grass + cliff): the texture relief is LOCKED to the 
 games / a preview sphere with influenced geometry. His eye decides.
 NOTE: the earlier "matte-dielectric / low specular" changes are FINE to keep (rough = low spec is correct)
 but they are NOT the fix for this defect — the epoxy/parallax fix is the priority.
+
+---
+## OWNER CORRECTION #6 (2026-07-23) — DISPLACEMENT IS REQUIRED (do NOT disable it). Make it CORRECT + make TESSELLATION actually WORK.
+Refines #5: the owner does NOT want POM/displacement turned off. He wants displacement WITH the PBR —
+tessellation ON or OFF — but DONE RIGHT (not the broken 10cm-epoxy floating version). And the tessellation
+path must actually FUNCTION (not just crash→fallback).
+1. **KEEP displacement, FIX its calibration** (this is the "well done" bar):
+   - Depth scale is ~100x too large (the ~10cm float). Calibrate to real surface micro-relief (millimetres–
+     low cm), material-appropriate, tunable via the existing Texture-Relief slider but with a SANE default
+     that reads as surface depth, never floating.
+   - Correct tangent-space + view-vector math so the parallax offset is LOCKED to the surface (silhouette
+     and motion coherent with the geometry — no independent drift, no "grass moves differently than model").
+   - Steep POM with proper ray-march + self-occlusion + edge/silhouette handling so it looks like the MODEL
+     has depth, not a floating texture layer. Parallax = the fallback tier; tessellation = the premium tier.
+2. **MAKE TESSELLATION WORK (mandatory this round)**: root-cause the Adreno 8xx (SD 8 Elite Gen 5) crash —
+   shader compile/link log, glPatchParameteri, GL_PATCHES draw path, EXT_tessellation_shader init, patch
+   vertex count. It must actually tessellate + displace real geometry on the Honor without crashing (the
+   capability-check FALLBACK stays as the safety net, but the goal is REAL tessellation running, not falling
+   back). Prove it renders displaced geometry on-device (wireframe/pixel evidence that vertices moved).
+3. Displacement quality bar = "like PBR in modern games": depth belongs to the 3D MODEL surface; tessellation
+   makes it more convincing (real vertices), parallax approximates it (surface-locked). Neither floats.
+4. (still open) extreme-contrast-without-cause on the fused path — match "Lighting only" contrast.
+ACCEPTANCE: displacement present and CORRECT (surface-locked depth, no epoxy float) in BOTH parallax and
+tessellation modes; tessellation runs on the Honor. Owner's eye at the grass/cliff vantages.

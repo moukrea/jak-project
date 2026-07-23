@@ -78,5 +78,6 @@ grep -qiE 'specular intensity.*default.*(0\.[12]|low)|default.*specular.*(low|0\
 # OWNER #5: the bug is PARALLAX/POM depth (epoxy/floating), NOT specular. Relief from normal-map SHADING.
 grep -qiE 'epoxy|floating.*(texture|10cm)|parallax.*(incoherent|float|depth scale|too (large|strong)|disabl)|pom.*(disabl|depth scale|miscalibrat|too (large|strong))' "$R" || fail "no parallax/POM-depth root-cause evidence (owner: epoxy/floating texture = broken POM, NOT specular)"
 grep -qiE 'relief.*(from|via).*(normal.?map|shading)|normal.?map shading|surface.?locked|shading.*(not|instead).*(uv|displacement|parallax)' "$R" || fail "no normal-map-shading-relief evidence (relief must be surface-locked shading, not UV displacement)"
-grep -qiE 'parallax.*(off|disabl).*default|default.*(normal.?map|shading).*(no parallax|relief)|pom.*(off|disabl).*default' "$R" || fail "no parallax-off-by-default evidence (or coherent-subtle fix)"
+grep -qiE 'depth scale.*(calibrat|reduc|mm|millimet|sane|/ ?100|100x)|parallax.*(calibrat|surface.?locked|coherent)|displacement.*(kept|calibrat|correct)' "$R" || fail "no displacement-calibration evidence (owner: KEEP displacement, fix the ~10cm float to surface-locked)"
+grep -qiE 'tessellat.*(works|render|displac.*geometry|glPatchParameter|GL_PATCHES|compil.*(ok|success)|on device|honor)' "$R" || fail "no tessellation-actually-works evidence (owner: make tessellation function on the Honor, not just fallback)"
 echo "[Gpbrf PASS]"
