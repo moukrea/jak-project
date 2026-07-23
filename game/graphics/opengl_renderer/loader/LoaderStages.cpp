@@ -132,8 +132,28 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal", bsrc));
       }
       if (r) {
-        maps.rough_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness", bsrc));
+        const auto* ri =
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness", bsrc);
+        if (ri && !ri->rgba.empty()) {
+          // Device-truth roughness audit (owner REOPEN #2): stats of the DECODED bytes
+          // exactly as uploaded — internalformat GL_RGBA (linear, NO sRGB decode), the
+          // shader samples channel R as PERCEPTUAL roughness (alpha = r^2, floor 0.045).
+          u32 mn = 255, mx = 0;
+          u64 sum = 0, npx = 0;
+          for (size_t i = 0; i + 3 < ri->rgba.size(); i += 4) {
+            u32 v = ri->rgba[i];
+            mn = std::min(mn, v);
+            mx = std::max(mx, v);
+            sum += v;
+            npx++;
+          }
+          lg::info(
+              "pbr roughness data: {} src={} {}x{} upload=GL_RGBA(linear,no-sRGB) chan=R "
+              "min={:.3f} mean={:.3f} max={:.3f} (perceptual; shader alpha=r^2 floor=0.045)",
+              tex.debug_name, ri->src, ri->w, ri->h, mn / 255.f,
+              npx ? (float)(sum / (double)npx / 255.0) : 0.f, mx / 255.f);
+        }
+        maps.rough_tex = make_map(ri);
       }
       if (m) {
         maps.metal_tex = make_map(
