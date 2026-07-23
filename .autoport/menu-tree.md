@@ -111,13 +111,20 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 17 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
 | 18 | **Texture Relief** [R] | slider | 0.0..3.0 pas 0.25 (déc.) → `pbr-texture-relief`, **défaut 1.5** (1.0 = look pré-slider) — multiplie la force de la normal-map + parallax du chemin PBR MATERIALS (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
 | 19 | **Specular Intensity** [R] | slider | 0.0..2.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 1.0** — échelle le spéculaire GGX fusionné (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
-| 20 | Back | button | (jamais grisé) | — |
+| 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
+| 21 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
 > **Specular Intensity** (0..2, défaut 1.0) insérés APRÈS Shadow Quality, AVANT Back (Back renuméroté 18→20).
 > Contrairement aux sliders lighting, ceux-ci sont grisés selon **PBR Materials** (pas Realtime Lighting) car
 > ils vivent dans le chemin matériau PBR. Poussés chaque frame en int PERCENT (1.5→150 / 1.0→100) via
 > `pc-set-pbr-texture-relief!` / `pc-set-pbr-specular-intensity!`.
+>
+> **Ajout (2026-07-23, Gpbr-fusion REOPEN #3)** : carousell **Displacement** (Off / Parallax / Tessellation,
+> défaut Parallax) inséré APRÈS Specular Intensity, AVANT Back (Back renuméroté 20→21). Grisé selon **PBR
+> Materials** (comme les deux sliders REOPEN #2). Miroir exact du carousell **Ambient Model** (int-backup +
+> respond-common), poussé chaque frame en index brut via `pc-set-pbr-displacement!` (0 OFF / 1 PARALLAX /
+> 2 TESSELLATION). Ids texte : `pc-text-parallax` #x1719 / `pc-text-tessellation` #x171a (Off réutilise l'id générique).
 >
 > **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
 > BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié

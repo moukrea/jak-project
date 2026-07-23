@@ -570,7 +570,9 @@ set(GEN_SHADERS_DIR "${CMAKE_BINARY_DIR}/shaders")
 set(GEN_SHADERS_HEADER "${GEN_SHADERS_DIR}/shaders_android_blob.h")
 file(GLOB SHADER_INPUTS
      "${SHADERS_SRC_DIR}/*.vert"
-     "${SHADERS_SRC_DIR}/*.frag")
+     "${SHADERS_SRC_DIR}/*.frag"
+     "${SHADERS_SRC_DIR}/*.tesc"
+     "${SHADERS_SRC_DIR}/*.tese")
 add_custom_command(
     OUTPUT "${GEN_SHADERS_HEADER}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GEN_SHADERS_DIR}"

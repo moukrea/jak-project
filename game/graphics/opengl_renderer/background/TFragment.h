@@ -143,6 +143,13 @@ class TFragment : public BucketRenderer {
     // draws the whole tree on the multidraw path where no per-frame count is otherwise
     // computed.
     u32 index_count = 0;
+    // REOPEN #3 TESSELLATION: a flat TRIANGLE-LIST index buffer (GL_PATCHES with 3 verts) built
+    // LAZILY on first tess draw from the static strip+restart stream (tree.unpacked.indices).
+    // tess_tri_ranges[i] = the (first, count) flat-index range for tree.draws[i]; whole-tree
+    // (no vis-culling — visual-only displacement on the color pass). Freed with the tree.
+    GLuint tess_index_buffer = 0;   // 0 = not yet built
+    u32 tess_index_count = 0;
+    std::vector<std::pair<u32, u32>> tess_tri_ranges;  // per-draw (first_flat_idx, flat_count)
 #endif
 
     void reset_stats() {
@@ -160,6 +167,12 @@ class TFragment : public BucketRenderer {
     bool freeze_itimes = false;
     math::Vector<s32, 4> itimes_debug[4];
   };
+
+#ifdef OG_FEAT_PBR
+  // REOPEN #3 TESSELLATION: lazily build tree.tess_index_buffer (a flat triangle-list from the
+  // static strip stream) + tree.tess_tri_ranges. No-op if already built.
+  static void build_tess_tri_buffer(TreeCache& tree);
+#endif
 
   struct {
     GLuint decal;

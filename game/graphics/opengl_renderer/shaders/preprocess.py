@@ -239,17 +239,44 @@ def c_string_literal(s: str) -> str:
 
 
 def discover_shaders(src_dir: Path):
-    """Return a sorted list of (name, vert_path, frag_path) for every
-    shader pair in src_dir. A shader pair must have both .vert and .frag
-    — partial sets are skipped with a warning rather than failing the
-    build (a one-off broken pair shouldn't gate the whole port)."""
+    """Return a sorted list of (name, vert_path, frag_path, tesc_path, tese_path)
+    for every shader in src_dir. A shader must have at least a .vert AND a .frag,
+    OR (REOPEN #3 tessellation) a .vert with a matching .tesc + .tese (a tess group,
+    which has no .frag of its own — it reuses another shader's fragment source at
+    link time). tesc_path/tese_path are None when absent. Partial sets are skipped
+    with a warning rather than failing the build."""
     verts = {p.stem: p for p in src_dir.glob("*.vert")}
     frags = {p.stem: p for p in src_dir.glob("*.frag")}
-    common = sorted(set(verts) & set(frags))
-    orphans = sorted((set(verts) ^ set(frags)))
-    for o in orphans:
-        sys.stderr.write(f"preprocess.py: orphan shader (missing pair): {o}\n")
-    return [(name, verts[name], frags[name]) for name in common]
+    tescs = {p.stem: p for p in src_dir.glob("*.tesc")}
+    teses = {p.stem: p for p in src_dir.glob("*.tese")}
+
+    # A name is valid if it has (vert + frag) or (vert + tesc + tese).
+    names = set()
+    for name, vp in verts.items():
+        has_frag = name in frags
+        has_tess = name in tescs and name in teses
+        if has_frag or has_tess:
+            names.add(name)
+        else:
+            sys.stderr.write(
+                f"preprocess.py: orphan shader (vert without frag/tess pair): {name}\n"
+            )
+    # frags with no matching vert are orphans (except when they are reused as a tess
+    # group's fragment source — those still get emitted here via their own vert pair).
+    for name in frags:
+        if name not in verts:
+            sys.stderr.write(f"preprocess.py: orphan shader (frag without vert): {name}\n")
+
+    out = []
+    for name in sorted(names):
+        out.append((
+            name,
+            verts[name],
+            frags.get(name),
+            tescs.get(name),
+            teses.get(name),
+        ))
+    return out
 
 
 def main(argv: list[str]) -> int:
@@ -282,23 +309,41 @@ def main(argv: list[str]) -> int:
         "  std::string_view name;",
         "  std::string_view vert_src;",
         "  std::string_view frag_src;",
+        "  // REOPEN #3 TESSELLATION: empty for non-tess shaders. A tess group carries its",
+        "  // vert/tesc/tese here and reuses another shader's frag_src at link time.",
+        "  std::string_view tesc_src;",
+        "  std::string_view tese_src;",
         "};",
         "",
         "inline constexpr ShaderSource kShaders[] = {",
     ]
 
-    for name, vert_path, frag_path in pairs:
+    for name, vert_path, frag_path, tesc_path, tese_path in pairs:
         vert_src = to_gles(vert_path.read_text(encoding="utf-8"))
-        frag_src = to_gles(frag_path.read_text(encoding="utf-8"))
-
         (out_dir / f"{name}.android.vert").write_text(vert_src, encoding="utf-8")
-        (out_dir / f"{name}.android.frag").write_text(frag_src, encoding="utf-8")
+
+        if frag_path is not None:
+            frag_src = to_gles(frag_path.read_text(encoding="utf-8"))
+            (out_dir / f"{name}.android.frag").write_text(frag_src, encoding="utf-8")
+        else:
+            frag_src = ""
+
+        if tesc_path is not None and tese_path is not None:
+            tesc_src = to_gles(tesc_path.read_text(encoding="utf-8"))
+            tese_src = to_gles(tese_path.read_text(encoding="utf-8"))
+            (out_dir / f"{name}.android.tesc").write_text(tesc_src, encoding="utf-8")
+            (out_dir / f"{name}.android.tese").write_text(tese_src, encoding="utf-8")
+        else:
+            tesc_src = ""
+            tese_src = ""
 
         blob_lines.append(
             "    {"
             f'\n        "{name}",'
             f"\n        {c_string_literal(vert_src)},"
-            f"\n        {c_string_literal(frag_src)}"
+            f"\n        {c_string_literal(frag_src)},"
+            f"\n        {c_string_literal(tesc_src)},"
+            f"\n        {c_string_literal(tese_src)}"
             "\n    },"
         )
 

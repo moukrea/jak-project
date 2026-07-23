@@ -413,6 +413,9 @@
 ;; Grecharged-lightprobes: PROBE QUALITY carousell (Low/High). Reuses the AO low/high text-ids
 ;; (they render LOW/HIGH, which fits Probe Quality) to avoid any new/unknown text-id.
 (def-progress-carousell *carousell-rt-probe-quality* (pc-text-ao-low pc-text-ao-high))
+;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
+;; generic off text-id like *carousell-ambient-occlusion*; Parallax/Tessellation are new ids.
+(def-progress-carousell *carousell-pbr-displacement* (off pc-text-parallax pc-text-tessellation))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
@@ -1040,6 +1043,13 @@
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none))))
+       ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation; disabled unless PBR
+       ;; MATERIALS on). Carousell mirrors rt-ambient-model: no :on-change, value written via respond-common.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type pbr-displacement) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
        ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
@@ -1189,6 +1199,9 @@
 (format (clear *texture-relief-label*) "TEXTURE RELIEF")
 (define *specular-intensity-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *specular-intensity-label*) "SPECULAR INTENSITY")
+;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell label.
+(define *displacement-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *displacement-label*) "DISPLACEMENT")
 (define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
 ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
@@ -3380,6 +3393,10 @@
       (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *texture-relief-label*)
       (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
       (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *specular-intensity-label*)
+      ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (row +13, before Back). int-backup scratch, mapped
+      ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
+      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *displacement-label*)
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
@@ -3563,6 +3580,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type rt-probe-quality)
+                    (game-option-type pbr-displacement)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3655,6 +3673,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type rt-probe-quality)
+                    (game-option-type pbr-displacement)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3985,6 +4004,7 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type rt-probe-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-probe-quality)))
+                 (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
                     ((0) (set! (-> *progress-carousell* int-backup) 0))
@@ -4036,6 +4056,7 @@
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type rt-probe-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-probe-quality*))
+                    (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type speaker)) (set! (-> *progress-carousell* current-carousell) *carousell-speaker*))
@@ -4092,6 +4113,7 @@
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-probe-quality)) (set! (-> *pc-settings* realtime-probe-quality) (-> *progress-carousell* int-backup)))
+              (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -4506,6 +4528,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type rt-probe-quality)
+                      (game-option-type pbr-displacement)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -4594,6 +4617,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type rt-probe-quality)
+                      (game-option-type pbr-displacement)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)

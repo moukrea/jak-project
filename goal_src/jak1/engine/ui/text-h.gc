@@ -819,6 +819,9 @@
   (pc-text-model-hemisphere #x1716)
   (pc-text-model-sh #x1717)
   (pc-text-model-ibl #x1718)
+  ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell strings (Parallax/Tessellation; Off reuses the generic off id).
+  (pc-text-parallax #x1719)
+  (pc-text-tessellation #x171a)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

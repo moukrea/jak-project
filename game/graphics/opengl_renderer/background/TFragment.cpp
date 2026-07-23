@@ -580,7 +580,30 @@ void TFragment::render_tree(int geom,
     }
   }
 
-  first_tfrag_draw_setup(settings.camera, render_state, ShaderId::TFRAG3);
+#ifdef OG_FEAT_PBR
+  // REOPEN #3 TESSELLATION: route the MAIN OPAQUE COLOR pass through the tess program when
+  // Displacement == Tessellation (mode 2), the context supports the tess stages, and PBR
+  // materials are enabled (the same gate that governs PbrDrawBinder use — the tess stages only
+  // do anything when a PBR height map is bound per-draw). Shadow/depth passes and the rt-off
+  // fallback stay on the plain TFRAG3 program (visual-only displacement on the color pass;
+  // caveat: the sun shadow map is cast from the UN-displaced geometry, so a displaced ridge's
+  // self-shadow can be off by the displacement height — acceptable for v1, small vs the ~1 m
+  // relief). Only for opaque tfrag kinds (the tess index expansion + patch cost is pointless on
+  // transparent trees).
+  const bool tess_supported = gl_context_supports_tessellation();
+  const bool tess_pbr_gate = Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable);
+  const bool tess_opaque_kind = tree.kind == tfrag3::TFragmentTreeKind::NORMAL ||
+                                tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
+                                tree.kind == tfrag3::TFragmentTreeKind::ICE;
+  const bool use_tess = Gfx::g_global_settings.recharged_pbr_displacement == 2 && tess_supported &&
+                        tess_pbr_gate && tess_opaque_kind &&
+                        render_state->shaders[ShaderId::TFRAG3_TESS].okay();
+  const ShaderId tfrag_shader_id = use_tess ? ShaderId::TFRAG3_TESS : ShaderId::TFRAG3;
+#else
+  const ShaderId tfrag_shader_id = ShaderId::TFRAG3;
+#endif
+
+  first_tfrag_draw_setup(settings.camera, render_state, tfrag_shader_id);
 
   glBindVertexArray(tree.vao);
   glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
@@ -760,7 +783,7 @@ void TFragment::render_tree(int geom,
   if ((Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
        Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
       pbr_shadow_state().valid) {
-    pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TFRAG3].id(),
+    pbr_shadow_bind_receiver(render_state->shaders[tfrag_shader_id].id(),
                              settings.camera.trans.data());
   }
 #endif
@@ -1010,8 +1033,69 @@ void TFragment::render_tree(int geom,
   // take the PBR path too; alpha still comes from the legacy fragment_color*T0 product
   // in the shader, only rgb is relit.
   PbrDrawBinder pbr_binder;
-  pbr_binder.begin(render_state->shaders[ShaderId::TFRAG3].id(), &m_pbr_draws);
+  pbr_binder.begin(render_state->shaders[tfrag_shader_id].id(), &m_pbr_draws);
   auto set_pbr = [&](s32 tex_id, const DrawMode& mode) { pbr_binder.set(tex_id, mode); };
+#endif
+
+#ifdef OG_FEAT_PBR
+  // REOPEN #3 TESSELLATION color pass. A dedicated draw loop over the tree's draws using the
+  // per-tree flat triangle-list buffer (GL_PATCHES, 3 verts/patch). Whole-tree (vis-culling is
+  // dropped — visual-only displacement; the tess control stage still culls cost via its per-edge
+  // far-gate level=1). Reuses setup_tfrag_shader_cached / PbrDrawBinder on the TFRAG3_TESS
+  // program. Double-draw (alpha-fail) is handled the same way. Skips the plain loop below.
+  if (use_tess) {
+    build_tess_tri_buffer(tree);
+    ASSERT(m_textures);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.tess_index_buffer);
+    glPatchParameteri(GL_PATCH_VERTICES, 3);
+    GLint tess_decal_loc =
+        glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3_TESS].id(), "decal");
+    const auto& tess_alpha_u =
+        tfrag_alpha_uniforms(render_state->shaders[ShaderId::TFRAG3_TESS].id());
+    for (size_t draw_idx = 0; draw_idx < tree.draws->size(); draw_idx++) {
+      const auto& draw = tree.draws->operator[](draw_idx);
+      const auto& rng = tree.tess_tri_ranges[draw_idx];
+      if (rng.second == 0) {
+        continue;
+      }
+      s32 tex_idx = draw.tree_tex_id;
+      if (tex_idx >= 0) {
+        bound_tex = m_textures->at(tex_idx);
+      } else {
+        bound_tex = ((size_t)(-(tex_idx + 1)) < m_anim_slot_array->size()
+                         ? m_anim_slot_array->at(-(tex_idx + 1))
+                         : 0);
+        gj2vis_probe_bg_slot(-(tex_idx + 1), bound_tex);
+      }
+      glBindTexture(GL_TEXTURE_2D, bound_tex);
+      auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3_TESS,
+                                                   bound_tex, draw_state_cache);
+      if (tess_decal_loc != -1) {
+        glUniform1i(tess_decal_loc, draw.mode.get_decal() ? 1 : 0);
+      }
+      set_pbr(draw.tree_tex_id, draw.mode);
+      tree.tris_this_frame += draw.num_triangles;
+      tree.draws_this_frame++;
+      prof.add_draw_call();
+      glDrawElements(GL_PATCHES, rng.second, GL_UNSIGNED_INT, (void*)(rng.first * sizeof(u32)));
+      if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
+        prof.add_draw_call();
+        if (tess_alpha_u.alpha_min != -1) {
+          glUniform1f(tess_alpha_u.alpha_min, -10.f);
+        }
+        if (tess_alpha_u.alpha_max != -1) {
+          glUniform1f(tess_alpha_u.alpha_max, double_draw.aref_second);
+        }
+        glDepthMask(GL_FALSE);
+        draw_state_cache.valid = false;
+        glDrawElements(GL_PATCHES, rng.second, GL_UNSIGNED_INT, (void*)(rng.first * sizeof(u32)));
+      }
+    }
+    pbr_binder.finish();
+    set_fringe(false);
+    glBindVertexArray(0);
+    return;
+  }
 #endif
 
   if (render_state->no_multidraw && render_state->batch_singledraw) {
@@ -1249,12 +1333,115 @@ void TFragment::discard_tree_cache() {
         glDeleteTextures(1, &tree.time_of_day_texture_pp);
         glDeleteBuffers(1, &tree.single_draw_index_buffer);
         glDeleteBuffers(1, &tree.index_buffer);
+#ifdef OG_FEAT_PBR
+        // REOPEN #3 TESSELLATION: free the lazily-built flat triangle-list buffer.
+        if (tree.tess_index_buffer) {
+          glDeleteBuffers(1, &tree.tess_index_buffer);
+          tree.tess_index_buffer = 0;
+        }
+#endif
         glDeleteVertexArrays(1, &tree.vao);
       }
     }
     m_cached_trees[geom].clear();
   }
 }
+
+#ifdef OG_FEAT_PBR
+// REOPEN #3 TESSELLATION: expand each draw's static strip+restart index range (from
+// tree.unpacked.indices, the resident static full buffer) into a flat TRIANGLE-LIST index
+// stream suitable for GL_PATCHES (3 verts/patch). One flat buffer for the whole tree, built
+// LAZILY on first tess draw; per-draw (first, count) flat ranges recorded in tess_tri_ranges.
+//
+// Strip semantics match the main pass: UINT32_MAX restarts a strip; within a strip, triangle i
+// is (v[i], v[i+1], v[i+2]) with the winding flipping on odd i (GL_TRIANGLE_STRIP). Degenerate
+// triangles (a repeated index — common at strip stitches) are skipped. When the tree is a plain
+// GL_TRIANGLES stream (use_strips == false), the indices are already a flat triangle list and we
+// copy them straight through (still dropping any restart sentinels and degenerates defensively).
+void TFragment::build_tess_tri_buffer(TFragment::TreeCache& tree) {
+  if (tree.tess_index_buffer != 0 || tree.draws == nullptr || tree.index_data == nullptr) {
+    return;
+  }
+  const bool strips = (tree.draw_mode == GL_TRIANGLE_STRIP);
+  std::vector<u32> flat;
+  flat.reserve(tree.index_count * 2 + 3);
+  tree.tess_tri_ranges.assign(tree.draws->size(), {0u, 0u});
+
+  for (size_t di = 0; di < tree.draws->size(); di++) {
+    const auto& draw = tree.draws->operator[](di);
+    u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+    u32 count = 0;
+    for (const auto& grp : draw.vis_groups) {
+      count += grp.num_inds;
+    }
+    u32 range_first = (u32)flat.size();
+    if (strips) {
+      // walk the strip range, restarting on UINT32_MAX, emitting one triangle per advancing vert.
+      u32 a = UINT32_MAX, b = UINT32_MAX;
+      int strip_pos = 0;  // position within the current strip (for winding)
+      for (u32 k = 0; k < count; k++) {
+        u32 idx = tree.index_data[first + k];
+        if (idx == UINT32_MAX) {
+          a = b = UINT32_MAX;
+          strip_pos = 0;
+          continue;
+        }
+        if (strip_pos < 2) {
+          if (strip_pos == 0) {
+            a = idx;
+          } else {
+            b = idx;
+          }
+          strip_pos++;
+        } else {
+          u32 c = idx;
+          // winding: even strip_pos (>=2) => (a,b,c); odd => (b,a,c)
+          u32 t0, t1, t2;
+          if ((strip_pos & 1) == 0) {
+            t0 = a;
+            t1 = b;
+            t2 = c;
+          } else {
+            t0 = b;
+            t1 = a;
+            t2 = c;
+          }
+          if (t0 != t1 && t1 != t2 && t0 != t2) {  // skip degenerates
+            flat.push_back(t0);
+            flat.push_back(t1);
+            flat.push_back(t2);
+          }
+          a = b;
+          b = c;
+          strip_pos++;
+        }
+      }
+    } else {
+      // plain triangle list: copy in groups of 3, dropping any sentinel/degenerate.
+      for (u32 k = 0; k + 2 < count; k += 3) {
+        u32 t0 = tree.index_data[first + k];
+        u32 t1 = tree.index_data[first + k + 1];
+        u32 t2 = tree.index_data[first + k + 2];
+        if (t0 == UINT32_MAX || t1 == UINT32_MAX || t2 == UINT32_MAX) {
+          continue;
+        }
+        if (t0 != t1 && t1 != t2 && t0 != t2) {
+          flat.push_back(t0);
+          flat.push_back(t1);
+          flat.push_back(t2);
+        }
+      }
+    }
+    tree.tess_tri_ranges[di] = {range_first, (u32)flat.size() - range_first};
+  }
+
+  tree.tess_index_count = (u32)flat.size();
+  glGenBuffers(1, &tree.tess_index_buffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.tess_index_buffer);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, flat.size() * sizeof(u32),
+               flat.empty() ? nullptr : flat.data(), GL_STATIC_DRAW);
+}
+#endif
 
 namespace {
 
