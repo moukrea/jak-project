@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 219,
+  "current_phase_idx": 220,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -213,7 +213,8 @@
     "Grecharged-directional-ambient": 10,
     "Grecharged-lightprobes": 13,
     "Grecharged-master-toggle": 3,
-    "Grecharged-bundled-textures": 6
+    "Grecharged-bundled-textures": 6,
+    "Grecharged-naming": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -666,7 +667,8 @@
     "Grecharged-realtime-lighting",
     "Grecharged-directional-ambient",
     "Grecharged-lightprobes",
-    "Grecharged-master-toggle"
+    "Grecharged-master-toggle",
+    "Grecharged-bundled-textures"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -868,9 +870,10 @@
     "Grecharged-directional-ambient": 1784497329.8718266,
     "Grecharged-lightprobes": 1784610690.5813682,
     "Grecharged-master-toggle": 1784714502.0934844,
-    "Grecharged-bundled-textures": 1784735254.4058251
+    "Grecharged-bundled-textures": 1784735254.4058251,
+    "Grecharged-naming": 1784780438.2196877
   },
-  "last_update": "2026-07-22T18:55:17.545206+00:00",
+  "last_update": "2026-07-23T04:32:42.437148+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -957,7 +960,8 @@
     "Grecharged-directional-ambient",
     "Grecharged-lightprobes",
     "Grecharged-master-toggle",
-    "Grecharged-bundled-textures"
+    "Grecharged-bundled-textures",
+    "Grecharged-naming"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
