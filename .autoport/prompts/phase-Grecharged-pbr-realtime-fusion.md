@@ -218,3 +218,11 @@ selected by tier/platform (desktop GL build gets the LUT path by default). Same 
 tiers exist: PC defaults to the full-quality variant (higher POM steps / real tessellation / bigger shadow
 maps); mobile approximations never become the only path. Wire the tier plumbing now even if the LUT lands
 as a fast-follow — document what's tiered where.
+
+**OWNER CORRECTION (2026-07-23): NO platform gating — SAME FEATURES on mobile and PC.** Quality is a USER
+SETTINGS tier, not a platform cap: Karis approx = the LOWEST settings tier only (explicitly selectable);
+the full split-sum LUT, real tessellation, high POM, big shadow maps must be selectable ON MOBILE TOO
+("on doit pouvoir aller all-in sur mobile autant que PC"). Defaults may differ per device class, but every
+feature exists everywhere — future mobile APUs keep scaling (the owner's Honor runs a Snapdragon 8 Elite
+Gen 5 and can go very far; the Redmi/Adreno 618 is merely the low-end test device). Tier plumbing =
+settings-driven, not #ifdef-platform.
