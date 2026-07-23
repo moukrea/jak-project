@@ -140,3 +140,16 @@ device-truth before touching the BRDF again:
    — live-applied, persisted, menu-tree.md synced. Defaults: relief NOTICEABLY stronger than current.
 4. Side-by-side same-vantage captures old-vs-new proving an OBVIOUS difference (if pixels barely change,
    it's not done).
+
+**OWNER CORRECTION (2026-07-23): his internet pack is DISABLED — the bundled PBR textures (with maps) ARE
+displaying.** So the missing-maps/precedence hypothesis is DEAD (skip 2a/2b unless trivially cheap). The
+plastic persists WITH roughness maps bound ⇒ narrow to:
+1. (unchanged, PRIORITY) prove the new BRDF path is ACTIVE at his vantage (killswitch A/B, obvious delta).
+2. **THE ROUGHNESS MAP IS NOT RESPECTED IN PRACTICE** — device-truth it: log/dump the ACTUAL sampled
+   roughness values for the ground/wall textures in the fused path. Audit hard:
+   - sRGB-vs-LINEAR: a roughness PNG uploaded/sampled as sRGB gets gamma-darkened ⇒ surface reads smoother
+     ⇒ plastic. Data maps (roughness/normal/height/ao) MUST be linear (no sRGB decode).
+   - channel (R? G? grayscale?), inversion (gloss-vs-roughness), and the alpha=r^2 convention actually
+     applied in the highlight shape.
+   - specular INTENSITY scale possibly swamping the roughness shaping.
+3. Menu sliders (Texture Relief / Specular Intensity) UNCHANGED as mandated — the owner dials.
