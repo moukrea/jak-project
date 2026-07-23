@@ -1,6 +1,5 @@
 add_subdirectory(level_tools)
 add_subdirectory(grass_bake)
-add_subdirectory(probe_bake)
 
 add_executable(dgo_unpacker
         dgo_unpacker.cpp)

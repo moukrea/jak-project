@@ -103,7 +103,7 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 9 | AO Quality | carousell | **Low / Medium / High** (cond: AO == Off ou RECHARGED MASTER OFF) | — |
 | 10 | AO Strength | carousell | **Weaker / Default / Stronger** (cond: AO == Off ou RECHARGED MASTER OFF) | — |
 | 11 | **Realtime Lighting** | on-off | `realtime-lighting?` — **maître** de tout le bloc lighting ci-dessous ; grisé si RECHARGED MASTER OFF | {FLAG_PBR} |
-| 12 | **Baked Ambient** [R] | on-off | `realtime-probe?` (cond: Realtime OFF ou RECHARGED MASTER OFF) — **DÉFAUT OFF** (OWNER FINAL ARCHITECTURE 2026-07-21) : toggle "curiosité" de la PROJECTION-MONDE des probes (l'ancien composite probe-fed). Par défaut le rendu realtime = **BAKED-MODULATION** (le baked n'est jamais retiré, les soleils le modulent ×) et les probes restent une **RESSOURCE** pour PBR/eau (chargement lazy + upload GPU sauté quand OFF). Ex-ligne "Ambient" (`realtime-ambient?`) recâblée | {FLAG_PBR} |
+| 12 | **Env Probe** [R] | carousell | **[SUPPR Baked Ambient 2026-07-23]** puis **REMPLI 2026-07-23 (Grecharged-pbr-realtime-fusion)** : **Off / Low / Mid / High**, **défaut Low** → `follow-probe` (0/1/2/3) — tier de la **DYNAMIC FOLLOW-PROBE** (cubemap caméra amortie, source env pour PBR/eau/acteurs), poussé en index brut chaque frame via `pc-set-follow-probe!`. Occupe le slot vacant fw-idx +5 (ancien toggle `realtime-probe?` supprimé). Miroir exact du carousell **Displacement** (int-backup + respond-common). Grisé si **PBR Materials OFF** ou RECHARGED MASTER OFF. Câblé aux presets PBR TEST : ALL-IN=3, FUSED=2, FUSED FLAT=1, PBR ONLY=2, RT ONLY=0, STOCK=0. | {FLAG_PBR} |
 | 13 | **Ambient Model** | carousell | **Hemisphere / SH / IBL = FIDÉLITÉ D'ÉVALUATION des données PROBE (probe-fed)** — ne s'applique qu'au chemin curiosité "Baked Ambient" ON ; estimation analytique seulement là où il n'y a pas de couverture probe (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
 | 14 | Ambient Strength | slider | 0.0..0.5 pas 0.05 (déc.) → `realtime-ambient-strength` (chemin curiosité uniquement ; cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
 | 15 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (chemin curiosité uniquement ; cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
@@ -145,6 +145,18 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > `load-custom-assets?` OFF et rendait des textures quasi-stock (« aucun effet visible » côté owner).
 > Le preset **STOCK** qui n'affiche « que les textures » (vanilla) reste **voulu** : c'est le killswitch
 > vanilla complet (master OFF, tout OFF).
+>
+> **Ajout (2026-07-23, Grecharged-pbr-realtime-fusion)** : carousell **Env Probe** (Off / Low / Mid / High,
+> défaut Low) posé dans le slot **12** vacant laissé par la suppression du toggle Baked Ambient (`realtime-probe?`).
+> Pilote le tier de la **DYNAMIC FOLLOW-PROBE** (source env cubemap amortie pour PBR/eau/acteurs). Miroir exact
+> du carousell **Displacement** : champ `follow-probe int32` (défaut 1), extern `pc-set-follow-probe!`
+> `(function int none)`, push chaque frame en index brut dans update-to-os, `game-option-type follow-probe`,
+> `*carousell-follow-probe*`, `*envprobe-label*` "ENV PROBE", wiring name-override à fw-idx +5, arms
+> respond-common (int-backup / select / write-back) + 4 listes nav-length. Le remplissage de ce slot **réaligne**
+> le câblage RT (Ambient Model .. PBR Test Preset) qui référençait fw-idx +6..+14 depuis la suppression du
+> toggle. Ids texte : `pc-text-envprobe-low` #x1721 / `-mid` #x1722 / `-high` #x1723 (Off réutilise l'id générique).
+> Câblé aux presets PBR TEST : ALL-IN=3, FUSED=2, FUSED FLAT/PLATE=1, PBR ONLY=2, RT ONLY=0, STOCK=0.
+> Setter C++ : `pc_set_follow_probe(u32 tier)` → `Gfx::g_global_settings.recharged_follow_probe` (clamp ≤3).
 >
 > **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
 > BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié

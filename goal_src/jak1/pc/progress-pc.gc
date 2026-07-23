@@ -410,12 +410,12 @@
 (def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (Hemisphere / SH / IBL).
 (def-progress-carousell *carousell-rt-ambient-model* (pc-text-model-hemisphere pc-text-model-sh pc-text-model-ibl))
-;; Grecharged-lightprobes: PROBE QUALITY carousell (Low/High). Reuses the AO low/high text-ids
-;; (they render LOW/HIGH, which fits Probe Quality) to avoid any new/unknown text-id.
-(def-progress-carousell *carousell-rt-probe-quality* (pc-text-ao-low pc-text-ao-high))
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
 ;; generic off text-id like *carousell-ambient-occlusion*; Parallax/Tessellation are new ids.
 (def-progress-carousell *carousell-pbr-displacement* (off pc-text-parallax pc-text-tessellation))
+;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell (Off / Low / Mid / High).
+;; Off reuses the generic off text-id like *carousell-pbr-displacement*; Low/Mid/High are new ids.
+(def-progress-carousell *carousell-follow-probe* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
 (def-progress-carousell *carousell-pbr-test-preset* (pc-text-preset-allin pc-text-preset-fused pc-text-preset-fused-flat pc-text-preset-pbr-only pc-text-preset-rt-only pc-text-preset-stock))
@@ -956,21 +956,15 @@
               (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; "BAKED AMBIENT" On/Off (Grecharged-lightprobes OWNER FINAL ARCHITECTURE 2026-07-21; disabled when
-       ;; Realtime Lighting off). The probe WORLD-PROJECTION curiosity toggle, DEFAULT OFF: the default
-       ;; realtime look is BAKED-MODULATION (baked never removed, suns modulate it); flipping this ON
-       ;; projects the probe-fed local ambient composite onto the world instead (the probes otherwise stay
-       ;; a resource for future PBR/water). Value bound to *pc-settings* realtime-probe?.
+       ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (Off/Low/Mid/High DYNAMIC FOLLOW-PROBE tier).
+       ;; Occupies the reserved slot (fw-idx+5) vacated by the deleted BAKED AMBIENT probe toggle. Disabled
+       ;; unless PBR MATERIALS on (same lambda as DISPLACEMENT). Carousell mirrors pbr-displacement: no
+       ;; :on-change, value written via respond-common. :name is a placeholder; real label via name-override.
        (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+       (new 'static 'game-option :option-type (game-option-type follow-probe) :name (text-id msaa) :scale #t
             :option-disabled-func
             (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* realtime-probe?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none))))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
        ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
        ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
        ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
@@ -1210,6 +1204,9 @@
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell label.
 (define *displacement-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *displacement-label*) "DISPLACEMENT")
+;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell label.
+(define *envprobe-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *envprobe-label*) "ENV PROBE")
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell label.
 (define *pbr-test-preset-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *pbr-test-preset-label*) "PBR TEST PRESET")
@@ -3381,11 +3378,11 @@
     (#when FLAG_PBR
       (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* realtime-lighting?))
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
-      ;; OWNER FINAL ARCHITECTURE 2026-07-21: row +5 is the "BAKED AMBIENT" world-projection
-      ;; curiosity toggle (realtime-probe?, default OFF) — the default realtime look is the
-      ;; baked-modulation path; this row projects the probe ambient onto the world when ON.
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *pc-settings* realtime-probe?))
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *hemisphere-ambient-label*)
+      ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (row +5, the slot vacated by the deleted BAKED
+      ;; AMBIENT probe toggle). int-backup scratch, mapped 1:1 to follow-probe in respond-common, mirroring
+      ;; the DISPLACEMENT / AMBIENT MODEL carousells.
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *envprobe-label*)
       ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (int-backup scratch, mapped 1:1
       ;; to realtime-ambient-model in respond-common).
       (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *progress-carousell* int-backup))
@@ -3594,8 +3591,8 @@
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
-                    (game-option-type rt-probe-quality)
                     (game-option-type pbr-displacement)
+                    (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
@@ -3688,8 +3685,8 @@
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
-                    (game-option-type rt-probe-quality)
                     (game-option-type pbr-displacement)
+                    (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
@@ -4020,8 +4017,8 @@
                  (((game-option-type shadow-quality))
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
-                 (((game-option-type rt-probe-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-probe-quality)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
+                 (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
                  (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
@@ -4073,8 +4070,8 @@
                     (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
-                    (((game-option-type rt-probe-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-probe-quality*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
+                    (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
                     (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
@@ -4131,8 +4128,8 @@
               (((game-option-type shadow-quality))
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
-              (((game-option-type rt-probe-quality)) (set! (-> *pc-settings* realtime-probe-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
+              (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
               ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
               ;; intended-config on confirm. Store the choice, then stamp the underlying fields; every other
               ;; row/slider reflects it and the shared commit-to-file at the end of the else-branch persists all.
@@ -4148,6 +4145,7 @@
                   (set! (-> *pc-settings* pbr-texture-relief) 2.0)
                   (set! (-> *pc-settings* pbr-specular-intensity) 1.0)
                   (set! (-> *pc-settings* pbr-displacement) 2)
+                  (set! (-> *pc-settings* follow-probe) 3) ;; ALL-IN => HIGH follow-probe
                   (set! (-> *pc-settings* realtime-ambient-model) 2))
                  ((1) ;; FUSED (shipped config)
                   (set! (-> *pc-settings* recharged-master?) #t)
@@ -4157,7 +4155,8 @@
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
                   (set! (-> *pc-settings* pbr-specular-intensity) 1.0)
-                  (set! (-> *pc-settings* pbr-displacement) 1))
+                  (set! (-> *pc-settings* pbr-displacement) 1)
+                  (set! (-> *pc-settings* follow-probe) 2)) ;; FUSED => MID follow-probe
                  ((2) ;; FUSED FLAT (FUSED but displacement OFF)
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
@@ -4166,26 +4165,30 @@
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
                   (set! (-> *pc-settings* pbr-specular-intensity) 1.0)
-                  (set! (-> *pc-settings* pbr-displacement) 0))
+                  (set! (-> *pc-settings* pbr-displacement) 0)
+                  (set! (-> *pc-settings* follow-probe) 1)) ;; FUSED FLAT/PLATE => LOW follow-probe
                  ((3) ;; PBR ONLY
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
                   (set! (-> *pc-settings* pbr-materials?) #t)
                   (set! (-> *pc-settings* realtime-lighting?) #f)
                   (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-displacement) 1))
+                  (set! (-> *pc-settings* pbr-displacement) 1)
+                  (set! (-> *pc-settings* follow-probe) 2)) ;; PBR ONLY => MID follow-probe
                  ((4) ;; RT ONLY
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
                   (set! (-> *pc-settings* pbr-materials?) #f)
                   (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t))
+                  (set! (-> *pc-settings* load-custom-assets?) #t)
+                  (set! (-> *pc-settings* follow-probe) 0)) ;; RT ONLY => follow-probe OFF
                  ((5) ;; STOCK
                   (set! (-> *pc-settings* recharged-master?) #f)
                   (set! (-> *pc-settings* recharged-textures?) #f)
                   (set! (-> *pc-settings* pbr-materials?) #f)
                   (set! (-> *pc-settings* realtime-lighting?) #f)
-                  (set! (-> *pc-settings* load-custom-assets?) #f))))
+                  (set! (-> *pc-settings* load-custom-assets?) #f)
+                  (set! (-> *pc-settings* follow-probe) 0))))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -4599,8 +4602,8 @@
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
-                      (game-option-type rt-probe-quality)
                       (game-option-type pbr-displacement)
+                      (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
@@ -4689,8 +4692,8 @@
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
-                      (game-option-type rt-probe-quality)
                       (game-option-type pbr-displacement)
+                      (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)

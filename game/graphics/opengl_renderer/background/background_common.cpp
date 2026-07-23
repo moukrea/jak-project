@@ -22,7 +22,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
-#include "game/graphics/opengl_renderer/LightProbeGrid.h"
+#include "game/graphics/opengl_renderer/FollowProbe.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/pipelines/opengl.h"
 
@@ -2144,6 +2144,25 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     glUniform3f(glGetUniformLocation(id, "u_rt_env_ground"), env_ground[0], env_ground[1], env_ground[2]);
     glUniform3f(glGetUniformLocation(id, "u_rt_sun_glow"), sun_glow[0], sun_glow[1], sun_glow[2]);
     glUniform3fv(glGetUniformLocation(id, "u_rt_sh[0]"), 9, &shc[0][0]);
+
+    // === Grecharged-pbr-realtime-fusion: DYNAMIC FOLLOW-PROBE (replaces the deleted LightProbeGrid).
+    // Feeds the PBR ambient-specular / reflection term (u_rt_probe_cube, tfrag3.frag:767) from ONE
+    // amortized camera-centered cubemap re-rendered from THIS live procedural sky (env_* + sun_glow
+    // + surface->sun), tiered by the user setting recharged_follow_probe. The same call also
+    // re-homes the baked-modulation amplitude uniforms orphaned by the grid deletion, and forces the
+    // removed SH-volume grid off (see FollowProbe.cpp). Runs ~5x/frame; the capture is guarded on
+    // frame_idx internally so the 1-face/frame amortization is per-frame, not per-shader.
+    FollowProbeEnv fpe;
+    for (int i = 0; i < 3; i++) {
+      fpe.zenith[i] = env_zenith[i];
+      fpe.horizon[i] = env_horizon[i];
+      fpe.ground[i] = env_ground[i];
+      fpe.sun_glow[i] = sun_glow[i];
+      fpe.sun_dir[i] = sun_d[i];
+    }
+    float fp_cam[3] = {settings.trans[0], settings.trans[1], settings.trans[2]};
+    FollowProbe::get().update_and_bind(id, fp_cam, render_state->frame_idx, fpe,
+                                       gs.recharged_follow_probe);
   }
 
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
@@ -2169,19 +2188,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_world_relight"), world_relight);
   glUniform1f(glGetUniformLocation(id, "u_pbr_wr_direct"), wr_direct);
   glUniform1f(glGetUniformLocation(id, "u_pbr_wr_indirect"), wr_indirect);
-
-  // Grecharged-lightprobes: LOCAL environment probe grid. update_for_frame is a per-frame no-op after
-  // the first shader (guarded on frame_idx); bind_and_upload sets u_rt_probe_* on this program. When
-  // the feature is OFF or no grid is resident it uploads u_rt_probe_on=0 => shader OFF==stock.
-  {
-    s32 it[4][4];
-    for (int a = 0; a < 4; a++)
-      for (int b = 0; b < 4; b++)
-        it[a][b] = settings.itimes[a][b];
-    float cam[3] = {settings.trans[0], settings.trans[1], settings.trans[2]};
-    LightProbeGrid::get().update_for_frame(it, cam, render_state->frame_idx);
-    LightProbeGrid::get().bind_and_upload(id);
-  }
 #endif
 }
 

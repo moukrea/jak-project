@@ -971,8 +971,7 @@
     "Grecharged-lightprobes",
     "Grecharged-master-toggle",
     "Grecharged-bundled-textures",
-    "Grecharged-naming",
-    "Grecharged-pbr-realtime-fusion"
+    "Grecharged-naming"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

@@ -496,7 +496,6 @@ set_source_files_properties(
 # reads/expands it (bit-identical placement across x86 desktop and arm64 device).
 set_source_files_properties(
     "${JAK_ROOT}/game/graphics/opengl_renderer/GrassBakeCore.cpp"
-    "${JAK_ROOT}/game/graphics/opengl_renderer/ProbeBakeCore.cpp"
     PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
 # Pick the right assembler dialect for the aarch64 trampoline.
@@ -630,10 +629,6 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/GrassRenderer.cpp"
     # Grecharged-grass-precompute-mode: GL-free SCAN->TABLES->EXPAND core + serializer for GrassRenderer.
     "${JAK_ROOT}/game/graphics/opengl_renderer/GrassBakeCore.cpp"
-    # Grecharged-lightprobes: LOCAL probe grid runtime + GL-free bake/serialize core (same reason as
-    # GrassRenderer: the Android build has its own source list, or the symbols are undefined at link).
-    "${JAK_ROOT}/game/graphics/opengl_renderer/ProbeBakeCore.cpp"
-    "${JAK_ROOT}/game/graphics/opengl_renderer/LightProbeGrid.cpp"
     # Grecharged-ambient-occlusion: SSAO/HBAO/GTAO screen-space AO pass (same reason as
     # GrassRenderer: the Android build has its own source list).
     "${JAK_ROOT}/game/graphics/opengl_renderer/AmbientOcclusion.cpp"
@@ -656,6 +651,7 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendCPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/FollowProbe.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/TFragment.cpp"
     # village-missing — shrub (foliage: palm trees, plants, bushes, grass) for

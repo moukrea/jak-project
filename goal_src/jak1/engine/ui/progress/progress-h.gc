@@ -177,10 +177,10 @@
      (ao-strength)
      (shadow-quality)
      (rt-ambient-model)
-     ;; Grecharged-lightprobes: PROBE QUALITY carousell (Low/High), mirroring rt-ambient-model.
-     (rt-probe-quality)
      ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation), mirroring rt-ambient-model.
      (pbr-displacement)
+     ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (Off/Low/Mid/High follow-probe tier), mirroring pbr-displacement.
+     (follow-probe)
      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (one-click intended-config presets).
      (pbr-test-preset))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond

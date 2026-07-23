@@ -262,5 +262,8 @@
   "171d": "FUSION PLATE",
   "171e": "PBR SEUL",
   "171f": "ECLAIRAGE SEUL",
-  "1720": "ORIGINAL"
+  "1720": "ORIGINAL",
+  "1721": "FAIBLE",
+  "1722": "MOYEN",
+  "1723": "ÉLEVÉ"
 }

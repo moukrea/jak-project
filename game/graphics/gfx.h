@@ -245,18 +245,13 @@ struct GfxGlobalSettings {
   // daytime sky sun-glow lobe for shadowed-area form). Hemisphere stays available via the selector.
   int recharged_rt_ambient_model = 1;
   float recharged_rt_ambient_contrast = 1.0f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5); owner-validated shipped default (playtest 2026-07-20: SH + strength 0.2 + contrast 1.0)
-  // Grecharged-lightprobes OWNER FINAL ARCHITECTURE (2026-07-21): the probes are a RESOURCE
-  // (irradiance SH grid + prefiltered reflection cubes) for future PBR/water — they no longer
-  // project onto world geometry by default. The default realtime world look is BAKED-MODULATION
-  // (in the 4 world shaders): the baked is never removed, the suns only modulate it. probe_enable
-  // is the "BAKED AMBIENT" world-projection CURIOSITY toggle (menu row kept, DEFAULT OFF per the
-  // owner plan); with it (and reflections) off, the .probes asset load stays lazy and the GPU
-  // upload (3D SH textures + cubemap) is skipped entirely. reflections = expose the local cube to
-  // the PBR IBL consumer. strength = probe blend amount (curiosity path only).
-  bool recharged_rt_probe_enable = false;
-  bool recharged_rt_probe_reflections = false;
-  int recharged_rt_probe_quality = 1;
-  float recharged_rt_probe_strength = 1.0f;
+  // Grecharged-pbr-realtime-fusion DYNAMIC FOLLOW-PROBE (owner 2026-07-23): the PBR env source is
+  // now ONE amortized camera-centered cubemap re-rendered from the live world (replaces the deleted
+  // baked probe grid). Tier = user setting, SAME features mobile+PC (owner: no platform gating):
+  // 0 = OFF (lowest = corrected procedural IBL, no capture), 1 = LOW (32px), 2 = MID (64px),
+  // 3 = HIGH (128px). Amortized 1 face/frame at every tier. Driven from GOAL via
+  // pc-set-follow-probe!; debug.opengoal.rt.followprobe / env OG_RT_FOLLOWPROBE force it for A/B.
+  int recharged_follow_probe = 1;
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

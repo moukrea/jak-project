@@ -262,5 +262,8 @@
   "171d": "FUSED FLAT",
   "171e": "PBR ONLY",
   "171f": "RT ONLY",
-  "1720": "STOCK"
+  "1720": "STOCK",
+  "1721": "LOW",
+  "1722": "MID",
+  "1723": "HIGH"
 }

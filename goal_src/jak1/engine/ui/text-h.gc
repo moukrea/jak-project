@@ -829,6 +829,10 @@
   (pc-text-preset-pbr-only #x171e)
   (pc-text-preset-rt-only #x171f)
   (pc-text-preset-stock #x1720)
+  ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell strings (Low/Mid/High; Off reuses the generic off id).
+  (pc-text-envprobe-low #x1721)
+  (pc-text-envprobe-mid #x1722)
+  (pc-text-envprobe-high #x1723)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

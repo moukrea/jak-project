@@ -111,26 +111,6 @@ if [ -d "$FR3_DIR" ]; then
   echo "[custom-pack] grassbake tables: $n_bake"
 fi
 
-# 2b. LOCAL light-probe grids — ALWAYS (committed first-party baked asset; 0 is OK).
-#     Owner (2026-07-20): the probes are made by US → COMMITTED to the repo
-#     (custom_assets/<game>/probes/*.probes) AND embedded in the APK via THIS pack, so a
-#     plain `adb install` extracts them to <custom>/fr3/<level>.probes with NO manual
-#     side-load. Runtime LightProbeGrid reads get_custom_fr3_dir()/<level>.probes (the
-#     custom/package dir WINS over external assets/fr3).
-PROBE_SRC="custom_assets/${GAME}/probes"
-if [ -d "$ROOT/$PROBE_SRC" ]; then
-  mkdir -p "$STAGE/fr3"
-  n_prb=0
-  while IFS= read -r pf; do
-    [ -n "$pf" ] || continue
-    base="$(basename "$pf")"
-    ln -s "$pf" "$STAGE/fr3/$base"
-    MEMBERS+=("fr3/$base")
-    n_prb=$((n_prb + 1))
-  done < <(find "$ROOT/$PROBE_SRC" -maxdepth 1 -type f -name '*.probes' 2>/dev/null | sort)
-  echo "[custom-pack] light-probe grids: $n_prb"
-fi
-
 # 2c. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at
 #     custom_assets/<game>/recharged_textures/<tpage>/<texname>/{<texname>.png + _height/
 #     _normal/_roughness}; the base swap needs no build flag, the PBR maps feed the PBR
@@ -187,7 +167,6 @@ if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then
   cv=$(grep -E '^version=' "$MANIFEST" | cut -d= -f2 || echo "")
   cfc=$(grep -E '^file_count=' "$MANIFEST" | cut -d= -f2 || echo "")
   SRC_DIRS=("$FR3_DIR")
-  [ -d "$ROOT/custom_assets/${GAME}/probes" ] && SRC_DIRS+=("$ROOT/custom_assets/${GAME}/probes")
   [ -d "$ROOT/custom_assets/${GAME}/recharged_textures" ] && SRC_DIRS+=("$ROOT/custom_assets/${GAME}/recharged_textures")
   [ "$F_HUD" -eq 1 ] && [ "$GAME" = "jak1" ] && [ -d "$ROOT/recharged_assets" ] && SRC_DIRS+=("$ROOT/recharged_assets")
   newest=$(find "${SRC_DIRS[@]}" -type f -printf '%T@\n' 2>/dev/null | awk 'BEGIN{m=0}{t=int($1); if(t>m)m=t} END{print m}')

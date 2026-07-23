@@ -65,8 +65,9 @@ tapb "down"; tapb "down"; tapb "x" 3.0
 tapb "down"; tapb "x" 3.0
 for i in $(seq 1 "$DOWNS_RECHARGED"); do tapb "down" 1.6; done
 tapb "x" 2.5
-say "== 20x down = PBR TEST PRESET row =="
-for i in $(seq 1 20); do tapb "down" 1.6; done
+# 2026-07-23 REOPEN#4: menu rows shifted; down-count corrected 20 -> 19 (20 overshot to RETOUR). Verified 19 on current build.
+say "== 19x down = PBR TEST PRESET row =="
+for i in $(seq 1 19); do tapb "down" 1.6; done
 shot "p01-preset-row"
 say "== APPLY ALL-IN: X, left (FUSED->ALL-IN), X — disk must show relief 2.0 + displacement 2 + ambient-model 2 =="
 tapb "x" 1.5; shot "p02-preset-editing"
