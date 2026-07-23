@@ -437,3 +437,17 @@ broken TBN (the earlier "floating/epoxy"). STOP tuning depth scales — FIX THE 
 ACCEPTANCE: relief clearly visible + surface-locked (looks like the MODEL has depth), zero cracks at any
 relief level, tessellation actually running on the Honor (or a captured GL error explaining why not).
 This is a FOUNDATION fix (per-vertex tangents), not another parameter tune. Owner's eye decides.
+
+**OWNER (2026-07-23) — PRECOMPUTE the tangents, don't compute them every load.** The tfrag/tie/shrub mesh is
+STATIC (baked in fr3) so the tangent basis never changes at runtime — computing it at each level load is
+wasted CPU. Do it the industry way (like glTF ships tangents in the asset):
+1. **BAKE the per-vertex tangents ONCE** in a deterministic programmatic step (mirror GrassBakeCore style):
+   read the stock fr3 mesh (positions+UVs+normals), compute MikkTSpace tangent+bitangent+handedness per
+   vertex, write a small per-level sidecar (e.g. `<level>.tangents`) — tiny data (~one vec4/vertex, a few
+   hundred KB/level, NOTHING like the 36MB probe grid). COMMIT it to the repo + BUNDLE in the APK (same
+   packaging path the probes used, now freed).
+2. **At load: just UPLOAD the baked tangents** as the vertex attribute — zero per-load tangent computation.
+3. **Load-time compute stays ONLY as a graceful FALLBACK** when the baked sidecar is absent (dev builds
+   before the bake runs, or a level without baked tangents) — so the feature always works, but ships
+   optimized. Log which path was used.
+This is the clean, cheap, correct approach; it reuses the (now-free) bundled-asset plumbing.
