@@ -1400,6 +1400,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
   // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
   int pbr_debug = 0;
+  // REOPEN #3 TERM BISECTION (owner: sheen survives specular=0): bitmask zeroing ONE
+  // fused-path lighting term at a time — semantics documented at u_pbr_bisect in
+  // tfrag3.frag. Absent prop = 0 = full path (no behavioural change).
+  int pbr_bisect = 0;
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -1456,6 +1460,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.specint", v) > 0) {
       spec_intensity = atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.bisect", v) > 0) {
+      pbr_bisect = atoi(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -1500,6 +1507,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_PBR_SPECINT")) {
     spec_intensity = atof(e);
   }
+  if (const char* e = getenv("OG_PBR_BISECT")) {
+    pbr_bisect = atoi(e);
+  }
 #endif
   // REOPEN #2: clamp the sliders and fold TEXTURE RELIEF into the relief tunables.
   relief = std::max(0.0f, std::min(relief, 3.0f));
@@ -1507,6 +1517,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   normal_strength *= relief;
   height_scale *= relief;
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
+  glUniform1i(glGetUniformLocation(id, "u_pbr_bisect"), pbr_bisect);
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);

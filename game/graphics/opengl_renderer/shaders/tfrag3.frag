@@ -76,6 +76,17 @@ uniform sampler2D tex_PBR_S;
 uniform sampler2D tex_PBR_E;
 uniform float u_pbr_emissive_str;  // emissive intensity (prop debug.opengoal.pbr.emissive)
 uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, default 1)
+// REOPEN #3 TERM BISECTION (owner: the plastic sheen SURVIVES specular-intensity = 0, so
+// it is NOT in the slider-scaled specular sum — identify the culprit by zeroing ONE term
+// at a time on device). Prop debug.opengoal.pbr.bisect, default 0 = full path unchanged.
+// Set bit => that term is ZEROED/DISABLED in the fused rt+pbr branch:
+//    1 = yellow-sun GGX specular          2 = green-sun GGX specular
+//    4 = ambient/IBL specular (famb_spec) 8 = Fresnel-on-diffuse (the line-651 kd darkening)
+//   16 = _specular-map F0 (fall back to metallic-derived)   32 = emissive
+//   64 = normal-map perturbation (Nm = smooth N)           128 = parallax/POM
+//  256 = detail-relight ratio fdetail     512 = baked-modulation lit/shadow fmod
+// 1024 = C1 shoulder tone map (linear clamp instead)
+uniform int u_pbr_bisect;
 // Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
 // meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
@@ -539,7 +550,8 @@ void main() {
         vec2 uv = tex_coord.xy * u_pbr_uv_tile;
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
-        if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0) {
+        if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
+            (u_pbr_bisect & 128) == 0) {
           vec3 Vt = normalize(vec3(dot(Vv, fTn), dot(Vv, fBn), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.12);
           float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
@@ -565,7 +577,7 @@ void main() {
         // Normal map (bit 1) perturbs the SMOOTH normal => surface detail that shades
         // correctly as the realtime suns move (the fusion's whole point).
         vec3 Nm = N;
-        if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
+        if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7 && (u_pbr_bisect & 64) == 0) {
           vec3 nmt = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
           nmt.xy *= u_pbr_normal_strength;
           nmt = normalize(nmt);
@@ -587,8 +599,9 @@ void main() {
         // constant F0 = 0.04; never assume metalness).
         float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
         float ao = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
-        vec3 F0 = (u_pbr_mode & 32) != 0 ? pow(texture(tex_PBR_S, uv).rgb, vec3(2.2))
-                                         : mix(vec3(0.04), albedo, metal);
+        vec3 F0 = ((u_pbr_mode & 32) != 0 && (u_pbr_bisect & 16) == 0)
+                      ? pow(texture(tex_PBR_S, uv).rgb, vec3(2.2))
+                      : mix(vec3(0.04), albedo, metal);
         float NdV = max(dot(Nm, Vv), 1e-4);
         // REOPEN geometric SPECULAR AA: widen the GGX alpha by the normal-map's screen-
         // space variance (Toksvig-style) so normal-mapped ground never sparkles. One-way:
@@ -628,12 +641,14 @@ void main() {
         vec3 fshd_mul = u_rt_shadow_mul * mix(vec3(1.0), FUS_COOL, clamp(u_rt_tint_shadow, 0.0, 1.0));
         vec3 fmod = mix(vec3(1.0), mix(fshd_mul, flit_mul_y, flit_y), fw_y) *
                     mix(vec3(1.0), mix(fshd_mul, flit_mul_g, flit_g), fw_g);
+        if ((u_pbr_bisect & 512) != 0) fmod = vec3(1.0);  // bisect: baked-modulation off
         // Bounded perturbed/smooth N.L ratio (=1 for a flat map => map-free pixels match
         // the accepted baked-modulation look exactly).
         float fdt_y = clamp((max(dot(Nm, L), 0.0) + 0.30) / (max(dot(N, L), 0.0) + 0.30), 0.45, 1.9);
         float fdt_g = clamp((max(dot(Nm, Mn), 0.0) + 0.30) / (max(dot(N, Mn), 0.0) + 0.30), 0.45, 1.9);
         float fdetail = mix(1.0, fdt_y, fw_y * sun_occ) *
                         mix(1.0, fdt_g, clamp(fw_g, 0.0, 1.0) * moon_occ);
+        if ((u_pbr_bisect & 256) != 0) fdetail = 1.0;  // bisect: detail-relight ratio off
         // _ao = material micro-occlusion: full strength on the ambient/shadowed share,
         // relaxed where the direct sun dominates (AO never occludes the suns).
         float fdirw = clamp(flit_y * fw_y + flit_g * fw_g, 0.0, 1.0);
@@ -648,13 +663,18 @@ void main() {
         float fbklum = dot(fragment_color.rgb, vec3(0.299, 0.587, 0.114));
         float fspecocc = ao * smoothstep(0.05, 0.45, fbklum);
         vec3 Fenv = F0 + (Fceil - F0) * pow(1.0 - NdV, 5.0);
-        fbase_lin *= (vec3(1.0) - Fenv * fspecocc) * (1.0 - metal);
+        // bisect bit 8: drop the view-dependent Fresnel kd-darkening on the diffuse only.
+        fbase_lin *= ((u_pbr_bisect & 8) != 0 ? vec3(1.0) : (vec3(1.0) - Fenv * fspecocc)) *
+                     (1.0 - metal);
         // BOTH analytic suns, Cook-Torrance with the HEIGHT-CORRELATED SMITH VISIBILITY
         // term (REOPEN: the old separable Schlick G + naive F was exactly the grazing-
         // sheen bug; Vis contains the 1/(4 NdV NdL) denominator). Cast shadows kill each
         // sun's specular via its own occ; the yellow sun also night-fades (fw_y).
         vec3 fspec_direct = vec3(0.0);
         for (int i = 0; i < 2; i++) {
+          if ((u_pbr_bisect & (i == 0 ? 1 : 2)) != 0) {
+            continue;  // bisect: this sun's GGX specular zeroed
+          }
           vec3 Li = (i == 0) ? L : Mn;
           vec3 lc = (i == 0) ? u_rt_sun_color * fw_y : u_rt_moon_color;
           float vis_i = (i == 0) ? sun_occ : moon_occ;
@@ -707,8 +727,9 @@ void main() {
         }
         vec3 famb_env = mix(fenv_sharp, famb_base, smoothstep(0.25, 0.9, rough));
         vec3 famb_spec = famb_env * Fenv;
+        if ((u_pbr_bisect & 4) != 0) famb_spec = vec3(0.0);  // bisect: ambient/IBL specular off
         // EMISSIVE (bit 64): unlit, added on top — glows in full shadow / at night.
-        vec3 emissive = (u_pbr_mode & 64) != 0
+        vec3 emissive = ((u_pbr_mode & 64) != 0 && (u_pbr_bisect & 32) == 0)
                             ? pow(texture(tex_PBR_E, uv).rgb, vec3(2.2)) *
                                   max(u_pbr_emissive_str, 0.0)
                             : vec3(0.0);
@@ -716,10 +737,12 @@ void main() {
         vec3 flit = fbase_lin + fspec_sum + emissive;
         // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite —
         // the added specular can never clip the baked base to white.
-        {
+        if ((u_pbr_bisect & 1024) == 0) {
           const float RT_KNEE = 0.8;
           vec3 fe = exp(-max(flit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));
           flit = mix(flit, vec3(1.0) - (1.0 - RT_KNEE) * fe, step(vec3(RT_KNEE), flit));
+        } else {
+          flit = min(flit, vec3(1.0));  // bisect: shoulder off, hard clamp
         }
         vec3 fdisp = pow(max(flit, vec3(0.0)), vec3(1.0 / 2.2));
         float ffar_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
