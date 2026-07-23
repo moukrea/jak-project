@@ -110,3 +110,11 @@ ARCHITECTURE (owner-mandated layering — do NOT regress it):
 ACCEPTANCE: ground/rough materials show NO plastic sheen at any angle (esp. grazing); highlights match
 roughness (broad+dim on rough, tight+bright only on genuinely smooth); baked relief unchanged; the owner
 wants "ça claque" — industry-standard, his eye decides. Mechanical bar + READY; his Honor verifies.
+
+**OWNER ADDENDUM (2026-07-23): "le relief des textures, ça pourrait être PLUS PRONONCÉ !"** While fixing the
+plastic shine, STRENGTHEN the perceived texture relief: (a) normal-map intensity scale (multiply the tangent
+XY of the sampled normal before renormalize — default pushed up, e.g. 1.5-2.0), (b) if cheap on Adreno,
+basic parallax from the height map (few-step offset, no full POM needed) adds real depth, (c) ensure the
+normal-map shading interacts with BOTH suns AND the ambient (a normal-map that only reacts to the sun looks
+flat in shade). Expose a debug prop (e.g. debug.opengoal.pbr.normalstr) AND a sensible menu-less default so
+the owner can dial it live; report the default chosen. More relief + zero plastic = the target.
