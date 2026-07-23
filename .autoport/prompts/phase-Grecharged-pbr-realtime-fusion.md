@@ -307,3 +307,37 @@ pourris (le rendu plat de l'ère probes-remplace-baked était une idée à la co
 - Tiers = USER SETTINGS (same features mobile/PC): lowest = the corrected procedural IBL (no capture);
   low/mid/high = follow-probe at rising res/cadence. Wire into the presets.
 - This is the env source for PBR specular now, water reflections later, dynamic-actor ambient later.
+
+---
+## OWNER PLAYTEST #4 (2026-07-23 soir) — GLASS PERSISTS. Screenshots analyzed. THE FIX = MATTE BY DEFAULT (relief without gloss).
+Owner's mode decomposition (the decisive signal) + 5 screenshots (/tmp/honor_glass, archived to device dir):
+- **Original (no realtime)**: GOOD. **Lighting only (realtime, no PBR)**: GOOD — no glass, no hard contrast.
+- **PBR only**: acceptable DEPTH but glass-plate. **Fusion flat**: extreme contrast + hard-edge transfusions
+  that DON'T occur with realtime-lighting alone. **Fusion / All-in**: contrast + "walking on glass floating
+  above the textures / parts behind glass". **No tessellation** — capability check fell back to PBR (the
+  crash-loop guard + fallback WORKED, no brick this time).
+- Screenshot obs: rock-cliff highlight SHIFTS WITH CAMERA (view-dependent specular sheen); sand has a glossy
+  wet sheen; one shot has a hard diagonal contrast line splitting grass with no geometric cause.
+
+### ROOT INSIGHT (owner-confirmed by decomposition): glass = the PBR SPECULAR/ENV-REFLECTION term, visible
+on MATTE materials where it must not be. The "depth" the owner likes = the NORMAL-MAPPED DIFFUSE relief.
+SEPARATE them: keep the diffuse relief, KILL the visible gloss by default.
+
+### MANDATE — MATTE-DIELECTRIC DEFAULT (industry-correct):
+1. **Rough dielectrics (stone/sand/grass/wood = all of village1) reflect almost NOTHING.** The specular +
+   env-reflection contribution must be NEAR-INVISIBLE at default on high-roughness surfaces. Drive it hard
+   by roughness: at roughness≳0.6 the specular/env term → ~0. Only genuinely low-roughness/metallic texels
+   get a visible highlight. Today the default specular is far too strong on matte surfaces.
+2. **The default fused look = "Lighting only" + normal-mapped DIFFUSE relief, MINUS any added gloss.** A/B
+   at the owner's cliff/sand vantage: PBR-ON must equal Lighting-only PLUS depth, with NO reflective sheen
+   and NO camera-dependent highlight on the rock/sand. That equality IS the acceptance test.
+3. **View-dependent sheen**: any term that changes with camera on a matte surface is the bug — the env
+   reflection (Rf) and the Fresnel-grazing on rough surfaces must be clamped so rough matte = view-stable.
+4. **Hard contrast edges (Fusion modes)**: match the contrast of "Lighting only" — the PBR path must not add
+   contrast beyond the accepted baked-modulation. The "transfusions on sharp edges" = a discontinuity in the
+   PBR term at geometry/UV seams; find and kill it (likely the specular/env at grazing on edge faces).
+5. **Simplify the modes**: owner finds only Original / Lighting-only / (acceptable) PBR-only usable. Make the
+   shipped DEFAULT = matte relief (as above); keep specular as an explicit low-default slider for shiny mats.
+6. Specular INTENSITY slider default should be LOW (e.g. 0.1-0.2), not 1.0 — matte is the norm.
+ACCEPTANCE: at the owner's vantages, PBR-ON = Lighting-only + depth, zero glass/sheen, no hard edges.
+His eye decides; push to Honor. (Tessellation crash root-cause still open but fallback is safe — separate.)

@@ -70,4 +70,9 @@ git ls-files custom_assets/jak1/probes 2>/dev/null | grep -q . && fail "probe as
 [ -f game/graphics/opengl_renderer/LightProbeGrid.cpp ] && fail "LightProbeGrid still present (owner: delete the grid system)"
 grep -qiE 'follow.?probe|dynamic.*(cubemap|probe).*(camera|amortiz)|camera.*(cubemap|probe).*(render|refresh)' "$R" || fail "no dynamic follow-probe evidence (one low-res camera cubemap, amortized faces, tiered)"
 grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced (probe rows removed)"
+# OWNER #4: matte-dielectric default (glass = specular on matte; keep normal-mapped diffuse relief).
+grep -qiE 'matte|rough.*(dielectric|reflect.*(nothing|near.?zero|~0))|specular.*(near.?(zero|invisible)|->? ?0).*(rough|matte|default)|roughness.*(kill|drive|suppress).*specular' "$R" || fail "no matte-default evidence (rough dielectrics must show ~0 specular; glass = specular on matte surfaces)"
+grep -qiE 'diffuse relief|normal.?map.*(diffuse|depth).*(kept|relief)|depth without.*(gloss|specular)|relief.*(minus|without).*(gloss|sheen)' "$R" || fail "no diffuse-relief-kept evidence (keep depth, kill gloss)"
+grep -qiE 'pbr.?on ?== ?lighting.?only|equal.*lighting only.*(plus|depth)|A/B.*lighting.?only.*(no|zero).*(sheen|glass|gloss)' "$R" || fail "no PBR-on==Lighting-only+depth acceptance evidence"
+grep -qiE 'specular intensity.*default.*(0\.[12]|low)|default.*specular.*(low|0\.[12])' "$R" || fail "no low-default-specular evidence (matte is the norm)"
 echo "[Gpbrf PASS]"
