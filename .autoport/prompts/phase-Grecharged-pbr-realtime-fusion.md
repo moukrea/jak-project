@@ -279,3 +279,31 @@ preset writes the underlying settings — audit what those two set; if they're m
 label them accordingly; if broken, fix).
 Plus the STILL-DUE crash work: tessellation capability check + graceful fallback + CRASH-LOOP GUARD
 (the owner bricked twice more re-enabling ALL-IN/tessellation — the guard is not optional).
+
+---
+## OWNER ARCHITECTURE DECISION (2026-07-23 soir) — DELETE THE PROBE GRID ENTIRELY. DYNAMIC FOLLOW-PROBE IN.
+Owner verdict (final, no archive): "30k probes par niveau = un gouffre de perfs anyway, on dégage TOUT,
+archive même pas. GO pour la follow-probe. Pour le PBR c'est ce qui est PROCHE de nous qui compte — on ne
+voit pas l'autre bout du niveau et on s'en fiche. INDUSTRY STANDARD — technos modernes, pas des hacks
+pourris (le rendu plat de l'ère probes-remplace-baked était une idée à la con)."
+
+### A. FULL REMOVAL of the baked probe-grid system (delete, not archive):
+- Delete from the repo: `custom_assets/jak1/probes/village1.probes` (36MB), `tools/probe_bake/`,
+  `game/graphics/opengl_renderer/ProbeBakeCore.{h,cpp}` and `LightProbeGrid.{h,cpp}`, their CMake entries
+  (BOTH game/CMakeLists.txt AND android/CMakeLists.txt), the APK bundle packaging of .probes, the probe
+  GL_TEXTURE_3D/SH upload path, the probe uniforms in shaders, gfx.h recharged_rt_probe_* flags/FFI.
+- Delete the probe MENU rows (Baked Ambient / Baked Reflections / Baked Ambient Quality) + settings keys;
+  update `.autoport/menu-tree.md` (mark [SUPPR] with the history note per the owner's doc rule).
+- The world ambient stays the owner-validated BAKED-MODULATION (untouched — that fight is won).
+
+### B. DYNAMIC FOLLOW-PROBE (the industry-standard replacement, feeding the PBR env term):
+- ONE low-res cubemap CENTERED ON/NEAR THE CAMERA, re-rendered from the live world (so it automatically
+  contains the current baked, TOD, all recharged layers = coherence by construction).
+- AMORTIZED: 1 face per frame (full refresh every 6 frames) or a tier-selected cadence; face res tiered
+  (e.g. 64/128/256). Render a CHEAP pass (world geometry, no actors needed first pass, low LOD ok).
+- Prefilter cheap mips for roughness (the split-sum path consumes it exactly like before — only the env
+  SOURCE changes). NEAR-FOCUS is the design point: correct for what's around the player; distant parallax
+  wrongness is accepted ("on s'en fiche").
+- Tiers = USER SETTINGS (same features mobile/PC): lowest = the corrected procedural IBL (no capture);
+  low/mid/high = follow-probe at rising res/cadence. Wire into the presets.
+- This is the env source for PBR specular now, water reflections later, dynamic-actor ambient later.

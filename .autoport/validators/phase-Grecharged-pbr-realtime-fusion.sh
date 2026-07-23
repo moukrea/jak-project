@@ -65,4 +65,9 @@ grep -qiE 'crash.?loop guard|boot sentinel|auto.?reset.*(setting|displacement|pr
 grep -qiE 'perturbed normal|Nm.*(specular|env|reflect|fresnel)|normal.?mapped.*(reflect|specular|NdV|NdH)|glass.*(pane|sheet|fixed|gone)' "$R" || fail "no glass-pane fix evidence (spec/env terms must use the normal-mapped+POM normal, not the flat geometric normal)"
 grep -qiE 'contrast.*(rebalanc|match|reduced).*(baked|fused)|double.*(contrast|appli).*(fixed|removed)' "$R" || fail "no fused-contrast rebalance evidence (owner: fusion modes over-contrasted)"
 grep -qiE 'preset.*(audit|verif|wire|fixed)|two.*(preset|mode).*(nothing|audit|fixed)' "$R" || fail "no dead-presets audit evidence (two presets show nothing)"
+# OWNER: probe grid DELETED (not archived) + dynamic follow-probe as env source.
+git ls-files custom_assets/jak1/probes 2>/dev/null | grep -q . && fail "probe asset still tracked (owner: delete, not archive)"
+[ -f game/graphics/opengl_renderer/LightProbeGrid.cpp ] && fail "LightProbeGrid still present (owner: delete the grid system)"
+grep -qiE 'follow.?probe|dynamic.*(cubemap|probe).*(camera|amortiz)|camera.*(cubemap|probe).*(render|refresh)' "$R" || fail "no dynamic follow-probe evidence (one low-res camera cubemap, amortized faces, tiered)"
+grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced (probe rows removed)"
 echo "[Gpbrf PASS]"
