@@ -977,6 +977,14 @@ void pc_set_rt_ambient_strength(u32 pct) {
   // GOAL sends an int PERCENT 0..50 (0.2 -> 20); mirror pc_set_rt_shadow_strength's *0.01 convention.
   Gfx::g_global_settings.recharged_rt_ambient_strength = (float)pct * 0.01f;
 }
+// REOPEN #2 menu sliders: TEXTURE RELIEF (percent 0..300) + SPECULAR INTENSITY (percent 0..200),
+// same *0.01 int-percent convention as the ambient-strength setter above.
+void pc_set_pbr_texture_relief(u32 pct) {
+  Gfx::g_global_settings.recharged_pbr_texture_relief = (float)pct * 0.01f;
+}
+void pc_set_pbr_specular_intensity(u32 pct) {
+  Gfx::g_global_settings.recharged_pbr_spec_intensity = (float)pct * 0.01f;
+}
 void pc_set_rt_ambient_contrast(u32 pct) {
   // GOAL sends an int PERCENT 0..150 (0.9 -> 90); mirror the *0.01 convention above.
   Gfx::g_global_settings.recharged_rt_ambient_contrast = (float)pct * 0.01f;
@@ -1057,6 +1065,10 @@ void InitMachine_PCPort() {
   // Grecharged-directional-ambient: hemisphere ambient enable + base strength
   make_function_symbol_from_c("pc-set-rt-ambient!", (void*)pc_set_rt_ambient);
   make_function_symbol_from_c("pc-set-rt-ambient-strength!", (void*)pc_set_rt_ambient_strength);
+  // REOPEN #2 menu sliders: PBR TEXTURE RELIEF + SPECULAR INTENSITY
+  make_function_symbol_from_c("pc-set-pbr-texture-relief!", (void*)pc_set_pbr_texture_relief);
+  make_function_symbol_from_c("pc-set-pbr-specular-intensity!",
+                              (void*)pc_set_pbr_specular_intensity);
   make_function_symbol_from_c("pc-set-rt-ambient-contrast!", (void*)pc_set_rt_ambient_contrast);
   make_function_symbol_from_c("pc-set-rt-ambient-model!", (void*)pc_set_rt_ambient_model);
   // Grecharged-lightprobes: LOCAL PROBES enable + PROBE REFLECTIONS enable + PROBE QUALITY selector

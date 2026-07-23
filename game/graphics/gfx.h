@@ -193,6 +193,10 @@ struct GfxGlobalSettings {
   float recharged_pbr_sun_color[3] = {1.f, 1.f, 1.f};   // mood-sun sun-color
   float recharged_pbr_ambient[3] = {0.25f, 0.25f, 0.3f}; // mood-sun env-color
   float recharged_pbr_exposure = 1.0f;
+  // REOPEN #2 menu sliders: TEXTURE RELIEF (multiplier on normal-strength + POM height;
+  // 1.0 = pre-slider look, shipped default 1.5) and SPECULAR INTENSITY (fused spec scale).
+  float recharged_pbr_texture_relief = 1.5f;
+  float recharged_pbr_spec_intensity = 1.0f;
   // Round-4 multi-light: *time-of-day-context* light-group 0 (soleil + lune verte + fill).
   // Pushed raw from GOAL via pc-set-pbr-lights!; scaled/normalized at the GL boundary.
   bool recharged_pbr_lg_valid = false;

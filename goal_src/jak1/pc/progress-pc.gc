@@ -1014,6 +1014,32 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))))
+       ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF slider (0.0 .. 3.0; disabled unless PBR MATERIALS on).
+       ;; Multiplies the PBR normal-map strength + parallax height (1.0 = pre-slider look). Bound
+       ;; directly to the *pc-settings* pbr-texture-relief float. Gated on pbr-materials? (this tunable
+       ;; lives in the PBR material path, NOT the realtime-lighting path).
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
+            :param1 0.0 :param2 3.0 :slider-step-size 0.25 :slider-show-decimal? #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
+            :on-change
+            (lambda ((val object))
+              (commit-to-file *pc-settings*)
+              (none))))
+       ;; Gpbr-fusion REOPEN #2: SPECULAR INTENSITY slider (0.0 .. 2.0; disabled unless PBR MATERIALS on).
+       ;; Scales the fused GGX specular. Bound directly to the *pc-settings* pbr-specular-intensity float.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
+            :param1 0.0 :param2 2.0 :slider-step-size 0.1 :slider-show-decimal? #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
+            :on-change
+            (lambda ((val object))
+              (commit-to-file *pc-settings*)
+              (none))))
        ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
@@ -1158,6 +1184,11 @@
 (format (clear *shadow-distance-label*) "SHADOW DISTANCE")
 (define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *shadow-quality-label*) "SHADOW QUALITY")
+;; Gpbr-fusion REOPEN #2: PBR TEXTURE RELIEF + SPECULAR INTENSITY slider labels.
+(define *texture-relief-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *texture-relief-label*) "TEXTURE RELIEF")
+(define *specular-intensity-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *specular-intensity-label*) "SPECULAR INTENSITY")
 (define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
 ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
@@ -3304,7 +3335,7 @@
   ;; (+ 9 hud-N hd-N) and FOLIAGE WIND sits at (+ 4 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 4 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 4 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 9 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 7 FLAG_PBR_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -3344,6 +3375,11 @@
       (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-distance-label*)
       (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *shadow-quality-label*)
+      ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF + SPECULAR INTENSITY sliders (rows +11/+12, before Back).
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *texture-relief-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *specular-intensity-label*)
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))

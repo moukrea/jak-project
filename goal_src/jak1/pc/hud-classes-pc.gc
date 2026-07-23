@@ -1715,6 +1715,9 @@
     (pc-set-rt-ambient-strength! (the int (* 100.0 (-> obj realtime-ambient-strength))))
     ;; Grecharged-directional-ambient: send contrast (0..1.5 float) as an int PERCENT 0..150 (int-FFI).
     (pc-set-rt-ambient-contrast! (the int (* 100.0 (-> obj realtime-ambient-contrast))))
+    ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF (0..3 float) as int PERCENT 0..300; SPECULAR INTENSITY (0..2) as 0..200.
+    (pc-set-pbr-texture-relief! (the int (* 100.0 (-> obj pbr-texture-relief))))
+    (pc-set-pbr-specular-intensity! (the int (* 100.0 (-> obj pbr-specular-intensity))))
     ;; Grecharged-directional-ambient ROUND 2: ambient MODEL index (0 hemisphere / 1 SH / 2 IBL).
     (pc-set-rt-ambient-model! (-> obj realtime-ambient-model))
     ;; Grecharged-lightprobes: push LOCAL PROBES enable + PROBE REFLECTIONS enable (as 0/1, mirroring

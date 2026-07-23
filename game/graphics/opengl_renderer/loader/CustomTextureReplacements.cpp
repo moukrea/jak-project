@@ -172,6 +172,7 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
   ReplacementImage out;
   out.w = w;
   out.h = h;
+  out.src = src;
   out.rgba.resize((size_t)w * (size_t)h * 4);
   memcpy(out.rgba.data(), data, out.rgba.size());
   stbi_image_free(data);
@@ -180,10 +181,29 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
   return out;
 }
 
+// Deterministic mirror of lookup()'s winning source — no pixel load.
+BaseSource base_source(const std::string& tpage_name, const std::string& tex_name) {
+  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
+  const bool bundled_on = Gfx::recharged_active(Gfx::g_global_settings.recharged_textures);
+  if (!user_on && !bundled_on) {
+    return BaseSource::Stock;
+  }
+  ensure_scanned();
+  const std::string exact_key = normalize_key(tpage_name + "/" + tex_name);
+  if (user_on && find_key(g_state.user_index, exact_key, tex_name)) {
+    return BaseSource::User;
+  }
+  if (bundled_on && find_key(g_state.bundled_index, exact_key, tex_name)) {
+    return BaseSource::Bundled;
+  }
+  return BaseSource::Stock;
+}
+
 #ifdef OG_FEAT_PBR
 const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
                                         const std::string& tex_name,
-                                        const char* suffix) {
+                                        const char* suffix,
+                                        BaseSource base_src) {
   const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
   // Bundled PBR maps apply whenever the PBR pipeline asks (the caller sits in the PBR path);
   // only the MASTER gates them — deliberately NOT the base-swap toggle (owner: PBR maps
@@ -198,13 +218,28 @@ const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
   // both candidate keys (exact "tpage/name<suffix>" first, bare "name<suffix>").
   const std::string suffixed_name = tex_name + suffix;
   const std::string exact_key = normalize_key(tpage_name + "/" + suffixed_name);
-  // PRECEDENCE (owner): user custom_assets > bundled recharged > stock.
-  const fs::path* path =
-      user_on ? find_key(g_state.user_index, exact_key, suffixed_name) : nullptr;
+  // SAME-SOURCE PAIRING (owner REOPEN #2 2026-07-23): PBR maps apply ONLY when they come
+  // from the same source as the BASE texture that won — user base + user maps, or bundled
+  // base + bundled maps, NEVER mixed provenance (an internet-pack base is a different
+  // image; bundled maps describe the bundled base). A STOCK base (no replacement won)
+  // still accepts user > bundled maps: both are authored against the stock look.
+  const fs::path* path = nullptr;
   const char* src = "user";
-  if (!path && bundled_on) {
-    path = find_key(g_state.bundled_index, exact_key, suffixed_name);
-    src = "bundled";
+  switch (base_src) {
+    case BaseSource::User:
+      path = user_on ? find_key(g_state.user_index, exact_key, suffixed_name) : nullptr;
+      break;
+    case BaseSource::Bundled:
+      path = bundled_on ? find_key(g_state.bundled_index, exact_key, suffixed_name) : nullptr;
+      src = "bundled";
+      break;
+    case BaseSource::Stock:
+      path = user_on ? find_key(g_state.user_index, exact_key, suffixed_name) : nullptr;
+      if (!path && bundled_on) {
+        path = find_key(g_state.bundled_index, exact_key, suffixed_name);
+        src = "bundled";
+      }
+      break;
   }
   if (!path) {
     return nullptr;
@@ -222,6 +257,7 @@ const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
   static thread_local ReplacementImage s_out;
   s_out.w = w;
   s_out.h = h;
+  s_out.src = src;
   s_out.rgba.resize((size_t)w * (size_t)h * 4);
   memcpy(s_out.rgba.data(), data, s_out.rgba.size());
   stbi_image_free(data);

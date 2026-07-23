@@ -75,6 +75,7 @@ uniform sampler2D tex_PBR_H;
 uniform sampler2D tex_PBR_S;
 uniform sampler2D tex_PBR_E;
 uniform float u_pbr_emissive_str;  // emissive intensity (prop debug.opengoal.pbr.emissive)
+uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, default 1)
 // Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
 // meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
@@ -578,7 +579,9 @@ void main() {
         // hardware decode), so .r IS the authored PERCEPTUAL roughness; the GGX lobe uses
         // alpha = roughness^2 (industry squaring) below. Perceptual floor 0.045 doubles as
         // the specular-AA minimum (no mirror-edge fireflies).
-        float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.7;
+        // REOPEN #2 MISSING-ROUGHNESS=ROUGH (industry rule): an absent _roughness map now
+        // reads 0.9 — internet-pack bases without maps must NEVER get a smooth plastic sheen.
+        float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.9;
         // REOPEN dielectric rule: most owner sets are height/normal/roughness only — a
         // MISSING _metallic map means metal = 0.0 (stone/straw/dirt are dielectrics,
         // constant F0 = 0.04; never assume metalness).
@@ -709,7 +712,7 @@ void main() {
                             ? pow(texture(tex_PBR_E, uv).rgb, vec3(2.2)) *
                                   max(u_pbr_emissive_str, 0.0)
                             : vec3(0.0);
-        vec3 fspec_sum = (fspec_direct + famb_spec) * fspecocc;
+        vec3 fspec_sum = (fspec_direct + famb_spec) * fspecocc * max(u_pbr_spec_intensity, 0.0);
         vec3 flit = fbase_lin + fspec_sum + emissive;
         // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite —
         // the added specular can never clip the baked base to white.

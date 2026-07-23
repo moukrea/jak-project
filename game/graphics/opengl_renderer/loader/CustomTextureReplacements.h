@@ -25,11 +25,18 @@ struct ReplacementImage {
   std::vector<u8> rgba;
   int w = 0;
   int h = 0;
+  const char* src = "";  // which index the file came from: "user"/"bundled"
 };
+
+// Which source won the base texture (deterministic mirror of lookup()).
+enum class BaseSource { Stock, User, Bundled };
 
 // Look up a replacement for a given texture. Returns nullopt when custom
 // assets are disabled or no matching PNG exists.
 std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std::string& tex_name);
+
+// Report which source would win the BASE texture for this key, without loading pixels.
+BaseSource base_source(const std::string& tpage_name, const std::string& tex_name);
 
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: look up a replacement PNG whose NAME part carries a
@@ -38,7 +45,8 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
 // next lookup_suffixed() call on this thread (add_texture consumes it immediately).
 const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
                                         const std::string& tex_name,
-                                        const char* suffix);
+                                        const char* suffix,
+                                        BaseSource base_src);
 
 // Grecharged-pbr-materials: registry mapping a texture debug-name to its extra
 // PBR material GL textures. GL ids, 0 = absent.

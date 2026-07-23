@@ -472,7 +472,7 @@ const PbrNeutralMaps& pbr_neutral_maps() {
       return id;
     };
     s.normal_tex = make1x1(128, 128, 255);  // flat tangent-space normal
-    s.rough_tex = make1x1(179, 179, 179);   // 0.7, the shader's absent-map default
+    s.rough_tex = make1x1(230, 230, 230);   // 0.9 ROUGH (REOPEN #2: missing map must never read smooth)
     s.metal_tex = make1x1(0, 0, 0);
     s.ao_tex = make1x1(255, 255, 255);
     s.height_tex = make1x1(255, 255, 255);  // surface level -> POM depth 0, zero offset
@@ -502,6 +502,27 @@ void pbr_park_neutral_maps() {
   glActiveTexture(GL_TEXTURE0);
 }
 
+// REOPEN #2 A/B killswitch: debug.opengoal.pbr.kill=1 (env OG_PBR_KILL) forces the fused
+// PBR material path OFF (u_pbr_mode stays 0) while everything else stays live — proves
+// on-device that the new path is ACTIVE (obvious visual delta at the same vantage).
+static bool pbr_killswitch() {
+  static int cached = -1;
+  if (cached < 0) {
+    cached = 0;
+#ifdef __ANDROID__
+    char v[PROP_VALUE_MAX];
+    if (__system_property_get("debug.opengoal.pbr.kill", v) > 0) {
+      cached = atoi(v) != 0 ? 1 : 0;
+    }
+#else
+    if (const char* e = std::getenv("OG_PBR_KILL")) {
+      cached = atoi(e) != 0 ? 1 : 0;
+    }
+#endif
+  }
+  return cached == 1;
+}
+
 // Grecharged-pbr-materials round-4: shared per-draw PBR material bind (was a lambda
 // local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
 // the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
@@ -520,8 +541,8 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
   // coverage unification; alpha still comes from the legacy fragment_color*T0 product
   // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
   // the texture, resolved once per level.
-  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) && tex_id >= 0 &&
-      !mode.get_decal() && m_draws &&
+  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) && !pbr_killswitch() &&
+      tex_id >= 0 && !mode.get_decal() && m_draws &&
       !m_draws->empty()) {
     for (auto& e : *m_draws) {
       if (e.tex_idx == tex_id) {
@@ -1348,6 +1369,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float uv_tile = 1.0f;
   // Grecharged-pbr-realtime-fusion: emissive intensity multiplier (fused rt+pbr path).
   float emissive_str = 1.0f;
+  // REOPEN #2 menu sliders (owner: tunables in SETTINGS, not adb props): TEXTURE RELIEF
+  // multiplies normal strength + POM height (1.0 = the previous look; shipped default 1.5
+  // = noticeably stronger relief). SPECULAR INTENSITY scales the fused specular sum.
+  // Debug props still override for headless calibration.
+  float relief = gs.recharged_pbr_texture_relief;
+  float spec_intensity = gs.recharged_pbr_spec_intensity;
   // Owner round-3 mandate (macro shading): lighting-split calibration. Indirect 1.0 =
   // the baked-GI term reproduces legacy brightness in full baked shadow by construction
   // (see tfrag3.frag); direct scales the realtime sun DIFFUSE because the baked color
@@ -1423,6 +1450,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.wrindirect", v) > 0) {
       wr_indirect = atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.relief", v) > 0) {
+      relief = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.pbr.specint", v) > 0) {
+      spec_intensity = atof(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -1461,7 +1494,18 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_PBR_WR_INDIRECT")) {
     wr_indirect = atof(e);
   }
+  if (const char* e = getenv("OG_PBR_RELIEF")) {
+    relief = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_SPECINT")) {
+    spec_intensity = atof(e);
+  }
 #endif
+  // REOPEN #2: clamp the sliders and fold TEXTURE RELIEF into the relief tunables.
+  relief = std::max(0.0f, std::min(relief, 3.0f));
+  spec_intensity = std::max(0.0f, std::min(spec_intensity, 3.0f));
+  normal_strength *= relief;
+  height_scale *= relief;
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
@@ -2074,6 +2118,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_height_scale"), height_scale);
   glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
   glUniform1f(glGetUniformLocation(id, "u_pbr_emissive_str"), emissive_str);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_spec_intensity"), spec_intensity);
   glUniform1f(glGetUniformLocation(id, "u_pbr_direct"), pbr_direct);
   glUniform1f(glGetUniformLocation(id, "u_pbr_indirect"), pbr_indirect);
   glUniform1f(glGetUniformLocation(id, "u_pbr_baked_weight"), pbr_baked_weight);

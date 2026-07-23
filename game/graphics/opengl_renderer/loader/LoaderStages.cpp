@@ -7,6 +7,8 @@
 
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: add_texture reads the custom-assets toggle directly.
+#include "common/log/log.h"
+
 #include "game/graphics/gfx.h"
 #endif
 
@@ -75,16 +77,37 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // gated inside lookup_suffixed) or the package-BUNDLED set (master-gated) — probe whenever
   // the master is up; lookup_suffixed applies the per-source gates.
   if (Gfx::recharged_master_active()) {
-    const auto* n = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal");
-    const auto* r = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness");
-    const auto* m = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic");
-    const auto* a = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao");
-    const auto* h = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height");
-    const auto* s = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular");
-    const auto* e = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive");
+    const auto bsrc = custom_tex::base_source(tex.debug_tpage_name, tex.debug_name);
+    // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
+    // buffer, reused on the next call — so capture each map's source string
+    // immediately after its probe, before the next lookup_suffixed() call.
+    const auto* n =
+        custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal", bsrc);
+    const char* n_src = n ? n->src : "-";
+    const auto* r =
+        custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness", bsrc);
+    const char* r_src = r ? r->src : "-";
+    const auto* m =
+        custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic", bsrc);
+    const char* m_src = m ? m->src : "-";
+    const auto* a =
+        custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao", bsrc);
+    const char* a_src = a ? a->src : "-";
+    const auto* h =
+        custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height", bsrc);
+    const char* h_src = h ? h->src : "-";
+    const auto* s =
+        custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular", bsrc);
+    const char* s_src = s ? s->src : "-";
+    const auto* e =
+        custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive", bsrc);
+    const char* e_src = e ? e->src : "-";
     // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
     // buffer, so it must be consumed (uploaded) before the next call. Below we
     // re-fetch each map immediately before its upload to keep that contract.
+    const char* bsrc_str = bsrc == custom_tex::BaseSource::User      ? "user"
+                           : bsrc == custom_tex::BaseSource::Bundled ? "bundled"
+                                                                     : "stock";
     if (n || r || m || h || s || e) {
       auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
@@ -105,32 +128,32 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       custom_tex::PbrMaterialMaps maps;
       // Re-fetch each present map immediately before upload (thread-local buffer reuse).
       if (n) {
-        maps.normal_tex =
-            make_map(custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal"));
+        maps.normal_tex = make_map(
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal", bsrc));
       }
       if (r) {
         maps.rough_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness"));
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness", bsrc));
       }
       if (m) {
         maps.metal_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic"));
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic", bsrc));
       }
       if (a) {
-        maps.ao_tex =
-            make_map(custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao"));
+        maps.ao_tex = make_map(
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao", bsrc));
       }
       if (h) {
         maps.height_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height"));
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height", bsrc));
       }
       if (s) {
         maps.specular_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular"));
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular", bsrc));
       }
       if (e) {
         maps.emissive_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive"));
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive", bsrc));
       }
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
       auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
@@ -145,6 +168,18 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       // flow left bound before this block).
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, gl_tex);
+      // Per-texture binding log (owner REOPEN #2) — correlates base source, per-map
+      // source, and the shader defaults so mixed provenance / missing maps are visible.
+      lg::info(
+          "pbr binding: {} base={} N={} R={} M={} AO={} H={} S={} E={} defaults[rough=0.9 "
+          "metal=0 ao=1]",
+          tex.debug_name, bsrc_str, n_src, r ? r_src : "-", m ? m_src : "-", a ? a_src : "-",
+          h ? h_src : "-", s ? s_src : "-", e ? e_src : "-");
+    } else {
+      // Maps existed but same-source pairing / absence yielded NONE — make the
+      // mixed-provenance suppression visible per texture.
+      lg::info("pbr binding: {} base={} maps=NONE (same-source pairing / no maps)",
+               tex.debug_name, bsrc_str);
     }
   }
 #endif

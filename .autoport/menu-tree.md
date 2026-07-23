@@ -109,8 +109,16 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 15 | Ambient Contrast | slider | 0.0..1.5 pas 0.1 (déc.) → `realtime-ambient-contrast` (chemin curiosité uniquement ; cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
 | 16 | Shadow Distance | slider | 20..200 m pas 10 (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
 | 17 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
-| 18 | Back | button | (jamais grisé) | — |
+| 18 | **Texture Relief** [R] | slider | 0.0..3.0 pas 0.25 (déc.) → `pbr-texture-relief`, **défaut 1.5** (1.0 = look pré-slider) — multiplie la force de la normal-map + parallax du chemin PBR MATERIALS (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
+| 19 | **Specular Intensity** [R] | slider | 0.0..2.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 1.0** — échelle le spéculaire GGX fusionné (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
+| 20 | Back | button | (jamais grisé) | — |
 
+> **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
+> **Specular Intensity** (0..2, défaut 1.0) insérés APRÈS Shadow Quality, AVANT Back (Back renuméroté 18→20).
+> Contrairement aux sliders lighting, ceux-ci sont grisés selon **PBR Materials** (pas Realtime Lighting) car
+> ils vivent dans le chemin matériau PBR. Poussés chaque frame en int PERCENT (1.5→150 / 1.0→100) via
+> `pc-set-pbr-texture-relief!` / `pc-set-pbr-specular-intensity!`.
+>
 > **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
 > BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié
 > ci-dessus — les données probe alimentent désormais les paliers de l'Ambient Model. Le menu reste

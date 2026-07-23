@@ -92,6 +92,8 @@
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
    (pbr-materials? symbol) ;; Grecharged-pbr-materials: realtime PBR lighting/shading over custom-asset materials. #f = stock shading.
+   (pbr-texture-relief float) ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF slider (0..3, x on normal strength + parallax; 1.0 = pre-slider look, default 1.5)
+   (pbr-specular-intensity float) ;; Gpbr-fusion REOPEN #2: SPECULAR INTENSITY slider (0..2, scales the fused GGX specular; default 1.0)
    (realtime-lighting? symbol) ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting (one sun, N.L per face, NO ambient). #f = stock/pbr-materials shading.
    (realtime-ambient? symbol)
    (realtime-ambient-strength float)
@@ -161,6 +163,9 @@
 ;; Grecharged-directional-ambient: strength sent as an int PERCENT 0..50 (0.2 -> 20) — GOAL passes args
 ;; in GPRs so the C side takes an int (same int-FFI convention as dist/res/strength below).
 (define-extern pc-set-rt-ambient-strength! (function int none))
+;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF sent as int PERCENT 0..300 (1.5 -> 150), SPECULAR INTENSITY 0..200 — same int-FFI convention.
+(define-extern pc-set-pbr-texture-relief! (function int none))
+(define-extern pc-set-pbr-specular-intensity! (function int none))
 ;; Grecharged-directional-ambient: ambient CONTRAST sent as an int PERCENT 0..150 (1.0 -> 100) — same int-FFI convention.
 (define-extern pc-set-rt-ambient-contrast! (function int none))
 ;; Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 hemisphere / 1 SH / 2 IBL).
@@ -264,6 +269,8 @@
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
   (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
   (set! (-> obj pbr-materials?) #t) ;; Grecharged-pbr-materials: default ON (toggle still exists; OFF == stock shading)
+  (set! (-> obj pbr-texture-relief) 1.5) ;; REOPEN #2 shipped default: noticeably stronger relief than the pre-slider look (1.0)
+  (set! (-> obj pbr-specular-intensity) 1.0)
   (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
   (set! (-> obj realtime-ambient?) #t)
   (set! (-> obj realtime-ambient-strength) 0.2)
