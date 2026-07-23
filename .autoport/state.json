@@ -215,7 +215,7 @@
     "Grecharged-master-toggle": 3,
     "Grecharged-bundled-textures": 6,
     "Grecharged-naming": 1,
-    "Grecharged-pbr-realtime-fusion": 1
+    "Grecharged-pbr-realtime-fusion": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -455,6 +455,9 @@
       "7f9bb509746f",
       "7c38d878397e",
       "7c38d878397e"
+    ],
+    "Grecharged-pbr-realtime-fusion": [
+      "37ff52193004"
     ]
   },
   "stuck_reasons": {
@@ -876,7 +879,7 @@
     "Grecharged-naming": 1784780438.2196877,
     "Grecharged-pbr-realtime-fusion": 1784783149.315742
   },
-  "last_update": "2026-07-23T05:32:02.186008+00:00",
+  "last_update": "2026-07-23T05:45:14.833728+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
