@@ -573,84 +573,146 @@ void main() {
         }
         vec4 T0p = texture(tex_T0, uv);
         vec3 albedo = pow(T0p.rgb, vec3(2.2));
+        // REOPEN 2026-07-23 roughness CONVENTION AUDIT: the loader uploads _roughness as
+        // plain linear GL_RGBA (LoaderStages make_map — no GL_SRGB internal format, no
+        // hardware decode), so .r IS the authored PERCEPTUAL roughness; the GGX lobe uses
+        // alpha = roughness^2 (industry squaring) below. Perceptual floor 0.045 doubles as
+        // the specular-AA minimum (no mirror-edge fireflies).
         float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.7;
+        // REOPEN dielectric rule: most owner sets are height/normal/roughness only — a
+        // MISSING _metallic map means metal = 0.0 (stone/straw/dirt are dielectrics,
+        // constant F0 = 0.04; never assume metalness).
         float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
         float ao = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
         vec3 F0 = (u_pbr_mode & 32) != 0 ? pow(texture(tex_PBR_S, uv).rgb, vec3(2.2))
                                          : mix(vec3(0.04), albedo, metal);
         float NdV = max(dot(Nm, Vv), 1e-4);
-        float fa = max(rough * rough, 0.002);
+        // REOPEN geometric SPECULAR AA: widen the GGX alpha by the normal-map's screen-
+        // space variance (Toksvig-style) so normal-mapped ground never sparkles. One-way:
+        // only ever widens the lobe.
+        rough = clamp(rough, 0.045, 1.0);
+        float fa = rough * rough;  // alpha = perceptual roughness squared (industry)
+        vec3 fnddx = dFdx(Nm);
+        vec3 fnddy = dFdy(Nm);
+        float fnvar = 0.25 * (dot(fnddx, fnddx) + dot(fnddy, fnddy));
+        fa = clamp(fa + min(fnvar, 0.18), 0.002, 1.0);
         float fa2 = fa * fa;
-        float fk = (rough + 1.0) * (rough + 1.0) / 8.0;
-        // BOTH analytic suns, Cook-Torrance each: i=0 the yellow sun (visibility = its
-        // cast shadow sun_occ x the night fade u_rt_sun_elev), i=1 the green sun
-        // (u_rt_moon_color already carries its night crossover weight C++-side;
-        // visibility = ITS cast shadow moon_occ — per-sun map ownership, item 1).
-        vec3 direct = vec3(0.0);
-        vec3 spec_sum = vec3(0.0);
+        // REOPEN roughness-aware FRESNEL ceiling (Fdez-Aguera): the grazing-angle limit is
+        // max(1-roughness, F0), NOT 1.0 — a rough floor seen edge-on can no longer blow out
+        // into the white mirror-edge sheen (the owner's "surcouche plastique" at ground +
+        // extreme angles).
+        vec3 Fceil = max(vec3(1.0 - rough), F0);
+        // ===============================================================================
+        // REOPEN OWNER ARCHITECTURE: BASE = the validated BAKED-MODULATION composite (the
+        // fought-for object relief) — the baked influence ALWAYS remains; the PBR layer
+        // only rides on top. Identical formula to the accepted pbr-OFF branch below, but
+        // evaluated with the normal-MAP-perturbed Nm so material detail shades under the
+        // realtime suns, plus a bounded micro/macro detail-relight ratio so the relief
+        // stays alive inside fully-lit zones where the terminator smoothstep saturates.
+        // ===============================================================================
+        vec3 Mn = normalize(u_rt_moon_dir);
+        float fterm_y = smoothstep(0.0, 0.35, dot(Nm, L));
+        float fterm_g = smoothstep(0.0, 0.35, dot(Nm, Mn));
+        float flit_y = fterm_y * sun_occ;
+        float flit_g = fterm_g * moon_occ;
+        float fw_y = clamp(u_rt_sun_elev, 0.0, 1.0);
+        float fw_g = clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0) * clamp(u_rt_green_amp, 0.0, 2.0);
+        vec3 fsun_ch = u_rt_sun_color / max(dot(u_rt_sun_color, vec3(0.299, 0.587, 0.114)), 1e-3);
+        vec3 fmoon_ch = u_rt_moon_color / max(dot(u_rt_moon_color, vec3(0.299, 0.587, 0.114)), 1e-3);
+        const vec3 FUS_COOL = vec3(0.896, 1.001, 1.265);
+        vec3 flit_mul_y = u_rt_lit_boost * mix(vec3(1.0), fsun_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
+        vec3 flit_mul_g = u_rt_lit_boost * mix(vec3(1.0), fmoon_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
+        vec3 fshd_mul = u_rt_shadow_mul * mix(vec3(1.0), FUS_COOL, clamp(u_rt_tint_shadow, 0.0, 1.0));
+        vec3 fmod = mix(vec3(1.0), mix(fshd_mul, flit_mul_y, flit_y), fw_y) *
+                    mix(vec3(1.0), mix(fshd_mul, flit_mul_g, flit_g), fw_g);
+        // Bounded perturbed/smooth N.L ratio (=1 for a flat map => map-free pixels match
+        // the accepted baked-modulation look exactly).
+        float fdt_y = clamp((max(dot(Nm, L), 0.0) + 0.30) / (max(dot(N, L), 0.0) + 0.30), 0.45, 1.9);
+        float fdt_g = clamp((max(dot(Nm, Mn), 0.0) + 0.30) / (max(dot(N, Mn), 0.0) + 0.30), 0.45, 1.9);
+        float fdetail = mix(1.0, fdt_y, fw_y * sun_occ) *
+                        mix(1.0, fdt_g, clamp(fw_g, 0.0, 1.0) * moon_occ);
+        // _ao = material micro-occlusion: full strength on the ambient/shadowed share,
+        // relaxed where the direct sun dominates (AO never occludes the suns).
+        float fdirw = clamp(flit_y * fw_y + flit_g * fw_g, 0.0, 1.0);
+        float fao_mul = mix(ao, 1.0, 0.55 * fdirw);
+        vec3 fbase_disp = max(fragment_color.rgb * T0p.rgb, vec3(0.0)) * fmod * fdetail * fao_mul;
+        vec3 fbase_lin = pow(fbase_disp, vec3(2.2));
+        // REOPEN ENERGY CONSERVATION + SPECULAR OCCLUSION: kd = (1-F)(1-metal) on the baked
+        // diffuse so the specular never ADDS free energy on top of the full baked; and the
+        // BAKED-DETAIL luminance gates the specular — a crevice the baked lighting says is
+        // dark cannot host a bright highlight (shiny pits read as plastic). _ao joins in.
+        // fragment_color is the TOD LUT x2 (lit ~0.5-1.0, crevices < ~0.2).
+        float fbklum = dot(fragment_color.rgb, vec3(0.299, 0.587, 0.114));
+        float fspecocc = ao * smoothstep(0.05, 0.45, fbklum);
+        vec3 Fenv = F0 + (Fceil - F0) * pow(1.0 - NdV, 5.0);
+        fbase_lin *= (vec3(1.0) - Fenv * fspecocc) * (1.0 - metal);
+        // BOTH analytic suns, Cook-Torrance with the HEIGHT-CORRELATED SMITH VISIBILITY
+        // term (REOPEN: the old separable Schlick G + naive F was exactly the grazing-
+        // sheen bug; Vis contains the 1/(4 NdV NdL) denominator). Cast shadows kill each
+        // sun's specular via its own occ; the yellow sun also night-fades (fw_y).
+        vec3 fspec_direct = vec3(0.0);
         for (int i = 0; i < 2; i++) {
-          vec3 Li = (i == 0) ? L : normalize(u_rt_moon_dir);
-          vec3 lc = (i == 0) ? u_rt_sun_color * clamp(u_rt_sun_elev, 0.0, 1.0)
-                             : u_rt_moon_color;
-          float vis = (i == 0) ? sun_occ : moon_occ;
-          if (dot(lc, vec3(1.0)) <= 1e-5) {
+          vec3 Li = (i == 0) ? L : Mn;
+          vec3 lc = (i == 0) ? u_rt_sun_color * fw_y : u_rt_moon_color;
+          float vis_i = (i == 0) ? sun_occ : moon_occ;
+          if (dot(lc, vec3(1.0)) <= 1e-5 || vis_i <= 1e-4) {
             continue;
           }
           vec3 Hh = normalize(Li + Vv);
           float NdL = max(dot(Nm, Li), 0.0);
+          if (NdL <= 0.0) {
+            continue;
+          }
           float NdH = max(dot(Nm, Hh), 0.0);
           float VdH = max(dot(Vv, Hh), 0.0);
           float dd = NdH * NdH * (fa2 - 1.0) + 1.0;
           float D = fa2 / (3.14159265 * dd * dd);
-          float G = (NdV / (NdV * (1.0 - fk) + fk)) * (NdL / (NdL * (1.0 - fk) + fk));
-          vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);
-          vec3 spec = D * G * F / max(4.0 * NdV * NdL, 1e-4);
-          vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
-          vec3 contrib = (kd * albedo / 3.14159265 + spec) * lc * NdL * vis;
-          direct += contrib;
-          spec_sum += spec * lc * NdL * vis;
+          float gv = NdL * sqrt(NdV * NdV * (1.0 - fa2) + fa2);
+          float gl = NdV * sqrt(NdL * NdL * (1.0 - fa2) + fa2);
+          float Vis = 0.5 / max(gv + gl, 1e-4);
+          vec3 F = F0 + (Fceil - F0) * pow(1.0 - VdH, 5.0);
+          fspec_direct += (D * Vis * F) * lc * NdL * vis_i;
         }
-        // AMBIENT (indirect diffuse): the directional-ambient model sampled by the
-        // SHADED normal; AO multiplies the ambient ONLY.
-        vec3 amb_base;
+        // AMBIENT SPECULAR — PROBES = the coherence source (REOPEN): the prefiltered local
+        // probe cube sampled at the ROUGHNESS MIP (8x8 cube => 4-level chain; lod = rough*3
+        // lands roughness 1.0 on the blurriest 1x1 mip), analytic SH/IBL env as the
+        // no-probe fallback. Either way the sample CONVERGES to the ambient IRRADIANCE as
+        // roughness rises — a rough ground reflects a blurry env, never the sharp sun-glow
+        // lobe (the old sharp-Rf eval was the other half of the ground sheen).
+        vec3 famb_base;
         if (u_rt_ambient_on == 0) {
-          amb_base = vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
+          famb_base = vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
         } else if (u_rt_ambient_model == 1) {
-          amb_base = rt_sh_ambient(Nm);
+          famb_base = rt_sh_ambient(Nm);
         } else if (u_rt_ambient_model == 2) {
-          amb_base = rt_ibl_ambient(Nm);
+          famb_base = rt_ibl_ambient(Nm);
         } else {
-          amb_base = mix(u_rt_ground_color, u_rt_sky_color, clamp(Nm.y * 0.5 + 0.5, 0.0, 1.0));
+          famb_base = mix(u_rt_ground_color, u_rt_sky_color, clamp(Nm.y * 0.5 + 0.5, 0.0, 1.0));
         }
-        amb_base = clamp(amb_base, 0.0, 1.0);
-        vec3 amb_diff = albedo * amb_base * ao * (1.0 - metal);
-        // Roughness-aware AMBIENT SPECULAR (single reflection term) so smooth metals
-        // aren't dead in shadow: env = the prefiltered probe cube when probes +
-        // reflections are ON, else the analytic ambient evaluated at the reflection
-        // direction (Fdez-Aguera roughness-aware Fresnel, as the standalone path).
+        famb_base = clamp(famb_base, 0.0, 1.0);
         vec3 Rf = reflect(-Vv, Nm);
-        vec3 amb_env;
+        vec3 fenv_sharp;
         if (u_rt_probe_on != 0 && u_rt_probe_reflections != 0) {
-          amb_env = textureLod(u_rt_probe_cube, Rf, rough * 3.0).rgb *
-                    clamp(u_rt_probe_strength, 0.0, 1.0);
+          fenv_sharp = textureLod(u_rt_probe_cube, Rf, rough * 3.0).rgb *
+                       clamp(u_rt_probe_strength, 0.0, 1.0);
         } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 1) {
-          amb_env = rt_sh_ambient(Rf);
+          fenv_sharp = rt_sh_ambient(Rf);
         } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 2) {
-          amb_env = rt_ibl_ambient(Rf);
+          fenv_sharp = rt_ibl_ambient(Rf);
         } else {
-          amb_env = amb_base;
+          fenv_sharp = famb_base;
         }
-        vec3 Fr = max(vec3(1.0 - rough), F0) - F0;
-        vec3 Fenv = F0 + Fr * pow(1.0 - NdV, 5.0);
-        vec3 amb_spec = amb_env * Fenv * ao;
+        vec3 famb_env = mix(fenv_sharp, famb_base, smoothstep(0.25, 0.9, rough));
+        vec3 famb_spec = famb_env * Fenv;
         // EMISSIVE (bit 64): unlit, added on top — glows in full shadow / at night.
         vec3 emissive = (u_pbr_mode & 64) != 0
                             ? pow(texture(tex_PBR_E, uv).rgb, vec3(2.2)) *
                                   max(u_pbr_emissive_str, 0.0)
                             : vec3(0.0);
-        vec3 flit = direct + amb_diff + amb_spec + emissive;
-        // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite,
-        // so the fused patch stays coherent with its rt-lit legacy neighbours.
+        vec3 fspec_sum = (fspec_direct + famb_spec) * fspecocc;
+        vec3 flit = fbase_lin + fspec_sum + emissive;
+        // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite —
+        // the added specular can never clip the baked base to white.
         {
           const float RT_KNEE = 0.8;
           vec3 fe = exp(-max(flit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));
@@ -669,7 +731,7 @@ void main() {
         } else if (u_pbr_debug == 4) {
           color.rgb = vec3(rough);
         } else if (u_pbr_debug == 5) {
-          color.rgb = pow(max(spec_sum, vec3(0.0)), vec3(1.0 / 2.2));
+          color.rgb = pow(max(fspec_sum, vec3(0.0)), vec3(1.0 / 2.2));
         } else if (u_pbr_debug == 6) {
           color.rgb = vec3(ao);
         } else if (u_pbr_debug == 18) {
