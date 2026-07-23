@@ -180,7 +180,9 @@
      ;; Grecharged-lightprobes: PROBE QUALITY carousell (Low/High), mirroring rt-ambient-model.
      (rt-probe-quality)
      ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation), mirroring rt-ambient-model.
-     (pbr-displacement))) ;; end of PC_PORT = #t branch for enum initialization
+     (pbr-displacement)
+     ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (one-click intended-config presets).
+     (pbr-test-preset))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

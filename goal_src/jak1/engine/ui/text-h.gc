@@ -822,6 +822,13 @@
   ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell strings (Parallax/Tessellation; Off reuses the generic off id).
   (pc-text-parallax #x1719)
   (pc-text-tessellation #x171a)
+  ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell strings (one-click intended-config presets).
+  (pc-text-preset-allin #x171b)
+  (pc-text-preset-fused #x171c)
+  (pc-text-preset-fused-flat #x171d)
+  (pc-text-preset-pbr-only #x171e)
+  (pc-text-preset-rt-only #x171f)
+  (pc-text-preset-stock #x1720)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

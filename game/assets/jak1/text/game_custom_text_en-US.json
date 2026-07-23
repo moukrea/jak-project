@@ -256,5 +256,11 @@
   "1717": "SH",
   "1718": "IBL",
   "1719": "PARALLAX",
-  "171a": "TESSELLATION"
+  "171a": "TESSELLATION",
+  "171b": "ALL-IN",
+  "171c": "FUSED",
+  "171d": "FUSED FLAT",
+  "171e": "PBR ONLY",
+  "171f": "RT ONLY",
+  "1720": "STOCK"
 }

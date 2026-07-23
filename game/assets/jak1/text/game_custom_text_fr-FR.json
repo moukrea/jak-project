@@ -256,5 +256,11 @@
   "1717": "SH",
   "1718": "IBL",
   "1719": "PARALLAXE",
-  "171a": "TESSELLATION"
+  "171a": "TESSELLATION",
+  "171b": "TOUT-EN-UN",
+  "171c": "FUSION",
+  "171d": "FUSION PLATE",
+  "171e": "PBR SEUL",
+  "171f": "ECLAIRAGE SEUL",
+  "1720": "ORIGINAL"
 }

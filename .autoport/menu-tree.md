@@ -112,7 +112,8 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 18 | **Texture Relief** [R] | slider | 0.0..3.0 pas 0.25 (déc.) → `pbr-texture-relief`, **défaut 1.5** (1.0 = look pré-slider) — multiplie la force de la normal-map + parallax du chemin PBR MATERIALS (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
 | 19 | **Specular Intensity** [R] | slider | 0.0..2.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 1.0** — échelle le spéculaire GGX fusionné (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
-| 21 | Back | button | (jamais grisé) | — |
+| 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
+| 22 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
 > **Specular Intensity** (0..2, défaut 1.0) insérés APRÈS Shadow Quality, AVANT Back (Back renuméroté 18→20).
@@ -125,6 +126,18 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > Materials** (comme les deux sliders REOPEN #2). Miroir exact du carousell **Ambient Model** (int-backup +
 > respond-common), poussé chaque frame en index brut via `pc-set-pbr-displacement!` (0 OFF / 1 PARALLAX /
 > 2 TESSELLATION). Ids texte : `pc-text-parallax` #x1719 / `pc-text-tessellation` #x171a (Off réutilise l'id générique).
+>
+> **Ajout (2026-07-23, Gpbr-fusion REOPEN #3 — DEBUG, retirable plus tard)** : carousell **PBR Test Preset**
+> (ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK, défaut FUSED) inséré APRÈS Displacement, AVANT
+> Back (Back renuméroté 21→22 ; Displacement inchangé, reste ligne 20). Applicateur one-click de config
+> voulue : la MACHINERIE carousell est identique à Displacement (int-backup + respond-common), mais l'arm de
+> WRITE-BACK est spécial — sur confirmation il ÉCRIT les champs sous-jacents (`recharged-master?`,
+> `recharged-textures?`, `pbr-materials?`, `realtime-lighting?`, `load-custom-assets?`, `pbr-texture-relief`,
+> `pbr-specular-intensity`, `pbr-displacement`, `realtime-ambient-model`) puis stocke le choix dans
+> `pbr-test-preset` ; le `commit-to-file` partagé de fin de branche persiste tout. **TOUJOURS actif** (aucune
+> option-disabled-func) car le preset STOCK coupe `recharged-master?` et la ligne doit rester utilisable pour
+> revenir. AUCUN extern/push C++ (le preset n'écrit que d'autres réglages ; le C++ ne le lit jamais). Ids
+> texte : `pc-text-preset-allin` #x171b .. `pc-text-preset-stock` #x1720.
 >
 > **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
 > BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié
