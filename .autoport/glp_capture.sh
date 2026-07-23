@@ -54,7 +54,7 @@ for TRY in 1 2 3; do
   adb shell setprop debug.opengoal.level.warp "$WARP" </dev/null
   adb shell "setprop debug.opengoal.level.warp.pos '$POS'" </dev/null
   adb logcat -c </dev/null 2>/dev/null   # drop buffer history: stale lines from the PREVIOUS boot
-  ( adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
+  ( timeout 240 adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
       | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|lightprobe|A35-RENDER frame=|Fatal signal|signal [0-9]+ \(SIG' >> "$LOG" ) 2>/dev/null &
   LCP=$!; echo $LCP > /tmp/glp_lc.pid
   adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 </dev/null || true

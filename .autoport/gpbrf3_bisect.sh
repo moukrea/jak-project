@@ -51,7 +51,7 @@ boot)
   adb shell "setprop debug.opengoal.pbr.shadowmap 1"
   adb shell "setprop debug.opengoal.pbr.kill 0"
   LOG="$OUT/logcat-bisect.log"; : > "$LOG"
-  ( adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
+  ( timeout 240 adb logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I '*:S' \
      | grep --line-buffered -aE 'LEVEL-WARP-SPAWN|pbr binding|custom pbr|Fatal signal|GK-DIAG sig=|shader.*[Ee]rror|link.*[Ff]ail' >> "$LOG" ) 2>/dev/null &
   adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1
   t0=$(date +%s)
