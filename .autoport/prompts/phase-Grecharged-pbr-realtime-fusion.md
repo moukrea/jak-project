@@ -253,3 +253,29 @@ so the owner is guaranteed to test in the designed best conditions. Presets:
    times consecutively, auto-reset the risky recharged settings (displacement->Off, preset->default) and
    log "[recharged] crash-loop guard: settings reset". This protects every future setting too.
 3. The ALL-IN preset must apply the SAFE maximum per device (capability-checked), not blind tessellation.
+
+---
+## OWNER PRESET REPORT (2026-07-23 soir) — THE "GLASS PANE" DEFECT + preset triage. (Crash fix still due.)
+Owner tested the presets (before the tessellation re-crash):
+- **Fusion**: very CONTRASTED + materials look like they're BEHIND GLASS PANES — the reflective layer sits
+  on the FLAT GEOMETRY surface, floating over the material ("les surfaces planes de la géométrie par
+  dessus").
+- **Fusion plate**: very contrasted, flatter, "pas foufou".
+- **PBR seul**: not bad, less contrasted = more natural, BUT the same GLASS effect ruins it.
+- The two remaining presets: "quasiment juste les textures" — no visible effect (are they wired at all?).
+
+### DIAGNOSIS 1 — THE GLASS PANE (the dominant defect, precise signature):
+Specular/env reflections that follow the FLAT polygon instead of the texture grain = the specular and
+ambient/env terms are computed with the GEOMETRIC/smooth normal, not the NORMAL-MAPPED (and POM-offset)
+normal. FIX: EVERY term that shapes highlights/reflections (sun GGX NdH/NdV, green-sun, famb_env reflection
+vector Rf, Fresnel NdV) must use the PERTURBED normal Nm (and the parallax-corrected view/UV where POM is
+on). The material grain then breaks up the reflection — no more glass sheet. Verify per-term (the bisect
+prop makes this easy to eyeball per component).
+### DIAGNOSIS 2 — "very contrasted" on Fusion modes: the baked-modulation × PBR stacking double-applies
+contrast (baked lit/shadow fmod × GGX sun on top). Rebalance so the fused mode's overall contrast matches
+the accepted baked-modulation look (the sun specular ADDS sparkle, not another contrast multiply).
+### DIAGNOSIS 3 — the two "nothing" presets: verify they actually wire what they claim (report said each
+preset writes the underlying settings — audit what those two set; if they're meant to be subtle tiers,
+label them accordingly; if broken, fix).
+Plus the STILL-DUE crash work: tessellation capability check + graceful fallback + CRASH-LOOP GUARD
+(the owner bricked twice more re-enabling ALL-IN/tessellation — the guard is not optional).
