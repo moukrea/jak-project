@@ -4179,7 +4179,7 @@
                   (set! (-> *pc-settings* recharged-textures?) #t)
                   (set! (-> *pc-settings* pbr-materials?) #f)
                   (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #f))
+                  (set! (-> *pc-settings* load-custom-assets?) #t))
                  ((5) ;; STOCK
                   (set! (-> *pc-settings* recharged-master?) #f)
                   (set! (-> *pc-settings* recharged-textures?) #f)

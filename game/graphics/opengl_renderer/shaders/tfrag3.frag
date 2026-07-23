@@ -598,7 +598,15 @@ void main() {
           fnmip_var = (1.0 - fnlen) / max(fnlen, 0.5);
           nmt = normalize(nmt);
           Nm = normalize(mat3(fTn, fBn, N) * nmt);
-          if (dot(Nm, gN) < 0.0) Nm = N;  // never flip past the face
+          // GLASS-PANE fix (owner preset report 2026-07-23): the old hard snap back to
+          // the SMOOTH normal (`if (dot(Nm,gN)<0) Nm = N`) wiped the map grain over
+          // whole grazing-angle patches — relief >1 tips many texels past the face
+          // plane, and every highlight/reflection term there (NdH/NdV/Rf/Fresnel)
+          // followed the flat polygon = the "glass sheet over the material". SLIDE the
+          // perturbed normal back to just above the face horizon instead: the
+          // below-face component is removed but the tangential GRAIN survives.
+          float fnd = dot(Nm, gN);
+          if (fnd < 0.04) Nm = normalize(Nm + gN * (0.04 - fnd));
         }
         vec4 T0p = texture(tex_T0, uv);
         vec3 albedo = pow(T0p.rgb, vec3(2.2));
@@ -670,6 +678,16 @@ void main() {
         vec3 fshd_mul = u_rt_shadow_mul * mix(vec3(1.0), FUS_COOL, clamp(u_rt_tint_shadow, 0.0, 1.0));
         vec3 fmod = mix(vec3(1.0), mix(fshd_mul, flit_mul_y, flit_y), fw_y) *
                     mix(vec3(1.0), mix(fshd_mul, flit_mul_g, flit_g), fw_g);
+        // FUSED-CONTRAST REBALANCE (owner preset report 2026-07-23: Fusion modes read
+        // "très contrasté"). The baked colour already carries the TOD contrast; fmod
+        // multiplies the realtime lit/shadow spread on top AND the GGX sun specular then
+        // adds sparkle on the lit side — a double contrast apply vs the accepted pbr-OFF
+        // baked-modulation look (which applies fmod exactly once with no added spec).
+        // Compress fmod toward 1 (gamma 0.70) in the FUSED branch only, so the fused
+        // overall contrast matches the accepted look and the specular ADDS sparkle
+        // instead of stacking another lit/shadow multiply. Bisect 2048 = compress off
+        // (device A/B measurement of exactly this rebalance).
+        if ((u_pbr_bisect & 2048) == 0) fmod = pow(max(fmod, vec3(0.0)), vec3(0.70));
         if ((u_pbr_bisect & 512) != 0) fmod = vec3(1.0);  // bisect: baked-modulation off
         // Bounded perturbed/smooth N.L ratio (=1 for a flat map => map-free pixels match
         // the accepted baked-modulation look exactly).
@@ -1079,7 +1097,12 @@ void main() {
         nm.xy *= u_pbr_normal_strength;
         nm = normalize(nm);
         N = normalize(mat3(Tn, Bn, Ngeo) * nm);
-        if (dot(N, Ngeo) < 0.0) N = Ngeo;
+        // GLASS-PANE fix (owner preset report 2026-07-23, same defect on the PBR ONLY
+        // preset = this rt-OFF path): slide back to the face horizon instead of the old
+        // hard snap to Ngeo — the tangential map grain survives at grazing angles, so
+        // the specular follows the material texture, not the flat polygon.
+        float snd = dot(N, Ngeo);
+        if (snd < 0.04) N = normalize(N + Ngeo * (0.04 - snd));
       }
       // Albedo re-sampled at the (possibly POM-offset, tiled) UV; the initial T0
       // sample keeps supplying alpha for the legacy discard product below.
@@ -1089,10 +1112,17 @@ void main() {
       float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
       float ao    = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
       float NdV = max(dot(N, V), 1e-4);
+      // GLASS-PANE fix (owner preset report 2026-07-23): the PBR ONLY preset showed the
+      // same glass sheet — this rt-OFF branch still ran the pre-fix BRDF (plain Schlick
+      // Fresnel with a 1.0 grazing ceiling + separable-k G, no min-rough clamp). Apply
+      // the same industry pieces the fused branch got: min perceptual roughness 0.045,
+      // roughness-aware Fresnel ceiling max(1-rough, F0) (Fdez-Aguera), and the
+      // height-correlated Smith visibility term (contains the 1/(4 NdV NdL)).
+      rough = clamp(rough, 0.045, 1.0);
       float a = max(rough * rough, 0.002);
       float a2 = a * a;
-      float k = (rough + 1.0) * (rough + 1.0) / 8.0;
       vec3 F0 = mix(vec3(0.04), albedo, metal);
+      vec3 Fceil = max(vec3(1.0 - rough), F0);
       // Round-4 mandate B: the shared sun shadow-map factor computed above.
       float shadow = sm_shadow;
       // Round-4bis mandate E: baked weight. The u_pbr_direct diffuse damping is the
@@ -1118,9 +1148,11 @@ void main() {
         float VdH = max(dot(V, H), 0.0);
         float dd = NdH * NdH * (a2 - 1.0) + 1.0;
         float D = a2 / (3.14159265 * dd * dd);
-        float G = (NdV / (NdV * (1.0 - k) + k)) * (NdL / (NdL * (1.0 - k) + k));
-        vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);
-        vec3 spec = D * G * F / max(4.0 * NdV * NdL, 1e-4);
+        float gv = NdL * sqrt(NdV * NdV * (1.0 - a2) + a2);
+        float gl = NdV * sqrt(NdL * NdL * (1.0 - a2) + a2);
+        float Vis = 0.5 / max(gv + gl, 1e-4);
+        vec3 F = F0 + (Fceil - F0) * pow(1.0 - VdH, 5.0);
+        vec3 spec = D * Vis * F;
         vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
         vec3 contrib = (kd * albedo / 3.14159265 * direct_diff_scale + spec) * lc * NdL;
         direct += contrib;

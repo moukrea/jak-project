@@ -112,7 +112,7 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 18 | **Texture Relief** [R] | slider | 0.0..3.0 pas 0.25 (déc.) → `pbr-texture-relief`, **défaut 1.5** (1.0 = look pré-slider) — multiplie la force de la normal-map + parallax du chemin PBR MATERIALS (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
 | 19 | **Specular Intensity** [R] | slider | 0.0..2.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 1.0** — échelle le spéculaire GGX fusionné (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
-| 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
+| 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **RT ONLY (idx 4) garde `load-custom-assets?` ON depuis 2026-07-23** (RT sur textures custom, cartes PBR OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 22 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
@@ -138,6 +138,13 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > option-disabled-func) car le preset STOCK coupe `recharged-master?` et la ligne doit rester utilisable pour
 > revenir. AUCUN extern/push C++ (le preset n'écrit que d'autres réglages ; le C++ ne le lit jamais). Ids
 > texte : `pc-text-preset-allin` #x171b .. `pc-text-preset-stock` #x1720.
+>
+> **Correctif (2026-07-23)** : l'arm **RT ONLY** (index 4) garde désormais les **custom assets ON**
+> (`load-custom-assets?` #f → #t) — l'éclairage realtime s'applique sur **les mêmes textures custom que
+> FUSED**, seules les cartes PBR (normal/rough/metal/height/spec) restent OFF. Avant, le RT ONLY forçait
+> `load-custom-assets?` OFF et rendait des textures quasi-stock (« aucun effet visible » côté owner).
+> Le preset **STOCK** qui n'affiche « que les textures » (vanilla) reste **voulu** : c'est le killswitch
+> vanilla complet (master OFF, tout OFF).
 >
 > **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
 > BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié

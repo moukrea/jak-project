@@ -320,12 +320,126 @@ void InitIOP() {
 
 AutoSplitterBlock g_auto_splitter_block_jak1;
 
+// GENERAL crash-loop guard: a persisted setting must NEVER brick the game. A sentinel file
+// ("recharged-boot-guard") next to settings.ini holds a consecutive-unhealthy-boot count. At
+// boot we bump it; if it already reached 2 (two boots that died before reaching healthy
+// gameplay) we defensively reset the two risky settings in settings.ini (pbr-displacement ->
+// Off, pbr-test-preset -> default) and clamp them for this session. After 60s of healthy
+// running the sentinel is deleted so a normal session never trips it. Mirrors the AO-specific
+// ao-boot-guard style (fs::* via ghc + file_util text IO) but is a distinct GENERAL guard.
+namespace {
+constexpr double kRechargedGuardHealthySecs = 60.0;
+fs::path recharged_boot_guard_path() {
+  return file_util::get_user_settings_dir(g_game_version) / "recharged-boot-guard";
+}
+fs::path recharged_settings_ini_path() {
+  return file_util::get_user_settings_dir(g_game_version) / "settings.ini";
+}
+bool s_recharged_guard_tripped = false;      // this boot resets/clamps the risky settings
+double s_recharged_boot_t = -1.0;            // steady_clock boot time (for the healthy clear)
+// Rewrite the VALUE on `pbr-displacement = <n>` -> 0 and `pbr-test-preset = <n>` -> default (1),
+// preserving every other line byte-for-byte. Missing file / missing key is skipped gracefully.
+void recharged_reset_risky_ini() {
+  const auto ini = recharged_settings_ini_path();
+  if (!file_util::file_exists(ini.string())) {
+    return;  // no settings.ini yet — nothing to reset
+  }
+  std::string text;
+  try {
+    text = file_util::read_text_file(ini);
+  } catch (...) {
+    return;  // unreadable — skip gracefully
+  }
+  // Line-by-line rewrite. Only lines whose trimmed key matches get their value replaced; all
+  // other bytes (including line endings) are preserved.
+  auto rewrite_line = [](const std::string& line) -> std::string {
+    // find the key portion before '='
+    auto eq = line.find('=');
+    if (eq == std::string::npos) {
+      return line;
+    }
+    std::string key = line.substr(0, eq);
+    // trim whitespace around the key
+    size_t ks = key.find_first_not_of(" \t");
+    size_t ke = key.find_last_not_of(" \t");
+    if (ks == std::string::npos) {
+      return line;
+    }
+    std::string trimmed = key.substr(ks, ke - ks + 1);
+    if (trimmed == "pbr-displacement") {
+      return line.substr(0, eq) + "= 0";
+    }
+    if (trimmed == "pbr-test-preset") {
+      return line.substr(0, eq) + "= 1";
+    }
+    return line;
+  };
+  std::string out;
+  out.reserve(text.size());
+  size_t start = 0;
+  while (start <= text.size()) {
+    size_t nl = text.find('\n', start);
+    if (nl == std::string::npos) {
+      if (start < text.size()) {
+        out += rewrite_line(text.substr(start));
+      }
+      break;
+    }
+    // include any trailing '\r' in the line body so the '\n' stays the only separator we re-add
+    out += rewrite_line(text.substr(start, nl - start));
+    out += '\n';
+    start = nl + 1;
+  }
+  try {
+    file_util::write_text_file(ini, out);
+  } catch (...) {
+    // best-effort — a failed rewrite still leaves the session clamp in place
+  }
+}
+// Boot-time crash-loop check. Runs from InitMachine (after the Android external game-root is set
+// by goal_main, before GOAL boots and loads settings.ini).
+void recharged_crash_loop_guard_boot() {
+  s_recharged_boot_t =
+      std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  const auto guard = recharged_boot_guard_path();
+  int c = 0;
+  if (file_util::file_exists(guard.string())) {
+    try {
+      c = std::stoi(file_util::read_text_file(guard));
+    } catch (...) {
+      c = 0;  // unparseable -> treat as fresh
+    }
+  }
+  if (c >= 2) {
+    recharged_reset_risky_ini();
+    lg::warn(
+        "[recharged] crash-loop guard: settings reset (2 consecutive boots died before "
+        "gameplay) — pbr-displacement -> Off, pbr-test-preset -> default");
+    s_recharged_guard_tripped = true;
+    try {
+      file_util::write_text_file(guard, "1");  // count this boot as unhealthy until it survives
+    } catch (...) {
+    }
+  } else {
+    try {
+      file_util::write_text_file(guard, std::to_string(c + 1));
+    } catch (...) {
+    }
+  }
+}
+}  // namespace
+
 /*!
  * Initialize GOAL Runtime. This is the main initialization which is called before entering
  * the GOAL kernel dispatch loop (KernelCheckAndDispatch).
  * TODO finish up things which are commented.
  */
 int InitMachine() {
+  // GENERAL crash-loop guard: bump/inspect the boot sentinel BEFORE GOAL boots and loads
+  // settings.ini. On Android the external game-root (which decides where the settings dir is)
+  // is already set by goal_main before InitMachine runs, so the path is final here.
+  recharged_crash_loop_guard_boot();
+
   u32 debug_heap_end = (0xffffffff - DEBUG_HEAP_SPACE_FOR_STACK + 1) & 0x7ffffff;
 
   // initialize the global heap
@@ -987,7 +1101,26 @@ void pc_set_pbr_specular_intensity(u32 pct) {
 }
 // REOPEN #3 DISPLACEMENT carousel: raw mode int (0 Off / 1 Parallax / 2 Tessellation).
 void pc_set_pbr_displacement(u32 mode) {
-  Gfx::g_global_settings.recharged_pbr_displacement = (int)std::min(mode, 2u);
+  int m = (int)std::min(mode, 2u);
+  // GENERAL crash-loop guard, session clamp (defense in depth): if the boot guard tripped this
+  // session, refuse the risky displacement value regardless of what GOAL pushes.
+  if (s_recharged_guard_tripped) {
+    m = 0;
+  }
+  Gfx::g_global_settings.recharged_pbr_displacement = m;
+  // Healthy clear: this is pushed every frame by GOAL update-to-os. Once we've survived 60s past
+  // boot, delete the boot sentinel once so a normal session never trips the guard next launch.
+  static bool did_clear = false;
+  if (!did_clear && s_recharged_boot_t >= 0.0) {
+    double now =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (now - s_recharged_boot_t > kRechargedGuardHealthySecs) {
+      std::error_code ec;
+      fs::remove(recharged_boot_guard_path(), ec);
+      did_clear = true;
+      lg::info("[recharged] crash-loop guard: healthy boot, sentinel cleared");
+    }
+  }
 }
 void pc_set_rt_ambient_contrast(u32 pct) {
   // GOAL sends an int PERCENT 0..150 (0.9 -> 90); mirror the *0.01 convention above.

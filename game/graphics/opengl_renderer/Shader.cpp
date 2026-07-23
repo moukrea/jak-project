@@ -20,6 +20,15 @@
 // REOPEN #3 TESSELLATION: the live context's tessellation capability. Desktop GL exposes
 // the tess stages from core 4.0 (glad fills GLVersion); GLES exposes them from core 3.2.
 // Queried once, lazily, so it is safe to call from any renderer path after context creation.
+// REOPEN #3 TESSELLATION driver-defensive: the FINAL usability of the tess program. Set true
+// only when the TFRAG3_TESS program was actually built AND linked okay() on the live context.
+// Distinct from gl_context_supports_tessellation() (which only reflects capability), because a
+// context that advertises tessellation can still fail to build/link the tess program.
+static bool s_tfrag3_tess_program_ok = false;
+bool gl_tfrag3_tess_program_ok() {
+  return s_tfrag3_tess_program_ok;
+}
+
 bool gl_context_supports_tessellation() {
   static int cached = -1;
   if (cached != -1) {
@@ -46,6 +55,16 @@ bool gl_context_supports_tessellation() {
   // Desktop GL: glad's GLVersion is populated at load; tess is core from 4.0.
   ok = (GLVersion.major > 4) || (GLVersion.major == 4 && GLVersion.minor >= 0);
 #endif
+  // Driver-defensive: the version report is not enough. glPatchParameteri is a loaded
+  // function pointer (glad's macro expands to glad_glPatchParameteri) that can be NULL on a
+  // driver even when GL_VERSION advertises tessellation. Calling a NULL fn-ptr crashes, so
+  // require the entry point to be actually resolved before declaring tessellation usable.
+  if (ok && glPatchParameteri == nullptr) {
+    ok = false;
+    lg::warn(
+        "[recharged] GL reports 3.2 but glPatchParameteri is unresolved — tessellation "
+        "disabled (driver-defensive)");
+  }
   cached = ok ? 1 : 0;
   if (!ok) {
     lg::warn("REOPEN#3 TESS: GL context has no tessellation stages — tess programs disabled");
@@ -349,6 +368,10 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   // routing in TFragment never selects it. vert/tesc/tese share the tfrag3_tess group;
   // the fragment source is the plain tfrag3.frag (reused unchanged).
   at(ShaderId::TFRAG3_TESS) = {"tfrag3_tess", "tfrag3_tess", "tfrag3_tess", "tfrag3", version};
+  // Record the FINAL usability: the tess program is only usable when the context advertises
+  // tessellation AND the program actually built+linked. Last build wins if this runs per-Display.
+  s_tfrag3_tess_program_ok =
+      gl_context_supports_tessellation() && at(ShaderId::TFRAG3_TESS).okay();
 #endif
 
 #ifdef __ANDROID__

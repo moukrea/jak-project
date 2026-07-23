@@ -47,6 +47,11 @@ class Shader {
 // must never be selected/activated when this is false.
 bool gl_context_supports_tessellation();
 
+// REOPEN #3 TESSELLATION driver-defensive: true only when the TFRAG3_TESS program was actually
+// built AND linked okay() on the live context (capability advertised is not enough). Callers must
+// gate the tess draw path on this in addition to gl_context_supports_tessellation().
+bool gl_tfrag3_tess_program_ok();
+
 // note: update the constructor in Shader.cpp
 enum class ShaderId {
   SOLID_COLOR = 0,

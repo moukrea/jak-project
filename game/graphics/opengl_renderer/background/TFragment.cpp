@@ -595,8 +595,11 @@ void TFragment::render_tree(int geom,
   const bool tess_opaque_kind = tree.kind == tfrag3::TFragmentTreeKind::NORMAL ||
                                 tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
                                 tree.kind == tfrag3::TFragmentTreeKind::ICE;
+  // Driver-defensive: require the tess PROGRAM to have actually built+linked (gl_tfrag3_tess_
+  // program_ok) in addition to the per-shader .okay() and the capability query. A driver that
+  // advertises tessellation but leaves glPatchParameteri unresolved would otherwise crash here.
   const bool use_tess = Gfx::g_global_settings.recharged_pbr_displacement == 2 && tess_supported &&
-                        tess_pbr_gate && tess_opaque_kind &&
+                        gl_tfrag3_tess_program_ok() && tess_pbr_gate && tess_opaque_kind &&
                         render_state->shaders[ShaderId::TFRAG3_TESS].okay();
   const ShaderId tfrag_shader_id = use_tess ? ShaderId::TFRAG3_TESS : ShaderId::TFRAG3;
 #else
@@ -1043,7 +1046,11 @@ void TFragment::render_tree(int geom,
   // dropped — visual-only displacement; the tess control stage still culls cost via its per-edge
   // far-gate level=1). Reuses setup_tfrag_shader_cached / PbrDrawBinder on the TFRAG3_TESS
   // program. Double-draw (alpha-fail) is handled the same way. Skips the plain loop below.
-  if (use_tess) {
+  // Belt-and-braces null guard: glPatchParameteri is a loaded fn-ptr; calling it when NULL
+  // crashes. If it is unresolved, do NOT enter the tess path — fall through to the plain
+  // TFRAG3 draw loop below. (use_tess already gates on gl_tfrag3_tess_program_ok(), which
+  // checks the same pointer; this is a last-line-of-defense at the actual call site.)
+  if (use_tess && glPatchParameteri != nullptr) {
     build_tess_tri_buffer(tree);
     ASSERT(m_textures);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.tess_index_buffer);

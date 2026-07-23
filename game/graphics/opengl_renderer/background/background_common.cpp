@@ -23,6 +23,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/LightProbeGrid.h"
+#include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/pipelines/opengl.h"
 
 #ifdef OG_FEAT_GRASS_OVERHANG
@@ -1528,6 +1529,21 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
   glUniform1i(glGetUniformLocation(id, "u_pbr_bisect"), pbr_bisect);
   pbr_displacement = std::max(0, std::min(pbr_displacement, 2));
+  // Driver-defensive fallback (GL thread): tessellation (mode 2) instant-crashes drivers where
+  // the tess entry points/program are unusable. Demote the EFFECTIVE mode to Parallax (1) so the
+  // frag shader runs POM (its POM gate is u_pbr_displacement != 2) instead of standing down with
+  // no displacement. Warn once.
+  if (pbr_displacement == 2 &&
+      (!gl_context_supports_tessellation() || !gl_tfrag3_tess_program_ok())) {
+    pbr_displacement = 1;
+    static bool warned_tess_fallback = false;
+    if (!warned_tess_fallback) {
+      warned_tess_fallback = true;
+      lg::warn(
+          "[recharged] tessellation unavailable on this driver — displacement falling back to "
+          "Parallax");
+    }
+  }
   // mode 0 (Off) also zeroes the height scale so BOTH the frag POM and any tess
   // displacement see no height contribution.
   if (pbr_displacement == 0) {

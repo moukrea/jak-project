@@ -196,7 +196,7 @@ def _strip_noperspective(src: str) -> str:
     return _NOPERSPECTIVE.sub("", src)
 
 
-def to_gles(src: str) -> str:
+def to_gles(src: str, stage: str | None = None) -> str:
     """Return the GLES 3.20 form of one desktop GLSL shader source.
 
     The transforms applied here are structural only. Numeric semantics
@@ -210,8 +210,19 @@ def to_gles(src: str) -> str:
     # 1. Strip any leading comments / blank lines so #version is first.
     src = _strip_leading_to_version(src)
 
-    # 2. Replace the version directive with the GLES header.
-    src = _VERSION_LINE.sub(GLES_HEADER, src, count=1)
+    # 2. Replace the version directive with the GLES header. The tessellation stages
+    #    (.tesc/.tese) need the GL_EXT_tessellation_shader extension enabled right after
+    #    #version; ": enable" (not "require") so a core-3.2 compiler that already knows the
+    #    stages natively only warns instead of erroring on the unknown extension.
+    if stage in ("tesc", "tese"):
+        header = GLES_HEADER.replace(
+            "#version 320 es\n",
+            "#version 320 es\n#extension GL_EXT_tessellation_shader : enable\n",
+            1,
+        )
+    else:
+        header = GLES_HEADER
+    src = _VERSION_LINE.sub(header, src, count=1)
 
     # 3. The HEIGHT_SCALE / SCISSOR_HEIGHT / SCISSOR_ADJUST template
     #    tokens are left verbatim: they are per-game (jak1 448-line vs
@@ -329,8 +340,8 @@ def main(argv: list[str]) -> int:
             frag_src = ""
 
         if tesc_path is not None and tese_path is not None:
-            tesc_src = to_gles(tesc_path.read_text(encoding="utf-8"))
-            tese_src = to_gles(tese_path.read_text(encoding="utf-8"))
+            tesc_src = to_gles(tesc_path.read_text(encoding="utf-8"), stage="tesc")
+            tese_src = to_gles(tese_path.read_text(encoding="utf-8"), stage="tese")
             (out_dir / f"{name}.android.tesc").write_text(tesc_src, encoding="utf-8")
             (out_dir / f"{name}.android.tese").write_text(tese_src, encoding="utf-8")
         else:
