@@ -60,4 +60,6 @@ grep -qiE 'steep.*(pom|parallax)|pom.*(16|24|32|step)|tessellat' "$R" || fail "n
 grep -qiE 'displacement.*(off|parallax|tessellation).*(menu|toggle|carousel)|tessellation.*(toggle|menu)' "$R" || fail "no displacement menu toggle evidence"
 grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced"
 grep -qiE 'preset.*(row|carousel|menu)|all.?in.*(preset|mode)|test preset' "$R" || fail "no PBR TEST PRESET menu row evidence (owner: one-click intended-config presets, removable later)"
+grep -qiE 'capabilit.*(check|query)|EXT_tessellation.*(check|absent|fallback)|link.*(fail|check).*fallback|fall.?back.*parallax' "$R" || fail "no tessellation capability-check+fallback evidence (owner: instant crash on SD8EG5, must never crash)"
+grep -qiE 'crash.?loop guard|boot sentinel|auto.?reset.*(setting|displacement|preset)' "$R" || fail "no crash-loop guard evidence (persisted setting bricked the game until manual reset)"
 echo "[Gpbrf PASS]"

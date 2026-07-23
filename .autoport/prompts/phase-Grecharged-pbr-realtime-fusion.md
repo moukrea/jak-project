@@ -238,3 +238,18 @@ so the owner is guaranteed to test in the designed best conditions. Presets:
 - Selecting a preset WRITES the underlying individual settings (so the fine sliders reflect it and he can
   then adjust from there). Label clean, no unknown-ID, menu-tree.md synced, marked as DEBUG (will be
   removed later). Report which presets exist and what each sets.
+
+---
+## OWNER CRASH REPORT (2026-07-23 soir) — ALL-IN preset = INSTANT CRASH on the Honor (SD 8 Elite Gen 5) + CRASH-LOOP via persisted setting
+1. **The tessellation path (pbr-displacement=2) instantly crashes the Honor** (Adreno 8xx driver) — and
+   since the setting persists, the game crash-looped on every launch until the supervisor reset the ini.
+   FIX: (a) runtime capability check — query EXT_tessellation_shader + patch support + PROGRAM LINK success
+   at init; if anything fails, fall back to Parallax gracefully (log it), never crash; (b) find the actual
+   crash cause on a tessellation-capable driver path (shader compile/link on Adreno 8xx? missing
+   glPatchParameteri? draw-mode GL_PATCHES on a non-tess program?). The Redmi (Adreno 618) may not repro —
+   treat "works on 618" as insufficient; the code must be driver-defensive.
+2. **CRASH-LOOP GUARD (mandatory, general): a persisted setting must NEVER brick the game.** Boot sentinel:
+   write a marker at launch, clear it on reaching gameplay; if the previous boot died before gameplay N=2
+   times consecutively, auto-reset the risky recharged settings (displacement->Off, preset->default) and
+   log "[recharged] crash-loop guard: settings reset". This protects every future setting too.
+3. The ALL-IN preset must apply the SAFE maximum per device (capability-checked), not blind tessellation.
