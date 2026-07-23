@@ -118,3 +118,25 @@ basic parallax from the height map (few-step offset, no full POM needed) adds re
 normal-map shading interacts with BOTH suns AND the ambient (a normal-map that only reacts to the sun looks
 flat in shade). Expose a debug prop (e.g. debug.opengoal.pbr.normalstr) AND a sensible menu-less default so
 the owner can dial it live; report the default chosen. More relief + zero plastic = the target.
+
+---
+## OWNER PLAYTEST #2 (2026-07-23) — "pas beaucoup de différence, toujours plastique, manque de relief, très bof". REOPENED.
+The BRDF rework numbers were green but the OWNER SEES BARELY ANY CHANGE. Prime suspects, audit FIRST on
+device-truth before touching the BRDF again:
+1. **IS THE NEW PATH EVEN ACTIVE on his build/scene?** Prove with a device A/B killswitch (prop) showing an
+   OBVIOUS visible difference new-path-on vs off at the same vantage. If barely anything changes, the fused
+   path isn't executing where he looks (flag gating? probes OFF by default gating the ambient specular?).
+2. **MISSING-MAP DEFAULTS + SOURCE PAIRING (strong suspect)**: his INTERNET pack now WINS precedence (the
+   yesterday fix!) — those textures have NO roughness/normal maps. If a base texture resolves from the USER
+   pack but PBR maps resolve from the BUNDLED set (different image!) or roughness falls back to a SMOOTH
+   default ⇒ plastic exactly where he looks (the ground). FIXES:
+   a. Missing roughness ⇒ assume ROUGH (default 0.85-1.0), NEVER smooth — industry rule.
+   b. SAME-SOURCE pairing: PBR maps apply ONLY when they come from the same source as the base texture that
+      won (user base + user maps, or bundled base + bundled maps — never mixed provenance).
+   c. Log per-texture on device: base source, which maps bound, which defaults used — include for the
+      ground textures at his vantage.
+3. **TUNABLES IN THE MENU, not adb props** (owner looked in settings and found nothing): add Recharged
+   Settings rows — "TEXTURE RELIEF" slider (normal-strength+parallax scale) and "SPECULAR INTENSITY" slider
+   — live-applied, persisted, menu-tree.md synced. Defaults: relief NOTICEABLY stronger than current.
+4. Side-by-side same-vantage captures old-vs-new proving an OBVIOUS difference (if pixels barely change,
+   it's not done).

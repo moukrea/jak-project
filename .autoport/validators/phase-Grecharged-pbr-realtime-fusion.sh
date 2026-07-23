@@ -45,4 +45,11 @@ grep -qiE 'roughness.*(squar|alpha|perceptual|linear|srgb|channel)' "$R" || fail
 grep -qiE 'specular occlusion|baked.*(detail|ao).*(specular|atten)|energy conserv' "$R" || fail "no specular-occlusion/energy-conservation evidence"
 grep -qiE 'roughness mip|blurry mip|prefiltered.*(mip|rough)|mip.*rough' "$R" || fail "no roughness-mip IBL evidence (rough ground must sample blurry mip)"
 grep -qiE 'baked.*(modulation|relief|influence).*(intact|kept|unchanged|base)' "$R" || fail "no baked-base-intact evidence (owner: never lose the object relief)"
+# OWNER #2: path-active proof, missing-map defaults, same-source pairing, menu sliders.
+grep -qiE 'killswitch|path.?active|new path.*(A/B|visible|obvious)|fused.*(executes|active).*(device|proof)' "$R" || fail "no new-path-ACTIVE device proof (owner sees barely any change)"
+grep -qiE 'missing.*(roughness|map).*(rough|0\.8|0\.9|1\.0|default)|default.*rough(ness)?.*(rough|high)|assume rough' "$R" || fail "no missing-roughness=ROUGH default evidence (internet-pack textures have no maps => smooth default = plastic)"
+grep -qiE 'same.?source|pairing|provenance|user base.*user maps|never mixed' "$R" || fail "no same-source map-pairing evidence (user base + bundled maps = wrong)"
+grep -qiE '(texture relief|specular intensity).*(slider|menu|row)|menu.*(relief|specular).*(slider|row)' "$R" || fail "no menu sliders evidence (owner: tunables in SETTINGS, not adb props)"
+grep -qiE 'menu-tree' "$R" || fail "menu-tree.md not updated"
+grep -qiE 'side.?by.?side|obvious.*(difference|change)|old.?vs.?new.*(capture|vantage)' "$R" || fail "no obvious-difference side-by-side proof"
 echo "[Gpbrf PASS]"
