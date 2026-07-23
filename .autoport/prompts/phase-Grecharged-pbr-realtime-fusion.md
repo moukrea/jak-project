@@ -399,3 +399,41 @@ path must actually FUNCTION (not just crash→fallback).
 4. (still open) extreme-contrast-without-cause on the fused path — match "Lighting only" contrast.
 ACCEPTANCE: displacement present and CORRECT (surface-locked depth, no epoxy float) in BOTH parallax and
 tessellation modes; tessellation runs on the Honor. Owner's eye at the grass/cliff vantages.
+
+---
+## OWNER PLAYTEST #7 (2026-07-23 nuit) — ITERATION FAILED. ROOT CAUSE = BROKEN TANGENT BASIS (TBN). Fix the foundation.
+Owner (justified fury): the last build NEUTERED displacement (reduced depth to invisible = NOT fixed), the
+extreme contrast was IGNORED, and TESSELLATION STILL FALLS BACK TO PARALLAX (does not run — "me mens pas").
+Observed: PBR-only ≈ Lighting-only except the texture "offsets a bit", NO relief, NO displacement. Fusion /
+Fusion-flat / All-in: same — "the normals play a bit", lackluster. AND: **as soon as Texture Relief > 0.0,
+hard ultra-contrasted CRACKS appear on faces where it makes no sense.**
+
+### ROOT CAUSE (the two symptoms together prove it): THE TANGENT BASIS IS BROKEN.
+tfrag/tie/shrub geometry has NO per-vertex tangents; the shader reconstructs TBN from screen-space
+derivatives (dFdx/dFdy of pos+UV), which are DISCONTINUOUS at triangle edges / UV seams. Result:
+(a) normal-mapped relief is incoherent and weak (no convincing depth), and (b) scaling relief amplifies the
+discontinuities into HARD CONTRAST CRACKS on faces (exactly the owner's report). The parallax also rode this
+broken TBN (the earlier "floating/epoxy"). STOP tuning depth scales — FIX THE TBN.
+
+### MANDATE — build a PROPER TANGENT BASIS (the foundation of all normal-mapping + parallax):
+1. **Compute real per-vertex tangents at LOAD time** (MikkTSpace-style / industry standard): derive tangent
+   + bitangent from the mesh positions + UVs per triangle, accumulate per vertex, orthonormalize
+   (Gram-Schmidt vs the vertex normal), store handedness (w sign). Add a tangent vertex attribute to the
+   tfrag/tie/shrub vertex format (or a parallel buffer) and feed it to the shaders. This is where the
+   real per-vertex smooth normals already are — attach tangents alongside.
+2. **Shader uses the interpolated per-vertex TBN** (not screen-space derivatives) for BOTH the normal-map
+   perturbation AND the parallax offset. Continuous across faces => no cracks, coherent relief.
+3. **THEN restore VISIBLE displacement** with a sane depth (the neutered 0.02 was over-corrected): with a
+   correct TBN the relief reads as real surface depth without floating or cracking. Parallax must be
+   clearly visible (not "offsets a bit") yet surface-locked. Default relief that actually shows depth.
+4. **HARD GATE: at Texture Relief > 0 there must be NO contrast cracks on flat faces.** This is a blocker.
+5. **TESSELLATION MUST ACTUALLY RUN (not fallback) — root-cause it for real:** the capability check is
+   either wrongly disabling it or the tess control/eval shaders fail to compile/link on Adreno 8xx. Get the
+   REAL GL error (glGetProgramInfoLog / glGetError around patch setup + link). If EXT_tessellation_shader is
+   present, GL_PATCHES + glPatchParameteri must work. Do not claim it works without device proof; if you
+   cannot access the Honor, emit clear on-screen/logcat diagnostics so the SUPERVISOR can pull the Honor
+   logcat and feed back the exact error. Fallback stays as safety, but the GOAL is real tessellation.
+6. Extreme contrast (#4) and displacement (#3) are the same TBN fix — do not treat them separately.
+ACCEPTANCE: relief clearly visible + surface-locked (looks like the MODEL has depth), zero cracks at any
+relief level, tessellation actually running on the Honor (or a captured GL error explaining why not).
+This is a FOUNDATION fix (per-vertex tangents), not another parameter tune. Owner's eye decides.

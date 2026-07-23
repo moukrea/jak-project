@@ -80,4 +80,10 @@ grep -qiE 'epoxy|floating.*(texture|10cm)|parallax.*(incoherent|float|depth scal
 grep -qiE 'relief.*(from|via).*(normal.?map|shading)|normal.?map shading|surface.?locked|shading.*(not|instead).*(uv|displacement|parallax)' "$R" || fail "no normal-map-shading-relief evidence (relief must be surface-locked shading, not UV displacement)"
 grep -qiE 'depth scale.*(calibrat|reduc|mm|millimet|sane|/ ?100|100x)|parallax.*(calibrat|surface.?locked|coherent)|displacement.*(kept|calibrat|correct)' "$R" || fail "no displacement-calibration evidence (owner: KEEP displacement, fix the ~10cm float to surface-locked)"
 grep -qiE 'tessellat.*(works|render|displac.*geometry|glPatchParameter|GL_PATCHES|compil.*(ok|success)|on device|honor)' "$R" || fail "no tessellation-actually-works evidence (owner: make tessellation function on the Honor, not just fallback)"
+# OWNER #7: TANGENT BASIS is the root cause (weak relief + contrast cracks scaling with relief).
+grep -qiE 'tangent.*(basis|per.?vertex|attribute|mikktspace|orthonormal|handedness)|TBN.*(per.?vertex|vertex attribute|proper)|per.?vertex tangent' "$R" || fail "no per-vertex tangent-basis evidence (root cause: screen-space TBN discontinuous => cracks + weak relief)"
+grep -qiE 'not.*(screen.?space|dFdx)|replace.*(screen.?space|derivative).*(tbn|tangent)|interpolated.*(tbn|tangent)' "$R" || fail "no shader-uses-vertex-TBN evidence (was screen-space derivatives)"
+grep -qiE 'no (contrast )?crack|crack.*(gone|fixed|eliminated)|relief.*>?0.*no.*(crack|break)' "$R" || fail "no cracks-fixed-at-relief>0 evidence (hard gate)"
+grep -qiE 'visible displacement|relief.*(visible|clearly)|displacement.*(restored|visible)' "$R" || fail "no visible-displacement-restored evidence (last round neutered it)"
+grep -qiE 'tessellat.*(runs|actually|glGetProgramInfoLog|glGetError|patch.*(link|compil)|real.*(displac|geometry))|tess.*(GL error|infolog)' "$R" || fail "no real-tessellation-root-cause evidence (owner: it still falls back, don't claim it works)"
 echo "[Gpbrf PASS]"
