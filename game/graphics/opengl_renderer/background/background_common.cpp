@@ -1404,6 +1404,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // fused-path lighting term at a time — semantics documented at u_pbr_bisect in
   // tfrag3.frag. Absent prop = 0 = full path (no behavioural change).
   int pbr_bisect = 0;
+  // REOPEN #3 DISPLACEMENT menu carousel (0 Off / 1 Parallax / 2 Tessellation). Menu value
+  // from GOAL via pc-set-pbr-displacement!; debug prop overrides for headless A/B.
+  int pbr_displacement = gs.recharged_pbr_displacement;
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -1463,6 +1466,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.bisect", v) > 0) {
       pbr_bisect = atoi(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.displacement", v) > 0) {
+      pbr_displacement = atoi(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -1510,6 +1516,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_PBR_BISECT")) {
     pbr_bisect = atoi(e);
   }
+  if (const char* e = getenv("OG_PBR_DISPLACEMENT")) {
+    pbr_displacement = atoi(e);
+  }
 #endif
   // REOPEN #2: clamp the sliders and fold TEXTURE RELIEF into the relief tunables.
   relief = std::max(0.0f, std::min(relief, 3.0f));
@@ -1518,6 +1527,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   height_scale *= relief;
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
   glUniform1i(glGetUniformLocation(id, "u_pbr_bisect"), pbr_bisect);
+  pbr_displacement = std::max(0, std::min(pbr_displacement, 2));
+  // mode 0 (Off) also zeroes the height scale so BOTH the frag POM and any tess
+  // displacement see no height contribution.
+  if (pbr_displacement == 0) {
+    height_scale = 0.0f;
+  }
+  glUniform1i(glGetUniformLocation(id, "u_pbr_displacement"), pbr_displacement);
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);

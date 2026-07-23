@@ -87,6 +87,10 @@ uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, de
 //  256 = detail-relight ratio fdetail     512 = baked-modulation lit/shadow fmod
 // 1024 = C1 shoulder tone map (linear clamp instead)
 uniform int u_pbr_bisect;
+// REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
+// (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement
+// happens in the tess evaluation stage; the frag POM must then stand down).
+uniform int u_pbr_displacement;
 // Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
 // meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
@@ -551,7 +555,7 @@ void main() {
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
         if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-            (u_pbr_bisect & 128) == 0) {
+            (u_pbr_bisect & 128) == 0 && u_pbr_displacement != 2) {
           vec3 Vt = normalize(vec3(dot(Vv, fTn), dot(Vv, fBn), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.12);
           // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);

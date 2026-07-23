@@ -197,6 +197,9 @@ struct GfxGlobalSettings {
   // 1.0 = pre-slider look, shipped default 1.5) and SPECULAR INTENSITY (fused spec scale).
   float recharged_pbr_texture_relief = 1.5f;
   float recharged_pbr_spec_intensity = 1.0f;
+  // REOPEN #3 DISPLACEMENT menu carousel: 0 = Off, 1 = Parallax (steep POM, default),
+  // 2 = Tessellation (GLES3.2/GL4.x tess displacement, near ground/walls).
+  int recharged_pbr_displacement = 1;
   // Round-4 multi-light: *time-of-day-context* light-group 0 (soleil + lune verte + fill).
   // Pushed raw from GOAL via pc-set-pbr-lights!; scaled/normalized at the GL boundary.
   bool recharged_pbr_lg_valid = false;

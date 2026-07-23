@@ -985,6 +985,10 @@ void pc_set_pbr_texture_relief(u32 pct) {
 void pc_set_pbr_specular_intensity(u32 pct) {
   Gfx::g_global_settings.recharged_pbr_spec_intensity = (float)pct * 0.01f;
 }
+// REOPEN #3 DISPLACEMENT carousel: raw mode int (0 Off / 1 Parallax / 2 Tessellation).
+void pc_set_pbr_displacement(u32 mode) {
+  Gfx::g_global_settings.recharged_pbr_displacement = (int)std::min(mode, 2u);
+}
 void pc_set_rt_ambient_contrast(u32 pct) {
   // GOAL sends an int PERCENT 0..150 (0.9 -> 90); mirror the *0.01 convention above.
   Gfx::g_global_settings.recharged_rt_ambient_contrast = (float)pct * 0.01f;
@@ -1069,6 +1073,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-pbr-texture-relief!", (void*)pc_set_pbr_texture_relief);
   make_function_symbol_from_c("pc-set-pbr-specular-intensity!",
                               (void*)pc_set_pbr_specular_intensity);
+  // REOPEN #3: DISPLACEMENT carousel (Off/Parallax/Tessellation)
+  make_function_symbol_from_c("pc-set-pbr-displacement!", (void*)pc_set_pbr_displacement);
   make_function_symbol_from_c("pc-set-rt-ambient-contrast!", (void*)pc_set_rt_ambient_contrast);
   make_function_symbol_from_c("pc-set-rt-ambient-model!", (void*)pc_set_rt_ambient_model);
   // Grecharged-lightprobes: LOCAL PROBES enable + PROBE REFLECTIONS enable + PROBE QUALITY selector
