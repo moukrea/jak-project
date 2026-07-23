@@ -59,4 +59,5 @@ grep -qiE 'mip.*(normal|pbr map)|LINEAR_MIPMAP|toksvig|variance.*rough|min.*roug
 grep -qiE 'steep.*(pom|parallax)|pom.*(16|24|32|step)|tessellat' "$R" || fail "no real-displacement evidence (steep POM + tessellation)"
 grep -qiE 'displacement.*(off|parallax|tessellation).*(menu|toggle|carousel)|tessellation.*(toggle|menu)' "$R" || fail "no displacement menu toggle evidence"
 grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced"
+grep -qiE 'preset.*(row|carousel|menu)|all.?in.*(preset|mode)|test preset' "$R" || fail "no PBR TEST PRESET menu row evidence (owner: one-click intended-config presets, removable later)"
 echo "[Gpbrf PASS]"

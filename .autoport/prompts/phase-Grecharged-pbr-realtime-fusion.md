@@ -226,3 +226,15 @@ the full split-sum LUT, real tessellation, high POM, big shadow maps must be sel
 feature exists everywhere — future mobile APUs keep scaling (the owner's Honor runs a Snapdragon 8 Elite
 Gen 5 and can go very far; the Redmi/Adreno 618 is merely the low-end test device). Tier plumbing =
 settings-driven, not #ifdef-platform.
+
+**OWNER (2026-07-23) — DEBUG PRESET MENU ROW (temporary, removable later).** Add a "PBR TEST PRESET"
+carousel row in Recharged Settings that applies, in ONE selection, the EXACT intended setting combination —
+so the owner is guaranteed to test in the designed best conditions. Presets:
+- **ALL-IN**: everything at the intended maximum for his Honor (SD 8 Elite Gen 5): full BRDF path,
+  intended specular/relief values, best displacement mode (tessellation if real, else steep POM high),
+  shadows high, probes as designed — exactly what YOU intend as the showcase config.
+- If several combinations need validation, add ONE PRESET PER COMBINATION (e.g. ALL-IN / MOBILE-LOW /
+  POM-vs-TESSELLATION variants) so he can flip between them and validate each.
+- Selecting a preset WRITES the underlying individual settings (so the fine sliders reflect it and he can
+  then adjust from there). Label clean, no unknown-ID, menu-tree.md synced, marked as DEBUG (will be
+  removed later). Report which presets exist and what each sets.
