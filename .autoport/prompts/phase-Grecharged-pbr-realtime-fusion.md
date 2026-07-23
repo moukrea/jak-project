@@ -206,3 +206,7 @@ each on the fused path:
 (e) **BORDER COHERENCE**: a PBR-textured surface next to a non-PBR one must not pop — check a boundary
     vantage; lighting continuity across the seam.
 Acceptance stays: the owner's eye — "seamless, comme les jeux récents".
+
+**SUPERVISOR HARNESS FIX (mandatory, 2 min): every `adb logcat` spawned by your capture scripts MUST be
+wrapped in `timeout 240` (4 min covers any capture) — the un-timeouted logcat has zombied 5 times now,
+wedging captures ~30 min each until the supervisor kills it. Patch the gpbrf/glp-style scripts you use.**
