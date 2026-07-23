@@ -476,6 +476,8 @@ const PbrNeutralMaps& pbr_neutral_maps() {
     s.metal_tex = make1x1(0, 0, 0);
     s.ao_tex = make1x1(255, 255, 255);
     s.height_tex = make1x1(255, 255, 255);  // surface level -> POM depth 0, zero offset
+    s.specular_tex = make1x1(0, 0, 0);      // fusion: F0 map absent (bit32 gates reads)
+    s.emissive_tex = make1x1(0, 0, 0);      // fusion: no self-illumination (bit64 gates)
     glActiveTexture(prev_active);
   }
   return s;
@@ -493,6 +495,10 @@ void pbr_park_neutral_maps() {
   glBindTexture(GL_TEXTURE_2D, neutral.ao_tex);
   glActiveTexture(GL_TEXTURE15);
   glBindTexture(GL_TEXTURE_2D, neutral.height_tex);
+  glActiveTexture(GL_TEXTURE16);
+  glBindTexture(GL_TEXTURE_2D, neutral.specular_tex);
+  glActiveTexture(GL_TEXTURE17);
+  glBindTexture(GL_TEXTURE_2D, neutral.emissive_tex);
   glActiveTexture(GL_TEXTURE0);
 }
 
@@ -525,7 +531,8 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     }
     if (maps) {
       want = (maps->normal_tex ? 1 : 0) | (maps->rough_tex ? 2 : 0) | (maps->metal_tex ? 4 : 0) |
-             (maps->ao_tex ? 8 : 0) | (maps->height_tex ? 16 : 0);
+             (maps->ao_tex ? 8 : 0) | (maps->height_tex ? 16 : 0) |
+             (maps->specular_tex ? 32 : 0) | (maps->emissive_tex ? 64 : 0);
     }
   }
   if (want == 0 && m_cur_mode == 0) {
@@ -538,7 +545,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     return;
   }
   if (want != 0) {
-    // Bind ALL FIVE units every time: the real map when present, the 1x1 neutral
+    // Bind ALL SEVEN units every time: the real map when present, the 1x1 neutral
     // default when absent. No unit is ever left unbound or holding another draw's map
     // while the PBR shader path is active.
     const auto& neutral = pbr_neutral_maps();
@@ -552,6 +559,10 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     glBindTexture(GL_TEXTURE_2D, maps->ao_tex ? maps->ao_tex : neutral.ao_tex);
     glActiveTexture(GL_TEXTURE15);
     glBindTexture(GL_TEXTURE_2D, maps->height_tex ? maps->height_tex : neutral.height_tex);
+    glActiveTexture(GL_TEXTURE16);
+    glBindTexture(GL_TEXTURE_2D, maps->specular_tex ? maps->specular_tex : neutral.specular_tex);
+    glActiveTexture(GL_TEXTURE17);
+    glBindTexture(GL_TEXTURE_2D, maps->emissive_tex ? maps->emissive_tex : neutral.emissive_tex);
     glActiveTexture(GL_TEXTURE0);
     m_bound_any = true;
   }
@@ -1288,6 +1299,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_AO"), 14);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_H"), 15);
+  // Grecharged-pbr-realtime-fusion: specular (F0) + emissive maps on units 16/17
+  // (probe samplers sit on 3-7, DirectRenderer starts at 20 — no collision; GLES 3.x
+  // guarantees >=32 combined units and the fragment stage uses 14 samplers <= 16).
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_S"), 16);
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_E"), 17);
   // Round-4 mandate B (shadow map): always advertise the shadow sampler on unit 9 and
   // default u_pbr_shadow_on OFF; pbr_shadow_bind_receiver upgrades it per-renderer. Parking
   // the depth texture on unit 9 here mismatch-proofs every TFRAG3-family user (magenta
@@ -1330,6 +1346,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float normal_strength = 3.0f;
   float height_scale = 0.07f;
   float uv_tile = 1.0f;
+  // Grecharged-pbr-realtime-fusion: emissive intensity multiplier (fused rt+pbr path).
+  float emissive_str = 1.0f;
   // Owner round-3 mandate (macro shading): lighting-split calibration. Indirect 1.0 =
   // the baked-GI term reproduces legacy brightness in full baked shadow by construction
   // (see tfrag3.frag); direct scales the realtime sun DIFFUSE because the baked color
@@ -1381,6 +1399,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.uvtile", v) > 0) {
       uv_tile = atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.emissive", v) > 0) {
+      emissive_str = atof(v);
+    }
     if (__system_property_get("debug.opengoal.pbr.direct", v) > 0) {
       pbr_direct = atof(v);
     }
@@ -1415,6 +1436,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
   if (const char* e = getenv("OG_PBR_UVTILE")) {
     uv_tile = atof(e);
+  }
+  if (const char* e = getenv("OG_PBR_EMISSIVE")) {
+    emissive_str = atof(e);
   }
   if (const char* e = getenv("OG_PBR_DIRECT")) {
     pbr_direct = atof(e);
@@ -2049,6 +2073,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_normal_strength"), normal_strength);
   glUniform1f(glGetUniformLocation(id, "u_pbr_height_scale"), height_scale);
   glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_emissive_str"), emissive_str);
   glUniform1f(glGetUniformLocation(id, "u_pbr_direct"), pbr_direct);
   glUniform1f(glGetUniformLocation(id, "u_pbr_indirect"), pbr_indirect);
   glUniform1f(glGetUniformLocation(id, "u_pbr_baked_weight"), pbr_baked_weight);

@@ -22,7 +22,8 @@ uniform int gfx_hack_no_tex;
 uniform vec4 u_fringe_fade;
 
 #ifdef OG_PBR
-uniform int u_pbr_mode;        // 0=legacy; bit1 normal, bit2 rough, bit4 metal, bit8 ao, bit16 height/POM
+uniform int u_pbr_mode;        // 0=legacy; bit1 normal, bit2 rough, bit4 metal, bit8 ao, bit16 height/POM,
+                               // bit32 specular (F0 workflow), bit64 emissive (unlit add) — fusion phase
 uniform vec3 u_pbr_sun_dir;    // world-space, surface->sun, normalized (viz/legacy)
 uniform vec3 u_pbr_sun_color;
 // Round-4 multi-light: 3 direct lights from light-group 0 (soleil + lune verte + fill),
@@ -68,6 +69,12 @@ uniform sampler2D tex_PBR_R;
 uniform sampler2D tex_PBR_M;
 uniform sampler2D tex_PBR_AO;
 uniform sampler2D tex_PBR_H;
+// Grecharged-pbr-realtime-fusion (owner: "faut câbler specular et emissive aussi"):
+// _specular = F0/specular color (specular workflow, overrides metallic-derived F0),
+// _emissive = unlit self-illumination added on top (glows in shadow/night). Units 16/17.
+uniform sampler2D tex_PBR_S;
+uniform sampler2D tex_PBR_E;
+uniform float u_pbr_emissive_str;  // emissive intensity (prop debug.opengoal.pbr.emissive)
 // Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
 // meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
@@ -496,7 +503,179 @@ void main() {
       // a RESOURCE for future PBR/water; the old probe-fed composite survives only behind
       // the default-OFF "BAKED AMBIENT" curiosity toggle (u_rt_probe_on), the else below.
       // Realtime Lighting OFF never reaches here => pure vanilla baked (OFF == stock).
-      if (u_rt_probe_on == 0) {
+      // ===============================================================================
+      // Grecharged-pbr-realtime-fusion (owner 2026-07-20: "c'est là que ça va briller").
+      // When PBR MATERIAL MAPS are bound for this draw (pbr-materials ON => u_pbr_mode
+      // != 0), the realtime path becomes a full physically-based renderer: Cook-Torrance
+      // GGX for BOTH analytic suns (yellow day sun x its cast shadow x night elevation
+      // fade; green night sun x its cast shadow, color pre-weighted C++-side), plus the
+      // directional-ambient model (hemisphere/SH/IBL) as the indirect term. The
+      // standalone u_pbr_mode branch further below is untouched = the rt-OFF fallback.
+      // Conventions:
+      //   _specular (bit 32): F0/specular color (SPECULAR WORKFLOW). When present it
+      //     OVERRIDES the metallic-derived F0 (mix(0.04, albedo, metal)); roughness
+      //     stays microfacet roughness; metal still kills diffuse via kd.
+      //   _emissive (bit 64): UNLIT self-illumination ADDED on top — independent of
+      //     suns/ambient/shadows => glows at night by construction.
+      //   _ao: multiplies the AMBIENT term ONLY (contact occlusion, never the suns).
+      // rt ON + pbr OFF (u_pbr_mode==0) falls through to the accepted BAKED-MODULATION
+      // path below, byte-identical — no regression to the directional-ambient look.
+      if (u_pbr_mode != 0) {
+        // Cotangent frame around the SMOOTH normal N (screen-derivative TBN — tfrag
+        // data has no vertex tangents; same construction as the standalone path, but
+        // seeded with the reconstructed smooth normal so map detail rides on it).
+        vec3 fdp1 = dFdx(v_fringe_rel);
+        vec3 fdp2 = dFdy(v_fringe_rel);
+        vec2 fduv1 = dFdx(tex_coord.xy);
+        vec2 fduv2 = dFdy(tex_coord.xy);
+        vec3 fdp2perp = cross(fdp2, N);
+        vec3 fdp1perp = cross(N, fdp1);
+        vec3 fT = fdp2perp * fduv1.x + fdp1perp * fduv2.x;
+        vec3 fB = fdp2perp * fduv1.y + fdp1perp * fduv2.y;
+        float finvmax = inversesqrt(max(max(dot(fT, fT), dot(fB, fB)), 1e-10));
+        vec3 fTn = fT * finvmax;
+        vec3 fBn = fB * finvmax;
+        vec2 uv = tex_coord.xy * u_pbr_uv_tile;
+        // Height map (bit 16): the same mobile-tuned POM march as the standalone path
+        // (already proven on Adreno 618 there — same cost class, so it ships here too).
+        if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0) {
+          vec3 Vt = normalize(vec3(dot(Vv, fTn), dot(Vv, fBn), max(dot(Vv, N), 0.0)));
+          float vz = max(Vt.z, 0.12);
+          float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
+          vec2 duv_step = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile / n_layers;
+          float layer_d = 1.0 / n_layers;
+          float cur_d = 0.0;
+          float map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+          float prev_map_d = map_d;
+          for (int i = 0; i < 32; i++) {
+            if (cur_d >= map_d || float(i) >= n_layers) {
+              break;
+            }
+            uv -= duv_step;
+            prev_map_d = map_d;
+            map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+            cur_d += layer_d;
+          }
+          float after = map_d - cur_d;
+          float before = prev_map_d - (cur_d - layer_d);
+          float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
+          uv += duv_step * (1.0 - w);
+        }
+        // Normal map (bit 1) perturbs the SMOOTH normal => surface detail that shades
+        // correctly as the realtime suns move (the fusion's whole point).
+        vec3 Nm = N;
+        if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
+          vec3 nmt = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
+          nmt.xy *= u_pbr_normal_strength;
+          nmt = normalize(nmt);
+          Nm = normalize(mat3(fTn, fBn, N) * nmt);
+          if (dot(Nm, gN) < 0.0) Nm = N;  // never flip past the face
+        }
+        vec4 T0p = texture(tex_T0, uv);
+        vec3 albedo = pow(T0p.rgb, vec3(2.2));
+        float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.7;
+        float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
+        float ao = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
+        vec3 F0 = (u_pbr_mode & 32) != 0 ? pow(texture(tex_PBR_S, uv).rgb, vec3(2.2))
+                                         : mix(vec3(0.04), albedo, metal);
+        float NdV = max(dot(Nm, Vv), 1e-4);
+        float fa = max(rough * rough, 0.002);
+        float fa2 = fa * fa;
+        float fk = (rough + 1.0) * (rough + 1.0) / 8.0;
+        // BOTH analytic suns, Cook-Torrance each: i=0 the yellow sun (visibility = its
+        // cast shadow sun_occ x the night fade u_rt_sun_elev), i=1 the green sun
+        // (u_rt_moon_color already carries its night crossover weight C++-side;
+        // visibility = ITS cast shadow moon_occ — per-sun map ownership, item 1).
+        vec3 direct = vec3(0.0);
+        vec3 spec_sum = vec3(0.0);
+        for (int i = 0; i < 2; i++) {
+          vec3 Li = (i == 0) ? L : normalize(u_rt_moon_dir);
+          vec3 lc = (i == 0) ? u_rt_sun_color * clamp(u_rt_sun_elev, 0.0, 1.0)
+                             : u_rt_moon_color;
+          float vis = (i == 0) ? sun_occ : moon_occ;
+          if (dot(lc, vec3(1.0)) <= 1e-5) {
+            continue;
+          }
+          vec3 Hh = normalize(Li + Vv);
+          float NdL = max(dot(Nm, Li), 0.0);
+          float NdH = max(dot(Nm, Hh), 0.0);
+          float VdH = max(dot(Vv, Hh), 0.0);
+          float dd = NdH * NdH * (fa2 - 1.0) + 1.0;
+          float D = fa2 / (3.14159265 * dd * dd);
+          float G = (NdV / (NdV * (1.0 - fk) + fk)) * (NdL / (NdL * (1.0 - fk) + fk));
+          vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);
+          vec3 spec = D * G * F / max(4.0 * NdV * NdL, 1e-4);
+          vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
+          vec3 contrib = (kd * albedo / 3.14159265 + spec) * lc * NdL * vis;
+          direct += contrib;
+          spec_sum += spec * lc * NdL * vis;
+        }
+        // AMBIENT (indirect diffuse): the directional-ambient model sampled by the
+        // SHADED normal; AO multiplies the ambient ONLY.
+        vec3 amb_base;
+        if (u_rt_ambient_on == 0) {
+          amb_base = vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
+        } else if (u_rt_ambient_model == 1) {
+          amb_base = rt_sh_ambient(Nm);
+        } else if (u_rt_ambient_model == 2) {
+          amb_base = rt_ibl_ambient(Nm);
+        } else {
+          amb_base = mix(u_rt_ground_color, u_rt_sky_color, clamp(Nm.y * 0.5 + 0.5, 0.0, 1.0));
+        }
+        amb_base = clamp(amb_base, 0.0, 1.0);
+        vec3 amb_diff = albedo * amb_base * ao * (1.0 - metal);
+        // Roughness-aware AMBIENT SPECULAR (single reflection term) so smooth metals
+        // aren't dead in shadow: env = the prefiltered probe cube when probes +
+        // reflections are ON, else the analytic ambient evaluated at the reflection
+        // direction (Fdez-Aguera roughness-aware Fresnel, as the standalone path).
+        vec3 Rf = reflect(-Vv, Nm);
+        vec3 amb_env;
+        if (u_rt_probe_on != 0 && u_rt_probe_reflections != 0) {
+          amb_env = textureLod(u_rt_probe_cube, Rf, rough * 3.0).rgb *
+                    clamp(u_rt_probe_strength, 0.0, 1.0);
+        } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 1) {
+          amb_env = rt_sh_ambient(Rf);
+        } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 2) {
+          amb_env = rt_ibl_ambient(Rf);
+        } else {
+          amb_env = amb_base;
+        }
+        vec3 Fr = max(vec3(1.0 - rough), F0) - F0;
+        vec3 Fenv = F0 + Fr * pow(1.0 - NdV, 5.0);
+        vec3 amb_spec = amb_env * Fenv * ao;
+        // EMISSIVE (bit 64): unlit, added on top — glows in full shadow / at night.
+        vec3 emissive = (u_pbr_mode & 64) != 0
+                            ? pow(texture(tex_PBR_E, uv).rgb, vec3(2.2)) *
+                                  max(u_pbr_emissive_str, 0.0)
+                            : vec3(0.0);
+        vec3 flit = direct + amb_diff + amb_spec + emissive;
+        // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite,
+        // so the fused patch stays coherent with its rt-lit legacy neighbours.
+        {
+          const float RT_KNEE = 0.8;
+          vec3 fe = exp(-max(flit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));
+          flit = mix(flit, vec3(1.0) - (1.0 - RT_KNEE) * fe, step(vec3(RT_KNEE), flit));
+        }
+        vec3 fdisp = pow(max(flit, vec3(0.0)), vec3(1.0 / 2.2));
+        float ffar_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
+        float ffar_t = smoothstep(ffar_rng * 0.82, ffar_rng * 1.05, length(v_fringe_rel));
+        vec3 fbaked = max(fragment_color.rgb * T0.rgb, vec3(0.0));
+        color.rgb = mix(fdisp, fbaked, ffar_t);
+        // Debug viz (default colored render untouched at u_pbr_debug==0).
+        if (u_pbr_debug == 2) {
+          color.rgb = N * 0.5 + 0.5;
+        } else if (u_pbr_debug == 3) {
+          color.rgb = Nm * 0.5 + 0.5;
+        } else if (u_pbr_debug == 4) {
+          color.rgb = vec3(rough);
+        } else if (u_pbr_debug == 5) {
+          color.rgb = pow(max(spec_sum, vec3(0.0)), vec3(1.0 / 2.2));
+        } else if (u_pbr_debug == 6) {
+          color.rgb = vec3(ao);
+        } else if (u_pbr_debug == 18) {
+          color.rgb = pow(max(emissive, vec3(0.0)), vec3(1.0 / 2.2));
+        }
+      } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
         float term_g = smoothstep(0.0, 0.35, dot(N, normalize(u_rt_moon_dir)));
         float lit_y = term_y * sun_occ;    // toward the sun AND not cast-shadowed

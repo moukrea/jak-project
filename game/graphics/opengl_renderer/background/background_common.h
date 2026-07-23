@@ -145,9 +145,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 // GL-thread only.
 struct PbrNeutralMaps {
   GLuint normal_tex = 0, rough_tex = 0, metal_tex = 0, ao_tex = 0, height_tex = 0;
+  // Grecharged-pbr-realtime-fusion: specular (F0) + emissive neutrals — black = "map
+  // absent" (the shader gates on u_pbr_mode bits 32/64, so these are only Adreno
+  // never-unbound safety, like the rest).
+  GLuint specular_tex = 0, emissive_tex = 0;
 };
 const PbrNeutralMaps& pbr_neutral_maps();
-// Bind the neutrals to units 11-15 and restore active unit 0.
+// Bind the neutrals to units 11-17 and restore active unit 0.
 void pbr_park_neutral_maps();
 
 // Grecharged-pbr-materials round-4 coverage unification: the per-draw PBR material

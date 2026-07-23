@@ -80,10 +80,12 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     const auto* m = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic");
     const auto* a = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao");
     const auto* h = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height");
+    const auto* s = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular");
+    const auto* e = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive");
     // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
     // buffer, so it must be consumed (uploaded) before the next call. Below we
     // re-fetch each map immediately before its upload to keep that contract.
-    if (n || r || m || h) {
+    if (n || r || m || h || s || e) {
       auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
           return 0;
@@ -122,10 +124,18 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
         maps.height_tex = make_map(
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height"));
       }
+      if (s) {
+        maps.specular_tex = make_map(
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular"));
+      }
+      if (e) {
+        maps.emissive_tex = make_map(
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive"));
+      }
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
       auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
-      GLuint old_ids[5] = {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex,
-                           prev.height_tex};
+      GLuint old_ids[7] = {prev.normal_tex, prev.rough_tex,    prev.metal_tex,   prev.ao_tex,
+                           prev.height_tex, prev.specular_tex, prev.emissive_tex};
       for (GLuint oid : old_ids) {
         if (oid) {
           glDeleteTextures(1, &oid);

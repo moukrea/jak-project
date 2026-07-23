@@ -48,6 +48,9 @@ struct PbrMaterialMaps {
   u32 metal_tex = 0;
   u32 ao_tex = 0;
   u32 height_tex = 0;  // <tex>_height.png — drives parallax occlusion mapping
+  // Grecharged-pbr-realtime-fusion (owner: "faut câbler specular et emissive aussi"):
+  u32 specular_tex = 0;  // <tex>_specular.png — F0 / specular color (specular workflow)
+  u32 emissive_tex = 0;  // <tex>_emissive.png — unlit self-illumination, added on top
 };
 
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by
