@@ -190,3 +190,19 @@ EXT_tessellation_shader — Adreno 618 supports it; tessellate the near ground/w
 The bar: "comme les jeux récents — relief poussé, super intégré."
 
 Mechanical + bisect matrix + READY; the owner judges. His textures are quality — make them look it.
+
+**OWNER (2026-07-23) — SEAMLESS INTEGRATION CONTRACT.** "Le PBR doit rendre comme dans les jeux actuels,
+pas comme une preview grossière de textures 3D — intégré seamless dans le jeu, prenant en compte le baked,
+l'environnement actuel, l'éclairage actuel." The "pasted material-preview" look has precise causes — audit
+each on the fused path:
+(a) **FOG**: the game's fog/depth-cue MUST apply to the PBR-lit result exactly as to neighbors — a PBR wall
+    that skips fog pops out like a sticker. Verify the fused branch goes through the same fog stage.
+(b) **LIGHT INPUTS = the scene's actual lights**: sun/green-sun specular+diffuse must use the CURRENT TOD
+    sun colours/intensities (the same driving the baked modulation) — never fixed white/unit lights; the
+    ambient/env from the LOCAL probe. Alien-coloured highlights = instant preview-look.
+(c) **BAKED influence retained on the PBR surfaces** (already mandated — re-verify after the bisect fix).
+(d) **SAME OUTPUT TRANSFORM**: gamma/tone of the fused branch identical to the neighbouring non-PBR
+    surfaces (no brighter/washier branch).
+(e) **BORDER COHERENCE**: a PBR-textured surface next to a non-PBR one must not pop — check a boundary
+    vantage; lighting continuity across the seam.
+Acceptance stays: the owner's eye — "seamless, comme les jeux récents".
