@@ -4143,7 +4143,7 @@
                   (set! (-> *pc-settings* realtime-lighting?) #t)
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 2.0)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 1.0)
+                  (set! (-> *pc-settings* pbr-specular-intensity) 0.2) ;; REOPEN #6: matte showcase (rough=matte via matte_gate; low spec only on smooth/metal)
                   (set! (-> *pc-settings* pbr-displacement) 2)
                   (set! (-> *pc-settings* follow-probe) 3) ;; ALL-IN => HIGH follow-probe
                   (set! (-> *pc-settings* realtime-ambient-model) 2))
@@ -4154,7 +4154,7 @@
                   (set! (-> *pc-settings* realtime-lighting?) #t)
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 1.0)
+                  (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric shipped default
                   (set! (-> *pc-settings* pbr-displacement) 1)
                   (set! (-> *pc-settings* follow-probe) 2)) ;; FUSED => MID follow-probe
                  ((2) ;; FUSED FLAT (FUSED but displacement OFF)
@@ -4164,7 +4164,7 @@
                   (set! (-> *pc-settings* realtime-lighting?) #t)
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 1.0)
+                  (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric default
                   (set! (-> *pc-settings* pbr-displacement) 0)
                   (set! (-> *pc-settings* follow-probe) 1)) ;; FUSED FLAT/PLATE => LOW follow-probe
                  ((3) ;; PBR ONLY

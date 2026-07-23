@@ -110,7 +110,7 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 16 | Shadow Distance | slider | 20..200 m pas 10 (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
 | 17 | Shadow Quality | carousell | **Low/Med/High = 1024/2048/4096** (cond: Realtime OFF ou RECHARGED MASTER OFF) | {FLAG_PBR} |
 | 18 | **Texture Relief** [R] | slider | 0.0..3.0 pas 0.25 (déc.) → `pbr-texture-relief`, **défaut 1.5** (1.0 = look pré-slider) — multiplie la force de la normal-map + parallax du chemin PBR MATERIALS (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
-| 19 | **Specular Intensity** [R] | slider | 0.0..2.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 1.0** — échelle le spéculaire GGX fusionné (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2** | {FLAG_PBR} |
+| 19 | **Specular Intensity** [R] | slider | 0.0..3.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 0.15 (REOPEN #6 matte-dielectric)** — échelle le spéculaire GGX fusionné, mais NE contrôle PLUS le look matte : les surfaces rugueuses (dielectrics = pierre/sable/herbe) sont matte par construction via le `matte_gate` shader (spéc → ~0 dès roughness ≥ 0.60), ce slider ne fait que doser le reflet résiduel sur les texels VRAIMENT lisses/métalliques. Owner monte pour les matériaux brillants (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2 ; défaut abaissé 1.0→0.15 REOPEN #6** | {FLAG_PBR} |
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **RT ONLY (idx 4) garde `load-custom-assets?` ON depuis 2026-07-23** (RT sur textures custom, cartes PBR OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 22 | Back | button | (jamais grisé) | — |
@@ -157,6 +157,17 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > toggle. Ids texte : `pc-text-envprobe-low` #x1721 / `-mid` #x1722 / `-high` #x1723 (Off réutilise l'id générique).
 > Câblé aux presets PBR TEST : ALL-IN=3, FUSED=2, FUSED FLAT/PLATE=1, PBR ONLY=2, RT ONLY=0, STOCK=0.
 > Setter C++ : `pc_set_follow_probe(u32 tier)` → `Gfx::g_global_settings.recharged_follow_probe` (clamp ≤3).
+>
+> **Changement de défaut (2026-07-23, Gpbr-fusion REOPEN #6 — MATTE-DIELECTRIC)** : après playtest #4 owner
+> (décompo : « Lighting-only » BON, la vitre n'apparaît QUE avec PBR ⇒ la vitre EST le terme spéculaire/env sur
+> matériaux MATTE), le look par défaut devient **matte** : le shader `tfrag3.frag` gagne un `matte_gate` =
+> `max(1 - smoothstep(0.30,0.60,roughness), metal)` qui pousse TOUT le spéculaire (GGX des 2 soleils + réflexion
+> env) vers ~0 dès que la surface est rugueuse (roughness ≥ 0.60 ⇒ zéro reflet, zéro highlight caméra-dépendant),
+> sur les DEUX chemins (fusionné rt-ON+pbr-ON ET standalone pbr-ONLY). Seuls les texels vraiment lisses/métal
+> gardent un reflet. Le **défaut du slider Specular Intensity passe 1.0 → 0.15** (matte est la norme ; le slider
+> ne dose que le résiduel lisse/métal). Presets réalignés : ALL-IN spéc 0.2, FUSED/FUSED FLAT spéc 0.15.
+> Bisect bit **4096** = matte_gate OFF (killswitch device A/B : restaure l'ancienne vitre pour prouver que le
+> chemin matte est actif). `_roughness` manquante ⇒ 0.9 (ROUGH) sur les deux chemins (jamais lisse).
 >
 > **Réorganisation (2026-07-21, OWNER #3 UNIFICATION)** : les trois anciennes lignes BAKED AMBIENT /
 > BAKED REFLECTIONS / BAKED AMBIENT QUALITY ont été **fusionnées** dans le groupe AMBIENT unifié

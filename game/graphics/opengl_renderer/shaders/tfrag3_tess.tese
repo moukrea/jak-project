@@ -27,13 +27,14 @@ uniform float u_pbr_height_scale;  // POM's native-UV depth scale (also drives d
 uniform float u_pbr_uv_tile;       // extra UV tiling on the PBR path
 uniform sampler2D tex_PBR_H;       // height map, unit 15 (.r = height, 0.5 = neutral mid)
 
-// REOPEN #3 TESS DISPLACEMENT MAGNITUDE. u_pbr_height_scale is the POM's UV-space depth scale;
-// the parallax path treats 0.1 as a strong relief. TESS_DISP_K converts that to WORLD units so
-// the geometric displacement visually matches the parallax depth. 1 game unit = 1/4096 m; we
-// displace in game units, so K here is "game units per (h-0.5) per unit height_scale". With the
-// 4096 game-units-per-meter scale, K = 4096.0 gives ~1 m of peak-to-trough at height_scale 0.5.
-// Single knob — tune this one constant if the relief reads too deep/shallow.
-#define TESS_DISP_K 4096.0
+// REOPEN #3/#6 TESS DISPLACEMENT MAGNITUDE. u_pbr_height_scale is the POM's UV-space depth scale;
+// TESS_DISP_K converts that to WORLD (game) units so the geometric displacement is REAL. Because
+// this is genuine vertex displacement it can NEVER float like POM does — so tessellation keeps a
+// deeper, convincing relief (~5 cm peak-to-trough) even though REOPEN #6 dropped the POM base
+// depth 3.5x (0.07 -> 0.02) to surface-lock the parallax. K is bumped 3.5x to compensate and keep
+// the real-geometry displacement calibrated: 0.02 (base) * 1.5 (relief) * 14336 * 0.5 ~= 215 game
+// units ~= 5.25 cm. 1 game unit = 1/4096 m. Single knob — tune if the relief reads too deep/shallow.
+#define TESS_DISP_K 14336.0
 #endif
 
 // frag-consumed varyings (exact names/types from tfrag3.frag / tfrag3.vert).

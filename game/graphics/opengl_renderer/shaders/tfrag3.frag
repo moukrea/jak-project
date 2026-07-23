@@ -85,7 +85,9 @@ uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, de
 //   16 = _specular-map F0 (fall back to metallic-derived)   32 = emissive
 //   64 = normal-map perturbation (Nm = smooth N)           128 = parallax/POM
 //  256 = detail-relight ratio fdetail     512 = baked-modulation lit/shadow fmod
-// 1024 = C1 shoulder tone map (linear clamp instead)
+// 1024 = C1 shoulder tone map (linear clamp instead)  2048 = fused-contrast fmod compress off
+// 4096 = REOPEN #6 matte-dielectric ENVELOPE off (restores the old glossy sheen for A/B: the
+//        default matte look vs the pre-#6 glass — the owner's "path active?" killswitch)
 uniform int u_pbr_bisect;
 // REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
 // (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement
@@ -557,12 +559,21 @@ void main() {
         if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
             (u_pbr_bisect & 128) == 0 && u_pbr_displacement != 2) {
           vec3 Vt = normalize(vec3(dot(Vv, fTn), dot(Vv, fBn), max(dot(Vv, N), 0.0)));
-          float vz = max(Vt.z, 0.12);
+          float vz = max(Vt.z, 0.20);
           // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);
           // the loop bound below already allows 32. Occlusion test + secant interpolation
           // (the industry steep-parallax + refinement) were already in place.
           float n_layers = mix(32.0, 16.0, clamp(Vt.z, 0.0, 1.0));
-          vec2 duv_step = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile / n_layers;
+          // REOPEN #6 SURFACE-LOCK (owner playtest #5: the "10cm epoxy float, texture moves
+          // differently than the model"). The grazing amplifier (Vt.xy / vz) can push the raw
+          // parallax offset to ~0.9 UV — nearly a whole texel-tile of swim = the floating
+          // epoxy layer. Build the TOTAL parallax vector P and CLAMP its length so the offset
+          // can never exceed a small, surface-locked bound: the depth reads from the surface
+          // itself, never from clear epoxy floating in front of it. duv_step marches P/n_layers.
+          vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile;
+          float Plen = length(P);
+          if (Plen > 0.05) P *= 0.05 / Plen;
+          vec2 duv_step = P / n_layers;
           float layer_d = 1.0 / n_layers;
           float cur_d = 0.0;
           float map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
@@ -655,6 +666,22 @@ void main() {
         // into the white mirror-edge sheen (the owner's "surcouche plastique" at ground +
         // extreme angles).
         vec3 Fceil = max(vec3(1.0 - rough), F0);
+        // ===============================================================================
+        // REOPEN #6 MATTE-DIELECTRIC DEFAULT (owner playtest #4 + 5-screenshot decomposition:
+        // "Lighting-only" is GOOD, the glass appears ONLY when PBR is on => the glass IS the
+        // specular / env-reflection term made VISIBLE on MATTE materials where it must not be).
+        // Industry truth: a rough dielectric (stone/sand/grass/wood = all of village1) reflects
+        // almost NOTHING — its microfacet lobe is so broad the peak radiance is negligible and
+        // view-STABLE. So the ENTIRE specular contribution (direct GGX of both suns + the
+        // ambient/env reflection) is driven toward ~0 as roughness rises: at rough >= ~0.60 the
+        // surface is fully MATTE (no sheen, no camera-dependent highlight). Only genuinely SMOOTH
+        // (rough < 0.30) or METALLIC texels keep a visible highlight. This is the visible-highlight
+        // ENVELOPE riding ON TOP of the physical BRDF, NOT a replacement — the normal-mapped
+        // DIFFUSE relief the owner LIKES (fdetail below) is untouched, so PBR-ON = Lighting-only
+        // + depth, MINUS the gloss. Bisect bit 4096 = envelope OFF (device A/B killswitch proving
+        // the matte path is active: the old glassy sheen returns when set).
+        float matte_gate = max(1.0 - smoothstep(0.30, 0.60, rough), metal);
+        if ((u_pbr_bisect & 4096) != 0) matte_gate = 1.0;
         // ===============================================================================
         // REOPEN OWNER ARCHITECTURE: BASE = the validated BAKED-MODULATION composite (the
         // fought-for object relief) — the baked influence ALWAYS remains; the PBR layer
@@ -774,7 +801,12 @@ void main() {
         } else {
           fenv_sharp = famb_base;
         }
-        vec3 famb_env = mix(fenv_sharp, famb_base, smoothstep(0.25, 0.9, rough));
+        // REOPEN #6 VIEW-STABILITY: collapse the sharp view-dependent reflection (Rf, the
+        // camera-dependent "highlight shifts with the camera" the owner saw on rock/sand) to the
+        // view-INDEPENDENT irradiance (famb_base, from the perturbed Nm) by rough ~0.50 — well
+        // before the matte_gate finishes at 0.60 — so no camera-dependent env sheen survives on
+        // any rough surface, even inside the 0.30-0.60 transition band.
+        vec3 famb_env = mix(fenv_sharp, famb_base, smoothstep(0.12, 0.50, rough));
         // REOPEN #3 fix — THE bisect-identified culprit (mask 4: zeroing this term halved
         // the wall luma; the plastic film lived here). The raw Fresnel multiply (famb_env *
         // Fenv, grazing ceiling max(1-rough, F0)) is replaced by the industry SPLIT-SUM env
@@ -791,7 +823,10 @@ void main() {
                             ? pow(texture(tex_PBR_E, uv).rgb, vec3(2.2)) *
                                   max(u_pbr_emissive_str, 0.0)
                             : vec3(0.0);
-        vec3 fspec_sum = (fspec_direct + famb_spec) * fspecocc * max(u_pbr_spec_intensity, 0.0);
+        // REOPEN #6: matte_gate drives the WHOLE specular (direct GGX + env reflection) to ~0 on
+        // rough dielectrics (independent of the slider — a rough surface is matte even at spec=1),
+        // then the low-default slider trims what remains on genuinely smooth/metal texels.
+        vec3 fspec_sum = (fspec_direct + famb_spec) * fspecocc * matte_gate * max(u_pbr_spec_intensity, 0.0);
         vec3 flit = fbase_lin + fspec_sum + emissive;
         // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite —
         // the added specular can never clip the baked base to white.
@@ -1069,9 +1104,14 @@ void main() {
         // march depth is (1 - height). textureLod avoids undefined derivatives in the
         // loop; the offsets are small so mip 0 is acceptable at PoC distances.
         vec3 Vt = normalize(vec3(dot(V, Tn), dot(V, Bn), max(dot(V, Ngeo), 0.0)));
-        float vz = max(Vt.z, 0.12);  // cap the grazing blow-up (offset <= ~8x scale)
+        float vz = max(Vt.z, 0.20);  // cap the grazing blow-up (raised REOPEN #6 for surface-lock)
         float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
-        vec2 duv_step = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile / n_layers;
+        // REOPEN #6 SURFACE-LOCK (same fix as the fused path): clamp the total parallax UV
+        // offset so the rt-OFF standalone POM is also welded to the surface — no epoxy float.
+        vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile;
+        float Plen = length(P);
+        if (Plen > 0.05) P *= 0.05 / Plen;
+        vec2 duv_step = P / n_layers;
         float layer_d = 1.0 / n_layers;
         float cur_d = 0.0;
         float map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
@@ -1108,7 +1148,9 @@ void main() {
       // sample keeps supplying alpha for the legacy discard product below.
       vec4 T0p = texture(tex_T0, uv);
       vec3 albedo = pow(T0p.rgb, vec3(2.2));
-      float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.7;
+      // REOPEN #6: missing _roughness => ROUGH (matte), never smooth — a smooth default is the
+      // exact cause of the plastic sheen the owner reported on the PBR-ONLY preset.
+      float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.9;
       float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
       float ao    = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
       float NdV = max(dot(N, V), 1e-4);
@@ -1123,6 +1165,10 @@ void main() {
       float a2 = a * a;
       vec3 F0 = mix(vec3(0.04), albedo, metal);
       vec3 Fceil = max(vec3(1.0 - rough), F0);
+      // REOPEN #6 MATTE-DIELECTRIC DEFAULT (owner sees the same glass on the PBR-ONLY preset):
+      // rough dielectrics reflect ~nothing — drive the direct GGX + env reflection toward ~0 by
+      // roughness so this rt-OFF fallback is matte too. Only smooth/metal texels keep a highlight.
+      float matte_gate = max(1.0 - smoothstep(0.30, 0.60, rough), metal);
       // Round-4 mandate B: the shared sun shadow-map factor computed above.
       float shadow = sm_shadow;
       // Round-4bis mandate E: baked weight. The u_pbr_direct diffuse damping is the
@@ -1154,7 +1200,7 @@ void main() {
         vec3 F = F0 + (Fceil - F0) * pow(1.0 - VdH, 5.0);
         vec3 spec = D * Vis * F;
         vec3 kd = (vec3(1.0) - F) * (1.0 - metal);
-        vec3 contrib = (kd * albedo / 3.14159265 * direct_diff_scale + spec) * lc * NdL;
+        vec3 contrib = (kd * albedo / 3.14159265 * direct_diff_scale + spec * matte_gate) * lc * NdL;
         direct += contrib;
         spec_sum += spec * lc * NdL;
         if (i > 0) {
@@ -1192,7 +1238,7 @@ void main() {
         vec3 prefiltered = textureLod(u_rt_probe_cube, Rf, mip).rgb;
         vec3 Fr = max(vec3(1.0 - rough), F0) - F0;        // roughness-aware Fresnel (Fdez-Aguera)
         vec3 Fenv = F0 + Fr * pow(1.0 - NdV, 5.0);
-        lit += prefiltered * Fenv * ao * clamp(u_rt_probe_strength, 0.0, 1.0);
+        lit += prefiltered * Fenv * ao * clamp(u_rt_probe_strength, 0.0, 1.0) * matte_gate;
       }
       color.rgb = pow(max(lit * u_pbr_exposure, vec3(0.0)), vec3(1.0 / 2.2));
       if (u_pbr_debug == 1) {

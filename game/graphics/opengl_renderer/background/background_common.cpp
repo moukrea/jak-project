@@ -1366,7 +1366,14 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // deep mortar relief, no grazing smear — see device/calib/). Extra UV tiling 1.0 =
   // native texel density (2x read busier and smeared at grazing on this wall).
   float normal_strength = 3.0f;
-  float height_scale = 0.07f;
+  // REOPEN #6 (owner playtest #5: the "~10cm epoxy float" = the POM depth is ~100x too large,
+  // the texture swims off the geometry). Calibrated DOWN to a surface-locked micro-relief:
+  // 0.02 (was 0.07) UV-space depth. The primary relief now comes from the NORMAL-MAP SHADING
+  // (surface-locked, cannot float — normal_strength stays strong); POM only adds a subtle,
+  // CLAMPED (see tfrag3.frag surface-lock) occlusion parallax that stays welded to the surface.
+  // Tessellation (the real geometric displacement) keeps its ~5cm depth via TESS_DISP_K in the
+  // tese (bumped to compensate this reduction) — real vertices never float.
+  float height_scale = 0.02f;
   float uv_tile = 1.0f;
   // Grecharged-pbr-realtime-fusion: emissive intensity multiplier (fused rt+pbr path).
   float emissive_str = 1.0f;

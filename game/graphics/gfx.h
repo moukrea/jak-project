@@ -195,8 +195,11 @@ struct GfxGlobalSettings {
   float recharged_pbr_exposure = 1.0f;
   // REOPEN #2 menu sliders: TEXTURE RELIEF (multiplier on normal-strength + POM height;
   // 1.0 = pre-slider look, shipped default 1.5) and SPECULAR INTENSITY (fused spec scale).
+  // REOPEN #6 (owner playtest #4: matte is the norm): SPECULAR INTENSITY shipped default is now
+  // LOW (0.15) — rough dielectrics are matte by construction (the shader matte_gate); the slider
+  // only trims the residual highlight on genuinely smooth/metal texels. Owner dials up for shiny.
   float recharged_pbr_texture_relief = 1.5f;
-  float recharged_pbr_spec_intensity = 1.0f;
+  float recharged_pbr_spec_intensity = 0.15f;
   // REOPEN #3 DISPLACEMENT menu carousel: 0 = Off, 1 = Parallax (steep POM, default),
   // 2 = Tessellation (GLES3.2/GL4.x tess displacement, near ground/walls).
   int recharged_pbr_displacement = 1;
