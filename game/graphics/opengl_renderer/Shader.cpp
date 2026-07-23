@@ -59,11 +59,31 @@ bool gl_context_supports_tessellation() {
   // function pointer (glad's macro expands to glad_glPatchParameteri) that can be NULL on a
   // driver even when GL_VERSION advertises tessellation. Calling a NULL fn-ptr crashes, so
   // require the entry point to be actually resolved before declaring tessellation usable.
+  // REOPEN#7 TESS ROOT CAUSE + FIX: glad loads only the CORE name "glPatchParameteri" via
+  // SDL_GL_GetProcAddress. GLES 3.2 drivers (Adreno 6xx/8xx) commonly export ONLY the suffixed
+  // "glPatchParameteriEXT"/"glPatchParameteriOES" even though tessellation is a core 3.2 feature,
+  // so the core fn-ptr is NULL and tessellation was wrongly disabled (owner: "tess still falls
+  // back"). Resolve the suffixed entry points and bind them to glad's pointer before giving up.
+  if (ok && glPatchParameteri == nullptr) {
+    void* p = (void*)SDL_GL_GetProcAddress("glPatchParameteriEXT");
+    const char* which = "EXT";
+    if (!p) {
+      p = (void*)SDL_GL_GetProcAddress("glPatchParameteriOES");
+      which = "OES";
+    }
+    if (p) {
+      glad_glPatchParameteri = (PFNGLPATCHPARAMETERIPROC)p;
+      lg::warn(
+          "[recharged] REOPEN#7 TESS: core glPatchParameteri was NULL; bound via {} suffix — "
+          "tessellation ENABLED on this driver",
+          which);
+    }
+  }
   if (ok && glPatchParameteri == nullptr) {
     ok = false;
     lg::warn(
-        "[recharged] GL reports 3.2 but glPatchParameteri is unresolved — tessellation "
-        "disabled (driver-defensive)");
+        "[recharged] REOPEN#7 TESS: glPatchParameteri unresolved (core + EXT + OES all NULL) — "
+        "tessellation disabled");
   }
   cached = ok ? 1 : 0;
   if (!ok) {
@@ -253,11 +273,21 @@ void Shader::build(const std::string& shader_name,
   if (has_tess) {
     m_tesc_shader = compile_stage(GL_TESS_CONTROL_SHADER, tesc_src, "tess-control");
     if (!m_tesc_shader) {
+      // REOPEN#7 TESS BUILD: surface the tess-control compile failure with a greppable tag so the
+      // device logcat shows the REAL GL error instead of a silent tessellation fallback.
+      lg::error("[recharged] REOPEN#7 TESS BUILD: tess-control (tesc) stage of '{}' FAILED to "
+                "compile — see the 'Failed to compile tess-control' GL InfoLog above",
+                shader_name.c_str());
       m_is_okay = false;
       return;
     }
     m_tese_shader = compile_stage(GL_TESS_EVALUATION_SHADER, tese_src, "tess-eval");
     if (!m_tese_shader) {
+      // REOPEN#7 TESS BUILD: surface the tess-eval compile failure with a greppable tag so the
+      // device logcat shows the REAL GL error instead of a silent tessellation fallback.
+      lg::error("[recharged] REOPEN#7 TESS BUILD: tess-eval (tese) stage of '{}' FAILED to "
+                "compile — see the 'Failed to compile tess-eval' GL InfoLog above",
+                shader_name.c_str());
       m_is_okay = false;
       return;
     }
@@ -276,6 +306,14 @@ void Shader::build(const std::string& shader_name,
   if (!compile_ok) {
     glGetProgramInfoLog(m_program, len, nullptr, err);
     lg::error("Failed to link shader {}:\n{}", shader_name.c_str(), err);
+    if (has_tess) {
+      // REOPEN#7 TESS BUILD: the 4-stage TFRAG3_TESS program failed to LINK. Re-dump the program
+      // InfoLog under a greppable tag so the device logcat shows the REAL GL link error (e.g. a
+      // fragment input with no producer varying) instead of a silent tessellation fallback.
+      lg::error("[recharged] REOPEN#7 TESS BUILD: tess program '{}' FAILED to LINK — GL "
+                "ProgramInfoLog:\n{}",
+                shader_name.c_str(), err);
+    }
     m_is_okay = false;
     return;
   }

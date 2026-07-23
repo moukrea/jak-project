@@ -12,6 +12,7 @@ in vec3 tc_world[];
 in vec3 tc_texcoord[];
 in vec3 tc_normal[];
 in vec4 tc_color[];
+in vec4 tc_tangent[];
 
 // same uniforms tfrag3.vert uses for the camera transform / fog / scissor.
 uniform vec4 hvdf_offset;
@@ -44,6 +45,7 @@ out float fogginess;
 out vec3 v_normal;
 out vec3 v_fringe_rel;
 out vec3 v_world;
+out vec4 v_tangent;  // REOPEN#7: emit the interpolated per-vertex tangent for tfrag3.frag
 
 vec3 bary3(vec3 a, vec3 b, vec3 c) {
   return gl_TessCoord.x * a + gl_TessCoord.y * b + gl_TessCoord.z * c;
@@ -79,6 +81,9 @@ void main() {
   v_fringe_rel = vert * (1.0 / 4096.0);
   v_world = world;
   v_normal = N;
+  // REOPEN#7: barycentric-interpolate the tangent xyz; take vertex-0 handedness (uniform within a
+  // patch) to avoid interpolating the +/-1 sign. tfrag3.frag re-orthonormalizes against v_normal.
+  v_tangent = vec4(bary3(tc_tangent[0].xyz, tc_tangent[1].xyz, tc_tangent[2].xyz), tc_tangent[0].w);
   vec4 transformed = -pc_camera[3];
   transformed.w = 0.0;
   transformed -= pc_camera[0] * vert.x;

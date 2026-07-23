@@ -8,6 +8,7 @@ in float fogginess;
 in vec3 v_fringe_rel;  // Grecharged-grass-overhang2: camera-relative world pos (meters)
 in vec3 v_world;       // Grecharged-lightprobes: absolute world pos (game units) for probe lookup
 in vec3 v_normal;      // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
+in vec4 v_tangent;     // Grecharged-pbr-realtime-fusion REOPEN#7: per-vertex tangent (xyz world, w handedness)
 uniform sampler2D tex_T0;
 
 uniform float alpha_min;
@@ -539,20 +540,29 @@ void main() {
       // rt ON + pbr OFF (u_pbr_mode==0) falls through to the accepted BAKED-MODULATION
       // path below, byte-identical — no regression to the directional-ambient look.
       if (u_pbr_mode != 0) {
-        // Cotangent frame around the SMOOTH normal N (screen-derivative TBN — tfrag
-        // data has no vertex tangents; same construction as the standalone path, but
-        // seeded with the reconstructed smooth normal so map detail rides on it).
-        vec3 fdp1 = dFdx(v_fringe_rel);
-        vec3 fdp2 = dFdy(v_fringe_rel);
-        vec2 fduv1 = dFdx(tex_coord.xy);
-        vec2 fduv2 = dFdy(tex_coord.xy);
-        vec3 fdp2perp = cross(fdp2, N);
-        vec3 fdp1perp = cross(N, fdp1);
-        vec3 fT = fdp2perp * fduv1.x + fdp1perp * fduv2.x;
-        vec3 fB = fdp2perp * fduv1.y + fdp1perp * fduv2.y;
-        float finvmax = inversesqrt(max(max(dot(fT, fT), dot(fB, fB)), 1e-10));
-        vec3 fTn = fT * finvmax;
-        vec3 fBn = fB * finvmax;
+        // REOPEN#7 FOUNDATION FIX: build the TBN from the per-vertex MikkTSpace tangent v_tangent
+        // (interpolated => CONTINUOUS across triangle edges / UV seams) instead of screen-space
+        // derivatives, which were discontinuous there => the owner's incoherent relief + the hard
+        // CONTRAST CRACKS that grew with relief. N is the reconstructed smooth normal; Gram-Schmidt
+        // re-orthonormalizes the interpolated tangent against it per fragment; .w carries handedness.
+        // A degenerate/unbound tangent (len~0 => (0,0,0,1) default) falls back to the derivative frame.
+        vec3 fTn, fBn;
+        if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
+          fTn = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
+          fBn = cross(N, fTn) * v_tangent.w;
+        } else {
+          vec3 fdp1 = dFdx(v_fringe_rel);
+          vec3 fdp2 = dFdy(v_fringe_rel);
+          vec2 fduv1 = dFdx(tex_coord.xy);
+          vec2 fduv2 = dFdy(tex_coord.xy);
+          vec3 fdp2perp = cross(fdp2, N);
+          vec3 fdp1perp = cross(N, fdp1);
+          vec3 fT = fdp2perp * fduv1.x + fdp1perp * fduv2.x;
+          vec3 fB = fdp2perp * fduv1.y + fdp1perp * fduv2.y;
+          float finvmax = inversesqrt(max(max(dot(fT, fT), dot(fB, fB)), 1e-10));
+          fTn = fT * finvmax;
+          fBn = fB * finvmax;
+        }
         vec2 uv = tex_coord.xy * u_pbr_uv_tile;
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
@@ -572,7 +582,9 @@ void main() {
           // itself, never from clear epoxy floating in front of it. duv_step marches P/n_layers.
           vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile;
           float Plen = length(P);
-          if (Plen > 0.05) P *= 0.05 / Plen;
+          // REOPEN#7: surface-lock clamp restored to a VISIBLE bound (0.08 UV, was neutered to 0.05)
+          // — the continuous per-vertex-tangent TBN keeps the offset coherent with the geometry.
+          if (Plen > 0.08) P *= 0.08 / Plen;
           vec2 duv_step = P / n_layers;
           float layer_d = 1.0 / n_layers;
           float cur_d = 0.0;
@@ -1085,17 +1097,27 @@ void main() {
       vec3 V = -normalize(p);
       vec3 Ngeo = normalize(cross(dp1, dp2));
       if (dot(Ngeo, V) < 0.0) Ngeo = -Ngeo;
-      // cotangent frame from screen-space derivatives (no vertex tangents in tfrag
-      // data) — shared by POM (tangent-space view) and normal mapping.
-      vec2 duv1 = dFdx(tex_coord.xy);
-      vec2 duv2 = dFdy(tex_coord.xy);
-      vec3 dp2perp = cross(dp2, Ngeo);
-      vec3 dp1perp = cross(Ngeo, dp1);
-      vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
-      vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
-      float invmax = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-10));
-      vec3 Tn = T * invmax;
-      vec3 Bn = B * invmax;
+      // REOPEN#7 FOUNDATION FIX (same as the fused path): prefer the CONTINUOUS smooth per-vertex
+      // normal as the surface base — the derivative geometric normal Ngeo is itself discontinuous at
+      // edges and helped crack the standalone PBR too. Ngeo is kept only for view-facing + fallback.
+      vec3 Nsurf = (dot(v_normal, v_normal) > 0.01) ? normalize(v_normal) : Ngeo;
+      if (dot(Nsurf, V) < 0.0) Nsurf = -Nsurf;
+      // Continuous TBN from the per-vertex tangent (interpolated); derivative frame only as fallback.
+      vec3 Tn, Bn;
+      if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
+        Tn = normalize(v_tangent.xyz - Nsurf * dot(Nsurf, v_tangent.xyz));
+        Bn = cross(Nsurf, Tn) * v_tangent.w;
+      } else {
+        vec2 duv1 = dFdx(tex_coord.xy);
+        vec2 duv2 = dFdy(tex_coord.xy);
+        vec3 dp2perp = cross(dp2, Nsurf);
+        vec3 dp1perp = cross(Nsurf, dp1);
+        vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+        vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+        float invmax = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-10));
+        Tn = T * invmax;
+        Bn = B * invmax;
+      }
       vec2 uv = tex_coord.xy * u_pbr_uv_tile;
       if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0) {
         // Parallax occlusion mapping, mobile-tuned: grazing-angle-scaled linear march
@@ -1103,14 +1125,15 @@ void main() {
         // level, lower = carved in — so a neutral white map yields zero offset and the
         // march depth is (1 - height). textureLod avoids undefined derivatives in the
         // loop; the offsets are small so mip 0 is acceptable at PoC distances.
-        vec3 Vt = normalize(vec3(dot(V, Tn), dot(V, Bn), max(dot(V, Ngeo), 0.0)));
+        vec3 Vt = normalize(vec3(dot(V, Tn), dot(V, Bn), max(dot(V, Nsurf), 0.0)));
         float vz = max(Vt.z, 0.20);  // cap the grazing blow-up (raised REOPEN #6 for surface-lock)
         float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
         // REOPEN #6 SURFACE-LOCK (same fix as the fused path): clamp the total parallax UV
         // offset so the rt-OFF standalone POM is also welded to the surface — no epoxy float.
         vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile;
         float Plen = length(P);
-        if (Plen > 0.05) P *= 0.05 / Plen;
+        // REOPEN#7: surface-lock clamp restored to a VISIBLE bound (continuous vertex-tangent TBN).
+        if (Plen > 0.08) P *= 0.08 / Plen;
         vec2 duv_step = P / n_layers;
         float layer_d = 1.0 / n_layers;
         float cur_d = 0.0;
@@ -1131,18 +1154,18 @@ void main() {
         float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
         uv += duv_step * (1.0 - w);
       }
-      vec3 N = Ngeo;
+      vec3 N = Nsurf;
       if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
         vec3 nm = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
         nm.xy *= u_pbr_normal_strength;
         nm = normalize(nm);
-        N = normalize(mat3(Tn, Bn, Ngeo) * nm);
+        N = normalize(mat3(Tn, Bn, Nsurf) * nm);
         // GLASS-PANE fix (owner preset report 2026-07-23, same defect on the PBR ONLY
         // preset = this rt-OFF path): slide back to the face horizon instead of the old
-        // hard snap to Ngeo — the tangential map grain survives at grazing angles, so
+        // hard snap to the base normal — the tangential map grain survives at grazing angles, so
         // the specular follows the material texture, not the flat polygon.
-        float snd = dot(N, Ngeo);
-        if (snd < 0.04) N = normalize(N + Ngeo * (0.04 - snd));
+        float snd = dot(N, Nsurf);
+        if (snd < 0.04) N = normalize(N + Nsurf * (0.04 - snd));
       }
       // Albedo re-sampled at the (possibly POM-offset, tiled) UV; the initial T0
       // sample keeps supplying alpha for the legacy discard product below.

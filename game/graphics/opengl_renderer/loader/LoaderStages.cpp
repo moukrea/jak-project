@@ -258,6 +258,15 @@ class TfragLoadStage : public LoaderStage {
           glBufferData(GL_ARRAY_BUFFER,
                        in_tree.unpacked.vertices.size() * sizeof(tfrag3::PreloadedVertex), nullptr,
                        GL_STATIC_DRAW);
+          // REOPEN#7: parallel per-vertex tangent VBO (vec4 = xyz world tangent + w handedness).
+          // Small (16 B/vert), one-shot upload here. emplace_back keeps it 1:1 with
+          // tfrag_vertex_data[geo].
+          GLuint& tan_out = data.lev_data->tfrag_tangent_data[geo].emplace_back();
+          glGenBuffers(1, &tan_out);
+          glBindBuffer(GL_ARRAY_BUFFER, tan_out);
+          glBufferData(GL_ARRAY_BUFFER,
+                       in_tree.unpacked.tangents.size() * sizeof(math::Vector4f),
+                       in_tree.unpacked.tangents.data(), GL_STATIC_DRAW);
         }
       }
       m_opengl_created = true;
@@ -462,6 +471,14 @@ class TieLoadStage : public LoaderStage {
           glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree_out.index_buffer);
           glBufferData(GL_ELEMENT_ARRAY_BUFFER, in_tree.unpacked.indices.size() * sizeof(u32),
                        nullptr, GL_STATIC_DRAW);
+
+          // REOPEN#7: parallel per-vertex tangent VBO for TIE (non-envmap TIE draws use the
+          // TFRAG3 shader).
+          glGenBuffers(1, &tree_out.tangent_buffer);
+          glBindBuffer(GL_ARRAY_BUFFER, tree_out.tangent_buffer);
+          glBufferData(GL_ARRAY_BUFFER,
+                       in_tree.unpacked.tangents.size() * sizeof(math::Vector4f),
+                       in_tree.unpacked.tangents.data(), GL_STATIC_DRAW);
         }
       }
       m_opengl_created = true;

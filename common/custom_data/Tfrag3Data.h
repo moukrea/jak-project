@@ -346,6 +346,15 @@ struct TfragTree {
   struct {
     std::vector<PreloadedVertex> vertices;  // mesh vertices
     std::vector<u32> indices;
+    // Grecharged-pbr-realtime-fusion REOPEN#7 FOUNDATION FIX: per-vertex MikkTSpace tangent
+    // (xyz = orthonormalized tangent in world space, w = +/-1 handedness for the bitangent).
+    // Reconstructed at load in unpack() from positions+UVs+the smooth normal so the PBR shader
+    // builds a CONTINUOUS TBN from an interpolated vertex tangent instead of screen-space
+    // derivatives (dFdx/dFdy) — the derivative TBN is discontinuous at triangle edges/UV seams,
+    // which caused the owner's incoherent relief + hard contrast CRACKS at relief>0. Runtime-only
+    // (NOT serialized into fr3); a degenerate (0,0,0,0) tangent makes the shader fall back to the
+    // screen-space frame for that vertex. Uploaded as vertex attribute location 5.
+    std::vector<math::Vector4f> tangents;
   } unpacked;
   void unpack();
   void serialize(Serializer& ser);
@@ -435,6 +444,9 @@ struct TieTree {
   struct {
     std::vector<PreloadedVertex> vertices;  // mesh vertices
     std::vector<u32> indices;
+    // Grecharged-pbr-realtime-fusion REOPEN#7: per-vertex MikkTSpace tangent (see TfragTree). TIE
+    // non-envmap draws use the TFRAG3 shader, so they need the same continuous TBN. Attribute loc 5.
+    std::vector<math::Vector4f> tangents;
   } unpacked;
 
   void serialize(Serializer& ser);

@@ -12,6 +12,8 @@ layout (location = 0) in vec3 position_in;
 layout (location = 1) in vec3 tex_coord_in;
 layout (location = 2) in int time_of_day_index;
 layout (location = 3) in vec3 normal_in;
+// REOPEN#7: per-vertex tangent threaded through tess so the TES can emit v_tangent for tfrag3.frag.
+layout (location = 5) in vec4 tangent_in;
 
 // Same TOD LUT as tfrag3.vert — sampled here (vertex stage) exactly like the non-tess path so the
 // per-vertex color is identical; the TES interpolates it barycentrically.
@@ -24,11 +26,13 @@ out vec3 tv_world;    // world-space position (game units), pre-camera
 out vec3 tv_texcoord; // raw tex coord (xyz to match tfrag3 tex_coord)
 out vec3 tv_normal;   // world-space smooth normal
 out vec4 tv_color;    // TOD LUT color (already x2 + decal handling)
+out vec4 tv_tangent;  // REOPEN#7 per-vertex tangent (xyz world, w handedness)
 
 void main() {
   tv_world = position_in;
   tv_texcoord = tex_coord_in;
   tv_normal = normal_in;
+  tv_tangent = tangent_in;
 
   // time of day lookup — identical to tfrag3.vert
   vec4 c = texelFetch(tex_T10, ivec2(time_of_day_index, 0), 0);

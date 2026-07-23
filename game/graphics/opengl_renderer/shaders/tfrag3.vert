@@ -8,6 +8,14 @@ layout (location = 2) in int time_of_day_index;
 // per-face screen-derivative normal so curved geometry regains relief in shadow. Inert unless the
 // realtime-lighting frag path reads v_normal (stock path ignores it => byte-identical).
 layout (location = 3) in vec3 normal_in;
+// Grecharged-pbr-realtime-fusion REOPEN#7 FOUNDATION FIX: per-vertex MikkTSpace tangent
+// (xyz = world-space tangent, w = +/-1 handedness), reconstructed at load in TfragTree/TieTree
+// ::unpack() and uploaded to attribute location 5 (free on both the tfrag and tie VAOs). Lets the
+// PBR fragment build a CONTINUOUS TBN from an interpolated vertex tangent instead of screen-space
+// derivatives (dFdx/dFdy), which were discontinuous at triangle edges/UV seams => incoherent relief
+// + hard-contrast cracks at relief>0. Inert unless the PBR frag path reads v_tangent; an unbound
+// location 5 reads the default (0,0,0,1), which the frag detects as degenerate => derivative fallback.
+layout (location = 5) in vec4 tangent_in;
 
 uniform vec4 hvdf_offset;
 uniform vec4 cam_trans;
@@ -39,6 +47,9 @@ out vec3 v_fringe_rel;
 // Grecharged-lightprobes: absolute world position (GOAL game units, 4096 = 1 m) for sampling the
 // LOCAL probe grid by world position. tfrag verts are already world-space. Costless when probes off.
 out vec3 v_world;
+// Grecharged-pbr-realtime-fusion REOPEN#7: per-vertex tangent (xyz world tangent, w handedness) for
+// the continuous PBR TBN. Interpolated across the triangle => no screen-derivative seams/cracks.
+out vec4 v_tangent;
 
 void main() {
   // old system:
@@ -61,6 +72,7 @@ void main() {
   v_fringe_rel = vert * (1.0 / 4096.0);  // Grecharged-grass-overhang2: meters, for the fringe fade
   v_world = position_in;                 // Grecharged-lightprobes: world pos (game units) for PER-PIXEL probe lookup
   v_normal = normal_in;  // world-space smooth normal (tfrag verts are already in world space)
+  v_tangent = tangent_in;  // REOPEN#7: per-vertex tangent -> continuous PBR TBN in the frag
   vec4 transformed = -pc_camera[3];
   transformed.w = 0.0;
   transformed -= pc_camera[0] * vert.x;

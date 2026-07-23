@@ -1373,7 +1373,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // CLAMPED (see tfrag3.frag surface-lock) occlusion parallax that stays welded to the surface.
   // Tessellation (the real geometric displacement) keeps its ~5cm depth via TESS_DISP_K in the
   // tese (bumped to compensate this reduction) — real vertices never float.
-  float height_scale = 0.02f;
+  // REOPEN#7 (owner: the neutered 0.02 was OVER-corrected => displacement invisible): with the new
+  // per-vertex-tangent CONTINUOUS TBN the parallax is properly surface-locked, so the depth is
+  // restored to a clearly VISIBLE micro-relief (0.05 UV base, * relief slider, then hard-clamped in
+  // the shader to 0.08 UV total) — visible depth that stays welded to the surface, no epoxy float.
+  float height_scale = 0.05f;
   float uv_tile = 1.0f;
   // Grecharged-pbr-realtime-fusion: emissive intensity multiplier (fused rt+pbr path).
   float emissive_str = 1.0f;

@@ -238,6 +238,20 @@ void tie_normal_v3(__m128* out, const std::array<math::Vector4f, 4>& in) {
 }
  */
 
+// REOPEN#7: forward decls — defined lower (next to the smooth-normal reconstruction they mirror) but
+// called from TieTree::unpack (here) as well as TfragTree::unpack.
+static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts,
+                                       const std::vector<u32>& indices,
+                                       bool use_strips,
+                                       std::vector<math::Vector4f>& out_tangents);
+// TIE mostly ships WITHOUT per-vertex normals (nor==0 for ~98% of verts), so its PBR shading fell
+// back to the discontinuous derivative normal => cracks on wall faces (not just tfrag ground). Fill
+// the MISSING tie normals with crease-aware smooth normals (welded by world position) so tie gets a
+// continuous base normal + a valid tangent, exactly like tfrag. Existing tie normals are preserved.
+static void reconstruct_tie_smooth_normals(std::vector<PreloadedVertex>& verts,
+                                           const std::vector<u32>& indices,
+                                           bool use_strips);
+
 void TieTree::unpack() {
   unpacked.vertices.resize(packed_vertices.color_indices.size());
   size_t i = 0;
@@ -324,6 +338,12 @@ void TieTree::unpack() {
     unpacked.indices.insert(unpacked.indices.end(), draw.plain_indices.begin(),
                             draw.plain_indices.end());
   }
+
+  // REOPEN#7: TIE ships mostly without per-vertex normals; backfill the missing ones with crease-aware
+  // smooth normals (welded by world position) so tie walls get a CONTINUOUS base normal, then compute
+  // the per-vertex tangents for the continuous PBR TBN (non-envmap TIE draws use the TFRAG3 shader).
+  reconstruct_tie_smooth_normals(unpacked.vertices, unpacked.indices, use_strips);
+  reconstruct_tfrag_tangents(unpacked.vertices, unpacked.indices, use_strips, unpacked.tangents);
 }
 
 void ShrubTree::unpack() {
@@ -564,6 +584,273 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
            n, dbg_groups, dbg_multi, dbg_clusters, crease_deg);
 }
 
+// REOPEN#7: crease-aware smooth normals for TIE, welded by exact world POSITION (tie's unpacked verts
+// are already world-space) — mirrors reconstruct_tfrag_smooth_normals but (a) welds on position bits
+// instead of the packed cluster/offset and (b) only BACKFILLS vertices whose normal is missing
+// (nor==0), so the ~2% of tie verts that ship with real matrix-transformed normals are preserved and
+// there is no regression on those. Fixes the tie-wall cracks: a missing normal otherwise makes the
+// shader fall back to the discontinuous derivative normal.
+static void reconstruct_tie_smooth_normals(std::vector<PreloadedVertex>& verts,
+                                           const std::vector<u32>& indices,
+                                           bool use_strips) {
+  const size_t n = verts.size();
+  if (n == 0) {
+    return;
+  }
+  const float crease_cos = tfrag_crease_cos();
+
+  // Weld groups by exact world position (hash the raw float bits of x,y,z; coincident verts share
+  // bit-identical positions => same key). A rare hash collision only merges two coincident-hash verts.
+  auto fbits = [](float f) -> u32 {
+    u32 u;
+    std::memcpy(&u, &f, 4);
+    return u;
+  };
+  std::unordered_map<u64, u32> pos_to_group;
+  pos_to_group.reserve(n * 2);
+  std::vector<u32> vert_group(n);
+  u32 num_groups = 0;
+  for (size_t i = 0; i < n; i++) {
+    u64 key = (u64)fbits(verts[i].x) * 0x9E3779B97F4A7C15ull;
+    key ^= (u64)fbits(verts[i].y) * 0xC2B2AE3D27D4EB4Full + (key << 6) + (key >> 2);
+    key ^= (u64)fbits(verts[i].z) * 0x165667B19E3779F9ull + (key << 6) + (key >> 2);
+    auto it = pos_to_group.find(key);
+    if (it == pos_to_group.end()) {
+      pos_to_group.emplace(key, num_groups);
+      vert_group[i] = num_groups;
+      num_groups++;
+    } else {
+      vert_group[i] = it->second;
+    }
+  }
+
+  auto pos_of = [&](u32 idx) { return math::Vector3f(verts[idx].x, verts[idx].y, verts[idx].z); };
+
+  struct Incid {
+    math::Vector3f nraw;
+    u32 vert;
+  };
+  std::vector<std::vector<Incid>> group_incid(num_groups);
+  auto add_tri = [&](u32 i0, u32 i1, u32 i2, bool flip) {
+    math::Vector3f nraw = (pos_of(i1) - pos_of(i0)).cross(pos_of(i2) - pos_of(i0));
+    float len = nraw.length();
+    if (!(len > 1e-3f)) {
+      return;
+    }
+    if (flip) {
+      nraw = nraw * -1.f;
+    }
+    group_incid[vert_group[i0]].push_back({nraw, i0});
+    group_incid[vert_group[i1]].push_back({nraw, i1});
+    group_incid[vert_group[i2]].push_back({nraw, i2});
+  };
+  if (use_strips) {
+    u32 a = UINT32_MAX, b = UINT32_MAX, k = 0;
+    for (u32 vi : indices) {
+      if (vi == UINT32_MAX) {
+        a = b = UINT32_MAX;
+        k = 0;
+        continue;
+      }
+      if (a != UINT32_MAX && b != UINT32_MAX) {
+        add_tri(a, b, vi, (k & 1) != 0);
+      }
+      a = b;
+      b = vi;
+      k++;
+    }
+  } else {
+    for (size_t t = 0; t + 2 < indices.size(); t += 3) {
+      if (indices[t] == UINT32_MAX || indices[t + 1] == UINT32_MAX || indices[t + 2] == UINT32_MAX) {
+        continue;
+      }
+      add_tri(indices[t], indices[t + 1], indices[t + 2], false);
+    }
+  }
+
+  std::vector<math::Vector3f> cl_accum;
+  std::vector<math::Vector3f> cl_unit;
+  std::vector<u32> cl_packed;
+  std::vector<int> rec_cluster;
+  u32 dbg_filled = 0;
+  for (u32 g = 0; g < num_groups; g++) {
+    auto& recs = group_incid[g];
+    if (recs.empty()) {
+      continue;
+    }
+    std::sort(recs.begin(), recs.end(),
+              [](const Incid& x, const Incid& y) { return x.nraw.dot(x.nraw) > y.nraw.dot(y.nraw); });
+    cl_accum.clear();
+    cl_unit.clear();
+    rec_cluster.assign(recs.size(), -1);
+    for (size_t r = 0; r < recs.size(); r++) {
+      float len = recs[r].nraw.length();
+      math::Vector3f unit = recs[r].nraw * (1.f / len);
+      int found = -1;
+      for (size_t c = 0; c < cl_unit.size(); c++) {
+        if (unit.dot(cl_unit[c]) >= crease_cos) {
+          found = (int)c;
+          break;
+        }
+      }
+      if (found < 0) {
+        found = (int)cl_accum.size();
+        cl_accum.push_back(recs[r].nraw);
+        cl_unit.push_back(unit);
+      } else {
+        cl_accum[found] += recs[r].nraw;
+      }
+      rec_cluster[r] = found;
+    }
+    cl_packed.assign(cl_accum.size(), 0);
+    for (size_t c = 0; c < cl_accum.size(); c++) {
+      math::Vector3f nn = cl_accum[c];
+      float l = nn.length();
+      nn = l > 1e-6f ? nn * (1.f / l) : math::Vector3f(0.f, 1.f, 0.f);
+      s16 nx = (s16)std::lround(nn.x() * 511.f);
+      s16 ny = (s16)std::lround(nn.y() * 511.f);
+      s16 nz = (s16)std::lround(nn.z() * 511.f);
+      cl_packed[c] = pack_to_gl_normal(nx, ny, nz);
+    }
+    // recs sorted by area desc: the first record seen for a vertex is its largest incident face. Only
+    // BACKFILL a vertex that currently has no normal (nor==0) — tie's real matrix normals are kept.
+    for (size_t r = 0; r < recs.size(); r++) {
+      u32 v = recs[r].vert;
+      if (verts[v].nor == 0) {
+        verts[v].nor = cl_packed[rec_cluster[r]];
+        if (verts[v].nor != 0) {
+          dbg_filled++;
+        }
+      }
+    }
+  }
+  lg::info("[gpbrf-tie-normal] tie tree verts={} groups={} backfilled_normals={}", n, num_groups,
+           dbg_filled);
+}
+
+// Unpack a 2-10-10-10 GL normal (as written by pack_to_gl_normal: stored int = component * 511)
+// back to a unit vector. Used only to orthonormalize the per-vertex tangent against the same
+// smooth normal the shader interpolates.
+static math::Vector3f unpack_gl_normal_2_10_10_10(u32 packed) {
+  auto sext10 = [](u32 v) -> int {
+    v &= 0x3ffu;
+    return (v & 0x200u) ? (int)v - 1024 : (int)v;
+  };
+  math::Vector3f n((float)sext10(packed), (float)sext10(packed >> 10), (float)sext10(packed >> 20));
+  float l = n.length();
+  return l > 1e-6f ? n * (1.f / l) : math::Vector3f(0.f, 0.f, 0.f);
+}
+
+// Grecharged-pbr-realtime-fusion REOPEN#7 FOUNDATION FIX — per-vertex MikkTSpace-style tangents.
+// tfrag/tie meshes ship NO vertex tangents, so the PBR shader used to rebuild a TBN frame per
+// fragment from screen-space derivatives (dFdx/dFdy of position+UV). Those derivatives are
+// DISCONTINUOUS across triangle edges and UV seams => the normal-mapped relief was incoherent and,
+// scaled up, the discontinuities became the owner's hard-contrast CRACKS. Here we compute a proper
+// per-vertex tangent from the mesh positions+UVs (Lengyel/MikkTSpace accumulation), orthonormalize
+// it against the reconstructed smooth normal (Gram-Schmidt) and store handedness in .w. The shader
+// interpolates this continuous tangent => continuous TBN => no cracks + coherent surface-locked
+// relief. Deterministic (index-ordered float accumulation) so an offline bake yields identical
+// bytes. Walks triangle STRIPS with UINT32_MAX primitive restart, matching the render index stream.
+static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts,
+                                       const std::vector<u32>& indices,
+                                       bool use_strips,
+                                       std::vector<math::Vector4f>& out_tangents) {
+  const size_t n = verts.size();
+  out_tangents.assign(n, math::Vector4f(0.f, 0.f, 0.f, 0.f));
+  if (n == 0) {
+    return;
+  }
+  std::vector<math::Vector3f> tan_acc(n, math::Vector3f::zero());
+  std::vector<math::Vector3f> bit_acc(n, math::Vector3f::zero());
+
+  u32 dbg_tris_used = 0, dbg_tris_skip_uv = 0;
+  auto add_tri = [&](u32 i0, u32 i1, u32 i2) {
+    const auto& v0 = verts[i0];
+    const auto& v1 = verts[i1];
+    const auto& v2 = verts[i2];
+    math::Vector3f p0(v0.x, v0.y, v0.z), p1(v1.x, v1.y, v1.z), p2(v2.x, v2.y, v2.z);
+    math::Vector3f e1 = p1 - p0, e2 = p2 - p0;
+    float du1 = v1.s - v0.s, dv1 = v1.t - v0.t;
+    float du2 = v2.s - v0.s, dv2 = v2.t - v0.t;
+    float det = du1 * dv2 - du2 * dv1;
+    if (!(std::fabs(det) > 1e-12f)) {
+      dbg_tris_skip_uv++;
+      return;  // degenerate UV parameterization: no reliable tangent
+    }
+    dbg_tris_used++;
+    float r = 1.f / det;
+    // Lengyel: T points along +U, B along +V in world space (winding-independent).
+    math::Vector3f T = (e1 * dv2 - e2 * dv1) * r;
+    math::Vector3f B = (e2 * du1 - e1 * du2) * r;
+    tan_acc[i0] += T;
+    tan_acc[i1] += T;
+    tan_acc[i2] += T;
+    bit_acc[i0] += B;
+    bit_acc[i1] += B;
+    bit_acc[i2] += B;
+  };
+
+  if (use_strips) {
+    // Triangle strips with UINT32_MAX primitive restart; the UV-derived tangent direction does not
+    // depend on the strip winding parity, so we accumulate every non-restart triple directly.
+    u32 a = UINT32_MAX, b = UINT32_MAX;
+    for (u32 vi : indices) {
+      if (vi == UINT32_MAX) {
+        a = b = UINT32_MAX;
+        continue;
+      }
+      if (a != UINT32_MAX && b != UINT32_MAX && a != b && b != vi && a != vi) {
+        add_tri(a, b, vi);
+      }
+      a = b;
+      b = vi;
+    }
+  } else {
+    for (size_t t = 0; t + 2 < indices.size(); t += 3) {
+      if (indices[t] == UINT32_MAX || indices[t + 1] == UINT32_MAX || indices[t + 2] == UINT32_MAX) {
+        continue;
+      }
+      add_tri(indices[t], indices[t + 1], indices[t + 2]);
+    }
+  }
+
+  u32 valid = 0, dbg_no_norm = 0, dbg_no_tan = 0, dbg_gs_kill = 0;
+  for (size_t i = 0; i < n; i++) {
+    math::Vector3f N = unpack_gl_normal_2_10_10_10(verts[i].nor);
+    math::Vector3f T = tan_acc[i];
+    if (N.length() < 0.5f) {
+      dbg_no_norm++;
+      out_tangents[i] = math::Vector4f(0.f, 0.f, 0.f, 0.f);  // shader falls back to derivative TBN
+      continue;
+    }
+    if (T.length() < 1e-9f) {
+      dbg_no_tan++;
+      out_tangents[i] = math::Vector4f(0.f, 0.f, 0.f, 0.f);
+      continue;
+    }
+    // Gram-Schmidt: remove the normal component, renormalize.
+    T = T - N * N.dot(T);
+    float tl = T.length();
+    if (tl < 1e-6f) {
+      dbg_gs_kill++;
+      out_tangents[i] = math::Vector4f(0.f, 0.f, 0.f, 0.f);
+      continue;
+    }
+    T = T * (1.f / tl);
+    float handed = (N.cross(T).dot(bit_acc[i]) < 0.f) ? -1.f : 1.f;
+    out_tangents[i] = math::Vector4f(T.x(), T.y(), T.z(), handed);
+    valid++;
+  }
+  // REOPEN#7 device-truth: one line per tree so the on-device logcat PROVES the per-vertex tangent
+  // basis is computed + uploaded (the continuous-TBN foundation). valid == vertices with a real
+  // tangent (the rest fall back to the derivative frame). Mirrors the [gda-crease] normal log.
+  lg::info(
+      "[gpbrf-tangent] verts={} valid={} ({:.1f}%) no_norm={} no_tan={} gs_kill={} tris_used={} "
+      "tris_skip_uv={} strips={}",
+      n, valid, n ? (100.f * (float)valid / (float)n) : 0.f, dbg_no_norm, dbg_no_tan, dbg_gs_kill,
+      dbg_tris_used, dbg_tris_skip_uv, use_strips ? 1 : 0);
+}
+
 void TfragTree::unpack() {
   unpacked.vertices.resize(packed_vertices.vertices.size());
   for (size_t i = 0; i < unpacked.vertices.size(); i++) {
@@ -602,6 +889,11 @@ void TfragTree::unpack() {
   // the root-cause fix for the flat/faceted look of curved geometry under the realtime lighting; it
   // is inert unless a shader reads the location-3 normal attribute (realtime-lighting path only).
   reconstruct_tfrag_smooth_normals(*this);
+
+  // REOPEN#7 FOUNDATION FIX: per-vertex MikkTSpace tangents (positions + UVs + strip topology now
+  // built) so the PBR shader builds a CONTINUOUS TBN from an interpolated vertex tangent instead of
+  // discontinuous screen-space derivatives — the root cause of the incoherent relief + contrast cracks.
+  reconstruct_tfrag_tangents(unpacked.vertices, unpacked.indices, use_strips, unpacked.tangents);
 }
 
 void TieTree::serialize(Serializer& ser) {

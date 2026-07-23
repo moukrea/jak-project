@@ -435,6 +435,12 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
                               sizeof(tfrag3::PreloadedVertex),  // stride
                               (void*)offsetof(tfrag3::PreloadedVertex, nor)  // offset
         );
+        // REOPEN#7: per-vertex tangent at location 5 (free on the tfrag VAO) from the parallel
+        // tangent VBO => the PBR frag builds a CONTINUOUS TBN (no screen-derivative cracks). Uses
+        // the SAME [geom][tree_idx] index as tree_cache.vertex_buffer above.
+        glBindBuffer(GL_ARRAY_BUFFER, loader_data->tfrag_tangent_data[geom][tree_idx]);
+        glEnableVertexAttribArray(5);
+        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*)0);
         glGenBuffers(1, &tree_cache.single_draw_index_buffer);
         glGenBuffers(1, &tree_cache.index_buffer);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree_cache.index_buffer);

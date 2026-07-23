@@ -253,6 +253,12 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
                             (void*)offsetof(tfrag3::PreloadedVertex, r)  // offset (0)
       );
 
+      // REOPEN#7: per-vertex tangent at location 5 (loc 4 = envmap tint). Non-envmap TIE draws use
+      // the TFRAG3 shader which reads location 5 as the tangent for the continuous PBR TBN.
+      glBindBuffer(GL_ARRAY_BUFFER, loader_data->tie_data[l_geo][l_tree].tangent_buffer);
+      glEnableVertexAttribArray(5);
+      glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*)0);
+
       // allocate dynamic index buffer for the fallback "not multidraw" mode.
       glGenBuffers(1, &lod_tree[l_tree].single_draw_index_buffer);
 

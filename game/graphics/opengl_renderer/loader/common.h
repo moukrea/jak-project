@@ -15,12 +15,15 @@ struct LevelData {
 
   struct TieOpenGL {
     GLuint vertex_buffer;
+    GLuint tangent_buffer;  // REOPEN#7 per-vertex tangent VBO (parallel to vertex_buffer), loc 5
     GLuint index_buffer;
     bool has_wind = false;
     GLuint wind_indices;
   };
   std::array<std::vector<TieOpenGL>, tfrag3::TIE_GEOS> tie_data;
   std::array<std::vector<GLuint>, tfrag3::TIE_GEOS> tfrag_vertex_data;
+  // REOPEN#7 per-vertex tangent VBOs (parallel 1:1 to tfrag_vertex_data), attribute location 5.
+  std::array<std::vector<GLuint>, tfrag3::TIE_GEOS> tfrag_tangent_data;
   std::vector<GLuint> shrub_vertex_data;
   GLuint collide_vertices;
 
