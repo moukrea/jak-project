@@ -210,3 +210,11 @@ Acceptance stays: the owner's eye — "seamless, comme les jeux récents".
 **SUPERVISOR HARNESS FIX (mandatory, 2 min): every `adb logcat` spawned by your capture scripts MUST be
 wrapped in `timeout 240` (4 min covers any capture) — the un-timeouted logcat has zombied 5 times now,
 wedging captures ~30 min each until the supervisor kills it. Patch the gpbrf/glp-style scripts you use.**
+
+**OWNER (2026-07-23): "je target pas que mobile, je target PC AUSSI."** The Karis EnvBRDFApprox is the
+MOBILE/low tier ONLY — it must NOT cap the quality ceiling. Tier the env BRDF: mobile/low = Karis approx
+(shipped fix), PC/high = the FULL split-sum with a precomputed 2D BRDF LUT texture (industry standard),
+selected by tier/platform (desktop GL build gets the LUT path by default). Same principle everywhere the
+tiers exist: PC defaults to the full-quality variant (higher POM steps / real tessellation / bigger shadow
+maps); mobile approximations never become the only path. Wire the tier plumbing now even if the LUT lands
+as a fast-follow — document what's tiered where.
