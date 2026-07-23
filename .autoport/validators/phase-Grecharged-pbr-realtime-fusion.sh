@@ -75,4 +75,8 @@ grep -qiE 'matte|rough.*(dielectric|reflect.*(nothing|near.?zero|~0))|specular.*
 grep -qiE 'diffuse relief|normal.?map.*(diffuse|depth).*(kept|relief)|depth without.*(gloss|specular)|relief.*(minus|without).*(gloss|sheen)' "$R" || fail "no diffuse-relief-kept evidence (keep depth, kill gloss)"
 grep -qiE 'pbr.?on ?== ?lighting.?only|equal.*lighting only.*(plus|depth)|A/B.*lighting.?only.*(no|zero).*(sheen|glass|gloss)' "$R" || fail "no PBR-on==Lighting-only+depth acceptance evidence"
 grep -qiE 'specular intensity.*default.*(0\.[12]|low)|default.*specular.*(low|0\.[12])' "$R" || fail "no low-default-specular evidence (matte is the norm)"
+# OWNER #5: the bug is PARALLAX/POM depth (epoxy/floating), NOT specular. Relief from normal-map SHADING.
+grep -qiE 'epoxy|floating.*(texture|10cm)|parallax.*(incoherent|float|depth scale|too (large|strong)|disabl)|pom.*(disabl|depth scale|miscalibrat|too (large|strong))' "$R" || fail "no parallax/POM-depth root-cause evidence (owner: epoxy/floating texture = broken POM, NOT specular)"
+grep -qiE 'relief.*(from|via).*(normal.?map|shading)|normal.?map shading|surface.?locked|shading.*(not|instead).*(uv|displacement|parallax)' "$R" || fail "no normal-map-shading-relief evidence (relief must be surface-locked shading, not UV displacement)"
+grep -qiE 'parallax.*(off|disabl).*default|default.*(normal.?map|shading).*(no parallax|relief)|pom.*(off|disabl).*default' "$R" || fail "no parallax-off-by-default evidence (or coherent-subtle fix)"
 echo "[Gpbrf PASS]"

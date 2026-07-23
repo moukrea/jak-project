@@ -341,3 +341,37 @@ SEPARATE them: keep the diffuse relief, KILL the visible gloss by default.
 6. Specular INTENSITY slider default should be LOW (e.g. 0.1-0.2), not 1.0 — matte is the norm.
 ACCEPTANCE: at the owner's vantages, PBR-ON = Lighting-only + depth, zero glass/sheen, no hard edges.
 His eye decides; push to Honor. (Tessellation crash root-cause still open but fallback is safe — separate.)
+
+---
+## OWNER CLARIFICATION #5 (2026-07-23 soir) — SUPERSEDES THE "matte/specular" FRAMING. THE BUG IS PARALLAX/POM (DEPTH), NOT SPECULAR.
+The owner corrected the diagnosis precisely — DO NOT chase specular/gloss, that was the wrong axis:
+- It is NOT glossy/wet/reflective. "SANS REFLETS, aucune variation de couleur/luminosité." Ignore specular.
+- It looks like a CRYSTAL-CLEAR NON-REFLECTIVE GLASS/EPOXY ~10cm in front of the textures. On grass, Jak
+  appears to walk ~10cm ABOVE it; the grass seems to move DIFFERENTLY from the model it sits on
+  ("parallax mais pas cohérent"). On walls: like refraction behind 10cm of a perfectly transparent prism.
+- OWNER'S MENTAL MODEL OF CORRECT PBR: real-game PBR gives DEPTH TO THE 3D MODEL — surface relief that
+  looks like the geometry itself has bumps (via NORMAL-MAP SHADING; tessellation makes it even more
+  convincing). It must NOT look like the texture is imprisoned in clear epoxy inside the model. On a
+  material-preview sphere, good PBR makes the SPHERE'S GEOMETRY look influenced — not the texture trapped
+  in epoxy. THAT is the target sensation.
+
+### ROOT CAUSE (near-certain): the PARALLAX OCCLUSION MAPPING is the "epoxy/floating texture" bug.
+1. **POM depth scale is FAR too large / miscalibrated** (~10cm apparent vs the ~cm-or-less real surface
+   micro-relief) AND/OR the parallax view vector / tangent-space math is wrong, so the UV-offset makes the
+   texture appear to float at a wrong depth, decoupled from the geometry (the "moves differently than the
+   model" = the incoherent parallax).
+2. **THE RELIEF MUST COME FROM NORMAL-MAP SHADING, NOT UV DISPLACEMENT.** Default DISPLACEMENT = the shading
+   approach: perturb the normal so the LIGHT reacts to fake bumps that are LOCKED to the surface — the model
+   reads as having depth, nothing floats. This is surface-locked and cannot produce the epoxy effect.
+3. **Parallax/POM**: either DISABLE it by default (normal-map shading alone already gives the game-correct
+   relief), or fix it to be coherent + subtle (tiny depth scale, correct tangent-space offset, proper
+   self-occlusion) so it never floats. When it's on, the offset must be visually LOCKED to the surface.
+4. **Tessellation** = the REAL geometric displacement (actual vertices moved) — that's the convincing one
+   when the driver supports it; its crash/fallback is a separate track.
+5. **Extreme contrast without cause (still open)**: unrelated to the epoxy bug — the PBR path adds contrast
+   discontinuities where realtime-lighting-alone does not. Match "Lighting only" contrast.
+ACCEPTANCE (owner vantages, grass + cliff): the texture relief is LOCKED to the surface (no floating, no
+10cm epoxy, no independent parallax motion) — the MODEL looks like it has depth, exactly like PBR in modern
+games / a preview sphere with influenced geometry. His eye decides.
+NOTE: the earlier "matte-dielectric / low specular" changes are FINE to keep (rough = low spec is correct)
+but they are NOT the fix for this defect — the epoxy/parallax fix is the priority.
