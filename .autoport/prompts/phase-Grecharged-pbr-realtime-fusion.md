@@ -153,3 +153,40 @@ plastic persists WITH roughness maps bound ⇒ narrow to:
      applied in the highlight shape.
    - specular INTENSITY scale possibly swamping the roughness shaping.
 3. Menu sliders (Texture Relief / Specular Intensity) UNCHANGED as mandated — the owner dials.
+
+---
+## OWNER PLAYTEST #3 (2026-07-23) — PLASTIC SURVIVES SPECULAR=0. STOP THEORIZING: TERM BISECTION. REOPENED.
+Owner (furious, justified): "toujours ces reflets plastique PEU IMPORTE le relief/specular défini. Shimmering
+quand le relief est élevé. Le displacement est pas réel, le parallax est naze — pourquoi pas TESSELLATION
+(toggleable) ? Pourquoi ce putain de reflet comme un revêtement plastique sur TOUTES les textures PBR ??
+Dans les jeux récents le relief est poussé et super intégré. Là c'est ultra moche alors que les textures
+sont très quali. Fais un vrai truc pro qui claque."
+
+**THE KEY DATAPOINT: the sheen SURVIVES specular-intensity = 0.** Therefore it does NOT come from the
+slider-scaled specular term. Three rounds of BRDF theory failed. New method — NO fix until the culprit is
+IDENTIFIED BY BISECTION:
+
+### STEP 1 — TERM BISECTION on device (the owner's vantages: ground + wall, day)
+Add a debug prop (e.g. debug.opengoal.pbr.bisect=<mask>) that zeroes lighting components INDIVIDUALLY in the
+fused path: (a) sun GGX specular, (b) green-sun specular, (c) IBL/probe ambient-specular + reflection cube,
+(d) the Fresnel factor everywhere it appears (incl. any Fresnel-ish term on the diffuse/ambient),
+(e) specular-map (_specular F0) contribution, (f) emissive, (g) normal-map perturbation, (h) parallax.
+Capture the SAME vantage for each mask. THE FIRST capture where the plastic sheen DISAPPEARS names the
+culprit term. Report the full bisect matrix (one line per mask: sheen present yes/no + mean spec-band luma).
+Suspects the theory rounds ignored: the AMBIENT-SPECULAR/IBL term (likely NOT scaled by the specular
+slider!), a Fresnel term applied to ambient/diffuse, the _specular map ADDED as brightness instead of F0.
+
+### STEP 2 — fix THE identified term (industry method for that term), nothing else. Re-capture, sheen gone.
+
+### STEP 3 — SHIMMERING at high relief: the normal-map mip chain + specular AA are not effective. Verify the
+PBR maps actually HAVE mips and are min-filtered LINEAR_MIPMAP_LINEAR; apply Toksvig/variance roughness
+widening FROM THE FITTED MIP (not base); clamp min roughness. Prove: high-relief moving capture without
+sparkle (frame-to-frame spec-band delta).
+
+### STEP 4 — REAL DISPLACEMENT: replace the weak offset parallax with proper STEEP POM (16-32 steps, tiered)
+AND add TESSELLATION displacement as a TOGGLEABLE menu option (OFF by default): GLES 3.2 requires
+EXT_tessellation_shader — Adreno 618 supports it; tessellate the near ground/walls with the height map
+(distance-based level, cheap falloff). Menu: "DISPLACEMENT: Off / Parallax / Tessellation" (menu-tree sync).
+The bar: "comme les jeux récents — relief poussé, super intégré."
+
+Mechanical + bisect matrix + READY; the owner judges. His textures are quality — make them look it.

@@ -52,4 +52,11 @@ grep -qiE 'same.?source|pairing|provenance|user base.*user maps|never mixed' "$R
 grep -qiE '(texture relief|specular intensity).*(slider|menu|row)|menu.*(relief|specular).*(slider|row)' "$R" || fail "no menu sliders evidence (owner: tunables in SETTINGS, not adb props)"
 grep -qiE 'menu-tree' "$R" || fail "menu-tree.md not updated"
 grep -qiE 'side.?by.?side|obvious.*(difference|change)|old.?vs.?new.*(capture|vantage)' "$R" || fail "no obvious-difference side-by-side proof"
+# OWNER #3: bisection-first (sheen survives specular=0), shimmer fix, real displacement + tessellation toggle.
+grep -qiE 'bisect.*(matrix|mask|term)|mask.*(sheen|culprit)|culprit.*(term|identified)' "$R" || fail "no TERM-BISECTION matrix (the sheen survives specular=0 — identify the culprit term BEFORE fixing)"
+grep -qiE 'sheen.*(gone|disappear|absent).*(mask|term|fix)|culprit.*(fixed|zeroed)' "$R" || fail "no culprit-identified-and-fixed evidence"
+grep -qiE 'mip.*(normal|pbr map)|LINEAR_MIPMAP|toksvig|variance.*rough|min.*roughness.*clamp' "$R" || fail "no shimmer fix evidence (mips + specular AA effective)"
+grep -qiE 'steep.*(pom|parallax)|pom.*(16|24|32|step)|tessellat' "$R" || fail "no real-displacement evidence (steep POM + tessellation)"
+grep -qiE 'displacement.*(off|parallax|tessellation).*(menu|toggle|carousel)|tessellation.*(toggle|menu)' "$R" || fail "no displacement menu toggle evidence"
+grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced"
 echo "[Gpbrf PASS]"
