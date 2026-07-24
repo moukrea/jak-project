@@ -645,3 +645,16 @@ copy of a shared-edge vertex. Consequences (all our symptoms):
 This is the foundational fix all prior rounds missed. Do it in the deterministic bake if possible (owner's
 earlier "precompute, don't compute every load" preference applies — a `<level>.tangents`/weld sidecar).
 ACCEPTANCE: no facets (welded smooth normals cross seams), no tessellation holes (welded edges), owner's eye.
+
+**OWNER CLARIFICATION (2026-07-24, precise framing — READ THIS):** it is NOT duplicate/overlapping polygons.
+It is TWO-OR-MORE DISTINCT ADJACENT polygons sharing the same texture whose COMMON EDGES ARE NOT WELDED —
+their shared-edge vertices are SEPARATE COPIES (one per polygon) instead of being the same shared vertex, so
+the polygons are not topologically LINKED along that edge. Do NOT deduplicate/remove any polygon. The fix is
+EDGE WELDING / topology stitching: for adjacent same-texture triangles that touch along an edge, make their
+two edge vertices become ONE shared vertex (index-share), so:
+- the smooth normal averages the face normals of BOTH polygons across that edge (no more contrast facet),
+- tessellation moves the shared edge vertex once for both polygons (edge stays closed, no hole/see-through).
+Build proper EDGE ADJACENCY (weld coincident-position + same-texture vertices into shared indices); keep
+genuine hard seams (different texture/material) UN-welded. This is standard mesh stitching. Everything else
+in the vertex-welding mandate above stands — this just nails that it's adjacent-polygon edge linking, not
+polygon de-duplication.
