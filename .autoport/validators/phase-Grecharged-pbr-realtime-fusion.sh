@@ -94,4 +94,8 @@ grep -qiE 'pbr-tess|tess.*(log|diagnostic|infolog|GK_STDOUT)|tessellat.*(capabil
 grep -qiE 'tangent.*(fallback|degenerate|coverage|fraction).*(fil|device|prov|diag)|fallback fraction|frisvad|duff|branchless.*(basis|tangent)|continuous.*tangent.*(from|derived).*normal' "$R" || fail "no tangent-fallback-coverage device proof or continuous-fallback-tangent evidence (facets = degenerate v_tangent -> screen-deriv TBN)"
 grep -qiE 'facet.*(gone|fixed|eliminated).*(relief|normal.?map)|no facet.*relief|tangent.*(valid|non.?degenerate).*(ground|tfrag|grass)' "$R" || fail "no facets-fixed-via-tangent evidence"
 grep -qiE 'pbr_tan_diag|pbr_tess_diag|files/.*diag' "$R" || fail "no file-based diag evidence (Honor logcat obscured)"
+# OWNER #10: in-menu PBR-isolate bisection + parallax facet investigation.
+grep -qiE 'pbr isolate|in.?menu.*bisect|menu.*(normal.?map only|parallax only|isolate).*(carousel|row)|carousel.*(both|normal.?map|parallax|neither)' "$R" || fail "no in-menu PBR-isolate bisection carousel evidence (owner must isolate the facet term himself)"
+grep -qiE 'parallax.*(facet|per.?triangle|clip|chart|discontinu|off.*remove)|POM.*(facet|per.?triangle|edge|silhouette)' "$R" || fail "no parallax-facet investigation evidence (prime suspect after continuous tangent)"
+grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced"
 echo "[Gpbrf PASS]"

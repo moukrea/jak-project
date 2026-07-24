@@ -540,3 +540,30 @@ is where the owner sees it) → the shader silently falls back to the screen-der
 3. Re-verify on device: fallback fraction ~0 on the grass, and facets GONE at relief>0.
 ACCEPTANCE: grass/faces smooth at any relief (owner's eye), and the tangent-fallback fraction file proves
 near-zero screen-derivative usage. Stop theorizing base-normal; the tangent frame is the proven culprit.
+
+---
+## OWNER PLAYTEST #10 (2026-07-24) — FACETS STILL PRESENT despite 0% tangent-fallback. STOP GUESSING. Give the owner an IN-MENU BISECTION + attack parallax.
+Facets persist on the grass (owner screenshots f_1/f_2, archived) even though the tangent-fallback device
+diag proved 0% screen-derivative fallback. So the tangent was NOT the (whole) cause. The supervisor cannot
+reach the owner's grass vantage headlessly (title waits for input) — so the OWNER must be able to isolate the
+term himself at his vantage.
+1. **ADD an IN-MENU debug carousel "PBR ISOLATE" (Recharged Settings, debug, removable):** wired to the
+   existing bisect mask so the owner can flip, at his vantage, WITHOUT adb:
+   - "BOTH" (normal-map + parallax on) = bisect 0
+   - "NORMAL-MAP ONLY" (parallax off) = bisect 128
+   - "PARALLAX ONLY" (normal-map off) = bisect 64
+   - "NEITHER" (both off) = bisect 192
+   Live-applied, persisted, menu-tree synced. This lets the owner report EXACTLY which term produces the
+   triangular facets. That answer drives the real fix — no more supervisor theories.
+2. **PRIME SUSPECT to investigate now (tangent is proven continuous, base normal is smooth): the PARALLAX.**
+   Texture-Relief scales normal-map AND parallax. With a continuous tangent, per-triangle facets most likely
+   come from the STEEP-POM: (a) UV-offset ray-march clipping at triangle/UV-chart boundaries, (b) the
+   tangent-space view vector or height-scale having a per-triangle component, (c) self-occlusion silhouette
+   snapping per triangle. Audit the POM: does turning parallax OFF (normal-map on) remove the facets? If yes,
+   the POM is the source — fix the per-triangle discontinuity (clamp offset at chart edges, continuous view
+   vector, smooth height sampling). Add the POM's per-triangle-fallback (if any) to files/pbr_tan_diag.txt.
+3. Report which of normal-map-only vs parallax-only shows facets in YOUR device A/B (the worker can capture
+   via the bisect prop on the Redmi even if the grass differs — the facet PATTERN presence is the signal),
+   and let the owner confirm on the Honor with the menu carousel.
+ACCEPTANCE: the owner can isolate the term in-menu; the identified term's per-triangle discontinuity is
+fixed; facets gone at his vantage. No more "fixed" claims without the owner's in-menu bisection confirming.
