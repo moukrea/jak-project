@@ -113,7 +113,7 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 19 | **Specular Intensity** [R] | slider | 0.0..3.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 0.15 (REOPEN #6 matte-dielectric)** — échelle le spéculaire GGX fusionné, mais NE contrôle PLUS le look matte : les surfaces rugueuses (dielectrics = pierre/sable/herbe) sont matte par construction via le `matte_gate` shader (spéc → ~0 dès roughness ≥ 0.60), ce slider ne fait que doser le reflet résiduel sur les texels VRAIMENT lisses/métalliques. Owner monte pour les matériaux brillants (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2 ; défaut abaissé 1.0→0.15 REOPEN #6** | {FLAG_PBR} |
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **RT ONLY (idx 4) garde `load-custom-assets?` ON depuis 2026-07-23** (RT sur textures custom, cartes PBR OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
-| 22 | **PBR Isolate** [R] | carousell | **DEBUG (retirable plus tard)** — **BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER**, défaut BOTH → `pbr-isolate` (0..3), poussé chaque frame en index brut via `pc-set-pbr-isolate!` ; setter C++ mappe index→masque `u_pbr_bisect` (BOTH 0 / NORMAL-MAP ONLY 128 / PARALLAX ONLY 64 / NEITHER 192) et écrit l'état dans `files/pbr_tan_diag.txt` à chaque changement. Bisection de terme IN-MENU (owner isole les facettes sans adb). Grisé selon **PBR Materials OFF** ou RECHARGED MASTER OFF. **Ajout Gpbr-fusion REOPEN #10 ; strings réparés + diag REOPEN #11** | {FLAG_PBR} |
+| 22 | **PBR Isolate** [R] | carousell | **DEBUG (retirable plus tard)** — **BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER**, défaut BOTH → `pbr-isolate` (0..3), poussé chaque frame en index brut via `pc-set-pbr-isolate!` ; setter C++ mappe index→masque `u_pbr_bisect` (BOTH 0 / NORMAL-MAP ONLY 128 / PARALLAX ONLY 64 / NEITHER 192) et écrit l'état dans `files/pbr_tan_diag.txt` à chaque changement. Bisection de terme IN-MENU (owner isole les facettes sans adb). Grisé selon **PBR Materials OFF** ou RECHARGED MASTER OFF. **Ajout Gpbr-fusion REOPEN #10 ; diag REOPEN #11 ; labels d'option = strings globales runtime (bank-indépendant) REOPEN #11 pré-livraison** | {FLAG_PBR} |
 | 23 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
@@ -190,6 +190,22 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > amorce `pbr_bisect` via `recharged_pbr_isolate`) ; le preset écrit les autres réglages mais jamais le champ
 > isolate → ils se composent (le preset pose la config, l'isolate bisecte les termes à l'intérieur). Vérifié
 > pré-livraison sur le Redmi (cpad_inject nav + screenshots des vrais labels + diag change à chaque flip).
+>
+> **Correctif PRÉ-LIVRAISON (2026-07-24, Gpbr-fusion REOPEN #11 — la vérif supervisor a RATTRAPÉ le menu
+> ENCORE en « Unknown ID 5924-5927 »)** : le correctif ci-dessus reposait sur la fraîcheur de la banque
+> `COMMON.TXT` (artefact de build slim-APK qui REDEVIENT périmé — classe récurrente). Les options du carousell
+> se résolvent via `lookup-text! *common-text*` sur des text-ids ⇒ tant que le device n'est pas sur un pack
+> fraîchement rebâti, elles retombent sur « Unknown ID ». Correctif DURABLE, indépendant de la banque : les 4
+> labels d'OPTION sont désormais des **strings globales runtime** (comme `*displacement-label*`) —
+> `*pbr-iso-both-label*` / `*pbr-iso-nm-label*` / `*pbr-iso-pom-label*` / `*pbr-iso-neither-label*`, remplies
+> par `(format (clear …) "BOTH"/"NORMAL-MAP ONLY"/"PARALLAX ONLY"/"NEITHER")` dans `progress-pc.gc`. Un
+> résolveur `carousell-option-string` route UNIQUEMENT les 4 ids `pc-text-pbr-iso-*` vers ces globales ; tout
+> autre id de carousell passe par le chemin `lookup-text!` inchangé (zéro régression sur displacement/AO/preset/
+> etc.). `print-string-in-carousell` appelle ce résolveur : les 4 options rendent des VRAIS LABELS compilés
+> dans le GOAL, « Unknown ID » ne peut plus réapparaître quelle que soit la fraîcheur de la banque texte. Les
+> strings JSON (0x1724-0x1727 EN+FR) sont GARDÉES en ceinture+bretelles mais ne sont plus sur le chemin
+> critique. Texte affiché IDENTIQUE (BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER) — seule la SOURCE du
+> label change (text-id → globale runtime). Le supervisor re-vérifie sur le Redmi avant l'owner.
 >
 > **Changement de défaut (2026-07-23, Gpbr-fusion REOPEN #6 — MATTE-DIELECTRIC)** : après playtest #4 owner
 > (décompo : « Lighting-only » BON, la vitre n'apparaît QUE avec PBR ⇒ la vitre EST le terme spéculaire/env sur

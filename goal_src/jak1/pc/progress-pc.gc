@@ -1230,6 +1230,21 @@
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
 ;; rows; the probe data now feeds the unified AMBIENT tiers (Hemisphere/SH/IBL).
 (format (clear *ambient-model-label*) "AMBIENT MODEL"))
+;; Gpbr-fusion REOPEN #11 SUPERVISOR pre-ship fix: the 4 PBR-ISOLATE carousell OPTION labels are
+;; RUNTIME GLOBAL strings (like *displacement-label*), NOT the COMMON.TXT text-ids 0x1724-0x1727.
+;; carousell-option-string (see print-string-in-carousell) routes those ids to these globals so the
+;; four options ALWAYS render as real labels (BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER) even
+;; when the Android text bank is stale — the recurring slim-APK text-bank staleness that made them
+;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only, matching *pbr-isolate-label*. Defined
+;; UNCONDITIONALLY (not under FLAG_PBR) so the shared carousell resolver compiles in every build config.
+(define *pbr-iso-both-label* (new 'global 'string 32 (the-as string #f)))
+(define *pbr-iso-nm-label* (new 'global 'string 32 (the-as string #f)))
+(define *pbr-iso-pom-label* (new 'global 'string 32 (the-as string #f)))
+(define *pbr-iso-neither-label* (new 'global 'string 32 (the-as string #f)))
+(format (clear *pbr-iso-both-label*) "BOTH")
+(format (clear *pbr-iso-nm-label*) "NORMAL-MAP ONLY")
+(format (clear *pbr-iso-pom-label*) "PARALLAX ONLY")
+(format (clear *pbr-iso-neither-label*) "NEITHER")
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
@@ -2540,11 +2555,23 @@
       (return (the text-id (/ (the int (car (car item))) 8)))))
   (text-id zero))
 
+(defun carousell-option-string ((id text-id))
+  "Resolve a carousell OPTION text-id to its display string. The PBR ISOLATE debug options
+   (0x1724-0x1727) resolve to RUNTIME GLOBAL strings (*pbr-iso-*-label*) so they never render as
+   'Unknown ID' when the Android COMMON.TXT bank is stale; every other id uses the normal text bank
+   exactly as before (identical behaviour for all non-isolate carousells)."
+  (cond
+    ((= id (text-id pc-text-pbr-iso-both)) *pbr-iso-both-label*)
+    ((= id (text-id pc-text-pbr-iso-nm)) *pbr-iso-nm-label*)
+    ((= id (text-id pc-text-pbr-iso-pom)) *pbr-iso-pom-label*)
+    ((= id (text-id pc-text-pbr-iso-neither)) *pbr-iso-neither-label*)
+    (else (lookup-text! *common-text* id #f))))
+
 (defun print-string-in-carousell ((arg0 text-id) (arg1 font-context) (arg2 int) (arg3 symbol))
   (let ((s5-0 (if arg3 arg2 (- arg2))))
     (+! (-> arg1 origin x) (the float s5-0))
     (let ((f30-0 (- 1.0 (* 0.0033333334 (the float arg2)))))
-      (print-game-text-scaled (lookup-text! *common-text* arg0 #f) f30-0 arg1 (the int (* 128.0 f30-0))))
+      (print-game-text-scaled (carousell-option-string arg0) f30-0 arg1 (the int (* 128.0 f30-0))))
     (set! (-> arg1 origin x) (- (-> arg1 origin x) (the float s5-0))))
   (set! (-> arg1 color) (font-color default))
   arg1)
