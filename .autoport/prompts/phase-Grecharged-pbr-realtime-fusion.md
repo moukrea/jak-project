@@ -685,3 +685,23 @@ welded) but did NOT weld ACROSS bucket/chunk/system boundaries → those inter-c
    vantages (grass fields + sand + chunk boundaries in w_1..4).
 ACCEPTANCE: no remaining seam LINES across surfaces, no tessellation holes anywhere, owner's eye on w_1..4-
 type vantages.
+
+**OWNER INSIGHT #2 (2026-07-24, coupled with the welding — do BOTH in this round):** some normals point
+INWARD (into the model) instead of OUTWARD. Averaging an inward normal with an outward one across a welded
+seam produces a GARBAGE average (near-opposite vectors cancel) => that is another source of the extreme
+contrasts, and it CANNOT be smoothed by edge-welding alone. FIX = a NORMAL ORIENTATION CONSISTENCY pass that
+runs BEFORE the normal averaging:
+1. Make every vertex/face normal point toward the OPEN/visible side (outward), consistently across the welded
+   mesh. Do it via consistent-winding flood-fill over the welded topology (propagate one orientation from a
+   seed across shared edges), so a whole connected surface agrees.
+2. **Owner's disambiguation for the "which side is outside" question (use it):** the COLLISION mesh. Where a
+   render surface is coincident with WALKABLE collision, the normal must point toward the WALKABLE side (the
+   side the player/camera occupies — we are meant to be there). This resolves ambiguous cases and NATURALLY
+   handles interiors/tunnels: inside a house the player is on the inside, so the normal points inward-toward-
+   player (correct for that room). Use collision-side as the orientation authority where available; fall back
+   to the renderer's existing toward-viewer double-sided convention elsewhere.
+3. ORDER: (a) global weld across chunks/buckets/systems, (b) orientation-consistency pass (flood-fill +
+   collision authority), THEN (c) average normals across welded seams with the crease-angle threshold. If you
+   average before fixing orientation, inverted normals poison the average = the extreme contrasts persist.
+4. Device-prove: count inverted/flipped normals corrected; the extreme-contrast lines gone at w_1..4 vantages.
+This is coupled with the global welding — deliver both together.
