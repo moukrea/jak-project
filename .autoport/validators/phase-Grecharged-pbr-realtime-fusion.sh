@@ -132,4 +132,8 @@ grep -qiE 'uv.?split.*(tess|edge|match|displac)|matching.*(edge|tess).*factor.*(
 # SUPERVISOR LIVE A/B: hard patches are created by normal-map application => per-chunk UV FRAME discontinuity.
 grep -qiE 'uv.?frame|tangent frame.*(align|continu|consistent).*(chunk|seam)|world.?(space|aligned).*tangent|triplanar' "$R" || fail "no UV-frame/tangent-frame-continuity fix evidence (relief>0 creates hard plates because each chunk has its own UV frame)"
 grep -qiE 'relief.*(0|zero).*vs.*(2|2\.5|high)|relief.*a/b.*(patch|plate|seam)' "$R" || fail "no relief-0-vs-high A/B verification evidence"
+# OWNER #16: tessellation slits (seam height mismatch) + seam lines at relief 0 (normal or baked-color delta).
+grep -qiE 'seam.*(height|displac).*(consist|same|average|fade|match)|height.*(world|triplanar|shared).*seam|displacement.*(fade|zero).*(boundary|seam)' "$R" || fail "no seam-consistent-displacement fix (tessellation slits = each side samples height at its own UV => different displacement)"
+grep -qiE 'relief 0.*seam|seam.*relief.?0|baked.?colou?r.*(delta|blend|average).*seam|normal delta.*seam' "$R" || fail "no relief-0 seam diagnosis/fix (normal delta vs baked-color delta at seams)"
+grep -qiE 'no.*(slit|see.?through|hole).*(tessellat|relief)|slit.*(gone|fixed)' "$R" || fail "no see-through-slits-gone evidence"
 echo "[Gpbrf PASS]"

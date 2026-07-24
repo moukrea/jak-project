@@ -872,3 +872,37 @@ global_uv_snapped_seam_verts = 11,139 out of ~2.3M verts.
    (screencap + `debug.opengoal.pbr.relief`), so verification is cheap and objective.
 ACCEPTANCE: relief 2.5 shows RELIEF, not plates. The relief-0 vs relief-2.5 pair must differ only in surface
 detail, not in flat brightness patches.
+
+---
+## OWNER PLAYTEST #16 (2026-07-24 23h) — "BEAUCOUP BEAUCOUP MIEUX" (UV-frame fix works!) but TWO precise defects remain. Screenshots device/owner_final2/n_1..5.jpg.
+The world-axis seam-stable tangent frame FIXED the hard plates (owner: "beaucoup beaucoup mieux"). Remaining:
+
+### DEFECT A — TESSELLATION HOLES (n_5 sand close-up, n_4): visible DARK SLITS between polygons — you can
+SEE THROUGH the mesh along polygon edges when tessellation is on.
+ROOT (near-certain): at a chunk/UV seam the two coincident verts are still SEPARATE vertices (they must be:
+different UVs). The tess-eval displaces each along the normal by a HEIGHT SAMPLED AT ITS OWN UV — and because
+each chunk has its own UV layout, the two sides sample DIFFERENT height texels => DIFFERENT displacement
+amounts => the shared edge tears open => the slit.
+FIX: make the DISPLACEMENT identical on both sides of a seam:
+  1. Mark seam/boundary verts (the weld map already knows them: coincident position, different UV).
+  2. For those verts, use a SEAM-CONSISTENT height: e.g. sample the height with the SAME world-derived
+     coordinate used for the seam-stable tangent frame (world-space/triplanar height lookup at boundary
+     verts), OR average the height across the weld group and force that value on every member, OR simply
+     FADE THE DISPLACEMENT TO ZERO within a small band around detected open-boundary edges (safest).
+  3. Also match tess EDGE FACTORS on shared edges (already mandated) so the subdivision matches.
+  Acceptance: no see-through slits at any relief/tessellation setting (n_5 vantage).
+
+### DEFECT B — SEAM LINES STILL VISIBLE AT RELIEF 0 (n_1/n_3 grass, n_4 sand at relief 0 AND 3; the owner
+notes it is "surtout sans relief" on grass): so this is NOT the normal-map — the remaining discontinuity is
+either (a) the smoothed NORMAL still differing across the seam for some verts (crease-threshold splitting
+them, or verts not in the same weld group), or (b) the BAKED VERTEX COLOR differing per chunk at the seam
+(per-chunk baked lighting => a brightness step no normal work can fix).
+FIX: diagnose which, then:
+  (a) if normals: widen/repair the weld grouping for those verts, verify the crease threshold isn't splitting
+      gentle terrain seams; report the fraction of boundary verts whose normal still differs > few degrees.
+  (b) if baked color: blend/average the baked vertex COLOR across welded seam groups (position-coincident,
+      same texture) so the lit brightness is continuous — a small, safe, artist-invisible correction.
+  Use a debug viz (u_pbr_debug mode) that renders the normal delta and the baked-color delta at seams so the
+  cause is identified objectively, and report the numbers.
+ACCEPTANCE: no visible seam lines on grass/sand at relief 0 AND at relief 3, no tessellation slits.
+The supervisor can A/B live on the owner's Honor (screencap + props) — use that.
