@@ -658,3 +658,30 @@ Build proper EDGE ADJACENCY (weld coincident-position + same-texture vertices in
 genuine hard seams (different texture/material) UN-welded. This is standard mesh stitching. Everything else
 in the vertex-welding mandate above stands — this just nails that it's adjacent-polygon edge linking, not
 polygon de-duplication.
+
+---
+## OWNER PLAYTEST #12 (2026-07-24) — welding "clairement mieux" but INCOMPLETE. Remaining seams = CROSS-CHUNK / CROSS-BUCKET boundaries.
+Owner: "il y a encore plein de polygones pas attachés correctement... clairement mieux qu'avant, mais t'as
+pas tout couvert." Screenshots (device/owner_weld2/w_1..4.jpg): the REMAINING seams are LONG straight/curved
+LINES crossing large surfaces (a dark curved seam across the grass in w_4, a diagonal across the sand in w_2,
+lines in w_1/w_3) — NOT micro triangle edges. These are boundaries between LARGE MESH CHUNKS / DRAW BUCKETS
+(and where tfrag meets tie). The current weld only stitched WITHIN each bucket/vertex-array (hence 52-55%
+welded) but did NOT weld ACROSS bucket/chunk/system boundaries → those inter-chunk seams remain.
+
+### MANDATE — make the welding GLOBAL and COMPLETE:
+1. **Weld ACROSS ALL draw buckets / chunks / fragments of the level, not per-array.** Build ONE global spatial
+   hash over EVERY tfrag (and tie, and shrub) vertex in the level and weld coincident positions across bucket
+   AND system boundaries. The big remaining seams are exactly the chunk edges — they must be stitched.
+2. **Weld coincident POSITIONS regardless of texture for GEOMETRY** (close ALL tessellation holes — the owner
+   wants surfaces connected even across a sand↔grass or chunk↔chunk boundary; no see-through gaps anywhere).
+3. **Normal averaging with a CREASE-ANGLE threshold**: average normals across welded verts when the surfaces
+   are near-coplanar (kills the grass/terrain facet lines), but KEEP a crease where the real angle is sharp
+   (e.g. a wall meeting the ground ~90° stays a crisp edge — don't over-smooth genuine corners). Position is
+   still shared there (no hole), only the normal keeps the crease.
+4. **Possibly widen the weld epsilon** if 3 cm misses chunk-boundary verts that are marginally apart (snap
+   near-coincident boundary verts), but stay conservative to avoid welding unrelated geometry.
+5. DEVICE-PROVE on the Honor (supervisor pulls the file): the CROSS-CHUNK stitched-vert count is now large,
+   and report the remaining unwelded-seam-vert count → target ~0. Facets AND holes gone at the owner's
+   vantages (grass fields + sand + chunk boundaries in w_1..4).
+ACCEPTANCE: no remaining seam LINES across surfaces, no tessellation holes anywhere, owner's eye on w_1..4-
+type vantages.

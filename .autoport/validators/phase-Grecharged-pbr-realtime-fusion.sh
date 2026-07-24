@@ -107,4 +107,8 @@ grep -qiE 'supervisor.*(verif|navigate|cpad).*(menu|redmi|isolate)|menu.*verifie
 grep -qiE 'weld|coincident vert|shared vert|consolidat.*(mesh|vert)|merge.*vert.*(position|texture)|duplicate vert.*(merg|weld)' "$R" || fail "no vertex-welding evidence (root cause: unwelded duplicate vertices at seams => facets + tessellation holes)"
 grep -qiE 'average.*(across|welded|shared).*(seam|normal)|normal.*(cross|across).*seam|smooth.*normal.*welded' "$R" || fail "no smooth-normal-across-welded-seams evidence"
 grep -qiE 'tessellat.*(no hole|closed edge|welded|shared edge|no tear)|no (hole|tear|gap).*(tessellat|displac)|edge.*(closed|welded).*tessellat' "$R" || fail "no tessellation-no-holes-via-welding evidence"
+# OWNER #12: welding incomplete — must be GLOBAL across chunks/buckets/systems.
+grep -qiE 'across.*(bucket|chunk|fragment|system)|global.*(weld|spatial hash|stitch)|cross.?(chunk|bucket).*weld|inter.?(chunk|bucket)' "$R" || fail "no global cross-chunk/bucket welding evidence (remaining seams = chunk boundaries)"
+grep -qiE 'crease.?angle|coplanar.*(average|smooth)|keep.*(crease|corner|sharp)|angle.*(threshold|weld)' "$R" || fail "no crease-angle normal-averaging evidence (smooth flat seams, keep sharp corners)"
+grep -qiE 'remaining.*seam.*(0|zero|~0|drop)|seam.*(count|line).*(0|zero|gone)|cross.?chunk.*(count|stat)' "$R" || fail "no remaining-seam-count device proof"
 echo "[Gpbrf PASS]"
