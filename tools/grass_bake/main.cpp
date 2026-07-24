@@ -30,7 +30,9 @@ static void usage() {
       "  --out PATH     output path (default: <fr3-dir>/<level>.grassbake)\n"
       "  --density PCT  bake candidate density (default: 250 = slider max)\n"
       "  --dump PREFIX  write PREFIX_instances.csv + PREFIX_tris.csv of the ship-default\n"
-      "                 (slider 150) expansion, for offline placement analysis\n");
+      "                 (slider 150) expansion, for offline placement analysis\n"
+      "  --weld-stats   run the GLOBAL cross-chunk/bucket/system vertex weld (REOPEN #13) and print\n"
+      "                 its stats (writes <repo>/pbr_tan_diag.txt), then exit without the grass scan\n");
 }
 
 int main(int argc, char** argv) {
@@ -38,6 +40,7 @@ int main(int argc, char** argv) {
   std::string fr3_dir;
   std::string out_path;
   std::string dump_prefix;
+  bool weld_stats = false;  // OWNER REOPEN #13: run the GLOBAL cross-chunk weld offline + print its stats
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
 
   for (int i = 1; i < argc; ++i) {
@@ -56,6 +59,8 @@ int main(int argc, char** argv) {
       out_path = need_val("--out");
     } else if (a == "--dump") {
       dump_prefix = need_val("--dump");
+    } else if (a == "--weld-stats") {
+      weld_stats = true;
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "-h" || a == "--help") {
@@ -133,9 +138,31 @@ int main(int argc, char** argv) {
         tree.unpack();
       }
     }
+    for (auto& shrub_tree : lev.shrub_trees) {
+      shrub_tree.unpack();
+    }
+    // OWNER REOPEN #13 + INSIGHT #2: exercise the GLOBAL cross-chunk/bucket/system weld offline
+    // (deterministic, no device) — this is the same call Loader.cpp makes after all trees unpack.
+    if (weld_stats) {
+      tfrag3::reconstruct_level_global_weld(lev);
+    }
   } catch (const std::exception& e) {
     fmt::print("error: failed to load/deserialize fr3: {}\n", e.what());
     return 1;
+  }
+
+  // --weld-stats: print the global-weld diagnostics (written to <repo>/pbr_tan_diag.txt) and exit
+  // without running the grass scan. The device build writes the SAME file to the app files dir.
+  if (weld_stats) {
+    fs::path diag = file_util::get_jak_project_dir() / "pbr_tan_diag.txt";
+    fmt::print("\n[grass_bake] ===== GLOBAL WELD STATS '{}' (offline) =====\n", level_name);
+    try {
+      fmt::print("{}\n", file_util::read_text_file(diag));
+    } catch (const std::exception& e) {
+      fmt::print("(could not read {}: {})\n", diag.string(), e.what());
+    }
+    fmt::print("[grass_bake] weld-stats DONE.\n");
+    return 0;
   }
 
   // Scan (prints the [recharged-grass] instrumentation lines).

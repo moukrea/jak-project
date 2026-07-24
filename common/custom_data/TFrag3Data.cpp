@@ -428,6 +428,19 @@ static std::atomic<u64> g_edge_weld_tfrag_verts{0};
 static std::atomic<u64> g_edge_weld_tie_stitched{0};
 static std::atomic<u64> g_edge_weld_tie_verts{0};
 
+// OWNER REOPEN #13 (2026-07-24) + INSIGHT #2 — GLOBAL cross-chunk / cross-bucket / cross-system weld
+// stats. The per-tree passes above only stitch WITHIN one tfrag/tie tree; this level-wide pass stitches
+// ACROSS all trees/buckets/systems, runs a normal-orientation-consistency step, then averages. Written to
+// files/pbr_tan_diag.txt (Honor obscures logcat) so the supervisor can pull the cross-chunk seam counts.
+static std::atomic<u64> g_gweld_total_verts{0};       // every tfrag+tie vertex fed to the global hash
+static std::atomic<u64> g_gweld_cross_stitched{0};    // verts welded ACROSS a tree boundary (the REOPEN#13 win)
+static std::atomic<u64> g_gweld_multitree_groups{0};  // welded groups that span >=2 trees == the stitched seams
+static std::atomic<u64> g_gweld_resmoothed_verts{0};  // verts whose normal was re-averaged across the welded seam
+static std::atomic<u64> g_gweld_inverted_fixed{0};    // incident faces flipped by the orientation pass (inward->outward)
+static std::atomic<u64> g_gweld_collision_oriented{0};// groups whose outward sign was set by the collision authority
+static std::atomic<u64> g_gweld_open_seam_before{0};   // open-boundary seam verts BEFORE the global stitch
+static std::atomic<u64> g_gweld_open_seam_after{0};    // open-boundary seam verts REMAINING after the global stitch
+
 static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   const auto& packed = tree.packed_vertices.vertices;
   const size_t n = tree.unpacked.vertices.size();
@@ -898,11 +911,438 @@ void write_tan_diag_file() {
     os << "note: coincident same-texture edge verts within 3 cm are now welded into ONE shared group, so the\n";
     os << "smooth normal AVERAGES ACROSS the welded seam (no per-face facets) and tessellation moves the\n";
     os << "shared edge vertex once for both polygons (closed edge => no holes/tears).\n";
+    os << "[global_weld] OWNER REOPEN #13 (2026-07-24) — GLOBAL cross-chunk/bucket/system stitch + INSIGHT#2 "
+          "normal-orientation-consistency:\n";
+    os << "global_weld_total_verts=" << g_gweld_total_verts.load() << " (all tfrag+tie verts, one spatial hash "
+          "over the WHOLE level)\n";
+    os << "global_cross_chunk_stitched_verts=" << g_gweld_cross_stitched.load()
+       << " (verts welded ACROSS a tree/bucket/chunk boundary — the previously-unwelded inter-chunk seam verts)\n";
+    os << "global_multitree_seam_groups=" << g_gweld_multitree_groups.load()
+       << " (welded groups spanning >=2 trees == the stitched cross-chunk seams)\n";
+    os << "global_resmoothed_seam_verts=" << g_gweld_resmoothed_verts.load()
+       << " (verts whose normal was re-averaged across the welded cross-chunk seam)\n";
+    os << "orient_inward_faces_flipped=" << g_gweld_inverted_fixed.load()
+       << " (INSIGHT#2: near-antiparallel inward face normals re-oriented outward BEFORE averaging so they no "
+          "longer poison the cross-seam average)\n";
+    os << "orient_collision_authority_groups=" << g_gweld_collision_oriented.load()
+       << " (groups whose outward sign was set from the walkable collision-mesh normal)\n";
+    os << "remaining_open_seam_verts=" << g_gweld_open_seam_after.load() << " / " << g_gweld_open_seam_before.load()
+       << " (open-boundary seam verts AFTER / BEFORE the global stitch; the drop == cross-chunk seams now closed)\n";
+    os << "note: one spatial hash over EVERY tfrag+tie vertex in the level welds coincident positions across "
+          "bucket AND system boundaries (the long seam LINES the owner saw were chunk edges); normals are "
+          "orientation-corrected then averaged with a crease-angle threshold (smooth flat seams, keep sharp "
+          "corners). Shrub carries no per-vertex normal attribute (ShrubGpuVertex, shader derives N from "
+          "derivatives) so it is documented-excluded from the normal weld, not silently skipped.\n";
     file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", os.str());
   } catch (...) {
   }
 }
 }  // namespace
+
+// ============================================================================================
+// OWNER REOPEN #13 (2026-07-24) + INSIGHT #2 — GLOBAL cross-chunk / cross-bucket / cross-system weld.
+//
+// The per-tree passes (reconstruct_tfrag/tie_smooth_normals) only stitch coincident edge copies
+// WITHIN one tfrag/tie tree, so they welded ~52-55% of verts and the owner still saw long seam LINES
+// crossing large surfaces — those are the boundaries BETWEEN mesh chunks / draw buckets (and where
+// tfrag meets tie). This level-wide pass, run ONCE after every tree is unpacked, builds ONE spatial
+// hash over EVERY tfrag+tie vertex in the whole level and welds coincident world positions ACROSS
+// bucket AND system boundaries, so those inter-chunk seams finally share a vertex.
+//
+// INSIGHT #2 (inward normals): some face normals are wound inward; averaging an inward normal with an
+// outward one across a welded seam cancels (near-antiparallel) and produces the extreme contrast the
+// owner sees. So BEFORE averaging, each welded group runs a normal-orientation-consistency step:
+// near-antiparallel incident faces are re-oriented to agree with the group's dominant face, and the
+// group's outward sign is taken from the WALKABLE collision-mesh normal where one is nearby (the
+// owner's "walkable side = outward" authority; falls back to the dominant-face sign otherwise). Only
+// THEN are the normals averaged with the crease-angle threshold (coplanar-enough welds smooth; a
+// genuine sharp fold keeps separate clusters = a crisp corner).
+//
+// SAFETY / no-regression: this pass ONLY rewrites the normal of a vertex that belongs to a CROSS-TREE
+// welded group (a group whose members come from >=2 different trees). Every vertex interior to a
+// single tree keeps EXACTLY its accepted attempt-18 per-tree normal, so the accepted directional-
+// ambient look is bit-identical there; the only pixels that change are the previously-unwelded
+// inter-chunk seam verts — exactly the owner's remaining seam lines. Shrub carries no per-vertex
+// normal attribute (ShrubGpuVertex has no `nor`; shrub.frag derives N from screen-space derivatives),
+// so it is documented-excluded from the normal weld rather than silently skipped. 1 m = 4096 units.
+// ============================================================================================
+void reconstruct_level_global_weld(Level& lev) {
+  const float crease_cos = tfrag_crease_cos();
+  constexpr float kWeldM = 0.03f;
+  const float weld_cell = kWeldM * 4096.f;
+  const float weld_tol2 = weld_cell * weld_cell;
+  auto cell_key = [](s64 cx, s64 cy, s64 cz) -> u64 {
+    return ((u64)(u32)(cx & 0x1FFFFF) << 42) | ((u64)(u32)(cy & 0x1FFFFF) << 21) | (u64)(u32)(cz & 0x1FFFFF);
+  };
+
+  // ---- 1. Gather every tfrag + tie vertex into ONE global list (across all geom-LODs + trees) ----
+  struct TreeRef {
+    const std::vector<u32>* indices;
+    bool use_strips;
+    u32 gbase;  // global index of this tree's vertex 0 (tree-local li -> global gbase+li)
+  };
+  std::vector<TreeRef> trees;
+  std::vector<math::Vector3f> gp;   // global world positions
+  std::vector<u32> gtree;           // TreeRef id per global vertex
+  std::vector<PreloadedVertex*> gv; // writable vertex per global index
+  auto add_tree = [&](std::vector<PreloadedVertex>& verts, const std::vector<u32>& indices, bool strips) {
+    if (verts.empty()) {
+      return;
+    }
+    u32 gbase = (u32)gp.size();
+    trees.push_back({&indices, strips, gbase});
+    u32 tid = (u32)trees.size() - 1;
+    for (auto& v : verts) {
+      gp.emplace_back(v.x, v.y, v.z);
+      gtree.push_back(tid);
+      gv.push_back(&v);
+    }
+  };
+  for (auto& geom : lev.tfrag_trees) {
+    for (auto& t : geom) {
+      add_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips);
+    }
+  }
+  for (auto& geom : lev.tie_trees) {
+    for (auto& t : geom) {
+      add_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips);
+    }
+  }
+  const size_t N = gp.size();
+  if (N == 0 || trees.empty()) {
+    return;
+  }
+
+  // ---- 2. GLOBAL spatial-hash weld (3 cm, 27-neighbour probe) across ALL trees/buckets/systems ----
+  std::vector<u32> group(N);
+  std::vector<u32> group_seed_tree;  // tree id of the group's first (seed) vertex
+  std::vector<u8> group_multitree;   // 1 once the group has verts from >=2 trees
+  u32 num_groups = 0;
+  u64 cross_stitched = 0;  // verts welded ACROSS a tree boundary (the REOPEN #13 win)
+  {
+    std::unordered_map<u64, std::vector<u32>> cells;
+    cells.reserve(N);
+    for (size_t i = 0; i < N; i++) {
+      const math::Vector3f& pi = gp[i];
+      const s64 cx = (s64)std::floor(pi.x() / weld_cell);
+      const s64 cy = (s64)std::floor(pi.y() / weld_cell);
+      const s64 cz = (s64)std::floor(pi.z() / weld_cell);
+      int found = -1;
+      for (int dz = -1; dz <= 1 && found < 0; dz++) {
+        for (int dy = -1; dy <= 1 && found < 0; dy++) {
+          for (int dx = -1; dx <= 1 && found < 0; dx++) {
+            auto it = cells.find(cell_key(cx + dx, cy + dy, cz + dz));
+            if (it == cells.end()) {
+              continue;
+            }
+            for (u32 rep : it->second) {
+              const math::Vector3f d = gp[rep] - pi;
+              if (d.dot(d) <= weld_tol2) {
+                found = (int)group[rep];
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (found < 0) {
+        group[i] = num_groups++;
+        group_seed_tree.push_back(gtree[i]);
+        group_multitree.push_back(0);
+      } else {
+        group[i] = (u32)found;
+        if (group_seed_tree[found] != gtree[i]) {
+          group_multitree[found] = 1;  // this welded group spans a tree/chunk boundary
+          cross_stitched++;
+        }
+      }
+      cells[cell_key(cx, cy, cz)].push_back((u32)i);
+    }
+  }  // `cells` freed here to bound peak memory before the edge / incidence maps
+  u64 multitree_groups = 0;
+  for (u32 g = 0; g < num_groups; g++) {
+    multitree_groups += group_multitree[g];
+  }
+
+  // ---- 3. Walk every triangle: gather incident faces for multitree groups + edge-use accounting ----
+  struct Incid {
+    math::Vector3f nraw;  // area-weighted (raw edge cross), strip-parity applied
+    u32 gvert;
+  };
+  std::vector<std::vector<Incid>> gincid(num_groups);
+  struct EdgeInfo {
+    u32 first_tree;
+    u8 count;  // clamped to 2 (manifold=2, boundary=1)
+    u8 cross;  // incident triangles come from >=2 trees == a stitched chunk-boundary edge
+  };
+  std::unordered_map<u64, EdgeInfo> edges;
+  edges.reserve(N * 2);
+  auto edge_key = [](u32 a, u32 b) -> u64 {
+    u32 lo = a < b ? a : b, hi = a < b ? b : a;
+    return ((u64)hi << 32) | (u64)lo;
+  };
+  auto touch_edge = [&](u32 ga, u32 gb, u32 tid) {
+    if (ga == gb) {
+      return;  // zero-length edge in group space (both corners welded together)
+    }
+    auto it = edges.find(edge_key(ga, gb));
+    if (it == edges.end()) {
+      edges.emplace(edge_key(ga, gb), EdgeInfo{tid, 1, 0});
+    } else {
+      if (it->second.count < 2) {
+        it->second.count++;
+      }
+      if (it->second.first_tree != tid) {
+        it->second.cross = 1;
+      }
+    }
+  };
+  for (const auto& tr : trees) {
+    const auto& idx = *tr.indices;
+    const u32 base = tr.gbase;
+    const u32 tid = (u32)(&tr - trees.data());
+    auto add_tri = [&](u32 li0, u32 li1, u32 li2, bool flip) {
+      u32 gi0 = base + li0, gi1 = base + li1, gi2 = base + li2;
+      math::Vector3f nraw = (gp[gi1] - gp[gi0]).cross(gp[gi2] - gp[gi0]);
+      float len = nraw.length();
+      if (!(len > 1e-3f)) {
+        return;  // degenerate triangle
+      }
+      if (flip) {
+        nraw = nraw * -1.f;  // triangle-strip parity
+      }
+      u32 A = group[gi0], B = group[gi1], C = group[gi2];
+      if (group_multitree[A]) {
+        gincid[A].push_back({nraw, gi0});
+      }
+      if (group_multitree[B]) {
+        gincid[B].push_back({nraw, gi1});
+      }
+      if (group_multitree[C]) {
+        gincid[C].push_back({nraw, gi2});
+      }
+      touch_edge(A, B, tid);
+      touch_edge(B, C, tid);
+      touch_edge(C, A, tid);
+    };
+    if (tr.use_strips) {
+      u32 a = UINT32_MAX, b = UINT32_MAX, k = 0;
+      for (u32 vi : idx) {
+        if (vi == UINT32_MAX) {
+          a = b = UINT32_MAX;
+          k = 0;
+          continue;
+        }
+        if (a != UINT32_MAX && b != UINT32_MAX) {
+          add_tri(a, b, vi, (k & 1) != 0);
+        }
+        a = b;
+        b = vi;
+        k++;
+      }
+    } else {
+      for (size_t t = 0; t + 2 < idx.size(); t += 3) {
+        if (idx[t] == UINT32_MAX || idx[t + 1] == UINT32_MAX || idx[t + 2] == UINT32_MAX) {
+          continue;
+        }
+        add_tri(idx[t], idx[t + 1], idx[t + 2], false);
+      }
+    }
+  }
+  // Open-boundary seam accounting (device-provable remaining-seam count): an edge used by exactly ONE
+  // triangle is an open boundary; a cross-tree interior edge (count>=2, cross==1) was TWO open boundary
+  // edges before the global stitch and is now closed. So the drop = 2*cross_interior.
+  u64 boundary_after = 0, cross_interior = 0;
+  for (const auto& e : edges) {
+    if (e.second.count == 1) {
+      boundary_after++;
+    } else if (e.second.cross) {
+      cross_interior++;
+    }
+  }
+  { std::unordered_map<u64, EdgeInfo>().swap(edges); }  // free before the collision hash
+
+  // ---- 4. Collision authority (INSIGHT #2): spatial hash over the walkable collision mesh so a welded
+  //         group can take its OUTWARD sign from the nearest walkable surface normal. ----
+  std::unordered_map<u64, std::vector<u32>> coll_cells;
+  const float coll_cell = 1.0f * 4096.f;  // 1 m cells
+  const auto& cverts = lev.collision.vertices;
+  if (!cverts.empty()) {
+    coll_cells.reserve(cverts.size());
+    for (u32 i = 0; i < cverts.size(); i++) {
+      const auto& c = cverts[i];
+      s64 cx = (s64)std::floor(c.x / coll_cell);
+      s64 cy = (s64)std::floor(c.y / coll_cell);
+      s64 cz = (s64)std::floor(c.z / coll_cell);
+      coll_cells[cell_key(cx, cy, cz)].push_back(i);
+    }
+  }
+  auto nearest_coll_normal = [&](const math::Vector3f& p, math::Vector3f& out) -> bool {
+    if (cverts.empty()) {
+      return false;
+    }
+    s64 cx = (s64)std::floor(p.x() / coll_cell);
+    s64 cy = (s64)std::floor(p.y() / coll_cell);
+    s64 cz = (s64)std::floor(p.z() / coll_cell);
+    float best = (1.5f * 4096.f) * (1.5f * 4096.f);  // accept a walkable surface within 1.5 m
+    int bestv = -1;
+    for (int dz = -1; dz <= 1; dz++) {
+      for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+          auto it = coll_cells.find(cell_key(cx + dx, cy + dy, cz + dz));
+          if (it == coll_cells.end()) {
+            continue;
+          }
+          for (u32 ci : it->second) {
+            const auto& c = cverts[ci];
+            math::Vector3f d(c.x - p.x(), c.y - p.y(), c.z - p.z());
+            float dd = d.dot(d);
+            if (dd < best) {
+              best = dd;
+              bestv = (int)ci;
+            }
+          }
+        }
+      }
+    }
+    if (bestv < 0) {
+      return false;
+    }
+    const auto& c = cverts[bestv];
+    math::Vector3f nn((float)c.nx, (float)c.ny, (float)c.nz);
+    float l = nn.length();
+    if (!(l > 1e-3f)) {
+      return false;
+    }
+    out = nn * (1.f / l);
+    return true;
+  };
+
+  // ---- 5. For each CROSS-TREE welded group: orient -> crease-cluster -> average -> write nor ----
+  std::vector<math::Vector3f> cl_accum, cl_unit;
+  std::vector<u32> cl_packed;
+  std::vector<int> rec_cluster;
+  std::vector<u8> written(N, 0);
+  u64 resmoothed = 0, inverted_fixed = 0, collision_oriented = 0;
+  for (u32 g = 0; g < num_groups; g++) {
+    if (!group_multitree[g]) {
+      continue;  // single-tree verts keep the accepted per-tree normal (no regression)
+    }
+    auto& recs = gincid[g];
+    if (recs.empty()) {
+      continue;
+    }
+    // Largest incident face first: it establishes the group's dominant surface + orientation reference.
+    std::sort(recs.begin(), recs.end(),
+              [](const Incid& x, const Incid& y) { return x.nraw.dot(x.nraw) > y.nraw.dot(y.nraw); });
+    float rl = recs[0].nraw.length();
+    if (!(rl > 1e-6f)) {
+      continue;
+    }
+    math::Vector3f ref = recs[0].nraw * (1.f / rl);
+
+    // Collision authority: outward sign toward the walkable side (INSIGHT #2 point 2). If the dominant
+    // face points AWAY from the nearby walkable normal, the whole group's output is flipped to walkable-
+    // outward. The group is re-assigned wholesale here, so both trees' seam verts get the same sign =>
+    // no seam sign discontinuity.
+    bool sign_flip = false;
+    {
+      math::Vector3f centroid(0.f, 0.f, 0.f);
+      for (auto& r : recs) {
+        centroid = centroid + gp[r.gvert];
+      }
+      centroid = centroid * (1.f / (float)recs.size());
+      math::Vector3f cn;
+      if (nearest_coll_normal(centroid, cn) && ref.dot(cn) < -0.05f) {
+        sign_flip = true;
+        collision_oriented++;
+      }
+    }
+
+    // INSIGHT #2 point 1: re-orient NEAR-ANTIPARALLEL (inward-wound) incident faces to agree with the
+    // reference BEFORE averaging, so an inward normal can no longer cancel the cross-seam average
+    // (owner: "near-opposite vectors cancel"). The -0.8 threshold flips ONLY genuinely antiparallel
+    // duplicates (>~143 deg = an inward-wound copy of the SAME surface) and leaves real folds (up to
+    // ~143 deg) for the crease clustering below to keep as crisp separate clusters — so a genuine sharp
+    // corner is never smoothed away, only the inverted duplicate is corrected.
+    for (auto& r : recs) {
+      float rlen = r.nraw.length();
+      if (rlen > 1e-6f && (r.nraw * (1.f / rlen)).dot(ref) < -0.8f) {
+        r.nraw = r.nraw * -1.f;
+        inverted_fixed++;
+      }
+    }
+
+    // Crease-cluster (signed dot; coplanar-enough welds, a hard fold stays a separate crisp cluster).
+    cl_accum.clear();
+    cl_unit.clear();
+    rec_cluster.assign(recs.size(), -1);
+    for (size_t r = 0; r < recs.size(); r++) {
+      float len = recs[r].nraw.length();
+      if (!(len > 1e-6f)) {
+        continue;
+      }
+      math::Vector3f unit = recs[r].nraw * (1.f / len);
+      int found = -1;
+      for (size_t c = 0; c < cl_unit.size(); c++) {
+        if (unit.dot(cl_unit[c]) >= crease_cos) {
+          found = (int)c;
+          break;
+        }
+      }
+      if (found < 0) {
+        found = (int)cl_accum.size();
+        cl_accum.push_back(recs[r].nraw);
+        cl_unit.push_back(unit);
+      } else {
+        cl_accum[found] += recs[r].nraw;
+      }
+      rec_cluster[r] = found;
+    }
+    cl_packed.assign(cl_accum.size(), 0);
+    for (size_t c = 0; c < cl_accum.size(); c++) {
+      math::Vector3f nn = cl_accum[c];
+      float l = nn.length();
+      nn = l > 1e-6f ? nn * (1.f / l) : math::Vector3f(0.f, 1.f, 0.f);
+      if (sign_flip) {
+        nn = nn * -1.f;
+      }
+      s16 nx = (s16)std::lround(nn.x() * 511.f);
+      s16 ny = (s16)std::lround(nn.y() * 511.f);
+      s16 nz = (s16)std::lround(nn.z() * 511.f);
+      cl_packed[c] = pack_to_gl_normal(nx, ny, nz);
+    }
+    // Assign each incident vertex the normal of the cluster carrying its LARGEST incident face. recs is
+    // area-desc sorted, so the first record seen for a vertex is its largest face; `written` guards once.
+    for (size_t r = 0; r < recs.size(); r++) {
+      int cl = rec_cluster[r];
+      if (cl < 0) {
+        continue;
+      }
+      u32 gvi = recs[r].gvert;
+      if (written[gvi]) {
+        continue;
+      }
+      written[gvi] = 1;
+      gv[gvi]->nor = cl_packed[cl];
+      resmoothed++;
+    }
+  }
+
+  g_gweld_total_verts += (u64)N;
+  g_gweld_cross_stitched += cross_stitched;
+  g_gweld_multitree_groups += multitree_groups;
+  g_gweld_resmoothed_verts += resmoothed;
+  g_gweld_inverted_fixed += inverted_fixed;
+  g_gweld_collision_oriented += collision_oriented;
+  g_gweld_open_seam_before += boundary_after + 2 * cross_interior;
+  g_gweld_open_seam_after += boundary_after;
+  lg::info("[global-weld] level={} verts={} cross_chunk_stitched={} multitree_groups={} resmoothed={} "
+           "inward_faces_flipped={} collision_oriented={} open_seam_edges_after={} open_seam_edges_before~={}",
+           lev.level_name, N, cross_stitched, multitree_groups, resmoothed, inverted_fixed, collision_oriented,
+           boundary_after, boundary_after + 2 * cross_interior);
+  write_tan_diag_file();
+}
 
 // Grecharged-pbr-realtime-fusion REOPEN#7 FOUNDATION FIX — per-vertex MikkTSpace-style tangents.
 // tfrag/tie meshes ship NO vertex tangents, so the PBR shader used to rebuild a TBN frame per

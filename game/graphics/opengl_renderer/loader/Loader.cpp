@@ -401,6 +401,21 @@ void Loader::loader_thread() {
         }
       }
 
+      // OWNER REOPEN #13 (2026-07-24) + INSIGHT #2: after every tfrag/tie/shrub tree is unpacked, run
+      // the GLOBAL cross-chunk/bucket/system weld — one spatial hash over the WHOLE level stitches
+      // coincident positions across bucket AND system boundaries (the per-tree weld only stitched WITHIN
+      // each tree => the owner's remaining long seam LINES were chunk boundaries), orients inward normals
+      // outward via the walkable collision mesh, then averages across the welded seams with the crease
+      // threshold. Only cross-tree seam verts change (single-tree verts keep the accepted per-tree normal).
+      // Gated on the PBR / realtime-lighting features that actually consume the reconstructed normal: a
+      // STOCK player (recharged master off) pays zero added load cost and stays byte-identical. Runs on
+      // this loader thread (not the GL/main thread) behind the load screen, so no ANR.
+      if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+          Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) {
+        auto p = scoped_prof("global-weld");
+        tfrag3::reconstruct_level_global_weld(*result);
+      }
+
       fmt::print(
           "------------> Load from file: {:.3f}s, import {:.3f}s, decomp {:.3f}s unpack {:.3f}s\n",
           disk_load_time, import_time, decomp_time, unpack_timer.getSeconds());

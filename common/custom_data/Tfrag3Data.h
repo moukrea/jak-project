@@ -649,4 +649,11 @@ struct Level {
 
 void print_memory_usage(const tfrag3::Level& lev, int uncompressed_data_size);
 
+// OWNER REOPEN #13 + INSIGHT #2: GLOBAL cross-chunk/bucket/system vertex weld + normal-orientation-
+// consistency pass. Run ONCE after every tfrag/tie/shrub tree is unpacked (Loader.cpp) — one spatial
+// hash over the WHOLE level stitches coincident positions across bucket AND system boundaries (closing
+// the inter-chunk seam LINES the per-tree weld left open), orients inward normals outward via the
+// walkable collision mesh, then averages across the welded seams with a crease-angle threshold.
+void reconstruct_level_global_weld(Level& lev);
+
 }  // namespace tfrag3
