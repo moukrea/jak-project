@@ -725,3 +725,33 @@ Order the owner wants:
   NO baked sidecar — e.g. future MOD support (owner's example). Log which path (baked vs live-fallback) ran.
 Do STEP 2 only after STEP 1 is owner-eye-validated. The live path is expensive per load; the bake is the
 shipping solution, same as the tangent precompute preference.
+
+---
+## OWNER FULL SPEC (2026-07-24) — COMPLETE GEOMETRY CONSOLIDATION. Do ALL of it. Killer feature, do NOT park.
+The 96%-weld metric did NOT translate to the owner's eye — hard grass seams persist near the player.
+Owner's clues + full spec (implement ALL, comprehensively, programmatically):
+1. **BAKED MOVES WITH TOD** — for ALL testing/verification, FREEZE the time of day at a DAYTIME hour so the
+   baked is stable AND the PBR is visible (PBR is invisible/flat at night, so night tests are useless). Add
+   a debug prop to freeze TOD if not already reliable (debug.opengoal.tod.hour + freeze). Report captures at
+   a fixed daytime hour only.
+2. **WELD every adjacent same-texture polygon/chunk that SHOULD be connected** — not 96%, aim for the VISIBLE
+   seams gone. Widen the epsilon / handle the remaining ~47k open-seam verts; weld coincident positions
+   across chunk/bucket/tree/system boundaries for same-texture neighbours (and geometry-weld across texture
+   boundaries to close holes).
+3. **ORIENTATION: fix adjacent chunks with OPPOSITE orientation** (owner: "deux chunks côte à côte, un à
+   l'endroit, un à l'envers"). Flood-fill a consistent outward winding over the welded topology; use the
+   COLLISION mesh as the authority for "which side is outward" (walkable side); handle interiors/tunnels.
+4. **SMOOTH THE UVs at seams** (owner: "lisser les UV") — texture-coordinate continuity across welded seams
+   so textures don't break at chunk boundaries.
+5. **NORMAL SMOOTHING with a threshold that ACTUALLY smooths the terrain**: adjacent grass/ground chunks meet
+   at GENTLE angles and must be smoothed to a nuance (not a hard face) — tune the crease-angle threshold so
+   these gentle seams smooth out, while genuine sharp corners (wall↔ground ~90°) stay crisp. The owner's
+   remaining hard grass edges = gentle seams being wrongly kept as creases OR still-faceted normals; fix so
+   "faces clairement visibles où ça devrait juste être nuancé" become nuanced.
+6. **DEBUG A/B TOGGLE (mandatory, so the supervisor can verify on-device):** debug.opengoal.mesh.weld (or
+   similar) that DISABLES the whole weld/orient/smooth pass at runtime, so weld-ON vs weld-OFF can be A/B'd
+   at a fixed daytime vantage — proving the seams come from the geometry pass.
+7. DEVICE-PROVE (Redmi is available to the supervisor): at a FIXED DAYTIME hour + a grass vantage, the
+   visible seams are GONE with weld ON vs the seamy weld-OFF. Not a % — the actual seams.
+This is the whole-game geometry consolidation the owner has been describing. Live at load for now
+(precompute/sidecar is the documented STEP 2 after the LOOK is validated). Do it thoroughly this round.

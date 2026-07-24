@@ -114,4 +114,10 @@ grep -qiE 'remaining.*seam.*(0|zero|~0|drop)|seam.*(count|line).*(0|zero|gone)|c
 # OWNER: whole-game scope — weld/orient in the generic per-level path, no village1 gating.
 grep -qiE 'every level|all level|whole game|generic.*(load|tfrag|per.?level)|not.*village1.?(specific|only)|any level.*(loads|weld)' "$R" || fail "no whole-game-scope evidence (weld/orient must apply to ALL levels, not just village1)"
 grep -qiE 'village1' common/custom_data/TFrag3Data.cpp game/graphics/opengl_renderer/background/TFragment.cpp 2>/dev/null && fail "village1 hardcoded in the tfrag weld path (must be level-generic)"
+# OWNER FULL SPEC: complete geometry consolidation + TOD-freeze testing + weld A/B toggle.
+grep -qiE 'tod.*(freeze|fixed|frozen|daytime).*(test|captur|verif)|fixed.*(daytime|hour).*(baked|captur)|freeze.*tod' "$R" || fail "no TOD-frozen-daytime testing evidence (baked moves with TOD; night = PBR invisible)"
+grep -qiE 'uv.*(smooth|weld|continu|seam)|texture.?coord.*(continu|seam|weld)' "$R" || fail "no UV-smoothing-at-seams evidence (owner: lisser les UV)"
+grep -qiE 'crease.?angle.*(tune|threshold|gentle|terrain)|gentle.*(seam|angle).*(smooth|nuance)|threshold.*(smooth|terrain|grass)' "$R" || fail "no crease-threshold-tuned-for-gentle-terrain evidence (grass seams must smooth, sharp corners stay)"
+grep -qiE 'mesh\.weld|weld.*(toggle|A/B|disable prop)|debug.*weld.*(off|toggle)|weld.?on.*weld.?off' "$R" || fail "no weld A/B debug toggle evidence (supervisor must A/B on device)"
+grep -qiE 'seam.*(gone|eliminated|absent).*(day|vantage|weld.?on)|weld.?on.*vs.*weld.?off.*seam' "$R" || fail "no seams-gone-at-daytime-vantage device proof (not a %)"
 echo "[Gpbrf PASS]"
