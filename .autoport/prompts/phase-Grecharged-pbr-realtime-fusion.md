@@ -508,3 +508,35 @@ files/pbr_tess_diag.txt` on the Honor. Log there: EXT_tessellation_shader presen
 program link status + infolog, and the final on/off decision + reason. (An on-screen debug line the owner
 can screenshot is an acceptable secondary channel.) With this file, the supervisor will read the exact
 Adreno-840 tessellation root cause off the Honor and feed it back.
+
+---
+## OWNER PLAYTEST #9 (2026-07-24) — FACETS UNCHANGED. My #8 base-normal diagnosis was WRONG. Real cause = the NORMAL-MAP TANGENT frame is per-triangle (degenerate per-vertex tangents).
+Owner: "les facettes sont toujours là, ça n'a rien changé." Supervisor READ THE ACTUAL SHADER (tfrag3.frag):
+- The BASE lighting normal N is ALREADY the smooth per-vertex normal `v_normal` when present (line ~473,
+  `u_rt_flat_normal==0 && Nsl2>0.2`) — so the base normal is NOT the facet source for tfrag ground.
+- The facets appear ONLY at Texture-Relief > 0 (owner) => they come from the NORMAL-MAP application, i.e.
+  the TANGENT frame. In the shader (line ~550): the per-vertex tangent `v_tangent` is used ONLY if
+  `dot(v_tangent.xyz,v_tangent.xyz) > 0.04`; OTHERWISE it FALLS BACK to a screen-space-derivative TBN
+  (dFdx/dFdy, line ~558) which is PER-TRIANGLE CONSTANT => the normal-map is applied in a discontinuous
+  frame => hard triangular facets that scale with normal-map strength (= Texture Relief). THIS is the bug.
+
+### ROOT CAUSE: the per-vertex tangent `v_tangent` is DEGENERATE / near-zero for the ground geometry (grass
+is where the owner sees it) → the shader silently falls back to the screen-derivative TBN → facets. Round #7
+"added tangents" but they are not actually populated / non-degenerate for the surfaces the owner looks at.
+
+### MANDATE:
+1. **DEVICE-PROVE the tangent coverage FIRST (bisection, not theory):** add a debug viz / counter that reports,
+   for the visible ground, the FRACTION of fragments taking the degenerate-tangent FALLBACK (the `else`
+   branch). Write it to `files/pbr_tess_diag.txt` (or a `pbr_tan_diag.txt`) — the Honor obscures logcat, use a
+   FILE. The supervisor will pull it off the Honor. If the fallback fraction is high on the grass, the
+   tangents are degenerate there = confirmed.
+2. **FIX the tangent generation so v_tangent is valid (non-degenerate, unit, correct handedness) for ALL
+   drawn geometry the PBR touches — tfrag ground FIRST** (that is the grass). Likely causes: the MikkTSpace
+   accumulation produces ~0 tangents where UVs are degenerate/mirrored, or the tangent attribute isn't
+   populated for tfrag draws, or it's not uploaded/bound for the ground buckets. Handle degenerate-UV verts
+   with a stable fallback tangent DERIVED FROM THE SMOOTH NORMAL (an arbitrary but CONTINUOUS per-vertex
+   tangent, e.g. Frisvad/Duff branchless basis from N), NEVER the screen-space derivative (which is the
+   facet source). A per-vertex continuous tangent — even an arbitrary one — kills the facets.
+3. Re-verify on device: fallback fraction ~0 on the grass, and facets GONE at relief>0.
+ACCEPTANCE: grass/faces smooth at any relief (owner's eye), and the tangent-fallback fraction file proves
+near-zero screen-derivative usage. Stop theorizing base-normal; the tangent frame is the proven culprit.

@@ -90,4 +90,8 @@ grep -qiE 'tessellat.*(runs|actually|glGetProgramInfoLog|glGetError|patch.*(link
 grep -qiE 'smooth.*(per.?vertex|vertex).*normal|per.?vertex normal.*(base|smooth|interpolat)|base normal.*(smooth|per.?vertex)|barycentric.*normal' "$R" || fail "no smooth-per-vertex-base-normal evidence (faceted triangular patches = per-face normal; use smooth N)"
 grep -qiE 'no (facet|triangular)|facet.*(gone|fixed|eliminated)|no.*triangular.*(patch|crack)|smooth.*(lighting|shading).*(faces|grass)' "$R" || fail "no facets-eliminated evidence"
 grep -qiE 'pbr-tess|tess.*(log|diagnostic|infolog|GK_STDOUT)|tessellat.*(capability.*log|log.*reason|greppable)' "$R" || fail "no tessellation-diagnostics evidence (renderer must log why it falls back)"
+# OWNER #9: facets = degenerate per-vertex tangent -> screen-deriv TBN fallback. Fix tangent coverage, device-proven.
+grep -qiE 'tangent.*(fallback|degenerate|coverage|fraction).*(fil|device|prov|diag)|fallback fraction|frisvad|duff|branchless.*(basis|tangent)|continuous.*tangent.*(from|derived).*normal' "$R" || fail "no tangent-fallback-coverage device proof or continuous-fallback-tangent evidence (facets = degenerate v_tangent -> screen-deriv TBN)"
+grep -qiE 'facet.*(gone|fixed|eliminated).*(relief|normal.?map)|no facet.*relief|tangent.*(valid|non.?degenerate).*(ground|tfrag|grass)' "$R" || fail "no facets-fixed-via-tangent evidence"
+grep -qiE 'pbr_tan_diag|pbr_tess_diag|files/.*diag' "$R" || fail "no file-based diag evidence (Honor logcat obscured)"
 echo "[Gpbrf PASS]"
