@@ -86,4 +86,8 @@ grep -qiE 'not.*(screen.?space|dFdx)|replace.*(screen.?space|derivative).*(tbn|t
 grep -qiE 'no (contrast )?crack|crack.*(gone|fixed|eliminated)|relief.*>?0.*no.*(crack|break)' "$R" || fail "no cracks-fixed-at-relief>0 evidence (hard gate)"
 grep -qiE 'visible displacement|relief.*(visible|clearly)|displacement.*(restored|visible)' "$R" || fail "no visible-displacement-restored evidence (last round neutered it)"
 grep -qiE 'tessellat.*(runs|actually|glGetProgramInfoLog|glGetError|patch.*(link|compil)|real.*(displac|geometry))|tess.*(GL error|infolog)' "$R" || fail "no real-tessellation-root-cause evidence (owner: it still falls back, don't claim it works)"
+# OWNER #8: faceted shading = base normal is per-face; use SMOOTH per-vertex normal + tess diagnostics.
+grep -qiE 'smooth.*(per.?vertex|vertex).*normal|per.?vertex normal.*(base|smooth|interpolat)|base normal.*(smooth|per.?vertex)|barycentric.*normal' "$R" || fail "no smooth-per-vertex-base-normal evidence (faceted triangular patches = per-face normal; use smooth N)"
+grep -qiE 'no (facet|triangular)|facet.*(gone|fixed|eliminated)|no.*triangular.*(patch|crack)|smooth.*(lighting|shading).*(faces|grass)' "$R" || fail "no facets-eliminated evidence"
+grep -qiE 'pbr-tess|tess.*(log|diagnostic|infolog|GK_STDOUT)|tessellat.*(capability.*log|log.*reason|greppable)' "$R" || fail "no tessellation-diagnostics evidence (renderer must log why it falls back)"
 echo "[Gpbrf PASS]"

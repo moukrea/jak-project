@@ -451,3 +451,35 @@ wasted CPU. Do it the industry way (like glTF ships tangents in the asset):
    before the bake runs, or a level without baked tangents) — so the feature always works, but ships
    optimized. Log which path was used.
 This is the clean, cheap, correct approach; it reuses the (now-free) bundled-asset plumbing.
+
+---
+## OWNER PLAYTEST #8 (2026-07-24) — FACETED SHADING = the base NORMAL is per-face, not smooth per-vertex. + displacement FLAT + tessellation still fallback.
+Owner: epoxy/floating is GONE (good), but displacement is now FLAT (no depth), tessellation still not working
+(silent fallback to parallax — supervisor confirmed the game runs at displacement=2 without crashing but
+shows parallax), and the "TBN cracks" are NOT much better — same severity, DIFFERENT places.
+SCREENSHOT (device/owner_facets/tbn_1.jpg, archived): the GRASS around Jak is broken into HARD TRIANGULAR
+PATCHES of different brightness that follow the mesh triangulation — classic FACETED / FLAT-SHADED lighting.
+
+### ROOT CAUSE (from the screenshot, objective): the BASE SHADING NORMAL (the N in TBN) used by the fused
+PBR path is PER-FACE (screen-space derivative of position, or a flat face normal), NOT the smooth
+per-vertex normal. The tangent round added T/B but kept a FACETED N. Consequences:
+- hard triangular lighting patches (each triangle shades flat → visible facets = the owner's "cracks"),
+- the faceting WASHES OUT the normal-map relief → looks FLAT.
+Note: "Lighting only" looks smooth because it leans on the baked per-vertex vertex-colors; the PBR N·L path
+introduces the faceted normal, so facets appear only with PBR.
+
+### MANDATE:
+1. **Use the SMOOTH per-vertex normal as the base N in the fused PBR path.** tfrag/tie/shrub have (or can get,
+   as the grass-overhang work did with barycentric smooth vertex normals) smooth per-vertex normals — pass
+   them as a vertex attribute and interpolate; DO NOT reconstruct the base normal from screen-space
+   derivatives. Then build the TBN from this smooth N + the per-vertex tangent (already added) → continuous
+   frame → NO facets. This fixes BOTH the triangular cracks AND the flatness (relief no longer washed out).
+2. **After the smooth-normal fix, the normal-map + parallax relief must read as real surface depth** (not
+   flat). Calibrate relief to be clearly visible now that the base is smooth.
+3. **TESSELLATION diagnostics (mandatory): the renderer emits NOTHING about why tessellation falls back** —
+   the supervisor could not extract any GL/capability log on the Honor. ADD a clear, greppable log line
+   (tag e.g. "[pbr-tess]") at: capability query result (EXT_tessellation_shader present?), tess control/eval
+   shader compile status + infolog, program link status + infolog, and the fallback decision + reason. Route
+   it through GK_STDOUT so `adb logcat -s GK_STDOUT:I` shows it. THEN root-cause + fix using that output.
+ACCEPTANCE: grass/faces show SMOOTH lighting (no triangular facets) at any relief, relief reads as depth,
+and tessellation either runs or logs exactly why it can't. Owner's eye + the supervisor can pull the tess log.
