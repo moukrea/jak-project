@@ -158,6 +158,20 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > Câblé aux presets PBR TEST : ALL-IN=3, FUSED=2, FUSED FLAT/PLATE=1, PBR ONLY=2, RT ONLY=0, STOCK=0.
 > Setter C++ : `pc_set_follow_probe(u32 tier)` → `Gfx::g_global_settings.recharged_follow_probe` (clamp ≤3).
 >
+> **Ajout (2026-07-24, Gpbr-fusion REOPEN #10 — DEBUG, retirable plus tard)** : carousell **PBR Isolate**
+> (Both / Normal-map only / Parallax only / Neither, défaut Both) inséré APRÈS PBR Test Preset, AVANT Back
+> (Back renuméroté 22→23 ; les lignes précédentes inchangées — ajout en fin de bloc PBR à fw-idx +15).
+> Grisé selon **PBR Materials** (comme Displacement). C'est la **bisection de terme IN-MENU** demandée par
+> l'owner : il isole lui-même le terme responsable des facettes résiduelles sur l'herbe à SON vantage, sans
+> adb. Miroir exact du carousell **Displacement** (int-backup + respond-common, 4 arms + wiring name-override).
+> Champ `pbr-isolate int32` (défaut 0), extern `pc-set-pbr-isolate!` `(function int none)`, push chaque frame
+> en index brut via update-to-os, `game-option-type pbr-isolate`, `*carousell-pbr-isolate*`,
+> `*pbr-isolate-label*` "PBR ISOLATE". Setter C++ `pc_set_pbr_isolate(u32 idx)` mappe l'index carousell vers le
+> **masque `u_pbr_bisect`** : BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off),
+> NEITHER 192 → `Gfx::g_global_settings.recharged_pbr_isolate`, qui **amorce** `pbr_bisect` dans le chemin
+> fusionné (le prop/env debug l'écrase encore pour l'A/B headless du superviseur sur l'ensemble des termes).
+> Ids texte : `pc-text-pbr-iso-both` #x1724 / `-nm` #x1725 / `-pom` #x1726 / `-neither` #x1727.
+>
 > **Changement de défaut (2026-07-23, Gpbr-fusion REOPEN #6 — MATTE-DIELECTRIC)** : après playtest #4 owner
 > (décompo : « Lighting-only » BON, la vitre n'apparaît QUE avec PBR ⇒ la vitre EST le terme spéculaire/env sur
 > matériaux MATTE), le look par défaut devient **matte** : le shader `tfrag3.frag` gagne un `matte_gate` =

@@ -1415,7 +1415,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // REOPEN #3 TERM BISECTION (owner: sheen survives specular=0): bitmask zeroing ONE
   // fused-path lighting term at a time — semantics documented at u_pbr_bisect in
   // tfrag3.frag. Absent prop = 0 = full path (no behavioural change).
-  int pbr_bisect = 0;
+  // REOPEN #10: seed the mask from the IN-MENU "PBR ISOLATE" carousel (recharged_pbr_isolate,
+  // resolved to the 0/128/64/192 mask in pc_set_pbr_isolate) so the owner can flip
+  // Both / Normal-map-only / Parallax-only / Neither at his vantage with no adb. The debug
+  // prop/env below still OVERRIDE it for headless supervisor A/B on the full term set.
+  int pbr_bisect = gs.recharged_pbr_isolate;
   // REOPEN #3 DISPLACEMENT menu carousel (0 Off / 1 Parallax / 2 Tessellation). Menu value
   // from GOAL via pc-set-pbr-displacement!; debug prop overrides for headless A/B.
   int pbr_displacement = gs.recharged_pbr_displacement;

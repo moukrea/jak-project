@@ -419,6 +419,10 @@
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
 (def-progress-carousell *carousell-pbr-test-preset* (pc-text-preset-allin pc-text-preset-fused pc-text-preset-fused-flat pc-text-preset-pbr-only pc-text-preset-rt-only pc-text-preset-stock))
+;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell — in-menu term bisection so the
+;; owner isolates the residual grass-facet source at his OWN vantage with no adb. Index -> u_pbr_bisect mask
+;; in pc_set_pbr_isolate: BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off), NEITHER 192.
+(def-progress-carousell *carousell-pbr-isolate* (pc-text-pbr-iso-both pc-text-pbr-iso-nm pc-text-pbr-iso-pom pc-text-pbr-iso-neither))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
@@ -1052,6 +1056,14 @@
        ;; to switch back. Carousell mirrors rt-ambient-model; the write-back arm applies the whole config.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t))
+       ;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell (Both/Normal-map only/Parallax
+       ;; only/Neither; disabled unless PBR MATERIALS on). The owner's in-menu term bisection at his own vantage —
+       ;; drives the real facet fix. Carousell mirrors pbr-displacement: no :on-change, value written via respond-common.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type pbr-isolate) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
        ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
@@ -1210,6 +1222,9 @@
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell label.
 (define *pbr-test-preset-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *pbr-test-preset-label*) "PBR TEST PRESET")
+;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell label.
+(define *pbr-isolate-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *pbr-isolate-label*) "PBR ISOLATE")
 (define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
 ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
@@ -3409,6 +3424,10 @@
       ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
       (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *pbr-test-preset-label*)
+      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +15, before Back). int-backup
+      ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
+      (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-isolate-label*)
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
@@ -3594,6 +3613,7 @@
                     (game-option-type pbr-displacement)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
+                    (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -3688,6 +3708,7 @@
                     (game-option-type pbr-displacement)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
+                    (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -4019,6 +4040,7 @@
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
                  (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
+                 (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
                  (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
@@ -4072,6 +4094,7 @@
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
                     (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
+                    (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
                     (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
@@ -4130,6 +4153,7 @@
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
               (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
+              (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
               ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
               ;; intended-config on confirm. Store the choice, then stamp the underlying fields; every other
               ;; row/slider reflects it and the shared commit-to-file at the end of the else-branch persists all.
@@ -4605,6 +4629,7 @@
                       (game-option-type pbr-displacement)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
+                      (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -4695,6 +4720,7 @@
                       (game-option-type pbr-displacement)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
+                      (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)

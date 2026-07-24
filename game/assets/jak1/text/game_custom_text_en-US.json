@@ -265,5 +265,9 @@
   "1720": "STOCK",
   "1721": "LOW",
   "1722": "MID",
-  "1723": "HIGH"
+  "1723": "HIGH",
+  "1724": "BOTH",
+  "1725": "NORMAL-MAP ONLY",
+  "1726": "PARALLAX ONLY",
+  "1727": "NEITHER"
 }

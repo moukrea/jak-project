@@ -1122,6 +1122,29 @@ void pc_set_pbr_displacement(u32 mode) {
     }
   }
 }
+// REOPEN #10 PBR ISOLATE carousel (DEBUG, removable): the owner's IN-MENU term bisection.
+// GOAL pushes the raw carousel INDEX; map it to the u_pbr_bisect MASK the fused shader reads
+// (128 = POM/parallax off @ tfrag3.frag L587, 64 = normal-map off @ L634). This lets the owner
+// flip Both / Normal-map-only / Parallax-only / Neither at his own grass vantage with no adb,
+// so his bisection — not another headless guess — names the residual facet term.
+void pc_set_pbr_isolate(u32 idx) {
+  int mask = 0;
+  switch (idx) {
+    case 1:
+      mask = 128;  // NORMAL-MAP ONLY: parallax/POM off
+      break;
+    case 2:
+      mask = 64;  // PARALLAX ONLY: normal-map perturbation off
+      break;
+    case 3:
+      mask = 192;  // NEITHER: both off (128 | 64)
+      break;
+    default:
+      mask = 0;  // BOTH (default): full fused path
+      break;
+  }
+  Gfx::g_global_settings.recharged_pbr_isolate = mask;
+}
 void pc_set_rt_ambient_contrast(u32 pct) {
   // GOAL sends an int PERCENT 0..150 (0.9 -> 90); mirror the *0.01 convention above.
   Gfx::g_global_settings.recharged_rt_ambient_contrast = (float)pct * 0.01f;
@@ -1202,6 +1225,8 @@ void InitMachine_PCPort() {
                               (void*)pc_set_pbr_specular_intensity);
   // REOPEN #3: DISPLACEMENT carousel (Off/Parallax/Tessellation)
   make_function_symbol_from_c("pc-set-pbr-displacement!", (void*)pc_set_pbr_displacement);
+  // REOPEN #10: PBR ISOLATE carousel (in-menu term bisection: Both/NM-only/Parallax-only/Neither)
+  make_function_symbol_from_c("pc-set-pbr-isolate!", (void*)pc_set_pbr_isolate);
   make_function_symbol_from_c("pc-set-rt-ambient-contrast!", (void*)pc_set_rt_ambient_contrast);
   make_function_symbol_from_c("pc-set-rt-ambient-model!", (void*)pc_set_rt_ambient_model);
   make_function_symbol_from_c("pc-set-follow-probe!", (void*)pc_set_follow_probe);

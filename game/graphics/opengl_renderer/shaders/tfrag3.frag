@@ -89,6 +89,14 @@ uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, de
 // 1024 = C1 shoulder tone map (linear clamp instead)  2048 = fused-contrast fmod compress off
 // 4096 = REOPEN #6 matte-dielectric ENVELOPE off (restores the old glossy sheen for A/B: the
 //        default matte look vs the pre-#6 glass — the owner's "path active?" killswitch)
+// REOPEN #10: the IN-MENU "PBR ISOLATE" carousell (Recharged Settings) seeds this mask via the
+// recharged_pbr_isolate setting so the OWNER can bisect the residual grass-facet term at his own
+// vantage with NO adb (BOTH=0, NORMAL-MAP ONLY=128 [POM off], PARALLAX ONLY=64 [nm off], NEITHER=192).
+// Prime suspect now (tangent frame proven continuous @ REOPEN#9, base normal smooth): the PARALLAX/
+// POM at bit 128 — the steep march (below) samples the height map at a data-dependent iteration count;
+// where it clips at UV-chart/triangle boundaries it can read a per-triangle offset that reads as a
+// facet at high relief. The owner's PARALLAX-ONLY vs NORMAL-MAP-ONLY flip names it; the debug prop/env
+// still override the mask for the supervisor's full-term headless A/B.
 uniform int u_pbr_bisect;
 // REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
 // (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement

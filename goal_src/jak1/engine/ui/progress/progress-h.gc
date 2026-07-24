@@ -182,7 +182,9 @@
      ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (Off/Low/Mid/High follow-probe tier), mirroring pbr-displacement.
      (follow-probe)
      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (one-click intended-config presets).
-     (pbr-test-preset))) ;; end of PC_PORT = #t branch for enum initialization
+     (pbr-test-preset)
+     ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (in-menu term bisection), mirroring pbr-displacement.
+     (pbr-isolate))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

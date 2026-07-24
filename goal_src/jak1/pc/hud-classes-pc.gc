@@ -1722,6 +1722,8 @@
     (pc-set-pbr-displacement! (the int (-> obj pbr-displacement)))
     ;; Grecharged-pbr-realtime-fusion: DYNAMIC FOLLOW-PROBE tier as a raw int index (0 OFF / 1 LOW / 2 MID / 3 HIGH).
     (pc-set-follow-probe! (the int (-> obj follow-probe)))
+    ;; Gpbr-fusion REOPEN #10: PBR ISOLATE carousell as a raw int index (0 BOTH / 1 NORMAL-MAP ONLY / 2 PARALLAX ONLY / 3 NEITHER); C++ maps it to the u_pbr_bisect mask.
+    (pc-set-pbr-isolate! (the int (-> obj pbr-isolate)))
     ;; Grecharged-directional-ambient ROUND 2: ambient MODEL index (0 hemisphere / 1 SH / 2 IBL).
     (pc-set-rt-ambient-model! (-> obj realtime-ambient-model))
     (pc-set-rt-shadow-dist! (the int (-> obj realtime-shadow-dist)))

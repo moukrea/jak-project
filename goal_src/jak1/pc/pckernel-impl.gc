@@ -93,6 +93,7 @@
    (pbr-displacement int32) ;; Gpbr-fusion REOPEN #3: DISPLACEMENT mode carousell (0 OFF, 1 PARALLAX, 2 TESSELLATION; default 1 PARALLAX)
    (follow-probe int32) ;; Grecharged-pbr-realtime-fusion: DYNAMIC FOLLOW-PROBE tier carousell (0 OFF, 1 LOW, 2 MID, 3 HIGH; default 1 LOW)
    (pbr-test-preset int32) ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (0 ALL-IN, 1 FUSED, 2 FUSED FLAT, 3 PBR ONLY, 4 RT ONLY, 5 STOCK; default 1 FUSED). Only writes other settings; C++ never reads it.
+   (pbr-isolate int32) ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell = in-menu term bisection so the owner isolates the residual grass-facet source at his vantage with no adb (0 BOTH, 1 NORMAL-MAP ONLY, 2 PARALLAX ONLY, 3 NEITHER; default 0 BOTH). Raw index -> u_pbr_bisect mask in pc_set_pbr_isolate.
    (realtime-lighting? symbol) ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting (one sun, N.L per face, NO ambient). #f = stock/pbr-materials shading.
    (realtime-ambient? symbol)
    (realtime-ambient-strength float)
@@ -166,6 +167,8 @@
 (define-extern pc-set-pbr-displacement! (function int none))
 ;; Grecharged-pbr-realtime-fusion: DYNAMIC FOLLOW-PROBE tier sent as raw int index (0 OFF / 1 LOW / 2 MID / 3 HIGH).
 (define-extern pc-set-follow-probe! (function int none))
+;; Gpbr-fusion REOPEN #10: PBR ISOLATE carousell sent as raw int index (0 BOTH / 1 NORMAL-MAP ONLY / 2 PARALLAX ONLY / 3 NEITHER); C++ maps it to the u_pbr_bisect mask.
+(define-extern pc-set-pbr-isolate! (function int none))
 ;; Grecharged-directional-ambient: ambient CONTRAST sent as an int PERCENT 0..150 (1.0 -> 100) — same int-FFI convention.
 (define-extern pc-set-rt-ambient-contrast! (function int none))
 ;; Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 hemisphere / 1 SH / 2 IBL).
@@ -268,6 +271,7 @@
   (set! (-> obj pbr-displacement) 1) ;; REOPEN #3 shipped default: PARALLAX (0 OFF / 1 PARALLAX / 2 TESSELLATION)
   (set! (-> obj follow-probe) 1) ;; Grecharged-pbr-realtime-fusion shipped default: LOW (0 OFF / 1 LOW / 2 MID / 3 HIGH)
   (set! (-> obj pbr-test-preset) 1) ;; REOPEN #3 (DEBUG): default FUSED (1) = the shipped config; carousell only, applies other settings on confirm
+  (set! (-> obj pbr-isolate) 0) ;; REOPEN #10 (DEBUG): default BOTH (0) = full fused path unchanged; owner flips to isolate the facet term
   (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
   (set! (-> obj realtime-ambient?) #t)
   (set! (-> obj realtime-ambient-strength) 0.2)

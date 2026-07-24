@@ -833,6 +833,11 @@
   (pc-text-envprobe-low #x1721)
   (pc-text-envprobe-mid #x1722)
   (pc-text-envprobe-high #x1723)
+  ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell strings (Both / Normal-map only / Parallax only / Neither).
+  (pc-text-pbr-iso-both #x1724)
+  (pc-text-pbr-iso-nm #x1725)
+  (pc-text-pbr-iso-pom #x1726)
+  (pc-text-pbr-iso-neither #x1727)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

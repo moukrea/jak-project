@@ -203,6 +203,12 @@ struct GfxGlobalSettings {
   // REOPEN #3 DISPLACEMENT menu carousel: 0 = Off, 1 = Parallax (steep POM, default),
   // 2 = Tessellation (GLES3.2/GL4.x tess displacement, near ground/walls).
   int recharged_pbr_displacement = 1;
+  // REOPEN #10 PBR ISOLATE menu carousel (DEBUG, removable): the owner's IN-MENU term
+  // bisection so he can isolate the residual grass-facet source at his own vantage with no
+  // adb. Stored here as the resolved u_pbr_bisect MASK (not the carousel index): 0 = BOTH
+  // (nm+POM), 128 = NORMAL-MAP ONLY (POM off), 64 = PARALLAX ONLY (normal-map off),
+  // 192 = NEITHER. Seeds pbr_bisect in the fused path; the debug prop/env still override.
+  int recharged_pbr_isolate = 0;
   // Round-4 multi-light: *time-of-day-context* light-group 0 (soleil + lune verte + fill).
   // Pushed raw from GOAL via pc-set-pbr-lights!; scaled/normalized at the GL boundary.
   bool recharged_pbr_lg_valid = false;
