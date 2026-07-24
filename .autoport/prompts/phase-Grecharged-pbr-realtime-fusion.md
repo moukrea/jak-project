@@ -712,3 +712,16 @@ EVERY level's fr3 data) with NO village1-specific gating or hardcoded level id. 
 any level that loads (village1, jungle, beach, misty, rolling hills, snowy, etc.). If any part is a
 precomputed bake, the bake must cover ALL levels, not just village1. VERIFY on at least ONE non-village1
 level too (weld/orient stats present for it). No level-specific hardcoding anywhere in the weld/orient pass.
+
+**OWNER (2026-07-24): PRECOMPUTE the weld+orient (don't do it every load) — but AFTER correctness is proven.**
+Order the owner wants:
+- STEP 1 (this round, OK as-is): compute weld + orientation + averaged normals LIVE at load, to prove the
+  RESULT is visually correct (no point baking a wrong result).
+- STEP 2 (follow-up, once the owner validates the LOOK): PRECOMPUTE the whole weld/orient/normal result ONCE,
+  deterministically, into a per-level BAKED SIDECAR (extend the `<level>.tangents` sidecar or a
+  `<level>.meshweld` — welded index map + consolidated smooth normals + corrected orientation), committed to
+  the repo + bundled in the APK, uploaded directly at load = ZERO per-load weld/orient computation. Do this
+  for ALL levels (whole-game bake). Load-time weld/orient stays ONLY as a graceful FALLBACK for levels with
+  NO baked sidecar — e.g. future MOD support (owner's example). Log which path (baked vs live-fallback) ran.
+Do STEP 2 only after STEP 1 is owner-eye-validated. The live path is expensive per load; the bake is the
+shipping solution, same as the tangent precompute preference.
