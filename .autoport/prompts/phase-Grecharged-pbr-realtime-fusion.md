@@ -787,3 +787,17 @@ before capturing actual grass — else the capture shows a PBR-less / logo frame
 fullspec_weldon/off captures were the ND LOGO = invalid; do not repeat.
 ACCEPTANCE: real index-merge (shared verts, provable: index buffer references shrink / shared-edge count),
 no tessellation holes, NO new clean cuts, owner's eye at a daytime grass vantage with the full PBR stack on.
+
+**OWNER — THE STRICT ORDER (2026-07-24): FUSE FIRST, THEN smooth, THEN orient. Everything before was bogus
+because it smoothed/oriented on a NON-fused topology.**
+STEP A — TRUE FUSE: rewrite the index buffer so coincident same-texture verts become ONE shared vertex/index
+  (real topological merge). After this step the mesh has genuinely shared edges — the seam is ONE edge, not
+  two coincident copies.
+STEP B — SMOOTH: only NOW average the normals, over the truly-merged vertices. (Averaging before fusing =
+  bogus, the current bug.)
+STEP C — ORIENT: the winding/orientation flood-fill runs on the MERGED topology so it can propagate ACROSS
+  the (now real) shared edges; collision authority for outward side. (Orientation on non-fused topology
+  could not cross the fake seams = also bogus.)
+STEP D — UV continuity + tessellation matching-edge-factors on the shared edges.
+Do them in THIS order. If STEP A (real index merge) is not done, B/C/D are all meaningless — that is exactly
+what has been shipped so far. The whole point is STEP A must be a genuine geometry merge.
