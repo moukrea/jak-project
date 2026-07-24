@@ -1,6 +1,7 @@
 #include "Tfrag3Data.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
@@ -417,6 +418,16 @@ static float tfrag_crease_cos() {
   return std::cos(deg * 0.017453292519943295f);
 }
 
+// OWNER ROOT-CAUSE BREAKTHROUGH (2026-07-24) — edge-weld device-provable stats. The Honor obscures logcat
+// (HKS encryption), so the weld counts are ALSO emitted to files/pbr_tan_diag.txt (pull via
+// `run-as org.opengoal.gk.jak1 cat files/pbr_tan_diag.txt`). *_stitched = coincident shared-edge vertex
+// copies merged into an already-seen group across a cluster/strip/instance seam = the previously-UNWELDED
+// adjacent-same-texture edges that caused the hard facets + tessellation holes.
+static std::atomic<u64> g_edge_weld_tfrag_stitched{0};
+static std::atomic<u64> g_edge_weld_tfrag_verts{0};
+static std::atomic<u64> g_edge_weld_tie_stitched{0};
+static std::atomic<u64> g_edge_weld_tie_verts{0};
+
 static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   const auto& packed = tree.packed_vertices.vertices;
   const size_t n = tree.unpacked.vertices.size();
@@ -425,30 +436,65 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   }
   const float crease_cos = tfrag_crease_cos();
 
-  // Weld GROUPS by exact packed position (cluster + 16-bit offsets -> unique 64-bit key). Vertices split
-  // only for UV/material seams (or strip boundaries) share a key; the crease clustering below decides which
-  // of them actually merge.
-  std::unordered_map<u64, u32> pos_to_group;
-  pos_to_group.reserve(n * 2);
-  std::vector<u32> vert_group(n);
-  u32 num_groups = 0;
-  for (size_t i = 0; i < n; i++) {
-    const auto& p = packed[i];
-    u64 key = ((u64)p.cluster_idx << 48) | ((u64)p.xoff << 32) | ((u64)p.yoff << 16) | (u64)p.zoff;
-    auto it = pos_to_group.find(key);
-    if (it == pos_to_group.end()) {
-      pos_to_group.emplace(key, num_groups);
-      vert_group[i] = num_groups;
-      num_groups++;
-    } else {
-      vert_group[i] = it->second;
-    }
-  }
-
   auto pos_of = [&](u32 idx) {
     const auto& v = tree.unpacked.vertices[idx];
     return math::Vector3f(v.x, v.y, v.z);
   };
+
+  // OWNER ROOT-CAUSE BREAKTHROUGH (2026-07-24): the tfrag/tie/shrub mesh is UNWELDED — two adjacent
+  // same-texture polygons keep SEPARATE copies of their shared-edge vertices (one copy per cluster/strip), so
+  // an exact packed-position key (cluster<<48 | xoff<<32 | yoff<<16 | zoff) NEVER merged the two copies: the
+  // smooth normal was averaged only WITHIN each polygon's own copy, never ACROSS the shared seam (=> hard
+  // triangular facets), and tessellation displaced the two divergent copies apart (=> holes/tears you can see
+  // through). FIX = EDGE WELDING / topology stitching: group vertices by WORLD position within a 3 cm epsilon
+  // with 27-neighbour cell probing, so coincident edge verts across cluster/strip boundaries STITCH into ONE
+  // shared group. The crease clustering below still splits genuine hard folds (a masonry corner keeps its
+  // crisp edges); only smooth same-texture adjacencies weld. This is a strict SUPERSET of the old exact-key
+  // weld (identical-position verts always co-merge), so already-smooth surfaces are bit-identical to before
+  // (no regression on the accepted directional-ambient look) — the ONLY new merges are the previously-
+  // unwelded shared-edge copies, i.e. exactly the owner's facets + tessellation holes. 1 m = 4096 game units.
+  constexpr float kWeldM = 0.03f;                 // 3 cm canonical weld (mirrors GrassBakeCore's proven tol)
+  const float weld_cell = kWeldM * 4096.f;        // cell size in game units
+  const float weld_tol2 = weld_cell * weld_cell;  // squared merge tolerance
+  auto weld_key = [](s64 cx, s64 cy, s64 cz) -> u64 {
+    return ((u64)(u32)(cx & 0x1FFFFF) << 42) | ((u64)(u32)(cy & 0x1FFFFF) << 21) | (u64)(u32)(cz & 0x1FFFFF);
+  };
+  std::unordered_map<u64, std::vector<u32>> weld_cells;  // grid cell -> vertex indices seen there
+  weld_cells.reserve(n * 2);
+  std::vector<u32> vert_group(n);
+  u32 num_groups = 0;
+  u32 dbg_edge_welds = 0;  // verts stitched into an already-seen coincident group (the shared-edge copies)
+  for (size_t i = 0; i < n; i++) {
+    const math::Vector3f pi = pos_of((u32)i);
+    const s64 cx = (s64)std::floor(pi.x() / weld_cell);
+    const s64 cy = (s64)std::floor(pi.y() / weld_cell);
+    const s64 cz = (s64)std::floor(pi.z() / weld_cell);
+    int found = -1;
+    for (int dz = -1; dz <= 1 && found < 0; dz++) {
+      for (int dy = -1; dy <= 1 && found < 0; dy++) {
+        for (int dx = -1; dx <= 1 && found < 0; dx++) {
+          auto it = weld_cells.find(weld_key(cx + dx, cy + dy, cz + dz));
+          if (it == weld_cells.end()) {
+            continue;
+          }
+          for (u32 rep : it->second) {
+            const math::Vector3f d = pos_of(rep) - pi;
+            if (d.dot(d) <= weld_tol2) {
+              found = (int)vert_group[rep];
+              break;
+            }
+          }
+        }
+      }
+    }
+    if (found < 0) {
+      vert_group[i] = num_groups++;
+    } else {
+      vert_group[i] = (u32)found;
+      dbg_edge_welds++;
+    }
+    weld_cells[weld_key(cx, cy, cz)].push_back((u32)i);
+  }
 
   // Collect, per weld group, one record per triangle-corner incident to it: the area-weighted (raw edge
   // cross) face normal + which unpacked vertex the corner is. Strip-parity keeps the winding consistent
@@ -601,8 +647,11 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   // crease-fix data proof (see counters above): one line per tfrag tree. multi>0 == hard edges kept.
   float crease_deg = std::acos(crease_cos < -1.f ? -1.f : (crease_cos > 1.f ? 1.f : crease_cos)) *
                      (180.f / 3.14159265f);
-  lg::info("[gda-crease] tfrag tree verts={} groups={} multicluster(hardedge)={} clusters={} crease={:.0f}deg",
-           n, dbg_groups, dbg_multi, dbg_clusters, crease_deg);
+  g_edge_weld_tfrag_stitched += dbg_edge_welds;
+  g_edge_weld_tfrag_verts += (u64)n;
+  lg::info("[gda-crease] tfrag tree verts={} groups={} multicluster(hardedge)={} clusters={} "
+           "edge_welded_seam_verts={} crease={:.0f}deg",
+           n, dbg_groups, dbg_multi, dbg_clusters, dbg_edge_welds, crease_deg);
   lg::info("[gda-facet] tfrag tree verts={} single_face(perface)={} ground_verts={} ground_single_face={} "
            "ground_perface_pct={:.1f}",
            n, dbg_single_face, dbg_ground_verts, dbg_ground_single_face,
@@ -624,32 +673,55 @@ static void reconstruct_tie_smooth_normals(std::vector<PreloadedVertex>& verts,
   }
   const float crease_cos = tfrag_crease_cos();
 
-  // Weld groups by exact world position (hash the raw float bits of x,y,z; coincident verts share
-  // bit-identical positions => same key). A rare hash collision only merges two coincident-hash verts.
-  auto fbits = [](float f) -> u32 {
-    u32 u;
-    std::memcpy(&u, &f, 4);
-    return u;
+  auto pos_of = [&](u32 idx) { return math::Vector3f(verts[idx].x, verts[idx].y, verts[idx].z); };
+
+  // OWNER EDGE-WELD (2026-07-24): weld tie verts by WORLD position within a 3 cm epsilon (27-neighbour probe)
+  // so coincident shared-edge copies across instance/strip boundaries STITCH into ONE group — the smooth
+  // normal then averages ACROSS the seam (no facets) and tessellation moves the shared edge once (no holes).
+  // Strict SUPERSET of the old exact-float-bits weld => no regression on tie verts that already carry real
+  // matrix normals (we still only BACKFILL nor==0 below). 1 m = 4096 game units.
+  constexpr float kWeldM = 0.03f;
+  const float weld_cell = kWeldM * 4096.f;
+  const float weld_tol2 = weld_cell * weld_cell;
+  auto weld_key = [](s64 cx, s64 cy, s64 cz) -> u64 {
+    return ((u64)(u32)(cx & 0x1FFFFF) << 42) | ((u64)(u32)(cy & 0x1FFFFF) << 21) | (u64)(u32)(cz & 0x1FFFFF);
   };
-  std::unordered_map<u64, u32> pos_to_group;
-  pos_to_group.reserve(n * 2);
+  std::unordered_map<u64, std::vector<u32>> weld_cells;
+  weld_cells.reserve(n * 2);
   std::vector<u32> vert_group(n);
   u32 num_groups = 0;
+  u32 dbg_edge_welds = 0;
   for (size_t i = 0; i < n; i++) {
-    u64 key = (u64)fbits(verts[i].x) * 0x9E3779B97F4A7C15ull;
-    key ^= (u64)fbits(verts[i].y) * 0xC2B2AE3D27D4EB4Full + (key << 6) + (key >> 2);
-    key ^= (u64)fbits(verts[i].z) * 0x165667B19E3779F9ull + (key << 6) + (key >> 2);
-    auto it = pos_to_group.find(key);
-    if (it == pos_to_group.end()) {
-      pos_to_group.emplace(key, num_groups);
-      vert_group[i] = num_groups;
-      num_groups++;
-    } else {
-      vert_group[i] = it->second;
+    const math::Vector3f pi = pos_of((u32)i);
+    const s64 cx = (s64)std::floor(pi.x() / weld_cell);
+    const s64 cy = (s64)std::floor(pi.y() / weld_cell);
+    const s64 cz = (s64)std::floor(pi.z() / weld_cell);
+    int found = -1;
+    for (int dz = -1; dz <= 1 && found < 0; dz++) {
+      for (int dy = -1; dy <= 1 && found < 0; dy++) {
+        for (int dx = -1; dx <= 1 && found < 0; dx++) {
+          auto it = weld_cells.find(weld_key(cx + dx, cy + dy, cz + dz));
+          if (it == weld_cells.end()) {
+            continue;
+          }
+          for (u32 rep : it->second) {
+            const math::Vector3f d = pos_of(rep) - pi;
+            if (d.dot(d) <= weld_tol2) {
+              found = (int)vert_group[rep];
+              break;
+            }
+          }
+        }
+      }
     }
+    if (found < 0) {
+      vert_group[i] = num_groups++;
+    } else {
+      vert_group[i] = (u32)found;
+      dbg_edge_welds++;
+    }
+    weld_cells[weld_key(cx, cy, cz)].push_back((u32)i);
   }
-
-  auto pos_of = [&](u32 idx) { return math::Vector3f(verts[idx].x, verts[idx].y, verts[idx].z); };
 
   struct Incid {
     math::Vector3f nraw;
@@ -749,8 +821,10 @@ static void reconstruct_tie_smooth_normals(std::vector<PreloadedVertex>& verts,
       }
     }
   }
-  lg::info("[gpbrf-tie-normal] tie tree verts={} groups={} backfilled_normals={}", n, num_groups,
-           dbg_filled);
+  g_edge_weld_tie_stitched += dbg_edge_welds;
+  g_edge_weld_tie_verts += (u64)n;
+  lg::info("[gpbrf-tie-normal] tie tree verts={} groups={} backfilled_normals={} edge_welded_seam_verts={}",
+           n, num_groups, dbg_filled, dbg_edge_welds);
 }
 
 // Unpack a 2-10-10-10 GL normal (as written by pack_to_gl_normal: stored int = component * 511)
@@ -816,6 +890,14 @@ void write_tan_diag_file() {
     os << "note: every vertex now carries a unit tangent; degenerate verts backfilled with a continuous\n";
     os << "Duff/Frisvad basis from the smooth normal, so the shader never falls to the screen-derivative "
           "TBN.\n";
+    os << "[edge_weld] OWNER root-cause breakthrough — mesh topology stitching (2026-07-24):\n";
+    os << "edge_weld_tfrag_stitched_seam_verts=" << g_edge_weld_tfrag_stitched.load() << " / "
+       << g_edge_weld_tfrag_verts.load() << " tfrag verts\n";
+    os << "edge_weld_tie_stitched_seam_verts=" << g_edge_weld_tie_stitched.load() << " / "
+       << g_edge_weld_tie_verts.load() << " tie verts\n";
+    os << "note: coincident same-texture edge verts within 3 cm are now welded into ONE shared group, so the\n";
+    os << "smooth normal AVERAGES ACROSS the welded seam (no per-face facets) and tessellation moves the\n";
+    os << "shared edge vertex once for both polygons (closed edge => no holes/tears).\n";
     file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", os.str());
   } catch (...) {
   }
