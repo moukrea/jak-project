@@ -496,3 +496,15 @@ and tessellation either runs or logs exactly why it can't. Owner's eye + the sup
 The owner has GRANTED free use of the Honor to the supervisor for objective capture (tess logcat, boot
 checks on the real Adreno 840 target) — leverage it: after the build, the supervisor captures the exact
 tessellation diagnostic on-device and feeds the root cause back if the worker hasn't nailed it.
+
+**SUPERVISOR FINDING #2 (Honor, 2026-07-24): the Honor OBSCURES logcat (Honor "HKS" encrypted markers) — the
+app's stdout/GK_STDOUT is NOT readable via `adb logcat` on the Honor, and the app writes no .log file.** So
+routing tess diagnostics only through GK_STDOUT/logcat is USELESS on the real tessellation-capable device
+(the Redmi Adreno 618 has readable logcat but does NOT support tessellation, so it can't diagnose the Honor
+path). REQUIRED: the `[pbr-tess]` diagnostics MUST be written to a FILE in the app's files dir
+(e.g. `files/pbr_tess_diag.txt`) that the supervisor can pull via `run-as org.opengoal.gk.jak1 cat
+files/pbr_tess_diag.txt` on the Honor. Log there: EXT_tessellation_shader present in the APP GL context
+(y/n), glPatchParameteri/tess entry-point addresses (NULL?), tess-control/eval compile status + infolog,
+program link status + infolog, and the final on/off decision + reason. (An on-screen debug line the owner
+can screenshot is an acceptable secondary channel.) With this file, the supervisor will read the exact
+Adreno-840 tessellation root cause off the Honor and feed it back.
