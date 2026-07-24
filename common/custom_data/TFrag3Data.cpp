@@ -256,6 +256,19 @@ static void reconstruct_tie_smooth_normals(std::vector<PreloadedVertex>& verts,
                                            const std::vector<u32>& indices,
                                            bool use_strips);
 
+// STEP A (owner STRICT ORDER, 2026-07-24) — TRUE topological FUSE: forward decls + counters. The A/B
+// toggle gate + the fuse itself are defined further down (next to the smooth-normal reconstruction they
+// precede), but TieTree::unpack (below) is the FIRST caller, so declare them here.
+static bool mesh_weld_enabled();
+static u32 fuse_tree_indices(const std::vector<PreloadedVertex>& verts, std::vector<u32>& indices);
+// #index slots repointed at a shared representative == the genuinely fused (merged) duplicate verts.
+// Prior rounds only averaged normals and NEVER rewrote the index buffer, so points stayed separate;
+// these count the REAL point fusion the owner demanded (surfaced in files/pbr_tan_diag.txt).
+static std::atomic<u64> g_index_fused_tfrag{0};
+static std::atomic<u64> g_index_fused_tfrag_verts{0};
+static std::atomic<u64> g_index_fused_tie{0};
+static std::atomic<u64> g_index_fused_tie_verts{0};
+
 void TieTree::unpack() {
   unpacked.vertices.resize(packed_vertices.color_indices.size());
   size_t i = 0;
@@ -343,6 +356,16 @@ void TieTree::unpack() {
                             draw.plain_indices.end());
   }
 
+  // STEP A (owner STRICT ORDER) — TRUE topological FUSE **first**: rewrite the index buffer so
+  // coincident attribute-identical verts share ONE representative index (genuine point fusion), BEFORE
+  // any normal/tangent reconstruction, so STEP B (smooth) / C (orient) / D (uv) operate on the truly
+  // merged topology (real shared edges) — not on separate copies. Honors the debug.opengoal.mesh.weld
+  // A/B toggle (OFF => the original per-copy index buffer, the seamy baseline the supervisor A/Bs).
+  if (mesh_weld_enabled()) {
+    u32 fused = fuse_tree_indices(unpacked.vertices, unpacked.indices);
+    g_index_fused_tie += fused;
+    g_index_fused_tie_verts += (u64)unpacked.vertices.size();
+  }
   // REOPEN#7: TIE ships mostly without per-vertex normals; backfill the missing ones with crease-aware
   // smooth normals (welded by world position) so tie walls get a CONTINUOUS base normal, then compute
   // the per-vertex tangents for the continuous PBR TBN (non-envmap TIE draws use the TFRAG3 shader).
@@ -466,6 +489,91 @@ static std::atomic<u64> g_gweld_collision_oriented{0};// groups whose outward si
 static std::atomic<u64> g_gweld_open_seam_before{0};   // open-boundary seam verts BEFORE the global stitch
 static std::atomic<u64> g_gweld_open_seam_after{0};    // open-boundary seam verts REMAINING after the global stitch
 static std::atomic<u64> g_gweld_uv_snapped{0};        // cross-chunk seam verts whose UV was snapped to close a hairline texture crack
+
+// ============================================================================================
+// STEP A (owner STRICT ORDER, 2026-07-24) — TRUE TOPOLOGICAL FUSE (genuine index-buffer merge).
+//
+// Every prior round only AVERAGED normals per coincident group and NEVER rewrote the index buffer, so
+// two adjacent same-texture polygons kept SEPARATE copies of their shared-edge vertices — the mesh was
+// never actually welded (the owner's exact critique). This performs the genuine point fusion: it REMAPS
+// the index buffer so coincident ATTRIBUTE-IDENTICAL vertices reference ONE shared representative index.
+// The merge key is EVERY attribute the renderer reads — position, UV, baked color-table index, and the
+// per-vertex envmap tint (r,g,b,a) — quantized to a fine grid (position 1/16 game-unit ~= 0.015 mm,
+// 1 m = 4096 u; UV 1/4096). `nor` is deliberately EXCLUDED from the key: it is exactly what STEP B
+// (smooth normals) reconstructs into a single shared normal for the merged vertex, so two copies that
+// differ only in their raw source normal SHOULD fuse. Because two verts with an identical key render
+// pixel-for-pixel identically regardless of which StripDraw (hence tpage) references them, sharing them
+// is a pure, OUTPUT-INVARIANT topological dedup (the textbook weld of an unwelded mesh). Consequences,
+// all owner-requested:
+//   * the shared edge becomes ONE topological edge => STEP B averages the normal across it (no facet);
+//   * GL_PATCHES tessellation now references identical shared-edge endpoint positions on both patches,
+//     and the TCS edge factor is a deterministic function of those endpoints => crack-free (no holes);
+//   * genuine hard seams (a real texture boundary carries a different atlas UV, a UV-chart split differs
+//     in UV) have a DIFFERENT key => LEFT SEPARATE (preserved — no over-welding, no new clean cuts).
+// Returns the number of index slots repointed at a representative (== the fused duplicate-vertex count).
+// Non-representative verts are simply orphaned in the vertex array (unreferenced, harmless); the index
+// buffer alone carries the merged topology and is uploaded verbatim to GL (TFragment.cpp:447-448).
+// ============================================================================================
+static u32 fuse_tree_indices(const std::vector<PreloadedVertex>& verts, std::vector<u32>& indices) {
+  const size_t n = verts.size();
+  if (n == 0 || indices.empty()) {
+    return 0;
+  }
+  struct FuseKey {
+    s32 x, y, z, s, t;
+    u32 color;  // baked color-table index
+    u32 tint;   // packed envmap rgba (rendered => must match to fuse)
+    bool operator==(const FuseKey& o) const {
+      return x == o.x && y == o.y && z == o.z && s == o.s && t == o.t && color == o.color &&
+             tint == o.tint;
+    }
+  };
+  struct FuseKeyHash {
+    size_t operator()(const FuseKey& k) const {
+      u64 h = 1469598103934665603ull;
+      auto mix = [&](u64 v) {
+        h ^= v;
+        h *= 1099511628211ull;
+      };
+      mix((u32)k.x);
+      mix((u32)k.y);
+      mix((u32)k.z);
+      mix((u32)k.s);
+      mix((u32)k.t);
+      mix(k.color);
+      mix(k.tint);
+      return (size_t)h;
+    }
+  };
+  auto q = [](float f, float scale) -> s32 { return (s32)std::lround(f * scale); };
+  std::unordered_map<FuseKey, u32, FuseKeyHash> canon;
+  canon.reserve(n * 2);
+  std::vector<u32> remap(n);
+  u32 fused = 0;
+  for (u32 i = 0; i < (u32)n; i++) {
+    const auto& v = verts[i];
+    FuseKey k{q(v.x, 16.f),          q(v.y, 16.f), q(v.z, 16.f), q(v.s, 4096.f), q(v.t, 4096.f),
+              (u32)v.color_index,
+              ((u32)v.r << 24) | ((u32)v.g << 16) | ((u32)v.b << 8) | (u32)v.a};
+    auto it = canon.find(k);
+    if (it == canon.end()) {
+      canon.emplace(k, i);
+      remap[i] = i;
+    } else {
+      remap[i] = it->second;  // repoint this duplicate at the already-seen representative
+      fused++;
+    }
+  }
+  if (fused == 0) {
+    return 0;  // already a fully-welded mesh (rare) — nothing to remap
+  }
+  for (u32& idx : indices) {
+    if (idx != UINT32_MAX) {  // preserve primitive-restart sentinels
+      idx = remap[idx];
+    }
+  }
+  return fused;
+}
 
 static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   const auto& packed = tree.packed_vertices.vertices;
@@ -943,6 +1051,16 @@ void write_tan_diag_file() {
     os << "note: coincident same-texture edge verts within 3 cm are now welded into ONE shared group, so the\n";
     os << "smooth normal AVERAGES ACROSS the welded seam (no per-face facets) and tessellation moves the\n";
     os << "shared edge vertex once for both polygons (closed edge => no holes/tears).\n";
+    os << "[index_fuse] STEP A (owner STRICT ORDER, 2026-07-24) — TRUE topological index-buffer merge:\n";
+    os << "index_fused_tfrag_verts=" << g_index_fused_tfrag.load() << " / " << g_index_fused_tfrag_verts.load()
+       << " tfrag verts (index slots repointed at a shared representative == genuinely FUSED duplicate verts)\n";
+    os << "index_fused_tie_verts=" << g_index_fused_tie.load() << " / " << g_index_fused_tie_verts.load()
+       << " tie verts\n";
+    os << "note: STEP A REWRITES the index buffer (unpacked.indices) so coincident ATTRIBUTE-IDENTICAL verts\n";
+    os << "(same pos/uv/color/tint) share ONE representative index — real point fusion, not the prior\n";
+    os << "normal-averaging-only weld. Genuine texture/UV seams differ in the key => left separate. Runs\n";
+    os << "FIRST (before smooth/orient/uv) so B/C/D operate on the truly merged topology; shared edges give\n";
+    os << "crack-free GL_PATCHES tessellation (deterministic TCS edge factors on identical shared endpoints).\n";
     os << "[global_weld] OWNER REOPEN #13 (2026-07-24) — GLOBAL cross-chunk/bucket/system stitch + INSIGHT#2 "
           "normal-orientation-consistency:\n";
     os << "global_weld_total_verts=" << g_gweld_total_verts.load() << " (all tfrag+tie verts, one spatial hash "
@@ -1631,6 +1749,16 @@ void TfragTree::unpack() {
     }
     unpacked.indices.insert(unpacked.indices.end(), draw.plain_indices.begin(),
                             draw.plain_indices.end());
+  }
+
+  // STEP A (owner STRICT ORDER) — TRUE topological FUSE **first** (see fuse_tree_indices): rewrite the
+  // index buffer so coincident attribute-identical verts share ONE representative index (genuine point
+  // fusion) BEFORE smooth normals + tangents, so STEP B/C/D run on the truly merged topology. Honors
+  // the debug.opengoal.mesh.weld A/B toggle (OFF => original per-copy index buffer = seamy baseline).
+  if (mesh_weld_enabled()) {
+    u32 fused = fuse_tree_indices(unpacked.vertices, unpacked.indices);
+    g_index_fused_tfrag += fused;
+    g_index_fused_tfrag_verts += (u64)unpacked.vertices.size();
   }
 
   // Reconstruct smooth per-vertex normals now that positions + the index topology are built. This is
