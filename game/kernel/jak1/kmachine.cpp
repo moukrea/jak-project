@@ -827,6 +827,50 @@ void pc_set_recharged_enhanced_models(u32 on) {
 }
 #endif
 
+// Gpbrf owner workflow (2026-07-24): POSITION DUMP for deterministic weld-ON/OFF daytime A/B.
+// The owner stands on a seam; the supervisor must read his EXACT world position to warp there for
+// A/B captures. The Honor obscures logcat (HKS encryption), so lg::info is unreadable there =>
+// write to a FILE instead. On debug.opengoal.dump.pos = "1" (Android) / env OG_DUMP_POS (desktop),
+// write Jak's CURRENT world position as "X Y Z" IN METERS (÷4096 — the exact units
+// debug.opengoal.level.warp.pos consumes, so the string is directly pasteable) to
+// files/pos_dump.txt in the app files dir. Pull it with:
+//   run-as org.opengoal.gk.jak1 cat files/pos_dump.txt
+// pc_set_jak_pos runs every logic frame while *target* exists, so throttle the disk write to ~4 Hz.
+static void maybe_dump_jak_pos(float gx, float gy, float gz) {
+  bool enabled = false;
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.dump.pos", buf) > 0 && buf[0] && buf[0] != '0') {
+    enabled = true;
+  }
+#else
+  if (const char* e = std::getenv("OG_DUMP_POS")) {
+    enabled = (e[0] && e[0] != '0');
+  }
+#endif
+  if (!enabled) {
+    return;
+  }
+  static std::chrono::steady_clock::time_point s_last{};
+  auto now = std::chrono::steady_clock::now();
+  if (s_last.time_since_epoch().count() != 0 &&
+      std::chrono::duration_cast<std::chrono::milliseconds>(now - s_last).count() < 250) {
+    return;
+  }
+  s_last = now;
+  const float mx = gx / 4096.f, my = gy / 4096.f, mz = gz / 4096.f;
+  try {
+    // Line 1 = the bare "X Y Z" meters (directly pasteable into debug.opengoal.level.warp.pos).
+    // Line 2 = a human comment (level.warp.pos' sscanf reads only the first %f %f %f, so the
+    // comment is harmless). Raw GOAL units kept for cross-checking against the warp patch.
+    std::string body = fmt::format("{:.2f} {:.2f} {:.2f}\n; jak world pos (meters, level.warp.pos units); raw goal=({:.0f} {:.0f} {:.0f})\n",
+                                   mx, my, mz, gx, gy, gz);
+    file_util::write_text_file(file_util::get_jak_project_dir() / "pos_dump.txt", body);
+  } catch (...) {
+    // best-effort debug channel; never let a file error affect the game loop
+  }
+}
+
 // Grecharged-grass-poc: push Jak's world position (a GOAL vector, xyzw) each frame
 // so the grass renderer can flatten blades where the player walks. w := 1.0 marks
 // the value valid (GOAL only calls this while *target* exists).
@@ -839,6 +883,7 @@ void pc_set_jak_pos(u32 vec) {
   Gfx::g_global_settings.recharged_jak_pos[1] = p[1];
   Gfx::g_global_settings.recharged_jak_pos[2] = p[2];
   Gfx::g_global_settings.recharged_jak_pos[3] = 1.0f;
+  maybe_dump_jak_pos(p[0], p[1], p[2]);  // Gpbrf owner workflow: gated pos_dump.txt for A/B warps
 }
 
 // Grecharged-grass-poc POLISH#4/#5: push the adjustable grass view distances + density (a GOAL
