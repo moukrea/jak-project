@@ -129,4 +129,7 @@ grep -qiE 'pbr.?materials.*(on|#t).*captur|full.*stack.*(on|enabl).*(captur|test
 grep -qiE 'split.?by.?uv|shared normal.*(uv|position|coincident)|smoothing group.*(position|uv)|normal.*(by|per).*position.*(all|coincident|same.?texture)|position weld map' "$R" || fail "no split-by-UV-shared-normal evidence (seams = UV/color-seam verts never smoothed; normal must average by POSITION across all coincident same-texture)"
 grep -qiE 'coverage.*(9[0-9]|~?all|full).*(coincident|smooth|normal)|smoothed.*(9[0-9]%|all coincident|full)|normal.*coverage.*(not 24|not 30|9[0-9])' "$R" || fail "no ~full normal-smoothing coverage evidence (was only 24-30% fused subset)"
 grep -qiE 'uv.?split.*(tess|edge|match|displac)|matching.*(edge|tess).*factor.*(uv|split)|tessellat.*crack.*(uv|split)' "$R" || fail "no UV-split-edge tessellation-coherence evidence"
+# SUPERVISOR LIVE A/B: hard patches are created by normal-map application => per-chunk UV FRAME discontinuity.
+grep -qiE 'uv.?frame|tangent frame.*(align|continu|consistent).*(chunk|seam)|world.?(space|aligned).*tangent|triplanar' "$R" || fail "no UV-frame/tangent-frame-continuity fix evidence (relief>0 creates hard plates because each chunk has its own UV frame)"
+grep -qiE 'relief.*(0|zero).*vs.*(2|2\.5|high)|relief.*a/b.*(patch|plate|seam)' "$R" || fail "no relief-0-vs-high A/B verification evidence"
 echo "[Gpbrf PASS]"

@@ -840,3 +840,35 @@ files/pos_dump.txt (app files dir, readable via `run-as $PKG cat files/pos_dump.
 lets the workflow be: owner stands on a seam -> supervisor triggers the dump -> reads pos_dump.txt off the
 Honor -> warps to that exact debug.opengoal.level.warp.pos on the Redmi/Honor for weld-ON vs weld-OFF
 daytime A/B. Keep it in this round.
+
+---
+## ★ SUPERVISOR LIVE A/B ON THE OWNER'S HONOR (2026-07-24) — DEFINITIVE: the hard patches are caused by the NORMAL-MAP APPLICATION (relief>0), and the remaining discontinuity is the PER-CHUNK **UV FRAME**.
+Captured at the owner's exact vantage, same frame, only the relief prop changed (device/relief_ab/):
+- `debug.opengoal.pbr.relief 0`   -> ground SMOOTH, NO hard transitions (R0.png)
+- `debug.opengoal.pbr.relief 2.5` -> HARD PATCHES appear (distinct dark/light polygon regions in the grass)
+  (R25.png)
+So the seams are created by APPLYING THE NORMAL MAP, and they scale with relief — exactly as the owner said.
+Tangents are now continuous (0% screen-deriv fallback) and normals are smoothed by position, so the ONLY
+remaining per-chunk discontinuity in the normal-map application is the **UV FRAME / UV PARAMETERISATION**:
+each tfrag chunk has its own UV layout (offset/scale/rotation/mirroring), so the SAME world surface samples
+the normal map with a DIFFERENT tangent-space orientation on each side of a chunk boundary => the fake relief
+is lit from opposite directions => hard plates. The diag confirms the UV work was minimal:
+global_uv_snapped_seam_verts = 11,139 out of ~2.3M verts.
+
+### MANDATE — make the normal-map tangent frame CONSISTENT across chunk boundaries:
+1. **Detect UV-frame discontinuity at welded seams**: for coincident verts from different chunks, compare the
+   derived tangent frame (dU/dV direction + handedness + UV scale). Where the surface is continuous but the
+   UV frame differs (rotation/mirror/scale), the normal-map lighting will break.
+2. **Fix options (pick what works, in order of preference):**
+   a. **Align the tangent frame across the seam** — recompute/rotate the tangent basis of the neighbouring
+      chunk so the tangent-space orientation is CONTINUOUS across the boundary (the normal map may still be
+      offset in UV, but the LIGHTING direction becomes consistent => no plates).
+   b. If UV scale/mirroring differs drastically, fall back to a **world-space-derived tangent frame** for the
+      normal map on terrain (triplanar-style or a stable world-aligned frame), which is inherently continuous
+      across chunks. This is the standard trick for chunked terrain with per-chunk UVs.
+   c. Blend/fade the normal-map perturbation strength near a detected frame discontinuity as a last resort.
+3. Verify with the SAME live A/B (relief 0 vs 2.5 at the owner's vantage): at relief 2.5 the ground must stay
+   free of hard patches. The supervisor can now do this A/B live on the Honor while the owner plays
+   (screencap + `debug.opengoal.pbr.relief`), so verification is cheap and objective.
+ACCEPTANCE: relief 2.5 shows RELIEF, not plates. The relief-0 vs relief-2.5 pair must differ only in surface
+detail, not in flat brightness patches.
