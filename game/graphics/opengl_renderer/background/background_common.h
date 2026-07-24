@@ -185,6 +185,10 @@ class PbrDrawBinder {
   GLuint m_program = 0;
   const PbrDrawList* m_draws = nullptr;
   GLint m_mode_loc = -2;
+  // u_pbr_normal_dc: this material's mean normal-map gradient, pushed alongside the mode so the
+  // shader can subtract it (zero-mean relief => no brightness plate at material borders).
+  GLint m_dc_loc = -2;
+  float m_cur_dc[2] = {0.f, 0.f};
   int m_cur_mode = 0;
   bool m_bound_any = false;
 };

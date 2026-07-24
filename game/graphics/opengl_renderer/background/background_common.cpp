@@ -531,6 +531,9 @@ void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
   m_program = program;
   m_draws = draws;
   m_mode_loc = -2;
+  m_dc_loc = -2;
+  m_cur_dc[0] = 0.f;
+  m_cur_dc[1] = 0.f;
   m_cur_mode = 0;
   m_bound_any = false;
 }
@@ -592,6 +595,20 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     glUniform1i(m_mode_loc, want);
     m_cur_mode = want;
   }
+  // Push this material's normal-map DC (mean surface gradient) alongside the mode. Zero when the
+  // draw has no normal map, so a map-free draw can never inherit the previous material's tilt.
+  const float dcx = (want & 1) ? maps->normal_dc_x : 0.f;
+  const float dcy = (want & 1) ? maps->normal_dc_y : 0.f;
+  if (dcx != m_cur_dc[0] || dcy != m_cur_dc[1]) {
+    if (m_dc_loc == -2) {
+      m_dc_loc = glGetUniformLocation(m_program, "u_pbr_normal_dc");
+    }
+    if (m_dc_loc >= 0) {
+      glUniform2f(m_dc_loc, dcx, dcy);
+    }
+    m_cur_dc[0] = dcx;
+    m_cur_dc[1] = dcy;
+  }
 }
 
 void PbrDrawBinder::finish() {
@@ -604,6 +621,16 @@ void PbrDrawBinder::finish() {
       glUniform1i(m_mode_loc, 0);
     }
     m_cur_mode = 0;
+  }
+  if (m_cur_dc[0] != 0.f || m_cur_dc[1] != 0.f) {
+    if (m_dc_loc == -2) {
+      m_dc_loc = glGetUniformLocation(m_program, "u_pbr_normal_dc");
+    }
+    if (m_dc_loc >= 0) {
+      glUniform2f(m_dc_loc, 0.f, 0.f);
+    }
+    m_cur_dc[0] = 0.f;
+    m_cur_dc[1] = 0.f;
   }
   // Park units 11-15 on the neutral 1x1 defaults so no material map leaks into later
   // draws this frame; restores active unit 0.

@@ -59,6 +59,12 @@ struct PbrMaterialMaps {
   // Grecharged-pbr-realtime-fusion (owner: "faut câbler specular et emissive aussi"):
   u32 specular_tex = 0;  // <tex>_specular.png — F0 / specular color (specular workflow)
   u32 emissive_tex = 0;  // <tex>_emissive.png — unlit self-illumination, added on top
+  // MEAN tangent-space surface gradient (n.xy / n.z, per-texel clamp +-4) of <tex>_normal.png,
+  // measured over every texel when the map is decoded. Non-zero means the map carries a constant
+  // TILT rather than pure relief; the shader subtracts it so the perturbation is zero-mean (see
+  // tfrag3.frag u_pbr_normal_dc — a non-zero DC was the owner's hard brightness-plate defect).
+  float normal_dc_x = 0.f;
+  float normal_dc_y = 0.f;
 };
 
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by

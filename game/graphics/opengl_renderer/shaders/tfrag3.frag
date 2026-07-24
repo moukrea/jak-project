@@ -77,6 +77,12 @@ uniform sampler2D tex_PBR_S;
 uniform sampler2D tex_PBR_E;
 uniform float u_pbr_emissive_str;  // emissive intensity (prop debug.opengoal.pbr.emissive)
 uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, default 1)
+// This material's MEAN tangent-space surface gradient (n.xy/n.z, clamped +-4), measured over
+// every texel of <tex>_normal.png when the map is loaded (LoaderStages.cpp) and pushed per
+// draw by PbrDrawBinder. Subtracting it makes the normal-map perturbation ZERO-MEAN — see the
+// long comment at the sample site: a non-zero mean is a CONSTANT TILT of the whole material,
+// and that tilt is what turned into the owner's hard brightness plates.
+uniform vec2 u_pbr_normal_dc;
 // REOPEN #3 TERM BISECTION (owner: the plastic sheen SURVIVES specular-intensity = 0, so
 // it is NOT in the slider-scaled specular sum — identify the culprit by zeroing ONE term
 // at a time on device). Prop debug.opengoal.pbr.bisect, default 0 = full path unchanged.
@@ -89,6 +95,13 @@ uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, de
 // 1024 = C1 shoulder tone map (linear clamp instead)  2048 = fused-contrast fmod compress off
 // 4096 = REOPEN #6 matte-dielectric ENVELOPE off (restores the old glossy sheen for A/B: the
 //        default matte look vs the pre-#6 glass — the owner's "path active?" killswitch)
+// ---- SUPERVISOR LIVE A/B FIX (2026-07-24): relief=0 smooth vs relief=2.5 HARD PLATES. The
+// three bits below are the A/B killswitches for the three halves of that root cause; all
+// three default to 0 == the NEW (fixed) behaviour, set the bit to get the old one back.
+// 8192 = normal-map DC removal OFF (legacy: apply the map with its raw mean tilt)
+// 16384 = macro lit/shadow terminator back on the normal-MAPPED Nm (legacy) instead of N
+// 32768 = normal-map tangent frame back on the per-chunk UV tangent (legacy) instead of the
+//         seam-stable world frame
 // REOPEN #10: the IN-MENU "PBR ISOLATE" carousell (Recharged Settings) seeds this mask via the
 // recharged_pbr_isolate setting so the OWNER can bisect the residual grass-facet term at his own
 // vantage with NO adb (BOTH=0, NORMAL-MAP ONLY=128 [POM off], PARALLAX ONLY=64 [nm off], NEITHER=192).
@@ -375,6 +388,25 @@ vec3 rt_probe_sh(vec3 wp, vec3 N, out float w, out float interior_o) {
 // every edge and is the exact source of the hard triangular FACETS the owner sees scaling with relief.
 // The tangent DIRECTION is arbitrary (no UV reference) but per-fragment continuity is what kills the
 // facets — exactly the owner's mandate ("an arbitrary but CONTINUOUS per-vertex tangent kills the facets").
+// SEAM-STABLE tangent frame for the NORMAL MAP (supervisor live A/B + offline weld measurement,
+// 2026-07-24). Every tfrag/tie chunk owns its own UV layout, so the per-vertex UV-derived tangent
+// frame is DISCONTINUOUS at chunk boundaries: measured over the welded cross-chunk vertex groups,
+// 40.2% of village1 pairs (41.1% jungle) carry frames rotated more than 30 deg and 27% are outright
+// MIRRORED (.w handedness disagrees) — i.e. the same physical surface decodes the normal map in a
+// different, sometimes flipped, orientation on each side of the seam. This frame is derived ONLY
+// from the (position-smoothed, seam-continuous) normal, so it is IDENTICAL on both sides of every
+// chunk boundary by construction — the standard chunked-terrain fix. R is a deliberately skew axis:
+// the unavoidable hairy-ball singularity then sits on a direction no level surface squarely faces
+// (never up, never a cardinal wall), and the guard below keeps even that ~1 deg cone finite.
+void stable_frame(vec3 n, out vec3 t, out vec3 b) {
+  const vec3 R1 = vec3(0.3113, 0.1504, 0.9382);
+  const vec3 R2 = vec3(0.9382, 0.3113, 0.1504);
+  vec3 tt = cross(n, R1);
+  float l = length(tt);
+  t = (l > 0.02) ? (tt / l) : normalize(cross(n, R2));
+  b = cross(n, t);
+}
+
 void frisvad_basis(vec3 n, out vec3 t, out vec3 b) {
   float s = n.z >= 0.0 ? 1.0 : -1.0;
   float a = -1.0 / (s + n.z);
@@ -570,30 +602,41 @@ void main() {
         // CONTRAST CRACKS that grew with relief. N is the reconstructed smooth normal; Gram-Schmidt
         // re-orthonormalizes the interpolated tangent against it per fragment; .w carries handedness.
         // A degenerate/unbound tangent (len~0 => (0,0,0,1) default) falls back to the derivative frame.
-        vec3 fTn, fBn;
+        // fTuv/fBuv = the UV-derived frame. It is the ONLY frame that can drive a UV OFFSET, so
+        // the POM march below MUST keep using it (a world-derived frame would shift the height
+        // march in a direction unrelated to the texture = the "floating/epoxy" parallax of
+        // owner playtest #5). fTn/fBn = the frame the NORMAL MAP is decoded in — that one is
+        // swapped for the seam-stable world frame further down.
+        vec3 fTuv, fBuv;
         // REOPEN#9 (owner playtest #9) tangent-fallback coverage flag (for the u_pbr_debug==20 viz + the
         // pbr_tan_diag.txt CPU proof): 1.0 = this fragment took the degenerate-tangent fallback.
         float f_tan_fb = (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) ? 0.0 : 1.0;
         if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
-          fTn = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
+          fTuv = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
           // OWNER PLAYTEST #8: use the SIGN of the interpolated handedness, not its raw magnitude.
           // The interpolated .w can pass through 0 across a strip whose vertices carry opposite
           // handedness, which would SHRINK the bitangent mid-triangle (a per-triangle discontinuity
           // that reads as a facet). sign() keeps a full-length, continuous bitangent.
-          fBn = cross(N, fTn) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
+          fBuv = cross(N, fTuv) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
         } else {
           // REOPEN#9 (owner playtest #9): v_tangent is degenerate/unbound here. The OLD code rebuilt the
           // TBN from screen-space derivatives (dFdx/dFdy) — a per-triangle-CONSTANT frame that JUMPS at
           // every edge => the hard triangular FACETS the owner saw scaling with relief. Derive a
           // CONTINUOUS basis from the smooth interpolated normal N instead (NEVER a screen derivative).
-          frisvad_basis(N, fTn, fBn);
+          frisvad_basis(N, fTuv, fBuv);
+        }
+        // The normal map is decoded in the SEAM-STABLE frame by default (bit 32768 = legacy
+        // per-chunk UV frame for the A/B). See stable_frame() for the measured justification.
+        vec3 fTn = fTuv, fBn = fBuv;
+        if ((u_pbr_bisect & 32768) == 0) {
+          stable_frame(N, fTn, fBn);
         }
         vec2 uv = tex_coord.xy * u_pbr_uv_tile;
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
         if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
             (u_pbr_bisect & 128) == 0 && u_pbr_displacement != 2) {
-          vec3 Vt = normalize(vec3(dot(Vv, fTn), dot(Vv, fBn), max(dot(Vv, N), 0.0)));
+          vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.20);
           // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);
           // the loop bound below already allows 32. Occlusion test + secant interpolation
@@ -639,12 +682,38 @@ void main() {
         // exactly the high-relief sparkle. Captured (strength-scaled, so the relief slider
         // widens it too) into fnmip_var and added to the GGX alpha at the spec-AA site.
         float fnmip_var = 0.0;
+        // Scaled, DC-REMOVED tangent-space surface gradient of this fragment (0 where no normal
+        // map): reused below for the mean-preserving detail term.
+        vec2 fg = vec2(0.0);
         if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7 && (u_pbr_bisect & 64) == 0) {
-          vec3 nmt = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
-          nmt.xy *= u_pbr_normal_strength;
-          float fnlen = clamp(length(nmt), 1e-4, 1.0);
-          fnmip_var = (1.0 - fnlen) / max(fnlen, 0.5);
-          nmt = normalize(nmt);
+          vec3 nraw = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
+          // Toksvig variance is measured on the RAW sample. (It used to be measured AFTER the
+          // strength scale, where length() saturates the 1.0 clamp for any relief above ~0.4 and
+          // the whole spec-AA term silently died — exactly where shimmer is worst.)
+          float fnlen = clamp(length(nraw), 1e-4, 1.0);
+          fnmip_var = ((1.0 - fnlen) / max(fnlen, 0.5)) * clamp(u_pbr_normal_strength, 0.0, 3.0);
+          // ================= THE PLATE FIX (owner A/B relief 0 vs 2.5, 2026-07-24) =============
+          // Work in SURFACE GRADIENT space (g = n.xy/n.z, the height-field slope) rather than
+          // scaling n.xy and renormalising: scaling a gradient IS scaling the height field, the
+          // physically meaningful "relief strength", and it makes the DC removal below exact at
+          // any strength.
+          // u_pbr_normal_dc is this material's MEAN gradient over the whole map. It is NOT zero:
+          // measured on the shipped set, every map carries a systematic tilt (leafyground DC =
+          // (+0.076, -0.227) in normal space => 61 deg of CONSTANT tilt once the relief slider
+          // multiplies it by 7.5 at relief 2.5). A constant tilt of an entire material is not
+          // relief — it re-aims the whole surface at/away from the sun, so the material reads
+          // ~35-48% darker than the neighbouring surfaces that have no normal map, and it reads
+          // DIFFERENTLY in each chunk because each chunk decodes it in its own UV frame. That is
+          // precisely the owner's hard dark/light plates, and precisely why they scale with relief
+          // and vanish at relief 0. Subtracting the DC makes the perturbation ZERO-MEAN: pure
+          // relief, no net re-aim. Offline (shader-exact) on the grass at relief 2.5: chunk-to-
+          // chunk brightness spread 61.4% -> 3.0%. Bit 8192 restores the raw map for the A/B.
+          vec2 g = clamp(nraw.xy / max(nraw.z, 0.05), vec2(-4.0), vec2(4.0));
+          if ((u_pbr_bisect & 8192) == 0) {
+            g -= u_pbr_normal_dc;
+          }
+          fg = clamp(g * u_pbr_normal_strength, vec2(-8.0), vec2(8.0));
+          vec3 nmt = normalize(vec3(fg, 1.0));
           Nm = normalize(mat3(fTn, fBn, N) * nmt);
           // GLASS-PANE fix (owner preset report 2026-07-23): the old hard snap back to
           // the SMOOTH normal (`if (dot(Nm,gN)<0) Nm = N`) wiped the map grain over
@@ -735,8 +804,19 @@ void main() {
         // stays alive inside fully-lit zones where the terminator smoothstep saturates.
         // ===============================================================================
         vec3 Mn = normalize(u_rt_moon_dir);
-        float fterm_y = smoothstep(0.0, 0.35, dot(Nm, L));
-        float fterm_g = smoothstep(0.0, 0.35, dot(Nm, Mn));
+        // MACRO LIGHTING = GEOMETRY, MICRO DETAIL = THE MAP (owner A/B root cause, 2026-07-24).
+        // This terminator drives fmod, the baked lit/shadow multiply, through a near-binary
+        // smoothstep(0, 0.35) — feeding it the normal-MAPPED Nm let the map decide whether a
+        // whole material region counts as LIT or as SHADOWED, so any systematic tilt in the map
+        // (see the DC comment above) flipped entire regions between the lit and the shadow
+        // multiplier: a hard plate with no geometric cause. The map's contribution belongs in the
+        // bounded fdetail ratio below, not in the macro gate. Taking the terminator from the
+        // smooth normal N also makes fmod the SAME expression as the accepted pbr-OFF branch,
+        // which is the owner's acceptance criterion made structural: PBR ON == Lighting-only,
+        // PLUS depth. Bit 16384 = legacy (terminator from Nm) for the device A/B.
+        vec3 fNterm = ((u_pbr_bisect & 16384) != 0) ? Nm : N;
+        float fterm_y = smoothstep(0.0, 0.35, dot(fNterm, L));
+        float fterm_g = smoothstep(0.0, 0.35, dot(fNterm, Mn));
         float flit_y = fterm_y * sun_occ;
         float flit_g = fterm_g * moon_occ;
         float fw_y = clamp(u_rt_sun_elev, 0.0, 1.0);
@@ -762,8 +842,26 @@ void main() {
         if ((u_pbr_bisect & 512) != 0) fmod = vec3(1.0);  // bisect: baked-modulation off
         // Bounded perturbed/smooth N.L ratio (=1 for a flat map => map-free pixels match
         // the accepted baked-modulation look exactly).
-        float fdt_y = clamp((max(dot(Nm, L), 0.0) + 0.30) / (max(dot(N, L), 0.0) + 0.30), 0.45, 1.9);
-        float fdt_g = clamp((max(dot(Nm, Mn), 0.0) + 0.30) / (max(dot(N, Mn), 0.0) + 0.30), 0.45, 1.9);
+        // MEAN-PRESERVING detail. dot(N,L) + g.(T.L, B.L) is the UN-normalised (bump) response of
+        // the perturbed surface — identical to dot(Nm,L)/nmt.z, i.e. the same relief WITHOUT the
+        // 1/sqrt(1+|g|^2) renormalisation. That renormalisation is what made a normal-mapped
+        // surface systematically DARKER than its unmapped neighbour (Jensen: the average of the
+        // normalised cosine is below the cosine of the average), which is the second half of the
+        // plates — the material BORDER step, visible wherever a mapped ground texture meets an
+        // unmapped one (vil1-jng-leafyground vs -hitweak, vil-beach-01 vs -01path: only 8 of 716
+        // village1 texture bindings carry maps at all). Because fg is zero-mean, the mean of this
+        // term is EXACTLY the smooth-normal response, for any light direction and any frame:
+        // relief with no brightness step. Offline (shader-exact) on the grass at relief 1.0:
+        // material-border delta -19.5% -> +1.4%, and the detail amplitude RISES 21.5% -> 32.0%.
+        // fg == 0 on map-free pixels => fdt == 1 exactly => pbr-OFF look preserved bit for bit.
+        float fndl_y = ((u_pbr_bisect & 16384) != 0)
+                           ? dot(Nm, L)
+                           : (dot(N, L) + fg.x * dot(fTn, L) + fg.y * dot(fBn, L));
+        float fndl_g = ((u_pbr_bisect & 16384) != 0)
+                           ? dot(Nm, Mn)
+                           : (dot(N, Mn) + fg.x * dot(fTn, Mn) + fg.y * dot(fBn, Mn));
+        float fdt_y = clamp((max(fndl_y, 0.0) + 0.30) / (max(dot(N, L), 0.0) + 0.30), 0.45, 1.9);
+        float fdt_g = clamp((max(fndl_g, 0.0) + 0.30) / (max(dot(N, Mn), 0.0) + 0.30), 0.45, 1.9);
         float fdetail = mix(1.0, fdt_y, fw_y * sun_occ) *
                         mix(1.0, fdt_g, clamp(fw_g, 0.0, 1.0) * moon_occ);
         if ((u_pbr_bisect & 256) != 0) fdetail = 1.0;  // bisect: detail-relight ratio off
@@ -1190,9 +1288,22 @@ void main() {
       vec3 N = Nsurf;
       if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
         vec3 nm = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
-        nm.xy *= u_pbr_normal_strength;
-        nm = normalize(nm);
-        N = normalize(mat3(Tn, Bn, Nsurf) * nm);
+        // Same DC-removed surface-gradient decode as the fused path above (the constant-tilt
+        // plate defect is a property of the MAPS, so the rt-OFF "bidon" fallback carries it too;
+        // the owner's PBR-only preset showed the identical plates). Same A/B bits: 8192 = raw
+        // map, 32768 = per-chunk UV frame instead of the seam-stable one. The path is otherwise
+        // untouched — it stays the standalone fallback the owner accepted.
+        vec3 sTn = Tn, sBn = Bn;
+        if ((u_pbr_bisect & 32768) == 0) {
+          stable_frame(Nsurf, sTn, sBn);
+        }
+        vec2 sg = clamp(nm.xy / max(nm.z, 0.05), vec2(-4.0), vec2(4.0));
+        if ((u_pbr_bisect & 8192) == 0) {
+          sg -= u_pbr_normal_dc;
+        }
+        sg = clamp(sg * u_pbr_normal_strength, vec2(-8.0), vec2(8.0));
+        nm = normalize(vec3(sg, 1.0));
+        N = normalize(mat3(sTn, sBn, Nsurf) * nm);
         // GLASS-PANE fix (owner preset report 2026-07-23, same defect on the PBR ONLY
         // preset = this rt-OFF path): slide back to the face horizon instead of the old
         // hard snap to the base normal — the tangential map grain survives at grazing angles, so

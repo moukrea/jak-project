@@ -494,6 +494,23 @@ static std::atomic<u64> g_gweld_uv_snapped{0};        // cross-chunk seam verts 
 // the UV/color-seam verts) and how many received a SHARED position-averaged smooth normal (~the whole set).
 static std::atomic<u64> g_gweld_coincident_verts{0};    // verts in a POSITION group of size>=2 (the coincident/UV-seam set)
 static std::atomic<u64> g_gweld_coincident_smoothed{0}; // coincident verts assigned a SHARED position-averaged normal
+// Gpbr-fusion (2026-07-24) — cross-seam TANGENT FRAME coherence MEASUREMENT (diagnostic only, writes
+// nothing back to the mesh). Positions/normals are now welded across chunk seams, but the normal map is
+// sampled in the per-vertex TANGENT frame: if the two chunks meeting at a welded seam carry tangents
+// rotated (or mirrored) relative to each other, the SAME normal-map texel is decoded into two different
+// world normals => opposite lighting on either side of the seam == the owner's hard "plates". These
+// counters quantify that rotation across every welded cross-tree (multitree) group.
+static std::atomic<u64> g_tanframe_pairs{0};        // compared (reference, member) tangent pairs
+static std::atomic<u64> g_tanframe_h0{0};           // |ang| in [0,5)
+static std::atomic<u64> g_tanframe_h1{0};           // |ang| in [5,15)
+static std::atomic<u64> g_tanframe_h2{0};           // |ang| in [15,45)
+static std::atomic<u64> g_tanframe_h3{0};           // |ang| in [45,90)
+static std::atomic<u64> g_tanframe_h4{0};           // |ang| in [90,135)
+static std::atomic<u64> g_tanframe_h5{0};           // |ang| in [135,180]
+static std::atomic<u64> g_tanframe_pairs_over30{0}; // pairs rotated by more than 30 deg
+static std::atomic<u64> g_tanframe_handed{0};       // pairs whose tangent HANDEDNESS (.w sign) disagrees
+static std::atomic<u64> g_tanframe_groups{0};       // multitree groups actually analysed (>=2 valid frames)
+static std::atomic<u64> g_tanframe_incoherent{0};   // analysed groups whose max |ang| exceeds 30 deg
 
 // ============================================================================================
 // STEP A (owner STRICT ORDER, 2026-07-24) — TRUE TOPOLOGICAL FUSE (genuine index-buffer merge).
@@ -1113,6 +1130,39 @@ void write_tan_diag_file() {
     os << "crease_threshold_deg=" << creasedeg
        << " (normal-averaging crease: gentle terrain seams below the threshold smooth to a nuance, sharp "
           "corners at/above it stay crisp; owner FULL SPEC default 60)\n";
+    os << "[tan_frame] cross-seam TANGENT FRAME coherence (does each chunk apply the normal map in a "
+          "different frame?):\n";
+    {
+      const u64 p = g_tanframe_pairs.load();
+      const u64 o30 = g_tanframe_pairs_over30.load();
+      const u64 ag = g_tanframe_groups.load();
+      const u64 ig = g_tanframe_incoherent.load();
+      const double ppct = p ? 100.0 * (double)o30 / (double)p : 0.0;
+      const double gpct2 = ag ? 100.0 * (double)ig / (double)ag : 0.0;
+      os << "tan_frame_pairs=" << p
+         << " (member-vs-first-member tangent comparisons inside welded CROSS-TREE groups, angle measured "
+            "in the plane of the group's shared smooth normal)\n";
+      os << "tan_frame_hist_0_5=" << g_tanframe_h0.load() << " 5_15=" << g_tanframe_h1.load()
+         << " 15_45=" << g_tanframe_h2.load() << " 45_90=" << g_tanframe_h3.load()
+         << " 90_135=" << g_tanframe_h4.load() << " 135_180=" << g_tanframe_h5.load()
+         << " (|signed rotation around N| in degrees)\n";
+      os << "tan_frame_pairs_over30=" << o30 << " (" << ppct
+         << "% of pairs rotated by more than 30 deg == the normal map is decoded in a DIFFERENT frame on "
+            "each side of the seam)\n";
+      os << "tan_frame_handedness_mismatch=" << g_tanframe_handed.load()
+         << " (pairs whose tangent .w sign disagrees == a MIRRORED frame: the normal map's tangent-space "
+            "green/red axis is flipped across the seam)\n";
+      os << "tan_frame_multitree_groups=" << ag
+         << " (welded cross-tree groups with >=2 usable tangent frames == the groups actually analysed)\n";
+      os << "tan_frame_incoherent_groups=" << ig << " (" << gpct2
+         << "% of analysed groups whose max |rotation| exceeds 30 deg)\n";
+      os << "note: positions and smooth normals are welded across the chunk seam, but the normal map is "
+            "sampled in the per-vertex TANGENT frame, which is derived from each chunk's OWN UV layout. A "
+            "non-zero rotation/handedness split here means the same normal-map texel decodes to two "
+            "different world normals on the two sides of a welded seam => opposite shading => the owner's "
+            "hard plates, scaling with relief (relief=0 hides it, relief=2.5 exposes it). MEASUREMENT "
+            "ONLY: this pass writes no mesh data.\n";
+    }
     file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", os.str());
   } catch (...) {
   }
@@ -1166,17 +1216,22 @@ void reconstruct_level_global_weld(Level& lev) {
     const std::vector<u32>* indices;
     bool use_strips;
     u32 gbase;  // global index of this tree's vertex 0 (tree-local li -> global gbase+li)
+    // Gpbr-fusion: per-vertex tangents of this tree (xyz = world tangent, w = handedness), computed in
+    // TfragTree/TieTree::unpack() BEFORE this pass, indexed tree-LOCALLY (global i -> i - gbase).
+    // Read-only here: STEP 7 only MEASURES the cross-seam tangent frame, it never rewrites it.
+    const std::vector<math::Vector4f>* tangents;
   };
   std::vector<TreeRef> trees;
   std::vector<math::Vector3f> gp;   // global world positions
   std::vector<u32> gtree;           // TreeRef id per global vertex
   std::vector<PreloadedVertex*> gv; // writable vertex per global index
-  auto add_tree = [&](std::vector<PreloadedVertex>& verts, const std::vector<u32>& indices, bool strips) {
+  auto add_tree = [&](std::vector<PreloadedVertex>& verts, const std::vector<u32>& indices, bool strips,
+                      const std::vector<math::Vector4f>& tangents) {
     if (verts.empty()) {
       return;
     }
     u32 gbase = (u32)gp.size();
-    trees.push_back({&indices, strips, gbase});
+    trees.push_back({&indices, strips, gbase, &tangents});
     u32 tid = (u32)trees.size() - 1;
     for (auto& v : verts) {
       gp.emplace_back(v.x, v.y, v.z);
@@ -1186,12 +1241,12 @@ void reconstruct_level_global_weld(Level& lev) {
   };
   for (auto& geom : lev.tfrag_trees) {
     for (auto& t : geom) {
-      add_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips);
+      add_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips, t.unpacked.tangents);
     }
   }
   for (auto& geom : lev.tie_trees) {
     for (auto& t : geom) {
-      add_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips);
+      add_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips, t.unpacked.tangents);
     }
   }
   const size_t N = gp.size();
@@ -1699,6 +1754,143 @@ void reconstruct_level_global_weld(Level& lev) {
     }
     g_gweld_coincident_verts += coincident_total;
     g_gweld_coincident_smoothed += coincident_smoothed;
+  }
+
+  // ---- 7. Gpbr-fusion (2026-07-24) — cross-seam TANGENT FRAME coherence MEASUREMENT. ----
+  // PURE DIAGNOSTIC: this pass reads the tangents and writes only counters, it never modifies the mesh.
+  // WHY: positions + smooth normals are now welded across chunk seams, yet the owner's live A/B (relief=0
+  // smooth vs relief=2.5 hard patches) proves the plates are created by the NORMAL-MAP APPLICATION. The
+  // normal map is decoded in the per-vertex TANGENT frame, and each chunk has its own UV layout, so the
+  // two chunks meeting at a welded seam can carry tangents ROTATED (or mirrored, .w sign) relative to each
+  // other. Same texel, two different tangent frames => two different world normals => opposite lighting on
+  // either side of the seam. This measures that rotation: for every welded CROSS-TREE (multitree) group,
+  // project each member's tangent into the plane of the group's shared smooth normal Ng and take the signed
+  // angle around Ng against the group's first valid member.
+  {
+    u64 tf_pairs = 0, tf_over30 = 0, tf_handed = 0, tf_groups = 0, tf_incoherent = 0;
+    u64 tf_hist[6] = {0, 0, 0, 0, 0, 0};
+    // Compact CSR over MULTITREE groups ONLY (single-tree groups can't have a cross-seam frame), so the
+    // member lists stay a few MB instead of a vector-of-vectors over every group. O(N).
+    std::vector<u32> mt_id(num_groups, UINT32_MAX);
+    u32 n_mt = 0;
+    for (u32 g = 0; g < num_groups; g++) {
+      if (group_multitree[g]) {
+        mt_id[g] = n_mt++;
+      }
+    }
+    if (n_mt) {
+      std::vector<u32> moff(n_mt + 1, 0);
+      for (size_t i = 0; i < N; i++) {
+        u32 m = mt_id[group[i]];
+        if (m != UINT32_MAX) {
+          moff[m + 1]++;
+        }
+      }
+      for (u32 m = 0; m < n_mt; m++) {
+        moff[m + 1] += moff[m];
+      }
+      std::vector<u32> mflat(moff[n_mt]);
+      {
+        std::vector<u32> cursor(moff.begin(), moff.end() - 1);
+        for (size_t i = 0; i < N; i++) {
+          u32 m = mt_id[group[i]];
+          if (m != UINT32_MAX) {
+            mflat[cursor[m]++] = (u32)i;
+          }
+        }
+      }
+      for (u32 m = 0; m < n_mt; m++) {
+        const u32 k0 = moff[m], k1 = moff[m + 1];
+        if (k1 - k0 < 2) {
+          continue;  // a multitree group always has >=2 members; guard anyway
+        }
+        // The group's shared smooth normal (STEP 5 / 5c assigned the SAME normal to every member, so the
+        // first member is representative). nor==0 => no usable normal => the frame is undefined here.
+        const math::Vector3f Ng = unpack_gl_normal_2_10_10_10(gv[mflat[k0]]->nor);
+        if (Ng.length() < 0.5f) {
+          continue;
+        }
+        bool have_ref = false;
+        math::Vector3f t0(0.f, 0.f, 0.f);
+        bool w0_neg = false;
+        float group_max = 0.f;
+        u64 group_pairs = 0;
+        for (u32 k = k0; k < k1; k++) {
+          const u32 gi = mflat[k];
+          const TreeRef& tr = trees[gtree[gi]];
+          if (!tr.tangents || tr.tangents->empty()) {
+            continue;  // tangents not computed for this tree (weld-only build / empty) — skip cleanly
+          }
+          const u32 li = gi - tr.gbase;
+          if (li >= tr.tangents->size()) {
+            continue;
+          }
+          const math::Vector4f& T = (*tr.tangents)[li];
+          const math::Vector3f tv(T.x(), T.y(), T.z());
+          // Project the tangent into the plane of Ng: the normal map is decoded in the plane perpendicular
+          // to the shaded normal, so only the IN-PLANE rotation of the frame changes the decoded normal.
+          math::Vector3f tp = tv - Ng * Ng.dot(tv);
+          const float tl = tp.length();
+          if (!(tl >= 0.2f)) {
+            continue;  // tangent (nearly) parallel to the normal => in-plane direction is meaningless
+          }
+          tp = tp * (1.f / tl);
+          if (!have_ref) {
+            have_ref = true;
+            t0 = tp;
+            w0_neg = T.w() < 0.f;
+            continue;
+          }
+          // Signed angle around Ng, in degrees (magnitude only: a +40 and a -40 rotation are equally bad).
+          float ang = std::atan2(t0.cross(tp).dot(Ng), t0.dot(tp)) * 57.29577951308232f;
+          ang = std::fabs(ang);
+          group_pairs++;
+          tf_pairs++;
+          if (ang < 5.f) {
+            tf_hist[0]++;
+          } else if (ang < 15.f) {
+            tf_hist[1]++;
+          } else if (ang < 45.f) {
+            tf_hist[2]++;
+          } else if (ang < 90.f) {
+            tf_hist[3]++;
+          } else if (ang < 135.f) {
+            tf_hist[4]++;
+          } else {
+            tf_hist[5]++;
+          }
+          if (ang > 30.f) {
+            tf_over30++;
+          }
+          if ((T.w() < 0.f) != w0_neg) {
+            tf_handed++;  // MIRRORED frame: the normal map's green/red channel effectively flips
+          }
+          if (ang > group_max) {
+            group_max = ang;
+          }
+        }
+        if (group_pairs) {
+          tf_groups++;
+          if (group_max > 30.f) {
+            tf_incoherent++;
+          }
+        }
+      }
+    }
+    g_tanframe_pairs += tf_pairs;
+    g_tanframe_h0 += tf_hist[0];
+    g_tanframe_h1 += tf_hist[1];
+    g_tanframe_h2 += tf_hist[2];
+    g_tanframe_h3 += tf_hist[3];
+    g_tanframe_h4 += tf_hist[4];
+    g_tanframe_h5 += tf_hist[5];
+    g_tanframe_pairs_over30 += tf_over30;
+    g_tanframe_handed += tf_handed;
+    g_tanframe_groups += tf_groups;
+    g_tanframe_incoherent += tf_incoherent;
+    lg::info("[tan-frame] level={} multitree_groups_analysed={} pairs={} over30={} handedness_mismatch={} "
+             "incoherent_groups={}",
+             lev.level_name, tf_groups, tf_pairs, tf_over30, tf_handed, tf_incoherent);
   }
 
   g_gweld_total_verts += (u64)N;

@@ -128,8 +128,39 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       custom_tex::PbrMaterialMaps maps;
       // Re-fetch each present map immediately before upload (thread-local buffer reuse).
       if (n) {
-        maps.normal_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal", bsrc));
+        const auto* ni =
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal", bsrc);
+        if (ni && !ni->rgba.empty()) {
+          // NORMAL-MAP DC (owner A/B relief 0 vs 2.5, 2026-07-24). Mean tangent-space surface
+          // gradient over the decoded bytes, exactly as the shader decodes them (linear GL_RGBA,
+          // no sRGB): g = clamp(n.xy / max(n.z, 0.05), +-4). A non-zero mean is a CONSTANT TILT of
+          // the whole material — not relief. The relief slider multiplies it (x7.5 at relief 2.5),
+          // so it re-aims entire mapped regions away from the sun => the hard dark/light plates
+          // that scale with relief and vanish at relief 0, exactly as the owner's A/B measured.
+          // The shader subtracts this so the perturbation is zero-mean: relief, no plate.
+          double sx = 0.0, sy = 0.0;
+          u64 np = 0;
+          for (size_t i = 0; i + 3 < ni->rgba.size(); i += 4) {
+            float nx = ni->rgba[i] * (2.f / 255.f) - 1.f;
+            float ny = ni->rgba[i + 1] * (2.f / 255.f) - 1.f;
+            float nz = std::max(ni->rgba[i + 2] * (2.f / 255.f) - 1.f, 0.05f);
+            sx += std::clamp(nx / nz, -4.f, 4.f);
+            sy += std::clamp(ny / nz, -4.f, 4.f);
+            np++;
+          }
+          if (np) {
+            maps.normal_dc_x = (float)(sx / (double)np);
+            maps.normal_dc_y = (float)(sy / (double)np);
+          }
+          lg::info(
+              "pbr normal DC: {} src={} {}x{} mean_gradient=({:.4f}, {:.4f}) tilt={:.2f}deg "
+              "(subtracted in-shader => zero-mean relief, no brightness plate)",
+              tex.debug_name, ni->src, ni->w, ni->h, maps.normal_dc_x, maps.normal_dc_y,
+              (float)(std::atan(std::sqrt(maps.normal_dc_x * maps.normal_dc_x +
+                                          maps.normal_dc_y * maps.normal_dc_y)) *
+                      180.0 / 3.14159265358979));
+        }
+        maps.normal_tex = make_map(ni);
       }
       if (r) {
         const auto* ri =
