@@ -99,7 +99,8 @@ grep -qiE 'pbr isolate|in.?menu.*bisect|menu.*(normal.?map only|parallax only|is
 grep -qiE 'parallax.*(facet|per.?triangle|clip|chart|discontinu|off.*remove)|POM.*(facet|per.?triangle|edge|silhouette)' "$R" || fail "no parallax-facet investigation evidence (prime suspect after continuous tangent)"
 grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced"
 # OWNER #11: menu Unknown-ID + wiring fix, verified.
-grep -qiE '(register|text.?id|no unknown.?id|real label).*(carousel|isolate|option)|isolate.*(option|carousel).*(text.?id|registered|label)|unknown.?id.*(fixed|resolved)' "$R" || fail "no carousel-option-strings-registered evidence (Unknown ID 5924-5927 bug)"
+grep -qiE 'pbr-iso.*label|option.*(global string|runtime string|format.*label)|register.*(0x172|option string)|carousel option.*(string|format)' "$R" || fail "no carousel-OPTION-string registration (must be runtime global strings like displacement, NOT bare text-ids — Unknown ID 5924-5927)"
+grep -qE 'define \*pbr-iso.*-label\*|pbr-iso.*label.*format|carousell-pbr-isolate.*label' goal_src/jak1/pc/progress-pc.gc || fail "isolate carousel options still use bare text-ids (no runtime global label strings in progress-pc.gc) => Unknown-ID persists"
 grep -qiE 'isolate.*(applies|wired|writes|changes).*(bisect|mask|shader)|flip.*(change|apply).*(bisect|mask)|bisect mask.*(diag|file|logged)' "$R" || fail "no isolate-actually-applies evidence (flipping did nothing)"
 grep -qiE 'supervisor.*(verif|navigate|cpad).*(menu|redmi|isolate)|menu.*verified.*(before|redmi)|cpad_inject.*isolate' "$R" || fail "no supervisor-pre-ship-verification note"
 echo "[Gpbrf PASS]"

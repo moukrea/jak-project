@@ -590,3 +590,25 @@ reach the shader (flipping has no effect). This is a broken diagnostic tool hand
    facets tied to relief>0 => parallax/POM per-triangle discontinuity).
 ACCEPTANCE: menu options are real labels + flipping provably changes the bisect mask (diag file) + parallax
 investigated. Supervisor verifies the menu on the Redmi before the owner ever sees it.
+
+---
+## SUPERVISOR PRE-SHIP VERIFICATION CAUGHT IT (2026-07-24) — menu STILL Unknown-ID. NOT pushed to owner. Exact fix below.
+The REOPEN#11 attempt did NOT fix the Unknown-ID. It only added a C++ LOG label in kmachine.cpp
+(pc_set_pbr_isolate). The MENU DISPLAY strings are still unregistered. ROOT (I traced it):
+- text-h.gc defines `pc-text-pbr-iso-both #x1724 / -nm #x1725 / -pom #x1726 / -neither #x1727` — these are
+  ENUM text-ids with NO registered display STRING => the carousel shows "Unknown ID 5924-5927" (0x1724-27).
+- The carousels that WORK (e.g. displacement) do NOT use bare text-ids for their visible label — they use a
+  RUNTIME GLOBAL STRING: `(define *displacement-label* (new 'global 'string ...))` +
+  `(format (clear *displacement-label*) "DISPLACEMENT...")`. The `*pbr-isolate-label*` row label works for
+  exactly this reason; the OPTIONS do not because they use unregistered text-ids.
+EXACT FIX:
+1. Give the 4 carousel OPTIONS real display strings the SAME WAY the working carousels do — either register
+   the strings for text-ids 0x1724-0x1727 in the game text bank, OR (simpler, matches displacement) define
+   runtime global strings (`*pbr-iso-both-label*` etc. via format) and point the carousel at those. No bare
+   unregistered text-id may remain. Result: the 4 options render as BOTH / NORMAL-MAP ONLY / PARALLAX ONLY /
+   NEITHER, never "Unknown ID".
+2. The wiring (mask 0/128/64/192) looks correct now — keep it; confirm flipping writes the mask to
+   files/pbr_tan_diag.txt so the supervisor's Redmi check can confirm it applies.
+3. DO NOT claim the menu is fixed in the report unless the option strings are registered as above.
+The SUPERVISOR will re-verify on the Redmi (navigate to the row, screenshot real labels) before any push.
+Keep the parallax-continuity fix from #11.
