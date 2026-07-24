@@ -1129,21 +1129,49 @@ void pc_set_pbr_displacement(u32 mode) {
 // so his bisection — not another headless guess — names the residual facet term.
 void pc_set_pbr_isolate(u32 idx) {
   int mask = 0;
+  const char* label = "BOTH";
   switch (idx) {
     case 1:
       mask = 128;  // NORMAL-MAP ONLY: parallax/POM off
+      label = "NORMAL-MAP ONLY";
       break;
     case 2:
       mask = 64;  // PARALLAX ONLY: normal-map perturbation off
+      label = "PARALLAX ONLY";
       break;
     case 3:
       mask = 192;  // NEITHER: both off (128 | 64)
+      label = "NEITHER";
       break;
     default:
       mask = 0;  // BOTH (default): full fused path
+      label = "BOTH";
       break;
   }
   Gfx::g_global_settings.recharged_pbr_isolate = mask;
+  // REOPEN #11 (owner: the PBR-ISOLATE carousel "flip does nothing"): PROVE the menu value
+  // actually reaches the fused shader's u_pbr_bisect mask by writing the ACTIVE carousel index +
+  // resolved bisect mask to a device-pullable diag file EACH TIME IT CHANGES. The Honor obscures
+  // logcat, so a FILE is the only reliable channel: the supervisor pulls it with
+  //   run-as org.opengoal.gk.jak1 cat files/pbr_tan_diag.txt
+  // and confirms flipping the menu changes index/mask on device. This is called every frame with
+  // the current index, so gate the write on an ACTUAL change to avoid per-frame disk churn.
+  static int s_last_isolate_mask = -1;
+  if (mask != s_last_isolate_mask) {
+    s_last_isolate_mask = mask;
+    try {
+      std::string body = fmt::format(
+          "[pbr-isolate] active: index={} mask={} label=\"{}\"\n"
+          "  resolved bits: normal-map-off(bit64)={} parallax/POM-off(bit128)={}\n"
+          "  wiring: GOAL carousel -> pc-set-pbr-isolate! -> pc_set_pbr_isolate(idx) ->\n"
+          "          Gfx::g_global_settings.recharged_pbr_isolate -> background_common u_pbr_bisect\n"
+          "  (fused path only: realtime-lighting ON + pbr-materials ON. Flip the menu to change this.)\n",
+          idx, mask, label, (mask & 64) ? 1 : 0, (mask & 128) ? 1 : 0);
+      file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", body);
+    } catch (...) {
+      // best-effort diag; never let a file error affect the render path
+    }
+  }
 }
 void pc_set_rt_ambient_contrast(u32 pct) {
   // GOAL sends an int PERCENT 0..150 (0.9 -> 90); mirror the *0.01 convention above.

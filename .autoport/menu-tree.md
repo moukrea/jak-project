@@ -113,7 +113,8 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 19 | **Specular Intensity** [R] | slider | 0.0..3.0 pas 0.1 (déc.) → `pbr-specular-intensity`, **défaut 0.15 (REOPEN #6 matte-dielectric)** — échelle le spéculaire GGX fusionné, mais NE contrôle PLUS le look matte : les surfaces rugueuses (dielectrics = pierre/sable/herbe) sont matte par construction via le `matte_gate` shader (spéc → ~0 dès roughness ≥ 0.60), ce slider ne fait que doser le reflet résiduel sur les texels VRAIMENT lisses/métalliques. Owner monte pour les matériaux brillants (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #2 ; défaut abaissé 1.0→0.15 REOPEN #6** | {FLAG_PBR} |
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **RT ONLY (idx 4) garde `load-custom-assets?` ON depuis 2026-07-23** (RT sur textures custom, cartes PBR OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
-| 22 | Back | button | (jamais grisé) | — |
+| 22 | **PBR Isolate** [R] | carousell | **DEBUG (retirable plus tard)** — **BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER**, défaut BOTH → `pbr-isolate` (0..3), poussé chaque frame en index brut via `pc-set-pbr-isolate!` ; setter C++ mappe index→masque `u_pbr_bisect` (BOTH 0 / NORMAL-MAP ONLY 128 / PARALLAX ONLY 64 / NEITHER 192) et écrit l'état dans `files/pbr_tan_diag.txt` à chaque changement. Bisection de terme IN-MENU (owner isole les facettes sans adb). Grisé selon **PBR Materials OFF** ou RECHARGED MASTER OFF. **Ajout Gpbr-fusion REOPEN #10 ; strings réparés + diag REOPEN #11** | {FLAG_PBR} |
+| 23 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
 > **Specular Intensity** (0..2, défaut 1.0) insérés APRÈS Shadow Quality, AVANT Back (Back renuméroté 18→20).
@@ -171,6 +172,24 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > NEITHER 192 → `Gfx::g_global_settings.recharged_pbr_isolate`, qui **amorce** `pbr_bisect` dans le chemin
 > fusionné (le prop/env debug l'écrase encore pour l'A/B headless du superviseur sur l'ensemble des termes).
 > Ids texte : `pc-text-pbr-iso-both` #x1724 / `-nm` #x1725 / `-pom` #x1726 / `-neither` #x1727.
+>
+> **Correctif (2026-07-24, Gpbr-fusion REOPEN #11 — le menu ISOLATE était CASSÉ chez l'owner)** : les 4
+> options s'affichaient « Unknown ID 5924-5927 » (= décimal de #x1724-#x1727) et flipper ne faisait RIEN.
+> Cause 1 (Unknown ID) : les 4 strings existaient bien dans `game_custom_text_en-US.json` / `_fr-FR.json`
+> (ids 0x1724-0x1727) et dans les banques desktop fraîches, MAIS l'overlay `out/jak1-android-text/*COMMON.TXT`
+> (périmé 2026-07-23) écrasait la banque desktop fraîche dans `build_cgo_pack.sh` → le `0COMMON.TXT` du device
+> (40016 o) n'avait AUCUNE des 4 strings (classe « desktop TXT poussé par-dessus l'overlay android »). FIX =
+> régénérer l'overlay android-text (`gtt_build_android_text.sh`) → banques fraîches (40208 o) portant les 4
+> strings (EN+FR) → repack cgo + push → device `0COMMON.TXT` porte désormais les 4 VRAIS LABELS (prouvé).
+> Cause 2 (flip inerte) : le câblage GOAL→C++→uniform était en fait intact, mais SANS OBSERVABILITÉ (le fichier
+> diag mandé par l'owner #11 n'était pas implémenté). FIX = `pc_set_pbr_isolate` écrit maintenant l'index actif +
+> le masque `u_pbr_bisect` résolu dans `files/pbr_tan_diag.txt` à CHAQUE changement. Preuve device : naviguer au
+> row PBR ISOLATE et flipper BOTH→NORMAL-MAP ONLY→PARALLAX ONLY→NEITHER écrit `settings.ini pbr-isolate =
+> 0/1/2/3` ET le diag montre `mask = 0/128/64/192` — le flip change bien le masque que lit le shader fusionné.
+> Rapport à PBR TEST PRESET : la ligne ISOLATE est un override DEBUG indépendant du masque de bisection (elle
+> amorce `pbr_bisect` via `recharged_pbr_isolate`) ; le preset écrit les autres réglages mais jamais le champ
+> isolate → ils se composent (le preset pose la config, l'isolate bisecte les termes à l'intérieur). Vérifié
+> pré-livraison sur le Redmi (cpad_inject nav + screenshots des vrais labels + diag change à chaque flip).
 >
 > **Changement de défaut (2026-07-23, Gpbr-fusion REOPEN #6 — MATTE-DIELECTRIC)** : après playtest #4 owner
 > (décompo : « Lighting-only » BON, la vitre n'apparaît QUE avec PBR ⇒ la vitre EST le terme spéculaire/env sur
