@@ -801,3 +801,33 @@ STEP C — ORIENT: the winding/orientation flood-fill runs on the MERGED topolog
 STEP D — UV continuity + tessellation matching-edge-factors on the shared edges.
 Do them in THIS order. If STEP A (real index merge) is not done, B/C/D are all meaningless — that is exactly
 what has been shipped so far. The whole point is STEP A must be a genuine geometry merge.
+
+---
+## OWNER PLAYTEST #14 (2026-07-24) — seams PERSIST after real fusion. THE GAP: fusion only merged 24-30% (fully-identical verts); the UV/COLOR-seam verts (70%) were NEVER SMOOTHED.
+Screenshots device/owner_seam3/s_1..3.jpg: diagonal grass seam (s_1), hill brightness seam (s_2), hard line
+in the SAND (s_3). The real index-fusion merged only index_fused_tfrag=37642/158078 (24%) and
+tie=466933/1563934 (30%) — i.e. ONLY the fully-attribute-identical coincident verts. The remaining ~70% are
+coincident verts at chunk/UV boundaries whose UV or baked COLOR differ, so they were NOT fully fused AND (per
+the "fuse then smooth" order) were NEVER given an averaged normal => their per-triangle normals persist =>
+the visible LIGHTING seams (they show in daytime PBR, so it is the lit-normal contribution, not baked color).
+
+### THE COMPLETE FIX — split-by-UV, SHARED NORMAL (industry standard). Two classes of coincident verts:
+1. **Fully identical (position+color+UV)** → REAL index fusion (already done). Keep.
+2. **Coincident position + SAME TEXTURE but different UV and/or color** (the ~70%, the seam verts) → they
+   CANNOT be index-merged (a vertex can't hold two UVs), BUT their SMOOTH NORMAL must still be AVERAGED BY
+   POSITION across all same-texture coincident corners. This is the standard "smoothing group by position,
+   split by UV" technique: the verts stay separate for UV/color, but SHARE the averaged normal => the
+   LIGHTING is continuous across the UV/chunk seam => the seams GO AWAY.
+   → Compute smooth normals over a POSITION+texture weld map (~all coincident same-texture verts, the ~96%),
+     and ASSIGN that averaged normal to every coincident corner (fused or UV-split alike).
+3. **Orientation** flood-fill likewise over the position weld map (not only the fully-fused subset).
+4. **Tessellation crack-free at UV-split edges**: the two UV-split verts share position + normal; ensure they
+   get MATCHING edge tessellation factors and the SAME height displacement so they stay coincident after
+   displacement (no hole). For fully-fused edges it is automatic.
+So: normal SMOOTHING is by POSITION (all coincident same-texture, ~96% coverage), while index FUSION is only
+for identical verts (tessellation topology). The bug: normals were only smoothed on the 24-30% fused subset.
+The owner's "fuse then smooth" is right — but the SMOOTH step must cover the position-coincident verts too,
+not just the index-fused ones.
+ACCEPTANCE: no lighting seams at chunk/UV boundaries (grass s_1/s_2 + sand s_3), no tessellation holes,
+daytime + full PBR/relief/tessellation stack. Report the normal-smoothed-corner coverage (must be ~the full
+coincident set, not 24-30%).

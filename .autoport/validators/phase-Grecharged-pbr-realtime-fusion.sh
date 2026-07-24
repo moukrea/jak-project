@@ -125,4 +125,8 @@ grep -qiE 'index.?buffer.*(rewrit|remap|merge|shared)|remap.*(index|indices).*(r
 grep -qiE 'shared edge.*(tessellat|factor|crack)|matching.*(tess|edge).*factor|tessellat.*crack.?free.*(shared|edge)' "$R" || fail "no tessellation-crack-free-via-shared-edge evidence"
 grep -qiE 'no new.*(cut|seam)|not regress.*(smooth|cut)|new clean cut.*(gone|avoided|none)' "$R" || fail "no evidence the fix avoids NEW clean cuts (owner: it got worse)"
 grep -qiE 'pbr.?materials.*(on|#t).*captur|full.*stack.*(on|enabl).*(captur|test)|relief.*(>|1\.5).*captur|displacement.*(2|tessellat).*captur|past.*ND.*logo' "$R" || fail "no full-stack-daytime capture method (owner: blind tests without PBR/relief/tessellation)"
+# OWNER #14: normals must be smoothed BY POSITION over ALL coincident same-texture verts (split-by-UV shared normal), not only the 24-30% fully-fused.
+grep -qiE 'split.?by.?uv|shared normal.*(uv|position|coincident)|smoothing group.*(position|uv)|normal.*(by|per).*position.*(all|coincident|same.?texture)|position weld map' "$R" || fail "no split-by-UV-shared-normal evidence (seams = UV/color-seam verts never smoothed; normal must average by POSITION across all coincident same-texture)"
+grep -qiE 'coverage.*(9[0-9]|~?all|full).*(coincident|smooth|normal)|smoothed.*(9[0-9]%|all coincident|full)|normal.*coverage.*(not 24|not 30|9[0-9])' "$R" || fail "no ~full normal-smoothing coverage evidence (was only 24-30% fused subset)"
+grep -qiE 'uv.?split.*(tess|edge|match|displac)|matching.*(edge|tess).*factor.*(uv|split)|tessellat.*crack.*(uv|split)' "$R" || fail "no UV-split-edge tessellation-coherence evidence"
 echo "[Gpbrf PASS]"
