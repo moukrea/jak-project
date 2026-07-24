@@ -358,6 +358,22 @@ vec3 rt_probe_sh(vec3 wp, vec3 N, out float w, out float interior_o) {
 }
 #endif
 
+// Grecharged-pbr-realtime-fusion REOPEN#9 (owner playtest #9): a CONTINUOUS orthonormal tangent basis
+// derived purely from the surface normal, used when the per-vertex tangent v_tangent is degenerate or
+// unbound. Duff et al. 2017 "Building an Orthonormal Basis, Revisited" — branchless and numerically
+// stable for EVERY normal (the denominator magnitude stays in [1,2]). Because it is a smooth function of
+// the (already smooth, interpolated) per-vertex normal, the frame is CONTINUOUS across triangle edges —
+// unlike the screen-space derivative frame (dFdx/dFdy), which is CONSTANT within a triangle and JUMPS at
+// every edge and is the exact source of the hard triangular FACETS the owner sees scaling with relief.
+// The tangent DIRECTION is arbitrary (no UV reference) but per-fragment continuity is what kills the
+// facets — exactly the owner's mandate ("an arbitrary but CONTINUOUS per-vertex tangent kills the facets").
+void frisvad_basis(vec3 n, out vec3 t, out vec3 b) {
+  float s = n.z >= 0.0 ? 1.0 : -1.0;
+  float a = -1.0 / (s + n.z);
+  float d = n.x * n.y * a;
+  t = normalize(vec3(1.0 + s * n.x * n.x * a, s * d, -s * n.x));
+  b = normalize(vec3(d, s + n.y * n.y * a, -n.y));
+}
 
 void main() {
   if (gfx_hack_no_tex == 0) {
@@ -547,6 +563,9 @@ void main() {
         // re-orthonormalizes the interpolated tangent against it per fragment; .w carries handedness.
         // A degenerate/unbound tangent (len~0 => (0,0,0,1) default) falls back to the derivative frame.
         vec3 fTn, fBn;
+        // REOPEN#9 (owner playtest #9) tangent-fallback coverage flag (for the u_pbr_debug==20 viz + the
+        // pbr_tan_diag.txt CPU proof): 1.0 = this fragment took the degenerate-tangent fallback.
+        float f_tan_fb = (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) ? 0.0 : 1.0;
         if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
           fTn = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
           // OWNER PLAYTEST #8: use the SIGN of the interpolated handedness, not its raw magnitude.
@@ -555,17 +574,11 @@ void main() {
           // that reads as a facet). sign() keeps a full-length, continuous bitangent.
           fBn = cross(N, fTn) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
         } else {
-          vec3 fdp1 = dFdx(v_fringe_rel);
-          vec3 fdp2 = dFdy(v_fringe_rel);
-          vec2 fduv1 = dFdx(tex_coord.xy);
-          vec2 fduv2 = dFdy(tex_coord.xy);
-          vec3 fdp2perp = cross(fdp2, N);
-          vec3 fdp1perp = cross(N, fdp1);
-          vec3 fT = fdp2perp * fduv1.x + fdp1perp * fduv2.x;
-          vec3 fB = fdp2perp * fduv1.y + fdp1perp * fduv2.y;
-          float finvmax = inversesqrt(max(max(dot(fT, fT), dot(fB, fB)), 1e-10));
-          fTn = fT * finvmax;
-          fBn = fB * finvmax;
+          // REOPEN#9 (owner playtest #9): v_tangent is degenerate/unbound here. The OLD code rebuilt the
+          // TBN from screen-space derivatives (dFdx/dFdy) — a per-triangle-CONSTANT frame that JUMPS at
+          // every edge => the hard triangular FACETS the owner saw scaling with relief. Derive a
+          // CONTINUOUS basis from the smooth interpolated normal N instead (NEVER a screen derivative).
+          frisvad_basis(N, fTn, fBn);
         }
         vec2 uv = tex_coord.xy * u_pbr_uv_tile;
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
@@ -878,6 +891,13 @@ void main() {
           color.rgb = vec3(ao);
         } else if (u_pbr_debug == 18) {
           color.rgb = pow(max(emissive, vec3(0.0)), vec3(1.0 / 2.2));
+        } else if (u_pbr_debug == 20) {
+          // REOPEN#9 tangent-fallback coverage viz: RED = fragment fell back to a normal-derived
+          // continuous basis (v_tangent degenerate/unbound), GREEN = per-vertex MikkTSpace tangent.
+          // The screen-space-derivative FACET source is gone in BOTH branches; this measures how much
+          // of the visible ground actually carries a valid uploaded per-vertex tangent on THIS device
+          // (offline grass_bake can't see a GL upload/bind gap — this can). Screenshot + red-fraction.
+          color.rgb = vec3(f_tan_fb, 1.0 - f_tan_fb, 0.0);
         }
       } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
@@ -1117,17 +1137,11 @@ void main() {
       vec3 Tn, Bn;
       if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
         Tn = normalize(v_tangent.xyz - Nsurf * dot(Nsurf, v_tangent.xyz));
-        Bn = cross(Nsurf, Tn) * v_tangent.w;
+        Bn = cross(Nsurf, Tn) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
       } else {
-        vec2 duv1 = dFdx(tex_coord.xy);
-        vec2 duv2 = dFdy(tex_coord.xy);
-        vec3 dp2perp = cross(dp2, Nsurf);
-        vec3 dp1perp = cross(Nsurf, dp1);
-        vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
-        vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
-        float invmax = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-10));
-        Tn = T * invmax;
-        Bn = B * invmax;
+        // REOPEN#9: same continuous normal-derived basis as the fused path — NEVER the screen-space
+        // derivative frame (per-triangle-constant = the facet source). Standalone rt-OFF+pbr-ON path.
+        frisvad_basis(Nsurf, Tn, Bn);
       }
       vec2 uv = tex_coord.xy * u_pbr_uv_tile;
       if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0) {

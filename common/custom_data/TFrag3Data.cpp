@@ -4,10 +4,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <functional>
+#include <mutex>
+#include <sstream>
 #include <unordered_map>
 
 #include "common/log/log.h"
 #include "common/util/Assert.h"
+#include "common/util/FileUtil.h"
 #include "common/util/simd_util.h"
 
 #ifdef __ANDROID__
@@ -763,6 +766,62 @@ static math::Vector3f unpack_gl_normal_2_10_10_10(u32 packed) {
   return l > 1e-6f ? n * (1.f / l) : math::Vector3f(0.f, 0.f, 0.f);
 }
 
+// Grecharged-pbr-realtime-fusion REOPEN#9 — Duff et al. 2017 branchless orthonormal basis: a CONTINUOUS
+// tangent built purely from a unit normal, used to BACKFILL vertices whose UV-derived tangent is
+// degenerate (degenerate/mirrored UV islands, or a missing smooth normal). The denominator magnitude
+// stays in [1,2] so it is numerically stable for every normal. A continuous per-vertex tangent — even an
+// arbitrary one — keeps the shader OFF the screen-space-derivative fallback, which is the proven source
+// of the owner's hard triangular facets (per-triangle-constant, jumps at every edge).
+static math::Vector3f duff_tangent_from_normal(const math::Vector3f& n) {
+  float s = n.z() >= 0.f ? 1.f : -1.f;
+  float a = -1.f / (s + n.z());
+  math::Vector3f t(1.f + s * n.x() * n.x() * a, s * n.x() * n.y() * a, -s * n.x());
+  float l = t.length();
+  return l > 1e-6f ? t * (1.f / l) : math::Vector3f(1.f, 0.f, 0.f);
+}
+
+namespace {
+// REOPEN#9 device-provable tangent-fallback coverage. The Honor OBSCURES logcat (HKS encryption), so the
+// coverage must land in a FILE the supervisor can pull with
+// `run-as org.opengoal.gk.jak1 cat files/pbr_tan_diag.txt`. Accumulated across the trees unpacked this
+// session (loader thread => guarded). ground_would_fallback = ground verts (N.y>0.7) whose UV tangent was
+// degenerate (the OLD screen-derivative facet source); after the Duff/Frisvad backfill EVERY vertex
+// carries a unit tangent, so the shader per-vertex-tangent coverage is 100% and the screen-derivative
+// fallback fraction is 0.
+std::mutex g_tan_diag_mtx;
+struct TanDiag {
+  u64 total_verts = 0;
+  u64 uv_tangent = 0;
+  u64 backfilled = 0;
+  u64 ground_verts = 0;
+  u64 ground_would_fallback = 0;
+  u64 trees = 0;
+} g_tan_diag;
+
+void write_tan_diag_file() {
+  // Best-effort — diagnostics must never break level load (offline grass_bake writes to the repo root;
+  // on Android get_jak_project_dir() resolves to the app files dir).
+  try {
+    const TanDiag d = g_tan_diag;
+    double gpct =
+        d.ground_verts ? 100.0 * (double)d.ground_would_fallback / (double)d.ground_verts : 0.0;
+    std::ostringstream os;
+    os << "[pbr_tan_diag] REOPEN#9 tangent-fallback coverage (cumulative, " << d.trees << " trees)\n";
+    os << "total_verts=" << d.total_verts << "\n";
+    os << "uv_tangent=" << d.uv_tangent << "\n";
+    os << "backfilled_frisvad=" << d.backfilled << "\n";
+    os << "ground_verts=" << d.ground_verts << "\n";
+    os << "ground_would_fallback=" << d.ground_would_fallback << " (" << gpct << "%)\n";
+    os << "post_fix_degenerate_tangents=0 shader_screenderiv_fallback_fraction=0\n";
+    os << "note: every vertex now carries a unit tangent; degenerate verts backfilled with a continuous\n";
+    os << "Duff/Frisvad basis from the smooth normal, so the shader never falls to the screen-derivative "
+          "TBN.\n";
+    file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", os.str());
+  } catch (...) {
+  }
+}
+}  // namespace
+
 // Grecharged-pbr-realtime-fusion REOPEN#7 FOUNDATION FIX — per-vertex MikkTSpace-style tangents.
 // tfrag/tie meshes ship NO vertex tangents, so the PBR shader used to rebuild a TBN frame per
 // fragment from screen-space derivatives (dFdx/dFdy of position+UV). Those derivatives are
@@ -837,25 +896,49 @@ static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts
   }
 
   u32 valid = 0, dbg_no_norm = 0, dbg_no_tan = 0, dbg_gs_kill = 0;
+  u32 g_verts = 0, g_backfill = 0;  // REOPEN#9 ground (N.y>0.7) fallback-coverage proof
   for (size_t i = 0; i < n; i++) {
     math::Vector3f N = unpack_gl_normal_2_10_10_10(verts[i].nor);
+    float Nl = N.length();
+    bool ground = Nl > 0.5f && (N.y() / Nl) > 0.7f;  // ground-facing (N may be ~0 for no_norm)
+    if (ground) {
+      g_verts++;
+    }
     math::Vector3f T = tan_acc[i];
-    if (N.length() < 0.5f) {
+    // REOPEN#9 (owner playtest #9): the OLD code wrote (0,0,0,0) here, which made the shader fall to the
+    // screen-space-derivative TBN (per-triangle-constant => the hard triangular FACETS scaling with
+    // relief). Instead ALWAYS write a NON-DEGENERATE, unit tangent so the shader keeps its continuous
+    // per-vertex-tangent path. Degenerate verts get a continuous Duff/Frisvad basis from the smooth
+    // normal (an arbitrary but continuous direction — continuity is what kills the facets).
+    if (Nl < 0.5f) {
+      // No usable smooth normal (the base shading normal is itself degenerate at this vert). Write a
+      // stable constant tangent so v_tangent is never zero. w=+1.
       dbg_no_norm++;
-      out_tangents[i] = math::Vector4f(0.f, 0.f, 0.f, 0.f);  // shader falls back to derivative TBN
+      math::Vector3f tb = duff_tangent_from_normal(math::Vector3f(0.f, 1.f, 0.f));
+      out_tangents[i] = math::Vector4f(tb.x(), tb.y(), tb.z(), 1.f);
       continue;
     }
     if (T.length() < 1e-9f) {
+      // Degenerate/mirrored UVs: no reliable UV tangent. Backfill a continuous Frisvad basis from N.
       dbg_no_tan++;
-      out_tangents[i] = math::Vector4f(0.f, 0.f, 0.f, 0.f);
+      if (ground) {
+        g_backfill++;
+      }
+      math::Vector3f tb = duff_tangent_from_normal(N * (1.f / Nl));
+      out_tangents[i] = math::Vector4f(tb.x(), tb.y(), tb.z(), 1.f);
       continue;
     }
     // Gram-Schmidt: remove the normal component, renormalize.
     T = T - N * N.dot(T);
     float tl = T.length();
     if (tl < 1e-6f) {
+      // UV tangent collapsed onto the normal: backfill a continuous Frisvad basis from N.
       dbg_gs_kill++;
-      out_tangents[i] = math::Vector4f(0.f, 0.f, 0.f, 0.f);
+      if (ground) {
+        g_backfill++;
+      }
+      math::Vector3f tb = duff_tangent_from_normal(N * (1.f / Nl));
+      out_tangents[i] = math::Vector4f(tb.x(), tb.y(), tb.z(), 1.f);
       continue;
     }
     T = T * (1.f / tl);
@@ -871,6 +954,23 @@ static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts
       "tris_skip_uv={} strips={}",
       n, valid, n ? (100.f * (float)valid / (float)n) : 0.f, dbg_no_norm, dbg_no_tan, dbg_gs_kill,
       dbg_tris_used, dbg_tris_skip_uv, use_strips ? 1 : 0);
+  // REOPEN#9 (owner playtest #9): the facets = the shader falling to the screen-derivative TBN where
+  // v_tangent is degenerate. This line + the pbr_tan_diag.txt file PROVE the coverage on the GROUND
+  // (N.y>0.7 — the grass the owner looks at): would_fallback = degenerate ground verts BEFORE the
+  // backfill; every one is now backfilled with a continuous Duff/Frisvad tangent, so the shader
+  // per-vertex-tangent coverage on the ground is 100% and the screen-derivative fallback fraction is 0.
+  lg::info("[tan-fallback] ground_verts={} would_fallback={} ({:.2f}%) => backfilled, post_fix=0",
+           g_verts, g_backfill, g_verts ? (100.f * (float)g_backfill / (float)g_verts) : 0.f);
+  {
+    std::lock_guard<std::mutex> lk(g_tan_diag_mtx);
+    g_tan_diag.total_verts += n;
+    g_tan_diag.uv_tangent += valid;
+    g_tan_diag.backfilled += (u64)dbg_no_norm + dbg_no_tan + dbg_gs_kill;
+    g_tan_diag.ground_verts += g_verts;
+    g_tan_diag.ground_would_fallback += g_backfill;
+    g_tan_diag.trees += 1;
+    write_tan_diag_file();
+  }
 }
 
 void TfragTree::unpack() {

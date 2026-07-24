@@ -156,3 +156,6 @@ build-pbrtest/
 .autoport/*.mp4
 .autoport/**/*.mp4
 build-*/
+
+# Grecharged-pbr-realtime-fusion REOPEN#9: offline grass_bake tangent-fallback diagnostic
+pbr_tan_diag.txt
