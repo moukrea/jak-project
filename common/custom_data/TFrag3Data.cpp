@@ -511,6 +511,7 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   // multi). Logged once per tree so an on-device A/B (debug.opengoal.tfrag.crease 45 vs 179) proves
   // the hard-edge preservation on the REAL level data, no screenshot framing required.
   u32 dbg_groups = 0, dbg_multi = 0, dbg_clusters = 0;
+  u32 dbg_single_face = 0, dbg_ground_verts = 0, dbg_ground_single_face = 0;
   for (u32 g = 0; g < num_groups; g++) {
     auto& recs = group_incid[g];
     if (recs.empty()) {
@@ -559,6 +560,14 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
       s16 nz = (s16)std::lround(nn.z() * 511.f);
       cl_packed[c] = pack_to_gl_normal(nx, ny, nz);
     }
+    // FACET DIAG (gpbrf attempt-12): count incident faces per cluster. A vertex whose chosen cluster
+    // holds exactly ONE face gets that face's raw normal == a PER-FACE (faceted) normal; >=2 faces is a
+    // smoothed average. Report the fraction of GROUND-FACING verts (normal.y > 0.7) that are per-face —
+    // the direct measure of the owner's faceted grass.
+    std::vector<u32> cl_face_count(cl_accum.size(), 0);
+    for (size_t r = 0; r < recs.size(); r++) {
+      cl_face_count[rec_cluster[r]]++;
+    }
     // recs is sorted by area desc, so the FIRST record seen for a vertex is its largest incident face:
     // that face's cluster is the surface the vertex belongs to (crisp side on a corner, the single smooth
     // cluster on a curve).
@@ -567,6 +576,15 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
       if (!has_normal[v]) {
         tree.unpacked.vertices[v].nor = cl_packed[rec_cluster[r]];
         has_normal[v] = 1;
+        math::Vector3f cn = cl_accum[rec_cluster[r]];
+        float cl = cn.length();
+        float ny = cl > 1e-6f ? cn.y() / cl : 0.f;
+        bool ground = ny > 0.7f;
+        if (ground) dbg_ground_verts++;
+        if (cl_face_count[rec_cluster[r]] <= 1) {
+          dbg_single_face++;
+          if (ground) dbg_ground_single_face++;
+        }
       }
     }
   }
@@ -582,6 +600,10 @@ static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
                      (180.f / 3.14159265f);
   lg::info("[gda-crease] tfrag tree verts={} groups={} multicluster(hardedge)={} clusters={} crease={:.0f}deg",
            n, dbg_groups, dbg_multi, dbg_clusters, crease_deg);
+  lg::info("[gda-facet] tfrag tree verts={} single_face(perface)={} ground_verts={} ground_single_face={} "
+           "ground_perface_pct={:.1f}",
+           n, dbg_single_face, dbg_ground_verts, dbg_ground_single_face,
+           dbg_ground_verts ? 100.f * dbg_ground_single_face / dbg_ground_verts : 0.f);
 }
 
 // REOPEN#7: crease-aware smooth normals for TIE, welded by exact world POSITION (tie's unpacked verts

@@ -1550,6 +1550,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     static bool warned_tess_fallback = false;
     if (!warned_tess_fallback) {
       warned_tess_fallback = true;
+      // OWNER PLAYTEST #8: name the EXACT reason for the Tessellation->Parallax demotion so the
+      // supervisor's Honor logcat shows why (capability query vs program build), not just silence.
+      const char* reason = !gl_context_supports_tessellation()
+                               ? "capability query failed (no tess stages / glPatchParameteri NULL)"
+                               : "tess program build/link failed";
+      lg::warn("[pbr-tess] fallback: displacement Tessellation(2)->Parallax(1) reason=\"{}\"", reason);
       lg::warn(
           "[recharged] tessellation unavailable on this driver — displacement falling back to "
           "Parallax");

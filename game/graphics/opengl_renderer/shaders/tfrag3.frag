@@ -549,7 +549,11 @@ void main() {
         vec3 fTn, fBn;
         if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
           fTn = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
-          fBn = cross(N, fTn) * v_tangent.w;
+          // OWNER PLAYTEST #8: use the SIGN of the interpolated handedness, not its raw magnitude.
+          // The interpolated .w can pass through 0 across a strip whose vertices carry opposite
+          // handedness, which would SHRINK the bitangent mid-triangle (a per-triangle discontinuity
+          // that reads as a facet). sign() keeps a full-length, continuous bitangent.
+          fBn = cross(N, fTn) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
         } else {
           vec3 fdp1 = dFdx(v_fringe_rel);
           vec3 fdp2 = dFdy(v_fringe_rel);
@@ -626,10 +630,17 @@ void main() {
           // whole grazing-angle patches — relief >1 tips many texels past the face
           // plane, and every highlight/reflection term there (NdH/NdV/Rf/Fresnel)
           // followed the flat polygon = the "glass sheet over the material". SLIDE the
-          // perturbed normal back to just above the face horizon instead: the
-          // below-face component is removed but the tangential GRAIN survives.
-          float fnd = dot(Nm, gN);
-          if (fnd < 0.04) Nm = normalize(Nm + gN * (0.04 - fnd));
+          // perturbed normal back to just above the horizon instead: the below-horizon
+          // component is removed but the tangential GRAIN survives.
+          // OWNER PLAYTEST #8 (faceted grass): the horizon reference here was the PER-FACE
+          // screen-space normal gN = cross(dFdx,dFdy), which is CONSTANT within a triangle and
+          // JUMPS across edges — so this clamp injected a per-triangle discontinuity into Nm =>
+          // exactly the hard triangular patches the owner saw (the base v_normal is otherwise
+          // ~96% smooth per the offline [gda-facet] measurement). Clamp against the SMOOTH,
+          // interpolated base normal N instead: continuous across faces => no facets, while
+          // still keeping the perturbed normal out of the surface backside.
+          float fnd = dot(Nm, N);
+          if (fnd < 0.04) Nm = normalize(Nm + N * (0.04 - fnd));
         }
         vec4 T0p = texture(tex_T0, uv);
         vec3 albedo = pow(T0p.rgb, vec3(2.2));

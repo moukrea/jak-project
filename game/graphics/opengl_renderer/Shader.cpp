@@ -89,6 +89,16 @@ bool gl_context_supports_tessellation() {
   if (!ok) {
     lg::warn("REOPEN#3 TESS: GL context has no tessellation stages — tess programs disabled");
   }
+  // OWNER PLAYTEST #8 (2026-07-24): the renderer emitted NOTHING about why tessellation falls back;
+  // the supervisor could not extract any GL/capability log on the Honor. Emit a single greppable
+  // GK_STDOUT line (lg::warn routes to stdout) reporting the capability query result: EXT/core
+  // tessellation present, and whether the glPatchParameteri entry point actually resolved.
+  {
+    const char* glver = (const char*)glGetString(GL_VERSION);
+    lg::warn("[pbr-tess] capability query: supports_tessellation={} glPatchParameteri={} GL_VERSION='{}'",
+             ok ? 1 : 0, (void*)glPatchParameteri ? "RESOLVED" : "NULL(unresolved)",
+             glver ? glver : "(null)");
+  }
   return ok;
 }
 
@@ -291,6 +301,9 @@ void Shader::build(const std::string& shader_name,
       m_is_okay = false;
       return;
     }
+    // OWNER PLAYTEST #8: log the SUCCESS path too — a passing build previously logged nothing, so a
+    // driver that compiles tess fine but falls back for another reason left the supervisor blind.
+    lg::warn("[pbr-tess] '{}' tess-control + tess-eval stages COMPILED OK", shader_name.c_str());
   }
 
   m_program = glCreateProgram();
@@ -316,6 +329,15 @@ void Shader::build(const std::string& shader_name,
     }
     m_is_okay = false;
     return;
+  }
+  if (has_tess) {
+    // OWNER PLAYTEST #8: log the LINK SUCCESS + any (usually empty) program InfoLog for the tess
+    // program, so the supervisor's Honor logcat proves the program linked (isolating the fallback
+    // to the capability query or the per-draw gate, not a build failure).
+    GLsizei link_len = 0;
+    glGetProgramInfoLog(m_program, len, &link_len, err);
+    lg::warn("[pbr-tess] '{}' program LINKED OK (link infolog: {})", shader_name.c_str(),
+             link_len > 0 ? err : "(empty)");
   }
 
   // uniform samplers must be named matching the texture unit
@@ -410,6 +432,15 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   // tessellation AND the program actually built+linked. Last build wins if this runs per-Display.
   s_tfrag3_tess_program_ok =
       gl_context_supports_tessellation() && at(ShaderId::TFRAG3_TESS).okay();
+  // OWNER PLAYTEST #8: the single decisive [pbr-tess] line — combines the capability query with the
+  // program build result. displacement=Tessellation runs REAL tessellation only when program_ok=1;
+  // program_ok=0 => the GL thread demotes to Parallax (see background_common '[pbr-tess] fallback').
+  lg::warn("[pbr-tess] TFRAG3_TESS build result: context_supports={} program_okay={} => "
+           "tess_program_ok={} ({})",
+           gl_context_supports_tessellation() ? 1 : 0, at(ShaderId::TFRAG3_TESS).okay() ? 1 : 0,
+           s_tfrag3_tess_program_ok ? 1 : 0,
+           s_tfrag3_tess_program_ok ? "REAL tessellation available"
+                                    : "will fall back to Parallax");
 #endif
 
 #ifdef __ANDROID__
