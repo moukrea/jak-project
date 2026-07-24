@@ -98,4 +98,8 @@ grep -qiE 'pbr_tan_diag|pbr_tess_diag|files/.*diag' "$R" || fail "no file-based 
 grep -qiE 'pbr isolate|in.?menu.*bisect|menu.*(normal.?map only|parallax only|isolate).*(carousel|row)|carousel.*(both|normal.?map|parallax|neither)' "$R" || fail "no in-menu PBR-isolate bisection carousel evidence (owner must isolate the facet term himself)"
 grep -qiE 'parallax.*(facet|per.?triangle|clip|chart|discontinu|off.*remove)|POM.*(facet|per.?triangle|edge|silhouette)' "$R" || fail "no parallax-facet investigation evidence (prime suspect after continuous tangent)"
 grep -qiE 'menu-tree' "$R" || fail "menu-tree not synced"
+# OWNER #11: menu Unknown-ID + wiring fix, verified.
+grep -qiE '(register|text.?id|no unknown.?id|real label).*(carousel|isolate|option)|isolate.*(option|carousel).*(text.?id|registered|label)|unknown.?id.*(fixed|resolved)' "$R" || fail "no carousel-option-strings-registered evidence (Unknown ID 5924-5927 bug)"
+grep -qiE 'isolate.*(applies|wired|writes|changes).*(bisect|mask|shader)|flip.*(change|apply).*(bisect|mask)|bisect mask.*(diag|file|logged)' "$R" || fail "no isolate-actually-applies evidence (flipping did nothing)"
+grep -qiE 'supervisor.*(verif|navigate|cpad).*(menu|redmi|isolate)|menu.*verified.*(before|redmi)|cpad_inject.*isolate' "$R" || fail "no supervisor-pre-ship-verification note"
 echo "[Gpbrf PASS]"

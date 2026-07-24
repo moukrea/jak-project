@@ -567,3 +567,26 @@ term himself at his vantage.
    and let the owner confirm on the Honor with the menu carousel.
 ACCEPTANCE: the owner can isolate the term in-menu; the identified term's per-triangle discontinuity is
 fixed; facets gone at his vantage. No more "fixed" claims without the owner's in-menu bisection confirming.
+
+---
+## OWNER PLAYTEST #11 (2026-07-24) — the PBR-ISOLATE menu I shipped is BROKEN: options show "Unknown ID 5924-5927" and flipping does NOTHING. Fix it properly + supervisor verifies before shipping.
+The 4 carousel options are UNREGISTERED text-ids (Unknown ID 5924-5927) and the isolate value does not
+reach the shader (flipping has no effect). This is a broken diagnostic tool handed to the owner — unacceptable.
+1. **REGISTER the 4 carousel option strings** ("BOTH" / "NORMAL-MAP ONLY" / "PARALLAX ONLY" / "NEITHER") the
+   SAME WAY the working carousels do (no Unknown-ID — see the ao-low/high or displacement carousel text-id
+   pattern; reuse existing text-ids or add proper ones). The row label already works; the OPTIONS must too.
+2. **WIRE the isolate value so it ACTUALLY applies**: selecting an option must set the pbr_bisect mask that
+   the fused shader reads (background_common.cpp already reads it at ~line 1422 from gs.recharged.., and the
+   debug prop overrides at ~1482 — make sure the MENU path writes the same gs field, and that no stale prop
+   overrides it to a fixed value). Prove it: write the ACTIVE isolate value + resolved bisect mask to
+   files/pbr_tan_diag.txt each time it changes, so the supervisor can confirm flipping changes it on device.
+3. **SUPERVISOR PRE-SHIP VERIFICATION (mandatory this round):** the supervisor will navigate the Redmi menu
+   via cpad_inject (project_goptions_reorder_menu_tooling) to the PBR ISOLATE row, screenshot it to confirm
+   the 4 options render as REAL LABELS (not Unknown-ID), and confirm via the diag file that flipping changes
+   the bisect mask — BEFORE pushing to the owner. No more broken tools reach the owner.
+4. Relationship to PBR TEST PRESET: document it — the ISOLATE row is an independent DEBUG override of the
+   bisect mask; state whether it composes with or overrides the preset, and label it clearly.
+5. Keep attacking the PARALLAX-continuity fix (prime suspect: tangent proven continuous, base normal smooth,
+   facets tied to relief>0 => parallax/POM per-triangle discontinuity).
+ACCEPTANCE: menu options are real labels + flipping provably changes the bisect mask (diag file) + parallax
+investigated. Supervisor verifies the menu on the Redmi before the owner ever sees it.
