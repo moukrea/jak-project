@@ -612,3 +612,36 @@ EXACT FIX:
 3. DO NOT claim the menu is fixed in the report unless the option strings are registered as above.
 The SUPERVISOR will re-verify on the Redmi (navigate to the row, screenshot real labels) before any push.
 Keep the parallax-continuity fix from #11.
+
+---
+## OWNER ROOT-CAUSE BREAKTHROUGH (2026-07-24) — THE MESH IS UNWELDED. Vertex welding is the real fix. (Owner's diagnosis — correct.)
+The owner found it. Observations that prove it:
+- Tessellation now RUNS (deformation visible) but OPENS HOLES between polygons — "des polygones qui flottent,
+  pas attachés, on voit au travers", and the holes COINCIDE with the high-contrast facet zones.
+- Parallax mode: the facet/contrast zones are there but NO holes (no real displacement/subdivision).
+- PBR ISOLATE (normal-map only / parallax only / etc.) makes NO visible difference → the facets are NOT from
+  the normal-map or parallax; they are in the BASE geometry.
+=> The tfrag/tie/shrub mesh has DUPLICATE, UNWELDED vertices at shared edges. Each triangle carries its own
+copy of a shared-edge vertex. Consequences (all our symptoms):
+- "Smooth per-vertex normals" never actually smoothed ACROSS seams — each duplicate only averaged its own
+  triangle's face normal → faceted lighting. (This is why REOPEN#8/#9 smooth-normal + tangent work didn't
+  cure the facets: the vertices aren't shared, so there was nothing to average across the seam.)
+- Tessellation displaces the coincident-but-separate vertices along DIVERGENT normals → the edge tears open
+  → the visible holes.
+
+### MANDATE — VERTEX WELDING / MESH CONSOLIDATION (owner-proposed, correct):
+1. In the load-time (or baked) mesh preprocessing for tfrag/tie/shrub, build a WELD MAP: vertices whose
+   POSITIONS are coincident within an epsilon AND that share the same texture/tpage/material are the SAME
+   logical vertex. (Do NOT weld across different textures where a genuine hard seam must stay.)
+2. Compute the SMOOTH NORMAL by averaging the face normals of ALL triangles incident to each WELDED vertex
+   (area/angle-weighted) — so the normal is continuous ACROSS seams → facets gone.
+3. Recompute the TANGENT the same way over welded vertices (consistent with the smooth normal).
+4. For TESSELLATION: the tess-eval displacement must move the WELDED (shared) vertex identically on both
+   sides of a seam so edges stay CLOSED → no holes/tears. Snap coincident boundary verts to the same
+   displaced position (same height sample + same normal) so neighbouring patches share the edge.
+5. Bonus the owner noted: welding also fixes texture/normal discontinuities at seams.
+6. DEVICE-PROVE on the Honor (supervisor will pull the diag + capture): weld stats (how many verts merged),
+   facets GONE at relief>0, and tessellation with NO holes. Write weld/normal stats to files/pbr_tan_diag.txt.
+This is the foundational fix all prior rounds missed. Do it in the deterministic bake if possible (owner's
+earlier "precompute, don't compute every load" preference applies — a `<level>.tangents`/weld sidecar).
+ACCEPTANCE: no facets (welded smooth normals cross seams), no tessellation holes (welded edges), owner's eye.

@@ -103,4 +103,8 @@ grep -qiE 'pbr-iso.*label|option.*(global string|runtime string|format.*label)|r
 grep -qE 'define \*pbr-iso.*-label\*|pbr-iso.*label.*format|carousell-pbr-isolate.*label' goal_src/jak1/pc/progress-pc.gc || fail "isolate carousel options still use bare text-ids (no runtime global label strings in progress-pc.gc) => Unknown-ID persists"
 grep -qiE 'isolate.*(applies|wired|writes|changes).*(bisect|mask|shader)|flip.*(change|apply).*(bisect|mask)|bisect mask.*(diag|file|logged)' "$R" || fail "no isolate-actually-applies evidence (flipping did nothing)"
 grep -qiE 'supervisor.*(verif|navigate|cpad).*(menu|redmi|isolate)|menu.*verified.*(before|redmi)|cpad_inject.*isolate' "$R" || fail "no supervisor-pre-ship-verification note"
+# OWNER BREAKTHROUGH: unwelded mesh. Vertex welding is the fix.
+grep -qiE 'weld|coincident vert|shared vert|consolidat.*(mesh|vert)|merge.*vert.*(position|texture)|duplicate vert.*(merg|weld)' "$R" || fail "no vertex-welding evidence (root cause: unwelded duplicate vertices at seams => facets + tessellation holes)"
+grep -qiE 'average.*(across|welded|shared).*(seam|normal)|normal.*(cross|across).*seam|smooth.*normal.*welded' "$R" || fail "no smooth-normal-across-welded-seams evidence"
+grep -qiE 'tessellat.*(no hole|closed edge|welded|shared edge|no tear)|no (hole|tear|gap).*(tessellat|displac)|edge.*(closed|welded).*tessellat' "$R" || fail "no tessellation-no-holes-via-welding evidence"
 echo "[Gpbrf PASS]"
