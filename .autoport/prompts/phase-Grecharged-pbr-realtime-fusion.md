@@ -755,3 +755,35 @@ Owner's clues + full spec (implement ALL, comprehensively, programmatically):
    visible seams are GONE with weld ON vs the seamy weld-OFF. Not a % — the actual seams.
 This is the whole-game geometry consolidation the owner has been describing. Live at load for now
 (precompute/sidecar is the documented STEP 2 after the LOOK is validated). Do it thoroughly this round.
+
+---
+## OWNER CRITIQUE (2026-07-24) — the weld is FAKE: it only averages normals, it does NOT fuse the points. + WORSE (new clean cuts). + supervisor tested BLIND.
+Supervisor READ the code (TFrag3Data.cpp reconstruct_*_smooth_normals): it groups coincident verts into
+`vert_group`, averages the face normals per group, and writes the averaged normal back — but it NEVER
+rewrites the INDEX BUFFER. The coincident vertices stay SEPARATE (each triangle keeps its own vertex copy);
+only the normal is equalized. Owner is right: "tu lies les arêtes pour de vrai (fusion des points)?" — NO,
+it doesn't. Consequences: geometry never truly linked => tessellation subdivides coincident-but-separate
+verts independently => HOLES persist; and normal-averaging + crease threshold on still-separate verts create
+NEW CLEAN CUTS where there were none two builds ago (owner: "c'est même pire").
+
+### MANDATE — TRUE TOPOLOGICAL WELD (index-buffer merge), not normal-averaging:
+1. **Rewrite the INDEX BUFFER**: for each group of coincident same-texture vertices, pick ONE representative
+   vertex and REMAP every index in the draw's index buffer to that representative. The two triangles must
+   reference the SAME shared vertex (real point fusion), so the shared edge is topologically ONE edge.
+2. Only merge verts that are safe to merge (coincident position + same texture/tpage; and compatible UV —
+   if UVs differ at a legit texture seam, keep separate OR handle UV continuity per the owner's "lisser les
+   UV"). Do NOT merge across genuine hard seams (different material).
+3. **TESSELLATION crack-free**: with a truly shared edge, ensure the tess-control emits MATCHING edge
+   tessellation factors on the shared edge so the two patches subdivide it identically => no cracks/holes.
+4. Orientation pass + averaged normals still apply, but now on the MERGED (shared) vertices.
+5. Verify NO NEW clean cuts are introduced (the fix must not regress previously-smooth areas — the owner saw
+   new cuts). Compare against a build with the weld OFF.
+
+### SUPERVISOR TEST METHOD FIX (owner: "tes tests Redmi tu fais pas avec tessellation, ni relief, ni PBR,
+tu y vas à l'aveugle"): every device capture MUST enable the FULL stack in settings.ini/props before
+capturing: pbr-materials? = #t, realtime lighting ON, pbr-texture-relief > 0 (e.g. 1.5), pbr-displacement = 2
+(tessellation), tod.hour = 12 (daytime, PBR visible), AND wait PAST the ND logo (~40s after first render)
+before capturing actual grass — else the capture shows a PBR-less / logo frame = worthless. The worker's
+fullspec_weldon/off captures were the ND LOGO = invalid; do not repeat.
+ACCEPTANCE: real index-merge (shared verts, provable: index buffer references shrink / shared-edge count),
+no tessellation holes, NO new clean cuts, owner's eye at a daytime grass vantage with the full PBR stack on.
