@@ -831,3 +831,12 @@ not just the index-fused ones.
 ACCEPTANCE: no lighting seams at chunk/UV boundaries (grass s_1/s_2 + sand s_3), no tessellation holes,
 daytime + full PBR/relief/tessellation stack. Report the normal-smoothed-corner coverage (must be ~the full
 coincident set, not 24-30%).
+
+**OWNER WORKFLOW (2026-07-24): position-dump for deterministic A/B.** The owner will position at a seam; the
+supervisor must READ his exact world position to warp there for A/B captures. The Honor obscures logcat
+(HKS), so lg::info is unreadable there. ADD a small debug: on debug.opengoal.dump.pos = "1" (or each frame
+while set), WRITE Jak's current world position "X Y Z" (and camera heading if easy) to
+files/pos_dump.txt (app files dir, readable via `run-as $PKG cat files/pos_dump.txt`). Cheap, tiny. This
+lets the workflow be: owner stands on a seam -> supervisor triggers the dump -> reads pos_dump.txt off the
+Honor -> warps to that exact debug.opengoal.level.warp.pos on the Redmi/Honor for weld-ON vs weld-OFF
+daytime A/B. Keep it in this round.
