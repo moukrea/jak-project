@@ -2216,6 +2216,18 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-mesh-consolidation
+  name: 'RECHARGED (owner 2026-07-24, PRIORITY BEFORE PBR POLISH): fix EVERY mesh in the game —
+    exhaustive weld of coincident-but-unshared edges (the objective no-omissions metric, target ~0),
+    kill the couture (normal or baked-colour delta at chunk seams), seam-consistent displacement (no
+    tessellation slits), correct normal orientation everywhere (collision authority); tfrag+tie+shrub,
+    EVERY level, audit numbers per level; precompute to a sidecar once proven.'
+  prompt: prompts/phase-Grecharged-mesh-consolidation.md
+  validator: validators/phase-Grecharged-mesh-consolidation.sh
+  max_turns: 3000
+  max_retries: 16
+  device: true
+  owner_verify: true
 - id: Grecharged-pbr-realtime-fusion
   name: 'RECHARGED (owner 2026-07-20): PBR materials must be LIT BY the realtime lighting (sun +
     green-sun + SH/IBL ambient) — that is where PBR shines. Today the rt-lighting shader branch
