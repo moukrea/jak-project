@@ -678,7 +678,7 @@ void TFragment::render_tree(int geom,
   // ROUND 2 (owner defect #3 — complete caster set): cast from ALL opaque tfrag kinds, not
   // just NORMAL. TRANS / LOWRES_TRANS / WATER are transparent and are deliberately excluded.
   // OWNER #4 (phantom straight shadow lines): LOWRES is EXCLUDED from the caster set. The
-  // lowres far-LOD hull is a coarse duplicate of the world (village1: 1900 tris, mean edge
+  // lowres far-LOD hull is a coarse duplicate of the world (e.g. ~1900 tris, mean edge
   // 85m) that sits up to +57m ABOVE the walkable hires ground in 465 measured 2m-cells; the
   // main pass hides it near the player (PVS / hires draws instead) but cast_full ignores
   // vis, so its giant straight-edged plates shadowed the real terrain from nothing — the

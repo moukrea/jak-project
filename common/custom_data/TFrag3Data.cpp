@@ -396,9 +396,11 @@ void ShrubTree::unpack() {
 // reproduces the old flat behaviour exactly.
 static float tfrag_crease_cos() {
   // Crease threshold in degrees: adjacent faces at a shared position weld (smooth) only when the angle
-  // between them is below this; above it stays a hard edge. Default 45. Overridable for on-device A/B
+  // between them is below this; above it stays a hard edge. Default 60 (owner FULL SPEC: gentle terrain/grass
+  // seams meeting below 60 deg smooth to a nuance, sharp corners >=60 deg — e.g. a wall meeting the ground
+  // ~90 deg — stay crisp). Overridable for on-device A/B
   // (level-reload picks it up); >=179 reproduces round-1's unconditional single-cluster weld ("before").
-  float deg = 45.0f;
+  float deg = 60.0f;
 #ifdef __ANDROID__
   char rv[PROP_VALUE_MAX];
   if (__system_property_get("debug.opengoal.tfrag.crease", rv) > 0 && rv[0]) {
@@ -410,12 +412,35 @@ static float tfrag_crease_cos() {
   }
 #endif
   if (!(deg > 0.0f)) {
-    deg = 45.0f;
+    deg = 60.0f;
   }
   if (deg > 179.0f) {
     deg = 179.0f;
   }
   return std::cos(deg * 0.017453292519943295f);
+}
+
+// OWNER FULL SPEC (2026-07-24) — mandatory weld A/B toggle so the supervisor can A/B weld-ON vs
+// weld-OFF on-device at a fixed daytime grass vantage (proving remaining seams come from the geometry
+// pass). debug.opengoal.mesh.weld = "0" DISABLES the whole per-tree + global weld/orient/smooth pass at
+// runtime (a level reload picks it up); default (unset / non-zero) = ON. Desktop uses env OG_MESH_WELD
+// for the offline A/B. The resolved state is snapshotted into files/pbr_tan_diag.txt so the supervisor
+// can confirm the toggle actually applied on device.
+static std::atomic<int> g_mesh_weld_state{1};  // 0 = off (seamy baseline), 1 = on (weld/orient/smooth)
+static bool mesh_weld_enabled() {
+  bool on = true;
+#ifdef __ANDROID__
+  char rv[PROP_VALUE_MAX];
+  if (__system_property_get("debug.opengoal.mesh.weld", rv) > 0 && rv[0]) {
+    on = !(rv[0] == '0' && rv[1] == '\0');
+  }
+#else
+  if (const char* e = getenv("OG_MESH_WELD")) {
+    on = !(e[0] == '0' && e[1] == '\0');
+  }
+#endif
+  g_mesh_weld_state.store(on ? 1 : 0);
+  return on;
 }
 
 // OWNER ROOT-CAUSE BREAKTHROUGH (2026-07-24) — edge-weld device-provable stats. The Honor obscures logcat
@@ -440,12 +465,16 @@ static std::atomic<u64> g_gweld_inverted_fixed{0};    // incident faces flipped 
 static std::atomic<u64> g_gweld_collision_oriented{0};// groups whose outward sign was set by the collision authority
 static std::atomic<u64> g_gweld_open_seam_before{0};   // open-boundary seam verts BEFORE the global stitch
 static std::atomic<u64> g_gweld_open_seam_after{0};    // open-boundary seam verts REMAINING after the global stitch
+static std::atomic<u64> g_gweld_uv_snapped{0};        // cross-chunk seam verts whose UV was snapped to close a hairline texture crack
 
 static void reconstruct_tfrag_smooth_normals(TfragTree& tree) {
   const auto& packed = tree.packed_vertices.vertices;
   const size_t n = tree.unpacked.vertices.size();
   if (n == 0 || packed.size() != n) {
     return;
+  }
+  if (!mesh_weld_enabled()) {
+    return;  // A/B weld-OFF: keep the original per-vertex normals (the seamy baseline the owner A/Bs)
   }
   const float crease_cos = tfrag_crease_cos();
 
@@ -683,6 +712,9 @@ static void reconstruct_tie_smooth_normals(std::vector<PreloadedVertex>& verts,
   const size_t n = verts.size();
   if (n == 0) {
     return;
+  }
+  if (!mesh_weld_enabled()) {
+    return;  // A/B weld-OFF: keep the original per-vertex normals (the seamy baseline the owner A/Bs)
   }
   const float crease_cos = tfrag_crease_cos();
 
@@ -933,6 +965,16 @@ void write_tan_diag_file() {
           "orientation-corrected then averaged with a crease-angle threshold (smooth flat seams, keep sharp "
           "corners). Shrub carries no per-vertex normal attribute (ShrubGpuVertex, shader derives N from "
           "derivatives) so it is documented-excluded from the normal weld, not silently skipped.\n";
+    os << "global_uv_snapped_seam_verts=" << g_gweld_uv_snapped.load()
+       << " (cross-chunk seam verts whose UV was snapped to the group average to close a hairline texture "
+          "crack; genuine UV islands exceed the epsilon and are untouched)\n";
+    os << "mesh_weld_enabled=" << g_mesh_weld_state.load()
+       << " (debug.opengoal.mesh.weld A/B toggle: 1 = weld/orient/smooth ON, 0 = OFF seamy baseline)\n";
+    float creasedeg =
+        std::acos(std::max(-1.f, std::min(1.f, tfrag_crease_cos()))) * 57.29577951308232f;
+    os << "crease_threshold_deg=" << creasedeg
+       << " (normal-averaging crease: gentle terrain seams below the threshold smooth to a nuance, sharp "
+          "corners at/above it stay crisp; owner FULL SPEC default 60)\n";
     file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", os.str());
   } catch (...) {
   }
@@ -967,6 +1009,12 @@ void write_tan_diag_file() {
 // so it is documented-excluded from the normal weld rather than silently skipped. 1 m = 4096 units.
 // ============================================================================================
 void reconstruct_level_global_weld(Level& lev) {
+  if (!mesh_weld_enabled()) {
+    lg::info("[global-weld] level={} DISABLED via debug.opengoal.mesh.weld=0 (A/B weld-OFF baseline)",
+             lev.level_name);
+    write_tan_diag_file();  // still surface the toggle state so the supervisor can confirm OFF applied
+    return;
+  }
   const float crease_cos = tfrag_crease_cos();
   constexpr float kWeldM = 0.03f;
   const float weld_cell = kWeldM * 4096.f;
@@ -1329,6 +1377,60 @@ void reconstruct_level_global_weld(Level& lev) {
     }
   }
 
+  // ---- 6. OWNER FULL SPEC: SMOOTH THE UVs at welded seams ("lisser les UV"). Adjacent chunks sharing a
+  //         welded position often carry the SAME texture coordinate DRIFTED by a fraction of a texel
+  //         across the chunk boundary (fp quantization) => a hairline texture crack. For each cross-tree
+  //         welded group whose members' UVs cluster within a tight epsilon (meant-to-be-continuous, merely
+  //         drifted), snap them to the group-average UV. Genuine UV islands (atlas tiles that legitimately
+  //         differ by > epsilon at a shared position) exceed the epsilon and are left untouched — so this
+  //         only ever CLOSES hairline seams, never smears a texture.
+  u64 uv_snapped = 0;
+  {
+    constexpr float kUvEps = 1.0f / 64.0f;  // hairline drift only (~a couple texels on a 128px tile)
+    struct UvAcc {
+      float s0, t0, ss, ts;
+      u32 n;
+      u8 diverged;
+    };
+    std::unordered_map<u32, UvAcc> uvacc;
+    uvacc.reserve((size_t)multitree_groups * 2 + 1);
+    for (size_t i = 0; i < N; i++) {
+      u32 g = group[i];
+      if (!group_multitree[g]) {
+        continue;
+      }
+      auto it = uvacc.find(g);
+      if (it == uvacc.end()) {
+        uvacc.emplace(g, UvAcc{gv[i]->s, gv[i]->t, gv[i]->s, gv[i]->t, 1, 0});
+      } else {
+        UvAcc& a = it->second;
+        if (std::fabs(gv[i]->s - a.s0) > kUvEps || std::fabs(gv[i]->t - a.t0) > kUvEps) {
+          a.diverged = 1;  // a genuine UV island in this group: snap none of it
+        }
+        a.ss += gv[i]->s;
+        a.ts += gv[i]->t;
+        a.n++;
+      }
+    }
+    for (size_t i = 0; i < N; i++) {
+      u32 g = group[i];
+      if (!group_multitree[g]) {
+        continue;
+      }
+      auto it = uvacc.find(g);
+      if (it == uvacc.end() || it->second.diverged || it->second.n < 2) {
+        continue;
+      }
+      float as = it->second.ss / (float)it->second.n;
+      float at = it->second.ts / (float)it->second.n;
+      if (gv[i]->s != as || gv[i]->t != at) {
+        gv[i]->s = as;
+        gv[i]->t = at;
+        uv_snapped++;
+      }
+    }
+  }
+
   g_gweld_total_verts += (u64)N;
   g_gweld_cross_stitched += cross_stitched;
   g_gweld_multitree_groups += multitree_groups;
@@ -1337,10 +1439,12 @@ void reconstruct_level_global_weld(Level& lev) {
   g_gweld_collision_oriented += collision_oriented;
   g_gweld_open_seam_before += boundary_after + 2 * cross_interior;
   g_gweld_open_seam_after += boundary_after;
+  g_gweld_uv_snapped += uv_snapped;
   lg::info("[global-weld] level={} verts={} cross_chunk_stitched={} multitree_groups={} resmoothed={} "
-           "inward_faces_flipped={} collision_oriented={} open_seam_edges_after={} open_seam_edges_before~={}",
+           "inward_faces_flipped={} collision_oriented={} open_seam_edges_after={} open_seam_edges_before~={} "
+           "uv_snapped={}",
            lev.level_name, N, cross_stitched, multitree_groups, resmoothed, inverted_fixed, collision_oriented,
-           boundary_after, boundary_after + 2 * cross_interior);
+           boundary_after, boundary_after + 2 * cross_interior, uv_snapped);
   write_tan_diag_file();
 }
 
