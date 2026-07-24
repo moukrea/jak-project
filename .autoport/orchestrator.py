@@ -7,7 +7,7 @@ Hardcoded design choices (per project owner's preference):
   * MANAGER (the phase session): claude-fable-5[1m] @ effort=high — plans,
     judges, synthesizes, reviews. Per-phase override via `effort:` in
     milestones.yaml (xhigh for diagnostic-heavy phases).
-  * WORKERS (subagents via CLAUDE_CODE_SUBAGENT_MODEL): claude-opus-4-8[1m]
+  * WORKERS (subagents via CLAUDE_CODE_SUBAGENT_MODEL): claude-opus-5[1m]
     for research / code generation / testing. Per-agent effort in
     .claude/agents/*.md frontmatter (researcher=high, implementer=medium,
     tester=medium). Rationale: FrontierCode accuracy-vs-cost — fable-high
@@ -67,8 +67,8 @@ _PROFILE_PATH = Path(__file__).resolve().parent / "model-profiles.json"
 
 def _load_model_profile() -> dict:
     fallback = {
-        "manager_model": "claude-opus-4-8[1m]", "manager_effort": "xhigh",
-        "worker_model": "claude-opus-4-8[1m]",
+        "manager_model": "claude-opus-5[1m]", "manager_effort": "xhigh",
+        "worker_model": "claude-opus-5[1m]",
         "worker_efforts": {"autoport-researcher": "xhigh",
                            "autoport-implementer": "xhigh",
                            "autoport-tester": "xhigh"},
