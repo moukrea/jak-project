@@ -489,6 +489,11 @@ static std::atomic<u64> g_gweld_collision_oriented{0};// groups whose outward si
 static std::atomic<u64> g_gweld_open_seam_before{0};   // open-boundary seam verts BEFORE the global stitch
 static std::atomic<u64> g_gweld_open_seam_after{0};    // open-boundary seam verts REMAINING after the global stitch
 static std::atomic<u64> g_gweld_uv_snapped{0};        // cross-chunk seam verts whose UV was snapped to close a hairline texture crack
+// OWNER #14 (2026-07-24) — split-by-UV shared-normal coverage. index FUSION merges only the ~24-30%
+// attribute-identical coincident verts; these count the FULL coincident set (position groups of size>=2 =
+// the UV/color-seam verts) and how many received a SHARED position-averaged smooth normal (~the whole set).
+static std::atomic<u64> g_gweld_coincident_verts{0};    // verts in a POSITION group of size>=2 (the coincident/UV-seam set)
+static std::atomic<u64> g_gweld_coincident_smoothed{0}; // coincident verts assigned a SHARED position-averaged normal
 
 // ============================================================================================
 // STEP A (owner STRICT ORDER, 2026-07-24) — TRUE TOPOLOGICAL FUSE (genuine index-buffer merge).
@@ -1086,6 +1091,21 @@ void write_tan_diag_file() {
     os << "global_uv_snapped_seam_verts=" << g_gweld_uv_snapped.load()
        << " (cross-chunk seam verts whose UV was snapped to the group average to close a hairline texture "
           "crack; genuine UV islands exceed the epsilon and are untouched)\n";
+    os << "[split_by_uv_normal] OWNER #14 (2026-07-24) — normal SMOOTHING by POSITION over ALL coincident "
+          "same-texture verts (split-by-UV shared normal, the seam fix):\n";
+    {
+      u64 ct = g_gweld_coincident_verts.load(), cs = g_gweld_coincident_smoothed.load();
+      double pct = ct ? 100.0 * (double)cs / (double)ct : 0.0;
+      os << "normal_smoothed_coincident_verts=" << cs << " / " << ct << " coincident verts   coverage=" << pct
+         << "% (the shared position-averaged smooth normal is assigned to EVERY coincident corner — fused OR "
+            "UV-split — so it covers ~the FULL coincident set, not just the 24-30% index-fused subset)\n";
+    }
+    os << "note: a vertex cannot hold two UVs, so UV/color-seam copies stay SEPARATE for their UV, but their\n";
+    os << "SMOOTH NORMAL is averaged by POSITION across all coincident coplanar corners and shared => the\n";
+    os << "lighting is continuous across the UV/chunk seam (the seam is GONE). Genuine crease corners (members\n";
+    os << "whose normals exceed the crease threshold) keep separate crisp normals (counted uncovered) — sharp\n";
+    os << "edges stay. UV-split edges share position + normal + height sample => matching tessellation edge\n";
+    os << "factors and identical displacement => crack-free tessellation across the UV split.\n";
     os << "mesh_weld_enabled=" << g_mesh_weld_state.load()
        << " (debug.opengoal.mesh.weld A/B toggle: 1 = weld/orient/smooth ON, 0 = OFF seamy baseline)\n";
     float creasedeg =
@@ -1236,6 +1256,11 @@ void reconstruct_level_global_weld(Level& lev) {
     u32 gvert;
   };
   std::vector<std::vector<Incid>> gincid(num_groups);
+  // OWNER #14 coverage: mark which global verts are actually REFERENCED by a triangle. STEP A fuses
+  // attribute-identical duplicates by remapping the index buffer, ORPHANING the merged-away copies — they
+  // are no longer drawn and cannot cause a seam, so the split-by-UV coverage below counts only referenced
+  // verts (else the ~504k orphaned fused copies deflate the denominator with non-rendered geometry).
+  std::vector<u8> referenced(N, 0);
   struct EdgeInfo {
     u32 first_tree;
     u8 count;  // clamped to 2 (manifold=2, boundary=1)
@@ -1277,6 +1302,7 @@ void reconstruct_level_global_weld(Level& lev) {
       if (flip) {
         nraw = nraw * -1.f;  // triangle-strip parity
       }
+      referenced[gi0] = referenced[gi1] = referenced[gi2] = 1;
       u32 A = group[gi0], B = group[gi1], C = group[gi2];
       if (group_multitree[A]) {
         gincid[A].push_back({nraw, gi0});
@@ -1547,6 +1573,132 @@ void reconstruct_level_global_weld(Level& lev) {
         uv_snapped++;
       }
     }
+  }
+
+  // ---- 5c. OWNER #14 (2026-07-24) — SPLIT-BY-UV SHARED NORMAL over the FULL position weld map. ----
+  // The gap the owner found: index FUSION (STEP A) merges only the ~24-30% attribute-identical coincident
+  // verts, and the multitree re-smooth above (STEP 5) touches ONLY cross-tree groups, so the ~70%
+  // coincident verts at chunk/UV/color boundaries (same position + same surface but a different UV or baked
+  // color, hence NOT index-fusable and NOT cross-tree) kept their per-triangle normals => the visible
+  // LIGHTING seams. The industry fix is "smoothing group by POSITION, split by UV": a vertex cannot hold two
+  // UVs, so the UV/color-seam copies stay SEPARATE for their UV, but their SMOOTH NORMAL is averaged BY
+  // POSITION across ALL coincident coplanar corners and that ONE normal is assigned to EVERY coincident
+  // corner (fused or UV-split alike) => the lighting is continuous across the UV/chunk seam => the seam is
+  // gone. This runs over EVERY coincident position group (size>=2), not just the fused/multitree subset, and
+  // yields the coverage metric the owner asked for (must be ~the full coincident set, not 24-30%). It is
+  // crease-preserving: members whose current normals differ by more than the crease threshold stay in
+  // separate clusters (a genuine sharp corner keeps its crisp normal), only coplanar members are unified.
+  // Non-coincident (size-1) verts — the bulk of the interior surface — are UNTOUCHED, so the accepted
+  // directional-ambient look is preserved everywhere except the seam verts (which is the whole point).
+  {
+    auto unpack_nor = [](u32 nor) -> math::Vector3f {
+      auto sx = [](u32 v) -> int {
+        int x = (int)(v & 0x3ffu);
+        return (x & 0x200) ? x - 0x400 : x;
+      };
+      return math::Vector3f((float)sx(nor), (float)sx(nor >> 10), (float)sx(nor >> 20));
+    };
+    // Compact CSR mapping group -> member global-vertex indices (memory-friendly vs a vector-of-vectors).
+    std::vector<u32> gcount(num_groups, 0);
+    for (size_t i = 0; i < N; i++) {
+      gcount[group[i]]++;
+    }
+    std::vector<u32> goff(num_groups + 1, 0);
+    for (u32 g = 0; g < num_groups; g++) {
+      goff[g + 1] = goff[g] + gcount[g];
+    }
+    std::vector<u32> gflat(N);
+    {
+      std::vector<u32> cursor = goff;  // fill cursor per group
+      for (size_t i = 0; i < N; i++) {
+        gflat[cursor[group[i]]++] = (u32)i;
+      }
+    }
+    u64 coincident_total = 0, coincident_smoothed = 0;
+    std::vector<math::Vector3f> csum;  // per-cluster accumulated unit normal
+    std::vector<u32> ccount;           // per-cluster member count
+    std::vector<u32> cpacked;          // per-cluster packed shared normal
+    std::vector<int> mcluster;         // cluster id per member
+    for (u32 g = 0; g < num_groups; g++) {
+      const u32 m0 = goff[g], m1 = goff[g + 1];
+      const u32 msz = m1 - m0;
+      if (msz < 2) {
+        continue;  // a unique position (no coincident copy) — not a seam vertex, leave it alone
+      }
+      // Count only REFERENCED (rendered) members: STEP A orphans the fused-away duplicates, which never
+      // draw and cannot seam. A position with <2 rendered copies is not a rendered seam.
+      u32 ref_members = 0;
+      for (u32 k = m0; k < m1; k++) {
+        ref_members += referenced[gflat[k]];
+      }
+      if (ref_members < 2) {
+        continue;
+      }
+      coincident_total += ref_members;
+      // Crease-cluster the referenced members' CURRENT per-vertex normals (already position-averaged within
+      // a tree by the per-tree pass / across trees by STEP 5). Members with nor==0 (no incident face) carry
+      // no usable normal — they stay in mcluster=-1 and are counted uncovered.
+      csum.clear();
+      ccount.clear();
+      mcluster.assign(msz, -1);
+      for (u32 k = 0; k < msz; k++) {
+        if (!referenced[gflat[m0 + k]]) {
+          continue;  // orphaned fused-away copy: not rendered, excluded from the seam smoothing + coverage
+        }
+        u32 nor = gv[gflat[m0 + k]]->nor;
+        if (nor == 0) {
+          continue;
+        }
+        math::Vector3f v = unpack_nor(nor);
+        float l = v.length();
+        if (!(l > 1e-6f)) {
+          continue;
+        }
+        math::Vector3f u = v * (1.f / l);
+        int found = -1;
+        for (size_t c = 0; c < csum.size(); c++) {
+          float cl = csum[c].length();
+          if (cl > 1e-6f && u.dot(csum[c] * (1.f / cl)) >= crease_cos) {
+            found = (int)c;
+            break;
+          }
+        }
+        if (found < 0) {
+          found = (int)csum.size();
+          csum.push_back(u);
+          ccount.push_back(1);
+        } else {
+          csum[found] += u;
+          ccount[found]++;
+        }
+        mcluster[k] = found;
+      }
+      // Pack each cluster's averaged (shared) normal.
+      cpacked.assign(csum.size(), 0);
+      for (size_t c = 0; c < csum.size(); c++) {
+        math::Vector3f nn = csum[c];
+        float l = nn.length();
+        nn = l > 1e-6f ? nn * (1.f / l) : math::Vector3f(0.f, 1.f, 0.f);
+        cpacked[c] = pack_to_gl_normal((s16)std::lround(nn.x() * 511.f),
+                                       (s16)std::lround(nn.y() * 511.f),
+                                       (s16)std::lround(nn.z() * 511.f));
+      }
+      // Assign the SHARED normal to every coincident corner. A member in a cluster of size>=2 is genuinely
+      // smoothed ACROSS the seam (== covered); a member alone in its cluster is a real crease corner (kept
+      // crisp, counted uncovered — sharp edges must stay).
+      for (u32 k = 0; k < msz; k++) {
+        int c = mcluster[k];
+        if (c < 0) {
+          continue;
+        }
+        gv[gflat[m0 + k]]->nor = cpacked[c];
+        if (ccount[c] >= 2) {
+          coincident_smoothed++;
+        }
+      }
+    }
+    g_gweld_coincident_verts += coincident_total;
+    g_gweld_coincident_smoothed += coincident_smoothed;
   }
 
   g_gweld_total_verts += (u64)N;
