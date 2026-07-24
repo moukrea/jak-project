@@ -705,3 +705,10 @@ runs BEFORE the normal averaging:
    average before fixing orientation, inverted normals poison the average = the extreme contrasts persist.
 4. Device-prove: count inverted/flipped normals corrected; the extreme-contrast lines gone at w_1..4 vantages.
 This is coupled with the global welding — deliver both together.
+
+**OWNER SCOPE (2026-07-24): the welding + orientation MUST apply to the WHOLE GAME, every level — NOT just
+Sandover/village1.** Implement it in the GENERIC per-level tfrag/tie/shrub load path (TFrag3Data.cpp runs for
+EVERY level's fr3 data) with NO village1-specific gating or hardcoded level id. It must run automatically for
+any level that loads (village1, jungle, beach, misty, rolling hills, snowy, etc.). If any part is a
+precomputed bake, the bake must cover ALL levels, not just village1. VERIFY on at least ONE non-village1
+level too (weld/orient stats present for it). No level-specific hardcoding anywhere in the weld/orient pass.

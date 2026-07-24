@@ -111,4 +111,7 @@ grep -qiE 'tessellat.*(no hole|closed edge|welded|shared edge|no tear)|no (hole|
 grep -qiE 'across.*(bucket|chunk|fragment|system)|global.*(weld|spatial hash|stitch)|cross.?(chunk|bucket).*weld|inter.?(chunk|bucket)' "$R" || fail "no global cross-chunk/bucket welding evidence (remaining seams = chunk boundaries)"
 grep -qiE 'crease.?angle|coplanar.*(average|smooth)|keep.*(crease|corner|sharp)|angle.*(threshold|weld)' "$R" || fail "no crease-angle normal-averaging evidence (smooth flat seams, keep sharp corners)"
 grep -qiE 'remaining.*seam.*(0|zero|~0|drop)|seam.*(count|line).*(0|zero|gone)|cross.?chunk.*(count|stat)' "$R" || fail "no remaining-seam-count device proof"
+# OWNER: whole-game scope — weld/orient in the generic per-level path, no village1 gating.
+grep -qiE 'every level|all level|whole game|generic.*(load|tfrag|per.?level)|not.*village1.?(specific|only)|any level.*(loads|weld)' "$R" || fail "no whole-game-scope evidence (weld/orient must apply to ALL levels, not just village1)"
+grep -qiE 'village1' common/custom_data/TFrag3Data.cpp game/graphics/opengl_renderer/background/TFragment.cpp 2>/dev/null && fail "village1 hardcoded in the tfrag weld path (must be level-generic)"
 echo "[Gpbrf PASS]"
