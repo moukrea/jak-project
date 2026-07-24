@@ -483,3 +483,16 @@ introduces the faceted normal, so facets appear only with PBR.
    it through GK_STDOUT so `adb logcat -s GK_STDOUT:I` shows it. THEN root-cause + fix using that output.
 ACCEPTANCE: grass/faces show SMOOTH lighting (no triangular facets) at any relief, relief reads as depth,
 and tessellation either runs or logs exactly why it can't. Owner's eye + the supervisor can pull the tess log.
+
+**SUPERVISOR DEVICE FINDING (Honor Adreno 840, 2026-07-24): the hardware EXPOSES `GL_EXT_tessellation_shader`
+(confirmed in the system GL context).** So the tessellation fallback is a SOFTWARE issue, NOT hardware:
+- Check the APP's actual runtime GL context: `glGetString(GL_EXTENSIONS)` / GLES-3.2-core — does it list
+  tessellation there too? (SDL/EGL context may differ from the system compositor's.)
+- If the extension IS present but tessellation still falls back, the bug is one of: (a) `glPatchParameteri`
+  / tess entry points are NULL (function-pointer resolution via SDL_GL_GetProcAddress/eglGetProcAddress
+  failed — the A23-class fn-ptr issue), (b) the tess-control/tess-eval shaders fail to compile/link (get the
+  infolog), or (c) the capability check is wrongly gating it off. The `[pbr-tess]` GK_STDOUT logs must print
+  which of these it is. The supervisor will pull that log on the Honor once the build lands.
+The owner has GRANTED free use of the Honor to the supervisor for objective capture (tess logcat, boot
+checks on the real Adreno 840 target) — leverage it: after the build, the supervisor captures the exact
+tessellation diagnostic on-device and feeds the root cause back if the worker hasn't nailed it.
