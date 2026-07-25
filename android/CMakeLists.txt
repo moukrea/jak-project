@@ -730,6 +730,7 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/CustomTextureReplacements.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/Loader.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/LoaderStages.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/loader/PbrTestPattern.cpp"
     "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"
     "${JAK_ROOT}/common/custom_data/MeshConsolidate.cpp"
     "${JAK_ROOT}/common/custom_data/MeshSubdivide.cpp"

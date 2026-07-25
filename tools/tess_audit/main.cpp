@@ -305,7 +305,21 @@ struct MatStat {
   double floor_area_m2 = 0.0;
   double ceiling_area_m2 = 0.0;
   double sum_floor_edge_spacing_m = 0.0;
+  // section U: AUTHORED UV density samples (texture TILES per world METRE). PreloadedVertex::s/t
+  // are the authored texture coordinates in tile units; the tese instead projects the height map in
+  // world space at WORLD_TILES_PER_M, so these samples say how far the authoring is from that.
+  std::vector<float> uv_dens_tri;         // sqrt(uv_area_tiles2 / world_area_m2), one per triangle
+  std::vector<float> uv_dens_edge;        // |duv|_tiles / |dpos|_m, one per triangle EDGE
+  std::vector<float> uv_dens_tri_ground;  // uv_dens_tri restricted to GROUND triangles
 };
+
+// section U: per-material sample cap, so a huge level cannot blow the accumulators up.
+constexpr size_t kUvSampleCap = 200000;
+void uv_push(std::vector<float>& v, float x) {
+  if (v.size() < kUvSampleCap) {
+    v.push_back(x);
+  }
+}
 
 // Copy of the file-static unpack_gl_normal_2_10_10_10() in common/custom_data/TFrag3Data.cpp:
 // PreloadedVertex::nor is a 2_10_10_10 packed field (stored int = component * 511), and this is the
@@ -712,6 +726,39 @@ int main(int argc, char** argv) {
         cls = (upness >= ground_cos) ? 0 : 1;
       }
       class_patches[cls]++;
+
+      // ---- section U: AUTHORED UV DENSITY (texture tiles per world metre) ----
+      // Purely a property of the authoring (positions + uvs), so it is measured on EVERY patch of
+      // the audited geom, with no camera-distance gate. `nlen` above is |cross(p1-p0,p2-p0)| in
+      // game units^2, i.e. exactly 2x the world-space triangle area.
+      if (mat) {
+        const double su[3] = {(double)verts[i0].s, (double)verts[i1].s, (double)verts[i2].s};
+        const double sv[3] = {(double)verts[i0].t, (double)verts[i1].t, (double)verts[i2].t};
+        const double world_area_m2 = 0.5 * nlen / ((double)kUnitsPerM * (double)kUnitsPerM);
+        const double duv1x = su[1] - su[0], duv1y = sv[1] - sv[0];
+        const double duv2x = su[2] - su[0], duv2y = sv[2] - sv[0];
+        const double uv_area = 0.5 * std::fabs(duv1x * duv2y - duv1y * duv2x);  // tiles^2
+        if (world_area_m2 > 1e-9 && uv_area > 1e-12) {
+          const float dens = (float)std::sqrt(uv_area / world_area_m2);
+          uv_push(mat->uv_dens_tri, dens);
+          if (cls == 0) {
+            uv_push(mat->uv_dens_tri_ground, dens);
+          }
+        }
+        // per-EDGE density. e2 = |p0p1|, e0 = |p1p2|, e1 = |p2p0| (already in metres).
+        const double edge_m3[3] = {e2, e0, e1};
+        const int ea[3] = {0, 1, 2};
+        const int eb[3] = {1, 2, 0};
+        for (int k = 0; k < 3; ++k) {
+          const double dm = edge_m3[k];
+          const double dsx = su[eb[k]] - su[ea[k]];
+          const double dsy = sv[eb[k]] - sv[ea[k]];
+          const double dt = std::sqrt(dsx * dsx + dsy * dsy);
+          if (dm > 1e-4 && dt > 1e-6) {
+            uv_push(mat->uv_dens_edge, (float)(dt / dm));
+          }
+        }
+      }
 
       // EDGE law: each edge is levelled by ITS OWN world-space length at ITS OWN midpoint dist.
       double inner_edge;
@@ -1364,6 +1411,159 @@ int main(int argc, char** argv) {
     }
     if (shown == 0) {
       line("  (no CEILING patch within 15 m of the camera)");
+    }
+  }
+
+  // ---- U) AUTHORED UV DENSITY vs the tese's hardcoded world projection ----
+  // tfrag3_tess.tese samples the height map in a WORLD-SPACE projection at WORLD_TILES_PER_M = 0.5
+  // (one tile = 2 m). The fragment path samples at the AUTHORED uv (tex_coord.xy * u_pbr_uv_tile).
+  // This section measures the REAL authored density so the mismatch can be quantified per material.
+  line("");
+  line(std::string(80, '='));
+  line("=== SECTION U: AUTHORED UV DENSITY / TILE WORLD SIZE (per material) ===");
+  line(fmt::format(
+      "density = texture tiles per world metre; tile_cm = 100/density = world size of ONE texture "
+      "tile; the shader's tess path assumes {:.1f} tiles/m ({:.1f} cm).",
+      kWorldTilesPerM, 100.0 / kWorldTilesPerM));
+  line("  tri-density  : sqrt(uv_area_tiles2 / world_area_m2), one sample per TRIANGLE.");
+  line("  edge-density : |duv|_tiles / |dpos|_m, one sample per triangle EDGE.");
+  line("  population   : EVERY tessellable tfrag patch of the audited geom -- no camera-distance "
+       "gate, UV density is a static authoring property. Per-material sample cap = 200000.");
+  line("  checker_cm   : tile_cm / 8 = world size of ONE square of an 8x8-squares-per-tile "
+       "checkerboard test pattern.");
+  line(fmt::format("  ratio        : MEDIAN tri-density / {:.1f}; ratio > 1 means the authored "
+                   "texture is FINER (tiles faster) than the tess path's world projection assumes.",
+                   kWorldTilesPerM));
+  {
+    bool any_capped = false;
+    auto u_header = [&]() {
+      line(fmt::format("  {:<32}  {:>3}  {:>9}  {:>9}  {:>9}  {:>9}  {:>9}  {:>9}  {:>10}  {:>8}",
+                       "material", "hgt", "tris", "p25", "MEDIAN", "p75", "edge_med", "tile_cm",
+                       "checker_cm", "ratio"));
+    };
+    auto u_row = [&](const std::string& name, bool has_h, const std::vector<float>& tri,
+                     const std::vector<float>& edge) {
+      std::string s_tris = "-", s_p25 = "-", s_med = "-", s_p75 = "-", s_emed = "-", s_tile = "-",
+                  s_chk = "-", s_ratio = "-";
+      if (!tri.empty()) {
+        const double med = pct(tri, 0.50);
+        s_tris = fmt::format("{}{}", tri.size(), tri.size() >= kUvSampleCap ? "*" : "");
+        if (tri.size() >= kUvSampleCap) {
+          any_capped = true;
+        }
+        s_p25 = fmt::format("{:.4f}", pct(tri, 0.25));
+        s_med = fmt::format("{:.4f}", med);
+        s_p75 = fmt::format("{:.4f}", pct(tri, 0.75));
+        if (med > 0.0) {
+          const double tile_cm = 100.0 / med;
+          s_tile = fmt::format("{:.2f}", tile_cm);
+          s_chk = fmt::format("{:.2f}", tile_cm / 8.0);
+          s_ratio = fmt::format("{:.3f}", med / kWorldTilesPerM);
+        }
+      }
+      if (!edge.empty()) {
+        s_emed = fmt::format("{:.4f}", pct(edge, 0.50));
+        if (edge.size() >= kUvSampleCap) {
+          any_capped = true;
+        }
+      }
+      line(fmt::format("  {:<32}  {:>3}  {:>9}  {:>9}  {:>9}  {:>9}  {:>9}  {:>9}  {:>10}  {:>8}",
+                       name, has_h ? "Y" : "N", s_tris, s_p25, s_med, s_p75, s_emed, s_tile, s_chk,
+                       s_ratio));
+    };
+
+    std::vector<std::pair<std::string, MatStat>> mats(mat_stats.begin(), mat_stats.end());
+    std::sort(mats.begin(), mats.end(), [](const auto& a, const auto& b) {
+      if (a.second.uv_dens_tri.size() != b.second.uv_dens_tri.size()) {
+        return a.second.uv_dens_tri.size() > b.second.uv_dens_tri.size();
+      }
+      return a.first < b.first;
+    });
+
+    line("");
+    line("--- U1) ALL MATERIALS (every triangle, sorted by triangle count) ---");
+    u_header();
+    int shown = 0;
+    for (const auto& [name, m] : mats) {
+      if (m.uv_dens_tri.empty()) {
+        continue;
+      }
+      shown++;
+      u_row(name, m.has_height, m.uv_dens_tri, m.uv_dens_edge);
+    }
+    if (shown == 0) {
+      line("  (no tessellable tfrag triangle with a measurable UV area)");
+    }
+
+    line("");
+    line("--- U2) THE 7 PBR (height-map) MATERIALS, always listed so levels are comparable ---");
+    u_header();
+    for (const auto& name : pbr_materials()) {
+      auto it = mat_stats.find(name);
+      static const std::vector<float> kEmpty;
+      if (it == mat_stats.end()) {
+        u_row(name, true, kEmpty, kEmpty);
+      } else {
+        u_row(name, true, it->second.uv_dens_tri, it->second.uv_dens_edge);
+      }
+    }
+
+    line("");
+    line(fmt::format("--- U3) GROUND TRIANGLES ONLY (|face normal.y| >= {:.3f}), materials with >= "
+                     "32 ground triangles ---",
+                     ground_cos));
+    u_header();
+    std::vector<std::pair<std::string, MatStat>> gmats(mat_stats.begin(), mat_stats.end());
+    std::sort(gmats.begin(), gmats.end(), [](const auto& a, const auto& b) {
+      if (a.second.uv_dens_tri_ground.size() != b.second.uv_dens_tri_ground.size()) {
+        return a.second.uv_dens_tri_ground.size() > b.second.uv_dens_tri_ground.size();
+      }
+      return a.first < b.first;
+    });
+    int gshown = 0;
+    for (const auto& [name, m] : gmats) {
+      if (m.uv_dens_tri_ground.size() < 32) {
+        continue;
+      }
+      gshown++;
+      // edge-density is not split by orientation; the column is the material's all-edge median.
+      u_row(name, m.has_height, m.uv_dens_tri_ground, m.uv_dens_edge);
+    }
+    if (gshown == 0) {
+      line("  (no material with >= 32 GROUND triangles)");
+    }
+
+    // ---- U4) triangle-count-weighted medians (pooling the per-triangle samples IS the
+    // triangle-count weighting: every triangle contributes exactly one sample) ----
+    std::vector<float> pool_all, pool_h, pool_ground;
+    for (const auto& [name, m] : mat_stats) {
+      pool_all.insert(pool_all.end(), m.uv_dens_tri.begin(), m.uv_dens_tri.end());
+      if (m.has_height) {
+        pool_h.insert(pool_h.end(), m.uv_dens_tri.begin(), m.uv_dens_tri.end());
+      }
+      pool_ground.insert(pool_ground.end(), m.uv_dens_tri_ground.begin(),
+                         m.uv_dens_tri_ground.end());
+    }
+    auto summary = [&](const char* tag, const std::vector<float>& v) {
+      if (v.empty()) {
+        line(fmt::format("  {:<44}: tris=0  median=-  tile_cm=-  ratio=-", tag));
+        return;
+      }
+      const double med = pct(v, 0.50);
+      line(fmt::format("  {:<44}: tris={}  median={:.4f} tiles/m  tile_cm={:.2f}  ratio_vs_{:.1f}="
+                       "{:.3f}  (p25={:.4f} p75={:.4f})",
+                       tag, v.size(), med, med > 0.0 ? 100.0 / med : 0.0, kWorldTilesPerM,
+                       med / kWorldTilesPerM, pct(v, 0.25), pct(v, 0.75)));
+    };
+    line("");
+    line("--- U4) TRIANGLE-COUNT-WEIGHTED MEDIAN DENSITY (all per-triangle samples pooled) ---");
+    summary("ALL materials", pool_all);
+    summary("materials WITH a height map", pool_h);
+    summary("GROUND triangles (all materials)", pool_ground);
+    if (any_capped) {
+      line(fmt::format("  NOTE: at least one sample vector hit the per-material cap of {} (marked "
+                       "'*'); its percentiles are over the first {} samples in draw order.",
+                       kUvSampleCap, kUvSampleCap));
     }
   }
 

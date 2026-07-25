@@ -127,7 +127,18 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
   m_pbr_draws.clear();
   for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
     if (const auto* maps = custom_tex::find_pbr_material(lev_data->textures[ti].debug_name)) {
-      m_pbr_draws.push_back({(s32)ti, *maps});
+      // Grecharged-pbr-realtime-fusion ROUND 20: same measured authored UV density as TFragment,
+      // walked over the TIE geo-0 static draws (same StripDraw / PreloadedVertex types).
+      u32 nsamp = 0;
+      float dens = measure_uv_density_tie(*lev_data, (s32)ti, &nsamp);
+      if (dens <= 0.f) {
+        dens = 0.5f;
+      }
+      m_pbr_draws.push_back({(s32)ti, *maps, dens});
+      lg::info(
+          "pbr uv density (tie): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, "
+          "ratio {:.2f}x) samples={}",
+          lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp);
     }
   }
   if (!m_pbr_draws.empty()) {

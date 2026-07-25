@@ -524,6 +524,116 @@ static bool pbr_killswitch() {
   return cached == 1;
 }
 
+// ===========================================================================
+// Grecharged-pbr-realtime-fusion ROUND 20: MEASURED AUTHORED UV DENSITY.
+//
+// The tessellation displacement samples the height map in a WORLD-SPACE projection at a hardcoded
+// 0.5 tiles/m (WORLD_TILES_PER_M) and displaces by a constant amplitude, while the fragment stage
+// (parallax / normal / cavity) samples at the AUTHORED uv, so its depth is expressed in UV units
+// and is therefore proportional to the real tile size. Wherever a material's authored UV density
+// differs from 0.5 tiles/m the two stages describe DIFFERENT-SIZED features on the same surface.
+// These helpers measure the real density from the level's own geometry: for every edge of the
+// index buffer belonging to a draw that uses this texture, tiles-per-metre = |d(uv)| / |d(pos)|.
+// The MEDIAN is robust against the degenerate/stretched edges strips always contain.
+// ===========================================================================
+namespace {
+constexpr size_t kUvDensityMaxSamples = 8192;
+
+void pbr_collect_uv_density(const std::vector<tfrag3::StripDraw>& draws,
+                            const std::vector<u32>& indices,
+                            const std::vector<tfrag3::PreloadedVertex>& verts,
+                            s32 tex_idx,
+                            std::vector<float>& out) {
+  for (const auto& draw : draws) {
+    if (draw.tree_tex_id != tex_idx) {
+      continue;
+    }
+    u64 count = 0;
+    for (const auto& vg : draw.vis_groups) {
+      count += vg.num_inds;
+    }
+    const u64 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+    for (u64 k = 0; k + 1 < count; ++k) {
+      if (out.size() >= kUvDensityMaxSamples) {
+        return;
+      }
+      const u64 ia = first + k;
+      const u64 ib = ia + 1;
+      if (ib >= indices.size()) {
+        break;
+      }
+      const u32 va = indices[ia];
+      const u32 vb = indices[ib];
+      if (va == vb) {
+        continue;  // strip restart / degenerate
+      }
+      if (va >= verts.size() || vb >= verts.size()) {
+        continue;
+      }
+      const auto& pa = verts[va];
+      const auto& pb = verts[vb];
+      const float dx = pa.x - pb.x;
+      const float dy = pa.y - pb.y;
+      const float dz = pa.z - pb.z;
+      // positions are GAME UNITS (4096 per metre), texcoords are TILE units.
+      const float dm = std::sqrt(dx * dx + dy * dy + dz * dz) * (1.f / 4096.f);
+      const float du = pa.s - pb.s;
+      const float dv = pa.t - pb.t;
+      const float dt = std::sqrt(du * du + dv * dv);
+      if (dm < 1e-4f || dt < 1e-6f) {
+        continue;
+      }
+      out.push_back(dt / dm);
+    }
+  }
+}
+
+float pbr_uv_density_median(const std::vector<float>& samples) {
+  if (samples.size() < 16) {
+    return 0.f;  // "unknown" — callers fall back to 0.5
+  }
+  std::vector<float> copy = samples;
+  const size_t mid = copy.size() / 2;
+  std::nth_element(copy.begin(), copy.begin() + mid, copy.end());
+  return copy[mid];
+}
+}  // namespace
+
+float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
+  std::vector<float> samples;
+  samples.reserve(1024);
+  // GEOM 0 only: the highest-detail tree carries the authored UVs, and the lower LODs share them.
+  for (const auto& tree : lev.tfrag_trees[0]) {
+    pbr_collect_uv_density(tree.draws, tree.unpacked.indices, tree.unpacked.vertices, tex_idx,
+                           samples);
+    if (samples.size() >= kUvDensityMaxSamples) {
+      break;
+    }
+  }
+  if (out_samples) {
+    *out_samples = (u32)samples.size();
+  }
+  return pbr_uv_density_median(samples);
+}
+
+float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
+  std::vector<float> samples;
+  samples.reserve(1024);
+  // TieTree's unpacked vertices are the same tfrag3::PreloadedVertex type, and its static_draws are
+  // the same tfrag3::StripDraw — so the exact same edge walk applies.
+  for (const auto& tree : lev.tie_trees[0]) {
+    pbr_collect_uv_density(tree.static_draws, tree.unpacked.indices, tree.unpacked.vertices,
+                           tex_idx, samples);
+    if (samples.size() >= kUvDensityMaxSamples) {
+      break;
+    }
+  }
+  if (out_samples) {
+    *out_samples = (u32)samples.size();
+  }
+  return pbr_uv_density_median(samples);
+}
+
 // Grecharged-pbr-materials round-4: shared per-draw PBR material bind (was a lambda
 // local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
 // the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
@@ -539,6 +649,14 @@ void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
   m_hstat_loc = -2;
   m_cur_hstat[0] = 0.5f;
   m_cur_hstat[1] = 1.0f;
+  // ROUND 20: 0.5 tiles/m is the default first_tfrag_draw_setup pushes for u_pbr_uv_per_m, so this
+  // cached value matches the program state (same contract as the hstat identity above).
+  m_upm_loc = -2;
+  m_cur_upm = 0.5f;
+  // ROUND 20 correction: same contract for the feature-wavelength uniform — 0.25 tiles is the
+  // identity default first_tfrag_draw_setup pushes.
+  m_lambda_loc = -2;
+  m_cur_lambda = 0.25f;
   m_cur_mode = 0;
   m_bound_any = false;
 }
@@ -546,6 +664,8 @@ void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
 void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
   int want = 0;
   const custom_tex::PbrMaterialMaps* maps = nullptr;
+  // ROUND 20: the matching entry itself, so the per-material measured UV density can be read.
+  const PbrDrawEntry* ent = nullptr;
   // alpha-blended (TRANS "vis-alpha" tree) draws now take the PBR path too — round-4
   // coverage unification; alpha still comes from the legacy fragment_color*T0 product
   // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
@@ -556,6 +676,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     for (auto& e : *m_draws) {
       if (e.tex_idx == tex_id) {
         maps = &e.maps;
+        ent = &e;
         break;
       }
     }
@@ -629,6 +750,35 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     m_cur_hstat[0] = hsm;
     m_cur_hstat[1] = hsn;
   }
+  // ROUND 20: push this material's MEASURED authored UV density (texture tiles per world metre).
+  // The tess displacement derives its world-space height LOOKUP RATE from it (so one height-map
+  // tile spans exactly one painted tile) and the POM world-depth cap converts its metre limit with
+  // it. 0.5 when no material is resolved for this draw => exactly the constant shaders hardcoded.
+  const float upm = maps ? ent->uv_per_m : 0.5f;
+  if (upm != m_cur_upm) {
+    if (m_upm_loc == -2) {
+      m_upm_loc = glGetUniformLocation(m_program, "u_pbr_uv_per_m");
+    }
+    if (m_upm_loc >= 0) {
+      glUniform1f(m_upm_loc, upm);
+    }
+    m_cur_upm = upm;
+  }
+  // ROUND 20 correction: push this height MAP's characteristic feature wavelength (in tiles), which
+  // is what the tess AMPLITUDE follows. Measured tiles are 2.3-7.9 m wide and hold many features
+  // each, so scaling the depth by the tile would build metre-tall hills; scaling it by the feature
+  // wavelength keeps the relief at feature scale. Identity 0.25 when the draw has no height map, so
+  // a map-free draw can never inherit the previous material's wavelength (same rule as the hstat).
+  const float lam = (want & 16) ? maps->height_lambda_tiles : 0.25f;
+  if (lam != m_cur_lambda) {
+    if (m_lambda_loc == -2) {
+      m_lambda_loc = glGetUniformLocation(m_program, "u_pbr_height_lambda");
+    }
+    if (m_lambda_loc >= 0) {
+      glUniform1f(m_lambda_loc, lam);
+    }
+    m_cur_lambda = lam;
+  }
 }
 
 void PbrDrawBinder::finish() {
@@ -662,6 +812,27 @@ void PbrDrawBinder::finish() {
     }
     m_cur_hstat[0] = 0.5f;
     m_cur_hstat[1] = 1.0f;
+  }
+  // ROUND 20: same for the measured UV density — back to the 0.5 tiles/m default the program
+  // carries, so no later TFRAG3 user inherits this material's density.
+  if (m_cur_upm != 0.5f) {
+    if (m_upm_loc == -2) {
+      m_upm_loc = glGetUniformLocation(m_program, "u_pbr_uv_per_m");
+    }
+    if (m_upm_loc >= 0) {
+      glUniform1f(m_upm_loc, 0.5f);
+    }
+    m_cur_upm = 0.5f;
+  }
+  // ROUND 20 correction: and the feature wavelength back to its 0.25-tile identity.
+  if (m_cur_lambda != 0.25f) {
+    if (m_lambda_loc == -2) {
+      m_lambda_loc = glGetUniformLocation(m_program, "u_pbr_height_lambda");
+    }
+    if (m_lambda_loc >= 0) {
+      glUniform1f(m_lambda_loc, 0.25f);
+    }
+    m_cur_lambda = 0.25f;
   }
   // Park units 11-15 on the neutral 1x1 defaults so no material map leaks into later
   // draws this frame; restores active unit 0.
@@ -1377,6 +1548,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // IDENTITY height normalisation (mean 0.5, norm 1.0) — the per-draw binder overrides it with the
   // material's measured statistics and restores this default in finish().
   glUniform2f(glGetUniformLocation(id, "u_pbr_height_stat"), 0.5f, 1.0f);
+  // ROUND 20: default authored UV density = the 0.5 tiles/m the shaders used to hardcode. The
+  // per-draw binder overrides it with the material's measured density, and restores it in finish().
+  glUniform1f(glGetUniformLocation(id, "u_pbr_uv_per_m"), 0.5f);
+  // ROUND 20 correction: identity feature wavelength (0.25 tile); the per-draw binder overrides it
+  // with the height map's measured spectrum and restores this in finish().
+  glUniform1f(glGetUniformLocation(id, "u_pbr_height_lambda"), 0.25f);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_N"), 11);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_R"), 12);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);

@@ -40,6 +40,10 @@ uniform float u_pbr_exposure;
 uniform float u_pbr_normal_strength;
 uniform float u_pbr_height_scale;
 uniform float u_pbr_uv_tile;
+// ROUND 20: THIS material's MEASURED authored UV density, in texture tiles per world metre
+// (measured at level load, see background_common.cpp measure_uv_density_tfrag/_tie). Replaces the
+// POM_UV_PER_M constant in the world-depth cap below; 0.5 = the old constant.
+uniform float u_pbr_uv_per_m;
 // Owner round-3 mandate 2026-07-18: lighting split calibration. u_pbr_direct scales the
 // realtime direct DIFFUSE (the baked vertex color already contains the baked sun's
 // diffuse — this is the double-dose control); u_pbr_indirect scales the baked-GI
@@ -863,8 +867,10 @@ void main() {
           // this is a live same-vantage A/B with one setprop.
           // ===========================================================================
           float pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
-          float pom_cap =
-              min(POM_MAX_TAN * u_pbr_height_scale, POM_MAX_WORLD_M * POM_UV_PER_M) * u_pbr_uv_tile;
+          // ROUND 20: the world-depth cap needs THIS material's real tiles-per-metre, not a constant.
+          float pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
+                              POM_MAX_WORLD_M * max(u_pbr_uv_per_m, 0.02)) *
+                          u_pbr_uv_tile;
           if ((u_pbr_bisect & 33554432) != 0) {
             pom_graze = 1.0;   // legacy: no grazing attenuation...
             pom_cap = 0.08;    // ...and the old fixed UV clamp (~16 cm of world slide)
@@ -1620,8 +1626,10 @@ void main() {
         // cm. The owner's "PBR seul" preset renders through THIS branch, and his "ça s'étale à plat"
         // is a property of the formula both branches share. Bisect bit 33554432 = legacy behaviour.
         float pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
-        float pom_cap =
-            min(POM_MAX_TAN * u_pbr_height_scale, POM_MAX_WORLD_M * POM_UV_PER_M) * u_pbr_uv_tile;
+        // ROUND 20: the world-depth cap needs THIS material's real tiles-per-metre, not a constant.
+        float pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
+                            POM_MAX_WORLD_M * max(u_pbr_uv_per_m, 0.02)) *
+                        u_pbr_uv_tile;
         if ((u_pbr_bisect & 33554432) != 0) {
           pom_graze = 1.0;
           pom_cap = 0.08;

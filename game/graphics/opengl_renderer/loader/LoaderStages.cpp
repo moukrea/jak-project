@@ -7,9 +7,14 @@
 
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: add_texture reads the custom-assets toggle directly.
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #endif
 
 constexpr float LOAD_BUDGET = 4.5f;
@@ -25,6 +30,104 @@ constexpr GLenum kRgbaTexType = GL_UNSIGNED_BYTE;
 constexpr GLenum kRgbaTexType = GL_UNSIGNED_INT_8_8_8_8_REV;
 #endif
 
+#ifdef OG_FEAT_PBR
+/*!
+ * ROUND 20 — characteristic feature WAVELENGTH of a height map, in TILES (1 tile = the whole
+ * texture), from the map's own mip-energy spectrum.
+ *
+ * The tessellation amplitude used to be a constant fraction of "relief", which is wrong: the
+ * owner's checkerboard test showed the authored UV density is 2.28 m/tile (wallplaster) to
+ * 7.90 m/tile (leafyground), so one amplitude means wildly different feature sizes on screen.
+ * Scaling the amplitude by the FEATURE size needs that feature size, and this is where it comes
+ * from: box-downsample the field until its variance has halved. The box size at that point is the
+ * scale that carries the median energy; the wavelength is twice it.
+ */
+static float measure_height_lambda_tiles(const custom_tex::ReplacementImage* hi) {
+  if (!hi || hi->w <= 0 || hi->h <= 0 || hi->rgba.size() < (size_t)hi->w * (size_t)hi->h * 4u) {
+    return 0.25f;
+  }
+  // (a) R channel / 255, SUBSAMPLED so neither dimension exceeds 1024. Working entirely in the
+  // subsampled domain is exact for the result, because lambda_tiles is a wavelength divided by the
+  // width in the SAME domain.
+  const int step = std::max(1, std::max(hi->w, hi->h) / 1024);
+  const int cw0 = std::max(1, (hi->w + step - 1) / step);
+  const int ch0 = std::max(1, (hi->h + step - 1) / step);
+  std::vector<float> buf((size_t)cw0 * (size_t)ch0);
+  for (int y = 0; y < ch0; y++) {
+    for (int x = 0; x < cw0; x++) {
+      const size_t src = ((size_t)(y * step) * (size_t)hi->w + (size_t)(x * step)) * 4u;
+      buf[(size_t)y * (size_t)cw0 + (size_t)x] = hi->rgba[src] * (1.f / 255.f);
+    }
+  }
+  auto variance = [](const std::vector<float>& v) -> double {
+    if (v.empty()) {
+      return 0.0;
+    }
+    double s = 0.0, s2 = 0.0;
+    for (float f : v) {
+      s += (double)f;
+      s2 += (double)f * (double)f;
+    }
+    const double n = (double)v.size();
+    const double mean = s / n;
+    return std::max(s2 / n - mean * mean, 0.0);
+  };
+  // (b) a flat map has no feature scale at all.
+  const double var0 = variance(buf);
+  if (var0 < 1e-8) {
+    return 0.25f;
+  }
+  // (c) halve the resolution until the variance has halved.
+  const double target = 0.5 * var0;
+  double var_prev = var0;
+  int cw = cw0, ch = ch0;
+  int l_last = 0;
+  float l_star = 0.f;
+  bool crossed = false;
+  for (int l = 1; cw >= 2 && ch >= 2 && l <= 12; l++) {
+    const int nw = cw / 2, nh = ch / 2;  // truncate odd dims
+    std::vector<float> down((size_t)nw * (size_t)nh);
+    for (int y = 0; y < nh; y++) {
+      for (int x = 0; x < nw; x++) {
+        const size_t r0 = (size_t)(2 * y) * (size_t)cw + (size_t)(2 * x);
+        const size_t r1 = (size_t)(2 * y + 1) * (size_t)cw + (size_t)(2 * x);
+        down[(size_t)y * (size_t)nw + (size_t)x] =
+            0.25f * (buf[r0] + buf[r0 + 1] + buf[r1] + buf[r1 + 1]);
+      }
+    }
+    buf.swap(down);
+    cw = nw;
+    ch = nh;
+    l_last = l;
+    const double var_l = variance(buf);
+    if (var_l <= target) {
+      // Interpolate the crossing in LOG variance, not linear. The spectrum between two mip levels
+      // is geometric, and the linear form is biased by up to sqrt(2): on a perfect checker (the
+      // owner's own reference pattern, whose answer is known exactly = 2 cells) the variance holds
+      // flat and then collapses to 0, and a linear crossing lands mid-octave => 1.41x too long.
+      // The log form returns the last full-energy level there, i.e. exactly 2 cells.
+      double t = 0.0;
+      if (var_prev > 0.0 && var_l > 0.0) {
+        const double denom = std::log(var_prev) - std::log(var_l);
+        t = (std::log(var_prev) - std::log(target)) / std::max(denom, 1e-12);
+      }
+      l_star = (float)((double)(l - 1) + std::clamp(t, 0.0, 1.0));
+      crossed = true;
+      break;
+    }
+    var_prev = var_l;
+  }
+  if (!crossed) {
+    l_star = (float)l_last;
+  }
+  // (d) the wavelength is twice the box size at the median-energy scale.
+  const float lambda_texels = std::exp2(l_star + 1.0f);
+  const float lambda_tiles = lambda_texels / (float)std::max(cw0, ch0);
+  // (e)
+  return std::clamp(lambda_tiles, 1.0f / 1024.0f, 1.0f);
+}
+#endif
+
 /*!
  * Upload a texture to the GPU, and give it to the pool.
  */
@@ -38,7 +141,41 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   glActiveTexture(GL_TEXTURE0);
   glGenTextures(1, &gl_tex);
   glBindTexture(GL_TEXTURE_2D, gl_tex);
-  if (rep) {
+#ifdef OG_FEAT_PBR
+  // ROUND 20: the owner's CHECKERBOARD verification method, in-build. When the test pattern is on,
+  // the BASE colour is replaced by a checker whose squares are a known fraction of one texture
+  // TILE, so the painted square size and the displaced block size can be compared on screen.
+  std::vector<u8> tp_base;
+  const int tp_mode = pbr_testpattern::mode();
+  const bool tp_any = tp_mode != 0 && Gfx::recharged_master_active();
+  // Whether the pattern applies to THIS texture must be known BEFORE the base upload, but in mode 1
+  // it depends on this material having PBR maps — which the block below only discovers much later.
+  // has_suffixed() is the index-only existence probe (no file read, no PNG decode), so answer here.
+  bool tp_apply = false;
+  if (tp_any) {
+    if (tp_mode == 2 || tp_mode == 4) {
+      tp_apply = true;
+    } else {
+      const auto tp_bsrc = custom_tex::base_source(tex.debug_tpage_name, tex.debug_name);
+      tp_apply =
+          custom_tex::has_suffixed(tex.debug_tpage_name, tex.debug_name, "_normal", tp_bsrc) ||
+          custom_tex::has_suffixed(tex.debug_tpage_name, tex.debug_name, "_roughness", tp_bsrc) ||
+          custom_tex::has_suffixed(tex.debug_tpage_name, tex.debug_name, "_height", tp_bsrc);
+    }
+  }
+  if (tp_apply) {
+    // Mode 2 swaps EVERY texture in the level, so it uses a smaller map to bound VRAM.
+    const int tp_dim = (tp_mode == 2 || tp_mode == 4) ? 128 : 256;
+    // The buffer is written in RGBA byte order. kRgbaTexType is GL_UNSIGNED_BYTE on GLES and
+    // GL_UNSIGNED_INT_8_8_8_8_REV on desktop, so a channel swap is possible per platform — the
+    // checker itself is grey (R=G=B) and only the three orientation markers are coloured, so at
+    // worst the marker colours permute. The test geometry is identical either way.
+    pbr_testpattern::make_base_rgba(tp_base, tp_dim);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tp_dim, tp_dim, 0, GL_RGBA, kRgbaTexType,
+                 tp_base.data());
+  } else
+#endif
+      if (rep) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rep->w, rep->h, 0, GL_RGBA, kRgbaTexType,
                  rep->rgba.data());
   } else {
@@ -108,7 +245,9 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     const char* bsrc_str = bsrc == custom_tex::BaseSource::User      ? "user"
                            : bsrc == custom_tex::BaseSource::Bundled ? "bundled"
                                                                      : "stock";
-    if (n || r || m || h || s || e) {
+    // ROUND 20: with the test pattern on, register the material EVEN IF it has no real maps —
+    // in mode 2 that is the whole point (every surface gets the checker N/R/H).
+    if (n || r || m || h || s || e || tp_apply) {
       auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
           return 0;
@@ -240,10 +379,16 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
             half = std::max(half, 2.f / 255.f);
             maps.height_mean = mean;
             maps.height_norm = std::clamp(0.5f / half, 0.5f, 16.0f);
+            // ROUND 20: the map's own feature scale, so the tessellation amplitude can follow the
+            // FEATURE size instead of a constant (the authored UV density varies 2.28..7.90 m/tile
+            // across this level, so a constant amplitude means a different look per material).
+            maps.height_lambda_tiles = measure_height_lambda_tiles(hi);
             lg::info(
                 "pbr height stat: {} src={} {}x{} mean={:.4f} p2={:.4f} p98={:.4f} half={:.4f} "
-                "norm={:.3f} (shader: (h-mean)*norm+0.5 => mean-centred, amplitude refilled)",
-                tex.debug_name, hi->src, hi->w, hi->h, mean, p2, p98, half, maps.height_norm);
+                "norm={:.3f} (shader: (h-mean)*norm+0.5 => mean-centred, amplitude refilled) "
+                "lambda_tiles={:.4f} (feature wavelength; x tile_m = feature world size)",
+                tex.debug_name, hi->src, hi->w, hi->h, mean, p2, p98, half, maps.height_norm,
+                maps.height_lambda_tiles);
           }
         }
         maps.height_tex = make_map(hi);
@@ -256,12 +401,38 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
         maps.emissive_tex = make_map(
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive", bsrc));
       }
+      if (tp_apply) {
+        // Checker N/R/H replace whatever this material had; metal/ao/spec/emissive are dropped so
+        // the test isolates displacement + normal orientation + roughness response.
+        const auto& sm = pbr_testpattern::shared_maps();
+        for (GLuint own : {maps.normal_tex, maps.rough_tex, maps.metal_tex, maps.ao_tex,
+                           maps.height_tex, maps.specular_tex, maps.emissive_tex}) {
+          if (own && !pbr_testpattern::owns(own)) {
+            glDeleteTextures(1, &own);
+          }
+        }
+        maps = custom_tex::PbrMaterialMaps{};
+        maps.normal_tex = sm.normal_tex;
+        maps.rough_tex = sm.rough_tex;
+        maps.height_tex = sm.height_tex;
+        maps.height_mean = 0.5f;  // the checker IS mean-centred and full-range
+        maps.height_norm = 1.0f;
+        maps.normal_dc_x = 0.f;  // and symmetric => zero DC
+        maps.normal_dc_y = 0.f;
+        // A checker's feature wavelength is exactly TWO cells, and there are squares_per_tile()
+        // cells per tile — so it is known analytically, no measurement needed. (The estimator
+        // returns this exact value on a checker, which is how it was calibrated.)
+        maps.height_lambda_tiles = 2.0f / (float)pbr_testpattern::squares_per_tile();
+        lg::info("pbr TESTPATTERN: {} base=CHECKER maps=CHECKER(N,R,H) squares/tile={} mode={}",
+                 tex.debug_name, pbr_testpattern::squares_per_tile(), tp_mode);
+      }
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
       auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
       GLuint old_ids[7] = {prev.normal_tex, prev.rough_tex,    prev.metal_tex,   prev.ao_tex,
                            prev.height_tex, prev.specular_tex, prev.emissive_tex};
       for (GLuint oid : old_ids) {
-        if (oid) {
+        // NEVER delete the shared checker ids: every material points at the same three.
+        if (oid && !pbr_testpattern::owns(oid)) {
           glDeleteTextures(1, &oid);
         }
       }

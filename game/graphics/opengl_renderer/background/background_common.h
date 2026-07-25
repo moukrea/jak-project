@@ -165,8 +165,18 @@ void pbr_park_neutral_maps();
 struct PbrDrawEntry {
   s32 tex_idx;
   custom_tex::PbrMaterialMaps maps;
+  // Grecharged-pbr-realtime-fusion ROUND 20: this material's MEASURED authored UV density, in
+  // texture tiles per world metre (see measure_uv_density_* below). 0.5 = the constant the
+  // shaders used to assume, so an unmeasured entry reproduces the old behaviour exactly.
+  float uv_per_m = 0.5f;
 };
 using PbrDrawList = std::vector<PbrDrawEntry>;
+
+// Grecharged-pbr-realtime-fusion ROUND 20: the AUTHORED UV density of one material, in texture
+// tiles per world metre, measured from the level's own geometry (median over index-buffer edges).
+// 0.5 = the constant the shaders used to assume (one tile every 2 m).
+float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
+float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
 
 class PbrDrawBinder {
  public:
@@ -194,6 +204,18 @@ class PbrDrawBinder {
   // neither mean-centred nor normalised). (0.5, 1.0) = identity.
   GLint m_hstat_loc = -2;
   float m_cur_hstat[2] = {0.5f, 1.0f};
+  // ROUND 20: u_pbr_uv_per_m = this material's measured authored UV density (texture tiles per
+  // world metre), pushed alongside the mode so the tessellation displacement and the POM world cap
+  // both work in THIS material's feature size instead of a hardcoded 0.5 tiles/m. 0.5 = identity.
+  GLint m_upm_loc = -2;
+  float m_cur_upm = 0.5f;
+  // ROUND 20 correction: u_pbr_height_lambda = this height MAP's characteristic FEATURE WAVELENGTH
+  // in tiles (measured at load from the map's own mip-energy spectrum). The tess amplitude follows
+  // the feature size, not the tile: the offline audit found tiles spanning 2.3-7.9 m, so "depth =
+  // a fraction of a tile" would build metre-tall grass hills. Comes from the MAP (like the height
+  // stat), not from PbrDrawEntry. 0.25 = identity default.
+  GLint m_lambda_loc = -2;
+  float m_cur_lambda = 0.25f;
   int m_cur_mode = 0;
   bool m_bound_any = false;
 };

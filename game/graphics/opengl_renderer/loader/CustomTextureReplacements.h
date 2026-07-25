@@ -84,6 +84,10 @@ struct PbrMaterialMaps {
   // 0..1 around the material's own mid. The defaults (0.5, 1.0) are the IDENTITY transform.
   float height_mean = 0.5f;  // mean of <tex>_height.png's red channel, 0..1
   float height_norm = 1.0f;  // 0.5 / robust half-range; (h-mean)*norm+0.5 refills 0..1
+  // ROUND 20: characteristic feature WAVELENGTH of the height field, in TILES (1 tile = the whole
+  // texture). Measured at load from the map's own mip-energy spectrum. x the material's world tile
+  // size = the feature's world size, which is what the tessellation amplitude is scaled by.
+  float height_lambda_tiles = 0.25f;
 };
 
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by

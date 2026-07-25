@@ -27,6 +27,14 @@ uniform int u_pbr_mode;            // bit16 => a height map is bound
 uniform int u_pbr_displacement;    // 2 => Tessellation displacement active
 uniform float u_pbr_height_scale;  // POM's native-UV depth scale (also drives displacement amount)
 uniform float u_pbr_uv_tile;       // extra UV tiling on the PBR path
+// ROUND 20: THIS material's MEASURED authored UV density, in texture tiles per world metre,
+// measured at level load from the level's own geometry (background_common.cpp
+// measure_uv_density_tfrag / measure_uv_density_tie). 0.5 = what WORLD_TILES_PER_M assumed.
+uniform float u_pbr_uv_per_m;
+// ROUND 20 correction: this height MAP's characteristic feature wavelength, in TILES (1 tile = the
+// whole texture), measured at load from the map's own mip-energy spectrum. The displacement
+// AMPLITUDE follows this, not the tile — a tile is 2.3-7.9 m wide and holds many features.
+uniform float u_pbr_height_lambda;
 uniform sampler2D tex_PBR_H;       // height map, unit 15 (.r = height, 0.5 = neutral mid)
 
 // REOPEN #3/#6 TESS DISPLACEMENT MAGNITUDE. u_pbr_height_scale is the POM's UV-space depth scale;
@@ -37,6 +45,26 @@ uniform sampler2D tex_PBR_H;       // height map, unit 15 (.r = height, 0.5 = ne
 // the real-geometry displacement calibrated: 0.02 (base) * 1.5 (relief) * 14336 * 0.5 ~= 215 game
 // units ~= 5.25 cm. 1 game unit = 1/4096 m. Single knob — tune if the relief reads too deep/shallow.
 #define TESS_DISP_K 14336.0
+// ROUND 20: game units per metre. u_pbr_height_scale is a depth in UV units (tiles), so multiplying
+// it by the material's tile size in metres and by this gives the displacement in game units.
+#define TESS_DISP_UNITS_PER_M 4096.0
+// ROUND 20 correction: depth-per-wavelength constant. A real surface feature of width w is roughly
+// w/4 deep, and u_pbr_height_scale is 0.05 * relief, so 5.0 puts the depth at 0.25 * lambda_world
+// at relief 1.0.
+#define TESS_DEPTH_K 5.0
+// ROUND 20 correction, second half: the two PHYSICAL caps on that depth. They matter because the
+// measured lambdas span 40x (wallplaster's features are 4.2 cm of world, vil-beach-01's are 167 cm)
+// and one of the shipped maps (vil-beach-01) is almost a pure DC swell, which the depth-per-
+// wavelength rule alone would turn into 84 cm of moving ground.
+//  * TESS_DEPTH_MAX_RATIO: the displacement may never exceed half the feature's own width. This is
+//    the invariant the LEGACY law violated most brutally, and the reason it read as noise rather
+//    than relief: with the old world projection leafyground's features are 4.8 cm across and the old
+//    constant displaced them 35 cm, a depth/width of 7.3 -- a spike field, not a surface.
+//  * TESS_DEPTH_MAX_M: a walkable surface must not disagree with its (flat) collision by more than
+//    a step. It grows only HALF as fast as the relief slider so the slider still does something at
+//    the top end without the ground turning into dunes: 15 cm at relief 1, 22.5 at 2, 30 at 3.
+#define TESS_DEPTH_MAX_RATIO 0.5
+#define TESS_DEPTH_MAX_M 0.15
 
 // Grecharged-mesh-consolidation: tiling of the WORLD-SPACE height lookup, in tiles per metre
 // (0.5 = one tile every 2 m, about the density tfrag's authored ground UVs sit at). Multiplied by
@@ -163,12 +191,20 @@ void main() {
     //     coincident positions to one value and gives the group one shared normal. So this whole
     //     expression is bit-identical on both sides, and the two surfaces displace together.
     vec2 huv;
+    // ROUND 20: the height lookup rate and the displacement amplitude are now derived from THIS
+    // material's measured authored UV density (u_pbr_uv_per_m, tiles per world metre) instead of the
+    // hardcoded WORLD_TILES_PER_M. One height-map tile therefore spans exactly the same world
+    // distance as one PAINTED tile, so the displaced feature size matches the texture the fragment
+    // stage parallaxes and normal-maps. Legacy constant law kept under bisect bit 67108864.
+    bool legacy_uv_law = (u_pbr_bisect & 67108864) != 0;
+    float upm = (!legacy_uv_law && u_pbr_uv_per_m > 0.0) ? u_pbr_uv_per_m : WORLD_TILES_PER_M;
+    float tile_m = 1.0 / max(upm, 1e-3);
     // Grecharged-pbr-realtime-fusion PBR POLISH: the two WORLD axes the projection above uses, and
     // the huv-units-per-METRE scale, kept so the displaced surface's own normal can be derived
     // from the very same height field (see the gradient block after the displacement).
     vec3 hax_u = vec3(1.0, 0.0, 0.0);
     vec3 hax_v = vec3(0.0, 0.0, 1.0);
-    float huv_per_m = WORLD_TILES_PER_M * u_pbr_uv_tile;
+    float huv_per_m = upm * u_pbr_uv_tile;
     if ((u_pbr_bisect & 65536) != 0) {
       huv = uv3.xy * u_pbr_uv_tile;  // legacy per-chunk lookup — kept ONLY as the A/B that tears
       huv_per_m = 0.0;               // no world mapping on the legacy path => no gradient normal
@@ -189,7 +225,7 @@ void main() {
         hax_u = vec3(1.0, 0.0, 0.0);
         hax_v = vec3(0.0, 1.0, 0.0);
       }
-      huv = pw * ((1.0 / 4096.0) * WORLD_TILES_PER_M * u_pbr_uv_tile);
+      huv = pw * ((1.0 / 4096.0) * upm * u_pbr_uv_tile);
     }
     // camera distance in meters (same convention as v_fringe_rel below). Hoisted above the height
     // fetch because the BAND-LIMIT below needs it. Uses the UNDISPLACED `world`, which
@@ -263,7 +299,24 @@ void main() {
     // patches ease in smoothly. Uses the UNDISPLACED `world`, shared across the edge, so the fade
     // matches too. (dist_m is computed above, before the band-limited height fetch.)
     float falloff = 1.0 - smoothstep(20.0, 30.0, dist_m);
-    float amp = u_pbr_height_scale * TESS_DISP_K * falloff * seam;
+    // ROUND 20: the amplitude follows the material's MEASURED FEATURE SIZE, not a constant and not
+    // the tile. u_pbr_height_lambda is the height map's characteristic feature wavelength in TILES
+    // (measured at load from the map's own mip-energy spectrum); x tile_m makes it METRES. A real
+    // surface feature of width w is roughly w/4 deep; u_pbr_height_scale is 0.05 * relief, so
+    // TESS_DEPTH_K = 5.0 puts the depth at 0.25 * lambda_world at relief 1.0. The clamp keeps a
+    // pathological lambda from either flattening the surface or growing hills: 0.5 cm .. 30 cm per
+    // unit of relief. Measured on village1: leafyground tile 7.90 m, beachrock 6.39 m, sand 3.94 m --
+    // the old law's constant 14336 (35 cm at relief 2) was blind to all of it.
+    float rel = u_pbr_height_scale * 20.0;   // the relief slider (height_scale = 0.05 * relief)
+    float lambda_world_m = clamp(u_pbr_height_lambda, 0.002, 1.0) * tile_m;
+    float amp_m = u_pbr_height_scale * TESS_DEPTH_K * lambda_world_m;
+    amp_m = min(amp_m, TESS_DEPTH_MAX_RATIO * lambda_world_m);  // never a spike field again
+    amp_m = min(amp_m, TESS_DEPTH_MAX_M * (0.5 + 0.5 * rel));   // never deeper than a step
+    amp_m = max(amp_m, 0.005 * rel);
+    float amp = amp_m * TESS_DISP_UNITS_PER_M * falloff * seam;
+    if (legacy_uv_law) {
+      amp = u_pbr_height_scale * TESS_DISP_K * falloff * seam;
+    }
     float disp = (h - 0.5) * amp;
     world += N * disp;   // world normal is in game-unit space; displacement is in game units
 
