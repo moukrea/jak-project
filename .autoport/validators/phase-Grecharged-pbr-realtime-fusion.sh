@@ -141,4 +141,8 @@ grep -qiE 'cavity|micro.?ao|height.*(ao|occlusion).*(ambient|shade|shadow)|direc
 grep -qiE 'tess.*(level|factor).*(raise|higher|increase)|achieved tess|triangle count.*(near|camera)' "$R" || fail "no tessellation-detail increase evidence (owner: manque de détail)"
 grep -qiE 'silhouette.*(break|proof|visible)|displacement.*(amplitude|scale).*(raise|material|visible)' "$R" || fail "no real-displacement amplitude/silhouette evidence (vs glorified bump)"
 grep -qiE 'rebalanc.*(contrast|direct).*(cavity|depth|self.?shadow)|less.*(N.?L|direct).*contrast' "$R" || fail "no direct-vs-depth-cue rebalance evidence (owner: très contrasté à la lumière mais plat)"
+# OWNER #18: ground relief — parallax smears at grazing (fade it), tess too coarse on huge ground tris.
+grep -qiE 'grazing.*(fade|weight|smoothstep).*(parallax|offset)|parallax.*fade.*(grazing|N.?V|Vt\.z)' "$R" || fail "no grazing-fade of parallax (offset becomes a horizontal UV slide on floors = owner's flat smear)"
+grep -qiE 'world.?space edge|edge length.*(tess|factor)|cm/segment|segment size' "$R" || fail "no world-space-edge-length tess factor (huge ground triangles need far higher factors than distance-only)"
+grep -qiE 'ground.*(v/feature|vertices per|cm/segment|segment)|per feature.*ground' "$R" || fail "no GROUND-specific density measurement (previous v/feature was likely a wall material)"
 echo "[Gpbrf PASS]"

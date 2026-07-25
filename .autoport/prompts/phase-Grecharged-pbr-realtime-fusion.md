@@ -959,3 +959,38 @@ vary with the normal. THIS IS WHY IT IS STILL FLAT IN SHADOW.
    self-shadow + parallax => reads as DEPTH instead of high-contrast noise.
 ACCEPTANCE (owner's eye): relief clearly visible IN SHADOW, real depth (not a shaded bump) with tessellation
 AND with parallax, no over-contrast in sunlight, mesh consolidation intact.
+
+---
+## OWNER PLAYTEST #18 (2026-07-25) — "bien mieux, bien plus cohérent et consistant" ✅. Remaining: GROUND relief.
+Owner: "la tessellation manque toujours de relief EN PARTICULIER AU SOL, et je crois avoir identifié pourquoi
+avec le parallax: on dirait que le displacement du parallax est HORIZONTAL au sol, comme si au lieu de
+s'élever, ça s'étale à plat." (Rendering quality/look comes later — he wants the RELIEF right first.)
+
+### SUPERVISOR ROOT-CAUSE (read from tfrag3.frag / tfrag3_tess.tese — the owner's observation is exactly right)
+**(A) PARALLAX SMEARS ON THE GROUND — inherent to the formula at grazing view.** The offset is
+`P = (Vt.xy / vz) * height_scale * uv_tile`, with `vz = max(Vt.z, 0.20)`. On a near-horizontal FLOOR seen at
+a GRAZING angle (the normal gameplay camera looks along the ground), Vt.z → small, so the amplifier blows up
+and P becomes a large HORIZONTAL UV TRANSLATION: the texture SLIDES sideways instead of reading as depth —
+literally "ça s'étale à plat". The 0.08 UV clamp caps the magnitude but not the nature of the artifact.
+FIX (industry): 
+  1. FADE the parallax amplitude toward 0 as the view becomes grazing (weight by Vt.z / N·V, e.g. smoothstep
+     from ~0.15 to ~0.5) — parallax is only trustworthy near head-on; at grazing it must not smear.
+  2. Cap the offset in *world* terms (a few cm of apparent depth), not only in UV, so it never exceeds the
+     real feature depth.
+  3. On surfaces where parallax is faded out (grazing floors), the relief must come from TESSELLATION
+     displacement instead => (B).
+
+**(B) GROUND TESSELLATION IS FAR TOO COARSE.** tfrag GROUND triangles are HUGE (many metres per edge). With
+a tess level capped at 32, a 20 m edge yields ~60 cm segments — while the height features are cm-scale. So on
+the GROUND the displaced geometry is still ~10-40x under Nyquist (the earlier v/feature measurement was
+likely taken on a wall-sized material, not the ground).
+FIX: drive the tess factor from the **WORLD-SPACE EDGE LENGTH**, targeting a fixed segment size near the
+camera (e.g. ~5-10 cm/segment within ~8 m, degrading with distance), clamped by GL_MAX_TESS_GEN_LEVEL and a
+perf budget. Large ground triangles must therefore receive MUCH higher factors than small wall triangles —
+a distance-only heuristic cannot do that. Report the achieved segment size (cm/segment) and vertices per
+height feature **ON THE GROUND** specifically, at the owner's grass/sand vantages, plus the fps cost.
+Consider a near-camera detail radius so the cost stays bounded (industry: distance-based LOD on top of a
+world-space edge-length target).
+ACCEPTANCE: on the GROUND, the relief reads as actual raised/carved detail (no horizontal smearing at grazing
+angles), with measured cm/segment and v/feature on ground materials; tessellation and parallax each behave
+correctly in their regime. Owner's eye at his grass/sand vantages. Rendering/look polish comes AFTER.
