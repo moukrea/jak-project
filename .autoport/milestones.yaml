@@ -2240,7 +2240,7 @@ phases:
   prompt: prompts/phase-Grecharged-pbr-realtime-fusion.md
   validator: validators/phase-Grecharged-pbr-realtime-fusion.sh
   max_turns: 3500
-  max_retries: 28
+  max_retries: 36
   device: true
   owner_verify: true
 - id: Grecharged-texture-hotreload
