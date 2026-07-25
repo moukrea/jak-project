@@ -1024,3 +1024,35 @@ No shader-side tuning can beat that ceiling.
    the Honor (Adreno 840) is the quality target, the Redmi the floor.
 ACCEPTANCE: measurable, visible ground displacement (delta well above parallax's 2.27, v/feature >= 2), no
 new seams/cracks (mesh consolidation intact), fps budget documented.
+
+---
+## ★★★ SUPERVISOR DEVICE FINDING (2026-07-25, via the owner's checkerboard idea) — **NO PBR MAPS ARE BOUND AT ALL: 668/668 textures log `maps=NONE (same-source pairing)`**
+The owner asked why the sage-hut brick / straw roof / sand / plaster are NOT replaced although they are in
+the recharged set. I pushed a synthetic CHECKERBOARD set (base+height+normal+roughness) onto a ground texture
+and captured on device: the checkerboard DISPLAYS (so the user-custom base replacement works) but is
+COMPLETELY FLAT — and the binding log explains why:
+    pbr binding: bch-beach-01          base=stock maps=NONE (same-source pairing ...)
+    pbr binding: bch-sages-stonewall-01 base=stock maps=NONE (same-source pairing ...)
+    pbr binding: bch-leafyground        base=stock maps=NONE (same-source pairing ...)
+    => 668 binding lines, 668 with maps=NONE, ZERO with maps bound.
+TWO ROOT CAUSES:
+1. **NAME MISMATCH**: the in-game texture names are `bch-*` (bch-beach-01, bch-sages-stonewall-01,
+   bch-leafyground, bch-hut-roof-tile-01, bch-beachrock...) while the recharged set ships `vil-*` /
+   `vil1-*` names (vil-beach-01, vil1-sages-stonewall-01, vil1-jng-leafyground...). The lookup therefore
+   never finds a bundled base => base=stock.
+2. **THE SAME-SOURCE PAIRING RULE (mandated in REOPEN #2) THEN REJECTS THE MAPS**: because base=stock, the
+   maps are refused even when height/normal/roughness ARE present. That rule was meant to prevent mixing a
+   USER base with BUNDLED maps of a different image — it must NOT block the normal case.
+### MANDATE
+a. **Fix the name matching**: resolve textures by their REAL in-game names (bch-*) — either rename/duplicate
+   the recharged assets to the actual names, or add an alias/normalisation (strip level prefix, match on the
+   stem) so `vil-beach-01`/`bch-beach-01` resolve to the same material. Audit ALL 7 recharged textures against
+   the real names and report the mapping.
+b. **Relax the same-source rule to its real intent**: maps may pair with a STOCK base (that is the normal
+   case for a bundled/PBR-only set!). Only refuse pairing when a USER base and BUNDLED maps come from
+   genuinely different images. Log the decision per texture.
+c. **Re-verify with the checkerboard**: with maps bound, the checkerboard height must produce VISIBLE raised
+   blocks under tessellation (and parallax) — that is the objective proof the displacement follows the height
+   map. Report the binding counts (maps bound > 0!) and the checkerboard delta.
+d. This invalidates most previous PBR "look" iterations: the owner has been judging a PBR path running with
+   NO material maps. Re-run the visual checks after the fix.

@@ -150,4 +150,9 @@ grep -qiE 'pre.?subdiv|subdivision pass|split.*triangle.*(edge|2 ?m|threshold)|1
 grep -qiE 'v/feature.*(>=|≥) ?2|nyquist.*(reach|met|>=2)|ground v/feature [2-9]' "$R" || fail "no ground v/feature >= 2 (Nyquist) evidence"
 grep -qiE 'tess.*vs.*(off|parallax).*(delta|pixel).*(ground|sol)|ground band delta' "$R" || fail "no ground-band tessellation-vs-OFF delta measurement (baseline: 0.77 mean / 4.6% pixels)"
 grep -qiE 'no new (seam|crack)|mesh consolidation.*(intact|preserved)|welded.*(shared|midpoint)' "$R" || fail "no mesh-consolidation-intact proof (subdivision must share midpoints)"
+# ★ SUPERVISOR: 668/668 textures had maps=NONE (name mismatch bch-* vs vil-* + over-strict same-source rule).
+grep -qiE 'name (mismatch|alias|normalis)|bch-.*vil-|stem match|real in.?game name' "$R" || fail "no texture-name-matching fix (in-game names are bch-*, recharged assets are vil-*)"
+grep -qiE 'same.?source.*(relax|intent|stock base)|maps.*pair.*stock base|maps bound *[1-9]' "$R" || fail "no same-source-rule relaxation (maps must pair with a STOCK base — the normal case)"
+grep -qiE 'maps bound.*[1-9]|binding.*maps=(normal|height|rough)|non.?zero.*maps bound' "$R" || fail "no evidence maps are ACTUALLY bound now (was 0/668)"
+grep -qiE 'checkerboard|damier|checker.*(block|raised|height)' "$R" || fail "no checkerboard verification (owner's method: synthetic height must produce visible blocks)"
 echo "[Gpbrf PASS]"
