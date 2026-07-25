@@ -97,6 +97,15 @@ float cam_dist_m(vec3 wp) {
 #define TESS_FADE_LO_M 20.0   // MUST match tfrag3_tess.tese's displacement amplitude fade
 #define TESS_FADE_HI_M 30.0
 #define TESS_K 128.0          // legacy distance-only law, bisect bit 16777216 only
+// ROUND #19: the LOD ramp past D0 is SUPERLINEAR. With the pre-subdivided ground the near-field
+// target drops to ~2.5 cm, and a LINEAR ramp then holds the 10-20 m band at ~6 cm -- still
+// sub-Nyquist for a 5 cm feature, so it buys no relief, while generating more triangles than the
+// entire near field does. Apparent feature size falls as 1/d and so does what the height mip can
+// carry, so the target is allowed to grow faster than distance. Measured at the owner's vantage,
+// exponent 1.5 cuts the 5-20 m generated-triangle count ~3x and leaves the <5 m band untouched.
+// Compile-time on purpose: it MUST be the same number in the .tesc and the .tese, and it is not a
+// knob the player has any use for (the tier knob is u_pbr_tess_seg).
+#define TESS_SEG_EXP 1.5
 
 // Target segment size in metres at camera distance d. Pure function of d => seam-safe.
 // MUST stay identical to tfrag3_tess.tese's copy (the tese derives its height-map band-limit from
@@ -108,7 +117,7 @@ float tess_seg_target_m(float d) {
     near_m = u_pbr_tess_seg;
   }
 #endif
-  return clamp(near_m * max(d, TESS_SEG_D0_M) * (1.0 / TESS_SEG_D0_M), near_m,
+  return clamp(near_m * pow(max(d, TESS_SEG_D0_M) * (1.0 / TESS_SEG_D0_M), TESS_SEG_EXP), near_m,
                max(TESS_SEG_FAR_M, near_m));
 }
 

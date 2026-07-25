@@ -200,10 +200,19 @@ BaseSource base_source(const std::string& tpage_name, const std::string& tex_nam
 }
 
 #ifdef OG_FEAT_PBR
-const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
-                                        const std::string& tex_name,
-                                        const char* suffix,
-                                        BaseSource base_src) {
+namespace {
+// Grecharged-pbr-materials: INDEX-ONLY resolution of a suffixed map. Everything up to — but
+// not including — the file read lives here: the source gates, the suffixed key construction
+// and the same-source pairing rule. Shared by lookup_suffixed() (which then decodes the PNG)
+// and has_suffixed() (which stops at the index), so a decode-free probe can never disagree
+// with what the renderer actually loads. Returns the winning index entry, nullptr on miss;
+// out_src / out_exact_key are optional (logging only).
+const fs::path* resolve_suffixed(const std::string& tpage_name,
+                                 const std::string& tex_name,
+                                 const char* suffix,
+                                 BaseSource base_src,
+                                 const char** out_src,
+                                 std::string* out_exact_key) {
   const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
   // Bundled PBR maps apply whenever the PBR pipeline asks (the caller sits in the PBR path);
   // only the MASTER gates them — deliberately NOT the base-swap toggle (owner: PBR maps
@@ -218,6 +227,9 @@ const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
   // both candidate keys (exact "tpage/name<suffix>" first, bare "name<suffix>").
   const std::string suffixed_name = tex_name + suffix;
   const std::string exact_key = normalize_key(tpage_name + "/" + suffixed_name);
+  if (out_exact_key) {
+    *out_exact_key = exact_key;
+  }
   // SAME-SOURCE PAIRING (owner REOPEN #2 2026-07-23): PBR maps apply ONLY when they come
   // from the same source as the BASE texture that won — user base + user maps, or bundled
   // base + bundled maps, NEVER mixed provenance (an internet-pack base is a different
@@ -241,6 +253,23 @@ const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
       }
       break;
   }
+  if (out_src) {
+    *out_src = src;
+  }
+  return path;
+}
+}  // namespace
+
+const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
+                                        const std::string& tex_name,
+                                        const char* suffix,
+                                        BaseSource base_src) {
+  // Gates, keys and the same-source pairing rule all live in resolve_suffixed(); only the
+  // decode below is ours.
+  const char* src = "user";
+  std::string exact_key;
+  const fs::path* path =
+      resolve_suffixed(tpage_name, tex_name, suffix, base_src, &src, &exact_key);
   if (!path) {
     return nullptr;
   }
@@ -264,6 +293,17 @@ const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
 
   lg::info("custom pbr map ({}): {} <- {}", src, exact_key, path->string());
   return &s_out;
+}
+
+// Existence-only twin of lookup_suffixed(): same resolve_suffixed() call, so the same gates
+// and the same same-source pairing, but it stops at the index — no stbi_load, no decode. Same
+// (lock-free) shared-scan path as lookup_suffixed; ensure_scanned() is the only shared state
+// either of them touches.
+bool has_suffixed(const std::string& tpage_name,
+                  const std::string& tex_name,
+                  const char* suffix,
+                  BaseSource base_src) {
+  return resolve_suffixed(tpage_name, tex_name, suffix, base_src, nullptr, nullptr) != nullptr;
 }
 
 PbrMaterialMaps register_pbr_material(const std::string& tex_debug_name,

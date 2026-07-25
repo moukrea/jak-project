@@ -1497,9 +1497,17 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // whatever the live driver actually allows.
   float pbr_tess_max = 64.0f;
   // Target size in METRES of one generated tessellation segment in the near field — the density knob
-  // the new level law solves for (tfrag3_tess.tesc::tess_seg_target_m). 0.06 = 6 cm, inside the
-  // owner's 5-10 cm mandate; raising it is the cheapest perf lever (cost ~ 1/seg^2).
-  float pbr_tess_seg = 0.06f;
+  // the new level law solves for (tfrag3_tess.tesc::tess_seg_target_m). Raising it is the cheapest
+  // perf lever (cost ~ 1/seg^2).
+  // ROUND #19: 0.06 -> 0.025. At 6 cm the tessellated ground was still ~2.4x coarser than the 5 cm
+  // height features it exists to displace (measured GROUND-with-a-height-map v/feature 0.85 within
+  // 5 m), which is why the supervisor's device A/B found tessellation moving the ground band by
+  // 0.77/255 while the parallax it replaces moved 2.27. 2.5 cm is Nyquist for a 5 cm feature, and it
+  // only became REACHABLE this round: at 6 cm a 4.6 m ground patch already saturated the 64-level
+  // ceiling, so asking for 2.5 cm without the offline pre-subdivision would simply have been
+  // clipped. Measured after pre-subdivision: v/feature 0.85 -> 2.37 within 5 m. This is the
+  // TESSELLATION tier's knob — the parallax and stock tiers never reach this code.
+  float pbr_tess_seg = 0.025f;
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -1566,7 +1574,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       pbr_tess_max = atof(v);
     }
     if (__system_property_get("debug.opengoal.pbr.tessseg", v) > 0) {
-      pbr_tess_seg = atof(v);
+      // A NEGATIVE value means "not set, keep the compiled default". adb cannot delete a property
+      // (setprop '' is an error), so a harness that wants the default back must be able to say so
+      // with a value; without this a "-1" would clamp to 0.01 and silently pick 1 cm segments.
+      const float sv = atof(v);
+      if (sv > 0.f) {
+        pbr_tess_seg = sv;
+      }
     }
   }
 #else

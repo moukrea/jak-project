@@ -6,6 +6,7 @@
 #include <set>
 
 #include "common/custom_data/MeshConsolidate.h"
+#include "common/custom_data/MeshSubdivide.h"
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
 #include "common/versions/versions.h"
@@ -14,6 +15,7 @@
 #include "common/util/compress.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
 #include "game/runtime.h"
 
@@ -462,6 +464,52 @@ void Loader::loader_thread() {
           audit.game_name = version_to_game_name(g_game_version);
           const std::string text = tfrag3::format_mesh_audit(audit, cfg);
           lg::info("[mesh-consolidate] {}", text);
+          tfrag3::mesh_audit_append_file(text);
+        }
+      }
+
+      // Grecharged-pbr-realtime-fusion round #19 (supervisor device measurement 2026-07-25): the
+      // hardware tessellator maxes out at GL_MAX_TESS_GEN_LEVEL (64) PER PATCH, so a 3-5 m tfrag
+      // ground triangle cannot be brought anywhere near the ~2.5 cm segment a centimetre-scale
+      // height feature needs — measured on the ground band, tessellation moved 0.77/255 of a pixel
+      // against displacement-OFF while the parallax it replaces moved 2.27. The industry answer is
+      // mesh prep, not shader tuning: hand the tessellator SMALLER PATCHES. This pass splits every
+      // tess-eligible tfrag triangle whose longest edge exceeds the threshold, conformally (green
+      // closure, no T-vertices), with midpoints that are exact averages of their two parents.
+      // It runs AFTER the consolidation on purpose: the .meshweld sidecar's fingerprint is the
+      // per-tree vertex/index count of the ORIGINAL geometry, so the owner-validated precompute
+      // keeps validating untouched, and every midpoint inherits already-snapped positions, already
+      // smoothed normals and already-computed seam weights — which is exactly why a shared edge
+      // cannot tear: both sides average identical endpoints and land on identical midpoints.
+      // Gated on the tessellation displacement mode, so parallax and stock pay nothing.
+      {
+        auto scfg = tfrag3::mesh_subdiv_config_from_env();
+        const auto& gs = Gfx::g_global_settings;
+        bool want = Gfx::recharged_active(gs.recharged_pbr_enable) &&
+                    gs.recharged_pbr_displacement == 2;
+        if (scfg.forced_max_edge_m >= 0.f) {
+          want = scfg.forced_max_edge_m > 0.f;  // prop/env override, for the device A/B
+        }
+        if (want && scfg.max_edge_m > 0.f) {
+          auto p = scoped_prof("mesh-presubdivide");
+          // Only the geom LOD TFragment actually draws, and only materials that ship a height map:
+          // a surface with no displacement SOURCE cannot be displaced at any tessellation level, so
+          // refining it would be pure vertex cost (measured on village1's near ground: 62-77% of it).
+          scfg.only_geom = Gfx::g_global_settings.lod_tfrag;
+          std::function<bool(const tfrag3::Texture&)> has_height;
+#ifdef OG_FEAT_PBR
+          has_height = [](const tfrag3::Texture& t) {
+            return custom_tex::has_suffixed(t.debug_tpage_name, t.debug_name, "_height",
+                                            custom_tex::base_source(t.debug_tpage_name,
+                                                                    t.debug_name));
+          };
+#endif
+          tfrag3::SubdivStats sst;
+          tfrag3::mesh_presubdivide_level(*result, scfg, &sst, has_height);
+          const std::string text = fmt::format("===== PRE-SUBDIVISION level={} =====\n{}",
+                                               result->level_name,
+                                               tfrag3::format_subdiv_stats(sst, scfg));
+          lg::info("[mesh-subdiv] {}", text);
           tfrag3::mesh_audit_append_file(text);
         }
       }

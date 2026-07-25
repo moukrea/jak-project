@@ -48,6 +48,15 @@ const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
                                         const char* suffix,
                                         BaseSource base_src);
 
+// Existence-only probe for a suffixed map. Same key construction, same source gating and
+// same-source pairing rule as lookup_suffixed(), but it stops at the index: no file read, no
+// PNG decode. Used by the pre-subdivision pass to bound itself to surfaces that actually have
+// a displacement source.
+bool has_suffixed(const std::string& tpage_name,
+                  const std::string& tex_name,
+                  const char* suffix,
+                  BaseSource base_src);
+
 // Grecharged-pbr-materials: registry mapping a texture debug-name to its extra
 // PBR material GL textures. GL ids, 0 = absent.
 struct PbrMaterialMaps {

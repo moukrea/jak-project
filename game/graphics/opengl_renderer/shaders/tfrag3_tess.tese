@@ -87,13 +87,22 @@ float hnorm(float h) {
 #define TESS_REF_EDGE_M 2.18
 // Half-mip safety margin on the band-limit (see the block that uses it).
 #define TESS_LOD_BIAS 0.5
+// ROUND #19: the LOD ramp past D0 is SUPERLINEAR. With the pre-subdivided ground the near-field
+// target drops to ~2.5 cm, and a LINEAR ramp then holds the 10-20 m band at ~6 cm -- still
+// sub-Nyquist for a 5 cm feature, so it buys no relief, while generating more triangles than the
+// entire near field does. Apparent feature size falls as 1/d and so does what the height mip can
+// carry, so the target is allowed to grow faster than distance. Measured at the owner's vantage,
+// exponent 1.5 cuts the 5-20 m generated-triangle count ~3x and leaves the <5 m band untouched.
+// Compile-time on purpose: it MUST be the same number in the .tesc and the .tese, and it is not a
+// knob the player has any use for (the tier knob is u_pbr_tess_seg).
+#define TESS_SEG_EXP 1.5
 
 float tess_seg_target_m(float d) {
   float near_m = TESS_SEG_NEAR_M;
   if (u_pbr_tess_seg > 0.0) {
     near_m = u_pbr_tess_seg;
   }
-  return clamp(near_m * max(d, TESS_SEG_D0_M) * (1.0 / TESS_SEG_D0_M), near_m,
+  return clamp(near_m * pow(max(d, TESS_SEG_D0_M) * (1.0 / TESS_SEG_D0_M), TESS_SEG_EXP), near_m,
                max(TESS_SEG_FAR_M, near_m));
 }
 

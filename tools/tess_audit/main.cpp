@@ -11,7 +11,8 @@
 // Read-only: nothing is written except the report.
 //
 // Usage: tess_audit [--fr3 PATH] [--cam-m X Y Z] [--cam X Y Z] [--tess-max N] [--geom N] [--out P]
-//                   [--seg-near M] [--seg-d0 M] [--seg-far M] [--feature-cm C] [--ground-cos C]
+//                   [--seg-near M] [--seg-d0 M] [--seg-far M] [--seg-exp P] [--feature-cm C]
+//                   [--ground-cos C] [--consolidate] [--subdiv MAX_EDGE_M] [--subdiv-rounds N]
 
 #include <algorithm>
 #include <cmath>
@@ -23,6 +24,8 @@
 #include <string>
 #include <vector>
 
+#include "common/custom_data/MeshConsolidate.h"
+#include "common/custom_data/MeshSubdivide.h"
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Serializer.h"
@@ -35,8 +38,8 @@
 static void usage() {
   fmt::print(
       "Usage: tess_audit [--fr3 PATH] [--cam-m X Y Z] [--cam X Y Z] [--tess-max N] [--geom N]\n"
-      "                  [--out PATH] [--seg-near M] [--seg-d0 M] [--seg-far M] [--feature-cm C]\n"
-      "                  [--ground-cos C]\n"
+      "                  [--out PATH] [--seg-near M] [--seg-d0 M] [--seg-far M] [--seg-exp P]\n"
+      "                  [--feature-cm C] [--ground-cos C]\n"
       "  --fr3 PATH      level fr3 (default: <repo>/out/jak1/fr3/village1.fr3)\n"
       "  --cam-m X Y Z   camera position in METRES (multiplied by 4096 internally)\n"
       "  --cam X Y Z     camera position in GAME UNITS\n"
@@ -50,11 +53,19 @@ static void usage() {
       "  --seg-d0 M      EDGE law: distance where the target segment size starts growing "
       "(default 4.0)\n"
       "  --seg-far M     EDGE law: ceiling of the target segment size (default 1.0)\n"
+      "  --seg-exp P     EDGE law: SUPERLINEAR LOD ramp exponent applied to (d/seg_d0) past\n"
+      "                  --seg-d0, i.e. seg_target(d) = clamp(seg_near*pow(max(d,seg_d0)/seg_d0,P),\n"
+      "                  seg_near, seg_far). P=1 is the old purely linear ramp (default 1.5)\n"
       "  --feature-cm C  reference relief feature wavelength in cm, for v/feature (default 5.0)\n"
       "  --ground-cos C  |face normal.y| threshold above which a patch is GROUND (default 0.707)\n"
       "  --fade-lo M     EDGE law: distance where the amplitude-matched density fade starts "
       "(default 20.0)\n"
-      "  --fade-hi M     EDGE law: distance where the fade reaches level 1 (default 30.0)\n");
+      "  --fade-hi M     EDGE law: distance where the fade reaches level 1 (default 30.0)\n"
+      "  --consolidate   run the shipped mesh consolidation first (sidecar if present, else live),\n"
+      "                  so seam weights and snapped positions match the runtime\n"
+      "  --subdiv M      round #19 offline pre-subdivision: refine every tess-eligible tfrag\n"
+      "                  triangle until its longest edge is <= M metres (default 0 = off)\n"
+      "  --subdiv-rounds N  refinement round cap for --subdiv (default 3)\n");
 }
 
 namespace {
@@ -84,6 +95,11 @@ void load_level_fr3(const fs::path& fr3_path, tfrag3::Level& lev) {
     for (auto& tree : t_tree) {
       tree.unpack();
     }
+  }
+  // shrub too: the .meshweld sidecar's fingerprint covers every tree the consolidation gathers,
+  // so skipping shrub here would make every sidecar look stale and force the slow live pass.
+  for (auto& shrub_tree : lev.shrub_trees) {
+    shrub_tree.unpack();
   }
 }
 
@@ -121,8 +137,17 @@ double new_edge_level(double d_m, double tess_max) {
 // OWNER #18 EDGE law: level from the WORLD-SPACE EDGE LENGTH against a distance-LOD'd target
 // segment size, so a huge ground triangle gets a far higher factor than a small wall triangle at
 // the same distance (which a distance-only law cannot do).
-double seg_target_m(double d_m, double seg_near, double seg_d0, double seg_far) {
-  return clampd(seg_near * std::max(d_m, seg_d0) / seg_d0, seg_near, seg_far);
+// round #19: the ramp past seg_d0 is SUPERLINEAR -- (d/seg_d0)^seg_exp -- so the near field keeps a
+// fine target segment size while the far field sheds cost faster than the old purely linear ramp.
+// seg_exp == 1.0 reproduces the linear form exactly (pow(x, 1.0) == x).
+double seg_target_m(double d_m, double seg_near, double seg_d0, double seg_far, double seg_exp) {
+  const double d = std::max(d_m, seg_d0);
+  // The seg_exp == 1.0 branch keeps the ORIGINAL expression association bit-for-bit:
+  // (seg_near*d)/seg_d0 is not the same double as seg_near*(d/seg_d0). It is not a shortcut for
+  // pow (pow(x, 1.0) is already exact), only an associativity guarantee.
+  const double target =
+      (seg_exp == 1.0) ? (seg_near * d / seg_d0) : (seg_near * std::pow(d / seg_d0, seg_exp));
+  return clampd(target, seg_near, seg_far);
 }
 // GLSL smoothstep.
 double smoothstepd(double e0, double e1, double x) {
@@ -130,8 +155,8 @@ double smoothstepd(double e0, double e1, double x) {
   return t * t * (3.0 - 2.0 * t);
 }
 double edge_law_level(double edge_m, double d_m, double tess_max, double seg_near, double seg_d0,
-                      double seg_far, double fade_lo, double fade_hi) {
-  double lvl = edge_m / seg_target_m(d_m, seg_near, seg_d0, seg_far);
+                      double seg_far, double seg_exp, double fade_lo, double fade_hi) {
+  double lvl = edge_m / seg_target_m(d_m, seg_near, seg_d0, seg_far, seg_exp);
   // AMPLITUDE-MATCHED DENSITY FADE (shipped tfrag3_tess.tesc): the tese fades the displacement
   // amplitude to exactly zero between fade_lo and fade_hi, so the LEVEL fades on the same curve --
   // vertices generated in that band would be displaced by nothing.
@@ -347,11 +372,19 @@ int main(int argc, char** argv) {
   double seg_near = 0.05;
   double seg_d0 = 4.0;
   double seg_far = 1.0;
+  // round #19: superlinear LOD ramp exponent past seg_d0 (1.0 == the old linear ramp).
+  double seg_exp = 1.5;
   double feature_cm = 5.0;
   double ground_cos = 0.707;
   // shipped tesc amplitude-matched density fade band.
   double fade_lo = 20.0;
   double fade_hi = 30.0;
+  // round #19: offline pre-subdivision of the large ground patches (0 = off = the shipped mesh).
+  double subdiv_m = 0.0;
+  int subdiv_rounds = 3;
+  // run the owner-validated mesh consolidation first, exactly as Loader.cpp does, so the seam
+  // weights (which decide what can displace at all) and the snapped positions are the real ones.
+  bool do_consolidate = false;
   bool have_cam = false;
   bool cam_from_metres = false;
   Vec3 cam;  // game units
@@ -395,6 +428,8 @@ int main(int argc, char** argv) {
       seg_d0 = std::stod(need_val("--seg-d0"));
     } else if (a == "--seg-far") {
       seg_far = std::stod(need_val("--seg-far"));
+    } else if (a == "--seg-exp") {
+      seg_exp = std::stod(need_val("--seg-exp"));
     } else if (a == "--feature-cm") {
       feature_cm = std::stod(need_val("--feature-cm"));
     } else if (a == "--ground-cos") {
@@ -403,6 +438,12 @@ int main(int argc, char** argv) {
       fade_lo = std::stod(need_val("--fade-lo"));
     } else if (a == "--fade-hi") {
       fade_hi = std::stod(need_val("--fade-hi"));
+    } else if (a == "--subdiv") {
+      subdiv_m = std::stod(need_val("--subdiv"));
+    } else if (a == "--subdiv-rounds") {
+      subdiv_rounds = std::stoi(need_val("--subdiv-rounds"));
+    } else if (a == "--consolidate") {
+      do_consolidate = true;
     } else if (a == "--out") {
       out_path = need_val("--out");
     } else if (a == "-h" || a == "--help") {
@@ -435,6 +476,11 @@ int main(int argc, char** argv) {
   }
   if (seg_far < seg_near) {
     fmt::print("error: --seg-far must be >= --seg-near (got {} < {})\n", seg_far, seg_near);
+    usage();
+    return 2;
+  }
+  if (seg_exp <= 0.0) {
+    fmt::print("error: --seg-exp must be > 0 (got {})\n", seg_exp);
     usage();
     return 2;
   }
@@ -494,6 +540,38 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // ---- reproduce the runtime geometry pipeline, so the density this tool measures is the density
+  // the GPU actually sees. Loader.cpp order: global weld -> mesh consolidation (sidecar, else live)
+  // -> pre-subdivision. The consolidation matters here for more than tidiness: it is what writes the
+  // per-vertex SEAM WEIGHTS, and a fully pinned triangle is deliberately not subdivided.
+  std::string prep_note = "prep: none (raw fr3 unpack)";
+  if (do_consolidate) {
+    tfrag3::reconstruct_level_global_weld(lev);
+    const auto cfg = tfrag3::mesh_consolidate_config_from_env();
+    const fs::path bake = fr3_path.parent_path() / tfrag3::mesh_consolidate_bake_name(lev.level_name);
+    if (tfrag3::mesh_consolidate_apply_bake(lev, bake.string(), true)) {
+      prep_note = fmt::format("prep: global weld + consolidation from sidecar {}", bake.string());
+    } else {
+      tfrag3::MeshAuditReport rep;
+      tfrag3::mesh_consolidate(lev, cfg, &rep);
+      prep_note = "prep: global weld + LIVE consolidation (no usable sidecar)";
+    }
+  }
+  std::string subdiv_note = "pre-subdivision: OFF";
+  if (subdiv_m > 0.0) {
+    tfrag3::SubdivConfig scfg;
+    scfg.max_edge_m = (float)subdiv_m;
+    scfg.max_rounds = subdiv_rounds;
+    scfg.only_geom = geom;  // the runtime refines only the geom LOD TFragment draws
+    tfrag3::SubdivStats sst;
+    // Same "has a displacement source" bound the runtime applies, resolved here from the shipped
+    // recharged_textures material list instead of the live custom-assets index.
+    tfrag3::mesh_presubdivide_level(lev, scfg, &sst, [](const tfrag3::Texture& t) {
+      return pbr_materials().count(t.debug_name) > 0;
+    });
+    subdiv_note = tfrag3::format_subdiv_stats(sst, scfg);
+  }
+
   // ---- per-geom tree census (informational) + camera centroid over the audited geom ----
   std::string geom_census;
   for (int g = 0; g < tfrag3::TFRAG_GEOS; ++g) {
@@ -539,6 +617,11 @@ int main(int argc, char** argv) {
 
   // OWNER #18: orientation-split accumulators + degenerate census + per-material near field.
   ClassBand cls_band[kNumLaws][kNumClasses][kNumBands];
+  // section G2: EDGE law, GROUND patches whose material actually ships a displacement source
+  // (*_height.png). A GROUND patch without one cannot be displaced at ANY tessellation level, so
+  // its spacing/v-per-feature contribution is meaningless -- this is the only population where
+  // density can turn into relief.
+  ClassBand gh_band[kNumBands];
   u64 class_patches[kNumClasses] = {0, 0};
   u64 degenerate_patches = 0;
   std::map<std::string, MatStat> mat_stats;
@@ -635,17 +718,21 @@ int main(int argc, char** argv) {
       if (dmin > 30.0) {
         inner_edge = 1.0;
       } else {
-        const double l0 = edge_law_level(e0, d0, tess_max, seg_near, seg_d0, seg_far, fade_lo,
-                                         fade_hi);
-        const double l1 = edge_law_level(e1, d1, tess_max, seg_near, seg_d0, seg_far, fade_lo,
-                                         fade_hi);
-        const double l2 = edge_law_level(e2, d2, tess_max, seg_near, seg_d0, seg_far, fade_lo,
-                                         fade_hi);
+        const double l0 = edge_law_level(e0, d0, tess_max, seg_near, seg_d0, seg_far, seg_exp,
+                                         fade_lo, fade_hi);
+        const double l1 = edge_law_level(e1, d1, tess_max, seg_near, seg_d0, seg_far, seg_exp,
+                                         fade_lo, fade_hi);
+        const double l2 = edge_law_level(e2, d2, tess_max, seg_near, seg_d0, seg_far, seg_exp,
+                                         fade_lo, fade_hi);
         inner_edge = std::max(std::max(l0, l1), l2);
       }
 
       accumulate_cls(cls_band[0][cls][band], inner_new, e0, e1, e2);
       accumulate_cls(cls_band[1][cls][band], inner_edge, e0, e1, e2);
+      // section G2: same EDGE-law cell, restricted to GROUND *with* a displacement source.
+      if (cls == 0 && mat && mat->has_height) {
+        accumulate_cls(gh_band[band], inner_edge, e0, e1, e2);
+      }
 
       if (mat && dmin < 15.0) {
         mat->patches++;
@@ -827,6 +914,9 @@ int main(int argc, char** argv) {
                    "TFragment draws one geom at a time)",
                    geom));
   line(fmt::format("tfrag tree census : {}", geom_census));
+  line(fmt::format("geometry prep     : {}", prep_note));
+  line(fmt::format("subdivision       : {}", subdiv_m > 0.0 ? "ON" : "OFF"));
+  line(subdiv_note);
   line(fmt::format("camera (game u)   : {:.1f} {:.1f} {:.1f}", cam.x, cam.y, cam.z));
   line(fmt::format("camera (metres)   : {:.3f} {:.3f} {:.3f}", cam.x / kUnitsPerM,
                    cam.y / kUnitsPerM, cam.z / kUnitsPerM));
@@ -851,13 +941,14 @@ int main(int argc, char** argv) {
                    "max(d_i,0.5), 1, {:.0f}); inner = max(outer).",
                    tess_max));
   line(fmt::format("seg law params    : EDGE law (section F/G/H): if dmin > 30 -> all levels 1; "
-                   "else seg_target(d) = clamp(seg_near*max(d,seg_d0)/seg_d0, seg_near, seg_far), "
+                   "else seg_target(d) = clamp(seg_near*pow(max(d,seg_d0)/seg_d0, seg_exp), "
+                   "seg_near, seg_far), "
                    "lvl_i = edge_i_m / seg_target(d_i), lvl_i = mix(1, lvl_i, 1 - "
                    "smoothstep({:.1f}, {:.1f}, d_i)) [AMPLITUDE-MATCHED DENSITY FADE, the tese "
                    "fades displacement amplitude to 0 over the same band], outer_i = clamp(lvl_i, "
                    "1, {:.0f}); inner = max(outer). seg_near={:.3f}m seg_d0={:.3f}m "
-                   "seg_far={:.3f}m fade={:.1f}..{:.1f}m; feature ref = {:.2f} cm",
-                   fade_lo, fade_hi, tess_max, seg_near, seg_d0, seg_far, fade_lo, fade_hi,
+                   "seg_far={:.3f}m seg_exp={:.3f} fade={:.1f}..{:.1f}m; feature ref = {:.2f} cm",
+                   fade_lo, fade_hi, tess_max, seg_near, seg_d0, seg_far, seg_exp, fade_lo, fade_hi,
                    feature_cm));
   line(fmt::format("ground threshold  : GROUND when |face normal.y| >= {:.4f} (game Y is up), else "
                    "WALL; degenerate faces (|cross| < 1e-12) counted and classed WALL",
@@ -952,18 +1043,19 @@ int main(int argc, char** argv) {
   line(fmt::format("   patches: GROUND={} WALL={} degenerate={}", class_patches[0], class_patches[1],
                    degenerate_patches));
   line(fmt::format("   EDGE law params: seg_near={:.3f}m seg_d0={:.3f}m seg_far={:.3f}m "
-                   "tess_max={:.0f} fade=mix(1,lvl,1-smoothstep({:.1f},{:.1f},d_mid)) "
-                   "[amplitude-matched density fade]",
-                   seg_near, seg_d0, seg_far, tess_max, fade_lo, fade_hi));
+                   "seg_exp={:.3f} tess_max={:.0f} fade=mix(1,lvl,1-smoothstep({:.1f},{:.1f},"
+                   "d_mid)) [amplitude-matched density fade]",
+                   seg_near, seg_d0, seg_far, seg_exp, tess_max, fade_lo, fade_hi));
   line(fmt::format("   v/feature = {:.2f} cm reference feature wavelength / mean segment size",
                    feature_cm));
 
-  auto cls_table = [&](int law, int cls) {
-    line(fmt::format("--- {} | {} ---", kLawNames[law], kClassNames[cls]));
+  // one per-band table over any ClassBand[kNumBands] population (used by F and by G2).
+  auto cls_table_of = [&](const std::string& title, const ClassBand* bands) {
+    line(title);
     line("  band(m)     patches       mean_inner   max_inner   est_gen_tris   mean_edge_m   "
          "p90_edge_m   mean_spacing_cm   p90_spacing_cm   v/feature   mean_mip_lod");
     for (int b = 0; b < kNumBands; ++b) {
-      const auto& x = cls_band[law][cls][b];
+      const auto& x = bands[b];
       const double n = (double)std::max<u64>(x.patches, 1);
       const double mean_sp_cm = x.patches ? (x.sum_spacing_m / n) * 100.0 : 0.0;
       line(fmt::format("  {:<10} {:>11}   {:>10.3f}   {:>9.3f}   {:>12}   {:>11.4f}   {:>10.4f}   "
@@ -977,16 +1069,17 @@ int main(int argc, char** argv) {
   };
   for (int law = 0; law < kNumLaws; ++law) {
     for (int cls = 0; cls < kNumClasses; ++cls) {
-      cls_table(law, cls);
+      cls_table_of(fmt::format("--- {} | {} ---", kLawNames[law], kClassNames[cls]),
+                   cls_band[law][cls]);
       line("");
     }
   }
 
   // ---- G) ground near-field (<10 m) head-to-head ----
-  auto merge_cls = [&](int law, int cls, int b0, int b1) {
+  auto merge_bands = [&](const ClassBand* bands, int b0, int b1) {
     ClassBand o;
     for (int b = b0; b < b1; ++b) {
-      const auto& x = cls_band[law][cls][b];
+      const auto& x = bands[b];
       o.patches += x.patches;
       o.sum_inner += x.sum_inner;
       o.max_inner = std::max(o.max_inner, x.max_inner);
@@ -997,6 +1090,9 @@ int main(int argc, char** argv) {
       o.spacing_m.insert(o.spacing_m.end(), x.spacing_m.begin(), x.spacing_m.end());
     }
     return o;
+  };
+  auto merge_cls = [&](int law, int cls, int b0, int b1) {
+    return merge_bands(cls_band[law][cls], b0, b1);
   };
   const ClassBand g_ship = merge_cls(0, 0, 0, 2);  // GROUND, bands [0,5)+[5,10) = < 10 m
   const ClassBand g_edge = merge_cls(1, 0, 0, 2);
@@ -1029,6 +1125,32 @@ int main(int argc, char** argv) {
                    w_edge.gen_tris));
   line(fmt::format("  TOTAL gen_tris (all bands): SHIPPED={} EDGE={} ratio EDGE/SHIPPED={:.3f}",
                    tot_ship, tot_edge, ratio(tot_edge, tot_ship)));
+
+  // ---- G2) the ONLY population where tessellation density can become relief ----
+  // A GROUND patch whose material ships no *_height.png has no displacement source: no tess level
+  // can put relief on it, so mixing it into the G numbers dilutes v/feature into meaninglessness.
+  // Same EDGE law, same columns as F, restricted to GROUND && material has_height.
+  line("");
+  line("G2. GROUND *WITH A DISPLACEMENT SOURCE* — the only surface where density can become relief");
+  line(fmt::format("   population: GROUND (|face normal.y| >= {:.3f}) AND the draw's material ships "
+                   "a *_height.png; EDGE law only",
+                   ground_cos));
+  cls_table_of(fmt::format("--- {} | GROUND with height map ---", kLawNames[1]), gh_band);
+  {
+    const ClassBand gh_near = merge_bands(gh_band, 0, 2);  // [0,5) + [5,10) = < 10 m
+    const ClassBand& gh_b0 = gh_band[0];                   // [0,5) alone
+    const double msp_near = mean_sp_cm_of(gh_near);
+    const double msp_b0 = mean_sp_cm_of(gh_b0);
+    line(near_line("EDGE   ", gh_near));
+    line(fmt::format("G2 NEAR (<10m) GROUND v/feature {:.2f} | patches={} mean_spacing_cm={:.3f} "
+                     "gen_tris={}",
+                     msp_near > 0.0 ? feature_cm / msp_near : 0.0, gh_near.patches, msp_near,
+                     gh_near.gen_tris));
+    line(fmt::format("G2 [0,5)m GROUND v/feature {:.2f} | patches={} mean_spacing_cm={:.3f} "
+                     "gen_tris={}",
+                     msp_b0 > 0.0 ? feature_cm / msp_b0 : 0.0, gh_b0.patches, msp_b0,
+                     gh_b0.gen_tris));
+  }
 
   // ---- H) near-field material census (which materials the relief law actually has to serve) ----
   line("");
