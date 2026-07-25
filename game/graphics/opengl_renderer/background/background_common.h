@@ -189,6 +189,11 @@ class PbrDrawBinder {
   // shader can subtract it (zero-mean relief => no brightness plate at material borders).
   GLint m_dc_loc = -2;
   float m_cur_dc[2] = {0.f, 0.f};
+  // u_pbr_height_stat = (height_mean, height_norm) of this draw's height map, pushed alongside the
+  // mode so the shader can recentre/rescale the height field per material (the shipped maps are
+  // neither mean-centred nor normalised). (0.5, 1.0) = identity.
+  GLint m_hstat_loc = -2;
+  float m_cur_hstat[2] = {0.5f, 1.0f};
   int m_cur_mode = 0;
   bool m_bound_any = false;
 };

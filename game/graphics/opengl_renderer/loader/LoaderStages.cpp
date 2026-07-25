@@ -195,8 +195,58 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao", bsrc));
       }
       if (h) {
-        maps.height_tex = make_map(
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height", bsrc));
+        const auto* hi =
+            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_height", bsrc);
+        if (hi && hi->rgba.size() >= 4) {
+          // HEIGHT-MAP STATISTICS (owner playtest #17 "glorified bump"). The shader's naive
+          // (h - 0.5) assumes every height map is mean-centred and spans the full 0..1 — the
+          // shipped maps are neither (leafyground 0.063..0.463 mean 0.322; wallplaster mean
+          // 0.807; strawroof 0.298..0.478). That both displaces whole materials net-inward /
+          // net-outward and uses only 18-75% of the nominal amplitude. Measure the mean and a
+          // robust (2nd..98th percentile, outlier-proof) half-range here, exactly as the shader
+          // decodes them (linear GL_RGBA, no sRGB, channel R), and push them as a uniform so the
+          // shader can recentre + rescale per material.
+          u64 hist[256] = {};
+          u64 sum = 0, npx = 0;
+          for (size_t i = 0; i + 3 < hi->rgba.size(); i += 4) {
+            u32 v = hi->rgba[i];
+            hist[v]++;
+            sum += v;
+            npx++;
+          }
+          if (npx) {
+            float mean = (float)(sum / (double)npx / 255.0);
+            // 2nd / 98th percentile from the histogram's cumulative counts.
+            u64 lo_target = (u64)(npx * 0.02);
+            u64 hi_target = (u64)(npx * 0.98);
+            u64 cum = 0;
+            int p2_b = 0, p98_b = 255;
+            bool got_p2 = false, got_p98 = false;
+            for (int b = 0; b < 256; b++) {
+              cum += hist[b];
+              if (!got_p2 && cum >= lo_target) {
+                p2_b = b;
+                got_p2 = true;
+              }
+              if (!got_p98 && cum >= hi_target) {
+                p98_b = b;
+                got_p98 = true;
+              }
+            }
+            float p2 = p2_b / 255.f;
+            float p98 = p98_b / 255.f;
+            float half = std::max(p98 - mean, mean - p2);
+            // A constant (or near-constant) map must not divide by ~0.
+            half = std::max(half, 2.f / 255.f);
+            maps.height_mean = mean;
+            maps.height_norm = std::clamp(0.5f / half, 0.5f, 16.0f);
+            lg::info(
+                "pbr height stat: {} src={} {}x{} mean={:.4f} p2={:.4f} p98={:.4f} half={:.4f} "
+                "norm={:.3f} (shader: (h-mean)*norm+0.5 => mean-centred, amplitude refilled)",
+                tex.debug_name, hi->src, hi->w, hi->h, mean, p2, p98, half, maps.height_norm);
+          }
+        }
+        maps.height_tex = make_map(hi);
       }
       if (s) {
         maps.specular_tex = make_map(

@@ -52,6 +52,11 @@ bool gl_context_supports_tessellation();
 // gate the tess draw path on this in addition to gl_context_supports_tessellation().
 bool gl_tfrag3_tess_program_ok();
 
+// The live driver's GL_MAX_TESS_GEN_LEVEL (the highest tessellation level a tesc may request).
+// Queried once on the GL thread and cached; falls back to the GL/GLES minimum-maximum of 64 on
+// drivers that do not answer. Callers must clamp any requested tess level to this.
+int gl_max_tess_gen_level();
+
 // note: update the constructor in Shader.cpp
 enum class ShaderId {
   SOLID_COLOR = 0,

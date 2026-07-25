@@ -102,6 +102,28 @@ bool gl_context_supports_tessellation() {
   return ok;
 }
 
+// The driver's tessellation-level ceiling. Latched once on the GL thread; the query itself must
+// not leave a GL error behind on drivers that do not implement the enum.
+int gl_max_tess_gen_level() {
+  static int cached = -1;
+  if (cached < 0) {
+    int mx = 0;
+#if defined(GL_MAX_TESS_GEN_LEVEL)
+    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &mx);
+#elif defined(GL_MAX_TESS_GEN_LEVEL_EXT)
+    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL_EXT, &mx);
+#endif
+    while (glGetError() != GL_NO_ERROR) {
+    }  // swallow the query error on drivers without it
+    if (mx < 1 || mx > 4096) {
+      mx = 64;  // GL/GLES minimum-maximum is 64
+    }
+    cached = mx;
+    lg::warn("[pbr-tess] GL_MAX_TESS_GEN_LEVEL = {}", cached);
+  }
+  return cached;
+}
+
 Shader::Shader(const std::string& shader_name, GameVersion version) : m_name(shader_name) {
 #ifdef __ANDROID__
   std::string vert_src;

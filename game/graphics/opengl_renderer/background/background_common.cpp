@@ -534,6 +534,11 @@ void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
   m_dc_loc = -2;
   m_cur_dc[0] = 0.f;
   m_cur_dc[1] = 0.f;
+  // (0.5, 1.0) is the IDENTITY height normalisation that first_tfrag_draw_setup pushes as this
+  // program's default, so this cached value matches the program state — not a stale guess.
+  m_hstat_loc = -2;
+  m_cur_hstat[0] = 0.5f;
+  m_cur_hstat[1] = 1.0f;
   m_cur_mode = 0;
   m_bound_any = false;
 }
@@ -609,6 +614,21 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     m_cur_dc[0] = dcx;
     m_cur_dc[1] = dcy;
   }
+  // Push this material's height-map statistics (mean, normalisation) alongside the mode. The
+  // identity (0.5, 1.0) when the draw has no height map, so a map-free draw can never inherit the
+  // previous material's normalisation.
+  const float hsm = (want & 16) ? maps->height_mean : 0.5f;
+  const float hsn = (want & 16) ? maps->height_norm : 1.0f;
+  if (hsm != m_cur_hstat[0] || hsn != m_cur_hstat[1]) {
+    if (m_hstat_loc == -2) {
+      m_hstat_loc = glGetUniformLocation(m_program, "u_pbr_height_stat");
+    }
+    if (m_hstat_loc >= 0) {
+      glUniform2f(m_hstat_loc, hsm, hsn);
+    }
+    m_cur_hstat[0] = hsm;
+    m_cur_hstat[1] = hsn;
+  }
 }
 
 void PbrDrawBinder::finish() {
@@ -631,6 +651,17 @@ void PbrDrawBinder::finish() {
     }
     m_cur_dc[0] = 0.f;
     m_cur_dc[1] = 0.f;
+  }
+  // Same for the height normalisation: back to the identity (0.5, 1.0) the program defaults to.
+  if (m_cur_hstat[0] != 0.5f || m_cur_hstat[1] != 1.0f) {
+    if (m_hstat_loc == -2) {
+      m_hstat_loc = glGetUniformLocation(m_program, "u_pbr_height_stat");
+    }
+    if (m_hstat_loc >= 0) {
+      glUniform2f(m_hstat_loc, 0.5f, 1.0f);
+    }
+    m_cur_hstat[0] = 0.5f;
+    m_cur_hstat[1] = 1.0f;
   }
   // Park units 11-15 on the neutral 1x1 defaults so no material map leaks into later
   // draws this frame; restores active unit 0.
@@ -1343,6 +1374,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // Grecharged-pbr-materials: frame-constant PBR uniforms; glGetUniformLocation returns -1
   // for programs without them (glUniform on -1 is a no-op), so this is safe for every ShaderId.
   glUniform1i(glGetUniformLocation(id, "u_pbr_mode"), 0);
+  // IDENTITY height normalisation (mean 0.5, norm 1.0) — the per-draw binder overrides it with the
+  // material's measured statistics and restores this default in finish().
+  glUniform2f(glGetUniformLocation(id, "u_pbr_height_stat"), 0.5f, 1.0f);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_N"), 11);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_R"), 12);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);
@@ -1450,6 +1484,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // REOPEN #3 DISPLACEMENT menu carousel (0 Off / 1 Parallax / 2 Tessellation). Menu value
   // from GOAL via pc-set-pbr-displacement!; debug prop overrides for headless A/B.
   int pbr_displacement = gs.recharged_pbr_displacement;
+  // NEAR-FIELD TESSELLATION CEILING (owner playtest #17 "glorified bump"): the shipped tesc capped
+  // near-field tessellation at level 12, which under-resolved the height field — the displacement
+  // had nowhere near enough vertices to become real depth. This is the ceiling of the new
+  // inverse-distance level law, clamped below to what the driver actually allows.
+  float pbr_tess_max = 32.0f;
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -1512,6 +1551,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.displacement", v) > 0) {
       pbr_displacement = atoi(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.tessmax", v) > 0) {
+      pbr_tess_max = atof(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -1562,12 +1604,17 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_PBR_DISPLACEMENT")) {
     pbr_displacement = atoi(e);
   }
+  if (const char* e = getenv("OG_PBR_TESSMAX")) {
+    pbr_tess_max = atof(e);
+  }
 #endif
   // REOPEN #2: clamp the sliders and fold TEXTURE RELIEF into the relief tunables.
   relief = std::max(0.0f, std::min(relief, 3.0f));
   spec_intensity = std::max(0.0f, std::min(spec_intensity, 3.0f));
   normal_strength *= relief;
   height_scale *= relief;
+  // The tess ceiling can never exceed what the driver reports as GL_MAX_TESS_GEN_LEVEL.
+  pbr_tess_max = std::clamp(pbr_tess_max, 1.0f, (float)gl_max_tess_gen_level());
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
   glUniform1i(glGetUniformLocation(id, "u_pbr_bisect"), pbr_bisect);
   pbr_displacement = std::max(0, std::min(pbr_displacement, 2));
@@ -1598,6 +1645,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     height_scale = 0.0f;
   }
   glUniform1i(glGetUniformLocation(id, "u_pbr_displacement"), pbr_displacement);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_tess_max"), pbr_tess_max);
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);

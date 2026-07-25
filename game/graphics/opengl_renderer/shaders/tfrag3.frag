@@ -83,6 +83,18 @@ uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, de
 // long comment at the sample site: a non-zero mean is a CONSTANT TILT of the whole material,
 // and that tilt is what turned into the owner's hard brightness plates.
 uniform vec2 u_pbr_normal_dc;
+// PBR POLISH (owner playtest #17: "ça fait toujours juste bump map glorifié"). This material's
+// HEIGHT-MAP statistics, measured over every texel of <tex>_height.png when it is decoded
+// (LoaderStages.cpp) and pushed per draw by PbrDrawBinder: .x = the map's MEAN, .y = 0.5 / its
+// robust (p2..p98) half-range. Every height consumer below reads the map through hnorm().
+// The shipped maps are neither mean-centred nor normalised — leafyground spans 0.063..0.463
+// (mean 0.322), wallplaster means 0.807, strawroof spans only 0.298..0.478 — so the naive
+// (h - 0.5) the code used before both OFFSET whole materials (leafyground displaced net-INWARD by
+// ~4.7 cm, wallplaster net-OUTWARD; a constant offset is not relief, and it steps against the
+// unmapped neighbour exactly like the normal-map DC did) and threw away most of the amplitude
+// (only 18-75% of the nominal range was ever reached). (0.5, 1.0) = identity, so a draw without a
+// height map is bit-for-bit unchanged.
+uniform vec2 u_pbr_height_stat;
 // REOPEN #3 TERM BISECTION (owner: the plastic sheen SURVIVES specular-intensity = 0, so
 // it is NOT in the slider-scaled specular sum — identify the culprit by zeroing ONE term
 // at a time on device). Prop debug.opengoal.pbr.bisect, default 0 = full path unchanged.
@@ -110,6 +122,15 @@ uniform vec2 u_pbr_normal_dc;
 // where it clips at UV-chart/triangle boundaries it can read a per-triangle offset that reads as a
 // facet at high relief. The owner's PARALLAX-ONLY vs NORMAL-MAP-ONLY flip names it; the debug prop/env
 // still override the mask for the supervisor's full-term headless A/B.
+// ---- PBR POLISH, OWNER PLAYTEST #17 (2026-07-25). Same convention: 0 == the NEW behaviour,
+// set the bit to get the previous build back, so every one of this round's fixes is a live A/B
+// at the owner's own vantage with one setprop and no rebuild.
+// 2097152 = height-field CAVITY / micro-AO off (the "flat in shadow" fix — the direction-
+//           INDEPENDENT relief term that replaces the ~1.0 ambient RATIO)
+// 4194304 = tess-eval displacement back to the ALIASED textureLod(...,0.0) height fetch
+//           (legacy) instead of the mip matched to the tessellated vertex spacing
+// 8388608 = direct N.L detail ratio back to its legacy wide [0.45, 1.9] clamp (the
+//           "très contrasté à la lumière" half of the rebalance)
 uniform int u_pbr_bisect;
 // REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
 // (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement
@@ -416,6 +437,23 @@ void frisvad_basis(vec3 n, out vec3 t, out vec3 b) {
 }
 
 #ifdef OG_PBR
+// PBR POLISH (owner playtest #17) — MATERIAL-SCALED HEIGHT. Recentre the height map on ITS OWN
+// mean and refill the 0..1 range, using the statistics measured per material at load time (see
+// u_pbr_height_stat). EVERY height consumer in the pipeline goes through this: the POM march, the
+// self-shadow, the cavity term and (with the same expression, same uniform) the tess-eval
+// displacement. Consequences, all of them the owner's report:
+//   - "material-scaled displacement amplitude": a map that only spans 0.30..0.48 (strawroof) no
+//     longer displaces at a fifth of the amplitude a map spanning 0.00..0.75 (stonewall) gets.
+//     Every material now reaches the full authored displacement, so one relief slider means the
+//     same physical depth everywhere.
+//   - the net inward/outward OFFSET disappears: a material whose mean is 0.32 was pushing its
+//     whole surface ~4.7 cm INTO the ground (and stepping against its unmapped neighbour at the
+//     material border — the same class of defect the normal-map DC removal already fixed).
+// Identity when the material has no measured statistics (0.5, 1.0) => unchanged.
+float hnorm(float h) {
+  return clamp((h - u_pbr_height_stat.x) * u_pbr_height_stat.y + 0.5, 0.0, 1.0);
+}
+
 // Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 2 "completely FLAT in
 // shadow"). The realtime AMBIENT IRRADIANCE for an arbitrary direction — the same selector the
 // fused branch already used for its ambient-specular source, lifted into a function so the
@@ -469,12 +507,58 @@ float pbr_micro_shadow(vec2 uv0, float h0, vec3 Ltuv, float hs_uv) {
   float occ = 0.0;
   for (int i = 1; i <= PBR_MS_STEPS; i++) {
     float t = float(i) / float(PBR_MS_STEPS);
-    float hs = textureLod(tex_PBR_H, uv0 + sd * t, 0.0).r;
+    float hs = hnorm(textureLod(tex_PBR_H, uv0 + sd * t, 0.0).r);
     // ray height above the shading point, rising to the top of the height range at t = 1
     float ray = h0 + t * (1.0 - h0);
     occ = max(occ, (hs - ray) * (1.0 - t));
   }
   return clamp(1.0 - occ * PBR_MS_K, PBR_MS_FLOOR, 1.0);
+}
+
+// ===================================================================================================
+// PBR POLISH — OWNER PLAYTEST #17: "à l'ombre c'est toujours plat" (still completely flat in shade).
+//
+// THE MATH ROOT CAUSE, found by reading the term that was supposed to do this job. Round #16 added
+// an ambient relief term expressed as the RATIO rt_amb_eval(Nm) / rt_amb_eval(N) — the irradiance
+// at the normal-mapped normal over the irradiance at the smooth one. That is only ever as strong
+// as the ambient's DIRECTIONAL VARIATION, and ours (the accepted baked-modulation composite, plus
+// a hemisphere/SH ambient that is deliberately soft) is very nearly direction-INVARIANT. Measured
+// shader-exact over all 7 shipped materials, that ratio has mean 0.960..0.996 — i.e. between 0.4%
+// and 4% away from exactly 1.0. You cannot extract relief from a function that does not vary with
+// the normal. In cast shadow every other normal-dependent term is already zero (sun_occ = 0 kills
+// both direct N.L cues, matte_gate kills the env specular on any rough dielectric), so a shadowed
+// fragment really was baked x constant x _ao. Flat, by arithmetic.
+//
+// THE FIX is the one modern games use, and it is the one thing that cannot fail this way: a term
+// with NO direction dependence at all. Read the relief straight out of the HEIGHT FIELD as a
+// CAVITY / micro-ambient-occlusion factor — a texel that sits BELOW its local neighbourhood is in
+// a crevice and receives less skylight; one that sits ABOVE is a ridge and receives more. That is
+// physically the ambient-occlusion of the micro-relief, it is defined at every fragment, and it is
+// exactly as strong at midnight in a cast shadow as it is in full sun.
+//
+// MEAN-PRESERVING BY CONSTRUCTION, not by tuning: the driving signal is a HIGH-PASS of the height
+// field (the texel minus its own local mean), so its mean over any surface patch is zero, hence
+// the multiplier's mean is 1.0 and the accepted overall brightness cannot drift. A material with
+// no height map gets no cavity at all and stays bit-for-bit as it was.
+//
+// BAND-LIMITED BY CONSTRUCTION: the fine tap is taken at the mip the hardware would fit for this
+// fragment's own UV footprint (never a lod-0 fetch of a ~1 mm texel from 20 m away, which is the
+// aliasing that produced earlier rounds' shimmer), and the blur tap is PBR_CAV_SPAN mips coarser.
+// Far away the two taps converge and the term fades to exactly 1.0 — correct, because relief finer
+// than a pixel has no business modulating that pixel.
+// ===================================================================================================
+#define PBR_CAV_SPAN 3.0   // mips between the fine and the local-mean tap (a ~8x8 texel neighbourhood)
+#define PBR_CAV_GAIN 1.6   // normalised-height high-pass -> darkness/brightness gain
+#define PBR_CAV_MIN 0.55   // a crevice is dark, never black: skylight still reaches into it
+#define PBR_CAV_MAX 1.45
+float pbr_cavity(vec2 uv0) {
+  vec2 ts = vec2(textureSize(tex_PBR_H, 0));
+  vec2 dx = dFdx(uv0) * ts;
+  vec2 dy = dFdy(uv0) * ts;
+  float lod = clamp(0.5 * log2(max(max(dot(dx, dx), dot(dy, dy)), 1e-12)), 0.0, 11.0);
+  float hf = hnorm(textureLod(tex_PBR_H, uv0, lod).r);
+  float hb = hnorm(textureLod(tex_PBR_H, uv0, min(lod + PBR_CAV_SPAN, 12.0)).r);
+  return clamp(1.0 + PBR_CAV_GAIN * (hf - hb), PBR_CAV_MIN, PBR_CAV_MAX);
 }
 #endif
 
@@ -743,7 +827,7 @@ void main() {
           vec2 duv_step = P / n_layers;
           float layer_d = 1.0 / n_layers;
           float cur_d = 0.0;
-          float map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+          float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
           float prev_map_d = map_d;
           for (int i = 0; i < 32; i++) {
             if (cur_d >= map_d || float(i) >= n_layers) {
@@ -751,7 +835,7 @@ void main() {
             }
             uv -= duv_step;
             prev_map_d = map_d;
-            map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+            map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
             cur_d += layer_d;
           }
           float after = map_d - cur_d;
@@ -771,7 +855,11 @@ void main() {
         float fh_ms_uv = 0.0;
         if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && (u_pbr_bisect & 524288) == 0 &&
             length(v_fringe_rel) < 35.0) {
-          fh0 = textureLod(tex_PBR_H, uv, 0.0).r;
+          // PBR POLISH #17: normalised, so the shadow ray and the occluder heights it compares
+          // against live in the SAME material-scaled space the march assumes. On the shipped maps
+          // this alone strengthens the contact shadow a lot: a map that only spanned 0.18 of the
+          // range could never raise an occluder far enough above the ray to darken anything.
+          fh0 = hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
           fh_ms_uv = u_pbr_height_scale * u_pbr_uv_tile;
         }
         // Normal map (bit 1) perturbs the SMOOTH normal => surface detail that shades
@@ -976,8 +1064,25 @@ void main() {
         float fndl_g = ((u_pbr_bisect & 16384) != 0)
                            ? dot(Nm, Mn)
                            : (dot(N, Mn) + fg.x * dot(fTn, Mn) + fg.y * dot(fBn, Mn));
-        float fdt_y = clamp((max(fndl_y, 0.0) + 0.30) / (max(dot(N, L), 0.0) + 0.30), 0.45, 1.9);
-        float fdt_g = clamp((max(fndl_g, 0.0) + 0.30) / (max(dot(N, Mn), 0.0) + 0.30), 0.45, 1.9);
+        // PBR POLISH — OWNER PLAYTEST #17 REBALANCE: "TRÈS CONTRASTÉ À LA LUMIÈRE (mais quand même
+        // plat), TRÈS PLAT À L'OMBRE." Both halves of that sentence are one imbalance. The DIRECT
+        // N.L detail ratio was allowed a [0.45, 1.9] swing — a factor of 4.2 between the darkest
+        // and brightest texel of the SAME material under the SAME sun — while every actual DEPTH
+        // cue was ~0 (cavity did not exist, the ambient ratio measured 0.960..0.996, the
+        // self-shadow reached >5% on only 0-17% of texels). High-contrast N.L noise is not depth:
+        // it is the same flat surface lit harder. So the direct term gives budget back — a [0.60,
+        // 1.55] swing with a larger softening constant — and the budget goes into the cues that
+        // actually read as geometry (the cavity below, the now material-scaled self-shadow, and
+        // the band-limited real displacement in the tess stage). fg == 0 on map-free pixels still
+        // makes this EXACTLY 1.0, so the accepted pbr-OFF look is untouched either way.
+        // Bisect 8388608 = the legacy wide clamp back, for the live A/B.
+        float fdt_lo = ((u_pbr_bisect & 8388608) != 0) ? 0.45 : 0.60;
+        float fdt_hi = ((u_pbr_bisect & 8388608) != 0) ? 1.9 : 1.55;
+        float fdt_soft = ((u_pbr_bisect & 8388608) != 0) ? 0.30 : 0.38;
+        float fdt_y =
+            clamp((max(fndl_y, 0.0) + fdt_soft) / (max(dot(N, L), 0.0) + fdt_soft), fdt_lo, fdt_hi);
+        float fdt_g = clamp((max(fndl_g, 0.0) + fdt_soft) / (max(dot(N, Mn), 0.0) + fdt_soft),
+                            fdt_lo, fdt_hi);
         // ===================================================================================
         // PBR POLISH — OWNER PLAYTEST #16 DEFECT 2: "completement PLAT dans l'ombre / la ou le
         // soleil ne tape pas". Traced to the exact line: in cast shadow sun_occ = moon_occ = 0, so
@@ -1005,12 +1110,37 @@ void main() {
           float famb_lb = dot(rt_amb_eval(Nm), FUS_LUMA);
           fdt_amb = clamp((max(famb_lb, 0.0) + 0.02) / (max(famb_ls, 0.0) + 0.02), 0.45, 1.9);
         }
+        // ===================================================================================
+        // PBR POLISH — OWNER PLAYTEST #17, THE "FLAT IN SHADOW" FIX. The ratio above is the term
+        // that was SUPPOSED to do this and provably cannot (see pbr_cavity()'s header: our ambient
+        // is near direction-invariant, so the ratio measures 0.960..0.996 across every shipped
+        // material). This is the direction-INDEPENDENT replacement: a cavity / micro-AO read
+        // straight out of the height field, which has exactly the same strength in a cast shadow,
+        // in the dark, and at noon.
+        // WEIGHTING: full strength on the AMBIENT share (1 - fdirw) — that share IS the whole of a
+        // shadowed fragment, which is where the owner sees the flatness — and PBR_CAV_DIR of it in
+        // direct sun, because a crevice occludes bounce light there too but the sun's own N.L and
+        // self-shadow already carry the relief. So the sunlit look barely moves while the shaded
+        // look gains the depth it never had.
+        // The _ao MAP, when a material ships one, is the same physical quantity at a coarser scale
+        // and already rides this same ambient share through fao_mul below; the cavity is the
+        // per-texel detail term that every shipped material can produce from its height map (none
+        // of the 7 bundled materials ships an _ao map, which is precisely why an _ao-only ambient
+        // occlusion left them flat).
+        // Bisect bit 2097152 = cavity off (the live A/B for exactly this fix).
+        // ===================================================================================
+        float fcav = 1.0;
+        if ((u_pbr_mode & 16) != 0 && (u_pbr_bisect & 2097152) == 0) {
+          fcav = pbr_cavity(uv);
+        }
+        const float PBR_CAV_DIR = 0.35;  // how much of the cavity survives in full direct sun
+        float fcav_mul = mix(1.0, fcav, mix(PBR_CAV_DIR, 1.0, 1.0 - fdirw));
         // fms_* (height-field self-shadow) rides on each sun's share: a crevice the relief itself
         // occludes cannot receive that sun. It is deliberately NOT applied to the ambient share —
-        // skylight reaches into a crevice from every direction, and _ao is already that term.
+        // skylight reaches into a crevice from every direction, and the cavity above is that term.
         float fdetail = mix(1.0, fdt_y * fms_y, fw_y * sun_occ) *
                         mix(1.0, fdt_g * fms_g, clamp(fw_g, 0.0, 1.0) * moon_occ) *
-                        mix(1.0, fdt_amb, 1.0 - fdirw);
+                        mix(1.0, fdt_amb, 1.0 - fdirw) * fcav_mul;
         if ((u_pbr_bisect & 256) != 0) fdetail = 1.0;  // bisect: detail-relight ratio off
         // _ao = material micro-occlusion: full strength on the ambient/shadowed share,
         // relaxed where the direct sun dominates (AO never occludes the suns).
@@ -1155,6 +1285,12 @@ void main() {
           // PBR POLISH viz: INDIRECT (ambient) RELIEF ratio (owner defect 2), remapped around
           // 0.5 = 1.0. A flat grey screen in shadow means the shadowed surface is FLAT.
           color.rgb = vec3(clamp(fdt_amb * 0.5, 0.0, 1.0));
+        } else if (u_pbr_debug == 23) {
+          // PBR POLISH #17 viz: the HEIGHT-FIELD CAVITY / micro-AO (the flat-in-shadow fix),
+          // remapped so 0.5 = 1.0 (no change), darker = crevice, brighter = ridge. Unlike viz 22
+          // this one must show STRUCTURE even on a fragment in full cast shadow — a flat grey
+          // screen there is the defect, and this is the term that fixes it.
+          color.rgb = vec3(clamp(fcav * 0.5, 0.0, 1.0));
         }
       } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator

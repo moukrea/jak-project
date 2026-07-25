@@ -65,6 +65,16 @@ struct PbrMaterialMaps {
   // tfrag3.frag u_pbr_normal_dc — a non-zero DC was the owner's hard brightness-plate defect).
   float normal_dc_x = 0.f;
   float normal_dc_y = 0.f;
+  // HEIGHT-MAP STATISTICS of <tex>_height.png's red channel, measured over every texel when the
+  // map is decoded. The shipped height maps are NEITHER normalised NOR mean-centred: measured on
+  // the 7 bundled maps, vil1-jng-leafyground spans 0.0627..0.4627 (mean 0.3225), vil-wallplaster
+  // means 0.8068, vil1-sages-strawroof-01 spans only 0.298..0.478. So the naive (h - 0.5) both
+  // OFFSETS the whole material (net-inward for a dark map, net-outward for a bright one) and
+  // wastes most of the nominal amplitude (only 18-75% of it is ever used). These two numbers let
+  // the shader recentre and rescale per material: (h - height_mean) * height_norm + 0.5 refills
+  // 0..1 around the material's own mid. The defaults (0.5, 1.0) are the IDENTITY transform.
+  float height_mean = 0.5f;  // mean of <tex>_height.png's red channel, 0..1
+  float height_norm = 1.0f;  // 0.5 / robust half-range; (h-mean)*norm+0.5 refills 0..1
 };
 
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by
