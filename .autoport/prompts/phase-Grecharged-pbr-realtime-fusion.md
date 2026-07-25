@@ -906,3 +906,20 @@ FIX: diagnose which, then:
   cause is identified objectively, and report the numbers.
 ACCEPTANCE: no visible seam lines on grass/sand at relief 0 AND at relief 3, no tessellation slits.
 The supervisor can A/B live on the owner's Honor (screencap + props) — use that.
+
+---
+## MESH-CONSOLIDATION VALIDATED BY THE OWNER (2026-07-25): "call me impressed, c'est validé... plus aucune
+erreur vraiment remarquable, c'est nickel". Residuals he still notices (LOW priority, fold in opportunistically
+while doing the PBR work, do NOT regress the mesh result): a few remaining NORMAL issues and small COUTURES.
+THIS PHASE NOW = THE PBR RENDERING POLISH. The owner's recorded defects (from playtest #16):
+1. **Displacement in the WRONG DIRECTION** in places on the SAME texture (sign/handedness of the height or
+   the tangent frame flipping per patch) — find and fix the sign consistency.
+2. **Completely FLAT in shadow / where the sun does not hit** — the relief must remain readable in shade:
+   the ambient/indirect term must also be modulated by the normal-mapped surface (currently only the direct
+   sun lights the relief, so shadowed areas lose all depth). Industry: ambient occlusion + normal-influenced
+   ambient (SH/irradiance dotted with the perturbed normal), not a flat ambient constant.
+3. **Displacement reads FLAT despite tessellation/parallax — "un bump map glorifié avec un peu de normales"**:
+   needs real perceived depth — correct displacement amplitude/scale on the tessellated geometry, self-
+   shadowing of the relief (parallax self-occlusion / micro-shadowing from the height map), and silhouette
+   effect where tessellation is on. The goal is "comme les jeux modernes", not a shaded bump.
+Keep the validated mesh consolidation intact (it is the foundation everything now rests on).
