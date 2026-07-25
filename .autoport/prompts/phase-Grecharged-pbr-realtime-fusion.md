@@ -1056,3 +1056,29 @@ c. **Re-verify with the checkerboard**: with maps bound, the checkerboard height
    map. Report the binding counts (maps bound > 0!) and the checkerboard delta.
 d. This invalidates most previous PBR "look" iterations: the owner has been judging a PBR path running with
    NO material maps. Re-run the visual checks after the fix.
+
+---
+## ⚠️ SUPERVISOR RETRACTION (2026-07-25) — THE PREVIOUS "no PBR maps are bound / name mismatch" FINDING IS **WRONG**. IGNORE IT ENTIRELY.
+The owner corrected me and he is right. I had sampled the binding log lines for `bch-*` textures = the BEACH
+level (streamed alongside village1), which legitimately has no recharged textures. On VILLAGE1 the 7
+recharged textures ARE fully bound, verified on device:
+    vil1-sages-stonewall-01  base=user    N=user    R=user    M=user AO=user H=user
+    vil1-jng-leafyground     base=bundled N=bundled R=bundled H=bundled
+    vil-beach-01 / vil-wallplaster / vil1-sages-strawroof-01 / vil-hut-roof-tile-01 / vil-beachrock
+                             base=bundled N=bundled R=bundled H=bundled
+=> **DO NOT** change the texture-name matching. **DO NOT** relax the same-source pairing rule. Both work.
+The map binding is CORRECT; the previous mandate section (name mismatch / 668 maps=NONE) is retracted.
+
+### WHAT REMAINS TRUE AND ACTIONABLE (the owner's actual report + the checkerboard method)
+The owner's judgement stands: on the 7 PBR surfaces the result is still "plat et contrasté", the geometry
+"fait des vagues mais ne suit pas" the height map, and the displacement does not follow the supplied _height.
+KEEP the CHECKERBOARD DEBUG METHOD (the owner's idea, it is the right tool):
+ 1. Ship a synthetic debug material set (checkerboard base + matching checkerboard HEIGHT + a normal map
+    derived from it + checkerboard roughness) that can be enabled on the PBR surfaces via a debug prop or a
+    menu row (e.g. debug.opengoal.pbr.testpattern=1) — no need to hand-push files.
+ 2. With it, verify OBJECTIVELY on device: (a) does the tessellated geometry form VISIBLE RAISED BLOCKS that
+    follow the checker height (silhouette + shading), (b) is the normal map interpreted with the right
+    orientation/handedness (lighting flips correctly across a known slope), (c) does the parallax offset
+    track the checker edges rather than sliding.
+ 3. Report the checker verdict per mode (tessellation / parallax / off) with a capture and a number.
+This is the fastest path to a definitive answer on "does the displacement actually follow the height map".
