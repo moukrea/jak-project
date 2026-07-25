@@ -1082,3 +1082,31 @@ KEEP the CHECKERBOARD DEBUG METHOD (the owner's idea, it is the right tool):
     track the checker edges rather than sliding.
  3. Report the checker verdict per mode (tessellation / parallax / off) with a capture and a number.
 This is the fastest path to a definitive answer on "does the displacement actually follow the height map".
+
+---
+## ★ SUPERVISOR CHECKERBOARD TEST ON ALL 7 PBR TEXTURES (2026-07-25, the owner's method) — THE DISPLACEMENT WORKS, THE **SCALE** IS WRONG.
+I generated a synthetic debug material (checkerboard base + matching checkerboard HEIGHT + normal derived
+from it + inverted-checker roughness + UV orientation markers) and pushed it onto ALL SEVEN recharged
+textures (binding confirmed: base=user N=user R=user H=user). Captures archived in device/dbg7/.
+MEASURED (village1, noon, relief 2.5, Adreno 618):
+    GROUND  tessellation vs displacement-OFF : delta 16.55/255, 35.0% of pixels  (parallax: 4.38, 15.0%)
+    WALL    tessellation vs displacement-OFF : delta 10.99/255, 33.4%
+=> The tessellated geometry DOES follow the height map (the checker squares visibly emboss). Mechanically the
+displacement pipeline is FUNCTIONAL.
+**THE REAL DEFECT, made obvious by the checker: THE UV TILING / HEIGHT SCALE RATIO IS WAY OFF.** My 8x8
+checker renders as DOZENS of tiny squares across the hut wall => the material is tiled so densely that each
+height feature is a few MILLIMETRES on screen. At that scale the displacement can only read as CONTRAST, never
+as depth — exactly the owner's "plat et contrasté / bump map glorifié". The geometry follows the height, but
+the height features are far too small relative to the surface.
+### MANDATE
+1. **Audit the UV tiling per material** (u_pbr_uv_tile and the level's own UV scale): report, for each of the
+   7 textures, the WORLD SIZE of one texture tile (cm) and therefore the world size of one height feature.
+   A stone wall tile should be ~0.5-2 m, not ~5 cm.
+2. **Scale the displacement amplitude to the FEATURE size, not a constant**: height_scale must be derived
+   from the tile's world size (e.g. depth ≈ 3-8% of the tile's world extent) so the relief is proportionate
+   and readable. A fixed 0.05*relief cannot be right across materials with wildly different tiling.
+3. **Expose the debug material IN-BUILD** (the owner's request): debug.opengoal.pbr.testpattern=1 (or a menu
+   row) that substitutes a generated checkerboard base+height+normal+roughness on every PBR material, so this
+   verification is one prop away instead of hand-pushed files. Include the UV orientation markers.
+4. Re-run the checker test after the tiling/scale fix: the checker squares must read as LARGE, clearly raised
+   blocks with real shadowing — and then the real materials should finally show depth instead of contrast.
