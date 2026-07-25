@@ -994,3 +994,33 @@ world-space edge-length target).
 ACCEPTANCE: on the GROUND, the relief reads as actual raised/carved detail (no horizontal smearing at grazing
 angles), with measured cm/segment and v/feature on ground materials; tessellation and parallax each behave
 correctly in their regime. Owner's eye at his grass/sand vantages. Rendering/look polish comes AFTER.
+
+---
+## SUPERVISOR DEVICE MEASUREMENT (2026-07-25) — TESSELLATION IS ~INVISIBLE ON THE GROUND. Hardware ceiling. Fix = OFFLINE PRE-SUBDIVISION.
+Measured by the supervisor on the Redmi at the owner's vantage (village1, noon, relief 2.0), ground band:
+    tessellation vs displacement-OFF : mean delta 0.77/255, only 4.6% of pixels change
+    parallax     vs displacement-OFF : mean delta 2.27/255, 14.5% of pixels change
+=> On the GROUND the tessellation displacement does 3x LESS than parallax — it is effectively invisible,
+matching the worker's own report (ground v/feature 0.65 < 1, "the ceiling still clips the longest-edge
+ground patches"). ROOT: GL_MAX_TESS_GEN_LEVEL (typically 64) CANNOT subdivide a 10-30 m ground triangle down
+to cm-scale segments — a 20 m edge at level 64 is still ~31 cm/segment while the height features are ~cm.
+No shader-side tuning can beat that ceiling.
+
+### MANDATE — PRE-SUBDIVIDE THE LARGE GROUND TRIANGLES OFFLINE (industry standard: mesh prep + tessellation)
+1. In the existing MESH CONSOLIDATION BAKE (the `<level>.meshweld` sidecar pipeline, already validated by the
+   owner), add a SUBDIVISION pass: any renderable triangle whose longest edge exceeds a threshold (start
+   ~2 m, tune) is recursively split (1-to-4 midpoint subdivision) until under the threshold. Interpolate ALL
+   vertex attributes (position, normal — from the consolidated smooth normals —, UV, baked colour, tangent)
+   so the result is visually IDENTICAL before displacement and keeps the welded topology (new midpoint verts
+   are SHARED between the two triangles that own the edge => no new seams/cracks, the owner's validated
+   mesh result must not regress).
+2. Bound the cost: only subdivide surfaces that can receive displacement (ground/walls with a height map or
+   PBR-capable materials), report the added vertex/triangle counts per level and the memory delta; keep it in
+   the precomputed sidecar so there is ZERO per-load cost.
+3. THEN the hardware tessellation finishes the job on already-small triangles => real cm-scale displacement
+   on the ground. Re-measure: ground cm/segment, ground v/feature (target >= 2 = Nyquist), and the
+   tessellation-vs-OFF pixel delta on the ground band (target: clearly above the current 0.77/4.6%).
+4. Watch fps on the Adreno 618 (already ~7 fps in that scene, pre-existing) and keep a distance/LOD budget;
+   the Honor (Adreno 840) is the quality target, the Redmi the floor.
+ACCEPTANCE: measurable, visible ground displacement (delta well above parallax's 2.27, v/feature >= 2), no
+new seams/cracks (mesh consolidation intact), fps budget documented.

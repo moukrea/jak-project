@@ -145,4 +145,9 @@ grep -qiE 'rebalanc.*(contrast|direct).*(cavity|depth|self.?shadow)|less.*(N.?L|
 grep -qiE 'grazing.*(fade|weight|smoothstep).*(parallax|offset)|parallax.*fade.*(grazing|N.?V|Vt\.z)' "$R" || fail "no grazing-fade of parallax (offset becomes a horizontal UV slide on floors = owner's flat smear)"
 grep -qiE 'world.?space edge|edge length.*(tess|factor)|cm/segment|segment size' "$R" || fail "no world-space-edge-length tess factor (huge ground triangles need far higher factors than distance-only)"
 grep -qiE 'ground.*(v/feature|vertices per|cm/segment|segment)|per feature.*ground' "$R" || fail "no GROUND-specific density measurement (previous v/feature was likely a wall material)"
+# SUPERVISOR MEASUREMENT: tess ~invisible on ground (0.77/4.6%) => offline pre-subdivision required.
+grep -qiE 'pre.?subdiv|subdivision pass|split.*triangle.*(edge|2 ?m|threshold)|1.?to.?4|midpoint subdiv' "$R" || fail "no offline pre-subdivision of large ground triangles (hardware tess ceiling cannot reach cm scale on 10-30m triangles)"
+grep -qiE 'v/feature.*(>=|≥) ?2|nyquist.*(reach|met|>=2)|ground v/feature [2-9]' "$R" || fail "no ground v/feature >= 2 (Nyquist) evidence"
+grep -qiE 'tess.*vs.*(off|parallax).*(delta|pixel).*(ground|sol)|ground band delta' "$R" || fail "no ground-band tessellation-vs-OFF delta measurement (baseline: 0.77 mean / 4.6% pixels)"
+grep -qiE 'no new (seam|crack)|mesh consolidation.*(intact|preserved)|welded.*(shared|midpoint)' "$R" || fail "no mesh-consolidation-intact proof (subdivision must share midpoints)"
 echo "[Gpbrf PASS]"
