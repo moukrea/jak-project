@@ -512,6 +512,21 @@ static std::atomic<u64> g_tanframe_handed{0};       // pairs whose tangent HANDE
 static std::atomic<u64> g_tanframe_groups{0};       // multitree groups actually analysed (>=2 valid frames)
 static std::atomic<u64> g_tanframe_incoherent{0};   // analysed groups whose max |ang| exceeds 30 deg
 
+// PBR POLISH (owner playtest #16, defect 1: "displacement in the WRONG DIRECTION in places on the SAME
+// texture") — MEASUREMENT ONLY. How far is the OLD world-derived normal-map frame (the shader's
+// stable_frame(), built from the smooth NORMAL alone, UVs ignored) rotated away from the AUTHORED UV
+// tangent frame at each vertex? Past 90 deg the relief is lit from the opposite side => bumps read as
+// pits. Only verts carrying a REAL UV-derived tangent are measurable (backfilled ones have no UV ref).
+static std::atomic<u64> g_wframe_verts{0};           // vertices with a REAL uv-derived tangent, measured
+static std::atomic<u64> g_wframe_h0{0};              // |rot| in [0,5)
+static std::atomic<u64> g_wframe_h1{0};              // |rot| in [5,15)
+static std::atomic<u64> g_wframe_h2{0};              // |rot| in [15,45)
+static std::atomic<u64> g_wframe_h3{0};              // |rot| in [45,90)
+static std::atomic<u64> g_wframe_h4{0};              // |rot| in [90,135)
+static std::atomic<u64> g_wframe_h5{0};              // |rot| in [135,180]
+static std::atomic<u64> g_wframe_over90{0};          // |rot| > 90 == inverted relief
+static std::atomic<u64> g_wframe_rot_sum_milli{0};   // sum of |rot| in milli-degrees (for the mean)
+
 // ============================================================================================
 // STEP A (owner STRICT ORDER, 2026-07-24) — TRUE TOPOLOGICAL FUSE (genuine index-buffer merge).
 //
@@ -1162,6 +1177,26 @@ void write_tan_diag_file() {
             "different world normals on the two sides of a welded seam => opposite shading => the owner's "
             "hard plates, scaling with relief (relief=0 hides it, relief=2.5 exposes it). MEASUREMENT "
             "ONLY: this pass writes no mesh data.\n";
+    }
+    os << "[world_frame_rot] PBR POLISH (owner playtest #16 defect 1) — how far the OLD world-derived "
+          "normal-map frame (stable_frame) is rotated from the AUTHORED UV tangent frame:\n";
+    {
+      const u64 v = g_wframe_verts.load();
+      const u64 inv = g_wframe_over90.load();
+      const double mean = v ? (double)g_wframe_rot_sum_milli.load() / 1000.0 / (double)v : 0.0;
+      const double ipct = v ? 100.0 * (double)inv / (double)v : 0.0;
+      os << "world_frame_measured_verts=" << v << " (verts carrying a real UV-derived tangent)\n";
+      os << "world_frame_rot_hist_0_5=" << g_wframe_h0.load() << " 5_15=" << g_wframe_h1.load()
+         << " 15_45=" << g_wframe_h2.load() << " 45_90=" << g_wframe_h3.load()
+         << " 90_135=" << g_wframe_h4.load() << " 135_180=" << g_wframe_h5.load()
+         << " (|rotation around N| in degrees)\n";
+      os << "world_frame_rot_mean_deg=" << mean << "\n";
+      os << "world_frame_inverted_verts=" << inv << " (" << ipct
+         << "% rotated MORE THAN 90 deg == the normal map's relief is lit from the opposite side, so bumps "
+            "read as pits: the owner's 'displacement in the wrong direction on the SAME texture')\n";
+      os << "note: MEASUREMENT ONLY. The fused shader now decodes the normal map in the per-vertex UV frame "
+            "(rotation 0 by construction); stable_frame survives as the no-tangent fallback and as bisect "
+            "bit 32768. This number is what that bit restores.\n";
     }
     file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", os.str());
   } catch (...) {
@@ -1985,6 +2020,10 @@ static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts
 
   u32 valid = 0, dbg_no_norm = 0, dbg_no_tan = 0, dbg_gs_kill = 0;
   u32 g_verts = 0, g_backfill = 0;  // REOPEN#9 ground (N.y>0.7) fallback-coverage proof
+  // PBR POLISH (owner playtest #16, defect 1) world-frame-vs-UV-frame rotation, accumulated in locals
+  // (no atomics inside the hot loop) and folded into the global counters once, below.
+  u64 wf_verts = 0, wf_over90 = 0, wf_rot_sum_milli = 0;
+  u64 wf_hist[6] = {0, 0, 0, 0, 0, 0};
   for (size_t i = 0; i < n; i++) {
     math::Vector3f N = unpack_gl_normal_2_10_10_10(verts[i].nor);
     float Nl = N.length();
@@ -2033,6 +2072,49 @@ static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts
     float handed = (N.cross(T).dot(bit_acc[i]) < 0.f) ? -1.f : 1.f;
     out_tangents[i] = math::Vector4f(T.x(), T.y(), T.z(), handed);
     valid++;
+    // ---- PBR POLISH (owner playtest #16, defect 1) — MEASUREMENT ONLY, writes no mesh data --------
+    // T is the AUTHORED UV tangent, already Gram-Schmidt'd against N and normalized (tl = the pre-
+    // normalize length, so tl is the "|t - n*dot(n,t)|" guard). Compare it against the frame the OLD
+    // shader path builds from the normal alone (stable_frame()): the angle between the two, measured in
+    // the plane of N, is how far the normal map's relief is rotated from what the artist authored. Past
+    // 90 deg the relief is lit from the opposite side and bumps read as pits.
+    if (tl >= 1e-4f) {
+      const math::Vector3f Nu = N * (1.f / Nl);  // n = normalize(smooth normal)
+      // stable_frame() reproduced EXACTLY as tfrag3.frag has it:
+      const math::Vector3f R1(0.3113f, 0.1504f, 0.9382f), R2(0.9382f, 0.3113f, 0.1504f);
+      const math::Vector3f tt = Nu.cross(R1);
+      const float wl = tt.length();
+      math::Vector3f tw;
+      bool tw_ok = true;
+      if (wl > 0.02f) {
+        tw = tt * (1.f / wl);
+      } else {
+        const math::Vector3f t2 = Nu.cross(R2);
+        const float w2 = t2.length();
+        if (w2 > 1e-12f) {
+          tw = t2 * (1.f / w2);
+        } else {
+          tw_ok = false;  // both skew axes collinear with N: unmeasurable, skip
+        }
+      }
+      if (tw_ok) {
+        // signed rotation of tw away from T, measured in the plane of N
+        const float cs = T.dot(tw);
+        const float sn = T.cross(tw).dot(Nu);
+        const float deg = std::fabs(std::atan2(sn, cs)) * 57.29577951308232f;  // 0..180
+        wf_verts++;
+        wf_hist[deg < 5.f     ? 0
+                : deg < 15.f  ? 1
+                : deg < 45.f  ? 2
+                : deg < 90.f  ? 3
+                : deg < 135.f ? 4
+                              : 5]++;
+        if (deg > 90.f) {
+          wf_over90++;
+        }
+        wf_rot_sum_milli += (u64)(deg * 1000.f);
+      }
+    }
   }
   // REOPEN#7 device-truth: one line per tree so the on-device logcat PROVES the per-vertex tangent
   // basis is computed + uploaded (the continuous-TBN foundation). valid == vertices with a real
@@ -2049,6 +2131,17 @@ static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts
   // per-vertex-tangent coverage on the ground is 100% and the screen-derivative fallback fraction is 0.
   lg::info("[tan-fallback] ground_verts={} would_fallback={} ({:.2f}%) => backfilled, post_fix=0",
            g_verts, g_backfill, g_verts ? (100.f * (float)g_backfill / (float)g_verts) : 0.f);
+  // PBR POLISH (owner playtest #16, defect 1) — fold this tree's world-frame-vs-UV-frame rotation
+  // measurement into the global counters BEFORE write_tan_diag_file() below picks them up.
+  g_wframe_verts += wf_verts;
+  g_wframe_h0 += wf_hist[0];
+  g_wframe_h1 += wf_hist[1];
+  g_wframe_h2 += wf_hist[2];
+  g_wframe_h3 += wf_hist[3];
+  g_wframe_h4 += wf_hist[4];
+  g_wframe_h5 += wf_hist[5];
+  g_wframe_over90 += wf_over90;
+  g_wframe_rot_sum_milli += wf_rot_sum_milli;
   {
     std::lock_guard<std::mutex> lk(g_tan_diag_mtx);
     g_tan_diag.total_verts += n;

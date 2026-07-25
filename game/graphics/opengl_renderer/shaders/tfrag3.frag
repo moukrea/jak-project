@@ -415,6 +415,69 @@ void frisvad_basis(vec3 n, out vec3 t, out vec3 b) {
   b = normalize(vec3(d, s + n.y * n.y * a, -n.y));
 }
 
+#ifdef OG_PBR
+// Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 2 "completely FLAT in
+// shadow"). The realtime AMBIENT IRRADIANCE for an arbitrary direction — the same selector the
+// fused branch already used for its ambient-specular source, lifted into a function so the
+// INDIRECT DIFFUSE can be evaluated twice (smooth normal vs normal-mapped normal) and the relief
+// therefore survives where no sun reaches. Identical expressions => the ambient-specular term it
+// replaces is bit-for-bit unchanged.
+vec3 rt_amb_eval(vec3 n) {
+  if (u_rt_ambient_on == 0) {
+    return vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
+  } else if (u_rt_ambient_model == 1) {
+    return rt_sh_ambient(n);
+  } else if (u_rt_ambient_model == 2) {
+    return rt_ibl_ambient(n);
+  }
+  return mix(u_rt_ground_color, u_rt_sky_color, clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+}
+
+// Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 3: the displacement
+// "reads FLAT ... un bump map glorifie avec un peu de normales").
+// HEIGHT-FIELD SELF-SHADOWING. What separates real surface depth from a shaded bump is that a
+// raised texel CASTS A SHADOW on the texels behind it. Neither tier produced any: an audit of
+// every tex_PBR_H fetch in this shader found the height map driving a UV offset (POM) and a
+// vertex offset (tess-eval) and NOTHING ELSE — it never occluded a light, so the relief had no
+// contact shadow and read as shading, not as geometry.
+// This is the standard relief-mapping soft shadow (Policarpo/Kaneko): march the height field from
+// the shading point toward the light in TANGENT-UV space and keep the largest amount by which an
+// occluder rises ABOVE the ray. The (1 - t) weight makes distant occluders soften into a penumbra
+// instead of a hard aliased edge, which also keeps it stable under motion.
+//   uv0   = the (parallax-corrected) UV of the shading point
+//   h0    = height at uv0
+//   Ltuv  = light direction in the SAME tangent-UV frame the POM marches in (xy = uv plane)
+//   hs_uv = the UV distance that corresponds to one full height unit (the POM's depth scale)
+// Returns a visibility multiplier in [PBR_MS_FLOOR, 1].
+float pbr_micro_shadow(vec2 uv0, float h0, vec3 Ltuv, float hs_uv) {
+  const int PBR_MS_STEPS = 6;
+  const float PBR_MS_K = 3.0;       // occluder-height -> darkness gain
+  const float PBR_MS_FLOOR = 0.35;  // never fully black: ambient still reaches a crevice
+  // Light at/below the surface horizon: the macro terminator already handles that face — do not
+  // double-darken it (and the march direction would be degenerate).
+  float lz = Ltuv.z;
+  if (lz < 0.08) {
+    return 1.0;
+  }
+  vec2 sd = (Ltuv.xy / lz) * hs_uv;
+  // Same surface-lock bound as the POM march: the shadow ray may never wander a whole tile away
+  // from the shading point, or the "shadow" stops belonging to this piece of surface.
+  float sl = length(sd);
+  if (sl > 0.08) {
+    sd *= 0.08 / sl;
+  }
+  float occ = 0.0;
+  for (int i = 1; i <= PBR_MS_STEPS; i++) {
+    float t = float(i) / float(PBR_MS_STEPS);
+    float hs = textureLod(tex_PBR_H, uv0 + sd * t, 0.0).r;
+    // ray height above the shading point, rising to the top of the height range at t = 1
+    float ray = h0 + t * (1.0 - h0);
+    occ = max(occ, (hs - ray) * (1.0 - t));
+  }
+  return clamp(1.0 - occ * PBR_MS_K, PBR_MS_FLOOR, 1.0);
+}
+#endif
+
 void main() {
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
@@ -625,10 +688,34 @@ void main() {
           // CONTINUOUS basis from the smooth interpolated normal N instead (NEVER a screen derivative).
           frisvad_basis(N, fTuv, fBuv);
         }
-        // The normal map is decoded in the SEAM-STABLE frame by default (bit 32768 = legacy
-        // per-chunk UV frame for the A/B). See stable_frame() for the measured justification.
+        // ===================================================================================
+        // PBR POLISH — OWNER PLAYTEST #16 DEFECT 1: "displacement in the WRONG DIRECTION in
+        // places on the SAME texture".
+        // stable_frame() is a function of the surface NORMAL and of nothing else, so its U axis
+        // ROTATES as the surface tilts. The same material therefore decodes its height field
+        // turned by an arbitrary, orientation-dependent angle from one patch to the next: over a
+        // hill the relief's lighting direction sweeps with the slope, and between surfaces facing
+        // opposite ways it flips outright — wherever that rotation passes ~90 deg the perceived
+        // relief INVERTS and bumps read as pits. That is exactly the owner's defect, and it is
+        // structural: a height field authored in TEXTURE space can only be lit correctly in the
+        // frame its own UVs define. No parameter tune can fix a frame that ignores the texture.
+        // The world frame was adopted to kill the per-chunk brightness plates — but the plates
+        // were MEASURED to come from the map's DC TILT (chunk-to-chunk spread 61.4% -> 3.0% once
+        // u_pbr_normal_dc is subtracted), and that fix is FRAME-INVARIANT: rotating a zero-mean
+        // gradient leaves it zero-mean, so it cannot produce a brightness step in any frame. The
+        // normal map goes back into the UV frame it was authored in, where the relief direction is
+        // right by construction and the grain finally lines up with the albedo it belongs to.
+        // Bonus: the POM march below already had to use the UV frame (it is the only frame a UV
+        // OFFSET can be expressed in), so the parallax shift and the normal-map shading were
+        // pointing in DIFFERENT directions — they now agree, which is the other half of the
+        // "displacement direction" defect.
+        // stable_frame survives as (a) the fallback where no per-vertex tangent exists — there is
+        // no UV reference to use there, and a continuous arbitrary frame still beats a
+        // per-triangle one — and (b) bisect bit 32768, the live A/B killswitch (SET = the old
+        // world frame, so the owner's previous build is one prop away).
+        // ===================================================================================
         vec3 fTn = fTuv, fBn = fBuv;
-        if ((u_pbr_bisect & 32768) == 0) {
+        if ((u_pbr_bisect & 32768) != 0 || f_tan_fb > 0.5) {
           stable_frame(N, fTn, fBn);
         }
         vec2 uv = tex_coord.xy * u_pbr_uv_tile;
@@ -671,6 +758,21 @@ void main() {
           float before = prev_map_d - (cur_d - layer_d);
           float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
           uv += duv_step * (1.0 - w);
+        }
+        // PBR POLISH — inputs for the HEIGHT-FIELD SELF-SHADOW (owner defect 3: the relief reads
+        // as "un bump map glorifie"). Sampled at the FINAL (parallax-corrected) uv so the shadow
+        // belongs to the texel actually being shaded, and computed for BOTH displacement tiers:
+        // tessellation moves the macro geometry but the map's micro relief still has to shadow
+        // itself, otherwise the fine detail stays as flat as it was in the parallax tier.
+        // fh_ms_uv is the POM's own depth scale = the UV distance a full height unit spans, so the
+        // shadow ray has exactly the same slope the parallax offset assumes. Distance-gated: the
+        // 6 taps only run near the camera, where relief is resolvable at all.
+        float fh0 = 1.0;
+        float fh_ms_uv = 0.0;
+        if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && (u_pbr_bisect & 524288) == 0 &&
+            length(v_fringe_rel) < 35.0) {
+          fh0 = textureLod(tex_PBR_H, uv, 0.0).r;
+          fh_ms_uv = u_pbr_height_scale * u_pbr_uv_tile;
         }
         // Normal map (bit 1) perturbs the SMOOTH normal => surface detail that shades
         // correctly as the realtime suns move (the fusion's whole point).
@@ -821,6 +923,20 @@ void main() {
         float flit_g = fterm_g * moon_occ;
         float fw_y = clamp(u_rt_sun_elev, 0.0, 1.0);
         float fw_g = clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0) * clamp(u_rt_green_amp, 0.0, 2.0);
+        // PBR POLISH: the DIRECT share of this fragment's lighting. Hoisted up from the _ao site
+        // below (same expression, same value) so the new INDIRECT relief term can weight itself by
+        // the complementary ambient share (1 - fdirw) — full effect exactly where the suns are not.
+        float fdirw = clamp(flit_y * fw_y + flit_g * fw_g, 0.0, 1.0);
+        // PBR POLISH — HEIGHT-FIELD SELF-SHADOW, one march per analytic sun (owner defect 3).
+        // The light directions go into the SAME tangent-UV frame the POM marches in, so the
+        // shadow the relief casts lies along the same axis the parallax already shifts.
+        float fms_y = 1.0;
+        float fms_g = 1.0;
+        if (fh_ms_uv > 0.0) {
+          fms_y = pbr_micro_shadow(uv, fh0, vec3(dot(L, fTuv), dot(L, fBuv), dot(L, N)), fh_ms_uv);
+          fms_g =
+              pbr_micro_shadow(uv, fh0, vec3(dot(Mn, fTuv), dot(Mn, fBuv), dot(Mn, N)), fh_ms_uv);
+        }
         vec3 fsun_ch = u_rt_sun_color / max(dot(u_rt_sun_color, vec3(0.299, 0.587, 0.114)), 1e-3);
         vec3 fmoon_ch = u_rt_moon_color / max(dot(u_rt_moon_color, vec3(0.299, 0.587, 0.114)), 1e-3);
         const vec3 FUS_COOL = vec3(0.896, 1.001, 1.265);
@@ -862,12 +978,42 @@ void main() {
                            : (dot(N, Mn) + fg.x * dot(fTn, Mn) + fg.y * dot(fBn, Mn));
         float fdt_y = clamp((max(fndl_y, 0.0) + 0.30) / (max(dot(N, L), 0.0) + 0.30), 0.45, 1.9);
         float fdt_g = clamp((max(fndl_g, 0.0) + 0.30) / (max(dot(N, Mn), 0.0) + 0.30), 0.45, 1.9);
-        float fdetail = mix(1.0, fdt_y, fw_y * sun_occ) *
-                        mix(1.0, fdt_g, clamp(fw_g, 0.0, 1.0) * moon_occ);
+        // ===================================================================================
+        // PBR POLISH — OWNER PLAYTEST #16 DEFECT 2: "completement PLAT dans l'ombre / la ou le
+        // soleil ne tape pas". Traced to the exact line: in cast shadow sun_occ = moon_occ = 0, so
+        // BOTH mix() weights below collapse to zero and fdetail becomes EXACTLY 1.0 — the normal
+        // map stops contributing at all — while the only other normal-dependent term (famb_spec)
+        // is driven to zero by matte_gate on every rough dielectric. A shadowed fragment was
+        // literally baked x constant x _ao: no normal dependence anywhere in the expression, hence
+        // no depth. Relief that only exists in direct sun is not relief.
+        // The industry answer is the one the owner named: the INDIRECT term must see the perturbed
+        // surface too — irradiance E(n) evaluated with the normal-mapped normal (SH / IBL /
+        // hemisphere, whichever ambient model is live) instead of a direction-free constant, with
+        // _ao as the contact term (fao_mul below already weights _ao onto exactly this share).
+        // Expressed as the same bounded RATIO fdt_y/fdt_g use — E(Nm) / E(N) — so it multiplies the
+        // baked composite instead of replacing it (the owner's standing rule: the baked influence
+        // always remains) and a map-free fragment gets exactly 1.0, i.e. the accepted
+        // Lighting-only look survives bit for bit. E varies slowly and smoothly with direction, so
+        // the ratio stays near 1 and carries no brightness step against an unmapped neighbour.
+        // Weighted by the AMBIENT SHARE (1 - fdirw): full strength in shadow and at night, fading
+        // out where a sun already carries the relief, so full-sun pixels are untouched.
+        // Bisect bit 262144 = ambient relief off (the device A/B for this term).
+        float fdt_amb = 1.0;
+        if ((u_pbr_bisect & 262144) == 0 && dot(fg, fg) > 0.0) {
+          const vec3 FUS_LUMA = vec3(0.299, 0.587, 0.114);
+          float famb_ls = dot(rt_amb_eval(N), FUS_LUMA);
+          float famb_lb = dot(rt_amb_eval(Nm), FUS_LUMA);
+          fdt_amb = clamp((max(famb_lb, 0.0) + 0.02) / (max(famb_ls, 0.0) + 0.02), 0.45, 1.9);
+        }
+        // fms_* (height-field self-shadow) rides on each sun's share: a crevice the relief itself
+        // occludes cannot receive that sun. It is deliberately NOT applied to the ambient share —
+        // skylight reaches into a crevice from every direction, and _ao is already that term.
+        float fdetail = mix(1.0, fdt_y * fms_y, fw_y * sun_occ) *
+                        mix(1.0, fdt_g * fms_g, clamp(fw_g, 0.0, 1.0) * moon_occ) *
+                        mix(1.0, fdt_amb, 1.0 - fdirw);
         if ((u_pbr_bisect & 256) != 0) fdetail = 1.0;  // bisect: detail-relight ratio off
         // _ao = material micro-occlusion: full strength on the ambient/shadowed share,
         // relaxed where the direct sun dominates (AO never occludes the suns).
-        float fdirw = clamp(flit_y * fw_y + flit_g * fw_g, 0.0, 1.0);
         float fao_mul = mix(ao, 1.0, 0.55 * fdirw);
         vec3 fbase_disp = max(fragment_color.rgb * T0p.rgb, vec3(0.0)) * fmod * fdetail * fao_mul;
         vec3 fbase_lin = pow(fbase_disp, vec3(2.2));
@@ -895,7 +1041,10 @@ void main() {
           }
           vec3 Li = (i == 0) ? L : Mn;
           vec3 lc = (i == 0) ? u_rt_sun_color * fw_y : u_rt_moon_color;
-          float vis_i = (i == 0) ? sun_occ : moon_occ;
+          // PBR POLISH: the height-field self-shadow gates the highlight too — a texel the relief
+          // occludes cannot host a specular lobe from that sun (a lit highlight sitting inside a
+          // crevice is the classic tell that "depth" is only a shaded bump).
+          float vis_i = (i == 0) ? (sun_occ * fms_y) : (moon_occ * fms_g);
           if (dot(lc, vec3(1.0)) <= 1e-5 || vis_i <= 1e-4) {
             continue;
           }
@@ -920,17 +1069,10 @@ void main() {
         // no-probe fallback. Either way the sample CONVERGES to the ambient IRRADIANCE as
         // roughness rises — a rough ground reflects a blurry env, never the sharp sun-glow
         // lobe (the old sharp-Rf eval was the other half of the ground sheen).
-        vec3 famb_base;
-        if (u_rt_ambient_on == 0) {
-          famb_base = vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
-        } else if (u_rt_ambient_model == 1) {
-          famb_base = rt_sh_ambient(Nm);
-        } else if (u_rt_ambient_model == 2) {
-          famb_base = rt_ibl_ambient(Nm);
-        } else {
-          famb_base = mix(u_rt_ground_color, u_rt_sky_color, clamp(Nm.y * 0.5 + 0.5, 0.0, 1.0));
-        }
-        famb_base = clamp(famb_base, 0.0, 1.0);
+        // PBR POLISH: same selector as before, now via the shared rt_amb_eval() the new indirect
+        // relief term also uses — one definition of "the ambient irradiance in direction n", so
+        // the diffuse and the specular can never drift apart. Value here is unchanged.
+        vec3 famb_base = clamp(rt_amb_eval(Nm), 0.0, 1.0);
         vec3 Rf = reflect(-Vv, Nm);
         vec3 fenv_sharp;
         if (u_rt_probe_on != 0 && u_rt_probe_reflections != 0) {
@@ -1004,6 +1146,15 @@ void main() {
           // of the visible ground actually carries a valid uploaded per-vertex tangent on THIS device
           // (offline grass_bake can't see a GL upload/bind gap — this can). Screenshot + red-fraction.
           color.rgb = vec3(f_tan_fb, 1.0 - f_tan_fb, 0.0);
+        } else if (u_pbr_debug == 21) {
+          // PBR POLISH viz: HEIGHT-FIELD SELF-SHADOW (owner defect 3). White = fully lit relief,
+          // dark = a texel the surface's own height field occludes from the yellow sun. A flat
+          // white screen here means the relief casts nothing = "glorified bump map".
+          color.rgb = vec3(fms_y);
+        } else if (u_pbr_debug == 22) {
+          // PBR POLISH viz: INDIRECT (ambient) RELIEF ratio (owner defect 2), remapped around
+          // 0.5 = 1.0. A flat grey screen in shadow means the shadowed surface is FLAT.
+          color.rgb = vec3(clamp(fdt_amb * 0.5, 0.0, 1.0));
         }
       } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
@@ -1250,7 +1401,14 @@ void main() {
         frisvad_basis(Nsurf, Tn, Bn);
       }
       vec2 uv = tex_coord.xy * u_pbr_uv_tile;
-      if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0) {
+      // PBR POLISH bug fix — DOUBLE DISPLACEMENT. The fused branch above gates its POM on
+      // `u_pbr_displacement != 2` because the tess-eval already moved the real vertices; this
+      // standalone (realtime-lighting-OFF) branch never got that gate, so selecting Tessellation
+      // with realtime lighting off ran the vertex displacement AND a 16-32 step POM march on top,
+      // in a different coordinate domain — two uncorrelated displacements stacked. Same gate here.
+      // Everything else on this "bidon" fallback path is deliberately untouched.
+      if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
+          u_pbr_displacement != 2) {
         // Parallax occlusion mapping, mobile-tuned: grazing-angle-scaled linear march
         // with early-out + one secant refine. Height convention: 1.0 (white) = surface
         // level, lower = carved in — so a neutral white map yields zero offset and the

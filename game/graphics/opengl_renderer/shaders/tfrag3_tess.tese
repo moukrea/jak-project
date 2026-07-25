@@ -94,13 +94,32 @@ void main() {
     //     coincident positions to one value and gives the group one shared normal. So this whole
     //     expression is bit-identical on both sides, and the two surfaces displace together.
     vec2 huv;
+    // Grecharged-pbr-realtime-fusion PBR POLISH: the two WORLD axes the projection above uses, and
+    // the huv-units-per-METRE scale, kept so the displaced surface's own normal can be derived
+    // from the very same height field (see the gradient block after the displacement).
+    vec3 hax_u = vec3(1.0, 0.0, 0.0);
+    vec3 hax_v = vec3(0.0, 0.0, 1.0);
+    float huv_per_m = WORLD_TILES_PER_M * u_pbr_uv_tile;
     if ((u_pbr_bisect & 65536) != 0) {
       huv = uv3.xy * u_pbr_uv_tile;  // legacy per-chunk lookup — kept ONLY as the A/B that tears
+      huv_per_m = 0.0;               // no world mapping on the legacy path => no gradient normal
     } else {
       // project onto the world plane most face-on to the surface, so walls do not smear
       vec3 an = abs(N);
-      vec2 pw = (an.y >= an.x && an.y >= an.z) ? world.xz
-                                              : ((an.x >= an.z) ? world.zy : world.xy);
+      vec2 pw;
+      if (an.y >= an.x && an.y >= an.z) {
+        pw = world.xz;
+        hax_u = vec3(1.0, 0.0, 0.0);
+        hax_v = vec3(0.0, 0.0, 1.0);
+      } else if (an.x >= an.z) {
+        pw = world.zy;
+        hax_u = vec3(0.0, 0.0, 1.0);
+        hax_v = vec3(0.0, 1.0, 0.0);
+      } else {
+        pw = world.xy;
+        hax_u = vec3(1.0, 0.0, 0.0);
+        hax_v = vec3(0.0, 1.0, 0.0);
+      }
       huv = pw * ((1.0 / 4096.0) * WORLD_TILES_PER_M * u_pbr_uv_tile);
     }
     float h = textureLod(tex_PBR_H, huv, 0.0).r;   // 0.5 = neutral surface
@@ -121,8 +140,48 @@ void main() {
     // Uses the UNDISPLACED `world`, which is shared across the edge, so the fade matches too.
     float dist_m = length((world - cam_trans.xyz) * (1.0 / 4096.0));
     float falloff = 1.0 - smoothstep(20.0, 30.0, dist_m);
-    float disp = (h - 0.5) * u_pbr_height_scale * TESS_DISP_K * falloff * seam;
+    float amp = u_pbr_height_scale * TESS_DISP_K * falloff * seam;
+    float disp = (h - 0.5) * amp;
     world += N * disp;   // world normal is in game-unit space; displacement is in game units
+
+    // ---- PBR POLISH (owner playtest #16 defect 3: the displacement "reads FLAT ... un bump map
+    //      glorifie avec un peu de normales") ----
+    // The tessellator MOVED real vertices but kept emitting the UNDISPLACED interpolated normal
+    // `N` below, so every lighting term downstream shaded the displaced surface AS IF IT WERE
+    // STILL FLAT. Real geometry lit by a flat normal looks exactly like a bump map — which is
+    // precisely what the owner reported, and it is why raising TESS_DISP_K never helped: the
+    // silhouette moved, the shading never did. Derive the surface normal from the SAME world
+    // height field that produced the displacement (central differences along the projection axes),
+    // so geometry and shading finally agree and the relief reads as depth. The authored normal map
+    // then rides on top of this macro normal in the fragment stage — macro from the geometry,
+    // micro from the map, which is the standard displacement-mapping split.
+    // SEAM-SAFE by construction: world, N, huv, falloff and seam are all bit-identical across a
+    // welded edge, so this normal is too; and where seam fades to 0 the amplitude fades with it,
+    // so the normal eases back to the geometric one instead of stepping.
+    // bisect bit 1048576 = emit the UNDISPLACED normal, i.e. exactly the pre-polish behaviour.
+    // This is the live A/B killswitch for this fix: same boot, same vantage, same displaced
+    // vertices, only the shading normal changes — so the capture pair isolates "real geometry lit
+    // as if flat" from "real geometry lit as displaced".
+    if (huv_per_m > 0.0 && amp > 0.0 && (u_pbr_bisect & 1048576) == 0) {
+      const float MS_M = 0.25;            // finite-difference step in metres (~ a tessellated edge)
+      float e = MS_M * huv_per_m;         // ...expressed in huv units
+      float hu1 = textureLod(tex_PBR_H, huv + vec2(e, 0.0), 0.0).r;
+      float hu0 = textureLod(tex_PBR_H, huv - vec2(e, 0.0), 0.0).r;
+      float hv1 = textureLod(tex_PBR_H, huv + vec2(0.0, e), 0.0).r;
+      float hv0 = textureLod(tex_PBR_H, huv - vec2(0.0, e), 0.0).r;
+      // slope = (height units per metre) * (game units of displacement per height unit) / 4096,
+      // i.e. dimensionless rise-over-run in the surface's own tangent plane.
+      float k = amp * (1.0 / (2.0 * MS_M * 4096.0));
+      float su = (hu1 - hu0) * k;
+      float sv = (hv1 - hv0) * k;
+      vec3 Tu = hax_u - N * dot(N, hax_u);
+      vec3 Tv = hax_v - N * dot(N, hax_v);
+      float lu = length(Tu);
+      float lv = length(Tv);
+      if (lu > 1e-5 && lv > 1e-5) {
+        N = normalize(N - (Tu / lu) * su - (Tv / lv) * sv);
+      }
+    }
   }
 #endif
 
