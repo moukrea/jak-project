@@ -253,6 +253,15 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
                             (void*)offsetof(tfrag3::PreloadedVertex, r)  // offset (0)
       );
 
+      // Grecharged-mesh-consolidation: per-vertex SEAM WEIGHT (1 = displace normally, 0 = do not
+      // displace). mesh_consolidate() zeroes it at boundaries whose two sides cannot displace
+      // identically, so the tessellation evaluation shader can fade displacement to exactly zero
+      // along a shared edge on BOTH sides — that is what closes the see-through slits. Bound here
+      // (before the tangent VBO swaps GL_ARRAY_BUFFER below) so it reads the vertex buffer.
+      glEnableVertexAttribArray(6);
+      glVertexAttribPointer(6, 1, GL_UNSIGNED_SHORT, GL_TRUE, sizeof(tfrag3::PreloadedVertex),
+                            (void*)offsetof(tfrag3::PreloadedVertex, seam_w));
+
       // REOPEN#7: per-vertex tangent at location 5 (loc 4 = envmap tint). Non-envmap TIE draws use
       // the TFRAG3 shader which reads location 5 as the tangent for the continuous PBR TBN.
       glBindBuffer(GL_ARRAY_BUFFER, loader_data->tie_data[l_geo][l_tree].tangent_buffer);

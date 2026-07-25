@@ -21,6 +21,9 @@ uniform int gfx_hack_no_tex;
 // pbr_shadow_bind_receiver; absent locations are -1 (glUniform no-ops). Stripped
 // entirely in a stock (non-OG_PBR) build => OFF == stock byte-identical.
 in vec3 v_fringe_rel;
+// Grecharged-mesh-consolidation: real per-vertex smooth normal (shrub used to have none). Zero-length
+// when the level data predates the normal (then the derivative normal below is still used).
+in vec3 v_normal;
 in vec3 v_world;  // Grecharged-lightprobes: absolute world pos (game units) for probe lookup
 in vec3 v_todc;   // REOPEN 2026-07-21: raw stored TOD LUT units for the baked-detail ratio
 uniform int u_rt_light_on;
@@ -246,7 +249,11 @@ void main() {
     if (u_rt_light_on != 0) {
       vec3 gN = cross(dFdx(v_fringe_rel), dFdy(v_fringe_rel));
       float gNl = length(gN);
-      vec3 N = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
+      gN = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
+      // Grecharged-mesh-consolidation: prefer the real interpolated per-vertex normal now that shrub
+      // carries one; the screen-space derivative normal stays as the fallback for level data that
+      // predates it (v_normal == 0).
+      vec3 N = (dot(v_normal, v_normal) > 1e-6) ? normalize(v_normal) : gN;
       vec3 Vv = -normalize(v_fringe_rel);
       if (dot(N, Vv) < 0.0) N = -N;
       vec3 L = normalize(u_rt_sun_dir);

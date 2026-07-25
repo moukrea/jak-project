@@ -4,6 +4,10 @@ layout (location = 0) in vec3 position_in;
 layout (location = 1) in vec3 tex_coord_in;
 layout (location = 2) in vec3 rgba_base;
 layout (location = 3) in int time_of_day_index;
+// Grecharged-mesh-consolidation: shrub finally carries a real per-vertex smooth normal (2-10-10-10,
+// same encoding tfrag/tie use). It used to have none, so shrub.frag synthesized one from
+// screen-space derivatives = per-triangle flat. Bound by Shrub.cpp's VAO setup.
+layout (location = 4) in vec4 shrub_normal;
 
 uniform vec4 hvdf_offset;
 uniform mat4 camera;
@@ -37,6 +41,8 @@ out vec3 tex_coord;
 out float fogginess;
 #ifdef OG_PBR
 out vec3 v_fringe_rel;
+// Grecharged-mesh-consolidation: the real smooth normal, handed to the fragment stage.
+out vec3 v_normal;
 // Grecharged-lightprobes: absolute world position (GOAL game units) for probe lookup.
 out vec3 v_world;
 // REOPEN 2026-07-21: raw stored TOD LUT units (pre x4 / pre rgba_base) for the baked-detail ratio.
@@ -84,6 +90,7 @@ void main() {
   vec3 vert = wpos - cam_trans.xyz;
 #ifdef OG_PBR
   v_fringe_rel = vert * (1.0 / 4096.0);
+  v_normal = shrub_normal.xyz;           // Grecharged-mesh-consolidation: real per-vertex smooth normal
   v_world = position_in;                 // Grecharged-lightprobes: world pos for PER-PIXEL probe lookup
 #endif
   vec4 transformed = -pc_camera[3];

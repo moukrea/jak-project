@@ -240,6 +240,29 @@ void Shrub::update_load(const LevelData* loader_data) {
                            (void*)offsetof(tfrag3::ShrubGpuVertex, color_index)  // offset (0)
     );
 
+    // Grecharged-mesh-consolidation: shrub finally carries a real per-vertex smooth normal (it used
+    // to have none, so shrub.frag synthesized one from screen-space derivatives = per-triangle
+    // flat).
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4,                               // location 4 in the shader
+                          4,                               // 2-10-10-10 packed
+                          GL_INT_2_10_10_10_REV,           // signed 10-bit per component
+                          GL_TRUE,                         // normalized to [-1, 1]
+                          sizeof(tfrag3::ShrubGpuVertex),  // stride
+                          (void*)offsetof(tfrag3::ShrubGpuVertex, nor)  // offset
+    );
+
+    // ...and the matching SEAM WEIGHT (1 = displace normally, 0 = do not displace), same meaning as
+    // the tfrag/tie attribute so shrub is covered by the weld/audit too.
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5,                               // location 5 in the shader
+                          1,                               // 1 value per vert
+                          GL_UNSIGNED_SHORT,               // u16
+                          GL_TRUE,                         // normalized (65535 becomes 1)
+                          sizeof(tfrag3::ShrubGpuVertex),  // stride
+                          (void*)offsetof(tfrag3::ShrubGpuVertex, seam_w)  // offset
+    );
+
     glGenBuffers(1, &m_trees[l_tree].single_draw_index_buffer);
     glGenBuffers(1, &m_trees[l_tree].index_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_trees[l_tree].index_buffer);

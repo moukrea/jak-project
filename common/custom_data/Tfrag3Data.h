@@ -99,6 +99,18 @@ struct PreloadedVertex {
   // color table index
   u16 color_index = 0;
 
+  // Grecharged-mesh-consolidation: SEAM WEIGHT, occupying the 2 bytes this struct already wasted on
+  // padding (sizeof stays 32 — see the static_assert below). 65535 = displace normally, 0 = do not
+  // displace at all. mesh_consolidate() zeroes it on every vertex that sits on a boundary where the
+  // two sides CANNOT displace identically (a material boundary where only one side has a height map,
+  // a tfrag<->tie junction where the other side is never tessellated, a genuine open boundary, or a
+  // hard crease where the two sides carry different normals). Barycentric interpolation then makes the
+  // displacement exactly zero ALONG the shared edge on both sides, which is what closes the owner's
+  // see-through tessellation slits. Interior vertices keep 65535 so the relief is untouched.
+  // Runtime-only (unpacked.vertices is rebuilt from the packed data on every load) => no fr3 version
+  // bump, no asset rebuild. NOT part of == / hash (like `nor`), so index fusion is unaffected.
+  u16 seam_w = 0xffff;
+
   struct hash {
     std::size_t operator()(const PreloadedVertex& x) const;
   };
@@ -158,9 +170,14 @@ struct PackedTfragVertices {
 struct ShrubGpuVertex {
   float x, y, z;
   float s, t;
-  u32 pad0;
+  // Grecharged-mesh-consolidation: shrub shipped with NO per-vertex normal (shrub.frag synthesized one
+  // from screen-space derivatives), so shrub was the one renderable system every weld/normal pass had
+  // to skip — an omission by construction. These two fields reuse the struct's existing padding
+  // (sizeof stays 32) and are runtime-only, so shrub now carries the same 2-10-10-10 packed smooth
+  // normal and seam weight as tfrag/tie and is covered by the audit and the weld.
+  u32 nor;  // was pad0
   u16 color_index;
-  u16 pad1;
+  u16 seam_w;  // was pad1
   u8 rgba_base[3];
   u8 pad2;
 };

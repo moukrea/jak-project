@@ -109,6 +109,21 @@ if [ -d "$FR3_DIR" ]; then
     n_bake=$((n_bake + 1))
   done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.grassbake' 2>/dev/null | sort)
   echo "[custom-pack] grassbake tables: $n_bake"
+
+  # 2b. Grecharged-mesh-consolidation sidecars — ALWAYS (0 is OK: a level without one just runs the
+  #     live pass). These carry the consolidated weld: shared normals, snapped positions, blended
+  #     baked-colour indices and seam weights. Measured on the Redmi they cut village1's load from
+  #     67.0 s to 22.1 s, so shipping them is not an optimisation, it is the difference between a
+  #     playable load and a minute of black screen. Built by: tools/mesh_audit --game <g> --bake.
+  n_mesh=0
+  while IFS= read -r mw; do
+    [ -n "$mw" ] || continue
+    base="$(basename "$mw")"
+    ln -s "$ROOT/$mw" "$STAGE/fr3/$base"
+    MEMBERS+=("fr3/$base")
+    n_mesh=$((n_mesh + 1))
+  done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.meshweld' 2>/dev/null | sort)
+  echo "[custom-pack] mesh-consolidation sidecars: $n_mesh"
 fi
 
 # 2c. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at

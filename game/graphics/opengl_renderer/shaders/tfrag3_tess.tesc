@@ -21,12 +21,14 @@ in vec3 tv_texcoord[];
 in vec3 tv_normal[];
 in vec4 tv_color[];
 in vec4 tv_tangent[];
+in float tv_seam[];
 
 out vec3 tc_world[];
 out vec3 tc_texcoord[];
 out vec3 tc_normal[];
 out vec4 tc_color[];
 out vec4 tc_tangent[];
+out float tc_seam[];
 
 // camera-relative distance in meters (same units as v_fringe_rel / u_rt_shadow_range).
 float cam_dist_m(vec3 wp) {
@@ -46,6 +48,7 @@ void main() {
   tc_normal[gl_InvocationID] = tv_normal[gl_InvocationID];
   tc_color[gl_InvocationID] = tv_color[gl_InvocationID];
   tc_tangent[gl_InvocationID] = tv_tangent[gl_InvocationID];
+  tc_seam[gl_InvocationID] = tv_seam[gl_InvocationID];
 
   if (gl_InvocationID == 0) {
     bool tess_on = true;

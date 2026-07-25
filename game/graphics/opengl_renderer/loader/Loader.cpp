@@ -5,14 +5,17 @@
 #include <cstring>
 #include <set>
 
+#include "common/custom_data/MeshConsolidate.h"
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
+#include "common/versions/versions.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
+#include "game/runtime.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -414,6 +417,53 @@ void Loader::loader_thread() {
           Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) {
         auto p = scoped_prof("global-weld");
         tfrag3::reconstruct_level_global_weld(*result);
+      }
+
+      // Grecharged-mesh-consolidation (owner 2026-07-24): the EXHAUSTIVE pass, run after the weld
+      // above. The owner's requirement is "TOUT COUVRIR SANS OUBLIS", so this one both FIXES and
+      // MEASURES: an order-independent union-find weld across every tree/bucket/system (tfrag + tie
+      // + shrub — shrub was previously skipped entirely for lack of a normal field), a boundary-only
+      // wide re-weld that stitches the coincident-but-unshared edges the 3 cm tolerance missed,
+      // position snapping so coincident verts are bit-identical, orientation flood-fill with the
+      // walkable collision mesh as authority, geometry-derived crease-aware shared normals, baked
+      // time-of-day colour blending across welded groups (the seam that survives at relief 0), and
+      // per-vertex seam weights that stop the tessellator from tearing at boundaries that cannot
+      // displace identically. Its per-level audit numbers are appended to files/mesh_audit.txt so
+      // the coverage claim is checkable off-device on a phone whose logcat is obscured.
+      if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+          Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) {
+        const auto cfg = tfrag3::mesh_consolidate_config_from_env();
+        const bool do_shrub = (cfg.bits & tfrag3::kMeshBitNoShrub) == 0;
+        // PRECOMPUTE FIRST (the owner's standing preference, and a hard requirement here: measured
+        // on the Redmi the live pass costs 45.8 s of village1's load). The sidecar is baked offline
+        // by tools/mesh_audit --bake and validated against the fr3's structure, so a rebuilt or
+        // modded level falls through to the live pass instead of being corrupted.
+        bool from_bake = false;
+        if ((cfg.bits & tfrag3::kMeshBitForceLive) == 0) {
+          auto p = scoped_prof("mesh-consolidate-sidecar");
+          // Same two-tier lookup the (validated) grassbake tables use: prefer the package-shipped
+          // custom fr3 dir that LoaderActivity extracts to, else the vanilla fr3 dir. This is what
+          // lets android/build_custom_pack.sh deliver the sidecars through the proven asset-pack
+          // path instead of needing a manual adb push.
+          const auto name = tfrag3::mesh_consolidate_bake_name(result->level_name);
+          std::string bake_path = (file_util::get_fr3_dir(g_game_version) / name).string();
+          if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
+            const std::string custom = (*custom_fr3 / name).string();
+            if (file_util::file_exists(custom)) {
+              bake_path = custom;
+            }
+          }
+          from_bake = tfrag3::mesh_consolidate_apply_bake(*result, bake_path, do_shrub);
+        }
+        if (!from_bake) {
+          auto p = scoped_prof("mesh-consolidate");
+          tfrag3::MeshAuditReport audit;
+          tfrag3::mesh_consolidate(*result, cfg, &audit);
+          audit.game_name = version_to_game_name(g_game_version);
+          const std::string text = tfrag3::format_mesh_audit(audit, cfg);
+          lg::info("[mesh-consolidate] {}", text);
+          tfrag3::mesh_audit_append_file(text);
+        }
       }
 
       fmt::print(

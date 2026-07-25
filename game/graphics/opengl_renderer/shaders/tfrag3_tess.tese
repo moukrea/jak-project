@@ -13,6 +13,7 @@ in vec3 tc_texcoord[];
 in vec3 tc_normal[];
 in vec4 tc_color[];
 in vec4 tc_tangent[];
+in float tc_seam[];
 
 // same uniforms tfrag3.vert uses for the camera transform / fog / scissor.
 uniform vec4 hvdf_offset;
@@ -36,6 +37,17 @@ uniform sampler2D tex_PBR_H;       // height map, unit 15 (.r = height, 0.5 = ne
 // the real-geometry displacement calibrated: 0.02 (base) * 1.5 (relief) * 14336 * 0.5 ~= 215 game
 // units ~= 5.25 cm. 1 game unit = 1/4096 m. Single knob — tune if the relief reads too deep/shallow.
 #define TESS_DISP_K 14336.0
+
+// Grecharged-mesh-consolidation: tiling of the WORLD-SPACE height lookup, in tiles per metre
+// (0.5 = one tile every 2 m, about the density tfrag's authored ground UVs sit at). Multiplied by
+// u_pbr_uv_tile so debug.opengoal.pbr.uvtile still tunes it live.
+#define WORLD_TILES_PER_M 0.5
+
+// The same bisect word tfrag3.frag declares. The tess pipeline uses tfrag3.frag as its fragment
+// stage, so this uniform already exists on this program and is already pushed by the C++ setup —
+// declaring it here costs nothing. 65536 = legacy per-chunk UV height lookup (the one that tears),
+// 131072 = ignore the per-vertex seam weights. Both exist purely for live A/B.
+uniform int u_pbr_bisect;
 #endif
 
 // frag-consumed varyings (exact names/types from tfrag3.frag / tfrag3.vert).
@@ -53,6 +65,9 @@ vec3 bary3(vec3 a, vec3 b, vec3 c) {
 vec4 bary4(vec4 a, vec4 b, vec4 c) {
   return gl_TessCoord.x * a + gl_TessCoord.y * b + gl_TessCoord.z * c;
 }
+float bary1(float a, float b, float c) {
+  return gl_TessCoord.x * a + gl_TessCoord.y * b + gl_TessCoord.z * c;
+}
 
 void main() {
   vec3 world = bary3(tc_world[0], tc_world[1], tc_world[2]);
@@ -65,13 +80,48 @@ void main() {
 #ifdef OG_PBR
   // Height displacement: only when a height map is bound AND Tessellation mode is selected.
   if ((u_pbr_mode & 16) != 0 && u_pbr_displacement == 2 && u_pbr_height_scale > 0.0) {
-    vec2 huv = uv3.xy * u_pbr_uv_tile;
+    // ---- Grecharged-mesh-consolidation: SEAM-CONSISTENT DISPLACEMENT (the see-through slits) ----
+    //
+    // (1) The height must be a function of WORLD POSITION, not of the per-chunk texcoord. The
+    //     tessellator generates NEW vertices all ALONG a shared edge, and each patch interpolates
+    //     ITS OWN texcoords for them — so two chunks meeting at that edge sample different texels
+    //     down its entire length, not merely at the two corners. No amount of per-vertex data can
+    //     fix that: only a height FIELD that is a function of position agrees on both sides. (The
+    //     previous phase already measured why a common UV frame does not exist — 40% of cross-chunk
+    //     seams have tangent frames rotated >30 deg and ~27% are mirrored — and adopted the same
+    //     world-derived-frame answer for the normal map's tangent basis in stable_frame().)
+    //     `world` and `N` are now bit-identical across a welded edge: mesh_consolidate() snaps
+    //     coincident positions to one value and gives the group one shared normal. So this whole
+    //     expression is bit-identical on both sides, and the two surfaces displace together.
+    vec2 huv;
+    if ((u_pbr_bisect & 65536) != 0) {
+      huv = uv3.xy * u_pbr_uv_tile;  // legacy per-chunk lookup — kept ONLY as the A/B that tears
+    } else {
+      // project onto the world plane most face-on to the surface, so walls do not smear
+      vec3 an = abs(N);
+      vec2 pw = (an.y >= an.x && an.y >= an.z) ? world.xz
+                                              : ((an.x >= an.z) ? world.zy : world.xy);
+      huv = pw * ((1.0 / 4096.0) * WORLD_TILES_PER_M * u_pbr_uv_tile);
+    }
     float h = textureLod(tex_PBR_H, huv, 0.0).r;   // 0.5 = neutral surface
+
+    // (2) Where the two sides CANNOT displace alike at all, displace neither. The height map is
+    //     bound PER DRAW, so a material boundary has one side with a map and one without; tie and
+    //     shrub are never tessellated; an open boundary has nothing on the other side; and a hard
+    //     crease has a different normal each side. mesh_consolidate() zeroes seam_w on exactly
+    //     those vertices, and barycentric interpolation of a zeroed corner pair makes `seam` — and
+    //     therefore the displacement — EXACTLY zero along the shared edge, from both patches.
+    float seam = clamp(bary1(tc_seam[0], tc_seam[1], tc_seam[2]), 0.0, 1.0);
+    if ((u_pbr_bisect & 131072) != 0) {
+      seam = 1.0;  // A/B: ignore the seam weights
+    }
+
     // camera distance in meters (same convention as v_fringe_rel below), fade 20 -> 30 m to 0 so
     // far patches (which are passthrough anyway) never pop, and mid patches ease in smoothly.
+    // Uses the UNDISPLACED `world`, which is shared across the edge, so the fade matches too.
     float dist_m = length((world - cam_trans.xyz) * (1.0 / 4096.0));
     float falloff = 1.0 - smoothstep(20.0, 30.0, dist_m);
-    float disp = (h - 0.5) * u_pbr_height_scale * TESS_DISP_K * falloff;
+    float disp = (h - 0.5) * u_pbr_height_scale * TESS_DISP_K * falloff * seam;
     world += N * disp;   // world normal is in game-unit space; displacement is in game units
   }
 #endif

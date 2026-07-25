@@ -34,6 +34,7 @@ add_library(common
         cross_sockets/XSocket.cpp
         cross_sockets/XSocketClient.cpp
         cross_sockets/XSocketServer.cpp
+        custom_data/MeshConsolidate.cpp
         custom_data/pack_helpers.cpp
         custom_data/TFrag3Data.cpp
         dma/dma_copy.cpp

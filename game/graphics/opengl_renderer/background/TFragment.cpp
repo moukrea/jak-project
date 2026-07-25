@@ -435,6 +435,14 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
                               sizeof(tfrag3::PreloadedVertex),  // stride
                               (void*)offsetof(tfrag3::PreloadedVertex, nor)  // offset
         );
+        // Grecharged-mesh-consolidation: per-vertex SEAM WEIGHT (1 = displace normally, 0 = do not
+        // displace). mesh_consolidate() zeroes it at boundaries whose two sides cannot displace
+        // identically, so the tessellation evaluation shader can fade displacement to exactly zero
+        // along a shared edge on BOTH sides — that is what closes the see-through slits. Bound here
+        // (before the tangent VBO swaps GL_ARRAY_BUFFER below) so it reads the vertex buffer.
+        glEnableVertexAttribArray(6);
+        glVertexAttribPointer(6, 1, GL_UNSIGNED_SHORT, GL_TRUE, sizeof(tfrag3::PreloadedVertex),
+                              (void*)offsetof(tfrag3::PreloadedVertex, seam_w));
         // REOPEN#7: per-vertex tangent at location 5 (free on the tfrag VAO) from the parallel
         // tangent VBO => the PBR frag builds a CONTINUOUS TBN (no screen-derivative cracks). Uses
         // the SAME [geom][tree_idx] index as tree_cache.vertex_buffer above.
