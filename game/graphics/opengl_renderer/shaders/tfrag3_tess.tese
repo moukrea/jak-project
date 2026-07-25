@@ -58,21 +58,56 @@ uniform int u_pbr_bisect;
 // alone, how finely this patch will have been subdivided (see the band-limit block).
 uniform vec2 u_pbr_height_stat;
 uniform float u_pbr_tess_max;
+// PBR POLISH #18 — the tesc's target segment size (see tfrag3_tess.tesc). The tese needs it because
+// the height-map band-limit below is derived from the distance between generated vertices, which
+// under the new law IS this target.
+uniform float u_pbr_tess_seg;
 
 float hnorm(float h) {
   return clamp((h - u_pbr_height_stat.x) * u_pbr_height_stat.y + 0.5, 0.0, 1.0);
 }
 
-// The tesc's level law, re-evaluated here from POSITION ALONE (see TESS_K in tfrag3_tess.tesc).
-// It must stay a pure function of the camera distance: that is what keeps the band-limit below
-// bit-identical on both sides of a welded seam.
+// PBR POLISH #18 — the tesc's WORLD-SPACE-EDGE-LENGTH law targets a segment size directly, so the
+// distance between generated vertices is now KNOWN from the camera distance alone instead of being
+// inferred from a reference patch edge. This copy MUST stay identical to tfrag3_tess.tesc's: it has
+// to be a pure function of the camera distance, which is what keeps the band-limit below
+// bit-identical on both sides of a welded seam (a differing height fetch across the seam is exactly
+// what re-opened the see-through slits the mesh-consolidation phase closed).
+#define TESS_SEG_NEAR_M 0.06
+#define TESS_SEG_D0_M 5.0
+#define TESS_SEG_FAR_M 0.60
+// Long-tail safety on the patches whose level SATURATES at the ceiling: there the real spacing is
+// (edge / cap), coarser than the target. Measured at the owner's vantage (tools/tess_audit): the
+// GROUND p90 edge within 5 m is 4.64 m, which at cap 64 gives 7.25 cm against the 6 cm target, i.e.
+// 1.21x. Rounding the band-limit COARSER is the safe direction (blurrier, never aliased), so 1.25
+// covers the tail without costing the ordinary patches a whole mip.
+#define TESS_SPACING_SAFETY 1.25
+// Legacy distance-only law + its measured median patch edge — bisect bit 16777216 only.
 #define TESS_K 128.0
-// Median tfrag patch edge length of the real geometry, in metres — measured, not guessed:
-// tools/tess_audit over village1's 62,424 tessellable patches reports min 0.00, p10 0.65,
-// MEDIAN 2.18, mean 2.44, p90 4.48, max 29.95 m.
 #define TESS_REF_EDGE_M 2.18
 // Half-mip safety margin on the band-limit (see the block that uses it).
 #define TESS_LOD_BIAS 0.5
+
+float tess_seg_target_m(float d) {
+  float near_m = TESS_SEG_NEAR_M;
+  if (u_pbr_tess_seg > 0.0) {
+    near_m = u_pbr_tess_seg;
+  }
+  return clamp(near_m * max(d, TESS_SEG_D0_M) * (1.0 / TESS_SEG_D0_M), near_m,
+               max(TESS_SEG_FAR_M, near_m));
+}
+
+// The distance between generated vertices, in metres, as a pure function of the camera distance.
+// Both the band-limited height fetch and the gradient-normal tap step use it, so geometry and
+// shading describe the same band-limited surface.
+float tess_spacing_m(float dist_m) {
+  if ((u_pbr_bisect & 16777216) != 0) {
+    // legacy distance-only law: spacing had to be estimated as (median edge / level).
+    float lvl_est = clamp(TESS_K / max(dist_m, 0.5), 1.0, max(u_pbr_tess_max, 1.0));
+    return clamp(TESS_REF_EDGE_M / lvl_est, 0.005, 8.0);
+  }
+  return clamp(tess_seg_target_m(dist_m) * TESS_SPACING_SAFETY, 0.005, 8.0);
+}
 #endif
 
 // frag-consumed varyings (exact names/types from tfrag3.frag / tfrag3.vert).
@@ -174,22 +209,20 @@ void main() {
     // footprints, and the displaced surface has real, coherent macro shape — and NOW every extra
     // tessellation level buys genuinely more detail instead of re-rolling the dice finer.
     //
-    // SEAM-SAFE BY CONSTRUCTION, which is why the spacing is estimated from POSITION rather than
-    // read from gl_TessLevelOuter[]: the true spacing is (patch edge / level) and the patch edge
-    // DIFFERS between the two patches sharing a welded edge, so a true-spacing lod would differ
-    // across the seam, the two sides would sample different heights and the see-through slits the
-    // mesh-consolidation phase closed would come straight back. This estimate re-evaluates the
-    // tesc's level law from dist_m alone and divides the MEASURED median patch edge by it, so like
-    // `world`, `N`, `huv`, `falloff` and `seam` it is bit-identical on both sides. It is accurate
-    // too: against the real per-patch spacings tess_audit measured, it predicts 6.9 cm vs 7.9 cm at
-    // 0-5 m, 25.8 cm vs 23.1 cm at 10-20 m, 43 cm vs 41.3 cm at 20-30 m — within ~10%, and erring
-    // toward a slightly coarser mip is the safe direction (blurrier, never aliased).
+    // SEAM-SAFE BY CONSTRUCTION, which is why the spacing comes from POSITION rather than from
+    // gl_TessLevelOuter[] and the patch's own edges: those DIFFER between the two patches sharing a
+    // welded edge, so a per-patch spacing would give the two sides different mips, different
+    // heights and different displacements — the see-through slits the mesh-consolidation phase
+    // closed would come straight back. tess_spacing_m() is a pure function of dist_m, so like
+    // `world`, `N`, `huv`, `falloff` and `seam` it is bit-identical on both sides.
+    // PBR POLISH #18: it is also no longer an ESTIMATE. The #18 level law solves for a target
+    // segment size, so the target IS the spacing wherever the level does not saturate at the
+    // ceiling (TESS_SPACING_SAFETY covers the saturated long tail, coarser = safe).
     // Bisect bit 4194304 = the legacy lod-0 fetch back, so the owner can A/B the aliasing itself.
     // ===============================================================================================
+    float spacing_m = tess_spacing_m(dist_m);
     float hlod = 0.0;
     if ((u_pbr_bisect & 4194304) == 0 && huv_per_m > 0.0) {
-      float lvl_est = clamp(TESS_K / max(dist_m, 0.5), 1.0, max(u_pbr_tess_max, 1.0));
-      float spacing_m = clamp(TESS_REF_EDGE_M / lvl_est, 0.005, 8.0);
       vec2 hts = vec2(textureSize(tex_PBR_H, 0));
       float texels = spacing_m * huv_per_m * max(hts.x, hts.y);
       // log2(texels) is the theoretically exact match (that mip's Nyquist wavelength is exactly
@@ -249,10 +282,10 @@ void main() {
       // normal describes exactly the surface the vertices actually form. A fixed 0.25 m step
       // against a ~1 mm-texel lod-0 fetch was measuring the slope of the aliasing noise, not of the
       // geometry — which is the other half of why real displaced vertices still shaded flat.
-      // Still position-only => still bit-identical across a welded seam.
-      float MS_M = clamp(TESS_REF_EDGE_M / clamp(TESS_K / max(dist_m, 0.5), 1.0,
-                                                 max(u_pbr_tess_max, 1.0)),
-                         0.005, 8.0);
+      // PBR POLISH #18: literally the same spacing value the height fetch used (it was a duplicated
+      // expression before), so the two can no longer drift apart. Still position-only => still
+      // bit-identical across a welded seam.
+      float MS_M = spacing_m;
       float e = MS_M * huv_per_m;         // ...expressed in huv units
       float hu1 = hnorm(textureLod(tex_PBR_H, huv + vec2(e, 0.0), hlod).r);
       float hu0 = hnorm(textureLod(tex_PBR_H, huv - vec2(e, 0.0), hlod).r);

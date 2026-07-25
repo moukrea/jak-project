@@ -1488,7 +1488,18 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // near-field tessellation at level 12, which under-resolved the height field — the displacement
   // had nowhere near enough vertices to become real depth. This is the ceiling of the new
   // inverse-distance level law, clamped below to what the driver actually allows.
-  float pbr_tess_max = 32.0f;
+  // OWNER PLAYTEST #18 ("la tessellation manque de relief EN PARTICULIER AU SOL"): raised 32 -> 64
+  // together with the tesc's world-space-edge-length law. Measured at the owner's own vantage with
+  // tools/tess_audit, the GROUND mean generated-segment size within 5 m is 9.68 cm at cap 32 (the
+  // law saturates: mean achieved level 31.99/32) versus 5.60 cm at cap 64, which is what puts the
+  // ground inside the mandated 5-10 cm/segment target. 64 is the GL/GLES minimum-maximum for
+  // GL_MAX_TESS_GEN_LEVEL and is what both test devices report, and the clamp below still defers to
+  // whatever the live driver actually allows.
+  float pbr_tess_max = 64.0f;
+  // Target size in METRES of one generated tessellation segment in the near field — the density knob
+  // the new level law solves for (tfrag3_tess.tesc::tess_seg_target_m). 0.06 = 6 cm, inside the
+  // owner's 5-10 cm mandate; raising it is the cheapest perf lever (cost ~ 1/seg^2).
+  float pbr_tess_seg = 0.06f;
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -1554,6 +1565,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.tessmax", v) > 0) {
       pbr_tess_max = atof(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.tessseg", v) > 0) {
+      pbr_tess_seg = atof(v);
+    }
   }
 #else
   if (const char* e = getenv("OG_PBR_DEBUG")) {
@@ -1607,6 +1621,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_PBR_TESSMAX")) {
     pbr_tess_max = atof(e);
   }
+  if (const char* e = getenv("OG_PBR_TESSSEG")) {
+    pbr_tess_seg = atof(e);
+  }
 #endif
   // REOPEN #2: clamp the sliders and fold TEXTURE RELIEF into the relief tunables.
   relief = std::max(0.0f, std::min(relief, 3.0f));
@@ -1646,6 +1663,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
   glUniform1i(glGetUniformLocation(id, "u_pbr_displacement"), pbr_displacement);
   glUniform1f(glGetUniformLocation(id, "u_pbr_tess_max"), pbr_tess_max);
+  // OWNER #18: the near-field target segment size the tesc level law solves for. Clamped to a sane
+  // band (1 cm .. 2 m) so a bad prop can neither melt the GPU nor silently disable displacement.
+  pbr_tess_seg = std::clamp(pbr_tess_seg, 0.01f, 2.0f);
+  glUniform1f(glGetUniformLocation(id, "u_pbr_tess_seg"), pbr_tess_seg);
   glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);

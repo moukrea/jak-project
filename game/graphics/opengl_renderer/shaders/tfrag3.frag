@@ -131,6 +131,18 @@ uniform vec2 u_pbr_height_stat;
 //           (legacy) instead of the mip matched to the tessellated vertex spacing
 // 8388608 = direct N.L detail ratio back to its legacy wide [0.45, 1.9] clamp (the
 //           "très contrasté à la lumière" half of the rebalance)
+// ---- PBR POLISH, OWNER PLAYTEST #18 (2026-07-25) — GROUND relief. Same convention.
+// 16777216 = tessellation level law back to the legacy DISTANCE-ONLY 128/d (read by
+//            tfrag3_tess.tesc and .tese) instead of the world-space-edge-length law, so the
+//            ground-density fix is a live same-vantage A/B.
+// 33554432 = parallax GRAZING FADE + world-cm offset cap OFF, i.e. the legacy un-attenuated
+//            0.08 UV offset back (the owner's "au sol le displacement est HORIZONTAL, ça s'étale
+//            à plat" — see the POM march). Applies to BOTH POM branches.
+//            This bit is 33554432 and NOT the next free-LOOKING 262144: 262144 was already taken
+//            by round #17's ambient-relief A/B (the fdt_amb site below). The first device A/B run
+//            of this round used the overloaded bit and measured the side effect at the SAME ORDER
+//            OF MAGNITUDE as the parallax signal itself — it silently confounded both A/Bs. Always
+//            scan ALL of *.frag/*.tesc/*.tese for a bit before claiming it is free.
 uniform int u_pbr_bisect;
 // REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
 // (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement
@@ -453,6 +465,22 @@ void frisvad_basis(vec3 n, out vec3 t, out vec3 b) {
 float hnorm(float h) {
   return clamp((h - u_pbr_height_stat.x) * u_pbr_height_stat.y + 0.5, 0.0, 1.0);
 }
+
+// ---- PBR POLISH #18: PARALLAX (POM) GRAZING ATTENUATION + WORLD-cm OFFSET CAP ----
+// Shared by BOTH POM marches (the fused rt+pbr path and the rt-OFF standalone fallback), because
+// the owner's "au sol ça s'étale à plat" is a property of the formula, not of one branch. Rationale
+// in full at the fused march. tan(theta) = |Vt.xy| / Vt.z, so gating on Vt.z gates on the view
+// angle: 0.15 ~= 81 deg off the surface normal, 0.50 = 60 deg.
+#define POM_GRAZE_LO 0.15
+#define POM_GRAZE_HI 0.50
+// The lateral shift may never exceed the feature depth itself (tan(theta) <= 1)...
+#define POM_MAX_TAN 1.0
+// ...nor this many METRES of apparent world sliding, whatever the material depth or tiling.
+#define POM_MAX_WORLD_M 0.03
+// Authored ground UV density, in UV tiles per metre — MEASURED, and the same constant
+// tfrag3_tess.tese uses for its world-space height lookup (WORLD_TILES_PER_M): one tile every 2 m.
+// It converts POM_MAX_WORLD_M into the UV units the offset actually lives in.
+#define POM_UV_PER_M 0.5
 
 // Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 2 "completely FLAT in
 // shadow"). The realtime AMBIENT IRRADIANCE for an arbitrary direction — the same selector the
@@ -809,39 +837,71 @@ void main() {
             (u_pbr_bisect & 128) == 0 && u_pbr_displacement != 2) {
           vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.20);
+          // ===========================================================================
+          // PBR POLISH — OWNER PLAYTEST #18: "le displacement du parallax est HORIZONTAL
+          // au sol, comme si au lieu de s'élever, ça s'étale à plat."
+          // He is describing the formula's own failure mode, exactly. The offset is
+          //     P = (Vt.xy / Vt.z) * depth        i.e.  |P| = depth * tan(theta)
+          // so on a near-horizontal FLOOR viewed by the ordinary gameplay camera — which
+          // looks ALONG the ground, theta -> 90 deg — the amplifier blows up and P
+          // degenerates into a large HORIZONTAL UV TRANSLATION. The texture slides
+          // sideways instead of reading as depth: "ça s'étale à plat". The old 0.08 UV
+          // clamp bounded the magnitude but not the NATURE of the artifact, and 0.08 UV is
+          // ~16 cm of world sliding at the authored ground UV density — enormous.
+          // THE FIX (industry-standard POM attenuation, two parts):
+          //  (1) GRAZING FADE: parallax is only trustworthy near head-on, so weight it out
+          //      as the view becomes grazing. Below POM_GRAZE_LO (~81 deg off the normal)
+          //      it is gone entirely; it reaches full strength at POM_GRAZE_HI (~60 deg).
+          //      On grazing floors the relief then comes from the TESSELLATION
+          //      displacement (real vertices, cannot smear) and from the normal-map
+          //      shading + height cavity, all of which are view-stable.
+          //  (2) WORLD-cm CAP: cap the offset by the feature depth itself (POM_MAX_TAN,
+          //      i.e. tan(theta) <= 1) AND by an absolute POM_MAX_WORLD_M of world
+          //      sliding, converted to UV with the measured authored ground UV density.
+          //      3 cm instead of 16 cm — a surface detail, not a moving layer.
+          // Bisect bit 33554432 = both parts off (the legacy un-faded 0.08 UV offset), so
+          // this is a live same-vantage A/B with one setprop.
+          // ===========================================================================
+          float pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
+          float pom_cap =
+              min(POM_MAX_TAN * u_pbr_height_scale, POM_MAX_WORLD_M * POM_UV_PER_M) * u_pbr_uv_tile;
+          if ((u_pbr_bisect & 33554432) != 0) {
+            pom_graze = 1.0;   // legacy: no grazing attenuation...
+            pom_cap = 0.08;    // ...and the old fixed UV clamp (~16 cm of world slide)
+          }
           // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);
           // the loop bound below already allows 32. Occlusion test + secant interpolation
           // (the industry steep-parallax + refinement) were already in place.
           float n_layers = mix(32.0, 16.0, clamp(Vt.z, 0.0, 1.0));
           // REOPEN #6 SURFACE-LOCK (owner playtest #5: the "10cm epoxy float, texture moves
-          // differently than the model"). The grazing amplifier (Vt.xy / vz) can push the raw
-          // parallax offset to ~0.9 UV — nearly a whole texel-tile of swim = the floating
-          // epoxy layer. Build the TOTAL parallax vector P and CLAMP its length so the offset
-          // can never exceed a small, surface-locked bound: the depth reads from the surface
-          // itself, never from clear epoxy floating in front of it. duv_step marches P/n_layers.
-          vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile;
+          // differently than the model"). Build the TOTAL parallax vector P and CLAMP its
+          // length so the offset can never exceed a small, surface-locked bound: the depth
+          // reads from the surface itself, never from clear epoxy floating in front of it.
+          // duv_step marches P/n_layers.
+          vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile * pom_graze;
           float Plen = length(P);
-          // REOPEN#7: surface-lock clamp restored to a VISIBLE bound (0.08 UV, was neutered to 0.05)
-          // — the continuous per-vertex-tangent TBN keeps the offset coherent with the geometry.
-          if (Plen > 0.08) P *= 0.08 / Plen;
-          vec2 duv_step = P / n_layers;
-          float layer_d = 1.0 / n_layers;
-          float cur_d = 0.0;
-          float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-          float prev_map_d = map_d;
-          for (int i = 0; i < 32; i++) {
-            if (cur_d >= map_d || float(i) >= n_layers) {
-              break;
+          if (Plen > pom_cap) P *= pom_cap / Plen;
+          // Fully faded out at grazing => skip the march entirely (also its 16-32 taps).
+          if (Plen > 1e-6) {
+            vec2 duv_step = P / n_layers;
+            float layer_d = 1.0 / n_layers;
+            float cur_d = 0.0;
+            float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
+            float prev_map_d = map_d;
+            for (int i = 0; i < 32; i++) {
+              if (cur_d >= map_d || float(i) >= n_layers) {
+                break;
+              }
+              uv -= duv_step;
+              prev_map_d = map_d;
+              map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
+              cur_d += layer_d;
             }
-            uv -= duv_step;
-            prev_map_d = map_d;
-            map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-            cur_d += layer_d;
+            float after = map_d - cur_d;
+            float before = prev_map_d - (cur_d - layer_d);
+            float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
+            uv += duv_step * (1.0 - w);
           }
-          float after = map_d - cur_d;
-          float before = prev_map_d - (cur_d - layer_d);
-          float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
-          uv += duv_step * (1.0 - w);
         }
         // PBR POLISH — inputs for the HEIGHT-FIELD SELF-SHADOW (owner defect 3: the relief reads
         // as "un bump map glorifie"). Sampled at the FINAL (parallax-corrected) uv so the shadow
@@ -1555,29 +1615,41 @@ void main() {
         float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
         // REOPEN #6 SURFACE-LOCK (same fix as the fused path): clamp the total parallax UV
         // offset so the rt-OFF standalone POM is also welded to the surface — no epoxy float.
-        vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile;
-        float Plen = length(P);
-        // REOPEN#7: surface-lock clamp restored to a VISIBLE bound (continuous vertex-tangent TBN).
-        if (Plen > 0.08) P *= 0.08 / Plen;
-        vec2 duv_step = P / n_layers;
-        float layer_d = 1.0 / n_layers;
-        float cur_d = 0.0;
-        float map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
-        float prev_map_d = map_d;
-        for (int i = 0; i < 32; i++) {
-          if (cur_d >= map_d || float(i) >= n_layers) {
-            break;
-          }
-          uv -= duv_step;
-          prev_map_d = map_d;
-          map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
-          cur_d += layer_d;
+        // PBR POLISH #18 (same fix as the fused path, same reason): the grazing amplifier turns the
+        // offset into a horizontal UV SLIDE on floors, so fade it out at grazing and cap it in world
+        // cm. The owner's "PBR seul" preset renders through THIS branch, and his "ça s'étale à plat"
+        // is a property of the formula both branches share. Bisect bit 33554432 = legacy behaviour.
+        float pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
+        float pom_cap =
+            min(POM_MAX_TAN * u_pbr_height_scale, POM_MAX_WORLD_M * POM_UV_PER_M) * u_pbr_uv_tile;
+        if ((u_pbr_bisect & 33554432) != 0) {
+          pom_graze = 1.0;
+          pom_cap = 0.08;
         }
-        // secant refine between the last two samples for a smooth intersection
-        float after = map_d - cur_d;
-        float before = prev_map_d - (cur_d - layer_d);
-        float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
-        uv += duv_step * (1.0 - w);
+        vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile * pom_graze;
+        float Plen = length(P);
+        if (Plen > pom_cap) P *= pom_cap / Plen;
+        if (Plen > 1e-6) {
+          vec2 duv_step = P / n_layers;
+          float layer_d = 1.0 / n_layers;
+          float cur_d = 0.0;
+          float map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+          float prev_map_d = map_d;
+          for (int i = 0; i < 32; i++) {
+            if (cur_d >= map_d || float(i) >= n_layers) {
+              break;
+            }
+            uv -= duv_step;
+            prev_map_d = map_d;
+            map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+            cur_d += layer_d;
+          }
+          // secant refine between the last two samples for a smooth intersection
+          float after = map_d - cur_d;
+          float before = prev_map_d - (cur_d - layer_d);
+          float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
+          uv += duv_step * (1.0 - w);
+        }
       }
       vec3 N = Nsurf;
       if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
