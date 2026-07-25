@@ -923,3 +923,39 @@ THIS PHASE NOW = THE PBR RENDERING POLISH. The owner's recorded defects (from pl
    shadowing of the relief (parallax self-occlusion / micro-shadowing from the height map), and silhouette
    effect where tessellation is on. The goal is "comme les jeux modernes", not a shaded bump.
 Keep the validated mesh consolidation intact (it is the foundation everything now rests on).
+
+---
+## OWNER PLAYTEST #17 (2026-07-25) — displacement direction FIXED ✅, mesh not regressed ✅. STILL: flat in shadow, glorified bump, tessellation lacks detail.
+Owner: "je vois plus le displacement inversé, ça a l'air bon... par contre ça fait toujours juste bump map
+glorifié, la tesselation manque de détail et ne donne pas vraiment de profondeur, à l'ombre c'est toujours
+plat, le parallax c'est pareil. TRÈS CONTRASTÉ À LA LUMIÈRE (mais quand même plat), TRÈS PLAT À L'OMBRE.
+La consolidation des mesh n'a pas régressé."
+
+### ROOT CAUSE OF "FLAT IN SHADOW" — MATHEMATICAL, found by the supervisor in tfrag3.frag (~line 1002):
+The ambient-relief term is a RATIO `rt_amb_eval(Nm) / rt_amb_eval(N)` (ambient evaluated at the perturbed vs
+smooth normal). Our ambient (baked-modulation) has almost NO directional variation, so that ratio is ≈1.0 =>
+fdt_amb ≈ 1 => **the term does nothing in shade**. You cannot extract relief from a function that does not
+vary with the normal. THIS IS WHY IT IS STILL FLAT IN SHADOW.
+**FIX (industry standard): a DIRECTION-INDEPENDENT cavity/AO term from the height field.**
+ - Compute a micro-AO / cavity factor from the HEIGHT map (and the _ao map when present): crevices darker,
+   ridges brighter — e.g. multi-tap height comparison around the texel (or a precomputed cavity from the
+   height map), normalised so the mean stays ~1 (no global darkening).
+ - Apply it to the AMBIENT/indirect share (the share that dominates in shadow), so relief reads in FULL SHADE
+   and at night. This is what makes shaded PBR surfaces still look carved in modern games.
+ - Keep it energy-safe (multiply ≤1 on ambient, mean-preserving) so the accepted baked look is not darkened.
+
+### "GLORIFIED BUMP / NO REAL DEPTH / TESSELLATION LACKS DETAIL" — three concrete levers, do ALL:
+1. **Tessellation detail**: the current tesc gates the whole patch beyond 30 m and the edge levels appear low.
+   RAISE the near-field tessellation (higher max level, distance-scaled), so displaced geometry actually has
+   the density to show relief. Report the ACHIEVED tess factors and triangle counts near the camera.
+2. **Displacement amplitude**: height_scale = 0.05 * relief (so ~7 cm at relief 1.5). On tessellated geometry
+   that is small; scale the displacement with the ACTUAL material (height map range) and expose it so the
+   relief is physically visible at the silhouette. Verify the silhouette breaks (the classic proof that real
+   displacement is happening, vs a bump).
+3. **Parallax depth cue**: the parallax path must use steep POM WITH self-occlusion and a silhouette/edge
+   clip, not a single-offset lookup — motion parallax is what sells depth when tessellation is off.
+4. **"Très contrasté à la lumière mais plat"**: the direct-sun normal-map term is over-driven while the depth
+   cues (AO/cavity, self-shadow, parallax) are under-driven. Rebalance: less raw N·L contrast, more cavity +
+   self-shadow + parallax => reads as DEPTH instead of high-contrast noise.
+ACCEPTANCE (owner's eye): relief clearly visible IN SHADOW, real depth (not a shaded bump) with tessellation
+AND with parallax, no over-contrast in sunlight, mesh consolidation intact.

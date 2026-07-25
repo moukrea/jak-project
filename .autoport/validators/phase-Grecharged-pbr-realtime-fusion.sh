@@ -136,4 +136,9 @@ grep -qiE 'relief.*(0|zero).*vs.*(2|2\.5|high)|relief.*a/b.*(patch|plate|seam)' 
 grep -qiE 'seam.*(height|displac).*(consist|same|average|fade|match)|height.*(world|triplanar|shared).*seam|displacement.*(fade|zero).*(boundary|seam)' "$R" || fail "no seam-consistent-displacement fix (tessellation slits = each side samples height at its own UV => different displacement)"
 grep -qiE 'relief 0.*seam|seam.*relief.?0|baked.?colou?r.*(delta|blend|average).*seam|normal delta.*seam' "$R" || fail "no relief-0 seam diagnosis/fix (normal delta vs baked-color delta at seams)"
 grep -qiE 'no.*(slit|see.?through|hole).*(tessellat|relief)|slit.*(gone|fixed)' "$R" || fail "no see-through-slits-gone evidence"
+# OWNER #17: flat-in-shadow root cause = ratio-of-ambient (~1.0). Need direction-independent cavity/AO + real depth.
+grep -qiE 'cavity|micro.?ao|height.*(ao|occlusion).*(ambient|shade|shadow)|direction.?independent' "$R" || fail "no direction-independent cavity/AO-from-height term (the ambient RATIO is ~1.0 => cannot work in shade)"
+grep -qiE 'tess.*(level|factor).*(raise|higher|increase)|achieved tess|triangle count.*(near|camera)' "$R" || fail "no tessellation-detail increase evidence (owner: manque de détail)"
+grep -qiE 'silhouette.*(break|proof|visible)|displacement.*(amplitude|scale).*(raise|material|visible)' "$R" || fail "no real-displacement amplitude/silhouette evidence (vs glorified bump)"
+grep -qiE 'rebalanc.*(contrast|direct).*(cavity|depth|self.?shadow)|less.*(N.?L|direct).*contrast' "$R" || fail "no direct-vs-depth-cue rebalance evidence (owner: très contrasté à la lumière mais plat)"
 echo "[Gpbrf PASS]"
