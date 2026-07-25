@@ -27,16 +27,45 @@
 ;; trampoline is unambiguously named by its emit_pc.
 ;;
 ;; X16, X17 are AAPCS intra-procedure call scratch (IP0/IP1) — caller-
-;; save, clobberable here. The macro emits 5 instructions per RET site.
+;; save, clobberable here. The macro emits 7 instructions per RET site.
 ;; Always-on (no compile-time gate): the .s file is consumed by GNU as
-;; with no C-preprocessor pass, and the runtime cost is ~3 ns per
+;; with no C-preprocessor pass, and the runtime cost is ~4 ns per
 ;; trampoline call (~hundreds of thousands of calls across a boot, so
 ;; <1 ms total — negligible).
+;;
+;; 2026-07-25 — LAYOUT-INDEPENDENCE FIX. The original check was one-sided
+;; and SIGNED: B.LT skipped the UDF only when X30 < X15, i.e. it assumed
+;; libgk.so is always mapped BELOW EE_BASE so a return into host C++ wraps
+;; negative. android_runtime_compat.cpp tries to guarantee that by hinting
+;; EE_BASE high, but it never validates the postcondition, and the kernel is
+;; free to ignore the hint (MAP_FIXED_NOREPLACE is a no-op before kernel
+;; 4.17 — the Redmi runs 4.14.190). After a device reboot on 2026-07-25 the
+;; 0x7F00000000 hint was refused, EE_BASE fell to 0x7E00000000, and libgk.so
+;; landed at 0x7E7B656000 — ABOVE EE_BASE. Every legitimate GOAL→C++ return
+;; then produced X17 = 0x7BC20538 (positive, > 0x07000000), B.LT was not
+;; taken, and the UDF fired: SIGILL at boot right after `link finish:
+;; gcommon`, deterministically, on every launch.
+;;
+;; The check is now a proper TWO-SIDED UNSIGNED range test on the offset
+;; into EE memory, so it is correct wherever the kernel places libgk.so
+;; relative to EE_BASE:
+;;   offset <  0x07000000              -> ordinary GOAL return         (skip)
+;;   offset >= 0x08000000 (EE size)    -> return to native code, any
+;;                                        layout, incl. libgk above EE  (skip)
+;;   0x07000000 <= offset < 0x08000000 -> X30 corrupted into the top
+;;                                        16 MB of EE space             (UDF)
+;; Trade-off: a corrupt X30 pointing far OUTSIDE EE memory is no longer
+;; trapped. It never was on the intended layout either (that range is where
+;; host return addresses live, and is indistinguishable from a legitimate
+;; native return), so no real detection is lost — only the false positive.
 .macro a24_x30_stack_range_check
-  sub  x17, x30, x15            // X17 = X30 - X15 (signed: wraps to negative when X30 < X15)
+  sub  x17, x30, x15            // X17 = X30 - EE_BASE (unsigned offset into EE)
   movz x16, #0x0700, lsl #16    // X16 = 0x07000000 (GOAL stack-range floor)
   cmp  x17, x16
-  b.lt 9999f                    // signed less than → skip UDF (heap return or C-binary return)
+  b.lo 9999f                    // unsigned below floor → ordinary GOAL return
+  movz x16, #0x0800, lsl #16    // X16 = 0x08000000 (EE_MAIN_MEM_SIZE, 128 MB)
+  cmp  x17, x16
+  b.hs 9999f                    // unsigned at/above EE top → native return (any layout)
   udf  #0x1ef0                  // distinct from A23's 0x1EE0..0x1EFF range
 9999:
 .endm

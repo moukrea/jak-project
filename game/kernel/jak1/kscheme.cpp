@@ -631,16 +631,26 @@ inline uint32_t arm64_ret_x30() {
   return 0xD65F03C0u;
 }
 
-// A24 — emit the 5-instruction post-LDP X30 stack-range check, mirroring
+// A24 — emit the 7-instruction post-LDP X30 stack-range check, mirroring
 // goalc/compiler/CodeGenerator.cpp::do_goal_function_arm64's epilogue
 // tracer and game/kernel/asm_funcs_arm64.s's a24_x30_stack_range_check
 // macro. The inline trampolines below (make_function_from_c_arm64 and
 // friends) all emit an LDP X29, X30 + RET tail; this helper inserts
 // the check between them so a corrupted X30 fires UDF #0x1EF0 BEFORE
 // the RET propagates the bad LR to PC. See the linked comment block in
-// CodeGenerator.cpp for the threshold (0x07000000), the signed-LT vs
-// unsigned-LO subtlety (return-to-C-binary has X30 < X15 → wraps), and
-// the SIGILL handler decoder's GK-DIAG A24-DIAG output shape.
+// CodeGenerator.cpp for the threshold (0x07000000) and the SIGILL handler
+// decoder's GK-DIAG A24-DIAG output shape.
+//
+// 2026-07-25 — LAYOUT-INDEPENDENCE FIX (see the long comment block in
+// game/kernel/asm_funcs_arm64.s for the full incident write-up). The old
+// one-sided SIGNED test (B.LT alone) assumed libgk.so is mapped BELOW
+// EE_BASE so that a return to host C++ wraps negative. That invariant is
+// not enforced anywhere and broke after a device reboot: EE_BASE landed at
+// 0x7E00000000 with libgk.so ABOVE it at 0x7E7B656000, so every legitimate
+// GOAL→C++ return tripped the UDF and the game SIGILL'd at boot. The check
+// is now a TWO-SIDED UNSIGNED range test on the offset into EE memory:
+// only an X30 landing inside [EE_BASE+0x07000000, EE_BASE+0x08000000) —
+// the top 16 MB of EE space — traps. Correct for any libgk/EE_BASE order.
 //
 // X16, X17 are AAPCS intra-procedure call scratch (IP0/IP1) and clobberable
 // here — the wrapping caller doesn't expect them to be preserved across
@@ -654,10 +664,13 @@ inline uint32_t arm64_ret_x30() {
 // regime A24 is in.
 template <typename EmitFn>
 inline void arm64_emit_x30_stack_range_check(EmitFn emit) {
-  emit(0xCB0F03D1u);  // SUB  X17, X30, X15  (X17 = X30 - X15, signed)
-  emit(0xD2A0E010u);  // MOVZ X16, #0x0700, LSL #16  (X16 = 0x07000000)
+  emit(0xCB0F03D1u);  // SUB  X17, X30, X15  (X17 = X30 - EE_BASE, unsigned offset)
+  emit(0xD2A0E010u);  // MOVZ X16, #0x0700, LSL #16  (X16 = 0x07000000, GOAL floor)
   emit(0xEB10023Fu);  // CMP  X17, X16
-  emit(0x5400004Bu);  // B.LT +8  (signed less than → skip UDF)
+  emit(0x540000A3u);  // B.LO +20 (unsigned below floor → ordinary GOAL return)
+  emit(0xD2A10010u);  // MOVZ X16, #0x0800, LSL #16  (X16 = 0x08000000 = EE size)
+  emit(0xEB10023Fu);  // CMP  X17, X16
+  emit(0x54000042u);  // B.HS +8  (at/above EE top → native return, any layout)
   emit(0x00001EF0u);  // UDF  #0x1EF0  (A24 epilogue-X30-stack trap tag)
 }
 
@@ -858,7 +871,7 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   emit(arm64_ldp_x_postindex(13, 14, 31, 16));
   // ldp x29, x30, [sp], #16
   emit(arm64_ldp_x_postindex(29, 30, 31, 16));
-  // A24 — post-LDP X30 stack-range check (5 instr; UDF #0x1EF0 on stack-range X30)
+  // A24 — post-LDP X30 stack-range check (7 instr; UDF #0x1EF0 on stack-range X30)
   arm64_emit_x30_stack_range_check(emit);
   // ret
   emit(arm64_ret_x30());
@@ -931,7 +944,7 @@ Ptr<Function> make_x12_preserve_wrapper_arm64(u32 wrapped_fn_goal) {
   emit(arm64_ldp_x_postindex(12, 31, 31, 16));    // LDP X12, XZR, [SP], #16
   emit(arm64_ldp_x_postindex(29, 30, 31, 16));    // LDP X29, X30, [SP], #16
 
-  // A24 — post-LDP X30 stack-range check (5 instr; UDF #0x1EF0 on stack-range X30)
+  // A24 — post-LDP X30 stack-range check (7 instr; UDF #0x1EF0 on stack-range X30)
   arm64_emit_x30_stack_range_check(emit);
   emit(arm64_ret_x30());
 
@@ -1004,7 +1017,7 @@ Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
   emit(arm64_ldr_x_postindex(15, 31, 16));
   emit(arm64_ldp_x_postindex(13, 14, 31, 16));
   emit(arm64_ldp_x_postindex(29, 30, 31, 16));
-  // A24 — post-LDP X30 stack-range check (5 instr; UDF #0x1EF0 on stack-range X30)
+  // A24 — post-LDP X30 stack-range check (7 instr; UDF #0x1EF0 on stack-range X30)
   arm64_emit_x30_stack_range_check(emit);
   emit(arm64_ret_x30());
 
