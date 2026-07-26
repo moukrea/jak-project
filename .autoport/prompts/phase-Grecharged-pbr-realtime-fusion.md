@@ -1201,3 +1201,18 @@ FIX (balance, not extremes):
    than fading the effect away.
  - The acceptance is the CHECKER: in PARALLAX mode the checker squares must show clear depth (edges,
    self-occlusion) at normal gameplay camera angles — not a flat pattern, and not a sliding texture.
+
+**OWNER PRECISION (2026-07-26): "le parallax est plat AUTANT SUR LES MURS QUE LE SOL".** That rules out the
+grazing-angle explanation alone: on a WALL viewed head-on, Vt.z is LARGE so pom_graze ~= 1 — yet it is still
+flat. Therefore the parallax offset is being killed by something that applies EVERYWHERE:
+ - the absolute world cap POM_MAX_WORLD_M = 0.03 combined with the UV conversion
+   (POM_MAX_WORLD_M * u_pbr_uv_per_m) can clamp the offset to a near-zero UV distance for ALL materials;
+ - and/or u_pbr_height_scale itself is now tiny after the "feature-scaled amplitude" round;
+ - and/or the POM branch is skipped entirely for these draws (check the branch conditions: u_pbr_mode & 16,
+   u_pbr_displacement != 2, bisect bit 128, height map bound) — if the branch never runs, the result is flat
+   no matter the parameters.
+DIAGNOSE FIRST, in this order, and report the numbers: (a) is the POM branch executed on wall AND ground
+draws (add a debug viz/counter), (b) what is the FINAL offset length in UV and in world cm after all caps
+(log it for a wall and a ground draw), (c) which term collapses it. THEN fix that term. The checker in
+PARALLAX mode must show unmistakable depth on a WALL viewed head-on — that is the simplest, least ambiguous
+acceptance case.
