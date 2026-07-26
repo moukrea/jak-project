@@ -1140,3 +1140,27 @@ so it is never left flat. Report the coverage: % of PBR-bound draws that actuall
 (target ~100% in the near field) and prove it with the checker (no flat checker chunks next to raised ones).
 ACCEPTANCE: with the checker pattern, EVERY nearby PBR surface shows raised blocks that line up exactly
 with the checker squares. No misalignment, no flat chunks.
+
+**OWNER CORRECTION (2026-07-26) — NO POM FALLBACK EXCUSE. TESSELLATION MUST RUN EVERYWHERE.**
+"Bah elle devrait pouvoir tourner partout ! Si les polygones sont trop gros... bah faut subdiviser, c'est un
+peu le but de la tessellation (vertex displacement shaders qui rajoutent des polygones). Et au pire tu peux
+faire des mesh avec plus de subdivision et des LOD (près = plus de subdivision, puis défaut, puis LOD
+natifs). Et s'assurer que les maps (height, normal, roughness) utilisent exactement le même alignement que
+la base color."
+=> REVISED REQUIREMENT (supersedes the "fall back to POM where tessellation cannot run" line above):
+1. **Tessellation displacement must apply to EVERY draw that has a height map bound** — all tfrag/tie/shrub
+   draw kinds and buckets, not a "tess-eligible kinds" subset. If a draw kind is currently excluded, find
+   WHY (pipeline/program/vertex-format/bucket routing) and FIX the pipeline so it can be tessellated. Do not
+   accept a subset; report the exhaustive list of draw kinds and their tessellation status (target: all).
+2. **Big triangles are NOT an excuse** — that is what tessellation is for; combine (a) the hardware tess
+   factor from the world-space edge-length law, and (b) the offline PRE-SUBDIVISION already in the mesh bake,
+   so every surface reaches the target segment size. If the hardware ceiling is still hit, push more of the
+   work into the pre-subdivision (that is the owner's "mesh avec plus de subdivision").
+3. **Owner-proposed LOD scheme**: build subdivided mesh LODs — NEAR = heavily subdivided (displacement-ready),
+   MID = default, FAR = the game's native LOD — and select by distance. This bounds the cost while keeping
+   full displacement coverage in the near field where it is visible.
+4. **Maps alignment (restated as a hard requirement)**: height, normal and roughness (and AO/specular/
+   emissive) must use EXACTLY the same UV/wrap/tiling as the BASE COLOUR. No separate multiplier anywhere.
+ACCEPTANCE: with the checker pattern, EVERY nearby PBR surface — whatever its draw kind — shows raised blocks
+aligned exactly with the checker squares. Report per-draw-kind tessellation coverage (must be complete) and
+the LOD/subdivision scheme used.
