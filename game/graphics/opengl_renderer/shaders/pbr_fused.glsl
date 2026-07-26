@@ -75,7 +75,40 @@
         // tessellation faded out and the coverage flag stops claiming pixels the geometry never
         // moved. TESS_COVER_MIN is the weight below which the vertex displacement is visually nil.
         #define TESS_COVER_MIN 0.01
-        bool tess_displaced = (u_pbr_tess_active != 0) && (tess_disp_w > TESS_COVER_MIN);
+        // ===== ROUND 24 FIX 1 — THE HOLE BETWEEN THE TWO TIERS ======================================
+        // MEASURED on device at the owner's vantage (mode 34, R = tess_disp_w = falloff*seam over the
+        // maps-bearing tfrag3_tess pixels): mean 0.581, and 63.0% of those pixels sit in the band
+        // 0.05..0.95 — neither fully tessellated nor released to the parallax tier. The old handoff
+        // was BINARY (`tess_disp_w > 0.01` => POM suppressed), so every one of those pixels received
+        // `w x` of the tessellation amplitude and ZERO parallax: a hole covering most of the level,
+        // exactly the one the round-24 mandate names ("le POM censé prendre le relais ne s'active pas
+        // là où la tessellation abandonne — les deux tiers doivent se recouvrir, jamais laisser un
+        // trou entre eux"). It is also why the ON-vs-OFF image delta came out AT the drift floor on
+        // the shipped materials: the tier that can actually move TEXELS (POM shifts the UV, which
+        // changes the image even on a head-on wall where moving a vertex along its own normal barely
+        // moves a pixel) was switched off precisely where the other tier had faded.
+        //
+        // THE FIX IS A CROSS-FADE, not a threshold: the parallax carries EXACTLY the complement of
+        // what the tessellation applied here, so the two tiers sum to one full-depth displacement at
+        // every fragment and the transition between them is continuous by construction.
+        //
+        // POM_MICRO_FLOOR is the second half, and it is the standard frequency split rather than a
+        // fudge: tfrag3_tess.tese fetches its height at the mip whose texel matches the GENERATED
+        // VERTEX SPACING (~15.7 cm at 17 m), so everything finer than that spacing is, by
+        // construction, NOT representable by the geometry. That residual is what parallax is for, so
+        // a floor of relief stays with the POM even where the tessellation is at full strength —
+        // macro from the vertices, micro from the march, which is how displacement mapping is
+        // combined in modern renderers.
+        #define POM_MICRO_FLOOR 0.35
+        float tess_w = (u_pbr_tess_active != 0) ? clamp(tess_disp_w, 0.0, 1.0) : 0.0;
+        float pom_w = max(1.0 - tess_w, POM_MICRO_FLOOR);
+        // Bisect bit 268435456 restores the ROUND-23 binary handoff exactly (POM suppressed whenever
+        // the tess tier touched the fragment at all), so this fix is a one-setprop A/B at the same
+        // vantage in the same boot.
+        if ((u_pbr_bisect & 268435456) != 0) {
+          pom_w = (u_pbr_tess_active != 0 && tess_disp_w > TESS_COVER_MIN) ? 0.0 : 1.0;
+        }
+        bool tess_displaced = tess_w > TESS_COVER_MIN;
         if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && u_pbr_displacement != 0 &&
             tess_displaced) {
           f_disp_cover = 1.0;
@@ -123,7 +156,7 @@
         // does not cover (TIE walls and props, shrubs, hfrag, non-opaque trees, anything past the
         // 30 m tesc gate) keeps its parallax instead of going flat.
         if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-            (u_pbr_bisect & 128) == 0 && !tess_displaced) {
+            (u_pbr_bisect & 128) == 0 && pom_w > TESS_COVER_MIN) {
           vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.20);
           // ===========================================================================
@@ -199,13 +232,20 @@
           // into stair-stepped mush exactly where the owner is looking for "extreme". Scale by
           // sqrt(drive): 1.0x at rel 1 (UNCHANGED), 1.33x at 1.5, 2.16x at 3. The static loop bound
           // is raised to 64 to let the count through (the `>= n_layers` early break still runs).
-          float n_layers = clamp(mix(32.0, 16.0, clamp(Vt.z, 0.0, 1.0)) * sqrt(pom_drive), 8.0, 64.0);
+          // ROUND 24: the step count follows the SHARE this tier is carrying. Where the tessellation
+          // already moved the vertices, the march only has the micro residual left to resolve, so a
+          // shallower field needs fewer layers — that is what keeps the cross-fade from adding a POM
+          // march at full step count to every tessellated fragment on the Adreno 618.
+          float n_layers = clamp(mix(32.0, 16.0, clamp(Vt.z, 0.0, 1.0)) * sqrt(pom_drive) *
+                                     max(pom_w, 0.35), 8.0, 64.0);
           // REOPEN #6 SURFACE-LOCK (owner playtest #5: the "10cm epoxy float, texture moves
           // differently than the model"). Build the TOTAL parallax vector P and CLAMP its
           // length so the offset can never exceed a small, surface-locked bound: the depth
           // reads from the surface itself, never from clear epoxy floating in front of it.
           // duv_step marches P/n_layers.
-          vec2 P = (Vt.xy / vz) * depth_uv * pom_graze;
+          // ROUND 24 CROSS-FADE: pom_w is the complement of the tessellation weight (plus the micro
+          // floor), so the parallax delivers exactly the depth the vertices did not.
+          vec2 P = (Vt.xy / vz) * depth_uv * pom_graze * pom_w;
           float Plen = length(P);
           if (Plen > pom_cap) P *= pom_cap / Plen;
           // ROUND 24 DEAD-ZONE DIAGNOSTIC, green channel: the FINAL offset, after the grazing

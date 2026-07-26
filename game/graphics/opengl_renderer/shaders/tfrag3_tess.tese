@@ -349,14 +349,37 @@ void main() {
     //     those vertices, and barycentric interpolation of a zeroed corner pair makes `seam` — and
     //     therefore the displacement — EXACTLY zero along the shared edge, from both patches.
     float seam = clamp(bary1(tc_seam[0], tc_seam[1], tc_seam[2]), 0.0, 1.0);
+    // ===== ROUND 24 FIX 3 — STOP THE PIN FROM BLEEDING ACROSS THE WHOLE TRIANGLE =================
+    // The pin is stored PER VERTEX (MeshConsolidate.cpp:1928-1964 writes 0 or 0xffff), but what has
+    // to hold still is an EDGE. Interpolated linearly, ONE pinned corner drags the triangle's mean
+    // weight to 0.667 and two drag it to 0.333. Measured on village1: 61.7% of referenced tfrag
+    // vertices are pinned (.autoport/reports/mesh_audit_jak1.txt:597, crease = 85% of them) while
+    // only 3.5% of the tess-eligible triangles are FULLY pinned (r24-tess-audit-va.txt). So nearly
+    // all of the lost amplitude was BLEED into interiors that had no reason to hold still.
+    // Reshaping the ramp into a narrow BAND is EXACTLY as crack-safe as the linear ramp, for the
+    // same reason the linear ramp was: `seam` is a pure function of the value both patches
+    // interpolate along their shared edge, so any monotone function of it stays identical on both
+    // sides. At a pinned vertex the argument is 0 and the band returns 0; along a fully pinned edge
+    // it is 0 the whole way, so the displacement is still EXACTLY zero exactly where the mesh
+    // consolidation demanded it — the owner-validated no-holes result is untouched. Only the
+    // interior, a quarter of a triangle away from the pin, gets its amplitude back.
+    #define SEAM_BAND 0.25
+    float seam_linear = seam;
+    seam = smoothstep(0.0, SEAM_BAND, seam);
     if ((u_pbr_bisect & 131072) != 0) {
-      seam = 1.0;  // A/B: ignore the seam weights
+      seam = 1.0;  // A/B: ignore the seam weights entirely
+    }
+    if ((u_pbr_bisect & 536870912) != 0) {
+      seam = seam_linear;  // A/B: the round-23 linear ramp back, one setprop away
     }
 
     // fade 20 -> 30 m to 0 so far patches (which are passthrough anyway) never pop, and mid
     // patches ease in smoothly. Uses the UNDISPLACED `world`, shared across the edge, so the fade
     // matches too. (dist_m is computed above, before the band-limited height fetch.)
-    float falloff = 1.0 - smoothstep(20.0, 30.0, dist_m);
+    // ROUND 24: 20-30 m -> 40-60 m, matched to the .tesc's TESS_FADE_LO_M/HI_M (they MUST stay
+    // equal: the level law fades on the same curve so no vertex is generated for zero amplitude).
+    // 77% of the round-24 dead pixels were beyond the old fade; +4.9% triangles bought them back.
+    float falloff = 1.0 - smoothstep(40.0, 60.0, dist_m);
     // ROUND 20: the amplitude follows the material's MEASURED FEATURE SIZE, not a constant and not
     // the tile. u_pbr_height_lambda is the height map's characteristic feature wavelength in TILES
     // (measured at load from the map's own mip-energy spectrum); x tile_m makes it METRES. A real

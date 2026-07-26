@@ -89,15 +89,36 @@ cell(){ # $1 label  $2 pbr.debug  $3 pbr.displacement  [$4 pbr.bisect, default 0
   local try mp4sz L; L=""
   for try in 1 2 3; do
     timeout 20 "$ADB" -s "$S" shell rm -f "/sdcard/r24_$label.mp4" >/dev/null 2>&1 || true
-    timeout 90 "$ADB" -s "$S" shell screenrecord --time-limit 4 --bit-rate 20000000 "/sdcard/r24_$label.mp4" >/dev/null 2>&1 || true
+    timeout 90 "$ADB" -s "$S" shell screenrecord --time-limit 4 --bit-rate 32000000 "/sdcard/r24_$label.mp4" >/dev/null 2>&1 || true
     sleep 1
     timeout 90 "$ADB" -s "$S" pull "/sdcard/r24_$label.mp4" "$OUT/$label.mp4" >/dev/null 2>&1 || true
     timeout 20 "$ADB" -s "$S" shell rm -f "/sdcard/r24_$label.mp4" >/dev/null 2>&1 || true
     mp4sz=$(stat -c%s "$OUT/$label.mp4" 2>/dev/null || echo 0)
     rm -rf /tmp/r24_fr; mkdir -p /tmp/r24_fr
-    [ "$mp4sz" -gt 20000 ] && ffmpeg -y -loglevel error -i "$OUT/$label.mp4" -vf fps=1 /tmp/r24_fr/f_%03d.png
+    # ROUND 24 — TEMPORAL AVERAGING. The still is the MEAN of the last NAVG frames, not one frame.
+    # Reason, measured: the ON-vs-OFF signal on the shipped materials is a few percent of a dark
+    # surface's luminance, while a single H.264 frame off screenrecord carries compression noise of
+    # the same order — the drift floor came out at 7% relative (p95) on STATIC stone wall, i.e. the
+    # instrument was noisier than the thing being measured. Averaging is applied IDENTICALLY to the
+    # ON and the two OFF cells, so it cannot bias the comparison; it only makes the floor small
+    # enough for the effect to be resolvable. It lowers the NOISE, never the bar.
+    [ "$mp4sz" -gt 20000 ] && ffmpeg -y -loglevel error -i "$OUT/$label.mp4" -vf fps=10 /tmp/r24_fr/f_%03d.png
     L=$(ls /tmp/r24_fr/f_*.png 2>/dev/null | tail -1)
     if [ -n "$L" ]; then
+      python3 - "$L" "${NAVG:-24}" <<'PYAVG'
+import sys, glob, os
+import numpy as np
+from PIL import Image
+last, navg = sys.argv[1], int(sys.argv[2])
+fs = sorted(glob.glob(os.path.join(os.path.dirname(last), "f_*.png")))[-navg:]
+acc = None
+for f in fs:
+    a = np.asarray(Image.open(f).convert("RGB"), dtype=np.float64)
+    acc = a if acc is None else acc + a
+Image.fromarray(np.rint(acc / len(fs)).clip(0, 255).astype(np.uint8)).save(last + ".avg.png")
+print(f"  averaged {len(fs)} frames -> {os.path.basename(last)}.avg.png")
+PYAVG
+      [ -f "$L.avg.png" ] && L="$L.avg.png"
       if python3 -c "import sys;from PIL import Image;import numpy as np;sys.exit(0 if np.asarray(Image.open('$L').convert('L'),dtype=float).mean()>2.0 else 1)"; then break; fi
       echo "  ($label: BLACK frame, retry $try)"; L=""
     else
@@ -231,7 +252,15 @@ seed_settings "$TIER"
 boot_with
 # OFF cells BRACKET the ON cell in time so the drift floor covers the same interval the effect is
 # measured over. mask/prog/diag last: they are classification, not measurement.
+# ROUND 24 measurement design, four cells in this order:
+#   off1  sham  on  off2
+# floor  = |off1 - off2|              (the OUTER pair, spanning the whole measurement interval)
+# sham   = min(|sham-off1|, |sham-off2|)   an OFF cell measured EXACTLY like the effect
+# effect = min(|on  -off1|, |on  -off2|)
+# `sham` and `on` sit in mirror-image interior positions, so the sham is a true false-positive
+# control for the decision rule rather than a percentile chosen after the fact.
 cell off1 0 0
+cell sham 0 0
 cell on   0 "$TIER"
 cell off2 0 0
 cell mask 32 "$TIER"

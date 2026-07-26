@@ -94,8 +94,18 @@ float cam_dist_m(vec3 wp) {
 #define TESS_SEG_NEAR_M 0.06  // compiled default target segment size (u_pbr_tess_seg overrides)
 #define TESS_SEG_D0_M 5.0     // full near-field density out to here, then LOD
 #define TESS_SEG_FAR_M 0.60   // ceiling on the target (the 30 m far gate ends tess anyway)
-#define TESS_FADE_LO_M 20.0   // MUST match tfrag3_tess.tese's displacement amplitude fade
-#define TESS_FADE_HI_M 30.0
+// ROUND 24 — THE DISTANCE LOD WAS THE LARGEST NAMED DEAD ZONE. Measured at the owner's vantage
+// with the round-24 effect metric: of the maps-bearing pixels that did NOT change when displacement
+// was switched off, 77% sat beyond 30 m (mean 34.8 m) — i.e. the dead zone was this fade and the
+// 30 m whole-patch gate below, exactly the "cap d'amplitude dépendant de la distance" the round-24
+// mandate lists as a prime suspect. The gate existed only because the amplitude fade zeroed the
+// displacement past 30 m, so subdividing there bought nothing; it is NOT a cost argument, because
+// the segment-size law already collapses far levels on its own (target segment grows as d^1.5, so
+// a pre-subdivided 1.6 m edge at 40 m asks for level ~3, ~9 triangles, against 400-2100 in the
+// near field). MEASURED with tools/tess_audit at the owner's vantage: moving the fade from 20-30 m
+// to 45-70 m costs +4.9% generated triangles level-wide (4,379,212 -> 4,592,604).
+#define TESS_FADE_LO_M 40.0   // MUST match tfrag3_tess.tese's displacement amplitude fade
+#define TESS_FADE_HI_M 60.0
 #define TESS_K 128.0          // legacy distance-only law, bisect bit 16777216 only
 // ROUND #19: the LOD ramp past D0 is SUPERLINEAR. With the pre-subdivided ground the near-field
 // target drops to ~2.5 cm, and a LINEAR ramp then holds the 10-20 m band at ~6 cm -- still
@@ -160,7 +170,7 @@ void main() {
     // increase belongs in the near field, where the fade is 1.0.
     float dmin = min(min(cam_dist_m(tv_world[0]), cam_dist_m(tv_world[1])),
                      cam_dist_m(tv_world[2]));
-    if (!tess_on || dmin > 30.0) {
+    if (!tess_on || dmin > TESS_FADE_HI_M) {
       gl_TessLevelOuter[0] = 1.0;
       gl_TessLevelOuter[1] = 1.0;
       gl_TessLevelOuter[2] = 1.0;

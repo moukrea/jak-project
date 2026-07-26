@@ -52,6 +52,40 @@ inline int checker_at(int px, int py, int cell) {
   return ((px / cell) + (py / cell)) & 1;
 }
 
+int height_profile() {
+  // ===== ROUND 24: THE HARD CHECKER CANNOT SHOW RELIEF INSIDE A SQUARE, BY CONSTRUCTION =========
+  // Measured at the owner's vantage with the hard 0/255 height (device/r24): switching displacement
+  // off changed 45.1% of the pixels that sit ON an albedo edge and 1.0% of the pixels more than
+  // 8 px away from one. That is not a pipeline result, it is arithmetic: inside a square the height
+  // is CONSTANT, so the surface there is a flat plateau that displacement translates rigidly along
+  // its own normal — the albedo is constant too, so no pixel in the interior can change. The owner
+  // is looking at a test material that is flat everywhere except on its square boundaries, and
+  // reporting that most of the surface looks flat.
+  //   0 = the original HARD step (kept: one setprop restores the exact material he has been judging)
+  //   1 = SMOOTH profile (default), h = 0.5 - 0.5*sin(pi*u)*sin(pi*v) in cell units. Same squares,
+  //       same alignment, same polarity — white square centres at 1.0, black at 0.0, exactly 0.5 on
+  //       every square boundary — but now the field has a gradient at every texel, so displacement
+  //       is legible across the whole square instead of only on its edges.
+  static int cached = -1;
+  return read_cached(cached, 1, 0, 1, "debug.opengoal.pbr.testprofile", "OG_PBR_TESTPROFILE");
+}
+
+// The height field the pattern displaces with, in 0..1. Shared by the height map AND the normal
+// map so the two can never disagree about the surface they describe.
+float profile_h(int px, int py, int cell) {
+  if (height_profile() == 0) {
+    return checker_at(px, py, cell) ? 1.f : 0.f;  // HARD step (round-23 material)
+  }
+  const float u = ((float)px + 0.5f) / (float)cell;
+  const float v = ((float)py + 0.5f) / (float)cell;
+  // -sin(pi u)*sin(pi v) is +1 at the centre of every cell where (cx+cy) is ODD -- which is exactly
+  // the cell checker_at() paints WHITE -- and -1 at the centre of the black ones, crossing zero on
+  // every cell boundary. So the raised blocks still coincide with the white squares to the texel.
+  constexpr float kPi = 3.14159265358979323846f;
+  const float g = -std::sin(kPi * u) * std::sin(kPi * v);
+  return 0.5f + 0.5f * g;
+}
+
 inline void put(std::vector<u8>& out, int dim, int px, int py, u8 r, u8 g, u8 b) {
   const size_t i = ((size_t)py * (size_t)dim + (size_t)px) * 4;
   out[i + 0] = r;
@@ -68,8 +102,7 @@ void make_height_rgba(std::vector<u8>& out, int dim) {
   out.assign((size_t)dim * (size_t)dim * 4, 255);
   for (int py = 0; py < dim; py++) {
     for (int px = 0; px < dim; px++) {
-      // HARD step on purpose: that is exactly what the test measures.
-      const u8 v = checker_at(px, py, cell) ? 255 : 0;
+      const u8 v = (u8)std::lround(255.f * std::clamp(profile_h(px, py, cell), 0.f, 1.f));
       put(out, dim, px, py, v, v, v);
     }
   }
@@ -92,12 +125,19 @@ void make_rough_rgba(std::vector<u8>& out, int dim) {
 // normal path is mis-oriented.
 void make_normal_rgba(std::vector<u8>& out, int dim) {
   const int cell = cell_size(dim);
-  constexpr float K = 4.0f;
+  // ROUND 24: the gain has to follow the PROFILE, because the two fields have wildly different
+  // slopes. The hard step moves a full unit across one texel, so K=4 on a central difference gives
+  // a strong ridge exactly on the square boundary. The smooth profile spreads that same unit over
+  // half a cell, so its peak slope is pi/(2*cell) per texel — with K=4 the normal map would come
+  // out almost flat. 0.64*cell puts the smooth profile's PEAK tilt at ~45 degrees, i.e. the same
+  // order as the hard step's ridge, so switching profile changes WHERE the relief is legible, not
+  // how strong the normal path is.
+  const float K = (height_profile() == 0) ? 4.0f : 0.64f * (float)cell;
   out.assign((size_t)dim * (size_t)dim * 4, 255);
   auto h = [&](int x, int y) -> float {
     const int xx = ((x % dim) + dim) % dim;
     const int yy = ((y % dim) + dim) % dim;
-    return checker_at(xx, yy, cell) ? 1.f : 0.f;
+    return profile_h(xx, yy, cell);
   };
   auto enc = [](float v) -> u8 {
     return (u8)std::lround(std::clamp(v * 0.5f + 0.5f, 0.f, 1.f) * 255.f);
