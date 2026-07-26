@@ -1704,3 +1704,48 @@ peu" : la couverture a progressé, garde-la. La cible est : couverture du build 
 build précédent. Si une correction de D1/D2 fait retomber la couverture, c'est un échec aussi.
 Le build de référence "avant" (rigueur correcte, couverture faible) est reconstructible depuis
 l'historique : sers-t'en comme ORACLE de rigueur pour le profil d'élévation de D1.
+
+================================================================================
+RÈGLE OWNER PERMANENTE — PLUS AUCUNE MESURE VISUELLE IN-GAME CÔTÉ AGENT
+================================================================================
+Owner, mot pour mot :
+  "Je pense que tes mesures in game sont claquées tu devrais te cantonner au code brut et jamais au
+   visuel, tu y arrives jamais et gaspille un temps fou dessus"
+
+C'est une règle de méthode permanente, et les faits lui donnent raison : la métrique de couverture
+affichait 99% pendant que l'owner voyait du plat, et un balayage de captures a consommé trois heures
+de device pour ne produire aucun chiffre exploitable.
+
+CE QUI EST INTERDIT À PARTIR DE MAINTENANT :
+- Les campagnes de captures écran destinées à MESURER un effet visuel : balayages d'angles,
+  statistiques de pixels, deltas d'images, fractions de couleur, comptages de couverture à l'écran.
+- Gater une phase sur un nombre dérivé de pixels capturés.
+- Conclure quoi que ce soit d'esthétique à partir d'une capture.
+Ces méthodes coûtent des heures de device, produisent des chiffres fragiles, et l'owner les corrige
+en cinq minutes de jeu.
+
+CE QUI REMPLACE :
+1. LE RAISONNEMENT SUR LE CODE. Presque toutes les questions posées ces derniers rounds ont une
+   réponse EXACTE dans le code, sans device : quel niveau de mip est échantillonné, une expression
+   dépend-elle de la caméra, combien de sommets par carreau la formule de niveau de tessellation
+   produit-elle à une distance donnée, quel terme borne une amplitude. Lis le code, fais l'algèbre,
+   conclus. Une démonstration sur l'expression vaut mieux qu'un histogramme de pixels.
+2. LES VÉRIFICATIONS HORS-LIGNE sur les DONNÉES restent légitimes et encouragées : recensements sur
+   les mesh, statistiques de géométrie, invariants sur les assets, tests unitaires de fonctions de
+   shader portées en CPU. Ce n'est pas du visuel, c'est de la donnée vérifiable et reproductible.
+3. LE DEVICE SERT À TROIS CHOSES, PAS PLUS : que ça compile et se lance, que ça ne crashe pas, et
+   que les performances tiennent. Un run de fumée court, pas une campagne de mesure.
+4. LE JUGE VISUEL EST L'OWNER. Le cycle est : correction dans le code -> build damier -> l'owner
+   regarde -> il décrit précisément ce qu'il voit -> correction suivante. Il faut donc LIVRER VITE
+   ET SOUVENT plutôt que chercher à s'auto-certifier. Un round qui produit un build en une heure
+   vaut mieux qu'un round qui produit un rapport en six.
+
+CONSÉQUENCE IMMÉDIATE SUR LE ROUND 26 : les livrables D1 et D2 ci-dessus se démontrent SUR LE CODE.
+- D1 (carrés arrondis) : le profil d'élévation attendu se DÉDUIT — taille du carreau du damier en uv,
+  densité de sommets produite par la formule de niveau de tessellation à la distance considérée,
+  niveau de mip effectivement demandé lors de la lecture de la height, tout lissage introduit. Si
+  moins de N sommets tombent dans un carreau, la marche NE PEUT PAS être reproduite, et ça se
+  démontre par le calcul. Aucun besoin de photographier un profil.
+- D2 (motifs qui orbitent) : il suffit de montrer, expression par expression, si le repère dans
+  lequel le décalage est calculé dépend de la caméra. S'il est construit sur des dérivées de
+  quantités liées à la vue, l'orbite est une conséquence mathématique — démontre-la, corrige-la.

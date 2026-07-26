@@ -235,16 +235,17 @@ grep -qiE 'grazing|rasant' "$R" || fail "C3: grazing angle not covered (that is 
 grep -qiE 'tessellation.*(reference|curve)|courbe tessellation|reference curve' "$R" || fail "C3: tessellation curve not used as the reference the parallax must track"
 grep -qiE 'Vt\.z|view.*z floor|plancher.*z' "$R" || fail "C3: the tangent-space Vt.z floor suspect not instrumented"
 grep -qiE 'intersection' "$R" || fail "C3: not shown whether the final offset is bounded by the marched intersection"
-# ---- ROUND 26: strictness regression (D1) + camera-locked orbit (D2) ----
-grep -qiE 'elevation profile|profil d.elevation|height profile' "$R" || fail "D1: no elevation profile across checker squares (the square-wave oracle)"
-grep -qiE 'square wave|creneau|step function|fonction en marches' "$R" || fail "D1: profile not compared against the theoretical square wave"
-grep -qiE 'plateau' "$R" || fail "D1: plateau flatness not quantified (owner: only the centre reaches the extreme)"
-grep -qiE 'mip' "$R" || fail "D1: sampled height mip level not reported (filtered-height suspect untested)"
-grep -qiE 'orbit|cercle|circular motion' "$R" || fail "D2: the camera-pan orbit not measured"
-grep -qiE 'orbit radius|rayon.*orbite|radius.*pixel' "$R" || fail "D2: no orbit radius in pixels before/after"
-grep -qiE 'screen[- ]?(space )?derivative|derivees ecran|dFdx' "$R" || fail "D2: the screen-derivative TBN fallback not instrumented (prime suspect)"
-grep -qiE 'view[- ]independent|independant de la vue|world[- ]space derivativ|geometry[- ]anchored' "$R" || fail "D2: the corrected tangent frame is not shown to be view-independent"
-grep -qiE 'fallback[^.]{0,60}(pixels|draws|%)|repli[^.]{0,40}%' "$R" || fail "D2: share of pixels/draws using the derivative fallback not quantified"
-grep -qiE 'same root|meme racine|shared root cause' "$R" || fail "D2: not stated whether the orbit and the polarity flips share one root"
-grep -qiE 'coverage[^.]{0,80}(kept|maintained|not regress|conserv)' "$R" || fail "D3: coverage gain not shown to be preserved"
+# ---- ROUND 26 (code-level only; owner banned in-game visual measurement) ----
+# D1: the checker is a step function. Whether a step CAN be reproduced is arithmetic, not photography.
+grep -qiE 'vert(ices|s)? per (checker )?(square|carreau)|verts?/square' "$R" || fail "D1: vertices-per-square not DERIVED from the tess-level formula at a stated distance"
+grep -qiE 'mip|textureLod|lod bias|explicit lod' "$R" || fail "D1: the height read's mip/LOD not established from the code"
+grep -qiE 'smooth|filter|lissage' "$R" || fail "D1: any smoothing introduced on the height path not identified (strictness existed before)"
+# D2: an orbit under camera pan is a mathematical consequence of a view-dependent frame. Prove it on the expression.
+grep -qiE 'view[- ]?dependent|depend.*camera|camera[- ]dependent' "$R" || fail "D2: not shown whether the offset frame depends on the camera"
+grep -qiE 'screen[- ]?(space )?derivative|dFdx|derivees ecran' "$R" || fail "D2: the screen-derivative TBN fallback not examined (prime suspect)"
+grep -qiE 'view[- ]independent|world[- ]space derivativ|geometry[- ]anchored|independant de la vue' "$R" || fail "D2: corrected frame not shown to be view-independent"
+grep -qiE 'same root|meme racine|shared root' "$R" || fail "D2: not stated whether the orbit and the polarity flips share one root"
+# Device is allowed ONLY as a smoke check
+grep -qiE 'boot|smoke|no crash|crash-free' "$R" || fail "no smoke run evidencing the build boots and does not crash"
+grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner (code-level proof only)"
 echo "[Gpbrf PASS]"
