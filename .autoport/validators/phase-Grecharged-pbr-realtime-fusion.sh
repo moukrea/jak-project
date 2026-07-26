@@ -162,6 +162,17 @@ grep -qiE 'checker.*(parallax|tessellat).*(both|and)|both modes.*checker|paralla
 # The per-material coverage number cannot answer this; demand a PER-PIXEL screen breakdown.
 grep -qiE 'per-pixel .*(coverage|breakdown)|pixel coverage by program|screen pixels? .*displac' "$R" \
   || fail "no PER-PIXEL screen coverage breakdown (per-material % does not answer 'la plupart des endroits')"
+# ROUND 24: the round-22 number counted pixels drawn by a displaceable PROGRAM (capability), not pixels
+# that actually MOVED. It read 99.22% while the owner saw flat geometry on device. Gate on the effect.
+grep -qiE 'ON *(vs|/|-) *OFF|displacement (on|off) *(vs|/) *(off|on)|A/B .*displacement' "$R" || fail "coverage not measured as an ON-vs-OFF image delta (capability counting is banned since round 24)"
+grep -qiE 'drift floor' "$R" || fail "no measured drift floor for the ON/OFF delta (must be measured from an OFF/OFF pair, not postulated)"
+grep -qiE 'among|parmi|of (the )?pixels (whose|with).*(map|height)|maps?-bearing' "$R" || fail "denominator is not 'pixels whose material HAS a height map' (the owner's own framing)"
+grep -qiE 'worst (vantage|case)|pire vantage' "$R" || fail "no WORST-vantage figure (an average hides exactly what the owner sees)"
+grep -ciE 'vantage' "$R" | awk '$1>=4{ok=1} END{exit !ok}' || fail "fewer than 4 vantages evidenced (one view cannot answer 'toute la geometrie')"
+grep -qiE 'dead zone|zone morte|undisplaced .*(because|due to)|tess(ellation)? level (fell|=|dropped) *1|LOD tier' "$R" || fail "dead zones not localised+explained (tess level / LOD tier / program / final amplitude)"
+MOVED=$(grep -oiE '[0-9]{1,3}(\.[0-9]+)? *% *of *(the )?(pixels|maps-bearing|map-bearing)[^.]{0,40}(mov|displac|chang)' "$R" | grep -oE '[0-9]{1,3}(\.[0-9]+)?' | sort -g | head -1)
+[ -n "$MOVED" ] || fail "no '<N>% of maps-bearing pixels actually moved' figure at the worst vantage"
+awk -v v="$MOVED" 'BEGIN{exit !(v>=95)}' || fail "only $MOVED% of maps-bearing pixels actually move at the worst vantage (<95%)"
 # every world program must be named in that breakdown - silent omission is the owner's explicit red line
 for prog in tfrag3 etie_base tie_wind shrub; do
   grep -qiE "$prog" "$R" || fail "coverage breakdown does not account for program $prog"

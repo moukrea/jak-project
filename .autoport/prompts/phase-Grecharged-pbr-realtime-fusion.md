@@ -1409,3 +1409,50 @@ Tant que le damier n'est pas jugé parfait par l'owner (en parallax ET en tessel
   éteinte, et rien de tout ça ne doit fuiter dans un build de sortie. C'est le packaging qui change,
   pas la sémantique du réglage.
 - Quand l'owner déclarera le damier parfait, on repasse aux vraies textures pour la validation finale.
+
+================================================================================
+ROUND 24 — REOPEN : LA MÉTRIQUE DE COUVERTURE MESURE LA CAPACITÉ, PAS L'EFFET
+================================================================================
+Owner, en direct sur le Redmi, sur le build de ce round :
+  "je peux dire par ce que je vois sur le Redmi que le displacement n'est toujours pas effectif sur
+   toute la géométrie où c'est sensé être le cas (car utilise une texture qui a les maps, même si en
+   l'état c'est un damier)"
+
+L'oeil de l'owner prime sur le chiffre. Et le chiffre est réfutable — voici le défaut, nommé :
+gpbrf_r22_coverage.py classe chaque pixel PAR PROGRAMME DE RENDU via un tag couleur, puis compte
+comme "couvert" tout pixel dessiné par un programme monde déclaré displaçable (cf. son propre
+commentaire : "is_world marks the static-world programs that CAN be displaced"). Ça mesure une
+CAPACITÉ, pas un EFFET. Un pixel est compté couvert même si sa géométrie n'a bougé d'aucun
+micromètre : tessellation restée au niveau 1, tier LOD qui a désactivé le displacement, draw passé
+par un chemin/bucket sans programme de tessellation, height map liée mais jamais échantillonnée,
+amplitude annulée en aval. D'où 99.22% au rapport et du plat à l'écran : les deux peuvent être
+vrais en même temps, et c'est la métrique qui est fausse, pas l'owner.
+
+LA MÉTRIQUE CORRECTE — À REFAIRE ENTIÈREMENT
+1. Un pixel n'est DISPLACÉ que si l'image CHANGE quand on éteint le displacement, même vantage,
+   même frame, même TOD, même caméra : |ON - OFF| au-dessus d'un plancher de dérive mesuré (le
+   plancher se mesure avec une paire OFF/OFF, pas se postule). Tag couleur = classification, jamais
+   comptage. Interdit de compter un pixel sur la seule foi du programme qui l'a dessiné.
+2. Le dénominateur est la géométrie QUI A LES MAPS. L'owner l'a précisé lui-même : "la géométrie où
+   c'est sensé être le cas (car utilise une texture qui a les maps)". Donc : parmi les pixels dont
+   le matériau possède une height map, quel pourcentage bouge réellement ? C'est LE chiffre.
+   Il se rapporte séparément pour la tessellation et pour le parallax.
+3. PLUSIEURS VANTAGES, PAS UN. Une seule vue ne peut pas répondre à "toute la géométrie". Balaye un
+   parcours : intérieur/extérieur de la hutte du sage, sol du village, toits, plage, falaise, et des
+   distances variées (près / moyen / loin) puisque les tiers LOD sont précisément suspects. Rapporte
+   le PIRE vantage, pas la moyenne — c'est le pire que l'owner voit.
+4. LOCALISER LES ZONES MORTES. Pour chaque zone qui a les maps et ne bouge pas, dis POURQUOI, avec
+   la donnée : niveau de tessellation effectif du draw, tier LOD retenu, programme réellement
+   utilisé, amplitude finale calculée. Une zone morte non expliquée reste un échec.
+5. Suspects prioritaires à instrumenter d'abord, parce qu'ils expliqueraient exactement ce que
+   l'owner décrit — même matériau, résultat différent selon l'endroit :
+   - le niveau de tessellation retombe à 1 par distance/taille de triangle/budget ;
+   - le mesh dessiné est un LOD alternatif qui n'a pas le programme de tessellation ;
+   - le POM censé prendre le relais ne s'active pas là où la tessellation abandonne (les deux tiers
+     doivent se recouvrir, jamais laisser un trou entre eux) ;
+   - un cap d'amplitude dépendant de la distance ou de la taille de triangle.
+6. Le validator sera durci : le gate portera sur le POURCENTAGE DE PIXELS QUI BOUGENT parmi ceux qui
+   ont les maps, au PIRE vantage — plus sur un comptage par programme.
+
+RAPPEL DE LA RÈGLE QUI VIENT D'ÊTRE POSÉE : le fait qu'il n'y ait que 7 matériaux recharged
+aujourd'hui n'excuse RIEN. Sur ces 7, ce doit être irréprochable, partout où ils apparaissent.
