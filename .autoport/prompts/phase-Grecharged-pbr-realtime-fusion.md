@@ -1367,3 +1367,28 @@ Ce qu'il faut faire :
 4. Preuve visuelle : une capture device au damier montrant plusieurs surfaces d'orientations
    différentes (mur, sol, plafond/dessous, objet incliné) où les carreaux BLANCS ressortent
    partout, en tessellation ET en parallax.
+
+--------------------------------------------------------------------------------
+RÈGLE OWNER PERMANENTE — LE TAUX DE COUVERTURE DES ASSETS N'EXCUSE RIEN
+--------------------------------------------------------------------------------
+Owner, mot pour mot :
+  "Je sais très bien que pour l'instant il n'y a que 7 textures avec des height maps, mais on va
+   remplacer genre 80% des textures à terme... En tout cas faut que ce soit nickel automatiquement,
+   donc FAUT QUE CE SOIT NICKEL AVEC LES 7 !"
+
+Interdit désormais, dans tout rapport et toute analyse : présenter le faible nombre de matériaux
+recharged (7 sur village1) comme une explication, une atténuation ou une raison d'accepter un
+défaut. L'owner le sait déjà et va monter à ~80% des textures. Deux conséquences opérationnelles :
+1. LA BARRE SE JUGE SUR LES MATÉRIAUX QUI EXISTENT. Sur ces 7 matériaux, le rendu doit être
+   IRRÉPROCHABLE : alignement, amplitude au curseur max, polarité, cohérence tessellation/parallax,
+   comportement à l'ombre. Un défaut visible sur l'un des 7 est un échec de phase, quel que soit
+   le pourcentage de pixels monde couvert par le pipeline en test damier.
+2. LE CHEMIN DOIT ÊTRE AUTOMATIQUE ET SANS SEUIL. Quand l'owner déposera 50, 100, 200 nouveaux
+   jeux de maps, ils doivent être pris en charge SANS intervention : pas de liste blanche de
+   matériaux, pas de constante par matériau écrite à la main, pas de tuning codé en dur qui ne
+   vaudrait que pour les 7 actuels. Toute constante dérivée d'un matériau doit être MESURÉE au
+   chargement depuis la map elle-même (comme pom_depth_uv() le fait déjà avec la longueur d'onde),
+   jamais tabulée. Un futur round qui ajouterait un cas particulier par matériau viole cette règle.
+3. Le chiffre de couverture damier (99%) mesure le PIPELINE ; le chiffre de couverture assets (35%)
+   mesure le CONTENU. Les deux peuvent être rapportés, mais le second ne doit jamais servir à
+   relativiser un défaut constaté par l'owner.
