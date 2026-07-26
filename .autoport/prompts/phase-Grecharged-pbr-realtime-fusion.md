@@ -439,3 +439,22 @@ CE QU'IL FAUT FAIRE
    * le nombre de triangles générés avant/après au même point de vue (comptage, pas capture) ;
    * la démonstration que le niveau d'arête reste fonction des deux extrémités (anti-couture) ;
    * l'amplitude apparente des deux tiers, montrée égale par le calcul.
+
+--------------------------------------------------------------------------------
+MISE À JOUR DE LA RÈGLE DE LIVRAISON (owner, remplace "un seul APK damier")
+--------------------------------------------------------------------------------
+Owner :
+  "Tu pourras faire le build damier et le build normal du coup, comme ça je vérifie en debug et si
+   c'est bon je teste le résultat réel"
+
+Donc à chaque livraison, LES DEUX APK, systématiquement :
+  * le build DAMIER (pattern actif d'origine, sans adb) — sert au diagnostic : c'est lui qui rend les
+    défauts de displacement lisibles ;
+  * le build NORMAL (les vraies textures recharged de l'owner) — sert à juger le rendu réel une fois
+    le damier jugé bon.
+Les deux doivent provenir du MÊME arbre de code, et il faut le prouver : leurs libgk doivent différer
+l'un de l'autre (le define damier prend, sinon on livre deux fois le même binaire — déjà arrivé) mais
+tous deux être issus du même commit. Vérifie et rapporte les deux sha.
+La règle antérieure "on ne livre plus une paire, un seul APK damier" est ANNULÉE par celle-ci.
+Rappel qui reste valable : le damier reste le matériau de test tant que l'owner ne l'a pas déclaré
+parfait, et il doit s'activer TOUT SEUL dans le build damier (l'owner n'a pas adb).

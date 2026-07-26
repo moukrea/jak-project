@@ -140,11 +140,25 @@ float hnorm(float h) {
 // Compile-time on purpose: it MUST be the same number in the .tesc and the .tese, and it is not a
 // knob the player has any use for (the tier knob is u_pbr_tess_seg).
 #define TESS_SEG_EXP 1.5
+// ROUND 28 — MUST stay identical to tfrag3_tess.tesc's copies (see that file for the full rationale).
+#define TESS_SEG_PER_FEATURE 8.0
+#define TESS_SEG_FEAT_MIN 0.5
+#define TESS_SEG_FEAT_MAX 4.0
+
+float tess_lambda_world_m() {
+  return clamp(u_pbr_height_lambda, 0.002, 1.0) / max(u_pbr_uv_per_m, 1e-3);
+}
 
 float tess_seg_target_m(float d) {
   float near_m = TESS_SEG_NEAR_M;
   if (u_pbr_tess_seg > 0.0) {
     near_m = u_pbr_tess_seg;
+  }
+  // ROUND 28: segments per feature, not metres. Byte-for-byte the tesc's expression — if these two
+  // ever drift the band-limit stops describing the surface the vertices actually form.
+  if ((u_pbr_bisect & 1) == 0) {
+    near_m = clamp(tess_lambda_world_m() * (1.0 / TESS_SEG_PER_FEATURE),
+                   near_m * TESS_SEG_FEAT_MIN, near_m * TESS_SEG_FEAT_MAX);
   }
   return clamp(near_m * pow(max(d, TESS_SEG_D0_M) * (1.0 / TESS_SEG_D0_M), TESS_SEG_EXP), near_m,
                max(TESS_SEG_FAR_M, near_m));
@@ -160,6 +174,54 @@ float tess_spacing_m(float dist_m) {
     return clamp(TESS_REF_EDGE_M / lvl_est, 0.005, 8.0);
   }
   return clamp(tess_seg_target_m(dist_m) * TESS_SPACING_SAFETY, 0.005, 8.0);
+}
+
+// ===== ROUND 28 — BAND-LIMIT ON THE SPACING WE GOT, NOT THE ONE WE ASKED FOR ====================
+// tess_spacing_m() above returns the TARGET the .tesc solved for. The .tesc then clamps the level to
+// u_pbr_tess_max, so on every patch whose request saturates the ceiling — and at the owner's vantage
+// the near-field mean achieved level is 49.7/64 on walls and 52.4/64 on ground, i.e. a large share
+// of them DO saturate — the real distance between generated vertices is (edge / cap), COARSER than
+// the target. The band-limit below then reads the height at too fine a mip, above the vertex
+// Nyquist, and the displaced surface is built from aliased samples. That is the mechanism behind
+// every geometric symptom of round 27: rounded instead of stepped squares, and, where the aliasing
+// lands in antiphase, black protruding further than white. TESS_SPACING_SAFETY (a flat 1.25) was
+// the previous attempt to cover this, sized against a single measured p90; it under-covers by ~2x
+// on the saturated patches and over-blurs the rest.
+//
+// WHY gl_TessLevelOuter[] IS SAFE HERE, correcting the argument in the block below.
+// That argument says the levels "DIFFER between the two patches sharing a welded edge". Only two of
+// the three do. The outer level OF THE SHARED EDGE is IDENTICAL on both patches by construction:
+// edge_level() is a pure function of that edge's two endpoints, and mesh_consolidate() made those
+// endpoints bit-identical. So a quantity that, ON edge k, depends on edge k ALONE is exactly as
+// seam-safe as a pure function of position. The weights below have that property:
+//     a = (v*w, w*u, u*v)   ->  on edge k two of the three vanish, leaving exactly s_k.
+// They are also symmetric under the endpoint swap the neighbouring patch may use for that edge
+// (products commute, and so does max()), which is the other half of the requirement.
+// The three CORNERS are the one place the construction degenerates (all three weights -> 0) and a
+// corner is shared by a whole fan of patches, not just two — so there we fall back to the pure
+// position law, which is a function of that vertex alone and therefore agrees across the fan. `g`
+// ramps between the two over the outer quarter of the patch and depends on gl_TessCoord only, so
+// both sides of a shared edge apply the same blend at the same parameter.
+// Finally the result is max()'d with the pure estimate, so this can only ever make the fetch
+// COARSER, never sharper — the safe direction, and it cannot regress the ground the owner approved.
+// Bisect bit 1 = the round-27 target-only band-limit back.
+float tess_spacing_achieved_m(float dist_m) {
+  float pure_m = tess_spacing_m(dist_m);
+  if ((u_pbr_bisect & 1) != 0) {
+    return pure_m;
+  }
+  vec3 bc = gl_TessCoord;
+  // Outer level i opposes vertex i, i.e. it is the level of the edge between the OTHER two — the
+  // same convention the .tesc assigned them with.
+  float s0 = length(tc_world[1] - tc_world[2]) * (1.0 / 4096.0) / max(gl_TessLevelOuter[0], 1.0);
+  float s1 = length(tc_world[2] - tc_world[0]) * (1.0 / 4096.0) / max(gl_TessLevelOuter[1], 1.0);
+  float s2 = length(tc_world[0] - tc_world[1]) * (1.0 / 4096.0) / max(gl_TessLevelOuter[2], 1.0);
+  vec3 a = vec3(bc.y * bc.z, bc.z * bc.x, bc.x * bc.y);
+  float asum = a.x + a.y + a.z;
+  float edge_m =
+      (asum > 1e-8) ? (a.x * s0 + a.y * s1 + a.z * s2) / asum : max(max(s0, s1), s2);
+  float g = 1.0 - smoothstep(0.75, 1.0, max(max(bc.x, bc.y), bc.z));
+  return clamp(max(pure_m, mix(pure_m, edge_m, g)), 0.005, 8.0);
 }
 #endif
 
@@ -323,7 +385,9 @@ void main() {
     // ceiling (TESS_SPACING_SAFETY covers the saturated long tail, coarser = safe).
     // Bisect bit 4194304 = the legacy lod-0 fetch back, so the owner can A/B the aliasing itself.
     // ===============================================================================================
-    float spacing_m = tess_spacing_m(dist_m);
+    // ROUND 28: the ACHIEVED spacing (ceiling-aware), not the requested target — see
+    // tess_spacing_achieved_m() for why reading gl_TessLevelOuter[] here is seam-safe.
+    float spacing_m = tess_spacing_achieved_m(dist_m);
     float hlod = 0.0;
     if ((u_pbr_bisect & 4194304) == 0 && huv_per_m > 0.0) {
       vec2 hts = vec2(textureSize(tex_PBR_H, 0));

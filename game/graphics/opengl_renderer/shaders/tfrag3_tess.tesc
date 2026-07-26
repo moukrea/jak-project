@@ -6,7 +6,7 @@
 // camera-relative meters convention tfrag3.vert uses for v_fringe_rel:
 //     v_fringe_rel = (position_in - cam_trans.xyz) / 4096.0
 // so distances here match u_rt_shadow_range (~150 = far). Near geometry is subdivided (up to
-// u_pbr_tess_max, default 32), far geometry passes through at level 1. The whole patch passes
+// u_pbr_tess_max, C++ default 64), far geometry passes through at level 1. The whole patch passes
 // through (level 1) when it is beyond 30 m OR the displacement mode is not Tessellation
 // (u_pbr_displacement != 2).
 
@@ -16,14 +16,14 @@ uniform vec4 cam_trans;
 #ifdef OG_PBR
 uniform int u_pbr_displacement;  // 0 Off, 1 Parallax, 2 Tessellation
 // PBR POLISH (owner playtest #17: "la tessellation manque de détail et ne donne pas vraiment de
-// profondeur"). Ceiling of the level law below, C++-side default 32, overridable live with
+// profondeur"). Ceiling of the level law below, C++-side default 64, overridable live with
 // debug.opengoal.pbr.tessmax / OG_PBR_TESSMAX, and clamped to the driver's actual
 // GL_MAX_TESS_GEN_LEVEL before it is pushed — so a driver that allows less can never be asked
 // for more, and the owner's Honor can be dialled independently of the low-end test device.
 uniform float u_pbr_tess_max;
 // PBR POLISH — OWNER PLAYTEST #18 ("la tessellation manque de relief EN PARTICULIER AU SOL"):
 // the TARGET SIZE, in METRES, of one generated segment in the near field. The level law below is
-// driven by it (see tess_seg_target_m). C++-side default 0.06 m, live-tunable with
+// driven by it (see tess_seg_target_m). C++-side default 0.025 m, live-tunable with
 // debug.opengoal.pbr.tessseg / OG_PBR_TESSSEG so the density can be dialled per device class with
 // no rebuild — larger = coarser = cheaper. <= 0 falls back to the compiled default.
 uniform float u_pbr_tess_seg;
@@ -31,6 +31,23 @@ uniform float u_pbr_tess_seg;
 // first_tfrag_draw_setup). Bit 16777216 = revert to the legacy DISTANCE-ONLY level law, so the
 // world-space-edge-length law below is a live same-vantage A/B with one setprop.
 uniform int u_pbr_bisect;
+// ===== ROUND 28 — THE DENSITY LAW CAN FINALLY SEE HOW BIG THE FEATURES ARE =====================
+// Until now this stage knew NEITHER of these two, while tfrag3_tess.tese used BOTH to size the
+// displacement AMPLITUDE. Density was feature-blind while amplitude was not, and that single
+// asymmetry is the round-27 root cause: the law targeted a fixed segment size in METRES, so a
+// material whose features are 4 cm across and one whose features are 185 cm across were sampled at
+// the same spacing — the first ~2x under Nyquist (aliasing, i.e. the owner's rounded/inverted
+// checker squares) and the second ~37x over it (triangles spent on detail no one can see).
+//   u_pbr_height_lambda : the height map's characteristic feature wavelength, in TILES, MEASURED at
+//                         load time from the map itself (LoaderStages.cpp:measure_height_lambda_tiles).
+//   u_pbr_uv_per_m      : this draw's authored UV density, tiles per world metre, MEASURED from the
+//                         index buffer (background_common.cpp:measure_uv_density_tfrag).
+// Nothing below is tabulated per material and nothing has to be: both numbers are measured, so the
+// 200th map the owner drops in is handled on exactly the same code path as the 7 that exist today.
+// Both are already pushed on the TFRAG3_TESS program object per draw (PbrDrawBinder::set) — uniforms
+// are program-scope, not stage-scope, so consuming them here needs no new C++ at all.
+uniform float u_pbr_height_lambda;
+uniform float u_pbr_uv_per_m;
 #endif
 
 in vec3 tv_world[];
@@ -91,7 +108,10 @@ float cam_dist_m(vec3 wp) {
 // IEEE) and 0.5*(a+b) == 0.5*(b+a) exactly (float addition is commutative), so both patches still
 // compute the SAME level for the shared edge and it still cannot tear.
 // ===============================================================================================
-#define TESS_SEG_NEAR_M 0.06  // compiled default target segment size (u_pbr_tess_seg overrides)
+// COMPILED FALLBACK ONLY: C++ always pushes u_pbr_tess_seg (default 0.025 m), so this value is
+// dead on every shipping path. Round 27's arithmetic was done against it by mistake — the shipped
+// near-field target is 2.5 cm, not 6 cm.
+#define TESS_SEG_NEAR_M 0.06
 #define TESS_SEG_D0_M 5.0     // full near-field density out to here, then LOD
 #define TESS_SEG_FAR_M 0.60   // ceiling on the target (the 30 m far gate ends tess anyway)
 // ROUND 24 — THE DISTANCE LOD WAS THE LARGEST NAMED DEAD ZONE. Measured at the owner's vantage
@@ -117,7 +137,42 @@ float cam_dist_m(vec3 wp) {
 // knob the player has any use for (the tier knob is u_pbr_tess_seg).
 #define TESS_SEG_EXP 1.5
 
-// Target segment size in metres at camera distance d. Pure function of d => seam-safe.
+// ===== ROUND 28 CONSTANTS =====================================================================
+// TESS_SEG_PER_FEATURE: how many generated segments one height FEATURE gets. Nyquist (2) is only
+// enough to not MISS the feature; reproducing the flat top of a STEP takes several samples inside
+// the square plus samples either side of the discontinuity, so the target is 8.
+#define TESS_SEG_PER_FEATURE 8.0
+// The feature-derived target is BOUNDED relative to the near-field knob u_pbr_tess_seg (C++ 0.025 m)
+// so this law can never run away in either direction: at most 2x finer than the shipped target
+// (that is the triangle budget) and at most 4x coarser (that is the quality floor). Both bounds are
+// relative to the knob, so raising u_pbr_tess_seg still scales the whole tier as before.
+#define TESS_SEG_FEAT_MIN 0.5
+#define TESS_SEG_FEAT_MAX 4.0
+// ===== ROUND 28 — NEVER GENERATE VERTICES FOR A FIELD THEY CANNOT CARRY ========================
+// Once the BEST spacing this edge can achieve (its length over the level ceiling) is still coarser
+// than the material's feature wavelength, the extra levels buy exactly nothing: tfrag3_tess.tese
+// band-limits the height to the vertex spacing, so those vertices are displaced by ~the field's
+// local mean. Worse, before the band-limit was made cap-aware they were displaced by ALIASED
+// samples, which is antiphase — the roof where "le noir sort plus que le blanc". So below
+// TESS_SPF_RELEASE achievable segments per feature the level eases back to 1 and the POM tier
+// carries that scale instead (at the SAME amplitude — see the amplitude proof in the .tese).
+// This is what pays for the near-field density above: the mid-distance bands were generating
+// millions of triangles to displace them by nothing.
+#define TESS_SPF_RELEASE 1.5
+#define TESS_SPF_KEEP 2.5
+
+#ifdef OG_PBR
+// The material's characteristic height-map feature wavelength, in METRES. Both inputs are measured
+// (see the uniform block); the clamps are only sanity rails on a missing/garbage map, and the
+// identity defaults the C++ pushes when a draw has no material (lambda 0.25 tiles, 0.5 tiles/m)
+// land on 0.5 m, i.e. a coarse target — the safe direction for a draw that will not be displaced.
+float tess_lambda_world_m() {
+  return clamp(u_pbr_height_lambda, 0.002, 1.0) / max(u_pbr_uv_per_m, 1e-3);
+}
+#endif
+
+// Target segment size in metres at camera distance d. Pure function of d AND OF PER-DRAW UNIFORMS,
+// never of the patch => still seam-safe (see edge_level).
 // MUST stay identical to tfrag3_tess.tese's copy (the tese derives its height-map band-limit from
 // it, and that band-limit has to be bit-identical on both sides of a welded seam).
 float tess_seg_target_m(float d) {
@@ -125,6 +180,12 @@ float tess_seg_target_m(float d) {
 #ifdef OG_PBR
   if (u_pbr_tess_seg > 0.0) {
     near_m = u_pbr_tess_seg;
+  }
+  // ROUND 28: the near-field target is now SEGMENTS PER FEATURE, bounded by the budget rails.
+  // Bisect bit 1 = the round-27 feature-blind absolute target back, for a one-setprop A/B.
+  if ((u_pbr_bisect & 1) == 0) {
+    near_m = clamp(tess_lambda_world_m() * (1.0 / TESS_SEG_PER_FEATURE),
+                   near_m * TESS_SEG_FEAT_MIN, near_m * TESS_SEG_FEAT_MAX);
   }
 #endif
   return clamp(near_m * pow(max(d, TESS_SEG_D0_M) * (1.0 / TESS_SEG_D0_M), TESS_SEG_EXP), near_m,
@@ -142,9 +203,27 @@ float edge_level(vec3 a, vec3 b) {
   float cap = 12.0;
 #endif
   // world-space edge length (game units -> metres) over the target segment size.
-  float lvl = (length(b - a) * (1.0 / 4096.0)) / tess_seg_target_m(d);
+  float len_m = length(b - a) * (1.0 / 4096.0);
+  float lvl = len_m / tess_seg_target_m(d);
   // (b) density fades with the displacement amplitude it exists to carry.
   lvl = mix(1.0, lvl, 1.0 - smoothstep(TESS_FADE_LO_M, TESS_FADE_HI_M, d));
+  lvl = clamp(lvl, 1.0, cap);
+#ifdef OG_PBR
+  // ROUND 28 RELEASE RAMP — see the TESS_SPF_RELEASE block. spf is the segments-per-feature this
+  // edge ACTUALLY achieves after the ceiling and the distance fade have had their say; below the
+  // release threshold the geometry provably cannot carry the field, so the level eases back to 1
+  // and tfrag3.frag's POM tier picks the scale up at the identical amplitude.
+  // STILL SEAM-SAFE, by exactly the argument above and unchanged by this round: len_m, d, lvl and
+  // therefore spf are functions of THIS EDGE'S TWO ENDPOINTS ONLY (plus per-draw uniforms, equal on
+  // both patches of a shared edge) — never of the third vertex and never of the patch. Negation and
+  // squaring are exact in IEEE so length(b-a) == length(a-b), and float addition is commutative so
+  // 0.5*(a+b) == 0.5*(b+a): the two patches sharing an edge still compute the same level, bit for
+  // bit, and it still cannot tear.
+  if ((u_pbr_bisect & 1) == 0) {
+    float spf = tess_lambda_world_m() * lvl / max(len_m, 1e-6);
+    lvl = mix(1.0, lvl, smoothstep(TESS_SPF_RELEASE, TESS_SPF_KEEP, spf));
+  }
+#endif
   return clamp(lvl, 1.0, cap);
 }
 

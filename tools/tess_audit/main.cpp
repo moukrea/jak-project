@@ -15,9 +15,11 @@
 //                   [--ground-cos C] [--consolidate] [--subdiv MAX_EDGE_M] [--subdiv-rounds N]
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <set>
@@ -32,6 +34,9 @@
 #include "common/util/compress.h"
 
 #include "fmt/format.h"
+// ROUND 28: the density law is now a function of the height map's MEASURED feature wavelength, so
+// this tool has to decode the real PNGs exactly as the loader does (stbi_load, STBI_rgb_alpha).
+#include "third-party/stb_image/stb_image.h"
 
 // NOTE: FileUtil.h already defines `namespace fs = ghc::filesystem`; reuse it.
 
@@ -65,7 +70,14 @@ static void usage() {
       "                  so seam weights and snapped positions match the runtime\n"
       "  --subdiv M      round #19 offline pre-subdivision: refine every tess-eligible tfrag\n"
       "                  triangle until its longest edge is <= M metres (default 0 = off)\n"
-      "  --subdiv-rounds N  refinement round cap for --subdiv (default 3)\n");
+      "  --subdiv-rounds N  refinement round cap for --subdiv (default 3)\n"
+      "  --r28           ROUND 28: add section R28, the FEATURE-AWARE density law head-to-head\n"
+      "                  (round-27 shipped law vs the round-28 law) with the per-material\n"
+      "                  lambda MEASURED from the real *_height.png and the per-material UV\n"
+      "                  density measured from the index buffer. Default OFF: every other\n"
+      "                  section of the report is bit-identical with or without this flag.\n"
+      "  --tex-root P    where --r28 looks for <mat>/<mat>_height.png (default:\n"
+      "                  <repo>/custom_assets/jak1/recharged_textures)\n");
 }
 
 namespace {
@@ -375,6 +387,321 @@ const std::set<std::string>& pbr_materials() {
   return s;
 }
 
+// ===============================================================================================
+// ROUND 28 — the shipped density law is a function of the material's MEASURED feature wavelength.
+// Everything in this block is a LINE-FOR-LINE port of the shipping runtime, so the numbers this
+// tool reports are the numbers the GPU is handed:
+//   * measure_height_lambda_tiles  <- game/graphics/opengl_renderer/loader/LoaderStages.cpp:45-129
+//   * measure_uv_density_tfrag     <- game/graphics/opengl_renderer/background/background_common.cpp
+//                                     :541-604 (pbr_collect_uv_density) + :661-674
+//   * tess_lambda_world_m / tess_seg_target_m / edge_level
+//                                  <- game/graphics/opengl_renderer/shaders/tfrag3_tess.tesc
+// NOTHING here is tabulated: the lambdas are decoded out of the real PNGs at run time, the UV
+// densities out of the real index buffer.
+// ===============================================================================================
+
+// LoaderStages.cpp:45 measure_height_lambda_tiles(), with the ReplacementImage fields passed
+// directly (w, h, rgba as RGBA8 — exactly what stbi_load(..., STBI_rgb_alpha) produces, which is
+// what custom_tex::lookup_suffixed() hands the runtime copy).
+float measure_height_lambda_tiles(int w, int h, const std::vector<u8>& rgba) {
+  if (w <= 0 || h <= 0 || rgba.size() < (size_t)w * (size_t)h * 4u) {
+    return 0.25f;
+  }
+  // (a) R channel / 255, SUBSAMPLED so neither dimension exceeds 1024.
+  const int step = std::max(1, std::max(w, h) / 1024);
+  const int cw0 = std::max(1, (w + step - 1) / step);
+  const int ch0 = std::max(1, (h + step - 1) / step);
+  std::vector<float> buf((size_t)cw0 * (size_t)ch0);
+  for (int y = 0; y < ch0; y++) {
+    for (int x = 0; x < cw0; x++) {
+      const size_t src = ((size_t)(y * step) * (size_t)w + (size_t)(x * step)) * 4u;
+      buf[(size_t)y * (size_t)cw0 + (size_t)x] = rgba[src] * (1.f / 255.f);
+    }
+  }
+  auto variance = [](const std::vector<float>& v) -> double {
+    if (v.empty()) {
+      return 0.0;
+    }
+    double s = 0.0, s2 = 0.0;
+    for (float f : v) {
+      s += (double)f;
+      s2 += (double)f * (double)f;
+    }
+    const double n = (double)v.size();
+    const double mean = s / n;
+    return std::max(s2 / n - mean * mean, 0.0);
+  };
+  // (b) a flat map has no feature scale at all.
+  const double var0 = variance(buf);
+  if (var0 < 1e-8) {
+    return 0.25f;
+  }
+  // (c) halve the resolution until the variance has halved.
+  const double target = 0.5 * var0;
+  double var_prev = var0;
+  int cw = cw0, ch = ch0;
+  int l_last = 0;
+  float l_star = 0.f;
+  bool crossed = false;
+  for (int l = 1; cw >= 2 && ch >= 2 && l <= 12; l++) {
+    const int nw = cw / 2, nh = ch / 2;  // truncate odd dims
+    std::vector<float> down((size_t)nw * (size_t)nh);
+    for (int y = 0; y < nh; y++) {
+      for (int x = 0; x < nw; x++) {
+        const size_t r0 = (size_t)(2 * y) * (size_t)cw + (size_t)(2 * x);
+        const size_t r1 = (size_t)(2 * y + 1) * (size_t)cw + (size_t)(2 * x);
+        down[(size_t)y * (size_t)nw + (size_t)x] =
+            0.25f * (buf[r0] + buf[r0 + 1] + buf[r1] + buf[r1 + 1]);
+      }
+    }
+    buf.swap(down);
+    cw = nw;
+    ch = nh;
+    l_last = l;
+    const double var_l = variance(buf);
+    if (var_l <= target) {
+      // crossing interpolated in LOG variance (see the runtime comment).
+      double t = 0.0;
+      if (var_prev > 0.0 && var_l > 0.0) {
+        const double denom = std::log(var_prev) - std::log(var_l);
+        t = (std::log(var_prev) - std::log(target)) / std::max(denom, 1e-12);
+      }
+      l_star = (float)((double)(l - 1) + std::clamp(t, 0.0, 1.0));
+      crossed = true;
+      break;
+    }
+    var_prev = var_l;
+  }
+  if (!crossed) {
+    l_star = (float)l_last;
+  }
+  // (d) the wavelength is twice the box size at the median-energy scale.
+  const float lambda_texels = std::exp2(l_star + 1.0f);
+  const float lambda_tiles = lambda_texels / (float)std::max(cw0, ch0);
+  // (e)
+  return std::clamp(lambda_tiles, 1.0f / 1024.0f, 1.0f);
+}
+
+// <tex-root>/<tpage>/<material>/<material>_height.png, resolved by material name (the tpage
+// directory is not known here, and the loader keys on the material name anyway).
+bool find_height_png(const fs::path& tex_root, const std::string& mat, fs::path* out) {
+  if (!fs::exists(tex_root)) {
+    return false;
+  }
+  const std::string want = mat + "_height.png";
+  for (auto it = fs::recursive_directory_iterator(tex_root);
+       it != fs::recursive_directory_iterator(); ++it) {
+    if (!it->is_regular_file()) {
+      continue;
+    }
+    if (it->path().filename().string() == want) {
+      *out = it->path();
+      return true;
+    }
+  }
+  return false;
+}
+
+// background_common.cpp kUvDensityMaxSamples / pbr_collect_uv_density / measure_uv_density_tfrag.
+constexpr size_t kUvDensityMaxSamples = 8192;
+
+void pbr_collect_uv_density(const std::vector<tfrag3::StripDraw>& draws,
+                            const std::vector<u32>& indices,
+                            const std::vector<tfrag3::PreloadedVertex>& verts,
+                            s32 tex_idx,
+                            std::vector<float>& out) {
+  for (const auto& draw : draws) {
+    if (draw.tree_tex_id != tex_idx) {
+      continue;
+    }
+    u64 count = 0;
+    for (const auto& vg : draw.vis_groups) {
+      count += vg.num_inds;
+    }
+    const u64 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+    for (u64 k = 0; k + 1 < count; ++k) {
+      if (out.size() >= kUvDensityMaxSamples) {
+        return;
+      }
+      const u64 ia = first + k;
+      const u64 ib = ia + 1;
+      if (ib >= indices.size()) {
+        break;
+      }
+      const u32 va = indices[ia];
+      const u32 vb = indices[ib];
+      if (va == vb) {
+        continue;  // strip restart / degenerate
+      }
+      if (va >= verts.size() || vb >= verts.size()) {
+        continue;
+      }
+      const auto& pa = verts[va];
+      const auto& pb = verts[vb];
+      const float dx = pa.x - pb.x;
+      const float dy = pa.y - pb.y;
+      const float dz = pa.z - pb.z;
+      const float dm = std::sqrt(dx * dx + dy * dy + dz * dz) * (1.f / 4096.f);
+      const float du = pa.s - pb.s;
+      const float dv = pa.t - pb.t;
+      const float dt = std::sqrt(du * du + dv * dv);
+      if (dm < 1e-4f || dt < 1e-6f) {
+        continue;
+      }
+      out.push_back(dt / dm);
+    }
+  }
+}
+
+float pbr_uv_density_median(const std::vector<float>& samples) {
+  if (samples.size() < 16) {
+    return 0.f;  // "unknown" — callers fall back to 0.5
+  }
+  std::vector<float> copy = samples;
+  const size_t mid = copy.size() / 2;
+  std::nth_element(copy.begin(), copy.begin() + mid, copy.end());
+  return copy[mid];
+}
+
+float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
+  std::vector<float> samples;
+  samples.reserve(1024);
+  // GEOM 0 only, exactly as the runtime does (the lower LODs share the authored UVs).
+  for (const auto& tree : lev.tfrag_trees[0]) {
+    pbr_collect_uv_density(tree.draws, tree.unpacked.indices, tree.unpacked.vertices, tex_idx,
+                           samples);
+    if (samples.size() >= kUvDensityMaxSamples) {
+      break;
+    }
+  }
+  if (out_samples) {
+    *out_samples = (u32)samples.size();
+  }
+  return pbr_uv_density_median(samples);
+}
+
+// ---- the per-material inputs of the ROUND 28 law, as the runtime resolves them ----
+// PbrDrawBinder::set(): u_pbr_uv_per_m = measured density (0.5 if the draw has no material or the
+// measurement returned "unknown"), u_pbr_height_lambda = the map's measured wavelength (0.25 if the
+// draw has no height map). Those two identity defaults land on lambda_world_m = 0.5 m.
+struct MatLambda {
+  double lambda_tiles = 0.25;  // u_pbr_height_lambda
+  double uv_per_m = 0.5;       // u_pbr_uv_per_m
+  bool lambda_measured = false;
+  bool uv_measured = false;
+  u32 uv_samples = 0;
+  int png_w = 0, png_h = 0;
+  std::string png_path;
+  std::string note;
+  // tfrag3_tess.tesc tess_lambda_world_m()
+  double world_m() const {
+    return clampd(lambda_tiles, 0.002, 1.0) / std::max(uv_per_m, 1e-3);
+  }
+};
+
+// ---- tfrag3_tess.tesc, ROUND 28 constant block ----
+constexpr double kTessSegPerFeature = 8.0;  // TESS_SEG_PER_FEATURE
+constexpr double kTessSegFeatMin = 0.5;     // TESS_SEG_FEAT_MIN
+constexpr double kTessSegFeatMax = 4.0;     // TESS_SEG_FEAT_MAX
+constexpr double kTessSpfRelease = 1.5;     // TESS_SPF_RELEASE
+constexpr double kTessSpfKeep = 2.5;        // TESS_SPF_KEEP
+
+struct R28Params {
+  double seg_near = 0.025;  // u_pbr_tess_seg
+  double seg_d0 = 5.0;      // TESS_SEG_D0_M
+  double seg_far = 0.60;    // TESS_SEG_FAR_M
+  double seg_exp = 1.5;     // TESS_SEG_EXP
+  double fade_lo = 40.0;    // TESS_FADE_LO_M
+  double fade_hi = 60.0;    // TESS_FADE_HI_M
+  double tess_max = 64.0;   // u_pbr_tess_max
+};
+
+// tfrag3_tess.tesc tess_seg_target_m(). `r28 == false` is the round-27/shipped law: the same
+// function with the feature clamp removed (bisect bit 1 set).
+double r28_seg_target_m(double d_m, double lambda_world_m, bool r28, const R28Params& p) {
+  double near_m = p.seg_near;
+  if (r28) {
+    near_m = clampd(lambda_world_m * (1.0 / kTessSegPerFeature), near_m * kTessSegFeatMin,
+                    near_m * kTessSegFeatMax);
+  }
+  return clampd(near_m * std::pow(std::max(d_m, p.seg_d0) * (1.0 / p.seg_d0), p.seg_exp), near_m,
+                std::max(p.seg_far, near_m));
+}
+
+// tfrag3_tess.tesc edge_level(). `r28 == false` drops BOTH lambda-dependent steps (the feature
+// clamp above and the spf release ramp below), i.e. exactly the round-27 shipped law.
+double r28_edge_level(double len_m,
+                      double d_m,
+                      double lambda_world_m,
+                      bool r28,
+                      const R28Params& p) {
+  const double cap = std::max(p.tess_max, 1.0);
+  double lvl = len_m / r28_seg_target_m(d_m, lambda_world_m, r28, p);
+  lvl = 1.0 + (lvl - 1.0) * (1.0 - smoothstepd(p.fade_lo, p.fade_hi, d_m));  // mix(1, lvl, 1-ss)
+  lvl = clampd(lvl, 1.0, cap);
+  if (r28) {
+    const double spf = lambda_world_m * lvl / std::max(len_m, 1e-6);
+    lvl = 1.0 + (lvl - 1.0) * smoothstepd(kTessSpfRelease, kTessSpfKeep, spf);
+  }
+  return clampd(lvl, 1.0, cap);
+}
+
+// ---- ROUND 28 report bands (the deliverable asks for 0-5 / 5-10 / 10-20 / 20-40) ----
+constexpr int kR28Bands = 5;
+const char* kR28BandNames[kR28Bands] = {"[0,5)", "[5,10)", "[10,20)", "[20,40)", "[40,inf)"};
+int r28_band_of(double dmin_m) {
+  if (dmin_m < 5.0)
+    return 0;
+  if (dmin_m < 10.0)
+    return 1;
+  if (dmin_m < 20.0)
+    return 2;
+  if (dmin_m < 40.0)
+    return 3;
+  return 4;
+}
+
+struct R28Cell {
+  u64 patches = 0;
+  double sum_inner = 0.0;
+  double max_inner = 0.0;
+  u64 gen_tris = 0;
+  double sum_spacing_m = 0.0;  // mean_edge / inner, per patch
+  double sum_spf = 0.0;        // lambda_world_m / spacing, per patch
+  u64 patches_at_cap = 0;
+  u64 patches_level1 = 0;  // level collapsed to 1 (far gate, fade, or spf release)
+};
+
+void r28_accum(R28Cell& c, double inner, double mean_edge_m, double lambda_world_m, double cap) {
+  c.patches++;
+  c.sum_inner += inner;
+  if (inner > c.max_inner) {
+    c.max_inner = inner;
+  }
+  const int L = next_odd_ge(inner);
+  c.gen_tris += (u64)L * (u64)L;
+  const double spacing_m = mean_edge_m / std::max(inner, 1.0);
+  c.sum_spacing_m += spacing_m;
+  c.sum_spf += spacing_m > 0.0 ? lambda_world_m / spacing_m : 0.0;
+  if (inner >= cap - 1e-9) {
+    c.patches_at_cap++;
+  }
+  if (inner <= 1.0 + 1e-9) {
+    c.patches_level1++;
+  }
+}
+
+void r28_merge(R28Cell& dst, const R28Cell& s) {
+  dst.patches += s.patches;
+  dst.sum_inner += s.sum_inner;
+  dst.max_inner = std::max(dst.max_inner, s.max_inner);
+  dst.gen_tris += s.gen_tris;
+  dst.sum_spacing_m += s.sum_spacing_m;
+  dst.sum_spf += s.sum_spf;
+  dst.patches_at_cap += s.patches_at_cap;
+  dst.patches_level1 += s.patches_level1;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -399,6 +726,9 @@ int main(int argc, char** argv) {
   // run the owner-validated mesh consolidation first, exactly as Loader.cpp does, so the seam
   // weights (which decide what can displace at all) and the snapped positions are the real ones.
   bool do_consolidate = false;
+  // ROUND 28: feature-aware density law head-to-head (opt-in, adds section R28 and nothing else).
+  bool do_r28 = false;
+  std::string tex_root_s;
   bool have_cam = false;
   bool cam_from_metres = false;
   Vec3 cam;  // game units
@@ -458,6 +788,10 @@ int main(int argc, char** argv) {
       subdiv_rounds = std::stoi(need_val("--subdiv-rounds"));
     } else if (a == "--consolidate") {
       do_consolidate = true;
+    } else if (a == "--r28") {
+      do_r28 = true;
+    } else if (a == "--tex-root") {
+      tex_root_s = need_val("--tex-root");
     } else if (a == "--out") {
       out_path = need_val("--out");
     } else if (a == "-h" || a == "--help") {
@@ -586,6 +920,78 @@ int main(int argc, char** argv) {
     subdiv_note = tfrag3::format_subdiv_stats(sst, scfg);
   }
 
+  // ---- ROUND 28: resolve the per-material law inputs the runtime pushes as uniforms ----
+  // Order matches the runtime: the loader preps the geometry (weld/consolidate/subdivide) and THEN
+  // TFragment::update_load measures the UV density off the prepped index buffer, so this block sits
+  // after the prep above. The lambdas come out of the shipped PNGs (stb_image, same decode as
+  // custom_tex::lookup_suffixed) — nothing is tabulated.
+  std::map<std::string, MatLambda> mat_lambda;
+  std::string r28_lambda_log;
+  fs::path tex_root;
+  if (do_r28) {
+    if (!tex_root_s.empty()) {
+      tex_root = fs::path(tex_root_s);
+    } else if (have_project) {
+      tex_root = file_util::get_jak_project_dir() / "custom_assets" / "jak1" / "recharged_textures";
+    } else {
+      fmt::print("error: --r28 needs --tex-root (could not resolve the jak-project directory)\n");
+      return 1;
+    }
+    if (!fs::exists(tex_root)) {
+      fmt::print("error: --r28 texture root does not exist: {}\n", tex_root.string());
+      return 1;
+    }
+    for (size_t ti = 0; ti < lev.textures.size(); ++ti) {
+      const std::string& name = lev.textures[ti].debug_name;
+      if (mat_lambda.count(name)) {
+        continue;
+      }
+      fs::path png;
+      if (!find_height_png(tex_root, name, &png)) {
+        continue;  // no height map => the runtime identity defaults (0.25 tiles, 0.5 tiles/m)
+      }
+      MatLambda ml;
+      ml.png_path = png.string();
+      int w = 0, h = 0;
+      unsigned char* data = stbi_load(png.string().c_str(), &w, &h, nullptr, STBI_rgb_alpha);
+      if (!data) {
+        ml.note = fmt::format("PNG DECODE FAILED ({}) -- identity default used", png.string());
+        mat_lambda[name] = ml;
+        continue;
+      }
+      std::vector<u8> rgba((size_t)w * (size_t)h * 4u);
+      std::memcpy(rgba.data(), data, rgba.size());
+      stbi_image_free(data);
+      ml.png_w = w;
+      ml.png_h = h;
+      ml.lambda_tiles = measure_height_lambda_tiles(w, h, rgba);
+      ml.lambda_measured = true;
+      u32 nsamp = 0;
+      const float dens = measure_uv_density_tfrag(lev, (s32)ti, &nsamp);
+      ml.uv_samples = nsamp;
+      if (dens > 0.f) {
+        ml.uv_per_m = dens;
+        ml.uv_measured = true;
+      } else {
+        // TFragment::update_load: `if (dens <= 0.f) dens = 0.5f;`
+        ml.note = fmt::format("UV density unknown ({} samples < 16) -- runtime 0.5 fallback",
+                              nsamp);
+      }
+      mat_lambda[name] = ml;
+    }
+    for (const auto& [name, ml] : mat_lambda) {
+      r28_lambda_log += fmt::format(
+          "  {:<28} lambda_tiles={:.6f} ({}) uv_per_m={:.6f} ({}, {} samples) "
+          "lambda_world_m={:.6f} png={}x{} {}{}\n",
+          name, ml.lambda_tiles, ml.lambda_measured ? "MEASURED from PNG" : "identity default",
+          ml.uv_per_m, ml.uv_measured ? "MEASURED from index buffer" : "runtime 0.5 fallback",
+          ml.uv_samples, ml.world_m(), ml.png_w, ml.png_h, ml.png_path,
+          ml.note.empty() ? "" : ("  NOTE: " + ml.note));
+    }
+  }
+  // Every material NOT in mat_lambda uses this: the runtime identity (0.25 tiles / 0.5 tiles/m).
+  const MatLambda kIdentityLambda;
+
   // ---- per-geom tree census (informational) + camera centroid over the audited geom ----
   std::string geom_census;
   for (int g = 0; g < tfrag3::TFRAG_GEOS; ++g) {
@@ -648,6 +1054,20 @@ int main(int argc, char** argv) {
   u64 smooth_missing = 0;  // patch whose 3 corner normals sum to ~0 (no usable smooth normal)
   u64 smooth_partial = 0;  // patch with at least one corner carrying no packed normal
 
+  // ---- ROUND 28 accumulators: [band][law], law 0 = round-27 shipped, law 1 = round 28 ----
+  using R28MatCells = std::array<std::array<R28Cell, 2>, kR28Bands>;
+  std::map<std::string, R28MatCells> r28_mat;
+  R28Cell r28_all[2][kR28Bands];
+  R28Cell r28_cls[2][kNumClasses][kR28Bands];
+  R28Params p28;
+  p28.seg_near = seg_near;
+  p28.seg_d0 = seg_d0;
+  p28.seg_far = seg_far;
+  p28.seg_exp = seg_exp;
+  p28.fade_lo = fade_lo;
+  p28.fade_hi = fade_hi;
+  p28.tess_max = tess_max;
+
   for (const auto& tree : lev.tfrag_trees[geom]) {
     if (!tess_opaque_kind(tree.kind)) {
       continue;
@@ -661,7 +1081,8 @@ int main(int argc, char** argv) {
 
     // one patch (a,b,c) -> both laws. `mat` is the near-field accumulator of the draw's material
     // (resolved once per draw; null is never passed, the guard is defensive).
-    auto emit_patch = [&](u32 i0, u32 i1, u32 i2, MatStat* mat) {
+    auto emit_patch = [&](u32 i0, u32 i1, u32 i2, MatStat* mat, double lambda_world_m,
+                          R28MatCells* r28cells) {
       if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
         return;
       }
@@ -781,6 +1202,30 @@ int main(int argc, char** argv) {
         accumulate_cls(gh_band[band], inner_edge, e0, e1, e2);
       }
 
+      // ---- ROUND 28: the two laws, evaluated with THIS draw's measured lambda_world_m ----
+      // Whole-patch far gate is the tesc's own (main(): dmin > TESS_FADE_HI_M => passthrough),
+      // i.e. --fade-hi, NOT the hardcoded 30 m the legacy sections above still use.
+      if (do_r28) {
+        const int b28 = r28_band_of(dmin);
+        for (int law = 0; law < 2; ++law) {
+          const bool r28 = (law == 1);
+          double inner;
+          if (dmin > p28.fade_hi) {
+            inner = 1.0;
+          } else {
+            const double l0 = r28_edge_level(e0, d0, lambda_world_m, r28, p28);
+            const double l1 = r28_edge_level(e1, d1, lambda_world_m, r28, p28);
+            const double l2 = r28_edge_level(e2, d2, lambda_world_m, r28, p28);
+            inner = std::max(std::max(l0, l1), l2);
+          }
+          r28_accum(r28_all[law][b28], inner, mean_edge_m, lambda_world_m, p28.tess_max);
+          r28_accum(r28_cls[law][cls][b28], inner, mean_edge_m, lambda_world_m, p28.tess_max);
+          if (r28cells) {
+            r28_accum((*r28cells)[b28][law], inner, mean_edge_m, lambda_world_m, p28.tess_max);
+          }
+        }
+      }
+
       if (mat && dmin < 15.0) {
         mat->patches++;
         if (cls == 0) {
@@ -888,6 +1333,15 @@ int main(int argc, char** argv) {
               : fmt::format("<anim{}>", draw.tree_tex_id);
       MatStat* mat = &mat_stats[mat_name];
       mat->has_height = pbr_materials().count(mat_name) > 0;
+      // ROUND 28: the per-draw uniforms PbrDrawBinder::set pushes for THIS material.
+      double lambda_world_m = kIdentityLambda.world_m();
+      R28MatCells* r28cells = nullptr;
+      if (do_r28) {
+        auto mlit = mat_lambda.find(mat_name);
+        lambda_world_m = (mlit != mat_lambda.end()) ? mlit->second.world_m()
+                                                    : kIdentityLambda.world_m();
+        r28cells = &r28_mat[mat_name];
+      }
       const u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
       u32 count = 0;
       for (const auto& grp : draw.vis_groups) {
@@ -927,7 +1381,7 @@ int main(int argc, char** argv) {
               t2 = c;
             }
             if (t0 != t1 && t1 != t2 && t0 != t2) {  // skip degenerates
-              emit_patch(t0, t1, t2, mat);
+              emit_patch(t0, t1, t2, mat, lambda_world_m, r28cells);
             }
             a = b;
             b = c;
@@ -943,7 +1397,7 @@ int main(int argc, char** argv) {
             continue;
           }
           if (t0 != t1 && t1 != t2 && t0 != t2) {
-            emit_patch(t0, t1, t2, mat);
+            emit_patch(t0, t1, t2, mat, lambda_world_m, r28cells);
           }
         }
       }
@@ -1564,6 +2018,287 @@ int main(int argc, char** argv) {
       line(fmt::format("  NOTE: at least one sample vector hit the per-material cap of {} (marked "
                        "'*'); its percentiles are over the first {} samples in draw order.",
                        kUvSampleCap, kUvSampleCap));
+    }
+  }
+
+  // ===============================================================================================
+  // R28) THE FEATURE-AWARE DENSITY LAW, HEAD TO HEAD
+  // ===============================================================================================
+  if (do_r28) {
+    line("");
+    line(std::string(100, '='));
+    line("=== SECTION R28: FEATURE-AWARE TESSELLATION DENSITY LAW (round-27 shipped vs round 28) ===");
+    line("");
+    line("LAWS (both are tfrag3_tess.tesc, ported line for line; OLD == NEW with the two");
+    line("lambda-dependent steps removed, i.e. exactly what bisect bit 1 restores):");
+    line(fmt::format("  lambda_world_m       = clamp(height_lambda_tiles, 0.002, 1.0) / max(uv_per_m, "
+                     "1e-3)"));
+    line(fmt::format("  seg_target(d)        : near_m = {:.4f} (--seg-near, u_pbr_tess_seg)",
+                     p28.seg_near));
+    line(fmt::format("     [NEW only]          near_m = clamp(lambda_world_m/{:.1f}, near_m*{:.1f}, "
+                     "near_m*{:.1f})",
+                     kTessSegPerFeature, kTessSegFeatMin, kTessSegFeatMax));
+    line(fmt::format("                        return clamp(near_m*pow(max(d,{:.1f})/{:.1f}, {:.2f}), "
+                     "near_m, max({:.2f}, near_m))",
+                     p28.seg_d0, p28.seg_d0, p28.seg_exp, p28.seg_far));
+    line(fmt::format("  edge_level(a,b)      : d = cam_dist_m(0.5*(a+b)); len_m = |b-a|/4096"));
+    line(fmt::format("                        lvl = len_m / seg_target(d)"));
+    line(fmt::format("                        lvl = mix(1, lvl, 1 - smoothstep({:.1f}, {:.1f}, d))",
+                     p28.fade_lo, p28.fade_hi));
+    line(fmt::format("                        lvl = clamp(lvl, 1, {:.0f})", p28.tess_max));
+    line(fmt::format("     [NEW only]          spf = lambda_world_m*lvl/max(len_m,1e-6); "
+                     "lvl = mix(1, lvl, smoothstep({:.1f}, {:.1f}, spf))",
+                     kTessSpfRelease, kTessSpfKeep));
+    line(fmt::format("                        return clamp(lvl, 1, {:.0f})", p28.tess_max));
+    line(fmt::format("  whole-patch far gate : dmin > {:.1f} m => all levels 1 (tesc main(); this is "
+                     "TESS_FADE_HI_M, NOT the",
+                     p28.fade_hi));
+    line("                         hardcoded 30 m the legacy sections A-U of this report still use)");
+    line("  inner level          : max of the three outer levels (tesc: gl_TessLevelInner[0])");
+    line("  gen tris per patch   : L*L with L = next ODD integer >= inner (GL fractional_odd_spacing)");
+    line("  segment size         : mean patch edge / inner level (the same definition sections F/G "
+         "use)");
+    line("  segments per feature : lambda_world_m / segment size  (== the shader's own spf, since");
+    line("                         spf = lambda*lvl/len = lambda/(len/lvl))");
+    line("");
+    line("PER-MATERIAL LAW INPUTS — lambda MEASURED from the shipped PNG with the exact");
+    line("LoaderStages.cpp:measure_height_lambda_tiles() algorithm (stb_image decode, R channel),");
+    line("uv_per_m MEASURED from this level's index buffer with the exact");
+    line("background_common.cpp:measure_uv_density_tfrag() walk (geom 0, median of <=8192 edges).");
+    line(fmt::format("  texture root: {}", tex_root.string()));
+    r += r28_lambda_log;
+    line(fmt::format("  every OTHER material (no *_height.png): runtime identity defaults "
+                     "lambda_tiles={:.2f} uv_per_m={:.2f} => lambda_world_m={:.4f} m",
+                     kIdentityLambda.lambda_tiles, kIdentityLambda.uv_per_m,
+                     kIdentityLambda.world_m()));
+    line("");
+
+    const char* law_name[2] = {"OLD (round-27 shipped, feature-blind)",
+                               "NEW (round-28 feature-aware)"};
+    line(fmt::format("LEGEND: OLD = {} | NEW = {}", law_name[0], law_name[1]));
+    line("");
+
+    // ---- (A) per-material segments-per-feature, OLD vs NEW ----
+    line(std::string(100, '-'));
+    line("R28-A) SEGMENTS PER FEATURE, OLD vs NEW, per material per distance band");
+    line("       (a band with no patch of that material AT THIS VANTAGE is printed as "
+         "'NO PATCHES' — never interpolated)");
+    auto mat_table = [&](const std::string& name) {
+      auto it = r28_mat.find(name);
+      auto lit = mat_lambda.find(name);
+      const MatLambda& ml = (lit != mat_lambda.end()) ? lit->second : kIdentityLambda;
+      line("");
+      line(fmt::format("--- {} : lambda_tiles={:.6f} uv_per_m={:.6f} => lambda_world_m={:.6f} m "
+                       "({:.3f} cm/feature) ---",
+                       name, ml.lambda_tiles, ml.uv_per_m, ml.world_m(), ml.world_m() * 100.0));
+      if (it == r28_mat.end()) {
+        line("    NO PATCHES ANYWHERE in the audited geom for this material (no draw references it).");
+        return;
+      }
+      line(fmt::format("  {:<10}  {:>9}  | {:>12}  {:>10}  {:>9}  | {:>12}  {:>10}  {:>9}  | "
+                       "{:>9}  {:>9}",
+                       "band(m)", "patches", "OLD seg_cm", "OLD seg/ft", "OLD lvl", "NEW seg_cm",
+                       "NEW seg/ft", "NEW lvl", "seg NEW/OLD", "spf NEW/OLD"));
+      for (int b = 0; b < kR28Bands; ++b) {
+        const R28Cell& o = it->second[b][0];
+        const R28Cell& n = it->second[b][1];
+        if (o.patches == 0) {
+          line(fmt::format("  {:<10}  {:>9}  | {}", kR28BandNames[b], 0,
+                           "NO PATCHES of this material in this band at this vantage"));
+          continue;
+        }
+        const double no = (double)o.patches, nn = (double)n.patches;
+        const double o_seg = (o.sum_spacing_m / no) * 100.0;
+        const double n_seg = (n.sum_spacing_m / nn) * 100.0;
+        const double o_spf = o.sum_spf / no;
+        const double n_spf = n.sum_spf / nn;
+        line(fmt::format("  {:<10}  {:>9}  | {:>12.3f}  {:>10.3f}  {:>9.2f}  | {:>12.3f}  "
+                         "{:>10.3f}  {:>9.2f}  | {:>9.3f}  {:>9.3f}",
+                         kR28BandNames[b], o.patches, o_seg, o_spf, o.sum_inner / no, n_seg, n_spf,
+                         n.sum_inner / nn, o_seg > 0.0 ? n_seg / o_seg : 0.0,
+                         o_spf > 0.0 ? n_spf / o_spf : 0.0));
+      }
+    };
+    // the three the deliverable names first, then every other PBR material for context.
+    for (const char* m : {"vil-wallplaster", "vil1-sages-strawroof-01", "vil-beach-01"}) {
+      mat_table(m);
+    }
+    line("");
+    line("--- the remaining height-map materials, same table ---");
+    for (const auto& m : pbr_materials()) {
+      if (m == "vil-wallplaster" || m == "vil1-sages-strawroof-01" || m == "vil-beach-01") {
+        continue;
+      }
+      mat_table(m);
+    }
+
+    // ---- (B) whole-level generated triangles, OLD vs NEW ----
+    line("");
+    line(std::string(100, '-'));
+    line(fmt::format("R28-B) TOTAL GENERATED TRIANGLES AT THIS VANTAGE, WHOLE LEVEL, cap {:.0f}",
+                     p28.tess_max));
+    R28Cell tot[2];
+    for (int law = 0; law < 2; ++law) {
+      for (int b = 0; b < kR28Bands; ++b) {
+        r28_merge(tot[law], r28_all[law][b]);
+      }
+    }
+    line(fmt::format("  TOTAL patches      : {}", tot[0].patches));
+    line(fmt::format("  TOTAL gen_tris OLD : {}", tot[0].gen_tris));
+    line(fmt::format("  TOTAL gen_tris NEW : {}", tot[1].gen_tris));
+    line(fmt::format("  ratio NEW/OLD      : {:.4f}  ({:+.1f}%)",
+                     tot[0].gen_tris ? (double)tot[1].gen_tris / (double)tot[0].gen_tris : 0.0,
+                     tot[0].gen_tris ? 100.0 * ((double)tot[1].gen_tris / (double)tot[0].gen_tris -
+                                                1.0)
+                                     : 0.0));
+    line("");
+    line("  --- per DISTANCE BAND (bands by dmin) ---");
+    line(fmt::format("  {:<10}  {:>10}  | {:>14}  {:>14}  {:>9}  | {:>10}  {:>10}  | {:>11}  "
+                     "{:>11}",
+                     "band(m)", "patches", "gen_tris OLD", "gen_tris NEW", "NEW/OLD",
+                     "lvl OLD", "lvl NEW", "at-cap OLD", "at-cap NEW"));
+    for (int b = 0; b < kR28Bands; ++b) {
+      const R28Cell& o = r28_all[0][b];
+      const R28Cell& n = r28_all[1][b];
+      if (o.patches == 0) {
+        line(fmt::format("  {:<10}  {:>10}  | NO PATCHES in this band at this vantage",
+                         kR28BandNames[b], 0));
+        continue;
+      }
+      line(fmt::format("  {:<10}  {:>10}  | {:>14}  {:>14}  {:>9.4f}  | {:>10.3f}  {:>10.3f}  | "
+                       "{:>11}  {:>11}",
+                       kR28BandNames[b], o.patches, o.gen_tris, n.gen_tris,
+                       o.gen_tris ? (double)n.gen_tris / (double)o.gen_tris : 0.0,
+                       o.sum_inner / (double)o.patches, n.sum_inner / (double)n.patches,
+                       o.patches_at_cap, n.patches_at_cap));
+    }
+    line("");
+    line(fmt::format("  --- per CLASS (GROUND = |face normal.y| >= {:.3f}, else WALL) x band ---",
+                     ground_cos));
+    for (int c = 0; c < kNumClasses; ++c) {
+      R28Cell ctot[2];
+      line(fmt::format("  {} :", kClassNames[c]));
+      line(fmt::format("    {:<10}  {:>10}  | {:>14}  {:>14}  {:>9}  | {:>10}  {:>10}  | {:>12}  "
+                       "{:>12}",
+                       "band(m)", "patches", "gen_tris OLD", "gen_tris NEW", "NEW/OLD", "lvl OLD",
+                       "lvl NEW", "seg_cm OLD", "seg_cm NEW"));
+      for (int b = 0; b < kR28Bands; ++b) {
+        const R28Cell& o = r28_cls[0][c][b];
+        const R28Cell& n = r28_cls[1][c][b];
+        r28_merge(ctot[0], o);
+        r28_merge(ctot[1], n);
+        if (o.patches == 0) {
+          line(fmt::format("    {:<10}  {:>10}  | NO PATCHES of this class in this band at this "
+                           "vantage",
+                           kR28BandNames[b], 0));
+          continue;
+        }
+        line(fmt::format("    {:<10}  {:>10}  | {:>14}  {:>14}  {:>9.4f}  | {:>10.3f}  {:>10.3f}  "
+                         "| {:>12.3f}  {:>12.3f}",
+                         kR28BandNames[b], o.patches, o.gen_tris, n.gen_tris,
+                         o.gen_tris ? (double)n.gen_tris / (double)o.gen_tris : 0.0,
+                         o.sum_inner / (double)o.patches, n.sum_inner / (double)n.patches,
+                         (o.sum_spacing_m / (double)o.patches) * 100.0,
+                         (n.sum_spacing_m / (double)n.patches) * 100.0));
+      }
+      line(fmt::format("    {:<10}  {:>10}  | {:>14}  {:>14}  {:>9.4f}", "TOTAL", ctot[0].patches,
+                       ctot[0].gen_tris, ctot[1].gen_tris,
+                       ctot[0].gen_tris ? (double)ctot[1].gen_tris / (double)ctot[0].gen_tris
+                                        : 0.0));
+    }
+
+    // ---- (C) where is vil-beach-01 at this vantage? ----
+    line("");
+    line(std::string(100, '-'));
+    line("R28-C) vil-beach-01 OCCUPANCY AT THIS VANTAGE (nearest band it actually occupies)");
+    {
+      auto it = r28_mat.find("vil-beach-01");
+      if (it == r28_mat.end()) {
+        line("  vil-beach-01 has NO patch anywhere in the audited geom.");
+      } else {
+        u64 within15 = 0;
+        int nearest = -1;
+        for (int b = 0; b < kR28Bands; ++b) {
+          const u64 pn = it->second[b][0].patches;
+          if (pn && nearest < 0) {
+            nearest = b;
+          }
+          if (b <= 1) {  // [0,5) + [5,10) — fully inside 15 m
+            within15 += pn;
+          }
+        }
+        line(fmt::format("  patches within 10 m: {}", within15));
+        line(fmt::format("  nearest occupied band: {}", nearest < 0 ? "NONE"
+                                                                    : kR28BandNames[nearest]));
+        for (int b = 0; b < kR28Bands; ++b) {
+          line(fmt::format("    {:<10} patches={}", kR28BandNames[b], it->second[b][0].patches));
+        }
+        line("  (if the near bands are empty, re-run this tool with a --cam-m that stands on the "
+             "beach; the tool prints no interpolated numbers for empty bands.)");
+      }
+    }
+    // A camera-independent hint for (C): where the beach patches actually ARE.
+    {
+      double bx = 0, by = 0, bz = 0;
+      u64 bn = 0;
+      float minx = 1e30f, miny = 1e30f, minz = 1e30f;
+      float maxx = -1e30f, maxy = -1e30f, maxz = -1e30f;
+      s32 beach_tex = -1;
+      for (size_t ti = 0; ti < lev.textures.size(); ++ti) {
+        if (lev.textures[ti].debug_name == "vil-beach-01") {
+          beach_tex = (s32)ti;
+          break;
+        }
+      }
+      if (beach_tex >= 0) {
+        for (const auto& tree : lev.tfrag_trees[geom]) {
+          if (!tess_opaque_kind(tree.kind)) {
+            continue;
+          }
+          for (const auto& draw : tree.draws) {
+            if (draw.tree_tex_id != beach_tex) {
+              continue;
+            }
+            u32 cnt = 0;
+            for (const auto& g : draw.vis_groups) {
+              cnt += g.num_inds;
+            }
+            const u32 f = draw.unpacked.idx_of_first_idx_in_full_buffer;
+            for (u32 k = 0; k < cnt; ++k) {
+              if ((u64)f + k >= tree.unpacked.indices.size()) {
+                break;
+              }
+              const u32 vi = tree.unpacked.indices[f + k];
+              if (vi >= tree.unpacked.vertices.size()) {
+                continue;
+              }
+              const auto& v = tree.unpacked.vertices[vi];
+              bx += v.x;
+              by += v.y;
+              bz += v.z;
+              bn++;
+              minx = std::min(minx, v.x);
+              miny = std::min(miny, v.y);
+              minz = std::min(minz, v.z);
+              maxx = std::max(maxx, v.x);
+              maxy = std::max(maxy, v.y);
+              maxz = std::max(maxz, v.z);
+            }
+          }
+        }
+      }
+      if (bn) {
+        line(fmt::format("  vil-beach-01 geometry: {} referenced verts, centroid (metres) = "
+                         "{:.2f} {:.2f} {:.2f}",
+                         bn, bx / (double)bn / kUnitsPerM, by / (double)bn / kUnitsPerM,
+                         bz / (double)bn / kUnitsPerM));
+        line(fmt::format("  vil-beach-01 AABB (metres): min {:.2f} {:.2f} {:.2f}  max {:.2f} {:.2f} "
+                         "{:.2f}",
+                         minx / kUnitsPerM, miny / kUnitsPerM, minz / kUnitsPerM, maxx / kUnitsPerM,
+                         maxy / kUnitsPerM, maxz / kUnitsPerM));
+      } else {
+        line("  vil-beach-01 geometry: no vertex referenced by a tessellable tfrag draw.");
+      }
     }
   }
 
