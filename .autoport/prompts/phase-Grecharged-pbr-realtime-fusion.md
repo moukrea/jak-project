@@ -1489,3 +1489,49 @@ NOTE DE LIVRAISON : le build installé sur le Redmi ce round n'avait PAS le dami
 libgk du build normal) — l'owner l'a vu immédiatement. Le superviseur a installé l'APK damier. Règle
 déjà posée : le build de test EST le build damier, vérifie-le par un getprop/une capture avant de
 prétendre livrer, pas par la présence d'un fichier.
+
+--------------------------------------------------------------------------------
+ROUND 24 — CORRECTION DE L'OWNER : LES DEUX HYPOTHÈSES CI-DESSUS SONT FAUSSES
+--------------------------------------------------------------------------------
+Le bloc précédent ("herbe = GrassRenderer", "toit = draw TIE sur un autre programme") est ANNULÉ.
+L'owner, mot pour mot :
+  "l'herbe 3D n'a rien à voir avec le PBR et elle est que sur l'île d'entraînement, mélange pas les
+   sujets. Elle n'est pas présente sur village1 par exemple, on a que la texture"
+  "pour le toit tu racontes aussi de la merde, il y a plein de parties du toit où on voit le
+   displacement, d'autres totalement plates alors que c'est sur la continuité et que ça utilise la
+   même texture... arrête tes excuses bidons"
+
+Ce que ça établit, et c'est BEAUCOUP plus précis que tout ce qui précède :
+- L'herbe de village1 est une TEXTURE sur du sol, pas de la géométrie d'herbe. Le GrassRenderer et
+  les cartes GBK ne sont pas le sujet. Ne les instrumente pas, ne les cite pas.
+- Sur LE MÊME TOIT, en CONTINUITÉ, avec LA MÊME TEXTURE et donc le même matériau et les mêmes maps :
+  certaines parties se displacent, d'autres sont totalement plates.
+Donc la cause n'est NI le matériau, NI la texture, NI le programme de rendu, NI l'absence de maps :
+tout ça est identique de part et d'autre de la frontière. La différence est forcément PLUS FINE que
+le matériau — au niveau du DRAW, du CHUNK, du PATCH ou DU SOMMET.
+
+Et ce n'est pas nouveau : l'owner avait déjà signalé exactement ça il y a plusieurs rounds —
+"il y a des endroits où en fait il n'y a aucun displacement, juste la texture ! ... pourquoi des
+chunks entiers (la plupart) sont juste plats alors que le damier est bien présent ?". Le mot CHUNK
+était déjà là. Ce défaut n'a jamais été corrigé ; les rounds suivants ont traité l'alignement,
+l'amplitude et la polarité, mais pas celui-là. C'est LE défaut central de la phase.
+
+MÉTHODE IMPOSÉE — DIAGNOSTIC DIFFÉRENTIEL, PAS DE NOUVELLE THÉORIE
+Arrête de proposer des hypothèses par famille de renderer. Prends UNE surface continue où la
+frontière est visible (le toit de la hutte du sage convient, l'owner dit que c'est facile à
+retrouver), et compare DEUX primitives ADJACENTES de part et d'autre de cette frontière : une qui
+se displace, une qui reste plate. Elles partagent la texture et le matériau. Dumpe tout ce qui les
+distingue, et la réponse est dans ce diff :
+  - identifiant du draw / du chunk / du bucket auquel chacune appartient : est-ce la même ?
+  - le patch est-il passé par le programme de tessellation, et quel niveau de tessellation effectif
+    a été calculé pour chacun (le niveau, pas le réglage) ;
+  - la primitive a-t-elle été pré-subdivisée hors-ligne, oui ou non, et pourquoi pas ;
+  - les sommets portent-ils les attributs nécessaires : tangente valide, uv, normale, et la height
+    est-elle réellement échantillonnée (valeur lue, pas seulement unité liée) ;
+  - amplitude finale calculée pour chacun, en cm, et quel terme la met à zéro le cas échéant.
+Le rapport doit nommer LA différence, avec les deux jeux de valeurs côte à côte. Une explication
+sans ce diff chiffré n'est pas recevable.
+
+INTERDIT : présenter ce défaut comme une limite acceptable, une question de contenu, ou un cas
+particulier de matériau. L'owner l'a dit : "arrête tes excuses bidons". Une surface continue avec
+une seule texture doit se displacer uniformément, point.
