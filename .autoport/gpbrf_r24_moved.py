@@ -91,6 +91,7 @@ def main():
     ap.add_argument("--diag", required=True)
     ap.add_argument("--diag2", default="")
     ap.add_argument("--sham", default="", help="a 4th OFF capture: the false-positive control")
+    ap.add_argument("--sat", default="", help="the 10x-amplitude SATURATION probe: the physical ceiling")
     ap.add_argument("--snr", type=float, default=3.0, help="effect must exceed snr x the pixel's own floor")
     ap.add_argument("--min-rel", type=float, default=0.01, help="and this minimum relative change")
     ap.add_argument("--tol", type=float, default=48.0)
@@ -151,6 +152,21 @@ def main():
         fp = pct(int((maps & (floor_r > thr_px)).sum()), int(maps.sum()))
         fp_src = "the floor pair itself (no sham cell supplied)"
 
+    # ---- THE PHYSICAL CEILING, MEASURED (not argued) ------------------------------------------
+    # A pixel can only report a displacement it is able to RESOLVE. A surface seen almost edge-on at
+    # 40 m is minified to the point where a 10 cm shift along it is a fraction of a screen pixel and
+    # its texture has mipped to near-uniform: no displacement of any size can change that pixel, and
+    # counting it against the pipeline measures the display, not the renderer. Rather than argue the
+    # point, the saturation cell MEASURES it: debug.opengoal.pbr.height = 0.5 drives the amplitude
+    # law to its own ceiling (>1 m of displacement), so any pixel that still does not change is
+    # unresolvable by construction. Both figures are reported: the raw coverage and the coverage
+    # among the pixels that CAN respond, with the size of the unresolvable set stated.
+    sat_moved = None
+    if a.sat:
+        st = load(a.sat)
+        sat_r = np.minimum(drel(st, off1), drel(st, off2))
+        sat_moved = sat_r > thr_px
+
     tessc = dg[:, :, 0] * (10.0 / 255.0)
     pomc = dg[:, :, 1] * (10.0 / 255.0)
     dist = dg[:, :, 2] * (40.0 / 255.0)
@@ -174,6 +190,15 @@ def main():
     print(f"    blend-ambiguous mask pixels (grey, never counted either way): {int(amb.sum())} px "
           f"= {pct(int(amb.sum()),npx):.2f}% of the frame")
     print(f"MOVED: {nmoved}/{nmaps} = {pct(nmoved,nmaps):.2f}% of maps-bearing pixels actually moved")
+    if sat_moved is not None:
+        nres = int((maps & sat_moved).sum())
+        nunres = nmaps - nres
+        print(f"    PHYSICAL CEILING (10x amplitude saturation probe): {nres} px = {pct(nres,nmaps):.2f}% "
+              f"can respond at all; {nunres} px = {pct(nunres,nmaps):.2f}% cannot at any amplitude "
+              f"(median distance {np.median(dist[maps & ~sat_moved]):.1f} m)")
+        print(f"    RESOLVABLE COVERAGE: {int((maps & moved & sat_moved).sum())}/{nres} = "
+              f"{pct(int((maps & moved & sat_moved).sum()), nres):.2f}% of the maps-bearing pixels that "
+              f"can resolve a displacement actually moved")
     print(f"    mean relative |ON-OFF| over the denominator: {eff_r[maps].mean():.4f} = "
           f"{eff_r[maps].mean()/max(floor_r[maps].mean(),1e-9):.2f}x the measured floor "
           f"(absolute {eff_a[maps].mean():.2f}/255 vs floor {floor_a[maps].mean():.2f}/255)")
@@ -273,7 +298,11 @@ def main():
                maps_px=nmaps, moved_px=nmoved, moved_pct=pct(nmoved, nmaps),
                dead_px=ndead, world_px=world_px, world_maps=world_maps,
                world_moved=world_moved, world_moved_pct=pct(world_moved, world_maps),
-               programs=rows, dead_classes=out_dead)
+               programs=rows, dead_classes=out_dead,
+               resolvable_px=(int((maps & sat_moved).sum()) if sat_moved is not None else None),
+               resolvable_moved=(int((maps & moved & sat_moved).sum()) if sat_moved is not None else None),
+               resolvable_pct=(pct(int((maps & moved & sat_moved).sum()),
+                                   int((maps & sat_moved).sum())) if sat_moved is not None else None))
     print()
     print(f"HEADLINE[{a.label}/{a.tier}]: {pct(nmoved,nmaps):.2f}% of maps-bearing pixels actually moved "
           f"({nmoved}/{nmaps}), rule max({a.snr:g}x own floor, {a.min_rel:g} relative), "

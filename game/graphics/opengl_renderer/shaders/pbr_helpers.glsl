@@ -82,7 +82,18 @@ float hnorm(float h) {
 // reads at ordinary gameplay camera angles (which ARE grazing on a floor), while the sideways-smear
 // regime the earlier "ça s'étale à plat" report described is still damped. The steep march below
 // (16-32 layers with occlusion + secant refine) is what actually keeps grazing views honest.
-#define POM_GRAZE_FLOOR 0.35
+// ROUND 24: 0.35 -> 0.75, MEASURED. The round-24 effect metric put the parallax tier's remaining
+// near-field dead zone on GRAZING surfaces (vantage vc, a terrace looking DOWN onto the hut roofs:
+// 7.50% of its near denominator, at ordinary luminance ~83/255 and an offset already at 7-8 cm of
+// world, i.e. not a clipping and not a distance limit — simply an offset cut to a third exactly
+// where the surface is most foreshortened and therefore needs it most). The 0.35 figure was the
+// value the 2026-07-26 mandate suggested as a MINIMUM ("never below ~0.35"), and that same mandate
+// says what to prefer: "use proper steep-POM with self-occlusion (which does not smear at grazing)
+// rather than fading the effect away". The steep march IS in place (16-64 layers, occlusion test +
+// secant refine) and pom_cap still bounds the total offset in feature-relative terms, so the
+// sideways-smear regime stays damped while the fade stops being the thing that flattens roofs and
+// floors. LO/HI are untouched: only the floor rises.
+#define POM_GRAZE_FLOOR 0.75
 // ROUND 22 (owner defect B: "curseur au maximum 3.0, c'est pas si obvious"). The 0..3 slider was
 // ARITHMETICALLY DEAD above ~1.4 because every cap below was independent of it: POM_MAX_FEATURE_FRAC
 // froze the parallax offset at rel >= 1.4 and POM_DEPTH_MAX_RATIO froze the depth at rel >= 2.0, so

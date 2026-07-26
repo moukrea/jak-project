@@ -100,7 +100,16 @@
         // macro from the vertices, micro from the march, which is how displacement mapping is
         // combined in modern renderers.
         #define POM_MICRO_FLOOR 0.35
-        float tess_w = (u_pbr_tess_active != 0) ? clamp(tess_disp_w, 0.0, 1.0) : 0.0;
+        // tess_disp_w now carries the REALISED displacement fraction (tfrag3_tess.tese), i.e. the
+        // tier weight times the height swing the band-limited fetch actually resolved. Dividing it
+        // by the FULL-DETAIL swing this stage samples gives the share of the material's relief the
+        // geometry really delivered here; the parallax carries the complement. Where the band limit
+        // has flattened the field (far patches) the ratio goes to 0 and the parallax comes back to
+        // full strength instead of sitting at its micro floor.
+        float dev_full = clamp(abs(hnorm(textureLod(tex_PBR_H, uv, 0.0).r) - 0.5) * 2.0, 0.0, 1.0);
+        float tess_w = (u_pbr_tess_active != 0)
+                           ? clamp(clamp(tess_disp_w, 0.0, 1.0) / max(dev_full, 0.02), 0.0, 1.0)
+                           : 0.0;
         float pom_w = max(1.0 - tess_w, POM_MICRO_FLOOR);
         // Bisect bit 268435456 restores the ROUND-23 binary handoff exactly (POM suppressed whenever
         // the tess tier touched the fragment at all), so this fix is a one-setprop A/B at the same
@@ -135,7 +144,10 @@
           float dz_upm = max(u_pbr_uv_per_m, 0.02);
           float dz_amp_m = dz_depth_uv / dz_upm;  // metres — the tese's amp_m, same law
           float dz_h = hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-          float dz_tess_cm = abs(dz_h - 0.5) * dz_amp_m * clamp(tess_disp_w, 0.0, 1.0) * 100.0;
+          // v_tess_disp_w = falloff*seam*|h_band-0.5|*2, so the metres the tese actually moved this
+          // vertex are (w/2)*amp_m — computed from the tese's OWN band-limited height, which is
+          // strictly more truthful than re-deriving it from a lod-0 fetch here.
+          float dz_tess_cm = 0.5 * clamp(tess_disp_w, 0.0, 1.0) * dz_amp_m * 100.0;
           f_disp_diag.r = clamp(dz_tess_cm * 0.1, 0.0, 1.0);
           f_disp_diag.b = clamp(length(v_fringe_rel) * (1.0 / 40.0), 0.0, 1.0);
           // ROUND 24, mode 34 — the DECOMPOSITION of that amplitude, so a dead zone names its own

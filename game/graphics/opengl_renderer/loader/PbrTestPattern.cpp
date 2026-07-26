@@ -52,6 +52,40 @@ inline int checker_at(int px, int py, int cell) {
   return ((px / cell) + (py / cell)) & 1;
 }
 
+int grain() {
+  // ===== ROUND 24: A UNIFORM SQUARE CANNOT SHOW THAT IT MOVED ===================================
+  // Measured on device, after the tier cross-fade and the far-field fix: the pixels that STILL did
+  // not change when displacement was switched off were, at 84-99%, the INTERIORS of checker cells,
+  // while the cell boundaries changed. That is not the pipeline: the parallax tier shifts the UV by
+  // ~10 cm of world (7.6 screen px at 30 m) and the tessellation tier moves the vertices, but a
+  // shift of a REGION OF CONSTANT COLOUR maps every interior pixel onto another pixel of the same
+  // colour. The instrument was blind in exactly the place the owner is looking ("la plupart des
+  // endroits n'ont pas de displacement") — and so was his eye, for the same reason.
+  // The fix is to give the checker what every real material has: fine GRAIN. Three octaves, +-15%
+  // around the cell's own value, so the black square stays black and the white square stays white
+  // (alignment and polarity, the two things the checker is for, are untouched) but every texel now
+  // differs from its neighbours and a shift of any size becomes visible — to the metric and to the
+  // owner. Octaves 3/9/27 cycles per cell mean one of them survives at any viewing distance instead
+  // of the whole grain mipping away in the middle field.
+  // debug.opengoal.pbr.testgrain=0 restores the flat squares.
+  static int cached = -1;
+  return read_cached(cached, 1, 0, 1, "debug.opengoal.pbr.testgrain", "OG_PBR_TESTGRAIN");
+}
+
+// +-1, three octaves, deterministic, tiling exactly with the cell grid.
+float grain_at(int px, int py, int cell) {
+  if (grain() == 0) {
+    return 0.f;
+  }
+  constexpr float kPi = 3.14159265358979323846f;
+  const float u = ((float)px + 0.5f) / (float)cell;
+  const float v = ((float)py + 0.5f) / (float)cell;
+  const float g = 0.55f * std::sin(2.f * kPi * 3.f * u) * std::sin(2.f * kPi * 3.f * v) +
+                  0.30f * std::sin(2.f * kPi * 9.f * u + 1.7f) * std::sin(2.f * kPi * 9.f * v) +
+                  0.15f * std::sin(2.f * kPi * 27.f * u) * std::sin(2.f * kPi * 27.f * v + 0.9f);
+  return g;
+}
+
 int height_profile() {
   // ===== ROUND 24: THE HARD CHECKER CANNOT SHOW RELIEF INSIDE A SQUARE, BY CONSTRUCTION =========
   // Measured at the owner's vantage with the hard 0/255 height (device/r24): switching displacement
@@ -231,7 +265,10 @@ void make_base_rgba(std::vector<u8>& out, int dim) {
   }
   for (int py = 0; py < dim; py++) {
     for (int px = 0; px < dim; px++) {
-      const u8 v = checker_at(px, py, cell) ? 215 : 55;
+      const float base = checker_at(px, py, cell) ? 215.f : 55.f;
+      // GRAIN: +-15% of this cell's own value. The two cells stay unambiguously light and dark.
+      const float g = base * (1.f + 0.15f * grain_at(px, py, cell));
+      const u8 v = (u8)std::lround(std::clamp(g, 0.f, 255.f));
       put(out, dim, px, py, v, v, v);
     }
   }

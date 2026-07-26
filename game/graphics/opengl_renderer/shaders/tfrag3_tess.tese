@@ -409,7 +409,21 @@ void main() {
     // is forwarded is whether the tier was ACTIVE at this vertex, not whether this one texel moved.
     // Past ~30 m falloff is 0 and on welded seams seam is 0 — precisely the fragments that must fall
     // back to the POM instead of being left flat AND counted as covered.
-    v_tess_disp_w = clamp(falloff * seam, 0.0, 1.0);
+    // ===== ROUND 24, SECOND CORRECTION TO THE HANDOFF ==========================================
+    // falloff*seam says the TIER was active here. It does NOT say the geometry moved, and at
+    // distance those two part company completely: the height fetch above is band-limited to the
+    // GENERATED VERTEX SPACING, and beyond ~35 m that spacing (0.545 m at 39 m) reaches the size of
+    // the feature itself, so `h` collapses onto 0.5 and the vertex is displaced by nothing — while
+    // falloff and seam are both still 1.0. The fragment stage then read "tier fully active", threw
+    // the parallax down to its micro floor, and the surface was left flat by BOTH tiers. Measured:
+    // that is exactly the far shore at the owner's vantage, 8.81% of the denominator at a mean
+    // 39.2 m, 98% of it past the old 30 m gate, and it is the last localised dead zone.
+    // What is forwarded is therefore the REALISED fraction of the height swing, |h-0.5|*2 times the
+    // tier weight. The fragment divides by the full-detail swing it samples itself, so the parallax
+    // carries exactly the part of the height field the vertices could not represent — the standard
+    // displacement/parallax frequency split, now driven by a measurement instead of an assumption.
+    // Costs nothing: no extra fetch, no extra triangle.
+    v_tess_disp_w = clamp(falloff * seam * clamp(abs(h - 0.5) * 2.0, 0.0, 1.0), 0.0, 1.0);
 
     // ---- PBR POLISH (owner playtest #16 defect 3: the displacement "reads FLAT ... un bump map
     //      glorifie avec un peu de normales") ----

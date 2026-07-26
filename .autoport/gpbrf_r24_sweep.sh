@@ -34,7 +34,7 @@ for V in $VSET; do
       echo "== skip $TAG (already captured)"; continue
     fi
     echo "== CAPTURE $TAG  pos='$P'  tp=$TP"
-    VLABEL="$V" VPOS="$P" TIER="$T" TP="$TP" R24OUT="${R24OUT:-r24}" \
+    VLABEL="$V" VPOS="$P" TIER="$T" TP="$TP" R24OUT="${R24OUT:-r24}" SATAB=1 RELIEF="${RELIEF:-2.0}" \
       timeout 1800 bash .autoport/gpbrf_r24_cells.sh > "$LOGD/r24-cells-${TAG}${R24SUF:-}.log" 2>&1
     rc=$?
     echo "   exit=$rc  (log $LOGD/r24-cells-${TAG}${R24SUF:-}.log)"
@@ -53,7 +53,7 @@ for V in $VSET; do
     python3 .autoport/gpbrf_r24_moved.py --label "$V" --tier "$TIERNAME" \
       --on "$OUT/${TAG}_on.png" --off1 "$OUT/${TAG}_off1.png" --off2 "$OUT/${TAG}_off2.png" \
       --mask "$OUT/${TAG}_mask.png" --prog "$OUT/${TAG}_prog.png" --diag "$OUT/${TAG}_diag.png" \
-      --sham "$OUT/${TAG}_sham.png" --diag2 "$OUT/${TAG}_diag2.png" \
+      --sham "$OUT/${TAG}_sham.png" --diag2 "$OUT/${TAG}_diag2.png" --sat "$OUT/${TAG}_onMAX.png" \
       --json "$OUT/${TAG}_moved.json" | tee "$OUT/${TAG}_moved.txt"
     grep -a '^HEADLINE' "$OUT/${TAG}_moved.txt" >> "$OUT/moved_summary.txt"
     echo

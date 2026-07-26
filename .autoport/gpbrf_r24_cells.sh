@@ -45,6 +45,17 @@ APKPATH="${APKPATH:-android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk}
 TAG="${VLABEL}_t${TIER}"
 
 say(){ echo; echo "######## $* ########"; }
+# ---------------------------------------------------------------------------------------------
+# SINGLE-RUNNER LOCK. Two capture runs overlapped on this device today (a leftover runner from a
+# killed sweep kept setting debug props while a new run was capturing) and silently produced four
+# cells of the WRONG debug mode — the numbers looked plausible and were garbage. The device is
+# shared; nothing may assume it is idle. flock makes that structural instead of procedural.
+LOCK=/tmp/gpbrf_r24_device.lock
+exec 9>"$LOCK"
+if ! flock -n 9; then
+  echo "[r24 FAIL] another gpbrf device run holds $LOCK — refusing to overlap" >&2
+  exit 1
+fi
 die(){ echo "[r24 FAIL] $*" >&2; exit 1; }
 kill_loggers(){ pkill -f "$ADB -s $S logcat" 2>/dev/null || true; sleep 1; }
 
@@ -64,8 +75,8 @@ pos_now(){ local i v=""
 
 pos_dist(){ awk -v A="$1" -v B="$2" 'BEGIN{split(A,a," ");split(B,b," ");d=0;for(i=1;i<=3;i++){x=a[i]-b[i];d+=x*x};printf "%.3f", sqrt(d)}'; }
 
-cell(){ # $1 label  $2 pbr.debug  $3 pbr.displacement  [$4 pbr.bisect, default 0]
-  local label="${TAG}_$1" dbg="$2" disp="$3" bis="${4:-0}"
+cell(){ # $1 label  $2 pbr.debug  $3 pbr.displacement  [$4 pbr.bisect]  [$5 pbr.height]
+  local label="${TAG}_$1" dbg="$2" disp="$3" bis="${4:-0}" hgt="${5:-0.05}"
   say "CELL $label  (debug=$dbg displacement=$disp relief=$RELIEF)"
   timeout 20 "$ADB" -s "$S" shell "svc power stayon usb" >/dev/null 2>&1 || true
   timeout 20 "$ADB" -s "$S" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
@@ -73,6 +84,7 @@ cell(){ # $1 label  $2 pbr.debug  $3 pbr.displacement  [$4 pbr.bisect, default 0
   timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.displacement $disp" || die "setprop disp"
   timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.relief $RELIEF"     || die "setprop relief"
   timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.bisect $bis"        || die "setprop bisect"
+  timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.height $hgt"        || die "setprop height"
   local rd rb rr rx
   rx=$(timeout 20 "$ADB" -s "$S" shell "getprop debug.opengoal.pbr.bisect" | tr -d '\r')
   [ "$rx" = "$bis" ] || die "bisect readback mismatch $label: $rx"
@@ -270,6 +282,15 @@ cell diag2 34 "$TIER"
 # SEAM A/B: bisect bit 131072 = "ignore the mesh-consolidation seam pin weights" (seam := 1). Same
 # boot, same vantage, same frame: the delta against `on` is exactly what the pin weights cost.
 [ "${SEAMAB:-0}" = "1" ] && cell onNS 0 "$TIER" 131072
+# POM A/B: bisect bit 128 = "no parallax march". Same boot, same vantage: the delta between `on`
+# and `onNP` is exactly what the parallax tier contributes to the rendered image.
+[ "${POMAB:-0}" = "1" ] && cell onNP 0 "$TIER" 128
+# SATURATION PROBE. debug.opengoal.pbr.height = 0.5 is 10x the shipped 0.05 base, which drives the
+# amplitude law to its own ceiling (>1 m of displacement). Any maps-bearing pixel that does NOT
+# change even then is not a pipeline dead zone: it is a pixel where NO displacement of any size can
+# be resolved at this screen resolution and viewing angle. That makes the physical ceiling of the
+# metric a MEASUREMENT instead of an argument.
+[ "${SATAB:-0}" = "1" ] && cell onMAX 0 "$TIER" 0 0.5
 DEVSHA_END=$(dev_libgk_sha)
 [ "$DEVSHA_END" = "$EXPECT_SHA" ] || die "the device binary CHANGED during the run ($EXPECT_SHA -> $DEVSHA_END): a foreign install invalidated these captures"
 echo "  binary still pinned at end of run: $DEVSHA_END"
