@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
-# gpbrf_a27_redeploy.sh — attempt-4 CLOSE-GATE fix (deploy_verify chain).
+# gpbrf_a27_redeploy.sh — CLOSE-GATE fix for a RECURRING failure class (deploy_verify chain).
 #
-# ROOT CAUSE of the attempt-3 close-gate failure (diagnosed 2026-07-26 21:0x):
+# THIS IS NOT A ONE-ATTEMPT SCRIPT. It has now cleared the same gate twice:
+#   round 26 attempt 3 (2026-07-26 21:0x) and round 28 attempt 1 (2026-07-27 00:2x).
+# Both times the message was "device is running a STALE install" and both times NOTHING was
+# stale — the phone was simply holding the OTHER sibling of the pair this phase ships. Expect
+# it again on any round that ships the checker+normal pair, and re-run this script; do NOT
+# rebuild, and do NOT widen deploy_verify to accept build-android-checker (that is changing the
+# instrument to make the metric move). Re-read the report's section 13 before touching anything.
+#
+# ROOT CAUSE of the close-gate failure (first diagnosed 2026-07-26 21:0x):
 #   NOT a stale build. The local half of the chain was already correct:
 #     build-android/lib/arm64-v8a/libgk.so == jniLibs == app-jak1-debug.apk == 0a6830c1
 #   The DEVICE was carrying 0e4f3e92 — which is not an old binary at all, it is
