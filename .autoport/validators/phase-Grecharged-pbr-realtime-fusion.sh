@@ -206,4 +206,14 @@ grep -qiE 'inverted normal|normale.*invers|flipped normal|handedness|bitangent s
 grep -qiE 'census|recens|[0-9]+ *(faces|verts|vertices).*(polarit|flip|invert)' "$R" || fail "no all-levels census of wrong-polarity faces (before/after)"
 # forbid the cosmetic workaround the owner would reject
 grep -qiE 'fixed (at|in) the (source|mesh data)|corrig.*(source|donnees de mesh)|no abs\(\)|not masked in the shader' "$R" || fail "no statement that polarity was fixed at the mesh-data source (abs()/per-material sign flag is forbidden)"
+# ---- ROUND 24 CORRECTION: same texture, continuous surface, part displaces / part flat -> differential dump ----
+grep -qiE 'adjacent (primitive|triangle|patch|draw)|de part et d.autre|across the boundary|either side of the boundary' "$R" || fail "no ADJACENT-primitive differential across the visible boundary (the owner's decisive observation)"
+grep -qiE 'same texture.*(same material|both)|meme texture' "$R" || fail "differential does not establish that both sides share texture+material"
+grep -qiE 'effective tess(ellation)? level|niveau de tessellation effectif|tess level *[:=] *[0-9]' "$R" || fail "effective tessellation level not dumped for BOTH sides"
+grep -qiE 'pre-subdivi|presubdiv|pre_subdiv' "$R" || fail "offline pre-subdivision status not dumped per primitive"
+grep -qiE 'sampled height|height (value|sample) *[:=]|hauteur lue' "$R" || fail "sampled height VALUE not dumped (binding a unit is not sampling)"
+grep -qiE 'final amplitude.*cm|amplitude finale.*cm|amplitude *[:=] *[0-9.]+ *cm' "$R" || fail "final per-primitive amplitude in cm not dumped for both sides"
+grep -qiE 'chunk|draw id|bucket' "$R" || fail "chunk/draw identity not compared across the boundary"
+# the grass red herring must not come back
+grep -qiE 'GrassRenderer|GBK[0-9]' "$R" && fail "grass renderer instrumented again — the owner ruled it out (village1 grass is a texture; 3D grass is training-island only)"
 echo "[Gpbrf PASS]"
