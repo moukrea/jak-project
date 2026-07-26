@@ -254,6 +254,14 @@ void main() {
   // PBR path this is no longer hardcoded 0: it is set to 1.0 exactly where the POM march actually
   // ran, by the shared fused chunk.
   float f_disp_cover = 0.0;
+  // ROUND 24 DEAD-ZONE DIAGNOSTIC (u_pbr_debug == 33), filled by the shared fused chunk:
+  //   R = the vertex displacement the TESSELLATION tier actually applied at this fragment, in
+  //       cm/10 (|h-0.5| * amp_m * falloff*seam) — 0 means the tier moved nothing HERE.
+  //   G = the final POM offset after every cap, converted to world cm/10 — 0 means the parallax
+  //       tier moved nothing HERE.
+  //   B = camera distance in m/40 (the driver of both LOD fades), so a dead pixel can be
+  //       attributed to distance without a second capture.
+  vec3 f_disp_diag = vec3(0.0);
 #endif
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
@@ -602,6 +610,15 @@ void main() {
     color.rgb = vec3(0.0, 1.0, 1.0);
   } else if (u_pbr_debug == 31) {
     color.rgb = vec3(f_disp_cover);
+  } else if (u_pbr_debug == 32) {
+    // ROUND 24 DENOMINATOR MASK (owner's own framing: "la geometrie ou c'est sense etre le cas,
+    // car utilise une texture qui a les maps"). White iff THIS fragment's material has a HEIGHT
+    // map bound — nothing else. Deliberately independent of the displacement setting, the tier,
+    // the distance and the amplitude, so it is a pure denominator and can never be inflated by
+    // the very capability the numerator is supposed to measure.
+    color.rgb = ((u_pbr_mode & 16) != 0) ? vec3(1.0) : vec3(0.0);
+  } else if (u_pbr_debug == 33) {
+    color.rgb = f_disp_diag;
   }
 #endif
 }

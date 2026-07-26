@@ -26,7 +26,7 @@ void main() {
   // the pixel away from every reference colour and it would be counted UNCLASSIFIED — silently
   // under-reporting etie_base. In the tag modes the pass simply stands down and lets the base
   // pass's tag through unmodified.
-  if (u_pbr_debug == 30 || u_pbr_debug == 31) { discard; }
+  if (u_pbr_debug >= 30 && u_pbr_debug <= 33) { discard; }
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
     vec4 T0 = texture(tex_T0, tex_coord.xy);

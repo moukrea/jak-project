@@ -80,6 +80,32 @@
             tess_displaced) {
           f_disp_cover = 1.0;
         }
+        // ===== ROUND 24 DEAD-ZONE DIAGNOSTIC (u_pbr_debug == 33) =====================================
+        // The round-22/23 coverage flag above answers "COULD this pixel be displaced" — that is a
+        // CAPABILITY, and the owner proved it can read 99% while the geometry on his screen is flat.
+        // What follows measures the EFFECT instead, per pixel, in physical units, so that every pixel
+        // the ON-vs-OFF image delta finds DEAD can be attributed to a named cause without guessing:
+        //   R = the vertex displacement the tessellation tier really applied HERE, cm/10. It is the
+        //       tese's own expression — |h-0.5| * amp_m * (falloff*seam) — recomputed from the same
+        //       uniforms and the same law (pom_depth_uv() is amp_m*upm by construction), so a zero
+        //       means the tier moved nothing at this fragment: level fell to 1, the 20-30 m fade
+        //       reached 0, the welded-seam weight is 0, or the height texel sits at the neutral 0.5.
+        //   G = the POM offset AFTER every cap, in world cm/10 (filled inside the march below).
+        //   B = camera distance / 40 m — the driver of the tesc 30 m gate and of both LOD fades.
+        // R and G together say WHICH tier acted; B says whether distance explains it; the program tag
+        // (mode 30) says which renderer drew it. Those four are exactly the axes the round-24 mandate
+        // asks a dead zone to be explained with.
+        if ((u_pbr_mode & 16) != 0) {
+          float dz_lambda_m;
+          float dz_drive;
+          float dz_depth_uv = pom_depth_uv(dz_lambda_m, dz_drive);
+          float dz_upm = max(u_pbr_uv_per_m, 0.02);
+          float dz_amp_m = dz_depth_uv / dz_upm;  // metres — the tese's amp_m, same law
+          float dz_h = hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
+          float dz_tess_cm = abs(dz_h - 0.5) * dz_amp_m * clamp(tess_disp_w, 0.0, 1.0) * 100.0;
+          f_disp_diag.r = clamp(dz_tess_cm * 0.1, 0.0, 1.0);
+          f_disp_diag.b = clamp(length(v_fringe_rel) * (1.0 / 40.0), 0.0, 1.0);
+        }
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
         // ★ BUG B: gated on u_pbr_tess_active, NOT on the global u_pbr_displacement. A draw only
@@ -172,6 +198,12 @@
           vec2 P = (Vt.xy / vz) * depth_uv * pom_graze;
           float Plen = length(P);
           if (Plen > pom_cap) P *= pom_cap / Plen;
+          // ROUND 24 DEAD-ZONE DIAGNOSTIC, green channel: the FINAL offset, after the grazing
+          // weight and after both caps, converted out of UV into world centimetres (one metre of
+          // world spans u_pbr_uv_per_m tiles of texture). Normalised to 10 cm like the red channel
+          // so the two tiers are directly comparable in one capture. This is the number the owner
+          // is entitled to see when he says a wall is flat in parallax mode.
+          f_disp_diag.g = clamp(length(P) / max(u_pbr_uv_per_m, 0.02) * 10.0, 0.0, 1.0);
           // Degenerate (head-on, or a zero-depth material) => skip the march and its taps.
           if (Plen > 1e-6) {
             vec2 duv_step = P / n_layers;

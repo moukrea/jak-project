@@ -1456,3 +1456,36 @@ LA MÉTRIQUE CORRECTE — À REFAIRE ENTIÈREMENT
 
 RAPPEL DE LA RÈGLE QUI VIENT D'ÊTRE POSÉE : le fait qu'il n'y ait que 7 matériaux recharged
 aujourd'hui n'excuse RIEN. Sur ces 7, ce doit être irréprochable, partout où ils apparaissent.
+
+--------------------------------------------------------------------------------
+ROUND 24 — LES DEUX VANTAGES NOMMÉS PAR L'OWNER (repro obligatoire)
+--------------------------------------------------------------------------------
+Owner :
+  "je vois plat à plusieurs endroits, l'herbe près de la hutte du sage, le toit de la hutte du sage...
+   c'est facile à retrouver en fait"
+
+Ce sont les deux cas de reproduction de référence. Ils DOIVENT figurer dans le balayage de vantages,
+et le rapport doit dire pour chacun s'il bouge, de combien, et sinon pourquoi.
+
+1. L'HERBE PRÈS DE LA HUTTE DU SAGE. L'herbe n'est pas dessinée par les programmes monde habituels :
+   elle a son propre renderer (GrassRenderer.cpp / les phases Grass* de ce projet, cartes GBK*).
+   Si le chemin PBR + displacement n'a pas été porté sur CE renderer-là, l'herbe est plate par
+   construction, et aucun comptage par programme monde ne l'aurait signalé — c'est exactement le
+   trou que la métrique "capacité" masquait. Vérifie d'abord ça, c'est le suspect le plus direct.
+   Attention : les brins d'herbe sont de la géométrie fine ; si le displacement n'a pas de sens
+   dessus, dis-le explicitement avec la raison — mais alors le SOL sous l'herbe, lui, doit bouger,
+   et il faut le prouver séparément.
+2. LE TOIT DE LA HUTTE DU SAGE (chaume/paille). Le toit est très probablement un objet instancié
+   TIE, pas du terrain tfrag. Si les draws TIE partent sur etie_base (envmap) ou tie_wind plutôt que
+   sur le programme qui a reçu le displacement, le toit est plat quel que soit le curseur. Dumpe le
+   programme RÉELLEMENT utilisé pour ce draw, son niveau de tessellation effectif et son tier LOD.
+   Le matériau du toit fait partie des 7 recharged : il a les maps, donc il doit bouger.
+
+Ces deux surfaces sont voisines et visibles depuis un même point : le warp village1-hut permet de
+les cadrer ensemble. Fournis une capture ON/OFF de chacune. Tant que l'une des deux reste plate,
+la phase ne passe pas, quels que soient les pourcentages globaux.
+
+NOTE DE LIVRAISON : le build installé sur le Redmi ce round n'avait PAS le damier actif (prop à 0,
+libgk du build normal) — l'owner l'a vu immédiatement. Le superviseur a installé l'APK damier. Règle
+déjà posée : le build de test EST le build damier, vérifie-le par un getprop/une capture avant de
+prétendre livrer, pas par la présence d'un fichier.

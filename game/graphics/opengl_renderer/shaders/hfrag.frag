@@ -33,7 +33,10 @@ void main() {
   // alpha discard of its own); the tag sits after the fog mix so it arrives unblended.
   if (u_pbr_debug == 30) {
     color.rgb = vec3(1.0, 0.5, 0.0);
-  } else if (u_pbr_debug == 31) {
+  } else if (u_pbr_debug >= 31 && u_pbr_debug <= 33) {
+    // ROUND 24: 31 = displacement tag, 32 = maps-bearing DENOMINATOR mask, 33 = dead-zone
+    // diagnostic. This program never carries PBR material maps, so it is black in all three —
+    // otherwise its scene colour would be counted as mask/diagnostic signal.
     color.rgb = vec3(0.0);
   }
 }

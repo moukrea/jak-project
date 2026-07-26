@@ -459,6 +459,9 @@
     ],
     "Grecharged-mesh-consolidation": [
       "1d0cd364fcf4"
+    ],
+    "Grecharged-pbr-realtime-fusion": [
+      "b06fe72f39d1"
     ]
   },
   "stuck_reasons": {
@@ -882,7 +885,7 @@
     "Grecharged-pbr-realtime-fusion": 1784783149.315742,
     "Grecharged-mesh-consolidation": 1784930060.5837617
   },
-  "last_update": "2026-07-26T11:27:23.369439+00:00",
+  "last_update": "2026-07-26T11:27:23.820034+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
