@@ -212,17 +212,25 @@ grep -qiE 'non-manifold|isolated face|double-?sided|undecidable|indecidable' "$R
 # C3: white-area fraction vs view angle, parallax tracking the tessellation reference
 grep -qiE 'Vt\.z|view.*z floor|plancher.*z' "$R" || fail "C3: the tangent-space Vt.z floor suspect not instrumented"
 grep -qiE 'intersection' "$R" || fail "C3: not shown whether the final offset is bounded by the marched intersection"
-# ---- ROUND 26 (code-level only; owner banned in-game visual measurement) ----
-# D1: the checker is a step function. Whether a step CAN be reproduced is arithmetic, not photography.
-grep -qiE 'vert(ices|s)? per (checker )?(square|carreau)|verts?/square' "$R" || fail "D1: vertices-per-square not DERIVED from the tess-level formula at a stated distance"
-grep -qiE 'mip|textureLod|lod bias|explicit lod' "$R" || fail "D1: the height read's mip/LOD not established from the code"
-grep -qiE 'smooth|filter|lissage' "$R" || fail "D1: any smoothing introduced on the height path not identified (strictness existed before)"
-# D2: an orbit under camera pan is a mathematical consequence of a view-dependent frame. Prove it on the expression.
-grep -qiE 'view[- ]?dependent|depend.*camera|camera[- ]dependent' "$R" || fail "D2: not shown whether the offset frame depends on the camera"
-grep -qiE 'screen[- ]?(space )?derivative|dFdx|derivees ecran' "$R" || fail "D2: the screen-derivative TBN fallback not examined (prime suspect)"
-grep -qiE 'view[- ]independent|world[- ]space derivativ|geometry[- ]anchored|independant de la vue' "$R" || fail "D2: corrected frame not shown to be view-independent"
-grep -qiE 'same root|meme racine|shared root' "$R" || fail "D2: not stated whether the orbit and the polarity flips share one root"
-# Device is allowed ONLY as a smoke check
-grep -qiE 'boot|smoke|no crash|crash-free' "$R" || fail "no smoke run evidencing the build boots and does not crash"
-grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner (code-level proof only)"
+# ---- ROUND 27: density must be FEATURE-aware (owner: fix tessellation, don't touch parallax) ----
+# Root cause established by the supervisor on the code: tfrag3_tess.tesc targets a fixed SEGMENT SIZE
+# IN METRES and knows neither u_pbr_height_lambda nor u_pbr_uv_per_m, so density is blind to feature
+# size while amplitude is not. wallplaster 0.70 seg/feature vs vil-beach-01 27.8 -> aliasing.
+grep -qE 'u_pbr_height_lambda|u_pbr_uv_per_m' game/graphics/opengl_renderer/shaders/tfrag3_tess.tesc \
+  || fail "R27: the tess CONTROL shader still does not see lambda/uv density — density remains feature-blind"
+grep -qiE 'segments? per feature|seg/feature|segments par feature' "$R" || fail "R27: no segments-per-feature table"
+grep -qiE 'wallplaster' "$R" || fail "R27: wallplaster (the sage-hut wall, 4.2 cm features) not in the before/after table"
+grep -qiE 'vil-beach|beach' "$R" || fail "R27: the ground material not in the before/after table (it is the working reference)"
+grep -qiE 'before.*after|avant.*apres' "$R" || fail "R27: table is not before/after"
+grep -qiE 'alias' "$R" || fail "R27: aliasing (the antiphase mechanism behind the roof inversion) not addressed"
+grep -qiE 'antiphase|anti-phase|inverse du signal' "$R" || fail "R27: must state the roof inversion is aliasing antiphase, NOT a regression of the round-26 sign fix"
+grep -qiE 'band[- ]?limit' "$R" || fail "R27: band-limit behaviour not addressed (a fully band-limited checker averages to flat grey)"
+grep -qiE 'triangle' "$R" || fail "R27: generated-triangle count before/after not reported (budget must be quantified)"
+grep -qiE 'seam|couture' "$R" || fail "R27: seam-safety of the new edge-level law not re-proven (level must depend on the two endpoints only)"
+grep -qiE '(both tiers|deux tiers|tess.*POM).*(same|equal|match|raccord|egal)' "$R" || fail "R27: the two tiers' apparent amplitude not shown equal by calculation"
+grep -qiE 'lateral (slide|swim)|glissement lateral' "$R" || fail "R27: the POM lateral-slide cap must stay strictly under one period (anti-orbit invariant)"
+# owner order: parallax untouched except amplitude
+grep -qiE 'parallax[^.]{0,80}(only|uniquement|amplitude only|untouched|pas touche)' "$R" || fail "R27: must state parallax was changed for AMPLITUDE ONLY (owner's explicit order)"
+grep -qiE 'boot|smoke|no crash' "$R" || fail "no smoke run evidencing the build boots"
+grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
 echo "[Gpbrf PASS]"

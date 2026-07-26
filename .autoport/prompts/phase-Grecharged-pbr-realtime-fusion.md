@@ -336,3 +336,106 @@ CONSÉQUENCE IMMÉDIATE SUR LE ROUND 26 : les livrables D1 et D2 ci-dessus se d�
 - D2 (motifs qui orbitent) : il suffit de montrer, expression par expression, si le repère dans
   lequel le décalage est calculé dépend de la caméra. S'il est construit sur des dérivées de
   quantités liées à la vue, l'orbite est une conséquence mathématique — démontre-la, corrige-la.
+
+================================================================================
+ROUND 27 — LA CAUSE EST TROUVÉE (dérivée du code) : LA DENSITÉ EST AVEUGLE À LA TAILLE DES FEATURES
+================================================================================
+Owner, playtest du build 0e4f3e92, mot pour mot :
+  "sur le mur de la hutte du sage ça marche mais ça fait des boîtes creuses où le blanc est au final
+   autant au fond que le noir. Sur le toit on voit clairement que le noir sort plus que le blanc
+   (POURQUOIIIII C'était corrigé ça je crois) et sur la falaise en contrebas pour traverser le pont
+   étrangement on dirait que ça a fallback en parallax. Le sol en revanche est bien plus consistant !
+   Mais dans la descente pour rejoindre le pont, on a toujours un chunk (en pente) qui est
+   complètement plat. Le parallax est mieux qu'avant, mais le relief a l'air très muted par rapport à
+   la tesselation, genre 50% de moins. On dirait qu'il y a des soucis avec les parois verticales
+   (pour la tesselation) et d'ailleurs la pente qui est plate en tesselation est nickel en parallax
+   étrangement, et pas d'inversion noir/blanc sur le toit en parallax, pas de boîtes chelou où le
+   blanc est au final autant au fond que le noir sur le mur de la hutte en parallax non plus.
+   Touche plus au parallax si ce n'est pour lui ajouter un peu de relief pour que ce soit raccord
+   avec la tesselation... Et corrige par contre la tesselation !"
+
+ORDRE DE L'OWNER, À RESPECTER STRICTEMENT :
+  - NE TOUCHE PLUS AU PARALLAX, sauf pour AUGMENTER son relief afin qu'il soit raccord avec la
+    tessellation. Rien d'autre. Il est jugé correct partout : pas d'inversion, pas de boîtes, la
+    pente est nickel.
+  - CORRIGE LA TESSELLATION. C'est le seul chantier de ce round.
+
+--------------------------------------------------------------------------------
+LE DIAGNOSTIC, ÉTABLI PAR LE SUPERVISEUR SUR LE CODE (pas une hypothèse à explorer)
+--------------------------------------------------------------------------------
+Le différentiel de l'owner est décisif : MÊMES surfaces, MÊME carte de hauteur, le parallax est bon
+et la tessellation est fausse. Le parallax échantillonne la hauteur PAR PIXEL ; la tessellation
+l'échantillonne PAR SOMMET. Donc le défaut est une insuffisance de densité de sommets, pas un
+problème de signe, de matériau ni de programme.
+
+FAIT MESURÉ DANS LE CODE :
+  tfrag3_tess.tesc décide la densité avec  lvl = longueur_arête_monde / tess_seg_target_m(d),
+  où tess_seg_target_m vise une TAILLE DE SEGMENT EN MÈTRES fixe (TESS_SEG_NEAR_M = 0.06 m).
+  Cette formule ne connaît NI u_pbr_height_lambda NI u_pbr_uv_per_m : grep dans la .tesc = 0
+  occurrence des deux. La densité est donc AVEUGLE à la taille réelle des features du matériau,
+  alors que l'AMPLITUDE, elle, en dépend déjà (la .tese calcule lambda_world et cape dessus).
+  C'est cette asymétrie qui casse tout.
+
+CE QUE ÇA DONNE, AVEC LES LAMBDAS QUE TON PROPRE RAPPORT A MESURÉS (ils s'étalent sur 40x) :
+  wallplaster (le mur de la hutte)  lambda_monde = 4.2 cm   ->  0.70 segment par feature
+  vil-beach-01 (le sol)             lambda_monde = 167 cm   ->  27.8 segments par feature
+Nyquist exige 2 segments par feature ; reproduire une MARCHE en exige environ 8. Le mur est donc à
+0.70, soit un facteur 3 SOUS Nyquist, et le sol à 27.8. Voilà pourquoi "ça marche sur le sol" et pas
+sur les parois : ce n'est pas la verticalité en soi, c'est que les surfaces verticales du village
+sont texturées beaucoup plus dense, donc leurs features sont physiquement petites.
+
+ET ÇA EXPLIQUE CHAQUE SYMPTÔME, SANS EN LAISSER UN SEUL :
+  * "boîtes creuses où le blanc est autant au fond que le noir" (mur) : sous-échantillonnage à ~0.7
+    échantillon par carreau. La surface reconstruite attrape des carreaux blancs sur leur BORD
+    (h=0.5) et des noirs en leur centre : du repliement, pas de la profondeur.
+  * "le noir sort plus que le blanc" (toit) : c'est du repliement EN ANTIPHASE. À moins d'un
+    échantillon par période, la surface reconstruite peut être l'INVERSE du signal. Ce n'est PAS la
+    régression du bug de signe corrigé au round 26 — celui-là était réel et vit dans le chemin
+    fragment, ce qui est précisément pourquoi le parallax n'a PAS l'inversion. Deux mécanismes
+    différents, même apparence. Dis-le clairement à l'owner, il pense à juste titre que c'était
+    corrigé.
+  * "chunk en pente complètement plat, nickel en parallax" : deux causes possibles qui se cumulent —
+    (a) le repliement peut tomber en phase telle que tout l'échantillonnage lit h≈0.5, donc zéro
+    déplacement ; (b) la bande-limite que la .tese dérive de la taille de segment ramène la hauteur
+    vers sa moyenne quand elle n'est pas résolvable, et la moyenne d'un damier est un GRIS UNIFORME,
+    donc exactement zéro relief. Vérifie laquelle opère sur cette pente.
+  * "sur la falaise en contrebas on dirait que ça a fallback en parallax" : l'owner a littéralement
+    raison. TESS_FADE_LO_M = 40 m, TESS_FADE_HI_M = 60 m, et la porte far du patch entier est à
+    TESS_FADE_HI_M. Passé 40 m l'amplitude décroît vers zéro, passé 60 m il n'y a plus de
+    tessellation du tout : il ne reste que le POM. Ce n'est pas un bug de rendu, c'est un budget que
+    l'owner vit comme un défaut parce que la transition est VISIBLE.
+  * "parallax 50% de relief en moins" : le round 26 a ramené le cap de glissement latéral de 1.5 à
+    0.25 de période pour tuer l'orbite. C'est ce cap qui plafonne la profondeur APPARENTE d'un POM,
+    puisqu'un POM ne convertit la profondeur qu'en déplacement latéral. Le remède autorisé par
+    l'owner est donc de remonter ce cap — mais il doit rester STRICTEMENT sous une période, sinon
+    l'orbite revient. C'est l'invariant à ne pas violer.
+
+--------------------------------------------------------------------------------
+CE QU'IL FAUT FAIRE
+--------------------------------------------------------------------------------
+1. LA DENSITÉ DOIT VISER DES SEGMENTS PAR FEATURE, PAS DES MÈTRES. Rends u_pbr_height_lambda et
+   u_pbr_uv_per_m visibles dans la .tesc et remplace la cible absolue par une cible relative :
+   taille_segment_visée = lambda_world / N, avec N assez grand pour une MARCHE (vise 8, pas 2).
+   La borne de budget et la borne de distance restent, mais elles s'appliquent APRÈS.
+   SÉCURITÉ DE COUTURE PRÉSERVÉE : lambda et uv_per_m sont des uniformes PAR DRAW, donc le niveau
+   d'une arête reste fonction de ses deux extrémités seules — l'argument anti-déchirure tient.
+2. JAMAIS DE REPLIEMENT AFFICHÉ. Quand le budget ne permet pas d'atteindre N segments par feature,
+   il est INTERDIT de rendre une surface en antiphase. Deux sorties acceptables, dans cet ordre :
+   bande-limiter honnêtement la hauteur à la longueur d'onde réellement résolvable (surface lisse et
+   moins profonde, jamais inversée), ou laisser le POM porter cette échelle. Une surface lisse et
+   peu profonde est acceptable ; une surface inversée ne l'est pas. Et attention au piège du damier :
+   sa moyenne est un gris uniforme, donc une bande-limite totale donne PLAT — c'est probablement ce
+   que l'owner voit sur la pente. Il faut donc monter la densité, pas se contenter de filtrer.
+3. LA TRANSITION TESSELLATION -> POM DOIT ÊTRE INVISIBLE. Là où la tessellation s'éteint (au-delà de
+   40-60 m, ou faute de budget), le POM doit reprendre avec la MÊME profondeur apparente. C'est le
+   même travail que le point "parallax 50%" : les deux tiers doivent se recouvrir en amplitude. Si
+   la porte de distance doit être élargie, chiffre le coût en triangles avant de le faire — mais une
+   transition visible est un défaut, l'owner l'a signalée deux fois.
+4. NE TOUCHE À RIEN D'AUTRE DANS LE PARALLAX. Pas de refonte, pas de "amélioration" : uniquement
+   l'amplitude pour être raccord, en gardant le glissement latéral sous une période.
+5. Preuves attendues, TOUTES AU NIVEAU DU CODE (les mesures visuelles in-game restent interdites) :
+   * le tableau segments-par-feature AVANT/APRÈS pour au moins wallplaster, un matériau de toit et
+     vil-beach-01, à 2 m, 10 m et 40 m de distance ;
+   * le nombre de triangles générés avant/après au même point de vue (comptage, pas capture) ;
+   * la démonstration que le niveau d'arête reste fonction des deux extrémités (anti-couture) ;
+   * l'amplitude apparente des deux tiers, montrée égale par le calcul.
