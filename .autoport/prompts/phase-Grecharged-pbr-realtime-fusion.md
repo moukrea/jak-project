@@ -1535,3 +1535,91 @@ sans ce diff chiffré n'est pas recevable.
 INTERDIT : présenter ce défaut comme une limite acceptable, une question de contenu, ou un cas
 particulier de matériau. L'owner l'a dit : "arrête tes excuses bidons". Une surface continue avec
 une seule texture doit se displacer uniformément, point.
+
+================================================================================
+ROUND 25 — OWNER PLAYTEST (build damier 8d4c3f84) : TESSELLATION PRESQUE, PARALLAX CASSÉ
+================================================================================
+Owner, mot pour mot :
+  "en tesselation c'est quand même beaucoup, beaucoup mieux dans la mesure où c'est beaucoup plus
+   consistant et plus de displacement. Mais il y a quand même des endroits où le displacement est
+   quasi nul si ce n'est nul (plus rare qu'avant) et étrangement le déplacement n'est pas consistant,
+   genre on va dire qu'au maximum observé on a environ +15cm et -15cm entre le plus haut et le plus
+   bas, mais on a des endroits où ça fait pas plus de +1cm et -1cm (si ce n'est 0 mais normal map
+   donnant une impression de relief). On a aussi des endroits où le noir du damier semble être plus
+   élevé que le blanc (ce qui est une erreur) à de très rares occasions. Le parallax lui souffre des
+   mêmes problèmes mais avec un truc bien pire, sous le bon angle c'est similaire au rendu en
+   tesselation (de moins bonne qualité évidemment) sous d'autres on a l'impression que le 'relief'
+   s'étale à plat complètement, les carrés blancs recouvrant complètement les carrés noirs comme si
+   ça avait été étalé à plat plutôt qu'élevé verticalement. Pour la tesselation on y est presque"
+
+PROGRÈS RECONNU PAR L'OWNER : la tessellation est "beaucoup, beaucoup mieux", plus consistante.
+Ne casse rien de ce qui a produit ça.
+
+--------------------------------------------------------------------------------
+C1 — TESSELLATION : L'AMPLITUDE VARIE D'UN FACTEUR ~15 SELON L'ENDROIT
+--------------------------------------------------------------------------------
+Mesure de l'owner, à retenir comme cible chiffrée : là où c'est bon, il observe environ 30 cm
+crête-à-crête (+15/-15) ; ailleurs, sur LE MÊME DAMIER donc LA MÊME height map, il ne reste que 2 cm
+crête-à-crête (+1/-1), voire zéro avec juste la normal map qui donne une illusion de relief.
+Même matériau, même carte, même réglage : l'amplitude obtenue ne devrait pas varier.
+
+HYPOTHÈSE PRINCIPALE À TESTER EN PREMIER — ET ELLE UNIFIE CE DÉFAUT AVEC CELUI DES CHUNKS PLATS :
+c'est la DENSITÉ DE SOMMETS qui varie, pas l'amplitude commandée. Un patch qui n'a que quelques
+sommets par carreau ne PEUT PAS atteindre les extrêmes de la height map : la surface déplacée
+échantillonne la carte trop grossièrement et le résultat est écrêté vers la moyenne. Deux sommets
+par feature (critère de Nyquist) est un plancher absolu, pas un objectif. Un patch à 0.5 sommet par
+carreau rend ~0 cm ; un patch à 4 sommets par carreau rend les 30 cm. Ça expliquerait d'un seul coup
+les zones "quasi nulles", les zones à +1cm et la variation continue entre les deux.
+Ce qu'il faut produire :
+  - pour au moins 6 emplacements du même matériau : amplitude crête-à-crête EFFECTIVEMENT obtenue
+    en cm, ET le nombre de sommets par carreau du damier à cet endroit, côte à côte. La corrélation
+    entre les deux confirme ou réfute l'hypothèse. Si elle est confirmée, la correction porte sur la
+    densité (pré-subdivision + plancher de niveau de tessellation dérivé de la longueur d'onde de la
+    feature, pas seulement de la longueur d'arête écran), pas sur un gain d'amplitude.
+  - le gate : l'amplitude du PIRE emplacement doit valoir au moins 60% de celle du meilleur. Un
+    facteur 15 comme aujourd'hui est un échec.
+  - ne "compense" JAMAIS en poussant l'amplitude commandée là où la densité manque : ça donnerait
+    des pics en dents de scie. La densité se corrige par la densité.
+
+--------------------------------------------------------------------------------
+C2 — POLARITÉ : IL EN RESTE, RAREMENT
+--------------------------------------------------------------------------------
+"des endroits où le noir du damier semble être plus élevé que le blanc, à de très rares occasions".
+Le recensement doit atteindre ZÉRO, pas 99,9%. Les rares cas restants sont ceux que le critère
+retenu ne sait pas trancher — identifie CETTE catégorie précise (surfaces non-manifold ? faces
+isolées sans voisin ? géométrie à double face ?) et traite-la, au lieu d'améliorer un pourcentage.
+
+--------------------------------------------------------------------------------
+C3 — PARALLAX : LE RELIEF S'ÉTALE À PLAT SELON L'ANGLE (défaut le plus grave)
+--------------------------------------------------------------------------------
+Symptôme exact : sous certains angles le rendu ressemble à la tessellation (correct, en moins fin) ;
+sous d'autres, "les carrés blancs recouvrent complètement les carrés noirs comme si ça avait été
+étalé à plat plutôt qu'élevé verticalement". Ce n'est PAS de l'occlusion normale : de l'occlusion
+légitime à angle rasant fait grandir modérément les zones hautes, elle ne les fait pas AVALER les
+zones basses.
+
+MÉTRIQUE OBJECTIVE À CONSTRUIRE — elle est simple et elle discrimine parfaitement :
+sur le damier, la fraction de surface BLANCHE vue à l'écran doit rester proche de 50% quand la
+caméra tourne. Un vrai relief la fait monter modérément à angle rasant (les plateaux masquent les
+creux). Un étalement à plat la fait exploser vers 100%. Donc : balaye l'angle de vue (au moins 6
+angles, de face jusqu'au rasant), trace la fraction blanche en fonction de l'angle, pour la
+tessellation ET pour le parallax. La courbe tessellation sert de RÉFÉRENCE puisque l'owner la juge
+correcte ; la courbe parallax doit la suivre. L'écart entre les deux courbes est le défaut, et il
+est mesurable sans jugement esthétique.
+
+SUSPECTS À INSTRUMENTER, dans cet ordre :
+  1. Le plancher sur la composante Z du vecteur vue en espace tangent (le max(Vt.z, seuil) hérité
+     des rounds précédents) : à angle rasant il fige le rapport Vt.xy/Vt.z et l'offset cesse de
+     dépendre correctement de l'angle — exactement le genre de terme qui transforme un relief en
+     étalement.
+  2. Le décalage final est-il borné par l'INTERSECTION réellement trouvée par la marche, ou
+     appliqué tel quel ? Si la marche ne trouve pas d'intersection et qu'on applique quand même le
+     décalage maximal, la texture glisse au lieu de se creuser.
+  3. Handedness du repère tangent : s'il bascule, le décalage part dans le mauvais sens et selon
+     l'angle ça se lit comme un aplatissement. C'est le même suspect que la polarité (C2) — les deux
+     défauts pourraient avoir la même racine, vérifie-le explicitement.
+  4. Nombre de couches de la marche en fonction de l'angle : trop peu à angle rasant = la marche
+     saute par-dessus les creux et ne voit que les plateaux.
+
+GATE : la fraction blanche du parallax doit rester dans une marge étroite de la courbe tessellation
+sur tout le balayage d'angles, et ne jamais dépasser un seuil absolu proche de 100%.

@@ -41,6 +41,7 @@ SETTINGS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 HOUR=12
 SETTLE="${SETTLE:-25}"
 ARRIVE_XZ="${ARRIVE_XZ:-6.0}"
+APKPATH="${APKPATH:-android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk}"
 TAG="${VLABEL}_t${TIER}"
 
 say(){ echo; echo "######## $* ########"; }
@@ -63,15 +64,18 @@ pos_now(){ local i v=""
 
 pos_dist(){ awk -v A="$1" -v B="$2" 'BEGIN{split(A,a," ");split(B,b," ");d=0;for(i=1;i<=3;i++){x=a[i]-b[i];d+=x*x};printf "%.3f", sqrt(d)}'; }
 
-cell(){ # $1 label  $2 pbr.debug  $3 pbr.displacement
-  local label="${TAG}_$1" dbg="$2" disp="$3"
+cell(){ # $1 label  $2 pbr.debug  $3 pbr.displacement  [$4 pbr.bisect, default 0]
+  local label="${TAG}_$1" dbg="$2" disp="$3" bis="${4:-0}"
   say "CELL $label  (debug=$dbg displacement=$disp relief=$RELIEF)"
   timeout 20 "$ADB" -s "$S" shell "svc power stayon usb" >/dev/null 2>&1 || true
   timeout 20 "$ADB" -s "$S" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
   timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.debug $dbg"        || die "setprop debug"
   timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.displacement $disp" || die "setprop disp"
   timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.relief $RELIEF"     || die "setprop relief"
-  local rd rb rr
+  timeout 20 "$ADB" -s "$S" shell "setprop debug.opengoal.pbr.bisect $bis"        || die "setprop bisect"
+  local rd rb rr rx
+  rx=$(timeout 20 "$ADB" -s "$S" shell "getprop debug.opengoal.pbr.bisect" | tr -d '\r')
+  [ "$rx" = "$bis" ] || die "bisect readback mismatch $label: $rx"
   rd=$(timeout 20 "$ADB" -s "$S" shell "getprop debug.opengoal.pbr.debug" | tr -d '\r')
   rb=$(timeout 20 "$ADB" -s "$S" shell "getprop debug.opengoal.pbr.displacement" | tr -d '\r')
   rr=$(timeout 20 "$ADB" -s "$S" shell "getprop debug.opengoal.pbr.relief" | tr -d '\r')
@@ -145,6 +149,36 @@ seed_settings(){ # $1 = pbr-displacement value to SEED
   done
 }
 
+# ---------------------------------------------------------------------------------------------
+# BINARY GUARD. The Redmi is SHARED (a parallel project + the supervisor both install on it). One
+# such install landed at 14:08 in the middle of a capture: it force-stopped the app mid-cell and
+# left a DIFFERENT libgk on the device. A capture taken against an unknown binary is worthless —
+# worse, it is silently worthless — so every run now pins the expected libgk sha, re-installs if
+# the device does not match, and re-checks at the end so an install DURING the run invalidates it.
+dev_libgk_sha(){
+  local p
+  p=$(timeout 30 "$ADB" -s "$S" shell pm path $PKG 2>/dev/null | tr -d '\r' | sed 's/package://' | head -1)
+  [ -n "$p" ] || { echo "NO_PACKAGE"; return; }
+  timeout 300 "$ADB" -s "$S" shell "unzip -p $p lib/arm64-v8a/libgk.so 2>/dev/null | sha256sum" 2>/dev/null \
+    | tr -d '\r' | cut -c1-32
+}
+require_binary(){
+  local want dev
+  want=$(sha256sum build-android/lib/arm64-v8a/libgk.so | cut -c1-32)
+  dev=$(dev_libgk_sha)
+  echo "  libgk on device=$dev  expected=$want"
+  if [ "$dev" != "$want" ]; then
+    echo "  !! device runs a FOREIGN build — reinstalling $APKPATH"
+    timeout 30 "$ADB" -s "$S" shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
+    timeout 900 "$ADB" -s "$S" install -r -d -t -i com.android.vending "$APKPATH" 2>&1 | tail -2
+    dev=$(dev_libgk_sha)
+    [ "$dev" = "$want" ] || die "cannot pin the binary: device=$dev want=$want"
+    echo "  re-pinned: device libgk == build libgk ($want)"
+  fi
+  EXPECT_SHA="$want"; export EXPECT_SHA
+  echo "$TAG libgk=$want" >> "$OUT/binary_pin.txt"
+}
+
 boot_with(){
   say "BOOT $TAG — vantage '$VLABEL' pos='$VPOS' tier=$TIER TP=$TP relief=$RELIEF hour=$HOUR"
   timeout 30 "$ADB" -s "$S" shell am force-stop $PKG >/dev/null 2>&1; sleep 2
@@ -192,6 +226,7 @@ boot_with(){
 }
 
 : > "$OUT/focus_all.txt"; : >> "$OUT/props_per_cell.txt"
+require_binary
 seed_settings "$TIER"
 boot_with
 # OFF cells BRACKET the ON cell in time so the drift floor covers the same interval the effect is
@@ -202,6 +237,13 @@ cell off2 0 0
 cell mask 32 "$TIER"
 cell prog 30 "$TIER"
 cell diag 33 "$TIER"
+cell diag2 34 "$TIER"
+# SEAM A/B: bisect bit 131072 = "ignore the mesh-consolidation seam pin weights" (seam := 1). Same
+# boot, same vantage, same frame: the delta against `on` is exactly what the pin weights cost.
+[ "${SEAMAB:-0}" = "1" ] && cell onNS 0 "$TIER" 131072
+DEVSHA_END=$(dev_libgk_sha)
+[ "$DEVSHA_END" = "$EXPECT_SHA" ] || die "the device binary CHANGED during the run ($EXPECT_SHA -> $DEVSHA_END): a foreign install invalidated these captures"
+echo "  binary still pinned at end of run: $DEVSHA_END"
 say "crash/GL sweep ($TAG)"
 timeout 240 "$ADB" -s "$S" logcat -d -v threadtime 2>/dev/null \
   | grep -aE 'Fatal signal|signal [0-9]+ \(SIG|GL_INVALID|Failed to compile|Failed to link' | tail -40 > "$OUT/crash_sweep_$TAG.txt" || true

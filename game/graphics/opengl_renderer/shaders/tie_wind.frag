@@ -262,6 +262,7 @@ void main() {
   //   B = camera distance in m/40 (the driver of both LOD fades), so a dead pixel can be
   //       attributed to distance without a second capture.
   vec3 f_disp_diag = vec3(0.0);
+  vec3 f_disp_diag2 = vec3(0.0);  // ROUND 24 mode 34: (tess_disp_w, |h-0.5|*2, amp_m)
 #endif
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
@@ -619,6 +620,8 @@ void main() {
     color.rgb = ((u_pbr_mode & 16) != 0) ? vec3(1.0) : vec3(0.0);
   } else if (u_pbr_debug == 33) {
     color.rgb = f_disp_diag;
+  } else if (u_pbr_debug == 34) {
+    color.rgb = f_disp_diag2;
   }
 #endif
 }

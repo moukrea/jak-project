@@ -105,6 +105,16 @@
           float dz_tess_cm = abs(dz_h - 0.5) * dz_amp_m * clamp(tess_disp_w, 0.0, 1.0) * 100.0;
           f_disp_diag.r = clamp(dz_tess_cm * 0.1, 0.0, 1.0);
           f_disp_diag.b = clamp(length(v_fringe_rel) * (1.0 / 40.0), 0.0, 1.0);
+          // ROUND 24, mode 34 — the DECOMPOSITION of that amplitude, so a dead zone names its own
+          // factor instead of being attributed by hand:
+          //   R = tess_disp_w = falloff(20..30 m) * seam(mesh-consolidation pin weight). This is
+          //       the term the round-24 measurement showed collapsing: 0.396 m of amp_m and a 0.2
+          //       RMS height deviation should give ~8 cm, the device reported 1.38 cm.
+          //   G = |h-0.5| * 2, this material's local height deviation at lod 0 (1.0 = full swing)
+          //   B = amp_m in metres (clamped at 1 m) — the per-material amplitude the law solved for
+          f_disp_diag2 = vec3(clamp(tess_disp_w, 0.0, 1.0),
+                              clamp(abs(dz_h - 0.5) * 2.0, 0.0, 1.0),
+                              clamp(dz_amp_m, 0.0, 1.0));
         }
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
