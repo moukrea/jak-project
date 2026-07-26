@@ -336,7 +336,23 @@ void main() {
       // correlation at 0-5 m by 20-135% (leafyground 0.285 -> 0.482, strawroof 0.266 -> 0.456,
       // beachrock 0.116 -> 0.272) for a uniform ~15% amplitude cost, while a full mip costs up to
       // 36% of the amplitude for much less coherence in return.
-      hlod = clamp(log2(max(texels, 1.0)) + TESS_LOD_BIAS, 0.0, 12.0);
+      // ===== ROUND 26, DEFECT D1 (b) — THE BIAS MUST NOT APPLY WHERE WE ARE NOT UNDERSAMPLING =====
+      // Band-limiting is only correct AGAINST ALIASING, i.e. only when the vertex spacing is COARSER
+      // than a texel (texels > 1). The old expression floored the argument at 1.0 and then ALWAYS
+      // added the half-mip margin, so the minimum achievable lod was 0.5: the height was NEVER read
+      // sharp, at any density, and a step edge arrived at the vertices already smeared over
+      // 2^0.5 = 1.414 base texels before a single vertex moved. That is a filter applied where
+      // there is nothing to filter — the exact "lissage de la hauteur" D1(b) names.
+      // The floor goes away and the margin now FADES IN over texels 1 -> 2, so:
+      //   texels <= 1 (spacing finer than a texel)  -> lod 0.0, mip 0, the sharpest legal read;
+      //   texels >= 2 (genuinely undersampled)      -> log2(texels) + 0.5, IDENTICAL to before,
+      //                                                so the anti-shimmer margin measured over the
+      //                                                7 shipped maps is preserved exactly where it
+      //                                                was earning its keep.
+      // Near-field ground (leafyground, spacing 3.13 cm, 42.14 texels/m => texels 1.32) goes
+      // lod 0.897 -> 0.518: the fetch footprint drops 1.86 -> 1.43 base texels, i.e. the transition
+      // ramp a step edge is smeared over falls from 5.8% to 4.5% of a checker square.
+      hlod = clamp(log2(max(texels, 1e-3)) + TESS_LOD_BIAS * smoothstep(1.0, 2.0, texels), 0.0, 12.0);
     }
     // hnorm(): mean-centred and amplitude-refilled per material, so 0.5 is now genuinely THIS
     // material's neutral surface instead of a constant the shipped maps do not honour.

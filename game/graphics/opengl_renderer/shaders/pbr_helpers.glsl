@@ -121,7 +121,35 @@ float hnorm(float h) {
 // the drive-proportional POM_MAX_TAN term has grown past it), so as of round 23 this rail is
 // MULTIPLIED BY `drive` at its use site in pbr_fused.glsl — it is no longer drive-independent and
 // no longer binds at slider max; POM_MAX_TAN * depth_uv is the argmin at every slider position.
-#define POM_MAX_FEATURE_FRAC 1.5
+// ===== ROUND 26, DEFECT D2 — THAT ROUND-23 CHANGE IS WHY THE MOTIFS ORBIT =====================
+// Owner: "c'est un peu comme si chaque sommet tournait en cercle quand on pan la caméra au lieu de
+// donner l'impression de rester au même endroit (souci de calibration je présume)".
+// He named it exactly. This rail's ENTIRE PURPOSE, in its own round-22 words, is "never slide more
+// than a bounded number of feature wavelengths, SO THE TEXTURE CANNOT SWIM". Round 23 multiplied it
+// by `drive` to stop it clipping the slider — which deleted the bound it existed to enforce, because
+// the thing it bounds (a LATERAL UV SLIDE) is not what the slider is supposed to deepen.
+// The arithmetic, at the checker (8 squares per tile => one square = 0.125 tile) on leafyground
+// (upm 0.1646, lambda_world 1.5184 m), with the round-23 law:
+//     rel 1.0 : pom_cap = min(2.0*depth_uv, 1.5*1.000*lambda*upm) = min(0.0494, 0.375) = 0.0494 tile
+//               = 39.5% of a checker square
+//     rel 3.0 : pom_cap = min(2.0*0.1149,   1.5*4.656*lambda*upm) = min(0.2298, 1.746) = 0.2298 tile
+//               = 184% of a checker square
+// At slider max the parallax may translate the pattern by MORE THAN ITS OWN PERIOD. A feature
+// displaced past one period has no anchoring reference left at all — it cannot read as depth, only
+// as sliding, and as the camera goes round the surface point the direction of that slide sweeps 360
+// degrees. A translation of fixed magnitude whose direction follows the camera azimuth IS A CIRCLE.
+// That is the owner's orbit, and it is a consequence of this one constant.
+// FIX: back to a genuine feature-relative bound, and DRIVE-INDEPENDENT again (the `* drive` is
+// removed at both use sites). 0.25 = a quarter wavelength = half a checker square, chosen so that
+//   - at rel 1.0 the argmin is still POM_MAX_TAN*depth_uv (0.0494 < 0.0625) => rel 1 is
+//     BIT-IDENTICAL to the build the owner has been judging: no regression to what already worked;
+//   - at rel 3.0 the slide is bounded at 0.0625 tile = 50% of a square instead of 184%, a 3.7x
+//     reduction, so the top of the slider deepens the RELIEF (amp_m still follows drive end to end)
+//     without ever letting the texture swim off its own feature.
+// The slider is not clipped by this: what the slider drives is depth, and depth is bounded by
+// POM_DEPTH_MAX_M * drive, which follows it. Only the lateral slide is bounded, which is the
+// difference between parallax and swimming.
+#define POM_MAX_FEATURE_FRAC 0.25
 // The amplitude law itself, kept numerically IDENTICAL to tfrag3_tess.tese's (TESS_DEPTH_K,
 // TESS_DEPTH_MAX_RATIO, TESS_DEPTH_MAX_M and its 0.005*relief floor) so the two displacement tiers
 // cannot drift apart. Change one, change both.
@@ -152,6 +180,31 @@ float pom_depth_uv(out float lambda_world_m, out float drive) {
   amp_m = min(amp_m, POM_DEPTH_MAX_M * drive);               // never deeper than a step
   amp_m = max(amp_m, 0.005 * rel);
   return amp_m * upm;
+}
+
+// ===== ROUND 26, DEFECT D2 — ONE NEUTRAL FOR BOTH DISPLACEMENT TIERS ===========================
+// The tessellation tier displaces about h = 0.5 (tfrag3_tess.tese: `disp = (h - 0.5) * amp`, and
+// hnorm() re-centres every material on 0.5 by construction). The POM march referenced h = 1.0
+// (`map_d = 1.0 - h`), i.e. it treated the polygon as the TOP of the height field. So the two tiers
+// disagreed about where the surface is by half a depth — and, because hnorm() puts the mean at 0.5,
+// the march carried a DC term of exactly 0.5*P: a RIGID TRANSLATION of the whole texture, the same
+// magnitude as the relief it was meant to convey, pointing wherever the camera happens to be. That
+// DC carries no depth information at all; it is pure slide, and it is the second half of the
+// owner's orbit ("chaque sommet tourne en cercle quand on pan la caméra").
+// Sharing the tessellation's neutral removes it: everything at or above the mean surface (h >= 0.5)
+// does not move — that is the ANCHOR the eye needs — and only the pits are carved, which is the
+// only thing a UV march can honestly fake. Protrusions stay the tessellation tier's job. Standard
+// "macro from the vertices, micro from the march", now with one agreed surface between them.
+// For a symmetric two-level map — the checkerboard, h in {0,1} — this is BIT-IDENTICAL to the old
+// expression (white 0.0, black 1.0 either way), so it cannot change what the owner is judging now.
+// Bisect bit 1073741824 restores the h = 1.0 reference for a same-boot A/B. (2097152 is already
+// taken by the cavity killswitch in pbr_fused.glsl — every bit from 4 to 2^29 is now allocated.)
+float pom_carve(float h_raw) {
+  float h = hnorm(h_raw);
+  if ((u_pbr_bisect & 1073741824) != 0) {
+    return 1.0 - h;  // legacy: polygon == top of the height field
+  }
+  return clamp((0.5 - h) * 2.0, 0.0, 1.0);
 }
 
 // Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 2 "completely FLAT in

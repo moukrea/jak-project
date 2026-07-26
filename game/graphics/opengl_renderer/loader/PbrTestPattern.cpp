@@ -95,13 +95,30 @@ int height_profile() {
   // its own normal — the albedo is constant too, so no pixel in the interior can change. The owner
   // is looking at a test material that is flat everywhere except on its square boundaries, and
   // reporting that most of the surface looks flat.
-  //   0 = the original HARD step (kept: one setprop restores the exact material he has been judging)
-  //   1 = SMOOTH profile (default), h = 0.5 - 0.5*sin(pi*u)*sin(pi*v) in cell units. Same squares,
+  //   0 = the original HARD step (DEFAULT again as of round 26 — see below)
+  //   1 = SMOOTH profile, h = 0.5 - 0.5*sin(pi*u)*sin(pi*v) in cell units. Same squares,
   //       same alignment, same polarity — white square centres at 1.0, black at 0.0, exactly 0.5 on
   //       every square boundary — but now the field has a gradient at every texel, so displacement
   //       is legible across the whole square instead of only on its edges.
+  //
+  // ===== ROUND 26, DEFECT D1 — THIS DEFAULT *WAS* THE REGRESSION ==============================
+  // Owner, on the 6438b50e checker build: "c'est normal que le displacement ne soit plus strict
+  // genre carré blanc = élévation max, carré noir = élévation minimale? Là il semblerait que tout
+  // soit... Arrondi, genre SEUL LE CENTRE du carré blanc est au max et SEUL LE CENTRE du carré noir
+  // est au minimum".
+  // That is a verbatim description of `0.5 - 0.5*sin(pi*u)*sin(pi*v)`: the extreme is reached at
+  // exactly ONE POINT per cell (the centre), the field is 0.5 on every cell boundary, and the mean
+  // over a cell is (2/pi)^2 = 0.4053 of the extreme. Only 6.53% of a cell's area lies within 10% of
+  // the extreme. There is NO PLATEAU IN THE DATA — no amount of vertex density or mip sharpness can
+  // produce a step from a field that is a dome. The defect was never in the pipeline.
+  // It was introduced today (ac4daa6688, 2026-07-26 15:29) to make the ON-vs-OFF image delta legible
+  // inside a square; the owner is judging RELIEF, not a delta metric, and a checkerboard height map
+  // is by definition a SQUARE WAVE. Flat plateaus reading "no interior change" is the CORRECT answer
+  // for a step function, not a coverage hole. The delta-metric motivation is retired with it.
+  // The smooth profile stays reachable (=1) as the A/B, and nothing else about the pattern moves:
+  // same squares, same size, same alignment, same polarity.
   static int cached = -1;
-  return read_cached(cached, 1, 0, 1, "debug.opengoal.pbr.testprofile", "OG_PBR_TESTPROFILE");
+  return read_cached(cached, 0, 0, 1, "debug.opengoal.pbr.testprofile", "OG_PBR_TESTPROFILE");
 }
 
 // The height field the pattern displaces with, in 0..1. Shared by the height map AND the normal

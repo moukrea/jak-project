@@ -385,7 +385,23 @@ void main() {
       vec3 N;
       if (u_rt_flat_normal == 0 && Nsl2 > 0.2) {  // valid smooth normal present (default)
         Ns *= inversesqrt(Nsl2);
-        N = dot(Ns, gN) < 0.0 ? -Ns : Ns;        // align smooth normal to the outward face sign
+        // ===== ROUND 26, DEFECT D2 — THE FRAME'S HANDEDNESS MUST NOT DEPEND ON THE CAMERA =====
+        // `dot(Ns, gN) < 0.0 ? -Ns : Ns` re-signed the smooth normal against gN — and gN had itself
+        // just been forced into the CAMERA hemisphere two lines up (`if (dot(gN, Vv) < 0.0)`). So
+        // the SIGN of N, and therefore the HANDEDNESS of the whole PBR frame (pbr_fused.glsl builds
+        // fBuv = cross(N, fTuv) * sign(v_tangent.w)), was a function of WHERE THE CAMERA IS.
+        // Crossing a face's plane flips the bitangent, which flips both the V axis the normal map
+        // is decoded in and the V component of the parallax offset: the relief inverts and the
+        // motif jumps. This is the SAME ROOT as the rare polarity flips of round-22 defect C, and
+        // after this round it is the ONLY camera dependency left anywhere in the frame — the
+        // tangent is the per-vertex MikkTSpace attribute and the fallback is frisvad_basis(N),
+        // both anchored to geometry (no screen-derivative TBN survives in any of these shaders).
+        // The mesh-consolidation phase made the MESH DATA the authority on orientation, so the
+        // consolidated normal is now used AS AUTHORED — exactly what shrub.frag already does. The
+        // camera-hemisphere flip survives only on gN, which is the fallback for geometry that has
+        // no authored normal to be an authority.
+        // Bisect bit 2 restores the old camera-signed behaviour for a same-boot A/B.
+        N = ((u_pbr_bisect & 2) != 0 && dot(Ns, gN) < 0.0) ? -Ns : Ns;
       } else {
         N = gN;                                  // forced-flat A/B or no reconstructed normal (stock)
       }
@@ -745,8 +761,10 @@ void main() {
         // this path's existing "same law as the fused path" contract: the owner tests this branch as
         // the "PBR seul" preset, so leaving it un-scaled would make the two presets disagree at
         // slider max — exactly the half-fix this round is about.
+        // ROUND 26 D2: `* pom_drive` removed here too — the two paths must agree (see
+        // pbr_helpers.glsl's POM_MAX_FEATURE_FRAC block for the full arithmetic).
         float pom_cap = min(POM_MAX_TAN * depth_uv,
-                            POM_MAX_FEATURE_FRAC * pom_drive * lambda_world_m *
+                            POM_MAX_FEATURE_FRAC * lambda_world_m *
                                 max(u_pbr_uv_per_m, 0.02));
         // Same round-20 restoration as the fused path, so the A/B pair is identical on both.
         if ((u_pbr_bisect & 33554432) != 0) {
@@ -770,7 +788,7 @@ void main() {
           // otherwise march against a nearly-constant depth field and read flat. This branch was
           // the only POM still comparing against the RAW texel, and the owner tests it as the
           // "PBR seul" preset — the checkerboard has to read here too.
-          float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
+          float map_d = pom_carve(textureLod(tex_PBR_H, uv, 0.0).r);
           float prev_map_d = map_d;
           for (int i = 0; i < 64; i++) {  // ROUND 22: bound raised for the sqrt(drive) step count
             if (cur_d >= map_d || float(i) >= n_layers) {
@@ -778,7 +796,7 @@ void main() {
             }
             uv -= duv_step;
             prev_map_d = map_d;
-            map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
+            map_d = pom_carve(textureLod(tex_PBR_H, uv, 0.0).r);
             cur_d += layer_d;
           }
           // secant refine between the last two samples for a smooth intersection

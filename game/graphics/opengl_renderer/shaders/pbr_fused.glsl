@@ -221,8 +221,12 @@
           // (never slide more than a bounded number of feature wavelengths, so the texture cannot
           // swim) while making the whole chain drive-proportional end to end: the argmin is now
           // POM_MAX_TAN * depth_uv at EVERY slider position, and that term is itself ~ drive.
+          // ROUND 26 D2: the `* pom_drive` is GONE — see the POM_MAX_FEATURE_FRAC block in
+          // pbr_helpers.glsl for the arithmetic. A lateral UV slide is not what the relief slider
+          // deepens; letting it follow the drive is what let the pattern translate by 184% of its
+          // own period at slider max, which is the owner's orbit.
           float pom_cap = min(POM_MAX_TAN * depth_uv,
-                              POM_MAX_FEATURE_FRAC * pom_drive * lambda_world_m *
+                              POM_MAX_FEATURE_FRAC * lambda_world_m *
                                   max(u_pbr_uv_per_m, 0.02));
           // Bisect bit 33554432 restores the ROUND-20 law EXACTLY — the build the owner played and
           // called "complètement plat", not some older variant — so before/after is one setprop
@@ -271,7 +275,7 @@
             vec2 duv_step = P / n_layers;
             float layer_d = 1.0 / n_layers;
             float cur_d = 0.0;
-            float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
+            float map_d = pom_carve(textureLod(tex_PBR_H, uv, 0.0).r);
             float prev_map_d = map_d;
             for (int i = 0; i < 64; i++) {  // ROUND 22: bound raised for the sqrt(drive) step count
               if (cur_d >= map_d || float(i) >= n_layers) {
@@ -279,7 +283,7 @@
               }
               uv -= duv_step;
               prev_map_d = map_d;
-              map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
+              map_d = pom_carve(textureLod(tex_PBR_H, uv, 0.0).r);
               cur_d += layer_d;
             }
             float after = map_d - cur_d;

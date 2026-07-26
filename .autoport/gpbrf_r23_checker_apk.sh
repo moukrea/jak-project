@@ -91,14 +91,35 @@ A=$(unzip -p "$APK" lib/arm64-v8a/libgk.so | sha256sum | cut -d' ' -f1)
 mv "$APK" "$CHK_APK" || die "rename failed"
 echo "  -> $CHK_APK  (libgk ${CSHA:0:16})"
 
-echo; echo "  == re-assembling the NORMAL APK the ordinary way (gradle rebuilds + copies) =="
+echo; echo "  == re-assembling the NORMAL APK =="
 restore
 trap - EXIT
+# ROUND 26 — SECOND STALENESS HOLE, distinct from the one 674e0ed715 fixed (which was the CHECKER
+# half reusing an existing .so). The comment this line replaced said "gradle rebuilds + copies".
+# IT DOES NOT. gradle does not track the C++/GLSL sources, so `buildNativeLibs` is judged
+# up-to-date and `cmake --build build-android` never runs: observed this round as
+# "39 actionable tasks: 6 executed, 33 up-to-date" in 15 s, leaving the normal libgk at a
+# 100-minute-old link with `strings libgk.so | grep -c pom_carve` == 0 while the checker half was
+# correct. The normal APK would then ship silently stale — the exact class of defect that sank
+# attempt 22 (deploy_verify FRESHNESS). Build it explicitly, the same way line ~53 does for the
+# checker half, and let gradle only package.
+cmake --build build-android --target gk -j"$(nproc)" >/dev/null 2>&1 \
+  || die "normal libgk rebuild failed (build-android)"
 ( cd android && ./gradlew assembleJak1Debug 2>&1 | tail -3 ) || die "gradle (normal) failed"
 A=$(unzip -p "$APK" lib/arm64-v8a/libgk.so | sha256sum | cut -d' ' -f1)
 J=$(sha256sum "$JNI" | cut -d' ' -f1)
 [ "$A" = "$J" ] || die "normal APK ${A:0:16} != jniLibs ${J:0:16}"
 [ "$A" != "$CSHA" ] || die "normal APK still carries the CHECKER libgk — restore failed"
+# FRESHNESS GATE on both halves: a libgk older than the newest renderer source is stale by
+# definition, and neither half may ship that way.
+NEWEST_SRC=$(find game/graphics game/kernel android/src -type f \
+  \( -name '*.cpp' -o -name '*.h' -o -name '*.frag' -o -name '*.vert' -o -name '*.glsl' \
+     -o -name '*.tesc' -o -name '*.tese' \) -newer "$NORM_SO" -print -quit 2>/dev/null)
+[ -z "$NEWEST_SRC" ] || die "normal libgk is OLDER than $NEWEST_SRC — stale build, refusing to ship"
+NEWEST_SRC=$(find game/graphics game/kernel android/src -type f \
+  \( -name '*.cpp' -o -name '*.h' -o -name '*.frag' -o -name '*.vert' -o -name '*.glsl' \
+     -o -name '*.tesc' -o -name '*.tese' \) -newer "$CHK_SO" -print -quit 2>/dev/null)
+[ -z "$NEWEST_SRC" ] || die "checker libgk is OLDER than $NEWEST_SRC — stale build, refusing to ship"
 NSHA=$A
 echo "  -> $APK  (libgk ${NSHA:0:16})"
 
