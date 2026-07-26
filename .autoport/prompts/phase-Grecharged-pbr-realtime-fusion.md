@@ -1392,3 +1392,20 @@ défaut. L'owner le sait déjà et va monter à ~80% des textures. Deux conséqu
 3. Le chiffre de couverture damier (99%) mesure le PIPELINE ; le chiffre de couverture assets (35%)
    mesure le CONTENU. Les deux peuvent être rapportés, mais le second ne doit jamais servir à
    relativiser un défaut constaté par l'owner.
+
+--------------------------------------------------------------------------------
+RÈGLE OWNER — LE BUILD DE TEST EST LE BUILD DAMIER (pas de variante à côté)
+--------------------------------------------------------------------------------
+Owner, mot pour mot :
+  "Je veux le damier dans les build de test, tant que le damier n'est pas parfait, nul besoin de
+   vraies textures, c'est beaucoup plus simple de voir ce qui va pas avec le damier"
+
+Tant que le damier n'est pas jugé parfait par l'owner (en parallax ET en tessellation) :
+- LE build livré à l'owner EST le build damier. On ne livre plus une paire "normal + CHECKER-DEBUG",
+  on livre UN SEUL APK, damier actif d'origine, sans adb, sans setprop, sans menu à trouver.
+- Le nom du fichier doit dire ce que c'est, pour qu'il ne puisse pas y avoir de doute au moment de
+  l'installer.
+- Le damier reste un mode de DEBUG dans le code : la valeur par défaut hors build de test reste
+  éteinte, et rien de tout ça ne doit fuiter dans un build de sortie. C'est le packaging qui change,
+  pas la sémantique du réglage.
+- Quand l'owner déclarera le damier parfait, on repasse aux vraies textures pour la validation finale.
