@@ -171,6 +171,12 @@ out vec3 v_normal;
 out vec3 v_fringe_rel;
 out vec3 v_world;
 out vec4 v_tangent;  // REOPEN#7: emit the interpolated per-vertex tangent for tfrag3.frag
+// ROUND 23 (owner defect A, per-pixel coverage): the displacement weight this tier ACTUALLY applied
+// to this generated vertex, normalised 0..1. u_pbr_tess_active only tells the fragment stage that
+// the TESS PROGRAM is bound; it says nothing about whether the geometry moved HERE, and the tier
+// fades itself out (falloff past 30 m, seam on welded edges). tfrag3.frag forwards this varying into
+// pbr_fused.glsl, which gates the coverage flag and the POM hand-off on it PER FRAGMENT.
+out float v_tess_disp_w;
 
 vec3 bary3(vec3 a, vec3 b, vec3 c) {
   return gl_TessCoord.x * a + gl_TessCoord.y * b + gl_TessCoord.z * c;
@@ -191,6 +197,12 @@ void main() {
   vec3 N = nlen2 > 1e-8 ? nrm * inversesqrt(nlen2) : vec3(0.0, 1.0, 0.0);
 
 #ifdef OG_PBR
+  // ROUND 23: default the coverage weight to 0 BEFORE the branch. The displacement below is
+  // conditional, so leaving the varying unwritten on the else path would ship an undefined value to
+  // the fragment stage — which decides both the coverage flag and the POM hand-off. 0 is also the
+  // semantically right default: no branch taken means the tier did not displace this vertex, so the
+  // fragment POM must take over.
+  v_tess_disp_w = 0.0;
   // Height displacement: only when a height map is bound AND Tessellation mode is selected.
   if ((u_pbr_mode & 16) != 0 && u_pbr_displacement == 2 && u_pbr_height_scale > 0.0) {
     // ---- Grecharged-mesh-consolidation: SEAM-CONSISTENT DISPLACEMENT (the see-through slits) ----
@@ -368,6 +380,13 @@ void main() {
     }
     float disp = (h - 0.5) * amp;
     world += N * disp;   // world normal is in game-unit space; displacement is in game units
+    // ROUND 23 PER-FRAGMENT COVERAGE: hand the fragment stage the weight the tier ACTUALLY applied
+    // here. Deliberately falloff*seam and NOT `disp`: a texel sitting exactly at height 0.5 has zero
+    // displacement yet is still genuinely covered by the tess tier (its neighbours moved), so what
+    // is forwarded is whether the tier was ACTIVE at this vertex, not whether this one texel moved.
+    // Past ~30 m falloff is 0 and on welded seams seam is 0 — precisely the fragments that must fall
+    // back to the POM instead of being left flat AND counted as covered.
+    v_tess_disp_w = clamp(falloff * seam, 0.0, 1.0);
 
     // ---- PBR POLISH (owner playtest #16 defect 3: the displacement "reads FLAT ... un bump map
     //      glorifie avec un peu de normales") ----

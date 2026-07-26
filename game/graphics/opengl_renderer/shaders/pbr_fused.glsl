@@ -66,8 +66,18 @@
         // displacement"): u_pbr_debug 31 paints, per pixel, whether this fragment actually received
         // displacement. The tessellation tier moved this fragment's REAL geometry upstream, so it
         // counts as covered even though the POM march below is (correctly) skipped for it.
+        // ROUND 23 — PER FRAGMENT, NOT PER PROGRAM. u_pbr_tess_active only says "the TESS PROGRAM is
+        // bound"; it says nothing about whether the geometry moved HERE. The tier fades its own
+        // amplitude to exactly zero past ~30 m (falloff) and on welded seam vertices (seam), so on a
+        // per-program flag those fragments were BOTH left flat (the POM was suppressed for them) AND
+        // counted as covered — a real hole in Tessellation mode, and a metric that hid it. The
+        // tess-eval now forwards the weight it actually applied, so the POM picks up exactly where
+        // tessellation faded out and the coverage flag stops claiming pixels the geometry never
+        // moved. TESS_COVER_MIN is the weight below which the vertex displacement is visually nil.
+        #define TESS_COVER_MIN 0.01
+        bool tess_displaced = (u_pbr_tess_active != 0) && (tess_disp_w > TESS_COVER_MIN);
         if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && u_pbr_displacement != 0 &&
-            u_pbr_tess_active != 0) {
+            tess_displaced) {
           f_disp_cover = 1.0;
         }
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
@@ -77,7 +87,7 @@
         // does not cover (TIE walls and props, shrubs, hfrag, non-opaque trees, anything past the
         // 30 m tesc gate) keeps its parallax instead of going flat.
         if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-            (u_pbr_bisect & 128) == 0 && u_pbr_tess_active == 0) {
+            (u_pbr_bisect & 128) == 0 && !tess_displaced) {
           vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.20);
           // ===========================================================================
@@ -116,8 +126,23 @@
           float lambda_world_m;
           float pom_drive;
           float depth_uv = pom_depth_uv(lambda_world_m, pom_drive);
+          // ROUND 23 (owner defect B: "curseur au maximum 3.0, c'est pas si obvious"). This second
+          // rail was the LAST drive-INDEPENDENT term in the whole amplitude chain, and it was the
+          // binding one at slider max. Arithmetic, at the shipped materials' densities:
+          //   depth_uv          = 0.25 * drive * lambda * upm
+          //   POM_MAX_TAN term  = 2.0  * depth_uv = 0.50 * drive * lambda * upm   (drive-proportional)
+          //   FEATURE_FRAC term = 1.5  * lambda * upm                             (drive-INDEPENDENT)
+          // At rel 1 the TAN term (0.50*lambda*upm) binds and the feature rail is slack; at rel 3 the
+          // TAN term is 2.328*lambda*upm but the feature rail is still 1.5 -> the FEATURE rail takes
+          // over and freezes the marched offset. Net: the offset ceiling grew only 3.0x across the
+          // slider while the depth grew 4.66x, so the top of the slider was clipped exactly the way
+          // POM_MAX_WORLD_M clipped it in round 20. Scaling it by the SAME drive keeps its purpose
+          // (never slide more than a bounded number of feature wavelengths, so the texture cannot
+          // swim) while making the whole chain drive-proportional end to end: the argmin is now
+          // POM_MAX_TAN * depth_uv at EVERY slider position, and that term is itself ~ drive.
           float pom_cap = min(POM_MAX_TAN * depth_uv,
-                              POM_MAX_FEATURE_FRAC * lambda_world_m * max(u_pbr_uv_per_m, 0.02));
+                              POM_MAX_FEATURE_FRAC * pom_drive * lambda_world_m *
+                                  max(u_pbr_uv_per_m, 0.02));
           // Bisect bit 33554432 restores the ROUND-20 law EXACTLY — the build the owner played and
           // called "complètement plat", not some older variant — so before/after is one setprop
           // apart at the same vantage in the same boot. (It used to restore a pre-round-20 cell,

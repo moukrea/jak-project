@@ -382,6 +382,7 @@ void main() {
       // march here — with the IDENTICAL pom_depth_uv() amplitude law the tess tier uses.
       // =================================================================================
       if (u_pbr_mode != 0) {
+        float tess_disp_w = 0.0;  // ROUND 23 adapter: this program has no tessellation path
         #include "pbr_fused.glsl"
       } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator

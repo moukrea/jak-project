@@ -9,6 +9,7 @@ in vec3 v_fringe_rel;  // Grecharged-grass-overhang2: camera-relative world pos 
 in vec3 v_world;       // Grecharged-lightprobes: absolute world pos (game units) for probe lookup
 in vec3 v_normal;      // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
 in vec4 v_tangent;     // Grecharged-pbr-realtime-fusion REOPEN#7: per-vertex tangent (xyz world, w handedness)
+in float v_tess_disp_w;  // ROUND 23: tess displacement weight actually applied here (0 = tier faded out)
 uniform sampler2D tex_T0;
 
 uniform float alpha_min;
@@ -443,6 +444,10 @@ void main() {
       // rt ON + pbr OFF (u_pbr_mode==0) falls through to the accepted BAKED-MODULATION
       // path below, byte-identical — no regression to the directional-ambient look.
       if (u_pbr_mode != 0) {
+        // ROUND 23 adapter (same idiom as v_tangent in shrub.frag): the shared chunk reads a
+        // plain `tess_disp_w`, so each including program supplies it. Only this one has a
+        // tessellation path, so only this one forwards a real varying.
+        float tess_disp_w = v_tess_disp_w;
         #include "pbr_fused.glsl"
       } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
@@ -725,8 +730,15 @@ void main() {
         float lambda_world_m;
         float pom_drive;
         float depth_uv = pom_depth_uv(lambda_world_m, pom_drive);
+        // ROUND 23: the SAME drive-independent rail that froze the top of the slider on the fused
+        // path (full rationale and the arithmetic live at that site in pbr_fused.glsl — one copy of
+        // the explanation, two copies of the code). Multiplied by the same pom_drive here to honour
+        // this path's existing "same law as the fused path" contract: the owner tests this branch as
+        // the "PBR seul" preset, so leaving it un-scaled would make the two presets disagree at
+        // slider max — exactly the half-fix this round is about.
         float pom_cap = min(POM_MAX_TAN * depth_uv,
-                            POM_MAX_FEATURE_FRAC * lambda_world_m * max(u_pbr_uv_per_m, 0.02));
+                            POM_MAX_FEATURE_FRAC * pom_drive * lambda_world_m *
+                                max(u_pbr_uv_per_m, 0.02));
         // Same round-20 restoration as the fused path, so the A/B pair is identical on both.
         if ((u_pbr_bisect & 33554432) != 0) {
           pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);

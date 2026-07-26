@@ -149,6 +149,20 @@ uniform vec2 u_pbr_height_stat;
 //            of this round used the overloaded bit and measured the side effect at the SAME ORDER
 //            OF MAGNITUDE as the parallax signal itself — it silently confounded both A/Bs. Always
 //            scan ALL of *.frag/*.tesc/*.tese for a bit before claiming it is free.
+// 67108864 = ROUND 20 tess-eval displacement AMPLITUDE law back to the hardcoded constant
+//            WORLD_TILES_PER_M instead of THIS material's MEASURED authored UV density
+//            (u_pbr_uv_per_m). Read in tfrag3_tess.tese:220-221 as `legacy_uv_law`.
+//            ⚠ THIS ENTRY WAS MISSING from the list until round 23, and round 23 very nearly
+//            re-used the bit for the shrub normal flip below — which would have confounded a
+//            shrub-polarity A/B with a ground-displacement change in the very same frame: the
+//            EXACT trap the 33554432 note above was written to prevent. The scan rule is only as
+//            good as this list, so when you take a bit, document it HERE in the same edit.
+// 134217728 = ROUND 23 shrub two-sided normal flip back to LEGACY unconditional (owner defect C,
+//            "the polarity FLIPS surface to surface"). Default 0 = the flip applies ONLY to the
+//            screen-space derivative fallback normal, whose cross(dFdx, dFdy) sign is arbitrary; a
+//            consolidated per-vertex normal is then left exactly as the mesh data authored it, so
+//            the displacement/POM frame it feeds can no longer depend on which side the CAMERA is
+//            on. Read in shrub.frag (the u_rt_light_on branch).
 uniform int u_pbr_bisect;
 // REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
 // (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement

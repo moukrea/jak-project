@@ -106,6 +106,10 @@ float hnorm(float h) {
 // ROUND 22: 0.35 -> 1.5. At 0.35 this cap was lambda-proportional but drive-INDEPENDENT, so it
 // clamped the marched vector to the same length for every slider position above ~1.4 — the single
 // term that made the top half of the slider a no-op for parallax.
+// ROUND 23: raising the constant only moved the freeze point (1.5 still bound at slider max, where
+// the drive-proportional POM_MAX_TAN term has grown past it), so as of round 23 this rail is
+// MULTIPLIED BY `drive` at its use site in pbr_fused.glsl — it is no longer drive-independent and
+// no longer binds at slider max; POM_MAX_TAN * depth_uv is the argmin at every slider position.
 #define POM_MAX_FEATURE_FRAC 1.5
 // The amplitude law itself, kept numerically IDENTICAL to tfrag3_tess.tese's (TESS_DEPTH_K,
 // TESS_DEPTH_MAX_RATIO, TESS_DEPTH_MAX_M and its 0.005*relief floor) so the two displacement tiers

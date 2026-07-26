@@ -272,9 +272,20 @@ void main() {
       // Grecharged-mesh-consolidation: prefer the real interpolated per-vertex normal now that shrub
       // carries one; the screen-space derivative normal stays as the fallback for level data that
       // predates it (v_normal == 0).
-      vec3 N = (dot(v_normal, v_normal) > 1e-6) ? normalize(v_normal) : gN;
+      // ROUND 23 — OWNER DEFECT C (displacement polarity must never flip surface to surface).
+      // The two-sided flip below exists for ONE reason: gN = cross(dFdx, dFdy) has an arbitrary
+      // sign, so the derivative fallback has to be turned toward the camera to shade at all. A
+      // CONSOLIDATED per-vertex normal does not need it and must not get it: this same N is the
+      // frame the displacement/POM path uses (pbr_fused.glsl below), so flipping it toward the
+      // viewer would make the relief polarity depend on the CAMERA — white squares protruding on
+      // one side of a card and receding on the other. The mesh-consolidation orientation pass
+      // (collision-authority flood fill) is the authority for which way a shrub face points, and
+      // it is fixed in the mesh DATA, not masked here. Bisect bit 134217728 restores the legacy
+      // unconditional flip so the change is a live same-vantage A/B with one setprop.
+      bool has_vn = dot(v_normal, v_normal) > 1e-6;
+      vec3 N = has_vn ? normalize(v_normal) : gN;
       vec3 Vv = -normalize(v_fringe_rel);
-      if (dot(N, Vv) < 0.0) N = -N;
+      if ((!has_vn || (u_pbr_bisect & 134217728) != 0) && dot(N, Vv) < 0.0) N = -N;
       vec3 L = normalize(u_rt_sun_dir);
       float ndl = max(dot(N, L), 0.0);
       float shadow = 1.0;
@@ -387,6 +398,7 @@ void main() {
       // =================================================================================
       if (u_pbr_mode != 0) {
         vec4 v_tangent = vec4(0.0, 0.0, 0.0, 1.0);  // see ADAPTER above: no shrub tangent data
+        float tess_disp_w = 0.0;  // ROUND 23 adapter: this program has no tessellation path
         #include "pbr_fused.glsl"
       } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator

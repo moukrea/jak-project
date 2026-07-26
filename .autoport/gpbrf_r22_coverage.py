@@ -42,6 +42,13 @@ TAGS = [
     ("merc2", (255, 0, 255), False),        # magenta — actors
     ("generic", (128, 0, 255), False),      # violet  — actors
     ("emerc", (128, 255, 0), False),        # lime    — actors
+    # ROUND 23: grass is its OWN world program — it writes depth (GEQUAL + depthMask ON) and
+    # occludes the ground it stands on — so it is tagged and counted as an UNDISPLACED world
+    # program. Discarding it instead would hand its pixels back to the possibly-displaced ground
+    # underneath and INFLATE exactly the number under audit. Teal's nearest neighbour is cyan at
+    # L2 179.6, comfortably above the palette's pre-existing 127.0 floor (yellow/orange,
+    # yellow/lime, magenta/violet) and above 2*tol.
+    ("grass", (0, 128, 128), True),         # teal    — procedural grass, no PBR maps
 ]
 
 

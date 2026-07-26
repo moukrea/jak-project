@@ -33,6 +33,12 @@ TAGS = [
     ("merc2", (255, 0, 255)),
     ("generic", (128, 0, 255)),
     ("emerc", (128, 255, 0)),
+    # ROUND 23: grass is its own world program (writes depth, occludes the ground it stands on), so
+    # it is tagged and counted honestly as an UNDISPLACED world program rather than standing down —
+    # letting it stand down would hand its pixels back to the possibly-displaced ground underneath
+    # and INFLATE the displaced-coverage number this round is judged on. Keep in sync with
+    # gpbrf_r22_coverage.py's table.
+    ("grass", (0, 128, 128)),
 ]
 
 

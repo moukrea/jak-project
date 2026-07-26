@@ -1081,6 +1081,18 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   //   prop debug.opengoal.grass_dbg = c (cycle every 4 s) | 1 | 2 | 3   (Android)
   //   env  GRASS_DISCRIMINATE       = c | 1 | 2 | 3                     (desktop x86)
   glUniform1i(glGetUniformLocation(id, "u_debug"), grass_debug_mode(u_time));
+#ifdef OG_FEAT_PBR
+  // ROUND 23 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A). Grass draws are tagged in
+  // debug mode 30 so the coverage census can attribute every screen pixel to the program that drew
+  // it. Grass is its OWN world geometry — it writes depth (GL_DEPTH_TEST/GEQUAL + glDepthMask
+  // GL_TRUE below) and occludes the ground it stands on — so it has to be counted honestly as an
+  // UNDISPLACED world program. Letting it stand down instead would hand its pixels back to the
+  // hfrag/tfrag draw underneath and INFLATE the very displaced-coverage number under audit.
+  // Note this is a SEPARATE push from first_tfrag_draw_setup: the grass program does not go through
+  // that setup (same reason merc2/generic/emerc call pbr_push_debug_tag directly). No-op at mode 0,
+  // and a no-op location (-1) on any program that does not declare the uniform.
+  pbr_push_debug_tag(id);
+#endif
   // ROUND#19: optional normal-tilt blend — blade growth axis = mix(world-up, ground-face normal, u_tilt).
   // 0.0 (default) is bit-identical to the world-up-only growth; the owner A/Bs ~0.30 via the debug prop.
   glUniform1f(glGetUniformLocation(id, "u_tilt"), grass_tilt_amount());

@@ -159,3 +159,8 @@ build-*/
 
 # Grecharged-pbr-realtime-fusion REOPEN#9: offline grass_bake tangent-fallback diagnostic
 pbr_tan_diag.txt
+
+# Grecharged-pbr-realtime-fusion r23: packaged APKs parked outside gradle's output dir
+# (gradle cleans its own). These are ~345 MB build artifacts, regenerable by
+# .autoport/gpbrf_r23_checker_apk.sh — never commit them.
+.autoport/dist/

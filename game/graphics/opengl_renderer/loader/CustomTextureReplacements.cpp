@@ -7,6 +7,7 @@
 #include <set>
 #ifdef OG_FEAT_PBR
 #include <algorithm>
+#include <cmath>
 #include <unordered_map>
 #endif
 
@@ -57,6 +58,68 @@ int pom_mode_bits(const PbrMaterialMaps& m) {
   return (m.normal_tex ? 1 : 0) | (m.rough_tex ? 2 : 0) | (m.metal_tex ? 4 : 0) |
          (m.ao_tex ? 8 : 0) | (m.height_tex ? 16 : 0) | (m.specular_tex ? 32 : 0) |
          (m.emissive_tex ? 64 : 0);
+}
+
+// ---------------------------------------------------------------------------------------------
+// CPU MIRROR of the shipped parallax amplitude law, one material at one slider position. It is
+// pom_depth_uv() from shaders/pbr_helpers.glsl transcribed constant for constant and in the SAME
+// ORDER, plus the two offset rails pbr_fused.glsl builds pom_cap from. THIS MUST BE CHANGED IN
+// LOCKSTEP WITH pom_depth_uv() (and with the pom_cap min() in pbr_fused.glsl): the [pom] and [amp]
+// blocks below are only worth reading while the two agree, and a stale mirror is exactly what made
+// the round-20/21 numbers describe a render that no longer existed.
+// Every intermediate is kept, not just the result, because the question the owner and the
+// supervisor actually ask is "WHICH term bounds the amplitude?" — the argmins answer it.
+struct PomLaw {
+  float rel = 0.f;    // the relief slider, 0..3 (height_scale * 20)
+  float drive = 0.f;  // pow(rel, PBR_DRIVE_EXP), PBR_DRIVE_EXP = 1.4 => drive(1) == 1 exactly
+  float hs = 0.f;     // 0.05 * drive: the effective height scale (== u_pbr_height_scale at rel 1)
+  float amp_base = 0.f;             // hs * POM_DEPTH_K * lambda_world_m, before any cap
+  float cap_ratio = 0.f;            // POM_DEPTH_MAX_RATIO * lambda_world_m ("never a spike field")
+  float cap_abs = 0.f;              // POM_DEPTH_MAX_M * drive ("never deeper than a step")
+  float amp_floor = 0.f;            // 0.005 * rel
+  float amp_m = 0.f;                // the amplitude that survives all four terms, in metres
+  const char* amp_argmin = "base";  // which of base/ratio/abs/floor produced amp_m
+  float depth_uv = 0.f;             // amp_m * uv_per_m: what the shader marches
+  float cap_tan = 0.f;              // POM_MAX_TAN * depth_uv
+  float cap_feat = 0.f;             // POM_MAX_FEATURE_FRAC * drive * lambda_world_m * uv_per_m
+  float cap = 0.f;                  // min of the two rails: the marched offset's ceiling, in UV
+  const char* cap_argmin = "tan";   // "tan" or "feat", whichever rail is the smaller
+};
+
+PomLaw pom_law_eval(float rel, float lam_m, float upm) {
+  PomLaw r;
+  r.rel = rel;
+  r.drive = std::powf(std::max(rel, 0.0f), 1.4f);  // PBR_DRIVE_EXP
+  r.hs = 0.05f * r.drive;
+  r.amp_base = r.hs * 5.0f * lam_m;  // POM_DEPTH_K = 5
+  r.cap_ratio = 1.25f * lam_m;       // POM_DEPTH_MAX_RATIO = 1.25
+  r.cap_abs = 0.15f * r.drive;       // POM_DEPTH_MAX_M = 0.15, ROUND 22: * drive
+  r.amp_floor = 0.005f * rel;
+  // The min/min/max chain of pom_depth_uv(), evaluated in order so the winner is the term the
+  // shader's own arithmetic would settle on.
+  r.amp_m = r.amp_base;
+  r.amp_argmin = "base";
+  if (r.cap_ratio < r.amp_m) {
+    r.amp_m = r.cap_ratio;
+    r.amp_argmin = "ratio";
+  }
+  if (r.cap_abs < r.amp_m) {
+    r.amp_m = r.cap_abs;
+    r.amp_argmin = "abs";
+  }
+  if (r.amp_floor > r.amp_m) {
+    r.amp_m = r.amp_floor;
+    r.amp_argmin = "floor";
+  }
+  r.depth_uv = r.amp_m * upm;
+  // pbr_fused.glsl's pom_cap. ROUND 23: the feature rail is multiplied by the same drive as the
+  // tan rail, so neither of them is drive-independent any more and the ratio between two slider
+  // positions is the drive ratio at BOTH — that is what the [amp] block measures.
+  r.cap_tan = 2.0f * r.depth_uv;              // POM_MAX_TAN = 2
+  r.cap_feat = 1.5f * r.drive * lam_m * upm;  // POM_MAX_FEATURE_FRAC = 1.5, ROUND 23: * drive
+  r.cap = std::min(r.cap_tan, r.cap_feat);
+  r.cap_argmin = (r.cap_tan <= r.cap_feat) ? "tan" : "feat";
+  return r;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -518,24 +581,67 @@ std::string pbr_pom_diag_section() {
     if (has_height) {
       with_height++;
     }
-    // EXACTLY the amplitude law the shaders run, cap for cap and in the same order.
+    // EXACTLY the amplitude law the shaders run, cap for cap and in the same order — see
+    // pom_law_eval(), which IS pom_depth_uv() transcribed, and must move with it.
     const float upm = std::max(e.uv_per_m, 0.02f);
     const float tile_m = 1.0f / upm;
     const float lam_m = std::clamp(e.lambda_tiles, 0.002f, 1.0f) * tile_m;
-    const float rel = height_scale * 20.0f;                // height_scale = 0.05 * texture-relief
-    float amp_m = height_scale * 5.0f * lam_m;             // POM_DEPTH_K = 5
-    amp_m = std::min(amp_m, 0.5f * lam_m);                 // MAX_RATIO
-    amp_m = std::min(amp_m, 0.15f * (0.5f + 0.5f * rel));  // MAX_M
-    amp_m = std::max(amp_m, 0.005f * rel);
-    const float depth_uv = amp_m * upm;
+    const float rel = height_scale * 20.0f;  // height_scale = 0.05 * texture-relief
+    const PomLaw L = pom_law_eval(rel, lam_m, upm);
     out += fmt::format(
         "[pom] mat={} uv_per_m={:.4f} tile_m={:.3f} height_lambda_tiles={:.4f} "
         "lambda_world_m={:.4f} amp_m={:.5f} depth_uv={:.5f} off45_uv={:.5f} off45_cm={:.2f} "
-        "mode={} has_height={} displacement={} bisect={}\n",
-        name, e.uv_per_m, tile_m, e.lambda_tiles, lam_m, amp_m, depth_uv, depth_uv, amp_m * 100.f,
-        e.mode, has_height ? 1 : 0, gs.recharged_pbr_displacement, gs.recharged_pbr_isolate);
+        "mode={} has_height={} displacement={} bisect={} drive={:.4f} amp_base={:.5f} "
+        "cap_ratio={:.5f} cap_abs={:.5f} amp_argmin={} pom_cap_tan={:.5f} pom_cap_feat={:.5f} "
+        "pom_cap_argmin={}\n",
+        name, e.uv_per_m, tile_m, e.lambda_tiles, lam_m, L.amp_m, L.depth_uv, L.depth_uv,
+        L.amp_m * 100.f, e.mode, has_height ? 1 : 0, gs.recharged_pbr_displacement,
+        gs.recharged_pbr_isolate, L.drive, L.amp_base, L.cap_ratio, L.cap_abs, L.amp_argmin,
+        L.cap_tan, L.cap_feat, L.cap_argmin);
   }
   out += fmt::format("[pom] materials={} with_height={}\n", g_pom_diag.size(), with_height);
+
+  // ---------------------------------------------------------------------------------------------
+  // [amp] ROUND 23 SLIDER-HEADROOM PROOF (owner defect B: "le curseur au maximum 3.0, c'est pas si
+  // obvious"). The [pom] block above reports the LIVE slider only, so it cannot answer the gate
+  // question "does any cap bite at slider max?" — a cap that binds only at 3.0 is invisible there.
+  // So the identical law is evaluated TWICE per material at two FIXED slider positions, 1.0 and
+  // 3.0, and the quotients are printed. This is the round-20 POM_MAX_WORLD_M trap, and the round-22
+  // POM_MAX_FEATURE_FRAC one, expressed as a number the supervisor can gate on.
+  out += "[amp] # drive = pow(rel, 1.4) => drive(3.0)/drive(1.0) = 4.6555 is the IDEAL: with no\n";
+  out += "[amp] # cap biting, amp_ratio / depth_ratio / cap_ratio_1to3 ALL land on 4.6555.\n";
+  out += "[amp] # Materially below it = a cap clips slider max; relN_argmin names which term.\n";
+  float min_amp_ratio = 0.f;
+  float min_cap_ratio = 0.f;
+  bool any_amp = false;
+  for (const auto& [name, e] : g_pom_diag) {
+    const float upm = std::max(e.uv_per_m, 0.02f);
+    const float tile_m = 1.0f / upm;
+    const float lam_m = std::clamp(e.lambda_tiles, 0.002f, 1.0f) * tile_m;
+    const PomLaw a1 = pom_law_eval(1.0f, lam_m, upm);
+    const PomLaw a3 = pom_law_eval(3.0f, lam_m, upm);
+    const float amp_ratio = a1.amp_m > 0.f ? a3.amp_m / a1.amp_m : 0.f;
+    const float depth_ratio = a1.depth_uv > 0.f ? a3.depth_uv / a1.depth_uv : 0.f;
+    const float cap_ratio_1to3 = a1.cap > 0.f ? a3.cap / a1.cap : 0.f;
+    out += fmt::format(
+        "[amp] mat={} rel1_amp_m={:.5f} rel1_depth_uv={:.5f} rel1_cap={:.5f} rel1_argmin={} "
+        "rel3_amp_m={:.5f} rel3_depth_uv={:.5f} rel3_cap={:.5f} rel3_argmin={} amp_ratio={:.4f} "
+        "depth_ratio={:.4f} cap_ratio_1to3={:.4f}\n",
+        name, a1.amp_m, a1.depth_uv, a1.cap, a1.amp_argmin, a3.amp_m, a3.depth_uv, a3.cap,
+        a3.amp_argmin, amp_ratio, depth_ratio, cap_ratio_1to3);
+    if (!any_amp) {
+      min_amp_ratio = amp_ratio;
+      min_cap_ratio = cap_ratio_1to3;
+      any_amp = true;
+    } else {
+      min_amp_ratio = std::min(min_amp_ratio, amp_ratio);
+      min_cap_ratio = std::min(min_cap_ratio, cap_ratio_1to3);
+    }
+  }
+  out += fmt::format(
+      "[amp] materials={} min_amp_ratio={:.4f} min_cap_ratio={:.4f} "
+      "drive_ratio_ideal=4.6555\n",
+      g_pom_diag.size(), min_amp_ratio, min_cap_ratio);
   return out;
 }
 

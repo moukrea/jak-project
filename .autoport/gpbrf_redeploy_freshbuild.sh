@@ -22,7 +22,12 @@ die(){ echo "[gpbrf-redeploy FAIL] $*" >&2; exit 1; }
 say "0. libgk.so freshness + ogflags"
 [ -f "$SO" ] || die "no libgk.so — build first"
 SO_MTIME=$(stat -c %Y "$SO")
-NEWEST_SRC=$(find game/graphics game/kernel android common/custom_data -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.vert' -o -name '*.frag' \) -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)
+# ROUND 23: the extension list is part of the FRESHNESS GATE, so a missing extension is a silent
+# stale-binary hole, not a cosmetic omission. *.glsl was absent even though round 22 moved the
+# entire fused PBR path into pbr_fused/pbr_helpers/pbr_uniforms.glsl — editing the shared chunks and
+# nothing else would have passed this gate against a .so built before them. *.tese/*.tesc were the
+# same hole for the tessellation tier (it cost round 21 a manual catch). All five now scanned.
+NEWEST_SRC=$(find game/graphics game/kernel android common/custom_data -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.vert' -o -name '*.frag' -o -name '*.glsl' -o -name '*.tesc' -o -name '*.tese' \) -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)
 echo "  libgk.so mtime=$(date -d @$SO_MTIME +%H:%M:%S)  newest_src=$(date -d @$NEWEST_SRC +%H:%M:%S)"
 [ "$SO_MTIME" -ge "$NEWEST_SRC" ] || die "libgk.so still older than newest source — rebuild did not run"
 SO_FLAGS=$(strings "$SO" | grep -m1 '^ogflags:' || true)

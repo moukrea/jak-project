@@ -50,6 +50,11 @@ out vec3 v_world;
 // Grecharged-pbr-realtime-fusion REOPEN#7: per-vertex tangent (xyz world tangent, w handedness) for
 // the continuous PBR TBN. Interpolated across the triangle => no screen-derivative seams/cracks.
 out vec4 v_tangent;
+// ROUND 23: tfrag3.frag is shared with the TESSELLATED program, whose tess-eval writes the weight
+// the displacement tier actually applied. This is the NON-tessellated program, so the weight is 0 —
+// the varying only has to exist here for the fragment shader to link. u_pbr_tess_active is 0 for
+// this program too, so the fragment gate is false either way.
+out float v_tess_disp_w;
 
 void main() {
   // old system:
@@ -73,6 +78,7 @@ void main() {
   v_world = position_in;                 // Grecharged-lightprobes: world pos (game units) for PER-PIXEL probe lookup
   v_normal = normal_in;  // world-space smooth normal (tfrag verts are already in world space)
   v_tangent = tangent_in;  // REOPEN#7: per-vertex tangent -> continuous PBR TBN in the frag
+  v_tess_disp_w = 0.0;     // ROUND 23: non-tessellated program => the tess tier displaced nothing
   vec4 transformed = -pc_camera[3];
   transformed.w = 0.0;
   transformed -= pc_camera[0] * vert.x;

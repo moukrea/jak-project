@@ -19,11 +19,25 @@ in float v_seed;         // class-2 cards: hang-texture select (0/1) instead of 
 uniform sampler2D u_hang0;  // bch-grassfringe
 uniform sampler2D u_hang1;  // bch-leafyground-hang-2x1
 
+// ROUND 22/23 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION. Shared PBR debug selector (android prop
+// debug.opengoal.pbr.debug). Mode 30 = program tag, 31 = displacement tag. This shader has no PBR
+// block, so the uniform is declared plainly. If a program is ever linked without it,
+// glGetUniformLocation returns -1 and glUniform1i(-1, ...) is a documented no-op.
+uniform int u_pbr_debug;
+
 out vec4 color;
 
 void main() {
   float a = v_alpha;
 
+  // ROUND 23 coverage census: grass is its OWN world geometry, not a re-shade of an already
+  // tagged draw — it writes depth (glDepthMask GL_TRUE, GEQUAL) and occludes the ground under it,
+  // and its alpha is 1.0 through the whole in-band region (v_alpha is only a distance LOD fade at
+  // the band edges). Discarding it in the tag modes would hand its pixels back to the hfrag/tfrag
+  // draw underneath and INFLATE the measured displaced coverage, so it gets its own tag instead.
+  // Structural note: the class-2 branch below used to `return;` early. It is an else-branch now,
+  // behaviour for behaviour identical, so the tag stays the LAST statement of main() on every
+  // path — the invariant every other tagged shader holds.
   if (v_is_card == 2) {
     // ZONE-3 TEXTURED HANG CARD: alpha-cut sampling of the native strip texels, so the card IS the
     // game's own art (crisp ragged tips, no soft halo). u tiles along the lip (wrap); v is clamped
@@ -35,34 +49,44 @@ void main() {
     }
     // v_color = the ground's dynamic baked light (*2 factor), matching the native strip's own draw.
     color = vec4(tx.rgb * v_color, a);
-    return;
-  }
+  } else {
+    if (v_is_card == 1) {
+      // Cut the card quad into a few vertical sub-blades so it reads as a tuft.
+      // Each sub-blade fills its slot at the base and tapers to a point; the top
+      // edge is jagged (random per-blade height) so the clump never looks like a
+      // rectangle. Fragments outside a blade are discarded (no color, no depth).
+      // OWNER POLISH#6: 5 -> 3 sub-blades so the cards are LESS tufted than the near
+      // grass (owner: cards "font beaucoup plus touffue que la vraie herbe").
+      const float NB = 3.0;
+      float fu = (v_uv.x * 0.5 + 0.5) * NB;        // 0..NB across the card width
+      float bi = floor(fu);
+      float fp = fu - bi;                           // 0..1 within this sub-blade slot
+      float r = fract(sin((bi + 1.0) * 12.9898 + v_seed) * 43758.5453);
+      float bladeTop = 0.55 + 0.45 * r;             // this sub-blade's height (0.55..1.0)
+      if (v_uv.y > bladeTop) {
+        discard;
+      }
+      float hw = 0.5 * (1.0 - v_uv.y / bladeTop);   // half width in slot units, taper to tip
+      float dc = abs(fp - 0.5);
+      if (dc > hw) {
+        discard;
+      }
+    }
 
-  if (v_is_card == 1) {
-    // Cut the card quad into a few vertical sub-blades so it reads as a tuft.
-    // Each sub-blade fills its slot at the base and tapers to a point; the top
-    // edge is jagged (random per-blade height) so the clump never looks like a
-    // rectangle. Fragments outside a blade are discarded (no color, no depth).
-    // OWNER POLISH#6: 5 -> 3 sub-blades so the cards are LESS tufted than the near
-    // grass (owner: cards "font beaucoup plus touffue que la vraie herbe").
-    const float NB = 3.0;
-    float fu = (v_uv.x * 0.5 + 0.5) * NB;        // 0..NB across the card width
-    float bi = floor(fu);
-    float fp = fu - bi;                           // 0..1 within this sub-blade slot
-    float r = fract(sin((bi + 1.0) * 12.9898 + v_seed) * 43758.5453);
-    float bladeTop = 0.55 + 0.45 * r;             // this sub-blade's height (0.55..1.0)
-    if (v_uv.y > bladeTop) {
+    if (a < 0.02) {
       discard;
     }
-    float hw = 0.5 * (1.0 - v_uv.y / bladeTop);   // half width in slot units, taper to tip
-    float dc = abs(fp - 0.5);
-    if (dc > hw) {
-      discard;
-    }
+    color = vec4(v_color, a);
   }
 
-  if (a < 0.02) {
-    discard;
+  // ===== ROUND 23 COVERAGE TAG (see tfrag3.frag / hfrag.frag for the rationale) =====
+  // grass = teal. No PBR/displacement path here, so mode 31 reads 0.0 by construction — that is
+  // exactly the quantity being measured. color.a is NEVER touched (the alpha discards above have
+  // already run and the LOD fade must keep behaving), so the tag arrives on the same pixels the
+  // untagged frame draws.
+  if (u_pbr_debug == 30) {
+    color.rgb = vec3(0.0, 0.5, 0.5);
+  } else if (u_pbr_debug == 31) {
+    color.rgb = vec3(0.0);
   }
-  color = vec4(v_color, a);
 }
