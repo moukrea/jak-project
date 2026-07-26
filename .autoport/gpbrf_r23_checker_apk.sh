@@ -46,6 +46,12 @@ restore(){
 trap restore EXIT
 
 [ -f "$NORM_SO" ] || die "no normal libgk at $NORM_SO"
+# SUPERVISOR FIX 2026-07-26: this script used to REUSE whatever libgk was already sitting in
+# build-android-checker. A shader edited after the last checker build therefore shipped a stale
+# checker APK while the normal APK was fresh — the exact stale-artifact trap, caught by the owner.
+# Always rebuild the checker variant before packaging it.
+cmake --build build-android-checker --target gk -j"$(nproc)" >/dev/null 2>&1 \
+  || die "checker libgk rebuild failed (build-android-checker)"
 [ -f "$CHK_SO" ]  || die "no checker libgk at $CHK_SO — build build-android-checker first"
 
 NSHA=$(sha256sum "$NORM_SO" | cut -d' ' -f1)
