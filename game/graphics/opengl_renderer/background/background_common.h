@@ -184,6 +184,17 @@ class PbrDrawBinder {
   // resolved PBR material list. ONLY use on paths where the active program IS TFRAG3
   // (never ETIE/ETIE_BASE/envmap).
   void begin(GLuint program, const PbrDrawList* draws);
+  // [cover] ROUND 21 DISPLACEMENT COVERAGE: the binder cannot know which PROGRAM is bound or which
+  // renderer owns the draws, but the caller knows both — so it hands them over ONCE, right after
+  // begin(). renderer/tree_kind must be string literals (their pointers are stored by the counter);
+  // tree_kind may be nullptr. tess_program = "the bound program is TFRAG3_TESS", i.e. the exact
+  // value first_tfrag_draw_setup pushed as u_pbr_tess_active, which is what the fragment POM gate
+  // tests. Without this call the draws are simply not counted (no guessing). Instrumentation only:
+  // nothing here changes what is rendered. begin() clears it.
+  void set_coverage_context(const char* renderer,
+                            const char* tree_kind,
+                            bool tess_program,
+                            u64 frame_idx);
   // Per-draw: look up tex_id, gate on the runtime toggle + opaque/non-decal rule,
   // bind units 11-15 real-or-neutral, set u_pbr_mode.
   void set(s32 tex_id, const DrawMode& mode);
@@ -218,6 +229,12 @@ class PbrDrawBinder {
   float m_cur_lambda = 0.25f;
   int m_cur_mode = 0;
   bool m_bound_any = false;
+  // [cover] ROUND 21 draw context (see set_coverage_context). m_cover_renderer == nullptr means
+  // "this caller does not report coverage" and the counters are left alone entirely.
+  const char* m_cover_renderer = nullptr;
+  const char* m_cover_kind = nullptr;
+  bool m_cover_tess = false;
+  u64 m_cover_frame = 0;
 };
 
 // Grecharged-pbr-materials round-4 mandate B: classic sun SHADOW MAPPING, WORLD-scale

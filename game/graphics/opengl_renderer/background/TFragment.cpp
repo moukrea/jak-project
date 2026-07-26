@@ -352,6 +352,9 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
         dens = 0.5f;
       }
       m_pbr_draws.push_back({(s32)ti, *maps, dens});
+      // [pom] device diagnostic: the measured density is geometry-derived, so this is the only
+      // place that knows it — hand it to the diag registry the pbr_tan_diag.txt writer reads.
+      custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
       lg::info(
           "pbr uv density: {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, ratio "
           "{:.2f}x) samples={}",
@@ -612,14 +615,19 @@ void TFragment::render_tree(int geom,
   // transparent trees).
   const bool tess_supported = gl_context_supports_tessellation();
   const bool tess_pbr_gate = Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable);
-  const bool tess_opaque_kind = tree.kind == tfrag3::TFragmentTreeKind::NORMAL ||
-                                tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
-                                tree.kind == tfrag3::TFragmentTreeKind::ICE;
+  // OWNER 2026-07-26 ("bah elle devrait pouvoir tourner partout !"): the kind allowlist was a
+  // second source of flat chunks — TRANS/LOWRES/WATER trees could never be tessellated whatever
+  // their maps. Every tfrag tree kind is eligible now; the per-draw `u_pbr_mode & 16` test in the
+  // tess-eval is the real gate (a draw with no height map displaces by zero anyway) and the tesc
+  // distance law already collapses far patches to level 1, so the cost stays bounded. This
+  // supersedes the "only for opaque tfrag kinds" note above: NORMAL, TRANS, DIRT, ICE, LOWRES,
+  // LOWRES_TRANS and WATER all qualify — only the INVALID sentinel is excluded.
+  const bool tess_kind_eligible = tree.kind != tfrag3::TFragmentTreeKind::INVALID;
   // Driver-defensive: require the tess PROGRAM to have actually built+linked (gl_tfrag3_tess_
   // program_ok) in addition to the per-shader .okay() and the capability query. A driver that
   // advertises tessellation but leaves glPatchParameteri unresolved would otherwise crash here.
   const bool use_tess = Gfx::g_global_settings.recharged_pbr_displacement == 2 && tess_supported &&
-                        gl_tfrag3_tess_program_ok() && tess_pbr_gate && tess_opaque_kind &&
+                        gl_tfrag3_tess_program_ok() && tess_pbr_gate && tess_kind_eligible &&
                         render_state->shaders[ShaderId::TFRAG3_TESS].okay();
   const ShaderId tfrag_shader_id = use_tess ? ShaderId::TFRAG3_TESS : ShaderId::TFRAG3;
 #else
@@ -1057,6 +1065,12 @@ void TFragment::render_tree(int geom,
   // in the shader, only rgb is relit.
   PbrDrawBinder pbr_binder;
   pbr_binder.begin(render_state->shaders[tfrag_shader_id].id(), &m_pbr_draws);
+  // [cover] ROUND 21 DISPLACEMENT COVERAGE: hand the binder the two things only this caller knows —
+  // which renderer owns the draws, and whether the program bound above is the TESS one (use_tess is
+  // exactly what first_tfrag_draw_setup turned into u_pbr_tess_active). The tree kind is free here.
+  // tfrag_tree_names[] entries are constexpr string literals, so storing the pointer is safe.
+  pbr_binder.set_coverage_context("tfrag", tfrag3::tfrag_tree_names[(int)tree.kind], use_tess,
+                                  render_state->frame_idx);
   auto set_pbr = [&](s32 tex_id, const DrawMode& mode) { pbr_binder.set(tex_id, mode); };
 #endif
 

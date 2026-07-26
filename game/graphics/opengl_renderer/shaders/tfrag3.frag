@@ -39,11 +39,26 @@ uniform float u_pbr_exposure;
 // a height map is bound), extra UV tiling on the PBR path only (1.0 = native density).
 uniform float u_pbr_normal_strength;
 uniform float u_pbr_height_scale;
-uniform float u_pbr_uv_tile;
+// (u_pbr_uv_tile is GONE. ★ OWNER CHECKER VERDICT, BUG A, 2026-07-26: every map — height, normal,
+//  roughness, AO, specular, emissive — must sample at EXACTLY the base colour's uv, with no
+//  separate multiplier anywhere. The world-scale reasoning belongs to the displacement AMPLITUDE
+//  only, and lives in pom_depth_uv() below.)
 // ROUND 20: THIS material's MEASURED authored UV density, in texture tiles per world metre
-// (measured at level load, see background_common.cpp measure_uv_density_tfrag/_tie). Replaces the
-// POM_UV_PER_M constant in the world-depth cap below; 0.5 = the old constant.
+// (measured at level load, see background_common.cpp measure_uv_density_tfrag/_tie). Converts the
+// parallax depth from metres into the UV units the offset lives in.
 uniform float u_pbr_uv_per_m;
+// ROUND 20 correction: this height MAP's characteristic feature wavelength, in TILES (measured at
+// load from the map's own mip-energy spectrum). The parallax depth follows the FEATURE size, the
+// same law tfrag3_tess.tese displaces real vertices by — so Parallax and Tessellation show the
+// same depth, produced two different ways.
+uniform float u_pbr_height_lambda;
+// ★ OWNER CHECKER VERDICT, BUG B (2026-07-26): "des chunks entiers (LA PLUPART) sont juste PLATS".
+// 1 only on the TFRAG3_TESS program, i.e. only where the tessellation stages actually displaced
+// real vertices. The POM used to be suppressed by the GLOBAL u_pbr_displacement == 2 setting, which
+// silently killed the parallax on every draw the tess program does not cover — all TIE walls and
+// props, shrubs, hfrag, and every patch past the tesc's 30 m gate — leaving them with NO
+// displacement at all. Suppression is per-PROGRAM now, so nothing is ever left flat.
+uniform int u_pbr_tess_active;
 // Owner round-3 mandate 2026-07-18: lighting split calibration. u_pbr_direct scales the
 // realtime direct DIFFUSE (the baked vertex color already contains the baked sun's
 // diffuse — this is the double-dose control); u_pbr_indirect scales the baked-GI
@@ -470,21 +485,63 @@ float hnorm(float h) {
   return clamp((h - u_pbr_height_stat.x) * u_pbr_height_stat.y + 0.5, 0.0, 1.0);
 }
 
-// ---- PBR POLISH #18: PARALLAX (POM) GRAZING ATTENUATION + WORLD-cm OFFSET CAP ----
+// ---- PARALLAX (POM) DEPTH LAW — rebuilt, OWNER 2026-07-26 ----
 // Shared by BOTH POM marches (the fused rt+pbr path and the rt-OFF standalone fallback), because
-// the owner's "au sol ça s'étale à plat" is a property of the formula, not of one branch. Rationale
-// in full at the fused march. tan(theta) = |Vt.xy| / Vt.z, so gating on Vt.z gates on the view
-// angle: 0.15 ~= 81 deg off the surface normal, 0.50 = 60 deg.
+// every symptom the owner reported is a property of the formula, not of one branch.
+//
+// OWNER: "le parallax rend complètement plat" ... "AUTANT SUR LES MURS QUE LE SOL". The second half
+// is the diagnostic one: on a wall viewed head-on the grazing fade is ~1, so the fade could not be
+// the cause. The cause was the ABSOLUTE world cap I had stacked on top of it:
+//     pom_cap = min(POM_MAX_TAN * height_scale, POM_MAX_WORLD_M * uv_per_m)     [old]
+// with POM_MAX_WORLD_M = 0.03 m flat. Plugging in the measured village materials, the second term
+// ALWAYS won: wallplaster uv_per_m 0.439 -> cap 0.0132 UV, leafyground 0.127 -> cap 0.0038 UV,
+// against a marched vector of 0.075 UV. The offset was clipped to 5-17 % of its length on every
+// shipped material, at every view angle, walls included. 3 cm is not a small depth cue for these
+// materials — leafyground's height features are ~2 m across, so 3 cm of lateral shift is nothing.
+//
+// THE FIX is to stop expressing the depth as an arbitrary absolute and derive it from the MATERIAL,
+// exactly like the tessellation tier already does: depth = f(this map's feature wavelength), in
+// metres, converted to UV with this material's measured density. Parallax and Tessellation then
+// show the SAME depth by construction — they differ only in how it is produced (UV march vs real
+// vertices), which is what makes flipping DISPLACEMENT between them read as a quality change and
+// not as a depth change.
+//
+// tan(theta) = |Vt.xy| / Vt.z, so gating on Vt.z gates on the view angle: 0.15 ~= 81 deg off the
+// surface normal, 0.50 = 60 deg.
 #define POM_GRAZE_LO 0.15
 #define POM_GRAZE_HI 0.50
+// OWNER 2026-07-26: the grazing attenuation is a gentle FLOOR now, never a kill. At the most
+// extreme grazing the offset keeps this fraction of its strength — enough that the relief still
+// reads at ordinary gameplay camera angles (which ARE grazing on a floor), while the sideways-smear
+// regime the earlier "ça s'étale à plat" report described is still damped. The steep march below
+// (16-32 layers with occlusion + secant refine) is what actually keeps grazing views honest.
+#define POM_GRAZE_FLOOR 0.35
 // The lateral shift may never exceed the feature depth itself (tan(theta) <= 1)...
 #define POM_MAX_TAN 1.0
-// ...nor this many METRES of apparent world sliding, whatever the material depth or tiling.
-#define POM_MAX_WORLD_M 0.03
-// Authored ground UV density, in UV tiles per metre — MEASURED, and the same constant
-// tfrag3_tess.tese uses for its world-space height lookup (WORLD_TILES_PER_M): one tile every 2 m.
-// It converts POM_MAX_WORLD_M into the UV units the offset actually lives in.
-#define POM_UV_PER_M 0.5
+// ...nor this fraction of ONE HEIGHT FEATURE of apparent sliding. Relative, so it scales with the
+// material the way the depth does, instead of clipping every material to the same absolute.
+#define POM_MAX_FEATURE_FRAC 0.35
+// The amplitude law itself, kept numerically IDENTICAL to tfrag3_tess.tese's (TESS_DEPTH_K,
+// TESS_DEPTH_MAX_RATIO, TESS_DEPTH_MAX_M and its 0.005*relief floor) so the two displacement tiers
+// cannot drift apart. Change one, change both.
+#define POM_DEPTH_K 5.0
+#define POM_DEPTH_MAX_RATIO 0.5
+#define POM_DEPTH_MAX_M 0.15
+
+// This material's parallax depth, in UV units, plus its feature wavelength in metres (out param,
+// used for the relative offset cap). uv_per_m converts metres -> UV: one metre of world spans
+// uv_per_m tiles of texture, and the parallax offset is a UV offset.
+float pom_depth_uv(out float lambda_world_m) {
+  float upm = max(u_pbr_uv_per_m, 0.02);
+  float tile_m = 1.0 / upm;
+  lambda_world_m = clamp(u_pbr_height_lambda, 0.002, 1.0) * tile_m;
+  float rel = u_pbr_height_scale * 20.0;  // the relief slider (height_scale = 0.05 * relief)
+  float amp_m = u_pbr_height_scale * POM_DEPTH_K * lambda_world_m;
+  amp_m = min(amp_m, POM_DEPTH_MAX_RATIO * lambda_world_m);  // never a spike field
+  amp_m = min(amp_m, POM_DEPTH_MAX_M * (0.5 + 0.5 * rel));   // never deeper than a step
+  amp_m = max(amp_m, 0.005 * rel);
+  return amp_m * upm;
+}
 
 // Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 2 "completely FLAT in
 // shadow"). The realtime AMBIENT IRRADIANCE for an arbitrary direction — the same selector the
@@ -834,11 +891,19 @@ void main() {
         if ((u_pbr_bisect & 32768) != 0 || f_tan_fb > 0.5) {
           stable_frame(N, fTn, fBn);
         }
-        vec2 uv = tex_coord.xy * u_pbr_uv_tile;
+        // ★ OWNER CHECKER VERDICT, BUG A: the SAME uv the base colour is sampled with (line ~600,
+        // `texture(tex_T0, tex_coord.xy)`), no multiplier. Every map below — height, normal,
+        // roughness, metallic, AO, specular, emissive — rides this one variable, so the relief can
+        // only ever line up with the pattern that drew it.
+        vec2 uv = tex_coord.xy;
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
+        // ★ BUG B: gated on u_pbr_tess_active, NOT on the global u_pbr_displacement. A draw only
+        // skips the march when THIS program actually tessellated it; every draw the tess program
+        // does not cover (TIE walls and props, shrubs, hfrag, non-opaque trees, anything past the
+        // 30 m tesc gate) keeps its parallax instead of going flat.
         if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-            (u_pbr_bisect & 128) == 0 && u_pbr_displacement != 2) {
+            (u_pbr_bisect & 128) == 0 && u_pbr_tess_active == 0) {
           vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.20);
           // ===========================================================================
@@ -853,27 +918,41 @@ void main() {
           // clamp bounded the magnitude but not the NATURE of the artifact, and 0.08 UV is
           // ~16 cm of world sliding at the authored ground UV density — enormous.
           // THE FIX (industry-standard POM attenuation, two parts):
-          //  (1) GRAZING FADE: parallax is only trustworthy near head-on, so weight it out
-          //      as the view becomes grazing. Below POM_GRAZE_LO (~81 deg off the normal)
-          //      it is gone entirely; it reaches full strength at POM_GRAZE_HI (~60 deg).
-          //      On grazing floors the relief then comes from the TESSELLATION
-          //      displacement (real vertices, cannot smear) and from the normal-map
-          //      shading + height cavity, all of which are view-stable.
-          //  (2) WORLD-cm CAP: cap the offset by the feature depth itself (POM_MAX_TAN,
-          //      i.e. tan(theta) <= 1) AND by an absolute POM_MAX_WORLD_M of world
-          //      sliding, converted to UV with the measured authored ground UV density.
-          //      3 cm instead of 16 cm — a surface detail, not a moving layer.
-          // Bisect bit 33554432 = both parts off (the legacy un-faded 0.08 UV offset), so
-          // this is a live same-vantage A/B with one setprop.
+          //  (1) GRAZING FADE, and
+          //  (2) an absolute POM_MAX_WORLD_M = 3 cm world cap.
+          // ★ BOTH WERE OVER-CORRECTIONS, and (2) was the fatal one — OWNER 2026-07-26:
+          // "le parallax rend complètement plat ... AUTANT SUR LES MURS QUE LE SOL". A wall
+          // seen head-on has pom_graze ~= 1, so the fade could not explain it; the flat
+          // 3 cm cap could, and did. Measured on the shipped materials it clipped the
+          // marched vector to 5-17 % of its length at EVERY angle (see the constants block
+          // for the numbers). Both parts are rebuilt:
+          //  (1') the fade is now a gentle FLOOR (POM_GRAZE_FLOOR) — damped at extreme
+          //       grazing, never killed, because the ordinary gameplay camera IS grazing
+          //       on a floor and that is precisely where the owner needs to see depth;
+          //  (2') the cap is RELATIVE to the material: the feature depth itself
+          //       (POM_MAX_TAN, tan(theta) <= 1) and a fraction of one feature wavelength
+          //       (POM_MAX_FEATURE_FRAC). No absolute constant clips a whole material any
+          //       more, and the depth itself now comes from pom_depth_uv() — the same
+          //       feature-scaled law tfrag3_tess.tese displaces real vertices by.
+          // Bisect bit 33554432 = the legacy un-faded 0.08 UV offset, so this is still a
+          // live same-vantage A/B with one setprop.
           // ===========================================================================
-          float pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
-          // ROUND 20: the world-depth cap needs THIS material's real tiles-per-metre, not a constant.
-          float pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
-                              POM_MAX_WORLD_M * max(u_pbr_uv_per_m, 0.02)) *
-                          u_pbr_uv_tile;
+          float pom_graze =
+              mix(POM_GRAZE_FLOOR, 1.0, smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z));
+          float lambda_world_m;
+          float depth_uv = pom_depth_uv(lambda_world_m);
+          float pom_cap = min(POM_MAX_TAN * depth_uv,
+                              POM_MAX_FEATURE_FRAC * lambda_world_m * max(u_pbr_uv_per_m, 0.02));
+          // Bisect bit 33554432 restores the ROUND-20 law EXACTLY — the build the owner played and
+          // called "complètement plat", not some older variant — so before/after is one setprop
+          // apart at the same vantage in the same boot. (It used to restore a pre-round-20 cell,
+          // which made the A/B measure the wrong pair: round 20's 3 cm world cap is the term that
+          // actually flattened it, and that cell never exercised it.)
           if ((u_pbr_bisect & 33554432) != 0) {
-            pom_graze = 1.0;   // legacy: no grazing attenuation...
-            pom_cap = 0.08;    // ...and the old fixed UV clamp (~16 cm of world slide)
+            pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);  // r20: fade to ZERO
+            depth_uv = u_pbr_height_scale;                             // r20: raw UV depth scale
+            pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
+                          0.03 * max(u_pbr_uv_per_m, 0.02));           // r20: flat 3 cm world cap
           }
           // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);
           // the loop bound below already allows 32. Occlusion test + secant interpolation
@@ -884,10 +963,10 @@ void main() {
           // length so the offset can never exceed a small, surface-locked bound: the depth
           // reads from the surface itself, never from clear epoxy floating in front of it.
           // duv_step marches P/n_layers.
-          vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile * pom_graze;
+          vec2 P = (Vt.xy / vz) * depth_uv * pom_graze;
           float Plen = length(P);
           if (Plen > pom_cap) P *= pom_cap / Plen;
-          // Fully faded out at grazing => skip the march entirely (also its 16-32 taps).
+          // Degenerate (head-on, or a zero-depth material) => skip the march and its taps.
           if (Plen > 1e-6) {
             vec2 duv_step = P / n_layers;
             float layer_d = 1.0 / n_layers;
@@ -926,7 +1005,10 @@ void main() {
           // this alone strengthens the contact shadow a lot: a map that only spanned 0.18 of the
           // range could never raise an occluder far enough above the ray to darken anything.
           fh0 = hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-          fh_ms_uv = u_pbr_height_scale * u_pbr_uv_tile;
+          // Same feature-scaled depth the march uses, so the shadow ray's slope matches the relief
+          // it is casting from (it used to be the raw UV height scale, a different depth entirely).
+          float fh_lambda_m;
+          fh_ms_uv = pom_depth_uv(fh_lambda_m);
         }
         // Normal map (bit 1) perturbs the SMOOTH normal => surface detail that shades
         // correctly as the realtime suns move (the fusion's whole point).
@@ -1602,15 +1684,17 @@ void main() {
         // derivative frame (per-triangle-constant = the facet source). Standalone rt-OFF+pbr-ON path.
         frisvad_basis(Nsurf, Tn, Bn);
       }
-      vec2 uv = tex_coord.xy * u_pbr_uv_tile;
-      // PBR POLISH bug fix — DOUBLE DISPLACEMENT. The fused branch above gates its POM on
-      // `u_pbr_displacement != 2` because the tess-eval already moved the real vertices; this
-      // standalone (realtime-lighting-OFF) branch never got that gate, so selecting Tessellation
-      // with realtime lighting off ran the vertex displacement AND a 16-32 step POM march on top,
-      // in a different coordinate domain — two uncorrelated displacements stacked. Same gate here.
-      // Everything else on this "bidon" fallback path is deliberately untouched.
+      // ★ OWNER CHECKER VERDICT, BUG A: the SAME uv as the base colour, no multiplier (see the
+      // fused branch — this "bidon" fallback is the owner's "PBR seul" preset, so it has to line
+      // up with the pattern too).
+      vec2 uv = tex_coord.xy;
+      // PBR POLISH bug fix — DOUBLE DISPLACEMENT. A draw the tess-eval already moved must not run a
+      // 16-32 step POM march on top of it: two displacements stacked. ★ BUG B: the gate is
+      // u_pbr_tess_active (per-PROGRAM), not the global u_pbr_displacement setting — otherwise
+      // selecting Tessellation flattens every draw the tess program does not cover.
+      // Everything else on this fallback path is deliberately untouched.
       if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-          u_pbr_displacement != 2) {
+          u_pbr_tess_active == 0) {
         // Parallax occlusion mapping, mobile-tuned: grazing-angle-scaled linear march
         // with early-out + one secant refine. Height convention: 1.0 (white) = surface
         // level, lower = carved in — so a neutral white map yields zero offset and the
@@ -1621,27 +1705,36 @@ void main() {
         float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
         // REOPEN #6 SURFACE-LOCK (same fix as the fused path): clamp the total parallax UV
         // offset so the rt-OFF standalone POM is also welded to the surface — no epoxy float.
-        // PBR POLISH #18 (same fix as the fused path, same reason): the grazing amplifier turns the
-        // offset into a horizontal UV SLIDE on floors, so fade it out at grazing and cap it in world
-        // cm. The owner's "PBR seul" preset renders through THIS branch, and his "ça s'étale à plat"
-        // is a property of the formula both branches share. Bisect bit 33554432 = legacy behaviour.
-        float pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
-        // ROUND 20: the world-depth cap needs THIS material's real tiles-per-metre, not a constant.
-        float pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
-                            POM_MAX_WORLD_M * max(u_pbr_uv_per_m, 0.02)) *
-                        u_pbr_uv_tile;
+        // ★ OWNER 2026-07-26, same rebuild as the fused path and for the same reason (the owner's
+        // "PBR seul" preset renders through THIS branch, and "plat autant sur les murs que le sol"
+        // was reported on both): the grazing fade is a FLOOR, not a kill, and the absolute 3 cm
+        // world cap — the term that actually flattened every material at every angle — is replaced
+        // by the material's own feature-scaled depth. Bisect bit 33554432 = legacy behaviour.
+        float pom_graze =
+            mix(POM_GRAZE_FLOOR, 1.0, smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z));
+        float lambda_world_m;
+        float depth_uv = pom_depth_uv(lambda_world_m);
+        float pom_cap = min(POM_MAX_TAN * depth_uv,
+                            POM_MAX_FEATURE_FRAC * lambda_world_m * max(u_pbr_uv_per_m, 0.02));
+        // Same round-20 restoration as the fused path, so the A/B pair is identical on both.
         if ((u_pbr_bisect & 33554432) != 0) {
-          pom_graze = 1.0;
-          pom_cap = 0.08;
+          pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
+          depth_uv = u_pbr_height_scale;
+          pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
+                        0.03 * max(u_pbr_uv_per_m, 0.02));
         }
-        vec2 P = (Vt.xy / vz) * u_pbr_height_scale * u_pbr_uv_tile * pom_graze;
+        vec2 P = (Vt.xy / vz) * depth_uv * pom_graze;
         float Plen = length(P);
         if (Plen > pom_cap) P *= pom_cap / Plen;
         if (Plen > 1e-6) {
           vec2 duv_step = P / n_layers;
           float layer_d = 1.0 / n_layers;
           float cur_d = 0.0;
-          float map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+          // hnorm(), matching the fused path: a map that only spans 0.18 of the 0-1 range would
+          // otherwise march against a nearly-constant depth field and read flat. This branch was
+          // the only POM still comparing against the RAW texel, and the owner tests it as the
+          // "PBR seul" preset — the checkerboard has to read here too.
+          float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
           float prev_map_d = map_d;
           for (int i = 0; i < 32; i++) {
             if (cur_d >= map_d || float(i) >= n_layers) {
@@ -1649,7 +1742,7 @@ void main() {
             }
             uv -= duv_step;
             prev_map_d = map_d;
-            map_d = 1.0 - textureLod(tex_PBR_H, uv, 0.0).r;
+            map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
             cur_d += layer_d;
           }
           // secant refine between the last two samples for a smooth intersection

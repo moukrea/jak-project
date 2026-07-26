@@ -135,6 +135,9 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
         dens = 0.5f;
       }
       m_pbr_draws.push_back({(s32)ti, *maps, dens});
+      // [pom] device diagnostic: same hand-off as TFragment — TIE materials are exactly the draws
+      // the per-PROGRAM tess gate now keeps the POM on, so they must appear in the dump too.
+      custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
       lg::info(
           "pbr uv density (tie): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, "
           "ratio {:.2f}x) samples={}",
@@ -954,6 +957,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   const bool pbr_on = !use_envmap;
   if (pbr_on) {
     pbr_binder.begin(render_state->shaders[ShaderId::TFRAG3].id(), &m_pbr_draws);
+    // [cover] ROUND 21 DISPLACEMENT COVERAGE: TIE's PBR draws are ALWAYS on the plain TFRAG3
+    // program (the tess program is tfrag-only), so tess_program = false — every TIE draw with a
+    // height map must therefore land in disp_pom, never in disp_none. No tree kind here.
+    pbr_binder.set_coverage_context("tie", nullptr, false, render_state->frame_idx);
     // Round-4 mandate B: bind the sun shadow matrix + sampler on the TFRAG3 program so a
     // replaced TIE surface receives the same shadowed direct term as tfrag. The depth pass
     // itself is driven by TFragment (tfrag NORMAL casters); Tie3 is receiver-only. TFRAG3

@@ -19,6 +19,11 @@
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
+// [pom] device diagnostic: pbr_pom_diag_section() renders the per-material parallax block appended
+// to pbr_tan_diag.txt below, and [cover] pbr_coverage_section() the per-frame displacement coverage
+// tally (which PBR-bound draws actually get displaced). Header is GL-free (PBR material registry
+// only), so the kernel can include it without dragging in the GL loader.
+#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/sceGraphicsInterface.h"
 #include "game/kernel/common/fileio.h"
 #include "game/kernel/common/kboot.h"
@@ -1202,7 +1207,27 @@ void pc_set_pbr_isolate(u32 idx) {
   // and confirms flipping the menu changes index/mask on device. This is called every frame with
   // the current index, so gate the write on an ACTUAL change to avoid per-frame disk churn.
   static int s_last_isolate_mask = -1;
-  if (mask != s_last_isolate_mask) {
+#ifdef OG_FEAT_PBR
+  // 2026-07-26: the file now also carries the [pom] block, which only fills in once a level's
+  // materials are resolved — long after the carousel settles on its boot value. Re-emit whenever
+  // the material set changes too, or the block would forever read "materials=0".
+  static u32 s_last_pom_gen = 0;
+  const u32 pom_gen = custom_tex::pbr_pom_diag_generation();
+  bool pom_changed = pom_gen != s_last_pom_gen;
+  s_last_pom_gen = pom_gen;
+  // ROUND 21: the [cover] block's numbers change every frame, so its generation advances only once
+  // every ~300 completed frames (~5 s) — enough to keep the pulled file live without per-frame disk
+  // churn, and it never advances at all while nothing is being counted (PBR off).
+  static u32 s_last_cover_gen = 0;
+  const u32 cover_gen = custom_tex::pbr_coverage_generation();
+  if (cover_gen != s_last_cover_gen) {
+    s_last_cover_gen = cover_gen;
+    pom_changed = true;
+  }
+#else
+  const bool pom_changed = false;
+#endif
+  if (mask != s_last_isolate_mask || pom_changed) {
     s_last_isolate_mask = mask;
     try {
       std::string body = fmt::format(
@@ -1212,6 +1237,10 @@ void pc_set_pbr_isolate(u32 idx) {
           "          Gfx::g_global_settings.recharged_pbr_isolate -> background_common u_pbr_bisect\n"
           "  (fused path only: realtime-lighting ON + pbr-materials ON. Flip the menu to change this.)\n",
           idx, mask, label, (mask & 64) ? 1 : 0, (mask & 128) ? 1 : 0);
+#ifdef OG_FEAT_PBR
+      body += custom_tex::pbr_pom_diag_section();
+      body += custom_tex::pbr_coverage_section();
+#endif
       file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", body);
     } catch (...) {
       // best-effort diag; never let a file error affect the render path

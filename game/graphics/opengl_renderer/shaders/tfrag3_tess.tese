@@ -26,7 +26,8 @@ uniform float fog_max;
 uniform int u_pbr_mode;            // bit16 => a height map is bound
 uniform int u_pbr_displacement;    // 2 => Tessellation displacement active
 uniform float u_pbr_height_scale;  // POM's native-UV depth scale (also drives displacement amount)
-uniform float u_pbr_uv_tile;       // extra UV tiling on the PBR path
+// (u_pbr_uv_tile is GONE from every map lookup — owner 2026-07-26: the maps must use exactly the
+//  base colour's UV, with no separate multiplier anywhere. World scale lives in the amplitude.)
 // ROUND 20: THIS material's MEASURED authored UV density, in texture tiles per world metre,
 // measured at level load from the level's own geometry (background_common.cpp
 // measure_uv_density_tfrag / measure_uv_density_tie). 0.5 = what WORLD_TILES_PER_M assumed.
@@ -66,9 +67,9 @@ uniform sampler2D tex_PBR_H;       // height map, unit 15 (.r = height, 0.5 = ne
 #define TESS_DEPTH_MAX_RATIO 0.5
 #define TESS_DEPTH_MAX_M 0.15
 
-// Grecharged-mesh-consolidation: tiling of the WORLD-SPACE height lookup, in tiles per metre
-// (0.5 = one tile every 2 m, about the density tfrag's authored ground UVs sit at). Multiplied by
-// u_pbr_uv_tile so debug.opengoal.pbr.uvtile still tunes it live.
+// Fallback authored UV density, in tiles per metre (0.5 = one tile every 2 m, about where tfrag's
+// authored ground UVs sit). Used only when the per-material measured density is unavailable, and —
+// under bisect bit 65536 — as the rate of the legacy world-space height lookup.
 #define WORLD_TILES_PER_M 0.5
 
 // The same bisect word tfrag3.frag declares. The tess pipeline uses tfrag3.frag as its fragment
@@ -179,37 +180,40 @@ void main() {
   if ((u_pbr_mode & 16) != 0 && u_pbr_displacement == 2 && u_pbr_height_scale > 0.0) {
     // ---- Grecharged-mesh-consolidation: SEAM-CONSISTENT DISPLACEMENT (the see-through slits) ----
     //
-    // (1) The height must be a function of WORLD POSITION, not of the per-chunk texcoord. The
-    //     tessellator generates NEW vertices all ALONG a shared edge, and each patch interpolates
-    //     ITS OWN texcoords for them — so two chunks meeting at that edge sample different texels
-    //     down its entire length, not merely at the two corners. No amount of per-vertex data can
-    //     fix that: only a height FIELD that is a function of position agrees on both sides. (The
-    //     previous phase already measured why a common UV frame does not exist — 40% of cross-chunk
-    //     seams have tangent frames rotated >30 deg and ~27% are mirrored — and adopted the same
-    //     world-derived-frame answer for the normal map's tangent basis in stable_frame().)
-    //     `world` and `N` are now bit-identical across a welded edge: mesh_consolidate() snaps
-    //     coincident positions to one value and gives the group one shared normal. So this whole
-    //     expression is bit-identical on both sides, and the two surfaces displace together.
+    // (1) ★★ OWNER CHECKER VERDICT, BUG A (2026-07-26): "le displacement ne correspond pas du tout
+    //     à la texture, comme si c'était pas aligné." It did not, and THIS is where it came from.
+    //     The height used to be looked up through a WORLD-PLANE PROJECTION of the vertex position,
+    //     while the fragment stage samples the albedo — and the normal/roughness maps — at the
+    //     AUTHORED texcoord this shader forwards as `tex_coord = uv3`. Two uncorrelated coordinate
+    //     systems: the geometry rose and fell to a height field that had nothing to do with the
+    //     checker squares the owner was looking at, which is exactly what a checkerboard is built
+    //     to expose. The projection was adopted to stop tessellation slits at chunk seams (the
+    //     tessellator generates new vertices ALL ALONG a shared edge and each patch interpolates
+    //     ITS OWN texcoords for them, so UV-split sides sample different texels down the whole
+    //     edge) — but that job is already done, and done better, by the seam weights in item (2):
+    //     mesh_consolidate() zeroes seam_w on precisely the vertices whose two sides cannot agree,
+    //     so the displacement is EXACTLY zero along those edges from BOTH patches whatever domain
+    //     the lookup lives in. The height therefore goes back into the SAME uv the base colour
+    //     uses — no projection, no extra multiplier — which is the owner's hard requirement:
+    //     "s'assurer que les maps (height, normal, roughness) utilisent exactement le même
+    //     alignement que la base color". The world-scale reasoning survives only where it belongs,
+    //     in the AMPLITUDE (amp_m, in metres) below. Legacy projection = bisect bit 65536.
     vec2 huv;
-    // ROUND 20: the height lookup rate and the displacement amplitude are now derived from THIS
-    // material's measured authored UV density (u_pbr_uv_per_m, tiles per world metre) instead of the
-    // hardcoded WORLD_TILES_PER_M. One height-map tile therefore spans exactly the same world
-    // distance as one PAINTED tile, so the displaced feature size matches the texture the fragment
-    // stage parallaxes and normal-maps. Legacy constant law kept under bisect bit 67108864.
+    // ROUND 20: the displacement AMPLITUDE is derived from THIS material's measured authored UV
+    // density (u_pbr_uv_per_m, tiles per world metre) instead of the hardcoded WORLD_TILES_PER_M,
+    // so the displaced feature depth matches the texture the fragment stage normal-maps.
+    // Legacy constant law kept under bisect bit 67108864.
     bool legacy_uv_law = (u_pbr_bisect & 67108864) != 0;
     float upm = (!legacy_uv_law && u_pbr_uv_per_m > 0.0) ? u_pbr_uv_per_m : WORLD_TILES_PER_M;
     float tile_m = 1.0 / max(upm, 1e-3);
-    // Grecharged-pbr-realtime-fusion PBR POLISH: the two WORLD axes the projection above uses, and
-    // the huv-units-per-METRE scale, kept so the displaced surface's own normal can be derived
-    // from the very same height field (see the gradient block after the displacement).
-    vec3 hax_u = vec3(1.0, 0.0, 0.0);
-    vec3 hax_v = vec3(0.0, 0.0, 1.0);
-    float huv_per_m = upm * u_pbr_uv_tile;
+    // The two WORLD directions +U and +V point along, and the huv-units-per-METRE scale: the
+    // displaced surface's own normal is derived from this very height field (gradient block after
+    // the displacement), so it has to know where a step in huv goes in world space.
+    vec3 hax_u, hax_v;
+    float huv_per_m = upm;
     if ((u_pbr_bisect & 65536) != 0) {
-      huv = uv3.xy * u_pbr_uv_tile;  // legacy per-chunk lookup — kept ONLY as the A/B that tears
-      huv_per_m = 0.0;               // no world mapping on the legacy path => no gradient normal
-    } else {
-      // project onto the world plane most face-on to the surface, so walls do not smear
+      // LEGACY A/B: the world-plane projection this round replaced. Projects onto the world plane
+      // most face-on to the surface — seam-stable, but misaligned with the albedo (owner bug A).
       vec3 an = abs(N);
       vec2 pw;
       if (an.y >= an.x && an.y >= an.z) {
@@ -225,7 +229,34 @@ void main() {
         hax_u = vec3(1.0, 0.0, 0.0);
         hax_v = vec3(0.0, 1.0, 0.0);
       }
-      huv = pw * ((1.0 / 4096.0) * upm * u_pbr_uv_tile);
+      huv = pw * ((1.0 / 4096.0) * upm);
+    } else {
+      // THE ALIGNED PATH: the authored texcoord, bit-identical to what tfrag3.frag samples the base
+      // colour with (this shader forwards the very same `uv3` as tex_coord). A raised block now
+      // sits on the checker square that drew it.
+      huv = uv3.xy;
+      // +U/+V in world space come from the per-vertex TANGENT basis — the one the mesh bake
+      // computes MikkTSpace-style from these very UVs — so the gradient normal stays consistent
+      // with the lookup. A degenerate tangent falls back to the face-on world plane for the FRAME
+      // ONLY; the lookup itself never leaves UV space.
+      vec3 Tw = bary3(tc_tangent[0].xyz, tc_tangent[1].xyz, tc_tangent[2].xyz);
+      vec3 Tp = Tw - N * dot(N, Tw);
+      if (dot(Tp, Tp) > 1e-6) {
+        hax_u = normalize(Tp);
+        hax_v = cross(N, hax_u) * (tc_tangent[0].w < 0.0 ? -1.0 : 1.0);
+      } else {
+        vec3 an = abs(N);
+        if (an.y >= an.x && an.y >= an.z) {
+          hax_u = vec3(1.0, 0.0, 0.0);
+          hax_v = vec3(0.0, 0.0, 1.0);
+        } else if (an.x >= an.z) {
+          hax_u = vec3(0.0, 0.0, 1.0);
+          hax_v = vec3(0.0, 1.0, 0.0);
+        } else {
+          hax_u = vec3(1.0, 0.0, 0.0);
+          hax_v = vec3(0.0, 1.0, 0.0);
+        }
+      }
     }
     // camera distance in meters (same convention as v_fringe_rel below). Hoisted above the height
     // fetch because the BAND-LIMIT below needs it. Uses the UNDISPLACED `world`, which

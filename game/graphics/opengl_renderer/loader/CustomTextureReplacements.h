@@ -98,6 +98,55 @@ PbrMaterialMaps register_pbr_material(const std::string& tex_debug_name,
 
 // Look up the registered PBR maps for a texture, or nullptr if none.
 const PbrMaterialMaps* find_pbr_material(const std::string& tex_debug_name);
+
+// Grecharged-pbr-realtime-fusion 2026-07-26, [pom] DEVICE DIAGNOSTIC. The owner and the
+// supervisor both asked the same question about the flat parallax — "is the POM branch even
+// executed on this draw, and what is the FINAL offset after every cap, in UV and in world cm?".
+// The shader cannot answer it (no printf on GLES), so the CPU mirrors the exact same amplitude law
+// per material and dumps it into the pullable pbr_tan_diag.txt. The renderers call
+// pbr_pom_diag_note() as they resolve a level's materials (they own the measured UV density,
+// which is geometry-derived and therefore not part of PbrMaterialMaps); the kernel's diag writer
+// calls pbr_pom_diag_section() to render the block. This is diagnostics only — nothing here is
+// read by the render path.
+void pbr_pom_diag_note(const std::string& tex_debug_name,
+                       const PbrMaterialMaps& maps,
+                       float uv_per_m);
+// Bumped every time a note() actually changes the recorded set, so the diag writer can tell that
+// a level load brought new materials in and re-emit the file (it is otherwise only written when
+// the isolate carousel moves, which happens before any level is loaded).
+u32 pbr_pom_diag_generation();
+// The rendered "[pom]" block, one line per PBR-bound material plus a summary line. Empty string
+// when nothing has been noted yet.
+std::string pbr_pom_diag_section();
+
+// Grecharged-pbr-realtime-fusion ROUND 21, [cover] DISPLACEMENT COVERAGE counters. The owner's
+// bug B is "des chunks entiers (LA PLUPART) sont juste PLATS": the question is not whether the POM
+// law is right, it is WHICH PBR-bound draws receive ANY displacement at all. These counters answer
+// it with numbers instead of eyeballs: every draw that binds a PBR material is classified, once,
+// at the bind site (PbrDrawBinder::set) into exactly one displacement bucket. Counted per frame and
+// snapshotted at the frame boundary, so the dump always reports one complete frame.
+//   frame_idx  : SharedRenderState::frame_idx — used to detect the frame boundary.
+//   renderer   : the renderer that owns the draw, a STRING LITERAL ("tfrag"/"tie"); the pointer is
+//                stored, so it must have static storage duration.
+//   tree_kind  : optional sub-label with the same lifetime rule (tfrag3::tfrag_tree_names[kind]);
+//                nullptr when the caller has no cheap tree kind.
+//   has_height : this draw has a height map bound (u_pbr_mode bit 16).
+//   disp_tess  : the draw is rendered by the TFRAG3_TESS program AND the tess-eval displacement
+//                gate is open (real vertex displacement).
+//   disp_pom   : the draw is rendered by a non-tess program AND the fragment POM gate is open.
+// Both false with has_height = the "flat chunk" bucket. Callers own the gate mirroring (the
+// effective height scale / bisect / debug values live on the GL side).
+void pbr_coverage_note_draw(u64 frame_idx,
+                            const char* renderer,
+                            const char* tree_kind,
+                            bool has_height,
+                            bool disp_tess,
+                            bool disp_pom);
+// Advances every ~300 completed frames once counting has started, so the diag writer re-emits the
+// file with live coverage numbers without doing per-frame disk I/O.
+u32 pbr_coverage_generation();
+// The rendered "[cover]" block. Empty string until one full frame has been counted.
+std::string pbr_coverage_section();
 #endif
 
 // Force a rescan of the replacements directory on the next lookup().

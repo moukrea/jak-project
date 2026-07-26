@@ -142,8 +142,18 @@ bool g_shared_init = false;
 }  // namespace
 
 int mode() {
+  // OWNER STANDING RULE: the checkerboard is the acceptance test, and the owner has no adb — so
+  // every owner build ships alongside a CHECKER-DEBUG variant with the pattern already on. Only
+  // the DEFAULT moves: the prop/env still override it in either direction (set it to 0 in a
+  // CHECKER-DEBUG build to turn the pattern off), so headless A/B keeps working unchanged.
+#ifdef OG_PBR_CHECKER_DEBUG
+  constexpr int kDefaultMode = 1;  // CHECKER-DEBUG build: pattern ON out of the box (no adb)
+#else
+  constexpr int kDefaultMode = 0;
+#endif
   static int cached = -1;
-  return read_cached(cached, 0, 0, 4, "debug.opengoal.pbr.testpattern", "OG_PBR_TESTPATTERN");
+  return read_cached(cached, kDefaultMode, 0, 4, "debug.opengoal.pbr.testpattern",
+                     "OG_PBR_TESTPATTERN");
 }
 
 bool flat_base() {

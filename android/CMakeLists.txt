@@ -151,6 +151,20 @@ add_subdirectory("${JAK_ROOT}/third-party/SDL" sdl_build EXCLUDE_FROM_ALL)
 # OFF so HEAD behavior is unchanged.
 option(JAK_SWAMP_CAPTURE "owner swamp-crash capture build" OFF)
 
+# ---------------------------------------------------------------------------
+# CHECKER-DEBUG build (owner standing rule 2026-07-26): the PBR checkerboard is
+# the acceptance test for parallax AND tessellation, and the owner has no adb —
+# so every owner build ships with a companion APK where the test pattern is
+# already ON (PbrTestPattern.cpp mode() default 1 instead of 0). Only the
+# DEFAULT moves: debug.opengoal.pbr.testpattern / OG_PBR_TESTPATTERN still
+# override it, so headless A/B is unaffected. Declared before the targets so
+# the definition is in scope for gk (which compiles PbrTestPattern.cpp).
+# Default OFF => the normal build is byte-for-byte unchanged.
+option(OG_PBR_CHECKER_DEBUG "Ship the PBR checkerboard test pattern enabled by default" OFF)
+if(OG_PBR_CHECKER_DEBUG)
+  add_compile_definitions(OG_PBR_CHECKER_DEBUG)
+endif()
+
 add_library(android_kernel STATIC
     # Android compat — globals + logging shims that the desktop runtime
     # would provide via game/runtime.cpp.

@@ -250,6 +250,19 @@ val configureNativeLibs by tasks.registering(Exec::class) {
         "-DANDROID_PLATFORM=android-29",
         "-DGOALC_BACKEND=arm64",
         "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+        // CHECKER-DEBUG companion build (owner has no adb — the PBR checkerboard
+        // must be on out of the box). Uncomment, or add the flag by hand to a
+        // SEPARATE -B dir, to produce it:
+        //     , "-DOG_PBR_CHECKER_DEBUG=ON"
+        // NOTE: the onlyIf below skips reconfiguration when a CMakeCache.txt
+        // already exists, so flipping this on an existing build-android tree
+        // does nothing. Either wipe build-android or configure a second build
+        // dir directly:
+        //     cmake -S . -B build-android-checker -G Ninja \
+        //       -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+        //       -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 \
+        //       -DGOALC_BACKEND=arm64 -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        //       -DOG_PBR_CHECKER_DEBUG=ON
     )
     onlyIf {
         // Reconfigure only if the cmake cache is absent. Subsequent

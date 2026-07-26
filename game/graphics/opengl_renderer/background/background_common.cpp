@@ -3,6 +3,7 @@
 #include "background_common.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <unordered_map>
@@ -634,6 +635,23 @@ float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_sam
   return pbr_uv_density_median(samples);
 }
 
+// [cover] ROUND 21 DISPLACEMENT COVERAGE: the EFFECTIVE displacement gates, mirrored from
+// first_tfrag_draw_setup (which is where the prop/env overrides, the tess->parallax driver demotion
+// and the mode-0 height-scale zeroing are all resolved). PbrDrawBinder::set reads them to classify
+// each PBR-bound draw against the same conditions the shaders branch on. Diagnostics only: nothing
+// in the render path reads these back.
+static std::atomic<float> g_cover_height_scale{0.f};
+static std::atomic<int> g_cover_bisect{0};
+static std::atomic<int> g_cover_debug{0};
+static std::atomic<int> g_cover_displacement{1};
+
+static void pbr_cover_publish_gates(float height_scale, int bisect, int debug, int displacement) {
+  g_cover_height_scale.store(height_scale, std::memory_order_relaxed);
+  g_cover_bisect.store(bisect, std::memory_order_relaxed);
+  g_cover_debug.store(debug, std::memory_order_relaxed);
+  g_cover_displacement.store(displacement, std::memory_order_relaxed);
+}
+
 // Grecharged-pbr-materials round-4: shared per-draw PBR material bind (was a lambda
 // local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
 // the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
@@ -659,6 +677,22 @@ void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
   m_cur_lambda = 0.25f;
   m_cur_mode = 0;
   m_bound_any = false;
+  // [cover] the draw context is per-caller, not per-program state: cleared here so a binder can
+  // never inherit a stale label, and re-supplied by the caller right after begin().
+  m_cover_renderer = nullptr;
+  m_cover_kind = nullptr;
+  m_cover_tess = false;
+  m_cover_frame = 0;
+}
+
+void PbrDrawBinder::set_coverage_context(const char* renderer,
+                                         const char* tree_kind,
+                                         bool tess_program,
+                                         u64 frame_idx) {
+  m_cover_renderer = renderer;
+  m_cover_kind = tree_kind;
+  m_cover_tess = tess_program;
+  m_cover_frame = frame_idx;
 }
 
 void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
@@ -696,6 +730,25 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     return;
   }
   if (want != 0) {
+    // [cover] ROUND 21 DISPLACEMENT COVERAGE. This draw is about to bind PBR maps and push
+    // u_pbr_mode, so it is exactly one "PBR-bound draw" — count it, and classify HOW (if at all) it
+    // receives displacement, using the same conditions the shaders branch on:
+    //   tfrag3_tess.tese:180  (mode & 16) && u_pbr_displacement == 2 && u_pbr_height_scale > 0
+    //   tfrag3.frag:905/1690  (mode & 16) && u_pbr_debug != 8 && u_pbr_height_scale > 0 &&
+    //                         (u_pbr_bisect & 128) == 0 && u_pbr_tess_active == 0
+    // Neither open = the owner's FLAT CHUNK. Integer-only, no allocation, and only ever reached on
+    // a draw that already does the PBR bind, so PBR-off frames pay nothing.
+    if (m_cover_renderer) {
+      const bool has_height = (want & 16) != 0;
+      const float hs = g_cover_height_scale.load(std::memory_order_relaxed);
+      const int bis = g_cover_bisect.load(std::memory_order_relaxed);
+      const int dbg = g_cover_debug.load(std::memory_order_relaxed);
+      const int disp = g_cover_displacement.load(std::memory_order_relaxed);
+      const bool tess_disp = m_cover_tess && disp == 2 && hs > 0.f;
+      const bool pom_disp = !m_cover_tess && hs > 0.f && (bis & 128) == 0 && dbg != 8;
+      custom_tex::pbr_coverage_note_draw(m_cover_frame, m_cover_renderer, m_cover_kind, has_height,
+                                         has_height && tess_disp, has_height && pom_disp);
+    }
     // Bind ALL SEVEN units every time: the real map when present, the 1x1 neutral
     // default when absent. No unit is ever left unbound or holding another draw's map
     // while the PBR shader path is active.
@@ -1500,6 +1553,19 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   const auto& sh = render_state->shaders[shader];
   sh.activate();
   auto id = sh.id();
+#ifdef OG_FEAT_PBR
+  // ★ OWNER CHECKER VERDICT, BUG B (2026-07-26): "des chunks entiers (LA PLUPART) sont juste
+  // PLATS alors que le damier est bien présent". The fragment POM was gated on the GLOBAL setting
+  // (u_pbr_displacement != 2), so selecting Tessellation switched the parallax OFF on every draw
+  // the tess program does not cover — all TIE props/walls, shrubs, hfrag, the non-opaque tfrag
+  // trees, and every patch past the tesc's 30 m gate. Those draws then had NO displacement at all:
+  // flat chunks right next to raised ones, exactly what the checkerboard exposed. The suppression
+  // has to be per-PROGRAM: only the program that actually runs the tessellation stages may skip
+  // the POM, everything else keeps it. Every other caller (Tie3, Shrub, Hfrag) passes a non-tess
+  // ShaderId and therefore gets 0 = "run the POM".
+  glUniform1i(glGetUniformLocation(id, "u_pbr_tess_active"),
+              shader == ShaderId::TFRAG3_TESS ? 1 : 0);
+#endif
   glUniform1i(glGetUniformLocation(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
   glUniform1i(glGetUniformLocation(id, "decal"), false);
   glUniform1i(glGetUniformLocation(id, "tex_T0"), 0);
@@ -1852,6 +1918,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (pbr_displacement == 0) {
     height_scale = 0.0f;
   }
+  // [cover] ROUND 21: publish the EFFECTIVE displacement gates (post prop/env override, post
+  // tess->parallax demotion, post mode-0 zeroing) so PbrDrawBinder::set can classify each draw
+  // against the very values the shaders were just handed. Reading gs directly there would miss all
+  // three corrections. Three relaxed stores per program setup; nothing is rendered from them.
+  pbr_cover_publish_gates(height_scale, pbr_bisect, pbr_debug, pbr_displacement);
   glUniform1i(glGetUniformLocation(id, "u_pbr_displacement"), pbr_displacement);
   glUniform1f(glGetUniformLocation(id, "u_pbr_tess_max"), pbr_tess_max);
   // OWNER #18: the near-field target segment size the tesc level law solves for. Clamped to a sane

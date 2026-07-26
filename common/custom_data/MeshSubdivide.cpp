@@ -41,10 +41,13 @@ std::string get_setting(const char* android_prop, const char* env_name) {
   return e ? std::string(e) : std::string();
 }
 
-// TFragment.cpp `tess_opaque_kind` — the only tfrag kinds ever drawn through the tessellation program.
+// TFragment.cpp `tess_kind_eligible` — the tfrag kinds that may be drawn through the tessellation
+// program. OWNER 2026-07-26 ("bah elle devrait pouvoir tourner partout !"): widened IDENTICALLY to
+// the runtime test, because a kind the runtime tessellates but this filter skips gets no
+// pre-subdivided geometry (coarse patches = another flavour of the owner's flat chunks). NORMAL,
+// TRANS, DIRT, ICE, LOWRES, LOWRES_TRANS and WATER all qualify; only the INVALID sentinel is out.
 bool tess_opaque_kind(TFragmentTreeKind kind) {
-  return kind == TFragmentTreeKind::NORMAL || kind == TFragmentTreeKind::DIRT ||
-         kind == TFragmentTreeKind::ICE;
+  return kind != TFragmentTreeKind::INVALID;
 }
 
 // The GL 2-10-10-10 packing the renderer binds at location 3. Identical maths to MeshConsolidate's,
