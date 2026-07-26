@@ -1183,3 +1183,21 @@ the LOD/subdivision scheme used.
    `app-jak1-CHECKER-DEBUG.apk` + `app-jak1-recharged.apk`. The owner has no adb — the debug build must work
    out of the box.
 3. Report the checker verdict per mode (parallax / tessellation) with the alignment and coverage numbers.
+
+**OWNER (2026-07-26): "parallax rend complètement plat actuellement".** SUPERVISOR CONFIRMS THE CAUSE — my
+own guard-rails stacked up and neutralised it (tfrag3.frag ~863-887):
+    POM_MAX_WORLD_M = 0.03                       (my "cap the offset in world cm" mandate)
+    pom_graze = smoothstep(LO, HI, Vt.z)         (my "fade parallax at grazing" mandate)
+    P = (Vt.xy / vz) * height_scale * uv_tile * pom_graze
+On a game-camera view of the ground (mostly grazing), pom_graze -> ~0 AND the offset is capped at 3 cm =>
+NO visible parallax at all. I over-corrected the earlier "horizontal smear" report into a dead effect.
+FIX (balance, not extremes):
+ - Raise the world cap so the depth is actually perceivable (derive it from the material's real height
+   range / tile world size — a stone wall can carry several cm, ground detail more; 3 cm flat is too small
+   and arbitrary).
+ - Make the grazing attenuation a GENTLE floor, not a kill: keep a minimum weight (e.g. never below ~0.35)
+   so parallax still reads at typical gameplay angles; only damp the extreme grazing case that produced the
+   sideways smear. Better: use proper steep-POM with self-occlusion (which does not smear at grazing) rather
+   than fading the effect away.
+ - The acceptance is the CHECKER: in PARALLAX mode the checker squares must show clear depth (edges,
+   self-occlusion) at normal gameplay camera angles — not a flat pattern, and not a sliding texture.
