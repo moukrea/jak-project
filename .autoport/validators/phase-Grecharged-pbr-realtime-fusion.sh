@@ -216,4 +216,23 @@ grep -qiE 'final amplitude.*cm|amplitude finale.*cm|amplitude *[:=] *[0-9.]+ *cm
 grep -qiE 'chunk|draw id|bucket' "$R" || fail "chunk/draw identity not compared across the boundary"
 # the grass red herring must not come back
 grep -qiE 'GrassRenderer|GBK[0-9]' "$R" && fail "grass renderer instrumented again — the owner ruled it out (village1 grass is a texture; 3D grass is training-island only)"
+# ---- ROUND 25: amplitude uniformity (C1), zero polarity (C2), parallax white-fraction vs angle (C3) ----
+# C1: same checker map, amplitude achieved varies ~15x by location (30cm p2p vs 2cm). Density, not gain.
+grep -qiE 'peak-to-peak|crete-a-crete|p2p' "$R" || fail "C1: no peak-to-peak amplitude in cm per location"
+grep -qiE 'vert(ices|s|ex)? per (checker )?(square|carreau|feature)|verts?/feature|v/feature' "$R" || fail "C1: vertices-per-feature not reported alongside amplitude (the density hypothesis is untested)"
+grep -ciE 'location|emplacement|vantage' "$R" | awk '$1>=6{ok=1} END{exit !ok}' || fail "C1: fewer than 6 locations sampled for the amplitude spread"
+AMPR=$(grep -oiE 'worst[^.]{0,60}?([0-9]{1,3}(\.[0-9]+)?) *% *of *(the )?best|amplitude (uniformity|ratio)[^0-9]{0,20}([0-9]{1,3}(\.[0-9]+)?) *%' "$R" | grep -oE '[0-9]{1,3}(\.[0-9]+)?' | sort -g | head -1)
+[ -n "$AMPR" ] || fail "C1: no 'worst location = N% of best' amplitude-uniformity figure"
+awk -v v="$AMPR" 'BEGIN{exit !(v>=60)}' || fail "C1: amplitude uniformity $AMPR% < 60% (owner measured a ~15x spread)"
+grep -qiE 'not compensat|no amplitude (gain|boost) where density|densite se corrige|fixed by density' "$R" || fail "C1: must state the fix is density, never boosting commanded amplitude where verts are missing"
+# C2: polarity census must hit ZERO, with the undecidable category named
+grep -qiE '(polarity|polarite)[^.]{0,60}(= *0|zero|aucun)' "$R" || fail "C2: polarity census does not reach ZERO"
+grep -qiE 'non-manifold|isolated face|double-?sided|undecidable|indecidable' "$R" || fail "C2: the residual undecidable category is not identified"
+# C3: white-area fraction vs view angle, parallax tracking the tessellation reference
+grep -qiE 'white (area )?fraction|fraction blanche|white coverage' "$R" || fail "C3: no on-screen white-area-fraction metric"
+grep -ciE 'angle' "$R" | awk '$1>=6{ok=1} END{exit !ok}' || fail "C3: fewer than 6 view angles swept"
+grep -qiE 'grazing|rasant' "$R" || fail "C3: grazing angle not covered (that is where the owner sees the smear)"
+grep -qiE 'tessellation.*(reference|curve)|courbe tessellation|reference curve' "$R" || fail "C3: tessellation curve not used as the reference the parallax must track"
+grep -qiE 'Vt\.z|view.*z floor|plancher.*z' "$R" || fail "C3: the tangent-space Vt.z floor suspect not instrumented"
+grep -qiE 'intersection' "$R" || fail "C3: not shown whether the final offset is bounded by the marched intersection"
 echo "[Gpbrf PASS]"
