@@ -152,4 +152,8 @@ grep -qiE 'tess.*vs.*(off|parallax).*(delta|pixel).*(ground|sol)|ground band del
 grep -qiE 'no new (seam|crack)|mesh consolidation.*(intact|preserved)|welded.*(shared|midpoint)' "$R" || fail "no mesh-consolidation-intact proof (subdivision must share midpoints)"
 # ★ SUPERVISOR: 668/668 textures had maps=NONE (name mismatch bch-* vs vil-* + over-strict same-source rule).
 grep -qiE 'checkerboard|damier|checker.*(block|raised|height)' "$R" || fail "no checkerboard verification (owner's method: synthetic height must produce visible blocks)"
+# ★★ OWNER CHECKER VERDICT: (A) maps sampled with a DIFFERENT uv than base; (B) most chunks get no displacement.
+grep -qiE 'same uv as (the )?base|maps.*same.*(uv|coordinates).*base|remove.*uv_tile.*(sampling|lookup)|uv_tile.*(amplitude only|not.*uv)' "$R" || fail "no same-UV-as-base fix (maps were sampled with tex_coord*u_pbr_uv_tile while base uses raw tex_coord => misaligned relief)"
+grep -qiE 'coverage.*(displac|tess).*(%|percent)|flat chunk.*(fixed|cause)|every.*(pbr|bound).*draw.*displac|fallback.*pom.*(kind|bucket)' "$R" || fail "no displacement-coverage fix/report (most chunks were flat despite the checker being applied)"
+grep -qiE 'checker.*(line up|coincide|align).*(square|block)|blocks.*match.*checker' "$R" || fail "no checker-alignment verification"
 echo "[Gpbrf PASS]"

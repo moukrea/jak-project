@@ -1110,3 +1110,33 @@ the height features are far too small relative to the surface.
    verification is one prop away instead of hand-pushed files. Include the UV orientation markers.
 4. Re-run the checker test after the tiling/scale fix: the checker squares must read as LARGE, clearly raised
    blocks with real shadowing — and then the real materials should finally show depth instead of contrast.
+
+---
+## ★★ OWNER CHECKER VERDICT (2026-07-26) — TWO HARD BUGS, both proven by the in-build checkerboard.
+Owner ran the CHECKER-DEBUG build (pattern on by default) and reports:
+ (A) "le displacement ne correspond pas du tout à la texture, comme si c'était pas aligné" — the height/
+     normal/roughness must WRAP EXACTLY like the base colour.
+ (B) "des chunks entiers (LA PLUPART) sont juste PLATS alors que le damier est bien présent" — the base
+     colour (checker) shows everywhere but the DISPLACEMENT only happens on some chunks.
+### BUG A — UV MISMATCH BETWEEN BASE AND MAPS (confirmed in the shader by the supervisor)
+    base colour : texture(tex_T0, tex_coord.xy)              <- RAW uv
+    PBR maps    : vec2 uv = tex_coord.xy * u_pbr_uv_tile;    <- SCALED uv   (tfrag3.frag ~837, ~1605)
+As soon as u_pbr_uv_tile != 1 the maps sample at a DIFFERENT scale than the albedo => the relief does not
+line up with the pattern. This came from the previous round applying the "world tiling" idea to the UV
+INSTEAD of to the displacement AMPLITUDE (my mandate was ambiguous — this is the correction).
+FIX: **the PBR maps MUST use the SAME UV as the base colour** (same coordinates, same wrap, same
+tiling) — no extra multiplier. The world-scale reasoning belongs ONLY to the displacement AMPLITUDE
+(height_scale in metres), never to the UV lookup. Remove/neutralise u_pbr_uv_tile from all map sampling
+(height, normal, roughness, AO, specular, emissive, POM march, tess-eval height) and keep the amplitude
+derivation. Verify with the checker: the raised blocks must coincide EXACTLY with the checker squares.
+### BUG B — MOST CHUNKS GET NO DISPLACEMENT AT ALL
+The checker albedo is applied everywhere the material is bound, but displacement only appears on some
+chunks. Find and report WHY, per gate, for the owner's vantage: tess-eligible draw kinds only? the 30 m
+whole-patch distance gate? the world-space edge-length law's clamp? a triangle/vertex budget? the tess
+capability check? the pre-subdivision only touching some kinds?
+FIX: displacement must cover EVERY surface that has a height map bound and is visible near the player —
+if hardware tessellation cannot run on a given draw kind/bucket, that draw must fall back to the POM path
+so it is never left flat. Report the coverage: % of PBR-bound draws that actually receive displacement
+(target ~100% in the near field) and prove it with the checker (no flat checker chunks next to raised ones).
+ACCEPTANCE: with the checker pattern, EVERY nearby PBR surface shows raised blocks that line up exactly
+with the checker squares. No misalignment, no flat chunks.
