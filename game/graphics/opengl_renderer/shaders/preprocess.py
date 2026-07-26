@@ -249,6 +249,33 @@ def c_string_literal(s: str) -> str:
     return f'R"{delim}({s}){delim}"'
 
 
+def to_gles_chunk(src: str) -> str:
+    """Grecharged-pbr-realtime-fusion ROUND 22 — the GLES form of one shared
+    GLSL CHUNK (`*.glsl`).
+
+    A chunk is NOT a standalone shader: it has no `#version` line, because it is
+    textually spliced into an enclosing shader by Shader.cpp's expand_includes()
+    at program-build time. So it must NOT go through the version/precision header
+    path — that path would either no-op (no `#version` to replace) or, worse,
+    inject a second header in the middle of a file. It DOES get the two content
+    transforms, because the chunk text would have received them had it still been
+    inline in the enclosing shader:
+        * sampler1D -> sampler2D (+ texelFetch fixup),
+        * `noperspective` stripped.
+    Anything else stays byte-exact.
+    """
+    src = _rewrite_sampler1d(src)
+    src = _strip_noperspective(src)
+    return src
+
+
+def discover_chunks(src_dir: Path):
+    """Every shared GLSL chunk in src_dir, sorted by file name. These are NOT
+    shaders and must never be reported as orphans by discover_shaders() — which
+    is why they use their own `.glsl` extension."""
+    return sorted(src_dir.glob("*.glsl"), key=lambda p: p.name)
+
+
 def discover_shaders(src_dir: Path):
     """Return a sorted list of (name, vert_path, frag_path, tesc_path, tese_path)
     for every shader in src_dir. A shader must have at least a .vert AND a .frag,
@@ -363,6 +390,41 @@ def main(argv: list[str]) -> int:
     blob_lines.append("inline constexpr int kShaderCount = "
                       f"sizeof(kShaders) / sizeof(kShaders[0]);")
     blob_lines.append("")
+
+    # ---- ROUND 22: shared GLSL chunks (`*.glsl`) --------------------------------
+    # These are spliced into an enclosing shader at program-build time by
+    # Shader.cpp's expand_includes(); on Android there is no filesystem to read
+    # them from, so they ride the blob as a second array keyed by FILE NAME (the
+    # exact string that appears inside `#include "..."`).
+    chunks = discover_chunks(src_dir)
+    blob_lines.append("// Grecharged-pbr-realtime-fusion ROUND 22: shared GLSL chunks. NOT shaders")
+    blob_lines.append("// (no #version); Shader.cpp splices them in for every `#include \"name.glsl\"`.")
+    blob_lines.append("struct ShaderChunk {")
+    blob_lines.append("  std::string_view name;")
+    blob_lines.append("  std::string_view src;")
+    blob_lines.append("};")
+    blob_lines.append("")
+    blob_lines.append("inline constexpr ShaderChunk kChunks[] = {")
+    for chunk_path in chunks:
+        chunk_src = to_gles_chunk(chunk_path.read_text(encoding="utf-8"))
+        # Emit the chunk to the output dir under its own name too, so an offline
+        # expansion of the generated GLES shaders resolves exactly like the runtime.
+        (out_dir / chunk_path.name).write_text(chunk_src, encoding="utf-8")
+        blob_lines.append(
+            "    {"
+            f'\n        "{chunk_path.name}",'
+            f"\n        {c_string_literal(chunk_src)}"
+            "\n    },"
+        )
+    if not chunks:
+        # A zero-length array is ill-formed in C++; keep a sentinel so the blob
+        # always compiles even if every chunk is deleted one day.
+        blob_lines.append('    {"", ""},')
+    blob_lines.append("};")
+    blob_lines.append("")
+    blob_lines.append("inline constexpr int kChunkCount = "
+                      f"sizeof(kChunks) / sizeof(kChunks[0]);")
+    blob_lines.append("")
     blob_lines.append("}  // namespace gk_android_shaders")
     blob_lines.append("")
 
@@ -371,8 +433,8 @@ def main(argv: list[str]) -> int:
     )
 
     sys.stdout.write(
-        f"preprocess.py: emitted {len(pairs)} shader pairs + blob header to "
-        f"{out_dir}\n"
+        f"preprocess.py: emitted {len(pairs)} shader pairs + {len(chunks)} shared chunks "
+        f"+ blob header to {out_dir}\n"
     )
     return 0
 

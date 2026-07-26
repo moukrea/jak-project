@@ -23,6 +23,9 @@ uniform int gfx_hack_no_tex;
 in vec3 v_fringe_rel;
 in vec3 v_world;  // Grecharged-lightprobes: absolute world pos (game units) for probe lookup
 in vec3 v_normal;  // Grecharged-directional-ambient: smooth authored TIE normal (root-cause fix)
+// ROUND 22: per-vertex tangent (xyz world, w handedness) from the TIE VAO's attribute 5, forwarded
+// by etie_base.vert. Feeds the CONTINUOUS TBN inside the shared fused chunk.
+in vec4 v_tangent;
 uniform int u_rt_light_on;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
@@ -87,12 +90,15 @@ const vec2 RT_POISSON16[16] = vec2[](
   vec2(0.53742981, -0.47373420),  vec2(-0.26496911, -0.41893023),vec2(0.79197514, 0.19090188),
   vec2(-0.24188840, 0.99706507),  vec2(-0.81409955, 0.91437590), vec2(0.19984126, 0.78641367),
   vec2(0.14383161, -0.14100790));
-uniform int u_pbr_shadow_on;
-uniform mat4 u_pbr_shadow_mvp;
-uniform vec3 u_pbr_shadow_cam_delta;
-uniform highp sampler2D tex_PBR_SHADOW;
-uniform float u_pbr_shadow_bias;
-uniform int u_pbr_debug;
+// ROUND 22 (owner defect A: "la plupart des endroits n'ont toujours pas de displacement du
+// tout"). This shader used to declare only the six sun-shadow uniforms by hand and had NO PBR
+// material inputs at all, so every ENVMAP TIE object was structurally incapable of showing relief.
+// The shared chunk brings in the WHOLE u_pbr_* block (mode, maps 11-17, relief tunables, bisect,
+// displacement, the shadow uniforms it used to duplicate, u_pbr_debug) — one declaration site for
+// tfrag3 / shrub / tie_wind / etie_base, so the four can never drift apart again. All of it is
+// already pushed to THIS program by first_tfrag_draw_setup (it takes the ShaderId), and
+// glGetUniformLocation returns -1 for anything a program does not use, so nothing new is bound.
+#include "pbr_uniforms.glsl"
 // Grecharged-directional-ambient ROUND 2 — SH (L2) ambient irradiance. Coeffs pre-scaled C++-side by
 // the Lambert cosine-convolution (A_l/pi) so this returns reflected ambient radiance directly. max()
 // guards SH ringing. Richer than the 2-color hemisphere: a smooth directional quadratic.
@@ -233,10 +239,22 @@ vec3 rt_probe_sh(vec3 wp, vec3 N, out float w, out float interior_o) {
   }
   return amb;
 }
+// ROUND 22: the PBR helper library — hnorm(), the POM depth law pom_depth_uv() and its constant
+// block, rt_amb_eval(), pbr_micro_shadow(), pbr_cavity(), plus the two CONTINUOUS tangent bases
+// (stable_frame / frisvad_basis). Shared verbatim with tfrag3.frag, which is the whole point: the
+// parallax amplitude law here is not "the same as" tfrag3's, it IS tfrag3's. Included after the
+// rt_sh_ambient / rt_ibl_ambient definitions above because rt_amb_eval() calls them.
+#include "pbr_helpers.glsl"
 #endif
 
 
 void main() {
+#ifdef OG_PBR
+  // ROUND 22 per-pixel displacement coverage (u_pbr_debug == 31). Now that this program has a real
+  // PBR path this is no longer hardcoded 0: it is set to 1.0 exactly where the POM march actually
+  // ran, by the shared fused chunk.
+  float f_disp_cover = 0.0;
+#endif
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
     vec4 T0 = texture(tex_T0, tex_coord.xy);
@@ -335,7 +353,37 @@ void main() {
       // a RESOURCE for future PBR/water; the old probe-fed composite survives only behind
       // the default-OFF "BAKED AMBIENT" curiosity toggle (u_rt_probe_on), the else below.
       // Realtime Lighting OFF never reaches here => pure vanilla baked (OFF == stock).
-      if (u_rt_probe_on == 0) {
+      // =================================================================================
+      // ROUND 22 — THE PORT (owner defect A). Exactly the shape tfrag3.frag has: the fused
+      // Cook-Torrance + POM arm sits IN FRONT of the accepted baked-modulation arm and is
+      // taken only when this draw actually bound PBR material maps (u_pbr_mode != 0). So:
+      //   rt OFF            -> never reaches here at all               == stock
+      //   rt ON  + pbr OFF  -> u_pbr_mode == 0 -> the else-if below    == accepted look
+      //   rt ON  + pbr ON   -> the shared fused chunk                  == tfrag3's path
+      //
+      // ---- PBR FUSED CHUNK CONTRACT (what pbr_fused.glsl reads out of this scope) ----
+      //   N        smooth outward world normal        (built above from v_normal / gN)
+      //   Vv       surface -> camera, unit            (above)
+      //   L        surface -> yellow sun, unit        (above)
+      //   sun_occ  yellow-sun cast-shadow visibility  (above)
+      //   moon_occ green-sun cast-shadow visibility   (above)
+      //   T0       texture(tex_T0, tex_coord.xy)      (top of main)
+      //   f_disp_cover  written back = 1.0 where the POM march really ran (debug 31)
+      //   varyings fragment_color / tex_coord / v_fringe_rel / v_tangent
+      //   uniforms the whole u_pbr_* + u_rt_* set, and the helper functions from
+      //            pbr_helpers.glsl + this file's rt_sh_ambient / rt_ibl_ambient.
+      // ADAPTER: etie_base needs NO substitutions — the TIE VAO already binds the per-vertex
+      // tangent at attribute location 5 (Tie3.cpp), etie_base.vert now declares it and
+      // forwards v_tangent, and every other name above already existed here under the same
+      // meaning. NOTE this is the envmap BASE pass; the additive ETIE second pass (etie.frag)
+      // still runs on top unchanged, so an envmapped surface keeps its coat over the relief.
+      // DISPLACEMENT TIER: parallax (POM). u_pbr_tess_active is 0 for this program (only
+      // TFRAG3_TESS gets 1 in first_tfrag_draw_setup), so the chunk's own gate runs the
+      // march here — with the IDENTICAL pom_depth_uv() amplitude law the tess tier uses.
+      // =================================================================================
+      if (u_pbr_mode != 0) {
+        #include "pbr_fused.glsl"
+      } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
         float term_g = smoothstep(0.0, 0.35, dot(N, normalize(u_rt_moon_dir)));
         float lit_y = term_y * sun_occ;    // toward the sun AND not cast-shadowed
@@ -542,5 +590,19 @@ void main() {
   }
 
   color.rgb = mix(color.rgb, fog_color.rgb, clamp(fogginess * fog_color.a, 0.0, 1.0));
+#ifdef OG_PBR
+  // ===== ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1) =====
+  // Program tag (30) and displacement tag (31). See tfrag3.frag for the full rationale.
+  // etie_base = green (unchanged — the coverage measurement scripts key on these exact colours).
+  // ROUND 22 UPDATE: this renderer now HAS a PBR/displacement path, so tag 31 reports the real
+  // per-pixel flag the fused chunk sets instead of the hardcoded 0.0 it used while it had none.
+  // color.a is NEVER touched and this sits AFTER the alpha discard AND after the fog mix, so the
+  // discard keeps rejecting the same fragments and the tag reaches the framebuffer unblended.
+  if (u_pbr_debug == 30) {
+    color.rgb = vec3(0.0, 1.0, 0.0);
+  } else if (u_pbr_debug == 31) {
+    color.rgb = vec3(f_disp_cover);
+  }
+#endif
 
 }

@@ -581,11 +581,17 @@ endif()
 set(SHADERS_SRC_DIR "${JAK_ROOT}/game/graphics/opengl_renderer/shaders")
 set(GEN_SHADERS_DIR "${CMAKE_BINARY_DIR}/shaders")
 set(GEN_SHADERS_HEADER "${GEN_SHADERS_DIR}/shaders_android_blob.h")
+# Grecharged-pbr-realtime-fusion ROUND 22: `*.glsl` = the SHARED CHUNKS (pbr_uniforms /
+# pbr_helpers / pbr_fused) that tfrag3 / shrub / tie_wind / etie_base all `#include`. They are
+# not shaders (no #version) but they ARE blob inputs, so editing one must regenerate the blob.
+# NOTE: file(GLOB) runs at CONFIGURE time — adding a NEW chunk file needs a cmake re-configure,
+# not just a rebuild.
 file(GLOB SHADER_INPUTS
      "${SHADERS_SRC_DIR}/*.vert"
      "${SHADERS_SRC_DIR}/*.frag"
      "${SHADERS_SRC_DIR}/*.tesc"
-     "${SHADERS_SRC_DIR}/*.tese")
+     "${SHADERS_SRC_DIR}/*.tese"
+     "${SHADERS_SRC_DIR}/*.glsl")
 add_custom_command(
     OUTPUT "${GEN_SHADERS_HEADER}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GEN_SHADERS_DIR}"

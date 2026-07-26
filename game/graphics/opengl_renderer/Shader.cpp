@@ -124,6 +124,131 @@ int gl_max_tess_gen_level() {
   return cached;
 }
 
+// ===========================================================================================
+// Grecharged-pbr-realtime-fusion ROUND 22 — SHADER `#include` (shared GLSL chunks).
+//
+// Owner defect A ("la plupart des endroits n'ont toujours pas de displacement du tout") was
+// STRUCTURAL: only tfrag3 carried the fused rt+pbr path, so TIE-envmap (etie_base), wind-animated
+// TIE (tie_wind) and every shrub was incapable of showing relief at ANY slider value. Porting that
+// ~1000-line path by copy-paste into three more shaders would guarantee permanent divergence — and
+// the owner's mandate is that both displacement tiers show the same depth BY CONSTRUCTION. So the
+// path lives ONCE, in shaders/pbr_uniforms.glsl + pbr_helpers.glsl + pbr_fused.glsl, and every
+// consumer pulls it in with a `#include "<name>.glsl"` line.
+//
+// The chunks are NOT standalone shaders (no `#version`). On Android they ride the generated GLES
+// blob as a second array (gk_android_shaders::kChunks, see shaders/preprocess.py); on desktop they
+// are read from the shader folder. ONE expander serves both, and it runs BEFORE subst_tokens and
+// BEFORE inject_pbr_define so the template tokens and the OG_PBR define apply to the expanded text
+// exactly as they did when the code was inline.
+//
+// A chunk's text is emitted VERBATIM — that is what makes the extraction provably a no-op for
+// tfrag3.frag (.autoport/gpbrf_r22_include_expand.py re-expands it and diffs against the
+// pre-extraction file; the diff is empty). For the same reason a chunk carries no doc header of
+// its own: the "names that must be in scope" contract is documented at each consumer's adapter
+// preamble (grep "PBR FUSED CHUNK CONTRACT").
+// ===========================================================================================
+namespace {
+constexpr int kMaxIncludeDepth = 4;
+
+// Resolve one chunk by file name (e.g. "pbr_fused.glsl"). Returns false when it does not exist.
+bool find_shader_chunk(const std::string& name, std::string* out) {
+#ifdef __ANDROID__
+  for (const auto& c : gk_android_shaders::kChunks) {
+    if (c.name == name) {
+      *out = std::string(c.src);
+      return true;
+    }
+  }
+  return false;
+#else
+  const auto path = file_util::get_file_path({Shader::shader_folder, name});
+  if (!file_util::file_exists(path)) {
+    return false;
+  }
+  *out = file_util::read_text_file(path);
+  return true;
+#endif
+}
+
+// Replace every line of the form   [whitespace] #include "NAME.glsl" [whitespace]
+// with that chunk's text, recursively (max kMaxIncludeDepth). A MISSING chunk is NEVER silent:
+// it logs an error and the source is returned UNCHANGED, so the raw `#include` directive reaches
+// the GLSL compiler and the stage fails loudly instead of quietly losing the PBR path.
+std::string expand_includes(const std::string& src, int depth = 0) {
+  if (src.find("#include") == std::string::npos) {
+    return src;
+  }
+  if (depth > kMaxIncludeDepth) {
+    lg::error(
+        "[recharged] SHADER INCLUDE: nesting deeper than {} — refusing to expand further. The "
+        "shader will fail to compile; fix the chunk cycle.",
+        kMaxIncludeDepth);
+    return src;
+  }
+  std::string out;
+  out.reserve(src.size() * 2);
+  bool missing = false;
+  size_t pos = 0;
+  while (pos < src.size()) {
+    const size_t nl = src.find('\n', pos);
+    const size_t line_end = (nl == std::string::npos) ? src.size() : nl + 1;
+    const std::string line = src.substr(pos, line_end - pos);
+    pos = line_end;
+
+    // ---- match  ^[ \t]*#include[ \t]*"NAME"[ \t]*$  ----
+    size_t i = 0;
+    while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) {
+      i++;
+    }
+    static const std::string kDirective = "#include";
+    if (line.compare(i, kDirective.size(), kDirective) != 0) {
+      out += line;
+      continue;
+    }
+    i += kDirective.size();
+    while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) {
+      i++;
+    }
+    if (i >= line.size() || line[i] != '"') {
+      out += line;
+      continue;
+    }
+    const size_t name_start = ++i;
+    const size_t name_end = line.find('"', name_start);
+    if (name_end == std::string::npos) {
+      out += line;
+      continue;
+    }
+    size_t tail = name_end + 1;
+    while (tail < line.size() &&
+           (line[tail] == ' ' || line[tail] == '\t' || line[tail] == '\r' || line[tail] == '\n')) {
+      tail++;
+    }
+    if (tail != line.size()) {
+      out += line;  // trailing junk: not an include we own
+      continue;
+    }
+    const std::string name = line.substr(name_start, name_end - name_start);
+    std::string chunk;
+    if (!find_shader_chunk(name, &chunk)) {
+      lg::error(
+          "[recharged] SHADER INCLUDE: chunk '{}' NOT FOUND (desktop: {}{}; android: not in the "
+          "GLES blob's kChunks). The shader source is left UNCHANGED so this fails loudly at "
+          "compile time instead of silently dropping the PBR path.",
+          name, Shader::shader_folder, name);
+      missing = true;
+      out += line;
+      continue;
+    }
+    out += expand_includes(chunk, depth + 1);
+  }
+  if (missing) {
+    return src;
+  }
+  return out;
+}
+}  // namespace
+
 Shader::Shader(const std::string& shader_name, GameVersion version) : m_name(shader_name) {
 #ifdef __ANDROID__
   std::string vert_src;
@@ -217,10 +342,13 @@ void Shader::build(const std::string& shader_name,
                    const std::string& tese_src_in,
                    const std::string& frag_src_in,
                    GameVersion version) {
-  std::string vert_src = vert_src_in;
-  std::string tesc_src = tesc_src_in;
-  std::string tese_src = tese_src_in;
-  std::string frag_src = frag_src_in;
+  // ROUND 22: shared GLSL chunks. Expand `#include "<name>.glsl"` FIRST — before the per-game
+  // template substitution and before the OG_PBR define is injected — so both apply to the
+  // expanded text exactly as they did when the code was inline in tfrag3.frag.
+  std::string vert_src = expand_includes(vert_src_in);
+  std::string tesc_src = expand_includes(tesc_src_in);
+  std::string tese_src = expand_includes(tese_src_in);
+  std::string frag_src = expand_includes(frag_src_in);
   const bool has_tess = !tesc_src.empty() && !tese_src.empty();
 
   // Per-game template tokens, substituted at runtime on both desktop and

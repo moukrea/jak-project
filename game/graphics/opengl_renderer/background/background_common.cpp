@@ -589,6 +589,64 @@ void pbr_collect_uv_density(const std::vector<tfrag3::StripDraw>& draws,
   }
 }
 
+// ROUND 22 — the SHRUB overload (owner defect A: the PBR path is being ported to shrub, and
+// without a measured density every shrub material would silently use the 0.5 tiles/m fallback,
+// i.e. the WRONG parallax amplitude). Shrub cannot reuse the walk above for two concrete reasons:
+//   * ShrubDraw addresses its index range DIRECTLY (first_index_index / num_indices) instead of
+//     through StripDraw's vis_groups + unpacked.idx_of_first_idx_in_full_buffer, and
+//   * ShrubGpuVertex stores texcoords in 4096-SCALE tile units (shrub.vert divides by 4096 before
+//     sampling), whereas PreloadedVertex stores plain tile units.
+// Both are handled here, so the number this returns is the SAME quantity as the tfrag/tie one:
+// authored texture tiles per world metre.
+void pbr_collect_uv_density_shrub(const std::vector<tfrag3::ShrubDraw>& draws,
+                                  const std::vector<u32>& indices,
+                                  const std::vector<tfrag3::ShrubGpuVertex>& verts,
+                                  s32 tex_idx,
+                                  std::vector<float>& out) {
+  for (const auto& draw : draws) {
+    if ((s32)draw.tree_tex_id != tex_idx) {
+      continue;
+    }
+    const u64 first = draw.first_index_index;
+    const u64 count = draw.num_indices;
+    for (u64 k = 0; k + 1 < count; ++k) {
+      if (out.size() >= kUvDensityMaxSamples) {
+        return;
+      }
+      const u64 ia = first + k;
+      const u64 ib = ia + 1;
+      if (ib >= indices.size()) {
+        break;
+      }
+      const u32 va = indices[ia];
+      const u32 vb = indices[ib];
+      if (va == vb) {
+        continue;  // degenerate
+      }
+      // UINT32_MAX is the strip-restart code; it fails the bounds test below like any other
+      // out-of-range index, which is exactly the behaviour the tfrag/tie walk relies on too.
+      if (va >= verts.size() || vb >= verts.size()) {
+        continue;
+      }
+      const auto& pa = verts[va];
+      const auto& pb = verts[vb];
+      const float dx = pa.x - pb.x;
+      const float dy = pa.y - pb.y;
+      const float dz = pa.z - pb.z;
+      // positions are GAME UNITS (4096 per metre)
+      const float dm = std::sqrt(dx * dx + dy * dy + dz * dz) * (1.f / 4096.f);
+      const float du = pa.s - pb.s;
+      const float dv = pa.t - pb.t;
+      // ...and shrub texcoords are 4096-scale TILE units (see shrub.vert: tex_coord.xy /= 4096).
+      const float dt = std::sqrt(du * du + dv * dv) * (1.f / 4096.f);
+      if (dm < 1e-4f || dt < 1e-6f) {
+        continue;
+      }
+      out.push_back(dt / dm);
+    }
+  }
+}
+
 float pbr_uv_density_median(const std::vector<float>& samples) {
   if (samples.size() < 16) {
     return 0.f;  // "unknown" — callers fall back to 0.5
@@ -625,6 +683,23 @@ float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_sam
   for (const auto& tree : lev.tie_trees[0]) {
     pbr_collect_uv_density(tree.static_draws, tree.unpacked.indices, tree.unpacked.vertices,
                            tex_idx, samples);
+    if (samples.size() >= kUvDensityMaxSamples) {
+      break;
+    }
+  }
+  if (out_samples) {
+    *out_samples = (u32)samples.size();
+  }
+  return pbr_uv_density_median(samples);
+}
+
+float measure_uv_density_shrub(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
+  std::vector<float> samples;
+  samples.reserve(1024);
+  // Shrub has no geom-LOD array — one tree list, all of it authored.
+  for (const auto& tree : lev.shrub_trees) {
+    pbr_collect_uv_density_shrub(tree.static_draws, tree.indices, tree.unpacked.vertices, tex_idx,
+                                 samples);
     if (samples.size() >= kUvDensityMaxSamples) {
       break;
     }
@@ -1545,6 +1620,39 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
     }
   }
 }
+
+// ROUND 22 (owner defect A step 1 — MEASURE the coverage before porting anything). The PBR debug
+// selector used to be a LOCAL inside first_tfrag_draw_setup, so only the four background programs
+// that go through that setup could be told which debug mode is active. The new per-pixel coverage
+// modes (30 = program tag, 31 = displacement tag) have to reach hfrag/merc2/generic/emerc too, so
+// the computation is hoisted here verbatim.
+// Semantics are IDENTICAL to the old inline code: default 0 (= normal render), overridden by the
+// android prop debug.opengoal.pbr.debug or, on desktop, by OG_PBR_DEBUG. Deliberately NOT cached —
+// the old code re-read the prop on every first_tfrag_draw_setup call (~5x/frame) and a setprop
+// therefore took effect on the next frame; caching would silently change that. The new callers are
+// per-level-bucket (a handful per frame), so the cost is in the same class as before.
+int pbr_debug_mode() {
+  int pbr_debug = 0;
+#ifdef __ANDROID__
+  char v[PROP_VALUE_MAX];
+  if (__system_property_get("debug.opengoal.pbr.debug", v) > 0) {
+    pbr_debug = atoi(v);
+  }
+#else
+  if (const char* e = getenv("OG_PBR_DEBUG")) {
+    pbr_debug = atoi(e);
+  }
+#endif
+  return pbr_debug;
+}
+
+// Push u_pbr_debug onto an arbitrary program. Programs that do not declare the uniform yield
+// location -1, and glUniform1i(-1, ...) is a documented no-op, so this is safe everywhere.
+// Requires `program` to be the ACTIVE program (glUseProgram) — every caller pushes it right after
+// its own .activate().
+void pbr_push_debug_tag(GLuint program) {
+  glUniform1i(glGetUniformLocation(program, "u_pbr_debug"), pbr_debug_mode());
+}
 #endif
 
 void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
@@ -1715,7 +1823,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float wr_indirect = 0.85f;
   // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
   // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
-  int pbr_debug = 0;
+  // ROUND 22: the prop/env read moved to pbr_debug_mode() above so the non-background renderers
+  // (hfrag/merc2/generic/emerc) can be told the same mode. Value is unchanged.
+  int pbr_debug = pbr_debug_mode();
   // REOPEN #3 TERM BISECTION (owner: sheen survives specular=0): bitmask zeroing ONE
   // fused-path lighting term at a time — semantics documented at u_pbr_bisect in
   // tfrag3.frag. Absent prop = 0 = full path (no behavioural change).
@@ -1765,9 +1875,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.exposure", v) > 0) {
       exposure = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.debug", v) > 0) {
-      pbr_debug = atoi(v);
-    }
+    // (debug.opengoal.pbr.debug is read by pbr_debug_mode() at the pbr_debug initialiser above.)
     if (__system_property_get("debug.opengoal.pbr.nstrength", v) > 0) {
       normal_strength = atof(v);
     }
@@ -1827,9 +1935,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
   }
 #else
-  if (const char* e = getenv("OG_PBR_DEBUG")) {
-    pbr_debug = atoi(e);
-  }
+  // (OG_PBR_DEBUG is read by pbr_debug_mode() at the pbr_debug initialiser above.)
   if (const char* e = getenv("OG_PBR_NSTRENGTH")) {
     normal_strength = atof(e);
   }

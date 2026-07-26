@@ -489,9 +489,13 @@ int main(int argc, char** argv) {
 
       fmt::print(
           "[{}/{}] {} tris={} coincident_unshared={} missed_welds_remaining={} nrm_max_after={:.3f} "
-          "col_max_after={:.1f} elapsed={:.0f}ms{}\n",
+          "col_max_after={:.1f} pol_pairs={} pol_before={} pol_after={} true_after={} weak_after={} "
+          "inward_after={} tanw={} elapsed={:.0f}ms{}\n",
           k + 1, n_total, level_name, rep.total.tris, rep.total.coincident_unshared,
-          rep.total.missed_welds, rep.nrm_after.max, rep.col_after.max, rep.elapsed_ms, bake_note);
+          rep.total.missed_welds, rep.nrm_after.max, rep.col_after.max, rep.orient_pairs_total,
+          rep.orient_pairs_inconsistent_before, rep.orient_pairs_inconsistent_after,
+          rep.orient_pairs_true_inconsistent_after, rep.orient_pairs_weak_inconsistent_after,
+          rep.orient_faces_inward_after, rep.orient_tangent_w_flipped, rep.elapsed_ms, bake_note);
       fflush(stdout);
     }
   }
@@ -503,6 +507,33 @@ int main(int argc, char** argv) {
   u64 sum_open_by_group = 0, sum_missed = 0;
   double max_nrm_before = 0, max_nrm_after = 0, max_col_before = 0, max_col_after = 0;
   u64 levels_clean = 0;
+  // round-22 authority-free polarity census
+  u64 sum_pairs = 0, sum_pol_before = 0, sum_pol_after = 0, sum_tanw = 0;
+  u64 sum_inward_after = 0, levels_pol_clean = 0, levels_inward_clean = 0;
+  u64 sum_true = 0, sum_true_b = 0, sum_true_a = 0;
+  u64 sum_weak = 0, sum_weak_b = 0, sum_weak_a = 0, levels_true_clean = 0;
+  for (const auto& r : results) {
+    sum_pairs += r.rep.orient_pairs_total;
+    sum_pol_before += r.rep.orient_pairs_inconsistent_before;
+    sum_pol_after += r.rep.orient_pairs_inconsistent_after;
+    sum_tanw += r.rep.orient_tangent_w_flipped;
+    sum_inward_after += r.rep.orient_faces_inward_after;
+    sum_true += r.rep.orient_pairs_true_manifold;
+    sum_true_b += r.rep.orient_pairs_true_inconsistent_before;
+    sum_true_a += r.rep.orient_pairs_true_inconsistent_after;
+    sum_weak += r.rep.orient_pairs_weak;
+    sum_weak_b += r.rep.orient_pairs_weak_inconsistent_before;
+    sum_weak_a += r.rep.orient_pairs_weak_inconsistent_after;
+    if (r.rep.orient_pairs_inconsistent_after == 0) {
+      levels_pol_clean++;
+    }
+    if (r.rep.orient_pairs_true_inconsistent_after == 0) {
+      levels_true_clean++;
+    }
+    if (r.rep.orient_faces_inward_after == 0) {
+      levels_inward_clean++;
+    }
+  }
   for (const auto& r : results) {
     sum_tris += r.rep.total.tris;
     sum_open_raw += r.rep.total.open_raw;
@@ -556,6 +587,21 @@ int main(int argc, char** argv) {
   roll += fmt::format("PER-LEVEL COVERAGE: {}/{} levels audited, {} levels with "
                       "missed_welds_remaining == 0\n",
                       (u64)results.size(), (u64)fr3_files.size(), levels_clean);
+  roll += fmt::format("TOTAL ORIENT_PAIRS: {}\n", sum_pairs);
+  roll += fmt::format("TOTAL ORIENT_PAIRS_INCONSISTENT_BEFORE: {}\n", sum_pol_before);
+  roll += fmt::format("TOTAL ORIENT_PAIRS_INCONSISTENT_AFTER: {}\n", sum_pol_after);
+  roll += fmt::format("TOTAL ORIENT_TANGENT_W_FLIPPED: {}\n", sum_tanw);
+  roll += fmt::format("TOTAL ORIENT_FACES_INWARD_AFTER: {}\n", sum_inward_after);
+  roll += fmt::format("TOTAL ORIENT_PAIRS_TRUE_MANIFOLD: {} inconsistent_before={} "
+                      "inconsistent_after={}\n",
+                      sum_true, sum_true_b, sum_true_a);
+  roll += fmt::format("TOTAL ORIENT_PAIRS_WEAK: {} inconsistent_before={} inconsistent_after={}\n",
+                      sum_weak, sum_weak_b, sum_weak_a);
+  roll += fmt::format("POLARITY COVERAGE: {}/{} levels with orient_pairs_inconsistent_after == 0, "
+                      "{}/{} levels with orient_pairs_true_inconsistent_after == 0, "
+                      "{}/{} levels with orient_faces_inward_after == 0\n",
+                      levels_pol_clean, (u64)results.size(), levels_true_clean,
+                      (u64)results.size(), levels_inward_clean, (u64)results.size());
   if (do_bake) {
     roll += fmt::format("BAKED SIDECARS: {} written, {} total\n", bakes_written, bake_total_bytes);
   }

@@ -112,4 +112,13 @@ class Shrub : public BucketRenderer {
   TfragPcPortData m_pc_port_data;
   const u8* m_proto_vis_data = nullptr;
   int m_proto_vis_data_size = 0;
+
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-realtime-fusion ROUND 22 (owner defect A): per-level list of textures with a
+  // registered PBR material set, resolved in update_load. Mirrors TFragment::m_pbr_draws /
+  // Tie3::m_pbr_draws; bound per draw through the shared PbrDrawBinder on the SHRUB program, which
+  // now carries the same fused rt+pbr chunk tfrag3.frag does. Before this round shrub had no PBR
+  // path at all, so all vegetation was structurally incapable of showing relief.
+  PbrDrawList m_pbr_draws;
+#endif
 };

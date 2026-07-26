@@ -62,9 +62,24 @@ uniform sampler2D tex_PBR_H;       // height map, unit 15 (.r = height, 0.5 = ne
 //    than relief: with the old world projection leafyground's features are 4.8 cm across and the old
 //    constant displaced them 35 cm, a depth/width of 7.3 -- a spike field, not a surface.
 //  * TESS_DEPTH_MAX_M: a walkable surface must not disagree with its (flat) collision by more than
-//    a step. It grows only HALF as fast as the relief slider so the slider still does something at
-//    the top end without the ground turning into dunes: 15 cm at relief 1, 22.5 at 2, 30 at 3.
-#define TESS_DEPTH_MAX_RATIO 0.5
+//    a step.
+// ROUND 22 (owner defect B: "curseur au maximum 3.0, c'est pas si obvious"). Both caps above were
+// slider-INDEPENDENT (or half-rate), so TESS_DEPTH_MAX_RATIO froze the displacement at relief >= 2
+// and the top third of the slider did nothing. The drive becomes non-linear and the rails open:
+//   drive = pow(rel, PBR_DRIVE_EXP)   with PBR_DRIVE_EXP = 1.4
+// The exponent is chosen so drive(1.0) == 1.0 EXACTLY — relief 1.0 is the owner-accepted,
+// physically-correct calibration point (depth = 0.25 * lambda_world) and must not move.
+// drive(1.5) = 1.7641, drive(2.0) = 2.6390, drive(3.0) = 4.6555.
+// tfrag3.frag's POM tier carries the IDENTICAL constants (PBR_DRIVE_EXP, POM_DEPTH_K,
+// POM_DEPTH_MAX_RATIO, POM_DEPTH_MAX_M) so the two displacement tiers show the same depth by
+// construction. Change one, change both.
+//  * TESS_DEPTH_MAX_RATIO 0.5 -> 1.25: the base term reaches 1.164*lambda at relief 3, under 1.25,
+//    so this rail does not bite anywhere in the slider range (it first binds at relief 3.157).
+//  * TESS_DEPTH_MAX_M is now scaled by the SAME drive instead of the old (0.5 + 0.5*rel) half-rate
+//    ramp: 15 cm at relief 1 (bit-identical to today), 69.8 cm at relief 3. Only a huge-lambda
+//    material (vil-beach-01, lambda 1.92 m) ever reaches it.
+#define PBR_DRIVE_EXP 1.4
+#define TESS_DEPTH_MAX_RATIO 1.25
 #define TESS_DEPTH_MAX_M 0.15
 
 // Fallback authored UV density, in tiles per metre (0.5 = one tile every 2 m, about where tfrag's
@@ -339,10 +354,13 @@ void main() {
     // unit of relief. Measured on village1: leafyground tile 7.90 m, beachrock 6.39 m, sand 3.94 m --
     // the old law's constant 14336 (35 cm at relief 2) was blind to all of it.
     float rel = u_pbr_height_scale * 20.0;   // the relief slider (height_scale = 0.05 * relief)
+    // ROUND 22: non-linear drive, drive(1) == 1 so relief 1.0 is bit-identical to before.
+    float drive = pow(max(rel, 0.0), PBR_DRIVE_EXP);
+    float hs = 0.05 * drive;                 // effective height scale (== u_pbr_height_scale at rel 1)
     float lambda_world_m = clamp(u_pbr_height_lambda, 0.002, 1.0) * tile_m;
-    float amp_m = u_pbr_height_scale * TESS_DEPTH_K * lambda_world_m;
+    float amp_m = hs * TESS_DEPTH_K * lambda_world_m;
     amp_m = min(amp_m, TESS_DEPTH_MAX_RATIO * lambda_world_m);  // never a spike field again
-    amp_m = min(amp_m, TESS_DEPTH_MAX_M * (0.5 + 0.5 * rel));   // never deeper than a step
+    amp_m = min(amp_m, TESS_DEPTH_MAX_M * drive);               // never deeper than a step
     amp_m = max(amp_m, 0.005 * rel);
     float amp = amp_m * TESS_DISP_UNITS_PER_M * falloff * seam;
     if (legacy_uv_law) {

@@ -8,6 +8,14 @@ layout (location = 2) in int time_of_day_index;
 // already packed into the 2-10-10-10 nor attribute and bound at location 3 by Tie3.cpp. Feeds the
 // realtime-lighting smooth-normal path instead of the flat per-face screen-derivative normal.
 layout (location = 3) in vec3 normal_in;
+// Grecharged-pbr-realtime-fusion ROUND 22: the per-vertex MikkTSpace tangent (xyz = world tangent,
+// w = handedness) was ALREADY bound at attribute location 5 on the TIE VAO (Tie3.cpp binds the
+// tangent_buffer there for the whole tree, and the envmap base pass draws from that same VAO) —
+// this shader simply never declared it, which is why envmapped TIE had no tangent frame and hence
+// no PBR material path. Declaring it costs nothing when PBR is off; an unbound location 5 reads
+// (0,0,0,1), which the fused chunk detects as degenerate and answers with the CONTINUOUS
+// normal-derived basis (never a screen-space derivative frame).
+layout (location = 5) in vec4 tangent_in;
 #endif
 
 uniform vec4 hvdf_offset;
@@ -29,6 +37,8 @@ out vec3 v_fringe_rel;
 // Grecharged-lightprobes: absolute world position (GOAL game units) for probe lookup.
 out vec3 v_world;
 out vec3 v_normal;  // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
+// ROUND 22: per-vertex tangent -> the continuous PBR TBN in the fragment (mirrors tfrag3.vert).
+out vec4 v_tangent;
 #endif
 
 // etie stuff
@@ -53,6 +63,7 @@ void main() {
   v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
   v_world = position_in;                 // Grecharged-lightprobes: world pos for PER-PIXEL probe lookup
   v_normal = normal_in;  // world-space authored TIE normal (already rotated by the instance matrix)
+  v_tangent = tangent_in;  // ROUND 22: continuous per-vertex tangent for the fused PBR TBN
 #endif
   vec4 p_proj = vec4(persp1.x * vf17.x, persp1.y * vf17.y, persp1.z, persp1.w);
   p_proj += persp0 * vf17.z;

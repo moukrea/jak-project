@@ -1309,6 +1309,12 @@ void Merc2::switch_to_merc2(SharedRenderState* render_state) {
               render_state->fog_color[1] / 255.f, render_state->fog_color[2] / 255.f,
               render_state->fog_intensity / 255);
   glUniform1i(m_merc_uniforms.gfx_hack_no_tex, Gfx::g_global_settings.hack_no_tex);
+#ifdef OG_FEAT_PBR
+  // ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1): merc2 draws are
+  // tagged magenta in debug mode 30 so the coverage census can attribute every screen pixel to the
+  // program that drew it. No-op at mode 0 (the shader only reads it in the two debug branches).
+  pbr_push_debug_tag(render_state->shaders[ShaderId::MERC2].id());
+#endif
 }
 
 void Merc2::switch_to_emerc(SharedRenderState* render_state) {
@@ -1318,6 +1324,10 @@ void Merc2::switch_to_emerc(SharedRenderState* render_state) {
               render_state->fog_color[1] / 255.f, render_state->fog_color[2] / 255.f,
               render_state->fog_intensity / 255);
   glUniform1i(m_emerc_uniforms.gfx_hack_no_tex, Gfx::g_global_settings.hack_no_tex);
+#ifdef OG_FEAT_PBR
+  // ROUND 22 coverage instrumentation: emerc draws are tagged lime in debug mode 30.
+  pbr_push_debug_tag(render_state->shaders[ShaderId::EMERC].id());
+#endif
 }
 
 /*!

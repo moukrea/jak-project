@@ -19,7 +19,7 @@ uniform vec4 cam_trans;
 uniform mat4 pc_camera;
 // Grecharged-foliage-wind: light breeze sway for shrubs. u_wind_strength is the horizontal
 // amplitude in world units (4096 = 1 m); 0 = OFF (branch below is skipped => byte-identical stock).
-// tex_T11 is a Wx1 RGBA8 LUT indexed by time_of_day_index (constant per shrub instance —
+// tex_T18 is a Wx1 RGBA8 LUT indexed by time_of_day_index (constant per shrub instance —
 // extract_shrub assigns one palette slot per instance): 16-bit packed (minY, height) of that
 // plant, dequantized with u_wind_lut_base/_scale. Anchors each plant's own base (roots stay put)
 // and normalizes sway by its own height so a small bush and a tall kelp both reach full sway at
@@ -28,7 +28,14 @@ uniform float u_time;
 uniform float u_wind_strength;
 uniform float u_wind_lut_base;
 uniform float u_wind_lut_scale;
-uniform sampler2D tex_T11; // Wx1 RGBA8 wind-anchor LUT (same Wx1 pattern as tex_T10, unit 11)
+// ⚠ Grecharged-pbr-realtime-fusion ROUND 22 — MOVED FROM UNIT 11 TO UNIT 18. Shader.cpp binds
+// every `tex_T<i>` uniform to texture unit i, and first_tfrag_draw_setup parks the PBR material
+// maps (tex_PBR_N..tex_PBR_E) on units 11-17. Now that shrub.frag has the PBR path, unit 11 is the
+// NORMAL MAP: leaving the wind LUT there would have made the vertex stage texelFetch the normal
+// map (garbage sway) and/or made the fragment stage sample the LUT as a normal map. 18 is free
+// (probe samplers 3-7, base 0, TOD 10, PBR 11-17, DirectRenderer starts at 20). Shrub.cpp binds
+// the LUT texture to GL_TEXTURE18 to match.
+uniform sampler2D tex_T18; // Wx1 RGBA8 wind-anchor LUT (same Wx1 pattern as tex_T10, unit 18)
 // Wx1 2D LUT instead of 1D — GLES has no sampler1D/glTexImage1D (the arm64
 // device BLR'd into the NULL glTexImage1D loader slot). texelFetch on a Wx1
 // sampler2D is texel-exact on desktop GL too; Shrub.cpp uploads it as a Wx1
@@ -69,7 +76,7 @@ void main() {
   if (u_wind_strength > 0.0) {
     // per-plant base anchor + height from the LUT (16-bit packed; texelFetch returns 0..1 per
     // channel, wl.r*65280+wl.g*255 == hi_byte*256+lo_byte exactly in fp32).
-    vec4 wl = texelFetch(tex_T11, ivec2(time_of_day_index, 0), 0);
+    vec4 wl = texelFetch(tex_T18, ivec2(time_of_day_index, 0), 0);
     float plant_ymin = u_wind_lut_base + (wl.r * 65280.0 + wl.g * 255.0) * u_wind_lut_scale;
     float plant_h    = (wl.b * 65280.0 + wl.a * 255.0) * u_wind_lut_scale;
     // sway weight: 0 at the plant's own base, ->1 near its crown (85% of its height, floor 0.3 m),

@@ -177,6 +177,11 @@ using PbrDrawList = std::vector<PbrDrawEntry>;
 // 0.5 = the constant the shaders used to assume (one tile every 2 m).
 float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
 float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
+// ROUND 22: the SHRUB variant. Shrub owns different draw/vertex types (ShrubDraw +
+// ShrubGpuVertex) and stores its texcoords in 4096-scale, so it needs its own walk — without it
+// every shrub material would fall back to the 0.5 tiles/m default and its POM amplitude (which is
+// derived from the material's real feature size in metres) would be wrong.
+float measure_uv_density_shrub(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
 
 class PbrDrawBinder {
  public:
@@ -307,6 +312,17 @@ int pbr_shadow_caster_mask(u64 frame_idx);
 // CURRENT frame's camera translation in game units (same vector the program's cam_trans
 // uniform gets) so the 1-frame-stale read map is sampled in its own camera anchor.
 void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans);
+
+// ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1: "la plupart des
+// endroits n'ont aucun displacement" — measure the truth before porting anything).
+// The active PBR debug visualisation mode (android prop debug.opengoal.pbr.debug, desktop env
+// OG_PBR_DEBUG; 0 = normal render). Hoisted out of first_tfrag_draw_setup so the renderers that do
+// NOT go through that setup (merc2, generic, emerc) can be told the same mode. Not cached — same
+// per-call prop read the inline code always did.
+int pbr_debug_mode();
+// Push u_pbr_debug onto the currently-active program. Programs without the uniform get location -1
+// and glUniform1i(-1, ...) is a documented no-op, so this is safe to call on any program.
+void pbr_push_debug_tag(GLuint program);
 #endif
 
 void interp_time_of_day(const math::Vector<s32, 4> itimes[4],

@@ -105,6 +105,39 @@ struct MeshAuditReport {
   u64 orient_faces_authority = 0;      // faces the collision mesh can actually speak for (denominator)
   u64 orient_faces_inward_after = 0;   // of those, faces still clearly opposed to it -> the residual
 
+  // ---- round-22 AUTHORITY-FREE POLARITY CENSUS ----
+  // The collision residual above can only speak where a collision mesh exists AND is near-parallel to
+  // the rendered face (|dot| > 0.35), so it is blind on walls, on interiors, and on every level with a
+  // thin collision mesh. This second metric needs no authority at all: for two consistently-wound
+  // triangles sharing an edge, the shared edge is traversed in OPPOSITE directions, therefore
+  //     fsign[f] * fsign[nb] == (same_dir ? -1 : +1)
+  // must hold for every manifold-adjacent pair that is not a coincident duplicate. It is defined on
+  // all 448 levels. _before is the SAME statistic evaluated on the AUTHORED winding as it arrives
+  // (all signs +1), which is the honest baseline the pass has to improve on; _after is the final one.
+  // _after is NOT zero by construction: the flood fill only guarantees the relation on the edges of
+  // its spanning forest, so every CLOSING edge (and every non-manifold junction the run-chaining
+  // links up) is an independent test the pass can still fail. That is what makes it a real residual.
+  u64 orient_pairs_total = 0;                 // non-duplicate manifold-adjacent pairs examined
+  u64 orient_pairs_inconsistent_before = 0;   // violations of the rule under the authored winding
+  u64 orient_pairs_inconsistent_after = 0;    // violations under the final fsign — the residual
+  // The SAME population, split by how much the link can be trusted. A TRUE-manifold pair sits on a
+  // welded edge with exactly two incident faces: the winding relation is DEFINED there, so an
+  // inconsistency is an outright defect. A WEAK pair is a link the run-chaining fabricated across an
+  // edge with 3+ incident faces (stacked coplanar sheets, a decimated LOD triangle chained onto the
+  // full-res mesh): the relation is not defined there, so an inconsistency may be unavoidable rather
+  // than wrong. true + weak == total, always — the split never shrinks the denominator.
+  u64 orient_pairs_true_manifold = 0;
+  u64 orient_pairs_true_inconsistent_before = 0;
+  u64 orient_pairs_true_inconsistent_after = 0;
+  u64 orient_pairs_weak = 0;
+  u64 orient_pairs_weak_inconsistent_before = 0;
+  u64 orient_pairs_weak_inconsistent_after = 0;
+  // Vertices whose consolidated normal ended up OPPOSED to the pre-consolidation one. The tangent
+  // handedness w was computed at unpack time against the OLD normal, so bitangent = cross(N,T)*w
+  // silently flips with N unless w flips too — a stale w inverts the tangent-space view vector and
+  // makes the POM march dig in where it should pop out.
+  u64 orient_tangent_w_flipped = 0;
+
   // ---- seam-consistent displacement (the tessellation slits) ----
   u64 seam_verts = 0;
   u64 seam_verts_material = 0;   // group spans >=2 textures (one side may have no height map)

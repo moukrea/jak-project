@@ -23,183 +23,7 @@ uniform int gfx_hack_no_tex;
 uniform vec4 u_fringe_fade;
 
 #ifdef OG_PBR
-uniform int u_pbr_mode;        // 0=legacy; bit1 normal, bit2 rough, bit4 metal, bit8 ao, bit16 height/POM,
-                               // bit32 specular (F0 workflow), bit64 emissive (unlit add) — fusion phase
-uniform vec3 u_pbr_sun_dir;    // world-space, surface->sun, normalized (viz/legacy)
-uniform vec3 u_pbr_sun_color;
-// Round-4 multi-light: 3 direct lights from light-group 0 (soleil + lune verte + fill),
-// surface->light dirs + rgb colors. Each color is pre-weighted by its levels.x morph
-// weight in C++ so dir0+dir1 sum ~1 across hour transitions (energy conserved).
-uniform vec3 u_pbr_light_dir[3];
-uniform vec3 u_pbr_light_color[3];
-uniform vec3 u_pbr_ambient;
-uniform float u_pbr_exposure;
-// Owner mandate 2026-07-18: relief must be unmistakable. Normal-map x/y perturbation
-// multiplier (>1 deepens), POM depth in native-UV units (0 disables the march even when
-// a height map is bound), extra UV tiling on the PBR path only (1.0 = native density).
-uniform float u_pbr_normal_strength;
-uniform float u_pbr_height_scale;
-// (u_pbr_uv_tile is GONE. ★ OWNER CHECKER VERDICT, BUG A, 2026-07-26: every map — height, normal,
-//  roughness, AO, specular, emissive — must sample at EXACTLY the base colour's uv, with no
-//  separate multiplier anywhere. The world-scale reasoning belongs to the displacement AMPLITUDE
-//  only, and lives in pom_depth_uv() below.)
-// ROUND 20: THIS material's MEASURED authored UV density, in texture tiles per world metre
-// (measured at level load, see background_common.cpp measure_uv_density_tfrag/_tie). Converts the
-// parallax depth from metres into the UV units the offset lives in.
-uniform float u_pbr_uv_per_m;
-// ROUND 20 correction: this height MAP's characteristic feature wavelength, in TILES (measured at
-// load from the map's own mip-energy spectrum). The parallax depth follows the FEATURE size, the
-// same law tfrag3_tess.tese displaces real vertices by — so Parallax and Tessellation show the
-// same depth, produced two different ways.
-uniform float u_pbr_height_lambda;
-// ★ OWNER CHECKER VERDICT, BUG B (2026-07-26): "des chunks entiers (LA PLUPART) sont juste PLATS".
-// 1 only on the TFRAG3_TESS program, i.e. only where the tessellation stages actually displaced
-// real vertices. The POM used to be suppressed by the GLOBAL u_pbr_displacement == 2 setting, which
-// silently killed the parallax on every draw the tess program does not cover — all TIE walls and
-// props, shrubs, hfrag, and every patch past the tesc's 30 m gate — leaving them with NO
-// displacement at all. Suppression is per-PROGRAM now, so nothing is ever left flat.
-uniform int u_pbr_tess_active;
-// Owner round-3 mandate 2026-07-18: lighting split calibration. u_pbr_direct scales the
-// realtime direct DIFFUSE (the baked vertex color already contains the baked sun's
-// diffuse — this is the double-dose control); u_pbr_indirect scales the baked-GI
-// indirect term. Specular is deliberately NOT scaled by u_pbr_direct: baked carries no
-// specular, and the moving highlight is the realtime tell.
-uniform float u_pbr_direct;
-uniform float u_pbr_indirect;
-// Round-4bis mandate E (owner: "si notre vrai lighting realtime marche vraiment, on n'a
-// plus besoin du baked quand activé"): 1.0 = round-3 hybrid (indirect = baked vertex GI),
-// 0.0 = FULL REALTIME (indirect = light-group ambient * AO; baked term gone). At low
-// weight the u_pbr_direct double-dose damping also fades back to 1.0 — it exists only
-// because the baked term carries the baked sun, which is no longer added at w=0.
-uniform float u_pbr_baked_weight;
-// Per-channel isolation viz on the PBR draws only (legacy neighbours untouched, so the
-// patch outline shows in every mode). 0=off, 1=albedo passthrough (what a plain
-// photo-swap would look like; POM still offsets it, so this is also the cleanest
-// parallax viz), 2=geometric normal, 3=final shading normal (shows the normal map's
-// perturbation vs 2), 4=roughness, 5=accumulated specular term (all lights), 6=AO,
-// 7=full PBR with the normal map DISABLED (the N on/off A/B pair with 0),
-// 8=full PBR with POM DISABLED (the POM on/off A/B pair with 0), 9=height map,
-// 10=indirect/baked-GI term only (the round-3 macro-shading reintegration viz),
-// 11=direct term only (accumulated diffuse+spec of ALL lights — round-4 multi-light),
-// 12=sun shadow-map factor (round-4 mandate B; white=lit, black=shadowed),
-// 13=direct contribution of lights 1+2 ONLY (moon/fill isolation, skips the sun).
-uniform int u_pbr_debug;
-uniform sampler2D tex_PBR_N;
-uniform sampler2D tex_PBR_R;
-uniform sampler2D tex_PBR_M;
-uniform sampler2D tex_PBR_AO;
-uniform sampler2D tex_PBR_H;
-// Grecharged-pbr-realtime-fusion (owner: "faut câbler specular et emissive aussi"):
-// _specular = F0/specular color (specular workflow, overrides metallic-derived F0),
-// _emissive = unlit self-illumination added on top (glows in shadow/night). Units 16/17.
-uniform sampler2D tex_PBR_S;
-uniform sampler2D tex_PBR_E;
-uniform float u_pbr_emissive_str;  // emissive intensity (prop debug.opengoal.pbr.emissive)
-uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, default 1)
-// This material's MEAN tangent-space surface gradient (n.xy/n.z, clamped +-4), measured over
-// every texel of <tex>_normal.png when the map is loaded (LoaderStages.cpp) and pushed per
-// draw by PbrDrawBinder. Subtracting it makes the normal-map perturbation ZERO-MEAN — see the
-// long comment at the sample site: a non-zero mean is a CONSTANT TILT of the whole material,
-// and that tilt is what turned into the owner's hard brightness plates.
-uniform vec2 u_pbr_normal_dc;
-// PBR POLISH (owner playtest #17: "ça fait toujours juste bump map glorifié"). This material's
-// HEIGHT-MAP statistics, measured over every texel of <tex>_height.png when it is decoded
-// (LoaderStages.cpp) and pushed per draw by PbrDrawBinder: .x = the map's MEAN, .y = 0.5 / its
-// robust (p2..p98) half-range. Every height consumer below reads the map through hnorm().
-// The shipped maps are neither mean-centred nor normalised — leafyground spans 0.063..0.463
-// (mean 0.322), wallplaster means 0.807, strawroof spans only 0.298..0.478 — so the naive
-// (h - 0.5) the code used before both OFFSET whole materials (leafyground displaced net-INWARD by
-// ~4.7 cm, wallplaster net-OUTWARD; a constant offset is not relief, and it steps against the
-// unmapped neighbour exactly like the normal-map DC did) and threw away most of the amplitude
-// (only 18-75% of the nominal range was ever reached). (0.5, 1.0) = identity, so a draw without a
-// height map is bit-for-bit unchanged.
-uniform vec2 u_pbr_height_stat;
-// REOPEN #3 TERM BISECTION (owner: the plastic sheen SURVIVES specular-intensity = 0, so
-// it is NOT in the slider-scaled specular sum — identify the culprit by zeroing ONE term
-// at a time on device). Prop debug.opengoal.pbr.bisect, default 0 = full path unchanged.
-// Set bit => that term is ZEROED/DISABLED in the fused rt+pbr branch:
-//    1 = yellow-sun GGX specular          2 = green-sun GGX specular
-//    4 = ambient/IBL specular (famb_spec) 8 = Fresnel-on-diffuse (the line-651 kd darkening)
-//   16 = _specular-map F0 (fall back to metallic-derived)   32 = emissive
-//   64 = normal-map perturbation (Nm = smooth N)           128 = parallax/POM
-//  256 = detail-relight ratio fdetail     512 = baked-modulation lit/shadow fmod
-// 1024 = C1 shoulder tone map (linear clamp instead)  2048 = fused-contrast fmod compress off
-// 4096 = REOPEN #6 matte-dielectric ENVELOPE off (restores the old glossy sheen for A/B: the
-//        default matte look vs the pre-#6 glass — the owner's "path active?" killswitch)
-// ---- SUPERVISOR LIVE A/B FIX (2026-07-24): relief=0 smooth vs relief=2.5 HARD PLATES. The
-// three bits below are the A/B killswitches for the three halves of that root cause; all
-// three default to 0 == the NEW (fixed) behaviour, set the bit to get the old one back.
-// 8192 = normal-map DC removal OFF (legacy: apply the map with its raw mean tilt)
-// 16384 = macro lit/shadow terminator back on the normal-MAPPED Nm (legacy) instead of N
-// 32768 = normal-map tangent frame back on the per-chunk UV tangent (legacy) instead of the
-//         seam-stable world frame
-// REOPEN #10: the IN-MENU "PBR ISOLATE" carousell (Recharged Settings) seeds this mask via the
-// recharged_pbr_isolate setting so the OWNER can bisect the residual grass-facet term at his own
-// vantage with NO adb (BOTH=0, NORMAL-MAP ONLY=128 [POM off], PARALLAX ONLY=64 [nm off], NEITHER=192).
-// Prime suspect now (tangent frame proven continuous @ REOPEN#9, base normal smooth): the PARALLAX/
-// POM at bit 128 — the steep march (below) samples the height map at a data-dependent iteration count;
-// where it clips at UV-chart/triangle boundaries it can read a per-triangle offset that reads as a
-// facet at high relief. The owner's PARALLAX-ONLY vs NORMAL-MAP-ONLY flip names it; the debug prop/env
-// still override the mask for the supervisor's full-term headless A/B.
-// ---- PBR POLISH, OWNER PLAYTEST #17 (2026-07-25). Same convention: 0 == the NEW behaviour,
-// set the bit to get the previous build back, so every one of this round's fixes is a live A/B
-// at the owner's own vantage with one setprop and no rebuild.
-// 2097152 = height-field CAVITY / micro-AO off (the "flat in shadow" fix — the direction-
-//           INDEPENDENT relief term that replaces the ~1.0 ambient RATIO)
-// 4194304 = tess-eval displacement back to the ALIASED textureLod(...,0.0) height fetch
-//           (legacy) instead of the mip matched to the tessellated vertex spacing
-// 8388608 = direct N.L detail ratio back to its legacy wide [0.45, 1.9] clamp (the
-//           "très contrasté à la lumière" half of the rebalance)
-// ---- PBR POLISH, OWNER PLAYTEST #18 (2026-07-25) — GROUND relief. Same convention.
-// 16777216 = tessellation level law back to the legacy DISTANCE-ONLY 128/d (read by
-//            tfrag3_tess.tesc and .tese) instead of the world-space-edge-length law, so the
-//            ground-density fix is a live same-vantage A/B.
-// 33554432 = parallax GRAZING FADE + world-cm offset cap OFF, i.e. the legacy un-attenuated
-//            0.08 UV offset back (the owner's "au sol le displacement est HORIZONTAL, ça s'étale
-//            à plat" — see the POM march). Applies to BOTH POM branches.
-//            This bit is 33554432 and NOT the next free-LOOKING 262144: 262144 was already taken
-//            by round #17's ambient-relief A/B (the fdt_amb site below). The first device A/B run
-//            of this round used the overloaded bit and measured the side effect at the SAME ORDER
-//            OF MAGNITUDE as the parallax signal itself — it silently confounded both A/Bs. Always
-//            scan ALL of *.frag/*.tesc/*.tese for a bit before claiming it is free.
-uniform int u_pbr_bisect;
-// REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
-// (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement
-// happens in the tess evaluation stage; the frag POM must then stand down).
-uniform int u_pbr_displacement;
-// Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
-// meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
-// map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
-uniform mat4 u_pbr_shadow_mvp;
-uniform int u_pbr_shadow_on;
-// Round-5 suspect (d): the read-side map is anchored to the camera position of the frame
-// that WROTE it (camera-relative space), but v_fringe_rel uses the CURRENT camera —
-// without correction every shadow trails camera motion by one frame (continuous
-// displacement during the owner's orbit repro). cam_delta = (cam_now - cam_at_write)/4096.
-uniform vec3 u_pbr_shadow_cam_delta;
-// Plain sampler2D + manual in-shader compare: the Adreno 618 HW compare path
-// (sampler2DShadow + COMPARE_REF_TO_TEXTURE) returns a constant 1.0 on-device
-// (proven with a 0.25-cleared map). Depth-as-float sampling is portable.
-uniform highp sampler2D tex_PBR_SHADOW;
-// Owner clarification 2026-07-18 (WORLD shadows): legacy (non-PBR) fragments in this
-// program also receive the sun shadow as a calibrated darkening, so the hut's shadow
-// lands on the non-PBR ground. 0 disables; ~0.35 default, prop-tunable so already-baked
-// painted shadows don't double-darken into black.
-uniform float u_pbr_legacy_shadow;
-// Debug-only bias override added to the compare ref (prop debug.opengoal.pbr.shadowbias /
-// OG_PBR_SHADOWBIAS, default 0.0 = no effect). +0.5 must black out every in-box receiver
-// if the HW depth compare works — the Adreno-driver binary test.
-uniform float u_pbr_shadow_bias;
-// Round-5 addendum 2, MANDATE F ("light the world like Jak"): world-wide mood-light
-// shading for LEGACY (non-PBR-mapped) world fragments. Direct term = per-face geometric
-// normal (screen-derivative — camera-independent for planar level tris, so it CANNOT swim
-// with the camera) dotted with the light-group lights (sun + fill + moon), times the sun
-// shadow factor; indirect stays the baked vertex color. u_pbr_world_relight blends the
-// whole effect (0 = old flat legacy darkening path); wr_direct/wr_indirect are the
-// anti-double-brightening calibration (the baked color already contains the baked sun).
-uniform float u_pbr_world_relight;
-uniform float u_pbr_wr_direct;
-uniform float u_pbr_wr_indirect;
+#include "pbr_uniforms.glsl"
 // Grecharged-realtime-lighting (2026-07-19 REWRITE): a clean SUN-ONLY path that
 // REPLACES the round-1..5 accretion (ambient / multi-light / moon / baked-GI /
 // baked-weight) when it is ON. u_rt_light_on = master (1 => this path taken,
@@ -431,227 +255,14 @@ vec3 rt_probe_sh(vec3 wp, vec3 N, out float w, out float interior_o) {
 }
 #endif
 
-// Grecharged-pbr-realtime-fusion REOPEN#9 (owner playtest #9): a CONTINUOUS orthonormal tangent basis
-// derived purely from the surface normal, used when the per-vertex tangent v_tangent is degenerate or
-// unbound. Duff et al. 2017 "Building an Orthonormal Basis, Revisited" — branchless and numerically
-// stable for EVERY normal (the denominator magnitude stays in [1,2]). Because it is a smooth function of
-// the (already smooth, interpolated) per-vertex normal, the frame is CONTINUOUS across triangle edges —
-// unlike the screen-space derivative frame (dFdx/dFdy), which is CONSTANT within a triangle and JUMPS at
-// every edge and is the exact source of the hard triangular FACETS the owner sees scaling with relief.
-// The tangent DIRECTION is arbitrary (no UV reference) but per-fragment continuity is what kills the
-// facets — exactly the owner's mandate ("an arbitrary but CONTINUOUS per-vertex tangent kills the facets").
-// SEAM-STABLE tangent frame for the NORMAL MAP (supervisor live A/B + offline weld measurement,
-// 2026-07-24). Every tfrag/tie chunk owns its own UV layout, so the per-vertex UV-derived tangent
-// frame is DISCONTINUOUS at chunk boundaries: measured over the welded cross-chunk vertex groups,
-// 40.2% of village1 pairs (41.1% jungle) carry frames rotated more than 30 deg and 27% are outright
-// MIRRORED (.w handedness disagrees) — i.e. the same physical surface decodes the normal map in a
-// different, sometimes flipped, orientation on each side of the seam. This frame is derived ONLY
-// from the (position-smoothed, seam-continuous) normal, so it is IDENTICAL on both sides of every
-// chunk boundary by construction — the standard chunked-terrain fix. R is a deliberately skew axis:
-// the unavoidable hairy-ball singularity then sits on a direction no level surface squarely faces
-// (never up, never a cardinal wall), and the guard below keeps even that ~1 deg cone finite.
-void stable_frame(vec3 n, out vec3 t, out vec3 b) {
-  const vec3 R1 = vec3(0.3113, 0.1504, 0.9382);
-  const vec3 R2 = vec3(0.9382, 0.3113, 0.1504);
-  vec3 tt = cross(n, R1);
-  float l = length(tt);
-  t = (l > 0.02) ? (tt / l) : normalize(cross(n, R2));
-  b = cross(n, t);
-}
-
-void frisvad_basis(vec3 n, out vec3 t, out vec3 b) {
-  float s = n.z >= 0.0 ? 1.0 : -1.0;
-  float a = -1.0 / (s + n.z);
-  float d = n.x * n.y * a;
-  t = normalize(vec3(1.0 + s * n.x * n.x * a, s * d, -s * n.x));
-  b = normalize(vec3(d, s + n.y * n.y * a, -n.y));
-}
-
-#ifdef OG_PBR
-// PBR POLISH (owner playtest #17) — MATERIAL-SCALED HEIGHT. Recentre the height map on ITS OWN
-// mean and refill the 0..1 range, using the statistics measured per material at load time (see
-// u_pbr_height_stat). EVERY height consumer in the pipeline goes through this: the POM march, the
-// self-shadow, the cavity term and (with the same expression, same uniform) the tess-eval
-// displacement. Consequences, all of them the owner's report:
-//   - "material-scaled displacement amplitude": a map that only spans 0.30..0.48 (strawroof) no
-//     longer displaces at a fifth of the amplitude a map spanning 0.00..0.75 (stonewall) gets.
-//     Every material now reaches the full authored displacement, so one relief slider means the
-//     same physical depth everywhere.
-//   - the net inward/outward OFFSET disappears: a material whose mean is 0.32 was pushing its
-//     whole surface ~4.7 cm INTO the ground (and stepping against its unmapped neighbour at the
-//     material border — the same class of defect the normal-map DC removal already fixed).
-// Identity when the material has no measured statistics (0.5, 1.0) => unchanged.
-float hnorm(float h) {
-  return clamp((h - u_pbr_height_stat.x) * u_pbr_height_stat.y + 0.5, 0.0, 1.0);
-}
-
-// ---- PARALLAX (POM) DEPTH LAW — rebuilt, OWNER 2026-07-26 ----
-// Shared by BOTH POM marches (the fused rt+pbr path and the rt-OFF standalone fallback), because
-// every symptom the owner reported is a property of the formula, not of one branch.
-//
-// OWNER: "le parallax rend complètement plat" ... "AUTANT SUR LES MURS QUE LE SOL". The second half
-// is the diagnostic one: on a wall viewed head-on the grazing fade is ~1, so the fade could not be
-// the cause. The cause was the ABSOLUTE world cap I had stacked on top of it:
-//     pom_cap = min(POM_MAX_TAN * height_scale, POM_MAX_WORLD_M * uv_per_m)     [old]
-// with POM_MAX_WORLD_M = 0.03 m flat. Plugging in the measured village materials, the second term
-// ALWAYS won: wallplaster uv_per_m 0.439 -> cap 0.0132 UV, leafyground 0.127 -> cap 0.0038 UV,
-// against a marched vector of 0.075 UV. The offset was clipped to 5-17 % of its length on every
-// shipped material, at every view angle, walls included. 3 cm is not a small depth cue for these
-// materials — leafyground's height features are ~2 m across, so 3 cm of lateral shift is nothing.
-//
-// THE FIX is to stop expressing the depth as an arbitrary absolute and derive it from the MATERIAL,
-// exactly like the tessellation tier already does: depth = f(this map's feature wavelength), in
-// metres, converted to UV with this material's measured density. Parallax and Tessellation then
-// show the SAME depth by construction — they differ only in how it is produced (UV march vs real
-// vertices), which is what makes flipping DISPLACEMENT between them read as a quality change and
-// not as a depth change.
-//
-// tan(theta) = |Vt.xy| / Vt.z, so gating on Vt.z gates on the view angle: 0.15 ~= 81 deg off the
-// surface normal, 0.50 = 60 deg.
-#define POM_GRAZE_LO 0.15
-#define POM_GRAZE_HI 0.50
-// OWNER 2026-07-26: the grazing attenuation is a gentle FLOOR now, never a kill. At the most
-// extreme grazing the offset keeps this fraction of its strength — enough that the relief still
-// reads at ordinary gameplay camera angles (which ARE grazing on a floor), while the sideways-smear
-// regime the earlier "ça s'étale à plat" report described is still damped. The steep march below
-// (16-32 layers with occlusion + secant refine) is what actually keeps grazing views honest.
-#define POM_GRAZE_FLOOR 0.35
-// The lateral shift may never exceed the feature depth itself (tan(theta) <= 1)...
-#define POM_MAX_TAN 1.0
-// ...nor this fraction of ONE HEIGHT FEATURE of apparent sliding. Relative, so it scales with the
-// material the way the depth does, instead of clipping every material to the same absolute.
-#define POM_MAX_FEATURE_FRAC 0.35
-// The amplitude law itself, kept numerically IDENTICAL to tfrag3_tess.tese's (TESS_DEPTH_K,
-// TESS_DEPTH_MAX_RATIO, TESS_DEPTH_MAX_M and its 0.005*relief floor) so the two displacement tiers
-// cannot drift apart. Change one, change both.
-#define POM_DEPTH_K 5.0
-#define POM_DEPTH_MAX_RATIO 0.5
-#define POM_DEPTH_MAX_M 0.15
-
-// This material's parallax depth, in UV units, plus its feature wavelength in metres (out param,
-// used for the relative offset cap). uv_per_m converts metres -> UV: one metre of world spans
-// uv_per_m tiles of texture, and the parallax offset is a UV offset.
-float pom_depth_uv(out float lambda_world_m) {
-  float upm = max(u_pbr_uv_per_m, 0.02);
-  float tile_m = 1.0 / upm;
-  lambda_world_m = clamp(u_pbr_height_lambda, 0.002, 1.0) * tile_m;
-  float rel = u_pbr_height_scale * 20.0;  // the relief slider (height_scale = 0.05 * relief)
-  float amp_m = u_pbr_height_scale * POM_DEPTH_K * lambda_world_m;
-  amp_m = min(amp_m, POM_DEPTH_MAX_RATIO * lambda_world_m);  // never a spike field
-  amp_m = min(amp_m, POM_DEPTH_MAX_M * (0.5 + 0.5 * rel));   // never deeper than a step
-  amp_m = max(amp_m, 0.005 * rel);
-  return amp_m * upm;
-}
-
-// Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 2 "completely FLAT in
-// shadow"). The realtime AMBIENT IRRADIANCE for an arbitrary direction — the same selector the
-// fused branch already used for its ambient-specular source, lifted into a function so the
-// INDIRECT DIFFUSE can be evaluated twice (smooth normal vs normal-mapped normal) and the relief
-// therefore survives where no sun reaches. Identical expressions => the ambient-specular term it
-// replaces is bit-for-bit unchanged.
-vec3 rt_amb_eval(vec3 n) {
-  if (u_rt_ambient_on == 0) {
-    return vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
-  } else if (u_rt_ambient_model == 1) {
-    return rt_sh_ambient(n);
-  } else if (u_rt_ambient_model == 2) {
-    return rt_ibl_ambient(n);
-  }
-  return mix(u_rt_ground_color, u_rt_sky_color, clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
-}
-
-// Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 3: the displacement
-// "reads FLAT ... un bump map glorifie avec un peu de normales").
-// HEIGHT-FIELD SELF-SHADOWING. What separates real surface depth from a shaded bump is that a
-// raised texel CASTS A SHADOW on the texels behind it. Neither tier produced any: an audit of
-// every tex_PBR_H fetch in this shader found the height map driving a UV offset (POM) and a
-// vertex offset (tess-eval) and NOTHING ELSE — it never occluded a light, so the relief had no
-// contact shadow and read as shading, not as geometry.
-// This is the standard relief-mapping soft shadow (Policarpo/Kaneko): march the height field from
-// the shading point toward the light in TANGENT-UV space and keep the largest amount by which an
-// occluder rises ABOVE the ray. The (1 - t) weight makes distant occluders soften into a penumbra
-// instead of a hard aliased edge, which also keeps it stable under motion.
-//   uv0   = the (parallax-corrected) UV of the shading point
-//   h0    = height at uv0
-//   Ltuv  = light direction in the SAME tangent-UV frame the POM marches in (xy = uv plane)
-//   hs_uv = the UV distance that corresponds to one full height unit (the POM's depth scale)
-// Returns a visibility multiplier in [PBR_MS_FLOOR, 1].
-float pbr_micro_shadow(vec2 uv0, float h0, vec3 Ltuv, float hs_uv) {
-  const int PBR_MS_STEPS = 6;
-  const float PBR_MS_K = 3.0;       // occluder-height -> darkness gain
-  const float PBR_MS_FLOOR = 0.35;  // never fully black: ambient still reaches a crevice
-  // Light at/below the surface horizon: the macro terminator already handles that face — do not
-  // double-darken it (and the march direction would be degenerate).
-  float lz = Ltuv.z;
-  if (lz < 0.08) {
-    return 1.0;
-  }
-  vec2 sd = (Ltuv.xy / lz) * hs_uv;
-  // Same surface-lock bound as the POM march: the shadow ray may never wander a whole tile away
-  // from the shading point, or the "shadow" stops belonging to this piece of surface.
-  float sl = length(sd);
-  if (sl > 0.08) {
-    sd *= 0.08 / sl;
-  }
-  float occ = 0.0;
-  for (int i = 1; i <= PBR_MS_STEPS; i++) {
-    float t = float(i) / float(PBR_MS_STEPS);
-    float hs = hnorm(textureLod(tex_PBR_H, uv0 + sd * t, 0.0).r);
-    // ray height above the shading point, rising to the top of the height range at t = 1
-    float ray = h0 + t * (1.0 - h0);
-    occ = max(occ, (hs - ray) * (1.0 - t));
-  }
-  return clamp(1.0 - occ * PBR_MS_K, PBR_MS_FLOOR, 1.0);
-}
-
-// ===================================================================================================
-// PBR POLISH — OWNER PLAYTEST #17: "à l'ombre c'est toujours plat" (still completely flat in shade).
-//
-// THE MATH ROOT CAUSE, found by reading the term that was supposed to do this job. Round #16 added
-// an ambient relief term expressed as the RATIO rt_amb_eval(Nm) / rt_amb_eval(N) — the irradiance
-// at the normal-mapped normal over the irradiance at the smooth one. That is only ever as strong
-// as the ambient's DIRECTIONAL VARIATION, and ours (the accepted baked-modulation composite, plus
-// a hemisphere/SH ambient that is deliberately soft) is very nearly direction-INVARIANT. Measured
-// shader-exact over all 7 shipped materials, that ratio has mean 0.960..0.996 — i.e. between 0.4%
-// and 4% away from exactly 1.0. You cannot extract relief from a function that does not vary with
-// the normal. In cast shadow every other normal-dependent term is already zero (sun_occ = 0 kills
-// both direct N.L cues, matte_gate kills the env specular on any rough dielectric), so a shadowed
-// fragment really was baked x constant x _ao. Flat, by arithmetic.
-//
-// THE FIX is the one modern games use, and it is the one thing that cannot fail this way: a term
-// with NO direction dependence at all. Read the relief straight out of the HEIGHT FIELD as a
-// CAVITY / micro-ambient-occlusion factor — a texel that sits BELOW its local neighbourhood is in
-// a crevice and receives less skylight; one that sits ABOVE is a ridge and receives more. That is
-// physically the ambient-occlusion of the micro-relief, it is defined at every fragment, and it is
-// exactly as strong at midnight in a cast shadow as it is in full sun.
-//
-// MEAN-PRESERVING BY CONSTRUCTION, not by tuning: the driving signal is a HIGH-PASS of the height
-// field (the texel minus its own local mean), so its mean over any surface patch is zero, hence
-// the multiplier's mean is 1.0 and the accepted overall brightness cannot drift. A material with
-// no height map gets no cavity at all and stays bit-for-bit as it was.
-//
-// BAND-LIMITED BY CONSTRUCTION: the fine tap is taken at the mip the hardware would fit for this
-// fragment's own UV footprint (never a lod-0 fetch of a ~1 mm texel from 20 m away, which is the
-// aliasing that produced earlier rounds' shimmer), and the blur tap is PBR_CAV_SPAN mips coarser.
-// Far away the two taps converge and the term fades to exactly 1.0 — correct, because relief finer
-// than a pixel has no business modulating that pixel.
-// ===================================================================================================
-#define PBR_CAV_SPAN 3.0   // mips between the fine and the local-mean tap (a ~8x8 texel neighbourhood)
-#define PBR_CAV_GAIN 1.6   // normalised-height high-pass -> darkness/brightness gain
-#define PBR_CAV_MIN 0.55   // a crevice is dark, never black: skylight still reaches into it
-#define PBR_CAV_MAX 1.45
-float pbr_cavity(vec2 uv0) {
-  vec2 ts = vec2(textureSize(tex_PBR_H, 0));
-  vec2 dx = dFdx(uv0) * ts;
-  vec2 dy = dFdy(uv0) * ts;
-  float lod = clamp(0.5 * log2(max(max(dot(dx, dx), dot(dy, dy)), 1e-12)), 0.0, 11.0);
-  float hf = hnorm(textureLod(tex_PBR_H, uv0, lod).r);
-  float hb = hnorm(textureLod(tex_PBR_H, uv0, min(lod + PBR_CAV_SPAN, 12.0)).r);
-  return clamp(1.0 + PBR_CAV_GAIN * (hf - hb), PBR_CAV_MIN, PBR_CAV_MAX);
-}
-#endif
+#include "pbr_helpers.glsl"
 
 void main() {
+  // ROUND 22 (owner defect A step 1 — MEASURE before porting): per-pixel displacement coverage,
+  // 1.0 only where this fragment actually received displacement (tessellated geometry, or a POM
+  // march that actually ran). Painted by u_pbr_debug == 31. Declared unconditionally so the
+  // non-OG_PBR build still compiles; it simply stays 0.
+  float f_disp_cover = 0.0;
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
     vec4 T0 = texture(tex_T0, tex_coord.xy);
@@ -832,614 +443,7 @@ void main() {
       // rt ON + pbr OFF (u_pbr_mode==0) falls through to the accepted BAKED-MODULATION
       // path below, byte-identical — no regression to the directional-ambient look.
       if (u_pbr_mode != 0) {
-        // REOPEN#7 FOUNDATION FIX: build the TBN from the per-vertex MikkTSpace tangent v_tangent
-        // (interpolated => CONTINUOUS across triangle edges / UV seams) instead of screen-space
-        // derivatives, which were discontinuous there => the owner's incoherent relief + the hard
-        // CONTRAST CRACKS that grew with relief. N is the reconstructed smooth normal; Gram-Schmidt
-        // re-orthonormalizes the interpolated tangent against it per fragment; .w carries handedness.
-        // A degenerate/unbound tangent (len~0 => (0,0,0,1) default) falls back to the derivative frame.
-        // fTuv/fBuv = the UV-derived frame. It is the ONLY frame that can drive a UV OFFSET, so
-        // the POM march below MUST keep using it (a world-derived frame would shift the height
-        // march in a direction unrelated to the texture = the "floating/epoxy" parallax of
-        // owner playtest #5). fTn/fBn = the frame the NORMAL MAP is decoded in — that one is
-        // swapped for the seam-stable world frame further down.
-        vec3 fTuv, fBuv;
-        // REOPEN#9 (owner playtest #9) tangent-fallback coverage flag (for the u_pbr_debug==20 viz + the
-        // pbr_tan_diag.txt CPU proof): 1.0 = this fragment took the degenerate-tangent fallback.
-        float f_tan_fb = (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) ? 0.0 : 1.0;
-        if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
-          fTuv = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
-          // OWNER PLAYTEST #8: use the SIGN of the interpolated handedness, not its raw magnitude.
-          // The interpolated .w can pass through 0 across a strip whose vertices carry opposite
-          // handedness, which would SHRINK the bitangent mid-triangle (a per-triangle discontinuity
-          // that reads as a facet). sign() keeps a full-length, continuous bitangent.
-          fBuv = cross(N, fTuv) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
-        } else {
-          // REOPEN#9 (owner playtest #9): v_tangent is degenerate/unbound here. The OLD code rebuilt the
-          // TBN from screen-space derivatives (dFdx/dFdy) — a per-triangle-CONSTANT frame that JUMPS at
-          // every edge => the hard triangular FACETS the owner saw scaling with relief. Derive a
-          // CONTINUOUS basis from the smooth interpolated normal N instead (NEVER a screen derivative).
-          frisvad_basis(N, fTuv, fBuv);
-        }
-        // ===================================================================================
-        // PBR POLISH — OWNER PLAYTEST #16 DEFECT 1: "displacement in the WRONG DIRECTION in
-        // places on the SAME texture".
-        // stable_frame() is a function of the surface NORMAL and of nothing else, so its U axis
-        // ROTATES as the surface tilts. The same material therefore decodes its height field
-        // turned by an arbitrary, orientation-dependent angle from one patch to the next: over a
-        // hill the relief's lighting direction sweeps with the slope, and between surfaces facing
-        // opposite ways it flips outright — wherever that rotation passes ~90 deg the perceived
-        // relief INVERTS and bumps read as pits. That is exactly the owner's defect, and it is
-        // structural: a height field authored in TEXTURE space can only be lit correctly in the
-        // frame its own UVs define. No parameter tune can fix a frame that ignores the texture.
-        // The world frame was adopted to kill the per-chunk brightness plates — but the plates
-        // were MEASURED to come from the map's DC TILT (chunk-to-chunk spread 61.4% -> 3.0% once
-        // u_pbr_normal_dc is subtracted), and that fix is FRAME-INVARIANT: rotating a zero-mean
-        // gradient leaves it zero-mean, so it cannot produce a brightness step in any frame. The
-        // normal map goes back into the UV frame it was authored in, where the relief direction is
-        // right by construction and the grain finally lines up with the albedo it belongs to.
-        // Bonus: the POM march below already had to use the UV frame (it is the only frame a UV
-        // OFFSET can be expressed in), so the parallax shift and the normal-map shading were
-        // pointing in DIFFERENT directions — they now agree, which is the other half of the
-        // "displacement direction" defect.
-        // stable_frame survives as (a) the fallback where no per-vertex tangent exists — there is
-        // no UV reference to use there, and a continuous arbitrary frame still beats a
-        // per-triangle one — and (b) bisect bit 32768, the live A/B killswitch (SET = the old
-        // world frame, so the owner's previous build is one prop away).
-        // ===================================================================================
-        vec3 fTn = fTuv, fBn = fBuv;
-        if ((u_pbr_bisect & 32768) != 0 || f_tan_fb > 0.5) {
-          stable_frame(N, fTn, fBn);
-        }
-        // ★ OWNER CHECKER VERDICT, BUG A: the SAME uv the base colour is sampled with (line ~600,
-        // `texture(tex_T0, tex_coord.xy)`), no multiplier. Every map below — height, normal,
-        // roughness, metallic, AO, specular, emissive — rides this one variable, so the relief can
-        // only ever line up with the pattern that drew it.
-        vec2 uv = tex_coord.xy;
-        // Height map (bit 16): the same mobile-tuned POM march as the standalone path
-        // (already proven on Adreno 618 there — same cost class, so it ships here too).
-        // ★ BUG B: gated on u_pbr_tess_active, NOT on the global u_pbr_displacement. A draw only
-        // skips the march when THIS program actually tessellated it; every draw the tess program
-        // does not cover (TIE walls and props, shrubs, hfrag, non-opaque trees, anything past the
-        // 30 m tesc gate) keeps its parallax instead of going flat.
-        if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-            (u_pbr_bisect & 128) == 0 && u_pbr_tess_active == 0) {
-          vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
-          float vz = max(Vt.z, 0.20);
-          // ===========================================================================
-          // PBR POLISH — OWNER PLAYTEST #18: "le displacement du parallax est HORIZONTAL
-          // au sol, comme si au lieu de s'élever, ça s'étale à plat."
-          // He is describing the formula's own failure mode, exactly. The offset is
-          //     P = (Vt.xy / Vt.z) * depth        i.e.  |P| = depth * tan(theta)
-          // so on a near-horizontal FLOOR viewed by the ordinary gameplay camera — which
-          // looks ALONG the ground, theta -> 90 deg — the amplifier blows up and P
-          // degenerates into a large HORIZONTAL UV TRANSLATION. The texture slides
-          // sideways instead of reading as depth: "ça s'étale à plat". The old 0.08 UV
-          // clamp bounded the magnitude but not the NATURE of the artifact, and 0.08 UV is
-          // ~16 cm of world sliding at the authored ground UV density — enormous.
-          // THE FIX (industry-standard POM attenuation, two parts):
-          //  (1) GRAZING FADE, and
-          //  (2) an absolute POM_MAX_WORLD_M = 3 cm world cap.
-          // ★ BOTH WERE OVER-CORRECTIONS, and (2) was the fatal one — OWNER 2026-07-26:
-          // "le parallax rend complètement plat ... AUTANT SUR LES MURS QUE LE SOL". A wall
-          // seen head-on has pom_graze ~= 1, so the fade could not explain it; the flat
-          // 3 cm cap could, and did. Measured on the shipped materials it clipped the
-          // marched vector to 5-17 % of its length at EVERY angle (see the constants block
-          // for the numbers). Both parts are rebuilt:
-          //  (1') the fade is now a gentle FLOOR (POM_GRAZE_FLOOR) — damped at extreme
-          //       grazing, never killed, because the ordinary gameplay camera IS grazing
-          //       on a floor and that is precisely where the owner needs to see depth;
-          //  (2') the cap is RELATIVE to the material: the feature depth itself
-          //       (POM_MAX_TAN, tan(theta) <= 1) and a fraction of one feature wavelength
-          //       (POM_MAX_FEATURE_FRAC). No absolute constant clips a whole material any
-          //       more, and the depth itself now comes from pom_depth_uv() — the same
-          //       feature-scaled law tfrag3_tess.tese displaces real vertices by.
-          // Bisect bit 33554432 = the legacy un-faded 0.08 UV offset, so this is still a
-          // live same-vantage A/B with one setprop.
-          // ===========================================================================
-          float pom_graze =
-              mix(POM_GRAZE_FLOOR, 1.0, smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z));
-          float lambda_world_m;
-          float depth_uv = pom_depth_uv(lambda_world_m);
-          float pom_cap = min(POM_MAX_TAN * depth_uv,
-                              POM_MAX_FEATURE_FRAC * lambda_world_m * max(u_pbr_uv_per_m, 0.02));
-          // Bisect bit 33554432 restores the ROUND-20 law EXACTLY — the build the owner played and
-          // called "complètement plat", not some older variant — so before/after is one setprop
-          // apart at the same vantage in the same boot. (It used to restore a pre-round-20 cell,
-          // which made the A/B measure the wrong pair: round 20's 3 cm world cap is the term that
-          // actually flattened it, and that cell never exercised it.)
-          if ((u_pbr_bisect & 33554432) != 0) {
-            pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);  // r20: fade to ZERO
-            depth_uv = u_pbr_height_scale;                             // r20: raw UV depth scale
-            pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
-                          0.03 * max(u_pbr_uv_per_m, 0.02));           // r20: flat 3 cm world cap
-          }
-          // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);
-          // the loop bound below already allows 32. Occlusion test + secant interpolation
-          // (the industry steep-parallax + refinement) were already in place.
-          float n_layers = mix(32.0, 16.0, clamp(Vt.z, 0.0, 1.0));
-          // REOPEN #6 SURFACE-LOCK (owner playtest #5: the "10cm epoxy float, texture moves
-          // differently than the model"). Build the TOTAL parallax vector P and CLAMP its
-          // length so the offset can never exceed a small, surface-locked bound: the depth
-          // reads from the surface itself, never from clear epoxy floating in front of it.
-          // duv_step marches P/n_layers.
-          vec2 P = (Vt.xy / vz) * depth_uv * pom_graze;
-          float Plen = length(P);
-          if (Plen > pom_cap) P *= pom_cap / Plen;
-          // Degenerate (head-on, or a zero-depth material) => skip the march and its taps.
-          if (Plen > 1e-6) {
-            vec2 duv_step = P / n_layers;
-            float layer_d = 1.0 / n_layers;
-            float cur_d = 0.0;
-            float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-            float prev_map_d = map_d;
-            for (int i = 0; i < 32; i++) {
-              if (cur_d >= map_d || float(i) >= n_layers) {
-                break;
-              }
-              uv -= duv_step;
-              prev_map_d = map_d;
-              map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-              cur_d += layer_d;
-            }
-            float after = map_d - cur_d;
-            float before = prev_map_d - (cur_d - layer_d);
-            float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
-            uv += duv_step * (1.0 - w);
-          }
-        }
-        // PBR POLISH — inputs for the HEIGHT-FIELD SELF-SHADOW (owner defect 3: the relief reads
-        // as "un bump map glorifie"). Sampled at the FINAL (parallax-corrected) uv so the shadow
-        // belongs to the texel actually being shaded, and computed for BOTH displacement tiers:
-        // tessellation moves the macro geometry but the map's micro relief still has to shadow
-        // itself, otherwise the fine detail stays as flat as it was in the parallax tier.
-        // fh_ms_uv is the POM's own depth scale = the UV distance a full height unit spans, so the
-        // shadow ray has exactly the same slope the parallax offset assumes. Distance-gated: the
-        // 6 taps only run near the camera, where relief is resolvable at all.
-        float fh0 = 1.0;
-        float fh_ms_uv = 0.0;
-        if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && (u_pbr_bisect & 524288) == 0 &&
-            length(v_fringe_rel) < 35.0) {
-          // PBR POLISH #17: normalised, so the shadow ray and the occluder heights it compares
-          // against live in the SAME material-scaled space the march assumes. On the shipped maps
-          // this alone strengthens the contact shadow a lot: a map that only spanned 0.18 of the
-          // range could never raise an occluder far enough above the ray to darken anything.
-          fh0 = hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-          // Same feature-scaled depth the march uses, so the shadow ray's slope matches the relief
-          // it is casting from (it used to be the raw UV height scale, a different depth entirely).
-          float fh_lambda_m;
-          fh_ms_uv = pom_depth_uv(fh_lambda_m);
-        }
-        // Normal map (bit 1) perturbs the SMOOTH normal => surface detail that shades
-        // correctly as the realtime suns move (the fusion's whole point).
-        vec3 Nm = N;
-        // REOPEN #3 SHIMMER FIX: Toksvig widening FROM THE FITTED MIP. texture() samples
-        // the normal map at the hardware-fitted mip (maps upload with glGenerateMipmap +
-        // LINEAR_MIPMAP_LINEAR); mip-averaged normals SHORTEN, and that lost length IS the
-        // sub-pixel normal variance the renormalize below would otherwise throw away —
-        // exactly the high-relief sparkle. Captured (strength-scaled, so the relief slider
-        // widens it too) into fnmip_var and added to the GGX alpha at the spec-AA site.
-        float fnmip_var = 0.0;
-        // Scaled, DC-REMOVED tangent-space surface gradient of this fragment (0 where no normal
-        // map): reused below for the mean-preserving detail term.
-        vec2 fg = vec2(0.0);
-        if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7 && (u_pbr_bisect & 64) == 0) {
-          vec3 nraw = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
-          // Toksvig variance is measured on the RAW sample. (It used to be measured AFTER the
-          // strength scale, where length() saturates the 1.0 clamp for any relief above ~0.4 and
-          // the whole spec-AA term silently died — exactly where shimmer is worst.)
-          float fnlen = clamp(length(nraw), 1e-4, 1.0);
-          fnmip_var = ((1.0 - fnlen) / max(fnlen, 0.5)) * clamp(u_pbr_normal_strength, 0.0, 3.0);
-          // ================= THE PLATE FIX (owner A/B relief 0 vs 2.5, 2026-07-24) =============
-          // Work in SURFACE GRADIENT space (g = n.xy/n.z, the height-field slope) rather than
-          // scaling n.xy and renormalising: scaling a gradient IS scaling the height field, the
-          // physically meaningful "relief strength", and it makes the DC removal below exact at
-          // any strength.
-          // u_pbr_normal_dc is this material's MEAN gradient over the whole map. It is NOT zero:
-          // measured on the shipped set, every map carries a systematic tilt (leafyground DC =
-          // (+0.076, -0.227) in normal space => 61 deg of CONSTANT tilt once the relief slider
-          // multiplies it by 7.5 at relief 2.5). A constant tilt of an entire material is not
-          // relief — it re-aims the whole surface at/away from the sun, so the material reads
-          // ~35-48% darker than the neighbouring surfaces that have no normal map, and it reads
-          // DIFFERENTLY in each chunk because each chunk decodes it in its own UV frame. That is
-          // precisely the owner's hard dark/light plates, and precisely why they scale with relief
-          // and vanish at relief 0. Subtracting the DC makes the perturbation ZERO-MEAN: pure
-          // relief, no net re-aim. Offline (shader-exact) on the grass at relief 2.5: chunk-to-
-          // chunk brightness spread 61.4% -> 3.0%. Bit 8192 restores the raw map for the A/B.
-          vec2 g = clamp(nraw.xy / max(nraw.z, 0.05), vec2(-4.0), vec2(4.0));
-          if ((u_pbr_bisect & 8192) == 0) {
-            g -= u_pbr_normal_dc;
-          }
-          fg = clamp(g * u_pbr_normal_strength, vec2(-8.0), vec2(8.0));
-          vec3 nmt = normalize(vec3(fg, 1.0));
-          Nm = normalize(mat3(fTn, fBn, N) * nmt);
-          // GLASS-PANE fix (owner preset report 2026-07-23): the old hard snap back to
-          // the SMOOTH normal (`if (dot(Nm,gN)<0) Nm = N`) wiped the map grain over
-          // whole grazing-angle patches — relief >1 tips many texels past the face
-          // plane, and every highlight/reflection term there (NdH/NdV/Rf/Fresnel)
-          // followed the flat polygon = the "glass sheet over the material". SLIDE the
-          // perturbed normal back to just above the horizon instead: the below-horizon
-          // component is removed but the tangential GRAIN survives.
-          // OWNER PLAYTEST #8 (faceted grass): the horizon reference here was the PER-FACE
-          // screen-space normal gN = cross(dFdx,dFdy), which is CONSTANT within a triangle and
-          // JUMPS across edges — so this clamp injected a per-triangle discontinuity into Nm =>
-          // exactly the hard triangular patches the owner saw (the base v_normal is otherwise
-          // ~96% smooth per the offline [gda-facet] measurement). Clamp against the SMOOTH,
-          // interpolated base normal N instead: continuous across faces => no facets, while
-          // still keeping the perturbed normal out of the surface backside.
-          float fnd = dot(Nm, N);
-          if (fnd < 0.04) Nm = normalize(Nm + N * (0.04 - fnd));
-        }
-        vec4 T0p = texture(tex_T0, uv);
-        vec3 albedo = pow(T0p.rgb, vec3(2.2));
-        // REOPEN 2026-07-23 roughness CONVENTION AUDIT: the loader uploads _roughness as
-        // plain linear GL_RGBA (LoaderStages make_map — no GL_SRGB internal format, no
-        // hardware decode), so .r IS the authored PERCEPTUAL roughness; the GGX lobe uses
-        // alpha = roughness^2 (industry squaring) below. Perceptual floor 0.045 doubles as
-        // the specular-AA minimum (no mirror-edge fireflies).
-        // REOPEN #2 MISSING-ROUGHNESS=ROUGH (industry rule): an absent _roughness map now
-        // reads 0.9 — internet-pack bases without maps must NEVER get a smooth plastic sheen.
-        float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.9;
-        // REOPEN dielectric rule: most owner sets are height/normal/roughness only — a
-        // MISSING _metallic map means metal = 0.0 (stone/straw/dirt are dielectrics,
-        // constant F0 = 0.04; never assume metalness).
-        float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
-        float ao = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
-        // REOPEN #3 BISECT VERDICT (mask 16): _specular read as RAW F0 (the test map's
-        // linear mean is 0.217, p95 0.426 — 5-10x the 0.04 dielectric norm) inflated
-        // Fresnel on every texel and the ambient-specular term turned that into the
-        // plastic film. Industry (UE) convention: on a DIELECTRIC a "specular" map only
-        // tunes F0 within [0, 0.08]; the raw map survives as a true specular COLOR only
-        // where _metallic declares metalness.
-        vec3 F0;
-        if ((u_pbr_mode & 32) != 0 && (u_pbr_bisect & 16) == 0) {
-          vec3 spec_raw = pow(texture(tex_PBR_S, uv).rgb, vec3(2.2));
-          F0 = mix(min(spec_raw, vec3(0.08)), spec_raw, metal);
-        } else {
-          F0 = mix(vec3(0.04), albedo, metal);
-        }
-        float NdV = max(dot(Nm, Vv), 1e-4);
-        // REOPEN geometric SPECULAR AA: widen the GGX alpha by the normal-map's screen-
-        // space variance (Toksvig-style) so normal-mapped ground never sparkles. One-way:
-        // only ever widens the lobe.
-        rough = clamp(rough, 0.045, 1.0);
-        float fa = rough * rough;  // alpha = perceptual roughness squared (industry)
-        vec3 fnddx = dFdx(Nm);
-        vec3 fnddy = dFdy(Nm);
-        float fnvar = 0.25 * (dot(fnddx, fnddx) + dot(fnddy, fnddy));
-        // REOPEN #3: screen-derivative variance (geometric edges) + Toksvig-from-mip
-        // variance (sub-texel normal detail at the fitted mip) both widen the lobe;
-        // perceptual min-rough 0.045 above stays the floor. One-way: only ever rougher.
-        fa = clamp(fa + min(fnvar, 0.18) + min(fnmip_var, 0.35), 0.002, 1.0);
-        float fa2 = fa * fa;
-        // REOPEN roughness-aware FRESNEL ceiling (Fdez-Aguera): the grazing-angle limit is
-        // max(1-roughness, F0), NOT 1.0 — a rough floor seen edge-on can no longer blow out
-        // into the white mirror-edge sheen (the owner's "surcouche plastique" at ground +
-        // extreme angles).
-        vec3 Fceil = max(vec3(1.0 - rough), F0);
-        // ===============================================================================
-        // REOPEN #6 MATTE-DIELECTRIC DEFAULT (owner playtest #4 + 5-screenshot decomposition:
-        // "Lighting-only" is GOOD, the glass appears ONLY when PBR is on => the glass IS the
-        // specular / env-reflection term made VISIBLE on MATTE materials where it must not be).
-        // Industry truth: a rough dielectric (stone/sand/grass/wood = all of village1) reflects
-        // almost NOTHING — its microfacet lobe is so broad the peak radiance is negligible and
-        // view-STABLE. So the ENTIRE specular contribution (direct GGX of both suns + the
-        // ambient/env reflection) is driven toward ~0 as roughness rises: at rough >= ~0.60 the
-        // surface is fully MATTE (no sheen, no camera-dependent highlight). Only genuinely SMOOTH
-        // (rough < 0.30) or METALLIC texels keep a visible highlight. This is the visible-highlight
-        // ENVELOPE riding ON TOP of the physical BRDF, NOT a replacement — the normal-mapped
-        // DIFFUSE relief the owner LIKES (fdetail below) is untouched, so PBR-ON = Lighting-only
-        // + depth, MINUS the gloss. Bisect bit 4096 = envelope OFF (device A/B killswitch proving
-        // the matte path is active: the old glassy sheen returns when set).
-        float matte_gate = max(1.0 - smoothstep(0.30, 0.60, rough), metal);
-        if ((u_pbr_bisect & 4096) != 0) matte_gate = 1.0;
-        // ===============================================================================
-        // REOPEN OWNER ARCHITECTURE: BASE = the validated BAKED-MODULATION composite (the
-        // fought-for object relief) — the baked influence ALWAYS remains; the PBR layer
-        // only rides on top. Identical formula to the accepted pbr-OFF branch below, but
-        // evaluated with the normal-MAP-perturbed Nm so material detail shades under the
-        // realtime suns, plus a bounded micro/macro detail-relight ratio so the relief
-        // stays alive inside fully-lit zones where the terminator smoothstep saturates.
-        // ===============================================================================
-        vec3 Mn = normalize(u_rt_moon_dir);
-        // MACRO LIGHTING = GEOMETRY, MICRO DETAIL = THE MAP (owner A/B root cause, 2026-07-24).
-        // This terminator drives fmod, the baked lit/shadow multiply, through a near-binary
-        // smoothstep(0, 0.35) — feeding it the normal-MAPPED Nm let the map decide whether a
-        // whole material region counts as LIT or as SHADOWED, so any systematic tilt in the map
-        // (see the DC comment above) flipped entire regions between the lit and the shadow
-        // multiplier: a hard plate with no geometric cause. The map's contribution belongs in the
-        // bounded fdetail ratio below, not in the macro gate. Taking the terminator from the
-        // smooth normal N also makes fmod the SAME expression as the accepted pbr-OFF branch,
-        // which is the owner's acceptance criterion made structural: PBR ON == Lighting-only,
-        // PLUS depth. Bit 16384 = legacy (terminator from Nm) for the device A/B.
-        vec3 fNterm = ((u_pbr_bisect & 16384) != 0) ? Nm : N;
-        float fterm_y = smoothstep(0.0, 0.35, dot(fNterm, L));
-        float fterm_g = smoothstep(0.0, 0.35, dot(fNterm, Mn));
-        float flit_y = fterm_y * sun_occ;
-        float flit_g = fterm_g * moon_occ;
-        float fw_y = clamp(u_rt_sun_elev, 0.0, 1.0);
-        float fw_g = clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0) * clamp(u_rt_green_amp, 0.0, 2.0);
-        // PBR POLISH: the DIRECT share of this fragment's lighting. Hoisted up from the _ao site
-        // below (same expression, same value) so the new INDIRECT relief term can weight itself by
-        // the complementary ambient share (1 - fdirw) — full effect exactly where the suns are not.
-        float fdirw = clamp(flit_y * fw_y + flit_g * fw_g, 0.0, 1.0);
-        // PBR POLISH — HEIGHT-FIELD SELF-SHADOW, one march per analytic sun (owner defect 3).
-        // The light directions go into the SAME tangent-UV frame the POM marches in, so the
-        // shadow the relief casts lies along the same axis the parallax already shifts.
-        float fms_y = 1.0;
-        float fms_g = 1.0;
-        if (fh_ms_uv > 0.0) {
-          fms_y = pbr_micro_shadow(uv, fh0, vec3(dot(L, fTuv), dot(L, fBuv), dot(L, N)), fh_ms_uv);
-          fms_g =
-              pbr_micro_shadow(uv, fh0, vec3(dot(Mn, fTuv), dot(Mn, fBuv), dot(Mn, N)), fh_ms_uv);
-        }
-        vec3 fsun_ch = u_rt_sun_color / max(dot(u_rt_sun_color, vec3(0.299, 0.587, 0.114)), 1e-3);
-        vec3 fmoon_ch = u_rt_moon_color / max(dot(u_rt_moon_color, vec3(0.299, 0.587, 0.114)), 1e-3);
-        const vec3 FUS_COOL = vec3(0.896, 1.001, 1.265);
-        vec3 flit_mul_y = u_rt_lit_boost * mix(vec3(1.0), fsun_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
-        vec3 flit_mul_g = u_rt_lit_boost * mix(vec3(1.0), fmoon_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
-        vec3 fshd_mul = u_rt_shadow_mul * mix(vec3(1.0), FUS_COOL, clamp(u_rt_tint_shadow, 0.0, 1.0));
-        vec3 fmod = mix(vec3(1.0), mix(fshd_mul, flit_mul_y, flit_y), fw_y) *
-                    mix(vec3(1.0), mix(fshd_mul, flit_mul_g, flit_g), fw_g);
-        // FUSED-CONTRAST REBALANCE (owner preset report 2026-07-23: Fusion modes read
-        // "très contrasté"). The baked colour already carries the TOD contrast; fmod
-        // multiplies the realtime lit/shadow spread on top AND the GGX sun specular then
-        // adds sparkle on the lit side — a double contrast apply vs the accepted pbr-OFF
-        // baked-modulation look (which applies fmod exactly once with no added spec).
-        // Compress fmod toward 1 (gamma 0.70) in the FUSED branch only, so the fused
-        // overall contrast matches the accepted look and the specular ADDS sparkle
-        // instead of stacking another lit/shadow multiply. Bisect 2048 = compress off
-        // (device A/B measurement of exactly this rebalance).
-        if ((u_pbr_bisect & 2048) == 0) fmod = pow(max(fmod, vec3(0.0)), vec3(0.70));
-        if ((u_pbr_bisect & 512) != 0) fmod = vec3(1.0);  // bisect: baked-modulation off
-        // Bounded perturbed/smooth N.L ratio (=1 for a flat map => map-free pixels match
-        // the accepted baked-modulation look exactly).
-        // MEAN-PRESERVING detail. dot(N,L) + g.(T.L, B.L) is the UN-normalised (bump) response of
-        // the perturbed surface — identical to dot(Nm,L)/nmt.z, i.e. the same relief WITHOUT the
-        // 1/sqrt(1+|g|^2) renormalisation. That renormalisation is what made a normal-mapped
-        // surface systematically DARKER than its unmapped neighbour (Jensen: the average of the
-        // normalised cosine is below the cosine of the average), which is the second half of the
-        // plates — the material BORDER step, visible wherever a mapped ground texture meets an
-        // unmapped one (vil1-jng-leafyground vs -hitweak, vil-beach-01 vs -01path: only 8 of 716
-        // village1 texture bindings carry maps at all). Because fg is zero-mean, the mean of this
-        // term is EXACTLY the smooth-normal response, for any light direction and any frame:
-        // relief with no brightness step. Offline (shader-exact) on the grass at relief 1.0:
-        // material-border delta -19.5% -> +1.4%, and the detail amplitude RISES 21.5% -> 32.0%.
-        // fg == 0 on map-free pixels => fdt == 1 exactly => pbr-OFF look preserved bit for bit.
-        float fndl_y = ((u_pbr_bisect & 16384) != 0)
-                           ? dot(Nm, L)
-                           : (dot(N, L) + fg.x * dot(fTn, L) + fg.y * dot(fBn, L));
-        float fndl_g = ((u_pbr_bisect & 16384) != 0)
-                           ? dot(Nm, Mn)
-                           : (dot(N, Mn) + fg.x * dot(fTn, Mn) + fg.y * dot(fBn, Mn));
-        // PBR POLISH — OWNER PLAYTEST #17 REBALANCE: "TRÈS CONTRASTÉ À LA LUMIÈRE (mais quand même
-        // plat), TRÈS PLAT À L'OMBRE." Both halves of that sentence are one imbalance. The DIRECT
-        // N.L detail ratio was allowed a [0.45, 1.9] swing — a factor of 4.2 between the darkest
-        // and brightest texel of the SAME material under the SAME sun — while every actual DEPTH
-        // cue was ~0 (cavity did not exist, the ambient ratio measured 0.960..0.996, the
-        // self-shadow reached >5% on only 0-17% of texels). High-contrast N.L noise is not depth:
-        // it is the same flat surface lit harder. So the direct term gives budget back — a [0.60,
-        // 1.55] swing with a larger softening constant — and the budget goes into the cues that
-        // actually read as geometry (the cavity below, the now material-scaled self-shadow, and
-        // the band-limited real displacement in the tess stage). fg == 0 on map-free pixels still
-        // makes this EXACTLY 1.0, so the accepted pbr-OFF look is untouched either way.
-        // Bisect 8388608 = the legacy wide clamp back, for the live A/B.
-        float fdt_lo = ((u_pbr_bisect & 8388608) != 0) ? 0.45 : 0.60;
-        float fdt_hi = ((u_pbr_bisect & 8388608) != 0) ? 1.9 : 1.55;
-        float fdt_soft = ((u_pbr_bisect & 8388608) != 0) ? 0.30 : 0.38;
-        float fdt_y =
-            clamp((max(fndl_y, 0.0) + fdt_soft) / (max(dot(N, L), 0.0) + fdt_soft), fdt_lo, fdt_hi);
-        float fdt_g = clamp((max(fndl_g, 0.0) + fdt_soft) / (max(dot(N, Mn), 0.0) + fdt_soft),
-                            fdt_lo, fdt_hi);
-        // ===================================================================================
-        // PBR POLISH — OWNER PLAYTEST #16 DEFECT 2: "completement PLAT dans l'ombre / la ou le
-        // soleil ne tape pas". Traced to the exact line: in cast shadow sun_occ = moon_occ = 0, so
-        // BOTH mix() weights below collapse to zero and fdetail becomes EXACTLY 1.0 — the normal
-        // map stops contributing at all — while the only other normal-dependent term (famb_spec)
-        // is driven to zero by matte_gate on every rough dielectric. A shadowed fragment was
-        // literally baked x constant x _ao: no normal dependence anywhere in the expression, hence
-        // no depth. Relief that only exists in direct sun is not relief.
-        // The industry answer is the one the owner named: the INDIRECT term must see the perturbed
-        // surface too — irradiance E(n) evaluated with the normal-mapped normal (SH / IBL /
-        // hemisphere, whichever ambient model is live) instead of a direction-free constant, with
-        // _ao as the contact term (fao_mul below already weights _ao onto exactly this share).
-        // Expressed as the same bounded RATIO fdt_y/fdt_g use — E(Nm) / E(N) — so it multiplies the
-        // baked composite instead of replacing it (the owner's standing rule: the baked influence
-        // always remains) and a map-free fragment gets exactly 1.0, i.e. the accepted
-        // Lighting-only look survives bit for bit. E varies slowly and smoothly with direction, so
-        // the ratio stays near 1 and carries no brightness step against an unmapped neighbour.
-        // Weighted by the AMBIENT SHARE (1 - fdirw): full strength in shadow and at night, fading
-        // out where a sun already carries the relief, so full-sun pixels are untouched.
-        // Bisect bit 262144 = ambient relief off (the device A/B for this term).
-        float fdt_amb = 1.0;
-        if ((u_pbr_bisect & 262144) == 0 && dot(fg, fg) > 0.0) {
-          const vec3 FUS_LUMA = vec3(0.299, 0.587, 0.114);
-          float famb_ls = dot(rt_amb_eval(N), FUS_LUMA);
-          float famb_lb = dot(rt_amb_eval(Nm), FUS_LUMA);
-          fdt_amb = clamp((max(famb_lb, 0.0) + 0.02) / (max(famb_ls, 0.0) + 0.02), 0.45, 1.9);
-        }
-        // ===================================================================================
-        // PBR POLISH — OWNER PLAYTEST #17, THE "FLAT IN SHADOW" FIX. The ratio above is the term
-        // that was SUPPOSED to do this and provably cannot (see pbr_cavity()'s header: our ambient
-        // is near direction-invariant, so the ratio measures 0.960..0.996 across every shipped
-        // material). This is the direction-INDEPENDENT replacement: a cavity / micro-AO read
-        // straight out of the height field, which has exactly the same strength in a cast shadow,
-        // in the dark, and at noon.
-        // WEIGHTING: full strength on the AMBIENT share (1 - fdirw) — that share IS the whole of a
-        // shadowed fragment, which is where the owner sees the flatness — and PBR_CAV_DIR of it in
-        // direct sun, because a crevice occludes bounce light there too but the sun's own N.L and
-        // self-shadow already carry the relief. So the sunlit look barely moves while the shaded
-        // look gains the depth it never had.
-        // The _ao MAP, when a material ships one, is the same physical quantity at a coarser scale
-        // and already rides this same ambient share through fao_mul below; the cavity is the
-        // per-texel detail term that every shipped material can produce from its height map (none
-        // of the 7 bundled materials ships an _ao map, which is precisely why an _ao-only ambient
-        // occlusion left them flat).
-        // Bisect bit 2097152 = cavity off (the live A/B for exactly this fix).
-        // ===================================================================================
-        float fcav = 1.0;
-        if ((u_pbr_mode & 16) != 0 && (u_pbr_bisect & 2097152) == 0) {
-          fcav = pbr_cavity(uv);
-        }
-        const float PBR_CAV_DIR = 0.35;  // how much of the cavity survives in full direct sun
-        float fcav_mul = mix(1.0, fcav, mix(PBR_CAV_DIR, 1.0, 1.0 - fdirw));
-        // fms_* (height-field self-shadow) rides on each sun's share: a crevice the relief itself
-        // occludes cannot receive that sun. It is deliberately NOT applied to the ambient share —
-        // skylight reaches into a crevice from every direction, and the cavity above is that term.
-        float fdetail = mix(1.0, fdt_y * fms_y, fw_y * sun_occ) *
-                        mix(1.0, fdt_g * fms_g, clamp(fw_g, 0.0, 1.0) * moon_occ) *
-                        mix(1.0, fdt_amb, 1.0 - fdirw) * fcav_mul;
-        if ((u_pbr_bisect & 256) != 0) fdetail = 1.0;  // bisect: detail-relight ratio off
-        // _ao = material micro-occlusion: full strength on the ambient/shadowed share,
-        // relaxed where the direct sun dominates (AO never occludes the suns).
-        float fao_mul = mix(ao, 1.0, 0.55 * fdirw);
-        vec3 fbase_disp = max(fragment_color.rgb * T0p.rgb, vec3(0.0)) * fmod * fdetail * fao_mul;
-        vec3 fbase_lin = pow(fbase_disp, vec3(2.2));
-        // REOPEN ENERGY CONSERVATION + SPECULAR OCCLUSION: kd = (1-F)(1-metal) on the baked
-        // diffuse so the specular never ADDS free energy on top of the full baked; and the
-        // BAKED-DETAIL luminance gates the specular — a crevice the baked lighting says is
-        // dark cannot host a bright highlight (shiny pits read as plastic). _ao joins in.
-        // fragment_color is the TOD LUT x2 (lit ~0.5-1.0, crevices < ~0.2).
-        float fbklum = dot(fragment_color.rgb, vec3(0.299, 0.587, 0.114));
-        float fspecocc = ao * smoothstep(0.05, 0.45, fbklum);
-        // REOPEN #3 fix: kd is the INDUSTRY constant (1 - F0)(1 - metal) (UE/Frostbite
-        // diffuse). The old view-dependent (1 - Fenv) grayed rough surfaces seen edge-on
-        // (the ground at grazing) — a film NOT scaled by the specular slider, which is
-        // exactly the owner's "sheen survives specular=0" datapoint.
-        fbase_lin *= ((u_pbr_bisect & 8) != 0 ? vec3(1.0) : (vec3(1.0) - F0 * fspecocc)) *
-                     (1.0 - metal);
-        // BOTH analytic suns, Cook-Torrance with the HEIGHT-CORRELATED SMITH VISIBILITY
-        // term (REOPEN: the old separable Schlick G + naive F was exactly the grazing-
-        // sheen bug; Vis contains the 1/(4 NdV NdL) denominator). Cast shadows kill each
-        // sun's specular via its own occ; the yellow sun also night-fades (fw_y).
-        vec3 fspec_direct = vec3(0.0);
-        for (int i = 0; i < 2; i++) {
-          if ((u_pbr_bisect & (i == 0 ? 1 : 2)) != 0) {
-            continue;  // bisect: this sun's GGX specular zeroed
-          }
-          vec3 Li = (i == 0) ? L : Mn;
-          vec3 lc = (i == 0) ? u_rt_sun_color * fw_y : u_rt_moon_color;
-          // PBR POLISH: the height-field self-shadow gates the highlight too — a texel the relief
-          // occludes cannot host a specular lobe from that sun (a lit highlight sitting inside a
-          // crevice is the classic tell that "depth" is only a shaded bump).
-          float vis_i = (i == 0) ? (sun_occ * fms_y) : (moon_occ * fms_g);
-          if (dot(lc, vec3(1.0)) <= 1e-5 || vis_i <= 1e-4) {
-            continue;
-          }
-          vec3 Hh = normalize(Li + Vv);
-          float NdL = max(dot(Nm, Li), 0.0);
-          if (NdL <= 0.0) {
-            continue;
-          }
-          float NdH = max(dot(Nm, Hh), 0.0);
-          float VdH = max(dot(Vv, Hh), 0.0);
-          float dd = NdH * NdH * (fa2 - 1.0) + 1.0;
-          float D = fa2 / (3.14159265 * dd * dd);
-          float gv = NdL * sqrt(NdV * NdV * (1.0 - fa2) + fa2);
-          float gl = NdV * sqrt(NdL * NdL * (1.0 - fa2) + fa2);
-          float Vis = 0.5 / max(gv + gl, 1e-4);
-          vec3 F = F0 + (Fceil - F0) * pow(1.0 - VdH, 5.0);
-          fspec_direct += (D * Vis * F) * lc * NdL * vis_i;
-        }
-        // AMBIENT SPECULAR — PROBES = the coherence source (REOPEN): the prefiltered local
-        // probe cube sampled at the ROUGHNESS MIP (8x8 cube => 4-level chain; lod = rough*3
-        // lands roughness 1.0 on the blurriest 1x1 mip), analytic SH/IBL env as the
-        // no-probe fallback. Either way the sample CONVERGES to the ambient IRRADIANCE as
-        // roughness rises — a rough ground reflects a blurry env, never the sharp sun-glow
-        // lobe (the old sharp-Rf eval was the other half of the ground sheen).
-        // PBR POLISH: same selector as before, now via the shared rt_amb_eval() the new indirect
-        // relief term also uses — one definition of "the ambient irradiance in direction n", so
-        // the diffuse and the specular can never drift apart. Value here is unchanged.
-        vec3 famb_base = clamp(rt_amb_eval(Nm), 0.0, 1.0);
-        vec3 Rf = reflect(-Vv, Nm);
-        vec3 fenv_sharp;
-        if (u_rt_probe_on != 0 && u_rt_probe_reflections != 0) {
-          fenv_sharp = textureLod(u_rt_probe_cube, Rf, rough * 3.0).rgb *
-                       clamp(u_rt_probe_strength, 0.0, 1.0);
-        } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 1) {
-          fenv_sharp = rt_sh_ambient(Rf);
-        } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 2) {
-          fenv_sharp = rt_ibl_ambient(Rf);
-        } else {
-          fenv_sharp = famb_base;
-        }
-        // REOPEN #6 VIEW-STABILITY: collapse the sharp view-dependent reflection (Rf, the
-        // camera-dependent "highlight shifts with the camera" the owner saw on rock/sand) to the
-        // view-INDEPENDENT irradiance (famb_base, from the perturbed Nm) by rough ~0.50 — well
-        // before the matte_gate finishes at 0.60 — so no camera-dependent env sheen survives on
-        // any rough surface, even inside the 0.30-0.60 transition band.
-        vec3 famb_env = mix(fenv_sharp, famb_base, smoothstep(0.12, 0.50, rough));
-        // REOPEN #3 fix — THE bisect-identified culprit (mask 4: zeroing this term halved
-        // the wall luma; the plastic film lived here). The raw Fresnel multiply (famb_env *
-        // Fenv, grazing ceiling max(1-rough, F0)) is replaced by the industry SPLIT-SUM env
-        // BRDF (Karis mobile approximation): famb_spec = env * (F0*A + B), A/B folding the
-        // GGX lobe energy over (roughness, NdV). Rough ground at grazing now reflects ~5%
-        // of the ambient instead of 30-45% — bounded by construction, no mirror-edge film.
-        vec4 kr = rough * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
-        float ka004 = min(kr.x * kr.x, exp2(-9.28 * NdV)) * kr.x + kr.y;
-        vec2 kAB = vec2(-1.04, 1.04) * ka004 + vec2(kr.z, kr.w);
-        vec3 famb_spec = famb_env * (F0 * kAB.x + kAB.y);
-        if ((u_pbr_bisect & 4) != 0) famb_spec = vec3(0.0);  // bisect: ambient/IBL specular off
-        // EMISSIVE (bit 64): unlit, added on top — glows in full shadow / at night.
-        vec3 emissive = ((u_pbr_mode & 64) != 0 && (u_pbr_bisect & 32) == 0)
-                            ? pow(texture(tex_PBR_E, uv).rgb, vec3(2.2)) *
-                                  max(u_pbr_emissive_str, 0.0)
-                            : vec3(0.0);
-        // REOPEN #6: matte_gate drives the WHOLE specular (direct GGX + env reflection) to ~0 on
-        // rough dielectrics (independent of the slider — a rough surface is matte even at spec=1),
-        // then the low-default slider trims what remains on genuinely smooth/metal texels.
-        vec3 fspec_sum = (fspec_direct + famb_spec) * fspecocc * matte_gate * max(u_pbr_spec_intensity, 0.0);
-        vec3 flit = fbase_lin + fspec_sum + emissive;
-        // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite —
-        // the added specular can never clip the baked base to white.
-        if ((u_pbr_bisect & 1024) == 0) {
-          const float RT_KNEE = 0.8;
-          vec3 fe = exp(-max(flit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));
-          flit = mix(flit, vec3(1.0) - (1.0 - RT_KNEE) * fe, step(vec3(RT_KNEE), flit));
-        } else {
-          flit = min(flit, vec3(1.0));  // bisect: shoulder off, hard clamp
-        }
-        vec3 fdisp = pow(max(flit, vec3(0.0)), vec3(1.0 / 2.2));
-        float ffar_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
-        float ffar_t = smoothstep(ffar_rng * 0.82, ffar_rng * 1.05, length(v_fringe_rel));
-        vec3 fbaked = max(fragment_color.rgb * T0.rgb, vec3(0.0));
-        color.rgb = mix(fdisp, fbaked, ffar_t);
-        // Debug viz (default colored render untouched at u_pbr_debug==0).
-        if (u_pbr_debug == 2) {
-          color.rgb = N * 0.5 + 0.5;
-        } else if (u_pbr_debug == 3) {
-          color.rgb = Nm * 0.5 + 0.5;
-        } else if (u_pbr_debug == 4) {
-          color.rgb = vec3(rough);
-        } else if (u_pbr_debug == 5) {
-          color.rgb = pow(max(fspec_sum, vec3(0.0)), vec3(1.0 / 2.2));
-        } else if (u_pbr_debug == 6) {
-          color.rgb = vec3(ao);
-        } else if (u_pbr_debug == 18) {
-          color.rgb = pow(max(emissive, vec3(0.0)), vec3(1.0 / 2.2));
-        } else if (u_pbr_debug == 20) {
-          // REOPEN#9 tangent-fallback coverage viz: RED = fragment fell back to a normal-derived
-          // continuous basis (v_tangent degenerate/unbound), GREEN = per-vertex MikkTSpace tangent.
-          // The screen-space-derivative FACET source is gone in BOTH branches; this measures how much
-          // of the visible ground actually carries a valid uploaded per-vertex tangent on THIS device
-          // (offline grass_bake can't see a GL upload/bind gap — this can). Screenshot + red-fraction.
-          color.rgb = vec3(f_tan_fb, 1.0 - f_tan_fb, 0.0);
-        } else if (u_pbr_debug == 21) {
-          // PBR POLISH viz: HEIGHT-FIELD SELF-SHADOW (owner defect 3). White = fully lit relief,
-          // dark = a texel the surface's own height field occludes from the yellow sun. A flat
-          // white screen here means the relief casts nothing = "glorified bump map".
-          color.rgb = vec3(fms_y);
-        } else if (u_pbr_debug == 22) {
-          // PBR POLISH viz: INDIRECT (ambient) RELIEF ratio (owner defect 2), remapped around
-          // 0.5 = 1.0. A flat grey screen in shadow means the shadowed surface is FLAT.
-          color.rgb = vec3(clamp(fdt_amb * 0.5, 0.0, 1.0));
-        } else if (u_pbr_debug == 23) {
-          // PBR POLISH #17 viz: the HEIGHT-FIELD CAVITY / micro-AO (the flat-in-shadow fix),
-          // remapped so 0.5 = 1.0 (no change), darker = crevice, brighter = ridge. Unlike viz 22
-          // this one must show STRUCTURE even on a fragment in full cast shadow — a flat grey
-          // screen there is the defect, and this is the term that fixes it.
-          color.rgb = vec3(clamp(fcav * 0.5, 0.0, 1.0));
-        }
+        #include "pbr_fused.glsl"
       } else if (u_rt_probe_on == 0) {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
         float term_g = smoothstep(0.0, 0.35, dot(N, normalize(u_rt_moon_dir)));
@@ -1688,6 +692,13 @@ void main() {
       // fused branch — this "bidon" fallback is the owner's "PBR seul" preset, so it has to line
       // up with the pattern too).
       vec2 uv = tex_coord.xy;
+      // ROUND 22 COVERAGE INSTRUMENTATION — same rule as the fused path (u_pbr_debug 31): a
+      // tessellated draw already had its real geometry moved, so it counts as covered here even
+      // though the POM march below is skipped for it.
+      if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && u_pbr_displacement != 0 &&
+          u_pbr_tess_active != 0) {
+        f_disp_cover = 1.0;
+      }
       // PBR POLISH bug fix — DOUBLE DISPLACEMENT. A draw the tess-eval already moved must not run a
       // 16-32 step POM march on top of it: two displacements stacked. ★ BUG B: the gate is
       // u_pbr_tess_active (per-PROGRAM), not the global u_pbr_displacement setting — otherwise
@@ -1702,7 +713,6 @@ void main() {
         // loop; the offsets are small so mip 0 is acceptable at PoC distances.
         vec3 Vt = normalize(vec3(dot(V, Tn), dot(V, Bn), max(dot(V, Nsurf), 0.0)));
         float vz = max(Vt.z, 0.20);  // cap the grazing blow-up (raised REOPEN #6 for surface-lock)
-        float n_layers = mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0));
         // REOPEN #6 SURFACE-LOCK (same fix as the fused path): clamp the total parallax UV
         // offset so the rt-OFF standalone POM is also welded to the surface — no epoxy float.
         // ★ OWNER 2026-07-26, same rebuild as the fused path and for the same reason (the owner's
@@ -1713,7 +723,8 @@ void main() {
         float pom_graze =
             mix(POM_GRAZE_FLOOR, 1.0, smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z));
         float lambda_world_m;
-        float depth_uv = pom_depth_uv(lambda_world_m);
+        float pom_drive;
+        float depth_uv = pom_depth_uv(lambda_world_m, pom_drive);
         float pom_cap = min(POM_MAX_TAN * depth_uv,
                             POM_MAX_FEATURE_FRAC * lambda_world_m * max(u_pbr_uv_per_m, 0.02));
         // Same round-20 restoration as the fused path, so the A/B pair is identical on both.
@@ -1722,7 +733,11 @@ void main() {
           depth_uv = u_pbr_height_scale;
           pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
                         0.03 * max(u_pbr_uv_per_m, 0.02));
+          pom_drive = 1.0;  // r20: linear drive => the r20 step counts too
         }
+        // ROUND 22: identical sqrt(drive) step scaling as the fused path (1.0x at rel 1), so the
+        // deeper field is resolved instead of stair-stepped. Loop bound below raised to 64.
+        float n_layers = clamp(mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0)) * sqrt(pom_drive), 8.0, 64.0);
         vec2 P = (Vt.xy / vz) * depth_uv * pom_graze;
         float Plen = length(P);
         if (Plen > pom_cap) P *= pom_cap / Plen;
@@ -1736,7 +751,7 @@ void main() {
           // "PBR seul" preset — the checkerboard has to read here too.
           float map_d = 1.0 - hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
           float prev_map_d = map_d;
-          for (int i = 0; i < 32; i++) {
+          for (int i = 0; i < 64; i++) {  // ROUND 22: bound raised for the sqrt(drive) step count
             if (cur_d >= map_d || float(i) >= n_layers) {
               break;
             }
@@ -1750,6 +765,10 @@ void main() {
           float before = prev_map_d - (cur_d - layer_d);
           float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
           uv += duv_step * (1.0 - w);
+          // ROUND 22 COVERAGE: the march actually ran here (see the fused path).
+          if (u_pbr_displacement != 0) {
+            f_disp_cover = 1.0;
+          }
         }
       }
       vec3 N = Nsurf;
@@ -1768,7 +787,7 @@ void main() {
         if ((u_pbr_bisect & 8192) == 0) {
           sg -= u_pbr_normal_dc;
         }
-        sg = clamp(sg * u_pbr_normal_strength, vec2(-8.0), vec2(8.0));
+        sg = clamp(sg * u_pbr_normal_strength, vec2(-24.0), vec2(24.0));  // ROUND 22, see fused path
         nm = normalize(vec3(sg, 1.0));
         N = normalize(mat3(sTn, sBn, Nsurf) * nm);
         // GLASS-PANE fix (owner preset report 2026-07-23, same defect on the PBR ONLY
@@ -1990,4 +1009,22 @@ void main() {
   }
 
   color.rgb = mix(color.rgb, fog_color.rgb, clamp(fogginess * fog_color.a, 0.0, 1.0));
+#ifdef OG_PBR
+  // ===== ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1) =====
+  // The owner reports "la plupart des endroits n'ont aucun displacement". Before porting the PBR
+  // material path to the other renderers we must MEASURE, per pixel, (30) which program drew the
+  // pixel and (31) whether that pixel actually received displacement. The tag colours are chosen
+  // with a min pairwise distance of 127 so they survive H.264 screenrecord.
+  //   30: yellow = tessellated tfrag3 draw, red = plain tfrag3 / TIE-non-envmap
+  //   31: white = displaced, black = not displaced
+  // color.a is NEVER touched and the block sits AFTER the alpha discard, so alpha-tested foliage
+  // discards exactly the same fragments and the coverage number is not inflated by solid quads.
+  // It is also after the fog mix, so the tag reaches the framebuffer unblended (a fogged tag would
+  // drift toward fog_color and break the classification at distance).
+  if (u_pbr_debug == 30) {
+    color.rgb = u_pbr_tess_active != 0 ? vec3(1.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+  } else if (u_pbr_debug == 31) {
+    color.rgb = vec3(f_disp_cover);
+  }
+#endif
 }

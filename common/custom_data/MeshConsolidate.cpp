@@ -141,6 +141,11 @@ struct GTree {
   bool use_strips = true;
   PackedTimeOfDay* colors = nullptr;
   const VLayout* layout = nullptr;
+  // round-22: the per-vertex MikkTSpace tangent array of this tree (TfragTree/TieTree::unpacked
+  // .tangents). It lives OUTSIDE the vertex struct, so it cannot be reached through VLayout. Shrub
+  // has no tangent array at all, so this stays null there. Only ever used when its size matches
+  // gcount — a tree whose tangents were not reconstructed must be left alone, not indexed into.
+  std::vector<math::Vector4f>* tangents = nullptr;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -295,7 +300,7 @@ void gather_level(Level& lev,
                   std::vector<math::Vector3f>* gp) {
   auto add_tree = [&](int system, void* vdata, size_t vcount, size_t vstride,
                       const std::vector<u32>* indices, bool strips, PackedTimeOfDay* colors,
-                      const VLayout* layout) {
+                      const VLayout* layout, std::vector<math::Vector4f>* tangents) {
     if (vcount == 0 || !indices) {
       return;
     }
@@ -307,6 +312,7 @@ void gather_level(Level& lev,
     t.use_strips = strips;
     t.colors = colors;
     t.layout = layout;
+    t.tangents = tangents;
     trees.push_back(t);
     const u32 tid = (u32)trees.size() - 1;
     u8* base = (u8*)vdata;
@@ -325,20 +331,21 @@ void gather_level(Level& lev,
     for (auto& t : geom) {
       add_tree(kSysTfrag, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
                sizeof(PreloadedVertex), &t.unpacked.indices, t.use_strips, &t.colors,
-               &kLayoutPreloaded);
+               &kLayoutPreloaded, &t.unpacked.tangents);
     }
   }
   for (auto& geom : lev.tie_trees) {
     for (auto& t : geom) {
       add_tree(kSysTie, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
                sizeof(PreloadedVertex), &t.unpacked.indices, t.use_strips, &t.colors,
-               &kLayoutPreloaded);
+               &kLayoutPreloaded, &t.unpacked.tangents);
     }
   }
   if (do_shrub) {
     for (auto& t : lev.shrub_trees) {
       add_tree(kSysShrub, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
-               sizeof(ShrubGpuVertex), &t.indices, true, &t.time_of_day_colors, &kLayoutShrub);
+               sizeof(ShrubGpuVertex), &t.indices, true, &t.time_of_day_colors, &kLayoutShrub,
+               /*tangents=*/nullptr);  // shrub has no tangent array
     }
   }
 }
@@ -385,7 +392,10 @@ struct BR {
 };
 
 constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
-constexpr u32 kBakeVersion = 1;
+// v2 (round 22): the orientation rule changed, so every nor[] in a v1 sidecar is a stale answer.
+// mesh_consolidate_apply_bake() rejects a version mismatch and the caller falls back to the live
+// pass, so the 26 baked jak1 levels cannot silently keep the old (inverted) normals.
+constexpr u32 kBakeVersion = 2;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and
@@ -531,6 +541,15 @@ void mesh_consolidate(Level& lev,
   };
   auto seam_ptr = [&](size_t i) -> u16* {
     return (u16*)(gvert[i] + trees[gtree[i]].layout->seam_off);
+  };
+  // round-22: the tangent lives in a PARALLEL array, not in the vertex struct. Returns null for a
+  // system/tree with no tangents (shrub, or a tree whose reconstruction was skipped).
+  auto tangent_ptr = [&](size_t i) -> math::Vector4f* {
+    const GTree& t = trees[gtree[i]];
+    if (!t.tangents || t.tangents->size() != (size_t)t.gcount) {
+      return nullptr;
+    }
+    return t.tangents->data() + (i - t.gbase);
   };
   auto sys_audit = [&](int s) -> MeshAuditSystem& {
     return s == kSysTfrag ? rep.tfrag : (s == kSysTie ? rep.tie : rep.shrub);
@@ -775,8 +794,30 @@ void mesh_consolidate(Level& lev,
   // ---------------------------------------------------------------------------------------------
   std::vector<std::pair<u64, u32>> ge;  // (group edge key, (face<<1)|dir)
   std::vector<u8> group_open;
-  std::vector<std::pair<u32, u32>> manifold_adj;
+  // round-22: an adjacency link now carries WHETHER IT IS TRUSTWORTHY. The topological winding rule
+  // ("consistently wound neighbours traverse the shared edge in opposite directions") is only DEFINED
+  // on a TRUE MANIFOLD edge — one the welded topology says is shared by exactly two faces. The
+  // run-chaining below deliberately fabricates links across edges incident to 3+ faces (stacked
+  // coplanar sheets, a decimated LOD triangle chained onto the full-res mesh); on those the rule
+  // states a relation that does not exist, and the flood fill propagates it. Tagging the link lets
+  // the flood fill trust the certain ones first and only guess where it must.
+  struct ManifoldLink {
+    u32 a, b;           // (face<<1)|dir, as before
+    u8 true_manifold;   // the welded edge had EXACTLY two incident faces
+  };
+  std::vector<ManifoldLink> manifold_adj;
   std::vector<u64> open_grp_edges;  // group edge keys used exactly once
+
+  // round-22: a face's identity as a SURFACE — its three corners mapped through the weld map and
+  // sorted. Two faces with the same triple are coincident duplicate copies of one triangle.
+  // Returns false if the triple is degenerate (two corners welded together), in which case the face
+  // cannot be identified this way and must not be treated as anyone's duplicate.
+  auto face_group_triple = [&](u32 f, std::array<u32, 3>* out) {
+    std::array<u32, 3> g3 = {group[faces[f][0]], group[faces[f][1]], group[faces[f][2]]};
+    std::sort(g3.begin(), g3.end());
+    *out = g3;
+    return g3[0] != g3[1] && g3[1] != g3[2];
+  };
 
   auto build_group_edges = [&]() {
     ge.clear();
@@ -817,11 +858,48 @@ void mesh_consolidate(Level& lev,
         // at all (measured: 1.08M "components" for 1.35M faces, which made the orientation pass
         // meaningless and mislabelled 85% of groups as creases). CHAIN the run instead: n-1 links is
         // enough to connect the whole run, and stays linear. Capped so a pathological run cannot
-        // dominate. The relative sign is resolved at flood-fill time from the face normals AND the
-        // edge traversal directions, which is correct for duplicate copies and for creases alike.
+        // dominate.
+        // round-22: which of those chain links may the TOPOLOGICAL winding rule speak for? Only a
+        // genuine two-faces-share-an-edge adjacency. The naive test "the run has length 2" is far too
+        // strict HERE precisely because of the coincident copies described above: measured on
+        // village1 it tagged only 10.7% of pairs as trustworthy, dumped the other 89.3% on the
+        // geometric rule and drove the residual from 48876 to 234829.
+        // The run length must therefore be counted in DISTINCT TRIANGLES, not in entries: a run of 10
+        // that is 2 triangles x 5 copies IS a manifold edge. So the edge is manifold iff its entries
+        // carry exactly two distinct weld-group triples, and then a link is trustworthy iff it joins
+        // the two DIFFERENT ones (a link between two copies of one triangle is a duplicate, which the
+        // flood fill must resolve geometrically).
         const size_t lim = std::min(n, (size_t)17);
+        std::array<u32, 3> tri_a{}, tri_b{};
+        bool have_a = false, have_b = false, run_ok = true;
+        for (size_t k = i; k < j && run_ok; k++) {
+          std::array<u32, 3> t3{};
+          if (!face_group_triple(ge[k].second >> 1, &t3)) {
+            run_ok = false;  // a degenerate face: this edge cannot be classified
+            break;
+          }
+          if (!have_a) {
+            tri_a = t3;
+            have_a = true;
+          } else if (t3 == tri_a) {
+            // another copy of the first triangle
+          } else if (!have_b) {
+            tri_b = t3;
+            have_b = true;
+          } else if (t3 != tri_b) {
+            run_ok = false;  // a third distinct triangle: genuinely non-manifold
+          }
+        }
+        const bool two_manifold = run_ok && have_a && have_b;
         for (size_t k = i + 1; k < i + lim; k++) {
-          manifold_adj.emplace_back(ge[k - 1].second, ge[k].second);
+          u8 is_true = 0;
+          if (two_manifold) {
+            std::array<u32, 3> t0{}, t1{};
+            face_group_triple(ge[k - 1].second >> 1, &t0);
+            face_group_triple(ge[k].second >> 1, &t1);
+            is_true = (t0 != t1) ? (u8)1 : (u8)0;
+          }
+          manifold_adj.push_back({ge[k - 1].second, ge[k].second, is_true});
         }
       }
       i = j;
@@ -1231,6 +1309,30 @@ void mesh_consolidate(Level& lev,
     }
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // 6-pre. COINCIDENT-DUPLICATE TEST (round 22). The level ships several exact copies of most
+  //   triangles. Two copies of the SAME triangle traverse their shared edge the SAME way and yet
+  //   must keep the SAME normal — the one case where the consistent-winding rule is wrong. That case
+  //   is IDENTITY, not geometry: two faces are duplicates iff their three corners land on the same
+  //   three WELD GROUPS. Testing it exactly (instead of by a normal-agreement angle, which round 21
+  //   did) is what stops a genuine sharp fold from being mistaken for a duplicate.
+  //   Degenerate faces (two corners welded into one group) can never be a meaningful duplicate of
+  //   anything, so they are excluded rather than matching everything with the same collapsed triple.
+  //   Materialised from the SAME face_group_triple() the manifold tagging uses, over the FINAL weld
+  //   map, so the two cannot drift apart.
+  // ---------------------------------------------------------------------------------------------
+  std::vector<std::array<u32, 3>> fgrp(F);
+  std::vector<u8> fgrp_ok(F, 0);
+  for (size_t f = 0; f < F; f++) {
+    std::array<u32, 3> g3{};
+    face_group_triple((u32)f, &g3);
+    fgrp[f] = g3;
+    fgrp_ok[f] = (g3[0] != g3[1] && g3[1] != g3[2]) ? (u8)1 : (u8)0;
+  }
+  auto faces_are_duplicate = [&](u32 a, u32 b) {
+    return fgrp_ok[a] != 0 && fgrp_ok[b] != 0 && fgrp[a] == fgrp[b];
+  };
+
   // =============================================================================================
   // 6. ORIENTATION. Flood-fill a consistent winding sign over the welded topology, then let the
   //    walkable COLLISION MESH decide which way "outward" is for each connected component. A
@@ -1242,11 +1344,12 @@ void mesh_consolidate(Level& lev,
   if ((cfg.bits & kMeshBitNoOrient) != 0) {
     fsign.assign(F, 1);  // A/B killswitch: raw authored winding, no flood-fill, no authority
   } else {
-    // CSR adjacency from the manifold group edges
+    // CSR adjacency from the manifold group edges.
+    // round-22 slot layout: (neighbour_face << 2) | (same_dir << 1) | is_true_manifold
     std::vector<u32> acnt(F + 1, 0);
     for (const auto& a : manifold_adj) {
-      acnt[a.first >> 1]++;
-      acnt[a.second >> 1]++;
+      acnt[a.a >> 1]++;
+      acnt[a.b >> 1]++;
     }
     std::vector<u32> aoff(F + 1, 0);
     for (size_t f = 0; f < F; f++) {
@@ -1256,14 +1359,20 @@ void mesh_consolidate(Level& lev,
     {
       std::vector<u32> cur(aoff.begin(), aoff.end() - 1);
       for (const auto& a : manifold_adj) {
-        // store neighbour face id in the high bits, relative sign in the low bit
-        const u32 fa = a.first >> 1, fb = a.second >> 1;
-        const u32 same_dir = ((a.first & 1u) == (a.second & 1u)) ? 1u : 0u;
-        aflat[cur[fa]++] = (fb << 1) | same_dir;
-        aflat[cur[fb]++] = (fa << 1) | same_dir;
+        const u32 fa = a.a >> 1, fb = a.b >> 1;
+        const u32 same_dir = ((a.a & 1u) == (a.b & 1u)) ? 1u : 0u;
+        const u32 tag = (same_dir << 1) | (u32)a.true_manifold;
+        aflat[cur[fa]++] = (fb << 2) | tag;
+        aflat[cur[fb]++] = (fa << 2) | tag;
       }
     }
-    std::vector<u32> stack;
+    // round-22 TWO-TIER FRONTIER. `strong` holds signed faces still to be expanded; `weak_pending`
+    // holds (source face, aflat slot) for every link whose sign relation is a GUESS. The strong
+    // frontier is drained completely before a single weak attachment is made, and after each weak
+    // attachment we go straight back to the strong frontier — so a face is only ever attached
+    // geometrically if no chain of trustworthy manifold edges could reach it first.
+    std::vector<u32> strong;
+    std::vector<u64> weak_pending;
     std::vector<u32> comp_faces;
     CollisionAuthority coll;
     if (!lev.collision.vertices.empty()) {
@@ -1275,37 +1384,80 @@ void mesh_consolidate(Level& lev,
       }
       rep.orient_components++;
       fsign[seed] = 1;
-      stack.clear();
+      strong.clear();
+      weak_pending.clear();
       comp_faces.clear();
-      stack.push_back((u32)seed);
-      while (!stack.empty()) {
-        const u32 f = stack.back();
-        stack.pop_back();
-        comp_faces.push_back(f);
-        for (u32 k = aoff[f]; k < aoff[f + 1]; k++) {
-          const u32 nb = aflat[k] >> 1;
-          if (fsign[nb] != 0) {
-            continue;
+      strong.push_back((u32)seed);
+      // Relative orientation of two faces meeting on a welded edge (round 22 — THE POLARITY FIX).
+      //
+      // STRONG (a TRUE manifold edge, and not two copies of the same triangle) = the TOPOLOGICAL
+      // rule: two consistently-wound triangles traverse their shared edge in OPPOSITE directions, so
+      // same traversal direction => opposite winding. Exact at ANY dihedral angle, sharp folds
+      // included — but only DEFINED when the edge really is shared by exactly those two faces.
+      //
+      // The rule this replaces preferred a GEOMETRIC test whenever the two face normals were not
+      // near-perpendicular: rel = sign(dot) as soon as |cos| > 0.2. For a genuine convex crease of
+      // dihedral angle phi the cosine between the two face normals is -cos(phi), so ANY fold sharper
+      // than ~78 deg landed in that branch with a negative cosine and FLIPPED a correctly-wound
+      // neighbour; the flood fill then carried that inversion across the whole sub-surface beyond the
+      // fold. That is the owner's round-22 defect C: with one shared checkerboard height map, white
+      // squares protrude on one surface and black squares on another, because
+      // `world += N * (h - 0.5) * amp` runs with N pointing INTO the surface.
+      //
+      // WEAK (a coincident duplicate, or a link fabricated by the run-chaining across an edge with
+      // 3+ incident faces) = the GEOMETRIC rule, because the winding relation is undefined there:
+      // two copies of one triangle traverse the shared edge the SAME way yet must keep the same
+      // normal, and a chained link between two unrelated sheets states nothing at all. Applying the
+      // topological rule to those was what regressed jungleb and swamp in the first round-22 attempt.
+      //
+      // A weak attachment is only ever made once NO strong edge can extend the component, so the
+      // guess can never pre-empt a certainty.
+      size_t weak_cursor = 0;
+      for (;;) {
+        if (!strong.empty()) {
+          const u32 f = strong.back();
+          strong.pop_back();
+          comp_faces.push_back(f);
+          for (u32 k = aoff[f]; k < aoff[f + 1]; k++) {
+            const u32 nb = aflat[k] >> 2;
+            if (fsign[nb] != 0) {
+              continue;
+            }
+            if ((aflat[k] & 1u) != 0 && !faces_are_duplicate(f, nb)) {
+              const bool same_dir = (aflat[k] & 2u) != 0;
+              fsign[nb] = (s8)(fsign[f] * (same_dir ? (s8)-1 : (s8)1));
+              strong.push_back(nb);
+            } else {
+              weak_pending.push_back(((u64)f << 32) | (u64)k);
+            }
           }
-          // Relative orientation of two faces meeting on a welded edge. Near-PARALLEL faces (a
-          // continuous surface, or two coincident duplicate copies of it) are decided by their
-          // geometric normals — that is the only rule that gets duplicates right, since two copies
-          // of the same surface traverse the shared edge the SAME way yet must keep the same normal.
-          // Near-PERPENDICULAR faces (a genuine crease) carry no usable normal agreement, so there
-          // the classic winding rule applies: same traversal direction => opposite winding.
-          const bool same_dir = (aflat[k] & 1u) != 0;
+          continue;
+        }
+        // strong frontier exhausted: make ONE weak attachment, then go back to the strong frontier
+        bool attached = false;
+        while (weak_cursor < weak_pending.size()) {
+          const u64 w = weak_pending[weak_cursor++];
+          const u32 f = (u32)(w >> 32);
+          const u32 k = (u32)(w & 0xffffffffu);
+          const u32 nb = aflat[k] >> 2;
+          if (fsign[nb] != 0) {
+            continue;  // a strong path reached it in the meantime — the certainty wins
+          }
+          const bool same_dir = (aflat[k] & 2u) != 0;
+          s8 rel = same_dir ? (s8)-1 : (s8)1;  // no usable area: fall back to the topological rule
           const math::Vector3f na = face_normal(f);
           const math::Vector3f nbv = face_normal(nb);
           const float la = na.length(), lb = nbv.length();
-          s8 rel;
           if (la > 1e-6f && lb > 1e-6f) {
-            const float d = na.dot(nbv) / (la * lb);
-            rel = std::abs(d) > 0.2f ? (d > 0.f ? (s8)1 : (s8)-1) : (same_dir ? (s8)-1 : (s8)1);
-          } else {
-            rel = same_dir ? (s8)-1 : (s8)1;
+            rel = (na.dot(nbv) >= 0.f) ? (s8)1 : (s8)-1;
           }
           fsign[nb] = (s8)(fsign[f] * rel);
-          stack.push_back(nb);
+          strong.push_back(nb);
+          attached = true;
+          break;
+        }
+        if (!attached) {
+          break;  // component complete
         }
       }
       // decide the component's global sign
@@ -1369,6 +1521,48 @@ void mesh_consolidate(Level& lev,
           }
         }
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // 6b. AUTHORITY-FREE POLARITY CENSUS (round 22). The collision residual above is only defined
+  //     where a collision mesh exists AND reads near-parallel to the rendered face, so it is blind
+  //     on walls, interiors and thin-collision levels — exactly where the owner sees the polarity
+  //     flip. This one needs no authority: for every manifold-adjacent, non-duplicate face pair,
+  //     consistent winding REQUIRES fsign[f] * fsign[nb] == (same_dir ? -1 : +1).
+  //     _before evaluates it on the AUTHORED winding as it arrives (all signs +1, so the product is
+  //     +1 and the pair is inconsistent exactly when it is traversed in the same direction), which
+  //     is the real incoming defect count; _after evaluates the final signs. Runs outside the
+  //     killswitch branch so the kMeshBitNoOrient A/B reports a number too (there before == after).
+  //
+  //     The pair POPULATION is identical before and after and identical across rule changes — every
+  //     non-duplicate manifold_adj link is counted, weak ones included, so the denominator can never
+  //     be quietly improved. The TRUE-manifold / WEAK split below is an extra breakdown over that
+  //     same population (true + weak == total, by construction): an inconsistency on a true-manifold
+  //     pair is an outright defect, while one on a fabricated non-manifold link may be unavoidable.
+  // ---------------------------------------------------------------------------------------------
+  for (const auto& a : manifold_adj) {
+    const u32 fa = a.a >> 1, fb = a.b >> 1;
+    if (fa == fb || faces_are_duplicate(fa, fb)) {
+      continue;
+    }
+    const bool same_dir = ((a.a & 1u) == (a.b & 1u));
+    const s8 want = same_dir ? (s8)-1 : (s8)1;
+    // authored winding: fsign is +1 everywhere, so the product is +1 and the pair is inconsistent
+    // exactly when the rule wants -1
+    const bool bad_before = (want != (s8)1);
+    const bool bad_after = ((s8)(fsign[fa] * fsign[fb]) != want);
+    rep.orient_pairs_total++;
+    rep.orient_pairs_inconsistent_before += bad_before ? 1 : 0;
+    rep.orient_pairs_inconsistent_after += bad_after ? 1 : 0;
+    if (a.true_manifold) {
+      rep.orient_pairs_true_manifold++;
+      rep.orient_pairs_true_inconsistent_before += bad_before ? 1 : 0;
+      rep.orient_pairs_true_inconsistent_after += bad_after ? 1 : 0;
+    } else {
+      rep.orient_pairs_weak++;
+      rep.orient_pairs_weak_inconsistent_before += bad_before ? 1 : 0;
+      rep.orient_pairs_weak_inconsistent_after += bad_after ? 1 : 0;
     }
   }
 
@@ -1481,6 +1675,30 @@ void mesh_consolidate(Level& lev,
           *nor_ptr(gvi) = cpacked[c];
         }
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // 7b. TANGENT HANDEDNESS FOLLOWS THE CORRECTED NORMAL (round 22, the parallax half of defect C).
+  //     reconstruct_tfrag_tangents() computes tangents[i].w at UNPACK time, from the normal the
+  //     vertex had then: w = sign(dot(cross(N_old, T), B)). The shader rebuilds the bitangent as
+  //     cross(N, T) * w, so when the orientation pass above inverts N the bitangent silently flips
+  //     with it unless w flips too. A stale w inverts the V axis of the tangent frame, which inverts
+  //     the tangent-space view vector the POM march walks along => the parallax digs in where it
+  //     should pop out. Decided on the FINAL normal (the pass-7 loop can write a vertex several
+  //     times, largest-incident-face wins), against the pre-consolidation snapshot.
+  for (size_t i = 0; i < N; i++) {
+    const u32 nn = *nor_ptr(i);
+    if (nn == nor_before[i]) {
+      continue;
+    }
+    math::Vector4f* tp = tangent_ptr(i);
+    if (!tp) {
+      continue;  // shrub, or a tree with no reconstructed tangents
+    }
+    if (unpack_nor(nor_before[i]).dot(unpack_nor(nn)) < 0.f) {
+      (*tp)[3] = -(*tp)[3];
+      rep.orient_tangent_w_flipped++;
     }
   }
 
@@ -1898,6 +2116,18 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
       r.orient_components, r.orient_faces_flipped, r.orient_comps_collision_decided,
       r.orient_faces_authority, r.orient_faces_inward_after);
   o += fmt::format(
+      "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
+      "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "
+      "orient_tangent_w_flipped={}\n",
+      r.orient_pairs_total, r.orient_pairs_inconsistent_before, r.orient_pairs_inconsistent_after,
+      r.orient_tangent_w_flipped);
+  o += fmt::format(
+      "-- ORIENTATION POLARITY BY PAIR CLASS -- true_manifold pairs={} before={} after={} | "
+      "weak(chained/non-manifold) pairs={} before={} after={}\n",
+      r.orient_pairs_true_manifold, r.orient_pairs_true_inconsistent_before,
+      r.orient_pairs_true_inconsistent_after, r.orient_pairs_weak,
+      r.orient_pairs_weak_inconsistent_before, r.orient_pairs_weak_inconsistent_after);
+  o += fmt::format(
       "-- SEAM per system (only tfrag is ever tessellated) -- tfrag={} of {} referenced, tie={}, "
       "shrub={}\n",
       r.tfrag.seam_verts, r.tfrag.verts_referenced, r.tie.seam_verts, r.shrub.seam_verts);
@@ -2014,9 +2244,26 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
   if (!r.ok || nor_n != N) {
     return false;
   }
+  // round-22: the sidecar path must do the same tangent-handedness correction pass 7b does in the
+  // live pass, otherwise a baked level gets the corrected normals but keeps the stale w (the POM
+  // march would then dig in where it should pop out on every vertex the orientation pass inverted).
+  // Nothing new is stored for this: the OLD normal is still in the vertex when the new one lands, so
+  // the flip is derivable at apply time — the file format is unchanged.
+  u64 tan_flips = 0;
   for (u64 i = 0; i < N; i++) {
-    u32 v = r.u32v();
-    *(u32*)(gvert[i] + trees[gtree[i]].layout->nor_off) = v;
+    const u32 v = r.u32v();
+    u32* np = (u32*)(gvert[i] + trees[gtree[i]].layout->nor_off);
+    const u32 old = *np;
+    *np = v;
+    if (v != old) {
+      const GTree& t = trees[gtree[i]];
+      if (t.tangents && t.tangents->size() == (size_t)t.gcount &&
+          unpack_nor(old).dot(unpack_nor(v)) < 0.f) {
+        auto& tw = (*t.tangents)[i - t.gbase];
+        tw[3] = -tw[3];
+        tan_flips++;
+      }
+    }
   }
   // dense seam bits
   const u32 bits_n = r.u32v();
@@ -2089,8 +2336,9 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
   if (!r.ok) {
     return false;
   }
-  lg::info("[mesh-consolidate] level={} loaded PRECOMPUTED sidecar ({} verts) — live pass skipped",
-           lev.level_name, N);
+  lg::info("[mesh-consolidate] level={} loaded PRECOMPUTED sidecar ({} verts, tangent_w_flipped={}) "
+           "— live pass skipped",
+           lev.level_name, N, tan_flips);
   return true;
 }
 
@@ -2118,14 +2366,20 @@ std::string mesh_audit_csv_header() {
          "wide_unions,nrm_smooth_max_before,nrm_smooth_max_after,nrm_smooth_mean_before,"
          "nrm_smooth_mean_after,nrm_max_before,nrm_max_after,nrm_mean_before,nrm_mean_after,col_max_before,"
          "col_max_after,col_mean_before,col_mean_after,col_groups_blended,pos_snapped,"
-         "orient_flipped,orient_inward_after,seam_verts\n";
+         "orient_flipped,orient_inward_after,seam_verts,"
+         // round-22 columns APPENDED so every previously written csv stays readable
+         "orient_pairs_total,orient_pairs_inconsistent_before,orient_pairs_inconsistent_after,"
+         "orient_tangent_w_flipped,"
+         // round-22 refinement: the same population split by pair class (true + weak == total)
+         "orient_pairs_true,orient_pairs_true_before,orient_pairs_true_after,"
+         "orient_pairs_weak,orient_pairs_weak_before,orient_pairs_weak_after\n";
 }
 
 std::string mesh_audit_csv_row(const MeshAuditReport& r) {
   return fmt::format(
       "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},"
       "{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.1f},{:.2f},"
-      "{:.2f},{},{},{},{},{}\n",
+      "{:.2f},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
       r.game_name, r.level_name, r.tfrag.tris, r.tie.tris, r.shrub.tris, r.total.tris,
       r.total.open_raw, r.total.coincident_unshared, r.total.coincident_unshared_pairs,
       r.total.open_by_group, r.total.missed_welds, r.groups, r.wide_reweld_rounds,
@@ -2134,7 +2388,12 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       r.nrm_before.max, r.nrm_after.max, r.nrm_before.mean(),
       r.nrm_after.mean(), r.col_before.max, r.col_after.max, r.col_before.mean(),
       r.col_after.mean(), r.col_groups_blended, r.pos_snapped, r.orient_faces_flipped,
-      r.orient_faces_inward_after, r.seam_verts);
+      r.orient_faces_inward_after, r.seam_verts, r.orient_pairs_total,
+      r.orient_pairs_inconsistent_before, r.orient_pairs_inconsistent_after,
+      r.orient_tangent_w_flipped, r.orient_pairs_true_manifold,
+      r.orient_pairs_true_inconsistent_before, r.orient_pairs_true_inconsistent_after,
+      r.orient_pairs_weak, r.orient_pairs_weak_inconsistent_before,
+      r.orient_pairs_weak_inconsistent_after);
 }
 
 }  // namespace tfrag3

@@ -117,6 +117,42 @@ void Shrub::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProf
 
 void Shrub::update_load(const LevelData* loader_data) {
   const tfrag3::Level* lev_data = loader_data->level.get();
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-realtime-fusion ROUND 22 (owner defect A): resolve every texture in this level
+  // that has a registered PBR material set. Mirrors TFragment::update_load / Tie3, but measures
+  // the authored UV density over SHRUB geometry (its own draw/vertex types + 4096-scale
+  // texcoords), because the POM amplitude is derived from the material's real feature size in
+  // metres — a wrong density means a wrong depth, not just a missing log line.
+  m_pbr_draws.clear();
+  for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
+    if (const auto* maps = custom_tex::find_pbr_material(lev_data->textures[ti].debug_name)) {
+      u32 nsamp = 0;
+      float dens = measure_uv_density_shrub(*lev_data, (s32)ti, &nsamp);
+      const bool measured = dens > 0.f;
+      if (!measured) {
+        dens = 0.5f;  // not enough samples: fall back to the constant the shaders used to assume
+      }
+      m_pbr_draws.push_back({(s32)ti, *maps, dens});
+      // Only publish to the shared [pom] diag registry when shrub geometry ACTUALLY uses this
+      // texture. Most PBR materials are tfrag/tie ground and walls with zero shrub triangles, and
+      // an unconditional note would overwrite their real measured density with our 0.5 fallback
+      // (diagnostics only — each renderer keeps its own PbrDrawList value — but it would make the
+      // dump lie).
+      if (measured) {
+        custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
+      }
+      lg::info(
+          "pbr uv density (shrub): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => "
+          "200.0cm, ratio {:.2f}x) samples={}{}",
+          lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp,
+          measured ? "" : " [UNMEASURED - no shrub geometry uses this texture, 0.5 fallback]");
+    }
+  }
+  if (!m_pbr_draws.empty()) {
+    lg::info("Grecharged-pbr-materials: Shrub level {} has {} PBR material(s)",
+             lev_data->level_name, m_pbr_draws.size());
+  }
+#endif
   // We changed level!
   discard_tree_cache();
   m_trees.resize(lev_data->shrub_trees.size());
@@ -181,7 +217,11 @@ void Shrub::update_load(const LevelData* loader_data) {
         lut[ci * 4 + 2] = (qh >> 8) & 0xff;
         lut[ci * 4 + 3] = qh & 0xff;
       }
-      glActiveTexture(GL_TEXTURE11);
+      // Grecharged-pbr-realtime-fusion ROUND 22: unit 11 is the PBR NORMAL MAP now (the shrub
+      // program gained the fused PBR path this round). The wind-anchor LUT lives on unit 18 —
+      // see shrub.vert's tex_T18 comment. This upload-time bind must match, or the very first
+      // frame would leave the LUT parked on the normal map's unit.
+      glActiveTexture(GL_TEXTURE18);
       glGenTextures(1, &t.wind_lut_texture);
       glBindTexture(GL_TEXTURE_2D, t.wind_lut_texture);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
@@ -497,6 +537,14 @@ void Shrub::render_tree(int idx,
   GLuint bound_tex = 0;
   int last_texture = -1;
 
+#ifdef OG_FEAT_PBR
+  // ★ Grecharged-pbr-realtime-fusion ROUND 22 (owner defect A). Shrub never bound PBR material
+  // maps, so ALL vegetation was structurally flat. shrub.frag now carries the same shared fused
+  // chunk tfrag3.frag does; this is the per-draw material bind that feeds it. Declared at function
+  // scope because the batched draw path returns early and must still call finish().
+  PbrDrawBinder pbr_binder;
+#endif
+
   // Gperf-particles: attribute the per-tree TOD/upload/cull/index-build setup
   // separately from the draw submission so A35-PERF can steer the batching work.
   {
@@ -544,6 +592,16 @@ void Shrub::render_tree(int idx,
 
     first_tfrag_draw_setup(settings.camera, render_state, ShaderId::SHRUB);
 
+#ifdef OG_FEAT_PBR
+    // ROUND 22: open the per-draw PBR material bind on the SHRUB program. Must come AFTER
+    // first_tfrag_draw_setup (which pushes the frame-constant PBR uniforms and parks the neutral
+    // maps on units 11-17) and BEFORE the wind-LUT bind below, which now uses unit 18.
+    pbr_binder.begin(render_state->shaders[ShaderId::SHRUB].id(), &m_pbr_draws);
+    // [cover] shrub is never the tess program, so every height-mapped shrub draw must land in
+    // disp_pom. Its own renderer label keeps it separate in the coverage census.
+    pbr_binder.set_coverage_context("shrub", nullptr, false, render_state->frame_idx);
+#endif
+
     // Grecharged-foliage-wind: drive the shrub breeze. Set every frame; strength 0 when OFF makes the
     // shader's sway branch a no-op => byte-identical stock render.
     {
@@ -564,9 +622,13 @@ void Shrub::render_tree(int idx,
       glUniform1f(glGetUniformLocation(sid, "u_wind_strength"), amp);
       glUniform1f(glGetUniformLocation(sid, "u_wind_lut_base"), tree.wind_lut_base);
       glUniform1f(glGetUniformLocation(sid, "u_wind_lut_scale"), tree.wind_lut_scale);
-      glUniform1i(glGetUniformLocation(sid, "tex_T11"), 11);
-      glActiveTexture(GL_TEXTURE11);
+      // ROUND 22: unit 18, NOT 11 — 11-17 are the PBR material maps now (tex_PBR_N..tex_PBR_E,
+      // parked by first_tfrag_draw_setup / PbrDrawBinder). Shader.cpp's tex_T<i> auto-bind
+      // already points tex_T18 at unit 18; this explicit pair keeps the binding self-contained.
+      glUniform1i(glGetUniformLocation(sid, "tex_T18"), 18);
+      glActiveTexture(GL_TEXTURE18);
       glBindTexture(GL_TEXTURE_2D, tree.wind_lut_texture);
+      // (the active unit is restored to 0 a few lines below, as before)
     }
 
     glBindVertexArray(tree.vao);
@@ -737,6 +799,12 @@ void Shrub::render_tree(int idx,
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
       auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::SHRUB,
                                                    bound_tex, draw_state_cache);
+#ifdef OG_FEAT_PBR
+      // ROUND 22: per-draw PBR material bind. NOTE this sits before the run-merging loop below,
+      // which already refuses to merge across a texture change — so a merged run is guaranteed to
+      // share this draw's material.
+      pbr_binder.set((s32)draw.tree_tex_id, draw.mode);
+#endif
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -781,6 +849,11 @@ void Shrub::render_tree(int idx,
       }
       draw_idx = next;
     }
+#ifdef OG_FEAT_PBR
+    // ROUND 22: reset u_pbr_mode to 0 + park the neutral maps before leaving, so no material
+    // leaks into the next SHRUB user (the next tree, or the next level).
+    pbr_binder.finish();
+#endif
     glBindVertexArray(0);
     tree.perf.draw_time.add(draw_timer.getSeconds());
     tree.perf.tree_time.add(tree_timer.getSeconds());
@@ -815,6 +888,10 @@ void Shrub::render_tree(int idx,
 
     auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::SHRUB, bound_tex,
                                                  draw_state_cache);
+#ifdef OG_FEAT_PBR
+    // ROUND 22: per-draw PBR material bind (see the batched loop above).
+    pbr_binder.set((s32)draw.tree_tex_id, draw.mode);
+#endif
 
     draws_prof.add_draw_call();
     draws_prof.add_tri(draw.num_triangles);
@@ -863,6 +940,11 @@ void Shrub::render_tree(int idx,
     }
   }
 
+#ifdef OG_FEAT_PBR
+  // ROUND 22: reset u_pbr_mode to 0 + park the neutral maps so no material leaks into the next
+  // SHRUB user (the next tree, or the next level).
+  pbr_binder.finish();
+#endif
   glBindVertexArray(0);
   tree.perf.draw_time.add(draw_timer.getSeconds());
   tree.perf.tree_time.add(tree_timer.getSeconds());
