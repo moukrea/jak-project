@@ -1623,3 +1623,84 @@ SUSPECTS À INSTRUMENTER, dans cet ordre :
 
 GATE : la fraction blanche du parallax doit rester dans une marge étroite de la courbe tessellation
 sur tout le balayage d'angles, et ne jamais dépasser un seuil absolu proche de 100%.
+
+================================================================================
+ROUND 26 — OWNER PLAYTEST (build damier 6438b50e) : RÉGRESSION + LE SYMPTÔME QUI NOMME LA CAUSE
+================================================================================
+Owner, mot pour mot :
+  "c'est normal que le displacement ne soit plus strict genre carré blanc = élévation max, carré noir
+   = élévation minimale ? Là il semblerait que tout soit... Arrondi, genre seul le centre du carré
+   blanc est au max et seul le centre du carré noir est au minimum, bizarre !
+   Pour le parallax cela dit ça a l'air mieux mais c'est un peu comme si chaque sommet tournait en
+   cercle quand on pan la caméra au lieu de donner l'impression de rester au même endroit (souci de
+   calibration je présume). D'ailleurs les zones où la tesselation rend plate ont l'air de souffrir
+   d'un problème similaire (sommet qui translate en cercle mais à plat au lieu d'être élevé et
+   rester, vu que la géométrie est sensée être modifiée)...
+   Mais cependant il y a l'air d'avoir plus de displacement à la plupart des endroits où il n'y en
+   avait pas ou très peu... En tout cas ça rend carrément moins bien qu'avant (un pas en avant deux
+   pas en arrière, et la géométrie ne suit plus strictement les carrés)"
+
+VERDICT : RÉGRESSION NETTE. Un gain (plus de couverture) ne rachète pas une perte de qualité.
+L'objectif est de garder la couverture ET de retrouver la rigueur du build précédent.
+
+--------------------------------------------------------------------------------
+D1 — LE DISPLACEMENT N'EST PLUS "STRICT" : LES CARREAUX SONT ARRONDIS
+--------------------------------------------------------------------------------
+Un damier est une fonction EN MARCHES : tout le carré blanc à la hauteur max, tout le carré noir à
+la hauteur min, transition abrupte sur l'arête. L'owner observe des dômes : seul le CENTRE de chaque
+carré atteint son extrême. C'est la signature d'une surface qui ÉCHANTILLONNE la carte trop
+grossièrement et interpole linéairement entre les échantillons — pas d'un défaut d'amplitude.
+Deux causes possibles, à départager par la mesure, pas par supposition :
+  a) DENSITÉ DE SOMMETS. Avec ~1 sommet par carreau, l'interpolation entre un sommet au centre d'un
+     blanc et un sommet au centre d'un noir donne une rampe douce. Pour obtenir un plateau plat il
+     faut des sommets À L'INTÉRIEUR du carré ET des sommets serrés SUR L'ARÊTE. Nyquist (2 par
+     feature) suffit à ne pas rater la feature, il ne suffit PAS à reproduire une marche : il faut
+     nettement plus, et surtout des sommets de part et d'autre de la discontinuité.
+  b) FILTRAGE DE LA HAUTEUR. Si la height est lue sur un mip réduit, avec un biais, ou lissée par
+     une quelconque dérivation "longueur d'onde de la feature", les marches sont arrondies AVANT
+     même le déplacement. Vérifie le niveau de mip réellement échantillonné et tout lissage
+     introduit ces derniers rounds — c'est un suspect direct puisque la rigueur existait AVANT.
+MÉTHODE : trace le PROFIL D'ÉLÉVATION le long d'une ligne traversant plusieurs carreaux (hauteur en
+cm en fonction de la distance en cm). Le profil attendu est un créneau. Compare le profil obtenu au
+créneau théorique et donne l'erreur. Puis identifie laquelle de (a) ou (b) l'explique, en faisant
+varier l'une puis l'autre. Le profil est le livrable : il rend le défaut non discutable.
+Cible : plateaux plats sur l'essentiel de la largeur du carré, transition confinée près de l'arête.
+
+--------------------------------------------------------------------------------
+D2 — "CHAQUE SOMMET TOURNE EN CERCLE QUAND ON PAN LA CAMÉRA" (la cause la plus probable de tout)
+--------------------------------------------------------------------------------
+C'est LE symptôme décisif du round, et il a un nom. Un relief réel est ancré à la SURFACE : quand la
+caméra tourne, un creux reste au même endroit du monde. Si les motifs décrivent un CERCLE au rythme
+du panoramique, c'est que le repère dans lequel le décalage est calculé TOURNE AVEC LA CAMÉRA.
+SUSPECT NUMÉRO UN, à vérifier avant toute autre chose : le repère tangent de secours calculé à
+partir des DÉRIVÉES ÉCRAN. tfrag3.frag contient un chemin de repli qui construit la TBN par
+dérivées quand la tangente par sommet est absente ou dégénérée. Un repère construit sur des
+dérivées de quantités liées à la vue tourne avec la caméra — et un décalage de parallax exprimé
+dans un repère qui tourne produit EXACTEMENT une orbite. Ça expliquerait d'un seul coup :
+  - l'orbite en parallax décrite par l'owner ;
+  - le même mouvement dans les zones où la tessellation ne déplace rien (c'est le POM qui y agit
+    seul, donc le défaut s'y voit à nu) ;
+  - les inversions de polarité rares (D3 des rounds précédents) : un repère de secours dont le
+    handedness dépend de l'orientation de la face ou du sens de parcours bascule d'une face à l'autre.
+CE QU'IL FAUT PRODUIRE :
+  1. Combien de pixels/draws utilisent le repli par dérivées plutôt que la tangente par sommet ?
+     Chiffre-le. Si c'est significatif, c'est là que tout se joue.
+  2. TEST DIRECT ET NON AMBIGU : caméra qui panoramique autour d'un point fixe, surface immobile.
+     Mesure le déplacement APPARENT d'un motif du damier entre les angles. Un relief correct le
+     laisse ancré ; le défaut le fait décrire un cercle. Donne le rayon de cette orbite en pixels,
+     avant et après correction.
+  3. LA CORRECTION : le repère tangent doit être ANCRÉ À LA GÉOMÉTRIE et indépendant de la vue —
+     tangente par sommet cohérente (MikkTSpace), et si un repli est vraiment nécessaire, il doit
+     être construit sur des dérivées de quantités MONDE (position monde et uv), jamais sur des
+     quantités liées à la caméra, et son handedness doit être déterminé par les uv, pas par l'écran.
+  4. Vérifie explicitement si D2 et les inversions de polarité ont la même racine. Si oui, dis-le et
+     corrige une fois.
+
+--------------------------------------------------------------------------------
+D3 — CE QUI EST GAGNÉ ET NE DOIT PAS ÊTRE PERDU
+--------------------------------------------------------------------------------
+"il y a l'air d'avoir plus de displacement à la plupart des endroits où il n'y en avait pas ou très
+peu" : la couverture a progressé, garde-la. La cible est : couverture du build actuel + rigueur du
+build précédent. Si une correction de D1/D2 fait retomber la couverture, c'est un échec aussi.
+Le build de référence "avant" (rigueur correcte, couverture faible) est reconstructible depuis
+l'historique : sers-t'en comme ORACLE de rigueur pour le profil d'élévation de D1.
