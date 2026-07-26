@@ -482,6 +482,26 @@ float measure_height_lambda_tiles(int w, int h, const std::vector<u8>& rgba) {
   return std::clamp(lambda_tiles, 1.0f / 1024.0f, 1.0f);
 }
 
+// The container stb_image ACTUALLY decoded, from the file's magic bytes. Not cosmetic: a *_height
+// file that is really a JPEG is lossy, so its measured lambda is decoder-dependent (two decoders
+// disagree in the low bits of the IDCT) and its height field carries ringing the tessellation will
+// displace. stb_image sniffs the format and does not care about the extension, so neither can this.
+const char* image_container(const fs::path& p) {
+  std::ifstream f(p.string(), std::ios::binary);
+  if (!f) {
+    return "unreadable";
+  }
+  unsigned char m[8] = {0};
+  f.read((char*)m, 8);
+  if (f.gcount() >= 8 && m[0] == 0x89 && m[1] == 'P' && m[2] == 'N' && m[3] == 'G') {
+    return "PNG";
+  }
+  if (f.gcount() >= 3 && m[0] == 0xFF && m[1] == 0xD8 && m[2] == 0xFF) {
+    return "JPEG (LOSSY -- .png extension only)";
+  }
+  return "unknown container";
+}
+
 // <tex-root>/<tpage>/<material>/<material>_height.png, resolved by material name (the tpage
 // directory is not known here, and the loader keys on the material name anyway).
 bool find_height_png(const fs::path& tex_root, const std::string& mat, fs::path* out) {
@@ -592,6 +612,7 @@ struct MatLambda {
   u32 uv_samples = 0;
   int png_w = 0, png_h = 0;
   std::string png_path;
+  std::string container = "-";
   std::string note;
   // tfrag3_tess.tesc tess_lambda_world_m()
   double world_m() const {
@@ -952,6 +973,7 @@ int main(int argc, char** argv) {
       }
       MatLambda ml;
       ml.png_path = png.string();
+      ml.container = image_container(png);
       int w = 0, h = 0;
       unsigned char* data = stbi_load(png.string().c_str(), &w, &h, nullptr, STBI_rgb_alpha);
       if (!data) {
@@ -982,10 +1004,11 @@ int main(int argc, char** argv) {
     for (const auto& [name, ml] : mat_lambda) {
       r28_lambda_log += fmt::format(
           "  {:<28} lambda_tiles={:.6f} ({}) uv_per_m={:.6f} ({}, {} samples) "
-          "lambda_world_m={:.6f} png={}x{} {}{}\n",
-          name, ml.lambda_tiles, ml.lambda_measured ? "MEASURED from PNG" : "identity default",
-          ml.uv_per_m, ml.uv_measured ? "MEASURED from index buffer" : "runtime 0.5 fallback",
-          ml.uv_samples, ml.world_m(), ml.png_w, ml.png_h, ml.png_path,
+          "lambda_world_m={:.6f} img={}x{} container={} {}{}\n",
+          name, ml.lambda_tiles,
+          ml.lambda_measured ? "MEASURED from the map" : "identity default", ml.uv_per_m,
+          ml.uv_measured ? "MEASURED from index buffer" : "runtime 0.5 fallback", ml.uv_samples,
+          ml.world_m(), ml.png_w, ml.png_h, ml.container, ml.png_path,
           ml.note.empty() ? "" : ("  NOTE: " + ml.note));
     }
   }
