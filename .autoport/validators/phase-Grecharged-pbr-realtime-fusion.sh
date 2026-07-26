@@ -156,4 +156,5 @@ grep -qiE 'checkerboard|damier|checker.*(block|raised|height)' "$R" || fail "no 
 grep -qiE 'same uv as (the )?base|maps.*same.*(uv|coordinates).*base|remove.*uv_tile.*(sampling|lookup)|uv_tile.*(amplitude only|not.*uv)' "$R" || fail "no same-UV-as-base fix (maps were sampled with tex_coord*u_pbr_uv_tile while base uses raw tex_coord => misaligned relief)"
 grep -qiE 'coverage.*(displac|tess).*(%|percent)|flat chunk.*(fixed|cause)|every.*(pbr|bound).*draw.*displac|fallback.*pom.*(kind|bucket)' "$R" || fail "no displacement-coverage fix/report (most chunks were flat despite the checker being applied)"
 grep -qiE 'checker.*(line up|coincide|align).*(square|block)|blocks.*match.*checker' "$R" || fail "no checker-alignment verification"
+grep -qiE 'checker.*(parallax|tessellat).*(both|and)|both modes.*checker|parallax and tessellat.*checker' "$R" || fail "no per-mode (parallax AND tessellation) checker verdict — owner standing rule until the checker is perfect"
 echo "[Gpbrf PASS]"

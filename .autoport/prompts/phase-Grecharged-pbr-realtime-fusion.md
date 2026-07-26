@@ -1164,3 +1164,22 @@ la base color."
 ACCEPTANCE: with the checker pattern, EVERY nearby PBR surface — whatever its draw kind — shows raised blocks
 aligned exactly with the checker squares. Report per-draw-kind tessellation coverage (must be complete) and
 the LOD/subdivision scheme used.
+
+## ⭐ OWNER STANDING RULE (2026-07-26) — THE CHECKERBOARD IS THE ACCEPTANCE TEST UNTIL IT IS PERFECT
+"On reste avec le damier tant que c'est pas complètement fixé et que le damier est pas parfait en PBR
+(autant en parallax qu'en tessellation)."
+=> For every round from now until the owner says otherwise:
+1. The phase is NOT done while the checkerboard is imperfect. "Perfect" means, at the owner's vantages, in
+   BOTH modes (PARALLAX and TESSELLATION), at day, PBR on:
+   - the raised blocks coincide EXACTLY with the checker squares (no offset, no different scale, no drift
+     when the camera moves),
+   - EVERY nearby PBR surface is displaced (no flat chunks next to raised ones, whatever the draw kind),
+   - the relief reads as real depth (block edges catch the light, a block shadows its neighbour), not as a
+     brightness pattern,
+   - the normal map orientation is correct (use the R/G UV markers: red band = +V/top, green = +U/left),
+   - roughness varies visibly between the checker cells.
+2. **Every build handed to the owner must ALSO be produced in a CHECKER-DEBUG variant** with
+   `pbr_testpattern::mode()` defaulting to 1 (pattern ON without adb), uploaded next to the normal build:
+   `app-jak1-CHECKER-DEBUG.apk` + `app-jak1-recharged.apk`. The owner has no adb — the debug build must work
+   out of the box.
+3. Report the checker verdict per mode (parallax / tessellation) with the alignment and coverage numbers.
