@@ -157,4 +157,42 @@ grep -qiE 'same uv as (the )?base|maps.*same.*(uv|coordinates).*base|remove.*uv_
 grep -qiE 'coverage.*(displac|tess).*(%|percent)|flat chunk.*(fixed|cause)|every.*(pbr|bound).*draw.*displac|fallback.*pom.*(kind|bucket)' "$R" || fail "no displacement-coverage fix/report (most chunks were flat despite the checker being applied)"
 grep -qiE 'checker.*(line up|coincide|align).*(square|block)|blocks.*match.*checker' "$R" || fail "no checker-alignment verification"
 grep -qiE 'checker.*(parallax|tessellat).*(both|and)|both modes.*checker|parallax and tessellat.*checker' "$R" || fail "no per-mode (parallax AND tessellation) checker verdict — owner standing rule until the checker is perfect"
+# ---- ROUND 22 GATES: owner playtest reopen (coverage per-pixel + amplitude at slider max) ----
+# DEFECT A: "la plupart des endroits n'ont toujours pas de displacement du tout".
+# The per-material coverage number cannot answer this; demand a PER-PIXEL screen breakdown.
+grep -qiE 'per-pixel .*(coverage|breakdown)|pixel coverage by program|screen pixels? .*displac' "$R" \
+  || fail "no PER-PIXEL screen coverage breakdown (per-material % does not answer 'la plupart des endroits')"
+# every world program must be named in that breakdown - silent omission is the owner's explicit red line
+for prog in tfrag3 etie_base tie_wind shrub; do
+  grep -qiE "$prog" "$R" || fail "coverage breakdown does not account for program $prog"
+done
+# actors may be excluded, but only explicitly and with a number
+grep -qiE 'merc' "$R" || fail "merc/actor programs not addressed (exclusion must be explicit + quantified)"
+# the headline pixel-coverage figure must be stated and must be a majority of drawn pixels
+COVP=$(grep -oiE 'displac[a-z]* *(coverage)?[^0-9]{0,40}([0-9]{1,3})(\.[0-9]+)? *% *of *(drawn|screen|world) *pixels' "$R" | grep -oE '[0-9]{1,3}(\.[0-9]+)?' | sort -g | tail -1)
+[ -n "$COVP" ] || fail "no headline '<N>% of drawn/screen/world pixels' displacement-coverage figure"
+awk -v v="$COVP" 'BEGIN{exit !(v>=85)}' || fail "displacement pixel coverage $COVP% < 85% (owner: most places still have none)"
+
+# DEFECT B: "curseur au maximum, c'est pas si obvious que ca" -> max must be extreme, and no cap may bite
+grep -qiE 'slider|curseur' "$R" || fail "no slider-range evidence for the amplitude remap"
+grep -qiE '(1\.0|1,0).*(3\.0|3,0)|(3\.0|3,0).*(1\.0|1,0)' "$R" || fail "no measured 1.0-vs-3.0 amplitude comparison"
+# the round-20 trap: a cap silently clipping the maximum. Must be named AND shown not to bite at 3.0.
+grep -qiE 'cap' "$R" || fail "amplitude caps not discussed (round-20 POM_MAX_WORLD_M trap)"
+grep -qiE 'no cap (bites|binds|clamps)|cap does not bite|aucun cap ne mord|uncapped at 3\.0' "$R" \
+  || fail "not proven that no cap bites at slider max 3.0 (this is exactly the round-20 regression)"
+# both tiers, both defects
+grep -qiE 'tessellat' "$R" || fail "tessellation tier not evidenced"
+grep -qiE 'parallax|POM' "$R" || fail "parallax/POM tier not evidenced"
+# ACQUIS TO PROTECT: alignment validated by the owner this round - must be re-proven, not silently dropped
+grep -qiE 'align' "$R" || fail "alignment (owner-validated round 21) not re-proven"
+# CHECKER-DEBUG must still self-arm with no adb, and be a genuinely different binary
+grep -qiE 'OG_PBR_CHECKER_DEBUG' "$R" || fail "CHECKER-DEBUG build flag not evidenced (owner has no adb)"
+grep -qiE 'libgk.*(differ|diff|sha)|sha.*libgk' "$R" || fail "no libgk sha proof that CHECKER-DEBUG differs from the normal build"
+
+# ---- ROUND 22 DEFECT C: displacement polarity flips between surfaces (white must always protrude) ----
+grep -qiE 'polarit|white.*(protrud|ressort|raised)|carreaux blancs' "$R" || fail "displacement polarity (defect C) not addressed"
+grep -qiE 'inverted normal|normale.*invers|flipped normal|handedness|bitangent sign' "$R" || fail "polarity root cause not identified among inverted-normal / tangent-handedness / winding"
+grep -qiE 'census|recens|[0-9]+ *(faces|verts|vertices).*(polarit|flip|invert)' "$R" || fail "no all-levels census of wrong-polarity faces (before/after)"
+# forbid the cosmetic workaround the owner would reject
+grep -qiE 'fixed (at|in) the (source|mesh data)|corrig.*(source|donnees de mesh)|no abs\(\)|not masked in the shader' "$R" || fail "no statement that polarity was fixed at the mesh-data source (abs()/per-material sign flag is forbidden)"
 echo "[Gpbrf PASS]"

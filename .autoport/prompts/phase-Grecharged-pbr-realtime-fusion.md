@@ -1216,3 +1216,154 @@ draws (add a debug viz/counter), (b) what is the FINAL offset length in UV and i
 (log it for a wall and a ground draw), (c) which term collapses it. THEN fix that term. The checker in
 PARALLAX mode must show unmistakable depth on a WALL viewed head-on — that is the simplest, least ambiguous
 acceptance case.
+
+================================================================================
+ROUND 22 — OWNER PLAYTEST VERDICT (damier, curseurs à 3.0) : REOPEN
+================================================================================
+Owner, mot pour mot :
+  "Alors les rares endroits où la tesselation fonctionne (vrai displacement) ça fonctionne
+   mais j'ai poussé les curseurs au maximum (3.0) et c'est pas si obvious que ça (par contre
+   ça correspond vraiment), mais la plupart des endroits n'ont toujours pas de displacement
+   du tout ! Donc deux choses à corriger... Le fait que ça ne s'applique pas partout et qu'à
+   la plupart des endroits ça n'est pas du tout effectif (ça c'est toujours le cas) et le fait
+   qu'aux endroits où ça fonctionne, avec le curseur au maximum que ce soit plus extrême !
+   Et en parallax c'est exactement les mêmes problèmes."
+
+CE QUI EST ACQUIS — NE LE CASSE PAS. L'ALIGNEMENT EST VALIDÉ : "par contre ça correspond
+vraiment". Le round 21 a réglé le bug maps-vs-base-UV. Toute régression de l'alignement du
+damier annule le round. C'est un acquis à protéger, pas à re-toucher.
+
+Il reste EXACTEMENT DEUX défauts, et ils valent pour LES DEUX tiers (tessellation ET parallax) :
+
+--------------------------------------------------------------------------------
+DÉFAUT A — COUVERTURE : "la plupart des endroits n'ont pas de displacement du tout"
+--------------------------------------------------------------------------------
+C'est le défaut n°1 en priorité. L'owner voit le damier PARTOUT (donc la base colour est bien
+remplacée partout) mais du relief seulement à de RARES endroits. Damier visible + zéro relief
+= la surface reçoit la base colour mais PAS le displacement.
+
+FAIT STRUCTUREL MESURÉ PAR LE SUPERVISEUR (grep sur les shaders, à vérifier et à traiter) :
+  tfrag3.frag     tex_pbr_height/u_pbr_height : 15 occurrences   tfrag3_tess.tese : OUI
+  etie_base.frag  0 occurrence   pas de .tese
+  tie_wind.frag   0 occurrence   pas de .tese
+  shrub.frag      0 occurrence   pas de .tese
+  merc2 / generic / emerc : 0 occurrence, pas de .tese
+Et ton propre rapport (l. 964) dit : "PBR maps have only ever bound on the TFRAG3 program".
+Donc TOUT ce qui n'est pas dessiné par TFRAG3 est STRUCTURELLEMENT incapable d'afficher du
+relief, quelle que soit la valeur des curseurs. Dans un niveau Jak, ça représente une énorme
+part de l'écran (objets instanciés TIE à envmap, objets animés par le vent, végétation/shrub).
+C'est très probablement l'explication principale de "la plupart des endroits".
+Cette note de couverture disait "coverage is unchanged" — c'était acceptable quand la phase
+ne traitait que l'éclairage. Ça ne l'est plus : l'owner juge le displacement sur TOUT l'écran.
+
+Ce qu'il faut faire :
+1. ÉTABLIR LA VÉRITÉ D'ABORD, avant tout code. Pour un vantage de jeu réel (village1-hut,
+   caméra de jeu normale), produis une VENTILATION PAR PROGRAMME de l'écran :
+   % de pixels dessinés par tfrag3 / etie_base / tie_wind / shrub / merc / autres,
+   et parmi ceux-là le % qui reçoit un displacement non nul. Le chiffre qui compte pour
+   l'owner est un POURCENTAGE DE PIXELS À L'ÉCRAN, pas "14 matériaux sur 24". Une métrique
+   par matériau ne peut pas répondre à "la plupart des endroits" ; il faut du par-pixel.
+   Rends ce tableau lisible dans le rapport. C'est lui qui pilotera le reste du round.
+2. PORTER LE CHEMIN MATÉRIAU PBR + DISPLACEMENT sur les programmes du MONDE qui pèsent dans
+   ce tableau : etie_base, tie_wind, shrub (et tfrag3 partout où il ne l'a pas déjà).
+   Souviens-toi du pattern établi pour les familles de renderers (mémoire Gwater) : ça se
+   fait en 3 parties — binder/uniforms côté C++, TU dans le CMakeLists Android, et le
+   shader lui-même. Les DEUX tiers doivent suivre : tessellation là où la géométrie le
+   permet, POM partout ailleurs, avec la MÊME loi d'amplitude (l'acquis du round 21 : les
+   deux tiers montrent la même profondeur par construction).
+3. Les acteurs (merc2/generic/emerc) : si tu les exclus, tu l'écris NOIR SUR BLANC dans le
+   rapport avec la raison technique et le % de pixels concerné. Règle owner permanente :
+   "il faut que tu trouves vraiment un moyen de tout couvrir sans oublis" — une exclusion
+   silencieuse est un échec, une exclusion argumentée et chiffrée est recevable.
+4. Là où la tessellation ne peut pas tourner (matériel/tier/géométrie), le POM doit prendre
+   le relais et le [cover] doit le compter comme couvert — mais alors le POM doit VRAIMENT
+   produire de la profondeur (cf. défaut B), pas un bump map glorifié.
+5. Rappel owner déjà donné et toujours valable : "au pire tu peux faire des mesh avec plus de
+   subdivision et des LOD (près = plus de subdivision, puis défaut, puis LOD natifs)". La
+   pré-subdivision offline est un outil légitime pour rendre une surface displaçable.
+
+--------------------------------------------------------------------------------
+DÉFAUT B — AMPLITUDE AU MAX : "curseur au maximum, c'est pas si obvious que ça"
+--------------------------------------------------------------------------------
+Là où ça marche, ça correspond à la texture (acquis) mais l'effet reste discret À 3.0, c'est-à-
+dire AU MAXIMUM DU CURSEUR. Le haut de la course doit être SPECTACULAIRE, pas timide.
+
+Ce qu'il faut faire :
+1. Re-mapper la course du curseur, pas juste multiplier un scalaire :
+   - 1.0 = le rendu physiquement correct actuel (dérivé de la longueur d'onde mesurée). On garde.
+   - 3.0 = EXTRÊME et assumé : la silhouette doit se rompre visiblement sur une arête de
+     tessellation, et en POM la parallaxe doit décoller franchement quand on bouge la caméra.
+   Autrement dit la courbe doit être fortement non linéaire vers le haut, et les caps
+   "relatifs au matériau" introduits au round 21 doivent s'ouvrir en conséquence — sinon ils
+   re-plafonnent le maximum exactement comme POM_MAX_WORLD_M l'a fait au round 20. C'est le
+   piège à ne pas re-tomber dedans : vérifie EXPLICITEMENT quel terme borne l'amplitude à 3.0
+   et prouve par la mesure qu'aucun cap ne mord avant le maximum.
+2. Prouve-le par des NOMBRES, à 1.0 et à 3.0, sur la même vantage et la même frame :
+   - déplacement vertex max en cm (tier tessellation) ;
+   - offset UV final ET son équivalent en cm monde (tier POM) ;
+   - un delta pixel mesuré entre curseur 1.0 et 3.0 ; s'il est faible, c'est que ça ne marche pas.
+   Un cap qui mord doit être nommé et chiffré, pas supposé absent.
+3. Nyquist reste la règle pour la tessellation : à 3.0 il faut assez de vertices par feature,
+   sinon l'amplitude monte mais le relief reste mou. Si le budget de subdivision est le facteur
+   limitant, dis-le avec le chiffre v/feature.
+
+--------------------------------------------------------------------------------
+PROTOCOLE DE SORTIE
+--------------------------------------------------------------------------------
+- Le damier RESTE le matériau de test tant que ce n'est pas parfait (règle owner permanente),
+  en parallax ET en tessellation. La variante CHECKER-DEBUG doit continuer à s'activer TOUTE
+  SEULE sans adb (l'owner n'a pas adb) — c'est le flag de compilation OG_PBR_CHECKER_DEBUG ;
+  vérifie que le libgk de la variante DIFFÈRE de celui du build normal avant de livrer, et
+  lance-la réellement pour constater le damier à l'écran sans aucun setprop.
+- Captures device obligatoires, même vantage, même heure TOD : (a) curseur 1.0 vs 3.0,
+  (b) tessellation vs parallax, (c) un plan large qui montre la couverture écran.
+- Le tableau de couverture par-pixel est le livrable central de ce round.
+- Rappel harnais : ANDROID_SERIAL=eae4df44, timeout sur tout logcat, force-stop en fin de run.
+
+--------------------------------------------------------------------------------
+DÉFAUT C — POLARITÉ DU DISPLACEMENT QUI S'INVERSE D'UN ENDROIT À L'AUTRE
+--------------------------------------------------------------------------------
+Owner, mot pour mot :
+  "j'ai aussi remarqué qu'à certains endroits où le displacement fonctionne c'est les carreaux
+   noirs qui ressortent, à d'autres c'est les carreaux blancs... Je crois que ça devrait être
+   les carreaux blancs qui ressortent (à moins que tu aies inversé les couleurs pour le
+   displacement), mais de sûr ça ne devrait pas s'inverser d'un endroit à l'autre !"
+
+L'owner a raison sur la convention : la carte de hauteur est centrée sur 0.5 (tfrag3_tess.tese :
+"0.5 = neutral mid"), donc blanc (1.0) sort, noir (0.0) rentre. LES CARREAUX BLANCS DOIVENT
+RESSORTIR, PARTOUT, SANS EXCEPTION.
+
+RAISONNEMENT À NE PAS RATER — c'est la déduction qui rend ce défaut précieux : avec le damier,
+TOUS les matériaux partagent LA MÊME height map synthétique (g_shared.height_tex, une seule
+texture uploadée une fois). Si la polarité s'inverse d'un endroit à l'autre alors que la carte
+est rigoureusement identique, la cause NE PEUT PAS être dans la texture. Elle est forcément en
+aval, du côté géométrie/frame :
+  - normale de vertex inversée (pointant vers l'intérieur) : la .tese déplace "along the
+    interpolated normalized normal", donc une normale retournée déplace vers l'intérieur et
+    inverse exactement ce que voit l'owner ;
+  - handedness du repère tangent (signe de la bitangente) qui bascule : en POM, le vecteur vue
+    en espace tangent change de signe et la parallaxe se creuse au lieu de sortir ;
+  - winding / UV miroir sur certaines faces.
+Et ça recoupe une remarque que l'owner avait déjà faite en validant la consolidation des mesh :
+"je pense qu'il y a encore quelques soucis de normales et autres petites coutures". Le damier
+vient de te donner un DÉTECTEUR OBJECTIF de ces normales restantes. Sers-t'en.
+
+Ce qu'il faut faire :
+1. Identifier laquelle des trois causes ci-dessus opère, par la mesure, pas par supposition.
+   Le test discriminant est simple : sur une surface qui s'inverse, dumpe le signe de
+   dot(normale_vertex, normale_géométrique_de_la_face) et le signe du handedness tangent.
+   Si c'est la normale : c'est un résidu d'orientation dans les données de mesh.
+   Si c'est le handedness : c'est le repère tangent (MikkTSpace / w de la tangente).
+2. CORRIGER À LA SOURCE. Interdiction formelle du contournement cosmétique : pas de abs(),
+   pas de "je force le signe dans le shader", pas de flag d'inversion par matériau. Ça
+   masquerait un défaut de données qui continuerait de pourrir l'éclairage, l'AO, le spéculaire
+   et les ombres. Si ce sont des normales retournées, elles se corrigent dans les données de
+   mesh, avec la même autorité que la phase de consolidation (côté marchable = vers l'extérieur).
+3. FAIRE LE RECENSEMENT COMPLET, tous niveaux, comme la phase de consolidation l'a fait :
+   combien de faces/vertices ont une polarité fautive, avant et après, sur les 448 niveaux.
+   L'owner a une règle permanente sur ce point : couvrir sans oubli, chiffres à l'appui.
+   Si la phase de consolidation a laissé passer ces cas, dis POURQUOI son flood-fill ne les a
+   pas attrapés — c'est ça, l'information utile pour ne pas les recréer.
+4. Preuve visuelle : une capture device au damier montrant plusieurs surfaces d'orientations
+   différentes (mur, sol, plafond/dessous, objet incliné) où les carreaux BLANCS ressortent
+   partout, en tessellation ET en parallax.
