@@ -14,6 +14,7 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/util/compress.h"
+#include "common/util/md5.h"
 
 #include "fmt/format.h"
 
@@ -2562,19 +2563,34 @@ bool mesh_consolidate_bake_write(const std::string& level_name,
 
 bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_shrub) {
   std::vector<u8> raw;
+  // Round 30 (delivery): the fingerprint of the bytes THIS PROCESS READ, so `md5sum` on the host can
+  // prove which of the two copies (packaged vs external) actually reached the renderer. Two rounds of
+  // geometry corrections were reported as "changed nothing" while nothing in any log named the file.
+  std::string comp_md5 = "-";
+  u64 comp_bytes = 0;
   try {
     if (!file_util::file_exists(path)) {
       return false;
     }
     auto comp = file_util::read_binary_file(path);
+    comp_bytes = (u64)comp.size();
+    comp_md5 = md5::hex(comp.data(), comp.size());
     raw = compression::decompress_zstd(comp.data(), comp.size());
   } catch (const std::exception& e) {
-    lg::warn("[mesh-consolidate] sidecar {} unreadable: {}", path, e.what());
+    lg::warn("[mesh-consolidate] sidecar {} (bytes={} md5={}) unreadable: {}", path, comp_bytes,
+             comp_md5, e.what());
     return false;
   }
   BR r{raw.data(), raw.data() + raw.size()};
-  if (r.u32v() != kBakeMagic || r.u32v() != kBakeVersion) {
-    lg::warn("[mesh-consolidate] sidecar {} has the wrong magic/version — ignoring", path);
+  // Read both header words into locals: short-circuiting the comparison used to hide WHICH of the two
+  // was wrong, and a version mismatch is the exact failure mode that silently blits stale normals back.
+  const u32 got_magic = r.u32v();
+  const u32 got_version = r.u32v();
+  if (got_magic != kBakeMagic || got_version != kBakeVersion) {
+    lg::warn("[mesh-consolidate] sidecar {} (bytes={} md5={}) has the wrong magic/version "
+             "(magic=0x{:08x} want 0x{:08x}, version={} want {}) — ignoring, the live pass will run "
+             "instead",
+             path, comp_bytes, comp_md5, got_magic, kBakeMagic, got_version, kBakeVersion);
     return false;
   }
   std::vector<GTree> trees;
@@ -2586,9 +2602,9 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
     return false;
   }
   if (!check_fingerprint(r, lev.level_name, fingerprint_of(trees), N)) {
-    lg::warn("[mesh-consolidate] sidecar {} does not match this fr3 (rebuilt geometry?) — running "
-             "the live pass instead",
-             path);
+    lg::warn("[mesh-consolidate] sidecar {} (bytes={} md5={}) does not match this fr3 (rebuilt "
+             "geometry?) — running the live pass instead",
+             path, comp_bytes, comp_md5);
     return false;
   }
   // dense normals
@@ -2691,6 +2707,15 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
   lg::info("[mesh-consolidate] level={} loaded PRECOMPUTED sidecar ({} verts, tangent_w_flipped={}) "
            "— live pass skipped",
            lev.level_name, N, tan_flips);
+  // Round 30 (delivery): name the file and fingerprint it on the SUCCESS path too, and mirror it into
+  // the asset-route journal — the owner's phone shows no logcat, so files/asset_route.txt is the only
+  // place the pair "which copy was opened" + "what its bytes hash to" can be read back off-device.
+  const std::string opened = fmt::format(
+      "[mesh-consolidate] level={} OPENED {} bytes={} md5={} bake_version={} -> APPLIED "
+      "(verts={} tangent_w_flipped={})\n",
+      lev.level_name, path, comp_bytes, comp_md5, kBakeVersion, N, tan_flips);
+  file_util::asset_route_journal(opened);
+  lg::info("{}", opened);
   return true;
 }
 

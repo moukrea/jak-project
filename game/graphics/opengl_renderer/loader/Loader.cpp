@@ -290,7 +290,11 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
            Gfx::g_global_settings.recharged_enhanced_models);
 #endif
   // OG_FEAT_HD_MODELS OFF (default): always the stock fr3 path.
-  return base / fmt::format("{}.fr3", name);
+  // Round 30 (delivery): the package copy wins for the stock fr3 too, file by file. The custom pack
+  // ships no stock .fr3 today, so this resolves to exactly the same path it always did; it is what
+  // lets a future round deliver a corrected level through an APK install instead of a 1.44 GB
+  // base-pack re-extraction the owner has no adb to perform.
+  return file_util::resolve_fr3_asset(base, fmt::format("{}.fr3", name)).path;
 }
 
 // Grecharged-hd-models2: objective loaded-model discriminator. The bake-time "Replacing" line
@@ -443,19 +447,13 @@ void Loader::loader_thread() {
         bool from_bake = false;
         if ((cfg.bits & tfrag3::kMeshBitForceLive) == 0) {
           auto p = scoped_prof("mesh-consolidate-sidecar");
-          // Same two-tier lookup the (validated) grassbake tables use: prefer the package-shipped
-          // custom fr3 dir that LoaderActivity extracts to, else the vanilla fr3 dir. This is what
-          // lets android/build_custom_pack.sh deliver the sidecars through the proven asset-pack
-          // path instead of needing a manual adb push.
+          // Round 30 (delivery): ONE resolver, package-copy-wins, and the decision plus the
+          // fingerprint of the bytes actually read land in files/asset_route.txt. The corrected
+          // sidecars ride to the owner's phone inside the APK's custom pack — the 1.44 GB base pack
+          // cannot — so this precedence IS the delivery route for every geometry fix.
           const auto name = tfrag3::mesh_consolidate_bake_name(result->level_name);
-          std::string bake_path = (file_util::get_fr3_dir(g_game_version) / name).string();
-          if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
-            const std::string custom = (*custom_fr3 / name).string();
-            if (file_util::file_exists(custom)) {
-              bake_path = custom;
-            }
-          }
-          from_bake = tfrag3::mesh_consolidate_apply_bake(*result, bake_path, do_shrub);
+          const auto route = file_util::resolve_fr3_asset(g_game_version, name);
+          from_bake = tfrag3::mesh_consolidate_apply_bake(*result, route.path.string(), do_shrub);
         }
         if (!from_bake) {
           auto p = scoped_prof("mesh-consolidate");

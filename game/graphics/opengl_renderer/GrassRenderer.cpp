@@ -642,16 +642,10 @@ void GrassRenderer::rebuild(SharedRenderState* rs,
   }
 
   if (want_pre && !floor_gap_overridden) {
-    // Prefer the package-shipped custom fr3 grassbake when present, else the
-    // vanilla fr3 dir. The resolved path is echoed in the PLACE-TIME log below.
-    std::string bake_path =
-        (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".grassbake")).string();
-    if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
-      const std::string custom_bake = (*custom_fr3 / (level_name + ".grassbake")).string();
-      if (file_util::file_exists(custom_bake)) {
-        bake_path = custom_bake;
-      }
-    }
+    // Round 30 (delivery): same one resolver as the fr3 sidecar — package copy wins, decision
+    // journalled. The resolved path is echoed in the PLACE-TIME log below.
+    const std::string bake_path =
+        file_util::resolve_fr3_asset(GameVersion::Jak1, level_name + ".grassbake").path.string();
     resolved_bake_path = bake_path;
     grass_bake::BakeData loaded;
     std::string reason;

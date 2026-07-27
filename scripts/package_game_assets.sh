@@ -1,11 +1,33 @@
 #!/usr/bin/env bash
 # scripts/package_game_assets.sh <jak1|jak2|jak3> [--out <dir>]
 #
-# Produces the ARCH-INDEPENDENT "extracted original assets" archive for a game:
-# the data that never changes across releases (audio/text/vis/str + renderer
-# texture packs + jak1 recharged HUD PNGs). It DELIBERATELY excludes *.CGO/*.DGO
-# — those are per-arch compiled code, shipped alongside the game binary, not with
-# this archive.
+# Produces the ARCH-INDEPENDENT "ORIGINAL GAME DUMP" archive for a game. Its content
+# is out/<game>/iso ONLY — the untouched PS2 disc data (audio/text/vis/str + VAGWADs)
+# as it came out of the dump. It DELIBERATELY excludes *.CGO/*.DGO — those are
+# per-arch compiled code, shipped alongside the game binary, not with this archive.
+#
+# OWNER STRUCTURAL RULE (2026-07-27): "tout ce qui n'est pas original (sorti du dump
+# du jeu sans être modifié) doit être inclus à l'APK et pas dans les assets de base
+# séparés !" The criterion is ORIGIN, not size. So everything DERIVED — the .fr3
+# levels (our extractor's output, carrying the weld/normals/orientation/pre-subdivision),
+# the .meshweld and .grassbake sidecars, the enhanced-HD fr3, the recharged HUD PNGs —
+# has MOVED OUT of this archive and into the APK's custom pack, built by
+# android/build_custom_pack.sh. This archive is now pure original data: it never
+# changes, so it can be laid down on a device ONCE and never re-pushed.
+#
+# The iso-only guard below enforces that, and it is the STRUCTURAL half of the
+# round-30 fix. The bug was not that the external copy of a sidecar was old; it was
+# that a SECOND COPY EXISTED AT ALL. With zero overlap between the two packs there is
+# no freshness conflict left to lose. Bake-freshness responsibility now lives entirely
+# in android/build_custom_pack.sh (its data_freshness_guard), which is where the
+# derived data ships.
+#
+# Env:
+#   PACK_LIST_ONLY=<non-empty>   Enumerate + run the iso-only guard, print the entry
+#                                count and a per-top-level-prefix histogram (counts +
+#                                total bytes), then exit 0 WITHOUT writing the ~1.1 GB
+#                                zip. Use this to verify the original/derived split
+#                                cheaply.
 #
 # Rigor is modelled on android/build_asset_bundle.sh: hard-fail on missing/empty
 # inputs, a CONTENT-derived version (md5 over all file contents in sorted path
@@ -47,13 +69,24 @@ mkdir -p "$OUT_DIR"
 OUT_ABS="$(cd "$OUT_DIR" && pwd)"
 
 ISO_DIR="out/${GAME}/iso"
-FR3_DIR="out/${GAME}/fr3"
-RHUD_DIR="recharged_assets"   # jak1 HUD PNGs (repo root)
 
+# out/<game>/fr3 is deliberately NOT referenced any more: nothing derived rides in
+# this archive, so its presence/emptiness is not this script's business. The fr3 tree
+# is validated by android/build_custom_pack.sh, which ships it.
 [ -d "$ISO_DIR" ] || fail "no $ISO_DIR — run the PC extract/build first"
-[ -d "$FR3_DIR" ] || fail "no $FR3_DIR — run the PC fr3 build first"
 [ -n "$(find "$ISO_DIR" -maxdepth 1 -type f -print -quit)" ] || fail "$ISO_DIR is empty"
-[ -n "$(find "$FR3_DIR" -maxdepth 1 -type f -print -quit)" ] || fail "$FR3_DIR is empty"
+
+# --- Bake-freshness responsibility MOVED OUT ------------------------------------
+# A round-30 bake-staleness preflight used to sit right here (bake-source mtime vs
+# .meshweld, plus the embedded-kBakeVersion check). It no longer belongs in this
+# script: this archive does not ship sidecars any more, so it has nothing to be stale
+# about. Those checks now live where the derived data actually ships — see
+# data_freshness_guard() in android/build_custom_pack.sh, which runs them on BOTH the
+# idempotent-skip path and the freshly-written-zip path, and additionally refuses a
+# pack that is MISSING a derived file present on disk (its check 4).
+#
+# What replaces it here is the INVERSE guard, further down once the index is built:
+# nothing derived may ride in the base pack at all.
 
 # --- Language completeness (NO filtering) --------------------------------------
 # Collect every VAGWAD.<lang> present. For jak2 the owner wants FR audio restored,
@@ -83,36 +116,61 @@ while IFS= read -r -d '' f; do
   printf 'iso/%s\t%s\n' "$base" "$ROOT/$f" >> "$INDEX"
 done < <(find "$ISO_DIR" -maxdepth 1 -type f -print0)
 
-# fr3/<file> for every file in out/<game>/fr3 (TOP LEVEL — the base stock set;
-# the optional enhanced/ subdir is swept separately below so its relative path is kept).
-while IFS= read -r -d '' f; do
-  printf 'fr3/%s\t%s\n' "$(basename "$f")" "$ROOT/$f" >> "$INDEX"
-done < <(find "$FR3_DIR" -maxdepth 1 -type f -print0)
-
-# Grecharged-hd-models: OPTIONAL enhanced-HD FR3 overlay (out/<game>/fr3/enhanced/*.fr3,
-# written by scripts/shell/build_enhanced_models.sh). Ship it under the relative in-zip
-# path fr3/enhanced/<file> so it unpacks alongside the base set and the runtime's
-# get_fr3_dir()/enhanced/ lookup finds it. Absent enhanced/ => this loop is a no-op and
-# the archive is byte-identical to the stock build (backward compatible).
-if [ -d "$FR3_DIR/enhanced" ]; then
-  while IFS= read -r -d '' f; do
-    printf 'fr3/enhanced/%s\t%s\n' "$(basename "$f")" "$ROOT/$f" >> "$INDEX"
-  done < <(find "$FR3_DIR/enhanced" -maxdepth 1 -type f -name '*.fr3' -print0)
-fi
-
-# recharged_assets/<file>.png (jak1 HUD), if the dir exists
-N_RHUD=0
-if [ -d "$RHUD_DIR" ]; then
-  while IFS= read -r -d '' f; do
-    printf 'recharged_assets/%s\t%s\n' "$(basename "$f")" "$ROOT/$f" >> "$INDEX"
-    N_RHUD=$((N_RHUD + 1))
-  done < <(find "$RHUD_DIR" -maxdepth 1 -type f -name '*.png' -print0)
-fi
+# That is the WHOLE index. Three enumerations used to follow this one and they are
+# gone on purpose:
+#   fr3/<file>              (26 .fr3 + 26 .meshweld + 3 .grassbake)
+#   fr3/enhanced/<file>     (enhanced-HD overlay)
+#   recharged_assets/<file>.png  (jak1 HUD)
+# All three are DERIVED — produced or modified by our chain, not "sorti du dump du jeu
+# sans être modifié" — so by the owner's structural rule they ship in the APK's custom
+# pack (android/build_custom_pack.sh), never here. Keeping a second copy in this
+# archive is precisely what let a STALE EXTERNAL COPY win for two rounds: the runtime
+# resolved the sidecars from external storage, so a corrected pack inside the APK was
+# read by nobody and the owner played two-day-old geometry twice. One copy, one owner.
 
 FILE_COUNT=$(wc -l < "$INDEX" | tr -d ' ')
 [ "$FILE_COUNT" -gt 0 ] || fail "no files selected for the archive"
 
-echo "[assets] selected $FILE_COUNT files (iso data + fr3${N_RHUD:+ + $N_RHUD recharged PNGs}); computing content version + packing (nice)…"
+# --- ISO-ONLY GUARD ------------------------------------------------------------
+# Nothing derived may ride in the base pack. This is the structural half of the
+# round-30 fix: the bug was not that the external copy was old, it was that a second
+# copy existed at all.
+BAD_ENTRY="$(cut -f1 "$INDEX" | grep -vE '^iso/[^/]+$' | head -1 || true)"
+if [ -n "$BAD_ENTRY" ]; then
+  fail "NON-ORIGINAL ENTRY '$BAD_ENTRY' in the base pack index — this archive carries out/${GAME}/iso ONLY (the untouched game dump). Everything our chain produces or modifies ships in the APK's custom pack: add it to android/build_custom_pack.sh instead. A second copy here is what let a stale external file beat the corrected one in the APK."
+fi
+
+# --- PACK_LIST_ONLY: verify the split without writing a 1.1 GB zip ---------------
+# The zip write is the expensive part (~1.1 GB, minutes, and it is what a 97%-full
+# disk cannot afford to do casually). Everything that DECIDES the archive's content —
+# the enumeration and the iso-only guard above — has already run at this point, so the
+# split is fully verifiable here. Exits BEFORE the python pack step.
+if [ -n "${PACK_LIST_ONLY:-}" ]; then
+  echo "[assets] PACK_LIST_ONLY: no zip will be written."
+  echo "[assets]   game=${GAME}"
+  echo "[assets]   entries=${FILE_COUNT}"
+  echo "[assets]   top-level in-zip prefix histogram:"
+  INDEX="$INDEX" python3 - <<'PY'
+import os
+counts, byts = {}, {}
+with open(os.environ["INDEX"]) as fh:
+    for line in fh:
+        line = line.rstrip("\n")
+        if not line:
+            continue
+        entry, src = line.split("\t", 1)
+        pfx = entry.split("/", 1)[0] + "/" if "/" in entry else "(root)"
+        counts[pfx] = counts.get(pfx, 0) + 1
+        byts[pfx] = byts.get(pfx, 0) + os.path.getsize(src)
+for pfx in sorted(counts):
+    print("[assets]     %-22s %5d entries  %14d bytes" % (pfx, counts[pfx], byts[pfx]))
+print("[assets]     %-22s %5d entries  %14d bytes"
+      % ("TOTAL", sum(counts.values()), sum(byts.values())))
+PY
+  exit 0
+fi
+
+echo "[assets] selected $FILE_COUNT files (out/${GAME}/iso ONLY — original dump data; all derived assets ship in the APK custom pack); computing content version + packing (nice)…"
 
 ZIP_ABS="$OUT_ABS/${GAME}_assets.zip"
 MANIFEST_TXT="$OUT_ABS/${GAME}_assets.manifest.txt"
@@ -162,6 +220,12 @@ version = "c" + md5.hexdigest()[:12]
 
 manifest = (
     "# Generated by scripts/package_game_assets.sh — do not edit.\n"
+    "# ORIGINAL GAME DUMP ONLY: every entry is iso/<file> from out/<game>/iso,\n"
+    "# byte-identical to the disc extract. It carries NO derived data — no .fr3, no\n"
+    "# .meshweld, no .grassbake, no enhanced/, no recharged_assets. All of that ships\n"
+    "# inside the APK's custom pack (android/build_custom_pack.sh) per the owner rule\n"
+    "# that anything not straight out of the dump belongs in the APK. Consequence:\n"
+    "# this archive never changes, so it can be laid down once and never re-pushed.\n"
     f"game={game}\n"
     f"file_count={file_count}\n"
     f"raw_bytes={raw_bytes}\n"
@@ -192,5 +256,5 @@ sys.stderr.write(
 PY
 
 ZIP_BYTES=$(stat -c %s "$ZIP_ABS")
-echo "[assets] done: $ZIP_ABS ($ZIP_BYTES bytes)"
-echo "ARCHIVE $ZIP_ABS $ZIP_BYTES files=$FILE_COUNT vagwads=${VAG_LANGS:-none}"
+echo "[assets] done: $ZIP_ABS ($ZIP_BYTES bytes) — ORIGINAL DUMP ONLY (iso/); derived assets ship in the APK custom pack via android/build_custom_pack.sh"
+echo "ARCHIVE $ZIP_ABS $ZIP_BYTES files=$FILE_COUNT vagwads=${VAG_LANGS:-none} content=iso-only"
