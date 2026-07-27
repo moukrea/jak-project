@@ -228,4 +228,13 @@ grep -qiE 'wallplaster' "$R" || fail "R28: resulting segments-per-feature for wa
 grep -qiE 'parallax[^.]{0,60}(untouched|unchanged|intouch|not modified)' "$R" || fail "R28: must state parallax is untouched"
 grep -qiE 'boot|smoke|no crash' "$R" || fail "no smoke run evidencing the build boots"
 grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
+# ---- ROUND 28 RECENTRED: orientation authority is the defect; density comes after ----
+grep -qiE 'no authority|sans autorite|cannot reach|undecided' "$R" || fail "R28: the 'no collision authority within 1.5 m' population is not censused"
+grep -qiE '(component|composant)[^.]{0,50}(no authority|sans autorite|undecided)|[0-9]+ *(components|composants)[^.]{0,40}authority' "$R" || fail "R28: no COUNT of authority-less components (village1 + all levels)"
+grep -qiE 'signed volume|volume signe|ray ?cast|outward ray|winding number' "$R" || fail "R28: no purely geometric SECOND authority for components collision cannot judge"
+grep -qiE 'deterministic|deterministe' "$R" || fail "R28: the second authority must be stated deterministic (never 'keep what was there')"
+grep -qiE 'uv determinant|determinant uv|mirrored uv|uv miroir|handedness' "$R" || fail "R28: the UV-determinant / tangent-handedness axis is not audited (it is the only thing that can invert PARALLAX alone — the sage-hut wall case)"
+grep -qiE 'roof|toit' "$R" || fail "R28: the roof (inverted in tess, good in parallax) not accounted for"
+grep -qiE 'cornice|corniche|cliff|falaise' "$R" || fail "R28: the cliff cornice (inverted in tess) not accounted for"
+grep -qiE 'not (masked|fixed) in the shader|donnees|data-side|mesh data' "$R" || fail "R28: must state the fix is in the DATA, not an abs()/flip in the shader"
 echo "[Gpbrf PASS]"

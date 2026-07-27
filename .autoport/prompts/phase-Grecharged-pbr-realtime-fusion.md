@@ -510,3 +510,57 @@ CONTRAINTES DURES, VÉRIFIÉES PAR LE VALIDATOR :
 POURQUOI CETTE VOIE PEUT MARCHER LÀ OÙ LE ROUND 27 A ÉCHOUÉ : elle ne demande RIEN au GPU. Le
 plafond matériel de niveau 64 devient sans objet, puisqu'on part d'arêtes déjà courtes. Et comme
 elle ne touche ni les lois de shader ni le tfrag, elle ne PEUT PAS dégrader le sol ni le parallax.
+
+--------------------------------------------------------------------------------
+ROUND 28 RECENTRÉ — L'AUTORITÉ D'ORIENTATION EST LE VRAI DÉFAUT (la densité vient après)
+--------------------------------------------------------------------------------
+Owner, playtest du build restauré, matrice par surface ET par tier :
+  sol            : tessellation BONNE          | parallax fonctionnel, un peu muted
+  toit hutte     : tessellation INVERSÉE       | parallax BON
+  mur hutte      : tessellation BOÎTES CREUSES | parallax INVERSÉ
+  falaise/corniche: tessellation INVERSÉE      | parallax BON
+  chunk en pente : tessellation PLATE          | parallax BON
+  "Globalement le parallax est bon mais le relief un peu faible, la tesselation a un meilleur
+   relief mais plus d'erreurs."
+
+L'inversion change de camp selon la SURFACE et selon le TIER. Ce ne peut donc pas être une erreur de
+signe globale, et ce n'est pas non plus un problème de densité — une inversion n'est pas un manque
+de résolution. Priorité de ce round : LES INVERSIONS. La densité (les boîtes creuses du mur, la
+pente plate) passe APRÈS, une fois les signes justes.
+
+CAUSE ÉTABLIE SUR LE CODE PAR LE SUPERVISEUR, à vérifier puis corriger :
+common/custom_data/TFrag3Data.cpp dit que le TIE ne livre PAS de normales par sommet ("nor==0 for
+~98% of verts") : elles sont donc quasi toutes RECONSTRUITES. Et MeshConsolidate.cpp fait décider
+leur sens par la MESH DE COLLISION — "the walkable side of the world is the outward side" — avec
+deux failles écrites noir sur blanc dans le fichier :
+  * "returns false if no collision vertex is within 1.5 m (no authority here)" ;
+  * "a component the collision mesh cannot reach KEEPS THE ORIENTATION the accepted previous pass
+    gave it" — autrement dit, sans autorité, le sens reste ARBITRAIRE.
+Or "le côté marchable" ne veut rien dire pour un TOIT (on ne marche pas dessus), pour un MUR
+VERTICAL (aucun côté n'est marchable, et la collision peut être à moins d'1,5 m des deux côtés), ni
+pour les faces SOUS UNE CORNICHE. Ça décalque exactement la carte de l'owner : le sol, seule surface
+où "marchable" est non ambigu, est la seule correcte en tessellation.
+
+CE QU'IL FAUT FAIRE
+1. RECENSER d'abord, sur les données, hors-ligne : combien de composants connexes TIE et tfrag sont
+   aujourd'hui "sans autorité" (aucun sommet de collision à moins d'1,5 m), et quelle fraction des
+   faces ça représente. Donne le chiffre pour village1 et pour l'ensemble des niveaux. C'est la
+   mesure de l'ampleur du défaut, et elle se fait sans device.
+2. AJOUTER UNE SECONDE AUTORITÉ, purement géométrique, pour ces composants-là. La collision reste
+   prioritaire là où elle tranche ; ailleurs, l'extérieur d'un composant fermé ou quasi fermé se
+   détermine sans autorité externe — volume signé du composant, ou lancer de rayon depuis la face
+   avec comptage d'intersections. Une hutte, un rocher, une corniche sont des coques : la géométrie
+   seule sait où est le dehors. Le critère doit être DÉTERMINISTE et reproductible, jamais un
+   "on garde ce qu'il y avait".
+3. AUDITER SÉPARÉMENT LE SIGNE DU DÉTERMINANT UV (le handedness de la tangente) par face. C'est un
+   axe INDÉPENDANT de la normale, et c'est le seul qui peut inverser le PARALLAX sans inverser la
+   tessellation — exactement le cas du mur de la hutte, inversé en parallax mais pas proprement
+   inversé en tessellation. Des UV miroir sur ces faces expliqueraient ce cas isolé. Chiffre-le.
+4. NE PAS "CORRIGER" DANS LE SHADER. Ces défauts sont dans les DONNÉES ; un abs() ou un flip par
+   matériau les masquerait tout en continuant de pourrir l'éclairage, l'AO et le spéculaire.
+5. LA DENSITÉ (pré-subdivision du TIE) RESTE AU PROGRAMME MAIS EN SECOND. Elle traite les boîtes
+   creuses du mur et la pente plate, pas les inversions. Ne la livre pas avant que les signes soient
+   justes, sinon on ne saura pas ce qui a produit quoi.
+
+LES GARDE-FOUS DU ROUND 28 RESTENT INCHANGÉS ET DURS : aucun shader modifié, sortie tfrag
+bit-identique, parallax intouché (hors amplitude), coutures partagées démontrées.
