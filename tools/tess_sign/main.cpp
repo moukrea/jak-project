@@ -1676,86 +1676,147 @@ int main(int argc, char** argv) {
     return byarea;
   };
 
-  // TIER B and TIER C both need ray casts, so the BVH is built once — but ONLY if a shell that owns
-  // a mesh is still undecided after TIER A.
-  bool need_bvh = false;
-  for (u32 s = 0; s < n_shells; s++) {
-    if (shells[s].has_displaceable && shells[s].gsign == 0) {
-      need_bvh = true;
-      break;
-    }
-  }
+  // ONE accelerator over the WHOLE level face list, built once, deterministically (nth_element on a
+  // TOTAL order, so no address- or input-order dependence), and used by BOTH ray tiers.
   Bvh bvh;
-  if (need_bvh) {
+  {
+    const auto t0 = std::chrono::steady_clock::now();
     bvh.build(faces, gv);
-    fmt::print("[tess_sign] BVH built over {} faces ({} nodes)\n", faces.size(), bvh.nodes.size());
+    fmt::print("[tess_sign] BVH built over {} faces ({} nodes) in {:.1f} s\n", faces.size(),
+               bvh.nodes.size(),
+               std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
   }
 
-  // (c) TIER B — OUTWARD RAY PARITY, counting crossings with faces OF THIS SHELL ONLY.
+  // ===============================================================================================
+  // (c) TIER RAYF — THE PRIMARY GROUND TRUTH. PER FACE, NO PROPAGATION, NO GLOBAL ORIENTATION.
+  //
+  // "Lancer de rayon sortant": the visible side of a surface is the side that has OPEN SPACE on it.
+  // For each face, take its own stored winding's geometric normal gn, put one probe 0.02 m along +gn
+  // and one 0.02 m along -gn, and fire K rays from each into the corresponding hemisphere. A ray
+  // ESCAPES when it finds nothing within 200 m. The side that escapes more is the outward side.
+  //
+  // Why this replaces the per-shell volume as the PRIMARY authority: (1) for an OPEN shell the cone
+  // volume about the bbox centre is ORIGIN-DEPENDENT, so it is not even well defined; (2) the shell
+  // verdict has to be carried to each face through the relative-winding BFS, and ONE bad link in that
+  // BFS (a fabricated adjacency across an edge incident to 3+ faces, a mirrored copy, a decimated LOD
+  // triangle chained onto the full-res mesh) flips a whole sub-tree of faces and poisons the shell.
+  // RAYF has neither failure mode: nothing is propagated, and a face's verdict depends on nothing but
+  // that face's own geometry and the level around it.
+  // ===============================================================================================
+  std::vector<s8> rayf_vote(faces.size(), 0);
+  std::vector<u8> rayf_plus(faces.size(), 0), rayf_minus(faces.size(), 0);
+  double rayf_seconds = 0.0;
+  {
+    // the mesh faces, ascending, so the work partition is a pure function of the face list
+    std::vector<u32> rayf_faces;
+    rayf_faces.reserve(n_mesh_faces);
+    for (u32 f = 0; f < faces.size(); f++) {
+      if (face_is_mesh[f]) {
+        rayf_faces.push_back(f);
+      }
+    }
+    const double probe = kRayfProbeM * kUnitsPerM;   // 0.02 m = 81.92 game units
+    const double tmax = kRayfMaxM * kUnitsPerM;      // 200 m
+    const double tmin = kRayfTMinM * kUnitsPerM;     // 0.001 m
+    const auto t0 = std::chrono::steady_clock::now();
+    std::atomic<u64> next_chunk{0};
+    const u64 chunk = 256;
+    const u64 n_chunks = (rayf_faces.size() + chunk - 1) / chunk;
+    // ONE FACE = ONE INDEPENDENT PROBLEM, and every input of that problem is either a compile-time
+    // constant or a pure function of the face's own normal, so the result written into
+    // rayf_vote[f] is identical whatever thread computes it and whatever order the chunks are
+    // claimed in. The parallelism cannot move a single bit of the verdict.
+    auto worker = [&]() {
+      for (;;) {
+        const u64 c = next_chunk.fetch_add(1);
+        if (c >= n_chunks) {
+          return;
+        }
+        const u64 lo = c * chunk;
+        const u64 hi = std::min<u64>(lo + chunk, rayf_faces.size());
+        for (u64 ii = lo; ii < hi; ii++) {
+          const u32 f = rayf_faces[ii];
+          const V3 gn = normalized(face_cross(f));
+          if (len(gn) < 0.5) {
+            continue;  // degenerate face: no normal, no vote
+          }
+          const V3 cen = face_centroid(f);
+          V3 t1, t2;
+          branchless_onb(gn, &t1, &t2);
+          int esc[2] = {0, 0};
+          for (int side = 0; side < 2; side++) {
+            const double sgn = side == 0 ? 1.0 : -1.0;
+            const V3 p = cen + gn * (sgn * probe);
+            const double o[3] = {p.x, p.y, p.z};
+            for (int i = 0; i < rayf_k; i++) {
+              // the fixed spiral: stratum u of the projected-area measure, golden-angle azimuth
+              const double u = ((double)i + 0.5) / (double)rayf_k;
+              const double r = std::sqrt(u);
+              const double zz = std::sqrt(std::max(0.0, 1.0 - u));
+              const double phi = 2.0 * 3.14159265358979323846 * kGoldenConj * (double)i;
+              const double cp = std::cos(phi), sp2 = std::sin(phi);
+              // the MINUS set is the exact mirror of the PLUS set: same tangential part, z negated
+              const V3 dirv = normalized(t1 * (r * cp) + t2 * (r * sp2) + gn * (sgn * zz));
+              const double d[3] = {dirv.x, dirv.y, dirv.z};
+              const bool blocked = bvh.any_hit(o, d, tmax, [&](u32 cand) {
+                if (cand == f) {
+                  return false;  // never the source face itself
+                }
+                return ray_tri_occl(o, d, pos(faces[cand].v[0]), pos(faces[cand].v[1]),
+                                    pos(faces[cand].v[2]), tmin, tmax);
+              });
+              if (!blocked) {
+                esc[side]++;
+              }
+            }
+          }
+          rayf_plus[f] = (u8)esc[0];
+          rayf_minus[f] = (u8)esc[1];
+          const int diff = esc[0] - esc[1];
+          if (std::abs(diff) >= kRayfMinMargin) {
+            rayf_vote[f] = (s8)(diff > 0 ? 1 : -1);
+          }
+        }
+      }
+    };
+    const unsigned nthreads = std::max(1u, std::thread::hardware_concurrency());
+    std::vector<std::thread> pool;
+    for (unsigned t = 1; t < nthreads; t++) {
+      pool.emplace_back(worker);
+    }
+    worker();
+    for (auto& th : pool) {
+      th.join();
+    }
+    rayf_seconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    u64 voted = 0;
+    for (u32 f : rayf_faces) {
+      if (rayf_vote[f] != 0) {
+        voted++;
+      }
+    }
+    fmt::print("[tess_sign] tier RAYF done: {} of {} mesh faces voted, K={} per hemisphere, {} "
+               "threads, {:.1f} s\n",
+               voted, rayf_faces.size(), rayf_k, nthreads, rayf_seconds);
+  }
+
+  // (d) TIER ESC — ESCAPE-DISTANCE ASYMMETRY against the WHOLE level BVH.
   for (u32 s = 0; s < n_shells; s++) {
     auto& sh = shells[s];
     if (!sh.has_displaceable || sh.gsign != 0) {
       continue;
     }
-    const auto sampled = sample_faces(sh);
-    double w_out = 0, w_in = 0;
-    for (const auto& sf : sampled) {
-      const u32 f = sf.second;
-      const V3 gn = normalized(face_cross(f));
-      const V3 dir_out = gn * (double)rel[f];
-      const V3 cen = face_centroid(f);
-      const V3 p = cen + dir_out * (kProbeEpsM * kUnitsPerM);  // 0.01 m = 40.96 game units
-      const double o[3] = {p.x, p.y, p.z};
-      int votes_out = 0, votes_in = 0;
-      for (int r = 0; r < 7; r++) {
-        u32 crossings = 0;
-        bool clean = true;
-        bvh.traverse(o, kRayDir[r], 1e300, [&](u32 cand) {
-          if (!clean || shell_of[cand] != s || cand == f) {
-            return;
-          }
-          const int hit = ray_tri(o, kRayDir[r], pos(faces[cand].v[0]), pos(faces[cand].v[1]),
-                                  pos(faces[cand].v[2]), nullptr);
-          if (hit < 0) {
-            clean = false;  // grazed an edge/vertex: this ray decides nothing
-          } else {
-            crossings += (u32)hit;
-          }
-        });
-        if (!clean) {
-          continue;
-        }
-        if ((crossings & 1u) != 0) {
-          votes_in++;  // ODD parity => the probe is INSIDE => this face's rel*gn points inward
-        } else {
-          votes_out++;
-        }
-      }
-      if (votes_out == votes_in) {
-        continue;  // no majority over the 7 rays
-      }
-      if (votes_out > votes_in) {
-        w_out += sf.first;
-      } else {
-        w_in += sf.first;
+    // ESC is the LAST resort: it only has to speak for a shell that still owns a mesh face RAYF
+    // abstained on. If RAYF called every one of them there is nothing left for it to decide.
+    bool needs_fallback = false;
+    for (u32 f : sh.faces) {
+      if (face_is_mesh[f] && rayf_vote[f] == 0) {
+        needs_fallback = true;
+        break;
       }
     }
-    const double tot = w_out + w_in;
-    if (tot > 0) {
-      const double margin = std::max(w_out, w_in) / tot;
-      sh.ray_margin = margin;
-      if (margin >= kRayMarginB) {
-        sh.gsign = (w_out > w_in) ? 1 : -1;
-        sh.tier = "RAY";
-      }
-    }
-  }
-  fmt::print("[tess_sign] tier B done\n");
-
-  // (d) TIER C — ESCAPE-DISTANCE ASYMMETRY against the WHOLE level BVH.
-  for (u32 s = 0; s < n_shells; s++) {
-    auto& sh = shells[s];
-    if (!sh.has_displaceable || sh.gsign != 0) {
+    if (!needs_fallback) {
       continue;
     }
     const auto sampled = sample_faces(sh);
@@ -1807,7 +1868,50 @@ int main(int argc, char** argv) {
       sh.tier = "ESC";
     }
   }
-  fmt::print("[tess_sign] tier C done\n");
+  fmt::print("[tess_sign] tier ESC done\n");
+
+  // ===============================================================================================
+  // (e) THE PER-FACE OUTWARD DIRECTION AND ITS TIER. This is the single place the tier ORDER lives:
+  //        RAYF (per face, no propagation)  ->  VOL (shell signed volume)  ->  ESC  ->  UNDECIDED
+  // osign[f] is the multiplier on the face's own gn: outward(f) = osign[f] * gn(f).
+  // ===============================================================================================
+  constexpr u8 kTierRayf = 0, kTierVol = 1, kTierEsc = 2, kTierUnd = 3;
+  const char* kTierName[4] = {"RAYF", "VOL", "ESC", "UNDECIDED"};
+  std::vector<s8> osign(faces.size(), 0);
+  std::vector<u8> ftier(faces.size(), kTierUnd);
+  for (u32 f = 0; f < faces.size(); f++) {
+    if (rayf_vote[f] != 0) {
+      osign[f] = rayf_vote[f];
+      ftier[f] = kTierRayf;
+      continue;
+    }
+    const Shell& sh = shells[shell_of[f]];
+    if (sh.gsign != 0 && rel[f] != 0) {
+      osign[f] = (s8)(sh.gsign * (int)rel[f]);
+      ftier[f] = std::strcmp(sh.tier, "VOL") == 0 ? kTierVol : kTierEsc;
+    }
+  }
+
+  // rayf_vs_vol — the two INDEPENDENT geometric criteria, scored against each other PER SHELL over
+  // the shell's own mesh faces. They agree on face f iff  rayf_vote[f] == vol_sign * rel[f], i.e.
+  // iff they hand that face the same outward direction. When the signed-volume test never spoke for
+  // the shell (an open shell, or |V6| under the threshold) the comparison is reported as vol-silent
+  // rather than being silently scored as agreement.
+  for (u32 f = 0; f < faces.size(); f++) {
+    if (!face_is_mesh[f] || rayf_vote[f] == 0) {
+      continue;
+    }
+    Shell& sh = shells[shell_of[f]];
+    sh.rayf_voted++;
+    if (sh.vol_sign == 0 || rel[f] == 0) {
+      continue;
+    }
+    if ((int)rayf_vote[f] == sh.vol_sign * (int)rel[f]) {
+      sh.rayf_agree++;
+    } else {
+      sh.rayf_disagree++;
+    }
+  }
 
   // (e) DIAGNOSIS ONLY — what the pipeline's own authorities say. Never used for a decision here.
   CollisionAuthority coll;
@@ -1914,6 +2018,232 @@ int main(int argc, char** argv) {
   fmt::print("[tess_sign] meshes={}\n", meshes.size());
 
   // ---------------------------------------------------------------------------------------------
+  // §4b SEAM-PIN REASON ATTRIBUTION. Every vertex with seam == 0 has its pin EXPLAINED, by
+  // recomputing the four pin reasons of MeshConsolidate.cpp:2216-2252 from the geometry this tool
+  // already has:
+  //   MATERIAL : the weld group is referenced by faces with different tree_tex_id  (:2218)
+  //   SYSTEM   : the weld group spans more than one of tfrag / tie / shrub          (:2219)
+  //   OPEN     : a welded GROUP edge of the group is used by exactly one face       (:2220)
+  //   CREASE   : the group's incident faces fall into >= 2 clusters at the crease
+  //              threshold AND the group has >= 2 referenced members                (:2221)
+  // A pin matching NONE of the four is a PIN_UNEXPLAINED — a bug, and its position is printed.
+  // ---------------------------------------------------------------------------------------------
+  std::vector<u8> grp_material(n_groups, 0), grp_system(n_groups, 0), grp_open(n_groups, 0),
+      grp_crease(n_groups, 0);
+  std::vector<u32> grp_members(n_groups, 0);
+  {
+    const auto t0 = std::chrono::steady_clock::now();
+    // members + one representative position per group (every member shares it bit-identically:
+    // mesh_consolidate wrote the group mean back to all of them, MeshConsolidate.cpp:1297-1309)
+    std::vector<u32> grp_rep(n_groups, UINT32_MAX);
+    for (u32 vi = 0; vi < gv.size(); vi++) {
+      const u32 g = vert_group[vi];
+      if (g == UINT32_MAX) {
+        continue;
+      }
+      grp_members[g]++;
+      if (grp_rep[g] == UINT32_MAX) {
+        grp_rep[g] = vi;
+      }
+    }
+    // OPEN: a group edge used exactly once, both of whose endpoints are then marked
+    // (MeshConsolidate.cpp:858-861).
+    for (const auto& kv : edges) {
+      if (kv.second.size() != 1) {
+        continue;
+      }
+      const u32 ga = (u32)(kv.first >> 32), gb = (u32)(kv.first & 0xffffffffu);
+      if (ga < n_groups) {
+        grp_open[ga] = 1;
+      }
+      if (gb < n_groups) {
+        grp_open[gb] = 1;
+      }
+    }
+    // SHRUB presence, by exact position. Shrub is in mesh_consolidate's weld universe
+    // (MeshConsolidate.cpp:345-348) but NOT in this tool's face universe — it is never tessellated
+    // and never graded — so without this a tfrag<->shrub junction would look unexplained. The
+    // population is the shrub vertices the draws actually reference (:682-698).
+    std::unordered_map<PosKey, u8, PosKeyHash> shrub_pos;
+    u64 n_shrub_refs = 0;
+    for (const auto& t : lev.shrub_trees) {
+      for (const auto& d : t.static_draws) {
+        for (u32 k = 0; k < d.num_indices; k++) {
+          const size_t ii = (size_t)d.first_index_index + k;
+          if (ii >= t.indices.size()) {
+            break;
+          }
+          const u32 li = t.indices[ii];
+          if (li == UINT32_MAX || li >= t.unpacked.vertices.size()) {
+            continue;
+          }
+          const auto& sv = t.unpacked.vertices[li];
+          shrub_pos.emplace(pos_key(sv.x, sv.y, sv.z), (u8)1);
+          n_shrub_refs++;
+        }
+      }
+    }
+    for (u32 g = 0; g < n_groups; g++) {
+      if (grp_rep[g] == UINT32_MAX) {
+        continue;
+      }
+      const auto& p = gv[grp_rep[g]];
+      if (shrub_pos.count(pos_key(p.x, p.y, p.z))) {
+        grp_system[g] = 1;  // spans tfrag/tie AND shrub
+      }
+    }
+    fmt::print("[tess_sign] shrub weld population: {} referenced verts, {} distinct positions\n",
+               n_shrub_refs, shrub_pos.size());
+
+    // CSR group -> incident (face, corner), then MATERIAL / SYSTEM / CREASE per group.
+    std::vector<u32> ioff(n_groups + 1, 0);
+    for (const auto& f : faces) {
+      for (int e = 0; e < 3; e++) {
+        ioff[f.wg[e] + 1]++;
+      }
+    }
+    for (u32 g = 0; g < n_groups; g++) {
+      ioff[g + 1] += ioff[g];
+    }
+    std::vector<u32> iflat(ioff[n_groups]);
+    {
+      std::vector<u32> cur(ioff.begin(), ioff.end() - 1);
+      for (u32 f = 0; f < faces.size(); f++) {
+        for (int e = 0; e < 3; e++) {
+          iflat[cur[faces[f].wg[e]]++] = f;
+        }
+      }
+    }
+    // the crease threshold is mesh_consolidate's own (MeshConsolidate.h:210 crease_deg = 60, .cpp:511
+    // crease_cos = cos(crease_deg)), read from the SAME cfg the consolidation ran with.
+    const double crease_cos = std::cos((double)cfg.crease_deg * 3.14159265358979323846 / 180.0);
+    std::vector<std::pair<double, u32>> byarea;
+    std::vector<V3> cunit;
+    for (u32 g = 0; g < n_groups; g++) {
+      const u32 i0 = ioff[g], i1 = ioff[g + 1];
+      if (i0 == i1) {
+        continue;
+      }
+      s32 tex0 = -2;
+      u32 sysmask = 0;
+      byarea.clear();
+      for (u32 k = i0; k < i1; k++) {
+        const u32 f = iflat[k];
+        if (tex0 == -2) {
+          tex0 = faces[f].tex;
+        } else if (faces[f].tex != tex0) {
+          grp_material[g] = 1;
+        }
+        sysmask |= 1u << faces[f].system;
+        const V3 nr = face_cross(f) * (rel[f] != 0 ? (double)rel[f] : 1.0);
+        const double a = len(nr);
+        if (a > 1e-6) {
+          byarea.emplace_back(a, k);
+        }
+      }
+      if (sysmask && (sysmask & (sysmask - 1u))) {
+        grp_system[g] = 1;  // more than one bit set: the group spans two systems
+      }
+      // cluster the incident faces by crease angle, LARGEST FACE FIRST and ties broken on the lower
+      // slot, exactly as MeshConsolidate.cpp:1904-1936 does, so the cluster COUNT matches.
+      std::sort(byarea.begin(), byarea.end(), [](const auto& x, const auto& y) {
+        return x.first != y.first ? x.first > y.first : x.second < y.second;
+      });
+      cunit.clear();
+      for (const auto& od : byarea) {
+        const u32 f = iflat[od.second];
+        const V3 un = face_cross(f) * ((rel[f] != 0 ? (double)rel[f] : 1.0) / od.first);
+        bool found = false;
+        for (const auto& c : cunit) {
+          if (dot(un, c) >= crease_cos) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          cunit.push_back(un);
+        }
+      }
+      if (cunit.size() >= 2 && grp_members[g] >= 2) {
+        grp_crease[g] = 1;  // :2221 crease AND refcount2
+      }
+    }
+    fmt::print("[tess_sign] pin-reason group flags built in {:.1f} s\n",
+               std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+  }
+
+  // per mesh, over its DISTINCT SOURCE vertices with seam == 0 (a pin is a property of a weld group,
+  // not of a generated vertex), and once more level-wide over distinct vertices.
+  struct PinSample {
+    V3 p_m;
+    u32 mesh = 0;
+    u32 group = 0;
+    bool subdiv_new = false;
+    u32 members = 0;
+  };
+  std::vector<PinSample> pin_unexplained_samples;
+  u64 tot_pin_src = 0, tot_pin_material = 0, tot_pin_system = 0, tot_pin_open = 0,
+      tot_pin_crease = 0, tot_pin_unexpl = 0, tot_pin_unexpl_subdiv = 0;
+  {
+    std::vector<u32> stamp(gv.size(), UINT32_MAX);
+    std::vector<u8> seen_global(gv.size(), 0);
+    for (u32 mi = 0; mi < meshes.size(); mi++) {
+      auto& m = meshes[mi];
+      for (u32 f : m.faces) {
+        for (int e = 0; e < 3; e++) {
+          const u32 vi = faces[f].v[e];
+          if (stamp[vi] == mi) {
+            continue;
+          }
+          stamp[vi] = mi;
+          if (gv[vi].seam != 0.f) {
+            continue;
+          }
+          const u32 g = vert_group[vi];
+          m.pin_src++;
+          const bool mat = g < n_groups && grp_material[g];
+          const bool sys = g < n_groups && grp_system[g];
+          const bool opn = g < n_groups && grp_open[g];
+          const bool crs = g < n_groups && grp_crease[g];
+          m.pin_material += mat;
+          m.pin_system += sys;
+          m.pin_open += opn;
+          m.pin_crease += crs;
+          const bool none = !(mat || sys || opn || crs);
+          if (none) {
+            m.pin_unexplained++;
+            m.pin_unexplained_subdiv += gv[vi].subdiv_new ? 1 : 0;
+          }
+          if (!seen_global[vi]) {
+            seen_global[vi] = 1;
+            tot_pin_src++;
+            tot_pin_material += mat;
+            tot_pin_system += sys;
+            tot_pin_open += opn;
+            tot_pin_crease += crs;
+            if (none) {
+              tot_pin_unexpl++;
+              tot_pin_unexpl_subdiv += gv[vi].subdiv_new ? 1 : 0;
+              if (pin_unexplained_samples.size() < 20) {
+                PinSample ps;
+                ps.p_m = V3{gv[vi].x / kUnitsPerM, gv[vi].y / kUnitsPerM, gv[vi].z / kUnitsPerM};
+                ps.mesh = mi;
+                ps.group = g;
+                ps.subdiv_new = gv[vi].subdiv_new != 0;
+                ps.members = g < n_groups ? grp_members[g] : 0;
+                pin_unexplained_samples.push_back(ps);
+              }
+            }
+          }
+        }
+      }
+    }
+    fmt::print("[tess_sign] pin attribution: {} pinned source verts, {} UNEXPLAINED ({} of them "
+               "created by the pre-subdivision)\n",
+               tot_pin_src, tot_pin_unexpl, tot_pin_unexpl_subdiv);
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // §6 THE CPU PORT OF THE TESS STAGES.
   //
   // THE INSPECTION-DISTANCE CONVENTION: instead of placing a camera anywhere, EVERY distance the two
@@ -1930,6 +2260,9 @@ int main(int argc, char** argv) {
 
   struct Agg {
     u64 sign_den = 0, sign_ok = 0, sign_ok_lit = 0, gverts = 0, disp_nz = 0;
+    u64 live = 0, patches = 0, patches_live = 0, exempt = 0;
+    u64 gverts_tfrag = 0, disp_nz_tfrag = 0, live_tfrag = 0;
+    u64 v_rayf = 0, v_vol = 0, v_esc = 0, v_und = 0;
   };
 
   // Evaluate every mesh at inspection distance d. `store` = write the per-mesh columns too.
@@ -1945,7 +2278,12 @@ int main(int argc, char** argv) {
         m.sign_ok = 0;
         m.sign_ok_lit = 0;
         m.disp_nz = 0;
+        m.live = 0;
+        m.patches_live = 0;
         m.z_seam = m.z_falloff = m.z_h_mid = m.z_amp = m.z_not_tess = 0;
+        m.z_patch_dead = 0;
+        m.f_rayf = m.f_vol = m.f_esc = m.f_und = 0;
+        m.v_rayf = m.v_vol = m.v_esc = m.v_und = 0;
         m.disp_sum_cm = 0;
         m.disp_max_cm = 0;
         m.inner_sum = 0;
@@ -1965,9 +2303,11 @@ int main(int argc, char** argv) {
       amp_m = std::min(amp_m, kTessDepthMaxM * drive);                              // .tese:414
       amp_m = std::max(amp_m, 0.005 * rel_slider);                                  // .tese:415
       const bool tessellated = (m.system != kSysTie);
-      const Shell& sh = shells[m.shell];
 
-      u64 local_verts = 0, local_den = 0, local_ok = 0, local_ok_lit = 0, local_nz = 0;
+      u64 local_verts = 0, local_den = 0, local_ok = 0, local_ok_lit = 0, local_nz = 0,
+          local_live = 0, local_seam0 = 0;
+      u64 local_patches = 0, local_patches_live = 0;
+      u64 lv_tier[4] = {0, 0, 0, 0};
       for (u32 f : m.faces) {
         if (local_verts >= max_verts_per_mesh) {
           if (store) {
@@ -1995,15 +2335,36 @@ int main(int argc, char** argv) {
           m.inner_sum += inner;
           m.spacing_sum_m += mean_edge_m / std::max(inner, 1.0);
         }
-        // outward(f) = gsign * rel[f] * gn(f). 0-length when the shell is UNDECIDED.
-        const V3 outward = (sh.gsign != 0)
-                               ? normalized(face_cross(f)) * ((double)sh.gsign * (double)rel[f])
-                               : V3{0, 0, 0};
-        const bool have_outward = sh.gsign != 0 && rel[f] != 0;
+        // outward(f) = osign[f] * gn(f), with osign decided PER FACE by the tier cascade
+        // RAYF -> VOL -> ESC -> UNDECIDED. 0-length only when every tier abstained on this face.
+        const V3 outward =
+            (osign[f] != 0) ? normalized(face_cross(f)) * (double)osign[f] : V3{0, 0, 0};
+        const bool have_outward = osign[f] != 0;
+        const u8 tier_here = ftier[f];
+        u64 face_verts = 0, face_live = 0;
+        if (store) {
+          switch (tier_here) {
+            case kTierRayf:
+              m.f_rayf++;
+              break;
+            case kTierVol:
+              m.f_vol++;
+              break;
+            case kTierEsc:
+              m.f_esc++;
+              break;
+            default:
+              m.f_und++;
+              break;
+          }
+        }
+        local_patches++;
 
         // ---- ONE generated vertex (.tese:191-421). `bary` is gl_TessCoord. ----
         auto do_vertex = [&](double bx, double by, double bz) {
           local_verts++;
+          face_verts++;
+          lv_tier[tier_here]++;
           // .tese:192-197 barycentric interpolation + the normalized normal
           const double s = bx * gv[ia].s + by * gv[ib].s + bz * gv[ic].s;
           const double t = bx * gv[ia].t + by * gv[ib].t + bz * gv[ic].t;
@@ -2040,6 +2401,16 @@ int main(int argc, char** argv) {
             if (!tessellated) {
               m.z_not_tess++;
             }
+          }
+          // LIVE = the tier applies a non-zero amplitude here. A live vertex whose h is EXACTLY 0.5
+          // does not move, but it is the zero CROSSING of the height field, not a flat surface, so it
+          // is live; it is counted in z_h_mid at the same time so nothing is hidden.
+          if (amp > 0.0) {
+            local_live++;
+            face_live++;
+          }
+          if (seam == 0.0) {
+            local_seam0++;  // tracked unconditionally: the sweep needs it too
           }
           if (disp != 0.0) {
             local_nz++;
@@ -2109,6 +2480,13 @@ int main(int argc, char** argv) {
             do_vertex((double)i / ni, (double)j / ni, (double)k / ni);
           }
         }
+        // A PATCH with no live vertex at all is a FLAT patch — the owner's "des chunks entiers sont
+        // juste plats". Its whole vertex set lands in z_patch_dead.
+        if (face_live) {
+          local_patches_live++;
+        } else if (store) {
+          m.z_patch_dead += face_verts;
+        }
       }
       if (store) {
         m.gverts = local_verts;
@@ -2116,12 +2494,32 @@ int main(int argc, char** argv) {
         m.sign_ok = local_ok;
         m.sign_ok_lit = local_ok_lit;
         m.disp_nz = local_nz;
+        m.live = local_live;
+        m.patches_live = local_patches_live;
+        m.v_rayf = lv_tier[kTierRayf];
+        m.v_vol = lv_tier[kTierVol];
+        m.v_esc = lv_tier[kTierEsc];
+        m.v_und = lv_tier[kTierUnd];
       }
       agg.gverts += local_verts;
       agg.sign_den += local_den;
       agg.sign_ok += local_ok;
       agg.sign_ok_lit += local_ok_lit;
-      agg.disp_nz += (m.system == kSysTie) ? 0 : local_nz;
+      agg.disp_nz += local_nz;
+      agg.live += local_live;
+      agg.patches += local_patches;
+      agg.patches_live += local_patches_live;
+      // the structurally exempt population: seam == 0 on tfrag, the WHOLE mesh on TIE
+      agg.exempt += (m.system == kSysTie) ? local_verts : local_seam0;
+      if (m.system != kSysTie) {
+        agg.gverts_tfrag += local_verts;
+        agg.disp_nz_tfrag += local_nz;
+        agg.live_tfrag += local_live;
+      }
+      agg.v_rayf += lv_tier[kTierRayf];
+      agg.v_vol += lv_tier[kTierVol];
+      agg.v_esc += lv_tier[kTierEsc];
+      agg.v_und += lv_tier[kTierUnd];
     }
     return agg;
   };
@@ -2152,6 +2550,10 @@ int main(int argc, char** argv) {
     if (aa != ab) {
       return aa < ab;
     }
+    const double la = meshes[a].b_live_pct(), lb = meshes[b].b_live_pct();
+    if (la != lb) {
+      return la < lb;  // then the LEAST LIVE first
+    }
     const double ba = meshes[a].b_pct(), bb = meshes[b].b_pct();
     if (ba != bb) {
       return ba < bb;
@@ -2162,7 +2564,22 @@ int main(int argc, char** argv) {
     return a < b;
   });
 
-  auto tier_of = [&](u32 s) { return shells[s].tier; };
+  // how the two INDEPENDENT geometric criteria compare on this shell
+  auto rayf_vs_vol = [&](const Shell& sh) -> const char* {
+    if (sh.vol_sign == 0) {
+      return "vol-silent";
+    }
+    if (sh.rayf_agree == 0 && sh.rayf_disagree == 0) {
+      return "rayf-silent";
+    }
+    if (sh.rayf_agree > sh.rayf_disagree) {
+      return "agree";
+    }
+    if (sh.rayf_disagree > sh.rayf_agree) {
+      return "DISAGREE";
+    }
+    return "tie";
+  };
   auto coll_vs_truth = [&](const Shell& sh) -> const char* {
     if (!sh.coll_speaks) {
       return "silent";
@@ -2190,26 +2607,52 @@ int main(int argc, char** argv) {
     r += s;
     r += "\n";
   };
+  // the FACE COUNT decided by each outward tier, compact: R=RAYF V=VOL E=ESC U=UNDECIDED
+  auto tierf_str = [](const MeshRow& m) {
+    return fmt::format("R{}/V{}/E{}/U{}", m.f_rayf, m.f_vol, m.f_esc, m.f_und);
+  };
+  auto tierv_str = [](const MeshRow& m) {
+    return fmt::format("R{}/V{}/E{}/U{}", m.v_rayf, m.v_vol, m.v_esc, m.v_und);
+  };
   auto mesh_line = [&](u32 mi) {
     const auto& m = meshes[mi];
     const Shell& sh = shells[m.shell];
     return fmt::format(
-        "{} {:7.2f} {}  {:<5} {:>6} {:<9} {:>11.4g} {:>6} {:>4} {:<8} {:>7} {:>7}{} {:>9} {:>8.2f} "
-        "{:>8.3f} {:>8.3f} {:>7.2f} {:>7.3f}  {:<26} ({:8.2f} {:7.2f} {:8.2f})  {}",
-        pct_or_na(m.a_pct()), m.b_pct(), pct_or_na(m.a_lit_pct()), kSysName[m.system], m.shell,
-        tier_of(m.shell),
-        sh.v6_over_l3, sh.winding_conflicts,
-        sh.coll_speaks ? (sh.coll_sign > 0 ? "+1" : "-1") : "-", coll_vs_truth(sh), m.faces.size(),
-        m.faces_sampled, m.capped ? "*" : " ", m.gverts, m.mean_inner(), m.disp_mean_cm(),
-        m.disp_max_cm, m.verts_per_square(), m.upm, m.mat, m.centroid.x, m.centroid.y, m.centroid.z,
+        "{} {:>7.2f} {:>7.2f} {:>7.2f} {} {}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} {:>7}{} "
+        "{:>9} {:>9} {:>7.2f} {:>8.3f} {:>8.3f} {:>7.2f} {:>7.3f}  {:<26} ({:8.2f} {:7.2f} {:8.2f})"
+        "  {}",
+        pct_or_na(m.a_pct()), m.b_live_pct(), m.b_pct(), m.b_patch_pct(), pct_or_na(m.b_req_pct()),
+        pct_or_na(m.a_lit_pct()), kSysName[m.system], m.shell, tierf_str(m), rayf_vs_vol(sh),
+        sh.winding_conflicts, coll_vs_truth(sh), m.faces.size(), m.faces_sampled,
+        m.capped ? "*" : " ", m.gverts, m.exempt(), m.mean_inner(), m.disp_mean_cm(), m.disp_max_cm,
+        m.verts_per_square(), m.upm, m.mat, m.centroid.x, m.centroid.y, m.centroid.z,
         m.named.empty() ? "-" : m.named);
   };
   const std::string mesh_hdr = fmt::format(
-      "{:>7} {:>7} {:>7}  {:<5} {:>6} {:<9} {:>11} {:>6} {:>4} {:<8} {:>7} {:>8} {:>9} {:>8} {:>8} "
-      "{:>8} {:>7} {:>7}  {:<26} {:^29}  {}",
-      "A_sign%", "B_disp%", "A_lit%", "sys", "shell", "tier", "|V6|/L^3", "wcf", "coll", "coll_vs_",
-      "faces", "sampled", "gverts", "meanInn", "dispMean", "dispMax", "v/sq", "upm", "material",
-      "centroid (metres)", "named-case");
+      "{:>7} {:>7} {:>7} {:>7} {:>7} {:>7}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} {:>8} "
+      "{:>9} {:>9} {:>7} {:>8} {:>8} {:>7} {:>7}  {:<26} {:^29}  {}",
+      "A_sign%", "B_live%", "B_disp%", "B_patch", "B_req%", "A_lit%", "sys", "shell",
+      "tierFACES", "rayf_vs_vol", "wcf", "coll_vs_", "faces", "sampled", "gverts", "exempt",
+      "meanInn", "dispMean", "dispMax", "v/sq", "upm", "material", "centroid (metres)",
+      "named-case");
+  // the SECOND per-mesh line: the zero-reason counters, the per-tier VERTEX counts and the
+  // seam-pin reason attribution. Same row order as section A.
+  auto mesh2_line = [&](u32 mi) {
+    const auto& m = meshes[mi];
+    return fmt::format(
+        "{:<5} {:>6} {:<17} {:>9} {:>9} {:>9} {:>9} {:>9} {:>11} {:>7} {:>7} {:>7} {:>7} {:>7} "
+        "{:>9} {:>7}  {:<26} {}",
+        kSysName[m.system], m.shell, tierv_str(m), m.z_seam, m.z_falloff, m.z_h_mid, m.z_amp,
+        m.z_not_tess, m.z_patch_dead, m.pin_src, m.pin_material, m.pin_system, m.pin_open,
+        m.pin_crease, m.pin_unexplained, m.pin_unexplained_subdiv, m.mat,
+        m.named.empty() ? "-" : m.named);
+  };
+  const std::string mesh2_hdr = fmt::format(
+      "{:<5} {:>6} {:<17} {:>9} {:>9} {:>9} {:>9} {:>9} {:>11} {:>7} {:>7} {:>7} {:>7} {:>7} "
+      "{:>9} {:>7}  {:<26} {}",
+      "sys", "shell", "tierVERTS", "z_seam", "z_falloff", "z_h_mid", "z_amp", "z_notess",
+      "z_patchdead", "pin_src", "pinMAT", "pinSYS", "pinOPEN", "pinCRSE", "PIN_UNEXP", "(subdv)",
+      "material", "named-case");
 
   // ---- provenance -----------------------------------------------------------------------------
   line("##### TESS SIGN TEST (offline CPU port of tfrag3_tess.tesc/.tese) #####");
@@ -2219,6 +2662,12 @@ int main(int argc, char** argv) {
   line(fmt::format("level                  : {}", lev.level_name));
   line(fmt::format("tfrag geom / tie geom  : {} / {}", geom, geom_tie));
   line(fmt::format("prep path taken        : {}", prep_note));
+  line(fmt::format("--geom-orient          : {}  (mesh_consolidate cfg.bits |= 512, "
+                   "kMeshBitGeomOrient: the deep, offline-only PER-FACE geometric orientation "
+                   "authority)",
+                   geom_orient ? "ON" : "off"));
+  line(fmt::format("mesh_consolidate bits  : {}  (crease_deg {:g}, weld_m {:g})", cfg.bits,
+                   cfg.crease_deg, cfg.weld_m));
   line(fmt::format("tex root               : {}", tex_root_s));
   line(fmt::format("report / csv           : {} / {}", out_path, csv_path));
   line("");
@@ -2246,10 +2695,35 @@ int main(int argc, char** argv) {
   line("    level-wide and 50.15 / 49.90 / 49.52% on the three sage-hut cases — a coin flip that");
   line("    graded the broken ground floor and the known-good upper floor IDENTICALLY, i.e. it did");
   line("    not measure the defect. A_sign is the corrected metric and the one that discriminates.");
-  line("  * B_disp% = the share of generated vertices that move AT ALL (|disp| > 0). A mesh can be");
-  line("    100% correctly SIGNED and still be flat, so the two columns are independent.");
   line("  * Vertices with h == 0.5 EXACTLY, or amp == 0, have NO SIGN: they are counted in their own");
   line("    buckets (z_h_mid / z_seam / z_falloff / z_amp) and NEVER as correct.");
+  line("");
+  line("--- THE FOUR LIVENESS COLUMNS, each zero with a COMPUTABLE CAUSE ---------------------------");
+  line("A mesh can be 100% correctly SIGNED and still be flat, so liveness is measured separately —");
+  line("and split four ways so that no zero can hide behind another:");
+  line("  * B_live%  = verts with amp > 0 / ALL generated verts of the mesh. The RAW, UNSHAPED");
+  line("    liveness number: the share where the tier applies a non-zero amplitude. A vertex with");
+  line("    amp > 0 whose sampled h is EXACTLY 0.5 IS live — 0.5 is the zero CROSSING of the height");
+  line("    field, not a flat surface — and it is counted in z_h_mid at the same time, so nothing is");
+  line("    hidden by that choice.");
+  line("  * B_disp%  = verts with |disp| > 0 / all generated verts. Strictly B_live% minus the");
+  line("    h == 0.5 population: what actually MOVES.");
+  line("  * B_patch% = patches with >= 1 vertex at amp > 0 / patches evaluated. A patch with none is");
+  line("    a FLAT patch: this is the column that matches the owner's \"des chunks entiers sont juste");
+  line("    plats\". Its denominator is the patches EVALUATED, which equals every patch of the mesh");
+  line("    unless the '*' sampling-cap marker is set on the row.");
+  line("  * B_req%   = verts with amp > 0 / verts that are NOT STRUCTURALLY EXEMPT. There are exactly");
+  line("    TWO structural exemptions and nothing else is ever exempt:");
+  line("      (a) seam == 0 — the CRACK-GUARD PIN. mesh_consolidate pins a vertex whose two sides");
+  line("          cannot displace alike (MeshConsolidate.cpp:2205-2252); the .tese then multiplies the");
+  line("          amplitude by seam (.tese:416) so displacement is EXACTLY zero there. That is a");
+  line("          deliberate design decision, not a defect — see the pinMAT/pinSYS/pinOPEN/pinCRSE");
+  line("          columns, which prove it one vertex at a time.");
+  line("      (b) z_not_tess — the mesh is TIE, and no tessellation program is ever bound for it, so");
+  line("          the whole row is exempt and B_req% reads n/a.");
+  line("    The `exempt` column carries the count and the second per-mesh line splits it.");
+  line("  * z_patch_dead counts the vertices of patches with no live vertex at all — the same");
+  line("    population B_patch% measures, expressed in vertices.");
   line("");
   line("--- THE INSPECTION-DISTANCE CONVENTION ---------------------------------------------------");
   line(fmt::format("Every distance the two stages consume is fed the SAME value d = {:.3f} m: the .tesc",
@@ -2268,24 +2742,60 @@ int main(int argc, char** argv) {
   line("MESH       : the triple (shell id, texture id, system) restricted to DISPLACEABLE textures.");
   line("             Every such non-empty triple is one row of section A. No size filter, no row cap.");
   line("");
-  line("--- GROUND TRUTH \"OUTWARD\": PURELY GEOMETRIC, PER SHELL, NEVER THE COLLISION MESH --------");
-  line("outward(f) = gsign * rel[f] * normalize(cross(p1-p0, p2-p0)), where rel[] is the RELATIVE");
-  line("winding from a BFS over the shell's edge adjacency (two faces are consistently wound iff they");
-  line("traverse the shared weld-group pair in OPPOSITE order) and gsign is the shell's global sign:");
-  line(fmt::format("  TIER A  VOL : signed volume V6 = sum_f rel[f]*dot(a,cross(b,c)) about the bbox centre;"));
-  line(fmt::format("                speaks when |V6| > {:g} * L^3, L = MAX BBOX EXTENT.", kVolEps));
-  line(fmt::format("  TIER B  RAY : outward-ray parity from centroid + {:g} m * rel*gn, {} fixed",
-                   kProbeEpsM, 7));
-  line(fmt::format("                deterministic directions, up to {} largest faces, crossings counted",
-                   kMaxSampleFaces));
-  line(fmt::format("                against THIS SHELL ONLY (eps {:g}); needs a {:.0f}% area-weighted margin.",
-                   kRayEdgeEps, kRayMarginB * 100.0));
-  line(fmt::format("  TIER C  ESC : escape-distance asymmetry, marched against the WHOLE-LEVEL BVH,"));
-  line(fmt::format("                free distance capped at {:g} m; the winner's mean must lead by >= {:.0f}%.",
-                   kEscMaxM, (kEscMargin - 1.0) * 100.0));
-  line("  else    UNDECIDED : reported as such. There is NO \"keep what was there\" fallback and");
-  line("                lev.collision is NEVER consulted for the truth — that authority is exactly");
-  line("                what produced the round-29 defect. It appears in section C as a DIAGNOSIS.");
+  line("--- GROUND TRUTH \"OUTWARD\": PER FACE FIRST, PURELY GEOMETRIC, NEVER THE COLLISION MESH ----");
+  line("outward(f) = osign[f] * normalize(cross(p1-p0, p2-p0)) — the face's OWN stored winding scaled");
+  line("by a sign decided by this cascade, in this order, PER FACE:");
+  line("");
+  line("  TIER RAYF (PRIMARY, per face, NO propagation, NO global orientation) — \"lancer de rayon");
+  line("    sortant\": the visible side of a surface is the side that has OPEN SPACE on it.");
+  line(fmt::format("      gn = normalize(cross(p1-p0, p2-p0)) from the face's own winding, c = centroid;"));
+  line(fmt::format("      probes p_plus = c + {:g} m * gn and p_minus = c - {:g} m * gn ({:g} game units);",
+                   kRayfProbeM, kRayfProbeM, kRayfProbeM * kUnitsPerM));
+  line(fmt::format("      K = {} rays from each, stratified over the hemisphere about +gn / -gn;", rayf_k));
+  line(fmt::format("      a ray ESCAPES iff it finds NO intersection within {:g} m; hits closer than",
+                   kRayfMaxM));
+  line(fmt::format("      {:g} m are ignored and the source face itself is never tested;", kRayfTMinM));
+  line(fmt::format("      vote = sign(esc_plus - esc_minus), and ONLY when |esc_plus - esc_minus| >= {};",
+                   kRayfMinMargin));
+  line("      then outward(f) = vote * gn(f). One face = one independent problem.");
+  line("    THE DIRECTION SET is a pure function of gn and contains no randomness of any kind: the");
+  line("    local frame is the BRANCHLESS Duff/Frisvad basis of gn (copysign, no conditional), and the");
+  line("    i-th ray takes stratum u = (i+0.5)/K of the projected-area measure — sin(theta) = sqrt(u),");
+  line("    cos(theta) = sqrt(1-u) — with the azimuth advancing by the golden angle. The MINUS set is");
+  line("    the EXACT MIRROR of the PLUS set (same tangential part, z negated), so the two hemispheres");
+  line("    are sampled symmetrically and esc_plus / esc_minus cannot be biased against each other.");
+  line("    An edge-grazing hit COUNTS as a hit: that bias is one-directional (it can only turn an");
+  line("    escape into a non-escape, never invent an escape) and identical on both sides.");
+  line("    WHY THIS IS NOW THE PRIMARY AUTHORITY, and the per-shell volume only a fallback:");
+  line("      (1) for an OPEN shell the cone volume about the bbox centre is ORIGIN-DEPENDENT, so the");
+  line("          signed-volume criterion is not even well defined there;");
+  line("      (2) a per-shell verdict has to be CARRIED to each face through the relative-winding BFS,");
+  line("          and ONE bad link in that BFS — a fabricated adjacency across an edge incident to 3+");
+  line("          faces, a mirrored copy, a decimated LOD triangle chained onto the full-res mesh —");
+  line("          flips a whole sub-tree of faces and poisons the shell.");
+  line("      RAYF has neither failure mode: nothing is propagated, and a face's verdict depends on");
+  line("      nothing but its own geometry and the level around it.");
+  line("  TIER VOL (fallback, per shell): signed volume V6 = sum_f rel[f]*dot(a,cross(b,c)) about the");
+  line(fmt::format("      bbox centre; speaks when |V6| > {:g} * L^3, L = MAX BBOX EXTENT. rel[] is the",
+                   kVolEps));
+  line("      RELATIVE winding from a BFS over the shell's edge adjacency (two faces are consistently");
+  line("      wound iff they traverse the shared weld-group pair in OPPOSITE order).");
+  line(fmt::format("  TIER ESC (fallback, per shell): escape-distance asymmetry marched against the"));
+  line(fmt::format("      whole-level BVH, free distance capped at {:g} m, winner's mean must lead by",
+                   kEscMaxM));
+  line(fmt::format("      >= {:.0f}%. Run ONLY for a shell that still owns a mesh face RAYF abstained on.",
+                   (kEscMargin - 1.0) * 100.0));
+  line("  else UNDECIDED: reported as such. There is NO \"keep what was there\" fallback and");
+  line("      lev.collision is NEVER consulted for the truth — that authority is exactly what produced");
+  line("      the round-29 defect. It appears in section C as a DIAGNOSIS ONLY.");
+  line("  REMOVED in this revision: the old per-shell TIER B \"RAY\" (outward-ray PARITY over the");
+  line("      shell's own faces). Parity needs a closed shell and a trustworthy crossing count, both of");
+  line("      which the per-face escape test does without. The mandated cascade is RAYF -> VOL -> ESC.");
+  line("  tierFACES / tierVERTS columns give the FACE and generated-VERTEX count each tier decided,");
+  line("      as R<rayf>/V<vol>/E<esc>/U<undecided>, per mesh and in the totals.");
+  line("  rayf_vs_vol (section A and C) scores the TWO INDEPENDENT criteria against each other on the");
+  line("      shell's own mesh faces: they agree on face f iff rayf_vote[f] == vol_sign * rel[f]. When");
+  line("      they DISAGREE neither may be trusted blindly, which is exactly why it is a column.");
   line("");
   line("--- THE PORTED STEPS, WITH THE SHADER LINE FOR EACH ---------------------------------------");
   line("  .tesc:123-132  tess_seg_target_m(d) = clamp(seg*pow(max(d,5)/5, 1.5), seg, max(0.60,seg))");
@@ -2371,7 +2881,7 @@ int main(int argc, char** argv) {
   line("  allowlist tools/tess_audit/main.cpp:130 still uses is STALE (the owner removed it on");
   line("  2026-07-26: \"bah elle devrait pouvoir tourner partout !\"), so this tool uses the shipped rule.");
   line("tie: lev.tie_trees[" + std::to_string(geom_tie) +
-       "] static_draws + instanced_wind_draws. tessellated = FALSE:");
+       "] static_draws ONLY (see the wind drop below). tessellated = FALSE:");
   line("  Tie3.cpp:737 binds `use_envmap ? ETIE_BASE : TFRAG3`, Tie3.cpp:1158 binds ETIE and");
   line("  Tie3.cpp:1546 binds TIE_WIND — all vert+frag programs with NO tessellation control or");
   line("  evaluation stage — and there is no glPatchParameteri and no GL_PATCHES anywhere in Tie3.cpp.");
@@ -2380,13 +2890,58 @@ int main(int argc, char** argv) {
   line("  sign correctness, i.e. a direct measurement of whether that mesh's normals point outward.");
   line("  Its dispMean / dispMax columns are HYPOTHETICAL for the same reason — they are what the");
   line("  tier WOULD move if TIE were ever handed a tessellation program. Read them as such.");
-  line(fmt::format("CAVEAT, stated plainly: the {} faces coming from instanced_wind_draws live in",
-                   n_wind_faces));
-  line("  PROTO-LOCAL space (TieTree::unpack leaves matrix_idx == -1 groups untransformed — see");
-  line("  MeshSubdivide.h's tie_wind_static_shared_verts note), so their positions and centroids are");
-  line("  NOT world coordinates. mesh_consolidate() does not see them either (it walks only");
-  line("  unpacked.indices). They are included because the spec asks for them; treat any shell that");
-  line("  contains them with suspicion.");
+  line("");
+  line("--- DROPPED FROM THE UNIVERSE: THE PROTO-LOCAL WIND INSTANCES ------------------------------");
+  line(fmt::format("DROPPED: {} instanced_wind_draws, {} faces, {} index-stream entries.",
+                   n_wind_draws_dropped, n_wind_faces_dropped, n_wind_stream_inds_dropped));
+  line("REASON, in full. instanced_wind_draws vertices live in PROTOTYPE-LOCAL space: TieTree::unpack");
+  line("leaves the matrix_idx == -1 groups untransformed (see MeshSubdivide.h's");
+  line("tie_wind_static_shared_verts note), so a wind vertex's x/y/z is an offset inside its prototype");
+  line("and NOT a world coordinate. Three consequences, each of which alone disqualifies them here:");
+  line("  (1) mesh_consolidate() NEVER SEES THEM — gather_level (MeshConsolidate.cpp:340-347) walks");
+  line("      only unpacked.indices — so no weld group, no snapped position and no seam verdict of");
+  line("      theirs exists to be graded;");
+  line("  (2) TIE_WIND is a SEPARATE GL program (Tie3.cpp:1546) with no tessellation control or");
+  line("      evaluation stage, so nothing would ever displace them;");
+  line("  (3) mixed into a WORLD-SPACE face list their proto-local positions FABRICATE shells,");
+  line("      fabricate BVH occluders (which would corrupt the RAYF escape test for real faces) and");
+  line("      fabricate table rows out of coordinates that mean nothing.");
+  line("The previous revision included them and merely flagged them; they were polluting the shells and");
+  line("the table, so they are now removed from the face universe outright. static_draws are KEPT.");
+  line("");
+  line("--- SEAM-PIN REASON ATTRIBUTION (why every seam == 0 vertex is pinned) ---------------------");
+  line("Every vertex with seam == 0 has its pin explained by RECOMPUTING the four pin reasons of");
+  line("MeshConsolidate.cpp:2216-2252 from the geometry this tool already has. The population is the");
+  line("mesh's DISTINCT SOURCE vertices with seam_w == 0 (a pin is a property of a WELD GROUP, not of a");
+  line("generated vertex), so these counts are vertex counts and NOT the z_seam generated-vertex count.");
+  line("  pinMAT  (:2218 group_multitex)    the weld group is referenced by faces with different");
+  line("                                    tree_tex_id — the height map is bound PER DRAW, so the two");
+  line("                                    sides cannot sample the same height;");
+  line("  pinSYS  (:2219 group_multisystem) the group spans more than one of tfrag / tie / shrub. Shrub");
+  line("                                    is not in this tool's FACE universe (never tessellated,");
+  line("                                    never graded) but IS in mesh_consolidate's WELD universe");
+  line("                                    (:345-348), so shrub membership is detected by exact");
+  line("                                    position against the shrub draws' referenced vertices");
+  line("                                    (:682-698) — otherwise a tfrag<->shrub junction would look");
+  line("                                    unexplained;");
+  line("  pinOPEN (:2220 group_open)        a welded GROUP edge of the group is used by exactly ONE");
+  line("                                    face (:858-861) — a genuine boundary, nothing to match;");
+  line(fmt::format("  pinCRSE (:2221)                   the group's incident faces fall into >= 2 clusters at"));
+  line(fmt::format("                                    the crease threshold ({:g} deg, cos {:.4f}, the SAME",
+                   cfg.crease_deg,
+                   std::cos((double)cfg.crease_deg * 3.14159265358979323846 / 180.0)));
+  line("                                    cfg the consolidation ran with) AND the group has >= 2");
+  line("                                    referenced members. Clustering is largest-face-first with");
+  line("                                    ties on the lower slot, as :1904-1936, and the incident");
+  line("                                    normals are oriented by rel[] (this tool's relative-winding");
+  line("                                    BFS) since mesh_consolidate's own fsign[] is internal.");
+  line("The four are NOT mutually exclusive — a group can be pinned for several reasons at once and is");
+  line("counted under each, exactly as rep.seam_verts_material/_system/_open/_crease are.");
+  line("PIN_UNEXP counts pins matching NONE of the four. THAT IS A BUG and section E prints up to 20 of");
+  line("their positions. Its (subdv) sub-count is the pins carried by a vertex CREATED by the");
+  line("pre-subdivision pass, whose seam_w is the LINEAR average of two already-pinned parents");
+  line("(MeshSubdivide.cpp:271) rather than a verdict on its own group — those are explained by");
+  line("INHERITANCE and are not evidence of a missing reason.");
   line("");
   line(fmt::format("faces gathered         : {}  (degenerate skipped {}, out-of-range {})",
                    faces.size(), n_degenerate, n_oob));
@@ -2394,8 +2949,12 @@ int main(int argc, char** argv) {
   line(fmt::format("weld groups            : {}", n_groups));
   line(fmt::format("distinct edges          : {}", edges.size()));
   line(fmt::format("SHELL COUNT            : {}", n_shells));
+  line(fmt::format("mesh faces (displaceable): {}  = the RAYF population", n_mesh_faces));
   line(fmt::format("meshes (rows in A)     : {}", meshes.size()));
   line(fmt::format("sampling cap           : {} generated vertices per mesh", max_verts_per_mesh));
+  line(fmt::format("RAYF pass              : K={} rays per hemisphere, {:.1f} s wall clock, {} threads"
+                   " (per-face independent, so the thread count cannot move a single bit)",
+                   rayf_k, rayf_seconds, std::max(1u, std::thread::hardware_concurrency())));
   line("");
   line(subdiv_note);
   line("--- format_mesh_audit(rep, cfg) ----------------------------------------------------------");
@@ -2404,23 +2963,43 @@ int main(int argc, char** argv) {
   // ---- A) PER-MESH TABLE ----------------------------------------------------------------------
   line("");
   line(std::string(100, '='));
-  line("### A) PER-MESH TABLE (one line per mesh, sorted WORST FIRST by A_sign_pct then B_disp_pct)");
+  line("### A) PER-MESH TABLE (one line per mesh, sorted WORST FIRST by A_sign% then B_live%)");
   line("");
   line("columns: A_sign% = correct-sign share of the vertices that HAVE a sign (amp>0 and h!=0.5);");
   line("         'n/a' = that denominator is EMPTY (nothing measurable here). Those UNGRADED rows are");
   line("         sorted to the END of the table, after every graded row, so the wrongly-signed meshes");
   line("         are at the head instead of being buried under the fully seam-pinned micro-meshes;");
-  line("         their count is in section E and every one of them is a B_disp = 0.00 row.");
-  line("         B_disp% = share of ALL generated vertices with |disp| > 0. wcf = winding conflicts of");
-  line("         the shell. coll/coll_vs_ = the COLLISION authority's verdict and how it compares to");
-  line("         the geometric truth (DIAGNOSIS ONLY — it decides nothing here). A '*' after `sampled`");
-  line("         means the per-mesh sampling cap bit. v/sq = generated vertices across one checker");
-  line("         square. dispMean/dispMax are in CENTIMETRES.");
+  line("         their count is in section E. B_live / B_disp / B_patch / B_req are the four liveness");
+  line("         columns derived in the header (B_req's n/a = every vertex of the row is structurally");
+  line("         exempt, which is what a TIE row is). tierFACES = the FACE count each outward tier");
+  line("         decided, R=RAYF V=VOL E=ESC U=UNDECIDED. rayf_vs_vol = per-face RAYF majority against");
+  line("         the shell's signed-volume verdict. wcf = winding conflicts of the shell. coll_vs_ =");
+  line("         how the COLLISION authority compares to the shell fallback verdict (DIAGNOSIS ONLY —");
+  line("         it decides nothing here). A '*' after `sampled` means the per-mesh sampling cap bit.");
+  line("         exempt = structurally exempt generated vertices (seam==0, or the whole TIE row).");
+  line("         v/sq = generated vertices across one checker square. dispMean/dispMax in CENTIMETRES.");
   line("");
   line(mesh_hdr);
   line(std::string(mesh_hdr.size(), '-'));
   for (u32 mi : order) {
     line(mesh_line(mi));
+  }
+
+  // ---- A2) PER-MESH ZERO REASONS + SEAM-PIN ATTRIBUTION ---------------------------------------
+  line("");
+  line(std::string(100, '='));
+  line("### A2) PER-MESH ZERO REASONS AND SEAM-PIN ATTRIBUTION (same row order as section A)");
+  line("");
+  line("tierVERTS = generated-VERTEX count per outward tier. z_* are generated-vertex counts;");
+  line("z_patchdead = vertices of patches with NO live vertex at all. pin* are DISTINCT SOURCE vertex");
+  line("counts over the mesh's seam==0 vertices and are NOT mutually exclusive; PIN_UNEXP matching none");
+  line("of the four is a BUG (see section E), and (subdv) is the part of it carried by vertices the");
+  line("pre-subdivision created, whose pin is inherited from two pinned parents.");
+  line("");
+  line(mesh2_hdr);
+  line(std::string(mesh2_hdr.size(), '-'));
+  for (u32 mi : order) {
+    line(mesh2_line(mi));
   }
 
   // ---- B) NAMED CASES -------------------------------------------------------------------------
@@ -2435,31 +3014,99 @@ int main(int argc, char** argv) {
   for (const auto& nb : named) {
     line(fmt::format("--- {}  box x[{:.2f},{:.2f}] y[{:.2f},{:.2f}] z[{:.2f},{:.2f}]", nb.name,
                      nb.lo[0], nb.hi[0], nb.lo[1], nb.hi[1], nb.lo[2], nb.hi[2]));
-    u64 hits = 0, den = 0, ok = 0, ok_lit = 0, gvv = 0, nz = 0;
+    u64 hits = 0, den = 0, ok = 0, ok_lit = 0, gvv = 0, nz = 0, lv = 0, ex = 0, pat = 0,
+        pat_live = 0;
+    u64 fR = 0, fV = 0, fE = 0, fU = 0, vR = 0, vV = 0, vE = 0, vU = 0;
+    u64 ps = 0, pm = 0, py = 0, po = 0, pc = 0, pu = 0;
+    std::vector<u32> case_rows;
     line(mesh_hdr);
     for (u32 mi : order) {
       if (meshes[mi].named.find(nb.name) == std::string::npos) {
         continue;
       }
+      const auto& m = meshes[mi];
       hits++;
-      den += meshes[mi].sign_den;
-      ok += meshes[mi].sign_ok;
-      ok_lit += meshes[mi].sign_ok_lit;
-      gvv += meshes[mi].gverts;
-      nz += (meshes[mi].system == kSysTie) ? 0 : meshes[mi].disp_nz;
-      named_shells.insert(meshes[mi].shell);
+      den += m.sign_den;
+      ok += m.sign_ok;
+      ok_lit += m.sign_ok_lit;
+      gvv += m.gverts;
+      nz += m.disp_nz;
+      lv += m.live;
+      ex += m.exempt();
+      pat += m.faces_sampled;
+      pat_live += m.patches_live;
+      fR += m.f_rayf;
+      fV += m.f_vol;
+      fE += m.f_esc;
+      fU += m.f_und;
+      vR += m.v_rayf;
+      vV += m.v_vol;
+      vE += m.v_esc;
+      vU += m.v_und;
+      ps += m.pin_src;
+      pm += m.pin_material;
+      py += m.pin_system;
+      po += m.pin_open;
+      pc += m.pin_crease;
+      pu += m.pin_unexplained;
+      named_shells.insert(m.shell);
+      case_rows.push_back(mi);
       line(mesh_line(mi));
     }
     if (!hits) {
       line("  (no mesh centroid falls inside this box)");
     } else {
-      line(fmt::format("  CASE TOTAL  meshes={}  A_sign={}  ({}/{} vertices)  B_disp={:.2f}% ({}/{})"
-                       "  A_lit={}",
-                       hits, den ? fmt::format("{:.2f}%", 100.0 * (double)ok / (double)den)
-                                 : std::string("n/a"),
-                       ok, den, gvv ? 100.0 * (double)nz / (double)gvv : 0.0, nz, gvv,
+      line("");
+      line("  " + mesh2_hdr);
+      for (u32 mi : case_rows) {
+        line("  " + mesh2_line(mi));
+      }
+      line("");
+      line(fmt::format("  CASE TOTAL  meshes={}  faces={}  gverts={}", hits,
+                       [&] {
+                         u64 n = 0;
+                         for (u32 mi : case_rows) {
+                           n += meshes[mi].faces.size();
+                         }
+                         return n;
+                       }(),
+                       gvv));
+      line(fmt::format("  CASE A_sign = {}  ({}/{} vertices)     A_lit = {}",
+                       den ? fmt::format("{:.2f}%", 100.0 * (double)ok / (double)den)
+                           : std::string("n/a"),
+                       ok, den,
                        den ? fmt::format("{:.2f}%", 100.0 * (double)ok_lit / (double)den)
                            : std::string("n/a")));
+      line(fmt::format("  CASE B_live = {:.2f}% ({}/{})   B_disp = {:.2f}% ({}/{})   B_patch = {}"
+                       "   B_req = {}",
+                       gvv ? 100.0 * (double)lv / (double)gvv : 0.0, lv, gvv,
+                       gvv ? 100.0 * (double)nz / (double)gvv : 0.0, nz, gvv,
+                       pat ? fmt::format("{:.2f}% ({}/{})",
+                                         100.0 * (double)pat_live / (double)pat, pat_live, pat)
+                           : std::string("n/a"),
+                       gvv > ex ? fmt::format("{:.2f}% ({}/{})",
+                                              100.0 * (double)lv / (double)(gvv - ex), lv,
+                                              gvv - ex)
+                                : std::string("n/a")));
+      line(fmt::format("  CASE tierFACES = R{}/V{}/E{}/U{}   tierVERTS = R{}/V{}/E{}/U{}", fR, fV,
+                       fE, fU, vR, vV, vE, vU));
+      line(fmt::format("  CASE pins: src={} MAT={} SYS={} OPEN={} CRSE={} UNEXPLAINED={}", ps, pm,
+                       py, po, pc, pu));
+      // the two independent criteria, over this case's own mesh faces
+      u64 ca = 0, cd = 0, cv = 0;
+      for (u32 s : [&] {
+             std::set<u32> ss;
+             for (u32 mi : case_rows) {
+               ss.insert(meshes[mi].shell);
+             }
+             return ss;
+           }()) {
+        ca += shells[s].rayf_agree;
+        cd += shells[s].rayf_disagree;
+        cv += shells[s].rayf_voted;
+      }
+      line(fmt::format("  CASE rayf_vs_vol over the shells above: voted={} agree={} DISAGREE={}", cv,
+                       ca, cd));
     }
     line("");
   }
@@ -2468,15 +3115,22 @@ int main(int argc, char** argv) {
   line(std::string(100, '='));
   line("### C) SHELL AUTHORITY TABLE (every shell touching a displaceable material)");
   line("");
-  line("gsign/tier = the GEOMETRIC ground truth and the tier that produced it. coll_* and baked_* are");
-  line("DIAGNOSIS ONLY: they are what the pipeline's own authorities claim, scored against the truth.");
-  line("ray_margin is TIER B's area-weighted margin (0 = tier B never ran or found no majority);");
-  line("esc_ratio is TIER C's max/min mean free distance (0 = tier C never ran).");
+  line("gsign/tier = the SHELL-LEVEL FALLBACK verdict and the tier that produced it (VOL / ESC /");
+  line("UNDECIDED). It is NOT the primary authority any more: a face is decided by the per-face RAYF");
+  line("tier first and only falls back to this. A shell can therefore read UNDECIDED here while every");
+  line("one of its mesh faces is decided — check the tierFACES column of section A. ESC is also only");
+  line("run when a mesh face of the shell actually needs it, so esc_ratio is 0 on shells RAYF covered.");
+  line("vol_sign is the SIGNED-VOLUME verdict alone; rayf_voted/agree/DISAGREE and rayf_vs_vol score the");
+  line("two INDEPENDENT geometric criteria against each other over the shell's mesh faces (they agree on");
+  line("face f iff rayf_vote[f] == vol_sign * rel[f]). A DISAGREE row is a shell where NEITHER criterion");
+  line("may be trusted blindly. coll_* and baked_* are DIAGNOSIS ONLY: what the pipeline's own");
+  line("authorities claim, scored against the shell fallback verdict.");
   line("");
   const std::string shell_hdr = fmt::format(
-      "{:>6} {:>7} {:>7} {:<9} {:>6} {:>12} {:>6} {:>10} {:>9} {:>5} {:<9} {:>6} {:<9}", "shell",
-      "faces", "meshes", "tier", "gsign", "|V6|/L^3", "wcf", "ray_marg", "esc_ratio", "coll",
-      "coll_vs_", "baked", "baked_vs_");
+      "{:>6} {:>7} {:>7} {:<9} {:>6} {:>8} {:>12} {:>6} {:>9} {:>8} {:>8} {:>9} {:<11} {:>5} {:<9} "
+      "{:>6} {:<9}",
+      "shell", "faces", "meshes", "tier", "gsign", "vol_sign", "|V6|/L^3", "wcf", "esc_ratio",
+      "rayf_vot", "rayf_agr", "rayf_DIS", "rayf_vs_vol", "coll", "coll_vs_", "baked", "baked_vs_");
   line(shell_hdr);
   line(std::string(shell_hdr.size(), '-'));
   std::vector<u32> meshes_per_shell(n_shells, 0);
@@ -2492,12 +3146,14 @@ int main(int argc, char** argv) {
   auto shell_line = [&](u32 s) {
     const Shell& sh = shells[s];
     return fmt::format(
-        "{:>6} {:>7} {:>7} {:<9} {:>6} {:>12.4g} {:>6} {:>10.3f} {:>9.3f} {:>5} {:<9} {:>6} {:<9}", s,
-        sh.faces.size(), meshes_per_shell[s], sh.tier,
-        sh.gsign == 0 ? "0" : (sh.gsign > 0 ? "+1" : "-1"), sh.v6_over_l3, sh.winding_conflicts,
-        sh.ray_margin, sh.esc_ratio, sh.coll_speaks ? (sh.coll_sign > 0 ? "+1" : "-1") : "-",
-        coll_vs_truth(sh), sh.baked_sign == 0 ? "0" : (sh.baked_sign > 0 ? "+1" : "-1"),
-        baked_vs_truth(sh));
+        "{:>6} {:>7} {:>7} {:<9} {:>6} {:>8} {:>12.4g} {:>6} {:>9.3f} {:>8} {:>8} {:>9} {:<11} {:>5} "
+        "{:<9} {:>6} {:<9}",
+        s, sh.faces.size(), meshes_per_shell[s], sh.tier,
+        sh.gsign == 0 ? "0" : (sh.gsign > 0 ? "+1" : "-1"),
+        sh.vol_sign == 0 ? "0" : (sh.vol_sign > 0 ? "+1" : "-1"), sh.v6_over_l3,
+        sh.winding_conflicts, sh.esc_ratio, sh.rayf_voted, sh.rayf_agree, sh.rayf_disagree,
+        rayf_vs_vol(sh), sh.coll_speaks ? (sh.coll_sign > 0 ? "+1" : "-1") : "-", coll_vs_truth(sh),
+        sh.baked_sign == 0 ? "0" : (sh.baked_sign > 0 ? "+1" : "-1"), baked_vs_truth(sh));
   };
   for (u32 s : shell_order) {
     line(shell_line(s));
@@ -2526,7 +3182,8 @@ int main(int argc, char** argv) {
 
   // ---- E) TOTALS ------------------------------------------------------------------------------
   u64 n_perfect = 0, n_na = 0, n_capped = 0, n_undecided_meshes = 0, n_a100 = 0, n_a_zero = 0;
-  u32 worst_a = UINT32_MAX, worst_b = UINT32_MAX;
+  u32 worst_a = UINT32_MAX, worst_b = UINT32_MAX, worst_live = UINT32_MAX,
+      worst_patch = UINT32_MAX, worst_req = UINT32_MAX;
   for (u32 i = 0; i < meshes.size(); i++) {
     const auto& m = meshes[i];
     if (m.a_pct() < 0) {
@@ -2553,6 +3210,16 @@ int main(int argc, char** argv) {
     }
     if (worst_b == UINT32_MAX || m.b_pct() < meshes[worst_b].b_pct()) {
       worst_b = i;
+    }
+    if (worst_live == UINT32_MAX || m.b_live_pct() < meshes[worst_live].b_live_pct()) {
+      worst_live = i;
+    }
+    if (worst_patch == UINT32_MAX || m.b_patch_pct() < meshes[worst_patch].b_patch_pct()) {
+      worst_patch = i;
+    }
+    if (m.b_req_pct() >= 0 &&
+        (worst_req == UINT32_MAX || m.b_req_pct() < meshes[worst_req].b_req_pct())) {
+      worst_req = i;
     }
   }
   u64 n_shell_undecided = 0;
@@ -2592,22 +3259,62 @@ int main(int argc, char** argv) {
                                      100.0 * (double)agg_main.sign_ok_lit / (double)agg_main.sign_den,
                                      agg_main.sign_ok_lit, agg_main.sign_den)
                        : std::string("n/a")));
-  line(fmt::format("B_disp OVERALL              : {:.4f}%  ({}/{})",
+  line("");
+  line("---- THE FOUR LIVENESS NUMBERS, each with the mesh that owns the WORST value ----");
+  auto owner_of = [&](u32 i) {
+    const auto& m = meshes[i];
+    return fmt::format("shell {} {} {} (centroid {:.2f} {:.2f} {:.2f} m){}", m.shell,
+                       kSysName[m.system], m.mat, m.centroid.x, m.centroid.y, m.centroid.z,
+                       m.named.empty() ? "" : "  [" + m.named + "]");
+  };
+  line(fmt::format("B_live  OVERALL             : {:.4f}%  ({}/{})",
+                   agg_main.gverts ? 100.0 * (double)agg_main.live / (double)agg_main.gverts : 0.0,
+                   agg_main.live, agg_main.gverts));
+  if (worst_live != UINT32_MAX) {
+    line(fmt::format("   WORST B_live             : {:.2f}%  {}", meshes[worst_live].b_live_pct(),
+                     owner_of(worst_live)));
+  }
+  line(fmt::format("B_disp  OVERALL             : {:.4f}%  ({}/{})",
                    agg_main.gverts ? 100.0 * (double)agg_main.disp_nz / (double)agg_main.gverts : 0.0,
                    agg_main.disp_nz, agg_main.gverts));
-  if (worst_a != UINT32_MAX) {
-    const auto& m = meshes[worst_a];
-    line(fmt::format("WORST A_sign                : {:.2f}%  shell {} {} {} (centroid {:.2f} {:.2f} "
-                     "{:.2f} m){}",
-                     m.a_pct(), m.shell, kSysName[m.system], m.mat, m.centroid.x, m.centroid.y,
-                     m.centroid.z, m.named.empty() ? "" : "  [" + m.named + "]"));
-  }
   if (worst_b != UINT32_MAX) {
-    const auto& m = meshes[worst_b];
-    line(fmt::format("WORST B_disp                : {:.2f}%  shell {} {} {} (centroid {:.2f} {:.2f} "
-                     "{:.2f} m){}",
-                     m.b_pct(), m.shell, kSysName[m.system], m.mat, m.centroid.x, m.centroid.y,
-                     m.centroid.z, m.named.empty() ? "" : "  [" + m.named + "]"));
+    line(fmt::format("   WORST B_disp             : {:.2f}%  {}", meshes[worst_b].b_pct(),
+                     owner_of(worst_b)));
+  }
+  line(fmt::format("B_patch OVERALL             : {:.4f}%  ({}/{} patches)",
+                   agg_main.patches
+                       ? 100.0 * (double)agg_main.patches_live / (double)agg_main.patches
+                       : 0.0,
+                   agg_main.patches_live, agg_main.patches));
+  if (worst_patch != UINT32_MAX) {
+    line(fmt::format("   WORST B_patch            : {:.2f}%  {}", meshes[worst_patch].b_patch_pct(),
+                     owner_of(worst_patch)));
+  }
+  line(fmt::format("B_req   OVERALL             : {}   exempt {} of {} generated verts",
+                   agg_main.gverts > agg_main.exempt
+                       ? fmt::format("{:.4f}%  ({}/{})",
+                                     100.0 * (double)agg_main.live /
+                                         (double)(agg_main.gverts - agg_main.exempt),
+                                     agg_main.live, agg_main.gverts - agg_main.exempt)
+                       : std::string("n/a"),
+                   agg_main.exempt, agg_main.gverts));
+  if (worst_req != UINT32_MAX) {
+    line(fmt::format("   WORST B_req              : {:.2f}%  {}", meshes[worst_req].b_req_pct(),
+                     owner_of(worst_req)));
+  }
+  line(fmt::format("TFRAG-ONLY B_live / B_disp  : {:.4f}% / {:.4f}%  over {} generated verts (the "
+                   "population a tessellation program is actually bound for)",
+                   agg_main.gverts_tfrag
+                       ? 100.0 * (double)agg_main.live_tfrag / (double)agg_main.gverts_tfrag
+                       : 0.0,
+                   agg_main.gverts_tfrag
+                       ? 100.0 * (double)agg_main.disp_nz_tfrag / (double)agg_main.gverts_tfrag
+                       : 0.0,
+                   agg_main.gverts_tfrag));
+  line("");
+  if (worst_a != UINT32_MAX) {
+    line(fmt::format("WORST A_sign                : {:.2f}%  {}", meshes[worst_a].a_pct(),
+                     owner_of(worst_a)));
   }
   line(fmt::format("meshes at A_sign = 100%     : {}  of {} GRADED meshes ({:.2f}%)  <== THE GATE",
                    n_a100, meshes.size() - n_na,
@@ -2631,17 +3338,139 @@ int main(int argc, char** argv) {
   line(fmt::format("meshes where the cap bit    : {}  (--max-verts-per-mesh {})", n_capped,
                    max_verts_per_mesh));
   {
-    u64 zs = 0, zf = 0, zh = 0, za = 0, zn = 0;
+    u64 zs = 0, zf = 0, zh = 0, za = 0, zn = 0, zp = 0;
+    u64 fR = 0, fV = 0, fE = 0, fU = 0;
     for (const auto& m : meshes) {
       zs += m.z_seam;
       zf += m.z_falloff;
       zh += m.z_h_mid;
       za += m.z_amp;
       zn += m.z_not_tess;
+      zp += m.z_patch_dead;
+      fR += m.f_rayf;
+      fV += m.f_vol;
+      fE += m.f_esc;
+      fU += m.f_und;
     }
+    line("");
     line(fmt::format("zero-reason totals          : z_seam={} z_falloff={} z_h_mid={} z_amp={} "
-                     "z_not_tess={}",
-                     zs, zf, zh, za, zn));
+                     "z_not_tess={} z_patch_dead={}",
+                     zs, zf, zh, za, zn, zp));
+    // THE SINGLE LARGEST CAUSE of amp == 0, computed and named rather than assumed. z_h_mid is NOT a
+    // cause of amp == 0 (such a vertex is LIVE, it merely sits on the height field's zero crossing),
+    // so it is excluded from this ranking and reported separately.
+    {
+      const u64 dead = agg_main.gverts - agg_main.live;
+      std::vector<std::pair<u64, const char*>> causes = {
+          {zs, "z_seam (the crack-guard pin)"},
+          {zn, "z_not_tess (TIE: no tessellation program is ever bound)"},
+          {zf, "z_falloff (the distance amplitude fade)"},
+          {za, "z_amp (amp_m == 0)"}};
+      std::sort(causes.begin(), causes.end(), [](const auto& a, const auto& b) {
+        return a.first != b.first ? a.first > b.first : std::strcmp(a.second, b.second) < 0;
+      });
+      line(fmt::format("verts with amp == 0         : {}  ({:.2f}% of generated)", dead,
+                       agg_main.gverts ? 100.0 * (double)dead / (double)agg_main.gverts : 0.0));
+      for (const auto& c : causes) {
+        line(fmt::format("   {:<58} {:>10}  {:>6.2f}% of the amp==0 population", c.second, c.first,
+                         dead ? 100.0 * (double)c.first / (double)dead : 0.0));
+      }
+      if (!causes.empty()) {
+        line(fmt::format("LARGEST CAUSE of amp == 0   : {}  = {} verts, {:.2f}% of the amp==0 "
+                         "population ({:.2f}% of all generated verts)",
+                         causes.front().second, causes.front().first,
+                         dead ? 100.0 * (double)causes.front().first / (double)dead : 0.0,
+                         agg_main.gverts
+                             ? 100.0 * (double)causes.front().first / (double)agg_main.gverts
+                             : 0.0));
+      }
+      line(fmt::format("   (z_h_mid = {} verts are LIVE with h exactly 0.5: amp > 0, disp == 0 — the "
+                       "zero crossing of the height field, NOT a flat surface)",
+                       zh));
+    }
+    line("");
+    line(fmt::format("OUTWARD TIER, FACES         : RAYF={} VOL={} ESC={} UNDECIDED={}  (of {} mesh"
+                     " faces counted once per mesh row)",
+                     fR, fV, fE, fU, fR + fV + fE + fU));
+    line(fmt::format("OUTWARD TIER, GEN. VERTICES : RAYF={} VOL={} ESC={} UNDECIDED={}",
+                     agg_main.v_rayf, agg_main.v_vol, agg_main.v_esc, agg_main.v_und));
+    line(fmt::format("   RAYF share of the graded work: {:.2f}% of faces, {:.2f}% of vertices",
+                     (fR + fV + fE + fU) ? 100.0 * (double)fR / (double)(fR + fV + fE + fU) : 0.0,
+                     agg_main.gverts ? 100.0 * (double)agg_main.v_rayf / (double)agg_main.gverts
+                                     : 0.0));
+  }
+  // ---- the two INDEPENDENT geometric criteria, scored against each other ----
+  {
+    u64 sh_agree = 0, sh_dis = 0, sh_volsilent = 0, sh_rayfsilent = 0, sh_tie = 0;
+    u64 f_agree = 0, f_dis = 0, f_voted = 0;
+    for (u32 s : shell_order) {
+      const char* v = rayf_vs_vol(shells[s]);
+      if (!std::strcmp(v, "agree")) {
+        sh_agree++;
+      } else if (!std::strcmp(v, "DISAGREE")) {
+        sh_dis++;
+      } else if (!std::strcmp(v, "vol-silent")) {
+        sh_volsilent++;
+      } else if (!std::strcmp(v, "rayf-silent")) {
+        sh_rayfsilent++;
+      } else {
+        sh_tie++;
+      }
+      f_agree += shells[s].rayf_agree;
+      f_dis += shells[s].rayf_disagree;
+      f_voted += shells[s].rayf_voted;
+    }
+    line("");
+    line(fmt::format("rayf_vs_vol (shells)        : agree={} DISAGREE={} tie={} vol-silent={} "
+                     "rayf-silent={}",
+                     sh_agree, sh_dis, sh_tie, sh_volsilent, sh_rayfsilent));
+    line(fmt::format("rayf_vs_vol (mesh faces)    : voted={} agree={} DISAGREE={} ({:.2f}% of the "
+                     "comparable faces DISAGREE)",
+                     f_voted, f_agree, f_dis,
+                     (f_agree + f_dis) ? 100.0 * (double)f_dis / (double)(f_agree + f_dis) : 0.0));
+    line("   A DISAGREE shell is one where the two INDEPENDENT geometric criteria hand the same face");
+    line("   opposite outward directions. Neither may be trusted blindly there; that is the whole");
+    line("   reason this column exists.");
+  }
+  // ---- seam-pin reason attribution ----
+  {
+    line("");
+    line(fmt::format("PINNED SOURCE VERTS (level) : {}  (distinct vertices with seam_w == 0 in a "
+                     "graded mesh)",
+                     tot_pin_src));
+    line(fmt::format("   pinMAT  (multi-texture)  : {:>9}  {:>6.2f}%", tot_pin_material,
+                     tot_pin_src ? 100.0 * (double)tot_pin_material / (double)tot_pin_src : 0.0));
+    line(fmt::format("   pinSYS  (multi-system)   : {:>9}  {:>6.2f}%", tot_pin_system,
+                     tot_pin_src ? 100.0 * (double)tot_pin_system / (double)tot_pin_src : 0.0));
+    line(fmt::format("   pinOPEN (open boundary)  : {:>9}  {:>6.2f}%", tot_pin_open,
+                     tot_pin_src ? 100.0 * (double)tot_pin_open / (double)tot_pin_src : 0.0));
+    line(fmt::format("   pinCRSE (hard crease)    : {:>9}  {:>6.2f}%", tot_pin_crease,
+                     tot_pin_src ? 100.0 * (double)tot_pin_crease / (double)tot_pin_src : 0.0));
+    line(fmt::format("   PIN_UNEXPLAINED          : {:>9}  {:>6.2f}%   <== a pin matching NONE of the "
+                     "four is a BUG",
+                     tot_pin_unexpl,
+                     tot_pin_src ? 100.0 * (double)tot_pin_unexpl / (double)tot_pin_src : 0.0));
+    line(fmt::format("      of which CREATED by the pre-subdivision (pin INHERITED from two pinned "
+                     "parents, MeshSubdivide.cpp:271): {}",
+                     tot_pin_unexpl_subdiv));
+    line(fmt::format("      TRULY unexplained (an ORIGINAL vertex, none of the four reasons): {}",
+                     tot_pin_unexpl - tot_pin_unexpl_subdiv));
+    line("   (the four are not mutually exclusive, so the four counts may sum past PINNED SOURCE VERTS)");
+    if (pin_unexplained_samples.empty()) {
+      line("   no unexplained pin exists in this level.");
+    } else {
+      line(fmt::format("   the first {} UNEXPLAINED pinned vertices, in METRES:",
+                       pin_unexplained_samples.size()));
+      line(fmt::format("      {:>10} {:>10} {:>10}  {:>9} {:>8} {:>8}  {:<26} {}", "x", "y", "z",
+                       "group", "members", "subdiv?", "material", "named-case"));
+      for (const auto& ps : pin_unexplained_samples) {
+        const auto& m = meshes[ps.mesh];
+        line(fmt::format("      {:>10.3f} {:>10.3f} {:>10.3f}  {:>9} {:>8} {:>8}  {:<26} {}",
+                         ps.p_m.x, ps.p_m.y, ps.p_m.z, ps.group, ps.members,
+                         ps.subdiv_new ? "SUBDIV" : "orig", m.mat,
+                         m.named.empty() ? "-" : m.named));
+      }
+    }
   }
   {
     u64 agree = 0, dis = 0, silent = 0, notruth = 0;
@@ -2682,18 +3511,23 @@ int main(int argc, char** argv) {
     line(std::string(100, '='));
     line("### F) DISTANCE SWEEP (aggregate A and B at each inspection distance)");
     line("");
-    line(fmt::format("{:>8} {:>12} {:>14} {:>12} {:>14} {:>12} {:>12}", "d (m)", "gverts",
-                     "with_sign", "A_sign%", "disp_nz", "B_disp%", "A_lit%"));
-    line(std::string(91, '-'));
+    line(fmt::format("{:>8} {:>12} {:>14} {:>12} {:>12} {:>12} {:>12} {:>12}", "d (m)", "gverts",
+                     "with_sign", "A_sign%", "B_live%", "B_disp%", "B_patch%", "A_lit%"));
+    line(std::string(100, '-'));
     const double ds[] = {2, 3, 5, 10, 20, 30, 40, 50, 60};
     for (double d : ds) {
       const Agg a = evaluate(d, false);
-      line(fmt::format("{:>8.1f} {:>12} {:>14} {:>12} {:>14} {:>12} {:>12}", d, a.gverts, a.sign_den,
+      line(fmt::format("{:>8.1f} {:>12} {:>14} {:>12} {:>12} {:>12} {:>12} {:>12}", d, a.gverts,
+                       a.sign_den,
                        a.sign_den ? fmt::format("{:.4f}", 100.0 * (double)a.sign_ok / (double)a.sign_den)
                                   : std::string("n/a"),
-                       a.disp_nz,
+                       fmt::format("{:.4f}",
+                                   a.gverts ? 100.0 * (double)a.live / (double)a.gverts : 0.0),
                        fmt::format("{:.4f}",
                                    a.gverts ? 100.0 * (double)a.disp_nz / (double)a.gverts : 0.0),
+                       fmt::format("{:.4f}", a.patches ? 100.0 * (double)a.patches_live /
+                                                             (double)a.patches
+                                                       : 0.0),
                        a.sign_den ? fmt::format("{:.4f}",
                                                 100.0 * (double)a.sign_ok_lit / (double)a.sign_den)
                                   : std::string("n/a")));
@@ -2723,33 +3557,54 @@ int main(int argc, char** argv) {
       fmt::print("error: cannot open --csv '{}'\n", csv_path);
       return 1;
     }
-    c << "row,shell,system,material,tex_id,named_case,A_sign_pct,A_lit_pct,B_disp_pct,sign_ok,"
-         "sign_ok_lit,sign_den,"
-         "gverts,disp_nz,faces_total,faces_sampled,capped,mean_inner_level,spacing_actual_m,"
+    c << "row,shell,system,material,tex_id,named_case,A_sign_pct,A_lit_pct,B_live_pct,B_disp_pct,"
+         "B_patch_pct,B_req_pct,sign_ok,sign_ok_lit,sign_den,"
+         "gverts,live,disp_nz,exempt,patches_live,faces_total,faces_sampled,capped,"
+         "mean_inner_level,spacing_actual_m,"
          "verts_per_checker_square,disp_mean_cm,disp_max_cm,uv_per_m,uv_per_m_measured,z_seam,"
-         "z_falloff,z_h_mid,z_amp,z_not_tess,shell_tier,shell_gsign,shell_v6_over_l3,"
-         "winding_conflicts,ray_margin,esc_ratio,coll_speaks,coll_sign,coll_vs_truth,"
+         "z_falloff,z_h_mid,z_amp,z_not_tess,z_patch_dead,"
+         "f_rayf,f_vol,f_esc,f_undecided,v_rayf,v_vol,v_esc,v_undecided,"
+         "pin_src,pin_material,pin_system,pin_open,pin_crease,pin_unexplained,"
+         "pin_unexplained_subdiv,shell_tier,shell_gsign,shell_vol_sign,shell_v6_over_l3,"
+         "winding_conflicts,rayf_voted,rayf_agree,rayf_disagree,rayf_vs_vol,"
+         "esc_ratio,coll_speaks,coll_sign,coll_vs_truth,"
          "baked_sign,baked_vs_truth,centroid_x_m,centroid_y_m,centroid_z_m,aabb_lo_x_m,aabb_lo_y_m,"
          "aabb_lo_z_m,aabb_hi_x_m,aabb_hi_y_m,aabb_hi_z_m,inspection_distance_m\n";
     u32 row = 0;
     for (u32 mi : order) {
       const auto& m = meshes[mi];
       const Shell& sh = shells[m.shell];
-      c << fmt::format(
-          "{},{},{},{},{},{},{},{},{:.6f},{},{},{},{},{},{},{},{},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},"
-          "{:.6f},{},{},{},{},{},{},{},{},{:.6g},{},{:.6f},{:.6f},{},{},{},{},{},"
-          "{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}\n",
-          row++, m.shell, kSysName[m.system], m.mat, m.tex, m.named.empty() ? "-" : m.named,
-          m.a_pct() < 0 ? std::string("") : fmt::format("{:.6f}", m.a_pct()),
-          m.a_lit_pct() < 0 ? std::string("") : fmt::format("{:.6f}", m.a_lit_pct()), m.b_pct(),
-          m.sign_ok, m.sign_ok_lit, m.sign_den, m.gverts, m.disp_nz, m.faces.size(),
-          m.faces_sampled, m.capped ? 1 : 0,
-          m.mean_inner(), m.spacing_actual_m(), m.verts_per_square(), m.disp_mean_cm(),
-          m.disp_max_cm, m.upm, m.upm_measured ? 1 : 0, m.z_seam, m.z_falloff, m.z_h_mid, m.z_amp,
-          m.z_not_tess, sh.tier, sh.gsign, sh.v6_over_l3, sh.winding_conflicts, sh.ray_margin,
-          sh.esc_ratio, sh.coll_speaks ? 1 : 0, sh.coll_sign, coll_vs_truth(sh), sh.baked_sign,
-          baked_vs_truth(sh), m.centroid.x, m.centroid.y, m.centroid.z, m.aabb_lo.x, m.aabb_lo.y,
-          m.aabb_lo.z, m.aabb_hi.x, m.aabb_hi.y, m.aabb_hi.z, dist_m);
+      std::string s;
+      s += fmt::format("{},{},{},{},{},{},", row++, m.shell, kSysName[m.system], m.mat, m.tex,
+                       m.named.empty() ? "-" : m.named);
+      s += fmt::format("{},{},", m.a_pct() < 0 ? std::string("") : fmt::format("{:.6f}", m.a_pct()),
+                       m.a_lit_pct() < 0 ? std::string("")
+                                         : fmt::format("{:.6f}", m.a_lit_pct()));
+      s += fmt::format("{:.6f},{:.6f},{:.6f},{},", m.b_live_pct(), m.b_pct(), m.b_patch_pct(),
+                       m.b_req_pct() < 0 ? std::string("")
+                                         : fmt::format("{:.6f}", m.b_req_pct()));
+      s += fmt::format("{},{},{},", m.sign_ok, m.sign_ok_lit, m.sign_den);
+      s += fmt::format("{},{},{},{},{},", m.gverts, m.live, m.disp_nz, m.exempt(), m.patches_live);
+      s += fmt::format("{},{},{},", m.faces.size(), m.faces_sampled, m.capped ? 1 : 0);
+      s += fmt::format("{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{},", m.mean_inner(),
+                       m.spacing_actual_m(), m.verts_per_square(), m.disp_mean_cm(), m.disp_max_cm,
+                       m.upm, m.upm_measured ? 1 : 0);
+      s += fmt::format("{},{},{},{},{},{},", m.z_seam, m.z_falloff, m.z_h_mid, m.z_amp,
+                       m.z_not_tess, m.z_patch_dead);
+      s += fmt::format("{},{},{},{},{},{},{},{},", m.f_rayf, m.f_vol, m.f_esc, m.f_und, m.v_rayf,
+                       m.v_vol, m.v_esc, m.v_und);
+      s += fmt::format("{},{},{},{},{},{},{},", m.pin_src, m.pin_material, m.pin_system, m.pin_open,
+                       m.pin_crease, m.pin_unexplained, m.pin_unexplained_subdiv);
+      s += fmt::format("{},{},{},{:.6g},{},", sh.tier, sh.gsign, sh.vol_sign, sh.v6_over_l3,
+                       sh.winding_conflicts);
+      s += fmt::format("{},{},{},{},", sh.rayf_voted, sh.rayf_agree, sh.rayf_disagree,
+                       rayf_vs_vol(sh));
+      s += fmt::format("{:.6f},{},{},{},{},{},", sh.esc_ratio, sh.coll_speaks ? 1 : 0, sh.coll_sign,
+                       coll_vs_truth(sh), sh.baked_sign, baked_vs_truth(sh));
+      s += fmt::format("{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}\n",
+                       m.centroid.x, m.centroid.y, m.centroid.z, m.aabb_lo.x, m.aabb_lo.y,
+                       m.aabb_lo.z, m.aabb_hi.x, m.aabb_hi.y, m.aabb_hi.z, dist_m);
+      c << s;
     }
     c.flush();
     if (!c) {

@@ -1609,8 +1609,8 @@ void mesh_consolidate(Level& lev,
       constexpr u64 kMaxGridItems = 24000000;
       double gcell = 1.0 * (double)kUnitsPerMeter;  // ~1 m cells
       s64 gdim[3] = {1, 1, 1};
-      std::vector<u32> goff;
-      std::vector<u32> gitems;
+      std::vector<u32> gcell_off;
+      std::vector<u32> gcell_items;
       auto face_cells = [&](size_t f, s64* lo, s64* hi) {
         const auto& t = faces[f];
         for (int a = 0; a < 3; a++) {
@@ -1632,7 +1632,7 @@ void mesh_consolidate(Level& lev,
           gcell *= 2.0;
           continue;
         }
-        goff.assign(ncell + 1, 0);
+        gcell_off.assign(ncell + 1, 0);
         u64 total = 0;
         s64 lo[3], hi[3];
         for (size_t f = 0; f < F; f++) {
@@ -1645,7 +1645,7 @@ void mesh_consolidate(Level& lev,
             for (s64 y = lo[1]; y <= hi[1]; y++) {
               const u64 row = ((u64)x * (u64)gdim[1] + (u64)y) * (u64)gdim[2];
               for (s64 z = lo[2]; z <= hi[2]; z++) {
-                goff[row + (u64)z + 1]++;
+                gcell_off[row + (u64)z + 1]++;
               }
             }
           }
@@ -1655,17 +1655,17 @@ void mesh_consolidate(Level& lev,
           continue;
         }
         for (u64 c = 0; c < ncell; c++) {
-          goff[c + 1] += goff[c];
+          gcell_off[c + 1] += gcell_off[c];
         }
-        gitems.assign(goff[ncell], 0);
-        std::vector<u32> cur(goff.begin(), goff.end() - 1);
+        gcell_items.assign(gcell_off[ncell], 0);
+        std::vector<u32> cur(gcell_off.begin(), gcell_off.end() - 1);
         for (size_t f = 0; f < F; f++) {  // ascending face order => deterministic cell contents
           face_cells(f, lo, hi);
           for (s64 x = lo[0]; x <= hi[0]; x++) {
             for (s64 y = lo[1]; y <= hi[1]; y++) {
               const u64 row = ((u64)x * (u64)gdim[1] + (u64)y) * (u64)gdim[2];
               for (s64 z = lo[2]; z <= hi[2]; z++) {
-                gitems[cur[row + (u64)z]++] = (u32)f;
+                gcell_items[cur[row + (u64)z]++] = (u32)f;
               }
             }
           }
@@ -1673,7 +1673,7 @@ void mesh_consolidate(Level& lev,
         break;
       }
       lg::info("[mesh-consolidate] geom-orient grid: cell={:.3f}m dim={}x{}x{} items={} faces={}",
-               gcell / (double)kUnitsPerMeter, gdim[0], gdim[1], gdim[2], (u64)gitems.size(),
+               gcell / (double)kUnitsPerMeter, gdim[0], gdim[1], gdim[2], (u64)gcell_items.size(),
                (u64)F);
 
       // Non-culling Moller-Trumbore in double, returning the ray parameter. Both sides count: this
@@ -1735,8 +1735,8 @@ void mesh_consolidate(Level& lev,
         }
         for (;;) {
           const u64 ci = ((u64)c[0] * (u64)gdim[1] + (u64)c[1]) * (u64)gdim[2] + (u64)c[2];
-          for (u32 k = goff[ci]; k < goff[ci + 1]; k++) {
-            const u32 f = gitems[k];
+          for (u32 k = gcell_off[ci]; k < gcell_off[ci + 1]; k++) {
+            const u32 f = gcell_items[k];
             if (f == src) {
               continue;  // the source face itself never blocks its own probe
             }
