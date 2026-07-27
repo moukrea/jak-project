@@ -1288,6 +1288,36 @@ void write_tan_diag_file() {
 // normal attribute (ShrubGpuVertex has no `nor`; shrub.frag derives N from screen-space derivatives),
 // so it is documented-excluded from the normal weld rather than silently skipped. 1 m = 4096 units.
 // ============================================================================================
+u64 retangent_level_from_final_normals(Level& lev) {
+  u64 changed = 0;
+  auto redo = [&](std::vector<PreloadedVertex>& verts, const std::vector<u32>& indices,
+                  bool use_strips, std::vector<math::Vector4f>& tangents) {
+    if (verts.empty() || tangents.size() != verts.size()) {
+      return;  // no tangent stream on this tree (shrub): nothing to re-derive
+    }
+    std::vector<math::Vector4f> before = tangents;
+    reconstruct_tfrag_tangents(verts, indices, use_strips, tangents);
+    for (size_t i = 0; i < tangents.size(); i++) {
+      const auto& a = before[i];
+      const auto& b = tangents[i];
+      if (a.x() != b.x() || a.y() != b.y() || a.z() != b.z() || a.w() != b.w()) {
+        changed++;
+      }
+    }
+  };
+  for (auto& t : lev.tfrag_trees) {
+    for (auto& tree : t) {
+      redo(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, tree.unpacked.tangents);
+    }
+  }
+  for (auto& t : lev.tie_trees) {
+    for (auto& tree : t) {
+      redo(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, tree.unpacked.tangents);
+    }
+  }
+  return changed;
+}
+
 void reconstruct_level_global_weld(Level& lev) {
   if (!mesh_weld_enabled()) {
     lg::info("[global-weld] level={} DISABLED via debug.opengoal.mesh.weld=0 (A/B weld-OFF baseline)",

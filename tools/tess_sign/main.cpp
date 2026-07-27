@@ -909,6 +909,17 @@ struct MeshRow {
   u64 sign_den = 0;   // amp > 0 AND h != 0.5
   u64 sign_ok = 0;
   u64 sign_ok_lit = 0;  // the spec's LITERAL (h-0.5)*nd > 0 — see the report's derivation
+  // ---- THE PARALLAX (POM) TIER's sign, per FACE CORNER. Distance-INDEPENDENT: it reads only the
+  // face's UV parameterisation and the vertex tangent frame the fragment shader rebuilds. See the
+  // block comment above grade_parallax_row() for why this is a TANGENT question, not a normal one.
+  u64 p_den = 0;           // gradeable face corners (real UV frame AND a usable vertex tangent)
+  u64 p_ok = 0;            // ... of those, corners whose (T,B) maps UV to world in the + sense
+  u64 p_u_wrong = 0;       // dot(T, dP/du) <= 0                      -> parallax wrong in U
+  u64 p_w_wrong = 0;       // dot(T,dP/du) > 0 but dot(B, dP/dv) <= 0 -> the HANDEDNESS (.w) defect
+  u64 p_tan_fallback = 0;  // dot(t,t) <= 0.04: the shader abandons the vertex tangent (no UV info)
+  u64 p_tan_degen = 0;     // the Gram-Schmidt tangent collapsed onto the normal
+  u64 p_no_normal = 0;     // the corner has no usable stored normal
+  u64 p_degen = 0;         // FACES whose UV mapping is degenerate (|det| <= 1e-12): no sign at all
   u64 disp_nz = 0;
   u64 live = 0;             // generated verts with amp > 0            -> B_live%
   u64 patches_live = 0;     // patches with >= 1 vertex at amp > 0     -> B_patch%
@@ -938,6 +949,9 @@ struct MeshRow {
   double a_lit_pct() const {
     return sign_den ? 100.0 * (double)sign_ok_lit / (double)sign_den : -1.0;
   }
+  // P_sign% — the PARALLAX tier's sign grade. -1.0 == n/a (no gradeable corner at all), the same
+  // convention a_pct() uses so pct_or_na() prints "n/a" and the CSV writes an empty cell.
+  double p_pct() const { return p_den ? 100.0 * (double)p_ok / (double)p_den : -1.0; }
   // B_live% — the RAW, UNSHAPED liveness number: the tier applies a non-zero amplitude to this
   // share of the generated vertices. A vertex whose sampled h is exactly 0.5 with amp > 0 IS live
   // (0.5 is the zero CROSSING of the height field, not a flat surface); it is still counted in
@@ -2063,6 +2077,113 @@ int main(int argc, char** argv) {
   }
   fmt::print("[tess_sign] meshes={}\n", meshes.size());
 
+  // ===============================================================================================
+  // §4a THE PARALLAX (POM) TIER'S SIGN — P_sign%.
+  //
+  // WHY THIS IS A TANGENT-FRAME QUESTION AND NOT A NORMAL QUESTION.
+  // The tessellation tier displaces along the surface NORMAL, so A_sign% is entirely a question of
+  // which way N points. The parallax tier never moves a vertex: it moves the TEXTURE COORDINATE,
+  // and a UV offset can only be built in the frame the UVs themselves define. The fragment shader
+  // (pbr_fused.glsl:12-29) rebuilds that frame per fragment from the interpolated per-vertex
+  // tangent:
+  //     T = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));       // Gram-Schmidt against N
+  //     B = cross(N, T) * (v_tangent.w < 0.0 ? -1.0 : 1.0);             // .w = HANDEDNESS
+  // then marches (pbr_fused.glsl:172-173 and :264-292):
+  //     Vt = normalize(vec3(dot(Vv,T), dot(Vv,B), max(dot(Vv,N), 0.0)));
+  //     P  = (Vt.xy / max(Vt.z, 0.20)) * depth_uv * ... ;  and the loop does `uv -= duv_step`,
+  // i.e. a NET UV offset of -(Vt.xy / Vt.z) * depth * frac — the standard parallax formula, which
+  // walks the ray BACK into the height field (pom_carve(), pbr_helpers.glsl:202-208, makes h the
+  // depth BELOW the polygon, so the correct march is backwards along the view ray).
+  // That produces correct relief IF AND ONLY IF the basis actually maps UV to world in the POSITIVE
+  // sense: T along +dP/du and B along +dP/dv. If it does not, the march walks the height field the
+  // wrong way and the relief inverts or shears.
+  //
+  // The two halves fail INDEPENDENTLY, which is exactly why this needs its own column:
+  //   * dot(T, dP/du) <= 0  -> the tangent itself is reversed: parallax wrong in U.
+  //   * dot(B, dP/dv) <= 0  -> T is right but the stored HANDEDNESS .w is wrong, so cross(N,T) is
+  //     flipped: the parallax inverts in V ONLY while the tessellation tier, which reads N alone,
+  //     stays perfectly correct. A mesh can therefore be green in A_sign and broken in parallax.
+  // .w is produced offline by reconstruct_tfrag_tangents() (common/custom_data/TFrag3Data.cpp:
+  // 2015-2131) as sign(dot(cross(N,T), bit_acc)) over the Lengyel per-triangle accumulation, and
+  // that function also has three fallback exits (no normal / no UV tangent / Gram-Schmidt kill)
+  // which write a Frisvad basis carrying NO UV information at all — the shader mirrors the last of
+  // those with its own `dot(v_tangent.xyz, v_tangent.xyz) > 0.04` test. A corner that lands in the
+  // fallback has no parallax sign to grade, so it is counted apart and never scored as correct.
+  //
+  // The test below is therefore per FACE CORNER and reads nothing else: no camera, no tessellation
+  // level, no checker, no height scale. It is run once here over the same face population section A
+  // grades (m.faces IS the face_is_mesh set, both come from name_is_displaceable), and re-run from
+  // evaluate(store=true) — it zeroes its own counters first, so re-running at another --dist-m can
+  // neither double-count nor leave a stale value, and it returns the identical numbers every time.
+  // ===============================================================================================
+  auto grade_parallax_row = [&](MeshRow& m) {
+    m.p_den = m.p_ok = m.p_u_wrong = m.p_w_wrong = 0;
+    m.p_tan_fallback = m.p_tan_degen = m.p_no_normal = m.p_degen = 0;
+    for (u32 f : m.faces) {  // ascending face order => deterministic
+      const u32 corner[3] = {faces[f].v[0], faces[f].v[1], faces[f].v[2]};
+      // ---- the face's UV->world Jacobian (Lengyel, the same algebra TFrag3Data.cpp:2028-2043
+      // uses to BUILD the tangents; positions in GAME UNITS, texcoords in tile units) ----
+      const V3 p0 = pos(corner[0]), p1 = pos(corner[1]), p2 = pos(corner[2]);
+      const V3 e1 = p1 - p0, e2 = p2 - p0;
+      const double du1 = (double)gv[corner[1]].s - (double)gv[corner[0]].s;
+      const double dv1 = (double)gv[corner[1]].t - (double)gv[corner[0]].t;
+      const double du2 = (double)gv[corner[2]].s - (double)gv[corner[0]].s;
+      const double dv2 = (double)gv[corner[2]].t - (double)gv[corner[0]].t;
+      const double det = du1 * dv2 - du2 * dv1;
+      if (!(std::abs(det) > 1e-12)) {
+        // Degenerate UV parameterisation (TFrag3Data.cpp:2036 skips the very same triangles):
+        // this face defines no UV direction, so it has NO parallax sign. Never scored as correct.
+        m.p_degen++;
+        continue;
+      }
+      const double r = 1.0 / det;
+      const V3 dPdu = (e1 * dv2 - e2 * dv1) * r;
+      const V3 dPdv = (e1 * (-du2) + e2 * du1) * r;
+      for (int e = 0; e < 3; e++) {
+        const GVert& v = gv[corner[e]];
+        const V3 N = v.nor;  // the STORED smooth normal, scaled by nothing
+        if (len(N) < 1e-6) {
+          m.p_no_normal++;
+          continue;
+        }
+        const V3 t_raw{(double)v.tx, (double)v.ty, (double)v.tz};
+        if (!(dot(t_raw, t_raw) > 0.04)) {
+          // pbr_fused.glsl:12-29 exactly: below this threshold the shader drops the vertex tangent
+          // and builds a Frisvad/Duff basis from N alone, which carries no UV information => there
+          // is nothing to grade here (and nothing this test could call correct).
+          m.p_tan_fallback++;
+          continue;
+        }
+        const V3 t_gs = t_raw - N * dot(N, t_raw);  // the shader's Gram-Schmidt
+        if (len(t_gs) < 1e-6) {
+          m.p_tan_degen++;
+          continue;
+        }
+        const V3 T = normalized(t_gs);
+        const V3 B = cross(N, T) * (v.tw < 0.f ? -1.0 : 1.0);  // sign() of .w, as the shader does
+        m.p_den++;
+        if (!(dot(T, dPdu) > 0.0)) {
+          m.p_u_wrong++;
+        } else if (!(dot(B, dPdv) > 0.0)) {
+          m.p_w_wrong++;  // T is right, the handedness is not
+        } else {
+          m.p_ok++;
+        }
+      }
+    }
+  };
+  {
+    u64 pok = 0, pden = 0, pdeg = 0;
+    for (auto& m : meshes) {
+      grade_parallax_row(m);
+      pok += m.p_ok;
+      pden += m.p_den;
+      pdeg += m.p_degen;
+    }
+    fmt::print("[tess_sign] parallax sign graded: {}/{} corners correct, {} UV-degenerate faces\n",
+               pok, pden, pdeg);
+  }
+
   // ---------------------------------------------------------------------------------------------
   // §4b SEAM-PIN REASON ATTRIBUTION. Every vertex with seam == 0 has its pin EXPLAINED, by
   // recomputing the four pin reasons of MeshConsolidate.cpp:2216-2252 from the geometry this tool
@@ -2335,6 +2456,12 @@ int main(int argc, char** argv) {
         m.inner_sum = 0;
         m.spacing_sum_m = 0;
         m.capped = false;
+        // §4a: the parallax columns are zeroed and recomputed HERE too, with the rest of the
+        // per-row counters, so a second evaluate() at another --dist-m can never double-count.
+        // It is a per-FACE test, deliberately outside the per-generated-vertex loop below (which
+        // the --max-verts-per-mesh cap can cut short), so P_sign% stays a property of the mesh and
+        // is bit-identical at every inspection distance.
+        grade_parallax_row(m);
       }
       // ---- per-material constants (.tese:234-235, :328-355, :407-415) ----
       const double upm = std::max(m.upm, 0.0) > 0.0 ? m.upm : kUvPerMFallback;
@@ -2664,20 +2791,21 @@ int main(int argc, char** argv) {
     const auto& m = meshes[mi];
     const Shell& sh = shells[m.shell];
     return fmt::format(
-        "{} {:>7.2f} {:>7.2f} {:>7.2f} {} {}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} {:>7}{} "
-        "{:>9} {:>9} {:>7.2f} {:>8.3f} {:>8.3f} {:>7.2f} {:>7.3f}  {:<26} ({:8.2f} {:7.2f} {:8.2f})"
-        "  {}",
-        pct_or_na(m.a_pct()), m.b_live_pct(), m.b_pct(), m.b_patch_pct(), pct_or_na(m.b_req_pct()),
-        pct_or_na(m.a_lit_pct()), kSysName[m.system], m.shell, tierf_str(m), rayf_vs_vol(sh),
+        "{} {} {:>7.2f} {:>7.2f} {:>7.2f} {} {}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} "
+        "{:>7}{} {:>9} {:>9} {:>7.2f} {:>8.3f} {:>8.3f} {:>7.2f} {:>7.3f}  {:<26} "
+        "({:8.2f} {:7.2f} {:8.2f})  {}",
+        pct_or_na(m.a_pct()), pct_or_na(m.p_pct()), m.b_live_pct(), m.b_pct(), m.b_patch_pct(),
+        pct_or_na(m.b_req_pct()), pct_or_na(m.a_lit_pct()), kSysName[m.system], m.shell,
+        tierf_str(m), rayf_vs_vol(sh),
         sh.winding_conflicts, coll_vs_truth(sh), m.faces.size(), m.faces_sampled,
         m.capped ? "*" : " ", m.gverts, m.exempt(), m.mean_inner(), m.disp_mean_cm(), m.disp_max_cm,
         m.verts_per_square(), m.upm, m.mat, m.centroid.x, m.centroid.y, m.centroid.z,
         m.named.empty() ? "-" : m.named);
   };
   const std::string mesh_hdr = fmt::format(
-      "{:>7} {:>7} {:>7} {:>7} {:>7} {:>7}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} {:>8} "
-      "{:>9} {:>9} {:>7} {:>8} {:>8} {:>7} {:>7}  {:<26} {:^29}  {}",
-      "A_sign%", "B_live%", "B_disp%", "B_patch", "B_req%", "A_lit%", "sys", "shell",
+      "{:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} "
+      "{:>8} {:>9} {:>9} {:>7} {:>8} {:>8} {:>7} {:>7}  {:<26} {:^29}  {}",
+      "A_sign%", "P_sign%", "B_live%", "B_disp%", "B_patch", "B_req%", "A_lit%", "sys", "shell",
       "tierFACES", "rayf_vs_vol", "wcf", "coll_vs_", "faces", "sampled", "gverts", "exempt",
       "meanInn", "dispMean", "dispMax", "v/sq", "upm", "material", "centroid (metres)",
       "named-case");
@@ -3024,6 +3152,15 @@ int main(int argc, char** argv) {
   line("         it decides nothing here). A '*' after `sampled` means the per-mesh sampling cap bit.");
   line("         exempt = structurally exempt generated vertices (seam==0, or the whole TIE row).");
   line("         v/sq = generated vertices across one checker square. dispMean/dispMax in CENTIMETRES.");
+  line("         P_sign% = the OTHER tier: the share of face CORNERS whose tangent frame maps UV to");
+  line("         world in the POSITIVE sense, i.e. T along +dP/du AND B = cross(N,T)*sign(.w) along");
+  line("         +dP/dv. That is the only condition under which the shader's UV march carves relief");
+  line("         the right way round; a wrong .w flips B and inverts the parallax in V ONLY, which");
+  line("         leaves A_sign (a pure NORMAL question) perfectly green. It is a per-corner property");
+  line("         of the mesh: no camera, no tessellation level, no checker enter it, so it does not");
+  line("         move with --dist-m. 'n/a' = no gradeable corner (degenerate UVs, or every corner");
+  line("         took the shader's Frisvad tangent fallback). The four skip buckets and the U-vs-.w");
+  line("         split are in section E and in the CSV (p_u_wrong / p_w_wrong / p_tan_* / p_degen).");
   line("");
   line(mesh_hdr);
   line(std::string(mesh_hdr.size(), '-'));
@@ -3229,7 +3366,7 @@ int main(int argc, char** argv) {
   // ---- E) TOTALS ------------------------------------------------------------------------------
   u64 n_perfect = 0, n_na = 0, n_capped = 0, n_undecided_meshes = 0, n_a100 = 0, n_a_zero = 0;
   u32 worst_a = UINT32_MAX, worst_b = UINT32_MAX, worst_live = UINT32_MAX,
-      worst_patch = UINT32_MAX, worst_req = UINT32_MAX;
+      worst_patch = UINT32_MAX, worst_req = UINT32_MAX, worst_p = UINT32_MAX;
   for (u32 i = 0; i < meshes.size(); i++) {
     const auto& m = meshes[i];
     if (m.a_pct() < 0) {
@@ -3253,6 +3390,11 @@ int main(int argc, char** argv) {
     }
     if (m.a_pct() >= 0 && (worst_a == UINT32_MAX || m.a_pct() < meshes[worst_a].a_pct())) {
       worst_a = i;
+    }
+    // same idiom for the PARALLAX tier: rows with an empty p_den carry no grade and cannot be the
+    // worst GRADED row.
+    if (m.p_pct() >= 0 && (worst_p == UINT32_MAX || m.p_pct() < meshes[worst_p].p_pct())) {
+      worst_p = i;
     }
     if (worst_b == UINT32_MAX || m.b_pct() < meshes[worst_b].b_pct()) {
       worst_b = i;
@@ -3361,6 +3503,57 @@ int main(int argc, char** argv) {
   if (worst_a != UINT32_MAX) {
     line(fmt::format("WORST A_sign                : {:.2f}%  {}", meshes[worst_a].a_pct(),
                      owner_of(worst_a)));
+  }
+  // ---- the PARALLAX tier's own totals (§4a). Distance-independent, so unlike A/B these numbers
+  // are the same at every --dist-m and are absent from the distance sweep in section F. ----
+  {
+    u64 p_ok = 0, p_den = 0, p_uw = 0, p_ww = 0, p_fb = 0, p_td = 0, p_nn = 0, p_dg = 0;
+    u64 p_na_rows = 0, p_100_rows = 0, p_graded_rows = 0;
+    for (const auto& m : meshes) {  // meshes is an ordered vector => a deterministic sum
+      p_ok += m.p_ok;
+      p_den += m.p_den;
+      p_uw += m.p_u_wrong;
+      p_ww += m.p_w_wrong;
+      p_fb += m.p_tan_fallback;
+      p_td += m.p_tan_degen;
+      p_nn += m.p_no_normal;
+      p_dg += m.p_degen;
+      if (m.p_pct() < 0) {
+        p_na_rows++;
+      } else {
+        p_graded_rows++;
+        if (m.p_pct() >= 100.0) {
+          p_100_rows++;
+        }
+      }
+    }
+    line("");
+    line(fmt::format("P_sign OVERALL              : {}   (face CORNERS whose tangent frame maps UV "
+                     "to world in the + sense)",
+                     p_den ? fmt::format("{:.4f}%  ({}/{})", 100.0 * (double)p_ok / (double)p_den,
+                                         p_ok, p_den)
+                           : std::string("n/a")));
+    line(fmt::format("   wrong in U (T reversed)  : {}   ({:.4f}% of graded corners)", p_uw,
+                     p_den ? 100.0 * (double)p_uw / (double)p_den : 0.0));
+    line(fmt::format("   wrong in V (.w HANDEDNESS): {}   ({:.4f}% of graded corners)  <== "
+                     "parallax INVERTED while the tessellation tier stays correct",
+                     p_ww, p_den ? 100.0 * (double)p_ww / (double)p_den : 0.0));
+    line(fmt::format("   ungradeable corners      : tangent-fallback {} (shader drops to Frisvad, "
+                     "dot(t,t) <= 0.04), gram-schmidt-degenerate {}, no normal {}",
+                     p_fb, p_td, p_nn));
+    line(fmt::format("   UV-degenerate faces      : {}  (|det| <= 1e-12: the face defines no UV "
+                     "direction, so it has no parallax sign)",
+                     p_dg));
+    if (worst_p != UINT32_MAX) {
+      line(fmt::format("WORST P_sign                : {:.2f}%  {}", meshes[worst_p].p_pct(),
+                       owner_of(worst_p)));
+    }
+    line(fmt::format("meshes at P_sign = 100%     : {}  of {} GRADED meshes ({:.2f}%)  <== THE "
+                     "PARALLAX GATE ({} rows n/a)",
+                     p_100_rows, p_graded_rows,
+                     p_graded_rows ? 100.0 * (double)p_100_rows / (double)p_graded_rows : 0.0,
+                     p_na_rows));
+    line("");
   }
   line(fmt::format("meshes at A_sign = 100%     : {}  of {} GRADED meshes ({:.2f}%)  <== THE GATE",
                    n_a100, meshes.size() - n_na,
@@ -3615,7 +3808,9 @@ int main(int argc, char** argv) {
          "winding_conflicts,rayf_voted,rayf_agree,rayf_disagree,rayf_vs_vol,"
          "esc_ratio,coll_speaks,coll_sign,coll_vs_truth,"
          "baked_sign,baked_vs_truth,centroid_x_m,centroid_y_m,centroid_z_m,aabb_lo_x_m,aabb_lo_y_m,"
-         "aabb_lo_z_m,aabb_hi_x_m,aabb_hi_y_m,aabb_hi_z_m,inspection_distance_m\n";
+         "aabb_lo_z_m,aabb_hi_x_m,aabb_hi_y_m,aabb_hi_z_m,inspection_distance_m,"
+         // §4a the PARALLAX tier, appended at the END so every pre-existing column keeps its index
+         "P_sign_pct,p_ok,p_den,p_u_wrong,p_w_wrong,p_tan_fallback,p_tan_degen,p_degen\n";
     u32 row = 0;
     for (u32 mi : order) {
       const auto& m = meshes[mi];
@@ -3647,9 +3842,15 @@ int main(int argc, char** argv) {
                        rayf_vs_vol(sh));
       s += fmt::format("{:.6f},{},{},{},{},{},", sh.esc_ratio, sh.coll_speaks ? 1 : 0, sh.coll_sign,
                        coll_vs_truth(sh), sh.baked_sign, baked_vs_truth(sh));
-      s += fmt::format("{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}\n",
+      s += fmt::format("{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},",
                        m.centroid.x, m.centroid.y, m.centroid.z, m.aabb_lo.x, m.aabb_lo.y,
                        m.aabb_lo.z, m.aabb_hi.x, m.aabb_hi.y, m.aabb_hi.z, dist_m);
+      // §4a the PARALLAX tier, same ordinal as the header's trailing group. An empty P_sign_pct
+      // cell is the n/a case, exactly as A_sign_pct writes it above.
+      s += fmt::format("{},{},{},{},{},{},{},{}\n",
+                       m.p_pct() < 0 ? std::string("") : fmt::format("{:.6f}", m.p_pct()), m.p_ok,
+                       m.p_den, m.p_u_wrong, m.p_w_wrong, m.p_tan_fallback, m.p_tan_degen,
+                       m.p_degen);
       c << s;
     }
     c.flush();

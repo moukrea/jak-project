@@ -249,6 +249,7 @@ int main(int argc, char** argv) {
   int limit = -1;
   bool do_bake = false;
   bool verify_bake = false;
+  bool no_geom_orient = false;
 
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
@@ -274,6 +275,8 @@ int main(int argc, char** argv) {
       limit = std::stoi(need_val("--limit"));
     } else if (a == "--bake") {
       do_bake = true;
+    } else if (a == "--no-geom-orient") {
+      no_geom_orient = true;
     } else if (a == "--verify-bake") {
       verify_bake = true;
     } else if (a == "-h" || a == "--help") {
@@ -357,7 +360,21 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  const auto cfg = tfrag3::mesh_consolidate_config_from_env();
+  auto cfg = tfrag3::mesh_consolidate_config_from_env();
+  // ==============================================================================================
+  // ROUND 31 — THE BAKE RUNS THE GEOMETRIC OUTWARD VOTE, BY DEFAULT.
+  //
+  // kMeshBitGeomOrient shipped in the previous round and was never once executed on real data: it
+  // is default-OFF in MeshConsolidateConfig (correctly — it is minutes of CPU, so a live device
+  // level load must never pay for it), it can only be turned on through OG_MESH_BITS /
+  // debug.opengoal.mesh.bits, and NO script in this repository sets either. Every sidecar shipped
+  // so far therefore carries the LEGACY collision-first orientation, which is the very rule the
+  // owner's defect report falsifies. The bake is exactly the place the expensive authority belongs:
+  // it runs once here, on the desktop, and the device inherits the answer for free.
+  // --no-geom-orient restores the legacy order for a same-tree A/B.
+  if (!no_geom_orient) {
+    cfg.bits |= tfrag3::kMeshBitGeomOrient;
+  }
 
   fmt::print("[mesh_audit] game={} fr3_dir={} levels={} out={} csv={}\n", game, fr3_dir,
              (u64)fr3_files.size(), out_path, csv_path);

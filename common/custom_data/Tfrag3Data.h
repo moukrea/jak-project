@@ -673,6 +673,25 @@ void print_memory_usage(const tfrag3::Level& lev, int uncompressed_data_size);
 // walkable collision mesh, then averages across the welded seams with a crease-angle threshold.
 void reconstruct_level_global_weld(Level& lev);
 
+// ROUND 31 — RE-DERIVE EVERY PER-VERTEX TANGENT FRAME FROM THE VERTEX NORMALS AS THEY STAND NOW.
+//
+// The tangent .w handedness is not a free parameter: the shader rebuilds the bitangent as
+// cross(N, T) * w (pbr_fused.glsl:12-29), so w is only correct RELATIVE TO A PARTICULAR N. Tangents
+// are computed at unpack time, and mesh_consolidate() then rewrites essentially every normal
+// (global weld + crease-clustered re-smoothing). Its pass 7b patched w only where the new normal was
+// fully INVERTED; a normal that was merely ROTATED into another smoothing cluster kept a w that had
+// been computed against a different frame. That population is not marginal and it was already being
+// counted, as a diagnostic that wrote nothing back: [tan-frame] handedness_mismatch=342860 of
+// 1264479 cross-chunk pairs on village1 (27.1%), measured for several rounds without being fixed.
+// A wrong w flips B and therefore inverts the parallax march in V ONLY, leaving the tessellation
+// tier (which uses N alone) correct — exactly the surfaces the owner reports as inverted in one
+// tier and fine in the other.
+//
+// Rather than patch the sign, recompute the whole frame against the final normals with the SAME
+// Lengyel accumulation that produced it in the first place, so w is right by construction.
+// Returns the number of vertices whose (T, w) actually changed.
+u64 retangent_level_from_final_normals(Level& lev);
+
 // ROUND 29 — MIRRORED TIE INSTANCE CENSUS. A TIE instance matrix with a NEGATIVE 3x3 determinant
 // places a MIRRORED copy of its prototype (the standard way to duplicate a building without
 // duplicating geometry). Pure measurement: walks the packed instance matrices and counts, it never

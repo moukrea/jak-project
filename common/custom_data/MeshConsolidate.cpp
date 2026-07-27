@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <numeric>
+#include <thread>
 #include <unordered_map>
 
 #include "Tfrag3Data.h"
@@ -413,7 +415,12 @@ constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
 //   no-op. That has already cost this project two rounds; do not remove this.
 // mesh_consolidate_apply_bake() rejects a version mismatch and the caller falls back to the live
 // pass, so the 26 baked jak1 levels cannot silently keep the old (inverted) normals.
-constexpr u32 kBakeVersion = 5;
+// v6 (round 31, second half): the orientation rule gained a PER-FACE RESIDUAL REPAIR on top of the
+//   per-component decision, and -- the part that actually changes every sidecar -- tools/mesh_audit
+//   now sets kMeshBitGeomOrient for the bake BY DEFAULT. v5 was written by a bake that never once
+//   ran the geometric vote (no script in the tree set OG_MESH_BITS), so a v5 sidecar is a
+//   collision-first answer wearing a round-31 version number. Bump so it cannot be mistaken for one.
+constexpr u32 kBakeVersion = 6;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and
@@ -1580,7 +1587,12 @@ void mesh_consolidate(Level& lev,
     constexpr double kGeomRayMax = 200.0 * (double)kUnitsPerMeter;  // no hit within 200 m == escaped
     constexpr double kGeomProbeEps = 0.02 * (double)kUnitsPerMeter;  // probe sits 2 cm off the face
     constexpr double kGeomConfMin = 0.15;  // area-weighted mean agreement needed to SPEAK
+    // Escape-count difference a SINGLE face must show before it is allowed to contradict the
+    // orientation its whole component was given. Higher than the 2 needed to join the vote.
+    constexpr int kGeomRepairMargin = 4;
     std::vector<s8> gvote(geom_orient ? F : (size_t)0, 0);
+    // The raw escape-count DIFFERENCE per face, kept alongside the sign for the residual repair.
+    std::vector<s8> gmargin(geom_orient ? F : (size_t)0, 0);
     if (geom_orient) {
       const auto geom_t0 = std::chrono::steady_clock::now();
 
@@ -1777,14 +1789,23 @@ void mesh_consolidate(Level& lev,
         hemi[k][2] = z;
       }
 
-      for (size_t f = 0; f < F; f++) {
+      // ROUND 31 — PARALLEL, AND STILL BIT-FOR-BIT DETERMINISTIC. One face is one independent
+      // problem: every input is a compile-time constant or a pure function of that face's own
+      // geometry, ray_escapes() is a boolean OR over candidates (order-independent), and each
+      // iteration writes only gvote[f] / gmargin[f]. So which thread computes a face, and in what
+      // order the chunks are claimed, cannot move a single bit of the verdict. The two counters
+      // that WERE order-dependent (voted / abstained) are accumulated per-thread and summed after
+      // the join. This is not an optimisation for its own sake: single-threaded, this pass took 70
+      // minutes on village1 alone — about 30 hours to bake the 26 levels — which is why the bit had
+      // never once been run on real data despite shipping in the previous round.
+      auto geom_vote_one_face = [&](size_t f, u64* loc_voted, u64* loc_abstained) {
         const math::Vector3f nrf = face_normal(f);
         const double len = std::sqrt((double)nrf.x() * (double)nrf.x() +
                                      (double)nrf.y() * (double)nrf.y() +
                                      (double)nrf.z() * (double)nrf.z());
         if (!(len > 1e-9)) {
-          rep.orient_faces_geom_abstained++;
-          continue;  // cannot happen: pass 1 drops zero-area faces
+          (*loc_abstained)++;
+          return;  // cannot happen: pass 1 drops zero-area faces
         }
         // gn is the face's own geometric normal from its STORED winding.
         const double gn[3] = {(double)nrf.x() / len, (double)nrf.y() / len, (double)nrf.z() / len};
@@ -1819,15 +1840,54 @@ void mesh_consolidate(Level& lev,
             }
           }
         }
-        if (esc_plus - esc_minus >= 2) {
+        // The MARGIN is kept, not just its sign. The component arbitration only needs the sign, but
+        // the per-face residual repair below has to be able to demand a STRONGER claim before it
+        // contradicts the component consensus, and a bare +1/-1 cannot express that.
+        const int diff = esc_plus - esc_minus;
+        gmargin[f] = (s8)std::max(-127, std::min(127, diff));
+        if (diff >= 2) {
           gvote[f] = 1;
-          rep.orient_faces_geom_voted++;
-        } else if (esc_minus - esc_plus >= 2) {
+          (*loc_voted)++;
+        } else if (-diff >= 2) {
           gvote[f] = -1;
-          rep.orient_faces_geom_voted++;
+          (*loc_voted)++;
         } else {
-          rep.orient_faces_geom_abstained++;
+          (*loc_abstained)++;
         }
+      };
+
+      {
+        std::atomic<u64> next_chunk{0};
+        std::atomic<u64> n_voted{0}, n_abstained{0};
+        const u64 kChunk = 256;
+        const u64 n_chunks = (F + kChunk - 1) / kChunk;
+        auto geom_worker = [&]() {
+          u64 loc_voted = 0, loc_abstained = 0;
+          for (;;) {
+            const u64 ci = next_chunk.fetch_add(1);
+            if (ci >= n_chunks) {
+              break;
+            }
+            const size_t f_lo = (size_t)(ci * kChunk);
+            const size_t f_hi = std::min<size_t>(f_lo + (size_t)kChunk, F);
+            for (size_t f = f_lo; f < f_hi; f++) {
+              geom_vote_one_face(f, &loc_voted, &loc_abstained);
+            }
+          }
+          n_voted += loc_voted;
+          n_abstained += loc_abstained;
+        };
+        const unsigned nthreads = std::max(1u, std::thread::hardware_concurrency());
+        std::vector<std::thread> pool;
+        for (unsigned t = 1; t < nthreads; t++) {
+          pool.emplace_back(geom_worker);
+        }
+        geom_worker();
+        for (auto& th : pool) {
+          th.join();
+        }
+        rep.orient_faces_geom_voted += n_voted.load();
+        rep.orient_faces_geom_abstained += n_abstained.load();
       }
       rep.orient_geom_pass_ms =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - geom_t0)
@@ -2169,6 +2229,40 @@ void mesh_consolidate(Level& lev,
           rep.orient_faces_flipped++;
         }
       }
+
+      // ==========================================================================================
+      // ROUND 31 — THE PER-FACE RESIDUAL REPAIR, and why a component-level decision cannot be the
+      // whole answer.
+      //
+      // Everything above flips a component AS A BLOCK. That is correct only if the component's
+      // internal winding is already consistent, and it is not always: the flood fill drains the
+      // STRONG (true-manifold) frontier first but then allows ONE WEAK attachment, decided by
+      // sign(dot(na, nbv)) — a geometric guess. On a component that is not a closed shell (a
+      // terrain sheet, a fence, a cornice, a roof plane welded to a wall at a T-junction) that
+      // guess can be wrong, and no amount of flipping the whole component afterwards can repair a
+      // face that disagrees with its own neighbours. Those faces stay inverted through pass 7, hand
+      // an inverted normal to the tessellator, and the displacement runs backwards on them — the
+      // owner's "le noir ressort plus que le blanc" on a surface whose neighbours are correct.
+      //
+      // So after the block decision, ask each face its OWN question again and repair the residual.
+      // The bar is deliberately higher than the bar to vote: contradicting the component consensus
+      // is a stronger claim than joining it, so a repair needs kGeomRepairMargin escapes of
+      // difference (4 of 13) where a vote needs 2. This is a GENERAL rule keyed on nothing but the
+      // face's own geometry — no material, no mesh and no level name appears in it.
+      // ==========================================================================================
+      if (geom_orient) {
+        for (u32 f : comp_faces) {
+          if (gvote[f] == 0 || std::abs((int)gmargin[f]) < kGeomRepairMargin) {
+            continue;
+          }
+          // gvote[f] is the outward sign of the face's STORED winding; fsign[f] is the orientation
+          // the component decided for it. They must agree.
+          if ((int)gvote[f] != (int)fsign[f]) {
+            fsign[f] = (s8)gvote[f];
+            rep.orient_faces_geom_repaired++;
+          }
+        }
+      }
     }
     // residual: faces whose final normal still opposes the collision authority
     if (!lev.collision.vertices.empty()) {
@@ -2362,19 +2456,28 @@ void mesh_consolidate(Level& lev,
   //     the tangent-space view vector the POM march walks along => the parallax digs in where it
   //     should pop out. Decided on the FINAL normal (the pass-7 loop can write a vertex several
   //     times, largest-incident-face wins), against the pre-consolidation snapshot.
-  for (size_t i = 0; i < N; i++) {
-    const u32 nn = *nor_ptr(i);
-    if (nn == nor_before[i]) {
-      continue;
-    }
-    math::Vector4f* tp = tangent_ptr(i);
-    if (!tp) {
-      continue;  // shrub, or a tree with no reconstructed tangents
-    }
-    if (unpack_nor(nor_before[i]).dot(unpack_nor(nn)) < 0.f) {
-      (*tp)[3] = -(*tp)[3];
-      rep.orient_tangent_w_flipped++;
-    }
+  //
+  // ===== ROUND 31: FLIPPING THE SIGN WAS NEVER ENOUGH. RE-DERIVE THE WHOLE FRAME. ================
+  // The rule above only acts when the new normal is INVERTED (dot < 0). But pass 7 does not merely
+  // invert normals, it REBUILDS them: welded across chunks, crease-clustered, area-averaged. A
+  // vertex whose normal was ROTATED into a different smoothing cluster — not inverted — kept a w
+  // computed against a frame that no longer exists, and w is only meaningful relative to the N the
+  // shader pairs it with (B = cross(N,T)*w, pbr_fused.glsl:12-29). That population is large and the
+  // pipeline has been MEASURING it for several rounds without writing anything back:
+  //   [tan-frame] level=village1 pairs=1264479 handedness_mismatch=342860   (27.1%)
+  // and the offline CPU port of the two tiers puts the same number on the parallax grade directly:
+  // on beach, 27.85% of graded face corners had dot(B, dPdv) < 0, i.e. the POM march inverted in V
+  // while the tessellation tier — which uses N alone and never touches w — stayed correct. That is
+  // precisely the owner's "le mur du rez-de-chaussée est inversé EN PARALLAX mais pas en
+  // tessellation": one axis, one cause, and it is this one.
+  // So do not patch the sign. Re-run the SAME Lengyel accumulation that produced the tangents in the
+  // first place, now against the FINAL normals, so (T, w) is right by construction rather than
+  // right-if-nothing-moved. The old flip is subsumed: an inverted normal is just the extreme case.
+  {
+    const u64 retan = retangent_level_from_final_normals(lev);
+    rep.orient_tangent_w_flipped += retan;
+    lg::info("[mesh-consolidate] level={} retangent from final normals: {} vertex frames rewritten",
+             lev.level_name, retan);
   }
 
   measure_normal_delta(rep.nrm_after, nullptr, false);
@@ -2856,10 +2959,10 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
       "-- ORIENTATION GEOMETRIC OUTWARD VOTE (round 31, kMeshBitGeomOrient=512) -- "
       "orient_faces_geom_voted={} orient_faces_geom_abstained={} orient_comps_geom_decided={} "
       "orient_comps_geom_vs_collision_conflict={} orient_comps_geom_vs_volume_conflict={} "
-      "orient_geom_pass_ms={:.1f}\n",
+      "orient_faces_geom_repaired={} orient_geom_pass_ms={:.1f}\n",
       r.orient_faces_geom_voted, r.orient_faces_geom_abstained, r.orient_comps_geom_decided,
       r.orient_comps_geom_vs_collision_conflict, r.orient_comps_geom_vs_volume_conflict,
-      r.orient_geom_pass_ms);
+      r.orient_faces_geom_repaired, r.orient_geom_pass_ms);
   o += fmt::format(
       "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
       "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "
@@ -3013,21 +3116,18 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
   // march would then dig in where it should pop out on every vertex the orientation pass inverted).
   // Nothing new is stored for this: the OLD normal is still in the vertex when the new one lands, so
   // the flip is derivable at apply time — the file format is unchanged.
+  // ROUND 31: the flip is no longer derived here at all. w is only meaningful relative to the N it
+  // is paired with, and the sidecar rewrites N wholesale, so after the normals land the whole
+  // tangent frame is re-derived from them with the same rule the live pass now uses. The two paths
+  // must agree bit for bit or a baked level and a live-consolidated one would shade differently —
+  // which is exactly the class of bug this phase has been chasing. Nothing new is stored: the
+  // tangents are a pure function of (positions, uvs, indices, final normals), all of which the
+  // sidecar has already restored by the time this runs. File format unchanged.
   u64 tan_flips = 0;
   for (u64 i = 0; i < N; i++) {
     const u32 v = r.u32v();
     u32* np = (u32*)(gvert[i] + trees[gtree[i]].layout->nor_off);
-    const u32 old = *np;
     *np = v;
-    if (v != old) {
-      const GTree& t = trees[gtree[i]];
-      if (t.tangents && t.tangents->size() == (size_t)t.gcount &&
-          unpack_nor(old).dot(unpack_nor(v)) < 0.f) {
-        auto& tw = (*t.tangents)[i - t.gbase];
-        tw[3] = -tw[3];
-        tan_flips++;
-      }
-    }
   }
   // dense seam bits
   const u32 bits_n = r.u32v();
@@ -3100,6 +3200,10 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
   if (!r.ok) {
     return false;
   }
+  // ROUND 31 — re-derive the tangent frames LAST, once every input they depend on is restored:
+  // the sparse POSITION patch above moves welded vertices, so doing this any earlier would build
+  // the frames from pre-snap geometry and the baked path would disagree with the live one.
+  tan_flips = retangent_level_from_final_normals(lev);
   lg::info("[mesh-consolidate] level={} loaded PRECOMPUTED sidecar ({} verts, tangent_w_flipped={}) "
            "— live pass skipped",
            lev.level_name, N, tan_flips);

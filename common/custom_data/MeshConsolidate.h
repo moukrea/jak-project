@@ -145,6 +145,9 @@ struct MeshAuditReport {
   // correctly-signed vertices, upper floor 58.24%).
   u64 orient_faces_geom_voted = 0;      // faces where the escape counts differed by >= 2 (vote != 0)
   u64 orient_faces_geom_abstained = 0;  // faces where they did not (vote == 0) -> no geometric opinion
+  // Faces the PER-FACE repair had to flip AFTER their component had already been decided as a
+  // block: the population a component-level authority structurally cannot reach.
+  u64 orient_faces_geom_repaired = 0;
   u64 orient_comps_geom_decided = 0;    // components whose global sign the per-face vote decided
   // Where the vote and an older authority both speak and DISAGREE. The collision number is the
   // measure of how much floor-normal authority this round takes away; the volume number is the
