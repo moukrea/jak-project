@@ -6,10 +6,12 @@
 #include "FileUtil.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio> /* defines FILENAME_MAX */
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 
 #include "BinaryWriter.h"
@@ -353,6 +355,96 @@ fs::path get_fr3_dir(GameVersion game_version) {
     return *g_external_game_root / "assets" / "fr3";
   }
   return get_jak_project_dir() / "out" / game_version_names[game_version] / "fr3";
+}
+
+namespace {
+// Whole seconds, 0 when unavailable. Whole seconds deliberately: the device filesystem stores
+// second granularity, so a finer comparison would invent skew between a host file and its pushed copy.
+s64 file_mtime_seconds(const fs::path& p) {
+  std::error_code ec;
+  const auto t = fs::last_write_time(p, ec);
+  if (ec) {
+    return 0;
+  }
+  return (s64)std::chrono::duration_cast<std::chrono::seconds>(t.time_since_epoch()).count();
+}
+
+u64 file_size_or_zero(const fs::path& p) {
+  std::error_code ec;
+  const auto s = fs::file_size(p, ec);
+  return ec ? 0u : (u64)s;
+}
+}  // namespace
+
+void asset_route_journal(const std::string& line) {
+  static std::mutex mtx;
+  std::lock_guard<std::mutex> lock(mtx);
+  try {
+    const auto path = get_jak_project_dir() / "asset_route.txt";
+    std::string existing;
+    try {
+      existing = read_text_file(path);
+    } catch (...) {
+      existing.clear();
+    }
+    if (existing.size() > 512u * 1024u) {
+      existing.clear();  // a long session must not fill the device
+    }
+    write_text_file(path, existing + line);
+  } catch (const std::exception& e) {
+    lg::warn("[asset-route] could not write asset_route.txt: {}", e.what());
+  }
+}
+
+Fr3AssetRoute resolve_fr3_asset(const fs::path& base_dir, const std::string& file_name) {
+  Fr3AssetRoute r;
+  const fs::path base = base_dir / file_name;
+  std::error_code ec;
+  r.base_exists = fs::is_regular_file(base, ec);
+  if (r.base_exists) {
+    r.base_bytes = file_size_or_zero(base);
+    r.base_mtime = file_mtime_seconds(base);
+  }
+  fs::path custom;
+  if (auto custom_dir = get_custom_fr3_dir()) {
+    custom = *custom_dir / file_name;
+    r.custom_exists = fs::is_regular_file(custom, ec);
+    if (r.custom_exists) {
+      r.custom_bytes = file_size_or_zero(custom);
+      r.custom_mtime = file_mtime_seconds(custom);
+    }
+  }
+  if (r.custom_exists) {
+    r.path = custom;
+    r.source = "custom-pack";
+  } else if (r.base_exists) {
+    r.path = base;
+    r.source = "base-pack";
+  } else {
+    r.path = base;  // let the caller's open fail against the conventional path
+    r.source = "missing";
+  }
+  // FRESHNESS IS MEASURED, NOT ASSUMED. Precedence alone would happily serve a packaged file older
+  // than the external one; saying so out loud is what turns "the fix didn't land" into one grep.
+  r.bundle_stale = r.custom_exists && r.base_exists && r.base_mtime > r.custom_mtime;
+  const std::string line = fmt::format(
+      "[asset-route] {} -> {} ({}) custom={}{}B/t{} base={}{}B/t{}{}\n", file_name, r.path.string(),
+      r.source, r.custom_exists ? "yes " : "no ", r.custom_bytes, r.custom_mtime,
+      r.base_exists ? "yes " : "no ", r.base_bytes, r.base_mtime,
+      r.bundle_stale ? " STALE-BUNDLE(external copy is NEWER than the packaged one — the packaging"
+                       " freshness guard was bypassed)"
+                     : "");
+  asset_route_journal(line);
+  if (r.bundle_stale) {
+    lg::warn("{}", line);
+  } else {
+    lg::info("{}", line);
+  }
+  return r;
+}
+
+Fr3AssetRoute resolve_fr3_asset(GameVersion game_version, const std::string& file_name) {
+  return resolve_fr3_asset(get_fr3_dir(game_version), file_name);
 }
 
 fs::path get_recharged_assets_dir() {

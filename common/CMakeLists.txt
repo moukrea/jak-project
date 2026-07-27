@@ -92,6 +92,7 @@ add_library(common
         util/font/font_utils.cpp
         util/FrameLimiter.cpp
         util/json_util.cpp
+        util/md5.cpp
         util/os.cpp
         util/print_float.cpp
         util/read_iso_file.cpp

@@ -698,3 +698,40 @@ hypothèse doit être que l'artefact corrigé n'est pas celui qui est exécuté.
 piégé par des .so périmés, des CGO périmés, des fr3 périmés dans l'APK slim et un APK damier
 identique au normal. Ça fait quatre fois. Le contrôle de fraîcheur doit devenir systématique et
 porter sur LA DONNÉE LUE, pas sur celle qu'on croit avoir livrée.
+
+--------------------------------------------------------------------------------
+RÈGLE OWNER STRUCTURELLE — CE QUI N'EST PAS ORIGINAL VA DANS L'APK
+--------------------------------------------------------------------------------
+Owner :
+  "tout ce qui n'est pas original (sorti du dump du jeu sans être modifié) doit être inclus à l'APK
+   et pas dans les assets de base séparés !"
+
+C'est la règle qui supprime la classe de bug entière du round 30. Le critère est l'ORIGINE, pas la
+taille :
+  * DANS L'APK — tout ce que NOTRE chaîne produit ou modifie : les fr3 (construits par notre
+    extracteur, ils portent la soudure, les normales, l'orientation, la pré-subdivision), les
+    sidecars (.meshweld, .grassbake), les CGO/DGO (compilés par goalc depuis goal_src), les
+    textures recharged et les maps PBR. Tout ça change à chaque round, donc tout ça doit voyager
+    avec le binaire qui sait les lire.
+  * DANS LE PACK EXTERNE — uniquement le dump original non modifié : les données iso brutes,
+    l'audio VAG. Ça ne change jamais, donc ça peut rester posé une fois pour toutes.
+
+MESURES PRISES PAR LE SUPERVISEUR SUR LE DEVICE (pack de base actuel) :
+    fr3/                316 Mo   -> DÉRIVÉ, doit passer dans l'APK
+    iso/               1,1 Go    -> ORIGINAL, reste externe
+    recharged_assets/   11 Mo    -> DÉRIVÉ, doit passer dans l'APK
+Donc ~327 Mo à déplacer vers l'APK, et 1,1 Go qui restent légitimement dehors. L'APK grossira
+d'autant : c'est le prix de la correction, et il est acceptable puisqu'on installe par sideload.
+
+CONSÉQUENCES À TRAITER DANS CE ROUND
+1. Déplacer fr3 + sidecars + recharged_assets du pack de base vers le pack embarqué dans l'APK, et
+   retirer du pack de base tout ce qui est dérivé pour qu'aucune copie périmée ne puisse gagner.
+2. La résolution de chemin doit alors être sans ambiguïté : le dérivé vient de l'APK, l'original du
+   pack externe. Plus de recouvrement, donc plus de conflit de fraîcheur possible.
+3. Le pack externe devient stable : il n'a plus besoin d'être repoussé à chaque round. Si sa version
+   ne bouge plus jamais, dis-le, c'est le signe que le découpage est correct.
+4. Garde-fou de packaging : refuser de produire un APK s'il manque un fichier dérivé, ou si un
+   dérivé embarqué est plus ancien que sa source dans out/<game>/. Le contrôle existe pour libgk.
+5. Vérifie l'espace disque du device avant de conclure : déplacer 327 Mo dans l'APK augmente
+   l'empreinte installée, et la mémoire du projet signale que le /data du Redmi a déjà été proche
+   de la saturation. Chiffre-le.

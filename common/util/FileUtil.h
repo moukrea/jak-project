@@ -51,6 +51,39 @@ std::optional<fs::path> get_iso_overlay_dir();
 void set_custom_assets_root(const fs::path& p);
 std::optional<fs::path> get_custom_assets_root();
 std::optional<fs::path> get_custom_fr3_dir();
+// ---------------------------------------------------------------------------------------------
+// Round 30 (delivery): ONE resolver for every per-file asset that can be shipped BOTH inside the
+// package (the APK custom pack, extracted to <custom root>/fr3) and in the external vanilla tree
+// (<external root>/assets/fr3). The PACKAGE copy wins, file by file — the same precedence the owner
+// already validated for textures (user custom_assets > bundled recharged > stock).
+// Before this there were three hand-rolled existence probes (fr3 sidecar, grassbake, enhanced fr3)
+// and not one of them logged its decision, so which copy a build actually opened was unprovable.
+// The base pack is 1.44 GB and cannot fit in an APK, so the package copy is the ONLY route a data
+// fix has to a device with no adb: it has to win, and the win has to be checkable.
+struct Fr3AssetRoute {
+  fs::path path;       // the file the caller must open
+  std::string source;  // "custom-pack" | "base-pack" | "missing"
+  bool custom_exists = false;
+  bool base_exists = false;
+  u64 custom_bytes = 0;
+  u64 base_bytes = 0;
+  // File-clock seconds. Only ever compared against each other, never rendered as wall-clock, so no
+  // clock cast is needed (and none is portable before C++20).
+  s64 custom_mtime = 0;
+  s64 base_mtime = 0;
+  // Both copies exist AND the external one is strictly newer. Precedence still stands (the package
+  // copy is served) but this means the packaging freshness guard was bypassed, so it is logged loudly
+  // instead of being silently absorbed.
+  bool bundle_stale = false;
+};
+
+Fr3AssetRoute resolve_fr3_asset(const fs::path& base_dir, const std::string& file_name);
+Fr3AssetRoute resolve_fr3_asset(GameVersion game_version, const std::string& file_name);
+
+// Appends a line to <project dir>/asset_route.txt (files/asset_route.txt on Android, where logcat is
+// obscured on the owner's phone) and mirrors it to the log. resolve_fr3_asset() journals every
+// decision through this; callers use it directly to add a fingerprint of what they opened.
+void asset_route_journal(const std::string& line);
 fs::path get_iso_out_dir(GameVersion game_version);
 fs::path get_fr3_dir(GameVersion game_version);
 fs::path get_recharged_assets_dir();
