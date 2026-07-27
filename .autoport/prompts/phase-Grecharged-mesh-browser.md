@@ -55,3 +55,33 @@ démultiplicateur du seul instrument fiable dont le projet dispose.
 * Mets à jour .autoport/menu-tree.md (règle owner permanente sur toute entrée de menu).
 * Mesure visuelle in-game toujours interdite pour l'agent : c'est l'owner qui regarde, l'outil ne
   fait que l'amener devant le mesh.
+
+## COMPLÉMENTS OWNER (validation du lancement en parallèle)
+Owner : "Lancé en parallèle. On doit pouvoir tourner autour du mesh, le faire tourner, voir le nom du
+mesh/fichier que je puisse report à toi s'il faut corriger un truc et faire varier le temps dans le
+jeu pour varier les conditions d'éclairage aussi."
+
+4 exigences supplémentaires, toutes obligatoires :
+a) ORBITE LIBRE AUTOUR DU MESH — déjà au livrable 3, mais c'est confirmé comme indispensable :
+   rotation complète autour, élévation, zoom, au doigt et à la manette.
+b) FAIRE TOURNER LE MESH LUI-MÊME, indépendamment de la caméra. C'est différent de l'orbite : ça
+   change l'orientation de l'objet par rapport à la lumière et par rapport au regard, donc ça révèle
+   les défauts qui dépendent de l'angle (le "displacement qui s'étale à plat", l'orbite des motifs).
+   Un mesh qu'on peut tourner sous une lumière fixe est le test le plus dur pour un displacement.
+c) AFFICHER LE NOM identifiant du mesh À L'ÉCRAN, et de façon UTILISABLE POUR UN RAPPORT : nom du
+   matériau, nom du niveau, identifiant de mesh/shell, et le fichier source dont il vient. L'owner
+   doit pouvoir lire ça et me le citer tel quel pour qu'on cible une correction. Prévoyez que ce
+   soit lisible sur un écran de téléphone. Si un moyen simple de l'exporter (fichier dans files/,
+   comme asset_route.txt) est possible, faites-le : l'owner n'a pas adb et recopier à la main un
+   identifiant long est pénible.
+d) FAIRE VARIER L'HEURE DU JEU depuis l'écran, pour changer les conditions d'éclairage sans quitter
+   le navigateur : heure fixée librement, et bascule jour/nuit rapide. Le PBR se comporte
+   différemment à l'ombre et de nuit — l'owner l'a signalé plusieurs fois ("à l'ombre c'est
+   toujours plat", "le PBR est complètement invisible la nuit") — donc pouvoir balayer l'heure sur
+   un mesh donné est une condition de test de premier ordre, pas un gadget.
+
+## CONTRAINTE D'EXÉCUTION (phase menée EN PARALLÈLE du round PBR)
+Le round PBR en cours utilise le Redmi. Cette phase NE PREND PAS LE DEVICE : itère sur le build
+DESKTOP (build/gk) pour toute la mise au point, et câble le tactile + la manette sans les valider sur
+appareil. Le superviseur fera la validation device et la livraison de l'APK quand le round PBR aura
+libéré le téléphone. Toute tentative de prendre le device en parallèle casserait le round PBR.

@@ -462,7 +462,8 @@
     ],
     "Grecharged-pbr-realtime-fusion": [
       "da1016e207b0",
-      "da1016e207b0"
+      "da1016e207b0",
+      "a778c478a0dc"
     ]
   },
   "stuck_reasons": {
@@ -886,7 +887,7 @@
     "Grecharged-pbr-realtime-fusion": 1784783149.315742,
     "Grecharged-mesh-consolidation": 1784930060.5837617
   },
-  "last_update": "2026-07-27T19:29:44.990020+00:00",
+  "last_update": "2026-07-27T19:38:31.531854+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -900,7 +901,8 @@
     "Grecharged-grass-overhang7": 1,
     "Grecharged-ambient-occlusion": 5,
     "Grecharged-pbr-materials": 10,
-    "Grecharged-directional-ambient": 2
+    "Grecharged-directional-ambient": 2,
+    "Grecharged-pbr-realtime-fusion": 1
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",

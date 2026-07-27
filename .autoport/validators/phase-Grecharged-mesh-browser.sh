@@ -28,4 +28,8 @@ grep -qiE 'no regression|aucune regression|unchanged when (off|closed)' "$R" || 
 grep -qiE 'menu-tree' "$R" || fail "menu-tree.md not updated (standing owner rule)"
 grep -qiE 'boot|smoke|no crash' "$R" || fail "no smoke run evidencing the build boots"
 grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
+grep -qiE 'rotate the mesh|faire tourner le mesh|mesh rotation' "$R" || fail "no independent MESH rotation (distinct from camera orbit)"
+grep -qiE 'name.*(on ?screen|affich)|nom.*ecran|identifier displayed' "$R" || fail "the mesh/material/level identifier is not displayed on screen for the owner to quote back"
+grep -qiE 'files/|export' "$R" || fail "no way to export the selected mesh identifier (the owner has no adb)"
+grep -qiE 'time of day|heure|tod' "$R" || fail "no in-browser time-of-day control (PBR behaves differently in shade and at night)"
 echo "[Gmbrowse PASS]"
