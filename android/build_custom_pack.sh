@@ -45,8 +45,11 @@ fail(){ echo "[custom-pack] FATAL: $*" >&2; exit 1; }
 ARM64_CODE="out/${GAME}-arm64-full/iso"
 FR3_DIR="out/${GAME}/fr3"
 # recharged HUD PNGs live at the repo root. Named ONCE so the staging loop and the
-# missing-derived-file guard (4) below cannot drift apart on the source dir.
-RHUD_SRC="recharged_assets"
+# missing-derived-file guard (4) below cannot drift apart on the source dir. Empty for
+# jak2/jak3: the art is jak1 HUD gauges, and guard (4) reads the same variable, so
+# gating it here gates BOTH sides at once (gating only one would hard-refuse the pack).
+RHUD_SRC=""
+[ "$GAME" = "jak1" ] && RHUD_SRC="recharged_assets"
 OUT_DIR="android/app/src/${GAME}/assets-slim/bundle"
 STAGE="out/${GAME}-custom-pack-stage"
 ZIP_REL="${OUT_DIR}/${GAME}_custom.zip"
@@ -290,7 +293,7 @@ if [ -d "$FR3_DIR" ]; then
   done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.meshweld' 2>/dev/null | sort)
   echo "[custom-pack] mesh-consolidation sidecars: $n_mesh"
 
-  # 2d. STOCK .fr3 LEVELS — ALWAYS. These are NOT original dump data: they are OUR
+  # 2c. STOCK .fr3 LEVELS — ALWAYS. These are NOT original dump data: they are OUR
   #     EXTRACTOR'S OUTPUT, and they carry every geometry correction the port has made
   #     — the consolidated weld, the recomputed/oriented normals, the tangent frames
   #     and the pre-subdivision. Under the owner's structural rule they are "not
@@ -312,7 +315,7 @@ if [ -d "$FR3_DIR" ]; then
   echo "[custom-pack] stock fr3 levels: $n_fr3lev"
 fi
 
-# 2c. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at
+# 2d. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at
 #     custom_assets/<game>/recharged_textures/<tpage>/<texname>/{<texname>.png + _height/
 #     _normal/_roughness}; the base swap needs no build flag, the PBR maps feed the PBR
 #     pipeline when compiled in). Extracted by LoaderActivity to <custom root>/
@@ -332,22 +335,24 @@ if [ -d "$ROOT/$RTEX_SRC" ]; then
   echo "[custom-pack] recharged textures: $n_rtex"
 fi
 
-# 3. enhanced HD fr3 — ONLY when hd-models ON.
-if [ "$F_HDMODELS" -eq 1 ]; then
-  ENH="$FR3_DIR/enhanced"
+# 3. enhanced HD fr3 — DERIVED, so delivery follows the same rule as the HUD PNGs above: if our
+# chain built them they ship, whether or not hd-models is on. The flag still gates the FEATURE at
+# runtime (the loader only looks under enhanced/ when the toggle is set), it no longer gates
+# DELIVERY. Gating delivery here would also hard-refuse guard (4), which asserts coverage of
+# out/<game>/fr3/enhanced/*.fr3 whenever that dir exists.
+ENH="$FR3_DIR/enhanced"
+if [ -d "$ENH" ]; then
+  mkdir -p "$STAGE/fr3/enhanced"
   n_enh=0
-  if [ -d "$ENH" ]; then
-    mkdir -p "$STAGE/fr3/enhanced"
-    while IFS= read -r ef; do
-      [ -n "$ef" ] || continue
-      base="$(basename "$ef")"
-      ln -s "$ROOT/$ef" "$STAGE/fr3/enhanced/$base"
-      MEMBERS+=("fr3/enhanced/$base")
-      n_enh=$((n_enh + 1))
-    done < <(find "$ENH" -maxdepth 1 -type f -name '*.fr3' 2>/dev/null | sort)
-  fi
-  [ "$n_enh" -gt 0 ] || fail "flag hd-models ON but $ENH missing/empty — run android/build_enhanced_models.sh"
-  echo "[custom-pack] enhanced HD fr3: $n_enh"
+  while IFS= read -r ef; do
+    [ -n "$ef" ] || continue
+    base="$(basename "$ef")"
+    ln -s "$ROOT/$ef" "$STAGE/fr3/enhanced/$base"
+    MEMBERS+=("fr3/enhanced/$base")
+    n_enh=$((n_enh + 1))
+  done < <(find "$ENH" -maxdepth 1 -type f -name '*.fr3' 2>/dev/null | sort)
+  [ "$n_enh" -gt 0 ] || fail "$ENH exists but holds no *.fr3 — the base pack no longer carries the enhanced levels, so an empty set here means they ship NOWHERE. Rebuild via android/build_enhanced_models.sh or delete the dir."
+  echo "[custom-pack] enhanced HD fr3: $n_enh (delivery is flag-independent; hd-models still gates the runtime lookup)"
 fi
 
 FILE_COUNT=${#MEMBERS[@]}
@@ -394,7 +399,10 @@ else
   (
     cd "$STAGE"
     # preserve zip paths (recharged_assets/, fr3/, fr3/enhanced/).
-    zip -r -6 -X -q "$ZIP_ABS" .
+    # -n: store these suffixes without deflating. Now that the ~214 MB of stock .fr3 ride along,
+    # deflate would burn minutes of CPU for nothing — measured, village1.fr3 gives back 1.4%
+    # (11759452 -> 11592718), and .meshweld is already zstd'd, .png already deflated.
+    zip -r -6 -X -q -n '.fr3:.meshweld:.grassbake:.png' "$ZIP_ABS" .
   )
 fi
 ZIP_BYTES=$(stat -c %s "$ZIP_ABS")

@@ -290,10 +290,12 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
            Gfx::g_global_settings.recharged_enhanced_models);
 #endif
   // OG_FEAT_HD_MODELS OFF (default): always the stock fr3 path.
-  // Round 30 (delivery): the package copy wins for the stock fr3 too, file by file. The custom pack
-  // ships no stock .fr3 today, so this resolves to exactly the same path it always did; it is what
-  // lets a future round deliver a corrected level through an APK install instead of a 1.44 GB
-  // base-pack re-extraction the owner has no adb to perform.
+  // Round 30 (delivery): the package copy wins for the stock fr3 too, file by file. The .fr3 are
+  // DERIVED — our extractor builds them and they carry the weld, the normals, the orientation and the
+  // pre-subdivision — so under the owner's structural rule they now ship inside the APK's custom pack
+  // (android/build_custom_pack.sh) and the 1.44 GB external base pack keeps only the untouched dump.
+  // Device-verified: village1.fr3 resolves to the packaged copy. That is what lets a geometry fix
+  // reach a phone by installing an APK, instead of a base-pack re-extraction the owner has no adb for.
   return file_util::resolve_fr3_asset(base, fmt::format("{}.fr3", name)).path;
 }
 

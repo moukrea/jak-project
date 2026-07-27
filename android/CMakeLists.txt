@@ -224,6 +224,11 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/common/util/BitUtils.cpp"
     "${JAK_ROOT}/common/util/crc32.cpp"
     "${JAK_ROOT}/common/util/FileUtil.cpp"
+    # md5 fingerprints the bytes a level load ACTUALLY read (MeshConsolidate.cpp), so a host
+    # `md5sum` can prove which copy of a sidecar reached the renderer. This list is hand-picked and
+    # separate from common/CMakeLists.txt, so a file added there links fine on the desktop and fails
+    # ONLY on the arm64 link — which is exactly how it failed the first time.
+    "${JAK_ROOT}/common/util/md5.cpp"
     "${JAK_ROOT}/common/util/string_util.cpp"
     "${JAK_ROOT}/common/util/os.cpp"
     "${JAK_ROOT}/common/util/print_float.cpp"
