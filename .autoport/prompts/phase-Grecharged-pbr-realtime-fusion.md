@@ -564,3 +564,86 @@ CE QU'IL FAUT FAIRE
 
 LES GARDE-FOUS DU ROUND 28 RESTENT INCHANGÉS ET DURS : aucun shader modifié, sortie tfrag
 bit-identique, parallax intouché (hors amplitude), coutures partagées démontrées.
+
+================================================================================
+ROUND 29 — LES INSTANCES MIROIR + INTERDICTION DU FALLBACK PARALLAX
+================================================================================
+Owner, playtest du build du round 28 :
+  "ça n'a rien changé en gros. Précision, le mur avec l'effet boîte, c'est QUE celui du REZ-DE-
+   CHAUSSÉE de la hutte du Sage, le toit pareil, c'est le toit qui couvre le rez-de-chaussée, celui
+   au dessus est BON. Pour la corniche c'est toujours le noir qui ressort plus que le blanc et il y a
+   toujours le chunk complètement plat dans la pente... Qui a l'air d'être tombé en fallback parallax
+   mal calibré ou les sommets tournent quand on pan la caméra, idem pour certaines faces des rochers
+   de la falaise attenante et le sol juste avant le pont. ÇA NE DEVRAIT JAMAIS FALLBACK SUR DU
+   PARALLAX QUAND ON EST EN TESSELATION. Le parallax est plus maîtrisé mais pareil on dirait que le
+   fond tourne en pan de caméra sur le sol, et on a toujours le mur du rez-de-chaussée qui est
+   inversé (le noir qui ressort plus que le blanc). Il faut peut-être traiter un peu mieux les
+   normales de la géométrie automatiquement pour vraiment corriger en plus de la soudure qu'on fait
+   déjà et lissage, faut être sûr que l'orientation est bonne de partout et régler ces soucis de
+   différence en parallax et tesselation..."
+
+--------------------------------------------------------------------------------
+E1 — LES INSTANCES MIROIR (cause établie sur le code, à corriger)
+--------------------------------------------------------------------------------
+La précision de l'owner est décisive : sur LE MÊME bâtiment, avec LES MÊMES textures, le
+rez-de-chaussée est faux et l'étage est bon. Ce n'est donc ni le matériau, ni la texture, ni la
+hauteur, ni la distance. C'est l'INSTANCE.
+FAIT DANS LE CODE, vérifié par le superviseur :
+  * TFrag3Data.cpp::tie_normal_transform_v2 ré-orthonormalise les axes de la matrice d'instance
+    (y_row = x_row.cross(y_row.cross(x_row)).normalized()). Cette construction rend TOUJOURS un
+    repère DROITIER : elle DÉTRUIT le signe du déterminant. Une instance posée en MIROIR — pratique
+    standard pour dupliquer un bâtiment sans dupliquer la géométrie — reçoit donc des normales non
+    miroitées, c'est-à-dire INVERSÉES, alors que la copie non miroitée est correcte.
+  * Le pipeline SAIT déjà repérer le phénomène : le compteur g_tanframe_handed est décrit comme
+    "pairs whose tangent .w sign disagrees == a MIRRORED frame", et la mesure est explicitement
+    "diagnostic only, writes nothing back to the mesh". On mesure depuis des semaines sans corriger.
+CE QU'IL FAUT FAIRE :
+  1. Calculer le SIGNE DU DÉTERMINANT de chaque matrice d'instance TIE. Recenser combien
+     d'instances sont miroir, par niveau et au total. C'est le chiffre qui dit l'ampleur.
+  2. Propager ce signe correctement : une normale se transforme par l'inverse-transposée, et sur une
+     instance à déterminant négatif le sens doit être inversé ; le handedness w de la tangente doit
+     l'être aussi. Les deux, séparément, parce qu'ils alimentent deux tiers différents (la normale
+     la tessellation, le w le parallax) — c'est précisément pourquoi l'owner voit des inversions qui
+     ne coïncident pas entre les deux tiers.
+  3. Transformer la mesure diagnostique en CORRECTION écrite dans le mesh, avec le recensement
+     avant/après. Un compteur qui n'écrit rien n'a jamais réparé une normale.
+  4. Vérifier le cas particulier de l'owner : les instances du rez-de-chaussée de la hutte du sage
+     et celles de l'étage. Le rapport doit montrer leurs déterminants respectifs. Si l'une est
+     miroir et l'autre pas, la cause est prouvée par le cas nommé.
+
+--------------------------------------------------------------------------------
+E2 — RÈGLE OWNER : EN MODE TESSELLATION, JAMAIS DE REPLI SUR LE PARALLAX
+--------------------------------------------------------------------------------
+"ÇA NE DEVRAIT JAMAIS FALLBACK SUR DU PARALLAX QUAND ON EST EN TESSELATION."
+C'est un ordre, pas une préférence. Aujourd'hui la tessellation s'éteint par distance (fade 40-60 m
+puis porte franche) et le POM reste seul : l'owner le voit et l'appelle un fallback. Surfaces
+concernées qu'il a nommées : le chunk en pente, des faces des rochers de la falaise attenante, et le
+sol juste avant le pont.
+CE QU'IL FAUT FAIRE : en mode tessellation, la tessellation doit COUVRIR. Soit la porte de distance
+disparaît, soit elle est repoussée assez loin pour ne jamais être visible depuis un point où le
+joueur se tient. Chiffre le coût en triangles AVANT de choisir, et si le coût impose un compromis,
+propose-le explicitement au lieu de le décider en silence. Une zone que la tessellation abandonne
+est un défaut, pas une optimisation.
+
+--------------------------------------------------------------------------------
+E3 — L'ORBITE EST TOUJOURS LÀ, MAINTENANT VISIBLE SUR LE SOL EN PARALLAX
+--------------------------------------------------------------------------------
+"on dirait que le fond tourne en pan de caméra sur le sol". Le round 26 a ATTÉNUÉ l'orbite (cap du
+glissement latéral 1.5 -> 0.25) sans l'ÉLIMINER : un cap réduit un symptôme, il ne supprime pas la
+dépendance à l'azimut de la caméra qui le produit. Reprends la question à la racine : quelle
+quantité, dans le calcul de l'offset, tourne avec la caméra alors qu'elle devrait être ancrée à la
+surface ? Démontre-le sur l'expression, pas par un réglage. Et n'attaque pas E3 en même temps que
+E1 : corrige d'abord les signes, livre, puis l'orbite — sinon on ne saura pas ce qui a produit quoi.
+
+--------------------------------------------------------------------------------
+E4 — LA DEMANDE DE FOND DE L'OWNER
+--------------------------------------------------------------------------------
+"traiter un peu mieux les normales de la géométrie automatiquement... faut être sûr que
+l'orientation est bonne de partout". La soudure et le lissage sont acquis ; l'ORIENTATION ne l'est
+pas. L'objectif de fond est une garantie : après la passe, l'orientation est correcte PARTOUT, et ça
+se prouve par un invariant vérifiable sur les données, pas par un pourcentage qui progresse.
+Propose cet invariant et mesure-le.
+
+GARDE-FOUS INCHANGÉS : aucun shader modifié sans nécessité démontrée dans le rapport, sortie tfrag
+inchangée là où elle est correcte, le sol en tessellation ne doit pas régresser (l'owner le juge bon),
+mesure visuelle in-game toujours interdite.
