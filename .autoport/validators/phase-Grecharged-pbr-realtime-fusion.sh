@@ -248,11 +248,17 @@ grep -qiE 'no fallback|jamais.*fallback|tess.*covers|never falls back' "$R" || f
 grep -qiE 'triangle' "$R" || fail "E2: triangle cost of extending tessellation coverage not quantified"
 grep -qiE 'ground|sol' "$R" || fail "must state the ground (owner judges it good) does not regress"
 grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
-# ---- ROUND 30: the delivery path. Corrected geometry never reached the owner (twice). ----
-grep -qiE 'asset_root|external storage|stockage externe' "$R" || fail "R30: the external-storage read path not addressed"
-grep -qiE 'custom pack[^.]{0,60}(prior|precedence|wins|prime)|priorit' "$R" || fail "R30: custom pack must take precedence over the base pack for fr3/sidecars"
-grep -qiE 'md5|sha|fingerprint|empreinte' "$R" || fail "R30: no fingerprint of the sidecar ACTUALLY OPENED by the runtime"
-grep -qiE 'freshness|fraicheur|older than' "$R" || fail "R30: no packaging freshness guard for bundled data (exists for libgk, missing for data)"
-grep -qiE 'village1[^.]{0,40}(meshweld|sidecar)' "$R" || fail "R30: village1 sidecar identity not proven end-to-end"
+# ---- ROUND 31: CPU displacement-sign test per model. White OUT, black IN, 100% everywhere. ----
+grep -qiE 'cpu (port|portage)|ported .*(tese|tesc)|portage cpu' "$R" || fail "R31: no CPU port of the tess shaders (an idealisation proves nothing)"
+grep -qiE 'sign' "$R" || fail "R31: displacement SIGN not measured"
+grep -qiE 'white[^.]{0,30}(out|outward|ressort)|blanc[^.]{0,20}ressort' "$R" || fail "R31: the white-out / black-in criterion not stated"
+grep -qiE 'signed volume|volume signe|outward ray' "$R" || fail "R31: outward must be defined without the collision mesh (it caused the round-29 defect)"
+grep -qiE 'per[- ]model|par modele|one line per model' "$R" || fail "R31: no per-model table"
+grep -qiE 'ground[- ]floor|rez-de-chaussee' "$R" || fail "R31: the sage-hut GROUND FLOOR (the failing case) is not in the table"
+grep -qiE 'upper floor|etage' "$R" || fail "R31: the UPPER FLOOR control (known-correct) is not in the table"
+grep -qiE 'discriminat|distingue|separates' "$R" || fail "R31: the test is not shown to DISCRIMINATE the failing case from the control"
+PCT=$(grep -oiE '(worst|pire)[^0-9]{0,40}([0-9]{1,3}(\.[0-9]+)?) *%' "$R" | grep -oE '[0-9]{1,3}(\.[0-9]+)?' | sort -g | head -1)
+[ -n "$PCT" ] || fail "R31: no worst-model percentage of correctly-signed vertices"
+awk -v v="$PCT" 'BEGIN{exit !(v>=100)}' || fail "R31: worst model at $PCT% correctly-signed vertices, target is 100% everywhere"
 grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
 echo "[Gpbrf PASS]"

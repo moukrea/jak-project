@@ -735,3 +735,47 @@ CONSÉQUENCES À TRAITER DANS CE ROUND
 5. Vérifie l'espace disque du device avant de conclure : déplacer 327 Mo dans l'APK augmente
    l'empreinte installée, et la mémoire du projet signale que le /data du Redmi a déjà été proche
    de la saturation. Chiffre-le.
+
+================================================================================
+ROUND 31 — LE TEST QUE L'OWNER DEMANDE : LE SIGNE DU DÉPLACEMENT, PAR MODÈLE, EN CPU
+================================================================================
+Owner, mot pour mot :
+  "C'est pas compliqué, tu prends un modèle, tu appliques la tesselation, tu vois
+   (programmatiquement, t'es une merde en visuel) si c'est bien dans le bon sens et si ça fait bien
+   le damier ou les carrés blancs ressortent et les carrés noirs s'enfoncent et tu passes à la
+   suite. Ça devrait être partout pareil bordel ! Et encore on a que 7 textures pour l'instant !"
+
+C'est le seul livrable du round. Rien d'autre. Pas de capture, pas de round de théorie, pas de
+build tant que le test n'est pas vert.
+
+LE TEST — UN PORTAGE CPU DE tfrag3_tess.tesc + .tese, PAS UNE IDÉALISATION
+1. Prends un modèle (un draw, un chunk, une instance TIE — l'unité qui a du sens), applique EN CPU
+   exactement ce que le GPU applique : la même formule de niveau de tessellation, la même
+   subdivision du domaine, la même lecture de height à la MÊME uv que la base colour, la même loi
+   d'amplitude, le même déplacement le long de la normale interpolée. Si le portage CPU diverge du
+   shader, le test ne vaut rien : cite les lignes du shader en regard de chaque étape du portage.
+2. Pour chaque sommet généré, décide si son déplacement est DANS LE BON SENS :
+   * height > 0.5 (blanc du damier) => le sommet doit s'éloigner de la surface (RESSORTIR) ;
+   * height < 0.5 (noir) => il doit s'enfoncer.
+   "S'éloigner" se définit SANS autorité externe : par rapport au volume local du modèle (volume
+   signé, ou lancer de rayon sortant). Ne réutilise PAS la mesh de collision comme référence — c'est
+   elle qui a produit le défaut du round 29.
+3. LIVRABLE : un tableau, une ligne par modèle, avec le POURCENTAGE DE SOMMETS DÉPLACÉS DANS LE BON
+   SENS. La cible est 100% PARTOUT. Trie par le pire. Les modèles nommés par l'owner doivent y
+   figurer explicitement : le rez-de-chaussée de la hutte du sage (mur ET toit qui le couvre),
+   l'étage au-dessus (qui, lui, est CORRECT — c'est le témoin), la corniche de la falaise, le chunk
+   en pente de la descente, et le sol (correct aussi).
+4. Le témoin est capital : l'étage fonctionne. Le test DOIT le classer bon et le rez-de-chaussée
+   mauvais. S'il les classe pareil, le test ne mesure pas le défaut que l'owner voit — corrige le
+   test avant de corriger quoi que ce soit d'autre.
+5. Une fois le test capable de distinguer les deux, alors seulement cherche pourquoi, corrige, et
+   fais remonter le tableau à 100%. Le test devient un gate permanent : aucun round futur ne peut
+   passer avec un modèle sous 100%.
+6. Ça ne concerne que 7 matériaux aujourd'hui. Il n'y a donc aucune excuse de volume : le tableau
+   doit être exhaustif sur ces 7, sur tous les modèles où ils apparaissent.
+
+RAPPEL DE MES CINQ ÉCHECS, pour que tu ne les répètes pas : herbe (réfuté), repère tangent par
+dérivées écran (réfuté), instances miroir (réfuté, 0 sur 175828), loi de densité globale (a tout
+régressé), livraison (vrai bug, corrigé, sans effet sur le symptôme). Le point commun : j'ai chaque
+fois raisonné sur une cause plausible sans jamais mesurer le SIGNE DU DÉPLACEMENT LUI-MÊME. Ce round
+mesure la sortie, pas une hypothèse.
