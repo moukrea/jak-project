@@ -801,3 +801,21 @@ calculables en CPU, pas des suppositions.
 
 Et rappelle-toi l'ordre déjà donné : EN MODE TESSELLATION, JAMAIS DE REPLI SUR LE PARALLAX. Une zone
 que la tessellation laisse plate est un défaut, même si le POM y met quelque chose.
+
+--------------------------------------------------------------------------------
+ORDRE OWNER — MESH PAR MESH, TOUS, JUSQU'À ZÉRO DÉFAUT
+--------------------------------------------------------------------------------
+Owner : "J'en ai rien à foutre tu prends les mesh un par un et tu règles tous les soucis"
+
+Pas de méthodologie à débattre, pas de statistique agrégée, pas de "pire cas" comme livrable.
+LA TÂCHE : énumère TOUS les mesh où apparaissent les 7 matériaux, prends-les UN PAR UN, et corrige
+chacun jusqu'à ce que les deux critères soient à 100% dessus : bon sens de déplacement, et
+déplacement réellement non nul. Un mesh traité est un mesh qui passe les deux, définitivement.
+  * Le rapport liste CHAQUE mesh avec son état, et le nombre de mesh couverts doit égaler le nombre
+    de mesh existants. Un mesh absent de la liste est un échec de round.
+  * Ne t'arrête pas au premier mesh corrigé pour venir livrer. Enchaîne. Le round se termine quand
+    la liste est intégralement verte.
+  * Si un mesh résiste, isole-le, dis ce qui le distingue de ceux qui passent, et traite-le. C'est
+    le différentiel qui donne la cause — c'est ce qui a marché à chaque fois que l'owner a nommé
+    deux surfaces voisines dont l'une allait et l'autre pas.
+  * Sept matériaux seulement : il n'y a aucune excuse de volume.
