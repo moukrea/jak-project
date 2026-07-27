@@ -838,6 +838,10 @@
   (pc-text-pbr-iso-nm #x1725)
   (pc-text-pbr-iso-pom #x1726)
   (pc-text-pbr-iso-neither #x1727)
+  ;; Grecharged-mesh-browser: the "MESH BROWSER" launcher row in Recharged Settings. The label is a
+  ;; runtime global string (durable against stale text banks); this id only tags the button so
+  ;; respond-common can match it.
+  (pc-text-mesh-browser #x1728)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

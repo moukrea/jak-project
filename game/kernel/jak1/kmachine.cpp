@@ -57,6 +57,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+
+#include "common/util/font/font_utils.h"
 #if defined(__ANDROID__) || defined(__linux__)
 #include <unistd.h>  // fsync (Gcollision-glitchcapture dump durability)
 #endif
@@ -1277,6 +1281,246 @@ void pc_set_rt_shadow_strength(u32 pct) {
 }
 #endif
 
+// ===============================================================================================
+// Grecharged-mesh-browser: the debug MESH BROWSER back end (owner's direct request).
+//
+// The browser lists every displaceable mesh of a level worst-grade-first, lets the owner warp to
+// any one, auto-frames the camera on its bounding box, and toggles the checker / displacement /
+// relief / time-of-day while he judges it. GOAL owns the UI, the warp, the camera orbit and the
+// input; C++ owns the on-disk catalogue (parsing thousands of rows in GOAL would be painful) and
+// the checker toggle. This block is the bridge:
+//   * pc-mesh-index-load!    parse the bundled mesh_index_<level>.txt for a level -> in-memory rows
+//   * pc-mesh-index-count    how many meshes the loaded level has
+//   * pc-mesh-index-*        per-row scalar getters (system/grade/centroid/bbox) keyed by row idx
+//   * pc-mesh-index-name!    copy a row's material name into a GOAL string (font-encoded)
+//   * pc-mesh-index-level!   copy the loaded level's name into a GOAL string
+//   * pc-set-mesh-browser-checker!  drive the real-texture<->checker global (no adb needed)
+//   * pc-mesh-browser-export!  write the selected mesh identifier to files/mesh_select.txt
+// Read-only w.r.t. the render path: nothing here changes a shader; the checker global only
+// re-points an EXISTING debug material, applied at the next level load.
+// ===============================================================================================
+namespace {
+struct MeshIndexRow {
+  int system = 0;  // 0 TFRAG, 1 TIE
+  int tex_id = 0;
+  int shell = 0;
+  int graded = 0;       // 1 if the offline sign test produced a grade
+  int a_sign_x100 = -1;  // percent x100, -1 when ungraded
+  int b_disp_x100 = -1;
+  float cx = 0, cy = 0, cz = 0;
+  float lox = 0, loy = 0, loz = 0;
+  float hix = 0, hiy = 0, hiz = 0;
+  std::string material;
+};
+std::vector<MeshIndexRow> g_mesh_index;
+std::string g_mesh_index_level;
+
+// Copy a std::string into a GOAL string buffer (font-encoded, uppercased for the jak1 font), the
+// same pattern as pc_get_display_name. Truncates to the GOAL string's declared allocated length.
+void copy_to_goal_string(u32 str_dest_ptr, const std::string& s) {
+  if (!str_dest_ptr) {
+    return;
+  }
+  std::string up = s;
+  if (g_game_version == GameVersion::Jak1) {
+    up = str_util::to_upper(up);
+  }
+  const auto encoded =
+      get_font_bank_from_game_version(g_game_version)->convert_utf8_to_game(up.c_str());
+  auto* gs = Ptr<String>(str_dest_ptr).c();
+  // String::len is the allocated capacity; keep one byte for the NUL.
+  int cap = (int)gs->len;
+  std::string clipped = (cap > 1 && (int)encoded.size() >= cap) ? encoded.substr(0, cap - 1)
+                                                                : encoded;
+  strcpy(gs->data(), clipped.c_str());
+}
+}  // namespace
+
+// Load and parse the bundled per-level index. Returns the mesh count (0 on any failure — a level
+// without an index simply lists empty, never crashes). `level_name_ptr` is a GOAL string.
+u64 pc_mesh_index_load(u32 level_name_ptr) {
+  g_mesh_index.clear();
+  g_mesh_index_level.clear();
+  if (!level_name_ptr) {
+    return 0;
+  }
+  std::string level = Ptr<String>(level_name_ptr).c()->data();
+  // The GOAL font encodes uppercase; the on-disk file names are lowercase ascii level symbols.
+  std::string lvl_lower = str_util::to_lower(level);
+  // Strip anything the font encoder may have added; keep [a-z0-9-].
+  std::string clean;
+  for (char c : lvl_lower) {
+    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+      clean.push_back(c);
+    }
+  }
+  if (clean.empty()) {
+    return 0;
+  }
+  const auto path =
+      file_util::get_bundled_mesh_index_dir(g_game_version) / ("mesh_index_" + clean + ".txt");
+  std::ifstream in(path.string());
+  if (!in) {
+    lg::warn("[mesh-browser] no index for level '{}' at {}", clean, path.string());
+    return 0;
+  }
+  std::string header;
+  if (!std::getline(in, header)) {
+    return 0;
+  }
+  {
+    std::istringstream hs(header);
+    std::string magic;
+    int ver = 0;
+    std::string lname;
+    long count = 0;
+    hs >> magic >> ver >> lname >> count;
+    if (magic != "MESHIDX") {
+      lg::warn("[mesh-browser] bad index header for '{}'", clean);
+      return 0;
+    }
+    (void)ver;
+    (void)count;
+  }
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.empty()) {
+      continue;
+    }
+    std::istringstream ls(line);
+    MeshIndexRow r;
+    int idx = 0;
+    if (!(ls >> idx >> r.system >> r.tex_id >> r.shell >> r.graded >> r.a_sign_x100 >>
+          r.b_disp_x100 >> r.cx >> r.cy >> r.cz >> r.lox >> r.loy >> r.loz >> r.hix >> r.hiy >>
+          r.hiz)) {
+      continue;
+    }
+    std::getline(ls, r.material);  // rest of line (leading space + spaceless material tail)
+    while (!r.material.empty() && (r.material.front() == ' ' || r.material.front() == '\t')) {
+      r.material.erase(r.material.begin());
+    }
+    if (r.material.empty()) {
+      r.material = "?";
+    }
+    g_mesh_index.push_back(std::move(r));
+  }
+  g_mesh_index_level = clean;
+  lg::info("[mesh-browser] loaded {} meshes for level '{}'", g_mesh_index.size(), clean);
+  return (u64)g_mesh_index.size();
+}
+
+u64 pc_mesh_index_count() {
+  return (u64)g_mesh_index.size();
+}
+
+// One scalar getter, keyed by (row, field). Keeping it a single entry point avoids a dozen tiny
+// externs. field ids: 0 system, 1 graded, 2 a_sign_x100, 3 b_disp_x100, 4 tex_id, 5 shell.
+s64 pc_mesh_index_geti(u32 row, u32 field) {
+  if (row >= g_mesh_index.size()) {
+    return -1;
+  }
+  const auto& r = g_mesh_index[row];
+  switch (field) {
+    case 0:
+      return r.system;
+    case 1:
+      return r.graded;
+    case 2:
+      return r.a_sign_x100;
+    case 3:
+      return r.b_disp_x100;
+    case 4:
+      return r.tex_id;
+    case 5:
+      return r.shell;
+    default:
+      return -1;
+  }
+}
+
+// Geometry getter (world metres, GOAL float). field ids: 0 cx 1 cy 2 cz, 3 lox 4 loy 5 loz,
+// 6 hix 7 hiy 8 hiz. The caller multiplies by 4096 to reach GOAL units.
+float pc_mesh_index_getf(u32 row, u32 field) {
+  if (row >= g_mesh_index.size()) {
+    return 0.f;
+  }
+  const auto& r = g_mesh_index[row];
+  switch (field) {
+    case 0:
+      return r.cx;
+    case 1:
+      return r.cy;
+    case 2:
+      return r.cz;
+    case 3:
+      return r.lox;
+    case 4:
+      return r.loy;
+    case 5:
+      return r.loz;
+    case 6:
+      return r.hix;
+    case 7:
+      return r.hiy;
+    case 8:
+      return r.hiz;
+    default:
+      return 0.f;
+  }
+}
+
+// Copy a row's material name into a GOAL string; returns #t/#f.
+u64 pc_mesh_index_name(u32 row, u32 str_dest_ptr) {
+  if (row >= g_mesh_index.size()) {
+    return bool_to_symbol(false);
+  }
+  copy_to_goal_string(str_dest_ptr, g_mesh_index[row].material);
+  return bool_to_symbol(true);
+}
+
+// Copy the loaded level's name into a GOAL string.
+u64 pc_mesh_index_levelname(u32 str_dest_ptr) {
+  if (g_mesh_index_level.empty()) {
+    return bool_to_symbol(false);
+  }
+  copy_to_goal_string(str_dest_ptr, g_mesh_index_level);
+  return bool_to_symbol(true);
+}
+
+// The real-texture <-> checker toggle (settable without adb; see gfx.h field comment).
+void pc_set_mesh_browser_checker(u32 mode) {
+  Gfx::g_global_settings.recharged_mesh_browser_checker = (int)std::min(mode, 4u);
+}
+
+// Write the selected mesh identifier to files/mesh_select.txt so the owner can quote it back to us
+// without adb (mirrors pos_dump.txt). Called on selection, not per frame — no throttle needed.
+void pc_mesh_browser_export(u32 row) {
+  if (row >= g_mesh_index.size()) {
+    return;
+  }
+  const auto& r = g_mesh_index[row];
+  const char* sysname = r.system == 1 ? "TIE" : "TFRAG";
+  std::string grade = r.graded ? fmt::format("{:.2f}%", r.a_sign_x100 / 100.0) : "n/a";
+  try {
+    std::string body = fmt::format(
+        "MESH SELECT\n"
+        "level      {}\n"
+        "material   {}\n"
+        "system     {}\n"
+        "tex_id     {}\n"
+        "shell      {}\n"
+        "row        {}\n"
+        "A_sign     {}\n"
+        "centroid_m {:.3f} {:.3f} {:.3f}\n"
+        "warp.pos   {:.2f} {:.2f} {:.2f}\n",
+        g_mesh_index_level, r.material, sysname, r.tex_id, r.shell, row, grade, r.cx, r.cy, r.cz,
+        r.cx, r.cy, r.cz);
+    file_util::write_text_file(file_util::get_jak_project_dir() / "mesh_select.txt", body);
+  } catch (...) {
+    // best-effort; never let a disk error touch the game loop
+  }
+}
+
 void InitMachine_PCPort() {
   // PC Port added functions
   init_common_pc_port_functions(
@@ -1335,6 +1579,16 @@ void InitMachine_PCPort() {
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
+  // Grecharged-mesh-browser: the debug mesh-browser back end (index load + row getters + checker
+  // toggle + identifier export). See the block above InitMachine_PCPort.
+  make_function_symbol_from_c("pc-mesh-index-load!", (void*)pc_mesh_index_load);
+  make_function_symbol_from_c("pc-mesh-index-count", (void*)pc_mesh_index_count);
+  make_function_symbol_from_c("pc-mesh-index-geti", (void*)pc_mesh_index_geti);
+  make_function_symbol_from_c("pc-mesh-index-getf", (void*)pc_mesh_index_getf);
+  make_function_symbol_from_c("pc-mesh-index-name!", (void*)pc_mesh_index_name);
+  make_function_symbol_from_c("pc-mesh-index-level!", (void*)pc_mesh_index_levelname);
+  make_function_symbol_from_c("pc-set-mesh-browser-checker!", (void*)pc_set_mesh_browser_checker);
+  make_function_symbol_from_c("pc-mesh-browser-export!", (void*)pc_mesh_browser_export);
   // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
 #ifdef OG_FEAT_HD_MODELS

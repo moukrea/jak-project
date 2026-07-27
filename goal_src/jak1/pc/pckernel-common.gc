@@ -27,6 +27,10 @@
   "return the current pckernel version"
   PC_KERNEL_VERSION)
 
+;; Grecharged-mesh-browser: forward decl so (update *pc-settings*) can call the overlay's per-frame
+;; entry point (defined later in pc/mesh-browser-pc.gc). Resolved by symbol at runtime.
+(define-extern mesh-browser-update (function none))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; updates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -468,6 +472,11 @@
   ;; on-screen FPS counter (graphics option). draws into the just-started frame's
   ;; global-buf; renders on both x86 and Android via the game font.
   (draw-pc-fps-counter)
+  ;; Grecharged-mesh-browser: the debug mesh browser overlay. Does NOTHING while closed (the normal
+  ;; render path is byte-for-byte unchanged); when open it owns the screen, reads pad+touch and draws
+  ;; its own HUD into the same always-live debug bucket. Defined in pc/mesh-browser-pc.gc (compiled
+  ;; later), so it is called through the symbol — forward-declared just above this file's methods.
+  (mesh-browser-update)
   (none))
 
 (defmethod update-cheats ((obj pc-settings))

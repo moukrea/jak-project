@@ -480,6 +480,16 @@ fs::path get_bundled_recharged_textures_dir(GameVersion game_version) {
          "recharged_textures";
 }
 
+// Grecharged-mesh-browser: same ship path as the bundled recharged textures above (extracted
+// custom-pack root on Android, checked-out tree on desktop), one subdir over. Holds one
+// mesh_index_<level>.txt per level, produced offline by tools/mesh_index from the tess_sign CSV.
+fs::path get_bundled_mesh_index_dir(GameVersion game_version) {
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / "mesh_index";
+  }
+  return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] / "mesh_index";
+}
+
 std::string get_file_path(const std::vector<std::string>& input) {
   // TODO - clean this behaviour up, it causes unexpected behaviour when working with files
   // the project path should be explicitly provided by whatever if needed

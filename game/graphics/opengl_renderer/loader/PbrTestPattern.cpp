@@ -9,6 +9,7 @@
 
 #include "common/log/log.h"
 
+#include "game/graphics/gfx.h"
 #include "third-party/glad/include/glad/glad.h"
 
 namespace pbr_testpattern {
@@ -20,22 +21,31 @@ namespace {
 constexpr int kMapDim = 256;
 
 // Cached-once property/env reads, same idiom as pbr_killswitch() in background_common.cpp.
-int read_cached(int& cached, int def, int lo, int hi, const char* prop, const char* env) {
+// `present` (optional) reports, on the FIRST read only, whether the prop/env was explicitly set —
+// the mesh-browser fallback needs to tell "no override" apart from "overridden to 0".
+int read_cached(int& cached, int def, int lo, int hi, const char* prop, const char* env,
+                bool* present = nullptr) {
   if (cached < 0) {
     cached = def;
+    bool found = false;
 #ifdef __ANDROID__
     char v[PROP_VALUE_MAX];
     if (__system_property_get(prop, v) > 0) {
       cached = atoi(v);
+      found = true;
     }
     (void)env;
 #else
     if (const char* e = std::getenv(env)) {
       cached = atoi(e);
+      found = true;
     }
     (void)prop;
 #endif
     cached = std::clamp(cached, lo, hi);
+    if (present) {
+      *present = found;
+    }
   }
   return cached;
 }
@@ -243,8 +253,17 @@ int mode() {
   constexpr int kDefaultMode = 0;
 #endif
   static int cached = -1;
-  return read_cached(cached, kDefaultMode, 0, 4, "debug.opengoal.pbr.testpattern",
-                     "OG_PBR_TESTPATTERN");
+  static bool prop_present = false;
+  const int prop_mode = read_cached(cached, kDefaultMode, 0, 4, "debug.opengoal.pbr.testpattern",
+                                    "OG_PBR_TESTPATTERN", &prop_present);
+  // Grecharged-mesh-browser: with NO prop/env override, the debug mesh browser's menu toggle owns
+  // the pattern (the owner has no adb). This is read fresh on every call (hence at every level
+  // load) so a menu flip + re-warp takes effect. When the prop/env IS set, it still wins in either
+  // direction — the supervisor's headless A/B is byte-for-byte unchanged.
+  if (!prop_present) {
+    return std::clamp(Gfx::g_global_settings.recharged_mesh_browser_checker, 0, 4);
+  }
+  return prop_mode;
 }
 
 bool flat_base() {

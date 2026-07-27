@@ -562,7 +562,16 @@ struct Bvh {
   struct Node {
     double lo[3] = {0, 0, 0};
     double hi[3] = {0, 0, 0};
-    u32 left = 0;    // child index (interior) or 0
+    u32 left = 0;    // LEFT child index (interior) or 0
+    // ROUND 31 CORRECTNESS FIX. This used to be absent and both traversals pushed `left` and
+    // `left + 1`. That identity only holds when the LEFT child is a LEAF (build_rec emits the left
+    // subtree in full before it starts the right one, so with an interior left child `left + 1` is
+    // the left child's OWN left child and the entire right subtree is never visited). The effect was
+    // not subtle: with most of the level unreachable from the root, almost every occlusion query
+    // answered "nothing there", so TIER RAYF measured 13 escapes on BOTH sides of every face,
+    // diff == 0 < kRayfMinMargin, and the tier that the report calls the PRIMARY outward authority
+    // voted on 0 of 495544 mesh faces. Storing the right child explicitly is the whole fix.
+    u32 right = 0;   // RIGHT child index (interior) or 0
     u32 first = 0;   // first entry in `order` (leaf)
     u32 count = 0;   // 0 = interior
   };
@@ -625,7 +634,7 @@ struct Bvh {
       } else {
         if (sp + 2 <= 128) {
           stack[sp++] = nd.left;
-          stack[sp++] = nd.left + 1;
+          stack[sp++] = nd.right;
         }
       }
     }
@@ -659,7 +668,7 @@ struct Bvh {
       } else {
         if (sp + 2 <= 128) {
           stack[sp++] = nd.left;
-          stack[sp++] = nd.left + 1;
+          stack[sp++] = nd.right;
         }
       }
     }
@@ -724,8 +733,9 @@ struct Bvh {
     nd.count = 0;
     nodes[me] = nd;
     const u32 l = build_rec(first, mid, flo, fhi, cen);
-    build_rec(first + mid, count - mid, flo, fhi, cen);
+    const u32 r = build_rec(first + mid, count - mid, flo, fhi, cen);
     nodes[me].left = l;
+    nodes[me].right = r;
     return me;
   }
 };
@@ -983,6 +993,12 @@ int main(int argc, char** argv) {
   int subdiv_rounds = 3;
   bool force_live = true;
   bool geom_orient = false;
+  // OWNER SCOPE ("pars du principe que absolument tous les mesh auront du PBR"): the perimeter is
+  // the WHOLE GAME, not the 7 materials that happen to ship a _height.png today. With this flag
+  // every texture is treated as displaceable and every mesh is graded against the SYNTHETIC
+  // CHECKER, whose height field is known exactly — which is precisely what the debug material is
+  // for and what makes total coverage possible now instead of after the art lands.
+  bool all_textures = false;
   int rayf_k = kRayfKDefault;
   u64 max_verts_per_mesh = 200000;
   std::vector<NamedBox> named;
@@ -1024,6 +1040,8 @@ int main(int argc, char** argv) {
       force_live = false;
     } else if (a == "--geom-orient") {
       geom_orient = true;
+    } else if (a == "--all-textures") {
+      all_textures = true;
     } else if (a == "--rayf-k") {
       rayf_k = std::stoi(need_val("--rayf-k"));
     } else if (a == "--max-verts-per-mesh") {
@@ -1199,10 +1217,16 @@ int main(int argc, char** argv) {
       displaceable.insert(fn.substr(0, fn.size() - suffix.size()));
     }
   }
-  fmt::print("[tess_sign] discovered {} displaceable material(s) under {}\n", displaceable.size(),
-             tex_root_s);
+  fmt::print("[tess_sign] discovered {} displaceable material(s) under {}{}\n", displaceable.size(),
+             tex_root_s, all_textures ? "  (--all-textures: EVERY texture graded)" : "");
+  // ONE gate, used by every site below, so the whole-game mode cannot be applied in one place and
+  // forgotten in another. Still no material name in this file: --all-textures says "all", it does
+  // not name anything.
+  auto name_is_displaceable = [&](const std::string& n) {
+    return all_textures || displaceable.count(n) > 0;
+  };
   auto tex_is_displaceable = [&](const tfrag3::Texture& t) {
-    return displaceable.count(t.debug_name) > 0;
+    return name_is_displaceable(t.debug_name);
   };
 
   // ---------------------------------------------------------------------------------------------
@@ -1250,7 +1274,7 @@ int main(int argc, char** argv) {
   std::map<std::string, UvEntry> uv_by_mat;   // reported table
   std::vector<UvEntry> uv_by_tex(lev.textures.size());
   for (size_t ti = 0; ti < lev.textures.size(); ti++) {
-    if (!displaceable.count(lev.textures[ti].debug_name)) {
+    if (!name_is_displaceable(lev.textures[ti].debug_name)) {
       continue;
     }
     UvEntry e;
@@ -1536,7 +1560,7 @@ int main(int argc, char** argv) {
   for (u32 f = 0; f < faces.size(); f++) {
     shells[shell_of[f]].faces.push_back(f);
     if (faces[f].tex >= 0 && (size_t)faces[f].tex < lev.textures.size() &&
-        displaceable.count(lev.textures[faces[f].tex].debug_name)) {
+        name_is_displaceable(lev.textures[faces[f].tex].debug_name)) {
       shells[shell_of[f]].has_displaceable = true;
       face_is_mesh[f] = 1;
       n_mesh_faces++;
@@ -1706,6 +1730,8 @@ int main(int argc, char** argv) {
   std::vector<s8> rayf_vote(faces.size(), 0);
   std::vector<u8> rayf_plus(faces.size(), 0), rayf_minus(faces.size(), 0);
   double rayf_seconds = 0.0;
+  u64 rayf_sat_blocked = 0, rayf_sat_open = 0;
+  double rayf_mean_plus = 0.0, rayf_mean_minus = 0.0;
   {
     // the mesh faces, ascending, so the work partition is a pure function of the face list
     std::vector<u32> rayf_faces;
@@ -1791,14 +1817,34 @@ int main(int argc, char** argv) {
     rayf_seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
     u64 voted = 0;
+    // ROUND 31 — SATURATION DISCLOSURE. A tier that abstains can abstain for two OPPOSITE reasons,
+    // and the difference is the difference between "the geometry is genuinely symmetric here" and
+    // "the occlusion query is broken". esc==0 on both sides means every ray was blocked; esc==K on
+    // both sides means none was. Both give diff==0 and both used to print the single word
+    // "abstained", which is how a dead BVH traversal survived a whole round unnoticed. Count them
+    // separately and print them.
+    u64 sat_blocked = 0, sat_open = 0, plus_sum = 0, minus_sum = 0;
     for (u32 f : rayf_faces) {
       if (rayf_vote[f] != 0) {
         voted++;
       }
+      plus_sum += rayf_plus[f];
+      minus_sum += rayf_minus[f];
+      if (rayf_plus[f] == 0 && rayf_minus[f] == 0) {
+        sat_blocked++;
+      } else if (rayf_plus[f] == (u8)rayf_k && rayf_minus[f] == (u8)rayf_k) {
+        sat_open++;
+      }
     }
+    rayf_sat_blocked = sat_blocked;
+    rayf_sat_open = sat_open;
+    rayf_mean_plus = rayf_faces.empty() ? 0.0 : (double)plus_sum / (double)rayf_faces.size();
+    rayf_mean_minus = rayf_faces.empty() ? 0.0 : (double)minus_sum / (double)rayf_faces.size();
     fmt::print("[tess_sign] tier RAYF done: {} of {} mesh faces voted, K={} per hemisphere, {} "
-               "threads, {:.1f} s\n",
-               voted, rayf_faces.size(), rayf_k, nthreads, rayf_seconds);
+               "threads, {:.1f} s (mean escapes +{:.2f}/-{:.2f}, saturated all-blocked {} "
+               "all-open {})\n",
+               voted, rayf_faces.size(), rayf_k, nthreads, rayf_seconds, rayf_mean_plus,
+               rayf_mean_minus, sat_blocked, sat_open);
   }
 
   // (d) TIER ESC — ESCAPE-DISTANCE ASYMMETRY against the WHOLE level BVH.
@@ -1970,7 +2016,7 @@ int main(int argc, char** argv) {
     for (u32 f = 0; f < faces.size(); f++) {
       const s32 tex = faces[f].tex;
       if (tex < 0 || (size_t)tex >= lev.textures.size() ||
-          !displaceable.count(lev.textures[tex].debug_name)) {
+          !name_is_displaceable(lev.textures[tex].debug_name)) {
         continue;
       }
       const std::array<u64, 3> k{(u64)shell_of[f], (u64)tex, (u64)faces[f].system};

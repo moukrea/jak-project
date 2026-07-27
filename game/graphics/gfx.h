@@ -158,6 +158,14 @@ struct GfxGlobalSettings {
   // _height/_normal/_roughness PBR maps follow the PBR path, not this flag). Default ON so a
   // plain install shows the Recharged look; the MASTER still forces stock when OFF.
   bool recharged_textures = true;
+  // Grecharged-mesh-browser: the debug MESH BROWSER's real-texture <-> checker toggle, settable
+  // from the menu without adb (the owner has none). pbr_testpattern::mode() falls back to this
+  // when no debug.opengoal.pbr.testpattern prop / OG_PBR_TESTPATTERN env is set, so the headless
+  // A/B path is unchanged (the prop still overrides in either direction) while the on-device
+  // browser can flip the checker on/off. Applied at the NEXT level load (the checker is baked into
+  // the texture upload), so the browser re-warps the current mesh after a flip. 0 = off (real
+  // textures), 1 = checker where PBR maps exist (the owner's verification pattern). Default 0.
+  int recharged_mesh_browser_checker = 0;
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
   // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
   float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};

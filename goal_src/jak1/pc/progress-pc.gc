@@ -84,6 +84,11 @@
 ;; enter/toggle/cycle/commit logic is reused verbatim.
 (define-extern pc-get-touch-tap (function (pointer int64) (pointer int64) (pointer int64) none))
 
+;; Grecharged-mesh-browser: forward decl so the Recharged Settings "MESH BROWSER" button can open the
+;; overlay (defined later in pc/mesh-browser-pc.gc). Plain function (not a method) to avoid needing
+;; the mesh-browser type here.
+(define-extern mesh-browser-open! (function none))
+
 (defconstant MENU_TOUCH_MAX_ROWS 12)   ;; >= PROGRESS_PC_PAGE_HEIGHT (+ scroll extra)
 
 ;; synthetic-press sequence tokens
@@ -1068,7 +1073,12 @@
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
        ;; are a resource for PBR/water only. See menu-tree.md §11 [SUPPR] history.
-       ;; 8 Back
+       ;; Grecharged-mesh-browser: DEBUG launcher for the mesh browser overlay (warp into any level,
+       ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
+       ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
+       ;; global string; always enabled (a debug tool must stay reachable even with master OFF).
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t)
+       ;; Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
@@ -3398,7 +3408,10 @@
   ;; (+ 9 hud-N hd-N) and FOLIAGE WIND sits at (+ 4 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 4 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 4 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 9 hud-N) and no collapse ever fires.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N)))
+  ;; Grecharged-mesh-browser: +1 for the always-present MESH BROWSER launcher row inserted before
+  ;; Back (it sits at the tail, after every row the wiring/collapse touches, so only the total-length
+  ;; guards below change — the fw-idx base and the collapse loop indices are unaffected).
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -3465,12 +3478,15 @@
   ;; compiled only with --hd-models; without it the ENHANCED MODELS row is absent from the static array.
   (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
-      (when (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
+      ;; Grecharged-mesh-browser: +1 on both length constants for the tail MESH BROWSER row. (With
+      ;; FLAG_PBR on this whole guard is dead — the real length includes the ~9 PBR rows — but keep
+      ;; the no-PBR arithmetic correct: remove one row from a length that is now one larger.)
+      (when (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
             (+! i 1)))
-        (set! (-> *recharged-options-pc* length) (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+        (set! (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
       (begin
         (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
@@ -3842,6 +3858,14 @@
               ((= (-> options (-> obj option-index) option-type) (game-option-type button))
                ;; a button. what?
                (case (-> options (-> obj option-index) name)
+                 ;; Grecharged-mesh-browser: open the debug mesh browser overlay and close the menu so
+                 ;; it owns the screen. Reachable by touch AND gamepad, no adb.
+                 (((text-id pc-text-mesh-browser))
+                  (cpad-clear! 0 x)
+                  (cpad-clear! 0 circle)
+                  (sound-play "select-option")
+                  (mesh-browser-open!)
+                  (set-master-mode 'game))
                  (((text-id exit-demo))
                   ;; exit demo!
                   (set! *master-exit* 'force)
