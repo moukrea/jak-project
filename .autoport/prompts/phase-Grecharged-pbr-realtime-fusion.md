@@ -458,3 +458,55 @@ tous deux être issus du même commit. Vérifie et rapporte les deux sha.
 La règle antérieure "on ne livre plus une paire, un seul APK damier" est ANNULÉE par celle-ci.
 Rappel qui reste valable : le damier reste le matériau de test tant que l'owner ne l'a pas déclaré
 parfait, et il doit s'activer TOUT SEUL dans le build damier (l'owner n'a pas adb).
+
+================================================================================
+ROUND 28 — LE ROUND 27 EST ANNULÉ. VOIE CHIRURGICALE : PRÉ-SUBDIVISER LE TIE.
+================================================================================
+Owner, playtest du build du round 27 :
+  "What the fuck ??? C'est beaucoup, beaucoup moins bien qu'avant ! Les damiers sont déplacés qu'aux
+   centres de leur carrés, beaucoup moins de relief et très bizarre à l'aspect (partout), les murs le
+   displacement est inversé et encore plus bizarre, le sol c'est mauvais... Et le parallax tu l'as
+   détruit entièrement, c'est terrible !"
+
+Le superviseur a ANNULÉ les trois shaders du round 27 (pbr_helpers.glsl, tfrag3_tess.tesc,
+tfrag3_tess.tese restaurés à fc7b815e34) et re-livré les deux APK. NE LES RÉINTRODUIS PAS.
+
+LEÇON À NE PAS REPERDRE : le diagnostic du round 27 était juste (la densité de sommets est le
+facteur limitant sur les parois), mais le REMÈDE était global. Rendre la cible de densité
+proportionnelle à lambda touche TOUTES les surfaces, donc casse celles qui allaient bien — le sol et
+le parallax en sont morts. RÈGLE : on ne modifie pas une loi globale pour réparer un cas particulier.
+
+--------------------------------------------------------------------------------
+CE QU'IL FAUT FAIRE, ET RIEN D'AUTRE
+--------------------------------------------------------------------------------
+FAIT ÉTABLI SUR LE CODE PAR LE SUPERVISEUR : mesh_presubdivide_level() dans
+common/custom_data/MeshSubdivide.cpp ne parcourt QUE lev.tfrag_trees. Il ne touche JAMAIS
+lev.tie_trees. Or le mur et le toit de la hutte du sage sont de la géométrie TIE (dessinée par le
+programme tfrag3 pour les draws non-envmap, donc elle reçoit bien les maps PBR et la tessellation,
+mais ses faces n'ont jamais été densifiées hors-ligne). Le sol, lui, est du tfrag : pré-subdivisé,
+donc fin, donc bon. VOILÀ la vraie asymétrie sol/murs, et elle se corrige dans les DONNÉES.
+
+L'OBJECTIF : étendre la pré-subdivision aux tie_trees, avec exactement les mêmes règles que pour le
+tfrag (même filtre "la texture a-t-elle une height map", même partage des sommets créés, mêmes
+garanties de couture, même sidecar précalculé). Rien d'autre ne bouge.
+
+CONTRAINTES DURES, VÉRIFIÉES PAR LE VALIDATOR :
+1. AUCUN SHADER MODIFIÉ. Pas une ligne dans pbr_helpers.glsl, tfrag3_tess.tesc, tfrag3_tess.tese,
+   tfrag3.frag, pbr_fused.glsl. Ce round est un round de DONNÉES. Si tu crois avoir besoin d'un
+   changement de shader, arrête-toi et explique-le dans le rapport au lieu de le faire.
+2. LE TFRAG EST INTOUCHÉ. La géométrie tfrag produite doit être BIT-IDENTIQUE à celle d'avant ce
+   round. Le sol va bien : il ne doit pas bouger d'un octet. Prouve-le par un hash de la sortie.
+3. LE PARALLAX EST INTOUCHÉ. Il est jugé correct par l'owner (aucune inversion, aucune boîte, la
+   pente est nickel). Zéro modification.
+4. COUTURES. Les sommets créés sur une arête partagée doivent être partagés, sinon on rouvre les
+   169 millions d'arêtes non soudées que la phase de consolidation a fermées. Applique le même
+   argument de sécurité que le tfrag et démontre-le.
+5. COÛT. Chiffre l'augmentation du nombre de sommets/triangles TIE et le temps de chargement, avant
+   et après, sur village1 au minimum. Si le coût est déraisonnable, dis-le plutôt que de le cacher.
+6. Preuves au niveau du CODE et des DONNÉES uniquement (la mesure visuelle in-game reste interdite) :
+   nombre de faces TIE éligibles, taille d'arête moyenne avant/après, segments par feature qui en
+   résultent pour wallplaster à 2 m et 10 m, hash inchangé du tfrag.
+
+POURQUOI CETTE VOIE PEUT MARCHER LÀ OÙ LE ROUND 27 A ÉCHOUÉ : elle ne demande RIEN au GPU. Le
+plafond matériel de niveau 64 devient sans objet, puisqu'on part d'arêtes déjà courtes. Et comme
+elle ne touche ni les lois de shader ni le tfrag, elle ne PEUT PAS dégrader le sol ni le parallax.
