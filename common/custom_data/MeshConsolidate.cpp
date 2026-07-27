@@ -393,9 +393,12 @@ struct BR {
 
 constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
 // v2 (round 22): the orientation rule changed, so every nor[] in a v1 sidecar is a stale answer.
+// v3 (round 28): the orientation rule changed AGAIN — a component the collision mesh cannot reach
+//   is now decided by the geometric SECOND AUTHORITY (signed volume / outward ray parity) instead
+//   of silently keeping its authored winding, so every nor[] in a v1 OR v2 sidecar is stale too.
 // mesh_consolidate_apply_bake() rejects a version mismatch and the caller falls back to the live
 // pass, so the 26 baked jak1 levels cannot silently keep the old (inverted) normals.
-constexpr u32 kBakeVersion = 2;
+constexpr u32 kBakeVersion = 3;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and
@@ -1334,11 +1337,20 @@ void mesh_consolidate(Level& lev,
   };
 
   // =============================================================================================
-  // 6. ORIENTATION. Flood-fill a consistent winding sign over the welded topology, then let the
-  //    walkable COLLISION MESH decide which way "outward" is for each connected component. A
-  //    component the collision mesh cannot reach keeps the orientation the accepted previous pass
-  //    gave it (consensus of the incoming vertex normals), so nothing that already looks right can
-  //    be flipped by a silent authority.
+  // 6. ORIENTATION. Flood-fill a consistent winding sign over the welded topology, then decide which
+  //    way "outward" is for each connected component.
+  //
+  //    FIRST AUTHORITY: the walkable COLLISION MESH. It is the ground truth wherever it reaches.
+  //
+  //    SECOND AUTHORITY (round 28): where the collision mesh is SILENT, a deterministic, purely
+  //    GEOMETRIC cascade (signed volume, then outward ray parity) decides instead. Before round 28
+  //    such a component simply kept the orientation it arrived with — the consensus of the AUTHORED
+  //    vertex normals — which is not an authority at all: if the authored normals were inverted the
+  //    component stayed inverted. An inverted vertex normal inverts the TESSELLATION displacement
+  //    (the tese displaces along N) while leaving PARALLAX correct (the POM tangent frame is
+  //    invariant under N -> -N once w flips, which pass 7b below already does), which is exactly the
+  //    owner's report: roof, cliff cornice and part of the sage-hut wall inverted in tessellation
+  //    but correct in parallax.
   // =============================================================================================
   std::vector<s8> fsign(F, 0);
   if ((cfg.bits & kMeshBitNoOrient) != 0) {
@@ -1378,6 +1390,66 @@ void mesh_consolidate(Level& lev,
     if (!lev.collision.vertices.empty()) {
       coll.build(lev.collision);
     }
+
+    // -------------------------------------------------------------------------------------------
+    // round-28 SECOND ORIENTATION AUTHORITY — machinery.
+    //
+    // DETERMINISM IS A HARD REQUIREMENT here. Every loop that feeds a decision below walks the
+    // component's faces in ASCENDING FACE-INDEX order (comp_faces is sorted once, before any of
+    // them run), never in flood-fill / DFS-stack order; no std::unordered_* iteration reaches any
+    // of these decisions; every accumulation is in double. Two runs over the same fr3 therefore
+    // produce byte-identical output.
+    // -------------------------------------------------------------------------------------------
+    constexpr double kVolEps = 1e-3;      // TIER A speaks only when |V6| > kVolEps * L^3
+    constexpr double kRayEdgeEps = 1e-6;  // barycentric margin: closer than this to an edge = ambiguous
+    const double kProbeEps = 0.01 * (double)kUnitsPerMeter;  // TIER B probe sits 1 cm off the face
+    // THREE fixed, hard-coded, non-axis-aligned, mutually distinct unit directions (pairwise dots
+    // 0.040 / -0.294 / -0.374, so they are well spread and cannot all graze the same edge). A
+    // single ray that grazes an edge must never decide alone, hence the majority vote.
+    static const double kRayDir[3][3] = {
+        {0.577376394449, 0.325086709102, 0.748969379013},
+        {0.811042441923, -0.447113141060, -0.377226717625},
+        {-0.267296955505, 0.801790867654, -0.534493912149},
+    };
+    // Moller-Trumbore in double. Winding is irrelevant to a parity count, so the fsign correction
+    // is deliberately NOT applied here. Returns:
+    //   +1 clean forward hit, 0 clean miss, -1 AMBIGUOUS -> the caller throws the whole ray away.
+    auto ray_tri = [&](const double* o, const double* d, u32 f) -> int {
+      const auto& tf = faces[f];
+      const double v0[3] = {(double)gp[tf[0]].x(), (double)gp[tf[0]].y(), (double)gp[tf[0]].z()};
+      const double v1[3] = {(double)gp[tf[1]].x(), (double)gp[tf[1]].y(), (double)gp[tf[1]].z()};
+      const double v2[3] = {(double)gp[tf[2]].x(), (double)gp[tf[2]].y(), (double)gp[tf[2]].z()};
+      const double e1[3] = {v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]};
+      const double e2[3] = {v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]};
+      const double pv[3] = {d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2],
+                            d[0] * e2[1] - d[1] * e2[0]};
+      const double det = e1[0] * pv[0] + e1[1] * pv[1] + e1[2] * pv[2];
+      if (!(std::abs(det) > 1e-12)) {
+        return 0;  // ray parallel to the triangle's plane: it skims, it does not cross
+      }
+      const double inv = 1.0 / det;
+      const double tv[3] = {o[0] - v0[0], o[1] - v0[1], o[2] - v0[2]};
+      const double bu = (tv[0] * pv[0] + tv[1] * pv[1] + tv[2] * pv[2]) * inv;
+      const double qv[3] = {tv[1] * e1[2] - tv[2] * e1[1], tv[2] * e1[0] - tv[0] * e1[2],
+                            tv[0] * e1[1] - tv[1] * e1[0]};
+      const double bv = (d[0] * qv[0] + d[1] * qv[1] + d[2] * qv[2]) * inv;
+      const double bw = 1.0 - bu - bv;
+      if (bu < -kRayEdgeEps || bv < -kRayEdgeEps || bw < -kRayEdgeEps) {
+        return 0;  // clearly outside the triangle
+      }
+      if (bu < kRayEdgeEps || bv < kRayEdgeEps || bw < kRayEdgeEps) {
+        return -1;  // within 1e-6 of an edge/vertex: the crossing count is not trustworthy
+      }
+      const double tt = (e2[0] * qv[0] + e2[1] * qv[1] + e2[2] * qv[2]) * inv;
+      if (tt < -kRayEdgeEps) {
+        return 0;  // strictly behind the ray origin
+      }
+      if (tt < kRayEdgeEps) {
+        return -1;  // the probe point sits ON this triangle: inside/outside is undefined
+      }
+      return 1;
+    };
+
     for (size_t seed = 0; seed < F; seed++) {
       if (fsign[seed] != 0) {
         continue;
@@ -1460,7 +1532,12 @@ void mesh_consolidate(Level& lev,
           break;  // component complete
         }
       }
-      // decide the component's global sign
+      // decide the component's global sign.
+      // round-28 DETERMINISM: sort the component's faces into ASCENDING FACE-INDEX order ONCE, here,
+      // before anything reads them. Every statistic below — the collision/authored agreement sums,
+      // the TIER A signed volume, the TIER B largest-area seed face and its ray parities — then
+      // accumulates in that one fixed order instead of the flood fill's DFS-stack order.
+      std::sort(comp_faces.begin(), comp_faces.end());
       double agree_coll = 0, agree_prev = 0;
       bool any_coll = false;
       for (u32 f : comp_faces) {
@@ -1484,9 +1561,133 @@ void mesh_consolidate(Level& lev,
           }
         }
       }
-      const double agree = any_coll && std::abs(agree_coll) > 1e-3 ? agree_coll : agree_prev;
-      if (any_coll && std::abs(agree_coll) > 1e-3) {
+      const bool coll_speaks = any_coll && std::abs(agree_coll) > 1e-3;
+      double agree = agree_prev;
+      if (coll_speaks) {
+        // FIRST AUTHORITY: the walkable collision mesh reaches this component and has an opinion.
         rep.orient_comps_collision_decided++;
+        agree = agree_coll;
+      } else {
+        // =======================================================================================
+        // SECOND AUTHORITY (round 28). The collision mesh is SILENT here. Before round 28 the code
+        // fell straight back to agree_prev — the authored vertex normals — i.e. the component kept
+        // whatever orientation it arrived with, inverted or not. Run a deterministic, purely
+        // geometric cascade instead, and record which tier decided.
+        // =======================================================================================
+        rep.orient_comps_no_authority++;
+        rep.orient_faces_no_authority += (u64)comp_faces.size();
+        int decided = 0;  // +1 = already outward (keep), -1 = inward (flip), 0 = this tier abstains
+
+        // ---- TIER A: SIGNED VOLUME (divergence theorem) -------------------------------------
+        // Over the component's faces, in the fsign-corrected winding order,
+        //     V6 += dot(p0, cross(p1, p2))      (V = V6/6)
+        // A CLOSED shell wound outward has V > 0. Only meaningful when the component really is
+        // closed enough for the number to mean something, so it is required to clear kVolEps * L^3
+        // (L = the component bbox diagonal) and to have at least 4 faces.
+        if (comp_faces.size() >= 4) {
+          math::Vector3f blo = gp[faces[comp_faces[0]][0]], bhi = blo;
+          for (u32 f : comp_faces) {
+            for (int e = 0; e < 3; e++) {
+              const math::Vector3f& p = gp[faces[f][e]];
+              blo = math::Vector3f(std::min(blo.x(), p.x()), std::min(blo.y(), p.y()),
+                                   std::min(blo.z(), p.z()));
+              bhi = math::Vector3f(std::max(bhi.x(), p.x()), std::max(bhi.y(), p.y()),
+                                   std::max(bhi.z(), p.z()));
+            }
+          }
+          // Translate EVERY position by the bbox CENTRE before the triple product. This is
+          // essential, not cosmetic: these are world coordinates in game units of 4096/m, so a raw
+          // p0 . (p1 x p2) runs to ~1e15 and the (far smaller) enclosed volume is lost entirely to
+          // cancellation. Accumulated in double throughout.
+          const double ox = 0.5 * ((double)blo.x() + (double)bhi.x());
+          const double oy = 0.5 * ((double)blo.y() + (double)bhi.y());
+          const double oz = 0.5 * ((double)blo.z() + (double)bhi.z());
+          const double dgx = (double)bhi.x() - (double)blo.x();
+          const double dgy = (double)bhi.y() - (double)blo.y();
+          const double dgz = (double)bhi.z() - (double)blo.z();
+          const double L = std::sqrt(dgx * dgx + dgy * dgy + dgz * dgz);
+          double v6 = 0;
+          for (u32 f : comp_faces) {
+            const auto& tf = faces[f];
+            const u32 i0 = tf[0];
+            const u32 i1 = fsign[f] < 0 ? tf[2] : tf[1];
+            const u32 i2 = fsign[f] < 0 ? tf[1] : tf[2];
+            const double ax = (double)gp[i0].x() - ox, ay = (double)gp[i0].y() - oy,
+                         az = (double)gp[i0].z() - oz;
+            const double bx = (double)gp[i1].x() - ox, by = (double)gp[i1].y() - oy,
+                         bz = (double)gp[i1].z() - oz;
+            const double cx = (double)gp[i2].x() - ox, cy = (double)gp[i2].y() - oy,
+                         cz = (double)gp[i2].z() - oz;
+            v6 += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
+          }
+          if (L > 0.0 && std::abs(v6) > kVolEps * L * L * L) {
+            decided = v6 > 0 ? 1 : -1;
+            rep.orient_comps_volume_decided++;
+          }
+        }
+
+        // ---- TIER B: OUTWARD RAY CAST (parity) ----------------------------------------------
+        // For the open shells TIER A cannot judge. Deterministically pick the LARGEST-AREA face
+        // (tie broken on the LOWEST face index — comp_faces is ascending and the comparison is
+        // strict, so the first maximum found IS the lowest index). Probe from just off its front
+        // side and count crossings with the component's own faces: EVEN => the probe is outside
+        // the shell => the normal already points outward => keep. ODD => flip.
+        if (decided == 0) {
+          u32 seed_face = UINT32_MAX;
+          float best_area = 0.f;
+          for (u32 f : comp_faces) {
+            const float a = face_normal(f).length();
+            if (a > best_area) {
+              best_area = a;
+              seed_face = f;
+            }
+          }
+          if (seed_face != UINT32_MAX && best_area > 1e-6f) {
+            const auto& tf = faces[seed_face];
+            const math::Vector3f nrm =
+                face_normal(seed_face) * ((float)fsign[seed_face] / best_area);
+            const math::Vector3f cen = (gp[tf[0]] + gp[tf[1]] + gp[tf[2]]) * (1.f / 3.f);
+            const double q[3] = {(double)cen.x() + (double)nrm.x() * kProbeEps,
+                                 (double)cen.y() + (double)nrm.y() * kProbeEps,
+                                 (double)cen.z() + (double)nrm.z() * kProbeEps};
+            int n_even = 0, n_odd = 0;
+            for (int r = 0; r < 3; r++) {
+              u32 crossings = 0;
+              bool clean = true;
+              for (u32 f : comp_faces) {
+                const int hit = ray_tri(q, kRayDir[r], f);
+                if (hit < 0) {
+                  clean = false;  // grazed an edge/vertex: this ray decides nothing
+                  break;
+                }
+                crossings += (u32)hit;
+              }
+              if (!clean) {
+                continue;
+              }
+              if ((crossings & 1u) != 0) {
+                n_odd++;
+              } else {
+                n_even++;
+              }
+            }
+            // fewer than two clean rays, or a 1-1 split, is not a majority: abstain.
+            if (n_even + n_odd >= 2 && n_even != n_odd) {
+              decided = n_even > n_odd ? 1 : -1;
+              rep.orient_comps_raycast_decided++;
+            }
+          }
+        }
+
+        // ---- TIER C: ABSTAIN -----------------------------------------------------------------
+        // Neither tier could judge. Keep the previous behaviour (the authored consensus) but COUNT
+        // it: this component's orientation is still undecided, and the report says so.
+        if (decided != 0) {
+          agree = (double)decided;
+        } else {
+          rep.orient_comps_undecided++;
+          agree = agree_prev;
+        }
       }
       if (agree < 0) {
         for (u32 f : comp_faces) {
@@ -1998,6 +2199,53 @@ void mesh_consolidate(Level& lev,
     }
   }
 
+  // =============================================================================================
+  // 10b. UV DETERMINANT / TANGENT-HANDEDNESS CENSUS (round 28). MEASUREMENT ONLY — this block reads
+  //      the mesh and writes nothing but counters.
+  //
+  //      The block above compares raw s/t COORDINATES across a welded group; it says nothing about
+  //      the HANDEDNESS of the UV frame. That is a separate defect axis. For each triangle,
+  //          det = du1*dv2 - du2*dv1
+  //      is negative exactly where the authored chart is MIRRORED, and the tangent basis is
+  //      left-handed there. reconstruct_tfrag_tangents() (common/custom_data/TFrag3Data.cpp:2072)
+  //      derives the stored handedness as `(N.cross(T).dot(bit_acc[i]) < 0) ? -1 : 1` from a
+  //      bitangent ACCUMULATED over every incident triangle — so on a vertex touched by both a
+  //      positive-det and a negative-det triangle the two contributions CANCEL and w is decided by
+  //      numerical noise. Those vertices are a parallax-only inversion the orientation pass above
+  //      cannot see (it only ever moves N, and 7b keeps w consistent with N). Counting them is how
+  //      we find out whether that axis is live at all.
+  // =============================================================================================
+  {
+    std::vector<u8> uv_pos(N, 0), uv_neg(N, 0);
+    for (size_t f = 0; f < F; f++) {
+      const auto& t = faces[f];
+      const float* st0 = (const float*)(gvert[t[0]] + trees[gtree[t[0]]].layout->st_off);
+      const float* st1 = (const float*)(gvert[t[1]] + trees[gtree[t[1]]].layout->st_off);
+      const float* st2 = (const float*)(gvert[t[2]] + trees[gtree[t[2]]].layout->st_off);
+      const double du1 = (double)st1[0] - (double)st0[0];
+      const double dv1 = (double)st1[1] - (double)st0[1];
+      const double du2 = (double)st2[0] - (double)st0[0];
+      const double dv2 = (double)st2[1] - (double)st0[1];
+      const double det = du1 * dv2 - du2 * dv1;
+      rep.uv_tris_total++;
+      if (std::abs(det) <= 1e-12) {
+        rep.uv_tris_degenerate++;
+        continue;  // no usable UV frame: it belongs to neither handedness
+      }
+      if (det < 0) {
+        rep.uv_tris_mirrored++;
+        uv_neg[t[0]] = uv_neg[t[1]] = uv_neg[t[2]] = 1;
+      } else {
+        uv_pos[t[0]] = uv_pos[t[1]] = uv_pos[t[2]] = 1;
+      }
+    }
+    for (size_t i = 0; i < N; i++) {
+      if (uv_pos[i] && uv_neg[i]) {
+        rep.uv_verts_handedness_split++;
+      }
+    }
+  }
+
   // ---- totals ----
   auto accum = [](MeshAuditSystem& tot, const MeshAuditSystem& s) {
     tot.trees += s.trees;
@@ -2116,6 +2364,13 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
       r.orient_components, r.orient_faces_flipped, r.orient_comps_collision_decided,
       r.orient_faces_authority, r.orient_faces_inward_after);
   o += fmt::format(
+      "-- ORIENTATION SECOND AUTHORITY (geometric, deterministic) -- "
+      "orient_comps_no_authority={} orient_faces_no_authority={} "
+      "orient_comps_volume_decided={} orient_comps_raycast_decided={} "
+      "orient_comps_undecided={}\n",
+      r.orient_comps_no_authority, r.orient_faces_no_authority, r.orient_comps_volume_decided,
+      r.orient_comps_raycast_decided, r.orient_comps_undecided);
+  o += fmt::format(
       "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
       "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "
       "orient_tangent_w_flipped={}\n",
@@ -2140,6 +2395,10 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
   o += fmt::format("-- UV FRAME -- cross-chunk groups={} pairs={} incoherent pairs={} "
                    "incoherent groups={}\n",
                    r.uv_groups, r.uv_pairs, r.uv_pairs_over30, r.uv_incoherent_groups);
+  o += fmt::format(
+      "-- UV DETERMINANT (tangent handedness census, round 28) -- uv_tris_total={} "
+      "uv_tris_mirrored={} uv_tris_degenerate={} uv_verts_handedness_split={}\n",
+      r.uv_tris_total, r.uv_tris_mirrored, r.uv_tris_degenerate, r.uv_verts_handedness_split);
   o += fmt::format("-- elapsed {:.1f} ms --\n", r.elapsed_ms);
   return o;
 }
@@ -2372,14 +2631,20 @@ std::string mesh_audit_csv_header() {
          "orient_tangent_w_flipped,"
          // round-22 refinement: the same population split by pair class (true + weak == total)
          "orient_pairs_true,orient_pairs_true_before,orient_pairs_true_after,"
-         "orient_pairs_weak,orient_pairs_weak_before,orient_pairs_weak_after\n";
+         "orient_pairs_weak,orient_pairs_weak_before,orient_pairs_weak_after,"
+         // round-28: the SECOND (geometric) orientation authority + the UV determinant census.
+         // Appended, again, so every previously written csv stays readable.
+         "orient_comps_no_authority,orient_faces_no_authority,orient_comps_volume_decided,"
+         "orient_comps_raycast_decided,orient_comps_undecided,"
+         "uv_tris_total,uv_tris_mirrored,uv_tris_degenerate,uv_verts_handedness_split\n";
 }
 
 std::string mesh_audit_csv_row(const MeshAuditReport& r) {
   return fmt::format(
       "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},"
       "{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.1f},{:.2f},"
-      "{:.2f},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+      "{:.2f},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},"
+      "{},{},{},{},{},{},{},{},{}\n",
       r.game_name, r.level_name, r.tfrag.tris, r.tie.tris, r.shrub.tris, r.total.tris,
       r.total.open_raw, r.total.coincident_unshared, r.total.coincident_unshared_pairs,
       r.total.open_by_group, r.total.missed_welds, r.groups, r.wide_reweld_rounds,
@@ -2393,7 +2658,10 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       r.orient_tangent_w_flipped, r.orient_pairs_true_manifold,
       r.orient_pairs_true_inconsistent_before, r.orient_pairs_true_inconsistent_after,
       r.orient_pairs_weak, r.orient_pairs_weak_inconsistent_before,
-      r.orient_pairs_weak_inconsistent_after);
+      r.orient_pairs_weak_inconsistent_after, r.orient_comps_no_authority,
+      r.orient_faces_no_authority, r.orient_comps_volume_decided, r.orient_comps_raycast_decided,
+      r.orient_comps_undecided, r.uv_tris_total, r.uv_tris_mirrored, r.uv_tris_degenerate,
+      r.uv_verts_handedness_split);
 }
 
 }  // namespace tfrag3

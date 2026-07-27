@@ -490,12 +490,16 @@ int main(int argc, char** argv) {
       fmt::print(
           "[{}/{}] {} tris={} coincident_unshared={} missed_welds_remaining={} nrm_max_after={:.3f} "
           "col_max_after={:.1f} pol_pairs={} pol_before={} pol_after={} true_after={} weak_after={} "
-          "inward_after={} tanw={} elapsed={:.0f}ms{}\n",
+          "inward_after={} tanw={} noauth={} voldec={} raydec={} undec={} uvmir={} uvsplit={} "
+          "elapsed={:.0f}ms{}\n",
           k + 1, n_total, level_name, rep.total.tris, rep.total.coincident_unshared,
           rep.total.missed_welds, rep.nrm_after.max, rep.col_after.max, rep.orient_pairs_total,
           rep.orient_pairs_inconsistent_before, rep.orient_pairs_inconsistent_after,
           rep.orient_pairs_true_inconsistent_after, rep.orient_pairs_weak_inconsistent_after,
-          rep.orient_faces_inward_after, rep.orient_tangent_w_flipped, rep.elapsed_ms, bake_note);
+          rep.orient_faces_inward_after, rep.orient_tangent_w_flipped,
+          rep.orient_comps_no_authority, rep.orient_comps_volume_decided,
+          rep.orient_comps_raycast_decided, rep.orient_comps_undecided, rep.uv_tris_mirrored,
+          rep.uv_verts_handedness_split, rep.elapsed_ms, bake_note);
       fflush(stdout);
     }
   }
@@ -512,6 +516,22 @@ int main(int argc, char** argv) {
   u64 sum_inward_after = 0, levels_pol_clean = 0, levels_inward_clean = 0;
   u64 sum_true = 0, sum_true_b = 0, sum_true_a = 0;
   u64 sum_weak = 0, sum_weak_b = 0, sum_weak_a = 0, levels_true_clean = 0;
+  // round-28 second (geometric) orientation authority + UV determinant census
+  u64 sum_comps = 0, sum_noauth = 0, sum_noauth_faces = 0;
+  u64 sum_voldec = 0, sum_raydec = 0, sum_undec = 0;
+  u64 sum_uv_tris = 0, sum_uv_mirrored = 0, sum_uv_degen = 0, sum_uv_split = 0;
+  for (const auto& r : results) {
+    sum_comps += r.rep.orient_components;
+    sum_noauth += r.rep.orient_comps_no_authority;
+    sum_noauth_faces += r.rep.orient_faces_no_authority;
+    sum_voldec += r.rep.orient_comps_volume_decided;
+    sum_raydec += r.rep.orient_comps_raycast_decided;
+    sum_undec += r.rep.orient_comps_undecided;
+    sum_uv_tris += r.rep.uv_tris_total;
+    sum_uv_mirrored += r.rep.uv_tris_mirrored;
+    sum_uv_degen += r.rep.uv_tris_degenerate;
+    sum_uv_split += r.rep.uv_verts_handedness_split;
+  }
   for (const auto& r : results) {
     sum_pairs += r.rep.orient_pairs_total;
     sum_pol_before += r.rep.orient_pairs_inconsistent_before;
@@ -602,6 +622,17 @@ int main(int argc, char** argv) {
                       "{}/{} levels with orient_faces_inward_after == 0\n",
                       levels_pol_clean, (u64)results.size(), levels_true_clean,
                       (u64)results.size(), levels_inward_clean, (u64)results.size());
+  // ---- round-28: the SECOND (geometric) orientation authority, one physical line per fact ----
+  roll += fmt::format("TOTAL ORIENT_COMPONENTS: {}\n", sum_comps);
+  roll += fmt::format("TOTAL ORIENT_COMPS_NO_AUTHORITY: {}\n", sum_noauth);
+  roll += fmt::format("TOTAL ORIENT_FACES_NO_AUTHORITY: {}\n", sum_noauth_faces);
+  roll += fmt::format("TOTAL ORIENT_COMPS_VOLUME_DECIDED: {}\n", sum_voldec);
+  roll += fmt::format("TOTAL ORIENT_COMPS_RAYCAST_DECIDED: {}\n", sum_raydec);
+  roll += fmt::format("TOTAL ORIENT_COMPS_UNDECIDED: {}\n", sum_undec);
+  roll += fmt::format("TOTAL UV_TRIS: {}\n", sum_uv_tris);
+  roll += fmt::format("TOTAL UV_TRIS_MIRRORED: {}\n", sum_uv_mirrored);
+  roll += fmt::format("TOTAL UV_TRIS_DEGENERATE: {}\n", sum_uv_degen);
+  roll += fmt::format("TOTAL UV_VERTS_HANDEDNESS_SPLIT: {}\n", sum_uv_split);
   if (do_bake) {
     roll += fmt::format("BAKED SIDECARS: {} written, {} total\n", bakes_written, bake_total_bytes);
   }

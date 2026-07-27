@@ -496,6 +496,11 @@ void Loader::loader_thread() {
           // a surface with no displacement SOURCE cannot be displaced at any tessellation level, so
           // refining it would be pure vertex cost (measured on village1's near ground: 62-77% of it).
           scfg.only_geom = Gfx::g_global_settings.lod_tfrag;
+          // TIE pass (off unless debug.opengoal.mesh.subdivtie / OG_MESH_SUBDIV_TIE says otherwise;
+          // Tie3 has no tessellation program, so TIE relief comes from per-pixel POM and extra
+          // triangles buy nothing — see SubdivConfig::include_tie). Same reasoning as lod_tfrag:
+          // only the geom LOD Tie3 actually draws is worth refining.
+          scfg.only_geom_tie = Gfx::g_global_settings.lod_tie;
           std::function<bool(const tfrag3::Texture&)> has_height;
 #ifdef OG_FEAT_PBR
           has_height = [](const tfrag3::Texture& t) {
@@ -505,10 +510,15 @@ void Loader::loader_thread() {
           };
 #endif
           tfrag3::SubdivStats sst;
-          tfrag3::mesh_presubdivide_level(*result, scfg, &sst, has_height);
-          const std::string text = fmt::format("===== PRE-SUBDIVISION level={} =====\n{}",
-                                               result->level_name,
-                                               tfrag3::format_subdiv_stats(sst, scfg));
+          tfrag3::SubdivStats sst_tie;
+          tfrag3::mesh_presubdivide_level(*result, scfg, &sst, has_height, &sst_tie);
+          std::string text = fmt::format("===== PRE-SUBDIVISION level={} =====\n{}",
+                                         result->level_name,
+                                         tfrag3::format_subdiv_stats(sst, scfg));
+          if (scfg.include_tie) {
+            // only when the TIE pass actually ran, so the log is not polluted with a zero block.
+            text += tfrag3::format_subdiv_stats(sst_tie, scfg, "tie");
+          }
           lg::info("[mesh-subdiv] {}", text);
           tfrag3::mesh_audit_append_file(text);
         }

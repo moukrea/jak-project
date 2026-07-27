@@ -13,6 +13,7 @@
 // Usage: tess_audit [--fr3 PATH] [--cam-m X Y Z] [--cam X Y Z] [--tess-max N] [--geom N] [--out P]
 //                   [--seg-near M] [--seg-d0 M] [--seg-far M] [--seg-exp P] [--feature-cm C]
 //                   [--ground-cos C] [--consolidate] [--subdiv MAX_EDGE_M] [--subdiv-rounds N]
+//                   [--subdiv-tie] [--dump-geom PATH]
 
 #include <algorithm>
 #include <array>
@@ -71,13 +72,23 @@ static void usage() {
       "  --subdiv M      round #19 offline pre-subdivision: refine every tess-eligible tfrag\n"
       "                  triangle until its longest edge is <= M metres (default 0 = off)\n"
       "  --subdiv-rounds N  refinement round cap for --subdiv (default 3)\n"
+      "  --subdiv-tie    also pre-subdivide the TIE trees (all four TIE geoms). Default OFF\n"
+      "                  because Tie3 has NO tessellation program (no glPatchParameteri, no\n"
+      "                  GL_PATCHES) -- TIE relief comes from per-pixel POM, which is\n"
+      "                  resolution-bound, not triangle-bound. With this flag absent the\n"
+      "                  tfrag AND tie geometry are bit-identical to a run without it.\n"
       "  --r28           ROUND 28: add section R28, the FEATURE-AWARE density law head-to-head\n"
       "                  (round-27 shipped law vs the round-28 law) with the per-material\n"
       "                  lambda MEASURED from the real *_height.png and the per-material UV\n"
       "                  density measured from the index buffer. Default OFF: every other\n"
       "                  section of the report is bit-identical with or without this flag.\n"
       "  --tex-root P    where --r28 looks for <mat>/<mat>_height.png (default:\n"
-      "                  <repo>/custom_assets/jak1/recharged_textures)\n");
+      "                  <repo>/custom_assets/jak1/recharged_textures)\n"
+      "  --dump-geom P   write a deterministic binary snapshot of the PREPPED tfrag+tie geometry\n"
+      "                  (all geoms) to P, right after weld/consolidate/subdivide and before any\n"
+      "                  reporting, and add a GEOMHASH section (256-bit FNV-based digest) to the\n"
+      "                  report. Use it to prove a geometry-pipeline refactor is bit-identical.\n"
+      "                  Default OFF: the report is bit-identical with or without this flag.\n");
 }
 
 namespace {
@@ -723,6 +734,149 @@ void r28_merge(R28Cell& dst, const R28Cell& s) {
   dst.patches_level1 += s.patches_level1;
 }
 
+// ================================================================================================
+// --dump-geom : deterministic binary snapshot + 256-bit digest of the PREPPED geometry.
+//
+// Purpose: prove that a refactor of common/custom_data/MeshSubdivide.cpp (or of the consolidation)
+// leaves the tfrag output BIT-IDENTICAL. Run this tool with identical flags before and after the
+// refactor and compare the GEOMHASH lines; if they differ, `cmp` the two dump files to get the
+// first differing byte offset.
+//
+// The digest is FNV-BASED, **NOT CRYPTOGRAPHIC**. It is four independent FNV-1a-style 64-bit lanes
+// over the same byte stream, each lane with its own offset basis AND its own odd multiplier
+// (lane 0 is exactly the canonical FNV-1a-64), concatenated lane-0-first into 64 hex chars.
+// Per-lane multipliers are what makes the lanes genuinely independent: had they shared the standard
+// FNV prime, lane i and lane j would differ only by (basis_i - basis_j) * prime^n, i.e. the whole
+// 256-bit value would carry just 64 bits of entropy. This is "good enough to notice an accidental
+// change"; it is NOT a defence against a crafted collision.
+// ================================================================================================
+struct GeomHash256 {
+  // canonical FNV-1a-64 basis, then three unrelated well-known odd 64-bit constants.
+  static constexpr u64 kBasis[4] = {0xcbf29ce484222325ull, 0x9e3779b97f4a7c15ull,
+                                    0x853c49e6748fea9bull, 0xff51afd7ed558ccdull};
+  // canonical FNV-1a-64 prime (2^40 + 2^8 + 0xb3), then three more of the same 2^40+2^8+odd shape.
+  static constexpr u64 kPrime[4] = {0x00000100000001b3ull, 0x00000100000001c9ull,
+                                    0x0000010000000233ull, 0x000001000000024full};
+  u64 h[4] = {kBasis[0], kBasis[1], kBasis[2], kBasis[3]};
+
+  void update(const void* p, std::size_t n) {
+    const u8* b = (const u8*)p;
+    for (std::size_t i = 0; i < n; ++i) {
+      const u8 byte = b[i];
+      h[0] = (h[0] ^ byte) * kPrime[0];
+      h[1] = (h[1] ^ byte) * kPrime[1];
+      h[2] = (h[2] ^ byte) * kPrime[2];
+      h[3] = (h[3] ^ byte) * kPrime[3];
+    }
+  }
+  std::string hex() const {
+    return fmt::format("{:016x}{:016x}{:016x}{:016x}", h[0], h[1], h[2], h[3]);
+  }
+};
+
+// Writes the byte stream to the dump file AND folds the very same bytes into the digest, so the
+// file and the hash can never disagree. Scalars are written in native (little-endian x86-64)
+// layout: this tool is desktop-only and the dump is only ever compared against another dump made
+// by the same tool on the same machine.
+struct GeomDumpWriter {
+  std::ofstream* os = nullptr;
+  GeomHash256 hash;
+  u64 bytes = 0;
+
+  void raw(const void* p, std::size_t n) {
+    if (!n) {
+      return;
+    }
+    hash.update(p, n);
+    os->write((const char*)p, (std::streamsize)n);
+    bytes += (u64)n;
+  }
+  template <typename T>
+  void scalar(T v) {
+    raw(&v, sizeof(T));
+  }
+  // Length-prefixed raw blob. The u64 count is what keeps two different splits of the same
+  // concatenated bytes distinct (e.g. moving one vertex from tree A to tree B).
+  template <typename T>
+  void vec(const std::vector<T>& v) {
+    scalar<u64>((u64)v.size());
+    if (!v.empty()) {
+      raw(v.data(), v.size() * sizeof(T));
+    }
+  }
+};
+
+// PreloadedVertex is exactly 32 bytes with NO padding holes (3*4 pos + 4 rgba + 2*4 st + 4 nor +
+// 2 color_index + 2 seam_w), so a raw byte dump of the array is fully deterministic.
+static_assert(sizeof(tfrag3::PreloadedVertex) == 32, "PreloadedVertex size (raw dump)");
+static_assert(sizeof(math::Vector4f) == 16, "tangent size (raw dump)");
+
+// tfrag: ALL geoms 0..TFRAG_GEOS-1, in geom order then tree order.
+void dump_tfrag_geometry(const tfrag3::Level& lev, GeomDumpWriter& w) {
+  for (int g = 0; g < tfrag3::TFRAG_GEOS; ++g) {
+    const auto& trees = lev.tfrag_trees[g];
+    w.scalar<u32>((u32)g);
+    w.scalar<u64>((u64)trees.size());
+    for (std::size_t ti = 0; ti < trees.size(); ++ti) {
+      const auto& tree = trees[ti];
+      w.scalar<u32>((u32)ti);
+      w.scalar<s32>((s32)tree.kind);
+      w.scalar<u8>(tree.use_strips ? 1 : 0);
+      w.vec(tree.unpacked.vertices);
+      w.vec(tree.unpacked.indices);
+      w.vec(tree.unpacked.tangents);
+      w.scalar<u32>(tree.colors.color_count);
+      w.vec(tree.colors.data);
+      w.scalar<u64>((u64)tree.draws.size());
+      for (const auto& d : tree.draws) {
+        w.scalar<u32>(d.unpacked.idx_of_first_idx_in_full_buffer);
+        w.scalar<u32>(d.num_triangles);
+        w.scalar<s32>(d.tree_tex_id);
+        w.scalar<u64>((u64)d.vis_groups.size());
+        for (const auto& vg : d.vis_groups) {
+          w.scalar<u32>(vg.num_inds);
+          w.scalar<u32>(vg.num_tris);
+        }
+      }
+    }
+  }
+}
+
+// tie: ALL geoms 0..TIE_GEOS-1, same fields, but TieTree has `static_draws` instead of `draws`
+// and no `kind` member (TFragmentTreeKind is tfrag-only), plus the instanced wind vertex streams.
+void dump_tie_geometry(const tfrag3::Level& lev, GeomDumpWriter& w) {
+  for (int g = 0; g < tfrag3::TIE_GEOS; ++g) {
+    const auto& trees = lev.tie_trees[g];
+    w.scalar<u32>((u32)g);
+    w.scalar<u64>((u64)trees.size());
+    for (std::size_t ti = 0; ti < trees.size(); ++ti) {
+      const auto& tree = trees[ti];
+      w.scalar<u32>((u32)ti);
+      w.scalar<u8>(tree.use_strips ? 1 : 0);
+      w.vec(tree.unpacked.vertices);
+      w.vec(tree.unpacked.indices);
+      w.vec(tree.unpacked.tangents);
+      w.scalar<u32>(tree.colors.color_count);
+      w.vec(tree.colors.data);
+      w.scalar<u64>((u64)tree.static_draws.size());
+      for (const auto& d : tree.static_draws) {
+        w.scalar<u32>(d.unpacked.idx_of_first_idx_in_full_buffer);
+        w.scalar<u32>(d.num_triangles);
+        w.scalar<s32>(d.tree_tex_id);
+        w.scalar<u64>((u64)d.vis_groups.size());
+        for (const auto& vg : d.vis_groups) {
+          w.scalar<u32>(vg.num_inds);
+          w.scalar<u32>(vg.num_tris);
+        }
+      }
+      w.scalar<u64>((u64)tree.instanced_wind_draws.size());
+      for (const auto& d : tree.instanced_wind_draws) {
+        w.vec(d.vertex_index_stream);
+      }
+    }
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -744,12 +898,16 @@ int main(int argc, char** argv) {
   // round #19: offline pre-subdivision of the large ground patches (0 = off = the shipped mesh).
   double subdiv_m = 0.0;
   int subdiv_rounds = 3;
+  // round #28: extend the same pass to the TIE trees. Opt-in; see --subdiv-tie in the help.
+  bool subdiv_tie = false;
   // run the owner-validated mesh consolidation first, exactly as Loader.cpp does, so the seam
   // weights (which decide what can displace at all) and the snapped positions are the real ones.
   bool do_consolidate = false;
   // ROUND 28: feature-aware density law head-to-head (opt-in, adds section R28 and nothing else).
   bool do_r28 = false;
   std::string tex_root_s;
+  // --dump-geom: deterministic geometry snapshot + digest (opt-in, purely additive like --r28).
+  std::string dump_geom_path;
   bool have_cam = false;
   bool cam_from_metres = false;
   Vec3 cam;  // game units
@@ -807,12 +965,16 @@ int main(int argc, char** argv) {
       subdiv_m = std::stod(need_val("--subdiv"));
     } else if (a == "--subdiv-rounds") {
       subdiv_rounds = std::stoi(need_val("--subdiv-rounds"));
+    } else if (a == "--subdiv-tie") {
+      subdiv_tie = true;
     } else if (a == "--consolidate") {
       do_consolidate = true;
     } else if (a == "--r28") {
       do_r28 = true;
     } else if (a == "--tex-root") {
       tex_root_s = need_val("--tex-root");
+    } else if (a == "--dump-geom") {
+      dump_geom_path = need_val("--dump-geom");
     } else if (a == "--out") {
       out_path = need_val("--out");
     } else if (a == "-h" || a == "--help") {
@@ -932,13 +1094,60 @@ int main(int argc, char** argv) {
     scfg.max_edge_m = (float)subdiv_m;
     scfg.max_rounds = subdiv_rounds;
     scfg.only_geom = geom;  // the runtime refines only the geom LOD TFragment draws
+    // TIE: opt-in, and deliberately over ALL four TIE geoms (only_geom_tie stays -1) so the
+    // GEOMHASH tie digest -- which covers every geom -- actually sees the pass.
+    scfg.include_tie = subdiv_tie;
     tfrag3::SubdivStats sst;
+    tfrag3::SubdivStats sst_tie;
     // Same "has a displacement source" bound the runtime applies, resolved here from the shipped
     // recharged_textures material list instead of the live custom-assets index.
-    tfrag3::mesh_presubdivide_level(lev, scfg, &sst, [](const tfrag3::Texture& t) {
-      return pbr_materials().count(t.debug_name) > 0;
-    });
+    tfrag3::mesh_presubdivide_level(
+        lev, scfg, &sst,
+        [](const tfrag3::Texture& t) { return pbr_materials().count(t.debug_name) > 0; }, &sst_tie);
     subdiv_note = tfrag3::format_subdiv_stats(sst, scfg);
+    if (subdiv_tie) {
+      subdiv_note += tfrag3::format_subdiv_stats(sst_tie, scfg, "tie");
+    }
+  }
+
+  // ---- --dump-geom: deterministic geometry snapshot + digest ----------------------------------
+  // Deliberately placed HERE: after ALL geometry prep (global weld + consolidation + optional
+  // pre-subdivision) and before ANY measurement/reporting, so the digest covers exactly the
+  // geometry the runtime would hand the GPU. Purely additive: nothing below reads these strings
+  // unless --dump-geom was given.
+  std::string geomhash_tfrag_line, geomhash_tie_line;
+  u64 geomdump_total_bytes = 0;
+  if (!dump_geom_path.empty()) {
+    file_util::create_dir_if_needed_for_file(dump_geom_path);
+    std::ofstream dump(dump_geom_path, std::ios::out | std::ios::binary | std::ios::trunc);
+    if (!dump) {
+      fmt::print("error: cannot open --dump-geom file '{}'\n", dump_geom_path);
+      return 1;
+    }
+    // The file is the tfrag stream followed by the tie stream; each GEOMHASH line's bytes= is the
+    // length of ITS OWN stream, so the two add up to the file size.
+    GeomDumpWriter w_tfrag;
+    w_tfrag.os = &dump;
+    dump_tfrag_geometry(lev, w_tfrag);
+    geomhash_tfrag_line =
+        fmt::format("GEOMHASH tfrag {}  bytes={}", w_tfrag.hash.hex(), w_tfrag.bytes);
+
+    GeomDumpWriter w_tie;
+    w_tie.os = &dump;
+    dump_tie_geometry(lev, w_tie);
+    geomhash_tie_line = fmt::format("GEOMHASH tie {}  bytes={}", w_tie.hash.hex(), w_tie.bytes);
+
+    dump.flush();
+    if (!dump) {
+      fmt::print("error: failed writing --dump-geom file '{}'\n", dump_geom_path);
+      return 1;
+    }
+    dump.close();
+    geomdump_total_bytes = w_tfrag.bytes + w_tie.bytes;
+    fmt::print("[tess_audit] {}\n", geomhash_tfrag_line);
+    fmt::print("[tess_audit] {}\n", geomhash_tie_line);
+    fmt::print("[tess_audit] geometry dump written to {} ({} bytes)\n", dump_geom_path,
+               geomdump_total_bytes);
   }
 
   // ---- ROUND 28: resolve the per-material law inputs the runtime pushes as uniforms ----
@@ -1440,6 +1649,8 @@ int main(int argc, char** argv) {
   line(fmt::format("tfrag tree census : {}", geom_census));
   line(fmt::format("geometry prep     : {}", prep_note));
   line(fmt::format("subdivision       : {}", subdiv_m > 0.0 ? "ON" : "OFF"));
+  line(fmt::format("subdivision (tie) : {}",
+                   (subdiv_m > 0.0 && subdiv_tie) ? "ON (all 4 TIE geoms)" : "OFF"));
   line(subdiv_note);
   line(fmt::format("camera (game u)   : {:.1f} {:.1f} {:.1f}", cam.x, cam.y, cam.z));
   line(fmt::format("camera (metres)   : {:.3f} {:.3f} {:.3f}", cam.x / kUnitsPerM,
@@ -2323,6 +2534,43 @@ int main(int argc, char** argv) {
         line("  vil-beach-01 geometry: no vertex referenced by a tessellable tfrag draw.");
       }
     }
+  }
+
+  // ===============================================================================================
+  // GEOMHASH) DETERMINISTIC GEOMETRY DIGEST (--dump-geom only; every section above is
+  // bit-identical with or without the flag)
+  // ===============================================================================================
+  if (!dump_geom_path.empty()) {
+    line("");
+    line(std::string(100, '='));
+    line("=== SECTION GEOMHASH: DETERMINISTIC GEOMETRY DIGEST (--dump-geom) ===");
+    line("");
+    line(fmt::format("dump file          : {}  ({} bytes)", dump_geom_path, geomdump_total_bytes));
+    line("snapshot point     : after global weld + consolidation + pre-subdivision, before any");
+    line("                     measurement — i.e. exactly the geometry the runtime uploads.");
+    line("tfrag coverage     : lev.tfrag_trees[geom] for ALL geoms 0..TFRAG_GEOS-1 (not just the");
+    line("                     audited --geom), ordered by geom index then tree index. Per tree:");
+    line("                     tree index, kind, use_strips, the raw unpacked.vertices /");
+    line("                     unpacked.indices / unpacked.tangents arrays, colors.color_count +");
+    line("                     colors.data, then per draw idx_of_first_idx_in_full_buffer,");
+    line("                     num_triangles, tree_tex_id and every vis_group's num_inds/num_tris.");
+    line("tie coverage       : lev.tie_trees[geom] for ALL geoms 0..TIE_GEOS-1, the same fields but");
+    line("                     with static_draws instead of draws (TieTree has no `kind`), plus");
+    line("                     every instanced_wind_draws[].vertex_index_stream.");
+    line("encoding           : every variable-length array is u64-length-prefixed then dumped raw");
+    line("                     (native little-endian; PreloadedVertex is 32 B with no padding).");
+    line("digest             : FNV-BASED, NOT CRYPTOGRAPHIC — four independent FNV-1a-style 64-bit");
+    line("                     lanes over the byte stream (lane 0 = canonical FNV-1a-64; each lane");
+    line("                     has its own offset basis AND its own odd multiplier), concatenated");
+    line("                     lane-0-first as 64 hex chars. Enough to catch an accidental change,");
+    line("                     not a defence against a crafted collision.");
+    line("usage              : run this tool with identical flags before and after a geometry-");
+    line("                     pipeline refactor (e.g. MeshSubdivide.cpp); equal GEOMHASH lines ==");
+    line("                     bit-identical output. If they differ, `cmp` the two dump files for");
+    line("                     the first differing byte offset.");
+    line("");
+    line(geomhash_tfrag_line);
+    line(geomhash_tie_line);
   }
 
   fmt::print("{}", r);

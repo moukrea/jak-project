@@ -80,6 +80,25 @@ struct SubdivConfig {
   int only_geom = -1;
   // -1 = not set by prop/env; the caller's feature gate decides. >= 0 overrides it (0 = force off).
   float forced_max_edge_m = -1.f;
+
+  // --------------------------------------------------------------------------------------------
+  // TIE. DEFAULT OFF, and this default is a measurement, not caution.
+  //
+  // TIE geometry is NEVER handed to the tessellator. Tie3.cpp binds only TFRAG3 / ETIE_BASE /
+  // TIE_WIND; there is no glPatchParameteri and no GL_PATCHES anywhere in Tie3.cpp, so no TIE draw
+  // can ever enter a tessellation control/evaluation stage. A device coverage dump says the same
+  // thing from the other end: `renderer=tie pbr_height=10 disp_tess=0 disp_pom=10` -- ten TIE draws
+  // carry a height map, zero of them are tessellated, all ten are displaced by PARALLAX OCCLUSION
+  // MAPPING instead. POM is a per-PIXEL raymarch in the fragment shader: its quality is a function
+  // of screen resolution and step count, NOT of triangle density. Subdividing a TIE wall therefore
+  // buys exactly zero pixels of extra relief while costing vertices, index memory and load time.
+  //
+  // The pass exists anyway so that the day Tie3 gains a tessellation program, feeding it patches
+  // small enough to matter is a one-flag change (`include_tie = true`) rather than a new round.
+  bool include_tie = false;
+  // Restrict the TIE pass to one TIE geom LOD (-1 = all four). Tie3 draws exactly one geom at a
+  // time (Gfx::g_global_settings.lod_tie), so refining the other three only costs memory and time.
+  int only_geom_tie = -1;
 };
 
 struct SubdivStats {
@@ -116,6 +135,22 @@ struct SubdivStats {
   u64 edges_over_before = 0, edges_over_after = 0;  // over max_edge_m == what the ceiling would clip
   double elapsed_ms = 0;
 
+  // ---- TIE-only counters (always 0 for tfrag) -------------------------------------------------
+  // (H1) `use_strips` is SHARED with the wind draws: Tie3.cpp:216 derives tree.draw_mode from it and
+  // the wind glDrawElements at Tie3.cpp:1627 uses that SAME draw_mode, while
+  // instanced_wind_draws[].vertex_index_stream is a UINT32_MAX-restart-delimited STRIP stream. The
+  // pass flips use_strips to false, so every wind stream of a subdivided tree must be rewritten as a
+  // flat triangle list or all the wind foliage renders as garbage triangles.
+  u64 wind_streams_converted = 0;  // InstancedStripDraws rewritten strip -> list
+  u64 wind_tris_converted = 0;     // triangles in those rewritten streams
+  // (H2) Vertices referenced by BOTH static_draws and instanced_wind_draws. MUST be 0. Wind vertices
+  // live in PROTO-LOCAL space (TieTree::unpack leaves matrix_idx == -1 groups untransformed), so a
+  // WORLD-space edge threshold is meaningless on them and moving one would corrupt the wind draw.
+  // The pass only walks static_draws, so this is a proof obligation, not a filter -- but if a tree
+  // ever does share a vertex, it is skipped entirely rather than silently corrupted.
+  u64 tie_wind_static_shared_verts = 0;
+  u64 trees_skipped_wind_shared = 0;
+
   double mean_edge_before_m() const { return edges_before ? edge_sum_before_m / edges_before : 0.0; }
   double mean_edge_after_m() const { return edges_after ? edge_sum_after_m / edges_after : 0.0; }
   double col_resid_mean() const { return col_resid_n ? col_resid_sum / col_resid_n : 0.0; }
@@ -123,6 +158,8 @@ struct SubdivStats {
 
 // Prop `debug.opengoal.mesh.subdiv` (Android) / env `OG_MESH_SUBDIV` (desktop): the threshold in
 // metres, "0" to force the pass off. Absent => forced_max_edge_m stays -1 and the caller's gate wins.
+// Prop `debug.opengoal.mesh.subdivtie` / env `OG_MESH_SUBDIV_TIE`: "1"/"true" turns the TIE pass on,
+// "0" forces it off. Absent => include_tie keeps its (off) default.
 SubdivConfig mesh_subdiv_config_from_env();
 
 // THE PASS. Runs AFTER the mesh consolidation (weld + orientation + smooth normals + seam weights),
@@ -132,11 +169,18 @@ SubdivConfig mesh_subdiv_config_from_env();
 // `tex_has_height` answers "does this texture ship a height map?" for one of lev.textures. Pass an
 // empty function to treat every draw as displaceable (the offline tools do that when they have no
 // texture index to consult).
+// `out_tie` receives the SEPARATE statistics of the TIE pass (see SubdivConfig::include_tie); it is
+// only written when cfg.include_tie is set. The TIE pass runs after the tfrag pass, on its OWN
+// triangle budget and its own emitted/budget-hit counters, so it cannot perturb the tfrag result in
+// any way -- with include_tie off the tfrag output is byte-for-byte what it was before TIE existed.
 void mesh_presubdivide_level(Level& lev,
                              const SubdivConfig& cfg,
                              SubdivStats* out,
-                             const std::function<bool(const Texture&)>& tex_has_height = {});
+                             const std::function<bool(const Texture&)>& tex_has_height = {},
+                             SubdivStats* out_tie = nullptr);
 
-std::string format_subdiv_stats(const SubdivStats& s, const SubdivConfig& cfg);
+std::string format_subdiv_stats(const SubdivStats& s,
+                                const SubdivConfig& cfg,
+                                const char* system_label = "tfrag");
 
 }  // namespace tfrag3

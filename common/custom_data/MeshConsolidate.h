@@ -105,6 +105,24 @@ struct MeshAuditReport {
   u64 orient_faces_authority = 0;      // faces the collision mesh can actually speak for (denominator)
   u64 orient_faces_inward_after = 0;   // of those, faces still clearly opposed to it -> the residual
 
+  // ---- round-28 SECOND ORIENTATION AUTHORITY (deterministic, purely geometric) ----
+  // Until round 28 a component the collision mesh could not reach simply KEPT the orientation it
+  // arrived with (the consensus of the AUTHORED vertex normals). That is not an authority at all:
+  // if the authored normals are inverted the component stays inverted, and an inverted vertex
+  // normal inverts the TESSELLATION displacement (the tese displaces along N) while leaving
+  // PARALLAX correct (the POM tangent frame is invariant under N -> -N once w flips, which pass 7b
+  // already does). These five counters make that silent population visible and say, per component,
+  // WHICH tier of the geometric cascade actually decided it:
+  //   TIER A  signed volume (divergence theorem)  -> orient_comps_volume_decided
+  //   TIER B  outward ray cast (parity, majority) -> orient_comps_raycast_decided
+  //   TIER C  abstain, keep the authored consensus -> orient_comps_undecided
+  // volume_decided + raycast_decided + undecided == comps_no_authority, always.
+  u64 orient_comps_no_authority = 0;   // components the collision mesh cannot speak for
+  u64 orient_faces_no_authority = 0;   // total faces living in those components
+  u64 orient_comps_volume_decided = 0;   // TIER A decided the sign
+  u64 orient_comps_raycast_decided = 0;  // TIER B decided the sign
+  u64 orient_comps_undecided = 0;        // TIER C: nothing could judge -> authored consensus kept
+
   // ---- round-22 AUTHORITY-FREE POLARITY CENSUS ----
   // The collision residual above can only speak where a collision mesh exists AND is near-parallel to
   // the rendered face (|dot| > 0.35), so it is blind on walls, on interiors, and on every level with a
@@ -150,6 +168,18 @@ struct MeshAuditReport {
   u64 uv_pairs_over30 = 0;
   u64 uv_incoherent_groups = 0;
   u64 uv_groups = 0;
+
+  // ---- round-28 UV DETERMINANT / TANGENT-HANDEDNESS CENSUS (measurement only) ----
+  // det = du1*dv2 - du2*dv1 over each triangle's UVs. det < 0 == a MIRRORED chart: the authored UV
+  // frame is left-handed there, so the tangent basis flips sign across the chart boundary. The
+  // tangent reconstruction in common/custom_data/TFrag3Data.cpp:2072 derives w from an ACCUMULATED
+  // bitangent (`handed = (N.cross(T).dot(bit_acc[i]) < 0) ? -1 : 1`); on a vertex touched by both a
+  // positive-det and a negative-det triangle the two contributions CANCEL, so w there is the sign
+  // of numerical noise — a parallax-only inversion that no orientation pass can see.
+  u64 uv_tris_total = 0;
+  u64 uv_tris_mirrored = 0;             // det < 0
+  u64 uv_tris_degenerate = 0;           // |det| <= 1e-12 (no usable UV frame at all)
+  u64 uv_verts_handedness_split = 0;    // verts touched by BOTH signs == chart-mirror boundary
 
   double elapsed_ms = 0;
   bool ran = false;
