@@ -819,3 +819,26 @@ déplacement réellement non nul. Un mesh traité est un mesh qui passe les deux
     le différentiel qui donne la cause — c'est ce qui a marché à chaque fois que l'owner a nommé
     deux surfaces voisines dont l'une allait et l'autre pas.
   * Sept matériaux seulement : il n'y a aucune excuse de volume.
+
+--------------------------------------------------------------------------------
+CADRE DÉFINITIF — TOUS LES MESH AURONT DU PBR
+--------------------------------------------------------------------------------
+Owner : "Démerde toi et pars du principe que absolument tous les mesh auront du PBR (tesselation ou
+parallax suivant ce qui est activé par l'utilisateur)"
+
+Donc le périmètre n'est PAS les 7 matériaux actuels : c'est TOUT le jeu. Les 7 servent seulement à
+révéler les défauts aujourd'hui ; demain chaque mesh recevra ses maps et devra se comporter
+correctement sans une ligne de code de plus.
+CONSÉQUENCES NON NÉGOCIABLES :
+1. LE CORRECTIF DOIT ÊTRE GÉNÉRAL. Interdiction absolue de régler un mesh par un cas particulier :
+   pas de liste d'exceptions, pas de table par mesh ou par matériau, pas de constante ajustée pour
+   une surface. L'itération mesh par mesh sert à TROUVER les causes ; chaque cause corrigée doit
+   l'être dans la règle générale, et faire progresser tous les mesh qui partagent cette cause.
+2. LE TEST DOIT COUVRIR TOUS LES MESH DU JEU, pas seulement ceux qui portent une height map
+   aujourd'hui. Pour un mesh sans map, applique le damier synthétique : il donne à chaque mesh une
+   height parfaitement connue, donc un résultat attendu exact. C'est précisément à ça que sert le
+   matériau de debug, et ça rend la couverture totale possible dès maintenant.
+3. LES DEUX TIERS COMPTENT, selon ce que l'utilisateur choisit : tessellation ET parallax doivent
+   être corrects sur chaque mesh. Un mesh correct en parallax mais plat en tessellation est un mesh
+   en échec, et l'inverse aussi.
+4. Un round ne passe que si la liste est verte sur TOUS les mesh du jeu, dans les deux tiers.

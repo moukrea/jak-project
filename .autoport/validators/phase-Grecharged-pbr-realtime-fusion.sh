@@ -269,4 +269,8 @@ awk -v v="$PCT" 'BEGIN{exit !(v>=100)}' || fail "R31: worst model at $PCT% corre
 grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
 grep -qiE 'every mesh|chaque mesh|all meshes|mesh by mesh|un par un' "$R" || fail "R31: the report does not enumerate EVERY mesh one by one (owner order)"
 grep -qiE 'covered *(==|=|equals) *existing|couverts? *(==|=) *existants?|[0-9]+ */ *[0-9]+ meshes' "$R" || fail "R31: mesh coverage count not shown equal to the number of existing meshes"
+# owner: ALL meshes will carry PBR -> the fix must be GENERAL, never per-mesh/per-material special-casing
+grep -qiE 'no (allowlist|whitelist|per-mesh|per-material) (special|case|table)|aucune liste d.exception|general(ised)? fix|regle generale' "$R" || fail "R31: must state the fix is GENERAL (no allowlist / per-mesh / per-material special-casing)"
+grep -qiE 'all meshes|tous les mesh' "$R" || fail "R31: coverage must be ALL meshes in the game, not only those carrying a height map today"
+grep -qiE 'both tiers|deux tiers|tessellation and parallax|tessellation et parallax' "$R" || fail "R31: both tiers must be green per mesh (user choice decides which runs)"
 echo "[Gpbrf PASS]"
