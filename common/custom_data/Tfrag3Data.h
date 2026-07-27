@@ -673,4 +673,19 @@ void print_memory_usage(const tfrag3::Level& lev, int uncompressed_data_size);
 // walkable collision mesh, then averages across the welded seams with a crease-angle threshold.
 void reconstruct_level_global_weld(Level& lev);
 
+// ROUND 29 — MIRRORED TIE INSTANCE CENSUS. A TIE instance matrix with a NEGATIVE 3x3 determinant
+// places a MIRRORED copy of its prototype (the standard way to duplicate a building without
+// duplicating geometry). Pure measurement: walks the packed instance matrices and counts, it never
+// modifies the level.
+struct TieMirrorCensus {
+  u64 matrices = 0;           // distinct TIE instance matrices
+  u64 mirrored_matrices = 0;  // ...of which det3 < 0
+  u64 groups = 0;             // matrix groups (a group = one instance's slice of the vertex array)
+  u64 mirrored_groups = 0;
+  u64 verts = 0;              // verts placed by a matrix
+  u64 mirrored_verts = 0;
+  u64 mirrored_groups_with_normals = 0;  // groups where the AUTHORED-normal path is also mirrored
+};
+TieMirrorCensus tie_mirror_census(const Level& lev);
+
 }  // namespace tfrag3

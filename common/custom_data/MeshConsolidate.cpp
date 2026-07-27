@@ -396,9 +396,13 @@ constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
 // v3 (round 28): the orientation rule changed AGAIN — a component the collision mesh cannot reach
 //   is now decided by the geometric SECOND AUTHORITY (signed volume / outward ray parity) instead
 //   of silently keeping its authored winding, so every nor[] in a v1 OR v2 sidecar is stale too.
+// v4 (round 29): the orientation rule changed a THIRD time -- the collision authority now has to
+//   pass a competence filter (|n.dot(collision_normal)| > 0.35) and an area-weighted confidence
+//   test before it may outrank the geometric cascade, so every nor[] in a v1/v2/v3 sidecar is a
+//   stale answer for every component that used to be decided by orthogonal floor-normal noise.
 // mesh_consolidate_apply_bake() rejects a version mismatch and the caller falls back to the live
 // pass, so the 26 baked jak1 levels cannot silently keep the old (inverted) normals.
-constexpr u32 kBakeVersion = 3;
+constexpr u32 kBakeVersion = 4;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and
@@ -1403,6 +1407,16 @@ void mesh_consolidate(Level& lev,
     constexpr double kVolEps = 1e-3;      // TIER A speaks only when |V6| > kVolEps * L^3
     constexpr double kRayEdgeEps = 1e-6;  // barycentric margin: closer than this to an edge = ambiguous
     const double kProbeEps = 0.01 * (double)kUnitsPerMeter;  // TIER B probe sits 1 cm off the face
+    // ROUND 29 — the collision authority must prove it is COMPETENT before it may outrank geometry.
+    // Identical criterion to the residual metric at the bottom of pass 6 ("a near-perpendicular
+    // comparison carries no information"): the collision plane must be within ~70 deg of the rendered
+    // face for its normal to say anything about which side of THAT face is outside.
+    constexpr float kCollParallelMin = 0.35f;
+    // ...and the surviving readings must AGREE. This is the area-weighted MEAN agreement, so it is
+    // scale-free -- unlike the old `|agree_coll| > 1e-3` test on a raw sum in game units (4096/m),
+    // which one square metre of face cleared by nine orders of magnitude and which therefore let
+    // orthogonal noise decide 18007 of village1's 25530 components.
+    constexpr double kCollConfMin = 0.15;
     // THREE fixed, hard-coded, non-axis-aligned, mutually distinct unit directions (pairwise dots
     // 0.040 / -0.294 / -0.374, so they are well spread and cannot all graze the same edge). A
     // single ray that grazes an edge must never decide alone, hence the majority vote.
@@ -1448,6 +1462,68 @@ void mesh_consolidate(Level& lev,
         return -1;  // the probe point sits ON this triangle: inside/outside is undefined
       }
       return 1;
+    };
+
+    // ROUND 29 A/B killswitch, captured once outside the component loop.
+    const bool coll_raw = (cfg.bits & kMeshBitCollRaw) != 0;
+
+    // ---- TIER A: SIGNED VOLUME (divergence theorem), hoisted -------------------------------------
+    // ROUND 29: this used to live inline inside the "collision is silent" branch, so it could only
+    // ever judge the components the collision mesh did NOT claim. It is now a lambda run for EVERY
+    // component, because the signed volume of a CLOSED shell is exact ground truth and therefore the
+    // only authority-free yardstick available to score the collision rule itself (see
+    // orient_comps_collraw_vs_volume_conflict). The maths, the thresholds and the fsign-corrected
+    // winding are UNCHANGED — it is the same code, moved — so the decision it feeds is bit-identical.
+    //
+    // Over the component's faces, in the fsign-corrected winding order,
+    //     V6 += dot(p0, cross(p1, p2))      (V = V6/6)
+    // A CLOSED shell wound outward has V > 0. Only meaningful when the component really is closed
+    // enough for the number to mean something, so it is required to clear kVolEps * L^3 (L = the
+    // component bbox diagonal) and to have at least 4 faces.
+    // Returns +1 = already outward (keep), -1 = inward (flip), 0 = abstain.
+    auto signed_volume_verdict = [&]() -> int {
+      if (comp_faces.size() < 4) {
+        return 0;
+      }
+      math::Vector3f blo = gp[faces[comp_faces[0]][0]], bhi = blo;
+      for (u32 f : comp_faces) {
+        for (int e = 0; e < 3; e++) {
+          const math::Vector3f& p = gp[faces[f][e]];
+          blo = math::Vector3f(std::min(blo.x(), p.x()), std::min(blo.y(), p.y()),
+                               std::min(blo.z(), p.z()));
+          bhi = math::Vector3f(std::max(bhi.x(), p.x()), std::max(bhi.y(), p.y()),
+                               std::max(bhi.z(), p.z()));
+        }
+      }
+      // Translate EVERY position by the bbox CENTRE before the triple product. This is essential,
+      // not cosmetic: these are world coordinates in game units of 4096/m, so a raw p0 . (p1 x p2)
+      // runs to ~1e15 and the (far smaller) enclosed volume is lost entirely to cancellation.
+      // Accumulated in double throughout.
+      const double ox = 0.5 * ((double)blo.x() + (double)bhi.x());
+      const double oy = 0.5 * ((double)blo.y() + (double)bhi.y());
+      const double oz = 0.5 * ((double)blo.z() + (double)bhi.z());
+      const double dgx = (double)bhi.x() - (double)blo.x();
+      const double dgy = (double)bhi.y() - (double)blo.y();
+      const double dgz = (double)bhi.z() - (double)blo.z();
+      const double L = std::sqrt(dgx * dgx + dgy * dgy + dgz * dgz);
+      double v6 = 0;
+      for (u32 f : comp_faces) {
+        const auto& tf = faces[f];
+        const u32 i0 = tf[0];
+        const u32 i1 = fsign[f] < 0 ? tf[2] : tf[1];
+        const u32 i2 = fsign[f] < 0 ? tf[1] : tf[2];
+        const double ax = (double)gp[i0].x() - ox, ay = (double)gp[i0].y() - oy,
+                     az = (double)gp[i0].z() - oz;
+        const double bx = (double)gp[i1].x() - ox, by = (double)gp[i1].y() - oy,
+                     bz = (double)gp[i1].z() - oz;
+        const double cx = (double)gp[i2].x() - ox, cy = (double)gp[i2].y() - oy,
+                     cz = (double)gp[i2].z() - oz;
+        v6 += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
+      }
+      if (L > 0.0 && std::abs(v6) > kVolEps * L * L * L) {
+        return v6 > 0 ? 1 : -1;
+      }
+      return 0;
     };
 
     for (size_t seed = 0; seed < F; seed++) {
@@ -1540,6 +1616,13 @@ void mesh_consolidate(Level& lev,
       std::sort(comp_faces.begin(), comp_faces.end());
       double agree_coll = 0, agree_prev = 0;
       bool any_coll = false;
+      double coll_area = 0;        // area of the faces the collision mesh is COMPETENT for
+      bool coll_present = false;   // a collision normal existed at all (competent or not)
+      // ROUND 29 — the PRE-round-29 (unfiltered) collision verdict, computed ALONGSIDE the filtered
+      // one on every component so the two rules can be scored against the same ground truth in ONE
+      // run. These feed COUNTERS ONLY and never reach a decision.
+      double agree_coll_raw = 0;
+      bool any_coll_raw = false;
       for (u32 f : comp_faces) {
         const math::Vector3f nraw = face_normal(f) * (float)fsign[f];
         const float area = nraw.length();
@@ -1551,8 +1634,19 @@ void mesh_consolidate(Level& lev,
         const math::Vector3f centre = (gp[t[0]] + gp[t[1]] + gp[t[2]]) * (1.f / 3.f);
         math::Vector3f cn;
         if (coll.nearest_normal(centre, &cn)) {
-          any_coll = true;
-          agree_coll += (double)area * n.dot(cn);
+          coll_present = true;
+          const float d = n.dot(cn);
+          // Measurement-only: the unfiltered sum, exactly as the pre-round-29 rule built it.
+          any_coll_raw = true;
+          agree_coll_raw += (double)area * d;
+          // ROUND 29 COMPETENCE FILTER — see kCollParallelMin. Skipping the near-perpendicular
+          // readings is what hands roofs, vertical walls and under-cornice faces to the exact
+          // geometric cascade instead of to floor-normal noise.
+          if (coll_raw || std::abs(d) > kCollParallelMin) {
+            any_coll = true;
+            agree_coll += (double)area * d;
+            coll_area += (double)area;
+          }
         }
         for (int e = 0; e < 3; e++) {
           const math::Vector3f pn = unpack_nor(*nor_ptr(t[e]));
@@ -1561,7 +1655,37 @@ void mesh_consolidate(Level& lev,
           }
         }
       }
-      const bool coll_speaks = any_coll && std::abs(agree_coll) > 1e-3;
+      // Scale-free confidence: the area-weighted MEAN agreement over the competent readings only.
+      const double coll_conf = coll_area > 0.0 ? (agree_coll / coll_area) : 0.0;
+      const bool coll_speaks = coll_raw ? (any_coll && std::abs(agree_coll) > 1e-3)
+                                        : (any_coll && std::abs(coll_conf) > kCollConfMin);
+      if (coll_present && !coll_speaks) {
+        rep.orient_comps_collision_incompetent++;
+      }
+
+      // ==========================================================================================
+      // ROUND 29 — AUTHORITY-FREE SCORING (pure measurement, changes no decision).
+      // The two metrics that already existed cannot judge this change: "faces still inward vs
+      // collision" is measured AGAINST the collision authority (circular), and the polarity census
+      // tests fsign[f]*fsign[nb] relations fixed by the flood fill, which a per-component GLOBAL
+      // flip cannot alter. The signed volume of a closed component IS exact, so score both
+      // collision rules against it wherever it is confident.
+      // ==========================================================================================
+      const int vol_verdict = signed_volume_verdict();
+      if (vol_verdict != 0) {
+        rep.orient_comps_volume_confident++;
+        const int raw_verdict = (any_coll_raw && std::abs(agree_coll_raw) > 1e-3)
+                                    ? (agree_coll_raw > 0 ? 1 : -1)
+                                    : 0;
+        if (raw_verdict != 0 && raw_verdict != vol_verdict) {
+          rep.orient_comps_collraw_vs_volume_conflict++;
+        }
+        const int filtered_verdict = coll_speaks ? (agree_coll > 0 ? 1 : -1) : 0;
+        if (filtered_verdict != 0 && filtered_verdict != vol_verdict) {
+          rep.orient_comps_collfiltered_vs_volume_conflict++;
+        }
+      }
+
       double agree = agree_prev;
       if (coll_speaks) {
         // FIRST AUTHORITY: the walkable collision mesh reaches this component and has an opinion.
@@ -1579,51 +1703,13 @@ void mesh_consolidate(Level& lev,
         int decided = 0;  // +1 = already outward (keep), -1 = inward (flip), 0 = this tier abstains
 
         // ---- TIER A: SIGNED VOLUME (divergence theorem) -------------------------------------
-        // Over the component's faces, in the fsign-corrected winding order,
-        //     V6 += dot(p0, cross(p1, p2))      (V = V6/6)
-        // A CLOSED shell wound outward has V > 0. Only meaningful when the component really is
-        // closed enough for the number to mean something, so it is required to clear kVolEps * L^3
-        // (L = the component bbox diagonal) and to have at least 4 faces.
-        if (comp_faces.size() >= 4) {
-          math::Vector3f blo = gp[faces[comp_faces[0]][0]], bhi = blo;
-          for (u32 f : comp_faces) {
-            for (int e = 0; e < 3; e++) {
-              const math::Vector3f& p = gp[faces[f][e]];
-              blo = math::Vector3f(std::min(blo.x(), p.x()), std::min(blo.y(), p.y()),
-                                   std::min(blo.z(), p.z()));
-              bhi = math::Vector3f(std::max(bhi.x(), p.x()), std::max(bhi.y(), p.y()),
-                                   std::max(bhi.z(), p.z()));
-            }
-          }
-          // Translate EVERY position by the bbox CENTRE before the triple product. This is
-          // essential, not cosmetic: these are world coordinates in game units of 4096/m, so a raw
-          // p0 . (p1 x p2) runs to ~1e15 and the (far smaller) enclosed volume is lost entirely to
-          // cancellation. Accumulated in double throughout.
-          const double ox = 0.5 * ((double)blo.x() + (double)bhi.x());
-          const double oy = 0.5 * ((double)blo.y() + (double)bhi.y());
-          const double oz = 0.5 * ((double)blo.z() + (double)bhi.z());
-          const double dgx = (double)bhi.x() - (double)blo.x();
-          const double dgy = (double)bhi.y() - (double)blo.y();
-          const double dgz = (double)bhi.z() - (double)blo.z();
-          const double L = std::sqrt(dgx * dgx + dgy * dgy + dgz * dgz);
-          double v6 = 0;
-          for (u32 f : comp_faces) {
-            const auto& tf = faces[f];
-            const u32 i0 = tf[0];
-            const u32 i1 = fsign[f] < 0 ? tf[2] : tf[1];
-            const u32 i2 = fsign[f] < 0 ? tf[1] : tf[2];
-            const double ax = (double)gp[i0].x() - ox, ay = (double)gp[i0].y() - oy,
-                         az = (double)gp[i0].z() - oz;
-            const double bx = (double)gp[i1].x() - ox, by = (double)gp[i1].y() - oy,
-                         bz = (double)gp[i1].z() - oz;
-            const double cx = (double)gp[i2].x() - ox, cy = (double)gp[i2].y() - oy,
-                         cz = (double)gp[i2].z() - oz;
-            v6 += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
-          }
-          if (L > 0.0 && std::abs(v6) > kVolEps * L * L * L) {
-            decided = v6 > 0 ? 1 : -1;
-            rep.orient_comps_volume_decided++;
-          }
+        // ROUND 29: the computation moved OUT of this branch into the signed_volume_verdict()
+        // lambda above (it now also has to run for the collision-decided components, to score the
+        // collision rule against it). Identical maths, identical thresholds, identical winding —
+        // this site just consumes the result, so the decision is bit-identical to round 28.
+        if (vol_verdict != 0) {
+          decided = vol_verdict;
+          rep.orient_comps_volume_decided++;
         }
 
         // ---- TIER B: OUTWARD RAY CAST (parity) ----------------------------------------------
@@ -2360,9 +2446,11 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
                    r.pos_snapped, r.pos_snap_max_m);
   o += fmt::format(
       "-- ORIENTATION -- components={} faces flipped={} collision-decided components={} "
-      "faces the collision mesh can judge={} faces still inward vs collision={}\n",
+      "faces the collision mesh can judge={} faces still inward vs collision={}"
+      " collision-incompetent components={}\n",
       r.orient_components, r.orient_faces_flipped, r.orient_comps_collision_decided,
-      r.orient_faces_authority, r.orient_faces_inward_after);
+      r.orient_faces_authority, r.orient_faces_inward_after,
+      r.orient_comps_collision_incompetent);
   o += fmt::format(
       "-- ORIENTATION SECOND AUTHORITY (geometric, deterministic) -- "
       "orient_comps_no_authority={} orient_faces_no_authority={} "
@@ -2370,6 +2458,11 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
       "orient_comps_undecided={}\n",
       r.orient_comps_no_authority, r.orient_faces_no_authority, r.orient_comps_volume_decided,
       r.orient_comps_raycast_decided, r.orient_comps_undecided);
+  o += fmt::format(
+      "-- ORIENTATION AUTHORITY SCORED AGAINST SIGNED VOLUME (round 29) -- volume_confident={} "
+      "collraw_conflicts={} collfiltered_conflicts={}\n",
+      r.orient_comps_volume_confident, r.orient_comps_collraw_vs_volume_conflict,
+      r.orient_comps_collfiltered_vs_volume_conflict);
   o += fmt::format(
       "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
       "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "
@@ -2636,7 +2729,11 @@ std::string mesh_audit_csv_header() {
          // Appended, again, so every previously written csv stays readable.
          "orient_comps_no_authority,orient_faces_no_authority,orient_comps_volume_decided,"
          "orient_comps_raycast_decided,orient_comps_undecided,"
-         "uv_tris_total,uv_tris_mirrored,uv_tris_degenerate,uv_verts_handedness_split\n";
+         "uv_tris_total,uv_tris_mirrored,uv_tris_degenerate,uv_verts_handedness_split,"
+         // round-29: components where a collision normal existed but was not COMPETENT to judge,
+         // plus the authority-free scoring of both collision rules against the signed volume.
+         "orient_comps_collision_incompetent,orient_comps_volume_confident,"
+         "orient_comps_collraw_vs_volume_conflict,orient_comps_collfiltered_vs_volume_conflict\n";
 }
 
 std::string mesh_audit_csv_row(const MeshAuditReport& r) {
@@ -2644,7 +2741,7 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},"
       "{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.1f},{:.2f},"
       "{:.2f},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},"
-      "{},{},{},{},{},{},{},{},{}\n",
+      "{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
       r.game_name, r.level_name, r.tfrag.tris, r.tie.tris, r.shrub.tris, r.total.tris,
       r.total.open_raw, r.total.coincident_unshared, r.total.coincident_unshared_pairs,
       r.total.open_by_group, r.total.missed_welds, r.groups, r.wide_reweld_rounds,
@@ -2661,7 +2758,9 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       r.orient_pairs_weak_inconsistent_after, r.orient_comps_no_authority,
       r.orient_faces_no_authority, r.orient_comps_volume_decided, r.orient_comps_raycast_decided,
       r.orient_comps_undecided, r.uv_tris_total, r.uv_tris_mirrored, r.uv_tris_degenerate,
-      r.uv_verts_handedness_split);
+      r.uv_verts_handedness_split, r.orient_comps_collision_incompetent,
+      r.orient_comps_volume_confident, r.orient_comps_collraw_vs_volume_conflict,
+      r.orient_comps_collfiltered_vs_volume_conflict);
 }
 
 }  // namespace tfrag3

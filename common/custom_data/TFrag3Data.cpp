@@ -183,6 +183,17 @@ std::array<math::Vector3f, 3> tie_normal_transform_v2(const std::array<math::Vec
   // vmaddz.xyzw vf12, vf26, vf18
   result[2] = vf18;
 
+  // ROUND 29 — MIRRORED INSTANCES. The frame rebuilt above (r2 = r0 x r1) is right-handed BY
+  // CONSTRUCTION, which silently un-mirrors a negative-determinant instance and inverts its
+  // normals. Restore the input's handedness: for a rigid transform composed with a reflection the
+  // correct normal transform is the transform itself, whose z row is -(r0 x r1).
+  const math::Vector3f l0(m[0].x(), m[0].y(), m[0].z());
+  const math::Vector3f l1(m[1].x(), m[1].y(), m[1].z());
+  const math::Vector3f l2(m[2].x(), m[2].y(), m[2].z());
+  if (l0.dot(l1.cross(l2)) < 0.f) {
+    result[2] = result[2] * -1.f;
+  }
+
   return result;
   //
   // sqc2 vf10, -112(t8)
@@ -268,6 +279,52 @@ static std::atomic<u64> g_index_fused_tfrag{0};
 static std::atomic<u64> g_index_fused_tfrag_verts{0};
 static std::atomic<u64> g_index_fused_tie{0};
 static std::atomic<u64> g_index_fused_tie_verts{0};
+
+// ROUND 29 — MIRRORED TIE INSTANCE CENSUS. Pure measurement, never modifies the level. Rows 0-2 of
+// a packed instance matrix are its linear part (row 3 is the translation), so
+//     det3 = m0 . (m1 x m2)
+// and det3 < 0 means the instance places a MIRRORED copy of its prototype.
+TieMirrorCensus tie_mirror_census(const Level& lev) {
+  TieMirrorCensus c;
+  for (const auto& geo : lev.tie_trees) {
+    for (const auto& tree : geo) {
+      // distinct matrices
+      for (const auto& m : tree.packed_vertices.matrices) {
+        const math::Vector3f l0(m[0].x(), m[0].y(), m[0].z());
+        const math::Vector3f l1(m[1].x(), m[1].y(), m[1].z());
+        const math::Vector3f l2(m[2].x(), m[2].y(), m[2].z());
+        c.matrices++;
+        if (l0.dot(l1.cross(l2)) < 0.f) {
+          c.mirrored_matrices++;
+        }
+      }
+      // groups (one instance's slice of the vertex array)
+      for (const auto& grp : tree.packed_vertices.matrix_groups) {
+        if (grp.matrix_idx == -1) {
+          continue;  // un-instanced: no matrix, so it cannot be mirrored
+        }
+        if ((size_t)grp.matrix_idx >= tree.packed_vertices.matrices.size()) {
+          continue;
+        }
+        const auto& m = tree.packed_vertices.matrices[grp.matrix_idx];
+        const math::Vector3f l0(m[0].x(), m[0].y(), m[0].z());
+        const math::Vector3f l1(m[1].x(), m[1].y(), m[1].z());
+        const math::Vector3f l2(m[2].x(), m[2].y(), m[2].z());
+        const u64 nverts = (u64)(grp.end_vert - grp.start_vert);
+        c.groups++;
+        c.verts += nverts;
+        if (l0.dot(l1.cross(l2)) < 0.f) {
+          c.mirrored_groups++;
+          c.mirrored_verts += nverts;
+          if (grp.has_normals) {
+            c.mirrored_groups_with_normals++;
+          }
+        }
+      }
+    }
+  }
+  return c;
+}
 
 void TieTree::unpack() {
   unpacked.vertices.resize(packed_vertices.color_indices.size());

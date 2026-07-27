@@ -102,6 +102,18 @@ struct MeshAuditReport {
   u64 orient_components = 0;
   u64 orient_faces_flipped = 0;
   u64 orient_comps_collision_decided = 0;
+  // ROUND 29: components where a collision normal EXISTED but failed the competence/confidence
+  // test, so the geometric cascade decided instead of floor-normal noise. Before round 29 every
+  // one of these was silently collision-decided.
+  u64 orient_comps_collision_incompetent = 0;
+  // ROUND 29 — AUTHORITY-FREE CORRECTNESS. The signed volume of a closed component is exact, so it
+  // is the ground truth against which an AUTHORITY can be scored. These count, over components
+  // where TIER A is confident, how often each collision rule contradicts it. _raw is the
+  // pre-round-29 unfiltered rule, _filtered is the round-29 competence-filtered one; the drop
+  // between them is the measured improvement, and it needs no collision mesh to be trusted.
+  u64 orient_comps_volume_confident = 0;
+  u64 orient_comps_collraw_vs_volume_conflict = 0;
+  u64 orient_comps_collfiltered_vs_volume_conflict = 0;
   u64 orient_faces_authority = 0;      // faces the collision mesh can actually speak for (denominator)
   u64 orient_faces_inward_after = 0;   // of those, faces still clearly opposed to it -> the residual
 
@@ -212,6 +224,9 @@ constexpr u32 kMeshBitNoSeam = 16;
 constexpr u32 kMeshBitNoShrub = 32;
 constexpr u32 kMeshBitNoWide = 64;
 constexpr u32 kMeshBitForceLive = 128;  // ignore any precompute sidecar and run the pass live
+// ROUND 29 A/B: restore the pre-round-29 UNFILTERED collision authority (raw sum, 1e-3 gate) so the
+// competence filter can be bisected on the same data with one debug bit.
+constexpr u32 kMeshBitCollRaw = 256;
 
 // Read the runtime config (Android props / desktop env), so the device and the offline tool agree.
 MeshConsolidateConfig mesh_consolidate_config_from_env();
