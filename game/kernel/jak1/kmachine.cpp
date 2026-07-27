@@ -1315,6 +1315,12 @@ struct MeshIndexRow {
 std::vector<MeshIndexRow> g_mesh_index;
 std::string g_mesh_index_level;
 
+// jak1/kmachine.cpp has no kmachine_extras helper (unlike jak2/3), and the common file's
+// bool_to_symbol is file-local — so provide the same #t/#f GOAL-symbol return here.
+inline u64 mb_bool_to_symbol(bool val) {
+  return val ? static_cast<u64>(s7.offset) + true_symbol_offset(g_game_version) : s7.offset;
+}
+
 // Copy a std::string into a GOAL string buffer (font-encoded, uppercased for the jak1 font), the
 // same pattern as pc_get_display_name. Truncates to the GOAL string's declared allocated length.
 void copy_to_goal_string(u32 str_dest_ptr, const std::string& s) {
@@ -1472,19 +1478,19 @@ float pc_mesh_index_getf(u32 row, u32 field) {
 // Copy a row's material name into a GOAL string; returns #t/#f.
 u64 pc_mesh_index_name(u32 row, u32 str_dest_ptr) {
   if (row >= g_mesh_index.size()) {
-    return bool_to_symbol(false);
+    return mb_bool_to_symbol(false);
   }
   copy_to_goal_string(str_dest_ptr, g_mesh_index[row].material);
-  return bool_to_symbol(true);
+  return mb_bool_to_symbol(true);
 }
 
 // Copy the loaded level's name into a GOAL string.
 u64 pc_mesh_index_levelname(u32 str_dest_ptr) {
   if (g_mesh_index_level.empty()) {
-    return bool_to_symbol(false);
+    return mb_bool_to_symbol(false);
   }
   copy_to_goal_string(str_dest_ptr, g_mesh_index_level);
-  return bool_to_symbol(true);
+  return mb_bool_to_symbol(true);
 }
 
 // The real-texture <-> checker toggle (settable without adb; see gfx.h field comment).
