@@ -248,4 +248,11 @@ grep -qiE 'no fallback|jamais.*fallback|tess.*covers|never falls back' "$R" || f
 grep -qiE 'triangle' "$R" || fail "E2: triangle cost of extending tessellation coverage not quantified"
 grep -qiE 'ground|sol' "$R" || fail "must state the ground (owner judges it good) does not regress"
 grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
+# ---- ROUND 30: the delivery path. Corrected geometry never reached the owner (twice). ----
+grep -qiE 'asset_root|external storage|stockage externe' "$R" || fail "R30: the external-storage read path not addressed"
+grep -qiE 'custom pack[^.]{0,60}(prior|precedence|wins|prime)|priorit' "$R" || fail "R30: custom pack must take precedence over the base pack for fr3/sidecars"
+grep -qiE 'md5|sha|fingerprint|empreinte' "$R" || fail "R30: no fingerprint of the sidecar ACTUALLY OPENED by the runtime"
+grep -qiE 'freshness|fraicheur|older than' "$R" || fail "R30: no packaging freshness guard for bundled data (exists for libgk, missing for data)"
+grep -qiE 'village1[^.]{0,40}(meshweld|sidecar)' "$R" || fail "R30: village1 sidecar identity not proven end-to-end"
+grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
 echo "[Gpbrf PASS]"

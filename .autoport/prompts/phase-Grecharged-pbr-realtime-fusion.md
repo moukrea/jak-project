@@ -647,3 +647,54 @@ Propose cet invariant et mesure-le.
 GARDE-FOUS INCHANGÉS : aucun shader modifié sans nécessité démontrée dans le rapport, sortie tfrag
 inchangée là où elle est correcte, le sol en tessellation ne doit pas régresser (l'owner le juge bon),
 mesure visuelle in-game toujours interdite.
+
+================================================================================
+ROUND 30 — LA LIVRAISON EST CASSÉE : LES CORRECTIONS DE GÉOMÉTRIE N'ATTEIGNENT PAS L'OWNER
+================================================================================
+Owner, après le round 29 : "T'as rien corrigé du tout c'est exactement comme avant..."
+C'était la DEUXIÈME fois d'affilée. Le superviseur a cherché du côté livraison et a trouvé :
+
+FAITS VÉRIFIÉS SUR LE DEVICE (Redmi eae4df44) :
+  * files/asset_root.txt = /storage/emulated/0/OpenGOAL/jak1 : le runtime lit les fr3 et les
+    sidecars depuis le STOCKAGE EXTERNE, pas depuis l'APK.
+  * /storage/emulated/0/OpenGOAL/jak1/assets/fr3/village1.meshweld datait du 25 JUILLET 01:52,
+    md5 66edcf3f… alors que la version corrigée sur disque est du 27 à 11:51, md5 a6aa4aef…
+    Deux jours de retard. L'owner jouait sur la géométrie d'avant les rounds 28 ET 29.
+  * DEUX PACKS COEXISTENT ET SE CONTREDISENT :
+      - pack de base, scripts/package_game_assets.sh, version c958da787b1b2, 334 fichiers,
+        1 441 157 434 octets -> extrait dans le stockage externe. C'EST CELUI QUE LE JEU LIT.
+        Il contient fr3/*.fr3 et fr3/*.meshweld.
+      - pack custom, android/build_custom_pack.sh, version cbb07f5bc2e77, 57 fichiers, 194 Mo ->
+        embarqué dans l'APK (assets/bundle/jak1_custom.zip). Il contient AUSSI 30 entrées
+        fr3/ dont les .meshweld CORRIGÉS. Ils ne sont jamais lus.
+  * Le pack de base pèse 1,44 Go : il ne peut pas tenir dans un APK. Donc, en l'état, AUCUNE
+    correction de géométrie ne peut atteindre un appareil par la seule installation d'un APK —
+    et l'owner N'A PAS ADB. C'est un défaut d'architecture de livraison, pas un détail.
+
+Le superviseur a poussé les 26 sidecars corrigés (112 Mo) sur le Redmi pour que la mesure et le
+jeu y soient enfin cohérents. Ça ne règle RIEN pour l'owner.
+
+CE QU'IL FAUT FAIRE — C'EST LE SEUL SUJET DU ROUND
+1. LE PACK CUSTOM DE L'APK DOIT PRIMER SUR LE PACK DE BASE, fichier par fichier, pour tout ce
+   qu'il contient. C'est déjà la règle établie pour les textures ("les custom assets ont la
+   priorité sur les recharged textures", owner) : applique la MÊME règle aux fr3 et aux sidecars.
+   Vérifie où la résolution de chemin est faite au chargement et fais-la consulter le pack custom
+   d'abord. Un sidecar corrigé présent dans l'APK doit gagner contre une copie externe plus ancienne.
+2. LA FRAÎCHEUR DOIT ÊTRE DÉTECTÉE, PAS SUPPOSÉE. Compare les versions/empreintes des deux packs
+   au démarrage et, si le pack custom est plus récent, écrase la copie externe correspondante (ou
+   sers directement depuis le pack). Journalise la décision pour chaque fichier concerné afin
+   qu'un futur round puisse le vérifier sans device.
+3. GARDE-FOU DE LIVRAISON, à ajouter au script de packaging : refuser de produire un APK dont un
+   sidecar/fr3 embarqué est plus ANCIEN que sa source dans out/<game>/fr3/. Le même contrôle de
+   fraîcheur existe déjà pour libgk ; il manque pour les données.
+4. PREUVE ATTENDUE, sans mesure visuelle : pour village1, l'empreinte du sidecar effectivement
+   OUVERT par le runtime, tracée dans le log, égale à celle du fichier corrigé. C'est le seul
+   critère qui aurait attrapé ce bug deux rounds plus tôt.
+5. NE TOUCHE À AUCUNE LOI DE RENDU dans ce round. Le sujet est la livraison. Les corrections
+   d'orientation des rounds 28 et 29 sont déjà écrites : il s'agit de les faire ARRIVER.
+
+LEÇON À GRAVER : quand une correction mesurée à -42% "ne change rien" à l'écran, la première
+hypothèse doit être que l'artefact corrigé n'est pas celui qui est exécuté. Le projet a déjà été
+piégé par des .so périmés, des CGO périmés, des fr3 périmés dans l'APK slim et un APK damier
+identique au normal. Ça fait quatre fois. Le contrôle de fraîcheur doit devenir systématique et
+porter sur LA DONNÉE LUE, pas sur celle qu'on croit avoir livrée.
