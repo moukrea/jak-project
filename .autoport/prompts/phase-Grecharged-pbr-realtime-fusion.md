@@ -779,3 +779,25 @@ dérivées écran (réfuté), instances miroir (réfuté, 0 sur 175828), loi de 
 régressé), livraison (vrai bug, corrigé, sans effet sur le symptôme). Le point commun : j'ai chaque
 fois raisonné sur une cause plausible sans jamais mesurer le SIGNE DU DÉPLACEMENT LUI-MÊME. Ce round
 mesure la sortie, pas une hypothèse.
+
+--------------------------------------------------------------------------------
+ROUND 31 — CORRECTION : LE SOL N'EST PAS UN TÉMOIN, IL EST FAUTIF AUSSI
+--------------------------------------------------------------------------------
+Owner : "Non le sol est pas bon, plein d'endroits où ça fallback en parallax et/ou ça rend plat"
+
+Le point 3 ci-dessus disait "le sol (correct aussi)" : c'est FAUX, retire-le. Le SEUL témoin
+connu-correct est l'ÉTAGE de la hutte du sage. Tout le reste est suspect, sol compris.
+
+CONSÉQUENCE SUR LE TEST : il faut DEUX colonnes par modèle, parce que ce sont DEUX défauts distincts
+qu'il ne faut pas confondre :
+  * colonne A — % de sommets déplacés DANS LE BON SENS (blanc dehors, noir dedans) ;
+  * colonne B — % de sommets RÉELLEMENT DÉPLACÉS, c'est-à-dire dont le déplacement est non nul.
+    Un sommet au bon signe mais d'amplitude nulle est PLAT : c'est le défaut "ça rend plat" et le
+    "fallback en parallax" que l'owner décrit. La colonne A seule le masquerait complètement.
+Les deux colonnes doivent atteindre 100% sur TOUS les modèles. Pour chaque sommet non déplacé, dis
+POURQUOI avec la donnée : niveau de tessellation retombé à 1, amplitude annulée par le fade de
+distance, porte de patch franchie, height lue à 0.5 par bande-limite. Ce sont des valeurs
+calculables en CPU, pas des suppositions.
+
+Et rappelle-toi l'ordre déjà donné : EN MODE TESSELLATION, JAMAIS DE REPLI SUR LE PARALLAX. Une zone
+que la tessellation laisse plate est un défaut, même si le POM y met quelque chose.

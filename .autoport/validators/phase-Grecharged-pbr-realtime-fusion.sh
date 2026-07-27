@@ -257,6 +257,12 @@ grep -qiE 'per[- ]model|par modele|one line per model' "$R" || fail "R31: no per
 grep -qiE 'ground[- ]floor|rez-de-chaussee' "$R" || fail "R31: the sage-hut GROUND FLOOR (the failing case) is not in the table"
 grep -qiE 'upper floor|etage' "$R" || fail "R31: the UPPER FLOOR control (known-correct) is not in the table"
 grep -qiE 'discriminat|distingue|separates' "$R" || fail "R31: the test is not shown to DISCRIMINATE the failing case from the control"
+# owner correction: the GROUND is NOT a control, it is also faulty (flat / parallax fallback zones)
+grep -qiE 'actually displaced|non-?zero displacement|reellement deplace|column B|colonne B' "$R" || fail "R31: missing the second column — % of vertices ACTUALLY displaced (a correct sign with zero amplitude is FLAT)"
+grep -qiE 'tess(ellation)? level (fell|=|dropped) *1|amplitude (faded|annulee)|fade|patch gate' "$R" || fail "R31: undisplaced vertices not explained with computed values (tess level, distance fade, patch gate, band-limited 0.5)"
+ZPCT=$(grep -oiE '(worst|pire)[^0-9]{0,60}(displaced|deplace)[^0-9]{0,20}([0-9]{1,3}(\.[0-9]+)?) *%|(displaced|deplace)[^0-9]{0,20}([0-9]{1,3}(\.[0-9]+)?) *%[^.]{0,30}(worst|pire)' "$R" | grep -oE '[0-9]{1,3}(\.[0-9]+)?' | sort -g | head -1)
+[ -n "$ZPCT" ] || fail "R31: no worst-model percentage of ACTUALLY-DISPLACED vertices"
+awk -v v="$ZPCT" 'BEGIN{exit !(v>=100)}' || fail "R31: worst model only $ZPCT% of vertices actually displaced (flat zones = the owner's 'parallax fallback'), target 100%"
 PCT=$(grep -oiE '(worst|pire)[^0-9]{0,40}([0-9]{1,3}(\.[0-9]+)?) *%' "$R" | grep -oE '[0-9]{1,3}(\.[0-9]+)?' | sort -g | head -1)
 [ -n "$PCT" ] || fail "R31: no worst-model percentage of correctly-signed vertices"
 awk -v v="$PCT" 'BEGIN{exit !(v>=100)}' || fail "R31: worst model at $PCT% correctly-signed vertices, target is 100% everywhere"
