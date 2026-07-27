@@ -106,10 +106,16 @@
    (checker?      symbol)         ;; real-texture <-> checker toggle
    (need-reframe  symbol)         ;; recompute the orbit framing once after a warp settles
    (warp-timer    int32)          ;; frames since the warp, to let the level load before framing
-   ;; scratch strings (runtime buffers, re-formatted each frame — like *fps-counter-label*)
+   ;; scratch strings (runtime buffers, re-formatted each frame — like *fps-counter-label*).
+   ;; grade-buf / sub-buf hold pre-formatted sub-strings so they can be passed as ~S args to an
+   ;; OUTER string-format WITHOUT clobber: string-format formats into the SINGLE shared *temp-string*
+   ;; and reads its args AFTER, so a nested string-format (or mb-grade-string, which uses one) as an
+   ;; arg would be overwritten. These dedicated buffers keep each sub-string alive across that read.
    (name-buf      string)
    (level-buf     string)
-   (line-buf      string))
+   (line-buf      string)
+   (grade-buf     string)
+   (sub-buf       string))
   (:methods
    (mesh-browser-open (_type_) none)
    (mesh-browser-close (_type_) none)
@@ -135,7 +141,7 @@
     (new 'static 'mesh-browser-level :index-name "ogre"     :warp-name "ogre-start")
     (new 'static 'mesh-browser-level :index-name "village3" :warp-name "village3-start")
     (new 'static 'mesh-browser-level :index-name "snow"     :warp-name "snow-start")
-    (new 'static 'mesh-browser-level :index-name "maincave" :warp-name "cave-start")
+    (new 'static 'mesh-browser-level :index-name "maincave" :warp-name "maincave-start")
     (new 'static 'mesh-browser-level :index-name "lavatube" :warp-name "lavatube-start")
     (new 'static 'mesh-browser-level :index-name "citadel"  :warp-name "citadel-start")))
 
@@ -145,13 +151,52 @@
 (set! (-> *mesh-browser* name-buf)  (new 'global 'string 64 (the string #f)))
 (set! (-> *mesh-browser* level-buf) (new 'global 'string 64 (the string #f)))
 (set! (-> *mesh-browser* line-buf)  (new 'global 'string 128 (the string #f)))
+(set! (-> *mesh-browser* grade-buf) (new 'global 'string 16 (the string #f)))
+(set! (-> *mesh-browser* sub-buf)   (new 'global 'string 16 (the string #f)))
 (set! (-> *mesh-browser* checker?) #f)
 (set! (-> *mesh-browser* mode) (mesh-browser-mode closed))
 
 ;; how many rows the list shows at once
 (defconstant MB_PAGE 16)
 
+;; Forward declarations — OpenGOAL resolves an unknown symbol call as a method dispatch on the first
+;; arg's type, so every function referenced before its definition must be declared first.
+(define-extern mesh-browser-active? (function symbol))
+(define-extern mesh-browser-text (function dma-buffer string int int font-color none))
+(define-extern mesh-browser-panel (function dma-buffer int int int int rgba none))
+(define-extern mesh-browser-poll-tap (function none))
+(define-extern mb-tap-in? (function float float float float symbol))
+(define-extern mesh-browser-draw-levels (function mesh-browser dma-buffer none))
+(define-extern mesh-browser-input-levels (function mesh-browser none))
+(define-extern mesh-browser-enter-list (function mesh-browser none))
+(define-extern mb-filter-name (function mesh-browser-filter string))
+(define-extern mb-grade-string (function mesh-browser int string))
+(define-extern mesh-browser-draw-list (function mesh-browser dma-buffer none))
+(define-extern mesh-browser-input-list (function mesh-browser none))
+(define-extern mesh-browser-cycle-filter (function mesh-browser int none))
+(define-extern mesh-browser-pin-jak (function mesh-browser none))
+(define-extern mesh-browser-frame-orbit (function mesh-browser none))
+(define-extern mesh-browser-draw-observe (function mesh-browser dma-buffer none))
+(define-extern mb-disp-name (function string))
+(define-extern mesh-browser-bump-disp (function mesh-browser int none))
+(define-extern mesh-browser-bump-relief (function mesh-browser float none))
+(define-extern mesh-browser-draw-obs-buttons (function mesh-browser dma-buffer none))
+(define-extern mesh-browser-handle-obs-tap (function mesh-browser none))
+(define-extern mesh-browser-bump-tod (function mesh-browser float none))
+(define-extern mesh-browser-toggle-checker (function mesh-browser none))
+(define-extern mesh-browser-exit-observe (function mesh-browser none))
+(define-extern mesh-browser-input-observe (function mesh-browser none))
+(define-extern mesh-browser-apply-light-spin (function mesh-browser none))
+
 ;; ---- helpers --------------------------------------------------------------------------------------
+
+(defun mb-wrap ((v float) (hi float))
+  "Wrap v into [0,hi) — used for stepping the hour (0..24) and the light azimuth (0..2pi). Steps are
+   small so a single add/sub of hi suffices (no fmod in GOAL)."
+  (cond
+    ((< v 0.0) (+ v hi))
+    ((>= v hi) (- v hi))
+    (else v)))
 
 (defun mesh-browser-active? ()
   "Is the browser currently owning the screen?"
@@ -338,10 +383,15 @@
     (else "?")))
 
 (defun mb-grade-string ((obj mesh-browser) (raw int))
-  "Format a mesh's offline grade for on-screen display (n/a for ungraded TIE POM meshes)."
+  "Format a mesh's offline grade into the browser's OWN grade-buf (n/a for ungraded TIE POM meshes).
+   Uses the low-level (format (clear ...)) rather than the string-format macro so the result lives in
+   grade-buf, not the shared *temp-string* — this is safe to pass as a ~S arg to an outer
+   string-format (which would otherwise clobber a nested string-format's *temp-string*)."
   (if (= (pc-mesh-index-geti raw MB_GI_GRADED) 1)
-      (string-format "~f%" (* 0.01 (the float (pc-mesh-index-geti raw MB_GI_ASIGN))))
-      (string-format "n/a")))
+      (format (clear (-> obj grade-buf)) "~f%" (* 0.01 (the float (pc-mesh-index-geti raw MB_GI_ASIGN))))
+      (format (clear (-> obj grade-buf)) "n/a"))
+  ;; return the buffer explicitly (do not rely on _format's return), like the string-format macro.
+  (-> obj grade-buf))
 
 (defun mesh-browser-draw-list ((obj mesh-browser) (buf dma-buffer))
   (mesh-browser-panel buf 16 12 1200 24 (new 'static 'rgba :r #x10 :g #x10 :b #x20 :a #x90))
@@ -432,13 +482,16 @@
    the mesh at the framed distance derived from the bounding box."
   (when (and *target* *camera*)
     (mesh-browser-pin-jak obj)
-    (set! *camera-orbit-target* (process->ppointer *target*))
+    (set! *camera-orbit-target* (the-as (pointer process-drawable) (process->ppointer *target*)))
     (set! (-> *camera-orbit-info* radius) (-> obj frame-dist))
     (set! (-> *camera-orbit-info* radius-lerp)
           (fmax 0.0 (fmin 1.0
             (/ (- (-> obj frame-dist) (-> *CAM_ORBIT-bank* RADIUS_MIN))
                (- (-> *CAM_ORBIT-bank* RADIUS_MAX) (-> *CAM_ORBIT-bank* RADIUS_MIN))))))
     (set! (-> *camera-orbit-info* orbit-off y) (* 0.4 (-> obj frame-dist)))
+    ;; cam-orbit reads the sticks for rotate/zoom only while *camera-read-analog* is #t; various
+    ;; cam-layout paths leave it #f, so force it on for the owner's free orbit/zoom in OBSERVE.
+    (set! *camera-read-analog* #t)
     (send-event *camera* 'change-state cam-orbit 0))
   (none))
 
@@ -457,13 +510,20 @@
     (mesh-browser-text buf
       (string-format "OFFLINE GRADE A_SIGN=~S  (file mesh_select.txt)" (mb-grade-string obj raw))
       20 28 (font-color yellow))
-    ;; live toggle states
+    ;; live toggle states. The TOD sub-string is pre-formatted into sub-buf (low-level
+    ;; format/clear) so it survives as a ~S arg to the outer string-format below — nesting a raw
+    ;; string-format there would clobber the shared *temp-string*. mb-disp-name returns a literal
+    ;; (safe). The outer string-format's *temp-string* is then consumed immediately by
+    ;; mesh-browser-text (draw-string copies it), so it is free again next line.
+    (if *mb-tod-hold?*
+        (format (clear (-> obj sub-buf)) "~fH" *mb-tod-hour*)
+        (format (clear (-> obj sub-buf)) "CYCLE"))
     (mesh-browser-text buf
       (string-format "TEXTURE=~S  DISPLACEMENT=~S  RELIEF=~f  TOD=~S"
                      (if (-> obj checker?) "CHECKER" "REAL")
                      (mb-disp-name)
                      (-> *pc-settings* pbr-texture-relief)
-                     (if *mb-tod-hold?* (string-format "~fH" *mb-tod-hour*) (string-format "CYCLE")))
+                     (-> obj sub-buf))
       20 40 (font-color cyan))
     ;; controls legend (gamepad + the on-screen tap buttons below)
     (mesh-browser-text buf
@@ -521,7 +581,7 @@
 
 (defun mesh-browser-bump-tod ((obj mesh-browser) (d float))
   (set! *mb-tod-hold?* #t)
-  (set! *mb-tod-hour* (fmod (+ *mb-tod-hour* d 24.0) 24.0))
+  (set! *mb-tod-hour* (mb-wrap (+ *mb-tod-hour* d) 24.0))
   (none))
 
 (defun mesh-browser-toggle-checker ((obj mesh-browser))
@@ -555,8 +615,8 @@
     ((cpad-pressed? 0 left) (mesh-browser-bump-tod obj -1.0))
     ((cpad-pressed? 0 right) (mesh-browser-bump-tod obj 1.0))
     ;; L1/R1 = rotate the LIGHT around the mesh (the mesh-vs-light spin for static geometry).
-    ((cpad-hold? 0 l1) (set! (-> obj light-az) (fmod (+ (-> obj light-az) -0.03 6.2832) 6.2832)))
-    ((cpad-hold? 0 r1) (set! (-> obj light-az) (fmod (+ (-> obj light-az) 0.03) 6.2832)))
+    ((cpad-hold? 0 l1) (set! (-> obj light-az) (mb-wrap (+ (-> obj light-az) -0.03) 6.2832)))
+    ((cpad-hold? 0 r1) (set! (-> obj light-az) (mb-wrap (+ (-> obj light-az) 0.03) 6.2832)))
     ((cpad-pressed? 0 triangle) (mesh-browser-exit-observe obj))
     ((cpad-pressed? 0 circle) (mesh-browser-exit-observe obj)))
   ;; touch buttons
@@ -564,6 +624,28 @@
   ;; hold the chosen time of day (re-set every frame so the mesh stays at that hour).
   (when (and *mb-tod-hold?* *time-of-day-proc*)
     (set-time-of-day *mb-tod-hour*))
+  ;; the mesh-vs-light spin (owner requirement b): the world mesh is baked in place and cannot be
+  ;; spun, so instead we spin the LIGHT around it — the RELATIVE object/light angle is identical,
+  ;; which is exactly the "rotate the mesh under fixed light" test the owner wants (it reveals the
+  ;; angle-dependent displacement defects). We run AFTER (update-to-os) in the same frame (this
+  ;; whole overlay is called at pckernel-common.gc line ~479, past line 453), so re-pushing the
+  ;; rotated sun/green-sun vectors WINS for the frame. This only re-points the EXISTING sun
+  ;; direction the renderer already reads (pc-set-pbr-sky-sun!) — it touches no shader and no
+  ;; displacement law (this phase OBSERVES). Skipped when light-az is 0 so the normal lighting is
+  ;; byte-identical until the owner spins it.
+  (mesh-browser-apply-light-spin obj)
+  (none))
+
+(defun mesh-browser-apply-light-spin ((obj mesh-browser))
+  "Rotate the two sky suns about world Y by the owner's light-az and re-push them, so the light
+   orbits the static mesh (the mesh-vs-light test). No-op at light-az 0 (lighting unchanged)."
+  (#when FLAG_PBR
+    (when (!= (-> obj light-az) 0.0)
+      (let ((v (new 'stack-no-clear 'vector)))
+        (vector-rotate-around-y! v (-> *sky-parms* upload-data sun 0 pos) (-> obj light-az))
+        (pc-set-pbr-sky-sun! v)
+        (vector-rotate-around-y! v (-> *sky-parms* upload-data sun 1 pos) (-> obj light-az))
+        (pc-set-pbr-green-sun! v))))
   (none))
 
 ;; ---- the single per-frame entry point -------------------------------------------------------------

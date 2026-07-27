@@ -2117,7 +2117,7 @@
 (goal-src "pc/progress-pc.gc" "progress" "pckernel")
 (goal-src "pc/hud-classes-pc.gc" "pckernel" "hud" "battlecontroller" "generic-obs")
 ;; Grecharged-mesh-browser: the debug mesh browser overlay (warp/frame/observe any level's meshes).
-(goal-src "pc/mesh-browser-pc.gc" "pckernel" "progress-pc" "camera" "cam-states-dbg" "time-of-day" "game-info")
+(goal-src "pc/mesh-browser-pc.gc" "pckernel" "progress-pc" "camera" "cam-states-dbg" "time-of-day" "game-info" "sky-h")
 (goal-src "pc/debug/anim-tester-x.gc" "pckernel" "gstring" "joint" "process-drawable" "art-h" "effect-control")
 (goal-src "pc/debug/entity-debug.gc" "debug" "main-h" "entity" "pckernel" "font")
 (goal-src "pc/debug/default-menu-pc.gc" "anim-tester-x" "part-tester" "entity-debug")

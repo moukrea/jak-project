@@ -114,7 +114,8 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **RT ONLY (idx 4) garde `load-custom-assets?` ON depuis 2026-07-23** (RT sur textures custom, cartes PBR OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 22 | **PBR Isolate** [R] | carousell | **DEBUG (retirable plus tard)** — **BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER**, défaut BOTH → `pbr-isolate` (0..3), poussé chaque frame en index brut via `pc-set-pbr-isolate!` ; setter C++ mappe index→masque `u_pbr_bisect` (BOTH 0 / NORMAL-MAP ONLY 128 / PARALLAX ONLY 64 / NEITHER 192) et écrit l'état dans `files/pbr_tan_diag.txt` à chaque changement. Bisection de terme IN-MENU (owner isole les facettes sans adb). Grisé selon **PBR Materials OFF** ou RECHARGED MASTER OFF. **Ajout Gpbr-fusion REOPEN #10 ; diag REOPEN #11 ; labels d'option = strings globales runtime (bank-indépendant) REOPEN #11 pré-livraison** | {FLAG_PBR} |
-| 23 | Back | button | (jamais grisé) | — |
+| 23 | **MESH BROWSER** [R] | button | **DEBUG — navigateur de mesh** (`pc-text-mesh-browser` #x1728). Ouvre l'overlay `*mesh-browser*` (warp dans n'importe quel niveau, prévisualise n'importe quel mesh avec textures/PBR, bascule damier/tessellation/relief/heure, orbite libre + rotation lumière-vs-mesh, note hors-ligne affichée). **TOUJOURS actif** (un outil debug doit rester atteignable même master OFF) ; respond-common appelle `mesh-browser-open!` et repasse en `master-mode 'game`. Tactile ET manette, sans adb. **Ajout Grecharged-mesh-browser** | — |
+| 24 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
 > **Specular Intensity** (0..2, défaut 1.0) insérés APRÈS Shadow Quality, AVANT Back (Back renuméroté 18→20).
@@ -223,6 +224,25 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > ci-dessus — les données probe alimentent désormais les paliers de l'Ambient Model. Le menu reste
 > long et plat (HUD / assets / matériaux / modèles / foliage / AO / lighting) ; regroupement en
 > sous-catégories toujours envisageable (ex : *Lighting*, *Materials*, *Vegetation*, *AO*, *Models*, *HUD*).
+>
+> **Ajout (2026-07-27, Grecharged-mesh-browser — DEBUG)** : bouton **MESH BROWSER** inséré APRÈS PBR Isolate,
+> AVANT Back (Back renuméroté 23→24 ; toutes les lignes précédentes inchangées — ajout en fin de bloc, au tail
+> après tout le câblage/collapse existant, donc seules les gardes de longueur totale changent, pas les indices
+> fw-idx ni la boucle de collapse). Id texte `pc-text-mesh-browser` #x1728 ("MESH BROWSER" EN+FR). C'est un
+> **bouton** (`game-option-type button`), pas un carousell : `respond-common` matche l'id, joue `select-option`,
+> appelle `mesh-browser-open!` et repasse en `set-master-mode 'game` (l'overlay prend l'écran). **TOUJOURS actif**
+> (aucune option-disabled-func) — un outil de debug doit rester atteignable même avec RECHARGED MASTER OFF.
+> Ouvre l'overlay `*mesh-browser*` (`pc/mesh-browser-pc.gc`), piloté par un seul appel par frame
+> `(mesh-browser-update)` accroché dans `(update *pc-settings*)` juste après `draw-pc-fps-counter` — ne fait RIEN
+> tant qu'il est fermé (chemin de rendu normal inchangé bit-à-bit). Modes : LEVEL PICKER → MESH LIST (filtres
+> ALL / FAILING / TFRAG / TIE, tri PIRE-NOTE-D'ABORD hérité de l'index, note hors-ligne affichée) → OBSERVE
+> (warp + auto-cadrage depuis la bounding box, orbite libre cam-orbit, spin lumière-vs-mesh L1/R1, bascules
+> damier / displacement / relief / heure du jour). Identifiant mesh affiché à l'écran ET exporté dans
+> `files/mesh_select.txt` (owner sans adb). Tactile ET manette (strip de boutons tap en bas d'écran = parité
+> pad). Index par niveau `mesh_index_<level>.txt` distillé de tess_sign par `tools/mesh_index`, embarqué dans
+> l'APK (`<custom root>/mesh_index/`, `file_util::get_bundled_mesh_index_dir`). Le damier réutilise le mode
+> `PbrTestPattern` existant via `recharged_mesh_browser_checker` (gfx.h) : sans prop/env debug, le toggle menu
+> possède le pattern ; le prop/env l'écrase encore dans les deux sens (A/B headless superviseur inchangé).
 
 ---
 
