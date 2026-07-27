@@ -842,3 +842,15 @@ CONSÉQUENCES NON NÉGOCIABLES :
    être corrects sur chaque mesh. Un mesh correct en parallax mais plat en tessellation est un mesh
    en échec, et l'inverse aussi.
 4. Un round ne passe que si la liste est verte sur TOUS les mesh du jeu, dans les deux tiers.
+
+--------------------------------------------------------------------------------
+DÉFAUT LATENT SIGNALÉ PAR UN AUTRE CHANTIER — Loader.cpp NE COMPILE PAS AVEC PBR OFF
+--------------------------------------------------------------------------------
+Découvert par le worker du navigateur de mesh en configurant un build avec OG_FEAT_PBR=OFF :
+game/graphics/opengl_renderer/loader/Loader.cpp référence recharged_pbr_* SANS GARDE de compilation
+(4 références, 1 seule directive OG_FEAT_PBR dans le fichier). Le PBR n'est donc plus désactivable
+proprement à la compilation : un build PBR-OFF échoue.
+Ce n'est pas urgent pour le jeu livré (qui compile avec PBR ON), mais c'est une dette réelle : elle
+empêche d'isoler le PBR pour un A/B de compilation, ce qui est précisément l'outil dont on aurait eu
+besoin plusieurs fois dans cette phase. À corriger quand ce round retouche Loader.cpp, en gardant
+toutes les références derrière la directive.
