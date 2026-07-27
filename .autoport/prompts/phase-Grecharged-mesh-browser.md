@@ -1,0 +1,57 @@
+# PHASE Grecharged-mesh-browser — NAVIGATEUR DE MESH DE DEBUG (demande directe de l'owner)
+
+Owner, mot pour mot :
+  "Tu crois qu'on pourrait avoir un menu de debug qui nous permettrait de warp dans n'importe quel
+   niveau pour prévisualiser n'importe quel mesh avec ses textures et compagnie, son PBR 'Rechargé'
+   si existant, avec un toggle pour le damier en place de sa texture pour voir si le PBR rend bien,
+   totalement contrôlable au tactile sur mobile et à la manette ? Ça me permettrait en tant
+   qu'humain de vérifier tous les mesh dans des conditions multiples et réelles du jeu"
+
+POURQUOI CETTE PHASE COMPTE PLUS QUE SON APPARENCE D'OUTIL : l'owner est le seul juge visuel du
+projet (règle permanente : l'agent ne mesure JAMAIS le visuel in-game). Aujourd'hui il ne peut juger
+que les quelques surfaces qu'il croise en jouant, et six rounds de PBR ont été dépensés sur cinq
+surfaces nommées à la main. Ce navigateur transforme sa capacité de vérification : il pourra
+balayer les 3613 mesh d'un niveau lui-même, dans les conditions réelles du jeu. C'est le
+démultiplicateur du seul instrument fiable dont le projet dispose.
+
+## CE QUI EXISTE DÉJÀ — NE LE RÉINVENTE PAS
+* LE CATALOGUE : tools/tess_sign produit un CSV de 3613 lignes par niveau avec, par mesh, son
+  système (TIE/TFRAG), son matériau, son tex_id, son centroïde monde, et ses notes A_sign% /
+  B_disp%. C'est l'index du navigateur, il est déjà calculé. Il faut l'exporter dans un format
+  compact que le jeu charge, et l'embarquer dans l'APK (règle owner : le dérivé va dans l'APK).
+* LE DAMIER : game/graphics/opengl_renderer/loader/PbrTestPattern.{h,cpp}, déjà commutable par mode.
+* LE WARP : debug.opengoal.level.warp et level.warp.pos placent le joueur à des coordonnées exactes.
+* LE MENU : la page Recharged Settings et son système de lignes/carrousels (voir .autoport/menu-tree.md).
+* L'ENTRÉE : couche tactile SDL + manette déjà opérationnelles.
+
+## LIVRABLE
+1. INDEX EMBARQUÉ : par niveau, la liste des mesh avec matériau, centroïde, boîte englobante,
+   présence de maps PBR "recharged", et la note du test hors-ligne. Format compact, chargé à la
+   demande, embarqué dans l'APK.
+2. ÉCRAN DE NAVIGATION, atteignable depuis le menu de debug :
+   * choix du niveau, puis liste des mesh, AVEC FILTRES : seulement ceux qui portent des maps PBR,
+     seulement ceux notés fautifs par le test hors-ligne, recherche par nom de matériau.
+   * TRI PAR PIRE NOTE D'ABORD : l'owner doit tomber sur les cas cassés sans les chercher.
+3. CADRAGE AUTOMATIQUE : sélectionner un mesh warpe dans son niveau et place la caméra pour le
+   cadrer proprement (distance déduite de la boîte englobante), avec orbite libre autour, zoom, et
+   possibilité de reprendre le contrôle normal du personnage.
+4. BASCULES, à portée immédiate pendant l'observation :
+   * texture réelle <-> damier de debug ;
+   * displacement : tessellation <-> parallax <-> aucun ;
+   * curseur de relief ;
+   * afficher à l'écran LA NOTE que le test hors-ligne donne à ce mesh. C'est capital : ça permet à
+     l'owner de CONFIRMER OU RÉFUTER le verdict de l'outil. Si l'outil dit 100% et que l'owner voit
+     une inversion, c'est l'OUTIL qui est faux — ce croisement est la boucle de contrôle qui a manqué
+     à tous les rounds précédents.
+5. CONTRÔLE TACTILE ET MANETTE, les deux, complets. L'owner n'a pas adb : tout doit être atteignable
+   au doigt sur le téléphone. Pas de fonction accessible seulement par setprop.
+6. Le navigateur est un mode DEBUG : il ne doit rien coûter ni rien changer quand il est éteint, et
+   ne doit pas fuir dans un build de sortie. Mais il doit être ACCESSIBLE SANS ADB dans les builds
+   de test, comme le damier.
+
+## GARDE-FOUS
+* Aucune régression de rendu : le chemin normal doit être inchangé quand le navigateur est fermé.
+* Ne touche pas aux lois de displacement : cette phase OBSERVE, elle ne corrige pas.
+* Mets à jour .autoport/menu-tree.md (règle owner permanente sur toute entrée de menu).
+* Mesure visuelle in-game toujours interdite pour l'agent : c'est l'owner qui regarde, l'outil ne
+  fait que l'amener devant le mesh.

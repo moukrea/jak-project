@@ -2243,6 +2243,10 @@ phases:
   max_retries: 36
   device: true
   owner_verify: true
+- id: Grecharged-mesh-browser
+  title: "Navigateur de mesh de debug (owner: verifier tous les mesh soi-meme, tactile + manette)"
+  max_retries: 12
+  owner_verify: true
 - id: Grecharged-texture-hotreload
   name: 'RECHARGED (owner 2026-07-23): LIVE texture toggling — Recharged Textures / custom assets
     ON<->OFF must apply without restarting the game (rescan + GPU re-upload / pool invalidation).

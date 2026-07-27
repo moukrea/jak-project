@@ -401,9 +401,19 @@ constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
 //   pass a competence filter (|n.dot(collision_normal)| > 0.35) and an area-weighted confidence
 //   test before it may outrank the geometric cascade, so every nor[] in a v1/v2/v3 sidecar is a
 //   stale answer for every component that used to be decided by orthogonal floor-normal noise.
+// v5 (round 31): the orientation rule changed a FOURTH time -- the PRECEDENCE itself moved. A
+//   PER-FACE GEOMETRIC OUTWARD VOTE (escape rays cast from both sides of every face, see
+//   kMeshBitGeomOrient) is now the FIRST authority, ahead of the signed volume, ahead of the ray
+//   parity and ahead of the walkable COLLISION MESH, which is demoted to last resort. So every
+//   nor[] in a v1/v2/v3/v4 sidecar is a stale answer for every component the collision mesh used to
+//   claim while pointing the wrong way -- the sage-hut ground-floor wall and the roof over it.
+//   THE BUMP IS THE DELIVERY: the sidecar fingerprint is COUNTS-only (tree/vert/index/colour
+//   counts), so it still matches an fr3 whose normals were re-baked, and without a version bump
+//   every device would blit the OLD normals back over the fix and the whole round would ship as a
+//   no-op. That has already cost this project two rounds; do not remove this.
 // mesh_consolidate_apply_bake() rejects a version mismatch and the caller falls back to the live
 // pass, so the 26 baked jak1 levels cannot silently keep the old (inverted) normals.
-constexpr u32 kBakeVersion = 4;
+constexpr u32 kBakeVersion = 5;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and
@@ -1345,6 +1355,13 @@ void mesh_consolidate(Level& lev,
   // 6. ORIENTATION. Flood-fill a consistent winding sign over the welded topology, then decide which
   //    way "outward" is for each connected component.
   //
+  //    ROUND 31 — THE PRECEDENCE MOVED. With kMeshBitGeomOrient set, a PER-FACE GEOMETRIC OUTWARD
+  //    VOTE (escape rays from both sides of every face) is the FIRST authority and the walkable
+  //    COLLISION MESH is DEMOTED to last resort, because "the walkable side is the outward side" is
+  //    meaningless for a roof, a vertical wall or a face under a cornice. With the bit clear the
+  //    order below is unchanged, bit for bit. The two paragraphs that follow describe that legacy
+  //    order, which is still what a device without a baked sidecar runs.
+  //
   //    FIRST AUTHORITY: the walkable COLLISION MESH. It is the ground truth wherever it reaches.
   //
   //    SECOND AUTHORITY (round 28): where the collision mesh is SILENT, a deterministic, purely
@@ -1527,6 +1544,366 @@ void mesh_consolidate(Level& lev,
       return 0;
     };
 
+    // =============================================================================================
+    // ROUND 31 — THE PER-FACE GEOMETRIC OUTWARD VOTE (kMeshBitGeomOrient).
+    //
+    // WHY. The tessellation displaces along the baked vertex normal with `(h - 0.5) * amp`, amp > 0
+    // always, so a wrong displacement SIGN is a wrong NORMAL ORIENTATION and nothing else. Rounds
+    // 22/28/29 each changed the orientation RULE while measuring only proxies (winding-pair parity,
+    // collision agreement, conflict counts) — never the output sign of a face against a purely
+    // geometric outward reference. Measured this round with an offline CPU port of the tessellation
+    // shaders: the sage hut's GROUND FLOOR is at 0.00% correctly-signed vertices while the UPPER
+    // FLOOR is at 58.24%, and on every ground-floor shell the baked normals AND the collision
+    // authority both disagree with the geometric outward direction. So the reference itself is what
+    // was missing.
+    //
+    // WHAT. For each face, sit just off its front and back side and ask which side can SEE OPEN AIR:
+    // fire K stratified escape rays from `c + 0.02m*gn` about +gn and K from `c - 0.02m*gn` about
+    // -gn; a ray escapes if it hits no face within 200 m. The side that escapes more is outside.
+    // This needs no collision mesh, no closed shell and no authored normal — it is a property of the
+    // rendered geometry alone, defined on a roof, on a vertical wall and under a cornice alike.
+    //
+    // DETERMINISM. No RNG anywhere: the direction set is a fixed stratified table rotated into the
+    // face's own frame by a branchless Duff/Frisvad basis, so it is a pure function of gn. The grid
+    // is a dense CSR built in ascending face order, its cell size is a pure function of the level
+    // bbox and face count, and the escape test is a boolean OR over the candidate faces, which makes
+    // it independent of traversal order. Two runs over one fr3 produce identical votes.
+    //
+    // COST. This is the expensive pass (2*K rays for every face of every system), which is why the
+    // bit is default-OFF and documented as offline-only in the header.
+    // =============================================================================================
+    const bool geom_orient = (cfg.bits & kMeshBitGeomOrient) != 0;
+    // K rays per side. 13 is the spec'd start; a lower K only widens the abstain band, it never
+    // biases the sign, because the vote is a DIFFERENCE of escape counts.
+    constexpr int kGeomRays = 13;
+    constexpr double kGeomHitEps = 0.001 * (double)kUnitsPerMeter;  // ignore hits nearer than 1 mm
+    constexpr double kGeomRayMax = 200.0 * (double)kUnitsPerMeter;  // no hit within 200 m == escaped
+    constexpr double kGeomProbeEps = 0.02 * (double)kUnitsPerMeter;  // probe sits 2 cm off the face
+    constexpr double kGeomConfMin = 0.15;  // area-weighted mean agreement needed to SPEAK
+    std::vector<s8> gvote(geom_orient ? F : (size_t)0, 0);
+    if (geom_orient) {
+      const auto geom_t0 = std::chrono::steady_clock::now();
+
+      // ---- the accelerator: a dense uniform grid, CSR, over EVERY face of EVERY system ----------
+      double glo[3] = {0, 0, 0}, ghi[3] = {0, 0, 0};
+      {
+        const math::Vector3f& p0 = gp[faces[0][0]];
+        for (int a = 0; a < 3; a++) {
+          glo[a] = ghi[a] = (double)p0[a];
+        }
+        for (size_t f = 0; f < F; f++) {
+          for (int e = 0; e < 3; e++) {
+            const math::Vector3f& p = gp[faces[f][e]];
+            for (int a = 0; a < 3; a++) {
+              glo[a] = std::min(glo[a], (double)p[a]);
+              ghi[a] = std::max(ghi[a], (double)p[a]);
+            }
+          }
+        }
+      }
+      // Memory ceilings, not tuning knobs: they bound the offline pass on a level whose bbox is huge
+      // (jak2's city) or whose triangles are huge (sky/water quads spanning hundreds of metres). The
+      // cell size only ever GROWS from 1 m, in powers of two, and only as a function of the geometry,
+      // so it is reproducible.
+      constexpr u64 kMaxGridCells = 8000000;
+      constexpr u64 kMaxGridItems = 24000000;
+      double gcell = 1.0 * (double)kUnitsPerMeter;  // ~1 m cells
+      s64 gdim[3] = {1, 1, 1};
+      std::vector<u32> goff;
+      std::vector<u32> gitems;
+      auto face_cells = [&](size_t f, s64* lo, s64* hi) {
+        const auto& t = faces[f];
+        for (int a = 0; a < 3; a++) {
+          const double p0 = (double)gp[t[0]][a], p1 = (double)gp[t[1]][a], p2 = (double)gp[t[2]][a];
+          const double mn = std::min(p0, std::min(p1, p2));
+          const double mx = std::max(p0, std::max(p1, p2));
+          lo[a] = (s64)std::floor((mn - glo[a]) / gcell);
+          hi[a] = (s64)std::floor((mx - glo[a]) / gcell);
+          lo[a] = std::max<s64>(0, std::min<s64>(gdim[a] - 1, lo[a]));
+          hi[a] = std::max<s64>(0, std::min<s64>(gdim[a] - 1, hi[a]));
+        }
+      };
+      for (;;) {
+        for (int a = 0; a < 3; a++) {
+          gdim[a] = (s64)std::floor((ghi[a] - glo[a]) / gcell) + 1;
+        }
+        const u64 ncell = (u64)gdim[0] * (u64)gdim[1] * (u64)gdim[2];
+        if (ncell > kMaxGridCells) {
+          gcell *= 2.0;
+          continue;
+        }
+        goff.assign(ncell + 1, 0);
+        u64 total = 0;
+        s64 lo[3], hi[3];
+        for (size_t f = 0; f < F; f++) {
+          face_cells(f, lo, hi);
+          total += (u64)(hi[0] - lo[0] + 1) * (u64)(hi[1] - lo[1] + 1) * (u64)(hi[2] - lo[2] + 1);
+          if (total > kMaxGridItems) {
+            break;
+          }
+          for (s64 x = lo[0]; x <= hi[0]; x++) {
+            for (s64 y = lo[1]; y <= hi[1]; y++) {
+              const u64 row = ((u64)x * (u64)gdim[1] + (u64)y) * (u64)gdim[2];
+              for (s64 z = lo[2]; z <= hi[2]; z++) {
+                goff[row + (u64)z + 1]++;
+              }
+            }
+          }
+        }
+        if (total > kMaxGridItems) {
+          gcell *= 2.0;
+          continue;
+        }
+        for (u64 c = 0; c < ncell; c++) {
+          goff[c + 1] += goff[c];
+        }
+        gitems.assign(goff[ncell], 0);
+        std::vector<u32> cur(goff.begin(), goff.end() - 1);
+        for (size_t f = 0; f < F; f++) {  // ascending face order => deterministic cell contents
+          face_cells(f, lo, hi);
+          for (s64 x = lo[0]; x <= hi[0]; x++) {
+            for (s64 y = lo[1]; y <= hi[1]; y++) {
+              const u64 row = ((u64)x * (u64)gdim[1] + (u64)y) * (u64)gdim[2];
+              for (s64 z = lo[2]; z <= hi[2]; z++) {
+                gitems[cur[row + (u64)z]++] = (u32)f;
+              }
+            }
+          }
+        }
+        break;
+      }
+      lg::info("[mesh-consolidate] geom-orient grid: cell={:.3f}m dim={}x{}x{} items={} faces={}",
+               gcell / (double)kUnitsPerMeter, gdim[0], gdim[1], gdim[2], (u64)gitems.size(),
+               (u64)F);
+
+      // Non-culling Moller-Trumbore in double, returning the ray parameter. Both sides count: this
+      // is a visibility question, not a parity count, so winding is irrelevant here.
+      auto ray_tri_t = [&](const double* o, const double* d, u32 f, double* t_out) -> bool {
+        const auto& tf = faces[f];
+        const double v0[3] = {(double)gp[tf[0]].x(), (double)gp[tf[0]].y(), (double)gp[tf[0]].z()};
+        const double v1[3] = {(double)gp[tf[1]].x(), (double)gp[tf[1]].y(), (double)gp[tf[1]].z()};
+        const double v2[3] = {(double)gp[tf[2]].x(), (double)gp[tf[2]].y(), (double)gp[tf[2]].z()};
+        const double e1[3] = {v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]};
+        const double e2[3] = {v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]};
+        const double pv[3] = {d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2],
+                              d[0] * e2[1] - d[1] * e2[0]};
+        const double det = e1[0] * pv[0] + e1[1] * pv[1] + e1[2] * pv[2];
+        if (!(std::abs(det) > 1e-12)) {
+          return false;  // ray parallel to the plane: it skims, it does not block
+        }
+        const double inv = 1.0 / det;
+        const double tv[3] = {o[0] - v0[0], o[1] - v0[1], o[2] - v0[2]};
+        const double bu = (tv[0] * pv[0] + tv[1] * pv[1] + tv[2] * pv[2]) * inv;
+        if (bu < 0.0 || bu > 1.0) {
+          return false;
+        }
+        const double qv[3] = {tv[1] * e1[2] - tv[2] * e1[1], tv[2] * e1[0] - tv[0] * e1[2],
+                              tv[0] * e1[1] - tv[1] * e1[0]};
+        const double bv = (d[0] * qv[0] + d[1] * qv[1] + d[2] * qv[2]) * inv;
+        if (bv < 0.0 || bu + bv > 1.0) {
+          return false;
+        }
+        *t_out = (e2[0] * qv[0] + e2[1] * qv[1] + e2[2] * qv[2]) * inv;
+        return true;
+      };
+
+      // 3D DDA (Amanatides & Woo) over the grid. Returns true if NOTHING is hit within 200 m. Any
+      // hit at all ends the walk, so the answer does not depend on the order faces are visited in.
+      auto ray_escapes = [&](const double* o, const double* d, u32 src) -> bool {
+        s64 c[3];
+        double tnext[3], tdelta[3];
+        s64 step[3];
+        for (int a = 0; a < 3; a++) {
+          c[a] = (s64)std::floor((o[a] - glo[a]) / gcell);
+          c[a] = std::max<s64>(0, std::min<s64>(gdim[a] - 1, c[a]));
+          if (d[a] > 1e-12) {
+            step[a] = 1;
+            tnext[a] = (glo[a] + (double)(c[a] + 1) * gcell - o[a]) / d[a];
+            tdelta[a] = gcell / d[a];
+          } else if (d[a] < -1e-12) {
+            step[a] = -1;
+            tnext[a] = (glo[a] + (double)c[a] * gcell - o[a]) / d[a];
+            tdelta[a] = -gcell / d[a];
+          } else {
+            step[a] = 0;
+            tnext[a] = 1e300;
+            tdelta[a] = 1e300;
+          }
+          if (tnext[a] < 0.0) {
+            tnext[a] = 0.0;  // the probe sits a hair outside its own cell: do not walk backwards
+          }
+        }
+        for (;;) {
+          const u64 ci = ((u64)c[0] * (u64)gdim[1] + (u64)c[1]) * (u64)gdim[2] + (u64)c[2];
+          for (u32 k = goff[ci]; k < goff[ci + 1]; k++) {
+            const u32 f = gitems[k];
+            if (f == src) {
+              continue;  // the source face itself never blocks its own probe
+            }
+            double t = 0;
+            if (ray_tri_t(o, d, f, &t) && t > kGeomHitEps && t <= kGeomRayMax) {
+              return false;
+            }
+          }
+          const int ax = tnext[0] < tnext[1] ? (tnext[0] < tnext[2] ? 0 : 2)
+                                            : (tnext[1] < tnext[2] ? 1 : 2);
+          if (tnext[ax] > kGeomRayMax) {
+            return true;  // everything within 200 m has been examined
+          }
+          c[ax] += step[ax];
+          if (c[ax] < 0 || c[ax] >= gdim[ax]) {
+            return true;  // walked out of the level: open air
+          }
+          tnext[ax] += tdelta[ax];
+        }
+      };
+
+      // The fixed stratified hemisphere table, in a local frame whose +z is the axis. z is stratified
+      // uniformly over (0,1] and the azimuth is the van der Corput radical inverse in base 2, so the
+      // K directions are well spread and contain no random state at all.
+      double hemi[kGeomRays][3];
+      for (int k = 0; k < kGeomRays; k++) {
+        const double z = ((double)k + 0.5) / (double)kGeomRays;
+        const double r = std::sqrt(std::max(0.0, 1.0 - z * z));
+        double vdc = 0.0, den = 0.5;
+        for (u32 vb = (u32)k + 1u; vb; vb >>= 1, den *= 0.5) {
+          if (vb & 1u) {
+            vdc += den;
+          }
+        }
+        const double phi = 2.0 * 3.14159265358979323846 * vdc;
+        hemi[k][0] = r * std::cos(phi);
+        hemi[k][1] = r * std::sin(phi);
+        hemi[k][2] = z;
+      }
+
+      for (size_t f = 0; f < F; f++) {
+        const math::Vector3f nrf = face_normal(f);
+        const double len = std::sqrt((double)nrf.x() * (double)nrf.x() +
+                                     (double)nrf.y() * (double)nrf.y() +
+                                     (double)nrf.z() * (double)nrf.z());
+        if (!(len > 1e-9)) {
+          rep.orient_faces_geom_abstained++;
+          continue;  // cannot happen: pass 1 drops zero-area faces
+        }
+        // gn is the face's own geometric normal from its STORED winding.
+        const double gn[3] = {(double)nrf.x() / len, (double)nrf.y() / len, (double)nrf.z() / len};
+        // Duff et al. 2017 "Building an Orthonormal Basis, Revisited": branchless, and a pure
+        // function of gn, so the direction set never depends on anything but the face itself.
+        const double sg = std::copysign(1.0, gn[2]);
+        const double na = -1.0 / (sg + gn[2]);
+        const double nb = gn[0] * gn[1] * na;
+        const double b1[3] = {1.0 + sg * gn[0] * gn[0] * na, sg * nb, -sg * gn[0]};
+        const double b2[3] = {nb, sg + gn[1] * gn[1] * na, -gn[1]};
+        const auto& tf = faces[f];
+        const double cen[3] = {
+            ((double)gp[tf[0]].x() + (double)gp[tf[1]].x() + (double)gp[tf[2]].x()) / 3.0,
+            ((double)gp[tf[0]].y() + (double)gp[tf[1]].y() + (double)gp[tf[2]].y()) / 3.0,
+            ((double)gp[tf[0]].z() + (double)gp[tf[1]].z() + (double)gp[tf[2]].z()) / 3.0};
+        int esc_plus = 0, esc_minus = 0;
+        for (int side = 0; side < 2; side++) {
+          const double s = side == 0 ? 1.0 : -1.0;
+          const double o[3] = {cen[0] + gn[0] * kGeomProbeEps * s,
+                               cen[1] + gn[1] * kGeomProbeEps * s,
+                               cen[2] + gn[2] * kGeomProbeEps * s};
+          for (int k = 0; k < kGeomRays; k++) {
+            const double d[3] = {b1[0] * hemi[k][0] + b2[0] * hemi[k][1] + gn[0] * hemi[k][2] * s,
+                                 b1[1] * hemi[k][0] + b2[1] * hemi[k][1] + gn[1] * hemi[k][2] * s,
+                                 b1[2] * hemi[k][0] + b2[2] * hemi[k][1] + gn[2] * hemi[k][2] * s};
+            if (ray_escapes(o, d, (u32)f)) {
+              if (side == 0) {
+                esc_plus++;
+              } else {
+                esc_minus++;
+              }
+            }
+          }
+        }
+        if (esc_plus - esc_minus >= 2) {
+          gvote[f] = 1;
+          rep.orient_faces_geom_voted++;
+        } else if (esc_minus - esc_plus >= 2) {
+          gvote[f] = -1;
+          rep.orient_faces_geom_voted++;
+        } else {
+          rep.orient_faces_geom_abstained++;
+        }
+      }
+      rep.orient_geom_pass_ms =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - geom_t0)
+              .count();
+      lg::info("[mesh-consolidate] geom-orient votes: voted={} abstained={} rays_per_face={} {:.1f}ms",
+               rep.orient_faces_geom_voted, rep.orient_faces_geom_abstained, 2 * kGeomRays,
+               rep.orient_geom_pass_ms);
+    }
+
+    // The round-28 geometric cascade (TIER A signed volume, then TIER B outward ray parity), lifted
+    // into one lambda so that the round-31 precedence change can call it from a DIFFERENT position in
+    // the order without a second copy of the code. `vv` is the already-computed signed-volume
+    // verdict. Returns +1 keep / -1 flip / 0 abstain, and bumps the tier counters.
+    auto geometric_cascade = [&](int vv) -> int {
+      // ---- TIER A: SIGNED VOLUME (divergence theorem) -------------------------------------
+      // ROUND 29: the computation moved OUT of here into the signed_volume_verdict() lambda above
+      // (it now also has to run for the collision-decided components, to score the collision rule
+      // against it). Identical maths, identical thresholds, identical winding — this site just
+      // consumes the result, so the decision is bit-identical to round 28.
+      if (vv != 0) {
+        rep.orient_comps_volume_decided++;
+        return vv;
+      }
+      // ---- TIER B: OUTWARD RAY CAST (parity) ----------------------------------------------
+      // For the open shells TIER A cannot judge. Deterministically pick the LARGEST-AREA face
+      // (tie broken on the LOWEST face index — comp_faces is ascending and the comparison is
+      // strict, so the first maximum found IS the lowest index). Probe from just off its front
+      // side and count crossings with the component's own faces: EVEN => the probe is outside
+      // the shell => the normal already points outward => keep. ODD => flip.
+      u32 seed_face = UINT32_MAX;
+      float best_area = 0.f;
+      for (u32 f : comp_faces) {
+        const float a = face_normal(f).length();
+        if (a > best_area) {
+          best_area = a;
+          seed_face = f;
+        }
+      }
+      if (seed_face == UINT32_MAX || !(best_area > 1e-6f)) {
+        return 0;
+      }
+      const auto& tf = faces[seed_face];
+      const math::Vector3f nrm = face_normal(seed_face) * ((float)fsign[seed_face] / best_area);
+      const math::Vector3f cen = (gp[tf[0]] + gp[tf[1]] + gp[tf[2]]) * (1.f / 3.f);
+      const double q[3] = {(double)cen.x() + (double)nrm.x() * kProbeEps,
+                           (double)cen.y() + (double)nrm.y() * kProbeEps,
+                           (double)cen.z() + (double)nrm.z() * kProbeEps};
+      int n_even = 0, n_odd = 0;
+      for (int r = 0; r < 3; r++) {
+        u32 crossings = 0;
+        bool clean = true;
+        for (u32 f : comp_faces) {
+          const int hit = ray_tri(q, kRayDir[r], f);
+          if (hit < 0) {
+            clean = false;  // grazed an edge/vertex: this ray decides nothing
+            break;
+          }
+          crossings += (u32)hit;
+        }
+        if (!clean) {
+          continue;
+        }
+        if ((crossings & 1u) != 0) {
+          n_odd++;
+        } else {
+          n_even++;
+        }
+      }
+      // fewer than two clean rays, or a 1-1 split, is not a majority: abstain.
+      if (n_even + n_odd >= 2 && n_even != n_odd) {
+        rep.orient_comps_raycast_decided++;
+        return n_even > n_odd ? 1 : -1;
+      }
+      return 0;
+    };
+
     for (size_t seed = 0; seed < F; seed++) {
       if (fsign[seed] != 0) {
         continue;
@@ -1624,6 +2001,9 @@ void mesh_consolidate(Level& lev,
       // run. These feed COUNTERS ONLY and never reach a decision.
       double agree_coll_raw = 0;
       bool any_coll_raw = false;
+      // ROUND 31 — the per-face geometric outward vote, accumulated in EXACTLY the shape of the
+      // agree_coll / coll_area pair above so the two authorities are directly comparable.
+      double agree_geom = 0, geom_area = 0;
       for (u32 f : comp_faces) {
         const math::Vector3f nraw = face_normal(f) * (float)fsign[f];
         const float area = nraw.length();
@@ -1633,6 +2013,18 @@ void mesh_consolidate(Level& lev,
         const math::Vector3f n = nraw * (1.f / area);
         const auto& t = faces[f];
         const math::Vector3f centre = (gp[t[0]] + gp[t[1]] + gp[t[2]]) * (1.f / 3.f);
+        // ROUND 31. The face's geometric OUTWARD direction is gvote[f] * gn(f), and the component's
+        // CURRENT relative orientation of that face is fsign[f] * gn(f) (that is literally what pass
+        // 7 consumes: `nr = face_normal(f) * fsign[f]`). Their dot product is therefore
+        //     gvote[f] * fsign[f] * |gn|^2 == gvote[f] * fsign[f].
+        // NOTE ON THE SPEC: the third factor sgn(dot(gn(f), face_normal(f))) is identically +1,
+        // because gn(f) IS normalize(face_normal(f)) — same vector, positive scale. It is left out
+        // rather than multiplied in as a no-op. agree_geom > 0 thus means "the component's current
+        // orientation already points the geometric-outward way", area-weighted, matching agree_coll.
+        if (geom_orient && gvote[f] != 0) {
+          agree_geom += (double)area * (double)gvote[f] * (double)fsign[f];
+          geom_area += (double)area;
+        }
         math::Vector3f cn;
         if (coll.nearest_normal(centre, &cn)) {
           coll_present = true;
@@ -1687,8 +2079,69 @@ void mesh_consolidate(Level& lev,
         }
       }
 
+      // ROUND 31 — does the per-face geometric vote SPEAK for this component? Same scale-free shape
+      // as coll_conf: the area-weighted MEAN agreement over the faces that actually voted.
+      const double geom_conf = geom_area > 0.0 ? (agree_geom / geom_area) : 0.0;
+      const bool geom_speaks = geom_orient && geom_area > 0.0 && std::abs(geom_conf) > kGeomConfMin;
+      if (geom_speaks) {
+        const int geom_verdict = agree_geom > 0 ? 1 : -1;
+        if (coll_speaks && geom_verdict != (agree_coll > 0 ? 1 : -1)) {
+          rep.orient_comps_geom_vs_collision_conflict++;
+        }
+        if (vol_verdict != 0 && geom_verdict != vol_verdict) {
+          rep.orient_comps_geom_vs_volume_conflict++;
+        }
+      }
+      if (!coll_speaks) {
+        // The collision mesh cannot speak for this component. That is a property of the collision
+        // DATA, not of the precedence order, so it is counted identically in both orders below.
+        // CAVEAT on the round-28 invariant: volume_decided + raycast_decided + undecided ==
+        // comps_no_authority holds in the LEGACY order only. With kMeshBitGeomOrient the geometric
+        // tiers also get to decide components the collision mesh DID reach, so they can exceed it.
+        rep.orient_comps_no_authority++;
+        rep.orient_faces_no_authority += (u64)comp_faces.size();
+      }
+
+      // ==========================================================================================
+      // THE ARBITRATION.
+      //
+      // ROUND 31 PRECEDENCE (kMeshBitGeomOrient set) — outward is defined by an OUTWARD RAY or by
+      // the SIGNED VOLUME, never by the collision mesh:
+      //   1. the per-face geometric outward vote   (exact where it speaks, defined everywhere)
+      //   2. the signed volume of a closed shell   (exact where it speaks)
+      //   3. TIER B outward ray parity
+      //   4. the walkable collision mesh           (DEMOTED to last resort)
+      //   5. the authored consensus                (abstain)
+      // The demotion is the point of the round: "the walkable side is the outward side" is
+      // MEANINGLESS for a roof, for a vertical wall and for a face under a cornice — it is only ever
+      // a statement about a floor. That is precisely the population the owner reports as displacing
+      // the wrong way (the sage hut's ground-floor wall and the roof over it), and round 29 already
+      // measured the collision rule contradicting the exact signed volume on thousands of
+      // components. Competence-filtering it was not enough; it must not outrank exact geometry.
+      //
+      // LEGACY PRECEDENCE (bit clear) — collision, then volume, then ray, then consensus. This is
+      // the pre-round-31 behaviour BIT FOR BIT: same order, same thresholds, same lambdas, and
+      // geom_speaks is unconditionally false, so a live device load with no sidecar behaves exactly
+      // as it does today and no A/B baseline moves under our feet.
+      // ==========================================================================================
       double agree = agree_prev;
-      if (coll_speaks) {
+      if (geom_orient) {
+        if (geom_speaks) {
+          rep.orient_comps_geom_decided++;
+          agree = agree_geom;
+        } else {
+          const int decided = geometric_cascade(vol_verdict);  // TIER A volume, then TIER B parity
+          if (decided != 0) {
+            agree = (double)decided;
+          } else if (coll_speaks) {
+            rep.orient_comps_collision_decided++;
+            agree = agree_coll;
+          } else {
+            rep.orient_comps_undecided++;
+            agree = agree_prev;
+          }
+        }
+      } else if (coll_speaks) {
         // FIRST AUTHORITY: the walkable collision mesh reaches this component and has an opinion.
         rep.orient_comps_collision_decided++;
         agree = agree_coll;
@@ -1699,73 +2152,7 @@ void mesh_consolidate(Level& lev,
         // whatever orientation it arrived with, inverted or not. Run a deterministic, purely
         // geometric cascade instead, and record which tier decided.
         // =======================================================================================
-        rep.orient_comps_no_authority++;
-        rep.orient_faces_no_authority += (u64)comp_faces.size();
-        int decided = 0;  // +1 = already outward (keep), -1 = inward (flip), 0 = this tier abstains
-
-        // ---- TIER A: SIGNED VOLUME (divergence theorem) -------------------------------------
-        // ROUND 29: the computation moved OUT of this branch into the signed_volume_verdict()
-        // lambda above (it now also has to run for the collision-decided components, to score the
-        // collision rule against it). Identical maths, identical thresholds, identical winding —
-        // this site just consumes the result, so the decision is bit-identical to round 28.
-        if (vol_verdict != 0) {
-          decided = vol_verdict;
-          rep.orient_comps_volume_decided++;
-        }
-
-        // ---- TIER B: OUTWARD RAY CAST (parity) ----------------------------------------------
-        // For the open shells TIER A cannot judge. Deterministically pick the LARGEST-AREA face
-        // (tie broken on the LOWEST face index — comp_faces is ascending and the comparison is
-        // strict, so the first maximum found IS the lowest index). Probe from just off its front
-        // side and count crossings with the component's own faces: EVEN => the probe is outside
-        // the shell => the normal already points outward => keep. ODD => flip.
-        if (decided == 0) {
-          u32 seed_face = UINT32_MAX;
-          float best_area = 0.f;
-          for (u32 f : comp_faces) {
-            const float a = face_normal(f).length();
-            if (a > best_area) {
-              best_area = a;
-              seed_face = f;
-            }
-          }
-          if (seed_face != UINT32_MAX && best_area > 1e-6f) {
-            const auto& tf = faces[seed_face];
-            const math::Vector3f nrm =
-                face_normal(seed_face) * ((float)fsign[seed_face] / best_area);
-            const math::Vector3f cen = (gp[tf[0]] + gp[tf[1]] + gp[tf[2]]) * (1.f / 3.f);
-            const double q[3] = {(double)cen.x() + (double)nrm.x() * kProbeEps,
-                                 (double)cen.y() + (double)nrm.y() * kProbeEps,
-                                 (double)cen.z() + (double)nrm.z() * kProbeEps};
-            int n_even = 0, n_odd = 0;
-            for (int r = 0; r < 3; r++) {
-              u32 crossings = 0;
-              bool clean = true;
-              for (u32 f : comp_faces) {
-                const int hit = ray_tri(q, kRayDir[r], f);
-                if (hit < 0) {
-                  clean = false;  // grazed an edge/vertex: this ray decides nothing
-                  break;
-                }
-                crossings += (u32)hit;
-              }
-              if (!clean) {
-                continue;
-              }
-              if ((crossings & 1u) != 0) {
-                n_odd++;
-              } else {
-                n_even++;
-              }
-            }
-            // fewer than two clean rays, or a 1-1 split, is not a majority: abstain.
-            if (n_even + n_odd >= 2 && n_even != n_odd) {
-              decided = n_even > n_odd ? 1 : -1;
-              rep.orient_comps_raycast_decided++;
-            }
-          }
-        }
-
+        const int decided = geometric_cascade(vol_verdict);
         // ---- TIER C: ABSTAIN -----------------------------------------------------------------
         // Neither tier could judge. Keep the previous behaviour (the authored consensus) but COUNT
         // it: this component's orientation is still undecided, and the report says so.
@@ -2464,6 +2851,15 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
       "collraw_conflicts={} collfiltered_conflicts={}\n",
       r.orient_comps_volume_confident, r.orient_comps_collraw_vs_volume_conflict,
       r.orient_comps_collfiltered_vs_volume_conflict);
+  // ONE physical line (a validator greps it line-wise): the round-31 per-face geometric outward vote.
+  o += fmt::format(
+      "-- ORIENTATION GEOMETRIC OUTWARD VOTE (round 31, kMeshBitGeomOrient=512) -- "
+      "orient_faces_geom_voted={} orient_faces_geom_abstained={} orient_comps_geom_decided={} "
+      "orient_comps_geom_vs_collision_conflict={} orient_comps_geom_vs_volume_conflict={} "
+      "orient_geom_pass_ms={:.1f}\n",
+      r.orient_faces_geom_voted, r.orient_faces_geom_abstained, r.orient_comps_geom_decided,
+      r.orient_comps_geom_vs_collision_conflict, r.orient_comps_geom_vs_volume_conflict,
+      r.orient_geom_pass_ms);
   o += fmt::format(
       "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
       "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "
@@ -2758,7 +3154,12 @@ std::string mesh_audit_csv_header() {
          // round-29: components where a collision normal existed but was not COMPETENT to judge,
          // plus the authority-free scoring of both collision rules against the signed volume.
          "orient_comps_collision_incompetent,orient_comps_volume_confident,"
-         "orient_comps_collraw_vs_volume_conflict,orient_comps_collfiltered_vs_volume_conflict\n";
+         "orient_comps_collraw_vs_volume_conflict,orient_comps_collfiltered_vs_volume_conflict,"
+         // round-31: the per-face geometric outward vote (kMeshBitGeomOrient) and the two conflicts
+         // it exposes. Appended, again, so every previously written csv stays readable.
+         "orient_faces_geom_voted,orient_faces_geom_abstained,orient_comps_geom_decided,"
+         "orient_comps_geom_vs_collision_conflict,orient_comps_geom_vs_volume_conflict,"
+         "orient_geom_pass_ms\n";
 }
 
 std::string mesh_audit_csv_row(const MeshAuditReport& r) {
@@ -2766,7 +3167,8 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},"
       "{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.1f},{:.2f},"
       "{:.2f},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},"
-      "{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+      "{},{},{},{},{},{},{},{},{},{},{},{},{},"
+      "{},{},{},{},{},{:.1f}\n",
       r.game_name, r.level_name, r.tfrag.tris, r.tie.tris, r.shrub.tris, r.total.tris,
       r.total.open_raw, r.total.coincident_unshared, r.total.coincident_unshared_pairs,
       r.total.open_by_group, r.total.missed_welds, r.groups, r.wide_reweld_rounds,
@@ -2785,7 +3187,10 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       r.orient_comps_undecided, r.uv_tris_total, r.uv_tris_mirrored, r.uv_tris_degenerate,
       r.uv_verts_handedness_split, r.orient_comps_collision_incompetent,
       r.orient_comps_volume_confident, r.orient_comps_collraw_vs_volume_conflict,
-      r.orient_comps_collfiltered_vs_volume_conflict);
+      r.orient_comps_collfiltered_vs_volume_conflict, r.orient_faces_geom_voted,
+      r.orient_faces_geom_abstained, r.orient_comps_geom_decided,
+      r.orient_comps_geom_vs_collision_conflict, r.orient_comps_geom_vs_volume_conflict,
+      r.orient_geom_pass_ms);
 }
 
 }  // namespace tfrag3

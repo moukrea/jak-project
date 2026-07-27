@@ -135,6 +135,24 @@ struct MeshAuditReport {
   u64 orient_comps_raycast_decided = 0;  // TIER B decided the sign
   u64 orient_comps_undecided = 0;        // TIER C: nothing could judge -> authored consensus kept
 
+  // ---- round-31 PER-FACE GEOMETRIC OUTWARD VOTE (kMeshBitGeomOrient) ----
+  // Rounds 22/28/29 all reasoned about the orientation rule without ever measuring the OUTPUT SIGN
+  // per face. Round 31 does: for every face, escape rays are cast from both sides of it and the side
+  // that escapes to open air is the OUTWARD side. That vote is then the FIRST authority, ahead of the
+  // signed volume, the ray parity and (crucially) the walkable collision mesh — "the walkable side is
+  // the outward side" is meaningless for a roof, a vertical wall or a face under a cornice, which is
+  // exactly the population the owner reports as displacing the wrong way (sage-hut ground floor: 0.00%
+  // correctly-signed vertices, upper floor 58.24%).
+  u64 orient_faces_geom_voted = 0;      // faces where the escape counts differed by >= 2 (vote != 0)
+  u64 orient_faces_geom_abstained = 0;  // faces where they did not (vote == 0) -> no geometric opinion
+  u64 orient_comps_geom_decided = 0;    // components whose global sign the per-face vote decided
+  // Where the vote and an older authority both speak and DISAGREE. The collision number is the
+  // measure of how much floor-normal authority this round takes away; the volume number is the
+  // honest cross-check on the vote itself (both are exact where they speak, so they should agree).
+  u64 orient_comps_geom_vs_collision_conflict = 0;
+  u64 orient_comps_geom_vs_volume_conflict = 0;
+  double orient_geom_pass_ms = 0;  // wall clock of the whole per-face ray pass (it is the expensive one)
+
   // ---- round-22 AUTHORITY-FREE POLARITY CENSUS ----
   // The collision residual above can only speak where a collision mesh exists AND is near-parallel to
   // the rendered face (|dot| > 0.35), so it is blind on walls, on interiors, and on every level with a
@@ -212,7 +230,9 @@ struct MeshConsolidateConfig {
   u32 col_blend_threshold = 6; // per-channel baked-colour delta above which a group gets blended
   // killswitch bits (debug.opengoal.mesh.bits / OG_MESH_BITS) — each disables one fix for live A/B.
   //   1 = no position snap, 2 = no normal re-average, 4 = no orientation pass,
-  //   8 = no baked-colour blend, 16 = no seam weights, 32 = exclude shrub, 64 = no wide re-weld
+  //   8 = no baked-colour blend, 16 = no seam weights, 32 = exclude shrub, 64 = no wide re-weld,
+  //   128 = ignore the precompute sidecar, 256 = pre-round-29 unfiltered collision authority,
+  //   512 = ENABLE the round-31 per-face geometric outward vote (OFF by default: it is expensive)
   u32 bits = 0;
 };
 
@@ -227,6 +247,16 @@ constexpr u32 kMeshBitForceLive = 128;  // ignore any precompute sidecar and run
 // ROUND 29 A/B: restore the pre-round-29 UNFILTERED collision authority (raw sum, 1e-3 gate) so the
 // competence filter can be bisected on the same data with one debug bit.
 constexpr u32 kMeshBitCollRaw = 256;
+// ROUND 31 — the PER-FACE GEOMETRIC OUTWARD VOTE, and the precedence change that comes with it
+// (geometry outranks the walkable collision mesh). Set it and the orientation pass casts 2*K escape
+// rays PER FACE through a uniform-grid accelerator built over every face of every system.
+//
+// *** EXPENSIVE. This is an OFFLINE bit. *** It is meant for `tools/mesh_audit --bake` and for the
+// offline verifier (tools/tess_sign / tools/tess_audit), NOT for a live device level load: village1
+// alone is 1.35M faces, so the pass is minutes of CPU, not milliseconds. It is therefore DEFAULT OFF,
+// and with it off the orientation pass keeps the pre-round-31 behaviour bit for bit — a device that
+// loads a baked sidecar simply inherits the answer this bit computed on the desktop.
+constexpr u32 kMeshBitGeomOrient = 512;
 
 // Read the runtime config (Android props / desktop env), so the device and the offline tool agree.
 MeshConsolidateConfig mesh_consolidate_config_from_env();
