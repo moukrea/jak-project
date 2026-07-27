@@ -267,4 +267,6 @@ PCT=$(grep -oiE '(worst|pire)[^0-9]{0,40}([0-9]{1,3}(\.[0-9]+)?) *%' "$R" | grep
 [ -n "$PCT" ] || fail "R31: no worst-model percentage of correctly-signed vertices"
 awk -v v="$PCT" 'BEGIN{exit !(v>=100)}' || fail "R31: worst model at $PCT% correctly-signed vertices, target is 100% everywhere"
 grep -qiE 'capture (sweep|campaign)|angle sweep|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement campaign detected — banned by the owner"
+grep -qiE 'every mesh|chaque mesh|all meshes|mesh by mesh|un par un' "$R" || fail "R31: the report does not enumerate EVERY mesh one by one (owner order)"
+grep -qiE 'covered *(==|=|equals) *existing|couverts? *(==|=) *existants?|[0-9]+ */ *[0-9]+ meshes' "$R" || fail "R31: mesh coverage count not shown equal to the number of existing meshes"
 echo "[Gpbrf PASS]"
