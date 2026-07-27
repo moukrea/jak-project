@@ -149,27 +149,7 @@ float hnorm(float h) {
 // The slider is not clipped by this: what the slider drives is depth, and depth is bounded by
 // POM_DEPTH_MAX_M * drive, which follows it. Only the lateral slide is bounded, which is the
 // difference between parallax and swimming.
-// ===== ROUND 28 — 0.25 -> 0.45, THE ONLY CHANGE MADE TO THE PARALLAX TIER ======================
-// Owner, round 27, on the parallax: "le relief a l'air très muted par rapport à la tesselation,
-// genre 50% de moins ... Touche plus au parallax si ce n'est pour lui ajouter un peu de relief pour
-// que ce soit raccord avec la tesselation." This constant is where the muting lives, and AMPLITUDE
-// is the one thing he authorised changing.
-// WHICH RAIL ACTUALLY BINDS, at the shipped materials' densities (lambda in tiles):
-//   rel 1.0 : depth_uv = 0.250*lambda, TAN rail = 0.500*lambda, FEATURE rail = 0.250*lambda
-//             -> the two are EQUAL; the feature rail is already at the edge of binding.
-//   rel 3.0 : depth_uv = 1.164*lambda, TAN rail = 2.328*lambda, FEATURE rail = 0.250*lambda
-//             -> the FEATURE rail binds by 9.3x. This is the muting the owner measured by eye.
-// ANTI-ORBIT INVARIANT, PRESERVED AND STRICTER THAN THE MANDATE ASKS. The orbit of round 26 came
-// from a slide of 1.5 wavelengths, i.e. PAST ONE FULL PERIOD, where a feature lands on top of the
-// NEXT feature and the pattern has no anchoring reference left. The mandate requires strictly under
-// one period. The real bound is tighter and is the one used here: HALF a period is the ambiguity
-// limit for any periodic pattern — beyond half a wavelength the nearest matching feature is the
-// neighbour, so the apparent motion aliases and reverses. 0.45 sits 10% under that half-period
-// limit, and therefore 2.2x under the one-period limit the mandate names.
-// NET: 1.8x more apparent parallax depth at the top of the slider, no orbit, and nothing else in
-// the parallax tier touched — not the march, not the grazing fade, not the neutral, not the caps'
-// structure.
-#define POM_MAX_FEATURE_FRAC 0.45
+#define POM_MAX_FEATURE_FRAC 0.25
 // The amplitude law itself, kept numerically IDENTICAL to tfrag3_tess.tese's (TESS_DEPTH_K,
 // TESS_DEPTH_MAX_RATIO, TESS_DEPTH_MAX_M and its 0.005*relief floor) so the two displacement tiers
 // cannot drift apart. Change one, change both.
