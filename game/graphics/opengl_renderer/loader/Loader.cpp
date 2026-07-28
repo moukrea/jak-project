@@ -512,6 +512,27 @@ void Loader::loader_thread() {
           tfrag3::SubdivStats sst;
           tfrag3::SubdivStats sst_tie;
           tfrag3::mesh_presubdivide_level(*result, scfg, &sst, has_height, &sst_tie);
+          // ROUND 32 — the refinement INVENTS vertices AFTER mesh_consolidate's pass 12 / 12c have
+          // run, and interpolates their frames: a midpoint normal is the normalized sum of its
+          // parents' (MeshSubdivide.cpp:273-282) and its tangent is the summed T carrying parent A's
+          // handedness verbatim (MeshSubdivide.cpp:367-380), re-orthogonalised against nothing. On
+          // village1 that is roughly a third of every vertex the tessellator touches, created after
+          // the only passes that check them. So re-establish both invariants here, on the refined
+          // mesh: the displacement-sign one (dot(N_v, outward(f)) > 0 at every corner of every face)
+          // and the parallax one (T valid for every face that shares it). Both are per-tree, need no
+          // weld and no authority, and cost well under a second on village1. tools/tess_sign makes
+          // the SAME call pair in the SAME order after its own subdivision, so what is graded
+          // offline is what loads here.
+          u64 pr_ok = 0, pr_unsat = 0, pr_den = 0;
+          const u64 pr_fix =
+              tfrag3::mesh_positivity_repair_level(*result, &pr_ok, &pr_unsat, &pr_den);
+          u64 tr_ok = 0, tr_unsat = 0, tr_den = 0;
+          const u64 tr_fix =
+              tfrag3::retangent_positive_from_final_normals(*result, &tr_ok, &tr_unsat, &tr_den);
+          lg::info(
+              "[mesh-subdiv] level={} post-subdivision positivity: normals den={} ok={} repaired={} "
+              "unsat={} | tangents den={} ok={} repaired={} unsat={}",
+              result->level_name, pr_den, pr_ok, pr_fix, pr_unsat, tr_den, tr_ok, tr_fix, tr_unsat);
           std::string text = fmt::format("===== PRE-SUBDIVISION level={} =====\n{}",
                                          result->level_name,
                                          tfrag3::format_subdiv_stats(sst, scfg));

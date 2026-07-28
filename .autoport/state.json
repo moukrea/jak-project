@@ -215,7 +215,7 @@
     "Grecharged-master-toggle": 3,
     "Grecharged-bundled-textures": 6,
     "Grecharged-naming": 1,
-    "Grecharged-pbr-realtime-fusion": 3,
+    "Grecharged-pbr-realtime-fusion": 4,
     "Grecharged-mesh-consolidation": 2
   },
   "fingerprints": {
@@ -464,6 +464,7 @@
       "da1016e207b0",
       "da1016e207b0",
       "a778c478a0dc",
+      "37ff52193004",
       "37ff52193004"
     ]
   },
@@ -888,7 +889,7 @@
     "Grecharged-pbr-realtime-fusion": 1784783149.315742,
     "Grecharged-mesh-consolidation": 1784930060.5837617
   },
-  "last_update": "2026-07-28T03:20:45.183056+00:00",
+  "last_update": "2026-07-28T12:41:04.854986+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
