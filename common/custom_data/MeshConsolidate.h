@@ -216,6 +216,51 @@ struct MeshAuditReport {
   u64 orient11_tangent_frames_rewritten = 0;  // the retangent that must follow a normal rewrite
   double orient11_seconds = 0.0;
 
+  // ---- PASS 12: THE POSITIVITY REPAIR (round 32, UNCONDITIONAL — no rays, so it runs live too) ----
+  // The world is drawn DOUBLE-SIDED (no glEnable(GL_CULL_FACE) outside a state-restore), so the
+  // shading normal is the only thing that says which side of a surface is out. The invariant pass 12
+  // enforces is dot(N_v, n_geom(f) * fsign[f]) > 0 for EVERY corner v of EVERY face f; barycentric
+  // interpolation is a convex combination, so the interpolated normal inherits it and the sign of the
+  // tessellation displacement is then correct BY CONSTRUCTION rather than by measurement.
+  u64 positivity_verts_ok = 0;             // the stored normal already satisfied every incident face
+  u64 positivity_verts_repaired = 0;       // given the Chebyshev centre of their incident outwards
+  u64 positivity_verts_unsatisfiable = 0;  // incident outwards span a hemisphere: LEFT ALONE, counted
+  // Weld groups pass 9 pins to zero displacement, under the MINIMAL rule: pinned iff the group's
+  // referenced members do not all carry the SAME packed normal (the exact condition under which two
+  // coincident indices displace apart and the surface tears). Strictly tighter than pass 7's
+  // clustering proxy in groups_crease_after, and measured on the normals that actually ship.
+  u64 groups_crease_pin = 0;
+  // ---- PASS 12d (round 33): a weld group that needs no pin carries exactly ONE normal ----------
+  // Pass 12 repairs positivity PER VERTEX, and two members of one welded position see different
+  // subsets of the group's incident faces, so they used to come out with different normals and be
+  // pinned for it. Where no pin is geometrically necessary (single texture, single system, closed
+  // boundary, no hard crease) the group is ONE POINT and gets ONE normal over the union of its
+  // members' incident faces. Hard creases are deliberately left alone: unifying them would smooth
+  // every crisp edge in the game.
+  // round 33: the authority runs on the RENDERED world only (geom-0 tfrag + geom-0 TIE static
+  // draws), never on the three superimposed LOD copies gather_level() collects, because a
+  // near-coincident duplicate surface blocks the escape rays on both sides and destroys the signal.
+  u64 orient33_rendered_faces = 0;
+  u64 orient33_total_faces = 0;
+  u64 group_unify_groups = 0;             // groups given a single shared normal
+  u64 group_unify_members_written = 0;    // member vertices whose packed normal actually changed
+  u64 group_unify_skipped_necessary = 0;  // a pin is geometrically necessary here: left alone
+  u64 group_unify_unrepresentable = 0;    // no 10-bit direction serves the union: pin stays, counted
+  // ---- PASS 12c: THE TANGENT POSITIVITY REPAIR (round 32, the parallax counterpart of pass 12) ----
+  // With N fixed the per-vertex tangent has ONE degree of freedom, so "dot(T,dPdu(f)) > 0 and
+  // dot(cross(N,T)*w, dPdv(f)) > 0 for EVERY incident face f" is an intersection of open half-circles
+  // and is solved exactly by a sort. A frame that is already valid everywhere is left bit-identical.
+  u64 tanpos_verts_constrained = 0;    // vertices with at least one usable UV constraint (denominator)
+  u64 tanpos_verts_ok = 0;             // the stored frame already served every incident face
+  u64 tanpos_verts_repaired = 0;       // rotated to the exact 1-D Chebyshev centre of the feasible arc
+  u64 tanpos_verts_unsatisfiable = 0;  // incident UV directions span a half-turn: LEFT ALONE, counted
+  // Pass 11's cascade, kept as a DIAGNOSTIC after round 32 stopped applying its normal rewrite: per
+  // DECIDED face, does the corner-normal average that SHIPS lie on the side the cascade calls
+  // outward? This is the bake-side equivalent of the offline grader's authority-relative A_sign.
+  u64 orient11_faces_agree_shipped = 0;
+  u64 orient11_faces_disagree_shipped = 0;
+  u64 orient11_faces_silent_shipped = 0;
+
   // ---- seam-consistent displacement (the tessellation slits) ----
   u64 seam_verts = 0;
   u64 seam_verts_material = 0;   // group spans >=2 textures (one side may have no height map)
@@ -262,7 +307,8 @@ struct MeshConsolidateConfig {
   //   1 = no position snap, 2 = no normal re-average, 4 = no orientation pass,
   //   8 = no baked-colour blend, 16 = no seam weights, 32 = exclude shrub, 64 = no wide re-weld,
   //   128 = ignore the precompute sidecar, 256 = pre-round-29 unfiltered collision authority,
-  //   512 = ENABLE the round-31 per-face geometric outward vote (OFF by default: it is expensive)
+  //   512 = ENABLE the round-31 per-face geometric outward vote (OFF by default: it is expensive),
+  //   1024 = no round-32 positivity repair, 2048 = pre-round-32 (clustering) displacement pin
   u32 bits = 0;
 };
 
@@ -287,6 +333,28 @@ constexpr u32 kMeshBitCollRaw = 256;
 // and with it off the orientation pass keeps the pre-round-31 behaviour bit for bit — a device that
 // loads a baked sidecar simply inherits the answer this bit computed on the desktop.
 constexpr u32 kMeshBitGeomOrient = 512;
+// ROUND 32 A/B pair. Both are OFF by default (the fix is on by default); setting one RESTORES the
+// pre-round-32 behaviour for exactly one half of the round, so the two can be bisected on device.
+// ON: skip pass 12, so vertex normals keep pass 7's cluster choice and dot(N_v, outward(f)) > 0 is
+// no longer guaranteed at every corner (the pre-round-32 normals).
+constexpr u32 kMeshBitNoPositivity = 1024;
+// ON: keep pass 7's crease-CLUSTERING verdict as the pass-9 displacement pin instead of the minimal
+// "members do not all carry the same packed normal" test (the pre-round-32, over-firing pin).
+constexpr u32 kMeshBitNoSeamMin = 2048;
+// ROUND 32, the OTHER direction: OPT-IN, default OFF. ON re-applies pass 11's normal rewrite from the
+// outward cascade. Measured on village1 it LOWERS both properties that decide what the player sees
+// (A_cons 99.7376 -> 99.4808, meshes at A_cons=100% 91.75 -> 80.24, P_sign 96.6528 -> 93.4596),
+// because tier RAYF votes PER FACE, so two adjacent faces sharing a vertex normal can be handed
+// opposite outward directions and pass 12's invariant becomes unsatisfiable at the shared vertex.
+// The cascade itself still runs and is still REPORTED whenever kMeshBitGeomOrient is set.
+constexpr u32 kMeshBitOrient11Apply = 8192;
+// ON: skip pass 12c, so the per-vertex tangent stays the AVERAGE of its incident faces' UV tangents
+// and may point backwards for one of them (the pre-round-32 parallax frames).
+constexpr u32 kMeshBitNoTanPositive = 16384;
+// ON: skip pass 12d, so a weld group that needs no pin may still have its members carrying
+// different per-vertex normals and be pinned for it (the pre-round-33 spurious-pin behaviour).
+// An A/B killswitch for the liveness result, nothing else.
+constexpr u32 kMeshBitNoGroupUnify = 32768;
 
 // Read the runtime config (Android props / desktop env), so the device and the offline tool agree.
 MeshConsolidateConfig mesh_consolidate_config_from_env();

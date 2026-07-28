@@ -39,9 +39,164 @@ const char* mesh_orient_shell_tier_name(u8 tier) {
       return "VOL";
     case kOrientShellEsc:
       return "ESC";
+    case kOrientShellRayf:
+      return "RAYF";
     default:
       return "UNDECIDED";
   }
+}
+
+// =================================================================================================
+// THE PACKED-NORMAL FEASIBILITY SEARCH (round 33). See MeshOrient.h for why it lives here.
+// =================================================================================================
+u32 mesh_pack_nor(const math::Vector3f& n) {
+  auto sat = [](float f) -> u32 {
+    int v = (int)std::lround(f * 511.f);
+    v = std::max(-511, std::min(511, v));
+    return (u32)v & 0x3ffu;
+  };
+  return sat(n.x()) | (sat(n.y()) << 10) | (sat(n.z()) << 20);
+}
+
+math::Vector3f mesh_unpack_nor(u32 p) {
+  auto sx = [](u32 v) -> int {
+    int x = (int)(v & 0x3ffu);
+    return (x & 0x200) ? x - 0x400 : x;
+  };
+  math::Vector3f n((float)sx(p), (float)sx(p >> 10), (float)sx(p >> 20));
+  float l = n.length();
+  return l > 1e-6f ? n * (1.f / l) : math::Vector3f(0.f, 0.f, 0.f);
+}
+
+bool mesh_best_packed_normal(const std::vector<math::Vector3f>& in_outs, float eps, u32* out_packed) {
+  if (in_outs.empty()) {
+    return false;
+  }
+  // ---- 0. CANONICALISE THE INPUT ORDER. The two callers reach the same vertex through different
+  //         iteration structures (the pipeline walks a vertex->face CSR, the grader walks a
+  //         group->corner CSR), so they hand the same geometric constraint set in different orders.
+  //         The Chebyshev iteration below is order-sensitive in float, so an un-canonicalised input
+  //         could give the two callers different answers on a razor-edge cone — and the guarantee
+  //         this function exists to provide is precisely that they cannot differ. Sorting by the
+  //         packed bit pattern (and dropping exact duplicates, which are common: a flat fan hands
+  //         the same direction many times) makes the whole function a pure function of the SET.
+  std::vector<math::Vector3f> outs;
+  {
+    //         The representative kept for a key is the UNPACKED one, not whichever float vector
+    //         happened to hash to it first: that makes `outs` a pure function of the key SET rather
+    //         than of the caller's iteration order. The quantisation error it introduces is ~2e-6 in
+    //         dot (10 bits over a unit vector), three orders of magnitude under the 1e-3 margin.
+    std::vector<u32> keys;
+    keys.reserve(in_outs.size());
+    for (const auto& u : in_outs) {
+      const u32 k = mesh_pack_nor(u);
+      if (k != 0) {
+        keys.push_back(k);
+      }
+    }
+    std::sort(keys.begin(), keys.end());
+    keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
+    outs.reserve(keys.size());
+    for (u32 k : keys) {
+      const math::Vector3f n = mesh_unpack_nor(k);
+      if (n.length() > 1e-6f) {
+        outs.push_back(n);
+      }
+    }
+  }
+  if (outs.empty()) {
+    return false;
+  }
+  // worst-case dot of a candidate against every incident outward direction.
+  auto worst_of = [&](const math::Vector3f& n) {
+    float w = 2.f;
+    for (const auto& u : outs) {
+      w = std::min(w, n.dot(u));
+    }
+    return w;
+  };
+  // ---- 1. the CHEBYSHEV CENTRE of the incident outwards, by Badoiu-Clarkson: start at the mean,
+  //         then step a shrinking fraction of the way towards the current WORST constraint. This is
+  //         the direction furthest from the boundary of the cone they span, so if ANY unit vector
+  //         satisfies the constraints with margin, this one does.
+  math::Vector3f acc(0.f, 0.f, 0.f);
+  for (const auto& u : outs) {
+    acc += u;
+  }
+  const float al = acc.length();
+  if (!(al > 1e-6f)) {
+    return false;  // the outwards cancel exactly: no centre exists, in float OR in 10 bits
+  }
+  math::Vector3f nb = acc * (1.f / al);
+  for (int it = 0; it < 256; it++) {
+    float w = 2.f;
+    int worst_j = -1;
+    for (size_t j = 0; j < outs.size(); j++) {
+      const float d = nb.dot(outs[j]);
+      if (d < w) {
+        w = d;
+        worst_j = (int)j;
+      }
+    }
+    if (w > eps || worst_j < 0) {
+      break;
+    }
+    const math::Vector3f step = nb + (outs[worst_j] - nb) * (1.f / (float)(it + 2));
+    const float sl = step.length();
+    if (!(sl > 1e-6f)) {
+      break;
+    }
+    nb = step * (1.f / sl);
+  }
+  // ---- 2. the answer has to be REPRESENTABLE. The float centre is not the deliverable: three
+  //         signed 10-bit fields are. Quantise, and if the quantised value has fallen out of the
+  //         cone (which happens when the cone is only a few quantisation steps wide), search the
+  //         5x5x5 lattice neighbourhood around it. The neighbourhood is walked in a FIXED order and
+  //         strictly-greater is required to replace the incumbent, so the answer is deterministic.
+  auto sat10 = [](int v) -> int { return std::max(-511, std::min(511, v)); };
+  auto enc = [&](int x, int y, int z) -> u32 {
+    return ((u32)sat10(x) & 0x3ffu) | (((u32)sat10(y) & 0x3ffu) << 10) |
+           (((u32)sat10(z) & 0x3ffu) << 20);
+  };
+  const int cx = sat10((int)std::lround(nb.x() * 511.f));
+  const int cy = sat10((int)std::lround(nb.y() * 511.f));
+  const int cz = sat10((int)std::lround(nb.z() * 511.f));
+  u32 best_packed = 0;
+  float best_w = -2.f;
+  auto consider = [&](u32 p) {
+    const math::Vector3f n = mesh_unpack_nor(p);
+    if (n.length() <= 1e-6f) {
+      return;
+    }
+    const float w = worst_of(n);
+    if (w > best_w) {
+      best_w = w;
+      best_packed = p;
+    }
+  };
+  for (int dz = -2; dz <= 2; dz++) {
+    for (int dy = -2; dy <= 2; dy++) {
+      for (int dx = -2; dx <= 2; dx++) {
+        consider(enc(cx + dx, cy + dy, cz + dz));
+      }
+    }
+  }
+  // ---- 3. last resort: the incident outwards THEMSELVES, quantised. On a vertex whose cone is one
+  //         quantisation step wide the centre may be unrepresentable while one of the constraint
+  //         directions is not, and a normal equal to one incident outward still has a positive dot
+  //         with it (1.0) and, if the cone is that narrow, with all the others too.
+  if (!(best_w > eps)) {
+    for (const auto& u : outs) {
+      consider(mesh_pack_nor(u));
+    }
+  }
+  if (best_w > eps) {
+    if (out_packed) {
+      *out_packed = best_packed;
+    }
+    return true;
+  }
+  return false;
 }
 
 size_t MeshPosKeyHash::operator()(const MeshPosKey& k) const {
@@ -826,6 +981,7 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
   // ===============================================================================================
   std::vector<s8>& rayf_vote = r.rayf_vote;
   rayf_vote.assign(F, 0);
+  r.rayf_margin.assign(F, 0);
   r.rayf_escapes_plus.assign(F, 0);
   r.rayf_escapes_minus.assign(F, 0);
   std::vector<u8>& rayf_plus = r.rayf_escapes_plus;
@@ -897,6 +1053,7 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
           rayf_plus[f] = (u8)esc[0];
           rayf_minus[f] = (u8)esc[1];
           const int diff = esc[0] - esc[1];
+          r.rayf_margin[f] = (s16)diff;
           if (std::abs(diff) >= kOrientRayfMinMargin) {
             rayf_vote[f] = (s8)(diff > 0 ? 1 : -1);
           }
@@ -1074,57 +1231,105 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
   r.face_sign.assign(F, 0);
   r.face_tier.assign(F, (u8)kOrientUndecided);
   r.face_rayf_vs_vol_conflict.assign(F, 0);
+  // (a) THE DIAGNOSTIC CONFLICT MARK, recorded BEFORE any decision and changing none of them.
   for (u32 f = 0; f < F; f++) {
     const u32 s = shell_of[f];
-    // (a) the SIGNED-VOLUME verdict expressed for THIS face. This is the very expression the
-    // rayf_vs_vol comparator below scores RAYF against, reused verbatim so the cascade and the
-    // diagnostic column can never drift apart. 0 = the volume tier did not speak.
     const int vol_here =
         (r.shell_vol_sign[s] != 0 && rel[f] != 0) ? (int)r.shell_vol_sign[s] * (int)rel[f] : 0;
-    // (b) the per-face escape-ray verdict. 0 = it abstained.
     const int rayf_here = (int)rayf_vote[f];
-    // (c) the DIAGNOSTIC conflict mark. It is recorded BEFORE any decision and it changes none: the
-    // face below is graded exactly as if the volume test had stayed silent. Sending a face to
-    // UNDECIDED because the rays and the (open-shell, hence meaningless) volume disagreed threw away
-    // a verdict on the strength of a criterion that has no standing.
     if (rayf_here != 0 && vol_here != 0 && rayf_here != vol_here) {
       r.face_rayf_vs_vol_conflict[f] = 1;
       r.rayf_vs_vol_conflict_faces++;
     }
-    // (d) TIER VOLX — EXACT beats SAMPLED.
-    if (r.shell_closed[s] && vol_here != 0) {
-      r.face_sign[f] = (s8)vol_here;
-      r.face_tier[f] = (u8)kOrientVolx;
-      r.faces_volx++;
-      continue;
-    }
-    // (e) TIER RAYF — the per-face escape-ray vote.
-    if (rayf_here != 0) {
-      r.face_sign[f] = (s8)rayf_here;
-      r.face_tier[f] = (u8)kOrientRayf;
-      r.faces_rayf++;
-      continue;
-    }
-    // (f) TIER COLL — the shell's competence-filtered COLLISION verdict, carried to this face by the
-    // relative winding. Reached only where neither the exact volume nor the rays could speak.
-    if (r.shell_coll_sign[s] != 0 && rel[f] != 0) {
-      r.face_sign[f] = (s8)((int)r.shell_coll_sign[s] * (int)rel[f]);
-      r.face_tier[f] = (u8)kOrientColl;
-      r.faces_coll++;
-      continue;
-    }
-    // (g) TIER ESC — the shell escape-distance asymmetry. Note the shell TIER test: shell_gsign is
-    // also set by the (now non-deciding) shell volume test, and a shell verdict of that provenance
-    // must NOT be allowed back in through this door.
-    if (r.shell_gsign[s] != 0 && rel[f] != 0 && r.shell_tier[s] == (u8)kOrientShellEsc) {
-      r.face_sign[f] = (s8)((int)r.shell_gsign[s] * (int)rel[f]);
-      r.face_tier[f] = (u8)kOrientEsc;
-      r.faces_esc++;
-      continue;
-    }
-    // (h) UNDECIDED: face_sign stays 0.
-    r.faces_undecided++;
   }
+  // (b) THE SHELL BALLOT. Each face expresses its escape-ray MARGIN in the shell's own frame by
+  //     multiplying by rel[f], and the margins are summed. Weighting by the margin rather than by
+  //     the +-1 vote is the whole point: a face with 13 escapes on one side and 0 on the other is
+  //     thirteen times as sure as a face at 7/6, and the half-buried props that made the per-face
+  //     tier noisy are exactly the low-margin ones. Summation order is face id, so the double is
+  //     accumulated identically on every run and every thread count (this loop is serial anyway).
+  //     Faces the flood fill never reached (rel == 0) cannot express anything in the shell frame
+  //     and are simply absent from the ballot.
+  // The accumulator is an INTEGER on purpose. rayf_margin is a small signed count and rel is +-1, so
+  // the sum is exact and — this is the point — INDEPENDENT OF SUMMATION ORDER. The offline grader
+  // walks the same faces in a different order (it gathers per draw, the pipeline per tree), and a
+  // double accumulator would let the two disagree on a shell whose ballot is near zero. Then the
+  // pipeline would enforce one outward and the instrument would grade another, which is the exact
+  // class of bug this round exists to remove.
+  std::vector<s64> shell_ballot_i(n_shells, 0);
+  std::vector<u64> shell_ballot_faces(n_shells, 0);
+  for (u32 f = 0; f < F; f++) {
+    if (!is_cand[f] || rel[f] == 0 || rayf_vote[f] == 0) {
+      continue;
+    }
+    shell_ballot_i[shell_of[f]] += (s64)r.rayf_margin[f] * (s64)rel[f];
+    shell_ballot_faces[shell_of[f]]++;
+  }
+  std::vector<double> shell_ballot(n_shells, 0.0);
+  for (u32 s = 0; s < n_shells; s++) {
+    shell_ballot[s] = (double)shell_ballot_i[s];  // published as a double for the report only
+  }
+  // (c) THE SHELL VERDICT — one per shell, VOLX (exact) then RAYF (aggregated) then ESC.
+  std::vector<s8> shell_sign(n_shells, 0);
+  std::vector<u8> shell_verdict_tier(n_shells, (u8)kOrientShellUndecided);
+  for (u32 s = 0; s < n_shells; s++) {
+    if (r.shell_closed[s] && r.shell_vol_sign[s] != 0) {
+      shell_sign[s] = r.shell_vol_sign[s];
+      shell_verdict_tier[s] = (u8)kOrientShellVol;
+      r.shells_volx++;
+    } else if (shell_ballot_i[s] != 0) {
+      shell_sign[s] = (s8)(shell_ballot_i[s] > 0 ? 1 : -1);
+      shell_verdict_tier[s] = (u8)kOrientShellRayf;
+      r.shells_rayf++;
+    } else if (r.shell_gsign[s] != 0 && r.shell_tier[s] == (u8)kOrientShellEsc) {
+      // the shell escape-DISTANCE asymmetry. The shell TIER test matters: shell_gsign is also set by
+      // the (non-deciding, on an open shell meaningless) volume test, and a verdict of that
+      // provenance must not be allowed back in through this door.
+      shell_sign[s] = r.shell_gsign[s];
+      shell_verdict_tier[s] = (u8)kOrientShellEsc;
+      r.shells_esc++;
+    } else {
+      r.shells_undecided++;
+    }
+  }
+  // (d) DISTRIBUTE. This is the step that makes the field COHERENT: every face of a shell is
+  //     oriented by the same verdict, carried to it by the exact topological relative winding. Two
+  //     faces sharing an edge can no longer be handed opposite outwards, so a vertex they share can
+  //     no longer be unsatisfiable because of a disagreement the authority invented.
+  for (u32 f = 0; f < F; f++) {
+    const u32 s = shell_of[f];
+    if (rel[f] == 0) {
+      r.faces_no_rel++;
+      r.faces_undecided++;
+      continue;  // face_sign stays 0
+    }
+    if (shell_sign[s] == 0) {
+      r.faces_undecided++;
+      continue;
+    }
+    r.face_sign[f] = (s8)((int)shell_sign[s] * (int)rel[f]);
+    switch (shell_verdict_tier[s]) {
+      case kOrientShellVol:
+        r.face_tier[f] = (u8)kOrientVolx;
+        r.faces_volx++;
+        break;
+      case kOrientShellRayf:
+        r.face_tier[f] = (u8)kOrientRayf;
+        r.faces_rayf++;
+        break;
+      default:
+        r.face_tier[f] = (u8)kOrientEsc;
+        r.faces_esc++;
+        break;
+    }
+  }
+  // r.shell_gsign / r.shell_tier are left as the SHELL-LEVEL FALLBACK diagnostics they always were.
+  // The verdict actually used is published separately so a report can state which tier oriented a
+  // shell without having to re-derive it.
+  r.shell_verdict_sign = shell_sign;
+  r.shell_verdict_tier = shell_verdict_tier;
+  r.shell_ballot = shell_ballot;
+  r.shell_ballot_faces = shell_ballot_faces;
 
   // rayf_vs_vol — the two INDEPENDENT geometric criteria, scored against each other PER SHELL over
   // the shell's own candidate faces. They agree on face f iff rayf_vote[f] == vol_sign * rel[f], i.e.

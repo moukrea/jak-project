@@ -1087,6 +1087,19 @@ static math::Vector3f unpack_gl_normal_2_10_10_10(u32 packed) {
   return l > 1e-6f ? n * (1.f / l) : math::Vector3f(0.f, 0.f, 0.f);
 }
 
+// The exact inverse of unpack_gl_normal_2_10_10_10 above, and bit-identical to
+// MeshConsolidate.cpp's pack_nor(): stored int = round(component * 511), saturated to the signed
+// 10-bit range. Round 32 needs it because mesh_positivity_repair_level() has to verify its repair on
+// the QUANTISED normal — the one the shader actually reads — rather than on the float it computed.
+static u32 pack_gl_normal_2_10_10_10(const math::Vector3f& n) {
+  auto sat = [](float f) -> u32 {
+    int v = (int)std::lround(f * 511.f);
+    v = std::max(-511, std::min(511, v));
+    return (u32)v & 0x3ffu;
+  };
+  return sat(n.x()) | (sat(n.y()) << 10) | (sat(n.z()) << 20);
+}
+
 // Grecharged-pbr-realtime-fusion REOPEN#9 — Duff et al. 2017 branchless orthonormal basis: a CONTINUOUS
 // tangent built purely from a unit normal, used to BACKFILL vertices whose UV-derived tangent is
 // degenerate (degenerate/mirrored UV islands, or a missing smooth normal). The denominator magnitude
@@ -1314,6 +1327,495 @@ u64 retangent_level_from_final_normals(Level& lev) {
     for (auto& tree : t) {
       redo(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, tree.unpacked.tangents);
     }
+  }
+  return changed;
+}
+
+// ============================================================================================
+// ROUND 32 — THE POSITIVITY INVARIANT, RE-ESTABLISHED PER TREE AFTER THE PRE-SUBDIVISION.
+//
+// mesh_consolidate pass 12 guarantees dot(N_v, outward(f)) > 0 for every corner v of every face f.
+// But mesh_presubdivide_level() runs AFTER it (Loader.cpp, tools/tess_sign, tools/tess_audit all
+// call the consolidation first and the refinement second), and it INVENTS vertices: a midpoint takes
+// the normalized SUM of its two parents' normals (MeshSubdivide.cpp:273-282) and its tangent takes
+// the summed T with parent A's handedness verbatim (MeshSubdivide.cpp:367-380), re-orthogonalised
+// against nothing. On the measured reference level that is roughly a third of every vertex the
+// tessellator ever touches, created after the only pass that checks them — and nothing about that
+// is level-specific: this pass, like every other in this file, is driven by the level it is handed.
+// So the invariant has to be re-established afterwards.
+//
+// This is the CHEAP version of pass 12 and it needs neither the weld, nor a shell, nor an outward
+// authority — which is the point. Positivity is a property of a VERTEX INDEX and its incident faces,
+// and vertex indices are per tree, so no global structure is required. The orientation each face is
+// measured against is the face's OWN corner-normal consensus, sign(dot(n_geom, N_a + N_b + N_c)):
+//   * it is exactly the reference tools/tess_sign grades A_cons against, so this pass enforces the
+//     graded criterion rather than a proxy for it;
+//   * it is not circular. Where pass 12 already succeeded, every corner normal has a positive dot
+//     with n_geom * fsign, so the consensus sum does too and the consensus REPRODUCES fsign exactly.
+//     Where a midpoint was invented, its normal is a convex combination of two parents that both
+//     agreed with the parent face, so the consensus of the sub-face is the parent's orientation.
+//     The field is therefore already consistent everywhere it is defined, and this pass only has to
+//     repair the vertices where the interpolation pushed a normal across its own face's plane.
+//   * a face whose corners cancel exactly (consensus 0) states no belief and is left out of the
+//     constraint set rather than being given an arbitrary one.
+// Where the incident outwards span at least a hemisphere no direction can satisfy them all; that
+// vertex is LEFT ALONE and COUNTED, exactly as in pass 12.
+// ============================================================================================
+u64 mesh_positivity_repair_level(Level& lev, u64* out_ok, u64* out_unsat, u64* out_den) {
+  constexpr float kPosEps = 1e-3f;
+  u64 repaired = 0, ok = 0, unsat = 0, den = 0;
+  std::vector<math::Vector3f> uo;
+
+  auto fix = [&](std::vector<PreloadedVertex>& verts, const std::vector<u32>& indices,
+                 bool use_strips) {
+    const size_t n = verts.size();
+    if (n == 0) {
+      return;
+    }
+    std::vector<std::array<u32, 3>> tris;
+    if (use_strips) {
+      u32 a = UINT32_MAX, b = UINT32_MAX;
+      for (u32 vi : indices) {
+        if (vi == UINT32_MAX) {
+          a = b = UINT32_MAX;
+          continue;
+        }
+        if (a != UINT32_MAX && b != UINT32_MAX && a != b && b != vi && a != vi) {
+          tris.push_back({a, b, vi});
+        }
+        a = b;
+        b = vi;
+      }
+    } else {
+      for (size_t t = 0; t + 2 < indices.size(); t += 3) {
+        if (indices[t] == UINT32_MAX || indices[t + 1] == UINT32_MAX ||
+            indices[t + 2] == UINT32_MAX) {
+          continue;
+        }
+        tris.push_back({indices[t], indices[t + 1], indices[t + 2]});
+      }
+    }
+    if (tris.empty()) {
+      return;
+    }
+    // ---- each face's own oriented geometric normal, from its own corner-normal consensus
+    std::vector<math::Vector3f> fout(tris.size(), math::Vector3f::zero());
+    for (size_t ti = 0; ti < tris.size(); ti++) {
+      const auto& t = tris[ti];
+      const math::Vector3f p0(verts[t[0]].x, verts[t[0]].y, verts[t[0]].z);
+      const math::Vector3f p1(verts[t[1]].x, verts[t[1]].y, verts[t[1]].z);
+      const math::Vector3f p2(verts[t[2]].x, verts[t[2]].y, verts[t[2]].z);
+      const math::Vector3f gn = (p1 - p0).cross(p2 - p0);
+      const float gl = gn.length();
+      if (!(gl > 1e-12f)) {
+        continue;  // degenerate face: no plane, no belief
+      }
+      math::Vector3f acc(0.f, 0.f, 0.f);
+      for (int e = 0; e < 3; e++) {
+        acc += unpack_gl_normal_2_10_10_10(verts[t[e]].nor);
+      }
+      const float d = acc.dot(gn);
+      if (d == 0.f) {
+        continue;  // the corners cancel: this face states no orientation
+      }
+      fout[ti] = gn * ((d > 0.f ? 1.f : -1.f) / gl);
+    }
+    // ---- vertex -> incident faces, CSR, ascending face order => deterministic
+    std::vector<u32> cnt(n + 1, 0);
+    for (const auto& t : tris) {
+      for (int e = 0; e < 3; e++) {
+        cnt[t[e]]++;
+      }
+    }
+    std::vector<u32> off(n + 1, 0);
+    for (size_t i = 0; i < n; i++) {
+      off[i + 1] = off[i] + cnt[i];
+    }
+    std::vector<u32> flat(off[n]);
+    {
+      std::vector<u32> cur(off.begin(), off.end() - 1);
+      for (size_t ti = 0; ti < tris.size(); ti++) {
+        for (int e = 0; e < 3; e++) {
+          flat[cur[tris[ti][e]]++] = (u32)ti;
+        }
+      }
+    }
+
+    for (size_t i = 0; i < n; i++) {
+      uo.clear();
+      for (u32 k = off[i]; k < off[i + 1]; k++) {
+        const math::Vector3f& o = fout[flat[k]];
+        if (o.length() > 1e-6f) {
+          uo.push_back(o);
+        }
+      }
+      if (uo.empty()) {
+        continue;
+      }
+      den++;
+      auto worst_of = [&](const math::Vector3f& v) {
+        float w = 2.f;
+        for (const auto& u : uo) {
+          w = std::min(w, v.dot(u));
+        }
+        return w;
+      };
+      const math::Vector3f cur_n = unpack_gl_normal_2_10_10_10(verts[i].nor);
+      const float cl = cur_n.length();
+      if (cl > 1e-6f && worst_of(cur_n * (1.f / cl)) > kPosEps) {
+        ok++;
+        continue;  // already serves every face it belongs to: leave it BIT-IDENTICAL
+      }
+      math::Vector3f acc(0.f, 0.f, 0.f);
+      for (const auto& u : uo) {
+        acc += u;
+      }
+      const float al = acc.length();
+      if (!(al > 1e-6f)) {
+        unsat++;  // the incident outwards cancel exactly: no centre exists
+        continue;
+      }
+      // Badoiu-Clarkson, the same iteration and the same tolerance as MeshConsolidate pass 12.
+      math::Vector3f nb = acc * (1.f / al);
+      for (int it = 0; it < 256; it++) {
+        float w = 2.f;
+        int worst_j = -1;
+        for (size_t j = 0; j < uo.size(); j++) {
+          const float d = nb.dot(uo[j]);
+          if (d < w) {
+            w = d;
+            worst_j = (int)j;
+          }
+        }
+        if (w > kPosEps || worst_j < 0) {
+          break;
+        }
+        const math::Vector3f step = nb + (uo[worst_j] - nb) * (1.f / (float)(it + 2));
+        const float sl = step.length();
+        if (!(sl > 1e-6f)) {
+          break;
+        }
+        nb = step * (1.f / sl);
+      }
+      // Accept only if the QUANTISED normal really satisfies it — the shader reads the quantised one.
+      const u32 packed = pack_gl_normal_2_10_10_10(nb);
+      const math::Vector3f chk = unpack_gl_normal_2_10_10_10(packed);
+      const float kl = chk.length();
+      if (kl > 1e-6f && worst_of(chk * (1.f / kl)) > kPosEps) {
+        verts[i].nor = packed;
+        repaired++;
+      } else {
+        unsat++;
+      }
+    }
+  };
+
+  for (auto& t : lev.tfrag_trees) {
+    for (auto& tree : t) {
+      fix(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips);
+    }
+  }
+  for (auto& t : lev.tie_trees) {
+    for (auto& tree : t) {
+      fix(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips);
+    }
+  }
+  if (out_ok) {
+    *out_ok = ok;
+  }
+  if (out_unsat) {
+    *out_unsat = unsat;
+  }
+  if (out_den) {
+    *out_den = den;
+  }
+  return repaired;
+}
+
+// ============================================================================================
+// ROUND 32 — THE TANGENT FRAME MUST SERVE EVERY FACE THAT SHARES IT, AND THAT IS EXACTLY SOLVABLE.
+//
+// reconstruct_tfrag_tangents() gives a vertex the SUM of its incident faces' UV tangents. That is
+// the standard MikkTSpace-style average and it is the right thing for smooth shading — but it is an
+// AVERAGE. Where a vertex sits on a UV chart boundary, or where two incident faces are MIRRORED in
+// UV, the average can point backwards relative to one of the faces that uses it, and the shader then
+// marches the parallax offset the wrong way on that face only:
+//     T = normalize(v_tangent.xyz - N*dot(N,v_tangent.xyz));   B = cross(N,T) * sign(v_tangent.w)
+//     uv -= (Vt.xy / Vt.z) * depth,   Vt = (dot(V,T), dot(V,B), dot(V,N))
+// (pbr_fused.glsl:12-29, 172-173, 264-292). So the requirement, PER FACE CORNER, is exactly
+//     dot(T, dPdu(f)) > 0   AND   dot(cross(N,T)*w, dPdv(f)) > 0
+// with dPdu/dPdv the face's own Lengyel UV Jacobian. That is precisely the condition tools/tess_sign
+// grades as P_sign, and 3.35% of the reference level's graded face corners were failing it. The rule
+// below reads a face's own UVs and nothing else, so it applies to every level identically.
+//
+// THE KEY OBSERVATION. N is already fixed (pass 12 of mesh_consolidate owns it) and T must be a UNIT
+// vector in the plane perpendicular to N, so T has exactly ONE degree of freedom: an angle. Write
+// T(theta) in an orthonormal basis (e1,e2) of that plane; then cross(N,T(theta)) is simply the
+// direction at theta+90deg, so BOTH families of constraints take the form cos(theta - c) > 0 for a
+// constant c — they are OPEN HALF-CIRCLES. Intersecting half-circles on a circle is not an
+// optimisation problem, it is a SORT: the feasible set is the complement of the smallest arc
+// enclosing all the c's, it is non-empty iff that arc is narrower than 180deg, and the direction
+// furthest from every boundary is its midpoint. Exact 1-D Chebyshev centre — no iteration, no step
+// size, no tolerance and no local minimum. The handedness w only shifts the dPdv constraints by
+// 180deg, so both values are tried and the larger margin wins.
+//
+// WHAT IT DELIBERATELY DOES NOT DO. A vertex whose stored frame ALREADY satisfies every incident face
+// is left BIT-IDENTICAL. The authored average is the direction the artist's normal map was made for,
+// and the Chebyshev centre — while maximally robust — is a slightly different one; rotating every
+// tangent in the level to gain nothing on the vertices that were already right would rotate the
+// relief everywhere for no reason. This pass only touches frames that are provably wrong for some
+// face they serve.
+//
+// A vertex whose constraint centres genuinely span 180deg or more has NO representable frame: its
+// incident faces disagree about which way U runs, and one per-vertex tangent cannot serve them all.
+// Those are LEFT ALONE and COUNTED — never silently "fixed", never dropped from the denominator.
+// ============================================================================================
+u64 retangent_positive_from_final_normals(Level& lev,
+                                          u64* out_already,
+                                          u64* out_unsat,
+                                          u64* out_den) {
+  constexpr float kPi = 3.14159265358979323846f;
+  constexpr float kTwoPi = 2.f * kPi;
+  constexpr float kHalfPi = 0.5f * kPi;
+  u64 changed = 0, already = 0, unsat = 0, den = 0;
+  auto wrap_pi = [&](float a) {
+    while (a <= -kPi) {
+      a += kTwoPi;
+    }
+    while (a > kPi) {
+      a -= kTwoPi;
+    }
+    return a;
+  };
+
+  std::vector<float> cu, cv, centres;
+  auto fix = [&](std::vector<PreloadedVertex>& verts, const std::vector<u32>& indices,
+                 bool use_strips, std::vector<math::Vector4f>& tangents) {
+    const size_t n = verts.size();
+    if (n == 0 || tangents.size() != n) {
+      return;  // no tangent stream on this tree (shrub): nothing to repair
+    }
+    // ---- the triangles, enumerated EXACTLY as reconstruct_tfrag_tangents does (same strip walk,
+    // same UINT32_MAX primitive restart, same degenerate rejection), so the constraint set is the one
+    // that produced the tangent in the first place.
+    std::vector<std::array<u32, 3>> tris;
+    if (use_strips) {
+      u32 a = UINT32_MAX, b = UINT32_MAX;
+      for (u32 vi : indices) {
+        if (vi == UINT32_MAX) {
+          a = b = UINT32_MAX;
+          continue;
+        }
+        if (a != UINT32_MAX && b != UINT32_MAX && a != b && b != vi && a != vi) {
+          tris.push_back({a, b, vi});
+        }
+        a = b;
+        b = vi;
+      }
+    } else {
+      for (size_t t = 0; t + 2 < indices.size(); t += 3) {
+        if (indices[t] == UINT32_MAX || indices[t + 1] == UINT32_MAX ||
+            indices[t + 2] == UINT32_MAX) {
+          continue;
+        }
+        tris.push_back({indices[t], indices[t + 1], indices[t + 2]});
+      }
+    }
+    if (tris.empty()) {
+      return;
+    }
+    // ---- vertex -> incident triangles, CSR, filled in ascending triangle order => deterministic
+    std::vector<u32> cnt(n + 1, 0);
+    for (const auto& t : tris) {
+      for (int e = 0; e < 3; e++) {
+        cnt[t[e]]++;
+      }
+    }
+    std::vector<u32> off(n + 1, 0);
+    for (size_t i = 0; i < n; i++) {
+      off[i + 1] = off[i] + cnt[i];
+    }
+    std::vector<u32> flat(off[n]);
+    {
+      std::vector<u32> cur(off.begin(), off.end() - 1);
+      for (size_t ti = 0; ti < tris.size(); ti++) {
+        for (int e = 0; e < 3; e++) {
+          flat[cur[tris[ti][e]]++] = (u32)ti;
+        }
+      }
+    }
+
+    for (size_t i = 0; i < n; i++) {
+      if (off[i] == off[i + 1]) {
+        continue;
+      }
+      const math::Vector3f N = unpack_gl_normal_2_10_10_10(verts[i].nor);
+      const float Nl = N.length();
+      if (!(Nl > 0.5f)) {
+        continue;  // no usable normal: reconstruct_tfrag_tangents' Frisvad fallback owns this vertex
+      }
+      const math::Vector3f Nu = N * (1.f / Nl);
+      // The basis is ANCHORED ON THE CURRENT TANGENT, so theta == 0 IS the stored frame after the
+      // shader's Gram-Schmidt. That makes the "is it already fine?" test below literally the grader's
+      // test, and makes a repair a rotation away from a known starting point.
+      math::Vector3f e1(tangents[i].x(), tangents[i].y(), tangents[i].z());
+      e1 = e1 - Nu * Nu.dot(e1);
+      float e1l = e1.length();
+      if (!(e1l > 1e-6f)) {
+        e1 = duff_tangent_from_normal(Nu);
+        e1l = e1.length();
+        if (!(e1l > 1e-6f)) {
+          continue;
+        }
+      }
+      e1 = e1 * (1.f / e1l);
+      math::Vector3f e2 = Nu.cross(e1);
+      const float e2l = e2.length();
+      if (!(e2l > 1e-6f)) {
+        continue;
+      }
+      e2 = e2 * (1.f / e2l);
+
+      cu.clear();
+      cv.clear();
+      for (u32 k = off[i]; k < off[i + 1]; k++) {
+        const auto& t = tris[flat[k]];
+        const auto& v0 = verts[t[0]];
+        const auto& v1 = verts[t[1]];
+        const auto& v2 = verts[t[2]];
+        const math::Vector3f p0(v0.x, v0.y, v0.z), p1(v1.x, v1.y, v1.z), p2(v2.x, v2.y, v2.z);
+        const math::Vector3f d1 = p1 - p0, d2 = p2 - p0;
+        const float du1 = v1.s - v0.s, dv1 = v1.t - v0.t;
+        const float du2 = v2.s - v0.s, dv2 = v2.t - v0.t;
+        const float det = du1 * dv2 - du2 * dv1;
+        if (!(std::fabs(det) > 1e-12f)) {
+          continue;  // degenerate UV: the grader gives this face no parallax sign either
+        }
+        const float r = 1.f / det;
+        const math::Vector3f dPdu = (d1 * dv2 - d2 * dv1) * r;
+        const math::Vector3f dPdv = (d2 * du1 - d1 * du2) * r;
+        const math::Vector3f pu = dPdu - Nu * Nu.dot(dPdu);
+        const math::Vector3f pv = dPdv - Nu * Nu.dot(dPdv);
+        if (pu.length() > 1e-12f) {
+          cu.push_back(std::atan2(pu.dot(e2), pu.dot(e1)));
+        }
+        if (pv.length() > 1e-12f) {
+          cv.push_back(std::atan2(pv.dot(e2), pv.dot(e1)));
+        }
+      }
+      if (cu.empty() && cv.empty()) {
+        continue;  // nothing constrains this vertex's frame
+      }
+      den++;
+
+      const float w_old = (tangents[i].w() < 0.f) ? -1.f : 1.f;
+      // Is the stored frame already right for every face it serves? That is theta == 0 with w_old.
+      {
+        bool ok = true;
+        for (float a : cu) {
+          if (!(std::cos(a) > 0.f)) {
+            ok = false;
+            break;
+          }
+        }
+        if (ok) {
+          for (float a : cv) {
+            if (!(std::cos(kHalfPi * w_old - a) > 0.f)) {
+              ok = false;
+              break;
+            }
+          }
+        }
+        if (ok) {
+          already++;
+          continue;  // leave it BIT-IDENTICAL
+        }
+      }
+
+      // The exact arc solve, for one handedness. theta must satisfy cos(theta - c) > 0 for every
+      // centre c, so the feasible set is the complement of the smallest arc enclosing the c's.
+      auto solve = [&](float w, float* out_theta, float* out_margin) -> bool {
+        centres.clear();
+        for (float a : cu) {
+          centres.push_back(a);
+        }
+        for (float a : cv) {
+          centres.push_back(wrap_pi(a - kHalfPi * w));  // dot(B,dPdv) > 0, with B at theta + 90*w
+        }
+        std::sort(centres.begin(), centres.end());
+        const size_t m = centres.size();
+        float gap = -1.f;
+        size_t gi = 0;
+        for (size_t j = 0; j < m; j++) {
+          const float nxt = (j + 1 < m) ? centres[j + 1] : centres[0] + kTwoPi;
+          const float g = nxt - centres[j];
+          if (g > gap) {
+            gap = g;
+            gi = j;
+          }
+        }
+        const float width = kTwoPi - gap;  // the smallest arc enclosing every centre
+        if (!(width < kPi - 1e-6f)) {
+          return false;  // a half-turn or more: no direction is positive against all of them
+        }
+        *out_theta = wrap_pi(centres[(gi + 1) % m] + 0.5f * width);
+        *out_margin = 0.5f * (kPi - width);
+        return true;
+      };
+
+      float th_p = 0.f, mg_p = -1.f, th_n = 0.f, mg_n = -1.f;
+      const bool ok_p = solve(1.f, &th_p, &mg_p);
+      const bool ok_n = solve(-1.f, &th_n, &mg_n);
+      float th, w_new;
+      if (ok_p && ok_n) {
+        if (mg_p > mg_n + 1e-9f) {
+          th = th_p;
+          w_new = 1.f;
+        } else if (mg_n > mg_p + 1e-9f) {
+          th = th_n;
+          w_new = -1.f;
+        } else {  // a genuine tie keeps the stored handedness
+          w_new = w_old;
+          th = (w_old > 0.f) ? th_p : th_n;
+        }
+      } else if (ok_p) {
+        th = th_p;
+        w_new = 1.f;
+      } else if (ok_n) {
+        th = th_n;
+        w_new = -1.f;
+      } else {
+        unsat++;
+        continue;  // LEFT ALONE, and counted
+      }
+      const math::Vector3f T = e1 * std::cos(th) + e2 * std::sin(th);
+      const math::Vector4f nt(T.x(), T.y(), T.z(), w_new);
+      const auto& a0 = tangents[i];
+      if (a0.x() != nt.x() || a0.y() != nt.y() || a0.z() != nt.z() || a0.w() != nt.w()) {
+        tangents[i] = nt;
+        changed++;
+      }
+    }
+  };
+
+  for (auto& t : lev.tfrag_trees) {
+    for (auto& tree : t) {
+      fix(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, tree.unpacked.tangents);
+    }
+  }
+  for (auto& t : lev.tie_trees) {
+    for (auto& tree : t) {
+      fix(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, tree.unpacked.tangents);
+    }
+  }
+  if (out_already) {
+    *out_already = already;
+  }
+  if (out_unsat) {
+    *out_unsat = unsat;
+  }
+  if (out_den) {
+    *out_den = den;
   }
   return changed;
 }

@@ -139,6 +139,11 @@ const VLayout kLayoutShrub = {
 
 struct GTree {
   int system = 0;
+  // round 33: which LOD set this tree came from. lev.tfrag_trees / lev.tie_trees are arrays of
+  // TFRAG_GEOS = 3 LOD sets holding THREE SUPERIMPOSED COPIES of the same world, and the outward
+  // authority must not see them at once — see the pass 6c comment for why that destroys the escape-
+  // ray signal. Shrub has no LOD sets and is always 0.
+  u8 geom = 0;
   u32 gbase = 0;
   u32 gcount = 0;
   const std::vector<u32>* indices = nullptr;
@@ -302,7 +307,7 @@ void gather_level(Level& lev,
                   std::vector<u8*>& gvert,
                   std::vector<u32>* gtree,
                   std::vector<math::Vector3f>* gp) {
-  auto add_tree = [&](int system, void* vdata, size_t vcount, size_t vstride,
+  auto add_tree = [&](int system, u8 geom_index, void* vdata, size_t vcount, size_t vstride,
                       const std::vector<u32>* indices, bool strips, PackedTimeOfDay* colors,
                       const VLayout* layout, std::vector<math::Vector4f>* tangents) {
     if (vcount == 0 || !indices) {
@@ -310,6 +315,7 @@ void gather_level(Level& lev,
     }
     GTree t;
     t.system = system;
+    t.geom = geom_index;
     t.gbase = (u32)gvert.size();
     t.gcount = (u32)vcount;
     t.indices = indices;
@@ -331,23 +337,23 @@ void gather_level(Level& lev,
       }
     }
   };
-  for (auto& geom : lev.tfrag_trees) {
-    for (auto& t : geom) {
-      add_tree(kSysTfrag, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
+  for (u8 gi = 0; gi < (u8)lev.tfrag_trees.size(); gi++) {
+    for (auto& t : lev.tfrag_trees[gi]) {
+      add_tree(kSysTfrag, gi, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
                sizeof(PreloadedVertex), &t.unpacked.indices, t.use_strips, &t.colors,
                &kLayoutPreloaded, &t.unpacked.tangents);
     }
   }
-  for (auto& geom : lev.tie_trees) {
-    for (auto& t : geom) {
-      add_tree(kSysTie, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
+  for (u8 gi = 0; gi < (u8)lev.tie_trees.size(); gi++) {
+    for (auto& t : lev.tie_trees[gi]) {
+      add_tree(kSysTie, gi, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
                sizeof(PreloadedVertex), &t.unpacked.indices, t.use_strips, &t.colors,
                &kLayoutPreloaded, &t.unpacked.tangents);
     }
   }
   if (do_shrub) {
     for (auto& t : lev.shrub_trees) {
-      add_tree(kSysShrub, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
+      add_tree(kSysShrub, 0, t.unpacked.vertices.data(), t.unpacked.vertices.size(),
                sizeof(ShrubGpuVertex), &t.indices, true, &t.time_of_day_colors, &kLayoutShrub,
                /*tangents=*/nullptr);  // shrub has no tangent array
     }
@@ -428,7 +434,28 @@ constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
 //   independently and disagreed on ~25% of vertices; a v6 sidecar is the LOSING half of that
 //   disagreement. Same delivery rule as v5: the fingerprint is COUNTS-only, so without this bump
 //   every device blits the v6 normals back over the fix and the round ships as a no-op.
-constexpr u32 kBakeVersion = 7;
+// v8 (round 32): the two things a sidecar actually carries both changed. `nor` changes because the
+//   round-31 PER-FACE geometric override is gone (it contradicted the shared vertex normals of its
+//   own neighbours and measured WORSE: 81.81% -> 52.19% of village1 meshes at a perfect
+//   displacement-sign score) and because PASS 12 now guarantees dot(N_v, outward(f)) > 0 at every
+//   corner of every incident face on EVERY path. `seam_bits` changes because the crease pin is now
+//   the minimal one — pinned iff the welded group's members do not all carry the SAME packed normal,
+//   instead of pass 7's over-firing clustering proxy. Same delivery rule as v5/v7, for the third
+//   time: the fingerprint is COUNTS-only, so a v7 sidecar still MATCHES this fr3 and would blit the
+//   old normals and the old pins straight back over the fix.
+// v9 (round 33): BOTH payloads change again, and for the reason that closes the round.
+//   `nor` changes because the shared outward authority is now COHERENT PER SHELL (one verdict
+//   distributed by the exact topological relative winding, instead of a per-face vote that handed
+//   adjacent coplanar triangles opposite outwards), because the COLLISION MESH no longer decides
+//   anything (it was deciding 153754 of village1's 458830 graded faces, against the round-31
+//   mandate), and because that authority is now ADOPTED AS fsign in pass 6c — so pass 7, pass 12
+//   and pass 12d all work off the very field the offline grader grades against instead of off pass
+//   6's own flood-fill answer. `seam_bits` changes because pass 12d unifies the normal of every
+//   weld group a pin is not geometrically necessary for, which removes the spurious pins pass 12's
+//   per-vertex repair had been creating. Same delivery rule as v5/v7/v8, for the fourth time: the
+//   fingerprint is COUNTS-only, so a v8 sidecar still MATCHES this fr3 and would blit the old
+//   normals and the old pins straight back over the fix.
+constexpr u32 kBakeVersion = 9;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and
@@ -694,13 +721,22 @@ void mesh_consolidate(Level& lev,
           continue;
         }
         mark_strip_draws(t.static_draws, trees[tid].gbase, trees[tid].gcount);
-        for (const auto& d : t.instanced_wind_draws) {
-          for (u32 li : d.vertex_index_stream) {
-            if (li != UINT32_MAX && li < trees[tid].gcount) {
-              mark(trees[tid].gbase + li, (u32)d.tree_tex_id);
-            }
-          }
-        }
+        // ===== ROUND 32: THE WIND DRAWS NO LONGER MARK A MATERIAL ==================================
+        // instanced_wind_draws used to be marked here too, and it was a pure OVER-PIN. A wind draw
+        // indexes the SAME t.unpacked.vertices array as the static draws, so any vertex a wind draw
+        // touches was being given a second texture id and its whole weld group was then pinned by
+        // pass 9 as a material boundary — pinning STATIC geometry that shares the position.
+        // Three independent reasons that boundary is not real:
+        //   * a wind vertex's x/y/z is PROTOTYPE-LOCAL (TieTree::unpack leaves the matrix_idx == -1
+        //     groups untransformed), so it is not a world position and cannot be coincident with
+        //     anything in the sense the weld means;
+        //   * pass 1's face list never contains a wind triangle (gather walks unpacked.indices only),
+        //     so no face this pass can see has that texture — there is nothing to be a boundary WITH;
+        //   * TIE_WIND is its own GL program with no tessellation control or evaluation stage
+        //     (Tie3.cpp), so nothing on either side of that "boundary" is ever displaced.
+        // MEASURED: this is what made tools/tess_sign's B_perm column fail on TIE rows — the offline
+        // necessity test, which reasons about FACES, correctly said "no pin needed here" while the
+        // shipped pin said otherwise. The pin set shrinks; nothing that can tear stops being pinned.
         tid++;
       }
     }
@@ -1588,10 +1624,10 @@ void mesh_consolidate(Level& lev,
     // rendered geometry alone, defined on a roof, on a vertical wall and under a cornice alike.
     //
     // DETERMINISM. No RNG anywhere: the direction set is a fixed stratified table rotated into the
-    // face's own frame by a branchless Duff/Frisvad basis, so it is a pure function of gn. The grid
-    // is a dense CSR built in ascending face order, its cell size is a pure function of the level
-    // bbox and face count, and the escape test is a boolean OR over the candidate faces, which makes
-    // it independent of traversal order. Two runs over one fr3 produce identical votes.
+    // face's own frame by a branchless Duff/Frisvad basis, so it is a pure function of gn. The
+    // accelerator is a median-split BVH built with a TOTAL order on ties, so its shape is a pure
+    // function of the face list, and the escape test is a boolean OR over the candidate faces, which
+    // makes it independent of traversal order. Two runs over one fr3 produce identical votes.
     //
     // COST. This is the expensive pass (2*K rays for every face of every system), which is why the
     // bit is default-OFF and documented as offline-only in the header.
@@ -1604,106 +1640,19 @@ void mesh_consolidate(Level& lev,
     constexpr double kGeomRayMax = 200.0 * (double)kUnitsPerMeter;  // no hit within 200 m == escaped
     constexpr double kGeomProbeEps = 0.02 * (double)kUnitsPerMeter;  // probe sits 2 cm off the face
     constexpr double kGeomConfMin = 0.15;  // area-weighted mean agreement needed to SPEAK
-    // Escape-count difference a SINGLE face must show before it is allowed to contradict the
-    // orientation its whole component was given. Higher than the 2 needed to join the vote.
-    constexpr int kGeomRepairMargin = 4;
     std::vector<s8> gvote(geom_orient ? F : (size_t)0, 0);
     // The raw escape-count DIFFERENCE per face, kept alongside the sign for the residual repair.
     std::vector<s8> gmargin(geom_orient ? F : (size_t)0, 0);
     if (geom_orient) {
       const auto geom_t0 = std::chrono::steady_clock::now();
 
-      // ---- the accelerator: a dense uniform grid, CSR, over EVERY face of EVERY system ----------
-      double glo[3] = {0, 0, 0}, ghi[3] = {0, 0, 0};
-      {
-        const math::Vector3f& p0 = gp[faces[0][0]];
-        for (int a = 0; a < 3; a++) {
-          glo[a] = ghi[a] = (double)p0[a];
-        }
-        for (size_t f = 0; f < F; f++) {
-          for (int e = 0; e < 3; e++) {
-            const math::Vector3f& p = gp[faces[f][e]];
-            for (int a = 0; a < 3; a++) {
-              glo[a] = std::min(glo[a], (double)p[a]);
-              ghi[a] = std::max(ghi[a], (double)p[a]);
-            }
-          }
-        }
-      }
-      // Memory ceilings, not tuning knobs: they bound the offline pass on a level whose bbox is huge
-      // (jak2's city) or whose triangles are huge (sky/water quads spanning hundreds of metres). The
-      // cell size only ever GROWS from 1 m, in powers of two, and only as a function of the geometry,
-      // so it is reproducible.
-      constexpr u64 kMaxGridCells = 8000000;
-      constexpr u64 kMaxGridItems = 24000000;
-      double gcell = 1.0 * (double)kUnitsPerMeter;  // ~1 m cells
-      s64 gdim[3] = {1, 1, 1};
-      std::vector<u32> gcell_off;
-      std::vector<u32> gcell_items;
-      auto face_cells = [&](size_t f, s64* lo, s64* hi) {
-        const auto& t = faces[f];
-        for (int a = 0; a < 3; a++) {
-          const double p0 = (double)gp[t[0]][a], p1 = (double)gp[t[1]][a], p2 = (double)gp[t[2]][a];
-          const double mn = std::min(p0, std::min(p1, p2));
-          const double mx = std::max(p0, std::max(p1, p2));
-          lo[a] = (s64)std::floor((mn - glo[a]) / gcell);
-          hi[a] = (s64)std::floor((mx - glo[a]) / gcell);
-          lo[a] = std::max<s64>(0, std::min<s64>(gdim[a] - 1, lo[a]));
-          hi[a] = std::max<s64>(0, std::min<s64>(gdim[a] - 1, hi[a]));
-        }
-      };
-      for (;;) {
-        for (int a = 0; a < 3; a++) {
-          gdim[a] = (s64)std::floor((ghi[a] - glo[a]) / gcell) + 1;
-        }
-        const u64 ncell = (u64)gdim[0] * (u64)gdim[1] * (u64)gdim[2];
-        if (ncell > kMaxGridCells) {
-          gcell *= 2.0;
-          continue;
-        }
-        gcell_off.assign(ncell + 1, 0);
-        u64 total = 0;
-        s64 lo[3], hi[3];
-        for (size_t f = 0; f < F; f++) {
-          face_cells(f, lo, hi);
-          total += (u64)(hi[0] - lo[0] + 1) * (u64)(hi[1] - lo[1] + 1) * (u64)(hi[2] - lo[2] + 1);
-          if (total > kMaxGridItems) {
-            break;
-          }
-          for (s64 x = lo[0]; x <= hi[0]; x++) {
-            for (s64 y = lo[1]; y <= hi[1]; y++) {
-              const u64 row = ((u64)x * (u64)gdim[1] + (u64)y) * (u64)gdim[2];
-              for (s64 z = lo[2]; z <= hi[2]; z++) {
-                gcell_off[row + (u64)z + 1]++;
-              }
-            }
-          }
-        }
-        if (total > kMaxGridItems) {
-          gcell *= 2.0;
-          continue;
-        }
-        for (u64 c = 0; c < ncell; c++) {
-          gcell_off[c + 1] += gcell_off[c];
-        }
-        gcell_items.assign(gcell_off[ncell], 0);
-        std::vector<u32> cur(gcell_off.begin(), gcell_off.end() - 1);
-        for (size_t f = 0; f < F; f++) {  // ascending face order => deterministic cell contents
-          face_cells(f, lo, hi);
-          for (s64 x = lo[0]; x <= hi[0]; x++) {
-            for (s64 y = lo[1]; y <= hi[1]; y++) {
-              const u64 row = ((u64)x * (u64)gdim[1] + (u64)y) * (u64)gdim[2];
-              for (s64 z = lo[2]; z <= hi[2]; z++) {
-                gcell_items[cur[row + (u64)z]++] = (u32)f;
-              }
-            }
-          }
-        }
-        break;
-      }
-      lg::info("[mesh-consolidate] geom-orient grid: cell={:.3f}m dim={}x{}x{} items={} faces={}",
-               gcell / (double)kUnitsPerMeter, gdim[0], gdim[1], gdim[2], (u64)gcell_items.size(),
-               (u64)F);
+      // ---- ROUND 32: THE DENSE UNIFORM GRID USED TO BE BUILT HERE, AND NOTHING READ IT. ---------
+      // A dense CSR grid over EVERY face of EVERY system was assembled at this point — a bbox scan,
+      // then a count pass and a fill pass per cell-size retry, then ~100 MB of cell offsets and item
+      // lists — and then only LOGGED: every escape-ray query below is answered by the BVH (see
+      // "ROUND 31 — A BVH, NOT THE DENSE DDA GRID"), which builds its own bounds and its own face
+      // order. So the grid was a full multi-pass build over every face of every level for nothing.
+      // Deleted as dead code superseded by that BVH; the BVH is now the only accelerator here.
 
       // Non-culling Moller-Trumbore in double, returning the ray parameter. Both sides count: this
       // is a visibility question, not a parity count, so winding is irrelevant here.
@@ -2385,41 +2334,24 @@ void mesh_consolidate(Level& lev,
       }
 
       // ==========================================================================================
-      // ROUND 31 — THE PER-FACE RESIDUAL REPAIR, and why a component-level decision cannot be the
-      // whole answer.
+      // ROUND 32 — THE PER-FACE GEOMETRIC REPAIR THAT STOOD HERE IS REMOVED.
       //
-      // Everything above flips a component AS A BLOCK. That is correct only if the component's
-      // internal winding is already consistent, and it is not always: the flood fill drains the
-      // STRONG (true-manifold) frontier first but then allows ONE WEAK attachment, decided by
-      // sign(dot(na, nbv)) — a geometric guess. On a component that is not a closed shell (a
-      // terrain sheet, a fence, a cornice, a roof plane welded to a wall at a T-junction) that
-      // guess can be wrong, and no amount of flipping the whole component afterwards can repair a
-      // face that disagrees with its own neighbours. Those faces stay inverted through pass 7, hand
-      // an inverted normal to the tessellator, and the displacement runs backwards on them — the
-      // owner's "le noir ressort plus que le blanc" on a surface whose neighbours are correct.
+      // It broke the invariant the tessellator actually depends on. `fsign` is a per-COMPONENT
+      // orientation and it is CONSISTENT BY CONSTRUCTION: adjacent faces of a component get
+      // compatible signs. A per-face override makes ONE face disagree with its neighbours, and those
+      // neighbours SHARE VERTEX NORMALS with it — the tessellator interpolates exactly those normals
+      // and displaces along the result, so a lone contradicting face guarantees that some of its
+      // generated vertices move the wrong way NO MATTER what normal the shared vertex is given. The
+      // repair could only ever move the defect from the face it "fixed" onto the faces around it.
       //
-      // So after the block decision, ask each face its OWN question again and repair the residual.
-      // The bar is deliberately higher than the bar to vote: contradicting the component consensus
-      // is a stronger claim than joining it, so a repair needs kGeomRepairMargin escapes of
-      // difference (4 of 13) where a vote needs 2. This is a GENERAL rule keyed on nothing but the
-      // face's own geometry — no material, no mesh and no level name appears in it.
+      // MEASURED on village1 (offline CPU port of the two tessellation shader stages,
+      // tools/tess_sign --all-textures): with the per-face override active the share of meshes at a
+      // perfect displacement-sign score FELL from 81.81% to 52.19%, and the parallax score fell from
+      // 96.48% to 93.46%. The override was making the thing it was added to fix worse.
+      //
+      // rep.orient_faces_geom_repaired is deliberately LEFT IN PLACE: it now stays 0, and that
+      // printed 0 is the record that no face-level override happens any more.
       // ==========================================================================================
-      // The repair is a SAMPLED criterion, so it may not overrule the exact one either: on a closed
-      // component whose volume spoke, the volume has already settled every face and a ray margin,
-      // however large, is still a proxy. Repair is for the geometry the volume cannot judge.
-      if (geom_orient && !(comp_closed && vol_verdict != 0)) {
-        for (u32 f : comp_faces) {
-          if (gvote[f] == 0 || std::abs((int)gmargin[f]) < kGeomRepairMargin) {
-            continue;
-          }
-          // gvote[f] is the outward sign of the face's STORED winding; fsign[f] is the orientation
-          // the component decided for it. They must agree.
-          if ((int)gvote[f] != (int)fsign[f]) {
-            fsign[f] = (s8)gvote[f];
-            rep.orient_faces_geom_repaired++;
-          }
-        }
-      }
     }
     // residual: faces whose final normal still opposes the collision authority
     if (!lev.collision.vertices.empty()) {
@@ -2490,6 +2422,128 @@ void mesh_consolidate(Level& lev,
       rep.orient_pairs_weak_inconsistent_before += bad_before ? 1 : 0;
       rep.orient_pairs_weak_inconsistent_after += bad_after ? 1 : 0;
     }
+  }
+
+  // =============================================================================================
+  // 6c. ROUND 33 — THE SHARED AUTHORITY BECOMES *THE* ORIENTATION, AND IT DOES SO HERE.
+  //
+  //     The round-31/32 arrangement ran the shared authority (pass 11) at the END, as a report, and
+  //     let pass 7 and pass 12 keep working off pass 6's own flood-fill verdict `fsign`. The offline
+  //     grader grades against the AUTHORITY. So the pipeline enforced its invariant against one
+  //     field and the instrument scored it against another: on village1 the face-local invariant
+  //     A_cons read 99.95% while the authority-relative grade A_sign read 72.30%, and the whole of
+  //     that 27-point gap is the two fields disagreeing — not a single vertex of it is a normal that
+  //     contradicts its own faces. Two references, one mesh: that is a bookkeeping defect, not a
+  //     geometry defect, and it has cost this phase several rounds.
+  //
+  //     So the authority is computed ONCE, HERE, before anything that consumes an orientation, and
+  //     it REPLACES fsign. Everything downstream — the crease clustering (7), the positivity repair
+  //     (12), the group unification (12d), the seam pin (12b/9), the tangent frames (7b/12c) — then
+  //     works off the same per-face outward the grader will grade against, and the invariant the
+  //     pipeline guarantees is the invariant the instrument measures.
+  //
+  //     It is gated on kMeshBitGeomOrient because it casts rays: minutes of CPU, which belongs in
+  //     the offline bake (tools/mesh_audit --bake sets it by default) and never in a device level
+  //     load. A device that loads a level with no sidecar still gets pass 6's own verdict and a
+  //     fully enforced invariant against IT — coherent, just not ray-informed.
+  // =============================================================================================
+  MeshOrientResult ores_shared;   // indexed by RENDERED-SUBSET face id
+  std::vector<s8> ores_full_sign;  // indexed by GLOBAL face id; 0 = outside the subset or undecided
+  std::vector<u8> ores_rendered;   // indexed by GLOBAL face id; 1 = in the rendered subset
+  bool have_ores = false;
+  if ((cfg.bits & kMeshBitGeomOrient) != 0 && (cfg.bits & kMeshBitNoNormal) == 0) {
+    const auto t6c = std::chrono::steady_clock::now();
+    // The collision mesh is still handed in: MeshOrient reports its verdict as a DIAGNOSTIC column
+    // (shell_coll_sign / coll_vs_truth) so the two can be scored against each other. Since round 33
+    // it decides nothing — the round-31 mandate forbids it as a reference, and on village1 it had
+    // been deciding 153754 of 458830 graded faces.
+    std::vector<math::Vector3f> coll_pos, coll_nor;
+    coll_pos.reserve(lev.collision.vertices.size());
+    coll_nor.reserve(lev.collision.vertices.size());
+    for (const auto& cv : lev.collision.vertices) {
+      coll_pos.emplace_back(cv.x, cv.y, cv.z);
+      coll_nor.emplace_back((float)cv.nx, (float)cv.ny, (float)cv.nz);
+    }
+    // =========================================================================================
+    // THE AUTHORITY SEES THE *RENDERED* WORLD, AND ONLY IT. This is a real defect, not bookkeeping.
+    //
+    // gather_level() walks `for (geom : lev.tfrag_trees) for (t : geom)`, and lev.tfrag_trees is
+    // std::array<vector<TfragTree>, TFRAG_GEOS> with TFRAG_GEOS = 3. It therefore used to hand the
+    // authority THREE SUPERIMPOSED COPIES OF THE WHOLE WORLD — the three LOD sets — plus shrub. On
+    // the reference level that is 1351952 faces where the rendered world has 441030.
+    //
+    // For an escape-ray test that is not an inaccuracy, it is fatal. RAYF asks "which side of this
+    // face has open space on it", and a near-coincident duplicate of the very same surface sits a
+    // few centimetres away, blocking on one or both sides the rays that were supposed to escape. A
+    // criterion that ends up answering "is there another copy of me nearby" cannot answer "which
+    // side is outside", and this is the mechanical reason the two independent geometric criteria
+    // disagreed on 39.24% of the faces they both spoke for.
+    //
+    // NOTHING IS LOST BY EXCLUDING THE OTHER LOD SETS. The verdict is per SHELL and is distributed
+    // by the relative winding, and an LOD copy welds to its LOD-0 counterpart by position, so it
+    // sits in the same shell and inherits the same verdict through rel[]. What changes is only who
+    // VOTES and who BLOCKS A RAY, and both of those should be the geometry the player sees.
+    //
+    // It also makes the authority reproducible by the offline grader, which gathers exactly this
+    // set (tools/tess_sign §3: geom-0 tfrag trees, geom-0 TIE static_draws, no shrub, no wind
+    // draws — the wind draws carry PROTOTYPE-LOCAL positions and are excluded from unpacked.indices
+    // here for the same reason). A deterministic function on the same set of faces returns the same
+    // verdict per face, so the invariant this pipeline enforces is the invariant that instrument
+    // measures — which is the whole point of the round.
+    // =========================================================================================
+    std::vector<std::array<u32, 3>> rfaces;  // the rendered subset, global vertex ids preserved
+    std::vector<u32> rface_of;               // rendered index -> global face index
+    rfaces.reserve(faces.size());
+    rface_of.reserve(faces.size());
+    for (size_t f = 0; f < F; f++) {
+      const u32 tid = gtree[faces[f][0]];
+      if (trees[tid].system == kSysShrub || trees[tid].geom != 0) {
+        continue;
+      }
+      rfaces.push_back(faces[f]);
+      rface_of.push_back((u32)f);
+    }
+    MeshOrientInput oin;
+    oin.positions = &gp;
+    oin.faces = &rfaces;
+    // NO face_is_candidate: every face of the rendered subset is a candidate, and the grader passes
+    // none either. A filter on one side and not the other would give the two runs different shell
+    // verdicts from the same geometry, because the verdict is a BALLOT of the shell's own faces.
+    oin.coll_vertices = &coll_pos;
+    oin.coll_normals = &coll_nor;
+    oin.units_per_m = kUnitsPerMeter;
+    ores_shared = mesh_orient_faces(oin);
+    have_ores = true;
+    // ---- lift the subset verdict back onto the global face list. A face outside the rendered
+    // subset (an LOD1/LOD2 copy, a shrub face) has no entry and keeps pass 6's own orientation: it
+    // is never graded, it is never tessellated at a range where relief is visible, and its vertices
+    // are welded to the rendered copy's anyway, so pass 12d hands them the same normal.
+    ores_full_sign.assign(F, 0);
+    ores_rendered.assign(F, 0);
+    for (size_t k = 0; k < rface_of.size(); k++) {
+      ores_full_sign[rface_of[k]] = ores_shared.face_sign[k];
+      ores_rendered[rface_of[k]] = 1;
+    }
+    rep.orient33_rendered_faces = rfaces.size();
+    rep.orient33_total_faces = F;
+    for (size_t f = 0; f < F; f++) {
+      const s8 v = ores_full_sign[f];
+      if (v != 0 && v != fsign[f]) {
+        rep.orient11_faces_sign_changed++;
+      }
+      if (v != 0) {
+        fsign[f] = v;  // ADOPTED. An UNDECIDED face keeps pass 6's answer.
+      }
+    }
+    lg::info(
+        "[mesh-consolidate] level={} pass 6c shared authority ADOPTED: faces volx={} rayf={} esc={} "
+        "undecided={} (no_rel={}) shells volx={} rayf={} esc={} undecided={} sign_changed={} "
+        "{:.1f} s",
+        lev.level_name, ores_shared.faces_volx, ores_shared.faces_rayf, ores_shared.faces_esc,
+        ores_shared.faces_undecided, ores_shared.faces_no_rel, ores_shared.shells_volx,
+        ores_shared.shells_rayf, ores_shared.shells_esc, ores_shared.shells_undecided,
+        rep.orient11_faces_sign_changed,
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t6c).count());
   }
 
   // =============================================================================================
@@ -2676,6 +2730,367 @@ void mesh_consolidate(Level& lev,
     }
   }
 
+  // pass 7's crease CLUSTERING verdict, kept for the nrm_smooth_* / groups_smooth_split_after
+  // metrics below, which are defined against it.
+  std::vector<u8> group_crease_cluster = group_crease;
+
+  // =============================================================================================
+  // 12. THE POSITIVITY REPAIR (round 32). UNCONDITIONAL — no rays, no authority, no sidecar, just
+  //     one walk over the face corners. It is the only pass here that guarantees the tessellator's
+  //     precondition, so it runs on EVERY path, the live device level load included.
+  //
+  //     WHY THERE IS NO "FRONT FACE" TO FALL BACK ON. The OpenGOAL renderer NEVER enables backface
+  //     culling: every glEnable(GL_CULL_FACE) in game/graphics/ sits inside an `if (prev_cull)`
+  //     state-restore (TFragment.cpp:795, Tie3.cpp:909, AmbientOcclusion.cpp:817, Shrub.cpp:704),
+  //     and GL's default is DISABLED. The world is drawn DOUBLE-SIDED, so there is no front face, no
+  //     renderer-side notion of "outward" at all: the shading normal is the ONLY thing that
+  //     distinguishes the two sides of a world surface.
+  //
+  //     THE WELL-POSED REQUIREMENT. tfrag3_tess.tese displaces the vertex along the INTERPOLATED
+  //     vertex normal for EVERY patch that references it, and the fragment stage then lights it with
+  //     that same normal. So what has to hold is
+  //
+  //         for every face f and every corner vertex v of f:  dot(N_v, n_geom(f) * fsign[f]) > 0
+  //
+  //     and then, because barycentric interpolation is a CONVEX COMBINATION and dot() is LINEAR, the
+  //     interpolated normal satisfies it too — the sign of the displacement is correct for every
+  //     generated vertex of every patch BY CONSTRUCTION rather than by measurement. That is the
+  //     whole point: this is not a metric that has to be sampled and hoped about, it is an invariant.
+  //
+  //     THE DIRECTION IS fsign, NOT A PER-FACE VOTE. `n_geom(f) * fsign[f]` is the CONSISTENT
+  //     per-component orientation the flood fill produced, so neighbouring faces of a component
+  //     agree about which way is out and a shared vertex is being asked to satisfy compatible
+  //     constraints. (Pass 11 runs the same repair against its own per-face cascade sign; that pass
+  //     is offline-only. This one is what every device gets.)
+  //
+  //     WHERE IT CANNOT BE SATISFIED. If the incident outward directions span at least a hemisphere
+  //     — a fin, or a vertex index shared by two back-to-back sheets — NO direction is positive
+  //     against all of them. Such a vertex is LEFT EXACTLY AS IT WAS and COUNTED
+  //     (positivity_verts_unsatisfiable). It is never quietly "fixed".
+  // =============================================================================================
+  if ((cfg.bits & kMeshBitNoPositivity) == 0 && (cfg.bits & kMeshBitNoNormal) == 0) {
+    const auto t12 = std::chrono::steady_clock::now();
+    // CSR: vertex -> incident faces. O(total face corners), which is why this pass is affordable
+    // live: village1's 1.35M faces cost one 4M-entry build, not one ray.
+    std::vector<u32> vcnt(N + 1, 0);
+    for (size_t f = 0; f < F; f++) {
+      for (int e = 0; e < 3; e++) {
+        vcnt[faces[f][e]]++;
+      }
+    }
+    std::vector<u32> voff(N + 1, 0);
+    for (size_t i = 0; i < N; i++) {
+      voff[i + 1] = voff[i] + vcnt[i];
+    }
+    std::vector<u32> vflat(voff[N]);
+    {
+      std::vector<u32> cur(voff.begin(), voff.end() - 1);
+      for (size_t f = 0; f < F; f++) {
+        for (int e = 0; e < 3; e++) {
+          vflat[cur[faces[f][e]]++] = (u32)f;
+        }
+      }
+    }
+    // The margin is PER CORNER and it is 1e-3 here, ten times pass 11's 1e-4, for a reason that is
+    // downstream of this pass: the consumer interpolates the three corner normals barycentrically and
+    // THEN normalises, falling back to a constant (0,1,0) whenever the interpolated vector is shorter
+    // than 1e-4. Requiring 1e-3 at every corner keeps the interpolated vector safely above that
+    // floor, so the guarantee survives both the interpolation and the normalise instead of dying in
+    // them and handing the patch an arbitrary constant direction.
+    constexpr float kPosEps = 1e-3f;
+    std::vector<math::Vector3f> uo;
+    for (size_t i = 0; i < N; i++) {
+      if (!referenced[i] || voff[i] == voff[i + 1]) {
+        continue;
+      }
+      // SHRUB IS NEVER TESSELLATED, so a rewrite here could not fix a displacement — it could only
+      // change shrub SHADING. Skip it and shrub's normals stay byte-identical to what already ships.
+      if (sys_of(i) == kSysShrub) {
+        continue;
+      }
+      uo.clear();
+      for (u32 k = voff[i]; k < voff[i + 1]; k++) {
+        const u32 f = vflat[k];
+        // ROUND 33 — THE CONSTRAINT SET IS THE *GRADED* SET. Where the authority ran, a face it did
+        // not decide (an LOD1/LOD2 copy of this same surface, a shrub face, or one the cascade
+        // abstained on) is a face no instrument will ever grade this vertex against, and the offline
+        // grader's own feasibility test does not include it either. Leaving it in can only ever make
+        // the vertex look UNSATISFIABLE — and an unsatisfiable vertex is one this pass gives up on
+        // and the grader then scores as wrong forever. Enforce exactly what will be measured.
+        if (have_ores && ores_full_sign[f] == 0) {
+          continue;
+        }
+        const math::Vector3f nr = face_normal(f) * (float)fsign[f];
+        const float l = nr.length();
+        if (l > 1e-6f) {
+          uo.push_back(nr * (1.f / l));
+        }
+      }
+      if (uo.empty()) {
+        continue;  // every incident face is degenerate: there is no outward to be positive against
+      }
+      auto worst_of = [&](const math::Vector3f& n) {
+        float w = 2.f;
+        for (const auto& u : uo) {
+          w = std::min(w, n.dot(u));
+        }
+        return w;
+      };
+      // The test is made on the STORED normal (10 bits per component, unpack_nor returns it as a UNIT
+      // vector, or as exactly zero when it cannot), because the stored one is what the shader reads.
+      //
+      // A STORED ZERO IS A FAILURE, NOT A SKIP. Pass 11's version continues on packed == 0; that is a
+      // hole. A zero normal contributes nothing to the barycentric interpolation, and three zero
+      // corners make the consumer fall back to a constant direction whose sign is arbitrary — exactly
+      // the outcome this invariant exists to rule out. So "unpacks to zero" is treated the same as
+      // "fails the test", and the vertex goes on to get a real direction.
+      const math::Vector3f n_stored = unpack_nor(*nor_ptr(i));
+      if (n_stored.length() > 1e-6f && worst_of(n_stored) > kPosEps) {
+        rep.positivity_verts_ok++;
+        continue;  // pass 7's cluster choice already satisfies every incident face
+      }
+      // ROUND 33: the search is now mesh_best_packed_normal() in MeshOrient.cpp, and the offline
+      // grader calls THE SAME FUNCTION to decide whether a vertex is gradeable at all. That matters:
+      // this pass answers "can I represent a direction that serves every incident face" in three
+      // signed 10-bit fields, and if the grader answered the same question with a float-only
+      // Chebyshev test it would classify vertices as fixable that the pass provably cannot fix, and
+      // then score them as failures forever. One function, one answer, no gap to fall through.
+      u32 packed_after = 0;
+      if (mesh_best_packed_normal(uo, kPosEps, &packed_after)) {
+        *nor_ptr(i) = packed_after;
+        rep.positivity_verts_repaired++;
+      } else {
+        // The incident outwards span at least a hemisphere (or the 10-bit lattice cannot hold a
+        // direction inside the cone). Leave the vertex exactly as pass 7 left it, and say so.
+        rep.positivity_verts_unsatisfiable++;
+      }
+    }
+    lg::info("[mesh-consolidate] level={} pass 12 positivity repair: already_ok={} repaired={} "
+             "unsatisfiable={} {:.1f} s",
+             lev.level_name, rep.positivity_verts_ok, rep.positivity_verts_repaired,
+             rep.positivity_verts_unsatisfiable,
+             std::chrono::duration<double>(std::chrono::steady_clock::now() - t12).count());
+  }
+
+  // =============================================================================================
+  // 12d. ROUND 33 — A WELD GROUP THAT NEEDS NO PIN MUST CARRY EXACTLY ONE NORMAL.
+  //
+  //      THE DEFECT. Pass 9 pins a group (seam_w = 0, amplitude exactly zero, no relief at all)
+  //      when its members do not all carry the same packed normal. Pass 7 gives every member of a
+  //      crease CLUSTER the same cluster normal, so that used to hold automatically — but pass 12
+  //      then repairs positivity PER VERTEX, and two members of one welded position are different
+  //      vertex indices belonging to different draws, so they see DIFFERENT SUBSETS of the group's
+  //      incident faces and get DIFFERENT repaired normals. The group's members now differ, pass 12b
+  //      sees them differ, pass 9 pins, and the relief dies on a seam that had no reason to be one.
+  //      Measured on village1: 228591 pinned source vertices, of which 13657 the offline grader
+  //      could not attribute to ANY geometric necessity, and 2060 mesh rows below 100% on the
+  //      liveness gate.
+  //
+  //      THE FIX, and it is the definition of welding rather than a workaround: where a pin is not
+  //      geometrically necessary, the group is ONE POINT, so it gets ONE normal — computed over the
+  //      union of every incident face of every member, not per member. The per-vertex invariant
+  //      survives a fortiori: each member's own incident faces are a SUBSET of the union, so a
+  //      direction positive against the union is positive against the subset.
+  //
+  //      WHEN IS A PIN NECESSARY? Exactly four conditions, none of which reads a stored normal:
+  //        MULTI-TEXTURE   the incident faces carry more than one texture id, so the two sides
+  //                        sample a different height map through different per-draw uniforms;
+  //        MULTI-SYSTEM    they span more than one system (TIE is not routed through the tess
+  //                        program at all, so one side moves and the other cannot);
+  //        OPEN BOUNDARY   a group edge used by exactly one face: there is no other side to match;
+  //        HARD CREASE     two incident faces are further apart than the crease threshold. THIS IS
+  //                        WHY THE CUBE CORNERS STAY CRISP: a group spanning a hard edge is left
+  //                        alone, its members keep their distinct cluster normals, and it is pinned
+  //                        exactly as before. Unifying it would smooth every hard edge in the game.
+  //      plus the one that can only be discovered by trying: NO REPRESENTABLE NORMAL serves the
+  //      union. That case is counted, and the offline grader adds the same clause through the same
+  //      function, so a group this pass could not unify is a group the grader does not expect to be
+  //      live. The two cannot drift apart and manufacture a passing liveness score.
+  // =============================================================================================
+  if ((cfg.bits & kMeshBitNoNormal) == 0 && (cfg.bits & kMeshBitNoGroupUnify) == 0) {
+    const auto t12d = std::chrono::steady_clock::now();
+    // CSR: group -> incident faces (a face appears once per distinct group it touches).
+    std::vector<u32> gfcnt(num_groups + 1, 0);
+    for (size_t f = 0; f < F; f++) {
+      u32 seen[3] = {UINT32_MAX, UINT32_MAX, UINT32_MAX};
+      for (int e = 0; e < 3; e++) {
+        const u32 g = group[faces[f][e]];
+        if (g == seen[0] || g == seen[1] || g == seen[2]) {
+          continue;
+        }
+        seen[e] = g;
+        gfcnt[g]++;
+      }
+    }
+    std::vector<u32> gfoff(num_groups + 1, 0);
+    for (u32 g = 0; g < num_groups; g++) {
+      gfoff[g + 1] = gfoff[g] + gfcnt[g];
+    }
+    std::vector<u32> gfflat(gfoff[num_groups]);
+    {
+      std::vector<u32> cur(gfoff.begin(), gfoff.end() - 1);
+      for (size_t f = 0; f < F; f++) {
+        u32 seen[3] = {UINT32_MAX, UINT32_MAX, UINT32_MAX};
+        for (int e = 0; e < 3; e++) {
+          const u32 g = group[faces[f][e]];
+          if (g == seen[0] || g == seen[1] || g == seen[2]) {
+            continue;
+          }
+          seen[e] = g;
+          gfflat[cur[g]++] = (u32)f;
+        }
+      }
+    }
+    std::vector<math::Vector3f> uo;
+    u64 unified = 0, members_written = 0, skipped_necessary = 0, unrepresentable = 0;
+    for (u32 g = 0; g < num_groups; g++) {
+      if (group_multitex[g] || group_multisystem[g] ||
+          (g < group_open.size() && group_open[g] != 0)) {
+        skipped_necessary++;
+        continue;
+      }
+      const u32 k0 = gfoff[g], k1 = gfoff[g + 1];
+      if (k0 == k1) {
+        continue;
+      }
+      // THE INCIDENT SET IS THE *RENDERED* ONE, and the orientation source is the authority itself.
+      //
+      // Two distinct reasons, and the first cost a full measurement cycle to find:
+      //
+      //  (a) LOD1/LOD2 COPIES ARE NOT INCIDENT FACES. They weld to their LOD-0 counterparts by
+      //      position, so nearly every weld group in the level touches one, and the authority has no
+      //      verdict for them by design (pass 6c orients the rendered world). A rule reading "any
+      //      incident face without a verdict makes the pin necessary" therefore declared essentially
+      //      EVERY group necessary — it unified 5263 groups where it should reach tens of thousands.
+      //      The LOD sets are ALTERNATIVE representations; the renderer never draws two of them at
+      //      once, so a duplicate that is never on screen with this surface can neither tear against
+      //      it nor constrain its normal.
+      //
+      //  (b) among the RENDERED faces, one the cascade genuinely ABSTAINED on does make the pin
+      //      necessary, because the offline grader has to reproduce this decision from the same fr3
+      //      and the only per-face outward it can see is the authority's own face_sign — it cannot
+      //      know what pass 6's flood fill would have answered there. Skipping those on BOTH sides
+      //      keeps the two answers identical by construction rather than identical-in-practice, and
+      //      it errs in the safe direction: it can only ever lower the liveness score.
+      bool undecided_face = false;
+      uo.clear();
+      bool hard_crease = false;
+      u32 n_rendered_inc = 0;
+      for (u32 k = k0; k < k1; k++) {
+        const u32 gf = gfflat[k];
+        if (have_ores) {
+          if (!ores_rendered[gf]) {
+            continue;  // (a) an LOD1/LOD2 or shrub copy: never drawn together with this surface
+          }
+          if (ores_full_sign[gf] == 0) {
+            undecided_face = true;  // (b) a rendered face the cascade abstained on
+            break;
+          }
+        }
+        n_rendered_inc++;
+        const s8 os = have_ores ? ores_full_sign[gf] : fsign[gf];
+        const math::Vector3f nr = face_normal(gf) * (float)os;
+        const float l = nr.length();
+        if (l > 1e-6f) {
+          uo.push_back(nr * (1.f / l));
+        }
+      }
+      if (undecided_face || n_rendered_inc == 0) {
+        skipped_necessary++;
+        continue;
+      }
+      for (size_t a = 0; a < uo.size() && !hard_crease; a++) {
+        for (size_t b = a + 1; b < uo.size(); b++) {
+          if (uo[a].dot(uo[b]) < crease_cos) {
+            hard_crease = true;  // a genuine hard edge: leave it, and let pass 9 pin it
+            break;
+          }
+        }
+      }
+      if (hard_crease) {
+        skipped_necessary++;
+        continue;
+      }
+      if (uo.empty()) {
+        continue;
+      }
+      u32 packed = 0;
+      if (!mesh_best_packed_normal(uo, 1e-3f, &packed)) {
+        unrepresentable++;
+        continue;
+      }
+      bool wrote = false;
+      for (u32 k = goff[g]; k < goff[g + 1]; k++) {
+        const u32 i = gflat[k];
+        if (!referenced[i] || sys_of(i) == kSysShrub) {
+          continue;
+        }
+        if (*nor_ptr(i) != packed) {
+          *nor_ptr(i) = packed;
+          members_written++;
+        }
+        wrote = true;
+      }
+      if (wrote) {
+        unified++;
+      }
+    }
+    rep.group_unify_groups = unified;
+    rep.group_unify_members_written = members_written;
+    rep.group_unify_skipped_necessary = skipped_necessary;
+    rep.group_unify_unrepresentable = unrepresentable;
+    lg::info(
+        "[mesh-consolidate] level={} pass 12d group normal unification: unified={} members={} "
+        "pin_necessary={} unrepresentable={} {:.1f} s",
+        lev.level_name, unified, members_written, skipped_necessary, unrepresentable,
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t12d).count());
+  }
+
+  // =============================================================================================
+  // 12b. THE SEAM PIN MUST DESCRIBE THE NORMALS THAT SHIP.
+  //
+  //      Pass 9 zeroes seam_w on a weld group flagged group_crease, which pins the displacement to
+  //      ZERO there. That pin exists for ONE reason: two vertex indices at the same welded position
+  //      that displace along DIFFERENT axes separate, and the surface TEARS OPEN — the see-through
+  //      slits this whole phase closed. Pass 7's clustering verdict ("this group spans two or more
+  //      crease clusters") is only a PROXY for that condition, and it OVER-FIRES: two members can
+  //      land in different clusters and still end up carrying the SAME packed normal, in which case
+  //      they displace identically and the edge between them cannot tear, yet the group is pinned and
+  //      the relief is thrown away along it.
+  //
+  //      So test the operative condition DIRECTLY, on the bytes that ship: pin iff the group's
+  //      REFERENCED members do not all carry the SAME packed normal. That is strictly tighter than
+  //      the clustering proxy, it is exactly sufficient for the no-slit invariant, and it is computed
+  //      AFTER the positivity repair, so it describes the final normals rather than an intermediate
+  //      state. group_crease_cluster above keeps pass 7's verdict for the metrics defined against it.
+  // =============================================================================================
+  if ((cfg.bits & kMeshBitNoSeamMin) == 0) {
+    u32 crease_after = 0;
+    for (u32 g = 0; g < num_groups; g++) {
+      u32 first = 0;
+      bool have = false, differ = false;
+      for (u32 k = goff[g]; k < goff[g + 1]; k++) {
+        const u32 i = gflat[k];
+        if (!referenced[i]) {
+          continue;
+        }
+        const u32 nv = *nor_ptr(i);
+        if (!have) {
+          first = nv;
+          have = true;
+        } else if (nv != first) {
+          differ = true;
+          break;
+        }
+      }
+      group_crease[g] = differ ? (u8)1 : (u8)0;
+      if (differ) {
+        crease_after++;
+      }
+    }
+    rep.groups_crease_pin = crease_after;
+  }
+
   // ---------------------------------------------------------------------------------------------
   // 7b. TANGENT HANDEDNESS FOLLOWS THE CORRECTED NORMAL (round 22, the parallax half of defect C).
   //     reconstruct_tfrag_tangents() computes tangents[i].w at UNPACK time, from the normal the
@@ -2709,12 +3124,39 @@ void mesh_consolidate(Level& lev,
              lev.level_name, retan);
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // 12c. THE TANGENT FRAME MUST SERVE EVERY FACE IT IS SHARED WITH — the parallax counterpart of
+  //      pass 12. Re-deriving the frame from the FINAL normals (just above) makes it consistent with
+  //      N, but it is still the AVERAGE of the incident faces' UV tangents, and an average can point
+  //      backwards for one of the faces that uses it (a UV chart boundary, a mirrored chart). The
+  //      shader's parallax march then digs the wrong way on that face alone. With N fixed the frame
+  //      has ONE degree of freedom, which makes the requirement an intersection of open half-circles
+  //      and therefore EXACTLY solvable by a sort. See the definition in TFrag3Data.cpp.
+  //      Cheap (no rays, no authority), so like pass 12 it runs on every path, including the live
+  //      device load, behind a killswitch only.
+  // ---------------------------------------------------------------------------------------------
+  if ((cfg.bits & kMeshBitNoTanPositive) == 0) {
+    const auto t12c = std::chrono::steady_clock::now();
+    u64 tp_already = 0, tp_unsat = 0, tp_den = 0;
+    const u64 tp_fixed =
+        retangent_positive_from_final_normals(lev, &tp_already, &tp_unsat, &tp_den);
+    rep.tanpos_verts_ok = tp_already;
+    rep.tanpos_verts_repaired = tp_fixed;
+    rep.tanpos_verts_unsatisfiable = tp_unsat;
+    rep.tanpos_verts_constrained = tp_den;
+    lg::info(
+        "[mesh-consolidate] level={} pass 12c tangent positivity: constrained={} already_ok={} "
+        "repaired={} unsatisfiable={} {:.1f} s",
+        lev.level_name, tp_den, tp_already, tp_fixed, tp_unsat,
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t12c).count());
+  }
+
   measure_normal_delta(rep.nrm_after, nullptr, false);
-  crease_filter = &group_crease;
+  crease_filter = &group_crease_cluster;
   measure_normal_delta(rep.nrm_smooth_before, &nor_before, true);
   measure_normal_delta(rep.nrm_smooth_after, nullptr, true);
   for (u32 g = 0; g < num_groups; g++) {
-    if (group_refcount2[g] && !group_crease[g]) {
+    if (group_refcount2[g] && !group_crease_cluster[g]) {
       // a single-cluster (smooth) group must end with ONE shared normal — any residual delta here
       // is a real bug in the pass, so it is reported rather than hidden.
       u32 first = 0;
@@ -2761,24 +3203,15 @@ void mesh_consolidate(Level& lev,
   // =============================================================================================
   if ((cfg.bits & kMeshBitGeomOrient) != 0 && (cfg.bits & kMeshBitNoNormal) == 0) {
     const auto t11 = std::chrono::steady_clock::now();
-    // ---- the input. gp is already SNAPPED by pass 5, so coincident positions are bit-identical and
-    // the authority's exact-float-triple weld sees the surface the way the GPU does. The collision
-    // mesh is a POINT CLOUD of (position, normal) samples — CollisionMesh has no faces — so that is
-    // the shape it is handed in.
-    std::vector<math::Vector3f> coll_pos, coll_nor;
-    coll_pos.reserve(lev.collision.vertices.size());
-    coll_nor.reserve(lev.collision.vertices.size());
-    for (const auto& cv : lev.collision.vertices) {
-      coll_pos.emplace_back(cv.x, cv.y, cv.z);
-      coll_nor.emplace_back((float)cv.nx, (float)cv.ny, (float)cv.nz);
+    // ROUND 33: the authority is no longer recomputed here. Pass 6c already ran it, on this exact
+    // input, and ADOPTED it into fsign; running it a second time would cost the same minutes of ray
+    // casting to reproduce a result we are already using, and any drift between the two calls would
+    // be undetectable. This block is now purely the REPORT of that one computation.
+    if (!have_ores) {
+      lg::warn("[mesh-consolidate] level={} pass 11: no shared authority result to report",
+               lev.level_name);
     }
-    MeshOrientInput oin;
-    oin.positions = &gp;
-    oin.faces = &faces;
-    oin.coll_vertices = &coll_pos;
-    oin.coll_normals = &coll_nor;
-    oin.units_per_m = kUnitsPerMeter;
-    const MeshOrientResult ores = mesh_orient_faces(oin);
+    const MeshOrientResult& ores = ores_shared;
     rep.orient11_faces_volx = ores.faces_volx;
     rep.orient11_faces_rayf = ores.faces_rayf;
     rep.orient11_faces_coll = ores.faces_coll;
@@ -2788,7 +3221,7 @@ void mesh_consolidate(Level& lev,
     // ---- the per-face outward multiplier. UNDECIDED falls back to pass 6's fsign.
     std::vector<s8> osign(F, 0);
     for (size_t f = 0; f < F; f++) {
-      const s8 v = ores.face_sign[f];
+      const s8 v = ores_full_sign[f];
       if (v != 0) {
         osign[f] = v;
         if (v != fsign[f]) {
@@ -2800,6 +3233,68 @@ void mesh_consolidate(Level& lev,
     }
     auto outward_raw = [&](size_t f) { return face_normal(f) * (float)osign[f]; };
 
+    // ---- DIAGNOSTIC: how far do the normals that SHIP sit from this authority's verdict? One
+    // counter per DECIDED face: does the face's own corner-normal average lie on the side the
+    // cascade calls outward? This is the bake-side equivalent of the offline grader's A_sign, and it
+    // is the comparison the round-28/29/31 mandates ask to be REPORTED. It writes nothing.
+    for (size_t f = 0; f < F; f++) {
+      if (ores_full_sign[f] == 0) {
+        continue;  // the cascade abstained: there is no verdict to agree or disagree with
+      }
+      const math::Vector3f nraw = face_normal(f) * (float)ores_full_sign[f];
+      const float l = nraw.length();
+      if (!(l > 1e-6f)) {
+        continue;
+      }
+      math::Vector3f acc(0.f, 0.f, 0.f);
+      for (int e = 0; e < 3; e++) {
+        acc += unpack_nor(*nor_ptr(faces[f][e]));
+      }
+      const float d = acc.dot(nraw * (1.f / l));
+      if (d > 0.f) {
+        rep.orient11_faces_agree_shipped++;
+      } else if (d < 0.f) {
+        rep.orient11_faces_disagree_shipped++;
+      } else {
+        rep.orient11_faces_silent_shipped++;
+      }
+    }
+
+    // =============================================================================================
+    // ROUND 32 — THE NORMAL REWRITE BELOW IS NO LONGER APPLIED BY DEFAULT (kMeshBitOrient11Apply).
+    //
+    // It was added to close the gap between two implementations of "outward". It does close it, and
+    // it makes the grader's authority-relative score rise — but MEASURED on village1 with the offline
+    // CPU port of the two tessellation stages (tools/tess_sign --all-textures, same binary, same
+    // fr3, the ONLY difference being this pass), applying it makes the shipped geometry WORSE on both
+    // of the properties that decide what the player actually sees:
+    //
+    //     applied?                     no         yes
+    //     A_cons  (face-local)      99.7376%   99.4808%
+    //     meshes at A_cons = 100%    91.75%     80.24%
+    //     P_sign  (parallax)        96.6528%   93.4596%
+    //     meshes at P_sign = 100%    46.69%     38.58%
+    //
+    // WHY, and it is structural rather than a matter of tuning. `ores.face_sign` carries a PER-FACE
+    // component (tier RAYF votes face by face, with no propagation), so two adjacent faces that
+    // SHARE VERTEX NORMALS can be handed opposite outward directions. The tessellator interpolates
+    // exactly those shared normals and displaces along the result, so a per-face disagreement is not
+    // a cosmetic inconsistency — it makes pass 12's invariant UNSATISFIABLE at the shared vertex
+    // (measured: 39972 vertices on village1), and there every generated vertex moves the wrong way
+    // whatever normal it is given. `fsign` has no such component: it is decided per CONNECTED
+    // COMPONENT and is therefore consistent across every shared edge by construction.
+    //
+    // And the criterion this pass optimises for is the ill-posed one. The renderer NEVER enables
+    // backface culling — every glEnable(GL_CULL_FACE) in game/graphics/ is an `if (prev_cull)`
+    // state-restore (TFragment.cpp:795, Tie3.cpp:909, Shrub.cpp:704, AmbientOcclusion.cpp:818) and
+    // GL's default is disabled — so the world is drawn DOUBLE-SIDED and there is no front face. The
+    // side of a world surface the player sees lit is the side its SHADING NORMAL faces, and nothing
+    // else. An external outward authority is therefore a claim about the LIGHTING, not about the
+    // displacement; and this one contradicts itself on 39.91% of the faces where both of its
+    // independent criteria speak, which disqualifies it as the thing the geometry is aligned to. The
+    // cascade stays, above, as a REPORTED diagnostic. The bytes follow pass 12.
+    // =============================================================================================
+    if ((cfg.bits & kMeshBitOrient11Apply) != 0) {
     // ---- REWRITE THE NORMALS. Pass 7's crease clustering, verbatim (crease_cos, descending-area
     // seeding, area-weighted cluster average, the max-min cluster choice), with outward_raw()
     // substituted for `face_normal(f) * fsign[f]`. group_crease is NOT touched: it records pass 7's
@@ -3057,6 +3552,7 @@ void mesh_consolidate(Level& lev,
     // ---- the tangent handedness is only meaningful against the FINAL normal (this is why pass 7b
     // exists — see its comment). The normals just changed, so the frame has to be re-derived.
     rep.orient11_tangent_frames_rewritten = retangent_level_from_final_normals(lev);
+    }  // kMeshBitOrient11Apply — the rewrite above is opt-in; the cascade above it always reports.
     rep.orient11_seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - t11).count();
     lg::info(
@@ -3533,10 +4029,21 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
   o += fmt::format(
       "-- ORIENTATION SHARED AUTHORITY (pass 11) -- tier_faces VOLX={} RAYF={} COLL={} ESC={} "
       "UNDECIDED={} | faces_sign_changed_vs_pass6={} verts_chebyshev_repaired={} "
-      "verts_unsatisfiable={} tangent_frames_rewritten={} seconds={:.1f}\n",
+      "verts_unsatisfiable={} tangent_frames_rewritten={} seconds={:.1f} | REWRITE NOT APPLIED "
+      "(kMeshBitOrient11Apply off): shipped_normals_vs_cascade agree={} disagree={} silent={}\n",
       r.orient11_faces_volx, r.orient11_faces_rayf, r.orient11_faces_coll, r.orient11_faces_esc,
       r.orient11_faces_undecided, r.orient11_faces_sign_changed, r.orient11_verts_repaired,
-      r.orient11_verts_unsatisfiable, r.orient11_tangent_frames_rewritten, r.orient11_seconds);
+      r.orient11_verts_unsatisfiable, r.orient11_tangent_frames_rewritten, r.orient11_seconds,
+      r.orient11_faces_agree_shipped, r.orient11_faces_disagree_shipped,
+      r.orient11_faces_silent_shipped);
+  // ONE physical line (a validator greps it line-wise): pass 12, the unconditional positivity repair
+  // that guarantees dot(N_v, outward(f)) > 0 at every corner, plus the minimal displacement pin.
+  o += fmt::format(
+      "-- POSITIVITY (pass 12, every path) -- positivity_verts_ok={} positivity_verts_repaired={} "
+      "positivity_verts_unsatisfiable={} | groups_crease_pin={} (minimal: pinned iff the welded "
+      "group's members do not all carry the SAME packed normal) vs clustering proxy={}\n",
+      r.positivity_verts_ok, r.positivity_verts_repaired, r.positivity_verts_unsatisfiable,
+      r.groups_crease_pin, r.groups_crease_after);
   o += fmt::format(
       "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
       "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "
@@ -3778,6 +4285,24 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
   // the sparse POSITION patch above moves welded vertices, so doing this any earlier would build
   // the frames from pre-snap geometry and the baked path would disagree with the live one.
   tan_flips = retangent_level_from_final_normals(lev);
+  // ROUND 32 — and then pass 12c, for the same reason and in the same order as the live path. The
+  // sidecar restores the NORMALS (pass 12's answer is baked into them) but tangents are not stored:
+  // they are a pure function of positions, uvs, indices and the final normals, all of which are
+  // restored above. So the frame has to be re-derived here AND made valid for every face that shares
+  // it, or a baked level's parallax would differ from a live-consolidated one. The killswitch is read
+  // from the same env/prop config the live pass uses, so an A/B bisect covers both paths.
+  {
+    const auto bake_cfg = mesh_consolidate_config_from_env();
+    if ((bake_cfg.bits & kMeshBitNoTanPositive) == 0) {
+      u64 tp_already = 0, tp_unsat = 0, tp_den = 0;
+      const u64 tp_fixed =
+          retangent_positive_from_final_normals(lev, &tp_already, &tp_unsat, &tp_den);
+      lg::info(
+          "[mesh-consolidate] level={} sidecar pass 12c tangent positivity: constrained={} "
+          "already_ok={} repaired={} unsatisfiable={}",
+          lev.level_name, tp_den, tp_already, tp_fixed, tp_unsat);
+    }
+  }
   lg::info("[mesh-consolidate] level={} loaded PRECOMPUTED sidecar ({} verts, tangent_w_flipped={}) "
            "— live pass skipped",
            lev.level_name, N, tan_flips);
@@ -3837,7 +4362,11 @@ std::string mesh_audit_csv_header() {
          // it exposes. Appended, again, so every previously written csv stays readable.
          "orient_faces_geom_voted,orient_faces_geom_abstained,orient_comps_geom_decided,"
          "orient_comps_geom_vs_collision_conflict,orient_comps_geom_vs_volume_conflict,"
-         "orient_geom_pass_ms\n";
+         "orient_geom_pass_ms,"
+         // round-32: pass 12's positivity invariant and the MINIMAL displacement pin, both of which
+         // run on every path. Appended, again, so every previously written csv stays readable.
+         "positivity_verts_ok,positivity_verts_repaired,positivity_verts_unsatisfiable,"
+         "groups_crease_pin\n";
 }
 
 std::string mesh_audit_csv_row(const MeshAuditReport& r) {
@@ -3846,7 +4375,8 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       "{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.1f},{:.2f},"
       "{:.2f},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},"
       "{},{},{},{},{},{},{},{},{},{},{},{},{},"
-      "{},{},{},{},{},{:.1f}\n",
+      "{},{},{},{},{},{:.1f},"
+      "{},{},{},{}\n",
       r.game_name, r.level_name, r.tfrag.tris, r.tie.tris, r.shrub.tris, r.total.tris,
       r.total.open_raw, r.total.coincident_unshared, r.total.coincident_unshared_pairs,
       r.total.open_by_group, r.total.missed_welds, r.groups, r.wide_reweld_rounds,
@@ -3868,7 +4398,8 @@ std::string mesh_audit_csv_row(const MeshAuditReport& r) {
       r.orient_comps_collfiltered_vs_volume_conflict, r.orient_faces_geom_voted,
       r.orient_faces_geom_abstained, r.orient_comps_geom_decided,
       r.orient_comps_geom_vs_collision_conflict, r.orient_comps_geom_vs_volume_conflict,
-      r.orient_geom_pass_ms);
+      r.orient_geom_pass_ms, r.positivity_verts_ok, r.positivity_verts_repaired,
+      r.positivity_verts_unsatisfiable, r.groups_crease_pin);
 }
 
 }  // namespace tfrag3

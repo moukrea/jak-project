@@ -12,21 +12,43 @@
 //
 //     outward(f) = face_sign[f] * normalize(cross(p1 - p0, p2 - p0))
 //
-// decided by a five-step cascade, in this order and no other:
+// ROUND 33 — THE VERDICT IS NOW COHERENT PER SHELL, AND THE COLLISION MESH NO LONGER DECIDES.
+//
+// Every face of a shell is oriented from ONE shell verdict carried by the relative winding:
+//
+//     face_sign[f] = shell_sign[shell_of[f]] * rel[f]
+//
+// where rel[f] is the flood fill's relative winding, which is TOPOLOGICAL and EXACT — two faces
+// sharing an edge get opposite traversal directions along it iff they agree about which side is
+// out, and that is a fact about the index buffer, not a sample. The shell verdict is chosen by:
 //
 //   VOLX  the shell is CLOSED (every edge used by exactly two of its faces), so the divergence
 //         theorem makes the signed volume's sign the ground truth: no free parameter, no origin
 //         dependence, no sampling error. EXACT beats SAMPLED, so it is first.
-//   RAYF  the PER-FACE escape-ray vote ("lancer de rayon sortant"): the visible side of a surface
-//         is the side that has OPEN SPACE on it. Nothing is propagated and nothing is global — a
-//         face decides alone, from its own geometry and the level around it.
-//   COLL  the shell's competence-filtered COLLISION verdict, carried to the face by the relative
-//         winding. Consulted ONLY where the exact volume cannot apply and the rays abstained; it
-//         outranks nothing, so the round-29 defect (collision noise outranking an exact volume)
-//         cannot recur.
+//   RAYF  the shell's faces VOTE with their escape-ray margins ("lancer de rayon sortant"): each
+//         face's margin (escapes on the +side minus escapes on the -side) is expressed in the
+//         shell's frame by multiplying by rel[f], and the signs are summed. A confident face
+//         weighs more than a marginal one, and a handful of half-buried props cannot outvote the
+//         surface they are buried in.
 //   ESC   the shell's escape-DISTANCE asymmetry, the last resort before abstaining.
 //   UNDECIDED  face_sign stays 0. The caller decides what to do with an unoriented face; this
 //         function never invents a verdict it does not have.
+//
+// WHY PER SHELL AND NOT PER FACE. The previous per-face cascade let each face answer alone, and on
+// village1 the two independent geometric criteria then disagreed on 39.24% of the faces they both
+// spoke for while agreeing on 91.5% of the SHELLS. A per-face verdict is a per-face NOISE SOURCE:
+// two adjacent, coplanar, co-material triangles could be handed opposite outwards, which is
+// precisely the owner's report of a continuous surface displacing in both directions at once, and
+// it also makes their shared vertex UNSATISFIABLE — no single stored normal can serve two faces
+// that disagree about which way is out. Aggregating first and distributing through rel[] removes
+// the noise and the unsatisfiability in one move, and it is what "ça devrait être partout pareil"
+// means in code.
+//
+// WHY THERE IS NO COLLISION TIER ANY MORE. The round-31 mandate is explicit: "Ne réutilise PAS la
+// mesh de collision comme référence — c'est elle qui a produit le défaut du round 29." It is still
+// COMPUTED and REPORTED (shell_coll_sign / shell_coll_speaks, and the coll_vs_truth column) so the
+// two can be scored against each other, but it decides nothing. On village1 it had been deciding
+// 153754 of 458830 graded faces.
 //
 // There is deliberately NO open-shell volume tier (on an open shell the cone volume about the bbox
 // centre is ORIGIN-DEPENDENT, hence not a well-defined quantity, let alone a verdict) and NO
@@ -114,8 +136,30 @@ enum MeshOrientShellTier : u8 {
   kOrientShellUndecided = 0,
   kOrientShellVol = 1,
   kOrientShellEsc = 2,
+  kOrientShellRayf = 3,  // round 33: the shell verdict aggregated from its faces' escape-ray margins
 };
 const char* mesh_orient_shell_tier_name(u8 tier);
+
+// =================================================================================================
+// ROUND 33 — THE PACKED-NORMAL FEASIBILITY SEARCH, PUBLISHED SO THERE IS EXACTLY ONE OF IT.
+//
+// The tessellator displaces a vertex along its STORED normal, which is three signed 10-bit fields.
+// Whether a vertex can be displaced correctly for all of its incident faces is therefore not a
+// question about unit vectors in R^3, it is a question about the 2^30 REPRESENTABLE directions:
+// "does a packed value exist whose dot with every incident outward direction exceeds eps".
+//
+// The pipeline (MeshConsolidate pass 12) asks it to REPAIR a vertex and the grader
+// (tools/tess_sign) asks it to decide whether grading that vertex is meaningful at all. Those two
+// must be the SAME question or the guarantee leaks: a vertex the grader believes is fixable but the
+// pass could not represent shows up as a permanent, unexplainable failure. One function, one answer.
+// =================================================================================================
+u32 mesh_pack_nor(const math::Vector3f& n);
+math::Vector3f mesh_unpack_nor(u32 p);
+
+// `outs` are the incident OUTWARD directions (unit length). Returns true iff a representable normal
+// exists with dot(n, u) > eps for every u, and writes it to *out_packed. Deterministic: fixed
+// iteration order, no RNG, no float accumulation whose order depends on scheduling.
+bool mesh_best_packed_normal(const std::vector<math::Vector3f>& outs, float eps, u32* out_packed);
 
 struct MeshOrientResult {
   // ---- THE VERDICT ----
@@ -151,15 +195,24 @@ struct MeshOrientResult {
   std::vector<u64> shell_rayf_voted;
   std::vector<u64> shell_rayf_agree;
   std::vector<u64> shell_rayf_disagree;
+  // round 33: the verdict actually used, and the ballot it came from.
+  std::vector<s8> shell_verdict_sign;   // the ONE sign every face of the shell is oriented by
+  std::vector<u8> shell_verdict_tier;   // MeshOrientShellTier: which tier produced it
+  std::vector<double> shell_ballot;     // sum of rayf_margin[f] * rel[f] over the shell
+  std::vector<u64> shell_ballot_faces;  // how many faces contributed to that sum
 
   // ---- per face, before the cascade (diagnostic) ----
   std::vector<s8> rayf_vote;      // the escape-ray vote alone, 0 = it abstained
+  std::vector<s16> rayf_margin;   // esc_plus - esc_minus, the vote's STRENGTH (round 33)
   std::vector<u8> rayf_escapes_plus;   // escapes on the +gn side (0..rays_per_hemi)
   std::vector<u8> rayf_escapes_minus;
   std::vector<u8> face_rayf_vs_vol_conflict;  // RAYF and VOL hand this face OPPOSITE directions
 
   // ---- counters ----
   u64 faces_volx = 0, faces_rayf = 0, faces_coll = 0, faces_esc = 0, faces_undecided = 0;
+  // round 33: how the SHELL verdicts were reached, and how many faces each carried.
+  u64 shells_volx = 0, shells_rayf = 0, shells_esc = 0, shells_undecided = 0;
+  u64 faces_no_rel = 0;  // faces the winding flood fill never reached: no coherent frame exists
   u64 candidate_faces = 0;
   u64 rayf_voted = 0;             // candidate faces with a non-zero vote
   u64 rayf_sat_all_blocked = 0;   // ... 0 escapes on BOTH sides (every ray blocked)

@@ -547,6 +547,17 @@ struct MeshRow {
   u64 sign_den = 0;   // amp > 0 AND h != 0.5
   u64 sign_ok = 0;
   u64 sign_ok_lit = 0;  // the spec's LITERAL (h-0.5)*nd > 0 — see the report's derivation
+  // ---- THE A_sign EXCLUSION (§3b v_nonorient), round 33. The SAME exclusion A_cons has carried since
+  // it was introduced, and for the same reason: a generated vertex sitting on a face at least one
+  // corner of which is NON-ORIENTABLE has NO representable per-vertex normal that could be correctly
+  // signed for every face incident to that corner, so grading it is grading an IMPOSSIBILITY. Left in,
+  // it makes A_sign unable to reach 100% however good the pipeline gets — the score would be bounded
+  // by a property of the AUTHORED GEOMETRY that no bake can touch — and the gate would be measuring
+  // the level's fold-backs instead of the pass's work. Counted over EXACTLY the population that would
+  // otherwise have entered sign_den (amp > 0, h != 0.5, an outward verdict), so
+  // sign_den + sign_excl_nonorient is A_sign's denominator as it stood BEFORE the exclusion and
+  // nothing is hidden by it. That pre-exclusion sum is also, deliberately, A_lit's denominator below.
+  u64 sign_excl_nonorient = 0;
   // ---- A_cons — THE FACE-LOCAL CONSISTENCY INVARIANT, which needs NO outward authority at all.
   // Every corner normal of a face must agree with that face about which side is out:
   //     fcons(f) = sign(dot(n_geom(f), N_a + N_b + N_c))          (0 => the face is skipped)
@@ -555,6 +566,14 @@ struct MeshRow {
   // UNDECIDED shell still contributes: self-consistency is a property of the face alone. It
   // isolates the vertex-normal CLUSTERING defect from a disagreement between outward authorities.
   u64 a_cons_ok = 0, a_cons_den = 0;
+  // ---- THE A_cons EXCLUSION (§3b v_nonorient): generated vertices sitting on a face at least one
+  // corner of which is NON-ORIENTABLE — no unit vector at all has a strictly positive dot product
+  // with the outward direction of every face incident to that corner, so NO per-vertex normal, right
+  // or wrong, could give all of them a correctly-signed displacement. The per-vertex format cannot
+  // express a right answer there, so the vertex is REMOVED from cons_den rather than scored wrong.
+  // Counted over EXACTLY the population that would otherwise have entered cons_den (amp > 0,
+  // h != 0.5, fcons != 0), so a_cons_den + cons_excl_nonorient is the denominator as it was before.
+  u64 cons_excl_nonorient = 0;
   // ---- THE PARALLAX (POM) TIER's sign, per FACE CORNER. Distance-INDEPENDENT: it reads only the
   // face's UV parameterisation and the vertex tangent frame the fragment shader rebuilds. See the
   // block comment above grade_parallax_row() for why this is a TANGENT question, not a normal one.
@@ -565,6 +584,12 @@ struct MeshRow {
   u64 p_tan_fallback = 0;  // dot(t,t) <= 0.04: the shader abandons the vertex tangent (no UV info)
   u64 p_tan_degen = 0;     // the Gram-Schmidt tangent collapsed onto the normal
   u64 p_no_normal = 0;     // the corner has no usable stored normal
+  // the corner's vertex is in §3b's v_nontan set: its incident faces disagree about UV HANDEDNESS, so
+  // ONE per-vertex tangent (T plus a single sign w) cannot serve them all and NO tangent the format
+  // can carry is right there. Tested BEFORE the three buckets above, deliberately: it is a property
+  // of the AUTHORED UV LAYOUT and not of anything the bake wrote, so it is the CAUSE and the stored
+  // tangent's state is the symptom. Not gradeable, never scored as correct.
+  u64 p_nonrep = 0;
   u64 p_degen = 0;         // FACES whose UV mapping is degenerate (|det| <= 1e-12): no sign at all
   u64 disp_nz = 0;
   u64 live = 0;             // generated verts with amp > 0            -> B_live%
@@ -576,6 +601,13 @@ struct MeshRow {
   // why `live / (gverts - z_*)` used to print an impossible 100.4052%.
   u64 exempt_dead = 0;
   u64 z_patch_dead = 0;     // verts of a patch with NO live vertex at all
+  // ---- B_perm's denominator: the PERMITTED generated vertices. A vertex is PERMITTED when at least
+  // one of the patch corners contributing a non-zero barycentric weight sits in a weld group a pin is
+  // NOT GEOMETRICALLY NECESSARY for (grp_pin_needed, §4b). The whole point of this pair is that it is
+  // computed from TOPOLOGY — texture ids, systems, open edges, incident-face angles — and NEVER from
+  // the measured amplitude, which is what makes B_perm falsifiable where B_req is not.
+  u64 perm_den = 0;   // PERMITTED generated vertices
+  u64 perm_live = 0;  // ... of those, the ones with amp > 0
   // faces / generated vertices decided by each OUTWARD tier
   u64 f_rayf = 0, f_vol = 0, f_esc = 0, f_und = 0;
   u64 v_rayf = 0, v_vol = 0, v_esc = 0, v_und = 0;
@@ -608,8 +640,17 @@ struct MeshRow {
   std::string named;
 
   double a_pct() const { return sign_den ? 100.0 * (double)sign_ok / (double)sign_den : -1.0; }
+  // A_lit% — THE SPEC-LITERAL CONTROL COLUMN, AND IT DOES NOT MOVE. Its denominator is deliberately
+  // the PRE-EXCLUSION population (sign_den + sign_excl_nonorient), i.e. every generated vertex with
+  // amp > 0, h != 0.5 and an outward verdict — exactly the population it had before A_sign started
+  // excluding the NON-ORIENTABLE corners in round 33, and sign_ok_lit is still counted over all of
+  // it. A control column that moved when the measured column's denominator moved would stop being a
+  // control: the whole point of A_lit is that it is the mandate's own expression, evaluated on the
+  // mandate's own population, so that the derivation in the header ("structurally capped near the
+  // white-texel share") stays checkable against it.
   double a_lit_pct() const {
-    return sign_den ? 100.0 * (double)sign_ok_lit / (double)sign_den : -1.0;
+    const u64 den_pre = sign_den + sign_excl_nonorient;
+    return den_pre ? 100.0 * (double)sign_ok_lit / (double)den_pre : -1.0;
   }
   // A_cons% — the FACE-LOCAL consistency invariant. -1.0 == n/a (no gradeable vertex), same
   // convention as a_pct(). Independent of every outward authority: a mesh can be UNGRADED in
@@ -645,6 +686,14 @@ struct MeshRow {
   double b_req_pct() const {
     return gverts > exempt_dead ? 100.0 * (double)live / (double)(gverts - exempt_dead) : -1.0;
   }
+  // B_perm% = PERMITTED live / PERMITTED generated. THE DENOMINATOR B_req SHOULD HAVE HAD: exempt_dead
+  // is derived from the MEASURED amplitude (a vertex is subtracted BECAUSE it came out dead), which
+  // makes B_req 100% by construction and therefore worthless as a gate. perm_den is derived from
+  // TOPOLOGY ALONE — a corner is excluded only where a pin is GEOMETRICALLY NECESSARY (two referenced
+  // members of its weld group would displace differently) — so the measurement can fail against it:
+  // if the pipeline pins a group this test says need not be pinned, B_perm drops below 100%.
+  // -1.0 == n/a (an EMPTY permitted denominator), the same convention as a_pct().
+  double b_perm_pct() const { return perm_den ? 100.0 * (double)perm_live / (double)perm_den : -1.0; }
   double mean_inner() const { return faces_sampled ? inner_sum / (double)faces_sampled : 0.0; }
   double spacing_actual_m() const {
     return faces_sampled ? spacing_sum_m / (double)faces_sampled : 0.0;
@@ -952,6 +1001,21 @@ int main(int argc, char** argv) {
     tfrag3::SubdivStats sst;
     tfrag3::mesh_presubdivide_level(lev, scfg, &sst, tex_is_displaceable, nullptr);
     subdiv_note = tfrag3::format_subdiv_stats(sst, scfg);
+    // ROUND 32 — the refinement INVENTS vertices after mesh_consolidate's pass 12 / 12c have run,
+    // and it interpolates their frames (normal = normalized parent sum, tangent = summed T carrying
+    // parent A's handedness verbatim, re-orthogonalised against nothing). Re-establish both
+    // invariants on the REFINED mesh. This is the same call pair, in the same order, that
+    // Loader.cpp makes after its own subdivision — if it were only here, this grader would be
+    // measuring a mesh the device never sees.
+    u64 pr_ok = 0, pr_unsat = 0, pr_den = 0;
+    const u64 pr_fix = tfrag3::mesh_positivity_repair_level(lev, &pr_ok, &pr_unsat, &pr_den);
+    u64 tr_ok = 0, tr_unsat = 0, tr_den = 0;
+    const u64 tr_fix =
+        tfrag3::retangent_positive_from_final_normals(lev, &tr_ok, &tr_unsat, &tr_den);
+    subdiv_note += fmt::format(
+        "post-subdivision positivity: normals den={} ok={} repaired={} unsat={} | tangents den={} "
+        "ok={} repaired={} unsat={}\n",
+        pr_den, pr_ok, pr_fix, pr_unsat, tr_den, tr_ok, tr_fix, tr_unsat);
   }
   fmt::print("[tess_sign] {}", subdiv_note);
 
@@ -1219,14 +1283,41 @@ int main(int argc, char** argv) {
     orient_coll_nor.emplace_back((float)cv.nx, (float)cv.ny, (float)cv.nz);
   }
 
+  // ---- ROUND 33: THE ORIENT INPUT IS THE PIPELINE'S, DOWN TO THE FACE POPULATION -----------------
+  // THIS TOOL PASSES NO face_is_candidate, AND THAT IS THE WHOLE POINT. MeshConsolidate.cpp pass 6c
+  // (:2459-2468) hands mesh_orient_faces() the level and nothing else: no candidate filter, and the
+  // DEFAULT rays_per_hemi. Since round 33 the verdict is decided PER SHELL by a BALLOT of that
+  // shell's faces' escape-ray margins (MeshOrient.h:28-32), so the face population is not a
+  // presentation detail — it is an INPUT TO THE VERDICT. Narrow it to the displaceable faces here and
+  // a shell whose ballot the pipeline resolved with the help of its non-displaceable majority can be
+  // resolved the OTHER WAY in this tool, from bit-identical geometry. The grader would then be
+  // measuring the gap between two instruments again, which is the exact defect the extraction into
+  // common/custom_data/MeshOrient.{h,cpp} exists to make impossible. SAME POPULATION, SAME VERDICT:
+  // only then is a number this tool prints a number the bake actually acted on.
+  // face_is_mesh above is still computed and still used — it is section A's row population and the
+  // `mesh faces (displaceable)` disclosure — it is simply not allowed to narrow the ORIENT input.
   tfrag3::MeshOrientInput oin;
   oin.positions = &orient_pos;
   oin.faces = &orient_faces;
-  oin.face_is_candidate = &face_is_mesh;
   oin.coll_vertices = &orient_coll_pos;
   oin.coll_normals = &orient_coll_nor;
   oin.units_per_m = (float)kUnitsPerM;
+  // --rayf-k is now the ONE remaining knob on this side that can move a shell verdict, and the
+  // pipeline always bakes with tfrag3::kOrientRayfKDefault (pass 6c never assigns rays_per_hemi).
+  // Turning it is legitimate as a SENSITIVITY STUDY and illegitimate as a GRADE, so say so out loud —
+  // on stdout at the call site and on its own physical line of the report — and let no number
+  // produced under a non-default K be quoted as the baked pipeline's grade.
   oin.rays_per_hemi = rayf_k;
+  std::string rayf_k_warning;
+  if (rayf_k != tfrag3::kOrientRayfKDefault) {
+    rayf_k_warning = fmt::format(
+        "*** WARNING: --rayf-k {} DIFFERS FROM THE PIPELINE'S tfrag3::kOrientRayfKDefault {} — the "
+        "RAYF ballot that decides every shell verdict is run here with a ray count MeshConsolidate.cpp "
+        "pass 6c never bakes with, so THIS GRADE IS NO LONGER COMPARABLE WITH THE BAKED PIPELINE and "
+        "must not be quoted as one; re-run without --rayf-k for a comparable grade ***",
+        rayf_k, tfrag3::kOrientRayfKDefault);
+    fmt::print("[tess_sign] {}\n", rayf_k_warning);
+  }
   const tfrag3::MeshOrientResult orient = tfrag3::mesh_orient_faces(oin);
 
   // ---- unpack: weld groups ----
@@ -1430,6 +1521,230 @@ int main(int argc, char** argv) {
   fmt::print("[tess_sign] meshes={}\n", meshes.size());
 
   // ===============================================================================================
+  // §3b WHAT THE PER-VERTEX FORMAT CANNOT EXPRESS — TWO IMPOSSIBILITY SETS, FROM GEOMETRY ALONE.
+  //
+  // Everything in this section is computed from POSITIONS, TEXCOORDS, INDICES and TEXTURE IDS ONLY.
+  // Nothing here reads a stored normal, a stored tangent or a stored seam weight, and that
+  // independence is the entire point: a set derived from the BAKED data would let the bake manufacture
+  // its own exclusion by writing something bad, and the exclusion would stop being a statement about
+  // the ORIGINAL geometry. These are statements about the original geometry, which the bake cannot
+  // alter and cannot argue with.
+  //
+  //   v_nonorient[i] : NO REPRESENTABLE normal — none of the 2^30 values three signed 10-bit fields
+  //                    can hold — has a dot product above 1e-3 with the outward direction of every
+  //                    face incident to vertex i. The format carries ONE normal per vertex and the
+  //                    .tese displaces along the interpolation of those normals, so no per-vertex
+  //                    normal WHATSOEVER can give every incident face a correctly-signed displacement
+  //                    there. Such a vertex is removed from A_cons's AND A_sign's denominator rather
+  //                    than scored wrong: the data format cannot express a right answer. The predicate
+  //                    is tfrag3::mesh_best_packed_normal(), the function the REPAIR pass itself calls
+  //                    (MeshConsolidate.cpp:2791) — see the derivation at the loop below.
+  //   v_nontan[i]    : the faces incident to i disagree about UV HANDEDNESS, so one per-vertex tangent
+  //                    (T plus a single sign w) cannot serve them all — derivation at the loop below.
+  //                    Such a corner is removed from P_sign's denominator, same reasoning.
+  // ===============================================================================================
+  // ---- the per-face UNIT ORIENTED normal ------------------------------------------------------
+  // n_f = normalize(cross(p1-p0, p2-p0) * rel[f]) — the expression §4b's pin-flag block (:2038-2088)
+  // uses for a group's incident normals. rel[] is the shared authority's relative winding
+  // (orient.rel): it makes the incident normals of one shell mutually comparable WITHOUT deciding
+  // which side is out, which is all a SIMULTANEOUS-SATISFIABILITY question needs — that question is
+  // invariant under a global flip of the whole shell. A face whose cross product is shorter than
+  // 1e-12 states no direction: it is stored as exactly zero and skipped by every consumer below.
+  // NOTE, since round 33: v_nonorient below does NOT read this array. It builds its constraint set
+  // from osign[f] (the shell VERDICT, not the relative winding) because that is the set
+  // MeshConsolidate.cpp pass 12 repairs against (:2755, face_normal(f) * fsign[f]), and the two must
+  // ask one question. face_nu keeps rel[] because the pin block's crease clustering is an ANGLE test
+  // between two incident faces, which no global flip can change.
+  std::vector<V3> face_nu(faces.size(), V3{0.0, 0.0, 0.0});
+  u64 n_face_no_dir = 0;
+  for (u32 f = 0; f < faces.size(); f++) {
+    const V3 nr = face_cross(f) * (rel[f] != 0 ? (double)rel[f] : 1.0);
+    const double l = len(nr);
+    if (l > 1e-12) {
+      face_nu[f] = nr * (1.0 / l);
+    } else {
+      n_face_no_dir++;
+    }
+  }
+  // ---- face_ou: the same unit normals oriented by the VERDICT (osign), not by the relative winding.
+  // The crease clause of grp_pin_needed is an angle test and is happy with face_nu, but the
+  // REPRESENTABILITY clause is not: "does one direction serve all of these" is invariant under
+  // flipping the WHOLE set and is NOT invariant under flipping some of it, and rel[] is only defined
+  // up to a per-shell constant. A weld group whose incident faces sit in two different shells — two
+  // shells can share a vertex without sharing an edge, so this is a real population, not a corner
+  // case — would be handed a constraint set differing from the pipeline's by a partial flip, and the
+  // two would answer differently on exactly the groups the guarantee depends on.
+  // MeshConsolidate pass 12d builds its set from ores.face_sign (:2891-2905, the same field this
+  // array is oriented by) and SKIPS any group touching a face the cascade left UNDECIDED, precisely
+  // because this tool cannot see what pass 6's flood fill would have answered there. The matching
+  // skip is in the pin block below.
+  std::vector<V3> face_ou(faces.size(), V3{0.0, 0.0, 0.0});
+  for (u32 f = 0; f < faces.size(); f++) {
+    if (osign[f] == 0) {
+      continue;  // the cascade abstained: no verdict-oriented direction exists for this face
+    }
+    const V3 nr = face_cross(f) * (double)osign[f];
+    const double l = len(nr);
+    if (l > 1e-12) {
+      face_ou[f] = nr * (1.0 / l);
+    }
+  }
+  // ---- the per-face UV HANDEDNESS, from the TEXCOORDS alone ------------------------------------
+  // det = du1*dv2 - du2*dv1, exactly as grade_parallax_row() computes it below and as
+  // TFrag3Data.cpp:2028-2043 computes it when it BUILDS the tangents. 0 here = degenerate
+  // (|det| <= 1e-12): the face defines no UV frame at all, the very triangles TFrag3Data.cpp:2036
+  // skips, and it takes no part in the handedness test.
+  std::vector<s8> face_uv_sign(faces.size(), 0);
+  u64 n_face_uv_degen = 0;
+  for (u32 f = 0; f < faces.size(); f++) {
+    const u32* c = faces[f].v;
+    const double du1 = (double)gv[c[1]].s - (double)gv[c[0]].s;
+    const double dv1 = (double)gv[c[1]].t - (double)gv[c[0]].t;
+    const double du2 = (double)gv[c[2]].s - (double)gv[c[0]].s;
+    const double dv2 = (double)gv[c[2]].t - (double)gv[c[0]].t;
+    const double det = du1 * dv2 - du2 * dv1;
+    if (std::abs(det) > 1e-12) {
+      face_uv_sign[f] = det > 0.0 ? (s8)1 : (s8)-1;
+    } else {
+      n_face_uv_degen++;
+    }
+  }
+  // ---- CSR vertex -> incident faces, ascending face index (determinism) ------------------------
+  std::vector<u32> vfoff(gv.size() + 1, 0);
+  for (const auto& fc : faces) {
+    for (int e = 0; e < 3; e++) {
+      vfoff[fc.v[e] + 1]++;
+    }
+  }
+  for (size_t i = 0; i < gv.size(); i++) {
+    vfoff[i + 1] += vfoff[i];
+  }
+  std::vector<u32> vfflat(vfoff[gv.size()]);
+  {
+    std::vector<u32> cur(vfoff.begin(), vfoff.end() - 1);
+    for (u32 f = 0; f < faces.size(); f++) {
+      for (int e = 0; e < 3; e++) {
+        vfflat[cur[faces[f].v[e]]++] = f;
+      }
+    }
+  }
+  // ---- v_nonorient: does a REPRESENTABLE normal exist that serves every incident face? ----------
+  // THE DECISION IS NO LONGER MADE HERE. It is tfrag3::mesh_best_packed_normal(outs, 1e-3f, nullptr)
+  // (declared MeshOrient.h:156-162, implemented MeshOrient.cpp:71-200), and MeshConsolidate.cpp
+  // pass 12 calls THE SAME FUNCTION with the SAME 1e-3 tolerance (:2791, kPosEps at :2651) when it
+  // REPAIRS a vertex — as does pass 12d for a whole weld group (:2913).
+  //
+  // WHY THAT MATTERS MORE THAN IT LOOKS. This test used to re-implement a Badoiu-Clarkson Chebyshev
+  // iteration in double, over UNIT VECTORS IN R^3. The pass's question is not that question: the
+  // .tese displaces along the STORED normal, which is three signed 10-bit fields, so what the pass can
+  // deliver is one of 2^30 REPRESENTABLE directions, not an arbitrary unit vector. A float-only test
+  // therefore calls a vertex FIXABLE that the pass provably cannot fix (the cone is real but narrower
+  // than the quantisation step), and that vertex then stays in the graded denominator and fails
+  // forever, with no explanation available anywhere in the report. The pipeline's repair pass and this
+  // exclusion now ask the IDENTICAL QUESTION THROUGH THE IDENTICAL FUNCTION, so a vertex cannot be
+  // "fixable in the grader's opinion but unrepairable in the pass's" — the two verdicts are the same
+  // bytes out of the same code.
+  // The function canonicalises its input (MeshOrient.cpp:75-106: pack, sort, unique), so it is a pure
+  // function of the SET of incident directions and this loop's iteration order cannot move it.
+  constexpr float kNonOrientEps = 1e-3f;  // == MeshConsolidate.cpp:2651 kPosEps, pass 12
+  std::vector<u8> v_nonorient(gv.size(), 0);
+  u64 n_nonorient = 0, n_nonorient_fold = 0, n_nonorient_cancel = 0;
+  {
+    const auto t0 = std::chrono::steady_clock::now();
+    std::vector<math::Vector3f> outs;
+    for (u32 i = 0; i < (u32)gv.size(); i++) {
+      outs.clear();
+      for (u32 k = vfoff[i]; k < vfoff[i + 1]; k++) {
+        const u32 f = vfflat[k];
+        // outward(f) = osign[f] * cross(p1-p0, p2-p0), normalized — the SAME per-face outward the
+        // sign classification grades against (§9, :2295-2299) and the same constraint set pass 12
+        // builds (MeshConsolidate.cpp:2753-2760, face_normal(f) * fsign[f], normalized). Two kinds of
+        // face state NO direction and are skipped by the one length test: a DEGENERATE face (cross
+        // product under the epsilon) and an UNDECIDED face (osign == 0, every tier abstained), whose
+        // product is exactly the zero vector. Neither constrains anything, so neither may make a
+        // vertex look impossible.
+        const V3 nr = face_cross(f) * (double)osign[f];
+        const double l = len(nr);
+        if (l > 1e-12) {
+          const V3 u = nr * (1.0 / l);
+          outs.emplace_back((float)u.x, (float)u.y, (float)u.z);
+        }
+      }
+      if (outs.empty()) {
+        continue;  // no incident direction at all: nothing to satisfy, and nothing to exclude
+      }
+      if (tfrag3::mesh_best_packed_normal(outs, kNonOrientEps, nullptr)) {
+        continue;  // a REPRESENTABLE normal serves every incident face: the format can be right here
+      }
+      v_nonorient[i] = 1;
+      n_nonorient++;
+      // THE GEOMETRIC CHARACTER of the residual, so that it is a named shape and not a bare number.
+      // Both sub-counts are DIRECT tests on the constraint set — neither ever depended on the
+      // iteration that used to live here, and neither decides anything: the verdict above is already
+      // final. They are not exclusive and do not partition the failing set, exactly as before.
+      //   EXACT-CANCEL: the incident outwards sum to (near) nothing, so there is no mean to start
+      //   from and no Chebyshev centre exists — the same degenerate exit the shared function takes at
+      //   MeshOrient.cpp:127-129.
+      math::Vector3f acc(0.f, 0.f, 0.f);
+      for (const auto& u : outs) {
+        acc += u;
+      }
+      if (!(acc.length() > 1e-6f)) {
+        n_nonorient_cancel++;
+      }
+      //   FOLD-BACK / FIN: two incident faces whose outward directions have a NEGATIVE dot product.
+      //   The surface doubles back on itself through that vertex, and no single direction can be on
+      //   the outward side of both sheets at once.
+      bool fold = false;
+      for (size_t a = 0; a + 1 < outs.size() && !fold; a++) {
+        for (size_t b = a + 1; b < outs.size(); b++) {
+          if (outs[a].dot(outs[b]) < 0.f) {
+            fold = true;
+            break;
+          }
+        }
+      }
+      n_nonorient_fold += fold ? 1 : 0;
+    }
+    fmt::print("[tess_sign] NON-ORIENTABLE vertices: {} of {} ({} fold-back/fin, {} exact-cancel), "
+               "{} faces with no direction, {:.1f} s\n",
+               n_nonorient, gv.size(), n_nonorient_fold, n_nonorient_cancel, n_face_no_dir,
+               std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+  }
+  // ---- v_nontan: do the incident faces agree about UV HANDEDNESS? ------------------------------
+  // WHY ONE TANGENT CANNOT SERVE TWO HANDEDNESSES. The fragment shader rebuilds the UV frame as
+  //     T = normalize(t.xyz - N*dot(N, t.xyz)) ;   B = cross(N, T) * (t.w < 0 ? -1 : +1)
+  // and it is correct on a face iff dot(T, dP/du) > 0 AND dot(B, dP/dv) > 0. On a face whose UV det is
+  // POSITIVE (right-handed) cross(N, dP/du) points along +dP/dv, so the B constraint on the tangent
+  // angle COINCIDES with the T constraint — one tangent satisfies both. On a face whose det is NEGATIVE
+  // the two are ANTIPODAL: cross(N,T) points along -dP/dv, and only w < 0 recovers it. But w is ONE
+  // sign per VERTEX: it selects which handedness that vertex serves. A vertex whose incident faces MIX
+  // handedness therefore has no representable frame — whichever w ships, every incident face of the
+  // other handedness is wrong, and no bake, however careful, can fix it. This is a property of the
+  // ORIGINAL AUTHORED UV LAYOUT, read here from the texcoords and the indices alone.
+  std::vector<u8> v_nontan(gv.size(), 0);
+  u64 n_nontan = 0;
+  for (u32 i = 0; i < (u32)gv.size(); i++) {
+    s8 first = 0;
+    for (u32 k = vfoff[i]; k < vfoff[i + 1]; k++) {
+      const s8 sg = face_uv_sign[vfflat[k]];
+      if (sg == 0) {
+        continue;  // that face has no UV frame at all: it states no handedness
+      }
+      if (first == 0) {
+        first = sg;
+      } else if (sg != first) {
+        v_nontan[i] = 1;
+        n_nontan++;
+        break;
+      }
+    }
+  }
+  fmt::print("[tess_sign] NON-REPRESENTABLE-TANGENT vertices: {} of {} (incident faces mix UV "
+             "handedness), {} UV-degenerate faces\n",
+             n_nontan, gv.size(), n_face_uv_degen);
+
+  // ===============================================================================================
   // §4a THE PARALLAX (POM) TIER'S SIGN — P_sign%.
   //
   // WHY THIS IS A TANGENT-FRAME QUESTION AND NOT A NORMAL QUESTION.
@@ -1470,7 +1785,7 @@ int main(int argc, char** argv) {
   // ===============================================================================================
   auto grade_parallax_row = [&](MeshRow& m) {
     m.p_den = m.p_ok = m.p_u_wrong = m.p_w_wrong = 0;
-    m.p_tan_fallback = m.p_tan_degen = m.p_no_normal = m.p_degen = 0;
+    m.p_tan_fallback = m.p_tan_degen = m.p_no_normal = m.p_degen = m.p_nonrep = 0;
     for (u32 f : m.faces) {  // ascending face order => deterministic
       const u32 corner[3] = {faces[f].v[0], faces[f].v[1], faces[f].v[2]};
       // ---- the face's UV->world Jacobian (Lengyel, the same algebra TFrag3Data.cpp:2028-2043
@@ -1493,6 +1808,15 @@ int main(int argc, char** argv) {
       const V3 dPdv = (e1 * (-du2) + e2 * du1) * r;
       for (int e = 0; e < 3; e++) {
         const GVert& v = gv[corner[e]];
+        // §3b: the corner's vertex has incident faces of BOTH UV handednesses, so no per-vertex
+        // (T, w) the format can carry is right for all of them. Tested FIRST, before anything that
+        // reads the stored tangent or normal: this is the CAUSE — a property of the authored UV
+        // layout — and whatever the bake then wrote into the tangent is the symptom. Removed from the
+        // denominator, never scored correct.
+        if (v_nontan[corner[e]]) {
+          m.p_nonrep++;
+          continue;
+        }
         const V3 N = v.nor;  // the STORED smooth normal, scaled by nothing
         if (len(N) < 1e-6) {
           m.p_no_normal++;
@@ -1525,15 +1849,17 @@ int main(int argc, char** argv) {
     }
   };
   {
-    u64 pok = 0, pden = 0, pdeg = 0;
+    u64 pok = 0, pden = 0, pdeg = 0, pnr = 0;
     for (auto& m : meshes) {
       grade_parallax_row(m);
       pok += m.p_ok;
       pden += m.p_den;
       pdeg += m.p_degen;
+      pnr += m.p_nonrep;
     }
-    fmt::print("[tess_sign] parallax sign graded: {}/{} corners correct, {} UV-degenerate faces\n",
-               pok, pden, pdeg);
+    fmt::print("[tess_sign] parallax sign graded: {}/{} corners correct, {} UV-degenerate faces, "
+               "{} corners EXCLUDED as non-representable (mixed UV handedness)\n",
+               pok, pden, pdeg, pnr);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -1550,6 +1876,15 @@ int main(int argc, char** argv) {
   std::vector<u8> grp_material(n_groups, 0), grp_system(n_groups, 0), grp_open(n_groups, 0),
       grp_crease(n_groups, 0);
   std::vector<u32> grp_members(n_groups, 0);
+  // ---- grp_pin_needed[g]: is a pin GEOMETRICALLY NECESSARY on this weld group? -------------------
+  // TRUE iff two referenced members of the group would displace DIFFERENTLY, which is the one and only
+  // condition the crack-guard pin exists for. Computed from TOPOLOGY ALONE (texture ids, systems, open
+  // edges, incident-face angles) and NEVER from a stored normal, a stored seam weight or a measured
+  // amplitude, which is what makes it an INDEPENDENT yardstick for the pins that actually shipped —
+  // and an UPPER BOUND on what the consolidation pass may legitimately pin. It is B_perm's denominator
+  // (see the accessor b_perm_pct() and the header paragraph on B_perm). Filled in the same pass as the
+  // four pin-reason flags above, from the same CSR and the same cfg-derived crease threshold.
+  std::vector<u8> grp_pin_needed(n_groups, 0);
   {
     const auto t0 = std::chrono::steady_clock::now();
     // members + one representative position per group (every member shares it bit-identically:
@@ -1634,6 +1969,9 @@ int main(int argc, char** argv) {
     const double crease_cos = std::cos((double)cfg.crease_deg * 3.14159265358979323846 / 180.0);
     std::vector<std::pair<double, u32>> byarea;
     std::vector<V3> cunit;
+    // the group's incident outward directions, in the shared feasibility function's own type. Hoisted
+    // out of the loop and cleared per group: one allocation for the level, not one per weld group.
+    std::vector<math::Vector3f> grp_outs;
     for (u32 g = 0; g < n_groups; g++) {
       const u32 i0 = ioff[g], i1 = ioff[g + 1];
       if (i0 == i1) {
@@ -1659,32 +1997,148 @@ int main(int argc, char** argv) {
       if (sysmask && (sysmask & (sysmask - 1u))) {
         grp_system[g] = 1;  // more than one bit set: the group spans two systems
       }
-      // cluster the incident faces by crease angle, LARGEST FACE FIRST and ties broken on the lower
-      // slot, exactly as MeshConsolidate.cpp:1904-1936 does, so the cluster COUNT matches.
-      std::sort(byarea.begin(), byarea.end(), [](const auto& x, const auto& y) {
-        return x.first != y.first ? x.first > y.first : x.second < y.second;
-      });
-      cunit.clear();
-      for (const auto& od : byarea) {
-        const u32 f = iflat[od.second];
-        const V3 un = face_cross(f) * ((rel[f] != 0 ? (double)rel[f] : 1.0) / od.first);
-        bool found = false;
-        for (const auto& c : cunit) {
-          if (dot(un, c) >= crease_cos) {
-            found = true;
-            break;
+      // ---- ROUND 32: THE PIN RULE IS NO LONGER THE CREASE-CLUSTER PROXY --------------------------
+      // mesh_consolidate pass 12b pins a group iff its REFERENCED MEMBERS DO NOT ALL CARRY THE SAME
+      // NORMAL — the exact condition under which two coincident vertex indices displace along
+      // different axes and the surface tears open. The old test here ("the incident faces fall into
+      // two or more crease clusters AND the group has at least two members") reproduced pass 7's
+      // clustering, which is only a PROXY for that and over-fires: two members can land in different
+      // clusters and still end up carrying the SAME normal, in which case the edge between them
+      // cannot tear and needs no pin. Re-derive the rule the pass actually applies, on the same
+      // bytes, so PIN_UNEXPLAINED keeps measuring a real disagreement between the pass and this test
+      // instead of a difference of definition.
+      // Members come from the incident FACE CORNERS, i.e. exactly the REFERENCED ones (pass 12b skips
+      // the unreferenced). Normals are compared as unpacked triples: both sides come from one packed
+      // u32 through one unpack, so equal packed values compare equal here by construction.
+      {
+        bool have = false, differ = false;
+        V3 first{0.0, 0.0, 0.0};
+        for (u32 k = i0; k < i1 && !differ; k++) {
+          const u32 f = iflat[k];
+          for (int e = 0; e < 3; e++) {
+            if (faces[f].wg[e] != g) {
+              continue;  // that corner belongs to a different weld group
+            }
+            const V3& nv = gv[faces[f].v[e]].nor;
+            if (!have) {
+              first = nv;
+              have = true;
+            } else if (nv.x != first.x || nv.y != first.y || nv.z != first.z) {
+              differ = true;
+              break;
+            }
           }
         }
-        if (!found) {
-          cunit.push_back(un);
+        if (differ) {
+          grp_crease[g] = 1;  // MeshConsolidate.cpp pass 12b: members differ => the edge would tear
         }
       }
-      if (cunit.size() >= 2 && grp_members[g] >= 2) {
-        grp_crease[g] = 1;  // :2221 crease AND refcount2
+      // ---- grp_pin_needed[g]: IS A PIN GEOMETRICALLY NECESSARY HERE? -----------------------------
+      // The pin exists for exactly one reason: two referenced members of a welded position that
+      // displace DIFFERENTLY separate, and the surface tears open. So a pin is NECESSARY iff two such
+      // members could not displace alike, which is decidable from geometry alone:
+      //   * MULTI-TEXTURE  — the group's incident faces carry more than one tree_tex_id, so the two
+      //     sides sample a DIFFERENT height map through DIFFERENT per-draw amplitude uniforms and
+      //     cannot displace alike whatever their normals are;
+      //   * MULTI-SYSTEM   — the incident faces span more than one system, and TIE is never routed
+      //     through the tessellation program at all, so one side moves and the other cannot;
+      //   * OPEN BOUNDARY  — a welded group edge used by exactly ONE face: there is no other side to
+      //     match, so nothing constrains the displacement and the pin is the safe answer. Read from
+      //     orient.group_has_open_edge via grp_open, the same source §4b's pinOPEN attribution uses;
+      //   * MULTI-CREASE   — the group's referenced members cannot all carry the SAME normal. THIS
+      //     CLAUSE IS THE CAUSE OF THE SHIPPED PIN AND NOT THE SHIPPED PIN ITSELF, and it is tested
+      //     WITHOUT READING ONE STORED NORMAL: pass 7 assigns a member the normal of the crease
+      //     CLUSTER its corner falls in, so two members can only end up with different normals when
+      //     the group's incident faces fall in more than one cluster — i.e. iff two incident faces
+      //     have dot(n_a, n_b) < crease_cos under pass 7's own rule and threshold. (grp_crease above
+      //     reads the stored normals, on purpose, because it audits what the pass DID; this one must
+      //     not, because it bounds what the pass MAY do.)
+      // The result is an UPPER BOUND on the pins a correct pass may set, computed from geometry alone,
+      // and that is exactly what makes B_perm falsifiable in the direction that matters: if the pass
+      // pins a group this test says need not be pinned, the pinned vertices stay in B_perm's
+      // denominator while contributing nothing to its numerator, and B_perm drops below 100%.
+      {
+        bool need = grp_material[g] != 0 || grp_system[g] != 0 || grp_open[g] != 0;
+        for (u32 ka = i0; ka < i1 && !need; ka++) {
+          const V3& na = face_nu[iflat[ka]];
+          if (!(dot(na, na) > 0.0)) {
+            continue;  // that face states no direction, so it joins no cluster
+          }
+          for (u32 kb = ka + 1; kb < i1; kb++) {
+            const V3& nb = face_nu[iflat[kb]];
+            if (!(dot(nb, nb) > 0.0)) {
+              continue;
+            }
+            if (dot(na, nb) < crease_cos) {
+              need = true;  // two incident faces cannot share one crease cluster
+              break;
+            }
+          }
+        }
+        // ---- FIFTH CLAUSE (round 33): CAN ONE STORED NORMAL SERVE THE GROUP AT ALL? ---------------
+        // The four clauses above enumerate the reasons the group's members MUST displace differently.
+        // There is one further reason a pin survives that none of them can see, and it is not about
+        // the geometry disagreeing with itself — it is about the FORMAT. MeshConsolidate pass 12d
+        // (:2878-2932) unifies the normal of every group for which the four clauses are FALSE, and
+        // then does exactly one more thing: it asks mesh_best_packed_normal() for a value the three
+        // signed 10-bit fields can actually hold that serves the union of the group's incident
+        // outwards, and where there is none it gives up and counts the group in
+        // rep.group_unify_unrepresentable (:2913-2916, :2936). Such a group KEEPS ITS PIN however
+        // correct the pipeline is.
+        // So the same call belongs here, with the same 1e-3 tolerance: a group the pipeline could not
+        // unify is a group this test must not expect to be live, or B_perm would carry a permanently
+        // unreachable population and the two sides would drift apart into a passing liveness score
+        // that no pass could ever earn. Same function, same question, no drift.
+        // The constraint set is face_nu[] over the group's incident faces — already unit, already
+        // oriented, and already what the crease loop just above compared. An EMPTY set (every incident
+        // face degenerate) makes the shared function return false (MeshOrient.cpp:72-74/107-109) and
+        // so lands here as need = true, which is also what pass 12d does with it: uo.empty() takes the
+        // `continue` at :2909-2911 and the group is never unified.
+        // The UNDECIDED skip, mirroring MeshConsolidate.cpp pass 12d (:2891-2905). A group touching a
+        // face the cascade abstained on is one pass 12d refuses to unify, because the orientation it
+        // would have to use there is pass 6's flood-fill answer and this tool cannot see it. Both
+        // sides therefore declare the pin necessary. That is conservative in the safe direction: it
+        // only ever REMOVES vertices from B_perm's denominator, so it can lower the liveness score
+        // but can never manufacture a passing one.
+        if (!need) {
+          for (u32 k = i0; k < i1; k++) {
+            if (osign[iflat[k]] == 0) {
+              need = true;
+              break;
+            }
+          }
+        }
+        if (!need) {
+          grp_outs.clear();
+          for (u32 k = i0; k < i1; k++) {
+            const V3& n = face_ou[iflat[k]];
+            if (!(dot(n, n) > 0.0)) {
+              continue;  // that face states no direction, so it constrains nothing
+            }
+            grp_outs.emplace_back((float)n.x, (float)n.y, (float)n.z);
+          }
+          if (!tfrag3::mesh_best_packed_normal(grp_outs, 1e-3f, nullptr)) {
+            need = true;  // no representable normal serves the union: pass 12d cannot unify it
+          }
+        }
+        grp_pin_needed[g] = need ? 1 : 0;
       }
     }
     fmt::print("[tess_sign] pin-reason group flags built in {:.1f} s\n",
                std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+    {
+      u64 need = 0, with_faces = 0;
+      for (u32 g = 0; g < n_groups; g++) {
+        if (ioff[g] == ioff[g + 1]) {
+          continue;
+        }
+        with_faces++;
+        need += grp_pin_needed[g] ? 1 : 0;
+      }
+      fmt::print("[tess_sign] pin GEOMETRICALLY NECESSARY on {} of {} groups with incident faces "
+                 "({:.2f}%) — B_perm's topology-only denominator\n",
+                 need, with_faces, with_faces ? 100.0 * (double)need / (double)with_faces : 0.0);
+    }
   }
 
   // per mesh, over its DISTINCT SOURCE vertices with seam == 0 (a pin is a property of a weld group,
@@ -1775,9 +2229,12 @@ int main(int argc, char** argv) {
 
   struct Agg {
     u64 sign_den = 0, sign_ok = 0, sign_ok_lit = 0, gverts = 0, disp_nz = 0;
+    u64 sign_excl_nonorient = 0;        // A_sign's NON-ORIENTABLE exclusion (§3b), level-wide
     u64 live = 0, patches = 0, patches_live = 0, exempt = 0;
     u64 exempt_dead = 0;  // structurally exempt AND not live — B_req's real subtrahend
     u64 a_cons_ok = 0, a_cons_den = 0;  // the face-local consistency invariant
+    u64 cons_excl_nonorient = 0;        // ... and the NON-ORIENTABLE population removed from it
+    u64 perm_den = 0, perm_live = 0;    // B_perm: the topology-only PERMITTED denominator
     u64 gverts_tfrag = 0, disp_nz_tfrag = 0, live_tfrag = 0;
     u64 v_rayf = 0, v_vol = 0, v_esc = 0, v_und = 0;
     u64 v_volx = 0, v_both = 0, v_conflict = 0, v_coll = 0;
@@ -1795,7 +2252,9 @@ int main(int argc, char** argv) {
         m.sign_den = 0;
         m.sign_ok = 0;
         m.sign_ok_lit = 0;
-        m.a_cons_ok = m.a_cons_den = 0;
+        m.sign_excl_nonorient = 0;
+        m.a_cons_ok = m.a_cons_den = m.cons_excl_nonorient = 0;
+        m.perm_den = m.perm_live = 0;
         m.disp_nz = 0;
         m.live = 0;
         m.patches_live = 0;
@@ -1836,6 +2295,9 @@ int main(int argc, char** argv) {
       u64 local_verts = 0, local_den = 0, local_ok = 0, local_ok_lit = 0, local_nz = 0,
           local_live = 0, local_seam0 = 0;
       u64 local_cons_den = 0, local_cons_ok = 0;  // A_cons
+      u64 local_cons_excl = 0;                    // ... its NON-ORIENTABLE exclusion (§3b)
+      u64 local_sign_excl = 0;                    // A_sign's NON-ORIENTABLE exclusion (§3b)
+      u64 local_perm_den = 0, local_perm_live = 0;  // B_perm's topology-only denominator
       u64 local_exempt_dead = 0;                  // structurally exempt AND not live
       u64 local_patches = 0, local_patches_live = 0;
       u64 lv_tier[7] = {0, 0, 0, 0, 0, 0, 0};
@@ -1884,6 +2346,16 @@ int main(int argc, char** argv) {
         const double cons_dot = dot(gn_face, ncorner_sum);
         const int fcons = cons_dot > 0.0 ? 1 : (cons_dot < 0.0 ? -1 : 0);
         const V3 cons_ref = gn_face * (double)fcons;
+        // ---- §3b: the two ORIGINAL-DATA impossibilities this patch inherits ----
+        // NON-ORIENTABLE: a corner of this face admits no per-vertex normal that is correctly signed
+        // for all of ITS incident faces, so the interpolated normal over this patch cannot be held to
+        // the A_cons invariant — every generated vertex of the patch leaves cons_den (below).
+        const bool face_nonorient = v_nonorient[ia] || v_nonorient[ib] || v_nonorient[ic];
+        // PIN NECESSITY per corner, for B_perm. Same `g < n_groups` guard the pin attribution uses.
+        const u32 wg0 = faces[f].wg[0], wg1 = faces[f].wg[1], wg2 = faces[f].wg[2];
+        const bool pin_need0 = wg0 < n_groups && grp_pin_needed[wg0];
+        const bool pin_need1 = wg1 < n_groups && grp_pin_needed[wg1];
+        const bool pin_need2 = wg2 < n_groups && grp_pin_needed[wg2];
         u64 face_verts = 0, face_live = 0;
         if (store) {
           switch (tier_here) {
@@ -1979,6 +2451,23 @@ int main(int argc, char** argv) {
           if (amp <= 0.0 && (tessellated ? (seam == 0.0) : true)) {
             local_exempt_dead++;
           }
+          // ===== B_perm's DENOMINATOR — PERMITTED DISPLACEMENT, DECIDED BY TOPOLOGY ============
+          // A generated vertex is PERMITTED iff at least one patch corner with a NON-ZERO barycentric
+          // weight sits in a weld group a pin is not GEOMETRICALLY NECESSARY for. This MIRRORS the
+          // seam interpolation above: seam_lin is the barycentric blend of the corners' seam weights,
+          // so it is 0 only when EVERY contributing corner is pinned; a vertex is therefore PERMITTED
+          // exactly when at least one contributing corner need not have been pinned. The test reads
+          // grp_pin_needed, which never touches an amplitude, a stored normal or a stored seam weight
+          // — so unlike exemptDEAD (which subtracts a vertex BECAUSE it measured dead, and thereby
+          // makes B_req 100% by construction) this denominator cannot be satisfied by construction.
+          const bool permitted =
+              (bx > 0.0 && !pin_need0) || (by > 0.0 && !pin_need1) || (bz > 0.0 && !pin_need2);
+          if (permitted) {
+            local_perm_den++;
+            if (amp > 0.0) {
+              local_perm_live++;
+            }
+          }
           if (disp != 0.0) {
             local_nz++;
           }
@@ -2004,15 +2493,38 @@ int main(int argc, char** argv) {
           // that graded the broken ground floor and the known-good upper floor identically, i.e. it
           // did not measure the defect. A_sign is the corrected criterion; A_lit is the spec's
           // literal expression, kept in its own column so nothing is hidden.
+          //
+          // §3b EXCLUSION, ROUND 33 — THE SAME ONE A_cons HAS CARRIED SINCE IT WAS INTRODUCED (see
+          // the A_cons block just below, and MeshRow::sign_excl_nonorient at the struct). If any
+          // corner of this face is NON-ORIENTABLE then NO representable per-vertex normal — not the
+          // baked one, not a hypothetical perfect one — can be correctly signed for every face
+          // incident to that corner: tfrag3::mesh_best_packed_normal() said so, and that is the very
+          // function MeshConsolidate.cpp pass 12 (:2791) uses when it tries to REPAIR the vertex, so
+          // the pipeline has already proved it cannot fix it. Scoring such a vertex is scoring an
+          // IMPOSSIBILITY, and it caps A_sign below 100% forever on a property of the AUTHORED
+          // GEOMETRY that no bake can touch — the gate would then be measuring the level's fold-backs
+          // rather than the pass's work. The exclusion A_cons already applies for exactly this reason
+          // is just as valid here; its absence was an inconsistency, not a policy. The vertices leave
+          // the denominator and are COUNTED (sign_excl_nonorient), never scored either way, so
+          // sign_den + sign_excl_nonorient is the pre-exclusion denominator and section E prints it.
+          //
+          // A_lit IS DELIBERATELY NOT EXCLUDED. It is the spec-literal control column: it keeps the
+          // pre-exclusion population as both its numerator's scope and its denominator (a_lit_pct()
+          // divides by sign_den + sign_excl_nonorient), so its value is bit-for-bit what it was before
+          // this exclusion existed and the header's structural-cap derivation stays checkable.
           if (amp > 0.0 && h != 0.5 && have_outward) {
-            local_den++;
             const double nd = dot(N, outward);
-            const double along = disp * nd;  // displacement component along outward
-            if ((h - 0.5) * along > 0.0) {
-              local_ok++;
-            }
             if ((h - 0.5) * nd > 0.0) {
-              local_ok_lit++;
+              local_ok_lit++;  // A_lit: the FULL, pre-exclusion population
+            }
+            if (face_nonorient) {
+              local_sign_excl++;
+            } else {
+              local_den++;
+              const double along = disp * nd;  // displacement component along outward
+              if ((h - 0.5) * along > 0.0) {
+                local_ok++;
+              }
             }
           }
           // ===== A_cons — THE FACE-LOCAL CONSISTENCY INVARIANT ========================
@@ -2022,10 +2534,20 @@ int main(int argc, char** argv) {
           // whether the interpolated normal the .tese displaces along still points to the side its
           // own three corners voted for — the vertex-normal CLUSTERING question, with the outward
           // authority taken entirely out of the loop.
+          // §3b EXCLUSION: if any corner of the face is NON-ORIENTABLE, no per-vertex normal — not the
+          // baked one, not a hypothetical perfect one — can be correctly signed for every face
+          // incident to that corner. The per-vertex format cannot express a right answer there, so the
+          // vertex is REMOVED from the denominator instead of being scored wrong. It is counted in
+          // cons_excl_nonorient over exactly this population, so cons_den + cons_excl_nonorient is the
+          // denominator as it stood before the exclusion and nothing is hidden by it.
           if (amp > 0.0 && h != 0.5 && fcons != 0) {
-            local_cons_den++;
-            if (dot(N, cons_ref) > 0.0) {
-              local_cons_ok++;
+            if (face_nonorient) {
+              local_cons_excl++;
+            } else {
+              local_cons_den++;
+              if (dot(N, cons_ref) > 0.0) {
+                local_cons_ok++;
+              }
             }
           }
         };
@@ -2073,8 +2595,12 @@ int main(int argc, char** argv) {
         m.sign_den = local_den;
         m.sign_ok = local_ok;
         m.sign_ok_lit = local_ok_lit;
+        m.sign_excl_nonorient = local_sign_excl;
         m.a_cons_den = local_cons_den;
         m.a_cons_ok = local_cons_ok;
+        m.cons_excl_nonorient = local_cons_excl;
+        m.perm_den = local_perm_den;
+        m.perm_live = local_perm_live;
         m.exempt_dead = local_exempt_dead;
         m.disp_nz = local_nz;
         m.live = local_live;
@@ -2092,8 +2618,12 @@ int main(int argc, char** argv) {
       agg.sign_den += local_den;
       agg.sign_ok += local_ok;
       agg.sign_ok_lit += local_ok_lit;
+      agg.sign_excl_nonorient += local_sign_excl;
       agg.a_cons_den += local_cons_den;
       agg.a_cons_ok += local_cons_ok;
+      agg.cons_excl_nonorient += local_cons_excl;
+      agg.perm_den += local_perm_den;
+      agg.perm_live += local_perm_live;
       agg.disp_nz += local_nz;
       agg.live += local_live;
       agg.patches += local_patches;
@@ -2219,11 +2749,12 @@ int main(int argc, char** argv) {
     const auto& m = meshes[mi];
     const Shell& sh = shells[m.shell];
     return fmt::format(
-        "{} {} {} {:>7.2f} {:>7.2f} {:>7.2f} {} {}  {:<5} {:>6} {:<32} {:<11} {:>5} {:<8} {:>7} "
+        "{} {} {} {:>7.2f} {:>7.2f} {:>7.2f} {} {} {}  {:<5} {:>6} {:<32} {:<11} {:>5} {:<8} {:>7} "
         "{:>7}{} {:>9} {:>9} {:>7.2f} {:>8.3f} {:>8.3f} {:>7.2f} {:>7.3f}  {:<26} "
         "({:8.2f} {:7.2f} {:8.2f})  {}",
         pct_or_na(m.a_pct()), pct_or_na(m.a_cons_pct()), pct_or_na(m.p_pct()), m.b_live_pct(),
-        m.b_pct(), m.b_patch_pct(), pct_or_na(m.b_req_pct()), pct_or_na(m.a_lit_pct()),
+        m.b_pct(), m.b_patch_pct(), pct_or_na(m.b_req_pct()), pct_or_na(m.b_perm_pct()),
+        pct_or_na(m.a_lit_pct()),
         kSysName[m.system], m.shell, tierf_str(m), rayf_vs_vol(sh),
         sh.winding_conflicts, coll_vs_truth(sh), m.faces.size(), m.faces_sampled,
         m.capped ? "*" : " ", m.gverts, m.exempt(), m.mean_inner(), m.disp_mean_cm(), m.disp_max_cm,
@@ -2231,9 +2762,10 @@ int main(int argc, char** argv) {
         m.named.empty() ? "-" : m.named);
   };
   const std::string mesh_hdr = fmt::format(
-      "{:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}  {:<5} {:>6} {:<32} {:<11} {:>5} {:<8} {:>7} "
-      "{:>8} {:>9} {:>9} {:>7} {:>8} {:>8} {:>7} {:>7}  {:<26} {:^29}  {}",
-      "A_sign%", "A_cons%", "P_sign%", "B_live%", "B_disp%", "B_patch", "B_req%", "A_lit%", "sys",
+      "{:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}  {:<5} {:>6} {:<32} {:<11} {:>5} {:<8} "
+      "{:>7} {:>8} {:>9} {:>9} {:>7} {:>8} {:>8} {:>7} {:>7}  {:<26} {:^29}  {}",
+      "A_sign%", "A_cons%", "P_sign%", "B_live%", "B_disp%", "B_patch", "B_req%", "B_perm%", "A_lit%",
+      "sys",
       "shell", "tierFACES", "rayf_vs_vol", "wcf", "coll_vs_", "faces", "sampled", "gverts", "exempt",
       "meanInn", "dispMean", "dispMax", "v/sq", "upm", "material", "centroid (metres)",
       "named-case");
@@ -2289,6 +2821,13 @@ int main(int argc, char** argv) {
   line("    which, because amp > 0 on every counted vertex, reduces algebraically to  nd > 0 : the");
   line("    SAME test for white and for black texels. That is the point — a surface either has its");
   line("    normals pointing outward or it does not. Target 100% EVERYWHERE.");
+  line("    ROUND 33: its denominator EXCLUDES the generated vertices of a face with a NON-ORIENTABLE");
+  line("    corner, exactly as A_cons's does and for the same reason — no REPRESENTABLE per-vertex");
+  line("    normal can be correctly signed there (tfrag3::mesh_best_packed_normal(), the function the");
+  line("    repair pass MeshConsolidate.cpp:2791 itself calls, says so), and grading an impossibility");
+  line("    would cap the score below 100% on a property of the authored geometry no bake can touch.");
+  line("    They are COUNTED, never scored: section E prints the count and the pre-exclusion");
+  line("    denominator, and A_lit below keeps the FULL population so the control column cannot move.");
   line("  * A_lit% = the mandate's LITERAL expression `(h - 0.5) * nd > 0`, reported for full");
   line("    disclosure and NOT used as the grade. It is the same formula with one factor of (h-0.5)");
   line("    dropped, so it demands nd > 0 on white texels and nd < 0 on black ones — i.e. it demands");
@@ -2313,9 +2852,9 @@ int main(int argc, char** argv) {
   line("  * Vertices with h == 0.5 EXACTLY, or amp == 0, have NO SIGN: they are counted in their own");
   line("    buckets (z_h_mid / z_seam / z_falloff / z_amp) and NEVER as correct.");
   line("");
-  line("--- THE FOUR LIVENESS COLUMNS, each zero with a COMPUTABLE CAUSE ---------------------------");
+  line("--- THE FIVE LIVENESS COLUMNS, each zero with a COMPUTABLE CAUSE ---------------------------");
   line("A mesh can be 100% correctly SIGNED and still be flat, so liveness is measured separately —");
-  line("and split four ways so that no zero can hide behind another:");
+  line("and split five ways so that no zero can hide behind another:");
   line("  * B_live%  = verts with amp > 0 / ALL generated verts of the mesh. The RAW, UNSHAPED");
   line("    liveness number: the share where the tier applies a non-zero amplitude. A vertex with");
   line("    amp > 0 whose sampled h is EXACTLY 0.5 IS live — 0.5 is the zero CROSSING of the height");
@@ -2348,8 +2887,71 @@ int main(int argc, char** argv) {
   line("    The raw z_seam / z_not_tess counters and the `exempt` column are printed UNCHANGED; the");
   line("    second per-mesh line carries exemptDEAD next to them. B_req reads n/a only when EVERY");
   line("    generated vertex of the row is exempt AND dead, i.e. when there is nothing to require.");
+  line("  * B_perm%  = PERMITTED verts with amp > 0 / PERMITTED generated verts — THE DENOMINATOR B_req");
+  line("    SHOULD HAVE HAD, and the one that can actually fail. B_req divides by");
+  line("    (generated - exemptDEAD), and exemptDEAD is derived from the MEASURED amplitude: a vertex is");
+  line("    subtracted BECAUSE it came out dead. That makes B_req 100% by construction — it is retained");
+  line("    above and in the CSV for continuity, but it IS NOT A GATE and must not be read as one.");
+  line("    B_perm's denominator is built from TOPOLOGY ALONE, before any measurement:");
+  line("      a WELD GROUP needs a pin (grp_pin_needed) iff two of its referenced members could not");
+  line("      displace alike, which is true iff ANY of");
+  line("        - its incident faces carry more than one texture id  (different height map, different");
+  line("          per-draw amplitude uniforms: the two sides cannot displace alike);");
+  line("        - its incident faces span more than one SYSTEM (TIE is never routed through the");
+  line("          tessellation program, so one side moves and the other cannot);");
+  line("        - it has an OPEN BOUNDARY edge (there is no other side to match);");
+  line("        - its incident faces do not all fit in ONE crease cluster, i.e. two of them have");
+  line("          dot(n_a, n_b) < cos(crease_deg) under pass 7's own rule and threshold. THIS IS THE");
+  line("          CAUSE OF THE SHIPPED PIN, NOT THE SHIPPED PIN: the pass pins when the members' normals");
+  line("          actually differ, and the members' normals can only differ when the incident faces fall");
+  line("          in more than one crease cluster. It is tested WITHOUT READING ONE STORED NORMAL.");
+  line("      a GENERATED VERTEX is PERMITTED iff at least one patch corner with a non-zero barycentric");
+  line("      weight sits in a group that does NOT need a pin. That mirrors the seam interpolation the");
+  line("      .tese performs: seam is 0 only when EVERY contributing corner is pinned.");
+  line("    grp_pin_needed is therefore an UPPER BOUND on what the consolidation pass may legitimately");
+  line("    pin, computed from geometry alone — and that is exactly what makes B_perm falsifiable in the");
+  line("    direction that matters: IF THE PASS PINS A GROUP THIS TEST SAYS NEED NOT BE PINNED, those");
+  line("    vertices stay in the denominator, contribute nothing to the numerator, and B_perm drops");
+  line("    below 100%. Nothing in the measurement can move the denominator. 'n/a' = the row has no");
+  line("    permitted vertex at all (every corner of every patch sits in a group a pin is necessary");
+  line("    for), which is a statement about the geometry and not about the tier.");
   line("  * z_patch_dead counts the vertices of patches with no live vertex at all — the same");
   line("    population B_patch% measures, expressed in vertices.");
+  line("");
+  line("--- WHAT THE PER-VERTEX FORMAT CANNOT EXPRESS (two ORIGINAL-DATA limits, and the ONLY two) ---");
+  line("Two things are impossible to get right in this vertex format no matter what the bake writes, and");
+  line("both are computed HERE from POSITIONS, TEXCOORDS, INDICES and TEXTURE IDS ALONE — never from a");
+  line("stored normal, a stored tangent or a stored seam weight. That independence is the whole point: a");
+  line("limit derived from the baked data would let the bake manufacture its own exclusion by writing");
+  line("something bad. These are statements about the ORIGINAL AUTHORED GEOMETRY, which the bake can");
+  line("neither alter nor argue with. Both are EXCLUDED FROM THEIR DENOMINATOR — not scored correct, and");
+  line("not scored wrong — and both are reported in full in section E.");
+  line("  * NON-ORIENTABLE VERTEX (v_nonorient): no single unit vector has a strictly positive dot");
+  line("    product with the outward direction of every face incident to that vertex. The format carries");
+  line("    ONE normal per vertex and the .tese displaces along the interpolation of those normals, so");
+  line("    NO per-vertex normal whatsoever — not the baked one, not a hypothetical perfect one — can");
+  line("    give every incident face a correctly-signed displacement there. The decision procedure is");
+  line("    the SAME Badoiu-Clarkson Chebyshev iteration and the SAME 1e-3 tolerance MeshConsolidate.cpp");
+  line("    pass 12 uses (:2694-2726, kPosEps at :2651): start at the normalized mean of the incident");
+  line("    unit outwards, then up to 256 times step a shrinking 1/(it+2) fraction towards the currently");
+  line("    WORST one and renormalize. That identity is deliberate — the pass's \"unsatisfiable\" and this");
+  line("    grader's \"impossible\" must be ONE predicate, or the grader would exclude vertices the pass");
+  line("    repaired, or keep scoring vertices the pass proved it could not. A generated vertex on a face");
+  line("    with ANY non-orientable corner leaves A_cons's denominator (cons_EXCL_nonorient counts them");
+  line("    over exactly that population, so cons_den + cons_EXCL is the denominator as it stood).");
+  line("    The FOLD-BACK subset — vertices with two incident faces whose outwards have a NEGATIVE dot");
+  line("    product — is reported separately, so the residual has a named geometric character (a fin,");
+  line("    a surface doubling back through the vertex) instead of being a bare number.");
+  line("  * NON-REPRESENTABLE TANGENT (v_nontan): the vertex's incident faces disagree about UV");
+  line("    HANDEDNESS (the sign of det = du1*dv2 - du2*dv1 differs between two of them). For a face");
+  line("    with right-handed UV the dP/du and dP/dv constraints on the tangent angle COINCIDE; for a");
+  line("    left-handed one they are ANTIPODAL, and only w < 0 recovers them. w is ONE sign per VERTEX,");
+  line("    so it selects which handedness that vertex serves: a vertex whose incident faces MIX");
+  line("    handedness has no representable frame, and whichever w ships, every incident face of the");
+  line("    other handedness is wrong. This is a property of the ORIGINAL AUTHORED UV LAYOUT and no bake");
+  line("    can fix it. Such a face CORNER leaves P_sign's denominator (bucket p_nonrep), and it is");
+  line("    tested BEFORE the tangent-fallback / gram-schmidt / no-normal buckets on purpose: the UV");
+  line("    layout is the CAUSE, and whatever the bake then wrote into the tangent is the symptom.");
   line("");
   line("--- THE INSPECTION-DISTANCE CONVENTION ---------------------------------------------------");
   line(fmt::format("Every distance the two stages consume is fed the SAME value d = {:.3f} m: the .tesc",
@@ -2620,6 +3222,17 @@ int main(int argc, char** argv) {
   line(fmt::format("RAYF pass              : K={} rays per hemisphere, {:.1f} s wall clock, {} threads"
                    " (per-face independent, so the thread count cannot move a single bit)",
                    rayf_k, rayf_seconds, std::max(1u, std::thread::hardware_concurrency())));
+  line(fmt::format("ORIENT population      : ALL {} faces — NO face_is_candidate filter, exactly as "
+                   "MeshConsolidate.cpp pass 6c (:2459-2468) calls it. The round-33 shell verdict is a "
+                   "BALLOT of the shell's faces, so a filter on one side and not the other would give "
+                   "the two runs different verdicts from the same geometry.",
+                   faces.size()));
+  // ONE PHYSICAL LINE, deliberately: grepped, never wrapped. Emitted ONLY when --rayf-k is off the
+  // pipeline's default, in which case every A_sign / A_cons number below rests on shell verdicts the
+  // bake never computed.
+  if (!rayf_k_warning.empty()) {
+    line(rayf_k_warning);
+  }
   line("");
   line(subdiv_note);
   line("--- format_mesh_audit(rep, cfg) ----------------------------------------------------------");
@@ -2647,8 +3260,15 @@ int main(int argc, char** argv) {
   line("         their count is in section E. A_cons% = the FACE-LOCAL consistency invariant derived in");
   line("         the header: it needs NO outward authority, so it is graded on UNDECIDED faces too and");
   line("         its denominator is generally LARGER than A_sign's. A_sign can only be 100% where");
-  line("         A_cons is. B_live / B_disp / B_patch / B_req are the four liveness columns derived in");
+  line("         A_cons is; BOTH denominators EXCLUDE the vertices of faces with a NON-ORIENTABLE");
+  line("         corner, which no representable per-vertex normal could serve (see the header, and the");
+  line("         two EXCLUDED NON-ORIENTABLE lines in section E). A_lit% does NOT exclude them: it is");
+  line("         the spec-literal control and keeps the pre-exclusion denominator.");
+  line("         B_live / B_disp / B_patch / B_req / B_perm are the five liveness columns derived in");
   line("         the header (B_req's n/a = every generated vertex of the row is exempt AND not live).");
+  line("         B_perm% is the one to read: its denominator is the PERMITTED vertices, decided by");
+  line("         TOPOLOGY alone, so unlike B_req — which is 100% by construction and is NOT a gate — it");
+  line("         can fail. 'n/a' = the row has no permitted vertex at all.");
   line("         tierFACES = the FACE count each outward tier decided, X=VOLX (exact volume on a CLOSED");
   line("         shell) R=RAYF C=COLL (competence-filtered collision) E=ESC U=UNDECIDED (not graded),");
   line("         and D = the DIAGNOSTIC count of faces where RAYF and VOL contradict each other. D is");
@@ -2669,8 +3289,10 @@ int main(int argc, char** argv) {
   line("         leaves A_sign (a pure NORMAL question) perfectly green. It is a per-corner property");
   line("         of the mesh: no camera, no tessellation level, no checker enter it, so it does not");
   line("         move with --dist-m. 'n/a' = no gradeable corner (degenerate UVs, or every corner");
-  line("         took the shader's Frisvad tangent fallback). The four skip buckets and the U-vs-.w");
-  line("         split are in section E and in the CSV (p_u_wrong / p_w_wrong / p_tan_* / p_degen).");
+  line("         took the shader's Frisvad tangent fallback, or every corner is NON-REPRESENTABLE).");
+  line("         The five skip buckets and the U-vs-.w split are in section E and in the CSV");
+  line("         (p_u_wrong / p_w_wrong / p_tan_* / p_degen / p_nonrep, the last being the corners whose");
+  line("         incident faces mix UV handedness, which one per-vertex tangent cannot serve).");
   line("");
   line(mesh_hdr);
   line(std::string(mesh_hdr.size(), '-'));
@@ -2716,7 +3338,9 @@ int main(int argc, char** argv) {
                      nb.lo[0], nb.hi[0], nb.lo[1], nb.hi[1], nb.lo[2], nb.hi[2]));
     u64 hits = 0, den = 0, ok = 0, ok_lit = 0, gvv = 0, nz = 0, lv = 0, ex = 0, exd = 0, pat = 0,
         pat_live = 0;
-    u64 cons_ok = 0, cons_den = 0;
+    u64 cons_ok = 0, cons_den = 0, cons_excl = 0;
+    u64 sign_excl = 0;  // A_sign's NON-ORIENTABLE exclusion over this case's rows
+    u64 perm_lv = 0, perm_dn = 0, pnonrep = 0;
     u64 fR = 0, fE = 0, fU = 0, vR = 0, vE = 0, vU = 0;
     u64 fX = 0, fCo = 0, fD = 0, vX = 0, vCo = 0, vD = 0;
     u64 ps = 0, pm = 0, py = 0, po = 0, pc = 0, pu = 0;
@@ -2733,8 +3357,13 @@ int main(int argc, char** argv) {
       den += m.sign_den;
       ok += m.sign_ok;
       ok_lit += m.sign_ok_lit;
+      sign_excl += m.sign_excl_nonorient;
       cons_ok += m.a_cons_ok;
       cons_den += m.a_cons_den;
+      cons_excl += m.cons_excl_nonorient;
+      perm_lv += m.perm_live;
+      perm_dn += m.perm_den;
+      pnonrep += m.p_nonrep;
       gvv += m.gverts;
       nz += m.disp_nz;
       lv += m.live;
@@ -2786,17 +3415,22 @@ int main(int argc, char** argv) {
                          return n;
                        }(),
                        gvv));
-      line(fmt::format("  CASE A_sign = {}  ({}/{} vertices)     A_lit = {}",
+      // A_lit divides by the PRE-EXCLUSION denominator (den + sign_excl), exactly as a_lit_pct() does
+      // per row: the control column must not move when A_sign's denominator does.
+      line(fmt::format("  CASE A_sign = {}  ({}/{} vertices; {} more EXCLUDED as NON-ORIENTABLE)"
+                       "     A_lit = {}",
                        den ? fmt::format("{:.2f}%", 100.0 * (double)ok / (double)den)
                            : std::string("n/a"),
-                       ok, den,
-                       den ? fmt::format("{:.2f}%", 100.0 * (double)ok_lit / (double)den)
-                           : std::string("n/a")));
-      line(fmt::format("  CASE A_cons = {}  ({}/{} vertices, no outward authority required)",
+                       ok, den, sign_excl,
+                       (den + sign_excl) ? fmt::format("{:.2f}%", 100.0 * (double)ok_lit /
+                                                                      (double)(den + sign_excl))
+                                         : std::string("n/a")));
+      line(fmt::format("  CASE A_cons = {}  ({}/{} vertices, no outward authority required; {} more "
+                       "EXCLUDED as NON-ORIENTABLE)",
                        cons_den
                            ? fmt::format("{:.2f}%", 100.0 * (double)cons_ok / (double)cons_den)
                            : std::string("n/a"),
-                       cons_ok, cons_den));
+                       cons_ok, cons_den, cons_excl));
       line(fmt::format("  CASE B_live = {:.2f}% ({}/{})   B_disp = {:.2f}% ({}/{})   B_patch = {}"
                        "   B_req = {}",
                        gvv ? 100.0 * (double)lv / (double)gvv : 0.0, lv, gvv,
@@ -2808,6 +3442,14 @@ int main(int argc, char** argv) {
                                                100.0 * (double)lv / (double)(gvv - exd), lv,
                                                gvv - exd)
                                  : std::string("n/a")));
+      line(fmt::format("  CASE B_perm = {}   <== the TOPOLOGY-ONLY denominator (B_req above is 100% by "
+                       "construction and is NOT a gate)",
+                       perm_dn ? fmt::format("{:.2f}% ({}/{})",
+                                             100.0 * (double)perm_lv / (double)perm_dn, perm_lv,
+                                             perm_dn)
+                               : std::string("n/a")));
+      line(fmt::format("  CASE P_sign non-representable corners EXCLUDED (mixed UV handedness): {}",
+                       pnonrep));
       line(fmt::format("  CASE exempt = {} raw ({} of them also NOT LIVE — only those are subtracted "
                        "by B_req)",
                        ex, exd));
@@ -2928,9 +3570,13 @@ int main(int argc, char** argv) {
   // A_cons's own row census, and the FULLY-FLAT row count (B_live% == 0: every vertex pinned).
   u64 n_cons_na = 0, n_cons_graded = 0, n_cons100 = 0, n_fully_flat = 0;
   u64 n_breq_over_100 = 0;  // rows violating the B_req bound — must stay 0, see the assertion below
+  // B_perm's own row census, with the same n/a convention: an empty PERMITTED denominator is no grade.
+  u64 n_perm_na = 0, n_perm_graded = 0, n_perm100 = 0;
+  // the rows whose scores actually LOST population to the two §3b impossibility sets.
+  u64 n_rows_nonorient = 0, n_rows_nontan = 0;
   u32 worst_a = UINT32_MAX, worst_b = UINT32_MAX, worst_live = UINT32_MAX,
       worst_patch = UINT32_MAX, worst_req = UINT32_MAX, worst_p = UINT32_MAX,
-      worst_cons = UINT32_MAX;
+      worst_cons = UINT32_MAX, worst_perm = UINT32_MAX;
   for (u32 i = 0; i < meshes.size(); i++) {
     const auto& m = meshes[i];
     if (m.a_pct() < 0) {
@@ -2989,6 +3635,26 @@ int main(int argc, char** argv) {
         worst_cons = i;
       }
     }
+    // B_perm's census, same n/a convention: an empty PERMITTED denominator carries no grade and
+    // cannot be the worst GRADED row.
+    if (m.b_perm_pct() < 0) {
+      n_perm_na++;
+    } else {
+      n_perm_graded++;
+      if (m.b_perm_pct() >= 100.0) {
+        n_perm100++;
+      }
+      if (worst_perm == UINT32_MAX || m.b_perm_pct() < meshes[worst_perm].b_perm_pct()) {
+        worst_perm = i;
+      }
+    }
+    // the rows whose scores actually lost population to the two ORIGINAL-DATA impossibilities.
+    if (m.cons_excl_nonorient) {
+      n_rows_nonorient++;
+    }
+    if (m.p_nonrep) {
+      n_rows_nontan++;
+    }
     // FULLY FLAT: not one generated vertex of the row receives a non-zero amplitude.
     if (m.b_live_pct() <= 0.0) {
       n_fully_flat++;
@@ -3024,6 +3690,18 @@ int main(int argc, char** argv) {
                                      100.0 * (double)agg_main.sign_ok / (double)agg_main.sign_den,
                                      agg_main.sign_ok, agg_main.sign_den)
                        : std::string("n/a")));
+  // ONE PHYSICAL LINE, deliberately: grepped, never wrapped. Modelled on the A_cons line below, and
+  // for the identical reason — see the §3b block at the do_vertex A_sign test.
+  line(fmt::format("A_sign EXCLUDED NON-ORIENTABLE : {}  generated vertices on a face with a "
+                   "NON-ORIENTABLE corner ({:.4f}% of the pre-exclusion denominator {}) — no "
+                   "representable per-vertex normal can serve them, so they are OUT of the "
+                   "denominator, NOT scored",
+                   agg_main.sign_excl_nonorient,
+                   (agg_main.sign_den + agg_main.sign_excl_nonorient)
+                       ? 100.0 * (double)agg_main.sign_excl_nonorient /
+                             (double)(agg_main.sign_den + agg_main.sign_excl_nonorient)
+                       : 0.0,
+                   agg_main.sign_den + agg_main.sign_excl_nonorient));
   line(fmt::format("A_cons OVERALL              : {}   (the face-local consistency invariant: NO "
                    "outward authority is involved)",
                    agg_main.a_cons_den
@@ -3032,15 +3710,31 @@ int main(int argc, char** argv) {
                                          (double)agg_main.a_cons_den,
                                      agg_main.a_cons_ok, agg_main.a_cons_den)
                        : std::string("n/a")));
+  // ONE PHYSICAL LINE, deliberately: grepped, never wrapped.
+  line(fmt::format("A_cons EXCLUDED NON-ORIENTABLE : {}  generated vertices on a face with a "
+                   "NON-ORIENTABLE corner ({:.4f}% of the pre-exclusion denominator {}) — no "
+                   "per-vertex normal could serve them, so they are OUT of the denominator, NOT scored",
+                   agg_main.cons_excl_nonorient,
+                   (agg_main.a_cons_den + agg_main.cons_excl_nonorient)
+                       ? 100.0 * (double)agg_main.cons_excl_nonorient /
+                             (double)(agg_main.a_cons_den + agg_main.cons_excl_nonorient)
+                       : 0.0,
+                   agg_main.a_cons_den + agg_main.cons_excl_nonorient));
+  // A_lit's denominator is the PRE-EXCLUSION population, unchanged by round 33's A_sign exclusion:
+  // the spec-literal control column must be evaluated on the mandate's own population or it stops
+  // being a control. Same expression as a_lit_pct() per row.
   line(fmt::format("A_lit  OVERALL (spec literal): {}   <-- structurally capped near the white-texel"
                    " share; see the derivation in the header",
-                   agg_main.sign_den
+                   (agg_main.sign_den + agg_main.sign_excl_nonorient)
                        ? fmt::format("{:.4f}%  ({}/{})",
-                                     100.0 * (double)agg_main.sign_ok_lit / (double)agg_main.sign_den,
-                                     agg_main.sign_ok_lit, agg_main.sign_den)
+                                     100.0 * (double)agg_main.sign_ok_lit /
+                                         (double)(agg_main.sign_den +
+                                                  agg_main.sign_excl_nonorient),
+                                     agg_main.sign_ok_lit,
+                                     agg_main.sign_den + agg_main.sign_excl_nonorient)
                        : std::string("n/a")));
   line("");
-  line("---- THE FOUR LIVENESS NUMBERS, each with the mesh that owns the WORST value ----");
+  line("---- THE FIVE LIVENESS NUMBERS, each with the mesh that owns the WORST value ----");
   auto owner_of = [&](u32 i) {
     const auto& m = meshes[i];
     return fmt::format("shell {} {} {} (centroid {:.2f} {:.2f} {:.2f} m){}", m.shell,
@@ -3097,6 +3791,37 @@ int main(int argc, char** argv) {
     line(fmt::format("   WORST B_req              : {:.2f}%  {}", meshes[worst_req].b_req_pct(),
                      owner_of(worst_req)));
   }
+  // ---- B_perm: the denominator the MEASUREMENT CANNOT MOVE -------------------------------------
+  // B_req's subtrahend is derived from the measured amplitude (a vertex is removed BECAUSE it came out
+  // dead), so B_req is 100% by construction: it is retained above for continuity and IS NOT A GATE.
+  // B_perm divides by the PERMITTED generated vertices — those with at least one contributing patch
+  // corner in a weld group a pin is not GEOMETRICALLY NECESSARY for, decided from texture ids, systems,
+  // open edges and incident-face angles ALONE. If the pipeline pins a group this test says need not be
+  // pinned, those vertices stay in the denominator and B_perm falls below 100%.
+  const double b_perm_overall =
+      agg_main.perm_den ? 100.0 * (double)agg_main.perm_live / (double)agg_main.perm_den : -1.0;
+  line(fmt::format("B_perm  OVERALL             : {}   <== THE LIVENESS GATE: the denominator is the "
+                   "PERMITTED generated vertices, decided by TOPOLOGY ALONE (B_req is 100% by "
+                   "construction and is NOT a gate)",
+                   b_perm_overall >= 0
+                       ? fmt::format("{:.4f}%  ({}/{})", b_perm_overall, agg_main.perm_live,
+                                     agg_main.perm_den)
+                       : std::string("n/a")));
+  line(fmt::format("   NOT-PERMITTED verts      : {}  of {} generated ({:.4f}%) — every contributing "
+                   "corner sits in a group a pin is GEOMETRICALLY NECESSARY for",
+                   agg_main.gverts - agg_main.perm_den, agg_main.gverts,
+                   agg_main.gverts
+                       ? 100.0 * (double)(agg_main.gverts - agg_main.perm_den) /
+                             (double)agg_main.gverts
+                       : 0.0));
+  line(fmt::format("meshes at B_perm = 100%     : {}  of {} GRADED meshes ({:.2f}%)  ({} rows n/a)",
+                   n_perm100, n_perm_graded,
+                   n_perm_graded ? 100.0 * (double)n_perm100 / (double)n_perm_graded : 0.0,
+                   n_perm_na));
+  if (worst_perm != UINT32_MAX) {
+    line(fmt::format("   WORST B_perm             : {:.2f}%  {}", meshes[worst_perm].b_perm_pct(),
+                     owner_of(worst_perm)));
+  }
   line(fmt::format("TFRAG-ONLY B_live / B_disp  : {:.4f}% / {:.4f}%  over {} generated verts (the "
                    "population a tessellation program is actually bound for)",
                    agg_main.gverts_tfrag
@@ -3124,7 +3849,7 @@ int main(int argc, char** argv) {
   // ---- the PARALLAX tier's own totals (§4a). Distance-independent, so unlike A/B these numbers
   // are the same at every --dist-m and are absent from the distance sweep in section F. ----
   {
-    u64 p_ok = 0, p_den = 0, p_uw = 0, p_ww = 0, p_fb = 0, p_td = 0, p_nn = 0, p_dg = 0;
+    u64 p_ok = 0, p_den = 0, p_uw = 0, p_ww = 0, p_fb = 0, p_td = 0, p_nn = 0, p_dg = 0, p_nr = 0;
     u64 p_na_rows = 0, p_100_rows = 0, p_graded_rows = 0;
     for (const auto& m : meshes) {  // meshes is an ordered vector => a deterministic sum
       p_ok += m.p_ok;
@@ -3135,6 +3860,7 @@ int main(int argc, char** argv) {
       p_td += m.p_tan_degen;
       p_nn += m.p_no_normal;
       p_dg += m.p_degen;
+      p_nr += m.p_nonrep;
       if (m.p_pct() < 0) {
         p_na_rows++;
       } else {
@@ -3156,8 +3882,11 @@ int main(int argc, char** argv) {
                      "parallax INVERTED while the tessellation tier stays correct",
                      p_ww, p_den ? 100.0 * (double)p_ww / (double)p_den : 0.0));
     line(fmt::format("   ungradeable corners      : tangent-fallback {} (shader drops to Frisvad, "
-                     "dot(t,t) <= 0.04), gram-schmidt-degenerate {}, no normal {}",
-                     p_fb, p_td, p_nn));
+                     "dot(t,t) <= 0.04), gram-schmidt-degenerate {}, no normal {}, NON-REPRESENTABLE "
+                     "{} (the vertex's incident faces MIX UV handedness, so one per-vertex (T,w) "
+                     "cannot serve them — an ORIGINAL-UV-LAYOUT limit, tested first, excluded from the "
+                     "denominator and never scored)",
+                     p_fb, p_td, p_nn, p_nr));
     line(fmt::format("   UV-degenerate faces      : {}  (|det| <= 1e-12: the face defines no UV "
                      "direction, so it has no parallax sign)",
                      p_dg));
@@ -3170,6 +3899,68 @@ int main(int argc, char** argv) {
                      p_100_rows, p_graded_rows,
                      p_graded_rows ? 100.0 * (double)p_100_rows / (double)p_graded_rows : 0.0,
                      p_na_rows));
+    line("");
+  }
+  // ---- §3b WHAT THE PER-VERTEX FORMAT CANNOT EXPRESS: the two ORIGINAL-DATA limits, level-wide ----
+  // Each figure below is computed from POSITIONS, TEXCOORDS, INDICES and TEXTURE IDS ALONE — no stored
+  // normal, no stored tangent, no stored seam weight, no measured amplitude enters any of them. They
+  // are limits of the AUTHORED GEOMETRY that the per-vertex vertex format cannot express, so the
+  // affected population is EXCLUDED FROM ITS DENOMINATOR rather than scored: not counted correct, and
+  // not counted wrong. Every line here is ONE physical line, deliberately: they are grepped.
+  {
+    u64 p_nr_tot = 0, p_den_tot = 0;
+    for (const auto& m : meshes) {
+      p_nr_tot += m.p_nonrep;
+      p_den_tot += m.p_den;
+    }
+    const u64 p_pre_tot = p_nr_tot + p_den_tot;  // P_sign's denominator BEFORE the exclusion
+    line("---- ORIGINAL-DATA LIMITS (computed from positions/uvs/indices alone; EXCLUDED, not scored) ----");
+    line(fmt::format("NON-ORIENTABLE VERTICES     : {}  of {} global vertices ({:.4f}%) — no"
+                     " REPRESENTABLE normal (3x signed 10 bits) has a dot above 1e-3 with the outward"
+                     " direction of EVERY incident face, so NO per-vertex normal can be correctly signed"
+                     " there (decided by tfrag3::mesh_best_packed_normal(), the SAME function"
+                     " MeshConsolidate.cpp pass 12 repairs a vertex with, at the same 1e-3 tolerance)",
+                     n_nonorient, gv.size(),
+                     gv.size() ? 100.0 * (double)n_nonorient / (double)gv.size() : 0.0));
+    line(fmt::format("   of them FOLD-BACK / FIN  : {}  ({:.2f}% of the non-orientable set) — two "
+                     "incident faces whose outward directions have a NEGATIVE dot product: the surface "
+                     "doubles back through the vertex.  EXACT-CANCEL (incident outwards sum to zero): {}",
+                     n_nonorient_fold,
+                     n_nonorient ? 100.0 * (double)n_nonorient_fold / (double)n_nonorient : 0.0,
+                     n_nonorient_cancel));
+    line(fmt::format("   A_cons GENERATED VERTS EXCLUDED : {}  ({:.4f}% of the pre-exclusion "
+                     "denominator {}), affecting {} of {} mesh rows",
+                     agg_main.cons_excl_nonorient,
+                     (agg_main.a_cons_den + agg_main.cons_excl_nonorient)
+                         ? 100.0 * (double)agg_main.cons_excl_nonorient /
+                               (double)(agg_main.a_cons_den + agg_main.cons_excl_nonorient)
+                         : 0.0,
+                     agg_main.a_cons_den + agg_main.cons_excl_nonorient, n_rows_nonorient,
+                     meshes.size()));
+    // A_sign carries the SAME exclusion since round 33 — the two denominators differ (A_sign demands
+    // an outward verdict, A_cons does not), so the two counts are stated separately and neither is
+    // inferable from the other. A_lit is NOT excluded: it keeps the pre-exclusion population.
+    line(fmt::format("   A_sign GENERATED VERTS EXCLUDED : {}  ({:.4f}% of the pre-exclusion "
+                     "denominator {}) — A_lit keeps the FULL population and is unaffected",
+                     agg_main.sign_excl_nonorient,
+                     (agg_main.sign_den + agg_main.sign_excl_nonorient)
+                         ? 100.0 * (double)agg_main.sign_excl_nonorient /
+                               (double)(agg_main.sign_den + agg_main.sign_excl_nonorient)
+                         : 0.0,
+                     agg_main.sign_den + agg_main.sign_excl_nonorient));
+    line(fmt::format("NON-REPRESENTABLE-TANGENT VERTICES : {}  of {} global vertices ({:.4f}%) — the "
+                     "vertex's incident faces disagree about UV HANDEDNESS (the sign of "
+                     "du1*dv2-du2*dv1), and .w is ONE sign per vertex, so one per-vertex tangent cannot "
+                     "serve both: a limit of the ORIGINAL AUTHORED UV LAYOUT",
+                     n_nontan, gv.size(),
+                     gv.size() ? 100.0 * (double)n_nontan / (double)gv.size() : 0.0));
+    line(fmt::format("   P_sign FACE CORNERS EXCLUDED : {}  ({:.4f}% of the pre-exclusion denominator "
+                     "{}), affecting {} of {} mesh rows",
+                     p_nr_tot, p_pre_tot ? 100.0 * (double)p_nr_tot / (double)p_pre_tot : 0.0,
+                     p_pre_tot, n_rows_nontan, meshes.size()));
+    line("   Neither set can be manufactured by the bake: both are properties of the ORIGINAL geometry");
+    line("   and its UV layout, read from positions, texcoords, indices and texture ids only. They are");
+    line("   the ONLY two exclusions of this kind, and each one is reported here in full.");
     line("");
   }
   line(fmt::format("meshes at A_sign = 100%     : {}  of {} GRADED meshes ({:.2f}%)  <== THE GATE",
@@ -3460,9 +4251,13 @@ int main(int argc, char** argv) {
                        fmt::format("{:.4f}", a.patches ? 100.0 * (double)a.patches_live /
                                                              (double)a.patches
                                                        : 0.0),
-                       a.sign_den ? fmt::format("{:.4f}",
-                                                100.0 * (double)a.sign_ok_lit / (double)a.sign_den)
-                                  : std::string("n/a")));
+                       // A_lit over the PRE-EXCLUSION denominator, as a_lit_pct() and section E do:
+                       // the control column does not follow A_sign's denominator.
+                       (a.sign_den + a.sign_excl_nonorient)
+                           ? fmt::format("{:.4f}", 100.0 * (double)a.sign_ok_lit /
+                                                       (double)(a.sign_den +
+                                                                a.sign_excl_nonorient))
+                           : std::string("n/a")));
       fmt::print("[tess_sign] sweep d={} done\n", d);
     }
     // The stored per-mesh columns must describe --dist-m, so restore them after the sweep.
@@ -3511,7 +4306,15 @@ int main(int argc, char** argv) {
          // above are now always 0: those tiers were deleted from the cascade.
          "f_volx,f_both,f_conflict,v_volx,v_both,v_conflict,shell_closed,shell_open_edges,"
          // the COLL tier, A_cons and the corrected B_req subtrahend, appended after those
-         "f_coll,v_coll,A_cons_pct,a_cons_ok,a_cons_den,exempt_dead\n";
+         "f_coll,v_coll,A_cons_pct,a_cons_ok,a_cons_den,exempt_dead,"
+         // §3b/§4c: B_perm's topology-only denominator and the two ORIGINAL-DATA exclusions, appended
+         // last so every pre-existing column keeps its index. An empty B_perm_pct cell is the n/a case.
+         "B_perm_pct,perm_live,perm_den,cons_excl_nonorient,p_nonrep,"
+         // round 33: A_sign's own NON-ORIENTABLE exclusion. Appended as the LAST column so every
+         // pre-existing column keeps its index. sign_den is now POST-exclusion, so A_sign's
+         // pre-exclusion denominator — which is also A_lit_pct's denominator — is
+         // sign_den + sign_excl_nonorient.
+         "sign_excl_nonorient\n";
     u32 row = 0;
     for (u32 mi : order) {
       const auto& m = meshes[mi];
@@ -3555,10 +4358,17 @@ int main(int argc, char** argv) {
       s += fmt::format("{},{},{},{},{},{},{},{},", m.f_volx, m.f_both, m.f_conflict, m.v_volx,
                        m.v_both, m.v_conflict, sh.closed ? 1 : 0, sh.open_edges);
       // the COLL tier, A_cons (empty cell = n/a, same convention as A_sign_pct) and exempt_dead
-      s += fmt::format("{},{},{},{},{},{}\n", m.f_coll, m.v_coll,
+      s += fmt::format("{},{},{},{},{},{},", m.f_coll, m.v_coll,
                        m.a_cons_pct() < 0 ? std::string("")
                                           : fmt::format("{:.6f}", m.a_cons_pct()),
                        m.a_cons_ok, m.a_cons_den, m.exempt_dead);
+      // §3b/§4c: B_perm (empty cell = n/a, same convention) and the two ORIGINAL-DATA exclusions,
+      // then round 33's A_sign exclusion as the trailing column.
+      s += fmt::format("{},{},{},{},{},{}\n",
+                       m.b_perm_pct() < 0 ? std::string("")
+                                          : fmt::format("{:.6f}", m.b_perm_pct()),
+                       m.perm_live, m.perm_den, m.cons_excl_nonorient, m.p_nonrep,
+                       m.sign_excl_nonorient);
       c << s;
     }
     c.flush();

@@ -692,6 +692,31 @@ void reconstruct_level_global_weld(Level& lev);
 // Returns the number of vertices whose (T, w) actually changed.
 u64 retangent_level_from_final_normals(Level& lev);
 
+// ROUND 32 — make the per-vertex tangent frame VALID FOR EVERY FACE THAT SHARES IT, not merely the
+// average of them. With N fixed, T has one degree of freedom (an angle in the plane perpendicular to
+// N), which turns "dot(T,dPdu) > 0 and dot(cross(N,T)*w, dPdv) > 0 for every incident face" into an
+// intersection of open half-circles — solved exactly by a sort, no iteration. A frame that is already
+// valid is left BIT-IDENTICAL (the authored average is what the normal map was made for); a frame
+// with no solution at all (incident faces whose UV directions span a half-turn) is left alone and
+// counted. Returns the number of vertices rewritten; the three out-params report the already-valid,
+// unsatisfiable and constrained-vertex populations. See the comment at the definition.
+u64 retangent_positive_from_final_normals(Level& lev,
+                                          u64* out_already,
+                                          u64* out_unsat,
+                                          u64* out_den);
+
+// ROUND 32 — re-establish the displacement-sign invariant AFTER mesh_presubdivide_level().
+// mesh_consolidate pass 12 guarantees dot(N_v, outward(f)) > 0 at every corner, but the refinement
+// runs after it and INVENTS vertices (a midpoint's normal is the normalized sum of its parents',
+// its tangent is the summed T with parent A's handedness verbatim, re-orthogonalised against
+// nothing), so on village1 about a third of the vertices the tessellator touches never saw that
+// check. This is the cheap per-tree form of pass 12: no weld, no shell and no outward authority are
+// needed, because positivity is a property of a VERTEX INDEX and its incident faces, and each face
+// is measured against its OWN corner-normal consensus — the same reference tools/tess_sign grades
+// A_cons against. Call it, then retangent_positive_from_final_normals(), immediately after the
+// subdivision. Returns the number of normals rewritten. See the comment at the definition.
+u64 mesh_positivity_repair_level(Level& lev, u64* out_ok, u64* out_unsat, u64* out_den);
+
 // ROUND 29 — MIRRORED TIE INSTANCE CENSUS. A TIE instance matrix with a NEGATIVE 3x3 determinant
 // places a MIRRORED copy of its prototype (the standard way to duplicate a building without
 // duplicating geometry). Pure measurement: walks the packed instance matrices and counts, it never
