@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <thread>
 #include <unordered_map>
@@ -28,6 +29,8 @@ const char* mesh_orient_tier_name(u8 tier) {
       return "COLL";
     case kOrientEsc:
       return "ESC";
+    case kOrientVolxOpen:
+      return "VOLOPEN";
     default:
       return "UNDECIDED";
   }
@@ -41,6 +44,8 @@ const char* mesh_orient_shell_tier_name(u8 tier) {
       return "ESC";
     case kOrientShellRayf:
       return "RAYF";
+    case kOrientShellVolOpen:
+      return "VOLOPEN";
     default:
       return "UNDECIDED";
   }
@@ -791,6 +796,8 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
   r.shell_nonmanifold_edges.assign(n_shells, 0);
   r.shell_vol_sign.assign(n_shells, 0);
   r.shell_v6_over_l3.assign(n_shells, 0.0);
+  r.shell_vecarea.assign(n_shells, 0.0);
+  r.shell_vol_robust.assign(n_shells, 0.0);
   r.shell_winding_conflicts.assign(n_shells, 0);
   r.shell_coll_sign.assign(n_shells, 0);
   r.shell_coll_speaks.assign(n_shells, 0);
@@ -1006,6 +1013,16 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
     // L = the MAX BBOX EXTENT.
     const double L = std::max(std::max(hi.x - lo.x, hi.y - lo.y), hi.z - lo.z);
     double v6 = 0;
+    // ROUND 34: S, the shell's VECTOR AREA in its own winding frame, accumulated over the SAME faces
+    // in the SAME order and with the SAME rel[] correction as the volume sum — the two must be in
+    // ONE frame or the identity below does not hold. 6V about any origin c is
+    //     6V(c) = 6V(0) - c . S,
+    // because every term of det[p0-c, p1-c, p2-c] containing two copies of c vanishes and the
+    // remaining c-terms collect into -c . (p0 x p1 + p1 x p2 + p2 x p0) = -c . cross(p1-p0, p2-p0).
+    // Hence |S| is exactly what says how much a change of origin can move the volume. S == 0 on a
+    // closed shell (the vector area of a closed surface vanishes), which is WHY the closed case is
+    // origin-free.
+    V3 svec{0, 0, 0};
     for (u32 f : shell_faces[s]) {
       const u32 i0 = faces[f][0];
       const u32 i1 = rel[f] < 0 ? faces[f][2] : faces[f][1];
@@ -1014,7 +1031,15 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
       // ~1e15 and the enclosed volume is lost to cancellation.
       const V3 a = pos(i0) - c, b = pos(i1) - c, d = pos(i2) - c;
       v6 += dot(a, cross(b, d));
+      svec = svec + cross(b - a, d - a);  // c cancels in the differences; same rel[] frame as v6
     }
+    const double sarea = len(svec);
+    r.shell_vecarea[s] = sarea;
+    // The margin the open-shell gate tests: the worst-case origin shift inside the bbox moves 6V by
+    // at most |S| * L, so the SIGN of 6V survives any such shift iff this ratio exceeds
+    // kOrientVolOpenRobust. Infinity when |S| * L == 0: no shift can change the sign at all.
+    r.shell_vol_robust[s] = (sarea * L > 0.0) ? (std::abs(v6) / (sarea * L))
+                                              : std::numeric_limits<double>::infinity();
     r.shell_v6_over_l3[s] = (L > 0.0) ? (v6 / (L * L * L)) : 0.0;
     if (L > 0.0 && std::abs(v6) > kOrientVolEps * L * L * L) {
       r.shell_gsign[s] = (s8)(v6 > 0 ? 1 : -1);
@@ -1379,7 +1404,8 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
   for (u32 s = 0; s < n_shells; s++) {
     shell_ballot[s] = (double)shell_ballot_i[s];  // published as a double for the report only
   }
-  // (c) THE SHELL VERDICT — one per shell, VOLX (exact) then RAYF (aggregated) then ESC.
+  // (c) THE SHELL VERDICT — one per shell: VOLX (exact) then VOLOPEN (exact where the origin cannot
+  //     change its sign) then RAYF (aggregated) then ESC.
   std::vector<s8> shell_sign(n_shells, 0);
   std::vector<u8> shell_verdict_tier(n_shells, (u8)kOrientShellUndecided);
   for (u32 s = 0; s < n_shells; s++) {
@@ -1387,6 +1413,20 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
       shell_sign[s] = r.shell_vol_sign[s];
       shell_verdict_tier[s] = (u8)kOrientShellVol;
       r.shells_volx++;
+    } else if (r.shell_vol_sign[s] != 0 &&
+               r.shell_vol_robust[s] > kOrientVolOpenRobust) {
+      // ROUND 34 — VOLOPEN. The shell is OPEN, so the cone volume about the bbox centre is in
+      // general origin-DEPENDENT and round 33 was right to refuse it as such. But the dependence is
+      // LINEAR and bounded: 6V(c) = 6V(0) - c . S, so no origin inside the bbox can move 6V by more
+      // than about |S| * L. Where |6V| exceeds that bound the SIGN is the same for EVERY admissible
+      // origin, which makes it a well-defined quantity again and an exact verdict, not a sample.
+      // The gate is the bound itself (kOrientVolOpenRobust == 1.0), and it degenerates to round 33's
+      // closed-shell rule when S == 0. It sits BELOW closed VOLX and ABOVE RAYF because it is exact
+      // where it speaks, but it speaks under a hypothesis (origin inside the bbox) that the closed
+      // case does not need.
+      shell_sign[s] = r.shell_vol_sign[s];
+      shell_verdict_tier[s] = (u8)kOrientShellVolOpen;
+      r.shells_volopen++;
     } else if (shell_ballot_i[s] != 0) {
       shell_sign[s] = (s8)(shell_ballot_i[s] > 0 ? 1 : -1);
       shell_verdict_tier[s] = (u8)kOrientShellRayf;
@@ -1422,6 +1462,10 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
       case kOrientShellVol:
         r.face_tier[f] = (u8)kOrientVolx;
         r.faces_volx++;
+        break;
+      case kOrientShellVolOpen:
+        r.face_tier[f] = (u8)kOrientVolxOpen;
+        r.faces_volopen++;
         break;
       case kOrientShellRayf:
         r.face_tier[f] = (u8)kOrientRayf;

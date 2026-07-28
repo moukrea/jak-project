@@ -25,6 +25,8 @@
 //   VOLX  the shell is CLOSED (every edge used by exactly two of its faces), so the divergence
 //         theorem makes the signed volume's sign the ground truth: no free parameter, no origin
 //         dependence, no sampling error. EXACT beats SAMPLED, so it is first.
+//   VOLOPEN (round 34) the same signed volume on an OPEN shell, admitted ONLY where its SIGN is
+//         provably origin-independent anyway. See "THE OPEN-SHELL ROBUSTNESS GATE" below.
 //   RAYF  the shell's faces VOTE with their escape-ray margins ("lancer de rayon sortant"): each
 //         face's margin (escapes on the +side minus escapes on the -side) is expressed in the
 //         shell's frame by multiplying by rel[f], and the signs are summed. A confident face
@@ -50,10 +52,43 @@
 // two can be scored against each other, but it decides nothing. On village1 it had been deciding
 // 153754 of 458830 graded faces.
 //
-// There is deliberately NO open-shell volume tier (on an open shell the cone volume about the bbox
-// centre is ORIGIN-DEPENDENT, hence not a well-defined quantity, let alone a verdict) and NO
-// RAYF-vs-VOL conflict exclusion (that threw away a verdict on the strength of a criterion with no
-// standing). Both quantities are still COMPUTED and REPORTED as diagnostics.
+// There is NO RAYF-vs-VOL conflict exclusion (that threw away a verdict on the strength of a
+// criterion with no standing). Both quantities are still COMPUTED and REPORTED as diagnostics.
+//
+// ROUND 34 — THE OPEN-SHELL ROBUSTNESS GATE (tier VOLOPEN).
+//
+// Round 33 refused the signed volume on every open shell, on the ground that the cone volume about
+// the bbox centre is ORIGIN-DEPENDENT there. That ground is correct in general and TOO STRONG in
+// particular, and the derivation says exactly how much too strong. With the shell's faces taken in
+// the rel[]-corrected winding,
+//
+//     6V(c) = sum_f det[p0 - c, p1 - c, p2 - c]
+//
+// and expanding the determinant, every term containing two copies of c vanishes, so the whole
+// dependence on the origin is LINEAR and explicit:
+//
+//     6V(c) = 6V(0) - c . S      with     S = sum_f cross(p1 - p0, p2 - p0) * rel[f]
+//
+// (the per-face identity being a x b + b x d + d x a == (b - a) x (d - a)). S is twice the VECTOR
+// AREA of the shell expressed in the shell's own winding frame. On a CLOSED shell S = 0 exactly —
+// the vector area of a closed surface vanishes — which is precisely WHY the closed case is
+// origin-invariant. On an OPEN shell S != 0 and, by Stokes, |S| is governed by the boundary.
+//
+// Moving the origin anywhere else inside the shell's bounding box therefore changes 6V by at most
+// about |S| * L, where L is the bbox max extent. So the SIGN of 6V is origin-independent — and the
+// volume verdict is trustworthy on an open shell too — exactly when
+//
+//     |6V|  >  kOrientVolOpenRobust * |S| * L
+//
+// kOrientVolOpenRobust is 1.0 because that IS the worst-case bound (the largest origin shift the
+// bbox admits), not because 1.0 made a number move. The test reduces EXACTLY to round 33's
+// behaviour on a closed shell: S = 0 makes the right-hand side 0, so any non-zero volume passes,
+// which is what closed shells already got.
+//
+// The measured case this exists for: village1 shell 19 `vil-beachrock`, 123 faces, 52 open edges,
+// |V6|/L^3 = 0.119 (119x kOrientVolEps), denied VOLX by the closedness gate, fell to RAYF, and RAYF
+// flipped THE WHOLE SHELL: A_sign 0.00000% against A_cons 100.000%, i.e. a perfectly self-coherent
+// mesh with every stored normal pointing the wrong way.
 //
 // DETERMINISM IS PART OF THE CONTRACT. The result is bit-reproducible run to run and independent of
 // the thread count: median-split BVH with a TOTAL order on ties, explicit traversal stack with an
@@ -74,6 +109,10 @@ namespace tfrag3 {
 
 // ---- the metre-denominated tuning constants, published so a caller can cite them in a report ----
 constexpr double kOrientVolEps = 1e-3;         // VOLX: |V6| > kOrientVolEps * L^3
+// VOLOPEN: on an OPEN shell the volume verdict is admitted only where |V6| > this * |S| * L, i.e.
+// where the worst-case origin shift inside the bbox cannot change the volume's SIGN. 1.0 is the
+// bound itself, not a tuned constant.
+constexpr double kOrientVolOpenRobust = 1.0;
 constexpr double kOrientRayEdgeEps = 1e-6;     // Moller-Trumbore ambiguity margin
 constexpr double kOrientProbeEpsM = 0.01;      // ESC probe offset, metres
 constexpr int kOrientMaxSampleFaces = 64;      // ESC sampled faces per shell
@@ -127,6 +166,9 @@ enum MeshOrientTier : u8 {
   kOrientColl = 2,
   kOrientEsc = 3,
   kOrientUndecided = 4,
+  // round 34: the signed volume on an OPEN shell whose volume sign is provably origin-independent.
+  // Appended, so every value above keeps the number it always had.
+  kOrientVolxOpen = 5,
 };
 const char* mesh_orient_tier_name(u8 tier);
 
@@ -137,6 +179,9 @@ enum MeshOrientShellTier : u8 {
   kOrientShellVol = 1,
   kOrientShellEsc = 2,
   kOrientShellRayf = 3,  // round 33: the shell verdict aggregated from its faces' escape-ray margins
+  // round 34: the signed volume on an OPEN shell, admitted by the robustness gate
+  // |V6| > kOrientVolOpenRobust * |S| * L. Appended, so 0..3 keep their numbers.
+  kOrientShellVolOpen = 4,
 };
 const char* mesh_orient_shell_tier_name(u8 tier);
 
@@ -187,6 +232,14 @@ struct MeshOrientResult {
   std::vector<u64> shell_nonmanifold_edges;  // per shell, edges whose face list size is >= 3
   std::vector<s8> shell_vol_sign;      // the SIGNED-VOLUME verdict alone, 0 = it stayed silent
   std::vector<double> shell_v6_over_l3;
+  // ROUND 34, the open-shell robustness gate. shell_vecarea is |S| = |sum_f cross(p1-p0,p2-p0)*rel|,
+  // the shell's vector area in its own winding frame, accumulated over the SAME faces in the SAME
+  // order and with the SAME rel[] correction as the volume sum. shell_vol_robust is the derived
+  // margin |6V| / (|S| * L): the volume's sign is origin-independent inside the bbox iff it exceeds
+  // kOrientVolOpenRobust. It is set to infinity when |S| * L == 0 (every closed shell), which is the
+  // honest value — no origin shift can change that sign at all.
+  std::vector<double> shell_vecarea;
+  std::vector<double> shell_vol_robust;
   std::vector<u64> shell_winding_conflicts;
   std::vector<s8> shell_coll_sign;     // 0 = the collision authority is not competent here
   std::vector<u8> shell_coll_speaks;
@@ -218,6 +271,10 @@ struct MeshOrientResult {
   u64 faces_volx = 0, faces_rayf = 0, faces_coll = 0, faces_esc = 0, faces_undecided = 0;
   // round 33: how the SHELL verdicts were reached, and how many faces each carried.
   u64 shells_volx = 0, shells_rayf = 0, shells_esc = 0, shells_undecided = 0;
+  // round 34: the open-shell volume tier, counted apart from the closed one so a report can never
+  // pass off a gated verdict as an exact-by-construction one.
+  u64 shells_volopen = 0;
+  u64 faces_volopen = 0;
   u64 faces_no_rel = 0;  // faces the winding flood fill never reached: no coherent frame exists
   // ROUND 34, the two-phase flood fill: how many faces got their rel[] from a TRUE-MANIFOLD chain of
   // adjacencies (phase 1, where the winding rule is defined and the answer is exact) versus from the
