@@ -148,6 +148,15 @@ struct MeshAuditReport {
   // Faces the PER-FACE repair had to flip AFTER their component had already been decided as a
   // block: the population a component-level authority structurally cannot reach.
   u64 orient_faces_geom_repaired = 0;
+  // ROUND 31 second half: components settled by the EXACT signed volume of a closed shell, the
+  // subset of those where the sampled escape-ray vote wanted the opposite, and the OPEN components
+  // where the two independent criteria contradict each other and neither is believed.
+  u64 orient_comps_closed_volume_decided = 0;
+  u64 orient_comps_geom_overruled_by_volume = 0;
+  u64 orient_comps_criteria_conflict = 0;
+  // Vertices where the max-min-dot smoothing-cluster choice landed on a DIFFERENT cluster than the
+  // legacy largest-incident-face rule would have picked.
+  u64 orient_vertex_cluster_rechosen = 0;
   u64 orient_comps_geom_decided = 0;    // components whose global sign the per-face vote decided
   // Where the vote and an older authority both speak and DISAGREE. The collision number is the
   // measure of how much floor-normal authority this round takes away; the volume number is the

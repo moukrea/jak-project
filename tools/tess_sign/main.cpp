@@ -890,6 +890,12 @@ struct Shell {
   int baked_sign = 0;              // sign of the area-weighted agreement of the BAKED normals
   bool has_displaceable = false;
   double esc_ratio = 0.0;          // tier ESC diagnostic
+  // ---- IS THE SHELL A CLOSED SURFACE? ----
+  // CLOSED iff every one of the shell's edges (undirected weld-group pair) is used by EXACTLY TWO of
+  // its faces. This is the precondition under which the divergence theorem — hence the signed-volume
+  // criterion — is EXACT rather than an approximation about an arbitrary origin.
+  bool closed = false;
+  u32 open_edges = 0;              // edges used by a number of faces other than exactly two
   // ---- per-face RAYF vs the shell VOL verdict (two INDEPENDENT geometric criteria) ----
   u64 rayf_voted = 0;              // mesh faces of this shell with a non-zero RAYF vote
   u64 rayf_agree = 0;              // ... of those, faces where vote == vol_sign * rel[f]
@@ -928,6 +934,12 @@ struct MeshRow {
   // faces / generated vertices decided by each OUTWARD tier
   u64 f_rayf = 0, f_vol = 0, f_esc = 0, f_und = 0;
   u64 v_rayf = 0, v_vol = 0, v_esc = 0, v_und = 0;
+  u64 f_volx = 0, f_both = 0;   // VOLX = exact volume on a CLOSED shell; BOTH = RAYF and VOL concur
+  u64 v_volx = 0, v_both = 0;
+  // the CONFLICT population: faces where RAYF and VOL hand this face OPPOSITE outward directions.
+  // They are a strict subset of the UNDECIDED faces (f_und / v_und) — counted separately because a
+  // contradiction between two independent criteria is a different fact from a joint silence.
+  u64 f_conflict = 0, v_conflict = 0;
   // ---- seam-pin reason attribution, over the mesh's DISTINCT SOURCE vertices with seam_w == 0 ----
   u64 pin_src = 0;          // pinned source vertices (the population of the four counts below)
   u64 pin_material = 0, pin_system = 0, pin_open = 0, pin_crease = 0;
@@ -1636,6 +1648,9 @@ int main(int argc, char** argv) {
   }
   // winding_conflicts: edges whose two (rel-corrected) traversals are NOT opposite. Counted once per
   // edge, after the BFS, so it is a property of the shell and not of the visit order.
+  // In the SAME walk: open_edges — the edges NOT used by exactly two of the shell's faces. Every face
+  // on an edge belongs to the same shell by construction (the shell IS the edge-connected component),
+  // so an edge is charged to exactly one shell.
   for (const auto& kv : edges) {
     const auto& lst = kv.second;
     bool conflict = false;
@@ -1648,9 +1663,18 @@ int main(int argc, char** argv) {
         conflict = true;
       }
     }
-    if (conflict && !lst.empty()) {
+    if (lst.empty()) {
+      continue;
+    }
+    if (conflict) {
       shells[shell_of[lst[0].face]].winding_conflicts++;
     }
+    if (lst.size() != 2) {
+      shells[shell_of[lst[0].face]].open_edges++;
+    }
+  }
+  for (auto& sh : shells) {
+    sh.closed = (sh.open_edges == 0);
   }
 
   // (b) TIER VOL — SIGNED VOLUME. Unchanged from the previous revision, but it is now a FALLBACK:
@@ -1931,21 +1955,80 @@ int main(int argc, char** argv) {
   fmt::print("[tess_sign] tier ESC done\n");
 
   // ===============================================================================================
-  // (e) THE PER-FACE OUTWARD DIRECTION AND ITS TIER. This is the single place the tier ORDER lives:
-  //        RAYF (per face, no propagation)  ->  VOL (shell signed volume)  ->  ESC  ->  UNDECIDED
+  // (e) THE PER-FACE OUTWARD DIRECTION AND ITS TIER — A CONSENSUS RULE, EXACTNESS FIRST.
+  //
+  //        VOLX (exact volume on a CLOSED shell)  ->  BOTH (the two criteria concur)
+  //     -> CONFLICT => UNDECIDED  ->  the single criterion that spoke (RAYF / VOL)
+  //     -> ESC (shell escape asymmetry)  ->  UNDECIDED
+  //
   // osign[f] is the multiplier on the face's own gn: outward(f) = osign[f] * gn(f).
+  //
+  // WHY EXACTNESS OUTRANKS SAMPLING. On a CLOSED shell the signed volume is not an estimate: the
+  // divergence theorem makes sum_f rel[f]*dot(a,cross(b,c)) the enclosed volume EXACTLY, so its sign
+  // settles inside-vs-outside with no free parameter, no origin dependence (a closed surface's cone
+  // volume is origin-invariant) and no sampling error. The escape-ray test is, by construction, a
+  // FINITE SAMPLE of K directions per hemisphere against the surrounding level: it answers "which
+  // side has more open space", which is only a PROXY for "which side is outside", and the proxy is
+  // measurably wrong on small props that are half-buried in the terrain around them — a rock sunk in
+  // a hillside is blocked on BOTH sides, so a couple of rays decide an 8-bit margin. Where the exact
+  // criterion is available it must win; where it is not (an open shell), the sample is all there is.
+  //
+  // WHY A CONTRADICTION MUST ABSTAIN RATHER THAN PICK A SIDE. RAYF and VOL are INDEPENDENT: one reads
+  // the emptiness of space around the face, the other the algebraic sign of an enclosed volume. When
+  // they hand the SAME face OPPOSITE outward directions, at least one of them is wrong on that face
+  // and nothing in either measurement says which. Grading a vertex against a reference that a second
+  // independent criterion contradicts does not measure the renderer — it measures a coin flip, and a
+  // coin flip reported as 0.00% or as 100.00% is equally worthless. So the face is declared UNDECIDED
+  // and EXCLUDED from the grade, and the size of that excluded population is printed in section E:
+  // "the geometry does not settle this" is a fact the report must state, not hide inside a score.
   // ===============================================================================================
-  constexpr u8 kTierRayf = 0, kTierVol = 1, kTierEsc = 2, kTierUnd = 3;
-  const char* kTierName[4] = {"RAYF", "VOL", "ESC", "UNDECIDED"};
+  constexpr u8 kTierRayf = 0, kTierVol = 1, kTierEsc = 2, kTierUnd = 3, kTierVolx = 4,
+               kTierBoth = 5;
+  const char* kTierName[6] = {"RAYF", "VOL", "ESC", "UNDECIDED", "VOLX", "BOTH"};
   std::vector<s8> osign(faces.size(), 0);
   std::vector<u8> ftier(faces.size(), kTierUnd);
+  std::vector<u8> face_conflict(faces.size(), 0);
+  u64 n_conflict_undecided = 0;  // faces where RAYF and VOL contradict each other
   for (u32 f = 0; f < faces.size(); f++) {
-    if (rayf_vote[f] != 0) {
-      osign[f] = rayf_vote[f];
+    const Shell& sh = shells[shell_of[f]];
+    // (a) the SIGNED-VOLUME verdict expressed for THIS face. This is the very expression the
+    // rayf_vs_vol comparator below scores RAYF against (`vol_sign * rel[f]`), reused verbatim so the
+    // cascade and the diagnostic column can never drift apart. 0 = the volume tier did not speak.
+    const int vol_here = (sh.vol_sign != 0 && rel[f] != 0) ? sh.vol_sign * (int)rel[f] : 0;
+    // (b) the per-face escape-ray verdict. 0 = it abstained.
+    const int rayf_here = (int)rayf_vote[f];
+    // (c) EXACT beats SAMPLED: a closed shell's volume sign is the ground truth by theorem.
+    if (sh.closed && vol_here != 0) {
+      osign[f] = (s8)vol_here;
+      ftier[f] = kTierVolx;
+      continue;
+    }
+    if (rayf_here != 0 && vol_here != 0) {
+      if (rayf_here == vol_here) {
+        // (d) two independent criteria, one answer.
+        osign[f] = (s8)rayf_here;
+        ftier[f] = kTierBoth;
+      } else {
+        // (e) they contradict each other: no reference, no grade.
+        face_conflict[f] = 1;
+        n_conflict_undecided++;
+        osign[f] = 0;
+        ftier[f] = kTierUnd;
+      }
+      continue;
+    }
+    // (f) exactly one of them spoke — use it, and say which.
+    if (rayf_here != 0) {
+      osign[f] = (s8)rayf_here;
       ftier[f] = kTierRayf;
       continue;
     }
-    const Shell& sh = shells[shell_of[f]];
+    if (vol_here != 0) {
+      osign[f] = (s8)vol_here;
+      ftier[f] = kTierVol;
+      continue;
+    }
+    // (g) neither spoke: TIER ESC, exactly as before, then UNDECIDED.
     if (sh.gsign != 0 && rel[f] != 0) {
       osign[f] = (s8)(sh.gsign * (int)rel[f]);
       ftier[f] = std::strcmp(sh.tier, "VOL") == 0 ? kTierVol : kTierEsc;
@@ -2430,6 +2513,7 @@ int main(int argc, char** argv) {
     u64 live = 0, patches = 0, patches_live = 0, exempt = 0;
     u64 gverts_tfrag = 0, disp_nz_tfrag = 0, live_tfrag = 0;
     u64 v_rayf = 0, v_vol = 0, v_esc = 0, v_und = 0;
+    u64 v_volx = 0, v_both = 0, v_conflict = 0;
   };
 
   // Evaluate every mesh at inspection distance d. `store` = write the per-mesh columns too.
@@ -2451,6 +2535,8 @@ int main(int argc, char** argv) {
         m.z_patch_dead = 0;
         m.f_rayf = m.f_vol = m.f_esc = m.f_und = 0;
         m.v_rayf = m.v_vol = m.v_esc = m.v_und = 0;
+        m.f_volx = m.f_both = m.v_volx = m.v_both = 0;
+        m.f_conflict = m.v_conflict = 0;
         m.disp_sum_cm = 0;
         m.disp_max_cm = 0;
         m.inner_sum = 0;
@@ -2480,7 +2566,8 @@ int main(int argc, char** argv) {
       u64 local_verts = 0, local_den = 0, local_ok = 0, local_ok_lit = 0, local_nz = 0,
           local_live = 0, local_seam0 = 0;
       u64 local_patches = 0, local_patches_live = 0;
-      u64 lv_tier[4] = {0, 0, 0, 0};
+      u64 lv_tier[6] = {0, 0, 0, 0, 0, 0};
+      u64 lv_conflict = 0;  // generated vertices on a RAYF-vs-VOL conflict face
       for (u32 f : m.faces) {
         if (local_verts >= max_verts_per_mesh) {
           if (store) {
@@ -2508,12 +2595,14 @@ int main(int argc, char** argv) {
           m.inner_sum += inner;
           m.spacing_sum_m += mean_edge_m / std::max(inner, 1.0);
         }
-        // outward(f) = osign[f] * gn(f), with osign decided PER FACE by the tier cascade
-        // RAYF -> VOL -> ESC -> UNDECIDED. 0-length only when every tier abstained on this face.
+        // outward(f) = osign[f] * gn(f), with osign decided PER FACE by the consensus cascade
+        // VOLX -> BOTH -> (CONFLICT => UNDECIDED) -> RAYF / VOL -> ESC -> UNDECIDED. 0-length when
+        // every tier abstained on this face OR when the two criteria contradicted each other.
         const V3 outward =
             (osign[f] != 0) ? normalized(face_cross(f)) * (double)osign[f] : V3{0, 0, 0};
         const bool have_outward = osign[f] != 0;
         const u8 tier_here = ftier[f];
+        const bool conflict_here = face_conflict[f] != 0;
         u64 face_verts = 0, face_live = 0;
         if (store) {
           switch (tier_here) {
@@ -2523,12 +2612,21 @@ int main(int argc, char** argv) {
             case kTierVol:
               m.f_vol++;
               break;
+            case kTierVolx:
+              m.f_volx++;
+              break;
+            case kTierBoth:
+              m.f_both++;
+              break;
             case kTierEsc:
               m.f_esc++;
               break;
             default:
               m.f_und++;
               break;
+          }
+          if (conflict_here) {
+            m.f_conflict++;
           }
         }
         local_patches++;
@@ -2538,6 +2636,9 @@ int main(int argc, char** argv) {
           local_verts++;
           face_verts++;
           lv_tier[tier_here]++;
+          if (conflict_here) {
+            lv_conflict++;
+          }
           // .tese:192-197 barycentric interpolation + the normalized normal
           const double s = bx * gv[ia].s + by * gv[ib].s + bz * gv[ic].s;
           const double t = bx * gv[ia].t + by * gv[ib].t + bz * gv[ic].t;
@@ -2673,6 +2774,9 @@ int main(int argc, char** argv) {
         m.v_vol = lv_tier[kTierVol];
         m.v_esc = lv_tier[kTierEsc];
         m.v_und = lv_tier[kTierUnd];
+        m.v_volx = lv_tier[kTierVolx];
+        m.v_both = lv_tier[kTierBoth];
+        m.v_conflict = lv_conflict;
       }
       agg.gverts += local_verts;
       agg.sign_den += local_den;
@@ -2693,6 +2797,9 @@ int main(int argc, char** argv) {
       agg.v_vol += lv_tier[kTierVol];
       agg.v_esc += lv_tier[kTierEsc];
       agg.v_und += lv_tier[kTierUnd];
+      agg.v_volx += lv_tier[kTierVolx];
+      agg.v_both += lv_tier[kTierBoth];
+      agg.v_conflict += lv_conflict;
     }
     return agg;
   };
@@ -2780,18 +2887,22 @@ int main(int argc, char** argv) {
     r += s;
     r += "\n";
   };
-  // the FACE COUNT decided by each outward tier, compact: R=RAYF V=VOL E=ESC U=UNDECIDED
+  // the FACE COUNT decided by each outward tier, compact:
+  // X=VOLX (exact volume, closed shell) B=BOTH (the two criteria concur) R=RAYF V=VOL E=ESC
+  // U=UNDECIDED, and C= the CONFLICT subset of U (RAYF and VOL contradict each other).
   auto tierf_str = [](const MeshRow& m) {
-    return fmt::format("R{}/V{}/E{}/U{}", m.f_rayf, m.f_vol, m.f_esc, m.f_und);
+    return fmt::format("X{}/B{}/R{}/V{}/E{}/U{}/C{}", m.f_volx, m.f_both, m.f_rayf, m.f_vol,
+                       m.f_esc, m.f_und, m.f_conflict);
   };
   auto tierv_str = [](const MeshRow& m) {
-    return fmt::format("R{}/V{}/E{}/U{}", m.v_rayf, m.v_vol, m.v_esc, m.v_und);
+    return fmt::format("X{}/B{}/R{}/V{}/E{}/U{}/C{}", m.v_volx, m.v_both, m.v_rayf, m.v_vol,
+                       m.v_esc, m.v_und, m.v_conflict);
   };
   auto mesh_line = [&](u32 mi) {
     const auto& m = meshes[mi];
     const Shell& sh = shells[m.shell];
     return fmt::format(
-        "{} {} {:>7.2f} {:>7.2f} {:>7.2f} {} {}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} "
+        "{} {} {:>7.2f} {:>7.2f} {:>7.2f} {} {}  {:<5} {:>6} {:<32} {:<11} {:>5} {:<8} {:>7} "
         "{:>7}{} {:>9} {:>9} {:>7.2f} {:>8.3f} {:>8.3f} {:>7.2f} {:>7.3f}  {:<26} "
         "({:8.2f} {:7.2f} {:8.2f})  {}",
         pct_or_na(m.a_pct()), pct_or_na(m.p_pct()), m.b_live_pct(), m.b_pct(), m.b_patch_pct(),
@@ -2803,7 +2914,7 @@ int main(int argc, char** argv) {
         m.named.empty() ? "-" : m.named);
   };
   const std::string mesh_hdr = fmt::format(
-      "{:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}  {:<5} {:>6} {:<17} {:<11} {:>5} {:<8} {:>7} "
+      "{:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}  {:<5} {:>6} {:<32} {:<11} {:>5} {:<8} {:>7} "
       "{:>8} {:>9} {:>9} {:>7} {:>8} {:>8} {:>7} {:>7}  {:<26} {:^29}  {}",
       "A_sign%", "P_sign%", "B_live%", "B_disp%", "B_patch", "B_req%", "A_lit%", "sys", "shell",
       "tierFACES", "rayf_vs_vol", "wcf", "coll_vs_", "faces", "sampled", "gverts", "exempt",
@@ -2814,7 +2925,7 @@ int main(int argc, char** argv) {
   auto mesh2_line = [&](u32 mi) {
     const auto& m = meshes[mi];
     return fmt::format(
-        "{:<5} {:>6} {:<17} {:>9} {:>9} {:>9} {:>9} {:>9} {:>11} {:>7} {:>7} {:>7} {:>7} {:>7} "
+        "{:<5} {:>6} {:<38} {:>9} {:>9} {:>9} {:>9} {:>9} {:>11} {:>7} {:>7} {:>7} {:>7} {:>7} "
         "{:>9} {:>7}  {:<26} {}",
         kSysName[m.system], m.shell, tierv_str(m), m.z_seam, m.z_falloff, m.z_h_mid, m.z_amp,
         m.z_not_tess, m.z_patch_dead, m.pin_src, m.pin_material, m.pin_system, m.pin_open,
@@ -2822,7 +2933,7 @@ int main(int argc, char** argv) {
         m.named.empty() ? "-" : m.named);
   };
   const std::string mesh2_hdr = fmt::format(
-      "{:<5} {:>6} {:<17} {:>9} {:>9} {:>9} {:>9} {:>9} {:>11} {:>7} {:>7} {:>7} {:>7} {:>7} "
+      "{:<5} {:>6} {:<38} {:>9} {:>9} {:>9} {:>9} {:>9} {:>11} {:>7} {:>7} {:>7} {:>7} {:>7} "
       "{:>9} {:>7}  {:<26} {}",
       "sys", "shell", "tierVERTS", "z_seam", "z_falloff", "z_h_mid", "z_amp", "z_notess",
       "z_patchdead", "pin_src", "pinMAT", "pinSYS", "pinOPEN", "pinCRSE", "PIN_UNEXP", "(subdv)",
@@ -2918,9 +3029,25 @@ int main(int argc, char** argv) {
   line("");
   line("--- GROUND TRUTH \"OUTWARD\": PER FACE FIRST, PURELY GEOMETRIC, NEVER THE COLLISION MESH ----");
   line("outward(f) = osign[f] * normalize(cross(p1-p0, p2-p0)) — the face's OWN stored winding scaled");
-  line("by a sign decided by this cascade, in this order, PER FACE:");
+  line("by a sign decided by this CONSENSUS cascade, in this order, PER FACE:");
   line("");
-  line("  TIER RAYF (PRIMARY, per face, NO propagation, NO global orientation) — \"lancer de rayon");
+  line("  TIER VOLX (EXACT, per face, on a CLOSED shell): if every edge of the face's shell is used by");
+  line("      exactly TWO of its faces, the shell bounds a volume and the divergence theorem makes the");
+  line("      signed volume EXACT — its sign settles inside-vs-outside with no free parameter, no");
+  line("      origin dependence and no sampling error. outward(f) = vol_sign(shell) * rel[f] * gn(f).");
+  line("      EXACTNESS OUTRANKS SAMPLING: the escape-ray tier below is a finite sample of K directions");
+  line("      per hemisphere and answers \"which side has more open space\", which is only a PROXY for");
+  line("      \"which side is outside\" — and the proxy is measurably wrong on a small prop half-buried");
+  line("      in the terrain around it, where both sides are largely blocked.");
+  line("  TIER BOTH (the two INDEPENDENT criteria concur): RAYF and VOL hand the face the SAME");
+  line("      direction. That is the strongest verdict available on an OPEN shell.");
+  line("  CONFLICT => UNDECIDED: RAYF and VOL both spoke and hand the face OPPOSITE directions. At");
+  line("      least one of them is wrong there and NOTHING in either measurement says which, so the");
+  line("      face is NOT graded. Grading a vertex against a reference a second independent criterion");
+  line("      contradicts measures a coin flip, not the renderer. The size of that abstention is");
+  line("      printed in section E as CONFLICT — it is part of the UNDECIDED population, not hidden");
+  line("      inside a score.");
+  line("  TIER RAYF (per face, NO propagation, NO global orientation) — \"lancer de rayon");
   line("    sortant\": the visible side of a surface is the side that has OPEN SPACE on it.");
   line(fmt::format("      gn = normalize(cross(p1-p0, p2-p0)) from the face's own winding, c = centroid;"));
   line(fmt::format("      probes p_plus = c + {:g} m * gn and p_minus = c - {:g} m * gn ({:g} game units);",
@@ -2940,7 +3067,7 @@ int main(int argc, char** argv) {
   line("    are sampled symmetrically and esc_plus / esc_minus cannot be biased against each other.");
   line("    An edge-grazing hit COUNTS as a hit: that bias is one-directional (it can only turn an");
   line("    escape into a non-escape, never invent an escape) and identical on both sides.");
-  line("    WHY THIS IS NOW THE PRIMARY AUTHORITY, and the per-shell volume only a fallback:");
+  line("    WHY IT IS STILL THE ONLY AUTHORITY ON AN OPEN SHELL, where VOLX cannot apply:");
   line("      (1) for an OPEN shell the cone volume about the bbox centre is ORIGIN-DEPENDENT, so the");
   line("          signed-volume criterion is not even well defined there;");
   line("      (2) a per-shell verdict has to be CARRIED to each face through the relative-winding BFS,");
@@ -2949,11 +3076,14 @@ int main(int argc, char** argv) {
   line("          flips a whole sub-tree of faces and poisons the shell.");
   line("      RAYF has neither failure mode: nothing is propagated, and a face's verdict depends on");
   line("      nothing but its own geometry and the level around it.");
-  line("  TIER VOL (fallback, per shell): signed volume V6 = sum_f rel[f]*dot(a,cross(b,c)) about the");
+  line("  TIER VOL (per shell, the ONLY criterion that spoke): signed volume");
+  line("      V6 = sum_f rel[f]*dot(a,cross(b,c)) about the");
   line(fmt::format("      bbox centre; speaks when |V6| > {:g} * L^3, L = MAX BBOX EXTENT. rel[] is the",
                    kVolEps));
   line("      RELATIVE winding from a BFS over the shell's edge adjacency (two faces are consistently");
-  line("      wound iff they traverse the shared weld-group pair in OPPOSITE order).");
+  line("      wound iff they traverse the shared weld-group pair in OPPOSITE order). The SAME quantity");
+  line("      feeds TIER VOLX above; the only difference is whether the shell is closed, i.e. whether");
+  line("      the number is exact or an approximation about an arbitrary origin.");
   line(fmt::format("  TIER ESC (fallback, per shell): escape-distance asymmetry marched against the"));
   line(fmt::format("      whole-level BVH, free distance capped at {:g} m, winner's mean must lead by",
                    kEscMaxM));
@@ -2962,14 +3092,16 @@ int main(int argc, char** argv) {
   line("  else UNDECIDED: reported as such. There is NO \"keep what was there\" fallback and");
   line("      lev.collision is NEVER consulted for the truth — that authority is exactly what produced");
   line("      the round-29 defect. It appears in section C as a DIAGNOSIS ONLY.");
-  line("  REMOVED in this revision: the old per-shell TIER B \"RAY\" (outward-ray PARITY over the");
+  line("  REMOVED in an earlier revision: the old per-shell TIER B \"RAY\" (outward-ray PARITY over the");
   line("      shell's own faces). Parity needs a closed shell and a trustworthy crossing count, both of");
-  line("      which the per-face escape test does without. The mandated cascade is RAYF -> VOL -> ESC.");
-  line("  tierFACES / tierVERTS columns give the FACE and generated-VERTEX count each tier decided,");
-  line("      as R<rayf>/V<vol>/E<esc>/U<undecided>, per mesh and in the totals.");
+  line("      which the per-face escape test does without.");
+  line("  tierFACES / tierVERTS columns give the FACE and generated-VERTEX count each tier decided, as");
+  line("      X<volx>/B<both>/R<rayf>/V<vol>/E<esc>/U<undecided>/C<conflict>, per mesh and in the");
+  line("      totals. C is the CONFLICT SUBSET of U, not an extra population: X+B+R+V+E+U = the faces.");
   line("  rayf_vs_vol (section A and C) scores the TWO INDEPENDENT criteria against each other on the");
   line("      shell's own mesh faces: they agree on face f iff rayf_vote[f] == vol_sign * rel[f]. When");
-  line("      they DISAGREE neither may be trusted blindly, which is exactly why it is a column.");
+  line("      they DISAGREE neither may be trusted blindly — and since this revision the cascade acts");
+  line("      on that instead of contradicting it: such a face is UNDECIDED and is not graded.");
   line("");
   line("--- THE PORTED STEPS, WITH THE SHADER LINE FOR EACH ---------------------------------------");
   line("  .tesc:123-132  tess_seg_target_m(d) = clamp(seg*pow(max(d,5)/5, 1.5), seg, max(0.60,seg))");
@@ -3146,7 +3278,10 @@ int main(int argc, char** argv) {
   line("         their count is in section E. B_live / B_disp / B_patch / B_req are the four liveness");
   line("         columns derived in the header (B_req's n/a = every vertex of the row is structurally");
   line("         exempt, which is what a TIE row is). tierFACES = the FACE count each outward tier");
-  line("         decided, R=RAYF V=VOL E=ESC U=UNDECIDED. rayf_vs_vol = per-face RAYF majority against");
+  line("         decided, X=VOLX (exact volume on a CLOSED shell) B=BOTH (RAYF and VOL concur) R=RAYF");
+  line("         V=VOL E=ESC U=UNDECIDED, and C = the CONFLICT subset of U, i.e. the faces where RAYF");
+  line("         and VOL hand the SAME face OPPOSITE directions and the grade therefore abstains.");
+  line("         rayf_vs_vol = per-face RAYF majority against");
   line("         the shell's signed-volume verdict. wcf = winding conflicts of the shell. coll_vs_ =");
   line("         how the COLLISION authority compares to the shell fallback verdict (DIAGNOSIS ONLY —");
   line("         it decides nothing here). A '*' after `sampled` means the per-mesh sampling cap bit.");
@@ -3200,6 +3335,7 @@ int main(int argc, char** argv) {
     u64 hits = 0, den = 0, ok = 0, ok_lit = 0, gvv = 0, nz = 0, lv = 0, ex = 0, pat = 0,
         pat_live = 0;
     u64 fR = 0, fV = 0, fE = 0, fU = 0, vR = 0, vV = 0, vE = 0, vU = 0;
+    u64 fX = 0, fB = 0, fC = 0, vX = 0, vB = 0, vC = 0;
     u64 ps = 0, pm = 0, py = 0, po = 0, pc = 0, pu = 0;
     std::vector<u32> case_rows;
     line(mesh_hdr);
@@ -3226,6 +3362,12 @@ int main(int argc, char** argv) {
       vV += m.v_vol;
       vE += m.v_esc;
       vU += m.v_und;
+      fX += m.f_volx;
+      fB += m.f_both;
+      fC += m.f_conflict;
+      vX += m.v_volx;
+      vB += m.v_both;
+      vC += m.v_conflict;
       ps += m.pin_src;
       pm += m.pin_material;
       py += m.pin_system;
@@ -3271,8 +3413,9 @@ int main(int argc, char** argv) {
                                               100.0 * (double)lv / (double)(gvv - ex), lv,
                                               gvv - ex)
                                 : std::string("n/a")));
-      line(fmt::format("  CASE tierFACES = R{}/V{}/E{}/U{}   tierVERTS = R{}/V{}/E{}/U{}", fR, fV,
-                       fE, fU, vR, vV, vE, vU));
+      line(fmt::format("  CASE tierFACES = X{}/B{}/R{}/V{}/E{}/U{}/C{}   "
+                       "tierVERTS = X{}/B{}/R{}/V{}/E{}/U{}/C{}",
+                       fX, fB, fR, fV, fE, fU, fC, vX, vB, vR, vV, vE, vU, vC));
       line(fmt::format("  CASE pins: src={} MAT={} SYS={} OPEN={} CRSE={} UNEXPLAINED={}", ps, pm,
                        py, po, pc, pu));
       // the two independent criteria, over this case's own mesh faces
@@ -3306,14 +3449,18 @@ int main(int argc, char** argv) {
   line("vol_sign is the SIGNED-VOLUME verdict alone; rayf_voted/agree/DISAGREE and rayf_vs_vol score the");
   line("two INDEPENDENT geometric criteria against each other over the shell's mesh faces (they agree on");
   line("face f iff rayf_vote[f] == vol_sign * rel[f]). A DISAGREE row is a shell where NEITHER criterion");
-  line("may be trusted blindly. coll_* and baked_* are DIAGNOSIS ONLY: what the pipeline's own");
-  line("authorities claim, scored against the shell fallback verdict.");
+  line("may be trusted blindly, and since this revision such a FACE is UNDECIDED instead of graded.");
+  line("closed = every edge of the shell is used by EXACTLY TWO of its faces, and open_edge counts the");
+  line("ones that are not: only on a closed shell is the signed volume EXACT (divergence theorem), and");
+  line("only there does it outrank the escape-ray sample (tier VOLX). coll_* and baked_* are DIAGNOSIS");
+  line("ONLY: what the pipeline's own authorities claim, scored against the shell fallback verdict.");
   line("");
   const std::string shell_hdr = fmt::format(
       "{:>6} {:>7} {:>7} {:<9} {:>6} {:>8} {:>12} {:>6} {:>9} {:>8} {:>8} {:>9} {:<11} {:>5} {:<9} "
-      "{:>6} {:<9}",
+      "{:>6} {:<9} {:>6} {:>9}",
       "shell", "faces", "meshes", "tier", "gsign", "vol_sign", "|V6|/L^3", "wcf", "esc_ratio",
-      "rayf_vot", "rayf_agr", "rayf_DIS", "rayf_vs_vol", "coll", "coll_vs_", "baked", "baked_vs_");
+      "rayf_vot", "rayf_agr", "rayf_DIS", "rayf_vs_vol", "coll", "coll_vs_", "baked", "baked_vs_",
+      "closed", "open_edge");
   line(shell_hdr);
   line(std::string(shell_hdr.size(), '-'));
   std::vector<u32> meshes_per_shell(n_shells, 0);
@@ -3330,13 +3477,14 @@ int main(int argc, char** argv) {
     const Shell& sh = shells[s];
     return fmt::format(
         "{:>6} {:>7} {:>7} {:<9} {:>6} {:>8} {:>12.4g} {:>6} {:>9.3f} {:>8} {:>8} {:>9} {:<11} {:>5} "
-        "{:<9} {:>6} {:<9}",
+        "{:<9} {:>6} {:<9} {:>6} {:>9}",
         s, sh.faces.size(), meshes_per_shell[s], sh.tier,
         sh.gsign == 0 ? "0" : (sh.gsign > 0 ? "+1" : "-1"),
         sh.vol_sign == 0 ? "0" : (sh.vol_sign > 0 ? "+1" : "-1"), sh.v6_over_l3,
         sh.winding_conflicts, sh.esc_ratio, sh.rayf_voted, sh.rayf_agree, sh.rayf_disagree,
         rayf_vs_vol(sh), sh.coll_speaks ? (sh.coll_sign > 0 ? "+1" : "-1") : "-", coll_vs_truth(sh),
-        sh.baked_sign == 0 ? "0" : (sh.baked_sign > 0 ? "+1" : "-1"), baked_vs_truth(sh));
+        sh.baked_sign == 0 ? "0" : (sh.baked_sign > 0 ? "+1" : "-1"), baked_vs_truth(sh),
+        sh.closed ? "yes" : "no", sh.open_edges);
   };
   for (u32 s : shell_order) {
     line(shell_line(s));
@@ -3578,7 +3726,7 @@ int main(int argc, char** argv) {
                    max_verts_per_mesh));
   {
     u64 zs = 0, zf = 0, zh = 0, za = 0, zn = 0, zp = 0;
-    u64 fR = 0, fV = 0, fE = 0, fU = 0;
+    u64 fR = 0, fV = 0, fE = 0, fU = 0, fX = 0, fB = 0, fC = 0;
     for (const auto& m : meshes) {
       zs += m.z_seam;
       zf += m.z_falloff;
@@ -3590,6 +3738,9 @@ int main(int argc, char** argv) {
       fV += m.f_vol;
       fE += m.f_esc;
       fU += m.f_und;
+      fX += m.f_volx;
+      fB += m.f_both;
+      fC += m.f_conflict;
     }
     line("");
     line(fmt::format("zero-reason totals          : z_seam={} z_falloff={} z_h_mid={} z_amp={} "
@@ -3628,15 +3779,70 @@ int main(int argc, char** argv) {
                        zh));
     }
     line("");
-    line(fmt::format("OUTWARD TIER, FACES         : RAYF={} VOL={} ESC={} UNDECIDED={}  (of {} mesh"
-                     " faces counted once per mesh row)",
-                     fR, fV, fE, fU, fR + fV + fE + fU));
-    line(fmt::format("OUTWARD TIER, GEN. VERTICES : RAYF={} VOL={} ESC={} UNDECIDED={}",
-                     agg_main.v_rayf, agg_main.v_vol, agg_main.v_esc, agg_main.v_und));
+    line(fmt::format("OUTWARD TIER, FACES         : VOLX={} BOTH={} RAYF={} VOL={} ESC={} "
+                     "UNDECIDED={}  (of {} mesh faces counted once per mesh row)",
+                     fX, fB, fR, fV, fE, fU, fX + fB + fR + fV + fE + fU));
+    line(fmt::format("OUTWARD TIER, GEN. VERTICES : VOLX={} BOTH={} RAYF={} VOL={} ESC={} "
+                     "UNDECIDED={}",
+                     agg_main.v_volx, agg_main.v_both, agg_main.v_rayf, agg_main.v_vol,
+                     agg_main.v_esc, agg_main.v_und));
+    line("   VOLX = the shell is CLOSED, so the signed volume is EXACT (divergence theorem) and it");
+    line("   outranks the escape-ray SAMPLE. BOTH = the two INDEPENDENT criteria concur on the face.");
+    line(fmt::format("CONFLICT (RAYF vs VOL disagree) : {} faces  ({} generated vertices)  -> "
+                     "UNDECIDED, not graded",
+                     fC, agg_main.v_conflict));
+    line(fmt::format("   ({} faces level-wide by the per-face cascade, before the per-mesh-row "
+                     "restriction). The UNDECIDED counts printed just above INCLUDE this population:",
+                     n_conflict_undecided));
+    line("   UNDECIDED now means EITHER both criteria stayed silent OR they contradicted each other.");
+    line("   A contradiction is not a verdict, so no vertex of such a face enters A_sign at all.");
+    line(fmt::format("   exact/consensus share of the graded work: {:.2f}% of faces, {:.2f}% of "
+                     "vertices",
+                     (fX + fB + fR + fV + fE + fU)
+                         ? 100.0 * (double)(fX + fB) / (double)(fX + fB + fR + fV + fE + fU)
+                         : 0.0,
+                     agg_main.gverts ? 100.0 * (double)(agg_main.v_volx + agg_main.v_both) /
+                                           (double)agg_main.gverts
+                                     : 0.0));
     line(fmt::format("   RAYF share of the graded work: {:.2f}% of faces, {:.2f}% of vertices",
-                     (fR + fV + fE + fU) ? 100.0 * (double)fR / (double)(fR + fV + fE + fU) : 0.0,
+                     (fX + fB + fR + fV + fE + fU)
+                         ? 100.0 * (double)fR / (double)(fX + fB + fR + fV + fE + fU)
+                         : 0.0,
                      agg_main.gverts ? 100.0 * (double)agg_main.v_rayf / (double)agg_main.gverts
                                      : 0.0));
+  }
+  // ---- CLOSED vs OPEN shells: the precondition of the EXACT (VOLX) tier --------------------------
+  {
+    u64 sh_closed = 0, sh_open = 0, f_closed = 0, f_open = 0;
+    u64 gc = 0, go = 0, gfc = 0, gfo = 0, open_edge_tot = 0;
+    for (const auto& sh : shells) {
+      if (sh.closed) {
+        sh_closed++;
+        f_closed += sh.faces.size();
+      } else {
+        sh_open++;
+        f_open += sh.faces.size();
+        open_edge_tot += sh.open_edges;
+      }
+    }
+    for (u32 s : shell_order) {
+      if (shells[s].closed) {
+        gc++;
+        gfc += shells[s].faces.size();
+      } else {
+        go++;
+        gfo += shells[s].faces.size();
+      }
+    }
+    line("");
+    line(fmt::format("SHELLS CLOSED / OPEN        : closed={} ({} faces)  open={} ({} faces)  "
+                     "[CLOSED = every edge of the shell is used by EXACTLY TWO of its faces; the {} "
+                     "open edges are the rest]",
+                     sh_closed, f_closed, sh_open, f_open, open_edge_tot));
+    line(fmt::format("   of the shells in section C: closed={} ({} faces)  open={} ({} faces)", gc,
+                     gfc, go, gfo));
+    line("   Only a CLOSED shell bounds a volume, so only there is the signed-volume sign EXACT and");
+    line("   allowed to outrank the escape-ray sample (tier VOLX).");
   }
   // ---- the two INDEPENDENT geometric criteria, scored against each other ----
   {
@@ -3810,7 +4016,9 @@ int main(int argc, char** argv) {
          "baked_sign,baked_vs_truth,centroid_x_m,centroid_y_m,centroid_z_m,aabb_lo_x_m,aabb_lo_y_m,"
          "aabb_lo_z_m,aabb_hi_x_m,aabb_hi_y_m,aabb_hi_z_m,inspection_distance_m,"
          // §4a the PARALLAX tier, appended at the END so every pre-existing column keeps its index
-         "P_sign_pct,p_ok,p_den,p_u_wrong,p_w_wrong,p_tan_fallback,p_tan_degen,p_degen\n";
+         "P_sign_pct,p_ok,p_den,p_u_wrong,p_w_wrong,p_tan_fallback,p_tan_degen,p_degen,"
+         // the CONSENSUS cascade's new populations, likewise appended at the END
+         "f_volx,f_both,f_conflict,v_volx,v_both,v_conflict,shell_closed,shell_open_edges\n";
     u32 row = 0;
     for (u32 mi : order) {
       const auto& m = meshes[mi];
@@ -3847,10 +4055,12 @@ int main(int argc, char** argv) {
                        m.aabb_lo.z, m.aabb_hi.x, m.aabb_hi.y, m.aabb_hi.z, dist_m);
       // §4a the PARALLAX tier, same ordinal as the header's trailing group. An empty P_sign_pct
       // cell is the n/a case, exactly as A_sign_pct writes it above.
-      s += fmt::format("{},{},{},{},{},{},{},{}\n",
+      s += fmt::format("{},{},{},{},{},{},{},{},",
                        m.p_pct() < 0 ? std::string("") : fmt::format("{:.6f}", m.p_pct()), m.p_ok,
                        m.p_den, m.p_u_wrong, m.p_w_wrong, m.p_tan_fallback, m.p_tan_degen,
                        m.p_degen);
+      s += fmt::format("{},{},{},{},{},{},{},{}\n", m.f_volx, m.f_both, m.f_conflict, m.v_volx,
+                       m.v_both, m.v_conflict, sh.closed ? 1 : 0, sh.open_edges);
       c << s;
     }
     c.flush();

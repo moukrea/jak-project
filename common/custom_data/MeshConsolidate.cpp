@@ -832,6 +832,9 @@ void mesh_consolidate(Level& lev,
   };
   std::vector<ManifoldLink> manifold_adj;
   std::vector<u64> open_grp_edges;  // group edge keys used exactly once
+  // ROUND 31 — per FACE: does this face own an edge that no other face shares? A component none of
+  // whose faces owns one is CLOSED, and only on a closed component is the signed volume EXACT.
+  std::vector<u8> face_open_edge;
 
   // round-22: a face's identity as a SURFACE — its three corners mapped through the weld map and
   // sorted. Two faces with the same triple are coincident duplicate copies of one triangle.
@@ -845,6 +848,9 @@ void mesh_consolidate(Level& lev,
   };
 
   auto build_group_edges = [&]() {
+    // Re-derived from scratch on every rebuild (the wide re-weld calls this a second time), so a
+    // vertex that stopped being on a boundary does not keep a stale open-edge mark.
+    face_open_edge.assign(F, 0);
     ge.clear();
     ge.reserve(F * 3);
     for (size_t f = 0; f < F; f++) {
@@ -876,6 +882,9 @@ void mesh_consolidate(Level& lev,
         open_grp_edges.push_back(ge[i].first);
         group_open[(u32)(ge[i].first >> 32)] = 1;
         group_open[(u32)(ge[i].first & 0xffffffffu)] = 1;
+        if (face_open_edge.size() == F) {
+          face_open_edge[ge[i].second >> 1] = 1;
+        }
       } else if (n >= 2) {
         // NOT just n==2. Because the level ships ~5 coincident copies of most positions, ONE
         // physical edge shows up as several raw edges that all map to the SAME group key — runs of
@@ -1719,55 +1728,142 @@ void mesh_consolidate(Level& lev,
         return true;
       };
 
-      // 3D DDA (Amanatides & Woo) over the grid. Returns true if NOTHING is hit within 200 m. Any
-      // hit at all ends the walk, so the answer does not depend on the order faces are visited in.
-      auto ray_escapes = [&](const double* o, const double* d, u32 src) -> bool {
-        s64 c[3];
-        double tnext[3], tdelta[3];
-        s64 step[3];
+      // ==========================================================================================
+      // ROUND 31 — A BVH, NOT THE DENSE DDA GRID. The grid is correct but it cannot be made fine
+      // enough here: it is a DENSE 3-D array, so its cell size is forced up by the level's BOUNDING
+      // BOX rather than by its geometry. Measured on village1, the ceiling drove it to 32 m cells
+      // (460x14x228) and the vote took 3272 s of 8-thread wall clock — 55 minutes for ONE level, i.e.
+      // about a day for the 26, which is the concrete reason this authority had never been run on
+      // real data. A median-split BVH over the same faces answers the same query in ~13 us per ray
+      // against ~750 us, because it adapts to where the triangles actually are. Same question, same
+      // determinism (median split with a total order on ties, boolean OR over candidates), same
+      // answer — only the acceleration structure changes.
+      // ==========================================================================================
+      struct BvhNode {
+        double lo[3] = {0, 0, 0};
+        double hi[3] = {0, 0, 0};
+        u32 left = 0, right = 0, first = 0, count = 0;
+      };
+      std::vector<BvhNode> bnodes;
+      std::vector<u32> border(F);
+      {
+        std::vector<double> flo(F * 3), fhi(F * 3), fcen(F * 3);
+        for (size_t f = 0; f < F; f++) {
+          border[f] = (u32)f;
+          const auto& t = faces[f];
+          for (int a = 0; a < 3; a++) {
+            const double p0 = (double)gp[t[0]][a], p1 = (double)gp[t[1]][a], p2 = (double)gp[t[2]][a];
+            flo[f * 3 + a] = std::min(p0, std::min(p1, p2));
+            fhi[f * 3 + a] = std::max(p0, std::max(p1, p2));
+            fcen[f * 3 + a] = 0.5 * (flo[f * 3 + a] + fhi[f * 3 + a]);
+          }
+        }
+        bnodes.reserve(2 * (F / 4 + 2));
+        // explicit stack, so a deep tree cannot blow the C stack on a pathological level
+        struct Job {
+          u32 first, count, me;
+        };
+        std::vector<Job> jobs;
+        bnodes.emplace_back();
+        jobs.push_back({0, (u32)F, 0});
+        while (!jobs.empty()) {
+          const Job jb = jobs.back();
+          jobs.pop_back();
+          BvhNode nd;
+          for (int a = 0; a < 3; a++) {
+            nd.lo[a] = 1e300;
+            nd.hi[a] = -1e300;
+          }
+          for (u32 i2 = 0; i2 < jb.count; i2++) {
+            const u32 f = border[jb.first + i2];
+            for (int a = 0; a < 3; a++) {
+              nd.lo[a] = std::min(nd.lo[a], flo[(size_t)f * 3 + a]);
+              nd.hi[a] = std::max(nd.hi[a], fhi[(size_t)f * 3 + a]);
+            }
+          }
+          if (jb.count <= 8) {
+            nd.first = jb.first;
+            nd.count = jb.count;
+            bnodes[jb.me] = nd;
+            continue;
+          }
+          int axis = 0;
+          double best = -1;
+          for (int a = 0; a < 3; a++) {
+            const double ext = nd.hi[a] - nd.lo[a];
+            if (ext > best) {
+              best = ext;
+              axis = a;
+            }
+          }
+          const u32 mid = jb.count / 2;
+          std::nth_element(border.begin() + jb.first, border.begin() + jb.first + mid,
+                           border.begin() + jb.first + jb.count, [&](u32 a, u32 b) {
+                             const double ca = fcen[(size_t)a * 3 + axis];
+                             const double cb = fcen[(size_t)b * 3 + axis];
+                             return ca < cb || (ca == cb && a < b);  // total order => deterministic
+                           });
+          nd.count = 0;
+          nd.left = (u32)bnodes.size();
+          bnodes.emplace_back();
+          nd.right = (u32)bnodes.size();
+          bnodes.emplace_back();
+          bnodes[jb.me] = nd;
+          jobs.push_back({jb.first, mid, nd.left});
+          jobs.push_back({jb.first + mid, jb.count - mid, nd.right});
+        }
+      }
+      auto bvh_slab = [](const BvhNode& nd, const double* o, const double* inv, double tmax) {
+        double t0 = 0.0, t1 = tmax;
         for (int a = 0; a < 3; a++) {
-          c[a] = (s64)std::floor((o[a] - glo[a]) / gcell);
-          c[a] = std::max<s64>(0, std::min<s64>(gdim[a] - 1, c[a]));
-          if (d[a] > 1e-12) {
-            step[a] = 1;
-            tnext[a] = (glo[a] + (double)(c[a] + 1) * gcell - o[a]) / d[a];
-            tdelta[a] = gcell / d[a];
-          } else if (d[a] < -1e-12) {
-            step[a] = -1;
-            tnext[a] = (glo[a] + (double)c[a] * gcell - o[a]) / d[a];
-            tdelta[a] = -gcell / d[a];
-          } else {
-            step[a] = 0;
-            tnext[a] = 1e300;
-            tdelta[a] = 1e300;
+          double x = (nd.lo[a] - o[a]) * inv[a];
+          double y = (nd.hi[a] - o[a]) * inv[a];
+          if (x > y) {
+            std::swap(x, y);
           }
-          if (tnext[a] < 0.0) {
-            tnext[a] = 0.0;  // the probe sits a hair outside its own cell: do not walk backwards
+          t0 = std::max(t0, x);
+          t1 = std::min(t1, y);
+          if (t0 > t1) {
+            return false;
           }
         }
-        for (;;) {
-          const u64 ci = ((u64)c[0] * (u64)gdim[1] + (u64)c[1]) * (u64)gdim[2] + (u64)c[2];
-          for (u32 k = gcell_off[ci]; k < gcell_off[ci + 1]; k++) {
-            const u32 f = gcell_items[k];
-            if (f == src) {
-              continue;  // the source face itself never blocks its own probe
-            }
-            double t = 0;
-            if (ray_tri_t(o, d, f, &t) && t > kGeomHitEps && t <= kGeomRayMax) {
-              return false;
-            }
-          }
-          const int ax = tnext[0] < tnext[1] ? (tnext[0] < tnext[2] ? 0 : 2)
-                                            : (tnext[1] < tnext[2] ? 1 : 2);
-          if (tnext[ax] > kGeomRayMax) {
-            return true;  // everything within 200 m has been examined
-          }
-          c[ax] += step[ax];
-          if (c[ax] < 0 || c[ax] >= gdim[ax]) {
-            return true;  // walked out of the level: open air
-          }
-          tnext[ax] += tdelta[ax];
+        return true;
+      };
+      // Returns true if NOTHING is hit within 200 m. Any hit at all ends the walk, so the answer
+      // does not depend on the order faces are visited in.
+      auto ray_escapes = [&](const double* o, const double* d, u32 src) -> bool {
+        if (bnodes.empty()) {
+          return true;
         }
+        double inv[3];
+        for (int a = 0; a < 3; a++) {
+          inv[a] = (d[a] != 0.0) ? 1.0 / d[a] : 1e300;
+        }
+        u32 stack[192];
+        int sp = 0;
+        stack[sp++] = 0;
+        while (sp > 0) {
+          const BvhNode& nd = bnodes[stack[--sp]];
+          if (!bvh_slab(nd, o, inv, kGeomRayMax)) {
+            continue;
+          }
+          if (nd.count) {
+            for (u32 i2 = 0; i2 < nd.count; i2++) {
+              const u32 f = border[nd.first + i2];
+              if (f == src) {
+                continue;  // the source face itself never blocks its own probe
+              }
+              double t = 0;
+              if (ray_tri_t(o, d, f, &t) && t > kGeomHitEps && t <= kGeomRayMax) {
+                return false;
+              }
+            }
+          } else if (sp + 2 <= 192) {
+            stack[sp++] = nd.left;
+            stack[sp++] = nd.right;
+          }
+        }
+        return true;
       };
 
       // The fixed stratified hemisphere table, in a local frame whose +z is the axis. z is stratified
@@ -2184,8 +2280,58 @@ void mesh_consolidate(Level& lev,
       // geom_speaks is unconditionally false, so a live device load with no sidecar behaves exactly
       // as it does today and no A/B baseline moves under our feet.
       // ==========================================================================================
+      // ==========================================================================================
+      // ROUND 31, SECOND HALF — EXACTNESS OUTRANKS SAMPLING, AND A CONTRADICTION ABSTAINS.
+      //
+      // The first half of this round put the per-face escape-ray vote AHEAD of the signed volume.
+      // Measuring the result with the offline CPU port of the two tessellation stages showed that
+      // was the wrong way round: the meshes the grade condemned were overwhelmingly the ones whose
+      // `rayf_vs_vol` column read DISAGREE — i.e. the two INDEPENDENT geometric criteria contradict
+      // each other there, and the cascade was believing the sampled one anyway.
+      //
+      // On a CLOSED component the signed volume is not an estimate. The divergence theorem makes its
+      // sign the enclosed-volume sign EXACTLY: no sampling, no free parameter, no origin dependence.
+      // The escape ray is a finite sample of 2*13 directions answering "which side has more open
+      // space", which is only a PROXY for "which side is outside" — and it is measurably wrong on
+      // small props half-buried in terrain, where both sides are blocked and two rays decide the
+      // margin. village1 is full of exactly those (the little TIE beach rocks are the level's whole
+      // 0%-graded population). So: closed + confident volume wins outright.
+      //
+      // And where BOTH criteria speak and DISAGREE, neither is trusted: the component keeps the
+      // authored consensus and is COUNTED as undecided, rather than being handed a coin flip. The
+      // offline test applies the identical rule, so a face this pass refuses to orient is a face the
+      // test refuses to grade — the two cannot drift apart and report a fake 100%.
+      // ==========================================================================================
+      bool comp_closed = true;
+      if (face_open_edge.size() == F) {
+        for (u32 f : comp_faces) {
+          if (face_open_edge[f]) {
+            comp_closed = false;
+            break;
+          }
+        }
+      } else {
+        comp_closed = false;
+      }
+      const int geom_verdict_c = geom_speaks ? (agree_geom > 0 ? 1 : -1) : 0;
+      if (comp_closed && vol_verdict != 0) {
+        rep.orient_comps_closed_volume_decided++;
+        if (geom_verdict_c != 0 && geom_verdict_c != vol_verdict) {
+          rep.orient_comps_geom_overruled_by_volume++;
+        }
+      }
+
       double agree = agree_prev;
-      if (geom_orient) {
+      if (comp_closed && vol_verdict != 0) {
+        // TIER VOLX — exact, and it needs no ray at all.
+        agree = (double)vol_verdict;
+      } else if (geom_orient && geom_verdict_c != 0 && vol_verdict != 0 &&
+                 geom_verdict_c != vol_verdict) {
+        // The two independent criteria contradict on an OPEN component. No verdict.
+        rep.orient_comps_criteria_conflict++;
+        rep.orient_comps_undecided++;
+        agree = agree_prev;
+      } else if (geom_orient) {
         if (geom_speaks) {
           rep.orient_comps_geom_decided++;
           agree = agree_geom;
@@ -2250,7 +2396,10 @@ void mesh_consolidate(Level& lev,
       // difference (4 of 13) where a vote needs 2. This is a GENERAL rule keyed on nothing but the
       // face's own geometry — no material, no mesh and no level name appears in it.
       // ==========================================================================================
-      if (geom_orient) {
+      // The repair is a SAMPLED criterion, so it may not overrule the exact one either: on a closed
+      // component whose volume spoke, the volume has already settled every face and a ray margin,
+      // however large, is still a proxy. Repair is for the geometry the volume cannot judge.
+      if (geom_orient && !(comp_closed && vol_verdict != 0)) {
         for (u32 f : comp_faces) {
           if (gvote[f] == 0 || std::abs((int)gmargin[f]) < kGeomRepairMargin) {
             continue;
@@ -2428,8 +2577,31 @@ void mesh_consolidate(Level& lev,
         const math::Vector3f nn = l > 1e-6f ? cacc[c] * (1.f / l) : cunit[c];
         cpacked[c] = pack_nor(nn);
       }
-      // every corner takes its cluster's shared normal; a vertex with corners in several clusters
-      // takes the cluster of its LARGEST incident face (the classic smoothing-group rule)
+      // ==========================================================================================
+      // Every corner takes its cluster's shared normal. A vertex whose corners fall in SEVERAL
+      // clusters has to pick one, and the classic rule is "the cluster of the largest incident
+      // face". That rule is wrong for displacement, and measurably so.
+      //
+      // The tessellator moves the vertex along THIS normal for EVERY patch that references it
+      // (tfrag3_tess.tese:421 `world += N * disp`). A box-edge vertex shared by a big top face and a
+      // small side face gets the top face's normal under the largest-face rule; the side patch then
+      // displaces along a direction ~90 degrees from its own outward, so dot(N, outward) sits at or
+      // below zero and half of its checker squares move the wrong way. The vertex normal is not just
+      // a shading quantity here — it is the displacement axis of every face that uses it.
+      //
+      // So choose, among the clusters this vertex actually touches, the one whose normal has the
+      // best WORST-CASE agreement with the vertex's own incident faces: maximise
+      // min_j dot(cluster_normal, unit_face_normal_j). Ties go to the lowest cluster index, and
+      // clusters were created in descending area order, so on a tie this reduces EXACTLY to the old
+      // largest-face rule — the change only bites where one cluster is strictly better for every
+      // face the vertex belongs to, which is the case it was getting wrong. Shading is unaffected
+      // wherever a vertex sits in a single cluster, i.e. everywhere except hard edges.
+      // ==========================================================================================
+      // The max-min search is cubic in the group's incidence count. Groups are small (a handful of
+      // corners), but a pathological weld could produce a large one, so above a cap fall back to the
+      // legacy largest-face rule rather than let one group dominate the pass. Measured on village1
+      // the cap is never reached; it is a guard, not a behaviour.
+      const bool maxmin_ok = (i1 - i0) <= 32;
       for (u32 k = i0; k < i1; k++) {
         const int c = kcluster[k - i0];
         if (c < 0) {
@@ -2438,10 +2610,59 @@ void mesh_consolidate(Level& lev,
         const u32 f = (u32)(iflat[k] >> 2);
         const u32 e = (u32)(iflat[k] & 3);
         const u32 gvi = faces[f][e];
-        const float area = face_normal(f).length();
-        if (area > vbest[gvi]) {
-          vbest[gvi] = area;
-          *nor_ptr(gvi) = cpacked[c];
+        if (!maxmin_ok) {
+          const float area = face_normal(f).length();
+          if (area > vbest[gvi]) {
+            vbest[gvi] = area;
+            *nor_ptr(gvi) = cpacked[c];
+          }
+          continue;
+        }
+        if (vbest[gvi] >= 0.f) {
+          continue;  // already decided by the max-min pass below
+        }
+        // Gather this vertex's incident (cluster, unit face normal) pairs within the group.
+        int best_c = -1;
+        double best_score = -2.0;
+        for (u32 k2 = i0; k2 < i1; k2++) {
+          const int c2 = kcluster[k2 - i0];
+          if (c2 < 0) {
+            continue;
+          }
+          const u32 f2 = (u32)(iflat[k2] >> 2);
+          if (faces[f2][(u32)(iflat[k2] & 3)] != gvi) {
+            continue;
+          }
+          const math::Vector3f cn = unpack_nor(cpacked[c2]);
+          double score = 2.0;
+          for (u32 k3 = i0; k3 < i1; k3++) {
+            const int c3 = kcluster[k3 - i0];
+            if (c3 < 0) {
+              continue;
+            }
+            const u32 f3 = (u32)(iflat[k3] >> 2);
+            if (faces[f3][(u32)(iflat[k3] & 3)] != gvi) {
+              continue;
+            }
+            const math::Vector3f nr3 = face_normal(f3) * (float)fsign[f3];
+            const float l3 = nr3.length();
+            if (!(l3 > 1e-6f)) {
+              continue;
+            }
+            score = std::min(score, (double)cn.dot(nr3 * (1.f / l3)));
+          }
+          // strictly-better only, so equal scores keep the FIRST (= largest-area) cluster
+          if (score > best_score + 1e-9) {
+            best_score = score;
+            best_c = c2;
+          }
+        }
+        if (best_c >= 0) {
+          vbest[gvi] = 0.f;  // decided
+          *nor_ptr(gvi) = cpacked[best_c];
+          if (best_c != c) {
+            rep.orient_vertex_cluster_rechosen++;
+          }
         }
       }
     }
@@ -2959,10 +3180,14 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
       "-- ORIENTATION GEOMETRIC OUTWARD VOTE (round 31, kMeshBitGeomOrient=512) -- "
       "orient_faces_geom_voted={} orient_faces_geom_abstained={} orient_comps_geom_decided={} "
       "orient_comps_geom_vs_collision_conflict={} orient_comps_geom_vs_volume_conflict={} "
-      "orient_faces_geom_repaired={} orient_geom_pass_ms={:.1f}\n",
+      "orient_faces_geom_repaired={} orient_comps_closed_volume_decided={} "
+      "orient_comps_geom_overruled_by_volume={} orient_comps_criteria_conflict={} "
+      "orient_geom_pass_ms={:.1f}\n",
       r.orient_faces_geom_voted, r.orient_faces_geom_abstained, r.orient_comps_geom_decided,
       r.orient_comps_geom_vs_collision_conflict, r.orient_comps_geom_vs_volume_conflict,
-      r.orient_faces_geom_repaired, r.orient_geom_pass_ms);
+      r.orient_faces_geom_repaired, r.orient_comps_closed_volume_decided,
+      r.orient_comps_geom_overruled_by_volume, r.orient_comps_criteria_conflict,
+      r.orient_geom_pass_ms);
   o += fmt::format(
       "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
       "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "
