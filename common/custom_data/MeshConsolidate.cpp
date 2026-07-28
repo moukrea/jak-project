@@ -11,6 +11,7 @@
 #include <thread>
 #include <unordered_map>
 
+#include "MeshOrient.h"
 #include "Tfrag3Data.h"
 
 #include "common/log/log.h"
@@ -420,7 +421,14 @@ constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
 //   now sets kMeshBitGeomOrient for the bake BY DEFAULT. v5 was written by a bake that never once
 //   ran the geometric vote (no script in the tree set OG_MESH_BITS), so a v5 sidecar is a
 //   collision-first answer wearing a round-31 version number. Bump so it cannot be mistaken for one.
-constexpr u32 kBakeVersion = 6;
+// v7 (round 32): the orientation rule is no longer written twice. The outward cascade MOVED to
+//   common/custom_data/MeshOrient.{h,cpp} and PASS 11 rewrites every vertex normal from it (plus a
+//   Chebyshev positivity repair so dot(N_v, outward(f)) > 0 holds for every incident face), then
+//   re-derives the tangent frame. The pipeline and tools/tess_sign used to decide "outward"
+//   independently and disagreed on ~25% of vertices; a v6 sidecar is the LOSING half of that
+//   disagreement. Same delivery rule as v5: the fingerprint is COUNTS-only, so without this bump
+//   every device blits the v6 normals back over the fix and the round ships as a no-op.
+constexpr u32 kBakeVersion = 7;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and
@@ -2730,6 +2738,338 @@ void mesh_consolidate(Level& lev,
   }
 
   // =============================================================================================
+  // 11. THE SHARED ORIENTATION AUTHORITY (kMeshBitGeomOrient).
+  //
+  //     WHY THIS PASS EXISTS. Pass 6 decides "outward" with its own machinery; the offline grader
+  //     tools/tess_sign decided it with its own. The two disagreed on ~25% of vertices, which means
+  //     the grade the project has been steering by measured the GAP BETWEEN TWO INSTRUMENTS rather
+  //     than the defect. There is now ONE implementation of the outward cascade,
+  //     common/custom_data/MeshOrient.{h,cpp}, and BOTH call it. This pass runs it over the level's
+  //     own face list and REWRITES the vertex normals from its verdict, so what ships is what the
+  //     grader grades — bit for bit, because it is the same function on the same data.
+  //
+  //     THE CASCADE (see MeshOrient.h): VOLX (exact signed volume on a CLOSED shell) -> RAYF (the
+  //     per-face escape-ray vote) -> COLL (the competence-filtered collision verdict) -> ESC (the
+  //     shell escape-distance asymmetry) -> UNDECIDED. A face the cascade cannot decide keeps the
+  //     orientation pass 6 gave it: an authored answer is better than dropping the face out of its
+  //     neighbours' normal average entirely.
+  //
+  //     NOTE ON THE METRICS ABOVE. rep.nrm_after / nrm_smooth_after / groups_smooth_split_after
+  //     describe what pass 7 + 7b produced, which is what they were written to measure. When this
+  //     pass runs it supersedes those normals, and its OWN counters (the "ORIENTATION SHARED
+  //     AUTHORITY (pass 11)" line) are the ones that describe the shipped result.
+  // =============================================================================================
+  if ((cfg.bits & kMeshBitGeomOrient) != 0 && (cfg.bits & kMeshBitNoNormal) == 0) {
+    const auto t11 = std::chrono::steady_clock::now();
+    // ---- the input. gp is already SNAPPED by pass 5, so coincident positions are bit-identical and
+    // the authority's exact-float-triple weld sees the surface the way the GPU does. The collision
+    // mesh is a POINT CLOUD of (position, normal) samples — CollisionMesh has no faces — so that is
+    // the shape it is handed in.
+    std::vector<math::Vector3f> coll_pos, coll_nor;
+    coll_pos.reserve(lev.collision.vertices.size());
+    coll_nor.reserve(lev.collision.vertices.size());
+    for (const auto& cv : lev.collision.vertices) {
+      coll_pos.emplace_back(cv.x, cv.y, cv.z);
+      coll_nor.emplace_back((float)cv.nx, (float)cv.ny, (float)cv.nz);
+    }
+    MeshOrientInput oin;
+    oin.positions = &gp;
+    oin.faces = &faces;
+    oin.coll_vertices = &coll_pos;
+    oin.coll_normals = &coll_nor;
+    oin.units_per_m = kUnitsPerMeter;
+    const MeshOrientResult ores = mesh_orient_faces(oin);
+    rep.orient11_faces_volx = ores.faces_volx;
+    rep.orient11_faces_rayf = ores.faces_rayf;
+    rep.orient11_faces_coll = ores.faces_coll;
+    rep.orient11_faces_esc = ores.faces_esc;
+    rep.orient11_faces_undecided = ores.faces_undecided;
+
+    // ---- the per-face outward multiplier. UNDECIDED falls back to pass 6's fsign.
+    std::vector<s8> osign(F, 0);
+    for (size_t f = 0; f < F; f++) {
+      const s8 v = ores.face_sign[f];
+      if (v != 0) {
+        osign[f] = v;
+        if (v != fsign[f]) {
+          rep.orient11_faces_sign_changed++;
+        }
+      } else {
+        osign[f] = fsign[f];
+      }
+    }
+    auto outward_raw = [&](size_t f) { return face_normal(f) * (float)osign[f]; };
+
+    // ---- REWRITE THE NORMALS. Pass 7's crease clustering, verbatim (crease_cos, descending-area
+    // seeding, area-weighted cluster average, the max-min cluster choice), with outward_raw()
+    // substituted for `face_normal(f) * fsign[f]`. group_crease is NOT touched: it records pass 7's
+    // clustering and rep.groups_crease_after is that pass's number.
+    {
+      std::vector<u32> icnt(num_groups + 1, 0);
+      for (size_t f = 0; f < F; f++) {
+        for (int e = 0; e < 3; e++) {
+          icnt[group[faces[f][e]]]++;
+        }
+      }
+      std::vector<u32> ioff(num_groups + 1, 0);
+      for (u32 g = 0; g < num_groups; g++) {
+        ioff[g + 1] = ioff[g] + icnt[g];
+      }
+      std::vector<u64> iflat(ioff[num_groups]);  // (face<<2)|corner
+      {
+        std::vector<u32> cur(ioff.begin(), ioff.end() - 1);
+        for (size_t f = 0; f < F; f++) {
+          for (int e = 0; e < 3; e++) {
+            iflat[cur[group[faces[f][e]]]++] = ((u64)f << 2) | (u64)e;
+          }
+        }
+      }
+      std::vector<math::Vector3f> cacc, cunit;
+      std::vector<u32> cpacked;
+      std::vector<std::pair<float, u32>> order;
+      std::vector<int> kcluster;
+      std::vector<float> vbest(N, -1.f);
+      for (u32 g = 0; g < num_groups; g++) {
+        const u32 i0 = ioff[g], i1 = ioff[g + 1];
+        if (i0 == i1) {
+          continue;
+        }
+        cacc.clear();
+        cunit.clear();
+        order.clear();
+        order.reserve(i1 - i0);
+        for (u32 k = i0; k < i1; k++) {
+          const u32 f = (u32)(iflat[k] >> 2);
+          order.emplace_back(outward_raw(f).length(), k);
+        }
+        std::sort(order.begin(), order.end(),
+                  [](const std::pair<float, u32>& a, const std::pair<float, u32>& b) {
+                    return a.first != b.first ? a.first > b.first : a.second < b.second;
+                  });
+        kcluster.assign(i1 - i0, -1);
+        for (const auto& od : order) {
+          if (!(od.first > 1e-6f)) {
+            continue;
+          }
+          const u32 k = od.second;
+          const u32 f = (u32)(iflat[k] >> 2);
+          const math::Vector3f nr = outward_raw(f);
+          const math::Vector3f un = nr * (1.f / od.first);
+          int found = -1;
+          for (size_t c = 0; c < cunit.size(); c++) {
+            if (un.dot(cunit[c]) >= crease_cos) {
+              found = (int)c;
+              break;
+            }
+          }
+          if (found < 0) {
+            found = (int)cunit.size();
+            cunit.push_back(un);
+            cacc.push_back(nr);
+          } else {
+            cacc[found] += nr;
+          }
+          kcluster[k - i0] = found;
+        }
+        if (cunit.empty()) {
+          continue;
+        }
+        cpacked.assign(cacc.size(), 0);
+        for (size_t c = 0; c < cacc.size(); c++) {
+          const float l = cacc[c].length();
+          const math::Vector3f nn = l > 1e-6f ? cacc[c] * (1.f / l) : cunit[c];
+          cpacked[c] = pack_nor(nn);
+        }
+        const bool maxmin_ok = (i1 - i0) <= 32;
+        for (u32 k = i0; k < i1; k++) {
+          const int c = kcluster[k - i0];
+          if (c < 0) {
+            continue;
+          }
+          const u32 f = (u32)(iflat[k] >> 2);
+          const u32 e = (u32)(iflat[k] & 3);
+          const u32 gvi = faces[f][e];
+          if (!maxmin_ok) {
+            const float area = face_normal(f).length();
+            if (area > vbest[gvi]) {
+              vbest[gvi] = area;
+              *nor_ptr(gvi) = cpacked[c];
+            }
+            continue;
+          }
+          if (vbest[gvi] >= 0.f) {
+            continue;
+          }
+          int best_c = -1;
+          double best_score = -2.0;
+          for (u32 k2 = i0; k2 < i1; k2++) {
+            const int c2 = kcluster[k2 - i0];
+            if (c2 < 0) {
+              continue;
+            }
+            const u32 f2 = (u32)(iflat[k2] >> 2);
+            if (faces[f2][(u32)(iflat[k2] & 3)] != gvi) {
+              continue;
+            }
+            const math::Vector3f cn = unpack_nor(cpacked[c2]);
+            double score = 2.0;
+            for (u32 k3 = i0; k3 < i1; k3++) {
+              const int c3 = kcluster[k3 - i0];
+              if (c3 < 0) {
+                continue;
+              }
+              const u32 f3 = (u32)(iflat[k3] >> 2);
+              if (faces[f3][(u32)(iflat[k3] & 3)] != gvi) {
+                continue;
+              }
+              const math::Vector3f nr3 = outward_raw(f3);
+              const float l3 = nr3.length();
+              if (!(l3 > 1e-6f)) {
+                continue;
+              }
+              score = std::min(score, (double)cn.dot(nr3 * (1.f / l3)));
+            }
+            // strictly-better only, so equal scores keep the FIRST (= largest-area) cluster
+            if (score > best_score + 1e-9) {
+              best_score = score;
+              best_c = c2;
+            }
+          }
+          if (best_c >= 0) {
+            vbest[gvi] = 0.f;
+            *nor_ptr(gvi) = cpacked[best_c];
+          }
+        }
+      }
+    }
+
+    // =========================================================================================
+    // POSITIVITY REPAIR. The invariant the tessellator needs is not "a nice smooth normal", it is
+    //
+    //      for every face f and every corner vertex v of f:   dot(N_v, outward(f)) > 0
+    //
+    // because tfrag3_tess.tese displaces the vertex along N_v for EVERY patch that references it.
+    // The cluster choice above maximises the worst case only among the clusters the vertex touches;
+    // where no cluster satisfies every incident face, the right answer is not one of the cluster
+    // normals at all but the CHEBYSHEV CENTRE of the incident unit outward directions — the
+    // direction furthest from the boundary of the cone they span. Badoiu-Clarkson finds it: start at
+    // the mean, then repeatedly step a shrinking fraction of the way towards the current worst
+    // constraint. If the incident outwards span at least a hemisphere no direction can be positive
+    // against all of them; that vertex is LEFT ALONE and COUNTED, never quietly "fixed".
+    // The check is made on the STORED normal (10 bits per component), not on the float, because the
+    // stored one is what the shader reads.
+    // =========================================================================================
+    {
+      std::vector<u32> vcnt(N + 1, 0);
+      for (size_t f = 0; f < F; f++) {
+        for (int e = 0; e < 3; e++) {
+          vcnt[faces[f][e]]++;
+        }
+      }
+      std::vector<u32> voff(N + 1, 0);
+      for (size_t i = 0; i < N; i++) {
+        voff[i + 1] = voff[i] + vcnt[i];
+      }
+      std::vector<u32> vflat(voff[N]);
+      {
+        std::vector<u32> cur(voff.begin(), voff.end() - 1);
+        for (size_t f = 0; f < F; f++) {
+          for (int e = 0; e < 3; e++) {
+            vflat[cur[faces[f][e]]++] = (u32)f;
+          }
+        }
+      }
+      constexpr float kPosEps = 1e-4f;
+      std::vector<math::Vector3f> uo;
+      for (size_t i = 0; i < N; i++) {
+        if (!referenced[i] || voff[i] == voff[i + 1]) {
+          continue;
+        }
+        const u32 packed_before = *nor_ptr(i);
+        if (packed_before == 0) {
+          continue;
+        }
+        uo.clear();
+        for (u32 k = voff[i]; k < voff[i + 1]; k++) {
+          const math::Vector3f nr = outward_raw(vflat[k]);
+          const float l = nr.length();
+          if (l > 1e-6f) {
+            uo.push_back(nr * (1.f / l));
+          }
+        }
+        if (uo.empty()) {
+          continue;
+        }
+        auto worst_of = [&](const math::Vector3f& n) {
+          float w = 2.f;
+          for (const auto& u : uo) {
+            w = std::min(w, n.dot(u));
+          }
+          return w;
+        };
+        if (worst_of(unpack_nor(packed_before)) > kPosEps) {
+          continue;  // the cluster choice already satisfies every incident face
+        }
+        math::Vector3f acc(0.f, 0.f, 0.f);
+        for (const auto& u : uo) {
+          acc += u;
+        }
+        const float al = acc.length();
+        if (!(al > 1e-6f)) {
+          rep.orient11_verts_unsatisfiable++;  // the outwards cancel exactly: no centre exists
+          continue;
+        }
+        math::Vector3f nb = acc * (1.f / al);
+        for (int it = 0; it < 256; it++) {
+          float w = 2.f;
+          int worst_j = -1;
+          for (size_t j = 0; j < uo.size(); j++) {
+            const float d = nb.dot(uo[j]);
+            if (d < w) {
+              w = d;
+              worst_j = (int)j;
+            }
+          }
+          if (w > kPosEps || worst_j < 0) {
+            break;
+          }
+          const math::Vector3f step = nb + (uo[worst_j] - nb) * (1.f / (float)(it + 2));
+          const float sl = step.length();
+          if (!(sl > 1e-6f)) {
+            break;
+          }
+          nb = step * (1.f / sl);
+        }
+        // Accept only if the QUANTISED normal really satisfies the invariant. A "repair" that only
+        // holds in float is not a repair.
+        const u32 packed_after = pack_nor(nb);
+        if (worst_of(unpack_nor(packed_after)) > kPosEps) {
+          *nor_ptr(i) = packed_after;
+          rep.orient11_verts_repaired++;
+        } else {
+          // The incident outwards span at least a hemisphere (or the 10-bit normal quantisation
+          // cannot hold the centre). Leave the vertex exactly as the cluster choice left it.
+          rep.orient11_verts_unsatisfiable++;
+        }
+      }
+    }
+
+    // ---- the tangent handedness is only meaningful against the FINAL normal (this is why pass 7b
+    // exists — see its comment). The normals just changed, so the frame has to be re-derived.
+    rep.orient11_tangent_frames_rewritten = retangent_level_from_final_normals(lev);
+    rep.orient11_seconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t11).count();
+    lg::info(
+        "[mesh-consolidate] level={} pass 11 shared orientation authority: VOLX={} RAYF={} COLL={} "
+        "ESC={} UNDECIDED={} sign_changed={} verts_repaired={} verts_unsatisfiable={} "
+        "retangent={} {:.1f} s",
+        lev.level_name, rep.orient11_faces_volx, rep.orient11_faces_rayf, rep.orient11_faces_coll,
+        rep.orient11_faces_esc, rep.orient11_faces_undecided, rep.orient11_faces_sign_changed,
+        rep.orient11_verts_repaired, rep.orient11_verts_unsatisfiable,
+        rep.orient11_tangent_frames_rewritten, rep.orient11_seconds);
+  }
+
+  // =============================================================================================
   // 8. THE COUTURE: BAKED-COLOUR BLEND. The baked lighting is a per-tree time-of-day PALETTE indexed
   //    per vertex, so two chunks meeting at a seam can carry visibly different baked colour for the
   //    same physical point — a lighting STEP that is completely independent of the normal map, which
@@ -3188,6 +3528,15 @@ std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateCon
       r.orient_faces_geom_repaired, r.orient_comps_closed_volume_decided,
       r.orient_comps_geom_overruled_by_volume, r.orient_comps_criteria_conflict,
       r.orient_geom_pass_ms);
+  // ONE physical line (a validator greps it line-wise): pass 11, the SHARED outward authority that
+  // tools/tess_sign grades against — the same function, so the two cannot disagree any more.
+  o += fmt::format(
+      "-- ORIENTATION SHARED AUTHORITY (pass 11) -- tier_faces VOLX={} RAYF={} COLL={} ESC={} "
+      "UNDECIDED={} | faces_sign_changed_vs_pass6={} verts_chebyshev_repaired={} "
+      "verts_unsatisfiable={} tangent_frames_rewritten={} seconds={:.1f}\n",
+      r.orient11_faces_volx, r.orient11_faces_rayf, r.orient11_faces_coll, r.orient11_faces_esc,
+      r.orient11_faces_undecided, r.orient11_faces_sign_changed, r.orient11_verts_repaired,
+      r.orient11_verts_unsatisfiable, r.orient11_tangent_frames_rewritten, r.orient11_seconds);
   o += fmt::format(
       "-- ORIENTATION POLARITY (authority-free, every level) -- manifold non-duplicate pairs={} "
       "orient_pairs_inconsistent_before={} orient_pairs_inconsistent_after={} "

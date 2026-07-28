@@ -198,6 +198,24 @@ struct MeshAuditReport {
   // makes the POM march dig in where it should pop out.
   u64 orient_tangent_w_flipped = 0;
 
+  // ---- PASS 11: THE SHARED ORIENTATION AUTHORITY (common/custom_data/MeshOrient.{h,cpp}) ----
+  // The pipeline and the offline grader tools/tess_sign used to each decide "outward" with their own
+  // machinery and disagreed on ~25% of vertices. They now call ONE function, so a number the grader
+  // prints is a number the bake acted on. These counters describe the FINAL normals: they supersede
+  // pass 7's nrm_after / nrm_smooth_after wherever this pass runs (kMeshBitGeomOrient).
+  u64 orient11_faces_volx = 0;        // exact signed volume on a CLOSED shell
+  u64 orient11_faces_rayf = 0;        // the per-face escape-ray vote
+  u64 orient11_faces_coll = 0;        // the competence-filtered collision verdict
+  u64 orient11_faces_esc = 0;         // the shell escape-distance asymmetry
+  u64 orient11_faces_undecided = 0;   // no tier spoke -> the face keeps pass 6's fsign
+  u64 orient11_faces_sign_changed = 0;  // decided faces whose outward differs from pass 6's fsign
+  // dot(N_v, outward(f)) > 0 must hold for every corner of every incident face, or the tessellator
+  // pushes the vertex the wrong way for some patch that shares it.
+  u64 orient11_verts_repaired = 0;       // vertices given the Chebyshev centre of their outwards
+  u64 orient11_verts_unsatisfiable = 0;  // no direction can satisfy them: LEFT ALONE, never hidden
+  u64 orient11_tangent_frames_rewritten = 0;  // the retangent that must follow a normal rewrite
+  double orient11_seconds = 0.0;
+
   // ---- seam-consistent displacement (the tessellation slits) ----
   u64 seam_verts = 0;
   u64 seam_verts_material = 0;   // group spans >=2 textures (one side may have no height map)

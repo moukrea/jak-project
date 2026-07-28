@@ -35,6 +35,7 @@ add_library(common
         cross_sockets/XSocketClient.cpp
         cross_sockets/XSocketServer.cpp
         custom_data/MeshConsolidate.cpp
+        custom_data/MeshOrient.cpp
         custom_data/MeshSubdivide.cpp
         custom_data/pack_helpers.cpp
         custom_data/TFrag3Data.cpp
