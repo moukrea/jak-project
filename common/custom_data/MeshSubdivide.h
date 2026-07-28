@@ -69,7 +69,14 @@ struct SubdivConfig {
   float budget_mult = 12.0f;
   // Skip triangles all of whose corners are seam-pinned (seam weight 0): they can never displace, so
   // subdividing them buys nothing. ~60% of village1's referenced tfrag verts are pinned.
-  bool skip_pinned = true;
+  // SUPERVISOR 2026-07-28, round 34 measurement: this bypass skips split() entirely, so a neighbour
+  // bisects a shared edge and the bypassed triangle does not -> a T-JUNCTION. That breaks
+  // edge-manifoldness, drops the shell out of the exact signed-volume tier, and costs orientation
+  // correctness: village1 correctly-signed vertices 93.30% with the bypass ON vs 96.99% with it OFF,
+  // and with it OFF the post-subdivision topology is IDENTICAL to the pre-subdivision one. The
+  // triangles it "saves" cannot displace anyway, so the only thing the bypass bought was the
+  // T-junctions. Default flipped to false; OG_MESH_SUBDIV_SKIP_PINNED=1 restores the old behaviour.
+  bool skip_pinned = false;
   // Bound the pass to surfaces that actually have a displacement SOURCE. A draw whose material
   // ships no <tex>_height.png can never be displaced by any tessellation level, so refining it is
   // pure cost — and on village1's near ground that is 62-77% of the surface (measured, round #18).
