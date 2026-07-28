@@ -32,4 +32,12 @@ grep -qiE 'rotate the mesh|faire tourner le mesh|mesh rotation' "$R" || fail "no
 grep -qiE 'name.*(on ?screen|affich)|nom.*ecran|identifier displayed' "$R" || fail "the mesh/material/level identifier is not displayed on screen for the owner to quote back"
 grep -qiE 'files/|export' "$R" || fail "no way to export the selected mesh identifier (the owner has no adb)"
 grep -qiE 'time of day|heure|tod' "$R" || fail "no in-browser time-of-day control (PBR behaves differently in shade and at night)"
+# PHYSICAL artifact checks — the text gate passed while gk was never linked and no smoke run happened.
+# Log-string greps are trivially defeated; require the actual binaries.
+[ -f out/jak1/obj/mesh-browser-pc.o ] || fail "GOAL object out/jak1/obj/mesh-browser-pc.o missing — the browser screen was not compiled"
+GKB=""
+for c in build-mbrowse/game/gk build-mbrowse/gk build/game/gk; do [ -f "$c" ] && GKB="$c" && break; done
+[ -n "$GKB" ] || fail "no gk binary produced — the report's 'gk built in build-mbrowse' claim is unverifiable"
+[ "$GKB" -nt goal_src/jak1/pc/mesh-browser-pc.gc ] || fail "gk binary is OLDER than mesh-browser-pc.gc — it does not contain this work"
+grep -qiE 'independent mesh rotation|rotate the mesh' "$R" || fail "mesh rotation: if the mesh cannot be spun, the report must say so explicitly as a GAP, not substitute light rotation silently"
 echo "[Gmbrowse PASS]"

@@ -215,7 +215,7 @@
     "Grecharged-master-toggle": 3,
     "Grecharged-bundled-textures": 6,
     "Grecharged-naming": 1,
-    "Grecharged-pbr-realtime-fusion": 1,
+    "Grecharged-pbr-realtime-fusion": 2,
     "Grecharged-mesh-consolidation": 2
   },
   "fingerprints": {
@@ -887,7 +887,7 @@
     "Grecharged-pbr-realtime-fusion": 1784783149.315742,
     "Grecharged-mesh-consolidation": 1784930060.5837617
   },
-  "last_update": "2026-07-27T19:38:31.531854+00:00",
+  "last_update": "2026-07-28T01:11:44.310743+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
