@@ -758,6 +758,7 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/PbrTestPattern.cpp"
     "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"
     "${JAK_ROOT}/common/custom_data/MeshConsolidate.cpp"
+    "${JAK_ROOT}/common/custom_data/MeshOrient.cpp"
     "${JAK_ROOT}/common/custom_data/MeshSubdivide.cpp"
     "${JAK_ROOT}/common/custom_data/pack_helpers.cpp"
     "${JAK_ROOT}/common/texture/texture_slots.cpp"
