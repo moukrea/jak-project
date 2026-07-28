@@ -40,4 +40,8 @@ for c in build-mbrowse/game/gk build-mbrowse/gk build/game/gk; do [ -f "$c" ] &&
 [ -n "$GKB" ] || fail "no gk binary produced — the report's 'gk built in build-mbrowse' claim is unverifiable"
 [ "$GKB" -nt goal_src/jak1/pc/mesh-browser-pc.gc ] || fail "gk binary is OLDER than mesh-browser-pc.gc — it does not contain this work"
 grep -qiE 'independent mesh rotation|rotate the mesh' "$R" || fail "mesh rotation: if the mesh cannot be spun, the report must say so explicitly as a GAP, not substitute light rotation silently"
+# owner delivery condition: all levels indexed, and the browser ships WITH the mesh corrections
+IDX=$(ls custom_assets/jak1/mesh_index/mesh_index_*.txt 2>/dev/null | wc -l)
+[ "$IDX" -ge 26 ] || fail "index covers only $IDX level(s); the owner wants to preview ALL of them (26 for jak1)"
+grep -qiE 'all (26 )?levels|tous les niveaux|26 levels' "$R" || fail "report does not evidence an all-levels index"
 echo "[Gmbrowse PASS]"

@@ -85,3 +85,20 @@ Le round PBR en cours utilise le Redmi. Cette phase NE PREND PAS LE DEVICE : it�
 DESKTOP (build/gk) pour toute la mise au point, et câble le tactile + la manette sans les valider sur
 appareil. Le superviseur fera la validation device et la livraison de l'APK quand le round PBR aura
 libéré le téléphone. Toute tentative de prendre le device en parallèle casserait le round PBR.
+
+--------------------------------------------------------------------------------
+CONDITION DE LIVRAISON (owner) — LE NAVIGATEUR PART AVEC LES CORRECTIONS, ET TOUS LES NIVEAUX
+--------------------------------------------------------------------------------
+Owner : "faudrait que le navigateur soit inclus avec les corrections de tous les mesh pour que ce
+soit pertinent que je puisse tout prévisualiser hein !"
+
+Deux conséquences fermes :
+1. PAS DE LIVRAISON DU NAVIGATEUR SEUL sur un arbre en milieu de round. Il part dans le MÊME APK que
+   les corrections d'orientation/displacement, sinon l'owner parcourrait des mesh encore fautifs et
+   son balayage ne prouverait rien. Le garde-fou de fraîcheur du packaging impose déjà ce couplage
+   (il refuse un pack dont les données cuites sont plus anciennes que la logique de bake) : la règle
+   owner et le garde-fou disent la même chose, on ne contourne ni l'un ni l'autre.
+2. L'INDEX DOIT COUVRIR TOUS LES NIVEAUX, pas seulement village1. "Tout prévisualiser" veut dire les
+   26 niveaux de jak1. La génération est mécanique (le même outil, une passe par niveau) : il n'y a
+   aucune raison de livrer un navigateur qui ne montre qu'un niveau sur 26. Chiffre le poids total de
+   l'index et embarque-le dans l'APK comme le reste du dérivé.
