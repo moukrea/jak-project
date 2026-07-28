@@ -42,6 +42,9 @@ for c in build-mbrowse/game/gk build-mbrowse/gk build/game/gk; do [ -f "$c" ] &&
 grep -qiE 'independent mesh rotation|rotate the mesh' "$R" || fail "mesh rotation: if the mesh cannot be spun, the report must say so explicitly as a GAP, not substitute light rotation silently"
 # owner delivery condition: all levels indexed, and the browser ships WITH the mesh corrections
 IDX=$(ls custom_assets/jak1/mesh_index/mesh_index_*.txt 2>/dev/null | wc -l)
-[ "$IDX" -ge 26 ] || fail "index covers only $IDX level(s); the owner wants to preview ALL of them (26 for jak1)"
+# 25, not 26: jak1 ships 26 fr3 files but GAME.fr3 is the shared container and has ZERO geometry
+# (tess_sign: "faces=0 gverts=0 (tfrag trees 0, tie trees 0)"), so there is nothing in it to browse.
+# The 26 figure was the supervisor's assumption; the measurement corrected it.
+[ "$IDX" -ge 25 ] || fail "index covers only $IDX level(s); every jak1 level WITH GEOMETRY must be indexed (25)"
 grep -qiE 'all (26 )?levels|tous les niveaux|26 levels' "$R" || fail "report does not evidence an all-levels index"
 echo "[Gmbrowse PASS]"
