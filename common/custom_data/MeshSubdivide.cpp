@@ -813,6 +813,20 @@ SubdivConfig mesh_subdiv_config_from_env() {
       cfg.max_rounds = v;
     }
   }
+  // ROUND 34 A/B: the fully-pinned-triangle bypass is the ONLY per-triangle escape from the
+  // conformal split() in the graded (--all-textures) configuration, and a per-triangle escape is
+  // exactly what creates a T-junction: the neighbour bisects the shared edge, this triangle does
+  // not. A T-junction breaks edge-manifoldness, which drops the shell out of the EXACT signed-volume
+  // tier and into the ballot. This toggle exists so that consequence can be measured rather than
+  // argued about; it changes no default.
+  const std::string sp = get_setting("debug.opengoal.mesh.subdivskippinned", "OG_MESH_SUBDIV_SKIP_PINNED");
+  if (!sp.empty()) {
+    if (sp == "1" || sp == "true") {
+      cfg.skip_pinned = true;
+    } else if (sp == "0") {
+      cfg.skip_pinned = false;
+    }
+  }
   // TIE pass: off by default (see SubdivConfig::include_tie for the measurement behind that).
   const std::string t = get_setting("debug.opengoal.mesh.subdivtie", "OG_MESH_SUBDIV_TIE");
   if (!t.empty()) {

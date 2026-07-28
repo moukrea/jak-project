@@ -788,6 +788,7 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
   }
   r.shell_closed.assign(n_shells, 0);
   r.shell_open_edges.assign(n_shells, 0);
+  r.shell_nonmanifold_edges.assign(n_shells, 0);
   r.shell_vol_sign.assign(n_shells, 0);
   r.shell_v6_over_l3.assign(n_shells, 0.0);
   r.shell_winding_conflicts.assign(n_shells, 0);
@@ -818,15 +819,40 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
   // the ones owning a candidate: a caller's crease/seam attribution has to cluster the faces
   // incident to a weld group, and those faces can belong to a shell owning no candidate at all.
   // This cannot change any verdict — the tiers below still only read rel[] on candidate shells.
+  //
+  // ROUND 34 — TWO PHASES, BECAUSE THE WINDING RULE IS NOT DEFINED EVERYWHERE.
+  //
+  // "Consistently wound neighbours traverse the shared edge in OPPOSITE directions" is a theorem
+  // about a TRUE MANIFOLD edge — one shared by exactly two faces. On an edge shared by three or more
+  // (stacked coplanar sheets, a decimated LOD copy chained onto the full-res mesh) it states a
+  // relation that does not exist, and a single BFS propagates that fabrication into the rest of the
+  // shell, which is what the shell_winding_conflicts counter is measuring. MeshConsolidate.cpp's
+  // ManifoldLink (see build_group_edges there) already draws this distinction; the flood fill here
+  // did not, so it is drawn now:
+  //
+  //   PHASE 1 (TRUSTED) propagates ONLY across edges whose face list has exactly two entries. Every
+  //           relation it asserts is a theorem.
+  //   PHASE 2 (GUESS)   reaches whatever phase 1 could not, across ANY edge — exactly the old
+  //           behaviour — seeded preferentially from faces phase 1 already decided, so a guessed
+  //           region is hung off the trusted frame rather than off an arbitrary new one.
+  //
+  // COVERAGE IS PRESERVED EXACTLY. Phase 2's relaxation is the old relaxation and its seeding falls
+  // back to "lowest unassigned face index, rel = 1" (the old per-shell seed convention), so every
+  // face that used to end up with rel != 0 still does. This is not an abstention mechanism: it
+  // changes WHICH sign a face gets, never WHETHER it gets one.
+  //
+  // DETERMINISM. Both phases walk shell_faces[s], which is in ascending face index; the per-face
+  // relaxation walks the face's own three edges in a fixed order and then that edge's face list in
+  // insertion order (which is itself ascending in face index). Nothing reads the unordered_map's
+  // traversal order.
   std::vector<s8>& rel = r.rel;
   rel.assign(F, 0);
   {
     std::vector<u32> queue;
-    for (u32 s = 0; s < n_shells; s++) {
-      queue.clear();
-      const u32 seed = shell_faces[s].front();
-      rel[seed] = 1;
-      queue.push_back(seed);
+    // one BFS relaxation step, factored so the two phases cannot drift apart. `trusted_only` is the
+    // ONLY difference between them. Returns how many faces it newly assigned.
+    auto flood = [&](bool trusted_only) -> u64 {
+      u64 assigned = 0;
       for (size_t qi = 0; qi < queue.size(); qi++) {
         const u32 f = queue[qi];
         for (int e = 0; e < 3; e++) {
@@ -838,6 +864,9 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
           if (it == edges.end()) {
             continue;
           }
+          if (trusted_only && it->second.size() != 2) {
+            continue;  // the winding rule has nothing to say about this edge
+          }
           s8 my_dir = (s8)(a < b ? 1 : -1);
           for (const auto& er : it->second) {
             if (er.face == f || rel[er.face] != 0) {
@@ -847,8 +876,74 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
             const bool consistent = (er.dir != my_dir);
             rel[er.face] = (s8)(rel[f] * (consistent ? 1 : -1));
             queue.push_back(er.face);
+            assigned++;
           }
         }
+      }
+      return assigned;
+    };
+    for (u32 s = 0; s < n_shells; s++) {
+      // ---- PHASE 1: the trusted frame, from the shell's usual seed. ----
+      queue.clear();
+      const u32 seed = shell_faces[s].front();
+      rel[seed] = 1;
+      queue.push_back(seed);
+      r.faces_rel_trusted++;  // the seed IS the shell's frame of reference
+      r.faces_rel_trusted += flood(true);
+
+      // ---- PHASE 2: reach the remnant, across any edge. ----
+      // Seed from the faces phase 1 decided that touch an unassigned face, in ascending face index,
+      // so a guessed region inherits the trusted frame instead of starting a new one. The seed set is
+      // snapshotted from the post-phase-1 state before any of it is relaxed.
+      queue.clear();
+      bool any_unassigned = false;
+      for (u32 f : shell_faces[s]) {
+        if (rel[f] == 0) {
+          any_unassigned = true;
+          break;
+        }
+      }
+      if (!any_unassigned) {
+        continue;
+      }
+      for (u32 f : shell_faces[s]) {
+        if (rel[f] == 0) {
+          continue;
+        }
+        bool touches_unassigned = false;
+        for (int e = 0; e < 3 && !touches_unassigned; e++) {
+          const u32 a = fwg[f][e], b = fwg[f][(e + 1) % 3];
+          if (a == b) {
+            continue;
+          }
+          auto it = edges.find(edge_key(a, b));
+          if (it == edges.end()) {
+            continue;
+          }
+          for (const auto& er : it->second) {
+            if (er.face != f && rel[er.face] == 0) {
+              touches_unassigned = true;
+              break;
+            }
+          }
+        }
+        if (touches_unassigned) {
+          queue.push_back(f);
+        }
+      }
+      r.faces_rel_guessed += flood(false);
+      // Anything still unassigned is a remnant phase 1 never touched at all and that no assigned face
+      // is adjacent to. Give it the old per-shell seed treatment — lowest face index, rel = 1 — so
+      // coverage is identical to the single-phase fill's.
+      for (u32 f : shell_faces[s]) {
+        if (rel[f] != 0) {
+          continue;
+        }
+        queue.clear();
+        rel[f] = 1;
+        queue.push_back(f);
+        r.faces_rel_guessed++;
+        r.faces_rel_guessed += flood(false);
       }
     }
   }
@@ -877,6 +972,10 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
     }
     if (lst.size() != 2) {
       r.shell_open_edges[shell_of[lst[0].face]]++;
+    }
+    // ROUND 34: the 3+-face half of that count, kept separately. shell_open_edges is untouched.
+    if (lst.size() >= 3) {
+      r.shell_nonmanifold_edges[shell_of[lst[0].face]]++;
     }
   }
   for (u32 s = 0; s < n_shells; s++) {
@@ -1256,6 +1355,17 @@ MeshOrientResult mesh_orient_faces(const MeshOrientInput& in) {
   // double accumulator would let the two disagree on a shell whose ballot is near zero. Then the
   // pipeline would enforce one outward and the instrument would grade another, which is the exact
   // class of bug this round exists to remove.
+  // ROUND 34 MEASURED AND REJECTED: weighting this ballot by face AREA instead of by face COUNT.
+  // The reasoning was that area is exactly additive under subdivision where a count is multiplied by
+  // four, so an area-weighted ballot would be an integral over the SURFACE and invariant to how that
+  // surface happens to be triangulated. The reasoning is sound and the result was still WORSE, on
+  // every arm measured on village1 (A_sign un-subdivided 99.9471% -> 99.9245%, subdivided 91.8395%
+  // -> 91.5150%, subdivided with the T-junction bypass off 94.5391% -> 93.7914%). The ballot
+  // weighting is therefore NOT what makes this authority sample-dependent; RAYF casts its rays from
+  // face CENTROIDS, and subdivision moves every centroid, so the per-face margins themselves change.
+  // Reweighting a set of votes cannot repair votes that were taken at different places. Left as a
+  // count so the code matches what is actually measured to be best; do not "fix" it again without
+  // re-running the three arms above.
   std::vector<s64> shell_ballot_i(n_shells, 0);
   std::vector<u64> shell_ballot_faces(n_shells, 0);
   for (u32 f = 0; f < F; f++) {

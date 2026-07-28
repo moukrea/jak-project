@@ -179,6 +179,12 @@ struct MeshOrientResult {
   // ---- per shell ----
   std::vector<u8> shell_closed;        // every edge used by EXACTLY TWO of the shell's faces
   std::vector<u32> shell_open_edges;   // the edges that are not
+  // ROUND 34. shell_open_edges above lumps together the two ways an edge can fail to be manifold: a
+  // 1-face BOUNDARY edge and a 3+-face NON-MANIFOLD edge (stacked coplanar sheets, an LOD copy
+  // chained onto the full-res mesh). They are not the same defect — the topological winding rule is
+  // simply UNDEFINED on the second kind — so the 3+ case is counted separately here. shell_open_edges
+  // keeps its exact former meaning; this is an additional breakdown, not a replacement.
+  std::vector<u64> shell_nonmanifold_edges;  // per shell, edges whose face list size is >= 3
   std::vector<s8> shell_vol_sign;      // the SIGNED-VOLUME verdict alone, 0 = it stayed silent
   std::vector<double> shell_v6_over_l3;
   std::vector<u64> shell_winding_conflicts;
@@ -213,6 +219,13 @@ struct MeshOrientResult {
   // round 33: how the SHELL verdicts were reached, and how many faces each carried.
   u64 shells_volx = 0, shells_rayf = 0, shells_esc = 0, shells_undecided = 0;
   u64 faces_no_rel = 0;  // faces the winding flood fill never reached: no coherent frame exists
+  // ROUND 34, the two-phase flood fill: how many faces got their rel[] from a TRUE-MANIFOLD chain of
+  // adjacencies (phase 1, where the winding rule is defined and the answer is exact) versus from the
+  // permissive fallback that crosses 3+-face edges (phase 2, where the rule is fabricated and the
+  // answer is a guess). trusted + guessed == the number of faces with rel != 0; the split says how
+  // much of the field rests on real topology.
+  u64 faces_rel_trusted = 0;
+  u64 faces_rel_guessed = 0;
   u64 candidate_faces = 0;
   u64 rayf_voted = 0;             // candidate faces with a non-zero vote
   u64 rayf_sat_all_blocked = 0;   // ... 0 escapes on BOTH sides (every ray blocked)
