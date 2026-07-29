@@ -8,11 +8,15 @@
 
 #include "kmachine.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <limits>
+#include <map>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "common/log/log.h"
 #include "common/symbols.h"
@@ -1316,8 +1320,85 @@ struct MeshIndexRow {
   float hix = 0, hiy = 0, hiz = 0;
   std::string material;
 };
-std::vector<MeshIndexRow> g_mesh_index;
+// V2: indices are CACHED per level (the ray pick below hits up to two levels every frame, so
+// re-parsing thousands of rows per pick would be absurd). std::map nodes never move, so the
+// pointers handed out below stay valid for the process lifetime.
+static std::map<std::string, std::vector<MeshIndexRow>> g_mesh_index_cache;
 std::string g_mesh_index_level;
+// The level the list UI currently reads; all the row getters go through this.
+static const std::vector<MeshIndexRow>* g_mesh_index_cur = nullptr;
+
+// GOAL strings arrive font-encoded uppercase; on-disk index names are lowercase [a-z0-9-].
+std::string mb_clean_level_name(const std::string& level) {
+  std::string lvl_lower = str_util::to_lower(level);
+  std::string clean;
+  for (char c : lvl_lower) {
+    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+      clean.push_back(c);
+    }
+  }
+  return clean;
+}
+
+// Parse-on-first-request cache lookup. `name` is already cleaned. nullptr = no usable index
+// (missing file / bad header) — failures are NOT cached so a late-pushed index still loads.
+static const std::vector<MeshIndexRow>* mb_load_level_index(const std::string& name) {
+  auto it = g_mesh_index_cache.find(name);
+  if (it != g_mesh_index_cache.end()) {
+    return &it->second;
+  }
+  const auto path =
+      file_util::get_bundled_mesh_index_dir(g_game_version) / ("mesh_index_" + name + ".txt");
+  std::ifstream in(path.string());
+  if (!in) {
+    lg::warn("[mesh-browser] no index for level '{}' at {}", name, path.string());
+    return nullptr;
+  }
+  std::string header;
+  if (!std::getline(in, header)) {
+    return nullptr;
+  }
+  {
+    std::istringstream hs(header);
+    std::string magic;
+    int ver = 0;
+    std::string lname;
+    long count = 0;
+    hs >> magic >> ver >> lname >> count;
+    if (magic != "MESHIDX") {
+      lg::warn("[mesh-browser] bad index header for '{}'", name);
+      return nullptr;
+    }
+    (void)ver;
+    (void)count;
+  }
+  std::vector<MeshIndexRow> rows;
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.empty()) {
+      continue;
+    }
+    std::istringstream ls(line);
+    MeshIndexRow r;
+    int idx = 0;
+    if (!(ls >> idx >> r.system >> r.tex_id >> r.shell >> r.graded >> r.a_sign_x100 >>
+          r.b_disp_x100 >> r.cx >> r.cy >> r.cz >> r.lox >> r.loy >> r.loz >> r.hix >> r.hiy >>
+          r.hiz)) {
+      continue;
+    }
+    std::getline(ls, r.material);  // rest of line (leading space + spaceless material tail)
+    while (!r.material.empty() && (r.material.front() == ' ' || r.material.front() == '\t')) {
+      r.material.erase(r.material.begin());
+    }
+    if (r.material.empty()) {
+      r.material = "?";
+    }
+    rows.push_back(std::move(r));
+  }
+  auto ins = g_mesh_index_cache.emplace(name, std::move(rows));
+  lg::info("[mesh-browser] loaded {} meshes for level '{}'", ins.first->second.size(), name);
+  return &ins.first->second;
+}
 
 // jak1/kmachine.cpp has no kmachine_extras helper (unlike jak2/3), and the common file's
 // bool_to_symbol is file-local — so provide the same #t/#f GOAL-symbol return here.
@@ -1349,87 +1430,35 @@ void copy_to_goal_string(u32 str_dest_ptr, const std::string& s) {
 // Load and parse the bundled per-level index. Returns the mesh count (0 on any failure — a level
 // without an index simply lists empty, never crashes). `level_name_ptr` is a GOAL string.
 u64 pc_mesh_index_load(u32 level_name_ptr) {
-  g_mesh_index.clear();
+  g_mesh_index_cur = nullptr;
   g_mesh_index_level.clear();
   if (!level_name_ptr) {
     return 0;
   }
   std::string level = Ptr<String>(level_name_ptr).c()->data();
-  // The GOAL font encodes uppercase; the on-disk file names are lowercase ascii level symbols.
-  std::string lvl_lower = str_util::to_lower(level);
-  // Strip anything the font encoder may have added; keep [a-z0-9-].
-  std::string clean;
-  for (char c : lvl_lower) {
-    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
-      clean.push_back(c);
-    }
-  }
+  std::string clean = mb_clean_level_name(level);
   if (clean.empty()) {
     return 0;
   }
-  const auto path =
-      file_util::get_bundled_mesh_index_dir(g_game_version) / ("mesh_index_" + clean + ".txt");
-  std::ifstream in(path.string());
-  if (!in) {
-    lg::warn("[mesh-browser] no index for level '{}' at {}", clean, path.string());
+  g_mesh_index_cur = mb_load_level_index(clean);
+  if (!g_mesh_index_cur) {
     return 0;
-  }
-  std::string header;
-  if (!std::getline(in, header)) {
-    return 0;
-  }
-  {
-    std::istringstream hs(header);
-    std::string magic;
-    int ver = 0;
-    std::string lname;
-    long count = 0;
-    hs >> magic >> ver >> lname >> count;
-    if (magic != "MESHIDX") {
-      lg::warn("[mesh-browser] bad index header for '{}'", clean);
-      return 0;
-    }
-    (void)ver;
-    (void)count;
-  }
-  std::string line;
-  while (std::getline(in, line)) {
-    if (line.empty()) {
-      continue;
-    }
-    std::istringstream ls(line);
-    MeshIndexRow r;
-    int idx = 0;
-    if (!(ls >> idx >> r.system >> r.tex_id >> r.shell >> r.graded >> r.a_sign_x100 >>
-          r.b_disp_x100 >> r.cx >> r.cy >> r.cz >> r.lox >> r.loy >> r.loz >> r.hix >> r.hiy >>
-          r.hiz)) {
-      continue;
-    }
-    std::getline(ls, r.material);  // rest of line (leading space + spaceless material tail)
-    while (!r.material.empty() && (r.material.front() == ' ' || r.material.front() == '\t')) {
-      r.material.erase(r.material.begin());
-    }
-    if (r.material.empty()) {
-      r.material = "?";
-    }
-    g_mesh_index.push_back(std::move(r));
   }
   g_mesh_index_level = clean;
-  lg::info("[mesh-browser] loaded {} meshes for level '{}'", g_mesh_index.size(), clean);
-  return (u64)g_mesh_index.size();
+  return (u64)g_mesh_index_cur->size();
 }
 
 u64 pc_mesh_index_count() {
-  return (u64)g_mesh_index.size();
+  return g_mesh_index_cur ? (u64)g_mesh_index_cur->size() : 0;
 }
 
 // One scalar getter, keyed by (row, field). Keeping it a single entry point avoids a dozen tiny
 // externs. field ids: 0 system, 1 graded, 2 a_sign_x100, 3 b_disp_x100, 4 tex_id, 5 shell.
 s64 pc_mesh_index_geti(u32 row, u32 field) {
-  if (row >= g_mesh_index.size()) {
+  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
     return -1;
   }
-  const auto& r = g_mesh_index[row];
+  const auto& r = (*g_mesh_index_cur)[row];
   switch (field) {
     case 0:
       return r.system;
@@ -1463,10 +1492,10 @@ u64 pc_mesh_index_getf(u32 row, u32 field) {
     memcpy(&b, &out, sizeof(b));
     return b;
   };
-  if (row >= g_mesh_index.size()) {
+  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
     return bits();
   }
-  const auto& r = g_mesh_index[row];
+  const auto& r = (*g_mesh_index_cur)[row];
   switch (field) {
     case 0:
       out = r.cx;
@@ -1504,10 +1533,10 @@ u64 pc_mesh_index_getf(u32 row, u32 field) {
 
 // Copy a row's material name into a GOAL string; returns #t/#f.
 u64 pc_mesh_index_name(u32 row, u32 str_dest_ptr) {
-  if (row >= g_mesh_index.size()) {
+  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
     return mb_bool_to_symbol(false);
   }
-  copy_to_goal_string(str_dest_ptr, g_mesh_index[row].material);
+  copy_to_goal_string(str_dest_ptr, (*g_mesh_index_cur)[row].material);
   return mb_bool_to_symbol(true);
 }
 
@@ -1528,10 +1557,10 @@ void pc_set_mesh_browser_checker(u32 mode) {
 // Write the selected mesh identifier to files/mesh_select.txt so the owner can quote it back to us
 // without adb (mirrors pos_dump.txt). Called on selection, not per frame — no throttle needed.
 void pc_mesh_browser_export(u32 row) {
-  if (row >= g_mesh_index.size()) {
+  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
     return;
   }
-  const auto& r = g_mesh_index[row];
+  const auto& r = (*g_mesh_index_cur)[row];
   const char* sysname = r.system == 1 ? "TIE" : "TFRAG";
   std::string grade = r.graded ? fmt::format("{:.2f}%", r.a_sign_x100 / 100.0) : "n/a";
   try {
@@ -1551,6 +1580,202 @@ void pc_mesh_browser_export(u32 row) {
     file_util::write_text_file(file_util::get_jak_project_dir() / "mesh_select.txt", body);
   } catch (...) {
     // best-effort; never let a disk error touch the game loop
+  }
+}
+
+// ===============================================================================================
+// Grecharged-mesh-browser V2: reticle-first FREECAM. The list UI is out; the primary flow is now
+// "fly, point the crosshair at a mesh, R1/R2 to target it". That needs three things the V1 bridge
+// did not have:
+//   * a RAY PICK over the index AABBs (up to TWO levels — the freecam can straddle a border),
+//   * a TARGET CHANNEL into Gfx::g_global_settings so the renderer can hide / checker / gizmo the
+//     one targeted mesh (per-draw, gated by the row's tex_id + AABB),
+//   * runtime PROOF counters read back from the render thread, because two V1 toggles shipped
+//     dead — every toggle must now demonstrate on->off->on via observable draw counts.
+// ===============================================================================================
+namespace {
+// The freecam's pick scope: up to two level indices (empty string = slot unused).
+std::string g_mb_pick_lvl[2];
+
+struct MbPickHit {
+  int slot = 0;
+  int row = 0;
+  float t = 0.f;  // metres along the (normalized) ray
+};
+std::vector<MbPickHit> g_mb_pick_hits;
+}  // namespace
+
+// Set the (up to two) levels the ray pick searches. GOAL strings, same idiom as
+// pc-mesh-index-load!; pass the empty string to leave a slot unused.
+void pc_mb_pick_levels(u32 lvl0, u32 lvl1) {
+  const u32 ptrs[2] = {lvl0, lvl1};
+  for (int i = 0; i < 2; i++) {
+    g_mb_pick_lvl[i].clear();
+    if (ptrs[i]) {
+      g_mb_pick_lvl[i] = mb_clean_level_name(Ptr<String>(ptrs[i]).c()->data());
+    }
+  }
+}
+
+// Cast the reticle ray against every index AABB of the pick levels. origin/dir are GOAL vectors
+// (origin in GOAL units — the camera trans — converted to the index's metres here; dir need not
+// be unit). Standard per-axis slab test, boxes puffed by 1cm so razor-thin walls still register.
+// Hits sorted nearest-first, capped at 16 (R1/R2 cycle through them). Returns the hit count.
+u64 pc_mb_pick(u32 origin, u32 dir) {
+  g_mb_pick_hits.clear();
+  if (!origin || !dir) {
+    return 0;
+  }
+  const float* o = Ptr<float>(origin).c();
+  const float* d = Ptr<float>(dir).c();
+  const float ox = o[0] / 4096.f, oy = o[1] / 4096.f, oz = o[2] / 4096.f;
+  float dx = d[0], dy = d[1], dz = d[2];
+  const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+  if (len < 1e-6f) {
+    return 0;
+  }
+  dx /= len;
+  dy /= len;
+  dz /= len;
+  constexpr float kEps = 0.01f;      // metres of AABB expansion
+  constexpr float kMaxDist = 500.f;  // metres; beyond this the reticle hits nothing
+  for (int slot = 0; slot < 2; slot++) {
+    if (g_mb_pick_lvl[slot].empty()) {
+      continue;
+    }
+    const auto* rows = mb_load_level_index(g_mb_pick_lvl[slot]);
+    if (!rows) {
+      continue;
+    }
+    for (int row = 0; row < (int)rows->size(); row++) {
+      const auto& r = (*rows)[row];
+      const float lo[3] = {r.lox - kEps, r.loy - kEps, r.loz - kEps};
+      const float hi[3] = {r.hix + kEps, r.hiy + kEps, r.hiz + kEps};
+      const float org[3] = {ox, oy, oz};
+      const float dirv[3] = {dx, dy, dz};
+      float tmin = -std::numeric_limits<float>::max();
+      float tmax = std::numeric_limits<float>::max();
+      bool miss = false;
+      for (int a = 0; a < 3; a++) {
+        if (std::fabs(dirv[a]) < 1e-9f) {
+          if (org[a] < lo[a] || org[a] > hi[a]) {
+            miss = true;
+            break;
+          }
+        } else {
+          float t1 = (lo[a] - org[a]) / dirv[a];
+          float t2 = (hi[a] - org[a]) / dirv[a];
+          if (t1 > t2) {
+            std::swap(t1, t2);
+          }
+          tmin = std::max(tmin, t1);
+          tmax = std::min(tmax, t2);
+        }
+      }
+      if (miss || tmax < std::max(tmin, 0.f) || tmin > kMaxDist) {
+        continue;
+      }
+      MbPickHit h;
+      h.slot = slot;
+      h.row = row;
+      h.t = std::max(tmin, 0.f);  // origin inside the box counts as distance 0
+      g_mb_pick_hits.push_back(h);
+    }
+  }
+  std::sort(g_mb_pick_hits.begin(), g_mb_pick_hits.end(),
+            [](const MbPickHit& a, const MbPickHit& b) { return a.t < b.t; });
+  if (g_mb_pick_hits.size() > 16) {
+    g_mb_pick_hits.resize(16);
+  }
+  return (u64)g_mb_pick_hits.size();
+}
+
+// Hit getter over the last pick. field: 0 row, 1 slot, 2 t in centimetres. -1 out of range.
+u64 pc_mb_pick_geti(s32 idx, s32 field) {
+  if (idx < 0 || idx >= (int)g_mb_pick_hits.size()) {
+    return (u64)-1;
+  }
+  const auto& h = g_mb_pick_hits[(size_t)idx];
+  switch (field) {
+    case 0:
+      return (u64)h.row;
+    case 1:
+      return (u64)h.slot;
+    case 2:
+      return (u64)(s64)std::lround(h.t * 100.0f);
+    default:
+      return (u64)-1;
+  }
+}
+
+// Target a picked mesh: publish its identity (system + tex_id + level + GOAL-unit AABB) to the
+// render thread. The three toggle flags are ALWAYS cleared here AND on clear — the single
+// enforcement point that guarantees a hidden mesh can never become un-targetable by a target
+// switch (hide must die with the target it applied to).
+void pc_mb_target_set(s32 row, s32 slot) {
+  if (slot < 0 || slot > 1 || g_mb_pick_lvl[slot].empty()) {
+    return;
+  }
+  const auto* rows = mb_load_level_index(g_mb_pick_lvl[slot]);
+  if (!rows || row < 0 || row >= (int)rows->size()) {
+    return;
+  }
+  const auto& r = (*rows)[(size_t)row];
+  auto& gs = Gfx::g_global_settings;
+  gs.mb_target_system = r.system;
+  gs.mb_target_tex = (u32)r.tex_id;
+  strncpy(gs.mb_target_level, g_mb_pick_lvl[slot].c_str(), sizeof(gs.mb_target_level) - 1);
+  gs.mb_target_level[sizeof(gs.mb_target_level) - 1] = '\0';
+  // index AABB is metres; the renderer compares in GOAL units
+  gs.mb_target_bbox[0] = r.lox * 4096.f;
+  gs.mb_target_bbox[1] = r.loy * 4096.f;
+  gs.mb_target_bbox[2] = r.loz * 4096.f;
+  gs.mb_target_bbox[3] = r.hix * 4096.f;
+  gs.mb_target_bbox[4] = r.hiy * 4096.f;
+  gs.mb_target_bbox[5] = r.hiz * 4096.f;
+  gs.mb_hide_target = false;
+  gs.mb_checker_target = false;
+  gs.mb_gizmos_target = false;
+  gs.mb_target_active = true;
+}
+
+void pc_mb_target_clear() {
+  auto& gs = Gfx::g_global_settings;
+  gs.mb_target_active = false;
+  gs.mb_hide_target = false;
+  gs.mb_checker_target = false;
+  gs.mb_gizmos_target = false;
+}
+
+// The three per-target toggles (L1/L2 hide, Square checker, Circle normal gizmos).
+void pc_mb_hide_set(s32 v) {
+  Gfx::g_global_settings.mb_hide_target = (v != 0);
+}
+
+void pc_mb_checker_set(s32 v) {
+  Gfx::g_global_settings.mb_checker_target = (v != 0);
+}
+
+void pc_mb_gizmos_set(s32 v) {
+  Gfx::g_global_settings.mb_gizmos_target = (v != 0);
+}
+
+// Runtime proof counters, written by the render thread. This is how a toggle DEMONSTRATES
+// on->off->on instead of merely claiming it (two V1 toggles shipped dead; never again).
+// field: 0 hidden draws, 1 checker draws, 2 gizmo passes, 3 gizmo faces.
+u64 pc_mb_rt_geti(s32 field) {
+  const auto& gs = Gfx::g_global_settings;
+  switch (field) {
+    case 0:
+      return gs.mb_ctr_hidden_draws;
+    case 1:
+      return gs.mb_ctr_checker_draws;
+    case 2:
+      return gs.mb_ctr_gizmo_draws;
+    case 3:
+      return gs.mb_ctr_gizmo_faces;
+    default:
+      return 0;
   }
 }
 
@@ -1742,15 +1967,17 @@ extern "C" void pc_mb_touch_event(int action, int n, float x0, float y0, float x
   }
 }
 
-// Is the browser holding the screen? Read by the Android overlay (JNI) to decide whether to route
-// raw touch to the browser instead of actuating the virtual gamepad.
+// What mode is the browser in? Read by the Android overlay (JNI) to decide touch routing.
+// V2: the raw MODE, no longer a bool — 0 closed, 1 list-UI (raw touch to the gesture channel),
+// 2 FREECAM (touch stays on the virtual gamepad + look area). Existing Java treats nonzero as
+// "browser active", which remains correct until the overlay learns mode 2.
 extern "C" int pc_mb_is_active() {
   return g_mb.active.load(std::memory_order_acquire);
 }
 
-// GOAL raises/clears the flag. Clearing it restores the normal virtual-gamepad routing exactly.
+// GOAL sets the mode. 0 restores the normal virtual-gamepad routing exactly.
 void pc_mb_set_active(u32 on) {
-  g_mb.active.store(on ? 1 : 0, std::memory_order_release);
+  g_mb.active.store((int)on, std::memory_order_release);
 }
 
 // Latch one frame of gesture state and CONSUME the accumulated deltas. Returns the finger count.
@@ -1930,6 +2157,17 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-mb-state-begin!", (void*)pc_mb_state_begin);
   make_function_symbol_from_c("pc-mb-state-line!", (void*)pc_mb_state_line);
   make_function_symbol_from_c("pc-mb-state-end!", (void*)pc_mb_state_end);
+  // V2 freecam: reticle ray pick over up to two levels' index AABBs + the target channel into
+  // g_global_settings (hide/checker/gizmos per targeted mesh) + the runtime proof counters.
+  make_function_symbol_from_c("pc-mb-pick-levels!", (void*)pc_mb_pick_levels);
+  make_function_symbol_from_c("pc-mb-pick!", (void*)pc_mb_pick);
+  make_function_symbol_from_c("pc-mb-pick-geti", (void*)pc_mb_pick_geti);
+  make_function_symbol_from_c("pc-mb-target-set!", (void*)pc_mb_target_set);
+  make_function_symbol_from_c("pc-mb-target-clear!", (void*)pc_mb_target_clear);
+  make_function_symbol_from_c("pc-mb-hide-set!", (void*)pc_mb_hide_set);
+  make_function_symbol_from_c("pc-mb-checker-set!", (void*)pc_mb_checker_set);
+  make_function_symbol_from_c("pc-mb-gizmos-set!", (void*)pc_mb_gizmos_set);
+  make_function_symbol_from_c("pc-mb-rt-geti", (void*)pc_mb_rt_geti);
   // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
 #ifdef OG_FEAT_HD_MODELS

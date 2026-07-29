@@ -225,3 +225,13 @@ PREUVES EXIGÉES (le validator les vérifie, mesure visuelle in-game toujours in
 NOTE : le "gap rotation du mesh" documenté au round précédent devient SANS OBJET — en freecam on
 vole autour du modèle, ce qui couvre le besoin "le voir sous toutes les coutures" mieux qu'une
 rotation d'objet.
+
+--------------------------------------------------------------------------------
+OWNER 2026-07-30 — PLACEMENT DU BOUTON FREECAM DANS L'OVERLAY TACTILE
+--------------------------------------------------------------------------------
+Owner : "La place du bouton freecam à côté de start et select je dirais"
+
+Le bouton overlay d'entrée/sortie freecam se place DANS LE GROUPE START/SELECT de l'overlay tactile
+existant — même zone, même taille et style que ces deux boutons, pour qu'il soit trouvable sans
+réfléchir. Pas ailleurs à l'écran, pas flottant. Étiquette courte et lisible (ex. "CAM"). Documente
+son emplacement dans menu-tree.md (section overlay) comme toute entrée d'UI.

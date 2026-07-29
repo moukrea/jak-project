@@ -9638,7 +9638,22 @@ extern "C" void pc_mb_touch_event(int action, int n, float x0, float y0, float x
 
 JNIEXPORT jboolean JNICALL
 Java_org_opengoal_gk_NativeGk_isInMeshBrowser(JNIEnv* /*env*/, jclass /*clazz*/) {
-  return pc_mb_is_active() ? JNI_TRUE : JNI_FALSE;
+  // V2: the C++ flag is now an int MODE (0=off, 1=list-UI, 2=freecam). This
+  // boolean keeps its historical meaning "the browser owns the screen" for
+  // existing callers (MainActivity's don't-GONE-the-overlay guard): true for
+  // ANY non-zero mode. Callers that must distinguish list-UI (raw touch, pad
+  // suspended) from freecam (pad LIVE) use meshBrowserMode() below.
+  return pc_mb_is_active() != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+// Grecharged-mesh-browser V2 (freecam): the full int mode, 0=off, 1=list-UI
+// (raw multi-touch routing, virtual pad suspended), 2=FREECAM (the GOAL side
+// is 100% pad-driven, so the virtual pad stays LIVE and the overlay presents
+// a freecam control set). Same atomic getter as isInMeshBrowser — cheap,
+// race-free, safe on the UI thread.
+JNIEXPORT jint JNICALL
+Java_org_opengoal_gk_NativeGk_meshBrowserMode(JNIEnv* /*env*/, jclass /*clazz*/) {
+  return (jint)pc_mb_is_active();
 }
 
 JNIEXPORT void JNICALL

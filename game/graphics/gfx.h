@@ -166,6 +166,29 @@ struct GfxGlobalSettings {
   // the texture upload), so the browser re-warps the current mesh after a flip. 0 = off (real
   // textures), 1 = checker where PBR maps exist (the owner's verification pattern). Default 0.
   int recharged_mesh_browser_checker = 0;
+  // Grecharged-mesh-browser V2 (owner 2026-07-30): the FREECAM reticle TARGET channel. The GOAL
+  // freecam writes a single targeted mesh here (via the pc-mb-* bridges in kmachine.cpp); the
+  // TFRAG/TIE draw loops consult it per draw. A "mesh" is one row of the offline index; the only
+  // runtime linkage an index row has to draws is its tex_id, so hide/checker act on every draw of
+  // the targeted system whose tree_tex_id matches, within the named level. The gizmo builder is
+  // finer: it filters per FACE by the row's AABB. When mb_target_active is false every check below
+  // short-circuits on the first compare — the normal path is unchanged.
+  bool mb_target_active = false;
+  int mb_target_system = 0;              // 0 = TFRAG, 1 = TIE (mesh_index system column)
+  u32 mb_target_tex = 0;                 // tfrag3 StripDraw::tree_tex_id of the targeted mesh
+  char mb_target_level[16] = {0};        // fr3/level name the target lives in
+  float mb_target_bbox[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};  // lo xyz / hi xyz, GOAL UNITS
+  bool mb_hide_target = false;           // L1/L2: skip the targeted draws outright
+  bool mb_checker_target = false;        // Square: bind the checker base texture for them
+  bool mb_gizmos_target = false;         // Circle: per-face normal arrows over the target AABB
+  // Monotonic PROOF counters, bumped on the render thread, read back by GOAL (pc-mb-rt-geti)
+  // into files/mesh_browser_state.txt. Monotonic on purpose: a harness proves a toggle is LIVE
+  // by sampling twice — the counter moves while the toggle is on and stops when it is off —
+  // with no per-frame reset to place. Benign torn reads are fine for evidence counters.
+  u32 mb_ctr_hidden_draws = 0;           // draws skipped because hide is on
+  u32 mb_ctr_checker_draws = 0;          // draws submitted with the checker override
+  u32 mb_ctr_gizmo_draws = 0;            // gizmo render passes submitted
+  u32 mb_ctr_gizmo_faces = 0;            // faces in the current gizmo build (set, not summed)
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
   // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
   float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};

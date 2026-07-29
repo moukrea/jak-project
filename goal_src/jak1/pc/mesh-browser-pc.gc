@@ -88,6 +88,23 @@
 (define-extern pc-mb-state-begin! (function none))        ;; start files/mesh_browser_state.txt
 (define-extern pc-mb-state-line! (function string none))  ;; append one line
 (define-extern pc-mb-state-end! (function none))          ;; append touch counters + write the file
+;; V2 FREECAM (owner 2026-07-30: "le mesh browser actuel est a chier" — the reticle-first freecam
+;; below is the primary UI now; the list survives as the secondary way in). These bridges live in
+;; game/kernel/jak1/kmachine.cpp next to the pc-mb-touch channel.
+(define-extern pc-mb-pick-levels! (function string string none)) ;; up to 2 ACTIVE level index-names to pick against ("" = unused slot)
+(define-extern pc-mb-pick! (function vector vector int))   ;; camera ray origin+dir (GOAL units); slab-tests every index row AABB, near->far, cap 16; returns count
+(define-extern pc-mb-pick-geti (function int int int))     ;; (idx field): 0=row 1=slot 2=t_cm
+(define-extern pc-mb-target-set! (function int int none))  ;; (row slot) -> renderer target key; ALSO clears hide/checker/gizmo flags C++-side
+(define-extern pc-mb-target-clear! (function none))
+(define-extern pc-mb-hide-set! (function int none))
+(define-extern pc-mb-checker-set! (function int none))
+(define-extern pc-mb-gizmos-set! (function int none))
+(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic)
+
+;; pc-mb-pick-geti field ids
+(defconstant MB_PK_ROW 0)
+(defconstant MB_PK_SLOT 1)
+(defconstant MB_PK_TCM 2)
 
 ;; geti field ids
 (defconstant MB_GI_SYSTEM 0)    ;; 0 TFRAG, 1 TIE
@@ -127,13 +144,16 @@
 (defconstant MB_T_NEVENTS 16)   ;; total raw touch events seen (evidence counter)
 
 ;; ---- state ----------------------------------------------------------------------------------------
-;; The browser has four top-level modes: closed, the LEVEL picker, the MESH LIST, and OBSERVE.
+;; The browser has five top-level modes: closed, the LEVEL picker, the MESH LIST, OBSERVE, and the
+;; V2 FREECAM — a camera fully detached from Jak, flown with the sticks, that targets whatever mesh
+;; sits under a first-person reticle.
 (defenum mesh-browser-mode
   :type int32
   (closed 0)
   (levels 1)
   (list 2)
-  (observe 3))
+  (observe 3)
+  (freecam 4))
 
 ;; A level entry: the on-disk index file name and the LEVEL SYMBOL.
 ;; The symbol is what the load-state wants (load-state-want-levels); there is no continue-point name
@@ -201,6 +221,20 @@
    ;; state-dump throttle
    (dump-sig      int32)
    (dump-timer    int32)
+   ;; ---- V2 FREECAM (owner 2026-07-30 redesign) ----------------------------------------------------
+   ;; The freecam is its own camera pose (position + yaw/pitch, radians), not an orbit: the owner
+   ;; flies it anywhere, including the air, and targets meshes through the reticle instead of a list.
+   (fc-pos         vector :inline) ;; camera position, GOAL units
+   (fc-yaw         float)          ;; look yaw, radians, kept in [0,2pi)
+   (fc-pitch       float)          ;; look pitch, radians, clamped short of the poles (MB_EL_MIN/MAX)
+   (fc-target      int32)          ;; targeted index row, -1 = none
+   (fc-target-slot int32)          ;; which pick-level slot the target's row belongs to (0/1)
+   (fc-pick-n      int32)          ;; candidate count from the last reticle pick
+   (fc-hide?       symbol)         ;; GOAL-side mirror of the C++ hide flag (C++ is authoritative)
+   (fc-checker?    symbol)         ;; ditto, per-target checker tessellation
+   (fc-gizmos?     symbol)         ;; ditto, normal gizmos
+   (fc-lvl0        string)         ;; the up-to-2 ACTIVE level index-names the picker tests against
+   (fc-lvl1        string)
    ;; scratch strings (runtime buffers, re-formatted each frame — like *fps-counter-label*).
    ;; grade-buf / sub-buf hold pre-formatted sub-strings so they can be passed as ~S args to an
    ;; OUTER string-format WITHOUT clobber: string-format formats into the SINGLE shared *temp-string*
@@ -263,6 +297,9 @@
 (set! (-> *mesh-browser* line-buf)  (new 'global 'string 192 (the string #f)))
 (set! (-> *mesh-browser* grade-buf) (new 'global 'string 16 (the string #f)))
 (set! (-> *mesh-browser* sub-buf)   (new 'global 'string 16 (the string #f)))
+;; freecam pick-level name buffers — longest level name is "firecanyon" (10), 32 is comfortable.
+(set! (-> *mesh-browser* fc-lvl0)   (new 'global 'string 32 (the string #f)))
+(set! (-> *mesh-browser* fc-lvl1)   (new 'global 'string 32 (the string #f)))
 ;; (new 'global 'string n #f) allocates without writing a terminator (kernel/gstring.gc:70), and
 ;; level-buf is printed with ~S from the very first LEVELS frame, before enter-list fills it.
 (clear (-> *mesh-browser* level-buf))
@@ -270,7 +307,13 @@
 (clear (-> *mesh-browser* line-buf))
 (clear (-> *mesh-browser* grade-buf))
 (clear (-> *mesh-browser* sub-buf))
+(clear (-> *mesh-browser* fc-lvl0))
+(clear (-> *mesh-browser* fc-lvl1))
 (set! (-> *mesh-browser* checker?) #f)
+(set! (-> *mesh-browser* fc-target) -1)
+(set! (-> *mesh-browser* fc-hide?) #f)
+(set! (-> *mesh-browser* fc-checker?) #f)
+(set! (-> *mesh-browser* fc-gizmos?) #f)
 (set! (-> *mesh-browser* mode) (mesh-browser-mode closed))
 
 ;; ---- the 2D design space --------------------------------------------------------------------------
@@ -729,31 +772,38 @@
       (set! (-> obj warp-timer) 0)))
   (none))
 
+(defun mesh-browser-borrow-world ((obj mesh-browser))
+  "Capture and borrow the untouched world — the shared closed->open edge. Extracted VERBATIM from
+   mesh-browser-open so the V2 freecam entry (which can open straight from gameplay, no list) borrows
+   and restores EXACTLY the same things; mesh-browser-close is the single common give-back."
+  ;; Remember the world we are about to borrow. The *target* guard is not decoration: the browser
+  ;; is reachable from the TITLE-screen options too, and level-get-target-inside opens with
+  ;; (target-pos 0) (engine/level/level.gc:909), which would dereference a #f target.
+  (let ((lev (if *target* (level-get-target-inside *level*) (the level #f))))
+    (set! (-> obj home-level) (if lev (-> lev name) (the symbol #f))))
+  (when *target* (set! (-> obj home-pos quad) (-> *target* root trans quad)))
+  ;; snapshot the load-state want list so close can put back the EXACT pair we found, not a guess
+  (set! (-> obj saved-want0) (-> *load-state* want 0 name))
+  (set! (-> obj saved-want1) (-> *load-state* want 1 name))
+  (set! (-> obj saved-disp0) (-> *load-state* want 0 display?))
+  (set! (-> obj saved-disp1) (-> *load-state* want 1 display?))
+  ;; A free camera wandering across a load boundary would re-issue want-levels under us: the
+  ;; boundary test feeds the CAMERA position into the non-player boundaries
+  ;; (engine/level/load-boundary.gc:744-758). Suspend boundary crossing while we hold the camera.
+  ;; It must be switched off at the SOURCE: (-> *level* border?) is rewritten from
+  ;; (-> *setting-control* default border-mode) every single frame (engine/game/settings.gc:232),
+  ;; so writing *level* border? directly would survive exactly one frame and prove nothing.
+  (set! (-> obj saved-border?) (-> *setting-control* default border-mode))
+  (set! (-> *setting-control* default border-mode) #f)
+  (mesh-browser-freeze-player obj)
+  (none))
+
 (defmethod mesh-browser-open mesh-browser ((obj mesh-browser))
   "Open the browser at the LEVEL picker. Called by the Recharged Settings menu row, and also used as
    the 'back to the level list' action — so anything that must be captured from the untouched world
    is captured ONLY on the closed->open edge."
   (when (= (-> obj mode) (mesh-browser-mode closed))
-    ;; Remember the world we are about to borrow. The *target* guard is not decoration: the browser
-    ;; is reachable from the TITLE-screen options too, and level-get-target-inside opens with
-    ;; (target-pos 0) (engine/level/level.gc:909), which would dereference a #f target.
-    (let ((lev (if *target* (level-get-target-inside *level*) (the level #f))))
-      (set! (-> obj home-level) (if lev (-> lev name) (the symbol #f))))
-    (when *target* (set! (-> obj home-pos quad) (-> *target* root trans quad)))
-    ;; snapshot the load-state want list so close can put back the EXACT pair we found, not a guess
-    (set! (-> obj saved-want0) (-> *load-state* want 0 name))
-    (set! (-> obj saved-want1) (-> *load-state* want 1 name))
-    (set! (-> obj saved-disp0) (-> *load-state* want 0 display?))
-    (set! (-> obj saved-disp1) (-> *load-state* want 1 display?))
-    ;; A free camera wandering across a load boundary would re-issue want-levels under us: the
-    ;; boundary test feeds the CAMERA position into the non-player boundaries
-    ;; (engine/level/load-boundary.gc:744-758). Suspend boundary crossing while we hold the camera.
-    ;; It must be switched off at the SOURCE: (-> *level* border?) is rewritten from
-    ;; (-> *setting-control* default border-mode) every single frame (engine/game/settings.gc:232),
-    ;; so writing *level* border? directly would survive exactly one frame and prove nothing.
-    (set! (-> obj saved-border?) (-> *setting-control* default border-mode))
-    (set! (-> *setting-control* default border-mode) #f)
-    (mesh-browser-freeze-player obj))
+    (mesh-browser-borrow-world obj))
   (set! (-> obj mode) (mesh-browser-mode levels))
   (set! (-> obj level-index) 0)
   (set! (-> obj drag) (mesh-browser-drag none))
@@ -796,6 +846,10 @@
   (mesh-browser-set-othercam-sleep #f)
   (mesh-browser-unfreeze-player obj)
   (set! (-> obj browse-level) (the symbol #f))
+  ;; drop any freecam render target: the renderer must never keep hiding/checkering a mesh after
+  ;; the browser is gone (pc-mb-target-clear! also clears the C++ hide/checker/gizmo flags).
+  (pc-mb-target-clear!)
+  (set! (-> obj fc-target) -1)
   ;; hand touch back to the virtual gamepad — the overlay is byte-identical from here on.
   (pc-mb-set-active! 0)
   ;; one FINAL state dump so the file says mode=CLOSED. The state file is the evidence channel: a
@@ -1282,6 +1336,250 @@
       (set-time-of-day *mb-tod-hour*)))
   (none))
 
+;; ---- V2 FREECAM ------------------------------------------------------------------------------------
+;; Owner, 2026-07-30: the list UI "est a chier" — what he wants is to FLY, reticle-first: enter a
+;; freecam fully detached from Jak (R3 or the overlay button), fly with the left stick in ALL
+;; directions including the air, look with the right stick / touch area, put the crosshair on a mesh
+;; and R1/R2 to target it (its NAME in plain text), L1/L2 hide/show it, Square checker-tess it,
+;; Circle its NORMAL GIZMOS (the dream tool for the orientation hunt — he can now SEE an inward
+;; normal), Triangle to defocus. The list survives as secondary UI; going back to it is via the menu.
+
+(defun mesh-browser-freecam-fwd ((obj mesh-browser) (out vector))
+  "The freecam look direction from yaw/pitch: (sin yaw * cos pitch, sin pitch, cos yaw * cos pitch).
+   Shared by the reticle pick ray, the fly step and the per-frame camera matrix so all three agree
+   by construction. mb-pi-wrap before EVERY sin-rad/cos-rad — yaw lives in [0,2pi) and those
+   polynomials diverge outside [-pi,pi] (see the trap doc at mb-pi-wrap)."
+  (let* ((yw (mb-pi-wrap (-> obj fc-yaw)))
+         (pt (mb-pi-wrap (-> obj fc-pitch)))
+         (cp (cos-rad pt)))
+    (set-vector! out (* (sin-rad yw) cp) (sin-rad pt) (* (cos-rad yw) cp) 0.0))
+  out)
+
+(defun mesh-browser-freecam-refresh-levels ((obj mesh-browser))
+  "Tell the C++ picker which (up to 2) ACTIVE levels to slab-test against. Reads the same level
+   slots the engine streams into (level0/level1 — level-default is never a wantable level), and the
+   same 'active status test V1's reframe uses via level-status (which just returns (-> lev status),
+   engine/level/level.gc:262). An unused slot is the empty string."
+  (let ((slot 0))
+    (dotimes (i 2)
+      (let ((lev (-> *level* level i)))
+        (when (and (= (-> lev status) 'active) (< slot 2))
+          ;; the level symbol's print name IS the index-name for all 25 shipped levels
+          (format (clear (if (zero? slot) (-> obj fc-lvl0) (-> obj fc-lvl1))) "~A" (-> lev name))
+          (+! slot 1))))
+    (when (zero? slot) (format (clear (-> obj fc-lvl0)) ""))
+    (when (< slot 2) (format (clear (-> obj fc-lvl1)) "")))
+  (pc-mb-pick-levels! (-> obj fc-lvl0) (-> obj fc-lvl1))
+  (none))
+
+(defun mesh-browser-freecam-pick ((obj mesh-browser) (dir int))
+  "Reticle pick: ray from the freecam through the screen centre, against every mesh AABB of the
+   active levels. dir +1 (R1) / -1 (R2) CYCLES through the overlapping candidates near->far — nested
+   meshes are the norm in this geometry (a lamp inside a wall inside a hillside), so repeated R1
+   presses must walk INTO the stack, not re-pick the front one forever."
+  (mesh-browser-freecam-refresh-levels obj)
+  (let ((org (new 'stack-no-clear 'vector))
+        (dirv (new 'stack-no-clear 'vector)))
+    (set! (-> org quad) (-> obj fc-pos quad))
+    (mesh-browser-freecam-fwd obj dirv)
+    (let ((n (pc-mb-pick! org dirv)))
+      (set! (-> obj fc-pick-n) n)
+      (when (> n 0)
+        ;; where does the CURRENT target sit in the candidate list?
+        (let ((p -1))
+          (dotimes (i n)
+            (when (and (= (pc-mb-pick-geti i MB_PK_ROW) (-> obj fc-target))
+                       (= (pc-mb-pick-geti i MB_PK_SLOT) (-> obj fc-target-slot)))
+              (set! p i)))
+          (let* ((idx (if (>= p 0)
+                          (mod (+ p dir n) n)           ;; cycle from the current target
+                          (if (>= dir 0) 0 (+ n -1))))  ;; fresh pick: R1 = nearest, R2 = farthest
+                 (row (pc-mb-pick-geti idx MB_PK_ROW))
+                 (slot (pc-mb-pick-geti idx MB_PK_SLOT)))
+            (pc-mb-target-set! row slot)
+            (set! (-> obj fc-target) row)
+            (set! (-> obj fc-target-slot) slot)
+            ;; pc-mb-target-set! cleared the C++ hide/checker/gizmo flags; mirror that here or the
+            ;; HUD would claim a state the renderer no longer has.
+            (set! (-> obj fc-hide?) #f)
+            (set! (-> obj fc-checker?) #f)
+            (set! (-> obj fc-gizmos?) #f)
+            ;; load that level's index so the name/grade getters and the state dump read THIS row,
+            ;; and write the owner's copy-out file (he has no adb).
+            (set! (-> obj cur-row) row)
+            (pc-mesh-index-load! (if (zero? slot) (-> obj fc-lvl0) (-> obj fc-lvl1)))
+            (pc-mesh-index-level! (-> obj level-buf))
+            (pc-mesh-browser-export! row))))))
+  (none))
+
+(defun mesh-browser-enter-freecam ((obj mesh-browser))
+  "Enter FREECAM from anywhere: closed (R3 in gameplay), the list screens, or OBSERVE. The camera
+   CONTINUES from wherever the engine's camera is right now — pose copied, yaw/pitch derived from
+   the current look direction — so entry is seamless. A visible snap on entry is a FAIL."
+  (let ((from-observe? (= (-> obj mode) (mesh-browser-mode observe))))
+    ;; from fully closed we must first borrow the world (freeze Jak, snapshot the want list...),
+    ;; exactly as the list entry does — one shared borrow, one shared give-back (close).
+    (when (= (-> obj mode) (mesh-browser-mode closed))
+      (mesh-browser-borrow-world obj))
+    ;; continue from the RENDERER'S camera pose, i.e. what is on screen this frame.
+    (set! (-> obj fc-pos quad) (-> *math-camera* trans quad))
+    ;; yaw/pitch from the current look direction. From OBSERVE both ends of the look ray are known
+    ;; exactly (camera -> centroid); anywhere else, take the camera rotation basis the engine itself
+    ;; uses for "in front of the camera": inv-camera-rot row 2 is the world-space forward
+    ;; (position-in-front-of-camera!, engine/camera/cam-interface.gc:13 — and our own OBSERVE matrix
+    ;; is copied verbatim into inv-camera-rot by cam-update.gc:325, same convention, same sign).
+    (let ((fwd (new 'stack-no-clear 'vector)))
+      (cond
+        (from-observe?
+         (vector-! fwd (-> obj obs-focus) (-> *math-camera* trans))
+         (vector-normalize! fwd 1.0))
+        (else
+         (set! (-> fwd quad) (-> *math-camera* inv-camera-rot vector 2 quad))))
+      ;; a degenerate forward (camera exactly on the centroid) would NaN the angles; look north.
+      (when (< (vector-length fwd) 0.001)
+        (set-vector! fwd 0.0 0.0 1.0 0.0))
+      ;; UNITS: atan2-rad (engine/math/trigonometry.gc:829) returns RADIANS in [-pi,pi] directly;
+      ;; asin (trigonometry.gc:1065) returns ROTATION UNITS (65536/turn per its docstring), so
+      ;; divide by 10430.378 = 65536/2pi (the same constant the light spin uses in reverse).
+      (set! (-> obj fc-yaw) (mb-wrap (atan2-rad (-> fwd x) (-> fwd z)) 6.2832))
+      (set! (-> obj fc-pitch)
+            (fmax MB_EL_MIN (fmin MB_EL_MAX (/ (asin (-> fwd y)) 10430.378)))))
+    ;; entering from OBSERVE = the owner was already looking at a mesh: keep it, pre-targeted, so
+    ;; the freecam opens with the gizmo/hide/checker toggles immediately live on that mesh.
+    (cond
+      (from-observe?
+       (if (-> obj browse-level)
+           (format (clear (-> obj fc-lvl0)) "~A" (-> obj browse-level))
+           (format (clear (-> obj fc-lvl0)) ""))
+       (if (and (-> obj home-level) (!= (-> obj home-level) (-> obj browse-level)))
+           (format (clear (-> obj fc-lvl1)) "~A" (-> obj home-level))
+           (format (clear (-> obj fc-lvl1)) ""))
+       (pc-mb-pick-levels! (-> obj fc-lvl0) (-> obj fc-lvl1))
+       (set! (-> obj fc-target) (-> obj cur-row))
+       (set! (-> obj fc-target-slot) 0)
+       (pc-mb-target-set! (-> obj cur-row) 0))
+      (else
+       (set! (-> obj fc-target) -1)))
+    ;; C++ cleared its flags on target-set/none — mirror.
+    (set! (-> obj fc-hide?) #f)
+    (set! (-> obj fc-checker?) #f)
+    (set! (-> obj fc-gizmos?) #f)
+    (set! (-> obj fc-pick-n) 0)
+    (set! (-> obj mode) (mesh-browser-mode freecam))
+    (set! (-> obj drag) (mesh-browser-drag none))
+    ;; MODE 2: the overlay KEEPS the virtual pad live (the freecam is stick-flown; raw-touch mode 1
+    ;; would take the owner's only sticks away) and shows its freecam button as active.
+    (pc-mb-set-active! 2))
+  (none))
+
+(defun mesh-browser-input-freecam ((obj mesh-browser))
+  ;; LOOK: right stick, same *cpad-list* reads + 24.0 deadzone as OBSERVE. Stick up = look up
+  ;; (righty decreases upward, so subtracting ry raises the pitch — same polarity OBSERVE uses for
+  ;; its elevation).
+  (let ((rx (- (the float (-> *cpad-list* cpads 0 rightx)) 128.0))
+        (ry (- (the float (-> *cpad-list* cpads 0 righty)) 128.0)))
+    (when (> (fabs rx) 24.0)
+      (set! (-> obj fc-yaw) (mb-wrap (+ (-> obj fc-yaw) (* rx 0.0009)) 6.2832)))
+    (when (> (fabs ry) 24.0)
+      (set! (-> obj fc-pitch)
+            (fmax MB_EL_MIN (fmin MB_EL_MAX (- (-> obj fc-pitch) (* ry 0.0007)))))))
+  ;; FLY: left stick. FULL 3D along the look vector — pushing forward while looking up FLIES UP
+  ;; (owner: "left stick to move in all directions including air"). X held = 4x boost.
+  (let ((lx (- (the float (-> *cpad-list* cpads 0 leftx)) 128.0))
+        (ly (- (the float (-> *cpad-list* cpads 0 lefty)) 128.0)))
+    (when (or (> (fabs lx) 24.0) (> (fabs ly) 24.0))
+      (let ((fwd (new 'stack-no-clear 'vector))
+            (rgt (new 'stack-no-clear 'vector))
+            (spd (if (cpad-hold? 0 x) 4096.0 1024.0))  ;; GOAL units/frame at full deflection
+            (lxn (if (> (fabs lx) 24.0) (/ lx 128.0) 0.0))
+            (lyn (if (> (fabs ly) 24.0) (/ ly 128.0) 0.0)))
+        (mesh-browser-freecam-fwd obj fwd)
+        (let ((yw (mb-pi-wrap (-> obj fc-yaw))))
+          (set-vector! rgt (cos-rad yw) 0.0 (- (sin-rad yw)) 0.0))
+        ;; lefty decreases when pushed forward, so forward = -lyn along the look vector.
+        (vector+float*! (-> obj fc-pos) (-> obj fc-pos) fwd (* (- lyn) spd))
+        (vector+float*! (-> obj fc-pos) (-> obj fc-pos) rgt (* lxn spd)))))
+  ;; BUTTONS. The toggles are inert without a target (Triangle defocused them on purpose).
+  (cond
+    ((cpad-pressed? 0 r1) (mesh-browser-freecam-pick obj 1))
+    ((cpad-pressed? 0 r2) (mesh-browser-freecam-pick obj -1))
+    ((cpad-pressed? 0 l1)
+     (when (>= (-> obj fc-target) 0)
+       (pc-mb-hide-set! 1)
+       (set! (-> obj fc-hide?) #t)))
+    ((cpad-pressed? 0 l2)
+     (when (>= (-> obj fc-target) 0)
+       (pc-mb-hide-set! 0)
+       (set! (-> obj fc-hide?) #f)))
+    ((cpad-pressed? 0 square)
+     (when (>= (-> obj fc-target) 0)
+       (set! (-> obj fc-checker?) (not (-> obj fc-checker?)))
+       (pc-mb-checker-set! (if (-> obj fc-checker?) 1 0))))
+    ((cpad-pressed? 0 circle)
+     (when (>= (-> obj fc-target) 0)
+       (set! (-> obj fc-gizmos?) (not (-> obj fc-gizmos?)))
+       (pc-mb-gizmos-set! (if (-> obj fc-gizmos?) 1 0))))
+    ((cpad-pressed? 0 triangle)
+     ;; DEFOCUS: drop the target; the three toggles become inert (owner's spec).
+     (pc-mb-target-clear!)
+     (set! (-> obj fc-target) -1)
+     (set! (-> obj fc-hide?) #f)
+     (set! (-> obj fc-checker?) #f)
+     (set! (-> obj fc-gizmos?) #f))
+    ((cpad-pressed? 0 left) (mesh-browser-bump-tod obj -1.0))
+    ((cpad-pressed? 0 right) (mesh-browser-bump-tod obj 1.0))
+    ((cpad-pressed? 0 up) (mesh-browser-bump-relief obj 0.25))
+    ((cpad-pressed? 0 down) (mesh-browser-bump-relief obj -0.25)))
+  ;; CAMERA: same look-through-other channel as OBSERVE, re-armed every frame.
+  (let ((fwd (new 'stack-no-clear 'vector))
+        (dwn (new 'stack-no-clear 'vector)))
+    (mesh-browser-freecam-fwd obj fwd)
+    (set-vector! dwn 0.0 -1.0 0.0 0.0)
+    (forward-down->inv-matrix *camera-other-matrix* fwd dwn)
+    (set! (-> *camera-other-trans* quad) (-> obj fc-pos quad))
+    (set! *camera-look-through-other* 2))
+  ;; every frame, not just on entry: a title attract cycle can spawn a FRESH othercam mid-flight
+  (mesh-browser-set-othercam-sleep #t)
+  ;; hold the chosen hour (re-asserted every frame, or the day/night cycle ticks it forward)
+  (when (and *mb-tod-hold?* *time-of-day-proc*)
+    (set-time-of-day *mb-tod-hour*))
+  (none))
+
+(defun mesh-browser-draw-freecam ((obj mesh-browser) (buf dma-buffer))
+  ;; NO full-screen backdrop: the world must stay fully visible — the freecam IS the viewport.
+  ;; RETICLE at screen centre: two thin crossing bars.
+  (mesh-browser-rect buf 0.480 0.4975 0.520 0.5025 (new 'static 'rgba :r #xff :g #xff :b #xff :a #xa0))
+  (mesh-browser-rect buf 0.4975 0.475 0.5025 0.525 (new 'static 'rgba :r #xff :g #xff :b #xff :a #xa0))
+  (mesh-browser-text buf
+    "FREECAM  R1/R2 TARGET  L1 HIDE L2 SHOW  SQUARE CHECKER  CIRCLE GIZMOS  TRIANGLE DEFOCUS  R3 EXIT"
+    0.02 0.045 (font-color green))
+  (cond
+    ((>= (-> obj fc-target) 0)
+     (let ((raw (-> obj cur-row)))
+       (pc-mesh-index-name! raw (-> obj name-buf))
+       ;; the identifier the owner quotes back — exactly the OBSERVE style, via the dedicated
+       ;; buffers (mb-grade-string writes grade-buf, NOT the shared *temp-string* the outer
+       ;; string-format formats into — the clobber trap documented at grade-buf).
+       (mesh-browser-text buf
+         (string-format "TARGET ~S / ~S  ~S  SHELL ~D  TEX ~D"
+                        (-> obj level-buf) (-> obj name-buf)
+                        (if (= (pc-mesh-index-geti raw MB_GI_SYSTEM) 1) "TIE" "TFRAG")
+                        (pc-mesh-index-geti raw MB_GI_SHELL) (pc-mesh-index-geti raw MB_GI_TEX))
+         0.02 0.095 (font-color white))
+       (mesh-browser-text buf
+         (string-format "GRADE A_SIGN=~S  (files/mesh_select.txt)" (mb-grade-string obj raw))
+         0.02 0.145 (font-color yellow))
+       (mesh-browser-text buf
+         (string-format "HIDE=~D CHECKER=~D GIZMOS=~D  PICKS=~D"
+                        (if (-> obj fc-hide?) 1 0)
+                        (if (-> obj fc-checker?) 1 0)
+                        (if (-> obj fc-gizmos?) 1 0)
+                        (-> obj fc-pick-n))
+         0.02 0.195 (font-color cyan))))
+    (else
+     (mesh-browser-text buf "NO TARGET - AIM THE RETICLE, PRESS R1" 0.02 0.095 (font-color yellow))))
+  (none))
+
 ;; ---- observable-state dump -------------------------------------------------------------------------
 ;; files/mesh_browser_state.txt. Two jobs: it is the owner's copy-out of the identifier he is looking
 ;; at (he has no adb), and it is what makes the touch claim FALSIFIABLE — inject a gesture, read the
@@ -1293,6 +1591,7 @@
     (((mesh-browser-mode levels)) "LEVELS")
     (((mesh-browser-mode list)) "LIST")
     (((mesh-browser-mode observe)) "OBSERVE")
+    (((mesh-browser-mode freecam)) "FREECAM")
     (else "CLOSED")))
 
 (defun mesh-browser-state-sig ((obj mesh-browser))
@@ -1311,6 +1610,17 @@
     (+! s (* 37 (-> *pc-settings* pbr-displacement)))
     (+! s (* 41 (the int (* 100.0 (-> *pc-settings* pbr-texture-relief)))))
     (+! s (* 43 (the int (* 10.0 *mb-tod-hour*))))
+    ;; FREECAM: every fly step (decimetre-resolution position), look, retarget and toggle must move
+    ;; the signature so it dumps within 8 frames. The rt counters are deliberately NOT in the sig —
+    ;; they advance every rendered frame; the 180-frame heartbeat carries their progress.
+    (+! s (* 47 (the int (* 10.0 (* MB_M (-> obj fc-pos x))))))
+    (+! s (* 59 (the int (* 10.0 (* MB_M (-> obj fc-pos z))))))
+    (+! s (* 61 (the int (* 100.0 (-> obj fc-yaw)))))
+    (+! s (* 67 (the int (* 100.0 (-> obj fc-pitch)))))
+    (+! s (* 71 (-> obj fc-target)))
+    (+! s (* 73 (if (-> obj fc-hide?) 1 0)))
+    (+! s (* 79 (if (-> obj fc-checker?) 1 0)))
+    (+! s (* 83 (if (-> obj fc-gizmos?) 1 0)))
     s))
 
 (defun mesh-browser-dump-state ((obj mesh-browser))
@@ -1325,14 +1635,21 @@
   ;; level's row map, so this block would republish the PREVIOUS mesh's material and centroid. A
   ;; harness sampling the file between two selections would then read an unchanged focus= — the very
   ;; "always the same spot" signature this evidence exists to detect. Emit it only where it is real.
-  (when (and (> (-> obj n-filtered) 0) (!= (-> obj mode) (mesh-browser-mode levels)))
-    (let ((raw (-> obj view (min (-> obj sel) (+ (-> obj n-filtered) -1)))))
-      (pc-mesh-index-name! raw (-> obj name-buf))
+  ;; In FREECAM the target came from the reticle, not the list, so view/sel are stale — read cur-row
+  ;; directly, and only while something IS targeted; the LEVELS/LIST/OBSERVE path is unchanged.
+  (let ((mraw -1))
+    (cond
+      ((= (-> obj mode) (mesh-browser-mode freecam))
+       (when (>= (-> obj fc-target) 0) (set! mraw (-> obj cur-row))))
+      ((and (> (-> obj n-filtered) 0) (!= (-> obj mode) (mesh-browser-mode levels)))
+       (set! mraw (-> obj view (min (-> obj sel) (+ (-> obj n-filtered) -1))))))
+    (when (>= mraw 0)
+      (pc-mesh-index-name! mraw (-> obj name-buf))
       (format (clear (-> obj line-buf)) "material=~S system=~S shell=~D tex=~D grade=~S"
               (-> obj name-buf)
-              (if (= (pc-mesh-index-geti raw MB_GI_SYSTEM) 1) "TIE" "TFRAG")
-              (pc-mesh-index-geti raw MB_GI_SHELL) (pc-mesh-index-geti raw MB_GI_TEX)
-              (mb-grade-string obj raw))
+              (if (= (pc-mesh-index-geti mraw MB_GI_SYSTEM) 1) "TIE" "TFRAG")
+              (pc-mesh-index-geti mraw MB_GI_SHELL) (pc-mesh-index-geti mraw MB_GI_TEX)
+              (mb-grade-string obj mraw))
       (pc-mb-state-line! (-> obj line-buf))))
   ;; cam_dist in METRES, same unit as cam_r/focus/cam below: the harness asserts cam_r == cam_dist
   ;; to prove the camera sits on the orbit sphere, and a GOAL-units cam_dist next to a metres cam_r
@@ -1366,6 +1683,24 @@
             *camera-look-through-other*
             (* MB_M (-> *camera-other-trans* x)) (* MB_M (-> *camera-other-trans* y))
             (* MB_M (-> *camera-other-trans* z)))
+    (pc-mb-state-line! (-> obj line-buf)))
+  ;; ---- FREECAM EVIDENCE (metres/radians) --------------------------------------------------------
+  ;; fc/yaw/pitch make every fly step falsifiable; target/hide/checker2/gizmos are the GOAL-side
+  ;; toggle state; the rt_* lines are the RENDER-THREAD counters (pc-mb-rt-geti) — the proof that a
+  ;; toggle actually changed what is DRAWN, not just a flag in this file (the V1 sin of the two dead
+  ;; toggles: state moved, pixels did not).
+  (when (= (-> obj mode) (mesh-browser-mode freecam))
+    (format (clear (-> obj line-buf)) "fc=~f,~f,~f yaw=~f pitch=~f"
+            (* MB_M (-> obj fc-pos x)) (* MB_M (-> obj fc-pos y)) (* MB_M (-> obj fc-pos z))
+            (-> obj fc-yaw) (-> obj fc-pitch))
+    (pc-mb-state-line! (-> obj line-buf))
+    (format (clear (-> obj line-buf)) "target=~D slot=~D hide=~D checker2=~D gizmos=~D pick_n=~D"
+            (-> obj fc-target) (-> obj fc-target-slot)
+            (if (-> obj fc-hide?) 1 0) (if (-> obj fc-checker?) 1 0)
+            (if (-> obj fc-gizmos?) 1 0) (-> obj fc-pick-n))
+    (pc-mb-state-line! (-> obj line-buf))
+    (format (clear (-> obj line-buf)) "rt_hidden=~D rt_checker=~D rt_gizmo_draws=~D rt_gizmo_faces=~D"
+            (pc-mb-rt-geti 0) (pc-mb-rt-geti 1) (pc-mb-rt-geti 2) (pc-mb-rt-geti 3))
     (pc-mb-state-line! (-> obj line-buf)))
   ;; player_moved = how far the PLAYER has travelled since the browser opened. The owner's whole
   ;; correction is that this must stay 0: the camera goes to the mesh, Jak does not.

@@ -55,6 +55,7 @@ grep -ciE 'centroid' "$R" | awk '$1>=5{ok=1} END{exit !ok}' || fail "CAM: fewer 
 grep -qiE 'freecam|free-cam|free cam' "$R" || fail "V2: no freecam mode"
 grep -qiE '(l3|r3)[^.]{0,50}(freecam|toggle|entre)|freecam[^.]{0,50}(l3|r3)' "$R" || fail "V2: L3/R3 freecam entry not evidenced"
 grep -qiE 'overlay[^.]{0,40}(button|bouton)' "$R" || fail "V2: no overlay UI button to enter freecam (owner has no gamepad attached)"
+grep -qiE '(start|select)[^.]{0,60}(freecam|cam)|freecam[^.]{0,60}(start|select)' "$R" || fail "V2: freecam button not placed next to Start/Select in the overlay (owner placement)"
 grep -qiE 'reticle|viseur|crosshair' "$R" || fail "V2: no first-person reticle"
 grep -qiE '(left stick|stick gauche)[^.]{0,60}(fly|vol|vertical|air|all directions|toutes)' "$R" || fail "V2: left-stick free flight incl. vertical not evidenced"
 grep -qiE '(r1|r2)[^.]{0,50}(target|cible|pick)' "$R" || fail "V2: R1/R2 targeting not evidenced"

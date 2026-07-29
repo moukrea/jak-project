@@ -348,6 +348,21 @@ void make_base_rgba(std::vector<u8>& out, int dim) {
   }
 }
 
+u32 checker_base_gl() {
+  // Grecharged-mesh-browser V2: lazily-created shared checker BASE texture for the freecam's
+  // per-draw checker override (see header). Same pattern data as the substitution path
+  // (make_base_rgba at kMapDim) and the same upload parameters as the shared N/R/H maps.
+  static u32 s_checker_base = 0;
+  if (s_checker_base == 0) {
+    std::vector<u8> buf;
+    make_base_rgba(buf, kMapDim);
+    s_checker_base = upload_map(buf, kMapDim);
+    lg::info("pbr TESTPATTERN: generated shared checker BASE dim={} (gl id {})", kMapDim,
+             s_checker_base);
+  }
+  return s_checker_base;
+}
+
 const SharedMaps& shared_maps() {
   if (!g_shared_init) {
     g_shared_init = true;

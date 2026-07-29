@@ -2,12 +2,14 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include "common/dma/gs.h"
 #include "common/math/Vector.h"
 
+#include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #ifdef OG_FEAT_PBR
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
@@ -29,6 +31,20 @@ inline void gj2vis_probe_bg_slot(int slot, unsigned tex) {
       fprintf(stderr, "GJ2VIS-BGSLOT slot=%d tex=%u\n", slot, tex);
     }
   }
+}
+
+// Grecharged-mesh-browser V2: is THIS draw the freecam's targeted mesh? A "mesh" is one row of the
+// offline mesh index; the only runtime linkage an index row has to StripDraws is its tex id, so the
+// target is (system, tree_tex_id, level). `system` is the caller's own system (0 = TFRAG, 1 = TIE)
+// and `level_name` the caller's own m_level_name — the SAME fr3 name string the GOAL side passes in
+// mb_target_level (both descend from the pc-port/fr3 level name, e.g. "village1"; the renderer copy
+// is truncated to 11 chars by the pc-port handshake, which every jak1 fr3 name fits in). When
+// mb_target_active is false this is ONE compare — the normal path is unchanged.
+inline bool mb_draw_targeted(int system, s32 tree_tex_id, const char* level_name) {
+  const auto& s = Gfx::g_global_settings;
+  return s.mb_target_active && system == s.mb_target_system && tree_tex_id >= 0 &&
+         (u32)tree_tex_id == s.mb_target_tex &&
+         std::strncmp(level_name, s.mb_target_level, sizeof(s.mb_target_level)) == 0;
 }
 
 struct GoalBackgroundCameraData {

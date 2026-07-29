@@ -79,6 +79,8 @@ public class TouchOverlayView extends View {
     public static final int SDL_GAMEPAD_BUTTON_NORTH = 3;   // △
     public static final int SDL_GAMEPAD_BUTTON_BACK = 4;    // SELECT
     public static final int SDL_GAMEPAD_BUTTON_START = 6;
+    public static final int SDL_GAMEPAD_BUTTON_LEFT_STICK = 7;      // L3
+    public static final int SDL_GAMEPAD_BUTTON_RIGHT_STICK = 8;     // R3
     public static final int SDL_GAMEPAD_BUTTON_LEFT_SHOULDER = 9;   // L1
     public static final int SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER = 10; // R1
     public static final int SDL_GAMEPAD_BUTTON_DPAD_UP = 11;
@@ -109,6 +111,11 @@ public class TouchOverlayView extends View {
     private static final int KIND_L2R2 = 2;    // both triggers (axes)
     private static final int KIND_STICK = 3;   // left: analog stick OR menu d-pad
     private static final int KIND_CAMERA = 4;  // right-side floating invisible deflection stick
+    // Grecharged-mesh-browser V2 (freecam): a SINGLE trigger button. sdlButton
+    // holds the SDL *axis* id (LEFT_TRIGGER/RIGHT_TRIGGER); press injects
+    // AXIS_MAX, release injects 0 — the freecam needs L2 and R2 SEPARATELY,
+    // unlike the gameplay combined l2r2 pill.
+    private static final int KIND_TRIGGER = 5;
 
     // Shapes.
     private static final int SHAPE_CIRCLE = 0;
@@ -130,7 +137,8 @@ public class TouchOverlayView extends View {
         final String name;
         final int kind;
         final int shape;
-        final int sdlButton;       // for KIND_BUTTON
+        final int sdlButton;       // for KIND_BUTTON (SDL axis id for KIND_TRIGGER)
+        String label;              // pill label (freecam controls); null = derived
         float cx, cy, radius;      // SHAPE_CIRCLE
         final RectF rect = new RectF(); // SHAPE_RRECT
         boolean pressed;           // visual press state (single-button controls)
@@ -165,7 +173,12 @@ public class TouchOverlayView extends View {
     }
 
     private final List<Ctl> controls = new ArrayList<>();
+    // Grecharged-mesh-browser V2 (freecam): the mode-2 control set. Separate
+    // list so normal-mode hit-testing/drawing is untouched; the left stick and
+    // the camera-look region are SHARED with normal mode.
+    private final List<Ctl> fcControls = new ArrayList<>();
     private Ctl cLeftStick;   // the bottom-left control (stick / menu d-pad)
+    private Ctl cFcam;        // mode-0-only "FCAM" button (R3 -> enter freecam)
     private float camRegionLeft;  // x >= this & not on a button => camera drag
 
     private final SparseArray<Touch> active = new SparseArray<>();
@@ -187,10 +200,13 @@ public class TouchOverlayView extends View {
     private boolean persistentVisible = false;
     private long lastTouchMs = 0;
     private boolean lastMenuMode = false; // cached for glyph redraws
-    // Grecharged-mesh-browser REOPEN (owner 2026-07-29): true while the debug
-    // mesh browser owns the screen. The virtual gamepad is suspended and every
-    // MotionEvent is forwarded RAW (multi-touch) to the browser instead.
-    private boolean browserMode = false;
+    // Grecharged-mesh-browser V2 (freecam): the browser MODE, polled from
+    // native (NativeGk.meshBrowserMode). 0 = closed (normal virtual pad, plus
+    // the small FCAM button). 1 = list-UI: the virtual gamepad is suspended and
+    // every MotionEvent is forwarded RAW (multi-touch) to the browser — exactly
+    // the old boolean browserMode behavior. 2 = FREECAM: the virtual pad stays
+    // LIVE with a freecam control set (fcControls + left stick + camera look).
+    private int mbMode = 0;
     private long lastBrowserLogMs = 0;    // MOVE-log throttle for browserMode
     // Grecharged-mesh-browser REOPEN (owner 2026-07-29): the virtual gamepad
     // role is off (see setPadSuppressed). The view still exists and still routes
@@ -244,10 +260,49 @@ public class TouchOverlayView extends View {
         // Left control (bottom-left): analog stick / menu d-pad.
         cLeftStick = new Ctl("left-stick", KIND_STICK, SHAPE_CIRCLE, -1);
         controls.add(cLeftStick);
+        // Grecharged-mesh-browser V2: mode-0-only FCAM button (R3). GOAL
+        // listens for R3 to enter the freecam; the owner has no gamepad, so
+        // this is the only finger path into it. Drawn/hit in mode 0 only —
+        // in mode 2 the EXIT button covers leaving.
+        cFcam = fc(controls, "fcam", KIND_BUTTON, SHAPE_RRECT,
+                SDL_GAMEPAD_BUTTON_RIGHT_STICK, "FCAM");
+
+        // Grecharged-mesh-browser V2 FREECAM control set (mode 2 only). The
+        // GOAL freecam is 100% pad-driven: left stick fly, right stick look,
+        // R1/R2 target, L1/L2 hide/show, Square checker, Circle gizmos,
+        // Triangle defocus, X boost, dpad left/right time-of-day, dpad
+        // up/down relief, R3 exit. L1 vs R1 (and L2 vs R2) must be SEPARATE
+        // buttons here, unlike the gameplay combined pills.
+        fc(fcControls, "fc-l1", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, "L1");
+        fc(fcControls, "fc-r1", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, "R1");
+        fc(fcControls, "fc-l2", KIND_TRIGGER, SHAPE_RRECT, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, "L2");
+        fc(fcControls, "fc-r2", KIND_TRIGGER, SHAPE_RRECT, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, "R2");
+        fc(fcControls, "fc-triangle", KIND_BUTTON, SHAPE_CIRCLE, SDL_GAMEPAD_BUTTON_NORTH, null);
+        fc(fcControls, "fc-circle", KIND_BUTTON, SHAPE_CIRCLE, SDL_GAMEPAD_BUTTON_EAST, null);
+        fc(fcControls, "fc-square", KIND_BUTTON, SHAPE_CIRCLE, SDL_GAMEPAD_BUTTON_WEST, null);
+        fc(fcControls, "fc-boost", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_SOUTH, "BOOST");
+        fc(fcControls, "fc-tod-minus", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_DPAD_LEFT, "TOD-");
+        fc(fcControls, "fc-tod-plus", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, "TOD+");
+        fc(fcControls, "fc-rel-minus", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_DPAD_DOWN, "REL-");
+        fc(fcControls, "fc-rel-plus", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_DPAD_UP, "REL+");
+        fc(fcControls, "fc-exit", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_RIGHT_STICK, "EXIT");
+    }
+
+    private static Ctl fc(List<Ctl> into, String name, int kind, int shape, int sdlTarget,
+                          String label) {
+        Ctl c = new Ctl(name, kind, shape, sdlTarget);
+        c.label = label;
+        into.add(c);
+        return c;
     }
 
     private Ctl ctl(String name) {
         for (Ctl c : controls) if (c.name.equals(name)) return c;
+        return null;
+    }
+
+    private Ctl fctl(String name) {
+        for (Ctl c : fcControls) if (c.name.equals(name)) return c;
         return null;
     }
 
@@ -304,9 +359,46 @@ public class TouchOverlayView extends View {
         ctl("select").rect.set(w * 0.5f - sw - 10f, sTop, w * 0.5f - 10f, sTop + sh);
         ctl("start").rect.set(w * 0.5f + 10f, sTop, w * 0.5f + 10f + sw, sTop + sh);
 
+        // Grecharged-mesh-browser V2: FCAM (mode 0 only) — small pill in the
+        // free top strip between the l2r2 pill (ends ~0.145w) and SELECT
+        // (starts ~0.41w), same row as SELECT/START. Out of every existing
+        // control's way.
+        cFcam.rect.set(w * 0.19f, sTop, w * 0.19f + sw * 0.80f, sTop + sh);
+
+        // Grecharged-mesh-browser V2 FREECAM layout (mode 2 only). The centre
+        // of the screen stays CLEAR: the reticle and the world must be
+        // visible. Shoulders/triggers in the top corners, face buttons down
+        // the right edge, TOD/REL small along the bottom, EXIT
+        // top-centre-right. Left stick + camera-look region are shared.
+        final float fbw = Math.max(110f, w * 0.100f);
+        final float fbh = Math.max(48f, h * 0.095f);
+        final float fgap = h * 0.020f;
+        fctl("fc-l1").rect.set(w * 0.030f, top, w * 0.030f + fbw, top + fbh);
+        fctl("fc-l2").rect.set(w * 0.030f, top + fbh + fgap, w * 0.030f + fbw, top + 2f * fbh + fgap);
+        fctl("fc-r1").rect.set(w * 0.970f - fbw, top, w * 0.970f, top + fbh);
+        fctl("fc-r2").rect.set(w * 0.970f - fbw, top + fbh + fgap, w * 0.970f, top + 2f * fbh + fgap);
+        fctl("fc-exit").rect.set(w * 0.575f, sTop, w * 0.575f + sw, sTop + sh);
+        final float fr = Math.max(34f, h * 0.062f);
+        final float fcx = w * 0.925f;
+        place2(fctl("fc-triangle"), fcx, h * 0.33f, fr);
+        place2(fctl("fc-circle"),   fcx, h * 0.47f, fr);
+        place2(fctl("fc-square"),   fcx, h * 0.61f, fr);
+        fctl("fc-boost").rect.set(w * 0.970f - fbw, h * 0.70f, w * 0.970f, h * 0.70f + fbh);
+        final float fsw = Math.max(84f, w * 0.075f);
+        final float fsh = Math.max(34f, h * 0.058f);
+        final float fby = h * 0.895f;
+        fctl("fc-tod-minus").rect.set(w * 0.300f, fby, w * 0.300f + fsw, fby + fsh);
+        fctl("fc-tod-plus").rect.set(w * 0.395f, fby, w * 0.395f + fsw, fby + fsh);
+        fctl("fc-rel-minus").rect.set(w * 0.520f, fby, w * 0.520f + fsw, fby + fsh);
+        fctl("fc-rel-plus").rect.set(w * 0.615f, fby, w * 0.615f + fsw, fby + fsh);
+
         // Camera drag zone: the right portion of the screen. A right-side
         // touch that misses every button pans the camera.
         camRegionLeft = w * 0.45f;
+    }
+
+    private static void place2(Ctl c, float cx, float cy, float r) {
+        if (c != null) { c.cx = cx; c.cy = cy; c.radius = r; }
     }
 
     private void place(String name, float cx, float cy, float r) {
@@ -341,6 +433,39 @@ public class TouchOverlayView extends View {
                 .append(", RIGHTX/RIGHTY=(cur-anchor) sustained, not-drag-delta>->onPadAxis(RIGHTX/RIGHTY)");
         sb.append(" dropped=<the two stick-press buttons + the standalone directional pad>");
         Log.i(TAG, sb.toString());
+
+        // Grecharged-mesh-browser V2: one marker line per new control, greppable
+        // by the proof harness for tap coordinates. fcam is mode-0 only; the
+        // fc-* set is mode-2 (FREECAM) only, where the virtual pad stays LIVE
+        // and the left stick + right-side camera-look region above are shared.
+        Log.i(TAG, "overlay-map: fcam=" + rrect(cFcam)
+                + "->onPadButton(RIGHT_STICK=8)[R3 enter-freecam, mode0 only]");
+        Log.i(TAG, "overlay-map: fc-l1=" + rrect(fctl("fc-l1"))
+                + "->onPadButton(LEFT_SHOULDER=9)[freecam hide, top-left]");
+        Log.i(TAG, "overlay-map: fc-r1=" + rrect(fctl("fc-r1"))
+                + "->onPadButton(RIGHT_SHOULDER=10)[freecam target, top-right]");
+        Log.i(TAG, "overlay-map: fc-l2=" + rrect(fctl("fc-l2"))
+                + "->onPadAxis(LEFT_TRIGGER=4)[freecam show, top-left, separate]");
+        Log.i(TAG, "overlay-map: fc-r2=" + rrect(fctl("fc-r2"))
+                + "->onPadAxis(RIGHT_TRIGGER=5)[freecam target, top-right, separate]");
+        Log.i(TAG, "overlay-map: fc-triangle=" + circ(fctl("fc-triangle"))
+                + "->onPadButton(NORTH=3)[freecam defocus, right edge]");
+        Log.i(TAG, "overlay-map: fc-circle=" + circ(fctl("fc-circle"))
+                + "->onPadButton(EAST=1)[freecam gizmos, right edge]");
+        Log.i(TAG, "overlay-map: fc-square=" + circ(fctl("fc-square"))
+                + "->onPadButton(WEST=2)[freecam checker, right edge]");
+        Log.i(TAG, "overlay-map: fc-boost=" + rrect(fctl("fc-boost"))
+                + "->onPadButton(SOUTH=0)[freecam BOOST, right edge]");
+        Log.i(TAG, "overlay-map: fc-tod-minus=" + rrect(fctl("fc-tod-minus"))
+                + "->onPadButton(DPAD_LEFT=13)[freecam time-of-day -, bottom]");
+        Log.i(TAG, "overlay-map: fc-tod-plus=" + rrect(fctl("fc-tod-plus"))
+                + "->onPadButton(DPAD_RIGHT=14)[freecam time-of-day +, bottom]");
+        Log.i(TAG, "overlay-map: fc-rel-minus=" + rrect(fctl("fc-rel-minus"))
+                + "->onPadButton(DPAD_DOWN=12)[freecam relief -, bottom]");
+        Log.i(TAG, "overlay-map: fc-rel-plus=" + rrect(fctl("fc-rel-plus"))
+                + "->onPadButton(DPAD_UP=11)[freecam relief +, bottom]");
+        Log.i(TAG, "overlay-map: fc-exit=" + rrect(fctl("fc-exit"))
+                + "->onPadButton(RIGHT_STICK=8)[R3 exit-freecam, top-centre-right]");
     }
 
     private static String circ(Ctl c) {
@@ -359,9 +484,18 @@ public class TouchOverlayView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        // Grecharged-mesh-browser REOPEN: the browser owns the screen; its list
-        // must not be covered by the virtual pad glyphs.
-        if (browserMode) return;
+        // Grecharged-mesh-browser REOPEN: the list-UI browser owns the screen;
+        // its list must not be covered by the virtual pad glyphs.
+        if (mbMode == 1) return;
+        // Grecharged-mesh-browser V2: FREECAM — the virtual pad is LIVE with
+        // the freecam control set. Drawn even when padSuppressed: the freecam
+        // is finger-driven by design (the owner has no gamepad and no adb), so
+        // like the browser's raw-touch path it takes priority over the
+        // pad-suppression preference.
+        if (mbMode == 2) {
+            drawFreecam(canvas);
+            return;
+        }
         // Grecharged-mesh-browser REOPEN: the virtual pad role is off (the old
         // "overlay disabled" preference). The view still exists to carry browser
         // touches, but an inert overlay must draw nothing.
@@ -369,8 +503,10 @@ public class TouchOverlayView extends View {
         for (Ctl c : controls) {
             switch (c.kind) {
                 case KIND_BUTTON:
-                    if ("start".equals(c.name) || "select".equals(c.name)) {
-                        drawPill(canvas, c, c.name.toUpperCase(Locale.ROOT));
+                    if (c.shape == SHAPE_RRECT) {
+                        // start / select / fcam: pills with a text label.
+                        drawPill(canvas, c, c.label != null
+                                ? c.label : c.name.toUpperCase(Locale.ROOT));
                     } else {
                         drawFace(canvas, c);
                     }
@@ -383,31 +519,33 @@ public class TouchOverlayView extends View {
         }
     }
 
+    // Keyed on the SDL button (not the control name) so the freecam's
+    // fc-triangle/fc-circle/fc-square reuse the same PlayStation glyphs.
     private void drawFace(Canvas canvas, Ctl c) {
         canvas.drawCircle(c.cx, c.cy, c.radius, c.pressed ? fillBright : fill);
         int tint;
-        switch (c.name) {
-            case "north": tint = COL_TRIANGLE; break;
-            case "east":  tint = COL_CIRCLE; break;
-            case "south": tint = COL_CROSS; break;
-            default:      tint = COL_SQUARE; break; // west
+        switch (c.sdlButton) {
+            case SDL_GAMEPAD_BUTTON_NORTH: tint = COL_TRIANGLE; break;
+            case SDL_GAMEPAD_BUTTON_EAST:  tint = COL_CIRCLE; break;
+            case SDL_GAMEPAD_BUTTON_SOUTH: tint = COL_CROSS; break;
+            default:                       tint = COL_SQUARE; break; // west
         }
         stroke.setColor(applyA(tint, 0xC8));
         canvas.drawCircle(c.cx, c.cy, c.radius, stroke);
         glyph.setColor(tint);
         float g = c.radius * 0.5f;
-        switch (c.name) {
-            case "south": // ✕
+        switch (c.sdlButton) {
+            case SDL_GAMEPAD_BUTTON_SOUTH: // ✕
                 canvas.drawLine(c.cx - g, c.cy - g, c.cx + g, c.cy + g, glyph);
                 canvas.drawLine(c.cx - g, c.cy + g, c.cx + g, c.cy - g, glyph);
                 break;
-            case "east":  // ○
+            case SDL_GAMEPAD_BUTTON_EAST:  // ○
                 canvas.drawCircle(c.cx, c.cy, g, glyph);
                 break;
-            case "west":  // □
+            case SDL_GAMEPAD_BUTTON_WEST:  // □
                 canvas.drawRect(c.cx - g, c.cy - g, c.cx + g, c.cy + g, glyph);
                 break;
-            case "north": // △
+            case SDL_GAMEPAD_BUTTON_NORTH: // △
                 path.reset();
                 path.moveTo(c.cx, c.cy - g);
                 path.lineTo(c.cx + g, c.cy + g * 0.85f);
@@ -419,6 +557,21 @@ public class TouchOverlayView extends View {
         }
         // restore default stroke colour for non-face controls
         stroke.setColor(Color.argb(0xC8, 0xEC, 0xEC, 0xEC));
+    }
+
+    // Grecharged-mesh-browser V2: the FREECAM control set (mode 2). Face-glyph
+    // circles reuse drawFace; everything else is a labelled pill. The shared
+    // left stick is drawn too (always analog here — the freecam flies with it);
+    // the camera-look region stays invisible, exactly like normal mode.
+    private void drawFreecam(Canvas canvas) {
+        for (Ctl c : fcControls) {
+            if (c.kind == KIND_BUTTON && c.shape == SHAPE_CIRCLE) {
+                drawFace(canvas, c);
+            } else {
+                drawPill(canvas, c, c.label);
+            }
+        }
+        drawLeftControl(canvas, cLeftStick);
     }
 
     private void drawPill(Canvas canvas, Ctl c, String labelText) {
@@ -434,7 +587,8 @@ public class TouchOverlayView extends View {
     }
 
     private void drawLeftControl(Canvas canvas, Ctl c) {
-        final boolean menu = lastMenuMode;
+        // Freecam always flies with the analog stick, whatever the menu poll says.
+        final boolean menu = lastMenuMode && mbMode != 2;
         final float baseR = c.radius * 0.62f;
         // base disc
         canvas.drawCircle(c.cx, c.cy, baseR, fill);
@@ -493,17 +647,22 @@ public class TouchOverlayView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        // Grecharged-mesh-browser REOPEN: while the debug mesh browser is open
-        // the virtual gamepad is suspended and the raw gesture stream goes to
-        // the browser (swipe / drag / pinch), which taps cannot express.
-        final boolean mb = queryBrowser();
-        if (mb != browserMode) {
-            browserMode = mb;
-            if (mb) releaseAll();   // never leave a pad button/stick latched when the browser takes over
+        // Grecharged-mesh-browser V2: poll the browser MODE. Mode 1 (list-UI)
+        // suspends the virtual gamepad and forwards the raw gesture stream to
+        // the browser (swipe / drag / pinch), which taps cannot express. Mode 2
+        // (FREECAM) keeps the virtual pad LIVE with the freecam control set.
+        final int mode = queryBrowserMode();
+        if (mode != mbMode) {
+            mbMode = mode;
+            releaseAll();   // never leave a pad button/stick/trigger latched across a mode switch
             invalidate();
         }
-        if (browserMode) return handleBrowserTouch(ev);
-        if (padSuppressed) return true;   // overlay present for the mesh browser, but the virtual pad is off
+        if (mbMode == 1) return handleBrowserTouch(ev);
+        // padSuppressed gates mode 0 only: the freecam (mode 2) is
+        // finger-driven by design — the owner has no gamepad and no adb — so
+        // like the browser's raw-touch path it overrides the pad-suppression
+        // preference.
+        if (padSuppressed && mbMode != 2) return true;   // overlay present for the mesh browser, but the virtual pad is off
         final int action = ev.getActionMasked();
         keepAwake();
         switch (action) {
@@ -554,9 +713,11 @@ public class TouchOverlayView extends View {
         t.lastX = x;
         t.lastY = y;
         // Priority: explicit controls (buttons, then left-stick), then the
-        // right-side camera zone, else a wake-only touch.
+        // right-side camera zone, else a wake-only touch. In FREECAM (mode 2)
+        // the button set is fcControls; the left stick and the camera-look
+        // region are shared with normal mode.
         Ctl hit = null;
-        for (Ctl c : controls) {
+        for (Ctl c : (mbMode == 2 ? fcControls : controls)) {
             if (c.kind == KIND_STICK) continue; // checked after buttons
             if (c.contains(x, y)) { hit = c; break; }
         }
@@ -566,7 +727,7 @@ public class TouchOverlayView extends View {
             t.ctl = hit;
             t.kind = hit.kind;
             actuateDown(t, hit, x, y);
-        } else if (NativeGk.isInMenu()) {
+        } else if (mbMode != 2 && NativeGk.isInMenu()) {
             // Phase Gtouch-menus (autoport): a tap that missed every on-screen
             // control while a menu is up drives menu-row navigation by touch.
             // Forward the NORMALIZED tap; the GOAL progress-menu code hit-tests
@@ -662,6 +823,13 @@ public class TouchOverlayView extends View {
                 NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 0);
                 logActuate(t, "l2r2", "release -> onPadAxis(LEFT_TRIGGER+RIGHT_TRIGGER) value=0", true);
                 break;
+            case KIND_TRIGGER:
+                // Freecam separate L2 / R2: sdlButton holds the SDL axis id.
+                t.ctl.pressed = false;
+                NativeGk.onPadAxis(t.ctl.sdlButton, 0);
+                logActuate(t, t.ctl.name, "release -> onPadAxis(axis="
+                        + t.ctl.sdlButton + ") value=0", true);
+                break;
             case KIND_STICK:
                 if (t.stickMenuMode) {
                     releaseDpad(t);
@@ -705,14 +873,23 @@ public class TouchOverlayView extends View {
                 logActuate(t, "l2r2", "tap -> onPadAxis(LEFT_TRIGGER) value=" + AXIS_MAX
                         + ", onPadAxis(RIGHT_TRIGGER) value=" + AXIS_MAX + " [combined]", true);
                 break;
+            case KIND_TRIGGER:
+                // Freecam separate L2 / R2: sdlButton holds the SDL axis id.
+                c.pressed = true;
+                NativeGk.onPadAxis(c.sdlButton, AXIS_MAX);
+                logActuate(t, c.name, "tap (" + (int) x + "," + (int) y
+                        + ") -> onPadAxis(axis=" + c.sdlButton + ") value=" + AXIS_MAX
+                        + " [separate trigger]", true);
+                break;
             case KIND_STICK: {
                 // Latch the mode for the whole gesture from the live GOAL state.
                 // Gwarp-dpad: the warp/teleporter destination picker is D-pad
                 // driven like the menus, so it gets the same stick->d-pad
                 // mapping; it reverts to analog once the warp UI closes.
+                // Freecam (mode 2) always flies analog.
                 boolean inMenu = queryMenu();
                 boolean inWarp = queryWarp();
-                t.stickMenuMode = inMenu || inWarp;
+                t.stickMenuMode = (inMenu || inWarp) && mbMode != 2;
                 logActuate(t, t.stickMenuMode ? "menu-dpad" : "left-stick",
                         "down mode=" + (t.stickMenuMode ? "MENU(d-pad)" : "GAMEPLAY(analog)")
                                 + " (native isInMenu=" + inMenu + " isInWarp=" + inWarp + ")", true);
@@ -820,14 +997,19 @@ public class TouchOverlayView extends View {
         }
     }
 
-    // Grecharged-mesh-browser REOPEN (owner 2026-07-29): is the debug mesh
-    // browser on screen? When it is, the virtual pad is suspended entirely and
-    // every MotionEvent is forwarded raw via handleBrowserTouch().
-    private boolean queryBrowser() {
+    // Grecharged-mesh-browser V2: the browser MODE (0=off, 1=list-UI raw
+    // touch with the pad suspended, 2=FREECAM with the pad LIVE). Falls back
+    // to the boolean getter (as mode 1) if the int JNI is missing, so an old
+    // native lib degrades to the pre-V2 behavior instead of a dead browser.
+    private int queryBrowserMode() {
         try {
-            return NativeGk.isInMeshBrowser();
+            return NativeGk.meshBrowserMode();
         } catch (UnsatisfiedLinkError e) {
-            return false;
+            try {
+                return NativeGk.isInMeshBrowser() ? 1 : 0;
+            } catch (UnsatisfiedLinkError e2) {
+                return 0;
+            }
         }
     }
 
@@ -978,19 +1160,19 @@ public class TouchOverlayView extends View {
                         + (m ? "MENU(d-pad)" : "GAMEPLAY(analog stick)"));
                 invalidate();
             }
-            // Grecharged-mesh-browser REOPEN: poll the browser flag too, so
-            // browserMode (and the hidden glyphs) track the game state even
-            // when the owner is not touching the screen.
-            boolean b = queryBrowser();
-            if (b != browserMode) {
-                browserMode = b;
-                if (b) {
-                    releaseAll();
+            // Grecharged-mesh-browser V2: poll the browser MODE too, so mbMode
+            // (and the glyph set) tracks the game state even when the owner is
+            // not touching the screen.
+            int mode = queryBrowserMode();
+            if (mode != mbMode) {
+                mbMode = mode;
+                releaseAll();   // never leave a button/stick/trigger latched across a mode switch
+                if (mode != 0) {
                     // If a gamepad was connected BEFORE the browser was opened, MainActivity has
                     // already View.GONE'd us — and GONE means no hit-testing, so not one browser
-                    // gesture would land. The browser is finger-driven by design, so it takes
-                    // priority: make ourselves hit-testable again. We stay alpha-0 until touched,
-                    // so a pad user sees nothing appear.
+                    // gesture (or freecam button) would land. The browser is finger-driven by
+                    // design, so it takes priority: make ourselves hit-testable again. We stay
+                    // alpha-0 until touched, so a pad user sees nothing appear.
                     if (getVisibility() != VISIBLE) {
                         setVisibility(VISIBLE);
                         Log.i(TAG, "overlay-visibility: forced VISIBLE for the mesh browser "
@@ -998,9 +1180,16 @@ public class TouchOverlayView extends View {
                                 + "swallowed every browser gesture)");
                     }
                 }
+                if (mode == 2) {
+                    // FREECAM: show the control set immediately — the owner
+                    // must SEE the buttons to know the freecam is finger-drivable.
+                    lastTouchMs = SystemClock.uptimeMillis();
+                    if (!shown) fadeIn();
+                }
                 Log.i(TAG, "overlay-mode: mesh browser "
-                        + (b ? "OPEN (raw multi-touch -> onBrowserTouch, virtual pad suspended)"
-                             : "CLOSED (virtual pad restored)"));
+                        + (mode == 1 ? "OPEN mode=1 (list-UI: raw multi-touch -> onBrowserTouch, virtual pad suspended)"
+                           : mode == 2 ? "OPEN mode=2 (FREECAM: virtual pad LIVE, freecam control set)"
+                                       : "CLOSED mode=0 (normal virtual pad restored)"));
                 invalidate();
             }
             handler.postDelayed(this, HEARTBEAT_MS);

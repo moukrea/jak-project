@@ -114,7 +114,7 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **RT ONLY (idx 4) garde `load-custom-assets?` ON depuis 2026-07-23** (RT sur textures custom, cartes PBR OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 22 | **PBR Isolate** [R] | carousell | **DEBUG (retirable plus tard)** — **BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER**, défaut BOTH → `pbr-isolate` (0..3), poussé chaque frame en index brut via `pc-set-pbr-isolate!` ; setter C++ mappe index→masque `u_pbr_bisect` (BOTH 0 / NORMAL-MAP ONLY 128 / PARALLAX ONLY 64 / NEITHER 192) et écrit l'état dans `files/pbr_tan_diag.txt` à chaque changement. Bisection de terme IN-MENU (owner isole les facettes sans adb). Grisé selon **PBR Materials OFF** ou RECHARGED MASTER OFF. **Ajout Gpbr-fusion REOPEN #10 ; diag REOPEN #11 ; labels d'option = strings globales runtime (bank-indépendant) REOPEN #11 pré-livraison** | {FLAG_PBR} |
-| 23 | **MESH BROWSER** [R] | button | **DEBUG — navigateur de mesh** (`pc-text-mesh-browser` #x1728). Ouvre l'overlay `*mesh-browser*` : **CAMÉRA LIBRE** autour de n'importe quel mesh des **25 niveaux** indexés — **le joueur n'est JAMAIS déplacé**, c'est la caméra qui va au mesh —, prévisualise textures/PBR, bascule damier / tessellation-parallax-off / relief / heure du jour, orbite 360° + élévation ±89° (dessus d'un toit comme dessous d'un surplomb), spin du mesh, note hors-ligne affichée. **TOUJOURS actif** (un outil debug doit rester atteignable même master OFF) ; respond-common appelle `mesh-browser-open!` et repasse en `master-mode 'game`. Tactile (glissement + inertie, poignée de défilement, tap direct, pincement) ET manette, sans adb. **Ajout Grecharged-mesh-browser ; tactile réel + FREE CAM, RÉOUVERTURES 2026-07-29** | — |
+| 23 | **MESH BROWSER** [R] | button | **DEBUG — navigateur de mesh** (`pc-text-mesh-browser` #x1728). Ouvre l'overlay `*mesh-browser*` : **CAMÉRA LIBRE** autour de n'importe quel mesh des **25 niveaux** indexés — **le joueur n'est JAMAIS déplacé**, c'est la caméra qui va au mesh —, prévisualise textures/PBR, bascule damier / tessellation-parallax-off / relief / heure du jour, orbite 360° + élévation ±89° (dessus d'un toit comme dessous d'un surplomb), spin du mesh, note hors-ligne affichée. **TOUJOURS actif** (un outil debug doit rester atteignable même master OFF) ; respond-common appelle `mesh-browser-open!` et repasse en `master-mode 'game`. Tactile (glissement + inertie, poignée de défilement, tap direct, pincement) ET manette, sans adb. **Ajout Grecharged-mesh-browser ; tactile réel + FREE CAM, RÉOUVERTURES 2026-07-29 ; V2 2026-07-30 : la liste devient l'UI SECONDAIRE, le mode principal est le FREECAM+RÉTICULE (voir addendum V2 ci-dessous) — entrée hors-menu par R3 / bouton overlay FCAM** | — |
 | 24 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
@@ -243,6 +243,26 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > l'APK (`<custom root>/mesh_index/`, `file_util::get_bundled_mesh_index_dir`). Le damier réutilise le mode
 > `PbrTestPattern` existant via `recharged_mesh_browser_checker` (gfx.h) : sans prop/env debug, le toggle menu
 > possède le pattern ; le prop/env l'écrase encore dans les deux sens (A/B headless superviseur inchangé).
+>
+> **V2 (2026-07-30, Grecharged-mesh-browser — refonte owner "le mesh browser actuel est à chier")** : le mode
+> principal devient le **FREECAM + RÉTICULE** ; la liste ci-dessus SURVIT en écran secondaire (elle sait sauter
+> vers un mesh lointain). **Entrées HORS-MENU** (aucune nouvelle ligne de menu) : **R3** (clic stick droit) en
+> jeu, **R3 depuis n'importe quel écran du browser** (depuis OBSERVE, la caméra CONTINUE — le mesh observé est
+> pré-ciblé), et côté tactile un **bouton overlay `FCAM`** (TouchOverlayView, mode normal uniquement) qui émule
+> R3. **R3 ressort** (monde rendu tel qu'emprunté : want-list, border-mode, joueur réveillé, caméra au joueur).
+> En freecam l'overlay tactile reste en MODE PAD (mode natif `pc-mb-set-active!` = 2, contrairement au mode 1
+> liste qui suspend le pad pour le multi-touch brut) avec un set de contrôles freecam : stick virtuel = VOL
+> (toutes directions, y compris l'air — la translation suit le regard), zone caméra = ORIENTATION, boutons
+> séparés R1/R2/L1/L2/□/○/△/X(BOOST)/TOD±/REL±/EXIT. Manette : **stick gauche vol, stick droit regard,
+> R1/R2 = cibler le mesh sous le viseur** (rayon caméra vs AABB de l'index, tri près→loin, R1/R2 cyclent les
+> candidats du rayon), **L1 = cacher / L2 = montrer** la cible, **□ = damier** sur la cible, **○ = gizmos de
+> normales** (flèches par face, convention de winding = celle de tess_sign : une normale rentrante SE VOIT),
+> **△ = defocus** (cible nulle, toggles inertes), **X = boost**, **dpad ←/→ = heure, ↑/↓ = relief**. Le NOM
+> ciblé (matériau + niveau + shell + tex + note hors-ligne) s'affiche en clair et reste exporté dans
+> `files/mesh_select.txt`. Contrairement au damier V1 global-au-chargement (mort à l'écran : le Loader ne
+> ré-uploade jamais le niveau), les bascules V2 agissent **par draw AU MOMENT DU DRAW** via le canal cible
+> `mb_target_*` (gfx.h) consulté dans les boucles TFRAG/TIE — preuves runtime par compteurs monotones
+> `rt_hidden`/`rt_checker`/`rt_gizmo_*` publiés dans `files/mesh_browser_state.txt`.
 >
 > **RÉOUVERTURE (2026-07-29, owner : « C'est impossible à parcourir via le tactile (le mesh browser) »)**.
 > La ligne de menu elle-même est INCHANGÉE (même id, même position, même comportement) ; c'est le CONTENU de

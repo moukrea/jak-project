@@ -9,6 +9,8 @@
 #include "common/util/Assert.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/background/MeshBrowserGizmos.h"
+#include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/mips2c/spart_prof.h"
 
 #include "third-party/imgui/imgui.h"
@@ -532,6 +534,18 @@ void Tie3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfi
       draw_matching_draws_for_all_trees(lod(), m_common_data.settings, render_state, draws_prof,
                                         m_default_category);
     }
+
+    // Grecharged-mesh-browser V2: freecam NORMAL GIZMOS overlay for a targeted TIE mesh.
+    // One compare (mb_target_active) when the browser is idle — the loader lookup and the
+    // module's own filtering only run while the gizmo toggle is armed.
+    if (Gfx::g_global_settings.mb_target_active && Gfx::g_global_settings.mb_gizmos_target &&
+        m_has_level) {
+      const auto* mb_lev = render_state->loader->get_tfrag3_level(m_level_name);
+      if (mb_lev) {
+        mb_gizmos::render(mb_lev->level.get(), 1, m_level_name.c_str(),
+                          m_common_data.settings.camera, render_state, prof);
+      }
+    }
   }
 }
 
@@ -819,7 +833,41 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     const auto& ct = settings.camera.trans;
     glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
-    if (sh_st.cast_full) {
+    // Grecharged-mesh-browser V2: a HIDDEN targeted TIE mesh must not cast into the sun shadow
+    // map either (unlike the TFragment caster pass, which is whole-tree-in-one-call and keeps
+    // casting — documented there). When the hide target lives in this renderer's system+level,
+    // the coalesced-range fast path below can't skip per draw, so fall back to per-draw
+    // full-range submission for exactly as long as the hide is armed (the cached ranges are
+    // left untouched for the normal path).
+    const auto& mb_st = Gfx::g_global_settings;
+    const bool mb_shadow_hide =
+        mb_st.mb_target_active && mb_st.mb_hide_target && mb_st.mb_target_system == 1 &&
+        std::strncmp(m_level_name.c_str(), mb_st.mb_target_level,
+                     sizeof(mb_st.mb_target_level)) == 0;
+    if (sh_st.cast_full && mb_shadow_hide) {
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
+      for (size_t di = tree.category_draw_indices[(int)category];
+           di < tree.category_draw_indices[(int)category + 1]; di++) {
+        const auto& draw = (*tree.draws)[di];
+        u32 count = 0;
+        for (const auto& vg : draw.vis_groups) {
+          count += vg.num_inds;
+        }
+        if (count == 0) {
+          continue;
+        }
+        if (mb_draw_targeted(1, draw.tree_tex_id, m_level_name.c_str())) {
+          Gfx::g_global_settings.mb_ctr_hidden_draws++;
+          continue;
+        }
+        glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT,
+                       (void*)((size_t)draw.unpacked.idx_of_first_idx_in_full_buffer * sizeof(u32)));
+        sh_st.cast_indices += (u64)count;
+      }
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_state->no_multidraw
+                                                ? tree.single_draw_index_buffer
+                                                : tree.index_buffer);
+    } else if (sh_st.cast_full) {
       // Round-5 owner bug fix (same as TFragment): the caster set must IGNORE camera
       // visibility — an off-screen hut must keep casting its on-screen shadow, else
       // shadows pop in/out on camera rotation. Draw the current category's FULL static
@@ -868,6 +916,12 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       // Old camera-vis-culled caster set (prop castfull=0), kept as the perf/repro A/B.
       for (size_t di = tree.category_draw_indices[(int)category];
            di < tree.category_draw_indices[(int)category + 1]; di++) {
+        // Grecharged-mesh-browser V2: hidden targeted TIE draws don't cast (see above).
+        if (mb_shadow_hide &&
+            mb_draw_targeted(1, (*tree.draws)[di].tree_tex_id, m_level_name.c_str())) {
+          Gfx::g_global_settings.mb_ctr_hidden_draws++;
+          continue;
+        }
         if (render_state->no_multidraw) {
           const auto& sd = tree.draw_idx_temp[di];
           if (sd.second == 0) {
@@ -996,6 +1050,14 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         continue;
       }
 
+      // Grecharged-mesh-browser V2: freecam target — hide skips the draw, checker swaps the base.
+      const bool mb_targeted = mb_draw_targeted(1, draw.tree_tex_id, m_level_name.c_str());
+      if (mb_targeted && Gfx::g_global_settings.mb_hide_target) {
+        Gfx::g_global_settings.mb_ctr_hidden_draws++;
+        draw_idx++;
+        continue;
+      }
+
       if (draw.tree_tex_id != last_texture) {
         if (draw.tree_tex_id >= 0) {
           bound_tex = m_textures->at(draw.tree_tex_id);
@@ -1018,12 +1080,23 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       // on the plain one, so both now get the material maps + u_pbr_mode.
       pbr_binder.set(draw.tree_tex_id, draw.mode);
 #endif
+      if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+        // Bind AFTER the cached setup so the draw-mode glTexParameteri calls landed on the draw's
+        // own texture, not the shared checker (which keeps its REPEAT/mipmap params). This loop
+        // caches its binding in last_texture — poison it so the NEXT draw rebinds its own texture
+        // instead of inheriting the checker.
+        glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
+        last_texture = INT32_MIN;
+        Gfx::g_global_settings.mb_ctr_checker_draws++;
+      }
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
       size_t next = draw_idx + 1;
+      // Grecharged-mesh-browser V2: a TARGETED draw must never merge (in either role) — a merged
+      // range would carry the targeted indices along and hide/checker would silently stop working.
       if (double_draw.kind == DoubleDrawKind::NONE) {
-        while (next < end_idx) {
+        while (next < end_idx && !mb_targeted) {
           const auto& d2 = tree.draws->operator[](next);
           const auto& sd2 = tree.draw_idx_temp[next];
           if (sd2.second == 0) {
@@ -1031,7 +1104,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
             continue;
           }
           if (d2.tree_tex_id != draw.tree_tex_id || d2.mode.as_int() != draw.mode.as_int() ||
-              sd2.first != first + count) {
+              sd2.first != first + count ||
+              mb_draw_targeted(1, d2.tree_tex_id, m_level_name.c_str())) {
             break;
           }
           count += sd2.second;
@@ -1062,6 +1136,13 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       }
     }
 
+    // Grecharged-mesh-browser V2: freecam target — hide skips the draw, checker swaps the base.
+    const bool mb_targeted = mb_draw_targeted(1, draw.tree_tex_id, m_level_name.c_str());
+    if (mb_targeted && Gfx::g_global_settings.mb_hide_target) {
+      Gfx::g_global_settings.mb_ctr_hidden_draws++;
+      continue;
+    }
+
     if (draw.tree_tex_id != last_texture) {
       if (draw.tree_tex_id >= 0) {
         bound_tex = m_textures->at(draw.tree_tex_id);
@@ -1085,6 +1166,13 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     // ROUND 22: unconditional — see the merged-draw loop above.
     pbr_binder.set(draw.tree_tex_id, draw.mode);
 #endif
+    if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+      // Bind AFTER the cached setup (see the merged-draw loop above); poison last_texture so the
+      // NEXT draw rebinds its own texture instead of inheriting the checker.
+      glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
+      last_texture = INT32_MIN;
+      Gfx::g_global_settings.mb_ctr_checker_draws++;
+    }
 
     prof.add_draw_call();
 
@@ -1150,6 +1238,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   }
 }
 
+// Grecharged-mesh-browser V2: the *_ENVMAP_SECOND_DRAW categories drawn here are the additive
+// sheen layer of envmapped TIEs, and their draws carry the ENVMAP texture id, not the base
+// texture id the mesh-index target uses — pairing a base draw with its second draw is not
+// attempted. So the envmap sheen layer of an envmapped TIE is NOT hidden/checkered (base pass
+// only) — accepted debug-tool tolerance.
 void Tie3::envmap_second_pass_draw(const Tree& tree,
                                    const TfragRenderSettings& settings,
                                    SharedRenderState* render_state,

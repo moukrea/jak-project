@@ -173,6 +173,18 @@ public final class NativeGk {
     public static native boolean isInMeshBrowser();
 
     /**
+     * Phase Grecharged-mesh-browser V2 (freecam): the full browser mode.
+     * 0 = closed, 1 = list-UI ({@link TouchOverlayView} suspends the virtual
+     * gamepad and forwards RAW multi-touch via
+     * {@link #onBrowserTouch(int, int, float, float, float, float)}),
+     * 2 = FREECAM (the GOAL side is 100% pad-driven, so the virtual gamepad
+     * stays LIVE and the overlay presents a freecam-specific control set).
+     * {@link #isInMeshBrowser()} remains true for any non-zero mode. Reads the
+     * same native atomic — cheap and race-free.
+     */
+    public static native int meshBrowserMode();
+
+    /**
      * Phase Grecharged-mesh-browser REOPEN (owner 2026-07-29, "C'est impossible
      * a parcourir via le tactile"): forward a RAW multi-touch event to the debug
      * mesh browser. Only called while {@link #isInMeshBrowser()} is true, and it

@@ -44,4 +44,11 @@ bool owns(u32 gl_id);
 // the checker BASE colour, dim x dim RGBA8 (byte order R,G,B,A).
 void make_base_rgba(std::vector<u8>& out, int dim);
 
+// Grecharged-mesh-browser V2: ONE shared 256x256 checker BASE GL texture (same make_base_rgba
+// data, mipmapped, REPEAT), created lazily on first call and cached forever — never deleted.
+// The freecam's per-draw checker override binds this over the targeted draw's own base texture,
+// so it must not depend on the level-load-time substitution path (mode() may be 0).
+// Requires a current GL context (GL thread only).
+u32 checker_base_gl();
+
 }  // namespace pbr_testpattern
