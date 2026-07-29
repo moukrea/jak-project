@@ -243,6 +243,45 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > l'APK (`<custom root>/mesh_index/`, `file_util::get_bundled_mesh_index_dir`). Le damier réutilise le mode
 > `PbrTestPattern` existant via `recharged_mesh_browser_checker` (gfx.h) : sans prop/env debug, le toggle menu
 > possède le pattern ; le prop/env l'écrase encore dans les deux sens (A/B headless superviseur inchangé).
+>
+> **RÉOUVERTURE (2026-07-29, owner : « C'est impossible à parcourir via le tactile (le mesh browser) »)**.
+> La ligne de menu elle-même est INCHANGÉE (même id, même position, même comportement) ; c'est le CONTENU de
+> l'overlay qui a été refait, parce que le navigateur était inutilisable au doigt sur le seul appareil dont
+> l'owner dispose. Trois défauts indépendants, tous corrigés :
+> 1. **Aucun événement tactile n'atteignait le navigateur.** L'overlay Android ne transmet un tap
+>    (`NativeGk.onMenuTap`) que si `NativeGk.isInMenu()` est vrai — or le navigateur tourne volontairement en
+>    `master-mode 'game`. Le chemin était donc mort par construction. Désormais le navigateur lève un drapeau
+>    natif (`pc-mb-set-active!`) que l'overlay interroge : tant qu'il est levé, l'overlay SUSPEND la manette
+>    virtuelle et transmet le MULTI-TOUCH BRUT (`NativeGk.onBrowserTouch`).
+> 2. **Le hit-test était faux d'un facteur 2.** Les lignes étaient normalisées par 448 alors que l'espace de
+>    dessin 2D fait `screen-sy` = 224 unités de haut (`draw-sprite2d-xy` borne à `screen-miny..screen-maxy`).
+>    Le strip de boutons OBSERVE était pire : dessiné à y=232..248 et x jusqu'à 1090, donc entièrement HORS
+>    de l'espace 512×224 — invisible ET intouchable. Tout est maintenant déclaré une seule fois en
+>    coordonnées normalisées [0,1] et converti au dernier moment : le rectangle dessiné et la cible tactile
+>    sont le même rectangle par construction.
+> 3. **Il n'existait aucune donnée de geste.** `pc-get-touch-tap` ne porte qu'un FRONT de tap : ni appui/relâché,
+>    ni mouvement, ni second doigt. Un reconnaisseur de gestes réel vit désormais dans
+>    `game/kernel/jak1/kmachine.cpp` (`pc_mb_touch_event`), lu une fois par frame par GOAL.
+>
+> **Gestes (tout au doigt, aucune manette, aucun adb)** — LISTE : glissement vertical = défilement avec
+> INERTIE ; poignée de défilement au bord droit = traverse les 3613 entrées de village1 d'un seul geste ;
+> tap sur une ligne = sélection directe (pas de curseur à déplacer), re-tap = ouvre ; boutons d'en-tête
+> BACK / ALL / FAILING / TFRAG / TIE ; bouton OPEN en pied. OBSERVE : glissement 1 doigt = orbite
+> (horizontal = azimut, vertical = ÉLÉVATION, deux axes distincts) ; PINCE = zoom ; glissement 2 doigts =
+> FAIT TOURNER LE MESH (la caméra ET la lumière tournent du même angle autour du centroïde : rotation rigide
+> de l'objet vis-à-vis des deux, donc l'objet paraît tourner sous une lumière fixe) ; grille de 2×7 boutons
+> tactiles : CHECKER/REAL, DISP-, DISP+, REL-, REL+, SPIN-, SPIN+, TOD-, TOD+, DAY, NIGHT, RESET, LIST, EXIT.
+> La manette reste en parité complète (d-pad/X/triangle, sticks pour orbite+zoom, L1/R1 spin, etc.).
+> En OBSERVE le navigateur PREND la caméra (`*camera-look-through-other*`, le hook cutscene « caméra ICI,
+> regardant LÀ ») au lieu d'emprunter `cam-orbit` : `cam-orbit` lit le stick droit directement dans
+> `*cpad-list*` et ne stocke qu'un azimut sans terme d'élévation, donc le piloter au doigt reviendrait à lui
+> disputer le stick chaque frame. En le possédant, orbite/élévation/zoom sont exactement trois nombres.
+> **Robustesse d'accès** : `TouchOverlayView` est désormais TOUJOURS ajouté à la hiérarchie de vues (le
+> réglage `touch_overlay_enabled`, dont le défaut est calculé une seule fois au premier lancement et
+> persisté, ne supprime plus que le RÔLE manette via `setPadSuppressed`) ; et une manette branchée ne met
+> plus la vue en `View.GONE` tant que le navigateur est ouvert (GONE = plus aucun hit-test = plus aucun
+> geste). État observable écrit dans `files/mesh_browser_state.txt` (copie-sortie pour l'owner sans adb, et
+> preuve falsifiable geste→changement d'état).
 
 ---
 

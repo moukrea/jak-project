@@ -946,21 +946,25 @@
             (if (mb-down-in? 0.0 0.0 1.0 (- MB_RA_TOP 0.005))
                 (mesh-browser-drag orbit)
                 (mesh-browser-drag none))))
-    (when (= (-> obj drag) (mesh-browser-drag orbit))
-      (cond
-        ((>= (-> g fingers) 2)
-         ;; pinch: separation grows -> pull the camera in
-         (when (!= (-> g pinch) 0.0)
-           (set! (-> obj obs-dist)
-                 (fmax 2048.0 (fmin 819200.0 (* (-> obj obs-dist) (- 1.0 (* 2.2 (-> g pinch))))))))
-         ;; two-finger horizontal travel spins the mesh (camera + light together)
-         (when (!= (-> g d2x) 0.0)
-           (mesh-browser-bump-spin obj (* -3.2 (-> g d2x)))))
-        ((= (-> g fingers) 1)
-         (set! (-> obj obs-az) (mb-wrap (+ (-> obj obs-az) (* -3.2 (-> g dx))) 6.2832))
-         ;; elevation is clamped short of the poles: forward-down->inv-matrix needs a forward vector
-         ;; that is not parallel to "down".
-         (set! (-> obj obs-el) (fmax -1.35 (fmin 1.35 (+ (-> obj obs-el) (* 2.4 (-> g dy)))))))))
+    (cond
+      ;; TWO FINGERS: always zoom/spin, wherever the gesture began. No button uses two fingers, so a
+      ;; pinch is unambiguous — gating it on where the FIRST finger happened to land would drop the
+      ;; gesture whenever that finger started on the button grid.
+      ((>= (-> g fingers) 2)
+       ;; pinch: separation grows -> pull the camera in
+       (when (!= (-> g pinch) 0.0)
+         (set! (-> obj obs-dist)
+               (fmax 2048.0 (fmin 819200.0 (* (-> obj obs-dist) (- 1.0 (* 2.2 (-> g pinch))))))))
+       ;; two-finger horizontal travel spins the mesh (camera + light together)
+       (when (!= (-> g d2x) 0.0)
+         (mesh-browser-bump-spin obj (* -3.2 (-> g d2x)))))
+      ;; ONE FINGER: orbit, but only if the drag STARTED in the view area, so a finger sliding off a
+      ;; button never yanks the camera.
+      ((and (= (-> g fingers) 1) (= (-> obj drag) (mesh-browser-drag orbit)))
+       (set! (-> obj obs-az) (mb-wrap (+ (-> obj obs-az) (* -3.2 (-> g dx))) 6.2832))
+       ;; elevation is clamped short of the poles: forward-down->inv-matrix needs a forward vector
+       ;; that is not parallel to "down".
+       (set! (-> obj obs-el) (fmax -1.35 (fmin 1.35 (+ (-> obj obs-el) (* 2.4 (-> g dy))))))))
     (when (-> g up?) (set! (-> obj drag) (mesh-browser-drag none))))
   (none))
 
@@ -1063,9 +1067,14 @@
   (none))
 
 (defun mesh-browser-maybe-dump ((obj mesh-browser))
+  "Write the state file when something changed, but never more than once every 8 frames: during a
+   scroll or an orbit the signature changes EVERY frame, and a 60 Hz file write would stutter the
+   very frame rate the owner is meant to be judging. A heartbeat every 3 s keeps the file fresh
+   even when nothing moves."
   (+! (-> obj dump-timer) 1)
   (let ((sig (mesh-browser-state-sig obj)))
-    (when (or (!= sig (-> obj dump-sig)) (>= (-> obj dump-timer) 180))
+    (when (or (and (!= sig (-> obj dump-sig)) (>= (-> obj dump-timer) 8))
+              (>= (-> obj dump-timer) 180))
       (set! (-> obj dump-sig) sig)
       (set! (-> obj dump-timer) 0)
       (mesh-browser-dump-state obj)))

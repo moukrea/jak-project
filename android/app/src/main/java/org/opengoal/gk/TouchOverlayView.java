@@ -982,7 +982,27 @@ public class TouchOverlayView extends View {
             // browserMode (and the hidden glyphs) track the game state even
             // when the owner is not touching the screen.
             boolean b = queryBrowser();
-            if (b != browserMode) { browserMode = b; if (b) releaseAll(); Log.i(TAG, "overlay-mode: mesh browser " + (b ? "OPEN (raw multi-touch -> onBrowserTouch, virtual pad suspended)" : "CLOSED (virtual pad restored)")); invalidate(); }
+            if (b != browserMode) {
+                browserMode = b;
+                if (b) {
+                    releaseAll();
+                    // If a gamepad was connected BEFORE the browser was opened, MainActivity has
+                    // already View.GONE'd us — and GONE means no hit-testing, so not one browser
+                    // gesture would land. The browser is finger-driven by design, so it takes
+                    // priority: make ourselves hit-testable again. We stay alpha-0 until touched,
+                    // so a pad user sees nothing appear.
+                    if (getVisibility() != VISIBLE) {
+                        setVisibility(VISIBLE);
+                        Log.i(TAG, "overlay-visibility: forced VISIBLE for the mesh browser "
+                                + "(was GONE because a gamepad is connected; GONE would have "
+                                + "swallowed every browser gesture)");
+                    }
+                }
+                Log.i(TAG, "overlay-mode: mesh browser "
+                        + (b ? "OPEN (raw multi-touch -> onBrowserTouch, virtual pad suspended)"
+                             : "CLOSED (virtual pad restored)"));
+                invalidate();
+            }
             handler.postDelayed(this, HEARTBEAT_MS);
         }
     };
