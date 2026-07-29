@@ -1930,7 +1930,19 @@ void mesh_consolidate(Level& lev,
           n_voted += loc_voted;
           n_abstained += loc_abstained;
         };
+        // SUPERVISOR 2026-07-29: the owner's Honor SIGABRTs at startup with
+        //   'invalid pthread_t ... passed to pthread_kill'
+        // from inside a std::thread trampoline in libgk.so, while the same build runs on the
+        // slower Redmi — a race whose outcome depends on relative thread speed. This pool is the
+        // ONLY std::thread work added by the orientation rounds and it runs ON DEVICE at every
+        // level load. Serialise it on Android: the geometric vote is a pure fold over independent
+        // faces, so single-threaded gives BIT-IDENTICAL results, only slower. Desktop keeps the
+        // pool (bake tooling, where the time actually matters).
+#ifdef __ANDROID__
+        const unsigned nthreads = 1u;
+#else
         const unsigned nthreads = std::max(1u, std::thread::hardware_concurrency());
+#endif
         std::vector<std::thread> pool;
         for (unsigned t = 1; t < nthreads; t++) {
           pool.emplace_back(geom_worker);
