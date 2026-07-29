@@ -12,20 +12,52 @@
 ;; the offline test's grade so he can CONFIRM OR REFUTE the tool's verdict (the cross-check loop that
 ;; every previous round lacked).
 ;;
-;; ARCHITECTURE. This is a self-contained debug overlay, not a game-option array (a 3613-row dynamic
-;; list does not fit that static-array framework). It is driven by ONE per-frame call,
+;; --------------------------------------------------------------------------------------------
+;; REOPENED 2026-07-29 — owner: "C'est impossible a parcourir via le tactile (le mesh browser)"
+;;
+;; He has no gamepad permanently attached and no adb, so a browser that needs either is a browser he
+;; cannot use. THREE independent defects made touch non-functional; all three are fixed here:
+;;
+;;  1. NO TOUCH EVENT EVER REACHED THE BROWSER. The Android overlay only forwards a tap
+;;     (NativeGk.onMenuTap) when NativeGk.isInMenu() is true. isInMenu() is a native sniff of
+;;     *master-mode* / *progress-process*, and the browser deliberately runs in master-mode 'game.
+;;     So the tap path was dead by construction. FIX: the browser now raises a native flag
+;;     (pc-mb-set-active!) that the overlay polls; while raised, the overlay suspends the virtual
+;;     gamepad and forwards RAW multi-touch instead.
+;;
+;;  2. THE HIT-TEST WAS OFF BY 2x. Row hit-testing normalised the drawn y by 448.0, but the 2D draw
+;;     space is screen-sy = 224 units tall (draw-sprite2d-xy clamps to screen-miny..screen-maxy,
+;;     which span screen-sy; see engine/gfx/hw/video.gc set-video-mode). Every row was therefore
+;;     hit-tested at half its true height, so a tap selected the wrong row or nothing at all. The
+;;     observe button strip was worse: drawn at y=232..248 and x up to 1090, i.e. entirely outside
+;;     the 512x224 design space — invisible AND unhittable, while its tap zones were spread across
+;;     the whole screen. FIX: this file now defines its layout ONCE in normalised [0,1] coordinates
+;;     and converts to draw units at the last moment, so the drawn rectangle and the tap target are
+;;     the same rectangle by construction.
+;;
+;;  3. THERE WAS NO GESTURE DATA AT ALL. pc-get-touch-tap carries a single tap EDGE — no
+;;     finger-down/up, no motion, no second finger. Swipe, drag, pinch and fling were not merely
+;;     unbound, they had no source. A 3613-entry list (village1) stepped one row at a time is
+;;     unusable by construction. FIX: a real gesture recogniser in game/kernel/jak1/kmachine.cpp
+;;     (pc_mb_touch_event) fed by the overlay, polled once per frame here.
+;;
+;; The touch design is the one every phone user already knows: drag the list to scroll (with
+;; inertia), drag the right-edge handle to cross thousands of rows in one gesture, tap a row to
+;; select it, drag in the 3D view to orbit (horizontal = azimuth, vertical = elevation), pinch to
+;; zoom, two-finger drag to spin the mesh, and a grid of finger-sized buttons for every toggle.
+;; Nothing requires a gamepad; nothing requires adb.
+;; --------------------------------------------------------------------------------------------
+;;
+;; ARCHITECTURE. A self-contained debug overlay, not a game-option array (a 3613-row dynamic list
+;; does not fit that static-array framework). It is driven by ONE per-frame call,
 ;; (mesh-browser-update), hooked into (update *pc-settings*) right next to draw-pc-fps-counter — the
 ;; always-live per-frame path that renders on BOTH x86 (GL) and Android (GLES, no ImGui, no
 ;; debug-segment gate). It owns the screen only while active; when closed it does nothing and the
 ;; normal render path is byte-for-byte unchanged.
 ;;
-;; REACHABLE WITHOUT ADB. Opened by a "MESH BROWSER" row in the Recharged Settings menu (touch AND
-;; gamepad, no adb — the owner has none). All observation controls are reachable by gamepad AND by
-;; tapping on-screen buttons (the touch API is tap-only, so drag/pinch are replaced by tap targets).
-;;
 ;; OBSERVES, DOES NOT FIX. Nothing here changes a displacement/PBR shader law. The checker toggle
 ;; only re-points the EXISTING PbrTestPattern debug material (applied at the next level load, so a
-;; flip re-warps the current mesh). The camera uses the stock cam-orbit state.
+;; flip re-warps the current mesh).
 ;; ==================================================================================================
 
 ;; ---- C++ back end (game/kernel/jak1/kmachine.cpp) --------------------------------------------------
@@ -39,10 +71,13 @@
 (define-extern pc-mesh-index-level! (function string symbol))             ;; loaded level name -> string
 (define-extern pc-set-mesh-browser-checker! (function int none))          ;; 0 real / 1 checker
 (define-extern pc-mesh-browser-export! (function int none))               ;; write files/mesh_select.txt
-;; already declared elsewhere but used here:
-;;   pc-set-pbr-displacement!  (Off/Parallax/Tessellation)
-;;   pc-set-pbr-texture-relief! (percent)
-;;   pc-get-touch-tap          (tap x/y/flag, normalized 0..10000)
+;; REOPEN: the real gesture channel + the observable-state dump.
+(define-extern pc-mb-set-active! (function int none))     ;; tell the Android overlay we own the screen
+(define-extern pc-mb-touch-poll! (function int))          ;; latch a frame of gestures, consume deltas
+(define-extern pc-mb-touch-geti (function int int))       ;; read a field of the latched frame
+(define-extern pc-mb-state-begin! (function none))        ;; start files/mesh_browser_state.txt
+(define-extern pc-mb-state-line! (function string none))  ;; append one line
+(define-extern pc-mb-state-end! (function none))          ;; append touch counters + write the file
 
 ;; geti field ids
 (defconstant MB_GI_SYSTEM 0)    ;; 0 TFRAG, 1 TIE
@@ -62,8 +97,27 @@
 (defconstant MB_GF_HIY 7)
 (defconstant MB_GF_HIZ 8)
 
+;; gesture field ids — mirror pc_mb_touch_geti in game/kernel/jak1/kmachine.cpp
+(defconstant MB_T_FINGERS 0)
+(defconstant MB_T_X 1)
+(defconstant MB_T_Y 2)
+(defconstant MB_T_DX 3)         ;; drag delta since the last poll, consumed once
+(defconstant MB_T_DY 4)
+(defconstant MB_T_PINCH 5)      ;; change in two-finger separation
+(defconstant MB_T_D2X 6)        ;; two-finger centroid travel
+(defconstant MB_T_D2Y 7)
+(defconstant MB_T_TAPSEQ 8)     ;; monotonic: a tap happened
+(defconstant MB_T_TAPX 9)
+(defconstant MB_T_TAPY 10)
+(defconstant MB_T_UPSEQ 11)     ;; monotonic: a gesture ended
+(defconstant MB_T_FLING 12)     ;; release velocity for inertia (screen-fractions/s x10000)
+(defconstant MB_T_DOWNSEQ 13)   ;; monotonic: a gesture started
+(defconstant MB_T_DOWNX 14)
+(defconstant MB_T_DOWNY 15)
+(defconstant MB_T_NEVENTS 16)   ;; total raw touch events seen (evidence counter)
+
 ;; ---- state ----------------------------------------------------------------------------------------
-;; The browser has three top-level modes: closed, the LEVEL picker, the MESH LIST, and OBSERVE.
+;; The browser has four top-level modes: closed, the LEVEL picker, the MESH LIST, and OBSERVE.
 (defenum mesh-browser-mode
   :type int32
   (closed 0)
@@ -84,28 +138,45 @@
   (tfrag 2)        ;; only TFRAG (the tessellation system — where B_disp is meaningful)
   (tie 3))         ;; only TIE (per-pixel POM)
 
+;; What the current finger-drag is doing. Latched at touch-down from WHERE the finger landed, and
+;; held for the whole gesture — so a drag that starts on the list never turns into an orbit halfway.
+(defenum mesh-browser-drag
+  :type int32
+  (none 0)
+  (scroll 1)       ;; dragging the list body
+  (handle 2)       ;; dragging the right-edge fast-scroll handle
+  (orbit 3))       ;; dragging in the 3D view
+
 (deftype mesh-browser (basic)
   ((mode          mesh-browser-mode)
    ;; level picker
    (level-index   int32)
-   (level-scroll  int32)
    ;; mesh list
    (filter        mesh-browser-filter)
    (n-total       int32)          ;; raw index rows for the loaded level
    (sel           int32)          ;; selected row INTO the filtered view
-   (scroll        int32)          ;; first visible filtered row
+   (scroll-f      float)          ;; first visible filtered row, fractional (smooth scrolling)
+   (scroll-vel    float)          ;; inertia, rows per frame
    (n-filtered    int32)          ;; count passing the filter
    (view          (array int32))  ;; filtered->raw row map (index-sorted worst-first already)
+   ;; gesture bookkeeping
+   (drag          mesh-browser-drag)
    ;; the selected mesh (raw row), cached for OBSERVE
    (cur-row       int32)
-   ;; observation state
+   ;; observation state — the browser owns the camera outright in OBSERVE (see
+   ;; mesh-browser-place-camera), so orbit/elevation/zoom are exactly these three numbers.
    (obs-focus     vector :inline) ;; world centroid (GOAL units) we warped to
+   (obs-az        float)          ;; camera azimuth around the mesh, radians
+   (obs-el        float)          ;; camera elevation, radians, clamped away from the poles
+   (obs-dist      float)          ;; camera distance (GOAL units)
    (frame-dist    float)          ;; auto-frame distance from the bbox (GOAL units)
-   (light-az      float)          ;; independent light azimuth offset (the "rotate the mesh vs light")
-   (obs-control   int32)          ;; which on-screen observe button is focused (gamepad)
+   (spin          float)          ;; MESH spin: camera AND light rotate together about the centroid
    (checker?      symbol)         ;; real-texture <-> checker toggle
-   (need-reframe  symbol)         ;; recompute the orbit framing once after a warp settles
+   (need-reframe  symbol)         ;; recompute the framing once after a warp settles
    (warp-timer    int32)          ;; frames since the warp, to let the level load before framing
+   ;; state-dump throttle
+   (dump-sig      int32)
+   (dump-timer    int32)
    ;; scratch strings (runtime buffers, re-formatted each frame — like *fps-counter-label*).
    ;; grade-buf / sub-buf hold pre-formatted sub-strings so they can be passed as ~S args to an
    ;; OUTER string-format WITHOUT clobber: string-format formats into the SINGLE shared *temp-string*
@@ -150,49 +221,163 @@
 (set! (-> *mesh-browser* view) (new 'global 'boxed-array int32 MB_MAX_MESHES))
 (set! (-> *mesh-browser* name-buf)  (new 'global 'string 64 (the string #f)))
 (set! (-> *mesh-browser* level-buf) (new 'global 'string 64 (the string #f)))
-(set! (-> *mesh-browser* line-buf)  (new 'global 'string 128 (the string #f)))
+(set! (-> *mesh-browser* line-buf)  (new 'global 'string 192 (the string #f)))
 (set! (-> *mesh-browser* grade-buf) (new 'global 'string 16 (the string #f)))
 (set! (-> *mesh-browser* sub-buf)   (new 'global 'string 16 (the string #f)))
 (set! (-> *mesh-browser* checker?) #f)
 (set! (-> *mesh-browser* mode) (mesh-browser-mode closed))
 
-;; how many rows the list shows at once
-(defconstant MB_PAGE 16)
+;; ---- the 2D design space --------------------------------------------------------------------------
+;; draw-sprite2d-xy clamps x into 1792..2304 and y into screen-miny..screen-maxy, i.e. 512 units wide
+;; by screen-sy (=224 NTSC / 256 PAL) tall; draw-string-xy shares that space once the caller has
+;; pre-multiplied y by relative-y-scale (see draw-pc-fps-counter, which does exactly that). Designing
+;; against a fixed 512x224 grid and letting mb-yscale carry the PAL stretch makes the mapping exact:
+;;   normalized_y = design_y / 224   and   normalized_x = design_x / 512
+;; independently of video mode. EVERY rectangle below is declared in normalized [0,1] coordinates and
+;; converted here, so the rectangle that is DRAWN and the rectangle that is HIT-TESTED are the same
+;; rectangle. The pre-reopen code kept two hand-written copies of that arithmetic and they disagreed.
+(defconstant MB_DX 512.0)
+(defconstant MB_DY 224.0)
 
-;; Forward declarations — OpenGOAL resolves an unknown symbol call as a method dispatch on the first
-;; arg's type, so every function referenced before its definition must be declared first.
-(define-extern mesh-browser-active? (function symbol))
-(define-extern mesh-browser-text (function dma-buffer string int int font-color none))
-(define-extern mesh-browser-panel (function dma-buffer int int int int rgba none))
-(define-extern mesh-browser-poll-tap (function none))
-(define-extern mb-tap-in? (function float float float float symbol))
-(define-extern mesh-browser-draw-levels (function mesh-browser dma-buffer none))
-(define-extern mesh-browser-input-levels (function mesh-browser none))
-(define-extern mesh-browser-enter-list (function mesh-browser none))
-(define-extern mb-filter-name (function mesh-browser-filter string))
-(define-extern mb-grade-string (function mesh-browser int string))
-(define-extern mesh-browser-draw-list (function mesh-browser dma-buffer none))
-(define-extern mesh-browser-input-list (function mesh-browser none))
-(define-extern mesh-browser-cycle-filter (function mesh-browser int none))
-(define-extern mesh-browser-pin-jak (function mesh-browser none))
-(define-extern mesh-browser-frame-orbit (function mesh-browser none))
-(define-extern mesh-browser-draw-observe (function mesh-browser dma-buffer none))
-(define-extern mb-disp-name (function string))
-(define-extern mesh-browser-bump-disp (function mesh-browser int none))
-(define-extern mesh-browser-bump-relief (function mesh-browser float none))
-(define-extern mesh-browser-draw-obs-buttons (function mesh-browser dma-buffer none))
-(define-extern mesh-browser-handle-obs-tap (function mesh-browser none))
-(define-extern mesh-browser-bump-tod (function mesh-browser float none))
-(define-extern mesh-browser-toggle-checker (function mesh-browser none))
-(define-extern mesh-browser-exit-observe (function mesh-browser none))
-(define-extern mesh-browser-input-observe (function mesh-browser none))
-(define-extern mesh-browser-apply-light-spin (function mesh-browser none))
+(defmacro mb-yscale (y)
+  `(the int (* ,y (-> (get-video-params) relative-y-scale))))
 
-;; ---- helpers --------------------------------------------------------------------------------------
+(defun mb-px ((nx float))
+  "Normalized x -> design x."
+  (the int (* nx MB_DX)))
+
+(defun mb-py ((ny float))
+  "Normalized y -> design y."
+  (the int (* ny MB_DY)))
+
+;; ---- list geometry, in normalized coordinates -----------------------------------------------------
+(defconstant MB_PAGE 14)          ;; rows per page (bigger rows = finger-sized targets on a phone)
+(defconstant MB_LIST_TOP 0.175)
+(defconstant MB_LIST_BOT 0.900)
+(defconstant MB_TRACK_X0 0.945)   ;; fast-scroll handle track (right edge)
+(defconstant MB_BTN_TOP 0.020)    ;; header button row
+(defconstant MB_BTN_BOT 0.115)
+(defconstant MB_FOOT_TOP 0.910)
+(defconstant MB_FOOT_BOT 0.990)
+
+(defmacro mb-row-h ()
+  `(/ (- MB_LIST_BOT MB_LIST_TOP) (the float MB_PAGE)))
+
+;; rows spanned by one unit of normalized vertical finger travel
+(defmacro mb-rows-per-unit ()
+  `(/ (the float MB_PAGE) (- MB_LIST_BOT MB_LIST_TOP)))
+
+;; ---- drawing helpers ------------------------------------------------------------------------------
+
+(defun mesh-browser-text ((buf dma-buffer) (str string) (nx float) (ny float) (col font-color))
+  "One HUD text line, positioned in normalized coordinates."
+  (draw-string-xy str buf (mb-px nx) (mb-yscale (the float (mb-py ny))) col (font-flags shadow kerning))
+  (none))
+
+(defun mesh-browser-rect ((buf dma-buffer) (x0 float) (y0 float) (x1 float) (y1 float) (col rgba))
+  "One translucent panel / row highlight / button, in normalized coordinates."
+  (draw-sprite2d-xy buf
+                    (mb-px x0)
+                    (mb-yscale (the float (mb-py y0)))
+                    (- (mb-px x1) (mb-px x0))
+                    (- (mb-yscale (the float (mb-py y1))) (mb-yscale (the float (mb-py y0))))
+                    col)
+  (none))
+
+;; ---- the gesture channel ---------------------------------------------------------------------------
+;; One latch per frame; every screen then reads the SAME snapshot. The deltas are consumed by the
+;; latch, so no screen can double-apply them.
+
+(deftype mb-gest (structure)
+  ((fingers  int32)
+   (x        float) (y     float)   ;; live position of the primary finger, normalized
+   (dx       float) (dy    float)   ;; travel since the last frame
+   (pinch    float)                 ;; change in two-finger separation
+   (d2x      float) (d2y   float)   ;; two-finger centroid travel
+   (fling    float)                 ;; release velocity, screen-fractions/second
+   (tap?     symbol) (tap-x float) (tap-y float)
+   (down?    symbol) (down-x float) (down-y float)
+   (up?      symbol)
+   (n-events int32)
+   ;; previous monotonic counters, to turn them into per-frame edges
+   (last-tap int32) (last-down int32) (last-up int32)))
+(define *mb-gest* (new 'global 'mb-gest))
+
+(defmacro mb-q (field)
+  "Read a 0..10000 fixed-point gesture field as a normalized float."
+  `(* 0.0001 (the float (pc-mb-touch-geti ,field))))
+
+(defun mesh-browser-poll-touch ()
+  "Latch this frame's gestures. On desktop (no touch source) every field stays 0 and every gesture
+   test below is simply false, so the gamepad path is unaffected."
+  (pc-mb-touch-poll!)
+  (let ((g *mb-gest*))
+    (set! (-> g fingers) (pc-mb-touch-geti MB_T_FINGERS))
+    (set! (-> g x) (mb-q MB_T_X))
+    (set! (-> g y) (mb-q MB_T_Y))
+    (set! (-> g dx) (mb-q MB_T_DX))
+    (set! (-> g dy) (mb-q MB_T_DY))
+    (set! (-> g pinch) (mb-q MB_T_PINCH))
+    (set! (-> g d2x) (mb-q MB_T_D2X))
+    (set! (-> g d2y) (mb-q MB_T_D2Y))
+    (set! (-> g fling) (mb-q MB_T_FLING))
+    (set! (-> g n-events) (pc-mb-touch-geti MB_T_NEVENTS))
+    ;; monotonic counters -> single-frame edges
+    (let ((ts (pc-mb-touch-geti MB_T_TAPSEQ)))
+      (set! (-> g tap?) (if (!= ts (-> g last-tap)) #t #f))
+      (set! (-> g last-tap) ts))
+    (let ((ds (pc-mb-touch-geti MB_T_DOWNSEQ)))
+      (set! (-> g down?) (if (!= ds (-> g last-down)) #t #f))
+      (set! (-> g last-down) ds))
+    (let ((us (pc-mb-touch-geti MB_T_UPSEQ)))
+      (set! (-> g up?) (if (!= us (-> g last-up)) #t #f))
+      (set! (-> g last-up) us))
+    (set! (-> g tap-x) (mb-q MB_T_TAPX))
+    (set! (-> g tap-y) (mb-q MB_T_TAPY))
+    (set! (-> g down-x) (mb-q MB_T_DOWNX))
+    (set! (-> g down-y) (mb-q MB_T_DOWNY)))
+  (none))
+
+(defun mesh-browser-sync-touch ()
+  "Re-baseline the monotonic counters without firing an edge — called when the browser opens so a
+   stale tap from before it opened cannot select something on the first frame."
+  (pc-mb-touch-poll!)
+  (let ((g *mb-gest*))
+    (set! (-> g last-tap) (pc-mb-touch-geti MB_T_TAPSEQ))
+    (set! (-> g last-down) (pc-mb-touch-geti MB_T_DOWNSEQ))
+    (set! (-> g last-up) (pc-mb-touch-geti MB_T_UPSEQ))
+    (set! (-> g tap?) #f)
+    (set! (-> g down?) #f)
+    (set! (-> g up?) #f))
+  (none))
+
+(defun mb-in? ((px float) (py float) (x0 float) (y0 float) (x1 float) (y1 float))
+  "Is a normalized point inside a normalized rect?"
+  (and (>= px x0) (<= px x1) (>= py y0) (<= py y1)))
+
+(defun mb-tap-in? ((x0 float) (y0 float) (x1 float) (y1 float))
+  "Did this frame's TAP land in the rect? A tap only fires when the finger stayed still and lifted
+   quickly, so a scroll-drag can never also select a row."
+  (and (-> *mb-gest* tap?)
+       (mb-in? (-> *mb-gest* tap-x) (-> *mb-gest* tap-y) x0 y0 x1 y1)))
+
+(defun mb-down-in? ((x0 float) (y0 float) (x1 float) (y1 float))
+  "Did this frame's finger-DOWN land in the rect? Used to latch what a drag will do."
+  (and (-> *mb-gest* down?)
+       (mb-in? (-> *mb-gest* down-x) (-> *mb-gest* down-y) x0 y0 x1 y1)))
+
+(defun mb-button ((buf dma-buffer) (x0 float) (y0 float) (x1 float) (y1 float) (label string) (on? symbol))
+  "Draw one finger-sized button and its label. The SAME rect is what mb-tap-in? tests."
+  (mesh-browser-rect buf x0 y0 x1 y1
+                     (if on?
+                         (new 'static 'rgba :r #x40 :g #x80 :b #xd0 :a #xc0)
+                         (new 'static 'rgba :r #x20 :g #x28 :b #x44 :a #xb0)))
+  (mesh-browser-text buf label (+ x0 0.012) (+ y0 (* 0.62 (- y1 y0))) (font-color white))
+  (none))
 
 (defun mb-wrap ((v float) (hi float))
-  "Wrap v into [0,hi) — used for stepping the hour (0..24) and the light azimuth (0..2pi). Steps are
-   small so a single add/sub of hi suffices (no fmod in GOAL)."
+  "Wrap v into [0,hi) — used for stepping the hour (0..24) and angles (0..2pi). Steps are small so a
+   single add/sub of hi suffices (no fmod in GOAL)."
   (cond
     ((< v 0.0) (+ v hi))
     ((>= v hi) (- v hi))
@@ -202,25 +387,39 @@
   "Is the browser currently owning the screen?"
   (!= (-> *mesh-browser* mode) (mesh-browser-mode closed)))
 
-(defmethod mesh-browser-open mesh-browser ((obj mesh-browser))
-  "Open the browser at the LEVEL picker. Called by the Recharged Settings menu row."
-  (set! (-> obj mode) (mesh-browser-mode levels))
-  (set! (-> obj level-index) 0)
-  (set! (-> obj level-scroll) 0)
-  (none))
+(defun mb-filter-name ((f mesh-browser-filter))
+  (case f
+    (((mesh-browser-filter all)) "ALL")
+    (((mesh-browser-filter failing)) "FAILING")
+    (((mesh-browser-filter tfrag)) "TFRAG")
+    (((mesh-browser-filter tie)) "TIE")
+    (else "?")))
 
-(defun mesh-browser-open! ()
-  "Plain-function opener the Recharged Settings button calls (forward-declared in progress-pc.gc)."
-  (mesh-browser-open *mesh-browser*)
-  (none))
+(defun mb-grade-string ((obj mesh-browser) (raw int))
+  "Format a mesh's offline grade into the browser's OWN grade-buf (n/a for ungraded TIE POM meshes).
+   Uses the low-level (format (clear ...)) rather than the string-format macro so the result lives in
+   grade-buf, not the shared *temp-string* — this is safe to pass as a ~S arg to an outer
+   string-format (which would otherwise clobber a nested string-format's *temp-string*)."
+  (if (= (pc-mesh-index-geti raw MB_GI_GRADED) 1)
+      (format (clear (-> obj grade-buf)) "~f%" (* 0.01 (the float (pc-mesh-index-geti raw MB_GI_ASIGN))))
+      (format (clear (-> obj grade-buf)) "n/a"))
+  ;; return the buffer explicitly (do not rely on _format's return), like the string-format macro.
+  (-> obj grade-buf))
 
-(defmethod mesh-browser-close mesh-browser ((obj mesh-browser))
-  "Close the browser and hand control back to normal gameplay."
-  (set! (-> obj mode) (mesh-browser-mode closed))
-  ;; hand the camera back to the normal gameplay camera
-  (when *camera*
-    (send-event *camera* 'change-state *camera-base-mode* 0))
-  (set! *camera-orbit-target* (the (pointer process-drawable) #f))
+(defun mesh-browser-scroll-max ((obj mesh-browser))
+  "Largest legal first-visible row."
+  (the float (max 0 (- (-> obj n-filtered) MB_PAGE))))
+
+(defun mesh-browser-clamp-scroll ((obj mesh-browser))
+  "Hold the list inside its bounds and kill the inertia at either end (no rubber-band: on a list of
+   3613 rows a bounce just costs the owner another gesture)."
+  (let ((hi (mesh-browser-scroll-max obj)))
+    (when (< (-> obj scroll-f) 0.0)
+      (set! (-> obj scroll-f) 0.0)
+      (set! (-> obj scroll-vel) 0.0))
+    (when (> (-> obj scroll-f) hi)
+      (set! (-> obj scroll-f) hi)
+      (set! (-> obj scroll-vel) 0.0)))
   (none))
 
 (defmethod mesh-browser-rebuild-view mesh-browser ((obj mesh-browser))
@@ -249,11 +448,30 @@
     (set! (-> obj n-filtered) m)
     (when (>= (-> obj sel) m) (set! (-> obj sel) (max 0 (+ m -1))))
     (when (< (-> obj sel) 0) (set! (-> obj sel) 0))
-    (set! (-> obj scroll) 0))
+    (set! (-> obj scroll-f) 0.0)
+    (set! (-> obj scroll-vel) 0.0))
+  (none))
+
+(defun mesh-browser-cycle-filter ((obj mesh-browser) (f mesh-browser-filter))
+  (set! (-> obj filter) f)
+  (set! (-> obj sel) 0)
+  (mesh-browser-rebuild-view obj)
+  (none))
+
+(defun mesh-browser-enter-list ((obj mesh-browser))
+  "Load the selected level's index and show the mesh list."
+  (let ((lvl (-> *mesh-browser-levels* (-> obj level-index))))
+    (pc-mesh-index-load! (-> lvl index-name))
+    (pc-mesh-index-level! (-> obj level-buf)))
+  (set! (-> obj filter) (mesh-browser-filter all))
+  (set! (-> obj sel) 0)
+  (mesh-browser-rebuild-view obj)
+  (set! (-> obj drag) (mesh-browser-drag none))
+  (set! (-> obj mode) (mesh-browser-mode list))
   (none))
 
 (defmethod mesh-browser-warp-to-selected mesh-browser ((obj mesh-browser))
-  "Warp Jak to the selected mesh's level + centroid, then arm the orbit-frame. Reuses the exact
+  "Warp Jak to the selected mesh's level + centroid, then arm the auto-framing. Reuses the exact
    checkpoint-select warp mechanism (get-continue-by-name + initialize! 'die override)."
   (when (> (-> obj n-filtered) 0)
     (let* ((raw (-> obj view (-> obj sel)))
@@ -271,203 +489,277 @@
              (dz (* (- (pc-mesh-index-getf raw MB_GF_HIZ) (pc-mesh-index-getf raw MB_GF_LOZ)) 4096.0))
              (diag (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))
         (set! (-> obj frame-dist) (fmax 8192.0 (* 0.9 diag))))
-      ;; export the identifier so the owner can quote it without adb.
+      ;; export the identifier so the owner can quote it back without adb.
       (pc-mesh-browser-export! raw)
       ;; warp. initialize! spawns a fresh target at the continue point -> normal control restored.
       (set! (-> *game-info* current-continue) (get-continue-by-name *game-info* (-> lvl warp-name)))
       (initialize! *game-info* 'die (the-as game-save #f) (the-as string #f))
-      ;; enter OBSERVE; the camera framing waits until the level has loaded.
+      ;; enter OBSERVE; the framing waits until the level has loaded.
       (set! (-> obj mode) (mesh-browser-mode observe))
+      (set! (-> obj drag) (mesh-browser-drag none))
       (set! (-> obj need-reframe) #t)
       (set! (-> obj warp-timer) 0)))
   (none))
 
-;; ---- drawing helpers ------------------------------------------------------------------------------
-;; y is in the 0..~256 font space scaled by relative-y-scale (matching draw-pc-fps-counter).
-
-(defmacro mb-yscale (y)
-  `(the int (* ,y (-> (get-video-params) relative-y-scale))))
-
-(defun mesh-browser-text ((buf dma-buffer) (str string) (x int) (y int) (col font-color))
-  "One HUD text line."
-  (draw-string-xy str buf x (mb-yscale y) col (font-flags shadow kerning))
+(defmethod mesh-browser-open mesh-browser ((obj mesh-browser))
+  "Open the browser at the LEVEL picker. Called by the Recharged Settings menu row."
+  (set! (-> obj mode) (mesh-browser-mode levels))
+  (set! (-> obj level-index) 0)
+  (set! (-> obj drag) (mesh-browser-drag none))
+  (set! (-> obj scroll-f) 0.0)
+  (set! (-> obj scroll-vel) 0.0)
+  ;; Tell the Android overlay we own the screen: it suspends the virtual gamepad and starts
+  ;; forwarding RAW multi-touch. Without this the browser receives no touch events at all.
+  (pc-mb-set-active! 1)
+  (mesh-browser-sync-touch)
   (none))
 
-(defun mesh-browser-panel ((buf dma-buffer) (x int) (y int) (w int) (h int) (col rgba))
-  "One translucent panel / row highlight."
-  (draw-sprite2d-xy buf x (mb-yscale y) w (mb-yscale h) col)
+(defun mesh-browser-open! ()
+  "Plain-function opener the Recharged Settings button calls (forward-declared in progress-pc.gc)."
+  (mesh-browser-open *mesh-browser*)
   (none))
 
-;; ---- input abstraction ----------------------------------------------------------------------------
-;; Every action is reachable by GAMEPAD and by a screen TAP (the touch API is tap-only, so on-screen
-;; regions replace drag/pinch). A frame's tap (if any) is polled once and hit-tested per screen.
-
-(deftype mb-tap (structure)
-  ((x float)   ;; 0..1
-   (y float)   ;; 0..1
-   (down symbol)))
-(define *mb-tap* (new 'global 'mb-tap))
-
-(defun mesh-browser-poll-tap ()
-  "Read this frame's tap into *mb-tap* (normalized 0..1). No-op on desktop (stub reports flag=0)."
-  (let ((tx (new 'stack-no-clear 'array 'int64 1))
-        (ty (new 'stack-no-clear 'array 'int64 1))
-        (tf (new 'stack-no-clear 'array 'int64 1)))
-    (set! (-> tx 0) 0) (set! (-> ty 0) 0) (set! (-> tf 0) 0)
-    (pc-get-touch-tap (the (pointer int64) tx) (the (pointer int64) ty) (the (pointer int64) tf))
-    (set! (-> *mb-tap* down) (if (nonzero? (-> tf 0)) #t #f))
-    (set! (-> *mb-tap* x) (/ (the float (-> tx 0)) 10000.0))
-    (set! (-> *mb-tap* y) (/ (the float (-> ty 0)) 10000.0)))
+(defmethod mesh-browser-close mesh-browser ((obj mesh-browser))
+  "Close the browser and hand control back to normal gameplay."
+  (set! (-> obj mode) (mesh-browser-mode closed))
+  (set! (-> obj drag) (mesh-browser-drag none))
+  ;; release the camera: the stock camera resumes on the very next frame.
+  (set! *camera-look-through-other* 0)
+  ;; hand touch back to the virtual gamepad — the overlay is byte-identical from here on.
+  (pc-mb-set-active! 0)
   (none))
-
-(defun mb-tap-in? ((x0 float) (y0 float) (x1 float) (y1 float))
-  "Did this frame's tap land in the normalized rect?"
-  (and (-> *mb-tap* down)
-       (>= (-> *mb-tap* x) x0) (<= (-> *mb-tap* x) x1)
-       (>= (-> *mb-tap* y) y0) (<= (-> *mb-tap* y) y1)))
 
 ;; ---- LEVEL PICKER ---------------------------------------------------------------------------------
 
 (defun mesh-browser-draw-levels ((obj mesh-browser) (buf dma-buffer))
-  (mesh-browser-panel buf 16 12 900 240 (new 'static 'rgba :r #x10 :g #x10 :b #x20 :a #x80))
-  (mesh-browser-text buf (string-format "MESH BROWSER - PICK LEVEL  (UP/DOWN, X OPEN, TRIANGLE CLOSE)") 24 20 (font-color yellow))
-  (let ((n (length *mesh-browser-levels*)))
+  (mesh-browser-rect buf 0.0 0.0 1.0 1.0 (new 'static 'rgba :r #x08 :g #x08 :b #x14 :a #xd0))
+  (mesh-browser-text buf "MESH BROWSER - PICK A LEVEL" 0.02 0.055 (font-color yellow))
+  (mb-button buf 0.80 MB_BTN_TOP 0.99 MB_BTN_BOT "CLOSE" #f)
+  (let ((n (length *mesh-browser-levels*))
+        (rh (mb-row-h)))
     (dotimes (i n)
-      (let* ((y (+ 40 (* i 12)))
+      (let* ((y0 (+ MB_LIST_TOP (* (the float i) rh)))
              (lvl (-> *mesh-browser-levels* i))
              (sel? (= i (-> obj level-index))))
-        (when sel?
-          (mesh-browser-panel buf 20 (- y 1) 360 12 (new 'static 'rgba :r #x30 :g #x60 :b #xa0 :a #xa0)))
-        (mesh-browser-text buf (-> lvl index-name) 28 y (if sel? (font-color white) (font-color cyan))))))
+        (when (< y0 MB_LIST_BOT)
+          (when sel?
+            (mesh-browser-rect buf 0.01 y0 0.99 (+ y0 rh)
+                               (new 'static 'rgba :r #x30 :g #x60 :b #xa0 :a #xa0)))
+          (mesh-browser-text buf (-> lvl index-name) 0.04 (+ y0 (* 0.72 rh))
+                             (if sel? (font-color white) (font-color cyan)))))))
+  (mesh-browser-text buf "TAP A LEVEL  /  D-PAD + X" 0.02 (+ MB_FOOT_TOP 0.055) (font-color green))
   (none))
 
 (defun mesh-browser-input-levels ((obj mesh-browser))
-  (let ((n (length *mesh-browser-levels*)))
+  (let ((n (length *mesh-browser-levels*))
+        (rh (mb-row-h)))
     (cond
       ((cpad-pressed? 0 up) (set! (-> obj level-index) (mod (+ (-> obj level-index) (+ n -1)) n)))
       ((cpad-pressed? 0 down) (set! (-> obj level-index) (mod (+ (-> obj level-index) 1) n)))
       ((cpad-pressed? 0 x) (mesh-browser-enter-list obj))
       ((cpad-pressed? 0 triangle) (mesh-browser-close obj))
       ((cpad-pressed? 0 circle) (mesh-browser-close obj)))
-    ;; touch: tap a level row to open it; tap top strip to close
-    (when (-> *mb-tap* down)
+    ;; TOUCH: tap the level row itself — one tap, no cursor to walk over.
+    (when (-> *mb-gest* tap?)
       (cond
-        ((mb-tap-in? 0.0 0.0 1.0 0.06) (mesh-browser-close obj))
+        ((mb-tap-in? 0.80 MB_BTN_TOP 0.99 MB_BTN_BOT) (mesh-browser-close obj))
         (else
          (dotimes (i n)
-           (let ((y0 (/ (the float (mb-yscale (+ 40 (* i 12)))) 448.0)))
-             (when (mb-tap-in? 0.02 (- y0 0.012) 0.45 (+ y0 0.012))
+           (let ((y0 (+ MB_LIST_TOP (* (the float i) rh))))
+             (when (mb-tap-in? 0.01 y0 0.99 (+ y0 rh))
                (set! (-> obj level-index) i)
                (mesh-browser-enter-list obj))))))))
   (none))
 
-(defun mesh-browser-enter-list ((obj mesh-browser))
-  "Load the selected level's index and show the mesh list."
-  (let ((lvl (-> *mesh-browser-levels* (-> obj level-index))))
-    (pc-mesh-index-load! (-> lvl index-name))
-    (pc-mesh-index-level! (-> obj level-buf)))
-  (set! (-> obj filter) (mesh-browser-filter all))
-  (set! (-> obj sel) 0)
-  (mesh-browser-rebuild-view obj)
-  (set! (-> obj mode) (mesh-browser-mode list))
-  (none))
-
 ;; ---- MESH LIST ------------------------------------------------------------------------------------
-
-(defun mb-filter-name ((f mesh-browser-filter))
-  (case f
-    (((mesh-browser-filter all)) "ALL")
-    (((mesh-browser-filter failing)) "FAILING (<100%)")
-    (((mesh-browser-filter tfrag)) "TFRAG ONLY")
-    (((mesh-browser-filter tie)) "TIE ONLY")
-    (else "?")))
-
-(defun mb-grade-string ((obj mesh-browser) (raw int))
-  "Format a mesh's offline grade into the browser's OWN grade-buf (n/a for ungraded TIE POM meshes).
-   Uses the low-level (format (clear ...)) rather than the string-format macro so the result lives in
-   grade-buf, not the shared *temp-string* — this is safe to pass as a ~S arg to an outer
-   string-format (which would otherwise clobber a nested string-format's *temp-string*)."
-  (if (= (pc-mesh-index-geti raw MB_GI_GRADED) 1)
-      (format (clear (-> obj grade-buf)) "~f%" (* 0.01 (the float (pc-mesh-index-geti raw MB_GI_ASIGN))))
-      (format (clear (-> obj grade-buf)) "n/a"))
-  ;; return the buffer explicitly (do not rely on _format's return), like the string-format macro.
-  (-> obj grade-buf))
+;; village1 alone holds 3613 rows. Stepping that one row at a time is unusable by construction, so
+;; the list is driven the way every phone list is: swipe to scroll with inertia, plus a right-edge
+;; fast-scroll handle that crosses the whole 3613-row range in a single drag.
 
 (defun mesh-browser-draw-list ((obj mesh-browser) (buf dma-buffer))
-  (mesh-browser-panel buf 16 12 1200 24 (new 'static 'rgba :r #x10 :g #x10 :b #x20 :a #x90))
+  (mesh-browser-rect buf 0.0 0.0 1.0 1.0 (new 'static 'rgba :r #x08 :g #x08 :b #x14 :a #xc0))
+  ;; header: BACK + the four filters, as finger-sized buttons
+  (mb-button buf 0.005 MB_BTN_TOP 0.185 MB_BTN_BOT "BACK" #f)
+  (mb-button buf 0.195 MB_BTN_TOP 0.385 MB_BTN_BOT "ALL"
+             (= (-> obj filter) (mesh-browser-filter all)))
+  (mb-button buf 0.395 MB_BTN_TOP 0.585 MB_BTN_BOT "FAILING"
+             (= (-> obj filter) (mesh-browser-filter failing)))
+  (mb-button buf 0.595 MB_BTN_TOP 0.785 MB_BTN_BOT "TFRAG"
+             (= (-> obj filter) (mesh-browser-filter tfrag)))
+  (mb-button buf 0.795 MB_BTN_TOP 0.985 MB_BTN_BOT "TIE"
+             (= (-> obj filter) (mesh-browser-filter tie)))
   (mesh-browser-text buf
-    (string-format "~S : ~D/~D MESHES  FILTER=~S  (L1/R1 FILTER, X WARP, TRI BACK)"
-                   (-> obj level-buf) (-> obj n-filtered) (-> obj n-total) (mb-filter-name (-> obj filter)))
-    24 20 (font-color yellow))
-  ;; keep the selection visible within the page
-  (when (< (-> obj sel) (-> obj scroll)) (set! (-> obj scroll) (-> obj sel)))
-  (when (>= (-> obj sel) (+ (-> obj scroll) MB_PAGE)) (set! (-> obj scroll) (+ (-> obj sel) (- 1 MB_PAGE))))
-  (dotimes (i MB_PAGE)
-    (let ((r (+ (-> obj scroll) i)))
-      (when (< r (-> obj n-filtered))
-        (let* ((raw (-> obj view r))
-               (y (+ 40 (* i 11)))
-               (sel? (= r (-> obj sel)))
-               (sys (if (= (pc-mesh-index-geti raw MB_GI_SYSTEM) 1) "TIE  " "TFRAG"))
-               (graded (= (pc-mesh-index-geti raw MB_GI_GRADED) 1))
-               (asign (pc-mesh-index-geti raw MB_GI_ASIGN))
-               ;; colour = grade severity: red < 50%, orange < 100%, green 100%, cyan ungraded
-               (col (cond ((not graded) (font-color cyan))
-                          ((< asign 5000) (font-color red))
-                          ((< asign 10000) (font-color orange))
-                          (else (font-color green)))))
-          (pc-mesh-index-name! raw (-> obj name-buf))
-          (when sel?
-            (mesh-browser-panel buf 20 (- y 1) 1180 11 (new 'static 'rgba :r #x30 :g #x60 :b #xa0 :a #xa0)))
-          (mesh-browser-text buf
-            (string-format "~4D ~S ~S  ~S" raw sys (-> obj name-buf) (mb-grade-string obj raw))
-            28 y (if sel? (font-color white) col))))))
+    (string-format "~S  ~D/~D MESHES  WORST FIRST" (-> obj level-buf) (-> obj n-filtered) (-> obj n-total))
+    0.02 0.165 (font-color yellow))
+  ;; rows
+  (let ((rh (mb-row-h))
+        (top (the int (-> obj scroll-f))))
+    (dotimes (i MB_PAGE)
+      (let ((r (+ top i)))
+        (when (and (>= r 0) (< r (-> obj n-filtered)))
+          (let* ((raw (-> obj view r))
+                 (y0 (+ MB_LIST_TOP (* (the float i) rh)))
+                 (sel? (= r (-> obj sel)))
+                 (sys (if (= (pc-mesh-index-geti raw MB_GI_SYSTEM) 1) "TIE  " "TFRAG"))
+                 (graded (= (pc-mesh-index-geti raw MB_GI_GRADED) 1))
+                 (asign (pc-mesh-index-geti raw MB_GI_ASIGN))
+                 ;; colour = grade severity: red < 50%, orange < 100%, green 100%, cyan ungraded
+                 (col (cond ((not graded) (font-color cyan))
+                            ((< asign 5000) (font-color red))
+                            ((< asign 10000) (font-color orange))
+                            (else (font-color green)))))
+            (pc-mesh-index-name! raw (-> obj name-buf))
+            (when sel?
+              (mesh-browser-rect buf 0.005 y0 MB_TRACK_X0 (+ y0 rh)
+                                 (new 'static 'rgba :r #x30 :g #x60 :b #xa0 :a #xa0)))
+            (mesh-browser-text buf
+              (string-format "~4D ~S ~S  ~S" raw sys (-> obj name-buf) (mb-grade-string obj raw))
+              0.02 (+ y0 (* 0.74 rh)) (if sel? (font-color white) col)))))))
+  ;; fast-scroll handle: the ONLY practical way across thousands of rows in one gesture.
+  (mesh-browser-rect buf MB_TRACK_X0 MB_LIST_TOP 0.998 MB_LIST_BOT
+                     (new 'static 'rgba :r #x18 :g #x1c :b #x28 :a #xa0))
+  (let* ((span (- MB_LIST_BOT MB_LIST_TOP))
+         (n (max 1 (-> obj n-filtered)))
+         (frac (fmin 1.0 (/ (the float MB_PAGE) (the float n))))
+         (hh (fmax 0.045 (* span frac)))
+         (hi (mesh-browser-scroll-max obj))
+         (t0 (if (> hi 0.0) (fmin 1.0 (fmax 0.0 (/ (-> obj scroll-f) hi))) 0.0))
+         (hy (+ MB_LIST_TOP (* t0 (- span hh)))))
+    (mesh-browser-rect buf MB_TRACK_X0 hy 0.998 (+ hy hh)
+                       (new 'static 'rgba :r #x60 :g #xa0 :b #xe0 :a #xd0)))
+  ;; footer
+  (mb-button buf 0.005 MB_FOOT_TOP 0.235 MB_FOOT_BOT "OPEN" #f)
+  (mesh-browser-text buf
+    (string-format "ROW ~D  -  SWIPE TO SCROLL, DRAG THE BAR, TAP A ROW" (-> obj sel))
+    0.26 (+ MB_FOOT_TOP 0.058) (font-color green))
+  (none))
+
+(defun mesh-browser-list-scroll-physics ((obj mesh-browser))
+  "Swipe / fast-scroll / inertia. Kept apart from the hit-testing so the scroll model is readable:
+   while a finger is down the list tracks it exactly; when it lifts, the release velocity carries on
+   and decays. Nothing here can select a row — selection is a TAP, which only fires when the finger
+   did not travel."
+  (let ((g *mb-gest*))
+    ;; latch what this gesture is, from where the finger landed
+    (when (-> g down?)
+      (cond
+        ((mb-down-in? MB_TRACK_X0 MB_LIST_TOP 1.0 MB_LIST_BOT)
+         (set! (-> obj drag) (mesh-browser-drag handle))
+         (set! (-> obj scroll-vel) 0.0))
+        ((mb-down-in? 0.0 MB_LIST_TOP MB_TRACK_X0 MB_LIST_BOT)
+         (set! (-> obj drag) (mesh-browser-drag scroll))
+         (set! (-> obj scroll-vel) 0.0))  ;; touching the list stops a running fling, as expected
+        (else (set! (-> obj drag) (mesh-browser-drag none)))))
+    (cond
+      ;; dragging the fast-scroll handle: absolute position across the WHOLE filtered list
+      ((and (= (-> obj drag) (mesh-browser-drag handle)) (> (-> g fingers) 0))
+       (let* ((span (- MB_LIST_BOT MB_LIST_TOP))
+              (t0 (fmin 1.0 (fmax 0.0 (/ (- (-> g y) MB_LIST_TOP) span)))))
+         (set! (-> obj scroll-f) (* t0 (mesh-browser-scroll-max obj)))))
+      ;; dragging the list body: content follows the finger 1:1
+      ((and (= (-> obj drag) (mesh-browser-drag scroll)) (> (-> g fingers) 0))
+       (set! (-> obj scroll-f) (- (-> obj scroll-f) (* (-> g dy) (mb-rows-per-unit)))))
+      ;; no finger: inertia
+      (else
+       (when (!= (-> obj scroll-vel) 0.0)
+         (set! (-> obj scroll-f) (+ (-> obj scroll-f) (-> obj scroll-vel)))
+         (set! (-> obj scroll-vel) (* (-> obj scroll-vel) 0.95))
+         (when (< (fabs (-> obj scroll-vel)) 0.02) (set! (-> obj scroll-vel) 0.0)))))
+    ;; release: a body drag hands its velocity to the inertia (rows/frame, 60 fps)
+    (when (-> g up?)
+      (when (= (-> obj drag) (mesh-browser-drag scroll))
+        (set! (-> obj scroll-vel) (* -0.0166 (* (-> g fling) (mb-rows-per-unit)))))
+      (set! (-> obj drag) (mesh-browser-drag none)))
+    (mesh-browser-clamp-scroll obj))
+  (none))
+
+(defun mesh-browser-list-keep-sel-visible ((obj mesh-browser))
+  "Only the GAMEPAD moves the selection blind, so only the gamepad needs the page to chase it. A
+   touch scroll deliberately leaves the selection where it is."
+  (let ((s (the float (-> obj sel))))
+    (when (< s (-> obj scroll-f)) (set! (-> obj scroll-f) s))
+    (when (> s (+ (-> obj scroll-f) (the float (- MB_PAGE 1))))
+      (set! (-> obj scroll-f) (- s (the float (- MB_PAGE 1))))))
+  (set! (-> obj scroll-vel) 0.0)
+  (mesh-browser-clamp-scroll obj)
   (none))
 
 (defun mesh-browser-input-list ((obj mesh-browser))
-  (cond
-    ((cpad-pressed? 0 up) (set! (-> obj sel) (max 0 (+ (-> obj sel) -1))))
-    ((cpad-pressed? 0 down) (set! (-> obj sel) (min (max 0 (+ (-> obj n-filtered) -1)) (+ (-> obj sel) 1))))
-    ((cpad-pressed? 0 left) (set! (-> obj sel) (max 0 (+ (-> obj sel) (- MB_PAGE)))))
-    ((cpad-pressed? 0 right) (set! (-> obj sel) (min (max 0 (+ (-> obj n-filtered) -1)) (+ (-> obj sel) MB_PAGE))))
-    ((cpad-pressed? 0 l1) (mesh-browser-cycle-filter obj -1))
-    ((cpad-pressed? 0 r1) (mesh-browser-cycle-filter obj 1))
-    ((cpad-pressed? 0 x) (mesh-browser-warp-to-selected obj))
-    ((cpad-pressed? 0 triangle) (mesh-browser-open obj))   ;; back to level picker
-    ((cpad-pressed? 0 circle) (mesh-browser-open obj)))
-  ;; touch: tap a row to select, double-region tap to warp; tap top bar cycles filter / back
-  (when (-> *mb-tap* down)
+  ;; gamepad
+  (let ((moved? #f))
     (cond
-      ((mb-tap-in? 0.0 0.0 0.5 0.06) (mesh-browser-cycle-filter obj 1))
-      ((mb-tap-in? 0.5 0.0 1.0 0.06) (mesh-browser-open obj))
+      ((cpad-pressed? 0 up) (set! (-> obj sel) (max 0 (+ (-> obj sel) -1))) (set! moved? #t))
+      ((cpad-pressed? 0 down)
+       (set! (-> obj sel) (min (max 0 (+ (-> obj n-filtered) -1)) (+ (-> obj sel) 1)))
+       (set! moved? #t))
+      ((cpad-pressed? 0 left) (set! (-> obj sel) (max 0 (+ (-> obj sel) (- MB_PAGE)))) (set! moved? #t))
+      ((cpad-pressed? 0 right)
+       (set! (-> obj sel) (min (max 0 (+ (-> obj n-filtered) -1)) (+ (-> obj sel) MB_PAGE)))
+       (set! moved? #t))
+      ((cpad-pressed? 0 l1)
+       (mesh-browser-cycle-filter obj (the-as mesh-browser-filter (mod (+ (the int (-> obj filter)) 3) 4))))
+      ((cpad-pressed? 0 r1)
+       (mesh-browser-cycle-filter obj (the-as mesh-browser-filter (mod (+ (the int (-> obj filter)) 1) 4))))
+      ((cpad-pressed? 0 x) (mesh-browser-warp-to-selected obj))
+      ((cpad-pressed? 0 triangle) (mesh-browser-open obj))   ;; back to level picker
+      ((cpad-pressed? 0 circle) (mesh-browser-open obj)))
+    (when moved? (mesh-browser-list-keep-sel-visible obj)))
+  ;; TOUCH — scrolling first, then the discrete taps
+  (mesh-browser-list-scroll-physics obj)
+  (when (-> *mb-gest* tap?)
+    (cond
+      ((mb-tap-in? 0.005 MB_BTN_TOP 0.185 MB_BTN_BOT) (mesh-browser-open obj))
+      ((mb-tap-in? 0.195 MB_BTN_TOP 0.385 MB_BTN_BOT)
+       (mesh-browser-cycle-filter obj (mesh-browser-filter all)))
+      ((mb-tap-in? 0.395 MB_BTN_TOP 0.585 MB_BTN_BOT)
+       (mesh-browser-cycle-filter obj (mesh-browser-filter failing)))
+      ((mb-tap-in? 0.595 MB_BTN_TOP 0.785 MB_BTN_BOT)
+       (mesh-browser-cycle-filter obj (mesh-browser-filter tfrag)))
+      ((mb-tap-in? 0.795 MB_BTN_TOP 0.985 MB_BTN_BOT)
+       (mesh-browser-cycle-filter obj (mesh-browser-filter tie)))
+      ((mb-tap-in? 0.005 MB_FOOT_TOP 0.235 MB_FOOT_BOT) (mesh-browser-warp-to-selected obj))
+      ;; a tap on the fast-scroll track jumps straight to that position
+      ((mb-tap-in? MB_TRACK_X0 MB_LIST_TOP 1.0 MB_LIST_BOT)
+       (let* ((span (- MB_LIST_BOT MB_LIST_TOP))
+              (t0 (fmin 1.0 (fmax 0.0 (/ (- (-> *mb-gest* tap-y) MB_LIST_TOP) span)))))
+         (set! (-> obj scroll-f) (* t0 (mesh-browser-scroll-max obj)))
+         (mesh-browser-clamp-scroll obj)))
       (else
-       (dotimes (i MB_PAGE)
-         (let ((y0 (/ (the float (mb-yscale (+ 40 (* i 11)))) 448.0))
-               (r (+ (-> obj scroll) i)))
-           (when (and (< r (-> obj n-filtered)) (mb-tap-in? 0.01 (- y0 0.011) 0.99 (+ y0 0.011)))
-             (if (= r (-> obj sel))
-                 (mesh-browser-warp-to-selected obj)  ;; tap the already-selected row = warp
-                 (set! (-> obj sel) r))))))))
-  (none))
-
-(defun mesh-browser-cycle-filter ((obj mesh-browser) (dir int))
-  (let ((f (mod (+ (the int (-> obj filter)) dir 4) 4)))
-    (set! (-> obj filter) (the-as mesh-browser-filter f)))
-  (set! (-> obj sel) 0)
-  (mesh-browser-rebuild-view obj)
+       ;; a row: tap it to select, tap the selected row again to open it
+       (let ((rh (mb-row-h))
+             (top (the int (-> obj scroll-f))))
+         (dotimes (i MB_PAGE)
+           (let ((r (+ top i))
+                 (y0 (+ MB_LIST_TOP (* (the float i) (mb-row-h)))))
+             (when (and (< r (-> obj n-filtered))
+                        (mb-tap-in? 0.0 y0 MB_TRACK_X0 (+ y0 rh)))
+               (if (= r (-> obj sel))
+                   (mesh-browser-warp-to-selected obj)
+                   (set! (-> obj sel) r)))))))))
   (none))
 
 ;; ---- OBSERVE --------------------------------------------------------------------------------------
-;; After the warp settles: frame the mesh with cam-orbit, then let the owner orbit / zoom, rotate the
-;; LIGHT independently of the camera (the "rotate the mesh under fixed light" test for static
-;; geometry), toggle the checker / displacement / relief, and sweep the time of day.
+;; After the warp settles the browser takes the camera outright (*camera-look-through-other*, the
+;; cutscene hook: "camera HERE, looking THERE") instead of borrowing cam-orbit. cam-orbit reads the
+;; right stick directly out of *cpad-list* and stores a single azimuth with no elevation term, so
+;; driving it from gestures would mean fighting it for the stick every frame. Owning the camera makes
+;; orbit / elevation / zoom exactly three numbers this file controls, which is what lets a finger
+;; drive them.
 
-(define *mb-tod-hour* 12.0)          ;; the hour the owner is holding (-1 = normal cycle)
+(define *mb-tod-hour* 12.0)          ;; the hour the owner is holding
 (define *mb-tod-hold?* #f)
 
+;; observe button grid: 2 rows x 7 finger-sized cells
+(defconstant MB_RA_TOP 0.720)
+(defconstant MB_RA_BOT 0.845)
+(defconstant MB_RB_TOP 0.855)
+(defconstant MB_RB_BOT 0.980)
+
+(defun mb-cell-x0 ((i int)) (+ (* (the float i) 0.14285) 0.003))
+(defun mb-cell-x1 ((i int)) (- (* (the float (+ i 1)) 0.14285) 0.003))
+
 (defun mesh-browser-pin-jak ((obj mesh-browser))
-  "Hold Jak at the mesh centroid so the orbit stays framed on it and he does not fall/die while the
-   owner observes. Sets both root and control trans (target's collide-shape root)."
+  "Hold Jak at the mesh centroid so he does not fall or die while the owner observes."
   (when *target*
     (set! (-> *target* root trans x) (-> obj obs-focus x))
     (set! (-> *target* root trans y) (-> obj obs-focus y))
@@ -477,60 +769,55 @@
     (set! (-> *target* control trans z) (-> obj obs-focus z)))
   (none))
 
-(defun mesh-browser-frame-orbit ((obj mesh-browser))
-  "Point cam-orbit at the warped mesh: Jak is pinned at the centroid (below), so orbiting him orbits
-   the mesh at the framed distance derived from the bounding box."
-  (when (and *target* *camera*)
-    (mesh-browser-pin-jak obj)
-    (set! *camera-orbit-target* (the-as (pointer process-drawable) (process->ppointer *target*)))
-    (set! (-> *camera-orbit-info* radius) (-> obj frame-dist))
-    (set! (-> *camera-orbit-info* radius-lerp)
-          (fmax 0.0 (fmin 1.0
-            (/ (- (-> obj frame-dist) (-> *CAM_ORBIT-bank* RADIUS_MIN))
-               (- (-> *CAM_ORBIT-bank* RADIUS_MAX) (-> *CAM_ORBIT-bank* RADIUS_MIN))))))
-    (set! (-> *camera-orbit-info* orbit-off y) (* 0.4 (-> obj frame-dist)))
-    ;; cam-orbit reads the sticks for rotate/zoom only while *camera-read-analog* is #t; various
-    ;; cam-layout paths leave it #f, so force it on for the owner's free orbit/zoom in OBSERVE.
-    (set! *camera-read-analog* #t)
-    (send-event *camera* 'change-state cam-orbit 0))
+(defun mesh-browser-frame-mesh ((obj mesh-browser))
+  "AUTO-FRAMING: distance straight from the bounding box, at a three-quarter viewing angle."
+  (set! (-> obj obs-az) 0.6)
+  (set! (-> obj obs-el) 0.45)
+  (set! (-> obj obs-dist) (-> obj frame-dist))
+  (set! (-> obj spin) 0.0)
   (none))
 
-(defun mesh-browser-draw-observe ((obj mesh-browser) (buf dma-buffer))
-  (let ((raw (-> obj cur-row)))
-    (pc-mesh-index-name! raw (-> obj name-buf))
-    (mesh-browser-panel buf 12 10 900 96 (new 'static 'rgba :r #x08 :g #x08 :b #x14 :a #x90))
-    ;; the identifier the owner quotes back to us (also exported to files/mesh_select.txt).
-    (mesh-browser-text buf
-      (string-format "MESH ~S / ~S  ~S  SHELL ~D  TEX ~D"
-                     (-> obj level-buf) (-> obj name-buf)
-                     (if (= (pc-mesh-index-geti raw MB_GI_SYSTEM) 1) "TIE" "TFRAG")
-                     (pc-mesh-index-geti raw MB_GI_SHELL) (pc-mesh-index-geti raw MB_GI_TEX))
-      20 16 (font-color white))
-    ;; THE cross-check: show the offline grade so the owner can confirm OR refute it.
-    (mesh-browser-text buf
-      (string-format "OFFLINE GRADE A_SIGN=~S  (file mesh_select.txt)" (mb-grade-string obj raw))
-      20 28 (font-color yellow))
-    ;; live toggle states. The TOD sub-string is pre-formatted into sub-buf (low-level
-    ;; format/clear) so it survives as a ~S arg to the outer string-format below — nesting a raw
-    ;; string-format there would clobber the shared *temp-string*. mb-disp-name returns a literal
-    ;; (safe). The outer string-format's *temp-string* is then consumed immediately by
-    ;; mesh-browser-text (draw-string copies it), so it is free again next line.
-    (if *mb-tod-hold?*
-        (format (clear (-> obj sub-buf)) "~fH" *mb-tod-hour*)
-        (format (clear (-> obj sub-buf)) "CYCLE"))
-    (mesh-browser-text buf
-      (string-format "TEXTURE=~S  DISPLACEMENT=~S  RELIEF=~f  TOD=~S"
-                     (if (-> obj checker?) "CHECKER" "REAL")
-                     (mb-disp-name)
-                     (-> *pc-settings* pbr-texture-relief)
-                     (-> obj sub-buf))
-      20 40 (font-color cyan))
-    ;; controls legend (gamepad + the on-screen tap buttons below)
-    (mesh-browser-text buf
-      (string-format "STICKS ORBIT/ZOOM  L1/R1 LIGHT-SPIN  SQUARE CHECKER  L2/R2 DISP  D-UP/DN RELIEF  D-L/R TOD  TRI EXIT")
-      20 52 (font-color green))
-    ;; on-screen tap buttons (touch): a row of labelled cells along the bottom.
-    (mesh-browser-draw-obs-buttons obj buf))
+(defun mesh-browser-place-camera ((obj mesh-browser))
+  "Put the camera on the orbit sphere around the mesh centroid and aim it at the centroid.
+   The MESH SPIN is folded in here: it advances the camera azimuth, and mesh-browser-apply-light-spin
+   advances the sun azimuth by the SAME angle. Moving the camera and the light together about the
+   centroid is a rigid rotation of the object relative to both — i.e. exactly what spinning the mesh
+   under a fixed light looks like on the mesh itself. (Only the surrounding world does not spin with
+   it; the geometry is baked in place and cannot actually be rotated without a per-mesh model matrix
+   in the renderer, which would be a render-path change and this phase only observes.)"
+  (let ((pos (new 'stack-no-clear 'vector))
+        (fwd (new 'stack-no-clear 'vector))
+        (dwn (new 'stack-no-clear 'vector)))
+    (let* ((az (+ (-> obj obs-az) (-> obj spin)))
+           (el (-> obj obs-el))
+           (d (-> obj obs-dist))
+           (hr (* d (cos-rad el))))
+      (set-vector! pos
+                   (+ (-> obj obs-focus x) (* hr (sin-rad az)))
+                   (+ (-> obj obs-focus y) (* d (sin-rad el)))
+                   (+ (-> obj obs-focus z) (* hr (cos-rad az)))
+                   1.0))
+    (vector-! fwd (-> obj obs-focus) pos)
+    (vector-normalize! fwd 1.0)
+    (set-vector! dwn 0.0 -1.0 0.0 0.0)
+    (forward-down->inv-matrix *camera-other-matrix* fwd dwn)
+    (set! (-> *camera-other-trans* quad) (-> pos quad))
+    ;; re-armed every frame; it decays to 0 on its own once we stop, so the stock camera resumes
+    ;; with no state to unwind.
+    (set! *camera-look-through-other* 2))
+  (none))
+
+(defun mesh-browser-apply-light-spin ((obj mesh-browser))
+  "Rotate both sky suns about world Y by the mesh-spin angle, so the light turns WITH the camera and
+   the object appears to spin under a fixed light. No-op at spin 0, so lighting is untouched until
+   the owner spins the mesh."
+  (#when FLAG_PBR
+    (when (!= (-> obj spin) 0.0)
+      (let ((v (new 'stack-no-clear 'vector)))
+        (vector-rotate-around-y! v (-> *sky-parms* upload-data sun 0 pos) (-> obj spin))
+        (pc-set-pbr-sky-sun! v)
+        (vector-rotate-around-y! v (-> *sky-parms* upload-data sun 1 pos) (-> obj spin))
+        (pc-set-pbr-green-sun! v))))
   (none))
 
 (defun mb-disp-name ()
@@ -550,38 +837,17 @@
         (fmax 0.0 (fmin 3.0 (+ (-> *pc-settings* pbr-texture-relief) d))))
   (none))
 
-;; bottom tap-button strip: label -> normalized rect. Each is also a gamepad action, so touch has
-;; full parity with the pad. Cells are 1/8 of the width, along the bottom 8% of the screen.
-(defun mesh-browser-draw-obs-buttons ((obj mesh-browser) (buf dma-buffer))
-  (let ((labels (new 'static 'boxed-array :type string
-                  "TEX" "DISP-" "DISP+" "REL-" "REL+" "TOD-" "TOD+" "EXIT")))
-    (dotimes (i 8)
-      (let ((x (+ 40 (* i 150))))
-        (mesh-browser-panel buf x 232 140 16 (new 'static 'rgba :r #x20 :g #x30 :b #x50 :a #xb0))
-        (mesh-browser-text buf (-> labels i) (+ x 8) 236 (font-color white)))))
-  (none))
-
-(defun mesh-browser-handle-obs-tap ((obj mesh-browser))
-  "Tap on the bottom button strip = the matching action (touch parity with the pad)."
-  (when (-> *mb-tap* down)
-    (cond
-      ((not (mb-tap-in? 0.0 0.85 1.0 1.0)) #f) ;; only the bottom strip is a button zone
-      (else
-       (let ((cell (the int (* (-> *mb-tap* x) 8.0))))
-         (case cell
-           ((0) (mesh-browser-toggle-checker obj))
-           ((1) (mesh-browser-bump-disp obj -1))
-           ((2) (mesh-browser-bump-disp obj 1))
-           ((3) (mesh-browser-bump-relief obj -0.25))
-           ((4) (mesh-browser-bump-relief obj 0.25))
-           ((5) (mesh-browser-bump-tod obj -1.0))
-           ((6) (mesh-browser-bump-tod obj 1.0))
-           ((7) (mesh-browser-exit-observe obj)))))))
+(defun mesh-browser-set-tod ((obj mesh-browser) (h float))
+  (set! *mb-tod-hold?* #t)
+  (set! *mb-tod-hour* (mb-wrap h 24.0))
   (none))
 
 (defun mesh-browser-bump-tod ((obj mesh-browser) (d float))
-  (set! *mb-tod-hold?* #t)
-  (set! *mb-tod-hour* (mb-wrap (+ *mb-tod-hour* d) 24.0))
+  (mesh-browser-set-tod obj (+ *mb-tod-hour* d))
+  (none))
+
+(defun mesh-browser-bump-spin ((obj mesh-browser) (d float))
+  (set! (-> obj spin) (mb-wrap (+ (-> obj spin) d) 6.2832))
   (none))
 
 (defun mesh-browser-toggle-checker ((obj mesh-browser))
@@ -594,18 +860,125 @@
 
 (defun mesh-browser-exit-observe ((obj mesh-browser))
   "Leave OBSERVE back to the mesh list, restoring the normal camera."
-  (when *camera* (send-event *camera* 'change-state *camera-base-mode* 0))
-  (set! *camera-orbit-target* (the (pointer process-drawable) #f))
+  (set! *camera-look-through-other* 0)
   (set! (-> obj mode) (mesh-browser-mode list))
+  (set! (-> obj drag) (mesh-browser-drag none))
+  (none))
+
+(defun mesh-browser-draw-observe ((obj mesh-browser) (buf dma-buffer))
+  (let ((raw (-> obj cur-row)))
+    (pc-mesh-index-name! raw (-> obj name-buf))
+    (mesh-browser-rect buf 0.0 0.0 1.0 0.30 (new 'static 'rgba :r #x08 :g #x08 :b #x14 :a #x90))
+    ;; the identifier the owner quotes back to us (also exported to files/mesh_select.txt).
+    (mesh-browser-text buf
+      (string-format "MESH ~S / ~S  ~S  SHELL ~D  TEX ~D"
+                     (-> obj level-buf) (-> obj name-buf)
+                     (if (= (pc-mesh-index-geti raw MB_GI_SYSTEM) 1) "TIE" "TFRAG")
+                     (pc-mesh-index-geti raw MB_GI_SHELL) (pc-mesh-index-geti raw MB_GI_TEX))
+      0.02 0.055 (font-color white))
+    ;; THE cross-check: show the offline grade so the owner can confirm OR refute it.
+    (mesh-browser-text buf
+      (string-format "OFFLINE GRADE A_SIGN=~S  (file mesh_select.txt)" (mb-grade-string obj raw))
+      0.02 0.105 (font-color yellow))
+    (if *mb-tod-hold?*
+        (format (clear (-> obj sub-buf)) "~fH" *mb-tod-hour*)
+        (format (clear (-> obj sub-buf)) "CYCLE"))
+    (mesh-browser-text buf
+      (string-format "TEXTURE=~S  DISPLACEMENT=~S  RELIEF=~f  TOD=~S"
+                     (if (-> obj checker?) "CHECKER" "REAL")
+                     (mb-disp-name)
+                     (-> *pc-settings* pbr-texture-relief)
+                     (-> obj sub-buf))
+      0.02 0.155 (font-color cyan))
+    (mesh-browser-text buf
+      (string-format "SPIN=~f RAD   DRAG=ORBIT  PINCH=ZOOM  2-FINGER DRAG=SPIN MESH" (-> obj spin))
+      0.02 0.205 (font-color green))
+    ;; every control reachable by finger — no gamepad, no adb
+    (mb-button buf (mb-cell-x0 0) MB_RA_TOP (mb-cell-x1 0) MB_RA_BOT
+               (if (-> obj checker?) "REAL" "CHECKER") (-> obj checker?))
+    (mb-button buf (mb-cell-x0 1) MB_RA_TOP (mb-cell-x1 1) MB_RA_BOT "DISP-" #f)
+    (mb-button buf (mb-cell-x0 2) MB_RA_TOP (mb-cell-x1 2) MB_RA_BOT "DISP+" #f)
+    (mb-button buf (mb-cell-x0 3) MB_RA_TOP (mb-cell-x1 3) MB_RA_BOT "REL-" #f)
+    (mb-button buf (mb-cell-x0 4) MB_RA_TOP (mb-cell-x1 4) MB_RA_BOT "REL+" #f)
+    (mb-button buf (mb-cell-x0 5) MB_RA_TOP (mb-cell-x1 5) MB_RA_BOT "SPIN-" #f)
+    (mb-button buf (mb-cell-x0 6) MB_RA_TOP (mb-cell-x1 6) MB_RA_BOT "SPIN+" #f)
+    (mb-button buf (mb-cell-x0 0) MB_RB_TOP (mb-cell-x1 0) MB_RB_BOT "TOD-" #f)
+    (mb-button buf (mb-cell-x0 1) MB_RB_TOP (mb-cell-x1 1) MB_RB_BOT "TOD+" #f)
+    (mb-button buf (mb-cell-x0 2) MB_RB_TOP (mb-cell-x1 2) MB_RB_BOT "DAY" #f)
+    (mb-button buf (mb-cell-x0 3) MB_RB_TOP (mb-cell-x1 3) MB_RB_BOT "NIGHT" #f)
+    (mb-button buf (mb-cell-x0 4) MB_RB_TOP (mb-cell-x1 4) MB_RB_BOT "RESET" #f)
+    (mb-button buf (mb-cell-x0 5) MB_RB_TOP (mb-cell-x1 5) MB_RB_BOT "LIST" #f)
+    (mb-button buf (mb-cell-x0 6) MB_RB_TOP (mb-cell-x1 6) MB_RB_BOT "EXIT" #f))
+  (none))
+
+(defun mesh-browser-handle-obs-tap ((obj mesh-browser))
+  "Tap on the button grid = the matching action. Every rect tested here is the same rect
+   mesh-browser-draw-observe drew, via mb-cell-x0/x1 — they cannot drift apart."
+  (when (-> *mb-gest* tap?)
+    (dotimes (i 7)
+      (when (mb-tap-in? (mb-cell-x0 i) MB_RA_TOP (mb-cell-x1 i) MB_RA_BOT)
+        (case i
+          ((0) (mesh-browser-toggle-checker obj))
+          ((1) (mesh-browser-bump-disp obj -1))
+          ((2) (mesh-browser-bump-disp obj 1))
+          ((3) (mesh-browser-bump-relief obj -0.25))
+          ((4) (mesh-browser-bump-relief obj 0.25))
+          ((5) (mesh-browser-bump-spin obj -0.196))
+          ((6) (mesh-browser-bump-spin obj 0.196))))
+      (when (mb-tap-in? (mb-cell-x0 i) MB_RB_TOP (mb-cell-x1 i) MB_RB_BOT)
+        (case i
+          ((0) (mesh-browser-bump-tod obj -1.0))
+          ((1) (mesh-browser-bump-tod obj 1.0))
+          ((2) (mesh-browser-set-tod obj 12.0))
+          ((3) (mesh-browser-set-tod obj 0.0))
+          ((4) (mesh-browser-frame-mesh obj))
+          ((5) (mesh-browser-exit-observe obj))
+          ((6) (mesh-browser-close obj))))))
+  (none))
+
+(defun mesh-browser-observe-gestures ((obj mesh-browser))
+  "Drag = orbit (horizontal azimuth, vertical elevation — two distinct drag axes).
+   Pinch = zoom. Two-finger drag = spin the mesh. All in the view area, i.e. anywhere above the
+   button grid."
+  (let ((g *mb-gest*))
+    (when (-> g down?)
+      (set! (-> obj drag)
+            (if (mb-down-in? 0.0 0.0 1.0 (- MB_RA_TOP 0.005))
+                (mesh-browser-drag orbit)
+                (mesh-browser-drag none))))
+    (when (= (-> obj drag) (mesh-browser-drag orbit))
+      (cond
+        ((>= (-> g fingers) 2)
+         ;; pinch: separation grows -> pull the camera in
+         (when (!= (-> g pinch) 0.0)
+           (set! (-> obj obs-dist)
+                 (fmax 2048.0 (fmin 819200.0 (* (-> obj obs-dist) (- 1.0 (* 2.2 (-> g pinch))))))))
+         ;; two-finger horizontal travel spins the mesh (camera + light together)
+         (when (!= (-> g d2x) 0.0)
+           (mesh-browser-bump-spin obj (* -3.2 (-> g d2x)))))
+        ((= (-> g fingers) 1)
+         (set! (-> obj obs-az) (mb-wrap (+ (-> obj obs-az) (* -3.2 (-> g dx))) 6.2832))
+         ;; elevation is clamped short of the poles: forward-down->inv-matrix needs a forward vector
+         ;; that is not parallel to "down".
+         (set! (-> obj obs-el) (fmax -1.35 (fmin 1.35 (+ (-> obj obs-el) (* 2.4 (-> g dy)))))))))
+    (when (-> g up?) (set! (-> obj drag) (mesh-browser-drag none))))
   (none))
 
 (defun mesh-browser-input-observe ((obj mesh-browser))
   ;; while the warp is settling, don't take orbit input; frame once it has loaded.
   (+! (-> obj warp-timer) 1)
   (when (and (-> obj need-reframe) (> (-> obj warp-timer) 30) *target*)
-    (mesh-browser-frame-orbit obj)
+    (mesh-browser-frame-mesh obj)
     (set! (-> obj need-reframe) #f))
-  ;; gamepad controls (the sticks are consumed by cam-orbit itself; these are the discrete actions)
+  ;; gamepad: the browser owns the camera now, so it reads the sticks itself.
+  (let ((rx (- (the float (-> *cpad-list* cpads 0 rightx)) 128.0))
+        (ry (- (the float (-> *cpad-list* cpads 0 righty)) 128.0))
+        (ly (- (the float (-> *cpad-list* cpads 0 lefty)) 128.0)))
+    (when (> (fabs rx) 24.0) (set! (-> obj obs-az) (mb-wrap (+ (-> obj obs-az) (* rx 0.0005)) 6.2832)))
+    (when (> (fabs ry) 24.0)
+      (set! (-> obj obs-el) (fmax -1.35 (fmin 1.35 (+ (-> obj obs-el) (* ry -0.0004))))))
+    (when (> (fabs ly) 24.0)
+      (set! (-> obj obs-dist) (fmax 2048.0 (fmin 819200.0 (* (-> obj obs-dist) (+ 1.0 (* ly 0.00015))))))))
   (cond
     ((cpad-pressed? 0 square) (mesh-browser-toggle-checker obj))
     ((cpad-pressed? 0 l2) (mesh-browser-bump-disp obj -1))
@@ -614,38 +987,88 @@
     ((cpad-pressed? 0 down) (mesh-browser-bump-relief obj -0.25))
     ((cpad-pressed? 0 left) (mesh-browser-bump-tod obj -1.0))
     ((cpad-pressed? 0 right) (mesh-browser-bump-tod obj 1.0))
-    ;; L1/R1 = rotate the LIGHT around the mesh (the mesh-vs-light spin for static geometry).
-    ((cpad-hold? 0 l1) (set! (-> obj light-az) (mb-wrap (+ (-> obj light-az) -0.03) 6.2832)))
-    ((cpad-hold? 0 r1) (set! (-> obj light-az) (mb-wrap (+ (-> obj light-az) 0.03) 6.2832)))
+    ((cpad-hold? 0 l1) (mesh-browser-bump-spin obj -0.03))
+    ((cpad-hold? 0 r1) (mesh-browser-bump-spin obj 0.03))
     ((cpad-pressed? 0 triangle) (mesh-browser-exit-observe obj))
     ((cpad-pressed? 0 circle) (mesh-browser-exit-observe obj)))
-  ;; touch buttons
+  ;; touch
+  (mesh-browser-observe-gestures obj)
   (mesh-browser-handle-obs-tap obj)
-  ;; hold the chosen time of day (re-set every frame so the mesh stays at that hour).
-  (when (and *mb-tod-hold?* *time-of-day-proc*)
-    (set-time-of-day *mb-tod-hour*))
-  ;; the mesh-vs-light spin (owner requirement b): the world mesh is baked in place and cannot be
-  ;; spun, so instead we spin the LIGHT around it — the RELATIVE object/light angle is identical,
-  ;; which is exactly the "rotate the mesh under fixed light" test the owner wants (it reveals the
-  ;; angle-dependent displacement defects). We run AFTER (update-to-os) in the same frame (this
-  ;; whole overlay is called at pckernel-common.gc line ~479, past line 453), so re-pushing the
-  ;; rotated sun/green-sun vectors WINS for the frame. This only re-points the EXISTING sun
-  ;; direction the renderer already reads (pc-set-pbr-sky-sun!) — it touches no shader and no
-  ;; displacement law (this phase OBSERVES). Skipped when light-az is 0 so the normal lighting is
-  ;; byte-identical until the owner spins it.
-  (mesh-browser-apply-light-spin obj)
+  ;; keep the subject alive and the view on it
+  (when (= (-> obj mode) (mesh-browser-mode observe))
+    (mesh-browser-pin-jak obj)
+    (mesh-browser-place-camera obj)
+    (mesh-browser-apply-light-spin obj)
+    ;; hold the chosen hour (re-asserted every frame, or the day/night cycle ticks it forward)
+    (when (and *mb-tod-hold?* *time-of-day-proc*)
+      (set-time-of-day *mb-tod-hour*)))
   (none))
 
-(defun mesh-browser-apply-light-spin ((obj mesh-browser))
-  "Rotate the two sky suns about world Y by the owner's light-az and re-push them, so the light
-   orbits the static mesh (the mesh-vs-light test). No-op at light-az 0 (lighting unchanged)."
-  (#when FLAG_PBR
-    (when (!= (-> obj light-az) 0.0)
-      (let ((v (new 'stack-no-clear 'vector)))
-        (vector-rotate-around-y! v (-> *sky-parms* upload-data sun 0 pos) (-> obj light-az))
-        (pc-set-pbr-sky-sun! v)
-        (vector-rotate-around-y! v (-> *sky-parms* upload-data sun 1 pos) (-> obj light-az))
-        (pc-set-pbr-green-sun! v))))
+;; ---- observable-state dump -------------------------------------------------------------------------
+;; files/mesh_browser_state.txt. Two jobs: it is the owner's copy-out of the identifier he is looking
+;; at (he has no adb), and it is what makes the touch claim FALSIFIABLE — inject a gesture, read the
+;; file, and the browser's state either moved or it did not. Written only while the browser is open,
+;; and only when something actually changed.
+
+(defun mb-mode-name ((m mesh-browser-mode))
+  (case m
+    (((mesh-browser-mode levels)) "LEVELS")
+    (((mesh-browser-mode list)) "LIST")
+    (((mesh-browser-mode observe)) "OBSERVE")
+    (else "CLOSED")))
+
+(defun mesh-browser-state-sig ((obj mesh-browser))
+  (let ((s 0))
+    (+! s (* 1000003 (the int (-> obj mode))))
+    (+! s (* 7919 (the int (-> obj filter))))
+    (+! s (* 131 (-> obj sel)))
+    (+! s (the int (-> obj scroll-f)))
+    (+! s (* 17 (the int (* 100.0 (-> obj obs-az)))))
+    (+! s (* 19 (the int (* 100.0 (-> obj obs-el)))))
+    (+! s (* 23 (the int (* 0.01 (-> obj obs-dist)))))
+    (+! s (* 29 (the int (* 100.0 (-> obj spin)))))
+    (+! s (* 31 (if (-> obj checker?) 1 0)))
+    (+! s (* 37 (-> *pc-settings* pbr-displacement)))
+    (+! s (* 41 (the int (* 100.0 (-> *pc-settings* pbr-texture-relief)))))
+    (+! s (* 43 (the int (* 10.0 *mb-tod-hour*))))
+    s))
+
+(defun mesh-browser-dump-state ((obj mesh-browser))
+  (pc-mb-state-begin!)
+  (format (clear (-> obj line-buf)) "MBSTATE 2 mode=~S level=~S filter=~S"
+          (mb-mode-name (-> obj mode)) (-> obj level-buf) (mb-filter-name (-> obj filter)))
+  (pc-mb-state-line! (-> obj line-buf))
+  (format (clear (-> obj line-buf)) "n_filtered=~D n_total=~D scroll=~D sel=~D row=~D"
+          (-> obj n-filtered) (-> obj n-total) (the int (-> obj scroll-f)) (-> obj sel) (-> obj cur-row))
+  (pc-mb-state-line! (-> obj line-buf))
+  (when (> (-> obj n-filtered) 0)
+    (let ((raw (-> obj view (min (-> obj sel) (+ (-> obj n-filtered) -1)))))
+      (pc-mesh-index-name! raw (-> obj name-buf))
+      (format (clear (-> obj line-buf)) "material=~S system=~S shell=~D tex=~D grade=~S"
+              (-> obj name-buf)
+              (if (= (pc-mesh-index-geti raw MB_GI_SYSTEM) 1) "TIE" "TFRAG")
+              (pc-mesh-index-geti raw MB_GI_SHELL) (pc-mesh-index-geti raw MB_GI_TEX)
+              (mb-grade-string obj raw))
+      (pc-mb-state-line! (-> obj line-buf))))
+  (format (clear (-> obj line-buf)) "cam_az=~f cam_el=~f cam_dist=~f spin=~f"
+          (-> obj obs-az) (-> obj obs-el) (-> obj obs-dist) (-> obj spin))
+  (pc-mb-state-line! (-> obj line-buf))
+  (if *mb-tod-hold?*
+      (format (clear (-> obj sub-buf)) "~f" *mb-tod-hour*)
+      (format (clear (-> obj sub-buf)) "CYCLE"))
+  (format (clear (-> obj line-buf)) "checker=~D disp=~S relief=~f tod=~S"
+          (if (-> obj checker?) 1 0) (mb-disp-name) (-> *pc-settings* pbr-texture-relief) (-> obj sub-buf))
+  (pc-mb-state-line! (-> obj line-buf))
+  (pc-mb-state-end!)
+  (none))
+
+(defun mesh-browser-maybe-dump ((obj mesh-browser))
+  (+! (-> obj dump-timer) 1)
+  (let ((sig (mesh-browser-state-sig obj)))
+    (when (or (!= sig (-> obj dump-sig)) (>= (-> obj dump-timer) 180))
+      (set! (-> obj dump-sig) sig)
+      (set! (-> obj dump-timer) 0)
+      (mesh-browser-dump-state obj)))
   (none))
 
 ;; ---- the single per-frame entry point -------------------------------------------------------------
@@ -654,14 +1077,15 @@
 
 (defun mesh-browser-update ()
   (when (mesh-browser-active?)
-    (mesh-browser-poll-tap)
+    (mesh-browser-poll-touch)
     ;; input first (may change mode), then draw the current mode.
     (case (-> *mesh-browser* mode)
       (((mesh-browser-mode levels)) (mesh-browser-input-levels *mesh-browser*))
       (((mesh-browser-mode list)) (mesh-browser-input-list *mesh-browser*))
       (((mesh-browser-mode observe)) (mesh-browser-input-observe *mesh-browser*)))
-    ;; draw into the always-live debug bucket (renders on x86 GL and Android GLES).
     (when (mesh-browser-active?)
+      (mesh-browser-maybe-dump *mesh-browser*)
+      ;; draw into the always-live debug bucket (renders on x86 GL and Android GLES).
       (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
         (case (-> *mesh-browser* mode)
           (((mesh-browser-mode levels)) (mesh-browser-draw-levels *mesh-browser* buf))

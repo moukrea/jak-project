@@ -54,4 +54,11 @@ IDX=$(ls custom_assets/jak1/mesh_index/mesh_index_*.txt 2>/dev/null | wc -l)
 # The 26 figure was the supervisor's assumption; the measurement corrected it.
 [ "$IDX" -ge 25 ] || fail "index covers only $IDX level(s); every jak1 level WITH GEOMETRY must be indexed (25)"
 grep -qiE 'all[- ](levels|25 levels)|tous les niveaux|25 levels' "$R" || fail "report does not evidence an all-levels index"
+# OWNER 2026-07-29: free cam around the mesh centroid, NOT a player warp.
+grep -qiE 'free ?cam|camera libre|detached camera' "$R" || fail "CAM: no free camera — selecting a mesh must move the CAMERA, not teleport Jak"
+grep -qiE 'centroid' "$R" || fail "CAM: the orbit origin must be the mesh centroid (already in the index)"
+grep -qiE 'does not (move|teleport|warp) (the )?player|ne (deplace|teleporte) pas' "$R" || fail "CAM: must state the player is NOT moved"
+grep -qiE 'bounding box|bbox|boite englobante' "$R" || fail "CAM: initial distance must come from the bounding box so any mesh size frames correctly"
+grep -qiE '360|full orbit|tour complet|elevation' "$R" || fail "CAM: full azimuth + elevation (incl. looking up at an overhang's underside) not evidenced"
+grep -ciE 'centroid' "$R" | awk '$1>=5{ok=1} END{exit !ok}' || fail "CAM: fewer than 5 meshes checked for camera-vs-centroid accuracy (owner: 'warp toujours au meme endroit')"
 echo "[Gmbrowse PASS]"

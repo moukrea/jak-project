@@ -35,6 +35,18 @@
 // affects hit-testing); any touch fades it in and resets a 10 s idle timer;
 // after 10 s with no touch it fades out. A touch while faded brings it back.
 // Control touches actuate AND reset the timer.
+//
+// ALWAYS-PRESENT contract (Grecharged-mesh-browser REOPEN, 2026-07-29): this
+// view is now ALWAYS constructed and addView()-ed by MainActivity, whatever the
+// "touch_overlay_enabled" preference says. The debug mesh browser routes ALL of
+// its finger input through this view (onTouchEvent -> handleBrowserTouch ->
+// NativeGk.onBrowserTouch), so a missing view means a browser that no finger can
+// reach. The old "overlay disabled" preference — which is persisted on the FIRST
+// launch of a fresh install as (gamepadsAtStart == 0), i.e. it latches to false
+// forever if a pad merely happened to be attached that one time — therefore no
+// longer suppresses the view's EXISTENCE. It now means exactly one thing:
+// padSuppressed, i.e. the VIRTUAL GAMEPAD ROLE is off. A pad-suppressed overlay
+// draws nothing and actuates nothing, but still carries browser touches.
 
 package org.opengoal.gk;
 
@@ -175,6 +187,15 @@ public class TouchOverlayView extends View {
     private boolean persistentVisible = false;
     private long lastTouchMs = 0;
     private boolean lastMenuMode = false; // cached for glyph redraws
+    // Grecharged-mesh-browser REOPEN (owner 2026-07-29): true while the debug
+    // mesh browser owns the screen. The virtual gamepad is suspended and every
+    // MotionEvent is forwarded RAW (multi-touch) to the browser instead.
+    private boolean browserMode = false;
+    private long lastBrowserLogMs = 0;    // MOVE-log throttle for browserMode
+    // Grecharged-mesh-browser REOPEN (owner 2026-07-29): the virtual gamepad
+    // role is off (see setPadSuppressed). The view still exists and still routes
+    // browser touches — only the pad is inert.
+    private boolean padSuppressed = false;
     private boolean mapLogged = false;
 
     public TouchOverlayView(Context context) {
@@ -338,6 +359,13 @@ public class TouchOverlayView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        // Grecharged-mesh-browser REOPEN: the browser owns the screen; its list
+        // must not be covered by the virtual pad glyphs.
+        if (browserMode) return;
+        // Grecharged-mesh-browser REOPEN: the virtual pad role is off (the old
+        // "overlay disabled" preference). The view still exists to carry browser
+        // touches, but an inert overlay must draw nothing.
+        if (padSuppressed) return;
         for (Ctl c : controls) {
             switch (c.kind) {
                 case KIND_BUTTON:
@@ -465,6 +493,17 @@ public class TouchOverlayView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
+        // Grecharged-mesh-browser REOPEN: while the debug mesh browser is open
+        // the virtual gamepad is suspended and the raw gesture stream goes to
+        // the browser (swipe / drag / pinch), which taps cannot express.
+        final boolean mb = queryBrowser();
+        if (mb != browserMode) {
+            browserMode = mb;
+            if (mb) releaseAll();   // never leave a pad button/stick latched when the browser takes over
+            invalidate();
+        }
+        if (browserMode) return handleBrowserTouch(ev);
+        if (padSuppressed) return true;   // overlay present for the mesh browser, but the virtual pad is off
         final int action = ev.getActionMasked();
         keepAwake();
         switch (action) {
@@ -781,6 +820,66 @@ public class TouchOverlayView extends View {
         }
     }
 
+    // Grecharged-mesh-browser REOPEN (owner 2026-07-29): is the debug mesh
+    // browser on screen? When it is, the virtual pad is suspended entirely and
+    // every MotionEvent is forwarded raw via handleBrowserTouch().
+    private boolean queryBrowser() {
+        try {
+            return NativeGk.isInMeshBrowser();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Grecharged-mesh-browser REOPEN: raw multi-touch forwarding
+    // ---------------------------------------------------------------------
+
+    private boolean handleBrowserTouch(MotionEvent ev) {
+        keepAwake();
+        final int vw = getWidth(), vh = getHeight();
+        if (vw <= 0 || vh <= 0) return true;
+        int n = ev.getPointerCount();
+        int act;
+        switch (ev.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+            case MotionEvent.ACTION_POINTER_DOWN: act = 0; break;
+            case MotionEvent.ACTION_MOVE:         act = 1; break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_POINTER_UP:   act = 2; n = Math.max(0, n - 1); break;
+            case MotionEvent.ACTION_CANCEL:       act = 3; n = 0; break;
+            default: return true;
+        }
+        // The pointer that is going up is still present in the event; exclude it so the
+        // coordinates we forward describe the fingers that REMAIN down.
+        final int skip = (act == 2) ? ev.getActionIndex() : -1;
+        final float[] xs = new float[2];
+        final float[] ys = new float[2];
+        int k = 0;
+        for (int i = 0; i < ev.getPointerCount() && k < 2; i++) {
+            if (i == skip) continue;
+            xs[k] = ev.getX(i) / (float) vw;
+            ys[k] = ev.getY(i) / (float) vh;
+            k++;
+        }
+        NativeGk.onBrowserTouch(act, n, xs[0], ys[0], xs[1], ys[1]);
+        logBrowserTouch(act, n, xs[0], ys[0], xs[1], ys[1]);
+        return true;
+    }
+
+    // The `overlay-browser:` marker line the device harness greps to prove the
+    // Java -> native chain actually fired. Every DOWN/UP/CANCEL is logged
+    // unthrottled; MOVE is throttled to one line per 120 ms so a drag cannot
+    // flood logcat (and drop the very lines we need).
+    private void logBrowserTouch(int act, int n, float x0, float y0, float x1, float y1) {
+        if (act == 1) {
+            long now = SystemClock.uptimeMillis();
+            if (now - lastBrowserLogMs < 120) return;
+            lastBrowserLogMs = now;
+        }
+        Log.i(TAG, "overlay-browser: act=" + act + " n=" + n + " x0=" + String.format(Locale.ROOT, "%.4f", x0) + " y0=" + String.format(Locale.ROOT, "%.4f", y0) + " x1=" + String.format(Locale.ROOT, "%.4f", x1) + " y1=" + String.format(Locale.ROOT, "%.4f", y1) + " -> NativeGk.onBrowserTouch");
+    }
+
     // ---------------------------------------------------------------------
     // Visibility / fade
     // ---------------------------------------------------------------------
@@ -834,6 +933,21 @@ public class TouchOverlayView extends View {
         }
     }
 
+    // Grecharged-mesh-browser REOPEN (owner 2026-07-29): suppress the VIRTUAL
+    // GAMEPAD role without removing the view.
+    //
+    // Reason: MainActivity used to skip constructing/addView-ing this overlay
+    // entirely when the "touch_overlay_enabled" preference was false. That
+    // preference is written ONCE, on the first launch of a fresh install, as
+    // (gamepadsAtStart == 0) — so a pad that merely happened to be attached at
+    // that one launch disabled the overlay FOREVER, even after unplugging. The
+    // debug mesh browser sends every finger event through this view, and the
+    // owner has no permanently-attached gamepad and no adb to fix a bad pref, so
+    // an absent view = a browser that can never be driven by touch. The view is
+    // therefore always added now, and "disabled" means only this: the pad is
+    // inert (draws nothing, actuates nothing), while browser touches still flow.
+    public void setPadSuppressed(boolean s) { padSuppressed = s; if (s) releaseAll(); invalidate(); }
+
     private void startHeartbeat() {
         if (heartbeatRunning) return;
         heartbeatRunning = true;
@@ -864,6 +978,11 @@ public class TouchOverlayView extends View {
                         + (m ? "MENU(d-pad)" : "GAMEPLAY(analog stick)"));
                 invalidate();
             }
+            // Grecharged-mesh-browser REOPEN: poll the browser flag too, so
+            // browserMode (and the hidden glyphs) track the game state even
+            // when the owner is not touching the screen.
+            boolean b = queryBrowser();
+            if (b != browserMode) { browserMode = b; if (b) releaseAll(); Log.i(TAG, "overlay-mode: mesh browser " + (b ? "OPEN (raw multi-touch -> onBrowserTouch, virtual pad suspended)" : "CLOSED (virtual pad restored)")); invalidate(); }
             handler.postDelayed(this, HEARTBEAT_MS);
         }
     };

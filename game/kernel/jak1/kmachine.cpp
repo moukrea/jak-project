@@ -8,6 +8,10 @@
 
 #include "kmachine.h"
 
+#include <atomic>
+#include <chrono>
+#include <cmath>
+#include <mutex>
 #include <string>
 
 #include "common/log/log.h"
@@ -1527,6 +1531,300 @@ void pc_mesh_browser_export(u32 row) {
   }
 }
 
+// ===============================================================================================
+// Grecharged-mesh-browser REOPEN (owner, 2026-07-29: "C'est impossible a parcourir via le tactile")
+//
+// WHY THIS EXISTS. The browser shipped "touch-capable" and was unusable on the only device the
+// owner has. The cause is structural, not a tuning miss: the ONLY touch signal that reached GOAL
+// was pc-get-touch-tap, which carries a single TAP EDGE and nothing else — no finger-down/up state,
+// no motion, no second finger (android/gk_android_main.cpp: g_menu_tap_{x,y,seq}). With taps alone a
+// 3613-row list cannot be scrolled at all and the 3D view cannot be orbited or zoomed. Worse, the
+// overlay only forwards those taps while NativeGk.isInMenu() is true, and the browser runs in
+// master-mode 'game — so in practice NO touch reached the browser whatsoever.
+//
+// This block is the missing channel: a small gesture recogniser fed with RAW multi-touch from the
+// Android overlay (TouchOverlayView -> NativeGk.onBrowserTouch -> pc_mb_touch_event) and read once
+// per frame by GOAL. It recognises finger-drag (with velocity for inertia), two-finger pinch,
+// two-finger drag, and taps, and it counts every event so a device run can PROVE the chain.
+//
+// WHY IT LIVES HERE. jak1/kmachine.cpp is compiled into BOTH the desktop and the Android builds and
+// its make_function_symbol_from_c registrations execute on both (InitMachine_PCPort <-
+// InitMachineScheme <- InitHeapAndSymbol, reached on Android via android_runtime_full.cpp). One
+// registration site therefore binds these builtins everywhere. Putting them in common/kmachine.cpp
+// instead would bind them on desktop ONLY — android_runtime_compat.cpp deliberately skips that
+// file's registrations, which is the trap pc-get-touch-tap has to work around with a second
+// hand-written binding.
+//
+// COSTS NOTHING WHEN CLOSED: Java only calls pc_mb_touch_event while GOAL has raised the active
+// flag (pc-mb-set-active!), which only the browser sets, and which it clears on close.
+// ===============================================================================================
+namespace {
+// A tap is a press that stayed still and short. Anything else is a drag (and may fling).
+constexpr double kMbTapMaxMove = 0.03;   // fraction of the screen, summed |dx|+|dy|
+constexpr int64_t kMbTapMaxMs = 500;
+constexpr double kMbFlingMinVel = 0.20;  // screen-fractions/second below which we don't fling
+
+int64_t mb_now_ms() {
+  using namespace std::chrono;
+  return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+}
+
+struct MbTouch {
+  std::mutex m;
+  std::atomic<int> active{0};  // GOAL raised the browser flag (read by JNI, no lock)
+
+  int fingers = 0;
+  // previous sample, per gesture kind (invalidated when the finger count changes so a
+  // finger going down or up never injects a bogus jump delta)
+  bool have_prev1 = false;
+  double prev_x = 0, prev_y = 0;
+  bool have_prev2 = false;
+  double prev_dist = 0, prev_cx = 0, prev_cy = 0;
+
+  // accumulated since the last GOAL poll (consumed by pc_mb_touch_poll)
+  double acc_dx = 0, acc_dy = 0, acc_pinch = 0, acc_2dx = 0, acc_2dy = 0;
+
+  // press bookkeeping, for the tap / fling decision at release
+  double down_x = 0, down_y = 0, moved = 0;
+  int64_t down_ms = 0, last_ms = 0;
+  double vel_y = 0;  // low-passed vertical velocity, screen-fractions/second
+
+  // monotonic edges GOAL watches (it never has to see the event, only that one happened)
+  uint32_t down_seq = 0, up_seq = 0, tap_seq = 0;
+  double tap_x = 0, tap_y = 0;
+  double fling_v = 0;  // latched at the release that ended a drag
+
+  // evidence counters — these are what a device run reads back to prove gestures arrived
+  uint64_t n_events = 0, n_taps = 0, n_drags = 0, n_pinches = 0, n_flings = 0;
+};
+MbTouch g_mb;
+
+// The per-frame snapshot. GOAL latches once (pc-mb-touch-poll!) then reads fields freely, so the
+// deltas can be consumed exactly once and every getter in a frame sees a consistent gesture.
+struct MbTouchFrame {
+  int fingers = 0, x = 0, y = 0, dx = 0, dy = 0, pinch = 0, d2x = 0, d2y = 0;
+  int tap_x = 0, tap_y = 0, down_x = 0, down_y = 0, fling = 0;
+  uint32_t tap_seq = 0, down_seq = 0, up_seq = 0;
+  uint64_t n_events = 0, n_taps = 0, n_drags = 0, n_pinches = 0, n_flings = 0;
+};
+MbTouchFrame g_mb_frame;
+
+inline int mb_q(double normalized) {
+  // normalized screen fraction -> the 0..10000 fixed-point GOAL already uses for touch
+  return (int)std::lround(normalized * 10000.0);
+}
+}  // namespace
+
+// Raw multi-touch in, from the Android UI thread. `action`: 0 DOWN, 1 MOVE, 2 UP, 3 CANCEL.
+// `n` is the number of pointers still down AFTER this event (so the final UP reports 0).
+// Coordinates are normalized [0,1] over the view. Called from JNI only; a no-op everywhere else,
+// which is why the desktop build links and runs unchanged with an all-zero gesture state.
+extern "C" void pc_mb_touch_event(int action, int n, float x0, float y0, float x1, float y1) {
+  std::lock_guard<std::mutex> lk(g_mb.m);
+  const int64_t now = mb_now_ms();
+  g_mb.n_events++;
+
+  switch (action) {
+    case 0: {  // DOWN
+      if (n <= 1) {
+        g_mb.down_x = x0;
+        g_mb.down_y = y0;
+        g_mb.down_ms = now;
+        g_mb.moved = 0;
+        g_mb.vel_y = 0;
+        g_mb.down_seq++;
+        g_mb.prev_x = x0;
+        g_mb.prev_y = y0;
+        g_mb.have_prev1 = true;
+      } else {
+        // a second finger landed: end the one-finger drag cleanly, start the pinch fresh
+        g_mb.have_prev1 = false;
+      }
+      g_mb.have_prev2 = false;
+      g_mb.last_ms = now;
+      g_mb.fingers = n;
+      break;
+    }
+    case 1: {  // MOVE
+      g_mb.fingers = n;
+      if (n >= 2) {
+        const double dist = std::hypot((double)x1 - x0, (double)y1 - y0);
+        const double cx = 0.5 * ((double)x0 + x1), cy = 0.5 * ((double)y0 + y1);
+        if (g_mb.have_prev2) {
+          const double dd = dist - g_mb.prev_dist;
+          g_mb.acc_pinch += dd;
+          g_mb.acc_2dx += cx - g_mb.prev_cx;
+          g_mb.acc_2dy += cy - g_mb.prev_cy;
+          if (std::fabs(dd) > 0.002) {
+            g_mb.n_pinches++;
+          }
+        }
+        g_mb.prev_dist = dist;
+        g_mb.prev_cx = cx;
+        g_mb.prev_cy = cy;
+        g_mb.have_prev2 = true;
+        g_mb.have_prev1 = false;  // one-finger drag is suppressed while two are down
+      } else if (n == 1) {
+        if (g_mb.have_prev1) {
+          const double ddx = (double)x0 - g_mb.prev_x, ddy = (double)y0 - g_mb.prev_y;
+          g_mb.acc_dx += ddx;
+          g_mb.acc_dy += ddy;
+          g_mb.moved += std::fabs(ddx) + std::fabs(ddy);
+          const double dt = (double)(now - g_mb.last_ms) / 1000.0;
+          if (dt > 0.001) {
+            // low-pass so one jittery sample can't launch a wild fling
+            g_mb.vel_y = 0.5 * g_mb.vel_y + 0.5 * (ddy / dt);
+          }
+          if (std::fabs(ddx) + std::fabs(ddy) > 0.0005) {
+            g_mb.n_drags++;
+          }
+        }
+        g_mb.prev_x = x0;
+        g_mb.prev_y = y0;
+        g_mb.have_prev1 = true;
+        g_mb.have_prev2 = false;
+      }
+      g_mb.last_ms = now;
+      break;
+    }
+    case 2:    // UP
+    case 3: {  // CANCEL
+      if (n <= 0) {
+        // the gesture ended: it was either a tap (still + short) or a drag that may fling
+        if (action == 2 && g_mb.moved < kMbTapMaxMove && (now - g_mb.down_ms) < kMbTapMaxMs) {
+          g_mb.tap_x = g_mb.down_x;
+          g_mb.tap_y = g_mb.down_y;
+          g_mb.tap_seq++;
+          g_mb.n_taps++;
+        } else if (action == 2 && std::fabs(g_mb.vel_y) > kMbFlingMinVel) {
+          g_mb.fling_v = g_mb.vel_y;
+          g_mb.n_flings++;
+        }
+        g_mb.vel_y = 0;
+      }
+      g_mb.up_seq++;
+      g_mb.fingers = n < 0 ? 0 : n;
+      g_mb.have_prev1 = false;
+      g_mb.have_prev2 = false;
+      g_mb.last_ms = now;
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+// Is the browser holding the screen? Read by the Android overlay (JNI) to decide whether to route
+// raw touch to the browser instead of actuating the virtual gamepad.
+extern "C" int pc_mb_is_active() {
+  return g_mb.active.load(std::memory_order_acquire);
+}
+
+// GOAL raises/clears the flag. Clearing it restores the normal virtual-gamepad routing exactly.
+void pc_mb_set_active(u32 on) {
+  g_mb.active.store(on ? 1 : 0, std::memory_order_release);
+}
+
+// Latch one frame of gesture state and CONSUME the accumulated deltas. Returns the finger count.
+s64 pc_mb_touch_poll() {
+  std::lock_guard<std::mutex> lk(g_mb.m);
+  g_mb_frame.fingers = g_mb.fingers;
+  g_mb_frame.x = mb_q(g_mb.prev_x);
+  g_mb_frame.y = mb_q(g_mb.prev_y);
+  g_mb_frame.dx = mb_q(g_mb.acc_dx);
+  g_mb_frame.dy = mb_q(g_mb.acc_dy);
+  g_mb_frame.pinch = mb_q(g_mb.acc_pinch);
+  g_mb_frame.d2x = mb_q(g_mb.acc_2dx);
+  g_mb_frame.d2y = mb_q(g_mb.acc_2dy);
+  g_mb_frame.tap_seq = g_mb.tap_seq;
+  g_mb_frame.down_seq = g_mb.down_seq;
+  g_mb_frame.up_seq = g_mb.up_seq;
+  g_mb_frame.tap_x = mb_q(g_mb.tap_x);
+  g_mb_frame.tap_y = mb_q(g_mb.tap_y);
+  g_mb_frame.down_x = mb_q(g_mb.down_x);
+  g_mb_frame.down_y = mb_q(g_mb.down_y);
+  g_mb_frame.fling = mb_q(g_mb.fling_v);
+  g_mb_frame.n_events = g_mb.n_events;
+  g_mb_frame.n_taps = g_mb.n_taps;
+  g_mb_frame.n_drags = g_mb.n_drags;
+  g_mb_frame.n_pinches = g_mb.n_pinches;
+  g_mb_frame.n_flings = g_mb.n_flings;
+  // consumed exactly once
+  g_mb.acc_dx = g_mb.acc_dy = g_mb.acc_pinch = g_mb.acc_2dx = g_mb.acc_2dy = 0;
+  g_mb.fling_v = 0;
+  return g_mb_frame.fingers;
+}
+
+// Field getter over the latched frame. Field ids mirror the MB_T_* constants in mesh-browser-pc.gc.
+s64 pc_mb_touch_geti(u32 field) {
+  switch (field) {
+    case 0: return g_mb_frame.fingers;
+    case 1: return g_mb_frame.x;
+    case 2: return g_mb_frame.y;
+    case 3: return g_mb_frame.dx;
+    case 4: return g_mb_frame.dy;
+    case 5: return g_mb_frame.pinch;
+    case 6: return g_mb_frame.d2x;
+    case 7: return g_mb_frame.d2y;
+    case 8: return (s64)g_mb_frame.tap_seq;
+    case 9: return g_mb_frame.tap_x;
+    case 10: return g_mb_frame.tap_y;
+    case 11: return (s64)g_mb_frame.up_seq;
+    case 12: return g_mb_frame.fling;
+    case 13: return (s64)g_mb_frame.down_seq;
+    case 14: return g_mb_frame.down_x;
+    case 15: return g_mb_frame.down_y;
+    case 16: return (s64)g_mb_frame.n_events;
+    case 17: return (s64)g_mb_frame.n_taps;
+    case 18: return (s64)g_mb_frame.n_drags;
+    case 19: return (s64)g_mb_frame.n_pinches;
+    case 20: return (s64)g_mb_frame.n_flings;
+    default: return 0;
+  }
+}
+
+// ---- browser state dump ------------------------------------------------------------------------
+// files/mesh_browser_state.txt: the browser's OBSERVABLE state, written only while it is open and
+// only when something changed. This is what makes the touch claim falsifiable — inject a gesture,
+// read the file, and the state either moved or it did not. It doubles as the owner's copy-out
+// (he has no adb, but the supervisor can read it back for him).
+namespace {
+std::string g_mb_state_body;
+}
+
+void pc_mb_state_begin() {
+  g_mb_state_body.clear();
+}
+
+void pc_mb_state_line(u32 str_ptr) {
+  if (!str_ptr) {
+    return;
+  }
+  auto* gs = Ptr<String>(str_ptr).c();
+  g_mb_state_body += gs->data();
+  g_mb_state_body += '\n';
+}
+
+void pc_mb_state_end() {
+  try {
+    uint64_t ev, tp, dr, pn, fl;
+    {
+      std::lock_guard<std::mutex> lk(g_mb.m);
+      ev = g_mb.n_events;
+      tp = g_mb.n_taps;
+      dr = g_mb.n_drags;
+      pn = g_mb.n_pinches;
+      fl = g_mb.n_flings;
+    }
+    g_mb_state_body += fmt::format(
+        "touch_events={} taps={} drags={} pinches={} flings={}\n", ev, tp, dr, pn, fl);
+    file_util::write_text_file(file_util::get_jak_project_dir() / "mesh_browser_state.txt",
+                               g_mb_state_body);
+  } catch (...) {
+    // best-effort; a disk error must never touch the game loop
+  }
+}
+
 void InitMachine_PCPort() {
   // PC Port added functions
   init_common_pc_port_functions(
@@ -1595,6 +1893,15 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-mesh-index-level!", (void*)pc_mesh_index_levelname);
   make_function_symbol_from_c("pc-set-mesh-browser-checker!", (void*)pc_set_mesh_browser_checker);
   make_function_symbol_from_c("pc-mesh-browser-export!", (void*)pc_mesh_browser_export);
+  // REOPEN (owner 2026-07-29 "impossible a parcourir via le tactile"): the real gesture channel.
+  // pc-get-touch-tap carries a tap edge and nothing else, so swipe/drag/pinch/fling were not
+  // merely unbound, they had no data source at all. These bind on desktop AND Android from here.
+  make_function_symbol_from_c("pc-mb-set-active!", (void*)pc_mb_set_active);
+  make_function_symbol_from_c("pc-mb-touch-poll!", (void*)pc_mb_touch_poll);
+  make_function_symbol_from_c("pc-mb-touch-geti", (void*)pc_mb_touch_geti);
+  make_function_symbol_from_c("pc-mb-state-begin!", (void*)pc_mb_state_begin);
+  make_function_symbol_from_c("pc-mb-state-line!", (void*)pc_mb_state_line);
+  make_function_symbol_from_c("pc-mb-state-end!", (void*)pc_mb_state_end);
   // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
 #ifdef OG_FEAT_HD_MODELS

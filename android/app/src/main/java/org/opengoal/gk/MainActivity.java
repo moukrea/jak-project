@@ -294,9 +294,22 @@ public class MainActivity extends SDLActivity {
                 + " gamepads_at_start=" + gamepadsAtStart
                 + " record_armed=" + mInputRecordArmed);
 
-        if (!enabled) {
-            Log.i(TAG, "touch overlay disabled by settings (gamepad present or user-off)");
-            return;
+        // Grecharged-mesh-browser REOPEN (owner 2026-07-29): NEVER skip building
+        // the overlay. This used to `return` here, so a disabled preference meant
+        // the view was never constructed nor addView()-ed. But the preference is
+        // written exactly ONCE — on the first launch of a fresh install, as
+        // (gamepadsAtStart == 0) above — so a gamepad that merely happened to be
+        // attached at that single launch disabled the overlay FOREVER, including
+        // after the pad was unplugged. The debug mesh browser routes ALL of its
+        // finger input through this view (NativeGk.onBrowserTouch), and the owner
+        // has no permanently-attached gamepad and no adb to repair a bad pref, so
+        // an absent view = a browser no finger can ever drive. The view is now
+        // always added; the preference only suppresses the VIRTUAL PAD role
+        // (TouchOverlayView.setPadSuppressed: draws nothing, actuates nothing,
+        // still carries browser touches).
+        final boolean padSuppressed = !enabled;
+        if (padSuppressed) {
+            Log.i(TAG, "touch overlay: virtual pad SUPPRESSED by settings (gamepad present or user-off) - the view is still added so the debug mesh browser remains reachable by finger");
         }
 
         mTouchOverlay = new TouchOverlayView(this);
@@ -305,14 +318,22 @@ public class MainActivity extends SDLActivity {
                 RelativeLayout.LayoutParams.MATCH_PARENT);
         mLayout.addView(mTouchOverlay, lp);
         mTouchOverlay.bringToFront();
+        mTouchOverlay.setPadSuppressed(padSuppressed);
         // Marker line the validator greps (`touch overlay enabled` matches
         // the BOOT_LOG check). Gtouch-controls: the overlay now starts HIDDEN
         // (alpha 0, still touchable) and fades in on the first touch, then
         // fades out after 10 s idle — so it is enabled-but-hidden at startup,
         // not always-visible. The overlay still auto-hides outright if a real
         // gamepad connects (pollGamepadCount below).
-        Log.i(TAG, "touch overlay enabled — hidden until first touch "
-                + "(show-on-touch + 10s idle fade; no gamepad at startup)");
+        //
+        // Guarded on !padSuppressed: this marker asserts the VIRTUAL PAD is live,
+        // which is exactly what padSuppressed turns off. Emitting it for a
+        // pad-suppressed overlay would be a false marker (the view exists, but no
+        // control actuates), so the suppressed case logs its own line above.
+        if (!padSuppressed) {
+            Log.i(TAG, "touch overlay enabled — hidden until first touch "
+                    + "(show-on-touch + 10s idle fade; no gamepad at startup)");
+        }
 
         // Ginput-replay-realinput (autoport): while a record/replay is armed, keep
         // the controls visible (no idle fade) so the owner can see and use them to
@@ -357,6 +378,15 @@ public class MainActivity extends SDLActivity {
                 Log.i(TAG, "gamepad detected during record/replay: keeping touch "
                         + "overlay touch-capable (NOT View.GONE) so touch stays a "
                         + "recordable fallback (open_gamepad_count=" + n + ")");
+            } else if (safeIsInMeshBrowser()) {
+                // Grecharged-mesh-browser REOPEN (owner 2026-07-29): same reasoning as the
+                // record/replay case above. The debug mesh browser is driven ENTIRELY by finger
+                // (the owner has no adb and no permanently-attached pad), and View.GONE removes
+                // the overlay from hit-testing — which would silently kill every browser gesture
+                // the moment a pad happened to be connected. Keep it touch-capable.
+                Log.i(TAG, "gamepad detected while the mesh browser is open: keeping touch "
+                        + "overlay touch-capable (NOT View.GONE) so browser gestures still "
+                        + "reach it (open_gamepad_count=" + n + ")");
             } else {
                 Log.i(TAG, "gamepad detected: hiding touch overlay "
                         + "(open_gamepad_count=" + n + ")");
@@ -382,6 +412,17 @@ public class MainActivity extends SDLActivity {
             // Native side may not be up yet during very early onCreate;
             // treat as "no gamepads" so the default is overlay-on.
             return 0;
+        }
+    }
+
+    // Grecharged-mesh-browser REOPEN (autoport): is the debug mesh browser holding the screen?
+    // While it is, the overlay must never be View.GONE'd — the browser is finger-driven and GONE
+    // removes the view from touch hit-testing entirely.
+    private static boolean safeIsInMeshBrowser() {
+        try {
+            return NativeGk.isInMeshBrowser();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
         }
     }
 

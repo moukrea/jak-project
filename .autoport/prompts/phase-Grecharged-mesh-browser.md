@@ -132,3 +132,34 @@ d'écran ne prouve rien ici ; c'est l'ENCHAÎNEMENT geste -> changement d'état 
 
 RAPPEL DE MÉTHODE, appris à mes dépens sur ce projet : "la fonctionnalité est dans le code" et
 "la fonctionnalité marche sur l'appareil" sont deux choses différentes, et seule la seconde compte.
+
+--------------------------------------------------------------------------------
+OWNER 2026-07-29 — CE N'EST PAS UN WARP DU JOUEUR, C'EST UNE CAMÉRA LIBRE
+--------------------------------------------------------------------------------
+Owner : "J'ai l'impression que le warp to model warp toujours au même endroit, et warp le joueur,
+mais même pas au bon endroit du coup... Moi je voulais pouvoir tourner en free cam autour dudit mesh
+(origine au centre du modèle) pour pouvoir le voir sous toutes les coutures"
+
+L'implémentation actuelle TÉLÉPORTE JAK, et apparemment toujours au même endroit. C'est une mauvaise
+lecture de la demande, et c'est inutilisable : le joueur atterrit où le sol le permet, pas où le mesh
+se trouve, et on ne peut pas faire le tour d'un objet en marchant autour — un toit, une corniche, une
+face sous un surplomb sont inaccessibles à pied. Or c'est précisément ces surfaces-là que l'owner doit
+inspecter, ce sont elles qui portent les défauts.
+
+CE QU'IL FAUT :
+1. UNE CAMÉRA LIBRE, DÉTACHÉE DU JOUEUR. Sélectionner un mesh ne doit PAS déplacer Jak. Le personnage
+   reste où il est ; c'est la CAMÉRA qui va au mesh. À la sortie du navigateur, elle revient au
+   joueur et le jeu reprend normalement.
+2. L'ORIGINE DE L'ORBITE EST LE CENTRE DU MESH — son centroïde, celui que l'index contient déjà pour
+   chaque entrée. La caméra tourne AUTOUR de ce point, elle ne pivote pas sur elle-même.
+3. DISTANCE INITIALE DÉDUITE DE LA BOÎTE ENGLOBANTE, pour que le mesh remplisse l'écran quelle que
+   soit sa taille — un poteau et une falaise doivent tous deux être cadrés correctement.
+4. TOUR COMPLET : azimut sur 360°, élévation du dessous au dessus (y compris à la verticale, pour
+   voir la face inférieure d'un surplomb), zoom libre. "Sous toutes les coutures" est la spécification.
+5. LE NIVEAU DOIT ÊTRE CHARGÉ, évidemment : si le mesh appartient à un autre niveau que le niveau
+   courant, il faut y aller — mais c'est un changement de niveau + placement de CAMÉRA, pas un warp
+   du joueur à un point de spawn.
+6. VÉRIFIER QUE ÇA VISE JUSTE : l'owner dit que ça warp "toujours au même endroit". Prouve, sur au
+   moins 5 mesh de centroïdes très différents (dont un toit, une falaise, un objet minuscule), que la
+   caméra se retrouve effectivement CENTRÉE sur chacun — en comparant la position de caméra obtenue
+   au centroïde attendu de l'index. Un écart constant entre les cinq trahirait un point fixe.

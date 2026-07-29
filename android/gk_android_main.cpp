@@ -9625,6 +9625,29 @@ Java_org_opengoal_gk_NativeGk_isInWarp(JNIEnv* /*env*/, jclass /*clazz*/) {
                                                            : JNI_FALSE;
 }
 
+// Grecharged-mesh-browser REOPEN (owner 2026-07-29): a RAW multi-touch channel
+// for the debug mesh browser. It exists because the existing touch path
+// (pc-get-touch-tap / onMenuTap) carries a tap EDGE only — one point at one
+// instant. The browser needs continuous gestures (swipe-scroll a 3600+ entry
+// list, drag, pinch-zoom) which a sequence of tap edges cannot express, so the
+// overlay suspends the virtual gamepad while isInMeshBrowser() is true and
+// streams DOWN/MOVE/UP/CANCEL with up to two live pointers through here.
+// Grecharged-mesh-browser REOPEN: defined in game/kernel/jak1/kmachine.cpp (android_kernel).
+extern "C" int pc_mb_is_active();
+extern "C" void pc_mb_touch_event(int action, int n, float x0, float y0, float x1, float y1);
+
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_isInMeshBrowser(JNIEnv* /*env*/, jclass /*clazz*/) {
+  return pc_mb_is_active() ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_onBrowserTouch(JNIEnv* /*env*/, jclass /*clazz*/, jint action,
+                                             jint n, jfloat x0, jfloat y0, jfloat x1,
+                                             jfloat y1) {
+  pc_mb_touch_event((int)action, (int)n, (float)x0, (float)y0, (float)x1, (float)y1);
+}
+
 JNIEXPORT void JNICALL
 Java_org_opengoal_gk_NativeGk_onTouchEvent(JNIEnv* /*env*/, jclass /*clazz*/,
                                           jint x, jint y, jint action) {

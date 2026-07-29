@@ -160,6 +160,39 @@ public final class NativeGk {
     public static native boolean isInWarp();
 
     /**
+     * Phase Grecharged-mesh-browser REOPEN (owner 2026-07-29, "C'est impossible
+     * a parcourir via le tactile"): true while the debug mesh browser owns the
+     * screen. When true {@link TouchOverlayView} STOPS actuating the virtual
+     * gamepad and forwards RAW multi-touch through
+     * {@link #onBrowserTouch(int, int, float, float, float, float)} instead,
+     * because the browser needs swipe / drag / pinch gestures that the tap-only
+     * channel ({@link #onMenuTap(float, float)}) simply cannot express. Reads a
+     * native atomic published on the GOAL thread — cheap and race-free, like
+     * isInMenu()/isInWarp().
+     */
+    public static native boolean isInMeshBrowser();
+
+    /**
+     * Phase Grecharged-mesh-browser REOPEN (owner 2026-07-29, "C'est impossible
+     * a parcourir via le tactile"): forward a RAW multi-touch event to the debug
+     * mesh browser. Only called while {@link #isInMeshBrowser()} is true, and it
+     * carries the full gesture stream (not just a tap edge) so the browser can
+     * implement swipe-scrolling of a 3600+ entry list, drag and pinch-zoom with a
+     * finger alone — no gamepad required. Coordinates are NORMALIZED to [0,1]
+     * (touch pixel / view size) so the native side is resolution-independent.
+     *
+     * @param action 0 = DOWN, 1 = MOVE, 2 = UP, 3 = CANCEL.
+     * @param n      Number of pointers still down AFTER this event (the final UP
+     *               reports 0).
+     * @param x0     Normalized x in [0,1] of the first live pointer.
+     * @param y0     Normalized y in [0,1] of the first live pointer.
+     * @param x1     Normalized x in [0,1] of the second live pointer, if any.
+     * @param y1     Normalized y in [0,1] of the second live pointer, if any.
+     */
+    public static native void onBrowserTouch(int action, int n, float x0, float y0, float x1,
+                                             float y1);
+
+    /**
      * Phase Gtouch-menus (autoport): forward a single menu-row tap to the
      * runtime. Called from the overlay on a finger DOWN that missed every
      * on-screen control while {@link #isInMenu()} is true. The coordinates are
