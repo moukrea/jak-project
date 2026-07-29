@@ -46,5 +46,5 @@ IDX=$(ls custom_assets/jak1/mesh_index/mesh_index_*.txt 2>/dev/null | wc -l)
 # (tess_sign: "faces=0 gverts=0 (tfrag trees 0, tie trees 0)"), so there is nothing in it to browse.
 # The 26 figure was the supervisor's assumption; the measurement corrected it.
 [ "$IDX" -ge 25 ] || fail "index covers only $IDX level(s); every jak1 level WITH GEOMETRY must be indexed (25)"
-grep -qiE 'all (26 )?levels|tous les niveaux|26 levels' "$R" || fail "report does not evidence an all-levels index"
+grep -qiE 'all[- ](levels|25 levels)|tous les niveaux|25 levels' "$R" || fail "report does not evidence an all-levels index"
 echo "[Gmbrowse PASS]"
