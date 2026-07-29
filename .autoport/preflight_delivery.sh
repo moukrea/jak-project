@@ -40,8 +40,13 @@ newer=$(find game common android -newer "$CHK" \( -name '*.cpp' -o -name '*.h' -
 $newer"
 ok "no engine source newer than the APK"
 
-# 4. CGOs must postdate goal_src, and carry the features we claim
-newer_gc=$(find goal_src -name '*.gc' -newer out/jak1-arm64-full/iso/GAME.CGO 2>/dev/null | head -3)
+# 4. CGOs must postdate goal_src, and carry the features we claim.
+# recharged-flags.gc is GENERATED and rewritten (identical content) by every build.sh call,
+# including the checker-APK repack that runs AFTER the CGO build — an mtime check on it is a
+# guaranteed false positive. It is excluded here and covered by the STRONGER check below: the
+# ogflags marker embedded in libgk must equal the one in both pack manifests, which proves the
+# compiled flag set actually pairs, content-wise, not date-wise.
+newer_gc=$(find goal_src -name '*.gc' ! -name 'recharged-flags.gc' -newer out/jak1-arm64-full/iso/GAME.CGO 2>/dev/null | head -3)
 [ -z "$newer_gc" ] || fail "goal_src is NEWER than the built CGOs (the shipped game code is stale):
 $newer_gc"
 ok "CGOs postdate goal_src"
@@ -51,8 +56,11 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 unzip -p "$CHK" assets/bundle/jak1_cgo.zip > "$tmp/cgo.zip" 2>/dev/null || fail "no CGO pack in the APK"
 n=$(unzip -Z1 "$tmp/cgo.zip" 2>/dev/null | wc -l); [ "$n" -ge 28 ] || fail "only $n CGO/DGO in the pack"
 ok "$n CGO/DGO in the pack"
-unzip -p "$tmp/cgo.zip" GAME.CGO 2>/dev/null | strings | grep -qi 'mesh-browser' \
-  || fail "GAME.CGO does not contain the mesh browser — the shipped menu lacks the feature"
+# grep -c, NOT grep -q: under pipefail, grep -q's early exit SIGPIPEs strings/unzip and the
+# pipeline fails EVEN ON A MATCH (the documented validator pipefail+grep-q trap — it fired here,
+# reporting 0 while the CGO carried 92 occurrences). grep -c reads to EOF, so no SIGPIPE.
+mbn=$(unzip -p "$tmp/cgo.zip" GAME.CGO 2>/dev/null | strings | grep -ci 'mesh-browser' || true)
+[ "${mbn:-0}" -ge 1 ] || fail "GAME.CGO does not contain the mesh browser — the shipped menu lacks the feature"
 ok "mesh-browser present in the shipped GAME.CGO"
 unzip -p "$CHK" assets/bundle/jak1_custom.zip > "$tmp/cus.zip" 2>/dev/null || fail "no custom pack"
 idx=$(unzip -Z1 "$tmp/cus.zip" 2>/dev/null | grep -c 'mesh_index'); [ "$idx" -ge 25 ] \
@@ -62,5 +70,13 @@ mw=$(unzip -p "$tmp/cus.zip" fr3/village1.meshweld 2>/dev/null | md5sum | cut -c
 dk=$(md5sum out/jak1/fr3/village1.meshweld 2>/dev/null | cut -c1-16)
 [ "$mw" = "$dk" ] || fail "shipped sidecar ($mw) != on-disk corrected sidecar ($dk)"
 ok "sidecar in APK == corrected sidecar on disk"
+
+# 6. flag-set pairing: libgk's embedded ogflags marker == both pack manifests
+mk=$(unzip -p "$CHK" lib/arm64-v8a/libgk.so 2>/dev/null | strings | grep -m1 '^ogflags:')
+m1=$(unzip -p "$CHK" assets/bundle/jak1_cgo.manifest.properties 2>/dev/null | grep -m1 '^flags=' | cut -d= -f2)
+m2=$(unzip -p "$CHK" assets/bundle/jak1_custom.manifest.properties 2>/dev/null | grep -m1 '^flags=' | cut -d= -f2)
+[ -n "$mk" ] && [ "$mk" = "$m1" ] && [ "$mk" = "$m2" ] \
+  || fail "ogflags mismatch: libgk='$mk' cgo-pack='$m1' custom-pack='$m2' — mixed flag sets"
+ok "ogflags pairing: $mk in libgk + both packs"
 
 echo "[preflight PASS] both APKs are safe to upload"
