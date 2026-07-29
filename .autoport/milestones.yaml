@@ -2233,8 +2233,8 @@ phases:
     boote et extrait ses 74 CGO; les builds 28-29/07 (pack 420 Mo, apres le deplacement du derive dans
     l'APK) meurent AVANT toute extraction. Trouver la cause avec une preuve, corriger sans retirer les
     donnees de l'APK, et livrer un build qui demarre chez lui avec les mesh corriges et le mesh browser."
-  prompt: .autoport/prompts/phase-Grecharged-loader-packfix.md
-  validator: .autoport/validators/phase-Grecharged-loader-packfix.sh
+  prompt: prompts/phase-Grecharged-loader-packfix.md
+  validator: validators/phase-Grecharged-loader-packfix.sh
   device: true
   max_turns: 400
   max_retries: 20
