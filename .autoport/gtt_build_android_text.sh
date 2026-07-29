@@ -22,7 +22,13 @@ GP="game/assets/jak1/game_text.gp"
 GOALC="build/goalc/goalc"
 MAKE_TARGET="out/jak1/iso/0COMMON.TXT"
 ANDROID_TEXT_DIR="out/jak1-android-text"
-BANKS=(0 1 2 3 4 5 6)
+# Grecharged-loader-packfix: EN(0) and FR(1) ONLY. An android override json exists for
+# exactly those two languages, so a copy of any OTHER bank carries no override at all —
+# it merely shadows the freshly built desktop bank in build_cgo_pack.sh and freezes that
+# language's text at the day this script last ran (that is how #x1728 MESH BROWSER
+# rendered as "UNKNOWN ID 5928" on device). Languages with no override must fall
+# through to the fresh banks, so we neither build nor copy them.
+BANKS=(0 1)
 
 fail(){ echo "[gtt] FATAL: $*" >&2; exit 1; }
 
@@ -76,6 +82,11 @@ echo "[gtt]   FR stock press-start string replaced at id #x16e  OK"
 
 echo "[gtt] === 3/4 copy android banks -> $ANDROID_TEXT_DIR ==="
 mkdir -p "$ANDROID_TEXT_DIR"
+# Clear first: an earlier, wider run of this script left banks 2..24 here, and
+# build_cgo_pack.sh prefers ANY file found in this dir over the freshly built desktop
+# bank — so those leftovers silently froze every other language's text. Only the banks
+# we are about to write (the ones that actually have an override) may live here.
+rm -f "$ANDROID_TEXT_DIR"/*COMMON.TXT
 for b in "${BANKS[@]}"; do
   cp -f "out/jak1/iso/${b}COMMON.TXT" "$ANDROID_TEXT_DIR/${b}COMMON.TXT"
 done

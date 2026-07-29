@@ -286,6 +286,7 @@
   "progress-draw.o"
   "progress.o"
   "progress-pc.o" ;; added
+  "mesh-browser-pc.o" ;; added
   "credits.o"
   "projectiles.o"
   "ocean.o"

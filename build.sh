@@ -113,8 +113,12 @@ CMAKE_FEATURE_ARGS=(
 # Key = flag-set hash + backend + sha256 over goal_src, the generated flags file (already
 # in goal_src), the text-bank inputs and the goalc binary. Over-invalidation is safe;
 # stale reuse is not.
+# Grecharged-loader-packfix: *.gd (the DGO manifests) MUST be part of the key. They decide
+# which objects get LINKED into each CGO, so editing one changes the output while every
+# .gc byte stays identical — the cache then serves a stale CGO and the "rebuild" is a
+# silent no-op. That is how mesh-browser-pc.o survived a full rebuild still unlinked.
 src_fingerprint() { # $1 = goalc binary path
-  { find "goal_src" "game/assets/${GAME}" -type f \( -name '*.gc' -o -name '*.gp' -o -name '*.gs' -o -name '*.json' \) -print0 2>/dev/null | sort -z | xargs -0 sha256sum
+  { find "goal_src" "game/assets/${GAME}" -type f \( -name '*.gc' -o -name '*.gp' -o -name '*.gs' -o -name '*.gd' -o -name '*.json' \) -print0 2>/dev/null | sort -z | xargs -0 sha256sum
     sha256sum "$1"
   } | sha256sum | cut -c1-16
 }
@@ -261,6 +265,24 @@ build_android() {
   assert_iso_set "$STAGE"
   local n; n=$(ls "$STAGE"/*.CGO "$STAGE"/*.DGO | wc -l)
   log "arm64 consistent set: $n files at $STAGE"
+
+  # Grecharged-loader-packfix: regenerate the ANDROID text-bank overrides from the
+  # text sources that were just compiled. build_cgo_pack.sh PREFERS any bank found in
+  # out/<game>-android-text/ over the freshly built desktop bank, so a one-shot copy
+  # of that dir silently freezes Android's text at the day it was made: every text id
+  # added afterwards renders as "UNKNOWN ID <n>" on device only. That is exactly how
+  # the MESH BROWSER row (#x1728) shipped as "UNKNOWN ID 5928" while every desktop
+  # build showed the right label. Deriving the overrides on every build is the only
+  # thing that keeps them honest — the dir holds EN/FR only (the two languages with
+  # an android override json); all other languages fall through to the fresh banks.
+  if [ "$GAME" = "jak1" ] && [ -x .autoport/gtt_build_android_text.sh ]; then
+    log "== android text-bank overrides (EN/FR press-start + current text ids) =="
+    bash .autoport/gtt_build_android_text.sh > .autoport/logs/build-android-text.log 2>&1 \
+      || { tail -20 .autoport/logs/build-android-text.log >&2; die "android text-bank override build failed"; }
+    grep -aq 'MESH BROWSER' "out/${GAME}-android-text/0COMMON.TXT" \
+      || die "android EN bank lacks a text id the desktop bank has — the override went stale again"
+    log "android text overrides refreshed: $(ls out/${GAME}-android-text/*COMMON.TXT | wc -l) bank(s)"
+  fi
 
   if [ $BUILD_APK -eq 1 ]; then
     log "== gradle assembleJak1Debug (packs CGO zip + libgk.so) =="

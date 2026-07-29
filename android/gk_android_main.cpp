@@ -6857,6 +6857,134 @@ extern "C" void gk_set_diag_norepair(bool on) {
 
 }  // extern "C++"
 
+// --- Grecharged-loader-packfix: the FILE crash channel ----------------------
+// The owner's Honor (BKQ-N49, Android 16) drops EVERY logcat line a third-party
+// app emits, so the forensic dump further down writes into a void there. Worse:
+// because SIGILL is intercepted here (gk_install_sigsegv_diag) instead of being
+// left to debuggerd, a SIGILL also leaves no tombstone — the crash is totally
+// invisible. Measured on device 2026-07-29: a SIGABRT tombstones normally, a
+// SIGILL never does, and `logcat -s opengoal-gk` returns 0 lines while system
+// tags come through in plaintext.
+//
+// So write the minimum needed to symbolise the fault to a FILE, before the
+// expensive scan loops below, using ONLY async-signal-safe syscalls
+// (open/write/close — no stdio, no malloc, no dladdr, no logging). The path and
+// the libgk load base are resolved once at install time, off the signal path.
+static char g_gk_crash_path[512];
+static uintptr_t g_gk_lib_base;
+
+static void gk_crash_hex(char* out, unsigned long long v, int digits) {
+  static const char kHex[] = "0123456789abcdef";
+  for (int i = digits - 1; i >= 0; --i) {
+    out[i] = kHex[v & 0xf];
+    v >>= 4;
+  }
+}
+
+// Appends "<key>=0x<16 hex digits>\n" to buf at *n.
+static void gk_crash_kv(char* buf, size_t* n, const char* key, unsigned long long v) {
+  while (*key) {
+    buf[(*n)++] = *key++;
+  }
+  buf[(*n)++] = '=';
+  buf[(*n)++] = '0';
+  buf[(*n)++] = 'x';
+  gk_crash_hex(buf + *n, v, 16);
+  *n += 16;
+  buf[(*n)++] = '\n';
+}
+
+// Resolve <filesDir>/gk_crash.txt + the libgk load base. Idempotent, and NOT
+// signal-safe — call it from normal control flow only. g_data_root is
+// "<filesDir>/iso_data/<game>" (MainActivity.setDataRoot), so stripping the two
+// trailing components yields <filesDir>, where the runtime already drops
+// asset_route.txt and which `adb shell run-as` can read.
+static void gk_crashlog_resolve() {
+  if (g_gk_lib_base == 0) {
+    Dl_info di{};
+    if (dladdr(reinterpret_cast<void*>(&gk_crash_hex), &di) && di.dli_fbase) {
+      g_gk_lib_base = reinterpret_cast<uintptr_t>(di.dli_fbase);
+    }
+  }
+  if (g_gk_crash_path[0] || !g_data_root || !*g_data_root) {
+    return;
+  }
+  size_t len = strlen(g_data_root);
+  for (int drop = 0; drop < 2; drop++) {  // "/<game>", then "/iso_data"
+    while (len > 0 && g_data_root[len - 1] != '/') {
+      len--;
+    }
+    if (len > 0) {
+      len--;  // consume the '/' itself
+    }
+  }
+  static const char kTail[] = "/gk_crash.txt";
+  if (len == 0 || len + sizeof(kTail) > sizeof(g_gk_crash_path)) {
+    return;
+  }
+  memcpy(g_gk_crash_path, g_data_root, len);
+  memcpy(g_gk_crash_path + len, kTail, sizeof(kTail));
+}
+
+// pc/lr are emitted BOTH as raw addresses and as libgk.so file offsets, because
+// the offset is what llvm-addr2line consumes directly (the raw address is
+// useless off-device once ASLR has moved on).
+static void gk_write_crash_record(int sig, siginfo_t* info, void* ucontext) {
+  if (!g_gk_crash_path[0] || !ucontext) {
+    return;
+  }
+  int fd = open(g_gk_crash_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (fd < 0) {
+    return;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  const uintptr_t lr = uc->uc_mcontext.regs[30];
+  char buf[2048];
+  size_t n = 0;
+  for (const char* h = "GK-CRASH v1\n"; *h; h++) {
+    buf[n++] = *h;
+  }
+  gk_crash_kv(buf, &n, "sig", (unsigned long long)sig);
+  gk_crash_kv(buf, &n, "si_code", (unsigned long long)(info ? info->si_code : 0));
+  gk_crash_kv(buf, &n, "fault",
+              info ? (unsigned long long)reinterpret_cast<uintptr_t>(info->si_addr) : 0ull);
+  gk_crash_kv(buf, &n, "pc", (unsigned long long)pc);
+  gk_crash_kv(buf, &n, "lr", (unsigned long long)lr);
+  gk_crash_kv(buf, &n, "sp", (unsigned long long)uc->uc_mcontext.sp);
+  // A faulting address belongs to exactly one of two worlds, so emit the offset
+  // in BOTH and let whichever is in range identify it: libgk.so offsets feed
+  // llvm-addr2line, GOAL offsets feed the GOAL symbol map. kMaxMod bounds the
+  // subtraction so an out-of-module address prints 0 instead of a huge lie.
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const unsigned long long kMaxMod = 0x20000000ull;  // >> libgk.so, << any real gap
+  auto off_in = [&](uintptr_t v, uintptr_t base) -> unsigned long long {
+    if (!base || v < base) return 0ull;
+    unsigned long long d = (unsigned long long)(v - base);
+    return d < kMaxMod ? d : 0ull;
+  };
+  gk_crash_kv(buf, &n, "libgk_base", (unsigned long long)g_gk_lib_base);
+  gk_crash_kv(buf, &n, "pc_libgk_off", off_in(pc, g_gk_lib_base));
+  gk_crash_kv(buf, &n, "lr_libgk_off", off_in(lr, g_gk_lib_base));
+  gk_crash_kv(buf, &n, "ee_base", (unsigned long long)ee);
+  // pc_goal_off == 0 with a non-zero ee_base is the fn-ptr=0 signature: a GOAL
+  // symbol whose value slot was never filled, rebased by +X15 into a BLR.
+  gk_crash_kv(buf, &n, "pc_goal_off", off_in(pc, ee));
+  gk_crash_kv(buf, &n, "lr_goal_off", off_in(lr, ee));
+  for (int i = 0; i <= 30; i++) {
+    char key[4] = {'x', 0, 0, 0};
+    if (i < 10) {
+      key[1] = (char)('0' + i);
+    } else {
+      key[1] = (char)('0' + i / 10);
+      key[2] = (char)('0' + i % 10);
+    }
+    gk_crash_kv(buf, &n, key, (unsigned long long)uc->uc_mcontext.regs[i]);
+  }
+  (void)write(fd, buf, n);
+  close(fd);
+}
+
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // Gjak2-render re-entrancy guard: with SA_NODEFER a nested fault (e.g. a
   // dladdr STACKWALK crash) re-enters this handler instead of silently killing.
@@ -6929,6 +7057,13 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       a38_trip::handle_suspend_overflow_break(sig, info, ucontext)) {
     return;
   }
+  // Grecharged-loader-packfix: every resumable-fault repair above has declined,
+  // so this fault is FATAL. Persist the register file to <filesDir>/gk_crash.txt
+  // FIRST — on the owner's Honor this is the only channel that survives (no app
+  // logcat, and no tombstone for an intercepted SIGILL), and everything below
+  // this line is best-effort logging that device never sees.
+  gk_write_crash_record(sig, info, ucontext);
+
   // Diag-only: dump PC bytes and registers so we can decode the crashing
   // GOAL bytecode at offset (PC - g_ee_main_mem). Re-raise after dumping
   // by restoring SIG_DFL.
@@ -8685,8 +8820,13 @@ void gk_install_sigsegv_diag() {
   sh.sa_sigaction = &gk_sigusr2_hang_dump;
   sh.sa_flags = SA_SIGINFO;
   sigaction(SIGUSR2, &sh, nullptr);
+  // Grecharged-loader-packfix: resolve the crash-record path + libgk load base
+  // now, while we are still on normal control flow (dladdr/strlen are not
+  // async-signal-safe, so the handler itself must not do this).
+  gk_crashlog_resolve();
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
-                      "gk_install_sigsegv_diag: installed (+A37 SIGUSR2 hang dump)");
+                      "gk_install_sigsegv_diag: installed (+A37 SIGUSR2 hang dump, crash record -> %s)",
+                      g_gk_crash_path[0] ? g_gk_crash_path : "(unresolved)");
 }
 }  // namespace
 
@@ -9129,6 +9269,12 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
                         "was not called before SDL thread launch");
     return 1;
   }
+
+  // Grecharged-loader-packfix: belt-and-braces. gk_install_sigsegv_diag ran as
+  // the first statement of this function and normally resolves the crash-record
+  // path there; retry now that data_root is proven non-empty, in case the JNI
+  // setter had not landed yet. Idempotent.
+  gk_crashlog_resolve();
 
   // Phase F1d (autoport): derive the app-private files dir from data_root
   // (<files>/iso_data/<game>), used for two things below.
