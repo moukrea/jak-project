@@ -114,7 +114,7 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 | 20 | **Displacement** [R] | carousell | **Off / Parallax / Tessellation**, **défaut Parallax** → `pbr-displacement` (0/1/2) — mode de déplacement du chemin PBR MATERIALS, poussé en index brut via `pc-set-pbr-displacement!` (cond: **PBR Materials OFF** ou RECHARGED MASTER OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 21 | **PBR Test Preset** [R] | carousell | **DEBUG (retirable plus tard)** — **ALL-IN / FUSED / FUSED FLAT / PBR ONLY / RT ONLY / STOCK**, **défaut FUSED** → `pbr-test-preset` (0..5) ; applicateur one-click : à la confirmation il ÉCRIT les réglages sous-jacents (master/textures/pbr/realtime/custom-assets + relief/spéculaire/displacement/ambient-model) et le `commit-to-file` partagé persiste tout. **TOUJOURS actif** (pas de option-disabled-func) — le preset STOCK met `recharged-master?` à OFF, la ligne doit rester utilisable pour revenir en arrière. **RT ONLY (idx 4) garde `load-custom-assets?` ON depuis 2026-07-23** (RT sur textures custom, cartes PBR OFF). **Ajout Gpbr-fusion REOPEN #3** | {FLAG_PBR} |
 | 22 | **PBR Isolate** [R] | carousell | **DEBUG (retirable plus tard)** — **BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER**, défaut BOTH → `pbr-isolate` (0..3), poussé chaque frame en index brut via `pc-set-pbr-isolate!` ; setter C++ mappe index→masque `u_pbr_bisect` (BOTH 0 / NORMAL-MAP ONLY 128 / PARALLAX ONLY 64 / NEITHER 192) et écrit l'état dans `files/pbr_tan_diag.txt` à chaque changement. Bisection de terme IN-MENU (owner isole les facettes sans adb). Grisé selon **PBR Materials OFF** ou RECHARGED MASTER OFF. **Ajout Gpbr-fusion REOPEN #10 ; diag REOPEN #11 ; labels d'option = strings globales runtime (bank-indépendant) REOPEN #11 pré-livraison** | {FLAG_PBR} |
-| 23 | **MESH BROWSER** [R] | button | **DEBUG — navigateur de mesh** (`pc-text-mesh-browser` #x1728). Ouvre l'overlay `*mesh-browser*` (warp dans n'importe quel niveau, prévisualise n'importe quel mesh avec textures/PBR, bascule damier/tessellation/relief/heure, orbite libre + rotation lumière-vs-mesh, note hors-ligne affichée). **TOUJOURS actif** (un outil debug doit rester atteignable même master OFF) ; respond-common appelle `mesh-browser-open!` et repasse en `master-mode 'game`. Tactile ET manette, sans adb. **Ajout Grecharged-mesh-browser** | — |
+| 23 | **MESH BROWSER** [R] | button | **DEBUG — navigateur de mesh** (`pc-text-mesh-browser` #x1728). Ouvre l'overlay `*mesh-browser*` : **CAMÉRA LIBRE** autour de n'importe quel mesh des **25 niveaux** indexés — **le joueur n'est JAMAIS déplacé**, c'est la caméra qui va au mesh —, prévisualise textures/PBR, bascule damier / tessellation-parallax-off / relief / heure du jour, orbite 360° + élévation ±89° (dessus d'un toit comme dessous d'un surplomb), spin du mesh, note hors-ligne affichée. **TOUJOURS actif** (un outil debug doit rester atteignable même master OFF) ; respond-common appelle `mesh-browser-open!` et repasse en `master-mode 'game`. Tactile (glissement + inertie, poignée de défilement, tap direct, pincement) ET manette, sans adb. **Ajout Grecharged-mesh-browser ; tactile réel + FREE CAM, RÉOUVERTURES 2026-07-29** | — |
 | 24 | Back | button | (jamais grisé) | — |
 
 > **Ajout (2026-07-23, Gpbr-fusion REOPEN #2)** : deux sliders **Texture Relief** (0..3, défaut 1.5) et
@@ -282,6 +282,35 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > plus la vue en `View.GONE` tant que le navigateur est ouvert (GONE = plus aucun hit-test = plus aucun
 > geste). État observable écrit dans `files/mesh_browser_state.txt` (copie-sortie pour l'owner sans adb, et
 > preuve falsifiable geste→changement d'état).
+>
+> **RÉOUVERTURE #2 (2026-07-29, owner : « le warp to model warp toujours au même endroit, et warp le joueur…
+> moi je voulais pouvoir tourner en FREE CAM autour dudit mesh (origine au centre du modèle) »)**.
+> La ligne de menu reste INCHANGÉE (même id `pc-text-mesh-browser`, même position 23, même `respond-common`) ;
+> c'est la sémantique de la SÉLECTION D'UN MESH qui change :
+> - **LE JOUEUR N'EST PLUS JAMAIS DÉPLACÉ.** L'ancien code posait `current-continue` puis appelait
+>   `(initialize! *game-info* 'die …)`, ce qui fait RÉAPPARAÎTRE Jak au point de continue du niveau —
+>   un seul et même endroit par niveau, littéralement le « toujours au même endroit » constaté — puis
+>   l'épinglait sur le centroïde chaque frame (`mesh-browser-pin-jak`, SUPPRIMÉ). Plus une seule écriture
+>   de position joueur dans le fichier.
+> - **Seule la CAMÉRA va au mesh**, sur une sphère d'orbite centrée sur le CENTROÏDE de l'index, distance
+>   initiale déduite de la BOÎTE ENGLOBANTE. Valide parce que la visibilité du décor est pilotée par la
+>   CAMÉRA et non par le joueur (`update-visible` → `bsp-camera-asm((-> *math-camera* trans))`,
+>   `engine/camera/cam-update.gc:84-97`).
+> - **Le NIVEAU** (pas le joueur) est demandé quand le mesh vit ailleurs, via le mécanisme de streaming
+>   `load-state-want-levels` ; le niveau où se tient Jak est gardé dans le second slot pour que le sol sous
+>   lui ne soit jamais déchargé.
+> - Le joueur est mis en SOMMEIL (`(process-mask sleep)`, l'idiome moteur) pour qu'il ne s'égare pas hors
+>   champ — endormir ne déplace pas. Les boutons du pad sont blanchis après lecture pour que START
+>   n'ouvre pas le menu pause par-dessus l'overlay.
+> - **Élévation ±89°** (`MB_EL_MIN/MB_EL_MAX`) : on peut regarder un toit à la verticale du dessus ET la
+>   face inférieure d'un surplomb à la verticale du dessous. Azimut 360° inchangé.
+> - **Le sélecteur de niveau liste désormais les 25 niveaux indexés** (au lieu de 15) et défile avec la même
+>   physique tactile que la liste de mesh.
+> - Le damier ne re-warpe plus : il re-demande le NIVEAU (le pattern est substitué au chargement de texture,
+>   `LoaderStages.cpp:149`), ce qui recharge les textures sans toucher au joueur.
+> - `files/mesh_browser_state.txt` porte maintenant `focus=` (centroïde), `cam=` (position réelle de
+>   `*math-camera*`), `cam_r=` et `player_moved=` : de quoi prouver, mesh par mesh, que la caméra se centre
+>   bien sur CE centroïde-là et que le joueur n'a pas bougé d'un millimètre.
 
 ---
 

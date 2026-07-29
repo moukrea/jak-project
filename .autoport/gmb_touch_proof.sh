@@ -1,31 +1,38 @@
 #!/usr/bin/env bash
 # =====================================================================================
-# Grecharged-mesh-browser REOPEN — INJECTED-GESTURE PROOF
+# Grecharged-mesh-browser — INJECTED-GESTURE PROOF + FREE-CAMERA / CENTROID PROOF
 #
-# Owner, 2026-07-29: "C'est impossible a parcourir via le tactile (le mesh browser)".
-# The previous gate accepted the WORD "touch" in a report, which proves nothing. This
-# script proves the only thing that matters: that a REAL touch event, injected from
-# outside the process, CHANGES THE BROWSER'S STATE.
+# Two owner corrections, both proven here on the real device, both falsifiable.
 #
-# Method. Every gesture below is injected with `input tap` / `input swipe` (and, for the
-# two-finger pinch, `monkey --pct-pinchzoom`, because `input` is single-pointer and
-# `sendevent` on /dev/input/event3 is SELinux-denied to shell on this device). Those go
-# through the ordinary Android input pipeline into TouchOverlayView.onTouchEvent, exactly
-# like the owner's finger. After each gesture the browser's OWN observable state is read
-# back from files/mesh_browser_state.txt via run-as. A test passes only if the state
-# MOVED in the expected field. No screenshot is used and no visual judgement is made:
-# the agent is not allowed to judge the visual, and a screenshot could not prove
-# causation anyway.
+# (1) 2026-07-29: "C'est impossible a parcourir via le tactile (le mesh browser)".
+#     The previous gate accepted the WORD "touch" in a report, which proves nothing.
+#     Every gesture below is injected with `input tap` / `input swipe` (and, for the
+#     two-finger pinch, monkey's pinch-zoom generator, because `input` is single-pointer
+#     and `sendevent` on the touchscreen node is SELinux-denied to shell here). Those go
+#     through the ordinary Android input pipeline into TouchOverlayView.onTouchEvent,
+#     exactly like the owner's finger. After each gesture the browser's OWN observable
+#     state is read back from files/mesh_browser_state.txt via run-as. A test passes only
+#     if the state MOVED in the expected field. No screenshot is used and no visual
+#     judgement is made: the agent is not allowed to judge the visual, and a screenshot
+#     could not prove causation anyway.
+#
+# (2) 2026-07-29: "le warp to model warp toujours au meme endroit, et warp le joueur...
+#     je voulais pouvoir tourner en free cam autour dudit mesh (origine au centre du
+#     modele)". Section 12 opens FIVE meshes with very different centroids and checks,
+#     for each, that the CAMERA landed on that mesh's centroid (compared against the
+#     shipped index file, not against our own intention) and that the PLAYER did not
+#     move at all. A fixed point would show up as five identical cam= values.
 #
 # Gamepad is used for ONE thing only: walking the option menu to reach the browser
-# (the menu row itself is pre-existing and the owner already reaches it). Everything
-# under test after that point is touch.
+# (that row is pre-existing and the owner already reaches it). Everything under test
+# after that point is touch.
 # =====================================================================================
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S="${S:-eae4df44}"
 PKG=org.opengoal.gk.jak1
+IDX=custom_assets/jak1/mesh_index/mesh_index_village1.txt
 OUT=.autoport/reports/Grecharged-mesh-browser/touch-proof
 mkdir -p "$OUT"
 LOG="$OUT/proof-log.txt"; : > "$LOG"
@@ -43,7 +50,7 @@ snap(){ STATE="$(adb exec-out run-as $PKG cat files/mesh_browser_state.txt 2>/de
 field(){ printf '%s\n' "$STATE" | grep -oE "(^| )$1=[^ ]*" | tail -1 | cut -d= -f2-; }
 
 PASS=0; FAIL=0
-# check <label> <field> <before> <after> <mode:changed|equals> [expected]
+# check <label> <field> <before> <after> <mode:changed|equals|grew> [expected]
 check(){
   local label="$1" f="$2" b="$3" a="$4" mode="$5" exp="${6:-}"
   local ok=0
@@ -54,6 +61,11 @@ check(){
   esac
   if [ "$ok" = 1 ]; then PASS=$((PASS+1)); say "  PASS  $label : $f  $b -> $a"
   else FAIL=$((FAIL+1)); say "  FAIL  $label : $f  $b -> $a  (expected $mode ${exp:-})"; fi
+}
+# assert <label> <condition-as-awk-expr> <detail>
+assert(){
+  if awk "BEGIN{exit !($2)}"; then PASS=$((PASS+1)); say "  PASS  $1  [$3]"
+  else FAIL=$((FAIL+1)); say "  FAIL  $1  [$3]"; fi
 }
 
 # ---- 0. device + coordinate space ----------------------------------------------------
@@ -102,12 +114,13 @@ say "--- initial state ---"; printf '%s\n' "$STATE" | tee -a "$LOG"
 say ""
 say "=== 2. TOUCH: tap a level row (direct selection, no cursor) ==="
 b_mode="$(field mode)"
-tap_n 0.30 0.20 3.0     # first level row band
+tap_n 0.30 0.20 4.0     # first level row band = village1
 snap; a_mode="$(field mode)"
 check "tap level row -> enters the mesh LIST" "mode" "$b_mode" "$a_mode" changed
 say "--- state ---"; printf '%s\n' "$STATE" | tee -a "$LOG"
 NTOT="$(field n_filtered)"
-say "list holds n_filtered=$NTOT rows (village1 is 3613 — a one-row-at-a-time list is unusable by construction)"
+say "list holds n_filtered=$NTOT rows (thousands of entries: village1's index is 9508 meshes —"
+say "stepping that one row at a time is unusable by construction, which is what the owner hit)"
 
 # ---- 3. header buttons by tap --------------------------------------------------------
 say ""
@@ -157,13 +170,13 @@ say "  returned to scroll=$(field scroll)"
 say ""
 say "=== 7. TOUCH: tap a row to select it, tap it again to open it ==="
 snap; b="$(field sel)"; bmat="$(field material)"
-tap_n 0.40 0.45 1.2; snap; a="$(field sel)"; amat="$(field material)"
+tap_n 0.40 0.45 1.5; snap; a="$(field sel)"; amat="$(field material)"
 check "tap a row selects THAT row" "sel" "$b" "$a" changed
 say "  material: $bmat -> $amat"
 b_mode="$(field mode)"
-tap_n 0.40 0.45 6.0      # second tap on the selected row = warp+observe (level load)
+tap_n 0.40 0.45 6.0      # second tap on the selected row = free cam + OBSERVE
 snap; a_mode="$(field mode)"
-check "second tap opens the mesh (warp -> OBSERVE)" "mode" "$b_mode" "$a_mode" equals "OBSERVE"
+check "second tap opens the mesh (free camera -> OBSERVE)" "mode" "$b_mode" "$a_mode" equals "OBSERVE"
 say "--- observe state ---"; printf '%s\n' "$STATE" | tee -a "$LOG"
 
 # ---- 8. ORBIT by drag, ELEVATION by the other drag axis ------------------------------
@@ -180,7 +193,7 @@ check "vertical drag changes ELEVATION (a distinct gesture)" "cam_el" "$bel" "$a
 # ---- 9. PINCH to zoom (two real pointers) -------------------------------------------
 say ""
 say "=== 9. TOUCH: pinch to zoom (genuine 2-pointer MotionEvents) ==="
-say "  note: 'input' is single-pointer and sendevent on /dev/input/event3 is SELinux-denied"
+say "  note: 'input' is single-pointer and sendevent on the touchscreen node is SELinux-denied"
 say "  to shell on this device, so the two-finger gesture is injected with monkey's"
 say "  pinch-zoom generator, which emits real 2-pointer MotionEvents into this package."
 snap; b="$(field cam_dist)"; bp="$(printf '%s\n' "$STATE" | grep -oE 'pinches=[0-9]+' | cut -d= -f2)"
@@ -204,30 +217,104 @@ b="$(field tod)"; tap_n 0.18 0.92 1.5; snap; a="$(field tod)"
 check "tap TOD+ changes the time of day" "tod" "$b" "$a" changed
 b="$(field tod)"; tap_n 0.47 0.92 1.5; snap; a="$(field tod)"
 check "tap NIGHT jumps the time of day" "tod" "$b" "$a" changed
-b="$(field checker)"; tap_n 0.04 0.78 6.0; snap; a="$(field checker)"
+b="$(field checker)"; tap_n 0.04 0.78 8.0; snap; a="$(field checker)"
 check "tap CHECKER swaps texture<->checker" "checker" "$b" "$a" changed
+# leave the checker OFF again so section 12 observes the real textures
+tap_n 0.04 0.78 8.0; snap
+say "  checker back to $(field checker)"
 
-# ---- 11. leave by finger -------------------------------------------------------------
+# ---- 11. leave OBSERVE by finger ----------------------------------------------------
 say ""
-say "=== 11. TOUCH: leave the browser with a finger ==="
+say "=== 11. TOUCH: leave the 3D view with a finger ==="
 snap; b_mode="$(field mode)"
-tap_n 0.76 0.92 1.5; snap; a_mode="$(field mode)"     # LIST
+tap_n 0.76 0.92 2.0; snap; a_mode="$(field mode)"     # LIST
 check "tap LIST returns to the mesh list" "mode" "$b_mode" "$a_mode" changed
 
-# ---- 12. the raw channel counters ----------------------------------------------------
+# ---- 12. FREE CAMERA: 5 meshes, 5 different centroids, player untouched --------------
 say ""
-say "=== 12. RAW CHANNEL (the Java -> JNI -> GOAL chain actually fired) ==="
+say "=== 12. FREE CAMERA / CENTROID ACCURACY (owner: 'warp toujours au meme endroit') ==="
+say "For five meshes at very different places in village1, reached BY FINGER: does the camera"
+say "actually centre on THAT mesh's centroid, and does the player stay put? The expected"
+say "centroid is read from the shipped index file, not from what the browser told us."
+say ""
+HOME_XYZ=""; PREV_CAM=""; NCENT=0
+CENT_LOG="$OUT/centroids.txt"; : > "$CENT_LOG"
+for FRAC in 0.03 0.28 0.50 0.72 0.96; do
+  # jump the fast-scroll handle to this fraction of the list, then tap a row twice
+  HY=$(awk "BEGIN{printf \"%.4f\", 0.20 + $FRAC*0.68}")
+  swipe_n 0.97 0.20 0.97 "$HY" 800 1.5
+  tap_n 0.40 0.45 1.5           # select
+  tap_n 0.40 0.45 7.0           # open -> free camera + OBSERVE
+  snap
+  MODE="$(field mode)"; ROW="$(field row)"; MAT="$(field material)"
+  FOC="$(field focus)"; CAM="$(field cam)"; CR="$(field cam_r)"; CD="$(field cam_dist)"
+  PLR="$(field player)"; PMV="$(field player_moved)"; LVS="$(field lvl_status)"
+  say "--- mesh #$((NCENT+1)): row=$ROW material=$MAT mode=$MODE lvl_status=$LVS"
+  say "    index centroid (expected) : $(awk -v r="$ROW" 'NR==r+2{printf "%s,%s,%s", $8,$9,$10}' "$IDX")"
+  say "    browser focus (centroid)  : $FOC"
+  say "    camera world position     : $CAM"
+  say "    |cam-centroid|=$CR   orbit radius cam_dist=$CD"
+  say "    player=$PLR  player_moved=$PMV m"
+  echo "$ROW $MAT $FOC $CAM $CR $CD $PMV" >> "$CENT_LOG"
+  if [ "$MODE" = "OBSERVE" ] && [ -n "$FOC" ] && [ -n "$ROW" ]; then
+    EXP="$(awk -v r="$ROW" 'NR==r+2{printf "%s,%s,%s", $8,$9,$10}' "$IDX")"
+    # the browser's orbit origin must BE the index's centroid for this row
+    ex=${EXP%%,*}; er=${EXP#*,}; ey=${er%%,*}; ez=${er##*,}
+    fx=${FOC%%,*}; fr=${FOC#*,}; fy=${fr%%,*}; fz=${fr##*,}
+    assert "mesh #$((NCENT+1)) orbit origin == the INDEX centroid of row $ROW" \
+      "($fx-$ex)^2+($fy-$ey)^2+($fz-$ez)^2 < 0.01" "index=$EXP browser=$FOC"
+    # the camera must sit on the orbit sphere around THAT centroid
+    assert "mesh #$((NCENT+1)) camera is centred on that centroid" \
+      "($CR-$CD)^2 < 4.0" "|cam-centroid|=$CR vs radius=$CD (metres)"
+    # and the player must not have moved a millimetre
+    assert "mesh #$((NCENT+1)) player did NOT move" "$PMV < 0.001" "player_moved=$PMV m"
+    # distinct camera positions: a fixed point would repeat
+    if [ -n "$PREV_CAM" ]; then
+      pcx=${PREV_CAM%%,*}; pr=${PREV_CAM#*,}; pcy=${pr%%,*}; pcz=${pr##*,}
+      cx=${CAM%%,*}; cr2=${CAM#*,}; cy=${cr2%%,*}; cz=${cr2##*,}
+      assert "mesh #$((NCENT+1)) camera moved vs the previous mesh (no fixed point)" \
+        "($cx-$pcx)^2+($cy-$pcy)^2+($cz-$pcz)^2 > 1.0" "prev=$PREV_CAM now=$CAM"
+    fi
+    PREV_CAM="$CAM"
+    NCENT=$((NCENT+1))
+  else
+    FAIL=$((FAIL+1)); say "  FAIL  mesh #$((NCENT+1)) did not reach OBSERVE (mode=$MODE)"
+  fi
+  tap_n 0.76 0.92 2.0    # LIST, by finger
+done
+say ""
+say "meshes checked for camera-vs-centroid accuracy: $NCENT (>=5 required)"
+[ "$NCENT" -ge 5 ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); say "  FAIL  fewer than 5 meshes checked"; }
+# distinct centroids across the five
+DISTINCT=$(awk '{print $3}' "$CENT_LOG" | sort -u | wc -l)
+say "distinct centroids among them: $DISTINCT"
+[ "$DISTINCT" -ge 5 ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); say "  FAIL  centroids were not distinct"; }
+
+# ---- 13. leave the browser entirely, by finger --------------------------------------
+say ""
+say "=== 13. TOUCH: leave the browser with a finger ==="
+tap_n 0.40 0.45 1.5; tap_n 0.40 0.45 6.0   # back into OBSERVE so EXIT is on screen
+snap; b_mode="$(field mode)"
+tap_n 0.93 0.92 2.5                         # EXIT
 snap
-printf '%s\n' "$STATE" | tee -a "$LOG"
+if [ -z "$STATE" ] || [ "$(field mode)" = "CLOSED" ]; then
+  PASS=$((PASS+1)); say "  PASS  tap EXIT closed the browser (mode was $b_mode)"
+else
+  FAIL=$((FAIL+1)); say "  FAIL  tap EXIT did not close the browser (mode=$(field mode))"
+fi
+
+# ---- 14. the raw channel counters ----------------------------------------------------
+say ""
+say "=== 14. RAW CHANNEL (the Java -> JNI -> GOAL chain actually fired) ==="
 CNT="$(printf '%s\n' "$STATE" | grep -oE 'touch_events=[0-9]+ taps=[0-9]+ drags=[0-9]+ pinches=[0-9]+ flings=[0-9]+')"
 say "counters: $CNT"
 adb logcat -d -v brief 2>/dev/null | grep -a 'overlay-browser:' | tail -8 | tee -a "$LOG"
 adb logcat -d -v brief 2>/dev/null | grep -a -c 'overlay-browser:' \
   | sed 's/^/overlay-browser marker lines in logcat: /' | tee -a "$LOG"
 
-# ---- 13. no-crash ---------------------------------------------------------------------
+# ---- 15. no-crash ---------------------------------------------------------------------
 say ""
-say "=== 13. STILL ALIVE ==="
+say "=== 15. STILL ALIVE ==="
 say "focus: $(adb shell dumpsys window 2>/dev/null | grep -m1 -i mCurrentFocus | tr -d '\r')"
 adb shell dumpsys activity exit-info $PKG 2>/dev/null | grep -iE 'reason|signal' | tail -6 | tee -a "$LOG"
 

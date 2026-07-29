@@ -1702,7 +1702,12 @@ extern "C" void pc_mb_touch_event(int action, int n, float x0, float y0, float x
         }
         g_mb.vel_y = 0;
       }
-      g_mb.up_seq++;
+      // Only a gesture that ENDED raises the up edge. ACTION_POINTER_UP fires with fingers still
+      // down (lifting one of two during a pinch); raising the edge there made GOAL end the drag
+      // mid-pinch, which felt like the zoom "letting go" halfway.
+      if (n <= 0) {
+        g_mb.up_seq++;
+      }
       g_mb.fingers = n < 0 ? 0 : n;
       g_mb.have_prev1 = false;
       g_mb.have_prev2 = false;
