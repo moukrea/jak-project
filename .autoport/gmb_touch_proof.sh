@@ -44,8 +44,23 @@ inject(){ printf '%s' "$1" | adb shell "run-as $PKG sh -c 'cat > $INJECT'" >/dev
 padb(){ inject "$1"; sleep 0.4; inject ""; sleep "${2:-0.9}"; }
 
 # ---- state readback ------------------------------------------------------------------
+# The state file lands at file_util::get_jak_project_dir()/mesh_browser_state.txt. In INTERNAL
+# asset-root mode that is files/; in EXTERNAL mode (files/asset_root.txt present, e.g.
+# /storage/emulated/0/OpenGOAL/jak1) it is that external root. Read both; take whichever answers.
+# (memory: run-as output must be judged by CONTENT, its exit code lies for missing files.)
+EXT_ROOT="$(adb exec-out run-as $PKG cat files/asset_root.txt 2>/dev/null | tr -d '\r\n')"
 STATE=""
-snap(){ STATE="$(adb exec-out run-as $PKG cat files/mesh_browser_state.txt 2>/dev/null)"; }
+snap(){
+  STATE="$(adb exec-out run-as $PKG cat files/mesh_browser_state.txt 2>/dev/null)"
+  if [ -z "$STATE" ] && [ -n "$EXT_ROOT" ]; then
+    STATE="$(adb shell cat "$EXT_ROOT/mesh_browser_state.txt" 2>/dev/null | tr -d '\r')"
+  fi
+}
+rm_state(){
+  adb shell run-as $PKG rm -f files/mesh_browser_state.txt >/dev/null 2>&1 || true
+  [ -n "$EXT_ROOT" ] && adb shell rm -f "$EXT_ROOT/mesh_browser_state.txt" >/dev/null 2>&1
+  true
+}
 # field <name> -> value ("" if absent). Read from the last snap().
 field(){ printf '%s\n' "$STATE" | grep -oE "(^| )$1=[^ ]*" | tail -1 | cut -d= -f2-; }
 
@@ -92,20 +107,26 @@ swipe_n(){ adb shell input swipe "$(px $1)" "$(py $2)" "$(px $3)" "$(py $4)" "${
 # ---- 1. reach the browser (gamepad nav; the row is pre-existing) ----------------------
 say ""
 say "=== 1. OPEN THE BROWSER (menu nav only; every later step is touch) ==="
-adb shell run-as $PKG rm -f files/mesh_browser_state.txt >/dev/null 2>&1 || true
+rm_state
 opened=0
+# D = downs from GRAPHIC OPTIONS to the RECHARGED SETTINGS row: 7 when Min Target FPS is hidden
+# (Dynamic Render Scale OFF), 8 when visible — the device's persisted setting decides, probe both.
+# K = downs inside Recharged Settings to the MESH BROWSER row (23 with all rows present).
+for D in 7 8; do
 for K in 23 22 24 21 25 20 26; do
   padb "start" 2.5
   padb "down" 0.7; padb "down" 0.7; padb "x" 2.0      # OPTIONS
   padb "down" 0.8; padb "x" 2.0                        # GRAPHIC OPTIONS
-  for i in $(seq 1 7); do padb "down" 0.5; done        # RECHARGED SETTINGS row
+  for i in $(seq 1 "$D"); do padb "down" 0.5; done     # RECHARGED SETTINGS row
   padb "x" 1.8
   for i in $(seq 1 "$K"); do padb "down" 0.35; done    # walk to MESH BROWSER
   padb "x" 2.5
   snap
-  if [ -n "$STATE" ]; then say "browser OPEN after $K downs; mode=$(field mode)"; opened=1; break; fi
-  say "  (K=$K did not open it; backing out)"
+  if [ -n "$STATE" ]; then say "browser OPEN after D=$D downs + K=$K downs; mode=$(field mode)"; opened=1; break; fi
+  say "  (D=$D K=$K did not open it; backing out)"
   padb "triangle" 0.8; padb "triangle" 0.8; padb "triangle" 0.8; padb "start" 1.2
+done
+[ "$opened" = 1 ] && break
 done
 [ "$opened" = 1 ] || { say "COULD NOT OPEN THE BROWSER — abort"; exit 1; }
 say "--- initial state ---"; printf '%s\n' "$STATE" | tee -a "$LOG"
@@ -203,6 +224,13 @@ adb shell monkey -p $PKG --pct-pinchzoom 100 --pct-touch 0 --pct-motion 0 --pct-
 sleep 2.0; snap; a="$(field cam_dist)"; ap="$(printf '%s\n' "$STATE" | grep -oE 'pinches=[0-9]+' | cut -d= -f2)"
 say "  pinch samples recognised: $bp -> $ap"
 check "pinch changes the camera distance" "cam_dist" "$b" "$a" changed
+# monkey's pinches are random-positioned; a sub-500ms one can register as a stray TAP and press a
+# button (worst case LIST/EXIT). Recover the OBSERVE mode before the button tests if that happened.
+if [ "$(field mode)" != "OBSERVE" ]; then
+  say "  (stray monkey tap left mode=$(field mode); recovering OBSERVE)"
+  tap_n 0.40 0.45 1.5; tap_n 0.40 0.45 6.0; snap
+  say "  recovered mode=$(field mode)"
+fi
 
 # ---- 10. every toggle by finger -----------------------------------------------------
 say ""
@@ -210,7 +238,13 @@ say "=== 10. TOUCH: every observation toggle, by finger, no gamepad ==="
 snap; b="$(field disp)"; tap_n 0.32 0.78 1.5; snap; a="$(field disp)"
 check "tap DISP+ changes displacement" "disp" "$b" "$a" changed
 b="$(field relief)"; tap_n 0.61 0.78 1.5; snap; a="$(field relief)"
-check "tap REL+ changes the relief slider" "relief" "$b" "$a" changed
+if [ "$a" = "$b" ]; then
+  # relief is a CLAMPED slider (0..3); if the device sat at the max, REL+ is a legitimate no-op —
+  # prove the finger drives it with REL- instead.
+  say "  (relief already at a bound: REL+ no-op at $b; proving with REL-)"
+  tap_n 0.50 0.78 1.5; snap; a="$(field relief)"
+fi
+check "tap REL+/REL- changes the relief slider" "relief" "$b" "$a" changed
 b="$(field spin)"; tap_n 0.90 0.78 1.5; snap; a="$(field spin)"
 check "tap SPIN+ rotates the MESH (camera+light together)" "spin" "$b" "$a" changed
 b="$(field tod)"; tap_n 0.18 0.92 1.5; snap; a="$(field tod)"

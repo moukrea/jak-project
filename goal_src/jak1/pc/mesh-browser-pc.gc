@@ -253,7 +253,10 @@
     (new 'static 'mesh-browser-level :index-name "title"      :sym 'title)))
 
 ;; view backing store (max index we can hold; village1 is 3613)
-(defconstant MB_MAX_MESHES 8192)
+;; Sized to the LARGEST shipped index (lavatube, 19490 rows), measured over all 25 mesh_index files.
+;; The previous 8192 silently dropped more than half of lavatube and a third of village1 from the
+;; list — "tout previsualiser" forbids a silent cap. 20480 x int32 = 80 KB, allocated once.
+(defconstant MB_MAX_MESHES 20480)
 (set! (-> *mesh-browser* view) (new 'global 'boxed-array int32 MB_MAX_MESHES))
 (set! (-> *mesh-browser* name-buf)  (new 'global 'string 64 (the string #f)))
 (set! (-> *mesh-browser* level-buf) (new 'global 'string 64 (the string #f)))
@@ -772,6 +775,10 @@
   (set! (-> obj browse-level) (the symbol #f))
   ;; hand touch back to the virtual gamepad — the overlay is byte-identical from here on.
   (pc-mb-set-active! 0)
+  ;; one FINAL state dump so the file says mode=CLOSED. The state file is the evidence channel: a
+  ;; harness (or the supervisor reading it back for the owner) that samples it after an EXIT tap
+  ;; must see the close happen, not the last OBSERVE state frozen in place.
+  (mesh-browser-dump-state obj)
   (none))
 
 ;; ---- LEVEL PICKER ---------------------------------------------------------------------------------
@@ -1035,7 +1042,10 @@
 
 (defun mesh-browser-bump-disp ((obj mesh-browser) (dir int))
   ;; drive the pc-settings field the menu owns; update-to-os pushes it to C++ every frame.
-  (set! (-> *pc-settings* pbr-displacement) (max 0 (min 2 (+ (-> *pc-settings* pbr-displacement) dir))))
+  ;; WRAPS (0 1 2 0 ...) like every other carousel: with a clamp, a single DISP+ tap while the
+  ;; device already sits at TESSELLATION is a silent no-op — the finger does something only
+  ;; sometimes, which reads as "touch is broken" precisely when the owner has been testing tess.
+  (set! (-> *pc-settings* pbr-displacement) (mod (+ (-> *pc-settings* pbr-displacement) dir 3) 3))
   (none))
 
 (defun mesh-browser-bump-relief ((obj mesh-browser) (d float))
@@ -1297,8 +1307,11 @@
               (pc-mesh-index-geti raw MB_GI_SHELL) (pc-mesh-index-geti raw MB_GI_TEX)
               (mb-grade-string obj raw))
       (pc-mb-state-line! (-> obj line-buf))))
+  ;; cam_dist in METRES, same unit as cam_r/focus/cam below: the harness asserts cam_r == cam_dist
+  ;; to prove the camera sits on the orbit sphere, and a GOAL-units cam_dist next to a metres cam_r
+  ;; makes that comparison fail by construction (4096x apart).
   (format (clear (-> obj line-buf)) "cam_az=~f cam_el=~f cam_dist=~f spin=~f"
-          (-> obj obs-az) (-> obj obs-el) (-> obj obs-dist) (-> obj spin))
+          (-> obj obs-az) (-> obj obs-el) (* MB_M (-> obj obs-dist)) (-> obj spin))
   (pc-mb-state-line! (-> obj line-buf))
   ;; ---- FREE-CAMERA EVIDENCE, all in METRES ------------------------------------------------------
   ;; focus  = this mesh's centroid, straight out of the index; it IS the orbit origin.
