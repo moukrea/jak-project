@@ -21,6 +21,13 @@ grep -qiE 'relief' "$R" || fail "no relief slider"
 grep -qiE 'grade|note' "$R" || fail "the offline test's grade is not displayed on screen (the confirm/refute loop)"
 # 5. touch AND gamepad, no adb
 grep -qiE 'touch|tactile' "$R" || fail "touch control not evidenced (the owner has no adb)"
+# OWNER 2026-07-29: "impossible a parcourir via le tactile". The word "touch" in a report proves
+# nothing — demand the gesture -> state-change chain, injected and observed on the device.
+grep -qiE 'input (swipe|tap)|injected (gesture|touch)|geste inject' "$R" || fail "TOUCH: no injected gesture evidence (input swipe/tap) driving the browser"
+grep -qiE '(swipe|glissement)[^.]{0,60}(scroll|defil|list)' "$R" || fail "TOUCH: list scrolling by swipe not demonstrated"
+grep -qiE 'pinch|pincer' "$R" || fail "TOUCH: pinch-to-zoom in the 3D view not demonstrated"
+grep -qiE 'state change|changement d.etat|selected mesh changed|etat du navigateur' "$R" || fail "TOUCH: gestures not shown to CHANGE the browser state (a screenshot proves nothing)"
+grep -qiE '3613|thousands|milliers' "$R" || fail "TOUCH: scrolling a 3613-entry list not addressed (one-step-at-a-time is unusable by construction)"
 grep -qiE 'gamepad|manette|pad' "$R" || fail "gamepad control not evidenced"
 grep -qiE 'without adb|sans adb|no setprop' "$R" || fail "not proven reachable without adb/setprop"
 # 6. debug-only, no regression, menu doc

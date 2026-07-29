@@ -102,3 +102,33 @@ Deux conséquences fermes :
    26 niveaux de jak1. La génération est mécanique (le même outil, une passe par niveau) : il n'y a
    aucune raison de livrer un navigateur qui ne montre qu'un niveau sur 26. Chiffre le poids total de
    l'index et embarque-le dans l'APK comme le reste du dérivé.
+
+--------------------------------------------------------------------------------
+OWNER 2026-07-29 — LE NAVIGATEUR N'EST PAS UTILISABLE AU TACTILE
+--------------------------------------------------------------------------------
+Owner : "C'est impossible à parcourir via le tactile (le mesh browser)"
+
+C'était une exigence explicite dès la demande initiale ("totalement contrôlable au tactile sur
+mobile et à la manette"), et le gate la réclamait — mais il se contentait du mot "touch" dans le
+rapport, ce qui ne prouve rien. Le navigateur est donc livré inutilisable sur le seul appareil où
+l'owner s'en sert : il n'a PAS de manette branchée en permanence, et PAS d'adb.
+
+CE QU'IL FAUT, concrètement, au doigt et sans aucune manette :
+1. FAIRE DÉFILER la liste des mesh : glissement vertical, avec inertie, et une poignée de
+   défilement utilisable quand la liste fait des milliers d'entrées (village1 en a 3613 — parcourir
+   ça d'un cran à la fois est inutilisable par construction).
+2. SÉLECTIONNER un mesh en le touchant directement, pas en amenant un curseur dessus.
+3. NAVIGUER dans la vue 3D : glisser pour orbiter, pincer pour zoomer, et un geste distinct pour
+   l'élévation. Ce sont les gestes que tout le monde attend ; ne réinvente rien.
+4. TOUTES LES BASCULES atteignables au doigt : damier/texture, tessellation/parallax/aucun, relief,
+   heure du jour. Aucune fonction ne doit exiger une manette.
+5. SORTIR du navigateur au doigt.
+
+PREUVE EXIGÉE, et le gate sera durci en conséquence : ce n'est plus le mot "touch" dans le rapport,
+c'est la démonstration que des ÉVÉNEMENTS TACTILES pilotent réellement chaque action — par exemple
+en injectant des gestes (input swipe / input tap) sur le device et en montrant que l'état du
+navigateur change (mesh sélectionné différent, caméra déplacée, bascule commutée). Une capture
+d'écran ne prouve rien ici ; c'est l'ENCHAÎNEMENT geste -> changement d'état qui compte.
+
+RAPPEL DE MÉTHODE, appris à mes dépens sur ce projet : "la fonctionnalité est dans le code" et
+"la fonctionnalité marche sur l'appareil" sont deux choses différentes, et seule la seconde compte.
