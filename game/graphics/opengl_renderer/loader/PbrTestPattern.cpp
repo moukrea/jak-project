@@ -254,8 +254,21 @@ int mode() {
 #endif
   static int cached = -1;
   static bool prop_present = false;
-  const int prop_mode = read_cached(cached, kDefaultMode, 0, 4, "debug.opengoal.pbr.testpattern",
-                                    "OG_PBR_TESTPATTERN", &prop_present);
+  int prop_mode = read_cached(cached, kDefaultMode, 0, 4, "debug.opengoal.pbr.testpattern",
+                              "OG_PBR_TESTPATTERN", &prop_present);
+#ifdef OG_PBR_CHECKER_DEBUG
+  // SUPERVISOR 2026-07-29: a CHECKER-DEBUG build must NEVER ship with the pattern off. The owner
+  // reported "le build debug n'a pas le damier active" on a binary that was verifiably built with
+  // the define — because a leftover `setprop debug.opengoal.pbr.testpattern 0`, set during a
+  // supervisor debug session hours earlier, still overrode the default (props survive until
+  // reboot). A debug build whose whole purpose is the pattern must not be silently disarmed by a
+  // stale property, and the owner has no adb to clear it. So in this build the prop may still
+  // SELECT a variant (1..4) but can no longer turn the pattern OFF.
+  if (prop_mode == 0) {
+    prop_mode = kDefaultMode;
+    prop_present = false;
+  }
+#endif
   // Grecharged-mesh-browser: with NO prop/env override, the debug mesh browser's menu toggle owns
   // the pattern (the owner has no adb). This is read fresh on every call (hence at every level
   // load) so a menu flip + re-warp takes effect. When the prop/env IS set, it still wins in either
