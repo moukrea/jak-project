@@ -312,40 +312,50 @@ check "r3 from CLOSED enters freecam directly (no menu needed)" "mode" "" "$(fie
 say ""
 say "=== 9. TOUCH: overlay buttons drive every freecam action (injected input tap) ==="
 say "coords come from the overlay's own 'overlay-map:' lines in logcat (drawn = hit)."
-adb logcat -d 2>/dev/null | grep -a 'overlay-map:' | tail -30 | tee -a "$LOG"
-MAP="$(adb logcat -d 2>/dev/null | grep -a 'overlay-map:' | tail -30)"
-# helper: centre of a mapped control "overlay-map: NAME x0 y0 x1 y1" (pixel coords)
-ctl(){ printf '%s\n' "$MAP" | grep -a "overlay-map: $1 " | tail -1 | awk '{printf "%d %d", ($3+$5)/2, ($4+$6)/2}'; }
+adb logcat -d 2>/dev/null | grep -a 'overlay-map: fc' | tail -20 | tee -a "$LOG"
+MAP="$(adb logcat -d 2>/dev/null | grep -a 'overlay-map:' | tail -40)"
+# centre of a mapped control. Two formats (TouchOverlayView.logOverlayMap):
+#   rrect: name=left,top,WIDTH,HEIGHT->...   circ: name=cx,cy,radius->...
+ctl(){
+  local co
+  co="$(printf '%s\n' "$MAP" | grep -aoE "$1=[0-9,-]+" | tail -1 | cut -d= -f2)"
+  [ -n "$co" ] || return 0
+  local n; n="$(echo "$co" | awk -F, '{print NF}')"
+  if [ "$n" = 4 ]; then echo "$co" | awk -F, '{printf "%d %d", $1+$3/2, $2+$4/2}'
+  else echo "$co" | awk -F, '{printf "%d %d", $1, $2}'; fi
+}
 tap_ctl(){ local c; c="$(ctl $1)"; [ -n "$c" ] && { adb shell input tap $c; sleep "${2:-1.2}"; return 0; }; say "  (no overlay-map for $1)"; return 1; }
 # 9a. R1 by finger -> target. The re-entry camera continues from wherever the title
 # flythrough left it, which may point at empty sky: sweep the look a few times until the
 # ray finds candidates (each attempt is a REAL finger tap; the sweep is aiming, not a
 # loosened check).
 snap; b_t="$(field target)"
-if tap_ctl fcam_r1 1.5; then
+if tap_ctl fc-r1 1.5; then
   snap
   for sweep in 1 2 3 4; do
     [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] && break
-    swipe_n 0.75 0.45 0.55 0.55 400 1.0     # look around a bit
-    tap_ctl fcam_r1 1.5; snap
+    swipe_n 0.62 0.45 0.55 0.55 400 1.0     # look around a bit (camera region, off the fc buttons)
+    tap_ctl fc-r1 1.5; snap
   done
   check "TOUCH R1 button picks a target" "target" "$b_t" "$(field target)" changed
 fi
 # 9b. L1 by finger -> hide, counter grows; L2 by finger -> shown
-if tap_ctl fcam_l1 1.0; then snap; check "TOUCH L1 button hides" "hide" "0" "$(field hide)" equals "1"
+if tap_ctl fc-l1 1.0; then snap; check "TOUCH L1 button hides" "hide" "0" "$(field hide)" equals "1"
   read tb ta <<< "$(delta rt_hidden 4.5)"
   check "TOUCH hide is live in the renderer" "rt_hidden" "$tb" "$ta" grew
-  tap_ctl fcam_l2 1.0; snap; check "TOUCH L2 button shows again" "hide" "1" "$(field hide)" equals "0"; fi
+  tap_ctl fc-l2 1.0; snap; check "TOUCH L2 button shows again" "hide" "1" "$(field hide)" equals "0"; fi
 # 9c. Square / Circle / Triangle by finger
-if tap_ctl fcam_square 1.0; then snap; check "TOUCH SQUARE toggles checker" "checker2" "0" "$(field checker2)" equals "1"; tap_ctl fcam_square 1.0; fi
-if tap_ctl fcam_circle 1.0; then snap; check "TOUCH CIRCLE toggles gizmos" "gizmos" "0" "$(field gizmos)" equals "1"; tap_ctl fcam_circle 1.0; fi
-if tap_ctl fcam_triangle 1.0; then snap; check "TOUCH TRIANGLE defocuses" "target" "x" "$(field target)" equals "-1"; fi
-# 9d. look by dragging the camera area; fly by dragging the virtual stick
+if tap_ctl fc-square 1.0; then snap; check "TOUCH SQUARE toggles checker" "checker2" "0" "$(field checker2)" equals "1"; tap_ctl fc-square 1.0; fi
+if tap_ctl fc-circle 1.0; then snap; check "TOUCH CIRCLE toggles gizmos" "gizmos" "0" "$(field gizmos)" equals "1"; tap_ctl fc-circle 1.0; fi
+if tap_ctl fc-triangle 1.0; then snap; check "TOUCH TRIANGLE defocuses" "target" "x" "$(field target)" equals "-1"; fi
+# 9d. look by dragging the camera area (floating right stick anchors at touch-down,
+# deflection sustained while held: a slow swipe = a held deflection); fly via the
+# virtual left stick the same way
 snap; b_yaw="$(field yaw)"
-swipe_n 0.75 0.45 0.55 0.45 400 1.2
+swipe_n 0.62 0.45 0.52 0.45 1200 1.2
 snap; check "TOUCH camera-area drag turns the camera" "yaw" "$b_yaw" "$(field yaw)" changed
 b_fc="$(field fc)"
-STK="$(ctl fcam_stick)"; [ -z "$STK" ] && STK="$(ctl stick)"
+STK="$(ctl left-stick)"
 if [ -n "$STK" ]; then
   SX="${STK% *}"; SY="${STK#* }"
   adb shell input swipe "$SX" "$SY" "$SX" "$((SY-140))" 1400   # hold the stick up ~1.4s
@@ -353,7 +363,7 @@ if [ -n "$STK" ]; then
   check "TOUCH virtual stick flies the camera" "fc" "$b_fc" "$(field fc)" changed
 fi
 # 9e. EXIT by finger, FCAM button by finger to re-enter
-if tap_ctl fcam_exit 2.0; then snap
+if tap_ctl fc-exit 2.0; then snap
   if [ -z "$STATE" ] || [ "$(field mode)" = "CLOSED" ]; then PASS=$((PASS+1)); say "  PASS  TOUCH EXIT closes freecam"
   else FAIL=$((FAIL+1)); say "  FAIL  TOUCH EXIT: mode=$(field mode)"; fi
 fi

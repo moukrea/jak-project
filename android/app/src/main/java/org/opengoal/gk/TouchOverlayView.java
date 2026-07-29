@@ -265,7 +265,7 @@ public class TouchOverlayView extends View {
         // this is the only finger path into it. Drawn/hit in mode 0 only —
         // in mode 2 the EXIT button covers leaving.
         cFcam = fc(controls, "fcam", KIND_BUTTON, SHAPE_RRECT,
-                SDL_GAMEPAD_BUTTON_RIGHT_STICK, "FCAM");
+                SDL_GAMEPAD_BUTTON_RIGHT_STICK, "CAM");
 
         // Grecharged-mesh-browser V2 FREECAM control set (mode 2 only). The
         // GOAL freecam is 100% pad-driven: left stick fly, right stick look,
@@ -359,11 +359,11 @@ public class TouchOverlayView extends View {
         ctl("select").rect.set(w * 0.5f - sw - 10f, sTop, w * 0.5f - 10f, sTop + sh);
         ctl("start").rect.set(w * 0.5f + 10f, sTop, w * 0.5f + 10f + sw, sTop + sh);
 
-        // Grecharged-mesh-browser V2: FCAM (mode 0 only) — small pill in the
-        // free top strip between the l2r2 pill (ends ~0.145w) and SELECT
-        // (starts ~0.41w), same row as SELECT/START. Out of every existing
-        // control's way.
-        cFcam.rect.set(w * 0.19f, sTop, w * 0.19f + sw * 0.80f, sTop + sh);
+        // Grecharged-mesh-browser V2: CAM (mode 0 only). Owner placement decision
+        // 2026-07-30: "La place du bouton freecam à côté de start et select je
+        // dirais" — it lives IN the Start/Select group: same row, same pill size
+        // and style, immediately right of START (the group reads SELECT|START|CAM).
+        cFcam.rect.set(w * 0.5f + 10f + sw + 20f, sTop, w * 0.5f + 10f + sw + 20f + sw, sTop + sh);
 
         // Grecharged-mesh-browser V2 FREECAM layout (mode 2 only). The centre
         // of the screen stays CLEAR: the reticle and the world must be
@@ -439,7 +439,7 @@ public class TouchOverlayView extends View {
         // fc-* set is mode-2 (FREECAM) only, where the virtual pad stays LIVE
         // and the left stick + right-side camera-look region above are shared.
         Log.i(TAG, "overlay-map: fcam=" + rrect(cFcam)
-                + "->onPadButton(RIGHT_STICK=8)[R3 enter-freecam, mode0 only]");
+                + "->onPadButton(RIGHT_STICK=8)[R3 enter-freecam CAM pill, Start/Select group, mode0 only]");
         Log.i(TAG, "overlay-map: fc-l1=" + rrect(fctl("fc-l1"))
                 + "->onPadButton(LEFT_SHOULDER=9)[freecam hide, top-left]");
         Log.i(TAG, "overlay-map: fc-r1=" + rrect(fctl("fc-r1"))

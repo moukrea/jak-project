@@ -1744,18 +1744,35 @@
 ;; the normal render path is byte-for-byte unchanged when the browser is off.
 
 (defun mesh-browser-update ()
+  ;; R3 in plain gameplay = jump straight into the FREECAM (the owner's reticle-first entry; the
+  ;; overlay's freecam button injects exactly this press). This single pad test is the ONLY thing
+  ;; the closed browser does per frame — the normal path stays byte-for-byte unchanged otherwise.
+  (when (not (mesh-browser-active?))
+    (when (and (= *master-mode* 'game) (cpad-pressed? 0 r3))
+      (cpad-clear! 0 r3)
+      (mesh-browser-enter-freecam *mesh-browser*)))
   (when (mesh-browser-active?)
     (mesh-browser-poll-touch)
+    ;; central R3, before the mode dispatch: from any list screen it ENTERS the freecam; from the
+    ;; freecam it fully CLOSES the browser (world restored — going back to the list is via the menu).
+    (when (cpad-pressed? 0 r3)
+      (cpad-clear! 0 r3)
+      (if (= (-> *mesh-browser* mode) (mesh-browser-mode freecam))
+          (mesh-browser-close *mesh-browser*)
+          (mesh-browser-enter-freecam *mesh-browser*)))
     ;; input first (may change mode), then draw the current mode.
     (case (-> *mesh-browser* mode)
       (((mesh-browser-mode levels)) (mesh-browser-input-levels *mesh-browser*))
       (((mesh-browser-mode list)) (mesh-browser-input-list *mesh-browser*))
-      (((mesh-browser-mode observe)) (mesh-browser-input-observe *mesh-browser*)))
+      (((mesh-browser-mode observe)) (mesh-browser-input-observe *mesh-browser*))
+      (((mesh-browser-mode freecam)) (mesh-browser-input-freecam *mesh-browser*)))
     (when (mesh-browser-active?)
       ;; The browser has now consumed this frame's pad. Blank the buttons so the same press does not
       ;; ALSO reach the game underneath (START would pull the progress menu up over the browser).
       ;; This runs after service-cpads and before the next process pass (engine/game/main.gc:568),
       ;; and it is undone by the next service-cpads, so nothing persists once the browser closes.
+      ;; The FREECAM needs this blanking just as much: Jak is asleep, but the progress menu would
+      ;; still pop on START if the game saw the browser's buttons.
       (set! (-> *cpad-list* cpads 0 button0-abs 0) (pad-buttons))
       (set! (-> *cpad-list* cpads 0 button0-rel 0) (pad-buttons))
       (mesh-browser-maybe-dump *mesh-browser*)
@@ -1764,5 +1781,6 @@
         (case (-> *mesh-browser* mode)
           (((mesh-browser-mode levels)) (mesh-browser-draw-levels *mesh-browser* buf))
           (((mesh-browser-mode list)) (mesh-browser-draw-list *mesh-browser* buf))
-          (((mesh-browser-mode observe)) (mesh-browser-draw-observe *mesh-browser* buf))))))
+          (((mesh-browser-mode observe)) (mesh-browser-draw-observe *mesh-browser* buf))
+          (((mesh-browser-mode freecam)) (mesh-browser-draw-freecam *mesh-browser* buf))))))
   (none))
