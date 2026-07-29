@@ -10,24 +10,14 @@ grep -qiE 'index' "$R" || fail "no embedded per-level mesh index"
 grep -qiE 'centroid|bbox|bounding box' "$R" || fail "index lacks centroid/bounding box (needed for auto-framing)"
 grep -qiE 'apk' "$R" || fail "index not shown to ship inside the APK (derived data rule)"
 # 2/3. navigation + filters + worst-first + auto-framing
-grep -qiE 'filter|filtre' "$R" || fail "no filters (PBR-only / failing-only / material search)"
-grep -qiE 'worst[- ]first|pire d.abord|sorted .*worst' "$R" || fail "mesh list not sorted worst-grade first"
-grep -qiE 'auto[- ]?fram|cadrage' "$R" || fail "no automatic camera framing from the bounding box"
-grep -qiE 'orbit' "$R" || fail "no free orbit around the selected mesh"
 # 4. toggles, including the offline grade shown on screen (the cross-check loop)
-grep -qiE 'checker|damier' "$R" || fail "no real-texture <-> checker toggle"
-grep -qiE 'tessellation' "$R" || fail "no tessellation/parallax/off toggle"
-grep -qiE 'relief' "$R" || fail "no relief slider"
 grep -qiE 'grade|note' "$R" || fail "the offline test's grade is not displayed on screen (the confirm/refute loop)"
 # 5. touch AND gamepad, no adb
 grep -qiE 'touch|tactile' "$R" || fail "touch control not evidenced (the owner has no adb)"
 # OWNER 2026-07-29: "impossible a parcourir via le tactile". The word "touch" in a report proves
 # nothing — demand the gesture -> state-change chain, injected and observed on the device.
 grep -qiE 'input (swipe|tap)|injected (gesture|touch)|geste inject' "$R" || fail "TOUCH: no injected gesture evidence (input swipe/tap) driving the browser"
-grep -qiE '(swipe|glissement)[^.]{0,60}(scroll|defil|list)' "$R" || fail "TOUCH: list scrolling by swipe not demonstrated"
-grep -qiE 'pinch|pincer' "$R" || fail "TOUCH: pinch-to-zoom in the 3D view not demonstrated"
 grep -qiE 'state change|changement d.etat|selected mesh changed|etat du navigateur' "$R" || fail "TOUCH: gestures not shown to CHANGE the browser state (a screenshot proves nothing)"
-grep -qiE '3613|thousands|milliers' "$R" || fail "TOUCH: scrolling a 3613-entry list not addressed (one-step-at-a-time is unusable by construction)"
 grep -qiE 'gamepad|manette|pad' "$R" || fail "gamepad control not evidenced"
 grep -qiE 'without adb|sans adb|no setprop' "$R" || fail "not proven reachable without adb/setprop"
 # 6. debug-only, no regression, menu doc
@@ -61,4 +51,21 @@ grep -qiE 'does not (move|teleport|warp) (the )?player|ne (deplace|teleporte) pa
 grep -qiE 'bounding box|bbox|boite englobante' "$R" || fail "CAM: initial distance must come from the bounding box so any mesh size frames correctly"
 grep -qiE '360|full orbit|tour complet|elevation' "$R" || fail "CAM: full azimuth + elevation (incl. looking up at an overhang's underside) not evidenced"
 grep -ciE 'centroid' "$R" | awk '$1>=5{ok=1} END{exit !ok}' || fail "CAM: fewer than 5 meshes checked for camera-vs-centroid accuracy (owner: 'warp toujours au meme endroit')"
+# ---- V2 FREECAM (owner 2026-07-30): reticle-first redesign; the list is no longer the primary UI ----
+grep -qiE 'freecam|free-cam|free cam' "$R" || fail "V2: no freecam mode"
+grep -qiE '(l3|r3)[^.]{0,50}(freecam|toggle|entre)|freecam[^.]{0,50}(l3|r3)' "$R" || fail "V2: L3/R3 freecam entry not evidenced"
+grep -qiE 'overlay[^.]{0,40}(button|bouton)' "$R" || fail "V2: no overlay UI button to enter freecam (owner has no gamepad attached)"
+grep -qiE 'reticle|viseur|crosshair' "$R" || fail "V2: no first-person reticle"
+grep -qiE '(left stick|stick gauche)[^.]{0,60}(fly|vol|vertical|air|all directions|toutes)' "$R" || fail "V2: left-stick free flight incl. vertical not evidenced"
+grep -qiE '(r1|r2)[^.]{0,50}(target|cible|pick)' "$R" || fail "V2: R1/R2 targeting not evidenced"
+grep -qiE '(name|nom)[^.]{0,50}(screen|ecran|plain text|en clair)' "$R" || fail "V2: targeted mesh name not shown in plain text on screen"
+grep -qiE '(l1|l2)[^.]{0,50}(hide|show|cacher|montrer|visib)' "$R" || fail "V2: L1/L2 show/hide toggle not evidenced"
+grep -qiE 'square[^.]{0,60}(checker|damier)' "$R" || fail "V2: Square checker-tessellation toggle not evidenced"
+grep -qiE 'circle[^.]{0,60}(gizmo|normal)' "$R" || fail "V2: Circle normal-orientation gizmos not evidenced"
+grep -qiE 'triangle[^.]{0,50}(defocus|deselect|deselec)' "$R" || fail "V2: Triangle defocus not evidenced"
+# the two DEAD toggles must prove BOTH directions via runtime state, injected input
+grep -qiE 'cpad_inject|input (tap|swipe)' "$R" || fail "V2: no injected-input evidence"
+grep -qiE '(hide|cacher)[^.]{0,80}(on *-> *off *-> *on|aller.*retour|both directions|draw (count|counter))' "$R" || fail "V2: hide toggle not proven BOTH ways via a runtime counter (it is currently dead)"
+grep -qiE '(checker|damier)[^.]{0,80}(on *-> *off *-> *on|aller.*retour|both directions|flag)' "$R" || fail "V2: checker toggle not proven BOTH ways via runtime state (it is currently dead)"
+grep -qiE 'pick[^.]{0,60}(5|five|cinq)|5/5[^.]{0,30}(pick|target|cible)' "$R" || fail "V2: reticle pick accuracy not proven on >=5 distinct meshes"
 echo "[Gmbrowse PASS]"

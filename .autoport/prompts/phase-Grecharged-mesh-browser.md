@@ -163,3 +163,65 @@ CE QU'IL FAUT :
    moins 5 mesh de centroïdes très différents (dont un toit, une falaise, un objet minuscule), que la
    caméra se retrouve effectivement CENTRÉE sur chacun — en comparant la position de caméra obtenue
    au centroïde attendu de l'index. Un écart constant entre les cinq trahirait un point fixe.
+
+================================================================================
+V2 — REFONTE OWNER (2026-07-30) : FREECAM + RÉTICULE, LA LISTE EST ABANDONNÉE COMME UI PRINCIPALE
+================================================================================
+Owner, mot pour mot :
+  "C'est vraiment pas intuitif le mesh browser... On devrait plutôt avoir un bouton (genre L3 ou R3
+   du gamepad et un bouton en overlay UI) qui nous passe en freecam (plus du tout lié à Jak) avec le
+   viseur première personne qu'on puisse contrôler intégralement à la manette (left stick to move in
+   all directions including air, right stick or current touch area to control camera), R1/R2 pour
+   target un modèle (montre son nom en plain text) avec possibilité via L1/L2 de le toggle on/off
+   (montrer/cacher) ou de le passer en damier tesselation via... Square ? Beaucoup beaucoup plus
+   simple pour identifier et remonter les problèmes. Le mesh browser actuel est à chier, ce serait
+   bien mieux ! Par contre le mesh browser actuel le toggle on/off du checker tesselation marche pas
+   du tout, si on implémente ça, faut le faire bien. Idem pour le toggle on off du modèle, et via
+   Circle on devrait pouvoir mettre en lumière les orientations des normales avec des gizmos qui
+   montrent bien (toggle on/off) et bien sûr on doit pouvoir defocus via triangle par ex."
+
+DEUX BUGS CONSTATÉS DANS LE BUILD ACTUEL, à corriger dans la refonte et à prouver :
+  * le toggle damier-tessellation NE FAIT RIEN ;
+  * le toggle montrer/cacher du modèle NE FAIT RIEN.
+Un toggle qui ne fait rien est pire qu'absent. La preuve exigée pour chacun est un CHANGEMENT D'ÉTAT
+RUNTIME OBSERVABLE (voir plus bas), jamais un menu qui s'anime.
+
+LA SPEC V2, FIDÈLE AU MESSAGE :
+1. ENTRÉE/SORTIE DU MODE : L3 ou R3 (au choix, documenté) + UN BOUTON dans l'overlay tactile.
+   Le mode détache TOTALEMENT la caméra de Jak (le jeu continue, Jak reste où il est) et affiche un
+   VISEUR première personne au centre de l'écran.
+2. DÉPLACEMENT : stick gauche = translation dans TOUTES les directions, y compris monter/descendre
+   dans les airs (vol libre). Stick droit = orientation caméra. Au tactile : la zone caméra
+   existante pilote l'orientation, et l'overlay virtuel fournit les sticks/boutons (il existe déjà —
+   phases Gtouch-controls). Tout doit être faisable sans adb et sans manette.
+3. CIBLAGE : R1/R2 ciblent le modèle sous le viseur (R1/R2 = choix précédent/suivant si plusieurs
+   candidats sur le rayon, sinon simple pick). Le NOM du mesh s'affiche EN CLAIR à l'écran
+   (matériau + niveau + identifiant, celui de l'index), et reste exporté dans files/ pour que
+   l'owner puisse le citer.
+4. ACTIONS SUR LA CIBLE :
+   * L1/L2 : montrer/cacher le modèle ciblé ;
+   * Square : basculer le modèle ciblé en damier tessellation (le vrai matériau de debug) ;
+   * Circle : GIZMOS DE NORMALES sur le modèle ciblé — des flèches par face/vertex qui montrent
+     clairement l'orientation, toggle on/off. C'est l'outil rêvé pour les défauts d'orientation
+     qu'on chasse depuis des jours : l'owner pourra VOIR une normale rentrante.
+   * Triangle : defocus (déselectionne la cible, les toggles de cible redeviennent inertes).
+5. LA LISTE ACTUELLE N'EST PLUS L'UI PRINCIPALE. Elle peut survivre en écran secondaire (elle sait
+   sauter vers un mesh lointain), mais le livrable de la phase est le mode freecam+réticule.
+
+PREUVES EXIGÉES (le validator les vérifie, mesure visuelle in-game toujours interdite) :
+  * ENTRÉE INJECTÉE -> ÉTAT : chaque action (entrée freecam, vol, ciblage, chaque toggle, defocus)
+    prouvée par une injection (cpad_inject pour la manette — le harnais existe, tokens l3/r3/r1/l1/
+    square/circle/triangle — et input tap/swipe pour l'overlay) suivie d'un CHANGEMENT D'ÉTAT écrit
+    dans un fichier de diag (files/…), pas d'une capture. Exemples d'états observables : position
+    caméra qui bouge (vol), identifiant de cible non nul (pick), compteur de draws du mesh qui tombe
+    à zéro (hide), flag matériau damier du draw ciblé (Square), compteur de gizmos rendus (Circle),
+    cible redevenue nulle (Triangle).
+  * LES DEUX TOGGLES AUJOURD'HUI MORTS (hide et damier) doivent chacun montrer l'aller ET le retour
+    (on -> off -> on) dans le fichier d'état.
+  * PICK CORRECT : sur >=5 mesh de centroïdes très différents, viser le mesh au réticule et vérifier
+    que l'identifiant ciblé est le bon (rayon caméra vs bbox de l'index). Réutilise la preuve
+    centroïdes du round précédent.
+  * menu-tree.md à jour (nouvelle entrée/le bouton overlay), et tout atteignable sans adb.
+NOTE : le "gap rotation du mesh" documenté au round précédent devient SANS OBJET — en freecam on
+vole autour du modèle, ce qui couvre le besoin "le voir sous toutes les coutures" mieux qu'une
+rotation d'objet.
