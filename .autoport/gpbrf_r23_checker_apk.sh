@@ -83,6 +83,13 @@ restore(){
 
 echo; echo "  == assembling CHECKER-DEBUG APK (native tasks excluded so nothing relinks) =="
 cp "$CHK_SO" "$JNI" || die "checker -> jniLibs failed"
+# Grecharged-loader-packfix: drop the previous archive first. zipflinger updates an
+# existing APK IN PLACE — a changed entry is appended and the old bytes are left behind
+# as unreferenced dead space. That is exactly why the checker half shipped at 1.0 GB
+# carrying 426,105,660 bytes of garbage while the normal half (assembled after the mv,
+# i.e. with no prior file) came out at 580 MB with zero gaps. Identical content; the
+# owner just had to download 426 MB of nothing.
+rm -f "$APK"
 ( cd android && ./gradlew assembleJak1Debug \
     -x configureNativeLibs -x buildNativeLibs -x copyNativeLibs 2>&1 | tail -3 ) \
   || die "gradle (checker) failed"
@@ -105,6 +112,7 @@ trap - EXIT
 # checker half, and let gradle only package.
 cmake --build build-android --target gk -j"$(nproc)" >/dev/null 2>&1 \
   || die "normal libgk rebuild failed (build-android)"
+rm -f "$APK"   # same zipflinger dead-space reason as the checker half above
 ( cd android && ./gradlew assembleJak1Debug 2>&1 | tail -3 ) || die "gradle (normal) failed"
 A=$(unzip -p "$APK" lib/arm64-v8a/libgk.so | sha256sum | cut -d' ' -f1)
 J=$(sha256sum "$JNI" | cut -d' ' -f1)

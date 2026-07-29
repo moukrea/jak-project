@@ -286,6 +286,13 @@ build_android() {
 
   if [ $BUILD_APK -eq 1 ]; then
     log "== gradle assembleJak1Debug (packs CGO zip + libgk.so) =="
+    # Grecharged-loader-packfix: delete the previous APK first. AGP's zipflinger updates
+    # an existing output archive IN PLACE — when an entry changes size it appends the new
+    # copy and leaves the old bytes as unreferenced dead space. The custom pack growing
+    # 191->426 MB therefore produced a 1.0 GB APK holding 426 MB of garbage (measured:
+    # 426,105,660 bytes of gaps) that the owner had to download and store. With no prior
+    # archive zipflinger writes a compact one: same content, 580 MB, 0 bytes of gaps.
+    rm -f android/app/build/outputs/apk/${GAME}/debug/app-${GAME}-debug.apk
     ( cd android && ./gradlew assembleJak1Debug -q ) > .autoport/logs/build-android-gradle.log 2>&1 \
       || { tail -30 .autoport/logs/build-android-gradle.log >&2; die "gradle assemble failed"; }
     local APK
