@@ -2229,7 +2229,14 @@ phases:
   device: true
   owner_verify: true
 - id: Grecharged-loader-packfix
-  title: "Le build ne demarre plus sur l'appareil de l'owner (pack 420 Mo, extraction jamais atteinte)"
+  name: "PRIORITE 1 (owner 2026-07-29): le build ne demarre plus sur son Honor. Le 27/07 (pack 190 Mo)
+    boote et extrait ses 74 CGO; les builds 28-29/07 (pack 420 Mo, apres le deplacement du derive dans
+    l'APK) meurent AVANT toute extraction. Trouver la cause avec une preuve, corriger sans retirer les
+    donnees de l'APK, et livrer un build qui demarre chez lui avec les mesh corriges et le mesh browser."
+  prompt: .autoport/prompts/phase-Grecharged-loader-packfix.md
+  validator: .autoport/validators/phase-Grecharged-loader-packfix.sh
+  device: true
+  max_turns: 400
   max_retries: 20
   owner_verify: true
 - id: Grecharged-pbr-realtime-fusion
