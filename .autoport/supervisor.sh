@@ -84,9 +84,9 @@ if command -v jq >/dev/null 2>&1 && [ -f "$PROFILE_JSON" ]; then
     SUB_MODEL=$(jq -r ".profiles[\"$_ACTIVE\"].worker_model" "$PROFILE_JSON")
 fi
 # Fallback if the JSON/jq is unavailable.
-SUP_MODEL="${SUP_MODEL:-claude-opus-5[1m]}"
+SUP_MODEL="${SUP_MODEL:-claude-fable-5[1m]}"
 SUP_EFFORT="${SUP_EFFORT:-xhigh}"
-SUB_MODEL="${SUB_MODEL:-claude-opus-5[1m]}"
+SUB_MODEL="${SUB_MODEL:-claude-fable-5[1m]}"
 export CLAUDE_EFFORT="$SUP_EFFORT"
 export CLAUDE_CODE_SUBAGENT_MODEL="$SUB_MODEL"
 echo "[supervisor] profile=${_ACTIVE:-fallback} model=$SUP_MODEL effort=$SUP_EFFORT workers=$SUB_MODEL"
