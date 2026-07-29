@@ -30,6 +30,18 @@ SO_REL="lib/arm64-v8a/libgk.so"
 BUILT="build-android/$SO_REL"
 die() { echo "DEPLOY-VERIFY FAIL: $*" >&2; exit 1; }
 
+# 0. The phone must actually BE here. Without this, an absent/unplugged device
+# falls through to "package not installed on device <serial>", which reads as a
+# stale or broken build and sends the next attempt hunting a phantom regression
+# (Grecharged-loader-packfix 2026-07-29: the gate probed the unplugged Redmi
+# while the work was verified on the owner's Honor). Never auto-substitute the
+# connected device — the serial is configuration, and silently verifying a
+# DIFFERENT phone than the phase targets is worse than failing.
+if ! "$ADB" devices 2>/dev/null | grep -qE "^${SERIAL}[[:space:]]+device$"; then
+  ATTACHED=$("$ADB" devices 2>/dev/null | tail -n +2 | grep -v '^$' | awk '{print $1"("$2")"}' | tr '\n' ' ')
+  die "device $SERIAL is NOT connected (adb sees: ${ATTACHED:-none}) — this is a DEVICE-PRESENCE failure, not a stale build. Plug it in, clear an adb wedge (kill-server/start-server), or fix device_serial in milestones.yaml."
+fi
+
 [ -f "$BUILT" ] || die "no built libgk.so at $BUILT"
 SO_MTIME=$(stat -c %Y "$BUILT")
 

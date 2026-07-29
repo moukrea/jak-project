@@ -56,3 +56,21 @@ travail des trois derniers jours. Tout est écrit, mesuré, empaqueté — et ri
 * Mesure visuelle in-game toujours interdite : démarrage/crash/perf uniquement.
 * Toujours reconstruire avec `./build.sh android-arm64 --pbr` (sans --pbr, Loader.cpp ne compile
   même pas : références recharged_pbr_* non gardées).
+
+--------------------------------------------------------------------------------
+CHANGEMENT D'APPAREIL (owner, 2026-07-29) — LE HONOR EST REPARTI, C'EST LE REDMI
+--------------------------------------------------------------------------------
+Owner : "J'ai dû récupérer le Honor, j'ai rebranché le Redmi, faudra pousser les prochains builds sur
+jak-builds... Utilise le Redmi pour tes tests."
+
+* L'appareil de test est désormais le REDMI, serial eae4df44. Le Honor (AREE026206000788) n'est plus
+  disponible : ne l'attends pas, ne t'appuie pas dessus.
+* La preuve device déjà obtenue sur le Honor RESTE VALABLE et acquise (process vivant 15-120 s,
+  74 CGO, 428 Mo de pack, ligne MESH BROWSER photographiée). Ne la refais pas pour le plaisir ;
+  refais-la sur le Redmi seulement si tu modifies quelque chose qui peut l'invalider.
+* ATTENTION, le Redmi est plus LENT que le Honor. Le crash SIGILL corrigé était une course dont
+  l'issue dépendait de la vitesse : un défaut de ce type peut donc NE PAS se manifester sur le
+  Redmi alors qu'il frapperait l'owner. Ne conclus jamais "ça marche" du seul fait que le Redmi
+  démarre — dis explicitement ce que le Redmi peut et ne peut pas prouver.
+* LIVRAISON : les builds vont sur la release jak-builds jak1-rtlight-wip (les deux APK, damier et
+  normal, même commit, libgk distincts). L'owner installe depuis là, il n'a plus de câble.

@@ -909,7 +909,27 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
     'Setup failed: bundle/jak1_assets.zip' asset-unpack failure the owner hit
     2026-06-30, where the .so was fresh but the app never started). Tolerates the
     flaky first-launch (monkey/am start sometimes doesn't take) via 3 attempts.
-    Fail-OPEN on adb infra errors (don't wedge the loop; GATE 3 owner is the backstop)."""
+    Fail-OPEN on adb infra errors (don't wedge the loop; GATE 3 owner is the backstop).
+
+    Launch goes through the RESOLVED launcher activity, never MainActivity directly:
+    MainActivity BYPASSES LoaderActivity, the sole writer of the pack stamps, so a
+    direct launch unpacks nothing and mis-reports any phase that moves the packs.
+
+    Two evidence routes:
+      A. LOG route (primary, unchanged) — logcat shows master-mode=game / A35-RENDER.
+      B. ARTIFACT route — for phones that DROP third-party app log lines. The owner's
+         Honor BKQ-N49 emits ZERO app lines (even LoaderActivity's own Log.i);
+         `logcat --pid=<pid>` yields nothing but the encrypted (HKS) banner, so route
+         A can NEVER confirm a boot there. Route B instead demands evidence the app
+         itself produced: the process alive (and un-restarted) across the whole
+         window — the pre-fix build died at t~3s on every single run — plus no
+         files/gk_crash.txt (the app's own async-signal-safe crash channel writes it
+         on any fatal signal), plus a native-written diagnostic under files/ refreshed
+         at/after launch (proves GOAL/renderer code ran, not just a splash), plus the
+         app in foreground. Route B is entered ONLY when the app emitted no log lines
+         at all, so a phone that CAN surface app logs still fails when markers are
+         absent. NOTE: `adb exec-out run-as ls` exits 0 even for a MISSING file, so
+         every file test here reads OUTPUT, never the exit code."""
     adb = os.environ.get("ADB") or "/home/emeric/Android/platform-tools/adb"
     def sh(*args, t=40):
         return subprocess.run([adb, "-s", serial, *args], cwd=REPO_ROOT,
@@ -920,10 +940,18 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
                   "debug.opengoal.render.scale", "debug.opengoal.gspeed.off",
                   "debug.opengoal.gspeed.measure"):
             sh("shell", "setprop", p, '""')
+        comp = f"{pkg}/org.opengoal.gk.MainActivity"
+        for ln in sh("shell", "cmd", "package", "resolve-activity",
+                     "--brief", pkg).stdout.splitlines():
+            if ln.strip().startswith(f"{pkg}/"):
+                comp = ln.strip()
         for _ in range(3):
             sh("shell", "am", "force-stop", pkg)
+            sh("exec-out", "run-as", pkg, "rm", "-f", "files/gk_crash.txt")
+            t0 = int((sh("shell", "date", "+%s").stdout.strip() or "0").split()[0] or 0)
             sh("shell", "logcat", "-c")
-            sh("shell", "am", "start", "-n", f"{pkg}/org.opengoal.gk.MainActivity")
+            sh("shell", "am", "start", "-n", comp)
+            first_pid = ""
             for _ in range(12):  # up to ~48s per attempt
                 time.sleep(4)
                 lc = sh("shell", "logcat", "-d", "-t", "500").stdout
@@ -932,8 +960,34 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
                             "bundle/unpack) — the deployed build does NOT boot. Re-stage "
                             "the game assets / fix the bundle before this phase can close.")
                 pid = sh("shell", "pidof", pkg).stdout.strip()
+                if pid and not first_pid:
+                    first_pid = pid
                 if pid and ("master-mode=game" in lc or "A35-RENDER frame=" in lc):
                     return (True, "")
+
+            # ---- route B: the phone drops app logs, so ask the APP for evidence ----
+            pid = sh("shell", "pidof", pkg).stdout.strip()
+            if not pid or not first_pid or pid != first_pid or not t0:
+                continue  # died, restarted, or no device clock -> fail closed
+            applog = [l for l in sh("shell", "logcat", "-d", "--pid=" + pid).stdout.splitlines()
+                      if l.strip() and not l.lstrip().startswith("---------")]
+            if applog:
+                continue  # this phone DOES surface app logs -> absent markers is real
+            stat_out = sh("exec-out", "run-as", pkg, "sh", "-c",
+                          'stat -c "%Y %n" files/*.txt 2>/dev/null').stdout
+            if "gk_crash.txt" in stat_out:
+                continue  # the app's own crash channel fired -> it crashed
+            fresh = []
+            for ln in stat_out.splitlines():
+                bits = ln.split(None, 1)
+                if len(bits) == 2 and bits[0].strip().isdigit() and int(bits[0]) >= t0:
+                    fresh.append(bits[1].strip())
+            focused = any(pkg in l for l in sh("shell", "dumpsys", "window").stdout.splitlines()
+                          if "mCurrentFocus" in l)
+            if fresh and focused:
+                console.print(f"[green]close-gate boot-check: log-silent device — proved by "
+                              f"app artifacts {fresh} (pid {pid} stable, no gk_crash.txt)[/green]")
+                return (True, "")
         return (False, "CLOSE-GATE/boot: app did NOT reach in-game/render after 3 launch "
                 "attempts (pid dead or no render frames) — the deployed build does not boot "
                 "on device (deploy_verify passed the .so but the app is broken).")
@@ -997,7 +1051,22 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
     # phases that touch CGOs should also assert CGO-consistency in their own
     # validator, but this gate at minimum stops the stale-.so false-green.
     if phase.get("device", False):
-        serial = phase.get("device_serial") or os.environ.get("ANDROID_SERIAL", "eae4df44")
+        # Re-read device_serial from milestones.yaml on DISK, for the same reason
+        # GATE 1 re-reads no_code: the in-memory phase dict is loaded once at
+        # startup, so a phase re-pointed at another phone mid-run would keep being
+        # verified against the OLD default and could never close. This bit
+        # Grecharged-loader-packfix 2026-07-29: the work was on the owner's Honor
+        # while the gate kept probing the (unplugged) Redmi and reported the
+        # misleading "package not installed" as if it were a stale build.
+        serial = phase.get("device_serial")
+        try:
+            for p in load_milestones().get("phases", []):
+                if p.get("id") == pid:
+                    serial = p.get("device_serial", serial)
+                    break
+        except Exception:  # noqa: BLE001 — fail-safe: keep the in-memory value
+            pass
+        serial = serial or os.environ.get("ANDROID_SERIAL", "eae4df44")
         # Game-aware deploy gate: a jak2/jak3 phase must verify against ITS package +
         # APK, not the jak1 default. Otherwise the fresh SHARED libgk never matches the
         # un-rebuilt jak1 APK -> deploy_verify reports STALE and the gate can NEVER
