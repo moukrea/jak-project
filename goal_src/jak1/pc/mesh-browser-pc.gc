@@ -659,6 +659,24 @@
     (load-state-want-force-vis sym #t))
   (none))
 
+(defun mesh-browser-set-othercam-sleep ((on? symbol))
+  "The TITLE screen's flythrough is an OTHERCAM process ('logo, title-obs.gc:178): its :code loop
+   rewrites *camera-other-trans*/*camera-other-matrix* from the logo-cam joint and re-arms
+   *camera-look-through-other* EVERY frame, after us — so at the title it always beat the browser's
+   camera (measured: 5/5 observed meshes reported the flythrough camera; the orbit never landed).
+   SLEEP it while the browser holds the camera — the same process-mask idiom as the player freeze.
+   Killing it instead would be wrong twice: title-obs respawns its othercam when the handle dies
+   (the fight would restart), and on close the title would have no camera until the respawn.
+   Re-applied every browser frame (a title attract cycle can spawn a fresh one); undone on close."
+  (set! *global-search-name* (the basic othercam))
+  (let ((proc (the process (search-process-tree *active-pool*
+                (lambda ((var process)) (= (the type *global-search-name*) (-> var type)))))))
+    (when proc
+      (if on?
+          (logior! (-> proc mask) (process-mask sleep))
+          (logclear! (-> proc mask) (process-mask sleep)))))
+  (none))
+
 (defun mesh-browser-freeze-player ((obj mesh-browser))
   "Put the PLAYER PROCESS to sleep so he cannot wander, fall or die while the owner observes. This is
    the engine's own idiom (levels/rolling/rolling-lightning-mole.gc:499) and it does NOT move him:
@@ -755,6 +773,10 @@
   (mesh-browser-open *mesh-browser*)
   (none))
 
+;; defined near the end of this file, but called from mesh-browser-close below: the close path
+;; writes one final mode=CLOSED dump so the state file records the close itself.
+(define-extern mesh-browser-dump-state (function mesh-browser none))
+
 (defmethod mesh-browser-close mesh-browser ((obj mesh-browser))
   "Close the browser and hand the world back exactly as we found it: camera to the player, forced
    visibility released, the player's own level re-wanted, load boundaries re-armed, player awake."
@@ -771,6 +793,7 @@
   (when (-> obj saved-want0) (load-state-want-display-level (-> obj saved-want0) (-> obj saved-disp0)))
   (when (-> obj saved-want1) (load-state-want-display-level (-> obj saved-want1) (-> obj saved-disp1)))
   (set! (-> *setting-control* default border-mode) (-> obj saved-border?))
+  (mesh-browser-set-othercam-sleep #f)
   (mesh-browser-unfreeze-player obj)
   (set! (-> obj browse-level) (the symbol #f))
   ;; hand touch back to the virtual gamepad — the overlay is byte-identical from here on.
@@ -1099,6 +1122,8 @@
    mid-flight the level has been dropped from the want list and not yet re-asked for — finish that
    here, or the level would simply stay unloaded and the counter would resume mid-sequence."
   (set! *camera-look-through-other* 0)
+  ;; give the camera channel back to whoever owned it (title flythrough othercam, cutscene cam)
+  (mesh-browser-set-othercam-sleep #f)
   (when (> (-> obj reload-timer) 0)
     (set! (-> obj reload-timer) 0)
     (mesh-browser-request-level obj (-> obj browse-level)))
@@ -1248,6 +1273,8 @@
   (mesh-browser-handle-obs-tap obj)
   ;; hold the view on the mesh. NOTE what is NOT here any more: nothing touches the player.
   (when (= (-> obj mode) (mesh-browser-mode observe))
+    ;; every frame, not just on entry: a title attract cycle can spawn a FRESH othercam mid-observe
+    (mesh-browser-set-othercam-sleep #t)
     (mesh-browser-place-camera obj)
     (mesh-browser-apply-light-spin obj)
     ;; hold the chosen hour (re-asserted every frame, or the day/night cycle ticks it forward)
@@ -1331,6 +1358,14 @@
             (* MB_M (-> *math-camera* trans x)) (* MB_M (-> *math-camera* trans y))
             (* MB_M (-> *math-camera* trans z))
             (* MB_M (vector-vector-distance (-> *math-camera* trans) (-> obj obs-focus))))
+    (pc-mb-state-line! (-> obj line-buf))
+    ;; the look-through channel itself, so a harness can tell "our write lost the channel" (other=
+    ;; wrong / lto=0) from "math-camera was overwritten after cam-update applied it" (other= right,
+    ;; lto>0, cam= elsewhere). This is what pinned the title-screen camera fight.
+    (format (clear (-> obj line-buf)) "lto=~D other=~f,~f,~f"
+            *camera-look-through-other*
+            (* MB_M (-> *camera-other-trans* x)) (* MB_M (-> *camera-other-trans* y))
+            (* MB_M (-> *camera-other-trans* z)))
     (pc-mb-state-line! (-> obj line-buf)))
   ;; player_moved = how far the PLAYER has travelled since the browser opened. The owner's whole
   ;; correction is that this must stay 0: the camera goes to the mesh, Jak does not.

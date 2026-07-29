@@ -1450,33 +1450,56 @@ s64 pc_mesh_index_geti(u32 row, u32 field) {
 
 // Geometry getter (world metres, GOAL float). field ids: 0 cx 1 cy 2 cz, 3 lox 4 loy 5 loz,
 // 6 hix 7 hiy 8 hiz. The caller multiplies by 4096 to reach GOAL units.
-float pc_mesh_index_getf(u32 row, u32 field) {
+// Returns the FLOAT BIT PATTERN in the integer return register, NOT a C float: GOAL reads every
+// builtin return from the integer register (x86 RAX / arm64 X0), while a C `float` travels in
+// XMM0/S0 — so a real float return reads back as 0.0 in GOAL on both backends. This exact hole made
+// every centroid/bbox read 0 on device: the browser "warped to the same spot every time" (the
+// owner's report) because that spot was the world origin. Same convention as
+// common/kmachine.cpp::pc_get_axis_scale.
+u64 pc_mesh_index_getf(u32 row, u32 field) {
+  float out = 0.f;
+  const auto bits = [&out]() -> u64 {
+    u32 b;
+    memcpy(&b, &out, sizeof(b));
+    return b;
+  };
   if (row >= g_mesh_index.size()) {
-    return 0.f;
+    return bits();
   }
   const auto& r = g_mesh_index[row];
   switch (field) {
     case 0:
-      return r.cx;
+      out = r.cx;
+      break;
     case 1:
-      return r.cy;
+      out = r.cy;
+      break;
     case 2:
-      return r.cz;
+      out = r.cz;
+      break;
     case 3:
-      return r.lox;
+      out = r.lox;
+      break;
     case 4:
-      return r.loy;
+      out = r.loy;
+      break;
     case 5:
-      return r.loz;
+      out = r.loz;
+      break;
     case 6:
-      return r.hix;
+      out = r.hix;
+      break;
     case 7:
-      return r.hiy;
+      out = r.hiy;
+      break;
     case 8:
-      return r.hiz;
+      out = r.hiz;
+      break;
     default:
-      return 0.f;
+      out = 0.f;
+      break;
   }
+  return bits();
 }
 
 // Copy a row's material name into a GOAL string; returns #t/#f.

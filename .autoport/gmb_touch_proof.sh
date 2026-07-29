@@ -51,9 +51,14 @@ padb(){ inject "$1"; sleep 0.4; inject ""; sleep "${2:-0.9}"; }
 EXT_ROOT="$(adb exec-out run-as $PKG cat files/asset_root.txt 2>/dev/null | tr -d '\r\n')"
 STATE=""
 snap(){
-  STATE="$(adb exec-out run-as $PKG cat files/mesh_browser_state.txt 2>/dev/null)"
+  # stderr must be silenced ON THE DEVICE (inside the run-as shell): a local 2>/dev/null does not
+  # catch it — cat's "No such file or directory" travels back over the exec-out channel as CONTENT,
+  # which made a missing file look like a non-empty state and false-armed the open detector.
+  STATE="$(adb exec-out run-as $PKG sh -c 'cat files/mesh_browser_state.txt 2>/dev/null')"
+  case "$STATE" in *"No such file"*) STATE="";; esac
   if [ -z "$STATE" ] && [ -n "$EXT_ROOT" ]; then
-    STATE="$(adb shell cat "$EXT_ROOT/mesh_browser_state.txt" 2>/dev/null | tr -d '\r')"
+    STATE="$(adb shell "cat '$EXT_ROOT/mesh_browser_state.txt' 2>/dev/null" | tr -d '\r')"
+    case "$STATE" in *"No such file"*) STATE="";; esac
   fi
 }
 rm_state(){
@@ -107,14 +112,36 @@ swipe_n(){ adb shell input swipe "$(px $1)" "$(py $2)" "$(px $3)" "$(py $4)" "${
 # ---- 1. reach the browser (gamepad nav; the row is pre-existing) ----------------------
 say ""
 say "=== 1. OPEN THE BROWSER (menu nav only; every later step is touch) ==="
-rm_state
+# Each attempt starts from a FULL APP RESTART: an open/close of the browser at the title leaves the
+# menu in a non-root state (master-mode 'game with no menu up), and a failed walk may have pressed X
+# on an arbitrary row — mid-loop "backing out" proved mushy (run 3). A restart is slow but exact:
+# LoaderActivity -> fresh boot -> the press-start screen, every time.
+app_restart(){
+  adb shell am force-stop $PKG
+  adb logcat -c >/dev/null 2>&1 || true
+  adb shell am start -W -n $PKG/.LoaderActivity >/dev/null 2>&1
+  # fresh-buffer marker only (logcat was cleared): the renderer heartbeat names the title level
+  # (A36-TFRAG-CAM-HB lvl=village1) and the GK-DIAG heartbeat prints master-mode=progress once the
+  # title world is up. A true cold boot to the title takes SEVERAL minutes on this device — the
+  # first 360 s timeout was measured too short (two consecutive false "no title" aborts in run 4).
+  local t=0
+  until adb logcat -d 2>/dev/null | grep -aq 'master-mode=progress\|A36-TFRAG-CAM-HB lvl='; do
+    sleep 15; t=$((t+15)); [ "$t" -ge 600 ] && { say "app_restart: no title after ${t}s"; return 1; }
+  done
+  sleep 20   # let the title settle (attract flythrough runs; input is accepted at press-start)
+}
 opened=0
 # D = downs from GRAPHIC OPTIONS to the RECHARGED SETTINGS row: 7 when Min Target FPS is hidden
 # (Dynamic Render Scale OFF), 8 when visible — the device's persisted setting decides, probe both.
-# K = downs inside Recharged Settings to the MESH BROWSER row (23 with all rows present).
+# K = downs inside Recharged Settings to the MESH BROWSER row: 21 measured on THIS build
+# (hd-models OFF removes the Enhanced Models row; 23 with every row present).
 for D in 7 8; do
-for K in 23 22 24 21 25 20 26; do
-  padb "start" 2.5
+for K in 21 22 20 23 19; do
+  app_restart || continue
+  rm_state
+  # PRESS-START needs a LONG hold: measured on-device, a 0.4 s injected START never advances the
+  # press-start screen while a ~1.5 s hold always does. Menu rows respond fine to 0.4 s.
+  inject "start"; sleep 1.5; inject ""; sleep 2.0
   padb "down" 0.7; padb "down" 0.7; padb "x" 2.0      # OPTIONS
   padb "down" 0.8; padb "x" 2.0                        # GRAPHIC OPTIONS
   for i in $(seq 1 "$D"); do padb "down" 0.5; done     # RECHARGED SETTINGS row
@@ -122,9 +149,12 @@ for K in 23 22 24 21 25 20 26; do
   for i in $(seq 1 "$K"); do padb "down" 0.35; done    # walk to MESH BROWSER
   padb "x" 2.5
   snap
-  if [ -n "$STATE" ]; then say "browser OPEN after D=$D downs + K=$K downs; mode=$(field mode)"; opened=1; break; fi
-  say "  (D=$D K=$K did not open it; backing out)"
-  padb "triangle" 0.8; padb "triangle" 0.8; padb "triangle" 0.8; padb "start" 1.2
+  # the browser is open ONLY if a fresh state file says LEVELS (rm_state ran after the restart, so
+  # nothing stale can answer; a bare non-empty check once matched a leftover mode=CLOSED dump)
+  if [ "$(field mode)" = "LEVELS" ]; then
+    say "browser OPEN after D=$D downs + K=$K downs; mode=$(field mode)"; opened=1; break
+  fi
+  say "  (D=$D K=$K did not open it; mode='$(field mode)'; restarting for the next combo)"
 done
 [ "$opened" = 1 ] && break
 done
@@ -218,10 +248,19 @@ say "  note: 'input' is single-pointer and sendevent on the touchscreen node is 
 say "  to shell on this device, so the two-finger gesture is injected with monkey's"
 say "  pinch-zoom generator, which emits real 2-pointer MotionEvents into this package."
 snap; b="$(field cam_dist)"; bp="$(printf '%s\n' "$STATE" | grep -oE 'pinches=[0-9]+' | cut -d= -f2)"
-adb shell monkey -p $PKG --pct-pinchzoom 100 --pct-touch 0 --pct-motion 0 --pct-trackball 0 \
-    --pct-nav 0 --pct-majornav 0 --pct-syskeys 0 --pct-appswitch 0 --pct-flip 0 \
-    --pct-anyevent 0 --pct-permission 0 --throttle 120 -v 40 >>"$LOG" 2>&1
-sleep 2.0; snap; a="$(field cam_dist)"; ap="$(printf '%s\n' "$STATE" | grep -oE 'pinches=[0-9]+' | cut -d= -f2)"
+# monkey's pinch generator often moves the fingers symmetrically apart-then-back, which cancels
+# multiplicatively to a net-zero zoom; repeat the burst until the distance actually moves (each
+# burst is a fresh batch of REAL 2-pointer MotionEvents — repetition, not a loosened check).
+a="$b"
+for try in 1 2 3 4; do
+  adb shell monkey -p $PKG --pct-pinchzoom 100 --pct-touch 0 --pct-motion 0 --pct-trackball 0 \
+      --pct-nav 0 --pct-majornav 0 --pct-syskeys 0 --pct-appswitch 0 --pct-flip 0 \
+      --pct-anyevent 0 --pct-permission 0 --throttle 120 -v 120 >>"$LOG" 2>&1
+  sleep 2.0; snap; a="$(field cam_dist)"
+  [ -n "$a" ] && [ "$a" != "$b" ] && break
+  say "  (pinch burst $try netted zero zoom; bursting again)"
+done
+ap="$(printf '%s\n' "$STATE" | grep -oE 'pinches=[0-9]+' | cut -d= -f2)"
 say "  pinch samples recognised: $bp -> $ap"
 check "pinch changes the camera distance" "cam_dist" "$b" "$a" changed
 # monkey's pinches are random-positioned; a sub-500ms one can register as a stray TAP and press a
@@ -295,11 +334,13 @@ for FRAC in 0.03 0.28 0.50 0.72 0.96; do
     # the browser's orbit origin must BE the index's centroid for this row
     ex=${EXP%%,*}; er=${EXP#*,}; ey=${er%%,*}; ez=${er##*,}
     fx=${FOC%%,*}; fr=${FOC#*,}; fy=${fr%%,*}; fz=${fr##*,}
+    # every operand parenthesized: a NEGATIVE coordinate substituted bare produces "x--y", which awk
+    # parses as a decrement and dies — that false-failed every world-coordinate assert in run 5.
     assert "mesh #$((NCENT+1)) orbit origin == the INDEX centroid of row $ROW" \
-      "($fx-$ex)^2+($fy-$ey)^2+($fz-$ez)^2 < 0.01" "index=$EXP browser=$FOC"
+      "(($fx)-($ex))^2+(($fy)-($ey))^2+(($fz)-($ez))^2 < 0.01" "index=$EXP browser=$FOC"
     # the camera must sit on the orbit sphere around THAT centroid
     assert "mesh #$((NCENT+1)) camera is centred on that centroid" \
-      "($CR-$CD)^2 < 4.0" "|cam-centroid|=$CR vs radius=$CD (metres)"
+      "(($CR)-($CD))^2 < 4.0" "|cam-centroid|=$CR vs radius=$CD (metres)"
     # and the player must not have moved a millimetre
     assert "mesh #$((NCENT+1)) player did NOT move" "$PMV < 0.001" "player_moved=$PMV m"
     # distinct camera positions: a fixed point would repeat
@@ -307,7 +348,7 @@ for FRAC in 0.03 0.28 0.50 0.72 0.96; do
       pcx=${PREV_CAM%%,*}; pr=${PREV_CAM#*,}; pcy=${pr%%,*}; pcz=${pr##*,}
       cx=${CAM%%,*}; cr2=${CAM#*,}; cy=${cr2%%,*}; cz=${cr2##*,}
       assert "mesh #$((NCENT+1)) camera moved vs the previous mesh (no fixed point)" \
-        "($cx-$pcx)^2+($cy-$pcy)^2+($cz-$pcz)^2 > 1.0" "prev=$PREV_CAM now=$CAM"
+        "(($cx)-($pcx))^2+(($cy)-($pcy))^2+(($cz)-($pcz))^2 > 1.0" "prev=$PREV_CAM now=$CAM"
     fi
     PREV_CAM="$CAM"
     NCENT=$((NCENT+1))
