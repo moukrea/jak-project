@@ -2260,8 +2260,14 @@ phases:
   device: true
   owner_verify: true
 - id: Grecharged-mesh-browser
-  title: "Navigateur de mesh de debug (owner: verifier tous les mesh soi-meme, tactile + manette)"
-  max_retries: 12
+  name: "Navigateur de mesh de debug (owner): warp dans n'importe quel niveau, previsualiser n'importe
+    quel mesh avec ses textures / son PBR / le damier, orbite + rotation, heure du jour, identifiant
+    affiche ET exporte. ENTIEREMENT UTILISABLE AU TACTILE (l'owner n'a ni manette permanente ni adb)."
+  prompt: prompts/phase-Grecharged-mesh-browser.md
+  validator: validators/phase-Grecharged-mesh-browser.sh
+  device: true
+  max_turns: 400
+  max_retries: 20
   owner_verify: true
 - id: Grecharged-texture-hotreload
   name: 'RECHARGED (owner 2026-07-23): LIVE texture toggling — Recharged Textures / custom assets
