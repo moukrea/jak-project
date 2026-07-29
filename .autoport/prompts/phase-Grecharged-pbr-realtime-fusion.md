@@ -854,3 +854,18 @@ Ce n'est pas urgent pour le jeu livré (qui compile avec PBR ON), mais c'est une
 empêche d'isoler le PBR pour un A/B de compilation, ce qui est précisément l'outil dont on aurait eu
 besoin plusieurs fois dans cette phase. À corriger quand ce round retouche Loader.cpp, en gardant
 toutes les références derrière la directive.
+
+--------------------------------------------------------------------------------
+OBSERVATION OWNER 2026-07-30 — À INSTRUIRE AU PROCHAIN ROUND PBR (après le mesh browser v2)
+--------------------------------------------------------------------------------
+Owner : "il semblerait que la tesselation au sol (là où c'est pas du sable) ne fonctionne pas du
+tout (idem parallax ceci dit) mais c'est peut-être la texture qui veut ça, difficile à savoir sans
+pouvoir toggle on/off le checker ni focus facilement l'élément du sol"
+
+À vérifier D'ABORD dans les données, sans device : le sol non-sable de village1 (leafyground et
+voisins) a-t-il une height map recharged ? Si NON, le comportement est attendu (pas de source de
+displacement) et il suffit de le dire à l'owner avec la liste des matériaux sol sans maps. Si OUI,
+c'est un vrai défaut de couverture — et le mesh browser v2 (Square = damier sur la cible, gizmos)
+sera l'outil de confirmation par l'owner. Ne pas ouvrir de round displacement là-dessus avant
+d'avoir tranché cette question-là : half of the past weeks' waste came from fixing before checking
+whether there was a source to displace.
