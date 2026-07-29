@@ -2269,6 +2269,19 @@ phases:
   max_turns: 400
   max_retries: 20
   owner_verify: true
+- id: Grecharged-menu-overhaul
+  name: "REFONTE MENUS (propal superviseur validee owner 2026-07-30): titre conditionnel (Continuer /
+    Charger cache sans save), quit flow (retour titre / quitter / annuler), OPTIONS unifiees en 6
+    categories avec en-tetes de groupe + valeur live sur 100% des lignes + hints, Recharged dissous,
+    3 lignes Android retablies, categorie Debug cachee-pas-supprimee derriere --debug, 6 langues,
+    table de correspondance ancien->nouveau pour chaque ligne. NE DEMARRE PAS avant fermeture de
+    Grecharged-mesh-browser (memes fichiers)."
+  prompt: prompts/phase-Grecharged-menu-overhaul.md
+  validator: validators/phase-Grecharged-menu-overhaul.sh
+  device: true
+  max_turns: 400
+  max_retries: 20
+  owner_verify: true
 - id: Grecharged-texture-hotreload
   name: 'RECHARGED (owner 2026-07-23): LIVE texture toggling — Recharged Textures / custom assets
     ON<->OFF must apply without restarting the game (rescan + GPU re-upload / pool invalidation).
