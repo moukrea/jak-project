@@ -2236,10 +2236,11 @@ phases:
   prompt: prompts/phase-Grecharged-loader-packfix.md
   validator: validators/phase-Grecharged-loader-packfix.sh
   device: true
-  # The owner's Honor BKQ-N49 — this phase's phone. The Redmi (eae4df44, the
-  # close-gate default) is UNPLUGGED, and probing it produced a misleading
-  # "package not installed" that reads as a stale build.
-  device_serial: AREE026206000788
+  # 2026-07-29: the owner's Honor (AREE026206000788) carried the first proof of
+  # this fix — boot, 74-CGO extraction and the MESH BROWSER row photographed on
+  # screen — then he unplugged it (07:36) and re-attached the Redmi (07:37).
+  # The Redmi is the test device from that point on; the Honor evidence stands.
+  device_serial: eae4df44
   max_turns: 400
   max_retries: 20
   owner_verify: true
