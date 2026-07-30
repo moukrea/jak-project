@@ -269,6 +269,9 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > ré-uploade jamais le niveau), les bascules V2 agissent **par draw AU MOMENT DU DRAW** via le canal cible
 > `mb_target_*` (gfx.h) consulté dans les boucles TFRAG/TIE — preuves runtime par compteurs monotones
 > `rt_hidden`/`rt_checker`/`rt_gizmo_*` publiés dans `files/mesh_browser_state.txt`.
+> **V2.2** : un navigateur OUVERT force le chemin Recharged ON (`recharged_master_active`, priorité
+> la plus basse — l'override headless prop/env gagne toujours) : l'owner prévisualise le PBR/la
+> tessellation même si le master perf est sauvegardé OFF ; fermé => strictement stock.
 >
 > **RÉOUVERTURE (2026-07-29, owner : « C'est impossible à parcourir via le tactile (le mesh browser) »)**.
 > La ligne de menu elle-même est INCHANGÉE (même id, même position, même comportement) ; c'est le CONTENU de

@@ -80,8 +80,12 @@ assert(){
   if awk "BEGIN{exit !($2)}"; then PASS=$((PASS+1)); say "  PASS  $1  [$3]"
   else FAIL=$((FAIL+1)); say "  FAIL  $1  [$3]"; fi
 }
-# sample an rt_* counter twice, WIN seconds apart (heartbeat writes every 3 s)
+# sample an rt_* counter twice, WIN seconds apart. PRE-SETTLE 8 s first: the state-file
+# heartbeat runs every ~3-6 s, so a sample taken right after a toggle press can read a file
+# generated BEFORE the press — run 10's checker/gizmo "0 -> 0" deltas while the per-frame
+# counters read >0 were exactly this stale-b race. 8 s guarantees both samples post-press.
 delta(){ # field win -> prints "b a"
+  sleep 8.0
   snap; local b="$(field $1)"; sleep "$2"; snap; local a="$(field $1)"; echo "$b $a"
 }
 
@@ -329,7 +333,11 @@ LASTMESH=""
 # carries no triangle of that row, so it is unacquirable BY DESIGN — correct pick behaviour, bad
 # test-mesh choice. These five acquired by ray in run 6, spread across the village: roof / lamp
 # (tiny) / hut endcap / hut wall / the beach expanse.)
-for TROW4 in 585 2786 4626 6470 2156; do
+# (2156 vil-beach-01 was tried as mesh #5 and is WRONG for this section: its 460 m bbox makes
+# the auto-framing park the camera ~540 m out and the ray finds zero candidates — keep the
+# battery on compact rows; 2156 stays the staging row for sections 5/6c where R1-cycling from
+# a close-up vantage is what matters.)
+for TROW4 in 585 2786 4626 6470 8645; do
   NPICK=$((NPICK+1))
   goto_row "$TROW4" || { say "  FAIL mesh #$NPICK: could not reach row $TROW4 in the LIST"; FAIL=$((FAIL+1)); continue; }
   padb "x" 7.0

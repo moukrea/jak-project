@@ -2119,6 +2119,10 @@ extern "C" int pc_mb_is_active() {
 // GOAL sets the mode. 0 restores the normal virtual-gamepad routing exactly.
 void pc_mb_set_active(u32 on) {
   g_mb.active.store((int)on, std::memory_order_release);
+  // V2.2: an OPEN browser forces the Recharged path on (recharged_master_active, gfx.h) — the
+  // owner previews PBR/tess in the browser even when the master perf-toggle is saved OFF.
+  // Closed -> false: the normal path is untouched by the tool.
+  Gfx::g_global_settings.mb_pbr_override = (on != 0);
 }
 
 // Latch one frame of gesture state and CONSUME the accumulated deltas. Returns the finger count.

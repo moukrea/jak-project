@@ -211,6 +211,10 @@ struct GfxGlobalSettings {
   u32 mb_frame_checker_full = 0;
   u32 mb_frame_target_tess = 0;
   u32 mb_frame_gizmo_px = 0;
+  // V2.2: browser-open PBR override — armed by pc_mb_set_active(!=0), consulted by
+  // recharged_master_active() (lowest precedence, see there). False whenever the browser is
+  // closed, so the normal path is byte-identical with the tool off.
+  bool mb_pbr_override = false;
   // V2.1 TRIANGLE-ACCURATE reticle pick (owner: a single R1 must target the mesh the reticle
   // SEES). AABB slab distances cannot rank a dense stack — index AABBs are much fatter than
   // their geometry, so the nearest box is usually not the visible surface (run 5 needed up to
@@ -432,7 +436,14 @@ inline bool recharged_master_active() {
       s_override = ov;
     }
   }
-  return (s_override >= 0) ? (s_override != 0) : g_global_settings.recharged_master;
+  // Grecharged-mesh-browser V2.2: while the debug mesh browser is OPEN it forces the Recharged
+  // path ON — its whole purpose is previewing PBR/tessellation "si existant", and with the
+  // master perf-toggle saved OFF every tess/PBR preview silently reads stock (device run 10:
+  // rtf_tess=0 on 15 tess-capable candidates because settings.ini had recharged-master? #f).
+  // Lowest precedence: the explicit headless A/B override (prop/env) still wins both ways; the
+  // flag is armed/disarmed by pc_mb_set_active, so a CLOSED browser changes nothing.
+  return (s_override >= 0) ? (s_override != 0)
+                           : (g_global_settings.mb_pbr_override || g_global_settings.recharged_master);
 }
 
 inline bool recharged_active(bool feature_flag) {
