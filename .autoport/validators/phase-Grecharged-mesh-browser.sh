@@ -35,7 +35,16 @@ grep -qiE 'time of day|heure|tod' "$R" || fail "no in-browser time-of-day contro
 GKB=""
 for c in build-mbrowse/game/gk build-mbrowse/gk build/game/gk; do [ -f "$c" ] && GKB="$c" && break; done
 [ -n "$GKB" ] || fail "no gk binary produced — the report's 'gk built in build-mbrowse' claim is unverifiable"
-[ "$GKB" -nt goal_src/jak1/pc/mesh-browser-pc.gc ] || fail "gk binary is OLDER than mesh-browser-pc.gc — it does not contain this work"
+# mesh-browser-pc.gc is GOAL: it compiles into the CGO via goalc, NOT into the gk C++ binary.
+# Requiring gk to be newer than a .gc file forces a pointless relink and stalled the phase 3x
+# (same fingerprint). The correct freshness pair is:
+#   - the GOAL object newer than its source (goalc ran), and
+#   - gk newer than the C++ bridge this phase edits (kmachine.cpp), when that file changed.
+[ out/jak1/obj/mesh-browser-pc.o -nt goal_src/jak1/pc/mesh-browser-pc.gc ] \
+  || fail "mesh-browser-pc.o is OLDER than mesh-browser-pc.gc — goalc did not recompile the screen"
+if [ game/kernel/jak1/kmachine.cpp -nt "$GKB" ]; then
+  fail "gk binary is OLDER than kmachine.cpp — the C++ bridge changed but was not relinked"
+fi
 grep -qiE 'independent mesh rotation|rotate the mesh' "$R" || fail "mesh rotation: if the mesh cannot be spun, the report must say so explicitly as a GAP, not substitute light rotation silently"
 # owner delivery condition: all levels indexed, and the browser ships WITH the mesh corrections
 IDX=$(ls custom_assets/jak1/mesh_index/mesh_index_*.txt 2>/dev/null | wc -l)
