@@ -76,12 +76,21 @@ delta(){ # field win -> prints "b a"
 
 say "=== 0. DEVICE ==="
 adb devices -l | tee -a "$LOG" | grep -q "$S" || { say "device $S absent"; exit 1; }
+adb logcat -G 16M 2>/dev/null || true   # overlay-map layout lines must survive minutes of GK spam
 say "model: $(adb shell getprop ro.product.model | tr -d '\r')"
 say "focus: $(adb shell dumpsys window 2>/dev/null | grep -m1 -i mCurrentFocus | tr -d '\r')"
-CUR="$(adb shell dumpsys window displays 2>/dev/null | grep -oE 'cur=[0-9]+x[0-9]+' | head -1 | cut -d= -f2)"
-[ -n "$CUR" ] || CUR="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | head -1)"
-VW="${CUR%x*}"; VH="${CUR#*x}"
-say "injection coordinate space: ${VW}x${VH}"
+# Injection space is sampled AFTER the game is foreground (see sample_space below): `cur=`
+# follows the CURRENT display orientation, and at script start the foreground app can be the
+# MIUI launcher (portrait 1080x2400) — run 4 sampled that and every normalized tap of a
+# landscape game missed. The game manifest is landscape-locked, so post-open sampling is stable.
+VW=""; VH=""
+sample_space(){
+  local cur
+  cur="$(adb shell dumpsys window displays 2>/dev/null | grep -oE 'cur=[0-9]+x[0-9]+' | head -1 | cut -d= -f2)"
+  [ -n "$cur" ] || cur="$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | head -1)"
+  VW="${cur%x*}"; VH="${cur#*x}"
+  say "injection coordinate space (game foreground): ${VW}x${VH}"
+}
 px(){ awk "BEGIN{printf \"%d\", $1*$VW}"; }
 py(){ awk "BEGIN{printf \"%d\", $1*$VH}"; }
 tap_n(){ adb shell input tap "$(px $1)" "$(py $2)"; sleep "${3:-0.8}"; }
@@ -122,6 +131,13 @@ done
 done
 [ "$opened" = 1 ] || { say "COULD NOT OPEN THE BROWSER — abort"; exit 1; }
 GOOD_D="$D"; GOOD_K="$K"   # remember the working walk for reopens
+
+# Harvest the overlay layout map NOW: TouchOverlayView.logOverlayMap logs at layout and on
+# every browser-mode change, and by section 9 early lines can rotate out of the logcat ring
+# buffer (~20 min of GK spam) — run 1 silently SKIPPED the whole touch-button battery that way.
+adb logcat -d 2>/dev/null | grep -a 'overlay-map:' > "$OUT/overlay-map.txt" || true
+say "overlay-map lines harvested at open: $(wc -l < "$OUT/overlay-map.txt")"
+sample_space   # game is foreground now — the display orientation is the game's landscape
 
 # Reopen the browser LEVELS screen from CLOSED (post-freecam-exit). The browser's menu
 # confirm handler left master-mode 'game, so START pulls the progress menu back up at its
@@ -213,7 +229,9 @@ for FRAC in 0.03 0.28 0.50 0.72 0.96; do
   # OBSERVE, so the reticle sits dead-centre on this mesh's centroid; cycling is tolerated
   # (several AABBs can legally sit on the same ray; R1 walks them near->far).
   hit=""
-  for c in 1 2 3 4 5 6 7 8; do
+  # up to 20 R1 presses: a dense village vantage puts up to 16 AABBs on the ray (run 2:
+  # pick_n=16 with the old 8-press cap — the right mesh sat beyond the cap).
+  for c in $(seq 1 20); do
     padb "r1" 1.2; snap
     [ "$(field target)" = "$ROW" ] && { hit="$c"; break; }
     [ "$(field pick_n)" = "0" ] && break
@@ -275,11 +293,15 @@ say ""
 say "=== 6. CIRCLE: normal-orientation gizmos on the target ==="
 padb "circle" 1.5; snap
 check "CIRCLE sets gizmos" "gizmos" "0" "$(field gizmos)" equals "1"
-GF="$(field rt_gizmo_faces)"
-say "gizmo faces built for this mesh: $GF"
-assert "gizmo builder produced faces (>0)" "($GF) > 0" "rt_gizmo_faces=$GF"
 read gb ga <<< "$(delta rt_gizmo_draws 4.5)"
 check "gizmo pass renders every frame while ON" "rt_gizmo_draws" "$gb" "$ga" grew
+# rt_gizmo_faces is SET by the render-thread rebuild and only reaches the state file at the
+# NEXT 3 s heartbeat: reading it in the toggle snap races the rebuild (run 1: file said 0 while
+# logcat's '[mb-gizmos] built 110 normal arrows' proved the build). Read it AFTER the 4.5 s
+# draw-delta window, when at least one heartbeat has carried the rebuilt value.
+snap; GF="$(field rt_gizmo_faces)"
+say "gizmo faces built for this mesh: $GF"
+assert "gizmo builder produced faces (>0)" "($GF) > 0" "rt_gizmo_faces=$GF"
 padb "circle" 1.0; snap
 check "CIRCLE clears gizmos" "gizmos" "1" "$(field gizmos)" equals "0"
 read gb2 ga2 <<< "$(delta rt_gizmo_draws 4.5)"
@@ -304,6 +326,9 @@ if [ -z "$STATE" ] || [ "$(field mode)" = "CLOSED" ]; then
 else
   FAIL=$((FAIL+1)); say "  FAIL  r3 did not exit freecam (mode=$(field mode))"
 fi
+# same menu-guard as 9e: the entry gate refuses while a menu is up (by design)
+MS8="$(adb logcat -d 2>/dev/null | grep -a 'overlay-mode: left-control now' | tail -1)"
+case "$MS8" in *MENU*) say "  (stray menu detected — closing it with START first)"; padb "start" 2.0 ;; esac
 rm_state
 padb "r3" 2.5; snap
 check "r3 from CLOSED enters freecam directly (no menu needed)" "mode" "" "$(field mode)" equals "FREECAM"
@@ -311,9 +336,14 @@ check "r3 from CLOSED enters freecam directly (no menu needed)" "mode" "" "$(fie
 # ---- 9. TOUCH: overlay drives the freecam (owner has no gamepad) -----------------------
 say ""
 say "=== 9. TOUCH: overlay buttons drive every freecam action (injected input tap) ==="
-say "coords come from the overlay's own 'overlay-map:' lines in logcat (drawn = hit)."
-adb logcat -d 2>/dev/null | grep -a 'overlay-map: fc' | tail -20 | tee -a "$LOG"
-MAP="$(adb logcat -d 2>/dev/null | grep -a 'overlay-map:' | tail -40)"
+say "coords come from the overlay's own 'overlay-map:' dumps. The overlay re-dumps the map on"
+say "every browser-mode change (run 3: the view RESIZED 2298x934 -> 2400x1080 mid-session and"
+say "the proportional layout moved every circle ~95px off the open-time map — missing the r=57"
+say "circles while still inside the wide pills). Prefer the FRESHEST dump in the live buffer;"
+say "ctl() takes the LAST match per control. The open-time harvest is only a fallback."
+MAP="$(adb logcat -d 2>/dev/null | grep -a 'overlay-map:')"
+[ -n "$MAP" ] || MAP="$(cat "$OUT/overlay-map.txt" 2>/dev/null)"
+printf '%s\n' "$MAP" | grep -a 'overlay-map: fc' | tail -12 | tee -a "$LOG"
 # centre of a mapped control. Two formats (TouchOverlayView.logOverlayMap):
 #   rrect: name=left,top,WIDTH,HEIGHT->...   circ: name=cx,cy,radius->...
 ctl(){
@@ -324,7 +354,14 @@ ctl(){
   if [ "$n" = 4 ]; then echo "$co" | awk -F, '{printf "%d %d", $1+$3/2, $2+$4/2}'
   else echo "$co" | awk -F, '{printf "%d %d", $1, $2}'; fi
 }
-tap_ctl(){ local c; c="$(ctl $1)"; [ -n "$c" ] && { adb shell input tap $c; sleep "${2:-1.2}"; return 0; }; say "  (no overlay-map for $1)"; return 1; }
+# A control missing from the harvested map is a FAIL, not a skip: run 1 skipped the whole
+# touch battery silently and still said "35 passed" — exactly the stub-shaped hole the
+# supervisor's validators exist to reject.
+# HELD press, not `input tap`: tap's ~10 ms down/up can fall inside one GOAL pad-poll
+# interval and the button edge is never seen (run 2: every single-tap fc-* control failed
+# while fc-r1 'worked' only because the aim sweep re-tapped it 5x). A 280 ms hold spans
+# ~17 frames — the duration of a real finger press.
+tap_ctl(){ local c; c="$(ctl $1)"; [ -n "$c" ] && { adb shell input swipe $c $c 280; sleep "${2:-1.2}"; return 0; }; FAIL=$((FAIL+1)); say "  FAIL  no overlay-map entry for $1 (touch test cannot run)"; return 1; }
 # 9a. R1 by finger -> target. The re-entry camera continues from wherever the title
 # flythrough left it, which may point at empty sky: sweep the look a few times until the
 # ray finds candidates (each attempt is a REAL finger tap; the sweep is aiming, not a
@@ -361,12 +398,31 @@ if [ -n "$STK" ]; then
   adb shell input swipe "$SX" "$SY" "$SX" "$((SY-140))" 1400   # hold the stick up ~1.4s
   sleep 1.0; snap
   check "TOUCH virtual stick flies the camera" "fc" "$b_fc" "$(field fc)" changed
+else
+  FAIL=$((FAIL+1)); say "  FAIL  no overlay-map entry for left-stick (touch fly test cannot run)"
 fi
 # 9e. EXIT by finger, FCAM button by finger to re-enter
+EXITED=0
 if tap_ctl fc-exit 2.0; then snap
-  if [ -z "$STATE" ] || [ "$(field mode)" = "CLOSED" ]; then PASS=$((PASS+1)); say "  PASS  TOUCH EXIT closes freecam"
+  if [ -z "$STATE" ] || [ "$(field mode)" = "CLOSED" ]; then PASS=$((PASS+1)); say "  PASS  TOUCH EXIT closes freecam"; EXITED=1
   else FAIL=$((FAIL+1)); say "  FAIL  TOUCH EXIT: mode=$(field mode)"; fi
 fi
+# The FCAM entry test is only meaningful from a CONFIRMED-CLOSED state: if EXIT failed we are
+# still in freecam and the heartbeat rewrites mode=FREECAM after rm_state — a vacuous pass
+# (run 2 did exactly that). Force-close by pad as aim assistance, never as a substitute proof.
+if [ "$EXITED" != 1 ]; then padb "r3" 2.0; snap
+  [ -z "$STATE" ] || [ "$(field mode)" = "CLOSED" ] || say "  (could not reach CLOSED before the FCAM test)"
+fi
+# R3-from-CLOSED entry is gated on *master-mode* = 'game BY DESIGN (the freecam must never
+# hijack a menu). Run 3: a menu had popped mid-run (environmental focus blip) and the gate
+# correctly refused the CAM tap. The overlay heartbeat logs every menu-state change — read the
+# LATEST one; if a menu is up, close it with START first. The tap itself must still do the
+# genuine CLOSED -> FREECAM transition.
+MSTATE="$(adb logcat -d 2>/dev/null | grep -a 'overlay-mode: left-control now' | tail -1)"
+case "$MSTATE" in *MENU*)
+  say "  (stray menu detected before the FCAM test — closing it with START first)"
+  padb "start" 2.0 ;;
+esac
 rm_state
 if tap_ctl fcam 2.5; then snap; check "TOUCH FCAM overlay button enters freecam from gameplay" "mode" "" "$(field mode)" equals "FREECAM"
   padb "r3" 1.5

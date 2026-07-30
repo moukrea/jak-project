@@ -86,23 +86,31 @@ echo "DEPLOY-ASSETS PASS: device $SERIAL runs the fresh GOAL set ($N_LOCAL/$N_LO
 # We only assert on TXT files PRESENT on the device: fail on content mismatch, or on
 # a device TXT with no local counterpart; do NOT fail on extra local files.
 if [ "$GAME" = "jak1" ]; then
-  txt_match(){ # $1=device dir  $2=local dir  $3=label
-    local ddir="$1" ldir="$2" label="$3"
+  # Since Grecharged-loader-packfix, out/<game>-android-text holds ONLY the banks that carry an
+  # android override (jak1: 0=EN, 1=FR); every OTHER language rides the cgo pack as the FRESH
+  # desktop bank from out/<game>/iso (build_cgo_pack.sh: override replaces, others fall through).
+  # The effective golden for a device bank is therefore: the override if one exists, else the
+  # desktop bank. The old single-dir compare failed banks 2..24 as "no local counterpart" and
+  # never content-verified them at all.
+  txt_match(){ # $1=device dir  $2=local override dir  $3=label  $4=local fallback dir
+    local ddir="$1" ldir="$2" label="$3" ldir2="${4:-}"
     "$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'ls $ddir/*COMMON.TXT'" >/dev/null 2>&1 || { echo "  ($label) no device TXT at $ddir — skip"; return 0; }
     [ -d "$ldir" ] || { echo "  ($label) no local dir $ldir — skip"; return 0; }
-    local dtxt lmd5 dmd5 tmiss=0 tmis=0 n=0
+    local dtxt lf lmd5 dmd5 tmiss=0 tmis=0 n=0
     dtxt=$("$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'cd $ddir 2>/dev/null && md5sum *COMMON.TXT 2>/dev/null'" 2>/dev/null | tr -d '\r')
     [ -n "$dtxt" ] || { echo "  ($label) no device TXT at $ddir — skip"; return 0; }
     while read -r dmd5 df; do
       [ -n "$dmd5" ] || continue
       df=$(basename "$df"); n=$((n+1))
-      if [ ! -f "$ldir/$df" ]; then echo "  ($label) device TXT $df has NO local counterpart in $ldir"; tmiss=$((tmiss+1)); continue; fi
-      lmd5=$(md5sum "$ldir/$df" | cut -d' ' -f1)
-      if [ "$lmd5" != "$dmd5" ]; then echo "  ($label) STALE TXT on device: $df (build=$lmd5 dev=$dmd5)"; tmis=$((tmis+1)); fi
+      if [ -f "$ldir/$df" ]; then lf="$ldir/$df"
+      elif [ -n "$ldir2" ] && [ -f "$ldir2/$df" ]; then lf="$ldir2/$df"
+      else echo "  ($label) device TXT $df has NO local counterpart in $ldir or ${ldir2:-<none>}"; tmiss=$((tmiss+1)); continue; fi
+      lmd5=$(md5sum "$lf" | cut -d' ' -f1)
+      if [ "$lmd5" != "$dmd5" ]; then echo "  ($label) STALE TXT on device: $df (build=$lmd5 dev=$dmd5 golden=$lf)"; tmis=$((tmis+1)); fi
     done <<< "$dtxt"
     [ "$tmiss" -eq 0 ] || die "$tmiss device TXT($label) lack a local counterpart — text source out of sync"
     [ "$tmis"  -eq 0 ] || die "$tmis device TXT($label) STALE — device shows OLD text (re-push $label banks)"
-    echo "  ok ($label): $n device *COMMON.TXT byte-identical to $ldir"
+    echo "  ok ($label): $n device *COMMON.TXT byte-identical to override/desktop goldens"
   }
-  txt_match "files/cgo/${GAME}"      "out/${GAME}-android-text"  "overlay"
+  txt_match "files/cgo/${GAME}"      "out/${GAME}-android-text"  "overlay"  "out/${GAME}/iso"
 fi

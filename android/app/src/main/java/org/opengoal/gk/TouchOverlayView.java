@@ -1190,6 +1190,13 @@ public class TouchOverlayView extends View {
                         + (mode == 1 ? "OPEN mode=1 (list-UI: raw multi-touch -> onBrowserTouch, virtual pad suspended)"
                            : mode == 2 ? "OPEN mode=2 (FREECAM: virtual pad LIVE, freecam control set)"
                                        : "CLOSED mode=0 (normal virtual pad restored)"));
+                // Re-dump the control map on every browser-mode change: the view can RESIZE
+                // mid-session (MIUI inset settling took us 2298x934 -> 2400x1080) and the layout
+                // is proportional, so a map harvested at open aims ~95px off afterwards — enough
+                // to miss every circle button while still landing inside the wide pills. A fresh
+                // dump within 250ms of each mode flip gives any coordinate consumer (the proof
+                // harness, or a human debugging by log) the CURRENT geometry.
+                if (getWidth() > 0 && getHeight() > 0) logOverlayMap(getWidth(), getHeight());
                 invalidate();
             }
             handler.postDelayed(this, HEARTBEAT_MS);

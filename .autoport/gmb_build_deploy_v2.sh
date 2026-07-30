@@ -42,7 +42,9 @@ $ADB -s $S shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow 2>/
 $ADB -s $S shell settings put global verifier_verify_adb_installs 0 >/dev/null 2>&1 || true
 $ADB -s $S shell pm trim-caches 999G 2>/dev/null || true
 $ADB -s $S install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -3 || die "apk install failed"
-bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify (libgk) failed"
+# deploy_verify moved AFTER step 4: its custom-pack stamp check compares against the freshly
+# built pack version, but the stamp's SOLE writer is a LoaderActivity boot (step 4). Running it
+# here fails by construction whenever the pack version moves (deploy_verify trap class #4).
 
 say "4. boot via LoaderActivity: custom-pack stamp + CGO extraction + live render"
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
@@ -75,7 +77,8 @@ NDEV=$($ADB -s $S shell "run-as $PKG sh -c 'ls files/custom/jak1/mesh_index/ 2>/
 echo "  device mesh_index files: $NDEV"
 [ "$NDEV" -ge 25 ] || die "device holds only $NDEV mesh_index files"
 
-say "5. deploy_verify_assets"
+say "5. deploy_verify (build==APK==device libgk + pack stamp) + deploy_verify_assets"
+bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify (libgk) failed"
 bash .autoport/lib/deploy_verify_assets.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify_assets failed"
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
 echo "[gmb-build] DONE — v2 freecam build on device, boots to render, deploy_verify + assets PASS."
