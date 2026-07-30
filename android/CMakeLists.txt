@@ -678,6 +678,10 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/FollowProbe.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
+    # Grecharged-mesh-browser V2 — normal-orientation gizmo pass; TFragment.cpp and
+    # Tie3.cpp call mb_gizmos::render unconditionally, so libgk.so fails to link
+    # without it (attempt-1 added it to the desktop game/CMakeLists.txt only).
+    "${JAK_ROOT}/game/graphics/opengl_renderer/background/MeshBrowserGizmos.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/TFragment.cpp"
     # village-missing — shrub (foliage: palm trees, plants, bushes, grass) for
     # the title flythrough over Sandover village. Pure-GOAL DMA (shrubbery.gc
