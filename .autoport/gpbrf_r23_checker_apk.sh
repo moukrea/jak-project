@@ -140,3 +140,9 @@ FINAL=$(unzip -p "$CHK_APK" lib/arm64-v8a/libgk.so | sha256sum | cut -d' ' -f1)
 [ "$FINAL" = "$CSHA" ] || die "parked checker APK bundles ${FINAL:0:16}, expected ${CSHA:0:16}"
 echo "  re-verified AFTER the normal re-assemble: checker APK still bundles ${FINAL:0:16}"
 ls -la "$APK" "$CHK_APK"
+
+# stage the NORMAL apk into dist too — preflight_delivery.sh reads BOTH from
+# .autoport/dist; before this line the normal copy there was whatever the last
+# manual cp left (2026-07-30: a 06:55 build nearly shipped over a 20:38 one)
+cp android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk .autoport/dist/app-jak1-NORMAL-recharged.apk
+echo "  staged normal APK into .autoport/dist/app-jak1-NORMAL-recharged.apk"
