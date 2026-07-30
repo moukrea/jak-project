@@ -176,10 +176,53 @@ ensure_list(){
     OBSERVE) tap_n 0.76 0.92 2.0; snap; [ "$(field mode)" = "LIST" ] && return 0 ;;
     LEVELS) tap_n 0.30 0.20 4.0; snap; [ "$(field mode)" = "LIST" ] && return 0 ;;
   esac
-  # closed or lost: reopen through the menu, then pick village1
-  reopen_browser || return 1
+  # closed or lost: reopen through the menu, then pick village1. If the walk fails (run 8: a
+  # mid-run desync left the browser stuck CLOSED and every later section cascaded on empty
+  # state), fall back to a COLD APP RESTART — expensive but deterministic.
+  if ! reopen_browser; then
+    say "  (reopen via menu failed — cold app restart fallback)"
+    app_restart || return 1
+    rm_state
+    reopen_browser || return 1
+  fi
   tap_n 0.30 0.20 4.0; snap
   [ "$(field mode)" = "LIST" ]
+}
+
+# Deterministic LIST row navigation — defined here so section 4 can use it too. Facts measured
+# ON THE DEVICE (manual probes, 2026-07-30): (1) scrollbar drags are ABSOLUTE on the END y and
+# move `scroll` ONLY — `sel` never follows a handle jump, it changes only via pad steps or row
+# taps; (2) the real track maps scroll ~= 11.477*y_px - 2135 in the 1080-px landscape space
+# (track 0.172..0.938 — NOT the 0.20..0.88 the old fraction math assumed, hence 400-row landing
+# errors); (3) x=0.985 dodges a right-edge overlay region that silently consumes touches at
+# x=0.97 around y~0.27. Flow: feedback-corrected absolute jump -> tap a visible row to plant
+# sel -> exact pad-stepping (each step re-read from the state, dropped edges self-correct).
+goto_row(){ # ROW: leave the LIST with sel == ROW. Bounded; returns 1 on any wedge.
+  local ROW="$1" i j cur diff step tgt y err
+  ensure_list || return 1
+  tgt=$(( ROW > 6 ? ROW - 6 : 0 ))
+  for i in 1 2 3 4; do
+    snap; cur="$(field scroll)"; case "$cur" in ''|*[!0-9]*) return 1;; esac
+    err=$((tgt - cur))
+    [ "${err#-}" -le 25 ] && break
+    y="$(awk "BEGIN{v=(($tgt)+2135)/11.477/1080.0; if(v<0.175)v=0.175; if(v>0.935)v=0.935; printf \"%.4f\", v}")"
+    swipe_n 0.985 0.20 0.985 "$y" 1200 1.5
+  done
+  tap_n 0.40 0.45 1.5
+  snap
+  if [ "$(field mode)" = "OBSERVE" ]; then  # tapped the already-selected row -> it opened
+    [ "$(field row)" = "$ROW" ] && return 0
+    tap_n 0.76 0.92 1.5; snap; [ "$(field mode)" = "LIST" ] || return 1
+  fi
+  for i in $(seq 1 12); do
+    snap; cur="$(field sel)"; case "$cur" in ''|*[!0-9]*) return 1;; esac
+    diff=$((ROW - cur))
+    [ "$diff" -eq 0 ] && return 0
+    if [ "$diff" -gt 0 ]; then step="down"; else step="up"; diff=$((-diff)); fi
+    [ "$diff" -gt 12 ] && diff=12
+    for j in $(seq 1 "$diff"); do padb "$step" 0.25; done
+  done
+  return 1
 }
 
 # ---- 2. R3 -> FREECAM (pad entry) -----------------------------------------------------
@@ -280,13 +323,16 @@ say "=== 4. RETICLE PICK ACCURACY on 5 distinct meshes (+ TRIANGLE defocus each 
 # looked dead to him. Track how many presses each mesh needs now.
 PICKOK=0; NPICK=0; FIRSTHIT=0; PRESS_TOTAL=0
 LASTMESH=""
-for FRAC in 0.03 0.28 0.50 0.72 0.96; do
+# DETERMINISTIC compact rows (run 8: fraction sampling landed on SCATTERED tex populations —
+# VIL3-LORES-TREESIDE2, a far-LOD shell, and an endcap population whose shared centroid sits in
+# EMPTY SPACE. Under v2.2 nearest-hit semantics a ray through an empty centroid legitimately
+# carries no triangle of that row, so it is unacquirable BY DESIGN — correct pick behaviour, bad
+# test-mesh choice. These five acquired by ray in run 6, spread across the village: roof / lamp
+# (tiny) / hut endcap / hut wall / the beach expanse.)
+for TROW4 in 585 2786 4626 6470 2156; do
   NPICK=$((NPICK+1))
-  ensure_list || { say "  FAIL mesh #$NPICK: could not reach the LIST"; FAIL=$((FAIL+1)); continue; }
-  # jump the fast-scroll handle to this fraction, tap a row twice -> OBSERVE
-  swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $FRAC*0.68}")" 800 1.5
-  tap_n 0.40 0.45 1.5
-  tap_n 0.40 0.45 7.0
+  goto_row "$TROW4" || { say "  FAIL mesh #$NPICK: could not reach row $TROW4 in the LIST"; FAIL=$((FAIL+1)); continue; }
+  padb "x" 7.0
   snap
   [ "$(field mode)" = "OBSERVE" ] || { say "  FAIL mesh #$NPICK: no OBSERVE (mode=$(field mode))"; FAIL=$((FAIL+1)); continue; }
   ROW="$(field row)"; MAT="$(field material)"
@@ -319,9 +365,13 @@ for FRAC in 0.03 0.28 0.50 0.72 0.96; do
 done
 say "reticle pick acquired on $PICKOK/5 meshes; first-press hits: $FIRSTHIT/5; total presses: $PRESS_TOTAL (run 5: 31)"
 [ "$PICKOK" -ge 5 ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); say "  FAIL  pick accuracy below 5/5"; }
-# V2.1 surface-first ordering: the mesh under the reticle must now be the FIRST pick in the
-# common case (>=3/5 first-press; occluders legitimately in front may cost a cycle elsewhere).
-assert "surface-first pick: >=3/5 meshes acquired on the FIRST R1 press" "($FIRSTHIT) >= 3" "first-press $FIRSTHIT/5, total $PRESS_TOTAL"
+# V2.1 had a ">=3/5 first-press" assert here. V2.2 made it semantically OBSOLETE, not merely
+# flaky (run 6: 3/5, run 7: 2/5): the pick is now REQUIRED to return the nearest surface impact
+# on the ray, so when a lamp/fence legitimately sits between the OBSERVE vantage and the mesh
+# being re-acquired, first press MUST select the occluder — the old assert punished exactly the
+# behaviour the owner demanded. Pick CORRECTNESS is asserted by the sharper 4c cases (single-R1
+# == first candidate, occlusion A-over-B, out-of-view exclusion). The rate stays logged.
+say "  (info) first-press acquisition rate: $FIRSTHIT/5 (total presses $PRESS_TOTAL; occluders in front legitimately cost a cycle under v2.2 nearest-hit)"
 
 # ---- 4c. V2.2 PICK CORRECTNESS: occlusion case + behind-camera exclusion ---------------
 say ""
@@ -380,6 +430,33 @@ else
   FAIL=$((FAIL+1)); say "  FAIL  no target to run the behind-camera exclusion case on"
 fi
 
+# Deterministic LIST row targeting (run 7: blind fraction sampling landed on thin/culled rows
+# 4x in a row, the battery ran against a dead target and 8 checks cascaded to 0->0). The state
+# file exports the exact selected row (`sel`), so converge on a CHOSEN row: coarse fast-scroll
+# jump, then exact pad-stepping. Row 2156 vil-beach-01 is the staging row of choice: TFRAG,
+# displacement-graded (b_disp 95.74 -> tess-capable material), 8304 faces of beach GROUND at the
+# village centre — the OBSERVE camera parks at its centroid, so it is always solidly rendered
+# (the desktop gizmo repro measured 49824 line prims/frame on this very row).
+# (goto_row is defined next to ensure_list, above section 4.)
+# From the LIST, put the freecam on a solidly-visible target near ROW: select it (OBSERVE
+# centres the camera on its centroid), R3 continues that camera into FREECAM, then R1-cycle
+# until a candidate with >= MIN submitted draws/frame holds the target slot.
+stage_visible_target(){ # ROW MIN -> 0 with target armed and rtf_target >= MIN
+  local ROW="$1" MIN="${2:-2}" c v
+  goto_row "$ROW" || return 1
+  padb "x" 6.0; snap
+  [ "$(field mode)" = "OBSERVE" ] || return 1
+  padb "r3" 2.0; snap
+  [ "$(field mode)" = "FREECAM" ] || return 1
+  for c in 1 2 3 4 5 6; do
+    padb "r1" 1.5; snap
+    [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] || continue
+    v="$(rtf rtf_target)"
+    awk "BEGIN{exit !(($v) >= ($MIN))}" && return 0
+  done
+  return 1
+}
+
 # ---- 5. THE TWO PREVIOUSLY-DEAD TOGGLES: on -> off -> on via RENDER counters ----------
 say ""
 say "=== 5. L1/L2 HIDE + SQUARE CHECKER: both directions, runtime draw counters ==="
@@ -400,19 +477,15 @@ rtf(){ sleep 7.0; snap; field "$1"; }
 # re-aim through the deterministic LIST->OBSERVE->R3->R1 flow on other rows until one does.
 V0="$(rtf rtf_target)"
 if ! awk "BEGIN{exit !(($V0) >= 2)}"; then
-  for BFRAC in 0.50 0.03 0.72; do
-    say "  (battery target too thin: rtf_target=$V0 — re-aiming at list fraction $BFRAC)"
-    ensure_list || continue
-    swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $BFRAC*0.68}")" 800 1.5
-    tap_n 0.40 0.45 1.5
-    tap_n 0.40 0.45 7.0
-    snap; [ "$(field mode)" = "OBSERVE" ] || continue
-    padb "r3" 2.0; snap; [ "$(field mode)" = "FREECAM" ] || continue
-    padb "r1" 1.5; snap
-    [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] || continue
+  # run 7: three blind re-aims all failed and the battery ran on a DEAD target. Deterministic
+  # staging instead: park the camera on the beach-ground row (2156) and R1-cycle to a fat target.
+  say "  (battery target too thin: rtf_target=$V0 — deterministic re-stage on the beach row)"
+  if stage_visible_target 2156 2; then
     V0="$(rtf rtf_target)"
-    awk "BEGIN{exit !(($V0) >= 2)}" && break
-  done
+  else
+    say "  (beach re-stage failed; falling back to rock row 1908)"
+    stage_visible_target 1908 2 && V0="$(rtf rtf_target)"
+  fi
 fi
 say "target for the toggle battery: target=$(field target) $(field material)"
 b_h="$(field hide)"
@@ -523,40 +596,39 @@ say "target's draws per frame; rtf_tess = target draws submitted on the TESS pro
 # the shipped index: 75 / 4 / 30 / 398 / 500 / 235 / 8 per 500-row band, then ~0 until 9000).
 # Aim INSIDE the dense band, and when the landed row is still TIE, STEP the selection down by
 # pad (LIST d-pad+X is deterministic row navigation) instead of blind re-jumps.
+# Deterministic staging (runs 6+7 proved blind/nudged fraction scans cannot find this reliably):
+# go STRAIGHT to known TFRAG rows with displacement-GRADED materials (the offline grader ran
+# B_disp on them, so the material carries height data and is tess-eligible): 2156 vil-beach-01
+# (b_disp 95.74, beach ground, always rendered), fallbacks 1908 vil-beachrock / 2090
+# vil1-jng-leafyground. Force displacement=TESSELLATION in OBSERVE, then freecam + R1-cycle
+# until the TARGET is a TFRAG row actually running on the TESS program.
 TFOK=0
-for BFRAC in 0.21 0.24 0.18 0.27 0.30; do
-  ensure_list || continue
-  swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $BFRAC*0.68}")" 800 1.5
-  tap_n 0.40 0.45 1.5
-  tap_n 0.40 0.45 7.0
-  snap; [ "$(field mode)" = "OBSERVE" ] || continue
-  # not TFRAG? step to the next rows: OBSERVE -> LIST, sel+1, select, re-check (bounded)
-  NUDGE=0
-  while [ "$(field system)" != "TFRAG" ] && [ "$NUDGE" -lt 10 ]; do
-    NUDGE=$((NUDGE+1))
-    tap_n 0.76 0.92 1.5                    # LIST button leaves OBSERVE
-    snap; [ "$(field mode)" = "LIST" ] || break
-    padb "down" 0.5; padb "x" 5.0; snap    # next row -> OBSERVE
-    [ "$(field mode)" = "OBSERVE" ] || break
-  done
+for TROW in 2156 1908 2090; do
+  goto_row "$TROW" || { say "  (goto_row $TROW failed)"; continue; }
+  padb "x" 6.0; snap
   [ "$(field mode)" = "OBSERVE" ] || continue
-  [ "$(field system)" = "TFRAG" ] || { say "  (fraction $BFRAC + $NUDGE nudges still $(field system) — need TFRAG)"; continue; }
+  [ "$(field system)" = "TFRAG" ] || { say "  (row $TROW reads $(field system)?)"; continue; }
   for d in 1 2 3; do
     snap; [ "$(field disp)" = "TESSELLATION" ] && break
     tap_n 0.32 0.78 1.5
   done
   snap; [ "$(field disp)" = "TESSELLATION" ] || continue
   padb "r3" 2.0; snap; [ "$(field mode)" = "FREECAM" ] || continue
-  padb "r1" 1.5; snap
-  [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] && [ "$(field system)" = "TFRAG" ] || continue
-  TV="$(rtf rtf_target)"
-  awk "BEGIN{exit !(($TV) >= 1)}" || continue
-  # the row must live in a tess-ELIGIBLE tree (normal kind): rtf_tess counts target draws on the
-  # TESS program with checker OFF too — a LOWRES/special-tree row would zero the Square assert
-  # for tree-kind reasons, not checker reasons. Staging condition, not a loosened check.
-  TSPRE="$(rtf rtf_tess)"
-  awk "BEGIN{exit !(($TSPRE) >= 1)}" || { say "  (fraction $BFRAC: TFRAG row not on the tess program — trying another)"; continue; }
-  TFOK=1; break
+  # R1-cycle: the nearest surface at the beach vantage is normally the beach itself, but a TIE
+  # rock can legally sit first on the ray — cycle to a TFRAG target on the tess program.
+  for c in 1 2 3 4 5 6; do
+    padb "r1" 1.5; snap
+    [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] && [ "$(field system)" = "TFRAG" ] || continue
+    TV="$(rtf rtf_target)"
+    awk "BEGIN{exit !(($TV) >= 1)}" || continue
+    # the row must live in a tess-ELIGIBLE tree (normal kind): rtf_tess counts target draws on
+    # the TESS program with checker OFF too — a LOWRES/special-tree row would zero the Square
+    # assert for tree-kind reasons, not checker reasons. Staging condition, not a loosened check.
+    TSPRE="$(rtf rtf_tess)"
+    awk "BEGIN{exit !(($TSPRE) >= 1)}" || { say "  (row $TROW candidate $c: not on the tess program)"; continue; }
+    TFOK=1; break
+  done
+  [ "$TFOK" = 1 ] && break
 done
 if [ "$TFOK" = 1 ]; then
   say "tess-proof target: row=$(field target) $(field material) system=$(field system) disp=$(field disp) rtf_target=$TV"
