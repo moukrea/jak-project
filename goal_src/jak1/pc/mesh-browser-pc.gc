@@ -1416,10 +1416,17 @@
    on screen to pick anyway."
   (when (> (-> obj fc-pick-wait) 0)
     (+! (-> obj fc-pick-wait) 1)
-    (when (or (= 1 (pc-mb-pick-ready?)) (> (-> obj fc-pick-wait) 40))
+    (let ((rdy (pc-mb-pick-ready?)))
+     (when (or (> rdy 0) (> (-> obj fc-pick-wait) 40))
       ;; [mb-diag] completion trace: waited N frames; 41+ = TIMEOUT fallback (AABB order).
-      (format 0 "[mb-diag-goal] pick complete wait=~D~%" (-> obj fc-pick-wait))
+      (format 0 "[mb-diag-goal] pick complete wait=~D rdy=~D~%" (-> obj fc-pick-wait) rdy)
       (set! (-> obj fc-pick-wait) 0)
+      ;; V2.2: ready returns 1 + the FOLDED candidate count — the C++ side DROPS box-only
+      ;; candidates once real triangle hits exist (an AABB on the ray whose actual surface is
+      ;; not = the "picks meshes behind others / out of view" class). Refresh n to match, or the
+      ;; cycle below would index freed entries.
+      (when (> rdy 0)
+        (set! (-> obj fc-pick-n) (+ rdy -1)))
       (let ((n (-> obj fc-pick-n))
             (dir (-> obj fc-pick-dir)))
         (when (> n 0)
@@ -1447,7 +1454,7 @@
               (set! (-> obj cur-row) row)
               (pc-mesh-index-load! (if (zero? slot) (-> obj fc-lvl0) (-> obj fc-lvl1)))
               (pc-mesh-index-level! (-> obj level-buf))
-              (pc-mesh-browser-export! row)))))))
+              (pc-mesh-browser-export! row))))))))
   (none))
 
 (defun mesh-browser-enter-freecam ((obj mesh-browser))
@@ -1764,7 +1771,27 @@
     ;; (x100) the PBR shader uniforms were actually pushed with last frame.
     (format (clear (-> obj line-buf)) "rtf_target=~D rtf_checker=~D rtf_gizmo=~D rtf_relief=~D"
             (pc-mb-rt-geti 4) (pc-mb-rt-geti 5) (pc-mb-rt-geti 6) (pc-mb-rt-geti 7))
-    (pc-mb-state-line! (-> obj line-buf)))
+    (pc-mb-state-line! (-> obj line-buf))
+    ;; V2.2 renderer counters: rtf_cfull = FULL checker-set binds (normal+rough+height) on the
+    ;; target's draws last frame (Square must engage the whole debug material, not the albedo
+    ;; alone); rtf_tess = target draws submitted on the TESS program last frame (the displacement
+    ;; path actually TAKEN); rtf_gizmo_px = framebuffer pixels the gizmo pass CHANGED last frame
+    ;; (readback proof: emitted-but-invisible cannot pass this).
+    (format (clear (-> obj line-buf)) "rtf_cfull=~D rtf_tess=~D rtf_gizmo_px=~D"
+            (pc-mb-rt-geti 8) (pc-mb-rt-geti 9) (pc-mb-rt-geti 10))
+    (pc-mb-state-line! (-> obj line-buf))
+    ;; V2.2 pick-candidate export, for the harness occlusion/frustum cases: the surviving
+    ;; candidates of the LAST pick, in rank order, as row:slot:surface-distance-cm. An occluded
+    ;; mesh B behind A on the same ray must appear here AFTER A (never as the target); a mesh
+    ;; behind the camera must never appear at all.
+    (let ((n (min 6 (-> obj fc-pick-n))))
+      (clear (-> obj line-buf))
+      (format (-> obj line-buf) "pickc=")
+      (dotimes (i n)
+        (format (-> obj line-buf) "~D:~D:~D|"
+                (pc-mb-pick-geti i MB_PK_ROW) (pc-mb-pick-geti i MB_PK_SLOT)
+                (pc-mb-pick-geti i MB_PK_TCM)))
+      (pc-mb-state-line! (-> obj line-buf))))
   ;; player_moved = how far the PLAYER has travelled since the browser opened. The owner's whole
   ;; correction is that this must stay 0: the camera goes to the mesh, Jak does not.
   (format (clear (-> obj line-buf)) "player=~f,~f,~f player_moved=~f"

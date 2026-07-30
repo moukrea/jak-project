@@ -1086,12 +1086,13 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                   draw.mode.get_decal() ? 1 : 0);
       set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
                  (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+      const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
 #ifdef OG_FEAT_PBR
       // ROUND 22: unconditional — the binder targets ETIE_BASE on the envmap branch and TFRAG3
       // on the plain one, so both now get the material maps + u_pbr_mode.
-      pbr_binder.set(draw.tree_tex_id, draw.mode);
+      pbr_binder.set(draw.tree_tex_id, draw.mode, mb_checker);
 #endif
-      if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+      if (mb_checker) {
         // Bind AFTER the cached setup so the draw-mode glTexParameteri calls landed on the draw's
         // own texture, not the shared checker (which keeps its REPEAT/mipmap params). This loop
         // caches its binding in last_texture — poison it so the NEXT draw rebinds its own texture
@@ -1177,11 +1178,12 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                 draw.mode.get_decal() ? 1 : 0);
     set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
                (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+    const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
 #ifdef OG_FEAT_PBR
     // ROUND 22: unconditional — see the merged-draw loop above.
-    pbr_binder.set(draw.tree_tex_id, draw.mode);
+    pbr_binder.set(draw.tree_tex_id, draw.mode, mb_checker);
 #endif
-    if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+    if (mb_checker) {
       // Bind AFTER the cached setup (see the merged-draw loop above); poison last_texture so the
       // NEXT draw rebinds its own texture instead of inheriting the checker.
       glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
@@ -1729,12 +1731,13 @@ void Tie3::render_tree_wind(int idx,
     }
     auto double_draw =
         setup_tfrag_shader_cached(render_state, draw.mode, shader_id, bound_tex, draw_state_cache);
+    const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
 #ifdef OG_FEAT_PBR
     // ROUND 22: per-draw PBR material bind for the wind path (see the binder set up above).
     // InstancedStripDraw::tree_tex_id is the same level texture index the static draws use.
-    pbr_binder.set(draw.tree_tex_id, draw.mode);
+    pbr_binder.set(draw.tree_tex_id, draw.mode, mb_checker);
 #endif
-    if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+    if (mb_checker) {
       // Bind AFTER the cached setup so the draw-mode glTexParameteri calls landed on the draw's
       // own texture (see the static-loop notes); poison last_texture so the NEXT draw rebinds
       // its own texture instead of inheriting the checker.

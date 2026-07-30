@@ -1756,10 +1756,17 @@ u64 pc_mb_pick(u32 origin, u32 dir) {
 }
 
 // V2.1: poll the triangle ray-test. 0 = still pending (results not published). On the first
-// ready call for a request, fold mb_pick_ttri back into the hit list and re-sort: real triangle
-// hits first (nearest surface the reticle SEES), AABB-only candidates after, keeping their AABB
-// order. Idempotent afterwards. GOAL times out on its side (~2/3 s) and completes with the AABB
-// order if a level's renderer never contributed (nothing rendering => nothing pickable anyway).
+// ready call for a request, fold mb_pick_ttri back into the hit list and re-sort by real surface
+// distance — nearest triangle hit first: the FIRST intersection along the reticle ray is the
+// pick, exactly the owner's V2.2 correction. V2.2: when at least one candidate has a real
+// triangle hit, the box-only candidates are DROPPED entirely — their AABB crossed the ray but no
+// actual surface of theirs lies on it, which is precisely the "it picks meshes behind others or
+// out of view" class (index boxes are far fatter than their geometry). Meshes behind the camera
+// were never candidates in the first place (the slab test rejects tmax < 0). The box-only
+// fallback survives ONLY when zero triangle results exist (renderer never contributed within the
+// GOAL-side ~2/3 s timeout: nothing rendering => nothing pickable anyway).
+// Returns 1 + the folded candidate count, so GOAL can refresh its fc-pick-n after the drop.
+// Idempotent after the first ready call.
 u64 pc_mb_pick_ready() {
   auto& gs = Gfx::g_global_settings;
   const u32 s = gs.mb_pick_serial.load(std::memory_order_relaxed);
@@ -1776,7 +1783,6 @@ u64 pc_mb_pick_ready() {
         tri_hits++;
       }
     }
-    lg::info("[mb-diag] pick ready serial={} candidates={} tri_hits={}", s, n, tri_hits);
     std::stable_sort(g_mb_pick_hits.begin(), g_mb_pick_hits.end(),
                      [](const MbPickHit& a, const MbPickHit& b) {
                        const bool ha = a.ttri >= 0.f, hb = b.ttri >= 0.f;
@@ -1788,8 +1794,13 @@ u64 pc_mb_pick_ready() {
                        }
                        return false;  // box-only hits keep their AABB order (stable_sort)
                      });
+    if (tri_hits > 0 && (int)g_mb_pick_hits.size() > tri_hits) {
+      g_mb_pick_hits.resize((size_t)tri_hits);  // V2.2: box-only = not visible on the ray -> out
+    }
+    lg::info("[mb-diag] pick ready serial={} candidates={} tri_hits={} kept={}", s, n, tri_hits,
+             (int)g_mb_pick_hits.size());
   }
-  return 1;
+  return 1 + (u64)g_mb_pick_hits.size();
 }
 
 // Hit getter over the last pick. field: 0 row, 1 slot, 2 t in centimetres. -1 out of range.
@@ -1804,6 +1815,12 @@ u64 pc_mb_pick_geti(s32 idx, s32 field) {
     case 1:
       return (u64)h.slot;
     case 2:
+      // V2.2: after the triangle fold, ttri (GOAL units) is the REAL surface distance the sort
+      // used — report that (converted to metres->cm) so the state export shows the same order the
+      // pick ranked by. Before the fold (or box-only fallback) it is the AABB slab distance.
+      if (h.ttri >= 0.f) {
+        return (u64)(s64)std::lround((h.ttri / 4096.f) * 100.0f);
+      }
       return (u64)(s64)std::lround(h.t * 100.0f);
     default:
       return (u64)-1;
@@ -1888,6 +1905,16 @@ u64 pc_mb_rt_geti(s32 field) {
       return gs.mb_frame_gizmo_prims;
     case 7:
       return gs.mb_frame_relief_x100;
+    // V2.2 (owner: Square must engage the FULL checker material; gizmos must be ON SCREEN):
+    // 8 full checker-set binds (normal+rough+height) on the target's draws last frame,
+    // 9 target draws submitted on the TESS program last frame (displacement path TAKEN),
+    // 10 framebuffer pixels the gizmo pass actually changed last frame (readback proof).
+    case 8:
+      return gs.mb_frame_checker_full;
+    case 9:
+      return gs.mb_frame_target_tess;
+    case 10:
+      return gs.mb_frame_gizmo_px;
     default:
       return 0;
   }

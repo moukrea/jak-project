@@ -200,10 +200,17 @@ struct GfxGlobalSettings {
   u32 mb_cur_checker_binds = 0;  // checker-texture binds on the target's draws this frame
   u32 mb_cur_gizmo_prims = 0;    // gizmo line primitives actually drawn this frame
   u32 mb_cur_relief_x100 = 0;    // relief factor the shader uniforms were pushed with (x100)
+  // V2.2 (owner: Square swapped only the ALBEDO; gizmos emitted but nothing showed):
+  u32 mb_cur_checker_full = 0;  // FULL checker set binds (normal+rough+height) on target draws
+  u32 mb_cur_target_tess = 0;   // target draws submitted on the TESS program (displacement TAKEN)
+  u32 mb_cur_gizmo_px = 0;      // framebuffer pixels the gizmo pass actually CHANGED this frame
   u32 mb_frame_target_draws = 0;
   u32 mb_frame_checker_binds = 0;
   u32 mb_frame_gizmo_prims = 0;
   u32 mb_frame_relief_x100 = 0;
+  u32 mb_frame_checker_full = 0;
+  u32 mb_frame_target_tess = 0;
+  u32 mb_frame_gizmo_px = 0;
   // V2.1 TRIANGLE-ACCURATE reticle pick (owner: a single R1 must target the mesh the reticle
   // SEES). AABB slab distances cannot rank a dense stack — index AABBs are much fatter than
   // their geometry, so the nearest box is usually not the visible surface (run 5 needed up to
@@ -238,10 +245,16 @@ struct GfxGlobalSettings {
     mb_frame_checker_binds = mb_cur_checker_binds;
     mb_frame_gizmo_prims = mb_cur_gizmo_prims;
     mb_frame_relief_x100 = mb_cur_relief_x100;
+    mb_frame_checker_full = mb_cur_checker_full;
+    mb_frame_target_tess = mb_cur_target_tess;
+    mb_frame_gizmo_px = mb_cur_gizmo_px;
     mb_cur_target_draws = 0;
     mb_cur_checker_binds = 0;
     mb_cur_gizmo_prims = 0;
     mb_cur_relief_x100 = 0;
+    mb_cur_checker_full = 0;
+    mb_cur_target_tess = 0;
+    mb_cur_gizmo_px = 0;
     // triangle-pick completion: arm on the first flip after a request, publish on the second —
     // by then every renderer had one WHOLE frame to contribute (see the channel doc above).
     const u32 s = mb_pick_serial.load(std::memory_order_relaxed);

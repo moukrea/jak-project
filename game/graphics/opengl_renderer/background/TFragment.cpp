@@ -1096,7 +1096,9 @@ void TFragment::render_tree(int geom,
   // tfrag_tree_names[] entries are constexpr string literals, so storing the pointer is safe.
   pbr_binder.set_coverage_context("tfrag", tfrag3::tfrag_tree_names[(int)tree.kind], use_tess,
                                   render_state->frame_idx);
-  auto set_pbr = [&](s32 tex_id, const DrawMode& mode) { pbr_binder.set(tex_id, mode); };
+  auto set_pbr = [&](s32 tex_id, const DrawMode& mode, bool mb_checker = false) {
+    pbr_binder.set(tex_id, mode, mb_checker);
+  };
 #endif
 
 #ifdef OG_FEAT_PBR
@@ -1132,6 +1134,9 @@ void TFragment::render_tree(int geom,
       }
       if (mb_targeted) {
         Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
+        // V2.2 per-frame proof: this targeted draw is on the TESS program (GL_PATCHES below) —
+        // the displacement path is really TAKEN on the target, not just selected in a menu.
+        Gfx::g_global_settings.mb_cur_target_tess++;
       }
       s32 tex_idx = draw.tree_tex_id;
       if (tex_idx >= 0) {
@@ -1145,7 +1150,8 @@ void TFragment::render_tree(int geom,
       glBindTexture(GL_TEXTURE_2D, bound_tex);
       auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3_TESS,
                                                    bound_tex, draw_state_cache);
-      if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+      const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
+      if (mb_checker) {
         // Bind AFTER the cached setup so the draw-mode glTexParameteri calls landed on the draw's
         // own texture, not the shared checker (which keeps its REPEAT/mipmap params). This loop
         // rebinds bound_tex every iteration, so the next draw recovers its own texture.
@@ -1156,7 +1162,7 @@ void TFragment::render_tree(int geom,
       if (tess_decal_loc != -1) {
         glUniform1i(tess_decal_loc, draw.mode.get_decal() ? 1 : 0);
       }
-      set_pbr(draw.tree_tex_id, draw.mode);
+      set_pbr(draw.tree_tex_id, draw.mode, mb_checker);
       tree.tris_this_frame += draw.num_triangles;
       tree.draws_this_frame++;
       prof.add_draw_call();
@@ -1223,10 +1229,11 @@ void TFragment::render_tree(int geom,
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
       set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                  (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+      const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
 #ifdef OG_FEAT_PBR
-      set_pbr(draw.tree_tex_id, draw.mode);
+      set_pbr(draw.tree_tex_id, draw.mode, mb_checker);
 #endif
-      if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+      if (mb_checker) {
         // Bind AFTER the cached setup so the draw-mode glTexParameteri calls landed on the draw's
         // own texture, not the shared checker (which keeps its REPEAT/mipmap params). The next
         // iteration rebinds its own bound_tex unconditionally.
@@ -1316,10 +1323,11 @@ void TFragment::render_tree(int geom,
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
     set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+    const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
 #ifdef OG_FEAT_PBR
-    set_pbr(draw.tree_tex_id, draw.mode);
+    set_pbr(draw.tree_tex_id, draw.mode, mb_checker);
 #endif
-    if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+    if (mb_checker) {
       // Bind AFTER the cached setup (see the batched loop above); this loop rebinds bound_tex
       // every iteration, so the next draw recovers its own texture.
       glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());

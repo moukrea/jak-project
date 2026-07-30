@@ -323,6 +323,63 @@ say "reticle pick acquired on $PICKOK/5 meshes; first-press hits: $FIRSTHIT/5; t
 # common case (>=3/5 first-press; occluders legitimately in front may cost a cycle elsewhere).
 assert "surface-first pick: >=3/5 meshes acquired on the FIRST R1 press" "($FIRSTHIT) >= 3" "first-press $FIRSTHIT/5, total $PRESS_TOTAL"
 
+# ---- 4c. V2.2 PICK CORRECTNESS: occlusion case + behind-camera exclusion ---------------
+say ""
+say "=== 4c. V2.2 nearest-hit pick: occlusion (A in front of B -> A) + out-of-view exclusion ==="
+say "The pick is the FIRST IMPACT along the reticle ray: the renderers ray-test each candidate's"
+say "REAL triangles, the list is sorted nearest-surface-first, and candidates whose actual"
+say "geometry never crosses the ray (fat AABB, mesh elsewhere — the owner's 'prend des trucs"
+say "derriere ou pas en vue') are DROPPED. pickc= exports the survivors as row:slot:surface_cm."
+# OCCLUSION: single R1 from defocus -> target must equal the FIRST (nearest) candidate, with a
+# farther candidate B on the SAME ray left unselected. Re-aim across list fractions until a
+# vantage with >=2 surviving candidates is found (aiming, not loosening: each attempt is a real
+# defocus + one real R1).
+OCC_DONE=0
+for OFRAC in KEEP 0.50 0.03 0.72 0.28; do
+  if [ "$OFRAC" != "KEEP" ]; then
+    ensure_list || continue
+    swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $OFRAC*0.68}")" 800 1.5
+    tap_n 0.40 0.45 1.5
+    tap_n 0.40 0.45 7.0
+    snap; [ "$(field mode)" = "OBSERVE" ] || continue
+    padb "r3" 2.0; snap; [ "$(field mode)" = "FREECAM" ] || continue
+  fi
+  padb "triangle" 1.2
+  padb "r1" 2.5; snap
+  PICKC="$(field pickc)"; T1="$(field target)"; PN="$(field pick_n)"
+  C0R="$(echo "$PICKC" | cut -d'|' -f1 | cut -d: -f1)"
+  C0T="$(echo "$PICKC" | cut -d'|' -f1 | cut -d: -f3)"
+  C1R="$(echo "$PICKC" | cut -d'|' -f2 | cut -d: -f1)"
+  C1T="$(echo "$PICKC" | cut -d'|' -f2 | cut -d: -f3)"
+  [ -n "$C1R" ] && [ "$C1R" != "$C0R" ] || continue
+  say "occlusion vantage: candidates (row:slot:surface_cm) $PICKC target=$T1 pick_n=$PN"
+  assert "V2.2 single R1 selects the NEAREST surface hit along the ray (target == first candidate)" "($T1) == ($C0R)" "target=$T1 c0=$C0R"
+  assert "V2.2 OCCLUSION: farther mesh B on the SAME ray is NOT selected (A in front of B -> always A)" "($C0T) <= ($C1T) && ($T1) != ($C1R)" "A row=$C0R at ${C0T}cm, B row=$C1R at ${C1T}cm behind"
+  OCC_DONE=1; break
+done
+[ "$OCC_DONE" = 1 ] || { FAIL=$((FAIL+1)); say "  FAIL  no vantage produced >=2 surviving ray candidates (occlusion case unproven)"; }
+# OUT-OF-VIEW: remember the targeted mesh A, turn the camera ~180 deg (measured on the state
+# yaw), defocus, R1 again. A is now behind the camera: it must never appear as candidate or
+# target — 'un mesh hors vue ne doit JAMAIS etre candidat'.
+snap; AROW="$(field target)"; Y0="$(field yaw)"
+if [ -n "$AROW" ] && [ "$AROW" != "-1" ]; then
+  for i in $(seq 1 14); do
+    hold "rx=255" 0.8
+    snap; YN="$(field yaw)"
+    DD="$(awk "BEGIN{d=($YN)-($Y0)-3.14159265; while(d>3.14159265)d-=6.2832; while(d<=-3.14159265)d+=6.2832; if(d<0)d=-d; printf \"%.4f\", d}")"
+    awk "BEGIN{exit !(($DD) < 0.5)}" && break
+  done
+  padb "triangle" 1.2
+  padb "r1" 2.5; snap
+  PICKC2="$(field pickc)"; T2="$(field target)"; T2="${T2:--1}"
+  say "after ~180deg turn: yaw $Y0 -> $(field yaw); candidates: ${PICKC2:-none} target=${T2:-none}"
+  BEHIND_ABSENT=1
+  case "$PICKC2" in "$AROW:"*) BEHIND_ABSENT=0;; *"|$AROW:"*) BEHIND_ABSENT=0;; esac
+  assert "V2.2 OUT-OF-VIEW: the mesh now BEHIND the camera is never a candidate (excluded, never selected)" "($BEHIND_ABSENT) == 1 && ($T2) != ($AROW)" "row $AROW absent from candidates after the turn"
+else
+  FAIL=$((FAIL+1)); say "  FAIL  no target to run the behind-camera exclusion case on"
+fi
+
 # ---- 5. THE TWO PREVIOUSLY-DEAD TOGGLES: on -> off -> on via RENDER counters ----------
 say ""
 say "=== 5. L1/L2 HIDE + SQUARE CHECKER: both directions, runtime draw counters ==="
@@ -413,6 +470,11 @@ read gb ga <<< "$(delta rt_gizmo_draws 7.0)"
 check "gizmo pass renders every frame while ON" "rt_gizmo_draws" "$gb" "$ga" grew
 G1="$(rtf rtf_gizmo)"
 assert "V2.1 gizmos ON: line primitives ACTUALLY DRAWN per frame (> 0)" "($G1) > 0" "rtf_gizmo $G0 -> $G1"
+# V2.2 (owner: 'les gizmos ne s'affichent pas' while the prim counter read >0): the renderer now
+# reads back a centre band of the framebuffer before and after the gizmo draw and counts the
+# pixels the pass CHANGED. Emitted-but-invisible (bad program/FBO/viewport state) reads 0 here.
+GPX1="$(rtf rtf_gizmo_px)"
+assert "V2.2 gizmos ON SCREEN: the gizmo pass changed framebuffer pixels this frame (readback)" "($GPX1) > 0" "rtf_gizmo_px=$GPX1"
 # rt_gizmo_faces is SET by the render-thread rebuild and only reaches the state file at the
 # NEXT 3 s heartbeat: reading it in the toggle snap races the rebuild (run 1: file said 0 while
 # logcat's '[mb-gizmos] built 110 normal arrows' proved the build). Read it AFTER the 4.5 s
@@ -426,6 +488,8 @@ read gb2 ga2 <<< "$(delta rt_gizmo_draws 7.0)"
 check "gizmos OFF: pass counter freezes" "rt_gizmo_draws" "$gb2" "$ga2" same
 G2="$(rtf rtf_gizmo)"
 assert "V2.1 gizmos OFF: prims back to ZERO per frame (on->off at the renderer)" "($G2) == 0" "rtf_gizmo $G1 -> $G2"
+GPX2="$(rtf rtf_gizmo_px)"
+assert "V2.2 gizmos OFF: zero framebuffer pixels changed by the gizmo pass" "($GPX2) == 0" "rtf_gizmo_px=$GPX2"
 
 # ---- 6b. RELIEF: the value the SHADER UNIFORMS are pushed with (v2.1) ------------------
 # Owner: "activer/desactiver le relief fonctionne pas". rtf_relief is recorded at the exact
@@ -445,6 +509,54 @@ assert "V2.1 relief DOWN: uniform value drops by 25 (x100)" "($R0) - ($R1) == 25
 padb "up" 1.0
 R2="$(rtf rtf_relief)"
 assert "V2.1 relief UP: uniform value returns (+25)" "($R2) - ($R1) == 25" "rtf_relief $R1 -> $R2"
+
+# ---- 6c. V2.2 SQUARE = FULL CHECKER MATERIAL + displacement path ENGAGED ---------------
+say ""
+say "=== 6c. V2.2 SQUARE binds the FULL checker set + the tess path really runs on the target ==="
+say "Standing owner rule: the checker is albedo + height + normal + roughness, AND the current"
+say "displacement mode's real path on the target. rtf_cfull = FULL-set binder binds on the"
+say "target's draws per frame; rtf_tess = target draws submitted on the TESS program per frame."
+# Deterministic setup: a TFRAG-system row (TIE has no tessellation path by design — POM only),
+# displacement forced to TESSELLATION via the OBSERVE DISP button, then freecam + acquire.
+TFOK=0
+for BFRAC in 0.50 0.03 0.28 0.72 0.96; do
+  ensure_list || continue
+  swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $BFRAC*0.68}")" 800 1.5
+  tap_n 0.40 0.45 1.5
+  tap_n 0.40 0.45 7.0
+  snap; [ "$(field mode)" = "OBSERVE" ] || continue
+  [ "$(field system)" = "TFRAG" ] || { say "  (fraction $BFRAC is $(field system) — need TFRAG)"; continue; }
+  for d in 1 2 3; do
+    snap; [ "$(field disp)" = "TESSELLATION" ] && break
+    tap_n 0.32 0.78 1.5
+  done
+  snap; [ "$(field disp)" = "TESSELLATION" ] || continue
+  padb "r3" 2.0; snap; [ "$(field mode)" = "FREECAM" ] || continue
+  padb "r1" 1.5; snap
+  [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] && [ "$(field system)" = "TFRAG" ] || continue
+  TV="$(rtf rtf_target)"
+  awk "BEGIN{exit !(($TV) >= 1)}" || continue
+  # the row must live in a tess-ELIGIBLE tree (normal kind): rtf_tess counts target draws on the
+  # TESS program with checker OFF too — a LOWRES/special-tree row would zero the Square assert
+  # for tree-kind reasons, not checker reasons. Staging condition, not a loosened check.
+  TSPRE="$(rtf rtf_tess)"
+  awk "BEGIN{exit !(($TSPRE) >= 1)}" || { say "  (fraction $BFRAC: TFRAG row not on the tess program — trying another)"; continue; }
+  TFOK=1; break
+done
+if [ "$TFOK" = 1 ]; then
+  say "tess-proof target: row=$(field target) $(field material) system=$(field system) disp=$(field disp) rtf_target=$TV"
+  CF0="$(rtf rtf_cfull)"
+  assert "V2.2 checker OFF baseline: zero FULL-set binds per frame" "($CF0) == 0" "rtf_cfull=$CF0"
+  padb "square" 1.2; snap
+  CF1="$(rtf rtf_cfull)"; TS1="$(rtf rtf_tess)"; CB1="$(rtf rtf_checker)"
+  assert "V2.2 SQUARE binds the FULL checker set (albedo + height + normal + rough maps) on the target's draws" "($CF1) > 0 && ($CB1) > 0" "rtf_cfull=$CF1 rtf_checker=$CB1 per frame"
+  assert "V2.2 displacement path ACTIVE on the checkered target: draws ran on the TESS program (height map bound)" "($TS1) > 0" "rtf_tess=$TS1 per frame"
+  padb "square" 1.2; snap
+  CF2="$(rtf rtf_cfull)"
+  assert "V2.2 checker OFF again: FULL-set binds back to ZERO (on->off at the renderer)" "($CF2) == 0" "rtf_cfull=$CF2"
+else
+  FAIL=$((FAIL+1)); say "  FAIL  could not stage a TFRAG target with displacement=TESSELLATION (tess-engaged proof cannot run)"
+fi
 
 # ---- 7. TRIANGLE defocus makes the toggles inert --------------------------------------
 say ""

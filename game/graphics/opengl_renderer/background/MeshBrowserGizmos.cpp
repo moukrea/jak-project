@@ -1,5 +1,6 @@
 #include "MeshBrowserGizmos.h"
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -274,6 +275,29 @@ void render(const tfrag3::Level* lev,
   const float line_w = 2.f < line_range[1] ? 2.f : line_range[1];
   glLineWidth(line_w < line_range[0] ? line_range[0] : line_w);
 
+  // V2.2 (owner: "les gizmos ne s'affichent pas" while the prim counter read >0 — an emission
+  // counter cannot tell a draw that LANDED from one that vanished into a bad GL state). Proof at
+  // the framebuffer: read back a centre band of the CURRENT draw framebuffer before and after the
+  // gizmo draw and count the pixels that changed — mb_cur_gizmo_px. The freecam reticle centres
+  // the target, so the arrows project into this band. Debug-only cost, paid solely while the
+  // gizmo toggle is ON. The Android game FBO is single-sampled (android_opengl_renderer.cpp
+  // make_fbo, "msaa stripped"), so glReadPixels is legal there; on an MSAA desktop FBO the read
+  // errors out and the counter just stays 0 (the state dump below still reports the draw state).
+  GLint vp[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_VIEWPORT, vp);
+  const int band_w = std::min(vp[2], 256), band_h = std::min(vp[3], 256);
+  const int band_x = vp[0] + (vp[2] - band_w) / 2, band_y = vp[1] + (vp[3] - band_h) / 2;
+  static std::vector<u8> s_pre, s_post;
+  bool band_ok = band_w > 0 && band_h > 0;
+  if (band_ok) {
+    s_pre.resize((size_t)band_w * band_h * 4);
+    s_post.resize((size_t)band_w * band_h * 4);
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    glReadPixels(band_x, band_y, band_w, band_h, GL_RGBA, GL_UNSIGNED_BYTE, s_pre.data());
+    band_ok = glGetError() == GL_NO_ERROR;
+  }
+
   glBindVertexArray(g_cache.vao);
   glDrawArrays(GL_LINES, 0, (GLsizei)g_cache.verts.size());
   prof.add_draw_call();
@@ -281,6 +305,49 @@ void render(const tfrag3::Level* lev,
   s.mb_ctr_gizmo_draws++;
   // V2.1 per-frame proof: line primitives ACTUALLY submitted this frame (2 verts per line).
   s.mb_cur_gizmo_prims += (u32)(g_cache.verts.size() / 2);
+
+  const GLenum post_draw_err = glGetError();
+  if (band_ok) {
+    glReadPixels(band_x, band_y, band_w, band_h, GL_RGBA, GL_UNSIGNED_BYTE, s_post.data());
+    if (glGetError() == GL_NO_ERROR) {
+      u32 changed = 0;
+      for (size_t i = 0; i < s_pre.size(); i += 4) {
+        if (s_pre[i] != s_post[i] || s_pre[i + 1] != s_post[i + 1] ||
+            s_pre[i + 2] != s_post[i + 2]) {
+          changed++;
+        }
+      }
+      s.mb_cur_gizmo_px += changed;
+    }
+  }
+
+  // V2.2 one-shot GL-state dump per gizmo build (supervisor: if prims > 0 with nothing on screen,
+  // name the state of the draw — program/FBO/viewport/scissor/colormask/depth — not its emission).
+  {
+    static u64 s_last_dump_build = ~0ull;
+    const u64 build_key = ((u64)g_cache.face_count << 32) ^ (u64)(uintptr_t)g_cache.lev;
+    if (s_last_dump_build != build_key) {
+      s_last_dump_build = build_key;
+      GLint prog = 0, fbo = 0, scis = 0;
+      GLboolean cmask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+      GLint scis_box[4] = {0, 0, 0, 0};
+      glGetIntegerv(GL_CURRENT_PROGRAM, &prog);
+      glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fbo);
+      scis = glIsEnabled(GL_SCISSOR_TEST);
+      glGetIntegerv(GL_SCISSOR_BOX, scis_box);
+      glGetBooleanv(GL_COLOR_WRITEMASK, cmask);
+      GLint linked = 0;
+      if (prog) {
+        glGetProgramiv(prog, GL_LINK_STATUS, &linked);
+      }
+      lg::info(
+          "[mb-gizmos] draw state: prog={} linked={} fbo={} vp={},{},{}x{} scissor={} "
+          "box={},{},{}x{} colormask={}{}{}{} err={} verts={} band_ok={}",
+          prog, linked, fbo, vp[0], vp[1], vp[2], vp[3], scis, scis_box[0], scis_box[1],
+          scis_box[2], scis_box[3], (int)cmask[0], (int)cmask[1], (int)cmask[2], (int)cmask[3],
+          (u32)post_draw_err, g_cache.verts.size(), (int)band_ok);
+    }
+  }
 
   // restore
   glLineWidth(1.f);

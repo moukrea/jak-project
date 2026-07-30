@@ -218,7 +218,12 @@ class PbrDrawBinder {
                             u64 frame_idx);
   // Per-draw: look up tex_id, gate on the runtime toggle + opaque/non-decal rule,
   // bind units 11-15 real-or-neutral, set u_pbr_mode.
-  void set(s32 tex_id, const DrawMode& mode);
+  // mb_checker (Grecharged-mesh-browser V2.2): the freecam Square toggle on the targeted mesh.
+  // The owner's standing checker rule requires the FULL debug material — albedo (bound by the
+  // caller on unit 0) plus the shared checker NORMAL + ROUGHNESS + HEIGHT maps — so the
+  // displacement path (tess/POM) actually engages on the target; V2 swapped only the albedo,
+  // which tests nothing. Overrides whatever material the draw's texture resolves to.
+  void set(s32 tex_id, const DrawMode& mode, bool mb_checker = false);
   // Restore u_pbr_mode to 0 and park the neutral maps if anything was bound. Must be
   // called before the TFRAG3 program is handed to any other renderer.
   void finish();
