@@ -363,13 +363,30 @@ LASTMESH=""
 # VIL3-LORES-TREESIDE2, a far-LOD shell, and an endcap population whose shared centroid sits in
 # EMPTY SPACE. Under v2.2 nearest-hit semantics a ray through an empty centroid legitimately
 # carries no triangle of that row, so it is unacquirable BY DESIGN — correct pick behaviour, bad
-# test-mesh choice. These five acquired by ray in run 6, spread across the village: roof / lamp
-# (tiny) / hut endcap / hut wall / the beach expanse.)
+# test-mesh choice. Five compact rows spread across the village: roof / dock plank / single
+# beach rock / lamp (tiny) / hut wall.)
 # (2156 vil-beach-01 was tried as mesh #5 and is WRONG for this section: its 460 m bbox makes
 # the auto-framing park the camera ~540 m out and the ray finds zero candidates — keep the
 # battery on compact rows; 2156 stays the staging row for sections 5/6c where R1-cycling from
 # a close-up vantage is what matters.)
-for TROW4 in 585 2786 4626 6470 8645; do
+# V2.3 row refresh (run 1 measured): 4626 vil-hut-wood-01endcap is a scattered population whose
+# shared centroid sits in EMPTY SPACE — under the v2.3 triangle-exact pick the centroid ray hits
+# 4 other meshes' real triangles and never the endcap's (runtime == CPU reference 20/20, so this
+# is CORRECT pick behaviour, bad test-mesh choice — the same class run 8 documented). 6470 never
+# reached the pick at all: LIST pad-stepping refused to converge around row ~6500 twice (8645,
+# FARTHER in the list, converges fine — flaky stepping zone, and 8645 keeps far-list navigation
+# covered). Replaced by compact SOLID rows whose centroid lies inside their own geometry:
+# 897 vil-plankwood (dock corner, diag 3.0 m) + 938 vil-beachrock (single rock, diag 2.8 m).
+# (857 plankwood was tried first and is the SAME class as 4626: run-2 on-device + the offline
+# pre-flight both show its centroid ray hitting a NEIGHBOURING plank/the beach first — the row's
+# own triangles never on the ray. The pre-flight below is now the rule: every battery row was
+# ray-cast OFFLINE against mb_pick_ref (exact same auto-framing math: az=0.6 el=0.45
+# d=max(8192,0.9*diag)) and 585/897/2786/8645 are FIRST-hit on their own triangles; 938 is on
+# the ray but behind the beach surface — acquired by R1 cycling, 2 presses measured on device.)
+# Centroid spread of the five: (-62,28,-25) roof / (66,2,-142) dock / (45,1,-59) beach rock /
+# (-109,40,212) tiny lamp / (-129,36,205) hut wall. Pick CORRECTNESS is proven by 11c's
+# 20-ray exact-equivalence + 4c occlusion/out-of-view — this battery proves the acquire FLOW.
+for TROW4 in 585 897 938 2786 8645; do
   NPICK=$((NPICK+1))
   goto_row "$TROW4" || { say "  FAIL mesh #$NPICK: could not reach row $TROW4 in the LIST"; FAIL=$((FAIL+1)); continue; }
   padb "x" 7.0
