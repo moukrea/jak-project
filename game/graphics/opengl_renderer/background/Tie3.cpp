@@ -542,8 +542,7 @@ void Tie3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfi
         m_has_level) {
       const auto* mb_lev = render_state->loader->get_tfrag3_level(m_level_name);
       if (mb_lev) {
-        mb_gizmos::render(mb_lev->level.get(), 1, m_level_name.c_str(),
-                          m_common_data.settings.camera, render_state, prof);
+        mb_gizmos::render(mb_lev->level.get(), 1, m_level_name.c_str(), render_state, prof);
       }
     }
     // Grecharged-mesh-browser V2.1: pending reticle pick — contribute this level's TIE

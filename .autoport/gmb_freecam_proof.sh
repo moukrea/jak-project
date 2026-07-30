@@ -518,14 +518,29 @@ say "displacement mode's real path on the target. rtf_cfull = FULL-set binder bi
 say "target's draws per frame; rtf_tess = target draws submitted on the TESS program per frame."
 # Deterministic setup: a TFRAG-system row (TIE has no tessellation path by design — POM only),
 # displacement forced to TESSELLATION via the OBSERVE DISP button, then freecam + acquire.
+# Run 6 aimed blind fractions (0.03..0.96) and found TIE all five times: TFRAG is only 1303 of
+# village1's 9508 rows and the worst-first sort CLUSTERS them at rows 1500-3000 (measured from
+# the shipped index: 75 / 4 / 30 / 398 / 500 / 235 / 8 per 500-row band, then ~0 until 9000).
+# Aim INSIDE the dense band, and when the landed row is still TIE, STEP the selection down by
+# pad (LIST d-pad+X is deterministic row navigation) instead of blind re-jumps.
 TFOK=0
-for BFRAC in 0.50 0.03 0.28 0.72 0.96; do
+for BFRAC in 0.21 0.24 0.18 0.27 0.30; do
   ensure_list || continue
   swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $BFRAC*0.68}")" 800 1.5
   tap_n 0.40 0.45 1.5
   tap_n 0.40 0.45 7.0
   snap; [ "$(field mode)" = "OBSERVE" ] || continue
-  [ "$(field system)" = "TFRAG" ] || { say "  (fraction $BFRAC is $(field system) — need TFRAG)"; continue; }
+  # not TFRAG? step to the next rows: OBSERVE -> LIST, sel+1, select, re-check (bounded)
+  NUDGE=0
+  while [ "$(field system)" != "TFRAG" ] && [ "$NUDGE" -lt 10 ]; do
+    NUDGE=$((NUDGE+1))
+    tap_n 0.76 0.92 1.5                    # LIST button leaves OBSERVE
+    snap; [ "$(field mode)" = "LIST" ] || break
+    padb "down" 0.5; padb "x" 5.0; snap    # next row -> OBSERVE
+    [ "$(field mode)" = "OBSERVE" ] || break
+  done
+  [ "$(field mode)" = "OBSERVE" ] || continue
+  [ "$(field system)" = "TFRAG" ] || { say "  (fraction $BFRAC + $NUDGE nudges still $(field system) — need TFRAG)"; continue; }
   for d in 1 2 3; do
     snap; [ "$(field disp)" = "TESSELLATION" ] && break
     tap_n 0.32 0.78 1.5
@@ -558,9 +573,35 @@ else
   FAIL=$((FAIL+1)); say "  FAIL  could not stage a TFRAG target with displacement=TESSELLATION (tess-engaged proof cannot run)"
 fi
 
+# Deterministic FREECAM + solidly-visible target, from ANY session state. Sections 7-9 each
+# start here: run 6's 6c staging failure left the session in OBSERVE and every later section
+# (written assuming FREECAM) read an empty/stale state file — 12 cascade FAILs that had nothing
+# to do with the features under test.
+ensure_freecam_target(){
+  local f
+  snap
+  if [ "$(field mode)" = "FREECAM" ] && [ -n "$(field target)" ] && [ "$(field target)" != "-1" ]; then
+    f="$(rtf rtf_target)"; awk "BEGIN{exit !(($f) >= 1)}" && return 0
+  fi
+  for f in 0.50 0.21 0.03 0.72; do
+    ensure_list || continue
+    swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $f*0.68}")" 800 1.5
+    tap_n 0.40 0.45 1.5
+    tap_n 0.40 0.45 7.0
+    snap; [ "$(field mode)" = "OBSERVE" ] || continue
+    padb "r3" 2.0; snap; [ "$(field mode)" = "FREECAM" ] || continue
+    padb "r1" 1.5; snap
+    [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] || continue
+    local v; v="$(rtf rtf_target)"
+    awk "BEGIN{exit !(($v) >= 1)}" && return 0
+  done
+  return 1
+}
+
 # ---- 7. TRIANGLE defocus makes the toggles inert --------------------------------------
 say ""
 say "=== 7. TRIANGLE: defocus (toggles become inert) ==="
+ensure_freecam_target || { FAIL=$((FAIL+1)); say "  FAIL  section 7: could not re-establish FREECAM + target"; }
 padb "l1" 1.0             # hide the target...
 padb "triangle" 1.0; snap  # ...then defocus: C++ clears the flags with the target
 check "defocus clears the target" "target" "x" "$(field target)" equals "-1"
@@ -571,6 +612,8 @@ check "after defocus nothing is hidden (counter frozen)" "rt_hidden" "$db" "$da"
 # ---- 8. R3 exits; R3 from CLOSED re-enters (gameplay-side entry) -----------------------
 say ""
 say "=== 8. R3 exit + R3 entry from CLOSED (the owner's L3/R3 gameplay entry) ==="
+# the exit test is only meaningful FROM freecam — re-establish if section 7 left us elsewhere
+snap; [ "$(field mode)" = "FREECAM" ] || ensure_freecam_target || say "  (not in FREECAM before the exit test)"
 padb "r3" 2.0; snap
 if [ -z "$STATE" ] || [ "$(field mode)" = "CLOSED" ]; then
   PASS=$((PASS+1)); say "  PASS  r3 exits freecam (mode=CLOSED, world handed back)"
@@ -617,6 +660,9 @@ tap_ctl(){ local c; c="$(ctl $1)"; [ -n "$c" ] && { adb shell input swipe $c $c 
 # flythrough left it, which may point at empty sky: sweep the look a few times until the
 # ray finds candidates (each attempt is a REAL finger tap; the sweep is aiming, not a
 # loosened check).
+# The battery below assumes an OPEN freecam — if section 8's entry check failed, re-establish
+# rather than cascading 10 vacuous FAILs (run 6).
+snap; [ "$(field mode)" = "FREECAM" ] || ensure_freecam_target || say "  (not in FREECAM before the touch battery)"
 snap; b_t="$(field target)"
 TV0=0
 if tap_ctl fc-r1 1.5; then

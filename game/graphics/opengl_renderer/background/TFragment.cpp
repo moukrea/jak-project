@@ -198,7 +198,7 @@ void TFragment::render(DmaFollower& dma,
     if (Gfx::g_global_settings.mb_target_active && Gfx::g_global_settings.mb_gizmos_target) {
       const auto* mb_lev = render_state->loader->get_tfrag3_level(level_name);
       if (mb_lev) {
-        mb_gizmos::render(mb_lev->level.get(), 0, level_name.c_str(), settings.camera, render_state,
+        mb_gizmos::render(mb_lev->level.get(), 0, level_name.c_str(), render_state,
                           t3prof);
       }
     }

@@ -196,7 +196,6 @@ void build(const tfrag3::Level* lev, int system, u32 tex, const float* bb) {
 void render(const tfrag3::Level* lev,
             int system,
             const char* level_name,
-            const GoalBackgroundCameraData& camera,
             SharedRenderState* render_state,
             ScopedProfilerNode& prof) {
   auto& s = Gfx::g_global_settings;
@@ -250,14 +249,32 @@ void render(const tfrag3::Level* lev,
     return;  // nothing in the bbox — no pass drawn, counter untouched
   }
 
-  // RENDER: TFRAG3_NO_TEX with the exact uniform/camera setup render_tree_cull_debug uses.
+  // RENDER: TFRAG3_NO_TEX (PS2-style Q = fog/w transform). The camera uniforms come from
+  // render_state->camera_matrix/camera_hvdf_off/camera_fog — the canonical trio every WORKING
+  // PS2-style debug renderer uses (CollideMeshRenderer.cpp:255-265, GrassRenderer.cpp:1033).
+  // v2.2 root cause of "gizmos invisible with prims>0": this pass (like the never-ported
+  // render_tree_cull_debug idiom it copied) read GoalBackgroundCameraData::fog, which the modern
+  // draw path leaves ~0 (it bakes fog into pc_camera instead, background_common.cpp:410-453) —
+  // Q = fog/w ~ 0 collapsed every arrow vertex off-screen. Desktop-reproduced: NDC (13.2,-3.2)
+  // w<0 from the exact uniform values; render_state trio projects the same vertex on-screen.
   const auto& sh = render_state->shaders[ShaderId::TFRAG3_NO_TEX];
   sh.activate();
-  glUniformMatrix4fv(glGetUniformLocation(sh.id(), "camera"), 1, GL_FALSE,
-                     camera.camera[0].data());
-  glUniform4f(glGetUniformLocation(sh.id(), "hvdf_offset"), camera.hvdf_off[0],
-              camera.hvdf_off[1], camera.hvdf_off[2], camera.hvdf_off[3]);
-  glUniform1f(glGetUniformLocation(sh.id(), "fog_constant"), camera.fog.x());
+  // SIGN CONVENTION (v2.2 root cause of "gizmos invisible with prims>0"): this project's
+  // camera_matrix feeds the Q pipeline NEGATED — grass.vert world_to_clip computes
+  // -(M3 + M0*x + M1*y + M2*z) and is the working PS2-style path; tfrag3_no_tex.vert (stock,
+  // never exercised since the port) computes +(M...). With +M every in-front vertex gets
+  // clip w < 0 and GL rejects 100% of the primitives: emitted, no GL error, zero pixels —
+  // measured on desktop by full-vertex census: +M = 0 of 33216 in-frustum, -M = 7037.
+  // Upload the negated matrix so the unchanged stock shader computes the grass convention.
+  math::Vector4f neg_cam[4];
+  for (int i = 0; i < 4; i++) {
+    neg_cam[i] = render_state->camera_matrix[i] * -1.f;
+  }
+  glUniformMatrix4fv(glGetUniformLocation(sh.id(), "camera"), 1, GL_FALSE, neg_cam[0].data());
+  glUniform4f(glGetUniformLocation(sh.id(), "hvdf_offset"), render_state->camera_hvdf_off[0],
+              render_state->camera_hvdf_off[1], render_state->camera_hvdf_off[2],
+              render_state->camera_hvdf_off[3]);
+  glUniform1f(glGetUniformLocation(sh.id(), "fog_constant"), render_state->camera_fog.x());
 
   // depth test DISABLED for the pass (arrows must read through the surface they pierce); no depth
   // writes, no blending (opaque 2px lines). Save + restore what we touch.
@@ -325,9 +342,18 @@ void render(const tfrag3::Level* lev,
   // name the state of the draw — program/FBO/viewport/scissor/colormask/depth — not its emission).
   {
     static u64 s_last_dump_build = ~0ull;
+    static u32 s_dump_countdown = 0;
     const u64 build_key = ((u64)g_cache.face_count << 32) ^ (u64)(uintptr_t)g_cache.lev;
+    bool do_dump = false;
     if (s_last_dump_build != build_key) {
       s_last_dump_build = build_key;
+      s_dump_countdown = 150;  // re-dump ~2.5 s later: names the steady-state values too (the
+                               // first draw after a build can precede this frame's pc-data fill)
+      do_dump = true;
+    } else if (s_dump_countdown > 0 && --s_dump_countdown == 0) {
+      do_dump = true;
+    }
+    if (do_dump) {
       GLint prog = 0, fbo = 0, scis = 0;
       GLboolean cmask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
       GLint scis_box[4] = {0, 0, 0, 0};
@@ -346,6 +372,62 @@ void render(const tfrag3::Level* lev,
           prog, linked, fbo, vp[0], vp[1], vp[2], vp[3], scis, scis_box[0], scis_box[1],
           scis_box[2], scis_box[3], (int)cmask[0], (int)cmask[1], (int)cmask[2], (int)cmask[3],
           (u32)post_draw_err, g_cache.verts.size(), (int)band_ok);
+      // v2.2 px=0 forensics: replicate tfrag3_no_tex.vert's EXACT transform on the CPU for the
+      // first arrow vertex with the EXACT uniform values just uploaded, and log the resulting
+      // NDC. Inside [-1,1] with w>0 => the vertex reaches the raster stage and the failure is
+      // state-side; outside => the transform/uniform path is the failure. jak1 tokens:
+      // HEIGHT_SCALE=1.0, SCISSOR_ADJUST=512/448 (Shader.cpp:357-359).
+      if (!g_cache.verts.empty()) {
+        const auto& cm = render_state->camera_matrix;
+        const auto& hv = render_state->camera_hvdf_off;
+        const auto& fg = render_state->camera_fog;
+        // Full-vertex frustum census under the two PS2-style conventions (+M = stock
+        // tfrag3_no_tex.vert, -M = grass.vert world_to_clip, the working Q-pipeline user).
+        // If NEITHER puts a meaningful vertex count in-frustum while the camera stands ON the
+        // 460 m beach the arrows cover, the failure is the transform inputs; if -M does, the
+        // failure is the shader-side sign.
+        auto census = [&](float sgn) {
+          int in = 0;
+          for (const auto& v : g_cache.verts) {
+            const auto& p = v.position;
+            math::Vector4f t =
+                (cm[3] + cm[0] * p.x() + cm[1] * p.y() + cm[2] * p.z()) * sgn;
+            const float w = t.w();
+            if (w <= 0.f) {
+              continue;  // OpenGL clips w<=0 outright
+            }
+            const float q = fg.x() / w;
+            float x = ((t.x() * q + hv[0] - 2048.f) / 256.f) * w;
+            float y = ((t.y() * q + hv[1] - 2048.f) / -128.f) * w * (512.f / 448.f);
+            float z = ((t.z() * q + hv[2]) / 8388608.f - 1.f) * w;
+            if (x >= -w && x <= w && y >= -w && y <= w && z >= -w && z <= w) {
+              in++;
+            }
+          }
+          return in;
+        };
+        // actual uniform values as the GL program holds them right now (delivery check)
+        float u_cam[16] = {0}, u_fog = -1.f, u_hvdf[4] = {0};
+        const GLint lc = glGetUniformLocation(sh.id(), "camera");
+        const GLint lf = glGetUniformLocation(sh.id(), "fog_constant");
+        const GLint lh = glGetUniformLocation(sh.id(), "hvdf_offset");
+        if (lc >= 0) {
+          glGetUniformfv(sh.id(), lc, u_cam);
+        }
+        if (lf >= 0) {
+          glGetUniformfv(sh.id(), lf, &u_fog);
+        }
+        if (lh >= 0) {
+          glGetUniformfv(sh.id(), lh, u_hvdf);
+        }
+        lg::info("[mb-gizmos] census in-frustum: +M={} -M={} of {} | uniforms: loc(c/f/h)={}/{}/{} "
+                 "fog={:.6f} hvdf=({:.1f},{:.1f},{:.1f},{:.1f}) cam_col3=({:.6f},{:.6f},{:.6f},"
+                 "{:.6f}) rs_fog=({:.6f},{:.3f},{:.3f},{:.3f}) campos=({:.1f},{:.1f},{:.1f})",
+                 census(1.f), census(-1.f), (int)g_cache.verts.size(), lc, lf, lh, u_fog,
+                 u_hvdf[0], u_hvdf[1], u_hvdf[2], u_hvdf[3], u_cam[12], u_cam[13], u_cam[14],
+                 u_cam[15], fg.x(), fg.y(), fg.z(), fg.w(), render_state->camera_pos[0] / 4096.f,
+                 render_state->camera_pos[1] / 4096.f, render_state->camera_pos[2] / 4096.f);
+      }
     }
   }
 

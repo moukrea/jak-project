@@ -255,8 +255,13 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > liste qui suspend le pad pour le multi-touch brut) avec un set de contrôles freecam : stick virtuel = VOL
 > (toutes directions, y compris l'air — la translation suit le regard), zone caméra = ORIENTATION, boutons
 > séparés R1/R2/L1/L2/□/○/△/X(BOOST)/TOD±/REL±/EXIT. Manette : **stick gauche vol, stick droit regard,
-> R1/R2 = cibler le mesh sous le viseur** (rayon caméra vs AABB de l'index, tri près→loin, R1/R2 cyclent les
-> candidats du rayon), **L1 = cacher / L2 = montrer** la cible, **□ = damier** sur la cible, **○ = gizmos de
+> R1/R2 = cibler le mesh sous le viseur** (**V2.2** : PREMIER IMPACT le long du rayon — ray-test des VRAIS
+> triangles de chaque candidat (Möller-Trumbore, même parcours que le grader hors-ligne), tri par distance de
+> surface la plus proche, candidats boîte-seule éliminés ; un mesh occulté par un autre sur le même rayon ne
+> gagne JAMAIS, un mesh derrière la caméra n'est JAMAIS candidat (tmax<0 rejeté) ; R1/R2 cyclent les
+> candidats survivants), **L1 = cacher / L2 = montrer** la cible, **□ = damier COMPLET** sur la cible
+> (**V2.2** : albedo + height + normal + roughness damier, ET le chemin de displacement courant réellement
+> engagé sur les draws de la cible — pas la texture seule), **○ = gizmos de
 > normales** (flèches par face, convention de winding = celle de tess_sign : une normale rentrante SE VOIT),
 > **△ = defocus** (cible nulle, toggles inertes), **X = boost**, **dpad ←/→ = heure, ↑/↓ = relief**. Le NOM
 > ciblé (matériau + niveau + shell + tex + note hors-ligne) s'affiche en clair et reste exporté dans

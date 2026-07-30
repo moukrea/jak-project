@@ -21,7 +21,6 @@ namespace mb_gizmos {
 void render(const tfrag3::Level* lev,
             int system,
             const char* level_name,
-            const GoalBackgroundCameraData& camera,
             SharedRenderState* render_state,
             ScopedProfilerNode& prof);
 
