@@ -293,3 +293,13 @@ tessellation qui va avec. Les gizmos ne s'affichent pas."
 3. GIZMOS : toujours invisibles. La preuve par primitives dessinées reste exigée — si le compteur
    dit >0 et que rien ne s'affiche, le draw part dans un mauvais état (depth test, viewport,
    programme) : vérifier l'état GL du draw gizmo, pas seulement son émission.
+
+## PRÉCISION OWNER (2026-07-30, v2.2)
+
+Gizmos (Circle) et damier-tessellation (Square) n'ont PAS besoin de fonctionner
+SIMULTANÉMENT. Exigence : chacun fonctionne parfaitement DE FAÇON INDIVIDUELLE
+(damier seul → matériau complet + displacement engagé + compteurs qui croissent ;
+gizmos seuls → primitives réellement dessinées à l'écran). Si les deux modes actifs
+en même temps posent problème (état GL partagé, etc.), il est acceptable que
+l'activation de l'un désactive l'autre — ne dépense AUCUN effort à les faire
+coexister. Ceci ne relâche RIEN sur les preuves individuelles existantes.
