@@ -285,6 +285,9 @@ public class TouchOverlayView extends View {
         fc(fcControls, "fc-tod-plus", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, "TOD+");
         fc(fcControls, "fc-rel-minus", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_DPAD_DOWN, "REL-");
         fc(fcControls, "fc-rel-plus", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_DPAD_UP, "REL+");
+        // V2.3: MARK = L3 (flag the reticle-hovered polygon -> mesh_marks.jsonl). Same right-edge
+        // pill style as BOOST, placed just under it.
+        fc(fcControls, "fc-mark", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_LEFT_STICK, "MARK");
         fc(fcControls, "fc-exit", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_RIGHT_STICK, "EXIT");
     }
 
@@ -384,6 +387,10 @@ public class TouchOverlayView extends View {
         place2(fctl("fc-circle"),   fcx, h * 0.47f, fr);
         place2(fctl("fc-square"),   fcx, h * 0.61f, fr);
         fctl("fc-boost").rect.set(w * 0.970f - fbw, h * 0.70f, w * 0.970f, h * 0.70f + fbh);
+        // V2.3 MARK: right edge, directly under BOOST (same pill size); clears the TOD/REL bottom
+        // row (x 0.300-0.690) by construction.
+        fctl("fc-mark").rect.set(w * 0.970f - fbw, h * 0.70f + fbh + fgap,
+                w * 0.970f, h * 0.70f + 2f * fbh + fgap);
         final float fsw = Math.max(84f, w * 0.075f);
         final float fsh = Math.max(34f, h * 0.058f);
         final float fby = h * 0.895f;
@@ -456,6 +463,8 @@ public class TouchOverlayView extends View {
                 + "->onPadButton(WEST=2)[freecam checker, right edge]");
         Log.i(TAG, "overlay-map: fc-boost=" + rrect(fctl("fc-boost"))
                 + "->onPadButton(SOUTH=0)[freecam BOOST, right edge]");
+        Log.i(TAG, "overlay-map: fc-mark=" + rrect(fctl("fc-mark"))
+                + "->onPadButton(LEFT_STICK=7)[freecam mark polygon, right edge under BOOST]");
         Log.i(TAG, "overlay-map: fc-tod-minus=" + rrect(fctl("fc-tod-minus"))
                 + "->onPadButton(DPAD_LEFT=13)[freecam time-of-day -, bottom]");
         Log.i(TAG, "overlay-map: fc-tod-plus=" + rrect(fctl("fc-tod-plus"))

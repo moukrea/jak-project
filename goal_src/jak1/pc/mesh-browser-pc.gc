@@ -100,7 +100,10 @@
 (define-extern pc-mb-hide-set! (function int none))
 (define-extern pc-mb-checker-set! (function int none))
 (define-extern pc-mb-gizmos-set! (function int none))
-(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic)
+(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic); v2.3: 11 wireframe edges last frame 12 hovered tri ordinal (-1 none) 13 total marks
+;; V2.3 reticle forensics (registered next to the pc-mb-* channel in game/kernel/jak1/kmachine.cpp)
+(define-extern pc-mb-hover-ray! (function vector vector int none)) ;; publish the reticle ray (origin GOAL units, dir any length) to the render thread; on=1 highlights the hovered polygon while gizmos are up, on=0 disarms
+(define-extern pc-mb-mark-poly! (function int))            ;; append the hovered polygon as JSONL to mesh_marks.jsonl (external asset root); returns new mark count, -1 = no hovered polygon / no target
 
 ;; pc-mb-pick-geti field ids
 (defconstant MB_PK_ROW 0)
@@ -236,6 +239,7 @@
    ;; after a timeout, falling back to the AABB order — nothing rendering = nothing pickable).
    (fc-pick-wait   int32)          ;; 0 = idle; >0 = frames spent waiting on pc-mb-pick-ready?
    (fc-pick-dir    int32)          ;; +1 (R1) / -1 (R2) of the pending request
+   (fc-marks       int32)          ;; V2.3: session total of pc-mb-mark-poly! JSONL marks (default 0)
    (fc-hide?       symbol)         ;; GOAL-side mirror of the C++ hide flag (C++ is authoritative)
    (fc-checker?    symbol)         ;; ditto, per-target checker tessellation
    (fc-gizmos?     symbol)         ;; ditto, normal gizmos
@@ -258,6 +262,9 @@
    (mesh-browser-observe-selected (_type_) none)))
 
 (define *mesh-browser* (new 'global 'mesh-browser))
+;; V2.3: explicit one-time init — the mark total is a SESSION counter, so it must not be reset on
+;; every freecam entry, only here.
+(set! (-> *mesh-browser* fc-marks) 0)
 
 ;; EVERY level that has a shipped mesh_index_*.txt — all 25 of them (owner's delivery condition:
 ;; "faudrait que le navigateur soit inclus avec les corrections de tous les mesh pour que ce soit
@@ -856,6 +863,11 @@
   ;; the browser is gone (pc-mb-target-clear! also clears the C++ hide/checker/gizmo flags).
   (pc-mb-target-clear!)
   (set! (-> obj fc-target) -1)
+  ;; V2.3: disarm the reticle hover ray — the render thread must stop highlighting once the
+  ;; freecam is gone (the per-frame arm lives in mesh-browser-input-freecam only).
+  (let ((dis (new 'stack-no-clear 'vector)))
+    (set-vector! dis 0.0 0.0 1.0 0.0)
+    (pc-mb-hover-ray! (-> obj fc-pos) dis 0))
   ;; hand touch back to the virtual gamepad — the overlay is byte-identical from here on.
   (pc-mb-set-active! 0)
   ;; one FINAL state dump so the file says mode=CLOSED. The state file is the evidence channel: a
@@ -1577,6 +1589,13 @@
      (when (>= (-> obj fc-target) 0)
        (set! (-> obj fc-gizmos?) (not (-> obj fc-gizmos?)))
        (pc-mb-gizmos-set! (if (-> obj fc-gizmos?) 1 0))))
+    ((cpad-pressed? 0 l3)
+     ;; V2.3 MARK: flag the polygon under the reticle (gizmos must be up — the hover highlight is
+     ;; what the owner is aiming with). -1 = nothing hovered: keep the previous count.
+     (when (and (>= (-> obj fc-target) 0) (-> obj fc-gizmos?))
+       (let ((n (pc-mb-mark-poly!)))
+         (when (>= n 0)
+           (set! (-> obj fc-marks) n)))))
     ((cpad-pressed? 0 triangle)
      ;; DEFOCUS: drop the target; the three toggles become inert (owner's spec).
      (pc-mb-target-clear!)
@@ -1595,7 +1614,13 @@
     (set-vector! dwn 0.0 -1.0 0.0 0.0)
     (forward-down->inv-matrix *camera-other-matrix* fwd dwn)
     (set! (-> *camera-other-trans* quad) (-> obj fc-pos quad))
-    (set! *camera-look-through-other* 2))
+    (set! *camera-look-through-other* 2)
+    ;; V2.3 HOVER RAY: publish the reticle ray every freecam frame (same origin+fwd the camera and
+    ;; the R1 pick use, so the highlighted polygon IS the one under the crosshair by construction).
+    ;; on=1 only while a target is set AND its gizmos are up; the browser-close path sends the
+    ;; disarming on=0, so this is never called outside the freecam (zero cost when closed).
+    (pc-mb-hover-ray! (-> obj fc-pos) fwd
+                      (if (and (>= (-> obj fc-target) 0) (-> obj fc-gizmos?)) 1 0)))
   ;; every frame, not just on entry: a title attract cycle can spawn a FRESH othercam mid-flight
   (mesh-browser-set-othercam-sleep #t)
   ;; hold the chosen hour (re-asserted every frame, or the day/night cycle ticks it forward)
@@ -1637,7 +1662,19 @@
                         (if (-> obj fc-gizmos?) 1 0)
                         (-> obj fc-pick-n)
                         (pc-mb-rt-geti 4))
-         0.02 0.195 (font-color cyan))))
+         0.02 0.195 (font-color cyan))
+       ;; V2.3: reticle-hover + mark HUD, only while the gizmos (and their wireframe) are up —
+       ;; that is when a polygon can be hovered/marked at all. Phone-readable short lines.
+       (when (-> obj fc-gizmos?)
+         (let ((hov (pc-mb-rt-geti 12)))
+           (if (>= hov 0)
+               (mesh-browser-text buf (string-format "TRI ~D" hov) 0.02 0.245 (font-color white))
+               (mesh-browser-text buf "TRI -" 0.02 0.245 (font-color white))))
+         (mesh-browser-text buf
+           (string-format "MARKS ~D -> mesh_marks.jsonl" (-> obj fc-marks))
+           0.02 0.295 (font-color yellow))
+         ;; control hint, same green style as the top hint line
+         (mesh-browser-text buf "L3/MARK: flag polygon" 0.02 0.345 (font-color green)))))
     (else
      (mesh-browser-text buf "NO TARGET - AIM THE RETICLE, PRESS R1" 0.02 0.095 (font-color yellow))))
   (none))
@@ -1683,6 +1720,10 @@
     (+! s (* 73 (if (-> obj fc-hide?) 1 0)))
     (+! s (* 79 (if (-> obj fc-checker?) 1 0)))
     (+! s (* 83 (if (-> obj fc-gizmos?) 1 0)))
+    ;; V2.3: a MARK must trigger a dump (marks= is the mark's evidence line). The HOVER ordinal is
+    ;; deliberately NOT in the sig — it changes every frame the reticle moves and would spam dumps;
+    ;; the gizmos flag (its gate) is already folded in at *83 above.
+    (+! s (* 89 (-> obj fc-marks)))
     s))
 
 (defun mesh-browser-dump-state ((obj mesh-browser))
@@ -1779,6 +1820,12 @@
     ;; (readback proof: emitted-but-invisible cannot pass this).
     (format (clear (-> obj line-buf)) "rtf_cfull=~D rtf_tess=~D rtf_gizmo_px=~D"
             (pc-mb-rt-geti 8) (pc-mb-rt-geti 9) (pc-mb-rt-geti 10))
+    (pc-mb-state-line! (-> obj line-buf))
+    ;; V2.3 renderer counters: rtf_wire = WIREFRAME edges drawn last frame (>0 while gizmos on,
+    ;; 0 off), hover = hovered triangle ordinal under the reticle (-1 none), marks = the GOAL-side
+    ;; session total of mesh_marks.jsonl records (the C++ total is pc-mb-rt-geti 13).
+    (format (clear (-> obj line-buf)) "rtf_wire=~D hover=~D marks=~D"
+            (pc-mb-rt-geti 11) (pc-mb-rt-geti 12) (-> obj fc-marks))
     (pc-mb-state-line! (-> obj line-buf))
     ;; V2.2 pick-candidate export, for the harness occlusion/frustum cases: the surviving
     ;; candidates of the LAST pick, in rank order, as row:slot:surface-distance-cm. An occluded

@@ -254,7 +254,7 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > En freecam l'overlay tactile reste en MODE PAD (mode natif `pc-mb-set-active!` = 2, contrairement au mode 1
 > liste qui suspend le pad pour le multi-touch brut) avec un set de contrôles freecam : stick virtuel = VOL
 > (toutes directions, y compris l'air — la translation suit le regard), zone caméra = ORIENTATION, boutons
-> séparés R1/R2/L1/L2/□/○/△/X(BOOST)/TOD±/REL±/EXIT. Manette : **stick gauche vol, stick droit regard,
+> séparés R1/R2/L1/L2/□/○/△/X(BOOST)/**MARK (V2.3, = L3)**/TOD±/REL±/EXIT. Manette : **stick gauche vol, stick droit regard,
 > R1/R2 = cibler le mesh sous le viseur** (**V2.2** : PREMIER IMPACT le long du rayon — ray-test des VRAIS
 > triangles de chaque candidat (Möller-Trumbore, même parcours que le grader hors-ligne), tri par distance de
 > surface la plus proche, candidats boîte-seule éliminés ; un mesh occulté par un autre sur le même rayon ne
@@ -272,6 +272,21 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > **V2.2** : un navigateur OUVERT force le chemin Recharged ON (`recharged_master_active`, priorité
 > la plus basse — l'override headless prop/env gagne toujours) : l'owner prévisualise le PBR/la
 > tessellation même si le master perf est sauvegardé OFF ; fermé => strictement stock.
+>
+> **V2.3 (2026-07-30, Grecharged-mesh-browser — pick exact + wireframe + marquage)** : **○ (gizmos)
+> dessine maintenant AUSSI le WIREFRAME** (fil de fer) de la cible en surimpression des flèches de
+> normales (compteur runtime `rtf_wire` par frame dans `mesh_browser_state.txt`, >0 gizmos ON, 0 OFF).
+> Un **rayon de réticule** est publié chaque frame de freecam (`pc-mb-hover-ray!`, même origine/direction
+> que la caméra et le pick R1) : gizmos actifs, le **polygone sous le réticule est SURLIGNÉ** et son
+> ordinal s'affiche au HUD (`TRI <n>`, `TRI -` si aucun ; dump `hover=`).
+> **NOUVEAU bouton overlay `MARK`** (TouchOverlayView, mode 2 freecam uniquement) : pilule même
+> taille/style que BOOST, **bord droit directement SOUS BOOST** (au-dessus de la rangée TOD±/REL±) ;
+> émule **L3** (`LEFT_STICK=7`, ligne `overlay-map: fc-mark=...`). Manette : **L3 = marquer le polygone
+> survolé** (exige cible + gizmos actifs) → append d'un enregistrement **JSONL dans `mesh_marks.jsonl`
+> À LA RACINE D'ASSETS EXTERNE** du device (`pc-mb-mark-poly!`, export hors-ligne pour la forensique
+> d'orientation) ; le HUD affiche `MARKS <n> -> mesh_marks.jsonl` + le rappel `L3/MARK: flag polygon`,
+> le dump d'état porte `rtf_wire=/hover=/marks=` et un MARK déclenche un dump (marks= dans la signature,
+> hover= volontairement exclu — il changerait chaque frame).
 >
 > **RÉOUVERTURE (2026-07-29, owner : « C'est impossible à parcourir via le tactile (le mesh browser) »)**.
 > La ligne de menu elle-même est INCHANGÉE (même id, même position, même comportement) ; c'est le CONTENU de

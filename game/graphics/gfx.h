@@ -215,35 +215,62 @@ struct GfxGlobalSettings {
   // recharged_master_active() (lowest precedence, see there). False whenever the browser is
   // closed, so the normal path is byte-identical with the tool off.
   bool mb_pbr_override = false;
-  // V2.1 TRIANGLE-ACCURATE reticle pick (owner: a single R1 must target the mesh the reticle
-  // SEES). AABB slab distances cannot rank a dense stack — index AABBs are much fatter than
-  // their geometry, so the nearest box is usually not the visible surface (run 5 needed up to
-  // 13 R1 presses; v2.1's first surface-first resort still only hit 1/5 first-press). The fix
-  // ranks candidates by REAL ray->triangle distance, measured by the renderers themselves:
-  //   1. the GOAL thread (kmachine pc_mb_pick) publishes the ray + the AABB-hit candidates here
-  //      and bumps mb_pick_serial (release);
-  //   2. TFragment::render / Tie3::render call mb_pick::raytest_if_pending each frame — every
-  //      renderer tests the candidates of ITS system+level against its real triangles
-  //      (MeshBrowserGizmos.cpp walk, Moller-Trumbore) and min()s into mb_pick_ttri;
-  //   3. mb_flip_frame_counters() publishes completion ONE FULL FRAME LATER (the arm step below:
-  //      a request landing mid-frame would otherwise miss the buckets already drawn);
-  //   4. GOAL polls pc-mb-pick-ready?, kmachine re-sorts its hit list by triangle distance
-  //      (candidates with no triangle hit fall back behind, in AABB order).
-  // Candidate arrays are written by the GOAL thread BEFORE the serial release-store and read by
-  // the render thread AFTER an acquire-load — no torn candidate reads. mb_pick_ttri goes the
-  // other way, sequenced by the mb_pick_done release-store at flip.
+  // V2.3 EXACT reticle pick (owner: a clearly visible mesh could rank >16 in AABB order and
+  // never get triangle-tested — something else nearby won). The candidate pre-filter is GONE:
+  // the render thread now sweeps ALL rendered geometry and the pick is the globally nearest
+  // ray-triangle intersection. Protocol:
+  //   1. the GOAL thread (kmachine pc_mb_pick) publishes only the ray here and bumps
+  //      mb_pick_serial (release);
+  //   2. mb_flip_frame_counters() ARMS the request one flip later (a request landing mid-frame
+  //      would miss the buckets already drawn) and resets mb_pick_hit_n;
+  //   3. during the armed frame, TFragment::render / Tie3::render call mb_pick::raytest — each
+  //      renderer sweeps EVERY draw of its system+level (MeshBrowserGizmos.cpp walk,
+  //      Moller-Trumbore) and inserts hits below, ascending t, deduped by (sys, texid, lvl);
+  //   4. the next flip publishes mb_pick_done; GOAL polls pc-mb-pick-ready? and resolves each
+  //      hit's triangle back to an index row.
+  // The ray is written by the GOAL thread BEFORE the serial release-store and read by the
+  // render thread AFTER an acquire-load — no torn reads. The hit array goes the other way,
+  // sequenced by the mb_pick_done release-store at flip.
   static constexpr int MB_PICK_MAX = 16;
+  struct MbRayHit {
+    float t = -1.f;  // GOAL units along the unit ray
+    int sys = 0;     // 0 TFRAG, 1 TIE
+    u32 texid = 0;
+    char lvl[16] = {0};
+    int tri = -1;  // triangle ordinal within (sys, lvl, texid) — see the enumeration rule in
+                   // MeshBrowserGizmos.cpp (reproducible by an offline tool)
+    float hit[3] = {0.f, 0.f, 0.f};  // GOAL units
+    float v0[3] = {0.f, 0.f, 0.f}, v1[3] = {0.f, 0.f, 0.f},
+          v2[3] = {0.f, 0.f, 0.f};    // emitted winding
+    float nrm[3] = {0.f, 0.f, 0.f};  // unit normal of emitted winding
+  };
   std::atomic<u32> mb_pick_serial{0};  // GOAL bumps after publishing a request
-  std::atomic<u32> mb_pick_done{0};    // render thread: serial whose ttri results are complete
+  std::atomic<u32> mb_pick_done{0};    // render thread: serial whose hit results are complete
   u32 mb_pick_arm = 0;                 // render-thread-only: serial armed last flip
-  int mb_pick_n = 0;
   float mb_pick_ray_o[3] = {0.f, 0.f, 0.f};  // GOAL units
   float mb_pick_ray_d[3] = {0.f, 0.f, 1.f};  // unit dir
-  int mb_pick_sys[MB_PICK_MAX] = {0};
-  u32 mb_pick_texid[MB_PICK_MAX] = {0};
-  char mb_pick_lvl[MB_PICK_MAX][16] = {{0}};
-  float mb_pick_bbox[MB_PICK_MAX][6] = {{0.f}};  // GOAL units, per-candidate face filter
-  float mb_pick_ttri[MB_PICK_MAX] = {0.f};       // out: nearest tri hit, GOAL units; <0 = none
+  // browsable-texid filter per pick level+system: the sweep may only test draws whose
+  // tree_tex_id has at least one index row (the index holds only displaceable materials — a
+  // non-indexed nearest triangle would be unresolvable AND its dedupe slot could evict every
+  // browsable hit). Published by the GOAL thread BEFORE the serial release-store, read by the
+  // render thread after the acquire, same protocol as the ray.
+  static constexpr int MB_PICK_FLT_MAX = 1024;
+  char mb_pick_flt_lvl[2][16] = {{0}};
+  int mb_pick_flt_n[2][2] = {{0}};             // [slot][sys]
+  u32 mb_pick_flt_tex[2][2][MB_PICK_FLT_MAX];  // sorted ascending
+  int mb_pick_hit_n = 0;  // render-thread writes between arm and done
+  MbRayHit mb_pick_hits_out[MB_PICK_MAX];
+  // V2.3 hover channel (GOAL thread writes the ray; render thread answers via seqlock — it is
+  // the only writer of the seq-guarded block below).
+  std::atomic<int> mb_hover_on{0};
+  float mb_hover_ray_o[3] = {0.f, 0.f, 0.f};  // GOAL units
+  float mb_hover_ray_d[3] = {0.f, 0.f, 1.f};  // unit
+  std::atomic<u32> mb_hover_seq{0};           // even = stable; writer makes it odd during write
+  int mb_hover_tri = -1;
+  u32 mb_hover_texid = 0;
+  float mb_hover_v[3][3] = {{0.f}};  // GOAL units, emitted winding
+  float mb_hover_nrm[3] = {0.f, 0.f, 0.f};
+  u32 mb_cur_wire = 0, mb_frame_wire = 0;  // wireframe edges drawn (flip like the other mb_cur_*)
   void mb_flip_frame_counters() {
     mb_frame_target_draws = mb_cur_target_draws;
     mb_frame_checker_binds = mb_cur_checker_binds;
@@ -252,6 +279,7 @@ struct GfxGlobalSettings {
     mb_frame_checker_full = mb_cur_checker_full;
     mb_frame_target_tess = mb_cur_target_tess;
     mb_frame_gizmo_px = mb_cur_gizmo_px;
+    mb_frame_wire = mb_cur_wire;
     mb_cur_target_draws = 0;
     mb_cur_checker_binds = 0;
     mb_cur_gizmo_prims = 0;
@@ -259,6 +287,7 @@ struct GfxGlobalSettings {
     mb_cur_checker_full = 0;
     mb_cur_target_tess = 0;
     mb_cur_gizmo_px = 0;
+    mb_cur_wire = 0;
     // triangle-pick completion: arm on the first flip after a request, publish on the second —
     // by then every renderer had one WHOLE frame to contribute (see the channel doc above).
     const u32 s = mb_pick_serial.load(std::memory_order_relaxed);
@@ -266,7 +295,8 @@ struct GfxGlobalSettings {
       mb_pick_done.store(s, std::memory_order_release);
       mb_pick_arm = 0;
     } else if (s != mb_pick_done.load(std::memory_order_relaxed)) {
-      mb_pick_arm = s;
+      mb_pick_arm = s;  // render thread — safe to reset the hit list with the arm
+      mb_pick_hit_n = 0;
     }
   }
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for

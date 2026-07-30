@@ -885,6 +885,154 @@ if tap_ctl fcam 2.5; then snap; check "TOUCH FCAM overlay button enters freecam 
   padb "r3" 1.5
 fi
 
+# ---- 11. V2.3: wireframe counter + polygon hover/mark JSONL + 20-ray pick equivalence --
+say ""
+say "=== 11a. V2.3 WIREFRAME: renderer edge counter ON>0 / OFF==0 / ON>0 ==="
+if ensure_freecam_target; then
+  snap; [ "$(field gizmos)" = "1" ] && { padb "circle" 1.5; snap; }   # known-OFF baseline
+  WOFF0="$(rtf rtf_wire)"
+  assert "V2.3 wireframe OFF baseline: zero edges drawn per frame" "($WOFF0) == 0" "rtf_wire=$WOFF0"
+  padb "circle" 1.5; snap
+  check "CIRCLE turns gizmos+wireframe ON" "gizmos" "0" "$(field gizmos)" equals "1"
+  WON="$(rtf rtf_wire)"
+  assert "V2.3 wireframe ON: edge draws > 0 per frame (renderer counter)" "($WON) > 0" "rtf_wire=$WON"
+  padb "circle" 1.5
+  WOFF="$(rtf rtf_wire)"
+  assert "V2.3 wireframe OFF again: edge counter back to ZERO" "($WOFF) == 0" "rtf_wire=$WOFF"
+  padb "circle" 1.5; snap   # leave gizmos+wireframe ON for the marking section
+else
+  FAIL=$((FAIL+1)); say "  FAIL  section 11a: could not establish FREECAM + target"
+fi
+
+say ""
+say "=== 11b. V2.3 POLYGON MARKING: hover triangle + 3 injected L3 marks + adb pull JSONL ==="
+snap
+MB_ROW="$(field target)"; MB_LVL_STATE="village1"
+HOV0="$(rtf hover)"
+assert "V2.3 reticle hovers an individual polygon (triangle ordinal >= 0)" "($HOV0) >= 0" "hover=$HOV0"
+# wipe any prior export so the pulled file holds exactly this run's marks
+[ -n "$EXT_ROOT" ] && adb shell rm -f "$EXT_ROOT/mesh_marks.jsonl" >/dev/null 2>&1
+adb shell run-as $PKG rm -f files/mesh_marks.jsonl >/dev/null 2>&1
+M0="$(field marks)"; [ -n "$M0" ] || M0=0
+padb "l3" 1.5; snap; M1="$(field marks)"
+check "V2.3 L3 marks the hovered polygon (mark 1)" "marks" "$M0" "$M1" grew
+hold "ry=170" 0.20; sleep 1.0   # small look-down nudge: a DIFFERENT polygon of the same mesh
+padb "l3" 1.5; snap; M2="$(field marks)"
+check "V2.3 L3 marks again after an aim nudge (mark 2)" "marks" "$M1" "$M2" grew
+hold "rx=170" 0.20; sleep 1.0   # small yaw nudge
+padb "l3" 1.5; snap; M3="$(field marks)"
+check "V2.3 L3 marks a third polygon (mark 3)" "marks" "$M2" "$M3" grew
+MARKS_FILE="$OUT/mesh_marks.jsonl"; rm -f "$MARKS_FILE"
+if [ -n "$EXT_ROOT" ]; then
+  adb pull "$EXT_ROOT/mesh_marks.jsonl" "$MARKS_FILE" >/dev/null 2>&1
+  say "  adb pull $EXT_ROOT/mesh_marks.jsonl -> $MARKS_FILE (external asset root, owner file-manager reachable)"
+fi
+[ -s "$MARKS_FILE" ] || adb exec-out run-as $PKG cat files/mesh_marks.jsonl > "$MARKS_FILE" 2>/dev/null
+if [ -s "$MARKS_FILE" ]; then
+  python3 - "$MARKS_FILE" "$IDX" "$MB_ROW" <<'PYEOF'
+import json, math, sys
+path, idx_path, row_s = sys.argv[1], sys.argv[2], sys.argv[3]
+recs = [json.loads(l) for l in open(path) if l.strip()]
+need = ["game","level","system","row","shell","material","tex_id","tri",
+        "v0_m","v1_m","v2_m","face_normal","offline_verdict","centroid_m","aabb_m"]
+ok = len(recs) >= 3
+missing = []
+for r in recs:
+    for k in need:
+        if k not in r: ok = False; missing.append(k)
+    v = r.get("offline_verdict", {})
+    for k in ("graded","a_sign_x100","b_disp_x100"):
+        if k not in v: ok = False; missing.append("offline_verdict."+k)
+    n = r.get("face_normal",[0,0,0]); ln = math.sqrt(sum(x*x for x in n))
+    if not (0.9 <= ln <= 1.1): ok = False; missing.append("face_normal-not-unit")
+# position coherence: every marked vertex inside the record's own mesh AABB (+1 m slack)
+for r in recs:
+    lo, hi = r["aabb_m"]
+    for key in ("v0_m","v1_m","v2_m"):
+        p = r[key]
+        if not all(lo[a]-1.0 <= p[a] <= hi[a]+1.0 for a in range(3)):
+            ok = False; missing.append(key+"-outside-aabb")
+print(f"records={len(recs)} fields_ok={ok} missing={sorted(set(missing))}")
+sys.exit(0 if ok else 1)
+PYEOF
+  if [ $? = 0 ]; then PASS=$((PASS+1)); say "  PASS  V2.3 JSONL export: >=3 records, all fields present, positions coherent with the marked mesh"
+  else FAIL=$((FAIL+1)); say "  FAIL  V2.3 JSONL export validation (see python output above)"; fi
+else
+  FAIL=$((FAIL+1)); say "  FAIL  V2.3 mesh_marks.jsonl absent/empty after 3 marks"
+fi
+padb "circle" 1.5   # gizmos off before the ray battery
+
+say ""
+say "=== 11c. V2.3 PICK = RAY-TRIANGLE EXACT: 20 reticle rays, runtime == CPU reference ==="
+adb shell run-as $PKG rm -f files/mb_pick_trace.txt >/dev/null 2>&1
+# 20 aim variations from the staged vantage: nudge the view, defocus, R1 -> one PICKTRACE line
+# per completed pick. Mix of small/large yaw+pitch moves so rays cross different mesh stacks.
+NUDGES="rx=180:0.15 ry=180:0.20 rx=60:0.25 ry=90:0.20 rx=220:0.20 ry=200:0.15 rx=40:0.30 ry=60:0.25 rx=200:0.10 ry=160:0.10 rx=90:0.20 ry=110:0.15 rx=170:0.30 ry=70:0.20 rx=140:0.10 ry=190:0.25 rx=70:0.15 ry=130:0.10 rx=210:0.15 ry=100:0.15"
+NRAY=0
+for nd in $NUDGES; do
+  tok="${nd%%:*}"; dur="${nd##*:}"
+  hold "$tok" "$dur"
+  padb "triangle" 0.8         # defocus so each acquisition is the pick's own work
+  padb "r1" 2.0               # fires the pick request; PICKTRACE appended on fold
+  NRAY=$((NRAY+1))
+done
+sleep 3
+adb exec-out run-as $PKG cat files/mb_pick_trace.txt > "$OUT/mb_pick_trace.txt" 2>/dev/null
+NTRACE="$(grep -c '^PICKTRACE' "$OUT/mb_pick_trace.txt" 2>/dev/null)"; [ -n "$NTRACE" ] || NTRACE=0
+say "  pick trace lines harvested: $NTRACE (rays fired: $NRAY)"
+if [ "$NTRACE" -ge 20 ]; then
+  python3 - "$OUT/mb_pick_trace.txt" "$OUT" <<'PYEOF'
+import re, subprocess, sys, os
+trace_path, outdir = sys.argv[1], sys.argv[2]
+lines = [l for l in open(trace_path) if l.startswith("PICKTRACE")][-20:]
+def gv(l, k):
+    m = re.search(rf'{k}=([^ ]+)', l)
+    return m.group(1) if m else None
+rays, runtime, levels = [], [], set()
+for l in lines:
+    o = gv(l,'o').split(','); d = gv(l,'d').split(',')
+    rays.append((o,d))
+    runtime.append((gv(l,'row'), float(gv(l,'t'))))
+    for lk in ('lvl0','lvl1'):
+        lv = gv(l,lk)
+        if lv and lv != '-': levels.add(lv)
+rays_file = os.path.join(outdir, 'rays.txt')
+with open(rays_file,'w') as f:
+    for o,d in rays:
+        f.write(' '.join(o) + ' ' + ' '.join(d) + '\n')
+# CPU reference per level; global winner = min t across levels (what the runtime sweep does)
+ref = [dict(row=None, t=None) for _ in rays]
+for lv in sorted(levels):
+    fr3 = f'out/jak1/fr3/{lv}.fr3'
+    idx = f'custom_assets/jak1/mesh_index/mesh_index_{lv}.txt'
+    if not (os.path.exists(fr3) and os.path.exists(idx)):
+        print(f'reference inputs missing for {lv}: {fr3} / {idx}'); sys.exit(1)
+    out = subprocess.run(['build/tools/mb_pick_ref/mb_pick_ref','--fr3',fr3,'--index',idx,'--rays',rays_file],
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        print('mb_pick_ref failed for', lv, out.stderr[-500:]); sys.exit(1)
+    for l in out.stdout.splitlines():
+        m = re.match(r'REF i=(\d+) row=(\d+) t=([0-9.eE+-]+)', l)
+        if m:
+            i, row, t = int(m.group(1)), m.group(2), float(m.group(3))
+            if ref[i]['t'] is None or t < ref[i]['t']:
+                ref[i] = dict(row=row, t=t)
+match = 0; diverge = []
+for i,(rt, rf) in enumerate(zip(runtime, ref)):
+    r_row, r_t = rt
+    e_row = rf['row'] if rf['row'] is not None else '-1'
+    if r_row == e_row: match += 1
+    else: diverge.append(f'ray {i}: runtime row={r_row} t={r_t:.1f} vs reference row={e_row} t={rf["t"]}')
+print(f'{match}/20 runtime-vs-CPU-reference pick matches')
+for d in diverge: print('  DIVERGE ' + d)
+sys.exit(0 if match == 20 else 1)
+PYEOF
+  if [ $? = 0 ]; then PASS=$((PASS+1)); say "  PASS  V2.3 ray-triangle exact pick: 20/20 runtime picks == brute-force CPU reference"
+  else FAIL=$((FAIL+1)); say "  FAIL  V2.3 pick equivalence not 20/20 (divergences listed above)"; fi
+else
+  FAIL=$((FAIL+1)); say "  FAIL  V2.3: fewer than 20 PICKTRACE lines harvested ($NTRACE)"
+fi
+
 # ---- 10. alive ------------------------------------------------------------------------
 say ""
 say "=== 10. STILL ALIVE ==="

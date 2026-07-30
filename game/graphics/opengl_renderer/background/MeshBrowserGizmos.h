@@ -36,10 +36,11 @@ inline bool pending() {
          s.mb_pick_done.load(std::memory_order_relaxed);
 }
 
-// Ray-test the pending pick's candidates of THIS system+level against the level's real
-// triangles (same face walk + winding as the gizmos above), min()ing each candidate's nearest
-// hit into mb_pick_ttri. GL thread only; called from TFragment::render / Tie3::render behind
-// pending().
+// V2.3: sweep EVERY draw of THIS system+level against the pending pick ray (same face walk +
+// winding as the gizmos above) and insert the ray-triangle hits into mb_pick_hits_out (ascending
+// t, deduped by (sys, texid, lvl)). GL thread only; called from TFragment::render / Tie3::render
+// behind pending(); internally no-ops until the request is ARMED and sweeps each
+// (serial, lev, system) once.
 void raytest(const tfrag3::Level* lev, int system, const char* level_name);
 
 }  // namespace mb_pick

@@ -15,6 +15,7 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -1608,12 +1609,20 @@ struct MbPickHit {
   int slot = 0;
   int row = 0;
   float t = 0.f;     // metres along the (normalized) ray to the SURFACE the reticle sees
-  float vol = 0.f;   // AABB volume, m^3 — tie-break: the most specific box wins
-  float ttri = -1.f; // V2.1: nearest REAL triangle hit (GOAL units), filled by the render thread
+  float ttri = -1.f; // nearest REAL triangle hit (GOAL units), from the render-thread sweep
 };
 // serial whose triangle results have already been folded+sorted into g_mb_pick_hits.
 u32 g_mb_pick_sorted_serial = 0;
 std::vector<MbPickHit> g_mb_pick_hits;
+// V2.3: the last pick ray (o = raw GOAL units, d = unit), kept for the PICKTRACE forensics line.
+float g_mb_last_ray_o[3] = {0.f, 0.f, 0.f};
+float g_mb_last_ray_d[3] = {0.f, 0.f, 1.f};
+// V2.3: the CURRENT target's identity (row + pick-level slot), for the polygon-mark export.
+int g_mb_target_row = -1;
+int g_mb_target_slot = -1;
+// V2.3: polygon marks appended this session + the resolved export path (see mb_marks_path()).
+u64 g_mb_marks = 0;
+std::string g_mb_marks_path;
 }  // namespace
 
 // Set the (up to two) levels the ray pick searches. GOAL strings, same idiom as
@@ -1628,10 +1637,11 @@ void pc_mb_pick_levels(u32 lvl0, u32 lvl1) {
   }
 }
 
-// Cast the reticle ray against every index AABB of the pick levels. origin/dir are GOAL vectors
-// (origin in GOAL units — the camera trans — converted to the index's metres here; dir need not
-// be unit). Standard per-axis slab test, boxes puffed by 1cm so razor-thin walls still register.
-// Hits sorted nearest-first, capped at 16 (R1/R2 cycle through them). Returns the hit count.
+// V2.3 EXACT pick: no more AABB candidate pre-filter (a clearly visible mesh could rank >16 in
+// AABB order and never get triangle-tested). This side now only publishes the RAY; the render
+// thread sweeps ALL rendered geometry (mb_pick::raytest) and pc_mb_pick_ready resolves the
+// globally-nearest ray-triangle hits back to index rows. origin/dir are GOAL vectors (origin in
+// raw GOAL units — the camera trans; dir need not be unit). Returns 1 on a published request.
 u64 pc_mb_pick(u32 origin, u32 dir) {
   g_mb_pick_hits.clear();
   if (!origin || !dir) {
@@ -1639,7 +1649,6 @@ u64 pc_mb_pick(u32 origin, u32 dir) {
   }
   const float* o = Ptr<float>(origin).c();
   const float* d = Ptr<float>(dir).c();
-  const float ox = o[0] / 4096.f, oy = o[1] / 4096.f, oz = o[2] / 4096.f;
   float dx = d[0], dy = d[1], dz = d[2];
   const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
   if (len < 1e-6f) {
@@ -1648,9 +1657,26 @@ u64 pc_mb_pick(u32 origin, u32 dir) {
   dx /= len;
   dy /= len;
   dz /= len;
-  constexpr float kEps = 0.01f;      // metres of AABB expansion
-  constexpr float kMaxDist = 500.f;  // metres; beyond this the reticle hits nothing
+  g_mb_last_ray_o[0] = o[0];
+  g_mb_last_ray_o[1] = o[1];
+  g_mb_last_ray_o[2] = o[2];
+  g_mb_last_ray_d[0] = dx;
+  g_mb_last_ray_d[1] = dy;
+  g_mb_last_ray_d[2] = dz;
+  auto& gs = Gfx::g_global_settings;
+  for (int a = 0; a < 3; a++) {
+    gs.mb_pick_ray_o[a] = o[a];  // GOAL units — triangles are tested in GOAL units
+  }
+  gs.mb_pick_ray_d[0] = dx;
+  gs.mb_pick_ray_d[1] = dy;
+  gs.mb_pick_ray_d[2] = dz;
+  // Browsable-texid filter: the sweep may only test draws whose tree_tex_id is INDEXED (the
+  // mesh_index holds only displaceable materials; the offline reference sweep is scoped the
+  // same way — the runtime must match or the equivalence proof fails by construction).
   for (int slot = 0; slot < 2; slot++) {
+    gs.mb_pick_flt_n[slot][0] = 0;
+    gs.mb_pick_flt_n[slot][1] = 0;
+    gs.mb_pick_flt_lvl[slot][0] = '\0';
     if (g_mb_pick_lvl[slot].empty()) {
       continue;
     }
@@ -1658,114 +1684,47 @@ u64 pc_mb_pick(u32 origin, u32 dir) {
     if (!rows) {
       continue;
     }
-    for (int row = 0; row < (int)rows->size(); row++) {
-      const auto& r = (*rows)[row];
-      const float lo[3] = {r.lox - kEps, r.loy - kEps, r.loz - kEps};
-      const float hi[3] = {r.hix + kEps, r.hiy + kEps, r.hiz + kEps};
-      const float org[3] = {ox, oy, oz};
-      const float dirv[3] = {dx, dy, dz};
-      float tmin = -std::numeric_limits<float>::max();
-      float tmax = std::numeric_limits<float>::max();
-      bool miss = false;
-      for (int a = 0; a < 3; a++) {
-        if (std::fabs(dirv[a]) < 1e-9f) {
-          if (org[a] < lo[a] || org[a] > hi[a]) {
-            miss = true;
-            break;
-          }
-        } else {
-          float t1 = (lo[a] - org[a]) / dirv[a];
-          float t2 = (hi[a] - org[a]) / dirv[a];
-          if (t1 > t2) {
-            std::swap(t1, t2);
-          }
-          tmin = std::max(tmin, t1);
-          tmax = std::min(tmax, t2);
+    strncpy(gs.mb_pick_flt_lvl[slot], g_mb_pick_lvl[slot].c_str(),
+            sizeof(gs.mb_pick_flt_lvl[slot]) - 1);
+    gs.mb_pick_flt_lvl[slot][sizeof(gs.mb_pick_flt_lvl[slot]) - 1] = '\0';
+    for (int sys = 0; sys < 2; sys++) {
+      std::set<u32> texs;
+      for (const auto& r : *rows) {
+        if (r.system == sys) {
+          texs.insert((u32)r.tex_id);
         }
       }
-      if (miss || tmax < std::max(tmin, 0.f) || tmin > kMaxDist) {
-        continue;
+      if ((int)texs.size() > GfxGlobalSettings::MB_PICK_FLT_MAX) {
+        lg::warn("[mb-diag] pick filter overflow: {} indexed texids (cap {}) lvl={} sys={}",
+                 texs.size(), GfxGlobalSettings::MB_PICK_FLT_MAX, g_mb_pick_lvl[slot], sys);
       }
-      MbPickHit h;
-      h.slot = slot;
-      h.row = row;
-      // V2.1 (owner: "every toggle dead"): V2 gave origin-inside boxes t=0, so at ground level a
-      // single R1 targeted one of the giant level-chunk AABBs ENCLOSING the camera — a mesh the
-      // owner cannot see — and every toggle then acted off-screen (run 5 itself needed up to 13 R1
-      // presses to cycle past that junk). The surface the reticle actually sees for an
-      // origin-inside box is where the ray LEAVES it (tmax: the wall ahead is near, the far rim of
-      // a level-spanning box is far) — use that as the sort distance so the front visible mesh is
-      // the FIRST pick, and let the smaller (more specific) box win a near-tie.
-      h.t = tmin > 0.f ? tmin : tmax;
-      h.vol = (hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]);
-      g_mb_pick_hits.push_back(h);
+      int fn = 0;
+      for (const u32 t : texs) {  // std::set iterates ascending -> array stays sorted
+        if (fn >= GfxGlobalSettings::MB_PICK_FLT_MAX) {
+          break;
+        }
+        gs.mb_pick_flt_tex[slot][sys][fn++] = t;
+      }
+      gs.mb_pick_flt_n[slot][sys] = fn;
     }
   }
-  // near-ties resolve to the smaller box (a lamp beats the hillside behind it): sort on the
-  // lexicographic key (t bucketed to 0.5 m, volume) — a plain tolerance compare would not be a
-  // strict weak ordering and std::sort on one is UB.
-  std::sort(g_mb_pick_hits.begin(), g_mb_pick_hits.end(),
-            [](const MbPickHit& a, const MbPickHit& b) {
-              const float ba = std::floor(a.t * 2.f), bb = std::floor(b.t * 2.f);
-              if (ba != bb) {
-                return ba < bb;
-              }
-              return a.vol < b.vol;
-            });
-  if (g_mb_pick_hits.size() > 16) {
-    g_mb_pick_hits.resize(16);
-  }
-  // V2.1: AABB order alone cannot rank a dense stack (index boxes are far fatter than their
-  // geometry — v2.1's first resort still hit only 1/5 first-press). Publish the candidates for
-  // the render thread's TRIANGLE ray-test (gfx.h mb_pick_* channel doc); pc_mb_pick_ready folds
-  // the results back and re-sorts by real surface distance one frame later.
-  {
-    auto& gs = Gfx::g_global_settings;
-    const int n = std::min((int)g_mb_pick_hits.size(), GfxGlobalSettings::MB_PICK_MAX);
-    gs.mb_pick_n = n;
-    for (int a = 0; a < 3; a++) {
-      gs.mb_pick_ray_o[a] = o[a];  // GOAL units — triangles are tested in GOAL units
-    }
-    gs.mb_pick_ray_d[0] = dx;
-    gs.mb_pick_ray_d[1] = dy;
-    gs.mb_pick_ray_d[2] = dz;
-    for (int i = 0; i < n; i++) {
-      const auto& h = g_mb_pick_hits[(size_t)i];
-      const auto* rows = mb_load_level_index(g_mb_pick_lvl[h.slot]);
-      const auto& r = (*rows)[(size_t)h.row];
-      gs.mb_pick_sys[i] = r.system;
-      gs.mb_pick_texid[i] = (u32)r.tex_id;
-      strncpy(gs.mb_pick_lvl[i], g_mb_pick_lvl[h.slot].c_str(), sizeof(gs.mb_pick_lvl[i]) - 1);
-      gs.mb_pick_lvl[i][sizeof(gs.mb_pick_lvl[i]) - 1] = '\0';
-      // index AABB is metres; the ray-test compares vertices in GOAL units
-      gs.mb_pick_bbox[i][0] = r.lox * 4096.f;
-      gs.mb_pick_bbox[i][1] = r.loy * 4096.f;
-      gs.mb_pick_bbox[i][2] = r.loz * 4096.f;
-      gs.mb_pick_bbox[i][3] = r.hix * 4096.f;
-      gs.mb_pick_bbox[i][4] = r.hiy * 4096.f;
-      gs.mb_pick_bbox[i][5] = r.hiz * 4096.f;
-      gs.mb_pick_ttri[i] = -1.f;
-    }
-    // release pairs with the render thread's acquire: candidates above are visible before the
-    // new serial is.
-    const u32 new_serial = gs.mb_pick_serial.load(std::memory_order_relaxed) + 1;
-    gs.mb_pick_serial.store(new_serial, std::memory_order_release);
-    lg::info("[mb-diag] pick request serial={} candidates={}", new_serial, n);
-  }
-  return (u64)g_mb_pick_hits.size();
+  // release pairs with the render thread's acquire: the ray + filter above are visible before
+  // the new serial is.
+  const u32 new_serial = gs.mb_pick_serial.load(std::memory_order_relaxed) + 1;
+  gs.mb_pick_serial.store(new_serial, std::memory_order_release);
+  lg::info("[mb-diag] pick request serial={} (full sweep, flt {}+{}/{}+{})", new_serial,
+           gs.mb_pick_flt_n[0][0], gs.mb_pick_flt_n[0][1], gs.mb_pick_flt_n[1][0],
+           gs.mb_pick_flt_n[1][1]);
+  return 1;
 }
 
-// V2.1: poll the triangle ray-test. 0 = still pending (results not published). On the first
-// ready call for a request, fold mb_pick_ttri back into the hit list and re-sort by real surface
-// distance — nearest triangle hit first: the FIRST intersection along the reticle ray is the
-// pick, exactly the owner's V2.2 correction. V2.2: when at least one candidate has a real
-// triangle hit, the box-only candidates are DROPPED entirely — their AABB crossed the ray but no
-// actual surface of theirs lies on it, which is precisely the "it picks meshes behind others or
-// out of view" class (index boxes are far fatter than their geometry). Meshes behind the camera
-// were never candidates in the first place (the slab test rejects tmax < 0). The box-only
-// fallback survives ONLY when zero triangle results exist (renderer never contributed within the
-// GOAL-side ~2/3 s timeout: nothing rendering => nothing pickable anyway).
-// Returns 1 + the folded candidate count, so GOAL can refresh its fc-pick-n after the drop.
+// V2.3: poll the full-sweep ray-test. 0 = still pending (results not published). On the first
+// ready call for a request, resolve each render-thread hit (already sorted ascending t, deduped
+// by (sys, texid, lvl)) back to the index row OWNING the hit triangle: among the rows of the
+// hit's system+texid, the one whose AABB CONTAINS the hit point (0.5 m slack) with the smallest
+// volume wins (tie -> lowest row index); if none contain, the nearest centroid of the
+// system+texid rows; if the level has no such rows at all, the hit is skipped. Appends one
+// PICKTRACE line to mb_pick_trace.txt for offline forensics. Returns 1 + the kept row count.
 // Idempotent after the first ready call.
 u64 pc_mb_pick_ready() {
   auto& gs = Gfx::g_global_settings;
@@ -1775,29 +1734,104 @@ u64 pc_mb_pick_ready() {
   }
   if (g_mb_pick_sorted_serial != s) {
     g_mb_pick_sorted_serial = s;
-    const int n = std::min((int)g_mb_pick_hits.size(), GfxGlobalSettings::MB_PICK_MAX);
-    int tri_hits = 0;
+    g_mb_pick_hits.clear();
+    const int n = std::min(gs.mb_pick_hit_n, GfxGlobalSettings::MB_PICK_MAX);
+    // the hits_out entry whose resolution produced the FIRST kept row (for the trace line)
+    const GfxGlobalSettings::MbRayHit* first_hit = nullptr;
     for (int i = 0; i < n; i++) {
-      g_mb_pick_hits[(size_t)i].ttri = gs.mb_pick_ttri[i];
-      if (gs.mb_pick_ttri[i] >= 0.f) {
-        tri_hits++;
+      const auto& h = gs.mb_pick_hits_out[i];
+      // which pick-level slot does this hit's level belong to?
+      const std::string hl = mb_clean_level_name(h.lvl);
+      int slot = -1;
+      for (int sl = 0; sl < 2; sl++) {
+        if (!g_mb_pick_lvl[sl].empty() &&
+            strncmp(g_mb_pick_lvl[sl].c_str(), hl.c_str(), sizeof(h.lvl)) == 0) {
+          slot = sl;
+          break;
+        }
+      }
+      if (slot < 0) {
+        continue;
+      }
+      const auto* rows = mb_load_level_index(g_mb_pick_lvl[slot]);
+      if (!rows) {
+        continue;
+      }
+      const float hm[3] = {h.hit[0] / 4096.f, h.hit[1] / 4096.f, h.hit[2] / 4096.f};  // metres
+      // pass 1: containing rows (0.5 m slack), smallest AABB volume wins, tie -> lowest index
+      int best = -1;
+      float best_vol = std::numeric_limits<float>::max();
+      // pass-2 fallback bookkeeping: nearest centroid among system+texid rows
+      int near_row = -1;
+      float near_d2 = std::numeric_limits<float>::max();
+      for (int row = 0; row < (int)rows->size(); row++) {
+        const auto& r = (*rows)[(size_t)row];
+        if (r.system != h.sys || (u32)r.tex_id != h.texid) {
+          continue;
+        }
+        const float dx = r.cx - hm[0], dy = r.cy - hm[1], dz = r.cz - hm[2];
+        const float d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < near_d2) {
+          near_d2 = d2;
+          near_row = row;
+        }
+        if (hm[0] >= r.lox - 0.5f && hm[0] <= r.hix + 0.5f &&  //
+            hm[1] >= r.loy - 0.5f && hm[1] <= r.hiy + 0.5f &&  //
+            hm[2] >= r.loz - 0.5f && hm[2] <= r.hiz + 0.5f) {
+          const float vol = (r.hix - r.lox) * (r.hiy - r.loy) * (r.hiz - r.loz);
+          if (vol < best_vol) {  // strict: an earlier row keeps a tie
+            best_vol = vol;
+            best = row;
+          }
+        }
+      }
+      if (best < 0) {
+        best = near_row;  // no containing row: nearest centroid of the system+texid rows
+      }
+      if (best < 0) {
+        continue;  // level has no rows of this system+texid at all
+      }
+      bool dup = false;
+      for (const auto& kept : g_mb_pick_hits) {
+        if (kept.slot == slot && kept.row == best) {
+          dup = true;  // keep the first = nearest resolution of this row
+          break;
+        }
+      }
+      if (dup) {
+        continue;
+      }
+      MbPickHit ph;
+      ph.slot = slot;
+      ph.row = best;
+      ph.ttri = h.t;           // GOAL units, as before
+      ph.t = h.t / 4096.f;     // metres
+      g_mb_pick_hits.push_back(ph);
+      if (!first_hit) {
+        first_hit = &h;
       }
     }
-    std::stable_sort(g_mb_pick_hits.begin(), g_mb_pick_hits.end(),
-                     [](const MbPickHit& a, const MbPickHit& b) {
-                       const bool ha = a.ttri >= 0.f, hb = b.ttri >= 0.f;
-                       if (ha != hb) {
-                         return ha;  // real surface hits outrank box-only hits
-                       }
-                       if (ha) {
-                         return a.ttri < b.ttri;
-                       }
-                       return false;  // box-only hits keep their AABB order (stable_sort)
-                     });
-    if (tri_hits > 0 && (int)g_mb_pick_hits.size() > tri_hits) {
-      g_mb_pick_hits.resize((size_t)tri_hits);  // V2.2: box-only = not visible on the ray -> out
+    // PICKTRACE: one line per pick, enough for an offline tool to replay the exact ray and
+    // re-find the exact triangle (same enumeration rule as the sweep).
+    try {
+      std::ofstream tf((file_util::get_jak_project_dir() / "mb_pick_trace.txt").string(),
+                       std::ios::app);
+      const int frow = g_mb_pick_hits.empty() ? -1 : g_mb_pick_hits.front().row;
+      const int fslot = g_mb_pick_hits.empty() ? -1 : g_mb_pick_hits.front().slot;
+      tf << fmt::format(
+          "PICKTRACE serial={} lvl0={} lvl1={} o={:.9g},{:.9g},{:.9g} d={:.9g},{:.9g},{:.9g} "
+          "n={} row={} slot={} t={:.9g} tex={} tri={} hit={:.9g},{:.9g},{:.9g}\n",
+          s, g_mb_pick_lvl[0].empty() ? "-" : g_mb_pick_lvl[0],
+          g_mb_pick_lvl[1].empty() ? "-" : g_mb_pick_lvl[1], g_mb_last_ray_o[0],
+          g_mb_last_ray_o[1], g_mb_last_ray_o[2], g_mb_last_ray_d[0], g_mb_last_ray_d[1],
+          g_mb_last_ray_d[2], (int)g_mb_pick_hits.size(), frow, fslot,
+          first_hit ? first_hit->t : -1.f, first_hit ? first_hit->texid : 0,
+          first_hit ? first_hit->tri : -1, first_hit ? first_hit->hit[0] : 0.f,
+          first_hit ? first_hit->hit[1] : 0.f, first_hit ? first_hit->hit[2] : 0.f);
+    } catch (...) {
+      // best-effort; never let a disk error touch the game loop
     }
-    lg::info("[mb-diag] pick ready serial={} candidates={} tri_hits={} kept={}", s, n, tri_hits,
+    lg::info("[mb-diag] pick ready serial={} raw_hits={} kept={}", s, n,
              (int)g_mb_pick_hits.size());
   }
   return 1 + (u64)g_mb_pick_hits.size();
@@ -1856,6 +1890,9 @@ void pc_mb_target_set(s32 row, s32 slot) {
   gs.mb_checker_target = false;
   gs.mb_gizmos_target = false;
   gs.mb_target_active = true;
+  // V2.3: the target's identity, for the polygon-mark export (pc_mb_mark_poly).
+  g_mb_target_row = row;
+  g_mb_target_slot = slot;
 }
 
 void pc_mb_target_clear() {
@@ -1864,6 +1901,8 @@ void pc_mb_target_clear() {
   gs.mb_hide_target = false;
   gs.mb_checker_target = false;
   gs.mb_gizmos_target = false;
+  g_mb_target_row = -1;
+  g_mb_target_slot = -1;
 }
 
 // The three per-target toggles (L1/L2 hide, Square checker, Circle normal gizmos).
@@ -1877,6 +1916,112 @@ void pc_mb_checker_set(s32 v) {
 
 void pc_mb_gizmos_set(s32 v) {
   Gfx::g_global_settings.mb_gizmos_target = (v != 0);
+}
+
+// ---- V2.3 hover + polygon mark ----------------------------------------------------------------
+namespace {
+// Seqlock read of the render thread's hover answer (gfx.h mb_hover_*). Retries up to 4 times;
+// false when no stable even-seq snapshot could be taken.
+struct MbHoverSnap {
+  int tri = -1;
+  u32 texid = 0;
+  float v[3][3] = {{0.f}};
+  float nrm[3] = {0.f, 0.f, 0.f};
+};
+bool mb_hover_read(MbHoverSnap* out) {
+  auto& gs = Gfx::g_global_settings;
+  for (int attempt = 0; attempt < 4; attempt++) {
+    const u32 s1 = gs.mb_hover_seq.load(std::memory_order_acquire);
+    if (s1 & 1) {
+      continue;  // writer mid-update
+    }
+    out->tri = gs.mb_hover_tri;
+    out->texid = gs.mb_hover_texid;
+    memcpy(out->v, gs.mb_hover_v, sizeof(out->v));
+    memcpy(out->nrm, gs.mb_hover_nrm, sizeof(out->nrm));
+    const u32 s2 = gs.mb_hover_seq.load(std::memory_order_acquire);
+    if (s1 == s2) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The polygon-mark JSONL export path: the EXTERNAL game root when one is set (Android — the
+// owner pulls files from there without adb into the app sandbox), else the project dir
+// (desktop). Mirrors how settings.ini resolves (FileUtil.cpp get_user_settings_dir).
+const std::string& mb_marks_path() {
+  if (g_mb_marks_path.empty()) {
+    const auto root = file_util::get_external_game_root();
+    g_mb_marks_path = root ? (*root / "mesh_marks.jsonl").string()
+                           : (file_util::get_jak_project_dir() / "mesh_marks.jsonl").string();
+  }
+  return g_mb_marks_path;
+}
+}  // namespace
+
+// GOAL pushes the freecam reticle ray every frame while hovering (on != 0); the render thread's
+// gizmo pass answers with the nearest cached face via the seqlock. on == 0 stops the hover.
+void pc_mb_hover_ray(u32 origin, u32 dir, u32 on) {
+  auto& gs = Gfx::g_global_settings;
+  if (!on || !origin || !dir) {
+    gs.mb_hover_on.store(0, std::memory_order_release);
+    return;
+  }
+  const float* o = Ptr<float>(origin).c();
+  const float* d = Ptr<float>(dir).c();
+  float dx = d[0], dy = d[1], dz = d[2];
+  const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+  if (len < 1e-6f) {
+    gs.mb_hover_on.store(0, std::memory_order_release);
+    return;
+  }
+  for (int a = 0; a < 3; a++) {
+    gs.mb_hover_ray_o[a] = o[a];  // raw GOAL units, like the pick ray
+  }
+  gs.mb_hover_ray_d[0] = dx / len;
+  gs.mb_hover_ray_d[1] = dy / len;
+  gs.mb_hover_ray_d[2] = dz / len;
+  gs.mb_hover_on.store(1, std::memory_order_release);
+}
+
+// Mark the hovered polygon: append one JSON line (identity + geometry + the row's offline
+// verdict) to mesh_marks.jsonl for offline orientation forensics. Returns the mark count so far,
+// or (u64)-1 when there is no stable hover hit / no target.
+u64 pc_mb_mark_poly() {
+  MbHoverSnap hs;
+  if (!mb_hover_read(&hs) || hs.tri < 0 || g_mb_target_row < 0 || g_mb_target_slot < 0 ||
+      g_mb_pick_lvl[g_mb_target_slot].empty()) {
+    return (u64)-1;
+  }
+  const auto* rows = mb_load_level_index(g_mb_pick_lvl[g_mb_target_slot]);
+  if (!rows || g_mb_target_row >= (int)rows->size()) {
+    return (u64)-1;
+  }
+  const auto& r = (*rows)[(size_t)g_mb_target_row];
+  try {
+    std::ofstream f(mb_marks_path(), std::ios::app);
+    f << fmt::format(
+        "{{\"game\":\"jak1\",\"level\":\"{}\",\"system\":\"{}\",\"row\":{},\"shell\":{},"
+        "\"material\":\"{}\",\"tex_id\":{},\"tri\":{},"
+        "\"v0_m\":[{:.4f},{:.4f},{:.4f}],\"v1_m\":[{:.4f},{:.4f},{:.4f}],"
+        "\"v2_m\":[{:.4f},{:.4f},{:.4f}],\"face_normal\":[{:.6f},{:.6f},{:.6f}],"
+        "\"offline_verdict\":{{\"graded\":{},\"a_sign_x100\":{},\"b_disp_x100\":{}}},"
+        "\"centroid_m\":[{:.4f},{:.4f},{:.4f}],"
+        "\"aabb_m\":[[{:.4f},{:.4f},{:.4f}],[{:.4f},{:.4f},{:.4f}]]}}\n",
+        g_mb_pick_lvl[g_mb_target_slot], r.system == 1 ? "TIE" : "TFRAG", g_mb_target_row,
+        r.shell, r.material, r.tex_id, hs.tri,  //
+        hs.v[0][0] / 4096.f, hs.v[0][1] / 4096.f, hs.v[0][2] / 4096.f,  //
+        hs.v[1][0] / 4096.f, hs.v[1][1] / 4096.f, hs.v[1][2] / 4096.f,  //
+        hs.v[2][0] / 4096.f, hs.v[2][1] / 4096.f, hs.v[2][2] / 4096.f,  //
+        hs.nrm[0], hs.nrm[1], hs.nrm[2],  //
+        r.graded, r.a_sign_x100, r.b_disp_x100,  //
+        r.cx, r.cy, r.cz, r.lox, r.loy, r.loz, r.hix, r.hiy, r.hiz);
+  } catch (...) {
+    // best-effort; never let a disk error touch the game loop
+  }
+  g_mb_marks++;
+  return g_mb_marks;
 }
 
 // Runtime proof counters, written by the render thread. This is how a toggle DEMONSTRATES
@@ -1915,6 +2060,16 @@ u64 pc_mb_rt_geti(s32 field) {
       return gs.mb_frame_target_tess;
     case 10:
       return gs.mb_frame_gizmo_px;
+    // V2.3: 11 wireframe edges drawn last frame, 12 hovered triangle ordinal (-1 = none),
+    // 13 polygon marks appended this session.
+    case 11:
+      return gs.mb_frame_wire;
+    case 12: {
+      MbHoverSnap hs;
+      return mb_hover_read(&hs) ? hs.tri : -1;
+    }
+    case 13:
+      return (s64)g_mb_marks;
     default:
       return 0;
   }
@@ -2217,7 +2372,8 @@ void pc_mb_state_end() {
       fl = g_mb.n_flings;
     }
     g_mb_state_body += fmt::format(
-        "touch_events={} taps={} drags={} pinches={} flings={}\n", ev, tp, dr, pn, fl);
+        "touch_events={} taps={} drags={} pinches={} flings={} marks={} marks_file={}\n", ev, tp,
+        dr, pn, fl, g_mb_marks, g_mb_marks_path.empty() ? "-" : g_mb_marks_path);
     file_util::write_text_file(file_util::get_jak_project_dir() / "mesh_browser_state.txt",
                                g_mb_state_body);
   } catch (...) {
@@ -2314,6 +2470,10 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-mb-checker-set!", (void*)pc_mb_checker_set);
   make_function_symbol_from_c("pc-mb-gizmos-set!", (void*)pc_mb_gizmos_set);
   make_function_symbol_from_c("pc-mb-rt-geti", (void*)pc_mb_rt_geti);
+  // V2.3: hover ray (render thread answers with the exact polygon under the reticle) + the
+  // polygon-mark JSONL export for offline orientation forensics.
+  make_function_symbol_from_c("pc-mb-hover-ray!", (void*)pc_mb_hover_ray);
+  make_function_symbol_from_c("pc-mb-mark-poly!", (void*)pc_mb_mark_poly);
   // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
 #ifdef OG_FEAT_HD_MODELS
