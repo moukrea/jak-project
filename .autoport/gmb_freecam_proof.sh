@@ -771,7 +771,33 @@ ctl(){
 # interval and the button edge is never seen (run 2: every single-tap fc-* control failed
 # while fc-r1 'worked' only because the aim sweep re-tapped it 5x). A 280 ms hold spans
 # ~17 frames — the duration of a real finger press.
-tap_ctl(){ local c; c="$(ctl $1)"; [ -n "$c" ] && { adb shell input swipe $c $c 280; sleep "${2:-1.2}"; return 0; }; FAIL=$((FAIL+1)); say "  FAIL  no overlay-map entry for $1 (touch test cannot run)"; return 1; }
+# SELF-VERIFYING tap: the overlay logs `overlay-actuate: <name> tap` for every control it
+# actuates, so a delivered tap is distinguishable from a miss. Runs 13/14: the view flips
+# between its TWO layouts (2298x934 inset <-> 2400x1080 fullscreen) WITHOUT re-dumping the map
+# (only mode changes/layout passes dump), and the two layouts scale PURELY proportionally
+# (measured: fc-circle 2125,438@934 <-> 2220,507@1080, exact ratios both axes). On a verified
+# miss, retry ONCE at the alternate-layout scale of the same coords, then fail honestly.
+tap_ctl(){
+  local name="$1" slp="${2:-1.2}" c n0 n1 try scr sh
+  c="$(ctl $name)"
+  [ -n "$c" ] || { FAIL=$((FAIL+1)); say "  FAIL  no overlay-map entry for $name (touch test cannot run)"; return 1; }
+  for try in 1 2; do
+    n0="$(adb logcat -d 2>/dev/null | grep -ac "overlay-actuate: $name tap")"
+    adb shell input swipe $c $c 280; sleep "$slp"
+    n1="$(adb logcat -d 2>/dev/null | grep -ac "overlay-actuate: $name tap")"
+    [ "${n1:-0}" -gt "${n0:-0}" ] && return 0
+    [ "$try" = 1 ] || break
+    scr="$(printf '%s\n' "$MAP" | grep -aoE 'screen=[0-9]+x[0-9]+' | tail -1 | cut -d= -f2)"
+    sh="${scr#*x}"
+    if [ "$sh" = "934" ]; then
+      c="$(echo "$c" | awk '{printf "%d %d", $1*2400/2298, $2*1080/934}')"
+    else
+      c="$(echo "$c" | awk '{printf "%d %d", $1*2298/2400, $2*934/1080}')"
+    fi
+    say "  (tap_ctl $name: no actuate at map coords — retrying at the alternate-layout scale)"
+  done
+  FAIL=$((FAIL+1)); say "  FAIL  tap_ctl $name: the overlay never actuated the control"; return 1
+}
 # 9a. R1 by finger -> target. The re-entry camera continues from wherever the title
 # flythrough left it, which may point at empty sky: sweep the look a few times until the
 # ray finds candidates (each attempt is a REAL finger tap; the sweep is aiming, not a
