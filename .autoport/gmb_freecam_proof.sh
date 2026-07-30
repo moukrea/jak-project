@@ -80,14 +80,30 @@ assert(){
   if awk "BEGIN{exit !($2)}"; then PASS=$((PASS+1)); say "  PASS  $1  [$3]"
   else FAIL=$((FAIL+1)); say "  FAIL  $1  [$3]"; fi
 }
-# sample an rt_* counter twice, WIN seconds apart. PRE-SETTLE 8 s first: the state-file
-# heartbeat runs every ~3-6 s, so a sample taken right after a toggle press can read a file
-# generated BEFORE the press — run 10's checker/gizmo "0 -> 0" deltas while the per-frame
-# counters read >0 were exactly this stale-b race. 8 s guarantees both samples post-press.
-delta(){ # field win -> prints "b a"
-  sleep 8.0
-  snap; local b="$(field $1)"; sleep "$2"; snap; local a="$(field $1)"; echo "$b $a"
+# The state file is dumped on SIGNATURE change (>=8 frames apart) or every 180 FRAMES — and the
+# monotonic rt_* counters are NOT in the signature. At the tess-crushed beach vantage the Redmi
+# runs ~10-15 fps, so the idle heartbeat stretches to 12-18 s: two fixed-seconds samples can read
+# the SAME dump and a live counter looks frozen (runs 10/11: "360 -> 360" while the per-frame
+# counters were >0). Sample on DUMP BOUNDARIES instead: b from the first dump, a from the NEXT
+# DISTINCT dump (content-hashed), waiting up to 36 s for it. No dump at all in 36 s = the a==b
+# verdict stands on its own merits.
+snap_next(){ # wait (up to 36 s) for a state dump DIFFERENT from the current $STATE, then snap
+  local h0 t=0
+  h0="$(printf '%s' "$STATE" | md5sum)"
+  while [ $t -lt 36 ]; do
+    sleep 3; t=$((t+3)); snap
+    [ "$(printf '%s' "$STATE" | md5sum)" != "$h0" ] && return 0
+  done
+  return 1
 }
+delta(){ # field win(kept for call compat, unused) -> prints "b a" from two DISTINCT dumps
+  sleep 2.0   # let the press-triggered signature dump land
+  snap; local b="$(field $1)"
+  snap_next || true
+  local a="$(field $1)"; echo "$b $a"
+}
+# fresh per-frame counter value: the NEXT dump generated after this call (>= one new heartbeat)
+rtf(){ sleep 2.0; snap; snap_next || true; field "$1"; }
 
 say "=== 0. DEVICE ==="
 adb devices -l | tee -a "$LOG" | grep -q "$S" || { say "device $S absent"; exit 1; }
@@ -201,32 +217,48 @@ ensure_list(){
 # errors); (3) x=0.985 dodges a right-edge overlay region that silently consumes touches at
 # x=0.97 around y~0.27. Flow: feedback-corrected absolute jump -> tap a visible row to plant
 # sel -> exact pad-stepping (each step re-read from the state, dropped edges self-correct).
-goto_row(){ # ROW: leave the LIST with sel == ROW. Bounded; returns 1 on any wedge.
+goto_row_once(){ # ROW: leave the LIST with sel == ROW. Bounded; says WHERE it gave up.
   local ROW="$1" i j cur diff step tgt y err
-  ensure_list || return 1
+  ensure_list || { say "  (goto_row $ROW: ensure_list failed)"; return 1; }
   tgt=$(( ROW > 6 ? ROW - 6 : 0 ))
-  for i in 1 2 3 4; do
-    snap; cur="$(field scroll)"; case "$cur" in ''|*[!0-9]*) return 1;; esac
+  # Error-corrected jumps: run 12 pegged ~150 rows short near the list END because it re-issued
+  # the SAME global-fit y four times (the fit was measured at the top; the track is not perfectly
+  # linear at the extremes). After the first jump, correct the NEXT y from the MEASURED error.
+  local ypx=""
+  for i in 1 2 3 4 5; do
+    snap; cur="$(field scroll)"; case "$cur" in ''|*[!0-9]*) say "  (goto_row $ROW: scroll='$cur')"; return 1;; esac
     err=$((tgt - cur))
     [ "${err#-}" -le 25 ] && break
-    y="$(awk "BEGIN{v=(($tgt)+2135)/11.477/1080.0; if(v<0.175)v=0.175; if(v>0.935)v=0.935; printf \"%.4f\", v}")"
+    if [ -z "$ypx" ]; then
+      ypx="$(awk "BEGIN{printf \"%d\", (($tgt)+2135)/11.477}")"
+    else
+      ypx="$(awk "BEGIN{printf \"%d\", ($ypx) + ($err)/11.477}")"
+    fi
+    y="$(awk "BEGIN{v=($ypx)/1080.0; if(v<0.175)v=0.175; if(v>0.945)v=0.945; printf \"%.4f\", v}")"
     swipe_n 0.985 0.20 0.985 "$y" 1200 1.5
   done
   tap_n 0.40 0.45 1.5
   snap
   if [ "$(field mode)" = "OBSERVE" ]; then  # tapped the already-selected row -> it opened
     [ "$(field row)" = "$ROW" ] && return 0
-    tap_n 0.76 0.92 1.5; snap; [ "$(field mode)" = "LIST" ] || return 1
+    tap_n 0.76 0.92 1.5; snap
+    [ "$(field mode)" = "LIST" ] || { say "  (goto_row $ROW: stuck in $(field mode) after LIST tap)"; return 1; }
   fi
   for i in $(seq 1 12); do
-    snap; cur="$(field sel)"; case "$cur" in ''|*[!0-9]*) return 1;; esac
+    snap; cur="$(field sel)"; case "$cur" in ''|*[!0-9]*) say "  (goto_row $ROW: sel='$cur')"; return 1;; esac
     diff=$((ROW - cur))
     [ "$diff" -eq 0 ] && return 0
     if [ "$diff" -gt 0 ]; then step="down"; else step="up"; diff=$((-diff)); fi
     [ "$diff" -gt 12 ] && diff=12
     for j in $(seq 1 "$diff"); do padb "$step" 0.25; done
   done
+  say "  (goto_row $ROW: pad-stepping did not converge, sel=$(field sel))"
   return 1
+}
+goto_row(){ # one full retry from scratch: a single dropped tap/swipe must not fail a section
+  goto_row_once "$1" && return 0
+  say "  (goto_row $1: retrying from scratch)"
+  goto_row_once "$1"
 }
 
 # ---- 2. R3 -> FREECAM (pad entry) -----------------------------------------------------
@@ -476,9 +508,7 @@ snap
 say "V2.1: rtf_* are PER-FRAME counters published by the render thread at end of frame —"
 say "rtf_target = draws SUBMITTED for the target last frame. Hide is proven by that count"
 say "hitting ZERO (supervisor: variable flips prove nothing; the submit count is the render)."
-# fresh per-frame value (heartbeat rewrites the file every 3 s at 60 fps, ~6 s at the title's
-# 30 fps; 7 s covers one for sure)
-rtf(){ sleep 7.0; snap; field "$1"; }
+# (rtf is defined next to delta/snap_next at the top: dump-boundary sampling, not fixed seconds.)
 # The battery target must be SOLIDLY visible: run 2 landed on a barely-vis environment shell
 # (rtf_target=1, blinking) and every delta check then sampled zeros — a sampling artifact, not
 # a dead toggle. Keep the current target if it shows >=2 submitted draws per frame; otherwise
