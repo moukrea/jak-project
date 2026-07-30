@@ -751,7 +751,13 @@ printf '%s\n' "$MAP" | grep -a 'overlay-map: fc' | tail -12 | tee -a "$LOG"
 # centre of a mapped control. Two formats (TouchOverlayView.logOverlayMap):
 #   rrect: name=left,top,WIDTH,HEIGHT->...   circ: name=cx,cy,radius->...
 ctl(){
-  local co
+  # LIVE re-query per call (run 13: the view relaid-out mid-battery and the section-start map
+  # missed every small control — square/circle/triangle circles AND the bottom relief pills —
+  # while the unmoved wide pills kept working. TouchOverlayView logs a fresh overlay-map at every
+  # LAYOUT pass, so the newest logcat dump is the truth; the cached MAP is only the fallback).
+  local co live
+  live="$(adb logcat -d 2>/dev/null | grep -a 'overlay-map:')"
+  [ -n "$live" ] && MAP="$live"
   co="$(printf '%s\n' "$MAP" | grep -aoE "$1=[0-9,-]+" | tail -1 | cut -d= -f2)"
   [ -n "$co" ] || return 0
   local n; n="$(echo "$co" | awk -F, '{print NF}')"
