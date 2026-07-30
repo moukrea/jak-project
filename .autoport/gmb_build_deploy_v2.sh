@@ -30,6 +30,12 @@ echo "  custom pack version=$PACK_VER mesh_index files=$NIDX"
 say "2. full android build: ./build.sh android-arm64 --pbr (CGOs + text + libgk + APK)"
 ./build.sh android-arm64 --pbr || die "build.sh android-arm64 --pbr failed"
 [ -f "$APK" ] || die "APK not produced"
+# build.sh REGENERATES the custom pack (fresh fr3/recharged-flags feed its content hash), so the
+# step-1 version is stale by here — attempts 1+2 waited 600 s for a version string no APK carried
+# (the device had extracted + stamped the CURRENT pack correctly all along). Re-read the manifest
+# the APK was actually built from.
+PACK_VER=$(grep '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties | cut -d= -f2)
+echo "  pack version AFTER build.sh (the one the APK carries): $PACK_VER"
 MB=$(strings -a build-android/lib/arm64-v8a/libgk.so | grep -c 'mesh_browser_state')
 GZ=$(strings -a build-android/lib/arm64-v8a/libgk.so | grep -ciE 'mb.gizmo|MeshBrowserGizmos')
 echo "  libgk mesh_browser_state strings=$MB gizmo strings=$GZ"
