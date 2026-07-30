@@ -270,3 +270,26 @@ RENDERER lui-même, par frame, montrant ce qui a réellement été soumis au GPU
 3. Ces compteurs de rendu rejoignent le fichier de diag existant (files/…), lus après injection —
    la boucle injection -> compteur RENDU est la nouvelle définition de "ça marche".
 4. Le vol lui-même fonctionne (l'owner a volé) : ne touche pas à ce qui marche, corrige les signes.
+
+--------------------------------------------------------------------------------
+V2.2 — PRÉCISIONS OWNER (2026-07-30, en cours de round)
+--------------------------------------------------------------------------------
+Owner : "ce qu'on sélectionne n'est pas forcément ce qui est ciblé par le réticule (ça prend des
+trucs derrière ou pas en vue), la bascule checker ne fait que mettre la texture damier, pas la
+tessellation qui va avec. Les gizmos ne s'affichent pas."
+
+1. LE PICK EST FAUX, pas seulement imprécis : il sélectionne des mesh DERRIÈRE d'autres, voire HORS
+   CHAMP. Le pick correct est LE PREMIER IMPACT le long du rayon du réticule : intersection la plus
+   PROCHE de la caméra, restreinte aux mesh dans le frustum. Un mesh occulté par un autre sur le
+   même rayon ne doit JAMAIS gagner ; un mesh hors vue ne doit JAMAIS être candidat.
+   PREUVE : les 5 cas de pick doivent inclure un CAS D'OCCLUSION (A devant B sur le même rayon ->
+   toujours A) et un cas hors-champ (mesh derrière la caméra -> jamais sélectionné).
+2. SQUARE = LE MATÉRIAU DAMIER COMPLET, pas la texture seule. La règle owner d'origine du damier
+   est permanente : albedo damier + height damier + normal maps adaptées + roughness — ET le chemin
+   de displacement actif (la tessellation qui va avec, selon le mode displacement courant). Basculer
+   la seule albedo ne teste rien.
+   PREUVE : sur les draws de la cible, binds du set damier COMPLET + height map liée + chemin tess
+   réellement pris (uniform/programme), compteurs côté renderer.
+3. GIZMOS : toujours invisibles. La preuve par primitives dessinées reste exigée — si le compteur
+   dit >0 et que rien ne s'affiche, le draw part dans un mauvais état (depth test, viewport,
+   programme) : vérifier l'état GL du draw gizmo, pas seulement son émission.
