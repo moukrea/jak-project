@@ -92,4 +92,11 @@ grep -qiE 'occlu' "$R" || fail "V2.2: no occlusion pick case (A in front of B ->
 grep -qiE '(behind|hors[- ]champ|off[- ]screen|frustum)[^.]{0,60}(never|jamais|excluded|exclu)' "$R" || fail "V2.2: out-of-view meshes not excluded from picking"
 grep -qiE '(full|complet)[^.]{0,40}(checker|damier)[^.]{0,80}(height|normal|rough)' "$R" || fail "V2.2: Square must engage the FULL checker set (albedo+height+normal+rough), not the texture alone"
 grep -qiE '(tess|displacement)[^.]{0,60}(target|cible)[^.]{0,60}(active|pris|engaged)' "$R" || fail "V2.2: displacement path not proven active on the checkered target"
+# ---- V2.3: pick triangle-exact + wireframe + polygon marking/export (owner test feedback) ----
+grep -qiE 'ray-triangle|rayon-triangle|triangle[- ]exact' "$R" || { echo "[Gmbrowse FAIL] V2.3: pick not proven ray-triangle exact against rendered geometry"; exit 1; }
+grep -qiE '20/20|(vingt|twenty)[^.]{0,40}(rayons|rays)' "$R" || { echo "[Gmbrowse FAIL] V2.3: no 20-ray runtime-vs-CPU-reference pick equivalence proof"; exit 1; }
+grep -qiE 'wireframe[^.]{0,80}(edge|arete|arête|line)[^.]{0,60}(count|compteur|draw|>)' "$R" || { echo "[Gmbrowse FAIL] V2.3: wireframe overlay not proven by an edge-draw counter ON>0/OFF==0"; exit 1; }
+grep -qiE '(polygon|polygone|triangle)[^.]{0,60}(mark|marqu)' "$R" || { echo "[Gmbrowse FAIL] V2.3: individual polygon targeting+marking not evidenced"; exit 1; }
+grep -qiE '(export|jsonl)[^.]{0,120}(storage/emulated|external|externe)' "$R" || { echo "[Gmbrowse FAIL] V2.3: marked-polygon export file not on EXTERNAL storage asset root"; exit 1; }
+grep -qiE 'adb pull[^.]{0,100}(jsonl|export|marked|marqu)' "$R" || { echo "[Gmbrowse FAIL] V2.3: export file not pulled+validated (3+ records, all fields)"; exit 1; }
 echo "[Gmbrowse PASS]"

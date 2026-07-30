@@ -303,3 +303,41 @@ gizmos seuls → primitives réellement dessinées à l'écran). Si les deux mod
 en même temps posent problème (état GL partagé, etc.), il est acceptable que
 l'activation de l'un désactive l'autre — ne dépense AUCUN effort à les faire
 coexister. Ceci ne relâche RIEN sur les preuves individuelles existantes.
+
+## V2.3 — RETOURS OWNER APRÈS TEST DU BUILD LIVRÉ (2026-07-30 22:15)
+
+Verdict owner sur le build livré : gizmos ✅, damier-tessellation ✅. MAIS :
+
+### 1. VISEUR ENCORE IMPRÉCIS (défaut réel, prioritaire)
+« on vise un objet clairement visible et pouf on a en fait sélectionné autre chose
+à proximité ». Le nearest-hit "prouvé" ne reflète donc pas la géométrie rendue.
+Causes plausibles à vérifier DANS CET ORDRE : (a) pick contre AABB/bounding-sphere
+au lieu de ray-triangle exact sur les triangles réellement rendus ; (b) rayon du
+réticule ≠ vrai rayon caméra (mismatch projection/aspect) ; (c) granularité de
+sélection (shell/instance) différente de l'objet visuel visé.
+EXIGENCE : pick = intersection rayon-triangle EXACTE sur la géométrie rendue,
+l'unité sélectionnée est celle du triangle touché le plus proche.
+PREUVE (code, jamais visuelle) : pour ≥20 rayons de réticule échantillonnés sur
+scène réelle, le résultat du pick runtime == référence CPU exacte (ray-triangle
+brute-force sur les mêmes données) — 20/20, divergences listées si échec.
+
+### 2. WIREFRAME SUPERPOSÉ AVEC LES GIZMOS
+Quand les gizmos sont affichés (Circle), superposer AUSSI les arêtes des polygones
+(wireframe) du mesh ciblé. Compteur renderer : arêtes dessinées > 0 quand ON,
+== 0 quand OFF.
+
+### 3. CIBLAGE DE POLYGONES + EXPORT FICHIER (nouvelle fonctionnalité)
+En mode gizmos/wireframe, le viseur doit pouvoir cibler UN POLYGONE individuel
+(le triangle sous le réticule, surligné). Un bouton (contrôle au choix, affiché à
+l'écran) MARQUE le polygone ciblé comme « mal orienté ». Chaque marque est
+APPEND-ée dans un fichier sur le STOCKAGE EXTERNE, là où sont les assets exportés
+de l'ISO (la racine asset externe, ex. /storage/emulated/0/OpenGOAL/jak1/…),
+pour que l'owner récupère le fichier via son gestionnaire de fichiers et me le
+donne. Format JSONL, un objet par polygone marqué, avec AU MINIMUM :
+level, mesh/shell id + nom affiché, index du triangle, positions monde des 3
+sommets, normale de face actuelle, verdict d'orientation du pipeline offline
+(signe/autorité retenue), id/nom de texture. But : permettre au superviseur
+d'identifier le fix exact et de chercher une PATTERN généralisable aux autres
+modèles. Prévoir aussi un feedback à l'écran (compte de marques + chemin du
+fichier). Preuve : marquer ≥3 polygones via entrée injectée, adb pull du fichier,
+champs tous présents et positions cohérentes avec le mesh visé.
