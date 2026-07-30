@@ -1086,6 +1086,10 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
     }
   }
 
+  // Grecharged-mesh-browser V2.1: publish this frame's per-draw proof counters (the Android
+  // frame loop, android/android_opengl_renderer.cpp, makes the same call).
+  Gfx::g_global_settings.mb_flip_frame_counters();
+
   // blit framebuffer so that it can be used as a texture by the game later
   {
     g_current_renderer = "blit-display";

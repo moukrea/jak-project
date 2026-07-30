@@ -546,6 +546,14 @@ void Tie3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfi
                           m_common_data.settings.camera, render_state, prof);
       }
     }
+    // Grecharged-mesh-browser V2.1: pending reticle pick — contribute this level's TIE
+    // triangle hits (two relaxed loads when idle; see gfx.h mb_pick_*).
+    if (mb_pick::pending() && m_has_level) {
+      const auto* mb_lev = render_state->loader->get_tfrag3_level(m_level_name);
+      if (mb_lev) {
+        mb_pick::raytest(mb_lev->level.get(), 1, m_level_name.c_str());
+      }
+    }
   }
 }
 
@@ -1057,6 +1065,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         draw_idx++;
         continue;
       }
+      if (mb_targeted) {
+        Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
+      }
 
       if (draw.tree_tex_id != last_texture) {
         if (draw.tree_tex_id >= 0) {
@@ -1088,6 +1099,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
         last_texture = INT32_MIN;
         Gfx::g_global_settings.mb_ctr_checker_draws++;
+        Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
       }
 
       int first = singledraw_indices.first;
@@ -1142,6 +1154,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       Gfx::g_global_settings.mb_ctr_hidden_draws++;
       continue;
     }
+    if (mb_targeted) {
+      Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
+    }
 
     if (draw.tree_tex_id != last_texture) {
       if (draw.tree_tex_id >= 0) {
@@ -1172,6 +1187,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
       last_texture = INT32_MIN;
       Gfx::g_global_settings.mb_ctr_checker_draws++;
+      Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
     }
 
     prof.add_draw_call();
@@ -1686,6 +1702,21 @@ void Tie3::render_tree_wind(int idx,
   for (size_t draw_idx = 0; draw_idx < tree.wind_draws->size(); draw_idx++) {
     const auto& draw = tree.wind_draws->operator[](draw_idx);
 
+    // Grecharged-mesh-browser V2.1: the wind path had NO target hook at all — a targeted
+    // wind-animated TIE (palms, foliage) ignored hide AND checker, exactly the owner's "every
+    // toggle dead" on those meshes. Same (system 1, tree_tex_id, level) identity as the static
+    // TIE draws (the wind draws index the SAME level texture table — see the PBR note above).
+    const bool mb_targeted = mb_draw_targeted(1, draw.tree_tex_id, m_level_name.c_str());
+    if (mb_targeted && Gfx::g_global_settings.mb_hide_target) {
+      // whole-draw skip: per-draw index offsets come from wind_vertex_index_offsets[draw_idx],
+      // so skipping one draw shifts nothing for the others.
+      Gfx::g_global_settings.mb_ctr_hidden_draws++;
+      continue;
+    }
+    if (mb_targeted) {
+      Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
+    }
+
     if (draw.tree_tex_id != last_texture) {
       if (draw.tree_tex_id >= 0) {
         bound_tex = m_textures->at(draw.tree_tex_id);
@@ -1703,6 +1734,15 @@ void Tie3::render_tree_wind(int idx,
     // InstancedStripDraw::tree_tex_id is the same level texture index the static draws use.
     pbr_binder.set(draw.tree_tex_id, draw.mode);
 #endif
+    if (mb_targeted && Gfx::g_global_settings.mb_checker_target) {
+      // Bind AFTER the cached setup so the draw-mode glTexParameteri calls landed on the draw's
+      // own texture (see the static-loop notes); poison last_texture so the NEXT draw rebinds
+      // its own texture instead of inheriting the checker.
+      glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
+      last_texture = INT32_MIN;
+      Gfx::g_global_settings.mb_ctr_checker_draws++;
+      Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
+    }
 
     int off = 0;
     for (auto& grp : draw.instance_groups) {

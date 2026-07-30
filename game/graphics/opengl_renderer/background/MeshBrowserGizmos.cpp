@@ -5,48 +5,13 @@
 
 #include "common/log/log.h"
 
-namespace mb_gizmos {
-
 namespace {
-
-// Same layout as TFragment::DebugVertex (TFragment.h:81) — position + rgba, locations 0/1 of the
-// TFRAG3_NO_TEX program (the same shader render_tree_cull_debug draws with).
-struct GizmoVertex {
-  math::Vector3f position;
-  math::Vector4f rgba;
-};
-
-// Arrow sizing, GOAL units: shaft (green) = 80% of the arrow, tip (red) = the last 20%, so the
-// direction is readable at a glance — an inward normal visibly dives into the surface.
-constexpr float kArrowLen = 1638.f;
-// Per-face AABB filter slack around mb_target_bbox, GOAL units.
-constexpr float kBboxExpand = 2048.f;
-// Build cap — a jak1 tex-id population can span a whole level's worth of faces.
-constexpr u32 kMaxFaces = 30000;
-
-// The cached build. ONE cache is enough: there is a single target, so only one (level, system)
-// pair ever passes the filters at a time. Static vectors are reused across rebuilds (no per-frame
-// heap traffic when the key is unchanged, none at all when the tool is inactive — the caller
-// early-outs before reaching this file).
-struct Cache {
-  bool valid = false;
-  const tfrag3::Level* lev = nullptr;  // also guards against an fr3 reload under the same name
-  int system = -1;
-  u32 tex = 0;
-  float bbox[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-  char level[16] = {0};
-  std::vector<GizmoVertex> verts;
-  u32 face_count = 0;
-  GLuint vao = 0;
-  GLuint vbo = 0;
-  size_t vbo_size = 0;  // bytes currently allocated in the VBO
-};
-Cache g_cache;
 
 // Walk one draw's index range and hand every non-degenerate triangle to `emit(i0, i1, i2)`,
 // EXACTLY like tools/tess_sign/main.cpp walk_tris (:1100-1163): UINT32_MAX restarts a strip, and
 // within a strip the winding flips on odd steps as (b, a, vi) — the SAME order whose
 // cross(p1-p0, p2-p0) the offline A_sign grader calls the stored winding's geometric normal.
+// File-scope: shared by the mb_gizmos arrow build AND the mb_pick triangle ray-test below.
 template <typename F>
 void walk_tris(const std::vector<u32>& idx, u32 first, u64 count, bool strips, size_t vcount,
                F&& emit_cb) {
@@ -92,6 +57,46 @@ void walk_tris(const std::vector<u32>& idx, u32 first, u64 count, bool strips, s
     }
   }
 }
+
+}  // namespace
+
+namespace mb_gizmos {
+
+namespace {
+
+// Same layout as TFragment::DebugVertex (TFragment.h:81) — position + rgba, locations 0/1 of the
+// TFRAG3_NO_TEX program (the same shader render_tree_cull_debug draws with).
+struct GizmoVertex {
+  math::Vector3f position;
+  math::Vector4f rgba;
+};
+
+// Arrow sizing, GOAL units: shaft (green) = 80% of the arrow, tip (red) = the last 20%, so the
+// direction is readable at a glance — an inward normal visibly dives into the surface.
+constexpr float kArrowLen = 1638.f;
+// Per-face AABB filter slack around mb_target_bbox, GOAL units.
+constexpr float kBboxExpand = 2048.f;
+// Build cap — a jak1 tex-id population can span a whole level's worth of faces.
+constexpr u32 kMaxFaces = 30000;
+
+// The cached build. ONE cache is enough: there is a single target, so only one (level, system)
+// pair ever passes the filters at a time. Static vectors are reused across rebuilds (no per-frame
+// heap traffic when the key is unchanged, none at all when the tool is inactive — the caller
+// early-outs before reaching this file).
+struct Cache {
+  bool valid = false;
+  const tfrag3::Level* lev = nullptr;  // also guards against an fr3 reload under the same name
+  int system = -1;
+  u32 tex = 0;
+  float bbox[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  char level[16] = {0};
+  std::vector<GizmoVertex> verts;
+  u32 face_count = 0;
+  GLuint vao = 0;
+  GLuint vbo = 0;
+  size_t vbo_size = 0;  // bytes currently allocated in the VBO
+};
+Cache g_cache;
 
 // One face -> 2 GL_LINES segments (4 vertices): base -> base + 0.8*len*n in GREEN, then the tip
 // -> base + len*n in RED. Returns false when the face fails the bbox filter or the cap is hit.
@@ -274,6 +279,8 @@ void render(const tfrag3::Level* lev,
   prof.add_draw_call();
   glBindVertexArray(0);
   s.mb_ctr_gizmo_draws++;
+  // V2.1 per-frame proof: line primitives ACTUALLY submitted this frame (2 verts per line).
+  s.mb_cur_gizmo_prims += (u32)(g_cache.verts.size() / 2);
 
   // restore
   glLineWidth(1.f);
@@ -287,3 +294,135 @@ void render(const tfrag3::Level* lev,
 }
 
 }  // namespace mb_gizmos
+
+namespace mb_pick {
+
+namespace {
+
+// Watertight-enough Moller-Trumbore, GOAL units. Returns t >= 0 along the (unit) ray or a
+// negative value on miss. Backfaces DO count: the reticle must pick a wall whose winding is
+// wrong — inverted-normal hunting is this browser's whole purpose.
+float ray_tri(const float* o, const float* d, const math::Vector3f& p0,
+              const math::Vector3f& p1, const math::Vector3f& p2) {
+  const math::Vector3f e1 = p1 - p0;
+  const math::Vector3f e2 = p2 - p0;
+  const math::Vector3f dv(d[0], d[1], d[2]);
+  const math::Vector3f pv = dv.cross(e2);
+  const float det = e1.dot(pv);
+  if (std::fabs(det) < 1e-12f) {
+    return -1.f;
+  }
+  const float inv = 1.f / det;
+  const math::Vector3f tv(o[0] - p0.x(), o[1] - p0.y(), o[2] - p0.z());
+  const float u = tv.dot(pv) * inv;
+  if (u < -1e-4f || u > 1.0001f) {
+    return -1.f;
+  }
+  const math::Vector3f qv = tv.cross(e1);
+  const float v = dv.dot(qv) * inv;
+  if (v < -1e-4f || u + v > 1.0001f) {
+    return -1.f;
+  }
+  const float t = e2.dot(qv) * inv;
+  return t >= 0.f ? t : -1.f;
+}
+
+// Per-candidate face budget: a level-spanning tex population must not hitch the GL thread
+// unboundedly. 120k faces tested per candidate per frame is ~1 ms class on the Redmi and far
+// above any single mesh row's real face count.
+constexpr u32 kMaxTestFaces = 120000;
+
+}  // namespace
+
+void raytest(const tfrag3::Level* lev, int system, const char* level_name) {
+  auto& s = Gfx::g_global_settings;
+  if (!lev || !pending()) {
+    return;
+  }
+  // acquire pairs with the GOAL thread's release store of mb_pick_serial: candidate arrays are
+  // fully visible from here on.
+  s.mb_pick_serial.load(std::memory_order_acquire);
+  // which candidates belong to THIS renderer?
+  int mine[GfxGlobalSettings::MB_PICK_MAX];
+  int n_mine = 0;
+  for (int i = 0; i < s.mb_pick_n && i < GfxGlobalSettings::MB_PICK_MAX; i++) {
+    if (s.mb_pick_sys[i] == system &&
+        std::strncmp(level_name, s.mb_pick_lvl[i], sizeof(s.mb_pick_lvl[i])) == 0) {
+      mine[n_mine++] = i;
+    }
+  }
+  if (n_mine == 0) {
+    return;
+  }
+  const float* o = s.mb_pick_ray_o;
+  const float* d = s.mb_pick_ray_d;
+  for (int m = 0; m < n_mine; m++) {
+    const int ci = mine[m];
+    const u32 want_tex = s.mb_pick_texid[ci];
+    const float* bb = s.mb_pick_bbox[ci];
+    u32 faces = 0;
+    auto test_face = [&](const std::vector<tfrag3::PreloadedVertex>& verts, u32 a, u32 b,
+                         u32 c) {
+      if (faces >= kMaxTestFaces) {
+        return;
+      }
+      faces++;
+      const auto& v0 = verts[a];
+      const auto& v1 = verts[b];
+      const auto& v2 = verts[c];
+      // same per-face AABB filter as the gizmo build: all 3 verts inside the row's box (+slack),
+      // so two rows sharing a tex id stay separable.
+      for (const auto* v : {&v0, &v1, &v2}) {
+        if (v->x < bb[0] - 2048.f || v->x > bb[3] + 2048.f ||  //
+            v->y < bb[1] - 2048.f || v->y > bb[4] + 2048.f ||  //
+            v->z < bb[2] - 2048.f || v->z > bb[5] + 2048.f) {
+          return;
+        }
+      }
+      const float t = ray_tri(o, d, math::Vector3f(v0.x, v0.y, v0.z),
+                              math::Vector3f(v1.x, v1.y, v1.z), math::Vector3f(v2.x, v2.y, v2.z));
+      if (t >= 0.f && (s.mb_pick_ttri[ci] < 0.f || t < s.mb_pick_ttri[ci])) {
+        s.mb_pick_ttri[ci] = t;
+      }
+    };
+    if (system == 0) {
+      for (const auto& tree : lev->tfrag_trees[0]) {
+        if (tree.kind == tfrag3::TFragmentTreeKind::INVALID) {
+          continue;
+        }
+        const auto& verts = tree.unpacked.vertices;
+        for (const auto& draw : tree.draws) {
+          if (draw.tree_tex_id < 0 || (u32)draw.tree_tex_id != want_tex) {
+            continue;
+          }
+          u64 count = 0;
+          for (const auto& g : draw.vis_groups) {
+            count += g.num_inds;
+          }
+          walk_tris(tree.unpacked.indices, draw.unpacked.idx_of_first_idx_in_full_buffer, count,
+                    tree.use_strips, verts.size(),
+                    [&](u32 a, u32 b, u32 c) { test_face(verts, a, b, c); });
+        }
+      }
+    } else {
+      for (const auto& tree : lev->tie_trees[0]) {
+        const auto& verts = tree.unpacked.vertices;
+        // static_draws only — wind draws live in prototype-local space (see the gizmo build).
+        for (const auto& draw : tree.static_draws) {
+          if (draw.tree_tex_id < 0 || (u32)draw.tree_tex_id != want_tex) {
+            continue;
+          }
+          u64 count = 0;
+          for (const auto& g : draw.vis_groups) {
+            count += g.num_inds;
+          }
+          walk_tris(tree.unpacked.indices, draw.unpacked.idx_of_first_idx_in_full_buffer, count,
+                    tree.use_strips, verts.size(),
+                    [&](u32 a, u32 b, u32 c) { test_face(verts, a, b, c); });
+        }
+      }
+    }
+  }
+}
+
+}  // namespace mb_pick

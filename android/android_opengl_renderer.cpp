@@ -940,6 +940,10 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     m_stats.buckets_cpu_s = prof.get_elapsed_time();
   }
 
+  // Grecharged-mesh-browser V2.1: publish this frame's per-draw proof counters (mirrors the
+  // desktop OpenGLRenderer::render call — this file is the SEPARATE android frame loop).
+  Gfx::g_global_settings.mb_flip_frame_counters();
+
   // A36 probe: the FBO content at frame 100/600 — distinguishes "geometry
   // drew black" from "blit lost it" (run-25: 64k tris/frame, black screen).
   if (m_stats.frame_idx == 100 || m_stats.frame_idx == 600) {

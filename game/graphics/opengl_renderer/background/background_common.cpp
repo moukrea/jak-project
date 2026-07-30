@@ -1993,6 +1993,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   spec_intensity = std::max(0.0f, std::min(spec_intensity, 3.0f));
   normal_strength *= relief;
   height_scale *= relief;
+  // Grecharged-mesh-browser V2.1: record the relief factor these uniforms are pushed with — the
+  // proof reads THE VALUE THE SHADER GOT (u_pbr_normal_strength/u_pbr_height_scale scale), not the
+  // menu variable (owner: "relief fonctionne pas" — a variable can move while no uniform does).
+  Gfx::g_global_settings.mb_cur_relief_x100 = (u32)std::lround(relief * 100.0f);
   // The tess ceiling can never exceed what the driver reports as GL_MAX_TESS_GEN_LEVEL.
   pbr_tess_max = std::clamp(pbr_tess_max, 1.0f, (float)gl_max_tess_gen_level());
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);

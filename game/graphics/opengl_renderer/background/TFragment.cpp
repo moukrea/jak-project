@@ -202,6 +202,14 @@ void TFragment::render(DmaFollower& dma,
                           t3prof);
       }
     }
+    // Grecharged-mesh-browser V2.1: pending reticle pick — contribute this level's TFRAG
+    // triangle hits (two relaxed loads when idle; see gfx.h mb_pick_*).
+    if (mb_pick::pending()) {
+      const auto* mb_lev = render_state->loader->get_tfrag3_level(level_name);
+      if (mb_lev) {
+        mb_pick::raytest(mb_lev->level.get(), 0, level_name.c_str());
+      }
+    }
   }
 
   while (dma.current_tag_offset() != render_state->next_bucket) {
@@ -1122,6 +1130,9 @@ void TFragment::render_tree(int geom,
         Gfx::g_global_settings.mb_ctr_hidden_draws++;
         continue;
       }
+      if (mb_targeted) {
+        Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
+      }
       s32 tex_idx = draw.tree_tex_id;
       if (tex_idx >= 0) {
         bound_tex = m_textures->at(tex_idx);
@@ -1140,6 +1151,7 @@ void TFragment::render_tree(int geom,
         // rebinds bound_tex every iteration, so the next draw recovers its own texture.
         glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
         Gfx::g_global_settings.mb_ctr_checker_draws++;
+        Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
       }
       if (tess_decal_loc != -1) {
         glUniform1i(tess_decal_loc, draw.mode.get_decal() ? 1 : 0);
@@ -1194,6 +1206,9 @@ void TFragment::render_tree(int geom,
         draw_idx++;
         continue;
       }
+      if (mb_targeted) {
+        Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
+      }
 
       s32 tex_idx = draw.tree_tex_id;
       if (tex_idx >= 0) {
@@ -1217,6 +1232,7 @@ void TFragment::render_tree(int geom,
         // iteration rebinds its own bound_tex unconditionally.
         glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
         Gfx::g_global_settings.mb_ctr_checker_draws++;
+        Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
       }
 
       int first = singledraw_indices.first;
@@ -1282,6 +1298,9 @@ void TFragment::render_tree(int geom,
       Gfx::g_global_settings.mb_ctr_hidden_draws++;
       continue;
     }
+    if (mb_targeted) {
+      Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
+    }
 
     ASSERT(m_textures);
     s32 tex_idx = draw.tree_tex_id;
@@ -1305,6 +1324,7 @@ void TFragment::render_tree(int geom,
       // every iteration, so the next draw recovers its own texture.
       glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
       Gfx::g_global_settings.mb_ctr_checker_draws++;
+      Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
     }
     tree.tris_this_frame += draw.num_triangles;
     tree.draws_this_frame++;

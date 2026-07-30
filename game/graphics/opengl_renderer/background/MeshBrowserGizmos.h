@@ -26,3 +26,21 @@ void render(const tfrag3::Level* lev,
             ScopedProfilerNode& prof);
 
 }  // namespace mb_gizmos
+
+namespace mb_pick {
+
+// V2.1 TRIANGLE-ACCURATE reticle pick (see the channel doc at gfx.h mb_pick_*). Cheap standing
+// check for the render() hooks: true only while a pick request is awaiting triangle results.
+inline bool pending() {
+  const auto& s = Gfx::g_global_settings;
+  return s.mb_pick_serial.load(std::memory_order_relaxed) !=
+         s.mb_pick_done.load(std::memory_order_relaxed);
+}
+
+// Ray-test the pending pick's candidates of THIS system+level against the level's real
+// triangles (same face walk + winding as the gizmos above), min()ing each candidate's nearest
+// hit into mb_pick_ttri. GL thread only; called from TFragment::render / Tie3::render behind
+// pending().
+void raytest(const tfrag3::Level* lev, int system, const char* level_name);
+
+}  // namespace mb_pick

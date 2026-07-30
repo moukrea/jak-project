@@ -1156,6 +1156,13 @@ void pc_set_rt_ambient_strength(u32 pct) {
 // REOPEN #2 menu sliders: TEXTURE RELIEF (percent 0..300) + SPECULAR INTENSITY (percent 0..200),
 // same *0.01 int-percent convention as the ambient-strength setter above.
 void pc_set_pbr_texture_relief(u32 pct) {
+  // [mb-diag] change-only trace: v2.1 measured the GOAL variable moving ~6-7 s before this
+  // bridge saw the new value; this line names WHEN the push actually lands (logcat GK_*).
+  static u32 s_last_pct = 0xffffffff;
+  if (pct != s_last_pct) {
+    s_last_pct = pct;
+    lg::info("[mb-diag] relief push pct={}", pct);
+  }
   Gfx::g_global_settings.recharged_pbr_texture_relief = (float)pct * 0.01f;
 }
 void pc_set_pbr_specular_intensity(u32 pct) {
@@ -1600,8 +1607,12 @@ std::string g_mb_pick_lvl[2];
 struct MbPickHit {
   int slot = 0;
   int row = 0;
-  float t = 0.f;  // metres along the (normalized) ray
+  float t = 0.f;     // metres along the (normalized) ray to the SURFACE the reticle sees
+  float vol = 0.f;   // AABB volume, m^3 — tie-break: the most specific box wins
+  float ttri = -1.f; // V2.1: nearest REAL triangle hit (GOAL units), filled by the render thread
 };
+// serial whose triangle results have already been folded+sorted into g_mb_pick_hits.
+u32 g_mb_pick_sorted_serial = 0;
 std::vector<MbPickHit> g_mb_pick_hits;
 }  // namespace
 
@@ -1678,16 +1689,107 @@ u64 pc_mb_pick(u32 origin, u32 dir) {
       MbPickHit h;
       h.slot = slot;
       h.row = row;
-      h.t = std::max(tmin, 0.f);  // origin inside the box counts as distance 0
+      // V2.1 (owner: "every toggle dead"): V2 gave origin-inside boxes t=0, so at ground level a
+      // single R1 targeted one of the giant level-chunk AABBs ENCLOSING the camera — a mesh the
+      // owner cannot see — and every toggle then acted off-screen (run 5 itself needed up to 13 R1
+      // presses to cycle past that junk). The surface the reticle actually sees for an
+      // origin-inside box is where the ray LEAVES it (tmax: the wall ahead is near, the far rim of
+      // a level-spanning box is far) — use that as the sort distance so the front visible mesh is
+      // the FIRST pick, and let the smaller (more specific) box win a near-tie.
+      h.t = tmin > 0.f ? tmin : tmax;
+      h.vol = (hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]);
       g_mb_pick_hits.push_back(h);
     }
   }
+  // near-ties resolve to the smaller box (a lamp beats the hillside behind it): sort on the
+  // lexicographic key (t bucketed to 0.5 m, volume) — a plain tolerance compare would not be a
+  // strict weak ordering and std::sort on one is UB.
   std::sort(g_mb_pick_hits.begin(), g_mb_pick_hits.end(),
-            [](const MbPickHit& a, const MbPickHit& b) { return a.t < b.t; });
+            [](const MbPickHit& a, const MbPickHit& b) {
+              const float ba = std::floor(a.t * 2.f), bb = std::floor(b.t * 2.f);
+              if (ba != bb) {
+                return ba < bb;
+              }
+              return a.vol < b.vol;
+            });
   if (g_mb_pick_hits.size() > 16) {
     g_mb_pick_hits.resize(16);
   }
+  // V2.1: AABB order alone cannot rank a dense stack (index boxes are far fatter than their
+  // geometry — v2.1's first resort still hit only 1/5 first-press). Publish the candidates for
+  // the render thread's TRIANGLE ray-test (gfx.h mb_pick_* channel doc); pc_mb_pick_ready folds
+  // the results back and re-sorts by real surface distance one frame later.
+  {
+    auto& gs = Gfx::g_global_settings;
+    const int n = std::min((int)g_mb_pick_hits.size(), GfxGlobalSettings::MB_PICK_MAX);
+    gs.mb_pick_n = n;
+    for (int a = 0; a < 3; a++) {
+      gs.mb_pick_ray_o[a] = o[a];  // GOAL units — triangles are tested in GOAL units
+    }
+    gs.mb_pick_ray_d[0] = dx;
+    gs.mb_pick_ray_d[1] = dy;
+    gs.mb_pick_ray_d[2] = dz;
+    for (int i = 0; i < n; i++) {
+      const auto& h = g_mb_pick_hits[(size_t)i];
+      const auto* rows = mb_load_level_index(g_mb_pick_lvl[h.slot]);
+      const auto& r = (*rows)[(size_t)h.row];
+      gs.mb_pick_sys[i] = r.system;
+      gs.mb_pick_texid[i] = (u32)r.tex_id;
+      strncpy(gs.mb_pick_lvl[i], g_mb_pick_lvl[h.slot].c_str(), sizeof(gs.mb_pick_lvl[i]) - 1);
+      gs.mb_pick_lvl[i][sizeof(gs.mb_pick_lvl[i]) - 1] = '\0';
+      // index AABB is metres; the ray-test compares vertices in GOAL units
+      gs.mb_pick_bbox[i][0] = r.lox * 4096.f;
+      gs.mb_pick_bbox[i][1] = r.loy * 4096.f;
+      gs.mb_pick_bbox[i][2] = r.loz * 4096.f;
+      gs.mb_pick_bbox[i][3] = r.hix * 4096.f;
+      gs.mb_pick_bbox[i][4] = r.hiy * 4096.f;
+      gs.mb_pick_bbox[i][5] = r.hiz * 4096.f;
+      gs.mb_pick_ttri[i] = -1.f;
+    }
+    // release pairs with the render thread's acquire: candidates above are visible before the
+    // new serial is.
+    const u32 new_serial = gs.mb_pick_serial.load(std::memory_order_relaxed) + 1;
+    gs.mb_pick_serial.store(new_serial, std::memory_order_release);
+    lg::info("[mb-diag] pick request serial={} candidates={}", new_serial, n);
+  }
   return (u64)g_mb_pick_hits.size();
+}
+
+// V2.1: poll the triangle ray-test. 0 = still pending (results not published). On the first
+// ready call for a request, fold mb_pick_ttri back into the hit list and re-sort: real triangle
+// hits first (nearest surface the reticle SEES), AABB-only candidates after, keeping their AABB
+// order. Idempotent afterwards. GOAL times out on its side (~2/3 s) and completes with the AABB
+// order if a level's renderer never contributed (nothing rendering => nothing pickable anyway).
+u64 pc_mb_pick_ready() {
+  auto& gs = Gfx::g_global_settings;
+  const u32 s = gs.mb_pick_serial.load(std::memory_order_relaxed);
+  if (gs.mb_pick_done.load(std::memory_order_acquire) != s) {
+    return 0;
+  }
+  if (g_mb_pick_sorted_serial != s) {
+    g_mb_pick_sorted_serial = s;
+    const int n = std::min((int)g_mb_pick_hits.size(), GfxGlobalSettings::MB_PICK_MAX);
+    int tri_hits = 0;
+    for (int i = 0; i < n; i++) {
+      g_mb_pick_hits[(size_t)i].ttri = gs.mb_pick_ttri[i];
+      if (gs.mb_pick_ttri[i] >= 0.f) {
+        tri_hits++;
+      }
+    }
+    lg::info("[mb-diag] pick ready serial={} candidates={} tri_hits={}", s, n, tri_hits);
+    std::stable_sort(g_mb_pick_hits.begin(), g_mb_pick_hits.end(),
+                     [](const MbPickHit& a, const MbPickHit& b) {
+                       const bool ha = a.ttri >= 0.f, hb = b.ttri >= 0.f;
+                       if (ha != hb) {
+                         return ha;  // real surface hits outrank box-only hits
+                       }
+                       if (ha) {
+                         return a.ttri < b.ttri;
+                       }
+                       return false;  // box-only hits keep their AABB order (stable_sort)
+                     });
+  }
+  return 1;
 }
 
 // Hit getter over the last pick. field: 0 row, 1 slot, 2 t in centimetres. -1 out of range.
@@ -1762,7 +1864,11 @@ void pc_mb_gizmos_set(s32 v) {
 
 // Runtime proof counters, written by the render thread. This is how a toggle DEMONSTRATES
 // on->off->on instead of merely claiming it (two V1 toggles shipped dead; never again).
-// field: 0 hidden draws, 1 checker draws, 2 gizmo passes, 3 gizmo faces.
+// field: 0 hidden draws, 1 checker draws, 2 gizmo passes, 3 gizmo faces (all monotonic).
+// V2.1 adds the PER-FRAME published counters (owner: every toggle dead — only a per-frame count
+// can show the target's submitted draws hitting ZERO while hidden):
+// 4 target draws submitted last frame, 5 checker binds last frame, 6 gizmo line prims last frame,
+// 7 the relief factor (x100) the PBR uniforms were pushed with last frame.
 u64 pc_mb_rt_geti(s32 field) {
   const auto& gs = Gfx::g_global_settings;
   switch (field) {
@@ -1774,6 +1880,14 @@ u64 pc_mb_rt_geti(s32 field) {
       return gs.mb_ctr_gizmo_draws;
     case 3:
       return gs.mb_ctr_gizmo_faces;
+    case 4:
+      return gs.mb_frame_target_draws;
+    case 5:
+      return gs.mb_frame_checker_binds;
+    case 6:
+      return gs.mb_frame_gizmo_prims;
+    case 7:
+      return gs.mb_frame_relief_x100;
     default:
       return 0;
   }
@@ -2161,6 +2275,7 @@ void InitMachine_PCPort() {
   // g_global_settings (hide/checker/gizmos per targeted mesh) + the runtime proof counters.
   make_function_symbol_from_c("pc-mb-pick-levels!", (void*)pc_mb_pick_levels);
   make_function_symbol_from_c("pc-mb-pick!", (void*)pc_mb_pick);
+  make_function_symbol_from_c("pc-mb-pick-ready?", (void*)pc_mb_pick_ready);
   make_function_symbol_from_c("pc-mb-pick-geti", (void*)pc_mb_pick_geti);
   make_function_symbol_from_c("pc-mb-target-set!", (void*)pc_mb_target_set);
   make_function_symbol_from_c("pc-mb-target-clear!", (void*)pc_mb_target_clear);

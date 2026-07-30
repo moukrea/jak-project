@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # =====================================================================================
-# Grecharged-mesh-browser V2 — FREECAM/RETICLE PROOF (owner redesign 2026-07-30)
+# Grecharged-mesh-browser V2.1 — FREECAM/RETICLE PROOF (owner reopen 2026-07-30)
+#
+# V2.1 additions (owner: 4 axes inverted; hide/checker/gizmos/relief ALL dead):
+#   * PER-AXIS SIGN proofs, both directions, against the documented FPS convention
+#     (run 5's axis checks were sign-blind: 'changed' passes on a mirrored rig);
+#   * PER-FRAME renderer counters rtf_target/rtf_checker/rtf_gizmo/rtf_relief — hide is
+#     now proven by the target's SUBMITTED draw count hitting ZERO, checker by per-frame
+#     material binds, gizmos by line prims drawn, relief by the value at the shader
+#     uniform push site (variables that flip while the renderer ignores them cannot pass);
+#   * SURFACE-FIRST pick metric (first-press hits) — run 5 needed up to 13 R1 presses to
+#     escape the camera-enclosing junk AABBs, which is why the owner's single press always
+#     targeted an invisible mesh and every toggle then acted off-screen.
 #
 # Owner: "un bouton (genre L3 ou R3...) qui nous passe en freecam ... R1/R2 pour target
 # un modèle ... L1/L2 toggle montrer/cacher ... damier via Square ... Circle gizmos de
@@ -179,24 +190,78 @@ padb "r3" 2.0; snap; a_mode="$(field mode)"
 check "cpad_inject r3 -> FREECAM (first-person reticle mode)" "mode" "$b_mode" "$a_mode" equals "FREECAM"
 say "--- freecam state ---"; printf '%s\n' "$STATE" | tee -a "$LOG"
 
-# ---- 3. FLIGHT: left stick moves in all directions incl. air --------------------------
+# ---- 3. FLIGHT + V2.1 PER-AXIS SIGN PROOF ---------------------------------------------
+# Owner (v2.1): "Left/Right Up/Down/Pan left/Pan Right sont inversés". Run 5 only checked
+# that values CHANGED — sign-blind, so a mirrored rig passed. Now each of the 4 axes is
+# proven against the documented convention, in BOTH directions (8 signed checks):
+#   move X : stick right (lx=255) -> camera translates along SCREEN-RIGHT
+#   move Y : stick up    (ly=0)   -> camera advances along the LOOK vector
+#   look X : stick right (rx=255) -> the view turns RIGHT = yaw DECREASES
+#   look Y : stick up    (ry=0)   -> the view tilts UP    = pitch INCREASES
+# Engine ground truth (geometry.gc:255 row0 = fwd x down; math-camera.gc:142 negative X
+# scale): SCREEN-RIGHT for fwd=(sin yaw, 0, cos yaw) is (-cos yaw, 0, sin yaw), and cam-eye
+# (cam-states.gc:287-319), the original game's own first-person look, decreases the angle
+# for stick right. fwd = (sin yaw*cos p, sin p, cos yaw*cos p).
 say ""
-say "=== 3. GAMEPAD: left stick FLIES the camera (all directions incl. vertical) ==="
-snap; b_fc="$(field fc)"; b_yaw="$(field yaw)"
-hold "ly=0" 1.2            # stick full up = fly forward along the look vector
-snap; a_fc="$(field fc)"
+say "=== 3. GAMEPAD FLIGHT + PER-AXIS SIGN PROOF (4 axes, both directions) ==="
+# signed yaw difference with [0,2pi) wrap: d = a-b pulled into (-pi, pi]
+yawd(){ awk "BEGIN{d=$2-$1; pi=3.14159265; while(d> pi)d-=2*pi; while(d<=-pi)d+=2*pi; printf \"%.6f\", d}"; }
+# dot of the fc position delta with screen-right(yaw) / fwd(yaw,pitch), all from PRE state
+dot_right(){ # b_fc a_fc yaw
+  awk "BEGIN{split(\"$1\",b,\",\"); split(\"$2\",a,\",\");
+             dx=a[1]-b[1]; dz=a[3]-b[3];
+             printf \"%.6f\", dx*(-cos($3)) + dz*(sin($3))}"
+}
+dot_fwd(){ # b_fc a_fc yaw pitch
+  awk "BEGIN{split(\"$1\",b,\",\"); split(\"$2\",a,\",\");
+             dx=a[1]-b[1]; dy=a[2]-b[2]; dz=a[3]-b[3];
+             cp=cos($4);
+             printf \"%.6f\", dx*sin($3)*cp + dy*sin($4) + dz*cos($3)*cp}"
+}
+# --- look X (pan): both directions
+snap; b_yaw="$(field yaw)"
+hold "rx=255" 0.8
+snap; a_yaw="$(field yaw)"; D="$(yawd "$b_yaw" "$a_yaw")"
+assert "AXIS look-X: pan right (rx=255) turns the view RIGHT (yaw delta < 0)" "($D) < 0" "yaw $b_yaw -> $a_yaw d=$D"
+b_yaw="$a_yaw"
+hold "rx=0" 0.8
+snap; a_yaw="$(field yaw)"; D="$(yawd "$b_yaw" "$a_yaw")"
+assert "AXIS look-X: pan left (rx=0) turns the view LEFT (yaw delta > 0)" "($D) > 0" "yaw $b_yaw -> $a_yaw d=$D"
+# --- look Y (pitch): both directions
+snap; b_p="$(field pitch)"
+hold "ry=0" 0.7
+snap; a_p="$(field pitch)"
+assert "AXIS look-Y: stick up (ry=0) looks UP (pitch delta > 0)" "($a_p) - ($b_p) > 0" "pitch $b_p -> $a_p"
+b_p="$a_p"
+hold "ry=255" 0.5
+snap; a_p="$(field pitch)"
+assert "AXIS look-Y: stick down (ry=255) looks DOWN (pitch delta < 0)" "($a_p) - ($b_p) < 0" "pitch $b_p -> $a_p"
+# --- move Y (fly along the look): both directions
+snap; b_fc="$(field fc)"; YW="$(field yaw)"; PT="$(field pitch)"
+hold "ly=0" 1.2
+snap; a_fc="$(field fc)"; D="$(dot_fwd "$b_fc" "$a_fc" "$YW" "$PT")"
+assert "AXIS move-Y: stick up (ly=0) flies FORWARD along the look (dot fwd > 0)" "($D) > 0" "fc $b_fc -> $a_fc dot=$D"
 check "stick forward moves the camera" "fc" "$b_fc" "$a_fc" changed
-# vertical: pitch up with the right stick, then fly forward -> altitude (fc y) must rise
+snap; b_fc="$(field fc)"; YW="$(field yaw)"; PT="$(field pitch)"
+hold "ly=255" 0.9
+snap; a_fc="$(field fc)"; D="$(dot_fwd "$b_fc" "$a_fc" "$YW" "$PT")"
+assert "AXIS move-Y: stick down (ly=255) flies BACKWARD (dot fwd < 0)" "($D) < 0" "fc $b_fc -> $a_fc dot=$D"
+# --- move X (strafe): both directions
+snap; b_fc="$(field fc)"; YW="$(field yaw)"
+hold "lx=255" 1.0
+snap; a_fc="$(field fc)"; D="$(dot_right "$b_fc" "$a_fc" "$YW")"
+assert "AXIS move-X: stick right (lx=255) strafes SCREEN-RIGHT (dot right > 0)" "($D) > 0" "fc $b_fc -> $a_fc dot=$D"
+snap; b_fc="$(field fc)"; YW="$(field yaw)"
+hold "lx=0" 1.0
+snap; a_fc="$(field fc)"; D="$(dot_right "$b_fc" "$a_fc" "$YW")"
+assert "AXIS move-X: stick left (lx=0) strafes SCREEN-LEFT (dot right < 0)" "($D) < 0" "fc $b_fc -> $a_fc dot=$D"
+# --- vertical flight (the "in the air" requirement): pitch up then fly forward
 hold "ry=0" 0.9            # look up
-snap; m_yaw="$(field yaw)"; m_pitch="$(field pitch)"; m_y="$(echo "$a_fc" | cut -d, -f2)"
+snap; m_y="$(echo "$(field fc)" | cut -d, -f2)"
 hold "ly=0" 1.2
 snap; v_fc="$(field fc)"; v_y="$(echo "$v_fc" | cut -d, -f2)"
 check "pitched-up flight gains ALTITUDE (fly in the air)" "fc.y" "$m_y" "$v_y" grew
-b_yaw2="$(field yaw)"
-hold "rx=255" 0.8          # right stick right = turn
-snap; a_yaw2="$(field yaw)"
-check "right stick turns the camera (yaw)" "yaw" "$b_yaw2" "$a_yaw2" changed
-say "pitch after look-up: $m_pitch (from $(field pitch) now)"
+hold "ry=255" 0.7          # level back out for the pick section
 
 # ---- 4. exit freecam, reopen the LIST path for deterministic aiming -------------------
 # Aiming the reticle by rate-based stick injection is not deterministic over adb timing.
@@ -208,7 +273,12 @@ say "pitch after look-up: $m_pitch (from $(field pitch) now)"
 # barrel top / hut wall / beach rock), same rows as the previous round's centroid proof.
 say ""
 say "=== 4. RETICLE PICK ACCURACY on 5 distinct meshes (+ TRIANGLE defocus each time) ==="
-PICKOK=0; NPICK=0
+# V2.1: the pick now sorts SURFACE-first (an origin-enclosing AABB ranks by where the ray
+# LEAVES it, and near-ties go to the smaller box) — in run 5 the wanted row took up to 13 R1
+# presses because giant camera-enclosing boxes all sorted at t=0; the owner pressing R1 once
+# therefore always targeted an invisible enclosing mesh, which is exactly why every toggle
+# looked dead to him. Track how many presses each mesh needs now.
+PICKOK=0; NPICK=0; FIRSTHIT=0; PRESS_TOTAL=0
 LASTMESH=""
 for FRAC in 0.03 0.28 0.50 0.72 0.96; do
   NPICK=$((NPICK+1))
@@ -237,7 +307,8 @@ for FRAC in 0.03 0.28 0.50 0.72 0.96; do
     [ "$(field pick_n)" = "0" ] && break
   done
   if [ -n "$hit" ]; then
-    PASS=$((PASS+1)); PICKOK=$((PICKOK+1))
+    PASS=$((PASS+1)); PICKOK=$((PICKOK+1)); PRESS_TOTAL=$((PRESS_TOTAL+hit))
+    [ "$hit" = 1 ] && FIRSTHIT=$((FIRSTHIT+1))
     say "  PASS  mesh #$NPICK reticle pick acquired row=$ROW ($MAT) after $hit R1 press(es), pick_n=$(field pick_n)"
     LASTMESH="$ROW"
   else
@@ -246,8 +317,11 @@ for FRAC in 0.03 0.28 0.50 0.72 0.96; do
   fi
   # stay in FREECAM after the LAST mesh: sections 5-7 run the toggle battery on it
 done
-say "reticle pick acquired on $PICKOK/5 meshes"
+say "reticle pick acquired on $PICKOK/5 meshes; first-press hits: $FIRSTHIT/5; total presses: $PRESS_TOTAL (run 5: 31)"
 [ "$PICKOK" -ge 5 ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); say "  FAIL  pick accuracy below 5/5"; }
+# V2.1 surface-first ordering: the mesh under the reticle must now be the FIRST pick in the
+# common case (>=3/5 first-press; occluders legitimately in front may cost a cycle elsewhere).
+assert "surface-first pick: >=3/5 meshes acquired on the FIRST R1 press" "($FIRSTHIT) >= 3" "first-press $FIRSTHIT/5, total $PRESS_TOTAL"
 
 # ---- 5. THE TWO PREVIOUSLY-DEAD TOGGLES: on -> off -> on via RENDER counters ----------
 say ""
@@ -257,44 +331,88 @@ say "They grow while the toggle is live and freeze when it is off — a dead tog
 say "owner's exact complaint) cannot move them."
 snap
 [ "$(field target)" != "-1" ] && [ -n "$(field target)" ] || { padb "r1" 1.5; snap; }
+say "V2.1: rtf_* are PER-FRAME counters published by the render thread at end of frame —"
+say "rtf_target = draws SUBMITTED for the target last frame. Hide is proven by that count"
+say "hitting ZERO (supervisor: variable flips prove nothing; the submit count is the render)."
+# fresh per-frame value (heartbeat rewrites the file every 3 s at 60 fps, ~6 s at the title's
+# 30 fps; 7 s covers one for sure)
+rtf(){ sleep 7.0; snap; field "$1"; }
+# The battery target must be SOLIDLY visible: run 2 landed on a barely-vis environment shell
+# (rtf_target=1, blinking) and every delta check then sampled zeros — a sampling artifact, not
+# a dead toggle. Keep the current target if it shows >=2 submitted draws per frame; otherwise
+# re-aim through the deterministic LIST->OBSERVE->R3->R1 flow on other rows until one does.
+V0="$(rtf rtf_target)"
+if ! awk "BEGIN{exit !(($V0) >= 2)}"; then
+  for BFRAC in 0.50 0.03 0.72; do
+    say "  (battery target too thin: rtf_target=$V0 — re-aiming at list fraction $BFRAC)"
+    ensure_list || continue
+    swipe_n 0.97 0.20 0.97 "$(awk "BEGIN{printf \"%.4f\", 0.20 + $BFRAC*0.68}")" 800 1.5
+    tap_n 0.40 0.45 1.5
+    tap_n 0.40 0.45 7.0
+    snap; [ "$(field mode)" = "OBSERVE" ] || continue
+    padb "r3" 2.0; snap; [ "$(field mode)" = "FREECAM" ] || continue
+    padb "r1" 1.5; snap
+    [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] || continue
+    V0="$(rtf rtf_target)"
+    awk "BEGIN{exit !(($V0) >= 2)}" && break
+  done
+fi
 say "target for the toggle battery: target=$(field target) $(field material)"
 b_h="$(field hide)"
+assert "V2.1 target VISIBLE: per-frame submitted draw count > 0" "($V0) > 0" "rtf_target=$V0"
 # HIDE: on
 padb "l1" 1.0; snap
 check "L1 sets hide" "hide" "$b_h" "$(field hide)" equals "1"
-read hb ha <<< "$(delta rt_hidden 4.5)"
+read hb ha <<< "$(delta rt_hidden 7.0)"
 check "hide ON: hidden-draw counter GROWS (draws really skipped)" "rt_hidden" "$hb" "$ha" grew
+V1="$(rtf rtf_target)"
+assert "V2.1 hide ON: submitted draws for the target hit ZERO" "($V1) == 0" "rtf_target $V0 -> $V1"
 # HIDE: off (L2 = show, the explicit other direction)
 padb "l2" 1.0; snap
 check "L2 clears hide (mesh shown again)" "hide" "1" "$(field hide)" equals "0"
-read hb2 ha2 <<< "$(delta rt_hidden 4.5)"
+read hb2 ha2 <<< "$(delta rt_hidden 7.0)"
 check "hide OFF: hidden-draw counter FREEZES" "rt_hidden" "$hb2" "$ha2" same
+V2="$(rtf rtf_target)"
+assert "V2.1 hide OFF: submitted draws return (> 0)" "($V2) > 0" "rtf_target $V1 -> $V2"
 # HIDE: on again (the full on -> off -> on the supervisor demands)
 padb "l1" 1.0; snap
-read hb3 ha3 <<< "$(delta rt_hidden 4.5)"
+read hb3 ha3 <<< "$(delta rt_hidden 7.0)"
 check "hide ON again: counter grows again (on->off->on)" "rt_hidden" "$hb3" "$ha3" grew
+V3="$(rtf rtf_target)"
+assert "V2.1 hide ON again: submitted draws back to ZERO (on->off->on at the renderer)" "($V3) == 0" "rtf_target $V2 -> $V3"
 padb "l2" 1.0   # leave shown
-# CHECKER: on -> off -> on
+# CHECKER: on -> off -> on — per-frame BIND count on the targeted mesh (v2.1: "checker not
+# proven by material BINDS" is a gate fail)
+C0="$(rtf rtf_checker)"
+assert "V2.1 checker OFF baseline: zero checker binds per frame" "($C0) == 0" "rtf_checker=$C0"
 padb "square" 1.0; snap
 check "SQUARE sets the per-mesh checker" "checker2" "0" "$(field checker2)" equals "1"
-read cb ca <<< "$(delta rt_checker 4.5)"
+read cb ca <<< "$(delta rt_checker 7.0)"
 check "checker ON: checker-draw counter GROWS (real material override)" "rt_checker" "$cb" "$ca" grew
+C1="$(rtf rtf_checker)"
+assert "V2.1 checker ON: checker-material BINDS on the target's draws (> 0 per frame)" "($C1) > 0" "rtf_checker $C0 -> $C1"
 padb "square" 1.0; snap
 check "SQUARE clears the checker" "checker2" "1" "$(field checker2)" equals "0"
-read cb2 ca2 <<< "$(delta rt_checker 4.5)"
+read cb2 ca2 <<< "$(delta rt_checker 7.0)"
 check "checker OFF: counter FREEZES" "rt_checker" "$cb2" "$ca2" same
+C2="$(rtf rtf_checker)"
+assert "V2.1 checker OFF: binds back to ZERO per frame" "($C2) == 0" "rtf_checker $C1 -> $C2"
 padb "square" 1.0; snap
-read cb3 ca3 <<< "$(delta rt_checker 4.5)"
+read cb3 ca3 <<< "$(delta rt_checker 7.0)"
 check "checker ON again: grows again (on->off->on)" "rt_checker" "$cb3" "$ca3" grew
 padb "square" 1.0   # leave real texture
 
 # ---- 6. CIRCLE: normal gizmos --------------------------------------------------------
 say ""
 say "=== 6. CIRCLE: normal-orientation gizmos on the target ==="
+G0="$(rtf rtf_gizmo)"
+assert "V2.1 gizmos OFF baseline: zero gizmo prims per frame" "($G0) == 0" "rtf_gizmo=$G0"
 padb "circle" 1.5; snap
 check "CIRCLE sets gizmos" "gizmos" "0" "$(field gizmos)" equals "1"
-read gb ga <<< "$(delta rt_gizmo_draws 4.5)"
+read gb ga <<< "$(delta rt_gizmo_draws 7.0)"
 check "gizmo pass renders every frame while ON" "rt_gizmo_draws" "$gb" "$ga" grew
+G1="$(rtf rtf_gizmo)"
+assert "V2.1 gizmos ON: line primitives ACTUALLY DRAWN per frame (> 0)" "($G1) > 0" "rtf_gizmo $G0 -> $G1"
 # rt_gizmo_faces is SET by the render-thread rebuild and only reaches the state file at the
 # NEXT 3 s heartbeat: reading it in the toggle snap races the rebuild (run 1: file said 0 while
 # logcat's '[mb-gizmos] built 110 normal arrows' proved the build). Read it AFTER the 4.5 s
@@ -304,8 +422,29 @@ say "gizmo faces built for this mesh: $GF"
 assert "gizmo builder produced faces (>0)" "($GF) > 0" "rt_gizmo_faces=$GF"
 padb "circle" 1.0; snap
 check "CIRCLE clears gizmos" "gizmos" "1" "$(field gizmos)" equals "0"
-read gb2 ga2 <<< "$(delta rt_gizmo_draws 4.5)"
+read gb2 ga2 <<< "$(delta rt_gizmo_draws 7.0)"
 check "gizmos OFF: pass counter freezes" "rt_gizmo_draws" "$gb2" "$ga2" same
+G2="$(rtf rtf_gizmo)"
+assert "V2.1 gizmos OFF: prims back to ZERO per frame (on->off at the renderer)" "($G2) == 0" "rtf_gizmo $G1 -> $G2"
+
+# ---- 6b. RELIEF: the value the SHADER UNIFORMS are pushed with (v2.1) ------------------
+# Owner: "activer/desactiver le relief fonctionne pas". rtf_relief is recorded at the exact
+# uniform-push site (u_pbr_normal_strength/u_pbr_height_scale relief factor, x100) in
+# first_tfrag_draw_setup — the shader-side value, not the menu variable. D-pad down/up are
+# the freecam relief buttons.
+say ""
+say "=== 6b. RELIEF: shader-uniform value follows the freecam relief buttons ==="
+R0="$(rtf rtf_relief)"
+say "relief uniform at start: rtf_relief=$R0 (menu relief=$(field relief))"
+# slider edge: if the saved value sits at the 0 floor, step UP first (down would clamp-noop)
+if awk "BEGIN{exit !(($R0) < 25)}"; then padb "up" 1.0; R0="$(rtf rtf_relief)"; fi
+assert "relief uniform is being pushed at all (> 0)" "($R0) > 0" "rtf_relief=$R0"
+padb "down" 1.0
+R1="$(rtf rtf_relief)"
+assert "V2.1 relief DOWN: uniform value drops by 25 (x100)" "($R0) - ($R1) == 25" "rtf_relief $R0 -> $R1"
+padb "up" 1.0
+R2="$(rtf rtf_relief)"
+assert "V2.1 relief UP: uniform value returns (+25)" "($R2) - ($R1) == 25" "rtf_relief $R1 -> $R2"
 
 # ---- 7. TRIANGLE defocus makes the toggles inert --------------------------------------
 say ""
@@ -314,7 +453,7 @@ padb "l1" 1.0             # hide the target...
 padb "triangle" 1.0; snap  # ...then defocus: C++ clears the flags with the target
 check "defocus clears the target" "target" "x" "$(field target)" equals "-1"
 check "defocus resets hide (no orphaned hidden mesh)" "hide" "1" "$(field hide)" equals "0"
-read db da <<< "$(delta rt_hidden 4.5)"
+read db da <<< "$(delta rt_hidden 7.0)"
 check "after defocus nothing is hidden (counter frozen)" "rt_hidden" "$db" "$da" same
 
 # ---- 8. R3 exits; R3 from CLOSED re-enters (gameplay-side entry) -----------------------
@@ -367,24 +506,42 @@ tap_ctl(){ local c; c="$(ctl $1)"; [ -n "$c" ] && { adb shell input swipe $c $c 
 # ray finds candidates (each attempt is a REAL finger tap; the sweep is aiming, not a
 # loosened check).
 snap; b_t="$(field target)"
+TV0=0
 if tap_ctl fc-r1 1.5; then
   snap
   for sweep in 1 2 3 4; do
-    [ -n "$(field target)" ] && [ "$(field target)" != "-1" ] && break
+    if [ -n "$(field target)" ] && [ "$(field target)" != "-1" ]; then
+      # a target alone is not enough for the 9b renderer proof: it must have VISIBLE draws
+      # (run 2: a thin blinking environment shell zeroed every delta) — re-aim if not.
+      TV0="$(rtf rtf_target)"
+      awk "BEGIN{exit !(($TV0) > 0)}" && break
+      tap_ctl fc-triangle 1.0
+    fi
     swipe_n 0.62 0.45 0.55 0.55 400 1.0     # look around a bit (camera region, off the fc buttons)
     tap_ctl fc-r1 1.5; snap
   done
   check "TOUCH R1 button picks a target" "target" "$b_t" "$(field target)" changed
 fi
-# 9b. L1 by finger -> hide, counter grows; L2 by finger -> shown
+# 9b. L1 by finger -> hide: the target's per-frame submitted draws hit ZERO; L2 -> back
 if tap_ctl fc-l1 1.0; then snap; check "TOUCH L1 button hides" "hide" "0" "$(field hide)" equals "1"
-  read tb ta <<< "$(delta rt_hidden 4.5)"
-  check "TOUCH hide is live in the renderer" "rt_hidden" "$tb" "$ta" grew
+  TV1="$(rtf rtf_target)"
+  assert "TOUCH hide is live in the renderer (submitted draws $TV0 -> 0)" "($TV0) > 0 && ($TV1) == 0" "rtf_target $TV0 -> $TV1"
   tap_ctl fc-l2 1.0; snap; check "TOUCH L2 button shows again" "hide" "1" "$(field hide)" equals "0"; fi
 # 9c. Square / Circle / Triangle by finger
 if tap_ctl fc-square 1.0; then snap; check "TOUCH SQUARE toggles checker" "checker2" "0" "$(field checker2)" equals "1"; tap_ctl fc-square 1.0; fi
 if tap_ctl fc-circle 1.0; then snap; check "TOUCH CIRCLE toggles gizmos" "gizmos" "0" "$(field gizmos)" equals "1"; tap_ctl fc-circle 1.0; fi
 if tap_ctl fc-triangle 1.0; then snap; check "TOUCH TRIANGLE defocuses" "target" "x" "$(field target)" equals "-1"; fi
+# 9c2. RELIEF by finger (v2.1: the owner has no adb and no pad — the relief buttons must work
+# by touch, and the proof is the SHADER-UNIFORM value, same as 6b)
+TR0="$(rtf rtf_relief)"
+if tap_ctl fc-rel-minus 1.0; then
+  TR1="$(rtf rtf_relief)"
+  assert "TOUCH relief- moves the shader uniform (-25)" "($TR0) - ($TR1) == 25" "rtf_relief $TR0 -> $TR1"
+  if tap_ctl fc-rel-plus 1.0; then
+    TR2="$(rtf rtf_relief)"
+    assert "TOUCH relief+ moves it back (+25)" "($TR2) - ($TR1) == 25" "rtf_relief $TR1 -> $TR2"
+  fi
+fi
 # 9d. look by dragging the camera area (floating right stick anchors at touch-down,
 # deflection sustained while held: a slow swipe = a held deflection); fly via the
 # virtual left stick the same way

@@ -189,6 +189,69 @@ struct GfxGlobalSettings {
   u32 mb_ctr_checker_draws = 0;          // draws submitted with the checker override
   u32 mb_ctr_gizmo_draws = 0;            // gizmo render passes submitted
   u32 mb_ctr_gizmo_faces = 0;            // faces in the current gizmo build (set, not summed)
+  // V2.1 PER-FRAME proof counters (owner: every toggle dead — a monotonic counter proves a code
+  // path ran, but only a per-frame count can show the target's submitted draws hitting ZERO while
+  // hidden). The render thread accumulates into mb_cur_* during the frame; both frame loops
+  // (OpenGLRenderer::render and AndroidOpenGLRenderer::render — the SEPARATE android file, easy to
+  // miss) call mb_flip_frame_counters() once per frame to publish mb_cur_* into mb_frame_* and
+  // zero the accumulators. GOAL reads the published side via pc-mb-rt-geti 4..7; benign torn
+  // reads are fine for evidence counters.
+  u32 mb_cur_target_draws = 0;   // draws SUBMITTED this frame for the targeted mesh (hide -> 0)
+  u32 mb_cur_checker_binds = 0;  // checker-texture binds on the target's draws this frame
+  u32 mb_cur_gizmo_prims = 0;    // gizmo line primitives actually drawn this frame
+  u32 mb_cur_relief_x100 = 0;    // relief factor the shader uniforms were pushed with (x100)
+  u32 mb_frame_target_draws = 0;
+  u32 mb_frame_checker_binds = 0;
+  u32 mb_frame_gizmo_prims = 0;
+  u32 mb_frame_relief_x100 = 0;
+  // V2.1 TRIANGLE-ACCURATE reticle pick (owner: a single R1 must target the mesh the reticle
+  // SEES). AABB slab distances cannot rank a dense stack — index AABBs are much fatter than
+  // their geometry, so the nearest box is usually not the visible surface (run 5 needed up to
+  // 13 R1 presses; v2.1's first surface-first resort still only hit 1/5 first-press). The fix
+  // ranks candidates by REAL ray->triangle distance, measured by the renderers themselves:
+  //   1. the GOAL thread (kmachine pc_mb_pick) publishes the ray + the AABB-hit candidates here
+  //      and bumps mb_pick_serial (release);
+  //   2. TFragment::render / Tie3::render call mb_pick::raytest_if_pending each frame — every
+  //      renderer tests the candidates of ITS system+level against its real triangles
+  //      (MeshBrowserGizmos.cpp walk, Moller-Trumbore) and min()s into mb_pick_ttri;
+  //   3. mb_flip_frame_counters() publishes completion ONE FULL FRAME LATER (the arm step below:
+  //      a request landing mid-frame would otherwise miss the buckets already drawn);
+  //   4. GOAL polls pc-mb-pick-ready?, kmachine re-sorts its hit list by triangle distance
+  //      (candidates with no triangle hit fall back behind, in AABB order).
+  // Candidate arrays are written by the GOAL thread BEFORE the serial release-store and read by
+  // the render thread AFTER an acquire-load — no torn candidate reads. mb_pick_ttri goes the
+  // other way, sequenced by the mb_pick_done release-store at flip.
+  static constexpr int MB_PICK_MAX = 16;
+  std::atomic<u32> mb_pick_serial{0};  // GOAL bumps after publishing a request
+  std::atomic<u32> mb_pick_done{0};    // render thread: serial whose ttri results are complete
+  u32 mb_pick_arm = 0;                 // render-thread-only: serial armed last flip
+  int mb_pick_n = 0;
+  float mb_pick_ray_o[3] = {0.f, 0.f, 0.f};  // GOAL units
+  float mb_pick_ray_d[3] = {0.f, 0.f, 1.f};  // unit dir
+  int mb_pick_sys[MB_PICK_MAX] = {0};
+  u32 mb_pick_texid[MB_PICK_MAX] = {0};
+  char mb_pick_lvl[MB_PICK_MAX][16] = {{0}};
+  float mb_pick_bbox[MB_PICK_MAX][6] = {{0.f}};  // GOAL units, per-candidate face filter
+  float mb_pick_ttri[MB_PICK_MAX] = {0.f};       // out: nearest tri hit, GOAL units; <0 = none
+  void mb_flip_frame_counters() {
+    mb_frame_target_draws = mb_cur_target_draws;
+    mb_frame_checker_binds = mb_cur_checker_binds;
+    mb_frame_gizmo_prims = mb_cur_gizmo_prims;
+    mb_frame_relief_x100 = mb_cur_relief_x100;
+    mb_cur_target_draws = 0;
+    mb_cur_checker_binds = 0;
+    mb_cur_gizmo_prims = 0;
+    mb_cur_relief_x100 = 0;
+    // triangle-pick completion: arm on the first flip after a request, publish on the second —
+    // by then every renderer had one WHOLE frame to contribute (see the channel doc above).
+    const u32 s = mb_pick_serial.load(std::memory_order_relaxed);
+    if (mb_pick_arm != 0 && mb_pick_arm == s) {
+      mb_pick_done.store(s, std::memory_order_release);
+      mb_pick_arm = 0;
+    } else if (s != mb_pick_done.load(std::memory_order_relaxed)) {
+      mb_pick_arm = s;
+    }
+  }
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
   // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
   float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};

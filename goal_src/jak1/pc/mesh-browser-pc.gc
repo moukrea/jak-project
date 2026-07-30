@@ -92,7 +92,8 @@
 ;; below is the primary UI now; the list survives as the secondary way in). These bridges live in
 ;; game/kernel/jak1/kmachine.cpp next to the pc-mb-touch channel.
 (define-extern pc-mb-pick-levels! (function string string none)) ;; up to 2 ACTIVE level index-names to pick against ("" = unused slot)
-(define-extern pc-mb-pick! (function vector vector int))   ;; camera ray origin+dir (GOAL units); slab-tests every index row AABB, near->far, cap 16; returns count
+(define-extern pc-mb-pick! (function vector vector int))   ;; camera ray origin+dir (GOAL units); slab-tests every index row AABB, near->far, cap 16; returns count. ALSO arms the render-thread TRIANGLE ray-test (v2.1)
+(define-extern pc-mb-pick-ready? (function int))           ;; v2.1: 1 once the renderers' triangle results are folded in (list re-sorted by REAL surface distance); 0 while pending
 (define-extern pc-mb-pick-geti (function int int int))     ;; (idx field): 0=row 1=slot 2=t_cm
 (define-extern pc-mb-target-set! (function int int none))  ;; (row slot) -> renderer target key; ALSO clears hide/checker/gizmo flags C++-side
 (define-extern pc-mb-target-clear! (function none))
@@ -230,6 +231,11 @@
    (fc-target      int32)          ;; targeted index row, -1 = none
    (fc-target-slot int32)          ;; which pick-level slot the target's row belongs to (0/1)
    (fc-pick-n      int32)          ;; candidate count from the last reticle pick
+   ;; V2.1 async pick: R1/R2 fires the request; the render thread ray-tests the candidates'
+   ;; REAL triangles over the next frame; the poll below completes the pick once ready (or
+   ;; after a timeout, falling back to the AABB order — nothing rendering = nothing pickable).
+   (fc-pick-wait   int32)          ;; 0 = idle; >0 = frames spent waiting on pc-mb-pick-ready?
+   (fc-pick-dir    int32)          ;; +1 (R1) / -1 (R2) of the pending request
    (fc-hide?       symbol)         ;; GOAL-side mirror of the C++ hide flag (C++ is authoritative)
    (fc-checker?    symbol)         ;; ditto, per-target checker tessellation
    (fc-gizmos?     symbol)         ;; ditto, normal gizmos
@@ -1118,16 +1124,29 @@
     (else "?")))
 
 (defun mesh-browser-bump-disp ((obj mesh-browser) (dir int))
-  ;; drive the pc-settings field the menu owns; update-to-os pushes it to C++ every frame.
+  ;; drive the pc-settings field the menu owns; update-to-os re-asserts it to C++.
   ;; WRAPS (0 1 2 0 ...) like every other carousel: with a clamp, a single DISP+ tap while the
   ;; device already sits at TESSELLATION is a silent no-op — the finger does something only
   ;; sometimes, which reads as "touch is broken" precisely when the owner has been testing tess.
   (set! (-> *pc-settings* pbr-displacement) (mod (+ (-> *pc-settings* pbr-displacement) dir 3) 3))
+  ;; V2.1: ALSO push DIRECTLY, event-driven. Measured on the Redmi at the title freecam: the
+  ;; update-to-os per-frame push chain lagged ~6-7 s behind the variable (the renderer-side
+  ;; rtf_relief counter exposed it), so a button press looked dead for seconds — the owner's
+  ;; "activer/desactiver le relief fonctionne pas" in one measurement. Direct push = same-frame
+  ;; effect, same pattern as pc-mb-hide-set! (which is instant); update-to-os keeps re-asserting
+  ;; the same value afterwards, so there is no fight.
+  (#when FLAG_PBR
+    (pc-set-pbr-displacement! (the int (-> *pc-settings* pbr-displacement))))
   (none))
 
 (defun mesh-browser-bump-relief ((obj mesh-browser) (d float))
   (set! (-> *pc-settings* pbr-texture-relief)
         (fmax 0.0 (fmin 3.0 (+ (-> *pc-settings* pbr-texture-relief) d))))
+  ;; [mb-diag] names WHEN the bump executed (GK_STDOUT), paired with the C++ [mb-diag] push line.
+  (format 0 "[mb-diag-goal] bump-relief -> ~f~%" (-> *pc-settings* pbr-texture-relief))
+  ;; V2.1 direct push — see mesh-browser-bump-disp for the measured 6-7 s update-to-os lag.
+  (#when FLAG_PBR
+    (pc-set-pbr-texture-relief! (the int (* 100.0 (-> *pc-settings* pbr-texture-relief)))))
   (none))
 
 (defun mesh-browser-set-tod ((obj mesh-browser) (h float))
@@ -1373,43 +1392,62 @@
   (none))
 
 (defun mesh-browser-freecam-pick ((obj mesh-browser) (dir int))
-  "Reticle pick: ray from the freecam through the screen centre, against every mesh AABB of the
-   active levels. dir +1 (R1) / -1 (R2) CYCLES through the overlapping candidates near->far — nested
-   meshes are the norm in this geometry (a lamp inside a wall inside a hillside), so repeated R1
-   presses must walk INTO the stack, not re-pick the front one forever."
-  (mesh-browser-freecam-refresh-levels obj)
-  (let ((org (new 'stack-no-clear 'vector))
-        (dirv (new 'stack-no-clear 'vector)))
-    (set! (-> org quad) (-> obj fc-pos quad))
-    (mesh-browser-freecam-fwd obj dirv)
-    (let ((n (pc-mb-pick! org dirv)))
-      (set! (-> obj fc-pick-n) n)
-      (when (> n 0)
-        ;; where does the CURRENT target sit in the candidate list?
-        (let ((p -1))
-          (dotimes (i n)
-            (when (and (= (pc-mb-pick-geti i MB_PK_ROW) (-> obj fc-target))
-                       (= (pc-mb-pick-geti i MB_PK_SLOT) (-> obj fc-target-slot)))
-              (set! p i)))
-          (let* ((idx (if (>= p 0)
-                          (mod (+ p dir n) n)           ;; cycle from the current target
-                          (if (>= dir 0) 0 (+ n -1))))  ;; fresh pick: R1 = nearest, R2 = farthest
-                 (row (pc-mb-pick-geti idx MB_PK_ROW))
-                 (slot (pc-mb-pick-geti idx MB_PK_SLOT)))
-            (pc-mb-target-set! row slot)
-            (set! (-> obj fc-target) row)
-            (set! (-> obj fc-target-slot) slot)
-            ;; pc-mb-target-set! cleared the C++ hide/checker/gizmo flags; mirror that here or the
-            ;; HUD would claim a state the renderer no longer has.
-            (set! (-> obj fc-hide?) #f)
-            (set! (-> obj fc-checker?) #f)
-            (set! (-> obj fc-gizmos?) #f)
-            ;; load that level's index so the name/grade getters and the state dump read THIS row,
-            ;; and write the owner's copy-out file (he has no adb).
-            (set! (-> obj cur-row) row)
-            (pc-mesh-index-load! (if (zero? slot) (-> obj fc-lvl0) (-> obj fc-lvl1)))
-            (pc-mesh-index-level! (-> obj level-buf))
-            (pc-mesh-browser-export! row))))))
+  "V2.1 reticle pick, phase 1 (REQUEST): ray from the freecam through the screen centre, slab-tested
+   against every mesh AABB of the active levels — AND armed for the render thread's TRIANGLE
+   ray-test (v2.1: AABB order alone ranked camera-enclosing junk first; a single R1 then targeted a
+   mesh the owner could not see, which is why every toggle read as dead). The pick COMPLETES in
+   mesh-browser-freecam-pick-poll a frame or two later, once the renderers have measured the real
+   surface distances. dir +1 (R1) / -1 (R2) still CYCLES through overlapping candidates."
+  (when (zero? (-> obj fc-pick-wait))  ;; a pick is a click, not a queue — ignore while pending
+    (mesh-browser-freecam-refresh-levels obj)
+    (let ((org (new 'stack-no-clear 'vector))
+          (dirv (new 'stack-no-clear 'vector)))
+      (set! (-> org quad) (-> obj fc-pos quad))
+      (mesh-browser-freecam-fwd obj dirv)
+      (set! (-> obj fc-pick-n) (pc-mb-pick! org dirv)))
+    (set! (-> obj fc-pick-dir) dir)
+    (set! (-> obj fc-pick-wait) 1))
+  (none))
+
+(defun mesh-browser-freecam-pick-poll ((obj mesh-browser))
+  "V2.1 reticle pick, phase 2 (COMPLETE): once the render thread's triangle results are in
+   (pc-mb-pick-ready? re-sorts the candidates by REAL surface distance), select and target. The
+   40-frame timeout completes with the AABB order — a level whose renderer never ran has nothing
+   on screen to pick anyway."
+  (when (> (-> obj fc-pick-wait) 0)
+    (+! (-> obj fc-pick-wait) 1)
+    (when (or (= 1 (pc-mb-pick-ready?)) (> (-> obj fc-pick-wait) 40))
+      ;; [mb-diag] completion trace: waited N frames; 41+ = TIMEOUT fallback (AABB order).
+      (format 0 "[mb-diag-goal] pick complete wait=~D~%" (-> obj fc-pick-wait))
+      (set! (-> obj fc-pick-wait) 0)
+      (let ((n (-> obj fc-pick-n))
+            (dir (-> obj fc-pick-dir)))
+        (when (> n 0)
+          ;; where does the CURRENT target sit in the candidate list?
+          (let ((p -1))
+            (dotimes (i n)
+              (when (and (= (pc-mb-pick-geti i MB_PK_ROW) (-> obj fc-target))
+                         (= (pc-mb-pick-geti i MB_PK_SLOT) (-> obj fc-target-slot)))
+                (set! p i)))
+            (let* ((idx (if (>= p 0)
+                            (mod (+ p dir n) n)           ;; cycle from the current target
+                            (if (>= dir 0) 0 (+ n -1))))  ;; fresh pick: R1 = nearest SEEN surface
+                   (row (pc-mb-pick-geti idx MB_PK_ROW))
+                   (slot (pc-mb-pick-geti idx MB_PK_SLOT)))
+              (pc-mb-target-set! row slot)
+              (set! (-> obj fc-target) row)
+              (set! (-> obj fc-target-slot) slot)
+              ;; pc-mb-target-set! cleared the C++ hide/checker/gizmo flags; mirror that here or the
+              ;; HUD would claim a state the renderer no longer has.
+              (set! (-> obj fc-hide?) #f)
+              (set! (-> obj fc-checker?) #f)
+              (set! (-> obj fc-gizmos?) #f)
+              ;; load that level's index so the name/grade getters and the state dump read THIS row,
+              ;; and write the owner's copy-out file (he has no adb).
+              (set! (-> obj cur-row) row)
+              (pc-mesh-index-load! (if (zero? slot) (-> obj fc-lvl0) (-> obj fc-lvl1)))
+              (pc-mesh-index-level! (-> obj level-buf))
+              (pc-mesh-browser-export! row)))))))
   (none))
 
 (defun mesh-browser-enter-freecam ((obj mesh-browser))
@@ -1465,6 +1503,7 @@
     (set! (-> obj fc-checker?) #f)
     (set! (-> obj fc-gizmos?) #f)
     (set! (-> obj fc-pick-n) 0)
+    (set! (-> obj fc-pick-wait) 0)  ;; V2.1: drop any pick left in flight across an entry
     (set! (-> obj mode) (mesh-browser-mode freecam))
     (set! (-> obj drag) (mesh-browser-drag none))
     ;; MODE 2: the overlay KEEPS the virtual pad live (the freecam is stick-flown; raw-touch mode 1
@@ -1473,13 +1512,23 @@
   (none))
 
 (defun mesh-browser-input-freecam ((obj mesh-browser))
-  ;; LOOK: right stick, same *cpad-list* reads + 24.0 deadzone as OBSERVE. Stick up = look up
-  ;; (righty decreases upward, so subtracting ry raises the pitch — same polarity OBSERVE uses for
-  ;; its elevation).
+  ;; AXIS CONVENTION (v2.1, owner: strafe + pan were mirrored). Ground truth from the engine, not
+  ;; guessed: forward-down->inv-matrix (engine/geometry/geometry.gc:255) builds row0 = fwd x down,
+  ;; and the projection's X scale is NEGATIVE (math-camera.gc:142 — the mirror cheat flips it to
+  ;; mirror the whole game), so row0 = (cos yaw, 0, -(sin yaw)) points to the screen's LEFT.
+  ;; SCREEN-RIGHT for fwd=(sin yaw, 0, cos yaw) is (-(cos yaw), 0, sin yaw), and turning the VIEW
+  ;; right means yaw DECREASES — exactly the sign cam-eye uses (cam-states.gc:287-319: stick right
+  ;; -> negative angle about local-down). V1 treated row0 as screen-right; that single handedness
+  ;; error mirrored both the strafe and the pan.
+  ;; LOOK: right stick, same *cpad-list* reads + 24.0 deadzone as OBSERVE. Stick right = view turns
+  ;; right (yaw decreases, cam-eye polarity). Stick up = look up (righty decreases upward, so
+  ;; subtracting ry raises the pitch — cam-eye's own vertical polarity, verified, left untouched).
+  ;; V2.1: complete any in-flight reticle pick (triangle results land a frame or two after R1).
+  (mesh-browser-freecam-pick-poll obj)
   (let ((rx (- (the float (-> *cpad-list* cpads 0 rightx)) 128.0))
         (ry (- (the float (-> *cpad-list* cpads 0 righty)) 128.0)))
     (when (> (fabs rx) 24.0)
-      (set! (-> obj fc-yaw) (mb-wrap (+ (-> obj fc-yaw) (* rx 0.0009)) 6.2832)))
+      (set! (-> obj fc-yaw) (mb-wrap (- (-> obj fc-yaw) (* rx 0.0009)) 6.2832)))
     (when (> (fabs ry) 24.0)
       (set! (-> obj fc-pitch)
             (fmax MB_EL_MIN (fmin MB_EL_MAX (- (-> obj fc-pitch) (* ry 0.0007)))))))
@@ -1494,8 +1543,10 @@
             (lxn (if (> (fabs lx) 24.0) (/ lx 128.0) 0.0))
             (lyn (if (> (fabs ly) 24.0) (/ ly 128.0) 0.0)))
         (mesh-browser-freecam-fwd obj fwd)
+        ;; rgt = SCREEN-RIGHT = -(fwd x down) — see the axis-convention note at the top of this
+        ;; defun. V1 used row0 itself here, which strafed left under a right push.
         (let ((yw (mb-pi-wrap (-> obj fc-yaw))))
-          (set-vector! rgt (cos-rad yw) 0.0 (- (sin-rad yw)) 0.0))
+          (set-vector! rgt (- (cos-rad yw)) 0.0 (sin-rad yw) 0.0))
         ;; lefty decreases when pushed forward, so forward = -lyn along the look vector.
         (vector+float*! (-> obj fc-pos) (-> obj fc-pos) fwd (* (- lyn) spd))
         (vector+float*! (-> obj fc-pos) (-> obj fc-pos) rgt (* lxn spd)))))
@@ -1569,12 +1620,16 @@
        (mesh-browser-text buf
          (string-format "GRADE A_SIGN=~S  (files/mesh_select.txt)" (mb-grade-string obj raw))
          0.02 0.145 (font-color yellow))
+       ;; DRAWS = the target's SUBMITTED draw count last frame, straight from the renderer
+       ;; (pc-mb-rt-geti 4). The owner-facing dead-target tell: DRAWS 0 while un-hidden means
+       ;; "this row has nothing on screen here — cycle R1", the silent state v2.1 was reopened on.
        (mesh-browser-text buf
-         (string-format "HIDE=~D CHECKER=~D GIZMOS=~D  PICKS=~D"
+         (string-format "HIDE=~D CHECKER=~D GIZMOS=~D  PICKS=~D  DRAWS ~D"
                         (if (-> obj fc-hide?) 1 0)
                         (if (-> obj fc-checker?) 1 0)
                         (if (-> obj fc-gizmos?) 1 0)
-                        (-> obj fc-pick-n))
+                        (-> obj fc-pick-n)
+                        (pc-mb-rt-geti 4))
          0.02 0.195 (font-color cyan))))
     (else
      (mesh-browser-text buf "NO TARGET - AIM THE RETICLE, PRESS R1" 0.02 0.095 (font-color yellow))))
@@ -1701,6 +1756,14 @@
     (pc-mb-state-line! (-> obj line-buf))
     (format (clear (-> obj line-buf)) "rt_hidden=~D rt_checker=~D rt_gizmo_draws=~D rt_gizmo_faces=~D"
             (pc-mb-rt-geti 0) (pc-mb-rt-geti 1) (pc-mb-rt-geti 2) (pc-mb-rt-geti 3))
+    (pc-mb-state-line! (-> obj line-buf))
+    ;; V2.1 PER-FRAME renderer counters (owner: every toggle "dead" while variables flipped — only
+    ;; a per-frame count shows the target's submitted draws hitting ZERO when hidden). rtf_target =
+    ;; draws SUBMITTED for the target last frame (hide: N>0 -> 0 -> N>0), rtf_checker = checker
+    ;; binds last frame, rtf_gizmo = gizmo line prims last frame, rtf_relief = the relief factor
+    ;; (x100) the PBR shader uniforms were actually pushed with last frame.
+    (format (clear (-> obj line-buf)) "rtf_target=~D rtf_checker=~D rtf_gizmo=~D rtf_relief=~D"
+            (pc-mb-rt-geti 4) (pc-mb-rt-geti 5) (pc-mb-rt-geti 6) (pc-mb-rt-geti 7))
     (pc-mb-state-line! (-> obj line-buf)))
   ;; player_moved = how far the PLAYER has travelled since the browser opened. The owner's whole
   ;; correction is that this must stay 0: the camera goes to the mesh, Jak does not.
