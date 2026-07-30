@@ -235,3 +235,38 @@ Le bouton overlay d'entrée/sortie freecam se place DANS LE GROUPE START/SELECT 
 existant — même zone, même taille et style que ces deux boutons, pour qu'il soit trouvable sans
 réfléchir. Pas ailleurs à l'écran, pas flottant. Étiquette courte et lisible (ex. "CAM"). Documente
 son emplacement dans menu-tree.md (section overlay) comme toute entrée d'UI.
+
+================================================================================
+V2.1 — RETOUR OWNER (2026-07-30) : AXES INVERSÉS, ET TOUS LES TOGGLES CIBLE SONT MORTS
+================================================================================
+Owner, mot pour mot : "Left/Right Up/Down/Pan left/Pan Right sont inversés. Cacher/Montrer le mesh
+ne fonctionne pas, passer en mode damier tesselation fonctionne pas, montrer les Gizmos fonctionne
+pas, activer/désactiver le relief fonctionne pas."
+
+LEÇON SUR LA PREUVE, à graver : le round précédent a "prouvé" les toggles par le basculement de
+VARIABLES (on->off->on dans un fichier d'état). L'owner constate zéro effet à l'écran. Une variable
+qui bascule pendant que le renderer ne la lit jamais est exactement ce que ce genre de preuve ne
+peut pas distinguer. LA PREUVE DOIT DÉSORMAIS ÊTRE CÔTÉ RENDU : des compteurs écrits PAR LE
+RENDERER lui-même, par frame, montrant ce qui a réellement été soumis au GPU.
+
+1. AXES : left/right, up/down ET pan gauche/droite sont inversés. Convention attendue, standard FPS:
+   stick gauche vers la droite = la caméra TRANSLATE vers sa droite ; stick droit vers la droite =
+   la caméra TOURNE vers la droite ; haut = avant/monter selon l'axe. Corrige les signes, documente
+   la convention dans le rapport, et prouve-la : injection d'un input +X -> le yaw/position delta
+   loggé a le signe attendu, pour CHACUN des 4 axes incriminés.
+2. TOGGLES — preuve au niveau du RENDERER, pour chacun :
+   * CACHER (L1/L2) : compteur de draws réellement soumis pour le mesh ciblé, écrit par le code de
+     rendu par frame -> N>0 visible, 0 caché, N>0 re-montré. Si le compteur ne tombe pas à zéro,
+     c'est que le flag n'est pas consommé sur le chemin de draw — trouve OÙ le draw est émis et
+     applique le flag LÀ.
+   * DAMIER (Square) : compteur de binds du matériau damier sur les draws du mesh ciblé -> 0 puis
+     >0 puis 0. Le damier PbrTestPattern existe et marche globalement ; ici c'est le ciblage
+     PAR MESH qui doit être branché sur le chemin de bind.
+   * GIZMOS (Circle) : compteur de primitives gizmo réellement dessinées -> 0 / >0 / 0. Si le
+     renderer de gizmos n'existe pas encore côté draw, C'EST le travail : des flèches de normales
+     visibles, pas un flag.
+   * RELIEF : idem — la valeur effectivement poussée à l'uniform du shader pour les draws du mesh,
+     pas la variable de menu.
+3. Ces compteurs de rendu rejoignent le fichier de diag existant (files/…), lus après injection —
+   la boucle injection -> compteur RENDU est la nouvelle définition de "ça marche".
+4. Le vol lui-même fonctionne (l'owner a volé) : ne touche pas à ce qui marche, corrige les signes.

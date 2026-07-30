@@ -78,4 +78,12 @@ grep -qiE 'cpad_inject|input (tap|swipe)' "$R" || fail "V2: no injected-input ev
 grep -qiE '(hide|cacher)[^.]{0,80}(on *-> *off *-> *on|aller.*retour|both directions|draw (count|counter))' "$R" || fail "V2: hide toggle not proven BOTH ways via a runtime counter (it is currently dead)"
 grep -qiE '(checker|damier)[^.]{0,80}(on *-> *off *-> *on|aller.*retour|both directions|flag)' "$R" || fail "V2: checker toggle not proven BOTH ways via runtime state (it is currently dead)"
 grep -qiE 'pick[^.]{0,60}(5|five|cinq)|5/5[^.]{0,30}(pick|target|cible)' "$R" || fail "V2: reticle pick accuracy not proven on >=5 distinct meshes"
+# ---- V2.1: axes + renderer-level proof (owner: every target toggle is dead, axes inverted) ----
+grep -qiE '(axis|axes)[^.]{0,60}(sign|convention|invers)' "$R" || fail "V2.1: axis convention fix not documented"
+grep -qiE '4 axes|four axes|chacun des 4' "$R" || fail "V2.1: all 4 inverted axes not individually proven (input sign -> delta sign)"
+grep -qiE 'renderer[^.]{0,60}(counter|compteur)|draw (count|counter)[^.]{0,40}(frame|per-frame)' "$R" || fail "V2.1: no renderer-side per-frame counters (variable flips proved nothing)"
+grep -qiE '(hide|cach)[^.]{0,100}(0|zero)[^.]{0,60}(draw|soumis)' "$R" || fail "V2.1: hide not proven by the mesh draw count hitting ZERO"
+grep -qiE '(checker|damier)[^.]{0,80}bind' "$R" || fail "V2.1: checker not proven by material BINDS on the targeted mesh"
+grep -qiE 'gizmo[^.]{0,80}(primitive|draw|vertices|dessine)' "$R" || fail "V2.1: gizmos not proven by primitives actually drawn"
+grep -qiE 'relief[^.]{0,80}(uniform|shader)' "$R" || fail "V2.1: relief not proven at the shader uniform actually pushed"
 echo "[Gmbrowse PASS]"
