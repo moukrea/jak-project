@@ -405,3 +405,18 @@ PREUVE (device, entrée injectée ou seed du JSONL) : injecter/charger > 1000
 marques sur un niveau => compteur renderer de marques dessinées == marques
 actives (>1000), marquage n°1001+ accepté, dé-marquage d'une marque au-delà de
 l'ancien seuil fonctionne, reprise après relance OK avec le même compte.
+
+## V2.6-bis — DEMANDE OWNER (2026-07-31 ~10:30) : MODE ISOLATION
+
+« Quand on a sélectionné un mesh, on devrait avoir la possibilité de cacher les
+autres — plus pratique pour marquer tous les polygones sans jouer avec la caméra
+au travers des autres mesh. »
+EXIGENCE : un toggle ISOLATION sur le mesh ciblé : ON => seul le mesh ciblé est
+rendu (tous les autres mesh du monde cachés, ciel/UI intacts) ; OFF => tout
+revient. Contrôle au choix (bouton pad + bouton overlay tactile), documenté à
+l'écran comme les autres. Compatible avec le marquage/wireframe/gizmos (on isole
+PUIS on marque tranquillement). Changer de cible en mode isolation re-isole la
+nouvelle cible. Fermer le browser rétablit tout.
+PREUVE (renderer, entrée injectée) : compteur de draws des mesh NON-cibles == 0
+quand isolation ON (cible seule > 0), retour aux valeurs nominales quand OFF,
+aller-retour ON→OFF→ON prouvé + via bouton tactile.

@@ -114,4 +114,8 @@ grep -qiE '(unmark|de-marqu|démarqu)[^.]{0,80}(reload|recharg)[^.]{0,120}(jsonl
 grep -qiE '(MB_MARKS_MAX|256)[^.]{0,80}(remov|supprim|vector|dynamic|dynamique)' "$R" || { echo "[Gmbrowse FAIL] V2.6: fixed 256-mark store not replaced by a dynamic container"; exit 1; }
 grep -qiE '(1000|1 000|thousand|mille)[^.]{0,100}(marks|marques)[^.]{0,80}(counter|compteur|==|active)' "$R" || { echo "[Gmbrowse FAIL] V2.6: no >1000-marks device proof (drawn counter == active marks)"; exit 1; }
 grep -qiE '(batch|vbo|single draw|un seul draw)[^.]{0,80}(marks|marqu)' "$R" || { echo "[Gmbrowse FAIL] V2.6: marked-triangle rendering not batched (perf with thousands of marks)"; exit 1; }
+# ---- V2.6-bis: isolation mode (hide all non-target meshes) ----
+grep -qiE '(isolat|solo)[^.]{0,100}(non-?target|autres mesh|other mesh)[^.]{0,80}(0|zero)[^.]{0,40}draw' "$R" || { echo "[Gmbrowse FAIL] V2.6b: isolation not proven by non-target draws == 0 while target draws > 0"; exit 1; }
+grep -qiE '(isolat|solo)[^.]{0,80}(on *-> *off *-> *on|aller.*retour|both)' "$R" || { echo "[Gmbrowse FAIL] V2.6b: isolation toggle not proven both ways"; exit 1; }
+grep -qiE '(isolat|solo)[^.]{0,100}(touch|tactile|overlay)' "$R" || { echo "[Gmbrowse FAIL] V2.6b: isolation not driven via the TOUCH overlay button too"; exit 1; }
 echo "[Gmbrowse PASS]"
