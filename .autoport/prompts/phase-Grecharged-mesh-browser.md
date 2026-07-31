@@ -420,3 +420,26 @@ nouvelle cible. Fermer le browser rétablit tout.
 PREUVE (renderer, entrée injectée) : compteur de draws des mesh NON-cibles == 0
 quand isolation ON (cible seule > 0), retour aux valeurs nominales quand OFF,
 aller-retour ON→OFF→ON prouvé + via bouton tactile.
+
+## GARDE-FOU DEVICE (supervisor 2026-07-31) — LE REDMI EST BRANCHÉ ET À TOI
+
+NE suppose JAMAIS que « le device est avec l'owner / indisponible ». Le Redmi
+`eae4df44` est connecté en USB à cette machine et t'est accessible en direct :
+`ANDROID_SERIAL=eae4df44 adb ...` marche depuis le worker. Les rounds v2.4/v2.5/v2.6
+ont tourné leurs preuves sur le build DESKTOP en croyant le contraire — c'est une
+hypothèse périmée, corrige-la.
+
+Règle de preuve par nature du changement :
+- **Logique C++ backend-agnostique** (suppression d'un cap, std::vector, calcul de
+  pick ray-triangle côté CPU, parsing JSONL) : une preuve desktop/x86 via le listener
+  goalc est ACCEPTABLE — le code est identique sur les deux backends.
+- **Tout ce qui touche le rendu GLES, le tactile, l'overlay, les compteurs
+  renderer par-frame** (draws de la cible, binds damier, primitives gizmo, uniforme
+  relief, occlusion-query, VBO batché des marques, mode isolation) : preuve
+  OBLIGATOIRE sur le Redmi via cpad_inject + compteurs render-thread, exactement
+  comme la batterie 87/87 de v2.2/v2.3. Ne te rabats PAS sur desktop pour ceux-là.
+
+Si l'adb ne répond pas : `adb kill-server && adb start-server`, re-teste ; ne
+conclus « device absent » que si `adb devices` reste vide ET `lsusb` ne montre pas
+le téléphone — dans ce cas SIGNALE-LE dans le rapport, ne bascule pas silencieusement
+sur desktop.
