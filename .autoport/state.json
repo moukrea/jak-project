@@ -218,7 +218,7 @@
     "Grecharged-pbr-realtime-fusion": 1,
     "Grecharged-mesh-consolidation": 2,
     "Grecharged-loader-packfix": 2,
-    "Grecharged-mesh-browser": 9
+    "Grecharged-mesh-browser": 10
   },
   "fingerprints": {
     "00-harness": [
@@ -473,7 +473,8 @@
       "9105ec8060ab",
       "9105ec8060ab",
       "da1016e207b0",
-      "57a336a88650"
+      "57a336a88650",
+      "595322e77c85"
     ]
   },
   "stuck_reasons": {
@@ -897,7 +898,7 @@
     "Grecharged-pbr-realtime-fusion": 1784783149.315742,
     "Grecharged-mesh-consolidation": 1784930060.5837617
   },
-  "last_update": "2026-07-31T06:46:06.209603+00:00",
+  "last_update": "2026-07-31T06:49:12.897736+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
