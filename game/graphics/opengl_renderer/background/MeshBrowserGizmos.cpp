@@ -110,6 +110,13 @@ struct GizmoVertex {
 // Arrow sizing, GOAL units: shaft (green) = 80% of the arrow, tip (red) = the last 20%, so the
 // direction is readable at a glance — an inward normal visibly dives into the surface.
 constexpr float kArrowLen = 1638.f;
+// V2.4 depth-tested pass: overlay geometry that lies EXACTLY on a surface (wireframe edges,
+// hover/mark triangles, arrow bases) would z-fight its own mesh once the pass depth-tests
+// against the scene. Lift it off the surface along the face normal by ~8 mm (GOAL units,
+// 4096 = 1 m) — enough to clear depth-buffer precision at browse distances, far too small to
+// misplace anything visually. The lift is DRAW-ONLY: Face records, hover identity and the JSONL
+// export keep the exact vertices.
+constexpr float kLift = 32.f;
 // Per-face AABB filter slack around mb_target_bbox, GOAL units.
 constexpr float kBboxExpand = 2048.f;
 // Build cap — a jak1 tex-id population can span a whole level's worth of faces.
@@ -183,7 +190,10 @@ bool try_emit_face(const std::vector<tfrag3::PreloadedVertex>& verts,
     return false;  // zero-area face — no direction to show
   }
   n /= nl;
-  const math::Vector3f base = (p0 + p1 + p2) / 3.f;
+  // V2.4: lift draw-only geometry off the surface along n so the depth-tested pass does not
+  // z-fight the mesh the overlay annotates (see kLift).
+  const math::Vector3f lift = n * kLift;
+  const math::Vector3f base = (p0 + p1 + p2) / 3.f + lift;
   const math::Vector3f knee = base + n * (0.8f * kArrowLen);
   const math::Vector3f tip = base + n * kArrowLen;
   const math::Vector4f green(0.f, 1.f, 0.f, 1.f);
@@ -192,14 +202,14 @@ bool try_emit_face(const std::vector<tfrag3::PreloadedVertex>& verts,
   g_cache.verts.push_back({knee, green});
   g_cache.verts.push_back({knee, red});
   g_cache.verts.push_back({tip, red});
-  // V2.3 wireframe: the face's 3 edges in cyan (p0->p1, p1->p2, p2->p0).
+  // V2.3 wireframe: the face's 3 edges in cyan (p0->p1, p1->p2, p2->p0), lifted like the arrows.
   const math::Vector4f cyan(0.f, 1.f, 1.f, 1.f);
-  g_cache.edge_verts.push_back({p0, cyan});
-  g_cache.edge_verts.push_back({p1, cyan});
-  g_cache.edge_verts.push_back({p1, cyan});
-  g_cache.edge_verts.push_back({p2, cyan});
-  g_cache.edge_verts.push_back({p2, cyan});
-  g_cache.edge_verts.push_back({p0, cyan});
+  g_cache.edge_verts.push_back({p0 + lift, cyan});
+  g_cache.edge_verts.push_back({p1 + lift, cyan});
+  g_cache.edge_verts.push_back({p1 + lift, cyan});
+  g_cache.edge_verts.push_back({p2 + lift, cyan});
+  g_cache.edge_verts.push_back({p2 + lift, cyan});
+  g_cache.edge_verts.push_back({p0 + lift, cyan});
   Cache::Face f;
   const math::Vector3f* ps[3] = {&p0, &p1, &p2};
   for (int i = 0; i < 3; i++) {
@@ -365,13 +375,30 @@ void render(const tfrag3::Level* lev,
               render_state->camera_hvdf_off[3]);
   glUniform1f(glGetUniformLocation(sh.id(), "fog_constant"), render_state->camera_fog.x());
 
-  // depth test DISABLED for the pass (arrows must read through the surface they pierce); no depth
-  // writes, no blending (opaque 2px lines). Save + restore what we touch.
+  // V2.4 (owner: "affichés comme s'il n'y avait pas de mesh devant... on sait pas de quel côté
+  // ils sortent"): the pass now DEPTH-TESTS against the scene depth buffer — the one already
+  // bound to the current draw FBO, filled by every bucket drawn before this point (the gizmo
+  // pass runs at the END of the target system's own renderer, so the target level's background
+  // geometry is always in it). Two sub-passes:
+  //   1. VISIBLE (GL_GEQUAL — this project's Q pipeline writes PS2-style REVERSED Z, larger =
+  //      closer; every scene renderer tests GEQUAL: TFragment.cpp:1685, Merc2.cpp:1697,
+  //      Shadow2.cpp:469. LEQUAL here would invert the whole feature — measured on desktop:
+  //      wall-occluded fireplace arrows "passed" 8016 samples under LEQUAL): full-brightness
+  //      arrows/wireframe — the unoccluded parts;
+  //   2. OCCLUDED (GL_LESS, the exact complement + constant-alpha 25% blend): the same VBOs
+  //      redrawn dim, so the part of a normal that dives BEHIND geometry stays readable but is
+  //      unmistakably "behind".
+  // Depth writes stay off (the overlay must never occlude the scene or itself). Sub-pass 1 runs
+  // inside a GL_SAMPLES_PASSED occlusion query (GLES: ANY_SAMPLES -> 0/1) whose result feeds
+  // mb_cur_gizmo_occ — the code-level proof that occlusion actually culls samples.
   const GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
   const GLboolean prev_blend = glIsEnabled(GL_BLEND);
   GLboolean prev_depth_mask = GL_TRUE;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
-  glDisable(GL_DEPTH_TEST);
+  GLint prev_depth_func = GL_LESS;
+  glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_GEQUAL);
   glDisable(GL_BLEND);
   glDepthMask(GL_FALSE);
   // glLineWidth(2) guarded for GLES limits (ALIASED_LINE_WIDTH_RANGE may cap at 1 on some
@@ -404,6 +431,36 @@ void render(const tfrag3::Level* lev,
     band_ok = glGetError() == GL_NO_ERROR;
   }
 
+  // V2.4 occlusion query around the VISIBLE sub-pass: ping-pong two query objects so the result
+  // read never blocks the pipeline (we read the OTHER query's result, one gizmo pass late —
+  // plenty for evidence counters).
+#ifdef GL_SAMPLES_PASSED
+  constexpr GLenum kOccTarget = GL_SAMPLES_PASSED;  // desktop GL: a real sample count
+#else
+  constexpr GLenum kOccTarget = GL_ANY_SAMPLES_PASSED;  // GLES: boolean 0/1
+#endif
+  static GLuint s_occ_q[2] = {0, 0};
+  static bool s_occ_inflight[2] = {false, false};
+  static int s_occ_i = 0;
+  if (s_occ_q[0] == 0) {
+    glGenQueries(2, s_occ_q);
+  }
+  const int prev_q = 1 - s_occ_i;
+  if (s_occ_inflight[prev_q]) {
+    GLuint avail = 0;
+    glGetQueryObjectuiv(s_occ_q[prev_q], GL_QUERY_RESULT_AVAILABLE, &avail);
+    if (avail) {
+      GLuint samples = 0;
+      glGetQueryObjectuiv(s_occ_q[prev_q], GL_QUERY_RESULT, &samples);
+      s.mb_cur_gizmo_occ += samples;
+      s_occ_inflight[prev_q] = false;
+    }
+  }
+  const bool occ_this_pass = !s_occ_inflight[s_occ_i];
+  if (occ_this_pass) {
+    glBeginQuery(kOccTarget, s_occ_q[s_occ_i]);
+  }
+
   glBindVertexArray(g_cache.vao);
   glDrawArrays(GL_LINES, 0, (GLsizei)g_cache.verts.size());
   prof.add_draw_call();
@@ -412,7 +469,7 @@ void render(const tfrag3::Level* lev,
   // V2.1 per-frame proof: line primitives ACTUALLY submitted this frame (2 verts per line).
   s.mb_cur_gizmo_prims += (u32)(g_cache.verts.size() / 2);
 
-  // V2.3 WIREFRAME overlay: the kept faces' edges in cyan, same program/uniforms/depth-off state
+  // V2.3 WIREFRAME overlay: the kept faces' edges in cyan, same program/uniforms/depth state
   // as the arrows.
   if (!g_cache.edge_verts.empty()) {
     glBindVertexArray(g_cache.edge_vao);
@@ -421,6 +478,34 @@ void render(const tfrag3::Level* lev,
     glBindVertexArray(0);
     s.mb_cur_wire += (u32)(g_cache.edge_verts.size() / 2);
   }
+
+  if (occ_this_pass) {
+    glEndQuery(kOccTarget);
+    s_occ_inflight[s_occ_i] = true;
+    s_occ_i = 1 - s_occ_i;
+  }
+
+  // V2.4 OCCLUDED sub-pass: redraw arrows + wireframe where they FAILED the scene depth test
+  // (GL_LESS on the same lifted vertices selects exactly the fragments pass 1 rejected under
+  // the reversed-Z GEQUAL convention), dimmed to 25% by constant-alpha blending — the vertex
+  // colors and VBOs are untouched, only the blend stage attenuates. Not counted in the
+  // prim/wire counters (same primitives, second style pass).
+  glDepthFunc(GL_LESS);
+  glEnable(GL_BLEND);
+  glBlendColor(0.f, 0.f, 0.f, 0.25f);
+  glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+  glBindVertexArray(g_cache.vao);
+  glDrawArrays(GL_LINES, 0, (GLsizei)g_cache.verts.size());
+  prof.add_draw_call();
+  glBindVertexArray(0);
+  if (!g_cache.edge_verts.empty()) {
+    glBindVertexArray(g_cache.edge_vao);
+    glDrawArrays(GL_LINES, 0, (GLsizei)g_cache.edge_verts.size());
+    prof.add_draw_call();
+    glBindVertexArray(0);
+  }
+  glDisable(GL_BLEND);
+  glDepthFunc(GL_GEQUAL);  // back to the visible convention for the hover highlight below
 
   // V2.3 HOVER highlight: ray-test the GOAL-pushed hover ray against the cached faces (the SAME
   // ray_tri the pick sweep uses); the nearest face is drawn as a filled yellow triangle so the
@@ -442,9 +527,12 @@ void render(const tfrag3::Level* lev,
     if (best) {
       ensure_vao(&g_cache.hover_vao, &g_cache.hover_vbo);
       const math::Vector4f yellow(1.f, 1.f, 0.f, 1.f);
+      const math::Vector3f hlift =
+          math::Vector3f(best->nrm[0], best->nrm[1], best->nrm[2]) * kLift;
       GizmoVertex tri_verts[3];
       for (int i = 0; i < 3; i++) {
-        tri_verts[i] = {math::Vector3f(best->v[i][0], best->v[i][1], best->v[i][2]), yellow};
+        tri_verts[i] = {math::Vector3f(best->v[i][0], best->v[i][1], best->v[i][2]) + hlift,
+                        yellow};
       }
       glBindBuffer(GL_ARRAY_BUFFER, g_cache.hover_vbo);
       glBufferData(GL_ARRAY_BUFFER, sizeof(tri_verts), tri_verts, GL_DYNAMIC_DRAW);
@@ -578,11 +666,108 @@ void render(const tfrag3::Level* lev,
 
   // restore
   glLineWidth(1.f);
-  if (prev_depth_test) {
-    glEnable(GL_DEPTH_TEST);
+  glDepthFunc((GLenum)prev_depth_func);
+  if (!prev_depth_test) {
+    glDisable(GL_DEPTH_TEST);
   }
   if (prev_blend) {
     glEnable(GL_BLEND);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  glDepthMask(prev_depth_mask);
+}
+
+void render_marks(SharedRenderState* render_state, ScopedProfilerNode& prof) {
+  auto& s = Gfx::g_global_settings;
+  if (s.mb_marks_active.load(std::memory_order_relaxed) <= 0) {
+    return;
+  }
+  // once per frame: several bucket renderers (tfrag l0/l1, tie l0/l1, trans variants) reach this
+  // call site; the first one after a counter flip draws ALL active marks (they carry world-space
+  // vertices, so no level data is needed), the rest no-op. This is what makes the V2.4 proof
+  // exact: mb_frame_marked == active marks, drawn exactly once each.
+  static u32 s_last_frame = 0xffffffffu;
+  if (s_last_frame == s.mb_frame_no) {
+    return;
+  }
+  s_last_frame = s.mb_frame_no;
+
+  static std::vector<GizmoVertex> verts;
+  verts.clear();
+  // MARKED style: filled semi-transparent ORANGE-RED — deliberately distinct from the yellow
+  // hover fill and from the green/red arrows.
+  const math::Vector4f orange(1.f, 0.30f, 0.f, 0.55f);
+  int n = 0;
+  {
+    std::lock_guard<std::mutex> lk(s.mb_marks_mu);
+    n = s.mb_marks_n;
+    for (int i = 0; i < n; i++) {
+      const auto& m = s.mb_marks_store[i];
+      const math::Vector3f lift = math::Vector3f(m.nrm[0], m.nrm[1], m.nrm[2]) * kLift;
+      for (int k = 0; k < 3; k++) {
+        verts.push_back({math::Vector3f(m.v[k][0], m.v[k][1], m.v[k][2]) + lift, orange});
+      }
+    }
+  }
+  if (verts.empty()) {
+    return;
+  }
+
+  // same program + camera trio + negated-matrix convention as the gizmo pass above.
+  const auto& sh = render_state->shaders[ShaderId::TFRAG3_NO_TEX];
+  sh.activate();
+  math::Vector4f neg_cam[4];
+  for (int i = 0; i < 4; i++) {
+    neg_cam[i] = render_state->camera_matrix[i] * -1.f;
+  }
+  glUniformMatrix4fv(glGetUniformLocation(sh.id(), "camera"), 1, GL_FALSE, neg_cam[0].data());
+  glUniform4f(glGetUniformLocation(sh.id(), "hvdf_offset"), render_state->camera_hvdf_off[0],
+              render_state->camera_hvdf_off[1], render_state->camera_hvdf_off[2],
+              render_state->camera_hvdf_off[3]);
+  glUniform1f(glGetUniformLocation(sh.id(), "fog_constant"), render_state->camera_fog.x());
+
+  const GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  const GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  GLboolean prev_depth_mask = GL_TRUE;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  GLint prev_depth_func = GL_LESS;
+  glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_GEQUAL);  // reversed-Z scene convention (see the gizmo pass above)
+  glDepthMask(GL_FALSE);
+  glEnable(GL_BLEND);
+
+  static GLuint s_vao = 0, s_vbo = 0;
+  ensure_vao(&s_vao, &s_vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+  glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GizmoVertex), verts.data(),
+               GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(s_vao);
+  // VISIBLE sub-pass: vertex alpha (0.55) over the scene.
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glDrawArrays(GL_TRIANGLES, 0, (GLsizei)verts.size());
+  prof.add_draw_call();
+  // OCCLUDED sub-pass: like the gizmos, a mark behind geometry stays readable but clearly
+  // attenuated (constant-alpha 20%).
+  glDepthFunc(GL_LESS);
+  glBlendColor(0.f, 0.f, 0.f, 0.20f);
+  glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+  glDrawArrays(GL_TRIANGLES, 0, (GLsizei)verts.size());
+  prof.add_draw_call();
+  glBindVertexArray(0);
+
+  // per-frame proof counter: marked triangles DRAWN == active marks.
+  s.mb_cur_marked += (u32)n;
+
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glDepthFunc((GLenum)prev_depth_func);
+  if (!prev_depth_test) {
+    glDisable(GL_DEPTH_TEST);
+  }
+  if (!prev_blend) {
+    glDisable(GL_BLEND);
   }
   glDepthMask(prev_depth_mask);
 }

@@ -24,6 +24,13 @@ void render(const tfrag3::Level* lev,
             SharedRenderState* render_state,
             ScopedProfilerNode& prof);
 
+// V2.4 persistent MARKED-polygon highlight (owner: "on devrait voir ce qui est marqué d'une
+// façon différente"): draws every active mark of the store (gfx.h mb_marks_store, world-space
+// vertices — no level data needed) as a filled orange triangle, once per frame no matter how
+// many bucket renderers call in (mb_frame_no stamp). Independent of the Circle gizmo toggle;
+// call sites gate on (mb_pbr_override && mb_marks_active > 0). GL thread only.
+void render_marks(SharedRenderState* render_state, ScopedProfilerNode& prof);
+
 }  // namespace mb_gizmos
 
 namespace mb_pick {

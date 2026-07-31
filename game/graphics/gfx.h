@@ -9,6 +9,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <vector>
 #include <chrono>
 #include <cstdlib>
@@ -271,6 +272,34 @@ struct GfxGlobalSettings {
   float mb_hover_v[3][3] = {{0.f}};  // GOAL units, emitted winding
   float mb_hover_nrm[3] = {0.f, 0.f, 0.f};
   u32 mb_cur_wire = 0, mb_frame_wire = 0;  // wireframe edges drawn (flip like the other mb_cur_*)
+  // V2.4 (owner: "on devrait voir ce qui est marqué" / gizmos drawn as if nothing stood in
+  // front): the ACTIVE-mark store. The GOAL thread (kmachine pc_mb_mark_poly) toggles entries
+  // under mb_marks_mu — marking an already-marked triangle now UNMARKS it and removes its JSONL
+  // line — and the render thread copies the store under the same lock once per frame to draw a
+  // persistent filled highlight per mark (mb_gizmos::render_marks), visually distinct from the
+  // yellow hover. mb_marks_active mirrors the count lock-free so the per-frame call sites in
+  // TFragment/Tie3 stay one relaxed load when the browser is closed or nothing is marked.
+  static constexpr int MB_MARKS_MAX = 256;
+  struct MbMark {
+    char lvl[16] = {0};
+    int sys = 0;
+    int row = -1;
+    int tri = -1;                      // triangle ordinal (same enumeration as hover/pick)
+    float v[3][3] = {{0.f}};           // GOAL units, emitted winding
+    float nrm[3] = {0.f, 0.f, 0.f};    // unit face normal (lift direction for the highlight)
+  };
+  std::mutex mb_marks_mu;
+  MbMark mb_marks_store[MB_MARKS_MAX];
+  int mb_marks_n = 0;
+  std::atomic<int> mb_marks_active{0};  // == mb_marks_n, published for lock-free gating
+  // Frame stamp for once-per-frame passes (several bucket renderers can call render_marks in one
+  // frame; the first call after a flip draws, the rest no-op). Render thread only.
+  u32 mb_frame_no = 0;
+  u32 mb_cur_marked = 0, mb_frame_marked = 0;  // marked triangles DRAWN last frame (== active
+                                               // marks while the browser is open — the V2.4 proof)
+  u32 mb_cur_gizmo_occ = 0, mb_frame_gizmo_occ = 0;  // samples that PASSED the depth test in the
+                                                     // gizmo pass (GL_SAMPLES_PASSED occlusion
+                                                     // query; GLES fallback ANY_SAMPLES -> 0/1)
   void mb_flip_frame_counters() {
     mb_frame_target_draws = mb_cur_target_draws;
     mb_frame_checker_binds = mb_cur_checker_binds;
@@ -280,6 +309,11 @@ struct GfxGlobalSettings {
     mb_frame_target_tess = mb_cur_target_tess;
     mb_frame_gizmo_px = mb_cur_gizmo_px;
     mb_frame_wire = mb_cur_wire;
+    mb_frame_marked = mb_cur_marked;
+    mb_frame_gizmo_occ = mb_cur_gizmo_occ;
+    mb_cur_marked = 0;
+    mb_cur_gizmo_occ = 0;
+    mb_frame_no++;
     mb_cur_target_draws = 0;
     mb_cur_checker_binds = 0;
     mb_cur_gizmo_prims = 0;

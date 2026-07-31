@@ -1985,9 +1985,45 @@ void pc_mb_hover_ray(u32 origin, u32 dir, u32 on) {
   gs.mb_hover_on.store(1, std::memory_order_release);
 }
 
-// Mark the hovered polygon: append one JSON line (identity + geometry + the row's offline
-// verdict) to mesh_marks.jsonl for offline orientation forensics. Returns the mark count so far,
-// or (u64)-1 when there is no stable hover hit / no target.
+// V2.4 helper: remove the JSONL line(s) of an unmarked polygon. The key (level, row, tri)
+// uniquely identifies a mark's line — the writer below emits these three fields verbatim, so a
+// substring match on all three is exact (no JSON parser needed for a file we ourselves write).
+// Rewrites the file without the matching line(s); on any IO error the file is left as it was.
+void mb_marks_remove_line(const std::string& lvl, int row, int tri) {
+  const std::string k_lvl = fmt::format("\"level\":\"{}\"", lvl);
+  const std::string k_row = fmt::format("\"row\":{},", row);
+  const std::string k_tri = fmt::format("\"tri\":{},", tri);
+  try {
+    std::ifstream in(mb_marks_path());
+    if (!in) {
+      return;
+    }
+    std::vector<std::string> keep;
+    std::string line;
+    while (std::getline(in, line)) {
+      if (line.find(k_lvl) != std::string::npos && line.find(k_row) != std::string::npos &&
+          line.find(k_tri) != std::string::npos) {
+        continue;  // the unmarked polygon's record
+      }
+      if (!line.empty()) {
+        keep.push_back(line);
+      }
+    }
+    in.close();
+    std::ofstream out(mb_marks_path(), std::ios::trunc);
+    for (const auto& l : keep) {
+      out << l << "\n";
+    }
+  } catch (...) {
+    // best-effort; never let a disk error touch the game loop
+  }
+}
+
+// Mark the hovered polygon — or, V2.4, UNMARK it when it is already marked (the owner re-aims
+// and presses the same button; the mark leaves the persistent-highlight store AND its line
+// leaves mesh_marks.jsonl). Marks are appended as one JSON line (identity + geometry + the
+// row's offline verdict) for offline orientation forensics. Returns the ACTIVE mark count after
+// the toggle, or (u64)-1 when there is no stable hover hit / no target.
 u64 pc_mb_mark_poly() {
   MbHoverSnap hs;
   if (!mb_hover_read(&hs) || hs.tri < 0 || g_mb_target_row < 0 || g_mb_target_slot < 0 ||
@@ -1999,6 +2035,34 @@ u64 pc_mb_mark_poly() {
     return (u64)-1;
   }
   const auto& r = (*rows)[(size_t)g_mb_target_row];
+  auto& gs = Gfx::g_global_settings;
+  const std::string& lvl = g_mb_pick_lvl[g_mb_target_slot];
+
+  // UNMARK: same (level, row, tri) already in the store -> remove it there and in the JSONL.
+  {
+    bool removed = false;
+    {
+      std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
+      for (int i = 0; i < gs.mb_marks_n; i++) {
+        auto& m = gs.mb_marks_store[i];
+        if (m.tri == hs.tri && m.row == g_mb_target_row &&
+            std::strncmp(lvl.c_str(), m.lvl, sizeof(m.lvl)) == 0) {
+          std::memmove(&gs.mb_marks_store[i], &gs.mb_marks_store[i + 1],
+                       (size_t)(gs.mb_marks_n - 1 - i) * sizeof(m));
+          gs.mb_marks_n--;
+          gs.mb_marks_active.store(gs.mb_marks_n, std::memory_order_relaxed);
+          removed = true;
+          break;
+        }
+      }
+    }
+    if (removed) {
+      mb_marks_remove_line(lvl, g_mb_target_row, hs.tri);  // file IO outside the lock
+      g_mb_marks = (u64)gs.mb_marks_active.load(std::memory_order_relaxed);
+      return g_mb_marks;
+    }
+  }
+
   try {
     std::ofstream f(mb_marks_path(), std::ios::app);
     f << fmt::format(
@@ -2020,7 +2084,23 @@ u64 pc_mb_mark_poly() {
   } catch (...) {
     // best-effort; never let a disk error touch the game loop
   }
-  g_mb_marks++;
+  // V2.4: enter the persistent-highlight store (the renderer draws every entry each frame).
+  {
+    std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
+    if (gs.mb_marks_n < GfxGlobalSettings::MB_MARKS_MAX) {
+      auto& m = gs.mb_marks_store[gs.mb_marks_n];
+      std::memset(m.lvl, 0, sizeof(m.lvl));
+      std::strncpy(m.lvl, lvl.c_str(), sizeof(m.lvl) - 1);
+      m.sys = r.system;
+      m.row = g_mb_target_row;
+      m.tri = hs.tri;
+      std::memcpy(m.v, hs.v, sizeof(m.v));
+      std::memcpy(m.nrm, hs.nrm, sizeof(m.nrm));
+      gs.mb_marks_n++;
+      gs.mb_marks_active.store(gs.mb_marks_n, std::memory_order_relaxed);
+    }
+  }
+  g_mb_marks = (u64)gs.mb_marks_active.load(std::memory_order_relaxed);
   return g_mb_marks;
 }
 
@@ -2061,7 +2141,7 @@ u64 pc_mb_rt_geti(s32 field) {
     case 10:
       return gs.mb_frame_gizmo_px;
     // V2.3: 11 wireframe edges drawn last frame, 12 hovered triangle ordinal (-1 = none),
-    // 13 polygon marks appended this session.
+    // 13 ACTIVE polygon marks (V2.4: unmarking decrements — no longer a session total).
     case 11:
       return gs.mb_frame_wire;
     case 12: {
@@ -2070,6 +2150,13 @@ u64 pc_mb_rt_geti(s32 field) {
     }
     case 13:
       return (s64)g_mb_marks;
+    // V2.4: 14 marked triangles DRAWN last frame by the persistent-highlight pass (the proof is
+    // 14 == 13 while the browser is open), 15 depth-test samples that PASSED in the gizmo
+    // visible sub-pass last frame (GL_SAMPLES_PASSED occlusion query; falls with occlusion).
+    case 14:
+      return gs.mb_frame_marked;
+    case 15:
+      return gs.mb_frame_gizmo_occ;
     default:
       return 0;
   }

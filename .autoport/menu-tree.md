@@ -288,6 +288,17 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > le dump d'état porte `rtf_wire=/hover=/marks=` et un MARK déclenche un dump (marks= dans la signature,
 > hover= volontairement exclu — il changerait chaque frame).
 >
+> **V2.4 (2026-07-31, Grecharged-mesh-browser — marques persistantes + gizmos avec profondeur)** :
+> aucun nouveau bouton ; deux comportements changent. **L3/MARK est désormais une BASCULE** : marquer un
+> polygone déjà marqué le DÉ-MARQUE (le surlignage disparaît ET sa ligne est retirée de
+> `mesh_marks.jsonl`) ; `marks=` du HUD/dump devient le compte ACTIF (il décroît au dé-marquage). Chaque
+> polygone marqué reste **surligné en ORANGE semi-transparent EN PERMANENCE** tant que la session browser
+> est ouverte — indépendant du toggle ○ gizmos, et distinct du surlignage JAUNE « sous le réticule »
+> (compteur runtime `rtf_marked=` par frame == marques actives). Le **pass gizmos/wireframe teste
+> maintenant la PROFONDEUR contre la scène** : partie visible pleine, partie occluse atténuée à 25 %
+> (on voit ENFIN de quel côté d'une surface une normale sort) ; requête d'occlusion `rtf_occ=` dans le
+> dump (échantillons passés — chute quand la cible passe derrière une géométrie).
+>
 > **RÉOUVERTURE (2026-07-29, owner : « C'est impossible à parcourir via le tactile (le mesh browser) »)**.
 > La ligne de menu elle-même est INCHANGÉE (même id, même position, même comportement) ; c'est le CONTENU de
 > l'overlay qui a été refait, parce que le navigateur était inutilisable au doigt sur le seul appareil dont

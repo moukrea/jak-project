@@ -202,6 +202,13 @@ void TFragment::render(DmaFollower& dma,
                           t3prof);
       }
     }
+    // Grecharged-mesh-browser V2.4: persistent MARKED-polygon highlight — independent of the
+    // gizmo toggle, once per frame (the module stamps the frame), only while the browser
+    // session is open and marks exist. Two relaxed loads when idle.
+    if (Gfx::g_global_settings.mb_pbr_override &&
+        Gfx::g_global_settings.mb_marks_active.load(std::memory_order_relaxed) > 0) {
+      mb_gizmos::render_marks(render_state, t3prof);
+    }
     // Grecharged-mesh-browser V2.1: pending reticle pick — contribute this level's TFRAG
     // triangle hits (two relaxed loads when idle; see gfx.h mb_pick_*).
     if (mb_pick::pending()) {

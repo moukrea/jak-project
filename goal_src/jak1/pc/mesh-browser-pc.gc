@@ -100,10 +100,10 @@
 (define-extern pc-mb-hide-set! (function int none))
 (define-extern pc-mb-checker-set! (function int none))
 (define-extern pc-mb-gizmos-set! (function int none))
-(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic); v2.3: 11 wireframe edges last frame 12 hovered tri ordinal (-1 none) 13 total marks
+(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic); v2.3: 11 wireframe edges last frame 12 hovered tri ordinal (-1 none) 13 ACTIVE marks; v2.4: 14 marked tris drawn last frame (== 13 while browser open) 15 gizmo occlusion-query samples passed last frame
 ;; V2.3 reticle forensics (registered next to the pc-mb-* channel in game/kernel/jak1/kmachine.cpp)
 (define-extern pc-mb-hover-ray! (function vector vector int none)) ;; publish the reticle ray (origin GOAL units, dir any length) to the render thread; on=1 highlights the hovered polygon while gizmos are up, on=0 disarms
-(define-extern pc-mb-mark-poly! (function int))            ;; append the hovered polygon as JSONL to mesh_marks.jsonl (external asset root); returns new mark count, -1 = no hovered polygon / no target
+(define-extern pc-mb-mark-poly! (function int))            ;; TOGGLE the hovered polygon's mark: append it as JSONL to mesh_marks.jsonl (external asset root) + persistent orange highlight, or (v2.4) UNMARK an already-marked polygon (highlight AND its JSONL line removed); returns the ACTIVE mark count, -1 = no hovered polygon / no target
 
 ;; pc-mb-pick-geti field ids
 (defconstant MB_PK_ROW 0)
@@ -1590,8 +1590,9 @@
        (set! (-> obj fc-gizmos?) (not (-> obj fc-gizmos?)))
        (pc-mb-gizmos-set! (if (-> obj fc-gizmos?) 1 0))))
     ((cpad-pressed? 0 l3)
-     ;; V2.3 MARK: flag the polygon under the reticle (gizmos must be up — the hover highlight is
-     ;; what the owner is aiming with). -1 = nothing hovered: keep the previous count.
+     ;; V2.3 MARK / V2.4 UNMARK toggle: flag the polygon under the reticle, or unflag it when it
+     ;; is already marked (gizmos must be up — the hover highlight is what the owner is aiming
+     ;; with). -1 = nothing hovered: keep the previous count.
      (when (and (>= (-> obj fc-target) 0) (-> obj fc-gizmos?))
        (let ((n (pc-mb-mark-poly!)))
          (when (>= n 0)
@@ -1823,9 +1824,14 @@
     (pc-mb-state-line! (-> obj line-buf))
     ;; V2.3 renderer counters: rtf_wire = WIREFRAME edges drawn last frame (>0 while gizmos on,
     ;; 0 off), hover = hovered triangle ordinal under the reticle (-1 none), marks = the GOAL-side
-    ;; session total of mesh_marks.jsonl records (the C++ total is pc-mb-rt-geti 13).
-    (format (clear (-> obj line-buf)) "rtf_wire=~D hover=~D marks=~D"
-            (pc-mb-rt-geti 11) (pc-mb-rt-geti 12) (-> obj fc-marks))
+    ;; ACTIVE mark count (V2.4: unmark decrements; the C++ count is pc-mb-rt-geti 13).
+    ;; V2.4 renderer counters: rtf_marked = marked triangles DRAWN by the persistent-highlight
+    ;; pass last frame (proof: == marks while the browser is open), rtf_occ = depth-test samples
+    ;; PASSED in the gizmo visible sub-pass last frame (occlusion query: falls when the target
+    ;; is behind interposed geometry).
+    (format (clear (-> obj line-buf)) "rtf_wire=~D hover=~D marks=~D rtf_marked=~D rtf_occ=~D"
+            (pc-mb-rt-geti 11) (pc-mb-rt-geti 12) (-> obj fc-marks)
+            (pc-mb-rt-geti 14) (pc-mb-rt-geti 15))
     (pc-mb-state-line! (-> obj line-buf))
     ;; V2.2 pick-candidate export, for the harness occlusion/frustum cases: the surviving
     ;; candidates of the LAST pick, in rank order, as row:slot:surface-distance-cm. An occluded
