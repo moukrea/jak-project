@@ -341,3 +341,30 @@ d'identifier le fix exact et de chercher une PATTERN généralisable aux autres
 modèles. Prévoir aussi un feedback à l'écran (compte de marques + chemin du
 fichier). Preuve : marquer ≥3 polygones via entrée injectée, adb pull du fichier,
 champs tous présents et positions cohérentes avec le mesh visé.
+
+## V2.4 — RETOURS OWNER (2026-07-31 ~03:15)
+
+### 1. LES POLYGONES MARQUÉS DOIVENT SE VOIR
+« On devrait voir ce qui est marqué d'une façon différente que ce qui ne l'est
+pas. » Un triangle marqué « mal orienté » doit rester surligné en PERMANENCE avec
+un style clairement distinct (couleur dédiée, ex. rouge/orange plein semi-
+transparent) tant que la session browser est ouverte — distinct du surlignage
+« triangle sous le réticule ». Dé-marquer (re-appui sur le même triangle) doit
+retirer le surlignage ET la ligne du JSONL (ou l'annuler par un tombstone).
+Preuve renderer : compteur de triangles-marqués dessinés == nombre de marques
+actives (croît à chaque marque, décroît au dé-marquage).
+
+### 2. GIZMOS : PROFONDEUR RESPECTÉE
+« Ils sont affichés comme s'il n'y avait pas de texture ou de mesh devant... on
+sait pas vraiment s'ils sont du bon côté ou du mauvais. » Le pass gizmos/wireframe
+ignore le depth buffer de la scène : une normale derrière un mur s'affiche
+par-dessus, impossible de savoir de quel côté elle sort.
+EXIGENCE : le pass gizmos teste la profondeur contre le depth buffer de la scène.
+La partie VISIBLE d'un gizmo se dessine pleine ; la partie OCCLUDÉE soit disparaît,
+soit (mieux) se dessine dans un style nettement atténué (pointillé/alpha faible)
+pour garder la lisibilité 3D. Choix d'implémentation libre, mais le côté de la
+surface d'où sort la normale doit devenir évident à l'œil.
+Preuve code : état GL du pass documenté (depth test ON, func, source du depth
+buffer) + preuve d'occlusion par compteur/query (ex. samples-passed du pass gizmo
+nettement inférieur quand le mesh ciblé est derrière une géométrie interposée vs
+dégagé, même vantage) — jamais de verdict visuel d'agent.

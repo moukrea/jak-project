@@ -99,4 +99,11 @@ grep -qiE 'wireframe[^.]{0,80}(edge|arete|arête|line)[^.]{0,60}(count|compteur|
 grep -qiE '(polygon|polygone|triangle)[^.]{0,60}(mark|marqu)' "$R" || { echo "[Gmbrowse FAIL] V2.3: individual polygon targeting+marking not evidenced"; exit 1; }
 grep -qiE '(export|jsonl)[^.]{0,120}(storage/emulated|external|externe)' "$R" || { echo "[Gmbrowse FAIL] V2.3: marked-polygon export file not on EXTERNAL storage asset root"; exit 1; }
 grep -qiE 'adb pull[^.]{0,100}(jsonl|export|marked|marqu)' "$R" || { echo "[Gmbrowse FAIL] V2.3: export file not pulled+validated (3+ records, all fields)"; exit 1; }
+# ---- V2.4: marked-polygon persistent highlight + depth-aware gizmos (owner test feedback) ----
+grep -qiE '(marked|marqu)[^.]{0,80}(highlight|surlign|couleur|color)[^.]{0,60}(persist|permanent)' "$R" || { echo "[Gmbrowse FAIL] V2.4: marked polygons not persistently highlighted distinct from unmarked"; exit 1; }
+grep -qiE '(unmark|de-marqu|démarqu|tombstone)[^.]{0,80}(jsonl|remove|retir|annul)' "$R" || { echo "[Gmbrowse FAIL] V2.4: unmarking does not remove/cancel the JSONL record"; exit 1; }
+grep -qiE '(marked|marqu)[^.]{0,80}(counter|compteur)[^.]{0,80}(match|==|egal|égal)' "$R" || { echo "[Gmbrowse FAIL] V2.4: marked-triangle draw counter not proven == active marks"; exit 1; }
+grep -qiE 'gizmo[^.]{0,100}depth[^.]{0,60}(test|buffer)[^.]{0,40}(on|enabled|activ)' "$R" || { echo "[Gmbrowse FAIL] V2.4: gizmo pass depth test vs scene depth buffer not documented ON"; exit 1; }
+grep -qiE '(occlud|occlusion)[^.]{0,100}(samples|query|compteur|counter|fragment)' "$R" || { echo "[Gmbrowse FAIL] V2.4: no occlusion-query proof (gizmo behind wall draws fewer samples than clear view)"; exit 1; }
+grep -qiE '(occlud|derriere|derrière|behind)[^.]{0,80}(dim|attenu|atténu|pointill|dashed|alpha|hidden|masqu)' "$R" || { echo "[Gmbrowse FAIL] V2.4: occluded gizmo parts not hidden or clearly attenuated"; exit 1; }
 echo "[Gmbrowse PASS]"
