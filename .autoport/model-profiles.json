@@ -1,6 +1,6 @@
 {
   "_doc": "Single source of truth for model + effort across the autoport harness. Flip 'active' to switch the WHOLE setup (orchestrator manager, subagent workers, supervisor) in one place, then run .autoport/apply-model-profile.sh and relaunch. orchestrator.py and supervisor.sh read this live; apply-model-profile.sh regenerates the .claude/agents/*.md effort frontmatter (the only spot that can't read JSON at runtime).",
-  "active": "fable5-high",
+  "active": "opus48-xhigh",
   "profiles": {
     "opus-xhigh": {
       "_note": "2026-06-13: claude-fable-5[1m] returns 404 for this account; opus-4-8 everywhere, effort pushed to xhigh to recover quality. The fable-tiered medium tiers all map up to xhigh per owner.",
@@ -37,7 +37,7 @@
       }
     },
     "fable5-high": {
-      "_note": "2026-07-29: owner \u2014 'Opus 5 is lame as heck and dumber than Opus 4.8'; fable-5[1m] access is back (owner just logged in with it). WHOLE framework on fable-5[1m], usual fable config: manager high, workers tiered (researcher high, implementer/tester medium) per the original 2026-06-12 design.",
+      "_note": "2026-07-29: owner — 'Opus 5 is lame as heck and dumber than Opus 4.8'; fable-5[1m] access is back (owner just logged in with it). WHOLE framework on fable-5[1m], usual fable config: manager high, workers tiered (researcher high, implementer/tester medium) per the original 2026-06-12 design.",
       "manager_model": "claude-fable-5[1m]",
       "manager_effort": "high",
       "worker_model": "claude-fable-5[1m]",
@@ -45,6 +45,17 @@
         "autoport-researcher": "high",
         "autoport-implementer": "medium",
         "autoport-tester": "medium"
+      }
+    },
+    "opus48-xhigh": {
+      "_note": "2026-07-31: owner — 'Opus 5 is lame as heck and dumber than Opus 4.8'; flip WHOLE framework to claude-opus-4-8[1m] (NOT opus-5) with the usual Opus effort config = xhigh across the board (manager + all workers). fable-5 access flaky. The pre-existing opus-*/opus5-* profiles were mislabelled opus-4-8 in their notes but actually pinned claude-opus-5[1m]; this profile carries the CORRECT model string.",
+      "manager_model": "claude-opus-4-8[1m]",
+      "manager_effort": "xhigh",
+      "worker_model": "claude-opus-4-8[1m]",
+      "worker_efforts": {
+        "autoport-researcher": "xhigh",
+        "autoport-implementer": "xhigh",
+        "autoport-tester": "xhigh"
       }
     }
   }

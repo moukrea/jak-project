@@ -3,15 +3,15 @@
 OpenGOAL → Android autonomous orchestrator.
 
 Hardcoded design choices (per project owner's preference):
-- TIERED model/effort architecture (owner 2026-06-12, /efficient-fable pattern):
-  * MANAGER (the phase session): claude-fable-5[1m] @ effort=high — plans,
+- Model/effort come from the ACTIVE profile in model-profiles.json (single
+  source of truth). Current (owner 2026-07-31): profile "opus48-xhigh" —
+  * MANAGER (the phase session): claude-opus-4-8[1m] @ effort=xhigh — plans,
     judges, synthesizes, reviews. Per-phase override via `effort:` in
-    milestones.yaml (xhigh for diagnostic-heavy phases).
-  * WORKERS (subagents via CLAUDE_CODE_SUBAGENT_MODEL): claude-opus-5[1m]
-    for research / code generation / testing. Per-agent effort in
-    .claude/agents/*.md frontmatter (researcher=high, implementer=medium,
-    tester=medium). Rationale: FrontierCode accuracy-vs-cost — fable-high
-    dominates opus-max for judgment; implementation doesn't need max.
+    milestones.yaml.
+  * WORKERS (subagents via CLAUDE_CODE_SUBAGENT_MODEL): claude-opus-4-8[1m]
+    @ xhigh for research / code generation / testing. Per-agent effort in
+    .claude/agents/*.md frontmatter. Owner: "Opus 5 is lame as heck and
+    dumber than Opus 4.8" — explicitly opus-4-8, NOT opus-5.
   (History: opus-4-8 max for every phase 2026-06-10→12; opus-4-7 through A32.)
 - Thinking: 'ultrathink' keyword in prompts keeps planning depth at the
   manager level despite effort=high.
@@ -67,8 +67,8 @@ _PROFILE_PATH = Path(__file__).resolve().parent / "model-profiles.json"
 
 def _load_model_profile() -> dict:
     fallback = {
-        "manager_model": "claude-fable-5[1m]", "manager_effort": "high",
-        "worker_model": "claude-fable-5[1m]",
+        "manager_model": "claude-opus-4-8[1m]", "manager_effort": "xhigh",
+        "worker_model": "claude-opus-4-8[1m]",
         "worker_efforts": {"autoport-researcher": "xhigh",
                            "autoport-implementer": "xhigh",
                            "autoport-tester": "xhigh"},
