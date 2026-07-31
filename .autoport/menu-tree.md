@@ -307,6 +307,26 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > si le fichier dépasse la capacité du store (256), les plus anciennes lignes gagnent et le HUD l'affiche :
 > `MARKS <n> (+<k> FILE, STORE FULL) -> mesh_marks.jsonl`.
 >
+> **V2.6 (2026-07-31, Grecharged-mesh-browser — plus de plafond de 256 marques)** : aucun nouveau bouton ;
+> l'owner butait sur `MB_MARKS_MAX = 256` (refus silencieux). Le store de marques est désormais un conteneur
+> DYNAMIQUE (`std::vector<MbMark> mb_marks_store` dans gfx.h, sous `mb_marks_mu` ; `MB_MARKS_MAX` supprimé —
+> seule une borne de sûreté à 1 000 000 subsiste, annoncée à l'écran par la ligne `STORE FULL` du HUD, jamais
+> un échec muet). Le rendu des triangles marqués est BATCHÉ dans un seul VBO reconstruit uniquement au
+> changement de génération du store (`mb_marks_gen`) — donc utilisable avec des milliers de marques. Le
+> rechargement JSONL (V2.5) et le renderer lisent la même source dynamique ; le compteur `pc-mb-rt-geti 14`
+> (marques dessinées) == `pc-mb-rt-geti 13` (marques actives) à n'importe quel compte.
+>
+> **V2.6-bis (2026-07-31, Grecharged-mesh-browser — mode ISOLATION)** : **NOUVEAU contrôle** — sur une cible
+> active, **START** (manette) OU le **bouton overlay `ISOL`** (`TouchOverlayView`, groupe des boutons freecam
+> mode 2, pilule mappée sur `SDL_GAMEPAD_BUTTON_START`) BASCULE l'isolation. ON => seul le mesh ciblé est
+> rendu : les draws non-cibles de TFragment/Tie3 sont sautés et les renderers monde Shrub/Merc2/Generic2/Ocean
+> (mid-far + near)/Shadow font un early-out (`mb_isolation_on()`), ciel/UI intacts ; OFF => tout revient.
+> Changer de cible pendant l'isolation ré-isole la nouvelle cible ; **Triangle (defocus)** et la fermeture du
+> browser (`pc-mb-target-clear!` / `set-active 0`) rétablissent le monde. Compatible avec marquage / wireframe
+> / gizmos (on isole PUIS on marque sans passer la caméra à travers les autres mesh). Preuve côté renderer :
+> `pc-mb-rt-geti 17` (draws non-cibles soumis) tombe à 0 sous isolation tandis que `pc-mb-rt-geti 4` (draws de
+> la cible) reste > 0, et `pc-mb-rt-geti 18` (travail supprimé par l'isolation) passe > 0.
+>
 > **RÉOUVERTURE (2026-07-29, owner : « C'est impossible à parcourir via le tactile (le mesh browser) »)**.
 > La ligne de menu elle-même est INCHANGÉE (même id, même position, même comportement) ; c'est le CONTENU de
 > l'overlay qui a été refait, parce que le navigateur était inutilisable au doigt sur le seul appareil dont
