@@ -386,3 +386,22 @@ PREUVE (device, entrée injectée) : marquer >=2 polygones, fermer le browser,
 quitter/relancer l'appli, rouvrir le browser sur le même niveau =>
 compteur renderer de marques dessinées == marques du fichier, puis dé-marquer
 une marque RECHARGÉE => compteur décroît ET sa ligne quitte le JSONL.
+
+## V2.6 — DÉFAUT OWNER (2026-07-31 ~10:20) : PLAFOND DE 256 MARQUES
+
+« Je sais pas pourquoi je peux pas aller au-delà de 256 polygones marqués...
+C'est pas bon ! » Cause : gfx.h `MB_MARKS_MAX = 256`, store à taille fixe
+(`mb_marks_store[256]`).
+EXIGENCE : PAS de plafond perceptible. Remplacer le tableau fixe par un
+conteneur dynamique (std::vector + mutex existant) — le renderer et le
+rechargement JSONL suivent la même source. Si une raison technique impose une
+borne, elle doit être ≥ 100 000 et un feedback à l'écran doit l'annoncer
+clairement quand elle est atteinte (jamais un échec silencieux : aujourd'hui la
+marque est refusée sans aucun message).
+Attention perf : le surlignage doit rester utilisable avec des milliers de
+marques (batch les triangles marqués dans un seul draw/VBO reconstruit sur
+changement, pas un draw par marque).
+PREUVE (device, entrée injectée ou seed du JSONL) : injecter/charger > 1000
+marques sur un niveau => compteur renderer de marques dessinées == marques
+actives (>1000), marquage n°1001+ accepté, dé-marquage d'une marque au-delà de
+l'ancien seuil fonctionne, reprise après relance OK avec le même compte.

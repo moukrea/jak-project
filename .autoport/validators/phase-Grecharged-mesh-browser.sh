@@ -110,4 +110,8 @@ grep -qiE '(occlud|derriere|derrière|behind)[^.]{0,80}(dim|attenu|atténu|point
 grep -qiE '(reload|recharg|restaur)[^.]{0,80}(marks|marques|jsonl)' "$R" || { echo "[Gmbrowse FAIL] V2.5: marks not reloaded from mesh_marks.jsonl on browser open"; exit 1; }
 grep -qiE '(relaunch|relanc|restart|redemarr|kill.*app|force-stop)[^.]{0,120}(marks|marques)[^.]{0,80}(counter|compteur|==)' "$R" || { echo "[Gmbrowse FAIL] V2.5: no app-restart proof (marks drawn == file marks after relaunch)"; exit 1; }
 grep -qiE '(unmark|de-marqu|démarqu)[^.]{0,80}(reload|recharg)[^.]{0,120}(jsonl|line|ligne)' "$R" || { echo "[Gmbrowse FAIL] V2.5: unmarking a RELOADED mark not proven (counter drops + JSONL line removed)"; exit 1; }
+# ---- V2.6: no 256-mark cap (owner hit it) ----
+grep -qiE '(MB_MARKS_MAX|256)[^.]{0,80}(remov|supprim|vector|dynamic|dynamique)' "$R" || { echo "[Gmbrowse FAIL] V2.6: fixed 256-mark store not replaced by a dynamic container"; exit 1; }
+grep -qiE '(1000|1 000|thousand|mille)[^.]{0,100}(marks|marques)[^.]{0,80}(counter|compteur|==|active)' "$R" || { echo "[Gmbrowse FAIL] V2.6: no >1000-marks device proof (drawn counter == active marks)"; exit 1; }
+grep -qiE '(batch|vbo|single draw|un seul draw)[^.]{0,80}(marks|marqu)' "$R" || { echo "[Gmbrowse FAIL] V2.6: marked-triangle rendering not batched (perf with thousands of marks)"; exit 1; }
 echo "[Gmbrowse PASS]"
