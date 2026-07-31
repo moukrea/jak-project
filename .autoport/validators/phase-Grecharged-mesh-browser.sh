@@ -106,4 +106,8 @@ grep -qiE '(marked|marqu)[^.]{0,80}(counter|compteur)[^.]{0,80}(match|==|egal|é
 grep -qiE 'gizmo[^.]{0,100}depth[^.]{0,60}(test|buffer)[^.]{0,40}(on|enabled|activ)' "$R" || { echo "[Gmbrowse FAIL] V2.4: gizmo pass depth test vs scene depth buffer not documented ON"; exit 1; }
 grep -qiE '(occlud|occlusion)[^.]{0,100}(samples|query|compteur|counter|fragment)' "$R" || { echo "[Gmbrowse FAIL] V2.4: no occlusion-query proof (gizmo behind wall draws fewer samples than clear view)"; exit 1; }
 grep -qiE '(occlud|derriere|derrière|behind)[^.]{0,80}(dim|attenu|atténu|pointill|dashed|alpha|hidden|masqu)' "$R" || { echo "[Gmbrowse FAIL] V2.4: occluded gizmo parts not hidden or clearly attenuated"; exit 1; }
+# ---- V2.5: marks reload on reopen (owner: resume marking across sessions) ----
+grep -qiE '(reload|recharg|restaur)[^.]{0,80}(marks|marques|jsonl)' "$R" || { echo "[Gmbrowse FAIL] V2.5: marks not reloaded from mesh_marks.jsonl on browser open"; exit 1; }
+grep -qiE '(relaunch|relanc|restart|redemarr|kill.*app|force-stop)[^.]{0,120}(marks|marques)[^.]{0,80}(counter|compteur|==)' "$R" || { echo "[Gmbrowse FAIL] V2.5: no app-restart proof (marks drawn == file marks after relaunch)"; exit 1; }
+grep -qiE '(unmark|de-marqu|démarqu)[^.]{0,80}(reload|recharg)[^.]{0,120}(jsonl|line|ligne)' "$R" || { echo "[Gmbrowse FAIL] V2.5: unmarking a RELOADED mark not proven (counter drops + JSONL line removed)"; exit 1; }
 echo "[Gmbrowse PASS]"

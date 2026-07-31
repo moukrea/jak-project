@@ -368,3 +368,21 @@ Preuve code : état GL du pass documenté (depth test ON, func, source du depth
 buffer) + preuve d'occlusion par compteur/query (ex. samples-passed du pass gizmo
 nettement inférieur quand le mesh ciblé est derrière une géométrie interposée vs
 dégagé, même vantage) — jamais de verdict visuel d'agent.
+
+## V2.5 — EXIGENCE OWNER (2026-07-31 ~08:15) : REPRISE DES MARQUES
+
+« En réouvrant ce mode, les marques précédentes devraient subsister pour pouvoir
+reprendre et continuer. » Aujourd'hui le JSONL survit mais rien ne le recharge :
+les surlignages repartent de zéro et les anciennes marques ne sont plus
+dé-marquables.
+EXIGENCE : à l'ouverture du browser (ou au premier chargement d'un niveau dans le
+browser), recharger mesh_marks.jsonl dans le store des marques actives :
+surlignage persistant restauré ET dé-marquage fonctionnel sur les marques
+rechargées (même toggle, même retrait de ligne JSONL). Les lignes d'autres
+niveaux restent dans le fichier, non touchées ; seul le niveau courant est
+affiché/dé-marquable. Robustesse : ligne corrompue => ignorée sans crash ;
+store plein => les plus anciennes du fichier gagnent, feedback à l'écran.
+PREUVE (device, entrée injectée) : marquer >=2 polygones, fermer le browser,
+quitter/relancer l'appli, rouvrir le browser sur le même niveau =>
+compteur renderer de marques dessinées == marques du fichier, puis dé-marquer
+une marque RECHARGÉE => compteur décroît ET sa ligne quitte le JSONL.
