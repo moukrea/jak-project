@@ -693,20 +693,30 @@ void render_marks(SharedRenderState* render_state, ScopedProfilerNode& prof) {
   }
   s_last_frame = s.mb_frame_no;
 
+  // V2.6 (owner marks THOUSANDS of polygons now — the store is dynamic): the CPU vertex mirror
+  // is rebuilt ONLY when the store's generation counter moved (mark/unmark/reload), and uploaded
+  // to the persistent VBO on that same change. Steady-state frames touch no vertex data and issue
+  // the same two batched draws (visible + occluded) regardless of the mark count.
   static std::vector<GizmoVertex> verts;
-  verts.clear();
-  // MARKED style: filled semi-transparent ORANGE-RED — deliberately distinct from the yellow
-  // hover fill and from the green/red arrows.
-  const math::Vector4f orange(1.f, 0.30f, 0.f, 0.55f);
+  static u32 s_gen = 0xffffffffu;
   int n = 0;
+  bool upload = false;
   {
     std::lock_guard<std::mutex> lk(s.mb_marks_mu);
-    n = s.mb_marks_n;
-    for (int i = 0; i < n; i++) {
-      const auto& m = s.mb_marks_store[i];
-      const math::Vector3f lift = math::Vector3f(m.nrm[0], m.nrm[1], m.nrm[2]) * kLift;
-      for (int k = 0; k < 3; k++) {
-        verts.push_back({math::Vector3f(m.v[k][0], m.v[k][1], m.v[k][2]) + lift, orange});
+    n = (int)s.mb_marks_store.size();
+    if (s_gen != s.mb_marks_gen) {
+      s_gen = s.mb_marks_gen;
+      upload = true;
+      verts.clear();
+      verts.reserve((size_t)n * 3);
+      // MARKED style: filled semi-transparent ORANGE-RED — deliberately distinct from the yellow
+      // hover fill and from the green/red arrows.
+      const math::Vector4f orange(1.f, 0.30f, 0.f, 0.55f);
+      for (const auto& m : s.mb_marks_store) {
+        const math::Vector3f lift = math::Vector3f(m.nrm[0], m.nrm[1], m.nrm[2]) * kLift;
+        for (int k = 0; k < 3; k++) {
+          verts.push_back({math::Vector3f(m.v[k][0], m.v[k][1], m.v[k][2]) + lift, orange});
+        }
       }
     }
   }
@@ -740,10 +750,12 @@ void render_marks(SharedRenderState* render_state, ScopedProfilerNode& prof) {
 
   static GLuint s_vao = 0, s_vbo = 0;
   ensure_vao(&s_vao, &s_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-  glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GizmoVertex), verts.data(),
-               GL_DYNAMIC_DRAW);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  if (upload) {
+    glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GizmoVertex), verts.data(),
+                 GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+  }
   glBindVertexArray(s_vao);
   // VISIBLE sub-pass: vertex alpha (0.55) over the scene.
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

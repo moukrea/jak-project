@@ -279,7 +279,13 @@ struct GfxGlobalSettings {
   // persistent filled highlight per mark (mb_gizmos::render_marks), visually distinct from the
   // yellow hover. mb_marks_active mirrors the count lock-free so the per-frame call sites in
   // TFragment/Tie3 stay one relaxed load when the browser is closed or nothing is marked.
-  static constexpr int MB_MARKS_MAX = 256;
+  // V2.6 (owner hit the old fixed 256-slot cap and marks were refused SILENTLY): the store is a
+  // std::vector — no perceptible ceiling. MB_MARKS_SANITY (1M, ten times the owner's 100k floor)
+  // exists only so a corrupt or runaway JSONL cannot eat unbounded RAM; reaching it is ANNOUNCED
+  // on screen (kmachine bumps the skipped counter -> the HUD's STORE FULL line), never silent.
+  // mb_marks_gen bumps under mb_marks_mu on EVERY store mutation (mark/unmark/reload) so the
+  // renderer rebuilds its batched highlight VBO only on change, not per frame.
+  static constexpr int MB_MARKS_SANITY = 1000000;
   struct MbMark {
     char lvl[16] = {0};
     int sys = 0;
@@ -289,9 +295,9 @@ struct GfxGlobalSettings {
     float nrm[3] = {0.f, 0.f, 0.f};    // unit face normal (lift direction for the highlight)
   };
   std::mutex mb_marks_mu;
-  MbMark mb_marks_store[MB_MARKS_MAX];
-  int mb_marks_n = 0;
-  std::atomic<int> mb_marks_active{0};  // == mb_marks_n, published for lock-free gating
+  std::vector<MbMark> mb_marks_store;  // guarded by mb_marks_mu
+  u32 mb_marks_gen = 0;                // guarded by mb_marks_mu; renderer's rebuild-on-change key
+  std::atomic<int> mb_marks_active{0};  // == store size, published for lock-free gating
   // Frame stamp for once-per-frame passes (several bucket renderers can call render_marks in one
   // frame; the first call after a flip draws, the rest no-op). Render thread only.
   u32 mb_frame_no = 0;

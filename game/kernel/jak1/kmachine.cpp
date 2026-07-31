@@ -17,6 +17,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "common/log/log.h"
@@ -2082,6 +2083,9 @@ void mb_marks_reload_maybe() {
   }
   auto& gs = Gfx::g_global_settings;
   std::vector<GfxGlobalSettings::MbMark> loaded;
+  // V2.6: the store is dynamic and the file can carry thousands of marks — dedupe must be O(1)
+  // per line (the old per-line linear scan was quadratic and would stall the GOAL thread).
+  std::unordered_set<std::string> seen;
   u64 skipped_full = 0;
   try {
     std::ifstream in(mb_marks_path());
@@ -2118,18 +2122,11 @@ void mb_marks_reload_maybe() {
       m.sys = line.find("\"system\":\"TIE\"") != std::string::npos ? 1 : 0;
       m.row = (int)row;
       m.tri = (int)tri;
-      bool dup = false;
-      for (const auto& e : loaded) {
-        if (e.row == m.row && e.tri == m.tri && std::strcmp(e.lvl, m.lvl) == 0) {
-          dup = true;
-          break;
-        }
+      if (!seen.insert(lvl + "|" + std::to_string(m.row) + "|" + std::to_string(m.tri)).second) {
+        continue;  // duplicate (level, row, tri): first file line wins, same as before
       }
-      if (dup) {
-        continue;
-      }
-      if ((int)loaded.size() >= GfxGlobalSettings::MB_MARKS_MAX) {
-        skipped_full++;  // store full: the oldest lines in the file win (owner rule)
+      if ((int)loaded.size() >= GfxGlobalSettings::MB_MARKS_SANITY) {
+        skipped_full++;  // sanity bound only (1M): the oldest lines in the file win, HUD says so
         continue;
       }
       loaded.push_back(m);
@@ -2137,15 +2134,14 @@ void mb_marks_reload_maybe() {
   } catch (...) {
     return;  // disk error: leave the store as it was, try again on the next trigger
   }
+  const u64 n_loaded = (u64)loaded.size();
   {
     std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
-    gs.mb_marks_n = (int)loaded.size();
-    for (int i = 0; i < gs.mb_marks_n; i++) {
-      gs.mb_marks_store[i] = loaded[(size_t)i];
-    }
-    gs.mb_marks_active.store(gs.mb_marks_n, std::memory_order_relaxed);
+    gs.mb_marks_store = std::move(loaded);
+    gs.mb_marks_gen++;
+    gs.mb_marks_active.store((int)gs.mb_marks_store.size(), std::memory_order_relaxed);
   }
-  g_mb_marks = (u64)loaded.size();
+  g_mb_marks = n_loaded;
   g_mb_marks_skipped = skipped_full;
   g_mb_marks_loaded_set = set;
   g_mb_marks_reload_pending = false;
@@ -2176,14 +2172,13 @@ u64 pc_mb_mark_poly() {
     bool removed = false;
     {
       std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
-      for (int i = 0; i < gs.mb_marks_n; i++) {
-        auto& m = gs.mb_marks_store[i];
+      for (size_t i = 0; i < gs.mb_marks_store.size(); i++) {
+        const auto& m = gs.mb_marks_store[i];
         if (m.tri == hs.tri && m.row == g_mb_target_row &&
             std::strncmp(lvl.c_str(), m.lvl, sizeof(m.lvl)) == 0) {
-          std::memmove(&gs.mb_marks_store[i], &gs.mb_marks_store[i + 1],
-                       (size_t)(gs.mb_marks_n - 1 - i) * sizeof(m));
-          gs.mb_marks_n--;
-          gs.mb_marks_active.store(gs.mb_marks_n, std::memory_order_relaxed);
+          gs.mb_marks_store.erase(gs.mb_marks_store.begin() + (ptrdiff_t)i);
+          gs.mb_marks_gen++;
+          gs.mb_marks_active.store((int)gs.mb_marks_store.size(), std::memory_order_relaxed);
           removed = true;
           break;
         }
@@ -2196,6 +2191,13 @@ u64 pc_mb_mark_poly() {
     }
   }
 
+  // V2.6: the store is dynamic (std::vector, no 256 cap). Only the 1M sanity bound can refuse a
+  // mark, and it must NEVER do so silently (owner rule): bump the skipped counter the HUD's
+  // "STORE FULL" line displays, and skip the JSONL append too so file and store stay in step.
+  if (gs.mb_marks_active.load(std::memory_order_relaxed) >= GfxGlobalSettings::MB_MARKS_SANITY) {
+    g_mb_marks_skipped++;
+    return g_mb_marks;
+  }
   try {
     std::ofstream f(mb_marks_path(), std::ios::app);
     f << fmt::format(
@@ -2219,19 +2221,18 @@ u64 pc_mb_mark_poly() {
   }
   // V2.4: enter the persistent-highlight store (the renderer draws every entry each frame).
   {
+    GfxGlobalSettings::MbMark m;
+    std::memset(m.lvl, 0, sizeof(m.lvl));
+    std::strncpy(m.lvl, lvl.c_str(), sizeof(m.lvl) - 1);
+    m.sys = r.system;
+    m.row = g_mb_target_row;
+    m.tri = hs.tri;
+    std::memcpy(m.v, hs.v, sizeof(m.v));
+    std::memcpy(m.nrm, hs.nrm, sizeof(m.nrm));
     std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
-    if (gs.mb_marks_n < GfxGlobalSettings::MB_MARKS_MAX) {
-      auto& m = gs.mb_marks_store[gs.mb_marks_n];
-      std::memset(m.lvl, 0, sizeof(m.lvl));
-      std::strncpy(m.lvl, lvl.c_str(), sizeof(m.lvl) - 1);
-      m.sys = r.system;
-      m.row = g_mb_target_row;
-      m.tri = hs.tri;
-      std::memcpy(m.v, hs.v, sizeof(m.v));
-      std::memcpy(m.nrm, hs.nrm, sizeof(m.nrm));
-      gs.mb_marks_n++;
-      gs.mb_marks_active.store(gs.mb_marks_n, std::memory_order_relaxed);
-    }
+    gs.mb_marks_store.push_back(m);
+    gs.mb_marks_gen++;
+    gs.mb_marks_active.store((int)gs.mb_marks_store.size(), std::memory_order_relaxed);
   }
   g_mb_marks = (u64)gs.mb_marks_active.load(std::memory_order_relaxed);
   return g_mb_marks;
@@ -2292,6 +2293,8 @@ u64 pc_mb_rt_geti(s32 field) {
       return gs.mb_frame_gizmo_occ;
     // V2.5: 16 = file marks for the CURRENT levels skipped at the last reload because the store
     // was full (oldest lines in the file win). >0 makes the HUD say so (owner feedback rule).
+    // V2.6: the store is dynamic; only the 1M sanity bound can fill it, and live marks refused
+    // at that bound also land here so the refusal is announced on screen, never silent.
     case 16:
       return (s64)g_mb_marks_skipped;
     default:
