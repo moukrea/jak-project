@@ -852,13 +852,16 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     // casting — documented there). When the hide target lives in this renderer's system+level,
     // the coalesced-range fast path below can't skip per draw, so fall back to per-draw
     // full-range submission for exactly as long as the hide is armed (the cached ranges are
-    // left untouched for the normal path).
+    // left untouched for the normal path). V2.6-bis isolation needs the same per-draw fallback:
+    // NON-target draws must not cast while only the target renders (isolation is level/system
+    // agnostic — a target elsewhere still silences every caster in this tree).
     const auto& mb_st = Gfx::g_global_settings;
     const bool mb_shadow_hide =
         mb_st.mb_target_active && mb_st.mb_hide_target && mb_st.mb_target_system == 1 &&
         std::strncmp(m_level_name.c_str(), mb_st.mb_target_level,
                      sizeof(mb_st.mb_target_level)) == 0;
-    if (sh_st.cast_full && mb_shadow_hide) {
+    const bool mb_shadow_iso = mb_st.mb_isolation_on();
+    if (sh_st.cast_full && (mb_shadow_hide || mb_shadow_iso)) {
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
       for (size_t di = tree.category_draw_indices[(int)category];
            di < tree.category_draw_indices[(int)category + 1]; di++) {
@@ -870,7 +873,12 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         if (count == 0) {
           continue;
         }
-        if (mb_draw_targeted(1, draw.tree_tex_id, m_level_name.c_str())) {
+        const bool mb_caster_tgt = mb_draw_targeted(1, draw.tree_tex_id, m_level_name.c_str());
+        if (mb_shadow_iso && !mb_caster_tgt) {
+          Gfx::g_global_settings.mb_cur_isolated_skips++;  // color-draw counter stays untouched
+          continue;
+        }
+        if (mb_shadow_hide && mb_caster_tgt) {
           Gfx::g_global_settings.mb_ctr_hidden_draws++;
           continue;
         }
@@ -930,11 +938,19 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       // Old camera-vis-culled caster set (prop castfull=0), kept as the perf/repro A/B.
       for (size_t di = tree.category_draw_indices[(int)category];
            di < tree.category_draw_indices[(int)category + 1]; di++) {
-        // Grecharged-mesh-browser V2: hidden targeted TIE draws don't cast (see above).
-        if (mb_shadow_hide &&
-            mb_draw_targeted(1, (*tree.draws)[di].tree_tex_id, m_level_name.c_str())) {
-          Gfx::g_global_settings.mb_ctr_hidden_draws++;
-          continue;
+        // Grecharged-mesh-browser V2: hidden targeted TIE draws don't cast (see above); under
+        // V2.6-bis isolation, NON-target draws don't cast either.
+        if (mb_shadow_hide || mb_shadow_iso) {
+          const bool mb_caster_tgt =
+              mb_draw_targeted(1, (*tree.draws)[di].tree_tex_id, m_level_name.c_str());
+          if (mb_shadow_iso && !mb_caster_tgt) {
+            Gfx::g_global_settings.mb_cur_isolated_skips++;  // color-draw counter stays untouched
+            continue;
+          }
+          if (mb_shadow_hide && mb_caster_tgt) {
+            Gfx::g_global_settings.mb_ctr_hidden_draws++;
+            continue;
+          }
         }
         if (render_state->no_multidraw) {
           const auto& sd = tree.draw_idx_temp[di];
@@ -1071,6 +1087,14 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         draw_idx++;
         continue;
       }
+      if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
+        if (Gfx::g_global_settings.mb_isolate) {
+          Gfx::g_global_settings.mb_cur_isolated_skips++;
+          draw_idx++;
+          continue;  // isolation: only the targeted mesh renders
+        }
+        Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
+      }
       if (mb_targeted) {
         Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
       }
@@ -1160,6 +1184,13 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     if (mb_targeted && Gfx::g_global_settings.mb_hide_target) {
       Gfx::g_global_settings.mb_ctr_hidden_draws++;
       continue;
+    }
+    if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
+      if (Gfx::g_global_settings.mb_isolate) {
+        Gfx::g_global_settings.mb_cur_isolated_skips++;
+        continue;  // isolation: only the targeted mesh renders
+      }
+      Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
     }
     if (mb_targeted) {
       Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
@@ -1720,6 +1751,13 @@ void Tie3::render_tree_wind(int idx,
       // so skipping one draw shifts nothing for the others.
       Gfx::g_global_settings.mb_ctr_hidden_draws++;
       continue;
+    }
+    if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
+      if (Gfx::g_global_settings.mb_isolate) {
+        Gfx::g_global_settings.mb_cur_isolated_skips++;
+        continue;  // isolation: only the targeted mesh renders
+      }
+      Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
     }
     if (mb_targeted) {
       Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden

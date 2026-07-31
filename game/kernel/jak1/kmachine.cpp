@@ -1901,6 +1901,7 @@ void pc_mb_target_set(s32 row, s32 slot) {
   gs.mb_hide_target = false;
   gs.mb_checker_target = false;
   gs.mb_gizmos_target = false;
+  // mb_isolate deliberately survives target changes — the new target is re-isolated (owner spec).
   gs.mb_target_active = true;
   // V2.3: the target's identity, for the polygon-mark export (pc_mb_mark_poly).
   g_mb_target_row = row;
@@ -1913,6 +1914,7 @@ void pc_mb_target_clear() {
   gs.mb_hide_target = false;
   gs.mb_checker_target = false;
   gs.mb_gizmos_target = false;
+  gs.mb_isolate = false;
   g_mb_target_row = -1;
   g_mb_target_slot = -1;
 }
@@ -1928,6 +1930,13 @@ void pc_mb_checker_set(s32 v) {
 
 void pc_mb_gizmos_set(s32 v) {
   Gfx::g_global_settings.mb_gizmos_target = (v != 0);
+}
+
+// V2.6-bis (START pad / ISOL overlay pill): render ONLY the targeted mesh while a target is
+// active. Consumed via mb_isolation_on() by the TFRAG/TIE per-draw checks and the world
+// renderers' early-outs.
+void pc_mb_isolate_set(s32 v) {
+  Gfx::g_global_settings.mb_isolate = (v != 0);
 }
 
 // ---- V2.3 hover + polygon mark ----------------------------------------------------------------
@@ -2297,6 +2306,13 @@ u64 pc_mb_rt_geti(s32 field) {
     // at that bound also land here so the refusal is announced on screen, never silent.
     case 16:
       return (s64)g_mb_marks_skipped;
+    // V2.6-bis isolation proof: 17 TFRAG+TIE color draws submitted for NON-target meshes last
+    // frame (isolation ON must drive it to 0), 18 render work suppressed by isolation last frame
+    // (per-draw skips + one per world-renderer early-out).
+    case 17:
+      return gs.mb_frame_nontarget_draws;
+    case 18:
+      return gs.mb_frame_isolated_skips;
     default:
       return 0;
   }
@@ -2505,6 +2521,10 @@ void pc_mb_set_active(u32 on) {
   // owner previews PBR/tess in the browser even when the master perf-toggle is saved OFF.
   // Closed -> false: the normal path is untouched by the tool.
   Gfx::g_global_settings.mb_pbr_override = (on != 0);
+  // V2.6-bis: closing the browser restores the world (isolation must never outlive the tool).
+  if (on == 0) {
+    Gfx::g_global_settings.mb_isolate = false;
+  }
   // V2.5: every browser open resumes the previous marking session. If the pick levels are
   // already published this reloads now; otherwise it stays pending for pc_mb_pick_levels
   // (the GOAL open/freecam-entry paths publish the active levels right after this call).
@@ -2703,6 +2723,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-mb-hide-set!", (void*)pc_mb_hide_set);
   make_function_symbol_from_c("pc-mb-checker-set!", (void*)pc_mb_checker_set);
   make_function_symbol_from_c("pc-mb-gizmos-set!", (void*)pc_mb_gizmos_set);
+  make_function_symbol_from_c("pc-mb-isolate-set!", (void*)pc_mb_isolate_set);
   make_function_symbol_from_c("pc-mb-rt-geti", (void*)pc_mb_rt_geti);
   // V2.3: hover ray (render thread answers with the exact polygon under the reticle) + the
   // polygon-mark JSONL export for offline orientation forensics.

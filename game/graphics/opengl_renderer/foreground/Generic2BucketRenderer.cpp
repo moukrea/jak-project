@@ -1,5 +1,7 @@
 #include "Generic2BucketRenderer.h"
 
+#include "game/graphics/gfx.h"
+
 #include <cstdlib>
 #include <cstdio>
 #ifdef __ANDROID__
@@ -37,6 +39,15 @@ void Generic2BucketRenderer::render(DmaFollower& dma,
   // if the user has asked to disable the renderer, just advance the dma follower to the next
   // bucket and return immediately.
   if (!m_enabled) {
+    while (dma.current_tag_offset() != render_state->next_bucket) {
+      dma.read_and_advance();
+    }
+    return;
+  }
+  // Grecharged-mesh-browser V2.6-bis isolation: only the targeted mesh renders — drain the
+  // bucket exactly like the disabled path.
+  if (Gfx::g_global_settings.mb_isolation_on()) {
+    Gfx::g_global_settings.mb_cur_isolated_skips++;
     while (dma.current_tag_offset() != render_state->next_bucket) {
       dma.read_and_advance();
     }

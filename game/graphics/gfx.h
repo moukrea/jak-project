@@ -182,6 +182,12 @@ struct GfxGlobalSettings {
   bool mb_hide_target = false;           // L1/L2: skip the targeted draws outright
   bool mb_checker_target = false;        // Square: bind the checker base texture for them
   bool mb_gizmos_target = false;         // Circle: per-face normal arrows over the target AABB
+  // V2.6-bis isolation (START pad / ISOL overlay pill): while a target is active, render ONLY
+  // the targeted mesh — consumed by the TFragment/Tie3 per-draw checks and by the world
+  // renderers' early-outs (Shrub/Merc2/Generic2/ocean/shadow). Persists across target changes
+  // (the new target is re-isolated); cleared on defocus and browser close.
+  bool mb_isolate = false;
+  bool mb_isolation_on() const { return mb_target_active && mb_isolate; }
   // Monotonic PROOF counters, bumped on the render thread, read back by GOAL (pc-mb-rt-geti)
   // into files/mesh_browser_state.txt. Monotonic on purpose: a harness proves a toggle is LIVE
   // by sampling twice — the counter moves while the toggle is on and stops when it is off —
@@ -212,6 +218,14 @@ struct GfxGlobalSettings {
   u32 mb_frame_checker_full = 0;
   u32 mb_frame_target_tess = 0;
   u32 mb_frame_gizmo_px = 0;
+  // V2.6-bis isolation proof pair: TFRAG+TIE color draws SUBMITTED for NON-target meshes while
+  // a target is active — isolation ON must drive the published value to 0.
+  u32 mb_cur_nontarget_draws = 0;
+  u32 mb_frame_nontarget_draws = 0;
+  // V2.6-bis: render work suppressed by isolation this frame (per-draw skips in TFRAG/TIE plus
+  // one per world-renderer early-out).
+  u32 mb_cur_isolated_skips = 0;
+  u32 mb_frame_isolated_skips = 0;
   // V2.2: browser-open PBR override — armed by pc_mb_set_active(!=0), consulted by
   // recharged_master_active() (lowest precedence, see there). False whenever the browser is
   // closed, so the normal path is byte-identical with the tool off.
@@ -314,6 +328,8 @@ struct GfxGlobalSettings {
     mb_frame_checker_full = mb_cur_checker_full;
     mb_frame_target_tess = mb_cur_target_tess;
     mb_frame_gizmo_px = mb_cur_gizmo_px;
+    mb_frame_nontarget_draws = mb_cur_nontarget_draws;
+    mb_frame_isolated_skips = mb_cur_isolated_skips;
     mb_frame_wire = mb_cur_wire;
     mb_frame_marked = mb_cur_marked;
     mb_frame_gizmo_occ = mb_cur_gizmo_occ;
@@ -327,6 +343,8 @@ struct GfxGlobalSettings {
     mb_cur_checker_full = 0;
     mb_cur_target_tess = 0;
     mb_cur_gizmo_px = 0;
+    mb_cur_nontarget_draws = 0;
+    mb_cur_isolated_skips = 0;
     mb_cur_wire = 0;
     // triangle-pick completion: arm on the first flip after a request, publish on the second —
     // by then every renderer had one WHOLE frame to contribute (see the channel doc above).

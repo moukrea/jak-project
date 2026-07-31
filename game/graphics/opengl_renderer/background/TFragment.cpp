@@ -1139,6 +1139,13 @@ void TFragment::render_tree(int geom,
         Gfx::g_global_settings.mb_ctr_hidden_draws++;
         continue;
       }
+      if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
+        if (Gfx::g_global_settings.mb_isolate) {
+          Gfx::g_global_settings.mb_cur_isolated_skips++;
+          continue;  // isolation: only the targeted mesh renders
+        }
+        Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
+      }
       if (mb_targeted) {
         Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
         // V2.2 per-frame proof: this targeted draw is on the TESS program (GL_PATCHES below) —
@@ -1218,6 +1225,14 @@ void TFragment::render_tree(int geom,
         Gfx::g_global_settings.mb_ctr_hidden_draws++;
         draw_idx++;
         continue;
+      }
+      if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
+        if (Gfx::g_global_settings.mb_isolate) {
+          Gfx::g_global_settings.mb_cur_isolated_skips++;
+          draw_idx++;
+          continue;  // isolation: only the targeted mesh renders
+        }
+        Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
       }
       if (mb_targeted) {
         Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
@@ -1311,6 +1326,13 @@ void TFragment::render_tree(int geom,
     if (mb_targeted && Gfx::g_global_settings.mb_hide_target) {
       Gfx::g_global_settings.mb_ctr_hidden_draws++;
       continue;
+    }
+    if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
+      if (Gfx::g_global_settings.mb_isolate) {
+        Gfx::g_global_settings.mb_cur_isolated_skips++;
+        continue;  // isolation: only the targeted mesh renders
+      }
+      Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
     }
     if (mb_targeted) {
       Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden

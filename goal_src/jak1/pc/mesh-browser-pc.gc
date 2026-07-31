@@ -100,7 +100,8 @@
 (define-extern pc-mb-hide-set! (function int none))
 (define-extern pc-mb-checker-set! (function int none))
 (define-extern pc-mb-gizmos-set! (function int none))
-(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic); v2.3: 11 wireframe edges last frame 12 hovered tri ordinal (-1 none) 13 ACTIVE marks; v2.4: 14 marked tris drawn last frame (== 13 while browser open) 15 gizmo occlusion-query samples passed last frame; v2.5: 16 file marks skipped at the last reload (store full — oldest file lines win)
+(define-extern pc-mb-isolate-set! (function int none))     ;; v2.6-bis: render ONLY the target (START); survives retargets, cleared on defocus/close
+(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic); v2.3: 11 wireframe edges last frame 12 hovered tri ordinal (-1 none) 13 ACTIVE marks; v2.4: 14 marked tris drawn last frame (== 13 while browser open) 15 gizmo occlusion-query samples passed last frame; v2.5: 16 file marks skipped at the last reload (store full — oldest file lines win); v2.6-bis: 17 NON-target color draws submitted last frame (isolation ON -> 0) 18 render work suppressed by isolation last frame
 ;; V2.3 reticle forensics (registered next to the pc-mb-* channel in game/kernel/jak1/kmachine.cpp)
 (define-extern pc-mb-hover-ray! (function vector vector int none)) ;; publish the reticle ray (origin GOAL units, dir any length) to the render thread; on=1 highlights the hovered polygon while gizmos are up, on=0 disarms
 (define-extern pc-mb-mark-poly! (function int))            ;; TOGGLE the hovered polygon's mark: append it as JSONL to mesh_marks.jsonl (external asset root) + persistent orange highlight, or (v2.4) UNMARK an already-marked polygon (highlight AND its JSONL line removed); returns the ACTIVE mark count, -1 = no hovered polygon / no target
@@ -243,6 +244,7 @@
    (fc-hide?       symbol)         ;; GOAL-side mirror of the C++ hide flag (C++ is authoritative)
    (fc-checker?    symbol)         ;; ditto, per-target checker tessellation
    (fc-gizmos?     symbol)         ;; ditto, normal gizmos
+   (fc-isolate?    symbol)         ;; ditto, V2.6-bis isolation (render ONLY the target; survives retargets)
    (fc-lvl0        string)         ;; the up-to-2 ACTIVE level index-names the picker tests against
    (fc-lvl1        string)
    ;; scratch strings (runtime buffers, re-formatted each frame — like *fps-counter-label*).
@@ -327,6 +329,7 @@
 (set! (-> *mesh-browser* fc-hide?) #f)
 (set! (-> *mesh-browser* fc-checker?) #f)
 (set! (-> *mesh-browser* fc-gizmos?) #f)
+(set! (-> *mesh-browser* fc-isolate?) #f)
 (set! (-> *mesh-browser* mode) (mesh-browser-mode closed))
 
 ;; ---- the 2D design space --------------------------------------------------------------------------
@@ -873,6 +876,9 @@
   ;; the browser is gone (pc-mb-target-clear! also clears the C++ hide/checker/gizmo flags).
   (pc-mb-target-clear!)
   (set! (-> obj fc-target) -1)
+  ;; V2.6-bis: target-clear + set-active 0 both drop mb_isolate C++-side — mirror here so the next
+  ;; open starts with the world visible and the HUD agreeing.
+  (set! (-> obj fc-isolate?) #f)
   ;; V2.3: disarm the reticle hover ray — the render thread must stop highlighting once the
   ;; freecam is gone (the per-frame arm lives in mesh-browser-input-freecam only).
   (let ((dis (new 'stack-no-clear 'vector)))
@@ -1605,6 +1611,13 @@
      (when (>= (-> obj fc-target) 0)
        (set! (-> obj fc-gizmos?) (not (-> obj fc-gizmos?)))
        (pc-mb-gizmos-set! (if (-> obj fc-gizmos?) 1 0))))
+    ((cpad-pressed? 0 start)
+     ;; V2.6-bis ISOLATION: render ONLY the targeted mesh (sky/UI intact). Survives retargets on
+     ;; purpose (the new target is re-isolated); Triangle defocus and browser close restore the
+     ;; world. The pad-blanking below (button0-abs/rel cleared) keeps START from the pause menu.
+     (when (>= (-> obj fc-target) 0)
+       (set! (-> obj fc-isolate?) (not (-> obj fc-isolate?)))
+       (pc-mb-isolate-set! (if (-> obj fc-isolate?) 1 0))))
     ((cpad-pressed? 0 l3)
      ;; V2.3 MARK / V2.4 UNMARK toggle: flag the polygon under the reticle, or unflag it when it
      ;; is already marked (gizmos must be up — the hover highlight is what the owner is aiming
@@ -1619,7 +1632,8 @@
      (set! (-> obj fc-target) -1)
      (set! (-> obj fc-hide?) #f)
      (set! (-> obj fc-checker?) #f)
-     (set! (-> obj fc-gizmos?) #f))
+     (set! (-> obj fc-gizmos?) #f)
+     (set! (-> obj fc-isolate?) #f))  ;; C++ target-clear also drops mb_isolate — mirror
     ((cpad-pressed? 0 left) (mesh-browser-bump-tod obj -1.0))
     ((cpad-pressed? 0 right) (mesh-browser-bump-tod obj 1.0))
     ((cpad-pressed? 0 up) (mesh-browser-bump-relief obj 0.25))
@@ -1651,7 +1665,7 @@
   (mesh-browser-rect buf 0.480 0.4975 0.520 0.5025 (new 'static 'rgba :r #xff :g #xff :b #xff :a #xa0))
   (mesh-browser-rect buf 0.4975 0.475 0.5025 0.525 (new 'static 'rgba :r #xff :g #xff :b #xff :a #xa0))
   (mesh-browser-text buf
-    "FREECAM  R1/R2 TARGET  L1 HIDE L2 SHOW  SQUARE CHECKER  CIRCLE GIZMOS  TRIANGLE DEFOCUS  R3 EXIT"
+    "FREECAM  R1/R2 TARGET  L1 HIDE L2 SHOW  SQUARE CHECKER  CIRCLE GIZMOS  START ISOLATION  TRIANGLE DEFOCUS  R3 EXIT"
     0.02 0.045 (font-color green))
   (cond
     ((>= (-> obj fc-target) 0)
@@ -1673,10 +1687,11 @@
        ;; (pc-mb-rt-geti 4). The owner-facing dead-target tell: DRAWS 0 while un-hidden means
        ;; "this row has nothing on screen here — cycle R1", the silent state v2.1 was reopened on.
        (mesh-browser-text buf
-         (string-format "HIDE=~D CHECKER=~D GIZMOS=~D  PICKS=~D  DRAWS ~D"
+         (string-format "HIDE=~D CHECKER=~D GIZMOS=~D ISOL=~D  PICKS=~D  DRAWS ~D"
                         (if (-> obj fc-hide?) 1 0)
                         (if (-> obj fc-checker?) 1 0)
                         (if (-> obj fc-gizmos?) 1 0)
+                        (if (-> obj fc-isolate?) 1 0)
                         (-> obj fc-pick-n)
                         (pc-mb-rt-geti 4))
          0.02 0.195 (font-color cyan))
@@ -1747,6 +1762,8 @@
     ;; deliberately NOT in the sig — it changes every frame the reticle moves and would spam dumps;
     ;; the gizmos flag (its gate) is already folded in at *83 above.
     (+! s (* 89 (-> obj fc-marks)))
+    ;; V2.6-bis: an isolation toggle must dump within 8 frames like the other toggles.
+    (+! s (* 97 (if (-> obj fc-isolate?) 1 0)))
     s))
 
 (defun mesh-browser-dump-state ((obj mesh-browser))
@@ -1854,6 +1871,12 @@
     (format (clear (-> obj line-buf)) "rtf_wire=~D hover=~D marks=~D rtf_marked=~D rtf_occ=~D"
             (pc-mb-rt-geti 11) (pc-mb-rt-geti 12) (-> obj fc-marks)
             (pc-mb-rt-geti 14) (pc-mb-rt-geti 15))
+    (pc-mb-state-line! (-> obj line-buf))
+    ;; V2.6-bis isolation counters: isolate = the GOAL toggle, rt_nontarget = TFRAG+TIE color
+    ;; draws submitted for NON-target meshes last frame (isolation ON must read 0), rt_isolated =
+    ;; render work suppressed by isolation last frame (per-draw skips + world-renderer early-outs).
+    (format (clear (-> obj line-buf)) "isolate=~D rt_nontarget=~D rt_isolated=~D"
+            (if (-> obj fc-isolate?) 1 0) (pc-mb-rt-geti 17) (pc-mb-rt-geti 18))
     (pc-mb-state-line! (-> obj line-buf))
     ;; V2.2 pick-candidate export, for the harness occlusion/frustum cases: the surviving
     ;; candidates of the LAST pick, in rank order, as row:slot:surface-distance-cm. An occluded

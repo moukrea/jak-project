@@ -270,9 +270,10 @@ public class TouchOverlayView extends View {
         // Grecharged-mesh-browser V2 FREECAM control set (mode 2 only). The
         // GOAL freecam is 100% pad-driven: left stick fly, right stick look,
         // R1/R2 target, L1/L2 hide/show, Square checker, Circle gizmos,
-        // Triangle defocus, X boost, dpad left/right time-of-day, dpad
-        // up/down relief, R3 exit. L1 vs R1 (and L2 vs R2) must be SEPARATE
-        // buttons here, unlike the gameplay combined pills.
+        // START isolation (render ONLY the target), Triangle defocus, X
+        // boost, dpad left/right time-of-day, dpad up/down relief, R3 exit.
+        // L1 vs R1 (and L2 vs R2) must be SEPARATE buttons here, unlike the
+        // gameplay combined pills.
         fc(fcControls, "fc-l1", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, "L1");
         fc(fcControls, "fc-r1", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, "R1");
         fc(fcControls, "fc-l2", KIND_TRIGGER, SHAPE_RRECT, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, "L2");
@@ -288,6 +289,9 @@ public class TouchOverlayView extends View {
         // V2.3: MARK = L3 (flag the reticle-hovered polygon -> mesh_marks.jsonl). Same right-edge
         // pill style as BOOST, placed just under it.
         fc(fcControls, "fc-mark", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_LEFT_STICK, "MARK");
+        // V2.6-bis: ISOL = START (toggle isolation: render ONLY the targeted mesh). Same virtual
+        // pad button + mechanism as the mode-0 START pill; left edge under L2.
+        fc(fcControls, "fc-isol", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_START, "ISOL");
         fc(fcControls, "fc-exit", KIND_BUTTON, SHAPE_RRECT, SDL_GAMEPAD_BUTTON_RIGHT_STICK, "EXIT");
     }
 
@@ -378,6 +382,10 @@ public class TouchOverlayView extends View {
         final float fgap = h * 0.020f;
         fctl("fc-l1").rect.set(w * 0.030f, top, w * 0.030f + fbw, top + fbh);
         fctl("fc-l2").rect.set(w * 0.030f, top + fbh + fgap, w * 0.030f + fbw, top + 2f * fbh + fgap);
+        // V2.6-bis ISOL: left edge, directly under L2 (same pill size) — mirrors MARK under BOOST
+        // on the right edge; the left stick region starts far lower, no overlap.
+        fctl("fc-isol").rect.set(w * 0.030f, top + 2f * (fbh + fgap),
+                w * 0.030f + fbw, top + 3f * fbh + 2f * fgap);
         fctl("fc-r1").rect.set(w * 0.970f - fbw, top, w * 0.970f, top + fbh);
         fctl("fc-r2").rect.set(w * 0.970f - fbw, top + fbh + fgap, w * 0.970f, top + 2f * fbh + fgap);
         fctl("fc-exit").rect.set(w * 0.575f, sTop, w * 0.575f + sw, sTop + sh);
@@ -465,6 +473,8 @@ public class TouchOverlayView extends View {
                 + "->onPadButton(SOUTH=0)[freecam BOOST, right edge]");
         Log.i(TAG, "overlay-map: fc-mark=" + rrect(fctl("fc-mark"))
                 + "->onPadButton(LEFT_STICK=7)[freecam mark polygon, right edge under BOOST]");
+        Log.i(TAG, "overlay-map: fc-isol=" + rrect(fctl("fc-isol"))
+                + "->onPadButton(START=6)[freecam isolation toggle, left edge under L2]");
         Log.i(TAG, "overlay-map: fc-tod-minus=" + rrect(fctl("fc-tod-minus"))
                 + "->onPadButton(DPAD_LEFT=13)[freecam time-of-day -, bottom]");
         Log.i(TAG, "overlay-map: fc-tod-plus=" + rrect(fctl("fc-tod-plus"))
