@@ -1623,6 +1623,14 @@ int g_mb_target_slot = -1;
 // V2.3: polygon marks appended this session + the resolved export path (see mb_marks_path()).
 u64 g_mb_marks = 0;
 std::string g_mb_marks_path;
+// V2.5 (owner: "en réouvrant ce mode, les marques précédentes devraient subsister"): the mark
+// store is rebuilt from mesh_marks.jsonl on browser open / whenever the published pick-level set
+// changes. GOAL-thread only. g_mb_marks_skipped = file marks for the CURRENT levels that did not
+// fit the store (store full -> oldest lines in the file win); surfaced to the HUD via rt-geti 16.
+bool g_mb_marks_reload_pending = false;
+std::string g_mb_marks_loaded_set;
+u64 g_mb_marks_skipped = 0;
+void mb_marks_reload_maybe();
 }  // namespace
 
 // Set the (up to two) levels the ray pick searches. GOAL strings, same idiom as
@@ -1635,6 +1643,9 @@ void pc_mb_pick_levels(u32 lvl0, u32 lvl1) {
       g_mb_pick_lvl[i] = mb_clean_level_name(Ptr<String>(ptrs[i]).c()->data());
     }
   }
+  // V2.5: the pick levels ARE the "current level" of the mark store — restore this level's
+  // saved marks whenever the set changes (or a browser open left a reload pending).
+  mb_marks_reload_maybe();
 }
 
 // V2.3 EXACT pick: no more AABB candidate pre-filter (a clearly visible mesh could rank >16 in
@@ -2019,6 +2030,128 @@ void mb_marks_remove_line(const std::string& lvl, int row, int tri) {
   }
 }
 
+// ---- V2.5: resume a marking session -----------------------------------------------------------
+// The owner marks polygons across app runs; mesh_marks.jsonl survives but the store used to start
+// empty, so old marks neither highlighted nor unmarked. Reload rebuilds the ACTIVE store from the
+// file, restricted to the published pick levels (other levels' lines stay in the file, untouched
+// and unloaded). We parse only the file we ourselves write, so a string scan per key is exact;
+// any line that fails a field is skipped without crashing (owner robustness requirement).
+namespace {
+bool mb_json_num(const std::string& s, const char* key, double* out) {
+  const auto p = s.find(key);
+  if (p == std::string::npos) {
+    return false;
+  }
+  const char* c = s.c_str() + p + std::strlen(key);
+  char* end = nullptr;
+  const double v = std::strtod(c, &end);
+  if (end == c) {
+    return false;
+  }
+  *out = v;
+  return true;
+}
+bool mb_json_vec3(const std::string& s, const char* key, float* out, float scale) {
+  const auto p = s.find(key);
+  if (p == std::string::npos) {
+    return false;
+  }
+  const char* c = s.c_str() + p + std::strlen(key);
+  for (int i = 0; i < 3; i++) {
+    while (*c == '[' || *c == ',' || *c == ' ') {
+      c++;
+    }
+    char* end = nullptr;
+    const double v = std::strtod(c, &end);
+    if (end == c) {
+      return false;
+    }
+    out[i] = (float)(v * scale);
+    c = end;
+  }
+  return true;
+}
+
+void mb_marks_reload_maybe() {
+  const std::string set = g_mb_pick_lvl[0] + "|" + g_mb_pick_lvl[1];
+  if (!g_mb_marks_reload_pending && set == g_mb_marks_loaded_set) {
+    return;
+  }
+  if (g_mb_pick_lvl[0].empty() && g_mb_pick_lvl[1].empty()) {
+    return;  // no level names yet — stay pending until pc_mb_pick_levels publishes them
+  }
+  auto& gs = Gfx::g_global_settings;
+  std::vector<GfxGlobalSettings::MbMark> loaded;
+  u64 skipped_full = 0;
+  try {
+    std::ifstream in(mb_marks_path());
+    std::string line;
+    while (in && std::getline(in, line)) {
+      auto lp = line.find("\"level\":\"");
+      if (lp == std::string::npos) {
+        continue;
+      }
+      lp += 9;
+      const auto le = line.find('"', lp);
+      if (le == std::string::npos) {
+        continue;
+      }
+      const std::string lvl = line.substr(lp, le - lp);
+      if (lvl.empty() || lvl.size() >= sizeof(GfxGlobalSettings::MbMark{}.lvl)) {
+        continue;
+      }
+      if (lvl != g_mb_pick_lvl[0] && lvl != g_mb_pick_lvl[1]) {
+        continue;  // another level's mark: keep its line, never load or touch it
+      }
+      GfxGlobalSettings::MbMark m;
+      double row = 0.0, tri = 0.0;
+      // the vertices are stored in metres (4 decimals); the store wants GOAL units
+      if (!mb_json_num(line, "\"row\":", &row) || !mb_json_num(line, "\"tri\":", &tri) ||
+          !mb_json_vec3(line, "\"v0_m\":", m.v[0], 4096.f) ||
+          !mb_json_vec3(line, "\"v1_m\":", m.v[1], 4096.f) ||
+          !mb_json_vec3(line, "\"v2_m\":", m.v[2], 4096.f) ||
+          !mb_json_vec3(line, "\"face_normal\":", m.nrm, 1.f)) {
+        continue;  // corrupt line: ignored without crash
+      }
+      std::memset(m.lvl, 0, sizeof(m.lvl));
+      std::strncpy(m.lvl, lvl.c_str(), sizeof(m.lvl) - 1);
+      m.sys = line.find("\"system\":\"TIE\"") != std::string::npos ? 1 : 0;
+      m.row = (int)row;
+      m.tri = (int)tri;
+      bool dup = false;
+      for (const auto& e : loaded) {
+        if (e.row == m.row && e.tri == m.tri && std::strcmp(e.lvl, m.lvl) == 0) {
+          dup = true;
+          break;
+        }
+      }
+      if (dup) {
+        continue;
+      }
+      if ((int)loaded.size() >= GfxGlobalSettings::MB_MARKS_MAX) {
+        skipped_full++;  // store full: the oldest lines in the file win (owner rule)
+        continue;
+      }
+      loaded.push_back(m);
+    }
+  } catch (...) {
+    return;  // disk error: leave the store as it was, try again on the next trigger
+  }
+  {
+    std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
+    gs.mb_marks_n = (int)loaded.size();
+    for (int i = 0; i < gs.mb_marks_n; i++) {
+      gs.mb_marks_store[i] = loaded[(size_t)i];
+    }
+    gs.mb_marks_active.store(gs.mb_marks_n, std::memory_order_relaxed);
+  }
+  g_mb_marks = (u64)loaded.size();
+  g_mb_marks_skipped = skipped_full;
+  g_mb_marks_loaded_set = set;
+  g_mb_marks_reload_pending = false;
+}
+}  // namespace
+
 // Mark the hovered polygon — or, V2.4, UNMARK it when it is already marked (the owner re-aims
 // and presses the same button; the mark leaves the persistent-highlight store AND its line
 // leaves mesh_marks.jsonl). Marks are appended as one JSON line (identity + geometry + the
@@ -2157,6 +2290,10 @@ u64 pc_mb_rt_geti(s32 field) {
       return gs.mb_frame_marked;
     case 15:
       return gs.mb_frame_gizmo_occ;
+    // V2.5: 16 = file marks for the CURRENT levels skipped at the last reload because the store
+    // was full (oldest lines in the file win). >0 makes the HUD say so (owner feedback rule).
+    case 16:
+      return (s64)g_mb_marks_skipped;
     default:
       return 0;
   }
@@ -2365,6 +2502,13 @@ void pc_mb_set_active(u32 on) {
   // owner previews PBR/tess in the browser even when the master perf-toggle is saved OFF.
   // Closed -> false: the normal path is untouched by the tool.
   Gfx::g_global_settings.mb_pbr_override = (on != 0);
+  // V2.5: every browser open resumes the previous marking session. If the pick levels are
+  // already published this reloads now; otherwise it stays pending for pc_mb_pick_levels
+  // (the GOAL open/freecam-entry paths publish the active levels right after this call).
+  if (on != 0) {
+    g_mb_marks_reload_pending = true;
+    mb_marks_reload_maybe();
+  }
 }
 
 // Latch one frame of gesture state and CONSUME the accumulated deltas. Returns the finger count.

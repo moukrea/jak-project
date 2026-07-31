@@ -100,7 +100,7 @@
 (define-extern pc-mb-hide-set! (function int none))
 (define-extern pc-mb-checker-set! (function int none))
 (define-extern pc-mb-gizmos-set! (function int none))
-(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic); v2.3: 11 wireframe edges last frame 12 hovered tri ordinal (-1 none) 13 ACTIVE marks; v2.4: 14 marked tris drawn last frame (== 13 while browser open) 15 gizmo occlusion-query samples passed last frame
+(define-extern pc-mb-rt-geti (function int int))           ;; render-thread proof counters: 0 hidden_draws 1 checker_draws 2 gizmo_draws 3 gizmo_faces (monotonic); v2.3: 11 wireframe edges last frame 12 hovered tri ordinal (-1 none) 13 ACTIVE marks; v2.4: 14 marked tris drawn last frame (== 13 while browser open) 15 gizmo occlusion-query samples passed last frame; v2.5: 16 file marks skipped at the last reload (store full — oldest file lines win)
 ;; V2.3 reticle forensics (registered next to the pc-mb-* channel in game/kernel/jak1/kmachine.cpp)
 (define-extern pc-mb-hover-ray! (function vector vector int none)) ;; publish the reticle ray (origin GOAL units, dir any length) to the render thread; on=1 highlights the hovered polygon while gizmos are up, on=0 disarms
 (define-extern pc-mb-mark-poly! (function int))            ;; TOGGLE the hovered polygon's mark: append it as JSONL to mesh_marks.jsonl (external asset root) + persistent orange highlight, or (v2.4) UNMARK an already-marked polygon (highlight AND its JSONL line removed); returns the ACTIVE mark count, -1 = no hovered polygon / no target
@@ -239,7 +239,7 @@
    ;; after a timeout, falling back to the AABB order — nothing rendering = nothing pickable).
    (fc-pick-wait   int32)          ;; 0 = idle; >0 = frames spent waiting on pc-mb-pick-ready?
    (fc-pick-dir    int32)          ;; +1 (R1) / -1 (R2) of the pending request
-   (fc-marks       int32)          ;; V2.3: session total of pc-mb-mark-poly! JSONL marks (default 0)
+   (fc-marks       int32)          ;; V2.3: ACTIVE pc-mb-mark-poly! marks (V2.5: restored from mesh_marks.jsonl on open; unmark decrements)
    (fc-hide?       symbol)         ;; GOAL-side mirror of the C++ hide flag (C++ is authoritative)
    (fc-checker?    symbol)         ;; ditto, per-target checker tessellation
    (fc-gizmos?     symbol)         ;; ditto, normal gizmos
@@ -811,6 +811,11 @@
   (mesh-browser-freeze-player obj)
   (none))
 
+;; defined further down (freecam section), but the open path below needs it: V2.5 mark-session
+;; resume publishes the active levels right after set-active so the C++ side can reload
+;; mesh_marks.jsonl into the highlight store.
+(define-extern mesh-browser-freecam-refresh-levels (function mesh-browser none))
+
 (defmethod mesh-browser-open mesh-browser ((obj mesh-browser))
   "Open the browser at the LEVEL picker. Called by the Recharged Settings menu row, and also used as
    the 'back to the level list' action — so anything that must be captured from the untouched world
@@ -828,6 +833,11 @@
   ;; Tell the Android overlay we own the screen: it suspends the virtual gamepad and starts
   ;; forwarding RAW multi-touch. Without this the browser receives no touch events at all.
   (pc-mb-set-active! 1)
+  ;; V2.5: resume the previous marking session — publish the active levels so the C++ side
+  ;; reloads this level's marks from mesh_marks.jsonl (persistent highlight + unmarkable again),
+  ;; then mirror the restored count into the HUD counter.
+  (mesh-browser-freecam-refresh-levels obj)
+  (set! (-> obj fc-marks) (pc-mb-rt-geti 13))
   (mesh-browser-sync-touch)
   (none))
 
@@ -1527,7 +1537,13 @@
     (set! (-> obj drag) (mesh-browser-drag none))
     ;; MODE 2: the overlay KEEPS the virtual pad live (the freecam is stick-flown; raw-touch mode 1
     ;; would take the owner's only sticks away) and shows its freecam button as active.
-    (pc-mb-set-active! 2))
+    (pc-mb-set-active! 2)
+    ;; V2.5: a DIRECT entry (R3/CAM from gameplay or the list) has not published pick levels yet —
+    ;; do it now so the C++ side reloads this level's saved marks. The OBSERVE entry published its
+    ;; own browse/home pair above; never clobber that.
+    (when (not from-observe?)
+      (mesh-browser-freecam-refresh-levels obj))
+    (set! (-> obj fc-marks) (pc-mb-rt-geti 13)))
   (none))
 
 (defun mesh-browser-input-freecam ((obj mesh-browser))
@@ -1671,9 +1687,15 @@
            (if (>= hov 0)
                (mesh-browser-text buf (string-format "TRI ~D" hov) 0.02 0.245 (font-color white))
                (mesh-browser-text buf "TRI -" 0.02 0.245 (font-color white))))
-         (mesh-browser-text buf
-           (string-format "MARKS ~D -> mesh_marks.jsonl" (-> obj fc-marks))
-           0.02 0.295 (font-color yellow))
+         ;; V2.5: when the reloaded file held more marks for this level than the store fits, the
+         ;; oldest file lines won — say so on screen (owner robustness rule) instead of silently
+         ;; under-counting.
+         (let ((sk (pc-mb-rt-geti 16)))
+           (mesh-browser-text buf
+             (if (> sk 0)
+                 (string-format "MARKS ~D (+~D FILE, STORE FULL) -> mesh_marks.jsonl" (-> obj fc-marks) sk)
+                 (string-format "MARKS ~D -> mesh_marks.jsonl" (-> obj fc-marks)))
+             0.02 0.295 (font-color yellow)))
          ;; control hint, same green style as the top hint line
          (mesh-browser-text buf "L3/MARK: flag polygon" 0.02 0.345 (font-color green)))))
     (else

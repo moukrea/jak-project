@@ -299,6 +299,14 @@ Les lignes lighting sont **grisées tant que "Realtime Lighting" est OFF**.
 > (on voit ENFIN de quel côté d'une surface une normale sort) ; requête d'occlusion `rtf_occ=` dans le
 > dump (échantillons passés — chute quand la cible passe derrière une géométrie).
 >
+> **V2.5 (2026-07-31, Grecharged-mesh-browser — reprise des marques)** : aucun nouveau bouton ; à
+> **l'ouverture du browser** (menu OU entrée freecam directe R3/CAM), les marques du niveau courant sont
+> **RECHARGÉES depuis `mesh_marks.jsonl`** : surlignage orange restauré et dé-marquage fonctionnel sur les
+> marques rechargées (même bascule L3/MARK, la ligne quitte le fichier). Les lignes d'autres niveaux
+> restent dans le fichier, non chargées et non touchées ; une ligne corrompue est ignorée sans crash ;
+> si le fichier dépasse la capacité du store (256), les plus anciennes lignes gagnent et le HUD l'affiche :
+> `MARKS <n> (+<k> FILE, STORE FULL) -> mesh_marks.jsonl`.
+>
 > **RÉOUVERTURE (2026-07-29, owner : « C'est impossible à parcourir via le tactile (le mesh browser) »)**.
 > La ligne de menu elle-même est INCHANGÉE (même id, même position, même comportement) ; c'est le CONTENU de
 > l'overlay qui a été refait, parce que le navigateur était inutilisable au doigt sur le seul appareil dont
