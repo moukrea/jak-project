@@ -446,7 +446,7 @@
        :type
        game-option
        ;; Grecharged-menu-overhaul: the three scattered Game/Graphics/Sound entries are unified into a
-       ;; single OPTIONS entry opening the 6-category hub (the same hub the title screen reaches).
+       ;; single OPTIONS entry opening the 5-category hub (the same hub the title screen reaches).
        (new 'static
             'game-option
             :option-type (game-option-type menu)
@@ -485,7 +485,7 @@
        :type
        game-option
        ;; Grecharged-menu-overhaul: the three scattered Game/Graphics/Sound entries are unified into a
-       ;; single OPTIONS entry opening the 6-category hub (the same hub the title screen reaches).
+       ;; single OPTIONS entry opening the 5-category hub (the same hub the title screen reaches).
        (new 'static
             'game-option
             :option-type (game-option-type menu)
@@ -1127,6 +1127,112 @@
        ;; 6 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
+;; ============================================================================================
+;; Grecharged-menu-overhaul RECADRAGE (owner 2026-08-01): the ONE unified GRAPHISMES zone.
+;; The old AFFICHAGE (vanilla display) + RENDU (recharged) split is DISSOLVED — there is now a
+;; SINGLE graphics page organized BY FUNCTION (not by origin), with the Recharged MASTER at its
+;; head and non-selectable group-header separators between the function subsections:
+;;   MASTER · ÉCRAN · PERFORMANCE · MATÉRIAUX & DÉTAIL · ÉCLAIRAGE · VÉGÉTATION · INTERFACE.
+;; It is ASSEMBLED AT RUNTIME by REFERENCE from the already-wired source rows (the vanilla
+;; graphics array + *recharged-options-pc* + *grass-options-pc*): game-option is a `basic`, so a
+;; shared row object carries its value-to-modify / name-override / on-change / option-disabled-func
+;; / hint into the fused page — no per-row rewiring is duplicated and respond-common/draw-options
+;; dispatch entirely on option-type, so reordering is safe. The source arrays are kept but are no
+;; longer reached from the hub; they exist only as the wiring substrate for these shared rows.
+;; ============================================================================================
+;; The six FUNCTION group-header rows (non-selectable; nav skips them; drawn in the heading color).
+;; Text-ids already localized in all 6 game languages (added in the menu-overhaul string batch).
+(define *grp-ecran*      (new 'static 'game-option :option-type (game-option-type group-header) :name (text-id pc-text-grp-screen) :scale #t))
+(define *grp-perf*       (new 'static 'game-option :option-type (game-option-type group-header) :name (text-id pc-text-grp-performance) :scale #t))
+(define *grp-materials*  (new 'static 'game-option :option-type (game-option-type group-header) :name (text-id pc-text-grp-materials) :scale #t))
+(define *grp-lighting*   (new 'static 'game-option :option-type (game-option-type group-header) :name (text-id pc-text-grp-lighting) :scale #t))
+(define *grp-vegetation* (new 'static 'game-option :option-type (game-option-type group-header) :name (text-id pc-text-grp-vegetation) :scale #t))
+(define *grp-interface*  (new 'static 'game-option :option-type (game-option-type group-header) :name (text-id pc-text-grp-hud) :scale #t))
+;; the fused page's own Back row (the source arrays' Back rows are not referenced here)
+(define *graphics-unified-back* (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
+;; the unified GRAPHISMES page. Allocated with headroom (48 >= the ~42 rows ever shown); the real
+;; live length is set by build-graphics-unified! each time it re-assembles.
+(define *graphics-unified-pc* (new 'static 'boxed-array :type game-option :length 0 :allocated-length 48))
+
+;; Re-assemble *graphics-unified-pc* in FUNCTION order by reference. `dyn?` = Dynamic Render Scale
+;; state: the Min-Target-FPS row is present only when it is ON (mirrors the source MTF hide). MUST
+;; run after init-game-options has wired the source rows (called from apply-dynamic-rs-menu-mode!,
+;; itself called once at the end of init and on every Dynamic-Render-Scale toggle). Idempotent.
+;; Source-row indices reuse the SAME flag-N arithmetic the init wiring uses, so they track flags
+;; (FLAG_PBR / FLAG_RECHARGED_HUD) identically; apply-dynamic-rs-menu-mode! holds the source arrays
+;; at FULL layout before calling this, so the vanilla indices below stay canonical.
+(defun build-graphics-unified! ((dyn? symbol))
+  (let ((dst *graphics-unified-pc*)
+        (gfx (#if PLATFORM_ANDROID *graphic-options-pc-android* *graphic-options-pc*))
+        (rch *recharged-options-pc*)
+        (grs *grass-options-pc*)
+        (n 0))
+    (let ((fw (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))   ;; foliage-wind base index in *recharged-options-pc*
+          (hud FLAG_RECHARGED_HUD_N))
+      ;; RENDU RECHARGED (MASTER) — the global coupe-circuit, at the very head.
+      (set! (-> dst n) (-> rch 0)) (set! n (+ n 1))
+      ;; --- ÉCRAN ---
+      (set! (-> dst n) *grp-ecran*) (set! n (+ n 1))
+      (set! (-> dst n) (-> gfx 0)) (set! n (+ n 1))                    ;; Aspect Ratio
+      (set! (-> dst n) (-> gfx 1)) (set! n (+ n 1))                    ;; Game Resolution
+      (#if PLATFORM_ANDROID
+        (begin (set! (-> dst n) (-> gfx 10)) (set! n (+ n 1))         ;; Display mode (inert, mobile hint)
+               (set! (-> dst n) (-> gfx 11)) (set! n (+ n 1)))         ;; Display / monitor (inert)
+        (begin (set! (-> dst n) (-> gfx 8)) (set! n (+ n 1))          ;; Display mode (desktop)
+               (set! (-> dst n) (-> gfx 9)) (set! n (+ n 1))))         ;; Display / monitor (desktop)
+      ;; --- PERFORMANCE ---
+      (set! (-> dst n) *grp-perf*) (set! n (+ n 1))
+      (set! (-> dst n) (-> gfx 2)) (set! n (+ n 1))                    ;; Dynamic Render Scale
+      (set! (-> dst n) (-> gfx 3)) (set! n (+ n 1))                    ;; Render Scale / Min Render Scale
+      (when dyn? (set! (-> dst n) (-> gfx 4)) (set! n (+ n 1)))        ;; Min Target FPS (only when Dynamic RS ON)
+      (set! (-> dst n) (-> gfx 6)) (set! n (+ n 1))                    ;; V-Sync
+      (set! (-> dst n) (-> gfx 7)) (set! n (+ n 1))                    ;; MSAA
+      (#if PLATFORM_ANDROID
+        (begin (set! (-> dst n) (-> gfx 12)) (set! n (+ n 1)))        ;; Frame rate (inert, mobile hint)
+        (begin (set! (-> dst n) (-> gfx 10)) (set! n (+ n 1))))        ;; Frame rate (desktop)
+      ;; --- MATÉRIAUX & DÉTAIL ---
+      (set! (-> dst n) *grp-materials*) (set! n (+ n 1))
+      (#when FLAG_PBR
+        (set! (-> dst n) (-> rch (+ 4 hud))) (set! n (+ n 1))         ;; PBR Materials
+        (set! (-> dst n) (-> rch (+ fw 13))) (set! n (+ n 1))         ;; Relief (Off/Parallax/Tessellation)
+        (set! (-> dst n) (-> rch (+ fw 11))) (set! n (+ n 1))         ;; Texture Relief (strength)
+        (set! (-> dst n) (-> rch (+ fw 12))) (set! n (+ n 1)))        ;; Specular Intensity
+      (set! (-> dst n) (-> rch (+ 3 hud))) (set! n (+ n 1))           ;; Recharged Textures
+      (set! (-> dst n) (-> rch (+ 2 hud))) (set! n (+ n 1))           ;; Load Custom Assets
+      ;; --- ÉCLAIRAGE ---
+      (set! (-> dst n) *grp-lighting*) (set! n (+ n 1))
+      (#when FLAG_PBR (set! (-> dst n) (-> rch (+ fw 4))) (set! n (+ n 1)))  ;; Realtime Lighting
+      (set! (-> dst n) (-> rch (+ fw 1))) (set! n (+ n 1))           ;; Ambient Occlusion
+      (set! (-> dst n) (-> rch (+ fw 2))) (set! n (+ n 1))           ;; AO Quality
+      (set! (-> dst n) (-> rch (+ fw 3))) (set! n (+ n 1))           ;; AO Strength
+      (#when FLAG_PBR
+        (set! (-> dst n) (-> rch (+ fw 6))) (set! n (+ n 1))         ;; Ambient Model
+        (set! (-> dst n) (-> rch (+ fw 7))) (set! n (+ n 1))         ;; Ambient Strength
+        (set! (-> dst n) (-> rch (+ fw 8))) (set! n (+ n 1))         ;; Ambient Contrast
+        (set! (-> dst n) (-> rch (+ fw 5))) (set! n (+ n 1))         ;; Env Probe
+        (set! (-> dst n) (-> rch (+ fw 9))) (set! n (+ n 1))         ;; Shadow Distance
+        (set! (-> dst n) (-> rch (+ fw 10))) (set! n (+ n 1)))       ;; Shadow Quality
+      ;; --- VÉGÉTATION (the Grass sub-submenu is DISSOLVED inline here) ---
+      (set! (-> dst n) *grp-vegetation*) (set! n (+ n 1))
+      (set! (-> dst n) (-> grs 0)) (set! n (+ n 1))                   ;; Recharged Grass
+      (set! (-> dst n) (-> grs 1)) (set! n (+ n 1))                   ;; Near Grass Distance
+      (set! (-> dst n) (-> grs 2)) (set! n (+ n 1))                   ;; Grass Card Distance
+      (set! (-> dst n) (-> grs 3)) (set! n (+ n 1))                   ;; Grass Density
+      (set! (-> dst n) (-> grs 4)) (set! n (+ n 1))                   ;; Grass Mode
+      (set! (-> dst n) (-> rch fw)) (set! n (+ n 1))                  ;; Foliage Wind
+      ;; --- INTERFACE ---
+      (set! (-> dst n) *grp-interface*) (set! n (+ n 1))
+      (set! (-> dst n) (-> gfx 5)) (set! n (+ n 1))                   ;; FPS Counter
+      (#when FLAG_RECHARGED_HUD (set! (-> dst n) (-> rch 1)) (set! n (+ n 1)))  ;; Recharged HUD
+      ;; Advanced (legacy PS2-era graphics submenu) — kept reachable at the tail so it is never orphaned.
+      (#if PLATFORM_ANDROID
+        (begin (set! (-> dst n) (-> gfx 8)) (set! n (+ n 1)))        ;; Advanced (android index 8)
+        (begin (set! (-> dst n) (-> gfx 11)) (set! n (+ n 1))))       ;; Advanced (desktop index 11)
+      ;; Back
+      (set! (-> dst n) *graphics-unified-back*) (set! n (+ n 1))
+      (set! (-> dst length) n)))
+  (none))
+
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
 ;; via the game-option name-override path which progress-pc.gc honors for on-off rows)
 ;; NOTE: all-uppercase — the jak1 menu font maps uppercase ASCII to the correct
@@ -1374,8 +1480,13 @@
           (if dyn? *min-render-scale-label* *render-scale-label*))
     ;; Gvulkan-option + Grecharged-hud-jak1: full lengths now 15 desktop / 12 android (VULKAN RENDERER
     ;; and RECHARGED SETTINGS rows both inserted after index 4, so the MTF stable pointers are unaffected).
-    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* GFX_OPTIONS_PC_FULL_LEN dyn?)
-    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* GFX_OPTIONS_ANDROID_FULL_LEN dyn?))
+    ;; Grecharged-menu-overhaul RECADRAGE: the vanilla graphics arrays are no longer displayed (the
+    ;; unified GRAPHISMES page is). Keep them at FULL layout so build-graphics-unified! reads canonical
+    ;; indices; the fused page handles Min-Target-FPS visibility itself (via `dyn?` below).
+    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* GFX_OPTIONS_PC_FULL_LEN #t)
+    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* GFX_OPTIONS_ANDROID_FULL_LEN #t)
+    ;; re-assemble the unified GRAPHISMES page (adds/removes the Min-Target-FPS row per Dynamic Render Scale)
+    (build-graphics-unified! dyn?))
   (none))
 
 ;; label for the NATIVE (panel resolution) entry at the top of the Game Resolution
@@ -1964,21 +2075,34 @@
 ;; --debug so it stays #f; test/checker builds pass --debug so it becomes #t.
 (define *debug-menus-visible?* (#if FLAG_DEBUG_MENUS #t #f))
 
-;; The DEBUG category page (developer/debug tooling; hidden in final builds). For now the Mesh Browser
-;; launcher (freecam / gizmos / checker / mark tools); PBR test-preset & isolate migrate here from RENDU.
-(define *opt-debug*
-  (new 'static
-       'boxed-array
-       :type
+;; The DEBUG category page (developer/debug tooling; hidden in final builds). Holds the Mesh Browser
+;; launcher (freecam / gizmos / checker-damier / mark tools) and the PBR test-preset & isolate carousells
+;; (MOVED here out of the graphics zone — they are focus tools, not player-facing rendering options).
+;; The preset/isolate rows are FRESH carousells wired in init-game-options (value = int-backup scratch,
+;; write-back mapped 1:1 by option-type in respond-common, exactly like their old recharged-menu twins).
+(define-options-array *opt-debug*
        game-option
+       ;; Freecam / Mesh Browser launcher (the checker/damier + gizmos toggles live inside the overlay).
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t
             :hint (text-id pc-text-hint-debug))
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+       ;; PBR TEST PRESET carousell (one-click intended-config presets). ALWAYS enabled — the STOCK preset
+       ;; turns recharged-master? off, so this row must stay usable to switch back.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t))
+       ;; PBR ISOLATE carousell (in-menu term bisection). Disabled unless master + PBR materials are on.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type pbr-isolate) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; Back
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
-;; The 6-category OPTIONS hub, reached from BOTH the title "Options" and the pause "Options". Each row
-;; opens a category page. DEBUG is conditional (see init-game-options). The old "Recharged Settings"
-;; sub-submenu is DISSOLVED: it is no longer nested under Graphics but promoted to the top-level RENDU
-;; category. Every row carries a contextual hint.
+;; The 5-category OPTIONS hub (RECADRAGE owner 2026-08-01), reached from BOTH the title "Options" and the
+;; pause "Options". Each row opens a category page. DEBUG is conditional (see init-game-options). Organized
+;; BY FUNCTION, not by origin: the old "AFFICHAGE" (vanilla display) + "RENDU" (recharged) categories are
+;; FUSED into ONE unified GRAPHISMES page (pc-text-cat-display, relabelled "GRAPHISMES") — the separate
+;; Recharged/Rendering category NO LONGER EXISTS. Every row carries a contextual hint.
 (define *options-hub*
   (new 'static
        'boxed-array
@@ -1986,10 +2110,9 @@
        game-option
        (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-gameplay) :scale #t
             :param3 (game-option-menu game-settings) :hint (text-id pc-text-hint-gameplay))
+       ;; GRAPHISMES — the single unified graphics zone (label pc-text-cat-display now reads "GRAPHISMES").
        (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-display) :scale #t
             :param3 (game-option-menu graphic-settings) :hint (text-id pc-text-hint-display))
-       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-render) :scale #t
-            :param3 (game-option-menu recharged-settings) :hint (text-id pc-text-hint-render))
        (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-audio) :scale #t
             :param3 (game-option-menu sound-settings) :hint (text-id pc-text-hint-audio))
        (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-controls) :scale #t
@@ -1999,9 +2122,9 @@
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; cached row objects so init-game-options can hide/restore the DEBUG row idempotently (length-mutation
-;; pattern like graphic-options-set-mtf-visible!). DEBUG is index 5, Back index 6.
-(define *hub-debug-row* (-> *options-hub* 5))
-(define *hub-back-row* (-> *options-hub* 6))
+;; pattern like graphic-options-set-mtf-visible!). After dropping the RENDU row: DEBUG is index 4, Back index 5.
+(define *hub-debug-row* (-> *options-hub* 4))
+(define *hub-back-row* (-> *options-hub* 5))
 
 (define *speedrun-options*
   (new 'static
@@ -3352,11 +3475,12 @@
   (set! (-> *options-remap* (progress-screen settings))
         (if (or *cheat-mode* (nonzero? (-> *pc-settings* cheats-known))) *main-options-secrets* *main-options-pc*))
   (set! (-> *options-remap* (progress-screen game-settings)) *game-options-pc*)
-  ;; Grecharged-buildsys-flags: the graphics-options array is now selected at COMPILE time per target
-  ;; build — android builds get the trimmed array (Display mode / Display / Frame rate hidden); desktop
-  ;; keeps Display mode / Display / Frame rate.
-  (set! (-> *options-remap* (progress-screen graphic-settings))
-        (#if PLATFORM_ANDROID *graphic-options-pc-android* *graphic-options-pc*))
+  ;; Grecharged-menu-overhaul RECADRAGE: graphic-settings now routes to the ONE unified GRAPHISMES page,
+  ;; assembled BY FUNCTION from the vanilla graphics rows + recharged rows + grass rows (built at the end
+  ;; of this function by build-graphics-unified! once every source row is wired). The vanilla arrays
+  ;; *graphic-options-pc(-android)* are still wired below (they hold the shared row objects) but are no
+  ;; longer displayed directly.
+  (set! (-> *options-remap* (progress-screen graphic-settings)) *graphics-unified-pc*)
   (let ((max-refresh-rate (pc-get-active-display-refresh-rate)))
     (cond
       ((> max-refresh-rate 100) (set! *carousell-frame-rate* *carousell-frame-rate-150fps*))
@@ -3381,21 +3505,29 @@
   ;; Grecharged-menu-overhaul: pick the title-screen menu by save presence (same mechanism as the
   ;; cheat-mode pause swap above). >=1 save -> Continue + Load shown; no save -> Load hidden, no Continue.
   (set! (-> *options-remap* (progress-screen title)) (if (any-save-present?) *title-pc-continue* *title-pc*))
-  ;; Grecharged-menu-overhaul: settings-title is now the unified 6-category OPTIONS hub (reached from
+  ;; Grecharged-menu-overhaul: settings-title is now the unified 5-category OPTIONS hub (reached from
   ;; both the title "Options" and the pause "Options"), replacing the stock Game/Graphics/Sound list.
   (set! (-> *options-remap* (progress-screen settings-title)) *options-hub*)
   (set! (-> *options-remap* (progress-screen debug-options)) *opt-debug*)
   ;; DEBUG category is hidden (not removed) unless the build seeded *debug-menus-visible?* via --debug.
-  ;; Length-mutation hide (like graphic-options-set-mtf-visible!): show=7 rows, hide=Back into DEBUG's
-  ;; slot + length 6. Idempotent (cached row refs), because *debug-menus-visible?* never flips at runtime.
+  ;; Length-mutation hide (like graphic-options-set-mtf-visible!): show=6 rows, hide=Back into DEBUG's
+  ;; slot (index 4) + length 5. Idempotent (cached row refs), because *debug-menus-visible?* never flips.
   (cond
     (*debug-menus-visible?*
-     (set! (-> *options-hub* 5) *hub-debug-row*)
-     (set! (-> *options-hub* 6) *hub-back-row*)
-     (set! (-> *options-hub* length) 7))
-    (else
+     (set! (-> *options-hub* 4) *hub-debug-row*)
      (set! (-> *options-hub* 5) *hub-back-row*)
-     (set! (-> *options-hub* length) 6)))
+     (set! (-> *options-hub* length) 6))
+    (else
+     (set! (-> *options-hub* 4) *hub-back-row*)
+     (set! (-> *options-hub* length) 5)))
+  ;; Grecharged-menu-overhaul RECADRAGE: wire the DEBUG page's PBR TEST PRESET (row 1) + PBR ISOLATE
+  ;; (row 2) carousells (int-backup scratch; respond-common maps them 1:1 to *pc-settings* by option-type,
+  ;; exactly like their former in-graphics twins). Present only with --pbr.
+  (#when FLAG_PBR
+  (set! (-> *opt-debug* 1 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *opt-debug* 1 name-override) *pbr-test-preset-label*)
+  (set! (-> *opt-debug* 2 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *opt-debug* 2 name-override) *pbr-isolate-label*))
   (set! (-> *options-remap* (progress-screen auto-save)) *ok-options*)
   (set! (-> *options-remap* (progress-screen pal-change-to-60hz)) *yes-no-options*)
   (set! (-> *options-remap* (progress-screen pal-now-60hz)) *yes-no-options*)
@@ -5299,8 +5431,7 @@
             (((progress-screen fuel-cell)) (set! stats? #t) (draw-fuel-cell-screen self a1-0))
             (((progress-screen money)) (set! stats? #t) (draw-money-screen self a1-0))
             (((progress-screen buzzer)) (set! stats? #t) (draw-buzzer-screen self a1-0))
-            (((progress-screen graphic-settings)
-              (progress-screen settings-title)
+            (((progress-screen settings-title)
               (progress-screen title)
               (progress-screen sound-settings)
               (progress-screen game-ps2-options)
@@ -5334,9 +5465,14 @@
              (hide-progress-icons)
              (draw-options self 115 25 0.65))
             (((progress-screen gfx-ps2-options)) (hide-progress-icons) (draw-options self 115 25 0.67))
-            ;; Grecharged-hud-jak1 + Grecharged-grass-poc POLISH#6: the Recharged Settings submenu and its
-            ;; nested Grass Settings page (few rows; same layout as game-settings).
-            (((progress-screen recharged-settings) (progress-screen grass-settings) (progress-screen debug-options))
+            ;; Grecharged-menu-overhaul RECADRAGE: the unified GRAPHISMES page (graphic-settings) draws with
+            ;; the compact 0.70 layout — it now holds the longer recharged rows and its ~42 rows scroll (the
+            ;; page-height/scroll machinery keys off length). The old recharged/grass pages keep the same
+            ;; layout (still routable, though no hub row reaches them now).
+            (((progress-screen graphic-settings)
+              (progress-screen recharged-settings)
+              (progress-screen grass-settings)
+              (progress-screen debug-options))
              (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen game-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen memcard-removed) (progress-screen memcard-auto-save-error))

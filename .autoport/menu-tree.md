@@ -1,23 +1,22 @@
-# Jak 1 — Arborescence des menus — REFONTE Grecharged-menu-overhaul
+# Jak 1 — Arborescence des menus — REFONTE Grecharged-menu-overhaul (RECADRAGE)
 
-> Réécrit 2026-08-01 pour la refonte validée par l'owner (propal superviseur 2026-07-30). Remplace
-> l'arborescence "état actuel" du 2026-07-21. Source : `goal_src/jak1/pc/progress-pc.gc`,
-> `goal_src/jak1/engine/ui/progress/progress-h.gc` / `progress.gc` / `progress-static.gc`,
+> Réécrit 2026-08-01 pour la refonte validée par l'owner, **après le RECADRAGE owner du 2026-08-01** :
+> on organise **PAR FONCTION, jamais par origine**. L'ancien couple AFFICHAGE (affichage vanilla) +
+> RENDU (rendu Recharged) est **FUSIONNÉ** en UNE seule zone **GRAPHISMES** ; les catégories séparées
+> "AFFICHAGE" et "RENDU" **N'EXISTENT PLUS**. Les réglages Recharged sont des citoyens de première classe,
+> fondus au milieu des réglages d'origine correspondants (comme un vrai remake, pas un hack).
+> Source : `goal_src/jak1/pc/progress-pc.gc`, `goal_src/jak1/engine/ui/progress/progress-h.gc` / `progress.gc`,
 > `goal_src/jak1/engine/ui/text-h.gc`, `game/assets/jak1/text/game_custom_text_*.json`.
 >
 > **Légende** : `[R]` = ajout/tweak Recharged (nous) · `[STOCK]` = jeu d'origine / PC-port OpenGOAL ·
 > `[SUPPR]` = retiré (historique conservé en §11) · `[NEW]` = créé par la refonte ·
-> `(grisé si …)` = `option-disabled-func` (visible, non-sélectionnable) · `(caché si …)` = retiré de la
-> liste (length mutée) · `{FLAG_X}` = présent uniquement si le flag de build est ON.
+> `[HDR]` = en-tête de groupe (non-sélectionnable) · `(grisé si …)` = `option-disabled-func` ·
+> `(caché si …)` = retiré de la liste (length mutée) · `{FLAG_X}` = présent uniquement si le flag ON.
 >
-> **STATUT D'IMPLÉMENTATION** (2026-08-01, en cours — refonte multi-commits) :
-> - ✅ FAIT : les 4 mécanismes UI (en-tête de groupe / valeur live / hint / lignes conditionnelles) ;
->   l'écran-titre conditionnel ; le flux Quitter ; le HUB OPTIONS à 6 catégories ; le flag `--debug` ;
->   les 24 text-ids × 6 langues.
-> - 🚧 EN COURS : la réorganisation INTERNE de chaque page-catégorie (déplacement des lignes existantes
->   dans les groupes, restauration des 3 lignes Android inertes, dissolution de Grass dans RENDU,
->   extraction des lignes debug vers DEBUG). Tant que ce n'est pas fait, les pages-catégories affichent
->   encore leur contenu existant. Les mécanismes sont prêts ; il reste le câblage par-catégorie.
+> **STATUT D'IMPLÉMENTATION** (2026-08-01) : ✅ FUSION FAITE — compile propre x86 (549 cibles).
+> Les 4 mécanismes UI, l'écran-titre conditionnel, le flux Quitter, le flag `--debug`, les 6 langues, et
+> la **zone GRAPHISMES unifiée assemblée par référence** (`build-graphics-unified!`) sont en place.
+> NON validé visuellement (l'œil de l'owner juge) — pattern : validator+gates passés → play-test owner.
 
 ---
 
@@ -28,8 +27,8 @@
   Aucune save (*title-pc*)      : Nouvelle partie / Options / Secrets / Quitter / Retour
   >=1 save   (*title-pc-continue*): CONTINUER / Charger une partie / Nouvelle partie / Options /
                                     Secrets / Quitter / Retour
-  -> "Charger" est ABSENT quand il n'y a rien à charger ; "CONTINUER" charge la save la + récente en 1 clic.
-  -> mécanisme : init-game-options choisit le tableau via (any-save-present?), comme le swap cheat-mode.
+  -> "Charger" est ABSENT quand il n'y a rien à charger ; "CONTINUER" charge la save la + récente en 1 clic
+     (progress-newest-save-slot). init-game-options choisit le tableau via (any-save-present?).
 
 PAUSE (progress-screen settings ; *main-options-pc* / *main-options-secrets*)
   Options / Charger / Sauvegarder / Désactiver l'auto-save / (Secrets) / Quitter / Retour
@@ -38,23 +37,25 @@ PAUSE (progress-screen settings ; *main-options-pc* / *main-options-secrets*)
 
 ## 1. HUB OPTIONS unifié (`*options-hub*`, écran settings-title)  [NEW]
 
-Un seul écran, 6 catégories. Chaque ligne porte un hint. "Recharged Settings" est DISSOUS : ce n'est plus
-un sous-sous-menu sous Graphics, c'est la catégorie RENDU de premier niveau.
+Un seul écran, **5 catégories** (par fonction). Chaque ligne porte un hint. Il n'y a **plus** de catégorie
+"RENDU/Recharged" séparée — le rendu Recharged est fondu dans GRAPHISMES.
 
-| # | Catégorie | text-id | ouvre l'écran | hint |
-|---|-----------|---------|---------------|------|
+| # | Catégorie | text-id (label) | ouvre l'écran | hint |
+|---|-----------|-----------------|---------------|------|
 | 0 | JOUABILITÉ | pc-text-cat-gameplay | game-settings | pc-text-hint-gameplay |
-| 1 | AFFICHAGE | pc-text-cat-display | graphic-settings | pc-text-hint-display |
-| 2 | RENDU | pc-text-cat-render | recharged-settings | pc-text-hint-render |
-| 3 | AUDIO | pc-text-cat-audio | sound-settings | pc-text-hint-audio |
-| 4 | COMMANDES | pc-text-cat-controls | input-options | pc-text-hint-controls |
-| 5 | DEBUG | pc-text-cat-debug | debug-options | pc-text-hint-debug |
-| 6 | Retour | back | — | — |
+| 1 | **GRAPHISMES** | pc-text-cat-display (relabellé "GRAPHISMES") | graphic-settings | pc-text-hint-display |
+| 2 | AUDIO | pc-text-cat-audio | sound-settings | pc-text-hint-audio |
+| 3 | COMMANDES | pc-text-cat-controls | input-options | pc-text-hint-controls |
+| 4 | DEBUG | pc-text-cat-debug | debug-options | pc-text-hint-debug |
+| 5 | Retour | back | — | — |
 
-**DEBUG est caché, pas supprimé** : la ligne 5 est retirée de la liste (length mutée 7->6) quand
-`*debug-menus-visible?*` est faux. Ce symbole est semé une fois au boot depuis la constante compile-time
-`FLAG_DEBUG_MENUS` (= `build.sh --debug`). Le code de la page DEBUG (`*opt-debug*`) est compilé dans TOUS
-les builds ; seul son affichage est conditionné. Builds de test/damier : `--debug` ; builds release : non.
+- `pc-text-cat-display` porte désormais la chaîne **GRAPHISMES / GRAPHICS / GRAFIK / GRÁFICOS / GRAFICA /
+  グラフィック** (7 fichiers locale) ; son hint `pc-text-hint-display` liste les sous-sections.
+- `pc-text-cat-render` (RENDU) est **abandonné** (plus référencé ; l'entrée reste dans l'enum, inerte).
+- **DEBUG est caché, pas supprimé** : la ligne 4 est retirée de la liste (length mutée 6->5) quand
+  `*debug-menus-visible?*` est faux. Ce symbole est semé une fois au boot depuis la constante compile-time
+  `FLAG_DEBUG_MENUS` (= `build.sh --debug`). `*opt-debug*` est compilé dans TOUS les builds ; seul son
+  affichage est conditionné. Builds de test/damier : `--debug` ; builds release : non.
 
 ## 2. Quitter (titre ET pause)  [NEW]
 
@@ -68,143 +69,183 @@ L'invite "QUITTER ?" (draw-quit) reste au-dessus ; les choix sont des boutons de
 
 ## 3. Les 4 mécanismes UI  [NEW, ✅ FAITS]
 
-1. **EN-TÊTES DE GROUPE** : nouveau `game-option-type group-header`. Ligne non-sélectionnable — la nav
-   (haut/bas) la saute (direction-aware), l'entrée d'écran normalise le focus hors en-tête, la confirmation
-   l'ignore ; dessinée dans une couleur de titre (progress-blue), sans curseur ni valeur.
-2. **VALEUR LIVE sur 100 % des lignes porteuses de valeur** : on/off (': ON/OFF'), sliders (': 50'),
-   langues, et désormais TOUS les carrousels (': CHOIX COURANT') via `carousell-current-string` (lit le
-   réglage live, pas le scratch int-backup). Les lignes sans valeur (menu, bouton, en-tête, confirmation)
-   n'affichent rien — c'est correct.
+1. **EN-TÊTES DE GROUPE** : `game-option-type group-header`. Ligne non-sélectionnable — la nav (haut/bas)
+   la saute (direction-aware, progress-pc.gc:3719-3773), l'entrée d'écran normalise le focus hors en-tête,
+   la confirmation l'ignore (:4001) ; dessinée dans une couleur de titre (progress-blue, :5127), sans
+   curseur ni valeur (:5024).
+2. **VALEUR LIVE sur 100 % des lignes porteuses de valeur** : on/off, sliders, langues, et TOUS les
+   carrousels via `carousell-current-string` (lit le réglage live). Menu/bouton/en-tête/confirmation
+   n'affichent aucune valeur — correct.
 3. **HINT** : chaque `game-option` porte un champ `hint` (text-id, 0 = aucun). draw-options dessine une
-   ligne d'aide en bas de la bande d'options pour la ligne focalisée, fondue avec la transition du menu.
-4. **LIGNES CONDITIONNELLES** : réutilise le mécanisme éprouvé de mutation de length
-   (`graphic-options-set-mtf-visible!`) et le swap de tableau (cheat-mode) — utilisés ici pour le
-   titre conditionnel et la catégorie DEBUG.
+   ligne d'aide en bas de la bande pour la ligne focalisée (:5150-5163), localisée et fondue.
+4. **LIGNES CONDITIONNELLES** : mutation de length + swap de tableau — titre conditionnel, catégorie DEBUG,
+   et la ligne **Min Target FPS** dans GRAPHISMES (présente seulement si Dynamic Render Scale ON).
 
 ---
 
-## 4. Contenu CIBLE des pages-catégories (🚧 réorg interne en cours)
+## 4. La zone **GRAPHISMES** unifiée (`*graphics-unified-pc*`, écran graphic-settings)  [NEW]
 
-### JOUABILITÉ (game-settings)
-hints, sous-titres, 3 langues, sous-titres locuteur, **auto-save** (nouveau toggle), (Misc : money
-starburst / discord / skips cinématiques / mode speedrun).
+UNE seule page, organisée PAR FONCTION, avec le **MASTER Recharged en tête** puis 6 sous-sections séparées
+par des en-têtes de groupe. **Assemblée au runtime par RÉFÉRENCE** (`build-graphics-unified!`) à partir des
+lignes déjà câblées des tableaux sources (`*graphic-options-pc(-android)*` + `*recharged-options-pc*` +
+`*grass-options-pc*`) : `game-option` étant un `basic`, une ligne partagée porte son `value-to-modify` /
+`name-override` / `on-change` / `option-disabled-func` / `hint` dans la page fusionnée — aucun recâblage
+dupliqué, et respond-common/draw-options dispatchent par `option-type` (le réordonnancement est sûr).
+Les tableaux sources restent câblés (substrat) mais ne sont plus atteints par le hub.
 
-### AFFICHAGE (graphic-settings) — groupes internes
-- **groupe ÉCRAN** : Aspect Ratio, Game Resolution, **Display mode\***, **Display/moniteur\***, plein écran
-- **groupe PERFORMANCE** : Dynamic Render Scale, Render/Min Render Scale, Min Target FPS, **Frame rate\***,
-  V-Sync, MSAA
-- **groupe HUD** : FPS Counter, **HUD Recharged** {FLAG_RECHARGED_HUD}
-  `\*` = les 3 lignes rétablies sur Android, inertes, avec hint `pc-text-hint-no-mobile` "(SANS EFFET SUR MOBILE)".
-  Règle générale : on ne cache plus de menus sur Android.
+Ordre exact (config de ship : PLATFORM_ANDROID, FLAG_PBR ON, HUD/HD/OVERHANG/VULKAN OFF) :
 
-### RENDU (recharged-settings) — groupes internes ; le sous-menu Grass est DISSOUS ici
-- **groupe GÉNÉRAL** : RECHARGED MASTER (coupe-circuit global, en tête), Recharged Textures
-- **groupe MATÉRIAUX** : PBR Materials, Texture Relief, Specular Intensity, Displacement (Off/Parallax/Tess)
-- **groupe ÉCLAIRAGE** : Realtime Lighting, Env Probe, Ambient Model, Ambient Strength/Contrast, Shadow
-  Distance/Quality, AO (mode/qualité/force)
-- **groupe VÉGÉTATION** : Recharged Grass + distances/densité/mode/overhang (ex-sous-menu Grass dissous),
-  Foliage Wind
+```
+RENDU RECHARGED (MASTER)                [R] coupe-circuit global, en tête
+[HDR] ÉCRAN            (pc-text-grp-screen)
+  Aspect Ratio                          [STOCK]
+  Game Resolution                       [STOCK]
+  Display mode                          [STOCK] rétabli INERTE sur Android + hint "(SANS EFFET SUR MOBILE)"
+  Display / moniteur                    [STOCK] rétabli INERTE sur Android + hint mobile
+[HDR] PERFORMANCE     (pc-text-grp-performance)
+  Dynamic Render Scale                  [R]
+  Render Scale / Min Render Scale       [R] (repointée par apply-dynamic-rs-menu-mode!)
+  Min Target FPS                        [R] (cachée si Dynamic Render Scale OFF — length mutée)
+  V-Sync                                [STOCK]
+  MSAA                                  [STOCK]
+  Frame rate                            [STOCK] rétabli INERTE sur Android + hint mobile
+[HDR] MATÉRIAUX & DÉTAIL (pc-text-grp-materials)
+  PBR Materials            {FLAG_PBR}   [R] (grisé si master OFF)
+  Relief (Off/Parallax/Tessellation) {FLAG_PBR} [R] (ex-"Displacement" ; grisé si master/PBR OFF)
+  Texture Relief (force)   {FLAG_PBR}   [R]
+  Specular Intensity       {FLAG_PBR}   [R]
+  Recharged Textures                    [R] (grisé si master OFF)
+  Load Custom Assets                    [R] (grisé si master OFF)
+[HDR] ÉCLAIRAGE       (pc-text-grp-lighting)
+  Realtime Lighting        {FLAG_PBR}   [R] (grisé si master OFF)
+  Ambient Occlusion (mode)              [R] (grisé si master OFF)
+  AO Quality                            [R] (grisé si master OFF ou AO=Off)
+  AO Strength                           [R] (grisé si master OFF ou AO=Off)
+  Ambient Model            {FLAG_PBR}   [R] (grisé si master OFF ou Realtime OFF)
+  Ambient Strength         {FLAG_PBR}   [R]
+  Ambient Contrast         {FLAG_PBR}   [R]
+  Env Probe                {FLAG_PBR}   [R]
+  Shadow Distance          {FLAG_PBR}   [R]
+  Shadow Quality           {FLAG_PBR}   [R]
+[HDR] VÉGÉTATION      (pc-text-grp-vegetation)    -- le sous-sous-menu Grass est DISSOUS ici
+  Recharged Grass                       [R]
+  Near Grass Distance                   [R]
+  Grass Card Distance                   [R]
+  Grass Density                         [R]
+  Grass Mode (précalculé/live)          [R]
+  Foliage Wind                          [R] (grisé si master OFF)
+[HDR] INTERFACE       (pc-text-grp-hud)
+  FPS Counter                           [R]
+  Recharged HUD          {FLAG_RECHARGED_HUD}  [R] (absent en ship)
+  Advanced (sous-menu PS2 gfx-ps2)      [STOCK] conservé, jamais orphelin
+Retour                                  [STOCK]
+```
 
-### AUDIO (sound-settings)
-SFX / Music / Speech volumes, Music fade-in, **langue des voix**.
+Longueur vive ≈ 42 lignes (41 si Dynamic Render Scale OFF) ; tableau alloué 48. Scroll au-delà de
+`PROGRESS_PC_PAGE_HEIGHT (7)`. Les autres catégories restent en pages dédiées :
 
-### COMMANDES (input-options)
-Camera, Controller, Keyboard/Mouse enable, Mouse options, Auto-hide cursor, Reassign binds, Restore
-defaults, **overlay tactile**.
-
-### DEBUG (debug-options) — {caché sauf --debug}
-Mesh Browser (freecam / gizmos / damier), **PBR Test Preset**, **PBR Isolate**. (Presets/isolate à
-migrer depuis RENDU.)
+- **JOUABILITÉ** (game-settings) : Play Hints, Subtitles, Hint Subtitles, Language, Subtitles Language,
+  Text Language, Speaker, Misc (money starburst / discord / skips / speedrun). [STOCK/R]
+- **AUDIO** (sound-settings) : volumes SFX / Music / Speech, fade-in, langue des voix. [STOCK]
+- **COMMANDES** (input-options) : Camera, Controller, Keyboard/Mouse enable, Mouse options, Auto-hide
+  cursor, Reassign binds, Restore defaults, overlay tactile. [STOCK/R]
+- **DEBUG** (`*opt-debug*`, {caché sauf --debug}) : **Mesh Browser** (freecam / gizmos / damier), **PBR Test
+  Preset**, **PBR Isolate** (déplacés hors de GRAPHISMES — outils de mise au point, pas des options joueur),
+  Retour. Preset/Isolate = carrousels frais câblés dans init-game-options ({FLAG_PBR}).
 
 ---
 
 ## 5. TABLE DE CORRESPONDANCE ANCIEN -> NOUVEAU (garde-fou "l'utilisateur n'est pas perdu")
 
-Chaque ligne existante et sa destination. Aucune option n'est orpheline ; les fusions sont notées.
+Chaque ligne existante et sa destination après le RECADRAGE. Aucune option n'est orpheline ; les fusions
+délibérées sont notées.
 
 | Ancien emplacement | Ligne | Nouvel emplacement |
 |--------------------|-------|--------------------|
 | Titre `*title-pc*` | New Game / Options / Secrets / Quit | Titre (inchangé) ; **Load** = caché sans save |
 | Titre (nouveau) | **CONTINUE** | Titre `*title-pc-continue*` (1-clic, save la + récente) [NEW] |
-| Pause : Game Options | menu -> game-settings | **HUB OPTIONS > JOUABILITÉ** (fusion des 3 entrées) |
-| Pause : Graphic Options | menu -> graphic-settings | **HUB OPTIONS > AFFICHAGE** |
-| Pause : Sound Options | menu -> sound-settings | **HUB OPTIONS > AUDIO** |
-| Pause : Load / Save / Disable Auto-Save / Quit / Back | — | Pause (inchangé, sous "Options") |
-| Titre : Options -> settings-title (`*options*` Game/Graphics/Sound) | — | **HUB OPTIONS à 6 catégories** |
-| Game Options : Input Options | menu -> input-options | **COMMANDES** (déplacé) |
-| Game Options : Play Hints / Subtitles / Hint Subtitles / Language / Subtitles Language / Text Language / Speaker | — | **JOUABILITÉ** (inchangé de contenu) |
+| Pause : Game Options | menu -> game-settings | **HUB > JOUABILITÉ** (fusion des 3 entrées en 1 "Options") |
+| Pause : Graphic Options | menu -> graphic-settings | **HUB > GRAPHISMES** |
+| Pause : Sound Options | menu -> sound-settings | **HUB > AUDIO** |
+| Titre : Options (`*options*` Game/Graphics/Sound) | — | **HUB à 5 catégories** |
+| Game Options : Input Options | menu -> input-options | **COMMANDES** |
+| Game Options : Play Hints / Subtitles / Hint Subtitles / Language / Sub Language / Text Language / Speaker | — | **JOUABILITÉ** (inchangé) |
 | Game Options : Misc Options | menu -> misc-options | **JOUABILITÉ** (sous-groupe Misc) |
-| (nouveau) Auto-Save | toggle | **JOUABILITÉ** [NEW] |
-| Graphics : Aspect / Resolution | menu | **AFFICHAGE > groupe ÉCRAN** |
-| Graphics : Display mode / Display(moniteur) / Frame rate | carousell/menu | **AFFICHAGE > ÉCRAN/PERFORMANCE** ; **RÉTABLIS INERTES sur Android** + hint mobile |
-| Graphics : Dynamic Render Scale / Render Scale / Min Target FPS / V-Sync / MSAA | — | **AFFICHAGE > groupe PERFORMANCE** |
-| Graphics : FPS Counter | on-off | **AFFICHAGE > groupe HUD** |
-| Graphics : **RECHARGED SETTINGS** (sous-menu) | menu -> recharged-settings | **DISSOUS** : devient la catégorie **RENDU** de 1er niveau |
-| Graphics : Advanced Settings | menu -> gfx-ps2-options | **AFFICHAGE** (conservé, sous-menu Avancé) |
-| Graphics : Vulkan Renderer {FLAG_VULKAN} | on-off | **AFFICHAGE > PERFORMANCE** {FLAG_VULKAN} |
-| Recharged : RECHARGED MASTER | on-off | **RENDU > GÉNÉRAL** (en tête) |
-| Recharged : Recharged HUD {FLAG_RECHARGED_HUD} | on-off | **AFFICHAGE > groupe HUD** {FLAG_RECHARGED_HUD} |
-| Recharged : Grass Settings (sous-sous-menu) | menu -> grass-settings | **DISSOUS dans RENDU > groupe VÉGÉTATION** |
-| Recharged : Load Custom Assets / Recharged Textures | on-off | **RENDU > GÉNÉRAL** |
-| Recharged : PBR Materials / Texture Relief / Specular / Displacement | — | **RENDU > groupe MATÉRIAUX** |
-| Recharged : Enhanced Models {FLAG_HD_MODELS} | on-off | **RENDU > MATÉRIAUX** {FLAG_HD_MODELS} |
-| Recharged : Foliage Wind | on-off | **RENDU > groupe VÉGÉTATION** |
-| Recharged : AO (mode/qualité/force) | carousell ×3 | **RENDU > groupe ÉCLAIRAGE** |
-| Recharged : Realtime Lighting / Env Probe / Ambient Model / Ambient Strength/Contrast / Shadow Distance/Quality | — | **RENDU > groupe ÉCLAIRAGE** |
-| Recharged : **PBR Test Preset** / **PBR Isolate** | carousell | **DEBUG** (déplacé — outils debug) |
+| Graphics : Aspect / Resolution | menu | **GRAPHISMES > [HDR] ÉCRAN** |
+| Graphics : Display mode / Display(moniteur) / Frame rate | carousell/menu | **GRAPHISMES > ÉCRAN/PERFORMANCE** ; **RÉTABLIS INERTES sur Android** + hint mobile |
+| Graphics : Dynamic Render Scale / Render Scale / Min Target FPS / V-Sync / MSAA | — | **GRAPHISMES > [HDR] PERFORMANCE** |
+| Graphics : FPS Counter | on-off | **GRAPHISMES > [HDR] INTERFACE** |
+| Graphics : **RECHARGED SETTINGS** (sous-menu) | menu -> recharged-settings | **DISSOUS** : ventilé PAR FONCTION dans GRAPHISMES (plus de catégorie séparée) |
+| Graphics : Advanced Settings | menu -> gfx-ps2-options | **GRAPHISMES > INTERFACE** (queue, conservé) |
+| Graphics : Vulkan Renderer {FLAG_VULKAN} | on-off | **GRAPHISMES > PERFORMANCE** {FLAG_VULKAN} (source câblée) |
+| Recharged : RECHARGED MASTER | on-off | **GRAPHISMES — en tête (coupe-circuit)** |
+| Recharged : Recharged HUD {FLAG_RECHARGED_HUD} | on-off | **GRAPHISMES > [HDR] INTERFACE** {FLAG_RECHARGED_HUD} |
+| Recharged : Grass Settings (sous-sous-menu) | menu -> grass-settings | **DISSOUS dans GRAPHISMES > [HDR] VÉGÉTATION** |
+| Recharged : Load Custom Assets / Recharged Textures | on-off | **GRAPHISMES > [HDR] MATÉRIAUX & DÉTAIL** |
+| Recharged : PBR Materials / Texture Relief / Specular / Relief(Displacement) | — | **GRAPHISMES > [HDR] MATÉRIAUX & DÉTAIL** |
+| Recharged : Enhanced Models {FLAG_HD_MODELS} | on-off | source câblée (absente en ship ; irait en MATÉRIAUX) |
+| Recharged : Foliage Wind | on-off | **GRAPHISMES > [HDR] VÉGÉTATION** |
+| Recharged : AO (mode/qualité/force) | carousell ×3 | **GRAPHISMES > [HDR] ÉCLAIRAGE** |
+| Recharged : Realtime Lighting / Env Probe / Ambient Model / Ambient Strength/Contrast / Shadow Distance/Quality | — | **GRAPHISMES > [HDR] ÉCLAIRAGE** |
+| Recharged : **PBR Test Preset** / **PBR Isolate** | carousell | **DEBUG** (déplacé — outils de mise au point) |
 | Recharged : **MESH BROWSER** | button | **DEBUG** (déplacé — outil debug) |
-| Grass sous-menu : Recharged Grass / Near/Card dist / Density / Mode / Overhang | — | **RENDU > groupe VÉGÉTATION** (dissous) |
+| Grass sous-menu : Recharged Grass / Near/Card dist / Density / Mode / Overhang | — | **GRAPHISMES > [HDR] VÉGÉTATION** (dissous) |
 | Sound : SFX/Music/Speech volumes / fade-in | slider/on-off | **AUDIO** (inchangé) |
-| (voix) langue des voix | — | **AUDIO** [NEW placement] |
-| Input Options + sous-menus (camera/controller/mouse/keyboard/binds) | — | **COMMANDES** (inchangé de contenu) |
-| (nouveau) overlay tactile | toggle | **COMMANDES** [NEW] |
+| Input Options + sous-menus (camera/controller/mouse/keyboard/binds) | — | **COMMANDES** (inchangé) |
 | Secrets (titre/pause) / Cheats / Music Player / Checkpoint / Speedrun / Aspect / Advanced / Memcard | — | **inchangés** (hors périmètre OPTIONS ; toujours atteignables) |
 
 ## 6. Persistance
 
-Aucune clé de sauvegarde de réglage n'est renommée ni réinitialisée. Le déplacement des lignes ne touche
-que `value-to-modify` / la position ; les champs `*pc-settings*` et `*setting-control*` restent identiques
-(mêmes clés `settings.ini` / memcard). Les réglages existants survivent à la mise à jour.
+Aucune clé de sauvegarde de réglage n'est renommée ni réinitialisée. La fusion ne fait que **partager les
+mêmes objets `game-option`** dans une nouvelle page ; les `value-to-modify` pointent toujours vers les
+mêmes champs `*pc-settings*` / `*setting-control*` (mêmes clés `settings.ini` / memcard). Les réglages
+existants survivent à la mise à jour.
 
 ## 7. Langues
 
-Chaque nouvel intitulé/hint est un `text-id` (jamais `name-override`, qui est anglais-seul) présent dans
-les 6 langues supportées du jeu — ENG, FRE, GER, ITA, JAP, SPA — sur 7 fichiers locale
-(`game_custom_text_{en-US,en-GB,fr-FR,de-DE,es-ES,it-IT,ja-JP}.json`). 24 nouveaux ids `#x1729`–`#x1740`
-(6 catégories, 7 en-têtes de groupe, continue/retour-titre/annuler, 8 hints), soit 24 × 7 fichiers = 168
-chaînes. Les de/es/it/ja n'avaient AUCUNE chaîne custom 17xx auparavant : couverture pleine désormais.
+Chaque intitulé/hint est un `text-id` présent dans les 6 langues supportées du jeu — **ENG, FRE, GER, ITA,
+JAP, SPA** — sur 7 fichiers locale (`game_custom_text_{en-US,en-GB,fr-FR,de-DE,es-ES,it-IT,ja-JP}.json`).
+Les text-ids `#x1729`–`#x1740` (catégories, 7 en-têtes de groupe, continue/retour-titre/annuler, 8 hints)
+existent déjà en 6 langues (batch menu-overhaul). Le RECADRAGE ne fait que **repointer** `pc-text-cat-display`
+(→ "GRAPHISMES") et son hint `pc-text-hint-display` (→ liste des sous-sections) dans les 7 fichiers ; les
+6 en-têtes de fonction réutilisent des ids déjà localisés (grp-screen/performance/materials/lighting/
+vegetation/hud). Aucun texte anglais-seul.
 
 ## 8. Flag de build `--debug`
 
-`build.sh --debug` -> `(defglobalconstant FLAG_DEBUG_MENUS #t)` (+ `_N`) dans le
-`recharged-flags.gc` généré, ajouté au FLAG_LIST (marqueur ogflags recalculé, paires CGO/libgk
-conservées). Flag GOAL-only (aucun define C++/CMake nécessaire : la catégorie DEBUG est dessinée
-entièrement en GOAL). Semé dans `*debug-menus-visible?*` au boot.
+`build.sh --debug` -> `(defglobalconstant FLAG_DEBUG_MENUS #t)` (+ `_N`) dans le `recharged-flags.gc`
+généré, ajouté au FLAG_LIST (marqueur ogflags recalculé, paires CGO/libgk conservées). Flag GOAL-only
+(la catégorie DEBUG est dessinée entièrement en GOAL). Semé dans `*debug-menus-visible?*` au boot.
 
 ---
 
 ## 9. Mécanismes à connaître (rappel)
 
-1. **Ordre** = ordre des éléments du tableau statique ; réorganiser = réordonner + ré-indexer le câblage
-   `init-game-options` (chaque ligne à value-to-modify/name-override est câblée par index).
-2. **3 niveaux de visibilité** : `{FLAG_X}` build-time (absent du CGO) ; `option-disabled-func` (grisé) ;
-   length mutée (retiré de la liste) ; + NEW `group-header` (présent mais non-sélectionnable).
-3. **Sélection de tableau au runtime** : `init-game-options` choisit quel tableau lie chaque écran
-   (`*options-remap*`) — utilisé pour le titre conditionnel et le swap cheat-mode.
-4. **Desktop ≠ Android** : deux tableaux graphics ; l'Android RÉTABLIT désormais les 3 lignes inertes.
-5. **Pagination** : `PROGRESS_PC_PAGE_HEIGHT = 7` ; au-delà, scroll.
+1. **Fusion par référence** : `build-graphics-unified!` (progress-pc.gc, après *grass-options-pc*)
+   remplit `*graphics-unified-pc*` en copiant les RÉFÉRENCES des lignes sources dans l'ordre fonctionnel,
+   avec les en-têtes de groupe intercalés. Rejouée par `apply-dynamic-rs-menu-mode!` (pour ajouter/retirer
+   Min Target FPS). Les index sources réutilisent l'arithmétique `fw-idx`/`FLAG_*_N` existante.
+2. **3 (+1) niveaux de visibilité** : `{FLAG_X}` build-time (absent du CGO) ; `option-disabled-func`
+   (grisé) ; length mutée (retiré de la liste) ; + `group-header` (présent mais non-sélectionnable).
+3. **Sélection de tableau au runtime** (`*options-remap*`) : titre conditionnel, swap cheat-mode, route
+   graphic-settings -> `*graphics-unified-pc*`.
+4. **Desktop ≠ Android** : `build-graphics-unified!` choisit le tableau graphics source via `#if
+   PLATFORM_ANDROID` et ses index (Display/Frame rate en queue inerte sur Android, au milieu sur desktop).
+5. **Pagination** : `PROGRESS_PC_PAGE_HEIGHT = 7` ; au-delà, scroll (keyé sur `(length options)`).
 6. **RECHARGED MASTER** : coupe-circuit global (grise toutes les lignes Recharged sans réinitialiser).
 
 ---
 
-## 10. Câblage fragile à surveiller (réorg interne restante)
+## 10. Câblage fragile — RÉSOLU par la fusion par référence
 
-- `apply-dynamic-rs-menu-mode!` suppose le **Min Target FPS à l'index 4** de chaque tableau graphics et
-  cache/montre cette ligne par mutation de length. Insérer des en-têtes de groupe DANS le tableau graphics
-  déplace cet index -> le mécanisme MTF doit être ré-ancré en même temps. NE PAS toucher à l'un sans l'autre.
-- `*recharged-options-pc*` : câblage `fw-idx` runtime (progress-pc.gc ~3390-3510) dérivé des `FLAG_*_N`
-  (les lignes flag-gated décalent les index). Dissoudre Grass / déplacer les lignes debug impose de
-  reconstruire ce tableau + réécrire ce câblage explicitement.
+- L'ancien risque « insérer des en-têtes DANS les tableaux graphics déplace l'index 4 (Min Target FPS) et
+  casse `apply-dynamic-rs-menu-mode!` » est **évité** : les tableaux sources ne sont PAS réordonnés. La
+  page GRAPHISMES est un tableau SÉPARÉ assemblé par référence. `apply-dynamic-rs-menu-mode!` maintient
+  désormais les tableaux sources en layout PLEIN (`#t`) — donc leurs index restent canoniques — et délègue
+  la visibilité de Min Target FPS à `build-graphics-unified!` (paramètre `dyn?`).
+- Le câblage `fw-idx` de `*recharged-options-pc*` (progress-pc.gc ~3550-3610) reste **inchangé** ; la page
+  fusionnée RÉUTILISE exactement les mêmes expressions d'index pour lire les lignes, donc elle suit les
+  flags à l'identique. Aucun tableau reconstruit, aucun recâblage réécrit.
 
 ---
 
@@ -214,10 +255,13 @@ entièrement en GOAL). Semé dans `*debug-menus-visible?*` au boot.
   = !realtime en dur. (owner : double toggle confus.)
 - **Baked Ambient / Baked Reflections / Baked Ambient Quality** — supprimés 2026-07-21 (OWNER #3
   UNIFICATION) : fusionnés dans le groupe AMBIENT unifié (les données probe alimentent les paliers de
-  l'Ambient Model). Baked Ambient partiellement restauré puis re-fusionné ; cubemaps bakées gardées comme
-  ressource consommée par PBR/eau uniquement.
-- **Sous-menu "Recharged Settings" en tant que tel** — DISSOUS par cette refonte : promu catégorie RENDU
-  de 1er niveau ; son sous-sous-menu Grass dissous dans le groupe VÉGÉTATION ; ses lignes debug (PBR Test
-  Preset, PBR Isolate, Mesh Browser) déplacées dans la catégorie DEBUG.
+  l'Ambient Model). Cubemaps bakées gardées comme ressource consommée par PBR/eau uniquement.
+- **Catégorie "AFFICHAGE" + catégorie "RENDU" (tri PAR ORIGINE)** — REJETÉES par le RECADRAGE owner
+  2026-08-01 (« c'est débile … comme si c'était un vrai remake et pas un hack »). Fusionnées en UNE zone
+  **GRAPHISMES** organisée par fonction. `pc-text-cat-render` abandonné.
+- **Sous-menu "Recharged Settings" en tant que tel** — DISSOUS : ses lignes sont ventilées PAR FONCTION
+  dans GRAPHISMES (matériaux avec matériaux, éclairage avec éclairage, végétation avec végétation) ; son
+  sous-sous-menu Grass dissous dans VÉGÉTATION ; ses lignes debug (PBR Test Preset, PBR Isolate, Mesh
+  Browser) déplacées dans la catégorie DEBUG.
 - **Écran-titre "Load Game" inconditionnel** — remplacé par un affichage conditionnel (caché sans save).
 - **Quitter yes/no** — remplacé par les menus boutons Retour-titre/Quitter/Annuler.
