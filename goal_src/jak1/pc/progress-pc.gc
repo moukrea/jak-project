@@ -1843,6 +1843,9 @@
             :scale #t)
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
+;; Grecharged-menu-overhaul: the title screen is now CONDITIONAL on save presence, reusing the same
+;; runtime-array-selection mechanism as the cheat-mode pause swap (init-game-options picks the array).
+;; *title-pc* = NO SAVE variant: Load Game is HIDDEN (nothing to load) and there is no Continue.
 (define *title-pc*
   (new 'static
        'boxed-array
@@ -1854,12 +1857,6 @@
             :name (text-id new-game)
             :scale #t
             :param3 (game-option-menu save-game-title))
-       (new 'static
-            'game-option
-            :option-type (game-option-type menu)
-            :name (text-id load-game)
-            :scale #t
-            :param3 (game-option-menu load-game))
        (new 'static
             'game-option
             :option-type (game-option-type menu)
@@ -1879,6 +1876,96 @@
             :scale #t
             :param3 (game-option-menu quit-title))
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; *title-pc-continue* = >=1 SAVE variant: CONTINUE (1-click load of the most recent save) at the top,
+;; then Load Game, then the same New/Options/Secrets/Quit rows. Chosen in init-game-options when a save
+;; is present. The CONTINUE row is a button handled in respond-common (progress-continue-most-recent!).
+(define *title-pc-continue*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       (new 'static
+            'game-option
+            :option-type (game-option-type button)
+            :name (text-id pc-text-continue)
+            :scale #t
+            :hint (text-id pc-text-hint-continue))
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id load-game)
+            :scale #t
+            :param3 (game-option-menu load-game))
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id new-game)
+            :scale #t
+            :param3 (game-option-menu save-game-title))
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id options)
+            :scale #t
+            :param3 (game-option-menu settings-title))
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id secrets)
+            :scale #t
+            :param3 (game-option-menu secrets))
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id quit-game)
+            :scale #t
+            :param3 (game-option-menu quit-title))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; Grecharged-menu-overhaul: the QUIT flow is now a small button menu instead of a bare yes/no.
+;; PAUSE quit (progress-screen quit): [ RETURN TO TITLE | QUIT GAME | CANCEL ].
+;; TITLE quit (progress-screen quit-title): [ QUIT GAME | CANCEL ] (no "return to title" at the title).
+;; Handled by name in respond-common's button case; drawn by draw-options under the "QUIT?" prompt.
+(define *quit-pause-options*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-return-title) :scale #t)
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id quit-game) :scale #t)
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-cancel) :scale #t)))
+
+(define *quit-title-options*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id quit-game) :scale #t)
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-cancel) :scale #t)))
+
+;; Grecharged-menu-overhaul: any save present? and which slot is the most recent (for 1-click Continue).
+;; Composed from mc-get-slot-info + the per-slot `present` flag and date fields (there is no built-in
+;; "newest" helper). Returns the slot index 0..3 of the newest present save, or -1 if none exists.
+(defun progress-newest-save-slot ()
+  (let ((info *progress-save-info*)
+        (best -1)
+        (best-key -1))
+    (mc-get-slot-info 0 info)
+    (dotimes (s 4)
+      (when (nonzero? (-> info file s present))
+        ;; comparable timestamp: (((year*12+month)*31+day)*24+hour)*60+minute (fields are uint8 -> int)
+        (let ((k (+ (* (+ (* (+ (* (+ (* (the int (-> info file s year)) 12) (the int (-> info file s month))) 31)
+                                 (the int (-> info file s day))) 24)
+                          (the int (-> info file s hour))) 60)
+                    (the int (-> info file s minute)))))
+          (when (> k best-key)
+            (set! best-key k)
+            (set! best s)))))
+    best))
+
+(defun any-save-present? ()
+  (>= (progress-newest-save-slot) 0))
 
 (define *speedrun-options*
   (new 'static
@@ -3255,14 +3342,17 @@
   (set! (-> *options-remap* (progress-screen memcard-auto-save-error)) *ok-options*)
   (set! (-> *options-remap* (progress-screen memcard-removed)) *ok-options*)
   (set! (-> *options-remap* (progress-screen memcard-no-data)) *yes-no-options*)
-  (set! (-> *options-remap* (progress-screen title)) *title-pc*)
+  ;; Grecharged-menu-overhaul: pick the title-screen menu by save presence (same mechanism as the
+  ;; cheat-mode pause swap above). >=1 save -> Continue + Load shown; no save -> Load hidden, no Continue.
+  (set! (-> *options-remap* (progress-screen title)) (if (any-save-present?) *title-pc-continue* *title-pc*))
   (set! (-> *options-remap* (progress-screen settings-title)) *options*)
   (set! (-> *options-remap* (progress-screen auto-save)) *ok-options*)
   (set! (-> *options-remap* (progress-screen pal-change-to-60hz)) *yes-no-options*)
   (set! (-> *options-remap* (progress-screen pal-now-60hz)) *yes-no-options*)
   (set! (-> *options-remap* (progress-screen no-disc)) *ok-options*)
   (set! (-> *options-remap* (progress-screen bad-disc)) *ok-options*)
-  (set! (-> *options-remap* (progress-screen quit)) *yes-no-options*)
+  ;; Grecharged-menu-overhaul: quit flow is a button menu now (was a yes/no).
+  (set! (-> *options-remap* (progress-screen quit)) *quit-pause-options*)
   ;; our screens!
   (set! (-> *options-remap* (progress-screen aspect-msg)) *yes-no-options*)
   (set! (-> *options-remap* (progress-screen input-options)) *input-options*)
@@ -3282,7 +3372,7 @@
   (set! (-> *options-remap* (progress-screen grass-settings)) *grass-options-pc*)
   (set! (-> *options-remap* (progress-screen resolution)) *temp-options*)
   (set! (-> *options-remap* (progress-screen aspect-ratio)) *aspect-ratio-options*)
-  (set! (-> *options-remap* (progress-screen quit-title)) *yes-no-options*)
+  (set! (-> *options-remap* (progress-screen quit-title)) *quit-title-options*)
   (set! (-> *options-remap* (progress-screen secrets)) *secrets-title*)
   (set! (-> *options-remap* (progress-screen cheats)) *cheats*)
   (set! (-> *options-remap* (progress-screen checkpoint-select)) *checkpoint-select-options*)
@@ -3897,6 +3987,33 @@
                   (sound-play "select-option")
                   (mesh-browser-open!)
                   (set-master-mode 'game))
+                 ;; Grecharged-menu-overhaul: title CONTINUE = 1-click load of the most recent save.
+                 (((text-id pc-text-continue))
+                  (let ((slot (progress-newest-save-slot)))
+                    (when (>= slot 0)
+                      (cpad-clear! 0 x)
+                      (cpad-clear! 0 circle)
+                      (sound-play "start-options")
+                      (set! (-> *progress-state* which) slot)
+                      (set! (-> obj next-display-state) (progress-screen memcard-loading)))))
+                 ;; Grecharged-menu-overhaul: quit-flow buttons. RETURN TO TITLE restarts the engine to
+                 ;; the title (pause quit only); QUIT GAME as a BUTTON quits the app (the quit-game MENU
+                 ;; rows are option-type menu, handled above, so this only fires for the quit sub-menu);
+                 ;; CANCEL backs out of the quit prompt.
+                 (((text-id pc-text-return-title))
+                  (set! *quit-to-title* #t)
+                  (sound-play "start-options")
+                  (sound-volume-off)
+                  (set! (-> *game-info* mode) 'play)
+                  (initialize! *game-info* 'game (the-as game-save #f) "title-start"))
+                 (((text-id quit-game))
+                  (sound-play "start-options")
+                  (commit-to-file *pc-settings*)
+                  (sound-volume-off)
+                  (kernel-shutdown))
+                 (((text-id pc-text-cancel))
+                  (sound-play "cursor-options")
+                  (set! (-> obj next-display-state) (progress-screen invalid)))
                  (((text-id exit-demo))
                   ;; exit demo!
                   (set! *master-exit* 'force)
@@ -5196,9 +5313,15 @@
             (((progress-screen no-disc) (progress-screen bad-disc))
              (draw-notice-screen self)
              (if (is-cd-in?) (draw-options self 170 0 0.82)))
-            (((progress-screen quit) (progress-screen quit-title) (progress-screen memcard-disable-auto-save))
+            (((progress-screen memcard-disable-auto-save))
              (draw-notice-screen self)
              (draw-options self 110 0 0.82))
+            ;; Grecharged-menu-overhaul: quit / quit-title are multi-row button menus now, so they need a
+            ;; real line step (was 0 = single yes/no row). draw-notice-screen still draws the "QUIT?"
+            ;; prompt above via draw-quit.
+            (((progress-screen quit) (progress-screen quit-title))
+             (draw-notice-screen self)
+             (draw-options self 140 28 0.78))
             (((progress-screen memcard-insert)) (draw-notice-screen self) (draw-options self 165 0 0.82))
             (((progress-screen memcard-data-exists)) (draw-notice-screen self) (draw-options self 168 0 0.82))
             (((progress-screen memcard-loading)
@@ -5338,8 +5461,8 @@
                    (= v1-74 (progress-screen pal-now-60hz))
                    (= v1-74 (progress-screen no-disc))
                    (= v1-74 (progress-screen bad-disc))
-                   (= v1-74 (progress-screen quit))
-                   (= v1-74 (progress-screen quit-title))
+                   ;; Grecharged-menu-overhaul: quit / quit-title are now button menus handled entirely
+                   ;; in respond-common (button case); they no longer go through respond-memcard's yes/no.
                    (= v1-74 (progress-screen memcard-auto-save-disabled))
                    (= v1-74 (progress-screen memcard-disable-auto-save)))
                (respond-memcard self))))

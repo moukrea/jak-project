@@ -842,6 +842,38 @@
   ;; runtime global string (durable against stale text banks); this id only tags the button so
   ;; respond-common can match it.
   (pc-text-mesh-browser #x1728)
+  ;; Grecharged-menu-overhaul: the unified OPTIONS refonte. Category names, internal group headers,
+  ;; the conditional title-screen / quit-flow rows, and contextual hints. All are text-ids (NOT
+  ;; name-override) so they follow the selected text language across all 6 game languages
+  ;; (ENG/FRE/GER/ITA/JAP/SPA). Strings live in game/assets/jak1/text/game_custom_text_*.json.
+  ;; --- OPTIONS category names (the 6-category hub) ---
+  (pc-text-cat-gameplay #x1729)
+  (pc-text-cat-display #x172a)
+  (pc-text-cat-render #x172b)
+  (pc-text-cat-audio #x172c)
+  (pc-text-cat-controls #x172d)
+  (pc-text-cat-debug #x172e)
+  ;; --- internal group headers (non-selectable rows) ---
+  (pc-text-grp-screen #x172f)
+  (pc-text-grp-performance #x1730)
+  (pc-text-grp-hud #x1731)
+  (pc-text-grp-general #x1732)
+  (pc-text-grp-materials #x1733)
+  (pc-text-grp-lighting #x1734)
+  (pc-text-grp-vegetation #x1735)
+  ;; --- title-screen conditional + quit flow ---
+  (pc-text-continue #x1736)
+  (pc-text-return-title #x1737)
+  (pc-text-cancel #x1738)
+  ;; --- hints ---
+  (pc-text-hint-no-mobile #x1739)
+  (pc-text-hint-gameplay #x173a)
+  (pc-text-hint-display #x173b)
+  (pc-text-hint-render #x173c)
+  (pc-text-hint-audio #x173d)
+  (pc-text-hint-controls #x173e)
+  (pc-text-hint-debug #x173f)
+  (pc-text-hint-continue #x1740)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 
