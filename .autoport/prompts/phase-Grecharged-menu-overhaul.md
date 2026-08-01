@@ -19,20 +19,40 @@ l'utilisateur et qu'il soit pas perdu !"
 ### Quitter (titre ET pause)
   → [ Retour à l'écran titre | Quitter le jeu | Annuler ]   (au titre, pas de "retour titre")
 
-### OPTIONS unifiées — un seul écran, 6 catégories, groupes internes
+### OPTIONS unifiées — 5 catégories, organisées PAR FONCTION (pas par origine)
+
+PRINCIPE CARDINAL (owner 2026-08-01, RECADRAGE) : **on organise par FONCTION, JAMAIS par
+origine.** Il est INTERDIT d'avoir une catégorie "options d'origine" d'un côté et une catégorie
+"réglages Recharged" de l'autre. Les réglages Recharged sont des citoyens de PREMIÈRE CLASSE,
+fondus au milieu des réglages d'origine correspondants, comme si le jeu était un VRAI remake natif
+et pas un hack. Le mot "Recharged" ne sert PAS de critère de rangement. Chaque menu est cohérent,
+intuitif, hiérarchique (sections → sous-sections), avec des hints — pas des listes à plat débiles.
+
   JOUABILITÉ   hints, sous-titres, 3 langues, auto-save
-  AFFICHAGE    groupe Écran (aspect, résolution, display mode*, moniteur*, plein écran)
-               groupe Performance (dynamic render scale, render scale, min FPS, frame rate*, V-Sync, MSAA)
-               groupe HUD (compteur FPS, HUD Recharged)          * = lignes RÉTABLIES sur Android
-  RENDU        groupe Général (RECHARGED MASTER en tête, Textures Recharged)
-               groupe Matériaux (PBR, Relief, Specular, Displacement Off/Parallax/Tess)
-               groupe Éclairage (ambient unifié, éclairage temps réel)
-               groupe Végétation (herbe + distances — le sous-menu Grass est DISSOUS ici)
+
+  GRAPHISMES   (UNE seule zone pour tout le rendu — l'ancien couple AFFICHAGE+RENDU est FUSIONNÉ ;
+                les catégories séparées "AFFICHAGE" et "RENDU" N'EXISTENT PLUS)
+     ⚙ tête    RENDU RECHARGED (MASTER) — coupe-circuit global, tout en haut de la zone
+     Écran           aspect, résolution, plein écran, mode d'affichage*, moniteur*
+     Performance     render scale dynamique, render scale, FPS min, V-Sync, MSAA, frame rate*
+     Matériaux & détail  PBR, Relief (Off/Parallax/Tess), Specular, Textures Recharged
+     Éclairage       ambient unifié, éclairage temps réel
+     Végétation      herbe 3D, distances (le sous-menu Grass est DISSOUS ici)
+     Interface       compteur FPS, HUD Recharged
+                  * = lignes RÉTABLIES sur Android (inertes + hint "sans effet sur mobile")
+
   AUDIO        volumes, langue des voix
   COMMANDES    manette, caméra, souris, rebinds, overlay tactile
   DEBUG        presets PBR, isolate, damier, Freecam/Mesh Browser, gizmos
-  Le sous-menu "Recharged Settings" DISPARAÎT en tant que tel : réglages joueur dans
-  Affichage/Rendu, outillage dans Debug. Le master reste le coupe-circuit global, en tête de RENDU.
+
+  Le sous-menu "Recharged Settings" DISPARAÎT en tant que tel ET NE réapparaît PAS déguisé en
+  catégorie "RENDU" : ses réglages sont ventilés dans les sous-sections FONCTIONNELLES de
+  GRAPHISMES (matériaux avec matériaux, éclairage avec éclairage, végétation avec végétation,
+  textures avec l'écran/l'image). Le MASTER Recharged reste le coupe-circuit global, en tête de
+  GRAPHISMES. L'outillage de mise au point va dans DEBUG.
+
+  Ce principe FONCTION-pas-ORIGINE et la hiérarchie sections/sous-sections + hints s'appliquent à
+  TOUTES les catégories, pas seulement GRAPHISMES.
 
 ## LES QUATRE MÉCANISMES UI À CONSTRUIRE
 1. EN-TÊTES DE GROUPE : nouveau type de ligne non sélectionnable (saut au focus), style distinct.
