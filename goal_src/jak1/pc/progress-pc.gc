@@ -445,24 +445,14 @@
        'boxed-array
        :type
        game-option
+       ;; Grecharged-menu-overhaul: the three scattered Game/Graphics/Sound entries are unified into a
+       ;; single OPTIONS entry opening the 6-category hub (the same hub the title screen reaches).
        (new 'static
             'game-option
             :option-type (game-option-type menu)
-            :name (text-id game-options)
+            :name (text-id options)
             :scale #t
-            :param3 (game-option-menu game-settings))
-       (new 'static
-            'game-option
-            :option-type (game-option-type menu)
-            :name (text-id graphic-options)
-            :scale #t
-            :param3 (game-option-menu graphic-settings))
-       (new 'static
-            'game-option
-            :option-type (game-option-type menu)
-            :name (text-id sound-options)
-            :scale #t
-            :param3 (game-option-menu sound-settings))
+            :param3 (game-option-menu settings-title))
        (new 'static
             'game-option
             :option-type (game-option-type menu)
@@ -494,24 +484,14 @@
        'boxed-array
        :type
        game-option
+       ;; Grecharged-menu-overhaul: the three scattered Game/Graphics/Sound entries are unified into a
+       ;; single OPTIONS entry opening the 6-category hub (the same hub the title screen reaches).
        (new 'static
             'game-option
             :option-type (game-option-type menu)
-            :name (text-id game-options)
+            :name (text-id options)
             :scale #t
-            :param3 (game-option-menu game-settings))
-       (new 'static
-            'game-option
-            :option-type (game-option-type menu)
-            :name (text-id graphic-options)
-            :scale #t
-            :param3 (game-option-menu graphic-settings))
-       (new 'static
-            'game-option
-            :option-type (game-option-type menu)
-            :name (text-id sound-options)
-            :scale #t
-            :param3 (game-option-menu sound-settings))
+            :param3 (game-option-menu settings-title))
        (new 'static
             'game-option
             :option-type (game-option-type menu)
@@ -1967,6 +1947,52 @@
 (defun any-save-present? ()
   (>= (progress-newest-save-slot) 0))
 
+;; ---------------- Grecharged-menu-overhaul: the unified OPTIONS hub ----------------
+;; Runtime visibility of the DEBUG category, seeded ONCE from the compile-time FLAG_DEBUG_MENUS
+;; (build.sh --debug). The DEBUG page and its rows are compiled into EVERY build (hidden, NOT removed);
+;; this symbol conditions ONLY whether the hub shows the DEBUG category row. Final/release builds omit
+;; --debug so it stays #f; test/checker builds pass --debug so it becomes #t.
+(define *debug-menus-visible?* (#if FLAG_DEBUG_MENUS #t #f))
+
+;; The DEBUG category page (developer/debug tooling; hidden in final builds). For now the Mesh Browser
+;; launcher (freecam / gizmos / checker / mark tools); PBR test-preset & isolate migrate here from RENDU.
+(define *opt-debug*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t
+            :hint (text-id pc-text-hint-debug))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; The 6-category OPTIONS hub, reached from BOTH the title "Options" and the pause "Options". Each row
+;; opens a category page. DEBUG is conditional (see init-game-options). The old "Recharged Settings"
+;; sub-submenu is DISSOLVED: it is no longer nested under Graphics but promoted to the top-level RENDU
+;; category. Every row carries a contextual hint.
+(define *options-hub*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-gameplay) :scale #t
+            :param3 (game-option-menu game-settings) :hint (text-id pc-text-hint-gameplay))
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-display) :scale #t
+            :param3 (game-option-menu graphic-settings) :hint (text-id pc-text-hint-display))
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-render) :scale #t
+            :param3 (game-option-menu recharged-settings) :hint (text-id pc-text-hint-render))
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-audio) :scale #t
+            :param3 (game-option-menu sound-settings) :hint (text-id pc-text-hint-audio))
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-controls) :scale #t
+            :param3 (game-option-menu input-options) :hint (text-id pc-text-hint-controls))
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id pc-text-cat-debug) :scale #t
+            :param3 (game-option-menu debug-options) :hint (text-id pc-text-hint-debug))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; cached row objects so init-game-options can hide/restore the DEBUG row idempotently (length-mutation
+;; pattern like graphic-options-set-mtf-visible!). DEBUG is index 5, Back index 6.
+(define *hub-debug-row* (-> *options-hub* 5))
+(define *hub-back-row* (-> *options-hub* 6))
+
 (define *speedrun-options*
   (new 'static
        'boxed-array
@@ -3345,7 +3371,21 @@
   ;; Grecharged-menu-overhaul: pick the title-screen menu by save presence (same mechanism as the
   ;; cheat-mode pause swap above). >=1 save -> Continue + Load shown; no save -> Load hidden, no Continue.
   (set! (-> *options-remap* (progress-screen title)) (if (any-save-present?) *title-pc-continue* *title-pc*))
-  (set! (-> *options-remap* (progress-screen settings-title)) *options*)
+  ;; Grecharged-menu-overhaul: settings-title is now the unified 6-category OPTIONS hub (reached from
+  ;; both the title "Options" and the pause "Options"), replacing the stock Game/Graphics/Sound list.
+  (set! (-> *options-remap* (progress-screen settings-title)) *options-hub*)
+  (set! (-> *options-remap* (progress-screen debug-options)) *opt-debug*)
+  ;; DEBUG category is hidden (not removed) unless the build seeded *debug-menus-visible?* via --debug.
+  ;; Length-mutation hide (like graphic-options-set-mtf-visible!): show=7 rows, hide=Back into DEBUG's
+  ;; slot + length 6. Idempotent (cached row refs), because *debug-menus-visible?* never flips at runtime.
+  (cond
+    (*debug-menus-visible?*
+     (set! (-> *options-hub* 5) *hub-debug-row*)
+     (set! (-> *options-hub* 6) *hub-back-row*)
+     (set! (-> *options-hub* length) 7))
+    (else
+     (set! (-> *options-hub* 5) *hub-back-row*)
+     (set! (-> *options-hub* length) 6)))
   (set! (-> *options-remap* (progress-screen auto-save)) *ok-options*)
   (set! (-> *options-remap* (progress-screen pal-change-to-60hz)) *yes-no-options*)
   (set! (-> *options-remap* (progress-screen pal-now-60hz)) *yes-no-options*)
@@ -5287,7 +5327,7 @@
             (((progress-screen gfx-ps2-options)) (hide-progress-icons) (draw-options self 115 25 0.67))
             ;; Grecharged-hud-jak1 + Grecharged-grass-poc POLISH#6: the Recharged Settings submenu and its
             ;; nested Grass Settings page (few rows; same layout as game-settings).
-            (((progress-screen recharged-settings) (progress-screen grass-settings))
+            (((progress-screen recharged-settings) (progress-screen grass-settings) (progress-screen debug-options))
              (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen game-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen memcard-removed) (progress-screen memcard-auto-save-error))

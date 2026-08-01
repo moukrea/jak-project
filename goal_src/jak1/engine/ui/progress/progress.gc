@@ -617,6 +617,8 @@
                         ;; submenu must accept the circle/triangle back shortcut like its
                         ;; sibling option screens (device finding: circle was swallowed)
                         (= v1-2 (progress-screen recharged-settings))
+                        ;; Grecharged-menu-overhaul: the DEBUG category page accepts the same back shortcut.
+                        (= v1-2 (progress-screen debug-options))
                         (= v1-2 (progress-screen resolution))
                         (= v1-2 (progress-screen aspect-ratio))
                         (= v1-2 (progress-screen secrets))

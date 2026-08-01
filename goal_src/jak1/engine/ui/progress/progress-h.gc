@@ -136,6 +136,10 @@
      ;; Recharged Settings) holding all grass settings. Auto-numbered before `max`; *options-remap*
      ;; is allocated at 68 so this fits. Copied into game-option-menu via :copy-entries.
      (grass-settings)
+     ;; Grecharged-menu-overhaul: the unified OPTIONS hub's DEBUG category page. Auto-numbered before
+     ;; `max` (=> 70; *options-remap* allocated at 72, still fits). Reached from the hub only when
+     ;; *debug-menus-visible?* (seeded from FLAG_DEBUG_MENUS / build.sh --debug).
+     (debug-options)
      ;; the last one!
      (max))
    (defenum game-option-type
