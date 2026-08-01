@@ -184,7 +184,12 @@
      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (one-click intended-config presets).
      (pbr-test-preset)
      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (in-menu term bisection), mirroring pbr-displacement.
-     (pbr-isolate))) ;; end of PC_PORT = #t branch for enum initialization
+     (pbr-isolate)
+     ;; Grecharged-menu-overhaul: a NON-SELECTABLE group-header row. Focus (up/down + initial entry)
+     ;; skips it; it draws in a distinct header color with no value and no selection cursor. Used to
+     ;; visually separate the internal groups of the unified OPTIONS category pages (Ecran / Performance /
+     ;; HUD in AFFICHAGE; General / Materiaux / Eclairage / Vegetation in RENDU; etc.).
+     (group-header))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu
@@ -239,7 +244,11 @@
    (on-confirm           (function none))
    (slider-step-size     float)
    (slider-show-decimal? symbol)
-   (bind-info            bind-assignment-info :inline)))
+   (bind-info            bind-assignment-info :inline)
+   ;; Grecharged-menu-overhaul: per-row help text shown on the single hint line at the bottom of the
+   ;; menu when this row is focused (0 = no hint). A group-header row may also carry a hint describing
+   ;; its group. text-id so it follows the selected text language (all 6 game languages).
+   (hint                 text-id)))
 
 (deftype progress (process)
   ((current-debug-string         int32)

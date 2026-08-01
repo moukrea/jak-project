@@ -3574,6 +3574,19 @@
     (when (> (length options) PROGRESS_PC_PAGE_HEIGHT)
       (set! (-> *progress-scroll* start-index)
             (max (-> *progress-scroll* start-index) (- (-> obj option-index) (+ PROGRESS_PC_PAGE_HEIGHT -2)))))
+    ;; Grecharged-menu-overhaul MECHANISM 1: focus must never REST on a non-selectable group-header
+    ;; (e.g. on page entry when row 0 is a header). Advance forward to the first selectable row. Runs
+    ;; every frame (cheap); the direction-aware up/down skips below keep it a no-op during navigation.
+    (when (and options (> (length options) 0))
+      (let ((g 0))
+        (while (and (< g (length options))
+                    (>= (-> obj option-index) 0)
+                    (< (-> obj option-index) (length options))
+                    (= (-> options (-> obj option-index) option-type) (game-option-type group-header)))
+          (if (< (-> obj option-index) (+ (length options) -1))
+            (1+! (-> obj option-index))
+            (set! (-> obj option-index) 0))
+          (+! g 1))))
     (when (and options (not (or (progress-scrolling?) (-> obj in-transition))))
       ;; only respond to inputs when transition is done (and also there's options at all)
       ;; Gtouch-menus: fold any pending touch tap into this frame's input (additive
@@ -3586,25 +3599,39 @@
          (when (not (-> obj selected-option))
            (if (!= (length options) 1) (sound-play "cursor-up-down"))
            (set! (-> obj last-option-index-change) (-> *display* real-frame-counter))
-           (cond
-             ((> (-> obj option-index) 0)
-              (1-! (-> obj option-index))
-              (when (and (> (length options) PROGRESS_PC_PAGE_HEIGHT) (< (-> obj option-index) *progress-scroll-start*))
-                (progress-scroll-up!)))
-             (else
-              (set! (-> obj option-index) (1- (length options)))
-              (set! (-> *progress-scroll* start-index) (max 0 (- (length options) PROGRESS_PC_PAGE_HEIGHT -1)))))))
+           ;; Grecharged-menu-overhaul MECHANISM 1: step UP, then keep stepping past any group-header
+           ;; (bounded by row count to avoid an all-header infinite loop). Scroll rides each step.
+           (let ((g 0) (more #t))
+             (while more
+               (cond
+                 ((> (-> obj option-index) 0)
+                  (1-! (-> obj option-index))
+                  (when (and (> (length options) PROGRESS_PC_PAGE_HEIGHT) (< (-> obj option-index) *progress-scroll-start*))
+                    (progress-scroll-up!)))
+                 (else
+                  (set! (-> obj option-index) (1- (length options)))
+                  (set! (-> *progress-scroll* start-index) (max 0 (- (length options) PROGRESS_PC_PAGE_HEIGHT -1)))))
+               (+! g 1)
+               (set! more (and (< g (length options))
+                               (= (-> options (-> obj option-index) option-type) (game-option-type group-header))))))))
         ((or (cpad-pressed? 0 down) (-> *menu-touch* down?))
          ;; pressed down. (Gtouch-fix: tap-scroll below the visible list too)
          (when (not (-> obj selected-option))
            (if (!= (length options) 1) (sound-play "cursor-up-down"))
            (set! (-> obj last-option-index-change) (-> *display* real-frame-counter))
-           (cond
-             ((< (-> obj option-index) (1- (length options)))
-              (1+! (-> obj option-index))
-              (when (and (> (length options) PROGRESS_PC_PAGE_HEIGHT) (>= (-> obj option-index) *progress-scroll-end*))
-                (progress-scroll-down!)))
-             (else (set! (-> obj option-index) 0) (set! (-> *progress-scroll* start-index) 0)))))
+           ;; Grecharged-menu-overhaul MECHANISM 1: step DOWN, then keep stepping past any group-header
+           ;; (bounded by row count). Scroll rides each step.
+           (let ((g 0) (more #t))
+             (while more
+               (cond
+                 ((< (-> obj option-index) (1- (length options)))
+                  (1+! (-> obj option-index))
+                  (when (and (> (length options) PROGRESS_PC_PAGE_HEIGHT) (>= (-> obj option-index) *progress-scroll-end*))
+                    (progress-scroll-down!)))
+                 (else (set! (-> obj option-index) 0) (set! (-> *progress-scroll* start-index) 0)))
+               (+! g 1)
+               (set! more (and (< g (length options))
+                               (= (-> options (-> obj option-index) option-type) (game-option-type group-header))))))))
         ((or (cpad-hold? 0 left) (-> *menu-touch* left?) (-> *menu-touch* hold-left?))
          ;; holding left. sliders use hold. (Gtouch-menus: touch left/hold-left too.)
          (cond
@@ -3830,6 +3857,10 @@
             (set! (-> obj next-display-state) (progress-screen invalid)))))
         ((or (cpad-pressed? 0 x) (cpad-pressed? 0 circle) (-> *menu-touch* confirm?))
          ;; pressed x or circle. advance! (Gtouch-menus: touch confirm too.)
+         ;; Grecharged-menu-overhaul MECHANISM 1: a group-header is never activatable (e.g. a direct
+         ;; touch-tap on the header text) — swallow the confirm and do nothing.
+         (when (= (-> options (-> obj option-index) option-type) (game-option-type group-header))
+           (return #f))
          ;; first check if the option is disabled, if so leave early and do nothing
          (when (and (nonzero? (-> options (-> obj option-index) option-disabled-func))
                     (!= (-> options (-> obj option-index) option-disabled-func) #f)
@@ -4461,6 +4492,41 @@
   0
   (none))
 
+;; Grecharged-menu-overhaul MECHANISM 2 (live value on 100% of value-bearing rows): return the display
+;; string of a carousell's CURRENT choice, read from the LIVE setting (not the *progress-carousell*
+;; int-backup scratch, which is only valid while a row is being edited). Mirrors the select-time seeding
+;; at the top of respond-common so an UNSELECTED carousell row can show its choice inline, exactly like
+;; on-off rows already show ': ON'/': OFF' and sliders show ': 50'. Returns #f for the non-list types
+;; (aspect-ratio / normal-inverted / confirmation) so the caller falls back to name-only.
+(defun carousell-current-string ((ty game-option-type))
+  (let ((lst (the (array text-id) #f))
+        (idx 0))
+    (case ty
+      (((game-option-type display-mode))
+       (set! lst *carousell-display-mode*)
+       (set! idx (case (pc-get-display-mode) (('windowed #f) 0) (('fullscreen #t) 1) (('borderless) 2) (else 0))))
+      (((game-option-type msaa))
+       (set! lst *carousell-msaa*)
+       (set! idx (case (-> *pc-settings* gfx-msaa) ((2) 1) ((4) 2) ((8) 3) ((16) 4) (else 0))))
+      (((game-option-type ambient-occlusion)) (set! lst *carousell-ambient-occlusion*) (set! idx (-> *pc-settings* ambient-occlusion)))
+      (((game-option-type ao-quality)) (set! lst *carousell-ao-quality*) (set! idx (-> *pc-settings* ao-quality)))
+      (((game-option-type ao-strength)) (set! lst *carousell-ao-strength*) (set! idx (-> *pc-settings* ao-strength)))
+      (((game-option-type shadow-quality)) (set! lst *carousell-shadow-quality*) (set! idx (-> *pc-settings* realtime-shadow-quality)))
+      (((game-option-type rt-ambient-model)) (set! lst *carousell-rt-ambient-model*) (set! idx (-> *pc-settings* realtime-ambient-model)))
+      (((game-option-type pbr-displacement)) (set! lst *carousell-pbr-displacement*) (set! idx (-> *pc-settings* pbr-displacement)))
+      (((game-option-type follow-probe)) (set! lst *carousell-follow-probe*) (set! idx (-> *pc-settings* follow-probe)))
+      (((game-option-type pbr-isolate)) (set! lst *carousell-pbr-isolate*) (set! idx (-> *pc-settings* pbr-isolate)))
+      (((game-option-type pbr-test-preset)) (set! lst *carousell-pbr-test-preset*) (set! idx (-> *pc-settings* pbr-test-preset)))
+      (((game-option-type lod-bg)) (set! lst *carousell-lod-bg*) (set! idx (case (-> *pc-settings* lod-force-tfrag) ((0) 0) ((1 2) 1) (else 2))))
+      (((game-option-type lod-fg)) (set! lst *carousell-lod-bg*) (set! idx (if (-> *pc-settings* ps2-lod-dist?) 1 0)))
+      (((game-option-type speaker)) (set! lst *carousell-speaker*) (set! idx (case (-> *pc-settings* subtitle-speaker?) ((#t) 0) ((#f) 1) (('auto) 2) (else 0))))
+      (((game-option-type frame-rate)) (set! lst *carousell-frame-rate*) (set! idx (case (-> *pc-settings* target-fps) ((60) 0) ((100) 1) ((150) 2) (else 0)))))
+    (if lst
+      (begin
+        (when (or (< idx 0) (>= idx (length lst))) (set! idx (max 0 (min idx (+ (length lst) -1)))))
+        (carousell-option-string (-> lst idx)))
+      (the string #f))))
+
 (defmethod draw-options ((obj progress) (arg0 int) (arg1 int) (arg2 float))
   "common logic for drawing options menus."
   (let ((options (-> *options-remap* (-> obj display-state))))
@@ -4778,8 +4844,21 @@
                       (game-option-type frame-rate)
                       (game-option-type normal-inverted)
                       (game-option-type confirmation))
-                     ;; these options just show their text
-                     ;; prefer a runtime name-override label when one was set
+                     ;; Grecharged-menu-overhaul MECHANISM 2: give the CAROUSELL family a live inline value
+                     ;; too (': CHOICE'), like on-off/slider rows already do. carousell-current-string reads
+                     ;; the live setting and returns #f for the genuinely value-less types (aspect-ratio /
+                     ;; normal-inverted / confirmation), which then fall back to name-only as before.
+                     (let ((label (if (nonzero? (-> options index name-override))
+                                    (-> options index name-override)
+                                    (lookup-text! *common-text* (-> options index name) #f)))
+                           (choice (carousell-current-string (-> options index option-type))))
+                       (if choice
+                         (set! option-str (string-format "~S: ~S" label choice))
+                         (set! option-str label))))
+                    (((game-option-type group-header))
+                     ;; Grecharged-menu-overhaul MECHANISM 1: a non-selectable group header. It draws its
+                     ;; label only (no value), in a distinct color, with the selection cursor never on it
+                     ;; (focus nav skips it). Prefer name-override, else the text-id label.
                      (if (nonzero? (-> options index name-override))
                        (set! option-str (-> options index name-override))
                        (set! option-str (lookup-text! *common-text* (-> options index name) #f))))
@@ -4877,6 +4956,10 @@
                     (else (set! scroll-amt 1.0)))
                   (set-color! font
                               (cond
+                                ;; Grecharged-menu-overhaul MECHANISM 1: group-header rows draw in a
+                                ;; distinct heading color and are never shown selected/locked.
+                                ((= (-> options index option-type) (game-option-type group-header))
+                                 (font-color progress-blue))
                                 ((and (!= index (-> obj option-index)) (or locked? (= locked-str option-str)))
                                  ;; for "locked" options!
                                  (font-color menu-invalid))
@@ -4894,6 +4977,24 @@
                                       (* arg2 f0-23 scroll-amt))))
               (+! y-off arg1)
               (+! option-count 1))))
+        ;; Grecharged-menu-overhaul MECHANISM 3: one-line contextual HINT at the bottom, describing the
+        ;; FOCUSED row. Each game-option carries a `hint` text-id (0 = none, so unassigned rows draw
+        ;; nothing). Anchored just below the option band (works for any arg0/arg1/row-count) and faded
+        ;; with the menu transition, mirroring the music/flava top-title draw. Y is owner-tunable.
+        (let ((foc (-> obj option-index)))
+          (when (and (>= foc 0) (< foc (length options)))
+            (let ((h (-> options foc hint)))
+              (when (nonzero? h)
+                (let ((band-rows (if (> (length options) PROGRESS_PC_PAGE_HEIGHT)
+                                   (+ PROGRESS_PC_PAGE_HEIGHT -1)
+                                   (length options))))
+                  (set-color! font (font-color default))
+                  (set-origin! font (- 17 (-> obj left-x-offset)) (+ arg0 (/ (* arg1 band-rows) 2) 14))
+                  (set-scale! font (* 0.5 (-> obj transition-percentage-invert)))
+                  (print-game-text (lookup-text! *common-text* h #f)
+                                   font #f
+                                   (the int (* 128.0 (-> obj transition-percentage-invert)))
+                                   22))))))
         ;; Gtouch-fix: the 4 memcard file-slot rows are drawn by the (locked)
         ;; engine draw-memcard-file-select with its own fixed layout, NOT by the
         ;; text loop above (they are nameless button rows, option-str = #f), so

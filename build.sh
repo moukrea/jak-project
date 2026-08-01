@@ -34,7 +34,7 @@ log() { echo "[build] $*"; }
 TARGET="$1"; shift
 case "$TARGET" in linux-x86_64|android-arm64|windows-x86_64) ;; *) die "unknown target '$TARGET' (linux-x86_64|android-arm64|windows-x86_64)";; esac
 GAME="jak1"; USE_CACHE=1; BUILD_APK=1; DO_PACKAGE=0
-F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_VULKAN=0
+F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_VULKAN=0; F_DEBUG=0
 WIN_BIN_DIR="out/ci/windows-x86_64"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -43,6 +43,7 @@ while [ $# -gt 0 ]; do
     --hd-models)      F_HDMODELS=1;;
     --pbr)            F_PBR=1;;
     --vulkan-support) F_VULKAN=1;;
+    --debug)          F_DEBUG=1;;
     --yolo)           F_HUD=1; F_OVERHANG=1; F_HDMODELS=1; F_PBR=1; F_VULKAN=1;;
     --game)           GAME="$2"; shift;;
     --no-cache)       USE_CACHE=0;;
@@ -57,6 +58,7 @@ done
 
 # Canonical (alphabetical) enabled-flag list -> flag-set hash.
 FLAG_LIST=()
+[ $F_DEBUG -eq 1 ]    && FLAG_LIST+=("debug")
 [ $F_OVERHANG -eq 1 ] && FLAG_LIST+=("grass-overhang")
 [ $F_HDMODELS -eq 1 ] && FLAG_LIST+=("hd-models")
 [ $F_PBR -eq 1 ]      && FLAG_LIST+=("pbr")
@@ -95,6 +97,12 @@ cat > "$FLAGS_GC" <<EOF
 (defglobalconstant FLAG_PBR_N $F_PBR)
 (defglobalconstant FLAG_VULKAN_SUPPORT $(b $F_VULKAN))
 (defglobalconstant FLAG_VULKAN_SUPPORT_N $F_VULKAN)
+;; Grecharged-menu-overhaul: --debug reveals the DEBUG options category (hidden, not removed, in final
+;; builds). GOAL-only flag (no C++/CMake gate needed): it seeds the runtime *debug-menus-visible?* symbol
+;; which conditions ONLY the display of the DEBUG category row — the debug menu code is compiled into
+;; every build regardless.
+(defglobalconstant FLAG_DEBUG_MENUS $(b $F_DEBUG))
+(defglobalconstant FLAG_DEBUG_MENUS_N $F_DEBUG)
 (defglobalconstant PLATFORM_ANDROID $(b $PLAT_ANDROID))
 (defglobalconstant OG_FLAG_SET_MARKER "$MARKER")
 EOF

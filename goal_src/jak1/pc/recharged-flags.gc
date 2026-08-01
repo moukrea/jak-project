@@ -18,5 +18,7 @@
 (defglobalconstant FLAG_PBR_N 1)
 (defglobalconstant FLAG_VULKAN_SUPPORT #f)
 (defglobalconstant FLAG_VULKAN_SUPPORT_N 0)
+(defglobalconstant FLAG_DEBUG_MENUS #f)
+(defglobalconstant FLAG_DEBUG_MENUS_N 0)
 (defglobalconstant PLATFORM_ANDROID #t)
 (defglobalconstant OG_FLAG_SET_MARKER "ogflags:465b53fe1394:android-arm64")
