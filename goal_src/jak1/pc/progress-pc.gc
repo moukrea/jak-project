@@ -579,9 +579,13 @@
 (#if FLAG_VULKAN_SUPPORT
   (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 15)
   (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 14))
+;; Grecharged-menu-overhaul: +4 for the restored Android desktop-only rows (a group header + Display
+;; mode + Display/monitor + Frame rate, appended inert before Back). They sit at the TAIL (index >= 10),
+;; after the MTF region and after every index the graphics wiring touches, so only these full-len guards
+;; change — the MTF row stays at index 4 and no existing wired index shifts.
 (#if FLAG_VULKAN_SUPPORT
-  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 12)
-  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 11))
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 16)
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 15))
 (define-options-array *graphic-options-pc*
        game-option
        ;; 0 Aspect Ratio
@@ -782,7 +786,25 @@
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; 11 Back
+       ;; Grecharged-menu-overhaul: the 3 desktop-only rows RETURN on Android (owner decision: we no longer
+       ;; hide menus on mobile). They are INERT here (option-disabled-func always #t => greyed, non-
+       ;; activatable) and carry the hint "(SANS EFFET SUR MOBILE)". A non-selectable group header labels
+       ;; them. Appended at the TAIL so no existing wired index shifts and the MTF row stays at index 4.
+       (new 'static 'game-option :option-type (game-option-type group-header) :name (text-id pc-text-grp-screen) :scale #t)
+       ;; Display mode (inert on mobile)
+       (new 'static 'game-option :option-type (game-option-type display-mode) :name (text-id display-mode) :scale #t
+            :hint (text-id pc-text-hint-no-mobile)
+            :option-disabled-func (lambda () #t))
+       ;; Display / monitor (inert on mobile)
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id display) :scale #t
+            :param3 (game-option-menu monitor)
+            :hint (text-id pc-text-hint-no-mobile)
+            :option-disabled-func (lambda () #t))
+       ;; Frame rate (inert on mobile)
+       (new 'static 'game-option :option-type (game-option-type frame-rate) :name (text-id frame-rate) :scale #t
+            :hint (text-id pc-text-hint-no-mobile)
+            :option-disabled-func (lambda () #t))
+       ;; Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Grecharged-hud-jak1: the "Recharged Settings" submenu (reached from Graphics Options, row before
