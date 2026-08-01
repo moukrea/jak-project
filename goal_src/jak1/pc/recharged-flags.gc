@@ -18,7 +18,11 @@
 (defglobalconstant FLAG_PBR_N 1)
 (defglobalconstant FLAG_VULKAN_SUPPORT #f)
 (defglobalconstant FLAG_VULKAN_SUPPORT_N 0)
-(defglobalconstant FLAG_DEBUG_MENUS #f)
-(defglobalconstant FLAG_DEBUG_MENUS_N 0)
+;; Grecharged-menu-overhaul: --debug reveals the DEBUG options category (hidden, not removed, in final
+;; builds). GOAL-only flag (no C++/CMake gate needed): it seeds the runtime *debug-menus-visible?* symbol
+;; which conditions ONLY the display of the DEBUG category row — the debug menu code is compiled into
+;; every build regardless.
+(defglobalconstant FLAG_DEBUG_MENUS #t)
+(defglobalconstant FLAG_DEBUG_MENUS_N 1)
 (defglobalconstant PLATFORM_ANDROID #t)
-(defglobalconstant OG_FLAG_SET_MARKER "ogflags:465b53fe1394:android-arm64")
+(defglobalconstant OG_FLAG_SET_MARKER "ogflags:82f3823a3bc8:android-arm64")

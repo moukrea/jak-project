@@ -26,9 +26,11 @@
 #   recharged_textures/<tpage>/<tex>/<tex>[ _height|_normal|_roughness].png  (ALWAYS — first-party set)
 #
 # The flag SET is recovered from the compiled arm64 GAME.CGO marker
-# ("ogflags:<hash>:<target>"): the 12-char hash is inverted by enumerating the 32
-# subsets of {grass-overhang, hd-models, pbr, recharged-hud, vulkan-support}, hashing
-# each alphabetical comma-join, and matching. (Same canonical scheme as build.sh.)
+# ("ogflags:<hash>:<target>"): the 12-char hash is inverted by enumerating the 64
+# subsets of {debug, grass-overhang, hd-models, pbr, recharged-hud, vulkan-support},
+# hashing each alphabetical comma-join, and matching. (Same canonical scheme + flag
+# universe as build.sh's FLAG_LIST — keep this list in sync when build.sh gains a flag,
+# or a build with the new flag falsely reads as "pre-flag-era" here.)
 #
 # Output:
 #   android/app/src/<game>/assets-slim/bundle/<game>_custom.zip           (paths preserved)
@@ -208,12 +210,12 @@ HASH="${MARKER#ogflags:}"; HASH="${HASH%%:*}"
 
 # Enumerate 32 subsets of the 5 flags (alphabetical universe), hash each canonical
 # (alphabetical comma-join) string, match against HASH.
-ALL_FLAGS=(grass-overhang hd-models pbr recharged-hud vulkan-support)
-F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0
+ALL_FLAGS=(debug grass-overhang hd-models pbr recharged-hud vulkan-support)
+F_DEBUG=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0
 FOUND=0; MATCHED_STR=""
-for mask in $(seq 0 31); do
+for mask in $(seq 0 63); do
   set_list=()
-  for bit in 0 1 2 3 4; do
+  for bit in 0 1 2 3 4 5; do
     if (( (mask >> bit) & 1 )); then set_list+=("${ALL_FLAGS[$bit]}"); fi
   done
   cand=$(IFS=,; echo "${set_list[*]-}")
@@ -222,6 +224,7 @@ for mask in $(seq 0 31); do
     FOUND=1; MATCHED_STR="$cand"
     for fl in "${set_list[@]-}"; do
       case "$fl" in
+        debug)          F_DEBUG=1;;
         grass-overhang) F_OVERHANG=1;;
         hd-models)      F_HDMODELS=1;;
         pbr)            F_PBR=1;;
