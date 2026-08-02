@@ -312,3 +312,23 @@ généré, ajouté au FLAG_LIST (marqueur ogflags recalculé, paires CGO/libgk c
    vers la face du cadre. Spawn à l'ouverture / despawn à la fermeture (`menu-projector-set-active!` depuis le
    `post` + l'`enter` de `progress-going-out`). Compteurs : `*menu-projector-spawn-count*` /
    `*-despawn-count*` / `*-draw-count*` / `*menu-beam-draw-count*`. Lecture : `(menu-holo-stats)`.
+
+---
+
+## V4 (owner 2026-08-02, 3e rejet visuel « pur AI slop ») — RENDU seulement, aucune option déplacée
+
+La STRUCTURE (catégories, emplacements des options, mapping ancien→nouveau ci-dessus) est **inchangée** en
+V4 : c'est un pass de RENDU. Défauts owner corrigés :
+
+- **Hologramme = RÉPLIQUE de Jak2** (plus une approximation maison). `draw-menu-holo-frame!` porte la vraie
+  recette `hud-box` de `goal_src/jak2/engine/ui/hud.gc` : la table dégradée cyan-vert `scan-colors`
+  (:207-240, recopiée verbatim en `*menu-holo-scan-colors*`), le balayage `draw-scan-and-line` (:245 —
+  `scanline += 6`/frame, mod hauteur → bande phosphore qui défile), le blend additif GS (`:b 2 :d 1`) et la
+  passe `line` d'interlignes blancs. [SUPPR V3] les rectangles `draw-sprite2d-xy` plats.
+- **Drone = VRAIE entité 3D** : `update-and-draw-menu-projector!` spawne un `manipy` réel dessinant
+  `*voicebox-sg*` (mesh `speaker`), enfant du process progress, dessiné via le chemin HUD
+  (`dma-add-process-drawable-hud`, mask `pause`) comme les icônes fuel-cell/money (`progress.gc:243-269`). Il
+  ORBITE à côté du cadre + FAISCEAU additif vers le centre. [SUPPR V3] le drone projeté en sprites 2D.
+- **Texte centré** sur `HOLO_TEXT_CX` (132) ; **interlignes resserrés** `HOLO_LINE_PITCH` (22, était 30) ;
+  **hint clampé** dans le cadre (`HOLO_HINT_Y`/`HOLO_HINT_W`) ; **police teintée cyan** = intégrée à l'holo ;
+  **sections** en-tête pleine largeur + options en retrait, toutes centrées.
