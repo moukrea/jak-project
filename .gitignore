@@ -164,3 +164,7 @@ pbr_tan_diag.txt
 # (gradle cleans its own). These are ~345 MB build artifacts, regenerable by
 # .autoport/gpbrf_r23_checker_apk.sh — never commit them.
 .autoport/dist/
+
+# ND-derived HD character assets (Jak2/Jak3 IP) — generated locally from the user dumps, NEVER committed/shipped in the binary
+recharged_assets/hd_models/
+recharged_assets/hd_anim/
