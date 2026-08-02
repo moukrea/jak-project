@@ -229,3 +229,29 @@ OBLIGATION : BOOTER SUR LE REDMI eae4df44 et le PROUVER dans le rapport :
 `adb shell dumpsys activity exit-info org.opengoal.gk.jak1` : AUCUN reason=5 récent ET
 `adb shell pidof org.opengoal.gk.jak1` non vide (pid VIVANT à t+150 s). Le rapport colle cette preuve
 (serial eae4df44 + exit-info + pid). Un smoke desktop/qemu NE SUFFIT PAS.
+
+## ============================================================
+## V4 — L'OWNER A REJETÉ V3 : "vraiment moche, pur AI slop dégueulasse" (2026-08-02, 3e rejet visuel)
+## ============================================================
+Le worker a "porté le scanline de Jak2" mais le résultat n'a RIEN à voir avec Jak2. STOP l'à-peu-près.
+DIRECTIVE CENTRALE : ne RÉINVENTE pas l'effet — TROUVE comment le MENU/les hologrammes de JAK 2 sont
+RÉELLEMENT dessinés dans ce dépôt (goal_src/jak2 : le menu pause/principal + les hologrammes de comm,
+leurs sprites/fonts/shaders) et RÉPLIQUE ce mécanisme fidèlement dans jak1. Jak2 EST dans le repo —
+copie sa recette, ne l'approxime pas.
+
+DÉFAUTS PRÉCIS de l'owner (chacun à corriger, preuve code) :
+1. EFFET HOLO : rien à voir avec Jak2. Réplique le vrai rendu holo de Jak2 (teinte, transparence,
+   scanlines, flicker, glow) tel qu'il est dans goal_src/jak2 — pas une reproduction maison.
+2. DRONE INVISIBLE + PAS DE FAISCEAU : on ne voit toujours PAS le drone orbiter ni le faisceau qui
+   fait comme s'il projetait l'hologramme. Il DOIT être visible à l'écran, en orbite, avec le faisceau.
+3. TEXTE PAS CENTRÉ : centrer le texte du menu dans le cadre holo (constante de centrage, prouvée).
+4. INTERLIGNES TROP GRANDS : resserrer l'espacement vertical des lignes (constante réduite, prouvée).
+5. SECTIONS CLAQUÉES à l'affichage : refaire la disposition des sections pour que ce soit propre.
+6. HINTS SORTENT DE L'HOLOGRAMME : clamper la ligne de hint DANS les bornes du cadre holo (Y prouvé
+   <= bord bas du cadre, X dans le cadre).
+7. FONT PAS INTÉGRÉE À L'HOLO : le texte doit être rendu AVEC l'effet holo (teinté/scanliné, partie de
+   la projection) comme dans Jak2 — pas du texte plat posé par-dessus.
+
+Mesure visuelle in-game interdite (compteurs code) ; l'owner juge l'esthétique. Preuve device (boot
+propre eae4df44) toujours exigée. Si le rendu manque encore, c'est que tu n'as pas RÉPLIQUÉ Jak2 —
+retourne lire le rendu de menu jak2 et copie-le.

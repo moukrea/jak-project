@@ -93,6 +93,14 @@ grep -qiE '(section|group)[^.]{0,80}(gap|espace|spacing|indent|retrait)[^.]{0,40
 # E. porthole removed from the PAUSE menu specifically
 grep -qiE '(hublot|porthole|window|fenetre|fenêtre)[^.]{0,80}(pause)[^.]{0,60}(removed|supprim|retir|remplac|replac|gone|plus)' "$R" \
   || fail "V3-E: porthole background not proven removed from the PAUSE menu (owner still sees it)"
+# ---- V4 (owner 3rd visual reject 'AI slop'): replicate Jak2 holo + layout fixes ----
+grep -qiE '(jak2|jak 2)[^.]{0,90}(replic|repliqu|copie|copied|port|ported|reuse|reprend)[^.]{0,60}(holo|menu|scanline|font)' "$R" \
+  || fail "V4: report must prove the Jak2 menu/holo rendering was REPLICATED from goal_src/jak2, not re-approximated"
+grep -qiE '(text|texte)[^.]{0,60}(center|centr)[^.]{0,60}(holo|frame|cadre)' "$R" || fail "V4: menu text not centered in the holo frame"
+grep -qiE '(line|ligne|row)[^.]{0,50}(spacing|espacement|interligne|pitch)[^.]{0,50}(reduc|resserr|tight|smaller|diminu)' "$R" || fail "V4: line spacing not tightened"
+grep -qiE '(hint)[^.]{0,60}(clamp|clamped|within|dans|inside|borne)[^.]{0,50}(holo|frame|cadre)' "$R" || fail "V4: hint not clamped inside the holo frame (was escaping)"
+grep -qiE '(font|texte|text)[^.]{0,70}(holo|scanlin|tint|teint|projection)[^.]{0,50}(integr|part|rendu avec|with)' "$R" || fail "V4: font not rendered as part of the holo effect"
+grep -qiE '(drone|ship|projector)[^.]{0,70}(visible|on-?screen|a l.?ecran|frustum|render)[^.]{0,40}(orbit|beam|faisceau)' "$R" || fail "V4: drone+beam still not proven visibly orbiting/projecting"
 grep -qiE 'eae4df44' "$R" || fail "V3-CRASH: no DEVICE boot proof (report must show a real boot on Redmi eae4df44, not a desktop smoke)"
 grep -qiE '(exit-info|pid)[^.]{0,80}(alive|vivant|no.*crash|pas.*crash|reason ?!?= ?5|no reason.?5|clean)' "$R" \
   || fail "V3-CRASH: report must prove the device boot is crash-free (exit-info no reason=5 + pid alive at t+150s on eae4df44)"
