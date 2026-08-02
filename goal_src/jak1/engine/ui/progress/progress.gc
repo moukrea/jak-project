@@ -4,6 +4,11 @@
 (require "engine/ui/progress/progress-draw.gc")
 (require "engine/ui/progress/progress-part.gc")
 
+;; Grecharged-menu-overhaul V3-E (owner 2026-08-02): forward-declared in the PC file progress-pc.gc,
+;; which loads at boot before any pause. adjust-sprites (below) uses it to suppress the porthole at the
+;; emit site on the pause/menu screens (the post-hide was overwritten here every frame).
+(define-extern menu-porthole-hidden? (function progress-screen symbol))
+
 ;; DECOMP BEGINS
 
 (deftype progress-global-state (basic)
@@ -513,6 +518,14 @@
     (set! (-> this right-side-x-scale)
           (meters (+ (/ (if (= (-> *pc-settings* aspect-custom-x) 16) 8.5 6.0) (-> this sides-x-scale)) (* 4.0 f0-1))))
     (set! (-> this right-side-y-scale) (meters (+ (-> this sides-y-scale) (* 4.0 f0-1)))))
+  ;; Grecharged-menu-overhaul V3-E (owner 2026-08-02): on the pause/menu screens the porthole is REPLACED
+  ;; by the hologram — force its three particles (0 orange tint, 1 left half, 2 right half) off-screen
+  ;; HERE, after the writes at :507/:509 above and right before the spawn loop, so the window never draws.
+  ;; This is the real fix: the progress-normal post's earlier hide was overwritten by :507/:509 every frame.
+  (when (menu-porthole-hidden? (-> this display-state))
+    (set! (-> this particles 0 init-pos x) -320.0)
+    (set! (-> this particles 1 init-pos x) -320.0)
+    (set! (-> this particles 2 init-pos x) -320.0))
   (dotimes (s5-0 (-> this nb-of-particles))
     (set! (-> this particles s5-0 pos x) (+ -256.0 (-> this particles s5-0 init-pos x)))
     (set! (-> this particles s5-0 pos y)

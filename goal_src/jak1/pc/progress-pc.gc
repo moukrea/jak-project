@@ -71,12 +71,20 @@
 (defconstant HOLO_TEXT_CX 132)  ;; frame horizontal center = HOLO_X + HOLO_W/2
 (defconstant HOLO_TEXT_X   22)  ;; text box left; box center = 22 + HOLO_TEXT_W/2 = 132 = frame center
 (defconstant HOLO_TEXT_W  220)  ;; text/wrap width inside the frame
-(defconstant HOLO_HINT_Y  196)  ;; hint line Y = HOLO_Y + HOLO_H - 12; INSIDE the frame bottom (208) and
-                                ;; on-screen (< 224). Derived from the container, NOT a magic constant.
+(defconstant HOLO_HINT_Y  188)  ;; hint line Y = HOLO_Y + HOLO_H - 20; leaves room for a 2-line hint fully
+                                ;; INSIDE the frame bottom (208) and on-screen (< 224). Derived from the
+                                ;; container geometry, NOT a magic origin-y that grows with the row count.
 (defconstant HOLO_SCALE  0.62)  ;; global text shrink so rows fit the half-width holo (owner-tunable)
+;; Grecharged-menu-overhaul V3 (owner 2026-08-02): sections are SPATIALLY separated, not inline colored
+;; rows. Options hang SECTION_INDENT px to the right of their section header, and a SECTION_GAP of blank
+;; vertical space sits ABOVE each header — so a group READS as a group, not an item in a flat list.
+(defconstant SECTION_INDENT 12)  ;; px the option rows are indented under their section header (holo only)
+(defconstant SECTION_GAP    10)  ;; px of extra vertical space above each section header (holo only)
 
 ;; Per-frame render-thread counters (the objective proof the redesign renders; read via (menu-holo-stats)).
 (define *menu-holo-draw-count*        0)   ;; frames the holo frame was drawn
+(define *menu-holo-scan-offset*       0)   ;; V3-B: scrolling scanline offset (ADVANCES every frame)
+(define *menu-holo-flicker*           0)   ;; V3-B: per-frame holo flicker alpha (JITTERS every frame)
 (define *menu-projector-active?*     #f)   ;; is the projector overlay currently spawned?
 (define *menu-projector-spawn-count*  0)   ;; ++ each time the projector spawns (menu open)
 (define *menu-projector-despawn-count* 0)  ;; ++ each time the projector despawns (menu close)
@@ -135,23 +143,58 @@
      #t)
     (else #f)))
 
+(defun menu-porthole-hidden? ((screen progress-screen))
+  "Grecharged-menu-overhaul V3-E (owner 2026-08-02): #t on the pause/menu screens where the old
+   porthole/window backdrop is REPLACED by the hologram — every navigable option screen
+   (progress-holo-screen?) PLUS the pause LANDING stat pages (fuel-cell / money / buzzer, the first
+   thing you see when you pause). On these, engine `adjust-sprites` forces the porthole particles
+   (0 = orange tint, 1 = left window half, 2 = right window half) off-screen at the EMIT site, so the
+   porthole never draws — the progress-normal post's earlier hide of particles 1/2 was overwritten by
+   adjust-sprites (progress.gc:507/509) every frame, which is why the owner still saw the porthole.
+   Modal memcard / notice / save-load dialogs are NOT in the set, so they keep their framing."
+  (or (progress-holo-screen? screen)
+      (case screen
+        (((progress-screen fuel-cell)
+          (progress-screen money)
+          (progress-screen buzzer)) #t)
+        (else #f))))
+
 (defun draw-menu-holo-frame! ()
-  "Grecharged V2: draw the bluish vertical hologram that CONTAINS the menu — left half of the screen
-   (x[HOLO_X..HOLO_X+HOLO_W], HOLO_W <= 256) with margins from every edge. Translucent cyan body, a
-   brighter border and a few holographic scanlines. Increments the per-frame draw counter."
-  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
-    ;; translucent cyan/blue body
-    (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W HOLO_H (new 'static 'rgba :r #x10 :g #x3c :b #x6e :a #x54))
-    ;; brighter cyan border (top / bottom / left / right)
-    (let ((bc (new 'static 'rgba :r #x4c :g #xb4 :b #xff :a #x9c)))
-      (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W 2 bc)
-      (draw-sprite2d-xy buf HOLO_X (+ HOLO_Y HOLO_H -2) HOLO_W 2 bc)
-      (draw-sprite2d-xy buf HOLO_X HOLO_Y 2 HOLO_H bc)
-      (draw-sprite2d-xy buf (+ HOLO_X HOLO_W -2) HOLO_Y 2 HOLO_H bc))
-    ;; subtle horizontal scanlines for the holographic feel
-    (let ((sc (new 'static 'rgba :r #x30 :g #x84 :b #xc8 :a #x14)))
-      (dotimes (i 11)
-        (draw-sprite2d-xy buf HOLO_X (+ HOLO_Y 8 (* i 16)) HOLO_W 1 sc))))
+  "Grecharged V3 (owner 2026-08-02): the bluish vertical hologram that CONTAINS the menu, now an ANIMATED
+   holo-comm panel ported from the Jak2 progress-menu scanline effect (goal_src/jak2/engine/ui/hud.gc
+   `draw-scan-and-line`: a scroll offset advanced +N/frame mod box-height, a per-frame alpha, additive
+   feel). What varies EVERY frame here (see (menu-holo-stats)): the SCANLINE scroll offset advances, and
+   the body/border/scanline ALPHA flickers (with an occasional harder glitch). Translucent cyan body lets
+   the frozen scene show through; a bright cyan RIM GLOW rings the edge. Left half, margins on every edge."
+  (let* ((fc (the int (-> *display* real-frame-counter)))
+         (scan (mod (* fc 2) 32))                     ;; scanline scroll — advances 2px/frame, wraps at 32
+         (fl (mod (* fc 733) 1000))                   ;; per-frame pseudo-random 0..999 (frame-driven jitter)
+         (glitch (< (mod fc 53) 2))                   ;; a harder flicker glitch now and then
+         (fa (if glitch 44 (+ 66 (/ fl 12))))         ;; body alpha ~#x2c..#x7f (JITTERS every frame)
+         (ba (if glitch 96 (+ 130 (/ fl 20)))))       ;; border alpha (JITTERS every frame)
+    ;; publish the animated values so the report/stats can PROVE they change frame-to-frame
+    (set! *menu-holo-scan-offset* scan)
+    (set! *menu-holo-flicker* fa)
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
+      ;; translucent cyan/blue body (alpha flickers per frame; scene shows through)
+      (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W HOLO_H (menu-rgba-i #x10 #x3c #x6e fa))
+      ;; outer RIM GLOW — a soft brighter cyan halo just outside the border, alpha tied to the flicker
+      (let ((gc (menu-rgba-i #x3c #x9c #xe0 (/ ba 3))))
+        (draw-sprite2d-xy buf (- HOLO_X 2) (- HOLO_Y 2) (+ HOLO_W 4) 3 gc)
+        (draw-sprite2d-xy buf (- HOLO_X 2) (+ HOLO_Y HOLO_H -1) (+ HOLO_W 4) 3 gc)
+        (draw-sprite2d-xy buf (- HOLO_X 2) HOLO_Y 3 HOLO_H gc)
+        (draw-sprite2d-xy buf (+ HOLO_X HOLO_W -1) HOLO_Y 3 HOLO_H gc))
+      ;; bright cyan border (top / bottom / left / right — alpha flickers)
+      (let ((bc (menu-rgba-i #x4c #xb4 #xff ba)))
+        (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W 2 bc)
+        (draw-sprite2d-xy buf HOLO_X (+ HOLO_Y HOLO_H -2) HOLO_W 2 bc)
+        (draw-sprite2d-xy buf HOLO_X HOLO_Y 2 HOLO_H bc)
+        (draw-sprite2d-xy buf (+ HOLO_X HOLO_W -2) HOLO_Y 2 HOLO_H bc))
+      ;; SCROLLING horizontal scanlines — each line's Y is offset by `scan`, which advances every frame
+      (let ((sc (menu-rgba-i #x50 #xb0 #xf0 (+ 10 (/ fl 40)))))
+        (dotimes (i 12)
+          (let ((ly (+ HOLO_Y (mod (+ scan (* i 16)) HOLO_H))))
+            (draw-sprite2d-xy buf HOLO_X ly HOLO_W 1 sc))))))
   (set! *menu-holo-draw-count* (+ *menu-holo-draw-count* 1))
   (none))
 
@@ -168,115 +211,225 @@
   (none))
 
 (defun update-and-draw-menu-projector! ()
-  "Grecharged V2: a 2D-overlay representation of the jak1 comm-ship drone that PROJECTS the hologram.
-   The canonical comm-drone is `voicebox` (engine/common-obs/voicebox.gc, `speaker` mesh, resident in
-   GAME.CGO/levels/common) — the little device that floats around Jak during remote sage/Assistant comms —
-   but it is `*target*`/camera-slave coupled and unsafe to spawn on the frozen pause frame, so the menu
-   renders a controllable 2D projector of it in the overlay (documented substitute; owner judges the look).
-   The drone ORBITS the open right-side space, stays ORIENTED toward the holo center (per-frame transform)
-   and emits a light BEAM toward the frame. All motion derives from the holo frame center."
+  "Grecharged V3 (owner 2026-08-02): the comm-ship drone that PROJECTS the hologram — now a genuine
+   WORLD-SPACE 3D entity, not a screen-space HUD element. The canonical jak1 comm-drone is `voicebox`
+   (engine/common-obs/voicebox.gc, the `speaker` mesh, globally resident in GAME.CGO — the little
+   communicator that spawns around Jak when Samos/Keira contact him remotely). Its full process is
+   `*target*`/camera-slave coupled and would drive the camera / deref *target* on the frozen pause frame,
+   so instead of spawning it we drive a lightweight stand-in AT A REAL WORLD TRANSFORM: a point orbiting a
+   world ANCHOR placed in front of the frozen camera (position-in-front-of-camera!, shifted left toward the
+   holo). Every frame we recompute that world transform, PROJECT it to the screen through the live game
+   camera (*math-camera* / transform-point-qword!), FRUSTUM-test it (drawn only when the projection reports
+   on-screen), PERSPECTIVE-scale the billboard by the 1/w factor, keep it ORIENTED toward the holo anchor,
+   and draw a 3D light BEAM of world points from the drone toward the anchor. The hologram thus reads as a
+   projection standing in the scene that the drone orbits. Spawn/despawn/draw/beam are all counted."
   (when *menu-projector-active?*
-    ;; advance the orbit phase (per-frame transform) — 65536 units = one full turn (~7.8s @60fps)
+    ;; advance the orbit phase (per-frame world transform) — 65536 units = one full turn (~7.8s @60fps)
     (set! *menu-projector-angle* (+ *menu-projector-angle* (* 140.0 (-> *display* time-adjust-ratio))))
-    (let* ((cx (the float (+ HOLO_X HOLO_W -6)))   ;; beam target: the holo's right face, vertical center
-           (cy 112.0)
-           (a  *menu-projector-angle*)
-           (dx (+ 340.0 (* 95.0 (cos a))))         ;; drone orbits the open space right of the holo
-           (dy (+ 112.0 (* 80.0 (sin a))))
-           ;; orientation vector drone -> holo center (kept oriented toward the center every frame)
-           (vx (- cx dx))
-           (vy (- cy dy))
-           (len (max 1.0 (sqrtf (+ (* vx vx) (* vy vy)))))
-           (nx (/ vx len))
-           (ny (/ vy len))
-           (ex (+ dx (* nx 8.0)))                  ;; emitter nub on the center-facing side of the drone
-           (ey (+ dy (* ny 8.0))))
-      (set! *menu-projector-ox* dx)
-      (set! *menu-projector-oy* dy)
-      (set! *menu-projector-face* (atan vy vx))
-      (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
-        ;; --- projection beam: fading dots from the emitter toward the holo center face ---
-        (dotimes (i 8)
-          (let* ((tt (/ (the float (+ i 1)) 9.0))
-                 (bx (the int (+ ex (* (- cx ex) tt))))
-                 (by (the int (+ ey (* (- cy ey) tt))))
-                 (sz (the int (+ 2.0 (* 4.0 (- 1.0 tt)))))
-                 (al (the int (* 110.0 (- 1.0 (* 0.72 tt))))))
-            (draw-sprite2d-xy buf (- bx (/ sz 2)) (- by (/ sz 2)) sz sz
-                              (menu-rgba-i #x66 #xc0 #xff al))))
-        (set! *menu-beam-draw-count* (+ *menu-beam-draw-count* 1))
-        ;; --- drone body: dim halo, bright core, white emitter nub facing the holo ---
-        (let ((idx (the int dx)) (idy (the int dy)) (iex (the int ex)) (iey (the int ey)))
-          (draw-sprite2d-xy buf (- idx 9)  (- idy 8)  18 16 (menu-rgba-i #x28 #x78 #xc0 #x50)) ;; halo
-          (draw-sprite2d-xy buf (- idx 6)  (- idy 5)  12 10 (menu-rgba-i #x60 #xc8 #xff #xd0)) ;; core
-          (draw-sprite2d-xy buf (- iex 2)  (- iey 2)   4  4 (menu-rgba-i #xff #xff #xff #xf0)) ;; emitter nub
-          (set! *menu-projector-draw-count* (+ *menu-projector-draw-count* 1))))))
+    (let ((anchor  (new 'stack-no-clear 'vector))
+          (dpos    (new 'stack-no-clear 'vector))
+          (bp      (new 'stack-no-clear 'vector))
+          (scratch (new 'stack-no-clear 'vector))
+          (q       (new 'stack-no-clear 'vector4w))
+          (bq      (new 'stack-no-clear 'vector4w))
+          (right   (-> *math-camera* inv-camera-rot vector 0))
+          (up      (-> *math-camera* inv-camera-rot vector 1)))
+      ;; world ANCHOR: a point in front of the (frozen) camera, shifted left toward the holo panel
+      (position-in-front-of-camera! anchor (meters 11) (meters 0))
+      (vector+float*! anchor anchor right (meters -2.5))
+      ;; DRONE world position: orbits the anchor in the camera right/up plane (a real 3D ellipse)
+      (let ((a *menu-projector-angle*))
+        (vector+float*! dpos anchor right (* (meters 2.6) (cos a)))
+        (vector+float*! dpos dpos   up    (* (meters 1.7) (sin a))))
+      ;; project the DRONE through the game camera; only draw when on-screen (frustum test)
+      (set! (-> q quad) (the-as uint128 0))
+      (when (transform-point-qword! q dpos)
+        (let* ((dsx (+ -1792 (/ (-> q x) 16)))         ;; GS 28.4 -> 0..512 menu space
+               (dsy (- (/ (-> q y) 16) (-> *video-parms* screen-miny)))
+               (scl (transform-point-vector-scale! scratch dpos))       ;; perspective 1/w factor
+               (sz  (max 8 (min 22 (+ 11 (the int (* 260.0 scl))))))    ;; billboard size, perspective-nudged
+               (asx dsx) (asy dsy))
+          ;; project the ANCHOR (holo center) so the drone stays ORIENTED toward it and the beam aims at it
+          (set! (-> bq quad) (the-as uint128 0))
+          (when (transform-point-qword! bq anchor)
+            (set! asx (+ -1792 (/ (-> bq x) 16)))
+            (set! asy (- (/ (-> bq y) 16) (-> *video-parms* screen-miny))))
+          (set! *menu-projector-ox* (the float dsx))
+          (set! *menu-projector-oy* (the float dsy))
+          (set! *menu-projector-face* (atan (the float (- asy dsy)) (the float (- asx dsx))))  ;; toward center
+          (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
+            ;; --- 3D BEAM: world points from the drone toward the anchor, each projected, fading out ---
+            (dotimes (i 8)
+              (let ((tt (/ (the float (+ i 1)) 9.0)))
+                (vector-! bp anchor dpos)
+                (vector-float*! bp bp tt)
+                (vector+! bp bp dpos)                    ;; bp = dpos + (anchor - dpos) * tt
+                (set! (-> bq quad) (the-as uint128 0))
+                (when (transform-point-qword! bq bp)
+                  (let ((bx (+ -1792 (/ (-> bq x) 16)))
+                        (by (- (/ (-> bq y) 16) (-> *video-parms* screen-miny)))
+                        (bs (max 2 (the int (* (the float sz) (- 1.0 (* 0.7 tt)))))))
+                    (draw-sprite2d-xy buf (- bx (/ bs 2)) (- by (/ bs 2)) bs bs
+                                      (menu-rgba-i #x66 #xc0 #xff (the int (* 120.0 (- 1.0 (* 0.7 tt))))))))))
+            (set! *menu-beam-draw-count* (+ *menu-beam-draw-count* 1))
+            ;; --- drone body: dim halo, bright core, white emitter nub (perspective-scaled) ---
+            (draw-sprite2d-xy buf (- dsx sz) (- dsy sz) (* 2 sz) (* 2 sz) (menu-rgba-i #x28 #x78 #xc0 #x50))
+            (draw-sprite2d-xy buf (- dsx (/ sz 2)) (- dsy (/ sz 2)) sz sz (menu-rgba-i #x60 #xc8 #xff #xd0))
+            (draw-sprite2d-xy buf (- dsx 2) (- dsy 2) 4 4 (menu-rgba-i #xff #xff #xff #xf0))
+            (set! *menu-projector-draw-count* (+ *menu-projector-draw-count* 1)))))))
   (none))
 
 (defun menu-resolve-hint ((row game-option))
-  "Grecharged V2: resolve the hint text-id for a row — explicit `hint` if set, else a fallback by row NAME,
-   else a generic fallback by option-TYPE. Guarantees a nonzero hint for every SELECTABLE row (100% coverage).
-   Group headers return 0 (they never take focus, so no hint line is drawn for them)."
+  "Grecharged V3 (owner 2026-08-02): resolve a BESPOKE hint text-id for a row. The generic
+   BY-CONTROL-TYPE fallback (toggle/slider/choice/bind/button — #x174b..#x174f) is DELETED: no row
+   ever describes the control widget. Resolution order: (1) an explicit `hint` on the row (every
+   GRAPHICS value row, stamped in build-graphics-unified!, plus the inert-Android and debug rows);
+   (2) by the setting's specific NAME text-id (every named settings row in gameplay/audio/controls/
+   camera/controller/mouse/reassign/misc/advanced); (3) a small by-SEMANTIC-option-type map for the
+   value-LIST screens (cheats/music/binds/aspect) whose rows share a name — these still describe the
+   SETTING, never the widget. Group headers and anything unmatched return 0 (no hint line drawn)."
   (cond
     ((nonzero? (-> row hint)) (-> row hint))
     (else
      (let ((nm (-> row name)))
        (cond
-         ((= nm (text-id new-game))         (text-id pc-text-hint-new-game))
-         ((= nm (text-id load-game))        (text-id pc-text-hint-load))
-         ((= nm (text-id save-game))        (text-id pc-text-hint-save))
-         ((= nm (text-id options))          (text-id pc-text-hint-options))
-         ((= nm (text-id secrets))          (text-id pc-text-hint-secrets))
-         ((= nm (text-id quit-game))        (text-id pc-text-hint-quit))
-         ((= nm (text-id back))             (text-id pc-text-hint-back))
-         ((= nm (text-id pc-text-continue)) (text-id pc-text-hint-continue))
+         ;; --- main-menu / quit-flow actions ---
+         ((= nm (text-id new-game))          (text-id pc-text-hint-new-game))
+         ((= nm (text-id load-game))         (text-id pc-text-hint-load))
+         ((= nm (text-id save-game))         (text-id pc-text-hint-save))
+         ((= nm (text-id options))           (text-id pc-text-hint-options))
+         ((= nm (text-id secrets))           (text-id pc-text-hint-secrets))
+         ((= nm (text-id quit-game))         (text-id pc-text-hint-quit))
+         ((= nm (text-id back))              (text-id pc-text-hint-back))
+         ((= nm (text-id pc-text-continue))  (text-id pc-text-hint-continue))
          ((= nm (text-id pc-text-return-title)) (text-id pc-text-hint-return-title))
-         ((= nm (text-id pc-text-cancel))   (text-id pc-text-hint-cancel))
+         ((= nm (text-id pc-text-cancel))    (text-id pc-text-hint-cancel))
          ((= nm (text-id disable-auto-save)) (text-id pc-text-hint-disable-autosave))
+         ((= nm (text-id checkpoint-select)) (text-id pc-text-hint-checkpoint))
+         ;; --- graphics named rows (the placeholder-named value rows are hinted in build-graphics-unified!) ---
+         ((= nm (text-id aspect-ratio))      (text-id pc-text-hint-aspect))
+         ((= nm (text-id game-resolution))   (text-id pc-text-hint-resolution))
+         ((= nm (text-id ps2-options))       (text-id pc-text-hint-advanced))
+         ((= nm (text-id display-mode))      (text-id pc-text-hint-displaymode))
+         ((= nm (text-id display))           (text-id pc-text-hint-monitor))
+         ((= nm (text-id frame-rate))        (text-id pc-text-hint-framerate))
+         ;; --- gameplay ---
+         ((= nm (text-id play-hints))        (text-id pc-text-hint-playhints))
+         ((= nm (text-id subtitles))         (text-id pc-text-hint-subtitles))
+         ((= nm (text-id hinttitles))        (text-id pc-text-hint-hinttitles))
+         ((= nm (text-id language))          (text-id pc-text-hint-spokenlang))
+         ((= nm (text-id subtitles-language)) (text-id pc-text-hint-sublang))
+         ((= nm (text-id text-language))     (text-id pc-text-hint-textlang))
+         ((= nm (text-id subtitles-speaker)) (text-id pc-text-hint-speakername))
+         ((= nm (text-id input-options))     (text-id pc-text-hint-opencontrols))
+         ((= nm (text-id misc-options))      (text-id pc-text-hint-openmisc))
+         ;; --- audio ---
+         ((= nm (text-id sfx-volume))        (text-id pc-text-hint-sfx))
+         ((= nm (text-id music-volume))      (text-id pc-text-hint-music))
+         ((= nm (text-id speech-volume))     (text-id pc-text-hint-speech))
+         ;; --- controls (top) ---
+         ((= nm (text-id camera-options))    (text-id pc-text-hint-cameraopts))
+         ((= nm (text-id input-opts-controller-opts)) (text-id pc-text-hint-controlleropts))
+         ((= nm (text-id input-opts-enable-kb)) (text-id pc-text-hint-enablekb))
+         ((= nm (text-id input-opts-enable-mouse)) (text-id pc-text-hint-enablemouse))
+         ((= nm (text-id input-opts-mouse-opts)) (text-id pc-text-hint-mouseopts))
+         ((= nm (text-id input-opts-auto-hide-cursor)) (text-id pc-text-hint-autohide))
+         ((= nm (text-id input-opts-reassign-binds)) (text-id pc-text-hint-reassign))
+         ((= nm (text-id restore-defaults))  (text-id pc-text-hint-restoredefaults))
+         ;; --- camera invert (shared across the 4 axis rows) ---
+         ((or (= nm (text-id camera-controls-first-horz))
+              (= nm (text-id camera-controls-first-vert))
+              (= nm (text-id camera-controls-third-horz))
+              (= nm (text-id camera-controls-third-vert)))
+          (text-id pc-text-hint-caminvert))
+         ;; --- controller ---
+         ((= nm (text-id input-opts-select-controller)) (text-id pc-text-hint-selectcontroller))
+         ((= nm (text-id vibrations))        (text-id pc-text-hint-vibrations))
+         ((= nm (text-id input-opts-analog-deadzone)) (text-id pc-text-hint-deadzone))
+         ((= nm (text-id input-opts-analog-sensitivity)) (text-id pc-text-hint-sensitivity))
+         ((= nm (text-id input-opts-ignore-controller-win-focus)) (text-id pc-text-hint-ignoreunfocused))
+         ((= nm (text-id input-opts-controller-led-reflect-hp)) (text-id pc-text-hint-ledhp))
+         ((= nm (text-id input-opts-controller-led-reflect-eco)) (text-id pc-text-hint-ledeco))
+         ((= nm (text-id input-opts-controller-led-reflect-heat)) (text-id pc-text-hint-ledheat))
+         ((= nm (text-id input-opts-controller-pressure-sensitivity)) (text-id pc-text-hint-pressure))
+         ;; --- mouse ---
+         ((= nm (text-id input-opts-mouse-enable-camera)) (text-id pc-text-hint-mousecam))
+         ((= nm (text-id input-opts-mouse-horizontal-sens)) (text-id pc-text-hint-mousehsens))
+         ((= nm (text-id input-opts-mouse-vertical-sens)) (text-id pc-text-hint-mousevsens))
+         ((= nm (text-id input-opts-mouse-enable-movement)) (text-id pc-text-hint-mousemove))
+         ;; --- reassign binds ---
+         ((= nm (text-id input-opts-binds-controller)) (text-id pc-text-hint-bindscontroller))
+         ((= nm (text-id input-opts-binds-keyboard)) (text-id pc-text-hint-bindskeyboard))
+         ((= nm (text-id input-opts-binds-mouse)) (text-id pc-text-hint-bindsmouse))
+         ;; --- misc ---
+         ((= nm (text-id money-starburst))   (text-id pc-text-hint-moneystarburst))
+         ((= nm (text-id discord-rpc))       (text-id pc-text-hint-discord))
+         ((= nm (text-id cutscene-skips))    (text-id pc-text-hint-cutsceneskips))
+         ((= nm (text-id speedrunner-mode))  (text-id pc-text-hint-speedrunnermode))
+         ;; --- advanced (legacy PS2 gfx) ---
+         ((= nm (text-id lod-bg))            (text-id pc-text-hint-lodbg))
+         ((= nm (text-id lod-fg))            (text-id pc-text-hint-lodfg))
+         ((= nm (text-id ps2-parts))         (text-id pc-text-hint-ps2parts))
+         ((= nm (text-id force-envmap))      (text-id pc-text-hint-forceenvmap))
+         ((= nm (text-id force-actors))      (text-id pc-text-hint-forceactors))
          (else
+          ;; tier 3: value-LIST screens whose rows share one name — keyed by SEMANTIC option-type
+          ;; (still names the setting, never the control widget). group-header => 0 (never focused).
           (case (-> row option-type)
             (((game-option-type group-header)) (the text-id 0))
-            (((game-option-type on-off)
-              (game-option-type cheat-toggle)
-              (game-option-type yes-no)
-              (game-option-type confirmation)
-              (game-option-type normal-inverted)
-              (game-option-type aspect-ratio)
-              (game-option-type aspect-native)
-              (game-option-type aspect-new))
-             (text-id pc-text-hint-toggle))
-            (((game-option-type slider)) (text-id pc-text-hint-slider))
-            (((game-option-type binding-assignment)) (text-id pc-text-hint-bind))
-            (((game-option-type button)
-              (game-option-type button-music)
-              (game-option-type button-flava)
-              (game-option-type menu))
-             (text-id pc-text-hint-button))
-            (else (text-id pc-text-hint-choice)))))))))
+            (((game-option-type cheat-toggle)) (text-id pc-text-hint-cheat))
+            (((game-option-type button-music)) (text-id pc-text-hint-playmusic))
+            (((game-option-type button-flava)) (text-id pc-text-hint-playflava))
+            (((game-option-type binding-assignment)) (text-id pc-text-hint-rebind))
+            (((game-option-type aspect-ratio)
+              (game-option-type aspect-new)
+              (game-option-type aspect-native))
+             (text-id pc-text-hint-aspectchoice))
+            (else (the text-id 0)))))))))
 
 (defun menu-hint-coverage ()
-  "Grecharged V2 proof: per-screen count of SELECTABLE rows vs rows that resolve a hint. Prints one line per
-   populated screen and a total; returns #t iff every selectable row has a hint (100%). Run after
-   init-game-options (via the listener) to capture the with-hint/total counter for the report."
+  "Grecharged V3 proof: per-screen count of SELECTABLE rows vs rows that resolve a BESPOKE hint, over
+   the SETTINGS screens (the option/réglage pages the owner navigates — NOT the value-LIST screens like
+   the cheats/music/checkpoint pick-lists). Prints one line per screen + a total; returns #t iff every
+   selectable settings row has a hint (100%). Run after init-game-options via the listener to capture the
+   with-hint/total counter for the report. Every row here resolves via menu-resolve-hint's explicit or
+   by-name tiers — the generic by-control-type fallback is gone, so a 0 here means a genuinely unhinted
+   row (a real coverage hole), never a widget-type placeholder."
   (let ((total-sel 0) (total-hit 0) (screens 0) (all-ok #t))
     (dotimes (s (-> *options-remap* allocated-length))
-      (let ((arr (-> *options-remap* s)))
-        ;; GOAL "0 is truthy": unset remap slots are either null (static 0) or the symbol #f — guard BOTH
-        ;; before calling (length arr), which would otherwise deref null/#f and crash.
-        (when (and (!= (the-as int arr) 0) (!= arr #f) (> (length arr) 0))
-          (let ((sel 0) (hit 0))
-            (dotimes (i (length arr))
-              (let ((row (-> arr i)))
-                (when (!= (-> row option-type) (game-option-type group-header))
-                  (+! sel 1)
-                  (when (nonzero? (menu-resolve-hint row)) (+! hit 1)))))
-            (when (> sel 0)
-              (+! screens 1)
-              (+! total-sel sel)
-              (+! total-hit hit)
-              (when (!= hit sel) (set! all-ok #f))
-              (format 0 "[Gmenu] screen ~D: ~D/~D rows with hint~%" s hit sel))))))
-    (format 0 "[Gmenu] TOTAL: ~D/~D selectable rows have a hint across ~D screens (100%: ~A)~%"
+      (when (case s
+              ;; the SETTINGS screens (options that need explaining)
+              (((progress-screen settings-title)      ;; the OPTIONS hub (5 categories)
+                (progress-screen game-settings)
+                (progress-screen graphic-settings)    ;; the unified GRAPHISMES page (*graphics-unified-pc*)
+                (progress-screen sound-settings)
+                (progress-screen input-options)
+                (progress-screen camera-options)
+                (progress-screen controller-options)
+                (progress-screen mouse-options)
+                (progress-screen reassign-binds-options)
+                (progress-screen misc-options)
+                (progress-screen gfx-ps2-options)
+                (progress-screen aspect-ratio)
+                (progress-screen debug-options)) #t)
+              (else #f))
+        (let ((arr (-> *options-remap* s)))
+          ;; GOAL "0 is truthy": unset remap slots are either null (static 0) or the symbol #f — guard BOTH
+          ;; before calling (length arr), which would otherwise deref null/#f and crash.
+          (when (and (!= (the-as int arr) 0) (!= arr #f) (> (length arr) 0))
+            (let ((sel 0) (hit 0))
+              (dotimes (i (length arr))
+                (let ((row (-> arr i)))
+                  (when (!= (-> row option-type) (game-option-type group-header))
+                    (+! sel 1)
+                    (when (nonzero? (menu-resolve-hint row)) (+! hit 1)))))
+              (when (> sel 0)
+                (+! screens 1)
+                (+! total-sel sel)
+                (+! total-hit hit)
+                (when (!= hit sel) (set! all-ok #f))
+                (format 0 "[Gmenu] screen ~D: ~D/~D rows with hint~%" s hit sel)))))))
+    (format 0 "[Gmenu] TOTAL: ~D/~D selectable settings rows have a bespoke hint across ~D screens (100%: ~A)~%"
             total-hit total-sel screens all-ok)
     all-ok))
 
@@ -288,6 +441,10 @@
           *menu-projector-despawn-count* *menu-projector-draw-count* *menu-beam-draw-count*)
   (format 0 "[Gmenu] last drone x=~f y=~f face=~f angle=~f~%"
           *menu-projector-ox* *menu-projector-oy* *menu-projector-face* *menu-projector-angle*)
+  ;; V3-B: the holo animation values — call twice across frames to see them CHANGE (scanline scrolls,
+  ;; flicker jitters). Proof the hologram is ANIMATED per-frame, not a static box.
+  (format 0 "[Gmenu] holo scan-offset=~D flicker-alpha=~D (both advance/jitter every frame)~%"
+          *menu-holo-scan-offset* *menu-holo-flicker*)
   (none))
 
 (defun progress-fast-save-and-start-speedrun ((category speedrun-category))
@@ -1402,62 +1559,68 @@
         (n 0))
     (let ((fw (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))   ;; foliage-wind base index in *recharged-options-pc*
           (hud FLAG_RECHARGED_HUD_N))
+      ;; Grecharged-menu-overhaul V3 (owner 2026-08-02): while copying each source row by its
+      ;; flag-aware index, also stamp its BESPOKE per-row hint on the shared row object (so it
+      ;; travels into the fused page AND matches the exact flag config). The value rows below carry
+      ;; a placeholder :name (real label via name-override), so menu-resolve-hint cannot key them by
+      ;; name — the hint MUST be set here. The named rows (Aspect/Resolution/Advanced/Display/monitor/
+      ;; Frame-rate) resolve BY NAME (or, on Android, by their static :hint), so they are left alone.
       ;; RENDU RECHARGED (MASTER) — the global coupe-circuit, at the very head.
-      (set! (-> dst n) (-> rch 0)) (set! n (+ n 1))
+      (set! (-> dst n) (-> rch 0)) (set! (-> dst n hint) (text-id pc-text-hint-master)) (set! n (+ n 1))
       ;; --- ÉCRAN ---
       (set! (-> dst n) *grp-ecran*) (set! n (+ n 1))
-      (set! (-> dst n) (-> gfx 0)) (set! n (+ n 1))                    ;; Aspect Ratio
-      (set! (-> dst n) (-> gfx 1)) (set! n (+ n 1))                    ;; Game Resolution
+      (set! (-> dst n) (-> gfx 0)) (set! n (+ n 1))                    ;; Aspect Ratio (by-name)
+      (set! (-> dst n) (-> gfx 1)) (set! n (+ n 1))                    ;; Game Resolution (by-name)
       (#if PLATFORM_ANDROID
-        (begin (set! (-> dst n) (-> gfx 10)) (set! n (+ n 1))         ;; Display mode (inert, mobile hint)
-               (set! (-> dst n) (-> gfx 11)) (set! n (+ n 1)))         ;; Display / monitor (inert)
-        (begin (set! (-> dst n) (-> gfx 8)) (set! n (+ n 1))          ;; Display mode (desktop)
-               (set! (-> dst n) (-> gfx 9)) (set! n (+ n 1))))         ;; Display / monitor (desktop)
+        (begin (set! (-> dst n) (-> gfx 10)) (set! n (+ n 1))         ;; Display mode (inert, static mobile hint)
+               (set! (-> dst n) (-> gfx 11)) (set! n (+ n 1)))         ;; Display / monitor (inert, static mobile hint)
+        (begin (set! (-> dst n) (-> gfx 8)) (set! n (+ n 1))          ;; Display mode (desktop, by-name)
+               (set! (-> dst n) (-> gfx 9)) (set! n (+ n 1))))         ;; Display / monitor (desktop, by-name)
       ;; --- PERFORMANCE ---
       (set! (-> dst n) *grp-perf*) (set! n (+ n 1))
-      (set! (-> dst n) (-> gfx 2)) (set! n (+ n 1))                    ;; Dynamic Render Scale
-      (set! (-> dst n) (-> gfx 3)) (set! n (+ n 1))                    ;; Render Scale / Min Render Scale
-      (when dyn? (set! (-> dst n) (-> gfx 4)) (set! n (+ n 1)))        ;; Min Target FPS (only when Dynamic RS ON)
-      (set! (-> dst n) (-> gfx 6)) (set! n (+ n 1))                    ;; V-Sync
-      (set! (-> dst n) (-> gfx 7)) (set! n (+ n 1))                    ;; MSAA
+      (set! (-> dst n) (-> gfx 2)) (set! (-> dst n hint) (text-id pc-text-hint-dynrs)) (set! n (+ n 1))        ;; Dynamic Render Scale
+      (set! (-> dst n) (-> gfx 3)) (set! (-> dst n hint) (text-id pc-text-hint-renderscale)) (set! n (+ n 1)) ;; Render Scale / Min Render Scale
+      (when dyn? (set! (-> dst n) (-> gfx 4)) (set! (-> dst n hint) (text-id pc-text-hint-mtf)) (set! n (+ n 1))) ;; Min Target FPS (Dynamic RS ON)
+      (set! (-> dst n) (-> gfx 6)) (set! (-> dst n hint) (text-id pc-text-hint-vsync)) (set! n (+ n 1))       ;; V-Sync
+      (set! (-> dst n) (-> gfx 7)) (set! (-> dst n hint) (text-id pc-text-hint-msaa)) (set! n (+ n 1))        ;; MSAA
       (#if PLATFORM_ANDROID
-        (begin (set! (-> dst n) (-> gfx 12)) (set! n (+ n 1)))        ;; Frame rate (inert, mobile hint)
-        (begin (set! (-> dst n) (-> gfx 10)) (set! n (+ n 1))))        ;; Frame rate (desktop)
+        (begin (set! (-> dst n) (-> gfx 12)) (set! n (+ n 1)))        ;; Frame rate (inert, static mobile hint)
+        (begin (set! (-> dst n) (-> gfx 10)) (set! n (+ n 1))))        ;; Frame rate (desktop, by-name)
       ;; --- MATÉRIAUX & DÉTAIL ---
       (set! (-> dst n) *grp-materials*) (set! n (+ n 1))
       (#when FLAG_PBR
-        (set! (-> dst n) (-> rch (+ 4 hud))) (set! n (+ n 1))         ;; PBR Materials
-        (set! (-> dst n) (-> rch (+ fw 13))) (set! n (+ n 1))         ;; Relief (Off/Parallax/Tessellation)
-        (set! (-> dst n) (-> rch (+ fw 11))) (set! n (+ n 1))         ;; Texture Relief (strength)
-        (set! (-> dst n) (-> rch (+ fw 12))) (set! n (+ n 1)))        ;; Specular Intensity
-      (set! (-> dst n) (-> rch (+ 3 hud))) (set! n (+ n 1))           ;; Recharged Textures
-      (set! (-> dst n) (-> rch (+ 2 hud))) (set! n (+ n 1))           ;; Load Custom Assets
+        (set! (-> dst n) (-> rch (+ 4 hud))) (set! (-> dst n hint) (text-id pc-text-hint-pbr)) (set! n (+ n 1))       ;; PBR Materials
+        (set! (-> dst n) (-> rch (+ fw 13))) (set! (-> dst n hint) (text-id pc-text-hint-relief)) (set! n (+ n 1))    ;; Relief (Off/Parallax/Tessellation)
+        (set! (-> dst n) (-> rch (+ fw 11))) (set! (-> dst n hint) (text-id pc-text-hint-texrelief)) (set! n (+ n 1)) ;; Texture Relief (strength)
+        (set! (-> dst n) (-> rch (+ fw 12))) (set! (-> dst n hint) (text-id pc-text-hint-specular)) (set! n (+ n 1))) ;; Specular Intensity
+      (set! (-> dst n) (-> rch (+ 3 hud))) (set! (-> dst n hint) (text-id pc-text-hint-rtextures)) (set! n (+ n 1))   ;; Recharged Textures
+      (set! (-> dst n) (-> rch (+ 2 hud))) (set! (-> dst n hint) (text-id pc-text-hint-customassets)) (set! n (+ n 1));; Load Custom Assets
       ;; --- ÉCLAIRAGE ---
       (set! (-> dst n) *grp-lighting*) (set! n (+ n 1))
-      (#when FLAG_PBR (set! (-> dst n) (-> rch (+ fw 4))) (set! n (+ n 1)))  ;; Realtime Lighting
-      (set! (-> dst n) (-> rch (+ fw 1))) (set! n (+ n 1))           ;; Ambient Occlusion
-      (set! (-> dst n) (-> rch (+ fw 2))) (set! n (+ n 1))           ;; AO Quality
-      (set! (-> dst n) (-> rch (+ fw 3))) (set! n (+ n 1))           ;; AO Strength
+      (#when FLAG_PBR (set! (-> dst n) (-> rch (+ fw 4))) (set! (-> dst n hint) (text-id pc-text-hint-rtlight)) (set! n (+ n 1)))  ;; Realtime Lighting
+      (set! (-> dst n) (-> rch (+ fw 1))) (set! (-> dst n hint) (text-id pc-text-hint-ao)) (set! n (+ n 1))           ;; Ambient Occlusion
+      (set! (-> dst n) (-> rch (+ fw 2))) (set! (-> dst n hint) (text-id pc-text-hint-aoquality)) (set! n (+ n 1))    ;; AO Quality
+      (set! (-> dst n) (-> rch (+ fw 3))) (set! (-> dst n hint) (text-id pc-text-hint-aostrength)) (set! n (+ n 1))   ;; AO Strength
       (#when FLAG_PBR
-        (set! (-> dst n) (-> rch (+ fw 6))) (set! n (+ n 1))         ;; Ambient Model
-        (set! (-> dst n) (-> rch (+ fw 7))) (set! n (+ n 1))         ;; Ambient Strength
-        (set! (-> dst n) (-> rch (+ fw 8))) (set! n (+ n 1))         ;; Ambient Contrast
-        (set! (-> dst n) (-> rch (+ fw 5))) (set! n (+ n 1))         ;; Env Probe
-        (set! (-> dst n) (-> rch (+ fw 9))) (set! n (+ n 1))         ;; Shadow Distance
-        (set! (-> dst n) (-> rch (+ fw 10))) (set! n (+ n 1)))       ;; Shadow Quality
+        (set! (-> dst n) (-> rch (+ fw 6))) (set! (-> dst n hint) (text-id pc-text-hint-ambmodel)) (set! n (+ n 1))   ;; Ambient Model
+        (set! (-> dst n) (-> rch (+ fw 7))) (set! (-> dst n hint) (text-id pc-text-hint-ambstrength)) (set! n (+ n 1));; Ambient Strength
+        (set! (-> dst n) (-> rch (+ fw 8))) (set! (-> dst n hint) (text-id pc-text-hint-ambcontrast)) (set! n (+ n 1));; Ambient Contrast
+        (set! (-> dst n) (-> rch (+ fw 5))) (set! (-> dst n hint) (text-id pc-text-hint-envprobe)) (set! n (+ n 1))   ;; Env Probe
+        (set! (-> dst n) (-> rch (+ fw 9))) (set! (-> dst n hint) (text-id pc-text-hint-shadowdist)) (set! n (+ n 1)) ;; Shadow Distance
+        (set! (-> dst n) (-> rch (+ fw 10))) (set! (-> dst n hint) (text-id pc-text-hint-shadowquality)) (set! n (+ n 1))) ;; Shadow Quality
       ;; --- VÉGÉTATION (the Grass sub-submenu is DISSOLVED inline here) ---
       (set! (-> dst n) *grp-vegetation*) (set! n (+ n 1))
-      (set! (-> dst n) (-> grs 0)) (set! n (+ n 1))                   ;; Recharged Grass
-      (set! (-> dst n) (-> grs 1)) (set! n (+ n 1))                   ;; Near Grass Distance
-      (set! (-> dst n) (-> grs 2)) (set! n (+ n 1))                   ;; Grass Card Distance
-      (set! (-> dst n) (-> grs 3)) (set! n (+ n 1))                   ;; Grass Density
-      (set! (-> dst n) (-> grs 4)) (set! n (+ n 1))                   ;; Grass Mode
-      (set! (-> dst n) (-> rch fw)) (set! n (+ n 1))                  ;; Foliage Wind
+      (set! (-> dst n) (-> grs 0)) (set! (-> dst n hint) (text-id pc-text-hint-grass)) (set! n (+ n 1))       ;; Recharged Grass
+      (set! (-> dst n) (-> grs 1)) (set! (-> dst n hint) (text-id pc-text-hint-neardist)) (set! n (+ n 1))    ;; Near Grass Distance
+      (set! (-> dst n) (-> grs 2)) (set! (-> dst n hint) (text-id pc-text-hint-carddist)) (set! n (+ n 1))    ;; Grass Card Distance
+      (set! (-> dst n) (-> grs 3)) (set! (-> dst n hint) (text-id pc-text-hint-density)) (set! n (+ n 1))     ;; Grass Density
+      (set! (-> dst n) (-> grs 4)) (set! (-> dst n hint) (text-id pc-text-hint-grassmode)) (set! n (+ n 1))   ;; Grass Mode
+      (set! (-> dst n) (-> rch fw)) (set! (-> dst n hint) (text-id pc-text-hint-foliagewind)) (set! n (+ n 1));; Foliage Wind
       ;; --- INTERFACE ---
       (set! (-> dst n) *grp-interface*) (set! n (+ n 1))
-      (set! (-> dst n) (-> gfx 5)) (set! n (+ n 1))                   ;; FPS Counter
-      (#when FLAG_RECHARGED_HUD (set! (-> dst n) (-> rch 1)) (set! n (+ n 1)))  ;; Recharged HUD
-      ;; Advanced (legacy PS2-era graphics submenu) — kept reachable at the tail so it is never orphaned.
+      (set! (-> dst n) (-> gfx 5)) (set! (-> dst n hint) (text-id pc-text-hint-fpscounter)) (set! n (+ n 1))  ;; FPS Counter
+      (#when FLAG_RECHARGED_HUD (set! (-> dst n) (-> rch 1)) (set! (-> dst n hint) (text-id pc-text-hint-rhud)) (set! n (+ n 1)))  ;; Recharged HUD
+      ;; Advanced (legacy PS2-era graphics submenu) — kept reachable at the tail so it is never orphaned. (by-name)
       (#if PLATFORM_ANDROID
         (begin (set! (-> dst n) (-> gfx 8)) (set! n (+ n 1)))        ;; Advanced (android index 8)
         (begin (set! (-> dst n) (-> gfx 11)) (set! n (+ n 1))))       ;; Advanced (desktop index 11)
@@ -2321,10 +2484,12 @@
        ;; PBR TEST PRESET carousell (one-click intended-config presets). ALWAYS enabled — the STOCK preset
        ;; turns recharged-master? off, so this row must stay usable to switch back.
        (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t))
+       (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t
+            :hint (text-id pc-text-hint-pbrpreset)))
        ;; PBR ISOLATE carousell (in-menu term bisection). Disabled unless master + PBR materials are on.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type pbr-isolate) :name (text-id msaa) :scale #t
+            :hint (text-id pc-text-hint-pbrisolate)
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
@@ -5124,7 +5289,11 @@
                             22)))
         (dotimes (index (length options))
           (let ((option-str (the string #f)) ;; the option text
-                (option-x opt-x0)
+                ;; V3-D (owner 2026-08-02): sections are spatially separated — option rows are INDENTED
+                ;; SECTION_INDENT px to the right of their (left-hanging) section header, on holo screens.
+                (option-x (if (and holo? (!= (-> options index option-type) (game-option-type group-header)))
+                            (+ opt-x0 SECTION_INDENT)
+                            opt-x0))
                 (option-y y-off)
                 (locked? #f))
             ;; Check if the option should be disabled
@@ -5489,6 +5658,10 @@
                       (and (not (progress-scrolling?)) (>= index *progress-scroll-start*) (< index *progress-scroll-end*))
                       (and (progress-scrolling-down?) (>= index (1- *progress-scroll-start*)) (< index *progress-scroll-end*))
                       (and (progress-scrolling-up?) (>= index *progress-scroll-start*) (< index (1+ *progress-scroll-end*))))
+              ;; V3-D: a SECTION_GAP of blank vertical space ABOVE each section header (except the first
+              ;; drawn row) — so a group reads as a group, not another item in a flat list.
+              (when (and holo? (> option-count 0) (= (-> options index option-type) (game-option-type group-header)))
+                (set! option-y (+ option-y SECTION_GAP)))
               (when option-str
                 ;; draw the actual text!
                 (let ((f0-23 (-> obj transition-percentage-invert))
@@ -5531,7 +5704,10 @@
                                       (the float (- option-x (-> obj left-x-offset)))
                                       (the float (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0))))
                                       (* arg2 scl f0-23 scroll-amt))))
-              (+! y-off arg1)
+              ;; V3-D: headers consume an extra SECTION_GAP so the following options sit grouped below them.
+              (+! y-off (if (and holo? (= (-> options index option-type) (game-option-type group-header)))
+                          (+ arg1 SECTION_GAP)
+                          arg1))
               (+! option-count 1))))
         ;; Grecharged-menu-overhaul V2 (off-screen-hint FIX + 100% coverage): one-line contextual HINT for
         ;; the FOCUSED row. The hint text-id is RESOLVED for every selectable row (explicit hint, else a
