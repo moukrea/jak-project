@@ -207,3 +207,25 @@ un vrai travail d'effet + 3D, pas un patch 2D. Commite par brique, build x86 à 
 - DRONE : c'est FACILE à identifier — c'est l'entité qui SPAWN autour de Jak quand Samos ou Keira le
   contacte À DISTANCE (le petit vaisseau/communicateur des comms distantes). Trouve cette entité
   précise (via les scènes de comm/talker), réutilise son mesh/process pour le projecteur.
+
+## ============================================================
+## V3-CRASH (supervisor 2026-08-02) : LE BUILD V3 CRASHE AU BOOT SUR LE REDMI
+## ============================================================
+Le boot device a échoué : APP CRASH(NATIVE) (dumpsys exit-info reason=5), pid mort < 45 s, AVANT
+même le titre. Le validateur avait accepté le "no-crash" du RAPPORT — c'était faux. À CORRIGER.
+
+CAUSE LA PLUS PROBABLE (à vérifier/corriger) : dans goal_src/jak1/engine/ui/progress/progress.gc,
+`adjust-sprites` (chemin MOTEUR, exécuté CHAQUE FRAME dès le boot) appelle `menu-porthole-hidden?`,
+une fonction DÉFINIE DANS LE FICHIER PC `progress-pc.gc`. Un appel moteur -> fichier PC sur un chemin
+chaud exécuté au boot, avant que le symbole PC soit lié, donne un fn-ptr=0 => SIGILL/crash natif sur
+arm64 (classe de bug connue de ce port). 
+FIX : NE PAS appeler une fonction du fichier PC depuis le moteur sur un chemin par-frame. Utilise un
+GLOBAL/flag (symbole booléen) que le code PC POSE et que le moteur LIT (lire un global est sûr ;
+appeler une fonction non liée ne l'est pas), OU déplace la suppression du hublot dans l'override PC
+d'adjust-sprites. Vérifie qu'AUCUN appel moteur->PC-file n'existe sur un chemin boot/par-frame.
+
+OBLIGATION : BOOTER SUR LE REDMI eae4df44 et le PROUVER dans le rapport :
+`ANDROID_SERIAL=eae4df44 adb shell am start ... LoaderActivity`, attendre 150 s, puis
+`adb shell dumpsys activity exit-info org.opengoal.gk.jak1` : AUCUN reason=5 récent ET
+`adb shell pidof org.opengoal.gk.jak1` non vide (pid VIVANT à t+150 s). Le rapport colle cette preuve
+(serial eae4df44 + exit-info + pid). Un smoke desktop/qemu NE SUFFIT PAS.

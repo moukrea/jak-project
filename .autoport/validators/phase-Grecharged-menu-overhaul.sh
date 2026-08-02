@@ -93,6 +93,8 @@ grep -qiE '(section|group)[^.]{0,80}(gap|espace|spacing|indent|retrait)[^.]{0,40
 # E. porthole removed from the PAUSE menu specifically
 grep -qiE '(hublot|porthole|window|fenetre|fenêtre)[^.]{0,80}(pause)[^.]{0,60}(removed|supprim|retir|remplac|replac|gone|plus)' "$R" \
   || fail "V3-E: porthole background not proven removed from the PAUSE menu (owner still sees it)"
-grep -qiE 'boot|smoke|no crash' "$R" || fail "no smoke run"
+grep -qiE 'eae4df44' "$R" || fail "V3-CRASH: no DEVICE boot proof (report must show a real boot on Redmi eae4df44, not a desktop smoke)"
+grep -qiE '(exit-info|pid)[^.]{0,80}(alive|vivant|no.*crash|pas.*crash|reason ?!?= ?5|no reason.?5|clean)' "$R" \
+  || fail "V3-CRASH: report must prove the device boot is crash-free (exit-info no reason=5 + pid alive at t+150s on eae4df44)"
 grep -qiE 'capture (sweep|campaign)|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement detected — banned"
 echo "[Gmenus PASS]"
