@@ -334,6 +334,19 @@ build_android() {
     unzip -o -q "$APK" "assets/bundle/${GAME}_cgo.zip" -d "$T"
     unzip -o -q "$T/assets/bundle/${GAME}_cgo.zip" GAME.CGO -d "$T"
     m_cgo=$(grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' "$T/GAME.CGO" | head -1 || true)
+    # Grecharged-hd-models boot-crash guard (2026-08-02): the APK ships gradle's
+    # jniLibs copy of libgk.so (android/app/build.gradle.kts copyNativeLibs), but
+    # this block only compared its MARKER. A marker-fresh / FEATURE-stale libgk —
+    # correct "ogflags:<hash>:<target>" stamp yet built with the OG_FEAT_* define
+    # OFF, so the pc-* C binding is absent — therefore passed. On device that left
+    # the FLAG_HD_MODELS GOAL code (hud-classes-pc.gc: pc-set-recharged-enhanced-models!)
+    # calling an UNBOUND symbol -> value-slot 0 -> BLR ee_base -> sig=4 SIGILL at
+    # boot; our handler eats the signal (no tombstone) and the system reaps the
+    # defunct process as exit-info reason=2 / subreason=3 (TOO MANY EMPTY PROCS).
+    # verify_binary_flags already runs on build-android/lib/libgk.so, but the
+    # SHIPPED .so is the jniLibs copy — feature-verify THAT one too so a stale
+    # jniLibs copy (or any marker/feature desync) can never be packaged.
+    verify_binary_flags "$T/libgk.so"
     rm -rf "$T"
     [ "$m_so" = "$MARKER" ] || die "APK libgk marker '$m_so' != '$MARKER'"
     [ "$m_cgo" = "$MARKER" ] || die "APK CGO marker '$m_cgo' != '$MARKER' — MIXED FLAG-SET APK (R1)"

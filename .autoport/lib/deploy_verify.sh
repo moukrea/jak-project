@@ -89,6 +89,25 @@ if [ -n "$MARK_SO" ]; then
   fi
 fi
 
+# 4b. FEATURE PARITY (Grecharged-hd-models boot-crash, 2026-08-02). The R1 pairing
+# above only matches the ogflags HASH string. A libgk built with the OG_FEAT_*
+# compile define OFF but stamped with the right OG_FLAG_SET_ID is marker-fresh yet
+# FEATURE-stale: it carries the correct marker (so pairing passes) but LACKS the
+# pc-* C binding. Its FLAG_HD_MODELS CGOs still emit (pc-set-recharged-enhanced-models! ...)
+# every frame from boot -> the symbol value slot is 0 -> BLR ee_base -> sig=4 SIGILL;
+# our handler eats the signal (no tombstone) and the process is reaped as exit-info
+# reason=2 / subreason=3 (TOO MANY EMPTY PROCS). This is exactly how a d98928 libgk
+# without the hd binding died on the Redmi. Tie the two sides by the shared GOAL
+# symbol NAME: if the device GAME.CGO references the hd toggle setter (hd GOAL code
+# shipped), the device libgk MUST provide that binding. grep -c (not -q) reads all
+# input so the pipe never closes early -> no SIGPIPE under pipefail.
+CGO_HAS_HD=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" cat "files/cgo/${GAME}/GAME.CGO" 2>/dev/null | grep -a -c 'pc-set-recharged-enhanced-models!' || true)
+if [ "${CGO_HAS_HD:-0}" -ge 1 ]; then
+  SO_HAS_HD=$(strings "$TMP/dev.so" | grep -c 'pc-set-recharged-enhanced-models!' || true)
+  [ "${SO_HAS_HD:-0}" -ge 1 ] || die "FEATURE-STALE libgk: device GAME.CGO emits (pc-set-recharged-enhanced-models! ...) (FLAG_HD_MODELS on) but the device libgk has NO such binding — marker-fresh / OG_FEAT_HD_MODELS-OFF build. Its boot per-frame call hits an unbound symbol -> fn-ptr=0 SIGILL (reaped reason=2/TOO_MANY_EMPTY). Rebuild libgk with --hd-models (OG_FEAT_HD_MODELS=ON) and reinstall."
+  echo "  ok: hd-models feature parity (device CGO hd call has its device libgk binding)"
+fi
+
 # 5. CUSTOM PACK landing (Grecharged-buildsys-packaging): the port-custom asset
 # set the APK ships (grassbake / enhanced fr3 / recharged PNGs) must be unpacked
 # on device at the version the build produced — a stale custom set is the asset
