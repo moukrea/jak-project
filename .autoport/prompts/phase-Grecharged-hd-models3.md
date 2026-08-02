@@ -95,3 +95,19 @@ PREUVE EXIGÉE (device eae4df44, pas desktop) : `--pbr --debug --hd-models` boot
 + MainActivity à t+150s, exit-info sans reason=5/2), ET le skin HD de Jak SUIT une anim d'eichar
 (nombres objectifs : deltas de position d'os/écran qui suivent l'anim ; os non-mappés au repos).
 Jugement esthétique = l'œil de l'owner. Scope M1 = Jak seul ; les 4 persos + toutes anims = ensuite.
+
+## ============================================================
+## ARCHITECTURE IP (owner 2026-08-02) — NON NÉGOCIABLE
+## ============================================================
+Les modèles HD dérivent des dumps Jak 2 / Jak 3 = PROPRIÉTÉ DE NAUGHTY DOG. Donc :
+1. FEATURE DISTINCTE avec son PROPRE feature flag (FLAG_HD_MODELS, déjà séparé du menu/PBR/etc.).
+2. GATÉE SUR LES DUMPS : Jak-HD n'est POSSIBLE que si le dump correspondant est fourni par l'utilisateur
+   (modèles Jak2 -> dump Jak2 présent ; modèles Jak3 -> dump Jak3 présent). Sans le dump : feature
+   indisponible, build == stock à l'octet près.
+3. ASSETS JAMAIS DANS LE BINAIRE : les assets HD (art-groups + merc générés) NE vont PAS dans l'APK /
+   le custom pack (ce serait distribuer l'IP de ND). Ils sont GÉNÉRÉS LOCALEMENT depuis les dumps de
+   l'utilisateur (iso_data/jak2|3) et placés dans l'ASSET PACK du jeu (les assets originaux fournis par
+   l'utilisateur), comme tous les assets des jeux d'origine — chargés en externe sur le device.
+4. DISTINCTION CLAIRE : les assets "Recharged" (nos propres créations de remake, PAS l'IP de ND) vont
+   dans le binaire / custom pack. Les assets dérivés de ND (HD) vont dans l'asset pack externe, gatés
+   sur les dumps. Ne JAMAIS committer d'asset dérivé de ND (déjà .gitignore : recharged_assets/hd_*).
