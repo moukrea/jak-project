@@ -1,6 +1,8 @@
 #include "fr3_to_gltf.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <unordered_map>
 
 #include "common/custom_data/Tfrag3Data.h"
@@ -165,6 +167,57 @@ int make_position_buffer_accessor(const std::vector<T>& vertices, tinygltf::Mode
   }
 
   // create a view of this buffer
+  int buffer_view_idx = (int)model.bufferViews.size();
+  auto& buffer_view = model.bufferViews.emplace_back();
+  buffer_view.buffer = buffer_idx;
+  buffer_view.byteOffset = 0;
+  buffer_view.byteLength = buffer.data.size();
+  buffer_view.byteStride = 0;  // tightly packed
+  buffer_view.target = TINYGLTF_TARGET_ARRAY_BUFFER;
+
+  int accessor_idx = (int)model.accessors.size();
+  auto& accessor = model.accessors.emplace_back();
+  accessor.bufferView = buffer_view_idx;
+  accessor.byteOffset = 0;
+  accessor.componentType = TINYGLTF_COMPONENT_TYPE_FLOAT;
+  accessor.count = vertices.size();
+  accessor.type = TINYGLTF_TYPE_VEC3;
+
+  return accessor_idx;
+}
+
+/*!
+ * Set up a buffer for the authored per-vertex NORMALs of merc vertices.
+ * The PS2 merc data carries a per-vertex normal (direction is authored; length is bogus per
+ * extract_merc.cpp), so we normalize on export. Returns the index of the accessor.
+ * Exporting this lets the merc-replacement retarget PRESERVE the donor's authored normals instead
+ * of recomputing smooth normals (which discards the artist's shading / hard edges).
+ */
+int make_normal_buffer_accessor(const std::vector<tfrag3::MercVertex>& vertices,
+                                tinygltf::Model& model) {
+  int buffer_idx = (int)model.buffers.size();
+  auto& buffer = model.buffers.emplace_back();
+  buffer.data.resize(sizeof(float) * 3 * vertices.size());
+
+  u8* buffer_ptr = buffer.data.data();
+  for (const auto& vtx : vertices) {
+    float nx = vtx.normal[0], ny = vtx.normal[1], nz = vtx.normal[2];
+    float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+    float nrm[3];
+    if (len > 1e-8f) {
+      nrm[0] = nx / len;
+      nrm[1] = ny / len;
+      nrm[2] = nz / len;
+    } else {
+      // degenerate authored normal — emit a valid unit vector so the glTF stays spec-valid.
+      nrm[0] = 0.f;
+      nrm[1] = 0.f;
+      nrm[2] = 1.f;
+    }
+    memcpy(buffer_ptr, nrm, 3 * sizeof(float));
+    buffer_ptr += 3 * sizeof(float);
+  }
+
   int buffer_view_idx = (int)model.bufferViews.size();
   auto& buffer_view = model.bufferViews.emplace_back();
   buffer_view.buffer = buffer_idx;
@@ -1160,6 +1213,8 @@ void add_merc(const tfrag3::Level& level,
   // create position and uv buffers
   int position_buffer_accessor = make_position_buffer_accessor(mverts, model);
   int texture_buffer_accessor = make_tex_buffer_accessor(mverts, model, 1.f);
+  // authored per-vertex normals (so the retarget can preserve, not recompute, shading)
+  int normal_buffer_accessor = make_normal_buffer_accessor(mverts, model);
 
   std::vector<std::vector<u32>> draw_to_start, draw_to_count;
   int index_buffer_view = make_merc_index_buffer_view(level.merc_data.indices, mmodel, model,
@@ -1248,6 +1303,7 @@ void add_merc(const tfrag3::Level& level,
                                      draw_to_count[effect_idx][draw_idx], index_buffer_view);
       prim.attributes["POSITION"] = position_buffer_accessor;
       prim.attributes["TEXCOORD_0"] = texture_buffer_accessor;
+      prim.attributes["NORMAL"] = normal_buffer_accessor;
       prim.attributes["COLOR_0"] = colors;
       prim.attributes["JOINTS_0"] = joints_accessor;
       prim.attributes["WEIGHTS_0"] = weights_accessor;

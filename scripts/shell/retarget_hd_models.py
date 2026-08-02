@@ -21,8 +21,13 @@
 #   3. Rewrites JOINTS_0 as u8 = (target joint index - 1) and WEIGHTS_0 as f32,
 #      merged per target joint, top-3 kept + renormalized, 4th slot zero-padded
 #      (the merc replacement importer adds +2 -> merc mats = index + 1, keeps 3).
-#   4. Computes welded area-weighted smooth normals on the re-posed mesh (the
-#      rip carries no NORMAL; the importer requires one).
+#   4. PRESERVES the donor's authored per-vertex NORMAL (exported by fr3_to_gltf's
+#      add_merc from the PS2 merc data) and transforms each by the re-pose (inverse-
+#      transpose of the pose matrix's linear part), then renormalizes. It does NOT
+#      recompute smooth normals: round 2 welded by rounded position and rebuilt smooth
+#      normals on the re-pose-distorted mesh, which discarded the authored shading and
+#      averaged across UV seams (the owner's "drôle de shading"). If the donor GLB has
+#      no NORMAL attribute the tool FAILS (re-rip with the normal-exporting decompiler).
 #   5. Optionally drops triangles majority-weighted to donor joints matching
 #      --drop-joints (e.g. the bird riding jak2 Samos, absent from jak1 Samos).
 #   6. Replaces the GLB skin with the TARGET skeleton (names + IBMs) so the
@@ -330,15 +335,25 @@ def main():
                 sys.exit(1)
             mapping[d_index[src]] = mapping[d_index[dst]]
 
-    # per-(d_eff, t) pair re-pose matrices
+    # per-(d_eff, t) pair re-pose matrices (4x4 for positions) plus the matching
+    # NORMAL transform for each pair. Normals transform by the INVERSE-TRANSPOSE of the
+    # 3x3 linear part of the pose matrix (so authored normals survive the re-pose without
+    # being recomputed/smoothed).
     pair_ids = {}
     pair_mats = []
+    pair_nmats = []
 
     def pair(d_eff, t_idx):
         key = (d_eff, t_idx)
         if key not in pair_ids:
             pair_ids[key] = len(pair_mats)
-            pair_mats.append(t_ibm_inv[t_idx] @ d_ibm[d_eff])
+            m = t_ibm_inv[t_idx] @ d_ibm[d_eff]
+            pair_mats.append(m)
+            lin = m[:3, :3]
+            try:
+                pair_nmats.append(np.linalg.inv(lin).T)
+            except np.linalg.LinAlgError:
+                pair_nmats.append(lin)  # singular linear part: fall back to the raw rotation
         return pair_ids[key]
 
     # collect shared accessors across prims (rip shares one vertex set)
@@ -348,9 +363,17 @@ def main():
     pos_acc = prims[0]['attributes']['POSITION']
     j_acc = prims[0]['attributes']['JOINTS_0']
     w_acc = prims[0]['attributes']['WEIGHTS_0']
+    nrm_acc = prims[0]['attributes'].get('NORMAL')
+    if nrm_acc is None:
+        print("FATAL: donor GLB has no NORMAL attribute. This retarget PRESERVES the donor's "
+              "authored normals and refuses to recompute smooth normals. Re-rip the donor with "
+              "the merc-normal-exporting decompiler (fr3_to_gltf.cpp add_merc writes NORMAL).",
+              file=sys.stderr)
+        sys.exit(3)
     for p in prims:
         assert p['attributes']['POSITION'] == pos_acc, 'prims do not share POSITION accessor'
         assert p['attributes']['JOINTS_0'] == j_acc and p['attributes']['WEIGHTS_0'] == w_acc
+        assert p['attributes'].get('NORMAL') == nrm_acc, 'prims do not share NORMAL accessor'
 
     # NOTE: the rip exporter shares ONE level-wide vertex pool across every model
     # in the level; a model's prims merely index into it. Everything below first
@@ -364,6 +387,8 @@ def main():
     uv_acc = prims[0]['attributes'].get('TEXCOORD_0')
     colors = read_accessor(js, binc, col_acc) if col_acc is not None else None
     uvs = read_accessor(js, binc, uv_acc) if uv_acc is not None else None
+    # donor's AUTHORED per-vertex normals (level-wide pool, same layout as POSITION)
+    normals_in = read_accessor(js, binc, nrm_acc).astype(np.float64)
 
     # fraction of each pool vertex's weight sitting on dropped donor joints
     wsum = W.sum(axis=1)
@@ -394,12 +419,14 @@ def main():
         colors = colors[used]
     if uvs is not None:
         uvs = uvs[used]
+    normals_in = normals_in[used]
     n_verts = len(pos)
 
     tier_weight = {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0}
     dropped_weight = 0.0
     unmatched_hits = {}
     new_pos = np.zeros_like(pos)
+    out_n = np.zeros((n_verts, 3), dtype=np.float64)
     out_j = np.zeros((n_verts, 4), dtype=np.uint8)
     out_w = np.zeros((n_verts, 4), dtype=np.float32)
 
@@ -430,16 +457,24 @@ def main():
         if not infl:
             # fully dropped/unmatched vertex: bind rigidly to joint 3 (first real bone)
             new_pos[i] = pos[i]
+            out_n[i] = normals_in[i]  # keep authored normal (these tris get culled below)
             out_j[i, 0] = 2  # importer +2 -> mats 4; harmless, tris get culled below
             out_w[i, 0] = 1.0
             continue
-        # re-pose with the full influence set
+        # re-pose position AND the authored normal with the same full influence set.
         total = sum(infl.values())
         v = np.array([pos[i, 0], pos[i, 1], pos[i, 2], 1.0])
+        n_in = normals_in[i]
         acc = np.zeros(4)
+        accn = np.zeros(3)
         for t_idx, w in infl.items():
-            acc += (w / total) * (pair_mats[mats[t_idx]] @ v)
+            f = w / total
+            acc += f * (pair_mats[mats[t_idx]] @ v)
+            accn += f * (pair_nmats[mats[t_idx]] @ n_in)
         new_pos[i] = acc[:3]
+        # PRESERVE the donor's authored normal, only rotated into the new pose (renormalized).
+        nlen = np.linalg.norm(accn)
+        out_n[i] = (accn / nlen) if nlen > 1e-12 else n_in
         # top-3 by weight, renormalized
         top = sorted(infl.items(), key=lambda kv: -kv[1])[:3]
         tsum = sum(w for _k, w in top)
@@ -448,21 +483,11 @@ def main():
             out_j[i, s] = t_idx - 1        # importer adds +2 -> merc mats = t_idx + 1
             out_w[i, s] = w / tsum
 
-    # welded, area-weighted smooth normals on the re-posed compacted mesh
-    keys = np.round(new_pos, 4)
-    _uniq, weld = np.unique(keys, axis=0, return_inverse=True)
-    norm_acc_w = np.zeros((weld.max() + 1, 3))
-    for tris in prim_tris:
-        a = new_pos[tris[:, 0]]
-        b = new_pos[tris[:, 1]]
-        c = new_pos[tris[:, 2]]
-        fn = np.cross(b - a, c - a)  # length == 2*area -> area weighting
-        for corner in range(3):
-            np.add.at(norm_acc_w, weld[tris[:, corner]], fn)
-    lens = np.linalg.norm(norm_acc_w, axis=1, keepdims=True)
-    lens[lens < 1e-12] = 1.0
-    norm_w = norm_acc_w / lens
-    normals = norm_w[weld].astype(np.float32)
+    # PRESERVED donor normals (transformed per-vertex above). NO positional welding /
+    # smooth-normal recompute: round-2 welded by rounded position and rebuilt smooth normals
+    # on the re-pose-distorted mesh, which discarded the authored shading and averaged across
+    # UV seams — the owner's "drôle de shading". Here the authored normal rides the re-pose.
+    normals = out_n.astype(np.float32)
 
     # write compacted attribute + index accessors and point every prim at them
     new_pos_acc = append_accessor(js, binc, new_pos.astype(np.float32), 5126, 'VEC3', minmax=True)
@@ -541,6 +566,9 @@ def main():
                      ", ".join(f"{n}({w:.1f})" for n, w in sorted(unmatched_hits.items())))
     max_move = float(np.linalg.norm(new_pos - pos, axis=1).max())
     lines.append(f"  re-pose max vertex displacement: {max_move:.4f}")
+    nrm_len = np.linalg.norm(out_n, axis=1)
+    lines.append(f"  authored normals: PRESERVED + re-posed for {n_verts} verts "
+                 f"(mean|n|={nrm_len.mean():.4f} min|n|={nrm_len.min():.4f}); no smooth recompute")
     report = "\n".join(lines)
     print(report)
     if args.report:
