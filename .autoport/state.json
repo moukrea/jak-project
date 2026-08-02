@@ -219,7 +219,7 @@
     "Grecharged-mesh-consolidation": 2,
     "Grecharged-loader-packfix": 2,
     "Grecharged-mesh-browser": 16,
-    "Grecharged-menu-overhaul": 1
+    "Grecharged-menu-overhaul": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -489,7 +489,8 @@
       "05da9b79a4bb",
       "da1016e207b0",
       "d1ef9040af2c",
-      "d1ef9040af2c"
+      "d1ef9040af2c",
+      "aebb01557178"
     ]
   },
   "stuck_reasons": {
@@ -915,7 +916,7 @@
     "Grecharged-mesh-consolidation": 1784930060.5837617,
     "Grecharged-menu-overhaul": 1785577513.3868392
   },
-  "last_update": "2026-08-02T21:42:18.008807+00:00",
+  "last_update": "2026-08-02T23:00:44.799951+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1007,7 +1008,8 @@
     "Grecharged-bundled-textures",
     "Grecharged-naming",
     "Grecharged-mesh-consolidation",
-    "Grecharged-mesh-browser"
+    "Grecharged-mesh-browser",
+    "Grecharged-menu-overhaul"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
