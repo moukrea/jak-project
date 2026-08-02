@@ -57,3 +57,41 @@ supervisor turned it #f (stock restored). RULES going forward:
 - NO phase may leave ENHANCED ON on a device after its runs (same discipline as force-stop).
 - Round 3 must treat the round-2 overlay as RECALLED: until the level-bake integrity gate passes, the
   enhanced fr3s must not ship, and the release notes must tell the owner to keep the toggle OFF.
+
+## ============================================================
+## DIRECTION FINALE 2026-08-02 — ANIM-RETARGET (REMPLACE le re-rig ci-dessus)
+## ============================================================
+L'owner a choisi le RETARGET D'ANIMATION plutôt que le re-rig. NE re-rig PLUS le maillage sur eichar.
+On GARDE le squelette HD + ses poids d'origine, et on le LIE à eichar (qui joue les anims + sert les
+joint-node hardcodés). Approche PROUVÉE offline à la précision machine (PROOF A err 8.9e-16, PROOF B).
+
+DÉJÀ FAIT ET COMMITÉ (réutilise, ne refais pas) :
+- `scripts/shell/prep_hd_actor_glb.py` : rip GLB → build_actor en gardant le squelette HD (pas de re-rig).
+- `build_actor` fabrique déjà l'art-group (jgeo+merc-ctrl+anim) → `recharged_assets/hd_anim/jak-highres-ag.go`.
+- `scripts/shell/retarget_fill_table.py` : table k→e (75/75) + preuve du remplissage.
+- `tools/hd_merc_swap add` + `extract_merc.cpp::add_named_merc_model_to_level` : pose un `jak-highres-lod0`
+  MercModel dans un FR3 stock par son NOM, append-only, INTEGRITY PASS.
+- Boot `--hd-models` root-causé + gardé (build.sh vérifie la feature du libgk APK ; deploy_verify 4b).
+
+IL RESTE — LE PROCESS COMPAGNON (goal_src, additif Recharged, autorisé) :
+1. Charger `jak-highres-ag.go` dans un DGO de niveau + l'enregistrer dans `*art-info*` (miroir des `-ag.go`).
+2. `defskelgroup *jak-hd-sg*` → art-group jak-highres, indices jgeo/mgeo/janim 0/1/2.
+3. Nouveau process `jak-hd` calqué sur `sidekick.gc` (chevauche `*target*` via parent-override ; tourne
+   dans `*matrix-engine*` APRÈS le driver pour que les bones d'eichar soient valides).
+4. `do-joint-math!` override de `jak-hd` : au init précalculer `bind_hd[k]=inverse(jgeo_hd[k].bind-pose)` ;
+   par frame, pour chaque k : `e=(-> *jak-hd->eichar-joint* k)` (utilise `recharged_assets/hd_anim/jak-hd-k2e.gc-snippet`) ;
+   si `e==#xff` → `bone_hd[k]=bind_hd[k]` (repos) ; sinon
+   `bone_hd[k] = (-> *target* skeleton bones (+ e 1) transform) · (-> *target* jgeo data e bind-pose) · bind_hd[k]`.
+   Puis laisser le chemin stock `new-bones-mtx-calc-asm` tourner.
+5. Cacher le maillage d'eichar SANS le figer : `(draw-status skip-bones)` sur le draw de `*target*` (PAS
+   `hidden`, qui early-return `do-joint-math!` et gèlerait le driver).
+6. Hook de spawn depuis target (miroir `sidekick.gc` `init-sidekick`), gaté derrière `--hd-models`.
+
+VIGILANCE (à valider sur device) : le GLB prep a décrémenté JOINTS_0 (drop de `align`) tandis que
+build_actor re-préfixe `align` dans le squelette de l'art-group → possible OFF-BY-ONE du binding d'os
+au runtime. Vérifie l'alignement de l'index `align` entre le chemin add-model FR3 et l'art-group.
+
+PREUVE EXIGÉE (device eae4df44, pas desktop) : `--pbr --debug --hd-models` boote propre (pid vivant
++ MainActivity à t+150s, exit-info sans reason=5/2), ET le skin HD de Jak SUIT une anim d'eichar
+(nombres objectifs : deltas de position d'os/écran qui suivent l'anim ; os non-mappés au repos).
+Jugement esthétique = l'œil de l'owner. Scope M1 = Jak seul ; les 4 persos + toutes anims = ensuite.
