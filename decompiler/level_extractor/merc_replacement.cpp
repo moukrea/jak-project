@@ -111,6 +111,57 @@ void extract(tfrag3::MercModel& mdl,
     out.new_model.effects.push_back(envmap_eff);
   }
 
+  // Grecharged-hd-models3 (BRICK 3): restore the runtime eye compositor for HD merc
+  // replacements. A stock merc eye draw carries an eye_id ((eye_slot << 1) | is_right) that
+  // tells the runtime eye system (Merc2.cpp: texture = 0xefffff00 | eye_id when eye_id != 0xff)
+  // to overlay the real iris over the 4x4 `programmer_eye` placeholder. The GLB replacement
+  // eye draws bind that same placeholder texture but keep the default eye_id = 0xff, so the
+  // compositor never fires and the raw 4x4 placeholder renders (untextured eyes). Propagate
+  // the stock model's eye_id onto the corresponding swapped eye draws, matched by the
+  // left/right placeholder texture role (the round-trip preserves the "programmer_eye_left" /
+  // "programmer_eye_right" image names, so the swapped draw's bound texture names it). Left is
+  // always the even id (eye_slot*2), right the odd id (eye_slot*2 + 1). No-op for any model
+  // whose stock has no eye draws.
+  {
+    u8 stock_left_eye_id = 0xff;   // even id => left  (eye_slot * 2)
+    u8 stock_right_eye_id = 0xff;  // odd  id => right (eye_slot * 2 + 1)
+    for (const auto& old_eff : mdl.effects) {
+      for (const auto& d : old_eff.all_draws) {
+        if (d.eye_id != 0xff) {
+          if ((d.eye_id & 1) == 0) {
+            stock_left_eye_id = d.eye_id;
+          } else {
+            stock_right_eye_id = d.eye_id;
+          }
+        }
+      }
+    }
+    if (stock_left_eye_id != 0xff || stock_right_eye_id != 0xff) {
+      int eyes_tagged = 0;
+      for (auto& effect : out.new_model.effects) {
+        for (auto& draw : effect.all_draws) {
+          if (draw.eye_id != 0xff) {
+            continue;  // already an eye draw (e.g. a copied stock eye effect)
+          }
+          s32 local = draw.tree_tex_id - (s32)tex_offset;
+          if (local < 0 || (size_t)local >= out.tex_pool.textures_by_idx.size()) {
+            continue;  // not one of this model's freshly-added GLB textures
+          }
+          const std::string& tname = out.tex_pool.textures_by_idx[local].debug_name;
+          if (tname.find("eye_left") != std::string::npos && stock_left_eye_id != 0xff) {
+            draw.eye_id = stock_left_eye_id;
+            eyes_tagged++;
+          } else if (tname.find("eye_right") != std::string::npos && stock_right_eye_id != 0xff) {
+            draw.eye_id = stock_right_eye_id;
+            eyes_tagged++;
+          }
+        }
+      }
+      lg::info("propagated stock eye_id (L={:#x} R={:#x}) onto {} swapped eye draw(s) for {}",
+               stock_left_eye_id, stock_right_eye_id, eyes_tagged, mdl.name);
+    }
+  }
+
   // copy any effects from the old model that used mod or eye draws
   if (copy_eye_draws || copy_mod_draws) {
     for (auto& old_eff : mdl.effects) {
