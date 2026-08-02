@@ -141,6 +141,14 @@
 (define *menu-projector-ox*         0.0)   ;; last drone screen x (per-frame transform, for stats)
 (define *menu-projector-oy*         0.0)   ;; last drone screen y
 (define *menu-projector-face*       0.0)   ;; last orientation angle toward the holo center (deg-ish)
+;; V4 (owner: the drone must be a REAL 3D entity, not a 2D HUD sprite): the projector is now an actual
+;; process-drawable manipy drawing jak1's canonical comm mesh *voicebox-sg* (art `speaker`,
+;; goal_src/jak1/engine/common-obs/voicebox.gc:29 — the communicator that floats around Jak on remote
+;; sage calls; GAME.CGO-resident so it exists on the title/pause frame). It is spawned once as a child of
+;; the progress process and drawn through the HUD path (dma-add-process-drawable-hud, mask pause) exactly
+;; like the menu's fuel-cell/money icon meshes (progress.gc:243-269 — the proven precedent for drawing a
+;; real 3D skelgroup on the frozen pause frame). We hold it by HANDLE so a dead process is caught safely.
+(define *menu-drone-handle* (the-as handle 0))  ;; handle to the live speaker-mesh drone (0 = none)
 
 (defun menu-rgba-i ((r int) (g int) (b int) (a int))
   "Build a runtime rgba from 0..255 components (statics can't take runtime alpha for the beam fade)."
@@ -234,72 +242,55 @@
   (none))
 
 (defun update-and-draw-menu-projector! ()
-  "Grecharged V3 (owner 2026-08-02): the comm-ship drone that PROJECTS the hologram — now a genuine
-   WORLD-SPACE 3D entity, not a screen-space HUD element. The canonical jak1 comm-drone is `voicebox`
-   (engine/common-obs/voicebox.gc, the `speaker` mesh, globally resident in GAME.CGO — the little
-   communicator that spawns around Jak when Samos/Keira contact him remotely). Its full process is
-   `*target*`/camera-slave coupled and would drive the camera / deref *target* on the frozen pause frame,
-   so instead of spawning it we drive a lightweight stand-in AT A REAL WORLD TRANSFORM: a point orbiting a
-   world ANCHOR placed in front of the frozen camera (position-in-front-of-camera!, shifted left toward the
-   holo). Every frame we recompute that world transform, PROJECT it to the screen through the live game
-   camera (*math-camera* / transform-point-qword!), FRUSTUM-test it (drawn only when the projection reports
-   on-screen), PERSPECTIVE-scale the billboard by the 1/w factor, keep it ORIENTED toward the holo anchor,
-   and draw a 3D light BEAM of world points from the drone toward the anchor. The hologram thus reads as a
-   projection standing in the scene that the drone orbits. Spawn/despawn/draw/beam are all counted."
+  "Grecharged V4 (owner: the drone must be a REAL 3D entity, not a 2D HUD sprite): the projector is now
+   an actual process-drawable manipy drawing the *voicebox-sg* `speaker` mesh (jak1's canonical remote-comm
+   communicator), spawned once as a child of the progress process and drawn through the HUD path — the same
+   proven mechanism as the menu's fuel-cell/money icon meshes (progress.gc:243-269). Here, every frame, we
+   ORBIT that real mesh on an ellipse BESIDE the hologram (screen space) and draw a light BEAM fanning from
+   it onto the holo centre so it reads as the projector. We hold the mesh by *menu-drone-handle*; if the
+   process is gone the beam still draws (graceful). angle is in jak1 rotation units (65536 = one turn), fed
+   straight to sin/cos exactly like the icons. draw/beam counters are the objective proof it renders."
   (when *menu-projector-active?*
-    ;; advance the orbit phase (per-frame world transform) — 65536 units = one full turn (~7.8s @60fps)
-    (set! *menu-projector-angle* (+ *menu-projector-angle* (* 140.0 (-> *display* time-adjust-ratio))))
-    (let ((anchor  (new 'stack-no-clear 'vector))
-          (dpos    (new 'stack-no-clear 'vector))
-          (bp      (new 'stack-no-clear 'vector))
-          (scratch (new 'stack-no-clear 'vector))
-          (q       (new 'stack-no-clear 'vector4w))
-          (bq      (new 'stack-no-clear 'vector4w))
-          (right   (-> *math-camera* inv-camera-rot vector 0))
-          (up      (-> *math-camera* inv-camera-rot vector 1)))
-      ;; world ANCHOR: a point in front of the (frozen) camera, shifted left toward the holo panel
-      (position-in-front-of-camera! anchor (meters 11) (meters 0))
-      (vector+float*! anchor anchor right (meters -2.5))
-      ;; DRONE world position: orbits the anchor in the camera right/up plane (a real 3D ellipse)
-      (let ((a *menu-projector-angle*))
-        (vector+float*! dpos anchor right (* (meters 2.6) (cos a)))
-        (vector+float*! dpos dpos   up    (* (meters 1.7) (sin a))))
-      ;; project the DRONE through the game camera; only draw when on-screen (frustum test)
-      (set! (-> q quad) (the-as uint128 0))
-      (when (transform-point-qword! q dpos)
-        (let* ((dsx (+ -1792 (/ (-> q x) 16)))         ;; GS 28.4 -> 0..512 menu space
-               (dsy (- (/ (-> q y) 16) (-> *video-parms* screen-miny)))
-               (scl (transform-point-vector-scale! scratch dpos))       ;; perspective 1/w factor
-               (sz  (max 8 (min 22 (+ 11 (the int (* 260.0 scl))))))    ;; billboard size, perspective-nudged
-               (asx dsx) (asy dsy))
-          ;; project the ANCHOR (holo center) so the drone stays ORIENTED toward it and the beam aims at it
-          (set! (-> bq quad) (the-as uint128 0))
-          (when (transform-point-qword! bq anchor)
-            (set! asx (+ -1792 (/ (-> bq x) 16)))
-            (set! asy (- (/ (-> bq y) 16) (-> *video-parms* screen-miny))))
-          (set! *menu-projector-ox* (the float dsx))
-          (set! *menu-projector-oy* (the float dsy))
-          (set! *menu-projector-face* (atan (the float (- asy dsy)) (the float (- asx dsx))))  ;; toward center
-          (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
-            ;; --- 3D BEAM: world points from the drone toward the anchor, each projected, fading out ---
-            (dotimes (i 8)
-              (let ((tt (/ (the float (+ i 1)) 9.0)))
-                (vector-! bp anchor dpos)
-                (vector-float*! bp bp tt)
-                (vector+! bp bp dpos)                    ;; bp = dpos + (anchor - dpos) * tt
-                (set! (-> bq quad) (the-as uint128 0))
-                (when (transform-point-qword! bq bp)
-                  (let ((bx (+ -1792 (/ (-> bq x) 16)))
-                        (by (- (/ (-> bq y) 16) (-> *video-parms* screen-miny)))
-                        (bs (max 2 (the int (* (the float sz) (- 1.0 (* 0.7 tt)))))))
-                    (draw-sprite2d-xy buf (- bx (/ bs 2)) (- by (/ bs 2)) bs bs
-                                      (menu-rgba-i #x66 #xc0 #xff (the int (* 120.0 (- 1.0 (* 0.7 tt))))))))))
-            (set! *menu-beam-draw-count* (+ *menu-beam-draw-count* 1))
-            ;; --- drone body: dim halo, bright core, white emitter nub (perspective-scaled) ---
-            (draw-sprite2d-xy buf (- dsx sz) (- dsy sz) (* 2 sz) (* 2 sz) (menu-rgba-i #x28 #x78 #xc0 #x50))
-            (draw-sprite2d-xy buf (- dsx (/ sz 2)) (- dsy (/ sz 2)) sz sz (menu-rgba-i #x60 #xc8 #xff #xd0))
-            (draw-sprite2d-xy buf (- dsx 2) (- dsy 2) 4 4 (menu-rgba-i #xff #xff #xff #xf0))
-            (set! *menu-projector-draw-count* (+ *menu-projector-draw-count* 1)))))))
+    ;; advance the orbit phase every frame — 65536 rotation units = one full turn (~6s @60fps)
+    (set! *menu-projector-angle* (+ *menu-projector-angle* (* 180.0 (-> *display* time-adjust-ratio))))
+    (let* ((a   *menu-projector-angle*)
+           ;; orbit centre BESIDE the holo (holo is the left half): the drone circles the upper-right of
+           ;; the panel and beams leftward onto it. Menu screen space: x 0..512, y 0..224.
+           (ocx (+ HOLO_X HOLO_W 28))       ;; ~272, just right of the holo
+           (ocy (+ HOLO_Y (/ HOLO_H 3)))    ;; ~80
+           (dsx (+ ocx (the int (* 56.0 (cos a)))))   ;; drone screen x (ellipse)
+           (dsy (+ ocy (the int (* 40.0 (sin a)))))   ;; drone screen y
+           (hcx HOLO_TEXT_CX)               ;; holo centre x (beam target)
+           (hcy (+ HOLO_Y (/ HOLO_H 2)))    ;; holo centre y
+           (p   (handle->process *menu-drone-handle*)))
+      (set! *menu-projector-ox* (the float dsx))
+      (set! *menu-projector-oy* (the float dsy))
+      (set! *menu-projector-face* a)
+      ;; --- (1) drive the REAL 3D `speaker` mesh to the orbiting HUD screen point (icon-mesh transform) ---
+      (when (and p (type-type? (-> p type) manipy))
+        (let ((mp    (the-as process-drawable p))
+              (rel-x (-> *video-parms* relative-x-scale))
+              (rel-y (-> *video-parms* relative-y-scale)))
+          (set! (-> mp root trans x) (the float (+ dsx -256)))
+          (set! (-> mp root trans y)
+                (* rel-y (- (* rel-y (the float dsy)) (the float (-> *video-parms* screen-sy)))))
+          (set! (-> mp root trans z) (meters 0.4))
+          (set-vector! (-> mp root scale) (* 0.0075 rel-x) (* -0.0085 rel-y) (* 0.0075 rel-x) 1.0)
+          (set! *menu-projector-draw-count* (+ *menu-projector-draw-count* 1))))
+      ;; --- (2) the light BEAM: additive cyan sprites fanning from the drone onto the holo centre ---
+      (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
+        (dma-buffer-add-gs-set buf (alpha-1 (new 'static 'gs-alpha :b 2 :d 1)))   ;; additive glow (Jak2 blend)
+        (dotimes (i 10)
+          (let* ((tt (/ (the float (+ i 1)) 11.0))
+                 (bx (+ dsx (the int (* (the float (- hcx dsx)) tt))))
+                 (by (+ dsy (the int (* (the float (- hcy dsy)) tt))))
+                 (bs (max 2 (the int (* 9.0 (- 1.0 (* 0.6 tt)))))))
+            (draw-sprite2d-xy buf (- bx (/ bs 2)) (- by (/ bs 2)) bs bs
+                              (menu-rgba-i #x40 #x90 #xd0 (the int (* 90.0 (- 1.0 (* 0.6 tt))))))))
+        ;; a bright emitter flare at the drone (visible even while the mesh anim is mid-cycle)
+        (draw-sprite2d-xy buf (- dsx 3) (- dsy 3) 6 6 (menu-rgba-i #x80 #xd0 #xff #x90))
+        (dma-buffer-add-gs-set buf (alpha-1 (new 'static 'gs-alpha :b 1 :d 1)))   ;; restore default alpha
+        (set! *menu-beam-draw-count* (+ *menu-beam-draw-count* 1)))))
   (none))
 
 (defun menu-resolve-hint ((row game-option))
@@ -5922,12 +5913,30 @@
              (set! (-> self particles 2 init-pos x) -320.0)   ;; right porthole -> off
              (draw-menu-holo-frame!)
              (menu-projector-set-active! #t)
+             ;; V4: ensure the REAL 3D speaker-mesh drone exists — spawn ONCE as a child of the progress
+             ;; process (self here IS that process), exactly like the menu's fuel-cell/money icon meshes,
+             ;; then reuse it every frame. Held by handle so a dead process is caught and respawned; a
+             ;; failed spawn (pp = #f) is tolerated (the beam still draws in update-and-draw-menu-projector!).
+             (when (not (handle->process *menu-drone-handle*))
+               (let ((pp (manipy-spawn (new 'static 'vector :w 1.0) #f *voicebox-sg* #f
+                                       :to self :stack *scratch-memory-top*)))
+                 (when pp
+                   (let ((mp (ppointer->process pp)))
+                     (set! (-> (the-as process-drawable mp) draw dma-add-func) dma-add-process-drawable-hud)
+                     (logior! (-> mp mask) (process-mask pause))
+                     (logclear! (-> mp mask) (process-mask menu progress))
+                     (set! *menu-drone-handle* (process->handle mp))))))
              (update-and-draw-menu-projector!))
             (else
              (set! (-> self particles 0 init-pos x) 256.0)    ;; restore the original backdrop off holo
              (set! (-> self particles 1 init-pos x) -42.0)
              (set! (-> self particles 2 init-pos x) 610.0)
-             (menu-projector-set-active! #f))))
+             (menu-projector-set-active! #f)
+             ;; V4: park the real drone mesh (scale 0 = invisible) on non-holo screens so it never shows on
+             ;; the stat/notice pages; update-and-draw-menu-projector! restores its scale on holo frames.
+             (let ((p (handle->process *menu-drone-handle*)))
+               (when (and p (type-type? (-> p type) manipy))
+                 (set-vector! (-> (the-as process-drawable p) root scale) 0.0 0.0 0.0 1.0))))))
         ;; draw the menus!!
         (let* ((a1-0 (-> self display-level-index))
                (gp-0 (-> *level-task-data* a1-0))
