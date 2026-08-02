@@ -1672,6 +1672,43 @@ void add_custom_model_to_level(tfrag3::Level& lvl,
                       merc_data.new_textures.end());
 }
 
+// Grecharged-hd-models3 (BRICK 4): APPEND a NEW named merc model to an already-loaded fr3.
+//
+// This is the offline `hd_merc_swap add` entry point. It mirrors add_custom_model_to_level (and
+// the append tail of replace_model) but is STRICTLY APPEND-ONLY so the brick-2 INTEGRITY
+// guarantee holds by construction: no pre-existing MercModel, MercDraw, texture, vertex or index
+// is read/modified/reordered. The GLB is loaded through the SAME loader the swap path uses
+// (load_custom_merc_model -> extract(name,...) -> MercSwapData) with custom_mdl=true so the HD
+// donor's own authored joints/weights and its full skeleton (max_bones) are carried straight
+// through — no old-vert reprojection, no stock model needed.
+//
+// The `name` is used verbatim as the model name (must be exactly the runtime lookup name, e.g.
+// "jak-highres-lod0", so Merc2::handle_pc_model's loader->get_merc_model(name) finds it). New
+// draws reference texture ids >= the stock texture count and new indices reference vertex ids >=
+// the stock vertex count (offsets passed to the loader), so appending them leaves every stock
+// draw/texture/vertex byte-identical.
+//
+// Returns the index of the appended model in lvl.merc_data.models.
+size_t add_named_merc_model_to_level(tfrag3::Level& lvl,
+                                     const std::string& name,
+                                     const fs::path& mdl_path) {
+  auto lvl_name = lvl.level_name.empty() ? "common" : lvl.level_name;
+  lg::info("Appending named merc model {} to {}", name, lvl_name);
+  // reuse the GLB -> MercSwapData loader (custom authored joints/weights; no old-vert dependency)
+  auto swap = load_custom_merc_model(name, lvl.merc_data.indices.size(),
+                                     lvl.merc_data.vertices.size(), lvl.textures.size(),
+                                     mdl_path.string(), {}, true);
+  // append-only: existing indices/vertices/textures/models are untouched
+  lvl.merc_data.indices.insert(lvl.merc_data.indices.end(), swap.new_indices.begin(),
+                               swap.new_indices.end());
+  lvl.merc_data.vertices.insert(lvl.merc_data.vertices.end(), swap.new_vertices.begin(),
+                                swap.new_vertices.end());
+  lvl.textures.insert(lvl.textures.end(), swap.new_textures.begin(), swap.new_textures.end());
+  size_t new_index = lvl.merc_data.models.size();
+  lvl.merc_data.models.push_back(swap.new_model);
+  return new_index;
+}
+
 /*!
  * Top-level merc extraction
  */

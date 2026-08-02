@@ -14,8 +14,19 @@
 //   swap  <in.fr3> <out.fr3> name1=glb1 [name2=glb2 ...]
 //   diff  <stock.fr3> <enhanced.fr3>          (non-character byte-identity proof)
 //   audit <fr3> [name ...]                    (per-model, per-draw texture-page table)
+//   add   <stock.fr3> <name>-lod0.glb <out.fr3>  (BRICK 4: APPEND a NEW named merc model)
 //
-// Read-only on inputs; only `swap` writes (to <out.fr3>).
+// Read-only on inputs; only `swap` and `add` write (to <out.fr3>).
+//
+// Grecharged-hd-models3 (BRICK 4): the HD character ANIMATION-RETARGET feature needs a NEW
+// named MercModel (jak-highres-lod0, the HD Jak skin with its own 74-joint skeleton + authored
+// weights) present in a stock fr3 so Merc2::handle_pc_model's by-name lookup resolves it. The
+// decompiler only had replace_model (SWAP an existing model) and build_actor does not emit fr3
+// data. `add` closes that gap: it loads the stock fr3 and APPENDS the new model via the strictly
+// append-only decompiler::add_named_merc_model_to_level, keeping the brick-2 integrity guarantee
+// (every pre-existing model + non-character draw/texture byte-identical to stock; only a new
+// model appended). The model name is taken from the GLB filename stem (jak-highres-lod0.glb ->
+// "jak-highres-lod0").
 
 #include <algorithm>
 #include <cstdio>
@@ -36,6 +47,9 @@
 // library) and has no public header declaration; forward-declare the exact signature.
 namespace decompiler {
 void replace_model(tfrag3::Level& lvl, tfrag3::MercModel& model, const fs::path& mdl_path);
+size_t add_named_merc_model_to_level(tfrag3::Level& lvl,
+                                     const std::string& name,
+                                     const fs::path& mdl_path);
 }
 
 namespace {
@@ -212,6 +226,63 @@ int do_swap(const fs::path& in, const fs::path& out, const std::vector<std::stri
   return missing > 0 ? 3 : 0;
 }
 
+int do_add(const fs::path& in, const fs::path& glb, const fs::path& out) {
+  if (!file_util::file_exists(glb.string())) {
+    fmt::print("  GLB missing: {}\n", glb.string());
+    return 2;
+  }
+  // model name := GLB filename stem, e.g. jak-highres-lod0.glb -> "jak-highres-lod0".
+  const std::string name = glb.stem().string();
+
+  tfrag3::Level lev;
+  load_fr3(in, lev);
+  fmt::print("== ADD {} + {} -> {} ==\n", in.string(), glb.string(), out.string());
+  fmt::print("  new model name: '{}'\n", name);
+  print_merc_summary("before", lev);
+
+  // guard: this is an APPEND, not a replace — refuse if the name already exists in stock.
+  auto existing = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                               [&](const auto& m) { return m.name == name; });
+  if (existing != lev.merc_data.models.end()) {
+    fmt::print("  model '{}' ALREADY present in stock fr3 -> refusing to append a duplicate "
+               "(use `swap` to replace it)\n",
+               name);
+    return 3;
+  }
+
+  size_t before_models = lev.merc_data.models.size();
+  size_t before_verts = lev.merc_data.vertices.size();
+  size_t before_indices = lev.merc_data.indices.size();
+  size_t before_textures = lev.textures.size();
+
+  size_t idx = decompiler::add_named_merc_model_to_level(lev, name, glb);
+  print_merc_summary("after", lev);
+
+  if (lev.merc_data.models.size() != before_models + 1) {
+    fmt::print("  FAIL: expected exactly one new model, got {} -> {}\n", before_models,
+               lev.merc_data.models.size());
+    return 4;
+  }
+  const auto& m = lev.merc_data.models.at(idx);
+  u32 tot_tris = 0, tot_draws = 0;
+  for (const auto& e : m.effects) {
+    for (const auto& d : e.all_draws) {
+      tot_tris += d.num_triangles;
+      tot_draws++;
+    }
+  }
+  fmt::print("  APPENDED model[{}] name='{}' max_bones={} effects={} draws={} tris={}\n", idx,
+             m.name, m.max_bones, m.effects.size(), tot_draws, tot_tris);
+  fmt::print("  delta: +{} model, +{} merc_verts, +{} merc_indices, +{} textures\n",
+             lev.merc_data.models.size() - before_models,
+             lev.merc_data.vertices.size() - before_verts,
+             lev.merc_data.indices.size() - before_indices, lev.textures.size() - before_textures);
+
+  write_fr3(out, lev);
+  fmt::print("  wrote {}\n", out.string());
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -223,7 +294,8 @@ int main(int argc, char** argv) {
     fmt::print("usage:\n"
                "  hd_merc_swap swap  <in.fr3> <out.fr3> name1=glb1 [name2=glb2 ...]\n"
                "  hd_merc_swap diff  <stock.fr3> <enhanced.fr3>\n"
-               "  hd_merc_swap audit <fr3> [name ...]\n");
+               "  hd_merc_swap audit <fr3> [name ...]\n"
+               "  hd_merc_swap add   <stock.fr3> <name>-lod0.glb <out.fr3>\n");
     return 2;
   }
   std::string mode = argv[1];
@@ -242,6 +314,10 @@ int main(int argc, char** argv) {
     std::vector<std::string> specs;
     for (int i = 4; i < argc; i++) specs.push_back(argv[i]);
     return do_swap(argv[2], argv[3], specs);
+  }
+  if (mode == "add") {
+    if (argc < 5) { fmt::print("add needs <stock.fr3> <name>-lod0.glb <out.fr3>\n"); return 2; }
+    return do_add(argv[2], argv[3], argv[4]);
   }
   fmt::print("unknown mode '{}'\n", mode);
   return 2;
