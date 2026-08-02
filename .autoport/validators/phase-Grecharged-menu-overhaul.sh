@@ -43,6 +43,29 @@ grep -qiE '(mapping|correspondance|old *-> *new|ancien.*nouveau)' "$R" || fail "
 grep -qiE 'recharged[^.]{0,90}(dissol|dissous|integr|ventil|woven|fondu)[^.]{0,90}(fonction|function|materi|matéri|eclair|éclair|veget|végét|graphism)' "$R" || fail "Recharged settings not integrated BY FUNCTION into GRAPHISMES (must NOT be a separate RENDU category)"
 grep -qiE 'menu-tree' "$R" || fail "menu-tree.md not rewritten"
 grep -qiE '(persist|prefs|sauvegarde des reglages)[^.]{0,60}(kept|conserve|unchanged|intact)' "$R" || fail "settings persistence keys not proven kept"
+# ---- V2 VISUAL REDESIGN (owner 2026-08-02 reopen): hologram menu projected by the comm ship ----
+grep -qiE '(hint)[^.]{0,80}(on-?screen|dans l.?ecran|visible|within|bornes)[^.]{0,80}(pause|main|titre|title|tous|all)' "$R" \
+  || fail "V2: off-screen hint bug on the main/pause menu not proven fixed (hint Y within screen bounds on all screens)"
+grep -qiE '(hint)[^.]{0,80}(derived|derive|calcul|relative|from)[^.]{0,60}(container|cadre|conteneur|holo|frame)' "$R" \
+  || fail "V2: hint Y not derived from the menu container frame (still a magic constant)"
+grep -qiE '(100 ?%|every row|toutes les lignes|chaque ligne)[^.]{0,60}(hint)' "$R" \
+  || fail "V2: hints not on 100% of rows (need a per-screen with-hint == total counter)"
+grep -qiE '(section)[^.]{0,80}(distinct|hierarch|hiérarch|indent|retrait|underlin|soulign|not.*item|pas.*item)' "$R" \
+  || fail "V2: group headers still read as items — sections must be visually distinct (hierarchy)"
+grep -qiE '(hublot|porthole|orange)[^.]{0,80}(removed|supprim|retir|drop|no longer|plus de|gone)' "$R" \
+  || fail "V2: porthole texture / orange overlay not proven removed from the menu draw path"
+grep -qiE '(holo)[^.]{0,90}(<=? ?0?\.5|50 ?%|half|moiti|moitié)[^.]{0,60}(width|largeur|screen|ecran|écran)' "$R" \
+  || fail "V2: hologram container width not proven <= half screen width"
+grep -qiE '(holo)[^.]{0,80}(left|gauche)[^.]{0,80}(margin|marge)' "$R" \
+  || fail "V2: hologram not left-aligned with margins from the edges"
+grep -qiE '(holo)[^.]{0,80}(draw|render)[^.]{0,40}(count|compteur|> ?0|per.?frame)' "$R" \
+  || fail "V2: no per-frame draw proof that the hologram frame renders while the menu is open"
+grep -qiE '(ship|vaisseau|drone|projector|projecteur)[^.]{0,80}(spawn|apparai|despawn|open|ferm|close)[^.]{0,60}(menu|count|compteur)' "$R" \
+  || fail "V2: comm-ship projector not proven spawned on menu open / despawned on close"
+grep -qiE '(ship|vaisseau|drone)[^.]{0,80}(orbit|orbite|around|autour)[^.]{0,80}(orient|face|vers|toward|center|centre)' "$R" \
+  || fail "V2: ship does not orbit while oriented toward the hologram center (per-frame transform)"
+grep -qiE '(beam|faisceau)[^.]{0,80}(draw|render|dessin)[^.]{0,40}(count|compteur|> ?0)' "$R" \
+  || fail "V2: projection light beam not proven drawn"
 grep -qiE 'boot|smoke|no crash' "$R" || fail "no smoke run"
 grep -qiE 'capture (sweep|campaign)|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement detected — banned"
 echo "[Gmenus PASS]"
