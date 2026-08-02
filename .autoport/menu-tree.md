@@ -265,3 +265,50 @@ généré, ajouté au FLAG_LIST (marqueur ogflags recalculé, paires CGO/libgk c
   Browser) déplacées dans la catégorie DEBUG.
 - **Écran-titre "Load Game" inconditionnel** — remplacé par un affichage conditionnel (caché sans save).
 - **Quitter yes/no** — remplacé par les menus boutons Retour-titre/Quitter/Annuler.
+- **Fond hublot + overlay orange du menu** — RETIRÉ des écrans de menu (V2 2026-08-02). Les particules de
+  fond `progress particles 0` (tint orange, part 90), `1` (panneau hublot gauche, part 88) et `2` (panneau
+  hublot droit, part 89) sont déplacées hors écran (`init-pos x = -320`) sur les écrans holo. Remplacées par
+  l'hologramme. Conservées telles quelles sur les pages de stats (cellules/orbes/mouches) et notices memcard.
+- **Ligne de hint ancrée sous la bande d'options (origin-y magique 205-215)** — REMPLACÉE (V2) : l'ancre
+  grandissait avec le nombre de lignes et sortait de l'écran sur le menu pause/titre. Désormais dérivée du
+  cadre : `HOLO_HINT_Y = HOLO_Y + HOLO_H - 12 = 196` (dans le cadre, < 224).
+
+---
+
+## 12. V2 — REDESIGN VISUEL COMPLET (owner 2026-08-02, réouverture)  [NEW]
+
+> La STRUCTURE des §0-11 (5 catégories, GRAPHISMES par fonction, table de correspondance §5) est **INCHANGÉE
+> et VALIDÉE** par l'owner (« beaucoup mieux »). Le V2 ne DÉPLACE aucune option — la table §5 reste le
+> garde-fou « l'utilisateur n'est pas perdu ». Le V2 est un **re-skin au sol** : le menu vit désormais dans un
+> hologramme vertical bleuté (moitié gauche) projeté par le drone de comm. Tout est confiné aux écrans de menu
+> (`progress-holo-screen?`) ; les pages de stats / notices memcard gardent leur rendu d'origine. Code :
+> `goal_src/jak1/pc/progress-pc.gc`. **L'owner juge le visuel ; le validator gate les faits code.**
+
+**Géométrie (unités menu : x 0..512, y 0..224 ; moitié gauche = x<=256), constantes dérivées d'un seul jeu :**
+- `HOLO_X 20` `HOLO_W 224` (<= 256 = demi-écran ; bord droit 244) `HOLO_Y 16` `HOLO_H 192` (bord bas 208).
+  Marges > 0 sur chaque bord ; cadre aligné à GAUCHE. Centre du cadre x = 132.
+- Boîte texte : `HOLO_TEXT_X 22` `HOLO_TEXT_W 220` (centre 132 = centre du cadre) ; `HOLO_SCALE 0.62`.
+- `HOLO_HINT_Y 196` = `HOLO_Y + HOLO_H - 12` (DANS le cadre, à l'écran).
+
+**Les 6 briques (toutes compilent x86, 548 cibles) :**
+1. **Hint on-screen** — `draw-options` (progress-pc.gc) : Y = `HOLO_HINT_Y` sur écrans holo (dérivé du cadre),
+   sinon ancienne formule *clampée* `(min 214 …)`. Le hint x = `opt-x0` (boîte holo). Corrige le bug pause/titre.
+2. **Hints 100 %** — `menu-resolve-hint` résout un text-id pour CHAQUE ligne sélectionnable : hint explicite,
+   sinon fallback par NOM (new-game/load/save/options/secrets/quit/back/continue/return-title/cancel/
+   disable-auto-save), sinon générique par TYPE (toggle/slider/bind/button/choice). En-têtes de groupe → 0.
+   Preuve : `menu-hint-coverage` imprime `screen S: N/N` par écran. 15 nouveaux text-ids `#x1741..#x174f`.
+3. **Sections distinctes** — en-têtes de groupe : couleur cyan (progress-blue) + échelle ×1.15 + **filet cyan
+   souligné** (`draw-sprite2d-xy`, largeur `HOLO_TEXT_W`) → lisiblement une SECTION, pas une entrée.
+4. **Fond nettoyé** — porthole + tint orange (particules 0/1/2) déplacés hors écran sur écrans holo (§11).
+5. **Hologramme** — `draw-menu-holo-frame!` : corps translucide cyan + bordure + scanlines via
+   `draw-sprite2d-xy` (bucket `sprite`), moitié gauche, `w=224<=256`, marges. Compteur `*menu-holo-draw-count*`
+   ++ par frame. Le texte du menu (repositionné via `HOLO_TEXT_X/W/SCALE`) vit DANS le cadre.
+6. **Vaisseau-drone projecteur + faisceau** — `update-and-draw-menu-projector!` : représentation 2D-overlay du
+   drone de comm **`voicebox`** (mesh `speaker`, `engine/common-obs/voicebox.gc`, résident GAME.CGO/
+   `levels/common`) — le petit appareil qui flotte près de Jak lors des comms sages/Assistant. Le vrai
+   `voicebox` est couplé à `*target*` + esclave-caméra (`camera-voicebox`) et dangereux à spawner sur la frame
+   pause figée, d'où un projecteur 2D contrôlable **documenté**. Il ORBITE l'espace libre à droite du cadre,
+   reste ORIENTÉ vers le centre du cadre (vecteur recalculé par frame), et émet un FAISCEAU (points dégradés)
+   vers la face du cadre. Spawn à l'ouverture / despawn à la fermeture (`menu-projector-set-active!` depuis le
+   `post` + l'`enter` de `progress-going-out`). Compteurs : `*menu-projector-spawn-count*` /
+   `*-despawn-count*` / `*-draw-count*` / `*menu-beam-draw-count*`. Lecture : `(menu-holo-stats)`.

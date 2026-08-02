@@ -874,6 +874,22 @@
   (pc-text-hint-controls #x173e)
   (pc-text-hint-debug #x173f)
   (pc-text-hint-continue #x1740)
+  ;; --- Grecharged-menu-overhaul V2: per-row hints (100% coverage) ---
+  (pc-text-hint-new-game #x1741)
+  (pc-text-hint-load #x1742)
+  (pc-text-hint-save #x1743)
+  (pc-text-hint-options #x1744)
+  (pc-text-hint-secrets #x1745)
+  (pc-text-hint-quit #x1746)
+  (pc-text-hint-back #x1747)
+  (pc-text-hint-return-title #x1748)
+  (pc-text-hint-cancel #x1749)
+  (pc-text-hint-disable-autosave #x174a)
+  (pc-text-hint-toggle #x174b)
+  (pc-text-hint-slider #x174c)
+  (pc-text-hint-choice #x174d)
+  (pc-text-hint-bind #x174e)
+  (pc-text-hint-button #x174f)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

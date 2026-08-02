@@ -57,6 +57,239 @@
     (set! (-> *progress-scroll* direction) PROGRESS_SCROLL_DIR_DOWN)
     (1+! (-> *progress-scroll* start-index))))
 
+;; ============================================================================================
+;; Grecharged-menu-overhaul V2 (owner 2026-08-02): the menu lives inside a Jak2-style bluish
+;; vertical HOLOGRAM occupying the LEFT HALF of the screen, PROJECTED by the comm-ship drone.
+;; Menu 2D units (confirmed from draw-sprite2d-xy / screen-gradient): x 0(left)..256(center)..512(right),
+;; y 0(top)..112(center)..224(bottom). Half screen width = 256. All geometry below derives the layout
+;; (frame, text box, hint line) from ONE set of constants so nothing is a magic origin-y again.
+;; ============================================================================================
+(defconstant HOLO_X       20)   ;; frame left edge (left margin 20)
+(defconstant HOLO_W      224)   ;; frame width  (<= 256 = half screen); right edge = 244 (margin to center)
+(defconstant HOLO_Y       16)   ;; frame top edge (top margin 16)
+(defconstant HOLO_H      192)   ;; frame height; bottom edge = 208 (bottom margin 16)
+(defconstant HOLO_TEXT_CX 132)  ;; frame horizontal center = HOLO_X + HOLO_W/2
+(defconstant HOLO_TEXT_X   22)  ;; text box left; box center = 22 + HOLO_TEXT_W/2 = 132 = frame center
+(defconstant HOLO_TEXT_W  220)  ;; text/wrap width inside the frame
+(defconstant HOLO_HINT_Y  196)  ;; hint line Y = HOLO_Y + HOLO_H - 12; INSIDE the frame bottom (208) and
+                                ;; on-screen (< 224). Derived from the container, NOT a magic constant.
+(defconstant HOLO_SCALE  0.62)  ;; global text shrink so rows fit the half-width holo (owner-tunable)
+
+;; Per-frame render-thread counters (the objective proof the redesign renders; read via (menu-holo-stats)).
+(define *menu-holo-draw-count*        0)   ;; frames the holo frame was drawn
+(define *menu-projector-active?*     #f)   ;; is the projector overlay currently spawned?
+(define *menu-projector-spawn-count*  0)   ;; ++ each time the projector spawns (menu open)
+(define *menu-projector-despawn-count* 0)  ;; ++ each time the projector despawns (menu close)
+(define *menu-projector-draw-count*   0)   ;; frames the drone was drawn
+(define *menu-beam-draw-count*        0)   ;; frames the projection beam was drawn
+(define *menu-projector-angle*      0.0)   ;; orbit phase in rotation units (65536 = full turn)
+(define *menu-projector-ox*         0.0)   ;; last drone screen x (per-frame transform, for stats)
+(define *menu-projector-oy*         0.0)   ;; last drone screen y
+(define *menu-projector-face*       0.0)   ;; last orientation angle toward the holo center (deg-ish)
+
+(defun menu-rgba-i ((r int) (g int) (b int) (a int))
+  "Build a runtime rgba from 0..255 components (statics can't take runtime alpha for the beam fade)."
+  (the-as rgba (logior (logand r #xff)
+                       (logior (ash (logand g #xff) 8)
+                               (logior (ash (logand b #xff) 16) (ash (logand a #xff) 24))))))
+
+(defun draw-percent-bar-w ((x int) (y int) (w int) (pct float) (color rgba))
+  "Grecharged V2: like draw-percent-bar but with an explicit track width (narrow holo slider layout)."
+  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
+    (draw-sprite2d-xy buf x y w 14 (new 'static 'rgba :a #x60))
+    (draw-sprite2d-xy buf x (+ y 2) (the int (* (the float w) pct)) 10 color))
+  0
+  (none))
+
+(defun progress-holo-screen? ((screen progress-screen))
+  "#t for the navigable options/menu screens that live inside the hologram (NOT the collectible stat
+   pages, memcard notices or file-select screens, which keep their own layout)."
+  (case screen
+    (((progress-screen settings)
+      (progress-screen settings-title)
+      (progress-screen title)
+      (progress-screen secrets)
+      (progress-screen cheats)
+      (progress-screen game-settings)
+      (progress-screen graphic-settings)
+      (progress-screen recharged-settings)
+      (progress-screen grass-settings)
+      (progress-screen debug-options)
+      (progress-screen sound-settings)
+      (progress-screen resolution)
+      (progress-screen aspect-ratio)
+      (progress-screen monitor)
+      (progress-screen gfx-ps2-options)
+      (progress-screen game-ps2-options)
+      (progress-screen camera-options)
+      (progress-screen checkpoint-select)
+      (progress-screen misc-options)
+      (progress-screen input-options)
+      (progress-screen select-controller)
+      (progress-screen controller-binds)
+      (progress-screen keyboard-binds)
+      (progress-screen mouse-binds)
+      (progress-screen controller-options)
+      (progress-screen mouse-options)
+      (progress-screen reassign-binds-options))
+     #t)
+    (else #f)))
+
+(defun draw-menu-holo-frame! ()
+  "Grecharged V2: draw the bluish vertical hologram that CONTAINS the menu — left half of the screen
+   (x[HOLO_X..HOLO_X+HOLO_W], HOLO_W <= 256) with margins from every edge. Translucent cyan body, a
+   brighter border and a few holographic scanlines. Increments the per-frame draw counter."
+  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
+    ;; translucent cyan/blue body
+    (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W HOLO_H (new 'static 'rgba :r #x10 :g #x3c :b #x6e :a #x54))
+    ;; brighter cyan border (top / bottom / left / right)
+    (let ((bc (new 'static 'rgba :r #x4c :g #xb4 :b #xff :a #x9c)))
+      (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W 2 bc)
+      (draw-sprite2d-xy buf HOLO_X (+ HOLO_Y HOLO_H -2) HOLO_W 2 bc)
+      (draw-sprite2d-xy buf HOLO_X HOLO_Y 2 HOLO_H bc)
+      (draw-sprite2d-xy buf (+ HOLO_X HOLO_W -2) HOLO_Y 2 HOLO_H bc))
+    ;; subtle horizontal scanlines for the holographic feel
+    (let ((sc (new 'static 'rgba :r #x30 :g #x84 :b #xc8 :a #x14)))
+      (dotimes (i 11)
+        (draw-sprite2d-xy buf HOLO_X (+ HOLO_Y 8 (* i 16)) HOLO_W 1 sc))))
+  (set! *menu-holo-draw-count* (+ *menu-holo-draw-count* 1))
+  (none))
+
+(defun menu-projector-set-active! ((on? symbol))
+  "Spawn (menu open) / despawn (menu close) the projector overlay, counting each transition. Idempotent."
+  (cond
+    ((and on? (not *menu-projector-active?*))
+     (set! *menu-projector-active?* #t)
+     (set! *menu-projector-angle* 0.0)
+     (set! *menu-projector-spawn-count* (+ *menu-projector-spawn-count* 1)))
+    ((and (not on?) *menu-projector-active?*)
+     (set! *menu-projector-active?* #f)
+     (set! *menu-projector-despawn-count* (+ *menu-projector-despawn-count* 1))))
+  (none))
+
+(defun update-and-draw-menu-projector! ()
+  "Grecharged V2: a 2D-overlay representation of the jak1 comm-ship drone that PROJECTS the hologram.
+   The canonical comm-drone is `voicebox` (engine/common-obs/voicebox.gc, `speaker` mesh, resident in
+   GAME.CGO/levels/common) — the little device that floats around Jak during remote sage/Assistant comms —
+   but it is `*target*`/camera-slave coupled and unsafe to spawn on the frozen pause frame, so the menu
+   renders a controllable 2D projector of it in the overlay (documented substitute; owner judges the look).
+   The drone ORBITS the open right-side space, stays ORIENTED toward the holo center (per-frame transform)
+   and emits a light BEAM toward the frame. All motion derives from the holo frame center."
+  (when *menu-projector-active?*
+    ;; advance the orbit phase (per-frame transform) — 65536 units = one full turn (~7.8s @60fps)
+    (set! *menu-projector-angle* (+ *menu-projector-angle* (* 140.0 (-> *display* time-adjust-ratio))))
+    (let* ((cx (the float (+ HOLO_X HOLO_W -6)))   ;; beam target: the holo's right face, vertical center
+           (cy 112.0)
+           (a  *menu-projector-angle*)
+           (dx (+ 340.0 (* 95.0 (cos a))))         ;; drone orbits the open space right of the holo
+           (dy (+ 112.0 (* 80.0 (sin a))))
+           ;; orientation vector drone -> holo center (kept oriented toward the center every frame)
+           (vx (- cx dx))
+           (vy (- cy dy))
+           (len (max 1.0 (sqrtf (+ (* vx vx) (* vy vy)))))
+           (nx (/ vx len))
+           (ny (/ vy len))
+           (ex (+ dx (* nx 8.0)))                  ;; emitter nub on the center-facing side of the drone
+           (ey (+ dy (* ny 8.0))))
+      (set! *menu-projector-ox* dx)
+      (set! *menu-projector-oy* dy)
+      (set! *menu-projector-face* (atan vy vx))
+      (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
+        ;; --- projection beam: fading dots from the emitter toward the holo center face ---
+        (dotimes (i 8)
+          (let* ((tt (/ (the float (+ i 1)) 9.0))
+                 (bx (the int (+ ex (* (- cx ex) tt))))
+                 (by (the int (+ ey (* (- cy ey) tt))))
+                 (sz (the int (+ 2.0 (* 4.0 (- 1.0 tt)))))
+                 (al (the int (* 110.0 (- 1.0 (* 0.72 tt))))))
+            (draw-sprite2d-xy buf (- bx (/ sz 2)) (- by (/ sz 2)) sz sz
+                              (menu-rgba-i #x66 #xc0 #xff al))))
+        (set! *menu-beam-draw-count* (+ *menu-beam-draw-count* 1))
+        ;; --- drone body: dim halo, bright core, white emitter nub facing the holo ---
+        (let ((idx (the int dx)) (idy (the int dy)) (iex (the int ex)) (iey (the int ey)))
+          (draw-sprite2d-xy buf (- idx 9)  (- idy 8)  18 16 (menu-rgba-i #x28 #x78 #xc0 #x50)) ;; halo
+          (draw-sprite2d-xy buf (- idx 6)  (- idy 5)  12 10 (menu-rgba-i #x60 #xc8 #xff #xd0)) ;; core
+          (draw-sprite2d-xy buf (- iex 2)  (- iey 2)   4  4 (menu-rgba-i #xff #xff #xff #xf0)) ;; emitter nub
+          (set! *menu-projector-draw-count* (+ *menu-projector-draw-count* 1))))))
+  (none))
+
+(defun menu-resolve-hint ((row game-option))
+  "Grecharged V2: resolve the hint text-id for a row — explicit `hint` if set, else a fallback by row NAME,
+   else a generic fallback by option-TYPE. Guarantees a nonzero hint for every SELECTABLE row (100% coverage).
+   Group headers return 0 (they never take focus, so no hint line is drawn for them)."
+  (cond
+    ((nonzero? (-> row hint)) (-> row hint))
+    (else
+     (let ((nm (-> row name)))
+       (cond
+         ((= nm (text-id new-game))         (text-id pc-text-hint-new-game))
+         ((= nm (text-id load-game))        (text-id pc-text-hint-load))
+         ((= nm (text-id save-game))        (text-id pc-text-hint-save))
+         ((= nm (text-id options))          (text-id pc-text-hint-options))
+         ((= nm (text-id secrets))          (text-id pc-text-hint-secrets))
+         ((= nm (text-id quit-game))        (text-id pc-text-hint-quit))
+         ((= nm (text-id back))             (text-id pc-text-hint-back))
+         ((= nm (text-id pc-text-continue)) (text-id pc-text-hint-continue))
+         ((= nm (text-id pc-text-return-title)) (text-id pc-text-hint-return-title))
+         ((= nm (text-id pc-text-cancel))   (text-id pc-text-hint-cancel))
+         ((= nm (text-id disable-auto-save)) (text-id pc-text-hint-disable-autosave))
+         (else
+          (case (-> row option-type)
+            (((game-option-type group-header)) (the text-id 0))
+            (((game-option-type on-off)
+              (game-option-type cheat-toggle)
+              (game-option-type yes-no)
+              (game-option-type confirmation)
+              (game-option-type normal-inverted)
+              (game-option-type aspect-ratio)
+              (game-option-type aspect-native)
+              (game-option-type aspect-new))
+             (text-id pc-text-hint-toggle))
+            (((game-option-type slider)) (text-id pc-text-hint-slider))
+            (((game-option-type binding-assignment)) (text-id pc-text-hint-bind))
+            (((game-option-type button)
+              (game-option-type button-music)
+              (game-option-type button-flava)
+              (game-option-type menu))
+             (text-id pc-text-hint-button))
+            (else (text-id pc-text-hint-choice)))))))))
+
+(defun menu-hint-coverage ()
+  "Grecharged V2 proof: per-screen count of SELECTABLE rows vs rows that resolve a hint. Prints one line per
+   populated screen and a total; returns #t iff every selectable row has a hint (100%). Run after
+   init-game-options (via the listener) to capture the with-hint/total counter for the report."
+  (let ((total-sel 0) (total-hit 0) (screens 0) (all-ok #t))
+    (dotimes (s (-> *options-remap* allocated-length))
+      (let ((arr (-> *options-remap* s)))
+        ;; GOAL "0 is truthy": unset remap slots are either null (static 0) or the symbol #f — guard BOTH
+        ;; before calling (length arr), which would otherwise deref null/#f and crash.
+        (when (and (!= (the-as int arr) 0) (!= arr #f) (> (length arr) 0))
+          (let ((sel 0) (hit 0))
+            (dotimes (i (length arr))
+              (let ((row (-> arr i)))
+                (when (!= (-> row option-type) (game-option-type group-header))
+                  (+! sel 1)
+                  (when (nonzero? (menu-resolve-hint row)) (+! hit 1)))))
+            (when (> sel 0)
+              (+! screens 1)
+              (+! total-sel sel)
+              (+! total-hit hit)
+              (when (!= hit sel) (set! all-ok #f))
+              (format 0 "[Gmenu] screen ~D: ~D/~D rows with hint~%" s hit sel))))))
+    (format 0 "[Gmenu] TOTAL: ~D/~D selectable rows have a hint across ~D screens (100%: ~A)~%"
+            total-hit total-sel screens all-ok)
+    all-ok))
+
+(defun menu-holo-stats ()
+  "Grecharged V2 proof: print the per-frame render-thread counters (holo frame draws, projector spawn/
+   despawn, drone/beam draws, last drone transform). Read via the listener while the menu is open."
+  (format 0 "[Gmenu] holo-draws=~D projector active=~A spawn=~D despawn=~D drone-draws=~D beam-draws=~D~%"
+          *menu-holo-draw-count* *menu-projector-active?* *menu-projector-spawn-count*
+          *menu-projector-despawn-count* *menu-projector-draw-count* *menu-beam-draw-count*)
+  (format 0 "[Gmenu] last drone x=~f y=~f face=~f angle=~f~%"
+          *menu-projector-ox* *menu-projector-oy* *menu-projector-face* *menu-projector-angle*)
+  (none))
+
 (defun progress-fast-save-and-start-speedrun ((category speedrun-category))
   "saves to first slot, updates last-slot-saved for cursor, then starts speedrun"
   (set! (-> *progress-state* last-slot-saved) 0)
@@ -4838,10 +5071,18 @@
              (option-count 0)
              (unkx 27)
              (unk2 0)
+             ;; Grecharged-menu-overhaul V2: only the navigable options/menu screens live inside the
+             ;; half-width hologram. On those, the text box, width, scale and hint line all derive from the
+             ;; holo frame constants; every other screen (memcard notices, file-select, stat pages) keeps
+             ;; its original full-width layout untouched.
+             (holo? (progress-holo-screen? (-> obj display-state)))
+             (opt-x0 (if holo? HOLO_TEXT_X 17))
+             (txt-w (if holo? HOLO_TEXT_W 370))
+             (scl (if holo? HOLO_SCALE 1.0))
              (font (new 'stack 'font-context *font-default-matrix* 0 0 0.0 (font-color default) (font-flags shadow kerning)))
              (locked-str (lookup-text! *common-text* (text-id locked) #f)))
         ;; set the common params for the text drawing
-        (set-width! font 370)
+        (set-width! font txt-w)
         (set-height! font 25)
         (set! (-> font flags) (font-flags shadow kerning middle middle-vert large))
         ;; set scroll arrow sprite vertical position right now
@@ -4865,8 +5106,8 @@
         (case (-> obj display-state)
           (((progress-screen music-player))
            (set-color! font (font-color default))
-           (set-origin! font (- 17 (-> obj left-x-offset)) 14)
-           (set-scale! font (* 0.6 (-> obj transition-percentage-invert)))
+           (set-origin! font (- opt-x0 (-> obj left-x-offset)) 14)
+           (set-scale! font (* 0.6 scl (-> obj transition-percentage-invert)))
            (print-game-text (lookup-text! *common-text* (text-id select-level) #f)
                             font
                             #f
@@ -4874,8 +5115,8 @@
                             22))
           (((progress-screen flava-player))
            (set-color! font (font-color default))
-           (set-origin! font (- 17 (-> obj left-x-offset)) 14)
-           (set-scale! font (* 0.6 (-> obj transition-percentage-invert)))
+           (set-origin! font (- opt-x0 (-> obj left-x-offset)) 14)
+           (set-scale! font (* 0.6 scl (-> obj transition-percentage-invert)))
            (print-game-text (lookup-text! *common-text* (text-id select-flava) #f)
                             font
                             #f
@@ -4883,7 +5124,7 @@
                             22)))
         (dotimes (index (length options))
           (let ((option-str (the string #f)) ;; the option text
-                (option-x 17)
+                (option-x opt-x0)
                 (option-y y-off)
                 (locked? #f))
             ;; Check if the option should be disabled
@@ -4962,7 +5203,7 @@
                   (set-color! font (font-color default))
                   (set! (-> font origin x) (the float (- option-x (-> obj left-x-offset))))
                   (set! (-> font origin y) (the float (+ y-off -8)))
-                  (set-scale! font 0.6)
+                  (set-scale! font (* 0.6 scl))
                   ;; we use the binding name for the selected text header
                   (if (= (-> options index option-type) (game-option-type binding-assignment))
                     ;; display timeout in seconds
@@ -4990,8 +5231,15 @@
                             (percentage (lerp-scale 0.0 1.0 (-> (the-as (pointer float) (-> options index value-to-modify))) (-> options index param1) (-> options index param2)))
                             (a0-34 (logior (logand v1-82 -256) (shr (shl (the int (+ 64.0 (* 191.0 percentage))) 56) 56)))
                             (color (logior (logand a0-34 -65281) (shr (shl (shr (shl a0-34 56) 56) 56) 48))))
-                       (draw-percent-bar (- 75 (-> obj left-x-offset)) (+ y-off 8) percentage (the-as rgba color))
-                       (set! option-x (+ (the int (* 2.5 (* 100.0 percentage))) -100)))
+                       ;; Grecharged-menu-overhaul V2: inside the holo, the bar spans the narrow text box and
+                       ;; the numeric value is centered over it; the wide full-screen bar stays on non-holo screens.
+                       (cond
+                         (holo?
+                          (draw-percent-bar-w HOLO_TEXT_X (+ y-off 8) HOLO_TEXT_W percentage (the-as rgba color))
+                          (set! option-x HOLO_TEXT_X))
+                         (else
+                          (draw-percent-bar (- 75 (-> obj left-x-offset)) (+ y-off 8) percentage (the-as rgba color))
+                          (set! option-x (+ (the int (* 2.5 (* 100.0 percentage))) -100)))))
                      (if (= (-> options index slider-show-decimal?) #t)
                        (set! option-str (string-format "~,,1f" (-> (the-as (pointer float) (-> options index value-to-modify)))))
                        (set! option-str (string-format "~D" (the int (-> (the-as (pointer float) (-> options index value-to-modify))))))))
@@ -5266,29 +5514,45 @@
                                 (else (font-color default))))
                   (set! (-> font origin x) (the float (- option-x (-> obj left-x-offset))))
                   (set! (-> font origin y) (the float (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0)))))
-                  (set-scale! font (* arg2 f0-23 scroll-amt))
-                  (print-game-text option-str font #f (the int (* 128.0 f0-23 scroll-amt)) 22)
+                  ;; Grecharged-menu-overhaul V2: shrink text into the half-width holo (scl); group-header
+                  ;; SECTION titles draw slightly larger so they never read like a value row.
+                  (let ((header? (= (-> options index option-type) (game-option-type group-header))))
+                    (set-scale! font (* arg2 scl (if header? 1.15 1.0) f0-23 scroll-amt))
+                    (print-game-text option-str font #f (the int (* 128.0 f0-23 scroll-amt)) 22)
+                    ;; V2 MECHANISM 3 (sections, not items): draw a cyan rule under each SECTION header so it
+                    ;; is unmistakably a heading, not a selectable entry.
+                    (when (and holo? header?)
+                      (let ((uy (+ (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0))) 7)))
+                        (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
+                          (draw-sprite2d-xy buf HOLO_TEXT_X uy HOLO_TEXT_W 1
+                                            (new 'static 'rgba :r #x4c :g #xb4 :b #xff :a #x80))))))
                   ;; Gtouch-menus: record this drawn row's on-screen rect for tap hit-testing.
                   (menu-touch-record! index
                                       (the float (- option-x (-> obj left-x-offset)))
                                       (the float (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0))))
-                                      (* arg2 f0-23 scroll-amt))))
+                                      (* arg2 scl f0-23 scroll-amt))))
               (+! y-off arg1)
               (+! option-count 1))))
-        ;; Grecharged-menu-overhaul MECHANISM 3: one-line contextual HINT at the bottom, describing the
-        ;; FOCUSED row. Each game-option carries a `hint` text-id (0 = none, so unassigned rows draw
-        ;; nothing). Anchored just below the option band (works for any arg0/arg1/row-count) and faded
-        ;; with the menu transition, mirroring the music/flava top-title draw. Y is owner-tunable.
+        ;; Grecharged-menu-overhaul V2 (off-screen-hint FIX + 100% coverage): one-line contextual HINT for
+        ;; the FOCUSED row. The hint text-id is RESOLVED for every selectable row (explicit hint, else a
+        ;; fallback by name/type — menu-resolve-hint), so 100% of rows show help. On holo screens the Y is
+        ;; HOLO_HINT_Y, DERIVED from the frame bottom (inside 208, on-screen < 224) — no more magic origin-y
+        ;; that grew with the row count and ran off the bottom. Non-holo screens keep the old formula but
+        ;; clamped to stay on-screen.
         (let ((foc (-> obj option-index)))
           (when (and (>= foc 0) (< foc (length options)))
-            (let ((h (-> options foc hint)))
+            (let ((h (menu-resolve-hint (-> options foc))))
               (when (nonzero? h)
-                (let ((band-rows (if (> (length options) PROGRESS_PC_PAGE_HEIGHT)
-                                   (+ PROGRESS_PC_PAGE_HEIGHT -1)
-                                   (length options))))
+                (let ((hint-y (if holo?
+                                HOLO_HINT_Y
+                                (min 214 (+ arg0
+                                            (/ (* arg1 (if (> (length options) PROGRESS_PC_PAGE_HEIGHT)
+                                                         (+ PROGRESS_PC_PAGE_HEIGHT -1)
+                                                         (length options))) 2)
+                                            14)))))
                   (set-color! font (font-color default))
-                  (set-origin! font (- 17 (-> obj left-x-offset)) (+ arg0 (/ (* arg1 band-rows) 2) 14))
-                  (set-scale! font (* 0.5 (-> obj transition-percentage-invert)))
+                  (set-origin! font (- opt-x0 (-> obj left-x-offset)) hint-y)
+                  (set-scale! font (* 0.5 scl (-> obj transition-percentage-invert)))
                   (print-game-text (lookup-text! *common-text* h #f)
                                    font #f
                                    (the int (* 128.0 (-> obj transition-percentage-invert)))
@@ -5422,6 +5686,25 @@
         (when (!= (-> self display-state) (-> *progress-scroll* last-screen))
           (progress-scroll-reset)
           (set! (-> *progress-scroll* last-screen) (-> self display-state)))
+        ;; Grecharged-menu-overhaul V2: on the navigable options/menu screens, DROP the porthole panels +
+        ;; orange tint backdrop (progress particles 0=tint, 1=left porthole, 2=right porthole — moved off
+        ;; the emitter position exactly like hide-progress-icons does) and replace them with the bluish
+        ;; hologram frame that CONTAINS the menu, PROJECTED by the orbiting comm-ship drone. Stat pages and
+        ;; notice/memcard screens keep the original backdrop (else branch restores the emitter positions).
+        (let ((holo? (progress-holo-screen? (-> self display-state))))
+          (cond
+            (holo?
+             (set! (-> self particles 0 init-pos x) -320.0)   ;; orange tint   -> off
+             (set! (-> self particles 1 init-pos x) -320.0)   ;; left porthole -> off
+             (set! (-> self particles 2 init-pos x) -320.0)   ;; right porthole -> off
+             (draw-menu-holo-frame!)
+             (menu-projector-set-active! #t)
+             (update-and-draw-menu-projector!))
+            (else
+             (set! (-> self particles 0 init-pos x) 256.0)    ;; restore the original backdrop off holo
+             (set! (-> self particles 1 init-pos x) -42.0)
+             (set! (-> self particles 2 init-pos x) 610.0)
+             (menu-projector-set-active! #f))))
         ;; draw the menus!!
         (let* ((a1-0 (-> self display-level-index))
                (gp-0 (-> *level-task-data* a1-0))
@@ -5545,6 +5828,8 @@
       (lambda :behavior progress ()
         (sound-play "menu-close")
         (hide-progress-icons)
+        ;; Grecharged-menu-overhaul V2: despawn the comm-ship projector overlay on menu close (counter).
+        (menu-projector-set-active! #f)
         (remove-setting! 'music)
         (apply-settings *setting-control*)
         (progress-reset-music-parms)
