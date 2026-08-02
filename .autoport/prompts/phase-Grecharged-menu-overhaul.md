@@ -142,3 +142,58 @@ Ne PAS refaire de patch 2D jetable sur l'ancien layout : c'est un redesign au so
 briques (fix hint -> hints 100% -> sections -> fond nettoyé -> cadre holo -> vaisseau+faisceau),
 build x86 à chaque brique. Le device = smoke + preuve des compteurs render-thread (pas de mesure
 visuelle). Livraison = deux APK + pré-vol. L'owner fait le jugement esthétique final.
+
+## ============================================================
+## V3 — L'OWNER A REJETÉ V2 : "vraiment bâclé, très nul en l'état" (2026-08-02)
+## ============================================================
+V2 a pris le chemin fainéant (tout en sprites 2D HUD). REJET owner sur 5 points. Corrige-les POUR DE
+VRAI ; le validateur vérifie désormais le CODE, pas les mots du rapport.
+
+### A. HINTS DÉBILES → HINTS UTILES SUR CHAQUE LIGNE
+Défaut : des lignes retombent sur des textes GÉNÉRIQUES qui décrivent le TYPE de contrôle —
+`174c`="RÈGLE CETTE VALEUR", `174d`="PARCOURS LES CHOIX DISPONIBLES". C'est inutile.
+- SUPPRIME ces hints génériques (174c, 174d et leurs équivalents dans les 7 JSON de langue) ET le
+  fallback "par type" dans menu-resolve-hint. AUCUNE ligne ne doit décrire le type de contrôle.
+- CHAQUE ligne sélectionnable a un hint BESPOKE qui dit : (1) ce que le réglage EST, (2) ce qu'il
+  change concrètement (visuel/fonctionnel), (3) l'impact/compromis (perf, netteté…) quand pertinent.
+  Ex. Render Scale → "Résolution de rendu interne. Plus haut = image plus nette mais plus lourd."
+  Ex. PBR → "Éclairage physique des matériaux : reflets et relief réalistes. Coûteux."
+- Dans TOUTES les 6 langues. Le rapport liste CHAQUE ligne -> son text-id de hint, et prouve
+  "0 ligne sur un hint générique/par-type".
+
+### B. HOLOGRAMME "nul à chier" → VRAI EFFET HOLO-COMM JAK 2
+Défaut : une simple boîte bleue translucide + quelques traits statiques. Rien à voir avec Jak 2.
+Il faut un VRAI effet holographique ANIMÉ :
+- Teinte cyan/bleu translucide, LAISSANT VOIR la scène derrière (semi-transparent).
+- SCANLINES HORIZONTALES qui DÉFILENT (offset qui avance CHAQUE frame, pas statique).
+- FLICKER : intensité qui vibre par frame (petit jitter) + glitch plus marqué de temps en temps.
+- Bord/rim lumineux cyan, léger bruit/grain.
+- L'offset scanline et le flicker DOIVENT être pilotés par un compteur de frames / le temps (ANIMÉS).
+  Le rapport prouve que ces valeurs changent d'une frame à l'autre (pas des constantes).
+
+### C. DRONE INVISIBLE → VRAIE ENTITÉ 3D QUI ORBITE ET PROJETTE
+Défaut : le "drone" est un sprite 2D HUD → on ne le voit pas orbiter ni projeter.
+- Le drone doit être une VRAIE entité/process 3D avec une transform monde (pas un sprite 2D HUD),
+  visible À L'ÉCRAN (devant la caméra, dans le frustum, taille non nulle).
+- Identifie le mesh du drone de comm de jak1 ; s'il n'existe pas, prends le mesh hover/volant le plus
+  proche (documente le choix). 
+- Il ORBITE autour de la position de l'hologramme (dans la scène), reste ORIENTÉ vers son centre, et
+  émet un FAISCEAU 3D visible vers l'hologramme.
+- Ça implique que l'hologramme est perçu comme une PROJECTION dans la scène (plan holographique
+  positionné à gauche que le drone peut contourner), pas un simple overlay 2D plat.
+- Le rapport prouve : entité 3D (process) + transform recalculée/orbite par frame + position écran
+  DANS les bornes + faisceau 3D dessiné. (L'owner juge le rendu final.)
+
+### D. SECTIONS "toujours dans la liste" → VRAIMENT DISPOSÉES À PART
+Défaut : les en-têtes sont encore des lignes de la liste (juste colorées).
+- Séparation SPATIALE : titre de section sur sa propre ligne avec un ESPACE VERTICAL net au-dessus,
+  et ses options EN RETRAIT dessous. On voit un GROUPE, pas un item coloré dans une liste à plat.
+- Fournis une constante d'espacement inter-section (gap) et un retrait (indent) des options.
+
+### E. HUBLOT TOUJOURS LÀ SUR LE MENU PAUSE → RETIRER POUR DE VRAI
+Défaut : la texture hublot/fenêtre est encore dessinée sur le MENU PAUSE (pas seulement les options).
+- Trouve où le fond hublot du menu pause est dessiné et RETIRE-le / remplace-le par l'hologramme.
+- Le rapport prouve : plus aucune référence au sprite hublot dans le chemin de draw du MENU PAUSE.
+
+RAPPEL : pas de mesure visuelle in-game (compteurs render-thread), l'owner juge l'esthétique. C'est
+un vrai travail d'effet + 3D, pas un patch 2D. Commite par brique, build x86 à chaque brique.

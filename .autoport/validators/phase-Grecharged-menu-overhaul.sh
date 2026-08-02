@@ -66,6 +66,33 @@ grep -qiE '(ship|vaisseau|drone)[^.]{0,80}(orbit|orbite|around|autour)[^.]{0,80}
   || fail "V2: ship does not orbit while oriented toward the hologram center (per-frame transform)"
 grep -qiE '(beam|faisceau)[^.]{0,80}(draw|render|dessin)[^.]{0,40}(count|compteur|> ?0)' "$R" \
   || fail "V2: projection light beam not proven drawn"
+# ---- V3 (owner rejected V2 "bâclé"): CODE-level checks, not report keywords ----
+# A. generic type-fallback hints must be DELETED from the text banks (objective)
+FRTX="game/assets/jak1/text/game_custom_text_fr-FR.json"
+if [ -f "$FRTX" ]; then
+  grep -qiE 'PARCOURS LES CHOIX|R.GLE CETTE VALEUR' "$FRTX" \
+    && fail "V3-A: generic type-fallback hints still present in fr-FR text bank (must be deleted; every row needs a bespoke hint)"
+fi
+grep -qiE '(0 (row|ligne)|aucune ligne|no row)[^.]{0,80}(generic|generique|générique|par.?type|type.?fallback)' "$R" \
+  || fail "V3-A: report must prove 0 rows use a generic/by-type hint (every row bespoke: what + impact)"
+grep -qiE '(hint)[^.]{0,80}(impact|consequence|conséquence|what.*change|ce que.*change|perf)' "$R" \
+  || fail "V3-A: hints must explain the setting AND its impact, not the control type"
+# B. hologram flicker/scanlines must be ANIMATED (frame/time-driven), not static
+grep -qiE '(flicker|scanline)[^.]{0,90}(per.?frame|chaque frame|frame.?count|time|animat|advanc|avance|defil|défil)' "$R" \
+  || fail "V3-B: hologram flicker/scanlines not proven ANIMATED per-frame (must not be static lines)"
+grep -qiE 'progress-pc.gc' "$R" && grep -qniE 'flicker|scanline|holo.*noise|rim|glow' goal_src/jak1/pc/progress-pc.gc >/dev/null \
+  || fail "V3-B: no flicker/scanline/rim-glow code in the holo draw path"
+# C. drone must be a real 3D entity/process (not a 2D HUD sprite), visible in-frustum
+grep -qiE '(drone|ship|projector|projecteur)[^.]{0,90}(entity|process|3d|world|monde|frustum|in.?view|devant la cam)' "$R" \
+  || fail "V3-C: comm-drone not proven a real 3D entity in-frustum (was a 2D HUD sprite)"
+grep -qiE '(drone|ship|projector)[^.]{0,80}(2d|hud|sprite)[^.]{0,40}(only|seul|instead|au lieu)' "$R" \
+  && fail "V3-C: drone is still a 2D HUD sprite — must be a 3D entity orbiting in the scene"
+# D. sections spatially separated (gap + indent constant), not inline colored rows
+grep -qiE '(section|group)[^.]{0,80}(gap|espace|spacing|indent|retrait)[^.]{0,40}(constant|defconstant|px|pixel)' "$R" \
+  || fail "V3-D: sections not spatially separated (need an inter-section gap + option indent constant)"
+# E. porthole removed from the PAUSE menu specifically
+grep -qiE '(hublot|porthole|window|fenetre|fenêtre)[^.]{0,80}(pause)[^.]{0,60}(removed|supprim|retir|remplac|replac|gone|plus)' "$R" \
+  || fail "V3-E: porthole background not proven removed from the PAUSE menu (owner still sees it)"
 grep -qiE 'boot|smoke|no crash' "$R" || fail "no smoke run"
 grep -qiE 'capture (sweep|campaign)|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement detected — banned"
 echo "[Gmenus PASS]"
