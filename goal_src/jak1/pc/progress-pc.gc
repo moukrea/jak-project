@@ -109,55 +109,13 @@
   0
   (none))
 
-(defun progress-holo-screen? ((screen progress-screen))
-  "#t for the navigable options/menu screens that live inside the hologram (NOT the collectible stat
-   pages, memcard notices or file-select screens, which keep their own layout)."
-  (case screen
-    (((progress-screen settings)
-      (progress-screen settings-title)
-      (progress-screen title)
-      (progress-screen secrets)
-      (progress-screen cheats)
-      (progress-screen game-settings)
-      (progress-screen graphic-settings)
-      (progress-screen recharged-settings)
-      (progress-screen grass-settings)
-      (progress-screen debug-options)
-      (progress-screen sound-settings)
-      (progress-screen resolution)
-      (progress-screen aspect-ratio)
-      (progress-screen monitor)
-      (progress-screen gfx-ps2-options)
-      (progress-screen game-ps2-options)
-      (progress-screen camera-options)
-      (progress-screen checkpoint-select)
-      (progress-screen misc-options)
-      (progress-screen input-options)
-      (progress-screen select-controller)
-      (progress-screen controller-binds)
-      (progress-screen keyboard-binds)
-      (progress-screen mouse-binds)
-      (progress-screen controller-options)
-      (progress-screen mouse-options)
-      (progress-screen reassign-binds-options))
-     #t)
-    (else #f)))
-
-(defun menu-porthole-hidden? ((screen progress-screen))
-  "Grecharged-menu-overhaul V3-E (owner 2026-08-02): #t on the pause/menu screens where the old
-   porthole/window backdrop is REPLACED by the hologram — every navigable option screen
-   (progress-holo-screen?) PLUS the pause LANDING stat pages (fuel-cell / money / buzzer, the first
-   thing you see when you pause). On these, engine `adjust-sprites` forces the porthole particles
-   (0 = orange tint, 1 = left window half, 2 = right window half) off-screen at the EMIT site, so the
-   porthole never draws — the progress-normal post's earlier hide of particles 1/2 was overwritten by
-   adjust-sprites (progress.gc:507/509) every frame, which is why the owner still saw the porthole.
-   Modal memcard / notice / save-load dialogs are NOT in the set, so they keep their framing."
-  (or (progress-holo-screen? screen)
-      (case screen
-        (((progress-screen fuel-cell)
-          (progress-screen money)
-          (progress-screen buzzer)) #t)
-        (else #f))))
+;; Grecharged-menu-overhaul V3-CRASH (owner 2026-08-02): progress-holo-screen? and the porthole-hidden test
+;; MOVED to the engine (goal_src/jak1/engine/ui/progress/progress.gc, just above adjust-sprites). The engine
+;; adjust-sprites — a per-frame path live from the first title/menu screen — used to call the porthole test
+;; across the engine->PC boundary; an unbound symbol-function there is a fn-ptr=0 SIGILL native crash on
+;; arm64 (the V3 build died at boot on device this way). progress-holo-screen? still resolves here as a
+;; PC->engine call (safe: the engine links first). The pause-landing variant is engine-only now
+;; (progress-porthole-hidden?), so there is nothing left to define in this file.
 
 (defun draw-menu-holo-frame! ()
   "Grecharged V3 (owner 2026-08-02): the bluish vertical hologram that CONTAINS the menu, now an ANIMATED

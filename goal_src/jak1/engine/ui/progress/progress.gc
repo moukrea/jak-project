@@ -4,10 +4,14 @@
 (require "engine/ui/progress/progress-draw.gc")
 (require "engine/ui/progress/progress-part.gc")
 
-;; Grecharged-menu-overhaul V3-E (owner 2026-08-02): forward-declared in the PC file progress-pc.gc,
-;; which loads at boot before any pause. adjust-sprites (below) uses it to suppress the porthole at the
-;; emit site on the pause/menu screens (the post-hide was overwritten here every frame).
-(define-extern menu-porthole-hidden? (function progress-screen symbol))
+;; Grecharged-menu-overhaul V3-CRASH (owner 2026-08-02): the porthole-suppression test used by
+;; adjust-sprites (below) now lives ENGINE-side (progress-holo-screen? / progress-porthole-hidden?,
+;; defined just above adjust-sprites). adjust-sprites runs every frame from the very first title/menu
+;; screen, and the previous version called menu-porthole-hidden? — a defun in the PC file progress-pc.gc
+;; — across the engine->PC boundary on that hot path. An unbound symbol-function there is a fn-ptr=0 SIGILL
+;; native crash on arm64 (the V3 build died at boot on device exactly this way). These are pure
+;; progress-screen enum lookups, so the engine now owns them; progress-pc.gc still calls
+;; progress-holo-screen? for its own draw code (a PC->engine call, always safe — the engine links first).
 
 ;; DECOMP BEGINS
 
@@ -506,6 +510,56 @@
               (the-as sparticle-launch-control (&+ (the-as pointer (-> this particles v1-0 part)) offset))))))
   (the-as progress ((method-of-type process relocate) this offset)))
 
+;; Grecharged-menu-overhaul V3-CRASH: moved engine-side from progress-pc.gc (see the note at the top of
+;; this file). Pure progress-screen enum lookups — no engine->PC-file call on the per-frame path.
+(defun progress-holo-screen? ((screen progress-screen))
+  "#t for the navigable options/menu screens that live inside the hologram (NOT the collectible stat
+   pages, memcard notices or file-select screens, which keep their own layout). SINGLE SOURCE OF TRUTH:
+   progress-pc.gc calls this too — keep the set here only."
+  (case screen
+    (((progress-screen settings)
+      (progress-screen settings-title)
+      (progress-screen title)
+      (progress-screen secrets)
+      (progress-screen cheats)
+      (progress-screen game-settings)
+      (progress-screen graphic-settings)
+      (progress-screen recharged-settings)
+      (progress-screen grass-settings)
+      (progress-screen debug-options)
+      (progress-screen sound-settings)
+      (progress-screen resolution)
+      (progress-screen aspect-ratio)
+      (progress-screen monitor)
+      (progress-screen gfx-ps2-options)
+      (progress-screen game-ps2-options)
+      (progress-screen camera-options)
+      (progress-screen checkpoint-select)
+      (progress-screen misc-options)
+      (progress-screen input-options)
+      (progress-screen select-controller)
+      (progress-screen controller-binds)
+      (progress-screen keyboard-binds)
+      (progress-screen mouse-binds)
+      (progress-screen controller-options)
+      (progress-screen mouse-options)
+      (progress-screen reassign-binds-options))
+     #t)
+    (else #f)))
+
+(defun progress-porthole-hidden? ((screen progress-screen))
+  "Grecharged-menu-overhaul V3-E: #t on the pause/menu screens where the old porthole/window backdrop is
+   REPLACED by the hologram — every navigable option screen (progress-holo-screen?) PLUS the pause LANDING
+   stat pages (fuel-cell / money / buzzer). adjust-sprites forces the porthole particles (0 = orange tint,
+   1 = left window half, 2 = right window half) off-screen on these, so the porthole never draws. Modal
+   memcard / notice / save-load dialogs are NOT in the set, so they keep their framing."
+  (or (progress-holo-screen? screen)
+      (case screen
+        (((progress-screen fuel-cell)
+          (progress-screen money)
+          (progress-screen buzzer)) #t)
+        (else #f))))
+
 (defmethod adjust-sprites ((this progress))
   (let ((f0-1 (* (1/ METER_LENGTH) (the float (-> this in-out-position)))))
     ;; right position
@@ -522,7 +576,7 @@
   ;; by the hologram — force its three particles (0 orange tint, 1 left half, 2 right half) off-screen
   ;; HERE, after the writes at :507/:509 above and right before the spawn loop, so the window never draws.
   ;; This is the real fix: the progress-normal post's earlier hide was overwritten by :507/:509 every frame.
-  (when (menu-porthole-hidden? (-> this display-state))
+  (when (progress-porthole-hidden? (-> this display-state))
     (set! (-> this particles 0 init-pos x) -320.0)
     (set! (-> this particles 1 init-pos x) -320.0)
     (set! (-> this particles 2 init-pos x) -320.0))
