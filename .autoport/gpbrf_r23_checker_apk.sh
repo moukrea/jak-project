@@ -49,6 +49,21 @@ trap restore EXIT
 # SUPERVISOR FIX 2026-07-26: this script used to REUSE whatever libgk was already sitting in
 # build-android-checker. A shader edited after the last checker build therefore shipped a stale
 # checker APK while the normal APK was fresh — the exact stale-artifact trap, caught by the owner.
+# SUPERVISOR FIX 2026-08-02: build-android-checker keeps its OWN cmake cache, configured once with
+# whatever OG_FLAG_SET_ID (the ogflags marker) was current THEN. When the flag set changes (e.g. a
+# --debug delivery moves the marker 465b53->82f382), this dir is NOT reconfigured, so its libgk
+# embeds a STALE marker and preflight fails "ogflags mismatch libgk vs packs" (caught before a
+# hologram-menu delivery). Sync the checker cache to the CURRENT id (read from the fresh normal
+# libgk) BEFORE building, so the checker always pairs with the packs.
+_CUR_ID=$(strings "$NORM_SO" 2>/dev/null | grep -m1 '^ogflags:' | sed 's/^ogflags://')
+if [ -n "$_CUR_ID" ]; then
+  _CK_ID=$(awk -F= '/^OG_FLAG_SET_ID:/{print $2}' build-android-checker/CMakeCache.txt 2>/dev/null)
+  if [ "$_CK_ID" != "$_CUR_ID" ]; then
+    echo "  checker cache OG_FLAG_SET_ID '$_CK_ID' != current '$_CUR_ID' — reconfiguring"
+    cmake -B build-android-checker -DOG_FLAG_SET_ID="$_CUR_ID" >/dev/null 2>&1 \
+      || die "checker reconfigure to $_CUR_ID failed"
+  fi
+fi
 # Always rebuild the checker variant before packaging it.
 cmake --build build-android-checker --target gk -j"$(nproc)" >/dev/null 2>&1 \
   || die "checker libgk rebuild failed (build-android-checker)"
