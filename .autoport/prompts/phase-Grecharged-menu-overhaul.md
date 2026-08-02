@@ -197,3 +197,13 @@ Défaut : la texture hublot/fenêtre est encore dessinée sur le MENU PAUSE (pas
 
 RAPPEL : pas de mesure visuelle in-game (compteurs render-thread), l'owner juge l'esthétique. C'est
 un vrai travail d'effet + 3D, pas un patch 2D. Commite par brique, build x86 à chaque brique.
+
+### RÉFÉRENCES CONCRÈTES (owner 2026-08-02)
+- EFFET HOLO : inspire-toi DIRECTEMENT du rendu holographique de JAK 2 déjà présent dans OpenGOAL —
+  le menu principal/pause de jak2 ET les hologrammes publicitaires in-game de jak2 (les panneaux
+  holo de la ville). Étudie leur implémentation dans goal_src/jak2/ (shaders/effets holo, scanlines,
+  flicker, teinte, transparence) et PORTE la technique dans jak1. Ne réinvente pas un effet 2D à la
+  main : reprends la recette Jak 2.
+- DRONE : c'est FACILE à identifier — c'est l'entité qui SPAWN autour de Jak quand Samos ou Keira le
+  contacte À DISTANCE (le petit vaisseau/communicateur des comms distantes). Trouve cette entité
+  précise (via les scènes de comm/talker), réutilise son mesh/process pour le projecteur.
