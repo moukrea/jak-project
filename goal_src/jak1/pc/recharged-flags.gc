@@ -24,5 +24,5 @@
 ;; every build regardless.
 (defglobalconstant FLAG_DEBUG_MENUS #t)
 (defglobalconstant FLAG_DEBUG_MENUS_N 1)
-(defglobalconstant PLATFORM_ANDROID #f)
-(defglobalconstant OG_FLAG_SET_MARKER "ogflags:82f3823a3bc8:linux-x86_64")
+(defglobalconstant PLATFORM_ANDROID #t)
+(defglobalconstant OG_FLAG_SET_MARKER "ogflags:82f3823a3bc8:android-arm64")

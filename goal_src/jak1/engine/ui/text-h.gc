@@ -1037,7 +1037,15 @@
 ;; One of the reasons we didn't do this is because it makes it obvious which strings are remaining,
 ;; but there are better ways to keep track or check if strings are missing.
 (#when PC_PORT
-  (kheap-alloc (define *fallback-text-heap* (new 'global 'kheap)) (* 48 1024)) ;; 48K heap, should be plenty
+  ;; Grecharged-menu-overhaul V3-CRASH: bumped 48K -> 64K to match *common-text-heap*.
+  ;; The +93 menu hint ids grew 0COMMON.TXT (the English fallback bank) to 47904 bytes;
+  ;; the v2 linker relocates its ~3.1K link block to the TOP of THIS heap (kmalloc
+  ;; KMALLOC_TOP), so it needs 47904+3136 = 51040 > 49152 (48K) and the relocated link
+  ;; table stomped the object tail -> c_symlink2 read 0x01010101 (the link table's own
+  ;; seek=1/count=1 bytes) where it wanted 0xffffffff and ASSERT(false)'d, a native boot
+  ;; crash on device. 0COMMON (47904) is smaller than the biggest per-language 1COMMON
+  ;; (55296) which the 64K common heap already holds, so 64K here is provably sufficient.
+  (kheap-alloc (define *fallback-text-heap* (new 'global 'kheap)) (* 64 1024)) ;; 64K (was 48K, overflowed)
   (define *fallback-text* (the-as game-text-info #f)))
 
 (defun-extern print-game-text string font-context symbol int int float)
