@@ -292,6 +292,24 @@ build_android() {
     log "android text overrides refreshed: $(ls out/${GAME}-android-text/*COMMON.TXT | wc -l) bank(s)"
   fi
 
+  # Grecharged-hd-models3 (BRICK 2): enhanced HD character fr3 overlay. SURGICAL merc swap on
+  # the stock fr3 (tools/hd_merc_swap) — only the 4 replaced characters change; EVERY
+  # non-character draw stays byte-identical to stock (integrity-gated inside the bake, which
+  # is what kills the round-2 "tout violet" ground). --hd-models bakes it here; the flag also
+  # gates the runtime enhanced/ lookup (hd_fr3_path in Loader.cpp).
+  if [ "$GAME" = "jak1" ] && [ $F_HDMODELS -eq 1 ]; then
+    log "== enhanced HD models: surgical merc-swap bake (flag hd-models ON) =="
+    scripts/shell/build_enhanced_models.sh > .autoport/logs/build-enhanced-models.log 2>&1 \
+      || { tail -40 .autoport/logs/build-enhanced-models.log >&2; die "enhanced HD model bake failed"; }
+    nrep=$(grep -c "Replacing " .autoport/logs/build-enhanced-models.log || true)
+    nenh=$(ls out/${GAME}/fr3/enhanced/*.fr3 2>/dev/null | wc -l)
+    [ "$nrep" -ge 4 ] || die "enhanced bake: expected 4 'Replacing' swaps, got $nrep"
+    grep -q "integrity gate PASS for GAME.fr3" .autoport/logs/build-enhanced-models.log \
+      && grep -q "integrity gate PASS for village1.fr3" .autoport/logs/build-enhanced-models.log \
+      || die "enhanced bake: integrity gate did not pass for both levels"
+    log "enhanced HD fr3 baked: $nenh file(s), $nrep merc swaps, integrity gate PASS"
+  fi
+
   if [ $BUILD_APK -eq 1 ]; then
     log "== gradle assembleJak1Debug (packs CGO zip + libgk.so) =="
     # Grecharged-loader-packfix: delete the previous APK first. AGP's zipflinger updates

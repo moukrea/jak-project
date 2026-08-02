@@ -25,3 +25,4 @@ target_link_libraries(type_searcher common decomp)
 add_executable(formatter
         formatter/main.cpp)
 target_link_libraries(formatter common tree-sitter)
+add_subdirectory(hd_merc_swap)
