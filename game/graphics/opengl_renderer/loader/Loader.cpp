@@ -264,25 +264,27 @@ static bool read_persisted_recharged_textures() {
   }
 }
 
-// Grecharged-hd-models: resolve a level's FR3 path, preferring an enhanced (jak2 HD) variant under
+// Grecharged-hd-models: resolve a level's FR3 path, preferring an enhanced (Jak2 HD) variant under
 // fr3/enhanced/ when the ENHANCED MODELS toggle is on AND that file exists. Off / missing -> stock
 // path, so OFF is byte-identical to stock.
+//
+// ARCHITECTURE IP (owner 2026-08-02): the enhanced fr3 embed the HD character merc models, which are
+// derived from the user's Jak2/Jak3 dumps = Naughty Dog IP. They must NEVER ship inside the APK /
+// custom pack (that would distribute ND IP). They are generated LOCALLY from the dump and ship ONLY
+// in the EXTERNAL asset pack (scripts/package_hd_assets.sh -> <game>_hd_assets.zip, extracted to
+// <external root>/assets/fr3/enhanced/). `base` here is Loader's m_base_path == get_fr3_dir(), which
+// IS that external dir on device (android_gfx.cpp) and out/<game>/fr3 on desktop — so we resolve the
+// enhanced fr3 STRICTLY from base/enhanced/ and deliberately do NOT consult the APK custom pack
+// (get_custom_fr3_dir()): a hit there would mean ND IP had leaked into the binary. The custom pack
+// build (android/build_custom_pack.sh) has a matching guard that refuses to stage any enhanced/ member.
 static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
 #ifdef OG_FEAT_HD_MODELS
   if (Gfx::recharged_active(Gfx::g_global_settings.recharged_enhanced_models)) {
-    // Prefer the package-shipped custom fr3/enhanced/ when the custom root is set.
-    if (auto custom_fr3 = file_util::get_custom_fr3_dir()) {
-      auto custom_enhanced = *custom_fr3 / "enhanced" / fmt::format("{}.fr3", name);
-      if (file_util::file_exists(custom_enhanced.string())) {
-        // lg (not raw stdout): on Android only lg::* routes to logcat.
-        lg::info("HD-MODELS fr3-select {}: ENHANCED (custom) {}", name, custom_enhanced.string());
-        return custom_enhanced;
-      }
-    }
+    // EXTERNAL asset-pack path ONLY (never the APK custom pack — ND IP must stay external).
     auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
     if (file_util::file_exists(enhanced.string())) {
       // lg (not raw stdout): on Android only lg::* routes to logcat.
-      lg::info("HD-MODELS fr3-select {}: ENHANCED {}", name, enhanced.string());
+      lg::info("HD-MODELS fr3-select {}: ENHANCED (external) {}", name, enhanced.string());
       return enhanced;
     }
   }

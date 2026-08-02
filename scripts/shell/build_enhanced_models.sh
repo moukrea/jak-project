@@ -52,6 +52,22 @@ SWAP_BIN="build/tools/hd_merc_swap/hd_merc_swap"
 # The merc-ctrl names whose "Replacing <name> for <lvl>" line MUST appear, and their target fr3.
 REPLACE_NAMES=(eichar-lod0 sidekick-lod0 sage-lod0 assistant-lod0)
 
+# The donor dump the HD art is derived from. jak1's 4 HD characters are ripped from the Jak 2
+# dump (fr3_to_gltf on decompiler_out/jak2 <- iso_data/jak2). Named here so the IP gate is explicit.
+DONOR_DUMP="iso_data/jak2"
+
+# ---------------------------------------------------------------------------
+# 0. ARCHITECTURE IP gate (owner 2026-08-02): the HD models derive from the user's Jak 2 dump =
+#    Naughty Dog IP. HD may be generated ONLY if that dump is present. Absent -> the feature is
+#    unavailable: NO bake, jak1 stays stock (no-op success). build.sh forces --hd-models OFF in the
+#    same situation (byte-identical stock build); this is the defensive gate for a direct invocation.
+# ---------------------------------------------------------------------------
+if [ -z "$(find "$DONOR_DUMP" -maxdepth 2 -type f ! -name '.gitignore' -print -quit 2>/dev/null)" ]; then
+  log "donor dump '$DONOR_DUMP' absent — the HD models are ND IP derived from it, so HD is unavailable; skipping enhanced HD bake (jak1 builds stock)"
+  exit 0
+fi
+log "donor dump '$DONOR_DUMP' present — HD generation permitted (ND-derived assets ship EXTERNAL, never in the APK)"
+
 # ---------------------------------------------------------------------------
 # 1. GLB gate — absence is a VALID state (no-op success): jak1 builds stock.
 # ---------------------------------------------------------------------------

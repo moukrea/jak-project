@@ -22,8 +22,15 @@
 #   fr3/<name>.meshweld           (ALWAYS — DERIVED: mesh-consolidation sidecar)
 #   fr3/<name>.grassbake          (ALWAYS — validated feature)
 #   recharged_assets/<name>.png   (ALWAYS — DELIVERY is no longer flag-gated)
-#   fr3/enhanced/<name>.fr3       (flag hd-models ON)
 #   recharged_textures/<tpage>/<tex>/<tex>[ _height|_normal|_roughness].png  (ALWAYS — first-party set)
+#
+# ARCHITECTURE IP EXCLUSION (owner 2026-08-02): the enhanced HD fr3 (fr3/enhanced/<name>.fr3) are
+# DELIBERATELY NOT here any more. Those levels embed the HD character merc models, which derive from
+# the user's Jak2/Jak3 dumps = Naughty Dog IP. Shipping them in the APK would distribute ND IP.
+# They are generated locally from the dump and ship ONLY in the EXTERNAL asset pack
+# (scripts/package_hd_assets.sh -> <game>_hd_assets.zip, extracted to <external root>/assets/fr3/
+# enhanced/). nd_hd_exclusion_guard() below HARD-FAILS this build if any enhanced/ or hd-derived
+# member ever leaks back into the custom pack.
 #
 # The flag SET is recovered from the compiled arm64 GAME.CGO marker
 # ("ogflags:<hash>:<target>"): the 12-char hash is inverted by enumerating the 64
@@ -166,16 +173,18 @@ data_freshness_guard(){
   #     file ships NOWHERE, so absence is a hard refusal, never a warning.
   #
   #     Member paths are constructed here with the SAME prefix+basename rule the
-  #     staging loops use (fr3/<base>, fr3/enhanced/<base>, recharged_assets/<base>),
+  #     staging loops use (fr3/<base>, recharged_assets/<base>); fr3/enhanced/ is NOT
+  #     covered on purpose (ND-derived HD ships external — see nd_hd_exclusion_guard).
   #     so the two sides cannot disagree about where a file lands.
   local zlist
   zlist=$'\n'"$(unzip -Z1 "$zip" 2>/dev/null || true)"$'\n'
   # "<dir><TAB><name glob><TAB><in-zip prefix>" — dirs are repo-relative.
+  # ARCHITECTURE IP: fr3/enhanced/ is intentionally NOT covered here — the ND-derived HD levels
+  # ship in the EXTERNAL pack, never the APK. nd_hd_exclusion_guard() asserts their ABSENCE instead.
   local cov_specs=(
     "${FR3_DIR}"$'\t''*.fr3'$'\t''fr3/'
     "${FR3_DIR}"$'\t''*.meshweld'$'\t''fr3/'
     "${FR3_DIR}"$'\t''*.grassbake'$'\t''fr3/'
-    "${FR3_DIR}/enhanced"$'\t''*.fr3'$'\t''fr3/enhanced/'
     "${RHUD_SRC}"$'\t''*.png'$'\t''recharged_assets/'
   )
   local n_cov=0 spec cdir cglob cpfx cbase want
@@ -197,6 +206,30 @@ data_freshness_guard(){
   done
 
   echo "[custom-pack] data-freshness guard OK: ${n_side} sidecars, ${n_fr3} fr3 members byte-identical to ${FR3_DIR}, bake_version=${kbv} (${n_ver} sidecar members version-checked), coverage ${n_cov}/${n_cov} derived files on disk present as members"
+}
+
+# --- ND-DERIVED HD EXCLUSION GUARD (owner IP rule 2026-08-02) -------------------
+# The HD character models derive from the user's Jak2/Jak3 dumps = Naughty Dog IP, so they must
+# NEVER ship inside the APK / custom pack. They are generated locally from the dump and ship ONLY
+# in the EXTERNAL asset pack (scripts/package_hd_assets.sh -> <game>_hd_assets.zip, extracted to
+# <external root>/assets/fr3/enhanced/). This guard HARD-FAILS the pack build if any ND-derived HD
+# asset name ever leaks into the custom pack. Runs on BOTH the idempotent-skip path and the
+# freshly-written path (mirrors data_freshness_guard: a SKIP MUST BE ABLE TO FAIL). Two routes:
+#   (a) directory route — the enhanced level fr3 carry the SAME filenames as stock (GAME.fr3,
+#       village1.fr3), so the discriminator is the enhanced/ subdirectory, not the basename.
+#   (b) name route — the HD art-group / rip-source / retarget tokens (hd_models, hd_anim,
+#       jak-highres, highres, jak-hd).
+# grep -Em1 (no downstream pipe) + here-string: avoids the pipefail+grep-q SIGPIPE trap.
+nd_hd_exclusion_guard(){
+  local zip="$1"
+  [ -f "$zip" ] || fail "ND-HD guard: no zip at $zip"
+  local listing bad
+  listing="$(unzip -Z1 "$zip" 2>/dev/null || true)"
+  bad="$(grep -Em1 '(^|/)enhanced/' <<< "$listing" || true)"
+  [ -z "$bad" ] || fail "ND-HD LEAK: custom pack $zip carries an enhanced/ member ('$bad') — the ND-derived HD level fr3 must NOT ship in the APK (that would distribute Naughty Dog IP). It ships ONLY in the external pack (scripts/package_hd_assets.sh). Remove the enhanced staging from android/build_custom_pack.sh."
+  bad="$(grep -Eim1 'hd_models|hd_anim|jak-highres|highres|jak-hd' <<< "$listing" || true)"
+  [ -z "$bad" ] || fail "ND-HD LEAK: custom pack $zip carries an ND-derived HD asset ('$bad') — HD art is Naughty Dog IP and must ship only in the external pack, never the APK."
+  echo "[custom-pack] ND-HD exclusion guard OK: no Naughty-Dog-derived HD asset in $zip (HD ships EXTERNAL per the owner IP rule)"
 }
 
 # --- recover the flag marker + invert the hash to the flag SET ---
@@ -358,25 +391,12 @@ if [ -d "$ROOT/$RTEX_SRC" ]; then
   echo "[custom-pack] recharged textures: $n_rtex"
 fi
 
-# 3. enhanced HD fr3 — DERIVED, so delivery follows the same rule as the HUD PNGs above: if our
-# chain built them they ship, whether or not hd-models is on. The flag still gates the FEATURE at
-# runtime (the loader only looks under enhanced/ when the toggle is set), it no longer gates
-# DELIVERY. Gating delivery here would also hard-refuse guard (4), which asserts coverage of
-# out/<game>/fr3/enhanced/*.fr3 whenever that dir exists.
-ENH="$FR3_DIR/enhanced"
-if [ -d "$ENH" ]; then
-  mkdir -p "$STAGE/fr3/enhanced"
-  n_enh=0
-  while IFS= read -r ef; do
-    [ -n "$ef" ] || continue
-    base="$(basename "$ef")"
-    ln -s "$ROOT/$ef" "$STAGE/fr3/enhanced/$base"
-    MEMBERS+=("fr3/enhanced/$base")
-    n_enh=$((n_enh + 1))
-  done < <(find "$ENH" -maxdepth 1 -type f -name '*.fr3' 2>/dev/null | sort)
-  [ "$n_enh" -gt 0 ] || fail "$ENH exists but holds no *.fr3 — the base pack no longer carries the enhanced levels, so an empty set here means they ship NOWHERE. Rebuild via android/build_enhanced_models.sh or delete the dir."
-  echo "[custom-pack] enhanced HD fr3: $n_enh (delivery is flag-independent; hd-models still gates the runtime lookup)"
-fi
+# 3. enhanced HD fr3 — ARCHITECTURE IP (owner 2026-08-02): DELIBERATELY NOT STAGED HERE.
+# The enhanced levels embed HD character merc models derived from the user's Jak2/Jak3 dumps =
+# Naughty Dog IP. Putting them in the APK would distribute ND IP. They ship ONLY in the EXTERNAL
+# asset pack (scripts/package_hd_assets.sh -> <game>_hd_assets.zip), which the owner extracts to
+# <external root>/assets/fr3/enhanced/ — exactly where hd_fr3_path() (Loader.cpp) reads them. The
+# nd_hd_exclusion_guard() call further down PROVES none of them leaked into this pack.
 
 FILE_COUNT=${#MEMBERS[@]}
 
@@ -408,6 +428,7 @@ if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then
     # the zip matches what THIS script would stage, never that the staged data is a
     # current answer. Guard the skip too, or a stale pack sails straight into the APK.
     data_freshness_guard "$ZIP_REL"
+    nd_hd_exclusion_guard "$ZIP_REL"
     rm -rf "$STAGE"
     exit 0
   fi
@@ -421,7 +442,7 @@ if [ "$FILE_COUNT" -eq 0 ]; then
 else
   (
     cd "$STAGE"
-    # preserve zip paths (recharged_assets/, fr3/, fr3/enhanced/).
+    # preserve zip paths (recharged_assets/, fr3/, recharged_textures/, mesh_index/).
     # -n: store these suffixes without deflating. Now that the ~214 MB of stock .fr3 ride along,
     # deflate would burn minutes of CPU for nothing — measured, village1.fr3 gives back 1.4%
     # (11759452 -> 11592718), and .meshweld is already zstd'd, .png already deflated.
@@ -444,6 +465,8 @@ rm -rf "$STAGE"
 # Guard the freshly written zip too: staging from symlinks does not prove the
 # LINKED-TO bytes are a current bake, nor that the format still matches the code.
 data_freshness_guard "$ZIP_REL"
+# ARCHITECTURE IP: prove no Naughty-Dog-derived HD asset leaked into the APK custom pack.
+nd_hd_exclusion_guard "$ZIP_REL"
 
 echo "[custom-pack] done: $ZIP_REL"
 echo "[custom-pack]   files=$FILE_COUNT  raw=${RAW_BYTES}B  zip=${ZIP_BYTES}B  version=$VERSION  flags=$MARKER  fr3_levels=${n_fr3lev:-0}"

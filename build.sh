@@ -56,6 +56,29 @@ while [ $# -gt 0 ]; do
 done
 [ "$GAME" = "jak1" ] || die "only jak1 is wired for now (jak2/jak3 inherit this pipeline later)"
 
+# ---------------- ARCHITECTURE IP gate (owner 2026-08-02): HD models are ND IP ----------------
+# The HD character models derive from the user's Jak 2 / Jak 3 dumps = Naughty Dog IP. Per the
+# owner rule, --hd-models is POSSIBLE ONLY IF the corresponding donor dump is present. Without it
+# the HD feature is UNAVAILABLE and the build must be byte-identical to a non-HD (stock) build — so
+# we force the flag OFF *here*, BEFORE the canonical flag set is hashed. That makes the whole
+# pipeline (flag-set hash, CMake OG_FEAT_*, recharged-flags.gc, CGO cache key, packs) a genuine
+# stock build, not merely "HD compiled in but no assets". Per-game donor mapping (the ND rip source):
+#   jak1 HD chars (eichar/sidekick/sage/assistant = Jak/Daxter/Samos/Keira) are ripped from the
+#        Jak 2 dump (fr3_to_gltf on decompiler_out/jak2 <- iso_data/jak2) -> require iso_data/jak2.
+hd_donor_dump_for_game() { case "$1" in jak1) echo "iso_data/jak2";; *) echo "";; esac; }
+if [ $F_HDMODELS -eq 1 ]; then
+  HD_DONOR="$(hd_donor_dump_for_game "$GAME")"
+  if [ -n "$HD_DONOR" ] && \
+     [ -n "$(find "$HD_DONOR" -maxdepth 2 -type f ! -name '.gitignore' -print -quit 2>/dev/null)" ]; then
+    log "hd-models: donor dump '$HD_DONOR' present — HD (ND-derived) permitted for $GAME"
+  else
+    log "hd-models UNAVAILABLE: donor dump '${HD_DONOR:-<none for $GAME>}' absent — the HD models are"
+    log "  Naughty Dog IP derived from that dump; without it the feature cannot be built or shipped."
+    log "  Forcing --hd-models OFF; this build is byte-identical to a stock (non-HD) build."
+    F_HDMODELS=0
+  fi
+fi
+
 # Canonical (alphabetical) enabled-flag list -> flag-set hash.
 FLAG_LIST=()
 [ $F_DEBUG -eq 1 ]    && FLAG_LIST+=("debug")
@@ -297,17 +320,37 @@ build_android() {
   # non-character draw stays byte-identical to stock (integrity-gated inside the bake, which
   # is what kills the round-2 "tout violet" ground). --hd-models bakes it here; the flag also
   # gates the runtime enhanced/ lookup (hd_fr3_path in Loader.cpp).
+  #
+  # ARCHITECTURE IP (owner 2026-08-02): the enhanced fr3 embed ND-derived HD merc models. This block
+  # only runs when F_HDMODELS is still 1, which the dumps gate above guarantees means the donor dump
+  # is present. The output does NOT go into the APK: package_hd_assets.sh routes it to the EXTERNAL
+  # asset pack, and android/build_custom_pack.sh refuses to stage any enhanced/ member.
   if [ "$GAME" = "jak1" ] && [ $F_HDMODELS -eq 1 ]; then
-    log "== enhanced HD models: surgical merc-swap bake (flag hd-models ON) =="
+    log "== enhanced HD models: surgical merc-swap bake (flag hd-models ON, donor dump present) =="
     scripts/shell/build_enhanced_models.sh > .autoport/logs/build-enhanced-models.log 2>&1 \
       || { tail -40 .autoport/logs/build-enhanced-models.log >&2; die "enhanced HD model bake failed"; }
-    nrep=$(grep -c "Replacing " .autoport/logs/build-enhanced-models.log || true)
     nenh=$(ls out/${GAME}/fr3/enhanced/*.fr3 2>/dev/null | wc -l)
+    if [ "$nenh" -eq 0 ]; then
+      # build_enhanced_models.sh no-op'd. The dumps gate guarantees the donor dump is present, so the
+      # only remaining reason is the prepped HD art (recharged_assets/hd_models/*.glb) being absent.
+      # Refuse with an actionable message rather than shipping a flag with no ND assets behind it.
+      tail -5 .autoport/logs/build-enhanced-models.log >&2
+      die "hd-models ON and donor dump present, but NO enhanced fr3 were produced — the prepped HD art (recharged_assets/hd_models/*.glb) is missing. Regenerate it from the dump (scripts/shell/prep_hd_actor_glb.py + goalc build_actor) or drop --hd-models (stock)."
+    fi
+    nrep=$(grep -c "Replacing " .autoport/logs/build-enhanced-models.log || true)
     [ "$nrep" -ge 4 ] || die "enhanced bake: expected 4 'Replacing' swaps, got $nrep"
     grep -q "integrity gate PASS for GAME.fr3" .autoport/logs/build-enhanced-models.log \
       && grep -q "integrity gate PASS for village1.fr3" .autoport/logs/build-enhanced-models.log \
       || die "enhanced bake: integrity gate did not pass for both levels"
     log "enhanced HD fr3 baked: $nenh file(s), $nrep merc swaps, integrity gate PASS"
+
+    # ARCHITECTURE IP: route the ND-derived HD fr3 to the EXTERNAL asset pack (never the APK).
+    log "== external HD asset pack (ND-derived HD -> external storage, NOT the APK) =="
+    scripts/package_hd_assets.sh "$GAME" > .autoport/logs/build-hd-assets.log 2>&1 \
+      || { tail -20 .autoport/logs/build-hd-assets.log >&2; die "external HD asset pack build failed"; }
+    grep -q "HD-ASSETS done" .autoport/logs/build-hd-assets.log \
+      || { tail -20 .autoport/logs/build-hd-assets.log >&2; die "external HD asset pack not produced"; }
+    log "external HD asset pack ready: $(grep -m1 'HD-ASSETS done' .autoport/logs/build-hd-assets.log | sed 's/^\[hd-assets\] //')"
   fi
 
   if [ $BUILD_APK -eq 1 ]; then
