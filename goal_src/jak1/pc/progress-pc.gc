@@ -71,15 +71,62 @@
 (defconstant HOLO_TEXT_CX 132)  ;; frame horizontal center = HOLO_X + HOLO_W/2
 (defconstant HOLO_TEXT_X   22)  ;; text box left; box center = 22 + HOLO_TEXT_W/2 = 132 = frame center
 (defconstant HOLO_TEXT_W  220)  ;; text/wrap width inside the frame
-(defconstant HOLO_HINT_Y  188)  ;; hint line Y = HOLO_Y + HOLO_H - 20; leaves room for a 2-line hint fully
-                                ;; INSIDE the frame bottom (208) and on-screen (< 224). Derived from the
-                                ;; container geometry, NOT a magic origin-y that grows with the row count.
+(defconstant HOLO_HINT_Y  186)  ;; V4 hint CLAMP: HOLO_Y + HOLO_H - 22 = 186. Leaves 22px (two 0.5-scale
+                                ;; lines) fully INSIDE the frame bottom (208). The draw clamps to
+                                ;; (- (+ HOLO_Y HOLO_H) 8) so the hint can NEVER escape the holo frame.
+                                ;; Derived from container geometry, not a magic origin-y.
+(defconstant HOLO_HINT_W  200)  ;; V4: hint wrap width, inset 12px per side from HOLO_TEXT_W so the hint
+                                ;; text stays clear of the left/right holo border (centered on HOLO_TEXT_CX).
 (defconstant HOLO_SCALE  0.62)  ;; global text shrink so rows fit the half-width holo (owner-tunable)
-;; Grecharged-menu-overhaul V3 (owner 2026-08-02): sections are SPATIALLY separated, not inline colored
-;; rows. Options hang SECTION_INDENT px to the right of their section header, and a SECTION_GAP of blank
-;; vertical space sits ABOVE each header — so a group READS as a group, not an item in a flat list.
-(defconstant SECTION_INDENT 12)  ;; px the option rows are indented under their section header (holo only)
+;; Grecharged-menu-overhaul V4 (owner 3rd visual reject 2026-08-02): line spacing was TOO LARGE. The holo
+;; rows use HOLO_LINE_PITCH (tightened) instead of the caller's 30px pitch, so more rows fit and the block
+;; reads as one tight panel like Jak2's menu.
+(defconstant HOLO_LINE_PITCH 22) ;; V4: tightened row pitch on holo screens (was the caller's 30)
+;; Grecharged-menu-overhaul V3/V4: sections are SPATIALLY separated AND the whole text block is CENTERED
+;; in the frame. Both headers and options are centered on HOLO_TEXT_CX (132); option rows use a symmetric
+;; SECTION_INDENT inset (narrower centered band) so they read as indented UNDER their full-width header
+;; while staying centered. A SECTION_GAP of blank vertical space sits ABOVE each header.
+(defconstant SECTION_INDENT 12)  ;; px each option row is inset per side (narrower, still centered on 132)
 (defconstant SECTION_GAP    10)  ;; px of extra vertical space above each section header (holo only)
+
+;; Grecharged-menu-overhaul V4: the EXACT Jak2 holographic scanline gradient, copied verbatim from
+;; goal_src/jak2/engine/ui/hud.gc `*hud-sprite-work* scan-colors` (:207-240) — the 32-step dark->bright
+;; green-cyan phosphor ramp that gives Jak2's holo its look. x=R y=G z=B (alpha is applied per-frame).
+;; draw-menu-holo-frame! sweeps this ramp down the frame (jak2 `draw-scan-and-line` scanline += 6/frame).
+(define *menu-holo-scan-colors*
+  (new 'static 'inline-array vector4w 32
+    (new 'static 'vector4w :y 1 :z 1)
+    (new 'static 'vector4w :x 1 :y 2 :z 1)
+    (new 'static 'vector4w :x 1 :y 3 :z 2)
+    (new 'static 'vector4w :x 2 :y 6 :z 4)
+    (new 'static 'vector4w :x 2 :y 8 :z 6)
+    (new 'static 'vector4w :x 4 :y 12 :z 10)
+    (new 'static 'vector4w :x 4 :y 12 :z 10)
+    (new 'static 'vector4w :x 4 :y 12 :z 10)
+    (new 'static 'vector4w :x 6 :y 16 :z 14)
+    (new 'static 'vector4w :x 6 :y 16 :z 14)
+    (new 'static 'vector4w :x 6 :y 16 :z 14)
+    (new 'static 'vector4w :x 6 :y 16 :z 14)
+    (new 'static 'vector4w :x 10 :y 22 :z 20)
+    (new 'static 'vector4w :x 10 :y 22 :z 20)
+    (new 'static 'vector4w :x 10 :y 22 :z 20)
+    (new 'static 'vector4w :x 10 :y 22 :z 20)
+    (new 'static 'vector4w :x 12 :y 28 :z 26)
+    (new 'static 'vector4w :x 12 :y 28 :z 26)
+    (new 'static 'vector4w :x 12 :y 28 :z 26)
+    (new 'static 'vector4w :x 12 :y 28 :z 26)
+    (new 'static 'vector4w :x 18 :y 40 :z 34)
+    (new 'static 'vector4w :x 18 :y 40 :z 34)
+    (new 'static 'vector4w :x 18 :y 40 :z 34)
+    (new 'static 'vector4w :x 18 :y 40 :z 34)
+    (new 'static 'vector4w :x 26 :y 54 :z 42)
+    (new 'static 'vector4w :x 26 :y 54 :z 42)
+    (new 'static 'vector4w :x 26 :y 54 :z 42)
+    (new 'static 'vector4w :x 26 :y 54 :z 42)
+    (new 'static 'vector4w :x 34 :y 72 :z 48)
+    (new 'static 'vector4w :x 34 :y 72 :z 48)
+    (new 'static 'vector4w :x 44 :y 90 :z 56)
+    (new 'static 'vector4w :x 64 :y 126 :z 64)))
 
 ;; Per-frame render-thread counters (the objective proof the redesign renders; read via (menu-holo-stats)).
 (define *menu-holo-draw-count*        0)   ;; frames the holo frame was drawn
@@ -118,41 +165,59 @@
 ;; (progress-porthole-hidden?), so there is nothing left to define in this file.
 
 (defun draw-menu-holo-frame! ()
-  "Grecharged V3 (owner 2026-08-02): the bluish vertical hologram that CONTAINS the menu, now an ANIMATED
-   holo-comm panel ported from the Jak2 progress-menu scanline effect (goal_src/jak2/engine/ui/hud.gc
-   `draw-scan-and-line`: a scroll offset advanced +N/frame mod box-height, a per-frame alpha, additive
-   feel). What varies EVERY frame here (see (menu-holo-stats)): the SCANLINE scroll offset advances, and
-   the body/border/scanline ALPHA flickers (with an occasional harder glitch). Translucent cyan body lets
-   the frozen scene show through; a bright cyan RIM GLOW rings the edge. Left half, margins on every edge."
+  "Grecharged V4 (owner 3rd visual reject 2026-08-02): the menu hologram, now a FAITHFUL REPLICATION of
+   Jak2's holo-box rendering — NOT a hand-rolled re-approximation. Source recipe copied from
+   goal_src/jak2/engine/ui/hud.gc: `draw-scan-and-line` (:245) + the `scan-colors` gradient (:207-240) +
+   `draw-box-alpha-2` (:472, additive body). We reproduce Jak2's exact mechanism expressed in jak1's
+   native GS idiom (draw-sprite2d-xy uses the same (x+1792)*16 / (y+screen-miny)*16 mapping):
+     (1) translucent green-cyan BODY (alpha-over; the frozen scene shows through),
+     (2) an ADDITIVE blend (gs-alpha :b 2 :d 1 — the exact mode Jak2 draw-scan-and-line uses),
+     (3) faint white INTERLACE lines every 4px over the whole box (Jak2's `line` pass, alpha ~24),
+     (4) the SCROLLING GRADIENT SWEEP: 32 lines colored by the verbatim Jak2 scan-colors ramp
+         (dark->bright green-cyan), each at y = miny + mod(sweep + 2i, H); `sweep` advances +6/frame
+         (Jak2: `(mod (+ scanline 6) height)`) so the bright phosphor band scrolls down the frame,
+     (5) a bright cyan BORDER + rim glow,
+   then restore the sprite bucket's default alpha (:b 1 :d 1). (menu-holo-stats) publishes the animated
+   sweep offset + flicker so the report proves they change frame-to-frame (Jak2's effect is ANIMATED)."
   (let* ((fc (the int (-> *display* real-frame-counter)))
-         (scan (mod (* fc 2) 32))                     ;; scanline scroll — advances 2px/frame, wraps at 32
-         (fl (mod (* fc 733) 1000))                   ;; per-frame pseudo-random 0..999 (frame-driven jitter)
-         (glitch (< (mod fc 53) 2))                   ;; a harder flicker glitch now and then
-         (fa (if glitch 44 (+ 66 (/ fl 12))))         ;; body alpha ~#x2c..#x7f (JITTERS every frame)
-         (ba (if glitch 96 (+ 130 (/ fl 20)))))       ;; border alpha (JITTERS every frame)
-    ;; publish the animated values so the report/stats can PROVE they change frame-to-frame
-    (set! *menu-holo-scan-offset* scan)
-    (set! *menu-holo-flicker* fa)
+         ;; Jak2 draw-scan-and-line: scanline += 6 each frame, wrapped to the box height -> scrolling sweep
+         (sweep (mod (* fc 6) HOLO_H))
+         (fl (mod (* fc 733) 1000))                   ;; per-frame pseudo-random 0..999 (flicker jitter)
+         (glitch (< (mod fc 53) 2))                   ;; an occasional harder glitch dip
+         (inten (if glitch 130 (+ 200 (/ fl 20))))    ;; 0..255 per-frame intensity (Jak2 `arg1`, JITTERS)
+         (body-a (/ (* inten 90) 255))                ;; translucent body alpha, flicker-tied
+         (grid-a (/ (* inten 24) 255)))               ;; faint interlace alpha (Jak2 line-color a = 24*arg1)
+    ;; publish the animated values so the report/stats PROVE they change frame-to-frame
+    (set! *menu-holo-scan-offset* sweep)
+    (set! *menu-holo-flicker* inten)
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id sprite))
-      ;; translucent cyan/blue body (alpha flickers per frame; scene shows through)
-      (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W HOLO_H (menu-rgba-i #x10 #x3c #x6e fa))
-      ;; outer RIM GLOW — a soft brighter cyan halo just outside the border, alpha tied to the flicker
-      (let ((gc (menu-rgba-i #x3c #x9c #xe0 (/ ba 3))))
+      ;; (1) translucent green-cyan BODY (default alpha-over; the frozen scene shows through)
+      (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W HOLO_H (menu-rgba-i #x08 #x2a #x2c body-a))
+      ;; switch to Jak2's ADDITIVE holo blend (draw-scan-and-line / draw-box-alpha-2: gs-alpha :b 2 :d 1)
+      (dma-buffer-add-gs-set buf (alpha-1 (new 'static 'gs-alpha :b 2 :d 1)))
+      ;; (3) Jak2 `line` pass: faint white interlace lines every 4px over the whole box (alpha ~24*arg1)
+      (let ((gc (menu-rgba-i #x1c #x24 #x22 grid-a))
+            (yy HOLO_Y))
+        (while (< yy (+ HOLO_Y HOLO_H))
+          (draw-sprite2d-xy buf HOLO_X yy HOLO_W 1 gc)
+          (set! yy (+ yy 4))))
+      ;; (4) the SCROLLING GRADIENT SWEEP — Jak2 scan-colors ramp, band position advances every frame
+      (dotimes (i 32)
+        (let ((col (-> *menu-holo-scan-colors* i))
+              (ly  (+ HOLO_Y (mod (+ sweep (* i 2)) HOLO_H))))
+          (draw-sprite2d-xy buf HOLO_X ly HOLO_W 2
+                            (menu-rgba-i (-> col x) (-> col y) (-> col z) inten))))
+      ;; (5) bright cyan BORDER + rim glow (still additive)
+      (let ((bc (menu-rgba-i #x4c #xb4 #xff (/ (* inten 4) 5)))
+            (gc (menu-rgba-i #x2a #x70 #xa0 (/ inten 4))))
         (draw-sprite2d-xy buf (- HOLO_X 2) (- HOLO_Y 2) (+ HOLO_W 4) 3 gc)
         (draw-sprite2d-xy buf (- HOLO_X 2) (+ HOLO_Y HOLO_H -1) (+ HOLO_W 4) 3 gc)
-        (draw-sprite2d-xy buf (- HOLO_X 2) HOLO_Y 3 HOLO_H gc)
-        (draw-sprite2d-xy buf (+ HOLO_X HOLO_W -1) HOLO_Y 3 HOLO_H gc))
-      ;; bright cyan border (top / bottom / left / right — alpha flickers)
-      (let ((bc (menu-rgba-i #x4c #xb4 #xff ba)))
         (draw-sprite2d-xy buf HOLO_X HOLO_Y HOLO_W 2 bc)
         (draw-sprite2d-xy buf HOLO_X (+ HOLO_Y HOLO_H -2) HOLO_W 2 bc)
         (draw-sprite2d-xy buf HOLO_X HOLO_Y 2 HOLO_H bc)
         (draw-sprite2d-xy buf (+ HOLO_X HOLO_W -2) HOLO_Y 2 HOLO_H bc))
-      ;; SCROLLING horizontal scanlines — each line's Y is offset by `scan`, which advances every frame
-      (let ((sc (menu-rgba-i #x50 #xb0 #xf0 (+ 10 (/ fl 40)))))
-        (dotimes (i 12)
-          (let ((ly (+ HOLO_Y (mod (+ scan (* i 16)) HOLO_H))))
-            (draw-sprite2d-xy buf HOLO_X ly HOLO_W 1 sc))))))
+      ;; restore the sprite bucket's default alpha-over blend (jak1 default gs-alpha :b 1 :d 1)
+      (dma-buffer-add-gs-set buf (alpha-1 (new 'static 'gs-alpha :b 1 :d 1)))))
   (set! *menu-holo-draw-count* (+ *menu-holo-draw-count* 1))
   (none))
 
@@ -5189,6 +5254,9 @@
       ;; Gtouch-menus: start a fresh per-frame layout capture for touch hit-testing.
       (set! (-> *menu-touch* n-rows) 0)
       (set! (-> *menu-touch* screen) (-> obj display-state))
+      ;; V4 (owner: interlignes trop grands): tighten the row pitch on holo screens BEFORE y-off is
+      ;; computed, so the centering AND the per-row advance both use the tightened HOLO_LINE_PITCH.
+      (when (progress-holo-screen? (-> obj display-state)) (set! arg1 HOLO_LINE_PITCH))
       (let* ((line-amt (if (> (length options) PROGRESS_PC_PAGE_HEIGHT) (1- PROGRESS_PC_PAGE_HEIGHT) (length options)))
              (y-off (- arg0 (/ (* arg1 line-amt) 2)))
              (option-count 0)
@@ -5642,7 +5710,18 @@
                                  (font-color menu-invalid))
                                 ((and (= index (-> obj option-index)) (not (or (progress-scrolling?) (-> obj in-transition))))
                                  (font-color progress-selected))
-                                (else (font-color default))))
+                                ;; V4 (owner: font not integrated with holo): normal holo rows are tinted
+                                ;; CYAN so the text reads as PART of the holo projection (Jak2-style),
+                                ;; not a plain white overlay dropped on top of it.
+                                (else (if holo? (font-color cyan) (font-color default)))))
+                  ;; V4 (owner: text not centered): center every holo row on HOLO_TEXT_CX (132 = frame
+                  ;; center). The `middle` flag centers text within [origin.x, origin.x + width]; headers
+                  ;; use the full HOLO_TEXT_W, option rows a symmetric SECTION_INDENT inset (narrower
+                  ;; centered band = indented UNDER the header) — so BOTH end up centered on 132.
+                  (when holo?
+                    (set-width! font (if (= (-> options index option-type) (game-option-type group-header))
+                                       HOLO_TEXT_W
+                                       (- HOLO_TEXT_W (* 2 SECTION_INDENT)))))
                   (set! (-> font origin x) (the float (- option-x (-> obj left-x-offset))))
                   (set! (-> font origin y) (the float (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0)))))
                   ;; Grecharged-menu-overhaul V2: shrink text into the half-width holo (scl); group-header
@@ -5678,14 +5757,24 @@
             (let ((h (menu-resolve-hint (-> options foc))))
               (when (nonzero? h)
                 (let ((hint-y (if holo?
-                                HOLO_HINT_Y
+                                ;; V4 CLAMP (owner: hints escape the hologram): pin the hint Y so a 2-line
+                                ;; hint stays fully INSIDE the frame bottom (HOLO_Y + HOLO_H = 208) — it can
+                                ;; NEVER spill below the holo border.
+                                (min HOLO_HINT_Y (- (+ HOLO_Y HOLO_H) 8))
                                 (min 214 (+ arg0
                                             (/ (* arg1 (if (> (length options) PROGRESS_PC_PAGE_HEIGHT)
                                                          (+ PROGRESS_PC_PAGE_HEIGHT -1)
                                                          (length options))) 2)
                                             14)))))
-                  (set-color! font (font-color default))
-                  (set-origin! font (- opt-x0 (-> obj left-x-offset)) hint-y)
+                  ;; V4: inside the holo, the hint is CLAMPED to HOLO_HINT_W and centered on HOLO_TEXT_CX so
+                  ;; it stays clear of the left/right border, and tinted cyan (part of the projection).
+                  (when holo? (set-width! font HOLO_HINT_W))
+                  (set-color! font (if holo? (font-color cyan) (font-color default)))
+                  (set-origin! font
+                               (if holo?
+                                 (- (- HOLO_TEXT_CX (/ HOLO_HINT_W 2)) (-> obj left-x-offset))
+                                 (- opt-x0 (-> obj left-x-offset)))
+                               hint-y)
                   (set-scale! font (* 0.5 scl (-> obj transition-percentage-invert)))
                   (print-game-text (lookup-text! *common-text* h #f)
                                    font #f
