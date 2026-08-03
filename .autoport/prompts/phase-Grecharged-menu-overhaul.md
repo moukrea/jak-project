@@ -275,3 +275,20 @@ PREUVE DEVICE RENFORCÉE (obligatoire) : ne PAS s'arrêter au titre. Sur eae4df4
 START (ouvrir le menu) -> naviguer dans OPTIONS/GRAPHISMES -> l'app reste VIVANTE (pidof non vide),
 exit-info SANS reason=5/2 récent ET gk_crash.txt ABSENT/inchangé après. Colle la preuve (serial +
 séquence d'input + pidof après menu-ouvert + gk_crash.txt state). Un boot-au-titre NE SUFFIT PLUS.
+
+## ============================================================
+## PARKED 2026-08-03 (owner) — crash fixed, AESTHETIC still open, resume AFTER HD models
+## ============================================================
+Owner after the crash-fix delivery: "c'est bien mieux… utilisable et lisible… on y reviendra APRÈS
+les modèles HD." So the menu is PARKED (not done): the crash is gone, the 6-category structure + hints
++ readability are accepted, but the HOLOGRAM VISUAL is still WRONG. Owner's exact words:
+  - "on a toujours pas l'hologramme derrière le menu, mais un dégradé bizarre violacé qui prend TOUT
+    l'écran" — i.e. instead of the intended LEFT-HALF (≤50% width) bluish VERTICAL Jak2 hologram, the
+    background is a full-screen weird PURPLISH gradient.
+  - "toujours pas le drone qui projette" — the projecting comm-drone is still not visibly there (the
+    crash-fix made it spawn, but the owner does not SEE it projecting the holo).
+  - "toujours pas l'hologramme" — the Jak2 holo look itself is absent.
+STILL-OPEN on resume: (1) real bluish Jak2 vertical hologram confined to the LEFT HALF with margins,
+NOT a full-screen purple gradient; (2) the comm-drone VISIBLY present and projecting the holo (with the
+light beam); (3) the whole menu contained inside that holo (replicate Jak2's actual holo rendering from
+goal_src/jak2, do not re-approximate). Do NOT reopen until the owner returns to it post-HD.
