@@ -113,6 +113,13 @@
       (else
        ;; keep the process co-located with the driver for culling; bones are already world-space.
        (vector-copy! (-> self root trans) (-> *target* root trans))
+       ;; ROOT CAUSE of the M1 invisibility (all platforms, found 2026-08-03): initialize-skeleton
+       ;; sets (draw-status no-skeleton-update) and the ONLY stock clear site is ja-post — which this
+       ;; :post bypasses by calling do-joint-math! directly. dma-add-process-drawable early-returns on
+       ;; (hidden no-anim no-skeleton-update) BEFORE building any pc-merc packet, so Merc2 never saw
+       ;; the model. Sidekick escapes by copying *target*'s status wholesale (impossible here: the
+       ;; driver carries skip-bones). Clear it every frame so the gate can never re-latch.
+       (logclear! (-> self draw status) (draw-status no-skeleton-update))
        (do-joint-math! self)
        (vector<-cspace! (-> self draw origin) (-> self node-list data (-> self draw origin-joint-index)))
        ;; RELIABLE OBJECTIVE sanity dump (code-level, not eyeball): once things are valid, dump the
@@ -144,6 +151,9 @@
       (login ag)
       (set-loaded-art (-> *level* level-default art-group) ag)))
   (initialize-skeleton self *jak-hd-sg* '())
+  ;; initialize-skeleton leaves (draw-status no-skeleton-update) set; without ja-post (which this
+  ;; process never runs) it stays set forever and gates off ALL foreground DMA. Clear it from frame 1.
+  (logclear! (-> self draw status) (draw-status no-skeleton-update))
   ;; device-readable proof of the load (opengoal-gk logcat survives on the Redmi): jgeo-joints>0 == art loaded.
   (format 0 "[JAK-HD] spawned skel-bones=~D jgeo-joints=~D~%"
           (if (nonzero? (-> self draw skeleton)) (-> self draw skeleton length) -1)

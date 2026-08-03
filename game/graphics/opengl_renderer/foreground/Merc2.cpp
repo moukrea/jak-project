@@ -610,11 +610,12 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // Grecharged-hd-models3 DIAGNOSTIC: does the jak-hd companion actually SUBMIT its merc, and is the
   // appended jak-hd-lod0 geometry FOUND by name? (once, to avoid per-frame spam)
   if (strstr(name, "jak-hd")) {
-    static bool s_jakhd_logged = false;
-    if (!s_jakhd_logged) {
-      s_jakhd_logged = true;
-      lg::warn("[jak-hd-render] handle_pc_model SUBMITTED name='{}' found={}", name,
-               model_ref ? 1 : 0);
+    // repeat-with-throttle (was one-shot, which rolled off the Honor's ~1-minute logcat ring
+    // buffer before anyone could read it): first submission + one line every 600 after.
+    static u64 s_jakhd_submits = 0;
+    if (s_jakhd_submits++ % 600 == 0) {
+      lg::warn("[jak-hd-render] handle_pc_model SUBMITTED name='{}' found={} submits={}", name,
+               model_ref ? 1 : 0, s_jakhd_submits);
     }
   }
   if (!model_ref) {
