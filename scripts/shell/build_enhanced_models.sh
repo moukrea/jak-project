@@ -69,14 +69,21 @@ fi
 log "donor dump '$DONOR_DUMP' present — HD generation permitted (ND-derived assets ship EXTERNAL, never in the APK)"
 
 # ---------------------------------------------------------------------------
-# 1. GLB gate — absence is a VALID state (no-op success): jak1 builds stock.
+# 1. ANIM-RETARGET (2026-08-03): prep the HD Jak merc GLB (jak-hd-lod0) from the donor rip, the SAME
+#    75-joint prep as the jak-hd art-group (build_hd_jak_artgroup.sh) so the appended merc's bone
+#    weights index the companion's skelgroup skeleton. We APPEND this (below) instead of the old
+#    re-rig REPLACE of eichar/sidekick/sage/assistant — that REPLACE deformed the characters (the
+#    owner's "carnage"). Donor rip absent -> stock (no-op success).
 # ---------------------------------------------------------------------------
-for n in "${REPLACE_NAMES[@]}"; do
-  if [ ! -f "$STAGE_DIR/$n.glb" ]; then
-    log "staged HD GLB $STAGE_DIR/$n.glb absent — skipping enhanced HD bake (jak1 builds stock, toggle stays hidden)"
-    exit 0
-  fi
-done
+HD_DONOR_GLB="decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb"
+if [ ! -f "$HD_DONOR_GLB" ]; then
+  log "HD donor rip $HD_DONOR_GLB absent — skipping enhanced HD bake (jak1 builds stock, toggle hidden)"
+  exit 0
+fi
+JAKHD_TMP="$(mktemp -d)"; JAKHD_GLB="$JAKHD_TMP/jak-hd-lod0.glb"
+trap 'rm -rf "$JAKHD_TMP"' EXIT
+python3 scripts/shell/prep_hd_actor_glb.py --in "$HD_DONOR_GLB" --out "$JAKHD_GLB" >/dev/null 2>&1 \
+  || { log "prep of jak-hd-lod0.glb from the donor failed"; exit 1; }
 
 # ---------------------------------------------------------------------------
 # 2. Require the stock FR3 (read-only source of the swap).
@@ -109,37 +116,22 @@ mkdir -p "$ENHANCED_OUT"
 #    named merc model(s). replace_model emits the "Replacing <name> for <lvl>: …" line.
 # ---------------------------------------------------------------------------
 SWAP_LOG="$(mktemp)"
-log "surgical merc swap: GAME.fr3 (Jak=eichar-lod0, Daxter=sidekick-lod0)…"
-"$SWAP_BIN" swap "$FR3_DIR/GAME.fr3" "$ENHANCED_OUT/GAME.fr3" \
-  eichar-lod0="$STAGE_DIR/eichar-lod0.glb" \
-  sidekick-lod0="$STAGE_DIR/sidekick-lod0.glb" 2>&1 | tee -a "$SWAP_LOG"
-log "surgical merc swap: village1.fr3 (Samos=sage-lod0, Keira=assistant-lod0)…"
-"$SWAP_BIN" swap "$FR3_DIR/village1.fr3" "$ENHANCED_OUT/village1.fr3" \
-  sage-lod0="$STAGE_DIR/sage-lod0.glb" \
-  assistant-lod0="$STAGE_DIR/assistant-lod0.glb" 2>&1 | tee -a "$SWAP_LOG"
-
-# VERIFY all 4 swaps fired.
-MISSING=()
-for n in "${REPLACE_NAMES[@]}"; do
-  if ! grep -qE "Replacing ${n}( |:)" "$SWAP_LOG"; then
-    MISSING+=("$n")
-  fi
-done
-rm -f "$SWAP_LOG"
-if [ "${#MISSING[@]}" -ne 0 ]; then
-  log "swap verification FAILED — no 'Replacing …' line for: ${MISSING[*]}"
-  rm -rf "$ENHANCED_OUT"
-  exit 1
+log "anim-retarget: APPEND jak-hd-lod0 to GAME.fr3 (append-only, NO re-rig replace)…"
+"$SWAP_BIN" add "$FR3_DIR/GAME.fr3" "$JAKHD_GLB" "$ENHANCED_OUT/GAME.fr3" 2>&1 | tee -a "$SWAP_LOG"
+if ! grep -qE "APPENDED .*jak-hd-lod0" "$SWAP_LOG"; then
+  log "APPEND verification FAILED — no 'APPENDED … jak-hd-lod0' line."
+  rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
 fi
-log "all ${#REPLACE_NAMES[@]} HD swaps confirmed."
+rm -f "$SWAP_LOG"
+log "jak-hd-lod0 merc geometry appended to enhanced/GAME.fr3 (stock characters untouched)."
 
 # ---------------------------------------------------------------------------
 # 6. INTEGRITY GATE — every non-character draw in the enhanced fr3 MUST be byte-identical to
 #    stock (this is the anti-magenta guarantee). Refuse to ship on any divergence.
 # ---------------------------------------------------------------------------
-for f in GAME.fr3 village1.fr3; do
+for f in GAME.fr3; do
   if "$SWAP_BIN" diff "$FR3_DIR/$f" "$ENHANCED_OUT/$f" | grep -q "INTEGRITY PASS"; then
-    log "integrity gate PASS for $f (non-character draws byte-identical to stock)."
+    log "integrity gate PASS for $f (non-character draws byte-identical to stock; jak-hd-lod0 appended)."
   else
     log "INTEGRITY GATE FAILED for $f — non-character draws differ from stock. Refusing to ship."
     rm -rf "$ENHANCED_OUT"
