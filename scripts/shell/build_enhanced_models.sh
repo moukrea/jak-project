@@ -147,6 +147,13 @@ if [ -f "$FR3_DIR/village2.fr3" ]; then
   cp -p "$FR3_DIR/village2.fr3" "$ENHANCED_OUT/village2.fr3"
   log "stock-identical enhanced/village2.fr3 shipped (kills round-1 stale garbled overlay)"
 fi
+# village1.fr3 — ship a STOCK-identical copy so it OVERWRITES the OLD cursed re-rig enhanced/village1.fr3
+# left on the owner's device from a previous pack (Samos/Keira were still cursed because the new pack
+# didn't carry village1 and an extract-over-existing never removes it). Stock copy = normal Samos/Keira.
+if [ -f "$FR3_DIR/village1.fr3" ]; then
+  cp -p "$FR3_DIR/village1.fr3" "$ENHANCED_OUT/village1.fr3"
+  log "stock-identical enhanced/village1.fr3 shipped (OVERWRITES any old cursed re-rig village1 on device)"
+fi
 
 # ---------------------------------------------------------------------------
 # 8. Summary. The stock fr3 in out/jak1/fr3/ were never modified.

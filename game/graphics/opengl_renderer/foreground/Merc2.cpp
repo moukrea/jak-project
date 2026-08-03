@@ -607,6 +607,16 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // This will return a reference to this model's data, plus a reference to the level's data
   // for stuff shared between models of the same level
   auto model_ref = render_state->loader->get_merc_model(name);
+  // Grecharged-hd-models3 DIAGNOSTIC: does the jak-hd companion actually SUBMIT its merc, and is the
+  // appended jak-hd-lod0 geometry FOUND by name? (once, to avoid per-frame spam)
+  if (strstr(name, "jak-hd")) {
+    static bool s_jakhd_logged = false;
+    if (!s_jakhd_logged) {
+      s_jakhd_logged = true;
+      lg::warn("[jak-hd-render] handle_pc_model SUBMITTED name='{}' found={}", name,
+               model_ref ? 1 : 0);
+    }
+  }
   if (!model_ref) {
     // it can fail, if the game is faster than the loader. In this case, we just don't draw.
     stats->num_missing_models++;
