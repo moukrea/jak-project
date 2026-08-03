@@ -111,3 +111,67 @@ Les modèles HD dérivent des dumps Jak 2 / Jak 3 = PROPRIÉTÉ DE NAUGHTY DOG. 
 4. DISTINCTION CLAIRE : les assets "Recharged" (nos propres créations de remake, PAS l'IP de ND) vont
    dans le binaire / custom pack. Les assets dérivés de ND (HD) vont dans l'asset pack externe, gatés
    sur les dumps. Ne JAMAIS committer d'asset dérivé de ND (déjà .gitignore : recharged_assets/hd_*).
+
+## ============================================================
+## HANDOFF TO FRAMEWORK WORKER 2026-08-03 (supervisor did the M1 groundwork by hand; now YOURS)
+## ============================================================
+The companion is WRITTEN + COMMITTED and builds. What remains is making the HD Jak actually RENDER on
+device. STATE + hard-won findings (do NOT re-derive):
+
+COMMITTED (on the current branch): goal_src/jak1/pc/jak-hd.gc (the jak-hd companion: defskelgroup
+*jak-hd-sg* jak-hd 0 2, do-joint-math! override = stock then fill-jak-hd-bones!, spawn via
+maybe-spawn-jak-hd! from (update *pc-settings*), get-process *default-dead-pool* + activate(*target*) +
+run-now-in-process init-jak-hd), its DGO entries (game.gd+engine.gd), Loader.cpp load_common stages the
+external hd/jak-hd-ag.go into <jak_project_dir>/out/jak1/obj/, build_enhanced_models.sh now APPENDS
+jak-hd-lod0 to GAME.fr3 (append-only, NO re-rig REPLACE) + ships stock village1/village2 to overwrite
+stale cursed overlays, build.sh gate updated for the APPEND, Merc2.cpp has a one-shot [jak-hd-render]
+SUBMITTED name=... found=0/1 diagnostic log.
+
+VERIFIED WORKING:
+- companion spawns + loads its 76-bone/75-joint skeleton + is crash-free in-game (device, earlier builds).
+- geometry jak-hd-lod0 IS appended to GAME.fr3 and IS on the device (/sdcard/OpenGOAL/jak1/assets/fr3/
+  enhanced/GAME.fr3, 1448153 bytes). External→internal art-group copy PROVEN.
+- OWNER SAW A VISIBLE HD JAK ON DESKTOP (x86) — so the full pipeline WORKS on desktop; the bug is
+  DEVICE-SPECIFIC.
+
+OPEN BUGS (owner-reported, in priority order):
+1. **Jak (and Daxter) INVISIBLE in-game on device**, but VISIBLE on desktop. On the last Honor test
+   (build9, BKQ-N49 serial AREE026206000788) the companion did NOT even spawn (no [JAK-HD] log) although
+   *target* was valid in-game (GK-DIAG F1D showed a real world pos) — so the enhanced-models SETTING was
+   likely #f in-app despite settings.ini being #t (the app may rewrite/re-read it). FIRST: confirm the
+   companion actually spawns in the owner's real gameplay (check for [JAK-HD] spawned + [jak-hd-render]
+   SUBMITTED in the routed logcat — opengoal-gk lines DO survive on both devices). If it submits but
+   found=0 → merc name/index mismatch; if submits+found=1 but invisible → bones. Note Daxter invisibility
+   is a KNOWN side effect: sidekick copies *target*'s draw-status every frame, so the companion's
+   skip-bones on *target* propagates to Daxter — do NOT hide *target* until the HD Jak is confirmed
+   rendering, and when you do, clear skip-bones on (-> *target* sidekick 0) each frame.
+2. device bone-dump earlier showed the retarget SOURCE bones = (0,0,0) — but that was likely a
+   non-gameplay test state; desktop listener shows *target* draw skeleton bones VALID. Re-check in REAL
+   gameplay. draw skeleton bones ARE filled in do-joint-math! (post), and the companion is a child of
+   *target* so its post follows.
+3. matrix*! order in fill-jak-hd-bones! UNVALIDATED — if the HD Jak renders but is deformed, transpose
+   the two matrix*!.
+
+TOOLS BUILT (use/repair): .autoport/hd_x86_mercdiag.sh (desktop merc-submit probe — reads the
+[jak-hd-render] log), .autoport/hd_x86_render_inspect.sh (has a listener form bug), Merc2.cpp diagnostic.
+Desktop gk was rebuilt with OG_FEAT_HD_MODELS=ON (required or the HD C++ externs are unbound → crash).
+Devices: Honor BKQ-N49 = AREE026206000788 (currently plugged in), Redmi eae4df44 (unplugged). Owner's
+model-sourcing roadmap for Daxter/Samos/Keira is in memory [[project_hd_model_sourcing_roadmap]]. Owner
+is FURIOUS about repeated broken deliveries — DO NOT ship again until the HD Jak is VISIBLY rendering
+(the owner is the visual judge); verify the companion submits + the merc is found on device first.
+
+## DEFINITIVE LIVE CLUE 2026-08-03 (Honor, app running in-game, owner watching)
+The companion DOES spawn (routed logcat: `[R24CENSUS] excl jak-hd (-155.9720 33.8351 187.9818)`), but it
+sits at ~ORIGIN (-155,33,187) while *target* is at world (-638861,138588,769973) — ~150km away. So the HD
+mesh renders near origin, OFF-SCREEN from where Jak actually is → invisible + census-excluded. Root cause
+is POSITIONING/CULLING, not geometry or submission (both are in place). Likely one of: (a) the jak-hd-clone
+:post is not ticking, so (vector-copy! (-> self root trans) (-> *target* root trans)) + the origin update
+never run → the process is stuck at its init/origin transform; or (b) the retarget bones in
+fill-jak-hd-bones! are in LOCAL space, not the world space the merc/culling path expects (desktop showed
+*target* skeleton bones as WORLD coords ~(-5.3e6,...), so the READ path gives world — verify the WRITE/merc
+consumption). FIRST STEP for the worker: instrument the companion's root trans + draw origin + a filled
+bone's world pos in the :post (they should equal *target*'s ~(-638861,...)); if they're ~origin, the :post
+isn't running (fix the child-of-target activation / state) — if they're world but the mesh is still at
+origin, the merc bone-space is wrong. Owner: the setting IS #t, target IS valid in-game; do not blame the
+setting. The [jak-hd-render] merc log is ONE-SHOT (static bool) so it may have already fired+rolled off —
+make it repeat-with-throttle if you need a live read.
