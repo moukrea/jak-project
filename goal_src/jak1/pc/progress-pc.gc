@@ -148,7 +148,13 @@
 ;; the progress process and drawn through the HUD path (dma-add-process-drawable-hud, mask pause) exactly
 ;; like the menu's fuel-cell/money icon meshes (progress.gc:243-269 — the proven precedent for drawing a
 ;; real 3D skelgroup on the frozen pause frame). We hold it by HANDLE so a dead process is caught safely.
-(define *menu-drone-handle* (the-as handle 0))  ;; handle to the live speaker-mesh drone (0 = none)
+;; V4-CRASH FIX (owner 2026-08-03, SIGSEGV on menu-open): a null handle MUST be #f (its `process`
+;; field reads back as #f), NEVER (the-as handle 0). A 0-handle's process field is the integer 0,
+;; which is TRUTHY in GOAL — so handle->process (gkernel-h.gc:369, whose only guard is `(if (-> h
+;; process) ...)`) would NOT short-circuit, would return integer 0, and the very next `(-> 0 type)`
+;; in update-and-draw-menu-projector! (below) reads ee_base-4 => SIGSEGV (fault=0x7efffffffc). The
+;; canonical null handle here is #f (see ambient.gc:162 and manipy-init's own cur-*-handle inits).
+(define *menu-drone-handle* (the-as handle #f))  ;; handle to the live speaker-mesh drone (#f = none)
 
 (defun menu-rgba-i ((r int) (g int) (b int) (a int))
   "Build a runtime rgba from 0..255 components (statics can't take runtime alpha for the beam fade)."
@@ -267,7 +273,9 @@
       (set! *menu-projector-oy* (the float dsy))
       (set! *menu-projector-face* a)
       ;; --- (1) drive the REAL 3D `speaker` mesh to the orbiting HUD screen point (icon-mesh transform) ---
-      (when (and p (type-type? (-> p type) manipy))
+      ;; V4-CRASH FIX: guard against a truthy-0 process as well as #f (nullity is #f in GOAL, but a
+      ;; malformed 0 pointer is truthy) — never (-> p type) unless p is a genuine object.
+      (when (and p (nonzero? (the-as int p)) (type-type? (-> p type) manipy))
         (let ((mp    (the-as process-drawable p))
               (rel-x (-> *video-parms* relative-x-scale))
               (rel-y (-> *video-parms* relative-y-scale)))
@@ -5935,7 +5943,7 @@
              ;; V4: park the real drone mesh (scale 0 = invisible) on non-holo screens so it never shows on
              ;; the stat/notice pages; update-and-draw-menu-projector! restores its scale on holo frames.
              (let ((p (handle->process *menu-drone-handle*)))
-               (when (and p (type-type? (-> p type) manipy))
+               (when (and p (nonzero? (the-as int p)) (type-type? (-> p type) manipy))
                  (set-vector! (-> (the-as process-drawable p) root scale) 0.0 0.0 0.0 1.0))))))
         ;; draw the menus!!
         (let* ((a1-0 (-> self display-level-index))

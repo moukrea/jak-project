@@ -98,6 +98,13 @@ bool Generic2::handle_bucket_setup_dma(DmaFollower& dma, u32 next_bucket) {
 }
 
 void Generic2::reset_buffers() {
+  // Grecharged-menu-overhaul V4-CRASH diagnostic: log the generic-bucket high-water mark once each
+  // time it climbs past the old 800-bucket limit, so the menu comm-drone's real peak is measurable
+  // and provably bounded (< the num_adgif-sized pool). Fires rarely; harmless in normal play.
+  if (m_next_free_bucket > 800 && m_next_free_bucket > m_max_buckets_seen) {
+    fmt::print("[Generic2] bucket high-water {} (pool={}, adgifs={})\n", m_next_free_bucket,
+               (u32)m_buckets.size(), m_next_free_adgif);
+  }
   m_max_frags_seen = std::max(m_next_free_frag, m_max_frags_seen);
   m_max_verts_seen = std::max(m_next_free_vert, m_max_verts_seen);
   m_max_adgifs_seen = std::max(m_next_free_adgif, m_max_adgifs_seen);

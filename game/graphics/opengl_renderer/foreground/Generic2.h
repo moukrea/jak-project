@@ -8,7 +8,14 @@ class Generic2 {
            u32 num_verts = 500000,
            u32 num_frags = 10000,
            u32 num_adgif = 10000,
-           u32 num_buckets = 800);
+           // Grecharged-menu-overhaul V4-CRASH (2026-08-03): buckets were 800, which OVERFLOWED
+           // (Generic2_Build.cpp draws_to_buckets ASSERT bucket_idx < m_buckets.size(), OOB write in
+           // release => SIGSEGV) the instant the menu's real-3D comm-drone (a `speaker` merc mesh)
+           // drew through the HUD path — each HUD adgif takes its OWN bucket. Since a bucket is only
+           // ever created from an adgif, m_next_free_bucket <= m_next_free_adgif <= num_adgif ALWAYS;
+           // sizing the bucket pool == the adgif pool makes the overflow STRUCTURALLY IMPOSSIBLE
+           // (a Bucket is ~40B, so this is ~360KB more, trivial; normal frames use <800 unchanged).
+           u32 num_buckets = 10000);
   ~Generic2();
 
   enum class Mode { NORMAL, LIGHTNING, WARP, PRIM };
