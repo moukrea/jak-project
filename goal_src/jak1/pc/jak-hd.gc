@@ -132,6 +132,13 @@
        ;; the model. Sidekick escapes by copying *target*'s status wholesale (impossible here: the
        ;; driver carries skip-bones). Clear it every frame so the gate can never re-latch.
        (logclear! (-> self draw status) (draw-status no-skeleton-update))
+       ;; Daxter restore (handoff-known side effect): sidekick's :post copies *target*'s draw
+       ;; status wholesale each frame, so the driver's skip-bones swallowed Daxter. The sidekick
+       ;; (spawned before this companion) posts first, so clearing here lands after its copy and
+       ;; before the draw phase — Daxter rides the VISIBLE HD Jak while the driver stays hidden.
+       (let ((sk (-> *target* sidekick)))
+         (when (and sk (nonzero? (-> sk 0 draw)))
+           (logclear! (-> sk 0 draw status) (draw-status skip-bones))))
        (do-joint-math! self)
        (vector<-cspace! (-> self draw origin) (-> self node-list data (-> self draw origin-joint-index)))
        ;; RELIABLE OBJECTIVE sanity dump (code-level, not eyeball): once things are valid, dump the
