@@ -7,8 +7,10 @@
 ;; DRIVER: it plays jak1's animations and owns the hardcoded joint-node attach refs. We keep the HD
 ;; model's OWN 75-joint skeleton + authored weights, load it as *jak-hd-sg*, and run a COMPANION
 ;; process `jak-hd` that, every frame AFTER the driver, fills the HD skeleton's world bone matrices
-;; from the driver's animated bones via a name-mapped retarget, then hides the driver's low-poly mesh
-;; (skip-bones, so the driver keeps animating). The stock skinning path then skins the HD mesh.
+;; from the driver's animated bones via a name-mapped retarget. The stock skinning path then skins
+;; the HD mesh. The driver's own low-poly draw is suppressed RENDERER-side (Merc2 drops eichar-lod0
+;; while this companion submits) — never via skip-bones on *target*, which the sidekick's :post
+;; copies wholesale and which therefore swallowed Daxter (builds 10-12).
 ;;
 ;; RETARGET MATH — proven offline to machine precision (retarget_fill_table.py PROOF A err 8.9e-16).
 ;; For HD joint k mapped to driver joint e = (-> *jak-hd->eichar-joint* k), in COLUMN convention:
@@ -108,9 +110,9 @@
   (fill-jak-hd-bones! obj)
   (none))
 
-;; restore the driver's mesh when the companion goes away (toggle off / player death / level change).
+;; the driver's mesh needs NO restore: it is never hidden GOAL-side anymore. Merc2 suppresses the
+;; stock eichar-lod0 draw while the companion submits (TTL), and drains by itself when we despawn.
 (defmethod deactivate ((obj jak-hd))
-  (when *target* (send-event *target* 'draw #t))
   (set! *jak-hd-process* (the (pointer jak-hd) #f))
   ((method-of-type process-drawable deactivate) obj)
   (none))
@@ -132,13 +134,6 @@
        ;; the model. Sidekick escapes by copying *target*'s status wholesale (impossible here: the
        ;; driver carries skip-bones). Clear it every frame so the gate can never re-latch.
        (logclear! (-> self draw status) (draw-status no-skeleton-update))
-       ;; Daxter restore (handoff-known side effect): sidekick's :post copies *target*'s draw
-       ;; status wholesale each frame, so the driver's skip-bones swallowed Daxter. The sidekick
-       ;; (spawned before this companion) posts first, so clearing here lands after its copy and
-       ;; before the draw phase — Daxter rides the VISIBLE HD Jak while the driver stays hidden.
-       (let ((sk (-> *target* sidekick)))
-         (when (and sk (nonzero? (-> sk 0 draw)))
-           (logclear! (-> sk 0 draw status) (draw-status skip-bones))))
        (do-joint-math! self)
        (vector<-cspace! (-> self draw origin) (-> self node-list data (-> self draw origin-joint-index)))
        ;; RELIABLE OBJECTIVE sanity dump (code-level, not eyeball): once things are valid, dump the
@@ -178,8 +173,10 @@
           (if (nonzero? (-> self draw skeleton)) (-> self draw skeleton length) -1)
           (if (nonzero? (-> self draw jgeo)) (-> self draw jgeo length) -1))
   (set! (-> self draw origin-joint-index) (the-as uint 3))
-  ;; hide the driver's low-poly mesh but KEEP it animating: skip-bones (bit 5), never hidden (bit 1).
-  (when *target* (send-event *target* 'draw #f))
+  ;; do NOT touch the driver's draw status: skip-bones on *target* propagated to the sidekick (its
+  ;; :post copies the driver's status wholesale, and posts AFTER this newer child — LIFO order),
+  ;; which swallowed Daxter (builds 10-12). The stock eichar-lod0 draw is suppressed renderer-side
+  ;; in Merc2 while this companion submits; *target* stays 100% stock (Daxter + shadow intact).
   (go jak-hd-clone)
   (none))
 
