@@ -337,12 +337,14 @@ build_android() {
       tail -5 .autoport/logs/build-enhanced-models.log >&2
       die "hd-models ON and donor dump present, but NO enhanced fr3 were produced — the prepped HD art (recharged_assets/hd_models/*.glb) is missing. Regenerate it from the dump (scripts/shell/prep_hd_actor_glb.py + goalc build_actor) or drop --hd-models (stock)."
     fi
-    nrep=$(grep -c "Replacing " .autoport/logs/build-enhanced-models.log || true)
-    [ "$nrep" -ge 4 ] || die "enhanced bake: expected 4 'Replacing' swaps, got $nrep"
+    # anim-retarget (2026-08-03): the bake now APPENDS jak-hd-lod0 (append-only) instead of the old
+    # re-rig REPLACE of 4 characters (that REPLACE deformed them = the owner's "carnage"). Verify the
+    # append fired + integrity of GAME.fr3 only (village1 no longer touched -> Samos/Keira stay stock).
+    grep -q "APPENDED .*jak-hd-lod0" .autoport/logs/build-enhanced-models.log \
+      || die "enhanced bake: expected an 'APPENDED … jak-hd-lod0' line, got none"
     grep -q "integrity gate PASS for GAME.fr3" .autoport/logs/build-enhanced-models.log \
-      && grep -q "integrity gate PASS for village1.fr3" .autoport/logs/build-enhanced-models.log \
-      || die "enhanced bake: integrity gate did not pass for both levels"
-    log "enhanced HD fr3 baked: $nenh file(s), $nrep merc swaps, integrity gate PASS"
+      || die "enhanced bake: integrity gate did not pass for GAME.fr3"
+    log "enhanced HD fr3 baked: $nenh file(s), jak-hd-lod0 appended, integrity gate PASS"
 
     # ARCHITECTURE IP: route the ND-derived HD fr3 to the EXTERNAL asset pack (never the APK).
     log "== external HD asset pack (ND-derived HD -> external storage, NOT the APK) =="
