@@ -175,3 +175,30 @@ isn't running (fix the child-of-target activation / state) — if they're world 
 origin, the merc bone-space is wrong. Owner: the setting IS #t, target IS valid in-game; do not blame the
 setting. The [jak-hd-render] merc log is ONE-SHOT (static bool) so it may have already fired+rolled off —
 make it repeat-with-throttle if you need a live read.
+
+## ============================================================
+## OWNER REQUIREMENT 2026-08-03 (late): the chosen model must apply EVERYWHERE — incl. the ND-logo screen
+## ============================================================
+Owner: "pourquoi ça utilise pas le modèle HD au logo de Naughty Dog ?! Ça devrait utiliser le modèle
+choisi (la version HD de Jak) PARTOUT ! Si ça se trouve c'est une partie de ton problème."
+
+He is right on the design: the OLD replace-based approach swapped eichar-lod0's geometry in the fr3, so
+the HD Jak appeared EVERYWHERE eichar is drawn (ND-logo intro, title, gameplay, cutscenes) — but it was
+re-rigged = cursed. The current companion only shadows *target* (the playable Jak), so every OTHER
+process that draws eichar (the ND-logo intro actors, cutscene actors, title) stays STOCK. That is a
+DESIGN GAP to close, not a nice-to-have:
+
+1. REQUIREMENT: when the enhanced-models toggle is ON, the HD model must cover EVERY instance of the
+   character on screen — ND-logo intro, title screen, in-game, cutscenes. "Le modèle choisi partout."
+2. INVESTIGATE (may also explain the in-game invisibility — same class of question, "which process
+   draws Jak where"): enumerate the processes that draw eichar-lod0 (the ND-logo/title intro actor(s),
+   *target*, cutscene actors). For each, decide the mechanism: per-process companion (generalize
+   jak-hd.gc beyond *target*), or a smarter unified path. NOTE the constraint that killed the old
+   approach: a merc model is skinned by the bone palette of the process that draws it, so geometry
+   swapped INTO eichar's slot must be weighted on eichar's skeleton (= re-rig, deforms). The companion
+   exists precisely to keep the HD skeleton. If you find a way to REPLACE eichar-lod0 with the HD
+   geometry re-INDEXED via the proven k->e table (weights kept, joints remapped, bind-delta baked) that
+   does NOT deform, that would give "everywhere" for free — evaluate honestly, do not re-create the
+   carnage. Otherwise: companions for the logo/cutscene processes too.
+3. The logo screen showing STOCK Jak+Daxter right now is the append-only fix working as designed (the
+   cursed enhanced eichar replace is gone) — expected, but per the requirement above it must become HD.
