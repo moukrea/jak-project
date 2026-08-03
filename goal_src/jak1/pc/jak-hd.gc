@@ -11,8 +11,12 @@
 ;; (skip-bones, so the driver keeps animating). The stock skinning path then skins the HD mesh.
 ;;
 ;; RETARGET MATH — proven offline to machine precision (retarget_fill_table.py PROOF A err 8.9e-16).
-;; For HD joint k mapped to driver joint e = (-> *jak-hd->eichar-joint* k):
+;; For HD joint k mapped to driver joint e = (-> *jak-hd->eichar-joint* k), in COLUMN convention:
 ;;     bones_hd[k].transform = M_anim(e) . IBM_driver(e) . inverse(IBM_hd[k])
+;; STORAGE ORDER WARNING: the engine is ROW-VECTOR ((matrix*! d a b) = a.b, a applied FIRST; the
+;; palette asm computes v . IBM_hd . bones_hd) — so as STORED row products this must be built as
+;;     bones_hd[k] = inverse(IBM_hd[k]) . IBM_driver(e) . M_anim(e)     <- fill-jak-hd-bones!
+;; Building it in the column order verbatim produces the build10 exploded-spikes carnage.
 ;; where M_anim(e)   = (-> *target* draw skeleton bones (+ e 1) transform)   ; driver animated world
 ;;       IBM_driver  = (-> *target* draw jgeo    data   e     bind-pose)      ; driver inverse bind
 ;;       IBM_hd[k]   = (-> self     draw jgeo    data   k     bind-pose)      ; HD inverse bind
@@ -80,14 +84,22 @@
             (when (< (+ k 1) nbones)
               ;; HD forward bind for joint k (reused for both the mapped product and the rest pose)
               (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
-              (let ((e (-> *jak-hd->eichar-joint* k)))
-                (if (or (= e #xff) (>= (+ e 1) tbones))
-                    ;; unmapped (or driver lacks this joint) -> rest at the HD forward bind
-                    (matrix-copy! (-> skel bones (+ k 1) transform) hbind)
-                    ;; mapped -> M_anim(e) . IBM_driver(e) . inverse(IBM_hd[k])
-                    (begin
-                      (matrix*! tmp (-> tgt-skel bones (+ e 1) transform) (-> tgt-jgeo data e bind-pose))
-                      (matrix*! (-> skel bones (+ k 1) transform) tmp hbind)))))))))))
+              ;; CONVENTION (validated against new-bones-mtx-calc-asm + matrix*!, 2026-08-04): the
+              ;; engine is row-vector — the skin palette computes v . IBM_hd . bones_hd with
+              ;; (matrix*! dst a b) = a.b, a applied FIRST. We need IBM_hd . bones_hd == IBM_e . W_e
+              ;; (driver skinning of the shared model space), hence, as STORED row products:
+              ;;     bones_hd[k] = Bind_hd[k] . IBM_e . W_anim(e)
+              ;; The previous code computed the exact REVERSE (W.IBM_e.Bind_hd) — near-identity at
+              ;; joints whose bind poses match (the bone-4 dump equality) and an exploded mesh
+              ;; everywhere else (build10 'stretched prisms' capture).
+              (let ((e (the int (-> *jak-hd->eichar-joint* k))))
+                ;; unmapped (#xff) or beyond the driver's joint count -> follow the driver's root
+                ;; joint (align, e=0) instead of resting at the MODEL-SPACE forward bind: a
+                ;; model-space matrix in a world-space bone slot anchors those parts at world
+                ;; origin -> the build10 'giant blade spike to off-screen'.
+                (when (or (= e #xff) (>= (+ e 1) tbones)) (set! e 0))
+                (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
+                (matrix*! (-> skel bones (+ k 1) transform) tmp (-> tgt-skel bones (+ e 1) transform))))))))))
 
 ;; do-joint-math! override: run the stock path (housekeeping + HD idle anim + bounds/origin), then
 ;; overwrite the bones with the retargeted transforms so draw-bones skins the HD mesh to follow eichar.
