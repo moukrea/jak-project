@@ -56,7 +56,7 @@
   :sort 1)
 
 (deftype jak-hd (process-drawable)
-  ((dbg-logged symbol))   ;; one-shot bone-sanity log guard
+  ((dbg-frames int32))   ;; frame counter for the reliable bone-sanity dump
   (:states jak-hd-clone))
 
 ;; live handle so the PC per-frame hook spawns exactly one companion.
@@ -115,15 +115,20 @@
        (vector-copy! (-> self root trans) (-> *target* root trans))
        (do-joint-math! self)
        (vector<-cspace! (-> self draw origin) (-> self node-list data (-> self draw origin-joint-index)))
-       ;; one-shot OBJECTIVE sanity dump (code-level, not eyeball): retargeted HD bone world-pos vs the
-       ;; eichar bone it tracks. Finite + co-located (same ballpark) == retarget math/order sane.
-       (when (not (-> self dbg-logged))
-         (set! (-> self dbg-logged) #t)
-         (let ((hs (-> self draw skeleton)) (ts (-> *target* draw skeleton)))
-           (when (and (nonzero? hs) (nonzero? ts))
-             (let ((h4 (-> hs bones 4 transform vector 3)) (e4 (-> ts bones 4 transform vector 3)))
-               (format 0 "[JAK-HD] bone3 hd=(~f ~f ~f) ei=(~f ~f ~f)~%"
-                       (-> h4 x) (-> h4 y) (-> h4 z) (-> e4 x) (-> e4 y) (-> e4 z))))))))))
+       ;; RELIABLE OBJECTIVE sanity dump (code-level, not eyeball): once things are valid, dump the
+       ;; retargeted HD bone world-pos vs the eichar bone it tracks, at frames 60 & 150. Finite +
+       ;; co-located == bones sane (invisible => draw/submission issue); exploded/NaN/huge == matrix order.
+       (when (and (< (-> self dbg-frames) 200)
+                  (nonzero? (-> self draw skeleton)) (nonzero? (-> *target* draw skeleton)))
+         (+! (-> self dbg-frames) 1)
+         (when (or (= (-> self dbg-frames) 60) (= (-> self dbg-frames) 150))
+           (format 0 "[JAK-HD] bone3 hd=(~f ~f ~f) ei=(~f ~f ~f)~%"
+                   (-> self draw skeleton bones 4 transform vector 3 x)
+                   (-> self draw skeleton bones 4 transform vector 3 y)
+                   (-> self draw skeleton bones 4 transform vector 3 z)
+                   (-> *target* draw skeleton bones 4 transform vector 3 x)
+                   (-> *target* draw skeleton bones 4 transform vector 3 y)
+                   (-> *target* draw skeleton bones 4 transform vector 3 z))))))))
 
 (defbehavior init-jak-hd jak-hd ()
   (set! (-> self root) (new 'process 'trsqv))
