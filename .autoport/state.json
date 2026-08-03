@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 225,
+  "current_phase_idx": 227,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -219,7 +219,8 @@
     "Grecharged-mesh-consolidation": 2,
     "Grecharged-loader-packfix": 2,
     "Grecharged-mesh-browser": 16,
-    "Grecharged-menu-overhaul": 1
+    "Grecharged-menu-overhaul": 1,
+    "Grecharged-hd-models3": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -887,7 +888,7 @@
     "Grecharged-grass-overhang5": 1784010979.895357,
     "Grecharged-hd-models2": 1784024024.5067194,
     "Grecharged-grass-overhang6": 1784032762.9751992,
-    "Grecharged-hd-models3": 1784042496.502384,
+    "Grecharged-hd-models3": 1785791384.267447,
     "Grecharged-foliage-wind2": 1784043787.4506938,
     "Grecharged-grass-overhang7": 1784047763.064689,
     "Grecharged-ambient-occlusion": 1784102746.871413,
@@ -906,7 +907,7 @@
     "Grecharged-mesh-consolidation": 1784930060.5837617,
     "Grecharged-menu-overhaul": 1785736866.6427572
   },
-  "last_update": "2026-08-03T08:14:40.908196+00:00",
+  "last_update": "2026-08-03T21:10:39.860188+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
