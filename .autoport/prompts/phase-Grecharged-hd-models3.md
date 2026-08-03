@@ -245,3 +245,14 @@ Owner note: "c'est peut-être pas représentatif de l'état actuel" — re-test 
 build before burning it down; some may already be fixed by the matrix/status work. Priorities: (7)
 gameplay regression + (6) cutscene ghost first (they make the toggle unshippable), then (1) eyes,
 (2) gap, (5) NPC flicker, (4) face, (3) clipping.
+
+### Owner refinement on defect #2 (gap bandeau/cheveux), 2026-08-04:
+"P'têtre c'est juste les cheveux qui sont mis TROP HAUT, et en fait pas d'élément manquant" (owner
+speculating). So TWO hypotheses to discriminate, cheap test first:
+  (a) HAIR OFFSET: the hair verts are skinned to a joint whose retarget lands too high (bad k->e entry
+      for a hair/head joint, or an unmapped 0xff joint resting at HD bind while the head is animated) →
+      the whole hair shell sits above the head, opening a gap. CHECK: dump which joints the hair verts
+      weight to (donor GLB JOINTS_0 on the hair prim) and their k->e entries; a rest-pose (toggle just
+      ON, idle) screencap vs the donor render would show the hair riding high even at rest.
+  (b) MISSING DRAW: a dropped draw/effect as previously suspected (compare draw counts vs donor).
+  Discriminate (a) vs (b) before fixing either.
