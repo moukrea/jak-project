@@ -2303,6 +2303,31 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-hd-models4
+  name: 'HD MODELS M2 — remplacements PRINCIPAUX Daxter/Keira/Samos (owner 2026-08-03, roadmap exacte
+    dans prompts/phase-Grecharged-hd-models4.md): Daxter = cinématique JAK 3 SANS pantalon (look identique
+    entre les 3 jeux, vérifié par l''owner, ne pas re-vérifier); Keira = cinématique de la TOUTE PREMIÈRE
+    cutscene de Jak 2 (avant le passage sandales->bottines); Samos = cinématique Jak 3 (look inchangé,
+    modèle le plus détaillé). Même mécanisme anim-retarget que M1-Jak (companion + append merc + table k->e
+    par personnage). NE DÉMARRE PAS avant que Grecharged-hd-models3 (Jak M1) soit owner-accepté: même
+    pipeline, les fixes de M1 s''appliquent à M2.'
+  prompt: prompts/phase-Grecharged-hd-models4.md
+  validator: validators/phase-Grecharged-hd-models3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-hd-models5
+  name: 'HD MODELS M3 — customisations BONUS (owner 2026-08-03): looks alternatifs en OPTION (menu),
+    toujours des modèles de CINÉMATIQUES, même mécanisme de backport: Keira Jak2-bottines + Keira Jak3
+    (bottines + visage remodelé); Daxter avec pantalon (fin Jak 3); Young Samos (Jak 2); Jak version Jak 2
+    et Jak version Jak 3. Roadmap détaillée: memory project_hd_model_sourcing_roadmap + prompt M2.'
+  prompt: prompts/phase-Grecharged-hd-models5.md
+  validator: validators/phase-Grecharged-hd-models3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-foliage-wind2
   name: 'ROUND 2 (owner: ''aucune feuille qui bouge, nada'' — supervisor-reproduced: +9% palm motion = invisible, some trees
     have ZERO wind draws): make the breeze VISIBLE — full coverage census, amplitude tuning (visible-but-natural), acceptance
