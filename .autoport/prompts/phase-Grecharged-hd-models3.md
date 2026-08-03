@@ -202,3 +202,46 @@ DESIGN GAP to close, not a nice-to-have:
    carnage. Otherwise: companions for the logo/cutscene processes too.
 3. The logo screen showing STOCK Jak+Daxter right now is the append-only fix working as designed (the
    cursed enhanced eichar replace is gone) — expected, but per the requirement above it must become HD.
+
+## ============================================================
+## OWNER PLAY-TEST FEEDBACK 2026-08-04 ~01:45 (Honor, build currently installed — MAJOR: HD Jak now
+## VISIBLE + animating; what follows is the defect list to burn down. May predate your latest build.)
+## ============================================================
+1. **Yeux blancs, sans pupilles.** Likely the EYE texture path: jak1 eyes are drawn via the eye
+   renderer into a dynamic texture the merc references (Merc2 eye slot = 0xefffff00|eye_id — see the
+   hd_merc_swap brick3 eye_id plumbing). The appended jak-hd-lod0 probably lost/never got its eye_id
+   binding, so the eye draws sample a blank page.
+2. **Gap TRANSPARENT très visible entre le bandeau des lunettes et les cheveux** — "un truc qui n'est
+   pas là qui devrait" (not a small seam; a missing piece). Compare draw/effect count of jak-hd-lod0 vs
+   the donor rip (24 draws?): a draw may be dropped (alpha/envmap effect skipped in prep or add), or
+   its verts weighted to a joint outside the k->e map resting elsewhere.
+3. **Clipping vêtements avec les anims** : les parties BLEUES clippent avec le vêtement BLANC en
+   dessous (jambes), et le col clippe avec la lanière. Skinning/retarget precision — plausibly the
+   near-rest-pose delta between HD bind and eichar bind on multi-weighted verts; check whether the
+   retarget uses the full proven formula per joint (bind_hd, not approximations) and whether unmapped
+   in-between joints (0xff) resting cause the underlay to poke through.
+4. **Visage complètement INANIMÉ en cinématique.** jak1 facial animation = BLERC (blend-shape merc)
+   + eye movement. The companion neither runs blerc nor mirrors the driver's blerc state (sidekick
+   sets (janim-status blerc-done) and copies from parent). The HD donor mesh has its own blerc targets
+   (jak2 cutscene model) — investigate driving them from the driver's face channels, or at minimum
+   document the limitation honestly if jak1<->jak2 face rigs don't map.
+5. **PNJs en cinématique qui disparaissent/réapparaissent/redisparaissent.** Suspect the Merc2
+   driver-hide TTL suppression (d4fddfd245) being too broad (name match hitting other actors?) or the
+   extra companion overflowing a per-frame pool (bones/buckets/adgifs) so LATER actors drop
+   non-deterministically. Check Merc2 stats (num_missing_models, bone/bucket high-water) during a
+   cutscene.
+6. **Cinématiques où Jak ne devrait PAS être visible : un Jak HD statique "freeze" visible.** The
+   companion must MIRROR the driver's visibility state: when the cutscene hides/despawns *target*'s
+   draw (draw-status hidden, process-mask movie state, or target off-screen), the companion keeps
+   drawing its last pose. Mirror the driver's hidden/movie status each frame (the sidekick copies
+   (-> *target* draw status) wholesale for exactly this reason — mask only what must differ).
+7. **Long jump (R1/R2 + saut) CASSÉ — "comme si quelque chose annulait l'animation".** A GAMEPLAY
+   regression, highest severity with #6: something the companion/driver-hide does feeds back into
+   target's anim/state machine. Suspects: the per-frame sidekick skip-bones clear or any writes to
+   (-> *target* draw status) racing target-post; the Merc2 TTL suppression keying on a state the
+   long-jump anim toggles; or the companion's child-of-target post interfering with joint-mod/IK.
+   Bisect: toggle OFF => long jump must work; then isolate which mechanism breaks it.
+Owner note: "c'est peut-être pas représentatif de l'état actuel" — re-test each item on YOUR latest
+build before burning it down; some may already be fixed by the matrix/status work. Priorities: (7)
+gameplay regression + (6) cutscene ghost first (they make the toggle unshippable), then (1) eyes,
+(2) gap, (5) NPC flicker, (4) face, (3) clipping.
