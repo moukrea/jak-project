@@ -219,7 +219,7 @@
     "Grecharged-mesh-consolidation": 2,
     "Grecharged-loader-packfix": 2,
     "Grecharged-mesh-browser": 16,
-    "Grecharged-menu-overhaul": 1
+    "Grecharged-menu-overhaul": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -481,6 +481,16 @@
       "e7a196010286",
       "02e9a3f9feb5",
       "02e9a3f9feb5"
+    ],
+    "Grecharged-menu-overhaul": [
+      "da1016e207b0",
+      "c2d31134c1f5",
+      "da1016e207b0",
+      "05da9b79a4bb",
+      "da1016e207b0",
+      "d1ef9040af2c",
+      "d1ef9040af2c",
+      "aebb01557178"
     ]
   },
   "stuck_reasons": {
@@ -904,9 +914,9 @@
     "Grecharged-naming": 1784780438.2196877,
     "Grecharged-pbr-realtime-fusion": 1784783149.315742,
     "Grecharged-mesh-consolidation": 1784930060.5837617,
-    "Grecharged-menu-overhaul": 1785736866.6427572
+    "Grecharged-menu-overhaul": 1785577513.3868392
   },
-  "last_update": "2026-08-03T08:14:40.908196+00:00",
+  "last_update": "2026-08-02T23:00:44.799951+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

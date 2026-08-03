@@ -255,3 +255,23 @@ DÉFAUTS PRÉCIS de l'owner (chacun à corriger, preuve code) :
 Mesure visuelle in-game interdite (compteurs code) ; l'owner juge l'esthétique. Preuve device (boot
 propre eae4df44) toujours exigée. Si le rendu manque encore, c'est que tu n'as pas RÉPLIQUÉ Jak2 —
 retourne lire le rendu de menu jak2 et copie-le.
+
+## ============================================================
+## V4-CRASH (supervisor 2026-08-03) : SIGSEGV À L'OUVERTURE DU MENU (device)
+## ============================================================
+L'owner : "ça crash dès que j'appuie sur Start sur l'écran titre" (Honor ET Redmi). Le boot atteint
+le TITRE mais OUVRIR le menu plante. gk_crash.txt : sig=0xb (SIGSEGV), si_code=1 (SEGV_MAPERR),
+fault=0x7efffffffc = ee_base-4, pc_goal_off=0x200935c, libgk_off=0 (crash côté GOAL, pas libgk).
+=> déréférencement d'un POINTEUR NÉGATIF/NUL (index -1, tableau hors-bornes, ou pointeur non initialisé)
+dans le code MENU V4 (probablement draw-menu-holo-frame! / le rendu holo répliqué de Jak2, ou une
+ressource Jak2 absente en jak1 qu'on déréférence sans garde). fault=ee_base-4 = un `(-> obj -1 ...)`
+ou un objet nul lu comme pointeur.
+
+FIX : trouve l'accès fautif (mappe l'offset GOAL 0x200935c ; suspecte le nouveau code holo V4 et tout
+sprite/texture/tpage/font Jak2 référencé qui n'existe pas dans le pool jak1 -> garde le déréf). Toute
+ressource Jak2 empruntée doit exister en jak1 OU être gardée (pas de déréf si absente).
+
+PREUVE DEVICE RENFORCÉE (obligatoire) : ne PAS s'arrêter au titre. Sur eae4df44 : boot -> APPUYER SUR
+START (ouvrir le menu) -> naviguer dans OPTIONS/GRAPHISMES -> l'app reste VIVANTE (pidof non vide),
+exit-info SANS reason=5/2 récent ET gk_crash.txt ABSENT/inchangé après. Colle la preuve (serial +
+séquence d'input + pidof après menu-ouvert + gk_crash.txt state). Un boot-au-titre NE SUFFIT PLUS.

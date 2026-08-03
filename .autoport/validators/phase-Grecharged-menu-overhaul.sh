@@ -104,5 +104,8 @@ grep -qiE '(drone|ship|projector)[^.]{0,70}(visible|on-?screen|a l.?ecran|frustu
 grep -qiE 'eae4df44' "$R" || fail "V3-CRASH: no DEVICE boot proof (report must show a real boot on Redmi eae4df44, not a desktop smoke)"
 grep -qiE '(exit-info|pid)[^.]{0,80}(alive|vivant|no.*crash|pas.*crash|reason ?!?= ?5|no reason.?5|clean)' "$R" \
   || fail "V3-CRASH: report must prove the device boot is crash-free (exit-info no reason=5 + pid alive at t+150s on eae4df44)"
+grep -qiE '(press|appu|inject|cpad).{0,40}start' "$R" || fail "V4-CRASH: device proof must PRESS START to OPEN the menu, not just boot to title (SIGSEGV ee_base-4 was on menu-open)"
+grep -qiE '(menu|options|graphism)[^.]{0,70}(open|ouvert|navig|alive|vivant|no.?crash|pas.*crash|survi)' "$R" || fail "V4-CRASH: no proof the MENU actually OPENS without crashing on device"
+grep -qiE 'gk_crash' "$R" || fail "V4-CRASH: report must show files/gk_crash.txt state AFTER opening the menu (absent/unchanged = no new SIGSEGV)"
 grep -qiE 'capture (sweep|campaign)|pixel (statistics|fraction)' "$R" && fail "in-game visual measurement detected — banned"
 echo "[Gmenus PASS]"
