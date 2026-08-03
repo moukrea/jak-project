@@ -31,6 +31,10 @@
 ;; entry point (defined later in pc/mesh-browser-pc.gc). Resolved by symbol at runtime.
 (define-extern mesh-browser-update (function none))
 
+;; Grecharged-hd-models3: forward decl so (update *pc-settings*) can drive the HD anim-retarget
+;; companion's per-frame spawn/despawn (defined later in pc/jak-hd.gc). PC->PC only.
+(#when FLAG_HD_MODELS (define-extern maybe-spawn-jak-hd! (function none)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; updates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -477,6 +481,8 @@
   ;; its own HUD into the same always-live debug bucket. Defined in pc/mesh-browser-pc.gc (compiled
   ;; later), so it is called through the symbol — forward-declared just above this file's methods.
   (mesh-browser-update)
+  ;; Grecharged-hd-models3: spawn/despawn the HD character companion (gated on the setting + player).
+  (#when FLAG_HD_MODELS (maybe-spawn-jak-hd!))
   (none))
 
 (defmethod update-cheats ((obj pc-settings))

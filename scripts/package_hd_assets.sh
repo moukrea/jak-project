@@ -80,13 +80,19 @@ while IFS= read -r -d '' f; do
   printf 'fr3/enhanced/%s\t%s\n' "$base" "$ROOT/$f" >> "$INDEX"
 done < <(find "$ENH_DIR" -maxdepth 1 -type f -name '*.fr3' -print0 | sort -z)
 
+# Grecharged-hd-models3: also carry the anim-retarget HD art-group (ND-derived, external-only).
+# Entry hd/jak-hd-ag.go extracts to <gameRoot>/assets/hd/jak-hd-ag.go, which Loader.cpp copies at boot
+# into <jak_project_dir>/out/jak1/obj/ (where GOAL loado resolves it). Never in the APK/binary.
+HD_AG="recharged_assets/hd_anim/jak-hd-ag.go"
+[ -f "$ROOT/$HD_AG" ] && printf 'hd/%s\t%s\n' "jak-hd-ag.go" "$ROOT/$HD_AG" >> "$INDEX"
+
 FILE_COUNT=$(wc -l < "$INDEX" | tr -d ' ')
 [ "$FILE_COUNT" -gt 0 ] || fail "$ENH_DIR holds no *.fr3 — nothing to package. Re-run the enhanced HD bake."
 
 # --- HD-ONLY GUARD: every entry MUST be an enhanced fr3, nothing else ----------
 # This pack carries ND-derived HD ONLY. Anything else here would be a routing mistake.
-BAD_ENTRY="$(cut -f1 "$INDEX" | grep -vE '^fr3/enhanced/[^/]+\.fr3$' | head -1 || true)"
-[ -z "$BAD_ENTRY" ] || fail "NON-HD ENTRY '$BAD_ENTRY' in the HD pack index — this archive carries fr3/enhanced/*.fr3 ONLY."
+BAD_ENTRY="$(cut -f1 "$INDEX" | grep -vE '^(fr3/enhanced/[^/]+\.fr3|hd/[^/]+\.go)$' | head -1 || true)"
+[ -z "$BAD_ENTRY" ] || fail "NON-HD ENTRY '$BAD_ENTRY' in the HD pack index — this archive carries fr3/enhanced/*.fr3 + hd/*.go (ND-derived HD) ONLY."
 
 ZIP_ABS="$OUT_ABS/${GAME}_hd_assets.zip"
 MANIFEST_TXT="$OUT_ABS/${GAME}_hd_assets.manifest.txt"

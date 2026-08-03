@@ -291,6 +291,7 @@
   "progress.o"
   "progress-pc.o" ;; added
   "mesh-browser-pc.o" ;; added
+  "jak-hd.o" ;; added (Grecharged-hd-models3 companion)
   "credits.o"
   "projectiles.o"
   "ocean.o"

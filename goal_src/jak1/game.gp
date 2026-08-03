@@ -2118,6 +2118,8 @@
 (goal-src "pc/hud-classes-pc.gc" "pckernel" "hud" "battlecontroller" "generic-obs")
 ;; Grecharged-mesh-browser: the debug mesh browser overlay (warp/frame/observe any level's meshes).
 (goal-src "pc/mesh-browser-pc.gc" "pckernel" "progress-pc" "camera" "cam-states-dbg" "time-of-day" "game-info" "sky-h")
+;; Grecharged-hd-models3: HD character ANIMATION-RETARGET companion (gated on FLAG_HD_MODELS).
+(goal-src "pc/jak-hd.gc" "pckernel" "pckernel-common" "progress-pc" "target" "sidekick" "bones" "loader")
 (goal-src "pc/debug/anim-tester-x.gc" "pckernel" "gstring" "joint" "process-drawable" "art-h" "effect-control")
 (goal-src "pc/debug/entity-debug.gc" "debug" "main-h" "entity" "pckernel" "font")
 (goal-src "pc/debug/default-menu-pc.gc" "anim-tester-x" "part-tester" "entity-debug")
