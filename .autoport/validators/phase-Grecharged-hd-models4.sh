@@ -97,11 +97,13 @@ done
 [ -n "$DEV" ] || fail "no proof device connected"
 bash .autoport/lib/deploy_verify.sh "$DEV" jak1 >/dev/null 2>&1 || fail "deploy_verify FAIL ($DEV)"
 grep -qiE 'crash|exit-info' "$R" || fail "no crash-free/exit-info evidence line"
-# fresh captures only (>= 4: at least one per character), newer than the phase restart
-FRAMES=0
-while IFS= read -r f; do
-  [ "$PSTART" -gt 0 ] && [ "$(stat -c %Y "$f")" -le "$PSTART" ] && continue
-  FRAMES=$((FRAMES+1))
-done < <(find .autoport/reports/Grecharged-hd-models4 -type f \( -name '*.png' -o -name '*.mp4' \) 2>/dev/null)
-[ "$FRAMES" -ge 4 ] || fail "need FRESH capture evidence (>=4 newer than phase restart, found $FRAMES)"
+# OWNER RULE 2026-08-04 ("pour toujours"): captures are NEVER a validation instrument — illustration
+# for the owner only. Visibility/regression evidence must be RENDERER-SIDE COUNTERS / state dumps
+# (greppable, reproducible). The NPC-disappearance proof = per-actor merc-submit counters over the
+# FULL cutscene showing ZERO long dropout windows (an in-scene actor's submits never fall to 0 for
+# >N frames without a legitimate hidden state).
+grep -qiE '(submit|draw).{0,80}(counter|per.?frame|per.?actor)|counter.{0,60}(submit|draw)' "$R" \
+  || fail "no renderer-side counter evidence (per-actor submit counters required; captures don't count)"
+grep -qiE '(0|zero|no) *(dropout|disappear|gap|blackout).{0,30}window|window.{0,30}(=|: ?)(0|zero|none)' "$R" \
+  || fail "no zero-disappearance-window statement over the full cutscene (counter-based)"
 echo "[Ghdmodels4 PASS]"
