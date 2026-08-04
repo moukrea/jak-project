@@ -387,7 +387,15 @@ static size_t gen_dummy_frag_geo(DataObjectGenerator& gen) {
       0x154c4c,   0x71c00064, 0x71d28186, 0x254f4f,   0x435e0000, 0x71d27f86, 0x250707,
       0x435e8000, 0x43658186, 0x150d0d,   0x43408024, 0x0,        0x0,        0x0,
       0xcb01005a, 0xcb00fffa, 0xcb01005a, 0x2101e01,  0x0,        0x0,        0x306,
-      0x4030000,  0x120,      0x0,        0x1cf02c14, 0x66c801d,  0x0,        0x0,
+      // 4th word below was 0x1cf02c14 = the money-lod2 adgif texture-id (page=0x1cf idx=0x2c).
+      // The page bits are zeroed so link-texture-by-id's (zero? page) guard SKIPS linking this
+      // shader: a custom actor's shell is never visibly drawn (Merc2 resolves the fr3 model by
+      // name), but a shell whose art-group persists on the GLOBAL heap (HD companions load via
+      // loado, not a level heap) re-links this adgif into *texture-page-dir* entry 0x1cf on every
+      // spawn-time login — and a login landing inside a level teardown walks the entry's dangling
+      // 'loading-level link array into unmapped memory (SIGSEGV in link-texture-by-id; intro
+      // ottsel-transformation crash, x86 core + device gk_crash both at this site).
+      0x4030000,  0x120,      0x0,        0x00002c14, 0x66c801d,  0x0,        0x0,
       0x34,       0x0,        0x0,        0x0,        0x8,        0x0,        0x44,
       0x80,       0x42,       0x0,
   };
