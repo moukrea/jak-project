@@ -27,8 +27,12 @@ L1R1 = (0.9125, 0.1075)
 SOUTH = (0.86, 0.8085)
 
 
-def rep(out, t0, variant):
+def rep(out, t0, variant, backward=False):
     fwd = FWD_HALF if variant == "half" else FWD_FULL
+    if backward:
+        # alternate run direction so Jak shuttles over the same runway stretch
+        # instead of drifting off the geyser ledge rep after rep
+        fwd = (fwd[0], STICK[1] + (STICK[1] - fwd[1]))
     e = out.append
     e((t0 + 0, "down", 0, *STICK))
     e((t0 + 50, "move", 0, STICK[0], (STICK[1] + fwd[1]) / 2))
@@ -61,7 +65,7 @@ def main():
     variant = sys.argv[3] if len(sys.argv) > 3 else "owner"
     evs = []
     for i in range(reps):
-        rep(evs, i * 4200, variant)
+        rep(evs, i * 4200, variant, backward=(i % 2 == 1))
     evs.sort(key=lambda x: x[0])
     with open(outp, "w") as f:
         f.write(f"# gtlj gesture variant={variant} reps={reps}\n")

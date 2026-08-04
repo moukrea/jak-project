@@ -308,6 +308,25 @@
 (define *jak-hd-tgt-log-count* 0)
 
 ;; ------------------------------------------------------------------------------------------------
+;; Gtouch-longjump-regression instrument (2026-08-04): the wheel-vs-duck race is decided on the
+;; SINGLE frame where L1/R1 lands as a fresh press edge in target-walk :trans (target.gc:392-399 —
+;; if the wheel branch loses that one frame, target-duck-walk takes over and has no wheel escape).
+;; On every such edge frame, dump EVERY input of the race in one line: the state it fired in,
+;; stick0-speed (wheel needs != 0), the can-wheel? gates (status bits onsurf/twall, touch-angle,
+;; unknown-float61 < 0.7), the can-duck? gate (unknown-float60 >= 0.7), prevent-duck, and the
+;; wheel-timeout arm (elapsed since unknown-dword30 vs the bank value).
+;; ------------------------------------------------------------------------------------------------
+(define *jak-hd-wheel-log-count* 0)
+
+;; Per-frame telemetry while a wheel episode runs (target-wheel entry + 120 frames): the flip
+;; decision at roll-anim end needs (a) the X press latched within wheel-jump-pre-window of the end
+;; OR X down that frame, and (b) can-jump? 'target-wheel-flip = (>= 0.5 unknown-float61). Log per
+;; frame: game time, state, X abs/rel bits, float61 (flip gate), float63 (smack early-exit gate).
+(define *jak-hd-wheelf-log-count* 0)
+(define *jak-hd-wheelf-until* (the-as time-frame 0))
+(define *jak-hd-wheelf-last-st* (the symbol #f))
+
+;; ------------------------------------------------------------------------------------------------
 ;; per-frame scan (PC->PC only, called from (update *pc-settings*)). Walks the active process tree:
 ;; collects live companions and driver candidates (stock process-drawables whose merc name is in the
 ;; replacement table), then reconciles with the enhanced-models toggle. Two-phase (collect THEN
@@ -343,6 +362,42 @@
         (set! *jak-hd-tgt-last-state* st)
         (+! *jak-hd-tgt-log-count* 1)
         (format 0 "[JAK-HD-TGT] st=~S~%" st))))
+  ;; Gtouch-longjump-regression: one-line race dump on every fresh L1/R1 press edge.
+  (when (and *target* (< *jak-hd-wheel-log-count* 60))
+    (let ((pad-idx (-> *target* control unknown-cpad-info00 number)))
+      (when (logtest? (-> *cpad-list* cpads pad-idx button0-rel 0) (pad-buttons l1 r1))
+        (+! *jak-hd-wheel-log-count* 1)
+        ;; GOAL calls cap at 8 params (dest + fmt + 6 args) — split the record over two lines.
+        (format 0 "[JAK-HD-WHEEL] st=~S spd=~f lx=~D ly=~D status=~X fl61=~f~%"
+                (if (-> *target* state) (-> *target* state name) (the symbol #f))
+                (-> *cpad-list* cpads pad-idx stick0-speed)
+                (-> *cpad-list* cpads pad-idx leftx)
+                (-> *cpad-list* cpads pad-idx lefty)
+                (the-as int (-> *target* control status))
+                (-> *target* control unknown-float61))
+        (format 0 "[JAK-HD-WHEEL2] fl60=~f tang=~f sang=~f pduck=~A dt30=~D wt=~D~%"
+                (-> *target* control unknown-float60)
+                (-> *target* control touch-angle)
+                (-> *target* control surface-angle)
+                (logtest? (-> *target* state-flags) (state-flags prevent-duck))
+                (the-as int (- (get-current-time) (-> *target* control unknown-dword30)))
+                (the-as int (-> *TARGET-bank* wheel-timeout))))))
+  ;; Gtouch-longjump-regression: per-frame wheel-episode telemetry (entry + 120 frames).
+  (when (and *target* (< *jak-hd-wheelf-log-count* 500))
+    (let ((st (if (-> *target* state) (-> *target* state name) (the symbol #f)))
+          (pad-idx (-> *target* control unknown-cpad-info00 number)))
+      (when (and (= st 'target-wheel) (!= *jak-hd-wheelf-last-st* 'target-wheel))
+        (set! *jak-hd-wheelf-until* (the-as time-frame (+ (get-current-time) 120))))
+      (set! *jak-hd-wheelf-last-st* st)
+      (when (< (get-current-time) *jak-hd-wheelf-until*)
+        (+! *jak-hd-wheelf-log-count* 1)
+        (format 0 "[JAK-HD-WHEELF] t=~D st=~S x=~D xr=~D f61=~f f63=~f~%"
+                (the-as int (get-current-time))
+                st
+                (if (logtest? (-> *cpad-list* cpads pad-idx button0-abs 0) (pad-buttons x)) 1 0)
+                (if (logtest? (-> *cpad-list* cpads pad-idx button0-rel 0) (pad-buttons x)) 1 0)
+                (-> *target* control unknown-float61)
+                (-> *target* control unknown-float63)))))
   ;; phase 1: collect.
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)
