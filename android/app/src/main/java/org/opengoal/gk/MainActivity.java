@@ -54,6 +54,7 @@ public class MainActivity extends SDLActivity {
     private static final int GAMEPAD_POLL_MS = 1000;
 
     private TouchOverlayView mTouchOverlay;
+    private TouchReplayPlayer mTouchReplay;
     private Handler mGamepadPollHandler;
     private int mLastGamepadCount = -1;
     // Ginput-replay-realinput (autoport): true when the input record/replay
@@ -343,6 +344,14 @@ public class MainActivity extends SDLActivity {
             mTouchOverlay.setPersistentVisible(true);
         }
 
+        // Gtouch-longjump-regression (autoport): synthetic multi-touch gesture
+        // replay — inert unless /storage/emulated/0/OpenGOAL/touch_replay.txt
+        // appears (consumed on pickup). adb-side injection cannot produce
+        // overlapping pointers on this device (input = single-pointer,
+        // sendevent = SELinux-denied), and the long-jump repro needs three.
+        mTouchReplay = new TouchReplayPlayer(mTouchOverlay);
+        mTouchReplay.startWatching();
+
         // Poll the SDL-managed open gamepad count on the UI thread. SDL
         // emits SDL_EVENT_GAMEPAD_ADDED off the SDL main thread; rather
         // than plumb a JNI callback we read the count directly and react
@@ -457,6 +466,10 @@ public class MainActivity extends SDLActivity {
         if (mGamepadPollHandler != null) {
             mGamepadPollHandler.removeCallbacksAndMessages(null);
             mGamepadPollHandler = null;
+        }
+        if (mTouchReplay != null) {
+            mTouchReplay.stopWatching();
+            mTouchReplay = null;
         }
         // Gjak2-polish: drop the orphaned mDiagExportHandler cleanup — commit c662bd806
         // ("remove leftover DIAG2 exporter") deleted the field + its init but left this
