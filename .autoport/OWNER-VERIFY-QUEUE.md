@@ -144,3 +144,12 @@ confirmé structurel — l'eye-remap sert les pupilles JAK 1 ; le port des iris 
    par défaut, ancien menu fonctionnel restauré — displacement de retour). 2. Grecharged-secondary-motion
    (après M5) : jiggle Keira, barbe Samos, vêtements/lanières/cheveux de Jak en vraie physique,
    cheveux longs (Keira/Samos/Jak/Gol), Maia+archéologue en étude de faisabilité.
+
+### PRÉ-GATE 01:30 [✅ token cycle-3] — crash intro FIXÉ + disparitions PNJ re-corrigées (compteurs)
+- Crash ottsel : root-causé (spawn pendant un teardown de niveau) + prouvé : intro COMPLÈTE 9,5 min
+  jusqu'au gameplay, zéro crash. PNJ : suppression fail-open => blackout structurellement impossible
+  (device 169k appels, 0 blackout/0 gap). deploy_verify PASS.
+- À TESTER (toi) : ① l'intro complète (la cinématique qui crashait) ; ② cinématiques village (plus
+  de disparitions) ; ③ re-vérifier Daxter (trous/tête), gap Jak, clipping, barbe, doigts ;
+  ④ pupilles/blink : voir rapport worker (peut rester en cours — pas re-testé si inchangé).
+- Phase suivante : Gmenu-flag-off (l'ancien menu fonctionnel restauré dans les builds).
