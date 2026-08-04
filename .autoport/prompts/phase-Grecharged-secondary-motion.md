@@ -13,8 +13,9 @@ corps, comme ç'aurait été fait à l'époque si la PS2 l'avait permis. Subtili
 3. **Jak (HD)** : vraie physique sur les vêtements — col, partie bleue au-dessus du pantalon blanc,
    toutes les lanières de cuir qui pendent, cheveux. (Remplace/complète « l'illusion de physique »
    actuelle des vêtements.)
-4. **Cheveux longs, tous personnages concernés** : Keira, Samos, Jak, le méchant (Gol) — à discuter
-   par personnage (l'owner tranchera sur pièce).
+4. **Cheveux longs, tous personnages concernés** : Keira, Samos, Jak, le méchant (Gol) — FERME,
+   pas de discussion par personnage (owner 2026-08-04 : « c'était juste une façon de dire — non,
+   on le fait puis c'est tout ! »).
 5. **Maia + l'archéologue** (designs attractifs assumés) : PAS de modèle HD aujourd'hui → évaluer la
    faisabilité honnêtement : leurs squelettes stock n'ont probablement pas d'os de chaîne au bon
    endroit ; options = injection d'os + transfert de poids sur le modèle stock (même mécanique que le
@@ -29,7 +30,14 @@ corps, comme ç'aurait été fait à l'époque si la PS2 l'avait permis. Subtili
   par la sim, pas par le driver).
 - Paramètres par chaîne (raideur, amortissement, masse, limites) dans un fichier de données, pas en
   dur — pour itérer vite au verdict de l'owner.
-- Gate : FLAG dédié ou sous le toggle enhanced-models ; comme toujours, assets ND = pack externe.
+- **GATING (owner, obligatoire)** : feature flag de build dédié `--physics` (FLAG_PHYSICS, généré
+  par build.sh comme les autres, fan-out flag-universe complet) **ET** exposition menu :
+  (a) **toggle ON/OFF complet** dans les menus (désactivation totale possible in-game) ;
+  (b) **sélecteur de PRÉCISION à plusieurs degrés** (la sim — bounce/masse/raideur — taxe les
+  perfs : plusieurs niveaux définissables pour que les systèmes modestes en bénéficient aussi ;
+  « faut pas que ce soit complètement insane ») — ex. pas de sim/substeps/nombre de chaînes actives
+  par niveau. Persistance via *pc-settings* comme les autres réglages. Comme toujours, assets ND =
+  pack externe.
 
 ## RÈGLES
 - PRÉREQUIS : hd-models4 (cycle défauts) accepté par l'owner ; barbe de Samos réparée avant sa physique.
