@@ -41,6 +41,8 @@ fi
 python3 .autoport/gtlj_gen_touch_gesture.py "$GESTURE" "$REPS" "$VARIANT" | tee -a "$LOG"
 
 cleanup(){
+  $ADB -s "$S" shell setprop debug.opengoal.dump.pos 0 >/dev/null 2>&1 || true
+  kill "${POSP:-0}" 2>/dev/null || true
   $ADB -s "$S" shell setprop debug.opengoal.pad_replay '""' >/dev/null 2>&1 || true
   $ADB -s "$S" shell setprop debug.opengoal.pad_replay_realtime '""' >/dev/null 2>&1 || true
   $ADB -s "$S" shell setprop debug.opengoal.f1.warp 0 >/dev/null 2>&1 || true
@@ -57,6 +59,7 @@ $ADB -s "$S" shell run-as $PKG rm -f files/pad_demo.inputs >/dev/null 2>&1 || tr
 $ADB -s "$S" shell setprop debug.opengoal.pad_replay record
 $ADB -s "$S" shell setprop debug.opengoal.pad_replay_realtime 1
 $ADB -s "$S" shell setprop debug.opengoal.f1.warp 1
+$ADB -s "$S" shell setprop debug.opengoal.dump.pos 1
 
 $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
 ( $ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I '*:S' >> "$LC" ) 2>/dev/null &
@@ -76,8 +79,15 @@ sleep 8
 grep -aq "touch-replay: watcher armed" "$LC" || say "WARN: watcher-armed marker not seen yet (MainActivity may lag; pushing anyway)"
 $ADB -s "$S" push "$GESTURE" "$DEV_GESTURE" >/dev/null 2>&1 || die "gesture push failed"
 say "gesture pushed; waiting for touch-replay DONE..."
+# trajectory sampler: Jak's world pos (meters) ~every 2s -> pos_${RUN}.log
+( while true; do
+    P=$($ADB -s "$S" exec-out run-as $PKG head -1 files/pos_dump.txt 2>/dev/null | tr -d '\r')
+    [ -n "$P" ] && echo "$(date +%s.%N) $P"
+    sleep 2
+  done >> "$OUT/pos_${RUN}.log" ) &
+POSP=$!
 T0=$(date +%s); OK=0
-SPAN_S=$(( REPS * 5 + 30 ))
+SPAN_S=$(( REPS * 10 + 30 ))
 while [ $(( $(date +%s)-T0 )) -lt $SPAN_S ]; do
   if grep -aq "touch-replay: DONE" "$LC"; then OK=1; break; fi
   sleep 3

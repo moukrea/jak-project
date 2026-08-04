@@ -84,3 +84,18 @@ Lancement : juste après la phase long-jump tactile en cours.
 ### 11:10 — Menu (parké) : régressions fonctionnelles loguées pour la reprise
 Sélecteur displacement (parallax/tess/none) cassé + réglages qui se marchent dessus. Corrigés quand
 la phase menu reprendra (après les HD) — logué dans son brief avec audit ligne-par-ligne exigé.
+
+### PRÉ-GATE 11:55 [Gtouch-longjump] — LONG JUMP TACTILE : ta combo PROUVÉE 5/5 sur le Redmi, PAS une régression du binaire
+- Vérifié (validator PASS) : ta combo exacte (courir + pilule R1/R2 maintenue + X) injectée en VRAIS
+  événements tactiles multi-doigts (TouchReplayPlayer, pas cpad) : **5/5 wheel→wheel-flip** sur 5 runs
+  indépendants depuis le spawn (traces d'états + dump des gates à chaque edge : stick 0.99, toutes
+  portes vertes). Archéologie git : zones R1/R2 de l'overlay inchangées au byte près depuis le 23/06,
+  pad.gc/target.gc intouchés — rien à bisecter côté code.
+- CE QUI TE FAIT RATER SYSTÉMATIQUEMENT (mécanique du jeu d'origine, pas un bug) : la décision
+  wheel est UNE-SEULE-CHANCE à l'instant où R1 s'enfonce. Au tactile tu MAINTIENS la pilule : si
+  l'appui tombe avant que Jak coure, sur une pente, ou contre un obstacle → duck-walk, et duck-walk
+  n'a AUCUNE sortie wheel tant que R1 reste tenu → chaque X suivant = saut normal. À la manette on
+  relâche naturellement la gâchette entre les essais, au tactile non → impression de "systématique".
+- À TESTER (toi, au tactile) : cours D'ABORD sur du plat dégagé, presse la pilule R1/R2 PENDANT la
+  course, X aussitôt après — et RELÂCHE la pilule entre deux essais. Si ça rate encore comme ça sur
+  du plat, dis-le : on instrumentera TA session en live (les dumps de gates sont dans le build).

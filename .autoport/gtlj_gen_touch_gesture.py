@@ -17,6 +17,11 @@ Usage: gtlj_gen_touch_gesture.py OUT [reps] [variant]
            half   = stick at ~55% deflection
            tapx   = R1 tap released before X
            latex  = X 400ms after R1
+           shuttle= owner combo ALWAYS on the forward stretch + a plain
+                    backward return leg (no R1/X) between reps, so every
+                    combo fires from the same clean near-spawn runway
+                    (r2 proof: forward-leg combos 3/3, backward-leg combos
+                    0/2 — both aborted by mid-roll target-hit on terrain)
 """
 import sys
 
@@ -59,13 +64,42 @@ def rep(out, t0, variant, backward=False):
     e((t0 + 2500, "up", 0))
 
 
+def return_leg(out, t0, hold_ms=3000):
+    """Plain repositioning run back toward spawn: stick backward, NO R1/X.
+    Combo timing untouched — this only re-centers Jak between combos."""
+    back = (STICK[0], STICK[1] + (STICK[1] - FWD_FULL[1]))
+    e = out.append
+    e((t0 + 0, "down", 0, *STICK))
+    e((t0 + 50, "move", 0, STICK[0], (STICK[1] + back[1]) / 2))
+    e((t0 + 100, "move", 0, *back))
+    t = t0 + 200
+    j = 0.002
+    k = 0
+    while t < t0 + hold_ms:
+        e((t, "move", 0, back[0] + (j if k % 2 else -j), back[1]))
+        k += 1
+        t += 100
+    e((t0 + hold_ms + 100, "up", 0))
+
+
 def main():
     outp = sys.argv[1]
     reps = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     variant = sys.argv[3] if len(sys.argv) > 3 else "owner"
     evs = []
-    for i in range(reps):
-        rep(evs, i * 4200, variant, backward=(i % 2 == 1))
+    if variant == "shuttle":
+        # combo (forward, identical timings to 'owner') at cell start, then a
+        # plain return leg; the flip carries much farther than a plain run, so
+        # the return must be LONGER than the forward phase (r3: 3.0s returns
+        # under-compensated — by rep 4 Jak had drifted into the runway-end
+        # hazard and both remaining rolls were aborted by mid-roll target-hit)
+        for i in range(reps):
+            t0 = i * 8000
+            rep(evs, t0, "owner", backward=False)
+            return_leg(evs, t0 + 3000, hold_ms=4400)
+    else:
+        for i in range(reps):
+            rep(evs, i * 4200, variant, backward=(i % 2 == 1))
     evs.sort(key=lambda x: x[0])
     with open(outp, "w") as f:
         f.write(f"# gtlj gesture variant={variant} reps={reps}\n")
