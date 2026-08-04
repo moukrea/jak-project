@@ -221,7 +221,8 @@
     "Grecharged-mesh-browser": 16,
     "Grecharged-menu-overhaul": 1,
     "Grecharged-hd-models3": 3,
-    "Gtouch-longjump-regression": 2
+    "Gtouch-longjump-regression": 2,
+    "Grecharged-hd-models4": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -915,7 +916,7 @@
     "Gtouch-longjump-regression": 1785831811.5772808,
     "Grecharged-hd-models4": 1785847909.1975992
   },
-  "last_update": "2026-08-04T12:51:49.197608+00:00",
+  "last_update": "2026-08-04T16:58:04.464659+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1011,7 +1012,8 @@
     "Grecharged-mesh-browser",
     "Grecharged-menu-overhaul",
     "Grecharged-hd-models3",
-    "Gtouch-longjump-regression"
+    "Gtouch-longjump-regression",
+    "Grecharged-hd-models4"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
