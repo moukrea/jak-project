@@ -68,9 +68,19 @@ python3 "$PREP" --in "$HD" --out "$TMP/$CHAR.glb" --report "$TMP/$CHAR-prep.txt"
 log "2/3 fabricate art-group -> $OUT/$CHAR-ag.go (merc model name: $CHAR-lod0)"
 "$BA" -g jak1 "$TMP/$CHAR.glb" "$OUT/$CHAR-ag.go"
 
-# d. retarget k->driver table + the offline do-joint-math! numeric proof
+# d. retarget k->driver table + the offline do-joint-math! numeric proof.
+#    Cycle 2 (owner DoD): the generator runs the FACE-FINGER-GATE and exits 2 on any face/
+#    finger/beard joint left on ancestor glue. Per-character justifications live HERE so a
+#    regeneration reproduces the owner-approved decisions verbatim.
+TABLE_FLAGS=()
+case "$CHAR" in
+  dax-hd)
+    TABLE_FLAGS=(--accept-unmapped 'tongue=jak1 sidekick rig has no tongue chain; tongue rides the head via mode-2 glue, mouth-interior animation comes from blerc (class B);uvula=jak1 sidekick rig has no uvula joint; rides the head via mode-2 glue;pinky=jak1 sidekick rig has index/middle/thumb only; pinky rides the hand via mode-2 glue (curls with the hand, no independent articulation in ANY jak1 daxter anim);ring[A-Z]=jak1 sidekick rig has index/middle/thumb only; ring finger rides the hand via mode-2 glue') ;;
+  samos-hd)
+    TABLE_FLAGS=(--accept-unmapped 'beardDriver=jak3-only sim-helper bone; the ANIMATED beard chain below it (beard_lip, beard) is name-mapped mode-1 to sage beard joints, so the beard follows sage swings at HD pivots; beardDriver itself rides the head via mode-2 glue (mapping it too would double-apply the delta);Birdjaw=jak1 sage rig has no bird-jaw joint (BIRDhead1 is the deepest bird head bone); the beak rides BIRDhead via mode-2 glue') ;;
+esac
 log "3/3 emit retarget k->driver table + run the offline do-joint-math! numeric proof"
-python3 "$TABLE" --name "$CHAR" --hd "$HD" --driver "$DRIVER" --emit-dir "$OUT"
+python3 "$TABLE" --name "$CHAR" --hd "$HD" --driver "$DRIVER" --emit-dir "$OUT" "${TABLE_FLAGS[@]}"
 
 # e. report the produced files + sizes, and sanity-check the art-group
 AG="$OUT/$CHAR-ag.go"

@@ -49,14 +49,19 @@ FR3_DIR="out/jak1/fr3"
 ENHANCED_OUT="$FR3_DIR/enhanced"
 SWAP_BIN="build/tools/hd_merc_swap/hd_merc_swap"
 
-# M4: the canonical HD character set — "<char>|<donor rip GLB>|<target level fr3>".
+# M4: the canonical HD character set —
+#   "<char>|<donor rip GLB>|<target level fr3>|<donor fr3>|<donor model>|<driver stock model>".
 # Each entry is APPENDED (never re-rig REPLACEd) as merc model <char>-lod0 into the target fr3.
+# Cycle 2: the donor rip is STAMPED first (hd_merc_swap stamp) with the donor fr3's exact
+# per-draw GS modes / eye slots / effect indices (defect classes C/E/A: see-through fur+jaw+hair
+# came from the lossy GLB alphaMode round-trip; white eyes from the dropped eye_id), and the
+# append remaps donor eye slots onto the DRIVER's (--eye-from).
 # Per-entry IP gate: a missing donor rip is a loud SKIP, not a failure.
 APPENDS=(
-  "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME"
-  "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME"
-  "keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|village1"
-  "samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|village1"
+  "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0"
+  "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0"
+  "keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|village1|out/jak2/fr3/lintcstb.fr3|keira-highres-lod0|assistant-lod0"
+  "samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|village1|out/jak3/fr3/lsamos.fr3|samos-highres-lod0|sage-lod0"
 )
 # The fr3 that receive appends, in order.
 APPEND_LEVELS=(GAME village1)
@@ -86,7 +91,7 @@ log "donor dump '$DONOR_DUMP' present — HD generation permitted (ND-derived as
 # ---------------------------------------------------------------------------
 ANY_DONOR=0
 for entry in "${APPENDS[@]}"; do
-  glb="${entry#*|}"; glb="${glb%|*}"
+  IFS='|' read -r _c glb _lvl _dfr3 _dmdl _drv <<< "$entry"
   [ -f "$glb" ] && ANY_DONOR=1
 done
 if [ "$ANY_DONOR" -eq 0 ]; then
@@ -133,26 +138,38 @@ for lvl in "${APPEND_LEVELS[@]}"; do
   SRC="$FR3_DIR/$lvl.fr3"
   n_app=0
   for entry in "${APPENDS[@]}"; do
-    char="${entry%%|*}"
-    rest="${entry#*|}"
-    glb="${rest%%|*}"
-    target="${rest#*|}"
+    IFS='|' read -r char glb target donor_fr3 donor_model driver_model <<< "$entry"
     [ "$target" = "$lvl" ] || continue
     if [ ! -f "$glb" ]; then
       log "SKIP $char — donor rip '$glb' absent (ND IP gate); $lvl.fr3 will not carry $char-lod0"
       continue
     fi
+    # cycle 2: STAMP the rip with the donor fr3's exact draw modes / eye slots / effect indices.
+    # The donor fr3 comes from the same dump as the rip; absence means a broken/partial decomp —
+    # fail loudly rather than bake the lossy (see-through, white-eyed) round-trip again.
+    if [ ! -f "$donor_fr3" ]; then
+      log "FATAL: donor fr3 '$donor_fr3' missing for $char — cannot stamp draw modes/eye slots"
+      rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    STAMPED="$HD_TMP/$char-stamped.glb"
+    "$SWAP_BIN" stamp "$donor_fr3" "$donor_model" "$glb" "$STAMPED" \
+      || { log "STAMP of $char from '$donor_fr3' ($donor_model) failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
     PREPPED="$HD_TMP/$char-lod0.glb"
-    python3 scripts/shell/prep_hd_actor_glb.py --in "$glb" --out "$PREPPED" >/dev/null 2>&1 \
-      || { log "prep of $char-lod0.glb from '$glb' failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
+    python3 scripts/shell/prep_hd_actor_glb.py --in "$STAMPED" --out "$PREPPED" >/dev/null 2>&1 \
+      || { log "prep of $char-lod0.glb from '$STAMPED' failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
 
     n_app=$((n_app + 1))
     DST="$HD_TMP/$lvl.step$n_app.fr3"
     SWAP_LOG="$(mktemp)"
-    log "anim-retarget: APPEND $char-lod0 to $lvl.fr3 (step $n_app, append-only, NO re-rig replace)…"
-    "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" 2>&1 | tee -a "$SWAP_LOG"
+    log "anim-retarget: APPEND $char-lod0 to $lvl.fr3 (step $n_app, append-only, NO re-rig replace, eyes from $driver_model)…"
+    "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" --eye-from "$driver_model" 2>&1 | tee -a "$SWAP_LOG"
     if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
       log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
+      rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    # class A gate: the eye remap must have actually happened (donor rips DO carry eye draws)
+    if ! grep -qE "EYE-REMAP: [1-9][0-9]* eye draws" "$SWAP_LOG"; then
+      log "EYE-REMAP verification FAILED for $char — no eye draws were rebound to $driver_model."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
     fi
     rm -f "$SWAP_LOG"
