@@ -13,7 +13,16 @@
 - [À TESTER, déjà connu] Structure 5 catégories OK (tu l'avais acceptée) ; esthétique holo/drone
   PARKÉE à ta demande (dégradé violacé plein écran ≠ holo bleuté gauche + drone). On y revient après HD.
 
-## 2. HD Jak (Grecharged-hd-models3) — [EN COURS, worker attempt 2/6]
+## 2. HD Jak (Grecharged-hd-models3) — [EN COURS, cycle défauts]
+### PRÉ-GATE 02:20 [✅ base / ⚠️ défauts en cours]
+- Vérifié par le superviseur : validator+close-gate PASSÉS (attempt 3) ; deploy_verify PASS sur le
+  Honor (le device fait tourner le build frais, prouvé) ; capture de preuve du worker regardée :
+  **Jak HD cohérent et texturé, visible en jeu** (cheveux blonds, tunique bleue, Daxter au dos),
+  zéro crash. → La base M1 est réelle.
+- Décision : PAS de token — phase ROUVERTE pour brûler TES 7 défauts (long jump + Jak fantôme en
+  priorité, rédhibitoires). Le worker exécute son propre runbook défaut par défaut, preuves device.
+- À TON RÉVEIL : re-tester les 7 points sur le DERNIER build du Honor (surtout long jump R1/R2+X,
+  une cinématique avec PNJ, et les yeux/gap de près).
 Jalon acquis : Jak HD VISIBLE + animé sur Honor. Ta liste de défauts (01:45) est le brief du worker :
   (7) long jump cassé [priorité 1] · (6) Jak fantôme figé dans les cinématiques où il ne doit pas
   être [priorité 1] · (1) yeux blancs sans pupilles · (2) gap bandeau/cheveux (2 hypothèses : cheveux
