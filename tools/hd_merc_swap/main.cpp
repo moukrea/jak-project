@@ -1007,6 +1007,71 @@ int port_blerc(tfrag3::Level& lev,
   return 0;
 }
 
+// ENVMAP-PORT (cycle 3, defect classes C/E): the GLB round-trip loses has_envmap (rip GLB
+// materials carry no valid envmap extension), so appended models rendered envmap-effect
+// textures as plain alpha-tested color — but PS2 TCC envmap-effect texture alpha is a SHEEN
+// MASK, not opacity (daxter head: 51% of texels alpha<8 => merc2.frag discarded half the head).
+// Copy the donor's per-effect envmap config onto the appended model (effect order proven 1:1
+// by port_blerc's structure-mirror assert, which runs first) and bring the donor's envmap
+// texture(s) into the target level's texture array.
+int port_envmap(tfrag3::Level& lev,
+                size_t appended_idx,
+                const fs::path& donor_fr3,
+                const std::string& donor_name) {
+  tfrag3::Level dlev;
+  load_fr3(donor_fr3, dlev);
+  auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
+                          [&](const auto& m) { return m.name == donor_name; });
+  if (dit == dlev.merc_data.models.end()) {
+    fmt::print("  ENVMAP-PORT FAIL: donor model '{}' not in {}\n", donor_name,
+               donor_fr3.string());
+    return 7;
+  }
+  const tfrag3::MercModel& donor = *dit;
+  tfrag3::MercModel& appended = lev.merc_data.models.at(appended_idx);
+  if (appended.effects.size() != donor.effects.size()) {
+    fmt::print("  ENVMAP-PORT FAIL: effect count mismatch: appended '{}' has {}, donor '{}' "
+               "has {}\n",
+               appended.name, appended.effects.size(), donor.name, donor.effects.size());
+    return 7;
+  }
+  std::map<u32, u32> tex_cache;  // donor texture idx -> target level texture idx
+  int ported = 0;
+  for (size_t ei = 0; ei < donor.effects.size(); ei++) {
+    const auto& de = donor.effects[ei];
+    if (!de.has_envmap) {
+      continue;
+    }
+    auto& ae = appended.effects[ei];
+    u32 dt = de.envmap_texture;
+    if (dt >= dlev.textures.size()) {
+      fmt::print("  ENVMAP-PORT FAIL: effect[{}] envmap texture idx {} out of range ({} donor "
+                 "textures)\n",
+                 ei, dt, dlev.textures.size());
+      return 7;
+    }
+    u32 nt;
+    auto cached = tex_cache.find(dt);
+    if (cached != tex_cache.end()) {
+      nt = cached->second;
+    } else {
+      nt = (u32)lev.textures.size();
+      lev.textures.push_back(dlev.textures[dt]);
+      tex_cache.emplace(dt, nt);
+    }
+    ae.has_envmap = true;
+    ae.envmap_mode = de.envmap_mode;
+    ae.envmap_texture = nt;
+    fmt::print("  ENVMAP-PORT effect[{}] mode={:#x} tex '{}' (donor idx {}) -> level tex idx "
+               "{}\n",
+               ei, de.envmap_mode.as_int(), dlev.textures[dt].debug_name, dt, nt);
+    ported++;
+  }
+  fmt::print("  ENVMAP-PORT {} effect(s) ported from '{}' ({} texture(s) copied)\n", ported,
+             donor_name, tex_cache.size());
+  return 0;
+}
+
 int do_add(const fs::path& in,
            const fs::path& glb,
            const fs::path& out,
@@ -1112,6 +1177,11 @@ int do_add(const fs::path& in,
     }
     int rc = port_blerc(lev, idx, before_textures, eye_from, blerc_fr3, blerc_model, *driver_lev,
                         driver_src);
+    if (rc != 0) {
+      fmt::print("  (no fr3 written)\n");
+      return rc;
+    }
+    rc = port_envmap(lev, idx, blerc_fr3, blerc_model);
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;
