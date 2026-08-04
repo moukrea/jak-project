@@ -62,7 +62,8 @@
   :sort 1)
 
 (deftype jak-hd (process-drawable)
-  ((dbg-frames int32))   ;; frame counter for the reliable bone-sanity dump
+  ((dbg-frames int32)        ;; frame counter for the reliable bone-sanity dump
+   (dbg-mirror-logs int32))  ;; cap for the defect-6 hidden-mirror transition log
   (:states jak-hd-clone))
 
 ;; live handle so the PC per-frame hook spawns exactly one companion.
@@ -139,9 +140,16 @@
        ;; status wholesale — we must not inherit skip-bones/no-skeleton-update, which stay ours).
        ;; While hidden the companion stops submitting -> Merc2's eichar-lod0 suppression TTL drains
        ;; in ~4 frames -> stock behavior for whatever the cutscene actually draws.
-       (if (logtest? (-> *target* draw status) (draw-status hidden))
-         (logior! (-> self draw status) (draw-status hidden))
-         (logclear! (-> self draw status) (draw-status hidden)))
+       (let ((th (if (logtest? (-> *target* draw status) (draw-status hidden)) 1 0))
+             (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
+         ;; device-readable proof of the mirror (defect 6): log each transition, capped. A real
+         ;; cutscene that hides the driver must produce "mirror hidden=1" in the routed logcat.
+         (when (and (!= th wh) (< (-> self dbg-mirror-logs) 40))
+           (+! (-> self dbg-mirror-logs) 1)
+           (format 0 "[JAK-HD] mirror hidden=~D~%" th))
+         (if (nonzero? th)
+           (logior! (-> self draw status) (draw-status hidden))
+           (logclear! (-> self draw status) (draw-status hidden))))
        ;; ROOT CAUSE of the M1 invisibility (all platforms, found 2026-08-03): initialize-skeleton
        ;; sets (draw-status no-skeleton-update) and the ONLY stock clear site is ja-post — which this
        ;; :post bypasses by calling do-joint-math! directly. dma-add-process-drawable early-returns on
@@ -206,10 +214,25 @@
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
+;; defect-7 device instrument (2026-08-04): throttled *target* state-transition trace, running in
+;; maybe-spawn-jak-hd! so it fires EVERY frame REGARDLESS of the enhanced toggle — the ON and OFF
+;; legs of a device A/B get the SAME instrument (a companion-side log would only exist on ON).
+;; format 0 reaches the routed logcat on device ([JAK-HD] precedent, proof13). Cap keeps it finite.
+;; ------------------------------------------------------------------------------------------------
+(define *jak-hd-tgt-last-state* (the symbol #f))
+(define *jak-hd-tgt-log-count* 0)
+
+;; ------------------------------------------------------------------------------------------------
 ;; PC per-frame hook — called from (update *pc-settings*). PC->PC only. Spawns/despawns the single
 ;; companion based on the enhanced-models setting + player presence.
 ;; ------------------------------------------------------------------------------------------------
 (defun maybe-spawn-jak-hd! ()
+  (when (and *target* (< *jak-hd-tgt-log-count* 400))
+    (let ((st (if (-> *target* state) (-> *target* state name) (the symbol #f))))
+      (when (!= st *jak-hd-tgt-last-state*)
+        (set! *jak-hd-tgt-last-state* st)
+        (+! *jak-hd-tgt-log-count* 1)
+        (format 0 "[JAK-HD-TGT] st=~S~%" st))))
   (let ((alive? (and *jak-hd-process* (nonzero? (-> *jak-hd-process* 0)) (-> *jak-hd-process* 0)))
         (want?  (and *target* (-> *pc-settings* recharged-enhanced-models?))))
     (cond

@@ -47,6 +47,13 @@ mkdir -p out/jak1/obj && cp -f recharged_assets/hd_anim/jak-hd-ag.go out/jak1/ob
 run_leg() {  # $1 = off|on
   local LEG="$1" TOGGLE GKLOG GCLOG FIFO GKPID GCPID
   [ "$LEG" = on ] && TOGGLE='#t' || TOGGLE='#f'
+  # v3 (06:50 root cause): the settings file carried version 1.10 while the compiled pckernel is
+  # 1.11 — BOTH readers (Loader.cpp settings_ini_version_current + GOAL pckernel-common) discard a
+  # stale-versioned file, so the toggle sed never took and the 06:36 "A/B" was two OFF legs
+  # (gk is killed, never exits cleanly, so it never rewrote the version itself). Pin the version
+  # to the compiled 1.11 (only major.minor are checked). The fr3-select assertion below makes this
+  # class of silent no-op impossible to miss.
+  sed -i "s/^version = .*/version = #x1000B00000000/" "$SETTINGS"
   sed -i "s/^recharged-enhanced-models? = .*/recharged-enhanced-models? = $TOGGLE/" "$SETTINGS"
   GKLOG="$OUT/.lj_${LEG}_gk.log"; GCLOG="$OUT/.lj_${LEG}_gc.log"; : > "$GKLOG"; : > "$GCLOG"
   FIFO="$(mktemp -u)"; mkfifo "$FIFO"
@@ -61,6 +68,18 @@ run_leg() {  # $1 = off|on
     sleep 1
   done
   [ "$anchored" = 1 ] || { echo "[$LEG] FAIL: F1 warp never spawned (no F1-SPAWN in 240s)" | tee -a "$R"; kill "$GKPID" 2>/dev/null; rm -f "$FIFO"; return 1; }
+  # TOGGLE ASSERTION (v3): the loader logs its actual decision per fr3 — require it to match the
+  # leg, else the leg is a silent no-op (the 06:36 failure class). ON accepts ENHANCED (external
+  # fr3 present) or enhanced-toggle=true (toggle honored, no enhanced fr3 staged).
+  local FRSEL; FRSEL=$(grep -a 'HD-MODELS fr3-select GAME' "$GKLOG" | head -1)
+  if [ "$LEG" = on ]; then
+    [[ "$FRSEL" == *ENHANCED* || "$FRSEL" == *enhanced-toggle=true* ]] \
+      || { echo "[$LEG] FAIL: toggle did not take (fr3-select: '$FRSEL')" | tee -a "$R"; kill "$GKPID" 2>/dev/null; rm -f "$FIFO"; return 1; }
+  else
+    [[ "$FRSEL" == *enhanced-toggle=false* ]] \
+      || { echo "[$LEG] FAIL: OFF leg not stock (fr3-select: '$FRSEL')" | tee -a "$R"; kill "$GKPID" 2>/dev/null; rm -f "$FIFO"; return 1; }
+  fi
+  echo "[$LEG] toggle verified: $FRSEL" | tee -a "$R"
   echo "[$LEG] warp spawned at $(date +%H:%M:%S); probe must be live before anchor+${HEAD_T} ticks" | tee -a "$R"
   timeout 900 "$GOALC" --game jak1 --proj-path . --iso-path "$ISO" < "$FIFO" > "$GCLOG" 2>&1 &
   GCPID=$!; exec 3>"$FIFO"
@@ -143,7 +162,9 @@ run_leg on  || exit 1
   ON_FLIPS=$(analyze_leg on | awk '/^LEG on/{for(i=1;i<=NF;i++) if($i ~ /^flip-entries=/){split($i,a,"=");print a[2]}}')
   OFF_MAX=$(analyze_leg off | awk '/^LEG off/{for(i=1;i<=NF;i++) if($i ~ /^max-flip-len=/){split($i,a,"=");print a[2]}}')
   ON_MAX=$(analyze_leg on | awk '/^LEG on/{for(i=1;i<=NF;i++) if($i ~ /^max-flip-len=/){split($i,a,"=");print a[2]}}')
-  ON_SPAWNED=$(grep -ac 'spawned skel-bones' "$OUT/longjump_on_hdlog.txt" 2>/dev/null || echo 0)
+  # count from the FULL gk log (hdlog is a head -6 excerpt); head -1 kills the "0\n0" double-output
+  # of `grep -c || echo 0` that dodged this gate on the 06:36 run.
+  ON_SPAWNED=$(grep -ac 'spawned skel-bones' "$OUT/longjump_on.gk.log" 2>/dev/null | head -1); ON_SPAWNED=${ON_SPAWNED:-0}
   if [ "${OFF_FLIPS:-0}" -eq 0 ]; then echo "VERDICT: HARNESS-INCONCLUSIVE — OFF leg never reached target-wheel-flip (demo timing/runway wrong; fix the demo before concluding anything)";
   elif [ "${ON_SPAWNED:-0}" -eq 0 ]; then echo "VERDICT: HARNESS-INCONCLUSIVE — ON leg companion never spawned (toggle did not take)";
   elif [ "${ON_FLIPS:-0}" -lt "${OFF_FLIPS:-0}" ] || [ $(( ${ON_MAX:-0} * 2 )) -lt "${OFF_MAX:-0}" ]; then echo "VERDICT: REPRODUCED — ON leg loses or truncates wheel-flips vs OFF (defect 7 exists on x86)";
