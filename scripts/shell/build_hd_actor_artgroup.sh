@@ -74,6 +74,17 @@ log "2/3 fabricate art-group -> $OUT/$CHAR-ag.go (merc model name: $CHAR-lod0)"
 #    regeneration reproduces the owner-approved decisions verbatim.
 TABLE_FLAGS=()
 case "$CHAR" in
+  jak-hd)
+    # CYCLE 3, authored --map (clothing clip, blue/white tunic-vs-pants interpenetration):
+    #   jak1's shirt* joints ride the cloth-sim curves (2.8-9.1cm swing vs the thigh at walk/run)
+    #   while the HD tunic overlaps the HD pants with only 1-3cm clearance; the stock coat is only
+    #   ~8% shirt*-weighted and tolerates it, the HD tunic is ~35% -> guaranteed interpenetration.
+    #   Remap to the raw thighs: the HD pivots for shirtL/Rthigh are bit-identical to Lthigh/Rthigh
+    #   (0.1400, 1.3020, 0) and both parent to hips, so the retarget stays exact and the relative
+    #   motion tunic-vs-pants becomes 0.
+    #   NOT done for Lknee/Rknee -> pantsL/Rknee: those HD joints also carry skin+belt geometry
+    #   that must not inherit the 9.86cm pant flare.
+    TABLE_FLAGS=(--map 'shirtLthigh=Lthigh,shirtRthigh=Rthigh') ;;
   dax-hd)
     TABLE_FLAGS=(--accept-unmapped 'tongue=jak1 sidekick rig has no tongue chain; tongue rides the head via mode-2 glue, mouth-interior animation comes from blerc (class B);uvula=jak1 sidekick rig has no uvula joint; rides the head via mode-2 glue;pinky=jak1 sidekick rig has index/middle/thumb only; pinky rides the hand via mode-2 glue (curls with the hand, no independent articulation in ANY jak1 daxter anim);ring[A-Z]=jak1 sidekick rig has index/middle/thumb only; ring finger rides the hand via mode-2 glue') ;;
   samos-hd)

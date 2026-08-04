@@ -144,11 +144,50 @@ def main():
     epos = np.array([e_bind[e][:3, 3] for e in range(len(en))])
     mode = np.zeros(nh, np.int32)
     reason = {}
+
+    # ---- LOCAL-BIND FRAME MISMATCH (cycle 3): mode 1 vs mode 3 ---------------------------------
+    # mode 1 replays the DRIVER's local delta in the DRIVER's local bind frame. That is only right
+    # when the two rigs' LOCAL bind frames agree. Measured counter-examples: jak1 sage beard_lip
+    # (82.2deg + 1.5x scale, parked above the head), dax/keira finger A-joints (86-178deg),
+    # jak packStrapTop/Mid (17.1deg). Those joints get mode 3 ORIENT-COPY instead, whose rotation
+    # comes from the mode-0 world product (its inv(R(C_e)).R(B_k) factor cancels the frame
+    # mismatch) with the translation from the glue product (HD pivots/bone lengths kept).
+    def _local_bind(bind, par, j):
+        p = par[j]
+        return (np.linalg.inv(bind[p]) @ bind[j]) if p >= 0 else bind[j].copy()
+
+    def _polar_R(M3):
+        """rotation factor of a 3x3 by polar decomposition (SVD), right-handed."""
+        u, _s, vt = np.linalg.svd(M3)
+        R = u @ vt
+        if np.linalg.det(R) < 0:
+            u = u.copy()
+            u[:, -1] *= -1
+            R = u @ vt
+        return R
+
+    def _ang_deg(R):
+        return float(np.degrees(np.arccos(np.clip((np.trace(R) - 1.0) * 0.5, -1.0, 1.0))))
+
+    def _scales(M3):
+        return [float(np.linalg.norm(M3[:, c])) for c in range(3)]
+
+    def _mode1_or_3(k, e, why):
+        """mode 1 if the two local bind frames agree, else mode 3 orient-copy."""
+        lh = _local_bind(h_bind, hpar, k)[:3, :3]
+        ld = _local_bind(e_bind, epar, int(e))[:3, :3]
+        rm = _ang_deg(_polar_R(ld) @ _polar_R(lh).T)
+        ds, hs = _scales(ld), _scales(lh)
+        if rm > 1.0 or any(abs(s - 1.0) > 0.02 for s in ds + hs):
+            return 3, ('orient-copy: rot_mismatch={:.2f}deg drv_scale={} hd_scale={} ({})'
+                       .format(rm, '/'.join(f'{s:.3f}' for s in ds),
+                               '/'.join(f'{s:.3f}' for s in hs), why))
+        return 1, why
     for k in range(nh):
         nm, ti, e = hn[k], tier.get(k, 0), int(k2e[k])
         cat = _cat(nm)
         if e != 0xFF and ti == 0:                      # (a) authored --map pair
-            mode[k], reason[k] = 1, f'authored --map -> {en[e]}'
+            mode[k], reason[k] = _mode1_or_3(k, e, f'authored --map -> {en[e]}')
             continue
         if e == 0xFF:                                  # no counterpart at all
             mode[k], reason[k] = 2, 'unmapped (no driver counterpart)'
@@ -163,17 +202,18 @@ def main():
         if cat is not None:
             # (d) root/spine safety never applies to proportion-sensitive categories: the gate
             # below REQUIRES face/finger/beard joints to be mode 1, so the category wins.
-            mode[k], reason[k] = 1, (f'{cat}-class (proportion-sensitive) -> {en[e]} '
-                                     f'pivot_err={perr:.4f} bone={blen:.4f}')
+            mode[k], reason[k] = _mode1_or_3(k, e, (f'{cat}-class (proportion-sensitive) -> {en[e]} '
+                                                    f'pivot_err={perr:.4f} bone={blen:.4f}'))
         elif (nm == 'align' and k == 0) or (nm == 'prejoint' and k == 1) or SAFE_RE.search(nm):
             mode[k] = 0
         elif perr > thr:
-            mode[k], reason[k] = 1, (f'pivot_err={perr:.4f} > thr={thr:.4f} '
-                                     f'(bone={blen:.4f}) vs {en[e]}')
+            mode[k], reason[k] = _mode1_or_3(k, e, (f'pivot_err={perr:.4f} > thr={thr:.4f} '
+                                                    f'(bone={blen:.4f}) vs {en[e]}'))
         else:
             mode[k] = 0
-    ncens = [int((mode == m).sum()) for m in (0, 1, 2)]
-    print(f'MODES {args.name}: world={ncens[0]} local={ncens[1]} glue={ncens[2]}')
+    ncens = [int((mode == m).sum()) for m in (0, 1, 2, 3)]
+    print(f'MODES {args.name}: world={ncens[0]} local={ncens[1]} glue={ncens[2]} '
+          f'orient={ncens[3]}')
     for k in range(nh):
         if mode[k] != 0:
             print(f'  mode{mode[k]} k={k:3d} {hn[k]:<24s} tier={tier.get(k, 0)} : {reason[k]}')
@@ -193,7 +233,8 @@ def main():
         print(f'PARENT-ORDER {args.name}: FAIL ({len(bad_order)} joints)')
         sys.exit(2)
     rootish = [k for k in range(nh) if mode[k] != 0 and hpar[k] < 0]
-    print(f'PARENT-ORDER {args.name}: PASS (all {ncens[1] + ncens[2]} local/glue joints have '
+    print(f'PARENT-ORDER {args.name}: PASS (all {ncens[1] + ncens[2] + ncens[3]} local/glue/orient '
+          f'joints have '
           f'hd_parent < k' + (f'; {len(rootish)} parentless: '
                               f'{[hn[k] for k in rootish]}' if rootish else '') + ')')
 
@@ -212,8 +253,9 @@ def main():
                'beard' if BEARD_RE.search(hn[k]) else None)
         if cat is None:
             continue
-        if mode[k] == 1 and k2e[k] != 0xFF and tier.get(k, 0) in (0, 1, 2, 3):
+        if mode[k] in (1, 3) and k2e[k] != 0xFF and tier.get(k, 0) in (0, 1, 2, 3):
             continue  # real (name- or author-derived) driver counterpart, retargeted local-delta
+            #         # (mode 3 orient-copy has the same standing: a real, driven counterpart)
         why = next((w for rx, w in accepts if rx.search(hn[k])), None)
         if why is not None:
             accepted.append((hn[k], cat, why))
@@ -345,6 +387,27 @@ def main():
                 else:
                     De = e_ibm[e] @ a_e[e]
                 Wm[k] = Wp @ Lk @ De
+            elif mode[k] == 3:
+                # mode 3 ORIENT-COPY, MIRROR of fill-jak-hd-bones! (goal_src/jak1/pc/jak-hd.gc):
+                #   stored rows: tmp2 = hbind . bind-pose_drv[e] . A'_e   (= the mode-0 product)
+                #   -> column form  P = A_e . IBM_e . B_k ; a STORED ROW r is column r of P, so
+                #   "unit-normalize the basis rows" == unit-normalize P's 3x3 COLUMNS.
+                #   translation row = the GLUE product's translation (Wp . Lk).
+                # Rows are re-scaled to the HD BIND row length (runtime: blen/len with
+                # blen = (vector-length (-> hbind vector r)), hbind = forward HD bind), NOT to
+                # unit: that drops the DRIVER bind's scale leak while preserving the HD rig's own
+                # world bind scale (jak 1.4 below 'main', keira strap chains 0.103).
+                e = int(k2e[k])
+                P = a_e[e] @ e_ibm[e] @ h_bind[k]
+                B = P[:3, :3].copy()
+                for c in range(3):
+                    n = float(np.linalg.norm(B[:, c]))
+                    blen = float(np.linalg.norm(h_bind[k][:3, :3][:, c]))
+                    if n > 1e-6:
+                        B[:, c] *= blen / n
+                Wm[k] = np.eye(4)
+                Wm[k][:3, :3] = B
+                Wm[k][:3, 3] = (Wp @ Lk)[:3, 3]
             else:
                 Wm[k] = Wp @ Lk
         return Wm
@@ -441,6 +504,106 @@ def main():
         print(f'PROOF C(c) STILLNESS: {len(stillk)} still mode-1 joints, max |pos delta| = '
               f'{serr:.3e}  ({"PASS" if serr < 1e-9 else "FAIL"})')
 
+    # ---- PROOF D: mode-3 ORIENT-COPY correctness (cycle 3) --------------------------------------
+    # For EVERY mode-3 joint, rotate its mapped DRIVER joint by 40deg about an axis non-parallel to
+    # the bone, refill with the RUNTIME's exact mode-3 math (fill_mixed above mirrors it), and check
+    #   (a) LENGTH   the HD bone to its parent keeps its bind length (rel tol 1e-6)
+    #   (b) STILL    at driver bind pose: rotation == the HD bind basis (rows at bind length) and
+    #                translation == the glue-at-bind position. SPLIT tolerances: rotation 1e-6
+    #                (the GLB inverse-bind matrices are float32, so bind orthonormality only holds
+    #                to ~3e-8 — 1e-9 would sit under the input precision floor), translation 1e-9.
+    #   (c) FOLLOW   the HD world rotation delta == the driver joint's world rotation delta (0.1deg)
+    m3 = [k for k in range(nh) if mode[k] == 3]
+    if not m3:
+        print(f'PROOF D  orient-copy: no mode-3 joint in {args.name} — nothing to check (PASS)')
+    else:
+        def _rodrigues(axis, rad):
+            a = axis / np.linalg.norm(axis)
+            K = np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]], float)
+            return np.eye(3) + np.sin(rad) * K + (1 - np.cos(rad)) * (K @ K)
+
+        def _bind_basis(k):
+            """the HD bind 3x3 as the runtime reproduces it at bind pose: direction from the
+            mode-0 product (= the bind itself), row lengths re-scaled to the bind row lengths."""
+            B = h_bind[k][:3, :3].copy()
+            for c in range(3):
+                n = float(np.linalg.norm(B[:, c]))
+                if n > 1e-6:
+                    B[:, c] *= float(np.linalg.norm(h_bind[k][:3, :3][:, c])) / n
+            return B
+
+        Wbind = fill_mixed(e_bind)          # (b) driver AT BIND
+        wa = wbr = wbt = wc = 0.0
+        wa_j = wbr_j = wbt_j = wc_j = None
+        fails = []
+        for k in m3:
+            e = int(k2e[k])
+            p = hpar[k]
+            # (b) stillness at bind
+            br = float(np.abs(Wbind[k][:3, :3] - _bind_basis(k)).max())
+            glue_bind = ((Wbind[p] if p >= 0 else np.eye(4))
+                         @ ((np.linalg.inv(h_bind[p]) @ h_bind[k]) if p >= 0 else h_bind[k]))
+            bt = float(np.linalg.norm(Wbind[k][:3, 3] - glue_bind[:3, 3]))
+            bt = max(bt, float(np.linalg.norm(Wbind[k][:3, 3] - h_bind[k][:3, 3])))
+            if br > wbr:
+                wbr, wbr_j = br, hn[k]
+            if bt > wbt:
+                wbt, wbt_j = bt, hn[k]
+            if br > 1e-6 or bt > 1e-9:
+                fails.append(f'(b) STILL {hn[k]!r} rot_err={br:.3e} pos_err={bt:.3e}')
+            # rotate the mapped driver joint about an axis NON-PARALLEL to its bone
+            pe = epar[e]
+            bd = (e_bind[e][:3, 3] - e_bind[pe][:3, 3]) if pe >= 0 else np.zeros(3)
+            nb = float(np.linalg.norm(bd))
+            bd = bd / nb if nb > 1e-9 else np.zeros(3)
+            axis = min((np.eye(3)[i] for i in range(3)), key=lambda a: abs(float(a @ bd)))
+            if abs(float(axis @ bd)) > 0.95:
+                fails.append(f'(axis) {hn[k]!r}: no canonical axis non-parallel to the bone')
+                continue
+            R3 = _rodrigues(axis, np.deg2rad(40.0))
+            piv = e_bind[e][:3, 3]
+            Mr = np.eye(4)
+            Mr[:3, :3] = R3
+            Mr[:3, 3] = piv - R3 @ piv
+            a_e = e_bind.copy()
+            for d in descendants(epar, e):
+                a_e[d] = Mr @ e_bind[d]
+            Wk = fill_mixed(a_e)
+            # (a) bone length to parent
+            if p >= 0:
+                want = float(np.linalg.norm(h_bind[k][:3, 3] - h_bind[p][:3, 3]))
+                got = float(np.linalg.norm(Wk[k][:3, 3] - Wk[p][:3, 3]))
+                rel = abs(got - want) / max(want, 1e-12)
+                if rel > wa:
+                    wa, wa_j = rel, hn[k]
+                if rel > 1e-6:
+                    fails.append(f'(a) LENGTH {hn[k]!r} bind={want:.6f} anim={got:.6f} rel={rel:.3e}')
+            # (c) follow: HD world rotation delta == driver world rotation delta
+            dR_hd = _polar_R(Wk[k][:3, :3]) @ _polar_R(Wbind[k][:3, :3]).T
+            dR_drv = _polar_R(a_e[e][:3, :3]) @ _polar_R(e_bind[e][:3, :3]).T
+            cerr = _ang_deg(dR_hd @ dR_drv.T)
+            if cerr > wc:
+                wc, wc_j = cerr, hn[k]
+            if cerr > 0.1:
+                fails.append(f'(c) FOLLOW {hn[k]!r} rot-delta mismatch = {cerr:.4f}deg '
+                             f'(driver delta {_ang_deg(dR_drv):.3f}deg, hd {_ang_deg(dR_hd):.3f}deg)')
+        print(f'PROOF D  orient-copy over {len(m3)} mode-3 joints (40deg synthetic driver rotation, '
+              f'axis non-parallel to the bone):')
+        print(f'  D(a) bone-length preservation : max rel err = {wa:.3e} (worst {wa_j!r})  '
+              f'({"PASS" if wa <= 1e-6 else "FAIL"})')
+        print(f'  D(b) stillness at bind pose   : max rot err = {wbr:.3e} (worst {wbr_j!r}, '
+              f'tol 1e-6), max pos err = {wbt:.3e} (worst {wbt_j!r}, tol 1e-9)  '
+              f'({"PASS" if (wbr <= 1e-6 and wbt <= 1e-9) else "FAIL"})')
+        print(f'  D(c) driver rotation follow   : max angle err = {wc:.4f}deg (worst {wc_j!r})  '
+              f'({"PASS" if wc <= 0.1 else "FAIL"})')
+        for f in fails:
+            print(f'PROOF D {args.name}: VIOLATION {f}')
+        if fails:
+            print(f'PROOF D {args.name}: FAIL ({len(fails)} assertion failures) — '
+                  f'mode-3 orient-copy is NOT correct on this rig, no table emitted')
+            sys.exit(3)
+        print(f'PROOF D {args.name}: PASS ({len(m3)} mode-3 joints)')
+
     if violations:
         print(f'FACE-FINGER-GATE {args.name}: FAIL ({len(violations)} face/finger joints: '
               + ', '.join(n for n, _c, _t, _m in violations) + ')')
@@ -461,7 +624,8 @@ def main():
                  'drv_parent': int(drv_parent[k])} for k in range(nh)]
         json.dump({'version': 2, 'hd_glb': args.hd, 'eichar_glb': args.driver,
                    'num_hd_joints': len(hn), 'mapped': mapped,
-                   'modes': {'world': ncens[0], 'local': ncens[1], 'glue': ncens[2]},
+                   'modes': {'world': ncens[0], 'local': ncens[1], 'glue': ncens[2],
+                             'orient': ncens[3]},
                    'rows': rows,
                    'authored_maps': [s for arg in args.map for s in arg.split(',') if s],
                    'accepted_unmapped': [{'joint': n, 'cat': c, 'reason': w}
@@ -479,7 +643,9 @@ def main():
         gc = (f';; {args.name} retarget map v2: HD game joint index -> {word} game joint index '
               f'(255=none).\n'
               ';; generated by scripts/shell/retarget_fill_table.py — do not hand-edit.\n'
-              ';; -mode: 0 = world-delta, 1 = local-delta mapped, 2 = local-delta glue (e=255).\n'
+              ';; -mode: 0 = world-delta, 1 = local-delta mapped, 2 = local-delta glue (e=255),\n'
+              ';;        3 = orient-copy (mapped joint whose donor/driver LOCAL BIND FRAMES '
+              'disagree).\n'
               ';; -hd-parent: HD rig parent joint index (255 = root/none), always < k.\n'
               f';; -drv-parent: {word} rig parent of the mapped {word} joint (255 = n/a).\n'
               + _arr(sym, e_emit)
