@@ -53,3 +53,48 @@ CARRY-OVERS dans TON scope (ils font partie de la généralisation multi-personn
 2. M1 polish encore ouvert (l'owner testera ; rouvrable) : yeux blancs (eye_id), gap cran→cheveux
    (on voit l'intérieur de la tête), visage inanimé (blerc), clipping vêtements. Si tes mécanismes M4
    règlent l'un d'eux au passage (eye_id du pipeline d'append, blerc généralisé), prends-les.
+
+## ============================================================
+## VERDICT OWNER 2026-08-04 ~10:5x (build M4 sur son Honor) — CYCLE DÉFAUTS 2 = la barre maintenant
+## ============================================================
+Les 3 primaires rendent, mais la qualité n'y est pas. Verbatim owner classé par MÉCANISME (il a
+lui-même le bon diagnostic : « le transfert par liens de bones entre l'original et la version HD
+n'est pas tip top ») :
+
+### A. YEUX / VERRES BLANCS — SYSTÉMIQUE (3 personnages)
+- Jak : yeux blancs (connu M1). Keira : yeux blancs. Samos : les VERRES de ses lunettes sont blancs
+  au lieu de laisser voir les yeux. => le binding eye_id (texture œil dynamique 0xefffff00|id) manque
+  pour TOUS les mercs appendés. UN fix pipeline (append + eye_id correct par personnage) règle les 3.
+
+### B. VISAGES TOTALEMENT IMMOBILES EN CINÉMATIQUE — SYSTÉMIQUE (tous)
+- Jak, Keira, Daxter, Samos : visage figé. => les companions ne pilotent AUCUN canal facial (blerc).
+  Investiguer le mirror des canaux blerc du driver vers les blend-targets du modèle HD (les modèles
+  ciné jak2/jak3 ont leurs propres targets). Si le mapping facial jak1->jak2/3 ne mappe pas,
+  documenter honnêtement la limite ET voir ce qui est récupérable (au moins la mâchoire parlante).
+
+### C. GÉOMÉTRIE MANQUANTE — CLASSE RIP/PREP/APPEND (2 cas)
+- **Daxter : PAS DE MÂCHOIRE — cursed, dents qui flottent dans le vide** (le même symptôme que le
+  vieux re-rig ! le rip/prep du daxter-highres perd le draw de la mâchoire, ou ses verts pèsent sur
+  un joint non mappé). PRIORITÉ 1 de ce cycle.
+- Jak : gap cran->cheveux (connu M1, on voit l'intérieur de la tête). Même classe : compter les draws
+  donor vs appendé, et vérifier les joints des verts de la pièce manquante.
+
+### D. PRÉCISION DU MAPPING k->e — CLASSE LIENS D'OS (3 cas)
+- Keira : DOIGTS « cassés » en cinématique (joints de doigts non mappés / mal mappés -> repos).
+- Samos : le bas de sa BARBE pointe vers l'avant (joints de barbe non mappés -> pose de repos).
+- Jak : clipping vêtements (connu M1). => auditer la table k->e par personnage : lister les joints
+  0xFF (non mappés) et leur impact visuel ; les chaînes doigts/barbe/cheveux ont besoin d'un mapping
+  ou d'un fallback qui suit le parent mappé le plus proche (PAS le repos world).
+
+### E. RENDU FOURRURE — TRANSPARENCE (1 cas)
+- Daxter : on voit AU TRAVERS de sa fourrure (alpha/draw-order/backface du merc appendé).
+
+### F. SOURCING KEIRA — À VÉRIFIER
+- Le modèle livré a des BOTTINES, pas des sandales. L'owner : « il est possible que dans la première
+  cinématique de Jak 2 elle ait déjà des bottines, mais pas sûr ». => vérifier s'il existe une
+  variante sandales dans les rips jak2 (autres niveaux/cutscenes) ; si la 1ère ciné a déjà des
+  bottines, le dire à l'owner (le modèle actuel est alors le bon) ; sinon sourcer la bonne.
+
+Positif owner : Keira « la moins buggée », Samos « vraiment pas mal » à part verres/barbe.
+ORDRE : C-Daxter (mâchoire, cursed) > A (yeux, un fix pour 3) > D (doigts/barbe/mapping) > E (fourrure)
+> B (visages/blerc) > F (sourcing Keira). Preuves device par personnage, l'owner juge.
