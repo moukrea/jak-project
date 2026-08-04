@@ -68,6 +68,11 @@
 ;; live handle so the PC per-frame hook spawns exactly one companion.
 (define *jak-hd-process* (the (pointer jak-hd) #f))
 
+;; latched when the external HD art-group is absent (user has no jak2 dump -> the IP gating
+;; ships no jak-hd-ag.go). Prevents a respawn-retry storm; cleared when the toggle goes OFF so
+;; providing the dump + re-toggling works without a restart.
+(define *jak-hd-asset-missing* #f)
+
 ;; ------------------------------------------------------------------------------------------------
 ;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver (*target*).
 ;; ------------------------------------------------------------------------------------------------
@@ -168,26 +173,36 @@
   (when *target* (vector-copy! (-> self root trans) (-> *target* root trans)))
   ;; Load the HD art-group directly from the external pack and register it in level-default's art dir,
   ;; independent of *debug-segment* (option 3): loado -> login -> set-loaded-art. Then initialize-skeleton
-  ;; finds "jak-hd" already resident (no disk pull / debug-segment gate). Absent asset => art-error path
-  ;; (graceful, no crash), never a SIGILL.
+  ;; finds "jak-hd" already resident (no disk pull / debug-segment gate).
   (let ((ag (the-as art-group (loado (make-file-name (file-kind art-group) "jak-hd" 6 #f) global))))
-    (when (and (nonzero? (the-as int ag)) (type-type? (-> ag type) art-group))
-      (login ag)
-      (set-loaded-art (-> *level* level-default art-group) ag)))
-  (initialize-skeleton self *jak-hd-sg* '())
-  ;; initialize-skeleton leaves (draw-status no-skeleton-update) set; without ja-post (which this
-  ;; process never runs) it stays set forever and gates off ALL foreground DMA. Clear it from frame 1.
-  (logclear! (-> self draw status) (draw-status no-skeleton-update))
-  ;; device-readable proof of the load (opengoal-gk logcat survives on the Redmi): jgeo-joints>0 == art loaded.
-  (format 0 "[JAK-HD] spawned skel-bones=~D jgeo-joints=~D~%"
-          (if (nonzero? (-> self draw skeleton)) (-> self draw skeleton length) -1)
-          (if (nonzero? (-> self draw jgeo)) (-> self draw jgeo length) -1))
-  (set! (-> self draw origin-joint-index) (the-as uint 3))
-  ;; do NOT touch the driver's draw status: skip-bones on *target* propagated to the sidekick (its
-  ;; :post copies the driver's status wholesale, and posts AFTER this newer child — LIFO order),
-  ;; which swallowed Daxter (builds 10-12). The stock eichar-lod0 draw is suppressed renderer-side
-  ;; in Merc2 while this companion submits; *target* stays 100% stock (Daxter + shadow intact).
-  (go jak-hd-clone)
+    (cond
+      ((and (nonzero? (the-as int ag)) (type-type? (-> ag type) art-group))
+       (login ag)
+       (set-loaded-art (-> *level* level-default art-group) ag)
+       (initialize-skeleton self *jak-hd-sg* '())
+       ;; initialize-skeleton leaves (draw-status no-skeleton-update) set; without ja-post (which this
+       ;; process never runs) it stays set forever and gates off ALL foreground DMA. Clear it from frame 1.
+       (logclear! (-> self draw status) (draw-status no-skeleton-update))
+       ;; device-readable proof of the load (opengoal-gk logcat survives on the Redmi): jgeo-joints>0 == art loaded.
+       (format 0 "[JAK-HD] spawned skel-bones=~D jgeo-joints=~D~%"
+               (if (nonzero? (-> self draw skeleton)) (-> self draw skeleton length) -1)
+               (if (nonzero? (-> self draw jgeo)) (-> self draw jgeo length) -1))
+       (set! (-> self draw origin-joint-index) (the-as uint 3))
+       ;; do NOT touch the driver's draw status: skip-bones on *target* propagated to the sidekick (its
+       ;; :post copies the driver's status wholesale, and posts AFTER this newer child — LIFO order),
+       ;; which swallowed Daxter (builds 10-12). The stock eichar-lod0 draw is suppressed renderer-side
+       ;; in Merc2 while this companion submits; *target* stays 100% stock (Daxter + shadow intact).
+       (go jak-hd-clone))
+      (else
+       ;; Asset absent (no jak2 dump = the IP gating, or a broken install). MUST bail BEFORE
+       ;; initialize-skeleton: its missing-art path does (go process-drawable-art-error) whose
+       ;; :code writes (-> self entity extra perm status) — and this companion has entity #f,
+       ;; so that write corrupts memory near s7 -> delayed SIGSEGV in JIT'd GOAL code (proven
+       ;; x86 2026-08-04 02:33 core, PID 2075821). Latch so we do not retry-spam, and despawn
+       ;; with the same in-process (deactivate self) idiom the :post already uses.
+       (format 0 "[JAK-HD] asset missing (jak-hd art-group not loadable) — HD Jak unavailable~%")
+       (set! *jak-hd-asset-missing* #t)
+       (deactivate self))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
