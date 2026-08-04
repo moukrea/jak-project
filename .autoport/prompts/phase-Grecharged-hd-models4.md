@@ -165,3 +165,23 @@ besoin — c'est régression-class, ça bloque tout token.
   d'œil : le blink ferme la paupière mais la texture/UV derrière est mauvaise, ou l'eye-remap pointe
   un slot qui devient noir pendant le blend). La mieux des 4 sinon.
 Rappel : preuves device par classe + captures/vidéo, l'owner juge. Livraison jak-builds.
+
+## ============================================================
+## OWNER 2026-08-04 ~20:05 (intro cutscene, build cycle-2) — CRASH + 2 précisions yeux
+## ============================================================
+### PRIORITÉ 0 — CRASH en cinématique d'intro (au-dessus de tout, y compris la régression PNJ)
+L'intro CRASHE juste après la réplique de Daxter humain « this place just gives me the creeps » —
+hypothèse owner : au moment où le modèle Daxter OTTSEL se charge (la piscine d'éco noire / la
+transformation). Suspects : le companion dax-hd qui spawn/attache sur l'acteur ottsel de la cinématique
+(un acteur ciné ≠ le sidekick normal — driver inattendu, jgeo différent, index hors bornes ?), ou un
+pool par frame qui déborde à ce moment (la scène charge les deux Daxter). NOTE harnais : ta preuve
+leg3 (80 s) n'atteint PAS ce moment — étendre la preuve à L'INTRO COMPLÈTE, transformation incluse,
+jusqu'au retour gameplay. Récupérer files/gk_crash.txt après repro.
+### Yeux (complément aux classes A/blink) :
+1. **Les paupières de JAK sont broken comme celles de Keira** (le blink-noir touche Jak aussi —
+   la classe « blink » est générale, pas Keira-only).
+2. **PUPILLES : l'owner a raison** — l'eye-remap actuel branche les yeux HD sur le renderer d'yeux
+   jak1 ⇒ les pupilles rendues sont celles de JAK 1 (d'origine), PAS celles du modèle ciné Jak 2.
+   Owner : « si c'est les pupilles de Jak 1, c'est pas bon ! ». FIX : porter les textures d'iris/œil
+   du DONOR (jak2/jak3) dans le chemin d'yeux des modèles HD (par personnage), pas juste re-lier le
+   slot jak1. La classe A n'est PAS close tant que les pupilles ne sont pas celles du donor.
