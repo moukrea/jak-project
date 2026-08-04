@@ -14,6 +14,9 @@
   PARKÉE à ta demande (dégradé violacé plein écran ≠ holo bleuté gauche + drone). On y revient après HD.
 
 ## 2. HD Jak (Grecharged-hd-models3) — [EN COURS, cycle défauts]
+### VERDICT OWNER 08:00 (Honor) : ✔ défauts 5 (PNJ cinématique) + 6 (Jak fantôme) CONFIRMÉS corrigés.
+### Restent : long jump (repro exacte : avancer+R1/R2+saut => cancelled), Jak invisible au logo ND,
+### gap cran→cheveux (on voit l'intérieur de la tête), yeux blancs, visage inanimé, clipping.
 ### PRÉ-GATE 03:20 [⚠️ faux vert intercepté — cycle défauts CONTINUE]
 - Le validator a re-passé à 02:59 MAIS sur le rapport d'AVANT la réouverture (aucune preuve nouvelle) :
   faux vert intercepté par le superviseur. Validator DURCI (preuves plus récentes que le début de cycle
