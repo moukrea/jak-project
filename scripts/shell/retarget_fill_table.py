@@ -62,6 +62,15 @@ def main():
     ap.add_argument('--name', default='jak-hd',
                     help='character name: drives <name>-k2e.json/.gc-snippet + the GOAL symbol')
     ap.add_argument('--emit-dir', default=None, help='write k2e.json + k2e.gc-snippet here')
+    ap.add_argument('--map', action='append', default=[],
+                    help='explicit HDjoint=DRIVERjoint pair(s), comma-separable, applied AFTER '
+                         'name matching (tier 0 = authored). The class-D fix lane: beard/hair/'
+                         'tongue chains whose names differ across games get REAL driver chains, '
+                         'not an ancestor glue.')
+    ap.add_argument('--accept-unmapped', action='append', default=[],
+                    help="HDjointRegex=reason. The ONLY way a FACE/FINGER HD joint may stay on "
+                         "ancestor fallback: an explicit, per-chain justification (owner "
+                         "2026-08-04 ~11:30 definition-of-done). Recorded in the JSON output.")
     args = ap.parse_args()
 
     hjs, hbin, hn, h_ibm, hpar = load(args.hd)
@@ -77,9 +86,63 @@ def main():
         if t is not None:
             k2e[k] = t
             tier[k] = ti
+
+    # authored explicit pairs override the name matcher (tier 0 = authored, strongest)
+    e_index = {n: i for i, n in enumerate(en)}
+    h_index = {n: i for i, n in enumerate(hn)}
+    for spec in [s for arg in args.map for s in arg.split(',') if s]:
+        src, dst = spec.split('=')
+        if src not in h_index:
+            print(f'FACE-FINGER-GATE {args.name}: FAIL --map {spec}: HD joint {src!r} not in rig')
+            sys.exit(2)
+        if dst not in e_index:
+            print(f'FACE-FINGER-GATE {args.name}: FAIL --map {spec}: driver joint {dst!r} not in rig')
+            sys.exit(2)
+        k2e[h_index[src]] = e_index[dst]
+        tier[h_index[src]] = 0
+
     mapped = int((k2e != 0xFF).sum())
     unmapped = [hn[k] for k in range(len(hn)) if k2e[k] == 0xFF]
     print(f'k->e map: {mapped}/{len(hn)} HD joints mapped; UNMAPPED({len(unmapped)}): {unmapped}')
+
+    # ---- FACE-FINGER-GATE (owner definition-of-done, 2026-08-04 ~11:30) -------------------------
+    # A character is NOT backported if face/finger chains ride an ancestor fallback (tier 4: glued
+    # rigid at BIND pose -> Samos' forward beard, frozen faces) or are unmapped. Fail LOUDLY unless
+    # each such joint carries an explicit --accept-unmapped justification.
+    import re as _re
+    FACE_RE = _re.compile(r'jaw|chin|mouth|tongue|teeth|tooth|lip|brow|cheek|uvula|nose|eyelid'
+                          r'|eye|blink|face|smile|frown', _re.I)
+    FINGER_RE = _re.compile(r'pinky|ring[A-Z0-9]|ring$|index|thumb|finger|middle', _re.I)
+    BEARD_RE = _re.compile(r'beard|goatee|moustache|mustache', _re.I)  # owner DoD pt.5: extremity chains
+    accepts = []
+    for spec in [s for arg in args.accept_unmapped for s in arg.split(';') if s]:
+        rx, _, why = spec.partition('=')
+        accepts.append((_re.compile(rx), why or '(no reason given)'))
+    violations, accepted = [], []
+    for k in range(len(hn)):
+        cat = ('face' if FACE_RE.search(hn[k]) else
+               'finger' if FINGER_RE.search(hn[k]) else
+               'beard' if BEARD_RE.search(hn[k]) else None)
+        if cat is None:
+            continue
+        if tier.get(k, 0) in (0, 1, 2, 3) and k2e[k] != 0xFF:
+            continue  # real (name- or author-derived) driver counterpart
+        why = next((w for rx, w in accepts if rx.search(hn[k])), None)
+        if why is not None:
+            accepted.append((hn[k], cat, why))
+        else:
+            violations.append((hn[k], cat, tier.get(k, 0)))
+    for nm, cat, ti in violations:
+        print(f'FACE-FINGER-GATE {args.name}: VIOLATION {cat} joint {nm!r} tier={ti} '
+              f'(ancestor-glue/unmapped) — map it (--map {nm}=<driverJoint>) or justify it '
+              f'(--accept-unmapped "{nm}=<why>")')
+    if violations:
+        print(f'FACE-FINGER-GATE {args.name}: FAIL ({len(violations)} face/finger joints without a '
+              f'real driver counterpart)')
+        sys.exit(2)
+    print(f'FACE-FINGER-GATE {args.name}: PASS '
+          f'(face/finger joints all driver-mapped; accepted-unmapped={len(accepted)}'
+          + (': ' + ', '.join(f'{n}[{w}]' for n, _c, w in accepted) if accepted else '') + ')')
 
     # synthesize a driver animation: rigid 40deg rotation of the subtree under a PROOF JOINT.
     # Not every rig has 'Rarm' (jak2/jak3 donors differ), so pick the first candidate present in
@@ -178,7 +241,10 @@ def main():
                  'e_name': (None if k2e[k] == 0xFF else en[int(k2e[k])]),
                  'tier': tier.get(k, 0)} for k in range(len(hn))]
         json.dump({'hd_glb': args.hd, 'eichar_glb': args.driver,
-                   'num_hd_joints': len(hn), 'mapped': mapped, 'rows': rows},
+                   'num_hd_joints': len(hn), 'mapped': mapped, 'rows': rows,
+                   'authored_maps': [s for arg in args.map for s in arg.split(',') if s],
+                   'accepted_unmapped': [{'joint': n, 'cat': c, 'reason': w}
+                                         for n, c, w in accepted]},
                   open(os.path.join(args.emit_dir, f'{args.name}-k2e.json'), 'w'), indent=1)
         vals = ' '.join(str(int(x)) for x in k2e)
         # legacy symbol kept verbatim for jak-hd (goal_src/.../jak-hd.gc already references it).
