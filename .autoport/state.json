@@ -221,8 +221,7 @@
     "Grecharged-mesh-browser": 16,
     "Grecharged-menu-overhaul": 1,
     "Grecharged-hd-models3": 3,
-    "Gtouch-longjump-regression": 2,
-    "Grecharged-hd-models4": 3
+    "Gtouch-longjump-regression": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -487,10 +486,6 @@
     ],
     "Grecharged-hd-models3": [
       "96f5b163e8e2"
-    ],
-    "Grecharged-hd-models4": [
-      "f6f65380c5f2",
-      "f6f65380c5f2"
     ]
   },
   "stuck_reasons": {
@@ -918,9 +913,9 @@
     "Grecharged-mesh-consolidation": 1784930060.5837617,
     "Grecharged-menu-overhaul": 1785736866.6427572,
     "Gtouch-longjump-regression": 1785831811.5772808,
-    "Grecharged-hd-models4": 1785838314.2041388
+    "Grecharged-hd-models4": 1785847909.1975992
   },
-  "last_update": "2026-08-04T12:32:55.891193+00:00",
+  "last_update": "2026-08-04T12:51:49.197608+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

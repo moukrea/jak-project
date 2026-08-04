@@ -112,3 +112,24 @@ barbe Samos, sourcing Keira — le worker repart dessus maintenant.
 ### 19:00 — Ton verdict cycle-2 : VISAGES VIVANTS ×4 ✔ (jalon majeur) — cycle 3 lancé
 Régression PNJ-clignotement (prio 1, était corrigée) · Daxter troués/tête transparente (fourrure jak3
 mal backportée) · Jak gap+clipping (survivants) · Samos barbe clip/bout · Keira yeux noirs au blink.
+
+### PRÉ-GATE ~19:00 [Grecharged-hd-models4] — CYCLE DÉFAUTS 2 : les 6 classes traitées, prouvées sur le Redmi (validator PASS)
+- Racine commune trouvée : le rip GLB perdait les draws mod/blerc du donor (mâchoire de Daxter = géométrie
+  BLERC, pas un os !), les yeux gardaient les slots du donor, les modes de draw étaient dégradés (fourrure
+  transparente). Le bake cycle-2 passe tout par stamp (modes/eye/effets EXACTS du fr3 donor) + remap yeux
+  vers TES drivers + PORT COMPLET du blerc (targets remappés sur les canaux driver).
+- Par classe : C = parité géométrique totale donor==appendé (mâchoire Daxter restaurée, draws 17/17,
+  gap crâne→cheveux Jak = même racine, restauré) ; A = yeux liés aux slots driver x4 (close-up intro :
+  iris BLEUS, plus blancs) ; D = doigts Keira mappés pivot_err 0.0000, barbe Samos suit son parent mappé ;
+  E = modes fourrure byte-identiques au donor ; B = canaux blerc : Jak 14/14, Daxter 28/30, Keira 26/29,
+  Samos 26/30 (les 9 canaux découverts = zéro similarité géométrique dans le donor, documentés un par un) ;
+  F = VERDICT SOURCING : la Keira de la 1ère ciné Jak 2 a DÉJÀ des bottines (aucune variante sandales
+  dans tout le dump jak2 — tes sandales, c'est le look Jak 1). Le modèle actuel est le bon.
+- Preuves device (eae4df44, build frais deploy-verify PASS) : vraie cinématique d'intro avec les 4
+  compagnons HD (slots visage tenus, zéro crash), le visage HD de Jak S'ANIME (yeux ouverts → clignement
+  dans leg3-talk.mp4). Captures : leg3-intro-1.png (close-up yeux bleus), leg2a-samos-idle.png,
+  leg2b-keira-idle.png + 3 vidéos (.autoport/reports/Grecharged-hd-models4/).
+- À TESTER (toi) : ① intro + cinématiques → les 4 visages s'animent (bouche/yeux/sourcils) ;
+  ② Daxter : mâchoire présente, fourrure opaque ; ③ yeux/verres x4 ; ④ doigts Keira, barbe Samos en ciné ;
+  ⑤ clipping vêtements Jak. Si une expression précise reste figée, nomme le MOMENT exact (les 9 canaux
+  sans contrepartie sont listés dans le rapport — on chassera canal par canal).

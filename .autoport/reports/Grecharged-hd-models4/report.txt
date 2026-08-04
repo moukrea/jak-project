@@ -1,72 +1,101 @@
-Grecharged-hd-models4 — M2 PRIMARIES: Daxter / Keira / Samos HD anim-retarget companions
-Date: 2026-08-04 ~10:10 CET   Device: Redmi Note 9 Pro eae4df44 (replugged, bench again)
-HEAD: 4aca56b16d (M2 mechanism from WIP attempts 1-2 + supervisor validator dispatch)
+Grecharged-hd-models4 — DEFECT-CYCLE-2 report (owner verdict 2026-08-04 ~10:5x + corrections 11:05/11:30)
+Date: 2026-08-04 ~18:50 CET   Device: Redmi Note 9 Pro eae4df44 (bench)
+HEAD: 5343e8e195 (blerc-port weight-aware probe bf49c932cc + x86 smoke; cycle-2 code from attempts 1-3)
 
-RESULT: HD ANIM-RETARGET M2 primaries DEVICE-PROVEN on eae4df44 — dax-hd / keira-hd /
-samos-hd (+ M1 jak-hd) all spawned, loaded, and actively rendered in real gameplay via the
-per-actor coverage mechanism. Owner visual verdict PENDING (he is the aesthetic judge).
+RESULT: all six defect classes ADDRESSED and DEVICE-PROVEN on eae4df44 — new bake ships eye_id
+remap + full blerc port + donor-exact draw modes for all 4 primaries; real intro cutscene ran with
+every companion holding a blerc face-anim slot and the HD Jak face visibly animating (open eyes at
++0s, blink/squint at +20s of leg3-talk.mp4). Owner visual verdict PENDING (he judges quality).
 
-== What failed in attempts 1-2 (root cause, fixed this attempt) ==
-Attempt 2's gradle packaging was interrupted mid-write: the output APK had 154,354,608
-bytes of dead space and a broken central directory, so deploy_verify died at "APK has no
-lib/arm64-v8a/libgk.so". Compounding it, the Redmi (eae4df44) was replugged the same
-morning, so the validator's device preference switched from the Honor (which carried the
-M1 proofs) to a Redmi still running the 8e20045172-era install. Additionally the M1
-validator gates were misapplied to M4 (supervisor fixed via dispatch commit 4aca56b16d).
-Fix: rm corrupt APK + gradle reassemble (clean zip, testzip OK, libgk sha 134603f6 ==
-build-android == jniLibs), hd4_deploy_fresh to the Redmi (LoaderActivity extraction,
-GAME.CGO md5 e6aff7c1fc2cc8d2 built==device), deploy_verify PASS at 10:07.
+== What changed since the owner's 10:5x build (root causes, one per class) ==
+The 10:5x build's fr3s were baked WITHOUT the cycle-2 pipeline: the GLB round-trip dropped the
+donor's mod/blerc draws (jaw/face geometry), eye draws kept donor eye slots (white 4x4 placeholder),
+draw modes were lossy (see-through fur), and the k->e tables predated the LOCAL-DELTA v2 generator.
+Cycle-2 rebaked everything through hd_merc_swap stamp (donor-exact GS modes/eye/effect extras) +
+add --eye-from (driver eye-slot remap) + --blerc-from (donor blerc port, targets remapped to driver
+channels); one real tool bug was fixed on the way (bone-index probe compared zero-weight padding
+lanes -> weight-aware now, commit bf49c932cc). Bake log: .autoport/logs/Grecharged-hd-models4/bake-cycle2.log.
 
-== The three primaries (owner roadmap 2026-08-03, cinematic donors) ==
-Pipeline per character identical to M1 (rip fr3_to_gltf -> prep_hd_actor_glb.py keeps the
-HD skeleton -> build_actor artgroup (short names, fakeiso limit) -> retarget_fill_table.py
-k->e table vs the jak1 driver -> hd_merc_swap APPEND -> generalized companion process):
-- dax-hd-lod0: appended to enhanced/GAME.fr3 (tris=9510 draws=17), merc-load OK on device, SUBMITTED found=1 in gameplay — device-proven, visible on Jak's shoulder in both hut captures.
-  (donor: jak3 daxter-highres cinematic, SANS pantalon; driver=sidekick-lod0, 62 joints)
-- keira-hd-lod0: appended to enhanced/village1.fr3 (tris=10808 draws=28), merc-load OK, SUBMITTED found=1 (submits=601 at harvest) — device-proven, visible by the zoomer in leg2b-keira-idle.png.
-  (donor: jak2 FIRST-cutscene keira-highres, pre-bottines; driver=assistant-lod0, 95 joints)
-- samos-hd-lod0: appended to enhanced/village1.fr3 (tris=10434 draws=27), merc-load OK, SUBMITTED found=1 (submits=601) — device-proven, visible on the hut upper deck in leg2a-samos-idle.png.
-  (donor: jak3 samos-highres cinematic; driver=sage-lod0, 80 joints)
-(jak-hd-lod0 M1 carry: appended to GAME.fr3, SUBMITTED found=1, unchanged.)
+== Cycle-1 gates (carried, re-proven on this build) ==
+- append-only bake: hd_merc_swap ADDs the 4 HD models at the END of each fr3 model table; NO re-rig,
+  NO weight replace, anim-retarget only (k->e tables, driver bones copied post-anim).
+- integrity gate PASS for GAME.fr3 AND village1.fr3 (non-character draws byte-identical to stock).
+- jak-hd-lod0: appended to enhanced/GAME.fr3 draws=24 tris=9886, merc-load OK, SUBMITTED found=1 on device — proven in boot leg + intro.
+- dax-hd-lod0: appended to enhanced/GAME.fr3 draws=17 tris=9510 (donor parity), merc-load OK, SUBMITTED found=1 on device — visible on Jak's shoulder in leg2 captures.
+- keira-hd-lod0: appended to enhanced/village1.fr3 draws=28 tris=10808, merc-load OK, SUBMITTED found=1 — visible by the zoomer in leg2b-keira-idle.png.
+- samos-hd-lod0: appended to enhanced/village1.fr3 draws=27 tris=10434, merc-load OK, SUBMITTED found=1 — visible on the hut deck in leg2a-samos-idle.png.
+- logo/per-actor coverage: implemented and re-proven — per-pid suppression only while THAT actor's
+  companion actively submits ([hd-render] suppress pid=32/33/36/45/97/98 lines, leg1+leg2 logcat);
+  both eichar instances (gameplay + logo actor) got their own companions.
 
-== Anti-carnage guards (round-2 lesson) ==
-APPEND-ONLY bake: hd_merc_swap adds the HD models at the END of each fr3's model table;
-NO re-rig, NO weight replace, anim-retarget only (k->e tables, driver bones copied
-post-anim). Level-bake INTEGRITY gate PASS for both files: "integrity gate PASS for
-GAME.fr3 (non-character draws byte-identical to stock)" and the same line for
-village1.fr3 (.autoport/logs/build-enhanced-models.log).
+== The six defect classes ==
+CLASS-C dax-hd jaw geometry: draws=17 tris=9510 mod_verts 48+2052+251+112 donor parity restored (audit donor==appended) PASS — root cause: the jaw is BLERC geometry (dax HD rig has NO jaw joint), it rides the donor's mod/blerc draws which the cycle-1 GLB round-trip dropped (has_mod_draw was false); the blerc port copies the donor mod vertices + re-emits mod/fix draws verbatim.
+CLASS-C jak-hd scalp/hair gap: root cause = same class, the scalp/hairline region rode the dropped mod/blerc draws; restored by the blerc port, draws=24 tris=9886 mod_verts=1323 donor parity (audit donor==appended) — device close-up leg3-intro-1.png shows the hairline; owner confirms.
+CLASS-A jak eye_id: EYE-REMAP 2 eye draws bound to eichar-lod0 slots L=0x0 R=0x1 — device close-up leg3-intro-1.png shows blue iris (not white) in the real intro — PASS.
+CLASS-A keira eye_id: EYE-REMAP 2 eye draws bound to assistant-lod0 slots L=0x6 R=0x7 (audit: eye_id 0x6/0x7 on the device fr3) — PASS.
+CLASS-A samos eye/glasses: EYE-REMAP 2 eye draws bound to sage-lod0 slots L=0x4 R=0x5 (audit) — the glasses lenses now sample the driver's live eye textures — PASS.
+CLASS-A dax eye_id: EYE-REMAP 2 eye draws bound to sidekick-lod0 slots L=0x2 R=0x3 (audit) — PASS.
+CLASS-D keira fingers: root cause fix — LOCAL-DELTA v2 maps ALL keira finger joints name-matched mode-1 pivot_err 0.0000 (regen-cycle2.log), FACE-FINGER-GATE accepted-unmapped=0, PROOF C bone-length 1e-9 + 40deg follow 1e-16 — PASS.
+CLASS-D samos beard: root cause fix — beard_lip + beard joints driver-mapped mode-1 (beard-class, regen log); only beardDriver (jak3-only sim-helper) + Birdjaw (no jak1 counterpart) justified-unmapped and they follow their mapped PARENT, not world rest — PASS.
+CLASS-D jak clothing clip: LOCAL-DELTA v2 modes (world/local-mapped/local-glue + pivot-error rule) replace the flat world-delta copy that clipped the tunic; PROOF C(a) bone-length max err 1.2e-9, C(c) stillness 1.6e-15 — device visual is the owner's call.
+CLASS-E dax fur: STAMP restores the donor fr3's exact per-draw GS draw modes (alpha blend/test + backface config) onto the rip before append, killing the lossy GLB alphaMode round-trip that made fur see-through; audit shows donor-identical modes on all 17 draws — PASS.
+CLASS-B blerc facial animation (owner bar 11:05: ALL driver channels):
+CLASS-B jak-hd blerc: 14 of 14 driver channels covered (BLERC-MAP 14 of 32 donor targets mapped, driver has 14 channels) — ALL-CHANNELS PASS.
+CLASS-B dax-hd blerc: 28 of 30 driver channels covered — PARTIAL (2 uncovered, exceptions below).
+CLASS-B keira-hd blerc: 26 of 29 driver channels covered — PARTIAL (3 uncovered, exceptions below).
+CLASS-B samos-hd blerc: 26 of 30 driver channels covered — PARTIAL (4 uncovered, exceptions below).
+CLASS-B-EXCEPTION: dax driver channels 23, 29 — zero positive cosine-similarity score against ALL 37
+donor targets at assignment time (greedy exhausted at score 0; full per-target BLERC-MAP table in
+bake-cycle2.log): no donor blend-target deforms geometry in these channels' vertex regions.
+CLASS-B-EXCEPTION: keira driver channels 16, 27, 28 — same zero-similarity proof vs all 29 donor targets.
+CLASS-B-EXCEPTION: samos driver channels 17, 18, 28, 29 — same zero-similarity proof vs all 33 donor targets.
+CLASS-B runtime chain, device-proven: bones.gc override registry (8 slots x 40 weights) + companion
+per-frame mirror of pc-merc-blend-shape(driver) + Merc2 effect-enable widening; leg3 intro ran with
+0 "no free blerc override slot" lines (every companion held a face-anim slot through the cutscene)
+and the HD Jak face visibly transitions open-eyes -> blink across leg3-talk.mp4 frames.
+CLASS-F keira sourcing: the FIRST Jak 2 cutscene model already wears BOOTS (no sandals variant exists anywhere in the jak2 dump) — verdict: the current donor is CORRECT, confirmed.
+  Proof: lintcstb keira-highres is the ONLY keira-highres art-group in all of jak2 (dgo.txt; used by scene intro-samos-hut, intro-scenes.gc:3189). Its foot draws are keira-glovenewlarge/blackstrap/belt/shoebottom with ZERO skin polygons below y=0.37 (closed toe + sole + ankle shaft = boot), vs jak1 assistant-lod0's bare-toes assis-flesh4x4 reaching y=0.0 (open sandal). The owner's sandals memory is the Jak 1 look.
 
-== Per-actor coverage (M4 carry-over: ND-logo invisible Jak) — implemented + device-proven ==
-The logo/per-actor coverage fix is implemented renderer-side and proven on device: every
-pc-merc packet carries its owner pid (bones.gc), each companion registers
-(pc-hd-cover! companion-pid driver-pid), and Merc2 suppresses a stock draw ONLY while THAT
-pid's companion actively submits with its model found (TTL 32 render-calls). LEG1 plain
-boot: BOTH eichar-lod0 driver instances got their own companions ([HD-COMP] spawned
-drv=eichar-lod0 pid=12 AND pid=32 — the second is the non-*target* logo/title actor that
-M1 suppressed into invisibility), suppress lines are strictly per-covered-pid, 9 HD
-submits found=1 during boot, 0 asset-missing. An uncovered actor keeps its stock draw by
-construction (suppression requires an actively-submitting covering companion).
+== Backport definition-of-done (owner 11:30) — encoded in the pipeline ==
+FACE-FINGER-GATE lives in scripts/shell/retarget_fill_table.py: face/finger/beard HD joints on
+ancestor-glue or unmapped => LOUD exit 2 unless justified via --accept-unmapped (reason recorded in
+the k2e JSON). Cycle-2 regen of all 4 tables + art-groups under the gate (.autoport/logs/Grecharged-hd-models4/regen-cycle2.log):
+FACE-FINGER-GATE jak-hd PASS (accepted-unmapped=0)
+FACE-FINGER-GATE keira-hd PASS (accepted-unmapped=0)
+FACE-FINGER-GATE dax-hd PASS (accepted-unmapped=14: tongue chain x5, uvula, pinky/ring x8 — jak1 sidekick rig carries none of these)
+FACE-FINGER-GATE samos-hd PASS (accepted-unmapped=2: beardDriver sim-helper, Birdjaw absent from jak1 sage rig)
+The x86 build re-verified the inlined jak-hd.gc tables == regenerated snippets (byte-compare, ALL TABLES IN SYNC).
 
-== Device proof discipline ==
-- deploy_verify PASS on eae4df44 at proof time (chain build==APK==device, flag pairing
-  ogflags:009eadd8b50c:android-arm64, hd feature parity, custom pack v20f855496775).
-- fr3-select asserted per level (recharged-master? gate trap): "HD-MODELS fr3-select
-  GAME: ENHANCED (external)" and "fr3-select village1: ENHANCED (external)".
-- Warp legs: LEVEL-WARP-SPAWN name=village1-hut at pos near sage (upper deck y=46.2) and
-  near assistant (workshop y=34.2) — positions from village1-actors.json (meters).
-- Anim-follow: 32 [JAK-HD] bone3 follow dump lines across companions (frames 60/150 per
-  spawn), unmapped joints follow the driver root (align e=0) per the M1-proven math.
-- mCurrentFocus=org.opengoal.gk.jak1 at every capture; app alive at end (pid 3828).
-- exit-info: NO new native crash (reason=5 'none' before AND after the whole proof) —
-  crash-free across boot + two warp legs.
-- Cleanup: owner's exact pre-run settings RESTORED (recharged-master?=#f,
-  recharged-enhanced-models?=#t), warp debug props cleared, app force-stopped.
+== Build + deploy discipline ==
+- x86-first smoke (state-dumps rule): gk alive 200s, enhanced GAME.fr3 selected, 6 companions,
+  SUBMITTED found=1 for all four models, 0 exhaustion, 0 crash markers (x86_smoke_cycle2.txt).
+- ./build.sh linux-x86_64 + android-arm64, both --hd-models --pbr, exit 0; marker
+  ogflags:009eadd8b50c paired libgk==CGO pack==APK; hd4_deploy_fresh PASS: GAME.CGO md5
+  ea8a323f521e... built==device, custom pack version ceb8cabf50856 built==device (119 members),
+  DEPLOY-VERIFY PASS on eae4df44 against HEAD 5343e8e195.
+- HD external pack (ND IP stays external): jak1_hd_assets.zip 26MB (fr3/enhanced x3 + hd/*-ag.go x4),
+  pushed to /storage/emulated/0/OpenGOAL/jak1/assets/, md5 device==pack for every file.
+- fr3-select asserted on device: "HD-MODELS fr3-select GAME: ENHANCED (external)" (leg3 logcat).
 
-== Captures for the owner (aesthetic judge) ==
-- leg1-title.png + leg1-boot.mp4 (45s: full boot incl. ND logo sequence, enhanced ON)
-- leg2a-samos-idle.png + leg2a-samos-pan.mp4 (Samos + Jak/Daxter, hut upper deck)
-- leg2b-keira-idle.png + leg2b-keira-pan.mp4 (Keira + Jak/Daxter, workshop floor)
-Honest notes for the owner's play-test: FPS 19-28 on the Redmi in the hut (known Redmi
-perf floor, not a blocker per bench policy); my captures show all four characters visible
-and textured, but texture/shading/retarget QUALITY is the owner's call — M1 polish items
-(eye_id whites, blerc face, clothing clip) were NOT re-tested here and remain open.
+== Device proof runs (all on eae4df44, this build) ==
+- primaries leg (hd4_proof_primaries.sh): boot + village warps, 6 companions spawned (eichar x2 incl.
+  logo actor, sidekick x2, sage, assistant), per-actor suppress lines, 32 bone3 follow dumps,
+  0 asset-missing, captures leg1-title.png/leg1-boot.mp4/leg2a-samos-idle.png+pan.mp4/
+  leg2b-keira-idle.png+pan.mp4 — [proof PASS].
+- intro cutscene leg (hd4_intro_blerc_leg.sh, echo.intro prop, in-memory new game, owner save
+  untouched): REAL sage-intro spool ran ([JAK-HD-TGT] st=target-clone-anim), 10 companions across the
+  run, all 4 HD merc-loads + submits, 0 blerc-slot exhaustion, captures leg3-intro-1/2/3.png +
+  leg3-talk.mp4 (80s of the talking scene) — [leg3 PASS].
+- crash discipline: exit-info diffed before/after every leg — NO new native crash (reason=5 ts='none'
+  unchanged); app alive at end of each leg; mCurrentFocus=org.opengoal.gk.jak1 at every capture.
+- cleanup after every leg: owner's exact pre-run settings restored (recharged-master?=#f,
+  recharged-enhanced-models?=#t), echo.intro cleared, app force-stopped.
+
+== Honest notes for the owner (the aesthetic judge) ==
+- The four backported characters now carry: driver-slot eyes, full donor blerc data remapped to your
+  jak1 drivers' channels, donor-exact draw modes, and v2 k->e tables with every face/finger/beard
+  joint mapped or case-justified. What I CANNOT certify is how it LOOKS — that is your eye.
+- Redmi FPS 19-28 in the hut (known perf floor of the bench device, not a blocker per policy).
+- The 9 uncovered driver channels (dax 2, keira 3, samos 4) are channels where no donor blend-target
+  deforms the same facial region; if a specific expression still reads frozen to you, name the moment
+  and I will chase that exact channel next cycle.

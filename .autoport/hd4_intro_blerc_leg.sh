@@ -84,15 +84,27 @@ done
 [ "$CLONE" = 1 ] || die "never saw [JAK-HD-TGT] st=target-clone-anim in 420s (last states: $(grep -a 'JAK-HD-TGT' "$LC" | tail -3 | tr '\n' ' '))"
 say "REAL CUTSCENE RUNNING: $(grep -a -m1 'st=target-clone-anim' "$LC" | tr -d '\r')"
 
-# captures during the talking scene (Samos speaks over ~60s; space them across it)
+# captures during the talking scene. The clone fires at the SPOOL start = the rift-vortex
+# opening (proven by the 18:26 run: stills at +0/+9/+18s were all purple nebula); Samos'
+# talking hut shots come later. So: wait out the vortex, then RECORD ~80s of the talking
+# scene (class B is about faces MOVING — video is the owner evidence, stills are backup).
 FOCUS=$($ADB -s "$S" shell dumpsys window 2>/dev/null | grep -m1 -i mCurrentFocus | tr -d '\r' | sed 's/^ *//')
 say "mCurrentFocus: $FOCUS"
 [[ "$FOCUS" == *jak1* ]] || die "game not foreground during cutscene ($FOCUS)"
+say "waiting out the rift-vortex opening (30s) before the talking-scene record"
+sleep 30
+( $ADB -s "$S" shell screenrecord --time-limit 80 /sdcard/leg3-talk.mp4 ) &
+RECP=$!
 for i in 1 2 3; do
+  sleep 18
   $ADB -s "$S" exec-out screencap -p > "$OUT/leg3-intro-$i.png" 2>/dev/null
   say "captured leg3-intro-$i.png ($(stat -c%s "$OUT/leg3-intro-$i.png") bytes)"
-  sleep 9
 done
+wait "$RECP" 2>/dev/null || true; sleep 2
+$ADB -s "$S" pull /sdcard/leg3-talk.mp4 "$OUT/leg3-talk.mp4" >/dev/null 2>&1 \
+  && $ADB -s "$S" shell rm -f /sdcard/leg3-talk.mp4 >/dev/null 2>&1 \
+  && say "recorded leg3-talk.mp4 ($(stat -c%s "$OUT/leg3-talk.mp4") bytes, 80s of the talking scene)" \
+  || say "WARN: screenrecord pull failed"
 
 # harvest
 sleep 2
