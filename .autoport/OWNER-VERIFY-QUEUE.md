@@ -108,3 +108,7 @@ AMÉLIORATION ERGO NOTÉE AU BACKLOG (après la piste HD) : fenêtre de toléran
 ### 12:15 — M4 ROUVERT en cycle défauts 2 (backport COMPLET par définition)
 Daxter mâchoire (prio 1) + fourrure, yeux/verres x3, visages TOUTES anims x4, doigts Keira,
 barbe Samos, sourcing Keira — le worker repart dessus maintenant.
+
+### 19:00 — Ton verdict cycle-2 : VISAGES VIVANTS ×4 ✔ (jalon majeur) — cycle 3 lancé
+Régression PNJ-clignotement (prio 1, était corrigée) · Daxter troués/tête transparente (fourrure jak3
+mal backportée) · Jak gap+clipping (survivants) · Samos barbe clip/bout · Keira yeux noirs au blink.
