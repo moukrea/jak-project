@@ -63,3 +63,14 @@ les réserves, et EXACTEMENT quoi tester toi-même.)
 Piste dédiée créée : Gtouch-longjump-regression (passera juste après M4, avant les looks bonus).
 Approche : bisect (suspect n°1 = refonte menu/zones tactiles) + injection touch réelle de ta combo.
 Rien à tester pour toi là-dessus tant que la piste n'a pas produit un build.
+
+### PRÉ-GATE 10:25 [✅ token M4] — DAXTER/KEIRA/SAMOS HD + fix logo, device-prouvés
+- Vérifié (5 min) : deploy_verify PASS, rapport frais, les 3 nouveaux personnages APPENDÉS + rendus
+  en vrai gameplay (Daxter jak3-ciné SANS pantalon sur l'épaule ; Keira jak2 1ère-cutscene AVANT
+  bottines près du zoomer ; Samos jak3-ciné sur sa mezzanine) + **fix « modèle partout »** prouvé
+  (l'acteur Jak du logo ND est maintenant couvert — plus d'invisible au logo). Capture Keira regardée :
+  cohérente, plus de cursed. Zéro crash.
+- À TESTER (toi, build jak-builds) : ① séquence logo ND → Jak HD visible (plus invisible) ;
+  ② Village : Keira (zoomer) + Samos (hutte) en HD cohérents ; ③ Daxter HD sur l'épaule partout ;
+  ④ cinématiques avec eux trois ; ⑤ les polish M1 restants (yeux/gap/visage/clipping) : inchangés.
+- Phase suivante lancée : Gtouch-longjump-regression (ton long jump tactile).
