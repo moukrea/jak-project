@@ -2324,6 +2324,20 @@ phases:
   # overnight 2026-08-04: Honor is the plugged device (Redmi unplugged)
   device_serial: eae4df44
   owner_verify: true
+- id: Gtouch-longjump-regression
+  name: 'REGRESSION TACTILE LONG JUMP (owner 2026-08-04): avancer + R1/R2 + saut au TACTILE => saut
+    annulé (duck-walk + saut normal au lieu du wheel/long jump). FAIT CLÉ owner: ÇA FONCTIONNAIT AVANT
+    au tactile => régression récente, BISECTABLE. Le A/B HD ON/OFF innocente le toggle HD (rate en stock
+    aussi sur le même binaire) mais PAS le binaire: suspects = refonte menu-overhaul (zones tactiles/
+    overlay retouchés), pacing/dyn-rs affectant la vitesse de stick lue par can-wheel?. Bar: la combo
+    exacte de l''owner marche au tactile, prouvée par injection touch (pas cpad) + trace d''états.'
+  prompt: prompts/phase-Gtouch-longjump-regression.md
+  validator: validators/phase-Grecharged-hd-models3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
 - id: Grecharged-hd-models5
   name: 'HD MODELS M3 — customisations BONUS (owner 2026-08-03): looks alternatifs en OPTION (menu),
     toujours des modèles de CINÉMATIQUES, même mécanisme de backport: Keira Jak2-bottines + Keira Jak3
