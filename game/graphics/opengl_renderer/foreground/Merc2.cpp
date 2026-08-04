@@ -607,6 +607,11 @@ static std::unordered_map<u32, u64> s_hd_last_arm_call;    // driver_pid -> rend
 static u64 s_hd_blackout_events = 0;
 static u64 s_hd_submit_gap_events = 0;
 static u64 s_hd_ttl_expiries = 0;
+// fail-open episodes: a stock packet arrived while the companion was silent past the blackout
+// threshold — suppression is DROPPED and the stock model draws (a <=2-frame stock flash instead
+// of an invisible actor). Level-load hitches (DGO swaps re-instantiate actors while companions
+// respawn) are the expected source. Counted for the heartbeat, NOT gated.
+static u64 s_hd_failopen_events = 0;
 static bool s_hd_ever_armed = false;  // heartbeat stays silent until the first companion arms
 
 // CYCLE-3 (Keira black-eyes-on-blink): dynamic eye slots referenced by actively-submitting HD
@@ -739,27 +744,38 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     // and swallowed Daxter on M1 builds 10-12). Uncovered same-name actors (ND logo) draw stock.
     auto it = s_hd_driver_ttl.find(owner_pid);
     if (it != s_hd_driver_ttl.end() && it->second > 0) {
-      static std::unordered_map<u32, u64> s_hd_suppress_counts;
-      u64& n = s_hd_suppress_counts[owner_pid];
-      if (n++ % 600 == 0) {
-        lg::warn("[hd-render] suppress pid={} name='{}' (covered per-actor)", owner_pid, name);
-      }
-      // flicker detector BLACKOUT: this stock draw is being dropped although the companion has
-      // not submitted for more than ~1.25 frames — the actor is on screen (its stock packet just
-      // arrived) yet nothing will draw it this frame. This is the owner-visible flicker signature
-      // and the number the cycle-3 fix must hold at 0 through a full cutscene.
+      // FAIL-OPEN (cycle-3 boundary fix): if the companion has been silent past the blackout
+      // threshold (~1.25 frames), suppressing this stock packet would leave the actor invisible
+      // this frame — the owner-visible cutscene flicker (x86 leg caught it exactly at the
+      // echo-intro MIS.DGO swap: actors re-instantiate and submit stock while their companions
+      // are still respawning). End the coverage episode instead and let the STOCK model draw;
+      // the companion re-arms coverage on its next submit. A <=2-frame stock flash at a load
+      // boundary beats an invisible actor. BLACKOUT (suppressed AND silent) is now structurally
+      // impossible; fail-open episodes are counted in the heartbeat for honesty, not gated.
       auto arm_it = s_hd_last_arm_call.find(owner_pid);
       if (arm_it == s_hd_last_arm_call.end() ||
           s_hd_render_call_idx - arm_it->second > 20) {
-        s_hd_blackout_events++;
-        if (s_hd_blackout_events <= 20 || s_hd_blackout_events % 50 == 0) {
-          lg::warn("[hd-flicker] BLACKOUT pid={} name='{}' since_arm={}", owner_pid, name,
+        s_hd_failopen_events++;
+        if (s_hd_failopen_events <= 20 || s_hd_failopen_events % 50 == 0) {
+          lg::warn("[hd-render] FAIL-OPEN pid={} name='{}' since_arm={} — drawing stock",
+                   owner_pid, name,
                    arm_it == s_hd_last_arm_call.end()
                        ? (u64)0
                        : s_hd_render_call_idx - arm_it->second);
         }
+        s_hd_driver_ttl.erase(it);
+        if (arm_it != s_hd_last_arm_call.end()) {
+          s_hd_last_arm_call.erase(arm_it);
+        }
+        // fall through to the normal stock draw below
+      } else {
+        static std::unordered_map<u32, u64> s_hd_suppress_counts;
+        u64& n = s_hd_suppress_counts[owner_pid];
+        if (n++ % 600 == 0) {
+          lg::warn("[hd-render] suppress pid={} name='{}' (covered per-actor)", owner_pid, name);
+        }
+        return;
       }
-      return;
     }
   }
 #endif
@@ -1553,8 +1569,9 @@ void Merc2::render(DmaFollower& dma,
   // these lines and requires blackouts=0 gaps=0 across the scene. Silent until the first
   // companion ever arms (HD off / stock build => zero log traffic).
   if (s_hd_render_call_idx % 3600 == 0 && s_hd_ever_armed) {
-    lg::warn("[hd-flicker] calls={} blackouts={} gaps={} expiries={}", s_hd_render_call_idx,
-             s_hd_blackout_events, s_hd_submit_gap_events, s_hd_ttl_expiries);
+    lg::warn("[hd-flicker] calls={} blackouts={} gaps={} expiries={} failopens={}",
+             s_hd_render_call_idx, s_hd_blackout_events, s_hd_submit_gap_events,
+             s_hd_ttl_expiries, s_hd_failopen_events);
   }
 #endif
   bool hack = stats->collect_debug_model_list;

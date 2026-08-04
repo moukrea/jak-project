@@ -107,6 +107,34 @@ $ADB -s "$S" pull /sdcard/leg3-talk.mp4 "$OUT/leg3-talk.mp4" >/dev/null 2>&1 \
   && say "recorded leg3-talk.mp4 ($(stat -c%s "$OUT/leg3-talk.mp4") bytes, 80s of the talking scene)" \
   || say "WARN: screenrecord pull failed"
 
+# ---- CYCLE-3 PRIO-0: FULL INTRO WATCH (owner crash 'just after the creeps line', at the
+# ottsel-Daxter load / dark-eco pool). The old 80s record above does NOT reach that moment —
+# keep watching the WHOLE intro (transformation included) until gameplay returns or the cap.
+# On app death: pull files/gk_crash.txt + tombstone evidence and FAIL loudly.
+INTRO_CAP=${INTRO_CAP:-420}          # seconds after this point; full intro is well under this
+FULLOK=alive
+TF0=$(date +%s)
+say "PRIO-0 full-intro watch: up to ${INTRO_CAP}s more (transformation incl.)"
+while [ $(( $(date +%s)-TF0 )) -lt "$INTRO_CAP" ]; do
+  P=$(pidof_app)
+  if [ -z "$P" ]; then FULLOK=died; break; fi
+  sleep 10
+done
+FULLWATCH=$(( $(date +%s)-TF0 ))
+if [ "$FULLOK" = died ]; then
+  say "PRIO-0: APP DIED during the full-intro watch at t+${FULLWATCH}s — harvesting forensics"
+  $ADB -s "$S" shell run-as $PKG cat files/gk_crash.txt > "$OUT/leg3-gk_crash.txt" 2>&1 || true
+  say "gk_crash.txt: $(head -c 400 "$OUT/leg3-gk_crash.txt" 2>/dev/null | tr '\n' ' ')"
+else
+  say "PRIO-0: app ALIVE through the full-intro watch (${FULLWATCH}s past the talking scene)"
+  $ADB -s "$S" exec-out screencap -p > "$OUT/leg3-intro-end.png" 2>/dev/null \
+    && say "captured leg3-intro-end.png ($(stat -c%s "$OUT/leg3-intro-end.png") bytes)"
+fi
+# transformation-window evidence: the dax companion covering an actor during the scene
+DAXCOV=$(grep -ac "suppress pid=[0-9]* name='sidekick-lod0'" "$LC"); DAXCOV=${DAXCOV:-0}
+DAXSUB=$(grep -a "SUBMITTED name='dax-hd-lod0'" "$LC" | tail -1 | tr -d '\r')
+say "sidekick suppress lines: $DAXCOV   last dax-hd submit: ${DAXSUB:-NONE}"
+
 # harvest
 sleep 2
 FRSEL=$(grep -a -m1 'HD-MODELS fr3-select' "$LC" | tr -d '\r')
@@ -142,6 +170,7 @@ OK=1
 [ "$NOSLOT" -eq 0 ] || { say "FAIL: blerc slot exhausted"; OK=0; }
 [ -n "$PID" ] || { say "FAIL: app died"; OK=0; }
 [ "$NEWCRASH" = no ] || { say "FAIL: new native crash"; OK=0; }
+[ "$FULLOK" = alive ] || { say "FAIL: PRIO-0 app died during the FULL intro (transformation window)"; OK=0; }
 [ "$OK" -eq 1 ] && say "[leg3 PASS] real intro cutscene with HD companions holding blerc slots; captures banked." \
                || say "[leg3 FAIL] see above"
 exit $(( 1 - OK ))
