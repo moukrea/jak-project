@@ -77,6 +77,6 @@ Rien à tester pour toi là-dessus tant que la piste n'a pas produit un build.
 
 ### 11:00 — Ton verdict M4 (logué) : rendus OK mais qualité pas là — cycle défauts 2 spécifié
 Daxter SANS mâchoire (cursed, priorité 1) + fourrure transparente ; yeux/verres blancs x3 (fix
-systémique eye_id) ; visages immobiles x4 (blerc) ; doigts Keira + barbe Samos (mapping d'os) ;
+systémique eye_id) ; visages immobiles x4 (blerc — barre owner : TOUTES les anims faciales, pas juste la mâchoire) ; doigts Keira + barbe Samos (mapping d'os) ;
 sourcing Keira bottines à vérifier (peut-être déjà bottines en 1ère ciné — on te dira).
 Lancement : juste après la phase long-jump tactile en cours.
