@@ -80,3 +80,7 @@ Daxter SANS mâchoire (cursed, priorité 1) + fourrure transparente ; yeux/verre
 systémique eye_id) ; visages immobiles x4 (blerc — barre owner : TOUTES les anims faciales, pas juste la mâchoire) ; doigts Keira + barbe Samos (mapping d'os) ;
 sourcing Keira bottines à vérifier (peut-être déjà bottines en 1ère ciné — on te dira).
 Lancement : juste après la phase long-jump tactile en cours.
+
+### 11:10 — Menu (parké) : régressions fonctionnelles loguées pour la reprise
+Sélecteur displacement (parallax/tess/none) cassé + réglages qui se marchent dessus. Corrigés quand
+la phase menu reprendra (après les HD) — logué dans son brief avec audit ligne-par-ligne exigé.
