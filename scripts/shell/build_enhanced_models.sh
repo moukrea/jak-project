@@ -161,8 +161,9 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     n_app=$((n_app + 1))
     DST="$HD_TMP/$lvl.step$n_app.fr3"
     SWAP_LOG="$(mktemp)"
-    log "anim-retarget: APPEND $char-lod0 to $lvl.fr3 (step $n_app, append-only, NO re-rig replace, eyes from $driver_model)…"
-    "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" --eye-from "$driver_model" 2>&1 | tee -a "$SWAP_LOG"
+    log "anim-retarget: APPEND $char-lod0 to $lvl.fr3 (step $n_app, append-only, NO re-rig replace, eyes from $driver_model, blerc from $donor_model)…"
+    "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" --eye-from "$driver_model" \
+      --blerc-from "$donor_fr3:$donor_model" 2>&1 | tee -a "$SWAP_LOG"
     if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
       log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
@@ -170,6 +171,11 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     # class A gate: the eye remap must have actually happened (donor rips DO carry eye draws)
     if ! grep -qE "EYE-REMAP: [1-9][0-9]* eye draws" "$SWAP_LOG"; then
       log "EYE-REMAP verification FAILED for $char — no eye draws were rebound to $driver_model."
+      rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    # class B gate: the blerc port must complete (or loudly state the donor carries no blerc)
+    if ! grep -qE "BLERC-PORT OK|BLERC-PORT: donor has no blerc" "$SWAP_LOG"; then
+      log "BLERC-PORT verification FAILED for $char — no blend-shape data was ported."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
     fi
     rm -f "$SWAP_LOG"

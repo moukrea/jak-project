@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 229,
+  "current_phase_idx": 228,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -221,8 +221,8 @@
     "Grecharged-mesh-browser": 16,
     "Grecharged-menu-overhaul": 1,
     "Grecharged-hd-models3": 3,
-    "Grecharged-hd-models4": 3,
-    "Gtouch-longjump-regression": 2
+    "Gtouch-longjump-regression": 2,
+    "Grecharged-hd-models4": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -487,10 +487,6 @@
     ],
     "Grecharged-hd-models3": [
       "96f5b163e8e2"
-    ],
-    "Grecharged-hd-models4": [
-      "57e9768ec18b",
-      "57e9768ec18b"
     ]
   },
   "stuck_reasons": {
@@ -710,7 +706,7 @@
     "Grecharged-mesh-consolidation",
     "Grecharged-mesh-browser",
     "Grecharged-hd-models3",
-    "Grecharged-hd-models4"
+    "Gtouch-longjump-regression"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -917,10 +913,10 @@
     "Grecharged-pbr-realtime-fusion": 1784783149.315742,
     "Grecharged-mesh-consolidation": 1784930060.5837617,
     "Grecharged-menu-overhaul": 1785736866.6427572,
-    "Grecharged-hd-models4": 1785826634.2986207,
-    "Gtouch-longjump-regression": 1785831811.5772808
+    "Gtouch-longjump-regression": 1785831811.5772808,
+    "Grecharged-hd-models4": 1785838314.2041388
   },
-  "last_update": "2026-08-04T09:55:16.495971+00:00",
+  "last_update": "2026-08-04T11:37:50.764975+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1016,7 +1012,6 @@
     "Grecharged-mesh-browser",
     "Grecharged-menu-overhaul",
     "Grecharged-hd-models3",
-    "Grecharged-hd-models4",
     "Gtouch-longjump-regression"
   ],
   "parked": {

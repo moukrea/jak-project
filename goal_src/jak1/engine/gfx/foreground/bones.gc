@@ -1046,6 +1046,26 @@
 ;; when true, uses the PC float blerc implementation.
 (define *use-fp-blerc* #t)
 
+;; ------------------------------------------------------------------------------------------------
+;; HD-companion blerc override registry (Grecharged-hd-models4 class B, faces on appended mercs).
+;; A jak-hd companion process draws the HD skin but owns no blerc-carrying anim: its weights are
+;; the DRIVER's, computed per frame in pc/jak-hd.gc via (pc-merc-blend-shape <driver> ...) and
+;; parked here per companion pid. draw-bones checks the registry and, on a hit with active=1,
+;; forces the pc-blerc path with these weights for that process. Generic mechanism: bones.gc
+;; knows nothing about the jak-hd type (pc file, compiled later).
+;; ------------------------------------------------------------------------------------------------
+(define *pc-blerc-override-pids* (new 'static 'array int32 8 0 0 0 0 0 0 0 0))
+(define *pc-blerc-override-active* (new 'static 'array int32 8 0 0 0 0 0 0 0 0))
+(define *pc-blerc-override-weights* (new 'static 'array float 320))
+
+(defun pc-blerc-override-slot ((pid int))
+  "registry slot for this pid with weights valid THIS frame, else -1."
+  (dotimes (i 8)
+    (when (and (= (-> *pc-blerc-override-pids* i) pid)
+               (nonzero? (-> *pc-blerc-override-active* i)))
+      (return i)))
+  -1)
+
 (define *texscroll-force-generic* #f)
 
 (define *ripple-force-generic* #f)
@@ -1295,7 +1315,14 @@
                           ))))
                   (when (= pc-merc-vtx-update 'blerc)
                     (unless (pc-merc-blend-shape (the process-drawable (-> arg0 process)) blerc-weights)
-                      (set! pc-merc-vtx-update #f))))
+                      (set! pc-merc-vtx-update #f)))
+                  ;; HD companion override (class B): a registry hit substitutes the DRIVER's
+                  ;; weights (computed in jak-hd.gc) and forces the blerc path for this process.
+                  (let ((ovr-slot (pc-blerc-override-slot (the int (-> (the process (-> arg0 process)) pid)))))
+                    (when (>= ovr-slot 0)
+                      (set! pc-merc-vtx-update 'blerc)
+                      (dotimes (i 40)
+                        (set! (-> blerc-weights i) (-> *pc-blerc-override-weights* (+ (* ovr-slot 40) i)))))))
                 ;; additional in pc to make envmap fade 0 when envmap is not used
                 (let ((a0-36 (the-as object (-> *merc-bucket-info* effect effect-idx))))
                   (dotimes (a2-15 4)

@@ -64,7 +64,8 @@ void extract(tfrag3::MercModel& mdl,
           gltf_util::JointsAndWeights dummy;
           dummy.joints[0] = 3;
           dummy.weights[0] = 1.f;
-          for (size_t i = 0; i < out.new_vertices.size(); i++) {
+          // this prim's vertex count, NOT the running total (which desynced joints from verts)
+          for (size_t i = 0; i < verts.vtx.size(); i++) {
             out.joints_and_weights.push_back(dummy);
           }
         }
@@ -208,7 +209,16 @@ void extract(const std::string& name,
              bool& has_custom_weights) {
   ASSERT(out.new_vertices.empty());
 
-  std::map<int, tfrag3::MercDraw> draw_by_material;
+  // one draw PER PRIM, not per material: the old draw_by_material map overwrote
+  // first_index/index_count for every prim sharing a material, silently dropping all but the
+  // last one's geometry. Per-prim draws also preserve the donor's draw partition 1:1 (prim
+  // order == donor draw order for ripped GLBs), which the HD-models parity gate counts on.
+  struct PrimDraw {
+    int mat_idx;
+    int effect_idx;
+    tfrag3::MercDraw draw;
+  };
+  std::vector<PrimDraw> prim_draws;
   int mesh_count = 0;
   int prim_count = 0;
   int joints = 3;
@@ -252,48 +262,71 @@ void extract(const std::string& name,
           gltf_util::JointsAndWeights dummy;
           dummy.joints[0] = 3;
           dummy.weights[0] = 1.f;
-          for (size_t i = 0; i < out.new_vertices.size(); i++) {
+          for (size_t i = 0; i < verts.vtx.size(); i++) {
             out.joints_and_weights.push_back(dummy);
           }
         }
 
-        // TODO: just putting it all in one material
-        auto& draw = draw_by_material[prim.material];
-        draw.mode = gltf_util::make_default_draw_mode();  // todo rm
-        draw.tree_tex_id = 0;                             // todo rm
-        draw.num_triangles += prim_indices.size() / 3;
-        draw.no_strip = true;
-        draw.index_count = prim_indices.size();
-        draw.first_index = index_offset + out.new_indices.size();
+        auto& pd = prim_draws.emplace_back();
+        pd.mat_idx = prim.material;
+        pd.effect_idx = (prim.extras.Has("goal_effect_idx"))
+                            ? prim.extras.Get("goal_effect_idx").Get<int>()
+                            : 0;
+        pd.draw.num_triangles = prim_indices.size() / 3;
+        pd.draw.no_strip = true;
+        pd.draw.index_count = prim_indices.size();
+        pd.draw.first_index = index_offset + out.new_indices.size();
 
         out.new_indices.insert(out.new_indices.end(), prim_indices.begin(), prim_indices.end());
       }
     }
   }
 
-  tfrag3::MercEffect e;
-  tfrag3::MercEffect envmap_eff;
-  envmap_eff.has_envmap = false;
   out.new_model.name = name;
   // if we have a skeleton, use that joint count, otherwise use a high default value since the model
   // we replace can have more
   out.new_model.max_bones = joints != 3 ? joints : 100;
   out.new_model.max_draws = 0;
 
-  for (const auto& [mat_idx, d_] : draw_by_material) {
-    const auto& mat = model.materials[mat_idx];
-    if (mat_idx < 0 || !gltf_util::material_has_envmap(model.materials[mat_idx]) ||
+  // rebuild the donor's effect partition (goal_effect_idx prim extras; everything at 0 when
+  // absent). blerc mod groups and envmap are per-effect, so this structure must survive.
+  std::map<int, tfrag3::MercEffect> effects_by_idx;
+  tfrag3::MercEffect envmap_eff;
+  envmap_eff.has_envmap = false;
+  size_t normal_draws = 0;
+
+  for (const auto& pd : prim_draws) {
+    int mat_idx = pd.mat_idx;
+    bool valid_mat = mat_idx >= 0 && mat_idx < (int)model.materials.size();
+    if (!valid_mat || !gltf_util::material_has_envmap(model.materials[mat_idx]) ||
         !gltf_util::envmap_is_valid(model.materials[mat_idx])) {
-      gltf_util::process_normal_merc_draw(model, out, tex_offset, e, mat_idx, d_);
+      auto& eff = effects_by_idx[pd.effect_idx];
+      gltf_util::process_normal_merc_draw(model, out, tex_offset, eff, mat_idx, pd.draw);
+      normal_draws++;
+      // faithful round-trip (HD-models defect classes C/E/A): ripped GLBs stamp the donor's
+      // exact GS draw mode + eye slot in material extras; restore them verbatim over the
+      // lossy alphaMode/sampler reconstruction (which dropped depth-write on BLEND draws ->
+      // see-through fur/hair, and lost eye_id entirely -> white eyes).
+      if (valid_mat) {
+        const auto& mat_extras = model.materials[mat_idx].extras;
+        auto& draw = eff.all_draws.back();
+        if (mat_extras.Has("goal_draw_mode")) {
+          draw.mode.as_int() = (u32)mat_extras.Get("goal_draw_mode").Get<int>();
+        }
+        if (mat_extras.Has("goal_eye_id")) {
+          draw.eye_id = (u8)mat_extras.Get("goal_eye_id").Get<int>();
+        }
+      }
     } else {
       envmap_eff.has_envmap = true;
-      gltf_util::process_envmap_merc_draw(model, out, tex_offset, envmap_eff, mat_idx, d_);
+      gltf_util::process_envmap_merc_draw(model, out, tex_offset, envmap_eff, mat_idx, pd.draw);
     }
   }
 
-  // in case a model only has envmap draws, we don't push the normal merc effect
-  if (!e.all_draws.empty()) {
-    out.new_model.effects.push_back(e);
+  for (auto& [idx, eff] : effects_by_idx) {
+    if (!eff.all_draws.empty()) {
+      out.new_model.effects.push_back(eff);
+    }
   }
   if (envmap_eff.has_envmap) {
     out.new_model.effects.push_back(envmap_eff);
@@ -303,8 +336,8 @@ void extract(const std::string& name,
     out.new_model.max_draws += effect.all_draws.size();
   }
 
-  lg::info("total of {} unique materials ({} normal, {} envmap)", out.new_model.max_draws,
-           e.all_draws.size(), envmap_eff.all_draws.size());
+  lg::info("total of {} draws over {} effects ({} normal, {} envmap)", out.new_model.max_draws,
+           out.new_model.effects.size(), normal_draws, envmap_eff.all_draws.size());
   lg::info("Merged {} meshes and {} prims into {} vertices", mesh_count, prim_count,
            out.new_vertices.size());
 }

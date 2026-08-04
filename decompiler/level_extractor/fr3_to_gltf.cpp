@@ -620,7 +620,8 @@ int add_material_for_tex(const tfrag3::Level& level,
                          tinygltf::Model& model,
                          int tex_idx,
                          std::unordered_map<int, int>& tex_image_map,
-                         const DrawMode& draw_mode) {
+                         const DrawMode& draw_mode,
+                         u8 eye_id = 0xff) {
   if (tex_idx < 0) {
     // anim textures, just use default material
     return 0;
@@ -628,6 +629,18 @@ int add_material_for_tex(const tfrag3::Level& level,
   int mat_idx = (int)model.materials.size();
   auto& mat = model.materials.emplace_back();
   auto& tex = level.textures.at(tex_idx);
+
+  // faithful round-trip: the GLB alphaMode/sampler below are lossy approximations (BLEND drops
+  // depth-write, MASK rescales aref), which read back as see-through fur/hair on re-import. Stamp
+  // the EXACT GS draw mode (and eye slot binding, if any) so importers can restore it verbatim.
+  {
+    tinygltf::Value::Object extras;
+    extras["goal_draw_mode"] = tinygltf::Value((int)draw_mode.as_int());
+    if (eye_id != 0xff) {
+      extras["goal_eye_id"] = tinygltf::Value((int)eye_id);
+    }
+    mat.extras = tinygltf::Value(extras);
+  }
 
   mat.doubleSided = true;
   // the 2.0 here compensates for the ps2's weird blending where 0.5 behaves like 1.0
@@ -1297,7 +1310,14 @@ void add_merc(const tfrag3::Level& level,
       const auto& draw = effect.all_draws[draw_idx];
       auto& prim = mesh.primitives.emplace_back();
       prim.material =
-          add_material_for_tex(level, model, draw.tree_tex_id, tex_image_map, draw.mode);
+          add_material_for_tex(level, model, draw.tree_tex_id, tex_image_map, draw.mode,
+                               draw.eye_id);
+      // preserve the donor's effect partition (blerc mod groups and envmap are per-effect)
+      {
+        tinygltf::Value::Object prim_extras;
+        prim_extras["goal_effect_idx"] = tinygltf::Value((int)effect_idx);
+        prim.extras = tinygltf::Value(prim_extras);
+      }
       prim.indices =
           make_index_buffer_accessor(model, draw_to_start[effect_idx][draw_idx],
                                      draw_to_count[effect_idx][draw_idx], index_buffer_view);

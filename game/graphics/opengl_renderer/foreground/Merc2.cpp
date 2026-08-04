@@ -1095,6 +1095,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
 
   // Next is "fade data", indicating the color/intensity of envmap effect
   u8 fade_buffer[4 * kMaxEffect];
+  memset(fade_buffer, 0, sizeof(fade_buffer));  // custom models can have MORE effects than GOAL
+                                                // sent fades for; their tail must not be garbage
   for (int ei = 0; ei < num_effects; ei++) {
     for (int j = 0; j < 4; j++) {
       fade_buffer[ei * 4 + j] = input_data[ei * 4 + j];
@@ -1109,6 +1111,10 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // blerc/mod draws
   if (model->effects.at(0).all_draws.at(0).no_strip) {
     num_effects = model->effects.size();
+    // GOAL builds enable_mask (and fades) from the merc-ctrl's effect count — 1 for fabricated
+    // HD-actor shells — so fr3 effects beyond it would be skipped by the enable check below.
+    // Enable them; GOAL keeps authority over the effects it actually knows.
+    current_effect_enable_bits |= ~0ull << flags->effect_count;
   }
 
   // will hold opengl buffers for the updated vertices

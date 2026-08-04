@@ -29,6 +29,8 @@
 // "jak-highres-lod0").
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -42,6 +44,7 @@
 #include "common/util/compress.h"
 
 #include "fmt/format.h"
+#include "third-party/tiny_gltf/tiny_gltf.h"
 
 // replace_model lives in decompiler/level_extractor/extract_merc.cpp (part of the `decomp`
 // library) and has no public header declaration; forward-declare the exact signature.
@@ -127,8 +130,27 @@ int do_audit(const fs::path& fr3, const std::vector<std::string>& names) {
                model.max_bones, model.effects.size(), tot_draws, tot_tris);
     for (size_t ei = 0; ei < model.effects.size(); ei++) {
       const auto& e = model.effects[ei];
-      fmt::print("  effect[{}] has_envmap={} envmap_texture={} draws={}\n", ei, e.has_envmap,
-                 e.envmap_texture, e.all_draws.size());
+      // blerc/mod summary (defect class B): does this effect carry facial blend-shape data?
+      // int_data is per-vertex [tgt0_idx, ..., terminator, dest]: targets are before each
+      // terminator, the following word is a vertex index and must be skipped.
+      u32 max_target = 0;
+      size_t blerc_verts = 0;
+      for (size_t bi = 0; bi < e.mod.blerc.int_data.size(); bi++) {
+        u32 v = e.mod.blerc.int_data[bi];
+        if (v == tfrag3::Blerc::kTargetIdxTerminator) {
+          bi++;  // skip dest
+          blerc_verts++;
+        } else if (v > max_target) {
+          max_target = v;
+        }
+      }
+      fmt::print(
+          "  effect[{}] has_envmap={} envmap_texture={} envmap_mode={:#x} draws={} "
+          "has_mod_draw={} mod_draws={} fix_draws={} mod_verts={} blerc_verts={} "
+          "blerc_floats={} max_blerc_target={}\n",
+          ei, e.has_envmap, e.envmap_texture, e.envmap_mode.as_int(), e.all_draws.size(),
+          e.has_mod_draw, e.mod.mod_draw.size(), e.mod.fix_draw.size(), e.mod.vertices.size(),
+          blerc_verts, e.mod.blerc.float_data.size(), max_target);
       for (size_t di = 0; di < e.all_draws.size(); di++) {
         const auto& d = e.all_draws[di];
         const char* binds = (d.tree_tex_id >= 0) ? "REAL" : "NONE";
@@ -226,7 +248,743 @@ int do_swap(const fs::path& in, const fs::path& out, const std::vector<std::stri
   return missing > 0 ? 3 : 0;
 }
 
-int do_add(const fs::path& in, const fs::path& glb, const fs::path& out) {
+// STAMP mode (defect classes C/E/A, cycle 2): back-annotate a ripped donor GLB with the donor
+// fr3's EXACT per-draw GS draw mode, eye slot, and effect index as GLB extras
+// (goal_draw_mode / goal_eye_id on the material, goal_effect_idx on the prim). The GLB
+// alphaMode/sampler reconstruction is lossy (BLEND loses depth-write -> see-through fur/jaw/
+// hair; eye_id is unrepresentable -> white eyes); these extras let the importer restore the
+// donor look verbatim. Relies on (and loudly ASSERTS) the exporter invariant that GLB prim
+// order == donor (effect, draw) order with matching triangle counts.
+int do_stamp(const fs::path& donor_fr3,
+             const std::string& model_name,
+             const fs::path& in_glb,
+             const fs::path& out_glb) {
+  tfrag3::Level lev;
+  load_fr3(donor_fr3, lev);
+  auto it = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                         [&](const auto& m) { return m.name == model_name; });
+  if (it == lev.merc_data.models.end()) {
+    fmt::print("  STAMP FAIL: model '{}' not in {}\n", model_name, donor_fr3.string());
+    return 2;
+  }
+  struct Ref {
+    int effect;
+    const tfrag3::MercDraw* d;
+  };
+  std::vector<Ref> flat;
+  for (size_t ei = 0; ei < it->effects.size(); ei++) {
+    for (const auto& d : it->effects[ei].all_draws) {
+      flat.push_back({(int)ei, &d});
+    }
+  }
+
+  tinygltf::Model model;
+  tinygltf::TinyGLTF loader;
+  std::string err, warn;
+  if (!loader.LoadBinaryFromFile(&model, &err, &warn, in_glb.string())) {
+    fmt::print("  STAMP FAIL: cannot load {}: {}\n", in_glb.string(), err);
+    return 2;
+  }
+  if (model.meshes.size() != 1) {
+    fmt::print("  STAMP FAIL: expected 1 mesh in the rip GLB, got {}\n", model.meshes.size());
+    return 2;
+  }
+  auto& mesh = model.meshes[0];
+  if (mesh.primitives.size() != flat.size()) {
+    fmt::print("  STAMP FAIL: prim count {} != donor draw count {} — prim/draw order invariant "
+               "broken, refusing to stamp\n",
+               mesh.primitives.size(), flat.size());
+    return 2;
+  }
+  std::map<int, u32> stamped_mats;  // material -> mode (collision check)
+  int eye_stamps = 0;
+  for (size_t i = 0; i < mesh.primitives.size(); i++) {
+    auto& prim = mesh.primitives[i];
+    const auto& ref = flat[i];
+    u32 prim_tris = (u32)model.accessors.at(prim.indices).count / 3;
+    if (prim_tris != ref.d->num_triangles) {
+      fmt::print("  STAMP FAIL: prim[{}] has {} tris but donor draw has {} — order invariant "
+                 "broken, refusing to stamp\n",
+                 i, prim_tris, ref.d->num_triangles);
+      return 2;
+    }
+    tinygltf::Value::Object pex;
+    pex["goal_effect_idx"] = tinygltf::Value(ref.effect);
+    prim.extras = tinygltf::Value(pex);
+
+    if (prim.material < 0) {
+      fmt::print("  STAMP FAIL: prim[{}] has no material (anim-slot draw?) — unsupported\n", i);
+      return 2;
+    }
+    auto found = stamped_mats.find(prim.material);
+    if (found != stamped_mats.end()) {
+      if (found->second != ref.d->mode.as_int()) {
+        fmt::print("  STAMP FAIL: material {} shared by draws with different modes ({:#x} vs "
+                   "{:#x})\n",
+                   prim.material, found->second, ref.d->mode.as_int());
+        return 2;
+      }
+      continue;
+    }
+    stamped_mats[prim.material] = ref.d->mode.as_int();
+    tinygltf::Value::Object mex;
+    mex["goal_draw_mode"] = tinygltf::Value((int)ref.d->mode.as_int());
+    if (ref.d->eye_id != 0xff) {
+      mex["goal_eye_id"] = tinygltf::Value((int)ref.d->eye_id);
+      eye_stamps++;
+    }
+    model.materials[prim.material].extras = tinygltf::Value(mex);
+  }
+
+  tinygltf::TinyGLTF gltf;
+  if (!gltf.WriteGltfSceneToFile(&model, out_glb.string(), true /*embedImages*/,
+                                 true /*embedBuffers*/, false /*pretty*/, true /*binary*/)) {
+    fmt::print("  STAMP FAIL: cannot write {}\n", out_glb.string());
+    return 2;
+  }
+  fmt::print("  STAMPED {} prims / {} materials ({} eye draws) from '{}' -> {}\n",
+             mesh.primitives.size(), stamped_mats.size(), eye_stamps, model_name,
+             out_glb.string());
+  return 0;
+}
+
+// defect class A (white eyes): donor eye draws carry jak2/jak3 eye slots (e.g. 0x80/0x81),
+// meaningless to jak1's EyeRenderer (lookup is slot % 40 into the jak1 eye array). The HD model
+// must sample the DRIVER's composited eye texture, whose slot is static in the driver's stock
+// merc model in this same fr3. Remap left->left, right->right (low bit = is_right).
+// the driver ("stock") model's eye slots: shared by the all_draws remap below and by the
+// blerc port (which re-emits fix/mod draws carrying donor eye ids).
+int find_stock_eye_slots(const tfrag3::Level& lev,
+                         const std::string& eye_from,
+                         int& stock_left,
+                         int& stock_right) {
+  stock_left = -1;
+  stock_right = -1;
+  auto stock = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                            [&](const auto& m) { return m.name == eye_from; });
+  if (stock == lev.merc_data.models.end()) {
+    fmt::print("  EYE-REMAP FAIL: stock model '{}' not in this fr3\n", eye_from);
+    return 5;
+  }
+  for (const auto& e : stock->effects) {
+    for (const auto& d : e.all_draws) {
+      if (d.eye_id != 0xff) {
+        ((d.eye_id & 1) ? stock_right : stock_left) = d.eye_id;
+      }
+    }
+  }
+  if (stock_left < 0 && stock_right < 0) {
+    fmt::print("  EYE-REMAP FAIL: stock model '{}' has no eye draws (no eye slot to inherit)\n",
+               eye_from);
+    return 5;
+  }
+  return 0;
+}
+
+int remap_eye_ids(tfrag3::Level& lev, tfrag3::MercModel& appended, const std::string& eye_from) {
+  int stock_left = -1, stock_right = -1;
+  int erc = find_stock_eye_slots(lev, eye_from, stock_left, stock_right);
+  if (erc != 0) {
+    return erc;
+  }
+  int remapped = 0;
+  for (auto& e : appended.effects) {
+    for (auto& d : e.all_draws) {
+      if (d.eye_id == 0xff) {
+        continue;
+      }
+      int want = (d.eye_id & 1) ? stock_right : stock_left;
+      if (want < 0) {
+        fmt::print("  EYE-REMAP FAIL: appended draw is a {} eye but stock '{}' has none\n",
+                   (d.eye_id & 1) ? "RIGHT" : "LEFT", eye_from);
+        return 5;
+      }
+      fmt::print("  EYE-REMAP: draw eye_id {:#x} (donor) -> {:#x} (driver slot {})\n", d.eye_id,
+                 want, want >> 1);
+      d.eye_id = (u8)want;
+      remapped++;
+    }
+  }
+  fmt::print("  EYE-REMAP: {} eye draws now bound to '{}' slots (L={:#x} R={:#x})\n", remapped,
+             eye_from, stock_left, stock_right);
+  return 0;
+}
+
+// ---------------------------------------------------------------------------------------------
+// defect class B (hd-models4): BLERC PORT — carry the donor model's facial blend-shape data onto
+// the appended HD model, with the donor's target indices remapped to the jak1 DRIVER's blerc
+// channels (the GOAL side sends the driver's weight vector; donor target ids are meaningless).
+//
+// Render semantics (Merc2.cpp:353-405, 1205-1241): when blerc weights arrive, an effect with
+// has_mod_draw renders mod.fix_draw (index values are LEVEL vertex indices) + mod.mod_draw (index
+// values are MOD-LOCAL indices into effect.mod.vertices, drawn from a dynamic VBO built by copying
+// mod.vertices and applying blerc). All draws' first_index points into lev.merc_data.indices.
+// ---------------------------------------------------------------------------------------------
+
+constexpr int MAX_MOD_VTX_LIMIT = 65535;  // Merc2.h MAX_MOD_VTX == UINT16_MAX
+
+struct BlercVert {
+  std::vector<u32> tgts;  // target indices, in order
+  size_t float_base = 0;  // index of the base BlercFloatData; deltas follow in tgts order
+  u32 dest = 0;
+};
+
+// walk the [tgt..., terminator, dest] / [base, tgt-deltas...] pair of arrays.
+bool parse_blerc(const tfrag3::Blerc& b, std::vector<BlercVert>& out) {
+  out.clear();
+  size_t fi = 0, ii = 0;
+  while (ii < b.int_data.size()) {
+    BlercVert v;
+    v.float_base = fi;
+    if (fi >= b.float_data.size()) {
+      return false;
+    }
+    fi++;
+    while (ii < b.int_data.size() && b.int_data[ii] != tfrag3::Blerc::kTargetIdxTerminator) {
+      v.tgts.push_back(b.int_data[ii]);
+      ii++;
+      fi++;
+    }
+    if (ii + 1 >= b.int_data.size()) {
+      return false;  // missing terminator or dest
+    }
+    v.dest = b.int_data[ii + 1];
+    ii += 2;
+    if (fi > b.float_data.size()) {
+      return false;
+    }
+    out.push_back(std::move(v));
+  }
+  return fi == b.float_data.size();
+}
+
+struct ChanSample {
+  float p[3];  // normalized base position
+  float d[3];  // target delta (raw)
+};
+
+// all blerc samples of a model, grouped by target/channel index. positions are normalized
+// (centroid-subtracted, RMS-radius-divided) so rigs of different proportions can be matched.
+bool collect_blerc_samples(const tfrag3::MercModel& m,
+                           std::map<u32, std::vector<ChanSample>>& out,
+                           u32& max_idx,
+                           std::string& err) {
+  out.clear();
+  max_idx = 0;
+  std::vector<std::array<float, 3>> bases;
+  struct Raw {
+    size_t base_slot;
+    float d[3];
+    u32 chan;
+  };
+  std::vector<Raw> raws;
+  for (size_t ei = 0; ei < m.effects.size(); ei++) {
+    const auto& b = m.effects[ei].mod.blerc;
+    if (b.int_data.empty()) {
+      continue;
+    }
+    std::vector<BlercVert> verts;
+    if (!parse_blerc(b, verts)) {
+      err = fmt::format("model '{}' effect[{}] blerc int/float data is malformed", m.name, ei);
+      return false;
+    }
+    for (const auto& v : verts) {
+      size_t slot = bases.size();
+      const auto& bf = b.float_data[v.float_base];
+      bases.push_back({bf.v[0], bf.v[1], bf.v[2]});
+      for (size_t k = 0; k < v.tgts.size(); k++) {
+        const auto& df = b.float_data[v.float_base + 1 + k];
+        Raw r;
+        r.base_slot = slot;
+        r.d[0] = df.v[0];
+        r.d[1] = df.v[1];
+        r.d[2] = df.v[2];
+        r.chan = v.tgts[k];
+        max_idx = std::max(max_idx, r.chan);
+        raws.push_back(r);
+      }
+    }
+  }
+  if (bases.empty()) {
+    err = fmt::format("model '{}' has no blerc data", m.name);
+    return false;
+  }
+  double cx = 0, cy = 0, cz = 0;
+  for (const auto& b : bases) {
+    cx += b[0];
+    cy += b[1];
+    cz += b[2];
+  }
+  cx /= bases.size();
+  cy /= bases.size();
+  cz /= bases.size();
+  double r2 = 0;
+  for (const auto& b : bases) {
+    double dx = b[0] - cx, dy = b[1] - cy, dz = b[2] - cz;
+    r2 += dx * dx + dy * dy + dz * dz;
+  }
+  double rms = std::sqrt(r2 / bases.size());
+  if (rms <= 0) {
+    err = fmt::format("model '{}' blerc base positions are degenerate (rms radius 0)", m.name);
+    return false;
+  }
+  for (const auto& r : raws) {
+    ChanSample s;
+    s.p[0] = (float)((bases[r.base_slot][0] - cx) / rms);
+    s.p[1] = (float)((bases[r.base_slot][1] - cy) / rms);
+    s.p[2] = (float)((bases[r.base_slot][2] - cz) / rms);
+    s.d[0] = r.d[0];
+    s.d[1] = r.d[1];
+    s.d[2] = r.d[2];
+    out[r.chan].push_back(s);
+  }
+  return true;
+}
+
+// donor target index -> driver channel index (-1 = unmapped).
+bool build_channel_map(const tfrag3::MercModel& donor,
+                       const tfrag3::MercModel& driver,
+                       std::vector<int>& channel_map,
+                       std::string& err) {
+  std::map<u32, std::vector<ChanSample>> dsamp, ksamp;
+  u32 dmax = 0, kmax = 0;
+  if (!collect_blerc_samples(donor, dsamp, dmax, err)) {
+    return false;
+  }
+  if (!collect_blerc_samples(driver, ksamp, kmax, err)) {
+    return false;
+  }
+  const size_t nt = dmax + 1, nc = kmax + 1;
+  std::vector<double> score(nt * nc, 0.0);
+  for (const auto& [t, dvec] : dsamp) {
+    for (const auto& [c, kvec] : ksamp) {
+      double s = 0;
+      for (const auto& dv : dvec) {
+        // nearest driver blerc vert having a delta for c
+        double best = 1e30;
+        const ChanSample* bw = nullptr;
+        for (const auto& kv : kvec) {
+          double dx = dv.p[0] - kv.p[0], dy = dv.p[1] - kv.p[1], dz = dv.p[2] - kv.p[2];
+          double d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 < best) {
+            best = d2;
+            bw = &kv;
+          }
+        }
+        if (!bw || std::sqrt(best) > 0.35) {
+          continue;
+        }
+        double ma = std::sqrt((double)dv.d[0] * dv.d[0] + (double)dv.d[1] * dv.d[1] +
+                              (double)dv.d[2] * dv.d[2]);
+        double mb = std::sqrt((double)bw->d[0] * bw->d[0] + (double)bw->d[1] * bw->d[1] +
+                              (double)bw->d[2] * bw->d[2]);
+        if (ma <= 0 || mb <= 0) {
+          continue;
+        }
+        double dot = (double)dv.d[0] * bw->d[0] + (double)dv.d[1] * bw->d[1] +
+                     (double)dv.d[2] * bw->d[2];
+        double cos_sim = dot / (ma * mb);
+        s += cos_sim * ma * mb;
+      }
+      score[t * nc + c] = s;
+    }
+  }
+
+  channel_map.assign(nt, -1);
+  std::vector<char> row_used(nt, 0), col_used(nc, 0);
+  std::vector<double> best_score(nt, 0.0), second_score(nt, 0.0);
+  std::vector<int> second_chan(nt, -1);
+  while (true) {
+    double best = 0;
+    int bt = -1, bc = -1;
+    for (size_t t = 0; t < nt; t++) {
+      if (row_used[t]) {
+        continue;
+      }
+      for (size_t c = 0; c < nc; c++) {
+        if (col_used[c]) {
+          continue;
+        }
+        if (score[t * nc + c] > best) {
+          best = score[t * nc + c];
+          bt = (int)t;
+          bc = (int)c;
+        }
+      }
+    }
+    if (bt < 0 || best <= 0) {
+      break;
+    }
+    channel_map[bt] = bc;
+    best_score[bt] = best;
+    // 2nd best channel for this target among channels still free at assignment time
+    double s2 = 0;
+    int c2 = -1;
+    for (size_t c = 0; c < nc; c++) {
+      if (col_used[c] || (int)c == bc) {
+        continue;
+      }
+      if (score[bt * nc + c] > s2) {
+        s2 = score[bt * nc + c];
+        c2 = (int)c;
+      }
+    }
+    second_score[bt] = s2;
+    second_chan[bt] = c2;
+    row_used[bt] = 1;
+    col_used[bc] = 1;
+  }
+
+  int mapped = 0, identity = 0, donor_targets = 0;
+  for (size_t t = 0; t < nt; t++) {
+    if (dsamp.find((u32)t) == dsamp.end()) {
+      continue;  // donor never uses this target index
+    }
+    donor_targets++;
+    fmt::print("  BLERC-MAP t={} -> c={} score={:.4g} (2nd best c'={} s2={:.4g})\n", t,
+               channel_map[t], best_score[t], second_chan[t], second_score[t]);
+    if (channel_map[t] >= 0) {
+      mapped++;
+      if ((int)t == channel_map[t]) {
+        identity++;
+      }
+    }
+  }
+  fmt::print("  BLERC-MAP {} of {} donor targets mapped to driver channels (driver has {} "
+             "channels)\n",
+             mapped, donor_targets, (int)ksamp.size());
+  fmt::print("  BLERC-MAP identity-agreement: {} of {} mapped pairs have t==c\n", identity, mapped);
+  return true;
+}
+
+using PosKey = std::array<s64, 5>;
+PosKey vert_key(const tfrag3::MercVertex& v) {
+  auto q = [](float f) { return (s64)std::llround((double)f * 8192.0); };
+  return PosKey{q(v.pos[0]), q(v.pos[1]), q(v.pos[2]), q(v.st[0]), q(v.st[1])};
+}
+
+// donor texture -> target texture, by debug_name + w/h. The `add` appended the donor's merc
+// textures at the tail of the target table; prefer a tail match (the actual HD texture) and only
+// then fall back to a whole-table search.
+bool remap_tex_id(const tfrag3::Level& tgt,
+                  const tfrag3::Level& donor,
+                  size_t tail_start,
+                  s32 donor_id,
+                  s32& out_id) {
+  if (donor_id < 0) {
+    out_id = donor_id;  // anim slot, meaningless to match by name
+    return true;
+  }
+  if ((size_t)donor_id >= donor.textures.size()) {
+    return false;
+  }
+  const auto& dt = donor.textures[donor_id];
+  for (size_t pass = 0; pass < 2; pass++) {
+    size_t start = (pass == 0) ? tail_start : 0;
+    for (size_t i = start; i < tgt.textures.size(); i++) {
+      const auto& t = tgt.textures[i];
+      if (t.debug_name == dt.debug_name && t.w == dt.w && t.h == dt.h) {
+        out_id = (s32)i;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+int port_blerc(tfrag3::Level& lev,
+               size_t appended_idx,
+               size_t stock_tex_count,
+               const std::string& eye_from,
+               const fs::path& donor_fr3,
+               const std::string& donor_name) {
+  tfrag3::Level dlev;
+  load_fr3(donor_fr3, dlev);
+  auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
+                          [&](const auto& m) { return m.name == donor_name; });
+  if (dit == dlev.merc_data.models.end()) {
+    fmt::print("  BLERC-PORT FAIL: donor model '{}' not in {}\n", donor_name, donor_fr3.string());
+    return 6;
+  }
+  const tfrag3::MercModel& donor = *dit;
+  tfrag3::MercModel& appended = lev.merc_data.models.at(appended_idx);
+
+  // ---- structure-mirror assert: appended must mirror the donor 1:1 --------------------------
+  if (appended.effects.size() != donor.effects.size()) {
+    fmt::print("  BLERC-PORT FAIL: effect count mismatch: appended '{}' has {}, donor '{}' has {}\n",
+               appended.name, appended.effects.size(), donor.name, donor.effects.size());
+    return 6;
+  }
+  for (size_t ei = 0; ei < donor.effects.size(); ei++) {
+    const auto& de = donor.effects[ei];
+    const auto& ae = appended.effects[ei];
+    if (de.all_draws.size() != ae.all_draws.size()) {
+      fmt::print("  BLERC-PORT FAIL: effect[{}] draw count mismatch: appended {} vs donor {}\n", ei,
+                 ae.all_draws.size(), de.all_draws.size());
+      return 6;
+    }
+    for (size_t di = 0; di < de.all_draws.size(); di++) {
+      if (de.all_draws[di].num_triangles != ae.all_draws[di].num_triangles) {
+        fmt::print("  BLERC-PORT FAIL: effect[{}] draw[{}] tri count mismatch: appended {} vs "
+                   "donor {}\n",
+                   ei, di, ae.all_draws[di].num_triangles, de.all_draws[di].num_triangles);
+        return 6;
+      }
+    }
+  }
+
+  // ---- appended model's vertex range in the TARGET level vertex array ------------------------
+  u32 vlo = UINT32_MAX, vhi = 0;
+  for (const auto& e : appended.effects) {
+    for (const auto& d : e.all_draws) {
+      for (u32 i = 0; i < d.index_count; i++) {
+        u32 v = lev.merc_data.indices.at(d.first_index + i);
+        if (v == UINT32_MAX) {
+          continue;  // primitive restart
+        }
+        vlo = std::min(vlo, v);
+        vhi = std::max(vhi, v);
+      }
+    }
+  }
+  if (vlo > vhi) {
+    fmt::print("  BLERC-PORT FAIL: could not determine appended model vertex range\n");
+    return 6;
+  }
+  fmt::print("  BLERC-PORT appended vertex range: [{}, {}] ({} verts)\n", vlo, vhi, vhi - vlo + 1);
+
+  // position+uv hash over the appended range, for the fix_draw index remap.
+  std::map<PosKey, u32> pos_map;
+  for (u32 v = vlo; v <= vhi; v++) {
+    pos_map.emplace(vert_key(lev.merc_data.vertices.at(v)), v);
+  }
+
+  // ---- eye slots -----------------------------------------------------------------------------
+  int stock_left = -1, stock_right = -1;
+  int erc = find_stock_eye_slots(lev, eye_from, stock_left, stock_right);
+  if (erc != 0) {
+    return erc;
+  }
+
+  // ---- channel map ---------------------------------------------------------------------------
+  auto driver = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                             [&](const auto& m) { return m.name == eye_from; });
+  if (driver == lev.merc_data.models.end()) {
+    fmt::print("  BLERC-PORT FAIL: driver model '{}' not in target fr3\n", eye_from);
+    return 6;
+  }
+  std::vector<int> channel_map;
+  std::string cerr;
+  if (!build_channel_map(donor, *driver, channel_map, cerr)) {
+    fmt::print("  BLERC-PORT FAIL: channel map: {}\n", cerr);
+    return 6;
+  }
+
+  // ---- per-effect port -----------------------------------------------------------------------
+  std::map<u32, size_t> dropped_by_target;
+  size_t total_fix_idx = 0, total_fix_miss = 0;
+
+  auto port_draw_list = [&](const std::vector<tfrag3::MercDraw>& src,
+                            std::vector<tfrag3::MercDraw>& dst, bool level_indices,
+                            std::string& perr) -> bool {
+    for (const auto& d : src) {
+      tfrag3::MercDraw nd = d;
+      nd.first_index = (u32)lev.merc_data.indices.size();
+      for (u32 i = 0; i < d.index_count; i++) {
+        u32 v = dlev.merc_data.indices.at(d.first_index + i);
+        if (level_indices && v != UINT32_MAX) {
+          total_fix_idx++;
+          auto key = vert_key(dlev.merc_data.vertices.at(v));
+          auto found = pos_map.find(key);
+          if (found != pos_map.end()) {
+            v = found->second;
+          } else {
+            total_fix_miss++;
+            // nearest-position fallback (offline, linear scan over the appended range)
+            const auto& dv = dlev.merc_data.vertices.at(v);
+            double best = 1e30;
+            u32 bestv = vlo;
+            for (u32 cand = vlo; cand <= vhi; cand++) {
+              const auto& cv = lev.merc_data.vertices[cand];
+              double dx = cv.pos[0] - dv.pos[0], dy = cv.pos[1] - dv.pos[1],
+                     dz = cv.pos[2] - dv.pos[2];
+              double d2 = dx * dx + dy * dy + dz * dz;
+              if (d2 < best) {
+                best = d2;
+                bestv = cand;
+              }
+            }
+            v = bestv;
+          }
+        }
+        lev.merc_data.indices.push_back(v);
+      }
+      s32 tex = 0;
+      if (!remap_tex_id(lev, dlev, stock_tex_count, d.tree_tex_id, tex)) {
+        perr = fmt::format("no target texture matching donor tex id {} ({})", d.tree_tex_id,
+                           tex_label(dlev, d.tree_tex_id));
+        return false;
+      }
+      nd.tree_tex_id = tex;
+      if (nd.eye_id != 0xff) {
+        int want = (nd.eye_id & 1) ? stock_right : stock_left;
+        if (want < 0) {
+          perr = fmt::format("ported draw is a {} eye but driver '{}' has none",
+                             (nd.eye_id & 1) ? "RIGHT" : "LEFT", eye_from);
+          return false;
+        }
+        nd.eye_id = (u8)want;
+      }
+      dst.push_back(nd);
+    }
+    return true;
+  };
+
+  int ported_effects = 0;
+  for (size_t ei = 0; ei < donor.effects.size(); ei++) {
+    const auto& de = donor.effects[ei];
+    if (de.mod.mod_draw.empty() || de.mod.blerc.int_data.empty()) {
+      continue;
+    }
+    auto& ae = appended.effects[ei];
+
+    // 1. mod vertices, verbatim.
+    if (de.mod.vertices.size() >= (size_t)MAX_MOD_VTX_LIMIT) {
+      fmt::print("  BLERC-PORT FAIL: effect[{}] has {} mod vertices, >= MAX_MOD_VTX {}\n", ei,
+                 de.mod.vertices.size(), MAX_MOD_VTX_LIMIT);
+      return 6;
+    }
+    ae.mod.vertices = de.mod.vertices;
+
+    // 1b. bone-index convention check: probe the first 8 donor mod verts against the appended
+    // model's own vertices (same position) and compare mats. The mod VBO is drawn with the
+    // appended model's bone matrices, so the joint indices must agree.
+    {
+      int probes = 0, matched = 0;
+      size_t n_probe = std::min<size_t>(8, de.mod.vertices.size());
+      for (size_t k = 0; k < n_probe; k++) {
+        const auto& mv = de.mod.vertices[k];
+        probes++;
+        const tfrag3::MercVertex* hit = nullptr;
+        for (u32 cand = vlo; cand <= vhi; cand++) {
+          const auto& cv = lev.merc_data.vertices[cand];
+          if (std::fabs(cv.pos[0] - mv.pos[0]) < 1e-4f && std::fabs(cv.pos[1] - mv.pos[1]) < 1e-4f &&
+              std::fabs(cv.pos[2] - mv.pos[2]) < 1e-4f) {
+            hit = &cv;
+            break;
+          }
+        }
+        if (!hit) {
+          continue;
+        }
+        matched++;
+        if (hit->mats[0] != mv.mats[0] || hit->mats[1] != mv.mats[1] ||
+            hit->mats[2] != mv.mats[2]) {
+          fmt::print("  BLERC-PORT FAIL: effect[{}] mod vertex {} bone-index mismatch: donor mats "
+                     "[{},{},{}] vs appended mats [{},{},{}] at pos ({}, {}, {})\n",
+                     ei, k, mv.mats[0], mv.mats[1], mv.mats[2], hit->mats[0], hit->mats[1],
+                     hit->mats[2], mv.pos[0], mv.pos[1], mv.pos[2]);
+          return 6;
+        }
+      }
+      if (probes - matched > 2) {
+        fmt::print("  BLERC-PORT FAIL: effect[{}] only {} of {} mod-vertex probes found a "
+                   "position match in the appended mesh — donor/appended mesh mismatch\n",
+                   ei, matched, probes);
+        return 6;
+      }
+    }
+
+    // 2. mod draws (MOD-LOCAL index values, verbatim) and fix draws (LEVEL index values, remapped)
+    ae.mod.mod_draw.clear();
+    ae.mod.fix_draw.clear();
+    std::string perr;
+    if (!port_draw_list(de.mod.mod_draw, ae.mod.mod_draw, false, perr)) {
+      fmt::print("  BLERC-PORT FAIL: effect[{}] mod_draw: {}\n", ei, perr);
+      return 6;
+    }
+    if (!port_draw_list(de.mod.fix_draw, ae.mod.fix_draw, true, perr)) {
+      fmt::print("  BLERC-PORT FAIL: effect[{}] fix_draw: {}\n", ei, perr);
+      return 6;
+    }
+
+    // 3. blerc data, targets remapped to driver channels (unmapped targets dropped in lockstep)
+    std::vector<BlercVert> bverts;
+    if (!parse_blerc(de.mod.blerc, bverts)) {
+      fmt::print("  BLERC-PORT FAIL: effect[{}] donor blerc data is malformed\n", ei);
+      return 6;
+    }
+    tfrag3::Blerc nb;
+    for (const auto& v : bverts) {
+      nb.float_data.push_back(de.mod.blerc.float_data[v.float_base]);
+      for (size_t k = 0; k < v.tgts.size(); k++) {
+        u32 t = v.tgts[k];
+        int c = (t < channel_map.size()) ? channel_map[t] : -1;
+        if (c < 0) {
+          dropped_by_target[t]++;
+          continue;
+        }
+        nb.int_data.push_back((u32)c);
+        nb.float_data.push_back(de.mod.blerc.float_data[v.float_base + 1 + k]);
+      }
+      nb.int_data.push_back(tfrag3::Blerc::kTargetIdxTerminator);
+      nb.int_data.push_back(v.dest);
+    }
+    ae.mod.blerc = nb;
+    ae.mod.vertex_lump4_addr = de.mod.vertex_lump4_addr;
+    ae.mod.fragment_mask = de.mod.fragment_mask;
+    ae.mod.expect_vidx_end = de.mod.expect_vidx_end;
+    ae.has_mod_draw = true;
+
+    size_t dropped_here = 0;
+    for (const auto& v : bverts) {
+      for (u32 t : v.tgts) {
+        int c = (t < channel_map.size()) ? channel_map[t] : -1;
+        if (c < 0) {
+          dropped_here++;
+        }
+      }
+    }
+    fmt::print("  BLERC-PORT effect[{}]: mod_verts={} mod_draws={} fix_draws={} blerc_verts={} "
+               "targets_dropped={}\n",
+               ei, ae.mod.vertices.size(), ae.mod.mod_draw.size(), ae.mod.fix_draw.size(),
+               bverts.size(), dropped_here);
+    ported_effects++;
+  }
+
+  if (total_fix_idx > 0) {
+    double miss_pct = 100.0 * (double)total_fix_miss / (double)total_fix_idx;
+    fmt::print("  BLERC-PORT fix_draw index remap: {} indices, {} exact-key misses ({:.3f}%)\n",
+               total_fix_idx, total_fix_miss, miss_pct);
+    if (miss_pct > 0.5) {
+      fmt::print("  BLERC-PORT FAIL: {} of {} fix_draw indices ({:.3f}%) had no position/uv match "
+                 "in the appended mesh (>0.5%)\n",
+                 total_fix_miss, total_fix_idx, miss_pct);
+      return 6;
+    }
+  }
+  if (!dropped_by_target.empty()) {
+    std::string s;
+    for (const auto& [t, n] : dropped_by_target) {
+      s += fmt::format(" t{}={}", t, n);
+    }
+    fmt::print("  BLERC-PORT dropped (unmapped) target instances:{}\n", s);
+  }
+  if (ported_effects == 0) {
+    fmt::print("  BLERC-PORT FAIL: donor model '{}' has no effect with mod draws + blerc data\n",
+               donor.name);
+    return 6;
+  }
+  fmt::print("  BLERC-PORT OK ({} effects ported from '{}')\n", ported_effects, donor.name);
+  return 0;
+}
+
+int do_add(const fs::path& in,
+           const fs::path& glb,
+           const fs::path& out,
+           const std::string& eye_from,
+           const fs::path& blerc_fr3 = {},
+           const std::string& blerc_model = {}) {
   if (!file_util::file_exists(glb.string())) {
     fmt::print("  GLB missing: {}\n", glb.string());
     return 2;
@@ -278,6 +1036,41 @@ int do_add(const fs::path& in, const fs::path& glb, const fs::path& out) {
              lev.merc_data.vertices.size() - before_verts,
              lev.merc_data.indices.size() - before_indices, lev.textures.size() - before_textures);
 
+  // eye slot handling: donor slots MUST be remapped to the driver's before shipping. Appending
+  // a model that carries eye draws without --eye-from would sample an arbitrary jak1 slot
+  // (donor_slot % 40) — refuse instead of shipping broken eyes silently.
+  auto& appended = lev.merc_data.models.at(idx);
+  bool has_eye_draws = false;
+  for (const auto& e : appended.effects) {
+    for (const auto& d : e.all_draws) {
+      has_eye_draws |= (d.eye_id != 0xff);
+    }
+  }
+  if (!eye_from.empty()) {
+    int rc = remap_eye_ids(lev, appended, eye_from);
+    if (rc != 0) {
+      return rc;
+    }
+  } else if (has_eye_draws) {
+    fmt::print("  FAIL: appended model has eye draws but no --eye-from <stock-model> given — "
+               "donor eye slots are meaningless in jak1\n");
+    return 5;
+  }
+
+  // defect class B: port the donor's blerc (facial blend shapes) onto the appended model.
+  if (!blerc_model.empty()) {
+    if (eye_from.empty()) {
+      fmt::print("  FAIL: --blerc-from needs --eye-from <stock-model> (the DRIVER model whose "
+                 "blerc channels the donor targets are remapped to)\n");
+      return 6;
+    }
+    int rc = port_blerc(lev, idx, before_textures, eye_from, blerc_fr3, blerc_model);
+    if (rc != 0) {
+      fmt::print("  (no fr3 written)\n");
+      return rc;
+    }
+  }
+
   write_fr3(out, lev);
   fmt::print("  wrote {}\n", out.string());
   return 0;
@@ -295,7 +1088,9 @@ int main(int argc, char** argv) {
                "  hd_merc_swap swap  <in.fr3> <out.fr3> name1=glb1 [name2=glb2 ...]\n"
                "  hd_merc_swap diff  <stock.fr3> <enhanced.fr3>\n"
                "  hd_merc_swap audit <fr3> [name ...]\n"
-               "  hd_merc_swap add   <stock.fr3> <name>-lod0.glb <out.fr3>\n");
+               "  hd_merc_swap add   <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from "
+               "<stock-model>] [--blerc-from <donor.fr3>:<donor-model-name>]\n"
+               "  hd_merc_swap stamp <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n");
     return 2;
   }
   std::string mode = argv[1];
@@ -315,9 +1110,41 @@ int main(int argc, char** argv) {
     for (int i = 4; i < argc; i++) specs.push_back(argv[i]);
     return do_swap(argv[2], argv[3], specs);
   }
+  if (mode == "stamp") {
+    if (argc < 6) {
+      fmt::print("stamp needs <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n");
+      return 2;
+    }
+    return do_stamp(argv[2], argv[3], argv[4], argv[5]);
+  }
   if (mode == "add") {
-    if (argc < 5) { fmt::print("add needs <stock.fr3> <name>-lod0.glb <out.fr3>\n"); return 2; }
-    return do_add(argv[2], argv[3], argv[4]);
+    if (argc < 5) {
+      fmt::print("add needs <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from <stock-model>]\n");
+      return 2;
+    }
+    std::string eye_from, blerc_spec;
+    for (int i = 5; i + 1 < argc; i++) {
+      if (std::string(argv[i]) == "--eye-from") {
+        eye_from = argv[i + 1];
+      } else if (std::string(argv[i]) == "--blerc-from") {
+        blerc_spec = argv[i + 1];
+      }
+    }
+    std::string blerc_fr3, blerc_model;
+    if (!blerc_spec.empty()) {
+      auto colon = blerc_spec.rfind(':');
+      if (colon == std::string::npos) {
+        fmt::print("--blerc-from needs <donor.fr3>:<donor-model-name>\n");
+        return 2;
+      }
+      blerc_fr3 = blerc_spec.substr(0, colon);
+      blerc_model = blerc_spec.substr(colon + 1);
+      if (blerc_fr3.empty() || blerc_model.empty()) {
+        fmt::print("--blerc-from needs <donor.fr3>:<donor-model-name>\n");
+        return 2;
+      }
+    }
+    return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model);
   }
   fmt::print("unknown mode '{}'\n", mode);
   return 2;
