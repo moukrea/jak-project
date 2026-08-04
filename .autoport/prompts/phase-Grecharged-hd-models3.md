@@ -256,3 +256,13 @@ speculating). So TWO hypotheses to discriminate, cheap test first:
       ON, idle) screencap vs the donor render would show the hair riding high even at rest.
   (b) MISSING DRAW: a dropped draw/effect as previously suspected (compare draw counts vs donor).
   Discriminate (a) vs (b) before fixing either.
+
+## SUPERVISOR PRE-GATE 2026-08-04 02:20 (overnight protocol) — M1 BASE PASSED, DEFECT CYCLE = the bar now
+Pre-gate verdict on attempt-3's PASS: the base is REAL (deploy_verify PASS on Honor, proof13 screencap
+shows a coherent textured HD Jak in-game, crash-free) — recorded in OWNER-VERIFY-QUEUE.md. But the phase
+is REOPENED (fresh retries) because the owner's 7-defect list is the acceptance bar now, and two are
+regressions that make the toggle unshippable: (7) long jump broken, (6) frozen ghost Jak in cutscenes.
+Execute YOUR OWN NEXT-CYCLE-RUNBOOK.md (it is good): priorities (7) and (6) with device proofs, then
+(1) eyes, (2) strap/hair gap, (5) NPC flicker, (4) blerc face, (3) clipping — as many as attempts allow,
+each with honest device proof. When the regressions are provably fixed (+ any additional wins), the
+validator pass will be pre-gated again and the pipeline advances to hd-models4 (Daxter/Keira/Samos).
