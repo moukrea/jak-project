@@ -607,6 +607,7 @@ static std::unordered_map<u32, u64> s_hd_last_arm_call;    // driver_pid -> rend
 static u64 s_hd_blackout_events = 0;
 static u64 s_hd_submit_gap_events = 0;
 static u64 s_hd_ttl_expiries = 0;
+static bool s_hd_ever_armed = false;  // heartbeat stays silent until the first companion arms
 
 // CYCLE-3 (Keira black-eyes-on-blink): dynamic eye slots referenced by actively-submitting HD
 // companion draws. Armed alongside the pid TTL, drained in render(); EyeRenderer consults this
@@ -721,6 +722,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         }
         s_hd_last_arm_call[driver_pid] = s_hd_render_call_idx;
         s_hd_driver_ttl[driver_pid] = 32;
+        s_hd_ever_armed = true;
         // arm the HD-covered eye slots (lid-blit suppression, see merc2_hd_eye_slot_covered).
         for (const auto& eff : model_ref->model->effects) {
           for (const auto& d : eff.all_draws) {
@@ -1539,8 +1541,9 @@ void Merc2::render(DmaFollower& dma,
     }
   }
   // detector heartbeat every 3600 render calls (~225 frames): the cutscene proof leg greps
-  // these lines and requires blackouts=0 gaps=0 across the scene.
-  if (s_hd_render_call_idx % 3600 == 0) {
+  // these lines and requires blackouts=0 gaps=0 across the scene. Silent until the first
+  // companion ever arms (HD off / stock build => zero log traffic).
+  if (s_hd_render_call_idx % 3600 == 0 && s_hd_ever_armed) {
     lg::warn("[hd-flicker] calls={} blackouts={} gaps={} expiries={}", s_hd_render_call_idx,
              s_hd_blackout_events, s_hd_submit_gap_events, s_hd_ttl_expiries);
   }
