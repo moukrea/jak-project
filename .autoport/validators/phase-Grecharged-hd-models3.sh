@@ -65,4 +65,24 @@ bash .autoport/lib/deploy_verify.sh "$DEV" jak1 >/dev/null 2>&1 || fail "deploy_
 
 GOLD=$(git status --porcelain .autoport/gold 2>/dev/null)
 [ -z "$GOLD" ] || fail "gold not pristine"
+# ============================================================
+# DEFECT-CYCLE gates (supervisor pre-gate 2026-08-04 03:20). The 02:59 false-green: the validator
+# graded a report written BEFORE the defect-cycle reopen. (a) evidence must be NEWER than
+# phase_started_at; (b) the two unshippable regressions need explicit resolution lines.
+# ============================================================
+PSTART=$(python3 -c "
+import json
+try:
+    s=json.load(open('.autoport/state.json'))
+    print(int(s.get('phase_started_at',{}).get('Grecharged-hd-models3',0)))
+except Exception:
+    print(0)")
+if [ "$PSTART" -gt 0 ]; then
+  RMT=$(stat -c %Y "$R" 2>/dev/null || echo 0)
+  [ "$RMT" -gt "$PSTART" ] || fail "DEFECT-CYCLE: report.txt older than this cycle's phase start — stale evidence (false-green guard)"
+fi
+grep -qiE 'long.?jump.*(fixed|works|working|ok now|resolved|regression gone|passes|not broken|not a regression|root.?caus)' "$R" \
+  || fail "DEFECT-CYCLE: no long-jump resolution line (defect 7 — A/B proof enhanced ON vs OFF required)"
+grep -qiE '(ghost|cutscene|cinemati|movie).*(fixed|gone|resolved|no longer|mirror|hidden.*honou?r|device.?proven|passes)' "$R" \
+  || fail "DEFECT-CYCLE: no cutscene-ghost resolution line (defect 6 — device proof on a real cutscene required)"
 echo "[Ghdmodels3 PASS]"
