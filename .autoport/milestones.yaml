@@ -2317,7 +2317,7 @@ phases:
     par personnage). NE DÉMARRE PAS avant que Grecharged-hd-models3 (Jak M1) soit owner-accepté: même
     pipeline, les fixes de M1 s''appliquent à M2.'
   prompt: prompts/phase-Grecharged-hd-models4.md
-  validator: validators/phase-Grecharged-hd-models3.sh
+  validator: validators/phase-Grecharged-hd-models4.sh
   max_turns: 3000
   max_retries: 6
   device: true

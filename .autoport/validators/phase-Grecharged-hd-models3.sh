@@ -17,6 +17,20 @@
 # Grecharged-loader-packfix). Redmi is preferred when present; the Honor is the
 # configured fallback. NO other serial is accepted.
 set -uo pipefail
+# PHASE DISPATCH (supervisor 2026-08-04 10:00): milestones' hd-models4 entry pointed at THIS validator
+# as a placeholder, so M4 attempts were graded against M1's report/gates (harness defect, burned 2
+# attempts). Until the in-memory orchestrator picks up the corrected milestones pointer, dispatch here.
+CURPHASE=$(python3 -c "
+import json,yaml
+try:
+    s=json.load(open('.autoport/state.json'))
+    ph=yaml.safe_load(open('.autoport/milestones.yaml'))['phases']
+    print(ph[s['current_phase_idx']]['id'])
+except Exception:
+    print('')")
+if [ "$CURPHASE" = "Grecharged-hd-models4" ] && [ -f .autoport/validators/phase-Grecharged-hd-models4.sh ]; then
+  exec bash .autoport/validators/phase-Grecharged-hd-models4.sh
+fi
 cd "$(git rev-parse --show-toplevel)"
 fail(){ echo "[Ghdmodels3 FAIL] $*" >&2; exit 1; }
 R=.autoport/reports/Grecharged-hd-models3/report.txt
