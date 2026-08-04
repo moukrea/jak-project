@@ -108,3 +108,23 @@ Investiguer à fond le pipeline facial : comment jak1 anime les visages (blerc c
 ce que portent les modèles ciné jak2/jak3 (leurs propres blend-targets, a priori PLUS riches), et le
 mapping canal→target par personnage. Si un canal donné n'a réellement AUCUNE contrepartie dans le
 modèle HD, le documenter cas par cas avec la preuve — pas d'abandon de classe entière.
+
+## ============================================================
+## OWNER 2026-08-04 ~11:30 — LA DÉFINITION DU BACKPORT CHANGE (à encoder dans le pipeline même)
+## ============================================================
+« Je comprends même pas pourquoi t'as pas fait la correspondance des bones VISAGE d'entrée. Si on
+veut backporter des modèles on veut qu'ils soient BIEN SUPPORTÉS, pas juste leur corps. »
+=> DÉFINITION OF DONE d'un personnage backporté, désormais NON NÉGOCIABLE et intégrée au pipeline
+(pas un « polish » d'après-coup) :
+1. Corps : squelette + poids (déjà fait) ;
+2. **VISAGE : correspondance COMPLÈTE d'entrée** — os faciaux dans la table k->e (mâchoire, yeux,
+   sourcils, joues… tout ce que les deux rigs portent) ET mapping des canaux blerc/blend-targets
+   driver->HD ; toutes les animations faciales passent ;
+3. Yeux fonctionnels (eye_id) ;
+4. Aucune géométrie perdue (draws donor == draws appendés, mâchoire de Daxter incluse) ;
+5. Mains/extrémités mappées (doigts de Keira, barbe de Samos — pas de chaînes en pose de repos).
+Le générateur de table k->e (retarget_fill_table.py / build de chaque personnage) doit ÉCHOUER
+BRUYAMMENT si des os faciaux/doigts du donor restent non mappés sans justification explicite,
+au lieu de les laisser silencieusement à 0xFF. Un personnage qui ne satisfait pas TOUT ça n'est
+pas « backporté avec des défauts », il n'est PAS backporté. Ceci s'applique au cycle défauts 2
+(les 4 personnages actuels) ET à M5 (chaque look bonus arrive complet d'entrée).
