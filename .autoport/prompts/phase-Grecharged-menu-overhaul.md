@@ -292,3 +292,21 @@ STILL-OPEN on resume: (1) real bluish Jak2 vertical hologram confined to the LEF
 NOT a full-screen purple gradient; (2) the comm-drone VISIBLY present and projecting the holo (with the
 light beam); (3) the whole menu contained inside that holo (replicate Jak2's actual holo rendering from
 goal_src/jak2, do not re-approximate). Do NOT reopen until the owner returns to it post-HD.
+
+## ============================================================
+## RÉGRESSIONS FONCTIONNELLES (owner 2026-08-04 ~11:10) — À CORRIGER EN PREMIER À LA REPRISE
+## ============================================================
+La refonte a CASSÉ des options (en plus du chantier esthétique parké) :
+1. **Le sélecteur de displacement est cassé** : on ne peut PLUS choisir parallax / tessellation / none.
+   (L'ancien menu le permettait — retrouver la ligne POM/tessellation/off et son binding.)
+2. **Des paramètres « entrent en collision » qui n'entraient pas en collision avant** : des réglages
+   se marchent dessus / se réécrivent (suspect classique de la refonte : le recâblage par indices de
+   la page GRAPHISMES unifiée — value-to-modify/name-override décalés selon les FLAG_*_N — un binding
+   sur la mauvaise ligne écrase un autre réglage).
+RAPPEL DE L'INTENTION (owner, verbatim d'esprit) : « l'idée c'était de réorganiser pour que ce soit
+sensé, logique, intuitif, agréable à parcourir, avec des hints qui expliquent ce que ça change et,
+pour la partie graphique, l'impact potentiel sur les performances » — PAS de perdre des fonctions.
+BARRE À LA REPRISE : parité fonctionnelle TOTALE avec l'ancien menu (chaque option qui existait
+existe encore, pilote le BON réglage, persiste correctement) + un audit systématique ligne-par-ligne :
+pour chaque row, prouver que value-to-modify pointe le bon champ *pc-settings* et qu'aucune paire de
+rows ne partage un binding. Utiliser menu-tree.md (à resynchroniser) comme table de vérité.
