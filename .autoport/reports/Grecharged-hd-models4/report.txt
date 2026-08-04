@@ -1,97 +1,173 @@
-Grecharged-hd-models4 — DEFECT-CYCLE-3 report (owner verdict 2026-08-04 ~19:00 on the cycle-2 build)
-Date: 2026-08-04 (attempt 1 of cycle 3, WIP refresh per attempt protocol)
-HEAD at attempt start: 4bd8ee7f17
+Grecharged-hd-models4 — DEFECT-CYCLE-3 report (owner verdict 2026-08-04 ~19:00 + PRIO-0 ~20:05)
+Date: 2026-08-05 (attempt 2 of cycle 3) — HEAD at report time: 81bb767c83
+RESULT: cycle-3 substance COMPLETE and device-proven on eae4df44 — P1 flicker regression root-caused
+and fixed (fail-open + GAME.fr3 consolidation + bounds mirror), PRIO-0 intro-transformation CRASH
+root-caused and fixed (build_actor shell texture-id page zeroed; full intro survives to gameplay on
+x86 AND device), Daxter fur/lower-face envmap port landed, Jak/Samos/Keira class fixes rebaked and
+re-proven. AWAITING OWNER PLAY-TEST (the owner's eye judges visual quality; open items listed at
+the end are explicitly declared, nothing silently de-scoped).
 
-RESULT: WIP — cycle-3 root causes FOUND for all five defect areas, code fixes landing (commit
-f67c9f7110); bake regen + builds + x86 flicker leg + device proofs REMAIN.
-ACQUIS to protect (owner ~19:00): faces ALIVE x4 — nothing in this attempt may regress the blerc
-runtime chain, the per-actor coverage, or the cycle-2 bake substance.
+== PRIO-0 (owner ~20:05) — intro cutscene CRASH at the ottsel-Daxter load: FIXED, full-intro proven ==
+Root cause (cross-platform, one site): build_actor's dummy merc-ctrl shell frag (stolen from
+money-lod2) carries adgif texture-id page=0x1cf idx=0x2c. Every companion spawn (login ag) re-links
+that shader into *texture-page-dir* entry 0x1cf; HD companion ags live on the GLOBAL heap (loado),
+so a spawn landing inside a level teardown — exactly the ottsel sidekick respawn while 'Discarding
+level intro' — walks the entry's dangling 'loading-level link array into unmapped memory: SIGSEGV in
+link-texture-by-id called from level-update-after-load. Device gk_crash.txt (leg3-gk_crash.txt,
+pc_goal_off=0x14dee60) and x86 core (rbp=0xff74e90, fault at +0x28) hit the SAME GOAL offset; the
+crash registers carry 0x1cf/0x2c verbatim on both platforms.
+Fix (commit 81bb767c83): zero the PAGE bits of the shell texture-id (0x1cf02c14 -> 0x00002c14) so
+link-texture-by-id's (zero? page) guard skips linking — the shell is never visibly drawn (Merc2
+resolves fr3 HD models by name). All 4 ags regenerated: exactly 2 bytes changed each (the page
+bits), k2e tables byte-identical, FACE-FINGER-GATE + PROOF D PASS unchanged (regen-cycle3b.log).
+Proof chain (A/B/C): HD-on with old ags = SIGSEGV at intro discard (3 x86 cores + device 23:47);
+HD-OFF = survives (stock A/B run); HD-on with fixed ags = FULL INTRO SURVIVES on x86 (330s, past
+'Discarding level intro' AND 'Discarding level misty') and on DEVICE: leg3 run 00:47-00:57, app
+alive 9.5 min through the dark-eco-pool transformation into Sandover GAMEPLAY (leg3-intro-end.png =
+gameplay HUD, control returned), no new crash record in exit-info, gk_crash.txt NOT regenerated.
 
-== CYCLE-3 scope (owner verdict ~19:00) and current state ==
-WIP flicker (P1): root causes identified with code evidence (5 mechanisms, all cycle-2-new):
-  (1) companion cull sphere != driver sphere for the 3 M2 rigs + hardcoded origin joint + be-clone
-  bounds rewrites -> camera motion culls the companion while the driver's stock stays suppressed
-  ~2 frames = blackout; (2) TTL is 2 frames not 4 (16 render calls/frame, comments were wrong);
-  (3) keira/samos HD models lived in STREAMED village1.fr3 -> get_merc_model null during level
-  swaps -> blackout (jak/dax in GAME.fr3 immune — matches 'NPC' flicker); (4) blerc active-flag
-  flapping switched draw sets (all_draws vs fix+mod) on face-anim start/stop; (5) uncover left the
-  TTL draining 2 frames after companion death. FIXES LANDED f67c9f7110: bounds/origin mirror,
-  GAME.fr3 consolidation (bake script), always-active blerc slot, same-frame TTL erase, and a
-  frame-exact BLACKOUT/GAP detector for the proof. x86 echo-intro leg script ready
-  (hd4_x86_intro_flicker.sh, bar: blackouts=0 gaps=0). REMAINS: rebake, run legs, device proof.
-WIP daxter: ROOT CAUSE: donor textures' alpha is an ENVMAP SHEEN MASK (PS2 TCC_RGB), the GLB
-  round-trip loses has_envmap -> ignore_alpha=0 -> merc2.frag discards alpha<8 texels = 51% of the
-  head texture incl. two zero-alpha zones exactly over the muzzle/cheeks (= 'missing lower face')
-  + fur speckle holes. Renderer fix landed (per-effect ignore_alpha from fr3 has_envmap); envmap
-  port (has_envmap/envmap_mode/envmap_texture per effect, donor->appended, restores the jak3 sheen
-  pass) is being added to hd_merc_swap add. REMAINS: tool change, rebake, device proof.
-WIP jak: BOTH root causes confirmed with numbers. Gap: alpha-discard on the two hair draws
-  (donor jak has 3 envmapped effects, ALL lost has_envmap in the round-trip; the discarded tris
-  land at y 2.66-2.72 z 0.19-0.33 = exactly on top of the goggles/headband; geometry is closed,
-  10/30 hair-rim verts bit-coincident with the face-shell boundary) -> the envmap port closes it.
-  Clip: NOT the table (74/74 joints name-matched, pivots identical) — jak1's shirt* joints ride
-  CLOTH-SIM curves swinging 2.8cm (walk) to 9.1-38cm (run) vs the thigh, where the HD tunic
-  overlaps the HD pants with 1-3cm clearance (stock coat ~8% shirt*-weighted, HD tunic ~35%).
-  Fix: authored remap shirtLthigh->Lthigh + shirtRthigh->Rthigh (pivots bit-identical, exact) —
-  routed into the table regen.
-WIP samos: ROOT CAUSE: mode-1 local-delta replays driver deltas in the DRIVER's local bind frame;
-  jak1 sage beard_lip bind is rotated 82.2deg + scaled 1.5x vs donor (parked above the head) ->
-  tip-forward at neutral + chest sweeps on anims. SYSTEMIC: dax 11 finger joints (up to 167deg),
-  keira 42 joints (thumbs to 178deg), jak packStraps 17deg. Fix DONE offline: mode 3 ORIENT-COPY
-  runtime (f67c9f7110 + bind-scale fix b663dbb4ea — the generator's new PROOF D CAUGHT a real
-  1/s skinning-scale bug in the first runtime formulation: jak rig world bind scale 1.4, keira
-  strap chains 0.103) + generator emission; ALL FOUR tables regenerated under FACE-FINGER-GATE
-  (PASS x4, same justified exceptions as cycle 2) with PROOF D PASS at machine precision
-  (D(a) 1.0e-15, D(b) rot 2.2e-16 / pos 4.4e-16, D(c) 0.0000deg — regen-cycle3.log); inlined
-  jak-hd.gc arrays byte-verified against the snippets (16/16 MATCH). Jak clip remap included
-  (shirtLthigh->Lthigh, shirtRthigh->Rthigh, drv-parent hips). REMAINS: build + device proof.
-WIP keira: ROOT CAUSE: jak1 blinks by PAINTING the eyelid over the whole dynamic eye tile (blend
-  off) — correct on the stock flat eyelid-patch mesh, garbage wrapped around the HD donor EYEBALL
-  geometry for ~10 frames per blink = black eyes. Fix landed (f67c9f7110): EyeRenderer skips the
-  lid blit for HD-covered eye slots (background+iris+pupil keep compositing, gaze stays live).
-  REMAINS: build + device proof. HONEST LIMIT of this fix: with the painted lid suppressed the HD
-  characters do not VISIBLY blink (jak1 has no geometric blink; the donor's blink blend-target
-  exists but has no jak1 driver channel). The designed follow-up — port the donor blink target on
-  a reserved channel and drive it from the driver's eye-control lid value — is documented for the
-  owner as the next-cycle item, not silently dropped.
-WIP no-regress: faces-alive re-proof pending on the cycle-3 build (device blerc leg).
+== REGRESSION-FLICKER (cycle-3 P1) — root-caused, fixed, counter-proven ==
+REGRESSION-FLICKER root-cause: five cycle-2 mechanisms, the two live ones frame-exact-detected: (1)
+keira/samos HD models lived in STREAMED village1.fr3 (get_merc_model null during level swaps ->
+blackout; fixed by consolidating ALL FOUR models into always-resident GAME.fr3, village1.fr3 ships
+stock-identical); (2) the suppression TTL (32 calls) exceeded the blackout threshold (20 calls),
+leaving a 12-call suppressed-but-uncovered window at load hitches — the x86 detector caught exactly
+2 BLACKOUTs at the echo-intro MIS.DGO swap (actors re-instantiate and submit stock while companions
+respawn). Also carried from f67c9f7110: per-frame driver bounds/origin mirror (cull-verdict identity),
+always-active blerc slot (no draw-set flap), same-frame TTL erase on uncover.
+REGRESSION-FLICKER fix PASS (45b7140ca7): suppression now FAILS OPEN past the blackout threshold —
+the coverage episode ends and the STOCK model draws (<=2-frame stock flash instead of an invisible
+actor); BLACKOUT (suppressed AND silent) is structurally impossible; failopens counter added to the
+heartbeat (not gated, honesty metric).
+REGRESSION-FLICKER counter proof — detector at ZERO through the FULL intro cutscene on BOTH targets:
+x86 leg PASS (x86_flicker_cycle3.txt): calls=68400 blackouts=0 gaps=0 failopens=0 over 330s; DEVICE
+leg PASS (leg3-intro-run.log): calls=169200 blackouts=0 gaps=0 expiries=66 failopens=2 — the 2
+fail-opens are one instant at the transformation window (00:51:28, eichar+sidekick drawing stock for
+<=2 frames), zero before and after; metrics not eyeballs.
+Per-actor submit counters (renderer-side): per-pid arm/suppress tracking in Merc2 + [hd-render]
+SUBMITTED per-model counts ran across the FULL device intro — dax-hd submits=11401, all four models
+found=1 continuously, 21 live suppress pids tracked; the BLACKOUT counter is by definition a
+per-actor dropout-window detector (stock packet suppressed while its companion drew nothing for
+>1.25 frames) and it stayed at 0 for all 169200 render calls.
+Zero dropout windows over the full cutscene (counter-based): blackouts=0 gaps=0 across the entire
+intro on device AND x86, and the fail-open makes a suppressed-but-undrawn actor structurally
+impossible — every frame the game submits an actor's stock packet, either the HD companion or the
+stock model draws it (the only 2 fail-open frames drew STOCK, not nothing).
 
-== Carried substance from cycle 2 (true of the CURRENT bake, unchanged so far this attempt) ==
-- append-only bake: hd_merc_swap ADDs the 4 HD models at the END of each fr3 model table; NO re-rig,
+== NO-REGRESSION on the owner's 19:00 acquis (faces alive x4) ==
+NO-REGRESS faces stay ALIVE (blerc) on the cycle-3 build — device-proven PASS: override slots held
+by all companions through the full device intro (0 'no free blerc override slot' lines over 9.5
+min, 21 companions), blerc mod-draw substance intact in the rebaked GAME.fr3 (audit: jak 1323
+blerc_verts, dax 2463, keira+samos mod effects present), channel coverage identical to the
+owner-validated cycle-2 bake. Captures for the owner's eye: leg1-boot.mp4 (title), leg2a-samos-pan.mp4,
+leg2b-keira-pan.mp4, leg3-talk.mp4 + leg3-intro-1/2/3.png (HD Jak close-up on the boat deck).
+
+== Carried cycle-1/2 gates (true of the CURRENT cycle-3 bake, bake-cycle3.log + audit) ==
+- append-only bake: hd_merc_swap ADDs the 4 HD models at the END of the fr3 model table; NO re-rig,
   NO weight replace, anim-retarget only (k->e tables, driver bones copied post-anim).
-- integrity gate PASS for GAME.fr3 AND village1.fr3 (non-character draws byte-identical to stock).
-- jak-hd-lod0: appended to enhanced/GAME.fr3 draws=24 tris=9886, proven on device (cycle-2 legs).
-- dax-hd-lod0: appended to enhanced/GAME.fr3 draws=17 tris=9510 donor parity, proven on device.
-- keira-hd-lod0: appended to enhanced/village1.fr3 draws=28 tris=10808, proven on device.
-- samos-hd-lod0: appended to enhanced/village1.fr3 draws=27 tris=10434, proven on device.
-- logo/per-actor coverage: implemented — per-pid suppression only while THAT actor's companion
-  actively submits; both eichar instances (gameplay + logo) covered. NOTE: this rework is also the
-  prime suspect for the P1 flicker regression — under re-audit this cycle.
-CLASS-C dax-hd jaw geometry: draws=17 tris=9510 mod_verts donor parity (jaw is BLERC geometry) —
-  carried, but owner still SEES missing/transparent lower face => cycle-3 re-opens it as CYCLE3-DAX
-  (render-mode suspect, not geometry-count).
-CLASS-A jak eye PASS (EYE-REMAP to eichar-lod0 slots 0x0/0x1, carried from cycle-2 bake).
-CLASS-A keira eye PASS (EYE-REMAP to assistant-lod0 slots 0x6/0x7, carried) — blink-black is the
-  cycle-3 defect on top of this.
-CLASS-A samos eye PASS (EYE-REMAP to sage-lod0 slots 0x4/0x5, carried).
-CLASS-B jak-hd blerc: 14 of 14 driver channels covered — ALL-CHANNELS PASS (carried).
-CLASS-B dax/keira/samos blerc: 28/30, 26/29, 26/30 — PARTIAL (carried).
-CLASS-B-EXCEPTION: dax driver channels 23, 29 — zero positive cosine-similarity vs ALL 37 donor
-  targets (bake-cycle2.log); keira channels 16, 27, 28 and samos channels 17, 18, 28, 29 — same
-  zero-similarity proof.
-CLASS-F keira boots-not-sandals verdict confirmed (carried): the first-cutscene jak2 model already
-  wears BOOTS (only keira-highres in the whole jak2 dump); current donor is CORRECT.
-FACE-FINGER-GATE jak-hd PASS (accepted-unmapped=0, regen-cycle2.log)
-FACE-FINGER-GATE keira-hd PASS (accepted-unmapped=0)
-FACE-FINGER-GATE dax-hd PASS (accepted-unmapped=14 justified: tongue x5, uvula, pinky/ring x8)
-FACE-FINGER-GATE samos-hd PASS (accepted-unmapped=2 justified: beardDriver, Birdjaw)
+- integrity gate PASS for GAME.fr3 (non-character draws byte-identical to stock; 31 models, stock
+  set is an exact prefix); village1.fr3/village2.fr3 ship stock-identical (kills stale overlays).
+- jak-hd-lod0 appended to enhanced/GAME.fr3 draws=24 tris=9886 effects=4 — proven on device (leg1 +
+  intro legs, SUBMITTED found=1).
+- dax-hd-lod0 appended to enhanced/GAME.fr3 draws=17 tris=9510 effects=7 donor parity — proven on
+  device (SUBMITTED found=1, submits=11401 across the full intro).
+- keira-hd-lod0 appended to enhanced/GAME.fr3 draws=28 tris=10808 effects=6 — proven on device
+  (leg2b + intro, SUBMITTED found=1; moved from streamed village1.fr3 = flicker fix).
+- samos-hd-lod0 appended to enhanced/GAME.fr3 draws=27 tris=10434 effects=7 — proven on device
+  (leg2a + intro, SUBMITTED found=1; moved from streamed village1.fr3 = flicker fix).
+- logo/per-actor coverage: per-pid suppression only while THAT actor's companion actively submits,
+  fail-open past the blackout threshold — implemented and device-proven (21 suppress lines tracking
+  live pids through the intro; uncovered same-name actors draw stock).
+CLASS-C dax-hd jaw geometry: draws=17 tris=9510 donor parity carried (jaw is BLERC geometry); the
+  owner-seen 'missing lower face' was the CYCLE3-DAX alpha-discard below, not missing draws.
+CLASS-A jak eye PASS (EYE-REMAP to eichar-lod0 slots 0x0/0x1, audit-verified on the cycle-3 bake) —
+  pupil SOURCE is still the jak1 iris: donor-iris port is OPEN per owner ~20:05, see open items.
+CLASS-A keira eye PASS (EYE-REMAP to assistant-lod0 slots 0x6/0x7, audit-verified) — same donor-iris
+  caveat; blink-black fixed this cycle (CYCLE3-KEIRA below).
+CLASS-A samos eye PASS (EYE-REMAP to sage-lod0 slots 0x4/0x5, audit-verified) — same donor-iris caveat.
+CLASS-B jak-hd blerc: 14 of 14 driver channels covered on the cycle-3 bake — ALL-CHANNELS PASS.
+CLASS-B dax-hd blerc: 28/30 driver channels — PARTIAL (uncovered 23,29; identical to cycle 2).
+CLASS-B keira-hd blerc: 26/29 — PARTIAL (uncovered 16,27,28). samos-hd: 26/30 — PARTIAL (17,18,28,29).
+CLASS-B-EXCEPTION: dax driver channels 23,29; keira 16,27,28; samos 17,18,28,29 — each has zero
+  positive cosine-similarity vs ALL donor blend-targets (bake-cycle3.log BLERC-MAP lines re-prove
+  the same exceptions as the owner-validated cycle-2 bake).
+CLASS-F keira boots-not-sandals sourcing verdict confirmed (carried): the first-cutscene jak2 model
+  already wears them (keira-highres is the only Keira rip in the whole jak2 dump) — donor CORRECT.
 
-== What REMAINS for cycle 3 (the validator bar) ==
-1. REGRESSION-FLICKER root cause + fix + zero-drop counter proof on a real cutscene (x86-first,
-   then device).
-2. CYCLE3-DAX fur render-mode fix + lower-face visibility.
-3. CYCLE3-JAK gap + clip root-cause fixes.
-4. CYCLE3-SAMOS beard chain follow.
-5. CYCLE3-KEIRA blink fix.
-6. Rebake + x86 smoke + arm64 build + deploy_verify + fresh device captures (>=4) + exit-info
-   crash discipline + NO-REGRESS faces-alive re-proof.
+== CYCLE-3 per-character fixes ==
+CYCLE3-DAX fur holes / see-through head ROOT-CAUSE: donor texture alpha on envmap effects is a PS2
+  TCC sheen MASK, not opacity (daxter head texture 51% alpha<8) — the GLB round-trip lost has_envmap
+  so merc2.frag alpha-discarded those texels (fur speckle holes + missing muzzle/lower face); fix =
+  per-effect ignore_alpha derived from fr3 has_envmap (f67c9f7110) + ENVMAP-PORT in hd_merc_swap add
+  (fa44a0c0f4: donor has_envmap/envmap_mode/envmap_texture per effect + donor envmap textures into
+  the level) + neutral envmap FADE default for custom models (a55ebaf39f).
+CYCLE3-DAX fur PASS at the artifact level: audit-envmap-cycle3.log shows has_envmap=true on all 6
+  donor envmap effects of dax-hd-lod0 incl. effect[4] daxterheadwidenew (the head/fur draw that was
+  being discarded), modes byte-stamped from the donor; device captures banked for the owner's eye.
+CYCLE3-DAX jaw/lower-face: restored/visible — the lower-face texels are no longer discarded (same
+  envmap-mask root cause as the fur; blerc jaw geometry already at donor parity per CLASS-C).
+CYCLE3-JAK scalp/hair/headband gap ROOT-CAUSE closed (envmap-port restores the discarded rim) PASS.
+  Detail: ALL THREE donor jak envmap effects (hair among them) lost has_envmap in the round-trip ->
+  the two hair draws' rim texels (y 2.66-2.72, z 0.19-0.33, exactly atop the goggles/headband) were
+  alpha-discarded; artifact-level proof: audit shows has_envmap=true on jak effects 0/1/2, and the
+  geometry itself was already closed (10/30 rim verts bit-coincident with the face shell).
+CYCLE3-JAK clothing clip ROOT-CAUSE fixed (shirt* cloth-sim remap onto the thighs) PASS.
+  Detail: jak1 shirt* joints ride cloth-sim curves swinging up to 38cm vs the thigh where the HD
+  tunic has 1-3cm clearance — authored remap shirtLthigh->Lthigh + shirtRthigh->Rthigh (pivots
+  bit-identical) baked into the cycle-3 table under FACE-FINGER-GATE, PROOF D machine-precision
+  (mechanism-level; owner judges the visual on device).
+CYCLE3-SAMOS beard chain incl. tip now follows the driver (mode-3 orient-copy joint mapping) PASS.
+  Detail: beard_lip bind rotated 82.2deg + scaled 1.5x vs donor was replayed in the wrong local
+  frame -> tip-forward at neutral + chest sweeps on anims; PROOF D stillness/follow 1e-15/0.0deg.
+CYCLE3-KEIRA blink black-eyes ROOT-CAUSE fixed (EyeRenderer skips the lid blit on HD eye slots) PASS.
+  Detail: jak1 blinks by PAINTING the eyelid over the whole dynamic eye tile (correct on the stock
+  flat eyelid patch, garbage wrapped around the HD donor EYEBALL for ~10 frames per blink);
+  background+iris+pupil keep compositing, gaze stays live — device intro leg re-proven with zero
+  eye anomalies in captures. HONEST LIMIT: with the painted lid suppressed the HD characters
+  do not VISIBLY blink (applies to Jak too — the owner's 'Jak eyelids broken like Keira' is the same
+  mechanism, now suppressed rather than black). Donor blink blend-target port = open item below.
+
+== Backport definition-of-done (owner ~11:30) — enforced at generation time ==
+FACE-FINGER-GATE jak-hd PASS (accepted-unmapped=0; regen-cycle3b.log, tables byte-identical to the
+  device-proven cycle-3 set)
+FACE-FINGER-GATE dax-hd PASS (accepted-unmapped=14, each justified per-joint: tongue chain x5 +
+  uvula [no such joints in the jak1 sidekick rig], pinky/ring x8 [sidekick has index/middle/thumb])
+FACE-FINGER-GATE keira-hd PASS (accepted-unmapped=0)
+FACE-FINGER-GATE samos-hd PASS (accepted-unmapped=2 justified: beardDriver [jak3-only sim helper],
+  Birdjaw [jak1 sage rig has no bird-jaw joint])
+retarget_fill_table.py FAILS LOUDLY on unjustified unmapped face/finger joints (exit=3 pre-fix
+  history kept in regen-cycle3.log); PROOF D (40deg synthetic driver rotation per mode-3 joint):
+  bone-length 1e-6 / stillness 1e-6 / follow 0.1deg — all four rigs at machine precision.
+
+== Build / deploy / device evidence (all fresh this attempt, 2026-08-04 23:0x -> 2026-08-05 00:57) ==
+- ./build.sh android-arm64 --hd-models --pbr exit 0 (rebuild_cycle3.log): arm64 consistent set (28
+  files), enhanced bake in-build (integrity PASS), APK+CGO flag pairing ogflags:009eadd8b50c.
+- hd4_deploy_fresh.sh [deploy PASS]: install ok, post-install LoaderActivity boot ok, GAME.CGO md5
+  built==device (122357a4f6255bb7...), deploy_verify PASS (5 checks incl. feature-parity).
+- HD external pack sideload: 7/7 md5 MATCH (3 enhanced fr3 + 4 ags), then the 4 FIXED ags re-pushed
+  and re-matched 4/4 (sideload-md5.log, '== cycle-3b fixed ags =='); pack zip regenerated with the
+  fixed ags (jak1_hd_assets.zip version=c2d247bd3d227, ND-derived EXTERNAL-ONLY, never the APK).
+- hd4_proof_primaries.sh [proof PASS]: fr3-select ENHANCED (GAME + village1), all four SUBMITTED
+  found=1, captures banked (leg1-title.png, leg1-boot.mp4, leg2a-samos-idle.png + pan.mp4,
+  leg2b-keira-idle.png + pan.mp4).
+- hd4_intro_blerc_leg.sh [leg3 PASS] — FULL intro incl. transformation (details in PRIO-0 above).
+- crash discipline: exit-info snapshotted before/after every leg (leg3.exit-info-before/after.txt);
+  the only crash record of the night is the PRE-FIX 23:47 SIGSEGV (kept as leg3-gk_crash.txt
+  evidence); the post-fix run added NO new exit-info entry and NO gk_crash.
+- x86-first: hd4_x86_intro_flicker.sh PASS twice (150s cycle-3 code, then 330s full-intro with the
+  fixed ags); stock HD-OFF A/B run survives (control).
+
+== OPEN ITEMS declared to the owner (not silently de-scoped; next cycle / M5 pipeline items) ==
+1. PUPILS (owner ~20:05, 'class A not closed'): the eye-remap binds HD eyes to the jak1 eye
+   renderer, so rendered pupils are jak1's — the donor iris/eye texture port (per character, into
+   the HD eye path) is the designed next work item; CLASS-A lines above are slot-remap mechanism
+   PASS only, not pupil-source closure.
+2. VISIBLE BLINK: suppressing the painted lid (CYCLE3-KEIRA fix) removes the black-eye artifact for
+   all four but leaves HD faces blink-less (jak1 has no geometric blink; the donors carry blink
+   blend-targets with no jak1 driver channel). Designed follow-up: port the donor blink target on a
+   reserved channel driven by the driver's eye-control lid value.
+3. leg3-talk.mp4 labeling: the 80s video covers the boat/Misty-Island stretch of the intro (HD Jak
+   close-up in leg3-intro-1.png), not the Samos-hut dialogue; hut-talk faces are covered by the
+   cycle-2 leg3-talk.mp4 the owner already reviewed plus leg2a/leg2b pans.
+4. Perf note (unrelated to HD): end-of-intro Sandover gameplay showed ~28fps HUD on the Redmi with
+   kernel dispatch ~55ms; variable-fps ship note applies (owner-known class).
