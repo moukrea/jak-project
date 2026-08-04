@@ -31,6 +31,9 @@ except Exception:
 if [ "$CURPHASE" = "Grecharged-hd-models4" ] && [ -f .autoport/validators/phase-Grecharged-hd-models4.sh ]; then
   exec bash .autoport/validators/phase-Grecharged-hd-models4.sh
 fi
+if [ "$CURPHASE" = "Gtouch-longjump-regression" ] && [ -f .autoport/validators/phase-Gtouch-longjump-regression.sh ]; then
+  exec bash .autoport/validators/phase-Gtouch-longjump-regression.sh
+fi
 cd "$(git rev-parse --show-toplevel)"
 fail(){ echo "[Ghdmodels3 FAIL] $*" >&2; exit 1; }
 R=.autoport/reports/Grecharged-hd-models3/report.txt

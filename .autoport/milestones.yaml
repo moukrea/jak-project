@@ -2332,7 +2332,7 @@ phases:
     overlay retouchés), pacing/dyn-rs affectant la vitesse de stick lue par can-wheel?. Bar: la combo
     exacte de l''owner marche au tactile, prouvée par injection touch (pas cpad) + trace d''états.'
   prompt: prompts/phase-Gtouch-longjump-regression.md
-  validator: validators/phase-Grecharged-hd-models3.sh
+  validator: validators/phase-Gtouch-longjump-regression.sh
   max_turns: 3000
   max_retries: 6
   device: true
