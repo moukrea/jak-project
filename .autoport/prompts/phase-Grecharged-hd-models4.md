@@ -185,3 +185,28 @@ jusqu'au retour gameplay. Récupérer files/gk_crash.txt après repro.
    Owner : « si c'est les pupilles de Jak 1, c'est pas bon ! ». FIX : porter les textures d'iris/œil
    du DONOR (jak2/jak3) dans le chemin d'yeux des modèles HD (par personnage), pas juste re-lier le
    slot jak1. La classe A n'est PAS close tant que les pupilles ne sont pas celles du donor.
+
+## ============================================================
+## CORRECTION OWNER 2026-08-04 ~22:00 — REDÉFINITION DU DÉFAUT PNJ + INTERDICTION DÉFINITIVE
+## ============================================================
+### 1. Le défaut PNJ n'est PAS du "flicker" — redéfinition exacte (owner) :
+Les PNJ sont visibles au DÉBUT de la cinématique, puis d'un coup DISPARAISSENT de la vue (SANS
+changement de caméra), puis RÉAPPARAISSENT plus tard dans la cinématique. Ce sont des FENÊTRES DE
+DISPARITION LONGUES (secondes), pas un clignotement rapide. ET : « c'est un problème qu'on a déjà eu
+sur la phase des personnages HD et que tu as déjà réglé » — NE PAS réinventer : faire l'archéologie
+git de la solution PRÉCÉDENTE (le fix per-actor/TTL de la suppression Merc2 d4fddfd245 et le travail
+d'invisibilité merc antérieur), comprendre ce que le cycle 2 a défait, et RE-appliquer/adapter.
+### 2. INTERDICTION DÉFINITIVE (owner, "pour toujours") : AUCUNE campagne de preuve VISUELLE
+« C'est des preuves visuelles… ça ne marchera jamais ou va irrémédiablement finir en truc qui échoue
+constamment, irreproductible ou faux vert comme à chaque fois. J'aimerais que toi, le framework,
+workers et autres arrêtiez de faire ça… POUR TOUJOURS. »
+=> Le "flicker détecteur" basé captures/vidéo/pixels est ABANDONNÉ. La preuve du défaut PNJ (et de
+TOUT défaut de visibilité) = COMPTEURS CÔTÉ RENDERER + state dumps, jamais des pixels :
+  - instrumenter par ACTEUR le nombre de soumissions merc par frame (Merc2, par nom de modèle) ;
+  - le bug = une fenêtre > N frames où les submits d'un acteur censé être en scène tombent à 0
+    pendant la cinématique (sans hidden légitime) ; le fix prouvé = 0 fenêtre de ce type sur la
+    cinématique complète (log compteurs, greppable, reproductible) ;
+  - les captures/vidéos ne servent QUE d'illustration pour l'owner, JAMAIS d'instrument de
+    validation. Le validator ne doit JAMAIS exiger des captures comme preuve.
+Ceci s'applique à TOUTES les preuves de cette phase (crash intro = gk_crash.txt + exit-info ;
+fourrure/gap = comptage de draws/verts par effet ; yeux = binding/texture id dans les logs).
