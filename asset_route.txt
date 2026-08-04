@@ -586,3 +586,45 @@
 
 [asset-route] training.grassbake -> /home/emeric/code/jak-project/out/jak1/fr3/training.grassbake (base-pack) custom=no 0B/t0 base=yes 2031031B/t1784097111
 
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039236B/t1784044706
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497042B/t1784044708
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1785289748
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 11759452B/t1784044709
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1785290032
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1020305)
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 7629858B/t1784044710
+
+[asset-route] training.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/training.meshweld (base-pack) custom=no 0B/t0 base=yes 4485087B/t1785289865
+
+[mesh-consolidate] level=training OPENED /home/emeric/code/jak-project/out/jak1/fr3/training.meshweld bytes=4485087 md5=7bdee7f014e7b66c4acdbe9345a167af bake_version=9 -> APPLIED (verts=1498944 tangent_w_flipped=906645)
+
+[asset-route] training.grassbake -> /home/emeric/code/jak-project/out/jak1/fr3/training.grassbake (base-pack) custom=no 0B/t0 base=yes 2031031B/t1784097111
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039236B/t1784044706
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497042B/t1784044708
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1785289748
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 11759452B/t1784044709
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1785290032
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1020305)
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 7629858B/t1784044710
+
+[asset-route] training.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/training.meshweld (base-pack) custom=no 0B/t0 base=yes 4485087B/t1785289865
+
+[mesh-consolidate] level=training OPENED /home/emeric/code/jak-project/out/jak1/fr3/training.meshweld bytes=4485087 md5=7bdee7f014e7b66c4acdbe9345a167af bake_version=9 -> APPLIED (verts=1498944 tangent_w_flipped=906645)
+
+[asset-route] training.grassbake -> /home/emeric/code/jak-project/out/jak1/fr3/training.grassbake (base-pack) custom=no 0B/t0 base=yes 2031031B/t1784097111
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039236B/t1784044706
+

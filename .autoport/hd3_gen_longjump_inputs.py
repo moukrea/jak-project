@@ -43,7 +43,9 @@ def duck_high_jump():
     hold(120)                        # flight + landing
     hold(60)                         # settle
 
-hold(600)                            # 10s post-anchor settle (spawn blackout / camera intro)
+HEAD = int(sys.argv[2]) if len(sys.argv) > 2 else 600
+hold(HEAD)                           # post-anchor settle (spawn blackout / camera intro; sized by
+                                     # the caller to cover goalc probe installation under OG_F1_WARP)
 combo(127, 0)                        # leg 1: stick full up
 combo(127, 255)                      # leg 2: stick full down
 combo(0, 127)                        # leg 3: stick full left
