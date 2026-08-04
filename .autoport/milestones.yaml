@@ -2302,6 +2302,11 @@ phases:
   max_turns: 3000
   max_retries: 6
   device: true
+  # 2026-08-04: the Redmi (eae4df44, the global default) has been physically
+  # unplugged since 2026-08-03 (lsusb shows only the Honor). All M1 proof runs
+  # (proof13, validator PASS 37a004d4aa) and the owner's own play-tests are on
+  # the owner's Honor — same re-point as Grecharged-loader-packfix 2026-07-29.
+  device_serial: AREE026206000788
   owner_verify: true
 - id: Grecharged-hd-models4
   name: 'HD MODELS M2 — remplacements PRINCIPAUX Daxter/Keira/Samos (owner 2026-08-03, roadmap exacte
