@@ -33,10 +33,20 @@ corps, comme ç'aurait été fait à l'époque si la PS2 l'avait permis. Subtili
 - **GATING (owner, obligatoire)** : feature flag de build dédié `--physics` (FLAG_PHYSICS, généré
   par build.sh comme les autres, fan-out flag-universe complet) **ET** exposition menu :
   (a) **toggle ON/OFF complet** dans les menus (désactivation totale possible in-game) ;
-  (b) **sélecteur de PRÉCISION à plusieurs degrés** (la sim — bounce/masse/raideur — taxe les
-  perfs : plusieurs niveaux définissables pour que les systèmes modestes en bénéficient aussi ;
-  « faut pas que ce soit complètement insane ») — ex. pas de sim/substeps/nombre de chaînes actives
-  par niveau. Persistance via *pc-settings* comme les autres réglages. Comme toujours, assets ND =
+  (b) **sélecteur de PRÉCISION à plusieurs degrés** — SÉMANTIQUE PRÉCISÉE PAR L'OWNER (2026-08-04) :
+  une échelle coût↔qualité MONOTONE : « au plus bas ça coûte peu ; au max ça coûte beaucoup plus
+  mais c'est plus précis, cohérent, etc. — peut-être avec de la vraie simulation de physique ».
+  DEUX BORNES NON NÉGOCIABLES :
+    - le niveau LE PLUS BAS reste CRÉDIBLE et cohérent (une approximation légère et propre —
+      jamais un truc pourri « pour que ça tourne ») ;
+    - le niveau LE PLUS HAUT est LE MEILLEUR RÉALISABLE, pensé pour le bon matériel, JAMAIS bridé
+      par les contraintes du bas de l'échelle : vraie simulation (pas de temps fin / substeps —
+      « pas » au sens TIME STEP —, collisions chaîne-corps, limites angulaires, plus de chaînes
+      actives, itérations de contrainte plus nombreuses…).
+  Les leviers par niveau (fréquence/substeps de la sim, nombre de chaînes actives, itérations,
+  collisions on/off) sont des DONNÉES réglables, pas du code en dur. L'owner ne maîtrise pas le
+  domaine et l'assume : c'est au worker de proposer une échelle honnête et à l'owner de juger le
+  rendu à chaque niveau. Persistance via *pc-settings* comme les autres réglages. Comme toujours, assets ND =
   pack externe.
 
 ## RÈGLES
