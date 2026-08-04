@@ -276,3 +276,28 @@ any proof run (deploy_verify eae4df44 must PASS first). NOTE: defect-7 (long jum
 on the HONOR touch overlay; the Redmi A/B still discriminates companion-vs-device, but if it does not
 reproduce on the Redmi either, report that honestly — final long-jump confirmation may need the owner's
 Honor in his hands (he is awake now).
+
+## ============================================================
+## OWNER MORNING VERDICT 2026-08-04 ~08:00 (played the Honor build = M1 base + the 4 first fixes)
+## ============================================================
+CONFIRMED FIXED by the owner's eye (lock these in, do not regress):
+  ✔ defect 5 — NPCs no longer disappear/reappear during cutscenes.
+  ✔ defect 6 — no more frozen ghost Jak in cutscenes where he shouldn't be seen.
+STILL BROKEN (owner-verified on that build), new priority order:
+  1. defect 7 — LONG JUMP: precise repro = RUNNING FORWARD + R1/R2 + jump => the jump gets
+     CANCELLED instead of long-jumping. NOTE: your x86 A/B measured stationary/wheel-flip combos —
+     replicate the OWNER's exact combo (moving forward + crouch + jump), and test WITH THE TOUCH
+     OVERLAY path on device (simultaneous touch zones move+R1/R2+X — suspect the touch overlay or
+     the pad merge, not the companion; x86 already says NOT-REPRODUCED with cpad).
+  2. NEW/CONTINUED — "toujours A/Jak invisible sur la scène avec le logo Naughty Dog avant l'écran
+     titre": on the ND-logo scene Jak is INVISIBLE now. Suspect: the Merc2 eichar-lod0 TTL
+     suppression fires for the logo-scene actor while the companion does NOT cover that actor
+     (companion shadows *target* only) => suppressed with no replacement = invisible. The suppression
+     must apply ONLY when a companion replacement is actually submitting for THAT actor/frame.
+  3. defect 2 — strap->hair gap, owner detail: "on voit l'intérieur de sa tête" through the gap
+     (so likely missing/offset geometry + no backface: discriminate hair-too-high vs missing draw).
+  4. defect 1 — white pupil-less eyes (eye_id binding).
+  5. defect 4 — inanimate face (blerc).
+  6. defect 3 — clothing clipping (blue over white at legs, collar vs strap).
+Owner is REMOTE today with the Honor: every build he must test goes to jak-builds jak1-rtlight-wip
+(app-jak1-HD-recharged.apk + jak1_hd_assets.zip if assets changed). Proof device = Redmi eae4df44.
