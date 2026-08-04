@@ -232,11 +232,13 @@
                     (nonzero? (-> self draw skeleton)) (nonzero? (-> drv draw skeleton)))
            (+! (-> self dbg-frames) 1)
            (when (or (= (-> self dbg-frames) 60) (= (-> self dbg-frames) 150))
-             (format 0 "[JAK-HD] bone3 drv=~S hd=(~f ~f ~f) ei=(~f ~f ~f)~%"
+             ;; split in two: a GOAL call carries at most 8 parameters (attempt-1 compile fail).
+             (format 0 "[JAK-HD] bone3 drv=~S hd=(~f ~f ~f)"
                      (if (nonzero? (-> drv draw mgeo)) (-> drv draw mgeo name) "?")
                      (-> self draw skeleton bones 4 transform vector 3 x)
                      (-> self draw skeleton bones 4 transform vector 3 y)
-                     (-> self draw skeleton bones 4 transform vector 3 z)
+                     (-> self draw skeleton bones 4 transform vector 3 z))
+             (format 0 " ei=(~f ~f ~f)~%"
                      (-> drv draw skeleton bones 4 transform vector 3 x)
                      (-> drv draw skeleton bones 4 transform vector 3 y)
                      (-> drv draw skeleton bones 4 transform vector 3 z)))))))))

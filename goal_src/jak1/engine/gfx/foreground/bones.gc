@@ -942,8 +942,11 @@
       ;; shorter). The PC renderer suppresses a stock draw ONLY when an HD companion covers THIS
       ;; pid this frame — never by model name alone (the M1 global name-TTL blanked the ND-logo
       ;; eichar actor, which no companion covered).
+      ;; guard both empty-slot encodings: 0 AND #f (s7 is nonzero, so nonzero? alone would
+      ;; deref a garbage pid off the symbol table).
       (set! (-> (the-as (pointer uint32) (&+ dma-buf 120)))
-            (the-as uint (if (nonzero? (-> dc process)) (-> dc process pid) 0))))
+            (the-as uint (let ((proc (-> dc process)))
+                           (if (and proc (nonzero? proc)) (-> proc pid) 0)))))
     (&+! dma-buf (* 16 8))
     (+! qwc-total 8)
     ;; LIGHTS:

@@ -84,6 +84,15 @@ extern "C" void gk_set_diag_norepair(bool on);
 
 using namespace ee;
 
+#ifdef OG_FEAT_HD_MODELS
+// Grecharged-hd-models4: per-actor coverage registry, DEFINED at GLOBAL scope in Merc2.cpp
+// (prototypes here rather than including the GL renderer headers in this kernel TU). Declared
+// BEFORE namespace jak1 — an in-namespace declaration makes the calls below reference
+// jak1::merc2_hd_* and the link fails (attempt-1 failure of this phase).
+void merc2_hd_cover(u32 companion_pid, u32 driver_pid);
+void merc2_hd_uncover(u32 companion_pid);
+#endif
+
 namespace jak1 {
 
 /*!
@@ -845,18 +854,16 @@ void pc_set_recharged_enhanced_models(u32 on) {
   Gfx::g_global_settings.recharged_enhanced_models = v;
 }
 
-// Grecharged-hd-models4: per-actor coverage registry (defined in Merc2.cpp — prototypes here to
-// keep GL renderer headers out of this kernel TU). An HD companion process registers which driver
-// actor (pid) its merc submissions replace; Merc2 only suppresses a stock draw whose OWN pid is
-// covered by an actively-found companion, so uncovered same-model actors (the ND-logo eichar)
-// always keep their stock draw.
-void merc2_hd_cover(u32 companion_pid, u32 driver_pid);
-void merc2_hd_uncover(u32 companion_pid);
+// Grecharged-hd-models4: per-actor coverage registry (global-scope prototypes above, before
+// namespace jak1). An HD companion process registers which driver actor (pid) its merc
+// submissions replace; Merc2 only suppresses a stock draw whose OWN pid is covered by an
+// actively-found companion, so uncovered same-model actors (the ND-logo eichar) always keep
+// their stock draw.
 void pc_hd_cover(u32 companion_pid, u32 driver_pid) {
-  merc2_hd_cover(companion_pid, driver_pid);
+  ::merc2_hd_cover(companion_pid, driver_pid);
 }
 void pc_hd_uncover(u32 companion_pid) {
-  merc2_hd_uncover(companion_pid);
+  ::merc2_hd_uncover(companion_pid);
 }
 #endif
 
