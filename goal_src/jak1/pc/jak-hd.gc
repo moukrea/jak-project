@@ -127,6 +127,16 @@
       (else
        ;; keep the process co-located with the driver for culling; bones are already world-space.
        (vector-copy! (-> self root trans) (-> *target* root trans))
+       ;; DEFECT 6 (owner 2026-08-04, cutscene ghost): mirror the driver's VISIBILITY every frame.
+       ;; Cutscenes (and the damage-invulnerability blink) hide *target* via (draw-status hidden);
+       ;; without mirroring, the companion keeps submitting its last pose — a frozen HD Jak visible
+       ;; in movies where Jak must not appear. Copy ONLY the hidden bit (sidekick copies the whole
+       ;; status wholesale — we must not inherit skip-bones/no-skeleton-update, which stay ours).
+       ;; While hidden the companion stops submitting -> Merc2's eichar-lod0 suppression TTL drains
+       ;; in ~4 frames -> stock behavior for whatever the cutscene actually draws.
+       (if (logtest? (-> *target* draw status) (draw-status hidden))
+         (logior! (-> self draw status) (draw-status hidden))
+         (logclear! (-> self draw status) (draw-status hidden)))
        ;; ROOT CAUSE of the M1 invisibility (all platforms, found 2026-08-03): initialize-skeleton
        ;; sets (draw-status no-skeleton-update) and the ONLY stock clear site is ja-post — which this
        ;; :post bypasses by calling do-joint-math! directly. dma-add-process-drawable early-returns on
