@@ -138,3 +138,9 @@ mal backportée) · Jak gap+clipping (survivants) · Samos barbe clip/bout · Ke
 Crash après "this place just gives me the creeps" (chargement Daxter ottsel ?) — le worker doit
 étendre sa preuve à l'intro COMPLÈTE. Paupières de Jak broken aussi (classe blink générale). Pupilles :
 confirmé structurel — l'eye-remap sert les pupilles JAK 1 ; le port des iris du donor est exigé.
+
+### 23:15 — Deux missions consignées au backlog framework
+1. Gmenu-flag-off (passe AVANT les looks bonus) : la refonte menu cassée sort des builds (flag OFF
+   par défaut, ancien menu fonctionnel restauré — displacement de retour). 2. Grecharged-secondary-motion
+   (après M5) : jiggle Keira, barbe Samos, vêtements/lanières/cheveux de Jak en vraie physique,
+   cheveux longs (Keira/Samos/Jak/Gol), Maia+archéologue en étude de faisabilité.
