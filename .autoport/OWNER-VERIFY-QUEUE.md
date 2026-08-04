@@ -74,3 +74,9 @@ Rien à tester pour toi là-dessus tant que la piste n'a pas produit un build.
   ② Village : Keira (zoomer) + Samos (hutte) en HD cohérents ; ③ Daxter HD sur l'épaule partout ;
   ④ cinématiques avec eux trois ; ⑤ les polish M1 restants (yeux/gap/visage/clipping) : inchangés.
 - Phase suivante lancée : Gtouch-longjump-regression (ton long jump tactile).
+
+### 11:00 — Ton verdict M4 (logué) : rendus OK mais qualité pas là — cycle défauts 2 spécifié
+Daxter SANS mâchoire (cursed, priorité 1) + fourrure transparente ; yeux/verres blancs x3 (fix
+systémique eye_id) ; visages immobiles x4 (blerc) ; doigts Keira + barbe Samos (mapping d'os) ;
+sourcing Keira bottines à vérifier (peut-être déjà bottines en 1ère ciné — on te dira).
+Lancement : juste après la phase long-jump tactile en cours.
