@@ -222,7 +222,7 @@
     "Grecharged-menu-overhaul": 1,
     "Grecharged-hd-models3": 3,
     "Gtouch-longjump-regression": 2,
-    "Grecharged-hd-models4": 1
+    "Grecharged-hd-models4": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -487,6 +487,9 @@
     ],
     "Grecharged-hd-models3": [
       "96f5b163e8e2"
+    ],
+    "Grecharged-hd-models4": [
+      "f6f65380c5f2"
     ]
   },
   "stuck_reasons": {
@@ -916,7 +919,7 @@
     "Gtouch-longjump-regression": 1785831811.5772808,
     "Grecharged-hd-models4": 1785838314.2041388
   },
-  "last_update": "2026-08-04T11:37:50.764975+00:00",
+  "last_update": "2026-08-04T11:44:18.407751+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
