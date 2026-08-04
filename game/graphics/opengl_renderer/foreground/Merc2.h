@@ -11,6 +11,12 @@
 // stock draw only while the companion's model is actually being processed and found.
 void merc2_hd_cover(u32 companion_pid, u32 driver_pid);
 void merc2_hd_uncover(u32 companion_pid);
+// CYCLE-3 (Keira black-eyes-on-blink): true while an HD companion model referencing this dynamic
+// eye slot (the merc draw eye_id byte, == EyeRenderer SingleEyeDraws::tex_slot()) is actively
+// submitting. jak1 blinks by PAINTING the eyelid over the whole eye tile (EyeRenderer lid pass,
+// blend off) — correct on the stock flat eyelid-patch mesh, garbage wrapped around the HD donor
+// EYEBALL geometry. EyeRenderer skips the lid blit for covered slots. Render-thread only.
+bool merc2_hd_eye_slot_covered(u8 slot);
 #endif
 
 struct MercDebugStats {

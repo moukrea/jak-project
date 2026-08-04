@@ -3,6 +3,7 @@
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
+#include "game/graphics/opengl_renderer/foreground/Merc2.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -583,7 +584,17 @@ void EyeRenderer::run_gpu(const std::vector<SingleEyeDraws>& draws,
     }
     buffer_idx += 4 * 4;
 
-    if (draw.lid_tex) {
+    if (draw.lid_tex
+#ifdef OG_FEAT_HD_MODELS
+        // CYCLE-3 (Grecharged-hd-models4, Keira black-eyes-on-blink): jak1 blinks by painting
+        // the lid texture over the WHOLE eye tile (blend off). The stock eye mesh is a flat
+        // eyelid patch, so that reads as a closing lid — but an HD companion's donor EYEBALL
+        // geometry wraps the full tile around the eye and shows the lid texture as black/weird
+        // eyes for the ~10 blink frames. Skip the lid blit while an HD model owns this slot;
+        // background+iris+pupil keep compositing, so gaze animation stays live.
+        && !merc2_hd_eye_slot_covered((u8)draw.tex_slot())
+#endif
+    ) {
       glDisable(GL_BLEND);
       glBindTexture(GL_TEXTURE_2D, draw.lid_gl_tex);
       glDrawArrays(GL_TRIANGLE_STRIP, buffer_idx / 4, 4);

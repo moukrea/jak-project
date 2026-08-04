@@ -596,6 +596,27 @@ static std::mutex s_hd_cover_mutex;  // pairs: written EE-thread (GOAL), read re
 static std::vector<HdCoverPair> s_hd_cover_pairs;
 static std::unordered_map<u32, int> s_hd_driver_ttl;  // render-thread only
 
+// CYCLE-3 FLICKER DETECTOR (metrics not eyeballs): a "blackout" is a stock packet suppressed
+// while its companion has NOT submitted for more than ~1 frame — the exact frame-level signature
+// of the owner-reported cutscene NPC flicker. jak1 makes 16 Merc2::render calls per frame
+// (16 Merc2BucketRenderers sharing this instance), so TTL 32 = ~2 frames and a healthy covered
+// actor re-arms every ~16 calls. Counters are always on; logging is event-driven + a periodic
+// heartbeat, so a healthy run stays quiet and the cutscene proof leg can grep blackouts=0.
+static u64 s_hd_render_call_idx = 0;                       // render-thread only
+static std::unordered_map<u32, u64> s_hd_last_arm_call;    // driver_pid -> render call idx
+static u64 s_hd_blackout_events = 0;
+static u64 s_hd_submit_gap_events = 0;
+static u64 s_hd_ttl_expiries = 0;
+
+// CYCLE-3 (Keira black-eyes-on-blink): dynamic eye slots referenced by actively-submitting HD
+// companion draws. Armed alongside the pid TTL, drained in render(); EyeRenderer consults this
+// to skip the full-tile lid blit for these slots (see Merc2.h). Render-thread only.
+static int s_hd_eye_slot_ttl[256] = {};
+
+bool merc2_hd_eye_slot_covered(u8 slot) {
+  return s_hd_eye_slot_ttl[slot] > 0;
+}
+
 void merc2_hd_cover(u32 companion_pid, u32 driver_pid) {
   std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
   for (auto& p : s_hd_cover_pairs) {
@@ -607,8 +628,21 @@ void merc2_hd_cover(u32 companion_pid, u32 driver_pid) {
   s_hd_cover_pairs.push_back({companion_pid, driver_pid});
 }
 
+// CYCLE-3 FLICKER FIX: uncover must drop the driver's suppression TTL IMMEDIATELY. Leaving it
+// to drain kept the stock draw hidden for ~2 more frames after a companion died (cutscene actor
+// churn, respawn) — a per-despawn NPC blackout. The TTL map is render-thread-owned, so the EE
+// thread queues the pid here (under the cover mutex) and the render-thread drain erases it on
+// its next call — one render call of latency, not two frames.
+static std::vector<u32> s_hd_uncover_pending;  // driver pids; guarded by s_hd_cover_mutex
+
 void merc2_hd_uncover(u32 companion_pid) {
   std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+  for (const auto& p : s_hd_cover_pairs) {
+    if (p.companion_pid == companion_pid) {
+      s_hd_uncover_pending.push_back(p.driver_pid);
+      break;
+    }
+  }
   std::erase_if(s_hd_cover_pairs,
                 [&](const HdCoverPair& p) { return p.companion_pid == companion_pid; });
 }
@@ -656,8 +690,10 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
       lg::warn("[hd-render] SUBMITTED name='{}' found={} submits={}", name, model_ref ? 1 : 0, n);
     }
     // refresh this driver's suppression ONLY when the replacement is actually drawable (model
-    // found). TTL decremented once per render() call (~8-9 calls per frame) => ~4 frames, so the
-    // stock draw returns by itself when the companion despawns/culls/loses its model.
+    // found). TTL decremented once per render() call — jak1 makes 16 of those per frame (16
+    // Merc2BucketRenderers share this instance), so TTL 32 = ~2 FRAMES (the old "~4 frames"
+    // claim was wrong by 2x) — the stock draw returns by itself when the companion despawns,
+    // and merc2_hd_uncover clears it same-frame on explicit despawn.
     if (model_ref && owner_pid != 0) {
       u32 driver_pid = 0;
       {
@@ -670,7 +706,29 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         }
       }
       if (driver_pid != 0) {
+        // flicker detector: a healthy companion re-arms every ~16 render calls (one frame). A
+        // gap of more than ~1.5 frames while still covered means frames were skipped (cull
+        // divergence / streamed-out model) — each one is a candidate visible blink.
+        auto arm_it = s_hd_last_arm_call.find(driver_pid);
+        if (arm_it != s_hd_last_arm_call.end()) {
+          u64 gap = s_hd_render_call_idx - arm_it->second;
+          if (gap > 24 && gap < 4000) {
+            s_hd_submit_gap_events++;
+            if (s_hd_submit_gap_events <= 20 || s_hd_submit_gap_events % 50 == 0) {
+              lg::warn("[hd-flicker] GAP name='{}' driver_pid={} calls={}", name, driver_pid, gap);
+            }
+          }
+        }
+        s_hd_last_arm_call[driver_pid] = s_hd_render_call_idx;
         s_hd_driver_ttl[driver_pid] = 32;
+        // arm the HD-covered eye slots (lid-blit suppression, see merc2_hd_eye_slot_covered).
+        for (const auto& eff : model_ref->model->effects) {
+          for (const auto& d : eff.all_draws) {
+            if (d.eye_id != 0xff) {
+              s_hd_eye_slot_ttl[d.eye_id] = 32;
+            }
+          }
+        }
       }
     }
   } else if (owner_pid != 0) {
@@ -683,6 +741,21 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
       u64& n = s_hd_suppress_counts[owner_pid];
       if (n++ % 600 == 0) {
         lg::warn("[hd-render] suppress pid={} name='{}' (covered per-actor)", owner_pid, name);
+      }
+      // flicker detector BLACKOUT: this stock draw is being dropped although the companion has
+      // not submitted for more than ~1.25 frames — the actor is on screen (its stock packet just
+      // arrived) yet nothing will draw it this frame. This is the owner-visible flicker signature
+      // and the number the cycle-3 fix must hold at 0 through a full cutscene.
+      auto arm_it = s_hd_last_arm_call.find(owner_pid);
+      if (arm_it == s_hd_last_arm_call.end() ||
+          s_hd_render_call_idx - arm_it->second > 20) {
+        s_hd_blackout_events++;
+        if (s_hd_blackout_events <= 20 || s_hd_blackout_events % 50 == 0) {
+          lg::warn("[hd-flicker] BLACKOUT pid={} name='{}' since_arm={}", owner_pid, name,
+                   arm_it == s_hd_last_arm_call.end()
+                       ? (u64)0
+                       : s_hd_render_call_idx - arm_it->second);
+        }
       }
       return;
     }
@@ -1115,6 +1188,17 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     // HD-actor shells — so fr3 effects beyond it would be skipped by the enable check below.
     // Enable them; GOAL keeps authority over the effects it actually knows.
     current_effect_enable_bits |= ~0ull << flags->effect_count;
+    // CYCLE-3 (Daxter fur holes / missing lower face): PS2 semantics — an ENVMAP effect's
+    // texture alpha is the envmap/sheen INTENSITY MASK, not opacity (TCC_RGB; jak3's
+    // foreground.gc forces ignore-alpha=1 on envmap effects). Daxter's head texture is 51%
+    // alpha<8, so rendering it with ignore_alpha=0 made merc2.frag discard half his head.
+    // GOAL's ignore_alpha_mask only covers the fabricated shell effect, so derive the bits
+    // from the fr3 itself (has_envmap ported from the donor by hd_merc_swap) for ALL effects.
+    for (size_t ei = 0; ei < model->effects.size() && ei < 64; ei++) {
+      if (model->effects[ei].has_envmap) {
+        current_ignore_alpha_bits |= 1ull << ei;
+      }
+    }
   }
 
   // will hold opengl buffers for the updated vertices
@@ -1425,13 +1509,40 @@ void Merc2::render(DmaFollower& dma,
                    ScopedProfilerNode& prof,
                    MercDebugStats* stats) {
 #ifdef OG_FEAT_HD_MODELS
+  s_hd_render_call_idx++;
+  // CYCLE-3 FLICKER FIX: erase TTLs of freshly-uncovered drivers NOW (queued EE-side) so the
+  // stock draw returns the same frame the companion despawns, not two frames later.
+  {
+    std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+    for (u32 pid : s_hd_uncover_pending) {
+      s_hd_driver_ttl.erase(pid);
+      s_hd_last_arm_call.erase(pid);
+    }
+    s_hd_uncover_pending.clear();
+  }
+  // drain the eye-slot coverage TTLs (armed with the pid TTLs, read by EyeRenderer).
+  for (int& t : s_hd_eye_slot_ttl) {
+    if (t > 0) {
+      t--;
+    }
+  }
   // drain the per-driver coverage TTLs (armed in handle_pc_model on companion submits).
   for (auto it = s_hd_driver_ttl.begin(); it != s_hd_driver_ttl.end();) {
     if (--(it->second) <= 0) {
+      // flicker detector: a natural expiry means a still-covered driver went >2 frames without
+      // its companion submitting — every one of these is a potential visible pop to stock.
+      s_hd_ttl_expiries++;
+      s_hd_last_arm_call.erase(it->first);
       it = s_hd_driver_ttl.erase(it);
     } else {
       ++it;
     }
+  }
+  // detector heartbeat every 3600 render calls (~225 frames): the cutscene proof leg greps
+  // these lines and requires blackouts=0 gaps=0 across the scene.
+  if (s_hd_render_call_idx % 3600 == 0) {
+    lg::warn("[hd-flicker] calls={} blackouts={} gaps={} expiries={}", s_hd_render_call_idx,
+             s_hd_blackout_events, s_hd_submit_gap_events, s_hd_ttl_expiries);
   }
 #endif
   bool hack = stats->collect_debug_model_list;
