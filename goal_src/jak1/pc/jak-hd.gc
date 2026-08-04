@@ -212,7 +212,8 @@
          W'_k   = Delta' . L'_k . W'_par     L'_k = inv(bind-pose_hd[k]) . bind-pose_hd[par(k)]
       (bind-pose slots STORE the inverse-bind, so inv(bind-pose) = forward bind.)
     mode 2 LOCAL-DELTA GLUE       W'_k = L'_k . W'_par (no driver counterpart: rides the chain).
-    mode 3 ORIENT-COPY (cycle 3)  rotation rows of the mode-0 product (unit-normalized) +
+    mode 3 ORIENT-COPY (cycle 3)  rotation rows of the mode-0 product re-scaled to the HD bind
+      row length (preserves the HD rig's world bind scale, kills the driver-bind scale leak) +
       translation row of the glue product — for mapped joints whose donor/driver LOCAL BIND
       FRAMES disagree (rotation >1deg or scale != 1: sage beard, dax/keira fingers), where
       mode 1 replays deltas in the wrong frame and mode 0 tears the chain via pivot offsets.
@@ -261,17 +262,21 @@
                         ;; deltas in the wrong frame (tip frozen forward at neutral, chest-sweeping
                         ;; swings on anims). Translation from the GLUE product: HD bone lengths and
                         ;; chain pivots preserved (mode-0 translation would lever the 0.86-unit
-                        ;; driver pivot offset into a chin tear). Basis rows unit-normalized: kills
-                        ;; the driver bind's 1.5x/0.667x scale leak (drops driver anim scale too —
-                        ;; acceptable on finger/beard chains, documented in the generator).
+                        ;; driver pivot offset into a chin tear). Basis rows are re-scaled to the
+                        ;; HD BIND row length (hbind = forward HD bind here): this kills the
+                        ;; DRIVER bind's 1.5x/0.667x scale leak while PRESERVING the HD rig's own
+                        ;; world bind scale — the jak rig is uniformly 1.4 below 'main' and keira's
+                        ;; strap chains are 0.103, so unit rows would scale skinning by 1/s (28%
+                        ;; strap shrink / 9.7x strap blow-up, caught by generator PROOF D).
                         (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
                         (matrix*! tmp2 tmp (the-as matrix (-> tgt-skel bones (+ e 1) transform)))
                         (matrix*! tmp lk (the-as matrix (-> skel bones (+ p 1) transform)))
                         (let ((dst (the-as matrix (-> skel bones (+ k 1) transform))))
                           (dotimes (r 3)
-                            (let ((len (vector-length (-> tmp2 vector r))))
+                            (let ((len  (vector-length (-> tmp2 vector r)))
+                                  (blen (vector-length (-> hbind vector r))))
                               (if (< 0.000001 len)
-                                (vector-float*! (-> dst vector r) (-> tmp2 vector r) (/ 1.0 len))
+                                (vector-float*! (-> dst vector r) (-> tmp2 vector r) (/ blen len))
                                 (vector-copy! (-> dst vector r) (-> tmp2 vector r)))
                               (set! (-> dst vector r w) 0.0)))
                           (vector-copy! (-> dst vector 3) (-> tmp vector 3))
