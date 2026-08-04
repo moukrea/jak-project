@@ -1199,6 +1199,15 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     for (size_t ei = 0; ei < model->effects.size() && ei < 64; ei++) {
       if (model->effects[ei].has_envmap) {
         current_ignore_alpha_bits |= 1ull << ei;
+        // GOAL also sent no envmap FADES for effects it doesn't know (their tail is zeroed
+        // above) and a zero fade SKIPS the envmap draw entirely (try_alloc_envmap_draw).
+        // Default to neutral full intensity: 0x80/255 doubled by the emerc shader = 1.0.
+        if (ei < (size_t)kMaxEffect) {
+          u8* f = fade_buffer + 4 * ei;
+          if (!f[0] && !f[1] && !f[2] && !f[3]) {
+            f[0] = f[1] = f[2] = f[3] = 0x80;
+          }
+        }
       }
     }
   }
