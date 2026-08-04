@@ -99,3 +99,12 @@ la phase menu reprendra (après les HD) — logué dans son brief avec audit lig
 - À TESTER (toi, au tactile) : cours D'ABORD sur du plat dégagé, presse la pilule R1/R2 PENDANT la
   course, X aussitôt après — et RELÂCHE la pilule entre deux essais. Si ça rate encore comme ça sur
   du plat, dis-le : on instrumentera TA session en live (les dumps de gates sont dans le build).
+
+### 12:15 — Long jump tactile : CLOS (ton verdict + preuves worker convergent)
+Pas une régression (5/5 en injection, code input inchangé depuis juin). Ton "timing très tight" =
+piège duck-walk au tactile (R1 tenu tôt + pouce stick qui ralentit — la manette n'a pas ce problème).
+AMÉLIORATION ERGO NOTÉE AU BACKLOG (après la piste HD) : fenêtre de tolérance côté overlay tactile
+(garder la vitesse de stick "récente" valide quelques frames quand R1 arrive) pour détendre le timing.
+### 12:15 — M4 ROUVERT en cycle défauts 2 (backport COMPLET par définition)
+Daxter mâchoire (prio 1) + fourrure, yeux/verres x3, visages TOUTES anims x4, doigts Keira,
+barbe Samos, sourcing Keira — le worker repart dessus maintenant.
