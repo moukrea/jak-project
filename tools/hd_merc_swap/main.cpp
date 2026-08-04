@@ -878,12 +878,31 @@ int port_blerc(tfrag3::Level& lev,
           continue;
         }
         matched++;
-        if (hit->mats[0] != mv.mats[0] || hit->mats[1] != mv.mats[1] ||
-            hit->mats[2] != mv.mats[2]) {
+        // compare only WEIGHTED lanes: zero-weight lanes are padding and carry arbitrary bone
+        // indices (donor pads 0, the GLB round-trip pads differently). Every donor lane with
+        // weight must find the same (bone, weight) pair on the appended vertex, any lane order.
+        bool lanes_ok = true;
+        for (int dl = 0; dl < 3 && lanes_ok; dl++) {
+          if (mv.weights[dl] <= 1e-6f) {
+            continue;
+          }
+          bool found = false;
+          for (int al = 0; al < 3; al++) {
+            if (hit->mats[al] == mv.mats[dl] &&
+                std::fabs(hit->weights[al] - mv.weights[dl]) < 1e-3f) {
+              found = true;
+              break;
+            }
+          }
+          lanes_ok = found;
+        }
+        if (!lanes_ok) {
           fmt::print("  BLERC-PORT FAIL: effect[{}] mod vertex {} bone-index mismatch: donor mats "
-                     "[{},{},{}] vs appended mats [{},{},{}] at pos ({}, {}, {})\n",
-                     ei, k, mv.mats[0], mv.mats[1], mv.mats[2], hit->mats[0], hit->mats[1],
-                     hit->mats[2], mv.pos[0], mv.pos[1], mv.pos[2]);
+                     "[{},{},{}] w=[{},{},{}] vs appended mats [{},{},{}] w=[{},{},{}] at pos "
+                     "({}, {}, {})\n",
+                     ei, k, mv.mats[0], mv.mats[1], mv.mats[2], mv.weights[0], mv.weights[1],
+                     mv.weights[2], hit->mats[0], hit->mats[1], hit->mats[2], hit->weights[0],
+                     hit->weights[1], hit->weights[2], mv.pos[0], mv.pos[1], mv.pos[2]);
           return 6;
         }
       }
