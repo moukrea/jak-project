@@ -133,3 +133,8 @@ mal backportée) · Jak gap+clipping (survivants) · Samos barbe clip/bout · Ke
   ② Daxter : mâchoire présente, fourrure opaque ; ③ yeux/verres x4 ; ④ doigts Keira, barbe Samos en ciné ;
   ⑤ clipping vêtements Jak. Si une expression précise reste figée, nomme le MOMENT exact (les 9 canaux
   sans contrepartie sont listés dans le rapport — on chassera canal par canal).
+
+### 20:05 — Intro : CRASH (prio 0, routé) + yeux précisés
+Crash après "this place just gives me the creeps" (chargement Daxter ottsel ?) — le worker doit
+étendre sa preuve à l'intro COMPLÈTE. Paupières de Jak broken aussi (classe blink générale). Pupilles :
+confirmé structurel — l'eye-remap sert les pupilles JAK 1 ; le port des iris du donor est exigé.
