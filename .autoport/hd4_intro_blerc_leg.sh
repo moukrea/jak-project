@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # =====================================================================================
-# Grecharged-hd-models4 CYCLE-2 leg 3 — REAL intro cutscene on device (class B faces +
-# class A eyes, owner-facing visual evidence). Derived from hd3_defect6_intro_device.sh.
+# Grecharged-hd-models4 leg 3 — REAL intro cutscene on device (cycle 2: class B faces +
+# class A eyes; CYCLE 3: + the [hd-flicker] BLACKOUT/GAP=0 gate, the device half of the P1
+# NPC-flicker regression proof). Derived from hd3_defect6_intro_device.sh.
 #
 # Trigger: prop debug.opengoal.echo.intro=1 (kmachine.cpp echo-intro path) replays
 # (initialize! *game-info* 'game #f "intro-start") -> sequenceA-village1 plays spool
@@ -113,6 +114,10 @@ NCOMP=$(grep -ac '\[HD-COMP\] spawned' "$LC"); NCOMP=${NCOMP:-0}
 MLOADS=$(grep -a 'merc-load' "$LC" | grep -oE '[a-z]+-hd-lod0' | sort -u | tr '\n' ' ')
 SUBM=$(grep -a 'SUBMITTED' "$LC" | grep -oE "name='[a-z]+-hd-lod0' found=1" | sort -u | tr '\n' ' ')
 NOSLOT=$(grep -ac 'no free blerc override slot' "$LC"); NOSLOT=${NOSLOT:-0}
+# CYCLE-3: flicker detector harvest (P1 regression proof on device — metrics not eyeballs)
+FLK_BLACK=$(grep -ac '\[hd-flicker\] BLACKOUT' "$LC"); FLK_BLACK=${FLK_BLACK:-0}
+FLK_GAP=$(grep -ac '\[hd-flicker\] GAP' "$LC"); FLK_GAP=${FLK_GAP:-0}
+FLK_HB=$(grep -a '\[hd-flicker\] calls=' "$LC" | tail -1 | tr -d '\r')
 PID=$(pidof_app)
 $ADB -s "$S" shell dumpsys activity exit-info $PKG > "$OUT/leg3.exit-info-after.txt" 2>&1
 NEW_R5_TS=$(grep -B12 'reason=REASON_CRASH_NATIVE\|reason=5' "$OUT/leg3.exit-info-after.txt" | grep -oE 'timestamp=[0-9: .-]+' | head -1 | cut -d= -f2- | tr -d '\r')
@@ -124,8 +129,13 @@ say "companions spawned: $NCOMP"
 say "merc-loads: ${MLOADS:-NONE}"
 say "submits found=1: ${SUBM:-NONE}"
 say "blerc slot exhaustion lines: $NOSLOT (0 = every companion holds a face-anim slot)"
+say "flicker BLACKOUT events: $FLK_BLACK   GAP events: $FLK_GAP   last heartbeat: ${FLK_HB:-NONE}"
 say "pid at end: '$PID'  new native crash: $NEWCRASH"
 OK=1
+# CYCLE-3 P1 gate: zero blackout/gap through the real cutscene + at least one heartbeat
+[ "$FLK_BLACK" -eq 0 ] || { say "FAIL: $FLK_BLACK flicker BLACKOUT events"; OK=0; }
+[ "$FLK_GAP" -eq 0 ] || { say "FAIL: $FLK_GAP flicker GAP events"; OK=0; }
+[ -n "$FLK_HB" ] || { say "FAIL: no [hd-flicker] heartbeat — detector build not on device?"; OK=0; }
 [[ "$FRSEL" == *ENHANCED* ]] || { say "FAIL: enhanced fr3 not selected"; OK=0; }
 [ "$NCOMP" -ge 1 ] || { say "FAIL: no companion spawned"; OK=0; }
 [[ "$SUBM" == *found=1* ]] || { say "FAIL: no SUBMITTED found=1"; OK=0; }
