@@ -3,7 +3,7 @@
 # Grecharged-hd-models3 — PROOF13 RESUME (Honor AREE026206000788)
 #
 # Context: HEAD d4fddfd245 (driver-hide moved to Merc2 TTL suppression — Daxter restored
-# by construction) was deployed + deploy_verify PASS at 2026-08-04 01:19 (proof13), but
+# by construction) was deployed + deploy_verify PASS at 2026-08-04 01:19 (proof13b), but
 # the phone dropped off the USB bus at 01:27 (re-enumerated WITHOUT an adb interface —
 # reboot/charge-only lockout) before the run evidence was harvested. This script finishes
 # the harvest in ONE command once adb is back. It does NOT rebuild or reinstall anything:
@@ -13,8 +13,8 @@
 #   - routed logcat: [JAK-HD] spawned skel-bones=76, HD-MODELS merc-load jak-hd-lod0,
 #     [jak-hd-render] SUBMITTED found=1, [jak-hd-render] suppressing stock eichar-lod0,
 #     [JAK-HD] bone3 hd==ei world lines moving across frames (anim-follow)
-#   - captures: proof13-idle.png (Jak + DAXTER on shoulder = the d4fddfd245 point),
-#     proof13-running.png (ly=0 held)
+#   - captures: proof13b-idle.png (Jak + DAXTER on shoulder = the d4fddfd245 point),
+#     proof13b-running.png (ly=0 held)
 #   - dumpsys window mCurrentFocus (jak1 foreground)
 #   - exit-info: no new reason=5
 #   - cleanup discipline: enhanced OFF in external pc-settings + force-stop (ALWAYS, trap)
@@ -24,12 +24,12 @@ cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-$HOME/Android/platform-tools/adb}"
 S="${S:-AREE026206000788}"; PKG=org.opengoal.gk.jak1; ACT=.LoaderActivity
 OUT=.autoport/reports/Grecharged-hd-models3
-LOG="$OUT/proof13-run.log"; : > "$LOG"
+LOG="$OUT/proof13b-run.log"; : > "$LOG"
 # the ONE live settings file on this build (pc-settings.gc layout is gone; Loader.cpp
 # read_persisted_enhanced_models() reads <user settings dir>/settings.ini)
 PCS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 say(){ echo "$*" | tee -a "$LOG"; }
-die(){ say "[proof13 FAIL] $*"; exit 1; }
+die(){ say "[proof13b FAIL] $*"; exit 1; }
 setinj(){ $ADB -s "$S" shell setprop debug.opengoal.cpad_inject "$1" >/dev/null 2>&1 || true; }
 press(){ setinj "$1"; sleep 0.32; setinj release; sleep 0.28; say "  inject press: $1"; }
 pidof_app(){ $ADB -s "$S" shell pidof $PKG 2>/dev/null | tr -d '\r'; }
@@ -57,9 +57,9 @@ if $ADB -s "$S" shell dumpsys trust 2>/dev/null | grep -a '(current)' | grep -q 
 say "device present: $($ADB -s "$S" shell getprop ro.product.model | tr -d '\r') serial=$S"
 
 # 1. deploy_verify (fresh, at harvest time) ------------------------------------------------
-bash .autoport/lib/deploy_verify.sh "$S" jak1 > "$OUT/proof13.deploy_verify.log" 2>&1 \
-  || { tail -6 "$OUT/proof13.deploy_verify.log" | tee -a "$LOG"; die "deploy_verify FAILED"; }
-say "deploy_verify: $(tail -1 "$OUT/proof13.deploy_verify.log")"
+bash .autoport/lib/deploy_verify.sh "$S" jak1 > "$OUT/proof13b.deploy_verify.log" 2>&1 \
+  || { tail -6 "$OUT/proof13b.deploy_verify.log" | tee -a "$LOG"; die "deploy_verify FAILED"; }
+say "deploy_verify: $(tail -1 "$OUT/proof13b.deploy_verify.log")"
 
 # 2. enhanced ON (app stopped) — snapshot the OWNER'S pre-run value first: he play-tested
 # tonight and left the toggle ON deliberately (post-integrity-gate); tests must not stomp
@@ -82,13 +82,13 @@ cleanup(){
 trap cleanup EXIT
 
 # 3. exit-info snapshot BEFORE ---------------------------------------------------------------
-$ADB -s "$S" shell dumpsys activity exit-info $PKG > "$OUT/proof13.exit-info-before.txt" 2>&1
-PREV_R5_TS=$(grep -B12 'reason=REASON_CRASH_NATIVE\|reason=5' "$OUT/proof13.exit-info-before.txt" | grep -oE 'timestamp=[0-9: .-]+' | head -1 | cut -d= -f2- | tr -d '\r')
+$ADB -s "$S" shell dumpsys activity exit-info $PKG > "$OUT/proof13b.exit-info-before.txt" 2>&1
+PREV_R5_TS=$(grep -B12 'reason=REASON_CRASH_NATIVE\|reason=5' "$OUT/proof13b.exit-info-before.txt" | grep -oE 'timestamp=[0-9: .-]+' | head -1 | cut -d= -f2- | tr -d '\r')
 say "exit-info BEFORE: newest native-crash ts='${PREV_R5_TS:-none}'"
 
 # 4. launch + logcat ----------------------------------------------------------------------
 $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
-LC="$OUT/proof13.logcat.log"; : > "$LC"
+LC="$OUT/proof13b.logcat.log"; : > "$LC"
 ( $ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I libc:F DEBUG:V '*:S' >> "$LC" ) 2>/dev/null &
 LCP=$!
 say "launching $PKG/$ACT (no reinstall — device already runs fresh HEAD)"
@@ -117,19 +117,19 @@ while [ $(( $(date +%s)-T0 )) -lt 400 ]; do
 done
 [ "$ingame" -eq 1 ] || die "never saw in-game bone3 world coords (last: $(grep -a 'bone3' "$LC" | tail -1))"
 say "IN-GAME: $(grep -a 'bone3' "$LC" | tail -1)"
-sleep 20   # settle: Daxter spawn + idle anim
+sleep 60   # settle (longer: collect >=8 throttled bone3 world samples): Daxter spawn + idle anim
 
 # 7. captures --------------------------------------------------------------------------------
 FOCUS=$($ADB -s "$S" shell dumpsys window 2>/dev/null | grep -m1 -i mCurrentFocus | tr -d '\r' | sed 's/^ *//')
 say "mCurrentFocus: $FOCUS"
 [[ "$FOCUS" == *jak1* ]] || die "game not foreground at capture time ($FOCUS)"
-$ADB -s "$S" exec-out screencap -p > "$OUT/proof13-idle.png" 2>/dev/null
-say "captured proof13-idle.png ($(stat -c%s "$OUT/proof13-idle.png") bytes)"
+$ADB -s "$S" exec-out screencap -p > "$OUT/proof13b-idle.png" 2>/dev/null
+say "captured proof13b-idle.png ($(stat -c%s "$OUT/proof13b-idle.png") bytes)"
 setinj "ly=0"; sleep 2.5
-$ADB -s "$S" exec-out screencap -p > "$OUT/proof13-running.png" 2>/dev/null
+$ADB -s "$S" exec-out screencap -p > "$OUT/proof13b-running.png" 2>/dev/null
 setinj release
-say "captured proof13-running.png ($(stat -c%s "$OUT/proof13-running.png") bytes)"
-sleep 8   # a few more bone3 samples while idle again
+say "captured proof13b-running.png ($(stat -c%s "$OUT/proof13b-running.png") bytes)"
+sleep 30   # more bone3 samples while idle again
 
 # 8. harvest verdicts -------------------------------------------------------------------------
 sleep 2
@@ -139,8 +139,8 @@ SUBM=$(grep -a -m1 'jak-hd-render.*SUBMITTED.*found=1' "$LC")
 SUPP=$(grep -a -m1 'suppressing stock eichar-lod0' "$LC")
 NB=$(grep -a -c 'bone3 hd=(-' "$LC")
 PID=$(pidof_app)
-$ADB -s "$S" shell dumpsys activity exit-info $PKG > "$OUT/proof13.exit-info-after.txt" 2>&1
-NEW_R5_TS=$(grep -B12 'reason=REASON_CRASH_NATIVE\|reason=5' "$OUT/proof13.exit-info-after.txt" | grep -oE 'timestamp=[0-9: .-]+' | head -1 | cut -d= -f2- | tr -d '\r')
+$ADB -s "$S" shell dumpsys activity exit-info $PKG > "$OUT/proof13b.exit-info-after.txt" 2>&1
+NEW_R5_TS=$(grep -B12 'reason=REASON_CRASH_NATIVE\|reason=5' "$OUT/proof13b.exit-info-after.txt" | grep -oE 'timestamp=[0-9: .-]+' | head -1 | cut -d= -f2- | tr -d '\r')
 NEWCRASH=no; [ -n "$NEW_R5_TS" ] && [ "$NEW_R5_TS" != "$PREV_R5_TS" ] && NEWCRASH=YES
 say ""
 say "===== HARVEST ====="
@@ -162,6 +162,6 @@ OK=1
 [ "$NB" -ge 2 ] || { say "FAIL: <2 bone3 world samples (instrument emits exactly 2/spawn)"; OK=0; }
 [ -n "$PID" ]   || { say "FAIL: app died"; OK=0; }
 [ "$NEWCRASH" = no ] || { say "FAIL: new native crash"; OK=0; }
-[ "$OK" -eq 1 ] && say "[proof13 PASS] all discriminators harvested on $S (HEAD build) — captures + logcat banked." \
-               || say "[proof13 FAIL] see above"
+[ "$OK" -eq 1 ] && say "[proof13b PASS] all discriminators harvested on $S (HEAD build) — captures + logcat banked." \
+               || say "[proof13b FAIL] see above"
 exit $(( 1 - OK ))
