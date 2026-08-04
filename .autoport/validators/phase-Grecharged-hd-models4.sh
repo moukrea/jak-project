@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Grecharged-hd-models4 — DEFECT CYCLE 2 validator (owner verdict 2026-08-04 ~10:5x + corrections
-# ~11:05 (class B bar = ALL facial anims) and ~11:30 (backport definition-of-done in the pipeline)).
-# Cycle-1 gates (append-only, integrity, per-actor coverage, device proof) REMAIN and the six
-# defect classes are ADDED. Line-based greps: every required fact must sit on ONE report line.
+# Grecharged-hd-models4 — DEFECT CYCLE 3 validator (owner verdict 2026-08-04 ~19:00 on the cycle-2
+# build). ACQUIS to protect: faces ALIVE x4. New bar: P1 NPC-flicker REGRESSION root-caused+fixed,
+# Daxter fur holes + lower face, Jak gap+clip (2-cycle survivors), Samos beard chain, Keira
+# blink-black-eyes. Cycle-1/2 gates CARRIED (append-only, integrity, per-actor coverage, six class
+# lines re-stated against the CURRENT bake, FACE-FINGER-GATE physical check, device proof).
+# Line-based greps: every required fact must sit on ONE report line.
 set -uo pipefail
 fail(){ echo "[Ghdmodels4 FAIL] $*" >&2; exit 1; }
 R=.autoport/reports/Grecharged-hd-models4/report.txt
 [ -f "$R" ] || fail "no report (reports/Grecharged-hd-models4/report.txt)"
 
-# freshness vs THIS phase's (re)start — the cycle-1 report is stale evidence by definition
+# freshness vs THIS phase's (re)start — the cycle-2 report is stale evidence by definition
 PSTART=$(python3 -c "
 import json
 try:
@@ -21,8 +23,8 @@ if [ "$PSTART" -gt 0 ]; then
   [ "$RMT" -gt "$PSTART" ] || fail "report older than this phase's start — stale evidence"
 fi
 grep -qiE 'RESULT:' "$R" || fail "no RESULT: line"
-# phase-NEW marker: this must be the CYCLE-2 report, not a refresh of cycle 1's
-grep -qE 'DEFECT-CYCLE-2' "$R" || fail "no DEFECT-CYCLE-2 marker — cycle-1 report re-submitted?"
+# phase-NEW marker: this must be the CYCLE-3 report, not a refresh of cycle 2's
+grep -qE 'DEFECT-CYCLE-3' "$R" || fail "no DEFECT-CYCLE-3 marker — cycle-2 report re-submitted?"
 
 # ---- carried cycle-1 gates -------------------------------------------------------------------
 for c in dax keira samos; do
@@ -34,39 +36,54 @@ grep -qiE 'integrity.*(pass|identical)' "$R" || fail "integrity gate missing"
 grep -qiE '(logo|per.?actor|coverage).*(fix|cover|suppress|resolved|proven|implemented)' "$R" \
   || fail "logo/per-actor coverage line missing"
 
-# ---- DEFECT CLASS C — lost geometry (Daxter jaw P1, Jak scalp/hair gap) ----------------------
-grep -qiE '^CLASS-C.*dax.*jaw.*(draws|tris).*(parity|restored|complete|match).*PASS' "$R" \
-  || fail "CLASS-C: no Daxter-jaw geometry-parity PASS line (draws/tris donor vs appended)"
-grep -qiE '^CLASS-C.*jak.*(scalp|hair|head).*(parity|restored|complete|match|root.?cause)' "$R" \
-  || fail "CLASS-C: no Jak scalp/hair-gap line"
-
-# ---- DEFECT CLASS A — eyes/glasses functional (eye_id) on ALL appended mercs -----------------
+# ---- carried cycle-2 class lines (must hold on the CURRENT bake — no silent regression) ------
+grep -qiE '^CLASS-C.*dax.*jaw' "$R" || fail "CLASS-C dax jaw line missing (carried)"
 for c in jak keira samos; do
-  grep -qiE "^CLASS-A.*${c}.*eye.*PASS" "$R" || fail "CLASS-A: no eye PASS line for ${c}"
+  grep -qiE "^CLASS-A.*${c}.*eye.*PASS" "$R" || fail "CLASS-A: no eye PASS line for ${c} (carried)"
 done
-
-# ---- DEFECT CLASS D — k->e mapping precision (fingers/beard/clothing) ------------------------
-grep -qiE '^CLASS-D.*keira.*finger.*(PASS|root.?cause.*fix)' "$R" || fail "CLASS-D: no Keira fingers line"
-grep -qiE '^CLASS-D.*samos.*beard.*(PASS|root.?cause.*fix)' "$R" || fail "CLASS-D: no Samos beard line"
-grep -qiE '^CLASS-D.*jak.*(cloth|clip).*' "$R" || fail "CLASS-D: no Jak clothing-clip line"
-
-# ---- DEFECT CLASS E — Daxter fur transparency ------------------------------------------------
-grep -qiE '^CLASS-E.*fur.*(alpha|draw.?order|backface|mode).*PASS' "$R" || fail "CLASS-E: no fur PASS line"
-
-# ---- DEFECT CLASS B — facial animation: ALL driver blerc channels (owner ~11:05) -------------
 if ! grep -qiE '^CLASS-B.*blerc.*ALL-CHANNELS.*PASS' "$R"; then
   grep -qiE '^CLASS-B.*blerc.*PARTIAL' "$R" \
-    || fail "CLASS-B: need blerc ALL-CHANNELS PASS or an honest PARTIAL line"
+    || fail "CLASS-B: need blerc ALL-CHANNELS PASS or an honest PARTIAL line (carried)"
   grep -qiE '^CLASS-B-EXCEPTION:.*' "$R" \
-    || fail "CLASS-B PARTIAL without per-channel CLASS-B-EXCEPTION lines (owner: case-by-case proof)"
+    || fail "CLASS-B PARTIAL without per-channel CLASS-B-EXCEPTION lines (carried)"
 fi
-
-# ---- DEFECT CLASS F — Keira sourcing verdict -------------------------------------------------
 grep -qiE '^CLASS-F.*keira.*(sandal|boot).*(verdict|confirmed|correct|sourced)' "$R" \
-  || fail "CLASS-F: no Keira sandals/boots sourcing verdict line"
+  || fail "CLASS-F: no Keira sourcing verdict line (carried)"
 
-# ---- backport definition-of-done: LOUD-FAIL k->e generator (owner ~11:30) --------------------
-# physical artifact: the generator itself must carry the face/finger gate, not just the report.
+# ---- NO-REGRESSION on the owner's locked-in acquis: faces alive ------------------------------
+grep -qiE '^NO-REGRESS.*(face|blerc).*(alive|animat).*(proof|proven|PASS)' "$R" \
+  || fail "no NO-REGRESS faces-alive line (owner acquis 19:00 must be protected)"
+
+# ---- CYCLE-3 P1 — NPC flicker regression (blocks everything) ---------------------------------
+grep -qiE '^REGRESSION-FLICKER.*root.?cause' "$R" \
+  || fail "REGRESSION-FLICKER: no root-cause line"
+grep -qiE '^REGRESSION-FLICKER.*(fix|resolved|repaired).*(PASS|proven)' "$R" \
+  || fail "REGRESSION-FLICKER: no fix PASS line"
+grep -qiE '^REGRESSION-FLICKER.*(counter|detector|zero|0).*(cutscene|intro|scene)' "$R" \
+  || fail "REGRESSION-FLICKER: no counter/detector-based cutscene proof line (metrics not eyeballs)"
+
+# ---- CYCLE-3 Daxter — fur holes + lower face -------------------------------------------------
+grep -qiE '^CYCLE3-DAX.*fur.*(hole|transparen|see.?through).*(root.?cause|mode|alpha|backface|shell|cull)' "$R" \
+  || fail "CYCLE3-DAX: no fur-holes root-cause line"
+grep -qiE '^CYCLE3-DAX.*fur.*PASS' "$R" || fail "CYCLE3-DAX: no fur PASS line"
+grep -qiE '^CYCLE3-DAX.*(jaw|lower.?face).*(visible|restored|opaque|PASS)' "$R" \
+  || fail "CYCLE3-DAX: no lower-face line"
+
+# ---- CYCLE-3 Jak — 2-cycle survivors, for good -----------------------------------------------
+grep -qiE '^CYCLE3-JAK.*(gap|scalp|hair|headband|bandeau).*(root.?cause|closed|fixed).*PASS' "$R" \
+  || fail "CYCLE3-JAK: no scalp-gap PASS line"
+grep -qiE '^CYCLE3-JAK.*clip.*(root.?cause|fixed|resolved).*PASS' "$R" \
+  || fail "CYCLE3-JAK: no clothing-clip PASS line"
+
+# ---- CYCLE-3 Samos — beard chain follows, no rest-pose tip -----------------------------------
+grep -qiE '^CYCLE3-SAMOS.*beard.*(tip|chain).*(follow|map|joint).*PASS' "$R" \
+  || fail "CYCLE3-SAMOS: no beard-chain PASS line"
+
+# ---- CYCLE-3 Keira — blink must not black the eyes -------------------------------------------
+grep -qiE '^CYCLE3-KEIRA.*blink.*(root.?cause|eye|texture|uv|slot).*PASS' "$R" \
+  || fail "CYCLE3-KEIRA: no blink PASS line"
+
+# ---- backport definition-of-done: LOUD-FAIL k->e generator (owner ~11:30, carried) -----------
 grep -qE 'FACE-FINGER-GATE' scripts/shell/retarget_fill_table.py \
   || fail "retarget_fill_table.py has no FACE-FINGER-GATE enforcement (loud-fail DoD)"
 grep -qiE '^FACE-FINGER-GATE.*(jak|dax|keira|samos).*PASS' "$R" \
