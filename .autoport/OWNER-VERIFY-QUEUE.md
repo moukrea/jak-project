@@ -14,6 +14,12 @@
   PARKÉE à ta demande (dégradé violacé plein écran ≠ holo bleuté gauche + drone). On y revient après HD.
 
 ## 2. HD Jak (Grecharged-hd-models3) — [EN COURS, cycle défauts]
+### PRÉ-GATE 03:20 [⚠️ faux vert intercepté — cycle défauts CONTINUE]
+- Le validator a re-passé à 02:59 MAIS sur le rapport d'AVANT la réouverture (aucune preuve nouvelle) :
+  faux vert intercepté par le superviseur. Validator DURCI (preuves plus récentes que le début de cycle
+  + lignes de résolution explicites long-jump et fantôme-cinématique exigées). Phase rouverte, worker
+  reparti (attempt 2/6). Le vrai travail du cycle (harnais A/B long-jump, analyse movie/ghost) était
+  en cours mais pas fini — rien de perdu.
 ### PRÉ-GATE 02:20 [✅ base / ⚠️ défauts en cours]
 - Vérifié par le superviseur : validator+close-gate PASSÉS (attempt 3) ; deploy_verify PASS sur le
   Honor (le device fait tourner le build frais, prouvé) ; capture de preuve du worker regardée :
