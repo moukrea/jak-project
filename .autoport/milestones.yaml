@@ -2306,7 +2306,7 @@ phases:
   # unplugged since 2026-08-03 (lsusb shows only the Honor). All M1 proof runs
   # (proof13, validator PASS 37a004d4aa) and the owner's own play-tests are on
   # the owner's Honor — same re-point as Grecharged-loader-packfix 2026-07-29.
-  device_serial: AREE026206000788
+  device_serial: eae4df44
   owner_verify: true
 - id: Grecharged-hd-models4
   name: 'HD MODELS M2 — remplacements PRINCIPAUX Daxter/Keira/Samos (owner 2026-08-03, roadmap exacte
@@ -2322,7 +2322,7 @@ phases:
   max_retries: 6
   device: true
   # overnight 2026-08-04: Honor is the plugged device (Redmi unplugged)
-  device_serial: AREE026206000788
+  device_serial: eae4df44
   owner_verify: true
 - id: Grecharged-hd-models5
   name: 'HD MODELS M3 — customisations BONUS (owner 2026-08-03): looks alternatifs en OPTION (menu),
@@ -2335,7 +2335,7 @@ phases:
   max_retries: 6
   device: true
   # overnight 2026-08-04: Honor is the plugged device (Redmi unplugged)
-  device_serial: AREE026206000788
+  device_serial: eae4df44
   owner_verify: true
 - id: Grecharged-foliage-wind2
   name: 'ROUND 2 (owner: ''aucune feuille qui bouge, nada'' — supervisor-reproduced: +9% palm motion = invisible, some trees

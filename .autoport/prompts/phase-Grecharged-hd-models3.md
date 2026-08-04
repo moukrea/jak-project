@@ -266,3 +266,13 @@ Execute YOUR OWN NEXT-CYCLE-RUNBOOK.md (it is good): priorities (7) and (6) with
 (1) eyes, (2) strap/hair gap, (5) NPC flicker, (4) blerc face, (3) clipping — as many as attempts allow,
 each with honest device proof. When the regressions are provably fixed (+ any additional wins), the
 validator pass will be pre-gated again and the pipeline advances to hd-models4 (Daxter/Keira/Samos).
+
+## DEVICE SWAP 2026-08-04 ~07:40 (owner): the HONOR (AREE026206000788) is GONE — the owner took it
+back. The REDMI (eae4df44) is plugged in again and is now THE proof device (milestones device_serial
+repointed). Adapt your device harnesses (hd3_defect6_intro_device.sh, hd3_device_longjump_ab.sh,
+proof scripts): use eae4df44. The Redmi's installed APK + external assets are STALE (it was unplugged
+a day) — install your fresh build + refresh /sdcard/OpenGOAL/jak1/assets/fr3/enhanced/* + hd/ before
+any proof run (deploy_verify eae4df44 must PASS first). NOTE: defect-7 (long jump) was owner-reported
+on the HONOR touch overlay; the Redmi A/B still discriminates companion-vs-device, but if it does not
+reproduce on the Redmi either, report that honestly — final long-jump confirmation may need the owner's
+Honor in his hands (he is awake now).
