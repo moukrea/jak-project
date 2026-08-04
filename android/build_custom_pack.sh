@@ -241,14 +241,14 @@ MARKER=$(grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' "$GAME_CGO" | head -1 || true)
 HASH="${MARKER#ogflags:}"; HASH="${HASH%%:*}"
 [ -n "$HASH" ] || fail "malformed marker '$MARKER'"
 
-# Enumerate 32 subsets of the 5 flags (alphabetical universe), hash each canonical
+# Enumerate 128 subsets of the 7 flags (alphabetical universe), hash each canonical
 # (alphabetical comma-join) string, match against HASH.
-ALL_FLAGS=(debug grass-overhang hd-models pbr recharged-hud vulkan-support)
+ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr recharged-hud vulkan-support)
 F_DEBUG=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0
 FOUND=0; MATCHED_STR=""
-for mask in $(seq 0 63); do
+for mask in $(seq 0 127); do
   set_list=()
-  for bit in 0 1 2 3 4 5; do
+  for bit in 0 1 2 3 4 5 6; do
     if (( (mask >> bit) & 1 )); then set_list+=("${ALL_FLAGS[$bit]}"); fi
   done
   cand=$(IFS=,; echo "${set_list[*]-}")

@@ -31,15 +31,15 @@ mkdir -p "$OUT_DIR"
 
 # Flag universe MUST stay in sync with build.sh's FLAG_LIST (alphabetical); a build
 # with a flag missing here inverts to nothing and reads as "pre-flag-era".
-ALL_FLAGS=(debug grass-overhang hd-models pbr recharged-hud vulkan-support)
+ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr recharged-hud vulkan-support)
 # invert_hash <12-char-hash> -> echoes the matched canonical flag string (may be
 # empty); returns 1 if no subset matches.
 invert_hash() {
   local hash="$1" mask bit cand h
   local -a set_list
-  for mask in $(seq 0 63); do
+  for mask in $(seq 0 127); do
     set_list=()
-    for bit in 0 1 2 3 4 5; do
+    for bit in 0 1 2 3 4 5 6; do
       if (( (mask >> bit) & 1 )); then set_list+=("${ALL_FLAGS[$bit]}"); fi
     done
     cand=$(IFS=,; echo "${set_list[*]-}")

@@ -24,5 +24,11 @@
 ;; every build regardless.
 (defglobalconstant FLAG_DEBUG_MENUS #f)
 (defglobalconstant FLAG_DEBUG_MENUS_N 0)
+;; Gmenu-flag-off: the Grecharged-menu-overhaul refonte is BROKEN (phantom params, colliding
+;; bindings, displacement selector lost — owner 2026-08-04) and is compiled OUT by default.
+;; OFF (default) = the pre-overhaul functional menu; --menu-overhaul = the refonte, kept only
+;; for its future rework phase. GOAL-only flag (no C++/CMake gate needed).
+(defglobalconstant FLAG_MENU_OVERHAUL #f)
+(defglobalconstant FLAG_MENU_OVERHAUL_N 0)
 (defglobalconstant PLATFORM_ANDROID #t)
 (defglobalconstant OG_FLAG_SET_MARKER "ogflags:009eadd8b50c:android-arm64")

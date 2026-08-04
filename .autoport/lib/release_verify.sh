@@ -56,15 +56,15 @@ MARK_CGO=$(grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' "$T/GAME.CGO" | head -1 || true
 [ "$MARK_SO" = "$MARK_CGO" ] \
   || fail "flag-set mixte dans l'APK: libgk '$MARK_SO' != CGO '$MARK_CGO' — PUSH INTERDIT (R1)"
 
-# invert le hash du marqueur -> flag set (64 sous-ensembles canoniques)
+# invert le hash du marqueur -> flag set (128 sous-ensembles canoniques)
 # ALL_FLAGS doit rester synchronisé avec FLAG_LIST de build.sh (ordre alphabétique) :
 # un flag manquant ici => l'inversion échoue et le build passe pour "pré-flags".
 HASH="${MARK_SO#ogflags:}"; HASH="${HASH%%:*}"
-ALL_FLAGS=(debug grass-overhang hd-models pbr recharged-hud vulkan-support)
+ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr recharged-hud vulkan-support)
 FLAGS=""; FOUND=0
-for mask in $(seq 0 63); do
+for mask in $(seq 0 127); do
   sl=()
-  for bit in 0 1 2 3 4 5; do (( (mask >> bit) & 1 )) && sl+=("${ALL_FLAGS[$bit]}"); done
+  for bit in 0 1 2 3 4 5 6; do (( (mask >> bit) & 1 )) && sl+=("${ALL_FLAGS[$bit]}"); done
   cand=$(IFS=,; echo "${sl[*]-}")
   [ "$(printf '%s' "$cand" | sha256sum | cut -c1-12)" = "$HASH" ] && { FLAGS="$cand"; FOUND=1; break; }
 done

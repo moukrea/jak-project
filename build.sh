@@ -2,7 +2,7 @@
 # build.sh — unified build CLI (phase Grecharged-buildsys-flags, P1 of the build-system pillar).
 #
 #   ./build.sh <linux-x86_64|android-arm64|windows-x86_64> [--recharged-hud]
-#              [--grass-overhang] [--hd-models] [--pbr] [--vulkan-support] [--yolo]
+#              [--grass-overhang] [--hd-models] [--menu-overhaul] [--pbr] [--vulkan-support] [--yolo]
 #              [--game jak1] [--no-cache] [--no-apk] [--package]
 #              [--win-bin-dir <dir>]
 #   --package: after the build, emit the distributable game PACKAGE + the separate
@@ -34,7 +34,7 @@ log() { echo "[build] $*"; }
 TARGET="$1"; shift
 case "$TARGET" in linux-x86_64|android-arm64|windows-x86_64) ;; *) die "unknown target '$TARGET' (linux-x86_64|android-arm64|windows-x86_64)";; esac
 GAME="jak1"; USE_CACHE=1; BUILD_APK=1; DO_PACKAGE=0
-F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_VULKAN=0; F_DEBUG=0
+F_HUD=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_VULKAN=0; F_DEBUG=0; F_MENUOVR=0
 WIN_BIN_DIR="out/ci/windows-x86_64"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -44,6 +44,7 @@ while [ $# -gt 0 ]; do
     --pbr)            F_PBR=1;;
     --vulkan-support) F_VULKAN=1;;
     --debug)          F_DEBUG=1;;
+    --menu-overhaul)  F_MENUOVR=1;;
     --yolo)           F_HUD=1; F_OVERHANG=1; F_HDMODELS=1; F_PBR=1; F_VULKAN=1;;
     --game)           GAME="$2"; shift;;
     --no-cache)       USE_CACHE=0;;
@@ -84,6 +85,7 @@ FLAG_LIST=()
 [ $F_DEBUG -eq 1 ]    && FLAG_LIST+=("debug")
 [ $F_OVERHANG -eq 1 ] && FLAG_LIST+=("grass-overhang")
 [ $F_HDMODELS -eq 1 ] && FLAG_LIST+=("hd-models")
+[ $F_MENUOVR -eq 1 ]  && FLAG_LIST+=("menu-overhaul")
 [ $F_PBR -eq 1 ]      && FLAG_LIST+=("pbr")
 [ $F_HUD -eq 1 ]      && FLAG_LIST+=("recharged-hud")
 [ $F_VULKAN -eq 1 ]   && FLAG_LIST+=("vulkan-support")
@@ -126,6 +128,12 @@ cat > "$FLAGS_GC" <<EOF
 ;; every build regardless.
 (defglobalconstant FLAG_DEBUG_MENUS $(b $F_DEBUG))
 (defglobalconstant FLAG_DEBUG_MENUS_N $F_DEBUG)
+;; Gmenu-flag-off: the Grecharged-menu-overhaul refonte is BROKEN (phantom params, colliding
+;; bindings, displacement selector lost — owner 2026-08-04) and is compiled OUT by default.
+;; OFF (default) = the pre-overhaul functional menu; --menu-overhaul = the refonte, kept only
+;; for its future rework phase. GOAL-only flag (no C++/CMake gate needed).
+(defglobalconstant FLAG_MENU_OVERHAUL $(b $F_MENUOVR))
+(defglobalconstant FLAG_MENU_OVERHAUL_N $F_MENUOVR)
 (defglobalconstant PLATFORM_ANDROID $(b $PLAT_ANDROID))
 (defglobalconstant OG_FLAG_SET_MARKER "$MARKER")
 EOF

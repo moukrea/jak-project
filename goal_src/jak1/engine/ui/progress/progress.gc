@@ -576,10 +576,13 @@
   ;; by the hologram — force its three particles (0 orange tint, 1 left half, 2 right half) off-screen
   ;; HERE, after the writes at :507/:509 above and right before the spawn loop, so the window never draws.
   ;; This is the real fix: the progress-normal post's earlier hide was overwritten by :507/:509 every frame.
-  (when (progress-porthole-hidden? (-> this display-state))
-    (set! (-> this particles 0 init-pos x) -320.0)
-    (set! (-> this particles 1 init-pos x) -320.0)
-    (set! (-> this particles 2 init-pos x) -320.0))
+  ;; Gmenu-flag-off: only the overhauled (hologram) menu replaces the porthole; the restored pre-overhaul
+  ;; menu KEEPS its window backdrop, so this hide must be compiled out with the refonte.
+  (#when FLAG_MENU_OVERHAUL
+    (when (progress-porthole-hidden? (-> this display-state))
+      (set! (-> this particles 0 init-pos x) -320.0)
+      (set! (-> this particles 1 init-pos x) -320.0)
+      (set! (-> this particles 2 init-pos x) -320.0)))
   (dotimes (s5-0 (-> this nb-of-particles))
     (set! (-> this particles s5-0 pos x) (+ -256.0 (-> this particles s5-0 init-pos x)))
     (set! (-> this particles s5-0 pos y)
