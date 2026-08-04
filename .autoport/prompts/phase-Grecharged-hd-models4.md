@@ -40,3 +40,16 @@ Daxter est `sidekick`, ceux de Keira/Samos sont leurs actors respectifs) → ré
 - Preuve device : le personnage HD est VISIBLE et suit ses animations en VRAI gameplay (l'owner est
   le juge visuel ; pas de « pas de crash » = validé). Ne livre RIEN d'invisible/cursed.
 - Écris/adapte le validator de CETTE phase au démarrage (celui référencé est celui de M1).
+
+## PROGRESSION AUTORISÉE (owner protocol) 2026-08-04 09:00 — M1 pré-gaté par le superviseur
+M1 (hd-models3) validé + pré-gaté : défauts 5+6 corrigés (owner-confirmés), long jump INNOCENTÉ
+(bug overlay tactile toggle-indépendant, piste séparée), l'owner re-vérifie depuis OWNER-VERIFY-QUEUE.md.
+CARRY-OVERS dans TON scope (ils font partie de la généralisation multi-personnages) :
+1. **Jak INVISIBLE au logo ND** : la suppression Merc2 d'eichar-lod0 s'applique à l'acteur du logo
+   alors que le companion ne couvre que *target* → supprimé sans remplaçant. Le fix M4 = la
+   suppression ne s'applique QUE quand un companion couvre CET acteur cette frame (per-actor
+   coverage), ce qui est exactement le mécanisme dont Daxter/Keira/Samos ont besoin (leurs drivers
+   sont des acteurs non-*target*). Règle owner : « le modèle choisi PARTOUT » (logo, cinématiques, jeu).
+2. M1 polish encore ouvert (l'owner testera ; rouvrable) : yeux blancs (eye_id), gap cran→cheveux
+   (on voit l'intérieur de la tête), visage inanimé (blerc), clipping vêtements. Si tes mécanismes M4
+   règlent l'un d'eux au passage (eye_id du pipeline d'append, blerc généralisé), prends-les.

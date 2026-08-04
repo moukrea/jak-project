@@ -48,3 +48,13 @@ La village1.fr3 cursed a été écrasée par la stock sur le Honor (vérifié pa
 ---
 (Le superviseur ajoute une entrée datée à chaque pré-gate avec : ce qui a été vérifié, comment,
 les réserves, et EXACTEMENT quoi tester toi-même.)
+
+### PRÉ-GATE 09:00 [✅ token — M1 avancé, M4 démarre]
+- Vérifié (4 min) : deploy_verify PASS (Redmi = HEAD frais), rapport 08:40 frais, défauts 5+6 prouvés
+  (device + ton œil). **Long jump = PAS un bug HD** : rate aussi en stock sur device (A/B 2 runs), x86
+  ON==OFF avec ta combo exacte → coupable probable = overlay tactile (vitesse de stick trop basse au
+  moment du R1+X) → PISTE SÉPARÉE à ouvrir (pas HD).
+- À TESTER (toi, sur le prochain build jak-builds) : ① le long jump à la MANETTE si tu en as une sous
+  la main (si ça marche manette et pas tactile → confirme l'overlay) ; ② logo ND : Jak encore
+  invisible (fix prévu en M4) ; ③ yeux/gap/visage/clipping : inchangés pour l'instant.
+- M4 (Daxter J3-cine / Keira J2-1ère-cutscene / Samos J3-cine) DÉMARRE avec le fix logo dans son scope.
