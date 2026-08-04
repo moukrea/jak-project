@@ -25,10 +25,18 @@
 # identity, so no jak2 ISO re-rip is needed at bake time — the bake depends only on the
 # committed GLBs + the stock jak1 fr3.
 #
-#      eichar-lod0    = Jak    -> COMMON   -> GAME.fr3
-#      sidekick-lod0  = Daxter -> COMMON   -> GAME.fr3
-#      sage-lod0      = Samos  -> village1 -> village1.fr3
-#      assistant-lod0 = Keira  -> village1 -> village1.fr3
+#      eichar-lod0    = Jak    -> COMMON -> GAME.fr3
+#      sidekick-lod0  = Daxter -> COMMON -> GAME.fr3
+#      sage-lod0      = Samos  -> COMMON -> GAME.fr3   (cycle 3: was village1.fr3)
+#      assistant-lod0 = Keira  -> COMMON -> GAME.fr3   (cycle 3: was village1.fr3)
+#
+# CYCLE-3 FLICKER FIX: keira-hd/samos-hd used to live in village1.fr3, a STREAMED level —
+# Loader::get_merc_model returns null the moment village1 leaves memory (level swaps in/around
+# cinematics), the companion then submits found=0, the suppression TTL is not re-armed, and the
+# actor blacks out for ~2 frames = the owner's cycle-3 NPC flicker (Jak/Daxter, in the always-
+# resident GAME.fr3, were immune). ALL FOUR HD models now ride GAME.fr3; village1.fr3 ships a
+# stock-identical enhanced copy that OVERWRITES the old overlay (avoids a stale second copy of
+# keira-hd/samos-hd on in-place pack updates).
 #
 # CONDITIONAL: if the staged HD GLBs are absent, this is a NO-OP success (exit 0) — jak1
 # then builds STOCK and the in-game toggle stays hidden.
@@ -50,7 +58,9 @@ ENHANCED_OUT="$FR3_DIR/enhanced"
 SWAP_BIN="build/tools/hd_merc_swap/hd_merc_swap"
 
 # M4: the canonical HD character set —
-#   "<char>|<donor rip GLB>|<target level fr3>|<donor fr3>|<donor model>|<driver stock model>".
+#   "<char>|<donor rip GLB>|<target level fr3>|<donor fr3>|<donor model>|<driver stock model>|<driver fr3>".
+# 7th field <driver fr3>: fr3 the driver stock model lives in — EMPTY means it is in the target fr3
+# (keira/samos are appended to GAME.fr3 but their drivers only exist in village1.fr3).
 # Each entry is APPENDED (never re-rig REPLACEd) as merc model <char>-lod0 into the target fr3.
 # Cycle 2: the donor rip is STAMPED first (hd_merc_swap stamp) with the donor fr3's exact
 # per-draw GS modes / eye slots / effect indices (defect classes C/E/A: see-through fur+jaw+hair
@@ -58,10 +68,10 @@ SWAP_BIN="build/tools/hd_merc_swap/hd_merc_swap"
 # append remaps donor eye slots onto the DRIVER's (--eye-from).
 # Per-entry IP gate: a missing donor rip is a loud SKIP, not a failure.
 APPENDS=(
-  "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0"
-  "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0"
-  "keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|village1|out/jak2/fr3/lintcstb.fr3|keira-highres-lod0|assistant-lod0"
-  "samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|village1|out/jak3/fr3/lsamos.fr3|samos-highres-lod0|sage-lod0"
+  "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0|"
+  "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|"
+  "keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|GAME|out/jak2/fr3/lintcstb.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3"
+  "samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|GAME|out/jak3/fr3/lsamos.fr3|samos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3"
 )
 # The fr3 that receive appends, in order.
 APPEND_LEVELS=(GAME village1)
@@ -91,7 +101,7 @@ log "donor dump '$DONOR_DUMP' present — HD generation permitted (ND-derived as
 # ---------------------------------------------------------------------------
 ANY_DONOR=0
 for entry in "${APPENDS[@]}"; do
-  IFS='|' read -r _c glb _lvl _dfr3 _dmdl _drv <<< "$entry"
+  IFS='|' read -r _c glb _lvl _dfr3 _dmdl _drv _dfr3b <<< "$entry"
   [ -f "$glb" ] && ANY_DONOR=1
 done
 if [ "$ANY_DONOR" -eq 0 ]; then
@@ -138,7 +148,7 @@ for lvl in "${APPEND_LEVELS[@]}"; do
   SRC="$FR3_DIR/$lvl.fr3"
   n_app=0
   for entry in "${APPENDS[@]}"; do
-    IFS='|' read -r char glb target donor_fr3 donor_model driver_model <<< "$entry"
+    IFS='|' read -r char glb target donor_fr3 donor_model driver_model driver_fr3 <<< "$entry"
     [ "$target" = "$lvl" ] || continue
     if [ ! -f "$glb" ]; then
       log "SKIP $char — donor rip '$glb' absent (ND IP gate); $lvl.fr3 will not carry $char-lod0"
@@ -162,8 +172,15 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     DST="$HD_TMP/$lvl.step$n_app.fr3"
     SWAP_LOG="$(mktemp)"
     log "anim-retarget: APPEND $char-lod0 to $lvl.fr3 (step $n_app, append-only, NO re-rig replace, eyes from $driver_model, blerc from $donor_model)…"
+    # the driver stock model is resolved in the target fr3 unless the entry names another fr3
+    # (keira/samos: appended to GAME.fr3, drivers only in village1.fr3).
+    DRIVER_ARGS=()
+    if [ -n "$driver_fr3" ]; then
+      DRIVER_ARGS=(--driver-fr3 "$driver_fr3")
+    fi
     "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" --eye-from "$driver_model" \
-      --blerc-from "$donor_fr3:$donor_model" 2>&1 | tee -a "$SWAP_LOG"
+      --blerc-from "$donor_fr3:$donor_model" \
+      ${DRIVER_ARGS[@]+"${DRIVER_ARGS[@]}"} 2>&1 | tee -a "$SWAP_LOG"
     if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
       log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
@@ -213,7 +230,9 @@ done
 # ---------------------------------------------------------------------------
 # 7. village2.fr3 — ship a stock-identical copy to OVERWRITE any round-1 stale garbled
 #    overlay on an in-place owner update (behaviorally identical to stock either way).
-#    (village1.fr3 is an APPEND target since M4 — keira-hd + samos-hd — so it is written above.)
+#    (village1.fr3 carried keira-hd/samos-hd in cycles 1-2; since the cycle-3 flicker fix it is
+#    a stock-identical copy written by the n_app=0 branch above — kept in APPEND_LEVELS so that
+#    copy always ships and kills the stale two-copy hazard on in-place updates.)
 # ---------------------------------------------------------------------------
 if [ -f "$FR3_DIR/village2.fr3" ]; then
   cp -p "$FR3_DIR/village2.fr3" "$ENHANCED_OUT/village2.fr3"

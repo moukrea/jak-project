@@ -381,9 +381,16 @@ int find_stock_eye_slots(const tfrag3::Level& lev,
   return 0;
 }
 
-int remap_eye_ids(tfrag3::Level& lev, tfrag3::MercModel& appended, const std::string& eye_from) {
+// driver_lev is the level the DRIVER (eye_from) model is looked up in — usually the target level
+// itself, but for models whose driver only exists in another level fr3 (e.g. assistant-lod0 /
+// sage-lod0, which live in village1.fr3) the caller passes that fr3's level instead.
+int remap_eye_ids(tfrag3::Level& lev,
+                  tfrag3::MercModel& appended,
+                  const std::string& eye_from,
+                  const tfrag3::Level& driver_lev) {
+  (void)lev;
   int stock_left = -1, stock_right = -1;
-  int erc = find_stock_eye_slots(lev, eye_from, stock_left, stock_right);
+  int erc = find_stock_eye_slots(driver_lev, eye_from, stock_left, stock_right);
   if (erc != 0) {
     return erc;
   }
@@ -697,7 +704,9 @@ int port_blerc(tfrag3::Level& lev,
                size_t stock_tex_count,
                const std::string& eye_from,
                const fs::path& donor_fr3,
-               const std::string& donor_name) {
+               const std::string& donor_name,
+               const tfrag3::Level& driver_lev,
+               const std::string& driver_src) {
   tfrag3::Level dlev;
   load_fr3(donor_fr3, dlev);
   auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
@@ -761,16 +770,16 @@ int port_blerc(tfrag3::Level& lev,
 
   // ---- eye slots -----------------------------------------------------------------------------
   int stock_left = -1, stock_right = -1;
-  int erc = find_stock_eye_slots(lev, eye_from, stock_left, stock_right);
+  int erc = find_stock_eye_slots(driver_lev, eye_from, stock_left, stock_right);
   if (erc != 0) {
     return erc;
   }
 
   // ---- channel map ---------------------------------------------------------------------------
-  auto driver = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+  auto driver = std::find_if(driver_lev.merc_data.models.begin(), driver_lev.merc_data.models.end(),
                              [&](const auto& m) { return m.name == eye_from; });
-  if (driver == lev.merc_data.models.end()) {
-    fmt::print("  BLERC-PORT FAIL: driver model '{}' not in target fr3\n", eye_from);
+  if (driver == driver_lev.merc_data.models.end()) {
+    fmt::print("  BLERC-PORT FAIL: driver model '{}' not in {}\n", eye_from, driver_src);
     return 6;
   }
   std::vector<int> channel_map;
@@ -1003,7 +1012,8 @@ int do_add(const fs::path& in,
            const fs::path& out,
            const std::string& eye_from,
            const fs::path& blerc_fr3 = {},
-           const std::string& blerc_model = {}) {
+           const std::string& blerc_model = {},
+           const fs::path& driver_fr3 = {}) {
   if (!file_util::file_exists(glb.string())) {
     fmt::print("  GLB missing: {}\n", glb.string());
     return 2;
@@ -1055,6 +1065,23 @@ int do_add(const fs::path& in,
              lev.merc_data.vertices.size() - before_verts,
              lev.merc_data.indices.size() - before_indices, lev.textures.size() - before_textures);
 
+  // the DRIVER (eye_from) model is normally in the target fr3, but for models appended to a level
+  // they don't natively belong to (keira/samos into GAME.fr3) the driver only exists in another
+  // level fr3 — load it separately in that case.
+  tfrag3::Level driver_storage;
+  const tfrag3::Level* driver_lev = &lev;
+  std::string driver_src = in.string();
+  if (!driver_fr3.empty()) {
+    if (!file_util::file_exists(driver_fr3.string())) {
+      fmt::print("  driver fr3 missing: {}\n", driver_fr3.string());
+      return 2;
+    }
+    load_fr3(driver_fr3, driver_storage);
+    driver_lev = &driver_storage;
+    driver_src = driver_fr3.string();
+    fmt::print("  driver model '{}' resolved from {}\n", eye_from, driver_src);
+  }
+
   // eye slot handling: donor slots MUST be remapped to the driver's before shipping. Appending
   // a model that carries eye draws without --eye-from would sample an arbitrary jak1 slot
   // (donor_slot % 40) — refuse instead of shipping broken eyes silently.
@@ -1066,7 +1093,7 @@ int do_add(const fs::path& in,
     }
   }
   if (!eye_from.empty()) {
-    int rc = remap_eye_ids(lev, appended, eye_from);
+    int rc = remap_eye_ids(lev, appended, eye_from, *driver_lev);
     if (rc != 0) {
       return rc;
     }
@@ -1083,7 +1110,8 @@ int do_add(const fs::path& in,
                  "blerc channels the donor targets are remapped to)\n");
       return 6;
     }
-    int rc = port_blerc(lev, idx, before_textures, eye_from, blerc_fr3, blerc_model);
+    int rc = port_blerc(lev, idx, before_textures, eye_from, blerc_fr3, blerc_model, *driver_lev,
+                        driver_src);
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;
@@ -1108,7 +1136,8 @@ int main(int argc, char** argv) {
                "  hd_merc_swap diff  <stock.fr3> <enhanced.fr3>\n"
                "  hd_merc_swap audit <fr3> [name ...]\n"
                "  hd_merc_swap add   <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from "
-               "<stock-model>] [--blerc-from <donor.fr3>:<donor-model-name>]\n"
+               "<stock-model>] [--blerc-from <donor.fr3>:<donor-model-name>] "
+               "[--driver-fr3 <fr3-with-driver-model>]\n"
                "  hd_merc_swap stamp <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n");
     return 2;
   }
@@ -1141,12 +1170,14 @@ int main(int argc, char** argv) {
       fmt::print("add needs <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from <stock-model>]\n");
       return 2;
     }
-    std::string eye_from, blerc_spec;
+    std::string eye_from, blerc_spec, driver_fr3;
     for (int i = 5; i + 1 < argc; i++) {
       if (std::string(argv[i]) == "--eye-from") {
         eye_from = argv[i + 1];
       } else if (std::string(argv[i]) == "--blerc-from") {
         blerc_spec = argv[i + 1];
+      } else if (std::string(argv[i]) == "--driver-fr3") {
+        driver_fr3 = argv[i + 1];
       }
     }
     std::string blerc_fr3, blerc_model;
@@ -1163,7 +1194,7 @@ int main(int argc, char** argv) {
         return 2;
       }
     }
-    return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model);
+    return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model, driver_fr3);
   }
   fmt::print("unknown mode '{}'\n", mode);
   return 2;
