@@ -2338,6 +2338,23 @@ phases:
   device: true
   device_serial: eae4df44
   owner_verify: true
+- id: Gmenu-flag-off
+  name: 'MENU OVERHAUL HORS DES BUILDS (owner 2026-08-04): la refonte menu est CASSÉE (paramètres
+    inventés qui n''existent pas, d''autres redéfinis qui ne fonctionnent plus, displacement
+    parallax/tess/none DISPARU) et n''est PAS flag-gatée — elle remplace le menu sans garde. Mission:
+    introduire FLAG_MENU_OVERHAUL (défaut OFF, généré par build.sh comme les autres) qui restaure
+    l''ANCIEN menu fonctionnel complet (structure pré-refonte: displacement opérationnel, aucun
+    paramètre fantôme, bindings corrects) et compile-out la refonte. ON = la refonte actuelle (pour sa
+    future phase de rework). Preuve: build OFF => le menu = l''ancien, chaque ligne pilote le bon
+    réglage (audit bindings value-to-modify), displacement sélectionnable; les features HD/PBR restent
+    accessibles depuis l''ancien menu. Pas de preuves visuelles: bindings/state dumps.'
+  prompt: prompts/phase-Gmenu-flag-off.md
+  validator: validators/phase-Grecharged-hd-models4.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
 - id: Grecharged-hd-models5
   name: 'HD MODELS M3 — customisations BONUS (owner 2026-08-03): looks alternatifs en OPTION (menu),
     toujours des modèles de CINÉMATIQUES, même mécanisme de backport: Keira Jak2-bottines + Keira Jak3
@@ -2349,6 +2366,24 @@ phases:
   max_retries: 6
   device: true
   # overnight 2026-08-04: Honor is the plugged device (Redmi unplugged)
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-secondary-motion
+  name: 'PHYSIQUE SECONDAIRE / JIGGLE (owner 2026-08-04, backlog assumé): maintenant que les
+    personnages HD existent, ajouter du mouvement secondaire naturel et cohérent ("rien de fou") —
+    poitrine de Keira (jiggle subtil, design sexualisé assumé du jeu, aurait été fait si la PS2
+    l''avait permis); barbe de Samos (après fix clip/bout); vêtements de Jak en VRAIE physique (col,
+    partie bleue sur le pantalon blanc, lanières de cuir qui pendent, cheveux); cheveux longs de tous
+    les personnages concernés (Keira, Samos, Jak, le méchant/Gol); Maia + l''archéologue notées aussi
+    (PAS de modèle HD => faisabilité à évaluer: leurs squelettes stock n''ont probablement pas les
+    os de chaîne nécessaires). Mécanisme pressenti: chaînes ressort/verlet post-anim dans les
+    companions (do-joint-math! après le retarget), os de physique injectables au prep si le donor
+    n''en a pas. Détail complet: prompts/phase-Grecharged-secondary-motion.md.'
+  prompt: prompts/phase-Grecharged-secondary-motion.md
+  validator: validators/phase-Grecharged-hd-models4.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
   device_serial: eae4df44
   owner_verify: true
 - id: Grecharged-foliage-wind2
