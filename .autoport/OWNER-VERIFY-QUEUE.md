@@ -58,3 +58,8 @@ les réserves, et EXACTEMENT quoi tester toi-même.)
   la main (si ça marche manette et pas tactile → confirme l'overlay) ; ② logo ND : Jak encore
   invisible (fix prévu en M4) ; ③ yeux/gap/visage/clipping : inchangés pour l'instant.
 - M4 (Daxter J3-cine / Keira J2-1ère-cutscene / Samos J3-cine) DÉMARRE avec le fix logo dans son scope.
+
+### 09:35 — Long jump tactile : requalifié RÉGRESSION (ton fait "ça marchait avant")
+Piste dédiée créée : Gtouch-longjump-regression (passera juste après M4, avant les looks bonus).
+Approche : bisect (suspect n°1 = refonte menu/zones tactiles) + injection touch réelle de ta combo.
+Rien à tester pour toi là-dessus tant que la piste n'a pas produit un build.
