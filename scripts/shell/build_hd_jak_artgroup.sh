@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
+# STALE — superseded by build_hd_actor_artgroup.sh (M4)
+#
 # scripts/shell/build_hd_jak_artgroup.sh
+#
+# It writes recharged_assets/hd_anim/jak-highres-ag.go — a 17-char art-group name that trips the
+# fake-iso <16 assert. Use:  scripts/shell/build_hd_actor_artgroup.sh <char> <donor_glb> <driver_glb>
+echo "[hd-jak-ag] STALE — superseded by scripts/shell/build_hd_actor_artgroup.sh (M4)" >&2
+exit 1
 #
 # HD character ANIMATION-RETARGET pipeline — MILESTONE 1 (Jak only), OFFLINE fabrication step.
 #

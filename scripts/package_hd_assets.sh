@@ -83,8 +83,20 @@ done < <(find "$ENH_DIR" -maxdepth 1 -type f -name '*.fr3' -print0 | sort -z)
 # Grecharged-hd-models3: also carry the anim-retarget HD art-group (ND-derived, external-only).
 # Entry hd/jak-hd-ag.go extracts to <gameRoot>/assets/hd/jak-hd-ag.go, which Loader.cpp copies at boot
 # into <jak_project_dir>/out/jak1/obj/ (where GOAL loado resolves it). Never in the APK/binary.
-HD_AG="recharged_assets/hd_anim/jak-hd-ag.go"
-[ -f "$ROOT/$HD_AG" ] && printf 'hd/%s\t%s\n' "jak-hd-ag.go" "$ROOT/$HD_AG" >> "$INDEX"
+# M4: the canonical 4-character set. EXPLICIT LIST, never a directory glob — a stale
+# jak-highres-ag.go lives in that dir and must NEVER ship (17-char name trips the fake-iso
+# <16 name assert). jak-hd-ag.go is mandatory; the other three SKIP loudly when absent.
+HD_AG_LIST=(jak-hd-ag.go dax-hd-ag.go keira-hd-ag.go samos-hd-ag.go)
+for ag in "${HD_AG_LIST[@]}"; do
+  src="recharged_assets/hd_anim/$ag"
+  if [ -f "$ROOT/$src" ]; then
+    printf 'hd/%s\t%s\n' "$ag" "$ROOT/$src" >> "$INDEX"
+  elif [ "$ag" = "jak-hd-ag.go" ]; then
+    fail "required HD art-group $src missing — run scripts/shell/build_hd_actor_artgroup.sh jak-hd … first"
+  else
+    log "SKIP $src — absent (its art-group was not fabricated; that character stays stock)"
+  fi
+done
 
 FILE_COUNT=$(wc -l < "$INDEX" | tr -d ' ')
 [ "$FILE_COUNT" -gt 0 ] || fail "$ENH_DIR holds no *.fr3 — nothing to package. Re-run the enhanced HD bake."

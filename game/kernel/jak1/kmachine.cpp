@@ -844,6 +844,20 @@ void pc_set_recharged_enhanced_models(u32 on) {
   }
   Gfx::g_global_settings.recharged_enhanced_models = v;
 }
+
+// Grecharged-hd-models4: per-actor coverage registry (defined in Merc2.cpp — prototypes here to
+// keep GL renderer headers out of this kernel TU). An HD companion process registers which driver
+// actor (pid) its merc submissions replace; Merc2 only suppresses a stock draw whose OWN pid is
+// covered by an actively-found companion, so uncovered same-model actors (the ND-logo eichar)
+// always keep their stock draw.
+void merc2_hd_cover(u32 companion_pid, u32 driver_pid);
+void merc2_hd_uncover(u32 companion_pid);
+void pc_hd_cover(u32 companion_pid, u32 driver_pid) {
+  merc2_hd_cover(companion_pid, driver_pid);
+}
+void pc_hd_uncover(u32 companion_pid) {
+  merc2_hd_uncover(companion_pid);
+}
 #endif
 
 // Gpbrf owner workflow (2026-07-24): POSITION DUMP for deterministic weld-ON/OFF daytime A/B.
@@ -2735,6 +2749,9 @@ void InitMachine_PCPort() {
   // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
   make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);
   make_function_symbol_from_c("pc-enhanced-models-available?", (void*)pc_get_enhanced_models_available);
+  // Grecharged-hd-models4: per-actor coverage — companion pid -> driver pid registry in Merc2
+  make_function_symbol_from_c("pc-hd-cover!", (void*)pc_hd_cover);
+  make_function_symbol_from_c("pc-hd-uncover!", (void*)pc_hd_uncover);
 #endif
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point

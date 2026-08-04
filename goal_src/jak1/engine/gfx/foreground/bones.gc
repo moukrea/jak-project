@@ -936,6 +936,14 @@
     (set! dma-buf (the pointer (&+ start-packet 16)))
     (let ((data-ptr (the-as (pointer uint128) dma-buf)))
       (charp<-string (the (pointer uint8) (&-> data-ptr 0)) (-> dc mgeo name)))
+    (#when FLAG_HD_MODELS
+      ;; Grecharged-hd-models4 PER-ACTOR coverage tag: the owner process pid rides in the dead
+      ;; bytes past the name NUL (offset 120..123 of the 128-byte name field; merc names are far
+      ;; shorter). The PC renderer suppresses a stock draw ONLY when an HD companion covers THIS
+      ;; pid this frame — never by model name alone (the M1 global name-TTL blanked the ND-logo
+      ;; eichar actor, which no companion covered).
+      (set! (-> (the-as (pointer uint32) (&+ dma-buf 120)))
+            (the-as uint (if (nonzero? (-> dc process)) (-> dc process pid) 0))))
     (&+! dma-buf (* 16 8))
     (+! qwc-total 8)
     ;; LIGHTS:

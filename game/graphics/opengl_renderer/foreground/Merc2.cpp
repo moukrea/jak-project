@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <chrono>
+#include <mutex>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -579,9 +580,38 @@ void Merc2::model_mod_draws(int num_effects,
 }
 
 #ifdef OG_FEAT_HD_MODELS
-// Grecharged-hd-models3: >0 while the jak-hd companion is actively submitting its merc; used to
-// suppress the stock eichar-lod0 driver draw (see handle_pc_model). Decremented once per render().
-static int s_jakhd_suppress_ttl = 0;
+// Grecharged-hd-models4: PER-ACTOR coverage. The M1 suppression was global (any jak-hd submit
+// armed a name-TTL that dropped EVERY 'eichar-lod0' packet) — which blanked the ND-logo's eichar
+// actor, an actor no companion covered. Now: GOAL registers companion-pid -> driver-pid at spawn
+// (pc-hd-cover!) and unregisters at despawn (pc-hd-uncover!); every pc-merc packet carries its
+// owner process pid (bones.gc writes it at name+120); a driver's stock draw is suppressed ONLY
+// while its own companion's packet is actually processed with the HD model FOUND (per-driver TTL
+// refreshed in handle_pc_model, drained once per render()). No coverage => stock draw survives,
+// so an uncovered actor can never be suppressed into invisibility.
+struct HdCoverPair {
+  u32 companion_pid;
+  u32 driver_pid;
+};
+static std::mutex s_hd_cover_mutex;  // pairs: written EE-thread (GOAL), read render-thread
+static std::vector<HdCoverPair> s_hd_cover_pairs;
+static std::unordered_map<u32, int> s_hd_driver_ttl;  // render-thread only
+
+void merc2_hd_cover(u32 companion_pid, u32 driver_pid) {
+  std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+  for (auto& p : s_hd_cover_pairs) {
+    if (p.companion_pid == companion_pid) {
+      p.driver_pid = driver_pid;
+      return;
+    }
+  }
+  s_hd_cover_pairs.push_back({companion_pid, driver_pid});
+}
+
+void merc2_hd_uncover(u32 companion_pid) {
+  std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+  std::erase_if(s_hd_cover_pairs,
+                [&](const HdCoverPair& p) { return p.companion_pid == companion_pid; });
+}
 #endif
 
 /*!
@@ -613,34 +643,49 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // This will return a reference to this model's data, plus a reference to the level's data
   // for stuff shared between models of the same level
   auto model_ref = render_state->loader->get_merc_model(name);
-  // Grecharged-hd-models3 DIAGNOSTIC: does the jak-hd companion actually SUBMIT its merc, and is the
-  // appended jak-hd-lod0 geometry FOUND by name? (once, to avoid per-frame spam)
 #ifdef OG_FEAT_HD_MODELS
-  if (strstr(name, "jak-hd")) {
-    // repeat-with-throttle (was one-shot, which rolled off the Honor's ~1-minute logcat ring
-    // buffer before anyone could read it): first submission + one line every 600 after.
-    static u64 s_jakhd_submits = 0;
-    if (s_jakhd_submits++ % 600 == 0) {
-      lg::warn("[jak-hd-render] handle_pc_model SUBMITTED name='{}' found={} submits={}", name,
-               model_ref ? 1 : 0, s_jakhd_submits);
+  // Grecharged-hd-models4 PER-ACTOR coverage (see the block at the HdCoverPair definition).
+  u32 owner_pid = 0;
+  memcpy(&owner_pid, setup.data + 120, sizeof(owner_pid));
+  if (strstr(name, "-hd-lod0")) {
+    // an HD companion packet ("<char>-hd-lod0"): log throttled per model name (first submission
+    // + one line every 600 — one-shot rolled off the Honor's ~1-minute logcat ring buffer).
+    static std::unordered_map<std::string, u64> s_hd_submit_counts;
+    u64& n = s_hd_submit_counts[name];
+    if (n++ % 600 == 0) {
+      lg::warn("[hd-render] SUBMITTED name='{}' found={} submits={}", name, model_ref ? 1 : 0, n);
     }
-    // the HD companion is actively driving Jak's mesh: suppress the stock driver draw below for
-    // the next few frames (TTL decremented once per render() call, ~8-9 calls per frame).
-    s_jakhd_suppress_ttl = 32;
-  }
-  // While the jak-hd companion submits, drop the stock eichar-lod0 draw HERE instead of hiding
-  // the driver GOAL-side: skip-bones on *target* propagated to the sidekick (its :post copies the
-  // driver's draw status wholesale and posts AFTER the newer companion — LIFO child order), which
-  // swallowed Daxter on builds 10-12. Renderer-level suppression leaves *target* fully stock
-  // (sidekick visible, driver animating, stock shadow serving the HD mesh) and drains within ~4
-  // frames of the companion despawning (toggle off / death / level change) -> stock Jak returns.
-  if (s_jakhd_suppress_ttl > 0 && strcmp(name, "eichar-lod0") == 0) {
-    static bool s_suppress_logged = false;
-    if (!s_suppress_logged) {
-      s_suppress_logged = true;
-      lg::warn("[jak-hd-render] suppressing stock eichar-lod0 (HD companion active)");
+    // refresh this driver's suppression ONLY when the replacement is actually drawable (model
+    // found). TTL decremented once per render() call (~8-9 calls per frame) => ~4 frames, so the
+    // stock draw returns by itself when the companion despawns/culls/loses its model.
+    if (model_ref && owner_pid != 0) {
+      u32 driver_pid = 0;
+      {
+        std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+        for (const auto& p : s_hd_cover_pairs) {
+          if (p.companion_pid == owner_pid) {
+            driver_pid = p.driver_pid;
+            break;
+          }
+        }
+      }
+      if (driver_pid != 0) {
+        s_hd_driver_ttl[driver_pid] = 32;
+      }
     }
-    return;
+  } else if (owner_pid != 0) {
+    // a stock packet: drop it ONLY if ITS OWN pid is covered by an actively-submitting companion.
+    // Renderer-level (never GOAL draw-status: skip-bones on *target* propagated to the sidekick
+    // and swallowed Daxter on M1 builds 10-12). Uncovered same-name actors (ND logo) draw stock.
+    auto it = s_hd_driver_ttl.find(owner_pid);
+    if (it != s_hd_driver_ttl.end() && it->second > 0) {
+      static std::unordered_map<u32, u64> s_hd_suppress_counts;
+      u64& n = s_hd_suppress_counts[owner_pid];
+      if (n++ % 600 == 0) {
+        lg::warn("[hd-render] suppress pid={} name='{}' (covered per-actor)", owner_pid, name);
+      }
+      return;
+    }
   }
 #endif
   if (!model_ref) {
@@ -1374,8 +1419,13 @@ void Merc2::render(DmaFollower& dma,
                    ScopedProfilerNode& prof,
                    MercDebugStats* stats) {
 #ifdef OG_FEAT_HD_MODELS
-  if (s_jakhd_suppress_ttl > 0) {
-    s_jakhd_suppress_ttl--;
+  // drain the per-driver coverage TTLs (armed in handle_pc_model on companion submits).
+  for (auto it = s_hd_driver_ttl.begin(); it != s_hd_driver_ttl.end();) {
+    if (--(it->second) <= 0) {
+      it = s_hd_driver_ttl.erase(it);
+    } else {
+      ++it;
+    }
   }
 #endif
   bool hack = stats->collect_debug_model_list;

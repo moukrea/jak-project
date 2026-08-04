@@ -577,20 +577,33 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
   // Grecharged-hd-models: seed the enhanced-models flag before the common FR3 (HD Jak+Daxter) is read,
   // since this runs in the renderer ctor before GOAL's per-frame push. Shared by desktop + Android.
   Gfx::g_global_settings.recharged_enhanced_models = read_persisted_enhanced_models();
-  // Grecharged-hd-models3: the anim-retarget HD art-group (jak-hd-ag.go) is ND-derived — it ships ONLY
-  // in the EXTERNAL asset pack (assets/hd/), never the APK/binary. loado resolves loose .go from
-  // <jak_project_dir>/out/<game>/obj/, so stage it there from the external game root at boot. Local
-  // copy only; the origin stays external and dumps-gated, so no ND IP is ever bundled/distributed.
+  // Grecharged-hd-models3/4: the anim-retarget HD art-groups (<char>-ag.go) are ND-derived — they
+  // ship ONLY in the EXTERNAL asset pack (assets/hd/), never the APK/binary. loado resolves loose
+  // .go from <jak_project_dir>/out/<game>/obj/, so stage them there from the external game root at
+  // boot. Local copy only; the origin stays external and dumps-gated, so no ND IP is ever
+  // bundled/distributed. M4: fixed name list (never glob — a stale >=16-char name would trip the
+  // fake-iso assert) and REFRESH on content mismatch (the M1 skip-if-exists left owner devices on
+  // stale art-groups forever).
   {
     auto ext = file_util::get_external_game_root();
     if (ext) {
-      auto src = *ext / "assets" / "hd" / "jak-hd-ag.go";
-      auto dst = file_util::get_jak_project_dir() / "out" / "jak1" / "obj" / "jak-hd-ag.go";
-      if (file_util::file_exists(src.string()) && !file_util::file_exists(dst.string())) {
-        file_util::create_dir_if_needed_for_file(dst);
+      for (const char* ag : {"jak-hd-ag.go", "dax-hd-ag.go", "keira-hd-ag.go", "samos-hd-ag.go"}) {
+        auto src = *ext / "assets" / "hd" / ag;
+        auto dst = file_util::get_jak_project_dir() / "out" / "jak1" / "obj" / ag;
+        if (!file_util::file_exists(src.string())) {
+          continue;
+        }
         auto bytes = file_util::read_binary_file(src);
+        if (file_util::file_exists(dst.string())) {
+          auto have = file_util::read_binary_file(dst.string());
+          if (have == bytes) {
+            continue;
+          }
+        }
+        file_util::create_dir_if_needed_for_file(dst);
         file_util::write_binary_file(dst, bytes.data(), bytes.size());
-        lg::info("[hd-models3] staged external HD art-group -> {}", dst.string());
+        lg::info("[hd-models] staged external HD art-group -> {} ({} bytes)", dst.string(),
+                 bytes.size());
       }
     }
   }

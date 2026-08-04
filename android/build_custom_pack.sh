@@ -218,7 +218,7 @@ data_freshness_guard(){
 #   (a) directory route — the enhanced level fr3 carry the SAME filenames as stock (GAME.fr3,
 #       village1.fr3), so the discriminator is the enhanced/ subdirectory, not the basename.
 #   (b) name route — the HD art-group / rip-source / retarget tokens (hd_models, hd_anim,
-#       jak-highres, highres, jak-hd).
+#       jak-highres, highres, jak-hd, dax-hd, keira-hd, samos-hd) plus ANY *-hd-ag.go art-group.
 # grep -Em1 (no downstream pipe) + here-string: avoids the pipefail+grep-q SIGPIPE trap.
 nd_hd_exclusion_guard(){
   local zip="$1"
@@ -227,7 +227,7 @@ nd_hd_exclusion_guard(){
   listing="$(unzip -Z1 "$zip" 2>/dev/null || true)"
   bad="$(grep -Em1 '(^|/)enhanced/' <<< "$listing" || true)"
   [ -z "$bad" ] || fail "ND-HD LEAK: custom pack $zip carries an enhanced/ member ('$bad') — the ND-derived HD level fr3 must NOT ship in the APK (that would distribute Naughty Dog IP). It ships ONLY in the external pack (scripts/package_hd_assets.sh). Remove the enhanced staging from android/build_custom_pack.sh."
-  bad="$(grep -Eim1 'hd_models|hd_anim|jak-highres|highres|jak-hd' <<< "$listing" || true)"
+  bad="$(grep -Eim1 'hd_models|hd_anim|jak-highres|highres|jak-hd|dax-hd|keira-hd|samos-hd|-hd-ag\.go' <<< "$listing" || true)"
   [ -z "$bad" ] || fail "ND-HD LEAK: custom pack $zip carries an ND-derived HD asset ('$bad') — HD art is Naughty Dog IP and must ship only in the external pack, never the APK."
   echo "[custom-pack] ND-HD exclusion guard OK: no Naughty-Dog-derived HD asset in $zip (HD ships EXTERNAL per the owner IP rule)"
 }

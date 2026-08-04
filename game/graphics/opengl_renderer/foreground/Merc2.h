@@ -4,6 +4,15 @@
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 
+#ifdef OG_FEAT_HD_MODELS
+// Grecharged-hd-models4 per-actor coverage registry (defined in Merc2.cpp, called from the GOAL
+// builtins pc-hd-cover!/pc-hd-uncover! registered in jak1/kmachine.cpp). An HD companion process
+// declares which driver actor (by pid) its submissions replace; Merc2 suppresses that driver's
+// stock draw only while the companion's model is actually being processed and found.
+void merc2_hd_cover(u32 companion_pid, u32 driver_pid);
+void merc2_hd_uncover(u32 companion_pid);
+#endif
+
 struct MercDebugStats {
   int num_models = 0;
   int num_missing_models = 0;

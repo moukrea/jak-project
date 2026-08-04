@@ -1,29 +1,45 @@
 ;;-*-Lisp-*-
 (in-package goal)
 
-;; jak-hd.gc — HD character ANIMATION-RETARGET companion. Grecharged-hd-models3, MILESTONE 1 (Jak).
+;; jak-hd.gc — HD character ANIMATION-RETARGET companions.
+;; Grecharged-hd-models3 (M1: Jak) + Grecharged-hd-models4 (M2: Daxter/Keira/Samos + per-actor coverage).
 ;;
-;; DESIGN (owner-chosen anim-retarget, NOT re-rig). The stock player *target* (eichar) stays the
-;; DRIVER: it plays jak1's animations and owns the hardcoded joint-node attach refs. We keep the HD
-;; model's OWN 75-joint skeleton + authored weights, load it as *jak-hd-sg*, and run a COMPANION
-;; process `jak-hd` that, every frame AFTER the driver, fills the HD skeleton's world bone matrices
-;; from the driver's animated bones via a name-mapped retarget. The stock skinning path then skins
-;; the HD mesh. The driver's own low-poly draw is suppressed RENDERER-side (Merc2 drops eichar-lod0
-;; while this companion submits) — never via skip-bones on *target*, which the sidekick's :post
-;; copies wholesale and which therefore swallowed Daxter (builds 10-12).
+;; DESIGN (owner-chosen anim-retarget, NOT re-rig). A stock DRIVER process (the player *target*, the
+;; sidekick, a village NPC, a cutscene/logo actor) keeps playing jak1's animations and owns the
+;; hardcoded joint-node attach refs. We keep each HD model's OWN skeleton + authored weights, load it
+;; as its own skelgroup, and run a COMPANION process `jak-hd` per driver INSTANCE that, every frame
+;; AFTER the driver, fills the HD skeleton's world bone matrices from the driver's animated bones via
+;; a name-mapped retarget (k->e table). The stock skinning path then skins the HD mesh.
+;;
+;; M4 REPLACEMENT TABLE (owner roadmap 2026-08-03): any process-drawable whose merc name matches a
+;; table entry gets its own companion — "le modèle choisi PARTOUT" (gameplay, cutscenes, ND logo):
+;;     eichar-lod0    -> jak-hd    (jak2 jakone-highres,  75 joints)  [M1]
+;;     sidekick-lod0  -> dax-hd    (jak3 daxter-highres,  62 joints, NO-pants cinematic)
+;;     assistant-lod0 -> keira-hd  (jak2 keira-highres,   95 joints, first-cutscene LINTCSTB)
+;;     sage-lod0      -> samos-hd  (jak3 samos-highres,   80 joints)
+;;
+;; PER-ACTOR COVERAGE (M4 carry-over fix; ND-logo invisible Jak). The driver's own low-poly draw is
+;; suppressed RENDERER-side, but ONLY per actor: every pc-merc packet carries its owner pid
+;; (bones.gc), each companion registers (pc-hd-cover! companion-pid driver-pid) at spawn and
+;; unregisters at despawn, and Merc2 drops a stock packet ONLY while THAT pid's companion is actively
+;; submitting with its HD model found. An actor no companion covers (asset missing, spawn failed)
+;; always keeps its stock draw — suppression without a replacement can never recur. Never suppress
+;; via skip-bones on *target*: the sidekick's :post copies that status wholesale, which swallowed
+;; Daxter (M1 builds 10-12).
 ;;
 ;; RETARGET MATH — proven offline to machine precision (retarget_fill_table.py PROOF A err 8.9e-16).
-;; For HD joint k mapped to driver joint e = (-> *jak-hd->eichar-joint* k), in COLUMN convention:
+;; For HD joint k mapped to driver joint e = k2e[k], in COLUMN convention:
 ;;     bones_hd[k].transform = M_anim(e) . IBM_driver(e) . inverse(IBM_hd[k])
 ;; STORAGE ORDER WARNING: the engine is ROW-VECTOR ((matrix*! d a b) = a.b, a applied FIRST; the
 ;; palette asm computes v . IBM_hd . bones_hd) — so as STORED row products this must be built as
 ;;     bones_hd[k] = inverse(IBM_hd[k]) . IBM_driver(e) . M_anim(e)     <- fill-jak-hd-bones!
 ;; Building it in the column order verbatim produces the build10 exploded-spikes carnage.
-;; where M_anim(e)   = (-> *target* draw skeleton bones (+ e 1) transform)   ; driver animated world
-;;       IBM_driver  = (-> *target* draw jgeo    data   e     bind-pose)      ; driver inverse bind
-;;       IBM_hd[k]   = (-> self     draw jgeo    data   k     bind-pose)      ; HD inverse bind
+;; where M_anim(e)   = (-> drv  draw skeleton bones (+ e 1) transform)   ; driver animated world
+;;       IBM_driver  = (-> drv  draw jgeo    data   e     bind-pose)     ; driver inverse bind
+;;       IBM_hd[k]   = (-> self draw jgeo    data   k     bind-pose)     ; HD inverse bind
 ;; The stock new-bones-mtx-calc-asm then post-multiplies IBM_hd[k] -> the proven skin palette.
-;; Unmapped joints (e = #xff) rest at inverse(IBM_hd[k]) (the HD forward bind).
+;; Unmapped joints (e = #xff) follow the driver's root joint (align, e=0) — a model-space matrix in
+;; a world-space bone slot anchors parts at world origin (the build10 'giant blade spike').
 ;;
 ;; INDEX SPACES (align off-by-one, verified): the k->e table keys AND values are GAME joint numbers
 ;; (align = 0 on both sides — prep_hd_actor_glb.py drops rip-align then build_actor re-prepends align,
@@ -34,61 +50,116 @@
 ;; declared call inside (update *pc-settings*)), never from an engine file — an engine->PC call would
 ;; be an unbound fn-ptr = SIGILL (the class that crashed menu V3).
 ;;
-;; IP: the HD art-group (jak-highres-ag.go) is Naughty-Dog-derived and lives ONLY in the external
-;; asset pack, loaded from disk at runtime (load-to-heap-by-name, works on the --debug HD build).
-;; Never baked into the binary/custom pack. Gated behind the FLAG_HD_MODELS build flag + the
-;; recharged-enhanced-models? runtime setting.
+;; IP: the HD art-groups (<char>-ag.go) are Naughty-Dog-derived and live ONLY in the external asset
+;; pack, loaded from disk at runtime. Never baked into the binary/custom pack. Gated behind the
+;; FLAG_HD_MODELS build flag + the recharged-enhanced-models? runtime setting.
 
 (#when FLAG_HD_MODELS
 
 ;; ------------------------------------------------------------------------------------------------
-;; retarget table: HD game joint k -> eichar game joint e (255 = no counterpart).
-;; generated by scripts/shell/retarget_fill_table.py — do not hand-edit (mirror of jak-hd-k2e.gc-snippet).
+;; per-actor coverage registry (Merc2.cpp, registered in jak1/kmachine.cpp)
+;; ------------------------------------------------------------------------------------------------
+(define-extern pc-hd-cover! (function int int none))
+(define-extern pc-hd-uncover! (function int none))
+
+;; ------------------------------------------------------------------------------------------------
+;; retarget tables: HD game joint k -> driver game joint e (255 = no counterpart).
+;; generated by scripts/shell/retarget_fill_table.py — do not hand-edit (mirrors of *-k2e.gc-snippet).
 ;; ------------------------------------------------------------------------------------------------
 (define *jak-hd->eichar-joint* (new 'static 'array uint8 75
   0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 39 40 41 42 43 44 45 46 47 48 17 18 49 50 19 20 21 22 51 52 53 54 55 56 57 58 59 60 23 24 61 62 63 64 65 66 67 25 26 27 28 68 69 70 71 29 30 31 32 72 73 74 75 33 34 35 80 2))
 
-;; the HD skelgroup. art-group name "jak-highres"; jgeo/janim indices 0/2; the merc-ctrl (mgeo) is
-;; index 1, carried in the lods list. numeric indices (NOT symbols) so the macro does not try an
-;; *art-info* lookup on an art-group the compiler does not know. :texture-level 2 -> loads into
-;; level-default so it is resident whenever *target* is.
+(define *dax-hd->driver-joint* (new 'static 'array uint8 62
+  0 1 2 3 4 5 6 7 8 9 10 15 16 8 8 8 8 8 17 18 19 22 23 19 19 24 25 26 29 30 26 26 31 32 33 34 35 36 36 37 38 39 40 41 42 11 12 13 14 8 20 21 43 44 19 19 27 28 45 46 26 26))
+
+(define *keira-hd->driver-joint* (new 'static 'array uint8 95
+  0 1 2 3 4 5 10 42 8 5 5 5 5 5 5 5 5 5 5 6 11 12 13 43 44 49 50 52 53 58 14 59 15 16 17 60 61 66 67 69 70 75 76 77 79 78 80 81 82 83 18 19 20 21 22 24 25 26 27 95 89 90 91 92 1 1 28 9 7 45 46 47 48 51 54 55 56 57 62 63 64 65 68 71 72 73 74 23 85 93 20 86 88 94 25))
+
+(define *samos-hd->driver-joint* (new 'static 'array uint8 80
+  0 1 2 3 4 5 6 7 8 9 10 11 12 13 4 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 43 43 44 44 45 45 42 46 47 4 4 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 69 70 71 73))
+
+;; ------------------------------------------------------------------------------------------------
+;; HD skelgroups. build_actor layout for every <char>-ag.go: jgeo 0, merc-ctrl (mgeo) 1 (carried in
+;; the lods list), janim 2 (bind-pose idle; we overwrite the bones each frame anyway). Numeric
+;; indices (NOT symbols) so the macro does not try an *art-info* lookup on an art-group the compiler
+;; does not know. :texture-level 2 -> level-default so it is resident whenever the driver is.
+;; ------------------------------------------------------------------------------------------------
 (defskelgroup *jak-hd-sg* jak-hd
-  0    ;; jgeo
-  2    ;; janim (HD idle art-joint-anim; we overwrite the bones each frame anyway)
-  ((1 (meters 999999)))   ;; lod0 = merc-ctrl index 1
-  :bounds (static-spherem 0 2 0 3)
-  :longest-edge (meters 1)
-  :texture-level 2
-  :sort 1)
+  0 2 ((1 (meters 999999)))
+  :bounds (static-spherem 0 2 0 3) :longest-edge (meters 1) :texture-level 2 :sort 1)
+(defskelgroup *dax-hd-sg* dax-hd
+  0 2 ((1 (meters 999999)))
+  :bounds (static-spherem 0 2 0 3) :longest-edge (meters 1) :texture-level 2 :sort 1)
+(defskelgroup *keira-hd-sg* keira-hd
+  0 2 ((1 (meters 999999)))
+  :bounds (static-spherem 0 2 0 3) :longest-edge (meters 1) :texture-level 2 :sort 1)
+(defskelgroup *samos-hd-sg* samos-hd
+  0 2 ((1 (meters 999999)))
+  :bounds (static-spherem 0 2 0 3) :longest-edge (meters 1) :texture-level 2 :sort 1)
+
+;; ------------------------------------------------------------------------------------------------
+;; replacement table (parallel arrays, entry index 0..3)
+;; ------------------------------------------------------------------------------------------------
+(define *hd-driver-mgeo-names* (new 'static 'boxed-array :type string
+  "eichar-lod0" "sidekick-lod0" "assistant-lod0" "sage-lod0"))
+(define *hd-ag-names* (new 'static 'boxed-array :type string
+  "jak-hd" "dax-hd" "keira-hd" "samos-hd"))
+(define *hd-joint-counts* (new 'static 'array int32 4 75 62 95 80))
+;; asset-missing latch per entry, int 0/1 (NEVER a symbol in a static array: 0 is truthy).
+;; Latched when the external HD art-group is absent (user has no jak2/jak3 dump -> the IP gating
+;; ships no <char>-ag.go). Prevents a respawn-retry storm; cleared when the toggle goes OFF so
+;; providing the dump + re-toggling works without a restart.
+(define *hd-asset-missing* (new 'static 'array int32 4 0 0 0 0))
+;; art-groups loaded once per session (loado to the global heap), re-registered at each spawn.
+(define *hd-loaded-ags* (new 'static 'array art-group 4))
+
+(defun hd-entry-k2e ((i int))
+  (case i
+    ((0) *jak-hd->eichar-joint*)
+    ((1) *dax-hd->driver-joint*)
+    ((2) *keira-hd->driver-joint*)
+    (else *samos-hd->driver-joint*)))
+
+(defun hd-entry-sg ((i int))
+  (case i
+    ((0) *jak-hd-sg*)
+    ((1) *dax-hd-sg*)
+    ((2) *keira-hd-sg*)
+    (else *samos-hd-sg*)))
+
+;; entry index for a stock merc name, -1 if not a replaced character.
+(defun hd-entry-for-mgeo ((name string))
+  (dotimes (i 4)
+    (when (string= name (-> *hd-driver-mgeo-names* i))
+      (return i)))
+  -1)
 
 (deftype jak-hd (process-drawable)
-  ((dbg-frames int32)        ;; frame counter for the reliable bone-sanity dump
+  ((entry     int32)   ;; replacement-table index
+   (driver    handle)  ;; the stock actor this companion covers
+   (hd-joints int32)
+   (k2e       (pointer uint8))
+   (dbg-frames int32)        ;; frame counter for the reliable bone-sanity dump
    (dbg-mirror-logs int32))  ;; cap for the defect-6 hidden-mirror transition log
   (:states jak-hd-clone))
 
-;; live handle so the PC per-frame hook spawns exactly one companion.
-(define *jak-hd-process* (the (pointer jak-hd) #f))
-
-;; latched when the external HD art-group is absent (user has no jak2 dump -> the IP gating
-;; ships no jak-hd-ag.go). Prevents a respawn-retry storm; cleared when the toggle goes OFF so
-;; providing the dump + re-toggling works without a restart.
-(define *jak-hd-asset-missing* #f)
-
 ;; ------------------------------------------------------------------------------------------------
-;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver (*target*).
+;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver's.
 ;; ------------------------------------------------------------------------------------------------
 (defun fill-jak-hd-bones! ((obj jak-hd))
-  (let ((tgt *target*))
-    (when (and tgt (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton)) (nonzero? (-> obj draw jgeo)))
+  (let ((drv (the-as process-drawable (handle->process (-> obj driver)))))
+    (when (and drv (nonzero? (-> drv draw)) (nonzero? (-> drv draw skeleton)) (nonzero? (-> drv draw jgeo))
+               (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton)) (nonzero? (-> obj draw jgeo)))
       (let* ((skel     (-> obj draw skeleton))
              (hd-jgeo  (-> obj draw jgeo))
-             (tgt-skel (-> tgt draw skeleton))
-             (tgt-jgeo (-> tgt draw jgeo))
+             (tgt-skel (-> drv draw skeleton))
+             (tgt-jgeo (-> drv draw jgeo))
              (nbones   (-> skel length))
-             (tbones   (-> tgt-skel length)))
+             (tbones   (-> tgt-skel length))
+             (k2e      (-> obj k2e)))
         (let ((hbind (new-stack-matrix0))
               (tmp   (new-stack-matrix0)))
-          (dotimes (k 75)
+          (dotimes (k (-> obj hd-joints))
             (when (< (+ k 1) nbones)
               ;; HD forward bind for joint k (reused for both the mapped product and the rest pose)
               (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
@@ -97,156 +168,209 @@
               ;; (matrix*! dst a b) = a.b, a applied FIRST. We need IBM_hd . bones_hd == IBM_e . W_e
               ;; (driver skinning of the shared model space), hence, as STORED row products:
               ;;     bones_hd[k] = Bind_hd[k] . IBM_e . W_anim(e)
-              ;; The previous code computed the exact REVERSE (W.IBM_e.Bind_hd) — near-identity at
-              ;; joints whose bind poses match (the bone-4 dump equality) and an exploded mesh
-              ;; everywhere else (build10 'stretched prisms' capture).
-              (let ((e (the int (-> *jak-hd->eichar-joint* k))))
+              ;; The reverse order is near-identity at joints whose bind poses match and an exploded
+              ;; mesh everywhere else (build10 'stretched prisms' capture).
+              (let ((e (the int (-> k2e k))))
                 ;; unmapped (#xff) or beyond the driver's joint count -> follow the driver's root
-                ;; joint (align, e=0) instead of resting at the MODEL-SPACE forward bind: a
-                ;; model-space matrix in a world-space bone slot anchors those parts at world
-                ;; origin -> the build10 'giant blade spike to off-screen'.
                 (when (or (= e #xff) (>= (+ e 1) tbones)) (set! e 0))
                 (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
                 (matrix*! (-> skel bones (+ k 1) transform) tmp (-> tgt-skel bones (+ e 1) transform))))))))))
 
 ;; do-joint-math! override: run the stock path (housekeeping + HD idle anim + bounds/origin), then
-;; overwrite the bones with the retargeted transforms so draw-bones skins the HD mesh to follow eichar.
+;; overwrite the bones with the retargeted transforms so draw-bones skins the HD mesh to follow.
 (defmethod do-joint-math! ((obj jak-hd))
   ((method-of-type process-drawable do-joint-math!) obj)
   (fill-jak-hd-bones! obj)
   (none))
 
-;; the driver's mesh needs NO restore: it is never hidden GOAL-side anymore. Merc2 suppresses the
-;; stock eichar-lod0 draw while the companion submits (TTL), and drains by itself when we despawn.
+;; the driver's mesh needs NO restore: it is never hidden GOAL-side. Merc2 suppresses the driver's
+;; stock draw per-pid while this companion submits (TTL), and drains by itself when we despawn.
 (defmethod deactivate ((obj jak-hd))
-  (set! *jak-hd-process* (the (pointer jak-hd) #f))
+  (pc-hd-uncover! (the int (-> obj pid)))
   ((method-of-type process-drawable deactivate) obj)
   (none))
 
 (defstate jak-hd-clone (jak-hd)
   :code (behavior () (loop (suspend)))
   :post (behavior ()
-    (cond
-      ((not *target*)
-       ;; driver gone -> die (deactivate restores nothing since *target* is #f, which is correct)
-       (deactivate self))
-      (else
-       ;; keep the process co-located with the driver for culling; bones are already world-space.
-       (vector-copy! (-> self root trans) (-> *target* root trans))
-       ;; DEFECT 6 (owner 2026-08-04, cutscene ghost): mirror the driver's VISIBILITY every frame.
-       ;; Cutscenes (and the damage-invulnerability blink) hide *target* via (draw-status hidden);
-       ;; without mirroring, the companion keeps submitting its last pose — a frozen HD Jak visible
-       ;; in movies where Jak must not appear. Copy ONLY the hidden bit (sidekick copies the whole
-       ;; status wholesale — we must not inherit skip-bones/no-skeleton-update, which stay ours).
-       ;; While hidden the companion stops submitting -> Merc2's eichar-lod0 suppression TTL drains
-       ;; in ~4 frames -> stock behavior for whatever the cutscene actually draws.
-       (let ((th (if (logtest? (-> *target* draw status) (draw-status hidden)) 1 0))
-             (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
-         ;; device-readable proof of the mirror (defect 6): log each transition, capped. A real
-         ;; cutscene that hides the driver must produce "mirror hidden=1" in the routed logcat.
-         (when (and (!= th wh) (< (-> self dbg-mirror-logs) 40))
-           (+! (-> self dbg-mirror-logs) 1)
-           (format 0 "[JAK-HD] mirror hidden=~D~%" th))
-         (if (nonzero? th)
-           (logior! (-> self draw status) (draw-status hidden))
-           (logclear! (-> self draw status) (draw-status hidden))))
-       ;; ROOT CAUSE of the M1 invisibility (all platforms, found 2026-08-03): initialize-skeleton
-       ;; sets (draw-status no-skeleton-update) and the ONLY stock clear site is ja-post — which this
-       ;; :post bypasses by calling do-joint-math! directly. dma-add-process-drawable early-returns on
-       ;; (hidden no-anim no-skeleton-update) BEFORE building any pc-merc packet, so Merc2 never saw
-       ;; the model. Sidekick escapes by copying *target*'s status wholesale (impossible here: the
-       ;; driver carries skip-bones). Clear it every frame so the gate can never re-latch.
-       (logclear! (-> self draw status) (draw-status no-skeleton-update))
-       (do-joint-math! self)
-       (vector<-cspace! (-> self draw origin) (-> self node-list data (-> self draw origin-joint-index)))
-       ;; RELIABLE OBJECTIVE sanity dump (code-level, not eyeball): once things are valid, dump the
-       ;; retargeted HD bone world-pos vs the eichar bone it tracks, at frames 60 & 150. Finite +
-       ;; co-located == bones sane (invisible => draw/submission issue); exploded/NaN/huge == matrix order.
-       (when (and (< (-> self dbg-frames) 200)
-                  (nonzero? (-> self draw skeleton)) (nonzero? (-> *target* draw skeleton)))
-         (+! (-> self dbg-frames) 1)
-         (when (or (= (-> self dbg-frames) 60) (= (-> self dbg-frames) 150))
-           (format 0 "[JAK-HD] bone3 hd=(~f ~f ~f) ei=(~f ~f ~f)~%"
-                   (-> self draw skeleton bones 4 transform vector 3 x)
-                   (-> self draw skeleton bones 4 transform vector 3 y)
-                   (-> self draw skeleton bones 4 transform vector 3 z)
-                   (-> *target* draw skeleton bones 4 transform vector 3 x)
-                   (-> *target* draw skeleton bones 4 transform vector 3 y)
-                   (-> *target* draw skeleton bones 4 transform vector 3 z))))))))
+    (let ((drv (the-as process-drawable (handle->process (-> self driver)))))
+      (cond
+        ((not drv)
+         ;; driver gone -> die (the kernel also kills us with the parent; this covers handle death)
+         (deactivate self))
+        (else
+         ;; keep the process co-located with the driver for culling; bones are already world-space.
+         (vector-copy! (-> self root trans) (-> drv root trans))
+         ;; DEFECT 6 (owner 2026-08-04, cutscene ghost): mirror the driver's VISIBILITY every frame.
+         ;; Cutscenes (and the damage-invulnerability blink) hide the driver via (draw-status hidden);
+         ;; without mirroring, the companion keeps submitting its last pose — a frozen HD character
+         ;; visible in movies. Copy ONLY the hidden bit (sidekick copies the whole status wholesale —
+         ;; we must not inherit skip-bones/no-skeleton-update, which stay ours). While hidden the
+         ;; companion stops submitting -> Merc2's per-pid suppression TTL drains in ~4 frames ->
+         ;; stock behavior for whatever the scene actually draws.
+         (let ((th (if (logtest? (-> drv draw status) (draw-status hidden)) 1 0))
+               (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
+           ;; device-readable proof of the mirror (defect 6): log each transition, capped.
+           (when (and (!= th wh) (< (-> self dbg-mirror-logs) 40))
+             (+! (-> self dbg-mirror-logs) 1)
+             (format 0 "[JAK-HD] mirror hidden=~D~%" th))
+           (if (nonzero? th)
+             (logior! (-> self draw status) (draw-status hidden))
+             (logclear! (-> self draw status) (draw-status hidden))))
+         ;; ROOT CAUSE of the M1 invisibility (all platforms, found 2026-08-03): initialize-skeleton
+         ;; sets (draw-status no-skeleton-update) and the ONLY stock clear site is ja-post — which
+         ;; this :post bypasses by calling do-joint-math! directly. dma-add-process-drawable
+         ;; early-returns on (hidden no-anim no-skeleton-update) BEFORE building any pc-merc packet.
+         ;; Clear it every frame so the gate can never re-latch.
+         (logclear! (-> self draw status) (draw-status no-skeleton-update))
+         (do-joint-math! self)
+         (vector<-cspace! (-> self draw origin) (-> self node-list data (-> self draw origin-joint-index)))
+         ;; RELIABLE OBJECTIVE sanity dump (code-level, not eyeball): dump the retargeted HD bone
+         ;; world-pos vs the driver bone it tracks, at frames 60 & 150. Finite + co-located == bones
+         ;; sane (invisible => draw/submission issue); exploded/NaN/huge == matrix order.
+         (when (and (< (-> self dbg-frames) 200)
+                    (nonzero? (-> self draw skeleton)) (nonzero? (-> drv draw skeleton)))
+           (+! (-> self dbg-frames) 1)
+           (when (or (= (-> self dbg-frames) 60) (= (-> self dbg-frames) 150))
+             (format 0 "[JAK-HD] bone3 drv=~S hd=(~f ~f ~f) ei=(~f ~f ~f)~%"
+                     (if (nonzero? (-> drv draw mgeo)) (-> drv draw mgeo name) "?")
+                     (-> self draw skeleton bones 4 transform vector 3 x)
+                     (-> self draw skeleton bones 4 transform vector 3 y)
+                     (-> self draw skeleton bones 4 transform vector 3 z)
+                     (-> drv draw skeleton bones 4 transform vector 3 x)
+                     (-> drv draw skeleton bones 4 transform vector 3 y)
+                     (-> drv draw skeleton bones 4 transform vector 3 z)))))))))
 
-(defbehavior init-jak-hd jak-hd ()
-  (set! (-> self root) (new 'process 'trsqv))
-  (vector-identity! (-> self root scale))
-  (quaternion-identity! (-> self root quat))
-  (when *target* (vector-copy! (-> self root trans) (-> *target* root trans)))
-  ;; Load the HD art-group directly from the external pack and register it in level-default's art dir,
-  ;; independent of *debug-segment* (option 3): loado -> login -> set-loaded-art. Then initialize-skeleton
-  ;; finds "jak-hd" already resident (no disk pull / debug-segment gate).
-  (let ((ag (the-as art-group (loado (make-file-name (file-kind art-group) "jak-hd" 6 #f) global))))
-    (cond
-      ((and (nonzero? (the-as int ag)) (type-type? (-> ag type) art-group))
-       (login ag)
-       (set-loaded-art (-> *level* level-default art-group) ag)
-       (initialize-skeleton self *jak-hd-sg* '())
-       ;; initialize-skeleton leaves (draw-status no-skeleton-update) set; without ja-post (which this
-       ;; process never runs) it stays set forever and gates off ALL foreground DMA. Clear it from frame 1.
-       (logclear! (-> self draw status) (draw-status no-skeleton-update))
-       ;; device-readable proof of the load (opengoal-gk logcat survives on the Redmi): jgeo-joints>0 == art loaded.
-       (format 0 "[JAK-HD] spawned skel-bones=~D jgeo-joints=~D~%"
-               (if (nonzero? (-> self draw skeleton)) (-> self draw skeleton length) -1)
-               (if (nonzero? (-> self draw jgeo)) (-> self draw jgeo length) -1))
-       (set! (-> self draw origin-joint-index) (the-as uint 3))
-       ;; do NOT touch the driver's draw status: skip-bones on *target* propagated to the sidekick (its
-       ;; :post copies the driver's status wholesale, and posts AFTER this newer child — LIFO order),
-       ;; which swallowed Daxter (builds 10-12). The stock eichar-lod0 draw is suppressed renderer-side
-       ;; in Merc2 while this companion submits; *target* stays 100% stock (Daxter + shadow intact).
-       (go jak-hd-clone))
-      (else
-       ;; Asset absent (no jak2 dump = the IP gating, or a broken install). MUST bail BEFORE
-       ;; initialize-skeleton: its missing-art path does (go process-drawable-art-error) whose
-       ;; :code writes (-> self entity extra perm status) — and this companion has entity #f,
-       ;; so that write corrupts memory near s7 -> delayed SIGSEGV in JIT'd GOAL code (proven
-       ;; x86 2026-08-04 02:33 core, PID 2075821). Latch so we do not retry-spam, and despawn
-       ;; with the same in-process (deactivate self) idiom the :post already uses.
-       (format 0 "[JAK-HD] asset missing (jak-hd art-group not loadable) — HD Jak unavailable~%")
-       (set! *jak-hd-asset-missing* #t)
-       (deactivate self))))
+(defbehavior init-jak-hd jak-hd ((entry int))
+  (set! (-> self entry) entry)
+  (set! (-> self hd-joints) (-> *hd-joint-counts* entry))
+  (set! (-> self k2e) (hd-entry-k2e entry))
+  (set! (-> self dbg-frames) 0)
+  (set! (-> self dbg-mirror-logs) 0)
+  (let ((drv (the-as process-drawable (-> self parent 0))))
+    (set! (-> self driver) (process->handle (the-as process drv)))
+    (set! (-> self root) (new 'process 'trsqv))
+    (vector-identity! (-> self root scale))
+    (quaternion-identity! (-> self root quat))
+    (vector-copy! (-> self root trans) (-> drv root trans))
+    ;; Load the HD art-group from the external pack once per session (loado -> global heap), then
+    ;; register it in level-default's art dir at every spawn (level transitions may clear the dir),
+    ;; independent of *debug-segment*: loado -> login -> set-loaded-art. initialize-skeleton then
+    ;; finds the art already resident (no disk pull / debug-segment gate).
+    (let ((ag (-> *hd-loaded-ags* entry)))
+      (when (zero? (the-as int ag))
+        (let ((fresh (the-as art-group (loado (make-file-name (file-kind art-group) (-> *hd-ag-names* entry) 6 #f) global))))
+          (when (and (nonzero? (the-as int fresh)) (type-type? (-> fresh type) art-group))
+            (login fresh)
+            (set! (-> *hd-loaded-ags* entry) fresh)
+            (set! ag fresh))))
+      (cond
+        ((and (nonzero? (the-as int ag)) (type-type? (-> ag type) art-group))
+         (set-loaded-art (-> *level* level-default art-group) ag)
+         (initialize-skeleton self (hd-entry-sg entry) '())
+         ;; initialize-skeleton leaves (draw-status no-skeleton-update) set; without ja-post (which
+         ;; this process never runs) it stays set forever and gates off ALL foreground DMA.
+         (logclear! (-> self draw status) (draw-status no-skeleton-update))
+         ;; device-readable proof of the load: jgeo-joints>0 == art loaded. drv= names the covered
+         ;; stock model, per character (validator anchor).
+         (format 0 "[HD-COMP] spawned drv=~S pid=~D skel-bones=~D jgeo-joints=~D~%"
+                 (if (nonzero? (-> drv draw mgeo)) (-> drv draw mgeo name) "?")
+                 (-> drv pid)
+                 (if (nonzero? (-> self draw skeleton)) (-> self draw skeleton length) -1)
+                 (if (nonzero? (-> self draw jgeo)) (-> self draw jgeo length) -1))
+         (set! (-> self draw origin-joint-index) (the-as uint 3))
+         ;; PER-ACTOR coverage registration: Merc2 may suppress the driver's stock draw only while
+         ;; OUR submissions are actually processed with the HD model found.
+         (pc-hd-cover! (the int (-> self pid)) (the int (-> drv pid)))
+         ;; do NOT touch the driver's draw status (see header: the sidekick wholesale-copy trap).
+         (go jak-hd-clone))
+        (else
+         ;; Asset absent (no jak2/jak3 dump = the IP gating, or a broken install). MUST bail BEFORE
+         ;; initialize-skeleton: its missing-art path does (go process-drawable-art-error) whose
+         ;; :code writes (-> self entity extra perm status) — and this companion has entity #f,
+         ;; so that write corrupts memory near s7 -> delayed SIGSEGV in JIT'd GOAL code (proven
+         ;; x86 2026-08-04 02:33 core, PID 2075821). Latch so we do not retry-spam, and despawn
+         ;; with the same in-process (deactivate self) idiom the :post uses.
+         (format 0 "[HD-COMP] asset missing (~S art-group not loadable) — HD unavailable~%"
+                 (-> *hd-ag-names* entry))
+         (set! (-> *hd-asset-missing* entry) 1)
+         (deactivate self)))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; defect-7 device instrument (2026-08-04): throttled *target* state-transition trace, running in
-;; maybe-spawn-jak-hd! so it fires EVERY frame REGARDLESS of the enhanced toggle — the ON and OFF
-;; legs of a device A/B get the SAME instrument (a companion-side log would only exist on ON).
-;; format 0 reaches the routed logcat on device ([JAK-HD] precedent, proof13). Cap keeps it finite.
+;; the per-frame hook so it fires EVERY frame REGARDLESS of the enhanced toggle — the ON and OFF
+;; legs of a device A/B get the SAME instrument. format 0 reaches the routed logcat on device.
 ;; ------------------------------------------------------------------------------------------------
 (define *jak-hd-tgt-last-state* (the symbol #f))
 (define *jak-hd-tgt-log-count* 0)
 
 ;; ------------------------------------------------------------------------------------------------
-;; PC per-frame hook — called from (update *pc-settings*). PC->PC only. Spawns/despawns the single
-;; companion based on the enhanced-models setting + player presence.
+;; per-frame scan (PC->PC only, called from (update *pc-settings*)). Walks the active process tree:
+;; collects live companions and driver candidates (stock process-drawables whose merc name is in the
+;; replacement table), then reconciles with the enhanced-models toggle. Two-phase (collect THEN
+;; spawn) so the tree is never mutated mid-walk.
 ;; ------------------------------------------------------------------------------------------------
+(define *hd-scan-drivers* (new 'static 'array process-drawable 16))
+(define *hd-scan-driver-entries* (new 'static 'array int32 16))
+(define *hd-scan-driver-count* 0)
+(define *hd-scan-companions* (new 'static 'array jak-hd 16))
+(define *hd-scan-companion-count* 0)
+
+(defun hd-scan-visit ((proc process))
+  (cond
+    ((= (-> proc type) jak-hd)
+     (when (< *hd-scan-companion-count* 16)
+       (set! (-> *hd-scan-companions* *hd-scan-companion-count*) (the-as jak-hd proc))
+       (set! *hd-scan-companion-count* (+ *hd-scan-companion-count* 1))))
+    ((and (type-type? (-> proc type) process-drawable)
+          (nonzero? (-> (the-as process-drawable proc) draw))
+          (nonzero? (-> (the-as process-drawable proc) draw mgeo)))
+     (let ((entry (hd-entry-for-mgeo (-> (the-as process-drawable proc) draw mgeo name))))
+       (when (and (>= entry 0) (< *hd-scan-driver-count* 16))
+         (set! (-> *hd-scan-drivers* *hd-scan-driver-count*) (the-as process-drawable proc))
+         (set! (-> *hd-scan-driver-entries* *hd-scan-driver-count*) entry)
+         (set! *hd-scan-driver-count* (+ *hd-scan-driver-count* 1))))))
+  #t)
+
 (defun maybe-spawn-jak-hd! ()
+  ;; defect-7 instrument: unconditional *target* state trace (toggle-independent).
   (when (and *target* (< *jak-hd-tgt-log-count* 400))
     (let ((st (if (-> *target* state) (-> *target* state name) (the symbol #f))))
       (when (!= st *jak-hd-tgt-last-state*)
         (set! *jak-hd-tgt-last-state* st)
         (+! *jak-hd-tgt-log-count* 1)
         (format 0 "[JAK-HD-TGT] st=~S~%" st))))
-  (let ((alive? (and *jak-hd-process* (nonzero? (-> *jak-hd-process* 0)) (-> *jak-hd-process* 0)))
-        (want?  (and *target* (-> *pc-settings* recharged-enhanced-models?))))
+  ;; phase 1: collect.
+  (set! *hd-scan-driver-count* 0)
+  (set! *hd-scan-companion-count* 0)
+  (iterate-process-tree *active-pool* hd-scan-visit *null-kernel-context*)
+  (let ((want? (-> *pc-settings* recharged-enhanced-models?)))
     (cond
-      ((and want? (not alive?))
-       ;; Spawn as a CHILD of *target* (its :post runs after the driver's, so the driver bones are
-       ;; valid) but from the DYNAMIC heap pool *default-dead-pool* — *16k-dead-pool* is exhausted
-       ;; in-game (WARNING: *16k-dead-pool* was empty). Mirrors target-handler.gc's 'sidekick spawn.
-       (let ((proc (get-process *default-dead-pool* jak-hd #x8000)))
-         (when proc
-           ((method-of-type jak-hd activate) (the-as jak-hd proc) *target* 'jak-hd (the-as pointer #x70004000))
-           (run-now-in-process proc init-jak-hd)
-           (set! *jak-hd-process* (the (pointer jak-hd) (-> proc ppointer))))))
-      ((and (not want?) alive?)
-       (deactivate (-> *jak-hd-process* 0))))
-    (none)))
+      ((not want?)
+       ;; toggle OFF: despawn every companion, clear the asset latches (re-toggle retries the load).
+       (dotimes (i *hd-scan-companion-count*)
+         (deactivate (-> *hd-scan-companions* i)))
+       (dotimes (e 4)
+         (set! (-> *hd-asset-missing* e) 0)))
+      (else
+       ;; toggle ON: spawn a companion for every uncovered driver instance (per-actor coverage).
+       (dotimes (i *hd-scan-driver-count*)
+         (let* ((drv (-> *hd-scan-drivers* i))
+                (entry (-> *hd-scan-driver-entries* i))
+                (covered #f))
+           ;; already covered? a live companion whose driver handle points at this process.
+           (dotimes (j *hd-scan-companion-count*)
+             (when (= (the-as process-drawable (handle->process (-> (-> *hd-scan-companions* j) driver))) drv)
+               (set! covered #t)))
+           (when (and (not covered) (zero? (-> *hd-asset-missing* entry)))
+             ;; Spawn as a CHILD of the driver (its :post runs after the driver's, so the driver
+             ;; bones are valid) from the DYNAMIC heap pool *default-dead-pool* — *16k-dead-pool*
+             ;; is exhausted in-game. Mirrors target-handler.gc's 'sidekick spawn.
+             (let ((proc (get-process *default-dead-pool* jak-hd #x8000)))
+               (when proc
+                 ((method-of-type jak-hd activate) (the-as jak-hd proc) drv 'jak-hd (the-as pointer #x70004000))
+                 (run-now-in-process proc init-jak-hd entry)))))))))
+  (none))
 
 ) ;; #when FLAG_HD_MODELS

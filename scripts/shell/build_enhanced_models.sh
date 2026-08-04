@@ -49,8 +49,17 @@ FR3_DIR="out/jak1/fr3"
 ENHANCED_OUT="$FR3_DIR/enhanced"
 SWAP_BIN="build/tools/hd_merc_swap/hd_merc_swap"
 
-# The merc-ctrl names whose "Replacing <name> for <lvl>" line MUST appear, and their target fr3.
-REPLACE_NAMES=(eichar-lod0 sidekick-lod0 sage-lod0 assistant-lod0)
+# M4: the canonical HD character set — "<char>|<donor rip GLB>|<target level fr3>".
+# Each entry is APPENDED (never re-rig REPLACEd) as merc model <char>-lod0 into the target fr3.
+# Per-entry IP gate: a missing donor rip is a loud SKIP, not a failure.
+APPENDS=(
+  "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME"
+  "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME"
+  "keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|village1"
+  "samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|village1"
+)
+# The fr3 that receive appends, in order.
+APPEND_LEVELS=(GAME village1)
 
 # The donor dump the HD art is derived from. jak1's 4 HD characters are ripped from the Jak 2
 # dump (fr3_to_gltf on decompiler_out/jak2 <- iso_data/jak2). Named here so the IP gate is explicit.
@@ -75,15 +84,17 @@ log "donor dump '$DONOR_DUMP' present — HD generation permitted (ND-derived as
 #    re-rig REPLACE of eichar/sidekick/sage/assistant — that REPLACE deformed the characters (the
 #    owner's "carnage"). Donor rip absent -> stock (no-op success).
 # ---------------------------------------------------------------------------
-HD_DONOR_GLB="decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb"
-if [ ! -f "$HD_DONOR_GLB" ]; then
-  log "HD donor rip $HD_DONOR_GLB absent — skipping enhanced HD bake (jak1 builds stock, toggle hidden)"
+ANY_DONOR=0
+for entry in "${APPENDS[@]}"; do
+  glb="${entry#*|}"; glb="${glb%|*}"
+  [ -f "$glb" ] && ANY_DONOR=1
+done
+if [ "$ANY_DONOR" -eq 0 ]; then
+  log "no HD donor rip present for any of the 4 characters — skipping enhanced HD bake (jak1 builds stock, toggle hidden)"
   exit 0
 fi
-JAKHD_TMP="$(mktemp -d)"; JAKHD_GLB="$JAKHD_TMP/jak-hd-lod0.glb"
-trap 'rm -rf "$JAKHD_TMP"' EXIT
-python3 scripts/shell/prep_hd_actor_glb.py --in "$HD_DONOR_GLB" --out "$JAKHD_GLB" >/dev/null 2>&1 \
-  || { log "prep of jak-hd-lod0.glb from the donor failed"; exit 1; }
+HD_TMP="$(mktemp -d)"
+trap 'rm -rf "$HD_TMP"' EXIT
 
 # ---------------------------------------------------------------------------
 # 2. Require the stock FR3 (read-only source of the swap).
@@ -112,26 +123,63 @@ rm -rf "$ENHANCED_OUT"
 mkdir -p "$ENHANCED_OUT"
 
 # ---------------------------------------------------------------------------
-# 5. Surgical swaps. Each writes a fresh enhanced fr3 from the STOCK fr3, swapping ONLY the
-#    named merc model(s). replace_model emits the "Replacing <name> for <lvl>: …" line.
+# 5. APPEND stage. For each target level fr3 we start from the STOCK fr3 and chain one
+#    `hd_merc_swap add` per character destined to that level (through intermediate tmp fr3),
+#    writing the final result to enhanced/<lvl>.fr3. Append-only: NO re-rig replace, so every
+#    stock character stays untouched. Per-character IP gate: missing donor rip -> loud SKIP.
 # ---------------------------------------------------------------------------
-SWAP_LOG="$(mktemp)"
-log "anim-retarget: APPEND jak-hd-lod0 to GAME.fr3 (append-only, NO re-rig replace)…"
-"$SWAP_BIN" add "$FR3_DIR/GAME.fr3" "$JAKHD_GLB" "$ENHANCED_OUT/GAME.fr3" 2>&1 | tee -a "$SWAP_LOG"
-if ! grep -qE "APPENDED .*jak-hd-lod0" "$SWAP_LOG"; then
-  log "APPEND verification FAILED — no 'APPENDED … jak-hd-lod0' line."
-  rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
-fi
-rm -f "$SWAP_LOG"
-log "jak-hd-lod0 merc geometry appended to enhanced/GAME.fr3 (stock characters untouched)."
+APPENDED_LEVELS=()
+for lvl in "${APPEND_LEVELS[@]}"; do
+  SRC="$FR3_DIR/$lvl.fr3"
+  n_app=0
+  for entry in "${APPENDS[@]}"; do
+    char="${entry%%|*}"
+    rest="${entry#*|}"
+    glb="${rest%%|*}"
+    target="${rest#*|}"
+    [ "$target" = "$lvl" ] || continue
+    if [ ! -f "$glb" ]; then
+      log "SKIP $char — donor rip '$glb' absent (ND IP gate); $lvl.fr3 will not carry $char-lod0"
+      continue
+    fi
+    PREPPED="$HD_TMP/$char-lod0.glb"
+    python3 scripts/shell/prep_hd_actor_glb.py --in "$glb" --out "$PREPPED" >/dev/null 2>&1 \
+      || { log "prep of $char-lod0.glb from '$glb' failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
+
+    n_app=$((n_app + 1))
+    DST="$HD_TMP/$lvl.step$n_app.fr3"
+    SWAP_LOG="$(mktemp)"
+    log "anim-retarget: APPEND $char-lod0 to $lvl.fr3 (step $n_app, append-only, NO re-rig replace)…"
+    "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" 2>&1 | tee -a "$SWAP_LOG"
+    if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
+      log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
+      rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    rm -f "$SWAP_LOG"
+    SRC="$DST"
+  done
+  if [ "$n_app" -gt 0 ]; then
+    cp "$SRC" "$ENHANCED_OUT/$lvl.fr3"
+    APPENDED_LEVELS+=("$lvl.fr3")
+    log "$n_app HD merc model(s) appended to enhanced/$lvl.fr3 (stock characters untouched)."
+  else
+    # No character could be appended to this level (all donors missing) — ship the STOCK copy so
+    # it OVERWRITES any old cursed re-rig overlay left on the owner's device by a previous pack.
+    if [ -f "$FR3_DIR/$lvl.fr3" ]; then
+      cp -p "$FR3_DIR/$lvl.fr3" "$ENHANCED_OUT/$lvl.fr3"
+      log "no HD donor for $lvl — stock-identical enhanced/$lvl.fr3 shipped (overwrites any old cursed overlay)"
+    fi
+  fi
+done
 
 # ---------------------------------------------------------------------------
-# 6. INTEGRITY GATE — every non-character draw in the enhanced fr3 MUST be byte-identical to
-#    stock (this is the anti-magenta guarantee). Refuse to ship on any divergence.
+# 6. INTEGRITY GATE — every non-character draw in each APPENDED enhanced fr3 MUST be
+#    byte-identical to stock (this is the anti-magenta guarantee). Refuse to ship on divergence.
 # ---------------------------------------------------------------------------
-for f in GAME.fr3; do
+for f in "${APPENDED_LEVELS[@]-}"; do
+  [ -n "$f" ] || continue
   if "$SWAP_BIN" diff "$FR3_DIR/$f" "$ENHANCED_OUT/$f" | grep -q "INTEGRITY PASS"; then
-    log "integrity gate PASS for $f (non-character draws byte-identical to stock; jak-hd-lod0 appended)."
+    log "integrity gate PASS for $f (non-character draws byte-identical to stock; HD merc appended)."
   else
     log "INTEGRITY GATE FAILED for $f — non-character draws differ from stock. Refusing to ship."
     rm -rf "$ENHANCED_OUT"
@@ -142,17 +190,11 @@ done
 # ---------------------------------------------------------------------------
 # 7. village2.fr3 — ship a stock-identical copy to OVERWRITE any round-1 stale garbled
 #    overlay on an in-place owner update (behaviorally identical to stock either way).
+#    (village1.fr3 is an APPEND target since M4 — keira-hd + samos-hd — so it is written above.)
 # ---------------------------------------------------------------------------
 if [ -f "$FR3_DIR/village2.fr3" ]; then
   cp -p "$FR3_DIR/village2.fr3" "$ENHANCED_OUT/village2.fr3"
   log "stock-identical enhanced/village2.fr3 shipped (kills round-1 stale garbled overlay)"
-fi
-# village1.fr3 — ship a STOCK-identical copy so it OVERWRITES the OLD cursed re-rig enhanced/village1.fr3
-# left on the owner's device from a previous pack (Samos/Keira were still cursed because the new pack
-# didn't carry village1 and an extract-over-existing never removes it). Stock copy = normal Samos/Keira.
-if [ -f "$FR3_DIR/village1.fr3" ]; then
-  cp -p "$FR3_DIR/village1.fr3" "$ENHANCED_OUT/village1.fr3"
-  log "stock-identical enhanced/village1.fr3 shipped (OVERWRITES any old cursed re-rig village1 on device)"
 fi
 
 # ---------------------------------------------------------------------------
