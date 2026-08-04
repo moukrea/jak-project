@@ -30,13 +30,18 @@ say(){ echo "$*" | tee -a "$LOG"; }
 die(){ say "[devAB FAIL] $*"; exit 1; }
 pidof_app(){ $ADB -s "$S" shell pidof $PKG 2>/dev/null | tr -d '\r'; }
 
-set_enhanced(){ local want="$1" tmp; tmp=$(mktemp)
+set_enhanced(){ # $1 = enhanced '#t'|'#f', $2 = master '#t'|'#f' — BOTH matter:
+  # Loader gates the enhanced fr3 on Gfx::recharged_active(enhanced) which folds in the
+  # GLOBAL recharged-master? (Redmi bench had master #f -> 08:09 run silently STOCK with
+  # enhanced-toggle=true). Both legs run master #t so the ONLY A/B variable is enhanced.
+  local want="$1" master="$2" tmp; tmp=$(mktemp)
   $ADB -s "$S" pull "$PCS_DEV" "$tmp" >/dev/null 2>&1 || die "cannot pull $PCS_DEV"
   sed -i "s/recharged-enhanced-models? = #[tf]/recharged-enhanced-models? = $want/" "$tmp"
+  sed -i "s/recharged-master? = #[tf]/recharged-master? = $master/" "$tmp"
   $ADB -s "$S" push "$tmp" "$PCS_DEV" >/dev/null 2>&1 || die "cannot push settings"; rm -f "$tmp"
-  local now; now=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -a 'recharged-enhanced-models?' | tr -d '\r')
-  [[ "$now" == *"$want"* ]] || die "toggle write did not stick ('$now')"
-  say "device toggle: $now"
+  local now; now=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -aE 'recharged-(enhanced-models|master)\?' | tr -d '\r' | tr '\n' ' ')
+  [[ "$now" == *"recharged-enhanced-models? = $want"* && "$now" == *"recharged-master? = $master"* ]] || die "toggle write did not stick ('$now')"
+  say "device toggles: $now"
 }
 
 say "===== defect-7 DEVICE A/B (pad_replay, geyser anchor) — $(date -Is) ====="
@@ -48,25 +53,28 @@ bash .autoport/lib/deploy_verify.sh "$S" jak1 > "$OUT/devab.deploy_verify.log" 2
 say "deploy_verify: $(tail -1 "$OUT/devab.deploy_verify.log")"
 
 python3 .autoport/hd3_gen_longjump_inputs.py "$INPUTS" "$HEAD_T" | tee -a "$LOG"
-$ADB -s "$S" push "$INPUTS" /sdcard/hd3_pad_demo.inputs >/dev/null 2>&1 || die "push demo failed"
-$ADB -s "$S" shell run-as $PKG cp /sdcard/hd3_pad_demo.inputs files/pad_demo.inputs || die "run-as cp demo failed"
+# run-as cannot read /sdcard on MIUI — stage via /data/local/tmp (dir is o+x, file made o+r)
+$ADB -s "$S" push "$INPUTS" /data/local/tmp/hd3_pad_demo.inputs >/dev/null 2>&1 || die "push demo failed"
+$ADB -s "$S" shell chmod 644 /data/local/tmp/hd3_pad_demo.inputs
+$ADB -s "$S" shell run-as $PKG cp /data/local/tmp/hd3_pad_demo.inputs files/pad_demo.inputs || die "run-as cp demo failed"
 SZ=$($ADB -s "$S" shell run-as $PKG stat -c %s files/pad_demo.inputs | tr -d '\r')
 [ "$SZ" = "$(stat -c%s "$INPUTS")" ] || die "device demo size $SZ != local $(stat -c%s "$INPUTS")"
 say "demo staged on device ($SZ bytes)"
 
 $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
 ORIG_ENH=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -a 'recharged-enhanced-models?' | grep -q '#t' && echo '#t' || echo '#f')
-say "owner's pre-run enhanced value: $ORIG_ENH"
+ORIG_MASTER=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -a 'recharged-master?' | grep -q '#t' && echo '#t' || echo '#f')
+say "pre-run values: enhanced=$ORIG_ENH master=$ORIG_MASTER (both restored at exit)"
 
 cleanup(){
   $ADB -s "$S" shell setprop debug.opengoal.pad_replay '""' >/dev/null 2>&1 || true
   $ADB -s "$S" shell setprop debug.opengoal.f1.warp 0 >/dev/null 2>&1 || true
   $ADB -s "$S" shell setprop debug.opengoal.cpad_inject release >/dev/null 2>&1 || true
   $ADB -s "$S" shell run-as $PKG rm -f files/pad_demo.inputs >/dev/null 2>&1 || true
-  $ADB -s "$S" shell rm -f /sdcard/hd3_pad_demo.inputs >/dev/null 2>&1 || true
+  $ADB -s "$S" shell rm -f /data/local/tmp/hd3_pad_demo.inputs >/dev/null 2>&1 || true
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
-  set_enhanced "$ORIG_ENH" && say "cleanup: props cleared, demo removed, toggle restored ($ORIG_ENH), force-stopped" \
-    || say "cleanup WARNING: could not restore owner's toggle"
+  set_enhanced "$ORIG_ENH" "$ORIG_MASTER" && say "cleanup: props cleared, demo removed, toggles restored (enh=$ORIG_ENH master=$ORIG_MASTER), force-stopped" \
+    || say "cleanup WARNING: could not restore owner's toggles"
   kill "${LCP:-0}" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -75,7 +83,7 @@ run_leg(){ # off|on
   local LEG="$1" TOGGLE LC
   [ "$LEG" = on ] && TOGGLE='#t' || TOGGLE='#f'
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
-  set_enhanced "$TOGGLE"
+  set_enhanced "$TOGGLE" '#t'
   $ADB -s "$S" shell setprop debug.opengoal.pad_replay replay
   $ADB -s "$S" shell setprop debug.opengoal.f1.warp 1
   $ADB -s "$S" logcat -c >/dev/null 2>&1 || true

@@ -37,16 +37,19 @@ say(){ echo "$*" | tee -a "$LOG"; }
 die(){ say "[defect6 FAIL] $*"; exit 1; }
 pidof_app(){ $ADB -s "$S" shell pidof $PKG 2>/dev/null | tr -d '\r'; }
 
-set_enhanced(){ # '#t'|'#f' — app must be stopped
-  local want="$1" tmp; tmp=$(mktemp)
+set_enhanced(){ # $1 = enhanced '#t'|'#f', $2 = master '#t'|'#f' — the Loader gates the
+  # enhanced fr3 on recharged_active(enhanced) which folds in recharged-master? (Redmi bench
+  # had master #f -> silently STOCK with enhanced-toggle=true). App must be stopped.
+  local want="$1" master="$2" tmp; tmp=$(mktemp)
   $ADB -s "$S" pull "$PCS_DEV" "$tmp" >/dev/null 2>&1 || die "cannot pull $PCS_DEV"
   grep -q 'recharged-enhanced-models?' "$tmp" || die "no recharged-enhanced-models? key"
   sed -i "s/recharged-enhanced-models? = #[tf]/recharged-enhanced-models? = $want/" "$tmp"
+  sed -i "s/recharged-master? = #[tf]/recharged-master? = $master/" "$tmp"
   $ADB -s "$S" push "$tmp" "$PCS_DEV" >/dev/null 2>&1 || die "cannot push settings"
   rm -f "$tmp"
-  local now; now=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -a 'recharged-enhanced-models?' | tr -d '\r')
-  say "device settings now: '$now' (wanted $want)"
-  [[ "$now" == *"$want"* ]] || die "toggle write did not stick"
+  local now; now=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -aE 'recharged-(enhanced-models|master)\?' | tr -d '\r' | tr '\n' ' ')
+  say "device settings now: '$now' (wanted enh=$want master=$master)"
+  [[ "$now" == *"recharged-enhanced-models? = $want"* && "$now" == *"recharged-master? = $master"* ]] || die "toggle write did not stick"
 }
 
 say "===== defect-6 intro-cutscene device proof — $(date -Is) ====="
@@ -60,15 +63,16 @@ say "deploy_verify: $(tail -1 "$OUT/defect6.deploy_verify.log")"
 
 $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
 ORIG_ENH=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -a 'recharged-enhanced-models?' | grep -q '#t' && echo '#t' || echo '#f')
-say "owner's pre-run enhanced value: $ORIG_ENH"
-set_enhanced '#t'
+ORIG_MASTER=$($ADB -s "$S" shell cat "$PCS_DEV" 2>/dev/null | grep -a 'recharged-master?' | grep -q '#t' && echo '#t' || echo '#f')
+say "pre-run values: enhanced=$ORIG_ENH master=$ORIG_MASTER (both restored at exit)"
+set_enhanced '#t' '#t'
 
 cleanup(){
   $ADB -s "$S" shell setprop debug.opengoal.echo.intro 0 >/dev/null 2>&1 || true
   $ADB -s "$S" shell setprop debug.opengoal.cpad_inject release >/dev/null 2>&1 || true
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
-  set_enhanced "$ORIG_ENH" && say "cleanup: toggle restored ($ORIG_ENH) + force-stop + echo.intro cleared" \
-    || say "cleanup WARNING: could not restore owner's toggle"
+  set_enhanced "$ORIG_ENH" "$ORIG_MASTER" && say "cleanup: toggles restored (enh=$ORIG_ENH master=$ORIG_MASTER) + force-stop + echo.intro cleared" \
+    || say "cleanup WARNING: could not restore owner's toggles"
   kill "${LCP:-0}" 2>/dev/null || true
 }
 trap cleanup EXIT

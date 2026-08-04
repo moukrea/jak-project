@@ -33,6 +33,17 @@ def combo(lx, ly):
     hold(110, 0, lx, ly)             # flight + landing, stick held
     hold(60)                         # settle neutral
 
+def owner_combo(lx, ly, gap):
+    # OWNER'S EXACT MOVE (morning verdict 2026-08-04): RUNNING FORWARD + R1/R2 + jump,
+    # buttons effectively held together ("le saut est annulé"). gap = ticks between the
+    # R1 press and X joining (0 = same tick, 3 = near-simultaneous human press).
+    hold(70, 0, lx, ly)              # run forward
+    if gap:
+        hold(gap, R1, lx, ly)        # R1 lands first...
+    hold(40, R1 | X, lx, ly)         # ...X joins, BOTH HELD while still running
+    hold(110, 0, lx, ly)             # flight + landing
+    hold(60)                         # settle
+
 def duck_high_jump():
     # owner's words were "R1/R2 + saut" — also cover the STANDING crouch jump:
     # duck-stance (R1 held, stick neutral) + X -> target-high-jump 'duck (target.gc:758-760)
@@ -50,6 +61,8 @@ combo(127, 0)                        # leg 1: stick full up
 combo(127, 255)                      # leg 2: stick full down
 combo(0, 127)                        # leg 3: stick full left
 duck_high_jump()                     # leg 4: standing crouch jump
+owner_combo(127, 0, 3)               # leg 5: OWNER combo, near-simultaneous R1 then +X, running up
+owner_combo(127, 255, 0)             # leg 6: OWNER combo, same-tick R1+X, running down
 hold(300)                            # tail
 
 out = sys.argv[1] if len(sys.argv) > 1 else "/tmp/hd3_longjump.inputs"
@@ -57,4 +70,4 @@ with open(out, "wb") as f:
     f.write(struct.pack("<8sIIIIq32s", b"OGPADRP1", 2, 6, 0x1234, 0, 0, b"\x00" * 32))
     for b0, lx, ly, rx, ry in frames:
         f.write(struct.pack("<HBBBB", b0, lx, ly, rx, ry))
-print(f"{out}: {len(frames)} frames ({len(frames)/60:.1f}s), 3 long-jump combos")
+print(f"{out}: {len(frames)} frames ({len(frames)/60:.1f}s), 3 tap long-jump combos + 1 duck high jump + 2 OWNER held-R1+X combos")
