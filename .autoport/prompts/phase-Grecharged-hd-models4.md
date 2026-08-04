@@ -128,3 +128,11 @@ BRUYAMMENT si des os faciaux/doigts du donor restent non mappés sans justificat
 au lieu de les laisser silencieusement à 0xFF. Un personnage qui ne satisfait pas TOUT ça n'est
 pas « backporté avec des défauts », il n'est PAS backporté. Ceci s'applique au cycle défauts 2
 (les 4 personnages actuels) ET à M5 (chaque look bonus arrive complet d'entrée).
+
+## PROTOCOLE DE RAPPORT PAR ATTEMPT (superviseur 2026-08-04 14:55 — évite le faux-STUCK)
+Le halt "same fingerprint 3x" venait de rapports jamais rafraîchis : chaque attempt DOIT réécrire
+`reports/Grecharged-hd-models4/report.txt` AVANT de se terminer, avec l'état HONNÊTE du cycle 2 :
+RESULT: WIP + ce qui est FAIT (avec preuves) + ce qui RESTE. Un rapport frais mais incomplet fera
+échouer le validator sur la SUBSTANCE manquante (fingerprint différent à chaque progrès = pas de
+faux-stuck) ; un rapport périmé lit comme un attempt mort et 3x = halt du framework. Ne termine pas
+un attempt sans ce refresh.
