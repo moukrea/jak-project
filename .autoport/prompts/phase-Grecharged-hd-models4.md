@@ -136,3 +136,32 @@ RESULT: WIP + ce qui est FAIT (avec preuves) + ce qui RESTE. Un rapport frais ma
 échouer le validator sur la SUBSTANCE manquante (fingerprint différent à chaque progrès = pas de
 faux-stuck) ; un rapport périmé lit comme un attempt mort et 3x = halt du framework. Ne termine pas
 un attempt sans ce refresh.
+
+## ============================================================
+## VERDICT OWNER 2026-08-04 ~19:00 (build cycle-2 testé sur son Honor) — CYCLE 3
+## ============================================================
+ACQUIS (owner) : « les personnages sont enfin VIVANTS » — visages animés sur les 4 (Jak animé,
+Daxter bien animé, Samos quasi parfait, Keira la mieux des quatre). NE PAS RÉGRESSER LÀ-DESSUS.
+
+### PRIORITÉ 1 — RÉGRESSION : le clignotement des PNJ en cinématique EST REVENU
+Disparition/réapparition des PNJ pendant les cinématiques — c'était CORRIGÉ (d4fddfd245, owner-confirmé
+défaut 5) et le cycle 2 l'a RÉINTRODUIT. Suspects : le remaniement per-actor de la suppression Merc2
+du cycle 2, ou l'épuisement d'un pool par frame avec 4 companions + blerc slots actifs en scène
+(buckets/bones/adgifs high-water pendant une cutscene chargée). Bisecter contre le build cycle-1 si
+besoin — c'est régression-class, ça bloque tout token.
+
+### Par personnage (cycle 3) :
+- **Daxter** : (a) bas du visage toujours absent/transparent ; (b) corps PLEIN DE PETITS TROUS,
+  pire à la TÊTE (on voit au travers). Hypothèse owner plausible : la fourrure Jak 3 = astuce de
+  rendu (shells/alpha-test/backface) MAL backportée → trous/transparence. Étudier comment jak3
+  rend daxter-highres (draw modes/alpha des effets fourrure) et porter le mode de rendu correct
+  (alpha-test vs blend, double-face, ordre).
+- **Jak** : gap bandeau/cheveux TOUJOURS là (classe C, jamais fixé) + clipping bleu/blanc TOUJOURS
+  (classe D). Ces deux-là ont survécu à 2 cycles — les traiter pour de bon.
+- **Samos** : la barbe CLIP dans le corps sur certaines anims + le BOUT pointe toujours vers l'avant
+  (chaîne de barbe : mapping partiel — le bout non mappé reste en repos → régler par mapping du bout
+  sur le parent le plus proche ou ajout des joints manquants à la table).
+- **Keira** : quand elle CLIGNE des yeux → yeux NOIRS bizarres (interaction paupière blerc × texture
+  d'œil : le blink ferme la paupière mais la texture/UV derrière est mauvaise, ou l'eye-remap pointe
+  un slot qui devient noir pendant le blend). La mieux des 4 sinon.
+Rappel : preuves device par classe + captures/vidéo, l'owner juge. Livraison jak-builds.
