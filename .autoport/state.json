@@ -222,7 +222,7 @@
     "Grecharged-menu-overhaul": 1,
     "Grecharged-hd-models3": 3,
     "Grecharged-hd-models4": 3,
-    "Gtouch-longjump-regression": 1
+    "Gtouch-longjump-regression": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -920,7 +920,7 @@
     "Grecharged-hd-models4": 1785826634.2986207,
     "Gtouch-longjump-regression": 1785831811.5772808
   },
-  "last_update": "2026-08-04T09:09:48.846376+00:00",
+  "last_update": "2026-08-04T09:55:16.495971+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
