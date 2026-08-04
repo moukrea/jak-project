@@ -98,3 +98,13 @@ n'est pas tip top ») :
 Positif owner : Keira « la moins buggée », Samos « vraiment pas mal » à part verres/barbe.
 ORDRE : C-Daxter (mâchoire, cursed) > A (yeux, un fix pour 3) > D (doigts/barbe/mapping) > E (fourrure)
 > B (visages/blerc) > F (sourcing Keira). Preuves device par personnage, l'owner juge.
+
+### CORRECTION OWNER 2026-08-04 ~11:05 sur la classe B (visages) — LA BARRE EST : TOUTES LES ANIMS
+« Au minimum la mâchoire qui parle... Non faut TOUTES les animations ! »
+=> Le fallback mâchoire-seule N'EST PAS la cible, et « documenter la limite » N'EST PAS une sortie
+acceptable pour cette classe. La barre : le visage HD reproduit TOUTES les animations faciales du
+driver (blerc/blend-targets complets, yeux compris — la classe A eye_id et la classe B convergent ici).
+Investiguer à fond le pipeline facial : comment jak1 anime les visages (blerc channels sur le driver),
+ce que portent les modèles ciné jak2/jak3 (leurs propres blend-targets, a priori PLUS riches), et le
+mapping canal→target par personnage. Si un canal donné n'a réellement AUCUNE contrepartie dans le
+modèle HD, le documenter cas par cas avec la preuve — pas d'abandon de classe entière.
