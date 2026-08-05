@@ -2349,7 +2349,7 @@ phases:
     réglage (audit bindings value-to-modify), displacement sélectionnable; les features HD/PBR restent
     accessibles depuis l''ancien menu. Pas de preuves visuelles: bindings/state dumps.'
   prompt: prompts/phase-Gmenu-flag-off.md
-  validator: validators/phase-Grecharged-hd-models4.sh
+  validator: validators/phase-Gmenu-flag-off.sh
   max_turns: 3000
   max_retries: 6
   device: true
@@ -2361,7 +2361,7 @@ phases:
     (bottines + visage remodelé); Daxter avec pantalon (fin Jak 3); Young Samos (Jak 2); Jak version Jak 2
     et Jak version Jak 3. Roadmap détaillée: memory project_hd_model_sourcing_roadmap + prompt M2.'
   prompt: prompts/phase-Grecharged-hd-models5.md
-  validator: validators/phase-Grecharged-hd-models3.sh
+  validator: validators/phase-Grecharged-hd-models4.sh
   max_turns: 3000
   max_retries: 6
   device: true
@@ -2380,7 +2380,7 @@ phases:
     companions (do-joint-math! après le retarget), os de physique injectables au prep si le donor
     n''en a pas. Détail complet: prompts/phase-Grecharged-secondary-motion.md.'
   prompt: prompts/phase-Grecharged-secondary-motion.md
-  validator: validators/phase-Grecharged-hd-models4.sh
+  validator: validators/phase-Grecharged-secondary-motion.sh
   max_turns: 3000
   max_retries: 6
   device: true
