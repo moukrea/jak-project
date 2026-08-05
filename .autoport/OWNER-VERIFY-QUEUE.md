@@ -265,3 +265,14 @@ cran du menu applique bien SES paramètres) — si tu testes un niveau du milieu
 étrange, c'est la partie en vol.
 À TESTER (toi) : menu → toggle PHYSICS + niveau de précision ; le jiggle de Keira (« rien de fou » ?),
 la barbe de Samos, les vêtements/lanières/cheveux de Jak — subtilité et cohérence, ton œil tranche.
+
+### PRÉ-GATE 16:25 [✅ token PHYSIQUE] — la phase est validée, le build 15:58 est LE final
+- Sim verlet/ressort dans les companions : gravité, contraintes, cônes d'angle, collisions corps
+  (gatées par niveau), sécurité anti-NaN (0 déclenchements). OFF = stock bit-exact. Chaînes sur LES
+  10 LOOKS (poitrine Keira native — rBoob/lBoob existaient dans le rig ! —, barbe+queue+bûches Samos,
+  cheveux+col+12 lanières+pans de tunique+ceinture Jak, oreilles+queues Daxter, etc.).
+- BONUS itération : les paramètres (raideur/amorti/gravité/angles par chaîne) sont dans
+  recharged_assets/physics_chains.txt, HOT-ÉDITABLE et livré dans le pack — ton feedback de tuning
+  s'appliquera sans rebuild complet.
+- Ton verdict visuel = la suite du tuning. Phase suivante : CYCLE 5 HD (jakm identique + bretelles
+  résiduelles — peut-être déjà réglées par les chaînes physiques ! — + inventaire des looks de Jak).
