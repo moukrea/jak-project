@@ -273,3 +273,8 @@ les looks de Jak 3 s'il y en a plusieurs, etc. »
    documenter ligne par ligne.
 NOTE : le recensement (1) va vite (scan d'art-groups) — le mettre dans le rapport du cycle en cours
 même si l'intégration s'étale ; l'owner veut voir la liste de ce qui existe.
+### PRÉCISION OWNER (~11:06) : « Mais que les versions CINÉMATIQUES hein ! »
+=> Le recensement et l'intégration ne portent QUE sur les modèles *-highres de CUTSCENES (les
+versions cinématiques haute qualité). EXCLURE les modèles in-game low-poly (jak-lod*, versions
+gameplay) et toute variante non-cinématique. En cas de doute sur un art-group : vérifier qu'il
+vient d'un niveau/DGO de cutscene et que son budget tris est de classe "highres".
