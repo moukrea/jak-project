@@ -153,3 +153,11 @@ confirmé structurel — l'eye-remap sert les pupilles JAK 1 ; le port des iris 
   de disparitions) ; ③ re-vérifier Daxter (trous/tête), gap Jak, clipping, barbe, doigts ;
   ④ pupilles/blink : voir rapport worker (peut rester en cours — pas re-testé si inchangé).
 - Phase suivante : Gmenu-flag-off (l'ancien menu fonctionnel restauré dans les builds).
+
+### PRÉ-GATE 04:58 [✅ token Gmenu-flag-off] — L'ANCIEN MENU FONCTIONNEL EST DE RETOUR
+- Prouvé : refonte compilée-out (OFF par défaut dans tous les builds livrés), audit complet des
+  bindings (zéro collision, zéro paramètre fantôme), **displacement parallax/tess/none DE RETOUR et
+  opérationnel** (testé runtime), toggles HD/PBR accessibles depuis l'ancien menu. deploy_verify PASS.
+- À TESTER (toi) : ouvrir le menu → l'ancienne structure ; régler le displacement ; vérifier tes
+  réglages favoris ne se marchent plus dessus.
+- Phase suivante : M5 (looks bonus, chaque personnage complet d'entrée).
