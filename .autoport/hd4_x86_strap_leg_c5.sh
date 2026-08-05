@@ -5,6 +5,7 @@
 # collider lines (strap-only chest r=800 + hips r=700 for botstraps) + chain-bitmask FFI + push=/
 # maxpen= window counters. Honest per-level behavior:
 #   OFF   physics?=#f       -> ZERO [HD-PHYS] windows (straps = pure cycle-4 retarget)
+# Keira looks under test: hd-look-keira=1 (keira-hd) and hd-look-keira=2 (keira3-hd).
 #   LIGHT quality=0 cm=1    -> strap chains (class=secondary, bit 2) NOT simulated, collide=0
 #   FULL  quality=1 cm=3    -> straps simulated WITH collision (strap colliders live)
 #   MAX   quality=2 cm=7    -> same + 240Hz fixed-step
@@ -46,7 +47,10 @@ if grep -q '^recharged-master? = #f' "$INI"; then say "FAIL: recharged-master? #
 FAILED=0
 run_leg(){ # run_leg <tag> <physics> <quality> <keira-look> <expect: off|nostrap|collide>
   local TAG="$1" PHY="$2" QUAL="$3" KLOOK="$4" EXPECT="$5"
-  local AGN="keira-hd"; [ "$KLOOK" = 3 ] && AGN="keira3-hd"
+  # hd-look-keira: 1 -> entry 2 keira-hd, 2 -> entry 7 keira3-hd (jak-hd.gc hd-entry-for-char-look).
+  # Anything else maps to -1 = NO companion (stock Keira) — driving 3 here would silently test stock.
+  local AGN="keira-hd"; [ "$KLOOK" = 2 ] && AGN="keira3-hd"
+  [ "$KLOOK" = 1 ] || [ "$KLOOK" = 2 ] || { say "FAIL($1): keira look $KLOOK has no HD entry"; FAILED=1; return; }
   set_ini 'recharged-enhanced-models?' '#t'
   set_ini 'physics?' "$PHY"
   set_ini 'physics-quality' "$QUAL"
@@ -105,9 +109,9 @@ run_leg(){ # run_leg <tag> <physics> <quality> <keira-look> <expect: off|nostrap
 run_leg OFF  '#f' 1 1 off
 run_leg L0   '#t' 0 1 nostrap
 run_leg L1-K '#t' 1 1 collide
-run_leg L1-3 '#t' 1 3 collide
+run_leg L1-3 '#t' 1 2 collide
 run_leg L2-K '#t' 2 1 collide
-run_leg L2-3 '#t' 2 3 collide
+run_leg L2-3 '#t' 2 2 collide
 
 say ""
 if [ "$FAILED" = 0 ]; then say "[strap-c5-leg PASS] per-level behavior + both looks proven"; exit 0

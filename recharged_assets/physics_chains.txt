@@ -246,3 +246,32 @@ chain pantlegL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=3
 j Lpantleg
 chain pantlegR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=35 inertia=1.0 stretch=0.03 radius=40
 j Rpantleg
+
+# donor: jak2-hd (identical joint names — same jak2 cutscene rig)
+[model jakp-hd]
+chain hair class=primary stiffness=2.6 damping=0.30 gravity=0.15 maxangle=18 inertia=1.0 stretch=0.02 radius=80
+j MhairA
+j MhairB
+chain horns class=accessory stiffness=4.5 damping=0.40 gravity=0.0 maxangle=10 inertia=0.9 stretch=0.01 radius=50
+j horns
+chain kneestrapL class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
+j kneeLStrap
+chain kneestrapR class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
+j kneeRStrap
+chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=40 inertia=1.0 stretch=0.03 radius=45
+j packStrapTop
+chain pantsL class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+j pantsLthigh
+chain pantsR class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+j pantsRthigh
+collider chest radius=500
+
+# donor: jak3-hd (identical joint names — same jak3 cutscene rig)
+[model jakf-hd]
+chain hair class=primary stiffness=2.6 damping=0.30 gravity=0.15 maxangle=18 inertia=1.0 stretch=0.02 radius=80
+j MhairA
+chain horns class=accessory stiffness=4.5 damping=0.40 gravity=0.0 maxangle=10 inertia=0.9 stretch=0.01 radius=50
+j horns
+chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=40 inertia=1.0 stretch=0.03 radius=45
+j packStrapTop
+collider chest radius=500

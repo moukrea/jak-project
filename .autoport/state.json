@@ -498,6 +498,7 @@
       "148d3922555a"
     ],
     "Grecharged-hd-models4": [
+      "84372a3eba35",
       "84372a3eba35"
     ]
   },
@@ -933,7 +934,7 @@
     "Grecharged-secondary-motion": 1785927178.8590672,
     "Grecharged-hd-models4": 1785939731.6130211
   },
-  "last_update": "2026-08-05T15:18:22.705978+00:00",
+  "last_update": "2026-08-05T15:29:11.655063+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -950,7 +951,8 @@
     "Grecharged-directional-ambient": 2,
     "Grecharged-pbr-realtime-fusion": 1,
     "Grecharged-mesh-browser": 86,
-    "Grecharged-hd-models3": 2
+    "Grecharged-hd-models3": 2,
+    "Grecharged-hd-models4": 2
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",

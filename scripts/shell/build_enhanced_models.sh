@@ -83,6 +83,8 @@ declare -A LID_TEX=(
   [keira3-hd]=keira-eyelid
   [ysamos-hd]=samos-eyelid
   [jakm-hd]=jakchires-eyelid
+  [jakp-hd]=jakb-eyelid
+  [jakf-hd]=jakchires-eyelid
 )
 # CYCLE 5 item 1 (Jak 3 MASQUE BAISSÉ = BARE FACE): jak3 has NO separate unmasked art-group — the
 # jakc donor carries the mask BOTH ways, as TWO SEPARATE SCARF EFFECTS on jakc-highres-lod0 (the
@@ -106,6 +108,10 @@ declare -A BAKE_TARGET=(
 declare -A EXTRA_ADD_ARGS=(
   [jakm-hd]="--drop-effect 0 --strip-target 15 --strip-target 22 --strip-target 23"
 )
+# CYCLE 5 item 3 (exhaustive inventory): two further cutscene-only Jak looks the earlier sweeps
+# missed — jakp-hd = the owner-named "Jak II PRISON" look (Jak 2 prison/experiments cutscenes,
+# donor jak2 ldjakbrn) and jakf-hd = the Jak 3 cutscene look whose boots are replaced by FOOT
+# WRAPS (donor jak3 ljkfeet). Both are plain appends: no drop-effect, no blerc strip, no bake.
 APPENDS=(
   "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0|"
   "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|"
@@ -117,6 +123,8 @@ APPENDS=(
   "keira3-hd|decompiler_out/jak3/levels/lkeira/keira-highres-lod0.glb|GAME|out/jak3/fr3/lkeira.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3"
   "ysamos-hd|decompiler_out/jak2/levels/lysamsam/youngsamos-highres-lod0.glb|GAME|out/jak2/fr3/lysamsam.fr3|youngsamos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3"
   "jakm-hd|decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb|GAME|out/jak3/fr3/ljakc.fr3|jakc-highres-lod0|eichar-lod0|"
+  "jakp-hd|decompiler_out/jak2/levels/ldjakbrn/jak-highres-prison-lod0.glb|GAME|out/jak2/fr3/ldjakbrn.fr3|jak-highres-prison-lod0|eichar-lod0|"
+  "jakf-hd|decompiler_out/jak3/levels/ljkfeet/jakc-feet-lod0.glb|GAME|out/jak3/fr3/ljkfeet.fr3|jakc-feet-lod0|eichar-lod0|"
 )
 # The fr3 that receive appends, in order.
 APPEND_LEVELS=(GAME village1)

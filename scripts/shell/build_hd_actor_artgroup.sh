@@ -110,7 +110,16 @@ case "$CHAR" in
   # (there is no separate masked art-group in jak3 — the lowered goggles are a blerc blend target,
   # baked into the merc verts at append time by hd_merc_swap --bake-blerc-target). Same driver,
   # same strict gate, no flags — identical to jak3-hd here.
-  jak2-hd|jak3-hd|jakm-hd)
+  # CYCLE 5 item 3 (owner 11:05 "il me les FAUT TOUS", cinematic-only): the exhaustive scan of the
+  # jak2+jak3 dumps found exactly TWO cinematic Jak geometries we had never shipped —
+  #   jakp-hd = jak2 ldjakbrn jak-highres-prison-lod0 (the prison / dark-eco EXPERIMENTS look the
+  #             owner named; 63 joints, the same rig size as jak2-hd)
+  #   jakf-hd = jak3 ljkfeet  jakc-feet-lod0          (Jak 3 with the boots replaced by foot wraps /
+  #             bare limbs; 59 joints, the same rig size as jak3-hd/jakm-hd)
+  # Both ride the SAME eichar-lod0 driver rig with the jak2/jak3 outfits (no jak1 shirt* cloth-sim
+  # joints), so like jak2-hd/jak3-hd they take NO flags and run under the default STRICT
+  # FACE-FINGER-GATE (no unmapped face/finger joint tolerated).
+  jak2-hd|jak3-hd|jakm-hd|jakp-hd|jakf-hd)
     TABLE_FLAGS=() ;;
   # M5: daxp-hd (jak3 loutro2 ottsel-daxpants) is a Daxter donor on the SAME sidekick-lod0 rig ->
   # inherits dax-hd's --accept-unmapped set verbatim.

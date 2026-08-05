@@ -6725,17 +6725,19 @@
 (def-progress-carousell *carousell-pbr-isolate* (pc-text-pbr-iso-both pc-text-pbr-iso-nm pc-text-pbr-iso-pom pc-text-pbr-iso-neither))
 ;; Grecharged-hd-models5: the four per-character HD LOOK carousells (JAK / DAXTER / KEIRA / SAMOS).
 ;; Their OPTION strings use the PBR-ISOLATE durability mechanism, NOT the COMMON.TXT text bank:
-;; each entry is a RESERVED tag id (#x17b0..#x17b5, past the last allocated text-h.gc id #x17ac)
+;; each entry is a RESERVED tag id (#x17b0..#x17b6 + #x17bc/#x17bd, past the last allocated text-h.gc id #x17ac)
 ;; that carousell-option-string resolves to a RUNTIME GLOBAL string (*hd-look-*-label*). That is why
 ;; raw ids appear here instead of (text-id sym): the static boxed-array needs a compile-time constant,
 ;; the ids are never looked up in a text bank, and a stale Android COMMON.TXT can never turn these
 ;; into "Unknown ID". English-only, exactly like the PBR ISOLATE options.
 ;;   #x17b0 ORIGINAL  #x17b1 HD  #x17b2 JAK II  #x17b3 JAK 3  #x17b4 PANTS  #x17b5 YOUNG
-;;   #x17b6 JAK 3 MASKED (cycle-4 item 3: jakm-hd, goggles-down blerc target baked at append)
+;;   #x17b6 JAK 3 MASKED (cycle-4 item 3: jakm-hd, over-nose scarf effect dropped at append)
+;;   #x17bc JAK II PRISON (cycle-5 item 3: jakp-hd, jak2 ldjakbrn prison/experiments cutscene)
+;;   #x17bd JAK 3 BAREFOOT (cycle-5 item 3: jakf-hd, jak3 ljkfeet foot-wraps cutscene)
 ;; Defined UNCONDITIONALLY (not under FLAG_HD_MODELS), like the PBR ISOLATE option labels, so the
 ;; shared respond-common carousell arms compile in every build config; only the ROWS and their
 ;; wiring/labels are flag-gated.
-(define *carousell-hd-look-jak* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b2 #x17b3 #x17b6))
+(define *carousell-hd-look-jak* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b2 #x17b3 #x17b6 #x17bc #x17bd))
 (define *carousell-hd-look-daxter* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b4))
 (define *carousell-hd-look-keira* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b3))
 (define *carousell-hd-look-samos* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b5))
@@ -7658,7 +7660,7 @@
 (define *hd-look-samos-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *hd-look-samos-label*) "SAMOS LOOK"))
 ;; Grecharged-hd-models5: the six HD LOOK carousell OPTION labels. Runtime globals resolved by
-;; carousell-option-string from the reserved tag ids #x17b0..#x17b5 (see the carousell arrays above) —
+;; carousell-option-string from the reserved tag ids #x17b0..#x17b6 + #x17bc/#x17bd (see the carousell arrays above) —
 ;; the same stale-text-bank-proof mechanism as the PBR ISOLATE options. Defined UNCONDITIONALLY (not
 ;; under FLAG_HD_MODELS) so the shared resolver compiles in every build config.
 (define *hd-look-original-label* (new 'global 'string 32 (the-as string #f)))
@@ -7668,6 +7670,8 @@
 (define *hd-look-pants-label* (new 'global 'string 32 (the-as string #f)))
 (define *hd-look-young-label* (new 'global 'string 32 (the-as string #f)))
 (define *hd-look-jak3m-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-jak2p-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-jak3f-label* (new 'global 'string 32 (the-as string #f)))
 (format (clear *hd-look-original-label*) "ORIGINAL")
 (format (clear *hd-look-hd-label*) "HD")
 (format (clear *hd-look-jak2-label*) "JAK II")
@@ -7675,6 +7679,8 @@
 (format (clear *hd-look-pants-label*) "PANTS")
 (format (clear *hd-look-young-label*) "YOUNG")
 (format (clear *hd-look-jak3m-label*) "JAK 3 MASKED")
+(format (clear *hd-look-jak2p-label*) "JAK II PRISON")
+(format (clear *hd-look-jak3f-label*) "JAK 3 BAREFOOT")
 ;; Grecharged-secondary-motion: the PHYSICS on-off ROW label and the PHYSICS DETAIL carousell ROW
 ;; label (name-override), gated with the rows themselves. Same convention as *enhanced-models-label*:
 ;; English-only, uppercase ASCII for the menu font, never re-formatted. Tag ids #x17b7 (PHYSICS) and
@@ -9010,8 +9016,8 @@
     ((= id (text-id pc-text-pbr-iso-nm)) *pbr-iso-nm-label*)
     ((= id (text-id pc-text-pbr-iso-pom)) *pbr-iso-pom-label*)
     ((= id (text-id pc-text-pbr-iso-neither)) *pbr-iso-neither-label*)
-    ;; Grecharged-hd-models5: the six HD LOOK option strings use the same runtime-global route, keyed
-    ;; on the reserved tag ids #x17b0..#x17b5 (never present in any text bank).
+    ;; Grecharged-hd-models5: the nine HD LOOK option strings use the same runtime-global route, keyed
+    ;; on the reserved tag ids #x17b0..#x17b6 + #x17bc/#x17bd (never present in any text bank).
     ((= id (the-as text-id #x17b0)) *hd-look-original-label*)
     ((= id (the-as text-id #x17b1)) *hd-look-hd-label*)
     ((= id (the-as text-id #x17b2)) *hd-look-jak2-label*)
@@ -9019,6 +9025,9 @@
     ((= id (the-as text-id #x17b4)) *hd-look-pants-label*)
     ((= id (the-as text-id #x17b5)) *hd-look-young-label*)
     ((= id (the-as text-id #x17b6)) *hd-look-jak3m-label*)
+    ;; cycle-5 item 3: the two last cinematic Jak looks (jakp-hd / jakf-hd).
+    ((= id (the-as text-id #x17bc)) *hd-look-jak2p-label*)
+    ((= id (the-as text-id #x17bd)) *hd-look-jak3f-label*)
     ;; Grecharged-secondary-motion: the three PHYSICS DETAIL option strings use the same runtime-global
     ;; route, keyed on the reserved tag ids #x17b9..#x17bb (never present in any text bank).
     ((= id (the-as text-id #x17b9)) *physics-light-label*)

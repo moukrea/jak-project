@@ -56,8 +56,9 @@ say "install ok"
 ZIP=out/artifacts/jak1_hd_assets.zip
 [ -f "$ZIP" ] || die "no $ZIP — run the bake+package first"
 NAGZ=$(unzip -l "$ZIP" | grep -c 'hd/.*-ag\.go' || true)
-say "HD pack: $ZIP ($(stat -c%s "$ZIP") bytes, $NAGZ ag.go — need 10)"
-[ "$NAGZ" -ge 10 ] || die "pack has only $NAGZ ag.go"
+# hd-models4 cycle 5 added the last two cinematic Jak looks (jakp-hd, jakf-hd) -> 12 ags.
+say "HD pack: $ZIP ($(stat -c%s "$ZIP") bytes, $NAGZ ag.go — need 12)"
+[ "$NAGZ" -ge 12 ] || die "pack has only $NAGZ ag.go"
 TMPD=$(mktemp -d)
 unzip -q "$ZIP" -d "$TMPD" || die "unzip failed"
 DEVBASE=/storage/emulated/0/OpenGOAL/jak1/assets
