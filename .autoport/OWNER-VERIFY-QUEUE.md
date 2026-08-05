@@ -276,3 +276,8 @@ la barbe de Samos, les vêtements/lanières/cheveux de Jak — subtilité et coh
   s'appliquera sans rebuild complet.
 - Ton verdict visuel = la suite du tuning. Phase suivante : CYCLE 5 HD (jakm identique + bretelles
   résiduelles — peut-être déjà réglées par les chaînes physiques ! — + inventaire des looks de Jak).
+
+### 16:40 — Ton verdict physique : cycle 2 spécifié
+Conflit faux-vent×physique (clipping vêtements Jak) · cheveux entiers qui bougent (ancrage racine à
+verrouiller) · poitrine Keira inerte · lunettes manquantes · BUG menu : Physics Detail ouvre le mesh
+browser. Lancement après le cycle 5 HD en cours — dis-moi si tu veux la physique cycle 2 AVANT.
