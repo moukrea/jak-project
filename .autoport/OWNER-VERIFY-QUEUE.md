@@ -161,3 +161,8 @@ confirmé structurel — l'eye-remap sert les pupilles JAK 1 ; le port des iris 
 - À TESTER (toi) : ouvrir le menu → l'ancienne structure ; régler le displacement ; vérifier tes
   réglages favoris ne se marchent plus dessus.
 - Phase suivante : M5 (looks bonus, chaque personnage complet d'entrée).
+
+### 08:15 — Ton verdict build cumulé : ÉNORMES progrès actés
+✔ clipping Jak · ✔ Daxter parfait · ✔ barbe Samos · ✔ yeux HD (iris donor) · ✔ PNJ stables.
+Cycle 4 (après M5) : restaurer le CLIGNEMENT (le fix anti-noir a supprimé le blit de paupière = plus
+de blink visible) + bretelles Keira qui clippent l'avant du corps.
