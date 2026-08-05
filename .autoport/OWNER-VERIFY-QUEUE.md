@@ -286,3 +286,6 @@ browser. Lancement après le cycle 5 HD en cours — dis-moi si tu veux la physi
 (vêtements/cheveux/lunettes/binocle Samos/poitrines/fesses/ventres — le pêcheur ! —/chapeaux/objets
 suspendus). Méthode : les canaux de fake-motion de ND = la carte des sites à physicaliser.
 Extension PNJ = généralisation de la sim aux modèles stock (par vagues, après le cycle 2).
+
+### 19:30 — Ton verdict : Jak3/Jak3-masqué INVERSÉS (swap) · jakf barefoot À RETIRER · prison J2
+NICKEL (verrouillé) · bretelles Keira CLOSES. Après swap+retrait -> PHYSIQUE CYCLE 2.
