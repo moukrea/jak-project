@@ -1177,6 +1177,21 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         "  iterations need no build at all — and make such data overridable from the\n"
         "  EXTERNAL asset pack so the owner re-downloads KB, not a 581MB APK.\n"
         "State in your report which tier you used and why.\n\n"
+        "## PROOF ECONOMY (owner standing order 2026-08-06)\n"
+        "Owner: efficiency on builds AND on proof collection — but it must still\n"
+        "work, no breakage, no false greens. So: prove ONLY what would break\n"
+        "SILENTLY, with the CHEAPEST instrument that already exists:\n"
+        "- MUST prove (cheap, non-negotiable): no crash, no regression of a\n"
+        "  locked-in acquis, the feature is actually ACTIVE (a counter/log showing\n"
+        "  the code path ran on device), deploy_verify freshness.\n"
+        "- MUST NOT build: elaborate new proof harnesses, multi-leg device\n"
+        "  campaigns, or any visual-measurement campaign (permanently banned).\n"
+        "  Reuse existing counters/logs; one short device run is enough.\n"
+        "- QUALITY/aesthetics are judged by the OWNER, never by you: ship the build\n"
+        "  and let him look. Your report lists what HE must test.\n"
+        "Budget guide: proof runs are MINUTES, not hours. If proving costs more\n"
+        "than the fix, ship with an honest 'not proven: X' line instead of\n"
+        "burning the cycle on instrumentation.\n\n"
     )
     instructions = "ultrathink\n\n" + delegation_preamble + prompt_path.read_text()
     if attempt > 1:
