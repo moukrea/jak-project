@@ -138,7 +138,9 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
       [ "$NNAN" = 0 ] || { say "FAIL($TAG): nan-resets nonzero — sim exploded"; OK=0; }
       local NBIG2; NBIG2=$(grep -a 'maxdev=' "$GKLOG" | awk -F'maxdev=' '{print $2}' | awk '{if ($1+0 >= 5000.0) n++} END {print n+0}')
       [ "$NBIG2" = 0 ] || { say "FAIL($TAG): $NBIG2 window(s) with maxdev>=5000 — not bounded"; OK=0; }
-      local NMOVDEV; NMOVDEV=$(grep -a 'window: chains=' "$GKLOG" | awk '{
+      # 'anchmove=' not 'window: chains=': the dump is two format calls; on device logcat they
+      # flush as two lines (x86 file logs keep them joined — this grep works for both).
+      local NMOVDEV; NMOVDEV=$(grep -a 'anchmove=' "$GKLOG" | awk '{
         am=0; md=0;
         if (match($0, /anchmove=[0-9.]+/)) am=substr($0, RSTART+9, RLENGTH-9)+0;
         if (match($0, /maxdev=[0-9.]+/))   md=substr($0, RSTART+7, RLENGTH-7)+0;

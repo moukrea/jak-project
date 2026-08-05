@@ -240,3 +240,20 @@ Build cycle-4 sur le Redmi (deploy_verify PASS, pack 10 modèles md5-vérifié) 
 
 ### 14:00 — Ton verdict cycle-4 : ✔ clignements BONS · bretelles bien meilleures (résiduel par-anim)
 · BUG : les 2 looks Jak 3 sont identiques (masque baissé sans effet) — cycle 5 après la physique.
+
+### PRÉ-GATE 15:55 — PHYSIQUE SECONDAIRE M1 (Grecharged-secondary-motion, jiggle/chaînes HD)
+- Prouvé aux compteurs (x86 5 legs + device D-MAX/D-OFF, deploy_verify PASS) : chaînes verlet
+  ressort-vers-la-pose-animée sur LES 10 LOOKS HD — Keira poitrine (rBoob/lBoob) + cheveux +
+  bretelles + lunettes ; Samos barbe/queue/cheveux/bûches/ventre ; Jak cheveux/col/12 lanières/
+  pans de tunique ; Daxter (x2) oreilles/joues/queue ; Jak 2/3/masqué cheveux+cornes+sangle ;
+  Young Samos. Bornées (5-19 cm max en jeu réel), retour au repos exact (sag Keira = équilibre
+  analytique à 1%), zéro NaN, OFF = zéro pas de sim (stock bit-exact).
+- À TESTER (toi) : ① Keira dans la hutte de Samos — poitrine/cheveux/bretelles « rien de fou »,
+  naturel ? ② Jak en mouvement/saut — lanières + pans de tunique + cheveux vivants ? ③ menu
+  OPTIONS GRAPHIQUES : PHYSICS on/off (coupe TOUT en jeu) + PHYSICS DETAIL LIGHT/FULL/MAXIMUM
+  (l'échelle se sent ?) ④ chaque look bonus du carousel (tous ont leurs chaînes propres).
+- RÉGLAGE : recharged_assets/physics_chains.txt (adb push + changer de LOOK = reload à chaud) —
+  dis-moi « plus/moins de X sur Y » et j'itère les paramètres.
+- CARRY M2 (conçu, pas encore implémenté) : riders sur modèles STOCK — PNJ à cheveux longs
+  Y COMPRIS MAIA (os de chaîne déjà dans les rigs stock, census prouvé), capes de Gol,
+  l'archéologue, + les looks ORIGINAL du carousel. Aucune injection d'os nécessaire nulle part.

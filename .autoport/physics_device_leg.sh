@@ -83,8 +83,10 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
   kill "$LCP" 2>/dev/null || true; LCP=0
   local OK=1
-  # native crash scan (grep -a: logcat routed through the harness can carry binary)
-  local CRASH; CRASH=$(grep -ac 'Fatal signal\|SIGSEGV\|SIGILL\|SIGBUS' "$LC" || true)
+  # native crash scan (grep -a: logcat routed through the harness can carry binary).
+  # NO bare 'SIGILL' pattern: the jak2 bind-hook INFO line contains the word ("...doesn't
+  # SIGILL...") = false positive. 'Fatal signal N (SIGILL)' is still caught by 'Fatal signal'.
+  local CRASH; CRASH=$(grep -acE 'Fatal signal|SIGSEGV|SIGBUS' "$LC" || true)
   local NLOAD NINIT NWIN NNAN NREST NCH
   NLOAD=$(grep -ac 'params loaded' "$LC" || true)
   NINIT=$(grep -ac '\[HD-PHYS\] init ag=' "$LC" || true)
@@ -104,7 +106,9 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
       [ "$NBIG" = 0 ] || { say "FAIL($TAG): $NBIG window(s) with maxdev>=5000 — not bounded"; OK=0; }
       # at least one MOVING bounded window (anchor animated + sim deviating) — real-gameplay proof;
       # parked windows (anchmove=0) legitimately read maxdev=0 (self-tracking rest).
-      local NMOVDEV; NMOVDEV=$(grep -a 'window: chains=' "$LC" | awk '{
+      # grep on 'anchmove=' NOT 'window: chains=': the dump is TWO GOAL format calls (8-arg cap)
+      # and the device logcat flushes them as TWO lines — maxdev/anchmove live on the second half.
+      local NMOVDEV; NMOVDEV=$(grep -a 'anchmove=' "$LC" | awk '{
         am=0; md=0;
         if (match($0, /anchmove=[0-9.]+/)) am=substr($0, RSTART+9, RLENGTH-9)+0;
         if (match($0, /maxdev=[0-9.]+/))   md=substr($0, RSTART+7, RLENGTH-7)+0;
