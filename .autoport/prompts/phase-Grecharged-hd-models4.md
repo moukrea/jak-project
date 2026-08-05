@@ -210,3 +210,24 @@ TOUT défaut de visibilité) = COMPTEURS CÔTÉ RENDERER + state dumps, jamais d
     validation. Le validator ne doit JAMAIS exiger des captures comme preuve.
 Ceci s'applique à TOUTES les preuves de cette phase (crash intro = gk_crash.txt + exit-info ;
 fourrure/gap = comptage de draws/verts par effet ; yeux = binding/texture id dans les logs).
+
+## ============================================================
+## VERDICT OWNER 2026-08-05 ~08:15 (build cumulé menu+cycle-3) — CYCLE 4 (2 items) après M5
+## ============================================================
+VICTOIRES ACTÉES (à VERROUILLER, zéro régression tolérée) : clipping vêtements Jak DISPARU ·
+DAXTER PARFAIT (trous/tête/mâchoire réglés) · barbe Samos réglée · YEUX = les versions HD (iris
+donor OK) · PNJ stables en cinématique (« vraiment beaucoup, beaucoup mieux »).
+
+### CYCLE 4 — deux items :
+1. **LE CLIGNEMENT A DISPARU** : « ils ne clignent plus vraiment des yeux… ça bouge mais j'ai
+   l'impression qu'ils clignent pas, c'est un peu bizarre. » Cause quasi certaine : le fix
+   blink-noir (CYCLE3-KEIRA : EyeRenderer SKIPPE le blit de paupière sur les slots HD) a sur-corrigé
+   — le blit de paupière ÉTAIT le mécanisme de clignement de jak1 ; le skipper a tué le noir ET le
+   blink visible. FIX ATTENDU : un vrai clignement pour les yeux HD — soit un blit de paupière avec
+   la TEXTURE de paupière du donor (peau, pas du noir), soit piloter les blend-targets de paupière
+   du modèle HD (les modèles ciné en ont probablement) depuis le canal blink du driver. Le blink
+   doit redevenir VISIBLE et naturel sur les 4 personnages.
+2. **Les bretelles de Keira clippent au travers de l'AVANT de son corps** (nouvelle observation
+   owner). Chaîne bretelles : vérifier le mapping (strap chains étaient en mode-3/0.103-scale au
+   cycle 3) — probablement des joints de bretelle qui suivent mal le buste -> clip frontal.
+Timing : cycle 4 se lance APRÈS la clôture M5 (les looks bonus héritent des mêmes fixes).
