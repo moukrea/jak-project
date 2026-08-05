@@ -175,7 +175,7 @@ run_leg(){
 
   # ---------------- cycle-5 Keira strap x physics-collision gates (K1/K3 only) -------------------
   if [ "$AG" != '-' ]; then
-    local PHYSOK=1 NCOL UNK WIN NNAN NBIG PUSH MAXPEN
+    local PHYSOK=1 NCOL UNK WIN NNAN NBIG PUSH MAXPEN WITHPUSH
     NCOL=$(grep -a "\[HD-PHYS\] init ag=$AG " "$LC" | grep -oE 'colliders=[0-9]+' | cut -d= -f2 | sort -n | tail -1)
     NCOL=${NCOL:-0}
     if [ "$NCOL" -ge 3 ]; then
@@ -195,6 +195,16 @@ run_leg(){
     NBIG=$(grep -a "\[HD-PHYS\] ag=$AG " "$LC" | grep -oE 'maxdev=[0-9.]+' | cut -d= -f2 | awk '{ if ($1+0>=5000) n++ } END{ print n+0 }' || true)
     if [ "${NBIG:-0}" = 0 ]; then say "OK($TAG): $AG bounded — zero windows with maxdev>=5000"
     else say "FAIL($TAG): $AG has $NBIG unbounded window(s) (maxdev>=5000)"; PHYSOK=0; fi
+    # INSTRUMENT GATE (cycle-5 measurement bug): every `format 0` is its OWN logcat line on Android,
+    # so a multi-call window used to split across 3 lines and the line-based parse below silently
+    # read push=/maxpen= as ABSENT -> "pushes=0", which reads like "collision never fired" when it
+    # actually fired thousands of times. The emitter now builds the window in one string and prints
+    # it once; assert that here so a regression of the emitter FAILS LOUDLY instead of reporting 0.
+    WITHPUSH=$(grep -a "\[HD-PHYS\] ag=$AG " "$LC" | grep -ac 'window: chains=.*push=' || true)
+    if [ "$WIN" -ge 1 ] && [ "$WITHPUSH" -lt "$WIN" ]; then
+      say "FAIL($TAG): $AG has $WIN window lines but only $WITHPUSH carry push= — the [HD-PHYS] window is SPLIT across logcat lines (emitter regression); push/maxpen are NOT measurable, refusing to report 0"
+      PHYSOK=0
+    fi
     PUSH=$(grep -a "\[HD-PHYS\] ag=$AG " "$LC" | grep -oE 'push=[0-9]+' | cut -d= -f2 | awk '{ s+=$1 } END{ print s+0 }' || true)
     MAXPEN=$(grep -a "\[HD-PHYS\] ag=$AG " "$LC" | grep -oE 'maxpen=[0-9.]+' | cut -d= -f2 | sort -g | tail -1)
     if [ "$PHYSOK" = 1 ]; then

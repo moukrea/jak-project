@@ -98,7 +98,10 @@ run_leg(){ # run_leg <tag> <physics> <quality> <keira-look> <expect: off|nostrap
       [ "$NNAN" = 0 ] || { say "FAIL($TAG): nan resets on $AGN"; FAILED=1; }
       local NBIG; NBIG=$(grep -a "\[HD-PHYS\] ag=$AGN " "$GKLOG" | awk -F'maxdev=' 'NF>1{if ($2+0>=5000) n++} END{print n+0}')
       [ "$NBIG" = 0 ] || { say "FAIL($TAG): $NBIG unbounded windows"; FAILED=1; }
-      local PUSH MAXPEN
+      local PUSH MAXPEN WITHPUSH
+      # instrument gate: the window MUST be one line carrying push= (see jak-hd-physics.gc emitter).
+      WITHPUSH=$(grep -a "\[HD-PHYS\] ag=$AGN " "$GKLOG" | grep -ac 'window: chains=.*push=' || true)
+      [ "$WITHPUSH" -ge "$KWIN" ] || { say "FAIL($TAG): $KWIN window lines but only $WITHPUSH carry push= — [HD-PHYS] window split across lines, push/maxpen NOT measurable"; FAILED=1; }
       PUSH=$(grep -a "\[HD-PHYS\] ag=$AGN " "$GKLOG" | grep -oE 'push=[0-9]+' | cut -d= -f2 | awk '{s+=$1} END{print s+0}')
       MAXPEN=$(grep -a "\[HD-PHYS\] ag=$AGN " "$GKLOG" | grep -oE 'maxpen=[0-9.]+' | cut -d= -f2 | sort -g | tail -1)
       say "OK($TAG): $AGN windows=$KWIN colliders=$NCOL pushes=$PUSH maxpen=${MAXPEN:-0} nan=0 bounded"

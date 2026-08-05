@@ -69,6 +69,9 @@
 (define *phys-slot-calm* (new 'static 'array int32 8))      ;; consecutive calm frames
 (define *phys-slot-anchprev* (new 'static 'inline-array vector 8)) ;; chain0 anchor last pos (debug)
 (define *phys-slot-anchmove* (new 'static 'array float 8))  ;; window max anchor move (debug)
+;; ONE-LINE window emitter buffer: `format 0` is one logcat line per call on Android, so the whole
+;; window must be assembled here and printed once (see the emitter at the bottom of this file).
+(define *phys-line-buf* (new 'global 'string 256 (the-as string #f)))
 (define *phys-slot-pushouts* (new 'static 'array int32 8))  ;; collision push-out events (window)
 (define *phys-slot-maxpen* (new 'static 'array float 8))    ;; max penetration depth resolved (window)
 
@@ -480,23 +483,31 @@
                (set! (-> *phys-slot-calm* slot) 0)))
             (+! (-> *phys-slot-frames* slot) 1)
             (when (>= (-> *phys-slot-frames* slot) 300)
-              ;; split in two: a GOAL call carries at most 8 parameters (jak-hd.gc precedent).
-              (format 0 "[HD-PHYS] ag=~S lvl=~D window: chains=~D joints=~D act=~D cm=~D"
+              ;; A GOAL call carries at most 8 parameters, so the window needs three format calls —
+              ;; but each `format 0` is routed to Android's log as its OWN logcat line, which split
+              ;; the window across three lines on device and made every line-based device gate read
+              ;; push=/maxpen= as ABSENT (cycle-5 measurement bug: the x86 stdout stream concatenated
+              ;; them, the device stream did not). Build the whole window in a string buffer first
+              ;; (format to a string APPENDS; clear starts it) and emit it with ONE call, so the
+              ;; window is exactly ONE line on BOTH targets.
+              (format (clear *phys-line-buf*)
+                      "[HD-PHYS] ag=~S lvl=~D window: chains=~D joints=~D act=~D cm=~D"
                       (-> *hd-ag-names* (-> obj entry))
                       level
                       (-> *phys-slot-nchains* slot)
                       (-> *phys-slot-njoints* slot)
                       frame-nact
                       classmask)
-              (format 0 " maxdev=~f maxvel=~f anchmove=~f nan-resets=~D (verlet state dump bounded)"
+              (format *phys-line-buf*
+                      " maxdev=~f maxvel=~f anchmove=~f nan-resets=~D (verlet state dump bounded)"
                       (-> *phys-slot-maxdev* slot)
                       (-> *phys-slot-maxvel* slot)
                       (-> *phys-slot-anchmove* slot)
                       (-> *phys-slot-resets* slot))
-              ;; third call: same LINE (device logcat greps are line-based).
-              (format 0 " push=~D maxpen=~f~%"
+              (format *phys-line-buf* " push=~D maxpen=~f"
                       (-> *phys-slot-pushouts* slot)
                       (-> *phys-slot-maxpen* slot))
+              (format 0 "~S~%" *phys-line-buf*)
               (set! (-> *phys-slot-frames* slot) 0)
               (set! (-> *phys-slot-resets* slot) 0)
               (set! (-> *phys-slot-maxdev* slot) 0.0)
