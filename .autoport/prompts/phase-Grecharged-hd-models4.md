@@ -255,3 +255,21 @@ cou (les cutscenes de Jak 3 alternent les deux états ; suspects : les autres va
 jakchires-*/jakc-* — precarmor vs autres — comparer les draws visage/écharpe). Le carousel JAK LOOK :
 ORIGINAL / HD / JAK II / JAK 3 (masque sur le visage, l'actuel) / JAK 3 MASQUE BAISSÉ (le nouveau).
 Bonus : visage découvert => les canaux faciaux complets s'appliquent pleinement à cette variante.
+
+## EXTENSION OWNER 2026-08-05 ~11:05 — TOUS les looks ciné de Jak (J2 + J3), exhaustif
+« S'il y a des looks alternatifs de Jak dans le II ou le 3, qui existent en modèles de cinématiques…
+Il me les FAUT TOUS ! Genre le look de Jak au début de Jak II quand ils font des expériences sur lui,
+les looks de Jak 3 s'il y en a plusieurs, etc. »
+=> MISSION EN 2 TEMPS :
+1. **RECENSEMENT EXHAUSTIF** : scanner TOUS les art-groups highres de Jak dans les dumps jak2 ET jak3
+   (jak-highres*, jakone*, jakc*, jakb*, variantes prison/expériences/armures/tenues…), dédupliquer
+   par contenu (fragment-sets — certains niveaux répliquent le même modèle), et produire LA LISTE
+   dans le rapport : nom interne, niveau/cutscene source, description visuelle courte (ex. « Jak II
+   prison/expériences », « Jak 3 armure X », « masque baissé »…). Les exemples owner attendus :
+   le Jak des expériences du début de Jak II (prison), les variantes Jak 3.
+2. **INTÉGRATION DE TOUS** comme options du carousel JAK LOOK (définition-of-done complète chacun),
+   dans l'ordre chronologique des jeux. Si le carousel devient long, c'est OK (c'est un carousel).
+   Chaque look = complet d'entrée ; si un look a une particularité (casque couvrant, effets), la
+   documenter ligne par ligne.
+NOTE : le recensement (1) va vite (scan d'art-groups) — le mettre dans le rapport du cycle en cours
+même si l'intégration s'étale ; l'owner veut voir la liste de ce qui existe.
