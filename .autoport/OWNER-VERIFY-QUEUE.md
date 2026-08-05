@@ -257,3 +257,11 @@ Build cycle-4 sur le Redmi (deploy_verify PASS, pack 10 modèles md5-vérifié) 
 - CARRY M2 (conçu, pas encore implémenté) : riders sur modèles STOCK — PNJ à cheveux longs
   Y COMPRIS MAIA (os de chaîne déjà dans les rigs stock, census prouvé), capes de Gol,
   l'archéologue, + les looks ORIGINAL du carousel. Aucune injection d'os nécessaire nulle part.
+
+### 15:55 — PUSH checkpoint PHYSIQUE (ordre owner : MAX+OFF device-verts = go build)
+Premier build --physics sur jak-builds. Prouvé device : niveau MAX (sim complète, bornée, zéro
+crash/NaN) + toggle OFF (stock intact). EN COURS de preuve : les niveaux intermédiaires (que chaque
+cran du menu applique bien SES paramètres) — si tu testes un niveau du milieu et que la perf semble
+étrange, c'est la partie en vol.
+À TESTER (toi) : menu → toggle PHYSICS + niveau de précision ; le jiggle de Keira (« rien de fou » ?),
+la barbe de Samos, les vêtements/lanières/cheveux de Jak — subtilité et cohérence, ton œil tranche.
