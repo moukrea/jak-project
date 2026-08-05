@@ -70,3 +70,30 @@ Le périmètre s'élargit, FERME :
    (le pipeline de prep sait déjà fabriquer/injecter des os — même mécanique que l'align). Recenser
    les PNJ concernés (cheveux longs, barbes, accessoires pendants) et les traiter. Si un cas précis
    s'avère réellement impossible, le documenter avec preuve — pas d'abandon silencieux de catégorie.
+
+## ============================================================
+## VERDICT OWNER 2026-08-05 ~16:40 (build physique 15:58) — CYCLE 2 PHYSIQUE
+## ============================================================
+### A. CONFLIT STRUCTUREL : le FAUX VENT existant se bat avec la physique
+Jak1 anime DÉJÀ les lanières, cheveux et vêtements avec un faux vent (canaux d'anim/wind system).
+La physique s'ajoute PAR-DESSUS → double animation qui « collide » : vêtements bleus de Jak qui
+clippent beaucoup, lanières/cheveux incohérents. FIX : sur toute chaîne pilotée par la physique, le
+faux vent doit être NEUTRALISÉ (la physique remplace) — ou converti en simple excitation d'entrée
+(source de force), jamais les deux écritures concurrentes sur les mêmes os.
+### B. ANCRAGE DES CHEVEUX FAUX : « l'entièreté des cheveux bouge, comme détachée du crâne »
+(Jak ET Keira). La RACINE de chaque chaîne de cheveux doit rester VERROUILLÉE au crâne (suit
+rigidement la tête) ; gradient de raideur racine→pointe ; seules les pointes ont de l'amplitude.
+Vérifier la config des chaînes : la racine est probablement incluse comme os libre.
+### C. POITRINE DE KEIRA : « même pas visible du tout, ça bouge pas d'un poil »
+Les chaînes rBoob/lBoob sont inertes : vérifier (1) qu'elles sont réellement actives/simulées,
+(2) l'excitation — le mouvement du torse doit exciter les chaînes (inertie), pas seulement la
+gravité statique ; (3) la raideur (trop haute = figé). Rappel de la barre : « rien de fou », mais
+VISIBLE et naturel.
+### D. ACCESSOIRES MANQUANTS : pas de physique sur les lunettes de Keira (périmètre élargi 11:55).
+### E. BUG MENU (régression-class, priorité) : l'option « Physics Detail » OUVRE LE MESH BROWSER !
+Collision de binding dans l'ancien menu (la row physique pointe l'action/entry du mesh browser).
+Le toggle « Physics » affiche bien max. Auditer les bindings des rows physique (value-to-modify +
+actions) comme au Gmenu-flag-off — ligne par ligne, unicité prouvée.
+Priorités : E (menu) + A (conflit vent) d'abord — ce sont eux qui cassent l'expérience ; puis B
+(ancrage), C (poitrine), D (lunettes). Les paramètres hot-éditables ne suffisent PAS ici : A/B/E
+sont structurels. Timing : après le cycle 5 HD en cours (ou avant si l'owner re-priorise).
