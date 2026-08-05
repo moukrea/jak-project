@@ -125,3 +125,14 @@ cast-complet (rigs + canaux fake-motion) au rapport, puis implémentation par va
 personnages les plus visibles d'abord (villageois fréquentés, PNJ de cinématiques).
 Ordre global : cycle 2 (les fixes du build actuel : vent×physique, ancrage, poitrine, lunettes,
 bug menu) PUIS l'extension cast-complet par vagues.
+
+### PRÉCISION OWNER 2026-08-05 ~16:55 — la carte des faux-mouvements N'EST PAS UN FILTRE
+« ND n'a PAS fait de jiggle sur poitrines, fesses et ventres — ça c'est NOUVEAU. Je précise pour que
+tu ne skippes pas parce qu'il n'y a pas de faux-physics dessus. »
+=> DEUX CATÉGORIES distinctes, toutes deux OBLIGATOIRES :
+1. **Sites hérités** (là où ND a simulé : vent sur vêtements/cheveux/lanières, binocle, chapeaux…) —
+   découverts via la carte des canaux fake-motion, la vraie physique REMPLACE le fake.
+2. **Sites NOUVEAUX** (aucun précurseur ND) : poitrines, fesses, ventres (le pêcheur…) — ce sont des
+   AJOUTS du remake, listés par l'owner, à implémenter même sans aucun canal fake existant (ancrage
+   sur les os disponibles, ou injection d'os si le rig n'en a pas).
+L'absence de fake-motion sur un site owner-listé n'est JAMAIS une raison de l'exclure.
