@@ -244,3 +244,14 @@ Timing : cycle 4 se lance APRÈS la clôture M5 (les looks bonus héritent des m
    d'entrée (définition-of-done : visage/blerc — noter que le masque peut couvrir une partie des
    canaux faciaux, documenter ce qui s'applique —, yeux si visibles, géométrie complète, extrémités).
    Même mécanisme, même gating menu (grisage master/enhanced).
+
+## CORRECTION OWNER 2026-08-05 ~11:00 — QUIPROQUO sur « masque baissé » (item 3 du cycle 4)
+Le look jak3-hd DÉJÀ livré (jakc) porte le masque SUR le visage (nez+bouche couverts) — c'est celui
+qu'on A. Ce que l'owner veut en PLUS : la variante cinématique de Jak 3 où le masque est **BAISSÉ
+AUTOUR DU COU** — VISAGE ENTIÈREMENT DÉCOUVERT (le masque pend en écharpe). « Masque baissé » =
+tiré vers le bas, PAS rabattu sur le visage.
+=> Sourcing corrigé : chercher dans les rips jak3 la variante highres VISAGE NU avec le masque au
+cou (les cutscenes de Jak 3 alternent les deux états ; suspects : les autres variantes
+jakchires-*/jakc-* — precarmor vs autres — comparer les draws visage/écharpe). Le carousel JAK LOOK :
+ORIGINAL / HD / JAK II / JAK 3 (masque sur le visage, l'actuel) / JAK 3 MASQUE BAISSÉ (le nouveau).
+Bonus : visage découvert => les canaux faciaux complets s'appliquent pleinement à cette variante.
