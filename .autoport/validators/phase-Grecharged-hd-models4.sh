@@ -143,6 +143,72 @@ grep -qE 'FACE-FINGER-GATE' scripts/shell/retarget_fill_table.py \
 grep -qiE '^FACE-FINGER-GATE.*(jak|dax|keira|samos).*PASS' "$R" \
   || fail "no FACE-FINGER-GATE PASS line (tables must be regenerated under the gate)"
 
+# ==== DEFECT CYCLE 5 (owner verdict 2026-08-05 ~14:00 + carry 11:05) ==========================
+# Locked by owner at 14:00: blinks are GOOD ("super !") — zero regression tolerated (blink gates
+# above are carried unchanged). New bar:
+# (1) jakm-hd BUG: the two Jak-3 looks render IDENTICAL — the baked target 15 moves only
+#     lens/gogglemetal/brownstrap ~0.10-0.12 and never the face scarf; diagnose bytes+amplitude,
+#     ship a look whose FACE IS ACTUALLY UNCOVERED (mask down around the neck), visibly distinct.
+# (2) Keira strap residual per-anim clip — coordinate with the physics-chain phase (collision) for
+#     BOTH keira looks; honest statement of behavior at every physics level incl. OFF.
+# (3) CARRY owner 11:05: EXHAUSTIVE inventory of Jak CINEMATIC looks across jak2+jak3 dumps
+#     (prison/experiments J2, all J3 variants; cutscene highres ONLY) + integration of ALL distinct
+#     ones into the JAK LOOK carousel, each complete from day one (DoD).
+grep -qE 'DEFECT-CYCLE-5' "$R" || fail "no DEFECT-CYCLE-5 marker — cycle-4 report re-submitted?"
+
+# ---- CYCLE-5 item 1 — jakm-hd visibly distinct (bare face, mask at neck) ---------------------
+grep -qiE '^CYCLE5-JAKM.*root.?cause' "$R" \
+  || fail "CYCLE5-JAKM: no root-cause line (why the two looks rendered identical)"
+grep -qiE '^CYCLE5-JAKM.*(byte|vert|diff|amplitude|bake)' "$R" \
+  || fail "CYCLE5-JAKM: no byte/amplitude diagnosis line on the SHIPPED fr3"
+grep -qiE '^CYCLE5-JAKM.*(scarf|mask|neck|bare.?face|visage)' "$R" \
+  || fail "CYCLE5-JAKM: no line addressing the FACE-UNCOVERED requirement (owner 11:00 quiproquo)"
+grep -qiE '^CYCLE5-JAKM.*(distinct|differ).*(PASS|proven)' "$R" \
+  || fail "CYCLE5-JAKM: no quantitative distinctness PASS line (jak3-hd vs jakm-hd)"
+grep -qiE '^CYCLE5-JAKM.*(SUBMITTED|submit)' "$R" \
+  || fail "CYCLE5-JAKM: no device submit-counter proof line"
+
+# ---- CYCLE-5 item 2 — Keira straps x physics chains (both looks, all physics levels) ---------
+grep -qiE '^CYCLE5-KEIRA-STRAP.*(physic|chain|collision)' "$R" \
+  || fail "CYCLE5-KEIRA-STRAP: no physics-chain coordination line"
+grep -qiE '^CYCLE5-KEIRA-STRAP.*keira3' "$R" \
+  || fail "CYCLE5-KEIRA-STRAP: no keira3-hd coverage line"
+grep -qiE '^CYCLE5-KEIRA-STRAP.*(OFF|LIGHT|FULL|MAX)' "$R" \
+  || fail "CYCLE5-KEIRA-STRAP: no per-physics-level behavior line (incl. PHYSICS OFF fallback)"
+grep -qiE '^CYCLE5-KEIRA-STRAP.*PASS' "$R" \
+  || fail "CYCLE5-KEIRA-STRAP: no PASS line"
+
+# ---- CYCLE-5 item 3 — exhaustive cinematic-look inventory + integration ----------------------
+grep -qiE '^CYCLE5-INVENTORY.*(exhaust|complete|all).*(jak2).*(jak3)|^CYCLE5-INVENTORY.*(exhaust|complete|all).*(jak3).*(jak2)' "$R" \
+  || fail "CYCLE5-INVENTORY: no exhaustive-scan statement covering BOTH jak2 and jak3 dumps"
+grep -qiE '^CYCLE5-LOOK-.*(prison|experiment)' "$R" \
+  || fail "CYCLE5-LOOK: no line for the owner-named Jak II prison/experiments look"
+NLOOK=$(grep -cE '^CYCLE5-LOOK-' "$R" || true)
+[ "${NLOOK:-0}" -ge 2 ] || fail "CYCLE5-LOOK: fewer than 2 inventory lines ($NLOOK) — not exhaustive"
+# every inventoried look line must be resolved: INTEGRATED, DUPLICATE-OF, ALREADY-SHIPPED or EXCEPTION
+BAD=$(grep -E '^CYCLE5-LOOK-' "$R" | grep -cviE 'STATUS=(INTEGRATED|DUPLICATE-OF|ALREADY-SHIPPED|EXCEPTION)' || true)
+[ "${BAD:-0}" -eq 0 ] || fail "CYCLE5-LOOK: $BAD look line(s) without STATUS=INTEGRATED/DUPLICATE-OF/ALREADY-SHIPPED/EXCEPTION"
+# physical-artifact checks for every INTEGRATED look: ag on disk + registry + pack + loader staging
+for AG in $(grep -E '^CYCLE5-LOOK-' "$R" | grep -E 'STATUS=INTEGRATED' | grep -oE 'ag=[a-z0-9-]+' | cut -d= -f2 | sort -u); do
+  [ -f "recharged_assets/hd_anim/${AG}-ag.go" ] || fail "CYCLE5-LOOK: ${AG}-ag.go missing on disk"
+  grep -qE "${AG}" goal_src/jak1/pc/jak-hd.gc || fail "CYCLE5-LOOK: ${AG} absent from jak-hd.gc registry"
+  grep -qE "${AG}-ag\.go" scripts/package_hd_assets.sh || fail "CYCLE5-LOOK: ${AG}-ag.go not in external pack list"
+  grep -qE "${AG}-ag\.go" game/graphics/opengl_renderer/loader/Loader.cpp || fail "CYCLE5-LOOK: ${AG}-ag.go not in Loader staging"
+  grep -qiE "^CYCLE5-LOOK-.*ag=${AG}.*(FACE-FINGER-GATE|gate).*(PASS)" "$R" \
+    || fail "CYCLE5-LOOK: ${AG} has no FACE-FINGER-GATE PASS on its own line (DoD: complete from day one)"
+  grep -qiE "^CYCLE5-LOOK-.*ag=${AG}.*(append|integr|draws)" "$R" \
+    || fail "CYCLE5-LOOK: ${AG} has no append/integrity/draws evidence on its own line"
+done
+# at least one look must actually be INTEGRATED this cycle (the inventory alone is not the mission)
+grep -qE '^CYCLE5-LOOK-.*STATUS=INTEGRATED' "$R" \
+  || fail "CYCLE5-LOOK: no look INTEGRATED this cycle (owner: 'il me les FAUT TOUS')"
+grep -qiE '^CYCLE5-LOOK.*(SUBMITTED|submit)' "$R" \
+  || fail "CYCLE5-LOOK: no device submit-counter proof line for the new looks"
+
+# ---- NO-REGRESSION on the owner's 14:00 locked victory: visible blink ------------------------
+grep -qiE '^NO-REGRESS.*blink.*(PASS|intact|proven)' "$R" \
+  || fail "no NO-REGRESS blink line (owner 14:00: blinks are good — locked)"
+
 # ---- device proof ----------------------------------------------------------------------------
 DEV=""
 for s2 in eae4df44 AREE026206000788; do

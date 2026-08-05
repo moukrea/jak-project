@@ -51,6 +51,8 @@ j RpantFlap
 chain goggles class=accessory stiffness=6.0 damping=0.50 gravity=0.0 maxangle=6 inertia=0.8 stretch=0.01 radius=60
 j gogglesMid
 collider chest radius=550
+collider chest radius=800 chains=topstrapL,topstrapR,botstrapL,botstrapR
+collider hips radius=700 chains=botstrapL,botstrapR
 
 [model keira3-hd]
 chain chestR class=primary stiffness=2.5 damping=0.30 gravity=0.0 maxangle=14 inertia=1.0 stretch=0.05 radius=120
@@ -89,6 +91,8 @@ j rBotStrap2
 chain goggles class=accessory stiffness=6.0 damping=0.50 gravity=0.0 maxangle=6 inertia=0.8 stretch=0.01 radius=60
 j gogglesMid
 collider chest radius=550
+collider chest radius=800 chains=topstrapL,topstrapR,botstrapL,botstrapR
+collider hips radius=700 chains=botstrapL,botstrapR
 
 [model samos-hd]
 chain beard class=primary stiffness=2.0 damping=0.25 gravity=0.35 maxangle=25 inertia=1.0 stretch=0.02 radius=90

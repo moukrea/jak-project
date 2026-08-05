@@ -1,6 +1,59 @@
-Grecharged-hd-models4 — DEFECT-CYCLE-4 report (owner verdict 2026-08-05 ~08:15 + widening ~10:35)
-Date: 2026-08-05 (cycle-4 completion attempt) — build: ogflags:009eadd8b50c both targets
-RESULT: PASS — cycle-4 items 1+2+3 implemented and proven (x86 + device eae4df44); owner play-test pending.
+Grecharged-hd-models4 — DEFECT-CYCLE-5 report (owner verdict 2026-08-05 ~14:00; carries the proven
+DEFECT-CYCLE-4 evidence — all cycle-1..4 lines below remain true of the CURRENT shipped bake,
+ogflags:009eadd8b50c, device-proven 2026-08-05 morning; owner locked the blinks at 14:00: "super !")
+Date: 2026-08-05 (cycle-5 attempt 1 — IN PROGRESS)
+RESULT: WIP — cycle-5 substance not yet delivered; research phase running (3 parallel scans:
+exhaustive jak2/jak3 cinematic-look inventory incl. the bare-face/mask-at-neck jak3 variant hunt,
+jakm-hd shipped-fr3 byte diagnosis, keira strap physics-chain collision audit).
+
+== CYCLE-5 STATUS (honest WIP — diagnosis COMPLETE on all 3 items, fixes in flight) ============
+CYCLE5-JAKM root-cause (DOUBLE, both byte-proven on the SHIPPED out/jak1/fr3/enhanced/GAME.fr3):
+  (1) bake amplitude: --bake-blerc-target folded target-15 deltas at weight 1.0 into the mod VBO
+  (static merc verts of jak3-hd vs jakm-hd BYTE-IDENTICAL, 411280 verts, A==B; mod verts differ by
+  max 0.1205) but the runtime applies base + delta*weight with full-on weight 4096 ((raw 128-64)*64,
+  bones.gc:888-897) — the shipped shift is 0.001% of body height (~4e-6 px), provably invisible;
+  (2) the ACTUAL mask: jakc carries TWO jakc-scarf effects — effect[0] static, raised OVER the nose
+  (26 verts z>0.28, in front of the nose plane, blerc_verts=0) and effect[17] hanging at the NECK
+  (0 verts z>0.28, 240 blerc verts); jak3 selects ONE at runtime via merc-ctrl setup-masks 64/32
+  (jak3 powerups.gc:886-889) but the fr3 MercEffect carries no mask bits and Merc2 force-enables
+  all effects on HD shells (Merc2.cpp:1258) — BOTH scarves draw on BOTH looks, face always covered,
+  looks identical. No donor blend target lowers the scarf (22/23 RAISE it). Registry is correct
+  (look 3->entry 5 jak3-hd, look 4->entry 9 jakm-hd, distinct sgs — jak-hd.gc:375).
+  FIX IN FLIGHT: re-append jakm-hd with effect 0 DROPPED at bake time (renderer-agnostic; neck
+  scarf effect[17] shows, face bare, goggles stay at forehead = authentic cutscene state), targets
+  15/22/23 stripped from the runtime map; tool --bake-weight default 4096 fixes the amplitude bug
+  class for good. jak3-hd (owner-accepted) stays byte-identical.
+CYCLE5-JAKM fix definition (owner 11:00 quiproquo encoded): the look must show the mask DOWN at the
+  NECK with the face fully UNCOVERED (bare face) — achieved by dropping the over-nose scarf effect
+  and keeping the neck scarf; goggles stay at the forehead (fix in flight, NOT yet proven).
+CYCLE5-KEIRA-STRAP root-cause (physics-chain audit complete): strap chains exist for BOTH looks
+  (physics_chains.txt keira-hd :31-42, keira3-hd :77-88, keyed by ag name — look switch reloads),
+  but the only collider is ONE chest sphere r=550 at the spine whose effective surface (590u) sits
+  270-1170u INSIDE the strap rest line (topStrap2 rest 864u from chest; botStrap anchors at hips,
+  779u, NO hips collider at all), and the spring equilibrium IS the retarget target — so front-torso
+  clip is not prevented by construction at ANY level; OFF and LIGHT (classmask excludes secondary
+  collide) are the pure cycle-4 retarget. FIX IN FLIGHT: per-chain collider filters (backward-
+  compatible `chains=` kv on collider lines + chain-bitmask FFI), strap-only chest r=800 (eff 840
+  vs rest 864 — engages only on inward drive) + hips r=700 for botstraps, on BOTH keira sections;
+  push-out event counters added to the [HD-PHYS] window line (metrics not eyeballs).
+CYCLE5-INVENTORY: exhaustive scan DONE over BOTH dumps — goal_src/jak2+jak3 dgos/*.gd (authoritative
+  per-DGO art-group lists) x hd_merc_swap audit over ALL 150 jak2 + 272 jak3 fr3 files; every
+  Jak-named merc model classified (cinematic highres vs gameplay/prop/logo). Distinct NEW cinematic
+  looks found: jak2 jak-highres-prison (LDJAKBRN, dark-eco experiments cutscene, 8052 tris, unique)
+  and jak3 jakc-feet (LJKFEET cutscene, 13268 tris, shoes replaced by wraps/bare limbs). Duplicates
+  proven by content: jakone-highres==jak-hd donor, jak3 jak-one==same, jak2 jak-highres==jak2-hd
+  (jak3's ljak copy has REAL face textures — upgrade candidate, not this cycle), jak2+jak3
+  darkjak-highres = same body as their base looks, distinct ONLY via the runtime dark-texture-morph
+  system a static rip cannot carry. GLB rips for the two new donors IN FLIGHT (restricted-decompiler
+  recipe, LDJAKBRN + LJKFEET + KERNEL/GAME.CGO). Integration (carousel #x17bc/#x17bd, registry
+  entries 10/11, FACE-FINGER-GATE from day one) queued behind the rips.
+Validator updated for cycle 5 (gates added, none weakened) BEFORE implementation — this report
+fails it on missing fix substance until the work lands; that is the honest state. No shipped-bake
+changes yet; every carried line below is still true of the cycle-4 device-proven set.
+
+================================================================================================
+== CARRIED — DEFECT-CYCLE-4 report body (proven; still true of the current bake) ===============
+================================================================================================
 
 == CYCLE-4 item 1 — VISIBLE BLINK on all four HD faces =========================================
 CYCLE4-BLINK root-cause: the cycle-3 blink-black fix made EyeRenderer SKIP the lid blit on HD-covered eye slots, but jak1's painted-lid blit WAS the entire blink mechanism (there is no geometric eyelid on the stock rigs) — skipping it removed the black-eye artifact AND every visible blink on the HD faces.

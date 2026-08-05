@@ -497,18 +497,57 @@ bool parse_blerc(const tfrag3::Blerc& b, std::vector<BlercVert>& out) {
   return fi == b.float_data.size();
 }
 
+// hd-models4 cycle-5: DROP-EFFECT — erase whole effects (their draws, mod data and blerc data) from
+// a MercModel in memory. A tfrag3::MercEffect OWNS everything it draws, so erasing it before any
+// other stage runs keeps every later index-based stage (structure mirror, channel map, envmap port,
+// animslot port) consistent by construction — no renumbering table is needed anywhere.
+//
+// Used for the jakm-hd "mask lowered" look: the jakc donor carries the scarf TWICE (effect[0] is
+// the static scarf pulled up over the nose, effect[17] is the scarf hanging at the neck) and our
+// renderer force-enables every effect, so both always drew and the face was never bare.
+//
+// `drops` may be given in any order; erasure is done in DESCENDING index order so earlier indices
+// stay valid. Out-of-range index = hard fail.
+int drop_effects(tfrag3::MercModel& m, const std::vector<int>& drops, bool verbose) {
+  std::vector<int> sorted(drops.begin(), drops.end());
+  std::sort(sorted.begin(), sorted.end(), std::greater<int>());
+  sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
+  for (int idx : sorted) {
+    if (idx < 0 || (size_t)idx >= m.effects.size()) {
+      fmt::print("DROP-EFFECT FAIL: effect index {} out of range — model '{}' has {} effects\n", idx,
+                 m.name, m.effects.size());
+      return 9;
+    }
+    const auto& e = m.effects[(size_t)idx];
+    u32 tris = 0;
+    for (const auto& d : e.all_draws) {
+      tris += d.num_triangles;
+    }
+    if (verbose) {
+      fmt::print("DROP-EFFECT: idx={} draws={} tris={} verts_mod={}\n", idx, e.all_draws.size(),
+                 tris, e.mod.vertices.size());
+    }
+    m.effects.erase(m.effects.begin() + idx);
+  }
+  return 0;
+}
+
 // hd-models4 cycle-4: BLERC BAKE — fold ONE donor blerc target into the donor's BASE geometry at
-// weight 1.0 and strip that target, so the appended model ships the displaced pose statically and
+// the given weight and strip that target, so the appended model ships the displaced pose statically and
 // the target can never reach the runtime channel remap.
 //
 // Mirrors blerc_avx (Merc2.cpp:302-347) exactly: per blerc vertex the runtime starts from
 // float_data[float_base] (v[0..3] = pos+pad, v[4..7] = normal+pad), adds every target delta scaled
 // by its channel weight, and STORES the result into mod.vertices[dest].pos / .normal (a full 4-wide
-// store, so pad0/pad1 come from the float data too). Baking channel N at weight 1.0 is therefore:
-//   base.v[i] += delta_N.v[i]   (all 8 lanes)
+// store, so pad0/pad1 come from the float data too). Baking channel N at weight W is therefore:
+//   base.v[i] += delta_N.v[i] * W   (all 8 lanes)
 //   mod.vertices[dest].pos/normal := the new base   (what the static mod VBO renders)
 // and then dropping delta_N from the [tgt..., terminator, dest] / [base, deltas...] pair of arrays.
-int bake_blerc_target(tfrag3::MercModel& donor, int target) {
+//
+// cycle-5 AMPLITUDE FIX: W is NOT 1.0. The runtime blend weight of a fully-on channel is 4096
+// ((raw 128 - 64) * 64, see goal_src/jak1/engine/gfx/foreground/bones.gc:888-897), so a bake at
+// weight 1.0 folds a displacement 4096x too small to be visible. Default W = 4096 (--bake-weight).
+int bake_blerc_target(tfrag3::MercModel& donor, int target, float weight) {
   size_t effects_touched = 0, verts_moved = 0;
   double max_disp = 0;
   for (size_t ei = 0; ei < donor.effects.size(); ei++) {
@@ -532,7 +571,7 @@ int bake_blerc_target(tfrag3::MercModel& donor, int target) {
         const auto& d = mod.blerc.float_data[v.float_base + 1 + k];
         if ((int)v.tgts[k] == target) {
           for (int c = 0; c < 8; c++) {
-            base.v[c] += d.v[c];
+            base.v[c] += d.v[c] * weight;
           }
           double m = std::sqrt((double)d.v[0] * d.v[0] + (double)d.v[1] * d.v[1] +
                                (double)d.v[2] * d.v[2]);
@@ -575,8 +614,9 @@ int bake_blerc_target(tfrag3::MercModel& donor, int target) {
     fmt::print("  BLERC-BAKE FAIL: target={} moves no vertices\n", target);
     return 7;
   }
-  fmt::print("  BLERC-BAKE: target={} effects_touched={} verts_moved={} max_disp={:.6g}\n", target,
-             effects_touched, verts_moved, max_disp);
+  fmt::print("  BLERC-BAKE: target={} weight={:.6g} effects_touched={} verts_moved={} "
+             "max_disp={:.6g}\n",
+             target, weight, effects_touched, verts_moved, max_disp);
   return 0;
 }
 
@@ -886,7 +926,10 @@ int port_blerc(tfrag3::Level& lev,
                const std::string& donor_name,
                const tfrag3::Level& driver_lev,
                const std::string& driver_src,
-               int bake_target) {
+               int bake_target,
+               float bake_weight,
+               const std::vector<int>& dropped_effects,
+               const std::vector<int>& strip_targets) {
   tfrag3::Level dlev;
   load_fr3(donor_fr3, dlev);
   auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
@@ -896,6 +939,14 @@ int port_blerc(tfrag3::Level& lev,
     return 6;
   }
   tfrag3::MercModel& donor = *dit;
+  // cycle-5: the same effects dropped from the appended model are dropped from the donor here,
+  // BEFORE anything else reads it — every index-based stage below then lines up by construction.
+  if (!dropped_effects.empty()) {
+    int drc = drop_effects(donor, dropped_effects, false);
+    if (drc != 0) {
+      return drc;
+    }
+  }
 
   // bake requested target into the donor's base geometry BEFORE anything reads the blerc data
   // (channel map, per-effect port) — the baked target is stripped here, so it can never be mapped.
@@ -909,7 +960,7 @@ int port_blerc(tfrag3::Level& lev,
     for (const auto& e : donor.effects) {
       prebake_mod_vertices.push_back(e.mod.vertices);
     }
-    int brc = bake_blerc_target(donor, bake_target);
+    int brc = bake_blerc_target(donor, bake_target, bake_weight);
     if (brc != 0) {
       return brc;
     }
@@ -989,6 +1040,18 @@ int port_blerc(tfrag3::Level& lev,
   // explicit: a baked target is never a runtime target on the appended model.
   if (bake_target >= 0 && (size_t)bake_target < channel_map.size()) {
     channel_map[bake_target] = -1;
+  }
+  // cycle-5: --strip-target removes a donor target from the RUNTIME channel map, so its deltas are
+  // never ported/driven on the appended model (jakm-hd: the targets that raise the neck scarf back
+  // over the face, and the goggles-down target, must stay inert on the bare-face look).
+  for (int st : strip_targets) {
+    if (st < 0 || (size_t)st >= channel_map.size()) {
+      fmt::print("STRIP-TARGET WARN: {} out of range ({} donor targets) — ignored\n", st,
+                 (int)channel_map.size());
+      continue;
+    }
+    channel_map[st] = -1;
+    fmt::print("STRIP-TARGET: {} (runtime channel map)\n", st);
   }
 
   // ---- per-effect port -----------------------------------------------------------------------
@@ -1319,7 +1382,8 @@ int assert_pool_safe(const tfrag3::Level& lev, size_t before_textures) {
 int port_envmap(tfrag3::Level& lev,
                 size_t appended_idx,
                 const fs::path& donor_fr3,
-                const std::string& donor_name) {
+                const std::string& donor_name,
+                const std::vector<int>& dropped_effects) {
   tfrag3::Level dlev;
   load_fr3(donor_fr3, dlev);
   auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
@@ -1328,6 +1392,13 @@ int port_envmap(tfrag3::Level& lev,
     fmt::print("  ENVMAP-PORT FAIL: donor model '{}' not in {}\n", donor_name,
                donor_fr3.string());
     return 7;
+  }
+  // cycle-5: mirror the appended model's dropped effects on this fresh donor load (see drop_effects)
+  if (!dropped_effects.empty()) {
+    int drc = drop_effects(*dit, dropped_effects, false);
+    if (drc != 0) {
+      return drc;
+    }
   }
   const tfrag3::MercModel& donor = *dit;
   tfrag3::MercModel& appended = lev.merc_data.models.at(appended_idx);
@@ -1380,7 +1451,8 @@ int port_envmap(tfrag3::Level& lev,
 int port_animslots(tfrag3::Level& lev,
                    size_t appended_idx,
                    const fs::path& donor_fr3,
-                   const std::string& donor_name) {
+                   const std::string& donor_name,
+                   const std::vector<int>& dropped_effects) {
   tfrag3::Level dlev;
   load_fr3(donor_fr3, dlev);
   auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
@@ -1389,6 +1461,13 @@ int port_animslots(tfrag3::Level& lev,
     fmt::print("  ANIMSLOT-PORT FAIL: donor model '{}' not in {}\n", donor_name,
                donor_fr3.string());
     return 2;
+  }
+  // cycle-5: mirror the appended model's dropped effects on this fresh donor load (see drop_effects)
+  if (!dropped_effects.empty()) {
+    int drc = drop_effects(*dit, dropped_effects, false);
+    if (drc != 0) {
+      return drc;
+    }
   }
   const tfrag3::MercModel& donor = *dit;
   tfrag3::MercModel& appended = lev.merc_data.models.at(appended_idx);
@@ -1544,7 +1623,10 @@ int do_add(const fs::path& in,
            const std::string& blerc_model = {},
            const fs::path& driver_fr3 = {},
            const std::string& lid_tex = {},
-           int bake_target = -1) {
+           int bake_target = -1,
+           float bake_weight = 4096.f,
+           const std::vector<int>& dropped_effects = {},
+           const std::vector<int>& strip_targets = {}) {
   if (!file_util::file_exists(glb.string())) {
     fmt::print("  GLB missing: {}\n", glb.string());
     return 2;
@@ -1574,6 +1656,17 @@ int do_add(const fs::path& in,
   size_t before_textures = lev.textures.size();
 
   size_t idx = decompiler::add_named_merc_model_to_level(lev, name, glb);
+  // cycle-5 (--drop-effect): erase the unwanted donor effects from the appended model IMMEDIATELY,
+  // before any other stage looks at it. The donor fr3 loads inside port_blerc/port_envmap/
+  // port_animslots drop the SAME indices, so the structure-mirror asserts and every index-based
+  // remap keep lining up with no renumbering.
+  if (!dropped_effects.empty()) {
+    int drc = drop_effects(lev.merc_data.models.at(idx), dropped_effects, true);
+    if (drc != 0) {
+      fmt::print("  (no fr3 written)\n");
+      return drc;
+    }
+  }
   print_merc_summary("after", lev);
 
   if (lev.merc_data.models.size() != before_models + 1) {
@@ -1648,17 +1741,17 @@ int do_add(const fs::path& in,
       return 6;
     }
     int rc = port_blerc(lev, idx, before_textures, eye_from, blerc_fr3, blerc_model, *driver_lev,
-                        driver_src, bake_target);
+                        driver_src, bake_target, bake_weight, dropped_effects, strip_targets);
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;
     }
-    rc = port_envmap(lev, idx, blerc_fr3, blerc_model);
+    rc = port_envmap(lev, idx, blerc_fr3, blerc_model, dropped_effects);
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;
     }
-    rc = port_animslots(lev, idx, blerc_fr3, blerc_model);
+    rc = port_animslots(lev, idx, blerc_fr3, blerc_model, dropped_effects);
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;
@@ -1718,7 +1811,14 @@ int main(int argc, char** argv) {
                "  hd_merc_swap add   <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from "
                "<stock-model>] [--blerc-from <donor.fr3>:<donor-model-name>] "
                "[--driver-fr3 <fr3-with-driver-model>] [--port-lid <donor-texture-debug-name>] "
-               "[--bake-blerc-target <N>]\n"
+               "[--bake-blerc-target <N>] [--bake-weight <float, default 4096>] "
+               "[--drop-effect <N> ...] [--strip-target <N> ...]\n"
+               "        --drop-effect  erase donor effect N (its draws/mod/blerc) from the "
+               "appended model; repeatable; out-of-range = FAIL\n"
+               "        --strip-target remove donor blerc target N from the RUNTIME channel map "
+               "(never driven); repeatable; out-of-range = warn\n"
+               "        --bake-weight  weight the baked blerc delta is folded at (runtime full-on "
+               "channel weight is 4096)\n"
                "  hd_merc_swap stamp <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n"
                "  hd_merc_swap blerc-stats <fr3> <model-name>\n");
     return 2;
@@ -1758,6 +1858,8 @@ int main(int argc, char** argv) {
     }
     std::string eye_from, blerc_spec, driver_fr3, lid_tex;
     int bake_target = -1;
+    float bake_weight = 4096.f;
+    std::vector<int> dropped_effects, strip_targets;
     for (int i = 5; i + 1 < argc; i++) {
       if (std::string(argv[i]) == "--eye-from") {
         eye_from = argv[i + 1];
@@ -1773,6 +1875,22 @@ int main(int argc, char** argv) {
           fmt::print("--bake-blerc-target needs a non-negative target index\n");
           return 2;
         }
+      } else if (std::string(argv[i]) == "--bake-weight") {
+        bake_weight = (float)std::atof(argv[i + 1]);
+      } else if (std::string(argv[i]) == "--drop-effect") {
+        int e = std::atoi(argv[i + 1]);
+        if (e < 0) {
+          fmt::print("--drop-effect needs a non-negative effect index\n");
+          return 2;
+        }
+        dropped_effects.push_back(e);
+      } else if (std::string(argv[i]) == "--strip-target") {
+        int t = std::atoi(argv[i + 1]);
+        if (t < 0) {
+          fmt::print("--strip-target needs a non-negative target index\n");
+          return 2;
+        }
+        strip_targets.push_back(t);
       }
     }
     std::string blerc_fr3, blerc_model;
@@ -1790,7 +1908,7 @@ int main(int argc, char** argv) {
       }
     }
     return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model, driver_fr3, lid_tex,
-                  bake_target);
+                  bake_target, bake_weight, dropped_effects, strip_targets);
   }
   fmt::print("unknown mode '{}'\n", mode);
   return 2;

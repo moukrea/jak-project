@@ -84,22 +84,28 @@ declare -A LID_TEX=(
   [ysamos-hd]=samos-eyelid
   [jakm-hd]=jakchires-eyelid
 )
-# CYCLE 4 owner item 3 (Jak 3 MASQUE BAISSÉ): jak3 has NO separate masked art-group — the lowered
-# goggles/lens are BLERC BLEND TARGETS on jakc-highres-lod0 (same donor as jak3-hd). jakm-hd is the
-# same donor appended with that target BAKED into the merc verts at add time (--bake-blerc-target);
-# the baked target is excluded from the runtime blerc port so face/lipsync channels stay live while
-# the mask stays down. The target index is pinned by `hd_merc_swap blerc-stats` evidence (the one
-# target that rigidly translates the jakc-lens + jakc-gogglemetal draws; cross-checked against the
-# PROVEN gameplay goggle target 4 of jakb-c-lod0 in out/jak3/fr3/GAME.fr3).
+# CYCLE 5 item 1 (Jak 3 MASQUE BAISSÉ = BARE FACE): jak3 has NO separate unmasked art-group — the
+# jakc donor carries the mask BOTH ways, as TWO SEPARATE SCARF EFFECTS on jakc-highres-lod0 (the
+# same donor as jak3-hd):
+#     effect[0]  = the static scarf pulled UP OVER THE NOSE  (the masked look)
+#     effect[17] = the scarf hanging at the NECK             (the bare-face look)
+# Our renderer force-enables EVERY effect, so both scarves always drew and the face was never bare
+# (jakm-hd came out pixel-identical to jak3-hd). jakm-hd is therefore the same donor appended with
+#     --drop-effect 0          -> the scarf-over-the-nose geometry is gone from the model entirely
+#     --strip-target 15/22/23  -> those donor blerc targets are removed from the RUNTIME channel map
+#                                 (15 lowers the goggles; 22 and 23 RAISE the neck scarf back toward
+#                                 the face) so nothing can pull the mask back up at runtime
+# and with NO BAKE: the goggles stay at the FOREHEAD, which is the authentic bare-face cutscene
+# state. (The old --bake-blerc-target 15 wiring is retired for jakm-hd; the BAKE mechanism itself is
+# kept below for future looks, and its amplitude bug is fixed — the runtime full-on channel weight
+# is 4096, see goal_src/jak1/engine/gfx/foreground/bones.gc:888-897, so a bake at weight 1.0 was
+# 4096x too small to see. hd_merc_swap now bakes at --bake-weight, default 4096.)
 declare -A BAKE_TARGET=(
-  [jakm-hd]=15
 )
-# Evidence for 15 (blerc-stats on out/jak3/fr3/ljakc.fr3 jakc-highres-lod0): target 15 rigidly
-# translates ALL 77 jakc-lens verts (mean |d|=0.109, mean_vec=(0.004,-0.109,-0.004)) + 402
-# jakc-gogglemetal verts + 135 jakchires-brownstrap verts DOWN in -y — the same direction
-# signature as the PROVEN gameplay goggles target 4 of jakb-c-lod0 (mean_vec=(0,-0.068,+0.012),
-# driven by (-> self skel override 5) via the 'goggles setting, powerups.gc:874-916). Face
-# (anim-slot effect 15) and scarf (effect 17) carry NO target-15 deltas.
+# Per-model EXTRA arguments spliced into the `hd_merc_swap add` invocation (word-split on purpose).
+declare -A EXTRA_ADD_ARGS=(
+  [jakm-hd]="--drop-effect 0 --strip-target 15 --strip-target 22 --strip-target 23"
+)
 APPENDS=(
   "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0|"
   "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|"
@@ -234,10 +240,19 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       esac
       BAKE_ARGS=(--bake-blerc-target "$BAKE_N")
     fi
+    # cycle-5 item 1: per-model extra args (jakm-hd: --drop-effect / --strip-target). Deliberately
+    # UNQUOTED so the string word-splits into separate argv entries; empty when the model has none.
+    EXTRA_ARGS=()
+    EXTRA_STR="${EXTRA_ADD_ARGS[$char]:-}"
+    if [ -n "$EXTRA_STR" ]; then
+      # shellcheck disable=SC2206
+      EXTRA_ARGS=($EXTRA_STR)
+    fi
     "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" --eye-from "$driver_model" \
       --blerc-from "$donor_fr3:$donor_model" \
       ${DRIVER_ARGS[@]+"${DRIVER_ARGS[@]}"} "${LID_ARGS[@]}" \
-      ${BAKE_ARGS[@]+"${BAKE_ARGS[@]}"} 2>&1 | tee -a "$SWAP_LOG"
+      ${BAKE_ARGS[@]+"${BAKE_ARGS[@]}"} \
+      ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 | tee -a "$SWAP_LOG"
     if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
       log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1

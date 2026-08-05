@@ -45,6 +45,9 @@
 (define-extern pc-physics-chain-flags (function string int int))    ;; class bits 1/2/4
 (define-extern pc-physics-level-param-mi (function int int int))    ;; ids: 0 substeps 1 iters 2 collide 3 classmask 4 fixedhz
 (define-extern pc-physics-joint-collider-mi (function string string int)) ;; milli radius, 0 none
+(define-extern pc-physics-num-colliders (function string int))
+(define-extern pc-physics-collider-param-mi (function string int int int)) ;; 0 milli radius, 1 RAW chain mask (-1 = all)
+(define-extern pc-physics-collider-is-joint (function string int string int)) ;; 1 if collider i sits on that joint
 
 ;; ------------------------------------------------------------------------------------------------
 ;; static pools: 8 slots x 48 sim joints x 24 chains x 8 colliders.
@@ -66,6 +69,8 @@
 (define *phys-slot-calm* (new 'static 'array int32 8))      ;; consecutive calm frames
 (define *phys-slot-anchprev* (new 'static 'inline-array vector 8)) ;; chain0 anchor last pos (debug)
 (define *phys-slot-anchmove* (new 'static 'array float 8))  ;; window max anchor move (debug)
+(define *phys-slot-pushouts* (new 'static 'array int32 8))  ;; collision push-out events (window)
+(define *phys-slot-maxpen* (new 'static 'array float 8))    ;; max penetration depth resolved (window)
 
 ;; per sim joint (idx = slot*PHYS-JPS + j)
 (define *phys-jk* (new 'static 'array int32 384))           ;; HD game joint index k
@@ -90,6 +95,7 @@
 ;; body collision spheres (idx = slot*PHYS-COLS + i)
 (define *phys-colk* (new 'static 'array int32 64))          ;; jgeo joint index carrying the sphere
 (define *phys-colr* (new 'static 'array float 64))
+(define *phys-colmask* (new 'static 'array int64 64))       ;; chain-applicability bits (bit c)
 
 ;; gravity: 9.8 m/s^2 * 4096 units/m
 (defconstant PHYS-GRAV-ACCEL 40140.8)
@@ -189,13 +195,19 @@
                  (set! (-> *phys-cinertia* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 4))))
                  (set! (-> *phys-cstretch* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 5))))
                  (set! (-> *phys-cradius* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 6)))))))
-           ;; body collision spheres: any jgeo joint the config names
-           (dotimes (k (-> jgeo length))
-             (when (< ncols PHYS-COLS)
-               (let ((rmi (pc-physics-joint-collider-mi ag (-> jgeo data k name))))
-                 (when (> rmi 0)
-                   (set! (-> *phys-colk* (+ (* slot PHYS-COLS) ncols)) k)
-                   (set! (-> *phys-colr* (+ (* slot PHYS-COLS) ncols)) (* 0.001 (the float rmi)))
+           ;; body collision spheres: file order, joint resolved by name, per-chain applicability mask
+           (let ((ncf (min PHYS-COLS (pc-physics-num-colliders ag))))
+             (dotimes (i ncf)
+               (let ((found -1))
+                 (dotimes (k (-> jgeo length))
+                   (when (and (< found 0) (> (pc-physics-collider-is-joint ag i (-> jgeo data k name)) 0))
+                     (set! found k)))
+                 (when (>= found 0)
+                   (set! (-> *phys-colk* (+ (* slot PHYS-COLS) ncols)) found)
+                   (set! (-> *phys-colr* (+ (* slot PHYS-COLS) ncols))
+                         (* 0.001 (the float (pc-physics-collider-param-mi ag i 0))))
+                   (set! (-> *phys-colmask* (+ (* slot PHYS-COLS) ncols))
+                         (pc-physics-collider-param-mi ag i 1))
                    (+! ncols 1)))))
            (set! (-> *phys-slot-njoints* slot) njoints)
            (set! (-> *phys-slot-nchains* slot) nch)
@@ -206,6 +218,8 @@
            (set! (-> *phys-slot-maxdev* slot) 0.0)
            (set! (-> *phys-slot-maxvel* slot) 0.0)
            (set! (-> *phys-slot-calm* slot) 0)
+           (set! (-> *phys-slot-pushouts* slot) 0)
+           (set! (-> *phys-slot-maxpen* slot) 0.0)
            (format 0 "[HD-PHYS] init ag=~S slot=~D chains=~D sim-joints=~D colliders=~D~%"
                    ag slot nch njoints ncols))))))
   (none))
@@ -360,15 +374,20 @@
                                           ;; body-sphere collisions (level-gated)
                                           (when (and collide? (> (-> *phys-cradius* ci) 0.0))
                                             (dotimes (s2 (-> *phys-slot-ncols* slot))
-                                              (let* ((colk (-> *phys-colk* (+ (* slot PHYS-COLS) s2)))
-                                                     (cc (-> skel bones (+ colk 1) transform vector 3))
-                                                     (rr (+ (-> *phys-colr* (+ (* slot PHYS-COLS) s2))
-                                                            (-> *phys-cradius* ci))))
-                                                (vector-! vtmp p cc)
-                                                (let ((dd (vector-length vtmp)))
-                                                  (when (and (> dd 0.0001) (< dd rr))
-                                                    (vector-float*! vtmp vtmp (/ rr dd))
-                                                    (vector+! p cc vtmp)))))))))))))))
+                                              (when (logtest? (-> *phys-colmask* (+ (* slot PHYS-COLS) s2)) (ash 1 c))
+                                                (let* ((colk (-> *phys-colk* (+ (* slot PHYS-COLS) s2)))
+                                                       (cc (-> skel bones (+ colk 1) transform vector 3))
+                                                       (rr (+ (-> *phys-colr* (+ (* slot PHYS-COLS) s2))
+                                                              (-> *phys-cradius* ci))))
+                                                  (vector-! vtmp p cc)
+                                                  (let ((dd (vector-length vtmp)))
+                                                    (when (and (> dd 0.0001) (< dd rr))
+                                                      (+! (-> *phys-slot-pushouts* slot) 1)
+                                                      (let ((pen (- rr dd)))
+                                                        (when (> pen (-> *phys-slot-maxpen* slot))
+                                                          (set! (-> *phys-slot-maxpen* slot) pen)))
+                                                      (vector-float*! vtmp vtmp (/ rr dd))
+                                                      (vector+! p cc vtmp))))))))))))))))
                          ;; ---------------- sanity + write-back ----------------
                          (let ((chainlen 0.0)
                                (broken 0))
@@ -469,16 +488,22 @@
                       (-> *phys-slot-njoints* slot)
                       frame-nact
                       classmask)
-              (format 0 " maxdev=~f maxvel=~f anchmove=~f nan-resets=~D (verlet state dump bounded)~%"
+              (format 0 " maxdev=~f maxvel=~f anchmove=~f nan-resets=~D (verlet state dump bounded)"
                       (-> *phys-slot-maxdev* slot)
                       (-> *phys-slot-maxvel* slot)
                       (-> *phys-slot-anchmove* slot)
                       (-> *phys-slot-resets* slot))
+              ;; third call: same LINE (device logcat greps are line-based).
+              (format 0 " push=~D maxpen=~f~%"
+                      (-> *phys-slot-pushouts* slot)
+                      (-> *phys-slot-maxpen* slot))
               (set! (-> *phys-slot-frames* slot) 0)
               (set! (-> *phys-slot-resets* slot) 0)
               (set! (-> *phys-slot-maxdev* slot) 0.0)
               (set! (-> *phys-slot-maxvel* slot) 0.0)
-              (set! (-> *phys-slot-anchmove* slot) 0.0)))))))
+              (set! (-> *phys-slot-anchmove* slot) 0.0)
+              (set! (-> *phys-slot-pushouts* slot) 0)
+              (set! (-> *phys-slot-maxpen* slot) 0.0)))))))
   (none))
 
 ) ;; #when FLAG_PHYSICS

@@ -906,9 +906,18 @@ struct PhysChain {
   std::vector<std::string> joints;  // ordered root -> tip
 };
 
+// A body collision sphere. `chains` restricts which chains of the model the sphere pushes out;
+// an EMPTY list means it applies to every chain (legacy behavior). Several colliders may sit on
+// the same joint with different filters/radii.
+struct PhysCollider {
+  std::string joint;
+  float radius = 0.f;
+  std::vector<std::string> chains;  // empty = applies to ALL chains
+};
+
 struct PhysModel {
   std::vector<PhysChain> chains;
-  std::map<std::string, float> colliders;  // joint name -> radius (game units)
+  std::vector<PhysCollider> colliders;
 };
 
 static std::map<std::string, PhysModel> s_phys_models;
@@ -1118,20 +1127,36 @@ static int pc_physics_parse_file() {
         lg::warn("[hd-phys] 'collider' outside a [model ...] section (skipped): {}", raw);
         continue;
       }
-      float radius = 0.f;
+      PhysCollider col;
+      col.joint = toks[1];
       for (size_t t = 2; t < toks.size(); t++) {
         std::string k, v;
         if (!phys_kv(toks[t], k, v)) {
           continue;
         }
         if (k == "radius") {
-          radius = phys_to_float(v);
+          col.radius = phys_to_float(v);
+        } else if (k == "chains") {
+          // comma-separated chain names, no spaces.
+          size_t p = 0;
+          while (p <= v.size()) {
+            size_t comma = v.find(',', p);
+            std::string one =
+                (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+            if (!one.empty()) {
+              col.chains.push_back(one);
+            }
+            if (comma == std::string::npos) {
+              break;
+            }
+            p = comma + 1;
+          }
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
         }
       }
-      cur_model->colliders[toks[1]] = radius;
+      cur_model->colliders.push_back(col);
       continue;
     }
 
@@ -1238,6 +1263,7 @@ s64 pc_physics_level_param_mi(s64 level, s64 param_id) {
 }
 
 // milli collider radius attached to a named joint; 0 = no collider there.
+// LEGACY accessor: only sees filterless (applies-to-all) colliders, first match wins.
 s64 pc_physics_joint_collider_mi(u32 ag_name, u32 joint_name) {
   pc_physics_ensure_loaded();
   const auto* model = pc_physics_find_model(ag_name);
@@ -1245,8 +1271,68 @@ s64 pc_physics_joint_collider_mi(u32 ag_name, u32 joint_name) {
     return 0;
   }
   std::string joint = Ptr<String>(joint_name).c()->data();
-  auto it = model->colliders.find(joint);
-  return (it == model->colliders.end()) ? 0 : phys_mi(it->second);
+  for (const auto& col : model->colliders) {
+    if (col.joint == joint && col.chains.empty()) {
+      return phys_mi(col.radius);
+    }
+  }
+  return 0;
+}
+
+// number of colliders declared for the model; 0 if the model is unknown.
+s64 pc_physics_num_colliders(u32 ag_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  return model ? (s64)model->colliders.size() : 0;
+}
+
+// field 0 = radius in milli. field 1 = chain-applicability bitmask, RAW (not milli): bit c set if
+// this collider applies to chain index c. An empty chains= filter -> -1 (all chains).
+s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || idx < 0 || idx >= (s64)model->colliders.size()) {
+    return 0;
+  }
+  const auto& col = model->colliders[idx];
+  if (field == 0) {
+    return phys_mi(col.radius);
+  }
+  if (field == 1) {
+    if (col.chains.empty()) {
+      return -1;
+    }
+    s64 mask = 0;
+    for (const auto& want : col.chains) {
+      bool found = false;
+      for (size_t ci = 0; ci < model->chains.size(); ci++) {
+        if (model->chains[ci].name == want) {
+          mask |= ((s64)1 << (s64)ci);
+          found = true;
+        }
+      }
+      if (!found) {
+        lg::warn("[hd-phys] collider {} chains= references unknown chain '{}' (ignored)", col.joint,
+                 want);
+      }
+    }
+    if (mask == 0) {
+      lg::warn("[hd-phys] collider {} chains= resolved to zero chains (collider inert)", col.joint);
+    }
+    return mask;
+  }
+  return 0;
+}
+
+// 1 if collider idx of the model sits on joint_name (exact match), else 0.
+s64 pc_physics_collider_is_joint(u32 ag_name, s64 idx, u32 joint_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || idx < 0 || idx >= (s64)model->colliders.size()) {
+    return 0;
+  }
+  std::string joint = Ptr<String>(joint_name).c()->data();
+  return model->colliders[idx].joint == joint ? 1 : 0;
 }
 
 // 0 = off (toggle off, or no params loaded); else level + 1.
@@ -3163,6 +3249,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-physics-num-chains", (void*)pc_physics_num_chains);
   make_function_symbol_from_c("pc-physics-level-param-mi", (void*)pc_physics_level_param_mi);
   make_function_symbol_from_c("pc-physics-joint-collider-mi", (void*)pc_physics_joint_collider_mi);
+  make_function_symbol_from_c("pc-physics-num-colliders", (void*)pc_physics_num_colliders);
+  make_function_symbol_from_c("pc-physics-collider-param-mi", (void*)pc_physics_collider_param_mi);
+  make_function_symbol_from_c("pc-physics-collider-is-joint", (void*)pc_physics_collider_is_joint);
   make_function_symbol_from_c("pc-physics-enabled", (void*)pc_physics_enabled);
 #endif
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
