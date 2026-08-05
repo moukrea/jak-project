@@ -197,3 +197,6 @@ Nouveau : look bonus « Jak 3 masque baissé » = masque AUTOUR DU COU, visage d
 
 ### 11:05 — Extension : TOUS les looks ciné de Jak (J2+J3) — recensement exhaustif demandé au worker
 La liste complète de ce qui existe arrivera dans son rapport ; intégration de tout au carousel ensuite.
+
+### 11:55 — Physique : périmètre élargi ferme (accessoires + toutes variantes de look + tous PNJ
+cheveux longs y compris Maia — injection d'os sur modèles stock pour les non-HD).
