@@ -225,3 +225,15 @@ Build cycle-4 sur le Redmi (deploy_verify PASS, pack 10 modèles md5-vérifié) 
   ③ menu → JAK LOOK → JAK 3 MASKED (lunettes baissées sur le visage, visage animé en ciné) ;
   ④ une cinématique complète — PNJ stables, visages vivants. Illustrations :
   reports/Grecharged-hd-models4/legM-jakm-idle.png + legM-jakm-pan.mp4. Ton œil = verdict final.
+
+### PRÉ-GATE 12:55 [✅ token cycle 4] — blink restauré + bretelles ×2 + MASQUE BAISSÉ
+- Prouvé aux compteurs : **clignement visible ×4** avec la paupière DU DONOR (zéro œil noir — mesuré) ;
+  **bretelles Keira fixées sur SES DEUX looks** (cause : 4 joints Strap2 en mode orient-copy qui
+  jetaient les clés de translation → traversaient le buste) ; **JAK 3 MASQUE BAISSÉ ajouté** (jakm-hd,
+  5e option JAK LOOK — astuce : le masque baissé est un blend-target du même modèle, baké en position
+  basse, visage toujours animé). deploy_verify PASS.
+- À TESTER (toi) : ① le clignement des 4 (naturel ? peau du bon modèle ?) ; ② les bretelles de Keira
+  (les 2 looks) ; ③ JAK LOOK → « Jak 3 masque baissé ». 
+- CARRY : l'inventaire exhaustif des looks ciné de Jak (prison J2, etc.) = prochain cycle HD, après
+  la physique (dis-moi si tu le veux AVANT la physique).
+- 🚀 PHASE SUIVANTE : **LA PHYSIQUE** (Grecharged-secondary-motion, périmètre élargi complet).

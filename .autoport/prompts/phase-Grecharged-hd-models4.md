@@ -278,3 +278,9 @@ même si l'intégration s'étale ; l'owner veut voir la liste de ce qui existe.
 versions cinématiques haute qualité). EXCLURE les modèles in-game low-poly (jak-lod*, versions
 gameplay) et toute variante non-cinématique. En cas de doute sur un art-group : vérifier qu'il
 vient d'un niveau/DGO de cutscene et que son budget tris est de classe "highres".
+
+## CARRY 2026-08-05 12:55 (pré-gate cycle 4) : l'INVENTAIRE EXHAUSTIF des looks ciné de Jak
+(extension owner 11:05 — prison J2, toutes variantes J3, cinématiques uniquement) n'est PAS couvert
+par le cycle 4 (arrivé en cours d'attempt ; seul l'inventaire jak3-masque a été fait). À traiter au
+PROCHAIN cycle HD (après la phase physique, sauf re-priorisation owner) : liste descriptive complète
+dans le rapport + intégration de tous au carousel.
