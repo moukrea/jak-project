@@ -2361,7 +2361,7 @@ phases:
     (bottines + visage remodelé); Daxter avec pantalon (fin Jak 3); Young Samos (Jak 2); Jak version Jak 2
     et Jak version Jak 3. Roadmap détaillée: memory project_hd_model_sourcing_roadmap + prompt M2.'
   prompt: prompts/phase-Grecharged-hd-models5.md
-  validator: validators/phase-Grecharged-hd-models4.sh
+  validator: validators/phase-Grecharged-hd-models5.sh
   max_turns: 3000
   max_retries: 6
   device: true
