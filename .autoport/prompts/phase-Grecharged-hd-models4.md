@@ -284,3 +284,20 @@ vient d'un niveau/DGO de cutscene et que son budget tris est de classe "highres"
 par le cycle 4 (arrivé en cours d'attempt ; seul l'inventaire jak3-masque a été fait). À traiter au
 PROCHAIN cycle HD (après la phase physique, sauf re-priorisation owner) : liste descriptive complète
 dans le rapport + intégration de tous au carousel.
+
+## VERDICT OWNER 2026-08-05 ~14:00 (build cycle-4) — CYCLE 5 (après la physique)
+✔ ACQUIS : les clignements sont BONS (« super ! ») — verrouillé, zéro régression.
+1. **BUG jakm-hd : « la version non masquée de Jak 3 EST la version masquée » — les deux looks
+   Jak 3 sont IDENTIQUES à l'écran.** Le bake du blend-target 15 (masque baissé) n'a pas d'effet
+   visible : suspects — (a) le mauvais target baké (le 15 déplace lens/gogglemetal/brownstrap de
+   ~0.10-0.12 : est-ce VISUELLEMENT le masque qui descend, ou un micro-déplacement ?), (b) le bake
+   n'a pas atterri dans le fr3 shippé (vérifier le merc jakm-hd-lod0 du GAME.fr3 livré : verts de
+   base ≠ jakc-hd ?), (c) le registre (char,look)->entry pointe les deux looks sur le même modèle.
+   Diagnostiquer par comparaison BYTES des deux mercs dans le fr3 livré + amplitude réelle du
+   déplacement à l'écran (0.10-0.12 unités = peut-être bien trop petit pour être le masque baissé —
+   auquel cas le target 15 n'est PAS le bon morph et il faut réexaminer les targets du modèle).
+2. **Bretelles Keira : « bien meilleur mais ça clip encore selon certaines animations »** — résiduel
+   par-anim. NOTE : la phase PHYSIQUE en cours peut être la vraie solution finale (bretelles =
+   chaînes de physique avec collision corps) — coordonner : si les bretelles passent en chaînes
+   physiques, le clip résiduel disparaît par construction ; sinon, tuning par-anim des clés.
+3. CARRY toujours ouvert : l'inventaire exhaustif des looks ciné de Jak (prison J2, variantes J3).
