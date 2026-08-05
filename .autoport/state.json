@@ -491,6 +491,9 @@
     ],
     "Grecharged-hd-models4": [
       "2b38ed65eb0e"
+    ],
+    "Gmenu-flag-off": [
+      "f96b8ea6f40f"
     ]
   },
   "stuck_reasons": {
@@ -922,7 +925,7 @@
     "Grecharged-hd-models4": 1785864377.2176697,
     "Gmenu-flag-off": 1785886071.952773
   },
-  "last_update": "2026-08-05T00:48:27.337802+00:00",
+  "last_update": "2026-08-05T00:48:29.177262+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

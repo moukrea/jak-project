@@ -67,7 +67,13 @@ for i in 1 2 3 4 5 6 7 8; do
 done
 [ "$CONNECTED" = 1 ] || { say "RESULT: FAIL (listener never connected)"; exit 1; }
 snd '(build-game)' 45
-for i in 1 2 3 4 5 6; do grep -qa "Successfully built all" "$OUT/goalc.log" && break; sleep 10; done
+# cold goalc recompiles the whole game here (~500 files, several minutes) — give it a
+# real deadline; 105s killed it at 81% on 2026-08-05 (root cause of the empty-log attempts)
+BG_DEADLINE=$(( $(date +%s) + 900 ))
+while [ "$(date +%s)" -lt "$BG_DEADLINE" ]; do
+  grep -qa "Successfully built all" "$OUT/goalc.log" && break
+  sleep 10
+done
 grep -qa "Successfully built all" "$OUT/goalc.log" || { say "RESULT: FAIL (build-game did not finish)"; exit 1; }
 snd '(format 0 "MFPROBE-ALIVE~%")' 2
 GLOG=""
@@ -76,14 +82,27 @@ grep -qa "MFPROBE-ALIVE" "$OUT/gk.log" && GLOG="$OUT/gk.log"
 [ -n "$GLOG" ] || { say "RESULT: FAIL (format routing dead)"; exit 1; }
 say "listener alive; GOAL prints route to $GLOG"
 
-# ---- 3. open the recharged-settings screen (real activate path) ----
-snd '(format 0 "PPRE ~A~%" *progress-process*)' 2
-snd '(if (not *progress-process*) (activate-progress *dproc* (progress-screen recharged-settings)))' 4
-snd '(if *progress-process* (set! (-> *progress-process* 0 next-display-state) (progress-screen recharged-settings)))' 3
+# ---- 3. open the progress menu via REAL START input, then steer to recharged-settings ----
+# activate-progress from the listener thread does NOT work (proven: gmenu_pos_x86_dump.sh —
+# it segfaults/no-ops; the title handler must run it in kernel context off a real START).
+# The old menu also wires value-to-modify at progress activation, so a live process is
+# REQUIRED before the binding dump means anything (all-zero vtm = menu never opened).
+PYV="$HOME/.venv/autoport/bin/python"; [ -x "$PYV" ] || PYV=python3
+for k in 1 2 3 4; do
+  "$PYV" .autoport/xfocus_tap.py 28 > "$OUT/xfocus.log" 2>&1 || say "xfocus_tap warn (try $k)"
+  sleep 5
+  snd '(if *progress-process* (format 0 "PP-LIVE~%") (format 0 "PP-NIL~%"))' 2
+  grep -qa "PP-LIVE" "$GLOG" && break
+done
+grep -qa "PP-LIVE" "$GLOG" || { say "RESULT: FAIL (progress menu never opened via START)"; exit 1; }
+snd '(if *progress-process* (set! (-> *progress-process* 0 next-display-state) (progress-screen recharged-settings)))' 4
+snd '(if *progress-process* (set! (-> *progress-process* 0 next-display-state) (progress-screen recharged-settings)))' 4
 snd '(if *progress-process* (format 0 "MSCREEN ~D want ~D~%" (the-as int (-> *progress-process* 0 display-state)) (the-as int (progress-screen recharged-settings))) (format 0 "MSCREEN-NOPP~%"))' 2
 
-# ---- 4. binding-table dump ----
-snd '(format 0 "MTYPES on-off ~D slider ~D menu ~D button ~D disp ~D preset ~D isolate ~D ao ~D aoq ~D aos ~D probe ~D ambm ~D shq ~D~%" (the-as int (game-option-type on-off)) (the-as int (game-option-type slider)) (the-as int (game-option-type menu)) (the-as int (game-option-type button)) (the-as int (game-option-type pbr-displacement)) (the-as int (game-option-type pbr-test-preset)) (the-as int (game-option-type pbr-isolate)) (the-as int (game-option-type ambient-occlusion)) (the-as int (game-option-type ao-quality)) (the-as int (game-option-type ao-strength)) (the-as int (game-option-type follow-probe)) (the-as int (game-option-type rt-ambient-model)) (the-as int (game-option-type shadow-quality)))' 2
+# ---- 4. binding-table dump (GOAL calls max 8 params -> <=6 format args per line) ----
+snd '(format 0 "MTYPES1 on-off ~D slider ~D menu ~D button ~D disp ~D preset ~D~%" (the-as int (game-option-type on-off)) (the-as int (game-option-type slider)) (the-as int (game-option-type menu)) (the-as int (game-option-type button)) (the-as int (game-option-type pbr-displacement)) (the-as int (game-option-type pbr-test-preset)))' 2
+snd '(format 0 "MTYPES2 isolate ~D ao ~D aoq ~D aos ~D probe ~D ambm ~D~%" (the-as int (game-option-type pbr-isolate)) (the-as int (game-option-type ambient-occlusion)) (the-as int (game-option-type ao-quality)) (the-as int (game-option-type ao-strength)) (the-as int (game-option-type follow-probe)) (the-as int (game-option-type rt-ambient-model)))' 2
+snd '(format 0 "MTYPES3 shq ~D~%" (the-as int (game-option-type shadow-quality)))' 2
 snd '(format 0 "MLEN recharged ~D graphic-pc ~D graphic-android ~D grass ~D~%" (-> *recharged-options-pc* length) (-> *graphic-options-pc* length) (-> *graphic-options-pc-android* length) (-> *grass-options-pc* length))' 2
 snd '(dotimes (i (-> *recharged-options-pc* length)) (format 0 "MROW ~D type ~D vtm #x~X ovr ~A~%" i (the-as int (-> *recharged-options-pc* i option-type)) (the-as int (-> *recharged-options-pc* i value-to-modify)) (-> *recharged-options-pc* i name-override)))' 4
 snd '(format 0 "MREF master #x~X~%" (the-as int (&-> *pc-settings* recharged-master?)))' 1
@@ -126,7 +145,7 @@ snd '(format 0 "PBR-A2 ~A~%" (-> *pc-settings* pbr-materials?))' 2
 sleep 2
 
 # ---- 6. harvest + assert ----
-grep -a "MSCREEN\|MTYPES\|MLEN\|MROW\|MREF\|GROW\|MPRE\|DISP-A\|HD-A\|PBR-A" "$GLOG" >> "$LOG" || true
+grep -a "MSCREEN\|MTYPES\|MLEN\|MROW\|MREF\|GROW\|MPRE\|DISP-A\|HD-A\|PBR-A\|PP-LIVE\|PP-NIL" "$GLOG" >> "$LOG" || true
 finish
 trap - EXIT
 
@@ -141,12 +160,13 @@ def need(pat, msg):
 # screen reached
 m = need(r'^MSCREEN (\d+) want (\d+)', 'no MSCREEN line')
 if m and m.group(1) != m.group(2): fails.append('recharged-settings screen not reached')
-# types + refs
+# types + refs (MTYPES split across 3 lines: GOAL max 8 params per call)
 types = {}
-m = need(r'^MTYPES (.*)$', 'no MTYPES')
-if m:
-    t = m.group(1).split()
-    types = dict(zip(t[0::2], [int(x) for x in t[1::2]]))
+tls = re.findall(r'^MTYPES\d (.*)$', log, re.M)
+if not tls: fails.append('no MTYPES')
+for tl in tls:
+    t = tl.split()
+    types.update(dict(zip(t[0::2], [int(x) for x in t[1::2]])))
 refs = dict(re.findall(r'^MREF (\S+) #x([0-9a-fA-F]+)', log, re.M))
 refs = {k: int(v,16) for k,v in refs.items()}
 mlen = need(r'^MLEN recharged (\d+) graphic-pc (\d+) graphic-android (\d+) grass (\d+)', 'no MLEN')
