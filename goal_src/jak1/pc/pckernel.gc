@@ -481,6 +481,11 @@
     (("ao-quality") (set! (-> obj ao-quality) (file-stream-read-int file)))
     (("ao-strength") (set! (-> obj ao-strength) (file-stream-read-int file)))
     (("recharged-enhanced-models?") (set! (-> obj recharged-enhanced-models?) (file-stream-read-symbol file)))
+    ;; Grecharged-hd-models5: per-character HD LOOK selections (ints, like pbr-displacement).
+    (("hd-look-jak") (set! (-> obj hd-look-jak) (file-stream-read-int file)))
+    (("hd-look-daxter") (set! (-> obj hd-look-daxter) (file-stream-read-int file)))
+    (("hd-look-keira") (set! (-> obj hd-look-keira) (file-stream-read-int file)))
+    (("hd-look-samos") (set! (-> obj hd-look-samos) (file-stream-read-int file)))
     (("load-custom-assets?")
      (set! (-> obj load-custom-assets?) (file-stream-read-symbol file))
      ;; Gload-custom-assets: apply the persisted flag at settings-load (boot) time so the choice
@@ -554,6 +559,11 @@
   (format file "ao-quality = ~D~%" (-> obj ao-quality))
   (format file "ao-strength = ~D~%" (-> obj ao-strength))
   (format file "recharged-enhanced-models? = ~A~%" (-> obj recharged-enhanced-models?))
+  ;; Grecharged-hd-models5: per-character HD LOOK selections (ints, like pbr-displacement).
+  (format file "hd-look-jak = ~D~%" (-> obj hd-look-jak))
+  (format file "hd-look-daxter = ~D~%" (-> obj hd-look-daxter))
+  (format file "hd-look-keira = ~D~%" (-> obj hd-look-keira))
+  (format file "hd-look-samos = ~D~%" (-> obj hd-look-samos))
   (format file "load-custom-assets? = ~A~%" (-> obj load-custom-assets?))
   (format file "recharged-textures? = ~A~%" (-> obj recharged-textures?))
   (format file "skip-movies? = ~A~%" (-> obj skip-movies?))

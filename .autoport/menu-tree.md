@@ -24,7 +24,7 @@ Aspect, Résolution (desktop), Dynamic Render Scale (`dynamic-render-scale?`), R
 Min Target FPS (`dyn-target-fps`), FPS Counter, VSync, MSAA, [desktop : Display Mode, Display,
 Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_SUPPORT}`, Back.
 
-## RECHARGED SETTINGS (`*recharged-options-pc`* — 24 lignes livrées avec hd-models+pbr, HUD off)
+## RECHARGED SETTINGS (`*recharged-options-pc`* — 28 lignes livrées avec hd-models+pbr, HUD off)
 
 | idx | ligne | pilote |
 |---|---|---|
@@ -34,18 +34,41 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | 3 | RECHARGED TEXTURES | `recharged-textures?` |
 | 4 | PBR MATERIALS `{FLAG_PBR}` | `pbr-materials?` |
 | 5 | ENHANCED MODELS `{FLAG_HD_MODELS}` (collapse si FR3 HD absents) | `recharged-enhanced-models?` |
-| 6 | FOLIAGE WIND | `recharged-foliage-wind?` |
-| 7-9 | AMBIENT OCCLUSION / AO QUALITY / AO STRENGTH (carousells) | `ambient-occlusion`/`ao-quality`/`ao-strength` via int-backup |
-| 10 | REALTIME LIGHTING `{FLAG_PBR}` | `realtime-lighting?` |
-| 11-12 | FOLLOW PROBE / AMBIENT MODEL (carousells) `{FLAG_PBR}` | int-backup → champs rt |
-| 13-15 | AMBIENT STRENGTH / CONTRAST / SHADOW DISTANCE (sliders) `{FLAG_PBR}` | `realtime-ambient-strength`/`-contrast`/`realtime-shadow-dist` |
-| 16 | SHADOW QUALITY (carousell) `{FLAG_PBR}` | int-backup → `shadow-quality` |
-| 17-18 | TEXTURE RELIEF / SPECULAR INTENSITY (sliders) `{FLAG_PBR}` | `pbr-texture-relief`/`pbr-specular-intensity` |
-| **19** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
-| 20 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
-| 21 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
-| 22 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
-| 23 | Back | — |
+| **6** | **JAK LOOK (carousell ORIGINAL / HD / JAK II / JAK 3)** `{FLAG_HD_MODELS}` (grisé si master ou ENHANCED MODELS off) | **`hd-look-jak`** via int-backup (write-back respond-common) |
+| **7** | **DAXTER LOOK (carousell ORIGINAL / HD / PANTS)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-daxter`** via int-backup |
+| **8** | **KEIRA LOOK (carousell ORIGINAL / HD / JAK 3)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-keira`** via int-backup |
+| **9** | **SAMOS LOOK (carousell ORIGINAL / HD / YOUNG)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-samos`** via int-backup |
+| 10 | FOLIAGE WIND | `recharged-foliage-wind?` |
+| 11-13 | AMBIENT OCCLUSION / AO QUALITY / AO STRENGTH (carousells) | `ambient-occlusion`/`ao-quality`/`ao-strength` via int-backup |
+| 14 | REALTIME LIGHTING `{FLAG_PBR}` | `realtime-lighting?` |
+| 15-16 | FOLLOW PROBE / AMBIENT MODEL (carousells) `{FLAG_PBR}` | int-backup → champs rt |
+| 17-19 | AMBIENT STRENGTH / CONTRAST / SHADOW DISTANCE (sliders) `{FLAG_PBR}` | `realtime-ambient-strength`/`-contrast`/`realtime-shadow-dist` |
+| 20 | SHADOW QUALITY (carousell) `{FLAG_PBR}` | int-backup → `shadow-quality` |
+| 21-22 | TEXTURE RELIEF / SPECULAR INTENSITY (sliders) `{FLAG_PBR}` | `pbr-texture-relief`/`pbr-specular-intensity` |
+| **23** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
+| 24 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
+| 25 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
+| 26 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
+| 27 | Back | — |
+
+### Grecharged-hd-models5 — LOOK par personnage (idx 6-9)
+
+Quatre carousells `int32` persistés dans `settings.ini` : `hd-look-jak` (0 ORIGINAL / 1 HD /
+2 JAK II / 3 JAK 3), `hd-look-daxter` (0 ORIGINAL / 1 HD / 2 PANTS), `hd-look-keira`
+(0 ORIGINAL / 1 HD / 2 JAK 3), `hd-look-samos` (0 ORIGINAL / 1 HD / 2 YOUNG). **Défaut = 1 (HD)**
+pour les quatre = le comportement d'ENHANCED MODELS avant ces lignes.
+
+Le bloc HD compte désormais **5 lignes** gatées `FLAG_HD_MODELS` : chaque terme HD de
+l'arithmétique longueur-exacte du menu ancien passe de `FLAG_HD_MODELS_N` à
+`(* 5 FLAG_HD_MODELS_N)` (longueur pleine `(+ 10 hud-N pbr-N (* 5 hd-N) (* 12 pbr-N))` = 28,
+`fw-idx` = `(+ 4 hud-N pbr-N (* 5 hd-N))` = 10), et le collapse "FR3 HD absents" retire
+**les 5 lignes d'un bloc** (`length -= 5`, décalage `+5`).
+
+Les 6 libellés d'options (ORIGINAL / HD / JAK II / JAK 3 / PANTS / YOUNG) sont des **globales
+runtime** (`*hd-look-*-label*`) résolues par `carousell-option-string` depuis les tags réservés
+`#x17b0..#x17b5` — même mécanisme anti-banque-de-texte-périmée que PBR ISOLATE, donc aucun
+"Unknown ID" possible sur Android. Libellés de lignes via `name-override` (`JAK LOOK`,
+`DAXTER LOOK`, `KEIRA LOOK`, `SAMOS LOOK`), comme `*enhanced-models-label*`. Anglais uniquement.
 
 ## GRASS SETTINGS (`*grass-options-pc*` 7 lignes)
 

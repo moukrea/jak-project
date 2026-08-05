@@ -35,10 +35,12 @@
 #include <cstring>
 #include <map>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/log/log.h"
+#include "common/texture/texture_slots.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Serializer.h"
 #include "common/util/compress.h"
@@ -296,8 +298,14 @@ int do_stamp(const fs::path& donor_fr3,
                mesh.primitives.size(), flat.size());
     return 2;
   }
-  std::map<int, u32> stamped_mats;  // material -> mode (collision check)
+  // (original material, draw mode, eye_id) -> material index carrying that stamp. A single GLB
+  // material can legitimately back draws with DIFFERENT GS modes: the rip merges materials by
+  // texture, while the donor fr3 can draw that one texture with several modes (e.g. opaque +
+  // alpha-blended passes) or several eye slots. Instead of failing, CLONE the material per
+  // variant so every draw keeps its exact donor mode/eye slot.
+  std::map<std::tuple<int, u32, int>, int> mat_variant;
   int eye_stamps = 0;
+  int split_count = 0;
   for (size_t i = 0; i < mesh.primitives.size(); i++) {
     auto& prim = mesh.primitives[i];
     const auto& ref = flat[i];
@@ -316,24 +324,46 @@ int do_stamp(const fs::path& donor_fr3,
       fmt::print("  STAMP FAIL: prim[{}] has no material (anim-slot draw?) — unsupported\n", i);
       return 2;
     }
-    auto found = stamped_mats.find(prim.material);
-    if (found != stamped_mats.end()) {
-      if (found->second != ref.d->mode.as_int()) {
-        fmt::print("  STAMP FAIL: material {} shared by draws with different modes ({:#x} vs "
-                   "{:#x})\n",
-                   prim.material, found->second, ref.d->mode.as_int());
-        return 2;
-      }
+    const int orig_mat = prim.material;
+    const u32 mode = ref.d->mode.as_int();
+    const int eye = (int)ref.d->eye_id;
+    const auto key = std::make_tuple(orig_mat, mode, eye);
+    auto found = mat_variant.find(key);
+    if (found != mat_variant.end()) {
+      // identical (material, mode, eye) already stamped — reuse it (possibly a clone)
+      prim.material = found->second;
       continue;
     }
-    stamped_mats[prim.material] = ref.d->mode.as_int();
+
     tinygltf::Value::Object mex;
-    mex["goal_draw_mode"] = tinygltf::Value((int)ref.d->mode.as_int());
+    mex["goal_draw_mode"] = tinygltf::Value((int)mode);
     if (ref.d->eye_id != 0xff) {
-      mex["goal_eye_id"] = tinygltf::Value((int)ref.d->eye_id);
+      mex["goal_eye_id"] = tinygltf::Value(eye);
       eye_stamps++;
     }
-    model.materials[prim.material].extras = tinygltf::Value(mex);
+
+    bool orig_taken = false;
+    for (const auto& kv : mat_variant) {
+      if (std::get<0>(kv.first) == orig_mat) {
+        orig_taken = true;
+        break;
+      }
+    }
+    int target;
+    if (!orig_taken) {
+      target = orig_mat;
+    } else {
+      tinygltf::Material clone = model.materials[orig_mat];
+      target = (int)model.materials.size();
+      model.materials.push_back(clone);
+      split_count++;
+      fmt::print("  STAMP SPLIT: material {} -> {} mode {:#x} (one texture, multiple donor "
+                 "modes)\n",
+                 orig_mat, target, mode);
+    }
+    model.materials[target].extras = tinygltf::Value(mex);
+    prim.material = target;
+    mat_variant[key] = target;
   }
 
   tinygltf::TinyGLTF gltf;
@@ -342,8 +372,8 @@ int do_stamp(const fs::path& donor_fr3,
     fmt::print("  STAMP FAIL: cannot write {}\n", out_glb.string());
     return 2;
   }
-  fmt::print("  STAMPED {} prims / {} materials ({} eye draws) from '{}' -> {}\n",
-             mesh.primitives.size(), stamped_mats.size(), eye_stamps, model_name,
+  fmt::print("  STAMPED {} prims / {} materials ({} eye draws, {} splits) from '{}' -> {}\n",
+             mesh.primitives.size(), mat_variant.size(), eye_stamps, split_count, model_name,
              out_glb.string());
   return 0;
 }
@@ -1007,6 +1037,22 @@ int port_blerc(tfrag3::Level& lev,
   return 0;
 }
 
+// Copy a donor texture into the target level's texture array, deduping through `cache`
+// (donor texture idx -> target level texture idx). Shared by ENVMAP-PORT and ANIMSLOT-PORT.
+u32 port_texture(tfrag3::Level& lev,
+                 const tfrag3::Level& dlev,
+                 u32 donor_tex_idx,
+                 std::map<u32, u32>& cache) {
+  auto cached = cache.find(donor_tex_idx);
+  if (cached != cache.end()) {
+    return cached->second;
+  }
+  u32 nt = (u32)lev.textures.size();
+  lev.textures.push_back(dlev.textures[donor_tex_idx]);
+  cache.emplace(donor_tex_idx, nt);
+  return nt;
+}
+
 // ENVMAP-PORT (cycle 3, defect classes C/E): the GLB round-trip loses has_envmap (rip GLB
 // materials carry no valid envmap extension), so appended models rendered envmap-effect
 // textures as plain alpha-tested color — but PS2 TCC envmap-effect texture alpha is a SHEEN
@@ -1050,15 +1096,7 @@ int port_envmap(tfrag3::Level& lev,
                  ei, dt, dlev.textures.size());
       return 7;
     }
-    u32 nt;
-    auto cached = tex_cache.find(dt);
-    if (cached != tex_cache.end()) {
-      nt = cached->second;
-    } else {
-      nt = (u32)lev.textures.size();
-      lev.textures.push_back(dlev.textures[dt]);
-      tex_cache.emplace(dt, nt);
-    }
+    u32 nt = port_texture(lev, dlev, dt, tex_cache);
     ae.has_envmap = true;
     ae.envmap_mode = de.envmap_mode;
     ae.envmap_texture = nt;
@@ -1069,6 +1107,176 @@ int port_envmap(tfrag3::Level& lev,
   }
   fmt::print("  ENVMAP-PORT {} effect(s) ported from '{}' ({} texture(s) copied)\n", ported,
              donor_name, tex_cache.size());
+  return 0;
+}
+
+// ANIMSLOT-PORT (cycle 3): the jak2/jak3 Jak donors ship merc draws whose texture id is
+// NEGATIVE — that is not a texture index at all but a TextureAnimator OUTPUT SLOT reference
+// (slot = -id - 1, see decompiler/level_extractor/extract_merc.cpp). Those slots are
+// clut-blender outputs (norm/dark skin blends) that only exist in the donor game's animator;
+// jak1 has no such slots, so copying the negative id verbatim into a jak1 fr3 gives the
+// runtime an out-of-universe slot reference (crash path) and leaves the appended model's
+// all_draws on the bigpuff fallback texture. The correct STATIC substitute is the slot's base
+// texture, which IS present in the donor fr3's texture array under the slot's NAME. This step
+// resolves each negative id to that name (via the jak2/jak3 slot tables — exactly one table's
+// entry may exist in a given donor fr3, which also auto-detects the donor game), ports the
+// texture into the target level, and rewrites every negative id on the appended model.
+int port_animslots(tfrag3::Level& lev,
+                   size_t appended_idx,
+                   const fs::path& donor_fr3,
+                   const std::string& donor_name) {
+  tfrag3::Level dlev;
+  load_fr3(donor_fr3, dlev);
+  auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
+                          [&](const auto& m) { return m.name == donor_name; });
+  if (dit == dlev.merc_data.models.end()) {
+    fmt::print("  ANIMSLOT-PORT FAIL: donor model '{}' not in {}\n", donor_name,
+               donor_fr3.string());
+    return 2;
+  }
+  const tfrag3::MercModel& donor = *dit;
+  tfrag3::MercModel& appended = lev.merc_data.models.at(appended_idx);
+  if (appended.effects.size() != donor.effects.size()) {
+    fmt::print("  ANIMSLOT-PORT FAIL: effect count mismatch: appended '{}' has {}, donor '{}' "
+               "has {}\n",
+               appended.name, appended.effects.size(), donor.name, donor.effects.size());
+    return 2;
+  }
+
+  const auto& jak2_slots = jak2_animated_texture_slots();
+  const auto& jak3_slots = jak3_animated_texture_slots();
+
+  auto find_donor_tex = [&](const std::string& tex_name) -> int {
+    for (size_t i = 0; i < dlev.textures.size(); i++) {
+      if (dlev.textures[i].debug_name == tex_name) {
+        return (int)i;
+      }
+    }
+    return -1;
+  };
+
+  struct SlotInfo {
+    std::string name;
+    u32 tex_idx = 0;
+    int draws = 0;
+  };
+  std::map<int, SlotInfo> slots;    // anim slot -> resolved binding
+  std::map<u32, u32> tex_cache;     // donor texture idx -> target level texture idx
+  bool failed = false;
+
+  // negative id -> ported target texture index (resolves + ports on first use)
+  auto resolve = [&](s32 neg_id) -> int {
+    int slot = -neg_id - 1;
+    auto it = slots.find(slot);
+    if (it != slots.end()) {
+      return (int)it->second.tex_idx;
+    }
+    std::string c2 = (slot >= 0 && (size_t)slot < jak2_slots.size()) ? jak2_slots[slot] : "";
+    std::string c3 = (slot >= 0 && (size_t)slot < jak3_slots.size()) ? jak3_slots[slot] : "";
+    int i2 = c2.empty() ? -1 : find_donor_tex(c2);
+    int i3 = c3.empty() ? -1 : find_donor_tex(c3);
+    if ((i2 < 0 && i3 < 0) || (i2 >= 0 && i3 >= 0)) {
+      fmt::print("  ANIMSLOT-PORT FAIL: slot {} (tex id {}) — jak2 candidate '{}' {} in donor "
+                 "'{}', jak3 candidate '{}' {} in donor; need EXACTLY one\n",
+                 slot, neg_id, c2.empty() ? "<out-of-range>" : c2,
+                 i2 >= 0 ? "PRESENT" : "absent", donor_fr3.string(),
+                 c3.empty() ? "<out-of-range>" : c3, i3 >= 0 ? "PRESENT" : "absent");
+      failed = true;
+      return -1;
+    }
+    int donor_idx = (i2 >= 0) ? i2 : i3;
+    SlotInfo info;
+    info.name = (i2 >= 0) ? c2 : c3;
+    info.tex_idx = port_texture(lev, dlev, (u32)donor_idx, tex_cache);
+    slots.emplace(slot, info);
+    return (int)info.tex_idx;
+  };
+
+  int rebound = 0;
+  // (a) the appended model's own mod/fix draws carry the donor's negative ids verbatim
+  //     (port_blerc copies them through).
+  for (auto& ae : appended.effects) {
+    for (auto* list : {&ae.mod.fix_draw, &ae.mod.mod_draw}) {
+      for (auto& d : *list) {
+        if (d.tree_tex_id >= 0) {
+          continue;
+        }
+        int nt = resolve(d.tree_tex_id);
+        if (nt < 0) {
+          return 2;
+        }
+        slots[-d.tree_tex_id - 1].draws++;
+        d.tree_tex_id = nt;
+        rebound++;
+      }
+    }
+  }
+  // (b) all_draws of the appended model came from the GLB (bigpuff fallback for these prims);
+  //     the DONOR's draw list tells us positionally which ones are anim-slot draws.
+  for (size_t ei = 0; ei < donor.effects.size(); ei++) {
+    const auto& de = donor.effects[ei];
+    auto& ae = appended.effects[ei];
+    if (de.all_draws.size() != ae.all_draws.size()) {
+      fmt::print("  ANIMSLOT-PORT FAIL: effect[{}] draw count mismatch: appended {} vs donor {}\n",
+                 ei, ae.all_draws.size(), de.all_draws.size());
+      return 2;
+    }
+    for (size_t di = 0; di < de.all_draws.size(); di++) {
+      s32 did = de.all_draws[di].tree_tex_id;
+      if (did >= 0) {
+        continue;
+      }
+      int nt = resolve(did);
+      if (nt < 0) {
+        return 2;
+      }
+      slots[-did - 1].draws++;
+      ae.all_draws[di].tree_tex_id = nt;
+      rebound++;
+    }
+  }
+  if (failed) {
+    return 2;
+  }
+
+  if (slots.empty()) {
+    fmt::print("  ANIMSLOT-PORT: none\n");
+    return 0;
+  }
+  for (const auto& [slot, info] : slots) {
+    fmt::print("  ANIMSLOT-PORT: slot {} '{}' -> tex[{}] ({} draws)\n", slot, info.name,
+               info.tex_idx, info.draws);
+  }
+  fmt::print("  ANIMSLOT-PORT OK: {} draws rebound, {} textures ported\n", rebound,
+             tex_cache.size());
+  return 0;
+}
+
+// INVARIANT: a jak1 fr3 must NEVER ship a negative merc texture id (an out-of-universe
+// TextureAnimator slot reference). Scan every draw list of the appended model.
+int assert_no_negative_tex(const tfrag3::MercModel& m) {
+  int bad = 0;
+  for (size_t ei = 0; ei < m.effects.size(); ei++) {
+    const auto& e = m.effects[ei];
+    auto scan = [&](const char* which, const std::vector<tfrag3::MercDraw>& list) {
+      for (size_t di = 0; di < list.size(); di++) {
+        if (list[di].tree_tex_id < 0) {
+          fmt::print("  NEG-TEX-INVARIANT FAIL: model '{}' effect[{}] {}[{}] tex id {} (anim "
+                     "slot {}) — jak1 has no TextureAnimator slot universe for it\n",
+                     m.name, ei, which, di, list[di].tree_tex_id, -list[di].tree_tex_id - 1);
+          bad++;
+        }
+      }
+    };
+    scan("all_draws", e.all_draws);
+    scan("fix_draw", e.mod.fix_draw);
+    scan("mod_draw", e.mod.mod_draw);
+  }
+  if (bad) {
+    fmt::print("  NEG-TEX-INVARIANT FAIL: {} draw(s) still carry a negative texture id\n", bad);
+    return 2;
+  }
+  fmt::print("  NEG-TEX-INVARIANT OK: no negative texture ids in '{}'\n", m.name);
   return 0;
 }
 
@@ -1182,6 +1390,20 @@ int do_add(const fs::path& in,
       return rc;
     }
     rc = port_envmap(lev, idx, blerc_fr3, blerc_model);
+    if (rc != 0) {
+      fmt::print("  (no fr3 written)\n");
+      return rc;
+    }
+    rc = port_animslots(lev, idx, blerc_fr3, blerc_model);
+    if (rc != 0) {
+      fmt::print("  (no fr3 written)\n");
+      return rc;
+    }
+  }
+
+  // hard invariant: no negative (TextureAnimator slot) texture id may reach a jak1 fr3.
+  {
+    int rc = assert_no_negative_tex(lev.merc_data.models.at(idx));
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;

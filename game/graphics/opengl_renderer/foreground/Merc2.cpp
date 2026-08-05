@@ -2258,7 +2258,11 @@ void Merc2::do_draws(const Draw* draw_array,
         // the anim-slot array is empty; jak2 merc draws DO reference anim slots
         // (jak1's never did). Bind nothing (placeholder texture state) instead of
         // std::out_of_range-aborting. Desktop always populates the array; neutral.
-        if (slot >= 0 && (size_t)slot < m_anim_slot_array->size()) {
+        // Grecharged-hd-models5: on jak1 the POINTER itself is null (no TextureAnimator at
+        // all, OpenGLRenderer.h anim_slot_array()) and the M3 bonus donors (jak2/jak3 Jak)
+        // ship anim-slot draws — guard the pointer too, or jak1 SIGSEGVs on first submit.
+        // The bake rebinds these draws to static textures; this is defense-in-depth.
+        if (m_anim_slot_array && slot >= 0 && (size_t)slot < m_anim_slot_array->size()) {
           glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(slot));
           // Gjak2-visuals probe: one-shot per anim slot actually bound by a
           // merc draw — diffable our-x86 (env GJ2VIS_SKY) vs device (always)

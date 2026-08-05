@@ -6627,6 +6627,21 @@
 ;; owner isolates the residual grass-facet source at his OWN vantage with no adb. Index -> u_pbr_bisect mask
 ;; in pc_set_pbr_isolate: BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off), NEITHER 192.
 (def-progress-carousell *carousell-pbr-isolate* (pc-text-pbr-iso-both pc-text-pbr-iso-nm pc-text-pbr-iso-pom pc-text-pbr-iso-neither))
+;; Grecharged-hd-models5: the four per-character HD LOOK carousells (JAK / DAXTER / KEIRA / SAMOS).
+;; Their OPTION strings use the PBR-ISOLATE durability mechanism, NOT the COMMON.TXT text bank:
+;; each entry is a RESERVED tag id (#x17b0..#x17b5, past the last allocated text-h.gc id #x17ac)
+;; that carousell-option-string resolves to a RUNTIME GLOBAL string (*hd-look-*-label*). That is why
+;; raw ids appear here instead of (text-id sym): the static boxed-array needs a compile-time constant,
+;; the ids are never looked up in a text bank, and a stale Android COMMON.TXT can never turn these
+;; into "Unknown ID". English-only, exactly like the PBR ISOLATE options.
+;;   #x17b0 ORIGINAL  #x17b1 HD  #x17b2 JAK II  #x17b3 JAK 3  #x17b4 PANTS  #x17b5 YOUNG
+;; Defined UNCONDITIONALLY (not under FLAG_HD_MODELS), like the PBR ISOLATE option labels, so the
+;; shared respond-common carousell arms compile in every build config; only the ROWS and their
+;; wiring/labels are flag-gated.
+(define *carousell-hd-look-jak* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b2 #x17b3))
+(define *carousell-hd-look-daxter* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b4))
+(define *carousell-hd-look-keira* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b3))
+(define *carousell-hd-look-samos* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b5))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
@@ -7108,6 +7123,37 @@
               (pc-set-recharged-enhanced-models! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none))))
+       ;; 3b-3e Grecharged-hd-models5: the four per-character HD LOOK carousells, immediately after the
+       ;; ENHANCED MODELS toggle they refine. Same FLAG_HD_MODELS gate as that row (5 HD rows total when
+       ;; --hd-models is on, 0 otherwise) and they collapse with it when the enhanced FR3 set is absent
+       ;; at runtime. Carousell mirrors pbr-displacement: :name is a placeholder, the real label comes
+       ;; from a name-override runtime global, there is no :on-change (respond-common backs up / writes
+       ;; back the value), and the row is greyed unless its feature toggle is on — here ENHANCED MODELS,
+       ;; exactly as DISPLACEMENT is greyed unless PBR MATERIALS is on.
+       ;; JAK LOOK: ORIGINAL / HD / JAK II / JAK 3
+       (flag-row FLAG_HD_MODELS
+       (new 'static 'game-option :option-type (game-option-type hd-look-jak) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-enhanced-models?))))))
+       ;; DAXTER LOOK: ORIGINAL / HD / PANTS
+       (flag-row FLAG_HD_MODELS
+       (new 'static 'game-option :option-type (game-option-type hd-look-daxter) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-enhanced-models?))))))
+       ;; KEIRA LOOK: ORIGINAL / HD / JAK 3
+       (flag-row FLAG_HD_MODELS
+       (new 'static 'game-option :option-type (game-option-type hd-look-keira) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-enhanced-models?))))))
+       ;; SAMOS LOOK: ORIGINAL / HD / YOUNG
+       (flag-row FLAG_HD_MODELS
+       (new 'static 'game-option :option-type (game-option-type hd-look-samos) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-enhanced-models?))))))
        ;; 4 FOLIAGE WIND (Grecharged-foliage-wind) on-off toggle. Light wind sway on jak1 palms (TIE)
        ;; + shrubs so the foliage reacts to a light breeze. Top-level Recharged row (owner: "un toggle
        ;; supplémentaire dans les Recharged Settings"), NOT in the grass page — it isn't a grass
@@ -7459,6 +7505,34 @@
 (#when FLAG_HD_MODELS
 (define *enhanced-models-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *enhanced-models-label*) "ENHANCED MODELS"))
+;; Grecharged-hd-models5: the four per-character HD LOOK ROW labels (name-override), gated with the
+;; rows themselves. Same convention as *enhanced-models-label*: English-only uppercase ASCII, never
+;; re-formatted.
+(#when FLAG_HD_MODELS
+(define *hd-look-jak-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *hd-look-jak-label*) "JAK LOOK")
+(define *hd-look-daxter-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *hd-look-daxter-label*) "DAXTER LOOK")
+(define *hd-look-keira-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *hd-look-keira-label*) "KEIRA LOOK")
+(define *hd-look-samos-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *hd-look-samos-label*) "SAMOS LOOK"))
+;; Grecharged-hd-models5: the six HD LOOK carousell OPTION labels. Runtime globals resolved by
+;; carousell-option-string from the reserved tag ids #x17b0..#x17b5 (see the carousell arrays above) —
+;; the same stale-text-bank-proof mechanism as the PBR ISOLATE options. Defined UNCONDITIONALLY (not
+;; under FLAG_HD_MODELS) so the shared resolver compiles in every build config.
+(define *hd-look-original-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-hd-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-jak2-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-jak3-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-pants-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-young-label* (new 'global 'string 32 (the-as string #f)))
+(format (clear *hd-look-original-label*) "ORIGINAL")
+(format (clear *hd-look-hd-label*) "HD")
+(format (clear *hd-look-jak2-label*) "JAK II")
+(format (clear *hd-look-jak3-label*) "JAK 3")
+(format (clear *hd-look-pants-label*) "PANTS")
+(format (clear *hd-look-young-label*) "YOUNG")
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
@@ -8774,6 +8848,14 @@
     ((= id (text-id pc-text-pbr-iso-nm)) *pbr-iso-nm-label*)
     ((= id (text-id pc-text-pbr-iso-pom)) *pbr-iso-pom-label*)
     ((= id (text-id pc-text-pbr-iso-neither)) *pbr-iso-neither-label*)
+    ;; Grecharged-hd-models5: the six HD LOOK option strings use the same runtime-global route, keyed
+    ;; on the reserved tag ids #x17b0..#x17b5 (never present in any text bank).
+    ((= id (the-as text-id #x17b0)) *hd-look-original-label*)
+    ((= id (the-as text-id #x17b1)) *hd-look-hd-label*)
+    ((= id (the-as text-id #x17b2)) *hd-look-jak2-label*)
+    ((= id (the-as text-id #x17b3)) *hd-look-jak3-label*)
+    ((= id (the-as text-id #x17b4)) *hd-look-pants-label*)
+    ((= id (the-as text-id #x17b5)) *hd-look-young-label*)
     (else (lookup-text! *common-text* id #f))))
 
 (defun print-string-in-carousell ((arg0 text-id) (arg1 font-context) (arg2 int) (arg3 symbol))
@@ -9614,8 +9696,12 @@
   ;; MATERIALS; DISPLACEMENT + TEST PRESET + ISOLATE later made it 12 without bumping it, so on an
   ;; hd-models+pbr build the guard mis-read the FULL array as collapsed and wired FOLIAGE WIND and
   ;; every following row ONE SLOT EARLY (displacement label on the wrong row). 9 -> 12.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 12 FLAG_PBR_N)))
-                    (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
+  ;; Grecharged-hd-models5: the HD block is now FIVE rows (ENHANCED MODELS + JAK/DAXTER/KEIRA/SAMOS
+  ;; LOOK), all gated on FLAG_HD_MODELS, so every HD term becomes (* 5 FLAG_HD_MODELS_N): the FULL
+  ;; static length grows by 4*hd-N and FOLIAGE WIND (and everything after it) sits 4*hd-N slots later.
+  ;; The collapsed branch is unchanged — when the enhanced FR3 set is missing ALL FIVE rows collapse.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N)))
+                    (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
@@ -9679,6 +9765,11 @@
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
   ;; Idempotent across re-inits (only fires while the full static length is intact). The whole block is
   ;; compiled only with --hd-models; without it the ENHANCED MODELS row is absent from the static array.
+  ;; Grecharged-hd-models5: the HD block is FIVE rows now (ENHANCED MODELS + the four LOOK carousells),
+  ;; so the collapse removes 5 slots instead of 1 and the wiring arm binds all five. hd-idx = the first
+  ;; HD row; the four LOOK rows are hd-idx+1..+4 and each points value-to-modify at the shared
+  ;; *progress-carousell* int-backup scratch (the pbr-displacement carousell pattern) — respond-common
+  ;; maps them 1:1 to the *pc-settings* hd-look-* ints.
   (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
       ;; Grecharged-mesh-browser: +1 on both length constants for the tail MESH BROWSER row. (With
@@ -9688,17 +9779,27 @@
       ;; so on a --pbr build (real full length includes the 13 PBR rows) it could NEVER fire and a build
       ;; with HD assets missing at runtime kept a phantom un-wired ENHANCED MODELS row. Guard on the true
       ;; full static length and shift every following row (incl. MESH BROWSER + Back) up one.
+      ;; Grecharged-hd-models5: ... and now up FIVE (the whole HD block goes away together — a LOOK
+      ;; selector is meaningless without the enhanced FR3 set).
       (when (= (-> *recharged-options-pc* length)
-               (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 12 FLAG_PBR_N)))
+               (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
-          (while (< i (+ -1 (-> *recharged-options-pc* length)))
-            (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
+          (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
+            (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
             (+! i 1)))
-        (+! (-> *recharged-options-pc* length) -1))
-      (begin
-        (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
+        (+! (-> *recharged-options-pc* length) (* -5 FLAG_HD_MODELS_N)))
+      (let ((hd-idx (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+        (set! (-> *recharged-options-pc* hd-idx value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
-        (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N) name-override) *enhanced-models-label*))))
+        (set! (-> *recharged-options-pc* hd-idx name-override) *enhanced-models-label*)
+        (set! (-> *recharged-options-pc* (+ hd-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
+        (set! (-> *recharged-options-pc* (+ hd-idx 1) name-override) *hd-look-jak-label*)
+        (set! (-> *recharged-options-pc* (+ hd-idx 2) value-to-modify) (&-> *progress-carousell* int-backup))
+        (set! (-> *recharged-options-pc* (+ hd-idx 2) name-override) *hd-look-daxter-label*)
+        (set! (-> *recharged-options-pc* (+ hd-idx 3) value-to-modify) (&-> *progress-carousell* int-backup))
+        (set! (-> *recharged-options-pc* (+ hd-idx 3) name-override) *hd-look-keira-label*)
+        (set! (-> *recharged-options-pc* (+ hd-idx 4) value-to-modify) (&-> *progress-carousell* int-backup))
+        (set! (-> *recharged-options-pc* (+ hd-idx 4) name-override) *hd-look-samos-label*))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
@@ -9862,6 +9963,10 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type hd-look-jak)
+                    (game-option-type hd-look-daxter)
+                    (game-option-type hd-look-keira)
+                    (game-option-type hd-look-samos)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
@@ -9957,6 +10062,10 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type hd-look-jak)
+                    (game-option-type hd-look-daxter)
+                    (game-option-type hd-look-keira)
+                    (game-option-type hd-look-samos)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
@@ -10298,6 +10407,11 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
+                 ;; Grecharged-hd-models5: per-character HD LOOK backups (1:1, like pbr-displacement).
+                 (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-jak)))
+                 (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-daxter)))
+                 (((game-option-type hd-look-keira)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-keira)))
+                 (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-samos)))
                  (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
                  (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
                  (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
@@ -10352,6 +10466,11 @@
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
+                    ;; Grecharged-hd-models5: per-character HD LOOK carousell lists.
+                    (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-jak*))
+                    (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-daxter*))
+                    (((game-option-type hd-look-keira)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-keira*))
+                    (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-samos*))
                     (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
                     (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
                     (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
@@ -10411,6 +10530,11 @@
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
+              ;; Grecharged-hd-models5: per-character HD LOOK write-backs (1:1, like pbr-displacement).
+              (((game-option-type hd-look-jak)) (set! (-> *pc-settings* hd-look-jak) (-> *progress-carousell* int-backup)))
+              (((game-option-type hd-look-daxter)) (set! (-> *pc-settings* hd-look-daxter) (-> *progress-carousell* int-backup)))
+              (((game-option-type hd-look-keira)) (set! (-> *pc-settings* hd-look-keira) (-> *progress-carousell* int-backup)))
+              (((game-option-type hd-look-samos)) (set! (-> *pc-settings* hd-look-samos) (-> *progress-carousell* int-backup)))
               (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
               ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
@@ -10886,6 +11010,10 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type hd-look-jak)
+                      (game-option-type hd-look-daxter)
+                      (game-option-type hd-look-keira)
+                      (game-option-type hd-look-samos)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
@@ -10977,6 +11105,10 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type hd-look-jak)
+                      (game-option-type hd-look-daxter)
+                      (game-option-type hd-look-keira)
+                      (game-option-type hd-look-samos)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)

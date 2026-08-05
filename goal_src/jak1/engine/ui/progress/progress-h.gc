@@ -189,6 +189,13 @@
      (pbr-test-preset)
      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (in-menu term bisection), mirroring pbr-displacement.
      (pbr-isolate)
+     ;; Grecharged-hd-models5: per-character HD LOOK carousells, each mirroring pbr-displacement.
+     ;; hd-look-jak = Original/HD/Jak II/Jak 3; hd-look-daxter = Original/HD/Pants;
+     ;; hd-look-keira = Original/HD/Jak 3; hd-look-samos = Original/HD/Young.
+     (hd-look-jak)
+     (hd-look-daxter)
+     (hd-look-keira)
+     (hd-look-samos)
      ;; Grecharged-menu-overhaul: a NON-SELECTABLE group-header row. Focus (up/down + initial entry)
      ;; skips it; it draws in a distinct header color with no value and no selection cursor. Used to
      ;; visually separate the internal groups of the unified OPTIONS category pages (Ecran / Performance /

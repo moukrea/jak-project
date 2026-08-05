@@ -72,6 +72,11 @@ APPENDS=(
   "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|"
   "keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|GAME|out/jak2/fr3/lintcstb.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3"
   "samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|GAME|out/jak3/fr3/lsamos.fr3|samos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3"
+  "jak2-hd|decompiler_out/jak2/levels/ljakdax/jak-highres-lod0.glb|GAME|out/jak2/fr3/ljakdax.fr3|jak-highres-lod0|eichar-lod0|"
+  "jak3-hd|decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb|GAME|out/jak3/fr3/ljakc.fr3|jakc-highres-lod0|eichar-lod0|"
+  "daxp-hd|decompiler_out/jak3/levels/loutro2/ottsel-daxpants-lod0.glb|GAME|out/jak3/fr3/loutro2.fr3|ottsel-daxpants-lod0|sidekick-lod0|"
+  "keira3-hd|decompiler_out/jak3/levels/lkeira/keira-highres-lod0.glb|GAME|out/jak3/fr3/lkeira.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3"
+  "ysamos-hd|decompiler_out/jak2/levels/lysamsam/youngsamos-highres-lod0.glb|GAME|out/jak2/fr3/lysamsam.fr3|youngsamos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3"
 )
 # The fr3 that receive appends, in order.
 APPEND_LEVELS=(GAME village1)
@@ -105,7 +110,7 @@ for entry in "${APPENDS[@]}"; do
   [ -f "$glb" ] && ANY_DONOR=1
 done
 if [ "$ANY_DONOR" -eq 0 ]; then
-  log "no HD donor rip present for any of the 4 characters — skipping enhanced HD bake (jak1 builds stock, toggle hidden)"
+  log "no HD donor rip present for any HD character — skipping enhanced HD bake (jak1 builds stock, toggle hidden)"
   exit 0
 fi
 HD_TMP="$(mktemp -d)"

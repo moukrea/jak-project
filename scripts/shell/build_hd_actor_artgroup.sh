@@ -19,6 +19,19 @@
 #   keira-hd  decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb
 #   samos-hd  decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb
 #
+# M5 BONUS looks (donors; each inherits its sibling character's retarget flags + driver GLB):
+#   jak2-hd    decompiler_out/jak2/levels/ljakdax/jak-highres-lod0.glb        (sibling jak-hd)
+#   jak3-hd    decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb         (sibling jak-hd)
+#   daxp-hd    decompiler_out/jak3/levels/loutro2/ottsel-daxpants-lod0.glb    (sibling dax-hd)
+#   keira3-hd  decompiler_out/jak3/levels/lkeira/keira-highres-lod0.glb       (sibling keira-hd)
+#   ysamos-hd  decompiler_out/jak2/levels/lysamsam/youngsamos-highres-lod0.glb (sibling samos-hd)
+#
+# Driver GLB (3rd arg) — the SAME driver GLB the sibling character uses:
+#   jak-hd / jak2-hd / jak3-hd   decompiler_out/jak1/levels/common/eichar-lod0.glb
+#   dax-hd / daxp-hd             decompiler_out/jak1/levels/common/sidekick-lod0.glb
+#   keira-hd / keira3-hd         decompiler_out/jak1/levels/village1/assistant-lod0.glb
+#   samos-hd / ysamos-hd         decompiler_out/jak1/levels/village1/sage-lod0.glb
+#
 # Example:
 #   scripts/shell/build_hd_actor_artgroup.sh dax-hd \
 #     decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb \
@@ -46,7 +59,8 @@ PREP="scripts/shell/prep_hd_actor_glb.py"
 TABLE="scripts/shell/retarget_fill_table.py"
 
 # a. NAME LENGTH GATE — "<char>-ag.go" must be < 16 chars (fake-iso file-name assert),
-#    i.e. the character name must be <= 9 chars (jak-hd/dax-hd=6, keira-hd/samos-hd=8).
+#    i.e. the character name must be <= 9 chars (jak-hd/dax-hd=6, jak2-hd/jak3-hd/daxp-hd=7,
+#    keira-hd/samos-hd=8, keira3-hd/ysamos-hd=9 — all M5 bonus stems pass).
 [ ${#CHAR} -lt 10 ] || {
   log "FATAL: char name '$CHAR' is ${#CHAR} chars — '<char>-ag.go' would be $(( ${#CHAR} + 6 )) chars, and the fake-iso name assert requires < 16 (char name <= 9)."
   exit 1
@@ -85,9 +99,24 @@ case "$CHAR" in
     #   NOT done for Lknee/Rknee -> pantsL/Rknee: those HD joints also carry skin+belt geometry
     #   that must not inherit the 9.86cm pant flare.
     TABLE_FLAGS=(--map 'shirtLthigh=Lthigh,shirtRthigh=Rthigh') ;;
-  dax-hd)
+  # M5 bonus looks jak2-hd (jak2 ljakdax jak-highres) and jak3-hd (jak3 ljakc jakc-highres) are
+  # Jak donors on the SAME eichar-lod0 driver rig as jak-hd, but they do NOT inherit jak-hd's
+  # flags: jak-hd's --map is jak1-TUNIC-specific (the jakone-highres donor wears the jak1 outfit
+  # and carries shirtLthigh/shirtRthigh cloth-sim joints). These donors wear the jak2/jak3
+  # outfits, which have no shirt* joints at all — the map would name joints that don't exist and
+  # hard-fail the gate. No flags: the default STRICT gate applies (no unmapped face/finger/beard
+  # joints tolerated).
+  jak2-hd|jak3-hd)
+    TABLE_FLAGS=() ;;
+  # M5: daxp-hd (jak3 loutro2 ottsel-daxpants) is a Daxter donor on the SAME sidekick-lod0 rig ->
+  # inherits dax-hd's --accept-unmapped set verbatim.
+  dax-hd|daxp-hd)
     TABLE_FLAGS=(--accept-unmapped 'tongue=jak1 sidekick rig has no tongue chain; tongue rides the head via mode-2 glue, mouth-interior animation comes from blerc (class B);uvula=jak1 sidekick rig has no uvula joint; rides the head via mode-2 glue;pinky=jak1 sidekick rig has index/middle/thumb only; pinky rides the hand via mode-2 glue (curls with the hand, no independent articulation in ANY jak1 daxter anim);ring[A-Z]=jak1 sidekick rig has index/middle/thumb only; ring finger rides the hand via mode-2 glue') ;;
-  samos-hd)
+  # M5: ysamos-hd (jak2 lysamsam youngsamos-highres) is a Samos donor on the SAME sage-lod0 rig ->
+  # inherits samos-hd's --accept-unmapped set verbatim.
+  # M5: keira3-hd (jak3 lkeira keira-highres) inherits keira-hd, which carries NO flags — so, like
+  # keira-hd, it has no case entry and runs the table generator with the default (strict) gate.
+  samos-hd|ysamos-hd)
     TABLE_FLAGS=(--accept-unmapped 'beardDriver=jak3-only sim-helper bone; the ANIMATED beard chain below it (beard_lip, beard) is name-mapped mode-1 to sage beard joints, so the beard follows sage swings at HD pivots; beardDriver itself rides the head via mode-2 glue (mapping it too would double-apply the delta);Birdjaw=jak1 sage rig has no bird-jaw joint (BIRDhead1 is the deepest bird head bone); the beak rides BIRDhead via mode-2 glue') ;;
 esac
 log "3/3 emit retarget k->driver table + run the offline do-joint-math! numeric proof"

@@ -107,6 +107,15 @@
    (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
    (ao-strength         int32) ;; Grecharged-ambient-occlusion closing round: 0=weaker 1=default 2=stronger. Default DEFAULT (1). Per-mode multiplier on the AO estimator intensity.
    (recharged-enhanced-models? symbol) ;; Grecharged-hd-models: load jak2 HD character models (Jak/Daxter/Samos/Keira, jak1-look) instead of stock low-poly. #f = stock. Only meaningful when the build ships the enhanced FR3 set.
+   ;; Grecharged-hd-models5: per-character HD LOOK selection carousells. Each picks WHICH art variant
+   ;; the enhanced-model loader uses for that character; index 0 is always the stock jak1 mesh, so the
+   ;; rows stay meaningful even on a build where only some donor sets shipped. Only consulted while
+   ;; recharged-enhanced-models? is on. Defaults are 1 (HD) = the jak1-look enhanced model, i.e. the
+   ;; exact behaviour ENHANCED MODELS had before these rows existed.
+   (hd-look-jak int32) ;; 0=ORIGINAL 1=HD 2=JAK II 3=JAK 3 (default 1 HD)
+   (hd-look-daxter int32) ;; 0=ORIGINAL 1=HD 2=PANTS (default 1 HD)
+   (hd-look-keira int32) ;; 0=ORIGINAL 1=HD 2=JAK 3 (default 1 HD)
+   (hd-look-samos int32) ;; 0=ORIGINAL 1=HD 2=YOUNG (default 1 HD)
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (recharged-textures? symbol) ;; Grecharged-bundled-textures: use the package-bundled first-party Recharged replacement textures. #f = stock base textures.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
@@ -285,6 +294,12 @@
   (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality
   (set! (-> obj ao-strength) 1) ;; Grecharged-ambient-occlusion closing round: default DEFAULT strength
   (set! (-> obj recharged-enhanced-models?) #f)
+  ;; Grecharged-hd-models5: per-character HD LOOK defaults — 1 = HD (the jak1-look enhanced model),
+  ;; i.e. the pre-carousell ENHANCED MODELS behaviour. 0 = ORIGINAL (stock jak1 mesh) for every one.
+  (set! (-> obj hd-look-jak) 1) ;; 0 ORIGINAL / 1 HD / 2 JAK II / 3 JAK 3
+  (set! (-> obj hd-look-daxter) 1) ;; 0 ORIGINAL / 1 HD / 2 PANTS
+  (set! (-> obj hd-look-keira) 1) ;; 0 ORIGINAL / 1 HD / 2 JAK 3
+  (set! (-> obj hd-look-samos) 1) ;; 0 ORIGINAL / 1 HD / 2 YOUNG
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   (set! (-> obj recharged-textures?) #t) ;; Grecharged-bundled-textures: default ON — a plain install shows the owner's Recharged textures (the MASTER still forces stock when OFF)
   ;; original settings, minus 25 to be a bit more conservative
