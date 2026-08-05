@@ -193,4 +193,4 @@ Les 5 looks bonus de cinématiques sont sur le Redmi (build da5e00544d + pack 9 
 
 ### 10:35 — M5 ACCEPTÉ par ton verdict (« impeccable ») ✔
 Carry : bretelles Keira clippent aussi sur keira3-hd -> le fix cycle-4 couvrira les 2 looks.
-Nouveau : look bonus « Jak 3 masque baissé » ajouté au cycle 4 (5e option JAK LOOK).
+Nouveau : look bonus « Jak 3 masque baissé » = masque AUTOUR DU COU, visage découvert (l'actuel jakc = masque sur le visage, on le garde aussi) — 5e option JAK LOOK.
