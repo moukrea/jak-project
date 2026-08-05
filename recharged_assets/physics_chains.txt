@@ -1,120 +1,177 @@
 # Grecharged-secondary-motion — data-driven chain params (hot-editable; adb push + toggle physics to reload)
 # classes: primary=1 secondary=2 accessory=4 ; stiffness in Hz ; maxangle in degrees ; radius in game units (4096/m)
+#
+# CHAIN KEYS
+#   stiffness damping gravity maxangle inertia stretch radius   (as before)
+#   rootlock=N   the first N links ride the animated bone RIGIDLY — no integration, no cone, no
+#                write-back. This is what keeps a hair chain's ROOT welded to the skull instead of
+#                the whole strand floating free (owner cycle-2 defect B). Clamped to len-1, so a
+#                single-joint chain is never fully frozen.
+#   gradient=G   0 = uniform (pre-cycle-2), 1 = full root->tip freedom ramp: the first free link
+#                keeps 1/nfree of the swing cone and is proportionally stiffer, the tip keeps the
+#                full authored amplitude. Only meaningful with >=2 free links.
+#   anim=MODE    what to do with the AUTHORED animation channel on a physics-owned joint. jak1
+#                already hand-keys pseudo-wind on straps/hair/cloth, and springing toward that pose
+#                left two motions fighting (owner cycle-2 defect A: Jak's blue cloth clipping —
+#                shirtLthigh/shirtRthigh were replaying the driver's ENTIRE leg swing).
+#                  replace (DEFAULT) — the joint is re-glued to its bind-pose local carried by the
+#                    animated parent; the authored channel is dropped and physics owns the joint.
+#                  excite  — same re-glue, but the dropped channel comes back as an input FORCE
+#                    scaled by excite= (never a second writer). Use where the channel is ACTING
+#                    rather than fake physics: Daxter's ears/tail, Samos' beard.
+#                  keep    — pre-cycle-2 behaviour (spring toward the authored pose).
+#   excite=X     force scale for anim=excite. 1.0 reproduces `keep` exactly, so the mode is monotone.
+#   friction=F   0..1 contact friction: the collision push-out is absorbed into the verlet `prev`
+#                instead of reading as free velocity next substep (kills contact buzz). Default 0.5.
+#
+# COLLIDER KEYS  (owner 17:35: a REAL body volume, not 1-2 symbolic spheres)
+#   collider <joint> radius=R [chains=a,b] [tier=N]          sphere on one animated bone
+#   capsule  <jointA> <jointB> radius=R [chains=a,b] [tier=N] swept volume between two animated bones
+#   tier: 1 = core (present at EVERY precision level that collides), 2 = extended. A level may thin
+#   the set, never to the point of letting a chain pass visibly through the body.
+#
+# LEVEL KEYS: substeps iters classmask fixedhz, and `collide` = the max collider TIER (0 = none).
+# Level 0 collides now (tier 1): the cheapest rung must still be CREDIBLE, and a chain sinking into
+# the torso is not "cheap", it is broken.
 
 [levels]
-level 0 substeps=1 iters=1 collide=0 classmask=1 fixedhz=0
-level 1 substeps=2 iters=4 collide=1 classmask=3 fixedhz=0
-level 2 substeps=4 iters=8 collide=1 classmask=7 fixedhz=240
+level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0
+level 1 substeps=2 iters=4 collide=2 classmask=3 fixedhz=0
+level 2 substeps=4 iters=8 collide=2 classmask=7 fixedhz=240
 
 [model keira-hd]
-chain chestR class=primary stiffness=2.5 damping=0.30 gravity=0.0 maxangle=14 inertia=1.0 stretch=0.05 radius=120
+chain chestR class=primary stiffness=1.6 damping=0.13 gravity=0.06 maxangle=16 inertia=1.0 stretch=0.10 radius=120
 j rBoob
-chain chestL class=primary stiffness=2.5 damping=0.30 gravity=0.0 maxangle=14 inertia=1.0 stretch=0.05 radius=120
+chain chestL class=primary stiffness=1.6 damping=0.13 gravity=0.06 maxangle=16 inertia=1.0 stretch=0.10 radius=120
 j lBoob
-chain backhair class=primary stiffness=2.0 damping=0.25 gravity=0.3 maxangle=28 inertia=1.0 stretch=0.02 radius=100
+chain backhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=100 rootlock=1 gradient=1
 j backHair1
 j backHair2
-chain rmidhair class=primary stiffness=2.0 damping=0.25 gravity=0.3 maxangle=28 inertia=1.0 stretch=0.02 radius=80
+chain rmidhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=80 rootlock=1 gradient=1
 j Rmidhaira
 j Rmidhairb
-chain lmidhair class=primary stiffness=2.0 damping=0.25 gravity=0.3 maxangle=28 inertia=1.0 stretch=0.02 radius=80
+chain lmidhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=80 rootlock=1 gradient=1
 j Lmidhaira
 j Lmidhairb
-chain rbang class=primary stiffness=2.2 damping=0.28 gravity=0.25 maxangle=22 inertia=1.0 stretch=0.02 radius=60
+chain rbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1
 j Rbanga
 j Rbangb
 j Rbangc
-chain lbang class=primary stiffness=2.2 damping=0.28 gravity=0.25 maxangle=22 inertia=1.0 stretch=0.02 radius=60
+chain lbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1
 j Lbanga
 j Lbangb
 j Lbangc
-chain topstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain topstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j lTopStrap
 j lTopStrap2
-chain topstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain topstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j rTopStrap
 j rTopStrap2
-chain botstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain botstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j lBotStrap
 j lBotStrap2
-chain botstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain botstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j rBotStrap
 j rBotStrap2
-chain kneeflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=35 inertia=1.0 stretch=0.03 radius=50
+chain kneeflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
 j lKneeFlap
-chain kneeflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=35 inertia=1.0 stretch=0.03 radius=50
+chain kneeflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
 j rKneeFlap
-chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=35 inertia=1.0 stretch=0.03 radius=50
+chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
 j LpantFlap
-chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=35 inertia=1.0 stretch=0.03 radius=50
+chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
 j RpantFlap
-chain goggles class=accessory stiffness=6.0 damping=0.50 gravity=0.0 maxangle=6 inertia=0.8 stretch=0.01 radius=60
+chain goggles class=primary stiffness=3.5 damping=0.30 gravity=0.10 maxangle=12 inertia=0.9 stretch=0.02 radius=60
 j gogglesMid
-collider chest radius=550
-collider chest radius=800 chains=topstrapL,topstrapR,botstrapL,botstrapR
-collider hips radius=700 chains=botstrapL,botstrapR
+
+capsule hips chest radius=620 tier=1 chains=topstrapL,topstrapR,botstrapL,botstrapR,backhair,rmidhair,lmidhair
+capsule chest neck radius=700 tier=1 chains=topstrapL,topstrapR,botstrapL,botstrapR
+capsule chest neck radius=480 tier=1 chains=backhair,rmidhair,lmidhair
+capsule neck head radius=340 tier=1 chains=backhair,rmidhair,lmidhair,rbang,lbang,goggles
+capsule Lthigh Lknee radius=380 tier=1 chains=kneeflapR,pantflapR
+capsule Rthigh Rknee radius=380 tier=1 chains=kneeflapL,pantflapL
+capsule Lelbow Lhand radius=420 tier=2 chains=backhair,rmidhair,lmidhair,topstrapL,topstrapR
+capsule Relbow Rhand radius=420 tier=2 chains=backhair,rmidhair,lmidhair,topstrapL,topstrapR
 
 [model keira3-hd]
-chain chestR class=primary stiffness=2.5 damping=0.30 gravity=0.0 maxangle=14 inertia=1.0 stretch=0.05 radius=120
+chain chestR class=primary stiffness=1.6 damping=0.13 gravity=0.06 maxangle=16 inertia=1.0 stretch=0.10 radius=120
 j rBoob
-chain chestL class=primary stiffness=2.5 damping=0.30 gravity=0.0 maxangle=14 inertia=1.0 stretch=0.05 radius=120
+chain chestL class=primary stiffness=1.6 damping=0.13 gravity=0.06 maxangle=16 inertia=1.0 stretch=0.10 radius=120
 j lBoob
-chain backhair class=primary stiffness=2.0 damping=0.25 gravity=0.3 maxangle=28 inertia=1.0 stretch=0.02 radius=100
+chain backhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=100 rootlock=1 gradient=1
 j backHair1
 j backHair2
-chain rmidhair class=primary stiffness=2.0 damping=0.25 gravity=0.3 maxangle=28 inertia=1.0 stretch=0.02 radius=80
+chain rmidhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=80 rootlock=1 gradient=1
 j Rmidhaira
 j Rmidhairb
-chain lmidhair class=primary stiffness=2.0 damping=0.25 gravity=0.3 maxangle=28 inertia=1.0 stretch=0.02 radius=80
+chain lmidhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=80 rootlock=1 gradient=1
 j Lmidhaira
 j Lmidhairb
-chain rbang class=primary stiffness=2.2 damping=0.28 gravity=0.25 maxangle=22 inertia=1.0 stretch=0.02 radius=60
+chain rbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1
 j Rbanga
 j Rbangb
 j Rbangc
-chain lbang class=primary stiffness=2.2 damping=0.28 gravity=0.25 maxangle=22 inertia=1.0 stretch=0.02 radius=60
+chain lbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1
 j Lbanga
 j Lbangb
 j Lbangc
-chain topstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain topstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j lTopStrap
 j lTopStrap2
-chain topstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain topstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j rTopStrap
 j rTopStrap2
-chain botstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain botstrapL class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j lBotStrap
 j lBotStrap2
-chain botstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=40
+chain botstrapR class=secondary stiffness=1.8 damping=0.20 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=40 gradient=0.6
 j rBotStrap
 j rBotStrap2
-chain goggles class=accessory stiffness=6.0 damping=0.50 gravity=0.0 maxangle=6 inertia=0.8 stretch=0.01 radius=60
+chain kneeflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
+j lKneeFlap
+chain kneeflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
+j rKneeFlap
+chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
+j LpantFlap
+chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
+j RpantFlap
+chain goggles class=primary stiffness=3.5 damping=0.30 gravity=0.10 maxangle=12 inertia=0.9 stretch=0.02 radius=60
 j gogglesMid
-collider chest radius=550
-collider chest radius=800 chains=topstrapL,topstrapR,botstrapL,botstrapR
-collider hips radius=700 chains=botstrapL,botstrapR
+
+capsule hips chest radius=620 tier=1 chains=topstrapL,topstrapR,botstrapL,botstrapR,backhair,rmidhair,lmidhair
+capsule chest neck radius=700 tier=1 chains=topstrapL,topstrapR,botstrapL,botstrapR
+capsule chest neck radius=480 tier=1 chains=backhair,rmidhair,lmidhair
+capsule neck head radius=340 tier=1 chains=backhair,rmidhair,lmidhair,rbang,lbang,goggles
+capsule Lthigh Lknee radius=380 tier=1 chains=kneeflapR,pantflapR
+capsule Rthigh Rknee radius=380 tier=1 chains=kneeflapL,pantflapL
+capsule Lelbow Lhand radius=420 tier=2 chains=backhair,rmidhair,lmidhair,topstrapL,topstrapR
+capsule Relbow Rhand radius=420 tier=2 chains=backhair,rmidhair,lmidhair,topstrapL,topstrapR
 
 [model samos-hd]
-chain beard class=primary stiffness=2.0 damping=0.25 gravity=0.35 maxangle=25 inertia=1.0 stretch=0.02 radius=90
+chain beard class=primary stiffness=2.0 damping=0.22 gravity=0.35 maxangle=26 inertia=1.0 stretch=0.02 radius=90 rootlock=1 gradient=1 anim=excite excite=0.5
 j beardDriver
 j beard_lip
 j beard
-chain ponytail class=primary stiffness=2.0 damping=0.25 gravity=0.3 maxangle=28 inertia=1.0 stretch=0.02 radius=70
+chain ponytail class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=70 rootlock=1 anim=excite excite=0.4
 j ponytailBASE
 j ponytailMID
-chain hairL class=primary stiffness=2.2 damping=0.27 gravity=0.25 maxangle=22 inertia=1.0 stretch=0.02 radius=60
+chain hairL class=primary stiffness=2.2 damping=0.24 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1
 j LhairBASE
 j Lhair
-chain hairR class=primary stiffness=2.2 damping=0.27 gravity=0.25 maxangle=22 inertia=1.0 stretch=0.02 radius=60
+chain hairR class=primary stiffness=2.2 damping=0.24 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1
 j RhairBASE
 j Rhair
 chain logL class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 inertia=0.9 stretch=0.01 radius=80
 j Llog
 chain logR class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 inertia=0.9 stretch=0.01 radius=80
 j Rlog
-chain belly class=secondary stiffness=3.2 damping=0.35 gravity=0.0 maxangle=8 inertia=0.9 stretch=0.04 radius=120
+chain belly class=secondary stiffness=2.0 damping=0.15 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.10 radius=120
 j belly
-collider head radius=400
+
+capsule hips chest radius=850 tier=1 chains=beard,ponytail,hairL,hairR,logL,logR
+capsule chest head radius=850 tier=1 chains=beard,ponytail,hairL,hairR,logL,logR
+capsule Lshoulder Lelbow radius=460 tier=2 chains=beard,hairL,hairR
+capsule Rshoulder Relbow radius=460 tier=2 chains=beard,hairL,hairR
 
 [model ysamos-hd]
 chain frofront class=primary stiffness=2.2 damping=0.27 gravity=0.2 maxangle=20 inertia=1.0 stretch=0.02 radius=70
@@ -128,27 +185,30 @@ j Llog
 chain logR class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 inertia=0.9 stretch=0.01 radius=80
 j Rlog
 
+capsule hips chest radius=1000 tier=1 chains=frofront,fromid,froback,logL,logR
+capsule chest head radius=1000 tier=1 chains=frofront,fromid,froback,logL,logR
+
 [model jak-hd]
-chain hair class=primary stiffness=2.6 damping=0.30 gravity=0.15 maxangle=18 inertia=1.0 stretch=0.02 radius=80
+chain hair class=primary stiffness=2.6 damping=0.28 gravity=0.15 maxangle=20 inertia=1.0 stretch=0.02 radius=80 rootlock=1
 j MhairA
 j MhairB
-chain collarL class=secondary stiffness=3.0 damping=0.33 gravity=0.2 maxangle=15 inertia=1.0 stretch=0.02 radius=60
+chain collarL class=secondary stiffness=3.0 damping=0.33 gravity=0.2 maxangle=12 inertia=1.0 stretch=0.02 radius=60
 j collarL
-chain collarR class=secondary stiffness=3.0 damping=0.33 gravity=0.2 maxangle=15 inertia=1.0 stretch=0.02 radius=60
+chain collarR class=secondary stiffness=3.0 damping=0.33 gravity=0.2 maxangle=12 inertia=1.0 stretch=0.02 radius=60
 j collarR
-chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=40 inertia=1.0 stretch=0.03 radius=45
+chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=36 inertia=1.0 stretch=0.03 radius=45 gradient=0.6
 j packStrapTop
 j packStrapMid
-chain handLtop class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
+chain handLtop class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=30 gradient=0.5
 j handLStrapTopTop
 j handLStrapTopMid
-chain handLbot class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
+chain handLbot class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=30 gradient=0.5
 j handLStrapBotTop
 j handLStrapBotMid
-chain handRtop class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
+chain handRtop class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=30 gradient=0.5
 j handRStrapTopTop
 j handRStrapTopMid
-chain handRbot class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
+chain handRbot class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=40 inertia=1.0 stretch=0.03 radius=30 gradient=0.5
 j handRStrapBotTop
 j handRStrapBotMid
 chain footstrapL class=secondary stiffness=2.0 damping=0.24 gravity=0.55 maxangle=38 inertia=1.0 stretch=0.03 radius=30
@@ -159,17 +219,24 @@ chain footstrapR class=secondary stiffness=2.0 damping=0.24 gravity=0.55 maxangl
 j footRStrap
 chain anklestrapR class=secondary stiffness=2.0 damping=0.24 gravity=0.55 maxangle=38 inertia=1.0 stretch=0.03 radius=30
 j ankleRStrap
-chain shirtL class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+chain shirtL class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70
 j shirtLthigh
-chain shirtR class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+chain shirtR class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70
 j shirtRthigh
 chain belt class=accessory stiffness=5.0 damping=0.45 gravity=0.1 maxangle=8 inertia=0.9 stretch=0.01 radius=60
 j belt
-collider chest radius=500
-collider hips radius=450
+
+capsule hips upper_body radius=500 tier=1 chains=shirtL,shirtR,packstrap
+capsule upper_body chest radius=520 tier=1 chains=shirtL,shirtR,packstrap,collarL,collarR
+capsule chest neckA radius=600 tier=1 chains=collarL,collarR,packstrap,hair
+capsule neckA neckB radius=550 tier=1 chains=hair
+capsule Lthigh Lknee radius=500 tier=1 chains=shirtR
+capsule Rthigh Rknee radius=500 tier=1 chains=shirtL
+capsule Larm Lforarm radius=900 tier=2 chains=hair,packstrap
+capsule Rarm Rforarm radius=900 tier=2 chains=hair,packstrap
 
 [model jak2-hd]
-chain hair class=primary stiffness=2.6 damping=0.30 gravity=0.15 maxangle=18 inertia=1.0 stretch=0.02 radius=80
+chain hair class=primary stiffness=2.6 damping=0.28 gravity=0.15 maxangle=20 inertia=1.0 stretch=0.02 radius=80 rootlock=1
 j MhairA
 j MhairB
 chain horns class=accessory stiffness=4.5 damping=0.40 gravity=0.0 maxangle=10 inertia=0.9 stretch=0.01 radius=50
@@ -178,65 +245,89 @@ chain kneestrapL class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle
 j kneeLStrap
 chain kneestrapR class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
 j kneeRStrap
-chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=40 inertia=1.0 stretch=0.03 radius=45
+chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=36 inertia=1.0 stretch=0.03 radius=45
 j packStrapTop
-chain pantsL class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+chain pantsL class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70
 j pantsLthigh
-chain pantsR class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+chain pantsR class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70
 j pantsRthigh
-collider chest radius=500
+
+capsule hips upper_body radius=500 tier=1 chains=pantsL,pantsR
+capsule upper_body chest radius=600 tier=1 chains=pantsL,pantsR,packstrap
+capsule chest neckA radius=700 tier=1 chains=packstrap,hair
+capsule neckA neckB radius=600 tier=1 chains=hair,horns
+capsule Lthigh Lknee radius=500 tier=1 chains=pantsR
+capsule Rthigh Rknee radius=500 tier=1 chains=pantsL
+capsule Lknee Lankle radius=340 tier=2 chains=kneestrapR
+capsule Rknee Rankle radius=340 tier=2 chains=kneestrapL
 
 [model jak3-hd]
-chain hair class=primary stiffness=2.6 damping=0.30 gravity=0.15 maxangle=18 inertia=1.0 stretch=0.02 radius=80
+chain hair class=primary stiffness=3.2 damping=0.30 gravity=0.12 maxangle=9 inertia=1.0 stretch=0.02 radius=80
 j MhairA
 chain horns class=accessory stiffness=4.5 damping=0.40 gravity=0.0 maxangle=10 inertia=0.9 stretch=0.01 radius=50
 j horns
-chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=40 inertia=1.0 stretch=0.03 radius=45
+chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=36 inertia=1.0 stretch=0.03 radius=45
 j packStrapTop
-collider chest radius=500
+
+capsule upper_body chest radius=1100 tier=1 chains=packstrap
+capsule chest neckA radius=1000 tier=1 chains=packstrap,hair
+capsule neckA neckB radius=1000 tier=1 chains=hair,horns
+capsule Larm Lforarm radius=1000 tier=2 chains=hair,packstrap
+capsule Rarm Rforarm radius=1000 tier=2 chains=hair,packstrap
 
 [model jakm-hd]
-chain hair class=primary stiffness=2.6 damping=0.30 gravity=0.15 maxangle=18 inertia=1.0 stretch=0.02 radius=80
+chain hair class=primary stiffness=3.2 damping=0.30 gravity=0.12 maxangle=9 inertia=1.0 stretch=0.02 radius=80
 j MhairA
 chain horns class=accessory stiffness=4.5 damping=0.40 gravity=0.0 maxangle=10 inertia=0.9 stretch=0.01 radius=50
 j horns
-chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=40 inertia=1.0 stretch=0.03 radius=45
+chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=36 inertia=1.0 stretch=0.03 radius=45
 j packStrapTop
-collider chest radius=500
+
+capsule upper_body chest radius=1100 tier=1 chains=packstrap
+capsule chest neckA radius=1000 tier=1 chains=packstrap,hair
+capsule neckA neckB radius=1000 tier=1 chains=hair,horns
+capsule Larm Lforarm radius=1000 tier=2 chains=hair,packstrap
+capsule Rarm Rforarm radius=1000 tier=2 chains=hair,packstrap
 
 [model dax-hd]
-chain earL class=primary stiffness=2.8 damping=0.30 gravity=0.1 maxangle=22 inertia=1.0 stretch=0.02 radius=40
+chain earL class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=1 anim=excite excite=0.6
 j earBaseL
 j earMidL
-chain earR class=primary stiffness=2.8 damping=0.30 gravity=0.1 maxangle=22 inertia=1.0 stretch=0.02 radius=40
+chain earR class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=1 anim=excite excite=0.6
 j earBaseR
 j earMidR
-chain flapL class=secondary stiffness=2.6 damping=0.28 gravity=0.2 maxangle=25 inertia=1.0 stretch=0.02 radius=35
+chain flapL class=secondary stiffness=2.6 damping=0.26 gravity=0.2 maxangle=26 inertia=1.0 stretch=0.02 radius=35 rootlock=1 anim=excite excite=0.5
 j flapBaseL
 j flapMidL
-chain flapR class=secondary stiffness=2.6 damping=0.28 gravity=0.2 maxangle=25 inertia=1.0 stretch=0.02 radius=35
+chain flapR class=secondary stiffness=2.6 damping=0.26 gravity=0.2 maxangle=26 inertia=1.0 stretch=0.02 radius=35 rootlock=1 anim=excite excite=0.5
 j flapBaseR
 j flapMidR
-chain tail class=primary stiffness=3.0 damping=0.32 gravity=0.05 maxangle=20 inertia=1.0 stretch=0.02 radius=35
+chain tail class=primary stiffness=3.0 damping=0.30 gravity=0.05 maxangle=22 inertia=1.0 stretch=0.02 radius=35 rootlock=1 gradient=1 anim=excite excite=0.5
 j tailBase
 j tailFirst
 j tailMid
 j tailEnd
 
+capsule hips upper_body radius=230 tier=1 chains=tail
+capsule upper_bodyB chest radius=350 tier=1 chains=tail,earL,earR,flapL,flapR
+capsule neckB head radius=350 tier=1 chains=earL,earR,flapL,flapR
+capsule Lshoulder Lelbow radius=218 tier=2 chains=earL,earR,flapL,flapR
+capsule Rshoulder Relbow radius=218 tier=2 chains=earL,earR,flapL,flapR
+
 [model daxp-hd]
-chain earL class=primary stiffness=2.8 damping=0.30 gravity=0.1 maxangle=22 inertia=1.0 stretch=0.02 radius=40
+chain earL class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=1 anim=excite excite=0.6
 j earBaseL
 j earMidL
-chain earR class=primary stiffness=2.8 damping=0.30 gravity=0.1 maxangle=22 inertia=1.0 stretch=0.02 radius=40
+chain earR class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=1 anim=excite excite=0.6
 j earBaseR
 j earMidR
-chain flapL class=secondary stiffness=2.6 damping=0.28 gravity=0.2 maxangle=25 inertia=1.0 stretch=0.02 radius=35
+chain flapL class=secondary stiffness=2.6 damping=0.26 gravity=0.2 maxangle=26 inertia=1.0 stretch=0.02 radius=35 rootlock=1 anim=excite excite=0.5
 j flapBaseL
 j flapMidL
-chain flapR class=secondary stiffness=2.6 damping=0.28 gravity=0.2 maxangle=25 inertia=1.0 stretch=0.02 radius=35
+chain flapR class=secondary stiffness=2.6 damping=0.26 gravity=0.2 maxangle=26 inertia=1.0 stretch=0.02 radius=35 rootlock=1 anim=excite excite=0.5
 j flapBaseR
 j flapMidR
-chain tail class=primary stiffness=3.0 damping=0.32 gravity=0.05 maxangle=20 inertia=1.0 stretch=0.02 radius=35
+chain tail class=primary stiffness=3.0 damping=0.30 gravity=0.05 maxangle=22 inertia=1.0 stretch=0.02 radius=35 rootlock=1 gradient=1
 j Tail1
 j Tail2
 j Tail3
@@ -248,8 +339,16 @@ chain pantlegR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=3
 j Rpantleg
 
 # donor: jak2-hd (identical joint names — same jak2 cutscene rig)
+capsule hips upper_body radius=590 tier=1 chains=tail
+capsule upper_bodyB chest radius=350 tier=1 chains=tail,earL,earR,flapL,flapR
+capsule neckB head radius=350 tier=1 chains=earL,earR,flapL,flapR
+capsule Lthigh Lknee radius=280 tier=1 chains=pantlegR
+capsule Rthigh Rknee radius=280 tier=1 chains=pantlegL
+capsule Lshoulder Lelbow radius=218 tier=2 chains=earL,earR,flapL,flapR
+capsule Rshoulder Relbow radius=218 tier=2 chains=earL,earR,flapL,flapR
+
 [model jakp-hd]
-chain hair class=primary stiffness=2.6 damping=0.30 gravity=0.15 maxangle=18 inertia=1.0 stretch=0.02 radius=80
+chain hair class=primary stiffness=2.6 damping=0.28 gravity=0.15 maxangle=20 inertia=1.0 stretch=0.02 radius=80 rootlock=1
 j MhairA
 j MhairB
 chain horns class=accessory stiffness=4.5 damping=0.40 gravity=0.0 maxangle=10 inertia=0.9 stretch=0.01 radius=50
@@ -258,10 +357,18 @@ chain kneestrapL class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle
 j kneeLStrap
 chain kneestrapR class=secondary stiffness=1.9 damping=0.22 gravity=0.6 maxangle=45 inertia=1.0 stretch=0.03 radius=30
 j kneeRStrap
-chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=40 inertia=1.0 stretch=0.03 radius=45
+chain packstrap class=secondary stiffness=1.9 damping=0.22 gravity=0.55 maxangle=36 inertia=1.0 stretch=0.03 radius=45
 j packStrapTop
-chain pantsL class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+chain pantsL class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70
 j pantsLthigh
-chain pantsR class=primary stiffness=2.4 damping=0.28 gravity=0.45 maxangle=30 inertia=1.0 stretch=0.03 radius=70
+chain pantsR class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70
 j pantsRthigh
-collider chest radius=500
+
+capsule hips upper_body radius=500 tier=1 chains=pantsL,pantsR
+capsule upper_body chest radius=600 tier=1 chains=pantsL,pantsR,packstrap
+capsule chest neckA radius=700 tier=1 chains=packstrap,hair
+capsule neckA neckB radius=600 tier=1 chains=hair,horns
+capsule Lthigh Lknee radius=500 tier=1 chains=pantsR
+capsule Rthigh Rknee radius=500 tier=1 chains=pantsL
+capsule Lknee Lankle radius=340 tier=2 chains=kneestrapR
+capsule Rknee Rankle radius=340 tier=2 chains=kneestrapL

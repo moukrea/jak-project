@@ -100,9 +100,20 @@ juste avant MESH BROWSER + Back : aucun index existant ne bouge (classe de bug i
 Gmenu-flag-off). Le seul impact arithmétique = `+ (* 2 FLAG_PHYSICS_N)` sur les constantes de
 **longueur statique pleine** (garde `fw-idx` et garde de collapse HD) — exactement le traitement
 déjà appliqué à la ligne queue MESH BROWSER. Le câblage (`value-to-modify` / `name-override`) est
-adressé **relativement à la longueur vivante** (`length-3` = PHYSICS, `length-2` = PHYSICS DETAIL),
-donc il reste juste avant comme après le collapse HD (qui décale la queue et baisse `length` du
-même nombre) et il est idempotent sur ré-init.
+**AUTO-LOCALISÉ** (cycle 2) : on cherche la ligne dont `option-type` = `physics-quality` (unique dans
+tout le tableau) = PHYSICS DETAIL, et la ligne `on-off` juste avant = PHYSICS. Idempotent sur
+ré-init, insensible au collapse HD, et **insensible à toute insertion future de ligne**.
+
+> **RÉGRESSION CYCLE 2 (owner 16:40) — CORRIGÉE.** L'ancien câblage indexait la queue à la main
+> (`length-3` = PHYSICS, `length-2` = PHYSICS DETAIL) en **oubliant la ligne MESH BROWSER** : la
+> queue fait QUATRE lignes (PHYSICS, PHYSICS DETAIL, MESH BROWSER, Back), donc tout tombait un cran
+> trop loin — le libellé « PHYSICS DETAIL » était peint sur le **bouton MESH BROWSER**, et comme
+> `respond-common` dispatche les boutons sur le `name` STATIQUE (`pc-text-mesh-browser`) et jamais
+> sur `name-override`, la ligne « PHYSICS DETAIL » **ouvrait le mesh browser**. Le correctif n'est
+> PAS `-4` (un offset compté à la main reste la classe de bug) mais l'auto-localisation ci-dessus,
+> plus la ligne de preuve permanente `[PHYS-MENU] rows wired: toggle=N detail=N
+> next-is-meshbrowser=1 len=N` émise à l'init (preuve positive que le bouton MESH BROWSER est
+> intact ; un mis-ordre imprime `[PHYS-MENU] FATAL` au lieu de voler l'action d'une autre ligne).
 
 - **PHYSICS** (`physics?`, symbole) : secondary motion (chaînes) — cheveux / tissu / sangles.
   **Défaut ON** (la feature est opt-in au BUILD). `option-disabled-func` = master seul : **pas**

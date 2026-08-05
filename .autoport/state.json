@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 228,
+  "current_phase_idx": 232,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -223,9 +223,7 @@
     "Grecharged-hd-models3": 3,
     "Gtouch-longjump-regression": 2,
     "Gmenu-flag-off": 3,
-    "Grecharged-hd-models5": 1,
-    "Grecharged-secondary-motion": 2,
-    "Grecharged-hd-models4": 5
+    "Grecharged-hd-models5": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -494,12 +492,10 @@
     "Gmenu-flag-off": [
       "f96b8ea6f40f"
     ],
-    "Grecharged-secondary-motion": [
-      "148d3922555a"
-    ],
     "Grecharged-hd-models4": [
       "84372a3eba35",
       "84372a3eba35",
+      "2f0a15ed30e7",
       "2f0a15ed30e7",
       "2f0a15ed30e7"
     ]
@@ -511,7 +507,8 @@
     "A17-idiv-emitter-spill": "Same failure fingerprint '3afd18938cb6' has recurred 3 attempts in a row. The agent is no longer learning from validator feedback \u2014 halting to preserve token quota.",
     "A18-type-method-zero-bind": "A18 attempt-4 honest-exited with disassembly-level evidence of TWO arm64 goalc codegen bugs that exceed A18's lock scope (no goalc/* unlocks): (1) X12 regalloc clobber across BLR in dead-pool-heap.get-process \u2014 find-gap-by-size clobbers X12 which held `this`, leading to garbage-receiver dispatch SIGILL; (2) systematic field-offset off-by-4 in arm64 emit \u2014 LDR/STR of basic-relative offsets encode (real-4) instead of real (e.g. (-> this first-gap) at object offset 52 emits LDR Wt,[Xn,#0x30] = 48). A18 attempt-4 shipped the X12-preserve wrappers (workaround, not fix) which proved bug 1 by changing the crash mode from BLR-to-ee_base to BLR-to-stack. See .autoport/reports/A18-attempt-4-next-blocker.md. A19 unlocks goalc/regalloc/Allocator_v2.cpp + goalc/emitter/IGenARM64.cpp to land both fixes together.",
     "A19-goalc-arm64-codegen-fixes": "A19 attempt-1 landed the X12 regalloc fix solidly (IGenARM64::call_r64 now saves X12 via STP/LDP X12,X23 pair; qemu boot crash mode shifted BLR-ee_base \u2192 BLR-stack-address per A18 attempt-4's prediction) but proved with 8 encoder unit tests that the field-offset off-by-4 (Bug 2) is NOT in IGenARM64.cpp's imm12-encoding helpers. The bug must live upstream in the locked compiler layer \u2014 most likely goalc/compiler/IR.cpp::IR_LoadConstOffset::do_codegen_arm64, goalc/compiler/Val.cpp's get_constant_offset_and_base or MemoryDerefVal::to_reg, or goalc/compiler/compilation/Type.cpp's MemoryOffsetConstantVal construction. See .autoport/reports/A19-attempt-1-next-blocker.md for the disproof + A20 unlock recommendation. The supervisor's check 9 (KERNEL.CGO LDR-at-offset-0x34 byte pattern) also had a byte-index bug (data[i+2] vs data[i+1]) which is fixed in A20's validator. A19 X12 deliverable stays in HEAD (commit 3c9574b9f) as a real partial fix; A20 picks up Bug 2 with the compiler unlock.",
-    "A20-goalc-arm64-field-offset": "A20 attempt-1 honest-exited via OG_OFFSET_TRACE diag (added to goalc/compiler/IR.cpp:1440/1471/1524/1555, all 4 codegen paths) which produced 196,128 trace lines per backend with zero-line diff after `arch=` strip, and KERNEL.CGO byte-scan at align mod-4=2 confirming 15 instances each of LDR Wt[X16,#48] and [X16,#52]. The A18-attempt-4 off-by-4 hypothesis is falsified: arm64 emit is correct (X16 holds host(user_pointer), not host(start_of_alloc) \u2014 so [X16+48] reads structural offset 52 = first-gap, as intended). A18 attempt-4's disasm interpretation was wrong, not the emitter. See .autoport/reports/A20-attempt-1-next-blocker.md for the four candidate hypotheses for the actual 216-link-finish ceiling: H1 second regalloc surface (weak per supervisor reality-check), H2 X16 corruption in IR_FunctionCall::do_codegen_arm64, H3 klink LDR-literal imm19 NOPs (81 warnings in qemu log), H4 AAPCS arg-shuffle gap in kscheme.cpp::call_goal. Supervisor authored A21 (diagnostic phase) to discriminate via env-gated trace patches in linux_arm64_main.cpp, klink.cpp, Allocator_v2.cpp, kscheme.cpp. A20's diag patch in IR.cpp stays in HEAD as the canonical offset-divergence detector for future phases. A19's X12 fix preserved."
+    "A20-goalc-arm64-field-offset": "A20 attempt-1 honest-exited via OG_OFFSET_TRACE diag (added to goalc/compiler/IR.cpp:1440/1471/1524/1555, all 4 codegen paths) which produced 196,128 trace lines per backend with zero-line diff after `arch=` strip, and KERNEL.CGO byte-scan at align mod-4=2 confirming 15 instances each of LDR Wt[X16,#48] and [X16,#52]. The A18-attempt-4 off-by-4 hypothesis is falsified: arm64 emit is correct (X16 holds host(user_pointer), not host(start_of_alloc) \u2014 so [X16+48] reads structural offset 52 = first-gap, as intended). A18 attempt-4's disasm interpretation was wrong, not the emitter. See .autoport/reports/A20-attempt-1-next-blocker.md for the four candidate hypotheses for the actual 216-link-finish ceiling: H1 second regalloc surface (weak per supervisor reality-check), H2 X16 corruption in IR_FunctionCall::do_codegen_arm64, H3 klink LDR-literal imm19 NOPs (81 warnings in qemu log), H4 AAPCS arg-shuffle gap in kscheme.cpp::call_goal. Supervisor authored A21 (diagnostic phase) to discriminate via env-gated trace patches in linux_arm64_main.cpp, klink.cpp, Allocator_v2.cpp, kscheme.cpp. A20's diag patch in IR.cpp stays in HEAD as the canonical offset-divergence detector for future phases. A19's X12 fix preserved.",
+    "Grecharged-hd-models4": "Same failure fingerprint '2f0a15ed30e7' has recurred 3 attempts in a row. The agent is no longer learning from validator feedback \u2014 halting to preserve token quota."
   },
   "completed": [
     "00-harness",
@@ -723,7 +720,8 @@
     "Grecharged-hd-models3",
     "Gtouch-longjump-regression",
     "Gmenu-flag-off",
-    "Grecharged-hd-models5"
+    "Grecharged-hd-models5",
+    "Grecharged-hd-models4"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -743,7 +741,8 @@
     "Grefen-english-pristine-frames-audit",
     "Gmenu-pixelmatch",
     "Gecho-pool",
-    "Gcollision-replay-diff"
+    "Gcollision-replay-diff",
+    "Grecharged-hd-models4"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -933,10 +932,10 @@
     "Gtouch-longjump-regression": 1785831811.5772808,
     "Gmenu-flag-off": 1785886071.952773,
     "Grecharged-hd-models5": 1785898653.0176275,
-    "Grecharged-secondary-motion": 1785927178.8590672,
-    "Grecharged-hd-models4": 1785939731.6130211
+    "Grecharged-hd-models4": 1785939731.6130211,
+    "Grecharged-secondary-motion": 1785959994.0287757
   },
-  "last_update": "2026-08-05T19:59:28.036603+00:00",
+  "last_update": "2026-08-05T19:59:54.028785+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1035,8 +1034,7 @@
     "Grecharged-hd-models3",
     "Gtouch-longjump-regression",
     "Gmenu-flag-off",
-    "Grecharged-hd-models5",
-    "Grecharged-secondary-motion"
+    "Grecharged-hd-models5"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

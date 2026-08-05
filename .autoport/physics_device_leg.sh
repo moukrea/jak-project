@@ -96,6 +96,29 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   NREST=$(grep -ac 'rest-converged' "$LC" || true)
   say "leg $TAG: params-loaded=$NLOAD init=$NINIT chains-resolving=$NCH windows=$NWIN nan-bad=$NNAN rest=$NREST crash=$CRASH"
   [ "$CRASH" = 0 ] || { say "FAIL($TAG): native crash markers in logcat"; OK=0; }
+
+  # ---- (E) MENU BINDING, on the artifact that actually shipped to the phone ---------------------
+  if grep -aq '\[PHYS-MENU\] FATAL' "$LC"; then
+    say "FAIL($TAG): [PHYS-MENU] FATAL on device — physics rows not found / mis-ordered"; OK=0
+  fi
+  local NMENU; NMENU=$(grep -ac '\[PHYS-MENU\].*next-is-meshbrowser=1' "$LC" || true)
+  [ "${NMENU:-0}" -ge 1 ] \
+    || { say "FAIL($TAG): device log has no '[PHYS-MENU] rows wired ... next-is-meshbrowser=1'"; OK=0; }
+
+  # ---- CYCLE-2 STRUCTURAL GATES ----------------------------------------------------------------
+  # These read fields that live on the SAME logcat line as the rest of the window (the window is
+  # assembled in a string buffer and emitted with ONE format call — see jak-hd-physics.gc; a
+  # multi-call dump splits on device and every one of these greps would silently read as absent).
+  if [ "$NWIN" -gt 0 ]; then
+    local NROOT NRES NREG
+    NROOT=$(grep -a 'rootdev=' "$LC" | grep -cv 'rootdev=0\.0000 ' || true)
+    [ "${NROOT:-0}" = 0 ] || { say "FAIL($TAG): $NROOT window(s) with rootdev!=0 — a locked hair root moved"; OK=0; }
+    NRES=$(grep -a 'resid=' "$LC" | grep -cv 'resid=0 ' || true)
+    [ "${NRES:-0}" = 0 ] || { say "FAIL($TAG): $NRES window(s) with residual penetrations"; OK=0; }
+    NREG=$(grep -a 'reglue=' "$LC" | awk '{if (match($0,/reglue=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 0) n++} END {print n+0}')
+    [ "${NREG:-0}" -ge 1 ] || { say "FAIL($TAG): no window reports reglue>0 — fake-wind neutralization never ran on device"; OK=0; }
+    say "leg $TAG: rootdev-bad=$NROOT resid-bad=$NRES reglue-windows=$NREG"
+  fi
   case "$MODE" in
     expect-phys)
       [ "$NLOAD" -ge 1 ] || { say "FAIL($TAG): no '[hd-phys] params loaded' line"; OK=0; }

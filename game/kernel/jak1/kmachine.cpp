@@ -893,7 +893,9 @@ void pc_set_physics(u32 on, u32 level) {
 enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassAccessory = 4 };
 // chain param ids (pc_physics_chain_param_mi):
 //   0 stiffness(Hz) 1 damping 2 gravity 3 maxangle(deg) 4 inertia 5 stretch 6 radius(units)
-static constexpr int kPhysNumChainParams = 7;
+//   7 rootlock(links pinned rigidly at the root) 8 gradient(root->tip freedom exponent)
+//   9 animmode(0 keep / 1 replace / 2 excite) 10 excite(scale) 11 friction(0..1 contact)
+static constexpr int kPhysNumChainParams = 12;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -902,17 +904,21 @@ static constexpr int kPhysMaxLevels = 8;
 struct PhysChain {
   std::string name;
   int class_bits = 0;
-  float params[kPhysNumChainParams] = {0, 0, 0, 0, 1.f, 0, 0};
+  float params[kPhysNumChainParams] = {0, 0, 0, 0, 1.f, 0, 0, 0, 0, 1.f, 0, 0.5f};
   std::vector<std::string> joints;  // ordered root -> tip
 };
 
-// A body collision sphere. `chains` restricts which chains of the model the sphere pushes out;
-// an EMPTY list means it applies to every chain (legacy behavior). Several colliders may sit on
-// the same joint with different filters/radii.
+// A body collision volume: a SPHERE on `joint`, or — when `joint2` is set — a CAPSULE (swept
+// sphere) spanning `joint` -> `joint2`, so it follows two animated bones. `chains` restricts which
+// chains of the model the volume pushes out; an EMPTY list means it applies to every chain (legacy
+// behavior). `tier` selects how aggressively it is kept at lower precision levels. Several
+// colliders may sit on the same joint with different filters/radii.
 struct PhysCollider {
   std::string joint;
   float radius = 0.f;
   std::vector<std::string> chains;  // empty = applies to ALL chains
+  std::string joint2;               // empty = sphere; non-empty = CAPSULE from `joint` to `joint2`
+  int tier = 1;  // 1 = core (on at every precision level with collisions), 2 = extended
 };
 
 struct PhysModel {
@@ -960,6 +966,37 @@ static float phys_to_float(const std::string& s) {
   } catch (...) {
     return 0.f;
   }
+}
+
+// Shared key=value handling for the `collider` (sphere) and `capsule` lines — the two differ only
+// in how many leading joint tokens they consume. Returns false for an unrecognized key so the
+// caller can emit the usual one-shot "unknown key" warning.
+static bool phys_collider_kv(PhysCollider& col, const std::string& k, const std::string& v) {
+  if (k == "radius") {
+    col.radius = phys_to_float(v);
+  } else if (k == "chains") {
+    // comma-separated chain names, no spaces.
+    size_t p = 0;
+    while (p <= v.size()) {
+      size_t comma = v.find(',', p);
+      std::string one = (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+      if (!one.empty()) {
+        col.chains.push_back(one);
+      }
+      if (comma == std::string::npos) {
+        break;
+      }
+      p = comma + 1;
+    }
+  } else if (k == "tier") {
+    col.tier = (int)phys_to_float(v);
+    if (col.tier < 1) {
+      col.tier = 1;
+    }
+  } else {
+    return false;
+  }
+  return true;
 }
 
 // Parse recharged_assets/physics_chains.txt. Missing file is NOT an error (0 models = feature inert).
@@ -1102,6 +1139,24 @@ static int pc_physics_parse_file() {
           ch.params[5] = phys_to_float(v);
         } else if (k == "radius") {
           ch.params[6] = phys_to_float(v);
+        } else if (k == "rootlock") {
+          ch.params[7] = phys_to_float(v);
+        } else if (k == "gradient") {
+          ch.params[8] = phys_to_float(v);
+        } else if (k == "anim") {
+          if (v == "keep") {
+            ch.params[9] = 0.f;
+          } else if (v == "replace") {
+            ch.params[9] = 1.f;
+          } else if (v == "excite") {
+            ch.params[9] = 2.f;
+          } else {
+            lg::warn("[hd-phys] unknown chain anim mode '{}' (keeping replace)", v);
+          }
+        } else if (k == "excite") {
+          ch.params[10] = phys_to_float(v);
+        } else if (k == "friction") {
+          ch.params[11] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
@@ -1134,24 +1189,31 @@ static int pc_physics_parse_file() {
         if (!phys_kv(toks[t], k, v)) {
           continue;
         }
-        if (k == "radius") {
-          col.radius = phys_to_float(v);
-        } else if (k == "chains") {
-          // comma-separated chain names, no spaces.
-          size_t p = 0;
-          while (p <= v.size()) {
-            size_t comma = v.find(',', p);
-            std::string one =
-                (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
-            if (!one.empty()) {
-              col.chains.push_back(one);
-            }
-            if (comma == std::string::npos) {
-              break;
-            }
-            p = comma + 1;
-          }
-        } else if (!warned_unknown) {
+        if (!phys_collider_kv(col, k, v) && !warned_unknown) {
+          warned_unknown = true;
+          lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
+        }
+      }
+      cur_model->colliders.push_back(col);
+      continue;
+    }
+
+    // `capsule <jointA> <jointB> radius=R [chains=a,b] [tier=N]` — a swept-sphere body volume that
+    // follows two animated bones. Same filter/tier semantics as `collider`.
+    if (toks[0] == "capsule" && toks.size() >= 3) {
+      if (!cur_model) {
+        lg::warn("[hd-phys] 'capsule' outside a [model ...] section (skipped): {}", raw);
+        continue;
+      }
+      PhysCollider col;
+      col.joint = toks[1];
+      col.joint2 = toks[2];
+      for (size_t t = 3; t < toks.size(); t++) {
+        std::string k, v;
+        if (!phys_kv(toks[t], k, v)) {
+          continue;
+        }
+        if (!phys_collider_kv(col, k, v) && !warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
         }
@@ -1288,6 +1350,8 @@ s64 pc_physics_num_colliders(u32 ag_name) {
 
 // field 0 = radius in milli. field 1 = chain-applicability bitmask, RAW (not milli): bit c set if
 // this collider applies to chain index c. An empty chains= filter -> -1 (all chains).
+// field 2 = tier, RAW (1 = core, 2 = extended). field 3 = shape, RAW: 1 if this is a CAPSULE
+// (joint2 set), 0 if it is a plain sphere.
 s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
   pc_physics_ensure_loaded();
   const auto* model = pc_physics_find_model(ag_name);
@@ -1321,6 +1385,12 @@ s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
     }
     return mask;
   }
+  if (field == 2) {
+    return (s64)col.tier;
+  }
+  if (field == 3) {
+    return col.joint2.empty() ? 0 : 1;
+  }
   return 0;
 }
 
@@ -1333,6 +1403,21 @@ s64 pc_physics_collider_is_joint(u32 ag_name, s64 idx, u32 joint_name) {
   }
   std::string joint = Ptr<String>(joint_name).c()->data();
   return model->colliders[idx].joint == joint ? 1 : 0;
+}
+
+// 1 if collider idx of the model is a CAPSULE whose second joint is joint_name (exact match),
+// else 0 (a plain sphere has no joint2 and always answers 0).
+s64 pc_physics_collider_is_joint2(u32 ag_name, s64 idx, u32 joint_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || idx < 0 || idx >= (s64)model->colliders.size()) {
+    return 0;
+  }
+  if (model->colliders[idx].joint2.empty()) {
+    return 0;
+  }
+  std::string joint = Ptr<String>(joint_name).c()->data();
+  return model->colliders[idx].joint2 == joint ? 1 : 0;
 }
 
 // 0 = off (toggle off, or no params loaded); else level + 1.
@@ -3252,6 +3337,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-physics-num-colliders", (void*)pc_physics_num_colliders);
   make_function_symbol_from_c("pc-physics-collider-param-mi", (void*)pc_physics_collider_param_mi);
   make_function_symbol_from_c("pc-physics-collider-is-joint", (void*)pc_physics_collider_is_joint);
+  make_function_symbol_from_c("pc-physics-collider-is-joint2", (void*)pc_physics_collider_is_joint2);
   make_function_symbol_from_c("pc-physics-enabled", (void*)pc_physics_enabled);
 #endif
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);

@@ -4247,20 +4247,50 @@
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
-  ;; Grecharged-secondary-motion: wire the two PHYSICS rows. They are APPENDED AT THE TAIL of the
-  ;; static array (immediately before MESH BROWSER + Back), so their slots are addressed RELATIVE TO
-  ;; THE LIVE LENGTH — length-3 = PHYSICS, length-2 = PHYSICS DETAIL, length-1 = Back. That holds
-  ;; both before and after the HD collapse below (the collapse shifts every tail row up and drops the
-  ;; live length by the same amount, so these two offsets are invariant), it is idempotent across
-  ;; re-inits, and it leaves the fw-idx arithmetic above untouched — no existing row index moves.
+  ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
+  ;; by physics-menu-static-audit! — init-game-options only runs when the menu is actually opened,
+  ;; so a boot-only proof leg would never see this line.)
+  ;; CYCLE-2 REGRESSION FIX (owner 16:40 "l'option Physics Detail OUVRE LE MESH BROWSER"). The old
+  ;; wiring addressed the tail by hand as `length-3 = PHYSICS, length-2 = PHYSICS DETAIL,
+  ;; length-1 = Back` — it FORGOT the MESH BROWSER row, so the tail is FOUR deep and every write
+  ;; landed one slot late: the PHYSICS DETAIL *label* was painted onto the MESH BROWSER button, and
+  ;; respond-common dispatches buttons on the STATIC `name` (pc-text-mesh-browser), never on
+  ;; name-override — so the row reading "PHYSICS DETAIL" opened the mesh browser. Born wrong.
+  ;; The fix is NOT `-4`: hand-counted tail offsets are the bug class (same class as Gmenu-flag-off).
+  ;; The rows are now SELF-LOCATING — `physics-quality` is the option-type of exactly ONE row in the
+  ;; whole array, so we FIND it and take the on-off row immediately before it. Any future row
+  ;; inserted anywhere (incl. at the tail) is now harmless, and a mis-order fails LOUDLY instead of
+  ;; silently stealing another row's action. The [PHYS-MENU] line is the permanent artifact gate:
+  ;; it prints both resolved indices AND next-is-meshbrowser=1, i.e. positive proof that the
+  ;; mesh-browser button was left untouched.
   ;; The DETAIL carousell points value-to-modify at the shared *progress-carousell* int-backup
   ;; scratch (the pbr-displacement pattern); respond-common maps it 1:1 to physics-quality.
   (#when FLAG_PHYSICS
-  (let ((phys-idx (+ -3 (-> *recharged-options-pc* length))))
-    (set! (-> *recharged-options-pc* phys-idx value-to-modify) (&-> *pc-settings* physics?))
-    (set! (-> *recharged-options-pc* phys-idx name-override) *physics-label*)
-    (set! (-> *recharged-options-pc* (+ phys-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
-    (set! (-> *recharged-options-pc* (+ phys-idx 1) name-override) *physics-detail-label*)))
+  (let ((det-idx -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (and (< det-idx 0)
+                 (= (the int (-> *recharged-options-pc* i option-type))
+                    (the int (game-option-type physics-quality))))
+        (set! det-idx i)))
+    (cond
+      ((or (< det-idx 1)
+           (!= (the int (-> *recharged-options-pc* (+ det-idx -1) option-type))
+               (the int (game-option-type on-off))))
+       (format 0 "[PHYS-MENU] FATAL: physics rows not found or mis-ordered (det-idx=~D len=~D) — rows left UNWIRED~%"
+               det-idx (-> *recharged-options-pc* length)))
+      (else
+       (set! (-> *recharged-options-pc* (+ det-idx -1) value-to-modify) (&-> *pc-settings* physics?))
+       (set! (-> *recharged-options-pc* (+ det-idx -1) name-override) *physics-label*)
+       (set! (-> *recharged-options-pc* det-idx value-to-modify) (&-> *progress-carousell* int-backup))
+       (set! (-> *recharged-options-pc* det-idx name-override) *physics-detail-label*)
+       (format 0 "[PHYS-MENU] rows wired: toggle=~D detail=~D next-is-meshbrowser=~D len=~D (self-located)~%"
+               (+ det-idx -1)
+               det-idx
+               (if (and (< (+ det-idx 1) (-> *recharged-options-pc* length))
+                        (= (the int (-> *recharged-options-pc* (+ det-idx 1) name))
+                           (the int (text-id pc-text-mesh-browser))))
+                   1 0)
+               (-> *recharged-options-pc* length))))))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 4 hud-N), +1 for the master row) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
@@ -9937,20 +9967,50 @@
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
-  ;; Grecharged-secondary-motion: wire the two PHYSICS rows. They are APPENDED AT THE TAIL of the
-  ;; static array (immediately before MESH BROWSER + Back), so their slots are addressed RELATIVE TO
-  ;; THE LIVE LENGTH — length-3 = PHYSICS, length-2 = PHYSICS DETAIL, length-1 = Back. That holds
-  ;; both before and after the HD collapse below (the collapse shifts every tail row up and drops the
-  ;; live length by the same amount, so these two offsets are invariant), it is idempotent across
-  ;; re-inits, and it leaves the fw-idx arithmetic above untouched — no existing row index moves.
+  ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
+  ;; by physics-menu-static-audit! — init-game-options only runs when the menu is actually opened,
+  ;; so a boot-only proof leg would never see this line.)
+  ;; CYCLE-2 REGRESSION FIX (owner 16:40 "l'option Physics Detail OUVRE LE MESH BROWSER"). The old
+  ;; wiring addressed the tail by hand as `length-3 = PHYSICS, length-2 = PHYSICS DETAIL,
+  ;; length-1 = Back` — it FORGOT the MESH BROWSER row, so the tail is FOUR deep and every write
+  ;; landed one slot late: the PHYSICS DETAIL *label* was painted onto the MESH BROWSER button, and
+  ;; respond-common dispatches buttons on the STATIC `name` (pc-text-mesh-browser), never on
+  ;; name-override — so the row reading "PHYSICS DETAIL" opened the mesh browser. Born wrong.
+  ;; The fix is NOT `-4`: hand-counted tail offsets are the bug class (same class as Gmenu-flag-off).
+  ;; The rows are now SELF-LOCATING — `physics-quality` is the option-type of exactly ONE row in the
+  ;; whole array, so we FIND it and take the on-off row immediately before it. Any future row
+  ;; inserted anywhere (incl. at the tail) is now harmless, and a mis-order fails LOUDLY instead of
+  ;; silently stealing another row's action. The [PHYS-MENU] line is the permanent artifact gate:
+  ;; it prints both resolved indices AND next-is-meshbrowser=1, i.e. positive proof that the
+  ;; mesh-browser button was left untouched.
   ;; The DETAIL carousell points value-to-modify at the shared *progress-carousell* int-backup
   ;; scratch (the pbr-displacement pattern); respond-common maps it 1:1 to physics-quality.
   (#when FLAG_PHYSICS
-  (let ((phys-idx (+ -3 (-> *recharged-options-pc* length))))
-    (set! (-> *recharged-options-pc* phys-idx value-to-modify) (&-> *pc-settings* physics?))
-    (set! (-> *recharged-options-pc* phys-idx name-override) *physics-label*)
-    (set! (-> *recharged-options-pc* (+ phys-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
-    (set! (-> *recharged-options-pc* (+ phys-idx 1) name-override) *physics-detail-label*)))
+  (let ((det-idx -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (and (< det-idx 0)
+                 (= (the int (-> *recharged-options-pc* i option-type))
+                    (the int (game-option-type physics-quality))))
+        (set! det-idx i)))
+    (cond
+      ((or (< det-idx 1)
+           (!= (the int (-> *recharged-options-pc* (+ det-idx -1) option-type))
+               (the int (game-option-type on-off))))
+       (format 0 "[PHYS-MENU] FATAL: physics rows not found or mis-ordered (det-idx=~D len=~D) — rows left UNWIRED~%"
+               det-idx (-> *recharged-options-pc* length)))
+      (else
+       (set! (-> *recharged-options-pc* (+ det-idx -1) value-to-modify) (&-> *pc-settings* physics?))
+       (set! (-> *recharged-options-pc* (+ det-idx -1) name-override) *physics-label*)
+       (set! (-> *recharged-options-pc* det-idx value-to-modify) (&-> *progress-carousell* int-backup))
+       (set! (-> *recharged-options-pc* det-idx name-override) *physics-detail-label*)
+       (format 0 "[PHYS-MENU] rows wired: toggle=~D detail=~D next-is-meshbrowser=~D len=~D (self-located)~%"
+               (+ det-idx -1)
+               det-idx
+               (if (and (< (+ det-idx 1) (-> *recharged-options-pc* length))
+                        (= (the int (-> *recharged-options-pc* (+ det-idx 1) name))
+                           (the int (text-id pc-text-mesh-browser))))
+                   1 0)
+               (-> *recharged-options-pc* length))))))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 4 hud-N), +1 for the master row) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
@@ -11787,3 +11847,44 @@
         (none)))
 
 ) ;; end #unless FLAG_MENU_OVERHAUL
+
+;; ------------------------------------------------------------------------------------------------
+;; Grecharged-secondary-motion CYCLE 2 — BOOT-TIME menu-layout audit (owner defect E).
+;;
+;; The regression ("PHYSICS DETAIL opens the MESH BROWSER") lived in init-game-options, which only
+;; runs when the player actually OPENS the options menu — so the wiring proof it emits can never
+;; appear in a passive boot proof leg. This audits the same invariant against the STATIC row array
+;; at boot, where every leg can see it: the physics-quality row must exist, the row before it must
+;; be the on-off toggle, and the row AFTER it must still be the mesh-browser button (i.e. nothing
+;; was painted over the button). Runs once; called from jak-hd-physics-init, which fires on every
+;; companion spawn INCLUDING with the physics toggle off.
+;; ------------------------------------------------------------------------------------------------
+(#when FLAG_PHYSICS
+(define *phys-menu-audited* #f)
+
+(defun physics-menu-static-audit! ()
+  (when (not *phys-menu-audited*)
+    (set! *phys-menu-audited* #t)
+    (let ((det-idx -1))
+      (dotimes (i (-> *recharged-options-pc* length))
+        (when (and (< det-idx 0)
+                   (= (the int (-> *recharged-options-pc* i option-type))
+                      (the int (game-option-type physics-quality))))
+          (set! det-idx i)))
+      (cond
+        ((or (< det-idx 1)
+             (!= (the int (-> *recharged-options-pc* (+ det-idx -1) option-type))
+                 (the int (game-option-type on-off))))
+         (format 0 "[PHYS-MENU] FATAL: static audit — physics rows not found or mis-ordered (det-idx=~D len=~D)~%"
+                 det-idx (-> *recharged-options-pc* length)))
+        (else
+         (format 0 "[PHYS-MENU] static audit: toggle=~D detail=~D next-is-meshbrowser=~D len=~D~%"
+                 (+ det-idx -1)
+                 det-idx
+                 (if (and (< (+ det-idx 1) (-> *recharged-options-pc* length))
+                          (= (the int (-> *recharged-options-pc* (+ det-idx 1) name))
+                             (the int (text-id pc-text-mesh-browser))))
+                     1 0)
+                 (-> *recharged-options-pc* length))))))
+  (none))
+)

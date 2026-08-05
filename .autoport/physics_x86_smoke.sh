@@ -43,6 +43,46 @@ say "artifact gate: gk exposes the pc-physics FFI"
 ENH=out/jak1/fr3/enhanced/GAME.fr3
 [ -f "$ENH" ] || { say "FAIL: no enhanced GAME.fr3 — bake first"; exit 1; }
 
+# ---- CYCLE-2 artifact gates (check the ARTIFACT, never the run) --------------------------------
+# Every cycle-2 fix must be physically present in the shipped objects before a single frame runs.
+for s in 'PHYS-MENU' 'rootdev=' 'resid=' 'desc=' 'reglue='; do
+  n=$(strings -a "$ISO/GAME.CGO" | grep -c -- "$s" || true)
+  [ "${n:-0}" -ge 1 ] || { say "FAIL: GAME.CGO carries no '$s' string — cycle-2 code not compiled in"; exit 1; }
+done
+say "artifact gate: GAME.CGO carries the cycle-2 instrument strings (PHYS-MENU/rootdev/resid/desc/reglue)"
+FFI2=$(strings -a build/game/gk | grep -c 'pc-physics-collider-is-joint2' || true)
+[ "${FFI2:-0}" -ge 1 ] || { say "FAIL: gk lacks pc-physics-collider-is-joint2 — capsule FFI not built"; exit 1; }
+say "artifact gate: gk exposes the capsule collider FFI"
+NCAP=$(grep -c '^capsule ' recharged_assets/physics_chains.txt || true)
+[ "${NCAP:-0}" -ge 20 ] || { say "FAIL: only ${NCAP:-0} capsule colliders declared — the body volume is still symbolic"; exit 1; }
+NRL=$(grep -c 'rootlock=' recharged_assets/physics_chains.txt || true)
+[ "${NRL:-0}" -ge 8 ] || { say "FAIL: only ${NRL:-0} chains declare rootlock= — hair roots still float"; exit 1; }
+say "artifact gate: physics_chains.txt declares $NCAP capsules and $NRL root-locked chains"
+
+# chain NAME -> index within its model, read from the data file (never a hardcoded index: the gates
+# must survive any reordering of the chains file).
+chain_idx(){ # chain_idx <model> <chainname>
+  awk -v m="$1" -v c="$2" '
+    /^\[model /  { cur=$2; sub(/\]$/,"",cur); i=-1; next }
+    /^chain /    { if (cur==m) { i++; if ($2==c) { print i; exit } } }
+  ' recharged_assets/physics_chains.txt
+}
+# how many chains of a model carry a given class — so the "is this chain live at this level?" gate
+# is derived from the data, not from a number typed into the script.
+class_count(){ # class_count <model> <primary|secondary|accessory>
+  awk -v m="$1" -v k="class=$2" '
+    /^\[model / { cur=$2; sub(/\]$/,"",cur); next }
+    /^chain /   { if (cur==m) for (i=3; i<=NF; i++) if ($i==k) n++ }
+    END { print n+0 }' recharged_assets/physics_chains.txt
+}
+KCP=$(class_count keira-hd primary); KCS=$(class_count keira-hd secondary); KCA=$(class_count keira-hd accessory)
+say "keira-hd class census: primary=$KCP secondary=$KCS accessory=$KCA"
+KIDX_CHESTR=$(chain_idx keira-hd chestR); KIDX_GOG=$(chain_idx keira-hd goggles)
+KIDX_HAIR=$(chain_idx keira-hd backhair)
+[ -n "$KIDX_CHESTR" ] && [ -n "$KIDX_GOG" ] && [ -n "$KIDX_HAIR" ] \
+  || { say "FAIL: could not resolve keira-hd chain indices from physics_chains.txt"; exit 1; }
+say "keira-hd chain indices: chestR=$KIDX_CHESTR backhair=$KIDX_HAIR goggles=$KIDX_GOG"
+
 # ---- stage the 10 HD art-groups ---------------------------------------------------------------
 mkdir -p out/jak1/obj
 for c in jak-hd dax-hd keira-hd samos-hd jak2-hd jak3-hd daxp-hd keira3-hd ysamos-hd jakm-hd; do
@@ -113,6 +153,48 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
   say "leg $TAG: alive=$ALIVE init=$NINIT windows=$NWIN nan-bad=$NNAN rest=$NREST params-loaded=$NLOAD crash=$CRASH"
   [ "$ALIVE" = yes ] || OK=0
   [ "$CRASH" = 0 ] || OK=0
+
+  # ---- (E) MENU BINDING GATE — every leg, physics on or off -----------------------------------
+  # The owner's regression: the PHYSICS DETAIL row opened the MESH BROWSER because the wiring
+  # indexed the tail by hand and forgot a row. The rows are self-locating now; this proves it on
+  # the artifact that actually shipped, and proves the mesh-browser button was left alone.
+  if grep -aq '\[PHYS-MENU\] FATAL' "$GKLOG"; then
+    say "FAIL($TAG): [PHYS-MENU] FATAL — physics rows not found / mis-ordered"; OK=0
+  fi
+  NMENU=$(grep -ac '\[PHYS-MENU\].*next-is-meshbrowser=1' "$GKLOG" || true)
+  if [ "${NMENU:-0}" -lt 1 ]; then
+    say "FAIL($TAG): no '[PHYS-MENU] rows wired ... next-is-meshbrowser=1' line — the DETAIL row is not provably distinct from the mesh browser"
+    grep -a '\[PHYS-MENU\]' "$GKLOG" | head -3 >> "$R"; OK=0
+  else
+    say "leg $TAG: menu rows self-located, mesh-browser button intact ($NMENU line(s))"
+  fi
+
+  # ---- CYCLE-2 STRUCTURAL GATES (only meaningful when the sim ran) ------------------------------
+  if [ "$NWIN" -gt 0 ]; then
+    # (B) a LOCKED chain root must never drift: rootdev is read back FROM THE BONE after write-back.
+    NROOT=$(grep -a 'rootdev=' "$GKLOG" | grep -cv 'rootdev=0\.0000 ' || true)
+    [ "${NROOT:-0}" = 0 ] || { say "FAIL($TAG): $NROOT window(s) with rootdev!=0 — a locked hair root moved"; OK=0; }
+    # colliders: pushing out is not the bar — ENDING the frame outside the body is.
+    NRES=$(grep -a 'resid=' "$GKLOG" | grep -cv 'resid=0 ' || true)
+    [ "${NRES:-0}" = 0 ] || { say "FAIL($TAG): $NRES window(s) with residual penetrations — chains end frames inside the body"; OK=0; }
+    # (A) the authored pseudo-wind is actually being replaced on at least one chain.
+    NREG=$(grep -a 'reglue=' "$GKLOG" | awk '{if (match($0,/reglue=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 0) n++} END {print n+0}')
+    [ "${NREG:-0}" -ge 1 ] || { say "FAIL($TAG): no window reports reglue>0 — the fake-wind neutralization never ran"; OK=0; }
+    # (D) the anti-tear pass: keira's goggle lenses are non-simulated children of a simulated joint.
+    NDESC=$(grep -a 'ag=keira' "$GKLOG" | awk '{if (match($0,/desc=[0-9]+/) && substr($0,RSTART+5,RLENGTH-5)+0 > 0) n++} END {print n+0}')
+    # Every chain whose class bit is live at this level MUST be in the active set. This is the gate
+    # that would have caught defect D at level 1 (goggles were class=accessory, classmask=3, so the
+    # chain silently "rode rigidly" and the owner saw no physics on the glasses).
+    KBAD=$(grep -a 'ag=keira-hd .*window:' "$GKLOG" | awk -v p="$KCP" -v s="$KCS" -v a="$KCA" '
+      { cm=0; act=0;
+        if (match($0,/cm=[0-9]+/))  cm=substr($0,RSTART+3,RLENGTH-3)+0;
+        if (match($0,/act=[0-9]+/)) act=substr($0,RSTART+4,RLENGTH-4)+0;
+        e=0; if (cm%2>=1) e+=p; if (int(cm/2)%2>=1) e+=s; if (int(cm/4)%2>=1) e+=a;
+        if (act < e) { n++; print "  cm="cm" act="act" expected>="e > "/dev/stderr" } }
+      END { print n+0 }' 2>>"$R")
+    [ "${KBAD:-0}" = 0 ] || { say "FAIL($TAG): $KBAD keira window(s) where a class-live chain was NOT simulated"; OK=0; }
+    say "leg $TAG: rootdev-bad=$NROOT resid-bad=$NRES reglue-windows=$NREG keira-desc-windows=${NDESC:-0} class-gate-bad=${KBAD:-0}"
+  fi
   case "$MODE" in
     expect-phys)
       [ "$NLOAD" -ge 1 ] || { say "FAIL($TAG): no 'params loaded' line"; OK=0; }
@@ -147,6 +229,32 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
         if (am > 1.0 && md > 0.5 && md < 5000.0) n++ } END {print n+0}')
       [ "$NMOVDEV" -ge 1 ] || { say "FAIL($TAG): no MOVING bounded window (anchor animated + sim deviating)"; OK=0; }
       say "leg $TAG: chains-resolving-inits=$NCH2 moving-bounded-windows=$NMOVDEV"
+      # ---- (C) KEIRA CHEST: the owner's "ça bouge pas d'un poil" defect ------------------------
+      # The slot-wide maxdev was always dominated by hair/strap tips, so an inert chest was
+      # invisible to it. Gate the chest chain's OWN per-chain deviation, from BOTH sides:
+      #   floor  — it must clear the analytic spring-gravity sag (g*gravity/omega^2 =
+      #            40140.8*0.06/(2*pi*1.3)^2 = 36.1 units), i.e. it is really being simulated;
+      #   ceiling— "rien de fou": 400 units (~10 cm) is the top of subtle.
+      CHEST=$(grep -a 'ag=keira.*cdev:' "$GKLOG" | awk -v i="$KIDX_CHESTR" '
+        { s=substr($0, index($0,"cdev:"));
+          if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v } }
+        END { printf "%.4f", m+0 }')
+      GOG=$(grep -a 'ag=keira.*cdev:' "$GKLOG" | awk -v i="$KIDX_GOG" '
+        { s=substr($0, index($0,"cdev:"));
+          if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v } }
+        END { printf "%.4f", m+0 }')
+      say "leg $TAG: keira chest chain max deviation = $CHEST units ; goggles chain = $GOG units"
+      awk -v v="$CHEST" 'BEGIN{exit !(v+0 >= 20.0)}' \
+        || { say "FAIL($TAG): keira chest deviation $CHEST < 20 units — the chest chain is still INERT (owner defect C)"; OK=0; }
+      # 300 units (~7.3 cm) is BELOW the chain's geometric maximum (the 22 deg cone on a 977-unit
+      # lever allows 366), so this ceiling can actually trip — it is a real bound on "subtle", not
+      # decoration.
+      awk -v v="$CHEST" 'BEGIN{exit !(v+0 <= 300.0)}' \
+        || { say "FAIL($TAG): keira chest deviation $CHEST > 300 units — that is not 'rien de fou'"; OK=0; }
+      # ---- (D) GOGGLES: were class=accessory -> gated off at the default level, and their lenses
+      # would have torn off. Now primary + descendant re-glue: they must actually move.
+      awk -v v="$GOG" 'BEGIN{exit !(v+0 > 0.0)}' \
+        || { say "FAIL($TAG): keira goggles deviation is 0 — the accessory still has no physics (owner defect D)"; OK=0; }
       ;;
     expect-off)
       [ "$NWIN" = 0 ] || { say "FAIL($TAG): $NWIN window lines with physics?=#f — OFF is not off"; OK=0; }
