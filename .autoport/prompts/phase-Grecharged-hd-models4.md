@@ -301,3 +301,16 @@ dans le rapport + intégration de tous au carousel.
    chaînes de physique avec collision corps) — coordonner : si les bretelles passent en chaînes
    physiques, le clip résiduel disparaît par construction ; sinon, tuning par-anim des clés.
 3. CARRY toujours ouvert : l'inventaire exhaustif des looks ciné de Jak (prison J2, variantes J3).
+
+## VERDICT OWNER 2026-08-05 ~19:30 (checkpoint 19:05) — 4 décisions FERMES
+1. **Jak 3 et Jak 3 MASKED sont INVERSÉS** dans le carousel : l'option « Jak 3 » affiche le masqué et
+   « Jak 3 masqué » affiche le visage nu. => Simple SWAP des entrées (libellé <-> modèle) dans le
+   registre/carousel JAK LOOK. Vérifier par le mapping (char,look)->entry, pas par capture.
+2. **Jak 3 barefoot (jakf-hd) : BUGGÉ ET INUTILE → LE RETIRER** complètement (option du carousel,
+   entrée du registre, bake du merc dans le fr3, art-group du pack — nettoyage complet, pas juste
+   masquer l'option). L'owner ne veut plus le voir.
+3. **Jak II PRISON (jakp-hd) : NICKEL** — acquis verrouillé, zéro régression.
+4. **Bretelles de Keira : « on est pas mal, moving on! »** — item CLOS, ne plus y retoucher (le
+   résiduel éventuel sera traité par les colliders de la physique, pas par du mapping).
+=> Ces 4 points closent le cycle 5 côté owner : après le swap + le retrait, la phase peut passer à
+la PHYSIQUE CYCLE 2 (priorité de l'owner).
