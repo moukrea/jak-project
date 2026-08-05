@@ -205,6 +205,42 @@ grep -qE '^CYCLE5-LOOK-.*STATUS=INTEGRATED' "$R" \
 grep -qiE '^CYCLE5-LOOK.*(SUBMITTED|submit)' "$R" \
   || fail "CYCLE5-LOOK: no device submit-counter proof line for the new looks"
 
+# ==== OWNER VERDICT 2026-08-05 ~19:30 (on the 19:05 cycle-5 checkpoint) — 4 FIRM decisions ====
+# 1. "JAK 3" and "JAK 3 MASKED" render INVERTED -> swap which registry ENTRY each look selects
+#    (labels stay put). Verify by the (char,look)->entry mapping, never by a capture.
+# 2. jakf-hd (JAK 3 BAREFOOT) is buggy and useless -> REMOVE COMPLETELY (carousel option, registry
+#    entry, merc bake in the fr3, art-group in the pack) — a full clean-out, not a hidden option.
+# 3. jakp-hd (JAK II PRISON) ACCEPTED and locked. 4. Keira straps CLOSED.
+# Physical-artifact checks first: these outlive any prose in the report.
+grep -qE '\(\(0\) \(case look \(\(1\) 0\) \(\(2\) 4\) \(\(3\) 9\) \(\(4\) 5\)' goal_src/jak1/pc/jak-hd.gc \
+  || fail "CYCLE5-SWAP: hd-entry-for-char-look does not map jak look 3->entry 9 (bare face) and look 4->entry 5 (mask on)"
+for f in goal_src/jak1/pc/jak-hd.gc goal_src/jak1/pc/progress-pc.gc scripts/package_hd_assets.sh \
+         game/graphics/opengl_renderer/loader/Loader.cpp scripts/shell/build_enhanced_models.sh \
+         recharged_assets/physics_chains.txt; do
+  # the only tolerated mention is a do-not-re-add note; any live reference (a define, a list entry,
+  # an APPENDS row, a chain section) would carry "jakf-hd" on a line that is not a comment/note.
+  if grep -nE 'jakf' "$f" | grep -vqiE 'remov|re-add|reject|verdict|free again|;;|^ *#'; then
+    fail "CYCLE5-JAKF: live jakf-hd reference still in $f (owner ordered a COMPLETE removal)"
+  fi
+done
+[ ! -f recharged_assets/hd_anim/jakf-hd-ag.go ] \
+  || fail "CYCLE5-JAKF: recharged_assets/hd_anim/jakf-hd-ag.go still on disk (pack would still ship it)"
+if [ -f out/jak1/fr3/enhanced/GAME.fr3 ] && [ -x build/tools/hd_merc_swap/hd_merc_swap ]; then
+  if build/tools/hd_merc_swap/hd_merc_swap audit out/jak1/fr3/enhanced/GAME.fr3 2>/dev/null \
+       | grep -qa "^MODEL jakf-hd-lod0 "; then
+    fail "CYCLE5-JAKF: jakf-hd-lod0 is STILL baked into the shipped enhanced GAME.fr3"
+  fi
+fi
+grep -qiE '^CYCLE5-SWAP.*(look 3|look3).*(9|jakm)' "$R" \
+  || fail "CYCLE5-SWAP: no report line stating look 3 now selects the bare-face entry"
+grep -qiE '^CYCLE5-SWAP.*(PASS|proven)' "$R" || fail "CYCLE5-SWAP: no PASS line"
+grep -qiE '^CYCLE5-SWAP.*(SUBMITTED|submit)' "$R" \
+  || fail "CYCLE5-SWAP: no device submit-counter proof that BOTH sides of the swap render"
+grep -qiE '^CYCLE5-JAKF.*(remov|delet).*(PASS|proven|complete)' "$R" \
+  || fail "CYCLE5-JAKF: no complete-removal PASS line"
+grep -qiE '^CYCLE5-JAKP.*(accept|lock).*(PASS|proven|intact)' "$R" \
+  || fail "CYCLE5-JAKP: no line protecting the owner-accepted prison look"
+
 # ---- NO-REGRESSION on the owner's 14:00 locked victory: visible blink ------------------------
 grep -qiE '^NO-REGRESS.*blink.*(PASS|intact|proven)' "$R" \
   || fail "no NO-REGRESS blink line (owner 14:00: blinks are good — locked)"

@@ -32,5 +32,5 @@
 ;; for its future rework phase. GOAL-only flag (no C++/CMake gate needed).
 (defglobalconstant FLAG_MENU_OVERHAUL #f)
 (defglobalconstant FLAG_MENU_OVERHAUL_N 0)
-(defglobalconstant PLATFORM_ANDROID #t)
-(defglobalconstant OG_FLAG_SET_MARKER "ogflags:435df2141670:android-arm64")
+(defglobalconstant PLATFORM_ANDROID #f)
+(defglobalconstant OG_FLAG_SET_MARKER "ogflags:435df2141670:linux-x86_64")

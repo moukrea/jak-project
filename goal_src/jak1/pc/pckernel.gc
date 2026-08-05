@@ -482,10 +482,23 @@
     (("ao-strength") (set! (-> obj ao-strength) (file-stream-read-int file)))
     (("recharged-enhanced-models?") (set! (-> obj recharged-enhanced-models?) (file-stream-read-symbol file)))
     ;; Grecharged-hd-models5: per-character HD LOOK selections (ints, like pbr-displacement).
-    (("hd-look-jak") (set! (-> obj hd-look-jak) (file-stream-read-int file)))
-    (("hd-look-daxter") (set! (-> obj hd-look-daxter) (file-stream-read-int file)))
-    (("hd-look-keira") (set! (-> obj hd-look-keira) (file-stream-read-int file)))
-    (("hd-look-samos") (set! (-> obj hd-look-samos) (file-stream-read-int file)))
+    ;; CLAMPED on load (hd-models4 cycle 5): a look index is ALSO the carousell index, and the JAK
+    ;; carousell lost an option when the owner had jakf-hd removed on 2026-08-05. A settings.ini
+    ;; written before that removal can carry hd-look-jak = 6, which would both fall through to
+    ;; "no companion" (stock Jak, silently) and index one past the option array in the menu. Any
+    ;; out-of-range value falls back to 1 = HD, the default.
+    (("hd-look-jak")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj hd-look-jak) (if (and (>= v 0) (<= v 5)) v 1))))
+    (("hd-look-daxter")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj hd-look-daxter) (if (and (>= v 0) (<= v 2)) v 1))))
+    (("hd-look-keira")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj hd-look-keira) (if (and (>= v 0) (<= v 2)) v 1))))
+    (("hd-look-samos")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj hd-look-samos) (if (and (>= v 0) (<= v 2)) v 1))))
     ;; Grecharged-secondary-motion: chain physics toggle + quality level.
     (("physics?") (set! (-> obj physics?) (file-stream-read-symbol file)))
     (("physics-quality") (set! (-> obj physics-quality) (file-stream-read-int file)))

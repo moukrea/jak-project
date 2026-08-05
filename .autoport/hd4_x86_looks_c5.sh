@@ -9,9 +9,13 @@
 #           hanging at the NECK (240 blerc verts). Merc2 force-enables every effect on HD shells, so
 #           both scarves always drew and the face was never bare. jakm-hd is now appended with
 #           --drop-effect 0 (+ --strip-target 15/22/23 so nothing re-raises it at runtime).
-#   item 3  the two last CINEMATIC Jak looks found by the exhaustive jak2+jak3 sweep:
-#           jakp-hd (JAK II PRISON, jak2 ldjakbrn jak-highres-prison) and
-#           jakf-hd (JAK 3 BAREFOOT, jak3 ljkfeet jakc-feet).
+#   item 3  the last CINEMATIC Jak look found by the exhaustive jak2+jak3 sweep:
+#           jakp-hd (JAK II PRISON, jak2 ldjakbrn jak-highres-prison).
+#           (A second candidate, jakf-hd / JAK 3 BAREFOOT, was REMOVED COMPLETELY on the owner's
+#            2026-08-05 19:30 verdict — buggy + useless. Do not re-add it.)
+#   swap    owner 2026-08-05 19:30: the two Jak-3 carousel entries are SWAPPED — jak look 3
+#           ("JAK 3") now shows the BARE-FACE model jakm-hd and jak look 4 ("JAK 3 MASKED") now
+#           shows the mask-on model jak3-hd. Both sides are proven below in the same run.
 #
 # GATES (all renderer-side counters / artifact measurements — never captures, owner rule
 # 2026-08-04 "pour toujours"):
@@ -19,7 +23,7 @@
 #       strictly fewer draws+tris (exactly the 339-tri over-nose scarf).
 #   (b) BARE FACE, measured on the donor artifact: the dropped effect has verts INSIDE the face box
 #       (in front of the eye plane at eye/nose height), the kept scarf has ZERO.
-#   (c) the two new looks are present in the shipped fr3 with donor-parity draw/tri counts.
+#   (c) the new look is present in the shipped fr3 with donor-parity draw/tri counts.
 #   (d) per look: the selected model is SUBMITTED found=1 and every other jak look is ABSENT
 #       (the look REPLACES, it never stacks).
 #   (e) blink stays live on every look (donor lid paints, STOCKLID=0) and flicker stays 0/0.
@@ -36,7 +40,7 @@ SWAP=build/tools/hd_merc_swap/hd_merc_swap
 ENH=out/jak1/fr3/enhanced/GAME.fr3
 DONOR=decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb
 say(){ echo "$*" | tee -a "$R"; }
-say "===== cycle-5 x86 JAK LOOK leg (jakm bare-face + jakp/jakf) — $(date -Is) ====="
+say "===== cycle-5 x86 JAK LOOK leg (jak3<->jakm swap + jakp) — $(date -Is) ====="
 
 [ -f "$ISO/GAME.CGO" ] || { say "FAIL: no $ISO/GAME.CGO"; exit 1; }
 [ "$ISO/GAME.CGO" -nt goal_src/jak1/pc/jak-hd.gc ] || { say "FAIL: GAME.CGO stale vs jak-hd.gc"; exit 1; }
@@ -45,11 +49,11 @@ say "===== cycle-5 x86 JAK LOOK leg (jakm bare-face + jakp/jakf) — $(date -Is)
 OK=1
 
 # ---- gate (a) + (c): quantitative model census on the SHIPPED fr3 ---------------------------
-AUD=$("$SWAP" audit "$ENH" jak3-hd-lod0 jakm-hd-lod0 jakp-hd-lod0 jakf-hd-lod0 2>&1) || {
+AUD=$("$SWAP" audit "$ENH" jak3-hd-lod0 jakm-hd-lod0 jakp-hd-lod0 2>&1) || {
   say "FAIL: audit errored"; exit 1; }
 num(){ echo "$1" | grep -oE "$2=[0-9]+" | head -1 | cut -d= -f2; }
 declare -A EFF DRW TRI
-for m in jak3-hd jakm-hd jakp-hd jakf-hd; do
+for m in jak3-hd jakm-hd jakp-hd; do
   L=$(echo "$AUD" | grep -a "^MODEL $m-lod0 ")
   [ -n "$L" ] || { say "FAIL: $m-lod0 not in the shipped enhanced GAME.fr3"; OK=0; continue; }
   EFF[$m]=$(num "$L" effects); DRW[$m]=$(num "$L" total_draws); TRI[$m]=$(num "$L" total_tris)
@@ -76,10 +80,10 @@ else
 fi
 
 mkdir -p out/jak1/obj
-for c in jak-hd dax-hd keira-hd samos-hd jak2-hd jak3-hd daxp-hd keira3-hd ysamos-hd jakm-hd jakp-hd jakf-hd; do
+for c in jak-hd dax-hd keira-hd samos-hd jak2-hd jak3-hd daxp-hd keira3-hd ysamos-hd jakm-hd jakp-hd; do
   cp -f "recharged_assets/hd_anim/$c-ag.go" out/jak1/obj/ || { say "FAIL: stage $c-ag.go"; exit 1; }
 done
-say "staged 12 HD art-groups into out/jak1/obj"
+say "staged 11 HD art-groups into out/jak1/obj"
 
 [ -f "$INI" ] || { say "FAIL: no $INI (run gk once to create it)"; exit 1; }
 cp "$INI" "$OUT/.settings.ini.pre-looks"
@@ -122,7 +126,7 @@ run_look(){ # run_look <look-index> <expected-model>
   if grep -aq "SUBMITTED name='$WANT-lod0' found=1" "$GKLOG"; then
     say "OK(look $LOOK): $WANT-lod0 SUBMITTED found=1"
   else say "FAIL(look $LOOK): $WANT-lod0 never SUBMITTED"; OK=0; fi
-  for m in jak-hd jak2-hd jak3-hd jakm-hd jakp-hd jakf-hd; do
+  for m in jak-hd jak2-hd jak3-hd jakm-hd jakp-hd; do
     [ "$m" = "$WANT" ] && continue
     grep -aq "SUBMITTED name='$m-lod0' found=1" "$GKLOG" \
       && { say "FAIL(look $LOOK): forbidden $m-lod0 also submitted (look did not REPLACE)"; OK=0; }
@@ -145,10 +149,11 @@ run_look(){ # run_look <look-index> <expected-model>
       say "FAIL(look $LOOK): counter gates broken"; OK=0; }
 }
 
-run_look 4 jakm-hd
+# owner swap 2026-08-05: look 3 = BARE FACE (jakm-hd), look 4 = MASKED (jak3-hd).
+run_look 3 jakm-hd
+run_look 4 jak3-hd
 run_look 5 jakp-hd
-run_look 6 jakf-hd
 
 say ""
-if [ "$OK" = 1 ]; then say "[looks-c5-leg PASS] jakm bare-face distinct + jakp/jakf submit, blink live, flicker clean"; exit 0
+if [ "$OK" = 1 ]; then say "[looks-c5-leg PASS] jakm bare-face distinct + swapped looks 3/4 + jakp submit, blink live, flicker clean"; exit 0
 else say "[looks-c5-leg FAIL]"; exit 1; fi

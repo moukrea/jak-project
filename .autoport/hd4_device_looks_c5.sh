@@ -3,13 +3,16 @@
 # additions/fixes plus the Keira strap x collision work, on the real Redmi.
 #
 # FIVE sub-legs, each a FRESH app launch warped to village1-hut (-130.50 34.50 202.41):
-#   M   hd-look-jak=4                      -> jakm-hd-lod0   (JAK 3 MASQUE BAISSE, bare face)
+#   M   hd-look-jak=3 ("JAK 3")            -> jakm-hd-lod0   (BARE FACE, post-swap)
+#   C   hd-look-jak=4 ("JAK 3 MASKED")     -> jak3-hd-lod0   (MASK ON FACE, post-swap)
 #   P   hd-look-jak=5                      -> jakp-hd-lod0   (JAK II PRISON, new)
-#   F   hd-look-jak=6                      -> jakf-hd-lod0   (JAK 3 BAREFOOT, new)
 #   K1  hd-look-keira=1 + physics?=#t q=1  -> keira-hd-lod0  (+ strap x collision counters)
 #   K3  hd-look-keira=2 + physics?=#t q=1  -> keira3-hd-lod0 (+ strap x collision counters)
+# Owner verdict 2026-08-05 19:30: the two Jak-3 carousel entries were SWAPPED (3 = bare face,
+# 4 = masked), so M and C prove BOTH sides of the swap in one run; and the 7th look jakf-hd
+# (JAK 3 BAREFOOT) was REMOVED COMPLETELY (buggy + useless) — do not re-add its sub-leg.
 # Every sub-leg forces recharged-master?=#t, recharged-enhanced-models?=#t and pins the other three
-# look keys to 1, so exactly one HD Jak look is live. M/P/F leave the owner's physics settings alone.
+# look keys to 1, so exactly one HD Jak look is live. M/C/P leave the owner's physics settings alone.
 #
 # Instrument = RENDERER/PHYSICS COUNTERS ONLY. No screenshot, no screenrecord: the owner banned
 # captures as a validation instrument (2026-08-04, "pour toujours").
@@ -31,7 +34,7 @@ WARP=village1-hut; WPOS='-130.50 34.50 202.41'
 say(){ echo "$*" | tee -a "$LOG"; }
 die(){ say "[legLOOKS-c5 FAIL] $*"; exit 1; }
 
-say "===== cycle-5 device LOOKS leg (jakm/jakp/jakf + keira straps) — $(date -Is) ====="
+say "===== cycle-5 device LOOKS leg (jak3<->jakm swap + jakp + keira straps) — $(date -Is) ====="
 say "watch=${WATCH}s warp=$WARP pos=$WPOS serial=$S"
 $ADB devices | grep -qE "^${S}[[:space:]]+device$" || die "device $S not on adb"
 $ADB -s "$S" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
@@ -140,7 +143,7 @@ run_leg(){
 
   if [ "$FORBID" = 1 ]; then
     stack=0
-    for m in jak-hd jak2-hd jak3-hd jakm-hd jakp-hd jakf-hd; do
+    for m in jak-hd jak2-hd jak3-hd jakm-hd jakp-hd; do
       [ "$m" = "$WANT" ] && continue
       mn=$(grep -ac "SUBMITTED name='${m}-lod0' found=1" "$LC" || true)
       [ "$mn" -gt 0 ] && { say "FAIL($TAG): forbidden ${m}-lod0 also SUBMITTED (look did not REPLACE)"; stack=$((stack+1)); }
@@ -219,15 +222,16 @@ run_leg(){
   else say "[legLOOKS-c5 SUB $TAG FAIL]"; OK=0; fi
 }
 
-run_leg M  4 1 '-'  '-' jakm-hd   '-'        1
+# owner swap 2026-08-05: look 3 = BARE FACE (jakm-hd), look 4 = MASKED (jak3-hd).
+run_leg M  3 1 '-'  '-' jakm-hd   '-'        1
+run_leg C  4 1 '-'  '-' jak3-hd   '-'        1
 run_leg P  5 1 '-'  '-' jakp-hd   '-'        1
-run_leg F  6 1 '-'  '-' jakf-hd   '-'        1
 run_leg K1 1 1 '#t' 1   keira-hd  keira-hd   0
 run_leg K3 1 2 '#t' 1   keira3-hd keira3-hd  0
 
 say ""
 if [ "$OK" = 1 ]; then
-  say "[legLOOKS-c5 PASS] jakm/jakp/jakf looks submit and replace, blink live, flicker 0/0, keira+keira3 strap colliders resolved and bounded on device"
+  say "[legLOOKS-c5 PASS] swapped looks 3/4 (jakm/jak3) + jakp submit and replace, blink live, flicker 0/0, keira+keira3 strap colliders resolved and bounded on device"
   exit 0
 else
   say "[legLOOKS-c5 FAIL]"

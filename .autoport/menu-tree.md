@@ -34,7 +34,7 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | 3 | RECHARGED TEXTURES | `recharged-textures?` |
 | 4 | PBR MATERIALS `{FLAG_PBR}` | `pbr-materials?` |
 | 5 | ENHANCED MODELS `{FLAG_HD_MODELS}` (collapse si FR3 HD absents) | `recharged-enhanced-models?` |
-| **6** | **JAK LOOK (carousell ORIGINAL / HD / JAK II / JAK 3 / JAK 3 MASKED / JAK II PRISON / JAK 3 BAREFOOT)** `{FLAG_HD_MODELS}` (grisé si master ou ENHANCED MODELS off) | **`hd-look-jak`** via int-backup (write-back respond-common) |
+| **6** | **JAK LOOK (carousell ORIGINAL / HD / JAK II / JAK 3 / JAK 3 MASKED / JAK II PRISON)** `{FLAG_HD_MODELS}` (grisé si master ou ENHANCED MODELS off) | **`hd-look-jak`** via int-backup (write-back respond-common) |
 | **7** | **DAXTER LOOK (carousell ORIGINAL / HD / PANTS)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-daxter`** via int-backup |
 | **8** | **KEIRA LOOK (carousell ORIGINAL / HD / JAK 3)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-keira`** via int-backup |
 | **9** | **SAMOS LOOK (carousell ORIGINAL / HD / YOUNG)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-samos`** via int-backup |
@@ -56,7 +56,7 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 ### Grecharged-hd-models5 — LOOK par personnage (idx 6-9)
 
 Quatre carousells `int32` persistés dans `settings.ini` : `hd-look-jak` (0 ORIGINAL / 1 HD /
-2 JAK II / 3 JAK 3 / 4 JAK 3 MASKED / 5 JAK II PRISON / 6 JAK 3 BAREFOOT), `hd-look-daxter`
+2 JAK II / 3 JAK 3 / 4 JAK 3 MASKED / 5 JAK II PRISON), `hd-look-daxter`
 (0 ORIGINAL / 1 HD / 2 PANTS), `hd-look-keira` (0 ORIGINAL / 1 HD / 2 JAK 3), `hd-look-samos`
 (0 ORIGINAL / 1 HD / 2 YOUNG). **Défaut = 1 (HD)** pour les quatre = le comportement
 d'ENHANCED MODELS avant ces lignes.
@@ -67,14 +67,30 @@ l'arithmétique longueur-exacte du menu ancien passe de `FLAG_HD_MODELS_N` à
 `fw-idx` = `(+ 4 hud-N pbr-N (* 5 hd-N))` = 10), et le collapse "FR3 HD absents" retire
 **les 5 lignes d'un bloc** (`length -= 5`, décalage `+5`).
 
-Les 9 libellés d'options (ORIGINAL / HD / JAK II / JAK 3 / PANTS / YOUNG / JAK 3 MASKED — cycle-4
-item 3, tag id #x17b6 -> jakm-hd entrée 9 — puis JAK II PRISON / JAK 3 BAREFOOT — cycle-5 item 3,
-tag ids #x17bc -> jakp-hd entrée 10 et #x17bd -> jakf-hd entrée 11) sont des **globales
-runtime** (`*hd-look-*-label*`) résolues par `carousell-option-string` depuis les tags réservés
-`#x17b0..#x17b6` + `#x17bc`/`#x17bd` — même mécanisme anti-banque-de-texte-périmée que PBR
+Les 8 libellés d'options (ORIGINAL / HD / JAK II / JAK 3 / PANTS / YOUNG / JAK 3 MASKED — cycle-4
+item 3, tag id #x17b6 — puis JAK II PRISON — cycle-5 item 3, tag id #x17bc -> jakp-hd entrée 10)
+sont des **globales runtime** (`*hd-look-*-label*`) résolues par `carousell-option-string` depuis
+les tags réservés `#x17b0..#x17b6` + `#x17bc` — même mécanisme anti-banque-de-texte-périmée que PBR
 ISOLATE, donc aucun "Unknown ID" possible sur Android. Libellés de lignes via `name-override`
 (`JAK LOOK`, `DAXTER LOOK`, `KEIRA LOOK`, `SAMOS LOOK`), comme `*enhanced-models-label*`.
 Anglais uniquement.
+
+Carousell **JAK LOOK** — 6 options, ledger `hd-look-jak` 0..5 :
+
+| valeur | libellé | tag | modèle (entrée registre) |
+|---|---|---|---|
+| 0 | ORIGINAL | `#x17b0` | stock `eichar-lod0` |
+| 1 | HD | `#x17b1` | `jak-hd` |
+| 2 | JAK II | `#x17b2` | `jak2-hd` |
+| 3 | JAK 3 | `#x17b3` | **`jakm-hd` (entrée 9)** — visage NU / masque baissé |
+| 4 | JAK 3 MASKED | `#x17b6` | **`jak3-hd` (entrée 5)** — masque SUR le visage |
+| 5 | JAK II PRISON | `#x17bc` | `jakp-hd` (entrée 10) |
+
+**Swap owner 2026-08-05 19:30** : les deux entrées Jak 3 ont été échangées — la valeur 3 (`JAK 3`)
+montre désormais le modèle visage nu (`jakm-hd`) et la valeur 4 (`JAK 3 MASKED`) le modèle au
+masque (`jak3-hd`). Même verdict : le 7e look **JAK 3 BAREFOOT** (`jakf-hd`, tag `#x17bd`) a été
+**retiré complètement** (buggé + inutile) — option du carousell, entrée du registre, bake merc
+dans le fr3 et art-group du pack. Ne pas le réintroduire ; `#x17bd` est **redevenu libre**.
 
 ### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 26-27)
 
@@ -104,9 +120,10 @@ Libellés : **jamais la banque de texte / COMMON.TXT**. Les libellés de LIGNE p
 `#x17bb` MAXIMUM** — même mécanisme anti-banque-périmée que HD LOOK / PBR ISOLATE. Les tags
 **`#x17b7` (PHYSICS) et `#x17b8` (PHYSICS DETAIL)** sont **réservés** pour les libellés de ligne
 (non consommés à l'exécution : `name-override` court-circuite toute recherche de texte).
-Anglais uniquement. Suite du registre : **`#x17bc` / `#x17bd`** sont pris par les deux nouvelles
-options JAK LOOK (JAK II PRISON / JAK 3 BAREFOOT, cycle-5 item 3) — premier tag encore libre =
-`#x17be`.
+Anglais uniquement. Suite du registre : **`#x17bc`** est pris par la nouvelle option JAK LOOK
+(JAK II PRISON, cycle-5 item 3). **`#x17bd`** avait été attribué à JAK 3 BAREFOOT (`jakf-hd`) ;
+ce look a été retiré complètement le 2026-08-05 (verdict owner), donc **`#x17bd` est de nouveau
+LIBRE** — premier tag encore libre = `#x17bd`.
 
 ## GRASS SETTINGS (`*grass-options-pc*` 7 lignes)
 

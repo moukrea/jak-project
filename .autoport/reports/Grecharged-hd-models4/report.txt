@@ -3,16 +3,18 @@ Build ogflags:435df2141670 (hd-models,pbr,physics) — the cycle-4 body below is
 carried line was re-proven against the CURRENT bake. Owner's 14:00 acquis (visible blinks) locked.
 Date: 2026-08-05
 RESULT: PASS — cycle-5 items 1 (jakm-hd visibly distinct / bare face), 2 (Keira straps x physics
-collision, both looks, every level) and 3 (exhaustive cinematic-look inventory + integration of the
-two remaining looks) delivered, x86 + device proven with renderer-side counters and artifact
-measurements only. No captures were used as a validation instrument (owner rule 2026-08-04).
+collision, both looks, every level) and 3 (exhaustive cinematic-look inventory + integration) delivered,
+PLUS the owner's 2026-08-05 19:30 verdict on the 19:05 checkpoint applied in full: the two Jak-3
+carousel options SWAPPED (they rendered inverted), jakf-hd BAREFOOT removed completely, jakp-hd PRISON
+locked, Keira straps closed. x86 + device proven with renderer-side counters and artifact measurements
+only. No captures were used as a validation instrument (owner rule 2026-08-04).
 
 == CYCLE-5 item 1 — jakm-hd must be VISIBLY DISTINCT from jak3-hd (bare face, mask at the neck) ==
 CYCLE5-JAKM root-cause (DOUBLE, both proven on artifacts, neither was the registry): (1) AMPLITUDE — the cycle-4 `--bake-blerc-target 15` folded the target delta at weight 1.0, but the runtime applies base + delta*weight with a FULL-ON channel weight of 4096 ((raw 128-64)*64, goal_src/jak1/engine/gfx/foreground/bones.gc:888-897), so the shipped displacement was 4096x too small (0.12 units became ~3e-5 = ~0.001% of body height, provably invisible); (2) WRONG MORPH — target 15 was never the mask at all: it translates lens/gogglemetal/brownstrap, i.e. the GOGGLES, not the face scarf.
 CYCLE5-JAKM byte/amplitude diagnosis on the SHIPPED fr3: with the cycle-4 bake, jak3-hd-lod0 and jakm-hd-lod0 were 18 effects / 40 draws / 13574 tris EACH and their static merc verts were BYTE-IDENTICAL (411280 verts, A==B), the mod verts differing by at most 0.1205 units — i.e. the two Jak-3 looks really were the same model, exactly as the owner saw. The real mask mechanism: the jakc donor carries the scarf TWICE, as two separate EFFECTS — effect[0] `jakc-scarf` 339 tris STATIC (blerc_verts=0, pinned UP OVER THE NOSE) and effect[17] `jakc-scarf` 339 tris ANIMATED (240 blerc verts, max_blerc_target=23, hanging at the NECK). jak3 selects ONE at runtime through merc-ctrl setup-masks (jak3 powerups.gc:886-889); the fr3 MercEffect carries no mask bits and our Merc2 force-enables every effect on HD shells (Merc2.cpp:1258), so BOTH scarves always drew and the face was never uncovered.
 CYCLE5-JAKM scarf/mask/neck — FACE-UNCOVERED fix (owner 11:00 quiproquo encoded): jakm-hd is now appended with `--drop-effect 0` (the over-nose scarf geometry is gone from the model entirely) plus `--strip-target 15 22 23` (15 lowers the goggles, 22/23 RAISE the neck scarf back toward the face — removed from the RUNTIME channel map so nothing can pull the mask up); NO bake. Bake log: `DROP-EFFECT: idx=0 draws=1 tris=339 verts_mod=0`; the three stripped targets appear in the jakm BLERC-PORT dropped list (t15=626 t22=240 t23=240). The goggles stay at the forehead = the authentic bare-face cutscene state. jak3-hd is untouched (18/40/13574, byte-identical to the owner-accepted set).
 CYCLE5-JAKM distinct PASS (quantitative, on the SHIPPED out/jak1/fr3/enhanced/GAME.fr3): jak3-hd-lod0 effects=18 draws=40 tris=13574 vs jakm-hd-lod0 effects=17 draws=39 tris=13235 — delta_tris=339, exactly the over-nose scarf draw and nothing else. BARE-FACE proven by MEASUREMENT on the donor artifact, not by pixels: the new permanent instrument scripts/shell/hd_effect_geometry_probe.py reads the rip's per-primitive `extras.goal_effect_idx` and reports, in the face box (y 2.20-2.62 = eye/nose height, z >= 0.28 = in FRONT of the eye plane, the eyes' own bbox being z=[+0.239,+0.322]), effect 0 = 26 of 236 verts INSIDE the box (11.0%) and effect 17 = 0 of 240 (0.0%). The dropped effect is the one covering the face; the kept one cannot reach it.
-CYCLE5-JAKM SUBMITTED — device leg legLOOKS-c5 sub-leg M on eae4df44 (village1-hut): @@DEVM@@; x86 leg (hd4_x86_looks_c5.sh, look jak=4): jakm-hd-lod0 SUBMITTED found=1, jak-hd/jak2-hd/jak3-hd/jakp-hd/jakf-hd all ABSENT (the look REPLACES), blink windows 4/4 donor-painted, STOCKLID=0, flicker BLACKOUT=0 GAP=0, no crash, 0 blerc exhaustion.
+CYCLE5-JAKM SUBMITTED — device leg legLOOKS-c5 sub-leg M on eae4df44 (village1-hut): legLOOKS-c5 sub-leg M, fresh HEAD 173ad3b6cd on eae4df44, 90s at village1-hut — jakm-hd-lod0 SUBMITTED found=1 and jak-hd/jak2-hd/jak3-hd/jakp-hd/jakf-hd ALL absent (the look REPLACES, it does not stack), blink slots 0/1 21/21 donor-painted windows each, STOCKLID=0, flicker BLACKOUT=0 GAP=0, no native crash signal, app foreground at end; x86 leg (hd4_x86_looks_c5.sh, look jak=4): jakm-hd-lod0 SUBMITTED found=1, jak-hd/jak2-hd/jak3-hd/jakp-hd/jakf-hd all ABSENT (the look REPLACES), blink windows 4/4 donor-painted, STOCKLID=0, flicker BLACKOUT=0 GAP=0, no crash, 0 blerc exhaustion.
 CYCLE5-JAKM bake-class fix for the future: hd_merc_swap `--bake-weight` now defaults to 4096 (the runtime full-on weight), so any FUTURE look that legitimately needs a baked blend target lands at visible amplitude instead of silently at 1/4096.
 
 == CYCLE-5 item 2 — Keira straps x physics chains (BOTH looks, every physics level) =============
@@ -21,7 +23,7 @@ CYCLE5-KEIRA-STRAP fix: per-chain collider FILTERS — a backward-compatible `ch
 CYCLE5-KEIRA-STRAP keira3-hd is covered identically (owner 10:35 widening): both `[model keira-hd]` and `[model keira3-hd]` sections carry the same three collider lines, both rigs verified to own the `chest` and `hips` joints the filters name, and both resolve colliders=3 at companion init.
 CYCLE5-KEIRA-STRAP per-level behavior, honest, x86 leg hd4_x86_strap_leg_c5.sh (6 sub-legs, village1-hut): PHYSICS OFF -> ZERO [HD-PHYS] windows, straps are the pure cycle-4 retarget (no regression, no collision); LIGHT (quality 0, classmask 1) -> strap chains are class=secondary so they are NOT simulated (cm=1) and collide is off (push=0) — same pure retarget; FULL (quality 1) -> keira-hd windows=5 colliders=3 pushes=9505 maxpen=86.79u, keira3-hd windows=5 colliders=3 pushes=7639 maxpen=124.89u; MAXIMUM (quality 2, 240Hz) -> keira-hd windows=4 colliders=3 pushes=21932 maxpen=82.67u, keira3-hd windows=4 colliders=3 pushes=25962 maxpen=144.66u. Every leg: nan-resets=0, zero unbounded windows, zero collider chain-filter resolution warnings, no crash.
 CYCLE5-KEIRA-STRAP instrument bug found and fixed while proving this on device (metrics-not-eyeballs discipline): the [HD-PHYS] window needs three GOAL `format` calls (an 8-parameter call limit), and on Android EVERY `format 0` call is routed as its OWN logcat line — so the window split across three lines and every line-based device gate read push=/maxpen= as ABSENT and reported "pushes=0", which reads exactly like "collision never fired" when it had in fact fired ~1500 times per window. x86 was blind to it (its stdout stream concatenated the calls). FIX: the window is now assembled in a string buffer and emitted with ONE `format 0` call, so it is ONE line on BOTH targets; and both proof legs now assert that every window line carries push= and FAIL LOUDLY on a split instead of silently reporting 0. The numbers below are from the rebuilt one-line emitter.
-CYCLE5-KEIRA-STRAP PASS — [strap-c5-leg PASS] on x86 (all six sub-legs) and device sub-legs K1/K3: @@DEVK@@. Honest limit stated to the owner: at PHYSICS OFF and LIGHT the straps have no collider by design (the sim is not running), so the residual per-anim clip the owner saw at 14:00 is only removed at FULL and MAXIMUM; at OFF/LIGHT the behavior is exactly the owner-accepted cycle-4 retarget, not worse.
+CYCLE5-KEIRA-STRAP PASS — [strap-c5-leg PASS] on x86 (all six sub-legs) and device sub-legs K1/K3: keira-hd (look 1) colliders=3 resolved at companion init, 8 window lines, pushes=12858, maxpen=67.77u, nan-resets=0, zero unbounded windows, zero chain-filter resolution warnings; keira3-hd (look 2) colliders=3, 8 windows, pushes=11695, maxpen=51.02u, nan=0, bounded — the per-chain strap colliders are live on BOTH looks on the real device. Honest limit stated to the owner: at PHYSICS OFF and LIGHT the straps have no collider by design (the sim is not running), so the residual per-anim clip the owner saw at 14:00 is only removed at FULL and MAXIMUM; at OFF/LIGHT the behavior is exactly the owner-accepted cycle-4 retarget, not worse.
 
 == CYCLE-5 item 3 — EXHAUSTIVE inventory of Jak CINEMATIC looks + integration (owner 11:05) =====
 CYCLE5-INVENTORY: exhaustive scan DONE over BOTH dumps — `hd_merc_swap audit` was run over ALL 148 out/jak2/fr3/*.fr3 (1149 MODEL lines) and ALL 274 out/jak3/fr3/*.fr3 (1401 MODEL lines) of the jak2 and jak3 rips, every Jak-named merc model classified cinematic-highres vs gameplay/prop, and a >=8000-tris sweep run over BOTH dumps to prove no cinematic Jak hides under a non-"jak" name. Result: SEVEN cinematic Jak model names exist, FOUR distinct geometries after content dedupe, and exactly TWO of them had never been shipped — both are integrated below. Cutscene-only per the owner's 11:06 precision: every gameplay/low-poly/prop Jak is excluded and listed as an EXCEPTION line.
@@ -29,17 +31,84 @@ CYCLE5-LOOK-01 name=jakone-highres game=jak2 level=introcst tris=9886 desc="Jak 
 CYCLE5-LOOK-02 name=jak-highres game=jak2 level=ljakdax tris=10886 desc="Jak II main cutscene look" STATUS=ALREADY-SHIPPED shipped-as=jak2-hd (registry entry 4); the 23 further jak2 fr3 carrying this model are byte-identical copies (normalized md5 226ca725a6556689dc5a2bbfbf77e225)
 CYCLE5-LOOK-03 name=jakc-highres game=jak3 level=ljakc tris=13574 desc="Jak 3 wastelander cutscene look" STATUS=ALREADY-SHIPPED shipped-as=jak3-hd and jakm-hd (entries 5 and 9); the 38 further jak3 fr3 copies are byte-identical (normalized md5 4b05db03c951cda91c4c3358478afe42)
 CYCLE5-LOOK-04 STATUS=INTEGRATED ag=jakp-hd name=jak-highres-prison game=jak2 level=ldjakbrn tris=8052 desc="JAK II PRISON — the owner-named dark-eco EXPERIMENTS cutscene look (prison shirt/wraps/handwraps, horn)"; FACE-FINGER-GATE PASS accepted-unmapped=0, k->e 63/63 joints mapped, PARENT-ORDER PASS, PROOF A 8.9e-16 / C(a) 1.0e-09 / C(b) 7.2e-16 / C(c) 8.9e-16 / D PASS over 3 mode-3 joints / PROOF-E 95 driver anims, 1561 frames, 0 violations; appended to enhanced GAME.fr3 as model[37] draws=20 tris=8052 effects=5 = exact donor parity, integrity gate PASS, donor lid `jakb-eyelid` ported as jakp-hd-lid, donor eye slots remapped onto eichar-lod0
-CYCLE5-LOOK-05 STATUS=INTEGRATED ag=jakf-hd name=jakc-feet game=jak3 level=ljkfeet tris=13268 desc="JAK 3 BAREFOOT — cutscene variant with the boots replaced by foot wraps and bare limbs (7 boot draws dropped, 4 bare-skin draws added vs jakc-highres)"; FACE-FINGER-GATE PASS accepted-unmapped=0, k->e 59/59 joints mapped, PARENT-ORDER PASS, PROOF A 8.9e-16 / C(a) 3.2e-09 / C(b) 3.1e-16 / C(c) 8.9e-16 / D PASS over 2 mode-3 joints / PROOF-E 95 driver anims, 1561 frames, 0 violations; appended to enhanced GAME.fr3 as model[38] draws=37 tris=13268 effects=17 = exact donor parity, integrity gate PASS, donor lid `jakchires-eyelid` ported as jakf-hd-lid
+CYCLE5-LOOK-05 name=jakc-feet game=jak3 level=ljkfeet tris=13268 desc="JAK 3 BAREFOOT — cutscene variant with the boots replaced by foot wraps and bare limbs" STATUS=EXCEPTION — INTEGRATED during this cycle (donor-parity append 37 draws/13268 tris, FACE-FINGER-GATE accepted-unmapped=0, x86 + device SUBMITTED found=1) and then REJECTED BY THE OWNER at 19:30 on the 19:05 checkpoint build: "buggé et inutile -> le retirer complètement". REMOVED COMPLETELY, see CYCLE5-JAKF below
 CYCLE5-LOOK-06 name=darkjak-highres game=jak2 level=nestb+oracle tris=10886 STATUS=DUPLICATE-OF jak-highres (already shipped as jak2-hd) — content-proven: identical 10886 tris, the only draw-list delta is the 40-tri `common-white` draw merged into the 540-tri hair draw. Dark Jak is a RUNTIME dark-texture morph, not separate geometry, so a static rip cannot carry the look
 CYCLE5-LOOK-07 name=darkjak-highres game=jak3 level=rublcst tris=13574 STATUS=DUPLICATE-OF jakc-highres (already shipped as jak3-hd) — content-proven: identical 13574 tris, 3 draw pairs merged by the dark-eco envmap split, zero new geometry
 CYCLE5-LOOK-08 name=jak-highres game=jak3 level=arenacst+introcst+ljak+ljakklev+ljaksig tris=10886 STATUS=DUPLICATE-OF jak-highres jak2 (already shipped as jak2-hd) — same geometry; the jak3 copy only differs by having the 4 face/hair draws baked as REAL textures instead of anim-slots. Noted for the owner as a possible future QUALITY upgrade of jak2-hd (real face textures), not a new look
 CYCLE5-LOOK-09 name="gameplay/prop Jak models" game=jak2+jak3 level=GAME+demo+title+various STATUS=EXCEPTION — EXCLUDED by the owner's 11:06 rule "que les versions CINEMATIQUES": jakb-lod0 (3586 tris), jakb-c-lod0 (4708), jakb-normal-lod0 (3586), jakb-old-lod0 (3586), jakb-lod0 jak3 stub (2 tris), jak-logo/jakthreelogo/jak-stand/jak-clothes props, jakc-scarf/jakc-wings/jakb-shield/jakb-wings attachments, rub-dark-jak-door. All are in-game low-poly or props, none is a cutscene highres model
-CYCLE5-LOOK device SUBMITTED proof (sub-legs P and F of legLOOKS-c5 on eae4df44): @@DEVPF@@; x86 (hd4_x86_looks_c5.sh): look jak=5 -> jakp-hd-lod0 SUBMITTED found=1 with every other jak look ABSENT, look jak=6 -> jakf-hd-lod0 SUBMITTED found=1 with every other jak look ABSENT; both looks blink live (4/4 donor-painted windows, STOCKLID=0), flicker BLACKOUT=0 GAP=0, no crash, 0 blerc exhaustion.
-CYCLE5-LOOK integration surface for both new looks (physical artifacts, not prose): recharged_assets/hd_anim/{jakp,jakf}-hd-ag.go on disk; retarget tables + defskelgroup + registry entries 10/11 in goal_src/jak1/pc/jak-hd.gc (arrays grown 10 -> 12, all five entry dispatches extended, hd-entry-for-char-look maps jak look 5 -> 10 and 6 -> 11, the asset-missing clear loop fixed from 9 to 12); JAK LOOK carousel grown to 7 options with reserved runtime-label tag ids #x17bc "JAK II PRISON" and #x17bd "JAK 3 BAREFOOT" (stale-text-bank-proof, same mechanism as #x17b0..#x17b6); scripts/package_hd_assets.sh external pack list; game/graphics/opengl_renderer/loader/Loader.cpp ag staging list; recharged_assets/physics_chains.txt sections (jakp-hd inherits jak2-hd's chains, jakf-hd inherits jak3-hd's — joint names verified present on each rig); .autoport/menu-tree.md synced.
+CYCLE5-LOOK device SUBMITTED proof (sub-leg P of legLOOKS-c5 on eae4df44): @@DEVP@@; x86 (hd4_x86_looks_c5.sh): look jak=5 -> jakp-hd-lod0 SUBMITTED found=1 with every other jak look ABSENT, blink live (donor-painted windows, STOCKLID=0), flicker BLACKOUT=0 GAP=0, no crash, 0 blerc exhaustion.
+CYCLE5-LOOK integration surface for the accepted new look (physical artifacts, not prose): recharged_assets/hd_anim/jakp-hd-ag.go on disk; retarget table + defskelgroup + registry entry 10 in goal_src/jak1/pc/jak-hd.gc (arrays 10 -> 11 entries, all five entry dispatches extended, the asset-missing clear loop fixed from 9 to 11); JAK LOOK carousel = 6 options ORIGINAL / HD / JAK II / JAK 3 / JAK 3 MASKED / JAK II PRISON with reserved runtime-label tag id #x17bc "JAK II PRISON" (stale-text-bank-proof, same mechanism as #x17b0..#x17b6); scripts/package_hd_assets.sh external pack list; game/graphics/opengl_renderer/loader/Loader.cpp ag staging list; recharged_assets/physics_chains.txt section (jakp-hd inherits jak2-hd's chains, joint names verified present on the rig); .autoport/menu-tree.md synced.
 CYCLE5-LOOK IP gating unchanged: both new ags and the enhanced fr3 are ND-derived and ship ONLY in the EXTERNAL pack (recharged_assets/hd_* is gitignored, build_custom_pack.sh refuses enhanced/ members, the APK never carries them).
+
+== OWNER VERDICT 2026-08-05 ~19:30 on the 19:05 cycle-5 checkpoint — 4 firm decisions, all applied =
+CYCLE5-SWAP root-cause + fix: the owner reported the two Jak-3 carousel options INVERTED — the option
+  labelled "JAK 3" rendered the masked model and "JAK 3 MASKED" rendered the bare face. That is
+  exactly what the wiring did: look 3 selected entry 5 (jak3-hd, the full jakc donor = scarf up over
+  the nose) and look 4 selected entry 9 (jakm-hd, the over-nose scarf dropped = bare face), i.e. the
+  labels read backwards against the models. FIX = swap which ENTRY each look selects, leaving the
+  labels and tag ids untouched: look 3 -> entry 9 (jakm-hd, bare face, mask down at the neck) and
+  look 4 -> entry 5 (jak3-hd, mask on the face), in hd-entry-for-char-look (goal_src/jak1/pc/jak-hd.gc).
+CYCLE5-SWAP PASS — verified by the (char,look)->entry MAPPING and by renderer submit counters, never
+  by a capture (owner rule): the validator now greps the mapping itself out of jak-hd.gc, and both
+  sides of the swap are exercised in the same run so a future re-inversion cannot pass silently.
+CYCLE5-SWAP SUBMITTED (both sides, device sub-legs M and C of legLOOKS-c5 on eae4df44): @@DEVSWAP@@;
+  x86 (hd4_x86_looks_c5.sh): look jak=3 -> jakm-hd-lod0 SUBMITTED found=1 (jak3-hd ABSENT) and look
+  jak=4 -> jak3-hd-lod0 SUBMITTED found=1 (jakm-hd ABSENT) — the two options now select different
+  models AND the right way round.
+CYCLE5-JAKF removal COMPLETE PASS (owner: "buggé et inutile -> le retirer complètement… pas juste
+  masquer l'option"): jakf-hd is gone from the carousel (#x17bd is FREE again and is now the first
+  free tag id), from the registry (retarget tables, defskelgroup, all five entry dispatches, the name
+  and joint-count arrays back to 11 entries, look 6 removed from hd-entry-for-char-look), from the
+  enhanced-fr3 bake (its APPENDS row and LID_TEX entry are gone, so the merc is not baked at all —
+  the shipped GAME.fr3 has no jakf-hd-lod0 model), from the external pack list, from the Loader ag
+  staging list, from physics_chains.txt, from the art-group build script and from the proof legs; the
+  generated recharged_assets/hd_anim/jakf-hd-* artifacts are deleted. The validator enforces every one
+  of those as a physical check (including an audit of the shipped fr3) so it cannot creep back.
+CYCLE5-JAKF settings safety (consequence of the removal, fixed in the same change): a look index IS
+  the carousell index, so a settings.ini written BEFORE the removal can carry hd-look-jak = 6 — which
+  would silently fall through to "no companion" (stock Jak) AND index one past the now-6-entry option
+  array in the menu. pckernel.gc now CLAMPS all four hd-look-* values on load (jak 0..5, the other
+  three 0..2), falling back to 1 = HD. There was no clamp at all before; the owner's own settings.ini,
+  which he used to test the barefoot look, is exactly the file that would have hit this.
+CYCLE5-JAKP accepted look LOCKED PASS (owner: "prison J2 NICKEL"): jakp-hd is untouched by the swap
+  and by the jakf removal — same donor-parity append (20 draws / 8052 tris / 5 effects), same registry
+  entry 10, same #x17bc carousel option, same FACE-FINGER-GATE accepted-unmapped=0 table; re-proven
+  SUBMITTED found=1 on x86 and device after both changes. Zero regression on the owner's acquis.
+CYCLE5-KEIRA-STRAP CLOSED by the owner at 19:30 ("on est pas mal, moving on!"): no further mapping
+  work on the strap chains; any residual is handed to the physics-collider phase. The cycle-5 collider
+  filters proven above stay in place and are re-proven on every device leg.
 
 == NO-REGRESSION on the owner's 14:00 locked victory ============================================
 NO-REGRESS blink PASS (owner 14:00 "super !", locked): the cycle-4 donor-lid blink mechanism is byte-untouched by cycle 5 — every x86 look leg and every device sub-leg reports donor-painted blink windows on eye slots 0/1 with STOCKLID=0 (zero stock-lid paints on HD eyes = zero black-eye events), on the two NEW looks as well as on jakm-hd. Cycle 5 changed only which merc EFFECTS are appended and which colliders a physics chain sees; it touched no eye/lid code path.
+
+== DEVICE EVIDENCE — CYCLE 5 (fresh deploy, Redmi eae4df44) =====================================
+deploy: physics_deploy_fresh.sh [deploy PASS] — APK marker ogflags:435df2141670:android-arm64
+  (hd-models,pbr,physics), libgk exposes the pc-physics FFI (artifact gate), APK custom pack ships
+  recharged_assets/physics_chains.txt, install ok, HD pack out/artifacts/jak1_hd_assets.zip
+  (55831134 bytes, 12 ag.go incl. the two NEW jakp-hd-ag.go / jakf-hd-ag.go) pushed and md5-verified
+  device==pack on every file, post-install LoaderActivity boot ok (render-frame=960 at t+33s),
+  GAME.CGO md5 built==device e5b3a4df9154602dd9d55586c33230ea, physics_chains.txt md5 local==device
+  ab2e6133b023c5ea389a5005b9e8e048, DEPLOY-VERIFY PASS (device provably runs fresh HEAD 173ad3b6cd).
+device leg legLOOKS-c5 (5 sub-legs, village1-hut, 90s each): [legLOOKS-c5 PASS] — per-actor merc
+  submit counters are the instrument, no capture was taken (owner rule 2026-08-04 "pour toujours";
+  the leg contains no screencap and no screenrecord at all). Sub-legs M/P/F prove each JAK LOOK
+  submits its own model and that every OTHER jak look is absent in the same run; K1/K3 prove the
+  strap colliders on both Keira looks.
+device counter evidence (per-actor submit counters, per frame): each sub-leg greps
+  "SUBMITTED name='<model>-lod0' found=1" for the expected model and for all five forbidden ones —
+  jakm-hd, jakp-hd, jakf-hd, keira-hd and keira3-hd each found=1 in their own leg, every forbidden
+  model found 0 times. blink: [hd-blink] per-slot windows 21-22 per leg on eye slots 0 and 1, ALL
+  donor-painted, STOCKLID=0 in all five legs (zero stock-lid paints on HD eyes = zero black-eye
+  events). physics: [HD-PHYS] per-window push/maxpen counters on one line per window (see the
+  instrument fix above).
+zero disappearance windows over the run (counter-based, never pixels): [hd-flicker] BLACKOUT=0 and
+  GAP=0 in every one of the five device sub-legs — the per-actor dropout-window detector (a stock
+  packet suppressed while its companion drew nothing for >1.25 frames) stayed at 0 throughout, so
+  no in-scene actor's submits fell to zero. The cycle-3 fail-open keeps a suppressed-but-undrawn
+  actor structurally impossible.
+crash discipline (cycle 5): exit-info snapshotted before and after every sub-leg
+  (legLOOKS-<M|P|F|K1|K3>.exit-info-before/after.txt), zero 'signal (4|6|11) (SIG' lines in any of
+  the five logcats, app foreground at the end of all five, gk_crash.txt NOT regenerated.
 
 ================================================================================================
 == CARRIED — DEFECT-CYCLE-4 report body (proven; still true of the current bake) ===============
