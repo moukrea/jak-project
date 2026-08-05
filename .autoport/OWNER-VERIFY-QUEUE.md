@@ -190,3 +190,7 @@ Les 5 looks bonus de cinématiques sont sur le Redmi (build da5e00544d + pack 9 
 - À TESTER (toi) : ouvrir le menu → les 4 lignes LOOK ; essayer Jak-J2 puis Jak-J3 ; Daxter pantalon ;
   Keira J3 ; Young Samos ; vérifier le retour à HD/Original. Une cinématique avec un look bonus actif.
 - Phase suivante lancée : cycle 4 (clignement restauré + bretelles Keira), puis LA PHYSIQUE.
+
+### 10:35 — M5 ACCEPTÉ par ton verdict (« impeccable ») ✔
+Carry : bretelles Keira clippent aussi sur keira3-hd -> le fix cycle-4 couvrira les 2 looks.
+Nouveau : look bonus « Jak 3 masque baissé » ajouté au cycle 4 (5e option JAK LOOK).
