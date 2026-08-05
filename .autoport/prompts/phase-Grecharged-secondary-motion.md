@@ -97,3 +97,31 @@ actions) comme au Gmenu-flag-off — ligne par ligne, unicité prouvée.
 Priorités : E (menu) + A (conflit vent) d'abord — ce sont eux qui cassent l'expérience ; puis B
 (ancrage), C (poitrine), D (lunettes). Les paramètres hot-éditables ne suffisent PAS ici : A/B/E
 sont structurels. Timing : après le cycle 5 HD en cours (ou avant si l'owner re-priorise).
+
+## ============================================================
+## PRINCIPE DIRECTEUR OWNER 2026-08-05 ~16:50 — LA PHYSIQUE PARTOUT OÙ ELLE EST LOGIQUE (tout le cast)
+## ============================================================
+« Tout ce qui logiquement aurait de la déformation physique / du mouvement de gravité devrait avoir
+de la physique ! Sur TOUS les personnages (PNJs et Jak) ! »
+### L'indice-méthode de l'owner (à exploiter systématiquement) :
+Beaucoup de personnages ont des PSEUDO-MOUVEMENTS PRÉ-FAITS pour simuler la physique (l'effet vent
+sur vêtements/cheveux/lanières de Jak en est un). => Ces canaux de fake-motion sont une CARTE DE
+DÉCOUVERTE : scanner les rigs/anims de tout le cast pour trouver où ND a simulé — chaque site simulé
+= un site où la vraie physique s'applique (et où le fake doit être neutralisé, cf. cycle-2 A).
+### Périmètre universel (liste owner, non exhaustive — le recensement complète) :
+- vêtements qui flottent, cheveux, lunettes ;
+- la binocle de Samos qui bascule ;
+- les poitrines des personnages féminins ;
+- objets suspendus/attachés ;
+- les fesses (si voluptueuses) des personnages féminins ;
+- les ventres des personnages en surpoids (ex. LE PÊCHEUR) ;
+- les chapeaux des personnages qui en ont.
+### Architecture requise (honnête) :
+Les PNJ sont des modèles STOCK sans companion HD → généraliser la sim AU-DELÀ des companions :
+un hook de post-anim sur les process-drawables stock (classe joint-mod : la sim écrit les os de
+chaîne après l'anim, comme le font les joint-mods existants), chaînes déclarées par nom de joint
+dans physics_chains.txt par art-group. Même gating (--physics + toggle + niveaux). Recensement
+cast-complet (rigs + canaux fake-motion) au rapport, puis implémentation par vagues (cycles),
+personnages les plus visibles d'abord (villageois fréquentés, PNJ de cinématiques).
+Ordre global : cycle 2 (les fixes du build actuel : vent×physique, ancrage, poitrine, lunettes,
+bug menu) PUIS l'extension cast-complet par vagues.
