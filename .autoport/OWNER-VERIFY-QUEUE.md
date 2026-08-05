@@ -237,3 +237,6 @@ Build cycle-4 sur le Redmi (deploy_verify PASS, pack 10 modèles md5-vérifié) 
 - CARRY : l'inventaire exhaustif des looks ciné de Jak (prison J2, etc.) = prochain cycle HD, après
   la physique (dis-moi si tu le veux AVANT la physique).
 - 🚀 PHASE SUIVANTE : **LA PHYSIQUE** (Grecharged-secondary-motion, périmètre élargi complet).
+
+### 14:00 — Ton verdict cycle-4 : ✔ clignements BONS · bretelles bien meilleures (résiduel par-anim)
+· BUG : les 2 looks Jak 3 sont identiques (masque baissé sans effet) — cycle 5 après la physique.
