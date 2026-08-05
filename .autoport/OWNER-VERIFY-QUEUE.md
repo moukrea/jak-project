@@ -166,3 +166,19 @@ confirmé structurel — l'eye-remap sert les pupilles JAK 1 ; le port des iris 
 ✔ clipping Jak · ✔ Daxter parfait · ✔ barbe Samos · ✔ yeux HD (iris donor) · ✔ PNJ stables.
 Cycle 4 (après M5) : restaurer le CLIGNEMENT (le fix anti-noir a supprimé le blit de paupière = plus
 de blink visible) + bretelles Keira qui clippent l'avant du corps.
+
+## 5. HD BONUS LOOKS M3 (Grecharged-hd-models5) — [À TESTER] (2026-08-05 ~09:00)
+Les 5 looks bonus de cinématiques sont sur le Redmi (build da5e00544d + pack 9 modèles) :
+- **Menu → RECHARGED → 4 nouvelles lignes** JAK/DAXTER/KEIRA/SAMOS LOOK (juste après ENHANCED
+  MODELS) : ORIGINAL / HD / et les bonus — Jak: JAK II + JAK 3 ; Daxter: PANTS ; Keira: JAK 3 ;
+  Samos: YOUNG. Changement de look EN DIRECT (despawn/respawn ~1 frame). Défaut = HD (M1/M2).
+- **NOTE**: ton « Keira Jak2 bottines » est DÉJÀ le modèle HD par défaut de M2 — il n'existe
+  qu'une seule Keira highres dans tout jak2 et elle porte les bottines (aucune version sandales).
+  Le seul nouveau look Keira est donc le Jak 3 (bottines + visage remodelé).
+- Device-proven (captures dans .autoport/reports/Grecharged-hd-models5/): legA*(hut Samos/Keira,
+  les 4 bonus rendus), legB (Jak 3), legC-talk.mp4 (intro complète, Young Samos PARLE — face anim).
+  Zéro crash sur toute l'intro, flicker 0/0, tes settings restaurés à l'octet.
+- À TESTER toi-même : ① chaque carousell dans le menu (le changement doit être instantané en jeu) ;
+  ② l'ESTHÉTIQUE de chaque look (vigilance : proportions Young Samos sur le rig du vieux, le
+  pantalon de Daxter, les tenues Jak II/3 sans cloth-sim jak1) ; ③ ORIGINAL = stock pur ;
+  ④ une cinématique avec les bonus actifs. Ton œil = verdict final.
