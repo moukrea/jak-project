@@ -225,7 +225,7 @@
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
     "Grecharged-secondary-motion": 2,
-    "Grecharged-hd-models4": 4
+    "Grecharged-hd-models4": 5
   },
   "fingerprints": {
     "00-harness": [
@@ -500,6 +500,7 @@
     "Grecharged-hd-models4": [
       "84372a3eba35",
       "84372a3eba35",
+      "2f0a15ed30e7",
       "2f0a15ed30e7"
     ]
   },
@@ -935,7 +936,7 @@
     "Grecharged-secondary-motion": 1785927178.8590672,
     "Grecharged-hd-models4": 1785939731.6130211
   },
-  "last_update": "2026-08-05T19:58:43.210945+00:00",
+  "last_update": "2026-08-05T19:59:28.036603+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
