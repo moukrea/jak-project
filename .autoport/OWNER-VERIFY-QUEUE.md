@@ -281,3 +281,8 @@ la barbe de Samos, les vêtements/lanières/cheveux de Jak — subtilité et coh
 Conflit faux-vent×physique (clipping vêtements Jak) · cheveux entiers qui bougent (ancrage racine à
 verrouiller) · poitrine Keira inerte · lunettes manquantes · BUG menu : Physics Detail ouvre le mesh
 browser. Lancement après le cycle 5 HD en cours — dis-moi si tu veux la physique cycle 2 AVANT.
+
+### 16:50 — Principe directeur physique acté : partout où c'est logique, sur TOUT le cast
+(vêtements/cheveux/lunettes/binocle Samos/poitrines/fesses/ventres — le pêcheur ! —/chapeaux/objets
+suspendus). Méthode : les canaux de fake-motion de ND = la carte des sites à physicaliser.
+Extension PNJ = généralisation de la sim aux modèles stock (par vagues, après le cycle 2).
