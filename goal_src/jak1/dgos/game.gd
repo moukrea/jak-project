@@ -288,6 +288,7 @@
   "progress-pc.o" ;; added
   "mesh-browser-pc.o" ;; added
   "jak-hd.o" ;; added (Grecharged-hd-models3 companion)
+  "jak-hd-physics.o" ;; added (Grecharged-secondary-motion chain sim)
   "credits.o"
   "projectiles.o"
   "ocean.o"

@@ -88,7 +88,8 @@ qui produit à la fois l'application et l'archive d'assets :
 | macOS ARM64 | [docs/build-macos-arm64.md](docs/build-macos-arm64.md) | CI GitHub (meilleur effort) |
 
 Les **feature flags de build** (`--recharged-hud`, `--grass-overhang`, `--hd-models`,
-`--vulkan-support`, ou `--yolo` pour tout) permettent d'inclure des fonctionnalités
+`--physics` — physique de mouvement secondaire (jiggle/chaînes) sur les modèles HD, exige
+`--hd-models` —, `--vulkan-support`, ou `--yolo` pour tout) permettent d'inclure des fonctionnalités
 encore en chantier : une fonctionnalité non demandée est **absente du binaire et des
 menus**. Le build par défaut, sans flag, ne contient que les améliorations validées.
 

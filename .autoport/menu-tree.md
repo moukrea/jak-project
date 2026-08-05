@@ -48,8 +48,10 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | **23** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
 | 24 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
 | 25 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
-| 26 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
-| 27 | Back | — |
+| **26** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
+| **27** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
+| 28 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
+| 29 | Back | — |
 
 ### Grecharged-hd-models5 — LOOK par personnage (idx 6-9)
 
@@ -69,6 +71,36 @@ runtime** (`*hd-look-*-label*`) résolues par `carousell-option-string` depuis l
 `#x17b0..#x17b5` — même mécanisme anti-banque-de-texte-périmée que PBR ISOLATE, donc aucun
 "Unknown ID" possible sur Android. Libellés de lignes via `name-override` (`JAK LOOK`,
 `DAXTER LOOK`, `KEIRA LOOK`, `SAMOS LOOK`), comme `*enhanced-models-label*`. Anglais uniquement.
+
+### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 26-27)
+
+Deux lignes présentes **uniquement dans les builds `--physics`** (`FLAG_PHYSICS`) ; absentes du CGO
+sinon (`flag-row`, filtrage à l'expansion GOOS). Elles sont **ajoutées EN QUEUE de tableau**,
+juste avant MESH BROWSER + Back : aucun index existant ne bouge (classe de bug index-shift de
+Gmenu-flag-off). Le seul impact arithmétique = `+ (* 2 FLAG_PHYSICS_N)` sur les constantes de
+**longueur statique pleine** (garde `fw-idx` et garde de collapse HD) — exactement le traitement
+déjà appliqué à la ligne queue MESH BROWSER. Le câblage (`value-to-modify` / `name-override`) est
+adressé **relativement à la longueur vivante** (`length-3` = PHYSICS, `length-2` = PHYSICS DETAIL),
+donc il reste juste avant comme après le collapse HD (qui décale la queue et baisse `length` du
+même nombre) et il est idempotent sur ré-init.
+
+- **PHYSICS** (`physics?`, symbole) : secondary motion (chaînes) — cheveux / tissu / sangles.
+  **Défaut ON** (la feature est opt-in au BUILD). `option-disabled-func` = master seul : **pas**
+  de dépendance à ENHANCED MODELS (la physique pilotera aussi des NPC stock). `on-change` persiste
+  et pousse `pc-set-physics!` ; le pont per-frame `update-to-os` la pousse également.
+- **PHYSICS DETAIL** (`physics-quality`, int 0/1/2 = LIGHT / FULL / MAXIMUM). **Défaut 1 (FULL)**.
+  Carousell calqué sur DISPLACEMENT : pas d'`on-change`, backup/write-back dans `respond-common`
+  via `*progress-carousell* int-backup`, grisé tant que PHYSICS est off.
+
+Libellés : **jamais la banque de texte / COMMON.TXT**. Les libellés de LIGNE passent par
+`name-override` (`*physics-label*` "PHYSICS", `*physics-detail-label*` "PHYSICS DETAIL", gatés
+`FLAG_PHYSICS`) ; les 3 libellés d'OPTION sont des globales runtime (`*physics-light-label*`,
+`*physics-full-label*`, `*physics-max-label*`, définies inconditionnellement) résolues par
+`carousell-option-string` depuis les tags réservés **`#x17b9` LIGHT / `#x17ba` FULL /
+`#x17bb` MAXIMUM** — même mécanisme anti-banque-périmée que HD LOOK / PBR ISOLATE. Les tags
+**`#x17b7` (PHYSICS) et `#x17b8` (PHYSICS DETAIL)** sont **réservés** pour les libellés de ligne
+(non consommés à l'exécution : `name-override` court-circuite toute recherche de texte).
+Anglais uniquement.
 
 ## GRASS SETTINGS (`*grass-options-pc*` 7 lignes)
 

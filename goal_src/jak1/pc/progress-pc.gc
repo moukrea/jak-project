@@ -857,6 +857,17 @@
 ;; owner isolates the residual grass-facet source at his OWN vantage with no adb. Index -> u_pbr_bisect mask
 ;; in pc_set_pbr_isolate: BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off), NEITHER 192.
 (def-progress-carousell *carousell-pbr-isolate* (pc-text-pbr-iso-both pc-text-pbr-iso-nm pc-text-pbr-iso-pom pc-text-pbr-iso-neither))
+;; Grecharged-secondary-motion: PHYSICS DETAIL carousell (LIGHT / FULL / MAXIMUM). Uses the same
+;; stale-text-bank-proof mechanism as the PBR ISOLATE / HD LOOK options, NOT the COMMON.TXT bank:
+;; each entry is a RESERVED tag id (#x17b9..#x17bb, past the last allocated id #x17b6) that
+;; carousell-option-string resolves to a RUNTIME GLOBAL string (*physics-light-label* etc.). The ids
+;; are never looked up in a text bank, so a stale Android COMMON.TXT can never turn these into
+;; "Unknown ID". English-only, exactly like the PBR ISOLATE options.
+;;   #x17b9 LIGHT  #x17ba FULL  #x17bb MAXIMUM
+;; Defined UNCONDITIONALLY (not under FLAG_PHYSICS), like the HD LOOK carousells, so the shared
+;; respond-common carousell arms compile in every build config; only the ROWS and their
+;; wiring/labels are flag-gated.
+(define *carousell-physics-quality* (new 'static 'boxed-array :type text-id #x17b9 #x17ba #x17bb))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
@@ -1492,6 +1503,38 @@
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
        ;; are a resource for PBR/water only. See menu-tree.md §11 [SUPPR] history.
+       ;; Grecharged-secondary-motion: PHYSICS on-off toggle. Secondary-motion (chain) physics —
+       ;; hair / cloth / straps swing with the animation instead of staying rigid. Real label via
+       ;; *physics-label*; value bound to *pc-settings* physics? in init-game-options. Default ON
+       ;; (the feature is opt-in at BUILD time, so a build that ships it wants it on). NOT tied to
+       ;; the ENHANCED MODELS toggle — physics will also drive stock NPCs, so the only disable
+       ;; predicate is the recharged master, exactly like FOLIAGE WIND. on-change persists + pushes
+       ;; to the C++ solver (the per-frame update-to-os bridge pushes it too, so it applies live).
+       ;; APPENDED AT THE TAIL, immediately before MESH BROWSER + Back, so no existing row index
+       ;; moves (the index-shift bug class fixed in Gmenu-flag-off; see init-game-options).
+       ;; row present only with --physics.
+       (flag-row FLAG_PHYSICS
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* physics?) (the-as symbol val))
+              (pc-set-physics! (if val 1 0) (-> *pc-settings* physics-quality))
+              (commit-to-file *pc-settings*)
+              (none))))
+       ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell row — LIGHT / FULL / MAXIMUM (the
+       ;; data-driven chain levels). Carousell mirrors pbr-displacement: :name is a placeholder, the
+       ;; real label comes from the *physics-detail-label* name-override, there is no :on-change
+       ;; (respond-common backs up / writes the value back), and the row is greyed while its feature
+       ;; toggle is off — here PHYSICS, exactly as DISPLACEMENT is greyed unless PBR MATERIALS is on.
+       ;; row present only with --physics.
+       (flag-row FLAG_PHYSICS
+       (new 'static 'game-option :option-type (game-option-type physics-quality) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* physics?))))))
        ;; Grecharged-mesh-browser: DEBUG launcher for the mesh browser overlay (warp into any level,
        ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
        ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
@@ -1791,6 +1834,26 @@
 (#when FLAG_HD_MODELS
 (define *enhanced-models-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *enhanced-models-label*) "ENHANCED MODELS"))
+;; Grecharged-secondary-motion: the PHYSICS on-off ROW label and the PHYSICS DETAIL carousell ROW
+;; label (name-override), gated with the rows themselves. Same convention as *enhanced-models-label*:
+;; English-only, uppercase ASCII for the menu font, never re-formatted. Tag ids #x17b7 (PHYSICS) and
+;; #x17b8 (PHYSICS DETAIL) are RESERVED for these two row labels so nobody reuses them; the labels
+;; themselves render through name-override, which never touches a text bank.
+(#when FLAG_PHYSICS
+(define *physics-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *physics-label*) "PHYSICS")
+(define *physics-detail-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *physics-detail-label*) "PHYSICS DETAIL"))
+;; Grecharged-secondary-motion: the three PHYSICS DETAIL carousell OPTION labels. Runtime globals
+;; resolved by carousell-option-string from the reserved tag ids #x17b9..#x17bb (see the carousell
+;; array above) — the same stale-text-bank-proof mechanism as the HD LOOK / PBR ISOLATE options.
+;; Defined UNCONDITIONALLY (not under FLAG_PHYSICS) so the shared resolver compiles in every config.
+(define *physics-light-label* (new 'global 'string 32 (the-as string #f)))
+(define *physics-full-label* (new 'global 'string 32 (the-as string #f)))
+(define *physics-max-label* (new 'global 'string 32 (the-as string #f)))
+(format (clear *physics-light-label*) "LIGHT")
+(format (clear *physics-full-label*) "FULL")
+(format (clear *physics-max-label*) "MAXIMUM")
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
@@ -3258,6 +3321,11 @@
     ((= id (text-id pc-text-pbr-iso-nm)) *pbr-iso-nm-label*)
     ((= id (text-id pc-text-pbr-iso-pom)) *pbr-iso-pom-label*)
     ((= id (text-id pc-text-pbr-iso-neither)) *pbr-iso-neither-label*)
+    ;; Grecharged-secondary-motion: the three PHYSICS DETAIL option strings use the same runtime-global
+    ;; route, keyed on the reserved tag ids #x17b9..#x17bb (never present in any text bank).
+    ((= id (the-as text-id #x17b9)) *physics-light-label*)
+    ((= id (the-as text-id #x17ba)) *physics-full-label*)
+    ((= id (the-as text-id #x17bb)) *physics-max-label*)
     (else (lookup-text! *common-text* id #f))))
 
 (defun print-string-in-carousell ((arg0 text-id) (arg1 font-context) (arg2 int) (arg3 symbol))
@@ -4119,7 +4187,7 @@
   ;; Grecharged-mesh-browser: +1 for the always-present MESH BROWSER launcher row inserted before
   ;; Back (it sits at the tail, after every row the wiring/collapse touches, so only the total-length
   ;; guards below change — the fw-idx base and the collapse loop indices are unaffected).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -4179,6 +4247,20 @@
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
+  ;; Grecharged-secondary-motion: wire the two PHYSICS rows. They are APPENDED AT THE TAIL of the
+  ;; static array (immediately before MESH BROWSER + Back), so their slots are addressed RELATIVE TO
+  ;; THE LIVE LENGTH — length-3 = PHYSICS, length-2 = PHYSICS DETAIL, length-1 = Back. That holds
+  ;; both before and after the HD collapse below (the collapse shifts every tail row up and drops the
+  ;; live length by the same amount, so these two offsets are invariant), it is idempotent across
+  ;; re-inits, and it leaves the fw-idx arithmetic above untouched — no existing row index moves.
+  ;; The DETAIL carousell points value-to-modify at the shared *progress-carousell* int-backup
+  ;; scratch (the pbr-displacement pattern); respond-common maps it 1:1 to physics-quality.
+  (#when FLAG_PHYSICS
+  (let ((phys-idx (+ -3 (-> *recharged-options-pc* length))))
+    (set! (-> *recharged-options-pc* phys-idx value-to-modify) (&-> *pc-settings* physics?))
+    (set! (-> *recharged-options-pc* phys-idx name-override) *physics-label*)
+    (set! (-> *recharged-options-pc* (+ phys-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
+    (set! (-> *recharged-options-pc* (+ phys-idx 1) name-override) *physics-detail-label*)))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 4 hud-N), +1 for the master row) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
@@ -4189,12 +4271,15 @@
       ;; Grecharged-mesh-browser: +1 on both length constants for the tail MESH BROWSER row. (With
       ;; FLAG_PBR on this whole guard is dead — the real length includes the ~9 PBR rows — but keep
       ;; the no-PBR arithmetic correct: remove one row from a length that is now one larger.)
-      (when (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
+      ;; Grecharged-secondary-motion: +2 on both length constants for the two tail PHYSICS rows
+      ;; (same treatment as the tail MESH BROWSER row above — they sit after everything the
+      ;; collapse loop touches, so only the total-length terms change).
+      (when (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
             (+! i 1)))
-        (set! (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+        (set! (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N))))
       (begin
         (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
@@ -4389,6 +4474,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type physics-quality)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
@@ -4484,6 +4570,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type physics-quality)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
@@ -4856,6 +4943,8 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
+                 ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, like pbr-displacement).
+                 (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
                  (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
                  (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
                  (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
@@ -4910,6 +4999,8 @@
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
+                    ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
+                    (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
                     (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
                     (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
                     (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
@@ -4969,6 +5060,8 @@
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
+              ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, like pbr-displacement).
+              (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
               ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
@@ -5249,6 +5342,7 @@
       (((game-option-type shadow-quality)) (set! lst *carousell-shadow-quality*) (set! idx (-> *pc-settings* realtime-shadow-quality)))
       (((game-option-type rt-ambient-model)) (set! lst *carousell-rt-ambient-model*) (set! idx (-> *pc-settings* realtime-ambient-model)))
       (((game-option-type pbr-displacement)) (set! lst *carousell-pbr-displacement*) (set! idx (-> *pc-settings* pbr-displacement)))
+      (((game-option-type physics-quality)) (set! lst *carousell-physics-quality*) (set! idx (-> *pc-settings* physics-quality)))
       (((game-option-type follow-probe)) (set! lst *carousell-follow-probe*) (set! idx (-> *pc-settings* follow-probe)))
       (((game-option-type pbr-isolate)) (set! lst *carousell-pbr-isolate*) (set! idx (-> *pc-settings* pbr-isolate)))
       (((game-option-type pbr-test-preset)) (set! lst *carousell-pbr-test-preset*) (set! idx (-> *pc-settings* pbr-test-preset)))
@@ -5501,6 +5595,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type physics-quality)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
@@ -5592,6 +5687,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type physics-quality)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
@@ -6643,6 +6739,17 @@
 (define *carousell-hd-look-daxter* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b4))
 (define *carousell-hd-look-keira* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b3))
 (define *carousell-hd-look-samos* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b5))
+;; Grecharged-secondary-motion: PHYSICS DETAIL carousell (LIGHT / FULL / MAXIMUM). Uses the same
+;; stale-text-bank-proof mechanism as the PBR ISOLATE / HD LOOK options, NOT the COMMON.TXT bank:
+;; each entry is a RESERVED tag id (#x17b9..#x17bb, past the last allocated id #x17b6) that
+;; carousell-option-string resolves to a RUNTIME GLOBAL string (*physics-light-label* etc.). The ids
+;; are never looked up in a text bank, so a stale Android COMMON.TXT can never turn these into
+;; "Unknown ID". English-only, exactly like the PBR ISOLATE options.
+;;   #x17b9 LIGHT  #x17ba FULL  #x17bb MAXIMUM
+;; Defined UNCONDITIONALLY (not under FLAG_PHYSICS), like the HD LOOK carousells, so the shared
+;; respond-common carousell arms compile in every build config; only the ROWS and their
+;; wiring/labels are flag-gated.
+(define *carousell-physics-quality* (new 'static 'boxed-array :type text-id #x17b9 #x17ba #x17bb))
 
 ;; pad remap stuff
 (define *progress-pad-timeout* (the-as time-frame 0)) ;; timeout for remap buttons
@@ -7319,6 +7426,38 @@
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
        ;; are a resource for PBR/water only. See menu-tree.md §11 [SUPPR] history.
+       ;; Grecharged-secondary-motion: PHYSICS on-off toggle. Secondary-motion (chain) physics —
+       ;; hair / cloth / straps swing with the animation instead of staying rigid. Real label via
+       ;; *physics-label*; value bound to *pc-settings* physics? in init-game-options. Default ON
+       ;; (the feature is opt-in at BUILD time, so a build that ships it wants it on). NOT tied to
+       ;; the ENHANCED MODELS toggle — physics will also drive stock NPCs, so the only disable
+       ;; predicate is the recharged master, exactly like FOLIAGE WIND. on-change persists + pushes
+       ;; to the C++ solver (the per-frame update-to-os bridge pushes it too, so it applies live).
+       ;; APPENDED AT THE TAIL, immediately before MESH BROWSER + Back, so no existing row index
+       ;; moves (the index-shift bug class fixed in Gmenu-flag-off; see init-game-options).
+       ;; row present only with --physics.
+       (flag-row FLAG_PHYSICS
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* physics?) (the-as symbol val))
+              (pc-set-physics! (if val 1 0) (-> *pc-settings* physics-quality))
+              (commit-to-file *pc-settings*)
+              (none))))
+       ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell row — LIGHT / FULL / MAXIMUM (the
+       ;; data-driven chain levels). Carousell mirrors pbr-displacement: :name is a placeholder, the
+       ;; real label comes from the *physics-detail-label* name-override, there is no :on-change
+       ;; (respond-common backs up / writes the value back), and the row is greyed while its feature
+       ;; toggle is off — here PHYSICS, exactly as DISPLACEMENT is greyed unless PBR MATERIALS is on.
+       ;; row present only with --physics.
+       (flag-row FLAG_PHYSICS
+       (new 'static 'game-option :option-type (game-option-type physics-quality) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* physics?))))))
        ;; Grecharged-mesh-browser: DEBUG launcher for the mesh browser overlay (warp into any level,
        ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
        ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
@@ -7536,6 +7675,26 @@
 (format (clear *hd-look-pants-label*) "PANTS")
 (format (clear *hd-look-young-label*) "YOUNG")
 (format (clear *hd-look-jak3m-label*) "JAK 3 MASKED")
+;; Grecharged-secondary-motion: the PHYSICS on-off ROW label and the PHYSICS DETAIL carousell ROW
+;; label (name-override), gated with the rows themselves. Same convention as *enhanced-models-label*:
+;; English-only, uppercase ASCII for the menu font, never re-formatted. Tag ids #x17b7 (PHYSICS) and
+;; #x17b8 (PHYSICS DETAIL) are RESERVED for these two row labels so nobody reuses them; the labels
+;; themselves render through name-override, which never touches a text bank.
+(#when FLAG_PHYSICS
+(define *physics-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *physics-label*) "PHYSICS")
+(define *physics-detail-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *physics-detail-label*) "PHYSICS DETAIL"))
+;; Grecharged-secondary-motion: the three PHYSICS DETAIL carousell OPTION labels. Runtime globals
+;; resolved by carousell-option-string from the reserved tag ids #x17b9..#x17bb (see the carousell
+;; array above) — the same stale-text-bank-proof mechanism as the HD LOOK / PBR ISOLATE options.
+;; Defined UNCONDITIONALLY (not under FLAG_PHYSICS) so the shared resolver compiles in every config.
+(define *physics-light-label* (new 'global 'string 32 (the-as string #f)))
+(define *physics-full-label* (new 'global 'string 32 (the-as string #f)))
+(define *physics-max-label* (new 'global 'string 32 (the-as string #f)))
+(format (clear *physics-light-label*) "LIGHT")
+(format (clear *physics-full-label*) "FULL")
+(format (clear *physics-max-label*) "MAXIMUM")
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
@@ -8860,6 +9019,11 @@
     ((= id (the-as text-id #x17b4)) *hd-look-pants-label*)
     ((= id (the-as text-id #x17b5)) *hd-look-young-label*)
     ((= id (the-as text-id #x17b6)) *hd-look-jak3m-label*)
+    ;; Grecharged-secondary-motion: the three PHYSICS DETAIL option strings use the same runtime-global
+    ;; route, keyed on the reserved tag ids #x17b9..#x17bb (never present in any text bank).
+    ((= id (the-as text-id #x17b9)) *physics-light-label*)
+    ((= id (the-as text-id #x17ba)) *physics-full-label*)
+    ((= id (the-as text-id #x17bb)) *physics-max-label*)
     (else (lookup-text! *common-text* id #f))))
 
 (defun print-string-in-carousell ((arg0 text-id) (arg1 font-context) (arg2 int) (arg3 symbol))
@@ -9704,7 +9868,7 @@
   ;; LOOK), all gated on FLAG_HD_MODELS, so every HD term becomes (* 5 FLAG_HD_MODELS_N): the FULL
   ;; static length grows by 4*hd-N and FOLIAGE WIND (and everything after it) sits 4*hd-N slots later.
   ;; The collapsed branch is unchanged — when the enhanced FR3 set is missing ALL FIVE rows collapse.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -9764,6 +9928,20 @@
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
+  ;; Grecharged-secondary-motion: wire the two PHYSICS rows. They are APPENDED AT THE TAIL of the
+  ;; static array (immediately before MESH BROWSER + Back), so their slots are addressed RELATIVE TO
+  ;; THE LIVE LENGTH — length-3 = PHYSICS, length-2 = PHYSICS DETAIL, length-1 = Back. That holds
+  ;; both before and after the HD collapse below (the collapse shifts every tail row up and drops the
+  ;; live length by the same amount, so these two offsets are invariant), it is idempotent across
+  ;; re-inits, and it leaves the fw-idx arithmetic above untouched — no existing row index moves.
+  ;; The DETAIL carousell points value-to-modify at the shared *progress-carousell* int-backup
+  ;; scratch (the pbr-displacement pattern); respond-common maps it 1:1 to physics-quality.
+  (#when FLAG_PHYSICS
+  (let ((phys-idx (+ -3 (-> *recharged-options-pc* length))))
+    (set! (-> *recharged-options-pc* phys-idx value-to-modify) (&-> *pc-settings* physics?))
+    (set! (-> *recharged-options-pc* phys-idx name-override) *physics-label*)
+    (set! (-> *recharged-options-pc* (+ phys-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
+    (set! (-> *recharged-options-pc* (+ phys-idx 1) name-override) *physics-detail-label*)))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 4 hud-N), +1 for the master row) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
   ;; slot and drop the live length by one, so it disappears — renderer + nav key off (length arr)).
@@ -9786,7 +9964,7 @@
       ;; Grecharged-hd-models5: ... and now up FIVE (the whole HD block goes away together — a LOOK
       ;; selector is meaningless without the enhanced FR3 set).
       (when (= (-> *recharged-options-pc* length)
-               (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N)))
+               (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -9971,6 +10149,7 @@
                     (game-option-type hd-look-daxter)
                     (game-option-type hd-look-keira)
                     (game-option-type hd-look-samos)
+                    (game-option-type physics-quality)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
@@ -10070,6 +10249,7 @@
                     (game-option-type hd-look-daxter)
                     (game-option-type hd-look-keira)
                     (game-option-type hd-look-samos)
+                    (game-option-type physics-quality)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
@@ -10416,6 +10596,8 @@
                  (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-daxter)))
                  (((game-option-type hd-look-keira)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-keira)))
                  (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-samos)))
+                 ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, like pbr-displacement).
+                 (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
                  (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
                  (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
                  (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
@@ -10475,6 +10657,8 @@
                     (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-daxter*))
                     (((game-option-type hd-look-keira)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-keira*))
                     (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-samos*))
+                    ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
+                    (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
                     (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
                     (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
                     (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
@@ -10539,6 +10723,8 @@
               (((game-option-type hd-look-daxter)) (set! (-> *pc-settings* hd-look-daxter) (-> *progress-carousell* int-backup)))
               (((game-option-type hd-look-keira)) (set! (-> *pc-settings* hd-look-keira) (-> *progress-carousell* int-backup)))
               (((game-option-type hd-look-samos)) (set! (-> *pc-settings* hd-look-samos) (-> *progress-carousell* int-backup)))
+              ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, like pbr-displacement).
+              (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
               ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
@@ -11018,6 +11204,7 @@
                       (game-option-type hd-look-daxter)
                       (game-option-type hd-look-keira)
                       (game-option-type hd-look-samos)
+                      (game-option-type physics-quality)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
@@ -11113,6 +11300,7 @@
                       (game-option-type hd-look-daxter)
                       (game-option-type hd-look-keira)
                       (game-option-type hd-look-samos)
+                      (game-option-type physics-quality)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)

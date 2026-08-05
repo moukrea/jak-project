@@ -196,6 +196,10 @@
      (hd-look-daxter)
      (hd-look-keira)
      (hd-look-samos)
+     ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell (Light/Full/Maximum), mirroring
+     ;; pbr-displacement. The PHYSICS on/off row itself needs no new type — it reuses the generic
+     ;; on-off type, exactly like the ENHANCED MODELS toggle it sits next to.
+     (physics-quality)
      ;; Grecharged-menu-overhaul: a NON-SELECTABLE group-header row. Focus (up/down + initial entry)
      ;; skips it; it draws in a distinct header color with no value and no selection cursor. Used to
      ;; visually separate the internal groups of the unified OPTIONS category pages (Ecran / Performance /

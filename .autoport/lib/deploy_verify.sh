@@ -108,6 +108,18 @@ if [ "${CGO_HAS_HD:-0}" -ge 1 ]; then
   echo "  ok: hd-models feature parity (device CGO hd call has its device libgk binding)"
 fi
 
+# 4c. FEATURE PARITY, physics flag (same class as 4b). --physics compiles the
+# secondary-motion sim into libgk AND emits (pc-set-physics! ...) from the flagged GOAL
+# code. A marker-fresh / OG_FEAT_PHYSICS-OFF libgk would leave that call unbound ->
+# fn-ptr=0 SIGILL at the first toggle. Same shared-symbol-name tie, same grep -c (never
+# -q) so the pipe is fully consumed under pipefail.
+CGO_HAS_PHYS=$("$ADB" -s "$SERIAL" exec-out run-as "$PKG" cat "files/cgo/${GAME}/GAME.CGO" 2>/dev/null | grep -a -c 'pc-set-physics!' || true)
+if [ "${CGO_HAS_PHYS:-0}" -ge 1 ]; then
+  SO_HAS_PHYS=$(strings "$TMP/dev.so" | grep -c 'pc-set-physics!' || true)
+  [ "${SO_HAS_PHYS:-0}" -ge 1 ] || die "FEATURE-STALE libgk: device GAME.CGO emits (pc-set-physics! ...) (FLAG_PHYSICS on) but the device libgk has NO such binding — marker-fresh / OG_FEAT_PHYSICS-OFF build. The call hits an unbound symbol -> fn-ptr=0 SIGILL. Rebuild libgk with --hd-models --physics (OG_FEAT_PHYSICS=ON) and reinstall."
+  echo "  ok: physics feature parity (device CGO physics call has its device libgk binding)"
+fi
+
 # 5. CUSTOM PACK landing (Grecharged-buildsys-packaging): the port-custom asset
 # set the APK ships (grassbake / enhanced fr3 / recharged PNGs) must be unpacked
 # on device at the version the build produced — a stale custom set is the asset

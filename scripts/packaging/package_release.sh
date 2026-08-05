@@ -31,15 +31,15 @@ mkdir -p "$OUT_DIR"
 
 # Flag universe MUST stay in sync with build.sh's FLAG_LIST (alphabetical); a build
 # with a flag missing here inverts to nothing and reads as "pre-flag-era".
-ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr recharged-hud vulkan-support)
+ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr physics recharged-hud vulkan-support)
 # invert_hash <12-char-hash> -> echoes the matched canonical flag string (may be
 # empty); returns 1 if no subset matches.
 invert_hash() {
   local hash="$1" mask bit cand h
   local -a set_list
-  for mask in $(seq 0 127); do
+  for mask in $(seq 0 255); do
     set_list=()
-    for bit in 0 1 2 3 4 5 6; do
+    for bit in 0 1 2 3 4 5 6 7; do
       if (( (mask >> bit) & 1 )); then set_list+=("${ALL_FLAGS[$bit]}"); fi
     done
     cand=$(IFS=,; echo "${set_list[*]-}")
@@ -72,9 +72,10 @@ package_linux() {
   flags=$(invert_hash "$hash") || fail "gk ogflags hash '$hash' matches no flag subset — rebuild via ./build.sh linux-x86_64"
   echo "[package] linux marker=$m_gk flags='${flags:-<none>}'"
 
-  local F_HUD=0 F_HDMODELS=0
+  local F_HUD=0 F_HDMODELS=0 F_PHYSICS=0
   flag_on "$flags" recharged-hud && F_HUD=1
   flag_on "$flags" hd-models && F_HDMODELS=1
+  flag_on "$flags" physics && F_PHYSICS=1
 
   local APPDIR="out/${GAME}-pkg-stage/app-${GAME}-linux-x86_64"
   rm -rf "out/${GAME}-pkg-stage"
@@ -163,6 +164,21 @@ package_linux() {
     [ "$n_enh" -gt 0 ] || fail "flag hd-models ON but $ENH missing/empty — run android/build_enhanced_models.sh"
   fi
 
+  # custom/recharged_assets/physics_chains.txt — ALWAYS, whenever the file exists.
+  # Same DELIVERY rule as the android custom pack (android/build_custom_pack.sh block
+  # "1ter"): the chain definition is ours (not dump data) and no other pack carries it,
+  # so a flag-gated delivery would leave it in NO package at all — a build with
+  # --physics OFF would drop the file and the next --physics build would have to
+  # remember to re-stage it. The build flag gates the FEATURE at runtime, never the
+  # DELIVERY. NB: the PNG loop above only globs *.png and only runs when recharged-hud
+  # is ON, so this .txt needs its own unconditional staging line.
+  local n_phys=0
+  if [ -f "$ROOT/recharged_assets/physics_chains.txt" ]; then
+    mkdir -p "$APPDIR/custom/recharged_assets"
+    ln -s "$ROOT/recharged_assets/physics_chains.txt" "$APPDIR/custom/recharged_assets/physics_chains.txt"
+    n_phys=1
+  fi
+
   # run.sh launcher
   cat > "$APPDIR/run.sh" <<EOF
 #!/usr/bin/env bash
@@ -179,7 +195,7 @@ exec "\$DIR/gk" --proj-path "\$DIR/data" "\${GR[@]}" --iso-overlay "\$DIR/iso" -
 EOF
   chmod +x "$APPDIR/run.sh"
 
-  echo "[package] staged: code=$n_code grassbake=$n_bake png=$n_png enhanced=$n_enh shaders=$n_shader fonts=$n_font"
+  echo "[package] staged: code=$n_code grassbake=$n_bake png=$n_png enhanced=$n_enh physics_chains=$n_phys (delivery ungated; runtime feature flag physics=$F_PHYSICS) shaders=$n_shader fonts=$n_font"
 
   # --- manifest: one line per member (deref shas via readlink) ---
   local MAN="$OUT_DIR/app-${GAME}-linux-x86_64.manifest.txt"
@@ -244,9 +260,10 @@ package_windows() {
   flags=$(invert_hash "$hash") || fail "gk.exe ogflags hash '$hash' matches no flag subset — rebuild via ./build.sh windows-x86_64"
   echo "[package] windows marker=$m_gk flags='${flags:-<none>}'"
 
-  local F_HUD=0 F_HDMODELS=0
+  local F_HUD=0 F_HDMODELS=0 F_PHYSICS=0
   flag_on "$flags" recharged-hud && F_HUD=1
   flag_on "$flags" hd-models && F_HDMODELS=1
+  flag_on "$flags" physics && F_PHYSICS=1
 
   local APPDIR="out/${GAME}-pkg-stage/app-${GAME}-windows-x86_64"
   rm -rf "out/${GAME}-pkg-stage"
@@ -331,6 +348,21 @@ package_windows() {
     [ "$n_enh" -gt 0 ] || fail "flag hd-models ON but $ENH missing/empty — run android/build_enhanced_models.sh"
   fi
 
+  # custom/recharged_assets/physics_chains.txt — ALWAYS, whenever the file exists.
+  # Same DELIVERY rule as the android custom pack (android/build_custom_pack.sh block
+  # "1ter"): the chain definition is ours (not dump data) and no other pack carries it,
+  # so a flag-gated delivery would leave it in NO package at all — a build with
+  # --physics OFF would drop the file and the next --physics build would have to
+  # remember to re-stage it. The build flag gates the FEATURE at runtime, never the
+  # DELIVERY. NB: the PNG loop above only globs *.png and only runs when recharged-hud
+  # is ON, so this .txt needs its own unconditional staging line.
+  local n_phys=0
+  if [ -f "$ROOT/recharged_assets/physics_chains.txt" ]; then
+    mkdir -p "$APPDIR/custom/recharged_assets"
+    ln -s "$ROOT/recharged_assets/physics_chains.txt" "$APPDIR/custom/recharged_assets/physics_chains.txt"
+    n_phys=1
+  fi
+
   # run.bat launcher (same launch semantics as the linux run.sh, translated to a .bat;
   # pause on exit so errors are visible).
   cat > "$APPDIR/run.bat" <<EOF
@@ -349,7 +381,7 @@ if "%~1"=="" (
 pause
 EOF
 
-  echo "[package] staged: code=$n_code grassbake=$n_bake png=$n_png enhanced=$n_enh shaders=$n_shader fonts=$n_font"
+  echo "[package] staged: code=$n_code grassbake=$n_bake png=$n_png enhanced=$n_enh physics_chains=$n_phys (delivery ungated; runtime feature flag physics=$F_PHYSICS) shaders=$n_shader fonts=$n_font"
 
   # --- manifest: one line per member (deref shas via readlink) ---
   local MAN="$OUT_DIR/app-${GAME}-windows-x86_64.manifest.txt"

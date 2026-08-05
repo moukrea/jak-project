@@ -27,7 +27,7 @@ jobs:
             hash: "e3b0c44298fc"
           - combo: yolo
             feat: "ON"
-            hash: "46df661b7643"
+            hash: "a1cbb8cbe713"
     name: "flags: ${{ matrix.combo }}"
     steps:
       - uses: actions/checkout@v6
@@ -48,6 +48,7 @@ jobs:
             -DOG_FEAT_RECHARGED_HUD=${{ matrix.feat }} \
             -DOG_FEAT_GRASS_OVERHANG=${{ matrix.feat }} \
             -DOG_FEAT_HD_MODELS=${{ matrix.feat }} \
+            -DOG_FEAT_PHYSICS=${{ matrix.feat }} \
             -DOG_FEAT_VULKAN_SUPPORT=${{ matrix.feat }} \
             -DOG_FLAG_SET_ID=${{ matrix.hash }}:linux-x86_64
 
@@ -72,6 +73,7 @@ jobs:
           check_nm gRendererVulkan
           check_str "pc-set-grass-overhang!"
           check_str "pc-enhanced-models-available?"
+          check_str "pc-set-physics!"
           # positive control: validated (never-flagged) features are always in
           c=$(strings "$BIN" | grep -c "pc-set-recharged-grass!" || true); [ "$c" -ge 1 ]
           echo "flag matrix ${{ matrix.combo }}: OK"

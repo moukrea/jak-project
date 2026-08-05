@@ -16,6 +16,8 @@
 (defglobalconstant FLAG_HD_MODELS_N 1)
 (defglobalconstant FLAG_PBR #t)
 (defglobalconstant FLAG_PBR_N 1)
+(defglobalconstant FLAG_PHYSICS #t)
+(defglobalconstant FLAG_PHYSICS_N 1)
 (defglobalconstant FLAG_VULKAN_SUPPORT #f)
 (defglobalconstant FLAG_VULKAN_SUPPORT_N 0)
 ;; Grecharged-menu-overhaul: --debug reveals the DEBUG options category (hidden, not removed, in final
@@ -30,5 +32,5 @@
 ;; for its future rework phase. GOAL-only flag (no C++/CMake gate needed).
 (defglobalconstant FLAG_MENU_OVERHAUL #f)
 (defglobalconstant FLAG_MENU_OVERHAUL_N 0)
-(defglobalconstant PLATFORM_ANDROID #t)
-(defglobalconstant OG_FLAG_SET_MARKER "ogflags:009eadd8b50c:android-arm64")
+(defglobalconstant PLATFORM_ANDROID #f)
+(defglobalconstant OG_FLAG_SET_MARKER "ogflags:435df2141670:linux-x86_64")

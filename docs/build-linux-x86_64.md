@@ -23,9 +23,12 @@ produit à la fois le moteur x86 et l'ensemble des CGO/DGO du jeu.
 
 ```
 ./build.sh linux-x86_64 \
-  [--recharged-hud --grass-overhang --hd-models --vulkan-support | --yolo] \
+  [--recharged-hud --grass-overhang --hd-models --physics --vulkan-support | --yolo] \
   [--package] [--no-cache]
 ```
+
+`--physics` ajoute la physique de mouvement secondaire (jiggle/chaînes) sur les modèles HD ;
+il exige `--hd-models`.
 
 Les *feature flags* activent des fonctionnalités encore en chantier. `--yolo` active les
 quatre. Sans flag, seul l'ensemble validé est inclus. Une fonctionnalité non demandée est

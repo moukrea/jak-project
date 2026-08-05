@@ -32,13 +32,14 @@ option(OG_FEAT_RECHARGED_HUD   "Compile in the recharged HUD textures/loader"   
 option(OG_FEAT_GRASS_OVERHANG  "Compile in the grass-overhang (rim-drape/3-zone) paths" OFF)
 option(OG_FEAT_HD_MODELS       "Compile in the HD/enhanced-models fr3 selection path"   OFF)
 option(OG_FEAT_PBR             "Compile in the PBR realtime-lighting/shading path"      OFF)
+option(OG_FEAT_PHYSICS         "Compile in the secondary-motion physics sim (needs HD_MODELS)" OFF)
 option(OG_FEAT_VULKAN_SUPPORT  "Compile in the Vulkan render pipeline (desktop only)"   OFF)
 # Flag-set hash + target triple. build.sh overrides this. It is NOT applied
 # globally (that would recompile the world on every flag-set change) — it is
 # stamped onto the single marker TU below via set_source_files_properties.
 set(OG_FLAG_SET_ID "e3b0c44298fc:linux-x86_64" CACHE STRING "flag-set hash:target stamped into g_og_flag_set_marker")
 
-foreach(feat RECHARGED_HUD GRASS_OVERHANG HD_MODELS PBR VULKAN_SUPPORT)
+foreach(feat RECHARGED_HUD GRASS_OVERHANG HD_MODELS PBR PHYSICS VULKAN_SUPPORT)
   if(OG_FEAT_${feat})
     add_compile_definitions(OG_FEAT_${feat}=1)
   endif()

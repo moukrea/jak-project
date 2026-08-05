@@ -398,6 +398,14 @@
    (dbg-mirror-logs int32))  ;; cap for the defect-6 hidden-mirror transition log
   (:states jak-hd-clone))
 
+;; Grecharged-secondary-motion: the chain sim lives in jak-hd-physics.gc, compiled AFTER this file
+;; (its functions take jak-hd args). Forward externs, same idiom as maybe-spawn-jak-hd! in
+;; pckernel-common.gc.
+(#when FLAG_PHYSICS
+  (define-extern jak-hd-physics-init (function jak-hd none))
+  (define-extern jak-hd-physics-step (function jak-hd none))
+  (define-extern jak-hd-physics-release (function jak-hd none)))
+
 ;; ------------------------------------------------------------------------------------------------
 ;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver's.
 ;; ------------------------------------------------------------------------------------------------
@@ -504,12 +512,16 @@
 (defmethod do-joint-math! ((obj jak-hd))
   ((method-of-type process-drawable do-joint-math!) obj)
   (fill-jak-hd-bones! obj)
+  ;; Grecharged-secondary-motion: verlet/spring chains on top of the freshly retargeted pose.
+  (#when FLAG_PHYSICS (jak-hd-physics-step obj))
   (none))
 
 ;; the driver's mesh needs NO restore: it is never hidden GOAL-side. Merc2 suppresses the driver's
 ;; stock draw per-pid while this companion submits (TTL), and drains by itself when we despawn.
 (defmethod deactivate ((obj jak-hd))
   (pc-hd-uncover! (the int (-> obj pid)))
+  ;; Grecharged-secondary-motion: free the sim slot with the companion.
+  (#when FLAG_PHYSICS (jak-hd-physics-release obj))
   ;; release the blerc override slot (class B)
   (when (>= (-> obj blerc-slot) 0)
     (set! (-> *pc-blerc-override-pids* (-> obj blerc-slot)) 0)
@@ -654,6 +666,8 @@
          ;; PER-ACTOR coverage registration: Merc2 may suppress the driver's stock draw only while
          ;; OUR submissions are actually processed with the HD model found.
          (pc-hd-cover! (the int (-> self pid)) (the int (-> drv pid)))
+         ;; Grecharged-secondary-motion: resolve this model's physics chains (data-driven).
+         (#when FLAG_PHYSICS (jak-hd-physics-init self))
          ;; do NOT touch the driver's draw status (see header: the sidekick wholesale-copy trap).
          (go jak-hd-clone))
         (else

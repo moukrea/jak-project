@@ -22,7 +22,8 @@ produit la `libgk.so` ARM64, l'ensemble des CGO ARM64 et l'APK.
 ```
 
 Les *feature flags* sont les mêmes que pour les autres cibles (`--recharged-hud`,
-`--grass-overhang`, `--hd-models`, `--vulkan-support`, ou `--yolo`).
+`--grass-overhang`, `--hd-models`, `--physics`, `--vulkan-support`, ou `--yolo`).
+`--physics` = physique de mouvement secondaire (jiggle/chaînes) sur les modèles HD ; exige `--hd-models`.
 
 ## Ce que fait la commande
 

@@ -867,6 +867,398 @@ void pc_hd_uncover(u32 companion_pid) {
 }
 #endif
 
+// Grecharged-secondary-motion: data-driven secondary-motion (chain physics) parameter store + FFI.
+// The GOAL side owns no floats across the FFI boundary here: EVERY value-returning entry point below
+// returns MILLI-units (llround(value * 1000.0)) as an s64, and the caller divides by 1000. That keeps
+// the whole surface int-FFI (the pc-set-rt-ambient-strength! convention) with 3 decimals of headroom,
+// which is more than the authored data carries.
+#ifdef OG_FEAT_PHYSICS
+// Pushed every frame from (update-to-os) via pc-set-physics!, exactly like the HD-MODELS toggle.
+static bool s_physics_on = false;
+static int s_physics_level = 1;
+
+void pc_set_physics(u32 on, u32 level) {
+  bool v = (on != 0);
+  int lv = (int)level;
+  if (v != s_physics_on || lv != s_physics_level) {
+    // lg (not raw stdout): on Android only lg::* routes to logcat.
+    lg::info("[hd-phys] toggle push: {} lvl {} -> {} lvl {}", s_physics_on, s_physics_level, v, lv);
+  }
+  s_physics_on = v;
+  s_physics_level = lv;
+}
+
+// ---- recharged_assets/physics_chains.txt parameter store -------------------------------------
+// class bits: primary=1 secondary=2 accessory=4
+enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassAccessory = 4 };
+// chain param ids (pc_physics_chain_param_mi):
+//   0 stiffness(Hz) 1 damping 2 gravity 3 maxangle(deg) 4 inertia 5 stretch 6 radius(units)
+static constexpr int kPhysNumChainParams = 7;
+// level param ids (pc_physics_level_param_mi):
+//   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
+static constexpr int kPhysNumLevelParams = 5;
+static constexpr int kPhysMaxLevels = 8;
+
+struct PhysChain {
+  std::string name;
+  int class_bits = 0;
+  float params[kPhysNumChainParams] = {0, 0, 0, 0, 1.f, 0, 0};
+  std::vector<std::string> joints;  // ordered root -> tip
+};
+
+struct PhysModel {
+  std::vector<PhysChain> chains;
+  std::map<std::string, float> colliders;  // joint name -> radius (game units)
+};
+
+static std::map<std::string, PhysModel> s_phys_models;
+static float s_phys_levels[kPhysMaxLevels][kPhysNumLevelParams] = {};
+static int s_phys_level_count = 0;
+static bool s_phys_loaded_once = false;
+
+static std::vector<std::string> phys_tokens(const std::string& line) {
+  std::vector<std::string> out;
+  size_t i = 0;
+  while (i < line.size()) {
+    while (i < line.size() && std::isspace((unsigned char)line[i])) {
+      i++;
+    }
+    size_t start = i;
+    while (i < line.size() && !std::isspace((unsigned char)line[i])) {
+      i++;
+    }
+    if (i > start) {
+      out.push_back(line.substr(start, i - start));
+    }
+  }
+  return out;
+}
+
+// "key=value" -> true + the two halves. Anything without '=' is not a kv token.
+static bool phys_kv(const std::string& tok, std::string& key, std::string& val) {
+  auto eq = tok.find('=');
+  if (eq == std::string::npos) {
+    return false;
+  }
+  key = tok.substr(0, eq);
+  val = tok.substr(eq + 1);
+  return true;
+}
+
+static float phys_to_float(const std::string& s) {
+  try {
+    return std::stof(s);
+  } catch (...) {
+    return 0.f;
+  }
+}
+
+// Parse recharged_assets/physics_chains.txt. Missing file is NOT an error (0 models = feature inert).
+// Returns the number of [model ...] sections parsed.
+static int pc_physics_parse_file() {
+  s_phys_models.clear();
+  s_phys_level_count = 0;
+  for (int i = 0; i < kPhysMaxLevels; i++) {
+    for (int j = 0; j < kPhysNumLevelParams; j++) {
+      s_phys_levels[i][j] = 0.f;
+    }
+  }
+
+  auto path = file_util::get_recharged_assets_dir() / "physics_chains.txt";
+  if (!file_util::file_exists(path.string())) {
+    lg::info("[hd-phys] no params file at {} (physics inert)", path.string());
+    return 0;
+  }
+
+  std::string text;
+  try {
+    text = file_util::read_text_file(path);
+  } catch (...) {
+    lg::warn("[hd-phys] could not read {}", path.string());
+    return 0;
+  }
+
+  PhysModel* cur_model = nullptr;
+  PhysChain* cur_chain = nullptr;
+  bool in_levels = false;
+  bool warned_unknown = false;
+  int n_chains = 0;
+
+  size_t pos = 0;
+  while (pos <= text.size()) {
+    size_t eol = text.find('\n', pos);
+    std::string raw = text.substr(pos, eol == std::string::npos ? std::string::npos : eol - pos);
+    pos = (eol == std::string::npos) ? text.size() + 1 : eol + 1;
+
+    // strip CR + trailing comment
+    if (!raw.empty() && raw.back() == '\r') {
+      raw.pop_back();
+    }
+    auto hash = raw.find('#');
+    if (hash != std::string::npos) {
+      raw = raw.substr(0, hash);
+    }
+    auto toks = phys_tokens(raw);
+    if (toks.empty()) {
+      continue;
+    }
+
+    if (toks[0] == "[levels]") {
+      in_levels = true;
+      cur_model = nullptr;
+      cur_chain = nullptr;
+      continue;
+    }
+    if (toks[0] == "[model" && toks.size() >= 2) {
+      std::string name = toks[1];
+      if (!name.empty() && name.back() == ']') {
+        name.pop_back();
+      }
+      in_levels = false;
+      cur_chain = nullptr;
+      cur_model = &s_phys_models[name];
+      continue;
+    }
+
+    if (in_levels && toks[0] == "level" && toks.size() >= 2) {
+      int idx = 0;
+      try {
+        idx = std::stoi(toks[1]);
+      } catch (...) {
+        idx = -1;
+      }
+      if (idx < 0 || idx >= kPhysMaxLevels) {
+        lg::warn("[hd-phys] level index out of range: {}", raw);
+        continue;
+      }
+      for (size_t t = 2; t < toks.size(); t++) {
+        std::string k, v;
+        if (!phys_kv(toks[t], k, v)) {
+          continue;
+        }
+        if (k == "substeps") {
+          s_phys_levels[idx][0] = phys_to_float(v);
+        } else if (k == "iters") {
+          s_phys_levels[idx][1] = phys_to_float(v);
+        } else if (k == "collide") {
+          s_phys_levels[idx][2] = phys_to_float(v);
+        } else if (k == "classmask") {
+          s_phys_levels[idx][3] = phys_to_float(v);
+        } else if (k == "fixedhz") {
+          s_phys_levels[idx][4] = phys_to_float(v);
+        } else if (!warned_unknown) {
+          warned_unknown = true;
+          lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
+        }
+      }
+      if (idx + 1 > s_phys_level_count) {
+        s_phys_level_count = idx + 1;
+      }
+      continue;
+    }
+
+    if (toks[0] == "chain" && toks.size() >= 2) {
+      if (!cur_model) {
+        lg::warn("[hd-phys] 'chain' outside a [model ...] section (skipped): {}", raw);
+        continue;
+      }
+      PhysChain ch;
+      ch.name = toks[1];
+      for (size_t t = 2; t < toks.size(); t++) {
+        std::string k, v;
+        if (!phys_kv(toks[t], k, v)) {
+          continue;
+        }
+        if (k == "class") {
+          if (v == "primary") {
+            ch.class_bits = kPhysClassPrimary;
+          } else if (v == "secondary") {
+            ch.class_bits = kPhysClassSecondary;
+          } else if (v == "accessory") {
+            ch.class_bits = kPhysClassAccessory;
+          } else {
+            lg::warn("[hd-phys] unknown chain class '{}' (0 bits)", v);
+          }
+        } else if (k == "stiffness") {
+          ch.params[0] = phys_to_float(v);
+        } else if (k == "damping") {
+          ch.params[1] = phys_to_float(v);
+        } else if (k == "gravity") {
+          ch.params[2] = phys_to_float(v);
+        } else if (k == "maxangle") {
+          ch.params[3] = phys_to_float(v);
+        } else if (k == "inertia") {
+          ch.params[4] = phys_to_float(v);
+        } else if (k == "stretch") {
+          ch.params[5] = phys_to_float(v);
+        } else if (k == "radius") {
+          ch.params[6] = phys_to_float(v);
+        } else if (!warned_unknown) {
+          warned_unknown = true;
+          lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
+        }
+      }
+      cur_model->chains.push_back(ch);
+      cur_chain = &cur_model->chains.back();
+      n_chains++;
+      continue;
+    }
+
+    if (toks[0] == "j" && toks.size() >= 2) {
+      if (!cur_chain) {
+        lg::warn("[hd-phys] 'j' with no current chain (skipped): {}", raw);
+        continue;
+      }
+      cur_chain->joints.push_back(toks[1]);
+      continue;
+    }
+
+    if (toks[0] == "collider" && toks.size() >= 2) {
+      if (!cur_model) {
+        lg::warn("[hd-phys] 'collider' outside a [model ...] section (skipped): {}", raw);
+        continue;
+      }
+      float radius = 0.f;
+      for (size_t t = 2; t < toks.size(); t++) {
+        std::string k, v;
+        if (!phys_kv(toks[t], k, v)) {
+          continue;
+        }
+        if (k == "radius") {
+          radius = phys_to_float(v);
+        } else if (!warned_unknown) {
+          warned_unknown = true;
+          lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
+        }
+      }
+      cur_model->colliders[toks[1]] = radius;
+      continue;
+    }
+
+    if (!warned_unknown) {
+      warned_unknown = true;
+      lg::warn("[hd-phys] unknown line in physics_chains.txt (skipped): {}", raw);
+    }
+  }
+
+  lg::info("[hd-phys] params loaded: {} models, {} chains", (int)s_phys_models.size(), n_chains);
+  return (int)s_phys_models.size();
+}
+
+// Lazy first-parse so there is no init-order dependency on the assets dir being resolved.
+static void pc_physics_ensure_loaded() {
+  if (!s_phys_loaded_once) {
+    s_phys_loaded_once = true;
+    pc_physics_parse_file();
+  }
+}
+
+static const PhysModel* pc_physics_find_model(u32 ag_name) {
+  std::string name = Ptr<String>(ag_name).c()->data();
+  auto it = s_phys_models.find(name);
+  return (it == s_phys_models.end()) ? nullptr : &it->second;
+}
+
+static s64 phys_mi(float v) {
+  return (s64)llround((double)v * 1000.0);
+}
+
+// (Re)parse the params file. Hot-editable: adb push a new physics_chains.txt + call this.
+s64 pc_physics_reload() {
+  s_phys_loaded_once = true;
+  return (s64)pc_physics_parse_file();
+}
+
+// (chain_index << 8) | link_index for a joint's place in its model's chains; -1 if not a chain joint.
+s64 pc_physics_joint_role(u32 ag_name, u32 joint_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model) {
+    return -1;
+  }
+  std::string joint = Ptr<String>(joint_name).c()->data();
+  for (size_t ci = 0; ci < model->chains.size(); ci++) {
+    const auto& ch = model->chains[ci];
+    for (size_t li = 0; li < ch.joints.size(); li++) {
+      if (ch.joints[li] == joint) {
+        return (s64)((ci << 8) | li);
+      }
+    }
+  }
+  return -1;
+}
+
+// milli chain param. unknown model/chain/param -> 0.
+s64 pc_physics_chain_param_mi(u32 ag_name, s64 chain_index, s64 param_id) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain_index < 0 || chain_index >= (s64)model->chains.size()) {
+    return 0;
+  }
+  if (param_id < 0 || param_id >= kPhysNumChainParams) {
+    return 0;
+  }
+  return phys_mi(model->chains[chain_index].params[param_id]);
+}
+
+// class bits (primary=1 secondary=2 accessory=4); 0 if unknown.
+s64 pc_physics_chain_flags(u32 ag_name, s64 chain_index) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain_index < 0 || chain_index >= (s64)model->chains.size()) {
+    return 0;
+  }
+  return (s64)model->chains[chain_index].class_bits;
+}
+
+s64 pc_physics_num_chains(u32 ag_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  return model ? (s64)model->chains.size() : 0;
+}
+
+// Level params, EVERYTHING milli (substeps/iters/collide/classmask included — the caller divides by
+// 1000 uniformly). Level is clamped to the configured range.
+s64 pc_physics_level_param_mi(s64 level, s64 param_id) {
+  pc_physics_ensure_loaded();
+  if (s_phys_level_count <= 0) {
+    return 0;
+  }
+  if (param_id < 0 || param_id >= kPhysNumLevelParams) {
+    return 0;
+  }
+  s64 lv = level;
+  if (lv < 0) {
+    lv = 0;
+  }
+  if (lv > s_phys_level_count - 1) {
+    lv = s_phys_level_count - 1;
+  }
+  return phys_mi(s_phys_levels[lv][param_id]);
+}
+
+// milli collider radius attached to a named joint; 0 = no collider there.
+s64 pc_physics_joint_collider_mi(u32 ag_name, u32 joint_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model) {
+    return 0;
+  }
+  std::string joint = Ptr<String>(joint_name).c()->data();
+  auto it = model->colliders.find(joint);
+  return (it == model->colliders.end()) ? 0 : phys_mi(it->second);
+}
+
+// 0 = off (toggle off, or no params loaded); else level + 1.
+s64 pc_physics_enabled() {
+  pc_physics_ensure_loaded();
+  if (!s_physics_on || s_phys_models.empty()) {
+    return 0;
+  }
+  return (s64)(s_physics_level + 1);
+}
+#endif
+
 // Gpbrf owner workflow (2026-07-24): POSITION DUMP for deterministic weld-ON/OFF daytime A/B.
 // The owner stands on a seam; the supervisor must read his EXACT world position to warp there for
 // A/B captures. The Honor obscures logcat (HKS encryption), so lg::info is unreadable there =>
@@ -2759,6 +3151,19 @@ void InitMachine_PCPort() {
   // Grecharged-hd-models4: per-actor coverage — companion pid -> driver pid registry in Merc2
   make_function_symbol_from_c("pc-hd-cover!", (void*)pc_hd_cover);
   make_function_symbol_from_c("pc-hd-uncover!", (void*)pc_hd_uncover);
+#endif
+#ifdef OG_FEAT_PHYSICS
+  // Grecharged-secondary-motion: chain-physics toggle + the data-driven parameter queries.
+  // Every value query returns MILLI-units (x1000) as an s64 — no floats cross this boundary.
+  make_function_symbol_from_c("pc-set-physics!", (void*)pc_set_physics);
+  make_function_symbol_from_c("pc-physics-reload", (void*)pc_physics_reload);
+  make_function_symbol_from_c("pc-physics-joint-role", (void*)pc_physics_joint_role);
+  make_function_symbol_from_c("pc-physics-chain-param-mi", (void*)pc_physics_chain_param_mi);
+  make_function_symbol_from_c("pc-physics-chain-flags", (void*)pc_physics_chain_flags);
+  make_function_symbol_from_c("pc-physics-num-chains", (void*)pc_physics_num_chains);
+  make_function_symbol_from_c("pc-physics-level-param-mi", (void*)pc_physics_level_param_mi);
+  make_function_symbol_from_c("pc-physics-joint-collider-mi", (void*)pc_physics_joint_collider_mi);
+  make_function_symbol_from_c("pc-physics-enabled", (void*)pc_physics_enabled);
 #endif
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point

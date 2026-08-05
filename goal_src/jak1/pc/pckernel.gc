@@ -486,6 +486,9 @@
     (("hd-look-daxter") (set! (-> obj hd-look-daxter) (file-stream-read-int file)))
     (("hd-look-keira") (set! (-> obj hd-look-keira) (file-stream-read-int file)))
     (("hd-look-samos") (set! (-> obj hd-look-samos) (file-stream-read-int file)))
+    ;; Grecharged-secondary-motion: chain physics toggle + quality level.
+    (("physics?") (set! (-> obj physics?) (file-stream-read-symbol file)))
+    (("physics-quality") (set! (-> obj physics-quality) (file-stream-read-int file)))
     (("load-custom-assets?")
      (set! (-> obj load-custom-assets?) (file-stream-read-symbol file))
      ;; Gload-custom-assets: apply the persisted flag at settings-load (boot) time so the choice
@@ -564,6 +567,9 @@
   (format file "hd-look-daxter = ~D~%" (-> obj hd-look-daxter))
   (format file "hd-look-keira = ~D~%" (-> obj hd-look-keira))
   (format file "hd-look-samos = ~D~%" (-> obj hd-look-samos))
+  ;; Grecharged-secondary-motion: chain physics toggle + quality level.
+  (format file "physics? = ~A~%" (-> obj physics?))
+  (format file "physics-quality = ~D~%" (-> obj physics-quality))
   (format file "load-custom-assets? = ~A~%" (-> obj load-custom-assets?))
   (format file "recharged-textures? = ~A~%" (-> obj recharged-textures?))
   (format file "skip-movies? = ~A~%" (-> obj skip-movies?))

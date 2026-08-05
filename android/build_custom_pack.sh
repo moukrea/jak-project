@@ -22,6 +22,7 @@
 #   fr3/<name>.meshweld           (ALWAYS — DERIVED: mesh-consolidation sidecar)
 #   fr3/<name>.grassbake          (ALWAYS — validated feature)
 #   recharged_assets/<name>.png   (ALWAYS — DELIVERY is no longer flag-gated)
+#   recharged_assets/physics_chains.txt (ALWAYS if present — secondary-motion chain defs)
 #   recharged_textures/<tpage>/<tex>/<tex>[ _height|_normal|_roughness].png  (ALWAYS — first-party set)
 #
 # ARCHITECTURE IP EXCLUSION (owner 2026-08-02): the enhanced HD fr3 (fr3/enhanced/<name>.fr3) are
@@ -186,6 +187,7 @@ data_freshness_guard(){
     "${FR3_DIR}"$'\t''*.meshweld'$'\t''fr3/'
     "${FR3_DIR}"$'\t''*.grassbake'$'\t''fr3/'
     "${RHUD_SRC}"$'\t''*.png'$'\t''recharged_assets/'
+    "${RHUD_SRC}"$'\t''physics_chains.txt'$'\t''recharged_assets/'
   )
   local n_cov=0 spec cdir cglob cpfx cbase want
   for spec in "${cov_specs[@]}"; do
@@ -241,14 +243,14 @@ MARKER=$(grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' "$GAME_CGO" | head -1 || true)
 HASH="${MARKER#ogflags:}"; HASH="${HASH%%:*}"
 [ -n "$HASH" ] || fail "malformed marker '$MARKER'"
 
-# Enumerate 128 subsets of the 7 flags (alphabetical universe), hash each canonical
+# Enumerate 256 subsets of the 8 flags (alphabetical universe), hash each canonical
 # (alphabetical comma-join) string, match against HASH.
-ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr recharged-hud vulkan-support)
-F_DEBUG=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0
+ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr physics recharged-hud vulkan-support)
+F_DEBUG=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0; F_PHYSICS=0
 FOUND=0; MATCHED_STR=""
-for mask in $(seq 0 127); do
+for mask in $(seq 0 255); do
   set_list=()
-  for bit in 0 1 2 3 4 5 6; do
+  for bit in 0 1 2 3 4 5 6 7; do
     if (( (mask >> bit) & 1 )); then set_list+=("${ALL_FLAGS[$bit]}"); fi
   done
   cand=$(IFS=,; echo "${set_list[*]-}")
@@ -261,6 +263,7 @@ for mask in $(seq 0 127); do
         grass-overhang) F_OVERHANG=1;;
         hd-models)      F_HDMODELS=1;;
         pbr)            F_PBR=1;;
+        physics)        F_PHYSICS=1;;
         recharged-hud)  F_HUD=1;;
         vulkan-support) F_VULKAN=1;;
       esac
@@ -269,7 +272,7 @@ for mask in $(seq 0 127); do
   fi
 done
 [ "$FOUND" -eq 1 ] || fail "pre-flag-era CGO set — rebuild via ./build.sh android-arm64"
-echo "[custom-pack] marker=$MARKER  flags='${MATCHED_STR:-<none>}' (hud=$F_HUD overhang=$F_OVERHANG hd-models=$F_HDMODELS pbr=$F_PBR vulkan=$F_VULKAN)"
+echo "[custom-pack] marker=$MARKER  flags='${MATCHED_STR:-<none>}' (hud=$F_HUD overhang=$F_OVERHANG hd-models=$F_HDMODELS pbr=$F_PBR physics=$F_PHYSICS vulkan=$F_VULKAN)"
 
 mkdir -p "$OUT_DIR"
 rm -rf "$STAGE"
@@ -299,6 +302,18 @@ if [ -d "$ROOT/$RHUD_SRC" ]; then
   done < <(find "$ROOT/$RHUD_SRC" -maxdepth 1 -type f -name '*.png' 2>/dev/null | sort)
   [ "$n_png" -gt 0 ] || fail "$RHUD_SRC/ exists but holds no *.png — the base pack no longer carries the recharged HUD, so an empty set here means the HUD ships NOWHERE. Restore the PNGs or delete the dir."
   echo "[custom-pack] recharged HUD PNGs: $n_png (delivery ungated; runtime feature flag hud=$F_HUD)"
+fi
+
+# 1ter. PHYSICS CHAIN DEFINITION — ALWAYS, whenever it exists. Same delivery rule as the
+#    recharged PNGs above: the file is ours (not dump data), the base pack is iso-only, so a
+#    flag-gated delivery would leave it in NO pack at all. The --physics build flag gates the
+#    FEATURE at runtime, never the DELIVERY. NB: the PNG loop above only globs *.png, so this
+#    .txt needs its own staging line (guard (4) covers it from the disk side too).
+if [ -f "$ROOT/$RHUD_SRC/physics_chains.txt" ]; then
+  mkdir -p "$STAGE/recharged_assets"
+  ln -s "$ROOT/$RHUD_SRC/physics_chains.txt" "$STAGE/recharged_assets/physics_chains.txt"
+  MEMBERS+=("recharged_assets/physics_chains.txt")
+  echo "[custom-pack] physics chain definition: 1 (delivery ungated; runtime feature flag physics=$F_PHYSICS)"
 fi
 
 # 1bis. MESH BROWSER INDEX — ALWAYS. DERIVED data (produced by tools/mesh_index from a

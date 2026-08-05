@@ -1,0 +1,466 @@
+;;-*-Lisp-*-
+(in-package goal)
+
+;; jak-hd-physics.gc — Grecharged-secondary-motion: verlet/spring secondary-motion chains on the
+;; HD companion skeletons (jiggle, hair, beards, straps, dangling accessories).
+;;
+;; PRINCIPLE (spring-toward-the-animated-target). fill-jak-hd-bones! (jak-hd.gc) overwrites every
+;; HD joint's WORLD matrix each frame from the driver's animation. This pass runs IMMEDIATELY AFTER
+;; that fill inside the same do-joint-math!: for each configured chain joint the freshly retargeted
+;; matrix is the TARGET (the authored rest pose of this frame); the sim carries a verlet point per
+;; joint (pos + prev) integrated with a spring toward the target plus gravity, then constraint
+;; iterations (distance to parent from the LIVE target lengths — correct under any rig scale —,
+;; swing-cone limit around the target direction, optional body-sphere collisions), then writes the
+;; joint matrix back as: 3x3 rows post-multiplied by the minimal swing rotation
+;; (target-dir -> sim-dir; row lengths preserved, so non-unit rig scales like Keira's 0.103 straps
+;; survive) and translation row = simulated position. With zero excitation the spring converges to
+;; the target exactly -> subtle by construction; physics OFF = pass skipped = bit-exact stock-HD.
+;;
+;; DATA-DRIVEN: chains + params + precision levels live in recharged_assets/physics_chains.txt,
+;; parsed C++-side (kmachine.cpp, OG_FEAT_PHYSICS) and queried over the pc-physics-* FFI at
+;; companion init (joint NAMES resolved against the live HD jgeo). All FFI numeric returns are
+;; MILLI-units (x1000) to avoid the float-return-register trap.
+;;
+;; SAFETY INVARIANT: after each chain step, any non-finite component or deviation > 2x chain
+;; length hard-resets the chain state to the targets (+ nan-resets counter, must stay 0 in proofs).
+;; An explosion can never persist more than one frame.
+;;
+;; PRECISION LADDER (owner-mandated monotone cost<->quality): per-level levers (substeps or fixed
+;; 240Hz accumulator, constraint iterations, collisions on/off, active chain-class mask) are DATA
+;; in the [levels] section, selected by (-> *pc-settings* physics-quality) via pc-physics-enabled.
+;;
+;; PROOFS: [HD-PHYS] windowed counters (state dump: max deviation / max velocity bounded,
+;; nan-resets, rest convergence when calm) — code-level evidence, never capture campaigns.
+
+(#when FLAG_PHYSICS
+
+;; ------------------------------------------------------------------------------------------------
+;; C++ FFI (kmachine.cpp, OG_FEAT_PHYSICS). All value returns are MILLI-units unless noted.
+;; ------------------------------------------------------------------------------------------------
+(define-extern pc-physics-reload (function int))
+(define-extern pc-physics-enabled (function int))              ;; 0 = off, else level+1
+(define-extern pc-physics-joint-role (function string string int))   ;; (chain<<8)|link, -1 none
+(define-extern pc-physics-num-chains (function string int))
+(define-extern pc-physics-chain-param-mi (function string int int int)) ;; ids: 0 hz 1 damp 2 grav 3 maxangle-deg 4 inertia 5 stretch 6 radius
+(define-extern pc-physics-chain-flags (function string int int))    ;; class bits 1/2/4
+(define-extern pc-physics-level-param-mi (function int int int))    ;; ids: 0 substeps 1 iters 2 collide 3 classmask 4 fixedhz
+(define-extern pc-physics-joint-collider-mi (function string string int)) ;; milli radius, 0 none
+
+;; ------------------------------------------------------------------------------------------------
+;; static pools: 8 slots x 48 sim joints x 24 chains x 8 colliders.
+;; ------------------------------------------------------------------------------------------------
+(defconstant PHYS-SLOTS 8)
+(defconstant PHYS-JPS 48)      ;; joints per slot
+(defconstant PHYS-CPS 24)      ;; chains per slot
+(defconstant PHYS-COLS 8)      ;; colliders per slot
+
+(define *phys-slot-pid* (new 'static 'array int32 8))
+(define *phys-slot-njoints* (new 'static 'array int32 8))
+(define *phys-slot-nchains* (new 'static 'array int32 8))
+(define *phys-slot-ncols* (new 'static 'array int32 8))
+(define *phys-slot-seeded* (new 'static 'array int32 8))
+(define *phys-slot-frames* (new 'static 'array int32 8))    ;; window frame counter
+(define *phys-slot-resets* (new 'static 'array int32 8))    ;; nan/explosion resets (window)
+(define *phys-slot-maxdev* (new 'static 'array float 8))    ;; window max |p - t|
+(define *phys-slot-maxvel* (new 'static 'array float 8))    ;; window max per-frame speed
+(define *phys-slot-calm* (new 'static 'array int32 8))      ;; consecutive calm frames
+
+;; per sim joint (idx = slot*PHYS-JPS + j)
+(define *phys-jk* (new 'static 'array int32 384))           ;; HD game joint index k
+(define *phys-pos* (new 'static 'inline-array vector 384))
+(define *phys-prev* (new 'static 'inline-array vector 384))
+(define *phys-targ* (new 'static 'inline-array vector 384)) ;; per-frame target cache
+
+;; per chain (idx = slot*PHYS-CPS + c); cstart is the joint index base WITHIN the slot.
+(define *phys-cstart* (new 'static 'array int32 192))
+(define *phys-clen* (new 'static 'array int32 192))
+(define *phys-cflags* (new 'static 'array int32 192))
+(define *phys-canchor* (new 'static 'array int32 192))      ;; anchor HD joint index (link0's parent)
+(define *phys-comega* (new 'static 'array float 192))       ;; 2*pi*hz
+(define *phys-cdamp* (new 'static 'array float 192))
+(define *phys-cgrav* (new 'static 'array float 192))        ;; gravity scale
+(define *phys-ccos* (new 'static 'array float 192))         ;; cos(maxangle)
+(define *phys-csin* (new 'static 'array float 192))         ;; sin(maxangle)
+(define *phys-cinertia* (new 'static 'array float 192))
+(define *phys-cstretch* (new 'static 'array float 192))
+(define *phys-cradius* (new 'static 'array float 192))      ;; per-joint collision radius
+
+;; body collision spheres (idx = slot*PHYS-COLS + i)
+(define *phys-colk* (new 'static 'array int32 64))          ;; jgeo joint index carrying the sphere
+(define *phys-colr* (new 'static 'array float 64))
+
+;; gravity: 9.8 m/s^2 * 4096 units/m
+(defconstant PHYS-GRAV-ACCEL 40140.8)
+
+(defun jak-hd-physics-release ((obj jak-hd))
+  "free this companion's sim slot (called from deactivate)."
+  (dotimes (s PHYS-SLOTS)
+    (when (= (-> *phys-slot-pid* s) (the int (-> obj pid)))
+      (set! (-> *phys-slot-pid* s) 0)))
+  (none))
+
+(defun jak-hd-physics-init ((obj jak-hd))
+  "claim a sim slot and resolve this model's chains from the data file against the live HD jgeo.
+  Joint names -> (chain,link) via pc-physics-joint-role; parentage validated against the k->e
+  hd-parent table (link i's parent must be link i-1; link0's parent = the animated anchor).
+  Reload the params file on every init: pushing a new physics_chains.txt to the device then
+  switching a LOOK (or toggling ENHANCED MODELS) re-reads everything — fast iteration."
+  (when (and (nonzero? (-> obj draw)) (nonzero? (-> obj draw jgeo)))
+    (let ((slot -1))
+      ;; claim
+      (dotimes (s PHYS-SLOTS)
+        (when (and (< slot 0) (zero? (-> *phys-slot-pid* s)))
+          (set! slot s)
+          (set! (-> *phys-slot-pid* s) (the int (-> obj pid)))))
+      (cond
+        ((< slot 0)
+         (format 0 "[HD-PHYS] no free sim slot — physics disabled for this companion~%"))
+        (else
+         (pc-physics-reload)
+         (let* ((ag (-> *hd-ag-names* (-> obj entry)))
+                (jgeo (-> obj draw jgeo))
+                (khd-par (-> obj khd-par))
+                (nch (min PHYS-CPS (pc-physics-num-chains ag)))
+                (jbase (* slot PHYS-JPS))
+                (cbase (* slot PHYS-CPS))
+                (njoints 0)
+                (ncols 0)
+                ;; temp role tables indexed by HD joint k (uint8-sized counts are fine: k < 128)
+                (tchain (new 'stack-no-clear 'array 'int32 128))
+                (tlink (new 'stack-no-clear 'array 'int32 128)))
+           ;; resolve every HD joint's role once
+           (dotimes (k (-> obj hd-joints))
+             (set! (-> tchain k) -1)
+             (set! (-> tlink k) -1)
+             (when (< k (-> jgeo length))
+               (let ((role (pc-physics-joint-role ag (-> jgeo data k name))))
+                 (when (>= role 0)
+                   (set! (-> tchain k) (shr role 8))
+                   (set! (-> tlink k) (logand role #xff))))))
+           ;; build chains compactly, root->tip, with parent-order validation
+           (dotimes (c nch)
+             (let ((ci (+ cbase c))
+                   (start njoints)
+                   (len 0)
+                   (bad 0)
+                   (prev-k -1))
+               (dotimes (l PHYS-JPS)
+                 ;; find the joint holding (c, l)
+                 (let ((found -1))
+                   (dotimes (k (-> obj hd-joints))
+                     (when (and (< found 0) (= (-> tchain k) c) (= (-> tlink k) l))
+                       (set! found k)))
+                   (when (>= found 0)
+                     (cond
+                       ((>= njoints PHYS-JPS)
+                        (set! bad 1))
+                       (else
+                        ;; parentage: link l>0 must hang off link l-1; link 0 off a non-sim anchor.
+                        (let ((par (the int (-> khd-par found))))
+                          (cond
+                            ((zero? len)
+                             (when (or (= par #xff) (>= par (-> obj hd-joints)))
+                               (set! bad 1))
+                             (set! (-> *phys-canchor* ci) par))
+                            ((!= par prev-k)
+                             (set! bad 1))))
+                        (set! (-> *phys-jk* (+ jbase njoints)) found)
+                        (set! prev-k found)
+                        (+! njoints 1)
+                        (+! len 1))))))
+               (when (nonzero? bad)
+                 (format 0 "[HD-PHYS] ag=~S chain ~D invalid (order/anchor/capacity) — disabled~%" ag c)
+                 (set! njoints start)
+                 (set! len 0))
+               (set! (-> *phys-cstart* ci) start)
+               (set! (-> *phys-clen* ci) len)
+               (set! (-> *phys-cflags* ci) (pc-physics-chain-flags ag c))
+               ;; params (milli -> float) + derived
+               (let ((hz (* 0.001 (the float (pc-physics-chain-param-mi ag c 0))))
+                     (maxang (* 0.001 (the float (pc-physics-chain-param-mi ag c 3)))))
+                 (set! (-> *phys-comega* ci) (* 6.2831855 hz))
+                 (set! (-> *phys-cdamp* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 1))))
+                 (set! (-> *phys-cgrav* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 2))))
+                 (let ((rad (* 0.017453292 maxang)))
+                   (set! (-> *phys-ccos* ci) (cos-rad rad))
+                   (set! (-> *phys-csin* ci) (sin-rad rad)))
+                 (set! (-> *phys-cinertia* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 4))))
+                 (set! (-> *phys-cstretch* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 5))))
+                 (set! (-> *phys-cradius* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 6)))))))
+           ;; body collision spheres: any jgeo joint the config names
+           (dotimes (k (-> jgeo length))
+             (when (< ncols PHYS-COLS)
+               (let ((rmi (pc-physics-joint-collider-mi ag (-> jgeo data k name))))
+                 (when (> rmi 0)
+                   (set! (-> *phys-colk* (+ (* slot PHYS-COLS) ncols)) k)
+                   (set! (-> *phys-colr* (+ (* slot PHYS-COLS) ncols)) (* 0.001 (the float rmi)))
+                   (+! ncols 1)))))
+           (set! (-> *phys-slot-njoints* slot) njoints)
+           (set! (-> *phys-slot-nchains* slot) nch)
+           (set! (-> *phys-slot-ncols* slot) ncols)
+           (set! (-> *phys-slot-seeded* slot) 0)
+           (set! (-> *phys-slot-frames* slot) 0)
+           (set! (-> *phys-slot-resets* slot) 0)
+           (set! (-> *phys-slot-maxdev* slot) 0.0)
+           (set! (-> *phys-slot-maxvel* slot) 0.0)
+           (set! (-> *phys-slot-calm* slot) 0)
+           (format 0 "[HD-PHYS] init ag=~S slot=~D chains=~D sim-joints=~D colliders=~D~%"
+                   ag slot nch njoints ncols))))))
+  (none))
+
+(defun jak-hd-physics-step ((obj jak-hd))
+  "the per-frame verlet/spring chain sim. Runs after fill-jak-hd-bones! — the freshly retargeted
+  world matrices are the spring targets. See the file header for the algorithm."
+  (let ((en (pc-physics-enabled))
+        (slot -1))
+    (dotimes (s PHYS-SLOTS)
+      (when (= (-> *phys-slot-pid* s) (the int (-> obj pid)))
+        (set! slot s)))
+    (when (and (> en 0) (>= slot 0) (> (-> *phys-slot-njoints* slot) 0)
+               (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton)))
+      (let* ((level (+ en -1))
+             (skel (-> obj draw skeleton))
+             (nbones (-> skel length))
+             (jbase (* slot PHYS-JPS))
+             (cbase (* slot PHYS-CPS))
+             (substeps (max 1 (min 8 (/ (pc-physics-level-param-mi level 0) 1000))))
+             (iters (max 1 (min 16 (/ (pc-physics-level-param-mi level 1) 1000))))
+             (collide? (> (pc-physics-level-param-mi level 2) 0))
+             (classmask (/ (pc-physics-level-param-mi level 3) 1000))
+             (fixedhz (* 0.001 (the float (pc-physics-level-param-mi level 4))))
+             (dt (seconds-per-frame))
+             ;; temps hoisted out of all loops (GOAL stack allocs accumulate per call frame)
+             (vtmp (new 'stack-no-clear 'vector))
+             (vtmp2 (new 'stack-no-clear 'vector))
+             (axis (new 'stack-no-clear 'vector))
+             (dirv (new 'stack-no-clear 'vector))
+             (dirt (new 'stack-no-clear 'vector))
+             (dirs (new 'stack-no-clear 'vector))
+             (q (new 'stack-no-clear 'quaternion))
+             (rotm (new 'stack-no-clear 'matrix))
+             (tmpm (new 'stack-no-clear 'matrix))
+             (frame-maxvel 0.0)
+             (frame-maxdev 0.0))
+        (when (and (> dt 0.0001) (< dt 0.1))
+          ;; fixed-timestep ladder top: substep count from the accumulator target rate
+          (when (> fixedhz 1.0)
+            (set! substeps (max 1 (min 8 (the int (+ 0.5 (* dt fixedhz)))))))
+          (let ((sdt (/ dt (the float substeps))))
+            ;; cache this frame's targets (write-back overwrites bones; tips need pristine parents)
+            (dotimes (j (-> *phys-slot-njoints* slot))
+              (let ((k (-> *phys-jk* (+ jbase j))))
+                (when (< (+ k 1) nbones)
+                  (vector-copy! (-> *phys-targ* (+ jbase j))
+                                (-> skel bones (+ k 1) transform vector 3)))))
+            ;; first frame (or post-reset spawn): seed at targets = start at rest
+            (when (zero? (-> *phys-slot-seeded* slot))
+              (set! (-> *phys-slot-seeded* slot) 1)
+              (dotimes (j (-> *phys-slot-njoints* slot))
+                (vector-copy! (-> *phys-pos* (+ jbase j)) (-> *phys-targ* (+ jbase j)))
+                (vector-copy! (-> *phys-prev* (+ jbase j)) (-> *phys-targ* (+ jbase j)))))
+            ;; ---------------- integrate + constrain, per chain ----------------
+            (dotimes (c (-> *phys-slot-nchains* slot))
+              (let* ((ci (+ cbase c))
+                     (len (-> *phys-clen* ci))
+                     (start (+ jbase (-> *phys-cstart* ci)))
+                     (active (nonzero? (logand (-> *phys-cflags* ci) classmask))))
+                (when (> len 0)
+                  (cond
+                    ((not active)
+                     ;; chain class disabled at this level: ride rigidly (state pinned to targets)
+                     (dotimes (i len)
+                       (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
+                       (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i)))))
+                    (else
+                     (let* ((anchor-k (-> *phys-canchor* ci))
+                            (anchor (-> skel bones (+ anchor-k 1) transform vector 3))
+                            (omega (-> *phys-comega* ci))
+                            (odt (* omega sdt)))
+                       ;; stability clamp: omega*dt <= 1.0 per substep — the low ladder stays a
+                       ;; light CLEAN approximation, never an unstable one.
+                       (when (> odt 1.0)
+                         (set! omega (/ 1.0 sdt)))
+                       (let ((kd (/ (-> *phys-cinertia* ci) (+ 1.0 (* (-> *phys-cdamp* ci) sdt 60.0))))
+                             (o2 (* omega omega))
+                             (gacc (* (-> *phys-cgrav* ci) PHYS-GRAV-ACCEL)))
+                         (dotimes (st substeps)
+                           ;; verlet integrate every link
+                           (dotimes (i len)
+                             (let ((p (-> *phys-pos* (+ start i)))
+                                   (pv (-> *phys-prev* (+ start i)))
+                                   (tg (-> *phys-targ* (+ start i))))
+                               ;; acc = o2*(t-p) + g
+                               (vector-! vtmp tg p)
+                               (vector-float*! vtmp vtmp o2)
+                               (set! (-> vtmp y) (- (-> vtmp y) gacc))
+                               ;; vel = (p - prev)*kd
+                               (vector-! vtmp2 p pv)
+                               (vector-float*! vtmp2 vtmp2 kd)
+                               (vector-copy! pv p)
+                               ;; p += vel + acc*sdt^2
+                               (vector+! p p vtmp2)
+                               (vector-float*! vtmp vtmp (* sdt sdt))
+                               (vector+! p p vtmp)))
+                           ;; constraint iterations
+                           (dotimes (it iters)
+                             (dotimes (i len)
+                               (let* ((p (-> *phys-pos* (+ start i)))
+                                      (tg (-> *phys-targ* (+ start i)))
+                                      (pp (if (zero? i) anchor (-> *phys-pos* (+ start i -1))))
+                                      (tp (if (zero? i) anchor (-> *phys-targ* (+ start i -1)))))
+                                 ;; rest length from LIVE targets (rig-scale robust)
+                                 (vector-! axis tg tp)
+                                 (let ((rest (vector-length axis)))
+                                   (vector-! dirv p pp)
+                                   (let ((dl (vector-length dirv)))
+                                     (cond
+                                       ((or (< dl 0.0001) (< rest 0.0001))
+                                        ;; degenerate: pin to target
+                                        (vector-copy! p tg))
+                                       (else
+                                        ;; distance constraint with allowed stretch
+                                        (let* ((str (-> *phys-cstretch* ci))
+                                               (lmin (* rest (- 1.0 str)))
+                                               (lmax (* rest (+ 1.0 str)))
+                                               (dl2 (fmax lmin (fmin lmax dl))))
+                                          (vector-float*! dirv dirv (/ dl2 dl))
+                                          ;; cone limit around the target direction
+                                          (vector-float*! axis axis (/ 1.0 rest))
+                                          (vector-float*! vtmp dirv (/ 1.0 dl2))
+                                          (let ((dot (vector-dot vtmp axis))
+                                                (cmax (-> *phys-ccos* ci)))
+                                            (when (< dot cmax)
+                                              ;; decompose and re-aim at the cone boundary
+                                              (vector-float*! vtmp2 axis dot)
+                                              (vector-! vtmp2 vtmp vtmp2)
+                                              (let ((pl (vector-length vtmp2)))
+                                                (cond
+                                                  ((< pl 0.000001)
+                                                   (vector-copy! vtmp axis))
+                                                  (else
+                                                   (vector-float*! vtmp2 vtmp2 (/ (-> *phys-csin* ci) pl))
+                                                   (vector-float*! vtmp axis cmax)
+                                                   (vector+! vtmp vtmp vtmp2))))
+                                              (vector-float*! dirv vtmp dl2)))
+                                          (vector+! p pp dirv)
+                                          ;; body-sphere collisions (level-gated)
+                                          (when (and collide? (> (-> *phys-cradius* ci) 0.0))
+                                            (dotimes (s2 (-> *phys-slot-ncols* slot))
+                                              (let* ((colk (-> *phys-colk* (+ (* slot PHYS-COLS) s2)))
+                                                     (cc (-> skel bones (+ colk 1) transform vector 3))
+                                                     (rr (+ (-> *phys-colr* (+ (* slot PHYS-COLS) s2))
+                                                            (-> *phys-cradius* ci))))
+                                                (vector-! vtmp p cc)
+                                                (let ((dd (vector-length vtmp)))
+                                                  (when (and (> dd 0.0001) (< dd rr))
+                                                    (vector-float*! vtmp vtmp (/ rr dd))
+                                                    (vector+! p cc vtmp)))))))))))))))
+                         ;; ---------------- sanity + write-back ----------------
+                         (let ((chainlen 0.0)
+                               (broken 0))
+                           (dotimes (i len)
+                             (vector-! vtmp (-> *phys-targ* (+ start i))
+                                       (if (zero? i) anchor (-> *phys-targ* (+ start i -1))))
+                             (set! chainlen (+ chainlen (vector-length vtmp))))
+                           (dotimes (i len)
+                             (let ((p (-> *phys-pos* (+ start i))))
+                               (vector-! vtmp p (-> *phys-targ* (+ start i)))
+                               (let ((dev (vector-length vtmp)))
+                                 ;; NaN compares false on every test -> lands in the reset branch
+                                 (when (not (and (< dev (+ 100.0 (* 2.0 chainlen)))
+                                                 (< (fabs (-> p x)) 100000000.0)
+                                                 (< (fabs (-> p y)) 100000000.0)
+                                                 (< (fabs (-> p z)) 100000000.0)))
+                                   (set! broken 1)))))
+                           (cond
+                             ((nonzero? broken)
+                              ;; hard reset: pin the whole chain back to the targets this frame.
+                              (+! (-> *phys-slot-resets* slot) 1)
+                              (dotimes (i len)
+                                (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
+                                (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i)))))
+                             (else
+                              ;; write back root->tip: swing the 3x3 rows by (target-dir -> sim-dir),
+                              ;; translation row = simulated position. Child targets read from the
+                              ;; pristine *phys-targ* cache.
+                              (dotimes (i len)
+                                (let* ((p (-> *phys-pos* (+ start i)))
+                                       (tg (-> *phys-targ* (+ start i)))
+                                       (k (-> *phys-jk* (+ start i)))
+                                       (dst (the-as matrix (-> skel bones (+ k 1) transform))))
+                                  ;; stats
+                                  (vector-! vtmp p tg)
+                                  (let ((dev (vector-length vtmp)))
+                                    (when (> dev frame-maxdev) (set! frame-maxdev dev)))
+                                  (vector-! vtmp p (-> *phys-prev* (+ start i)))
+                                  (let ((vel (vector-length vtmp)))
+                                    (when (> vel frame-maxvel) (set! frame-maxvel vel)))
+                                  ;; direction pair: to child if any, else from parent
+                                  (cond
+                                    ((< (+ i 1) len)
+                                     (vector-! dirt (-> *phys-targ* (+ start i 1)) tg)
+                                     (vector-! dirs (-> *phys-pos* (+ start i 1)) p))
+                                    (else
+                                     (vector-! dirt tg (if (zero? i) anchor (-> *phys-targ* (+ start i -1))))
+                                     (vector-! dirs p (if (zero? i) anchor (-> *phys-pos* (+ start i -1))))))
+                                  (let ((lt (vector-length dirt))
+                                        (ls (vector-length dirs)))
+                                    (cond
+                                      ((and (> lt 0.0001) (> ls 0.0001))
+                                       (vector-float*! dirt dirt (/ 1.0 lt))
+                                       (vector-float*! dirs dirs (/ 1.0 ls))
+                                       (let ((dot (vector-dot dirt dirs)))
+                                         (cond
+                                           ((> dot 0.99999)
+                                            ;; no swing: just move the translation row
+                                            (vector-copy! (-> dst vector 3) p)
+                                            (set! (-> dst vector 3 w) 1.0))
+                                           ((< dot -0.999)
+                                            ;; degenerate 180deg (one-frame): skip rotation
+                                            (vector-copy! (-> dst vector 3) p)
+                                            (set! (-> dst vector 3 w) 1.0))
+                                           (else
+                                            (quaternion-from-two-vectors! q dirt dirs)
+                                            (quaternion->matrix rotm q)
+                                            (matrix*! tmpm dst rotm)
+                                            (dotimes (r 3)
+                                              (vector-copy! (-> dst vector r) (-> tmpm vector r))
+                                              (set! (-> dst vector r w) 0.0))
+                                            (vector-copy! (-> dst vector 3) p)
+                                            (set! (-> dst vector 3 w) 1.0)))))
+                                      (else
+                                       (vector-copy! (-> dst vector 3) p)
+                                       (set! (-> dst vector 3 w) 1.0))))))))))))))))
+            ;; ---------------- windowed proof counters ----------------
+            (when (> frame-maxdev (-> *phys-slot-maxdev* slot))
+              (set! (-> *phys-slot-maxdev* slot) frame-maxdev))
+            (when (> frame-maxvel (-> *phys-slot-maxvel* slot))
+              (set! (-> *phys-slot-maxvel* slot) frame-maxvel))
+            ;; rest convergence: 30 consecutive calm frames -> the spring has settled back
+            (cond
+              ((< frame-maxvel 2.0)
+               (+! (-> *phys-slot-calm* slot) 1)
+               (when (= (-> *phys-slot-calm* slot) 30)
+                 (format 0 "[HD-PHYS] ag=~S rest-converged: restdev=~f (chain returned to rest)~%"
+                         (-> *hd-ag-names* (-> obj entry)) frame-maxdev)))
+              (else
+               (set! (-> *phys-slot-calm* slot) 0)))
+            (+! (-> *phys-slot-frames* slot) 1)
+            (when (>= (-> *phys-slot-frames* slot) 300)
+              ;; split in two: a GOAL call carries at most 8 parameters (jak-hd.gc precedent).
+              (format 0 "[HD-PHYS] ag=~S lvl=~D window: chains=~D joints=~D"
+                      (-> *hd-ag-names* (-> obj entry))
+                      level
+                      (-> *phys-slot-nchains* slot)
+                      (-> *phys-slot-njoints* slot))
+              (format 0 " maxdev=~f maxvel=~f nan-resets=~D (verlet state dump bounded)~%"
+                      (-> *phys-slot-maxdev* slot)
+                      (-> *phys-slot-maxvel* slot)
+                      (-> *phys-slot-resets* slot))
+              (set! (-> *phys-slot-frames* slot) 0)
+              (set! (-> *phys-slot-resets* slot) 0)
+              (set! (-> *phys-slot-maxdev* slot) 0.0)
+              (set! (-> *phys-slot-maxvel* slot) 0.0)))))))
+  (none))
+
+) ;; #when FLAG_PHYSICS

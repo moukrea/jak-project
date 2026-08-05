@@ -116,6 +116,8 @@
    (hd-look-daxter int32) ;; 0=ORIGINAL 1=HD 2=PANTS (default 1 HD)
    (hd-look-keira int32) ;; 0=ORIGINAL 1=HD 2=JAK 3 (default 1 HD)
    (hd-look-samos int32) ;; 0=ORIGINAL 1=HD 2=YOUNG (default 1 HD)
+   (physics? symbol) ;; Grecharged-secondary-motion: secondary-motion chains on HD companions. #f = stock (no chain solve).
+   (physics-quality int32) ;; Grecharged-secondary-motion: 0=LIGHT 1=FULL 2=MAXIMUM (data-driven levels in recharged_assets/physics_chains.txt)
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (recharged-textures? symbol) ;; Grecharged-bundled-textures: use the package-bundled first-party Recharged replacement textures. #f = stock base textures.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
@@ -198,6 +200,10 @@
 (#when FLAG_HD_MODELS
 (define-extern pc-set-recharged-enhanced-models! (function int none))
 (define-extern pc-enhanced-models-available? (function int)))
+;; Grecharged-secondary-motion: pushes the chain-physics toggle (0/1) + quality level to the C++ solver.
+;; Extern present only with --physics (C++ side gated by OG_FEAT_PHYSICS).
+(#when FLAG_PHYSICS
+(define-extern pc-set-physics! (function int int none)))
 (define-extern pc-set-jak-pos! (function vector none))
 (define-extern pc-grass-tramp-break! (function vector none)) ;; R28: instant grass-trample cancel at a breakable's break frame
 ;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances (a vector: x=near m, y=card m)
@@ -300,6 +306,8 @@
   (set! (-> obj hd-look-daxter) 1) ;; 0 ORIGINAL / 1 HD / 2 PANTS
   (set! (-> obj hd-look-keira) 1) ;; 0 ORIGINAL / 1 HD / 2 JAK 3
   (set! (-> obj hd-look-samos) 1) ;; 0 ORIGINAL / 1 HD / 2 YOUNG
+  (set! (-> obj physics?) #t) ;; Grecharged-secondary-motion: secondary-motion chains on HD companions — default ON (feature is opt-in at build time)
+  (set! (-> obj physics-quality) 1) ;; 0=LIGHT 1=FULL 2=MAXIMUM (data-driven levels in recharged_assets/physics_chains.txt)
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   (set! (-> obj recharged-textures?) #t) ;; Grecharged-bundled-textures: default ON — a plain install shows the owner's Recharged textures (the MASTER still forces stock when OFF)
   ;; original settings, minus 25 to be a bit more conservative
