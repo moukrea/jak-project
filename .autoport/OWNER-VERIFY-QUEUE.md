@@ -182,3 +182,11 @@ Les 5 looks bonus de cinématiques sont sur le Redmi (build da5e00544d + pack 9 
   ② l'ESTHÉTIQUE de chaque look (vigilance : proportions Young Samos sur le rig du vieux, le
   pantalon de Daxter, les tenues Jak II/3 sans cloth-sim jak1) ; ③ ORIGINAL = stock pur ;
   ④ une cinématique avec les bonus actifs. Ton œil = verdict final.
+
+### PRÉ-GATE 09:25 [✅ token M5] — LES 5 LOOKS BONUS SONT LÀ
+- Prouvé device : Jak-J2, Jak-J3, Daxter-PANTALON, Keira-J3 (bottines+visage), Young Samos —
+  visibles + animés (visages/blerc actifs), sélecteur par personnage dans l'ancien menu
+  (JAK/DAXTER/KEIRA/SAMOS LOOK : Original / HD / bonus — défaut HD), switch de look en live.
+- À TESTER (toi) : ouvrir le menu → les 4 lignes LOOK ; essayer Jak-J2 puis Jak-J3 ; Daxter pantalon ;
+  Keira J3 ; Young Samos ; vérifier le retour à HD/Original. Une cinématique avec un look bonus actif.
+- Phase suivante lancée : cycle 4 (clignement restauré + bretelles Keira), puis LA PHYSIQUE.
