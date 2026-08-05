@@ -136,3 +136,18 @@ tu ne skippes pas parce qu'il n'y a pas de faux-physics dessus. »
    AJOUTS du remake, listés par l'owner, à implémenter même sans aucun canal fake existant (ancrage
    sur les os disponibles, ou injection d'os si le rig n'en a pas).
 L'absence de fake-motion sur un site owner-listé n'est JAMAIS une raison de l'exclure.
+
+### PRÉCISION OWNER 2026-08-05 ~17:35 — COLLIDERS : exigence explicite anti-clipping
+« Faut des colliders et compagnie j'imagine pour éviter le clipping ! »
+=> Le cycle 1 a bien des body-sphere collisions, mais le résultat clippe encore (vêtements bleus de
+Jak, bretelles de Keira). EXIGENCE CYCLE 2 : un VRAI volume de collision par personnage, suffisant
+pour qu'aucune chaîne ne traverse le corps :
+- capsules/sphères sur torse, hanches, cuisses, bras, tête/cou (pas 1-2 sphères symboliques) ;
+- rayon des chaînes pris en compte (épaisseur du vêtement/lanière), pas juste le point de l'os ;
+- colliders SUIVANT les os animés (torse qui tourne, cuisses qui bougent), pas statiques ;
+- résolution de pénétration + friction/amortissement au contact pour éviter le jitter ;
+- gating par NIVEAU DE PRÉCISION (le niveau max = colliders complets ; les niveaux bas peuvent
+  réduire le nombre de colliders, JAMAIS au point de laisser traverser visiblement).
+Barre : aucune chaîne ne traverse le corps sur les animations courantes (course, saut, roulade,
+cinématiques) ; preuve par compteurs (pénétrations résiduelles par frame = 0 / résolues), jamais
+par captures. Les bretelles de Keira sont le cas-test canonique (clip frontal historique).
