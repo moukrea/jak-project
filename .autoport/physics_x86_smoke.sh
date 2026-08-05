@@ -35,7 +35,9 @@ STR=$(strings -a "$ISO/GAME.CGO" | grep -c 'HD-PHYS' || true)
 [ "$STR" -ge 3 ] || { say "FAIL: GAME.CGO carries $STR HD-PHYS strings (<3) — physics not compiled in"; exit 1; }
 say "artifact gate: GAME.CGO carries $STR [HD-PHYS] format strings"
 # the binary must expose the FFI (verify_binary_flags equivalent, local)
-if ! strings -a build/game/gk | grep -q 'pc-physics-joint-role'; then
+# grep -c (never -q) so the pipe is fully consumed under pipefail (SIGPIPE-141 trap)
+FFI=$(strings -a build/game/gk | grep -c 'pc-physics-joint-role' || true)
+if [ "${FFI:-0}" -lt 1 ]; then
   say "FAIL: gk binary lacks pc-physics-joint-role — OG_FEAT_PHYSICS not built"; exit 1; fi
 say "artifact gate: gk exposes the pc-physics FFI"
 ENH=out/jak1/fr3/enhanced/GAME.fr3
@@ -66,15 +68,17 @@ GKPID=0
 cleanup(){ [ "${GKPID:-0}" -gt 0 ] && kill "$GKPID" 2>/dev/null || true; wait 2>/dev/null || true; restore_ini; }
 trap cleanup EXIT
 
-run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lookS> <mode expect-phys|expect-off>
-  local TAG="$1" PHY="$2" QUAL="$3" LJ="$4" LD="$5" LK="$6" LS="$7" MODE="$8"
+run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lookS> <mode expect-phys|expect-off|expect-gameplay> [warp-level] [warp-pos]
+  local TAG="$1" PHY="$2" QUAL="$3" LJ="$4" LD="$5" LK="$6" LS="$7" MODE="$8" WARP="${9:-}" WPOS="${10:-}"
   local GKLOG="$OUT/.smoke_gk_$TAG.log"; : > "$GKLOG"
   set_ini 'physics?' "$PHY"; set_ini 'physics-quality' "$QUAL"
   set_ini 'hd-look-jak' "$LJ"; set_ini 'hd-look-daxter' "$LD"
   set_ini 'hd-look-keira' "$LK"; set_ini 'hd-look-samos' "$LS"
   say ""
-  say "=== LEG $TAG: physics?=$PHY quality=$QUAL looks $LJ$LD$LK$LS ==="
-  "$GK" --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data "$ISO" -- -boot -debug-mem > "$GKLOG" 2>&1 &
+  say "=== LEG $TAG: physics?=$PHY quality=$QUAL looks $LJ$LD$LK$LS warp=${WARP:-none} ==="
+  local envs=()
+  [ -n "$WARP" ] && envs+=("OG_LEVEL_WARP=$WARP" "OG_LEVEL_WARP_POS=$WPOS")
+  env "${envs[@]}" "$GK" --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data "$ISO" -- -boot -debug-mem > "$GKLOG" 2>&1 &
   GKPID=$!
   local booted=0 i
   for i in $(seq 1 150); do
@@ -83,6 +87,16 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
     sleep 1
   done
   [ "$booted" = 1 ] || { say "FAIL($TAG): boot timeout"; tail -25 "$GKLOG" >> "$R"; return 1; }
+  if [ -n "$WARP" ]; then
+    local w=0
+    for i in $(seq 1 120); do
+      kill -0 "$GKPID" 2>/dev/null || { say "FAIL($TAG): gk died pre-warp"; tail -25 "$GKLOG" >> "$R"; return 1; }
+      grep -aq 'LEVEL-WARP-SPAWN' "$GKLOG" && { w=1; break; }
+      sleep 1
+    done
+    [ "$w" = 1 ] || { say "FAIL($TAG): level warp never fired"; tail -25 "$GKLOG" >> "$R"; return 1; }
+    say "warp landed ($WARP)"
+  fi
   say "booted — watching ${WATCH}s"
   sleep "$WATCH"
   local ALIVE=no; kill -0 "$GKPID" 2>/dev/null && ALIVE=yes
@@ -112,6 +126,26 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
       [ "$NBIG" = 0 ] || { say "FAIL($TAG): $NBIG window(s) with maxdev>=5000 — not bounded"; OK=0; }
       say "leg $TAG: chains-resolving-inits=$NCH bounded-windows=yes"
       ;;
+    expect-gameplay)
+      # same bar as expect-phys PLUS at least one MOVING window: the driver pose visibly animated
+      # (anchmove>0) and the sim actually deviated (maxdev>0) yet stayed bounded. This is the
+      # sustained-real-animation state dump (title press-start windows are parked: anchmove=0
+      # -> the chain self-tracks its own rest exactly, maxdev=0 by construction).
+      [ "$NLOAD" -ge 1 ] || { say "FAIL($TAG): no 'params loaded' line"; OK=0; }
+      local NCH2; NCH2=$(grep -a '\[HD-PHYS\] init ag=' "$GKLOG" | grep -vc 'chains=0 ' || true)
+      [ "$NCH2" -ge 1 ] || { say "FAIL($TAG): no companion resolved any chain"; OK=0; }
+      [ "$NWIN" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS] window state dump"; OK=0; }
+      [ "$NNAN" = 0 ] || { say "FAIL($TAG): nan-resets nonzero — sim exploded"; OK=0; }
+      local NBIG2; NBIG2=$(grep -a 'maxdev=' "$GKLOG" | awk -F'maxdev=' '{print $2}' | awk '{if ($1+0 >= 5000.0) n++} END {print n+0}')
+      [ "$NBIG2" = 0 ] || { say "FAIL($TAG): $NBIG2 window(s) with maxdev>=5000 — not bounded"; OK=0; }
+      local NMOVDEV; NMOVDEV=$(grep -a 'window: chains=' "$GKLOG" | awk '{
+        am=0; md=0;
+        if (match($0, /anchmove=[0-9.]+/)) am=substr($0, RSTART+9, RLENGTH-9)+0;
+        if (match($0, /maxdev=[0-9.]+/))   md=substr($0, RSTART+7, RLENGTH-7)+0;
+        if (am > 1.0 && md > 0.5 && md < 5000.0) n++ } END {print n+0}')
+      [ "$NMOVDEV" -ge 1 ] || { say "FAIL($TAG): no MOVING bounded window (anchor animated + sim deviating)"; OK=0; }
+      say "leg $TAG: chains-resolving-inits=$NCH2 moving-bounded-windows=$NMOVDEV"
+      ;;
     expect-off)
       [ "$NWIN" = 0 ] || { say "FAIL($TAG): $NWIN window lines with physics?=#f — OFF is not off"; OK=0; }
       ;;
@@ -124,8 +158,9 @@ FAILED=0
 run_leg "L2-max"    '#t' 2 1 1 1 1 expect-phys || FAILED=1
 run_leg "L0-light"  '#t' 0 1 1 1 1 expect-phys || FAILED=1
 run_leg "BONUS"     '#t' 1 2 2 2 2 expect-phys || FAILED=1
+run_leg "GAMEPLAY"  '#t' 1 1 1 1 1 expect-gameplay "village1-hut" "-130.5 34.5 202.4" || FAILED=1
 run_leg "OFF"       '#f' 1 1 1 1 1 expect-off  || FAILED=1
 
 say ""
-if [ "$FAILED" = 0 ]; then say "[physics x86 smoke PASS] all four legs green"; else say "[physics x86 smoke FAIL] see legs above"; fi
+if [ "$FAILED" = 0 ]; then say "[physics x86 smoke PASS] all five legs green"; else say "[physics x86 smoke FAIL] see legs above"; fi
 exit "$FAILED"

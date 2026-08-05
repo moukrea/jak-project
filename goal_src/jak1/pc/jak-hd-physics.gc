@@ -64,6 +64,8 @@
 (define *phys-slot-maxdev* (new 'static 'array float 8))    ;; window max |p - t|
 (define *phys-slot-maxvel* (new 'static 'array float 8))    ;; window max per-frame speed
 (define *phys-slot-calm* (new 'static 'array int32 8))      ;; consecutive calm frames
+(define *phys-slot-anchprev* (new 'static 'inline-array vector 8)) ;; chain0 anchor last pos (debug)
+(define *phys-slot-anchmove* (new 'static 'array float 8))  ;; window max anchor move (debug)
 
 ;; per sim joint (idx = slot*PHYS-JPS + j)
 (define *phys-jk* (new 'static 'array int32 384))           ;; HD game joint index k
@@ -240,7 +242,8 @@
              (rotm (new 'stack-no-clear 'matrix))
              (tmpm (new 'stack-no-clear 'matrix))
              (frame-maxvel 0.0)
-             (frame-maxdev 0.0))
+             (frame-maxdev 0.0)
+             (frame-nact 0))
         (when (and (> dt 0.0001) (< dt 0.1))
           ;; fixed-timestep ladder top: substep count from the accumulator target rate
           (when (> fixedhz 1.0)
@@ -252,6 +255,16 @@
                 (when (< (+ k 1) nbones)
                   (vector-copy! (-> *phys-targ* (+ jbase j))
                                 (-> skel bones (+ k 1) transform vector 3)))))
+            ;; debug instrument: does the driver pose move at all? (chain0 anchor world delta)
+            (when (> (-> *phys-slot-nchains* slot) 0)
+              (let* ((a0 (-> *phys-canchor* cbase))
+                     (ap (-> skel bones (+ a0 1) transform vector 3)))
+                (when (nonzero? (-> *phys-slot-seeded* slot))
+                  (vector-! vtmp ap (-> *phys-slot-anchprev* slot))
+                  (let ((am (vector-length vtmp)))
+                    (when (> am (-> *phys-slot-anchmove* slot))
+                      (set! (-> *phys-slot-anchmove* slot) am))))
+                (vector-copy! (-> *phys-slot-anchprev* slot) ap)))
             ;; first frame (or post-reset spawn): seed at targets = start at rest
             (when (zero? (-> *phys-slot-seeded* slot))
               (set! (-> *phys-slot-seeded* slot) 1)
@@ -272,6 +285,7 @@
                        (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
                        (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i)))))
                     (else
+                     (+! frame-nact 1)
                      (let* ((anchor-k (-> *phys-canchor* ci))
                             (anchor (-> skel bones (+ anchor-k 1) transform vector 3))
                             (omega (-> *phys-comega* ci))
@@ -448,19 +462,23 @@
             (+! (-> *phys-slot-frames* slot) 1)
             (when (>= (-> *phys-slot-frames* slot) 300)
               ;; split in two: a GOAL call carries at most 8 parameters (jak-hd.gc precedent).
-              (format 0 "[HD-PHYS] ag=~S lvl=~D window: chains=~D joints=~D"
+              (format 0 "[HD-PHYS] ag=~S lvl=~D window: chains=~D joints=~D act=~D cm=~D"
                       (-> *hd-ag-names* (-> obj entry))
                       level
                       (-> *phys-slot-nchains* slot)
-                      (-> *phys-slot-njoints* slot))
-              (format 0 " maxdev=~f maxvel=~f nan-resets=~D (verlet state dump bounded)~%"
+                      (-> *phys-slot-njoints* slot)
+                      frame-nact
+                      classmask)
+              (format 0 " maxdev=~f maxvel=~f anchmove=~f nan-resets=~D (verlet state dump bounded)~%"
                       (-> *phys-slot-maxdev* slot)
                       (-> *phys-slot-maxvel* slot)
+                      (-> *phys-slot-anchmove* slot)
                       (-> *phys-slot-resets* slot))
               (set! (-> *phys-slot-frames* slot) 0)
               (set! (-> *phys-slot-resets* slot) 0)
               (set! (-> *phys-slot-maxdev* slot) 0.0)
-              (set! (-> *phys-slot-maxvel* slot) 0.0)))))))
+              (set! (-> *phys-slot-maxvel* slot) 0.0)
+              (set! (-> *phys-slot-anchmove* slot) 0.0)))))))
   (none))
 
 ) ;; #when FLAG_PHYSICS

@@ -497,6 +497,9 @@
     "Grecharged-hd-models4": [
       "5d795b625927",
       "5d795b625927"
+    ],
+    "Grecharged-secondary-motion": [
+      "148d3922555a"
     ]
   },
   "stuck_reasons": {
@@ -932,7 +935,7 @@
     "Grecharged-hd-models4": 1785914559.408257,
     "Grecharged-secondary-motion": 1785927178.8590672
   },
-  "last_update": "2026-08-05T11:37:20.085797+00:00",
+  "last_update": "2026-08-05T11:37:20.649756+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
