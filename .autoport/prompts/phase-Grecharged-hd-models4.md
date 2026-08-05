@@ -231,3 +231,16 @@ donor OK) · PNJ stables en cinématique (« vraiment beaucoup, beaucoup mieux �
    owner). Chaîne bretelles : vérifier le mapping (strap chains étaient en mode-3/0.103-scale au
    cycle 3) — probablement des joints de bretelle qui suivent mal le buste -> clip frontal.
 Timing : cycle 4 se lance APRÈS la clôture M5 (les looks bonus héritent des mêmes fixes).
+
+## VERDICT OWNER 2026-08-05 ~10:3x sur M5 : « impeccable, ça fonctionne parfaitement ! » — 2 suites
+1. **CYCLE-4 item 2 élargi** : le clip des bretelles de Keira touche AUSSI son look alternatif
+   keira3-hd (Jak 3) — le fix de la chaîne bretelles doit couvrir LES DEUX looks (keira-hd ET
+   keira3-hd ; vérifier les tables k->e des deux).
+2. **CYCLE-4 item 3 (nouveau, owner)** : intégrer le look bonus supplémentaire **Jak 3 MASQUE
+   BAISSÉ** — il existe un modèle de CINÉMATIQUE de Jak 3 où Jak porte son masque/lunettes baissé
+   sur le visage. Sourcing : chercher dans les rips jak3 la variante highres masquée (autour des
+   art-groups jakc-*/jak-* des cutscenes ; l'owner confirme qu'elle existe en ciné). L'intégrer
+   comme 4e option du carousel JAK LOOK (ORIGINAL / HD / JAK II / JAK 3 / JAK 3 MASQUÉ), complet
+   d'entrée (définition-of-done : visage/blerc — noter que le masque peut couvrir une partie des
+   canaux faciaux, documenter ce qui s'applique —, yeux si visibles, géométrie complète, extrémités).
+   Même mécanisme, même gating menu (grisage master/enhanced).
