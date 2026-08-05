@@ -1,4 +1,81 @@
-# Jak 1 — Arborescence des menus — REFONTE Grecharged-menu-overhaul (RECADRAGE)
+# Jak 1 — Arborescence des menus — DÉFAUT LIVRÉ (FLAG_MENU_OVERHAUL OFF)
+
+> Gmenu-flag-off (owner 2026-08-04) : la refonte Grecharged-menu-overhaul est sortie des builds
+> livrés. `goal_src/jak1/pc/progress-pc.gc` porte DEUX corps complets sélectionnés à la compile :
+> `#unless FLAG_MENU_OVERHAUL` = **l'ANCIEN menu fonctionnel** (état pré-refonte 1000f7ab03,
+> + 2 fixes de longueur, voir §fix) — C'EST CE QUI EST LIVRÉ ; `#when FLAG_MENU_OVERHAUL` = la
+> refonte gelée (annexe en bas de ce fichier). Flag généré par build.sh (`--menu-overhaul`,
+> défaut OFF, univers ogflags 7 flags / 128 sous-ensembles).
+>
+> Légende : `[R]` = ajout Recharged · `{FLAG_X}` = ligne présente uniquement si le flag de build
+> est ON · `(grisé si …)` = option-disabled-func · valeurs = champ *pc-settings* piloté.
+
+## Entrées
+
+```
+ÉCRAN-TITRE (*title-pc*) : Nouvelle partie / Charger / Options / Secrets / Quitter
+PAUSE (*main-options-pc* 8 lignes / *main-options-secrets* 9) : Game/Graphics/Sound Options,
+  Charger/Sauvegarder, auto-save, (Secrets), Quitter — structure PS2 d'origine + lignes PC.
+```
+
+## GRAPHICS (desktop `*graphic-options-pc*` 15 lignes / Android `*graphic-options-pc-android*` 12)
+
+Aspect, Résolution (desktop), Dynamic Render Scale (`dynamic-render-scale?`), Render Scale,
+Min Target FPS (`dyn-target-fps`), FPS Counter, VSync, MSAA, [desktop : Display Mode, Display,
+Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_SUPPORT}`, Back.
+
+## RECHARGED SETTINGS (`*recharged-options-pc`* — 24 lignes livrées avec hd-models+pbr, HUD off)
+
+| idx | ligne | pilote |
+|---|---|---|
+| 0 | RECHARGED MASTER (on-off) | `recharged-master?` |
+| 1 | GRASS SETTINGS (sous-menu) | → `*grass-options-pc*` |
+| 2 | LOAD CUSTOM ASSETS | `load-custom-assets?` |
+| 3 | RECHARGED TEXTURES | `recharged-textures?` |
+| 4 | PBR MATERIALS `{FLAG_PBR}` | `pbr-materials?` |
+| 5 | ENHANCED MODELS `{FLAG_HD_MODELS}` (collapse si FR3 HD absents) | `recharged-enhanced-models?` |
+| 6 | FOLIAGE WIND | `recharged-foliage-wind?` |
+| 7-9 | AMBIENT OCCLUSION / AO QUALITY / AO STRENGTH (carousells) | `ambient-occlusion`/`ao-quality`/`ao-strength` via int-backup |
+| 10 | REALTIME LIGHTING `{FLAG_PBR}` | `realtime-lighting?` |
+| 11-12 | FOLLOW PROBE / AMBIENT MODEL (carousells) `{FLAG_PBR}` | int-backup → champs rt |
+| 13-15 | AMBIENT STRENGTH / CONTRAST / SHADOW DISTANCE (sliders) `{FLAG_PBR}` | `realtime-ambient-strength`/`-contrast`/`realtime-shadow-dist` |
+| 16 | SHADOW QUALITY (carousell) `{FLAG_PBR}` | int-backup → `shadow-quality` |
+| 17-18 | TEXTURE RELIEF / SPECULAR INTENSITY (sliders) `{FLAG_PBR}` | `pbr-texture-relief`/`pbr-specular-intensity` |
+| **19** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
+| 20 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
+| 21 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
+| 22 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
+| 23 | Back | — |
+
+## GRASS SETTINGS (`*grass-options-pc*` 7 lignes)
+
+RECHARGED GRASS (`recharged-grass?`), NEAR DIST, CARD DIST, DENSITY, GRASS MODE
+(`recharged-grass-precomputed?`), GRASS OVERHANG `{FLAG_GRASS_OVERHANG}`, Back.
+
+## §fix — 2 corrections de longueur dans le corps restauré (Gmenu-flag-off)
+
+1. **fw-idx** : le terme "longueur statique pleine" du garde était resté à `(* 9 FLAG_PBR_N)`
+   (écrit quand 9 lignes PBR suivaient MATERIALS ; DISPLACEMENT+PRESET+ISOLATE l'ont porté à 12).
+   Sur un build hd-models+pbr le garde lisait le tableau PLEIN comme "collapsé" et câblait
+   FOLIAGE WIND et toute la suite UNE LIGNE TROP TÔT (= la classe de collisions vue par l'owner).
+   → `(* 12 FLAG_PBR_N)`.
+2. **Collapse HD** : son garde utilisait l'arithmétique pré-PBR (longueur 11+hud+pbr) et ne
+   pouvait JAMAIS tirer sur un build --pbr → ligne ENHANCED MODELS fantôme si FR3 HD absents au
+   runtime. → garde sur la vraie longueur pleine + décalage de TOUTES les lignes suivantes.
+
+Preuve bindings : `.autoport/reports/Gmenu-flag-off/x86_binding_proof.log` (dump table + toggles
+runtime via la vraie file respond-common/menu-touch). Le porthole (fond fenêtre) est CONSERVÉ
+dans le menu livré (le hide V3-E d'adjust-sprites est `#when FLAG_MENU_OVERHAUL`).
+
+---
+
+# ANNEXE — Arborescence de la REFONTE (FLAG_MENU_OVERHAUL **ON** — NON LIVRÉE)
+
+> ⛔ **Gmenu-flag-off (owner 2026-08-04)** : la refonte ci-dessous est **CASSÉE** (paramètres
+> inventés, bindings en collision, sélecteur displacement perdu) et est **compilée-out par
+> défaut** (`build.sh --menu-overhaul` pour la réactiver, uniquement pour sa future phase de
+> rework). Ce qui suit décrit l'état gelé du corps `#when FLAG_MENU_OVERHAUL` de
+> `progress-pc.gc`. **L'arborescence LIVRÉE est celle de la section principale ci-dessus.**
 
 > Réécrit 2026-08-01 pour la refonte validée par l'owner, **après le RECADRAGE owner du 2026-08-01** :
 > on organise **PAR FONCTION, jamais par origine**. L'ancien couple AFFICHAGE (affichage vanilla) +
