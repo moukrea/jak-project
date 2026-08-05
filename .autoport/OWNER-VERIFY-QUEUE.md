@@ -295,3 +295,13 @@ PHYSIQUE CYCLE 2 lancée : conflit faux-vent×physique (clipping vêtements Jak)
 au crâne (gradient racine->pointes), jiggle Keira INERTE à réveiller, lunettes de Keira, COLLIDERS
 sérieux (capsules suivant les os, rayon des chaînes, résolution de pénétration), BUG MENU « Physics
 Detail ouvre le mesh browser ».
+
+## ====== À TESTER AU RÉVEIL (nuit du 06/08) ======
+Le framework tourne toute la nuit ; chaque build part AUTOMATIQUEMENT sur jak-builds
+(app-jak1-HD-recharged.apk + jak1_hd_assets.zip — prends les deux).
+PHYSIQUE CYCLE 2 attendu : jiggle Keira VISIBLE mais sobre · cheveux ancrés au crâne (plus de
+chevelure "détachée") · vêtements/lanières de Jak qui ne traversent plus (colliders + audit
+pénétration à 0) · faux-vent neutralisé (fin du combat des deux animations) · lunettes de Keira
+· fix du menu "Physics Detail" (n'ouvre plus le mesh browser).
+Puis (si la nuit le permet) : vague physique cast-complet (PNJ, ventres/poitrines/chapeaux, binocle
+de Samos...). Chaque livraison ajoute sa ligne ici.
