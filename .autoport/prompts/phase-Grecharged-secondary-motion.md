@@ -54,3 +54,19 @@ corps, comme ç'aurait été fait à l'époque si la PS2 l'avait permis. Subtili
 - Preuves : state dumps des chaînes (positions/vitesses bornées, retour au repos, pas de NaN/explosion)
   + compteurs — PAS de campagnes de captures (règle permanente). L'owner juge le rendu en jouant.
 - « Rien de fou » : subtil, crédible, cohérent avec l'esprit du jeu.
+
+## EXTENSION OWNER 2026-08-05 ~11:55 — « on ne laisse RIEN sous le tapis ! »
+Le périmètre s'élargit, FERME :
+1. **ACCESSOIRES** aussi : les lunettes de Keira (sur sa tête), le bun/chignon de Samos (sa bûche),
+   et tout accessoire équivalent qui bougerait naturellement (lunettes de Jak sur son front, sacoches,
+   pendentifs…) — même mécanique de chaînes, subtilité de mise.
+2. **TOUTES LES VARIANTES DE LOOK** : la physique s'applique à CHAQUE look du carousel (primaires ET
+   bonus — le Jak J2, le J3 masqué ou non, Keira J3, Daxter pantalon, Young Samos…), pas seulement
+   aux looks par défaut. Les paramètres de chaînes sont par-modèle (data-driven), donc chaque variante
+   reçoit ses chaînes propres (cheveux différents, accessoires différents).
+3. **TOUS LES PNJ à cheveux longs (et compagnie) — Y COMPRIS MAIA** : l'étude de faisabilité
+   Maia/archéologue passe de « évaluer sans promettre » à « DANS LE PÉRIMÈTRE » : pour les
+   personnages SANS modèle HD, la voie = injection d'os de physique + poids sur le modèle STOCK
+   (le pipeline de prep sait déjà fabriquer/injecter des os — même mécanique que l'align). Recenser
+   les PNJ concernés (cheveux longs, barbes, accessoires pendants) et les traiter. Si un cas précis
+   s'avère réellement impossible, le documenter avec preuve — pas d'abandon silencieux de catégorie.
