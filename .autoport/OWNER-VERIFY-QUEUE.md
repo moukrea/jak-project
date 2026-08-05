@@ -289,3 +289,9 @@ Extension PNJ = généralisation de la sim aux modèles stock (par vagues, aprè
 
 ### 19:30 — Ton verdict : Jak3/Jak3-masqué INVERSÉS (swap) · jakf barefoot À RETIRER · prison J2
 NICKEL (verrouillé) · bretelles Keira CLOSES. Après swap+retrait -> PHYSIQUE CYCLE 2.
+
+### 22:00 — Cycle 5 CLOS sur parole owner (swap + retrait jakf = trop basique pour un test).
+PHYSIQUE CYCLE 2 lancée : conflit faux-vent×physique (clipping vêtements Jak), ancrage des cheveux
+au crâne (gradient racine->pointes), jiggle Keira INERTE à réveiller, lunettes de Keira, COLLIDERS
+sérieux (capsules suivant les os, rayon des chaînes, résolution de pénétration), BUG MENU « Physics
+Detail ouvre le mesh browser ».
