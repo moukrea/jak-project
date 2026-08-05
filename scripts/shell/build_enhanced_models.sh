@@ -67,6 +67,22 @@ SWAP_BIN="build/tools/hd_merc_swap/hd_merc_swap"
 # came from the lossy GLB alphaMode round-trip; white eyes from the dropped eye_id), and the
 # append remaps donor eye slots onto the DRIVER's (--eye-from).
 # Per-entry IP gate: a missing donor rip is a loud SKIP, not a failure.
+#
+# CYCLE 4 (blink): each donor fr3 also carries the character's EYELID texture, which NO merc draw
+# references (the lid is drawn by EyeRenderer, not by the merc). LID_TEX[<char>] names that donor
+# texture; `hd_merc_swap add --port-lid <name>` copies it into the enhanced fr3 under the
+# debug_name "<char>-lid" that Merc2 looks up to hand the lid to EyeRenderer.
+declare -A LID_TEX=(
+  [jak-hd]=jak-orig-eyelid
+  [dax-hd]=daxter-eyelid
+  [keira-hd]=keira-eyelid
+  [samos-hd]=samos-eyelid
+  [jak2-hd]=jakb-eyelid
+  [jak3-hd]=jakchires-eyelid
+  [daxp-hd]=daxter-eyelid
+  [keira3-hd]=keira-eyelid
+  [ysamos-hd]=samos-eyelid
+)
 APPENDS=(
   "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0|"
   "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|"
@@ -183,9 +199,17 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     if [ -n "$driver_fr3" ]; then
       DRIVER_ARGS=(--driver-fr3 "$driver_fr3")
     fi
+    # cycle 4 (blink): port the donor eyelid texture as "<char>-lid" for the EyeRenderer path.
+    LID_ARGS=()
+    LID_NAME="${LID_TEX[$char]:-}"
+    if [ -z "$LID_NAME" ]; then
+      log "FATAL: no LID_TEX entry for $char — the blink fix needs a donor eyelid texture name"
+      rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    LID_ARGS=(--port-lid "$LID_NAME")
     "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" --eye-from "$driver_model" \
       --blerc-from "$donor_fr3:$donor_model" \
-      ${DRIVER_ARGS[@]+"${DRIVER_ARGS[@]}"} 2>&1 | tee -a "$SWAP_LOG"
+      ${DRIVER_ARGS[@]+"${DRIVER_ARGS[@]}"} "${LID_ARGS[@]}" 2>&1 | tee -a "$SWAP_LOG"
     if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
       log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
@@ -193,6 +217,12 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     # class A gate: the eye remap must have actually happened (donor rips DO carry eye draws)
     if ! grep -qE "EYE-REMAP: [1-9][0-9]* eye draws" "$SWAP_LOG"; then
       log "EYE-REMAP verification FAILED for $char — no eye draws were rebound to $driver_model."
+      rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    # cycle-4 blink gate: the donor eyelid texture MUST have landed as "<char>-lid" (pool-safe),
+    # otherwise Merc2 finds no lid texture and EyeRenderer keeps drawing the no-blink fallback.
+    if ! grep -qE "^LID-PORT: '$LID_NAME' .* name='$char-lid' load_to_pool=0" "$SWAP_LOG"; then
+      log "LID-PORT verification FAILED for $char — donor eyelid '$LID_NAME' was not ported as '$char-lid'."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
     fi
     # class B gate: the blerc port must complete (or loudly state the donor carries no blerc)

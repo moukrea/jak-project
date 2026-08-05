@@ -619,8 +619,55 @@ static bool s_hd_ever_armed = false;  // heartbeat stays silent until the first 
 // to skip the full-tile lid blit for these slots (see Merc2.h). Render-thread only.
 static int s_hd_eye_slot_ttl[256] = {};
 
+// CYCLE-4 (visible blink): donor eyelid GL texture per covered slot (0 = none). hd_merc_swap
+// ports the donor's own lid texture into enhanced GAME.fr3 with debug_name "<model>-lid"
+// (e.g. "keira-hd-lid"); we resolve it against the model's level texture list at slot arming
+// and hand the GL handle to the EyeRenderer, which paints it at the driver's lid position
+// instead of skipping the blit. TexturePool cannot be used here — its lookup is keyed by VRAM
+// address, and ported donor textures must NOT enter the pool at donor combo ids (donor pages
+// are OOB/aliased in the jak1 page directory). A model without a ported lid keeps the cycle-3
+// skip = fail-safe, never the stock jak1 lid on donor eye UVs.
+static u64 s_hd_eye_slot_lid_gl[256] = {};
+
+struct HdLidCacheEntry {
+  const void* level = nullptr;  // LevelData identity — re-resolve if the level was reloaded
+  u64 gl = 0;
+};
+static std::unordered_map<std::string, HdLidCacheEntry> s_hd_lid_cache;
+
+static u64 hd_lid_gl_for_model(const char* name, const LevelData* lev) {
+  if (!name || !lev || !lev->level) {
+    return 0;
+  }
+  auto& entry = s_hd_lid_cache[name];
+  if (entry.level == lev) {
+    return entry.gl;
+  }
+  entry.level = lev;
+  entry.gl = 0;
+  // "<base>-lod0" -> "<base>-lid"
+  std::string want(name);
+  auto lod = want.rfind("-lod");
+  if (lod != std::string::npos) {
+    want.resize(lod);
+  }
+  want += "-lid";
+  const auto& texs = lev->level->textures;
+  for (size_t i = 0; i < texs.size() && i < lev->textures.size(); i++) {
+    if (texs[i].debug_name == want) {
+      entry.gl = lev->textures[i];
+      break;
+    }
+  }
+  return entry.gl;
+}
+
 bool merc2_hd_eye_slot_covered(u8 slot) {
   return s_hd_eye_slot_ttl[slot] > 0;
+}
+
+u64 merc2_hd_eye_slot_lid_gl(u8 slot) {
+  return s_hd_eye_slot_ttl[slot] > 0 ? s_hd_eye_slot_lid_gl[slot] : 0;
 }
 
 void merc2_hd_cover(u32 companion_pid, u32 driver_pid) {
@@ -728,11 +775,14 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         s_hd_last_arm_call[driver_pid] = s_hd_render_call_idx;
         s_hd_driver_ttl[driver_pid] = 32;
         s_hd_ever_armed = true;
-        // arm the HD-covered eye slots (lid-blit suppression, see merc2_hd_eye_slot_covered).
+        // arm the HD-covered eye slots (lid-blit suppression, see merc2_hd_eye_slot_covered),
+        // and record this model's donor lid GL texture for the EyeRenderer blink paint (cycle 4).
+        const u64 lid_gl = hd_lid_gl_for_model(name, model_ref->level);
         for (const auto& eff : model_ref->model->effects) {
           for (const auto& d : eff.all_draws) {
             if (d.eye_id != 0xff) {
               s_hd_eye_slot_ttl[d.eye_id] = 32;
+              s_hd_eye_slot_lid_gl[d.eye_id] = lid_gl;
             }
           }
         }
@@ -1547,10 +1597,11 @@ void Merc2::render(DmaFollower& dma,
     }
     s_hd_uncover_pending.clear();
   }
-  // drain the eye-slot coverage TTLs (armed with the pid TTLs, read by EyeRenderer).
-  for (int& t : s_hd_eye_slot_ttl) {
-    if (t > 0) {
-      t--;
+  // drain the eye-slot coverage TTLs (armed with the pid TTLs, read by EyeRenderer); the donor
+  // lid record falls with the TTL (an uncovered slot must revert to the stock lid path).
+  for (int i = 0; i < 256; i++) {
+    if (s_hd_eye_slot_ttl[i] > 0 && --s_hd_eye_slot_ttl[i] == 0) {
+      s_hd_eye_slot_lid_gl[i] = 0;
     }
   }
   // drain the per-driver coverage TTLs (armed in handle_pc_model on companion submits).

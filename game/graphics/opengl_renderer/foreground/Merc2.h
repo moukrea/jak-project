@@ -17,6 +17,14 @@ void merc2_hd_uncover(u32 companion_pid);
 // blend off) — correct on the stock flat eyelid-patch mesh, garbage wrapped around the HD donor
 // EYEBALL geometry. EyeRenderer skips the lid blit for covered slots. Render-thread only.
 bool merc2_hd_eye_slot_covered(u8 slot);
+// CYCLE-4 (visible blink): donor eyelid GL texture for a covered slot, 0 when unknown. The donor
+// games blink exactly like jak1 — a lid texture painted across the eye tile with the same
+// blink-table math — so the correct blink for an HD model paints the DONOR's own lid texture
+// (ported into enhanced GAME.fr3 by hd_merc_swap as "<model>-lid", resolved from the model's
+// level at slot arming) at the driver's lid position. When this returns 0 the EyeRenderer keeps
+// the cycle-3 behavior (skip the blit — never the stock jak1 lid on donor eye UVs, that was the
+// black-eye bug).
+u64 merc2_hd_eye_slot_lid_gl(u8 slot);
 #endif
 
 struct MercDebugStats {

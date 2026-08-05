@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Grecharged-hd-models4 — DEFECT CYCLE 3 validator (owner verdict 2026-08-04 ~19:00 on the cycle-2
-# build). ACQUIS to protect: faces ALIVE x4. New bar: P1 NPC-flicker REGRESSION root-caused+fixed,
-# Daxter fur holes + lower face, Jak gap+clip (2-cycle survivors), Samos beard chain, Keira
-# blink-black-eyes. Cycle-1/2 gates CARRIED (append-only, integrity, per-actor coverage, six class
-# lines re-stated against the CURRENT bake, FACE-FINGER-GATE physical check, device proof).
+# Grecharged-hd-models4 — DEFECT CYCLE 4 validator (owner verdict 2026-08-05 ~08:15 on the
+# menu+cycle-3 build). VICTORIES LOCKED (zero regression): Jak clothing-clip gone, Daxter perfect,
+# Samos beard fixed, donor-iris eyes, NPCs stable in cutscenes, faces alive x4.
+# New cycle-4 bar (2 items): (1) VISIBLE natural blink on all four HD faces — the cycle-3
+# blink-black fix (lid-blit skip on HD slots) over-corrected and killed the visible blink; fix =
+# donor lid texture blit or donor blink blend-targets driven by the driver's lid channel; must NOT
+# re-introduce black eyes. (2) Keira's straps clip through the FRONT of her torso — strap-chain
+# k->e mapping fix. All cycle-1/2/3 gates CARRIED (append-only, integrity, per-actor coverage,
+# class lines re-stated against the CURRENT bake, FACE-FINGER-GATE physical check, device proof).
 # Line-based greps: every required fact must sit on ONE report line.
 set -uo pipefail
 fail(){ echo "[Ghdmodels4 FAIL] $*" >&2; exit 1; }
@@ -23,8 +27,8 @@ if [ "$PSTART" -gt 0 ]; then
   [ "$RMT" -gt "$PSTART" ] || fail "report older than this phase's start — stale evidence"
 fi
 grep -qiE 'RESULT:' "$R" || fail "no RESULT: line"
-# phase-NEW marker: this must be the CYCLE-3 report, not a refresh of cycle 2's
-grep -qE 'DEFECT-CYCLE-3' "$R" || fail "no DEFECT-CYCLE-3 marker — cycle-2 report re-submitted?"
+# phase-NEW marker: this must be the CYCLE-4 report, not a refresh of cycle 3's
+grep -qE 'DEFECT-CYCLE-4' "$R" || fail "no DEFECT-CYCLE-4 marker — cycle-3 report re-submitted?"
 
 # ---- carried cycle-1 gates -------------------------------------------------------------------
 for c in dax keira samos; do
@@ -82,6 +86,32 @@ grep -qiE '^CYCLE3-SAMOS.*beard.*(tip|chain).*(follow|map|joint).*PASS' "$R" \
 # ---- CYCLE-3 Keira — blink must not black the eyes -------------------------------------------
 grep -qiE '^CYCLE3-KEIRA.*blink.*(root.?cause|eye|texture|uv|slot).*PASS' "$R" \
   || fail "CYCLE3-KEIRA: no blink PASS line"
+
+# ---- CYCLE-4 item 1 — VISIBLE blink on all four HD faces (owner 08:15) -----------------------
+grep -qiE '^CYCLE4-BLINK.*root.?cause' "$R" \
+  || fail "CYCLE4-BLINK: no root-cause line (why the cycle-3 fix killed the visible blink)"
+grep -qiE '^CYCLE4-BLINK.*(donor|lid|eyelid|blend.?target).*(mechanism|implement|port|blit|driv)' "$R" \
+  || fail "CYCLE4-BLINK: no mechanism line (donor lid blit or blend-target drive)"
+for c in jak dax keira samos; do
+  grep -qiE "^CYCLE4-BLINK.*${c}.*PASS" "$R" \
+    || fail "CYCLE4-BLINK: no visible-blink PASS line for ${c}"
+done
+# proof = renderer-side state/counter evidence (lid value excursion / target weight over time),
+# NEVER captures (owner rule 2026-08-04 'pour toujours')
+grep -qiE '^CYCLE4-BLINK-PROOF.*(state|dump|counter|log|value|weight|amplitude|excursion|channel)' "$R" \
+  || fail "CYCLE4-BLINK-PROOF: no renderer-side/state-dump proof line"
+grep -qiE '^CYCLE4-BLINK.*(no|zero|not)[^.]*black' "$R" \
+  || fail "CYCLE4-BLINK: no statement that blink does NOT re-introduce black eyes (CYCLE3-KEIRA acquis)"
+
+# ---- CYCLE-4 item 2 — Keira straps must not clip through the front of her torso --------------
+grep -qiE '^CYCLE4-KEIRA-STRAP.*(root.?cause|joint|chain|map)' "$R" \
+  || fail "CYCLE4-KEIRA-STRAP: no root-cause/mapping line"
+grep -qiE '^CYCLE4-KEIRA-STRAP.*(fix|remap|follow|resolve).*PASS' "$R" \
+  || fail "CYCLE4-KEIRA-STRAP: no fix PASS line"
+
+# ---- NO-REGRESSION on the owner's 08:15 locked victories -------------------------------------
+grep -qiE '^NO-REGRESS.*(pupil|iris).*donor.*(PASS|intact|proven)' "$R" \
+  || fail "no NO-REGRESS donor-iris/pupils line (owner 08:15 acquis: eyes = HD versions)"
 
 # ---- backport definition-of-done: LOUD-FAIL k->e generator (owner ~11:30, carried) -----------
 grep -qE 'FACE-FINGER-GATE' scripts/shell/retarget_fill_table.py \

@@ -1049,8 +1049,84 @@ u32 port_texture(tfrag3::Level& lev,
   }
   u32 nt = (u32)lev.textures.size();
   lev.textures.push_back(dlev.textures[donor_tex_idx]);
+  // cycle-4 latent-bug fix: ported donor textures are referenced by fr3 index (merc draws) or by
+  // the hd-lid debug_name side channel, NEVER via the TexturePool. The donor's combo_id names a
+  // page in the DONOR game's tpage dir; jak1's dir has only 1611 entries, so donor combo pages are
+  // either out of bounds (UB read) or alias a legitimate jak1 texture slot. LoaderStages.cpp
+  // registers any load_to_pool texture into the pool by combo page/idx — so shipping the donor's
+  // load_to_pool=1 verbatim was silently corrupting jak1 pool slots.
+  lev.textures.back().load_to_pool = false;
   cache.emplace(donor_tex_idx, nt);
   return nt;
+}
+
+// jak1's texture page directory size — a combo page >= this is out of bounds for jak1's pool.
+constexpr u32 kJak1TexturePageCount = 1611;
+
+// LID-PORT (cycle 4): the HD eyelid fix needs the donor's eyelid texture available to the renderer
+// even though NO merc draw references it (the lid is drawn by EyeRenderer, not by a merc draw).
+// Merc2 resolves it from the model's level texture list by debug_name "<model-base>-lid", so we
+// copy the named donor texture into the target level and rename the COPY. The copy is always
+// fresh (own cache) so a texture already ported for envmap/animslot purposes keeps its own name.
+int port_lid(tfrag3::Level& lev,
+             const fs::path& donor_fr3,
+             const std::string& donor_tex_name,
+             const std::string& model_name) {
+  tfrag3::Level dlev;
+  load_fr3(donor_fr3, dlev);
+  std::vector<u32> matches;
+  for (size_t i = 0; i < dlev.textures.size(); i++) {
+    if (dlev.textures[i].debug_name == donor_tex_name) {
+      matches.push_back((u32)i);
+    }
+  }
+  if (matches.size() != 1) {
+    fmt::print("  LID-PORT FAIL: donor texture '{}' matched {} times in {} (need exactly 1)\n",
+               donor_tex_name, matches.size(), donor_fr3.string());
+    fmt::print("  candidates containing 'lid'/'eye':\n");
+    for (size_t i = 0; i < dlev.textures.size(); i++) {
+      const auto& n = dlev.textures[i].debug_name;
+      if (n.find("lid") != std::string::npos || n.find("eye") != std::string::npos) {
+        fmt::print("    [{}] '{}' {}x{}\n", i, n, dlev.textures[i].w, dlev.textures[i].h);
+      }
+    }
+    return 8;
+  }
+  // base name: strip the trailing "-lod0" from the appended model name.
+  std::string base = model_name;
+  const std::string kLod0 = "-lod0";
+  if (base.size() > kLod0.size() && base.compare(base.size() - kLod0.size(), kLod0.size(), kLod0) == 0) {
+    base = base.substr(0, base.size() - kLod0.size());
+  }
+  const std::string lid_name = base + "-lid";
+  // fresh local cache => always appends a NEW copy, never renames a draw-referenced shared copy.
+  std::map<u32, u32> lid_cache;
+  u32 nt = port_texture(lev, dlev, matches[0], lid_cache);
+  auto& t = lev.textures[nt];
+  t.debug_name = lid_name;
+  fmt::print("LID-PORT: '{}' {}x{} combo=0x{:x} -> idx={} name='{}' load_to_pool=0\n",
+             donor_tex_name, t.w, t.h, t.combo_id, nt, t.debug_name);
+  return 0;
+}
+
+// LID-GATE (cycle 4): no texture in the shipped level may register into jak1's TexturePool with a
+// combo page outside jak1's tpage dir. Stock jak1 textures (page < 1611) are legitimate.
+int assert_pool_safe(const tfrag3::Level& lev, size_t before_textures) {
+  for (const auto& t : lev.textures) {
+    if (t.load_to_pool && (t.combo_id >> 16) >= kJak1TexturePageCount) {
+      fmt::print("LID-GATE FAIL: texture '{}' combo=0x{:x} load_to_pool=1 donor page OOB\n",
+                 t.debug_name, t.combo_id);
+      return 9;
+    }
+  }
+  size_t n = 0;
+  for (size_t i = before_textures; i < lev.textures.size(); i++) {
+    if (!lev.textures[i].load_to_pool) {
+      n++;
+    }
+  }
+  fmt::print("LID-GATE: donor-ported textures pool-safe count={} PASS\n", n);
+  return 0;
 }
 
 // ENVMAP-PORT (cycle 3, defect classes C/E): the GLB round-trip loses has_envmap (rip GLB
@@ -1286,7 +1362,8 @@ int do_add(const fs::path& in,
            const std::string& eye_from,
            const fs::path& blerc_fr3 = {},
            const std::string& blerc_model = {},
-           const fs::path& driver_fr3 = {}) {
+           const fs::path& driver_fr3 = {},
+           const std::string& lid_tex = {}) {
   if (!file_util::file_exists(glb.string())) {
     fmt::print("  GLB missing: {}\n", glb.string());
     return 2;
@@ -1401,9 +1478,33 @@ int do_add(const fs::path& in,
     }
   }
 
+  // cycle 4 (blink): bring the donor's eyelid texture across under the "<base>-lid" debug_name the
+  // renderer looks up (Merc2 -> EyeRenderer). No merc draw references it.
+  if (!lid_tex.empty()) {
+    if (blerc_fr3.empty()) {
+      fmt::print("  FAIL: --port-lid needs --blerc-from <donor.fr3>:<model> (the donor level the "
+                 "lid texture is taken from)\n");
+      return 8;
+    }
+    int rc = port_lid(lev, blerc_fr3, lid_tex, name);
+    if (rc != 0) {
+      fmt::print("  (no fr3 written)\n");
+      return rc;
+    }
+  }
+
   // hard invariant: no negative (TextureAnimator slot) texture id may reach a jak1 fr3.
   {
     int rc = assert_no_negative_tex(lev.merc_data.models.at(idx));
+    if (rc != 0) {
+      fmt::print("  (no fr3 written)\n");
+      return rc;
+    }
+  }
+
+  // hard invariant: nothing appended may register into jak1's TexturePool with a donor page.
+  {
+    int rc = assert_pool_safe(lev, before_textures);
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;
@@ -1429,7 +1530,7 @@ int main(int argc, char** argv) {
                "  hd_merc_swap audit <fr3> [name ...]\n"
                "  hd_merc_swap add   <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from "
                "<stock-model>] [--blerc-from <donor.fr3>:<donor-model-name>] "
-               "[--driver-fr3 <fr3-with-driver-model>]\n"
+               "[--driver-fr3 <fr3-with-driver-model>] [--port-lid <donor-texture-debug-name>]\n"
                "  hd_merc_swap stamp <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n");
     return 2;
   }
@@ -1462,7 +1563,7 @@ int main(int argc, char** argv) {
       fmt::print("add needs <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from <stock-model>]\n");
       return 2;
     }
-    std::string eye_from, blerc_spec, driver_fr3;
+    std::string eye_from, blerc_spec, driver_fr3, lid_tex;
     for (int i = 5; i + 1 < argc; i++) {
       if (std::string(argv[i]) == "--eye-from") {
         eye_from = argv[i + 1];
@@ -1470,6 +1571,8 @@ int main(int argc, char** argv) {
         blerc_spec = argv[i + 1];
       } else if (std::string(argv[i]) == "--driver-fr3") {
         driver_fr3 = argv[i + 1];
+      } else if (std::string(argv[i]) == "--port-lid") {
+        lid_tex = argv[i + 1];
       }
     }
     std::string blerc_fr3, blerc_model;
@@ -1486,7 +1589,7 @@ int main(int argc, char** argv) {
         return 2;
       }
     }
-    return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model, driver_fr3);
+    return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model, driver_fr3, lid_tex);
   }
   fmt::print("unknown mode '{}'\n", mode);
   return 2;

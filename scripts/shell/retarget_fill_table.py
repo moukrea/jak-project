@@ -173,12 +173,27 @@ def main():
         return [float(np.linalg.norm(M3[:, c])) for c in range(3)]
 
     def _mode1_or_3(k, e, why):
-        """mode 1 if the two local bind frames agree, else mode 3 orient-copy."""
+        """mode 1 if the two LOCAL BIND FRAMES agree (pairwise), else mode 3 orient-copy.
+
+        mode 1 replays the DRIVER's LOCAL delta at the HD joint's own pivot, so correctness
+        requires the two LOCAL BIND FRAMES to AGREE — rotation (polar factor) and PAIRWISE
+        scale ratios driver/HD — NOT that either frame has unit scale.
+        CYCLE 4 FIX (owner 2026-08-05, Keira strap chest-clip): the old test demoted a joint
+        whenever ANY local-bind scale differed from 1.0. Keira's four *Strap2 joints carry an
+        IDENTICAL 0.103 local-bind scale on BOTH rigs and a 0.00deg rotation mismatch — their
+        bind frames agree perfectly — yet they were demoted to mode 3, which DISCARDS the
+        driver's translation keys (the straps are translation-keyed in every jak1 assistant
+        anim) and dragged them 0.36-0.44 units through her chest. The pairwise test keeps them
+        on mode 1, which reproduces the driver to ~1e-12.
+        """
         lh = _local_bind(h_bind, hpar, k)[:3, :3]
         ld = _local_bind(e_bind, epar, int(e))[:3, :3]
         rm = _ang_deg(_polar_R(ld) @ _polar_R(lh).T)
         ds, hs = _scales(ld), _scales(lh)
-        if rm > 1.0 or any(abs(s - 1.0) > 0.02 for s in ds + hs):
+        # pairwise driver-vs-HD scale agreement; a degenerate HD scale (h == 0) cannot be
+        # compared -> fall back to the safe mode 3.
+        smis = any((abs(h) < 1e-12) or (abs(d / h - 1.0) > 0.02) for d, h in zip(ds, hs))
+        if rm > 1.0 or smis:
             return 3, ('orient-copy: rot_mismatch={:.2f}deg drv_scale={} hd_scale={} ({})'
                        .format(rm, '/'.join(f'{s:.3f}' for s in ds),
                                '/'.join(f'{s:.3f}' for s in hs), why))
@@ -603,6 +618,186 @@ def main():
                   f'mode-3 orient-copy is NOT correct on this rig, no table emitted')
             sys.exit(3)
         print(f'PROOF D {args.name}: PASS ({len(m3)} mode-3 joints)')
+
+    # ---- PROOF E: REAL-ANIMATION REPLAY GATE (cycle 4) ------------------------------------------
+    # PROOFS A-D drive the rig with SYNTHETIC rigid rotations, so they are blind to the class of
+    # defect that cost cycle 4: a joint that is TRANSLATION-KEYED in the real driver animations
+    # being assigned mode 3, which reproduces only the driver's ORIENTATION and takes its position
+    # from the HD glue product — i.e. it silently drops the driver's translation keys (Keira's four
+    # *Strap2 joints, 0.36-0.44 units of drift straight through her chest).
+    # The gate: replay the driver GLB's REAL animation channels (rotation + scale + TRANSLATION)
+    # with full FK, fill the HD bones with each joint's ASSIGNED mode, and compare against the
+    # mode-0 ground-truth product A_e . inv(C_e) . B_k. Any joint whose LOCAL BIND FRAMES AGREE
+    # (rotation mismatch <= 1.0deg AND pairwise driver/HD scale ratios within 2%) has no excuse:
+    # it must be translation-faithful (mode 0 or 1).
+    # NUMERIC SUB-CLASS (deviation from the literal cycle-4 spec, measured): the 1e-6 replay bound
+    # against the mode-0 product can only be enforced where that product IS the ground truth, i.e.
+    # where the HD joint's WORLD BIND COINCIDES with the driver's (|B_k - C_e| <= 1e-6). mode 1
+    # exists precisely to DEVIATE from mode 0 when the pivots differ (it re-anchors on the HD
+    # parent to keep HD bone lengths), so bind-frame-agreeing joints with a real pivot offset
+    # legitimately differ from mode 0 (measured on keira-hd: gogglesLeft/Right pivot_err=0.0389 ->
+    # 3.8e-2, lEara/lEarb 0.10 -> 4e-6, LpantFlap 0.15 -> 2.5e-6). Keira's four *Strap2 joints sit
+    # at |B_k - C_e| = 1e-15 and replay to ~1e-12 under mode 1 — clean separation, tol 1e-6.
+    # Joints with a REAL bind mismatch legitimately ride mode 3 -> informational only.
+    BIND_COINCIDE_TOL = 1e-6
+    def _bind_frames_agree(k, e):
+        lh = _local_bind(h_bind, hpar, k)[:3, :3]
+        ld = _local_bind(e_bind, epar, int(e))[:3, :3]
+        if _ang_deg(_polar_R(ld) @ _polar_R(lh).T) > 1.0:
+            return False
+        for d, h in zip(_scales(ld), _scales(lh)):
+            if abs(h) < 1e-12 or abs(d / h - 1.0) > 0.02:
+                return False
+        return True
+
+    e_anims = ejs.get('animations', []) or []
+    if not e_anims:
+        print(f'PROOF-E SKIP (no driver anims in GLB) [{args.name}]')
+    else:
+        e_nodes = ejs['nodes']
+        e_joints = ejs['skins'][0]['joints']
+        e_nparent = {}
+        for _i, _nd in enumerate(e_nodes):
+            for _c in _nd.get('children', []):
+                e_nparent[_c] = _i
+
+        def _compose(T, R, S):
+            x, y, z, w = np.array(R, float) / max(float(np.linalg.norm(R)), 1e-30)
+            R3 = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                           [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                           [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+            M = np.eye(4)
+            M[:3, :3] = R3 @ np.diag(np.array(S, float))
+            M[:3, 3] = np.array(T, float)
+            return M
+
+        def _rest_local(nd):
+            if 'matrix' in nd:
+                return np.array(nd['matrix'], float).reshape(4, 4).T
+            return _compose(nd.get('translation', [0, 0, 0]), nd.get('rotation', [0, 0, 0, 1]),
+                            nd.get('scale', [1, 1, 1]))
+
+        def _samp(t, ts, vals):
+            i = int(np.searchsorted(ts, t))
+            i = min(max(i, 1), len(ts) - 1)
+            t0, t1 = ts[i - 1], ts[i]
+            f = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
+            return vals[i - 1] * (1.0 - f) + vals[i] * f
+
+        # PRECISION FLOOR of the mode-1 product: the driver GLB's stored (float32) inverse-bind
+        # matrices are NOT exactly the inverse of the rig's own FK rest pose. De mixes the two
+        # (De = IBM_e . C_pe . inv(A_pe) . A_e), so that inconsistency is the smallest replay error
+        # physically reachable. Measured: sidekick 4.6e-7, assistant 1.16e-6, eichar 1.13e-6 — a
+        # flat 1e-6 tolerance sits UNDER the input precision floor (same trap PROOF D(b) documents).
+        # Tolerance = max(1e-6, 10 * that floor); the defect class it gates is 1e-1 (Keira straps),
+        # i.e. 4+ orders of margin.
+        def _fk_rest():
+            Wn = {}
+            stack = [(r, np.eye(4)) for r in range(len(e_nodes)) if r not in e_nparent]
+            while stack:
+                ni, P = stack.pop()
+                M = P @ _rest_local(e_nodes[ni])
+                Wn[ni] = M
+                for c in e_nodes[ni].get('children', []):
+                    stack.append((c, M))
+            return np.array([Wn[j] for j in e_joints])
+
+        eps_drv = float(np.abs(_fk_rest() - e_bind).max())
+        GATE_TOL = max(1e-6, 10.0 * eps_drv)
+
+        def _bind_coincides(k, e):
+            return float(np.abs(h_bind[k] - e_bind[int(e)]).max()) <= BIND_COINCIDE_TOL
+
+        gated_worst = 0.0
+        gated_worst_j = None
+        offenders = {}          # k -> (max err, anim name, assigned mode)
+        info_worst = {}         # k -> max err (mode-3, real bind mismatch)
+        n_gated = 0
+        n_frames_total = 0
+        for _ai, _an in enumerate(e_anims):
+            chans = {}
+            for ch in _an['channels']:
+                smp = _an['samplers'][ch['sampler']]
+                ts = np.array(read_accessor(ejs, ebin, smp['input']), float).reshape(-1)
+                vs = np.array(read_accessor(ejs, ebin, smp['output']), float)
+                chans.setdefault(ch['target']['node'], {})[ch['target']['path']] = (ts, vs)
+            if not chans:
+                continue
+            times = sorted({float(x) for nd in chans.values() for p in nd.values() for x in p[0]})
+            if len(times) > 200:                     # keep the runtime sane: stride to <= 200
+                stride = int(np.ceil(len(times) / 200.0))
+                times = times[::stride]
+            n_frames_total += len(times)
+
+            def _local_at(ni, t):
+                nd = e_nodes[ni]
+                if ni not in chans:
+                    return _rest_local(nd)
+                c = chans[ni]
+                T = (_samp(t, *c['translation'])[:3] if 'translation' in c
+                     else nd.get('translation', [0, 0, 0]))
+                R = (_samp(t, *c['rotation'])[:4] if 'rotation' in c
+                     else nd.get('rotation', [0, 0, 0, 1]))
+                S = (_samp(t, *c['scale'])[:3] if 'scale' in c else nd.get('scale', [1, 1, 1]))
+                return _compose(T, R, S)
+
+            def _world_at(t):
+                Wn = {}
+                stack = [(r, np.eye(4)) for r in range(len(e_nodes)) if r not in e_nparent]
+                while stack:
+                    ni, P = stack.pop()
+                    M = P @ _local_at(ni, t)
+                    Wn[ni] = M
+                    for c in e_nodes[ni].get('children', []):
+                        stack.append((c, M))
+                return np.array([Wn[j] for j in e_joints])
+
+            for t in times:
+                A = _world_at(t)
+                Wm = fill_mixed(A)
+                for k in range(nh):
+                    e = int(k2e[k])
+                    if e == 0xFF or mode[k] == 2:
+                        continue
+                    gt = A[e] @ e_ibm[e] @ h_bind[k]
+                    err = float(np.abs(Wm[k] - gt).max())
+                    if _bind_frames_agree(k, e):
+                        numeric = _bind_coincides(k, e)
+                        if numeric and err > gated_worst:
+                            gated_worst, gated_worst_j = err, hn[k]
+                        if mode[k] not in (0, 1) or (numeric and err > GATE_TOL):
+                            prev = offenders.get(k)
+                            if prev is None or err > prev[0]:
+                                offenders[k] = (err, _an.get('name', f'anim{_ai}'), int(mode[k]),
+                                                bool(numeric))
+                    elif mode[k] == 3:
+                        if err > info_worst.get(k, 0.0):
+                            info_worst[k] = err
+        gset = [k for k in range(nh)
+                if int(k2e[k]) != 0xFF and mode[k] != 2 and _bind_frames_agree(k, int(k2e[k]))]
+        n_gated = len(gset)
+        n_numeric = sum(1 for k in gset if _bind_coincides(k, int(k2e[k])))
+        for k in sorted(info_worst):
+            print(f'  PROOF-E info mode3 k={k:3d} {hn[k]:<24s} (real bind mismatch) '
+                  f'max abs err vs mode-0 = {info_worst[k]:.4e}')
+        for k in sorted(offenders):
+            err, anm, mo, numeric = offenders[k]
+            print(f'PROOF-E {args.name}: VIOLATION k={k} {hn[k]!r} mode={mo} -> driver '
+                  f'{en[int(k2e[k])]!r}: LOCAL BIND FRAMES AGREE but the joint is not '
+                  f'translation-faithful — max abs replay err vs the mode-0 product = '
+                  f'{err:.4e} (anim {anm!r}, tol {GATE_TOL:.0e}, bind-coincident='
+                  f'{numeric}). A bind-identical joint must be mode 0 or 1; mode 3 '
+                  f'discards the driver translation keys.')
+        print(f'PROOF-E {args.name}: {"FAIL" if offenders else "PASS"} '
+              f'({len(e_anims)} driver anims, {n_frames_total} frames checked, '
+              f'{n_gated} bind-identical mapped joints gated for translation-faithfulness of '
+              f'which {n_numeric} bind-coincident are gated numerically, {len(offenders)} '
+              f'violations, max abs replay err over the numerically-gated class = '
+              f'{gated_worst:.4e} (worst {gated_worst_j!r}, tol {GATE_TOL:.3e} = '
+              f'max(1e-6, 10 x driver float32 bind floor {eps_drv:.3e})); '
+              f'{len(info_worst)} mode-3 joints with real bind mismatch = informational)')
+        if offenders:
+            sys.exit(4)
 
     if violations:
         print(f'FACE-FINGER-GATE {args.name}: FAIL ({len(violations)} face/finger joints: '

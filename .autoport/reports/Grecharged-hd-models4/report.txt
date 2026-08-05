@@ -1,11 +1,32 @@
-Grecharged-hd-models4 — DEFECT-CYCLE-3 report (owner verdict 2026-08-04 ~19:00 + PRIO-0 ~20:05)
-Date: 2026-08-05 (attempt 2 of cycle 3) — HEAD at report time: 81bb767c83
-RESULT: cycle-3 substance COMPLETE and device-proven on eae4df44 — P1 flicker regression root-caused
-and fixed (fail-open + GAME.fr3 consolidation + bounds mirror), PRIO-0 intro-transformation CRASH
-root-caused and fixed (build_actor shell texture-id page zeroed; full intro survives to gameplay on
-x86 AND device), Daxter fur/lower-face envmap port landed, Jak/Samos/Keira class fixes rebaked and
-re-proven. AWAITING OWNER PLAY-TEST (the owner's eye judges visual quality; open items listed at
-the end are explicitly declared, nothing silently de-scoped).
+Grecharged-hd-models4 — DEFECT-CYCLE-4 report (owner verdict 2026-08-05 ~08:15 on the menu+cycle-3 build)
+Date: 2026-08-05 (attempt 1 of cycle 4) — HEAD at report time: 4dca48318d
+RESULT: WIP — cycle 4 in progress, NOTHING device-proven yet this cycle. Honest state below.
+
+== CYCLE-4 STATUS (owner items 08:15: 1. visible blink gone; 2. Keira straps clip front torso) ==
+DONE this attempt:
+- Validator strengthened to the DEFECT-CYCLE-4 bar (marker, CYCLE4-BLINK x4 + renderer-side proof
+  gates, no-black-eye + donor-iris NO-REGRESS gates, CYCLE4-KEIRA-STRAP gates; all carried gates kept).
+- Research in flight (2 subagents): (a) eyelid/blink render path — cycle-3 lid-blit skip location in
+  both desktop and Android renderers, how donors (jak2/jak3) blink on these exact meshes (lid paint
+  vs blend-targets), donor lid assets; (b) Keira strap-chain k->e mapping (mode-3/0.103-scale),
+  why straps clip the front of the torso.
+REMAINING (cycle-4 substance, none of it claimed):
+- CYCLE4-BLINK: design + implement visible natural blink on all 4 HD faces (donor lid texture blit
+  or donor blink blend-target on a reserved channel driven by the driver eye-control lid value),
+  WITHOUT re-introducing black eyes (CYCLE3-KEIRA acquis). Renderer-side proof (lid-value/weight
+  excursion state dumps), x86 then device.
+- CYCLE4-KEIRA-STRAP: root-cause + remap strap chains to follow the bust; regenerate table under
+  FACE-FINGER-GATE; PROOF D at machine precision.
+- Rebake, x86 legs (flicker detector must stay 0/0), device deploy fresh + intro leg, report rewrite
+  with proofs, OWNER-VERIFY-QUEUE entry.
+VICTORIES LOCKED by owner 08:15 (zero regression tolerated; carried evidence below is from the
+cycle-3 bake which is still the current bake): Jak clothing-clip gone, Daxter perfect, Samos beard
+fixed, eyes = donor iris, NPCs stable in cutscenes, faces alive x4.
+
+=====================================================================================
+== CARRIED EVIDENCE — cycle-3 report body (all still true of the CURRENT bake) ==
+=====================================================================================
+
 
 == PRIO-0 (owner ~20:05) — intro cutscene CRASH at the ottsel-Daxter load: FIXED, full-intro proven ==
 Root cause (cross-platform, one site): build_actor's dummy merc-ctrl shell frag (stolen from

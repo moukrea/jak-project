@@ -1,11 +1,33 @@
 #include "EyeRenderer.h"
 
+#include <algorithm>
+#include <optional>
+
+#include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
 #include "game/graphics/opengl_renderer/foreground/Merc2.h"
 
 #include "third-party/imgui/imgui.h"
+
+#ifdef OG_FEAT_HD_MODELS
+// CYCLE-4 [hd-blink] renderer-side blink proof (per eye slot, render thread only): counts donor
+// lid paints vs skips on HD-covered slots and tracks the driver's lid-value excursion within a
+// heartbeat window — a visible blink = lid_min dips low while lid_max stays near 1. These
+// counters (not captures) are the validation instrument for the cycle-4 blink bar.
+namespace {
+struct HdBlinkStats {
+  u32 donor_paints = 0;
+  u32 skips_no_donor = 0;
+  u32 stock_covered_paints = 0;  // must stay 0 — stock lid on HD eyes was the black-eye bug
+  float lid_min = 1e9f;
+  float lid_max = -1e9f;
+};
+HdBlinkStats s_hd_blink_stats[256];
+u64 s_hd_blink_frames = 0;
+}  // namespace
+#endif
 
 /////////////////////////
 // Bucket Renderer
@@ -584,19 +606,57 @@ void EyeRenderer::run_gpu(const std::vector<SingleEyeDraws>& draws,
     }
     buffer_idx += 4 * 4;
 
-    if (draw.lid_tex
+    // CYCLE-3 (Grecharged-hd-models4, Keira black-eyes-on-blink): jak1 blinks by painting
+    // the lid texture over the WHOLE eye tile (blend off). The stock eye mesh is a flat
+    // eyelid patch, so that reads as a closing lid — but an HD companion's donor EYEBALL
+    // geometry wraps the full tile around the eye and shows the jak1 lid texture as black/
+    // weird eyes for the ~10 blink frames.
+    // CYCLE-4 (visible blink): the donor games blink the SAME way (same blink-table math,
+    // per-eye lid textures), so for a covered slot we paint the DONOR's own lid texture
+    // (ported into enhanced GAME.fr3, id recorded by Merc2 at slot arming) at the driver's
+    // lid position — the donor's exact blink on the donor's own eye UVs. If the donor lid is
+    // not available, keep the cycle-3 skip (fail-safe: never the stock lid on HD eyes).
+    bool lid_skip = false;
+    GLuint lid_gl_tex = draw.lid_gl_tex;
 #ifdef OG_FEAT_HD_MODELS
-        // CYCLE-3 (Grecharged-hd-models4, Keira black-eyes-on-blink): jak1 blinks by painting
-        // the lid texture over the WHOLE eye tile (blend off). The stock eye mesh is a flat
-        // eyelid patch, so that reads as a closing lid — but an HD companion's donor EYEBALL
-        // geometry wraps the full tile around the eye and shows the lid texture as black/weird
-        // eyes for the ~10 blink frames. Skip the lid blit while an HD model owns this slot;
-        // background+iris+pupil keep compositing, so gaze animation stays live.
-        && !merc2_hd_eye_slot_covered((u8)draw.tex_slot())
+    const u8 hd_slot = (u8)draw.tex_slot();
+    bool hd_covered = merc2_hd_eye_slot_covered(hd_slot);
+    bool hd_donor_bound = false;
+    if (hd_covered) {
+      u64 donor_gl = merc2_hd_eye_slot_lid_gl(hd_slot);
+      if (donor_gl) {
+        lid_gl_tex = (GLuint)donor_gl;
+        hd_donor_bound = true;
+      } else {
+        lid_skip = true;
+      }
+    }
+    // [hd-blink] proof counters (renderer-side, never captures): the driver's lid value is
+    // already encoded in the quad the DMA gave us — tile-local y_top = 512*lid (32px tiles,
+    // GS subpixels), 0.0 = fully closed, 1.0 = open/clipped out.
+    {
+      float y_top = m_gpu_vertex_buffer[buffer_idx + 1];
+      float lid_value = std::min(1.f, std::max(0.f, y_top / 512.f));
+      auto& bs = s_hd_blink_stats[hd_slot];
+      if (hd_covered) {
+        bs.lid_min = std::min(bs.lid_min, lid_value);
+        bs.lid_max = std::max(bs.lid_max, lid_value);
+        if (hd_donor_bound) {
+          bs.donor_paints++;
+        } else if (lid_skip) {
+          bs.skips_no_donor++;
+        }
+        if (draw.lid_tex && !lid_skip && !hd_donor_bound) {
+          // structurally unreachable (covered => donor or skip); counted as an honesty metric
+          bs.stock_covered_paints++;
+          lg::warn("[hd-blink] STOCKLID slot={}", hd_slot);
+        }
+      }
+    }
 #endif
-    ) {
+    if (draw.lid_tex && !lid_skip) {
       glDisable(GL_BLEND);
-      glBindTexture(GL_TEXTURE_2D, draw.lid_gl_tex);
+      glBindTexture(GL_TEXTURE_2D, lid_gl_tex);
       glDrawArrays(GL_TRIANGLE_STRIP, buffer_idx / 4, 4);
     }
     buffer_idx += 4 * 4;
@@ -610,6 +670,23 @@ void EyeRenderer::run_gpu(const std::vector<SingleEyeDraws>& draws,
   }
 
   ASSERT(check == buffer_idx);
+
+#ifdef OG_FEAT_HD_MODELS
+  // [hd-blink] heartbeat: one line per slot with HD lid activity, every ~4s of eye frames.
+  if (++s_hd_blink_frames % 240 == 0) {
+    for (int i = 0; i < 256; i++) {
+      auto& bs = s_hd_blink_stats[i];
+      if (bs.donor_paints || bs.skips_no_donor || bs.stock_covered_paints) {
+        lg::info(
+            "[hd-blink] slot={} donor_paints={} skips={} stock_covered={} lid_min={:.3f} "
+            "lid_max={:.3f}",
+            i, bs.donor_paints, bs.skips_no_donor, bs.stock_covered_paints, bs.lid_min,
+            bs.lid_max);
+        bs = HdBlinkStats{};
+      }
+    }
+  }
+#endif
 
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
