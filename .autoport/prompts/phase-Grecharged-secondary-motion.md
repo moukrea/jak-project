@@ -151,3 +151,25 @@ pour qu'aucune chaîne ne traverse le corps :
 Barre : aucune chaîne ne traverse le corps sur les animations courantes (course, saut, roulade,
 cinématiques) ; preuve par compteurs (pénétrations résiduelles par frame = 0 / résolues), jamais
 par captures. Les bretelles de Keira sont le cas-test canonique (clip frontal historique).
+
+## ============================================================
+## EFFICACITÉ D'ITÉRATION (superviseur 2026-08-06 01:35, demande owner « pas moyen d'être plus efficient ? »)
+## ============================================================
+Constat : un cycle de tuning a coûté un rebuild C++ COMPLET (1310 objets, y compris les mips2c de
+jak2 — reconfigure cmake) + Android, soit des heures pour changer des raideurs. Inacceptable comme
+boucle par défaut. TROIS VITESSES, à utiliser dans cet ordre :
+1. **PARAMÈTRES SEULS (raideur/amorti/gravité/angles/rayons) = AUCUN BUILD.**
+   physics_chains.txt est lu au RUNTIME (kmachine.cpp:1013, get_recharged_assets_dir()). Sur device il
+   vit dans `files/custom/jak1/recharged_assets/physics_chains.txt` (vérifié sur eae4df44) :
+   `adb shell run-as org.opengoal.gk.jak1 sh -c 'cat > files/custom/jak1/recharged_assets/physics_chains.txt' < fichier`
+   puis relancer l'app. Itère le tuning COMME ÇA, pas en rebuildant.
+2. **GOAL seul** : make-group iso + gradle repack (pas de NDK/libgk).
+3. **C++ modifié** : rebuild complet (le seul cas légitime). ÉVITER les reconfigures cmake inutiles
+   (ils invalident tout l'arbre) ; préférer `cmake --build <dir> --target gk` incrémental.
+### AMÉLIORATION À LIVRER (owner-facing, priorité haute) :
+physics_chains.txt est aujourd'hui packé DANS l'APK (custom pack), et get_recharged_assets_dir() donne
+la PRÉCÉDENCE au pack APK sur l'externe => pour l'owner (à distance), un simple retuning = 581 Mo
+d'APK à retélécharger. FIX : faire GAGNER une copie présente dans le pack EXTERNE
+(<ext>/assets/recharged_assets/physics_chains.txt) sur celle de l'APK (override explicite, log de la
+source retenue). Résultat : une itération de tuning owner = un fichier de quelques Ko à déposer,
+plus un APK entier. À faire dans ce cycle.
