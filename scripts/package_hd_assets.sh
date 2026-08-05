@@ -87,7 +87,8 @@ done < <(find "$ENH_DIR" -maxdepth 1 -type f -name '*.fr3' -print0 | sort -z)
 # jak-highres-ag.go lives in that dir and must NEVER ship (17-char name trips the fake-iso
 # <16 name assert). jak-hd-ag.go is mandatory; the other three SKIP loudly when absent.
 HD_AG_LIST=(jak-hd-ag.go dax-hd-ag.go keira-hd-ag.go samos-hd-ag.go
-            jak2-hd-ag.go jak3-hd-ag.go daxp-hd-ag.go keira3-hd-ag.go ysamos-hd-ag.go)
+            jak2-hd-ag.go jak3-hd-ag.go daxp-hd-ag.go keira3-hd-ag.go ysamos-hd-ag.go
+            jakm-hd-ag.go)
 for ag in "${HD_AG_LIST[@]}"; do
   src="recharged_assets/hd_anim/$ag"
   if [ -f "$ROOT/$src" ]; then

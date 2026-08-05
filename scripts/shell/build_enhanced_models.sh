@@ -82,7 +82,24 @@ declare -A LID_TEX=(
   [daxp-hd]=daxter-eyelid
   [keira3-hd]=keira-eyelid
   [ysamos-hd]=samos-eyelid
+  [jakm-hd]=jakchires-eyelid
 )
+# CYCLE 4 owner item 3 (Jak 3 MASQUE BAISSÉ): jak3 has NO separate masked art-group — the lowered
+# goggles/lens are BLERC BLEND TARGETS on jakc-highres-lod0 (same donor as jak3-hd). jakm-hd is the
+# same donor appended with that target BAKED into the merc verts at add time (--bake-blerc-target);
+# the baked target is excluded from the runtime blerc port so face/lipsync channels stay live while
+# the mask stays down. The target index is pinned by `hd_merc_swap blerc-stats` evidence (the one
+# target that rigidly translates the jakc-lens + jakc-gogglemetal draws; cross-checked against the
+# PROVEN gameplay goggle target 4 of jakb-c-lod0 in out/jak3/fr3/GAME.fr3).
+declare -A BAKE_TARGET=(
+  [jakm-hd]=15
+)
+# Evidence for 15 (blerc-stats on out/jak3/fr3/ljakc.fr3 jakc-highres-lod0): target 15 rigidly
+# translates ALL 77 jakc-lens verts (mean |d|=0.109, mean_vec=(0.004,-0.109,-0.004)) + 402
+# jakc-gogglemetal verts + 135 jakchires-brownstrap verts DOWN in -y — the same direction
+# signature as the PROVEN gameplay goggles target 4 of jakb-c-lod0 (mean_vec=(0,-0.068,+0.012),
+# driven by (-> self skel override 5) via the 'goggles setting, powerups.gc:874-916). Face
+# (anim-slot effect 15) and scarf (effect 17) carry NO target-15 deltas.
 APPENDS=(
   "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0|"
   "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|"
@@ -93,6 +110,7 @@ APPENDS=(
   "daxp-hd|decompiler_out/jak3/levels/loutro2/ottsel-daxpants-lod0.glb|GAME|out/jak3/fr3/loutro2.fr3|ottsel-daxpants-lod0|sidekick-lod0|"
   "keira3-hd|decompiler_out/jak3/levels/lkeira/keira-highres-lod0.glb|GAME|out/jak3/fr3/lkeira.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3"
   "ysamos-hd|decompiler_out/jak2/levels/lysamsam/youngsamos-highres-lod0.glb|GAME|out/jak2/fr3/lysamsam.fr3|youngsamos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3"
+  "jakm-hd|decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb|GAME|out/jak3/fr3/ljakc.fr3|jakc-highres-lod0|eichar-lod0|"
 )
 # The fr3 that receive appends, in order.
 APPEND_LEVELS=(GAME village1)
@@ -207,9 +225,19 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
     fi
     LID_ARGS=(--port-lid "$LID_NAME")
+    # cycle-4 item 3: bake the donor's masked-look blend target into the appended verts (jakm-hd).
+    BAKE_ARGS=()
+    BAKE_N="${BAKE_TARGET[$char]:-}"
+    if [ -n "$BAKE_N" ]; then
+      case "$BAKE_N" in
+        ''|*[!0-9]*) log "FATAL: BAKE_TARGET[$char]='$BAKE_N' is not a pinned target index"; rm -rf "$ENHANCED_OUT"; exit 1;;
+      esac
+      BAKE_ARGS=(--bake-blerc-target "$BAKE_N")
+    fi
     "$SWAP_BIN" add "$SRC" "$PREPPED" "$DST" --eye-from "$driver_model" \
       --blerc-from "$donor_fr3:$donor_model" \
-      ${DRIVER_ARGS[@]+"${DRIVER_ARGS[@]}"} "${LID_ARGS[@]}" 2>&1 | tee -a "$SWAP_LOG"
+      ${DRIVER_ARGS[@]+"${DRIVER_ARGS[@]}"} "${LID_ARGS[@]}" \
+      ${BAKE_ARGS[@]+"${BAKE_ARGS[@]}"} 2>&1 | tee -a "$SWAP_LOG"
     if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
       log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
@@ -223,6 +251,11 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     # otherwise Merc2 finds no lid texture and EyeRenderer keeps drawing the no-blink fallback.
     if ! grep -qE "^LID-PORT: '$LID_NAME' .* name='$char-lid' load_to_pool=0" "$SWAP_LOG"; then
       log "LID-PORT verification FAILED for $char — donor eyelid '$LID_NAME' was not ported as '$char-lid'."
+      rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    # cycle-4 item 3 gate: the masked-look bake must have moved real vertices (loud fail otherwise).
+    if [ -n "$BAKE_N" ] && ! grep -qE "^ *BLERC-BAKE: target=$BAKE_N .*verts_moved=[1-9]" "$SWAP_LOG"; then
+      log "BLERC-BAKE verification FAILED for $char — target $BAKE_N moved no verts (masked look not baked)."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
     fi
     # class B gate: the blerc port must complete (or loudly state the donor carries no blerc)

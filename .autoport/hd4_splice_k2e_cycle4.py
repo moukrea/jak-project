@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 GC = ROOT / 'goal_src/jak1/pc/jak-hd.gc'
 STAGE = ROOT / '.autoport/tmp/k2e_cycle4'
 CHARS = ['jak-hd', 'dax-hd', 'keira-hd', 'samos-hd',
-         'jak2-hd', 'jak3-hd', 'daxp-hd', 'keira3-hd', 'ysamos-hd']
+         'jak2-hd', 'jak3-hd', 'daxp-hd', 'keira3-hd', 'ysamos-hd', 'jakm-hd']
 
 src = GC.read_text()
 changed = 0

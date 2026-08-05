@@ -108,6 +108,30 @@ grep -qiE '^CYCLE4-KEIRA-STRAP.*(root.?cause|joint|chain|map)' "$R" \
   || fail "CYCLE4-KEIRA-STRAP: no root-cause/mapping line"
 grep -qiE '^CYCLE4-KEIRA-STRAP.*(fix|remap|follow|resolve).*PASS' "$R" \
   || fail "CYCLE4-KEIRA-STRAP: no fix PASS line"
+# widened scope (owner ~10:35, M5 accepted): the strap fix must cover BOTH keira looks
+grep -qiE '^CYCLE4-KEIRA-STRAP.*keira3' "$R" \
+  || fail "CYCLE4-KEIRA-STRAP: no keira3-hd (second look) coverage line (owner 10:35 widening)"
+
+# ---- CYCLE-4 item 3 (owner ~10:35) — Jak 3 MASQUE BAISSE as 5th JAK LOOK option --------------
+# physical-artifact checks first (objdump/nm-class evidence beats report greps)
+grep -qE 'jakm-hd' goal_src/jak1/pc/jak-hd.gc \
+  || fail "CYCLE4-MASKED: jakm-hd absent from the jak-hd.gc registry"
+grep -qE '17b6' goal_src/jak1/pc/progress-pc.gc \
+  || fail "CYCLE4-MASKED: no #x17b6 5th JAK LOOK carousel option in progress-pc.gc"
+grep -qE 'jakm-hd-ag\.go' scripts/package_hd_assets.sh \
+  || fail "CYCLE4-MASKED: jakm-hd-ag.go not in the external pack list"
+grep -qE 'jakm-hd-ag\.go' game/graphics/opengl_renderer/loader/Loader.cpp \
+  || fail "CYCLE4-MASKED: jakm-hd-ag.go not in the Loader ag staging list"
+[ -f recharged_assets/hd_anim/jakm-hd-ag.go ] \
+  || fail "CYCLE4-MASKED: recharged_assets/hd_anim/jakm-hd-ag.go missing"
+grep -qiE '^CYCLE4-MASKED.*(target|blerc).*(bake|baked)' "$R" \
+  || fail "CYCLE4-MASKED: no goggle-target bake mechanism/evidence line"
+grep -qiE '^CYCLE4-MASKED.*jakm-hd.*(append|integr|draws|proven)' "$R" \
+  || fail "CYCLE4-MASKED: no jakm-hd append/integrity line"
+grep -qiE '^CYCLE4-MASKED.*(SUBMITTED|submit)' "$R" \
+  || fail "CYCLE4-MASKED: no device submit-counter proof line"
+grep -qiE '^CYCLE4-MASKED.*(face|blerc|lipsync).*(live|animat|preserved|PASS)' "$R" \
+  || fail "CYCLE4-MASKED: no faces-still-live line (owner DoD: every look complete from day one)"
 
 # ---- NO-REGRESSION on the owner's 08:15 locked victories -------------------------------------
 grep -qiE '^NO-REGRESS.*(pupil|iris).*donor.*(PASS|intact|proven)' "$R" \

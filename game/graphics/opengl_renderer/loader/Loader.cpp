@@ -589,7 +589,7 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
     if (ext) {
       for (const char* ag : {"jak-hd-ag.go", "dax-hd-ag.go", "keira-hd-ag.go", "samos-hd-ag.go",
                              "jak2-hd-ag.go", "jak3-hd-ag.go", "daxp-hd-ag.go", "keira3-hd-ag.go",
-                             "ysamos-hd-ag.go"}) {
+                             "ysamos-hd-ag.go", "jakm-hd-ag.go"}) {
         auto src = *ext / "assets" / "hd" / ag;
         auto dst = file_util::get_jak_project_dir() / "out" / "jak1" / "obj" / ag;
         if (!file_util::file_exists(src.string())) {

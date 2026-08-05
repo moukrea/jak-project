@@ -34,7 +34,7 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | 3 | RECHARGED TEXTURES | `recharged-textures?` |
 | 4 | PBR MATERIALS `{FLAG_PBR}` | `pbr-materials?` |
 | 5 | ENHANCED MODELS `{FLAG_HD_MODELS}` (collapse si FR3 HD absents) | `recharged-enhanced-models?` |
-| **6** | **JAK LOOK (carousell ORIGINAL / HD / JAK II / JAK 3)** `{FLAG_HD_MODELS}` (grisé si master ou ENHANCED MODELS off) | **`hd-look-jak`** via int-backup (write-back respond-common) |
+| **6** | **JAK LOOK (carousell ORIGINAL / HD / JAK II / JAK 3 / JAK 3 MASKED)** `{FLAG_HD_MODELS}` (grisé si master ou ENHANCED MODELS off) | **`hd-look-jak`** via int-backup (write-back respond-common) |
 | **7** | **DAXTER LOOK (carousell ORIGINAL / HD / PANTS)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-daxter`** via int-backup |
 | **8** | **KEIRA LOOK (carousell ORIGINAL / HD / JAK 3)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-keira`** via int-backup |
 | **9** | **SAMOS LOOK (carousell ORIGINAL / HD / YOUNG)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-samos`** via int-backup |
@@ -54,7 +54,7 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 ### Grecharged-hd-models5 — LOOK par personnage (idx 6-9)
 
 Quatre carousells `int32` persistés dans `settings.ini` : `hd-look-jak` (0 ORIGINAL / 1 HD /
-2 JAK II / 3 JAK 3), `hd-look-daxter` (0 ORIGINAL / 1 HD / 2 PANTS), `hd-look-keira`
+2 JAK II / 3 JAK 3 / 4 JAK 3 MASKED), `hd-look-daxter` (0 ORIGINAL / 1 HD / 2 PANTS), `hd-look-keira`
 (0 ORIGINAL / 1 HD / 2 JAK 3), `hd-look-samos` (0 ORIGINAL / 1 HD / 2 YOUNG). **Défaut = 1 (HD)**
 pour les quatre = le comportement d'ENHANCED MODELS avant ces lignes.
 
@@ -64,7 +64,7 @@ l'arithmétique longueur-exacte du menu ancien passe de `FLAG_HD_MODELS_N` à
 `fw-idx` = `(+ 4 hud-N pbr-N (* 5 hd-N))` = 10), et le collapse "FR3 HD absents" retire
 **les 5 lignes d'un bloc** (`length -= 5`, décalage `+5`).
 
-Les 6 libellés d'options (ORIGINAL / HD / JAK II / JAK 3 / PANTS / YOUNG) sont des **globales
+Les 7 libellés d'options (ORIGINAL / HD / JAK II / JAK 3 / PANTS / YOUNG / JAK 3 MASKED — cycle-4 item 3, tag id #x17b6 -> jakm-hd entrée 9) sont des **globales
 runtime** (`*hd-look-*-label*`) résolues par `carousell-option-string` depuis les tags réservés
 `#x17b0..#x17b5` — même mécanisme anti-banque-de-texte-périmée que PBR ISOLATE, donc aucun
 "Unknown ID" possible sur Android. Libellés de lignes via `name-override` (`JAK LOOK`,

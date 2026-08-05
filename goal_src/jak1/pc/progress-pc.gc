@@ -6635,10 +6635,11 @@
 ;; the ids are never looked up in a text bank, and a stale Android COMMON.TXT can never turn these
 ;; into "Unknown ID". English-only, exactly like the PBR ISOLATE options.
 ;;   #x17b0 ORIGINAL  #x17b1 HD  #x17b2 JAK II  #x17b3 JAK 3  #x17b4 PANTS  #x17b5 YOUNG
+;;   #x17b6 JAK 3 MASKED (cycle-4 item 3: jakm-hd, goggles-down blerc target baked at append)
 ;; Defined UNCONDITIONALLY (not under FLAG_HD_MODELS), like the PBR ISOLATE option labels, so the
 ;; shared respond-common carousell arms compile in every build config; only the ROWS and their
 ;; wiring/labels are flag-gated.
-(define *carousell-hd-look-jak* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b2 #x17b3))
+(define *carousell-hd-look-jak* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b2 #x17b3 #x17b6))
 (define *carousell-hd-look-daxter* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b4))
 (define *carousell-hd-look-keira* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b3))
 (define *carousell-hd-look-samos* (new 'static 'boxed-array :type text-id #x17b0 #x17b1 #x17b5))
@@ -7527,12 +7528,14 @@
 (define *hd-look-jak3-label* (new 'global 'string 32 (the-as string #f)))
 (define *hd-look-pants-label* (new 'global 'string 32 (the-as string #f)))
 (define *hd-look-young-label* (new 'global 'string 32 (the-as string #f)))
+(define *hd-look-jak3m-label* (new 'global 'string 32 (the-as string #f)))
 (format (clear *hd-look-original-label*) "ORIGINAL")
 (format (clear *hd-look-hd-label*) "HD")
 (format (clear *hd-look-jak2-label*) "JAK II")
 (format (clear *hd-look-jak3-label*) "JAK 3")
 (format (clear *hd-look-pants-label*) "PANTS")
 (format (clear *hd-look-young-label*) "YOUNG")
+(format (clear *hd-look-jak3m-label*) "JAK 3 MASKED")
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
@@ -8856,6 +8859,7 @@
     ((= id (the-as text-id #x17b3)) *hd-look-jak3-label*)
     ((= id (the-as text-id #x17b4)) *hd-look-pants-label*)
     ((= id (the-as text-id #x17b5)) *hd-look-young-label*)
+    ((= id (the-as text-id #x17b6)) *hd-look-jak3m-label*)
     (else (lookup-text! *common-text* id #f))))
 
 (defun print-string-in-carousell ((arg0 text-id) (arg1 font-context) (arg2 int) (arg3 symbol))

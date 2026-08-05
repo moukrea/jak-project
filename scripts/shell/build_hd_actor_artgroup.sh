@@ -106,7 +106,11 @@ case "$CHAR" in
   # outfits, which have no shirt* joints at all — the map would name joints that don't exist and
   # hard-fail the gate. No flags: the default STRICT gate applies (no unmapped face/finger/beard
   # joints tolerated).
-  jak2-hd|jak3-hd)
+  # CYCLE 4 owner item 3: jakm-hd (Jak 3 MASQUE BAISSÉ) is the SAME jakc-highres donor as jak3-hd
+  # (there is no separate masked art-group in jak3 — the lowered goggles are a blerc blend target,
+  # baked into the merc verts at append time by hd_merc_swap --bake-blerc-target). Same driver,
+  # same strict gate, no flags — identical to jak3-hd here.
+  jak2-hd|jak3-hd|jakm-hd)
     TABLE_FLAGS=() ;;
   # M5: daxp-hd (jak3 loutro2 ottsel-daxpants) is a Daxter donor on the SAME sidekick-lod0 rig ->
   # inherits dax-hd's --accept-unmapped set verbatim.

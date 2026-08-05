@@ -494,6 +494,7 @@
       "f96b8ea6f40f"
     ],
     "Grecharged-hd-models4": [
+      "5d795b625927",
       "5d795b625927"
     ]
   },
@@ -927,7 +928,7 @@
     "Grecharged-hd-models5": 1785898653.0176275,
     "Grecharged-hd-models4": 1785914559.408257
   },
-  "last_update": "2026-08-05T08:27:38.653551+00:00",
+  "last_update": "2026-08-05T08:27:39.164992+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

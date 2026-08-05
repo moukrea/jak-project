@@ -200,3 +200,28 @@ La liste complète de ce qui existe arrivera dans son rapport ; intégration de 
 
 ### 11:55 — Physique : périmètre élargi ferme (accessoires + toutes variantes de look + tous PNJ
 cheveux longs y compris Maia — injection d'os sur modèles stock pour les non-HD).
+
+## 6. HD MODELS M2 — CYCLE 4 COMPLET (blink + bretelles + Jak-3 masqué) — [À TESTER] (2026-08-05 ~12:50)
+Build cycle-4 sur le Redmi (deploy_verify PASS, pack 10 modèles md5-vérifié) :
+- **① LE CLIGNEMENT EST DE RETOUR** : chaque personnage HD cligne avec la PAUPIÈRE DE SON DONOR
+  (texture d'eyelid jak2/jak3 portée par modèle, peinte à la position de paupière du driver — le
+  mécanisme de blink jak1 d'origine, sans le noir). Compteurs renderer sur device : paupière
+  donor peinte dans 100% des fenêtres, excursion fermé/ouvert visible sur les 8 slots d'yeux,
+  ZÉRO événement « stock lid » (le bug yeux-noirs est compté et reste à 0). Toute l'intro : les
+  4 visages clignent en cinématique. Nuance honnête : Young Samos n'a pas de texture de paupière
+  propre dans le dump (yeux peints dans son visage) → il cligne avec celle du vieux Samos.
+- **② BRETELLES KEIRA fixées sur SES DEUX LOOKS** : les 4 joints *Strap2 (scale 0.103 identique
+  des deux côtés) étaient classés orient-copy → les clés de TRANSLATION du driver étaient jetées
+  (0.36-0.44 u de dérive dans la poitrine). Reclassés mode-1 (replay des vraies anims : erreur
+  4e-12) sur keira-hd ET keira3-hd ; toutes les autres tables sont restées BYTE-IDENTIQUES.
+- **③ NOUVEAU LOOK « JAK 3 MASKED »** (5e option JAK LOOK : ORIGINAL/HD/JAK II/JAK 3/JAK 3 MASKED) :
+  il n'existe PAS de modèle ciné masqué séparé dans jak3 — le masque baissé est un blend-target
+  (target 15 : 614 verts lens+métal+sangle, prouvé contre le target goggles du Jak gameplay) ;
+  il est BAKÉ dans les verts à l'append → masque baissé en permanence, visage/lipsync 100% vivants
+  (le target baké est retiré du runtime, les canaux faciaux inchangés). Device-proven : submits
+  found=1, blink actif, cinématique complète sans crash (flicker 0/0 sur 147600 calls).
+- À TESTER toi-même : ① regarder les yeux de près (Jak/Daxter/Keira/Samos) — un vrai clignement
+  naturel, pas de noir ; ② Keira (les 2 looks) de face en mouvement — plus de clip des bretelles ;
+  ③ menu → JAK LOOK → JAK 3 MASKED (lunettes baissées sur le visage, visage animé en ciné) ;
+  ④ une cinématique complète — PNJ stables, visages vivants. Illustrations :
+  reports/Grecharged-hd-models4/legM-jakm-idle.png + legM-jakm-pan.mp4. Ton œil = verdict final.

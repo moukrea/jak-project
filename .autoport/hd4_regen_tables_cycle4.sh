@@ -36,6 +36,7 @@ run jak2-hd   "$D2/ljakdax/jak-highres-lod0.glb"        "$D1/common/eichar-lod0.
 run jak3-hd   "$D3/ljakc/jakc-highres-lod0.glb"         "$D1/common/eichar-lod0.glb"
 run daxp-hd   "$D3/loutro2/ottsel-daxpants-lod0.glb"    "$D1/common/sidekick-lod0.glb"    --accept-unmapped "$DAX_ACCEPT"
 run keira3-hd "$D3/lkeira/keira-highres-lod0.glb"       "$D1/village1/assistant-lod0.glb"
+run jakm-hd   "$D3/ljakc/jakc-highres-lod0.glb"         "$D1/common/eichar-lod0.glb"
 run ysamos-hd "$D2/lysamsam/youngsamos-highres-lod0.glb" "$D1/village1/sage-lod0.glb"     --accept-unmapped "$SAMOS_ACCEPT"
 
 if [ -n "$FAILED" ]; then

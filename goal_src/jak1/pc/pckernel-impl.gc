@@ -112,7 +112,7 @@
    ;; rows stay meaningful even on a build where only some donor sets shipped. Only consulted while
    ;; recharged-enhanced-models? is on. Defaults are 1 (HD) = the jak1-look enhanced model, i.e. the
    ;; exact behaviour ENHANCED MODELS had before these rows existed.
-   (hd-look-jak int32) ;; 0=ORIGINAL 1=HD 2=JAK II 3=JAK 3 (default 1 HD)
+   (hd-look-jak int32) ;; 0=ORIGINAL 1=HD 2=JAK II 3=JAK 3 4=JAK 3 MASKED (default 1 HD)
    (hd-look-daxter int32) ;; 0=ORIGINAL 1=HD 2=PANTS (default 1 HD)
    (hd-look-keira int32) ;; 0=ORIGINAL 1=HD 2=JAK 3 (default 1 HD)
    (hd-look-samos int32) ;; 0=ORIGINAL 1=HD 2=YOUNG (default 1 HD)
@@ -296,7 +296,7 @@
   (set! (-> obj recharged-enhanced-models?) #f)
   ;; Grecharged-hd-models5: per-character HD LOOK defaults — 1 = HD (the jak1-look enhanced model),
   ;; i.e. the pre-carousell ENHANCED MODELS behaviour. 0 = ORIGINAL (stock jak1 mesh) for every one.
-  (set! (-> obj hd-look-jak) 1) ;; 0 ORIGINAL / 1 HD / 2 JAK II / 3 JAK 3
+  (set! (-> obj hd-look-jak) 1) ;; 0 ORIGINAL / 1 HD / 2 JAK II / 3 JAK 3 / 4 JAK 3 MASKED
   (set! (-> obj hd-look-daxter) 1) ;; 0 ORIGINAL / 1 HD / 2 PANTS
   (set! (-> obj hd-look-keira) 1) ;; 0 ORIGINAL / 1 HD / 2 JAK 3
   (set! (-> obj hd-look-samos) 1) ;; 0 ORIGINAL / 1 HD / 2 YOUNG

@@ -15,6 +15,7 @@
 //   diff  <stock.fr3> <enhanced.fr3>          (non-character byte-identity proof)
 //   audit <fr3> [name ...]                    (per-model, per-draw texture-page table)
 //   add   <stock.fr3> <name>-lod0.glb <out.fr3>  (BRICK 4: APPEND a NEW named merc model)
+//   blerc-stats <fr3> <model-name>            (per-(effect,target) blend-shape displacement stats)
 //
 // Read-only on inputs; only `swap` and `add` write (to <out.fr3>).
 //
@@ -32,6 +33,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <string>
@@ -495,6 +497,153 @@ bool parse_blerc(const tfrag3::Blerc& b, std::vector<BlercVert>& out) {
   return fi == b.float_data.size();
 }
 
+// hd-models4 cycle-4: BLERC BAKE — fold ONE donor blerc target into the donor's BASE geometry at
+// weight 1.0 and strip that target, so the appended model ships the displaced pose statically and
+// the target can never reach the runtime channel remap.
+//
+// Mirrors blerc_avx (Merc2.cpp:302-347) exactly: per blerc vertex the runtime starts from
+// float_data[float_base] (v[0..3] = pos+pad, v[4..7] = normal+pad), adds every target delta scaled
+// by its channel weight, and STORES the result into mod.vertices[dest].pos / .normal (a full 4-wide
+// store, so pad0/pad1 come from the float data too). Baking channel N at weight 1.0 is therefore:
+//   base.v[i] += delta_N.v[i]   (all 8 lanes)
+//   mod.vertices[dest].pos/normal := the new base   (what the static mod VBO renders)
+// and then dropping delta_N from the [tgt..., terminator, dest] / [base, deltas...] pair of arrays.
+int bake_blerc_target(tfrag3::MercModel& donor, int target) {
+  size_t effects_touched = 0, verts_moved = 0;
+  double max_disp = 0;
+  for (size_t ei = 0; ei < donor.effects.size(); ei++) {
+    auto& mod = donor.effects[ei].mod;
+    if (mod.blerc.int_data.empty()) {
+      continue;
+    }
+    std::vector<BlercVert> bverts;
+    if (!parse_blerc(mod.blerc, bverts)) {
+      fmt::print("  BLERC-BAKE FAIL: effect[{}] donor blerc data is malformed\n", ei);
+      return 7;
+    }
+    tfrag3::Blerc nb;
+    size_t moved_here = 0;
+    for (const auto& v : bverts) {
+      tfrag3::BlercFloatData base = mod.blerc.float_data[v.float_base];
+      bool baked = false;
+      std::vector<u32> keep_t;
+      std::vector<tfrag3::BlercFloatData> keep_d;
+      for (size_t k = 0; k < v.tgts.size(); k++) {
+        const auto& d = mod.blerc.float_data[v.float_base + 1 + k];
+        if ((int)v.tgts[k] == target) {
+          for (int c = 0; c < 8; c++) {
+            base.v[c] += d.v[c];
+          }
+          double m = std::sqrt((double)d.v[0] * d.v[0] + (double)d.v[1] * d.v[1] +
+                               (double)d.v[2] * d.v[2]);
+          if (m > 0) {
+            moved_here++;
+            verts_moved++;
+            max_disp = std::max(max_disp, m);
+          }
+          baked = true;
+        } else {
+          keep_t.push_back(v.tgts[k]);
+          keep_d.push_back(d);
+        }
+      }
+      nb.float_data.push_back(base);
+      for (size_t k = 0; k < keep_t.size(); k++) {
+        nb.int_data.push_back(keep_t[k]);
+        nb.float_data.push_back(keep_d[k]);
+      }
+      nb.int_data.push_back(tfrag3::Blerc::kTargetIdxTerminator);
+      nb.int_data.push_back(v.dest);
+      if (baked && v.dest < mod.vertices.size()) {
+        auto& mv = mod.vertices[v.dest];
+        mv.pos[0] = base.v[0];
+        mv.pos[1] = base.v[1];
+        mv.pos[2] = base.v[2];
+        mv.pad0 = base.v[3];
+        mv.normal[0] = base.v[4];
+        mv.normal[1] = base.v[5];
+        mv.normal[2] = base.v[6];
+        mv.pad1 = base.v[7];
+      }
+    }
+    mod.blerc = nb;
+    if (moved_here) {
+      effects_touched++;
+    }
+  }
+  if (verts_moved == 0) {
+    fmt::print("  BLERC-BAKE FAIL: target={} moves no vertices\n", target);
+    return 7;
+  }
+  fmt::print("  BLERC-BAKE: target={} effects_touched={} verts_moved={} max_disp={:.6g}\n", target,
+             effects_touched, verts_moved, max_disp);
+  return 0;
+}
+
+// per-(effect, target) displacement statistics of a model's blerc data. mean_vec (the AVERAGE delta
+// vector, not the average magnitude) separates a rigid translation of a part — e.g. a goggle
+// sliding down, where every vertex shares one direction so |mean_vec| ~= mean_abs — from a
+// scattered facial morph, where opposing deltas cancel and |mean_vec| << mean_abs.
+int do_blerc_stats(const fs::path& fr3, const std::string& name) {
+  tfrag3::Level lev;
+  load_fr3(fr3, lev);
+  auto it = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                         [&](const auto& m) { return m.name == name; });
+  if (it == lev.merc_data.models.end()) {
+    fmt::print("  model '{}' not in {}\n", name, fr3.string());
+    return 2;
+  }
+  const auto& model = *it;
+  fmt::print("== BLERC-STATS {} {} ==\n", fr3.string(), model.name);
+  for (size_t ei = 0; ei < model.effects.size(); ei++) {
+    const auto& b = model.effects[ei].mod.blerc;
+    if (b.int_data.empty()) {
+      continue;
+    }
+    std::vector<BlercVert> bverts;
+    if (!parse_blerc(b, bverts)) {
+      fmt::print("  BLERC-STATS FAIL: effect[{}] blerc int/float data is malformed\n", ei);
+      return 2;
+    }
+    std::string draw0 = "<no-draws>";
+    if (!model.effects[ei].all_draws.empty()) {
+      s32 id = model.effects[ei].all_draws[0].tree_tex_id;
+      draw0 = (id >= 0 && (size_t)id < lev.textures.size()) ? lev.textures[id].debug_name
+                                                            : tex_label(lev, id);
+    }
+    struct Acc {
+      size_t n = 0;
+      double sum_abs = 0, max_abs = 0;
+      double sum[3] = {0, 0, 0};
+    };
+    std::map<u32, Acc> acc;
+    for (const auto& v : bverts) {
+      for (size_t k = 0; k < v.tgts.size(); k++) {
+        const auto& d = b.float_data[v.float_base + 1 + k];
+        double m =
+            std::sqrt((double)d.v[0] * d.v[0] + (double)d.v[1] * d.v[1] + (double)d.v[2] * d.v[2]);
+        if (m <= 0) {
+          continue;
+        }
+        auto& a = acc[v.tgts[k]];
+        a.n++;
+        a.sum_abs += m;
+        a.max_abs = std::max(a.max_abs, m);
+        a.sum[0] += d.v[0];
+        a.sum[1] += d.v[1];
+        a.sum[2] += d.v[2];
+      }
+    }
+    for (const auto& [t, a] : acc) {
+      fmt::print("BLERC-STATS effect={} draw0={} target={} verts={} mean_abs={:.6g} max_abs={:.6g} "
+                 "mean_vec=({:.6g},{:.6g},{:.6g})\n",
+                 ei, draw0, t, a.n, a.sum_abs / (double)a.n, a.max_abs, a.sum[0] / (double)a.n,
+                 a.sum[1] / (double)a.n, a.sum[2] / (double)a.n);
+    }
+  }
+  return 0;
+}
+
 struct ChanSample {
   float p[3];  // normalized base position
   float d[3];  // target delta (raw)
@@ -736,7 +885,8 @@ int port_blerc(tfrag3::Level& lev,
                const fs::path& donor_fr3,
                const std::string& donor_name,
                const tfrag3::Level& driver_lev,
-               const std::string& driver_src) {
+               const std::string& driver_src,
+               int bake_target) {
   tfrag3::Level dlev;
   load_fr3(donor_fr3, dlev);
   auto dit = std::find_if(dlev.merc_data.models.begin(), dlev.merc_data.models.end(),
@@ -745,7 +895,25 @@ int port_blerc(tfrag3::Level& lev,
     fmt::print("  BLERC-PORT FAIL: donor model '{}' not in {}\n", donor_name, donor_fr3.string());
     return 6;
   }
-  const tfrag3::MercModel& donor = *dit;
+  tfrag3::MercModel& donor = *dit;
+
+  // bake requested target into the donor's base geometry BEFORE anything reads the blerc data
+  // (channel map, per-effect port) — the baked target is stripped here, so it can never be mapped.
+  // the bone-index probe (step 1b below) is a MESH-IDENTITY check: it position-matches donor mod
+  // vertices against the appended mesh, which is un-baked by construction. Snapshot the donor's
+  // pre-bake mod vertices so that probe keeps comparing like with like; everything else (the ported
+  // mod.vertices, blerc data, draws) uses the baked donor.
+  std::vector<std::vector<tfrag3::MercVertex>> prebake_mod_vertices;
+  if (bake_target >= 0) {
+    prebake_mod_vertices.reserve(donor.effects.size());
+    for (const auto& e : donor.effects) {
+      prebake_mod_vertices.push_back(e.mod.vertices);
+    }
+    int brc = bake_blerc_target(donor, bake_target);
+    if (brc != 0) {
+      return brc;
+    }
+  }
   tfrag3::MercModel& appended = lev.merc_data.models.at(appended_idx);
 
   // ---- structure-mirror assert: appended must mirror the donor 1:1 --------------------------
@@ -817,6 +985,10 @@ int port_blerc(tfrag3::Level& lev,
   if (!build_channel_map(donor, *driver, channel_map, cerr)) {
     fmt::print("  BLERC-PORT FAIL: channel map: {}\n", cerr);
     return 6;
+  }
+  // explicit: a baked target is never a runtime target on the appended model.
+  if (bake_target >= 0 && (size_t)bake_target < channel_map.size()) {
+    channel_map[bake_target] = -1;
   }
 
   // ---- per-effect port -----------------------------------------------------------------------
@@ -900,9 +1072,11 @@ int port_blerc(tfrag3::Level& lev,
     // appended model's bone matrices, so the joint indices must agree.
     {
       int probes = 0, matched = 0;
-      size_t n_probe = std::min<size_t>(8, de.mod.vertices.size());
+      const auto& probe_verts =
+          prebake_mod_vertices.empty() ? de.mod.vertices : prebake_mod_vertices[ei];
+      size_t n_probe = std::min<size_t>(8, probe_verts.size());
       for (size_t k = 0; k < n_probe; k++) {
-        const auto& mv = de.mod.vertices[k];
+        const auto& mv = probe_verts[k];
         probes++;
         const tfrag3::MercVertex* hit = nullptr;
         for (u32 cand = vlo; cand <= vhi; cand++) {
@@ -977,6 +1151,9 @@ int port_blerc(tfrag3::Level& lev,
       nb.float_data.push_back(de.mod.blerc.float_data[v.float_base]);
       for (size_t k = 0; k < v.tgts.size(); k++) {
         u32 t = v.tgts[k];
+        if (bake_target >= 0 && (int)t == bake_target) {
+          continue;  // baked into the base geometry above; never a runtime target
+        }
         int c = (t < channel_map.size()) ? channel_map[t] : -1;
         if (c < 0) {
           dropped_by_target[t]++;
@@ -997,6 +1174,9 @@ int port_blerc(tfrag3::Level& lev,
     size_t dropped_here = 0;
     for (const auto& v : bverts) {
       for (u32 t : v.tgts) {
+        if (bake_target >= 0 && (int)t == bake_target) {
+          continue;
+        }
         int c = (t < channel_map.size()) ? channel_map[t] : -1;
         if (c < 0) {
           dropped_here++;
@@ -1363,7 +1543,8 @@ int do_add(const fs::path& in,
            const fs::path& blerc_fr3 = {},
            const std::string& blerc_model = {},
            const fs::path& driver_fr3 = {},
-           const std::string& lid_tex = {}) {
+           const std::string& lid_tex = {},
+           int bake_target = -1) {
   if (!file_util::file_exists(glb.string())) {
     fmt::print("  GLB missing: {}\n", glb.string());
     return 2;
@@ -1453,6 +1634,12 @@ int do_add(const fs::path& in,
     return 5;
   }
 
+  if (bake_target >= 0 && blerc_model.empty()) {
+    fmt::print("  FAIL: --bake-blerc-target needs --blerc-from <donor.fr3>:<donor-model-name> (the "
+               "donor model whose blerc target is baked)\n");
+    return 6;
+  }
+
   // defect class B: port the donor's blerc (facial blend shapes) onto the appended model.
   if (!blerc_model.empty()) {
     if (eye_from.empty()) {
@@ -1461,7 +1648,7 @@ int do_add(const fs::path& in,
       return 6;
     }
     int rc = port_blerc(lev, idx, before_textures, eye_from, blerc_fr3, blerc_model, *driver_lev,
-                        driver_src);
+                        driver_src, bake_target);
     if (rc != 0) {
       fmt::print("  (no fr3 written)\n");
       return rc;
@@ -1530,8 +1717,10 @@ int main(int argc, char** argv) {
                "  hd_merc_swap audit <fr3> [name ...]\n"
                "  hd_merc_swap add   <stock.fr3> <name>-lod0.glb <out.fr3> [--eye-from "
                "<stock-model>] [--blerc-from <donor.fr3>:<donor-model-name>] "
-               "[--driver-fr3 <fr3-with-driver-model>] [--port-lid <donor-texture-debug-name>]\n"
-               "  hd_merc_swap stamp <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n");
+               "[--driver-fr3 <fr3-with-driver-model>] [--port-lid <donor-texture-debug-name>] "
+               "[--bake-blerc-target <N>]\n"
+               "  hd_merc_swap stamp <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n"
+               "  hd_merc_swap blerc-stats <fr3> <model-name>\n");
     return 2;
   }
   std::string mode = argv[1];
@@ -1540,6 +1729,10 @@ int main(int argc, char** argv) {
     std::vector<std::string> names;
     for (int i = 3; i < argc; i++) names.push_back(argv[i]);
     return do_audit(argv[2], names);
+  }
+  if (mode == "blerc-stats") {
+    if (argc < 4) { fmt::print("blerc-stats needs <fr3> <model-name>\n"); return 2; }
+    return do_blerc_stats(argv[2], argv[3]);
   }
   if (mode == "diff") {
     if (argc < 4) { fmt::print("diff needs <stock.fr3> <enhanced.fr3>\n"); return 2; }
@@ -1564,6 +1757,7 @@ int main(int argc, char** argv) {
       return 2;
     }
     std::string eye_from, blerc_spec, driver_fr3, lid_tex;
+    int bake_target = -1;
     for (int i = 5; i + 1 < argc; i++) {
       if (std::string(argv[i]) == "--eye-from") {
         eye_from = argv[i + 1];
@@ -1573,6 +1767,12 @@ int main(int argc, char** argv) {
         driver_fr3 = argv[i + 1];
       } else if (std::string(argv[i]) == "--port-lid") {
         lid_tex = argv[i + 1];
+      } else if (std::string(argv[i]) == "--bake-blerc-target") {
+        bake_target = std::atoi(argv[i + 1]);
+        if (bake_target < 0) {
+          fmt::print("--bake-blerc-target needs a non-negative target index\n");
+          return 2;
+        }
       }
     }
     std::string blerc_fr3, blerc_model;
@@ -1589,7 +1789,8 @@ int main(int argc, char** argv) {
         return 2;
       }
     }
-    return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model, driver_fr3, lid_tex);
+    return do_add(argv[2], argv[3], argv[4], eye_from, blerc_fr3, blerc_model, driver_fr3, lid_tex,
+                  bake_target);
   }
   fmt::print("unknown mode '{}'\n", mode);
   return 2;
