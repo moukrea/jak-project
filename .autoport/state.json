@@ -225,7 +225,7 @@
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
     "Grecharged-secondary-motion": 2,
-    "Grecharged-hd-models4": 1
+    "Grecharged-hd-models4": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -496,6 +496,9 @@
     ],
     "Grecharged-secondary-motion": [
       "148d3922555a"
+    ],
+    "Grecharged-hd-models4": [
+      "84372a3eba35"
     ]
   },
   "stuck_reasons": {
@@ -930,7 +933,7 @@
     "Grecharged-secondary-motion": 1785927178.8590672,
     "Grecharged-hd-models4": 1785939731.6130211
   },
-  "last_update": "2026-08-05T14:56:02.026264+00:00",
+  "last_update": "2026-08-05T15:18:22.705978+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
