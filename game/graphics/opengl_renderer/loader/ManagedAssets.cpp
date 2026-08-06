@@ -219,6 +219,28 @@ std::optional<CompressedTex> lookup_map(const std::string& tpage_name,
   return lookup_entry(tpage_name, tex_name, map_kind);
 }
 
+void record_detected_profile(const std::string& profile) {
+  if (profile.empty()) {
+    return;
+  }
+  std::error_code ec;
+  const auto dir = state_dir();
+  fs::create_directories(dir, ec);
+  if (ec) {
+    return;
+  }
+  const auto p = dir / "gpu_profile.txt";
+  std::string current;
+  if (fs::exists(p)) {
+    current = file_util::read_text_file(p);
+  }
+  if (current == profile) {
+    return;
+  }
+  file_util::write_text_file(p, profile);
+  lg::info("managed assets: recorded GPU profile '{}' for the next launch", profile);
+}
+
 u32 create_map_texture(const CompressedTex& tex) {
   GLuint id = 0;
   glGenTextures(1, &id);

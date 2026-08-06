@@ -9542,6 +9542,18 @@ Java_org_opengoal_gk_NativeGk_setExternalFilesDir(JNIEnv* env, jclass /*clazz*/,
   gk_jak2_diag_enable_if_jak2();
 }
 
+// Grecharged-managed-assets: whether this libgk.so has the PBR path compiled
+// in. The Java downloader skips the material-map shards (the bulk of the
+// download) when the renderer could not sample them anyway.
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_hasPbrFeature(JNIEnv* /*env*/, jclass /*clazz*/) {
+#ifdef OG_FEAT_PBR
+  return JNI_TRUE;
+#else
+  return JNI_FALSE;
+#endif
+}
+
 JNIEXPORT void JNICALL
 Java_org_opengoal_gk_NativeGk_onPadButton(JNIEnv* /*env*/, jclass /*clazz*/,
                                           jint sdl_button, jboolean pressed) {

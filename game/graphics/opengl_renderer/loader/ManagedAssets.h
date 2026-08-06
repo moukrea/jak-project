@@ -66,4 +66,10 @@ bool upload_bound_texture(const CompressedTex& tex);
 // all offline mip levels, no glGenerateMipmap). Returns 0 on failure.
 u32 create_map_texture(const CompressedTex& tex);
 
+// Publish the GPU profile detected from the live context into
+// managed_assets/<game>/gpu_profile.txt. The Android downloader runs BEFORE
+// any GL context exists, so its first run installs the safe GLES baseline and
+// later runs read this file to upgrade (e.g. to ASTC). No-op on failure.
+void record_detected_profile(const std::string& profile);
+
 }  // namespace managed_assets
