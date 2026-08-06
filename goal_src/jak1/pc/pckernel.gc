@@ -512,6 +512,9 @@
      ;; Grecharged-bundled-textures: apply at settings-load (boot) like load-custom-assets? —
      ;; level textures upload before the first per-frame update-to-os push.
      (pc-set-recharged-textures! (if (-> obj recharged-textures?) 1 0)))
+    (("managed-assets?")
+     (set! (-> obj managed-assets?) (file-stream-read-symbol file))
+     (pc-set-managed-assets! (if (-> obj managed-assets?) 1 0)))
     (("skip-movies?") (set! (-> obj skip-movies?) (file-stream-read-symbol file)))
     (("subtitles?") (set! (-> obj subtitles?) (file-stream-read-symbol file)))
     (("subtitle-language") (set! (-> obj subtitle-language) (the-as pc-language (file-stream-read-int file))))
@@ -585,6 +588,7 @@
   (format file "physics-quality = ~D~%" (-> obj physics-quality))
   (format file "load-custom-assets? = ~A~%" (-> obj load-custom-assets?))
   (format file "recharged-textures? = ~A~%" (-> obj recharged-textures?))
+  (format file "managed-assets? = ~A~%" (-> obj managed-assets?))
   (format file "skip-movies? = ~A~%" (-> obj skip-movies?))
   (format file "subtitles? = ~A~%" (-> obj subtitles?))
   (format file "subtitle-language = ~D~%" (-> obj subtitle-language))

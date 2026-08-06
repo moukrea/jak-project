@@ -28,6 +28,7 @@
 #include "game/external/discord_jak1.h"
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 // [pom] device diagnostic: pbr_pom_diag_section() renders the per-material parallax block appended
 // to pbr_tan_diag.txt below, and [cover] pbr_coverage_section() the per-frame displacement coverage
@@ -715,6 +716,18 @@ void pc_set_load_custom_assets(u32 on) {
 // textures (base albedo swaps only; the bundle's PBR maps follow the PBR path instead).
 void pc_set_recharged_textures(u32 on) {
   Gfx::g_global_settings.recharged_textures = (on != 0);
+}
+
+// Grecharged-managed-assets: 0/1 toggle for the DOWNLOADED texture pack. The
+// loader consults it through Gfx::recharged_active, and a change invalidates
+// the pack index so the next level load picks the new state up.
+void pc_set_managed_assets(u32 on) {
+  const bool v = (on != 0);
+  if (Gfx::g_global_settings.recharged_managed_assets != v) {
+    Gfx::g_global_settings.recharged_managed_assets = v;
+    managed_assets::invalidate();
+    lg::info("managed assets: {} by setting", v ? "enabled" : "disabled");
+  }
 }
 
 // Grecharged-master-toggle: push the GLOBAL Recharged master from GOAL
@@ -3385,6 +3398,7 @@ void InitMachine_PCPort() {
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   make_function_symbol_from_c("pc-set-recharged-textures!", (void*)pc_set_recharged_textures);
+  make_function_symbol_from_c("pc-set-managed-assets!", (void*)pc_set_managed_assets);
 #ifdef OG_FEAT_GRASS_OVERHANG
   // Grecharged-grass-overhang: 3D drooping edge-grass toggle
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);

@@ -120,6 +120,7 @@
    (physics-quality int32) ;; Grecharged-secondary-motion: 0=LIGHT 1=FULL 2=MAXIMUM (data-driven levels in recharged_assets/physics_chains.txt)
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (recharged-textures? symbol) ;; Grecharged-bundled-textures: use the package-bundled first-party Recharged replacement textures. #f = stock base textures.
+   (managed-assets? symbol) ;; Grecharged-managed-assets: use the DOWNLOADED texture pack (managed_assets/<game>/) when one is installed. #f = bundled/stock, no re-download.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
    (scenes-seen         uint8 PC_SPOOL_LOG_LENGTH) ;; cutscenes that have been seen, by spool-anim (maybe use 8-char name or bits instead?)
    (memcard-play-hints? symbol)
@@ -143,6 +144,7 @@
 (define-extern pc-set-load-custom-assets! (function int none))
 ;; Grecharged-bundled-textures: pushes the bundled-textures toggle (0/1) to the runtime.
 (define-extern pc-set-recharged-textures! (function int none))
+(define-extern pc-set-managed-assets! (function int none))
 ;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
 ;; Grecharged-buildsys-flags: extern present only with --grass-overhang (C++ side gated by OG_FEAT_GRASS_OVERHANG).
 (#when FLAG_GRASS_OVERHANG
@@ -310,6 +312,7 @@
   (set! (-> obj physics-quality) 1) ;; 0=LIGHT 1=FULL 2=MAXIMUM (data-driven levels in recharged_assets/physics_chains.txt)
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   (set! (-> obj recharged-textures?) #t) ;; Grecharged-bundled-textures: default ON — a plain install shows the owner's Recharged textures (the MASTER still forces stock when OFF)
+  (set! (-> obj managed-assets?) #t) ;; Grecharged-managed-assets: default ON — a downloaded pack is meant to be seen (the MASTER still forces stock when OFF)
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)

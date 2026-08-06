@@ -1687,6 +1687,7 @@
   ;; Grecharged-bundled-textures: push the bundled-textures toggle every frame (level texture
   ;; uploads consult it; a flip applies on the next level load, same contract as custom assets).
   (pc-set-recharged-textures! (if (-> obj recharged-textures?) 1 0))
+  (pc-set-managed-assets! (if (-> obj managed-assets?) 1 0))
   (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))
   (#when FLAG_GRASS_OVERHANG (pc-set-grass-overhang! (if (-> obj recharged-grass-overhang?) 1 0)))
   ;; Grecharged-pbr-materials: push the PBR toggle + the current sun/shadow lighting every frame.

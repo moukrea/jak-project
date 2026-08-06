@@ -74,10 +74,10 @@ fs::path state_dir() {
 }
 
 bool gate_on() {
-  // Managed packs are "recharged" content: master-gated. A dedicated user
-  // toggle rides in with the asset-manager menu work (PR3); until then the
-  // presence of an installed, verified state.json is the opt-in.
-  return Gfx::recharged_master_active();
+  // Managed packs are "recharged" content: the user toggle composed with the
+  // Recharged master, exactly like every other feature gate (single-helper
+  // rule). OFF falls back to bundled/stock with no re-download.
+  return Gfx::recharged_active(Gfx::g_global_settings.recharged_managed_assets);
 }
 
 void scan_locked() {
