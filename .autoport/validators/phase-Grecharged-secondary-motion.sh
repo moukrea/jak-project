@@ -249,4 +249,9 @@ PYFC
 # TPL: a report still holding template placeholders is not a report.
 grep -qE '@@[A-Z_]+@@' "$R" && fail "TPL: report contains unsubstituted placeholders (@@...@@) — the numbers were never filled in"
 
+
+# RATCHET: never trade one target for another. A candidate that regresses on any
+# recorded metric fails, whatever it improved elsewhere.
+python3 .autoport/lib/ratchet.py "$R" || fail "RATCHET: this run regressed a target that was already better before"
+
 echo "[Grecharged-secondary-motion PASS]"
