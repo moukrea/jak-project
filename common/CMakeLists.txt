@@ -29,6 +29,8 @@ endfunction()
 write_revision_h()
 
 add_library(common
+        assets/AssetManager.cpp
+        assets/Manifest.cpp
         audio/audio_formats.cpp
         cross_os_debug/xdbg.cpp
         cross_sockets/XSocket.cpp

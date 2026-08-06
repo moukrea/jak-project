@@ -1,0 +1,10 @@
+{
+ "asset_version": "assets-v9.9.9",
+ "preset": "low",
+ "profile": "pc-bc",
+ "schema_version": 1,
+ "shards": [
+  "jak1-pc-bc-low-albedo-shard-c1-village1-beach-dddddddddddd.rpack"
+ ],
+ "verified": true
+}

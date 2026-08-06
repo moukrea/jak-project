@@ -760,6 +760,7 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/Loader.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/LoaderStages.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/ManagedAssets.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/GpuCaps.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/PbrTestPattern.cpp"
     "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"
     "${JAK_ROOT}/common/custom_data/MeshConsolidate.cpp"
