@@ -358,6 +358,14 @@
 ;; detector must fire on what the animator DOES, not on where the idle pose happens to sit.
 (defconstant PHYS-AUTH-BASE 0.35)
 
+;; (W) how many consecutive CALM frames make an actor "settled" for the model-fidelity metric.
+;; The slot-level settled flag turned out never to fire on the shipping legs — restwin read 0 in
+;; two consecutive device runs — so the metric was grading nothing while reporting a perfect zero.
+;; That is exactly the empty zero its own witness counter was added to expose, and it did.
+;; `calm` counts consecutive frames under the rest velocity, is the same signal the rest-converged
+;; message has always used, and is observed on the phone every single run.
+(defconstant PHYS-RESTCALM 10)
+
 ;; (W) THE UPRIGHT WINDOW. Cosine of the angle between the actor's own up axis and world up.
 ;; Above COS-UP the character is standing/walking/running normally and gravity has NO say in where a
 ;; FAMILY A chain rests — the model pose is the target, full stop. Below COS-TILT it is genuinely
@@ -1686,8 +1694,6 @@
                                                            (vector+! pprb p pprb)
                                                            pprb)
                                                           (else p))))
-                                              (when (nonzero? probe?)
-                                                (+! (-> *phys-slot-extprobe* slot) 1))
                                               (dotimes (s2 (-> *phys-slot-ncols* slot))
                                                 (let ((cb (+ (* slot PHYS-COLS) s2)))
                                                   (when (and (<= (-> *phys-coltier* cb) tier)
@@ -1982,6 +1988,13 @@
                                              (vector+! pprb p pprb)
                                              pprb)
                                             (else p))))
+                                 ;; counted ONCE PER LINK PER FRAME, here in the audit, not inside
+                                 ;; the constraint sweep: the sweep runs it iters*substeps times, which
+                                 ;; reached 1.2e9 in a single window and wraps an int32. The number only
+                                 ;; has to say the cloth was tested at all, and this is where the test
+                                 ;; that produces the verdict happens.
+                                 (when (nonzero? probe?)
+                                   (+! (-> *phys-slot-extprobe* slot) 1))
                                  (dotimes (s2 (-> *phys-slot-ncols* slot))
                                    (let ((cb (+ (* slot PHYS-COLS) s2)))
                                      (when (and (<= (-> *phys-coltier* cb) tier)
@@ -2056,7 +2069,8 @@
                          ;; grade the exception as the defect.
                          (when (and (!= 2 (-> *phys-cfam* ci))
                                     (< tiltf 0.05)
-                                    (nonzero? (-> *phys-slot-settled* slot))
+                                    (or (nonzero? (-> *phys-slot-settled* slot))
+                                        (>= (-> *phys-slot-calm* slot) PHYS-RESTCALM))
                                     (<= (-> *phys-csettle* ci) 0)
                                     (< authw 0.5)
                                     (>= chainlen 1.0))
@@ -2729,7 +2743,7 @@
                       (-> *phys-slot-famb* slot)
                       (-> *phys-slot-unclass* slot)
                       (-> *phys-slot-tilt* slot))
-              (format *phys-line-buf* " restdevA=~f restwin=~D xleg=~D lenmin=~f extprobe=~D"
+              (format *phys-line-buf* " restdevA=~f restwin=~D xleg=~D lenmin=~f lensim=~f extprobe=~D"
                       (-> *phys-slot-restdeva* slot)
                       (-> *phys-slot-restwin* slot)
                       (-> *phys-slot-xleg* slot)
