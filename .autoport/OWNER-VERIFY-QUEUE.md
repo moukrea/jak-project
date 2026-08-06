@@ -305,3 +305,45 @@ pénétration à 0) · faux-vent neutralisé (fin du combat des deux animations)
 · fix du menu "Physics Detail" (n'ouvre plus le mesh browser).
 Puis (si la nuit le permet) : vague physique cast-complet (PNJ, ventres/poitrines/chapeaux, binocle
 de Samos...). Chaque livraison ajoute sa ligne ici.
+
+### PRÉ-GATE 02:30 (06/08) — PHYSIQUE CYCLE 2 (tes 5 défauts du 16:40 + les colliders du 17:35)
+Build `--physics` refait, installé et vérifié sur le Redmi (deploy_verify PASS, md5 GAME.CGO +
+physics_chains.txt identiques device/local). x86 5/5 legs verts, device D-MAX + D-OFF verts.
+
+- **BUG MENU (E) — CORRIGÉ.** Cause : le câblage indexait la queue du tableau à la main
+  (`length-3`) en **oubliant la ligne MESH BROWSER** — la queue fait 4 lignes. Le libellé
+  « PHYSICS DETAIL » était donc peint sur le **bouton MESH BROWSER**, et comme le dispatch des
+  boutons lit le `name` STATIQUE et jamais le `name-override`, la ligne ouvrait le mesh browser.
+  Correctif : les 2 lignes se **localisent toutes seules** (plus aucun offset compté à la main) ;
+  preuve permanente au boot `[PHYS-MENU] static audit: toggle=26 detail=27 next-is-meshbrowser=1`.
+- **FAUX VENT × PHYSIQUE (A) — CORRIGÉ.** Il n'y avait pas deux écritures : le faux vent de ND est
+  dans les **canaux d'animation** des os secondaires, qui arrivaient dans la CIBLE du ressort. Pire
+  cas trouvé : les pans bleus de Jak (`shirtL/Rthigh`) rejouaient **tout le balancement de jambe**
+  du driver. Maintenant la physique REMPLACE le canal (os remis en pose de repos porté par le
+  parent) ; là où le canal est du **jeu d'acteur** (oreilles/queue de Daxter, barbe de Samos) il est
+  réinjecté comme simple **force**, jamais comme 2e écriture.
+- **CHEVEUX (B) — CORRIGÉ.** La racine était un os libre : elle est maintenant **verrouillée au
+  crâne** (aucune intégration, aucune écriture) + gradient racine→pointes. Preuve : `rootdev=0.0000`
+  sur TOUTES les fenêtres, x86 et device.
+- **POITRINE KEIRA (C) — CORRIGÉ.** Elle n'était pas cassée, elle était **inerte** : 0,8 cm de
+  débattement. Maintenant **5,7 cm (x86) / 6,6 cm crête, 4,4 cm moyen (device MAX)**. Le compteur
+  global ne pouvait pas le voir (noyé par cheveux/bretelles) → il y a désormais une mesure
+  **par chaîne**.
+- **LUNETTES (D) — CORRIGÉES, 2 causes.** (1) classées « accessoire » donc coupées au niveau où tu
+  jouais ; (2) surtout : les **verres** (87 % de la géométrie) étaient des enfants non simulés — les
+  animer aurait **arraché les verres du pont**. Nouvelle passe qui recolle les descendants (elle
+  sert aussi à Samos : 10 descendants).
+- **COLLIDERS (17:35) — FAITS.** 68 **capsules** qui suivent 2 os animés (torse, hanches, cuisses,
+  bras, cou/crâne), épaisseur de la chaîne prise en compte, **friction au contact**, et surtout un
+  compteur de **pénétrations résiduelles = 0** partout. Rayons **mesurés** sur les rigs, pas devinés
+  (un audit préalable a trouvé les cheveux de Keira **encastrés de 182 unités** dans le torse —
+  corrigé avant le build).
+
+**À TESTER (toi)** : ① le menu → « PHYSICS DETAIL » doit ouvrir le **sélecteur LIGHT/FULL/MAXIMUM**
+(plus le mesh browser) ; ② Keira dans la hutte — poitrine visible mais « rien de fou » ? cheveux
+attachés au crâne ? lunettes qui bougent un peu ? ③ Jak en course/saut — les pans bleus clippent-ils
+encore ? ④ chaque cran de précision se sent-il ?
+**RÉGLAGE** : tout est dans `recharged_assets/physics_chains.txt` (push + changement de LOOK =
+rechargé à chaud). Dis « plus/moins de X sur Y » et j'itère sans rebuild.
+**PAS DANS CE CYCLE** (volontaire, ton ordre) : l'extension PNJ/cast complet (poitrines, fesses,
+ventres du pêcheur, chapeaux, binocle de Samos, Maia) — c'est la suite, par vagues.

@@ -81,7 +81,7 @@ chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=
 j LpantFlap
 chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
 j RpantFlap
-chain goggles class=primary stiffness=3.5 damping=0.30 gravity=0.10 maxangle=12 inertia=0.9 stretch=0.02 radius=60
+chain goggles class=primary stiffness=5.0 damping=0.35 gravity=0.08 maxangle=6 inertia=0.9 stretch=0.015 radius=60
 j gogglesMid
 
 capsule hips chest radius=620 tier=1 chains=topstrapL,topstrapR,botstrapL,botstrapR,backhair,rmidhair,lmidhair
@@ -135,7 +135,7 @@ chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=
 j LpantFlap
 chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50
 j RpantFlap
-chain goggles class=primary stiffness=3.5 damping=0.30 gravity=0.10 maxangle=12 inertia=0.9 stretch=0.02 radius=60
+chain goggles class=primary stiffness=5.0 damping=0.35 gravity=0.08 maxangle=6 inertia=0.9 stretch=0.015 radius=60
 j gogglesMid
 
 capsule hips chest radius=620 tier=1 chains=topstrapL,topstrapR,botstrapL,botstrapR,backhair,rmidhair,lmidhair
