@@ -355,6 +355,17 @@
 ;; as input-free. This is not a narrower metric — it is a correction of attribution, and it makes the
 ;; number go UP wherever a chain really does move by itself.
 (define *phys-tprev* (new 'static 'inline-array vector 1152))
+;; (S/cycle-4) LAST FRAME'S OUTPUT POSITION, per joint — the point the BONE received, after the
+;; influence blend and after the final collision sweep. Drift has to be measured on this and on
+;; nothing else. The verlet pair (pos - prev) is a VELOCITY, and with the constraint corrections
+;; mirrored into prev (PHYS-PROJFIX) it is specifically the velocity the chain had BEFORE the cone
+;; and distance clamps took it back. A chain hanging on its swing-cone limit — gravity pulling every
+;; frame, the cone returning it to the same place every frame — is perfectly still on screen and
+;; still reads 8 units of "velocity". Measured on the phone: jak-hd reported exactly 8.0205 in three
+;; different builds, byte-identical across a contact-exclusion change that should have moved it, on
+;; a Jak standing motionless with no authored activity and no contact. It was not motion. What the
+;; owner sees is where the bone is, so that is what is differenced here.
+(define *phys-oprev* (new 'static 'inline-array vector 1152))
 (define *phys-anim* (new 'static 'inline-array vector 1152)) ;; per-frame AUTHORED position (pre re-glue), for anim=excite and (A) authored priority
 (define *phys-jdev* (new 'static 'array float 1152))         ;; (D) per-LINK window max deviation: "only the tip moves" is a number, not an impression
 ;; (P) per-LINK influence: the fraction of the simulated displacement this bone actually receives.
@@ -841,7 +852,8 @@
     (set! (-> *phys-slot-noncol* slot) 0)
     (set! (-> *phys-slot-nomask* slot) 0)
     (dotimes (j PHYS-JPS)
-      (vector-reset! (-> *phys-tprev* (+ jbase j))))
+      (vector-reset! (-> *phys-tprev* (+ jbase j)))
+      (vector-reset! (-> *phys-oprev* (+ jbase j))))
     (vector-reset! (-> *phys-slot-gdir* slot))
     (vector-reset! (-> *phys-slot-gloc* slot))
     (dotimes (j PHYS-JPS)
@@ -1733,24 +1745,23 @@
                            ;; zero the number being graded and produce a metric that reports success
                            ;; by construction. Same class of empty green as cycle-3's resid=0 with
                            ;; push=0, and it is measured out of order here on purpose.
-                           ;; A LINK IN CONTACT IS NOT MOVING BY ITSELF. Measured, once the two
-                           ;; corrections above were in: jak-hd still read 10.05 units on a Jak
-                           ;; standing perfectly still, with no authored activity in the window at
-                           ;; all (authhold=0 eng=0 rel=0 — the blend was checked first and ruled
-                           ;; out). It is his jacket hem lying ON his thigh: gravity sags it into
-                           ;; the capsule by one frame's worth, the collider pushes it back out,
-                           ;; the sleep rule kills the velocity, repeat — a 2.4 mm limit cycle at a
-                           ;; resting contact, driven by the collider, which is an external force.
-                           ;; Those links are excluded HERE and counted THERE: contact motion is
-                           ;; what jitter and stickmax grade, free-air motion is what drift grades,
-                           ;; and no link escapes both. That is the opposite of cycle 3, which
-                           ;; graded contact reversals and let free-air ringing through unmeasured.
+                           ;; DRIFT IS A DISPLACEMENT OF THE BONE, NOT A VELOCITY OF THE STATE.
+                           ;; Differenced on *phys-out* — the point the bone receives, already
+                           ;; blended by the influence profile and already through the final
+                           ;; collision sweep. No influence rescaling is needed or wanted here: it
+                           ;; is baked into the output, and this number is now in the same unit the
+                           ;; owner judges in, "how far did it move on screen while nothing asked".
                            (when (and (<= (-> *phys-csettle* ci) 0) (< authw 0.5))
                              (dotimes (i len)
-                               (when (and (>= i rl) (zero? (-> lpush i)))
-                                 (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
-                                 (let ((d (* (vector-length vtmp) (-> *phys-infl* (+ start i)))))
+                               (when (>= i rl)
+                                 (vector-! vtmp (-> *phys-out* (+ start i)) (-> *phys-oprev* (+ start i)))
+                                 (let ((d (vector-length vtmp)))
                                    (when (> d frame-self) (set! frame-self d))))))
+                           ;; ...and the snapshot for the next frame, for EVERY link, whether or not
+                           ;; this frame was graded: a stale reference would manufacture a jump on
+                           ;; the first idle frame after any motion.
+                           (dotimes (i len)
+                             (vector-copy! (-> *phys-oprev* (+ start i)) (-> *phys-out* (+ start i))))
                            ;; SLEEP. On a frame where this chain was asked for nothing, a link still
                            ;; carrying less than a quarter of a millimetre of velocity is not moving,
                            ;; it is ringing down — and in a verlet integrator that residue is stored
