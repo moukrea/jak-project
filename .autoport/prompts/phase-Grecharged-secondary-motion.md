@@ -448,8 +448,17 @@ physique doit se baser sur la source de vérité du modèle, car c'est la repré
 personnages VOULUE PAR NAUGHTY DOG : pas plus écrasé, pas plus tassé, pas plus bas. En idle ça doit
 être comme le modèle original ; lors d'un mouvement c'est soumis à la physique, ça se déforme / se
 déplace, et ÇA REVIENT EN POSITION. »
-=> Conséquence directe : la GRAVITÉ agit sur la DYNAMIQUE, pas sur la POSE DE REPOS de ces éléments.
-   Une chaîne de corps au repos doit se superposer à la pose du modèle, déviation ~0.
+=> PRÉCISION OWNER (21:20, à ne pas se tromper) : « PAS exactement le modèle, mais REGAGNER cette
+   forme quand en idle ou dans une position classique, MAIS SUJETS À LA PHYSIQUE. »
+   Autrement dit : la chaîne reste simulée EN PERMANENCE — on ne la fige jamais, on ne la clampe
+   jamais sur la pose du modèle. Ce qui change, c'est la CIBLE D'ÉQUILIBRE : le point vers lequel le
+   ressort converge est la POSE DU MODÈLE, pas une pose déplacée par la gravité.
+   * pendant le mouvement : déformation et déplacement NORMAUX et souhaités (bounce, élasticité) ;
+   * quand ça se calme, en orientation classique : ça REVIENT à la forme du modèle, ni plus haut,
+     ni plus bas, ni plus écrasé.
+   Donc la mesure correcte n'est PAS « déviation instantanée ~0 » (ce serait interdire le bounce),
+   c'est « déviation APRÈS STABILISATION ~0 » — le retour à la forme d'origine.
+=> La GRAVITÉ agit donc sur la DYNAMIQUE de ces éléments, pas sur leur point d'équilibre.
 => EXCEPTION explicite de l'owner : quand l'orientation du personnage n'est PLUS approximativement
    celle d'origine (penché en avant, tête en bas...), la gravité reprend ses droits — « si tu pends
    Maia par les pieds, forcément ses seins ne seront pas à la même position que debout ».

@@ -165,12 +165,17 @@ grep -qiE "freering\s*=\s*[0-9]+" "$R" || fail "S-ter: no free-space ringing mea
 
 
 # ---- CYCLE 5 (owner 21:10): the MODEL is the source of truth for the idle pose ----
-# W. body chains at rest must coincide with the model's bind pose (not lower, not higher)
-python3 - "$R" <<'PYW' || fail "W: no idle-pose fidelity measurement (body chains at rest must match the MODEL pose, deviation ~0)"
+# W. body chains must RETURN to the model's shape once settled — physics stays live at all times.
+# Measure the deviation AFTER settling, never the instantaneous one (that would forbid the bounce
+# the owner explicitly wants). A chain clamped to the bind pose fails this phase just as hard.
+python3 - "$R" <<'PYW' || fail "W: no post-settle idle-pose fidelity (body chains must RETURN to the model shape; instantaneous clamping is not the ask)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-v=[float(x) for x in re.findall(r'(?:idlepose|restdev|idle[- ]?pose[- ]?dev)[^\n]{0,40}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
-sys.exit(0 if v and max(v)<=8.0 else 1)
+v=[float(x) for x in re.findall(r'(?:settled|post[- ]?settle|idlepose|restdev)[a-z-]{0,12}[^\n]{0,40}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+if not (v and max(v)<=8.0): sys.exit(1)
+# and the chain must still MOVE while driven - otherwise it was simply frozen
+if re.search(r'(clamp|freeze|pinned)[^\n]{0,40}(bind|model)\s*pose',t,re.I) and not re.search(r'not\s+(clamped|frozen|pinned)',t,re.I): sys.exit(1)
+sys.exit(0)
 PYW
 grep -qiE "(hang|gravity)[^\n]{0,90}(removed|neutral|off|exclu|not applied)[^\n]{0,60}(hair|chest|ear|body|cheveu|poitrine|oreille)" "$R" \
   || fail "W: gravity rest-pull not shown to be removed from BODY chains (cycle 4 wrongly applied it to 84 ears / 28 hair / 14 chests)"
