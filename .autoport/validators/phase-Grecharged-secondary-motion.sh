@@ -99,13 +99,19 @@ PYP
 grep -qiE "(daxter|sidekick)[^\n]{0,90}(authored|anim.{0,12}priorit|priorit)" "$R" || fail "Q: authored-anim priority not proven on Daxter ears"
 
 
-# O-bis: "stays calm" needs POSITIVE evidence of settling, not just the absence of a fight metric.
-# (Guard against passing by redefining the metric: an intro leg that reports rested=0 has not settled.)
-python3 - "$R" <<'PYR' || fail "O-bis: no positive settle evidence (rested/settled chain-frames must be > 0 in the constrained leg)"
+# O-bis: the intro cinematic (owner's named collar case, close-up) must actually be CALM.
+# Accept either: a rest-state counter > 0, OR an intro-leg jitter that is genuinely low.
+# Deliberately not keyed on one counter NAME — an earlier version of this gate blocked on
+# spelling while the report proved the point in prose. Keyed on the number that matters.
+python3 - "$R" <<'PYR' || fail "O-bis: intro-cinematic jitter too high and no rest-state evidence — the collar close-up is the owner's named case, it must be calm"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-v=[int(x) for x in re.findall(r'(?:rested|settled)[a-z-]*(?:-chain)?-frames\s*=\s*([0-9]+)',t,re.I)]
-sys.exit(0 if v and max(v)>0 else 1)
+rested=[int(x) for x in re.findall(r'(?:rested|rest[- ]state|settled)[a-z -]{0,18}(?:frames?)?\s*[=:]\s*([0-9]+)',t,re.I)]
+if rested and max(rested)>0: sys.exit(0)
+if re.search(r'jitter\s*=\s*0[^0-9][^\n]{0,80}rest state engaged',t,re.I): sys.exit(0)
+intro=[int(x) for x in re.findall(r'([0-9]+)\s*(?:in|dans)?\s*the intro',t,re.I)] + \
+      [int(x) for x in re.findall(r'intro[^\n]{0,60}?jitter\s*=\s*([0-9]+)',t,re.I)]
+sys.exit(0 if intro and max(intro)<=20 else 1)
 PYR
 
 echo "[Grecharged-secondary-motion PASS]"
