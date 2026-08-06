@@ -937,7 +937,26 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      flap that is right; on a BREAST it is exactly the owner's "seuls les bouts de ses seins
 //      bougent". Lowering swing keeps the full simulated TRANSLATION — so every vertex weighted to
 //      the bone moves together, as a volume — while damping the pivot. 1.0 = pre-cycle-4 write-back.)
-static constexpr int kPhysNumChainParams = 22;
+// CYCLE 5 (owner 2026-08-06) — MANDATORY per-chain FAMILY, and the geometry a chain needs to be
+// judged against the model instead of against itself:
+//   22 family(0 = UNDECLARED / not classified, 1 = A, 2 = B. Declared in the data as a LETTER.
+//      A = BODY: hair, chest, ears. Simulated at all times, but its equilibrium target is the
+//      MODEL POSE — no lower (droop) and no higher. B = HANGS: straps, accessories, hanging
+//      cloth. Gravity dictates its rest; it must NEVER be pulled back to the model pose. One
+//      setting shared by both families is the defect this id exists to make detectable.)
+//   23 side(0 = none/centred, 1 = L, 2 = R. Declared as a LETTER. Lets cross-side penetration be
+//      accounted for by name — a left jacket flap crossing through the RIGHT leg is a different
+//      failure from the same flap grazing its own leg.)
+//   24 extent(UNITS of rigidly-skinned geometry hanging BELOW this chain's last bone. Jak's two
+//      jacket pendants are one joint each with all the cloth underneath: colliding the bone point
+//      proved nothing, the bone stayed outside the thigh while the cloth swept through the other
+//      leg. Non-zero moves the collision test to the middle of that continuation and inflates the
+//      radius to circumscribe it. 0 = the bone is the whole chain, i.e. every pre-cycle-5 line.)
+//   25 compress(FRACTION of its authored length a link may lose, 0..0.9. 0 IS THE DEFAULT and it
+//      is a deliberate behaviour change: `stretch=` used to bound the distance constraint in BOTH
+//      directions, so a chest link could legally lose 22% of its length and Jak's collar could
+//      simply shorten until a contact solved itself. Owner X: "rien ne doit se TASSER".)
+static constexpr int kPhysNumChainParams = 26;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -971,7 +990,13 @@ struct PhysChain {
                                        // rotation written back), so adding them cannot move a single
                                        // chain the owner has already accepted. They only do
                                        // something where the data asks for it.
-                                       0.f, 1.f};
+                                       0.f, 1.f,
+                                       // 22 family 23 side 24 extent 25 compress — all default to
+                                       // 0 = UNDECLARED. family/side are letters in the data (A/B,
+                                       // L/R) and 0 means the chain has not been classified at all;
+                                       // extent/compress are units and 0 means "no allowance", so a
+                                       // chain that never declares compress= may not compress.
+                                       0.f, 0.f, 0.f, 0.f};
   std::vector<std::string> joints;  // ordered root -> tip
 };
 
@@ -990,6 +1015,8 @@ struct PhysCollider {
   std::vector<std::string> chains;  // empty = applies to ALL chains
   std::string joint2;               // empty = sphere; non-empty = CAPSULE from `joint` to `joint2`
   int tier = 1;  // 1 = core (on at every precision level with collisions), 2 = extended
+  int side = 0;             // 0 = none, 1 = L, 2 = R (cross-side penetration accounting)
+  std::string chainref;     // non-empty: centre this sphere on the SIMULATED TIP of that chain
 };
 
 struct PhysModel {
@@ -1045,6 +1072,11 @@ static float phys_to_float(const std::string& s) {
 // Shared key=value handling for the `collider` (sphere) and `capsule` lines — the two differ only
 // in how many leading joint tokens they consume. Returns false for an unrecognized key so the
 // caller can emit the usual one-shot "unknown key" warning.
+// CYCLE 5 adds two keys:
+//   side=L|R   which side of the body this volume belongs to, so a chain declaring side= can be
+//              accounted for when it penetrates the OPPOSITE side (query field 5).
+//   at=<chain> centre this sphere on the SIMULATED TIP of that chain instead of on a bone: the way
+//              two chains (Keira's chests) are made to collide with each other (query field 6).
 static bool phys_collider_kv(PhysCollider& col, const std::string& k, const std::string& v) {
   if (k == "radius") {
     col.radius = phys_to_float(v);
@@ -1069,6 +1101,16 @@ static bool phys_collider_kv(PhysCollider& col, const std::string& k, const std:
     if (col.tier < 1) {
       col.tier = 1;
     }
+  } else if (k == "side") {
+    // A LETTER, case-insensitive, like the chain's own side=. Anything else stays 0 (none) — the
+    // chain-side warning already tells the owner the letter set, no need for a second one here.
+    if (v == "L" || v == "l") {
+      col.side = 1;
+    } else if (v == "R" || v == "r") {
+      col.side = 2;
+    }
+  } else if (k == "at") {
+    col.chainref = v;
   } else {
     return false;
   }
@@ -1321,6 +1363,29 @@ static int pc_physics_parse_file() {
           ch.params[20] = phys_to_float(v);
         } else if (k == "swing") {
           ch.params[21] = phys_to_float(v);
+        } else if (k == "family") {
+          // A LETTER, not a number, and case-insensitive: the data reads as a classification.
+          if (v == "A" || v == "a") {
+            ch.params[22] = 1.f;  // body: hair / chest / ears — returns to the model pose
+          } else if (v == "B" || v == "b") {
+            ch.params[22] = 2.f;  // hangs: straps / accessories / cloth — gravity rules its rest
+          } else {
+            // Its OWN warning, deliberately NOT gated by warned_unknown: a mistyped family is a
+            // chain silently left UNCLASSIFIED, which is exactly what cycle 5 exists to catch.
+            lg::warn("[hd-phys] chain '{}': family must be A or B, got '{}'", ch.name, v);
+          }
+        } else if (k == "side") {
+          if (v == "L" || v == "l") {
+            ch.params[23] = 1.f;
+          } else if (v == "R" || v == "r") {
+            ch.params[23] = 2.f;
+          } else {
+            lg::warn("[hd-phys] chain '{}': side must be L or R, got '{}'", ch.name, v);
+          }
+        } else if (k == "extent") {
+          ch.params[24] = phys_to_float(v);
+        } else if (k == "compress") {
+          ch.params[25] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
@@ -1536,6 +1601,11 @@ s64 pc_physics_num_colliders(u32 ag_name) {
 // (joint2 set), 0 if it is a plain sphere. field 4 = FAR-END radius in milli for a TAPERED capsule
 // (cycle 3, owner C: flared trousers / shoulders); falls back to `radius` when radius2 is unset, so
 // every existing line keeps its cylinder shape.
+// field 5 = side=, RAW (0 none, 1 L, 2 R) — cross-side penetration accounting.
+// field 6 = the at= chain, RESOLVED to a 0-based chain index of this same model (the identical
+// lookup field 1 does for chains=): the sphere is then centred on that chain's SIMULATED TIP rather
+// than on a bone. -1 when no at= was declared, and -1 (plus a one-shot warning naming the
+// art-group and the unresolved name) when at= names a chain this model does not have.
 s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
   pc_physics_ensure_loaded();
   const auto* model = pc_physics_find_model(ag_name);
@@ -1577,6 +1647,28 @@ s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
   }
   if (field == 3) {
     return col.joint2.empty() ? 0 : 1;
+  }
+  if (field == 5) {
+    return (s64)col.side;
+  }
+  if (field == 6) {
+    if (col.chainref.empty()) {
+      return -1;
+    }
+    for (size_t ci = 0; ci < model->chains.size(); ci++) {
+      if (model->chains[ci].name == col.chainref) {
+        return (s64)ci;
+      }
+    }
+    // Once per (art-group, unresolved name): this is read every frame by the sim, and an
+    // unresolvable at= is a data typo the owner must SEE — but only once per typo, not per frame.
+    static std::set<std::string> s_warned_chainref;
+    std::string ag = Ptr<String>(ag_name).c()->data();
+    if (s_warned_chainref.insert(ag + "|" + col.chainref).second) {
+      lg::warn("[hd-phys] {}: collider at= references unknown chain '{}' (no attach)", ag,
+               col.chainref);
+    }
+    return -1;
   }
   return 0;
 }

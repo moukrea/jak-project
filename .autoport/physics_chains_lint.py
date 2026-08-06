@@ -115,6 +115,18 @@ def main() -> int:
                     errors.append(f"{header}:{ln} duplicate chain name '{cur}'")
                 chains[cur] = []
                 order.append(cur)
+                # CYCLE 5 (owner, third repetition: "C'EST DU CAS PAR CAS"). Classification is
+                # MANDATORY, and it is checked here rather than only at runtime because an
+                # unclassified chain does not crash — it silently inherits family A's behaviour, and
+                # a hanging strap that quietly returns to its modelled pose is exactly as wrong as a
+                # drooping breast. The runtime counts them too (unclass= on [HD-PHYS4]); this is the
+                # check that fails BEFORE a build is spent.
+                fam = [t[len("family="):] for t in tok[2:] if t.startswith("family=")]
+                if not fam:
+                    errors.append(f"{header}:{ln} chain '{cur}' declares no family= "
+                                  f"(A = body, returns to the model pose; B = hangs, gravity rules)")
+                elif fam[0] not in ("A", "B"):
+                    errors.append(f"{header}:{ln} chain '{cur}' family='{fam[0]}' — must be A or B")
             elif tok[0] == "j" and header:
                 if cur is None:
                     errors.append(f"{header}:{ln} 'j {tok[1]}' outside any chain")
