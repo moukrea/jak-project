@@ -98,4 +98,14 @@ sys.exit(0 if max(d)<=0.45 else 1)
 PYP
 grep -qiE "(daxter|sidekick)[^\n]{0,90}(authored|anim.{0,12}priorit|priorit)" "$R" || fail "Q: authored-anim priority not proven on Daxter ears"
 
+
+# O-bis: "stays calm" needs POSITIVE evidence of settling, not just the absence of a fight metric.
+# (Guard against passing by redefining the metric: an intro leg that reports rested=0 has not settled.)
+python3 - "$R" <<'PYR' || fail "O-bis: no positive settle evidence (rested/settled chain-frames must be > 0 in the constrained leg)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+v=[int(x) for x in re.findall(r'(?:rested|settled)[a-z-]*(?:-chain)?-frames\s*=\s*([0-9]+)',t,re.I)]
+sys.exit(0 if v and max(v)>0 else 1)
+PYR
+
 echo "[Grecharged-secondary-motion PASS]"
