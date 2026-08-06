@@ -137,7 +137,26 @@ int run_cli(const std::string& verb,
 
   Selection sel;
   sel.game = game;
-  sel.profile = profile_override.empty() ? "pc-bc" : profile_override;
+  // Profile order: explicit flag > what the renderer detected on a previous run
+  // (managed_assets/<game>/gpu_profile.txt, written by GpuCaps) > the desktop
+  // BC default. The CLI is headless, so it cannot probe GL itself.
+  sel.profile = profile_override;
+  if (sel.profile.empty()) {
+    const auto detected = dir / "gpu_profile.txt";
+    if (fs::exists(detected)) {
+      sel.profile = file_util::read_text_file(detected);
+      while (!sel.profile.empty() && (sel.profile.back() == '\n' || sel.profile.back() == '\r' ||
+                                      sel.profile.back() == ' ')) {
+        sel.profile.pop_back();
+      }
+      if (!sel.profile.empty()) {
+        fmt::print("using the profile detected by the renderer: {}\n", sel.profile);
+      }
+    }
+  }
+  if (sel.profile.empty()) {
+    sel.profile = "pc-bc";
+  }
   sel.preset = preset.empty() ? "default" : preset;
   sel.features = build_features();
   if (sel.preset == "very-low" || sel.preset == "off") {
