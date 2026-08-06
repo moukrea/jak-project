@@ -150,4 +150,17 @@ push=[int(x) for x in re.findall(r'(?:push|contacts?|hits?)\s*=\s*([0-9]+)',t,re
 sys.exit(0 if push and max(push)>0 else 1)
 PYU
 
+
+# S-bis: idledrift=0 is vacuous unless idle windows were actually sampled (idlewin>0).
+# Same class as U-bis (resid=0 with push=0). A metric that never ran proves nothing.
+python3 - "$R" <<'PYI' || fail "S-bis: idledrift=0 reported with idlewin=0 — no idle window was ever sampled, so the drift claim is vacuous"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+if not re.search(r'idledrift\s*=\s*0',t,re.I): sys.exit(0)
+w=[int(x) for x in re.findall(r'idlewin\s*=\s*([0-9]+)',t,re.I)]
+sys.exit(0 if w and max(w)>0 else 1)
+PYI
+# S-ter: free-space ringing is the owner's "hysteresis"; it must be measured AND reduced.
+grep -qiE "freering\s*=\s*[0-9]+" "$R" || fail "S-ter: no free-space ringing measurement (freering) — that is what the owner calls hysteresis"
+
 echo "[Grecharged-secondary-motion PASS]"
