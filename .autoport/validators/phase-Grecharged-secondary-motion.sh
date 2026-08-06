@@ -245,4 +245,8 @@ sys.stderr.write(f"  {len(nohang)}/{len(b)} family=B chains without a gravity re
 sys.exit(0 if len(nohang) <= len(b)//5 else 1)
 PYFC
 
+
+# TPL: a report still holding template placeholders is not a report.
+grep -qE '@@[A-Z_]+@@' "$R" && fail "TPL: report contains unsubstituted placeholders (@@...@@) — the numbers were never filled in"
+
 echo "[Grecharged-secondary-motion PASS]"
