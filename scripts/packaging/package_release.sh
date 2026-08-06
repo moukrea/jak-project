@@ -179,6 +179,31 @@ package_linux() {
     n_phys=1
   fi
 
+  # Grecharged-managed-assets: assets.lock.json pins this build to ONE immutable
+  # texture-pack release. Always staged when present — it is what `gk --assets`
+  # and the runtime pack loader read; without it the feature is simply dormant.
+  local n_lock=0
+  if [ -f "$ROOT/assets.lock.json" ]; then
+    ln -s "$ROOT/assets.lock.json" "$APPDIR/data/assets.lock.json"
+    n_lock=1
+  fi
+
+  # OPTIONAL preloaded pack: OFFLINE_BUNDLE=<zip> produces a package that already
+  # contains the textures (spec §1 "distributions offline ou préchargées"). The
+  # zip is the artifact of the assets repo's offline-bundle workflow, so a
+  # preloaded install is byte-identical to one the user would have downloaded.
+  # Without it the package stays small and the game fetches on first run.
+  local n_pack=0
+  if [ -n "${OFFLINE_BUNDLE:-}" ]; then
+    [ -f "$OFFLINE_BUNDLE" ] || fail "OFFLINE_BUNDLE=$OFFLINE_BUNDLE not found"
+    mkdir -p "$APPDIR/data/managed_assets/${GAME}"
+    unzip -q "$OFFLINE_BUNDLE" -d "$APPDIR/data/managed_assets/${GAME}"
+    [ -f "$APPDIR/data/managed_assets/${GAME}/state.json" ] \
+      || fail "OFFLINE_BUNDLE has no state.json — is it an offline-bundle artifact?"
+    n_pack=$(find "$APPDIR/data/managed_assets/${GAME}" -name '*.rpack' | wc -l)
+    echo "  preloaded texture pack: $n_pack shards from $(basename "$OFFLINE_BUNDLE")"
+  fi
+
   # run.sh launcher
   cat > "$APPDIR/run.sh" <<EOF
 #!/usr/bin/env bash
