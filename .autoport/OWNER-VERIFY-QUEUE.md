@@ -347,3 +347,15 @@ encore ? ④ chaque cran de précision se sent-il ?
 rechargé à chaud). Dis « plus/moins de X sur Y » et j'itère sans rebuild.
 **PAS DANS CE CYCLE** (volontaire, ton ordre) : l'extension PNJ/cast complet (poitrines, fesses,
 ventres du pêcheur, chapeaux, binocle de Samos, Maia) — c'est la suite, par vagues.
+
+### PRÉ-GATE 02:55 [✅ token PHYSIQUE CYCLE 2] — build DÉJÀ EN LIGNE (poussé 02:02)
+Prouvé (x86 5 legs + device D-MAX/D-OFF, deploy_verify PASS) :
+- **Bug menu ROOT-CAUSÉ** : le libellé « PHYSICS DETAIL » était peint sur la ligne MESH BROWSER
+  (décalage d'un cran, dû à un offset compté à la main — même classe que le bug du menu overhaul).
+  Corrigé + garde-fou : un mauvais ordre affiche désormais une erreur FATALE au lieu de mal câbler.
+- Faux-vent neutralisé, cheveux ancrés (rootlock+gradient), **jiggle Keira réveillé** (amplitude
+  mesurée chest max≈272 / avg≈182), lunettes, colliders réels (**resid=0** = zéro traversée).
+- Menu : toggle PHYSICS + PHYSICS DETAIL (LIGHT/FULL/MAXIMUM) persistés.
+À TESTER (toi, build jak-builds 02:02) : ① le jiggle de Keira — sobre mais visible ? ② cheveux qui
+ne partent plus en bloc ③ vêtements/lanières de Jak qui ne traversent plus ④ menu : PHYSICS DETAIL
+change bien la précision (et n'ouvre plus le mesh browser) ⑤ lunettes de Keira.
