@@ -93,6 +93,12 @@ void main() {
     // across ~0.4 m within one plant); small fraction of the main amplitude.
     float ph2 = wpos.x * 0.004 + wpos.y * 0.003 + u_time * 3.1;
     wpos.x += sin(ph2) * u_wind_strength * hw * 0.25;
+    // Grecharged-foliage-wind2: leaf flutter (~1.1 Hz). The round-1 terms above peak at 0.24-0.49 Hz
+    // — large excursions but sub-pixel PER-FRAME velocity, which the eye reads as a static bush.
+    // This faster, smaller term is what actually registers as "the leaves are moving".
+    float ph3 = wpos.z * 0.005 + wpos.y * 0.002 + u_time * 6.8;
+    wpos.x += sin(ph3) * u_wind_strength * hw * 0.18;
+    wpos.z += cos(ph3 * 1.13 + 0.7) * u_wind_strength * hw * 0.14;
   }
   vec3 vert = wpos - cam_trans.xyz;
 #ifdef OG_PBR

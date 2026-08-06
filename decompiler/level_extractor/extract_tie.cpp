@@ -1,6 +1,7 @@
 #include "extract_tie.h"
 
 #include <array>
+#include <cstdlib>  // Grecharged-foliage-wind2: std::getenv for the TIE_CENSUS coverage audit
 
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
@@ -2799,6 +2800,21 @@ void extract_tie(const level_tools::DrawableTreeInstanceTie* tree,
     update_proto_info(&info, tex_map, tree->prototypes.prototype_array_tie.data, geo, version);
     if (version < GameVersion::Jak2) {
       check_wind_vectors_zero(info, tree->prototypes.wind_vectors);
+    }
+    // Grecharged-foliage-wind2 COVERAGE CENSUS (env-gated, changes no extraction output).
+    // The phase mandate is "every palm crown and shrub must be in the wind set (or a named
+    // exception)". Wind membership is decided ~250 lines below by `using_wind = proto.stiffness
+    // != 0.f`, per PROTOTYPE — and a prototype's name is the only thing that says whether it is a
+    // palm, a bush or a hut. That name exists HERE and nowhere downstream (jak1 .fr3 files carry
+    // proto_names only for jak2+ per-proto visibility), so this is the one place the coverage
+    // question can be answered at all. Run with TIE_CENSUS=1 and an --output-path pointing at a
+    // scratch dir so the shipped .fr3 set is never rewritten.
+    if (geo == 0 && std::getenv("TIE_CENSUS")) {
+      for (const auto& proto : info) {
+        fmt::print("[tie-census] level={} geo={} proto={} instances={} stiffness={} wind={}\n",
+                   debug_name, geo, proto.name, proto.instances.size(), proto.stiffness,
+                   (proto.stiffness != 0.f) ? 1 : 0);
+      }
     }
     // determine draws from VU program
     emulate_tie_prototype_program(info);

@@ -28,6 +28,18 @@ uniform float fog_max;
 // texel-exact on desktop GL and required on GLES (no sampler1D).
 uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 uniform int decal;
+// Grecharged-foliage-wind2: FROND FLUTTER. Round 1 only sheared the whole instance matrix, so a
+// palm translated rigidly and the owner read the scene as dead ("aucune feuille qui bouge"). Leaves
+// look alive when they DEFORM, which needs a per-vertex term — this one.
+// position_in here is PROTOTYPE-LOCAL (Tie3::render_tree_wind supplies the per-instance matrix in
+// `camera`; TieTree::unpack leaves wind vertices untransformed), so length(position_in.xz) is a
+// vertex's horizontal reach from the trunk axis. Displacing by a FRACTION of that reach means:
+// exactly zero on the trunk, largest at the frond tips, and no per-prototype size data needed —
+// the term is invariant to prototype units and to instance scale.
+// u_fw_amp == 0.0 => toggle OFF => the block below is skipped and the stock vertex path runs.
+uniform float u_fw_amp;    // flutter amplitude, as a fraction of a vertex's own reach (0 = off)
+uniform float u_fw_time;   // breeze clock, seconds (frozen while the game's wind is paused)
+uniform float u_fw_phase;  // per-instance phase, set with `camera` for each instance group
 #ifdef OG_PBR
 uniform vec4 cam_trans;
 // Grecharged-lightprobes PLAYTEST#1 #4: the LOCAL probe SH is evaluated PER-PIXEL in the fragment
@@ -48,10 +60,29 @@ out vec4 v_tangent;
 #endif
 
 void main() {
+  // Grecharged-foliage-wind2: frond flutter (see the uniform block above). Only the projected
+  // position uses the fluttered vertex; v_world / v_fringe_rel below stay on the authored position
+  // so nothing in the PBR/probe path shifts with the breeze.
+  vec3 lpos = position_in;
+  if (u_fw_amp > 0.0) {
+    float reach = length(position_in.xz);   // 0 on the trunk axis, max at the frond tips
+    float ph = u_fw_phase;
+    // two incommensurate rates: a ~0.37 Hz frond bend plus a ~0.59 Hz ripple. The reach term inside
+    // the phase makes the wave travel OUT along a frond instead of moving it as a rigid stick.
+    float f1 = sin(u_fw_time * 2.30 + ph + reach * 0.00035);
+    float f2 = sin(u_fw_time * 3.71 + ph * 1.7 + 2.1);
+    float bend = u_fw_amp * (0.70 * f1 + 0.30 * f2);
+    float cross = u_fw_amp * 0.55 * sin(u_fw_time * 2.93 + ph * 1.3 + 1.1);
+    lpos.x += reach * bend;
+    lpos.z += reach * cross;
+    // tips dip slightly as they bend (a frond swept sideways also droops) — keeps the crown from
+    // reading as a flat disc spinning in place. Always <= 0 so leaves never pop upward.
+    lpos.y -= reach * u_fw_amp * 0.35 * (0.5 + 0.5 * f1);
+  }
   vec4 transformed = -camera[3];
-  transformed -= camera[0] * position_in.x;
-  transformed -= camera[1] * position_in.y;
-  transformed -= camera[2] * position_in.z;
+  transformed -= camera[0] * lpos.x;
+  transformed -= camera[1] * lpos.y;
+  transformed -= camera[2] * lpos.z;
 #ifdef OG_PBR
   v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
   v_world = position_in;                 // Grecharged-lightprobes: world pos for PER-PIXEL probe lookup

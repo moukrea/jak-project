@@ -18,11 +18,13 @@ namespace {
 // Grecharged-foliage-wind: live-tunable shrub sway amplitude (horizontal, in world units). Mirrors
 // GrassRenderer.cpp's grass_droop_len() dual mechanism EXACTLY (cached + throttled with
 // (s_throttle++ & 63) so it isn't re-read every frame): Android prop debug.opengoal.foliage.shrub_amp
-// / desktop env FOLIAGE_WIND_SHRUB_AMP, interpreted in METERS. Default 0.10 m (~410 world units;
-// device-tuned at the village1-hut vantage: clearly-alive shrubs OFF-vs-ON while still reading as
-// a light breeze — 0.045 was sub-pixel past a few meters), clamped [0.0, 0.3] m. Returns world
-// units (meters * 4096).
-constexpr float FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M = 0.10f;
+// / desktop env FOLIAGE_WIND_SHRUB_AMP, interpreted in METERS. Round 2 default 0.16 m (~655 world
+// units); round 1's 0.10 m was part of the build the owner called dead ("aucune feuille qui bouge"),
+// and 0.045 m before that was sub-pixel past a few metres. Clamped [0.0, 0.3] m. Returns world units
+// (meters * 4096). Round 2 also adds a faster low-amplitude flutter harmonic in shrub.vert: the
+// round-1 waveform ran at 0.24-0.49 Hz, so its per-FRAME displacement was still sub-pixel even
+// though its total excursion was not — big slow drift reads as static at a glance.
+constexpr float FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M = 0.16f;
 static float foliage_wind_shrub_amp() {
   static float s_cached = FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M * 4096.0f;
   static int s_throttle = 0;
