@@ -1108,6 +1108,32 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
 # Phase execution
 # ============================================================
 
+NO_PROGRESS_SEC = 45 * 60  # abort an attempt whose artifacts stop changing
+
+
+def _progress_fingerprint() -> str:
+    """Cheap snapshot of what the attempt has actually produced.
+
+    Deliberately artifact-based, not output-based: an attempt that prints
+    constantly while the tree stays frozen is not making progress.
+    """
+    try:
+        r = subprocess.run(
+            ["git", "status", "--porcelain=v1"],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=30,
+        )
+        tree = r.stdout
+    except Exception:
+        tree = ""
+    stamps = []
+    for d in (REPO_ROOT / ".autoport" / "reports").glob("*/report.txt"):
+        try:
+            stamps.append(f"{d}:{d.stat().st_mtime_ns}:{d.stat().st_size}")
+        except OSError:
+            pass
+    return hashlib.sha1(("".join(sorted(stamps)) + tree).encode()).hexdigest()
+
+
 def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     """Run one phase attempt; return (result, reason, key_lines).
 
@@ -1277,6 +1303,12 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
 
         stall_forced = False
         last_event_at = time.monotonic()
+        # PROGRESS watchdog (2026-08-06): the stall detector above only sees
+        # OUTPUT silence. A worker can print constantly for hours (build-watch
+        # sleep loops) while the working tree never changes — that is exactly how
+        # one attempt burned 3h15 with a frozen diff. Watch the ARTIFACT instead.
+        last_progress_at = time.monotonic()
+        last_progress_fp = _progress_fingerprint()
         try:
             stdout_fd = proc.stdout
             while True:
@@ -1310,6 +1342,28 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
                         except (ProcessLookupError, PermissionError):
                             pass
                         break
+                    # No change to the working tree or the phase report for
+                    # NO_PROGRESS_SEC while the child is still chatting: the
+                    # attempt is going nowhere. Kill it and let the retry restart
+                    # with the tree (and any WIP checkpoint) preserved.
+                    if time.monotonic() - last_progress_at >= NO_PROGRESS_SEC:
+                        fp_now = _progress_fingerprint()
+                        if fp_now != last_progress_fp:
+                            last_progress_fp = fp_now
+                            last_progress_at = time.monotonic()
+                        else:
+                            mins = (time.monotonic() - last_progress_at) / 60.0
+                            console.print(
+                                f"[red]· no ARTIFACT progress for {mins:.0f} min "
+                                f"(tree + report unchanged); aborting attempt[/red]"
+                            )
+                            stall_forced = True
+                            try:
+                                os.killpg(proc.pid, signal.SIGTERM)
+                            except (ProcessLookupError, PermissionError):
+                                pass
+                            break
+
                     # Defensive absolute cap: even without a result, we
                     # should never wait silently forever.
                     if idle >= STALL_HARD_SEC:
