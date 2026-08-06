@@ -540,6 +540,13 @@
 ;; (X) worst ratio of simulated chain length to authored chain length seen in the window. 1.0 = the
 ;; chain is exactly as long as the model says. Below 1 it is being crushed.
 (define *phys-clenr* (new 'static 'array float 576))
+;; (W) CONSECUTIVE frames this chain has been below the rest velocity. One frame is not enough and
+;; the reason is the shape of the thing being measured: a spring is momentarily STILL at each end
+;; of its swing, at maximum displacement. Sampling "slow right now" therefore samples the
+;; AMPLITUDE and calls it the rest pose — measured on the phone, Keira's chest read 180 units of
+;; "failure to return" while doing exactly what it is supposed to do. A chain that has been slow
+;; for PHYS-RESTCALM frames in a row has actually stopped.
+(define *phys-ccalm* (new 'static 'array int32 576))
 
 ;; body collision volumes (idx = slot*PHYS-COLS + i). joint2 < 0 = sphere on joint1, else CAPSULE
 ;; swept between the two animated bones.
@@ -865,6 +872,7 @@
           ;; was `stretch=` being read in both directions.
           (set! (-> *phys-ccomp* ci) (fmax 0.0 (fmin 0.9 (* 0.001 (the float (pc-physics-chain-param-mi ag c 25))))))
           (set! (-> *phys-crestd* ci) 0.0)
+          (set! (-> *phys-ccalm* ci) 0)
           (set! (-> *phys-clenr* ci) 1000000.0)
           (set! (-> *phys-cclr* ci) 1000000.0)
           (set! (-> *phys-chold* ci) 0)
@@ -1955,6 +1963,39 @@
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
                                                          (-> *phys-prev* (+ start i)) vtmp))))))))))))
+                         ;; ---- (X) LENGTH RESTORATION, after the collision sweep ------------------
+                         ;; The final resolve moves the OUTPUT out of a body volume and mirrors the
+                         ;; delta into the sim state — but nothing re-imposes the link length
+                         ;; afterwards, so a chain squeezed between two volumes relieves the contact
+                         ;; by getting SHORTER. Measured: Jak's pack strap at 0.71 of its modelled
+                         ;; length, Daxter's at 0.73. That is the owner's "rien ne doit se TASSER"
+                         ;; happening in the one pass the distance constraint does not cover. A short
+                         ;; link is pushed back out along its own direction, clamped like every other
+                         ;; correction, and mirrored into prev so it injects no velocity. Lengthening
+                         ;; moves a link roughly TANGENTIALLY to the surface it was just pushed off,
+                         ;; so it does not undo the push-out; anything it does undo is caught by the
+                         ;; residual audit that runs immediately after this.
+                         (when (and (nonzero? collide?) (> len 1))
+                           (dotimes (it 2)
+                             (dotimes (i len)
+                               (when (> i rl)
+                                 (let ((p (-> *phys-out* (+ start i)))
+                                       (pp (-> *phys-out* (+ start i -1))))
+                                   (vector-! axis (-> *phys-targ* (+ start i))
+                                             (-> *phys-targ* (+ start i -1)))
+                                   (let ((want (vector-length axis)))
+                                     (vector-! dirv p pp)
+                                     (let ((have (vector-length dirv)))
+                                       (when (and (> want 0.0001) (> have 0.0001) (< have want))
+                                         (vector-float*! vtmp dirv (/ (- want have) have))
+                                         (let ((cl (vector-length vtmp)))
+                                           (when (> cl maxcorr)
+                                             (vector-float*! vtmp vtmp (/ maxcorr cl))))
+                                         (vector+! p p vtmp)
+                                         (vector+! (-> *phys-pos* (+ start i))
+                                                   (-> *phys-pos* (+ start i)) vtmp)
+                                         (vector+! (-> *phys-prev* (+ start i))
+                                                   (-> *phys-prev* (+ start i)) vtmp)))))))))
                          ;; ---- residual penetration audit (owner 17:35 bar: this must read 0) ----
                          ;; Measured AFTER the last iteration, on the exact point that is about to be
                          ;; written to the bones — a push-out counter alone would happily report
@@ -2073,9 +2114,12 @@
                                (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
                                (let ((v (vector-length vtmp)))
                                  (when (> v chvel) (set! chvel v)))))
+                         (cond
+                             ((< chvel PHYS-REST-VEL) (+! (-> *phys-ccalm* ci) 1))
+                             (else (set! (-> *phys-ccalm* ci) 0)))
                          (when (and (!= 2 (-> *phys-cfam* ci))
                                     (< tiltf 0.05)
-                                    (< chvel PHYS-REST-VEL)
+                                    (>= (-> *phys-ccalm* ci) PHYS-RESTCALM)
                                     (<= (-> *phys-csettle* ci) 0)
                                     (< authw 0.5)
                                     (>= chainlen 1.0))

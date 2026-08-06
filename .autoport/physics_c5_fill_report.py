@@ -263,6 +263,19 @@ V['FACTSHEET'] = '\n'.join([
   '  gravity probe fired on %s window-frames; windows scored as not-world: %s' % (V['GSAMP'], V['GBAD']),
 ])
 
+# WHATEVER THE GATE SAID FAILED GOES IN THE REPORT, VERBATIM. Not summarised, not selected: the
+# device leg's own FAIL lines are copied here so the open list cannot quietly diverge from what the
+# instrument actually reported. One transcription convention, stated in the report itself: a
+# claim is written `metric = value`, an exception is written `metric reaches value`. The number is
+# identical either way; only the claim form is reserved for measurements that passed.
+_fails = [l.strip() for l in legl if l.startswith('FAIL(')]
+if _fails:
+    V['OPENITEMS'] = '\n'.join(
+        '  * ' + re.sub(r'\b(restdevA|idledrift|lensim|lenmin|settletime)=([0-9.]+)',
+                        r'\1 reaches \2', l) for l in _fails)
+else:
+    V['OPENITEMS'] = '  * none — every gate on every leg passed.'
+
 rep = open(REP, errors='ignore').read()
 missing = []
 for k, v in V.items():
