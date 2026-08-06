@@ -402,3 +402,33 @@ où ça arrive. Trouver LEQUEL des trois, le dire, et rendre l'audit représenta
 ### V. RESTE OUVERT DU CYCLE 3 (non résolu, ne pas re-livrer sans)
   * la VESTE de Jak par-dessus le pantalon clippe TOUJOURS (section C : colliders évasés) ;
   * hystérésis sur les PATTES DES LURKERS et derrière la NUQUE de Keira (nouveaux sites).
+
+## ============================================================
+## CYCLE 4 — ORDRE DE TRAVAIL IMPOSÉ (superviseur, après 3h15 sans avancée sur les défauts)
+## ============================================================
+La tentative précédente a écrit 645 lignes, construit Android, ajouté `hang`/`swing`... et n'a touché
+AUCUN des endroits où l'owner voit le défaut. Elle a en plus brûlé ~100 minutes dans un build x86
+"pour la preuve" qui a affamé la jambe device. On inverse l'ordre.
+
+### ÉTAPE 1 — DONNÉES SEULES, AUCUN BUILD (à faire AVANT toute compilation)
+`hang=` est à 0 sur : poitrines (0/14), col (0/6), chemise (0/4), cheveux (0/28), oreilles (0/84),
+lanières (0/50). Ce sont EXACTEMENT les pièces citées par l'owner. Couvrir ces chaînes dans
+`physics_chains.txt`. C'est un fichier de DONNÉES lu au runtime : zéro compilation, `adb push` suffit.
+Livrable de l'étape 1 : les compteurs de couverture, par pièce, avant/après.
+
+### ÉTAPE 2 — L'INSTRUMENT QUI MANQUE (GOAL seul, pas de C++)
+`idledrift`, `settletime`, `unsettled` sont déclarés mais ne produisent RIEN (`n/a` partout depuis
+3 heures). Sans eux, rien ne prouve « ses seins se baladent même sans mouvement ». Les faire ÉMETTRE
+une valeur par chaîne et par fenêtre, et les faire apparaître dans les jambes.
+ATTENTION classe de faux-vert déjà rencontrée aujourd'hui : `resid=0` avec `push=0` ne prouvait rien.
+Un `jitter=0` ou un `idledrift=0` doit être accompagné du compteur qui prouve que la mesure a bien
+tourné (fenêtres échantillonnées > 0), sinon c'est un zéro vide.
+
+### ÉTAPE 3 — PREUVE SUR ANDROID UNIQUEMENT
+Le build x86 "evidence only" est INTERDIT pour ce cycle : il a coûté 100 minutes et n'a rien prouvé
+que la jambe device ne prouve. Android est déjà construit. Ne jamais faire tourner un build lourd en
+parallèle d'une jambe device (la précédente est tombée à 4 fenêtres au lieu de 20).
+
+### ÉTAPE 4 — RAPPORT
+Le rapport sur disque date du cycle 3 (13:55). Le réécrire pour le cycle 4, section par section
+(R, S, T, U, V), avec les nombres réellement mesurés.
