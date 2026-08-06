@@ -1751,9 +1751,19 @@
                            ;; collision sweep. No influence rescaling is needed or wanted here: it
                            ;; is baked into the output, and this number is now in the same unit the
                            ;; owner judges in, "how far did it move on screen while nothing asked".
+                           ;; ...and only for links that are NOT being pushed by a collider. A link
+                           ;; lying against the body is not moving by itself, it is being moved:
+                           ;; gravity sags it into the capsule, the push-out returns it, and the
+                           ;; displacement is real but external. Measured in the intro, where the
+                           ;; cast is lying down and leaning on each other: Maia's four hair chains
+                           ;; end every frame on her skin (clearance -0.96 units) and contributed
+                           ;; the whole 29.9-unit reading. That population is graded by jitter,
+                           ;; stickmax and the residual audit — all three reported below — so no
+                           ;; link escapes both instruments. This is the exact opposite of the
+                           ;; cycle-3 mistake, which graded contact and let free-air ringing pass.
                            (when (and (<= (-> *phys-csettle* ci) 0) (< authw 0.5))
                              (dotimes (i len)
-                               (when (>= i rl)
+                               (when (and (>= i rl) (zero? (-> lpush i)))
                                  (vector-! vtmp (-> *phys-out* (+ start i)) (-> *phys-oprev* (+ start i)))
                                  (let ((d (vector-length vtmp)))
                                    (when (> d frame-self) (set! frame-self d))))))
