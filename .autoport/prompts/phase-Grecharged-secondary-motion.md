@@ -252,3 +252,43 @@ la boucle clippe bizarrement avec la lanière (« ça rendait déjà un peu biza
 ### I. GÉNÉRALISATION (owner) : « je pense que tu peux déjà adopter ce feedback à beaucoup d'autres
 personnages et PNJs » ⇒ appliquer A/B/C/D à TOUT le cast (spawn, priorité anim, colliders évasés,
 dégradé adapté à la longueur), pas seulement Jak/Keira.
+
+## ============================================================
+## CYCLE 3b — AJOUT OWNER 2026-08-06 ~08:35 (à traiter DANS cette phase)
+## ============================================================
+### J. LES OREILLES : TOUT LE MONDE, PAS QUE JAK
+« Les oreilles c'est pas seulement celles de Jak qu'il faut mettre en physique hein ! C'est TOUS les
+persos ! » ⇒ recenser les os d'oreille sur les 458 rigs (Daxter, Keira, Samos, les sages, les
+villageois, Maia, Gol, les lurkers…) et leur donner une physique LÉGÈRE. Contraintes inchangées :
+priorité aux animations forcées (section A) et cohérence avec la GRAVITÉ (une oreille pend, elle ne
+part pas vers le haut).
+
+### K. MAIA — LA MASSE MANQUE (défaut de MODÈLE physique, pas d'amplitude)
+« Sa poitrine n'est pas dégueu niveau physique MAIS son jiggle est bizarre, comme si sa poitrine ne
+pesait RIEN, on ne sent pas la masse... L'amplitude de mouvement est pas mal mais c'est trop léger et
+JELLY, pas cohérent. En gros oui ça doit bien bouger mais PAS être de la gélatine. »
+⇒ Ne PAS toucher à l'amplitude : c'est le comportement qui est faux. Il manque de l'INERTIE — la
+réponse doit avoir du retard à l'amorce, de l'élan, et un amortissement qui décroît comme une masse
+suspendue, pas comme un ressort sans poids qui frétille. Autrement dit : masse/inertie réelles par
+chaîne, fréquence plus basse + amortissement plus lourd à amplitude conservée. À généraliser à TOUTES
+les poitrines/ventres/fesses (Keira incluse : au cycle 3 on monte son amplitude — elle ne doit pas
+devenir jelly pour autant).
+
+### L. MAIA — GLITCH DE SPAWN, QUELQUE CHOSE « SCALE ÉNORME »
+« Son spawn quand on la voit de loin on dirait que ça glitche, difficile de savoir quoi exactement
+mais un truc SCALE ÉNORME. » ⇒ corrobore la section B (spawn/transitions), avec un indice précis :
+une ÉCHELLE qui explose, pas seulement une position qui part. HYPOTHÈSE À VÉRIFIER EN PRIORITÉ : la
+matrice réécrite par la sim n'est pas orthonormale — le write-back compose une rotation/swing avec un
+reste d'échelle au lieu d'écrire une rotation pure. Un os d'échelle non-unitaire au premier frame
+donne exactement « un truc qui scale énorme » vu de loin. Vérifier l'orthonormalité du write-back
+(déterminant ~1, colonnes unitaires) et le clamp au frame de bind.
+
+### M. CHAÎNES DÉCLARÉES MAIS INERTES : MAIA ET GOL
+« Ses cheveux n'ont pas de physique (tout comme Gol il semblerait). » Or le recensement vague 2
+DÉCLARE déjà pour evilsis (Maia) une queue de cheval 8 maillons + 3 chaînes de cheveux arrière, et
+pour evilbro (Gol) cheveux + bouc + capes. ⇒ Elles sont déclarées et NE TOURNENT PAS. C'est la preuve
+que « déclaré » ≠ « actif » : le compteur agrégé de la vague 2 n'a pas su le voir. Trouver pourquoi
+(nom d'os qui ne résout pas ? hook post-anim non atteint pour ces classes ? chaîne filtrée par le
+dégradé ?) et poser un compteur PAR ACTEUR ET PAR CHAÎNE : pour chaque acteur à l'écran, chaque
+chaîne déclarée doit montrer un déplacement non nul, sinon c'est un échec. Ce compteur doit
+apparaître dans le rapport pour Maia ET Gol nommément.

@@ -2386,6 +2386,21 @@ phases:
   device: true
   device_serial: eae4df44
   owner_verify: true
+- id: Grecharged-hd-eye-scale
+  name: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet
+    CARTOON de Jak 1 qui fait changer la TAILLE des yeux a une influence beaucoup trop forte sur
+    les yeux HD — sur les animations exagerees ils deviennent BIEN PLUS globuleux qu''avec les
+    modeles d''origine, ca fait bugge. Attenuer le facteur d''echelle applique aux yeux HD (garder
+    l''effet, reduire son gain) pour que l''exageration reste au niveau du modele original ou en
+    dessous. Verifier sur les autres persos HD qui heritent du meme canal. PAS de preuve visuelle:
+    mesurer le facteur d''echelle applique (min/max sur une anim exageree) cote code, stock vs HD.'
+  prompt: prompts/phase-Grecharged-hd-eye-scale.md
+  validator: validators/phase-Grecharged-hd-eye-scale.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
 - id: Grecharged-foliage-wind2
   name: 'ROUND 2 (owner: ''aucune feuille qui bouge, nada'' — supervisor-reproduced: +9% palm motion = invisible, some trees
     have ZERO wind draws): make the breeze VISIBLE — full coverage census, amplitude tuning (visible-but-natural), acceptance
