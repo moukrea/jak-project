@@ -7,7 +7,9 @@
 #include "common/util/Ktx2Subset.h"
 #include "common/util/RPack.h"
 
+#include "fmt/core.h"
 #include "gtest/gtest.h"
+#include "third-party/json.hpp"
 
 namespace {
 std::string fixture_path() {
@@ -116,6 +118,52 @@ TEST(Ktx2Subset, ParsesRealPayloads) {
     u64 expect0 = ktx2::expected_level_size(tex.vk_format, tex.width, tex.height);
     EXPECT_EQ(tex.levels[0].byte_length, expect0);
   }
+}
+
+// Reads a REAL installed pack when one is present (managed_assets/jak1 with a
+// verified state.json, e.g. from tools/install_pack.py). Skipped otherwise, so
+// CI stays hermetic — but on a dev box it is the end-to-end check that the
+// published artifacts parse with the engine's own readers.
+TEST(ManagedPack, InstalledShardsParse) {
+  const auto dir = file_util::get_jak_project_dir() / "managed_assets" / "jak1";
+  const auto state_file = dir / "state.json";
+  if (!fs::exists(state_file)) {
+    GTEST_SKIP() << "no pack installed at " << dir.string();
+  }
+  const auto state = nlohmann::json::parse(file_util::read_text_file(state_file));
+  ASSERT_EQ(state.at("schema_version").get<int>(), 1);
+  ASSERT_TRUE(state.at("verified").get<bool>());
+  const auto shards = state.at("shards");
+  ASSERT_FALSE(shards.empty());
+
+  size_t entries = 0, checked = 0;
+  for (const auto& name : shards) {
+    rpack::Reader r((dir / name.get<std::string>()).string());
+    ASSERT_TRUE(r.ok()) << name << ": " << r.error();
+    EXPECT_EQ(r.game(), "jak1");
+    entries += r.entries().size();
+    // Parsing every payload of a multi-GB install would take minutes; one per
+    // shard covers every (profile, preset, group, cluster) family shipped.
+    const auto& e = r.entries().front();
+    auto payload = r.read_payload(e, /*verify=*/true);
+    ASSERT_TRUE(payload.has_value()) << e.key << " failed sha256";
+    ktx2::Texture tex;
+    std::string err;
+    ASSERT_TRUE(ktx2::parse(payload->data(), payload->size(), &tex, &err)) << e.key << ": " << err;
+    EXPECT_EQ(tex.width, e.width);
+    EXPECT_EQ(tex.level_count, e.mip_levels);
+    EXPECT_TRUE(ktx2::is_supported_format(tex.vk_format)) << tex.vk_format;
+    // normals ship two-channel: the shader rebuilds Z (u_pbr_mode bit 128)
+    if (e.map == "normal") {
+      EXPECT_EQ(e.channels, "rg");
+    }
+    if (e.map == "height") {
+      EXPECT_TRUE(e.stats.has_height) << "height entry without offline stats: " << e.key;
+    }
+    checked++;
+  }
+  fmt::print("installed pack: {} shards, {} entries, {} payloads verified\n", shards.size(),
+             entries, checked);
 }
 
 TEST(Ktx2Subset, RejectsGarbage) {

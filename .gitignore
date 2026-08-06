@@ -168,3 +168,7 @@ pbr_tan_diag.txt
 # ND-derived HD character assets (Jak2/Jak3 IP) — generated locally from the user dumps, NEVER committed/shipped in the binary
 recharged_assets/hd_models/
 recharged_assets/hd_anim/
+
+# Grecharged-managed-assets: downloaded texture packs (installed at runtime
+# by the asset manager / tools/install_pack.py) — never committed.
+/managed_assets/
