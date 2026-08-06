@@ -372,3 +372,23 @@ change bien la précision (et n'ouvre plus le mesh browser) ⑤ lunettes de Keir
 À TESTER (toi) : ① promène-toi au village et regarde les PNJ (le maire, la géologue, le pêcheur) —
 cheveux/moustaches/ventres qui bougent ? ② Keira/Jak/Samos comme prévu au cycle 2 ③ menu PHYSICS
 DETAIL (LIGHT/FULL/MAXIMUM) ④ toggle OFF = tout redevient stock.
+
+### PRÉ-GATE 14:15 [✅ token CYCLE 3 + 3b/3c/3d] — APK + assets EN LIGNE (jak1-rtlight-wip, 14:12)
+deploy_verify PASS sur eae4df44 (HEAD e62938ffbc), rapport 13:55, x86 7/7 + device 3/3, 0 crash.
+Ce qui a changé, point par point (tes retours du 06/08) :
+- Oreilles de Daxter : le `rootlock` binaire est SUPPRIMÉ — c'était la CAUSE du cran, pas un réglage.
+  Son oreille n'a que 2 os (earBaseL->earMidL), donc profil 0.55 → 1.00 (marche de 0.45, contre
+  0.00 → 1.00 avant). Sa queue (4 os) : 0.15/0.43/0.72/1.00, marche max 0.29. **Ton œil juge.**
+- Col de Jak (intro, allongé) : jitter d'intro 72 → 35, projection amortie, plus de réinjection de
+  vitesse, état de repos engagé. `stickmax` ≤ 7 partout.
+- Lunettes de Keira : la saisie est détectée (pic à 1.390 de longueur de chaîne) et la physique se
+  suspend puis reprend. Chaîne mesurée à 218,1 unités (elles étaient inertes).
+- Poitrines : `mass=2.6` — Keira (2 looks, 6 variantes), Maia, la bird lady. 490,6 unités en
+  gameplay / 628,9 sur le rig stock (272,4 au cycle 2). Objectif : de la MASSE, pas de la gelée.
+- Maia + Gol : 10/10 et 12/12 chaînes actives dans l'intro, `resid=0` (les cheveux ne traversent
+  plus). Oreilles ajoutées à tout le cast, y compris lurkerpuppy / swamp-rat / lightning-mole / Klaww.
+À TESTER : ① le cran des oreilles de Daxter ② le col de Jak dans l'intro (allongé, gros plan)
+③ le jiggle de Maia et Keira — masse ou gelée ? ④ les lunettes de Keira quand elle les saisit
+⑤ Maia au spawn vue de loin ⑥ toggle physics OFF = tout redevient stock.
+PAS FAIT (dit honnêtement) : l'anneau du plastron et la boucle du dos de Jak, + la binocle de Samos
+— aucun os dans les 458 rigs, il faut les injecter au prep HD (lot séparé).
