@@ -82,6 +82,8 @@ add_library(common
         util/crc32.cpp
         util/dgo_util.cpp
         util/DgoReader.cpp
+        util/Ktx2Subset.cpp
+        util/RPack.cpp
         util/DgoWriter.cpp
         util/dialogs.cpp
         util/diff.cpp

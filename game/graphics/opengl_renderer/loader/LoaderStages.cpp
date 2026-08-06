@@ -2,6 +2,7 @@
 
 #include "CustomTextureReplacements.h"
 #include "Loader.h"
+#include "ManagedAssets.h"
 
 #include "common/global_profiler/GlobalProfiler.h"
 
@@ -131,11 +132,24 @@ static float measure_height_lambda_tiles(const custom_tex::ReplacementImage* hi)
 /*!
  * Upload a texture to the GPU, and give it to the pool.
  */
+thread_local u64 g_last_add_texture_bytes = 0;
+
 u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // External-asset-root: record every texture key (for the optional dump_keys
-  // marker) and look up a user PNG replacement.
+  // marker) and look up a replacement.
   custom_tex::dump_key(tex.debug_tpage_name, tex.debug_name);
-  auto rep = custom_tex::lookup(tex.debug_tpage_name, tex.debug_name);
+  // Grecharged-managed-assets: precedence (owner) user > managed > bundled >
+  // stock. base_source() decides without decoding pixels: a USER hit keeps
+  // the PNG path; otherwise the managed pack outranks the bundled set.
+  std::optional<managed_assets::CompressedTex> managed;
+  if (custom_tex::base_source(tex.debug_tpage_name, tex.debug_name) !=
+      custom_tex::BaseSource::User) {
+    managed = managed_assets::lookup_base(tex.debug_tpage_name, tex.debug_name);
+  }
+  std::optional<custom_tex::ReplacementImage> rep;
+  if (!managed) {
+    rep = custom_tex::lookup(tex.debug_tpage_name, tex.debug_name);
+  }
 
   GLuint gl_tex;
   glActiveTexture(GL_TEXTURE0);
@@ -164,6 +178,9 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     }
   }
   if (tp_apply) {
+    // The checker replaces the base outright — drop any managed hit so the
+    // generic mip/aniso path below applies to the checker upload.
+    managed.reset();
     // Mode 2 swaps EVERY texture in the level, so it uses a smaller map to bound VRAM.
     const int tp_dim = (tp_mode == 2 || tp_mode == 4) ? 128 : 256;
     // The buffer is written in RGBA byte order. kRgbaTexType is GL_UNSIGNED_BYTE on GLES and
@@ -175,17 +192,35 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
                  tp_base.data());
   } else
 #endif
-      if (rep) {
+      if (managed) {
+    // Managed KTX2: offline mip chain uploaded compressed — NO glGenerateMipmap.
+    if (!managed_assets::upload_bound_texture(*managed)) {
+      // glTexStorage2D may already have made the storage immutable — the
+      // stock fallback needs a fresh texture object.
+      glDeleteTextures(1, &gl_tex);
+      glGenTextures(1, &gl_tex);
+      glBindTexture(GL_TEXTURE_2D, gl_tex);
+      managed.reset();
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
+                   tex.data.data());
+    }
+  } else if (rep) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rep->w, rep->h, 0, GL_RGBA, kRgbaTexType,
                  rep->rgba.data());
   } else {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
                  tex.data.data());
   }
-  glGenerateMipmap(GL_TEXTURE_2D);
+  if (!managed) {
+    glGenerateMipmap(GL_TEXTURE_2D);
+  }
   float aniso = 0.0f;
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &aniso);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, aniso);
+  // Real uploaded bytes for the streaming budgets (see LoaderStages.h).
+  g_last_add_texture_bytes = managed ? managed->payload.size()
+                             : rep   ? rep->rgba.size() * 4 / 3  // + generated mips
+                                     : u64(tex.w) * tex.h * 4 * 4 / 3;
   if (tex.load_to_pool) {
     TextureInput in;
     in.debug_page_name = tex.debug_tpage_name;
@@ -213,7 +248,11 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // Grecharged-bundled-textures: PBR maps may come from the USER dir (load_custom_assets-
   // gated inside lookup_suffixed) or the package-BUNDLED set (master-gated) — probe whenever
   // the master is up; lookup_suffixed applies the per-source gates.
-  if (Gfx::recharged_master_active()) {
+  // Grecharged-managed-assets: a MANAGED base never pairs with PNG maps
+  // (same-source rule — mixed provenance describes a different image).
+  // Managed packs carry their own suffixed maps; those activate with the
+  // normal-XY shader mode (PR2).
+  if (Gfx::recharged_master_active() && !managed) {
     const auto bsrc = custom_tex::base_source(tex.debug_tpage_name, tex.debug_name);
     // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
     // buffer, reused on the next call — so capture each map's source string
@@ -472,7 +511,9 @@ class TextureLoaderStage : public LoaderStage {
       while (data.lev_data->textures.size() < data.lev_data->level->textures.size()) {
         auto& tex = data.lev_data->level->textures[data.lev_data->textures.size()];
         data.lev_data->textures.push_back(add_texture(*data.tex_pool, tex, false));
-        bytes_this_run += tex.w * tex.h * 4;
+        // real uploaded bytes: replacements/managed packs are far larger
+        // than the baked tex.w*h*4 (the audited budget blindness)
+        bytes_this_run += (int)g_last_add_texture_bytes;
         tex_this_run++;
         if (tex_this_run > 20) {
           break;

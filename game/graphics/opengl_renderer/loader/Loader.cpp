@@ -647,7 +647,8 @@ bool Loader::upload_textures(Timer& timer, LevelData& data, TexturePool& texture
     while (data.textures.size() < data.level->textures.size()) {
       auto& tex = data.level->textures[data.textures.size()];
       data.textures.push_back(add_texture(texture_pool, tex, false));
-      bytes_this_run += tex.w * tex.h * 4;
+      // real uploaded bytes (see LoaderStages.h g_last_add_texture_bytes)
+      bytes_this_run += (int)g_last_add_texture_bytes;
       tex_this_run++;
       if (tex_this_run > 20) {
         break;
