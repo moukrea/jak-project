@@ -123,6 +123,80 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     NREG=$(grep -a 'reglue=' "$LC" | awk '{if (match($0,/reglue=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 0) n++} END {print n+0}')
     [ "${NREG:-0}" -ge 1 ] || { say "FAIL($TAG): no window reports reglue>0 — fake-wind neutralization never ran on device"; OK=0; }
     say "leg $TAG: rootdev-bad=$NROOT resid-bad=$NRES reglue-windows=$NREG"
+    # ---- CYCLE-3 WINDOW GATES on the phone ([HD-PHYS2] line) -----------------------------------
+    # Same bars as the x86 smoke. [HD-PHYS2] is a SEPARATE format 0 call and therefore its own
+    # logcat line on device — which is exactly why it carries no field name the first line owns.
+    local N2 NBURST NFRZ NSTUCK AENG AREL ARSD CHEST
+    N2=$(grep -ac '\[HD-PHYS2\] ag=' "$LC" || true)
+    [ "${N2:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS2] line on device — cycle-3 counters never printed"; OK=0; }
+    NBURST=$(grep -a 'burst=' "$LC" | grep -cv 'burst=0 ' || true)
+    [ "${NBURST:-0}" = 0 ] || { say "FAIL($TAG): $NBURST device window(s) with burst!=0 — chains go wild at spawn/transition"; OK=0; }
+    NFRZ=$(grep -a 'frozen=' "$LC" | grep -cv 'frozen=0 ' || true)
+    [ "${NFRZ:-0}" = 0 ] || { say "FAIL($TAG): $NFRZ device window(s) with frozen!=0 — a declared chain never moved while its actor did"; OK=0; }
+    # (A) "physics resumes after" — the per-CHAIN unbroken-suspension record. `authhold` counts
+    # CHAIN-frames and hits 300 on any actor with a few suspended chains, so it can never answer
+    # "was ONE chain never given back": holdmax can, and it is not reset by a window boundary.
+    # 900 frames = 15 s of unbroken suspension is not a forced action any more, it is a stuck blend.
+    NSTUCK=$(grep -a 'holdmax=' "$LC" | awk '{if (match($0,/holdmax=[0-9]+/) && substr($0,RSTART+8,RLENGTH-8)+0 >= 900) n++} END {print n+0}')
+    [ "${NSTUCK:-0}" = 0 ] || { say "FAIL($TAG): $NSTUCK window(s) with holdmax>=900 — a chain was suspended and never handed back"; OK=0; }
+    HMAX=$(grep -a 'holdmax=' "$LC" | awk '{if (match($0,/holdmax=[0-9]+/)) {v=substr($0,RSTART+8,RLENGTH-8)+0; if (v>m) m=v}} END {print m+0}')
+    AENG=$(grep -a 'autheng=' "$LC" | awk '{if (match($0,/autheng=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    AREL=$(grep -a 'authrel=' "$LC" | awk '{if (match($0,/authrel=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    ARSD=$(grep -a 'reseed=' "$LC" | awk '{if (match($0,/reseed=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    say "leg $TAG: cycle3 lines=$N2 burst-bad=$NBURST frozen-bad=$NFRZ engage=$AENG release=$AREL reseed=$ARSD holdmax=$HMAX stuck-windows=$NSTUCK"
+    if [ "${AENG:-0}" -gt 0 ] && [ "${AREL:-0}" = 0 ]; then
+      say "FAIL($TAG): the authored suspension ENGAGED $AENG time(s) and never RELEASED — physics does not resume"; OK=0; fi
+    # ---- CYCLE-3b/3c/3d GATES ------------------------------------------------------------------
+    # (O) an unsatisfiable constraint must SETTLE, never oscillate. jitter counts velocity REVERSALS
+    # above a speed floor: a chain buzzing against a collider reverses every frame, and that is the
+    # number behind the owner's "jitter comme un fou". `rested` counts the chain-frames the rest
+    # state actually held a fighting chain still, so the mechanism is visible even when jitter is 0.
+    JIT=$(grep -a 'jitter=' "$LC" | awk '{if (match($0,/jitter=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
+    JITW=$(grep -a 'jitter=' "$LC" | awk '{if (match($0,/jitter=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 60) n++} END {print n+0}')
+    RST=$(grep -a 'rested=' "$LC" | awk '{if (match($0,/rested=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    CLM=$(grep -a 'clamped=' "$LC" | awk '{if (match($0,/clamped=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    # THE gate is the SUSTAINED fight, not the reversal count. A chain sliding along a moving body
+    # reverses occasionally however well it behaves (measured: 73 isolated reversals on a Maia whose
+    # rest state never even had to arm); what the owner sees is a chain reversing under contact frame
+    # after frame. stickmax is that run length, it is what arms the rest damping at PHYS-STICK=12,
+    # and 60 frames (1 s) of unbroken fighting is the point where "settling" stops being true.
+    STK=$(grep -a 'stickmax=' "$LC" | awk '{if (match($0,/stickmax=[0-9]+/)) {v=substr($0,RSTART+9,RLENGTH-9)+0; if (v>m) m=v}} END {print m+0}')
+    # PERSISTENCE IS NOT THE SIN, OSCILLATION IS. The owner's rule is "si ca ne se conforme pas...
+    # ca devrait juste RESTER TRANQUILLE tout en essayant TRANQUILLEMENT de se conformer" — a chain
+    # may press against a collider indefinitely, it may not VIBRATE while doing it. So a long run is
+    # only a failure when the same window also shows real reversal activity.
+    BADW=$(grep -a 'stickmax=' "$LC" | awk '{
+        st=0; ji=0;
+        if (match($0,/stickmax=[0-9]+/)) st=substr($0,RSTART+9,RLENGTH-9)+0;
+        if (match($0,/jitter=[0-9]+/))   ji=substr($0,RSTART+7,RLENGTH-7)+0;
+        if (st >= 60 && ji > 30) n++ } END {print n+0}')
+    [ "${BADW:-0}" = 0 ] || { say "FAIL($TAG): $BADW window(s) where a chain fought a collider for >=60 frames AND kept reversing — oscillating, not settling"; OK=0; }
+    # ...and a hard absurdity bound on the raw count, so a genuinely buzzing rig cannot hide behind
+    # a short run length: 2 reversals per frame sustained over a window is not contact, it is noise.
+    [ "${JIT:-0}" -lt 600 ] || { say "FAIL($TAG): jitter=$JIT in one window — that is not contact, that is buzzing"; OK=0; }
+    # (P) the per-link influence profile must have NO step: that discontinuity IS the "cran" the
+    # owner sees at mid-ear. Built bounded by the solver, graded here on what it actually built.
+    ISTEP=$(grep -a 'inflstep=' "$LC" | awk '{if (match($0,/inflstep=[0-9.]+/)) {v=substr($0,RSTART+9,RLENGTH-9)+0; if (v>m) m=v}} END {printf "%.4f", m+0}')
+    awk -v v="$ISTEP" 'BEGIN{exit !(v+0 <= 0.4501)}' \
+      || { say "FAIL($TAG): influence profile step $ISTEP > 0.45 — the per-link transition is discontinuous (owner P)"; OK=0; }
+    NPROF=$(grep -ac '\[HD-PHYS-INFL\] ag=' "$LC" || true)
+    [ "${NPROF:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS-INFL] profile line — the per-link influence profile is not reported"; OK=0; }
+    say "leg $TAG: cycle3bcd jitter-max=$JIT stick-max=$STK rested=$RST clamped=$CLM inflstep-max=$ISTEP profile-lines=$NPROF"
+    # ---- (G) chest amplitude ON THE PHONE. The chain index is read from the data file, never
+    # hardcoded, so reordering physics_chains.txt cannot silently point this at another chain.
+    local KM KIDX
+    KM=keira-hd; grep -aq 'ag=keira-hd ' "$LC" || KM=assistant-lod0
+    KIDX=$(awk -v m="$KM" -v c=chestR '
+      /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
+                    n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
+      /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt)
+    if [ -n "$KIDX" ]; then
+      CHEST=$(grep -a "ag=$KM .*cdev:" "$LC" | awk -v i="$KIDX" '
+        { s=substr($0, index($0,"cdev:"));
+          if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v } }
+        END { printf "%.4f", m+0 }')
+      say "leg $TAG: $KM chest chain (idx $KIDX) max deviation on device = $CHEST units"
+    fi
   fi
   case "$MODE" in
     expect-phys)
@@ -168,6 +242,9 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
       grep -a '\[HD-PHYS-RIDER\] rig ' "$LC" | sed 's/.*\[HD-PHYS-RIDER\]/[HD-PHYS-RIDER]/' | sort -u >> "$LOG"
       grep -a '\[HD-PHYS\] init ag=' "$LC" | grep -a 'rider=1' | sed 's/.*\[HD-PHYS\]/[HD-PHYS]/' | sort -u >> "$LOG"
       grep -a 'PARAMSRC=' "$LC" | tail -1 >> "$LOG"
+      # the external override must be the source the phone actually read (owner-facing retune path)
+      grep -aq 'PARAMSRC=external-override' "$LC" \
+        || { say "FAIL($TAG): device did not read the EXTERNAL physics_chains.txt override"; OK=0; }
       ;;
   esac
   [ "$OK" = 1 ]

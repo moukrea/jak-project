@@ -107,6 +107,21 @@ DP=$($ADB -s "$S" shell run-as $PKG md5sum "$DEV_PHYS" 2>/dev/null | cut -d' ' -
 say "physics_chains.txt on device: $DEV_PHYS md5 local=$LP device=$DP"
 [ "$LP" = "$DP" ] || die "device physics_chains.txt differs from the built one"
 
+# ---- EXTERNAL OVERRIDE: the copy that actually WINS ------------------------------------------
+# get_recharged_assets_dir() gives the EXTERNAL pack precedence over the one inside the APK — that
+# is the whole point (an owner retune is a few KB to drop on the phone, not a 581 MB APK). Which
+# means a stale external file from a previous cycle silently beats a freshly installed APK: the
+# device would run last cycle's parameters while every APK-side freshness gate above reads green.
+# So the external copy is REFRESHED here and md5-proven, and the run below is required to log
+# PARAMSRC=external-override.
+EXT_DIR=/storage/emulated/0/OpenGOAL/jak1/assets/recharged_assets
+$ADB -s "$S" shell mkdir -p "$EXT_DIR" >/dev/null 2>&1
+$ADB -s "$S" push recharged_assets/physics_chains.txt "$EXT_DIR/physics_chains.txt" >> "$LOG" 2>&1 \
+  || die "cannot push the external physics_chains.txt override"
+DE=$($ADB -s "$S" shell md5sum "$EXT_DIR/physics_chains.txt" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+say "external override physics_chains.txt: md5 local=$LP device=$DE"
+[ "$LP" = "$DE" ] || die "external override physics_chains.txt is STALE — it would beat the fresh APK copy"
+
 bash .autoport/lib/deploy_verify.sh "$S" jak1 >> "$LOG" 2>&1 || { tail -4 "$LOG"; die "deploy_verify FAILED"; }
 say "$(tail -1 "$LOG")"
 say "[deploy PASS] device runs the fresh --physics build incl. GAME.CGO + 10-model HD pack + physics_chains.txt"

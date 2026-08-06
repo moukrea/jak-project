@@ -910,7 +910,18 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //   13 authrise(blend-in rate /s) 14 authfall(blend-out rate /s) 15 authstiff(stiffness x at w=1)
 //   16 rootfree(floor of the root->tip freedom ramp, 0..1 — a SHORT chain must still bend)
 //   17 nodesc(1 = do NOT rigid-re-glue this chain's descendants: they carry their own animation)
-static constexpr int kPhysNumChainParams = 18;
+//   18 colskip(leading links exempt from BODY COLLISION — the chain's ATTACHMENT to the body sits
+//      inside the body volume by construction. Until cycle 3 that exemption was implied by
+//      rootlock=, so freeing a hair root to move would also have started colliding it with the
+//      skull it is glued to: a permanent penetration no tuning could clear. The two ideas are
+//      separated here — `rootlock` is "does this link move?", `colskip` is "is this link inside
+//      the body on purpose?". Effective value is max(rootlock, colskip), so 0 = exactly the
+//      pre-cycle-3 behaviour.)
+//   19 mass(cycle 3b, owner K: "on ne sent pas la masse... trop leger et JELLY". Amplitude was not
+//      the defect — the RESPONSE was. A heavier chain resists starting and keeps going once it has:
+//      omega_eff = omega / sqrt(mass), so the natural frequency drops with real mass while the
+//      swing envelope (cone + stretch) is untouched. 1.0 = the pre-cycle-3b spring.)
+static constexpr int kPhysNumChainParams = 20;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -922,9 +933,23 @@ struct PhysChain {
   //                                   0  1  2  3    4  5  6  7  8    9 10    11
   float params[kPhysNumChainParams] = {0, 0, 0, 0, 1.f, 0, 0, 0, 0, 1.f, 0, 0.5f,
                                        // 12 authored 13 authrise 14 authfall 15 authstiff
+                                       // authored DEFAULTS OFF (0) ON PURPOSE. Cycle 2 removed jak1's
+                                       // hand-keyed pseudo-WIND from physics-owned bones and the owner
+                                       // re-confirmed at cycle 3 that it stays removed. A nonzero
+                                       // default would let that same wind cross the engage threshold
+                                       // and take the chain back — re-introducing the exact
+                                       // double-writer the owner rejected. So authored priority is
+                                       // OPT-IN, declared only on bones ND genuinely ACTS with.
                                        0.f, 8.f, 3.f, 4.f,
-                                       // 16 rootfree 17 nodesc
-                                       0.f, 0.f};
+                                       // 16 rootfree 17 nodesc 18 colskip 19 mass
+                                       // rootfree DEFAULTS to 0.3 — cast-wide by construction (owner
+                                       // cycle-3 I). Without a floor the stiffest free link only ever
+                                       // keeps 1/nfree of the swing cone, which is what left Jak's
+                                       // 2-joint coiffe and Keira's short back hair reading as stiff.
+                                       // It can only ever RAISE a link's freedom, never lower it, so
+                                       // no already-accepted chain (Jak's straps at 0.75, Keira's
+                                       // bangs at 0.5) is touched by the default.
+                                       0.3f, 0.f, 0.f, 1.f};
   std::vector<std::string> joints;  // ordered root -> tip
 };
 
@@ -1246,6 +1271,10 @@ static int pc_physics_parse_file() {
           ch.params[16] = phys_to_float(v);
         } else if (k == "nodesc") {
           ch.params[17] = phys_to_float(v);
+        } else if (k == "colskip") {
+          ch.params[18] = phys_to_float(v);
+        } else if (k == "mass") {
+          ch.params[19] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);

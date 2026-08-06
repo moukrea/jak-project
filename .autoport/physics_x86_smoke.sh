@@ -59,6 +59,50 @@ NRL=$(grep -c 'rootlock=' recharged_assets/physics_chains.txt || true)
 [ "${NRL:-0}" -ge 8 ] || { say "FAIL: only ${NRL:-0} chains declare rootlock= — hair roots still float"; exit 1; }
 say "artifact gate: physics_chains.txt declares $NCAP capsules and $NRL root-locked chains"
 
+# ---- CYCLE-3 artifact gates (owner verdict 2026-08-06) ----------------------------------------
+# Every cycle-3 fix must be physically in the shipped objects before a frame runs. These are the
+# strings and data keys the owner's complaints map onto, one for one.
+for s in 'HD-PHYS2' 'authhold=' 'autheng=' 'authrel=' 'reseed=' 'burst=' 'frozen=' 'jdev:'; do
+  n=$(strings -a "$ISO/GAME.CGO" | grep -c -- "$s" || true)
+  [ "${n:-0}" -ge 1 ] || { say "FAIL: GAME.CGO carries no '$s' string — cycle-3 instrument not compiled in"; exit 1; }
+done
+say "artifact gate: GAME.CGO carries the cycle-3 instrument strings (HD-PHYS2/auth*/reseed/burst/frozen/jdev)"
+NTAP=$(grep -c 'radius2=' recharged_assets/physics_chains.txt || true)
+[ "${NTAP:-0}" -ge 10 ] || { say "FAIL: only ${NTAP:-0} tapered colliders — flared trousers/shoulders (owner C) not in the data"; exit 1; }
+NCSK=$(grep -c 'colskip=' recharged_assets/physics_chains.txt || true)
+[ "${NCSK:-0}" -ge 20 ] || { say "FAIL: only ${NCSK:-0} chains declare colskip= — freed roots would collide with their own skull"; exit 1; }
+# authored-anim priority is DELIBERATELY NARROW. The first cut of this gate demanded >=20 chains,
+# from a design that armed every anim=excite chain — and the run below measured why that design was
+# wrong: the detector also sees a STATIC authored pose offset, so Daxter (0.53-1.36) and Samos'
+# stock beard (a flat 0.425) sat permanently suspended, i.e. their physics was silently deleted.
+# The bar is now the owner's two NAMED forced-action sites, on every look that has them:
+# Jak's ears (jak-hd + eichar-lod0/jak-white-lod0 = 4 chains) and Keira's goggles (keira-hd,
+# keira3-hd, assistant-* = 3 chains). Widening this number again without first reading a chain's
+# measured `aratio:` is how you delete a character's physics without noticing.
+NAUT=$(grep -cE '^chain .*authored=' recharged_assets/physics_chains.txt || true)
+[ "${NAUT:-0}" -ge 7 ] || { say "FAIL: only ${NAUT:-0} chains declare authored= — authored-anim priority (owner A) not on Jak's ears + Keira's goggles"; exit 1; }
+NAUTEAR=$(grep -cE '^chain ear[LR] .*authored=' recharged_assets/physics_chains.txt || true)
+NAUTGOG=$(grep -cE '^chain goggles .*authored=' recharged_assets/physics_chains.txt || true)
+[ "${NAUTEAR:-0}" -ge 4 ] || { say "FAIL: Jak's ears carry authored= on only ${NAUTEAR:-0} chains (need 4: both looks, L+R)"; exit 1; }
+[ "${NAUTGOG:-0}" -ge 3 ] || { say "FAIL: Keira's goggles carry authored= on only ${NAUTGOG:-0} chains (need 3: keira-hd, keira3-hd, stock)"; exit 1; }
+# owner cycle-3d Q names Daxter's ears explicitly — ND hand-keys them in many animations.
+NAUTDAX=$(awk '/^\[model /{cur=($0 ~ /dax-hd|daxp-hd|sidekick-lod0/)?1:0; next} cur && /^chain ear[LR] .*authored=/{n++} END{print n+0}' recharged_assets/physics_chains.txt)
+[ "${NAUTDAX:-0}" -ge 6 ] || { say "FAIL: Daxter's ears carry authored= on only ${NAUTDAX:-0} chains (need 6: dax-hd, daxp-hd, sidekick-lod0 x L/R) — owner Q"; exit 1; }
+say "artifact gate: authored-anim priority armed on Jak's ears ($NAUTEAR), Keira's goggles ($NAUTGOG) and Daxter's ears ($NAUTDAX)"
+# (F) the Keira straps regression: they must be GONE from the data, not merely retuned.
+NSTRAP=$(grep -cE '^chain (top|bot)strap[LR] ' recharged_assets/physics_chains.txt || true)
+[ "${NSTRAP:-0}" = 0 ] || { say "FAIL: $NSTRAP Keira strap chain(s) still declared — owner F asked for fixed-or-reverted, this is neither"; exit 1; }
+# (E) Jak's ears, on BOTH his looks (HD companion + original stock rig).
+for m in jak-hd eichar-lod0; do
+  ne=$(awk -v m="$m" '
+        /^\[model /   { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
+                        n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; next }
+        cur && /^chain ear[LR] / { c++ }
+        END { print c+0 }' recharged_assets/physics_chains.txt)
+  [ "${ne:-0}" -ge 2 ] || { say "FAIL: model $m declares ${ne:-0} ear chains (<2) — owner E not in the data"; exit 1; }
+done
+say "artifact gate: cycle-3 DATA — $NTAP tapered colliders, $NCSK colskip chains, $NAUT authored chains, Keira straps reverted, Jak ears on both looks"
+
 # ---- WAVE 2 artifact gates: physics on the whole STOCK cast ------------------------------------
 # The stock-cast chains are declared by JOINT NAME against rigs we do not author. A mistyped name
 # does not crash — the chain resolves to nothing and that character silently has no physics, in a
@@ -223,6 +267,66 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
       END { print n+0 }' 2>>"$R")
     [ "${KBAD:-0}" = 0 ] || { say "FAIL($TAG): $KBAD keira window(s) where a class-live chain was NOT simulated"; OK=0; }
     say "leg $TAG: rootdev-bad=$NROOT resid-bad=$NRES reglue-windows=$NREG keira-desc-windows=${NDESC:-0} class-gate-bad=${KBAD:-0}"
+    # ---- CYCLE-3 WINDOW GATES ([HD-PHYS2] line) ------------------------------------------------
+    N2=$(grep -ac '\[HD-PHYS2\] ag=' "$GKLOG" || true)
+    [ "${N2:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS2] window line — the cycle-3 counters never printed"; OK=0; }
+    # (B) owner bar: a spawn/teleport settle must never throw a chain past a third of its length.
+    NBURST=$(grep -a 'burst=' "$GKLOG" | grep -cv 'burst=0 ' || true)
+    [ "${NBURST:-0}" = 0 ] || { say "FAIL($TAG): $NBURST window(s) with burst!=0 — chains still go wild at spawn/transition"; OK=0; }
+    # (D) owner bar: no DECLARED, class-live chain may sit frozen while its actor moves.
+    NFRZ=$(grep -a 'frozen=' "$GKLOG" | grep -cv 'frozen=0 ' || true)
+    [ "${NFRZ:-0}" = 0 ] || { say "FAIL($TAG): $NFRZ window(s) with frozen!=0 — a declared chain never moved while its actor did"; OK=0; }
+    # (A) the suspension must RELEASE. A window that held the animation for all 300 frames means the
+    # chain never got its physics back — engage without release is the failure mode this catches.
+    # (A) "physics resumes after" — the per-CHAIN unbroken-suspension record. `authhold` counts
+    # CHAIN-frames and hits 300 on any actor with a few suspended chains, so it can never answer
+    # "was ONE chain never given back": holdmax can, and it is not reset by a window boundary.
+    # 900 frames = 15 s of unbroken suspension is not a forced action any more, it is a stuck blend.
+    NSTUCK=$(grep -a 'holdmax=' "$GKLOG" | awk '{if (match($0,/holdmax=[0-9]+/) && substr($0,RSTART+8,RLENGTH-8)+0 >= 900) n++} END {print n+0}')
+    [ "${NSTUCK:-0}" = 0 ] || { say "FAIL($TAG): $NSTUCK window(s) with holdmax>=900 — a chain was suspended and never handed back"; OK=0; }
+    HMAX=$(grep -a 'holdmax=' "$GKLOG" | awk '{if (match($0,/holdmax=[0-9]+/)) {v=substr($0,RSTART+8,RLENGTH-8)+0; if (v>m) m=v}} END {print m+0}')
+    AENG=$(grep -a 'autheng=' "$GKLOG" | awk '{if (match($0,/autheng=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    AREL=$(grep -a 'authrel=' "$GKLOG" | awk '{if (match($0,/authrel=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    ARSD=$(grep -a 'reseed=' "$GKLOG" | awk '{if (match($0,/reseed=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    say "leg $TAG: cycle3 lines=$N2 burst-bad=$NBURST frozen-bad=$NFRZ engage=$AENG release=$AREL reseed=$ARSD holdmax=$HMAX stuck-windows=$NSTUCK"
+    if [ "${AENG:-0}" -gt 0 ] && [ "${AREL:-0}" = 0 ]; then
+      say "FAIL($TAG): the authored suspension ENGAGED $AENG time(s) and never RELEASED — physics does not resume"; OK=0; fi
+    # ---- CYCLE-3b/3c/3d GATES ------------------------------------------------------------------
+    # (O) an unsatisfiable constraint must SETTLE, never oscillate. jitter counts velocity REVERSALS
+    # above a speed floor: a chain buzzing against a collider reverses every frame, and that is the
+    # number behind the owner's "jitter comme un fou". `rested` counts the chain-frames the rest
+    # state actually held a fighting chain still, so the mechanism is visible even when jitter is 0.
+    JIT=$(grep -a 'jitter=' "$GKLOG" | awk '{if (match($0,/jitter=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
+    JITW=$(grep -a 'jitter=' "$GKLOG" | awk '{if (match($0,/jitter=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 60) n++} END {print n+0}')
+    RST=$(grep -a 'rested=' "$GKLOG" | awk '{if (match($0,/rested=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    CLM=$(grep -a 'clamped=' "$GKLOG" | awk '{if (match($0,/clamped=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    # THE gate is the SUSTAINED fight, not the reversal count. A chain sliding along a moving body
+    # reverses occasionally however well it behaves (measured: 73 isolated reversals on a Maia whose
+    # rest state never even had to arm); what the owner sees is a chain reversing under contact frame
+    # after frame. stickmax is that run length, it is what arms the rest damping at PHYS-STICK=12,
+    # and 60 frames (1 s) of unbroken fighting is the point where "settling" stops being true.
+    STK=$(grep -a 'stickmax=' "$GKLOG" | awk '{if (match($0,/stickmax=[0-9]+/)) {v=substr($0,RSTART+9,RLENGTH-9)+0; if (v>m) m=v}} END {print m+0}')
+    # PERSISTENCE IS NOT THE SIN, OSCILLATION IS. The owner's rule is "si ca ne se conforme pas...
+    # ca devrait juste RESTER TRANQUILLE tout en essayant TRANQUILLEMENT de se conformer" — a chain
+    # may press against a collider indefinitely, it may not VIBRATE while doing it. So a long run is
+    # only a failure when the same window also shows real reversal activity.
+    BADW=$(grep -a 'stickmax=' "$GKLOG" | awk '{
+        st=0; ji=0;
+        if (match($0,/stickmax=[0-9]+/)) st=substr($0,RSTART+9,RLENGTH-9)+0;
+        if (match($0,/jitter=[0-9]+/))   ji=substr($0,RSTART+7,RLENGTH-7)+0;
+        if (st >= 60 && ji > 30) n++ } END {print n+0}')
+    [ "${BADW:-0}" = 0 ] || { say "FAIL($TAG): $BADW window(s) where a chain fought a collider for >=60 frames AND kept reversing — oscillating, not settling"; OK=0; }
+    # ...and a hard absurdity bound on the raw count, so a genuinely buzzing rig cannot hide behind
+    # a short run length: 2 reversals per frame sustained over a window is not contact, it is noise.
+    [ "${JIT:-0}" -lt 600 ] || { say "FAIL($TAG): jitter=$JIT in one window — that is not contact, that is buzzing"; OK=0; }
+    # (P) the per-link influence profile must have NO step: that discontinuity IS the "cran" the
+    # owner sees at mid-ear. Built bounded by the solver, graded here on what it actually built.
+    ISTEP=$(grep -a 'inflstep=' "$GKLOG" | awk '{if (match($0,/inflstep=[0-9.]+/)) {v=substr($0,RSTART+9,RLENGTH-9)+0; if (v>m) m=v}} END {printf "%.4f", m+0}')
+    awk -v v="$ISTEP" 'BEGIN{exit !(v+0 <= 0.4501)}' \
+      || { say "FAIL($TAG): influence profile step $ISTEP > 0.45 — the per-link transition is discontinuous (owner P)"; OK=0; }
+    NPROF=$(grep -ac '\[HD-PHYS-INFL\] ag=' "$GKLOG" || true)
+    [ "${NPROF:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS-INFL] profile line — the per-link influence profile is not reported"; OK=0; }
+    say "leg $TAG: cycle3bcd jitter-max=$JIT stick-max=$STK rested=$RST clamped=$CLM inflstep-max=$ISTEP profile-lines=$NPROF"
   fi
 
   # ---- WAVE 2 GATES: the sim runs on STOCK actors, not just HD companions -----------------------
@@ -309,13 +413,16 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
           if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v } }
         END { printf "%.4f", m+0 }')
       say "leg $TAG: keira chest chain max deviation = $CHEST units ; goggles chain = $GOG units"
-      awk -v v="$CHEST" 'BEGIN{exit !(v+0 >= 20.0)}' \
-        || { say "FAIL($TAG): keira chest deviation $CHEST < 20 units — the chest chain is still INERT (owner defect C)"; OK=0; }
-      # 300 units (~7.3 cm) is BELOW the chain's geometric maximum (the 22 deg cone on a 977-unit
-      # lever allows 366), so this ceiling can actually trip — it is a real bound on "subtle", not
-      # decoration.
-      awk -v v="$CHEST" 'BEGIN{exit !(v+0 <= 300.0)}' \
-        || { say "FAIL($TAG): keira chest deviation $CHEST > 300 units — that is not 'rien de fou'"; OK=0; }
+      # OWNER CYCLE-3 G MOVED THIS BAR, IN BOTH DIRECTIONS. Cycle 2 asked for "rien de fou" and this
+      # gate held the chest under 300 units. Having seen it, the owner's verdict is "ca bouge un
+      # poil, faut regarder a la loupe -- faudrait que ca jiggle BEAUCOUP PLUS que ca". So the FLOOR
+      # becomes his new bar (400 units, ~10 cm; the cycle-2 build measured 272.4) and the ceiling
+      # stops being a taste judgement -- taste is the owner's, never this script's -- and becomes an
+      # ABSURDITY bound: 900 units is 22 cm of travel, which is broken, not bold.
+      awk -v v="$CHEST" 'BEGIN{exit !(v+0 >= 400.0)}' \
+        || { say "FAIL($TAG): keira chest deviation $CHEST < 400 units — owner cycle-3 G asked for much MORE than the 272.4 he judged too timid"; OK=0; }
+      awk -v v="$CHEST" 'BEGIN{exit !(v+0 <= 900.0)}' \
+        || { say "FAIL($TAG): keira chest deviation $CHEST > 900 units (22 cm) — that is not jiggle, that is broken"; OK=0; }
       # ---- (D) GOGGLES: were class=accessory -> gated off at the default level, and their lenses
       # would have torn off. Now primary + descendant re-glue: they must actually move.
       awk -v v="$GOG" 'BEGIN{exit !(v+0 > 0.0)}' \
@@ -323,19 +430,133 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
       ;;
     expect-off)
       [ "$NWIN" = 0 ] || { say "FAIL($TAG): $NWIN window lines with physics?=#f — OFF is not off"; OK=0; }
+      N2OFF=$(grep -ac '\[HD-PHYS2\] ag=' "$GKLOG" || true)
+      [ "${N2OFF:-0}" = 0 ] || { say "FAIL($TAG): $N2OFF [HD-PHYS2] lines with physics?=#f — the cycle-3 counters run with physics OFF"; OK=0; }
       ;;
   esac
   kill "$GKPID" 2>/dev/null || true; wait 2>/dev/null || true; GKPID=0; sleep 2
   [ "$OK" = 1 ]
 }
 
+# ---------------------------------------------------------------------------------------------
+# INTRO-CINEMATIC LEG (owner cycle-3b M + 3c N/O). Three of the owner's cycle-3b/3c complaints only
+# exist in ONE place in the whole game: Maia and Gol are placed as entities in the `intro` level and
+# nowhere else (the citadel/village3 art groups are spooled cutscene data with no entity and no
+# process), and Jak lying down in close-up — the collar-jitter case — is that same cinematic. So the
+# three are proven in a single leg instead of three.
+# It is driven the way .autoport/gcine_audit_x86.sh already drives it: boot to the title, then
+# `initialize! *game-info*` on "intro-start" over the goalc listener. A level warp cannot be used —
+# the intro level has no continue point of its own.
+run_intro_leg(){
+  local TAG=INTRO GKLOG="$OUT/.smoke_gk_INTRO.log"; : > "$GKLOG"
+  set_ini 'recharged-enhanced-models?' '#t'
+  set_ini 'physics?' '#t'; set_ini 'physics-quality' 2
+  set_ini 'hd-look-jak' 1; set_ini 'hd-look-daxter' 1
+  set_ini 'hd-look-keira' 1; set_ini 'hd-look-samos' 1
+  say ""; say "=== LEG INTRO: physics?=#t quality=2, intro cinematic (Maia + Gol + Jak lying down) ==="
+  env OG_LEVEL_WARP=intro-start "$GK" --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data "$ISO" -- -boot -debug-mem > "$GKLOG" 2>&1 &
+  GKPID=$!
+  local booted=0 i
+  for i in $(seq 1 150); do
+    kill -0 "$GKPID" 2>/dev/null || { say "FAIL(INTRO): gk exited during boot"; tail -25 "$GKLOG" >> "$R"; return 1; }
+    grep -aqE "link finish: (default-menu|logo)" "$GKLOG" && { booted=1; break; }
+    sleep 1
+  done
+  [ "$booted" = 1 ] || { say "FAIL(INTRO): boot timeout"; tail -25 "$GKLOG" >> "$R"; return 1; }
+  sleep 4
+  # NOT driven over the goalc listener: a fresh REPL has no symbol table for the running target, so
+  # `*game-info*` does not resolve and the form dies with a Compilation Error while gk carries on at
+  # the title — a leg that proves nothing while looking like it ran. The harness's own native warp
+  # does the same job: OG_LEVEL_WARP takes a CONTINUE-POINT name, "intro-start" carries
+  # (continue-flags intro) (level-info.gc:229-256), and that flag is what makes target-death.gc:149
+  # call start-sequence-a — the intro cinematic, i.e. Misty Island with Gol, Maia and Jak lying down.
+  local w=0
+  for i in $(seq 1 120); do
+    kill -0 "$GKPID" 2>/dev/null || { say "FAIL(INTRO): gk died before the warp"; tail -25 "$GKLOG" >> "$R"; return 1; }
+    grep -aq 'LEVEL-WARP-SPAWN' "$GKLOG" && { w=1; break; }
+    sleep 1
+  done
+  [ "$w" = 1 ] || { say "FAIL(INTRO): intro-start warp never fired"; tail -25 "$GKLOG" >> "$R"; return 1; }
+  say "intro-start warp landed — watching ${INTROWATCH:-200}s"
+  sleep "${INTROWATCH:-200}"
+  local ALIVE=no; kill -0 "$GKPID" 2>/dev/null && ALIVE=yes
+  local OK=1 CRASH
+  CRASH=$(grep -acE 'SIGSEGV|SIGILL|Segmentation|Assertion' "$GKLOG" || true)
+  [ "$ALIVE" = yes ] || { say "FAIL(INTRO): gk died"; OK=0; }
+  [ "$CRASH" = 0 ] || { say "FAIL(INTRO): crash markers"; OK=0; }
+  # ---- (M) per-ACTOR per-CHAIN activity, Maia and Gol BY NAME -------------------------------
+  # "declare" is not "active": the wave-2 aggregate counters could not tell the difference, which
+  # is exactly how two characters shipped with inert hair. cdev: is the per-chain window maximum,
+  # so a chain that never moved reads its own 0 next to its own index.
+  local m
+  for m in evilsis-lod0 evilbro-lod0; do
+    local NB NCH ACT DEAD
+    NB=$(grep -ac "\[HD-PHYS\] init ag=$m " "$GKLOG" || true)
+    NCH=$(grep -a "\[HD-PHYS\] init ag=$m " "$GKLOG" | grep -vc 'chains=0 ' || true)
+    [ "${NB:-0}" -ge 1 ] || { say "FAIL(INTRO): $m never bound a physics slot — it did not spawn or the hook missed it"; OK=0; }
+    [ "${NCH:-0}" -ge 1 ] || { say "FAIL(INTRO): $m bound with chains=0 — its chains resolve to nothing"; OK=0; }
+    # every DECLARED chain of this actor must show a nonzero window deviation at least once
+    read -r ACT DEAD <<<"$(grep -a "ag=$m .*cdev:" "$GKLOG" | awk '
+      { s=substr($0, index($0,"cdev:")); n=split(s, t, " ");
+        for (i=2;i<=n;i++){ split(t[i], kv, "="); if (kv[2]+0 > 0.0001) seen[kv[1]]=1; all[kv[1]]=1 } }
+      END { a=0; d=0; for (k in all) { if (k in seen) a++; else d++ } print a, d }')"
+    say "leg INTRO: $m chains active=${ACT:-0} never-moved=${DEAD:-0}"
+    [ "${ACT:-0}" -ge 1 ] || { say "FAIL(INTRO): $m has NO chain with any measured displacement — declared but inert (owner M)"; OK=0; }
+    [ "${DEAD:-0}" = 0 ] || { say "FAIL(INTRO): $m has ${DEAD} declared chain(s) that never moved (owner M)"; OK=0; }
+    grep -a "ag=$m .*cdev:" "$GKLOG" | tail -1 >> "$R"
+  done
+  # ---- (N) Maia's own penetration audit, named ----------------------------------------------
+  local MRES
+  MRES=$(grep -a 'ag=evilsis-lod0 .*resid=' "$GKLOG" | grep -cv 'resid=0 ' || true)
+  [ "${MRES:-0}" = 0 ] || { say "FAIL(INTRO): $MRES evilsis window(s) with resid!=0 — Maia's hair still ends frames inside her body"; OK=0; }
+  local MRESN; MRESN=$(grep -ac 'ag=evilsis-lod0 .*resid=0 ' "$GKLOG" || true)
+  say "leg INTRO: MAIA (evilsis-lod0) resid=0 in $MRESN window(s), bad=$MRES"
+  # ---- (O) Jak's collar under sustained contact, lying down, close-up ------------------------
+  local JIT JITW RST
+  JIT=$(grep -a 'jitter=' "$GKLOG" | awk '{if (match($0,/jitter=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
+  JITW=$(grep -a 'jitter=' "$GKLOG" | awk '{if (match($0,/jitter=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 60) n++} END {print n+0}')
+  RST=$(grep -a 'rested=' "$GKLOG" | awk '{if (match($0,/rested=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+  local STK; STK=$(grep -a 'stickmax=' "$GKLOG" | awk '{if (match($0,/stickmax=[0-9]+/)) {v=substr($0,RSTART+9,RLENGTH-9)+0; if (v>m) m=v}} END {print m+0}')
+  local IBADW; IBADW=$(grep -a 'stickmax=' "$GKLOG" | awk '{
+      st=0; ji=0;
+      if (match($0,/stickmax=[0-9]+/)) st=substr($0,RSTART+9,RLENGTH-9)+0;
+      if (match($0,/jitter=[0-9]+/))   ji=substr($0,RSTART+7,RLENGTH-7)+0;
+      if (st >= 60 && ji > 30) n++ } END {print n+0}')
+  [ "${IBADW:-0}" = 0 ] || { say "FAIL(INTRO): $IBADW window(s) fighting >=60 frames AND reversing — the collar case still oscillates"; OK=0; }
+  [ "${JIT:-0}" -lt 600 ] || { say "FAIL(INTRO): jitter=$JIT in one intro window — buzzing"; OK=0; }
+  say "leg INTRO: jitter-max=$JIT stick-max=$STK rested-chain-frames=$RST"
+  local NNAN NRES
+  NNAN=$(grep -a 'nan-resets=' "$GKLOG" | grep -cv 'nan-resets=0 ' || true)
+  NRES=$(grep -a 'resid=' "$GKLOG" | grep -cv 'resid=0 ' || true)
+  [ "${NNAN:-0}" = 0 ] || { say "FAIL(INTRO): nan-resets nonzero"; OK=0; }
+  if [ "${NRES:-0}" != 0 ]; then
+    say "FAIL(INTRO): $NRES window(s) with residual penetrations — the offending chains, by name:"
+    grep -a 'cres:' "$GKLOG" | awk '{
+        ag=""; if (match($0,/ag=[a-z0-9-]+/)) ag=substr($0,RSTART+3,RLENGTH-3);
+        s=substr($0, index($0,"cres:")); if (index(s," aratio:")>0) s=substr(s,1,index(s," aratio:")); n=split(s,t," ");
+        for (i=2;i<=n;i++){ split(t[i],kv,"="); if (kv[2]+0>0) print "   "ag" chain "kv[1]" residual on "kv[2]" frame(s)" } }' | sort -u >> "$R"
+    OK=0
+  fi
+  grep -a '\[HD-PHYS-INFL\] ag=sidekick-lod0\|\[HD-PHYS-INFL\] ag=dax-hd' "$GKLOG" | tail -1 >> "$R"
+  say "leg INTRO: alive=$ALIVE crash=$CRASH nan-bad=$NNAN resid-bad=$NRES"
+  kill "$GKPID" 2>/dev/null || true; wait 2>/dev/null || true; GKPID=0; sleep 2
+  [ "$OK" = 1 ]
+}
+
 FAILED=0
+# ONLY_INTRO=1 runs the single expensive leg on its own — the other six are unaffected by the
+# cinematic work and re-running them to iterate on it would be 20 minutes of nothing.
+if [ "${ONLY_INTRO:-0}" = 1 ]; then
+  run_intro_leg && say "[physics x86 smoke INTRO-ONLY PASS]" || { say "[physics x86 smoke INTRO-ONLY FAIL]"; exit 1; }
+  exit 0
+fi
 run_leg "L2-max"    '#t' 2 1 1 1 1 expect-phys || FAILED=1
 run_leg "L0-light"  '#t' 0 1 1 1 1 expect-phys || FAILED=1
 run_leg "BONUS"     '#t' 1 2 2 2 2 expect-phys || FAILED=1
 run_leg "GAMEPLAY"  '#t' 1 1 1 1 1 expect-gameplay "village1-hut" "-130.5 34.5 202.4" || FAILED=1
 run_leg "OFF"       '#f' 1 1 1 1 1 expect-off  || FAILED=1
 run_leg "STOCKLOOK" '#t' 1 1 1 1 1 expect-rider "village1-hut" "-130.5 34.5 202.4" || FAILED=1
+run_intro_leg || FAILED=1
 
 say ""
 if [ "$FAILED" = 0 ]; then say "[physics x86 smoke PASS] all six legs green"; else say "[physics x86 smoke FAIL] see legs above"; fi
