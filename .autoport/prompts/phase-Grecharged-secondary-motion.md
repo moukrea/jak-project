@@ -550,3 +550,26 @@ La famille se déduit de la NATURE de l'élément, mécaniquement :
     qu'elle ne touche plus le point d'équilibre — sinon `hang` doit valoir 0 sur toute la famille A.
   * `family=B` => attraction gravitaire au repos ASSUMÉE, et surtout PAS de retour à la pose du
     modèle.
+
+## ============================================================
+## CYCLE 5 — CONSIGNE RESSERRÉE (superviseur, 00:25, après 3h de mesure sans convergence)
+## ============================================================
+L'INSTRUMENTATION EST BONNE ET NE DOIT PLUS BOUGER. Elle est désormais fiable : `restdevA` est
+échantillonné sur 51281 frames réelles (le 0.0000 précédent était un zéro vide, `restwin=0`), et
+elle dit la vérité — la spec de l'owner n'est PAS respectée. Ne pas retoucher les compteurs, ne pas
+en ajouter, ne pas redéfinir de métrique. Le travail restant est un travail de SOLVEUR et de DONNÉES.
+
+TROIS CIBLES CHIFFRÉES, RIEN D'AUTRE. Ne pas ouvrir d'autre sujet tant que les trois ne sont pas
+tenues simultanément sur la même exécution device :
+  1. `restdevA` ≈ 0 AVEC `restwin` > 0   (état: 948.27 sur 51281 échantillons)
+     => une chaîne de CORPS doit se reposer sur la forme du modèle. C'est LA règle de l'owner.
+  2. `lenmin` et `lensim` >= 0.97        (état: 0.6757 / 0.7761)
+     => rien ne s'écrase. Une chaîne à 68 % de sa longueur modélisée est un défaut visible.
+  3. `xleg` = 0                          (état: 2, et 50 sur une autre jambe)
+     => plus aucune traversée du volume opposé.
+Plus : zéro pénétration résiduelle, et les 40 marqueurs `@@...@@` du rapport doivent être remplis.
+
+MÉTHODE IMPOSÉE : traiter les trois cibles UNE PAR UNE, en vérifiant après chacune que les deux
+autres n'ont pas régressé. Les allers-retours des dernières heures viennent de changements
+simultanés (xleg est repassé de 0 à 50 pendant qu'on travaillait l'écrasement).
+INTERDIT : rebuild x86, nouvelle campagne de preuve, nouvel instrument.
