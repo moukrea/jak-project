@@ -508,6 +508,9 @@
     ],
     "Grecharged-hd-eye-scale": [
       "d41c4e620678"
+    ],
+    "Grecharged-secondary-motion": [
+      "e8ec57fc668c"
     ]
   },
   "stuck_reasons": {
@@ -946,7 +949,7 @@
     "Grecharged-secondary-motion": 1786031689.2500734,
     "Grecharged-hd-eye-scale": 1786018388.543868
   },
-  "last_update": "2026-08-06T15:56:50.420315+00:00",
+  "last_update": "2026-08-06T15:56:50.882385+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
