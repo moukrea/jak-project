@@ -127,6 +127,15 @@ def main() -> int:
                                   f"(A = body, returns to the model pose; B = hangs, gravity rules)")
                 elif fam[0] not in ("A", "B"):
                     errors.append(f"{header}:{ln} chain '{cur}' family='{fam[0]}' — must be A or B")
+                elif fam[0] == "B":
+                    # "Leur repos est dicte par la GRAVITE, point." A family-B chain with no hang=
+                    # has the MODEL pose as its equilibrium, which is family A's rule applied to a
+                    # hanging strap — the exact bug the two families exist to keep apart, and it is
+                    # invisible in-game until the owner notices a jacket flap standing to attention.
+                    hg = [t[len("hang="):] for t in tok[2:] if t.startswith("hang=")]
+                    if not hg or float(hg[0]) <= 0.0:
+                        errors.append(f"{header}:{ln} chain '{cur}' is family B but declares no "
+                                      f"hang= — a thing that hangs must have gravity decide its rest")
             elif tok[0] == "j" and header:
                 if cur is None:
                     errors.append(f"{header}:{ln} 'j {tok[1]}' outside any chain")

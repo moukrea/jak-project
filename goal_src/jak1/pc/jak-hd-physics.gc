@@ -218,6 +218,11 @@
 (define *phys-slot-tilt* (new 'static 'array float 24))
 ;; (W) worst post-settle deviation from the MODEL pose over the window, FAMILY A chains only.
 (define *phys-slot-restdeva* (new 'static 'array float 24))
+;; ...and the counter that says the measurement RAN. restdevA only scores once the actor has
+;; settled, so a leg that never stands still would report a perfect 0.0000 without ever having
+;; graded anything — the identical empty zero as resid=0 with push=0 (cycle 3) and idledrift=0
+;; with idlewin=0 (cycle 4). Third time the trap is recognised, so it is closed at birth.
+(define *phys-slot-restwin* (new 'static 'array int32 24))
 ;; (Z) residual penetrations of a chain into a volume belonging to the OTHER side of the body.
 (define *phys-slot-xleg* (new 'static 'array int32 24))
 ;; (X) worst simulated/authored chain-length ratio in the window. 1.0 = nothing was crushed.
@@ -967,6 +972,7 @@
     (set! (-> *phys-slot-unclass* slot) 0)
     (set! (-> *phys-slot-tilt* slot) 0.0)
     (set! (-> *phys-slot-restdeva* slot) 0.0)
+    (set! (-> *phys-slot-restwin* slot) 0)
     (set! (-> *phys-slot-xleg* slot) 0)
     ;; a MINIMUM starts at +inf, not at 0 — zeroed here it would print as a fully crushed chain
     ;; on the first window of every binding.
@@ -1121,9 +1127,28 @@
           (set! (-> down y) -1.0)
           (set! (-> down z) 0.0)
           (set! (-> down w) 0.0)
+          ;; WHAT THIS MEASURES, EXACTLY, so the next cycle does not have to guess: the ACTOR's own
+          ;; root orientation. It catches the owner's case ("si tu pends Maia par les pieds"), being
+          ;; knocked over, and any pose where the character himself is turned. It does NOT catch an
+          ;; ANIMATION that lays a character down while his root stays upright — the intro cinematic
+          ;; — and that is deliberate: there the modelled silhouette is the animator's intent, and
+          ;; the phase's own rule (owner cycle-3 A) is that authored animation wins. Measuring the
+          ;; ANCHOR bone instead would catch it, but only on rigs whose local row 1 really is "up",
+          ;; and across 458 shipped rigs it is not — an ear bone pointing sideways would read as a
+          ;; 90-degree tilt on a character standing perfectly straight and droop for no reason.
           (when (> nbones 1)
-            (let ((upd (- (phys-axis-dot (the-as matrix (-> skel bones 1 transform)) 1 down))))
-              (set! tiltf (fmax 0.0 (fmin 1.0 (/ (- PHYS-COS-UP upd) (- PHYS-COS-UP PHYS-COS-TILT)))))))
+            (let* ((rm (the-as matrix (-> skel bones 1 transform)))
+                   (rl2 (vector-length (-> rm vector 1))))
+              ;; DEGENERATE ROW = UN-POSED FRAME (every bone at the origin: the parked title-screen
+              ;; spawn, the frame a warp cuts the pose). phys-axis-dot returns 0.0 there, and 0.0
+              ;; through the ramp below reads as a 75-degree tilt — which would hand gravity the
+              ;; rest pose back and silently restore the exact cycle-4 behaviour this cycle removes,
+              ;; by an accident of measurement rather than by anything the owner asked for. An
+              ;; un-posed frame is not a tilted actor.
+              (when (> rl2 0.000001)
+                (let ((upd (- (phys-axis-dot rm 1 down))))
+                  (set! tiltf (fmax 0.0 (fmin 1.0 (/ (- PHYS-COS-UP upd)
+                                                     (- PHYS-COS-UP PHYS-COS-TILT)))))))))
           (when (> tiltf (-> *phys-slot-tilt* slot))
             (set! (-> *phys-slot-tilt* slot) tiltf))
           ;; fixed-timestep ladder top: substep count from the accumulator target rate
@@ -2008,6 +2033,7 @@
                                     (>= chainlen 1.0))
                            (dotimes (i len)
                              (when (and (>= i rl) (zero? (-> lpush i)))
+                               (+! (-> *phys-slot-restwin* slot) 1)
                                (vector-! vtmp (-> *phys-out* (+ start i)) (-> *phys-rest* (+ start i)))
                                (let ((d (vector-length vtmp)))
                                  (when (> d (-> *phys-crestd* ci)) (set! (-> *phys-crestd* ci) d))
@@ -2650,8 +2676,9 @@
                       (-> *phys-slot-famb* slot)
                       (-> *phys-slot-unclass* slot)
                       (-> *phys-slot-tilt* slot))
-              (format *phys-line-buf* " restdevA=~f xleg=~D lenmin=~f extprobe=~D"
+              (format *phys-line-buf* " restdevA=~f restwin=~D xleg=~D lenmin=~f extprobe=~D"
                       (-> *phys-slot-restdeva* slot)
+                      (-> *phys-slot-restwin* slot)
                       (-> *phys-slot-xleg* slot)
                       (-> *phys-slot-lenmin* slot)
                       (-> *phys-slot-extprobe* slot))
@@ -2675,6 +2702,7 @@
               (set! (-> *phys-slot-unclass* slot) 0)
               (set! (-> *phys-slot-tilt* slot) 0.0)
               (set! (-> *phys-slot-restdeva* slot) 0.0)
+              (set! (-> *phys-slot-restwin* slot) 0)
               (set! (-> *phys-slot-xleg* slot) 0)
               (set! (-> *phys-slot-lenmin* slot) 1000000.0)
               (set! (-> *phys-slot-extprobe* slot) 0)

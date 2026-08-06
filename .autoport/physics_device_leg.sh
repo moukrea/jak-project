@@ -226,6 +226,44 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     awk -v v="${IDRIFT:-99}" 'BEGIN{exit !(v+0 <= 1.0)}' \
       || { say "FAIL($TAG): idledrift=$IDRIFT — a chain moved with no input at all (owner R/S)"; OK=0; }
     [ "${UNSET:-0}" = 0 ] || { say "FAIL($TAG): $UNSET idle stretch(es) still ringing after 1 s — it does not settle"; OK=0; }
+    # ---- CYCLE-5 WINDOW GATES ([HD-PHYS4] line) ---------------------------------------------
+    # The owner's 21:10 spec, graded rather than asserted:
+    #   unclass    chains simulating with NO family. His rule is that every chain is classified,
+    #              so anything but 0 is a data hole — and an unclassified chain does not crash, it
+    #              quietly inherits family A, which on a hanging strap is the opposite bug.
+    #   restdevA   how far a FAMILY A chain still sat from the MODEL pose AFTER settling, on links
+    #              no collider was holding. This is the whole "pas plus haut, pas plus bas". It is
+    #              measured post-settle on purpose: grading it instantly would forbid the bounce.
+    #   xleg       residual penetrations into a volume belonging to the OTHER side of the body —
+    #              the crossed jacket pendants, counted as their own defect.
+    #   lenmin     worst simulated/authored chain-length ratio. Below 1 something was crushed
+    #              (owner X, "le col de Jak ne doit pas s'ecraser").
+    #   extprobe   how many collision tests were displaced onto the skinned cloth below a pendant
+    #              bone. The anti-empty-zero counter for xleg: xleg=0 with extprobe=0 would mean
+    #              the cloth was never tested, which is precisely the resid=0/push=0 trap again.
+    local N4 UNCL RDEV XLEG LMIN EXTP FAMA FAMB TILT
+    N4=$(grep -ac '\[HD-PHYS4\] ag=' "$LC" || true)
+    [ "${N4:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS4] line — the cycle-5 instrument never printed"; OK=0; }
+    UNCL=$(grep -a 'unclass=' "$LC" | awk '{if (match($0,/unclass=[0-9]+/)) {v=substr($0,RSTART+8,RLENGTH-8)+0; if (v>m) m=v}} END {print m+0}')
+    FAMA=$(grep -a 'famA=' "$LC" | awk '{if (match($0,/famA=[0-9]+/)) {v=substr($0,RSTART+5,RLENGTH-5)+0; if (v>m) m=v}} END {print m+0}')
+    FAMB=$(grep -a 'famB=' "$LC" | awk '{if (match($0,/famB=[0-9]+/)) {v=substr($0,RSTART+5,RLENGTH-5)+0; if (v>m) m=v}} END {print m+0}')
+    TILT=$(grep -ao 'tiltmax=[0-9.]*' "$LC" | sed 's/tiltmax=//' | sort -g | tail -1)
+    RDEV=$(grep -ao 'restdevA=[0-9.]*' "$LC" | sed 's/restdevA=//' | sort -g | tail -1)
+    XLEG=$(grep -a 'xleg=' "$LC" | awk '{if (match($0,/xleg=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
+    # the sentinel (1000000) means "no chain was long enough to measure in this window" — that is
+    # not a crush, so it is filtered out rather than graded as a perfect score OR as a failure.
+    LMIN=$(grep -ao 'lenmin=[0-9.]*' "$LC" | sed 's/lenmin=//' | awk '{if ($1+0 < 100.0) print}' | sort -g | head -1)
+    EXTP=$(grep -a 'extprobe=' "$LC" | awk '{if (match($0,/extprobe=[0-9]+/)) s+=substr($0,RSTART+9,RLENGTH-9)} END {print s+0}')
+    TOTEXT=$((TOTEXT + EXTP))
+    say "leg $TAG: cycle5 famA=$FAMA famB=$FAMB unclass=$UNCL tiltmax=${TILT:-n/a} restdevA=${RDEV:-n/a} xleg=$XLEG lenmin=${LMIN:-n/a} extprobe=$EXTP"
+    [ "${UNCL:-0}" = 0 ] || { say "FAIL($TAG): $UNCL chain(s) simulating with NO family — the owner's rule is that every chain is classified"; OK=0; }
+    awk -v v="${RDEV:-99}" 'BEGIN{exit !(v+0 <= 8.0)}' \
+      || { say "FAIL($TAG): restdevA=$RDEV — a BODY chain settled away from the model pose (owner W)"; OK=0; }
+    [ "${XLEG:-0}" = 0 ] || { say "FAIL($TAG): xleg=$XLEG — a chain ended inside the OPPOSITE side's volume (owner Z)"; OK=0; }
+    if [ -n "${LMIN:-}" ]; then
+      awk -v v="$LMIN" 'BEGIN{exit !(v+0 >= 0.97)}' \
+        || { say "FAIL($TAG): lenmin=$LMIN — a chain was crushed to $LMIN of its modelled length (owner X)"; OK=0; }
+    fi
     # ---- (G) chest amplitude ON THE PHONE. The chain index is read from the data file, never
     # hardcoded, so reordering physics_chains.txt cannot silently point this at another chain.
     local KM KIDX
@@ -285,6 +323,10 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
           say "leg $TAG: $A $CDEV"
           [ "${RESB:-0}" = 0 ] || { say "FAIL($TAG): $A has $RESB window(s) with residual penetration"; OK=0; }
           grep -a "\[HD-PHYS3\] ag=$A" "$LC" | tail -1 | sed "s/.*\[HD-PHYS3\]/leg $TAG: $A [HD-PHYS3]/" >> "$LOG"
+          # CYCLE 5: the same by-name treatment for the family line. The owner has twice been shown
+          # an aggregate that was green while the actor he was looking at was not, so Maia's and
+          # Gol's own famA/restdevA/xleg/lenmin go into the log verbatim, per actor.
+          grep -a "\[HD-PHYS4\] ag=$A" "$LC" | tail -1 | sed "s/.*\[HD-PHYS4\]/leg $TAG: $A [HD-PHYS4]/" >> "$LOG"
         } || say "leg $TAG: $A — no window (actor not present in this run)"
       done
       ;;
@@ -319,6 +361,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
 
 FAILED=0
 TOTIDLE=0
+TOTEXT=0
 run_leg "D-MAX" '#t' 2 expect-phys || FAILED=1
 run_leg "D-OFF" '#f' 1 expect-off  || FAILED=1
 run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
@@ -329,5 +372,10 @@ WATCH=200 run_leg "D-INTRO" '#t' 2 expect-intro intro-start || FAILED=1
 say ""
 say "run total: input-free frames sampled across all legs = $TOTIDLE"
 [ "$TOTIDLE" -ge 1 ] || { say "FAIL(run): not one input-free frame in the whole run — every idledrift number is an empty zero"; FAILED=1; }
+# Same rule for the cross-leg claim: xleg=0 is only worth something if the CLOTH below the pendant
+# bones was ever the thing being tested. Checked once for the run, not per leg — a village leg with
+# no jacketed actor on screen legitimately reports 0.
+say "run total: pendant-cloth collision tests across all legs = $TOTEXT"
+[ "$TOTEXT" -ge 1 ] || { say "FAIL(run): extprobe=0 in the whole run — the pendant geometry was never tested, so xleg=0 proves nothing"; FAILED=1; }
 if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER + D-INTRO green"; else say "[physics device leg FAIL] see legs above"; fi
 exit "$FAILED"

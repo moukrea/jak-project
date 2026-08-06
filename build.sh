@@ -173,8 +173,16 @@ src_fingerprint() { # $1 = goalc binary path
 CACHE_ROOT=".autoport/cgo-cache/${GAME}"
 run_goalc_iso() { # $1 = goalc, $2 = log tag ; full forced iso build into out/<game>/iso
   local goalc="$1" tag="$2" logf=".autoport/logs/build-${2}.log"
-  mkdir -p .autoport/logs out/${GAME}/obj
-  find "out/${GAME}/obj" -maxdepth 1 -type f \( -name '*.o' -o -name '*.go' \) -delete
+  mkdir -p .autoport/logs out/${GAME}/obj out/${GAME}/iso
+  find "out/${GAME}/obj" -type f \( -name '*.o' -o -name '*.go' \) -delete
+  # ...AND the previous backend's CGO/DGO set. Clearing only the objects left the OUTPUT of the
+  # last run sitting in out/<game>/iso, so anything this run failed to re-emit was silently
+  # inherited and then copied into the arm64 stage as if it had just been built. Measured
+  # 2026-08-06: a whole "arm64" set came out byte-identical to x86 (KERNEL.CGO 92176 bytes
+  # instead of 159664) and only the APK pack gate noticed, at the very end of the pipeline and
+  # after the poisoned set had already been written into the flag-keyed CGO cache. A build step
+  # that cannot inherit its predecessor's output cannot produce that class of result at all.
+  find "out/${GAME}/iso" -maxdepth 1 -type f \( -name '*.CGO' -o -name '*.DGO' \) -delete
   log "goalc ($tag) (make-group \"iso\" :force #t) — several minutes..."
   "$goalc" --user-auto --game "$GAME" --disable-ansi -c '(make-group "iso" :force #t)' > "$logf" 2>&1 \
     || { tail -40 "$logf" >&2; die "goalc $tag build failed (log: $logf)"; }
@@ -298,6 +306,16 @@ build_android() {
     assert_iso_set "out/${GAME}/iso"
     rm -f "$STAGE"/*.CGO "$STAGE"/*.DGO
     cp -f out/${GAME}/iso/*.CGO out/${GAME}/iso/*.DGO "$STAGE"/
+    # INTEGRITY, BEFORE THE CACHE. android/build_cgo_pack.sh already refuses to pack an arm64 set
+    # whose KERNEL.CGO equals the x86 oracle — but it runs at the END of the pipeline, and by then
+    # cache_store has already written the poisoned set under a flag+fingerprint key that a later
+    # build would happily HIT. Grading it here costs one md5 and keeps a bad set out of the cache.
+    local x86ref="$CACHE_ROOT/x86-${FLAG_HASH}-${fp_x86}/KERNEL.CGO"
+    if [ -f "$x86ref" ] && \
+       [ "$(md5sum < "$STAGE/KERNEL.CGO")" = "$(md5sum < "$x86ref")" ]; then
+      rm -f "$STAGE"/*.CGO "$STAGE"/*.DGO
+      die "arm64 goalc emitted the x86 KERNEL.CGO byte-for-byte — the arm64 stage is x86 code and would SIGILL on the device (stage cleared, nothing cached)"
+    fi
     if [ $USE_CACHE -eq 1 ]; then cache_store "$cache_arm" "$STAGE"; fi
     # restore the x86 oracle in out/<game>/iso (desktop/harness expects x86 there);
     # the x86 restore uses the SAME flag set (marker matches this build).
