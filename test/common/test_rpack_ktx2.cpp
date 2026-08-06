@@ -2,6 +2,7 @@
 // fixture produced by the recharged-assets pipeline's Python writer — a
 // cross-language conformance check of the RPACK v1 contract.
 
+#include "common/util/AssetsLock.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Ktx2Subset.h"
 #include "common/util/RPack.h"
@@ -123,6 +124,71 @@ TEST(Ktx2Subset, RejectsGarbage) {
   std::vector<u8> junk(256, 0xCD);
   EXPECT_FALSE(ktx2::parse(junk.data(), junk.size(), &tex, &err));
   EXPECT_FALSE(ktx2::parse(nullptr, 0, &tex, &err));
+}
+
+namespace {
+fs::path write_lock(const std::string& body, const char* name) {
+  const auto p = file_util::get_jak_project_dir() / "test" / "test_data" / "recharged" / name;
+  file_util::write_text_file(p, body);
+  return p;
+}
+constexpr const char* kGoodLock = R"({
+  "schema_version": 1,
+  "asset_version": "assets-v0.1.1",
+  "manifest_url": "https://github.com/moukrea/recharged-assets/releases/download/assets-v0.1.1/manifest.json",
+  "manifest_sha256": "b371909044e02b270cc6720be26af8aa6bcd88ca9684988f2fa1db3bc0ddf528",
+  "required": false
+})";
+}  // namespace
+
+TEST(AssetsLock, ParsesValidLock) {
+  const auto p = write_lock(kGoodLock, "lock_ok.tmp.json");
+  std::string err;
+  auto lock = assets_lock::load(p, &err);
+  ASSERT_TRUE(lock.has_value()) << err;
+  EXPECT_EQ(lock->asset_version, "assets-v0.1.1");
+  EXPECT_EQ(lock->manifest_sha256.size(), 64u);
+  EXPECT_FALSE(lock->required);
+  EXPECT_TRUE(err.empty());
+  fs::remove(p);
+}
+
+TEST(AssetsLock, AbsentFileIsDormantNotAnError) {
+  std::string err = "sentinel";
+  auto lock = assets_lock::load(
+      file_util::get_jak_project_dir() / "test" / "test_data" / "recharged" / "nope.json", &err);
+  EXPECT_FALSE(lock.has_value());
+  EXPECT_TRUE(err.empty());
+}
+
+TEST(AssetsLock, RejectsBadSchemaHashAndLatest) {
+  struct Case {
+    const char* name;
+    std::string body;
+    const char* expect;
+  };
+  std::string latest = kGoodLock;
+  latest.replace(latest.find("/download/assets-v0.1.1/"), std::strlen("/download/assets-v0.1.1/"),
+                 "/latest/");
+  std::string bad_hash = kGoodLock;
+  bad_hash.replace(bad_hash.find("b371909044"), 10, "ZZZZZZZZZZ");
+  std::string bad_schema = kGoodLock;
+  bad_schema.replace(bad_schema.find("\"schema_version\": 1"), 19, "\"schema_version\": 9");
+
+  const Case cases[] = {
+      {"lock_latest.tmp.json", latest, "latest"},
+      {"lock_hash.tmp.json", bad_hash, "hex"},
+      {"lock_schema.tmp.json", bad_schema, "unsupported"},
+      {"lock_trash.tmp.json", "{ not json", "parse"},
+      {"lock_missing.tmp.json", "{\"schema_version\": 1}", "field"},
+  };
+  for (const auto& c : cases) {
+    const auto p = write_lock(c.body, c.name);
+    std::string err;
+    EXPECT_FALSE(assets_lock::load(p, &err).has_value()) << c.name;
+    EXPECT_NE(err.find(c.expect), std::string::npos) << c.name << ": " << err;
+    fs::remove(p);
+  }
 }
 
 TEST(Ktx2Subset, FormatTable) {

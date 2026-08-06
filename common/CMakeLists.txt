@@ -76,14 +76,13 @@ add_library(common
         type_system/TypeSpec.cpp
         type_system/TypeSystem.cpp
         util/Assert.cpp
+        util/AssetsLock.cpp
         util/ast_util.cpp
         util/BitUtils.cpp
         util/compress.cpp
         util/crc32.cpp
         util/dgo_util.cpp
         util/DgoReader.cpp
-        util/Ktx2Subset.cpp
-        util/RPack.cpp
         util/DgoWriter.cpp
         util/dialogs.cpp
         util/diff.cpp
@@ -95,9 +94,11 @@ add_library(common
         util/font/font_utils.cpp
         util/FrameLimiter.cpp
         util/json_util.cpp
+        util/Ktx2Subset.cpp
         util/md5.cpp
         util/os.cpp
         util/print_float.cpp
+        util/RPack.cpp
         util/read_iso_file.cpp
         util/SimpleThreadGroup.cpp
         util/string_util.cpp
