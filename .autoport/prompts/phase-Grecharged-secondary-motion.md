@@ -348,3 +348,57 @@ TOUTES les chaînes courtes où le cran se verrait (oreilles, mèches, sangles).
 PRIORITÉ sur la physique, et la physique REPREND APRÈS. « Ça doit être le cas sur les oreilles de
 Daxter comme sur le reste. » ⇒ les oreilles de Daxter sont hand-keyées par ND dans plein
 d'animations : quand l'anim les pilote, elle gagne ; la sim revient en blend ensuite.
+
+## ============================================================
+## CYCLE 4 — VERDICT OWNER 2026-08-06 ~14:45 sur le build 14:12 (cycle 3)
+## ============================================================
+Acquis : « les cheveux sont mieux animés, les oreilles aussi ». MAIS : « l'hystérésis est HORRIBLE,
+et il reste beaucoup, beaucoup de choses à améliorer ».
+
+### R. LA QUESTION DE L'OWNER EST PROBABLEMENT LA CAUSE RACINE — À TRAITER EN PREMIER
+« Es-tu sûr d'avoir défini un HAUT et un BAS, une MASSE ? »
+Trois symptômes distincts pointent tous vers le même défaut :
+  * la MANCHE DE GOL « a de la physique mais pointe VERS L'AVANT au lieu de suivre la gravité » ;
+  * la poitrine de Maia « se balade MÊME SANS MOUVEMENT et FLOTTE » ;
+  * rien ne se repose vraiment nulle part.
+HYPOTHÈSE PRIMAIRE : la gravité n'est PAS appliquée dans le bon repère. Si le vecteur de gravité est
+exprimé en espace LOCAL (os / acteur) au lieu de l'espace MONDE, alors « le bas » tourne avec l'os —
+une manche horizontale reçoit une gravité horizontale et pointe vers l'avant, et une chaîne au repos
+n'a aucune direction de repos stable donc elle dérive. VÉRIFIER EXPLICITEMENT :
+  1. le vecteur gravité est-il transformé en espace monde à chaque frame ? (le prouver, pas le
+     supposer : imprimer la direction effective de gravité vue par une chaîne, sur un acteur tourné
+     de 90° et sur un os horizontal — elle doit rester (0,-1,0) monde) ;
+  2. la MASSE participe-t-elle réellement à l'intégration (a = F/m) ou `mass=` n'est-elle qu'une clé
+     de données lue et jamais utilisée ? Le prouver en montrant le chemin de code, pas la clé.
+  3. existe-t-il une POSE DE REPOS stable vers laquelle une chaîne converge sans entrée ?
+
+### S. MON INSTRUMENT DE JITTER MESURAIT LA MAUVAISE CHOSE — À RECONSTRUIRE
+Le rapport du cycle 3 annonce jitter=3..7 « calme », et l'owner voit une hystérésis HORRIBLE sur
+Jak (cheveux, oreilles, col, veste par-dessus le pantalon), derrière la nuque de Keira, et sur les
+PATTES DES LURKERS. Donc la métrique ment. Cause identifiée : en cours de cycle 3 la métrique a été
+restreinte aux « inversions de CONTACT » en écartant explicitement « l'oscillation normale d'un
+ressort ». C'est précisément ce qui a été écarté que l'owner voit. La sonnerie (ringing) en espace
+LIBRE est le défaut, pas seulement la bagarre contre un collider.
+=> Reconstruire la mesure sur deux grandeurs qui ne peuvent pas mentir :
+  * DÉRIVE À VIDE : acteur immobile, animation sans delta => déplacement de chaîne ≈ 0 après
+    stabilisation. Toute chaîne qui bouge sans entrée est en faute (cas Maia).
+  * TEMPS DE STABILISATION : après l'arrêt du mouvement moteur, l'amplitude doit décroître
+    monotonement jusqu'au repos en un temps borné. Mesurer la décroissance, pas l'absence de contact.
+INTERDICTION : ne pas re-restreindre la métrique pour la faire passer. Si elle est rouge, c'est le
+solveur qui change.
+
+### T. KEIRA : SEULS LES BOUTS BOUGENT
+« On dirait que seuls les bouts de ses seins bougent un peu au lieu de l'entièreté de sa poitrine. »
+=> Même classe que le cran des oreilles : le profil d'influence est trop verrouillé à la racine. Une
+poitrine doit se déplacer en VOLUME, pas juste au bout de la chaîne. Revoir le profil des chaînes de
+poitrine (et vérifier que `mass` ne se contente pas de ralentir la pointe).
+
+### U. MAIA : LES CHEVEUX TRAVERSENT TOUJOURS SON CORPS
+Le cycle 3 rapporte `resid=0` pour Maia et l'owner voit toujours la pénétration. Donc l'audit ne
+mesure pas ce qu'il voit : soit les capsules ne couvrent pas le volume réel (tête/nuque/épaules/dos),
+soit la chaîne de cheveux ne teste pas contre ces capsules, soit l'audit n'échantillonne pas la pose
+où ça arrive. Trouver LEQUEL des trois, le dire, et rendre l'audit représentatif.
+
+### V. RESTE OUVERT DU CYCLE 3 (non résolu, ne pas re-livrer sans)
+  * la VESTE de Jak par-dessus le pantalon clippe TOUJOURS (section C : colliders évasés) ;
+  * hystérésis sur les PATTES DES LURKERS et derrière la NUQUE de Keira (nouveaux sites).

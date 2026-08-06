@@ -1104,6 +1104,9 @@ static int pc_physics_parse_file() {
   PhysModel* cur_model = nullptr;
   PhysChain* cur_chain = nullptr;
   bool in_levels = false;
+  // physics_chains.txt is the shared HD tuning file: sections we do not own (Grecharged-hd-eye-scale
+  // parses [eyescale] in EyeRenderer.cpp) are skipped whole instead of warning line by line.
+  bool skip_section = false;
   bool warned_unknown = false;
   int n_chains = 0;
   int n_sections = 0;
@@ -1127,6 +1130,23 @@ static int pc_physics_parse_file() {
     }
     auto toks = phys_tokens(raw);
     if (toks.empty()) {
+      continue;
+    }
+
+    // A foreign section header ends whatever we were parsing and mutes us until the next one we
+    // own; a header we DO own always clears the mute, so section order in the file is free.
+    if (!toks[0].empty() && toks[0][0] == '[' && toks[0] != "[levels]" && toks[0] != "[model") {
+      in_levels = false;
+      cur_model = nullptr;
+      cur_chain = nullptr;
+      skip_section = true;
+      lg::info("[hd-phys] section {} is not ours (skipped)", toks[0]);
+      continue;
+    }
+    if (!toks[0].empty() && toks[0][0] == '[') {
+      skip_section = false;
+    }
+    if (skip_section) {
       continue;
     }
 

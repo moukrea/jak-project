@@ -80,6 +80,25 @@
 # Level 0 collides now (tier 1): the cheapest rung must still be CREDIBLE, and a chain sinking into
 # the torso is not "cheap", it is broken.
 
+# ------------------------------------------------------------------------------------------------
+# Grecharged-hd-eye-scale — HD CARTOON EYE-SIZE GAIN (owner 2026-08-06, "yeux trop globuleux").
+# Read by EyeRenderer.cpp, not by the physics parser. Applies to HD-COVERED eye slots ONLY: a stock
+# jak1 model always keeps jak1's exact channel, so ORIGINAL looks are bit-identical.
+#
+# jak1 changes eye size by scaling the iris/pupil sprite inside the character's 32x32 eye tile, and
+# that scale is ABSOLUTE IN TILE SPACE (scale 1.0 = the sprite covers the whole tile). The HD donor
+# eyeball wraps that same tile around a round eye where jak1's is a small flat patch, so an identical
+# excursion reads far bigger on an HD head. These keys compress the excursion around the neutral;
+# they never remove it.
+#   on=0|1        1 = compress (default). 0 = raw jak1 channel on HD too (the pre-fix behaviour).
+#   neutral=N     the authored rest value of the channel; the curve is an exact identity there, so
+#                 the eye at rest is untouched. 1.0 is ND's own no-data default (eye.gc:952-959).
+#   gainup=G      kept fraction of the ABOVE-neutral excursion — the one that bulges the eye.
+#   gaindown=G    kept fraction of the BELOW-neutral excursion (eye shrinking).
+# ------------------------------------------------------------------------------------------------
+[eyescale]
+on=1 neutral=1.0 gainup=0.45 gaindown=0.70
+
 [levels]
 level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0
 level 1 substeps=2 iters=6 collide=2 classmask=3 fixedhz=0

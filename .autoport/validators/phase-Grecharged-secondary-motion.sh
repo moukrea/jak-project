@@ -114,4 +114,28 @@ intro=[int(x) for x in re.findall(r'([0-9]+)\s*(?:in|dans)?\s*the intro',t,re.I)
 sys.exit(0 if intro and max(intro)<=20 else 1)
 PYR
 
+
+# ---- CYCLE 4 (owner 14:45): the metric lied; anchor it to things that cannot ----
+# R. gravity must be proven WORLD-space, and mass must be proven to reach the integrator
+grep -qiE "gravity[^\n]{0,80}(world|monde)[^\n]{0,60}(space|repere|frame)" "$R" || fail "R: gravity not proven to be applied in WORLD space (Gol's sleeve points forward)"
+grep -qiE "(0[.,]?0*,\s*-1|0,-1,0|\(0 -1 0\))" "$R" || fail "R: no measured gravity direction on a rotated actor / horizontal bone"
+grep -qiE "mass[^\n]{0,80}(a ?= ?F/m|divided by|integrat|accel)" "$R" || fail "R: mass not proven to participate in integration (may be a dead data key)"
+# S. idle drift must be ~0 and settling must be measured by DECAY, not by absence of contact
+python3 - "$R" <<'PYS' || fail "S: no idle-drift measurement at ~0 (a chain that moves with no input is the Maia defect)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+v=[float(x) for x in re.findall(r'(?:idle[- ]?drift|derive[- ]?a[- ]?vide|drift)[^\n]{0,40}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+sys.exit(0 if v and max(v)<=1.0 else 1)
+PYS
+grep -qiE "(settl|stabilis)[a-z]*[- ]?time[^\n]{0,40}=[^\n]{0,20}[0-9]" "$R" || fail "S: no settle-time measurement (decay to rest after the driving motion stops)"
+grep -qiE "(free|libre)[- ]?(space|air)[^\n]{0,60}(ring|oscillat)" "$R" || fail "S: free-space ringing not measured — restricting the metric to contact reversals is what hid the defect"
+# T. chest must move as a volume, not only at the tip
+grep -qiE "(chest|poitrine)[^\n]{0,90}(root|base)[^\n]{0,40}[0-9]" "$R" || fail "T: no root-end motion for chest chains (owner: only the tips move)"
+# U. Maia penetration: say WHICH of the three causes, and make the audit representative
+grep -qiE "(maia|evilsis)[^\n]{0,140}(capsule|coverage|not tested|pose|sampl)" "$R" || fail "U: Maia hair-through-body not diagnosed (capsule coverage / chain not tested / pose not sampled)"
+# V. still-open cycle-3 items
+grep -qiE "(jacket|veste|hem)[^\n]{0,90}(trouser|pant|flar|evas|clip)" "$R" || fail "V: Jak's jacket-over-trousers clipping still unaddressed"
+grep -qiE "lurker[^\n]{0,80}(leg|patte|paw)" "$R" || fail "V: lurker legs (new hysteresis site) not addressed"
+grep -qiE "(keira|assistant)[^\n]{0,80}(neck|nuque)" "$R" || fail "V: behind-Keira's-neck (new hysteresis site) not addressed"
+
 echo "[Grecharged-secondary-motion PASS]"
