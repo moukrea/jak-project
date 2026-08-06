@@ -271,4 +271,29 @@ grep -qiE "chain.{0,20}(vs|against|contre).{0,20}chain|chaine.{0,20}chaine" "$R"
 grep -qiE "(mesh|surface)[^\n]{0,80}(volume|approx|hull|envelope)" "$R" \
   || fail "C6: the collision volume must be shown to approximate the character MESH, not a capsule set with gaps"
 
+
+# C6-scope: the blocker covers the whole cast, not the two named characters.
+python3 - <<'PYS' || fail "C6-scope: a model carries chains but declares NO collider — its chains have nothing to hit"
+import re,sys
+cur=None; has={}
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m:
+        cur=m.group(1).split()
+        for x in cur: has.setdefault(x,0)
+        continue
+    if cur and (ln.startswith('capsule ') or ln.startswith('collider ')):
+        for x in cur: has[x]=has.get(x,0)+1
+z=[k for k,v in has.items() if v==0]
+if z: sys.stderr.write(f"  {len(z)} model(s) with chains but no collider: {sorted(z)[:8]}\n")
+sys.exit(1 if z else 0)
+PYS
+python3 - "$R" <<'PYM' || fail "C6-scope: the per-model penetration audit must cover the whole physics cast (60 models), not a sample"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+n=len(set(re.findall(r'\b([a-z0-9]+(?:-[a-z0-9]+)*-lod0|[a-z0-9]+-hd)\b',t)))
+sys.stderr.write(f"  models named in the report: {n}\n")
+sys.exit(0 if n>=30 else 1)
+PYM
+
 echo "[Grecharged-secondary-motion PASS]"

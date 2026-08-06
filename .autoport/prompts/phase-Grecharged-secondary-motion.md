@@ -612,3 +612,18 @@ elles. Si deux capsules laissent un interstice, l'élément passe : c'est ce que
 « Beaucoup mieux, mais mériterait PLUS DE JIGGLE et UN POIL PLUS DE FERMETÉ. »
 => Augmenter l'amplitude ET la fermeté ensemble (plus de rebond, retour plus franc), sans revenir au
    comportement gélatineux ni casser `restdevA`.
+
+### PORTÉE DU BLOCKER : TOUT LE CAST (owner 01:35)
+« Le clipping des parties sujettes à la physique sur le reste du personnage concerne QUASIMENT TOUS
+LES PERSONNAGES ! Pas juste Keira et Jak ! »
+=> La règle s'applique aux **60 modèles** qui portent de la physique (345 chaînes). Les six sites
+   nommés par l'owner sont des EXEMPLES, pas la liste des choses à corriger.
+=> ÉTAT CONSTATÉ AU 01:35 : 235 volumes déclarés au total, mais **4 modèles ont de la physique et
+   AUCUN collider** : `lightning-mole-lod0`, `lurkerpuppy-lod0`, `sidekick-human-lod0`,
+   `swamp-rat-lod0`. Leurs chaînes n'ont donc littéralement rien contre quoi buter. À corriger.
+=> Pour les 56 autres, le problème n'est pas l'absence de volume mais sa QUALITÉ : des capsules qui
+   laissent des interstices entre elles laissent passer une mèche ou un pan. C'est ce que l'owner
+   voit sur Keira (cou, poitrine, visage, oreilles) et sur Jak (épaules, jambes croisées).
+=> LIVRABLE : un audit de pénétration PAR MODÈLE couvrant les 60, avec le contrôle positif appliqué
+   à chacun (un compteur qui n'a jamais su monter sur ce modèle ne prouve rien pour ce modèle).
+   Rapporter la liste des modèles audités et, pour chacun, pénétration = 0 AVEC contrôle positif.
