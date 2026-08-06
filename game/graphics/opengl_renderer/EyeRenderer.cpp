@@ -586,8 +586,11 @@ std::vector<EyeRenderer::SingleEyeDraws> EyeRenderer::get_draws(DmaFollower& dma
     const u8 slot = (u8)d.tex_slot();
     const bool covered = merc2_hd_eye_slot_covered(slot);
     const float tile_span = d.using_64 ? 1024.f : 512.f;
-    hd_eye_scale_sprite(d.iris, tile_span, slot, 0, covered);
-    hd_eye_scale_sprite(d.pupil, tile_span, slot, 1, covered);
+    // .sprite: EyeDraw wraps {SpriteInfo sprite, ScissorInfo scissor} and the rewrite is a sprite
+    // operation. Left as `d.iris` by the hd-eye-scale WIP checkpoint (b687378a82, committed as an
+    // explicitly FAILING checkpoint), which does not compile and blocked every build tree.
+    hd_eye_scale_sprite(d.iris.sprite, tile_span, slot, 0, covered);
+    hd_eye_scale_sprite(d.pupil.sprite, tile_span, slot, 1, covered);
   }
   hd_eye_scale_heartbeat();
 #endif

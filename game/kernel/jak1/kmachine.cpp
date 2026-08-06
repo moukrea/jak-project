@@ -921,7 +921,23 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      the defect — the RESPONSE was. A heavier chain resists starting and keeps going once it has:
 //      omega_eff = omega / sqrt(mass), so the natural frequency drops with real mass while the
 //      swing envelope (cone + stretch) is untouched. 1.0 = the pre-cycle-3b spring.)
-static constexpr int kPhysNumChainParams = 20;
+// CYCLE 4 (owner 2026-08-06 14:45, "as-tu defini un HAUT et un BAS, une MASSE ?"):
+//   20 hang(0..1 — HOW MUCH OF THIS CHAIN'S REST DIRECTION IS GRAVITY'S rather than the animator's.
+//      Gravity was already applied in WORLD space, but the chain's whole equilibrium was pinned to
+//      the AUTHORED bone direction: the spring pulls to the authored pose and the swing cone is
+//      centred on the authored direction, so a cuff modelled sticking out along a horizontal forearm
+//      can only ever wobble around "forward" — which is exactly what the owner sees on Gol's sleeve.
+//      hang= rebuilds the chain's rest pose each frame from world DOWN instead: rest_dir =
+//      normalize(mix(authored_dir, (0,-1,0), hang)), link lengths preserved. 0 = the authored pose is
+//      the rest pose (every pre-cycle-4 chain, unchanged); 1 = pure cloth, hangs straight down from
+//      its anchor whatever the bone underneath is doing.)
+//   21 swing(0..1 — how much of the chain's ROTATION reaches the bone. The write-back turns a bone by
+//      swing(rest-direction -> simulated-direction) about its own origin, which for a one-link chain
+//      pivots the whole mesh about the bone's root: the tip travels, the base does not. On a cloth
+//      flap that is right; on a BREAST it is exactly the owner's "seuls les bouts de ses seins
+//      bougent". Lowering swing keeps the full simulated TRANSLATION — so every vertex weighted to
+//      the bone moves together, as a volume — while damping the pivot. 1.0 = pre-cycle-4 write-back.)
+static constexpr int kPhysNumChainParams = 22;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -949,7 +965,13 @@ struct PhysChain {
                                        // It can only ever RAISE a link's freedom, never lower it, so
                                        // no already-accepted chain (Jak's straps at 0.75, Keira's
                                        // bangs at 0.5) is touched by the default.
-                                       0.3f, 0.f, 0.f, 1.f};
+                                       0.3f, 0.f, 0.f, 1.f,
+                                       // 20 hang 21 swing — both default to the pre-cycle-4
+                                       // behaviour EXACTLY (rest pose = the authored pose, full
+                                       // rotation written back), so adding them cannot move a single
+                                       // chain the owner has already accepted. They only do
+                                       // something where the data asks for it.
+                                       0.f, 1.f};
   std::vector<std::string> joints;  // ordered root -> tip
 };
 
@@ -1295,6 +1317,10 @@ static int pc_physics_parse_file() {
           ch.params[18] = phys_to_float(v);
         } else if (k == "mass") {
           ch.params[19] = phys_to_float(v);
+        } else if (k == "hang") {
+          ch.params[20] = phys_to_float(v);
+        } else if (k == "swing") {
+          ch.params[21] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);

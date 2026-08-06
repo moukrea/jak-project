@@ -173,6 +173,59 @@
 ;; sees as "jitter comme un fou" is a chain reversing under contact frame AFTER frame — this is that
 ;; run length, and it is also the counter that arms the rest state.
 (define *phys-slot-stickmax* (new 'static 'array int32 24))
+;; ---- cycle-4 counters (owner 2026-08-06 14:45) -------------------------------------------------
+;; (S) THE OLD JITTER METRIC MEASURED THE WRONG THING and the owner caught it: it only scored a
+;; reversal while the link was PRESSED AGAINST A COLLIDER, on the reasoning that a free spring
+;; reverses twice per oscillation and counting that would grade the feature as a defect. But
+;; "l'hysteresis est HORRIBLE" is about hair and ears in OPEN AIR — the ringing that was explicitly
+;; excluded IS the defect. These three replace it, and none of them can be narrowed the same way:
+;;   * idle drift  — the actor's anchor did not move this frame, so ANY visible motion is the sim
+;;                   feeding itself. A chain that wanders with no input is Maia's floating chest.
+;;   * settle time — frames from "the driving motion stopped" to "the chain is at rest". Measures
+;;                   DECAY, not the absence of contact, so no amount of re-scoping can hide ringing.
+;;   * free ring   — velocity reversals with NO contact at all: precisely the population the old
+;;                   metric threw away.
+(define *phys-slot-idle* (new 'static 'array float 24))       ;; (S) max visible motion on a no-input frame
+(define *phys-slot-idleframes* (new 'static 'array int32 24)) ;; (S) consecutive frames the anchor has been still
+(define *phys-slot-settled* (new 'static 'array int32 24))    ;; (S) 1 = already at rest in this idle stretch
+(define *phys-slot-settletime* (new 'static 'array int32 24)) ;; (S) worst frames-to-rest seen in the window
+(define *phys-slot-unsettled* (new 'static 'array int32 24))  ;; (S) idle stretches STILL ringing after a second
+(define *phys-slot-freering* (new 'static 'array int32 24))   ;; (S) reversals in FREE SPACE (no contact)
+;; (U) "resid=0" is only meaningful if a collision test actually ran. Maia measured push=0 AND
+;; resid=0 while her hair visibly went through her: a chain that is tested against nothing scores a
+;; perfect penetration audit. These two make that impossible to misread ever again.
+(define *phys-slot-noncol* (new 'static 'array int32 24))     ;; (U) ACTIVE chains with collision disabled outright
+(define *phys-slot-nomask* (new 'static 'array int32 24))     ;; (U) ACTIVE chains no collider even references
+;; (R) the gravity vector the integrator ACTUALLY applied, measured as the difference between the
+;; acceleration with and without the gravity term — not restated from the constant. `gdir` is that
+;; vector in WORLD space (must stay (0,-1,0) however the actor is turned) and `gloc` is the SAME
+;; vector re-expressed in the anchor bone's own basis (must rotate, which is what proves the first
+;; one is genuinely world and not local).
+(define *phys-slot-gdir* (new 'static 'inline-array vector 24))
+(define *phys-slot-gloc* (new 'static 'inline-array vector 24))
+;; (O/S) pre-constraint snapshot, one substep's worth. Scratch, never read across calls.
+(define *phys-psave* (new 'static 'inline-array vector 48))
+
+
+;; ---- cycle-4 constants --------------------------------------------------------------------------
+;; (S) HOW MUCH OF A CONSTRAINT CORRECTION IS CANCELLED OUT OF THE VELOCITY. This is the single
+;; change that answers "l'hysteresis est HORRIBLE" at its source. In a verlet integrator velocity is
+;; implied by (p - prev), so ANY projection that moves p without moving prev is read next frame as
+;; velocity the chain never had. Cycle 3 already applied that rule to the final collision sweep —
+;; the owner's own words, "la correction de contrainte ne doit PAS reinjecter de vitesse" — but the
+;; DISTANCE and CONE constraints ran `iters` times per substep and fed every one of their corrections
+;; straight back in. That is a pump: gravity stretches the link, the distance constraint pulls it
+;; back, the pull-back becomes velocity, and the chain rings forever with no input at all. 1.0 =
+;; constraints contribute exactly zero velocity, which is standard position-based dynamics and is
+;; what gives a chain a REST POSE it can actually reach.
+(defconstant PHYS-PROJFIX 1.0)
+;; (S) below this much anchor travel in a frame, the actor is standing still and the chain has no
+;; input: anything it does is its own. 2 units = 0.5 mm.
+(defconstant PHYS-IDLE-ANCH 2.0)
+;; (S) chain speed under which the chain counts as AT REST (units/frame).
+(defconstant PHYS-REST-VEL 2.0)
+;; (S) an idle stretch still ringing after this many frames is reported as a failure to settle.
+(defconstant PHYS-SETTLE-BAR 60)
 
 
 ;; ---- cycle-3 constants ------------------------------------------------------------------------
@@ -321,6 +374,16 @@
 ;; on Gol. cres: names the chain, so a bad collider line is read off the log instead of deduced.
 (define *phys-cres* (new 'static 'array int32 576))
 (define *phys-cmass* (new 'static 'array float 576))        ;; (K) chain mass: omega_eff = omega / sqrt(mass)
+;; ---- cycle-4 per-chain state -------------------------------------------------------------------
+(define *phys-chang* (new 'static 'array float 576))        ;; (R) rest direction: 0 = the animator's, 1 = gravity's
+(define *phys-cswing* (new 'static 'array float 576))       ;; (T) fraction of the chain's rotation written to the bone
+(define *phys-cncol* (new 'static 'array int32 576))        ;; (U) how many bound colliders actually reference this chain
+;; (U) MINIMUM CLEARANCE over the window: the smallest signed distance from any of this chain's
+;; simulated links to the surface of any collider that applies to it (negative = inside the body).
+;; A large POSITIVE number on a chain the owner watches pass through a character is the whole
+;; diagnosis in one field — it says the volumes are nowhere near where the chain actually goes,
+;; which is why push= and resid= could both read 0 while Maia's hair went straight through her.
+(define *phys-cclr* (new 'static 'array float 576))
 (define *phys-csettle* (new 'static 'array int32 576))      ;; (B) frames of physics ramp-in left after a spawn / teleport
 (define *phys-canchprev* (new 'static 'inline-array vector 576)) ;; (B) this chain's anchor last frame — a one-frame jump IS the teleport signal
 (define *phys-cpush* (new 'static 'array int32 576))        ;; per-chain collision push-outs (window): names the chain a collider is WELDING
@@ -358,6 +421,15 @@
            (vector-float*! ab ab tt)
            (vector+! out a ab)))))
     tt))
+
+(defun phys-axis-dot ((m matrix) (r int) (v vector))
+  "component of the WORLD vector v along row r of the bone matrix m, with the row NORMALIZED. Used
+  only by the (R) gravity instrument: bone matrices carry rig scale, and an unnormalized dot would
+  report a direction whose length changes with the character rather than one that can be read as a
+  unit axis."
+  (let* ((a (-> m vector r))
+         (l (vector-length a)))
+    (if (< l 0.000001) 0.0 (/ (vector-dot a v) l))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; WAVE 2 slot pool. A "slot" is one simulated ACTOR: its parent table, its chains, its verlet
@@ -616,6 +688,11 @@
           ;; without touching the swing envelope, which is exactly the distinction he drew ("ne PAS
           ;; toucher a l'amplitude, c'est le comportement qui est faux").
           (set! (-> *phys-cmass* ci) (fmax 0.05 (* 0.001 (the float (pc-physics-chain-param-mi ag c 19)))))
+          ;; (R/T) cycle 4. Both default to the pre-cycle-4 behaviour on the C++ side, so a chain
+          ;; that does not declare them is bit-identical to the build the owner already judged.
+          (set! (-> *phys-chang* ci) (fmax 0.0 (fmin 1.0 (* 0.001 (the float (pc-physics-chain-param-mi ag c 20))))))
+          (set! (-> *phys-cswing* ci) (fmax 0.0 (fmin 1.0 (* 0.001 (the float (pc-physics-chain-param-mi ag c 21))))))
+          (set! (-> *phys-cclr* ci) 1000000.0)
           (set! (-> *phys-chold* ci) 0)
           (set! (-> *phys-cauthbase* ci) 0.0)
           (set! (-> *phys-cstick* ci) 0)
@@ -672,6 +749,16 @@
                (set! (-> *phys-colmask* cb) (pc-physics-collider-param-mi ag i 1))
                (set! (-> *phys-coltier* cb) (max 1 (pc-physics-collider-param-mi ag i 2))))
              (+! ncols 1))))))
+    ;; (U) how many BOUND colliders each chain is actually tested against. A chain nobody references
+    ;; passes through the body by construction and still scores resid=0, because a test that never
+    ;; runs cannot fail — that is what let Maia's hair go through her while the audit read clean.
+    ;; Counted here, from the volumes that really bound, not from what the file asked for.
+    (dotimes (c nch)
+      (let ((n 0))
+        (dotimes (i ncols)
+          (when (logtest? (-> *phys-colmask* (+ (* slot PHYS-COLS) i)) (ash 1 c))
+            (+! n 1)))
+        (set! (-> *phys-cncol* (+ cbase c)) n)))
     (set! (-> *phys-slot-njoints* slot) njoints)
     (set! (-> *phys-slot-nchains* slot) nch)
     (set! (-> *phys-slot-ncols* slot) ncols)
@@ -704,6 +791,17 @@
     (set! (-> *phys-slot-rested* slot) 0)
     (set! (-> *phys-slot-clamped* slot) 0)
     (set! (-> *phys-slot-stickmax* slot) 0)
+    ;; ---- cycle-4 window counters ------------------------------------------------------------
+    (set! (-> *phys-slot-idle* slot) 0.0)
+    (set! (-> *phys-slot-idleframes* slot) 0)
+    (set! (-> *phys-slot-settled* slot) 0)
+    (set! (-> *phys-slot-settletime* slot) 0)
+    (set! (-> *phys-slot-unsettled* slot) 0)
+    (set! (-> *phys-slot-freering* slot) 0)
+    (set! (-> *phys-slot-noncol* slot) 0)
+    (set! (-> *phys-slot-nomask* slot) 0)
+    (vector-reset! (-> *phys-slot-gdir* slot))
+    (vector-reset! (-> *phys-slot-gloc* slot))
     (dotimes (j PHYS-JPS)
       (set! (-> *phys-jdev* (+ jbase j)) 0.0))
     ;; HOT-RELOAD BOOKKEEPING: the generation this binding was produced from. phys-slot-step!
@@ -775,6 +873,12 @@
              (dirv (new 'stack-no-clear 'vector))
              (dirt (new 'stack-no-clear 'vector))
              (dirs (new 'stack-no-clear 'vector))
+             ;; (R) gravity instrument: the acceleration before the gravity term, and the term itself
+             (gpre (new 'stack-no-clear 'vector))
+             (gvec (new 'stack-no-clear 'vector))
+             ;; (R) hang: the world DOWN axis and the rebuilt rest direction of one link
+             (down (new 'stack-no-clear 'vector))
+             (hdir (new 'stack-no-clear 'vector))
              (q (new 'stack-no-clear 'quaternion))
              (rotm (new 'stack-no-clear 'matrix))
              (tmpm (new 'stack-no-clear 'matrix))
@@ -793,6 +897,19 @@
              ;; per-rig-joint "this bone moved this frame" flag, for the descendant pass (k < PHYS-MAXJ)
              (moved (new 'stack-no-clear 'array 'int32 128))
              (frame-maxvel 0.0)
+             ;; (S) this frame's anchor travel, MAXIMISED OVER EVERY CHAIN — the "is there any input
+             ;; at all?" signal the idle-drift and settle-time instruments are keyed on. anchmove is a
+             ;; window MAXIMUM and cannot answer a per-frame question.
+             ;; It has to be the max over ALL anchors, not chain 0's: on a walking NPC the head can
+             ;; sit still for a frame while the hips travel, and keying "no input" on one bone scored
+             ;; a walking villager's cape at 2713 units of "drift" — a false positive, not a defect.
+             ;; Requiring EVERY anchor to be still is the stricter reading of the owner's rule
+             ;; ("acteur immobile, animation sans delta"), and it is the one measured below.
+             (frame-anchd 0.0)
+             ;; (S) the largest VISIBLE self-motion any chain produced this frame (influence-scaled,
+             ;; so it is the motion that reaches a bone), excluding chains that are settling in from a
+             ;; spawn or currently owned by the authored animation.
+             (frame-self 0.0)
              (frame-maxdev 0.0)
              (frame-nact 0)
              (frame-nreglue 0)
@@ -926,6 +1043,52 @@
                             (maxcorr (fmax 8.0 (* PHYS-MAXCORR-REL chainlen))))
                        (when (< chainlen 1.0)
                          (+! frame-nopose 1))
+                       ;; ---------------- (R) A REST POSE THAT KNOWS WHICH WAY IS DOWN -------------
+                       ;; Owner, cycle 4: "es-tu sur d'avoir defini un HAUT et un BAS, une MASSE ?",
+                       ;; with Gol's sleeve pointing FORWARD as the evidence. Gravity was already
+                       ;; integrated in WORLD space — the measured gdir below proves it — but that was
+                       ;; only half the question, and the half that was wrong is this one: the chain's
+                       ;; EQUILIBRIUM was pinned to the authored bone pose. The spring pulls toward it
+                       ;; and the swing cone is centred on it, so a cuff modelled along a horizontal
+                       ;; forearm has "forward" as its rest direction, and the few centimetres of sag
+                       ;; a stiff spring allows (g/omega^2) is all gravity can ever buy against a
+                       ;; 34-degree cone. Measured on the shipped build: Gol's sleeve moved 53 units,
+                       ;; 1.3 cm, for a whole cinematic.
+                       ;; `hang=` rebuilds the rest pose from world DOWN instead, link by link,
+                       ;; preserving every rest LENGTH exactly — so the distance constraint, the cone
+                       ;; reference, chainlen and the deviation stats are all still measured against a
+                       ;; real pose, just a pose gravity had a say in. hang=0 does not touch a single
+                       ;; vector, which is every chain that shipped before this cycle.
+                       (when (and (> (-> *phys-chang* ci) 0.0) (>= chainlen 1.0))
+                         (let ((hg (-> *phys-chang* ci)))
+                           (set! (-> down x) 0.0)
+                           (set! (-> down y) -1.0)
+                           (set! (-> down z) 0.0)
+                           (set! (-> down w) 0.0)
+                           (dotimes (i len)
+                             ;; the authored link vector is read from the PRISTINE rest copy: *phys-targ*
+                             ;; is what we are rewriting, so feeding it back as its own input would
+                             ;; compound the blend once more at every link down the chain instead of
+                             ;; applying it once per link.
+                             (vector-! vtmp (-> *phys-rest* (+ start i))
+                                       (if (zero? i) anchor (-> *phys-rest* (+ start i -1))))
+                             (let ((ll (vector-length vtmp)))
+                               (when (> ll 0.0001)
+                                 (vector-float*! vtmp vtmp (/ 1.0 ll))
+                                 (vector-float*! hdir vtmp (- 1.0 hg))
+                                 (vector-float*! vtmp2 down hg)
+                                 (vector+! hdir hdir vtmp2)
+                                 (let ((hl (vector-length hdir)))
+                                   ;; a link authored pointing exactly UP, with hang=0.5, is the one
+                                   ;; degenerate case: keep the authored direction rather than
+                                   ;; normalizing a zero vector into garbage.
+                                   (cond
+                                     ((< hl 0.0001) (vector-copy! hdir vtmp))
+                                     (else (vector-float*! hdir hdir (/ 1.0 hl))))
+                                   (vector-float*! hdir hdir ll)
+                                   (vector+! (-> *phys-targ* (+ start i))
+                                             (if (zero? i) anchor (-> *phys-targ* (+ start i -1)))
+                                             hdir)))))))
                        ;; ---------------- (B) SPAWN AND BIG TRANSITIONS ---------------------------
                        ;; Owner: "au SPAWN de tous les acteurs a physique, les chaines partent
                        ;; n'importe ou". A chain cannot tell a 1-frame teleport from a violent
@@ -938,6 +1101,8 @@
                        (vector-! vtmp anchor (-> *phys-canchprev* ci))
                        (let ((anchd (vector-length vtmp)))
                          (vector-copy! (-> *phys-canchprev* ci) anchor)
+                         ;; (S) every chain's own anchor feeds the frame-wide "is anything moving?"
+                         (when (> anchd frame-anchd) (set! frame-anchd anchd))
                          (when (> anchd (fmax PHYS-JUMP-ABS (* PHYS-JUMP-REL chainlen)))
                            (+! (-> *phys-slot-reseed* slot) 1)
                            (set! (-> *phys-csettle* ci) PHYS-SETTLE)
@@ -1086,8 +1251,15 @@
                        ;; en essayant TRANQUILLEMENT de se conformer". Collapsing the velocity
                        ;; retention is what turns a vibration into a settle; the chain still tracks
                        ;; its target, just without the momentum that was feeding the bounce.
-                       (let ((kd (* (if (> (-> *phys-cstick* ci) PHYS-STICK) PHYS-STICK-DAMP 1.0)
-                                    (/ (-> *phys-cinertia* ci) (+ 1.0 (* (-> *phys-cdamp* ci) sdt 60.0)))))
+                       ;; VELOCITY RETENTION, CLAMPED AT 1. `inertia=` is authored per chain and the
+                       ;; damping divisor shrinks as the substep count rises, so nothing structural
+                       ;; stopped kd from coming out ABOVE one — and a verlet integrator with kd > 1
+                       ;; multiplies its own velocity every frame. That is a chain that accelerates
+                       ;; with no input at all, which is one of the two shapes the owner reported as
+                       ;; "ca se balade meme sans mouvement et ca FLOTTE". Costs one compare.
+                       (let ((kd (fmin 1.0
+                                 (* (if (> (-> *phys-cstick* ci) PHYS-STICK) PHYS-STICK-DAMP 1.0)
+                                    (/ (-> *phys-cinertia* ci) (+ 1.0 (* (-> *phys-cdamp* ci) sdt 60.0))))))
                              (gacc (* (-> *phys-cgrav* ci) PHYS-GRAV-ACCEL (- 1.0 authw) sw)))
                          (dotimes (st substeps)
                            ;; verlet integrate every FREE link
@@ -1099,7 +1271,27 @@
                                  ;; acc = o2*(t-p) + g  [+ excite*o2*(authored - t)]
                                  (vector-! vtmp tg p)
                                  (vector-float*! vtmp vtmp (-> lo2 i))
+                                 ;; (R) MEASURED GRAVITY DIRECTION — not the constant restated. Take
+                                 ;; the acceleration immediately BEFORE and immediately AFTER the
+                                 ;; gravity term and report the difference: that is literally what the
+                                 ;; integrator added, read out of the integrator. In WORLD space it
+                                 ;; must be (0, -1, 0) however the actor is turned; `gloc` is the SAME
+                                 ;; vector re-expressed in the anchor bone's own axes, and it must
+                                 ;; SWING as that bone turns. If gravity were local the two readings
+                                 ;; would trade places, so the pair is the proof, not either alone.
+                                 (when (and (zero? c) (= i rl))
+                                   (vector-copy! gpre vtmp))
                                  (set! (-> vtmp y) (- (-> vtmp y) gacc))
+                                 (when (and (zero? c) (= i rl))
+                                   (vector-! gvec vtmp gpre)
+                                   (let ((gl (vector-length gvec)))
+                                     (when (> gl 0.0001)
+                                       (vector-float*! gvec gvec (/ 1.0 gl))
+                                       (vector-copy! (-> *phys-slot-gdir* slot) gvec)
+                                       (let ((abm (the-as matrix (-> skel bones (+ anchor-k 1) transform))))
+                                         (set! (-> *phys-slot-gloc* slot x) (phys-axis-dot abm 0 gvec))
+                                         (set! (-> *phys-slot-gloc* slot y) (phys-axis-dot abm 1 gvec))
+                                         (set! (-> *phys-slot-gloc* slot z) (phys-axis-dot abm 2 gvec))))))
                                  (when (> exc 0.0)
                                    ;; (A) anim=excite: the authored channel we removed comes back as
                                    ;; an input FORCE only. exc=1 reproduces springing at the authored
@@ -1115,6 +1307,11 @@
                                  (vector+! p p vtmp2)
                                  (vector-float*! vtmp vtmp (* sdt sdt))
                                  (vector+! p p vtmp))))
+                           ;; (S) snapshot the state the constraint sweep is about to correct — see
+                           ;; PHYS-PROJFIX and the velocity-consistency pass right after the sweep.
+                           (dotimes (i len)
+                             (when (>= i rl)
+                               (vector-copy! (-> *phys-psave* i) (-> *phys-pos* (+ start i)))))
                            ;; constraint iterations
                            (dotimes (it iters)
                              (dotimes (i len)
@@ -1218,16 +1415,47 @@
                                                             (when (> cl maxcorr)
                                                               (+! (-> *phys-slot-clamped* slot) 1)
                                                               (vector-float*! vtmp vtmp (/ maxcorr cl))))
-                                                          (vector+! p p vtmp)
-                                                          ;; ...and absorb the push-out into `prev`
-                                                          ;; (contact friction): without this the
-                                                          ;; projection reads as free velocity next
-                                                          ;; substep and the chain buzzes on contact.
-                                                          (when (> fric 0.0)
-                                                            (vector-! vtmp2 p vtmp2)
-                                                            (vector-float*! vtmp2 vtmp2 fric)
-                                                            (vector+! (-> *phys-prev* (+ start i))
-                                                                      (-> *phys-prev* (+ start i)) vtmp2)))))))))))))))))))
+                                                          ;; the push-out is NOT absorbed into `prev`
+                                                          ;; here any more: the whole constraint
+                                                          ;; sweep is made velocity-neutral in one
+                                                          ;; pass below, which also covers the
+                                                          ;; distance and cone corrections this used
+                                                          ;; to leave untouched.
+                                                          (vector+! p p vtmp)))))))))))))))))
+                           ;; ---- (S) VELOCITY CONSISTENCY — THE HYSTERESIS ROOT CAUSE -------------
+                           ;; In a verlet integrator velocity is IMPLIED by (p - prev). Every
+                           ;; constraint above moves p and leaves prev where it was, so the next
+                           ;; substep reads that CORRECTION as velocity the chain never had. Run
+                           ;; `iters` times per substep, that is a pump: gravity stretches the link,
+                           ;; the distance constraint pulls it back, the pull-back becomes velocity,
+                           ;; the link overshoots, and the chain rings on with no input at all.
+                           ;; Cycle 3 applied the owner's own rule — "la correction de contrainte ne
+                           ;; doit PAS reinjecter de vitesse" — to the final collision sweep ONLY,
+                           ;; while the distance and cone constraints, which run far more often, kept
+                           ;; feeding it. That is the hysteresis he sees in open air on hair, ears,
+                           ;; collar and lurker legs, and it is why the old contact-only jitter metric
+                           ;; could read 3 while the game looked like it was buzzing: the ringing was
+                           ;; never at a collider.
+                           ;; Moving prev by the same delta cancels exactly that and nothing else —
+                           ;; the correction stays (the chain is still constrained), the spurious
+                           ;; velocity goes. The distance correction is radial, so what is cancelled
+                           ;; is radial velocity, which an inextensible link should not have anyway;
+                           ;; the tangential swing is untouched, so the chain still swings.
+                           (dotimes (i len)
+                             (when (>= i rl)
+                               (let ((p (-> *phys-pos* (+ start i)))
+                                     (pv (-> *phys-prev* (+ start i))))
+                                 (vector-! vtmp p (-> *phys-psave* i))
+                                 (vector-float*! vtmp vtmp PHYS-PROJFIX)
+                                 (vector+! pv pv vtmp)
+                                 ;; CONTACT FRICTION keeps its own meaning: while a link is pressed
+                                 ;; against the body it also gives up a fraction of the velocity it
+                                 ;; genuinely had, which is what stops a chain sliding along a
+                                 ;; surface forever. Applied to links the sweep actually pushed.
+                                 (when (and (> fric 0.0) (nonzero? (-> lpush i)))
+                                   (vector-! vtmp p pv)
+                                   (vector-float*! vtmp vtmp fric)
+                                   (vector+! pv pv vtmp))))))
                          ;; ---- (B) SETTLE RAMP + BURST AUDIT -------------------------------------
                          ;; Fading the forces alone is not enough: a cut can leave the chain already
                          ;; displaced. So for PHYS-SETTLE frames the STATE itself is pulled toward
@@ -1262,6 +1490,24 @@
                                (when (> mx (* PHYS-BURST-REL chainlen))
                                  (+! (-> *phys-slot-burst* slot) 1))))
                            (+! (-> *phys-csettle* ci) -1))
+                         ;; ---- (P/U) OUTPUT BLEND, MOVED AHEAD OF THE COLLISION RESOLVE ----------
+                         ;; out = target + influence * (sim - target). This used to sit at the very
+                         ;; end, AFTER the final collision sweep and after the residual audit — which
+                         ;; means the sweep cleaned up *phys-pos* and the audit graded *phys-pos*,
+                         ;; while the bone received a DIFFERENT point that had been pulled a fraction
+                         ;; of the way back toward the authored target. On Maia's ponytail link 1 that
+                         ;; fraction is 0.27, i.e. the bone sat nearly three quarters of the way back
+                         ;; inside the head the solver had just pushed it out of. That is the third of
+                         ;; the three causes the owner listed for "les cheveux traversent toujours son
+                         ;; corps": the audit was not sampling what he was looking at.
+                         ;; Computed for the WHOLE chain first because each link's rotation reads its
+                         ;; child's OUTPUT position; the simulation keeps its own full-amplitude state
+                         ;; (damping the STATE instead of the OUTPUT would change the chain's dynamics
+                         ;; rather than its stiffness profile).
+                         (dotimes (i len)
+                           (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
+                           (vector-float*! vtmp vtmp (-> *phys-infl* (+ start i)))
+                           (vector+! (-> *phys-out* (+ start i)) (-> *phys-targ* (+ start i)) vtmp))
                          ;; ---- FINAL COLLISION RESOLVE (owner 17:35 bar is resid=0) --------------
                          ;; Inside the constraint loop the colliders are applied ONE AFTER ANOTHER
                          ;; and nothing re-checks: pushing a joint out of volume B can put it back
@@ -1270,14 +1516,16 @@
                          ;; the body. Measured on Keira: 19 chain-frames out of 300 in one window,
                          ;; 42 units deep. What is written to the bones is what the owner sees and
                          ;; what the audit grades, so it gets its own sweep over the FINAL state,
-                         ;; re-resolving every volume a few times until they agree. Push-outs are
-                         ;; counted here too (same event class) and the friction absorption is the
-                         ;; same, so the correction never reads as free velocity next frame.
+                         ;; re-resolving every volume a few times until they agree.
+                         ;; CYCLE 4: that sweep now runs on the OUTPUT — the exact point the bone
+                         ;; will carry — and mirrors every correction into the sim state and into
+                         ;; `prev` by the same delta, so the simulation follows the output out of the
+                         ;; body and not one unit of velocity is injected doing it.
                          (when (nonzero? collide?)
                            (dotimes (cit 4)
                              (dotimes (i len)
                                (when (>= i cs)
-                                 (let ((p (-> *phys-pos* (+ start i))))
+                                 (let ((p (-> *phys-out* (+ start i))))
                                    (dotimes (s2 (-> *phys-slot-ncols* slot))
                                      (let ((cb (+ (* slot PHYS-COLS) s2)))
                                        (when (and (<= (-> *phys-coltier* cb) tier)
@@ -1317,26 +1565,36 @@
                                                    (+! (-> *phys-slot-clamped* slot) 1)
                                                    (vector-float*! vtmp vtmp (/ maxcorr cl))))
                                                (vector+! p p vtmp)
-                                               ;; (O) NO VELOCITY RE-INJECTION. This is the last word
-                                               ;; on the position, so the whole correction is carried
-                                               ;; into `prev`: next frame reads (p - prev) and sees
-                                               ;; the velocity the chain HAD, not the displacement the
-                                               ;; collider just imposed. Feeding a projection back as
-                                               ;; velocity is the energy loop that makes a constrained
-                                               ;; chain buzz — 100% here, not `fric`, because a
-                                               ;; partial absorption still leaks a little every frame.
-                                               (vector-! vtmp2 p vtmp2)
+                                               ;; (O) NO VELOCITY RE-INJECTION, and (U) THE SIM
+                                               ;; FOLLOWS. `vtmp` is the correction actually applied
+                                               ;; to the OUTPUT after clamping. The sim state takes
+                                               ;; the identical delta, so it leaves the body with the
+                                               ;; bone instead of staying behind and re-penetrating
+                                               ;; next frame; `prev` takes it too, so next frame reads
+                                               ;; (p - prev) and sees the velocity the chain HAD, not
+                                               ;; the displacement the collider just imposed. Feeding
+                                               ;; a projection back as velocity is the energy loop
+                                               ;; that makes a constrained chain buzz.
+                                               (vector+! (-> *phys-pos* (+ start i))
+                                                         (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
-                                                         (-> *phys-prev* (+ start i)) vtmp2))))))))))))
+                                                         (-> *phys-prev* (+ start i)) vtmp))))))))))))
                          ;; ---- residual penetration audit (owner 17:35 bar: this must read 0) ----
-                         ;; Measured AFTER the last iteration, on the state that is about to be
+                         ;; Measured AFTER the last iteration, on the exact point that is about to be
                          ;; written to the bones — a push-out counter alone would happily report
                          ;; thousands of resolutions while the chain still ends the frame inside the
                          ;; body. Locked links are excluded: they ARE the body, by construction.
+                         ;; CYCLE 4 (owner U): grades *phys-out*, the bone's own position, not the
+                         ;; sim state it used to grade. It also records CLEARANCE whether or not
+                         ;; anything is touching — because the shipped build read push=0 AND resid=0
+                         ;; on Maia while her hair visibly went through her, and a pass mark from a
+                         ;; test that never fires is worse than no test at all. Clearance says which:
+                         ;; a large POSITIVE minimum means the volumes are nowhere near where the
+                         ;; chain actually travels, and that is a collider bug, not a solver one.
                          (when (nonzero? collide?)
                            (dotimes (i len)
                              (when (>= i cs)
-                               (let ((p (-> *phys-pos* (+ start i))))
+                               (let ((p (-> *phys-out* (+ start i))))
                                  (dotimes (s2 (-> *phys-slot-ncols* slot))
                                    (let ((cb (+ (* slot PHYS-COLS) s2)))
                                      (when (and (<= (-> *phys-coltier* cb) tier)
@@ -1353,6 +1611,13 @@
                                               (rr (+ rad0 r1 (* tt (- (-> *phys-colr2* cb) r1)))))
                                          (vector-! vtmp p cpt)
                                          (let ((dd (vector-length vtmp)))
+                                           ;; (U) CLEARANCE, recorded on EVERY pair whether or not it
+                                           ;; touches: the minimum over the window is the number that
+                                           ;; separates "the body volume is right and nothing goes
+                                           ;; through it" from "nothing was ever within reach of it".
+                                           (let ((clr (- dd rr)))
+                                             (when (< clr (-> *phys-cclr* ci))
+                                               (set! (-> *phys-cclr* ci) clr)))
                                            ;; TOLERANCE: the push-out sets |p - cpt| = rr in float32,
                                            ;; and re-measuring it lands ~1e-4 relative below that
                                            ;; (measured: 0.03-0.08 units on radii of 400-800). A
@@ -1372,18 +1637,46 @@
                          ;; still). A chain that is BOTH in contact and reversing is fighting an
                          ;; unsatisfiable constraint — that, and only that, arms the rest state, so
                          ;; a chain merely sliding along the body keeps its full dynamics.
-                         (let ((rev 0))
+                         ;; ---- (S) IDLE DRIFT — the metric that cannot be argued with -------------
+                         ;; The anchor did not move this frame, the chain is not settling in from a
+                         ;; spawn and the animator is not driving it: there is NO input. Whatever the
+                         ;; chain does now, it is doing to itself. Scaled by the per-link influence,
+                         ;; because what is graded is the motion that reaches the bone. Owner bar:
+                         ;; ~0. This is Maia's chest "qui se balade meme sans mouvement et flotte",
+                         ;; turned into a number that no re-scoping can make smaller.
+                         ;; The verdict is deferred to after the chain loop, when frame-anchd knows
+                         ;; about EVERY anchor: a chain cannot tell on its own whether the actor as a
+                         ;; whole had input this frame.
+                         (when (and (<= (-> *phys-csettle* ci) 0) (< authw 0.5))
+                           (dotimes (i len)
+                             (when (>= i rl)
+                               (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
+                               (let ((d (* (vector-length vtmp) (-> *phys-infl* (+ start i)))))
+                                 (when (> d frame-self) (set! frame-self d))))))
+                         (let ((rev 0)
+                               ;; (S) FREE-SPACE RINGING — the population the old metric threw away.
+                               ;; Cycle 3 restricted `jitter` to reversals WHILE PRESSED against a
+                               ;; collider, on the argument that a free spring reverses twice per
+                               ;; oscillation and counting that would grade the feature as a defect.
+                               ;; The owner then reported horrible hysteresis on hair, ears, a collar
+                               ;; and lurker legs — none of which is a contact site. What was excluded
+                               ;; WAS the defect. This counts reversals with NO contact at all, so the
+                               ;; two numbers together say where the energy is: at the body, or in the
+                               ;; solver.
+                               (frev 0))
                            (dotimes (i len)
                              (when (>= i rl)
                                (let ((vp (-> *phys-vprev* (+ start i))))
                                  (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
-                                 (when (and (nonzero? (-> lpush i))
-                                            (> (vector-length vtmp) PHYS-JITTER-SPEED)
+                                 (when (and (> (vector-length vtmp) PHYS-JITTER-SPEED)
                                             (> (vector-length vp) PHYS-JITTER-SPEED)
                                             (< (vector-dot vtmp vp) 0.0))
-                                   (+! rev 1))
+                                   (cond
+                                     ((nonzero? (-> lpush i)) (+! rev 1))
+                                     (else (+! frev 1))))
                                  (vector-copy! vp vtmp))))
                            (+! (-> *phys-slot-jitter* slot) rev)
+                           (+! (-> *phys-slot-freering* slot) frev)
                            (when (nonzero? chresid) (+! (-> *phys-cres* ci) 1))
                            (cond
                              ;; either symptom of an unsatisfiable constraint arms it: reversing
@@ -1421,16 +1714,9 @@
                                 (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
                                 (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i)))))
                              (else
-                              ;; (P) OUTPUT BLEND, computed for the WHOLE chain first because each
-                              ;; link's rotation reads its child's OUTPUT position. out = target +
-                              ;; influence * (sim - target): the simulation keeps its own full
-                              ;; amplitude — damping the STATE instead of the OUTPUT would change the
-                              ;; chain's dynamics rather than its stiffness profile — and the bone
-                              ;; receives the fraction the continuous profile allows at that link.
-                              (dotimes (i len)
-                                (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
-                                (vector-float*! vtmp vtmp (-> *phys-infl* (+ start i)))
-                                (vector+! (-> *phys-out* (+ start i)) (-> *phys-targ* (+ start i)) vtmp))
+                              ;; (P) the OUTPUT BLEND now runs earlier, ahead of the final collision
+                              ;; sweep, so that sweep and the residual audit both grade the point the
+                              ;; bone actually receives (owner U). *phys-out* is already final here.
                               ;; write back root->tip: swing the 3x3 rows by (rest-dir -> out-dir),
                               ;; translation row = blended output position.
                               (dotimes (i len)
@@ -1500,6 +1786,30 @@
                                          ((and (> lt 0.0001) (> ls 0.0001))
                                           (vector-float*! dirt dirt (/ 1.0 lt))
                                           (vector-float*! dirs dirs (/ 1.0 ls))
+                                          ;; (T) HOW MUCH OF THE ROTATION REACHES THE BONE. Owner:
+                                          ;; "seuls les bouts de ses seins bougent un peu au lieu de
+                                          ;; l'entierete de sa poitrine". A one-link chain has no
+                                          ;; influence profile to blame — its single link already gets
+                                          ;; 1.0 — so that complaint is not about the ramp at all. It
+                                          ;; is about WHERE the motion lands: the write-back turns the
+                                          ;; bone about its OWN ORIGIN, and a breast bone's origin is
+                                          ;; at the base of the breast, so the pivot moves the far end
+                                          ;; and leaves the base exactly where it was. On a hanging
+                                          ;; cloth flap that is right and it stays the default.
+                                          ;; Lowering `swing=` interpolates the swing back toward the
+                                          ;; rest direction while the full simulated TRANSLATION is
+                                          ;; still written below — so every vertex weighted to the
+                                          ;; bone moves together and the volume travels, which is what
+                                          ;; the owner asked for.
+                                          (let ((swf (-> *phys-cswing* ci)))
+                                            (when (< swf 0.999)
+                                              (vector-! vtmp dirs dirt)
+                                              (vector-float*! vtmp vtmp swf)
+                                              (vector+! dirs dirt vtmp)
+                                              (let ((l2 (vector-length dirs)))
+                                                (cond
+                                                  ((> l2 0.0001) (vector-float*! dirs dirs (/ 1.0 l2)))
+                                                  (else (vector-copy! dirs dirt))))))
                                           (let ((dot (vector-dot dirt dirs)))
                                             (cond
                                               ((> dot 0.99999)
@@ -1577,6 +1887,36 @@
               (set! (-> *phys-slot-maxdev* slot) frame-maxdev))
             (when (> frame-maxvel (-> *phys-slot-maxvel* slot))
               (set! (-> *phys-slot-maxvel* slot) frame-maxvel))
+            ;; ---- (S) IDLE DRIFT, judged once the whole actor has been polled -----------------
+            ;; NO anchor on this actor moved this frame, no chain is settling in from a spawn and
+            ;; none is owned by the authored animation. There is no input. Whatever moved, moved by
+            ;; itself — and that is the defect the owner described as "ca se balade meme sans
+            ;; mouvement et ca FLOTTE". Owner bar: ~0.
+            (when (and (< frame-anchd PHYS-IDLE-ANCH)
+                       (> frame-self (-> *phys-slot-idle* slot)))
+              (set! (-> *phys-slot-idle* slot) frame-self))
+            ;; ---- (S) SETTLE TIME — decay, not the absence of contact -------------------------
+            ;; The owner's instruction after cycle 3 was explicit: measure the DECAY to rest after
+            ;; the driving motion stops, not whether anything is touching. So: the moment the anchor
+            ;; goes still, start counting; the moment the fastest link drops under the rest speed,
+            ;; that count IS the settle time, and the window keeps the WORST one. A stretch that is
+            ;; still moving a whole second later is counted as a failure to settle instead of
+            ;; silently never producing a number — an instrument that only reports successes is the
+            ;; mistake that cost this phase a cycle.
+            (cond
+              ((> frame-anchd PHYS-IDLE-ANCH)
+               (set! (-> *phys-slot-idleframes* slot) 0)
+               (set! (-> *phys-slot-settled* slot) 0))
+              (else
+               (+! (-> *phys-slot-idleframes* slot) 1)
+               (cond
+                 ((nonzero? (-> *phys-slot-settled* slot)))
+                 ((< frame-maxvel PHYS-REST-VEL)
+                  (set! (-> *phys-slot-settled* slot) 1)
+                  (when (> (-> *phys-slot-idleframes* slot) (-> *phys-slot-settletime* slot))
+                    (set! (-> *phys-slot-settletime* slot) (-> *phys-slot-idleframes* slot))))
+                 ((= (-> *phys-slot-idleframes* slot) PHYS-SETTLE-BAR)
+                  (+! (-> *phys-slot-unsettled* slot) 1)))))
             (when (> frame-nreglue (-> *phys-slot-reglue* slot))
               (set! (-> *phys-slot-reglue* slot) frame-nreglue))
             (when (> frame-ndesc (-> *phys-slot-desc* slot))
@@ -1723,6 +2063,61 @@
                         (format *phys-line-buf* ":~f" (-> *phys-jdev* jj))
                         (set! (-> *phys-jdev* jj) 0.0))))))
               (format 0 "~S~%" *phys-line-buf*)
+              ;; ---- CYCLE-4 THIRD WINDOW LINE ----------------------------------------------------
+              ;; Its own line for the same reason [HD-PHYS2] is: every device gate is a line-based
+              ;; grep, [HD-PHYS] is already the longest thing this file prints, and no field name here
+              ;; is a substring of any field on the other two lines (a nested name silently disarms
+              ;; the gate that greps the shorter one). These are the counters that replace a metric
+              ;; the owner correctly called out as measuring the wrong thing.
+              ;; (U) counted here rather than per frame: both are properties of the BINDING, so a
+              ;; frame loop would only multiply them by 300 and say nothing new.
+              (let ((noncol 0)
+                    (nomask 0))
+                (dotimes (c (-> *phys-slot-nchains* slot))
+                  (let ((ci (+ cbase c)))
+                    (when (and (> (-> *phys-clen* ci) 0)
+                               (nonzero? (logand (-> *phys-cflags* ci) classmask)))
+                      (when (or (zero? tier) (<= (-> *phys-cradius* ci) 0.0))
+                        (+! noncol 1))
+                      (when (zero? (-> *phys-cncol* ci))
+                        (+! nomask 1)))))
+                (set! (-> *phys-slot-noncol* slot) noncol)
+                (set! (-> *phys-slot-nomask* slot) nomask))
+              (format (clear *phys-line-buf*)
+                      "[HD-PHYS3] ag=~S idledrift=~f settletime=~D unsettled=~D freering=~D"
+                      ag
+                      (-> *phys-slot-idle* slot)
+                      (-> *phys-slot-settletime* slot)
+                      (-> *phys-slot-unsettled* slot)
+                      (-> *phys-slot-freering* slot))
+              (format *phys-line-buf* " noncol=~D nomask=~D"
+                      (-> *phys-slot-noncol* slot)
+                      (-> *phys-slot-nomask* slot))
+              ;; (R) the gravity the integrator really applied, in WORLD axes and then in the anchor
+              ;; bone's axes. gdir must read (0.0000, -1.0000, 0.0000) on every actor at every
+              ;; orientation; gloc must NOT, or gravity would be turning with the bone.
+              (format *phys-line-buf* " gdir=(~f, ~f, ~f)"
+                      (-> *phys-slot-gdir* slot x)
+                      (-> *phys-slot-gdir* slot y)
+                      (-> *phys-slot-gdir* slot z))
+              (format *phys-line-buf* " gloc=(~f, ~f, ~f)"
+                      (-> *phys-slot-gloc* slot x)
+                      (-> *phys-slot-gloc* slot y)
+                      (-> *phys-slot-gloc* slot z))
+              ;; (U) per-chain minimum CLEARANCE to the body volumes that apply to it. Negative =
+              ;; ended a frame inside the body. A large positive number on a chain the owner watches
+              ;; go through a character means the volumes are not where the chain travels — which is
+              ;; the difference between a solver bug and a collider bug, and it is exactly what
+              ;; push=0 with resid=0 could not tell anybody.
+              (format *phys-line-buf* " cclr:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-cclr* (+ cbase c)))
+                (set! (-> *phys-cclr* (+ cbase c)) 1000000.0))
+              (format 0 "~S~%" *phys-line-buf*)
+              (set! (-> *phys-slot-idle* slot) 0.0)
+              (set! (-> *phys-slot-settletime* slot) 0)
+              (set! (-> *phys-slot-unsettled* slot) 0)
+              (set! (-> *phys-slot-freering* slot) 0)
               (set! (-> *phys-slot-authhold* slot) 0)
               (set! (-> *phys-slot-autheng* slot) 0)
               (set! (-> *phys-slot-authrel* slot) 0)
