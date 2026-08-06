@@ -210,12 +210,17 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     # world DOWN with a float tolerance: the vector is renormalised every frame and the phone
     # legitimately prints -0.9999. An exact string match failed 6 windows on a reading that is
     # world-down to four decimals — the gate has to grade the direction, not the rounding.
-    GBAD=$(grep -ao 'gdir=([^)]*)' "$LC" | awk -F'[(,) ]+' '{
-        x=$2+0; y=$3+0; z=$4+0;
-        if (x*x + z*z > 0.0001 || y > -0.999) n++ } END {print n+0}')
+    GBAD=$(grep -a 'gdir=(' "$LC" | awk '{
+        gs=1; if (match($0,/gsamp=[0-9]+/)) gs=substr($0,RSTART+6,RLENGTH-6)+0;
+        if (gs == 0) next;                       # not measured this window, not a verdict
+        if (match($0,/gdir=\([^)]*\)/)) {
+          v=substr($0,RSTART+6,RLENGTH-7); gsub(/[ ]/,"",v); split(v,a,",");
+          x=a[1]+0; y=a[2]+0; z=a[3]+0;
+          if (x*x + z*z > 0.0001 || y > -0.999) n++ } } END {print n+0}')
+    GSAMP=$(grep -a 'gsamp=' "$LC" | awk '{if (match($0,/gsamp=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
     NOMK=$(grep -a 'nomask=' "$LC" | awk '{if (match($0,/nomask=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
     NONC=$(grep -a 'noncol=' "$LC" | awk '{if (match($0,/noncol=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
-    say "leg $TAG: cycle4 idledrift-max=${IDRIFT:-n/a} idle-frames=$IDWIN slept=$SLEPT settletime-max=${STIME:-n/a} unsettled=$UNSET freering-max=${FRING:-n/a} gdir-not-world=$GBAD nomask-max=$NOMK noncol-max=$NONC"
+    say "leg $TAG: cycle4 idledrift-max=${IDRIFT:-n/a} idle-frames=$IDWIN slept=$SLEPT settletime-max=${STIME:-n/a} unsettled=$UNSET freering-max=${FRING:-n/a} gdir-not-world=$GBAD gsamp=${GSAMP:-0} nomask-max=$NOMK noncol-max=$NONC"
     [ "${GBAD:-0}" = 0 ] || { say "FAIL($TAG): $GBAD window(s) where the applied gravity was not world (0,-1,0)"; OK=0; }
     # idle-frames=0 is a property of the SCENE, not a defect: a village of walking NPCs never
     # holds every target still for half a second. It is only a failure if NO leg in the whole run
@@ -249,20 +254,23 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     FAMB=$(grep -a 'famB=' "$LC" | awk '{if (match($0,/famB=[0-9]+/)) {v=substr($0,RSTART+5,RLENGTH-5)+0; if (v>m) m=v}} END {print m+0}')
     TILT=$(grep -ao 'tiltmax=[0-9.]*' "$LC" | sed 's/tiltmax=//' | sort -g | tail -1)
     RDEV=$(grep -ao 'restdevA=[0-9.]*' "$LC" | sed 's/restdevA=//' | sort -g | tail -1)
+    RWIN=$(grep -a 'restwin=' "$LC" | awk '{if (match($0,/restwin=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     XLEG=$(grep -a 'xleg=' "$LC" | awk '{if (match($0,/xleg=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
     # the sentinel (1000000) means "no chain was long enough to measure in this window" — that is
     # not a crush, so it is filtered out rather than graded as a perfect score OR as a failure.
     LMIN=$(grep -ao 'lenmin=[0-9.]*' "$LC" | sed 's/lenmin=//' | awk '{if ($1+0 < 100.0) print}' | sort -g | head -1)
+    LSIM=$(grep -ao 'lensim=[0-9.]*' "$LC" | sed 's/lensim=//' | awk '{if ($1+0 < 100.0) print}' | sort -g | head -1)
     EXTP=$(grep -a 'extprobe=' "$LC" | awk '{if (match($0,/extprobe=[0-9]+/)) s+=substr($0,RSTART+9,RLENGTH-9)} END {print s+0}')
     TOTEXT=$((TOTEXT + EXTP))
-    say "leg $TAG: cycle5 famA=$FAMA famB=$FAMB unclass=$UNCL tiltmax=${TILT:-n/a} restdevA=${RDEV:-n/a} xleg=$XLEG lenmin=${LMIN:-n/a} extprobe=$EXTP"
+    say "leg $TAG: cycle5 famA=$FAMA famB=$FAMB unclass=$UNCL tiltmax=${TILT:-n/a} restdevA=${RDEV:-n/a} restwin=$RWIN xleg=$XLEG lenmin=${LMIN:-n/a} lensim=${LSIM:-n/a} extprobe=$EXTP"
     [ "${UNCL:-0}" = 0 ] || { say "FAIL($TAG): $UNCL chain(s) simulating with NO family — the owner's rule is that every chain is classified"; OK=0; }
+    TOTREST=$((TOTREST + RWIN))
     awk -v v="${RDEV:-99}" 'BEGIN{exit !(v+0 <= 8.0)}' \
-      || { say "FAIL($TAG): restdevA=$RDEV — a BODY chain settled away from the model pose (owner W)"; OK=0; }
+      || { say "FAIL($TAG): restdevA=$RDEV over $RWIN samples — a BODY chain settled away from the model pose (owner W)"; OK=0; }
     [ "${XLEG:-0}" = 0 ] || { say "FAIL($TAG): xleg=$XLEG — a chain ended inside the OPPOSITE side's volume (owner Z)"; OK=0; }
-    if [ -n "${LMIN:-}" ]; then
-      awk -v v="$LMIN" 'BEGIN{exit !(v+0 >= 0.97)}' \
-        || { say "FAIL($TAG): lenmin=$LMIN — a chain was crushed to $LMIN of its modelled length (owner X)"; OK=0; }
+    if [ -n "${LSIM:-}" ]; then
+      awk -v v="$LSIM" 'BEGIN{exit !(v+0 >= 0.97)}' \
+        || { say "FAIL($TAG): lensim=$LSIM — a chain was CRUSHED to $LSIM of its modelled length (owner X)"; OK=0; }
     fi
     # ---- (G) chest amplitude ON THE PHONE. The chain index is read from the data file, never
     # hardcoded, so reordering physics_chains.txt cannot silently point this at another chain.
@@ -362,6 +370,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
 FAILED=0
 TOTIDLE=0
 TOTEXT=0
+TOTREST=0
 run_leg "D-MAX" '#t' 2 expect-phys || FAILED=1
 run_leg "D-OFF" '#f' 1 expect-off  || FAILED=1
 run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
@@ -375,6 +384,8 @@ say "run total: input-free frames sampled across all legs = $TOTIDLE"
 # Same rule for the cross-leg claim: xleg=0 is only worth something if the CLOTH below the pendant
 # bones was ever the thing being tested. Checked once for the run, not per leg — a village leg with
 # no jacketed actor on screen legitimately reports 0.
+say "run total: post-settle model-fidelity samples across all legs = $TOTREST"
+[ "$TOTREST" -ge 1 ] || { say "FAIL(run): restwin=0 in the whole run — restdevA graded nothing, so it is an empty zero"; FAILED=1; }
 say "run total: pendant-cloth collision tests across all legs = $TOTEXT"
 [ "$TOTEXT" -ge 1 ] || { say "FAIL(run): extprobe=0 in the whole run — the pendant geometry was never tested, so xleg=0 proves nothing"; FAILED=1; }
 if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER + D-INTRO green"; else say "[physics device leg FAIL] see legs above"; fi

@@ -134,13 +134,13 @@ j Lbangc
 # not have; a chest collider alone would only trade the clip for a bulge. So the four chains are
 # removed and those bones keep their AUTHORED animation, i.e. exactly the pre-physics behaviour the
 # owner called "tres largement mieux". Revisit with a real surface constraint, not with tuning.
-chain kneeflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=300
+chain kneeflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=180
 j lKneeFlap
-chain kneeflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=300
+chain kneeflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=180
 j rKneeFlap
-chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=300
+chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=180
 j LpantFlap
-chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=300
+chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=180
 j RpantFlap
 chain goggles class=primary stiffness=5.0 damping=0.35 gravity=0.08 maxangle=6 inertia=0.9 stretch=0.015 radius=60 authored=1.0 authrise=10 authfall=2.5 authstiff=5 family=B hang=0.10
 j gogglesMid
@@ -198,13 +198,13 @@ j Lbangc
 # not have; a chest collider alone would only trade the clip for a bulge. So the four chains are
 # removed and those bones keep their AUTHORED animation, i.e. exactly the pre-physics behaviour the
 # owner called "tres largement mieux". Revisit with a real surface constraint, not with tuning.
-chain kneeflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=300
+chain kneeflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=180
 j lKneeFlap
-chain kneeflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=300
+chain kneeflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=180
 j rKneeFlap
-chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=300
+chain pantflapL class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=L extent=180
 j LpantFlap
-chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=300
+chain pantflapR class=secondary stiffness=2.2 damping=0.25 gravity=0.5 maxangle=32 inertia=1.0 stretch=0.03 radius=50 hang=0.3 family=B side=R extent=180
 j RpantFlap
 chain goggles class=primary stiffness=5.0 damping=0.35 gravity=0.08 maxangle=6 inertia=0.9 stretch=0.015 radius=60 authored=1.0 authrise=10 authfall=2.5 authstiff=5 family=B hang=0.10
 j gogglesMid
@@ -330,9 +330,9 @@ chain footstrapR class=secondary stiffness=2.0 damping=0.24 gravity=0.55 maxangl
 j footRStrap
 chain anklestrapR class=secondary stiffness=2.0 damping=0.24 gravity=0.55 maxangle=38 inertia=1.0 stretch=0.03 radius=30 hang=0.25 family=B
 j ankleRStrap
-chain shirtL class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70 hang=0.3 family=B side=L extent=520
+chain shirtL class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70 hang=0.3 family=B side=L extent=300
 j shirtLthigh
-chain shirtR class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70 hang=0.3 family=B side=R extent=520
+chain shirtR class=primary stiffness=2.0 damping=0.22 gravity=0.45 maxangle=22 inertia=1.0 stretch=0.03 radius=70 hang=0.3 family=B side=R extent=300
 j shirtRthigh
 chain belt class=accessory stiffness=5.0 damping=0.45 gravity=0.1 maxangle=8 inertia=0.9 stretch=0.01 radius=60 family=B hang=0.10
 j belt
@@ -343,8 +343,8 @@ capsule hips upper_body radius=560 radius2=470 tier=1 chains=shirtL,shirtR,packs
 capsule upper_body chest radius=520 tier=1 chains=shirtL,shirtR,packstrap,collarL,collarR
 capsule chest neckA radius=600 tier=1 chains=collarL,collarR,packstrap,hair
 capsule neckA neckB radius=550 tier=1 chains=hair
-capsule Lthigh Lknee radius=300 radius2=500 tier=1 chains=shirtL,shirtR side=L
-capsule Rthigh Rknee radius=300 radius2=500 tier=1 chains=shirtL,shirtR side=R
+capsule Lthigh Lknee radius=250 radius2=420 tier=1 chains=shirtL,shirtR side=L
+capsule Rthigh Rknee radius=250 radius2=420 tier=1 chains=shirtL,shirtR side=R
 capsule hips Lthigh radius=500 radius2=470 tier=1 chains=shirtL,shirtR
 capsule hips Rthigh radius=500 radius2=470 tier=1 chains=shirtL,shirtR
 # owner cycle-3 C: "le COL de sa veste clippe dans ses epaules". There was no shoulder volume at
@@ -582,13 +582,13 @@ j flipR3
 # not have; a chest collider alone would only trade the clip for a bulge. So the four chains are
 # removed and those bones keep their AUTHORED animation, i.e. exactly the pre-physics behaviour the
 # owner called "tres largement mieux". Revisit with a real surface constraint, not with tuning.
-chain kneeflapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=L extent=300
+chain kneeflapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=L extent=180
 j lKneeFlap
-chain kneeflapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=R extent=300
+chain kneeflapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=R extent=180
 j rKneeFlap
-chain pantflapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=L extent=300
+chain pantflapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=L extent=180
 j LpantFlap
-chain pantflapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=R extent=300
+chain pantflapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=50 rootlock=1 gradient=1 hang=0.45 family=B side=R extent=180
 j RpantFlap
 chain goggles class=secondary stiffness=5.0 damping=0.42 gravity=0.05 maxangle=8 inertia=0.9 stretch=0.01 radius=60 authored=1.0 authrise=10 authfall=2.5 authstiff=5 family=B hang=0.10
 j gogglesBase
@@ -918,10 +918,10 @@ j backhair_r2
 j backhair_r3
 j backhair_r4
 j backhair_r5
-chain flapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 colskip=1 hang=0.45 family=B side=L extent=400
+chain flapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 colskip=1 hang=0.45 family=B side=L extent=240
 j l_flap1
 j l_flap2
-chain flapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 colskip=1 hang=0.45 family=B side=R extent=400
+chain flapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 colskip=1 hang=0.45 family=B side=R extent=240
 j r_flap1
 j r_flap2
 chain chestL class=primary stiffness=0.85 damping=0.24 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.26 radius=170 mass=4.2 swing=0.45 hang=0.32 family=A
@@ -1257,9 +1257,9 @@ j collarR
 chain packstrap class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=38 inertia=1.0 stretch=0.03 radius=45 gradient=0.6 hang=0.25 family=B
 j packStrapTop
 j packStrapMid
-chain shirtL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=70 rootlock=1 gradient=1 hang=0.3 family=B side=L extent=520
+chain shirtL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=70 rootlock=1 gradient=1 hang=0.3 family=B side=L extent=300
 j shirtLthigh
-chain shirtR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=70 rootlock=1 gradient=1 hang=0.3 family=B side=R extent=520
+chain shirtR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=70 rootlock=1 gradient=1 hang=0.3 family=B side=R extent=300
 j shirtRthigh
 chain pantsL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=70 rootlock=0 gradient=1 colskip=1 hang=0.3 family=B side=L
 j pantsLthigh
@@ -1296,9 +1296,9 @@ capsule upper_body chest radius=520 tier=1 chains=shirtL,shirtR,pantsL,pantsR,pa
 capsule chest neckA radius=600 tier=1 chains=collarL,collarR,packstrap,hair
 capsule neckA neckB radius=550 tier=1 chains=hair
 capsule Lthigh Lknee radius=380 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=L
-capsule Lthigh Lknee radius=300 radius2=520 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=L
+capsule Lthigh Lknee radius=250 radius2=430 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=L
 capsule Rthigh Rknee radius=380 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=R
-capsule Rthigh Rknee radius=300 radius2=520 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=R
+capsule Rthigh Rknee radius=250 radius2=430 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=R
 capsule hips Lthigh radius=500 radius2=470 tier=1 chains=shirtL,shirtR
 capsule hips Rthigh radius=500 radius2=470 tier=1 chains=shirtL,shirtR
 capsule chest Lshould radius=460 radius2=340 tier=1 chains=collarL,collarR,packstrap

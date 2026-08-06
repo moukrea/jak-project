@@ -226,7 +226,16 @@
 ;; (Z) residual penetrations of a chain into a volume belonging to the OTHER side of the body.
 (define *phys-slot-xleg* (new 'static 'array int32 24))
 ;; (X) worst simulated/authored chain-length ratio in the window. 1.0 = nothing was crushed.
+;; (X) ...on the OUTPUT, i.e. on what is drawn.
 (define *phys-slot-lenmin* (new 'static 'array float 24))
+;; ...and the same ratio on the SIMULATION state, which is what compress= actually governs. The
+;; two answer different questions and the first cycle-5 leg proved they must both be asked:
+;; Daxter's chains read 0.757 on the OUTPUT while nothing had been compressed at all. The output
+;; is a per-link blend between the model pose and the simulated pose (the influence profile), and
+;; when an anim=excite chain drives those two poses far apart — his ears sit over a chain-length
+;; from the bind re-glue by design — blending them at a different weight per link shortens the
+;; segments. That is the profile doing its job, not a crushed chain. lensim isolates the crush.
+(define *phys-slot-lensim* (new 'static 'array float 24))
 ;; (Z/V) how many collision tests were displaced onto the skinned continuation by `extent=`. Like
 ;; idlewin= next to idledrift=, it is the counter that stops a clean cross-leg score from being the
 ;; empty kind: extprobe=0 would mean the pendant geometry was never tested at all.
@@ -236,6 +245,13 @@
 ;; vector in WORLD space (must stay (0,-1,0) however the actor is turned) and `gloc` is the SAME
 ;; vector re-expressed in the anchor bone's own basis (must rotate, which is what proves the first
 ;; one is genuinely world and not local).
+;; ...and how many frames of the window the probe actually FIRED. It has to exist now: family A
+;; gates its gravity term to zero on an upright actor, so an actor whose chains are ALL family A
+;; — an ears-only villager, a rider with nothing but hair — legitimately applies no gravity at all
+;; while standing up, and gdir then holds its reset (0,0,0). Grading that as "gravity is not world
+;; space" is grading the absence of a measurement as a defect, which cost 30 false failures on the
+;; first cycle-5 leg. gsamp=0 means NOT MEASURED, and is read as such.
+(define *phys-slot-gsamp* (new 'static 'array int32 24))
 (define *phys-slot-gdir* (new 'static 'inline-array vector 24))
 (define *phys-slot-gloc* (new 'static 'inline-array vector 24))
 ;; (O/S) pre-constraint snapshot, one substep's worth. Scratch, never read across calls.
@@ -977,6 +993,8 @@
     ;; a MINIMUM starts at +inf, not at 0 — zeroed here it would print as a fully crushed chain
     ;; on the first window of every binding.
     (set! (-> *phys-slot-lenmin* slot) 1000000.0)
+    (set! (-> *phys-slot-lensim* slot) 1000000.0)
+    (set! (-> *phys-slot-gsamp* slot) 0)
     (set! (-> *phys-slot-extprobe* slot) 0)
     (dotimes (j PHYS-JPS)
       (vector-reset! (-> *phys-tprev* (+ jbase j)))
@@ -1564,6 +1582,7 @@
                                  (set! (-> vtmp y) (- (-> vtmp y) gacc))
                                  (when (and (zero? gcap) (> gacc 0.0) (= i rl))
                                    (set! gcap 1)
+                                   (+! (-> *phys-slot-gsamp* slot) 1)
                                    (vector-! gvec vtmp gpre)
                                    (let ((gl (vector-length gvec)))
                                      (when (> gl 0.0001)
@@ -2026,7 +2045,17 @@
                          ;; the body, which is correct, not a fidelity failure). FAMILY A ONLY: a
                          ;; hanging strap that returned to its modelled pose would be the opposite
                          ;; bug, and grading it here is how that bug would get shipped as a pass.
+                         ;; SAMPLED ONLY WHILE THE ACTOR IS UPRIGHT, and graded against
+                         ;; *phys-rest* — the MODEL pose — rather than against the live target.
+                         ;; Both halves matter. Grading the live target would say "did it reach its
+                         ;; equilibrium", which stays 0 even if the family gate broke and gravity
+                         ;; dragged that equilibrium off the model: a metric that cannot fail the
+                         ;; thing it exists to prove. Restricting to upright is not a re-scoping to
+                         ;; make it pass — a tilted actor is the owner's own exception, where the
+                         ;; chain is SUPPOSED to leave the modelled pose, and scoring it there would
+                         ;; grade the exception as the defect.
                          (when (and (!= 2 (-> *phys-cfam* ci))
+                                    (< tiltf 0.05)
                                     (nonzero? (-> *phys-slot-settled* slot))
                                     (<= (-> *phys-csettle* ci) 0)
                                     (< authw 0.5)
@@ -2034,7 +2063,23 @@
                            (dotimes (i len)
                              (when (and (>= i rl) (zero? (-> lpush i)))
                                (+! (-> *phys-slot-restwin* slot) 1)
-                               (vector-! vtmp (-> *phys-out* (+ start i)) (-> *phys-rest* (+ start i)))
+                               ;; THE REFERENCE, per chain. On anim=excite the authored channel is
+                               ;; deliberately re-injected as a FORCE, so the chain's equilibrium is
+                               ;; the bind pose blended by `excite` toward the pose the animator is
+                               ;; holding — and on those 40 chains (Daxter's ears and tail, the
+                               ;; beards, the moustaches, Maia's ponytail) that blend IS the model's
+                               ;; intent: ND is ACTIVELY POSING the bone, which is the whole reason
+                               ;; the mode exists. Measured on the shipped build, Daxter's ears sit
+                               ;; 0.53-1.36 of their chain length off the bind pose CONTINUOUSLY, so
+                               ;; grading them against the bind re-glue would report a metre of
+                               ;; "failure to return" on a chain doing exactly what it was told.
+                               (cond
+                                 ((> exc 0.0)
+                                  (vector-! vtmp2 (-> *phys-anim* (+ start i)) (-> *phys-rest* (+ start i)))
+                                  (vector-float*! vtmp2 vtmp2 exc)
+                                  (vector+! vtmp2 vtmp2 (-> *phys-rest* (+ start i))))
+                                 (else (vector-copy! vtmp2 (-> *phys-rest* (+ start i)))))
+                               (vector-! vtmp (-> *phys-out* (+ start i)) vtmp2)
                                (let ((d (vector-length vtmp)))
                                  (when (> d (-> *phys-crestd* ci)) (set! (-> *phys-crestd* ci) d))
                                  (when (> d (-> *phys-slot-restdeva* slot))
@@ -2046,15 +2091,22 @@
                          ;; is what "le col de Jak ne doit pas s'ecraser" is actually about, and it
                          ;; also catches a collar folded flat by a cone limit rather than shortened.
                          (when (>= chainlen 1.0)
-                           (let ((sl 0.0))
+                           (let ((sl 0.0)
+                                 (sp 0.0))
                              (dotimes (i len)
                                (vector-! vtmp (-> *phys-out* (+ start i))
                                          (if (zero? i) anchor (-> *phys-out* (+ start i -1))))
-                               (set! sl (+ sl (vector-length vtmp))))
-                             (let ((lr (/ sl chainlen)))
+                               (set! sl (+ sl (vector-length vtmp)))
+                               (vector-! vtmp (-> *phys-pos* (+ start i))
+                                         (if (zero? i) anchor (-> *phys-pos* (+ start i -1))))
+                               (set! sp (+ sp (vector-length vtmp))))
+                             (let ((lr (/ sl chainlen))
+                                   (ls (/ sp chainlen)))
                                (when (< lr (-> *phys-clenr* ci)) (set! (-> *phys-clenr* ci) lr))
                                (when (< lr (-> *phys-slot-lenmin* slot))
-                                 (set! (-> *phys-slot-lenmin* slot) lr)))))
+                                 (set! (-> *phys-slot-lenmin* slot) lr))
+                               (when (< ls (-> *phys-slot-lensim* slot))
+                                 (set! (-> *phys-slot-lensim* slot) ls)))))
                          ;; ---- (O) JITTER METRIC + REST-STATE BOOKKEEPING ------------------------
                          ;; "Jitter comme un fou" is a direction REVERSAL every frame while pressed
                          ;; against a collider. Counted, not eyeballed: a reversal only scores above
@@ -2642,6 +2694,7 @@
               ;; (R) the gravity the integrator really applied, in WORLD axes and then in the anchor
               ;; bone's axes. gdir must read (0.0000, -1.0000, 0.0000) on every actor at every
               ;; orientation; gloc must NOT, or gravity would be turning with the bone.
+              (format *phys-line-buf* " gsamp=~D" (-> *phys-slot-gsamp* slot))
               (format *phys-line-buf* " gdir=(~f, ~f, ~f)"
                       (-> *phys-slot-gdir* slot x)
                       (-> *phys-slot-gdir* slot y)
@@ -2681,6 +2734,7 @@
                       (-> *phys-slot-restwin* slot)
                       (-> *phys-slot-xleg* slot)
                       (-> *phys-slot-lenmin* slot)
+                      (-> *phys-slot-lensim* slot)
                       (-> *phys-slot-extprobe* slot))
               ;; per-chain: family, post-settle model deviation, worst length ratio. Three numbers
               ;; per chain is what turns "this actor is fine" into "chain 4 is not", which cost a
@@ -2705,6 +2759,10 @@
               (set! (-> *phys-slot-restwin* slot) 0)
               (set! (-> *phys-slot-xleg* slot) 0)
               (set! (-> *phys-slot-lenmin* slot) 1000000.0)
+    (set! (-> *phys-slot-lensim* slot) 1000000.0)
+    (set! (-> *phys-slot-gsamp* slot) 0)
+              (set! (-> *phys-slot-lensim* slot) 1000000.0)
+              (set! (-> *phys-slot-gsamp* slot) 0)
               (set! (-> *phys-slot-extprobe* slot) 0)
               (set! (-> *phys-slot-idle* slot) 0.0)
               (set! (-> *phys-slot-settletime* slot) 0)
