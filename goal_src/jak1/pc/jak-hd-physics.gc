@@ -1718,11 +1718,22 @@
                          ;; targets for the frame are final, and fed to the frame-wide test below.
                          (let ((ctmove 0.0))
                            (dotimes (i len)
-                             (let ((tp (-> *phys-tprev* (+ start i))))
-                               (vector-! vtmp (-> *phys-targ* (+ start i)) tp)
-                               (let ((d (vector-length vtmp)))
-                                 (when (> d ctmove) (set! ctmove d)))
-                               (vector-copy! tp (-> *phys-targ* (+ start i)))))
+                             (vector-! vtmp (-> *phys-targ* (+ start i)) (-> *phys-tprev* (+ start i)))
+                             (let ((d (vector-length vtmp)))
+                               (when (> d ctmove) (set! ctmove d))))
+                           ;; THE BASELINE IS CUMULATIVE, NOT PER-FRAME. tprev is the target at the
+                           ;; last frame that HAD input, not the target one frame ago — so a pose
+                           ;; that creeps below the per-frame bar can never accumulate unnoticed.
+                           ;; That leak was measured: in the intro cinematic, where the direction is
+                           ;; moving the cast slowly and continuously, jak-hd read 45.6 units of
+                           ;; "drift" over 775 frames the per-frame test had called input-free —
+                           ;; while dax-hd, in the same shot but genuinely parked, read 0.0000 over
+                           ;; 270. Against a fixed baseline the creep crosses the bar within a few
+                           ;; frames, the frame is correctly scored as driven, and the baseline
+                           ;; restarts there.
+                           (when (>= ctmove PHYS-IDLE-TARG)
+                             (dotimes (i len)
+                               (vector-copy! (-> *phys-tprev* (+ start i)) (-> *phys-targ* (+ start i)))))
                            ;; ...AND THE EXCITATION IS INPUT TOO. An anim=excite chain (Daxter's
                            ;; ears and tail, Samos' beard) is driven by a FORCE built from the
                            ;; authored channel: acc += excite*o2*(authored - target). The target
