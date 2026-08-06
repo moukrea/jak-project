@@ -254,4 +254,21 @@ grep -qE '@@[A-Z_]+@@' "$R" && fail "TPL: report contains unsubstituted placehol
 # recorded metric fails, whatever it improved elsewhere.
 python3 .autoport/lib/ratchet.py "$R" || fail "RATCHET: this run regressed a target that was already better before"
 
+
+# ---- CYCLE 6 (owner 01:20): nothing may pass through its own character's mesh ----
+grep -qiE "(positive control|controle positif)[^\n]{0,120}(penetrat|clip|inject)" "$R" \
+  || fail "C6: no POSITIVE CONTROL for the penetration audit — a zero from an audit never shown to fire is worthless (resid/idledrift/restdevA were all vacuous zeros today)"
+python3 - "$R" <<'PYC' || fail "C6: the positive control must show the counter RISING on a deliberate penetration and returning to zero after"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+sys.exit(0 if re.search(r'(inject|deliberate|volontaire)[^\n]{0,120}([1-9][0-9]*)',t,re.I) else 1)
+PYC
+for site in "collar.{0,40}shoulder|col.{0,40}epaule" "buckle.{0,60}strap|boucle.{0,60}lani" "cross|croise" "neck hair|cheveux.{0,20}nuque|backhair.{0,40}neck" "goggle.{0,40}chest|lunette.{0,40}poitrine" "bang|meche.{0,40}(face|visage|ear|oreille)"; do
+  grep -qiE "$site" "$R" || fail "C6: owner-named clipping site not addressed in the report (pattern: $site)"
+done
+grep -qiE "chain.{0,20}(vs|against|contre).{0,20}chain|chaine.{0,20}chaine" "$R" \
+  || fail "C6: chain-vs-chain collision not covered (Jak's back buckle clips into his own hanging strap)"
+grep -qiE "(mesh|surface)[^\n]{0,80}(volume|approx|hull|envelope)" "$R" \
+  || fail "C6: the collision volume must be shown to approximate the character MESH, not a capsule set with gaps"
+
 echo "[Grecharged-secondary-motion PASS]"

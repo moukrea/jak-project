@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Anti-regression ratchet for Grecharged-secondary-motion.
+"""Anti-regression ratchet
+
+xleg was REMOVED on 2026-08-07: it reported 0 for Jak's jacket pendants while the
+owner still saw them cross into the opposite leg. A metric falsified by direct
+observation must not be ratcheted — that would lock in a lie. for Grecharged-secondary-motion.
 
 The owner's diagnosis (2026-08-07 01:00): "tu corriges un truc puis tu le fais
 sauter pour corriger un autre... boucle infinie". Correct — xleg went 0 -> 50 -> 2
@@ -16,7 +20,6 @@ METRICS = {
     "restdevA": (False, r"restdevA\s*=\s*([0-9]+\.?[0-9]*)"),
     "lenmin":   (True,  r"lenmin\s*=\s*([0-9]+\.?[0-9]*)"),
     "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)"),
-    "xleg":     (False, r"xleg\s*=\s*([0-9]+)"),
 }
 TOL = 1e-6
 

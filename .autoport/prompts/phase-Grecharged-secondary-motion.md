@@ -573,3 +573,42 @@ MÉTHODE IMPOSÉE : traiter les trois cibles UNE PAR UNE, en vérifiant après c
 autres n'ont pas régressé. Les allers-retours des dernières heures viennent de changements
 simultanés (xleg est repassé de 0 à 50 pendant qu'on travaillait l'écrasement).
 INTERDIT : rebuild x86, nouvelle campagne de preuve, nouvel instrument.
+
+## ============================================================
+## CYCLE 6 — BLOCKER OWNER 2026-08-07 ~01:20 (build 00:54)
+## ============================================================
+### RÈGLE BLOQUANTE (owner, mot pour mot)
+« Les objets / parties ayant de la physique NE DOIVENT PAS PASSER AU TRAVERS DU MESH DE LEUR
+PERSONNAGE ! QU'IMPORTE LA RAISON ! C'est un gros blocker ça ! »
+=> Ce n'est pas un objectif chiffré parmi d'autres : c'est une condition de livraison. Aucun build
+   ne part tant qu'une chaîne traverse le corps de son propre personnage.
+
+### L'INSTRUMENT EST FALSIFIÉ PAR L'OBSERVATION — IL DOIT ÊTRE REFAIT
+Le cycle 5 rapporte `xleg=0` pour les DEUX pans de la veste de Jak, et l'owner voit toujours,
+sur le build 00:54, « ce qui recouvre la jambe gauche qui va dans la jambe droite et inversement ».
+Donc l'audit de pénétration ne mesure PAS ce que l'owner voit. C'est le seul cas où l'on a le droit
+de reconstruire un instrument : il est réfuté par l'observation directe.
+EXIGENCE ABSOLUE — CONTRÔLE POSITIF : avant de rapporter le moindre zéro, l'audit doit PROUVER
+qu'il sait détecter une pénétration. Injecter délibérément une chaîne dans le corps, montrer que le
+compteur monte, puis retirer l'injection. Un zéro sans contrôle positif est refusé (on a déjà eu
+`resid=0` avec `push=0`, `idledrift=0` avec `idlewin=0`, `restdevA=0` avec `restwin=0` — trois zéros
+vides en une journée).
+Le volume testé doit approcher le MESH du personnage, pas un jeu de capsules qui laisse passer entre
+elles. Si deux capsules laissent un interstice, l'élément passe : c'est ce que l'owner voit.
+
+### SITES DE CLIPPING NOMMÉS PAR L'OWNER (build 00:54) — chacun doit être vérifié individuellement
+  1. JAK — le COL clippe avec ses ÉPAULES.
+  2. JAK — la BOUCLE MÉTAL du dos clippe avec la GROSSE LANIÈRE de cuir qui pend
+     (=> deux éléments à physique qui se traversent l'un l'autre : le test ne doit pas être
+     seulement chaîne-vs-corps, mais aussi CHAÎNE-vs-CHAÎNE).
+  3. JAK — la partie de la veste qui dépasse sur les jambes clippe TOUJOURS EN CROISÉ
+     (gauche -> jambe droite, droite -> jambe gauche). NON RÉSOLU malgré xleg=0. Voir ci-dessus.
+  4. KEIRA — les cheveux de la NUQUE clippent au travers de son COU.
+  5. KEIRA — les LUNETTES clippent au travers de sa POITRINE.
+  6. KEIRA — les MÈCHES DE DEVANT clippent au travers de son VISAGE (parfois) et de ses OREILLES
+     (souvent).
+
+### POITRINE DE KEIRA — RÉGLAGE (acquis à ne pas perdre)
+« Beaucoup mieux, mais mériterait PLUS DE JIGGLE et UN POIL PLUS DE FERMETÉ. »
+=> Augmenter l'amplitude ET la fermeté ensemble (plus de rebond, retour plus franc), sans revenir au
+   comportement gélatineux ni casser `restdevA`.
