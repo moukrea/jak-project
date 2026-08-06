@@ -432,3 +432,63 @@ parallèle d'une jambe device (la précédente est tombée à 4 fenêtres au lie
 ### ÉTAPE 4 — RAPPORT
 Le rapport sur disque date du cycle 3 (13:55). Le réécrire pour le cycle 4, section par section
 (R, S, T, U, V), avec les nombres réellement mesurés.
+
+## ============================================================
+## CYCLE 5 — SPÉCIFICATION OWNER 2026-08-06 ~21:10 (builds 19:05 + 20:48)
+## CETTE SECTION CORRIGE LE CYCLE 4 : la couverture `hang=` étendue aux CHEVEUX, OREILLES et
+## POITRINES était une ERREUR de direction. Lire W avant tout le reste.
+## ============================================================
+
+### W. LE MODÈLE 3D EST LA SOURCE DE VÉRITÉ DE LA POSE DE REPOS (règle fondamentale)
+« Pour les cheveux, les seins, les oreilles (et probablement d'autres choses), même si sujets à la
+gravité, la position IDLE devrait être EXACTEMENT celle du modèle de base — pas plus haut, pas plus
+bas. C'est là que ça retourne naturellement. Le bounce est naturel, l'élasticité aussi. »
+« Hormis les accessoires et les lanières / trucs supposés pendre, la FORME des éléments soumis à la
+physique doit se baser sur la source de vérité du modèle, car c'est la représentation des
+personnages VOULUE PAR NAUGHTY DOG : pas plus écrasé, pas plus tassé, pas plus bas. En idle ça doit
+être comme le modèle original ; lors d'un mouvement c'est soumis à la physique, ça se déforme / se
+déplace, et ÇA REVIENT EN POSITION. »
+=> Conséquence directe : la GRAVITÉ agit sur la DYNAMIQUE, pas sur la POSE DE REPOS de ces éléments.
+   Une chaîne de corps au repos doit se superposer à la pose du modèle, déviation ~0.
+=> EXCEPTION explicite de l'owner : quand l'orientation du personnage n'est PLUS approximativement
+   celle d'origine (penché en avant, tête en bas...), la gravité reprend ses droits — « si tu pends
+   Maia par les pieds, forcément ses seins ne seront pas à la même position que debout ».
+=> DONC : retirer / neutraliser `hang=` (attraction vers le bas monde) sur les chaînes de CORPS
+   (cheveux, oreilles, poitrines, et tout ce qui n'est pas censé pendre), et le CONSERVER seulement
+   là où l'owner le veut (section X). Ce que le cycle 4 a fait sur 84 oreilles / 28 cheveux /
+   14 poitrines doit être revu à cette aune.
+
+### X. CE QUI DOIT PENDRE PEND VRAIMENT — SAUF À S'ÉCRASER
+« Pour les trucs qui doivent pendre (accessoires, lanières, vêtements qui pendent), eux sont bien
+soumis à la gravité par cohérence logique. Mais attention par exemple au COL DE JAK qui ne doit pas
+s'écraser pour autant ! »
+=> Garder la gravité de repos sur : accessoires, lanières de cuir, pans/vêtements pendants.
+=> Mais aucun élément ne doit se TASSER : longueur/volume de la chaîne au repos ≈ celle du modèle.
+   Le col de Jak est le cas nommé — à mesurer et à rapporter.
+
+### Y. POITRINES — SPÉCIFICATION PAR PERSONNAGE (à traiter au cas par cas, tout doit être cohérent :
+### masse, élasticité, fermeté, bounce)
+Règle commune : **la position sur le modèle de base est la position attendue en idle. Ne PAS les
+faire tomber plus sous le poids de la gravité.** Le jiggle/bounce n'existe QUE quand ça bouge ou que
+l'angle diffère de l'idle.
+  * KEIRA — ronds et FERMES sur le modèle. En physique : ça bouge bien, mais surtout ça
+    S'ENTRE-CHOQUE (contact entre les deux), peu de droop, peu de déformation. « Jeune et fraîche ».
+    Le mouvement doit rester bien visible malgré la fermeté.
+  * MAIA — morphologie plus mûre, GROS seins : naturellement plus tombants, plus lâches, moins
+    fermes. Mais l'idle reste celui du modèle.
+  * LA VIEILLE AUX OISEAUX (bird-lady) — a une poitrine, même règle.
+  * L'ARCHÉOLOGUE — trentenaire, seins plus petits que Maia : un ENTRE-DEUX entre Keira et Maia.
+=> Les paramètres (masse, raideur, amorti, contact inter-sein) doivent DIFFÉRER entre ces quatre
+   personnages et la différence doit être justifiée dans le rapport, pas copiée-collée.
+
+### Z. COLLIDERS — « SI ÇA PEUT COLLIDE AVEC X, ALORS ÇA DOIT CONSIDÉRER X »
+Deux cas nommés par l'owner :
+  1. Les CHEVEUX DE MAIA passent au travers du BAS de son corps ⇒ sa chevelure doit collisionner avec
+     le corps ENTIER (bassin/jambes compris), pas seulement tête/torse/épaules.
+  2. Le BAS DE LA VESTE DE JAK : « certes les deux pendants sont scopés à une jambe chacun, mais il
+     ne faut pas ignorer la jambe OPPOSÉE. Sur les deux derniers builds le pendant gauche finit au
+     travers de la jambe droite et le pendant droit au travers de la jambe gauche, CROISÉS,
+     complètement incohérents. »
+  ⇒ Le scoping par chaîne est une optimisation, pas une autorisation de traverser. Toute chaîne doit
+     tester contre TOUT volume qu'elle peut physiquement atteindre. Rapporter, par chaîne, la liste
+     des colliders testés et un compteur de traversées croisées = 0.

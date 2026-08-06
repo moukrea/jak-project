@@ -163,4 +163,35 @@ PYI
 # S-ter: free-space ringing is the owner's "hysteresis"; it must be measured AND reduced.
 grep -qiE "freering\s*=\s*[0-9]+" "$R" || fail "S-ter: no free-space ringing measurement (freering) — that is what the owner calls hysteresis"
 
+
+# ---- CYCLE 5 (owner 21:10): the MODEL is the source of truth for the idle pose ----
+# W. body chains at rest must coincide with the model's bind pose (not lower, not higher)
+python3 - "$R" <<'PYW' || fail "W: no idle-pose fidelity measurement (body chains at rest must match the MODEL pose, deviation ~0)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+v=[float(x) for x in re.findall(r'(?:idlepose|restdev|idle[- ]?pose[- ]?dev)[^\n]{0,40}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+sys.exit(0 if v and max(v)<=8.0 else 1)
+PYW
+grep -qiE "(hang|gravity)[^\n]{0,90}(removed|neutral|off|exclu|not applied)[^\n]{0,60}(hair|chest|ear|body|cheveu|poitrine|oreille)" "$R" \
+  || fail "W: gravity rest-pull not shown to be removed from BODY chains (cycle 4 wrongly applied it to 84 ears / 28 hair / 14 chests)"
+grep -qiE "(tilt|orientation|upside|penche|angle)[^\n]{0,80}(gravity|resume|reprend|restore)" "$R" \
+  || fail "W: the owner's exception (non-upright orientation -> gravity applies again) not implemented"
+# X. nothing may compress: Jak's collar is the named case
+grep -qiE "(collar|col)[^\n]{0,90}(length|compress|tass|ecras|volume)[^\n]{0,30}[0-9]" "$R" || fail "X: no collar compression measurement (it must not be crushed)"
+# Y. four chests must be DIFFERENTIATED, not copy-pasted
+python3 - "$R" <<'PYY' || fail "Y: chest parameters are not differentiated across Keira / Maia / bird-lady / archaeologist"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read().lower()
+need=['keira','maia','bird','arch']
+if not all(n in t for n in need): sys.exit(1)
+# require at least 3 distinct mass/stiffness values quoted near those names
+vals=set(re.findall(r'(?:mass|stiffness|firm)\s*=\s*([0-9]+\.?[0-9]*)',t))
+sys.exit(0 if len(vals)>=3 else 1)
+PYY
+grep -qiE "(keira)[^\n]{0,120}(collide|contact|entre-?choc|against each other)" "$R" || fail "Y: Keira's breasts must collide with EACH OTHER (owner's explicit description)"
+# Z. scoping is an optimisation, never a licence to pass through
+grep -qiE "(cross|croise|opposite)[^\n]{0,60}(leg|jambe)[^\n]{0,40}(=|:)\s*0\b" "$R" || fail "Z: no cross-leg penetration counter at 0 (jacket flaps went through the opposite leg)"
+grep -qiE "(maia|evilsis)[^\n]{0,110}(lower body|bassin|pelvis|leg|hip|whole body|corps entier)" "$R" || fail "Z: Maia's hair not tested against her LOWER body"
+grep -qiE "(collider|capsule)[^\n]{0,60}(list|set|per[- ]chain|par chaine)" "$R" || fail "Z: no per-chain list of the colliders actually tested"
+
 echo "[Grecharged-secondary-motion PASS]"
