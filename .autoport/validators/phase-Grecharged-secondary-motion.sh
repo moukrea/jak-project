@@ -10,7 +10,8 @@ try:
     s=json.load(open('.autoport/state.json'))
     import datetime
     v=s.get('phase_started_at',0)
-    print(int(datetime.datetime.fromisoformat(v).timestamp()) if isinstance(v,str) else int(v))
+    if isinstance(v,dict): v=v.get('Grecharged-secondary-motion',0)
+    print(int(datetime.datetime.fromisoformat(v).timestamp()) if isinstance(v,str) and v else int(v or 0))
 except Exception:
     print(0)")
 if [ "$PSTART" -gt 0 ]; then

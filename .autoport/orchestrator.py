@@ -1636,7 +1636,13 @@ def main(argv: list[str] | None = None) -> int:
 
         # Record phase start time (only on first attempt for this phase)
         if pid not in state["retries"]:
-            state.setdefault("phase_started_at", {})[pid] = time.time()
+            # phase_started_at MUST be a {phase: epoch} dict. A supervisor edit once
+            # replaced it with a single ISO string, which made this line raise
+            # TypeError and .get(pid) below raise AttributeError at the exact moment
+            # a phase passed. Coerce defensively instead of trusting the file.
+            if not isinstance(state.get("phase_started_at"), dict):
+                state["phase_started_at"] = {}
+            state["phase_started_at"][pid] = time.time()
             save_state(state)
             notify(
                 f"▶ phase {pid} starting ({phase['name']})",
@@ -1657,7 +1663,9 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         if result == "pass":
-            elapsed = time.time() - state.get("phase_started_at", {}).get(pid, time.time())
+            _psa = state.get("phase_started_at")
+            _psa = _psa if isinstance(_psa, dict) else {}
+            elapsed = time.time() - _psa.get(pid, time.time())
             attempts = state["retries"].get(pid, 1)
             console.print(f"[bold green]✓ Phase {pid} validator passed[/bold green]")
             state["completed"].append(pid)
