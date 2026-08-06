@@ -18,8 +18,10 @@ while true; do
   [ "$s1" = "$s2" ] || continue
   h=$(md5sum "$APK" | cut -d' ' -f1)
   [ "$h" = "$LAST" ] && continue
-  # never upload while a gradle/cmake build is running - it may be a partial artifact
-  if ps -eo args | grep -qE '[g]radle|[c]make --build'; then continue; fi
+  # Never upload a partially-written artifact. Match an ACTIVE build only:
+  # the long-lived Gradle DAEMON must not count (it runs for hours and would
+  # block every upload forever - that bug held back the 20:20 APK).
+  if ps -eo args | grep -qE '[c]make --build|[g]radlew|[g]radle-launcher|[g]radle .*assemble'; then continue; fi
   cp "$APK" "$DIST" || continue
   if timeout 1800 gh release upload jak1-rtlight-wip "$DIST" \
        --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then
