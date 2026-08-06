@@ -51,8 +51,8 @@ cleanup(){
 }
 trap cleanup EXIT
 
-run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-off>
-  local TAG="$1" PHY="$2" QUAL="$3" MODE="$4"
+run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-off|expect-rider|expect-intro> [warp]
+  local TAG="$1" PHY="$2" QUAL="$3" MODE="$4" WARP="${5:-village1-hut}"
   local LC="$OUT/device_leg_$TAG.logcat.log"; : > "$LC"
   cp "$INI_BAK" "$INI_TMP"
   set_ini_dev 'recharged-master?' '#t'
@@ -70,9 +70,15 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   set_ini_dev 'physics-quality' "$QUAL"
   $ADB -s "$S" push "$INI_TMP" "$PCS_DEV" >/dev/null 2>&1 || die "cannot push settings.ini"
   say ""
-  say "=== LEG $TAG: physics?=$PHY quality=$QUAL (village1-hut warp, watch ${WATCH}s) ==="
-  $ADB -s "$S" shell setprop debug.opengoal.level.warp 'village1-hut' >/dev/null 2>&1 </dev/null
-  $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos '-130.50 34.50 202.41'" >/dev/null 2>&1 </dev/null
+  say "=== LEG $TAG: physics?=$PHY quality=$QUAL ($WARP warp, watch ${WATCH}s) ==="
+  $ADB -s "$S" shell setprop debug.opengoal.level.warp "$WARP" >/dev/null 2>&1 </dev/null
+  # the village spot is a fixed vantage; the intro cinematic drives its own camera and actors
+  # (Maia and Gol exist nowhere else — [[reference_maia_gol_intro_only]]) so it must NOT be posed.
+  if [ "$WARP" = village1-hut ]; then
+    $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos '-130.50 34.50 202.41'" >/dev/null 2>&1 </dev/null
+  else
+    $ADB -s "$S" shell setprop debug.opengoal.level.warp.pos '' >/dev/null 2>&1 </dev/null
+  fi
   $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
   ( $ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I ActivityManager:W '*:S' >> "$LC" ) 2>/dev/null &
   LCP=$!
@@ -83,7 +89,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     grep -aq 'LEVEL-WARP-SPAWN' "$LC" 2>/dev/null && { W=1; break; }; sleep 8
   done
   [ "$W" = 1 ] || { say "FAIL($TAG): warp never landed"; return 1; }
-  say "warp landed (village1-hut) — watching ${WATCH}s"
+  say "warp landed ($WARP) — watching ${WATCH}s"
   sleep "$WATCH"
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
   kill "$LCP" 2>/dev/null || true; LCP=0
@@ -182,6 +188,34 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     NPROF=$(grep -ac '\[HD-PHYS-INFL\] ag=' "$LC" || true)
     [ "${NPROF:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS-INFL] profile line — the per-link influence profile is not reported"; OK=0; }
     say "leg $TAG: cycle3bcd jitter-max=$JIT stick-max=$STK rested=$RST clamped=$CLM inflstep-max=$ISTEP profile-lines=$NPROF"
+    # ---- CYCLE-4 WINDOW GATES ([HD-PHYS3] line) --------------------------------------------
+    # The owner's 14:45 verdict said the cycle-3 metric measured the wrong thing. These are the
+    # replacements, and they are graded here rather than restated in prose:
+    #   idledrift  the largest motion a chain produced on a frame where NOTHING asked it to move
+    #              (no anchor travel AND no target travel). Owner bar: ~0.
+    #   idlewin    how many frames were actually scored that way. idledrift=0 over idlewin=0 is the
+    #              same empty zero as cycle-3's resid=0 with push=0, and is failed as such.
+    #   settletime worst frames-from-still-to-rest; unsettled = idle stretches still ringing at 1 s.
+    #   freering   velocity reversals with NO contact — the population cycle 3 excluded, which is
+    #              exactly where the owner sees "l'hysteresis est HORRIBLE".
+    local N3 IDRIFT IDWIN SLEPT STIME UNSET FRING GBAD NOMK NONC
+    N3=$(grep -ac '\[HD-PHYS3\] ag=' "$LC" || true)
+    [ "${N3:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS3] line — the cycle-4 instrument never printed"; OK=0; }
+    IDRIFT=$(grep -ao 'idledrift=[0-9.]*' "$LC" | sed 's/idledrift=//' | sort -g | tail -1)
+    IDWIN=$(grep -a 'idlewin=' "$LC" | awk '{if (match($0,/idlewin=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    SLEPT=$(grep -a 'slept=' "$LC" | awk '{if (match($0,/slept=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
+    STIME=$(grep -ao 'settletime=[0-9]*' "$LC" | sed 's/settletime=//' | sort -g | tail -1)
+    UNSET=$(grep -a 'unsettled=' "$LC" | awk '{if (match($0,/unsettled=[0-9]+/)) s+=substr($0,RSTART+10,RLENGTH-10)} END {print s+0}')
+    FRING=$(grep -ao 'freering=[0-9]*' "$LC" | sed 's/freering=//' | sort -g | tail -1)
+    GBAD=$(grep -a 'gdir=' "$LC" | grep -cv 'gdir=(0\.0000, -1\.0000, 0\.0000)' || true)
+    NOMK=$(grep -a 'nomask=' "$LC" | awk '{if (match($0,/nomask=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
+    NONC=$(grep -a 'noncol=' "$LC" | awk '{if (match($0,/noncol=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
+    say "leg $TAG: cycle4 idledrift-max=${IDRIFT:-n/a} idle-frames=$IDWIN slept=$SLEPT settletime-max=${STIME:-n/a} unsettled=$UNSET freering-max=${FRING:-n/a} gdir-not-world=$GBAD nomask-max=$NOMK noncol-max=$NONC"
+    [ "${GBAD:-0}" = 0 ] || { say "FAIL($TAG): $GBAD window(s) where the applied gravity was not world (0,-1,0)"; OK=0; }
+    [ "${IDWIN:-0}" -ge 1 ] || { say "FAIL($TAG): idle-frames=0 — no input-free frame was sampled, so idledrift proves nothing"; OK=0; }
+    awk -v v="${IDRIFT:-99}" 'BEGIN{exit !(v+0 <= 1.0)}' \
+      || { say "FAIL($TAG): idledrift=$IDRIFT — a chain moved with no input at all (owner R/S)"; OK=0; }
+    [ "${UNSET:-0}" = 0 ] || { say "FAIL($TAG): $UNSET idle stretch(es) still ringing after 1 s — it does not settle"; OK=0; }
     # ---- (G) chest amplitude ON THE PHONE. The chain index is read from the data file, never
     # hardcoded, so reordering physics_chains.txt cannot silently point this at another chain.
     local KM KIDX
@@ -221,6 +255,29 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     expect-off)
       [ "$NWIN" = 0 ] || { say "FAIL($TAG): $NWIN window lines with physics?=#f — OFF is not off"; OK=0; }
       ;;
+    expect-intro)
+      # Owner M/N/U: Maia and Gol by NAME, chain by chain. They exist in no other level
+      # ([[reference_maia_gol_intro_only]]), so village legs can never answer for them, and the
+      # aggregate counters that "proved" them green in cycle 3 are exactly what he saw through.
+      [ "$NWIN" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS] window in the intro"; OK=0; }
+      local A
+      for A in evilsis-lod0 evilbro-lod0 eichar-lod0 jak-hd; do
+        local NW NACT NNEV PUSH RESB CDEV
+        NW=$(grep -ac "ag=$A .*window: chains=" "$LC" || true)
+        [ "${NW:-0}" -ge 1 ] && {
+          NACT=$(grep -a "ag=$A .*window: chains=" "$LC" | awk '{if (match($0,/act=[0-9]+/)) {v=substr($0,RSTART+4,RLENGTH-4)+0; if (v>m) m=v}} END {print m+0}')
+          PUSH=$(grep -a "ag=$A .*push=" "$LC" | awk '{if (match($0,/push=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
+          RESB=$(grep -a "ag=$A .*resid=" "$LC" | grep -cv 'resid=0 ' || true)
+          # per-CHAIN displacement: the owner's "declared is not active" test, chain by chain
+          CDEV=$(grep -a "ag=$A .*cdev:" "$LC" | tail -1 | sed 's/.*cdev:/cdev:/')
+          NNEV=$(echo "$CDEV" | tr ' ' '\n' | grep -c '=0\.0000$' || true)
+          say "leg $TAG: $A windows=$NW chains-active=$NACT never-moved=$NNEV push=$PUSH resid-bad=$RESB"
+          say "leg $TAG: $A $CDEV"
+          [ "${RESB:-0}" = 0 ] || { say "FAIL($TAG): $A has $RESB window(s) with residual penetration"; OK=0; }
+          grep -a "\[HD-PHYS3\] ag=$A" "$LC" | tail -1 | sed "s/.*\[HD-PHYS3\]/leg $TAG: $A [HD-PHYS3]/" >> "$LOG"
+        } || say "leg $TAG: $A — no window (actor not present in this run)"
+      done
+      ;;
     expect-rider)
       # WAVE 2 device proof: stock actors, no companions. The bar is the same as everywhere else
       # (bounded, no NaN, rootdev=0, resid=0 — all gated above), plus: riders really bound to
@@ -254,6 +311,9 @@ FAILED=0
 run_leg "D-MAX" '#t' 2 expect-phys || FAILED=1
 run_leg "D-OFF" '#f' 1 expect-off  || FAILED=1
 run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
+# owner cycle-3c N + cycle-4 U: Maia's hair through her body, and the collar close-up while Jak
+# is lying down. Both live in the intro cinematic and nowhere else.
+WATCH=200 run_leg "D-INTRO" '#t' 2 expect-intro intro-start || FAILED=1
 
 say ""
 if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER green"; else say "[physics device leg FAIL] see legs above"; fi
