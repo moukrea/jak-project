@@ -501,3 +501,30 @@ Deux cas nommés par l'owner :
   ⇒ Le scoping par chaîne est une optimisation, pas une autorisation de traverser. Toute chaîne doit
      tester contre TOUT volume qu'elle peut physiquement atteindre. Rapporter, par chaîne, la liste
      des colliders testés et un compteur de traversées croisées = 0.
+
+## ============================================================
+## CYCLE 5 — RÈGLE STRUCTURANTE (owner 21:30, 3e répétition : IMPRIMER)
+## « C'EST DU CAS PAR CAS ! SOIS COHÉRENT »
+## ============================================================
+CHAQUE chaîne doit être CLASSÉE dans une famille, et la famille détermine le comportement au repos.
+La classification doit apparaître dans `physics_chains.txt` ET dans le rapport, chaîne par chaîne.
+
+### FAMILLE A — PARTIES DU CORPS : cheveux, seins, oreilles, et « probablement d'autres choses »
+  * Simulées en permanence, soumises à la gravité pendant le mouvement.
+  * MAIS leur point de retour est la POSE DU MODÈLE : « la position idle devrait exactement être
+    celle du modèle de base, PAS PLUS HAUT, PAS PLUS BAS, c'est là que ça retourne naturellement ».
+  * Bounce et élasticité = naturels et voulus.
+  * Exception : orientation non naturelle (penché, tête en bas) => la gravité reprend ses droits.
+
+### FAMILLE B — CE QUI PEND VRAIMENT : accessoires (lunettes, sacs), lanières de cuir, vêtements
+### pendants
+  * « ÇA PEND, ÇA PEND, c'est normal et cohérent ! » => elles NE DOIVENT PAS regagner la pose du
+    modèle. Leur repos est dicté par la GRAVITÉ, point.
+  * NE JAMAIS leur appliquer le critère de la famille A. Un pan de veste qui « revient à la pose du
+    modèle » serait un BUG au même titre qu'un sein qui s'affaisse.
+  * Seule contrainte : rien ne doit se TASSER / s'écraser (col de Jak = cas nommé).
+
+### INTERDIT
+  * Un réglage unique appliqué aux deux familles.
+  * Des paramètres copiés-collés entre personnages (masse, élasticité, fermeté, bounce se traitent
+    AU CAS PAR CAS et doivent être cohérents entre eux).

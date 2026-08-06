@@ -199,4 +199,18 @@ grep -qiE "(cross|croise|opposite)[^\n]{0,60}(leg|jambe)[^\n]{0,40}(=|:)\s*0\b" 
 grep -qiE "(maia|evilsis)[^\n]{0,110}(lower body|bassin|pelvis|leg|hip|whole body|corps entier)" "$R" || fail "Z: Maia's hair not tested against her LOWER body"
 grep -qiE "(collider|capsule)[^\n]{0,60}(list|set|per[- ]chain|par chaine)" "$R" || fail "Z: no per-chain list of the colliders actually tested"
 
+
+# ---- CYCLE 5 families (owner, third repetition): A=body returns to the model, B=hangs and stays hung
+grep -qiE "(family|famille|class)[^\n]{0,40}\bA\b[^\n]{0,80}(body|corps|hair|chest|ear)" "$R" || fail "FAM: chains are not classified into family A (body: returns to the model pose)"
+grep -qiE "(family|famille|class)[^\n]{0,40}\bB\b[^\n]{0,80}(hang|pend|strap|accessor|lani)" "$R" || fail "FAM: chains are not classified into family B (hangs: gravity rules, never returns to the model pose)"
+grep -qiE "(family|famille)[^\n]{0,20}B[^\n]{0,120}(not|jamais|never|no)[^\n]{0,40}(return|regagn|model|modele)" "$R" \
+  || fail "FAM: family B must be shown NOT to be pulled back to the model pose — hanging things hang"
+python3 - "$R" <<'PYF' || fail "FAM: the post-settle model-fidelity criterion must be reported for family A ONLY (applying it to hanging chains is the opposite bug)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+# the fidelity figure must be qualified by family A / body, never stated globally
+sys.exit(0 if re.search(r'(settled|post[- ]?settle|idlepose|restdev)[^\n]{0,80}(family\s*A|body|corps|hair|chest|ear)',t,re.I)
+             or re.search(r'(family\s*A|body|corps)[^\n]{0,80}(settled|post[- ]?settle|idlepose|restdev)',t,re.I) else 1)
+PYF
+
 echo "[Grecharged-secondary-motion PASS]"
