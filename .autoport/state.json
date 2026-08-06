@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 232,
+  "current_phase_idx": 233,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -224,7 +224,8 @@
     "Gtouch-longjump-regression": 2,
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
-    "Grecharged-secondary-motion": 1
+    "Grecharged-secondary-motion": 1,
+    "Grecharged-foliage-wind2": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -722,7 +723,8 @@
     "Gtouch-longjump-regression",
     "Gmenu-flag-off",
     "Grecharged-hd-models5",
-    "Grecharged-hd-models4"
+    "Grecharged-hd-models4",
+    "Grecharged-secondary-motion"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -913,7 +915,7 @@
     "Grecharged-hd-models2": 1784024024.5067194,
     "Grecharged-grass-overhang6": 1784032762.9751992,
     "Grecharged-hd-models3": 1785802791.0360906,
-    "Grecharged-foliage-wind2": 1784043787.4506938,
+    "Grecharged-foliage-wind2": 1785977666.5795383,
     "Grecharged-grass-overhang7": 1784047763.064689,
     "Grecharged-ambient-occlusion": 1784102746.871413,
     "Grecharged-buildsys-flags": 1784240074.3947632,
@@ -936,7 +938,7 @@
     "Grecharged-hd-models4": 1785939731.6130211,
     "Grecharged-secondary-motion": 1785959994.0287757
   },
-  "last_update": "2026-08-06T00:39:04.353461+00:00",
+  "last_update": "2026-08-06T00:55:15.224129+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
