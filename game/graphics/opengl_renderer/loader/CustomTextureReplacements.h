@@ -88,6 +88,10 @@ struct PbrMaterialMaps {
   // texture). Measured at load from the map's own mip-energy spectrum. x the material's world tile
   // size = the feature's world size, which is what the tessellation amplitude is scaled by.
   float height_lambda_tiles = 0.25f;
+  // Grecharged-managed-assets: the normal map came from a GPU-compressed pack and stores only
+  // X/Y (BC5 / EAC RG11 / ASTC two-channel). Sets u_pbr_mode bit 128 so the shader rebuilds Z.
+  // PNG-sourced maps are 3-channel and leave this false.
+  bool normal_is_rg = false;
 };
 
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by

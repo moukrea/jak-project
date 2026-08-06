@@ -248,11 +248,64 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // Grecharged-bundled-textures: PBR maps may come from the USER dir (load_custom_assets-
   // gated inside lookup_suffixed) or the package-BUNDLED set (master-gated) — probe whenever
   // the master is up; lookup_suffixed applies the per-source gates.
-  // Grecharged-managed-assets: a MANAGED base never pairs with PNG maps
-  // (same-source rule — mixed provenance describes a different image).
-  // Managed packs carry their own suffixed maps; those activate with the
-  // normal-XY shader mode (PR2).
-  if (Gfx::recharged_master_active() && !managed) {
+  // Grecharged-managed-assets: a MANAGED base pairs ONLY with managed maps
+  // (same-source rule — mixed provenance describes a different image). The
+  // pack's maps are GPU-compressed with offline mip chains, and their
+  // statistics were measured by the pipeline on the exact shipped pixels, so
+  // none of the CPU measurement passes below run for them.
+  if (managed && Gfx::recharged_master_active()) {
+    custom_tex::PbrMaterialMaps maps;
+    bool any = false;
+    auto load_map = [&](const char* kind, u32* dst) -> std::optional<managed_assets::CompressedTex> {
+      auto t = managed_assets::lookup_map(tex.debug_tpage_name, tex.debug_name, kind);
+      if (!t) {
+        return std::nullopt;
+      }
+      *dst = managed_assets::create_map_texture(*t);
+      if (*dst) {
+        any = true;
+        return t;
+      }
+      return std::nullopt;
+    };
+    if (auto n_tex = load_map("normal", &maps.normal_tex)) {
+      // X/Y-only storage (BC5 / EAC RG11 / ASTC two-channel) => u_pbr_mode bit 128.
+      maps.normal_is_rg = n_tex->channels == "rg";
+      if (n_tex->stats.has_normal_dc) {
+        maps.normal_dc_x = n_tex->stats.normal_dc_x;
+        maps.normal_dc_y = n_tex->stats.normal_dc_y;
+      }
+    }
+    load_map("roughness", &maps.rough_tex);
+    load_map("metallic", &maps.metal_tex);
+    load_map("ao", &maps.ao_tex);
+    if (auto h_tex = load_map("height", &maps.height_tex)) {
+      if (h_tex->stats.has_height) {
+        maps.height_mean = h_tex->stats.height_mean;
+        maps.height_norm = h_tex->stats.height_norm;
+        maps.height_lambda_tiles = h_tex->stats.height_lambda_tiles;
+      }
+    }
+    load_map("specular", &maps.specular_tex);
+    load_map("emissive", &maps.emissive_tex);
+    if (any) {
+      auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
+      for (GLuint oid : {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex,
+                         prev.height_tex, prev.specular_tex, prev.emissive_tex}) {
+        if (oid && !pbr_testpattern::owns(oid)) {
+          glDeleteTextures(1, &oid);
+        }
+      }
+      lg::info(
+          "pbr managed material: {} N={}(rg={}) R={} M={} AO={} H={} S={} E={} "
+          "dc=({:.4f},{:.4f}) hmean={:.4f} hnorm={:.3f} lambda={:.4f}",
+          tex.debug_name, maps.normal_tex ? 1 : 0, maps.normal_is_rg ? 1 : 0,
+          maps.rough_tex ? 1 : 0, maps.metal_tex ? 1 : 0, maps.ao_tex ? 1 : 0,
+          maps.height_tex ? 1 : 0, maps.specular_tex ? 1 : 0, maps.emissive_tex ? 1 : 0,
+          maps.normal_dc_x, maps.normal_dc_y, maps.height_mean, maps.height_norm,
+          maps.height_lambda_tiles);
+    }
+  } else if (Gfx::recharged_master_active() && !managed) {
     const auto bsrc = custom_tex::base_source(tex.debug_tpage_name, tex.debug_name);
     // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
     // buffer, reused on the next call — so capture each map's source string

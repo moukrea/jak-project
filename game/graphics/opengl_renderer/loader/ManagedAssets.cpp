@@ -156,23 +156,25 @@ bool active() {
   return !g_state.index.empty();
 }
 
-bool has_base(const std::string& tpage_name, const std::string& tex_name) {
+namespace {
+bool has_entry(const std::string& tpage_name, const std::string& tex_name, const char* map) {
   if (!gate_on()) {
     return false;
   }
   ensure_loaded();
   std::lock_guard<std::mutex> lock(g_state.mutex);
-  return find_locked(tpage_name + "/" + tex_name, "albedo") != nullptr;
+  return find_locked(tpage_name + "/" + tex_name, map) != nullptr;
 }
 
-std::optional<CompressedTex> lookup_base(const std::string& tpage_name,
-                                         const std::string& tex_name) {
+std::optional<CompressedTex> lookup_entry(const std::string& tpage_name,
+                                          const std::string& tex_name,
+                                          const char* map) {
   if (!gate_on()) {
     return std::nullopt;
   }
   ensure_loaded();
   std::lock_guard<std::mutex> lock(g_state.mutex);
-  const auto* ref = find_locked(tpage_name + "/" + tex_name, "albedo");
+  const auto* ref = find_locked(tpage_name + "/" + tex_name, map);
   if (!ref) {
     return std::nullopt;
   }
@@ -181,18 +183,58 @@ std::optional<CompressedTex> lookup_base(const std::string& tpage_name,
   // caught by the ktx2 subset parse below.
   auto payload = g_state.shards[ref->shard_idx]->read_payload(*ref->entry, /*verify=*/false);
   if (!payload) {
-    lg::warn("managed_assets: payload read failed for {}", ref->entry->key);
+    lg::warn("managed_assets: payload read failed for {} [{}]", ref->entry->key, map);
     return std::nullopt;
   }
   CompressedTex out;
   out.payload = std::move(*payload);
   out.wrap_mode = ref->entry->wrap_mode;
+  out.channels = ref->entry->channels;
+  out.stats = ref->entry->stats;
   std::string err;
   if (!ktx2::parse(out.payload.data(), out.payload.size(), &out.info, &err)) {
-    lg::warn("managed_assets: bad ktx2 for {}: {}", ref->entry->key, err);
+    lg::warn("managed_assets: bad ktx2 for {} [{}]: {}", ref->entry->key, map, err);
     return std::nullopt;
   }
   return out;
+}
+}  // namespace
+
+bool has_base(const std::string& tpage_name, const std::string& tex_name) {
+  return has_entry(tpage_name, tex_name, "albedo");
+}
+
+bool has_map(const std::string& tpage_name, const std::string& tex_name, const char* map_kind) {
+  return has_entry(tpage_name, tex_name, map_kind);
+}
+
+std::optional<CompressedTex> lookup_base(const std::string& tpage_name,
+                                         const std::string& tex_name) {
+  return lookup_entry(tpage_name, tex_name, "albedo");
+}
+
+std::optional<CompressedTex> lookup_map(const std::string& tpage_name,
+                                        const std::string& tex_name,
+                                        const char* map_kind) {
+  return lookup_entry(tpage_name, tex_name, map_kind);
+}
+
+u32 create_map_texture(const CompressedTex& tex) {
+  GLuint id = 0;
+  glGenTextures(1, &id);
+  glBindTexture(GL_TEXTURE_2D, id);
+  if (!upload_bound_texture(tex)) {
+    glDeleteTextures(1, &id);
+    return 0;
+  }
+  // Same sampler state as the PNG-sourced companion maps (make_map in
+  // LoaderStages): trilinear over the OFFLINE chain, REPEAT wrap. The tess
+  // path's textureLod() and pbr_cavity() both depend on real mip levels.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  return id;
 }
 
 bool upload_bound_texture(const CompressedTex& tex) {

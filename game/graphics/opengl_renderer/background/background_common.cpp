@@ -876,7 +876,10 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     if (maps) {
       want = (maps->normal_tex ? 1 : 0) | (maps->rough_tex ? 2 : 0) | (maps->metal_tex ? 4 : 0) |
              (maps->ao_tex ? 8 : 0) | (maps->height_tex ? 16 : 0) |
-             (maps->specular_tex ? 32 : 0) | (maps->emissive_tex ? 64 : 0);
+             (maps->specular_tex ? 32 : 0) | (maps->emissive_tex ? 64 : 0) |
+             // Grecharged-managed-assets: X/Y-only normal (compressed pack) — the shader
+             // reconstructs Z. Only meaningful alongside bit 1.
+             ((maps->normal_tex && maps->normal_is_rg) ? 128 : 0);
     }
   }
   if (want == 0 && m_cur_mode == 0) {

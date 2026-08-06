@@ -813,6 +813,11 @@ void main() {
       vec3 N = Nsurf;
       if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
         vec3 nm = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
+        // Grecharged-managed-assets: two-channel (X/Y) normal from a compressed pack — rebuild Z
+        // before the gradient decode, exactly as the fused path does.
+        if ((u_pbr_mode & 128) != 0) {
+          nm = vec3(nm.xy, sqrt(max(1.0 - dot(nm.xy, nm.xy), 0.0)));
+        }
         // Same DC-removed surface-gradient decode as the fused path above (the constant-tilt
         // plate defect is a property of the MAPS, so the rt-OFF "bidon" fallback carries it too;
         // the owner's PBR-only preset showed the identical plates). Same A/B bits: 8192 = raw

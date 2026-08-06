@@ -25,6 +25,8 @@ struct CompressedTex {
   ktx2::Texture info;      // parsed header + level table
   std::vector<u8> payload; // whole KTX2 payload (levels reference into it)
   std::string wrap_mode;   // from the pack entry metadata
+  std::string channels;    // "rgb"/"rg"/"r" — "rg" normals reconstruct Z in-shader
+  rpack::EntryStats stats; // precomputed offline (normal DC, height mean/norm/lambda)
 };
 
 // Scan/refresh the installed state. Cheap when nothing changed; call once
@@ -42,8 +44,16 @@ bool active();
 std::optional<CompressedTex> lookup_base(const std::string& tpage_name,
                                          const std::string& tex_name);
 
+// Look up a managed companion map ("normal", "roughness", "metallic", "ao",
+// "height", "specular", "emissive"). Same-source rule: only call this when
+// the BASE came from the managed pack.
+std::optional<CompressedTex> lookup_map(const std::string& tpage_name,
+                                        const std::string& tex_name,
+                                        const char* map_kind);
+
 // Existence-only probe (no payload read).
 bool has_base(const std::string& tpage_name, const std::string& tex_name);
+bool has_map(const std::string& tpage_name, const std::string& tex_name, const char* map_kind);
 
 // Upload a parsed KTX2 to the currently-bound GL_TEXTURE_2D via
 // glTexStorage2D + glCompressedTexSubImage2D (or glTexSubImage2D for the
@@ -51,5 +61,9 @@ bool has_base(const std::string& tpage_name, const std::string& tex_name);
 // call glGenerateMipmap. Returns false (with a log) on unsupported format
 // or GL error; caller falls back to the stock path.
 bool upload_bound_texture(const CompressedTex& tex);
+
+// Create a standalone GL texture for a companion PBR map (trilinear, REPEAT,
+// all offline mip levels, no glGenerateMipmap). Returns 0 on failure.
+u32 create_map_texture(const CompressedTex& tex);
 
 }  // namespace managed_assets

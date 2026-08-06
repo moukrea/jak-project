@@ -336,6 +336,13 @@
         vec2 fg = vec2(0.0);
         if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7 && (u_pbr_bisect & 64) == 0) {
           vec3 nraw = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
+          // Grecharged-managed-assets: two-channel normal (bit 128). GPU-compressed pack formats
+          // (BC5, EAC RG11, ASTC X/Y) carry no Z, so rebuild the unit vector from X/Y. Done before
+          // everything else so the Toksvig length, the gradient and the DC removal below all see a
+          // proper unit normal — identical maths to the 3-channel path from here on.
+          if ((u_pbr_mode & 128) != 0) {
+            nraw = vec3(nraw.xy, sqrt(max(1.0 - dot(nraw.xy, nraw.xy), 0.0)));
+          }
           // Toksvig variance is measured on the RAW sample. (It used to be measured AFTER the
           // strength scale, where length() saturates the 1.0 clamp for any relief above ~0.4 and
           // the whole spec-AA term silently died — exactly where shimmer is worst.)
