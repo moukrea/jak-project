@@ -359,3 +359,16 @@ Prouvé (x86 5 legs + device D-MAX/D-OFF, deploy_verify PASS) :
 À TESTER (toi, build jak-builds 02:02) : ① le jiggle de Keira — sobre mais visible ? ② cheveux qui
 ne partent plus en bloc ③ vêtements/lanières de Jak qui ne traversent plus ④ menu : PHYSICS DETAIL
 change bien la précision (et n'ouvre plus le mesh browser) ⑤ lunettes de Keira.
+
+### PRÉ-GATE 07:25 [✅ token VAGUE 2 — PHYSIQUE SUR TOUT LE CAST] — build en ligne (poussé 06:28)
+- La sim est devenue RIG-AGNOSTIQUE : elle ne dépend plus des modèles HD, elle tourne sur les os des
+  acteurs stock. **458 rigs scannés** ; chaînes déclarées par nom.
+- Trouvailles concrètes du recensement : tresses+sangles de chapeau de la géologue, moustaches +
+  haut-de-forme + cravates + **VENTRE du maire**, **ventre du pêcheur**, barbes des sages, les os
+  littéralement nommés « Dangler » de Klaww… Note honnête : **la binocle de Samos n'a AUCUN os**
+  (74 joints, aucun pour l'oculaire) → non animable telle quelle, documenté.
+- Preuves device : rigs-seen=27 en scène, **rootdev-bad=0** (rien de détaché), **resid=0** (rien ne
+  traverse), deploy_verify PASS.
+À TESTER (toi) : ① promène-toi au village et regarde les PNJ (le maire, la géologue, le pêcheur) —
+cheveux/moustaches/ventres qui bougent ? ② Keira/Jak/Samos comme prévu au cycle 2 ③ menu PHYSICS
+DETAIL (LIGHT/FULL/MAXIMUM) ④ toggle OFF = tout redevient stock.
