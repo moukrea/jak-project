@@ -13,8 +13,11 @@
 
 namespace {
 
+// Scratch installs live under a gitignored dir — they are generated, and a
+// test run must never leave artifacts in the tree.
 fs::path scratch(const char* name) {
-  const auto p = file_util::get_jak_project_dir() / "test" / "test_data" / "recharged" / name;
+  const auto p =
+      file_util::get_jak_project_dir() / "test" / "test_data" / "recharged" / "scratch" / name;
   std::error_code ec;
   fs::remove_all(p, ec);
   fs::create_directories(p, ec);

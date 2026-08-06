@@ -172,3 +172,4 @@ recharged_assets/hd_anim/
 # Grecharged-managed-assets: downloaded texture packs (installed at runtime
 # by the asset manager / tools/install_pack.py) — never committed.
 /managed_assets/
+/test/test_data/recharged/scratch/
