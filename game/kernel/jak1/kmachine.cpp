@@ -905,7 +905,12 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //   0 stiffness(Hz) 1 damping 2 gravity 3 maxangle(deg) 4 inertia 5 stretch 6 radius(units)
 //   7 rootlock(links pinned rigidly at the root) 8 gradient(root->tip freedom exponent)
 //   9 animmode(0 keep / 1 replace / 2 excite) 10 excite(scale) 11 friction(0..1 contact)
-static constexpr int kPhysNumChainParams = 12;
+// CYCLE 3 (owner 2026-08-06) — authored-animation priority, freedom floor, descendant policy:
+//   12 authored(engage threshold: authored offset as a FRACTION of the chain's own length; 0 = off)
+//   13 authrise(blend-in rate /s) 14 authfall(blend-out rate /s) 15 authstiff(stiffness x at w=1)
+//   16 rootfree(floor of the root->tip freedom ramp, 0..1 — a SHORT chain must still bend)
+//   17 nodesc(1 = do NOT rigid-re-glue this chain's descendants: they carry their own animation)
+static constexpr int kPhysNumChainParams = 18;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -914,7 +919,12 @@ static constexpr int kPhysMaxLevels = 8;
 struct PhysChain {
   std::string name;
   int class_bits = 0;
-  float params[kPhysNumChainParams] = {0, 0, 0, 0, 1.f, 0, 0, 0, 0, 1.f, 0, 0.5f};
+  //                                   0  1  2  3    4  5  6  7  8    9 10    11
+  float params[kPhysNumChainParams] = {0, 0, 0, 0, 1.f, 0, 0, 0, 0, 1.f, 0, 0.5f,
+                                       // 12 authored 13 authrise 14 authfall 15 authstiff
+                                       0.f, 8.f, 3.f, 4.f,
+                                       // 16 rootfree 17 nodesc
+                                       0.f, 0.f};
   std::vector<std::string> joints;  // ordered root -> tip
 };
 
@@ -926,6 +936,10 @@ struct PhysChain {
 struct PhysCollider {
   std::string joint;
   float radius = 0.f;
+  // CYCLE 3 (owner C): a constant-radius capsule cannot model a FLARED trouser leg or a shoulder,
+  // and Jak's jacket hem clipped straight through because of it. `radius2` gives the far end its own
+  // radius, so the volume is a CONE; <= 0 means "same as radius" (a plain cylinder, as before).
+  float radius2 = 0.f;
   std::vector<std::string> chains;  // empty = applies to ALL chains
   std::string joint2;               // empty = sphere; non-empty = CAPSULE from `joint` to `joint2`
   int tier = 1;  // 1 = core (on at every precision level with collisions), 2 = extended
@@ -987,6 +1001,8 @@ static float phys_to_float(const std::string& s) {
 static bool phys_collider_kv(PhysCollider& col, const std::string& k, const std::string& v) {
   if (k == "radius") {
     col.radius = phys_to_float(v);
+  } else if (k == "radius2") {
+    col.radius2 = phys_to_float(v);
   } else if (k == "chains") {
     // comma-separated chain names, no spaces.
     size_t p = 0;
@@ -1218,6 +1234,18 @@ static int pc_physics_parse_file() {
           ch.params[10] = phys_to_float(v);
         } else if (k == "friction") {
           ch.params[11] = phys_to_float(v);
+        } else if (k == "authored") {
+          ch.params[12] = phys_to_float(v);
+        } else if (k == "authrise") {
+          ch.params[13] = phys_to_float(v);
+        } else if (k == "authfall") {
+          ch.params[14] = phys_to_float(v);
+        } else if (k == "authstiff") {
+          ch.params[15] = phys_to_float(v);
+        } else if (k == "rootfree") {
+          ch.params[16] = phys_to_float(v);
+        } else if (k == "nodesc") {
+          ch.params[17] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
@@ -1430,7 +1458,9 @@ s64 pc_physics_num_colliders(u32 ag_name) {
 // field 0 = radius in milli. field 1 = chain-applicability bitmask, RAW (not milli): bit c set if
 // this collider applies to chain index c. An empty chains= filter -> -1 (all chains).
 // field 2 = tier, RAW (1 = core, 2 = extended). field 3 = shape, RAW: 1 if this is a CAPSULE
-// (joint2 set), 0 if it is a plain sphere.
+// (joint2 set), 0 if it is a plain sphere. field 4 = FAR-END radius in milli for a TAPERED capsule
+// (cycle 3, owner C: flared trousers / shoulders); falls back to `radius` when radius2 is unset, so
+// every existing line keeps its cylinder shape.
 s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
   pc_physics_ensure_loaded();
   const auto* model = pc_physics_find_model(ag_name);
@@ -1466,6 +1496,9 @@ s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
   }
   if (field == 2) {
     return (s64)col.tier;
+  }
+  if (field == 4) {
+    return phys_mi(col.radius2 > 0.f ? col.radius2 : col.radius);
   }
   if (field == 3) {
     return col.joint2.empty() ? 0 : 1;

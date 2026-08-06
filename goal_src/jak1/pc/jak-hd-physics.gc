@@ -39,6 +39,38 @@
 ;;     (the push-out impulse is absorbed into `prev`, killing contact jitter) and a RESIDUAL
 ;;     PENETRATION counter measured after the last iteration — the owner's bar is resid=0.
 ;;
+;; ================================ CYCLE 3 (owner verdict 2026-08-06 07:40) =====================
+;; (A) AUTHORED ANIMATION HAS PRIORITY. ND sometimes DRIVES a secondary bone on purpose — Jak's
+;;     ears reacting, Keira GRABBING her goggles and pulling them over her eyes. That is authored
+;;     intent, not fake physics, and `anim=replace` was throwing it away. Fix = per chain
+;;     `authored=T`: each frame the re-glue already knows the authored world offset it is about to
+;;     discard; expressed as a fraction of the chain's own length that IS the "is the animator
+;;     driving this?" signal. Above T (hysteresis at T/2) a blend weight w ramps to 1 at
+;;     `authrise=` per second: the TARGET becomes the authored pose, stiffness is multiplied by
+;;     `authstiff=`, gravity and excitation fade out and the chain stops colliding (the animator's
+;;     pose wins, exactly as owner-specified). When the authored motion stops, w ramps back down at
+;;     `authfall=` per second and physics RESUMES PROGRESSIVELY from where it is — the target slides
+;;     back to the calm rest pose, so there is no snap by construction. Counters: engage/release
+;;     events, held chain-frames, max blend.
+;; (B) SPAWN AND BIG TRANSITIONS. Chains "went wild" at spawn and on hard pose cuts. Per chain the
+;;     anchor's one-frame travel is watched: past max(PHYS-JUMP-ABS, 1.5x chain length) it is a
+;;     teleport/cut, not motion, so the chain hard-resets to the authored rest AND takes a
+;;     PHYS-SETTLE-frame ramp during which gravity, excitation and the visible deviation are scaled
+;;     in from zero. A chain's first simulated frame goes down the same path, so every actor spawns
+;;     at its bind pose with zero inherited velocity. `burst=` counts settle frames whose visible
+;;     deviation still exceeded PHYS-BURST-REL of the chain length — owner bar: 0.
+;; (C) TAPERED COLLIDERS. Constant-radius capsules cannot model Jak's FLARED trouser legs or his
+;;     shoulders, so the jacket hem clipped through anyway. `radius2=` gives a capsule a second
+;;     radius at its far end and the contact radius is interpolated at the contact point's own
+;;     segment parameter — a cone, not a cylinder.
+;; (D) THE FREEDOM RAMP MUST FIT THE CHAIN'S LENGTH. Jak's hair is TWO joints with rootlock=1, so
+;;     exactly one link could ever move ("only the very tip of the tip"), and Keira's short back
+;;     hair had the same shape. The ramp now has a configurable FLOOR (`rootfree=`) so the stiffest
+;;     free link keeps a usable fraction of the cone instead of 1/nfree, and the short chains drop
+;;     the rigid rootlock for a steep gradient — the root still visibly rides the skull, but the
+;;     whole strand bends. Proof: per-LINK window spans (`jdev:`), so "the root is frozen" is a
+;;     number, and `frozen=` counts ACTIVE chains that never moved in a window where the actor did.
+;; (F) KEIRA'S SHOULDER STRAPS are REVERTED (see physics_chains.txt) — they were a regression.
 ;; DATA-DRIVEN: chains + params + precision levels live in recharged_assets/physics_chains.txt,
 ;; parsed C++-side (kmachine.cpp, OG_FEAT_PHYSICS) and queried over the pc-physics-* FFI at
 ;; companion init (joint NAMES resolved against the live HD jgeo). All FFI numeric returns are
@@ -68,12 +100,14 @@
 (define-extern pc-physics-num-chains (function string int))
 ;; ids: 0 hz 1 damp 2 grav 3 maxangle-deg 4 inertia 5 stretch 6 radius
 ;;      7 rootlock 8 gradient 9 animmode 10 excite 11 friction
+;;      12 authored 13 authrise 14 authfall 15 authstiff 16 rootfree 17 nodesc   (cycle 3)
 (define-extern pc-physics-chain-param-mi (function string int int int))
 (define-extern pc-physics-chain-flags (function string int int))    ;; class bits 1/2/4
 (define-extern pc-physics-level-param-mi (function int int int))    ;; 0 substeps 1 iters 2 collide-tier 3 classmask 4 fixedhz
 (define-extern pc-physics-joint-collider-mi (function string string int)) ;; milli radius, 0 none
 (define-extern pc-physics-num-colliders (function string int))
-;; 0 milli radius, 1 RAW chain mask (-1 = all), 2 RAW tier, 3 RAW 1 = capsule
+;; 0 milli radius, 1 RAW chain mask (-1 = all), 2 RAW tier, 3 RAW 1 = capsule,
+;; 4 milli FAR-END radius (tapered capsule; = field 0 when radius2= is absent)
 (define-extern pc-physics-collider-param-mi (function string int int int))
 (define-extern pc-physics-collider-is-joint (function string int string int)) ;; 1 if collider i sits on that joint
 (define-extern pc-physics-collider-is-joint2 (function string int string int)) ;; 1 if capsule i ENDS on that joint
@@ -106,7 +140,11 @@
 ;; ONE-LINE window emitter buffer: `format 0` is one logcat line per call on Android, so the whole
 ;; window must be assembled here and printed once (see the emitter at the bottom of this file).
 ;; Cycle 2 widened it: the per-chain deviation list rides in the SAME line (24 chains x ~13 chars).
-(define *phys-line-buf* (new 'global 'string 768 (the-as string #f)))
+;; Cycle 3 widened it again and added a SECOND line ([HD-PHYS2]: per-chain push-outs and the
+;; per-LINK spans). The buffer is reused for both — appending to a string never splits a line, only
+;; `format 0` does — so it must hold the LONGER of the two: 24 chains x ~11 + 48 links x ~15 + a
+;; header. 2048 leaves better than 2x headroom over the worst case a full slot can produce.
+(define *phys-line-buf* (new 'global 'string 2048 (the-as string #f)))
 (define *phys-slot-pushouts* (new 'static 'array int32 24))  ;; collision push-out events (window)
 (define *phys-slot-maxpen* (new 'static 'array float 24))    ;; max penetration depth resolved (window)
 ;; ---- cycle-2 counters -------------------------------------------------------------------------
@@ -117,6 +155,22 @@
 (define *phys-slot-reglue* (new 'static 'array int32 24))    ;; chains whose authored channel was replaced this frame
 (define *phys-slot-desc* (new 'static 'array int32 24))      ;; non-simulated descendants re-glued onto moved parents (anti-tear)
 (define *phys-slot-nopose* (new 'static 'array int32 24))    ;; chain-frames with a ZERO-LENGTH pose (parked spawn / teleport frame) — not simulatable, not audited
+;; ---- cycle-3 counters -------------------------------------------------------------------------
+(define *phys-slot-authhold* (new 'static 'array int32 24))  ;; (A) chain-frames the AUTHORED animation owned (blend > 0.5)
+(define *phys-slot-autheng* (new 'static 'array int32 24))   ;; (A) suspension ENGAGE events
+(define *phys-slot-authrel* (new 'static 'array int32 24))   ;; (A) suspension RELEASE events (physics resumed) — engage without release = stuck
+(define *phys-slot-authmax* (new 'static 'array float 24))   ;; (A) max blend weight reached
+(define *phys-slot-reseed* (new 'static 'array int32 24))    ;; (B) spawn + teleport chain resets
+(define *phys-slot-burst* (new 'static 'array int32 24))     ;; (B) settle frames whose VISIBLE deviation still blew past the bound — owner bar: 0
+(define *phys-slot-frozen* (new 'static 'array int32 24))    ;; (D) ACTIVE chains that never moved in a window where the actor did
+
+;; ---- cycle-3 constants ------------------------------------------------------------------------
+(defconstant PHYS-SETTLE 20)          ;; frames of physics ramp-in after a spawn / teleport (~1/3 s)
+(defconstant PHYS-JUMP-ABS 4096.0)    ;; 1 m of anchor travel in ONE frame is a cut/teleport, never running
+(defconstant PHYS-JUMP-REL 1.5)       ;; ...or 1.5x the chain's own length, whichever is larger
+(defconstant PHYS-BURST-REL 0.35)     ;; a settling chain deviating past 35% of its length = "it went wild"
+(defconstant PHYS-FROZEN-DEV 6.0)     ;; window deviation under this (1.5 mm) = the chain never moved
+(defconstant PHYS-FROZEN-ANCH 60.0)   ;; ...and only counts in a window where the anchor really did move
 
 ;; WAVE 2: the sim no longer reads a companion's khd-par — every slot carries its OWN parent table,
 ;; filled either from the companion's k->e table or, for a stock rider, from the live jgeo
@@ -132,7 +186,8 @@
 (define *phys-pos* (new 'static 'inline-array vector 1152))
 (define *phys-prev* (new 'static 'inline-array vector 1152))
 (define *phys-targ* (new 'static 'inline-array vector 1152)) ;; per-frame target cache
-(define *phys-anim* (new 'static 'inline-array vector 1152)) ;; per-frame AUTHORED position (pre re-glue), for anim=excite
+(define *phys-anim* (new 'static 'inline-array vector 1152)) ;; per-frame AUTHORED position (pre re-glue), for anim=excite and (A) authored priority
+(define *phys-jdev* (new 'static 'array float 1152))         ;; (D) per-LINK window max deviation: "only the tip moves" is a number, not an impression
 
 ;; per chain (idx = slot*PHYS-CPS + c); cstart is the joint index base WITHIN the slot.
 (define *phys-cstart* (new 'static 'array int32 576))
@@ -152,12 +207,25 @@
 (define *phys-cexcite* (new 'static 'array float 576))      ;; anim=excite: authored-delta force scale
 (define *phys-cfric* (new 'static 'array float 576))        ;; contact friction 0..1
 (define *phys-cdev* (new 'static 'array float 576))         ;; window max deviation OF THIS CHAIN (per-chain proof)
+;; ---- cycle-3 per-chain state ------------------------------------------------------------------
+(define *phys-cauth* (new 'static 'array float 576))        ;; (A) authored-priority blend weight, 0 = pure physics, 1 = the animator owns the chain
+(define *phys-cauththr* (new 'static 'array float 576))     ;; (A) engage threshold (authored offset / chain length); 0 = feature off for this chain
+(define *phys-cauthrise* (new 'static 'array float 576))    ;; (A) blend-in rate per second
+(define *phys-cauthfall* (new 'static 'array float 576))    ;; (A) blend-out rate per second — this is the "physics resumes progressively" ramp
+(define *phys-cauthstiff* (new 'static 'array float 576))   ;; (A) stiffness multiplier at w=1 (how hard the chain tracks the authored pose)
+(define *phys-cauthmax* (new 'static 'array float 576))     ;; (A) window max authored ratio seen — proves the DETECTOR is live even when it never engages
+(define *phys-crootfree* (new 'static 'array float 576))    ;; (D) floor of the root->tip freedom ramp
+(define *phys-cnodesc* (new 'static 'array int32 576))      ;; descendants of this chain carry their OWN animation — do not rigid-re-glue them
+(define *phys-csettle* (new 'static 'array int32 576))      ;; (B) frames of physics ramp-in left after a spawn / teleport
+(define *phys-canchprev* (new 'static 'inline-array vector 576)) ;; (B) this chain's anchor last frame — a one-frame jump IS the teleport signal
+(define *phys-cpush* (new 'static 'array int32 576))        ;; per-chain collision push-outs (window): names the chain a collider is WELDING
 
 ;; body collision volumes (idx = slot*PHYS-COLS + i). joint2 < 0 = sphere on joint1, else CAPSULE
 ;; swept between the two animated bones.
 (define *phys-colk* (new 'static 'array int32 384))         ;; jgeo joint index carrying the volume
 (define *phys-colk2* (new 'static 'array int32 384))        ;; capsule far end, -1 = sphere
 (define *phys-colr* (new 'static 'array float 384))
+(define *phys-colr2* (new 'static 'array float 384))        ;; (C) far-end radius: radius != radius2 = a TAPERED (conical) volume
 (define *phys-colmask* (new 'static 'array int64 384))      ;; chain-applicability bits (bit c)
 (define *phys-coltier* (new 'static 'array int32 384))      ;; 1 = core (every level), 2 = extended
 
@@ -167,20 +235,24 @@
 (defun phys-closest-on-seg! ((out vector) (a vector) (b vector) (p vector))
   "closest point of a collider's SPINE to p. A sphere passes b = a (the degenerate segment falls
   through to `a`), a capsule passes its two animated bone positions — one code path, so the
-  constraint pass and the residual audit can never drift apart."
-  (let ((ab (new 'stack-no-clear 'vector))
-        (ap (new 'stack-no-clear 'vector)))
-    (vector-! ab b a)
-    (let ((d2 (vector-dot ab ab)))
-      (cond
-        ((< d2 0.0001)
-         (vector-copy! out a))
-        (else
-         (vector-! ap p a)
-         (let ((tt (fmax 0.0 (fmin 1.0 (/ (vector-dot ap ab) d2)))))
+  constraint pass and the residual audit can never drift apart.
+  RETURNS the segment parameter t in [0,1] of that closest point (0 for the degenerate/sphere case)
+  so a TAPERED capsule (cycle 3, owner C) can interpolate its radius AT THE CONTACT — a cone. Both
+  callers must use the same t or the audit would grade the push-out against a different volume."
+  (let ((tt 0.0))
+    (let ((ab (new 'stack-no-clear 'vector))
+          (ap (new 'stack-no-clear 'vector)))
+      (vector-! ab b a)
+      (let ((d2 (vector-dot ab ab)))
+        (cond
+          ((< d2 0.0001)
+           (vector-copy! out a))
+          (else
+           (vector-! ap p a)
+           (set! tt (fmax 0.0 (fmin 1.0 (/ (vector-dot ap ab) d2))))
            (vector-float*! ab ab tt)
-           (vector+! out a ab))))))
-  out)
+           (vector+! out a ab)))))
+    tt))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; WAVE 2 slot pool. A "slot" is one simulated ACTOR: its parent table, its chains, its verlet
@@ -425,7 +497,21 @@
           (set! (-> *phys-cgrad* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 8))))
           (set! (-> *phys-canim* ci) (/ (pc-physics-chain-param-mi ag c 9) 1000))
           (set! (-> *phys-cexcite* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 10))))
-          (set! (-> *phys-cfric* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 11)))))))
+          (set! (-> *phys-cfric* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 11))))
+          ;; cycle 3: authored-animation priority / freedom floor / descendant policy
+          (set! (-> *phys-cauththr* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 12))))
+          (set! (-> *phys-cauthrise* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 13))))
+          (set! (-> *phys-cauthfall* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 14))))
+          (set! (-> *phys-cauthstiff* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 15))))
+          (set! (-> *phys-crootfree* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 16))))
+          (set! (-> *phys-cnodesc* ci) (/ (pc-physics-chain-param-mi ag c 17) 1000))
+          ;; a re-bind (hot params push, look switch) must not inherit a half-engaged suspension or a
+          ;; stale anchor: every chain starts calm, at rest, and SETTLES in (owner B).
+          (set! (-> *phys-cauth* ci) 0.0)
+          (set! (-> *phys-cauthmax* ci) 0.0)
+          (set! (-> *phys-cpush* ci) 0)
+          (set! (-> *phys-csettle* ci) PHYS-SETTLE)
+          (vector-reset! (-> *phys-canchprev* ci)))))
     ;; body collision volumes: file order, joints resolved by name, per-chain applicability
     ;; mask + tier. A capsule needs BOTH ends present in the rig or it degrades to a sphere on
     ;; its first joint (never silently: the drop is logged).
