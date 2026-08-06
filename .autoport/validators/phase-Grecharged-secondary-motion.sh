@@ -81,4 +81,21 @@ v=[float(x) for x in m]
 sys.exit(0 if len(v)>=2 and v[-1]<=v[0]*0.5 else 1)
 PYO
 
+
+# ---- CYCLE 3d (owner 09:20): no step in the per-link influence profile ----
+grep -qiE "(daxter|sidekick)[^\n]{0,80}(ear|oreille)" "$R" || fail "P: Daxter ears not addressed"
+grep -qiE "(profile|profil|per.?link|par maillon)[^\n]{0,80}(weight|influence|poids)" "$R" || fail "P: no per-link influence profile reported"
+python3 - "$R" <<'PYP' || fail "P: per-link influence profile shows a STEP (adjacent-link jump too large) or is unreadable — the transition must be continuous"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+best=None
+for m in re.finditer(r'(?:profile|profil|per.?link|par maillon)[^\n]{0,80}?((?:[01]?\.[0-9]+[ ,/|]+){3,}[01]?\.?[0-9]*)',t,re.I):
+    v=[float(x) for x in re.findall(r'[01]?\.[0-9]+|\b[01]\b',m.group(1))]
+    if len(v)>=4: best=v; break
+if not best: sys.exit(1)
+d=[abs(best[i+1]-best[i]) for i in range(len(best)-1)]
+sys.exit(0 if max(d)<=0.45 else 1)
+PYP
+grep -qiE "(daxter|sidekick)[^\n]{0,90}(authored|anim.{0,12}priorit|priorit)" "$R" || fail "Q: authored-anim priority not proven on Daxter ears"
+
 echo "[Grecharged-secondary-motion PASS]"

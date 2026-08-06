@@ -327,3 +327,24 @@ d'oscillation. Concrètement :
     doucement (amortissement fortement augmenté) au lieu de vibrer.
 ⇒ Cas de test cité par l'owner : le COL de Jak, cinématique d'intro, Jak ALLONGÉ, tout premier plan
 (contact fort col/épaule/sol). À traiter comme un cas de non-régression.
+
+## ============================================================
+## CYCLE 3d — OWNER 2026-08-06 ~09:20 (dernier point sur l'état actuel)
+## ============================================================
+### P. TRANSITION EN CRAN SUR LES OREILLES DE DAXTER
+« J'ai l'impression que la MOITIÉ HAUTE de ses oreilles a de la physique, mais la transition est trop
+BRUTALE à mi-hauteur : ça fait un CRAN bizarre. »
+⇒ C'est le même réglage que la section D, mais le défaut n'est pas « trop peu / trop de mouvement » :
+c'est une DISCONTINUITÉ. Un `rootlock=N` binaire (les N premiers maillons rigides, les suivants
+libres) crée par construction une cassure nette exactement à la frontière. Il faut un profil
+d'influence CONTINU le long de la chaîne — la liberté doit monter progressivement de la racine vers
+la pointe, sans marche. Le pli visible est le symptôme d'une dérivée discontinue, pas d'une amplitude
+mal choisie.
+⇒ EXIGENCE : rapporter le PROFIL D'INFLUENCE par maillon (poids maillon 0..n) pour les oreilles de
+Daxter, et montrer que l'écart entre deux maillons voisins est borné (pas de saut). À appliquer à
+TOUTES les chaînes courtes où le cran se verrait (oreilles, mèches, sangles).
+
+### Q. RAPPEL OWNER (déjà section A, à ne pas perdre de vue) : les ANIMATIONS ORIGINALES ONT LA
+PRIORITÉ sur la physique, et la physique REPREND APRÈS. « Ça doit être le cas sur les oreilles de
+Daxter comme sur le reste. » ⇒ les oreilles de Daxter sont hand-keyées par ND dans plein
+d'animations : quand l'anim les pilote, elle gagne ; la sim revient en blend ensuite.
