@@ -192,3 +192,63 @@ universel déjà spécifié plus haut, à EXÉCUTER :
    nouveaux harnais) ; l'owner juge le rendu.
 RAPPEL : livrer aussi l'override externe de physics_chains.txt (tuning owner = quelques Ko, pas 581 Mo)
 s'il n'a pas été fait au cycle 2.
+
+## ============================================================
+## VERDICT OWNER 2026-08-06 ~07:40 (build 06:28, cycle2+wave2) — CYCLE 3 : LE GROS morceau
+## ============================================================
+Acquis à NE PAS régresser : lanières de cuir de Jak « vraiment pas mal », mèches avant de Keira
+« vraiment pas mal », cheveux de Jak qui tiennent au crâne (ancrage OK).
+
+### A. PRINCIPE ARCHITECTURAL (le plus important — owner) : PRIORITÉ À L'ANIMATION D'AUTEUR
+« Il faudrait laisser les animations originales faire leur travail quand elles font des ACTIONS
+FORCÉES prévues par Naughty Dog, AU MOMENT où elles le font, et laisser reprendre la physique après —
+pour éviter les collisions et garder les intentions originales (c'est cartoon, parfois des animations
+sont forcées à juste titre). »
+=> Mécanisme à implémenter : par chaîne, détecter quand le canal d'anim PILOTE délibérément les os de
+la chaîne (déplacement authored significatif) ⇒ l'ANIMATION GAGNE pendant ce temps (physique
+suspendue), puis REPRISE progressive de la physique (blend-out/in, pas de saut). Cas cités :
+les OREILLES de Jak, les LUNETTES de Keira quand elles sont SAISIES pour être mises devant ses yeux
+(la physique doit être suspendue pendant toute l'animation de saisie/port).
+=> EXCEPTION déjà traitée : le faux VENT forcé sur Jak reste éliminé... MAIS idée owner à retenir :
+on POURRAIT le laisser reprendre en IDLE quand Jak est EN EXTÉRIEUR (pas en intérieur).
+
+### B. SPAWN & GROSSES TRANSITIONS : « ça part un peu en live »
+Sur les grosses transitions de pose, et AU SPAWN de TOUS les acteurs à physique, les chaînes partent
+n'importe où. => initialiser les chaînes à la pose de bind au spawn (pas de vélocité héritée),
+détecter les téléports/deltas de pose énormes et RESET+blend au lieu de simuler la transition.
+
+### C. FIDÉLITÉ DES COLLIDERS (hypothèse owner, très probablement juste)
+« Le bas de sa veste qui va par-dessus son pantalon clip TOUJOURS ÉNORMÉMENT — je pense que tes
+colliders ne prennent pas en compte que le pantalon est ÉVASÉ vers le bas. » => capsules à rayon
+CONSTANT insuffisantes : il faut des volumes CONIQUES/évasés (rayon différent à chaque extrémité)
+pour les jambes/pantalon, et un collider d'épaules correct (le COL de la veste de Jak clippe dans
+ses épaules).
+
+### D. PORTÉE / DÉGRADÉ DES CHAÎNES mal réglés (deux symptômes opposés)
+- JAK cheveux : « c'est juste le BOUT DU BOUT de sa coiffe qui bouge, ça rend pas bien » ⇒ rootlock
+  trop long et/ou gradient trop raide : il faut que plus de la longueur bouge.
+- KEIRA cheveux ARRIÈRE (courts) : « a l'air de ne pas être dans le rayon d'influence (dégradé ?) et
+  donc est complètement stiff » ⇒ chaînes courtes exclues/figées : le dégradé doit s'adapter à la
+  LONGUEUR de la chaîne (une chaîne de 2 maillons doit quand même bouger).
+
+### E. CHAÎNES MANQUANTES
+- JAK : l'ANNEAU EN MÉTAL sur son plastron tenu par des lanières de cuir — aucune physique.
+- JAK : les OREILLES devraient avoir une physique LÉGÈRE (et respecter A quand l'anim les pilote).
+
+### F. RÉGRESSION (priorité haute) : LES BRETELLES DE KEIRA
+« C'est bien, bien PIRE qu'avant, c'était très largement mieux AVANT la physique. Elles clippent au
+travers de la poitrine et font des ANGLES TRÈS ARRÊTÉS au lieu de suivre la forme de son corps sur le
+devant. » ⇒ soit on les fait suivre le buste correctement (collider de poitrine + contrainte de
+surface + lissage des angles), soit on RETIRE la physique de ces chaînes pour revenir au comportement
+d'avant. Ne pas laisser en l'état.
+
+### G. AMPLITUDE POITRINE KEIRA : « ça bouge un poil, faut regarder à la loupe — faudrait que ça
+jiggle BEAUCOUP PLUS que ça ! » ⇒ monter nettement l'amplitude (raideur/amorti/excitation), tout en
+restant crédible. Le « rien de fou » initial était trop timide.
+
+### H. DÉFAUT PRÉ-EXISTANT à corriger au passage : la lanière AVEC BOUCLE MÉTAL dans le DOS de Jak —
+la boucle clippe bizarrement avec la lanière (« ça rendait déjà un peu bizarre AVANT la physique »).
+
+### I. GÉNÉRALISATION (owner) : « je pense que tu peux déjà adopter ce feedback à beaucoup d'autres
+personnages et PNJs » ⇒ appliquer A/B/C/D à TOUT le cast (spawn, priorité anim, colliders évasés,
+dégradé adapté à la longueur), pas seulement Jak/Keira.
