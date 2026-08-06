@@ -296,4 +296,23 @@ sys.stderr.write(f"  models named in the report: {n}\n")
 sys.exit(0 if n>=30 else 1)
 PYM
 
+
+# C6-fit: collision volumes must be DERIVED from the mesh and measured against it
+grep -qiE "(fit|ajust)[- ]?error[^\n]{0,60}=[^\n]{0,20}[0-9]" "$R" || fail "C6-fit: no collider fit-error measured against the MESH (max distance a mesh vertex sticks OUT of its collision volume)"
+python3 - "$R" <<'PYFIT' || fail "C6-fit: mesh vertices still stick out of the collision volume — that hole is where the owner sees things pass through"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+v=[float(x) for x in re.findall(r'fit[- ]?error[^\n]{0,50}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+sys.exit(0 if v and max(v)<=12.0 else 1)
+PYFIT
+grep -qiE "(derived|derive|from the mesh|skinned vert|convex|hull|oriented box)" "$R" || fail "C6-fit: collision volumes not shown to be derived from the merc geometry (hand-written capsules cannot follow a shoulder or a jaw)"
+# C6-self: physics elements need their own volume, and chain-chain contact must be live
+grep -qiE "(per[- ]link|par maillon)[^\n]{0,60}(radius|volume|rayon)" "$R" || fail "C6-self: physics links have no volume of their own — two chains cannot see each other"
+python3 - "$R" <<'PYCC' || fail "C6-self: no chain-vs-chain contact counter with a positive control (Jak's buckle through his own strap, Keira's goggles into her chest)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+m=re.search(r'chain[- ]?(?:vs|to|contre)[- ]?chain[^\n]{0,60}?=\s*([0-9]+)',t,re.I)
+sys.exit(0 if m else 1)
+PYCC
+
 echo "[Grecharged-secondary-motion PASS]"

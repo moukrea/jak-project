@@ -627,3 +627,29 @@ LES PERSONNAGES ! Pas juste Keira et Jak ! »
 => LIVRABLE : un audit de pénétration PAR MODÈLE couvrant les 60, avec le contrôle positif appliqué
    à chacun (un compteur qui n'a jamais su monter sur ce modèle ne prouve rien pour ce modèle).
    Rapporter la liste des modèles audités et, pour chacun, pénétration = 0 AVEC contrôle positif.
+
+### CAUSE RACINE DONNÉE PAR L'OWNER (01:45) — DEUX PROBLÈMES LIÉS
+« Je pense surtout que les colliders sont NULS À CHIER et ne suivent pas les formes des mesh avec
+suffisamment de détail (ou carrément à côté de la plaque). Ensuite les éléments ayant de la physique
+EUX-MÊMES n'ont pas de colliders, donc évidemment si deux entrent en collision ça clip. »
+
+#### PROBLÈME 1 — LES VOLUMES DE CORPS NE SUIVENT PAS LE MESH
+Les capsules sont écrites À LA MAIN dans `physics_chains.txt` (rayon + deux os). Une capsule ne peut
+pas épouser un torse, une épaule, une mâchoire ou une cuisse : soit elle est trop fine et le mesh
+dépasse (l'élément passe à travers la peau), soit elle est trop grosse et l'élément flotte.
+=> LA COLLISION DOIT ÊTRE DÉRIVÉE DU MESH, pas devinée. Construire les volumes À PARTIR de la
+   géométrie merc réelle : pour chaque os, prendre les sommets qui lui sont skinnés et en déduire le
+   volume englobant (enveloppe convexe par os, boîte orientée, ou chapelet de sphères ajusté). Les
+   capsules manuelles ne restent acceptables que là où l'ajustement mesuré est bon.
+=> MESURE OBLIGATOIRE, « fit error » : pour chaque os, la distance maximale dont un sommet du MESH
+   SORT du volume de collision. Un sommet qui dépasse = un trou par lequel un élément passera. À
+   rapporter PAR MODÈLE, avec le pire os nommé. C'est ce chiffre qui dit si les colliders sont
+   « à côté de la plaque », et il ne dépend d'aucun jugement visuel.
+
+#### PROBLÈME 2 — LES ÉLÉMENTS À PHYSIQUE N'ONT PAS DE VOLUME PROPRE
+Aujourd'hui une chaîne est une ligne de points : elle peut buter contre le corps, mais deux chaînes
+ne se voient pas. D'où la boucle métal de Jak qui traverse sa propre lanière, les lunettes de Keira
+qui entrent dans sa poitrine, ses mèches qui traversent ses oreilles.
+=> Donner à CHAQUE MAILLON son propre volume (rayon par maillon, dérivé lui aussi de l'épaisseur du
+   mesh qu'il porte), et activer la collision CHAÎNE ↔ CHAÎNE en plus de CHAÎNE ↔ CORPS.
+=> Rapporter un compteur de contacts chaîne-chaîne (avec contrôle positif : il doit savoir monter).

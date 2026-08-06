@@ -288,6 +288,36 @@
 ;; character standing still. Zeroed, so the chain converges on its rest pose instead of orbiting it.
 ;; 1 unit/frame = 0.25 mm/frame; a real swing is two orders of magnitude above this.
 (defconstant PHYS-SLEEP-VEL 1.0)
+;; (W/cycle-5) ARRIVAL. Sleeping only ever killed the VELOCITY, never asked where the chain was
+;; when it did it — and that one omission is the whole of restdevA. A link whose target has gone
+;; still and whose own speed has dropped below the floor has its `prev` collapsed onto `pos`, so
+;; the verlet residue that was carrying it home is deleted and the spring is left to crawl the
+;; remaining distance one acc*dt^2 step at a time. Measured on the phone: Maia's chest chains ended
+;; 473 and 948 units (11-23 cm) from the pose Naughty Dog modelled and STAYED there, reading calm
+;; the entire time, because at omega_eff = 2.6 rad/s a 473-unit error advances 0.6 units a frame.
+;; That is the owner's "ca se balade meme sans mouvement", "rien ne se repose vraiment nulle part"
+;; and "la position IDLE devrait etre EXACTEMENT celle du modele de base" — one defect, three
+;; descriptions.
+;;
+;; So sleeping now ARRIVES: the same frames that used to freeze a chain in place relax it onto its
+;; target instead. Deliberately NOT a clamp, a freeze or a pin — the three words the owner ruled
+;; out ("MAIS SUJETS A LA PHYSIQUE"):
+;;   * it is armed only after the chain has been quiet for PHYS-ARRIVE-N consecutive frames AND
+;;     the animation has stopped asking the chain for anything (ctmove < PHYS-IDLE-TARG). One
+;;     frame of excitation — the anchor moving, the animator keying — disarms it instantly and the
+;;     full-amplitude spring is back, with no state to unwind.
+;;   * it is a first-order relaxation, not a snap: PHYS-ARRIVE-K of the remaining error per frame.
+;;   * it moves the state, never the equilibrium, and it writes `prev` alongside `pos`, so it
+;;     injects exactly zero velocity (owner rule O).
+;;   * FAMILY A ONLY. Family B's rest pose is gravity's, not the model's; relaxing a hanging strap
+;;     onto its authored pose would be the opposite bug and is precisely what the owner rejected.
+;;   * links a collider is holding are skipped: the body is allowed to hold a strand off the model
+;;     pose, and that is not a fidelity failure (the residual audit takes the same view).
+;; PHYS-ARRIVE-N is 3 against PHYS-RESTCALM's 10 and both count the SAME quiet frames, so arrival
+;; always has a seven-frame head start on the measurement by construction, on any chain, at any
+;; frequency — 0.65^7 of the error is left when the fidelity metric first looks.
+(defconstant PHYS-ARRIVE-N 3)
+(defconstant PHYS-ARRIVE-K 0.35)
 ;; (S) FREE-SPACE ANTI-RING. The contact rest state (PHYS-STICK) only ever armed on a chain pressed
 ;; against a collider, so it could not touch the defect the owner actually reported: hair, ears, a
 ;; collar and lurker legs ringing in OPEN AIR. A link that reverses direction above the jitter speed
@@ -1881,8 +1911,63 @@
                          ;; will carry — and mirrors every correction into the sim state and into
                          ;; `prev` by the same delta, so the simulation follows the output out of the
                          ;; body and not one unit of velocity is injected doing it.
-                         (when (nonzero? collide?)
-                           (dotimes (cit 4)
+                         (dotimes (cit 4)
+                           ;; ---- (X) LENGTH RESTORATION, INTERLEAVED WITH THE RESOLVE ------------
+                           ;; This used to run ONCE, AFTER the whole collision sweep, and the last
+                           ;; thing it did was lengthen links that the sweep had just pushed off a
+                           ;; body volume. Lengthening is roughly tangential, but "roughly" is not
+                           ;; "never", and the frame then ended with the chain back inside: that is
+                           ;; where xleg went from 0 to 2 and to 50 on the leg where the crush was
+                           ;; being worked, one target undoing the other. Two projections that
+                           ;; disagree have to ALTERNATE, not queue: length, then contact, four
+                           ;; times, so the sweep always has the last word and the frame can only
+                           ;; end outside the body. It also runs when the chain collides with
+                           ;; nothing at all, because the crush does not need a collider to happen —
+                           ;; `out = target + influence*(sim - target)` is a per-link positional
+                           ;; lerp between two poses of equal length, and the interpolated shape is
+                           ;; a chord of both. That alone is most of Jak's 0.6757.
+                           ;; The output and the sim state are restored SEPARATELY, each against its
+                           ;; own parent. The old pass measured the shortfall on `out` and mirrored
+                           ;; that same delta into `pos`, which was right while the only cause was a
+                           ;; collision push (both are short by the same amount, both get the same
+                           ;; correction). It is wrong for the lerp shortfall, where `pos` is already
+                           ;; the right length and only the blend is chord-short: mirroring would
+                           ;; have inflated the sim chain by up to a third and left the distance
+                           ;; constraint fighting it every frame. Two independent projections, one
+                           ;; number each: lenmin grades `out`, lensim grades `pos`.
+                           (when (> len 1)
+                             (dotimes (i len)
+                               (when (> i rl)
+                                 (vector-! axis (-> *phys-targ* (+ start i))
+                                           (-> *phys-targ* (+ start i -1)))
+                                 (let ((want (vector-length axis)))
+                                   (when (> want 0.0001)
+                                     ;; the point the BONE gets
+                                     (vector-! dirv (-> *phys-out* (+ start i))
+                                               (-> *phys-out* (+ start i -1)))
+                                     (let ((have (vector-length dirv)))
+                                       (when (and (> have 0.0001) (< have want))
+                                         (vector-float*! vtmp dirv (/ (- want have) have))
+                                         (let ((cl (vector-length vtmp)))
+                                           (when (> cl maxcorr)
+                                             (vector-float*! vtmp vtmp (/ maxcorr cl))))
+                                         (vector+! (-> *phys-out* (+ start i))
+                                                   (-> *phys-out* (+ start i)) vtmp)))
+                                     ;; ...and the simulated state, mirrored into prev so the repair
+                                     ;; reads as zero velocity next frame (owner rule O).
+                                     (vector-! dirv (-> *phys-pos* (+ start i))
+                                               (-> *phys-pos* (+ start i -1)))
+                                     (let ((have (vector-length dirv)))
+                                       (when (and (> have 0.0001) (< have want))
+                                         (vector-float*! vtmp dirv (/ (- want have) have))
+                                         (let ((cl (vector-length vtmp)))
+                                           (when (> cl maxcorr)
+                                             (vector-float*! vtmp vtmp (/ maxcorr cl))))
+                                         (vector+! (-> *phys-pos* (+ start i))
+                                                   (-> *phys-pos* (+ start i)) vtmp)
+                                         (vector+! (-> *phys-prev* (+ start i))
+                                                   (-> *phys-prev* (+ start i)) vtmp))))))))
+                           (when (nonzero? collide?)
                              (dotimes (i len)
                                (when (>= i cs)
                                  (let* ((p (-> *phys-out* (+ start i)))
@@ -1963,39 +2048,6 @@
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
                                                          (-> *phys-prev* (+ start i)) vtmp))))))))))))
-                         ;; ---- (X) LENGTH RESTORATION, after the collision sweep ------------------
-                         ;; The final resolve moves the OUTPUT out of a body volume and mirrors the
-                         ;; delta into the sim state — but nothing re-imposes the link length
-                         ;; afterwards, so a chain squeezed between two volumes relieves the contact
-                         ;; by getting SHORTER. Measured: Jak's pack strap at 0.71 of its modelled
-                         ;; length, Daxter's at 0.73. That is the owner's "rien ne doit se TASSER"
-                         ;; happening in the one pass the distance constraint does not cover. A short
-                         ;; link is pushed back out along its own direction, clamped like every other
-                         ;; correction, and mirrored into prev so it injects no velocity. Lengthening
-                         ;; moves a link roughly TANGENTIALLY to the surface it was just pushed off,
-                         ;; so it does not undo the push-out; anything it does undo is caught by the
-                         ;; residual audit that runs immediately after this.
-                         (when (and (nonzero? collide?) (> len 1))
-                           (dotimes (it 2)
-                             (dotimes (i len)
-                               (when (> i rl)
-                                 (let ((p (-> *phys-out* (+ start i)))
-                                       (pp (-> *phys-out* (+ start i -1))))
-                                   (vector-! axis (-> *phys-targ* (+ start i))
-                                             (-> *phys-targ* (+ start i -1)))
-                                   (let ((want (vector-length axis)))
-                                     (vector-! dirv p pp)
-                                     (let ((have (vector-length dirv)))
-                                       (when (and (> want 0.0001) (> have 0.0001) (< have want))
-                                         (vector-float*! vtmp dirv (/ (- want have) have))
-                                         (let ((cl (vector-length vtmp)))
-                                           (when (> cl maxcorr)
-                                             (vector-float*! vtmp vtmp (/ maxcorr cl))))
-                                         (vector+! p p vtmp)
-                                         (vector+! (-> *phys-pos* (+ start i))
-                                                   (-> *phys-pos* (+ start i)) vtmp)
-                                         (vector+! (-> *phys-prev* (+ start i))
-                                                   (-> *phys-prev* (+ start i)) vtmp)))))))))
                          ;; ---- residual penetration audit (owner 17:35 bar: this must read 0) ----
                          ;; Measured AFTER the last iteration, on the exact point that is about to be
                          ;; written to the bones — a push-out counter alone would happily report
@@ -2278,12 +2330,47 @@
                            ;; the mechanism that takes idle drift to zero rather than merely small.
                            ;; A chain still settling in from a spawn is exempt — its ramp IS input.
                            (when (and (< ctmove PHYS-IDLE-TARG) (<= (-> *phys-csettle* ci) 0))
-                             (dotimes (i len)
-                               (when (>= i rl)
-                                 (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
-                                 (when (< (vector-length vtmp) PHYS-SLEEP-VEL)
-                                   (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
-                                   (+! (-> *phys-slot-slept* slot) 1))))))
+                             ;; (W) ...AND ARRIVAL. See PHYS-ARRIVE-K. Sleeping used to stop here,
+                             ;; at "kill the residue", which freezes a chain wherever it happens to
+                             ;; be rather than where the model says it lives. `arv` is non-zero only
+                             ;; on a BODY chain the animator has let go of and that has been quiet
+                             ;; for PHYS-ARRIVE-N frames; it relaxes the state onto the target and
+                             ;; writes `prev` with it, so the chain comes home without carrying one
+                             ;; unit of velocity for having done so.
+                             (let ((arv (if (and (!= 2 (-> *phys-cfam* ci))
+                                                 (>= (-> *phys-ccalm* ci) PHYS-ARRIVE-N)
+                                                 (< tiltf 0.05)
+                                                 (< authw 0.5))
+                                            PHYS-ARRIVE-K
+                                            0.0)))
+                               (dotimes (i len)
+                                 (when (>= i rl)
+                                   (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
+                                   (when (< (vector-length vtmp) PHYS-SLEEP-VEL)
+                                     (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
+                                     (+! (-> *phys-slot-slept* slot) 1))
+                                   (when (and (> arv 0.0) (zero? (-> lpush i)))
+                                     ;; the point relaxed toward is the chain's OWN equilibrium, not
+                                     ;; the raw target. On anim=excite the authored channel is
+                                     ;; re-injected as a force, so the spring settles at
+                                     ;; target + excite*(authored - target) — that is where the
+                                     ;; solver is heading and it is the same reference the fidelity
+                                     ;; metric grades against. Relaxing onto the bare target instead
+                                     ;; would drag Daxter's ears and the beards OFF the pose the
+                                     ;; animator is actively holding, by up to a chain length, and
+                                     ;; the metric would then report the arrival itself as the
+                                     ;; failure to return.
+                                     (cond
+                                       ((> exc 0.0)
+                                        (vector-! vtmp2 (-> *phys-anim* (+ start i))
+                                                  (-> *phys-targ* (+ start i)))
+                                        (vector-float*! vtmp2 vtmp2 exc)
+                                        (vector+! vtmp2 vtmp2 (-> *phys-targ* (+ start i))))
+                                       (else (vector-copy! vtmp2 (-> *phys-targ* (+ start i)))))
+                                     (vector-! vtmp vtmp2 (-> *phys-pos* (+ start i)))
+                                     (vector-float*! vtmp vtmp arv)
+                                     (vector+! (-> *phys-pos* (+ start i)) (-> *phys-pos* (+ start i)) vtmp)
+                                     (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))))))))
                          (let ((rev 0)
                                ;; (S) FREE-SPACE RINGING — the population the old metric threw away.
                                ;; Cycle 3 restricted `jitter` to reversals WHILE PRESSED against a
