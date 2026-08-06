@@ -137,7 +137,7 @@ void Shrub::update_load(const LevelData* loader_data) {
   // metres — a wrong density means a wrong depth, not just a missing log line.
   m_pbr_draws.clear();
   for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
-    if (const auto* maps = custom_tex::find_pbr_material(lev_data->textures[ti].debug_name)) {
+    if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
       u32 nsamp = 0;
       float dens = measure_uv_density_shrub(*lev_data, (s32)ti, &nsamp);
       const bool measured = dens > 0.f;

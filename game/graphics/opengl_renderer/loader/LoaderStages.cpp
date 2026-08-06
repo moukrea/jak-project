@@ -289,7 +289,8 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     load_map("specular", &maps.specular_tex);
     load_map("emissive", &maps.emissive_tex);
     if (any) {
-      auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
+      auto prev = custom_tex::register_pbr_material(
+          custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name), maps);
       for (GLuint oid : {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex,
                          prev.height_tex, prev.specular_tex, prev.emissive_tex}) {
         if (oid && !pbr_testpattern::owns(oid)) {
@@ -519,7 +520,8 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
                  tex.debug_name, pbr_testpattern::squares_per_tile(), tp_mode);
       }
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
-      auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
+      auto prev = custom_tex::register_pbr_material(
+          custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name), maps);
       GLuint old_ids[7] = {prev.normal_tex, prev.rough_tex,    prev.metal_tex,   prev.ao_tex,
                            prev.height_tex, prev.specular_tex, prev.emissive_tex};
       for (GLuint oid : old_ids) {
