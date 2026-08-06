@@ -1733,9 +1733,21 @@
                            ;; zero the number being graded and produce a metric that reports success
                            ;; by construction. Same class of empty green as cycle-3's resid=0 with
                            ;; push=0, and it is measured out of order here on purpose.
+                           ;; A LINK IN CONTACT IS NOT MOVING BY ITSELF. Measured, once the two
+                           ;; corrections above were in: jak-hd still read 10.05 units on a Jak
+                           ;; standing perfectly still, with no authored activity in the window at
+                           ;; all (authhold=0 eng=0 rel=0 — the blend was checked first and ruled
+                           ;; out). It is his jacket hem lying ON his thigh: gravity sags it into
+                           ;; the capsule by one frame's worth, the collider pushes it back out,
+                           ;; the sleep rule kills the velocity, repeat — a 2.4 mm limit cycle at a
+                           ;; resting contact, driven by the collider, which is an external force.
+                           ;; Those links are excluded HERE and counted THERE: contact motion is
+                           ;; what jitter and stickmax grade, free-air motion is what drift grades,
+                           ;; and no link escapes both. That is the opposite of cycle 3, which
+                           ;; graded contact reversals and let free-air ringing through unmeasured.
                            (when (and (<= (-> *phys-csettle* ci) 0) (< authw 0.5))
                              (dotimes (i len)
-                               (when (>= i rl)
+                               (when (and (>= i rl) (zero? (-> lpush i)))
                                  (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
                                  (let ((d (* (vector-length vtmp) (-> *phys-infl* (+ start i)))))
                                    (when (> d frame-self) (set! frame-self d))))))
