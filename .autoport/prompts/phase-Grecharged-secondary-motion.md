@@ -528,3 +528,25 @@ La classification doit apparaître dans `physics_chains.txt` ET dans le rapport,
   * Un réglage unique appliqué aux deux familles.
   * Des paramètres copiés-collés entre personnages (masse, élasticité, fermeté, bounce se traitent
     AU CAS PAR CAS et doivent être cohérents entre eux).
+
+### DÉRIVATION DE LA FAMILLE — C'EST AU FRAMEWORK DE TRANCHER, PAS À L'OWNER
+(owner 22:00 : « tu devrais, toi et le framework, être à même de déterminer si c'est A ou B ! »)
+La famille se déduit de la NATURE de l'élément, mécaniquement :
+  * FAMILLE A (corps — retour à la forme du modèle) : cheveux sous toutes leurs formes (hair, bang,
+    braid, ponytail, backhair, midhair, fro...), barbe/bouc/moustache (beard, goatee, stache),
+    OREILLES, poitrine (chest), ventre (belly), fesses, joues/bajoues, fourrure (fur), queue (tail),
+    cornes, crête, plumes de la créature — tout ce qui EST le personnage.
+  * FAMILLE B (ça pend — la gravité dicte le repos) : sangles et lanières (strap, belt, lace),
+    pans et rabats de vêtement (flap, hem, coatflap, kneeflap), capes, tabliers, pendeloques
+    (dangler, dangle, ball), accessoires (goggles, hat, bandana, earring, chain, necklace, bag,
+    pouch), cordes, entraves — tout ce qui est PORTÉ ou ACCROCHÉ.
+  * Cas ambigu : trancher par la question « si le personnage s'immobilise, est-ce que cet élément
+    doit revenir à la forme sculptée par ND, ou pendre ? » — et écrire la réponse dans le rapport.
+
+### CONTRAINTE MÉCANIQUE QUI EN DÉCOULE (état constaté à 22:00 : 158 chaînes family=A portent encore
+### hang>0, donc leur repos est encore tiré vers le bas — c'est la contradiction à éliminer)
+  * `family=A` => AUCUNE attraction gravitaire sur la POSE DE REPOS. La gravité n'agit que sur la
+    dynamique. Si la clé `hang` reste présente sur une chaîne A, il faut prouver dans le rapport
+    qu'elle ne touche plus le point d'équilibre — sinon `hang` doit valoir 0 sur toute la famille A.
+  * `family=B` => attraction gravitaire au repos ASSUMÉE, et surtout PAS de retour à la pose du
+    modèle.

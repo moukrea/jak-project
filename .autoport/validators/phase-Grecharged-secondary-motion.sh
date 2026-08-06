@@ -213,4 +213,36 @@ sys.exit(0 if re.search(r'(settled|post[- ]?settle|idlepose|restdev)[^\n]{0,80}(
              or re.search(r'(family\s*A|body|corps)[^\n]{0,80}(settled|post[- ]?settle|idlepose|restdev)',t,re.I) else 1)
 PYF
 
+
+# FAM-bis: family A must not be pulled toward gravity AT REST. Checked in the DATA, not the prose.
+python3 - <<'PYFB' || fail "FAM-bis: family=A chains still carry hang>0 (gravity pulls their rest pose) — body parts must return to the MODEL shape"
+import re,sys,os
+f='recharged_assets/physics_chains.txt'
+if not os.path.exists(f): sys.exit(1)
+bad=[]
+for ln in open(f,errors='ignore'):
+    if not ln.startswith('chain '): continue
+    if 'family=A' not in ln: continue
+    m=re.search(r'hang=([0-9.]+)',ln)
+    if m and float(m.group(1))>0: bad.append(ln.split()[1])
+if not bad: sys.exit(0)
+# tolerated only if the report explicitly documents that hang no longer moves the rest pose for A
+r=open('.autoport/reports/Grecharged-secondary-motion/report.txt',errors='ignore').read() \
+  if os.path.exists('.autoport/reports/Grecharged-secondary-motion/report.txt') else ''
+ok=re.search(r'hang[^\n]{0,90}(no|not|aucun|pas)[^\n]{0,40}(rest|repos|equilib)',r,re.I) and \
+   re.search(r'family\s*A',r,re.I)
+sys.stderr.write(f"  {len(bad)} family=A chains with hang>0, e.g. {bad[:6]}\n")
+sys.exit(0 if ok else 1)
+PYFB
+# and family B must NOT be measured against the model pose
+python3 - <<'PYFC' || fail "FAM-ter: family=B chains have no gravity rest pull — things that hang must hang"
+import re,sys,os
+f='recharged_assets/physics_chains.txt'
+b=[l for l in open(f,errors='ignore') if l.startswith('chain ') and 'family=B' in l]
+if not b: sys.exit(1)
+nohang=[l.split()[1] for l in b if not re.search(r'hang=[0-9.]*[1-9]',l)]
+sys.stderr.write(f"  {len(nohang)}/{len(b)} family=B chains without a gravity rest pull\n")
+sys.exit(0 if len(nohang) <= len(b)//5 else 1)
+PYFC
+
 echo "[Grecharged-secondary-motion PASS]"
