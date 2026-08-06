@@ -63,6 +63,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/loader/LoaderStages.cpp
         graphics/opengl_renderer/loader/ManagedAssets.cpp
         graphics/opengl_renderer/GpuCaps.cpp
+        assets/AssetCli.cpp
         assets/CurlTransport.cpp
         graphics/opengl_renderer/loader/PbrTestPattern.cpp
         graphics/opengl_renderer/ocean/CommonOceanRenderer.cpp
