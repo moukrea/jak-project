@@ -8,6 +8,7 @@
 (require "engine/gfx/shadow/shadow-cpu-h.gc")
 (require "engine/collide/collide-shape-rider.gc")
 (require "engine/load/loader.gc")
+(require "pc/recharged-flags.gc") ;; Grecharged-secondary-motion WAVE 2: FLAG_PHYSICS below
 
 ;; TODO: there are some missing functions here...
 
@@ -213,6 +214,10 @@
 
 (define-extern draw-joint-spheres (function process-drawable symbol))
 
+;; Grecharged-secondary-motion WAVE 2: stock-actor chain sim, defined in pc/jak-hd-physics.gc
+;; (compiled much later). Same forward-extern idiom as jak-hd.gc's physics externs.
+(#when FLAG_PHYSICS (define-extern phys-rider-post! (function process-drawable none)))
+
 (#when PC_PORT
   (define *display-bones* #f)
   (define *display-joint-names* #f)
@@ -275,6 +280,11 @@
     (when *debug-segment*
       (if *display-bones* (draw-bone-lines obj))
       (if *display-joint-names* (draw-joint-spheres obj))))
+  ;; Grecharged-secondary-motion WAVE 2: the bones are FINAL here, on every branch of the cond
+  ;; above. This is the post-anim point where the secondary-motion chains run for every stock
+  ;; actor in the game (the HD companions run theirs in their own do-joint-math! override, and
+  ;; are skipped here by type).
+  (#when FLAG_PHYSICS (phys-rider-post! obj))
   0
   (none))
 

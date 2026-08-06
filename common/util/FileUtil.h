@@ -87,6 +87,9 @@ void asset_route_journal(const std::string& line);
 fs::path get_iso_out_dir(GameVersion game_version);
 fs::path get_fr3_dir(GameVersion game_version);
 fs::path get_recharged_assets_dir();
+// Grecharged-secondary-motion: the EXTERNAL pack's recharged_assets dir, if an external game root
+// is configured. Used for files that must be user-overridable without repacking the APK.
+std::optional<fs::path> get_external_recharged_assets_dir();
 fs::path get_custom_assets_replacements_dir(GameVersion game_version);
 fs::path get_bundled_recharged_textures_dir(GameVersion game_version);
 // Grecharged-mesh-browser: the per-level mesh catalogue distilled from tess_sign, shipped inside

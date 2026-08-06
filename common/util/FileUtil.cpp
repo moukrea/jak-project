@@ -458,6 +458,13 @@ fs::path get_recharged_assets_dir() {
   return get_jak_project_dir() / "recharged_assets";
 }
 
+std::optional<fs::path> get_external_recharged_assets_dir() {
+  if (g_external_game_root) {
+    return *g_external_game_root / "assets" / "recharged_assets";
+  }
+  return {};
+}
+
 fs::path get_custom_assets_replacements_dir(GameVersion game_version) {
   if (g_external_game_root) {
     // Flat user drop dir: <root>/custom_assets.

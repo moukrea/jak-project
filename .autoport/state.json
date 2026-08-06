@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 233,
+  "current_phase_idx": 232,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -224,7 +224,6 @@
     "Gtouch-longjump-regression": 2,
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
-    "Grecharged-secondary-motion": 1,
     "Grecharged-foliage-wind2": 1
   },
   "fingerprints": {
@@ -500,6 +499,9 @@
       "2f0a15ed30e7",
       "2f0a15ed30e7",
       "2f0a15ed30e7"
+    ],
+    "Grecharged-foliage-wind2": [
+      "83c369880dac"
     ]
   },
   "stuck_reasons": {
@@ -723,8 +725,7 @@
     "Gtouch-longjump-regression",
     "Gmenu-flag-off",
     "Grecharged-hd-models5",
-    "Grecharged-hd-models4",
-    "Grecharged-secondary-motion"
+    "Grecharged-hd-models4"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -936,9 +937,9 @@
     "Gmenu-flag-off": 1785886071.952773,
     "Grecharged-hd-models5": 1785898653.0176275,
     "Grecharged-hd-models4": 1785939731.6130211,
-    "Grecharged-secondary-motion": 1785959994.0287757
+    "Grecharged-secondary-motion": 1785977721.2760627
   },
-  "last_update": "2026-08-06T00:55:15.224129+00:00",
+  "last_update": "2026-08-06T00:55:21.276072+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1037,8 +1038,7 @@
     "Grecharged-hd-models3",
     "Gtouch-longjump-regression",
     "Gmenu-flag-off",
-    "Grecharged-hd-models5",
-    "Grecharged-secondary-motion"
+    "Grecharged-hd-models5"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

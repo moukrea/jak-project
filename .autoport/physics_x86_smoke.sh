@@ -59,6 +59,25 @@ NRL=$(grep -c 'rootlock=' recharged_assets/physics_chains.txt || true)
 [ "${NRL:-0}" -ge 8 ] || { say "FAIL: only ${NRL:-0} chains declare rootlock= — hair roots still float"; exit 1; }
 say "artifact gate: physics_chains.txt declares $NCAP capsules and $NRL root-locked chains"
 
+# ---- WAVE 2 artifact gates: physics on the whole STOCK cast ------------------------------------
+# The stock-cast chains are declared by JOINT NAME against rigs we do not author. A mistyped name
+# does not crash — the chain resolves to nothing and that character silently has no physics, in a
+# level this smoke may never visit. So the names are checked against the SHIPPED RIGS themselves,
+# offline, for all of them at once (see .autoport/physics_chains_lint.py).
+python3 .autoport/physics_chains_lint.py | tee -a "$R"
+[ "${PIPESTATUS[0]}" = 0 ] || { say "FAIL: physics_chains.txt names joints that the shipped rigs do not have"; exit 1; }
+NSTOCK=$(grep -c '^\[model .*-lod0' recharged_assets/physics_chains.txt || true)
+[ "${NSTOCK:-0}" -ge 20 ] || { say "FAIL: only ${NSTOCK:-0} stock rig sections — the cast-wide wave is not in the data"; exit 1; }
+say "artifact gate: $NSTOCK stock rig sections declared (wave-2 cast)"
+for s in 'HD-PHYS-RIDER' 'rider='; do
+  n=$(strings -a "$ISO/GAME.CGO" | grep -c -- "$s" || true)
+  [ "${n:-0}" -ge 1 ] || { say "FAIL: GAME.CGO carries no '$s' string — the wave-2 rider is not compiled in"; exit 1; }
+done
+say "artifact gate: GAME.CGO carries the wave-2 rider instrument strings"
+FFI3=$(strings -a build/game/gk | grep -c 'pc-physics-generation' || true)
+[ "${FFI3:-0}" -ge 1 ] || { say "FAIL: gk lacks pc-physics-generation — the hot-reload FFI is not built"; exit 1; }
+say "artifact gate: gk exposes the params-generation FFI (hot reload)"
+
 # chain NAME -> index within its model, read from the data file (never a hardcoded index: the gates
 # must survive any reordering of the chains file).
 chain_idx(){ # chain_idx <model> <chainname>
@@ -111,6 +130,12 @@ trap cleanup EXIT
 run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lookS> <mode expect-phys|expect-off|expect-gameplay> [warp-level] [warp-pos]
   local TAG="$1" PHY="$2" QUAL="$3" LJ="$4" LD="$5" LK="$6" LS="$7" MODE="$8" WARP="${9:-}" WPOS="${10:-}"
   local GKLOG="$OUT/.smoke_gk_$TAG.log"; : > "$GKLOG"
+  # expect-rider deliberately runs with ENHANCED MODELS OFF. That is not a weaker leg: it is the
+  # only configuration in which the four main characters are NOT covered by an HD companion, so the
+  # stock-actor rider is what has to give Jak / Daxter / Keira / Samos their secondary motion. It is
+  # the owner's "physics on EVERY look, including the original ones", proven directly.
+  local ENHSET='#t'; [ "$MODE" = expect-rider ] && ENHSET='#f'
+  set_ini 'recharged-enhanced-models?' "$ENHSET"
   set_ini 'physics?' "$PHY"; set_ini 'physics-quality' "$QUAL"
   set_ini 'hd-look-jak' "$LJ"; set_ini 'hd-look-daxter' "$LD"
   set_ini 'hd-look-keira' "$LK"; set_ini 'hd-look-samos' "$LS"
@@ -141,7 +166,11 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
   sleep "$WATCH"
   local ALIVE=no; kill -0 "$GKPID" 2>/dev/null && ALIVE=yes
   local OK=1
-  grep -aq 'HD-MODELS fr3-select GAME: ENHANCED' "$GKLOG" || { say "FAIL($TAG): GAME not ENHANCED"; OK=0; }
+  if [ "$MODE" = expect-rider ]; then
+    grep -aq 'HD-MODELS fr3-select GAME: ENHANCED' "$GKLOG" && { say "FAIL($TAG): GAME is ENHANCED but this leg needs the STOCK looks"; OK=0; }
+  else
+    grep -aq 'HD-MODELS fr3-select GAME: ENHANCED' "$GKLOG" || { say "FAIL($TAG): GAME not ENHANCED"; OK=0; }
+  fi
   local CRASH; CRASH=$(grep -acE 'SIGSEGV|SIGILL|Segmentation|Assertion' "$GKLOG" || true)
   local NINIT NWIN NNAN NREST NLOAD
   NINIT=$(grep -ac '\[HD-PHYS\] init ag=' "$GKLOG" || true)
@@ -194,6 +223,42 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <lookJ> <lookD> <lookK> <lo
       END { print n+0 }' 2>>"$R")
     [ "${KBAD:-0}" = 0 ] || { say "FAIL($TAG): $KBAD keira window(s) where a class-live chain was NOT simulated"; OK=0; }
     say "leg $TAG: rootdev-bad=$NROOT resid-bad=$NRES reglue-windows=$NREG keira-desc-windows=${NDESC:-0} class-gate-bad=${KBAD:-0}"
+  fi
+
+  # ---- WAVE 2 GATES: the sim runs on STOCK actors, not just HD companions -----------------------
+  # Everything above is shared with the companions (the rootdev/resid/nan greps scan ALL window
+  # lines, riders included). These three are what makes wave 2 a fact rather than a claim.
+  if [ "$MODE" = expect-gameplay ] || [ "$MODE" = expect-rider ]; then
+    grep -a 'PARAMSRC=' "$GKLOG" | head -1 >> "$R"
+    grep -aq 'PARAMSRC=' "$GKLOG" || { say "FAIL($TAG): no PARAMSRC= line — which params file the run read is unproven"; OK=0; }
+    # a rider BOUND: an init line whose params key is a shipped rig (-lod0-jg, never one of our
+    # -hd companion names), flagged rider=1, that resolved at least one chain.
+    NRIDE=$(grep -a '\[HD-PHYS\] init ag=' "$GKLOG" | grep -a 'rider=1' | grep -ac 'ag=[a-z0-9-]*-lod0 ' || true)
+    NRIDE0=$(grep -a '\[HD-PHYS\] init ag=' "$GKLOG" | grep -a 'rider=1' | grep -a 'ag=[a-z0-9-]*-lod0 ' | grep -c 'chains=0 ' || true)
+    RACT=$(grep -a '\[HD-PHYS-RIDER\] window:' "$GKLOG" | awk '{if (match($0,/active=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 0) n++} END {print n+0}')
+    RWIN=$(grep -ac 'ag=[a-z0-9-]*-lod0 .*window: chains=' "$GKLOG" || true)
+    # The rig DISCOVERY log must exist in every leg: it is what distinguishes "this level holds no
+    # configured character" from "the hook never ran". Its absence is always a code failure.
+    NSEEN=$(grep -ac '\[HD-PHYS-RIDER\] rig ' "$GKLOG" || true)
+    [ "${NSEEN:-0}" -ge 1 ] || { say "FAIL($TAG): no '[HD-PHYS-RIDER] rig' discovery line — the post-anim hook never ran on any stock actor"; OK=0; }
+    if [ "$MODE" = expect-rider ]; then
+      # Here the four mains ARE uncovered stock actors, so riders MUST bind, step and dump state.
+      [ "${NRIDE:-0}" -ge 1 ] || { say "FAIL($TAG): no stock actor was bound as a physics rider — wave 2 never ran"; OK=0; }
+      [ "$((NRIDE - NRIDE0))" -ge 1 ] || { say "FAIL($TAG): every rider resolved chains=0 — the stock rigs bound but simulate nothing"; OK=0; }
+      [ "${RACT:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS-RIDER] window with active>0 — riders bound but never stepped"; OK=0; }
+      [ "${RWIN:-0}" -ge 1 ] || { say "FAIL($TAG): no stock-rig [HD-PHYS] window state dump"; OK=0; }
+    fi
+    grep -a '\[HD-PHYS-RIDER\] rig ' "$GKLOG" | sort -u >> "$R"
+    # DATA gate: in the level this leg actually visits, no declared chain may fail to resolve.
+    # (The names are proven for the whole cast offline; this proves the HIERARCHY assumptions —
+    # single path, no branch, real anchor — for the rigs that really spawned.)
+    NBADC=$(grep -a '\[HD-PHYS\] ag=' "$GKLOG" | grep -cE 'chain [0-9]+ (invalid|DROPPED)' || true)
+    [ "${NBADC:-0}" = 0 ] || {
+      say "FAIL($TAG): $NBADC chain(s) failed to resolve in this level — the declared hierarchy is wrong"
+      grep -a '\[HD-PHYS\] ag=' "$GKLOG" | grep -E 'chain [0-9]+ (invalid|DROPPED)' | sort -u | head -20 >> "$R"; OK=0; }
+    NREORD=$(grep -ac 're-ordered from the rig hierarchy' "$GKLOG" || true)
+    say "leg $TAG: riders-bound=$NRIDE (chains=0: $NRIDE0) rider-windows=$RWIN rider-active-windows=$RACT bad-chains=$NBADC re-ordered=$NREORD"
+    grep -a '\[HD-PHYS\] init ag=' "$GKLOG" | grep -a 'rider=1' | sort -u >> "$R"
   fi
   case "$MODE" in
     expect-phys)
@@ -270,7 +335,8 @@ run_leg "L0-light"  '#t' 0 1 1 1 1 expect-phys || FAILED=1
 run_leg "BONUS"     '#t' 1 2 2 2 2 expect-phys || FAILED=1
 run_leg "GAMEPLAY"  '#t' 1 1 1 1 1 expect-gameplay "village1-hut" "-130.5 34.5 202.4" || FAILED=1
 run_leg "OFF"       '#f' 1 1 1 1 1 expect-off  || FAILED=1
+run_leg "STOCKLOOK" '#t' 1 1 1 1 1 expect-rider "village1-hut" "-130.5 34.5 202.4" || FAILED=1
 
 say ""
-if [ "$FAILED" = 0 ]; then say "[physics x86 smoke PASS] all five legs green"; else say "[physics x86 smoke FAIL] see legs above"; fi
+if [ "$FAILED" = 0 ]; then say "[physics x86 smoke PASS] all six legs green"; else say "[physics x86 smoke FAIL] see legs above"; fi
 exit "$FAILED"

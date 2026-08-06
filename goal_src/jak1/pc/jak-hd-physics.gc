@@ -77,75 +77,89 @@
 (define-extern pc-physics-collider-param-mi (function string int int int))
 (define-extern pc-physics-collider-is-joint (function string int string int)) ;; 1 if collider i sits on that joint
 (define-extern pc-physics-collider-is-joint2 (function string int string int)) ;; 1 if capsule i ENDS on that joint
+(define-extern pc-physics-generation (function int))    ;; bumped on every params (re)parse
 
 ;; ------------------------------------------------------------------------------------------------
-;; static pools: 8 slots x 48 sim joints x 24 chains x 16 colliders.
+;; static pools: 24 slots x 48 sim joints x 24 chains x 16 colliders.
 ;; ------------------------------------------------------------------------------------------------
-(defconstant PHYS-SLOTS 8)
+(defconstant PHYS-SLOTS 24)
+(defconstant PHYS-COMP-SLOTS 8)  ;; slots 0..7 are claimed by HD companions (bottom-up);
+                                 ;; 8..23 by stock-model riders (top-down). One pool, no starvation
+                                 ;; of the companions by a crowded village.
+(defconstant PHYS-MAXJ 128)      ;; per-slot parent-table / descendant-pass joint ceiling
 (defconstant PHYS-JPS 48)      ;; joints per slot
 (defconstant PHYS-CPS 24)      ;; chains per slot
 (defconstant PHYS-COLS 16)     ;; colliders per slot (cycle 2: a real body volume needs >8)
 
-(define *phys-slot-pid* (new 'static 'array int32 8))
-(define *phys-slot-njoints* (new 'static 'array int32 8))
-(define *phys-slot-nchains* (new 'static 'array int32 8))
-(define *phys-slot-ncols* (new 'static 'array int32 8))
-(define *phys-slot-seeded* (new 'static 'array int32 8))
-(define *phys-slot-frames* (new 'static 'array int32 8))    ;; window frame counter
-(define *phys-slot-resets* (new 'static 'array int32 8))    ;; nan/explosion resets (window)
-(define *phys-slot-maxdev* (new 'static 'array float 8))    ;; window max |p - t|
-(define *phys-slot-maxvel* (new 'static 'array float 8))    ;; window max per-frame speed
-(define *phys-slot-calm* (new 'static 'array int32 8))      ;; consecutive calm frames
-(define *phys-slot-anchprev* (new 'static 'inline-array vector 8)) ;; chain0 anchor last pos (debug)
-(define *phys-slot-anchmove* (new 'static 'array float 8))  ;; window max anchor move (debug)
+(define *phys-slot-pid* (new 'static 'array int32 24))
+(define *phys-slot-njoints* (new 'static 'array int32 24))
+(define *phys-slot-nchains* (new 'static 'array int32 24))
+(define *phys-slot-ncols* (new 'static 'array int32 24))
+(define *phys-slot-seeded* (new 'static 'array int32 24))
+(define *phys-slot-frames* (new 'static 'array int32 24))    ;; window frame counter
+(define *phys-slot-resets* (new 'static 'array int32 24))    ;; nan/explosion resets (window)
+(define *phys-slot-maxdev* (new 'static 'array float 24))    ;; window max |p - t|
+(define *phys-slot-maxvel* (new 'static 'array float 24))    ;; window max per-frame speed
+(define *phys-slot-calm* (new 'static 'array int32 24))      ;; consecutive calm frames
+(define *phys-slot-anchprev* (new 'static 'inline-array vector 24)) ;; chain0 anchor last pos (debug)
+(define *phys-slot-anchmove* (new 'static 'array float 24))  ;; window max anchor move (debug)
 ;; ONE-LINE window emitter buffer: `format 0` is one logcat line per call on Android, so the whole
 ;; window must be assembled here and printed once (see the emitter at the bottom of this file).
 ;; Cycle 2 widened it: the per-chain deviation list rides in the SAME line (24 chains x ~13 chars).
 (define *phys-line-buf* (new 'global 'string 768 (the-as string #f)))
-(define *phys-slot-pushouts* (new 'static 'array int32 8))  ;; collision push-out events (window)
-(define *phys-slot-maxpen* (new 'static 'array float 8))    ;; max penetration depth resolved (window)
+(define *phys-slot-pushouts* (new 'static 'array int32 24))  ;; collision push-out events (window)
+(define *phys-slot-maxpen* (new 'static 'array float 24))    ;; max penetration depth resolved (window)
 ;; ---- cycle-2 counters -------------------------------------------------------------------------
-(define *phys-slot-resid* (new 'static 'array int32 8))     ;; penetrations STILL unresolved after the last iteration
-(define *phys-slot-maxresid* (new 'static 'array float 8))  ;; deepest residual penetration (window)
-(define *phys-slot-rootdev* (new 'static 'array float 8))   ;; max drift of a LOCKED link, read back from the bone (must be 0)
-(define *phys-slot-freeroot* (new 'static 'array float 8))  ;; max drift of an UNLOCKED link-0 (contrast: proves the sim is live)
-(define *phys-slot-reglue* (new 'static 'array int32 8))    ;; chains whose authored channel was replaced this frame
-(define *phys-slot-desc* (new 'static 'array int32 8))      ;; non-simulated descendants re-glued onto moved parents (anti-tear)
-(define *phys-slot-nopose* (new 'static 'array int32 8))    ;; chain-frames with a ZERO-LENGTH pose (parked spawn / teleport frame) — not simulatable, not audited
+(define *phys-slot-resid* (new 'static 'array int32 24))     ;; penetrations STILL unresolved after the last iteration
+(define *phys-slot-maxresid* (new 'static 'array float 24))  ;; deepest residual penetration (window)
+(define *phys-slot-rootdev* (new 'static 'array float 24))   ;; max drift of a LOCKED link, read back from the bone (must be 0)
+(define *phys-slot-freeroot* (new 'static 'array float 24))  ;; max drift of an UNLOCKED link-0 (contrast: proves the sim is live)
+(define *phys-slot-reglue* (new 'static 'array int32 24))    ;; chains whose authored channel was replaced this frame
+(define *phys-slot-desc* (new 'static 'array int32 24))      ;; non-simulated descendants re-glued onto moved parents (anti-tear)
+(define *phys-slot-nopose* (new 'static 'array int32 24))    ;; chain-frames with a ZERO-LENGTH pose (parked spawn / teleport frame) — not simulatable, not audited
+
+;; WAVE 2: the sim no longer reads a companion's khd-par — every slot carries its OWN parent table,
+;; filled either from the companion's k->e table or, for a stock rider, from the live jgeo
+;; (joint.parent). 255 = root / out of range.
+(define *phys-par* (new 'static 'array uint8 3072))     ;; PHYS-SLOTS * PHYS-MAXJ
+(define *phys-slot-rider* (new 'static 'array int32 24)) ;; 1 = stock-model rider slot
+(define *phys-slot-stamp* (new 'static 'array int32 24)) ;; frame this slot last stepped (rider GC +
+                                                         ;; once-per-frame guard)
+(define *phys-slot-gen* (new 'static 'array int32 24))   ;; params generation the slot was bound with
 
 ;; per sim joint (idx = slot*PHYS-JPS + j)
-(define *phys-jk* (new 'static 'array int32 384))           ;; HD game joint index k
-(define *phys-pos* (new 'static 'inline-array vector 384))
-(define *phys-prev* (new 'static 'inline-array vector 384))
-(define *phys-targ* (new 'static 'inline-array vector 384)) ;; per-frame target cache
-(define *phys-anim* (new 'static 'inline-array vector 384)) ;; per-frame AUTHORED position (pre re-glue), for anim=excite
+(define *phys-jk* (new 'static 'array int32 1152))          ;; rig joint index k
+(define *phys-pos* (new 'static 'inline-array vector 1152))
+(define *phys-prev* (new 'static 'inline-array vector 1152))
+(define *phys-targ* (new 'static 'inline-array vector 1152)) ;; per-frame target cache
+(define *phys-anim* (new 'static 'inline-array vector 1152)) ;; per-frame AUTHORED position (pre re-glue), for anim=excite
 
 ;; per chain (idx = slot*PHYS-CPS + c); cstart is the joint index base WITHIN the slot.
-(define *phys-cstart* (new 'static 'array int32 192))
-(define *phys-clen* (new 'static 'array int32 192))
-(define *phys-cflags* (new 'static 'array int32 192))
-(define *phys-canchor* (new 'static 'array int32 192))      ;; anchor HD joint index (link0's parent)
-(define *phys-comega* (new 'static 'array float 192))       ;; 2*pi*hz
-(define *phys-cdamp* (new 'static 'array float 192))
-(define *phys-cgrav* (new 'static 'array float 192))        ;; gravity scale
-(define *phys-cmaxrad* (new 'static 'array float 192))      ;; swing cone half-angle, RADIANS (per-link scaled by the gradient)
-(define *phys-cinertia* (new 'static 'array float 192))
-(define *phys-cstretch* (new 'static 'array float 192))
-(define *phys-cradius* (new 'static 'array float 192))      ;; per-joint collision radius
-(define *phys-crootlock* (new 'static 'array int32 192))    ;; leading links pinned rigidly to the animated bone
-(define *phys-cgrad* (new 'static 'array float 192))        ;; 0 = uniform, 1 = full root->tip freedom ramp
-(define *phys-canim* (new 'static 'array int32 192))        ;; 0 keep / 1 replace / 2 excite
-(define *phys-cexcite* (new 'static 'array float 192))      ;; anim=excite: authored-delta force scale
-(define *phys-cfric* (new 'static 'array float 192))        ;; contact friction 0..1
-(define *phys-cdev* (new 'static 'array float 192))         ;; window max deviation OF THIS CHAIN (per-chain proof)
+(define *phys-cstart* (new 'static 'array int32 576))
+(define *phys-clen* (new 'static 'array int32 576))
+(define *phys-cflags* (new 'static 'array int32 576))
+(define *phys-canchor* (new 'static 'array int32 576))      ;; anchor rig joint index (link0's parent)
+(define *phys-comega* (new 'static 'array float 576))       ;; 2*pi*hz
+(define *phys-cdamp* (new 'static 'array float 576))
+(define *phys-cgrav* (new 'static 'array float 576))        ;; gravity scale
+(define *phys-cmaxrad* (new 'static 'array float 576))      ;; swing cone half-angle, RADIANS (per-link scaled by the gradient)
+(define *phys-cinertia* (new 'static 'array float 576))
+(define *phys-cstretch* (new 'static 'array float 576))
+(define *phys-cradius* (new 'static 'array float 576))      ;; per-joint collision radius
+(define *phys-crootlock* (new 'static 'array int32 576))    ;; leading links pinned rigidly to the animated bone
+(define *phys-cgrad* (new 'static 'array float 576))        ;; 0 = uniform, 1 = full root->tip freedom ramp
+(define *phys-canim* (new 'static 'array int32 576))        ;; 0 keep / 1 replace / 2 excite
+(define *phys-cexcite* (new 'static 'array float 576))      ;; anim=excite: authored-delta force scale
+(define *phys-cfric* (new 'static 'array float 576))        ;; contact friction 0..1
+(define *phys-cdev* (new 'static 'array float 576))         ;; window max deviation OF THIS CHAIN (per-chain proof)
 
 ;; body collision volumes (idx = slot*PHYS-COLS + i). joint2 < 0 = sphere on joint1, else CAPSULE
 ;; swept between the two animated bones.
-(define *phys-colk* (new 'static 'array int32 128))         ;; jgeo joint index carrying the volume
-(define *phys-colk2* (new 'static 'array int32 128))        ;; capsule far end, -1 = sphere
-(define *phys-colr* (new 'static 'array float 128))
-(define *phys-colmask* (new 'static 'array int64 128))      ;; chain-applicability bits (bit c)
-(define *phys-coltier* (new 'static 'array int32 128))      ;; 1 = core (every level), 2 = extended
+(define *phys-colk* (new 'static 'array int32 384))         ;; jgeo joint index carrying the volume
+(define *phys-colk2* (new 'static 'array int32 384))        ;; capsule far end, -1 = sphere
+(define *phys-colr* (new 'static 'array float 384))
+(define *phys-colmask* (new 'static 'array int64 384))      ;; chain-applicability bits (bit c)
+(define *phys-coltier* (new 'static 'array int32 384))      ;; 1 = core (every level), 2 = extended
 
 ;; gravity: 9.8 m/s^2 * 4096 units/m
 (defconstant PHYS-GRAV-ACCEL 40140.8)
@@ -168,184 +182,336 @@
            (vector+! out a ab))))))
   out)
 
-(defun jak-hd-physics-release ((obj jak-hd))
-  "free this companion's sim slot (called from deactivate)."
-  (dotimes (s PHYS-SLOTS)
-    (when (= (-> *phys-slot-pid* s) (the int (-> obj pid)))
-      (set! (-> *phys-slot-pid* s) 0)))
+;; ------------------------------------------------------------------------------------------------
+;; WAVE 2 slot pool. A "slot" is one simulated ACTOR: its parent table, its chains, its verlet
+;; state. Nothing in here knows what kind of process owns it — that is the whole point of wave 2.
+;; ------------------------------------------------------------------------------------------------
+
+(defun phys-slot-find ((pid int))
+  "the sim slot bound to this process, or -1."
+  (let ((r -1))
+    (dotimes (s PHYS-SLOTS)
+      (when (and (< r 0) (= (-> *phys-slot-pid* s) pid))
+        (set! r s)))
+    r))
+
+(defun phys-slot-free! ((slot int))
+  (set! (-> *phys-slot-pid* slot) 0)
+  (set! (-> *phys-slot-rider* slot) 0)
+  (set! (-> *phys-slot-njoints* slot) 0)
+  (set! (-> *phys-slot-nchains* slot) 0)
   (none))
 
-(defun jak-hd-physics-init ((obj jak-hd))
-  "claim a sim slot and resolve this model's chains from the data file against the live HD jgeo.
-  Joint names -> (chain,link) via pc-physics-joint-role; parentage validated against the k->e
-  hd-parent table (link i's parent must be link i-1; link0's parent = the animated anchor).
-  Reload the params file on every init: pushing a new physics_chains.txt to the device then
-  switching a LOOK (or toggling ENHANCED MODELS) re-reads everything — fast iteration."
-  ;; cycle-2 defect E: prove the physics menu rows are still distinct from the mesh-browser
-  ;; button. Done here because this runs on every companion spawn, physics toggle on OR off.
-  (physics-menu-static-audit!)
-  (when (and (nonzero? (-> obj draw)) (nonzero? (-> obj draw jgeo)))
-    (let ((slot -1))
-      ;; claim
-      (dotimes (s PHYS-SLOTS)
-        (when (and (< slot 0) (zero? (-> *phys-slot-pid* s)))
-          (set! slot s)
-          (set! (-> *phys-slot-pid* s) (the int (-> obj pid)))))
-      (cond
-        ((< slot 0)
-         (format 0 "[HD-PHYS] no free sim slot — physics disabled for this companion~%"))
-        (else
-         (pc-physics-reload)
-         (let* ((ag (-> *hd-ag-names* (-> obj entry)))
-                (jgeo (-> obj draw jgeo))
-                (khd-par (-> obj khd-par))
-                (nch (min PHYS-CPS (pc-physics-num-chains ag)))
-                (jbase (* slot PHYS-JPS))
-                (cbase (* slot PHYS-CPS))
-                (njoints 0)
-                (ncols 0)
-                (ndropped 0)
-                ;; temp role tables indexed by HD joint k (uint8-sized counts are fine: k < 128)
-                (tchain (new 'stack-no-clear 'array 'int32 128))
-                (tlink (new 'stack-no-clear 'array 'int32 128)))
-           ;; resolve every HD joint's role once
-           (dotimes (k (-> obj hd-joints))
-             (set! (-> tchain k) -1)
-             (set! (-> tlink k) -1)
-             (when (< k (-> jgeo length))
-               (let ((role (pc-physics-joint-role ag (-> jgeo data k name))))
-                 (when (>= role 0)
-                   (set! (-> tchain k) (shr role 8))
-                   (set! (-> tlink k) (logand role #xff))))))
-           ;; build chains compactly, root->tip, with parent-order validation
-           (dotimes (c nch)
-             (let ((ci (+ cbase c))
-                   (start njoints)
-                   (len 0)
-                   (bad 0)
-                   (prev-k -1))
-               (dotimes (l PHYS-JPS)
-                 ;; find the joint holding (c, l)
-                 (let ((found -1))
-                   (dotimes (k (-> obj hd-joints))
-                     (when (and (< found 0) (= (-> tchain k) c) (= (-> tlink k) l))
-                       (set! found k)))
-                   (when (>= found 0)
+(defun phys-slot-claim ((pid int) (rider? int))
+  "claim a free slot. Companions take the bottom of the pool ascending, riders the top descending,
+  so a crowded village can never starve an HD companion. Rider slots are reclaimed by AGE: a stock
+  actor is a plain process-drawable with no deactivate hook of ours, so a slot whose owner stopped
+  stepping for a few frames is dead by definition."
+  (let ((r -1))
+    (cond
+      ((zero? rider?)
+       (dotimes (s PHYS-COMP-SLOTS)
+         (when (and (< r 0) (zero? (-> *phys-slot-pid* s)))
+           (set! r s))))
+      (else
+       (let ((now (the int (current-time))))
+         ;; reap stale riders first
+         (dotimes (i (- PHYS-SLOTS PHYS-COMP-SLOTS))
+           (let ((s (- (- PHYS-SLOTS 1) i)))
+             (when (and (nonzero? (-> *phys-slot-pid* s))
+                        (nonzero? (-> *phys-slot-rider* s))
+                        (> (- now (-> *phys-slot-stamp* s)) 8))
+               (phys-slot-free! s)))))
+       (dotimes (i (- PHYS-SLOTS PHYS-COMP-SLOTS))
+         (let ((s (- (- PHYS-SLOTS 1) i)))
+           (when (and (< r 0) (zero? (-> *phys-slot-pid* s)))
+             (set! r s))))))
+    (when (>= r 0)
+      (set! (-> *phys-slot-pid* r) pid)
+      (set! (-> *phys-slot-rider* r) rider?)
+      (set! (-> *phys-slot-stamp* r) (the int (current-time))))
+    r))
+
+(defun phys-fill-par-from-table! ((slot int) (par (pointer uint8)) (n int))
+  "companion path: copy the k->e prep table's HD parent column into the slot."
+  (let ((pbase (* slot PHYS-MAXJ)))
+    (dotimes (k (min PHYS-MAXJ n))
+      (set! (-> *phys-par* (+ pbase k)) (-> par k))))
+  (none))
+
+(defun phys-fill-par-from-jgeo! ((slot int) (jgeo art-joint-geo) (n int))
+  "rider path: the STOCK rig carries its own hierarchy — `joint.parent` is a pointer to the parent
+  joint and `joint.number` is that joint's index into jgeo data (this is exactly what
+  make-nodes-from-jg uses to wire the cspaces). No offline table, no prep step: any actor in the
+  game can be simulated the frame it spawns."
+  (let ((pbase (* slot PHYS-MAXJ)))
+    (dotimes (k (min PHYS-MAXJ n))
+      (let ((j (-> jgeo data k))
+            (p 255))
+        (when (-> j parent)
+          (let ((pn (-> j parent number)))
+            (when (and (>= pn 0) (< pn PHYS-MAXJ))
+              (set! p pn))))
+        (set! (-> *phys-par* (+ pbase k)) (the uint8 p)))))
+  (none))
+
+(defun phys-slot-bind! ((slot int) (draw draw-control) (ag string) (rig int))
+  "resolve ONE actor's chains from the data file against its live jgeo, into an already-claimed
+  slot. Joint names -> (chain,link) via pc-physics-joint-role; the chain ORDER is then derived from
+  the rig's own parent table (*phys-par*, filled by the caller from the companion prep table or
+  straight from the jgeo), and link0's parent becomes the animated anchor.
+  RIG-AGNOSTIC BY CONSTRUCTION: `ag` is just the params key (a companion art-group name for an HD
+  companion, the JOINT-GEO name for a stock rider) and `rig` is just the joint count — nothing here
+  touches jak-hd. That is what lets the same solver run on every actor in the game."
+  (let* ((jgeo (-> draw jgeo))
+         (nch (min PHYS-CPS (pc-physics-num-chains ag)))
+         (jbase (* slot PHYS-JPS))
+         (cbase (* slot PHYS-CPS))
+         (pbase (* slot PHYS-MAXJ))
+         (nj (min PHYS-MAXJ rig))
+         (njoints 0)
+         (ncols 0)
+         (ndropped 0)
+         (nreorder 0)
+         ;; temp role tables indexed by rig joint k (k < PHYS-MAXJ by construction)
+         (tchain (new 'stack-no-clear 'array 'int32 128))
+         (tlink (new 'stack-no-clear 'array 'int32 128))
+         ;; per-chain member SET and the order derived from the rig (both <= PHYS-JPS)
+         (mem (new 'stack-no-clear 'array 'int32 48))
+         (ord (new 'stack-no-clear 'array 'int32 48)))
+    ;; a rig deeper than the parent-table ceiling is not a crash, but the chains cannot reference
+    ;; anything past it — say so once, at bind time, instead of dropping those joints in silence.
+    (when (> rig PHYS-MAXJ)
+      (format 0 "[HD-PHYS] ag=~S rig has ~D joints > ~D — joints past the ceiling cannot be chained~%"
+              ag rig PHYS-MAXJ))
+    ;; resolve every rig joint's role once
+    (dotimes (k nj)
+      (set! (-> tchain k) -1)
+      (set! (-> tlink k) -1)
+      (when (< k (-> jgeo length))
+        (let ((role (pc-physics-joint-role ag (-> jgeo data k name))))
+          (when (>= role 0)
+            (set! (-> tchain k) (shr role 8))
+            (set! (-> tlink k) (logand role #xff))))))
+    ;; ---- chain build: the joint list is a SET, the ORDER comes from the RIG --------------------
+    ;; The declared `j` order in physics_chains.txt is the AUTHOR's intent, but for stock NPC rigs
+    ;; nobody can verify root->tip order offline: the shipped art files carry the hierarchy, not our
+    ;; config. Requiring the declared order to match exactly meant one wrong line silently disabled a
+    ;; whole character. So the chain's joint list is treated as a SET and the order is derived from the
+    ;; rig itself: the member whose parent is not a member is the root, then each next link is the
+    ;; unique member parented to the previous one. A set that is not a single parent-child path is a
+    ;; data bug and is dropped LOUDLY. For every chain that already validated (all HD companions) the
+    ;; derived order is identical to the declared one, so this is strictly a superset.
+    (dotimes (c nch)
+      (let ((ci (+ cbase c))
+            (start njoints)
+            (len 0)
+            (bad 0)
+            (nmem 0))
+        ;; (1) members: every joint of THIS rig the data file assigns to chain c.
+        (dotimes (k nj)
+          (when (= (-> tchain k) c)
+            (cond
+              ((>= nmem PHYS-JPS)
+               (set! bad 1))
+              (else
+               (set! (-> mem nmem) k)
+               (+! nmem 1)))))
+        (when (and (> nmem 0) (zero? bad))
+          ;; (2) the root is the single member whose parent lies OUTSIDE the set (255, out of range,
+          ;; or simply not a member). Two roots means the config lumped two chains into one entry.
+          (let ((root -1)
+                (nroots 0))
+            (dotimes (i nmem)
+              (let ((p (the int (-> *phys-par* (+ pbase (-> mem i)))))
+                    (inset 0))
+                (when (and (!= p #xff) (< p nj))
+                  (dotimes (j nmem)
+                    (when (= (-> mem j) p)
+                      (set! inset 1))))
+                (when (zero? inset)
+                  (+! nroots 1)
+                  (when (< root 0)
+                    (set! root (-> mem i))))))
+            (cond
+              ((!= nroots 1)
+               (format 0 "[HD-PHYS] ag=~S chain ~D invalid: ~D roots in the rig — not a single chain~%"
+                       ag c nroots)
+               (set! bad 1))
+              (else
+               ;; (3) walk root->tip: at every step EXACTLY one member must hang off the current one.
+               (set! (-> ord 0) root)
+               (let ((n 1))
+                 (while (and (< n nmem) (zero? bad))
+                   (let ((cur (-> ord (+ n -1)))
+                         (nxt -1)
+                         (nkids 0))
+                     (dotimes (i nmem)
+                       (when (= (the int (-> *phys-par* (+ pbase (-> mem i)))) cur)
+                         (+! nkids 1)
+                         (when (< nxt 0)
+                           (set! nxt (-> mem i)))))
                      (cond
-                       ((>= njoints PHYS-JPS)
+                       ((> nkids 1)
+                        (format 0 "[HD-PHYS] ag=~S chain ~D invalid: branches at link ~D (declare one chain per branch)~%"
+                                ag c (+ n -1))
+                        (set! bad 1))
+                       ((< nxt 0)
+                        (format 0 "[HD-PHYS] ag=~S chain ~D invalid: only ~D of ~D joints connect — not a single chain~%"
+                                ag c n nmem)
                         (set! bad 1))
                        (else
-                        ;; parentage: link l>0 must hang off link l-1; link 0 off a non-sim anchor.
-                        (let ((par (the int (-> khd-par found))))
-                          (cond
-                            ((zero? len)
-                             (when (or (= par #xff) (>= par (-> obj hd-joints)))
-                               (set! bad 1))
-                             (set! (-> *phys-canchor* ci) par))
-                            ((!= par prev-k)
-                             (set! bad 1))))
-                        (set! (-> *phys-jk* (+ jbase njoints)) found)
-                        (set! prev-k found)
-                        (+! njoints 1)
-                        (+! len 1))))))
-               (when (nonzero? bad)
-                 (format 0 "[HD-PHYS] ag=~S chain ~D invalid (order/anchor/capacity) — disabled~%" ag c)
-                 (set! njoints start)
-                 (set! len 0))
-               ;; CYCLE 2 (defects C/D): a chain whose joint NAMES resolve to nothing in the live rig
-               ;; used to vanish in silence — indistinguishable from "simulated but too subtle". Name
-               ;; it, loudly, and count it: a dropped chain is a data bug, never a tuning problem.
-               (when (zero? len)
-                 (+! ndropped 1)
-                 (format 0 "[HD-PHYS] ag=~S chain ~D DROPPED: 0 of its joints exist in this rig~%" ag c))
-               (set! (-> *phys-cstart* ci) start)
-               (set! (-> *phys-clen* ci) len)
-               (set! (-> *phys-cflags* ci) (pc-physics-chain-flags ag c))
-               (set! (-> *phys-cdev* ci) 0.0)
-               ;; params (milli -> float) + derived
-               (let ((hz (* 0.001 (the float (pc-physics-chain-param-mi ag c 0))))
-                     (maxang (* 0.001 (the float (pc-physics-chain-param-mi ag c 3)))))
-                 (set! (-> *phys-comega* ci) (* 6.2831855 hz))
-                 (set! (-> *phys-cdamp* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 1))))
-                 (set! (-> *phys-cgrav* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 2))))
-                 (set! (-> *phys-cmaxrad* ci) (* 0.017453292 maxang))
-                 (set! (-> *phys-cinertia* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 4))))
-                 (set! (-> *phys-cstretch* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 5))))
-                 (set! (-> *phys-cradius* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 6))))
-                 ;; cycle 2: root lock / freedom gradient / authored-channel mode / contact friction
-                 (set! (-> *phys-crootlock* ci) (/ (pc-physics-chain-param-mi ag c 7) 1000))
-                 (set! (-> *phys-cgrad* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 8))))
-                 (set! (-> *phys-canim* ci) (/ (pc-physics-chain-param-mi ag c 9) 1000))
-                 (set! (-> *phys-cexcite* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 10))))
-                 (set! (-> *phys-cfric* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 11)))))))
-           ;; body collision volumes: file order, joints resolved by name, per-chain applicability
-           ;; mask + tier. A capsule needs BOTH ends present in the rig or it degrades to a sphere on
-           ;; its first joint (never silently: the drop is logged).
-           (let ((ncf (min PHYS-COLS (pc-physics-num-colliders ag))))
-             (dotimes (i ncf)
-               (let ((found -1)
-                     (found2 -1)
-                     (cap? (= 1 (pc-physics-collider-param-mi ag i 3))))
-                 (dotimes (k (-> jgeo length))
-                   (when (and (< found 0) (> (pc-physics-collider-is-joint ag i (-> jgeo data k name)) 0))
-                     (set! found k))
-                   (when (and cap? (< found2 0)
-                              (> (pc-physics-collider-is-joint2 ag i (-> jgeo data k name)) 0))
-                     (set! found2 k)))
-                 (cond
-                   ((< found 0)
-                    (format 0 "[HD-PHYS] ag=~S collider ~D DROPPED: its joint is not in this rig~%" ag i))
-                   (else
-                    (when (and cap? (< found2 0))
-                      (format 0 "[HD-PHYS] ag=~S capsule ~D far end missing — degraded to a sphere~%" ag i))
-                    (let ((cb (+ (* slot PHYS-COLS) ncols)))
-                      (set! (-> *phys-colk* cb) found)
-                      (set! (-> *phys-colk2* cb) (if cap? found2 -1))
-                      (set! (-> *phys-colr* cb) (* 0.001 (the float (pc-physics-collider-param-mi ag i 0))))
-                      (set! (-> *phys-colmask* cb) (pc-physics-collider-param-mi ag i 1))
-                      (set! (-> *phys-coltier* cb) (max 1 (pc-physics-collider-param-mi ag i 2))))
-                    (+! ncols 1))))))
-           (set! (-> *phys-slot-njoints* slot) njoints)
-           (set! (-> *phys-slot-nchains* slot) nch)
-           (set! (-> *phys-slot-ncols* slot) ncols)
-           (set! (-> *phys-slot-seeded* slot) 0)
-           (set! (-> *phys-slot-frames* slot) 0)
-           (set! (-> *phys-slot-resets* slot) 0)
-           (set! (-> *phys-slot-maxdev* slot) 0.0)
-           (set! (-> *phys-slot-maxvel* slot) 0.0)
-           (set! (-> *phys-slot-calm* slot) 0)
-           (set! (-> *phys-slot-pushouts* slot) 0)
-           (set! (-> *phys-slot-maxpen* slot) 0.0)
-           (set! (-> *phys-slot-resid* slot) 0)
-           (set! (-> *phys-slot-maxresid* slot) 0.0)
-           (set! (-> *phys-slot-rootdev* slot) 0.0)
-           (set! (-> *phys-slot-freeroot* slot) 0.0)
-           (set! (-> *phys-slot-reglue* slot) 0)
-           (set! (-> *phys-slot-desc* slot) 0)
-           (set! (-> *phys-slot-nopose* slot) 0)
-           (format 0 "[HD-PHYS] init ag=~S slot=~D chains=~D dropped=~D sim-joints=~D colliders=~D~%"
-                   ag slot nch ndropped njoints ncols))))))
+                        (set! (-> ord n) nxt)
+                        (+! n 1))))))
+               ;; (4) anchor = the root's parent: an ANIMATED bone the sim reads and never writes.
+               (when (zero? bad)
+                 (let ((anc (the int (-> *phys-par* (+ pbase root)))))
+                   (cond
+                     ((or (= anc #xff) (>= anc rig))
+                      (set! bad 1))
+                     (else
+                      (set! (-> *phys-canchor* ci) anc)))))
+               ;; (5) slot capacity
+               (when (and (zero? bad) (> (+ njoints nmem) PHYS-JPS))
+                 (set! bad 1))
+               (when (zero? bad)
+                 ;; (6) declared-vs-derived: link i of the file must BE the i-th joint of the walk.
+                 ;; When it is not, the rig wins and the mismatch is named — a re-order is a config
+                 ;; bug the author still wants to hear about, not a silent correction.
+                 (let ((diff 0))
+                   (dotimes (i nmem)
+                     (when (!= (-> tlink (-> ord i)) i)
+                       (set! diff 1)))
+                   (when (nonzero? diff)
+                     (+! nreorder 1)
+                     (format 0 "[HD-PHYS] ag=~S chain ~D re-ordered from the rig hierarchy (declared order did not match)~%"
+                             ag c)))
+                 ;; (7) commit, root->tip
+                 (dotimes (i nmem)
+                   (set! (-> *phys-jk* (+ jbase njoints)) (-> ord i))
+                   (+! njoints 1)
+                   (+! len 1)))))))
+        (when (nonzero? bad)
+          (format 0 "[HD-PHYS] ag=~S chain ~D invalid (order/anchor/capacity) — disabled~%" ag c)
+          (set! njoints start)
+          (set! len 0))
+        ;; CYCLE 2 (defects C/D): a chain whose joint NAMES resolve to nothing in the live rig
+        ;; used to vanish in silence — indistinguishable from "simulated but too subtle". Name
+        ;; it, loudly, and count it: a dropped chain is a data bug, never a tuning problem.
+        ;; WAVE 2: only the NAMES-not-in-this-rig case prints this line. A chain killed by the
+        ;; hierarchy checks above already printed its own specific reason, and stacking a
+        ;; "0 of its joints exist" on top of it would send the reader hunting a typo that is not
+        ;; there. Both still count as dropped.
+        (when (zero? len)
+          (+! ndropped 1)
+          (when (zero? nmem)
+            (format 0 "[HD-PHYS] ag=~S chain ~D DROPPED: 0 of its joints exist in this rig~%" ag c)))
+        (set! (-> *phys-cstart* ci) start)
+        (set! (-> *phys-clen* ci) len)
+        (set! (-> *phys-cflags* ci) (pc-physics-chain-flags ag c))
+        (set! (-> *phys-cdev* ci) 0.0)
+        ;; params (milli -> float) + derived
+        (let ((hz (* 0.001 (the float (pc-physics-chain-param-mi ag c 0))))
+              (maxang (* 0.001 (the float (pc-physics-chain-param-mi ag c 3)))))
+          (set! (-> *phys-comega* ci) (* 6.2831855 hz))
+          (set! (-> *phys-cdamp* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 1))))
+          (set! (-> *phys-cgrav* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 2))))
+          (set! (-> *phys-cmaxrad* ci) (* 0.017453292 maxang))
+          (set! (-> *phys-cinertia* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 4))))
+          (set! (-> *phys-cstretch* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 5))))
+          (set! (-> *phys-cradius* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 6))))
+          ;; cycle 2: root lock / freedom gradient / authored-channel mode / contact friction
+          (set! (-> *phys-crootlock* ci) (/ (pc-physics-chain-param-mi ag c 7) 1000))
+          (set! (-> *phys-cgrad* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 8))))
+          (set! (-> *phys-canim* ci) (/ (pc-physics-chain-param-mi ag c 9) 1000))
+          (set! (-> *phys-cexcite* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 10))))
+          (set! (-> *phys-cfric* ci) (* 0.001 (the float (pc-physics-chain-param-mi ag c 11)))))))
+    ;; body collision volumes: file order, joints resolved by name, per-chain applicability
+    ;; mask + tier. A capsule needs BOTH ends present in the rig or it degrades to a sphere on
+    ;; its first joint (never silently: the drop is logged).
+    (let ((ncf (min PHYS-COLS (pc-physics-num-colliders ag))))
+      (dotimes (i ncf)
+        (let ((found -1)
+              (found2 -1)
+              (cap? (= 1 (pc-physics-collider-param-mi ag i 3))))
+          (dotimes (k (-> jgeo length))
+            (when (and (< found 0) (> (pc-physics-collider-is-joint ag i (-> jgeo data k name)) 0))
+              (set! found k))
+            (when (and cap? (< found2 0)
+                       (> (pc-physics-collider-is-joint2 ag i (-> jgeo data k name)) 0))
+              (set! found2 k)))
+          (cond
+            ((< found 0)
+             (format 0 "[HD-PHYS] ag=~S collider ~D DROPPED: its joint is not in this rig~%" ag i))
+            (else
+             (when (and cap? (< found2 0))
+               (format 0 "[HD-PHYS] ag=~S capsule ~D far end missing — degraded to a sphere~%" ag i))
+             (let ((cb (+ (* slot PHYS-COLS) ncols)))
+               (set! (-> *phys-colk* cb) found)
+               (set! (-> *phys-colk2* cb) (if cap? found2 -1))
+               (set! (-> *phys-colr* cb) (* 0.001 (the float (pc-physics-collider-param-mi ag i 0))))
+               (set! (-> *phys-colmask* cb) (pc-physics-collider-param-mi ag i 1))
+               (set! (-> *phys-coltier* cb) (max 1 (pc-physics-collider-param-mi ag i 2))))
+             (+! ncols 1))))))
+    (set! (-> *phys-slot-njoints* slot) njoints)
+    (set! (-> *phys-slot-nchains* slot) nch)
+    (set! (-> *phys-slot-ncols* slot) ncols)
+    (set! (-> *phys-slot-seeded* slot) 0)
+    (set! (-> *phys-slot-frames* slot) 0)
+    (set! (-> *phys-slot-resets* slot) 0)
+    (set! (-> *phys-slot-maxdev* slot) 0.0)
+    (set! (-> *phys-slot-maxvel* slot) 0.0)
+    (set! (-> *phys-slot-calm* slot) 0)
+    (set! (-> *phys-slot-pushouts* slot) 0)
+    (set! (-> *phys-slot-maxpen* slot) 0.0)
+    (set! (-> *phys-slot-resid* slot) 0)
+    (set! (-> *phys-slot-maxresid* slot) 0.0)
+    (set! (-> *phys-slot-rootdev* slot) 0.0)
+    (set! (-> *phys-slot-freeroot* slot) 0.0)
+    (set! (-> *phys-slot-reglue* slot) 0)
+    (set! (-> *phys-slot-desc* slot) 0)
+    (set! (-> *phys-slot-nopose* slot) 0)
+    ;; HOT-RELOAD BOOKKEEPING: the generation this binding was produced from. phys-slot-step!
+    ;; compares it every frame and re-binds when the owner pushes a new physics_chains.txt or
+    ;; flips the precision level — companions AND riders, without respawning anything.
+    (set! (-> *phys-slot-gen* slot) (pc-physics-generation))
+    (set! (-> *phys-slot-stamp* slot) (the int (current-time)))
+    ;; ONE LINE, always: GOAL caps a call at 8 parameters (format + dest + fmt + 6 args is already
+    ;; the ceiling), and every `format 0` is its own logcat line on Android — so the two wave-2
+    ;; fields are APPENDED through the shared string buffer instead of splitting the init line and
+    ;; disarming every line-based device gate that greps it.
+    (format (clear *phys-line-buf*)
+            "[HD-PHYS] init ag=~S slot=~D chains=~D dropped=~D sim-joints=~D colliders=~D"
+            ag slot nch ndropped njoints ncols)
+    (format *phys-line-buf* " reorder=~D rider=~D" nreorder (-> *phys-slot-rider* slot))
+    (format 0 "~S~%" *phys-line-buf*))
   (none))
 
-(defun jak-hd-physics-step ((obj jak-hd))
-  "the per-frame verlet/spring chain sim. Runs after fill-jak-hd-bones! — the freshly retargeted
-  world matrices are the spring targets (or, under anim=replace/excite, the re-glued BIND-POSE
-  matrices carried by the animated anchor). See the file header for the algorithm."
-  (let ((en (pc-physics-enabled))
-        (slot -1))
-    (dotimes (s PHYS-SLOTS)
-      (when (= (-> *phys-slot-pid* s) (the int (-> obj pid)))
-        (set! slot s)))
-    (when (and (> en 0) (>= slot 0) (> (-> *phys-slot-njoints* slot) 0)
-               (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton))
-               (nonzero? (-> obj draw jgeo)))
+(defun phys-slot-step! ((slot int) (draw draw-control) (ag string) (rig int))
+  "the per-frame verlet/spring chain sim for ONE bound slot. For an HD companion it runs after
+  fill-jak-hd-bones! — the freshly retargeted world matrices are the spring targets (or, under
+  anim=replace/excite, the re-glued BIND-POSE matrices carried by the animated anchor). For a stock
+  actor the same matrices come straight out of do-joint-math!. Either way the bones are FINAL and
+  world-space when we get here, and the slot's own parent table (*phys-par*) says who hangs off
+  whom — so this body never needs to know which kind of process owns the rig. See the file header
+  for the algorithm."
+  ;; hot-reload: pc-set-physics! re-parses physics_chains.txt whenever the owner flips the menu
+  ;; toggle or the precision level, which bumps the generation. Re-binding here means a pushed
+  ;; params file takes effect on companions AND riders without respawning anything.
+  (let ((g (pc-physics-generation)))
+    (when (!= g (-> *phys-slot-gen* slot))
+      (phys-slot-bind! slot draw ag rig)))
+  (let ((en (pc-physics-enabled)))
+    (when (and (> en 0) (> (-> *phys-slot-njoints* slot) 0)
+               (nonzero? draw) (nonzero? (-> draw skeleton))
+               (nonzero? (-> draw jgeo)))
       (let* ((level (+ en -1))
-             (skel (-> obj draw skeleton))
-             (hd-jgeo (-> obj draw jgeo))
-             (khd-par (-> obj khd-par))
+             (skel (-> draw skeleton))
+             (hd-jgeo (-> draw jgeo))
              (nbones (-> skel length))
              (jbase (* slot PHYS-JPS))
              (cbase (* slot PHYS-CPS))
+             (pbase (* slot PHYS-MAXJ))
              (substeps (max 1 (min 8 (/ (pc-physics-level-param-mi level 0) 1000))))
              (iters (max 1 (min 16 (/ (pc-physics-level-param-mi level 1) 1000))))
              ;; cycle 2: `collide` is a TIER now, not a bool — 0 = no collisions, 1 = core volumes
@@ -373,7 +539,7 @@
              (lo2 (new 'stack-no-clear 'array 'float 48))
              (lcos (new 'stack-no-clear 'array 'float 48))
              (lsin (new 'stack-no-clear 'array 'float 48))
-             ;; per-HD-joint "this bone moved this frame" flag, for the descendant pass (k < 128)
+             ;; per-rig-joint "this bone moved this frame" flag, for the descendant pass (k < PHYS-MAXJ)
              (moved (new 'stack-no-clear 'array 'int32 128))
              (frame-maxvel 0.0)
              (frame-maxdev 0.0)
@@ -403,7 +569,7 @@
                       (when (< (+ k 1) nbones)
                         (vector-copy! (-> *phys-anim* (+ start i))
                                       (-> skel bones (+ k 1) transform vector 3))
-                        (let ((p (the int (-> khd-par k))))
+                        (let ((p (the int (-> *phys-par* (+ pbase k)))))
                           (when (and (!= p #xff) (< (+ p 1) nbones))
                             ;; W'_k = L'_k . W'_par, L'_k = inv(bind-pose[k]) . bind-pose[par]
                             (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
@@ -759,11 +925,10 @@
             ;; the driver's head. Simulating the bridge alone would have ripped the glasses apart,
             ;; which is why the accessory could never be switched on (owner defect D).
             ;; Fix: after the sim, re-glue every DESCENDANT of a moved joint onto its new parent
-            ;; (W'_k = L'_k . W'_par, the mode-2 product). The table's PARENT-ORDER gate guarantees
-            ;; hd-parent < k, so one forward pass propagates through whole sub-trees. Joints of
-            ;; class-gated chains are NOT marked moved (their bones were never touched), so a lower
-            ;; precision level cannot silently drop a descendant's authored animation.
-            (dotimes (k (min 128 (-> obj hd-joints)))
+            ;; (W'_k = L'_k . W'_par, the mode-2 product). Joints of class-gated chains are NOT
+            ;; marked moved (their bones were never touched), so a lower precision level cannot
+            ;; silently drop a descendant's authored animation.
+            (dotimes (k (min PHYS-MAXJ rig))
               (set! (-> moved k) 0))
             (dotimes (c (-> *phys-slot-nchains* slot))
               (let ((ci (+ cbase c)))
@@ -775,19 +940,29 @@
                       ;; write-back), so it must NOT drag its children off their own animation.
                       (when (or (> (-> *phys-canim* ci) 0) (>= i rl))
                         (let ((k (-> *phys-jk* (+ jbase (-> *phys-cstart* ci) i))))
-                          (when (< k 128)
+                          (when (< k PHYS-MAXJ)
                             (set! (-> moved k) 1)))))))))
-            (dotimes (k (min 128 (-> obj hd-joints)))
-              (when (and (zero? (-> moved k)) (< (+ k 1) nbones))
-                (let ((p (the int (-> khd-par k))))
-                  (when (and (!= p #xff) (< p 128) (< (+ p 1) nbones) (nonzero? (-> moved p)))
-                    (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
-                    (matrix*! lkm hbind (-> hd-jgeo data p bind-pose))
-                    (matrix*! (-> skel bones (+ k 1) transform) lkm
-                              (the-as matrix (-> skel bones (+ p 1) transform)))
-                    ;; propagate: this bone moved too, so ITS children follow in the same pass
-                    (set! (-> moved k) 1)
-                    (+! frame-ndesc 1)))))
+            ;; The HD k->e table guarantees parent index < child index, so ONE forward pass
+            ;; propagated through whole sub-trees. Stock art files make no such promise (redsage
+            ;; literally stores LarmFlapB before LarmFlapA), so a single pass would leave a
+            ;; descendant torn off its moved parent. Three passes with an early exit costs nothing
+            ;; and closes the hole for any rig.
+            (let ((more 1))
+              (dotimes (pass 3)
+                (when (nonzero? more)
+                  (set! more 0)
+                  (dotimes (k (min PHYS-MAXJ rig))
+                    (when (and (zero? (-> moved k)) (< (+ k 1) nbones))
+                      (let ((p (the int (-> *phys-par* (+ pbase k)))))
+                        (when (and (!= p #xff) (< p PHYS-MAXJ) (< (+ p 1) nbones) (nonzero? (-> moved p)))
+                          (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
+                          (matrix*! lkm hbind (-> hd-jgeo data p bind-pose))
+                          (matrix*! (-> skel bones (+ k 1) transform) lkm
+                                    (the-as matrix (-> skel bones (+ p 1) transform)))
+                          ;; propagate: this bone moved too, so ITS children follow in the same pass
+                          (set! (-> moved k) 1)
+                          (set! more 1)
+                          (+! frame-ndesc 1))))))))
             ;; ---------------- windowed proof counters ----------------
             (when (> frame-maxdev (-> *phys-slot-maxdev* slot))
               (set! (-> *phys-slot-maxdev* slot) frame-maxdev))
@@ -804,7 +979,7 @@
                (+! (-> *phys-slot-calm* slot) 1)
                (when (= (-> *phys-slot-calm* slot) 30)
                  (format 0 "[HD-PHYS] ag=~S rest-converged: restdev=~f (chain returned to rest)~%"
-                         (-> *hd-ag-names* (-> obj entry)) frame-maxdev)))
+                         ag frame-maxdev)))
               (else
                (set! (-> *phys-slot-calm* slot) 0)))
             (+! (-> *phys-slot-frames* slot) 1)
@@ -818,7 +993,7 @@
               ;; window is exactly ONE line on BOTH targets.
               (format (clear *phys-line-buf*)
                       "[HD-PHYS] ag=~S lvl=~D window: chains=~D joints=~D act=~D cm=~D"
-                      (-> *hd-ag-names* (-> obj entry))
+                      ag
                       level
                       (-> *phys-slot-nchains* slot)
                       (-> *phys-slot-njoints* slot)
@@ -874,6 +1049,193 @@
               (set! (-> *phys-slot-reglue* slot) 0)
               (set! (-> *phys-slot-desc* slot) 0)
               (set! (-> *phys-slot-nopose* slot) 0)))))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; HD COMPANION entry points. These three keep their exact names and signatures — jak-hd.gc calls
+;; them from init-jak-hd / do-joint-math! / deactivate and knows nothing about the slot pool. All
+;; the companion-specific knowledge (the k->e prep table, the *hd-ag-names* params key, hd-joints)
+;; lives HERE and nowhere in the solver.
+;; ------------------------------------------------------------------------------------------------
+
+(defun jak-hd-physics-init ((obj jak-hd))
+  "claim a sim slot for this companion and resolve its chains from the data file against the live
+  HD jgeo. The parent table comes from the generated k->e prep column (khd-par, 255 = root).
+  Reload the params file on every init: pushing a new physics_chains.txt to the device then
+  switching a LOOK (or toggling ENHANCED MODELS) re-reads everything — fast iteration."
+  ;; cycle-2 defect E: prove the physics menu rows are still distinct from the mesh-browser
+  ;; button. Done here because this runs on every companion spawn, physics toggle on OR off.
+  (physics-menu-static-audit!)
+  (when (and (nonzero? (-> obj draw)) (nonzero? (-> obj draw jgeo)))
+    (let ((slot (phys-slot-claim (the int (-> obj pid)) 0)))
+      (cond
+        ((< slot 0)
+         (format 0 "[HD-PHYS] no free sim slot — physics disabled for this companion~%"))
+        (else
+         (pc-physics-reload)
+         (phys-fill-par-from-table! slot (-> obj khd-par) (-> obj hd-joints))
+         (phys-slot-bind! slot (-> obj draw) (-> *hd-ag-names* (-> obj entry)) (-> obj hd-joints))))))
+  (none))
+
+(defun jak-hd-physics-step ((obj jak-hd))
+  "the companion's per-frame step, called from its do-joint-math! override right after
+  fill-jak-hd-bones!. Stamping the slot BEFORE the step is what makes the stock-actor rider's
+  once-per-frame guard and its age-based slot reclamation work off a single counter."
+  (let ((slot (phys-slot-find (the int (-> obj pid)))))
+    (when (>= slot 0)
+      (set! (-> *phys-slot-stamp* slot) (the int (current-time)))
+      (phys-slot-step! slot (-> obj draw) (-> *hd-ag-names* (-> obj entry)) (-> obj hd-joints))))
+  (none))
+
+(defun jak-hd-physics-release ((obj jak-hd))
+  "free this companion's sim slot (called from deactivate)."
+  (dotimes (s PHYS-SLOTS)
+    (when (= (-> *phys-slot-pid* s) (the int (-> obj pid)))
+      (phys-slot-free! s)))
+  (none))
+
+;; ================================================================================================
+;; WAVE 2 (owner 2026-08-05 16:50 / 2026-08-06) — PHYSICS ON THE WHOLE CAST
+;; ================================================================================================
+;; The HD companions own a skeleton of their own; every OTHER character in jak1 is a stock
+;; process-drawable with no companion and no prep step. The sim core above is rig-agnostic — it
+;; resolves chains by joint NAME and walks a parent table — so a stock actor needs nothing but a
+;; POST-ANIM HOOK: process-drawable::do-joint-math! calls phys-rider-post! once the bones are final,
+;; and the same solver runs IN PLACE on the actor's own bones. This is the joint-mod-class hook the
+;; phase spec asks for, at the one point in the frame where every rig is guaranteed posed.
+;;
+;; Chains are declared per RIG in physics_chains.txt keyed by the JOINT-GEO name ("sage-lod0-jg"):
+;; jgeo is one object per art group and survives LOD switches, mgeo does not (lod-set! swaps it).
+;;
+;; NO bone injection is needed for the inherited sites — the shipped rigs already carry the chain
+;; joints (Maia's 8-link ponytail, Gol's four capes, the geologist's braids, every sage's beard,
+;; the fisherman's belly). Where a rig genuinely has no joint for an owner-listed site, that is
+;; documented in the phase report with the evidence, never silently dropped.
+
+(define *phys-cover-pid* (new 'static 'array int32 16))
+(define *phys-cover-stamp* (new 'static 'array int32 16))
+;; DISCOVERY LOG. The rider binds a stock actor by looking its RIG up in physics_chains.txt, and a
+;; rig that is simply not in the file is indistinguishable, from the outside, from a rider that is
+;; broken. So the first time each distinct rig is seen, name it and print the chain count the params
+;; store answered with. `chains=0` = that character has no config yet (a data question);
+;; nothing at all = the hook never ran (a code question). Keyed on the jgeo POINTER purely to avoid
+;; repeating the line — a stale pointer after a level unload costs one extra log line, nothing else.
+(defconstant PHYS-RIDER-SEEN 40)
+(define *phys-seen-jgeo* (new 'static 'array int32 40))
+(define *phys-seen-n* 0)
+(define *phys-rider-bound* 0)     ;; rider slots bound this session
+(define *phys-rider-full* 0)      ;; slot-starvation events
+(define *phys-rider-active* 0)    ;; rider steps in the current window
+(define *phys-rider-frames* 0)
+(define *phys-rider-last* 0)
+
+(defun phys-note-covered! ((pid int))
+  "an HD companion is retargeting FROM this driver's bones this frame. A rider must not also write
+  them (it would feed the companion a perturbed source pose) and the stock mesh is suppressed
+  anyway, so the companion's own chains do the work."
+  (let ((now (the int (current-time)))
+        (slot -1))
+    (dotimes (i 16)
+      (when (and (< slot 0) (= (-> *phys-cover-pid* i) pid))
+        (set! slot i)))
+    (when (< slot 0)
+      (dotimes (i 16)
+        (when (and (< slot 0) (> (- now (-> *phys-cover-stamp* i)) 8))
+          (set! slot i))))
+    (when (>= slot 0)
+      (set! (-> *phys-cover-pid* slot) pid)
+      (set! (-> *phys-cover-stamp* slot) now)))
+  (none))
+
+(defun phys-covered? ((pid int))
+  (let ((now (the int (current-time)))
+        (r #f))
+    (dotimes (i 16)
+      (when (and (= (-> *phys-cover-pid* i) pid)
+                 (<= (- now (-> *phys-cover-stamp* i)) 8))
+        (set! r #t)))
+    r))
+
+(defun phys-rider-post! ((obj process-drawable))
+  "post-anim chain sim for STOCK actors. Called from process-drawable::do-joint-math! for every
+  drawable in the game, so the fast path out is the whole design: four pointer tests, one type
+  compare and one enabled-check when the feature is off or the actor has no rig."
+  (when (and (nonzero? (-> obj draw))
+             (nonzero? (-> obj skel))
+             (nonzero? (-> obj draw jgeo))
+             (nonzero? (-> obj draw skeleton))
+             (not (logtest? (-> obj draw status) (draw-status hidden no-anim)))
+             (!= (-> obj type) jak-hd)
+             (> (pc-physics-enabled) 0))
+    ;; one window tick per frame, shared by every rider
+    (let ((now (the int (current-time))))
+      (when (!= now *phys-rider-last*)
+        (set! *phys-rider-last* now)
+        ;; The physics menu-row audit used to hang off the COMPANION spawn, so a session with
+        ;; ENHANCED MODELS off never ran it — and that is precisely a session where the menu still
+        ;; shows both physics rows. It is self-capping (*phys-menu-audited*), so calling it from the
+        ;; rider tick as well simply makes the audit independent of whether HD models are on.
+        (physics-menu-static-audit!)
+        (+! *phys-rider-frames* 1)
+        (when (>= *phys-rider-frames* 300)
+          (format 0 "[HD-PHYS-RIDER] window: bound=~D active=~D slots-full=~D~%"
+                  *phys-rider-bound* *phys-rider-active* *phys-rider-full*)
+          (set! *phys-rider-frames* 0)
+          (set! *phys-rider-active* 0)
+          (set! *phys-rider-full* 0))))
+    (let* ((pid (the int (-> obj pid)))
+           (slot (phys-slot-find pid)))
+      (cond
+        ;; --- HD-OWNED ACTOR ---------------------------------------------------------------------
+        ;; An actor an HD companion is (or is about to be) retargeting FROM must never be written by
+        ;; a rider: the companion reads these very bones, so a chain-perturbed source pose would
+        ;; shake the HD model too.
+        ;; The first test is the load-bearing one, and it is STATELESS: same question the spawner
+        ;; asks — "with enhanced models on, does this driver model have an HD replacement for the
+        ;; current look?". The per-frame cover STAMP alone was not enough: measured on the village1
+        ;; leg, Jak and Daxter re-bound 98 times each in 110 s because a companion's cover lapses
+        ;; between despawn and respawn, and every one of those gaps let a rider grab the driver for
+        ;; a while. With the stateless test the answer cannot flicker with process lifetime.
+        ;; The stamp is kept as a second net for anything the name test cannot see.
+        ((or (and (-> *pc-settings* recharged-enhanced-models?)
+                  (nonzero? (-> obj draw mgeo))
+                  (>= (hd-desired-entry-for-mgeo (-> obj draw mgeo name)) 0))
+             (phys-covered? pid))
+         (when (and (>= slot 0) (nonzero? (-> *phys-slot-rider* slot)))
+           (phys-slot-free! slot)))
+        ((>= slot 0)
+         (when (nonzero? (-> *phys-slot-rider* slot))
+           ;; ONCE PER FRAME. Several states call do-joint-math! more than once per frame
+           ;; (logic-target has three call sites, ja-post has another); stepping twice would
+           ;; double the sim's time step for those actors only.
+           (let ((now (the int (current-time))))
+             (when (!= now (-> *phys-slot-stamp* slot))
+               (set! (-> *phys-slot-stamp* slot) now)
+               (+! *phys-rider-active* 1)
+               (phys-slot-step! slot (-> obj draw) (-> obj draw jgeo name) (-> obj draw jgeo length))))))
+        (else
+         ;; is this RIG configured? One map lookup on a short string per unbound drawable per frame —
+         ;; deliberately NOT cached on the jgeo pointer: a level unload can hand the same address to
+         ;; a different rig, and a stale negative would silently un-physics a character.
+         (let ((nch (pc-physics-num-chains (-> obj draw jgeo name)))
+               (key (the int (-> obj draw jgeo)))
+               (known 0))
+           (dotimes (i *phys-seen-n*)
+             (when (= (-> *phys-seen-jgeo* i) key)
+               (set! known 1)))
+           (when (and (zero? known) (< *phys-seen-n* PHYS-RIDER-SEEN))
+             (set! (-> *phys-seen-jgeo* *phys-seen-n*) key)
+             (+! *phys-seen-n* 1)
+             (format 0 "[HD-PHYS-RIDER] rig ~S chains=~D~%" (-> obj draw jgeo name) nch))
+         (when (> nch 0)
+           (let ((s (phys-slot-claim pid 1)))
+             (cond
+               ((< s 0)
+                (+! *phys-rider-full* 1))
+               (else
+                (phys-fill-par-from-jgeo! s (-> obj draw jgeo) (-> obj draw jgeo length))
+                (phys-slot-bind! s (-> obj draw) (-> obj draw jgeo name) (-> obj draw jgeo length))
+                (+! *phys-rider-bound* 1))))))))))
   (none))
 
 ) ;; #when FLAG_PHYSICS

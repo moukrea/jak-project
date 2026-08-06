@@ -442,7 +442,8 @@
 (#when FLAG_PHYSICS
   (define-extern jak-hd-physics-init (function jak-hd none))
   (define-extern jak-hd-physics-step (function jak-hd none))
-  (define-extern jak-hd-physics-release (function jak-hd none)))
+  (define-extern jak-hd-physics-release (function jak-hd none))
+  (define-extern phys-note-covered! (function int none)))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver's.
@@ -579,6 +580,14 @@
         (else
          ;; keep the process co-located with the driver for culling; bones are already world-space.
          (vector-copy! (-> self root trans) (-> drv root trans))
+         ;; Grecharged-secondary-motion WAVE 2: renew the driver's COVER stamp every frame. The
+         ;; stock-actor rider (phys-rider-post!) simulates any rig it finds in physics_chains.txt —
+         ;; and every donor rig IS in there, since the HD looks are built from them. Without this
+         ;; renewal the rider would take the driver over a few frames after spawn and write the very
+         ;; bones fill-jak-hd-bones! retargets FROM, i.e. feed the companion a pre-shaken source
+         ;; pose. pc-hd-cover! itself is a one-shot at spawn (the Merc2 side renews on submission),
+         ;; so the stamp has to be refreshed here, in the per-frame post.
+         (#when FLAG_PHYSICS (phys-note-covered! (the int (-> drv pid))))
          ;; DEFECT 6 (owner 2026-08-04, cutscene ghost): mirror the driver's VISIBILITY every frame.
          ;; Cutscenes (and the damage-invulnerability blink) hide the driver via (draw-status hidden);
          ;; without mirroring, the companion keeps submitting its last pose — a frozen HD character
@@ -704,6 +713,10 @@
          ;; PER-ACTOR coverage registration: Merc2 may suppress the driver's stock draw only while
          ;; OUR submissions are actually processed with the HD model found.
          (pc-hd-cover! (the int (-> self pid)) (the int (-> drv pid)))
+         ;; Grecharged-secondary-motion WAVE 2: claim the driver for the companion from frame 0, so
+         ;; the stock-actor rider never gets a window to grab it. Renewed every frame in the
+         ;; jak-hd-clone :post (this call site is a one-shot at spawn).
+         (#when FLAG_PHYSICS (phys-note-covered! (the int (-> drv pid))))
          ;; Grecharged-secondary-motion: resolve this model's physics chains (data-driven).
          (#when FLAG_PHYSICS (jak-hd-physics-init self))
          ;; do NOT touch the driver's draw status (see header: the sidekick wholesale-copy trap).

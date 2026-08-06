@@ -877,12 +877,22 @@ void pc_hd_uncover(u32 companion_pid) {
 static bool s_physics_on = false;
 static int s_physics_level = 1;
 
+// Defined further down with the parameter store; forward-declared so the toggle push below can
+// trigger a re-parse without moving the store above its own dependencies.
+static int pc_physics_parse_file();
+
 void pc_set_physics(u32 on, u32 level) {
   bool v = (on != 0);
   int lv = (int)level;
   if (v != s_physics_on || lv != s_physics_level) {
     // lg (not raw stdout): on Android only lg::* routes to logcat.
     lg::info("[hd-phys] toggle push: {} lvl {} -> {} lvl {}", s_physics_on, s_physics_level, v, lv);
+    // Owner iteration loop: flipping the physics toggle (or the precision level) in the menu is the
+    // documented way to re-read a hot-pushed physics_chains.txt. Re-parsing here bumps the
+    // generation, and every live sim slot re-binds its chains on its next step. (The parse marks
+    // the store loaded itself, so a toggle arriving before the first ensure_loaded() does not get
+    // followed by a second, redundant parse. Generation is an opaque change token, never a count.)
+    pc_physics_parse_file();
   }
   s_physics_on = v;
   s_physics_level = lv;
@@ -930,6 +940,9 @@ static std::map<std::string, PhysModel> s_phys_models;
 static float s_phys_levels[kPhysMaxLevels][kPhysNumLevelParams] = {};
 static int s_phys_level_count = 0;
 static bool s_phys_loaded_once = false;
+// Bumped on every (re)parse. GOAL slots compare it and re-bind their chains when it changes, so a
+// hot-pushed physics_chains.txt takes effect on companions AND stock riders without a respawn.
+static int s_phys_generation = 0;
 
 static std::vector<std::string> phys_tokens(const std::string& line) {
   std::vector<std::string> out;
@@ -1002,6 +1015,14 @@ static bool phys_collider_kv(PhysCollider& col, const std::string& k, const std:
 // Parse recharged_assets/physics_chains.txt. Missing file is NOT an error (0 models = feature inert).
 // Returns the number of [model ...] sections parsed.
 static int pc_physics_parse_file() {
+  // Bumped unconditionally, including on the failure paths below: any (re)parse invalidates the
+  // chain bindings the GOAL side cached from the previous contents.
+  s_phys_generation++;
+  // Whoever got here HAS loaded the store — including pc_set_physics's menu-driven re-read, which
+  // runs before any ensure_loaded() the first time the owner touches the toggle. Setting the flag
+  // here (rather than only in the two ensure/reload wrappers) keeps that path from being followed
+  // by a second, redundant parse and a second generation bump.
+  s_phys_loaded_once = true;
   s_phys_models.clear();
   s_phys_level_count = 0;
   for (int i = 0; i < kPhysMaxLevels; i++) {
@@ -1010,11 +1031,26 @@ static int pc_physics_parse_file() {
     }
   }
 
+  // OWNER TUNING PATH (2026-08-06): physics_chains.txt is data the owner retunes by hand. The
+  // package copy inside the APK would otherwise win over the external pack (see
+  // get_recharged_assets_dir), turning a stiffness tweak into a 581 MB re-download. An EXTERNAL
+  // copy therefore OVERRIDES the packaged one, and the chosen source is logged so a device gate
+  // can prove which file is live.
+  const char* phys_src = "package";
   auto path = file_util::get_recharged_assets_dir() / "physics_chains.txt";
+  auto ext_dir = file_util::get_external_recharged_assets_dir();
+  if (ext_dir) {
+    auto ext_path = *ext_dir / "physics_chains.txt";
+    if (file_util::file_exists(ext_path.string())) {
+      path = ext_path;
+      phys_src = "external-override";
+    }
+  }
   if (!file_util::file_exists(path.string())) {
-    lg::info("[hd-phys] no params file at {} (physics inert)", path.string());
+    lg::info("[hd-phys] PARAMSRC=none path={} (physics inert)", path.string());
     return 0;
   }
+  lg::info("[hd-phys] PARAMSRC={} path={}", phys_src, path.string());
 
   std::string text;
   try {
@@ -1029,6 +1065,10 @@ static int pc_physics_parse_file() {
   bool in_levels = false;
   bool warned_unknown = false;
   int n_chains = 0;
+  int n_sections = 0;
+  // One entry per parsed [model ...] section: the full list of names it declared. Resolved into
+  // s_phys_models after the loop, once each section's contents are complete.
+  std::vector<std::vector<std::string>> alias_groups;
 
   size_t pos = 0;
   while (pos <= text.size()) {
@@ -1055,14 +1095,35 @@ static int pc_physics_parse_file() {
       cur_chain = nullptr;
       continue;
     }
+    // A section header may declare SEVERAL names: `[model a b c]`. jak1 ships the same rig under
+    // many art-group names (assistant, assistant-village2, assistant-firecanyon, ...), and
+    // duplicating the whole block once per name is unmaintainable, so every listed name aliases
+    // ONE PhysModel. The contents only exist once the section has been fully parsed, so the copy
+    // to the extra names is deferred to after the parse loop (see alias_groups).
     if (toks[0] == "[model" && toks.size() >= 2) {
-      std::string name = toks[1];
-      if (!name.empty() && name.back() == ']') {
-        name.pop_back();
+      std::vector<std::string> names;
+      for (size_t t = 1; t < toks.size(); t++) {
+        std::string name = toks[t];
+        if (!name.empty() && name.back() == ']') {
+          name.pop_back();
+        }
+        if (!name.empty()) {
+          names.push_back(name);
+        }
       }
       in_levels = false;
       cur_chain = nullptr;
-      cur_model = &s_phys_models[name];
+      if (names.empty()) {
+        lg::warn("[hd-phys] [model] section with no name (skipped)");
+        cur_model = nullptr;
+        continue;
+      }
+      cur_model = &s_phys_models[names[0]];
+      n_sections++;
+      if (names.size() > 1) {
+        lg::info("[hd-phys] model {} aliased to {} more name(s)", names[0], names.size() - 1);
+      }
+      alias_groups.push_back(std::move(names));
       continue;
     }
 
@@ -1228,8 +1289,21 @@ static int pc_physics_parse_file() {
     }
   }
 
+  // Publish the variant aliases: every extra name of a section gets a copy of the first name's
+  // fully-parsed PhysModel. std::map references are stable, but the source is copied out first so
+  // the inserts below cannot be read as self-assignment.
+  for (const auto& group : alias_groups) {
+    if (group.size() < 2) {
+      continue;
+    }
+    const PhysModel src = s_phys_models[group[0]];
+    for (size_t i = 1; i < group.size(); i++) {
+      s_phys_models[group[i]] = src;
+    }
+  }
+
   lg::info("[hd-phys] params loaded: {} models, {} chains", (int)s_phys_models.size(), n_chains);
-  return (int)s_phys_models.size();
+  return n_sections;
 }
 
 // Lazy first-parse so there is no init-order dependency on the assets dir being resolved.
@@ -1254,6 +1328,11 @@ static s64 phys_mi(float v) {
 s64 pc_physics_reload() {
   s_phys_loaded_once = true;
   return (s64)pc_physics_parse_file();
+}
+
+s64 pc_physics_generation() {
+  pc_physics_ensure_loaded();
+  return s_phys_generation;
 }
 
 // (chain_index << 8) | link_index for a joint's place in its model's chains; -1 if not a chain joint.
@@ -3328,6 +3407,7 @@ void InitMachine_PCPort() {
   // Every value query returns MILLI-units (x1000) as an s64 — no floats cross this boundary.
   make_function_symbol_from_c("pc-set-physics!", (void*)pc_set_physics);
   make_function_symbol_from_c("pc-physics-reload", (void*)pc_physics_reload);
+  make_function_symbol_from_c("pc-physics-generation", (void*)pc_physics_generation);
   make_function_symbol_from_c("pc-physics-joint-role", (void*)pc_physics_joint_role);
   make_function_symbol_from_c("pc-physics-chain-param-mi", (void*)pc_physics_chain_param_mi);
   make_function_symbol_from_c("pc-physics-chain-flags", (void*)pc_physics_chain_flags);

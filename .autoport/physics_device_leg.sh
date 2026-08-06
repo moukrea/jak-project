@@ -56,7 +56,12 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   local LC="$OUT/device_leg_$TAG.logcat.log"; : > "$LC"
   cp "$INI_BAK" "$INI_TMP"
   set_ini_dev 'recharged-master?' '#t'
-  set_ini_dev 'recharged-enhanced-models?' '#t'
+  # WAVE 2: expect-rider runs with ENHANCED MODELS OFF on purpose. That is the one configuration in
+  # which no HD companion covers the four mains, so the STOCK-actor rider is what has to give them
+  # secondary motion — the owner's "physics on every look, including the original ones", proven on
+  # the phone rather than argued.
+  local ENHSET='#t'; [ "$MODE" = expect-rider ] && ENHSET='#f'
+  set_ini_dev 'recharged-enhanced-models?' "$ENHSET"
   set_ini_dev 'hd-look-jak' 1
   set_ini_dev 'hd-look-daxter' 1
   set_ini_dev 'hd-look-keira' 1
@@ -142,6 +147,28 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     expect-off)
       [ "$NWIN" = 0 ] || { say "FAIL($TAG): $NWIN window lines with physics?=#f — OFF is not off"; OK=0; }
       ;;
+    expect-rider)
+      # WAVE 2 device proof: stock actors, no companions. The bar is the same as everywhere else
+      # (bounded, no NaN, rootdev=0, resid=0 — all gated above), plus: riders really bound to
+      # shipped rigs, really stepped, and every declared chain resolved.
+      local NSEEN NRIDE NRIDE0 RACT RWIN NBADC
+      NSEEN=$(grep -ac '\[HD-PHYS-RIDER\] rig ' "$LC" || true)
+      [ "${NSEEN:-0}" -ge 1 ] || { say "FAIL($TAG): no '[HD-PHYS-RIDER] rig' line — the post-anim hook never ran on device"; OK=0; }
+      NRIDE=$(grep -a '\[HD-PHYS\] init ag=' "$LC" | grep -a 'rider=1' | grep -ac 'ag=[a-z0-9-]*-lod0 ' || true)
+      NRIDE0=$(grep -a '\[HD-PHYS\] init ag=' "$LC" | grep -a 'rider=1' | grep -a 'ag=[a-z0-9-]*-lod0 ' | grep -c 'chains=0 ' || true)
+      [ "${NRIDE:-0}" -ge 1 ] || { say "FAIL($TAG): no stock actor bound as a physics rider on device"; OK=0; }
+      [ "$((NRIDE - NRIDE0))" -ge 1 ] || { say "FAIL($TAG): every device rider resolved chains=0"; OK=0; }
+      RACT=$(grep -a '\[HD-PHYS-RIDER\] window:' "$LC" | awk '{if (match($0,/active=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 0) n++} END {print n+0}')
+      [ "${RACT:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS-RIDER] window with active>0 on device"; OK=0; }
+      RWIN=$(grep -ac 'ag=[a-z0-9-]*-lod0 .*window: chains=' "$LC" || true)
+      [ "${RWIN:-0}" -ge 1 ] || { say "FAIL($TAG): no stock-rig [HD-PHYS] window state dump on device"; OK=0; }
+      NBADC=$(grep -a '\[HD-PHYS\] ag=' "$LC" | grep -cE 'chain [0-9]+ (invalid|DROPPED)' || true)
+      [ "${NBADC:-0}" = 0 ] || { say "FAIL($TAG): $NBADC chain(s) failed to resolve on device"; OK=0; }
+      say "leg $TAG: rigs-seen=$NSEEN riders-bound=$NRIDE (chains=0: $NRIDE0) rider-windows=$RWIN rider-active-windows=$RACT bad-chains=$NBADC"
+      grep -a '\[HD-PHYS-RIDER\] rig ' "$LC" | sed 's/.*\[HD-PHYS-RIDER\]/[HD-PHYS-RIDER]/' | sort -u >> "$LOG"
+      grep -a '\[HD-PHYS\] init ag=' "$LC" | grep -a 'rider=1' | sed 's/.*\[HD-PHYS\]/[HD-PHYS]/' | sort -u >> "$LOG"
+      grep -a 'PARAMSRC=' "$LC" | tail -1 >> "$LOG"
+      ;;
   esac
   [ "$OK" = 1 ]
 }
@@ -149,7 +176,8 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
 FAILED=0
 run_leg "D-MAX" '#t' 2 expect-phys || FAILED=1
 run_leg "D-OFF" '#f' 1 expect-off  || FAILED=1
+run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
 
 say ""
-if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF green"; else say "[physics device leg FAIL] see legs above"; fi
+if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER green"; else say "[physics device leg FAIL] see legs above"; fi
 exit "$FAILED"
