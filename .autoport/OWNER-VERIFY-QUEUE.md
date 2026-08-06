@@ -392,3 +392,19 @@ Ce qui a changé, point par point (tes retours du 06/08) :
 ⑤ Maia au spawn vue de loin ⑥ toggle physics OFF = tout redevient stock.
 PAS FAIT (dit honnêtement) : l'anneau du plastron et la boucle du dos de Jak, + la binocle de Samos
 — aucun os dans les 458 rigs, il faut les injecter au prep HD (lot séparé).
+
+### BUILD INTERMÉDIAIRE 19:05 — "HANG" SEULEMENT (à ta demande) — APK en ligne, PAS le cycle 4 complet
+CE QU'IL CONTIENT : la direction de repos dictée par la GRAVITÉ (`hang=`) sur 292 chaînes —
+poitrines 14/14, col 6/6, chemise 4/4, cheveux 28/28, oreilles 84/84, lanières 50/50. C'est la
+réponse à ta question "as-tu défini un haut et un bas". Parser `hang`/`swing` présent dans le libgk.
+CE QU'IL NE CONTIENT PAS : la baisse de l'hystérésis (freering mesuré mais pas encore corrigé),
+ni la mesure de dérive à vide. Le cycle 4 complet suivra.
+MESURES DEVICE SUR CE BUILD EXACT (jambe D-INTRO) :
+  * Maia : `push=66617` — le système de collision SE DÉCLENCHE ENFIN (il était à 0, d'où tes cheveux
+    qui traversaient). 10 chaînes actives, `resid-bad=0`. À vérifier en jeu.
+  * Gol : `push=0` — SES collisions ne se déclenchent toujours pas. Défaut connu, non corrigé.
+  * Jak : `resid-bad=11` — pénétration résiduelle sur 11 fenêtres (marge de rayon fautive, le worker
+    l'annule dans le cycle en cours). Donc du clipping sur Jak est ATTENDU sur ce build.
+  * Poitrine Keira : 738,1 unités.
+⚠️ TAILLE : 1,0 Go au lieu de ~580 Mo — c'est de l'espace mort de packaging Gradle (défaut connu,
+pas du contenu). Le build du cycle 4 sera repacké propre.
