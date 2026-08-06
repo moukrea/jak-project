@@ -138,4 +138,16 @@ grep -qiE "(jacket|veste|hem)[^\n]{0,90}(trouser|pant|flar|evas|clip)" "$R" || f
 grep -qiE "lurker[^\n]{0,80}(leg|patte|paw)" "$R" || fail "V: lurker legs (new hysteresis site) not addressed"
 grep -qiE "(keira|assistant)[^\n]{0,80}(neck|nuque)" "$R" || fail "V: behind-Keira's-neck (new hysteresis site) not addressed"
 
+
+# U-bis: a penetration audit of resid=0 is VACUOUS unless the collider actually fired.
+# Cycle 3 shipped Maia/Gol with push=0 AND resid=0 — zero contacts tested, so zero residual.
+# Any resid=0 claim must be accompanied by a positive push/contact count for the same actor.
+python3 - "$R" <<'PYU' || fail "U-bis: resid=0 reported without a positive push/contact count — a penetration audit that never fires proves nothing"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+if not re.search(r'resid\s*=\s*0',t,re.I): sys.exit(0)
+push=[int(x) for x in re.findall(r'(?:push|contacts?|hits?)\s*=\s*([0-9]+)',t,re.I)]
+sys.exit(0 if push and max(push)>0 else 1)
+PYU
+
 echo "[Grecharged-secondary-motion PASS]"
