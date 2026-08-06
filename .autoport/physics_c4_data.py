@@ -119,11 +119,17 @@ for mdl in ('evilsis-lod0',):
                 stats['R4 Maia hair colskip 2->1'] += 1
 
 # ---- R5: cloth thickness where the measured clearance was ~0 -----------------------------
-R5 = {('jak-hd', 'shirtL'): 150, ('jak-hd', 'shirtR'): 150,
-      ('eichar-lod0', 'shirtL'): 150, ('eichar-lod0', 'shirtR'): 150,
-      ('eichar-lod0', 'pantsL'): 110, ('eichar-lod0', 'pantsR'): 110,
-      ('dax-hd', 'flapL'): 60, ('dax-hd', 'flapR'): 60,
-      ('sidekick-lod0', 'flapL'): 60, ('sidekick-lod0', 'flapR'): 60}
+# MEASURED AND REVERTED, 18:34 device leg. Thickening the cloth moved the contact shell 80 units
+# out while the swing cone (maxangle=22) still holds the hem where it was, so the constraint became
+# permanently unsatisfiable: 11 windows with residuals, a chain stuck fighting for 623 consecutive
+# frames, clearance -55 units. That is the owner's own jitter complaint, manufactured by a tuning
+# knob. The jacket/trouser gap needs the CAPSULE to match the flare, not a fatter chain — left for
+# the owner to judge. Values restored to the pre-cycle-4 authored ones.
+R5 = {('jak-hd', 'shirtL'): 70, ('jak-hd', 'shirtR'): 70,
+      ('eichar-lod0', 'shirtL'): 70, ('eichar-lod0', 'shirtR'): 70,
+      ('eichar-lod0', 'pantsL'): 70, ('eichar-lod0', 'pantsR'): 70,
+      ('dax-hd', 'flapL'): 35, ('dax-hd', 'flapR'): 35,
+      ('sidekick-lod0', 'flapL'): 35, ('sidekick-lod0', 'flapR'): 35}
 for k, r in R5.items():
     i = chain_line.get(k)
     if i is None:

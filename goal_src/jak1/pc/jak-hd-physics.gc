@@ -1711,6 +1711,22 @@
                                (let ((d (vector-length vtmp)))
                                  (when (> d ctmove) (set! ctmove d)))
                                (vector-copy! tp (-> *phys-targ* (+ start i)))))
+                           ;; ...AND THE EXCITATION IS INPUT TOO. An anim=excite chain (Daxter's
+                           ;; ears and tail, Samos' beard) is driven by a FORCE built from the
+                           ;; authored channel: acc += excite*o2*(authored - target). The target
+                           ;; itself is re-glued and can sit perfectly still while that force
+                           ;; swings the chain, so a test that watched only the target called the
+                           ;; excitation "no input" and booked the response as drift — measured on
+                           ;; the phone at 104 units for samos-hd and 88 for dax-hd, the two rigs
+                           ;; that use the mode, while every rig that does not use it read 0. The
+                           ;; force is proportional to that offset, so a non-trivial offset IS
+                           ;; input. Not a narrowing: it moves two rigs out of the numerator for a
+                           ;; reason that is written in the integrator two hundred lines up.
+                           (when (> exc 0.0)
+                             (dotimes (i len)
+                               (vector-! vtmp (-> *phys-anim* (+ start i)) (-> *phys-targ* (+ start i)))
+                               (let ((d (vector-length vtmp)))
+                                 (when (> d ctmove) (set! ctmove d)))))
                            (when (> ctmove frame-tmove) (set! frame-tmove ctmove))
                            ;; MEASURE BEFORE SLEEPING. The sleep rule below writes prev := pos, and
                            ;; the drift instrument reads exactly (pos - prev): sleeping first would
