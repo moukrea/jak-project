@@ -173,3 +173,22 @@ d'APK à retélécharger. FIX : faire GAGNER une copie présente dans le pack EX
 (<ext>/assets/recharged_assets/physics_chains.txt) sur celle de l'APK (override explicite, log de la
 source retenue). Résultat : une itération de tuning owner = un fichier de quelques Ko à déposer,
 plus un APK entier. À faire dans ce cycle.
+
+## ============================================================
+## WAVE 2 (2026-08-06) — LA PHYSIQUE SUR TOUT LE CAST (priorité owner, après le cycle 2 accepté)
+## ============================================================
+Le cycle 2 est clos (menu, vent, ancrage, jiggle, lunettes, colliders resid=0). WAVE 2 = le principe
+universel déjà spécifié plus haut, à EXÉCUTER :
+1. **RECENSEMENT** (rapide, dans le rapport) : scanner les rigs + canaux fake-motion de TOUT le cast
+   jak1 (villageois, pêcheur, Maia, l'archéologue, Gol, PNJ de cinématiques...) et lister les sites de
+   physique : cheveux longs, barbes, vêtements flottants, chapeaux, binocle de Samos, objets
+   suspendus/attachés, POITRINES/FESSES/VENTRES (sites NOUVEAUX sans précurseur ND — obligatoires).
+2. **ARCHITECTURE** : les PNJ sont des modèles STOCK sans companion HD => généraliser la sim via un
+   hook post-anim de classe joint-mod sur les process-drawables stock ; chaînes déclarées par nom de
+   joint dans physics_chains.txt par art-group ; injection d'os quand le rig stock n'en a pas.
+3. **LIVRAISON PAR VAGUES** : les personnages les plus vus d'abord (villageois fréquentés, PNJ de
+   cinématiques, le pêcheur, Maia). Chaque vague = un build livré à l'owner, pas une vague monstre.
+4. Même gating (--physics + toggle + niveaux) ; économie de preuve (compteurs existants, pas de
+   nouveaux harnais) ; l'owner juge le rendu.
+RAPPEL : livrer aussi l'override externe de physics_chains.txt (tuning owner = quelques Ko, pas 581 Mo)
+s'il n'a pas été fait au cycle 2.
