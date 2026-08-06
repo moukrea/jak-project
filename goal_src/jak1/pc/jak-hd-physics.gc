@@ -2067,10 +2067,15 @@
                          ;; make it pass — a tilted actor is the owner's own exception, where the
                          ;; chain is SUPPOSED to leave the modelled pose, and scoring it there would
                          ;; grade the exception as the defect.
+                         (let ((chvel 0.0))
+                           (dotimes (i len)
+                             (when (>= i rl)
+                               (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
+                               (let ((v (vector-length vtmp)))
+                                 (when (> v chvel) (set! chvel v)))))
                          (when (and (!= 2 (-> *phys-cfam* ci))
                                     (< tiltf 0.05)
-                                    (or (nonzero? (-> *phys-slot-settled* slot))
-                                        (>= (-> *phys-slot-calm* slot) PHYS-RESTCALM))
+                                    (< chvel PHYS-REST-VEL)
                                     (<= (-> *phys-csettle* ci) 0)
                                     (< authw 0.5)
                                     (>= chainlen 1.0))
@@ -2097,7 +2102,7 @@
                                (let ((d (vector-length vtmp)))
                                  (when (> d (-> *phys-crestd* ci)) (set! (-> *phys-crestd* ci) d))
                                  (when (> d (-> *phys-slot-restdeva* slot))
-                                   (set! (-> *phys-slot-restdeva* slot) d))))))
+                                   (set! (-> *phys-slot-restdeva* slot) d)))))))
                          ;; ---- (X) DID ANYTHING GET CRUSHED? -------------------------------------
                          ;; Length of the chain as the bones will carry it, over length of the chain
                          ;; as the model authored it. The distance constraint's new one-sided bound
@@ -2106,21 +2111,30 @@
                          ;; also catches a collar folded flat by a cone limit rather than shortened.
                          (when (>= chainlen 1.0)
                            (let ((sl 0.0)
-                                 (sp 0.0))
+                                 (sp 0.0)
+                                 (st 0.0))
                              (dotimes (i len)
-                               (vector-! vtmp (-> *phys-out* (+ start i))
-                                         (if (zero? i) anchor (-> *phys-out* (+ start i -1))))
-                               (set! sl (+ sl (vector-length vtmp)))
-                               (vector-! vtmp (-> *phys-pos* (+ start i))
-                                         (if (zero? i) anchor (-> *phys-pos* (+ start i -1))))
-                               (set! sp (+ sp (vector-length vtmp))))
-                             (let ((lr (/ sl chainlen))
-                                   (ls (/ sp chainlen)))
+                               (when (>= i rl)
+                                 (vector-! vtmp (-> *phys-targ* (+ start i))
+                                           (if (= i rl) (-> *phys-targ* (+ start i))
+                                               (-> *phys-targ* (+ start i -1))))
+                                 (set! st (+ st (vector-length vtmp)))
+                                 (vector-! vtmp (-> *phys-out* (+ start i))
+                                           (if (= i rl) (-> *phys-out* (+ start i))
+                                               (-> *phys-out* (+ start i -1))))
+                                 (set! sl (+ sl (vector-length vtmp)))
+                                 (vector-! vtmp (-> *phys-pos* (+ start i))
+                                           (if (= i rl) (-> *phys-pos* (+ start i))
+                                               (-> *phys-pos* (+ start i -1))))
+                                 (set! sp (+ sp (vector-length vtmp)))))
+                             (when (> st 0.001)
+                             (let ((lr (/ sl st))
+                                   (ls (/ sp st)))
                                (when (< lr (-> *phys-clenr* ci)) (set! (-> *phys-clenr* ci) lr))
                                (when (< lr (-> *phys-slot-lenmin* slot))
                                  (set! (-> *phys-slot-lenmin* slot) lr))
                                (when (< ls (-> *phys-slot-lensim* slot))
-                                 (set! (-> *phys-slot-lensim* slot) ls)))))
+                                 (set! (-> *phys-slot-lensim* slot) ls))))))
                          ;; ---- (O) JITTER METRIC + REST-STATE BOOKKEEPING ------------------------
                          ;; "Jitter comme un fou" is a direction REVERSAL every frame while pressed
                          ;; against a collider. Counted, not eyeballed: a reversal only scores above

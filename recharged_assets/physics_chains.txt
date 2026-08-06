@@ -1295,9 +1295,7 @@ capsule hips upper_body radius=560 radius2=470 tier=1 chains=shirtL,shirtR,pants
 capsule upper_body chest radius=520 tier=1 chains=shirtL,shirtR,pantsL,pantsR,packstrap,collarL,collarR
 capsule chest neckA radius=600 tier=1 chains=collarL,collarR,packstrap,hair
 capsule neckA neckB radius=550 tier=1 chains=hair
-capsule Lthigh Lknee radius=380 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=L
 capsule Lthigh Lknee radius=250 radius2=430 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=L
-capsule Rthigh Rknee radius=380 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=R
 capsule Rthigh Rknee radius=250 radius2=430 tier=1 chains=shirtL,shirtR,pantsL,pantsR side=R
 capsule hips Lthigh radius=500 radius2=470 tier=1 chains=shirtL,shirtR
 capsule hips Rthigh radius=500 radius2=470 tier=1 chains=shirtL,shirtR
