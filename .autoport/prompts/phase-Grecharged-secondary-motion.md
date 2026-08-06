@@ -292,3 +292,38 @@ que « déclaré » ≠ « actif » : le compteur agrégé de la vague 2 n'a pas
 dégradé ?) et poser un compteur PAR ACTEUR ET PAR CHAÎNE : pour chaque acteur à l'écran, chaque
 chaîne déclarée doit montrer un déplacement non nul, sinon c'est un échec. Ce compteur doit
 apparaître dans le rapport pour Maia ET Gol nommément.
+
+## ============================================================
+## CYCLE 3c — PRÉCISIONS OWNER 2026-08-06 ~09:05 (prioritaires — corrigent 3b)
+## ============================================================
+### N. MAIA AU SPAWN : CE N'EST PAS UNE ÉCHELLE, CE SONT LES COLLIDERS
+Correction de l'owner sur la section L : « Le gros truc qu'on voit de loin, je crois en fait que ce
+sont ses CHEVEUX qui passent AU TRAVERS de son corps — ce qui implique qu'ils ont bien de la physique,
+mais que les COLLIDERS ne sont pas bons ! »
+⇒ L'hypothèse « write-back non orthonormal / échelle » passe en SECONDAIRE (à vérifier vite, sans y
+passer du temps). La piste PRIMAIRE : evilsis (Maia) n'a pas de volume de corps correct — ses cheveux
+traversent son torse/sa tête/ses épaules. Il faut un VRAI volume corporel sur elle (capsules suivant
+ses os animés, comme pour Jak/Keira), et l'audit de pénétration doit être rapporté POUR MAIA
+NOMMÉMENT (resid=0), pas seulement en agrégat.
+⇒ Nuance sur la section M : les cheveux de Maia BOUGENT (ils pénètrent), donc « déclaré mais inerte »
+n'est pas la bonne lecture pour elle au spawn. Le compteur par acteur ET par chaîne reste exigé — il
+doit dire, pour Maia et pour Gol, chaîne par chaîne : active oui/non, et déplacement mesuré.
+
+### O. RÈGLE DE SOLVEUR (générale, s'applique à TOUT ce qui est sous contrainte forte)
+« Pour le col de Jak dans la cinématique d'intro, quand il est allongé (tout premier plan), j'ai
+l'impression que la contrainte des colliders le fait JITTER COMME UN FOU au lieu d'essayer de se
+conformer. Si ça ne se conforme pas, au lieu que ça bouge dans tous les sens comme un fou, ça devrait
+juste RESTER TRANQUILLE tout en essayant TRANQUILLEMENT de se conformer. Idem pour TOUTES les choses
+soumises à contraintes fortes, sinon ça fait très glitchy ! »
+⇒ Exigence de conception, pas un réglage : une contrainte INSATISFIABLE ne doit JAMAIS produire
+d'oscillation. Concrètement :
+  * projection SOUPLE et amortie (correction positionnelle bornée par frame), jamais une projection
+    dure ré-appliquée chaque frame — c'est ça qui crée la boucle d'énergie ;
+  * la correction de contrainte ne doit PAS réinjecter de vitesse (tuer la composante de vélocité
+    ajoutée par la projection, sinon le solveur se nourrit lui-même) ;
+  * hystérésis / zone morte : sous pénétration persistante, on converge lentement vers la surface et
+    on se STABILISE, on ne rebondit pas ;
+  * état de repos détecté : si la contrainte reste insatisfaite N frames, la chaîne se fige
+    doucement (amortissement fortement augmenté) au lieu de vibrer.
+⇒ Cas de test cité par l'owner : le COL de Jak, cinématique d'intro, Jak ALLONGÉ, tout premier plan
+(contact fort col/épaule/sol). À traiter comme un cas de non-régression.

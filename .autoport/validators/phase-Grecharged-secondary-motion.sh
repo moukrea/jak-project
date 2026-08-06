@@ -56,4 +56,29 @@ m=[float(x) for x in re.findall(r'(?:chest|poitrine)[^\n]{0,120}?(?:max|amp)[^0-
 sys.exit(0 if m and max(m)>400 else 1)
 PYG
 
+
+# ---- CYCLE 3b/3c (owner 2026-08-06 08:35 + 09:05) ----
+# J. ears on every character, not just Jak
+grep -qiE "(ear|oreille)[^\n]{0,80}(all|tous|cast|character|perso|[0-9]+ *rigs?)" "$R" || fail "J: ears not extended to the whole cast"
+# K. mass/inertia model — Maia must not be jelly
+grep -qiE "(inertia|mass|masse)[^\n]{0,60}(maia|evilsis|chest|poitrine)" "$R" || fail "K: no per-chain mass/inertia evidence for chests (Maia jelly)"
+# M. per-actor per-chain activity, Maia AND Gol by name
+grep -qiE "(maia|evilsis)[^\n]{0,90}(chain|hair|cheveu)[^\n]{0,40}(active|moved|displacement|[0-9])" "$R" || fail "M: no per-chain activity line naming Maia"
+grep -qiE "(gol|evilbro)[^\n]{0,90}(chain|hair|cheveu)[^\n]{0,40}(active|moved|displacement|[0-9])" "$R" || fail "M: no per-chain activity line naming Gol"
+# N. Maia body volume: her own penetration audit must be clean
+grep -qiE "(maia|evilsis)[^\n]{0,80}resid[^\n]{0,12}=[^0-9]{0,4}0\b" "$R" || fail "N: no resid=0 for Maia specifically (hair through body at spawn)"
+# O. SOLVER STABILITY: an unsatisfiable constraint must settle, never oscillate
+grep -qiE "(jitter|oscillat|chatter)[^\n]{0,60}(=|:)[^\n]{0,12}[0-9]" "$R" || fail "O: no jitter/oscillation metric under sustained constraint"
+grep -qiE "(damped|soft|bounded|clamped)[^\n]{0,50}(projection|correction)" "$R" || fail "O: no damped/bounded constraint projection (hard re-projection each frame is the jitter source)"
+grep -qiE "(no|zero|kill|remove)[^\n]{0,40}(velocity|vitesse)[^\n]{0,40}(inject|added|from .{0,20}projection)" "$R" || fail "O: projection must not re-inject velocity"
+grep -qiE "(collar|col)[^\n]{0,90}(intro|cinemat|lying|allong)" "$R" || fail "O: Jak collar / intro-cinematic lying-down case not exercised"
+python3 - "$R" <<'PYO' || fail "O: oscillation must DECAY under sustained penetration (report must show a decreasing series or explicit settle)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+if re.search(r'(settle[sd]?|converge[sd]?|decay(s|ed|ing)?)[^\n]{0,80}(jitter|oscillat|constraint|penetration)',t,re.I): sys.exit(0)
+m=re.findall(r'jitter[^\n]{0,40}?([0-9]+\.?[0-9]*)',t,re.I)
+v=[float(x) for x in m]
+sys.exit(0 if len(v)>=2 and v[-1]<=v[0]*0.5 else 1)
+PYO
+
 echo "[Grecharged-secondary-motion PASS]"
