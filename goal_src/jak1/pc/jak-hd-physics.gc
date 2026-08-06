@@ -191,6 +191,13 @@
 (define *phys-slot-settletime* (new 'static 'array int32 24)) ;; (S) worst frames-to-rest seen in the window
 (define *phys-slot-unsettled* (new 'static 'array int32 24))  ;; (S) idle stretches STILL ringing after a second
 (define *phys-slot-freering* (new 'static 'array int32 24))   ;; (S) reversals in FREE SPACE (no contact)
+;; (S) HOW MANY FRAMES THE WINDOW ACTUALLY SAMPLED AS INPUT-FREE. A zero drift reading is worth
+;; nothing without it: cycle 3 shipped resid=0 on actors whose colliders never fired once, and an
+;; idledrift=0 measured over zero idle frames would be the identical empty zero. Reported next to it.
+(define *phys-slot-idleobs* (new 'static 'array int32 24))
+;; (S) chain-frames the sleep rule zeroed a link's velocity: the mechanism behind "rien ne se repose
+;; vraiment nulle part", visible as a count rather than inferred from the drift being small.
+(define *phys-slot-slept* (new 'static 'array int32 24))
 ;; (U) "resid=0" is only meaningful if a collision test actually ran. Maia measured push=0 AND
 ;; resid=0 while her hair visibly went through her: a chain that is tested against nothing scores a
 ;; perfect penetration audit. These two make that impossible to misread ever again.
@@ -226,6 +233,22 @@
 (defconstant PHYS-REST-VEL 2.0)
 ;; (S) an idle stretch still ringing after this many frames is reported as a failure to settle.
 (defconstant PHYS-SETTLE-BAR 60)
+;; (S) per-link TARGET travel under which the animation is asking this chain for nothing this frame.
+;; Same 0.5 mm bar as the anchor: both have to be quiet before a frame is scored as input-free.
+(defconstant PHYS-IDLE-TARG 2.0)
+;; (S) SLEEP. Below this link speed on an input-free frame the remaining velocity is not motion, it
+;; is the tail of a ring, and carrying it to the next frame is what let hair keep breathing on a
+;; character standing still. Zeroed, so the chain converges on its rest pose instead of orbiting it.
+;; 1 unit/frame = 0.25 mm/frame; a real swing is two orders of magnitude above this.
+(defconstant PHYS-SLEEP-VEL 1.0)
+;; (S) FREE-SPACE ANTI-RING. The contact rest state (PHYS-STICK) only ever armed on a chain pressed
+;; against a collider, so it could not touch the defect the owner actually reported: hair, ears, a
+;; collar and lurker legs ringing in OPEN AIR. A link that reverses direction above the jitter speed
+;; floor for this many consecutive frames is not swinging — a real swing reverses at its own period,
+;; a few times a second at most — it is oscillating, and its velocity retention collapses until it
+;; stops. Same philosophy as the contact rest state, applied where there is nothing to touch.
+(defconstant PHYS-RING 3)
+(defconstant PHYS-RING-DAMP 0.35)
 
 
 ;; ---- cycle-3 constants ------------------------------------------------------------------------
@@ -319,6 +342,16 @@
 ;; reverses direction every frame, and that reversal count is the number the owner's "jitter comme
 ;; un fou" turns into.
 (define *phys-vprev* (new 'static 'inline-array vector 1152))
+;; (S/cycle-4) LAST FRAME'S TARGET, per joint. "No input" cannot be read off the anchor's TRANSLATION
+;; alone: a villager who turns on the spot, or a sage whose head rotates about a point a centimetre
+;; from his beard root, moves that root by less than the idle threshold while swinging every target
+;; below it across half a metre. The chain then follows its target — driven motion, correctly — and
+;; the old instrument booked the whole excursion as "drift with no input" (measured: sage-lod0
+;; idledrift=2637 units in a window where the actor was, by that definition, standing still). What
+;; the animation ASKS FOR is the target, so the target is what has to be still before a frame counts
+;; as input-free. This is not a narrower metric — it is a correction of attribution, and it makes the
+;; number go UP wherever a chain really does move by itself.
+(define *phys-tprev* (new 'static 'inline-array vector 1152))
 (define *phys-anim* (new 'static 'inline-array vector 1152)) ;; per-frame AUTHORED position (pre re-glue), for anim=excite and (A) authored priority
 (define *phys-jdev* (new 'static 'array float 1152))         ;; (D) per-LINK window max deviation: "only the tip moves" is a number, not an impression
 ;; (P) per-LINK influence: the fraction of the simulated displacement this bone actually receives.
@@ -369,6 +402,7 @@
 (define *phys-chold* (new 'static 'array int32 576))
 (define *phys-cauthbase* (new 'static 'array float 576))    ;; (Q) slow baseline of the authored offset
 (define *phys-cstick* (new 'static 'array int32 576))       ;; (O) consecutive frames of UNSATISFIED contact
+(define *phys-cring* (new 'static 'array int32 576))        ;; (S) consecutive frames of FREE-SPACE reversal
 ;; PER-CHAIN residual frames. The slot-wide resid= says an actor ends frames inside its own body but
 ;; not WHICH chain, and on a 12-chain character that is a guessing game — it cost a full build cycle
 ;; on Gol. cres: names the chain, so a bad collider line is read off the log instead of deduced.
@@ -696,6 +730,7 @@
           (set! (-> *phys-chold* ci) 0)
           (set! (-> *phys-cauthbase* ci) 0.0)
           (set! (-> *phys-cstick* ci) 0)
+          (set! (-> *phys-cring* ci) 0)
           (set! (-> *phys-cres* ci) 0)
           ;; (P) build the influence profile. wtip is never lowered — owner D is that too LITTLE of
           ;; the length moves — so continuity is bought by RAISING the root instead.
@@ -798,8 +833,12 @@
     (set! (-> *phys-slot-settletime* slot) 0)
     (set! (-> *phys-slot-unsettled* slot) 0)
     (set! (-> *phys-slot-freering* slot) 0)
+    (set! (-> *phys-slot-idleobs* slot) 0)
+    (set! (-> *phys-slot-slept* slot) 0)
     (set! (-> *phys-slot-noncol* slot) 0)
     (set! (-> *phys-slot-nomask* slot) 0)
+    (dotimes (j PHYS-JPS)
+      (vector-reset! (-> *phys-tprev* (+ jbase j))))
     (vector-reset! (-> *phys-slot-gdir* slot))
     (vector-reset! (-> *phys-slot-gloc* slot))
     (dotimes (j PHYS-JPS)
@@ -910,6 +949,10 @@
              ;; so it is the motion that reaches a bone), excluding chains that are settling in from a
              ;; spawn or currently owned by the authored animation.
              (frame-self 0.0)
+             ;; (S) the largest TARGET travel any link was asked for this frame. Together with
+             ;; frame-anchd this is the whole "does the animation want anything?" test — see the
+             ;; comment on *phys-tprev*: keying it on the anchor alone scored driven motion as drift.
+             (frame-tmove 0.0)
              (frame-maxdev 0.0)
              (frame-nact 0)
              (frame-nreglue 0)
@@ -1259,6 +1302,11 @@
                        ;; "ca se balade meme sans mouvement et ca FLOTTE". Costs one compare.
                        (let ((kd (fmin 1.0
                                  (* (if (> (-> *phys-cstick* ci) PHYS-STICK) PHYS-STICK-DAMP 1.0)
+                                    ;; (S) ...and the same collapse in FREE SPACE. The owner's
+                                    ;; hysteresis is on hair, ears, a collar and lurker legs — none
+                                    ;; of them touching anything — so a rest state that only ever
+                                    ;; armed under contact could not reach it.
+                                    (if (> (-> *phys-cring* ci) PHYS-RING) PHYS-RING-DAMP 1.0)
                                     (/ (-> *phys-cinertia* ci) (+ 1.0 (* (-> *phys-cdamp* ci) sdt 60.0))))))
                              (gacc (* (-> *phys-cgrav* ci) PHYS-GRAV-ACCEL (- 1.0 authw) sw)))
                          (dotimes (st substeps)
@@ -1647,6 +1695,35 @@
                          ;; The verdict is deferred to after the chain loop, when frame-anchd knows
                          ;; about EVERY anchor: a chain cannot tell on its own whether the actor as a
                          ;; whole had input this frame.
+                         ;; ---- (S) WHAT THE ANIMATION ASKED FOR, AND THE SLEEP RULE ---------------
+                         ;; ctmove is this chain's largest per-link TARGET travel. It is the input
+                         ;; signal: the anchor can be still while every target below it swings (an
+                         ;; NPC turning on the spot), and reading only the anchor is what made the
+                         ;; old idle-drift number describe driven motion. Measured here, once the
+                         ;; targets for the frame are final, and fed to the frame-wide test below.
+                         (let ((ctmove 0.0))
+                           (dotimes (i len)
+                             (let ((tp (-> *phys-tprev* (+ start i))))
+                               (vector-! vtmp (-> *phys-targ* (+ start i)) tp)
+                               (let ((d (vector-length vtmp)))
+                                 (when (> d ctmove) (set! ctmove d)))
+                               (vector-copy! tp (-> *phys-targ* (+ start i)))))
+                           (when (> ctmove frame-tmove) (set! frame-tmove ctmove))
+                           ;; SLEEP. On a frame where this chain was asked for nothing, a link still
+                           ;; carrying less than a quarter of a millimetre of velocity is not moving,
+                           ;; it is ringing down — and in a verlet integrator that residue is stored
+                           ;; in `prev`, so it survives to the next frame and the next. Zeroing it
+                           ;; makes the rest pose an attractor the chain actually reaches instead of
+                           ;; one it orbits: the owner's "rien ne se repose vraiment nulle part", and
+                           ;; the mechanism that takes idle drift to zero rather than merely small.
+                           ;; A chain still settling in from a spawn is exempt — its ramp IS input.
+                           (when (and (< ctmove PHYS-IDLE-TARG) (<= (-> *phys-csettle* ci) 0))
+                             (dotimes (i len)
+                               (when (>= i rl)
+                                 (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
+                                 (when (< (vector-length vtmp) PHYS-SLEEP-VEL)
+                                   (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
+                                   (+! (-> *phys-slot-slept* slot) 1))))))
                          (when (and (<= (-> *phys-csettle* ci) 0) (< authw 0.5))
                            (dotimes (i len)
                              (when (>= i rl)
@@ -1677,6 +1754,14 @@
                                  (vector-copy! vp vtmp))))
                            (+! (-> *phys-slot-jitter* slot) rev)
                            (+! (-> *phys-slot-freering* slot) frev)
+                           ;; (S) FREE-SPACE RING RUN LENGTH — the counter that arms the anti-ring
+                           ;; damping in the integrator above. One reversal is a swing changing
+                           ;; direction; PHYS-RING of them back to back, at 60 Hz, is an oscillation
+                           ;; no animation asked for. Reset by a single clean frame, so a chain that
+                           ;; is genuinely swinging is never held down.
+                           (cond
+                             ((> frev 0) (+! (-> *phys-cring* ci) 1))
+                             (else (set! (-> *phys-cring* ci) 0)))
                            (when (nonzero? chresid) (+! (-> *phys-cres* ci) 1))
                            (cond
                              ;; either symptom of an unsatisfiable constraint arms it: reversing
@@ -1892,9 +1977,13 @@
             ;; none is owned by the authored animation. There is no input. Whatever moved, moved by
             ;; itself — and that is the defect the owner described as "ca se balade meme sans
             ;; mouvement et ca FLOTTE". Owner bar: ~0.
+            ;; INPUT-FREE = every anchor still AND every target still. The second half is the
+            ;; cycle-4 correction: without it a turning NPC books its driven swing as drift.
             (when (and (< frame-anchd PHYS-IDLE-ANCH)
-                       (> frame-self (-> *phys-slot-idle* slot)))
-              (set! (-> *phys-slot-idle* slot) frame-self))
+                       (< frame-tmove PHYS-IDLE-TARG))
+              (+! (-> *phys-slot-idleobs* slot) 1)
+              (when (> frame-self (-> *phys-slot-idle* slot))
+                (set! (-> *phys-slot-idle* slot) frame-self)))
             ;; ---- (S) SETTLE TIME — decay, not the absence of contact -------------------------
             ;; The owner's instruction after cycle 3 was explicit: measure the DECAY to rest after
             ;; the driving motion stops, not whether anything is touching. So: the moment the anchor
@@ -1904,7 +1993,7 @@
             ;; silently never producing a number — an instrument that only reports successes is the
             ;; mistake that cost this phase a cycle.
             (cond
-              ((> frame-anchd PHYS-IDLE-ANCH)
+              ((or (> frame-anchd PHYS-IDLE-ANCH) (> frame-tmove PHYS-IDLE-TARG))
                (set! (-> *phys-slot-idleframes* slot) 0)
                (set! (-> *phys-slot-settled* slot) 0))
               (else
@@ -2093,6 +2182,12 @@
               (format *phys-line-buf* " noncol=~D nomask=~D"
                       (-> *phys-slot-noncol* slot)
                       (-> *phys-slot-nomask* slot))
+              ;; idlewin = the frames this window actually scored as input-free, slept = the
+              ;; chain-frames the sleep rule zeroed. idledrift=0 with idlewin=0 is an EMPTY zero and
+              ;; must be read as "not measured" — the same trap resid=0/push=0 was in cycle 3.
+              (format *phys-line-buf* " idlewin=~D slept=~D"
+                      (-> *phys-slot-idleobs* slot)
+                      (-> *phys-slot-slept* slot))
               ;; (R) the gravity the integrator really applied, in WORLD axes and then in the anchor
               ;; bone's axes. gdir must read (0.0000, -1.0000, 0.0000) on every actor at every
               ;; orientation; gloc must NOT, or gravity would be turning with the bone.
@@ -2118,6 +2213,8 @@
               (set! (-> *phys-slot-settletime* slot) 0)
               (set! (-> *phys-slot-unsettled* slot) 0)
               (set! (-> *phys-slot-freering* slot) 0)
+              (set! (-> *phys-slot-idleobs* slot) 0)
+              (set! (-> *phys-slot-slept* slot) 0)
               (set! (-> *phys-slot-authhold* slot) 0)
               (set! (-> *phys-slot-autheng* slot) 0)
               (set! (-> *phys-slot-authrel* slot) 0)
