@@ -2850,6 +2850,29 @@
                                     (fb (if (>= (-> *phys-infl* (+ sb j)) 0.05) 1.0 0.0)))
                                 (when (> (+ fa fb) 0.0)
                                   (let ((need (+ (-> *phys-lrad* (+ sa i)) (-> *phys-lrad* (+ sb j)))))
+                                    ;; ---- (W/C6b) THE MODEL IS THE FLOOR OF THIS PAIR TOO -------
+                                    ;; Two link radii measured independently off the mesh do not
+                                    ;; have to add up to less than the gap Naughty Dog left between
+                                    ;; the strands, and where they do not, this pass separates the
+                                    ;; pair EVERY frame, for ever — pushing `out`, `pos` AND `prev`,
+                                    ;; and never setting `lpush`, so the fidelity metric graded the
+                                    ;; result as a chain that had wandered off the model pose with
+                                    ;; nothing touching it. That is the whole of the three worst
+                                    ;; readings on the 03:37 leg: Maia's chestL/chestR (260+260 of
+                                    ;; radius across a narrower modelled gap) at 131 and 180 units,
+                                    ;; and Keira's rbang against her ear at 61. It is also why
+                                    ;; arrival could not fix them: it relaxes toward the model pose
+                                    ;; and this pass shoved the chain straight back out again.
+                                    ;; So the pair may separate to at most the distance the MODEL
+                                    ;; already puts between these two links. Nothing is allowed to
+                                    ;; interpenetrate any further than ND drew it, the contact the
+                                    ;; owner asked for ("les seins s'entre-choquent") still fires
+                                    ;; the moment one of them swings toward the other, and a pair
+                                    ;; that is merely close AT REST is simply left where it was
+                                    ;; modelled.
+                                    (vector-! vtmp2 (-> *phys-targ* (+ sa i)) (-> *phys-targ* (+ sb j)))
+                                    (set! need (fmin need (fmax 0.0 (- (vector-length vtmp2)
+                                                                       PHYS-MODEL-CLR))))
                                     (vector-! vtmp (-> *phys-out* (+ sa i)) (-> *phys-out* (+ sb j)))
                                     (let ((dd (vector-length vtmp)))
                                       (when (and (< dd (- need PHYS-PEN-TOL)) (> dd 0.0001))
