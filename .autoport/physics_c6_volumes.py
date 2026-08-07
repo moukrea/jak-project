@@ -190,7 +190,13 @@ def fit_capsule(pts, a, b):
         r1c, r2c = max(r1, 0.0), max(r2, 0.0)
         if np.max(d - (r1c + (r2c - r1c) * t)) > 1e-6:
             continue                          # does not contain everything
-        cost = r1c + r2c
+        # MINIMISE THE LARGEST RADIUS, then the sum. Minimising the sum sounds equivalent and is
+        # not: to cover a belly half way along chest->neck, the cheapest-sum dominating line
+        # extrapolates to 14399 units at the neck — a volume bigger than the character, which would
+        # fling a strand across the screen the moment it touched it. The tightest ENVELOPE is what
+        # a collision volume needs, and that is the max, so a fat cylinder correctly beats a
+        # monstrous cone.
+        cost = (max(r1c, r2c), r1c + r2c)
         if best is None or cost < best[0]:
             best = (cost, r1c, r2c)
     if best is None:                          # numerical fallback: a cylinder that surely contains
@@ -227,13 +233,20 @@ def bone_clouds(geo):
     nj = len(geo['names'])
     clouds = [[] for _ in range(nj)]
     idx_all = np.arange(len(V))
-    for c in range(J.shape[1]):
-        sel = W[:, c] >= WMIN
-        jj = J[sel, c]
-        ii = idx_all[sel]
-        for lo in np.unique(jj):
-            if 0 <= lo < nj:
-                clouds[lo].append(ii[jj == lo])
+    # DOMINANT OWNERSHIP, and this is the difference between a body and a balloon.
+    # Taking every bone that holds >= WMIN of a vertex sounds safer — the volumes then overlap
+    # across each joint — but it makes a bone's capsule swallow geometry that BELONGS to its
+    # neighbour and is already covered there. Measured on the cow: the head's capsule had to
+    # contain ear and horn vertices that the ear bones own, and came out with a 10560-unit radius,
+    # 2.5 metres, which then had every strand resting deep inside it. Every vertex has exactly one
+    # dominant bone, so fitting on dominant ownership still gives a union that covers the whole
+    # mesh — the containment guarantee is untouched — while each volume stays the size of the part
+    # it actually represents.
+    dom = np.argmax(W, axis=1)
+    jj = J[idx_all, dom]
+    for lo in np.unique(jj):
+        if 0 <= lo < nj:
+            clouds[lo].append(idx_all[jj == lo])
     return [np.concatenate(c, axis=0) if c else np.zeros(0, dtype=np.int64) for c in clouds]
 
 
@@ -264,18 +277,41 @@ def derive_volumes(geo, clouds=None):
         for c in kids[j]:
             if np.all(np.isfinite(P[c])) and np.linalg.norm(P[c] - P[j]) >= 1.0:
                 spines.append((j, c, P[j], P[c]))
+        # The parent->bone span is a candidate for EVERY bone, not only for childless ones.
+        # Without it a skull's vertices had to be carried by whichever short child span happened
+        # to be nearest — head->leftEAR — and containing the top of the head on a spine pointing
+        # sideways at an ear needed a radius of 18010 units, larger than the whole animal. With the
+        # parent span present those vertices sit on neck->head, where they belong, and the fitted
+        # radii come back to the size of the body part.
+        pj = parent[j]
+        if pj is not None and 0 <= pj < nj and np.all(np.isfinite(P[pj])) \
+                and np.linalg.norm(P[j] - P[pj]) >= 1.0:
+            spines.append((pj, j, P[pj], P[j]))
         if not spines:
-            p = parent[j]
-            a = P[p] if (p is not None and 0 <= p < nj and np.all(np.isfinite(P[p]))) else P[j]
-            if np.linalg.norm(P[j] - a) < 1.0:
-                a = P[j]
-            spines.append((p if not np.array_equal(a, P[j]) else j, j, a, P[j]))
+            spines.append((j, j, P[j], P[j]))
         if len(spines) == 1:
             groups = [(spines[0], pts)]
         else:
-            dd = np.stack([seg_td(pts, s[2], s[3])[1] for s in spines], axis=1)
-            pick = np.argmin(dd, axis=1)
-            groups = [(s, pts[pick == i]) for i, s in enumerate(spines)]
+            # WHICH SPINE HOLDS A VERTEX is not "the nearest one".  A torso vertex is about as far
+            # from chest->neck as from the stub chest->Rcollar, and nearest-wins put it on the stub:
+            # containing a torso on a spine two inches long needed radius 18010 — bigger than the
+            # character.  So the assignment is refined the way a clustering is: assign, fit, then
+            # move each vertex to the spine whose fitted volume holds it most cheaply, and refit.
+            # Long spines then take the bulk they are shaped for and the stubs keep only their own.
+            td = [seg_td(pts, sp[2], sp[3]) for sp in spines]
+            pick = np.argmin(np.stack([x[1] for x in td], axis=1), axis=1)
+            for _ in range(3):
+                fits = []
+                for i, sp in enumerate(spines):
+                    gp = pts[pick == i]
+                    fits.append(fit_capsule(gp, sp[2], sp[3]) if len(gp) >= MIN_CLOUD else (0.0, 0.0))
+                cost = np.stack([td[i][1] - (fits[i][0] + (fits[i][1] - fits[i][0]) * td[i][0])
+                                 for i in range(len(spines))], axis=1)
+                new_pick = np.argmin(cost, axis=1)
+                if np.array_equal(new_pick, pick):
+                    break
+                pick = new_pick
+            groups = [(sp, pts[pick == i]) for i, sp in enumerate(spines)]
         # A split group too small to deserve its own capsule is MERGED into its nearest sibling,
         # never dropped: dropping it leaves those vertices outside every volume of their own bone,
         # which is a hole of exactly the kind being hunted (it was the last 285 units of residual
@@ -691,7 +727,69 @@ def set_kv(line, key, val):
     return line.rstrip() + ' %s=%s' % (key, val)
 
 
-def emit_model(sec, geo, vols_keep, cgeo, pairs, colskips, tier1_n=20):
+def clearance_shrink(vols_keep, cgeo):
+    """Per (chain, volume): how much that volume must be REDUCED so the chain's own modelled rest
+    pose is not already inside it.
+
+    This is the correction the first device run demanded, and it is a fit problem, not a tuning
+    one.  A capsule fitted to contain every vertex of a bone is necessarily FAT where the bone's
+    skin is concave — a head plus its coiffe is a poor sausage — and the strands that live in that
+    region are then modelled INSIDE the volume.  Measured on the phone: 63 of 109 links rested
+    inside a volume they were tested against, which is an unsatisfiable constraint on more than
+    half the cast.  The solver did exactly what the owner said it must never do (cycle-3c O): it
+    fought, forever — 8.5 million push-outs on Jak in twelve windows, residual penetration that
+    never cleared, and idle drift on a chain nothing was driving.
+
+    The rule that replaces it comes straight from his cycle-5 W: the MODEL is the source of truth.
+    A strand modelled resting against the skin is not clipping; it is where Naughty Dog put it.  So
+    each strand sees the volume clamped to its OWN modelled clearance — it may never go DEEPER than
+    the model puts it, which is the no-clipping rule stated in a form that is satisfiable at rest.
+    Same volume, different strands, different radius: the grammar already allows several colliders
+    on one joint with different filters."""
+    out = {}
+    for v in vols_keep:
+        for cname in v.chains:
+            cg = cgeo.get(cname)
+            if cg is None:
+                continue
+            k = 1.0
+            for li, p in enumerate(cg['pos']):
+                t, d = seg_td(p[None, :], v.a, v.b)
+                t, d = float(t[0]), float(d[0])
+                r_at = v.r1 + (v.r2 - v.r1) * t          # the volume's radius AT THE CONTACT
+                if r_at <= 1e-6:
+                    continue
+                # CLEARANCE MARGIN. 8 units was the first guess and the phone refused it: with the
+                # strand resting exactly on the surface, the least motion put it back inside, and
+                # the solver squeezed the chain to 0.934 of its modelled length trying to satisfy
+                # both the volume and the link length at once — crushing, which the owner ruled out
+                # in cycle 5 X. The margin scales with the strand's own thickness because that is
+                # what sets how far it has to travel before it touches.
+                # ...and with the LINK LENGTH. A two-link chain whose root is rigid has one degree
+                # of freedom: a volume that intrudes past its tip can only be answered by the link
+                # getting SHORTER, which is the crush the owner ruled out (cycle 5 X). Measured:
+                # Samos' ear chain lost 5.5% of its length in the intro. The margin therefore has
+                # to cover the intrusion a link can meet without being able to swing away from it,
+                # and that scales with how long the link is.
+                mlen = 0.0
+                if len(cg['pos']) > 1:
+                    mlen = float(np.mean([np.linalg.norm(cg['pos'][n + 1] - cg['pos'][n])
+                                          for n in range(len(cg['pos']) - 1)]))
+                allowed = d - cg['rad'][li] - max(48.0, 0.6 * cg['rad'][li], 0.12 * mlen)
+                # SCALE, do not subtract. Subtracting the same amount from both ends does not
+                # reduce a CONE by that amount at the contact — and when one end clamps at zero it
+                # barely reduces at all, which is how a 10560-unit ear capsule survived a 4850-unit
+                # correction and left the strand 1584 units inside it. Scaling keeps the taper and
+                # reduces the radius by the same factor everywhere along the spine.
+                k = min(k, max(0.0, allowed / r_at))
+            out[(id(v), cname)] = k
+    return out
+
+
+DROPPED = []
+
+
+def emit_model(sec, geo, vols_keep, cgeo, pairs, colskips, tier1_n=20, shrink=None):
     """-> (list of generated collider lines, dict chain-line-no -> new chain line)"""
     names = geo['names']
     nameset = set(names)
@@ -710,14 +808,32 @@ def emit_model(sec, geo, vols_keep, cgeo, pairs, colskips, tier1_n=20):
         far = names[v.k]
         near = names[v.j] if (v.j is not None and 0 <= v.j < len(names)) else far
         s = side_of(far, nameset)
-        chains = ','.join(sorted(v.chains))
         sd = ' side=%s' % ('L' if s == 1 else 'R') if s else ''
-        if near == far:
-            out.append('collider %s radius=%.0f tier=%d chains=%s%s'
-                       % (far, max(v.r1, v.r2), tier[id(v)], chains, sd))
-        else:
-            out.append('capsule %s %s radius=%.0f radius2=%.0f tier=%d chains=%s%s'
-                       % (near, far, v.r1, v.r2, tier[id(v)], chains, sd))
+        # chains that need the same clamp share a line; the bucket keeps the file readable instead
+        # of emitting one collider per chain.
+        buckets = {}
+        for cname in sorted(v.chains):
+            sh = (shrink or {}).get((id(v), cname), 1.0)
+            buckets.setdefault(max(0, min(20, int(sh * 20))), []).append(cname)
+        for bk, cl in sorted(buckets.items()):
+            f = bk / 20.0
+            r1 = max(0.0, v.r1 * f)
+            r2 = max(0.0, v.r2 * f)
+            # A volume a strand lives DEEP inside cannot be that strand's barrier at all: clamping
+            # it to a floor would keep an unsatisfiable constraint alive at a smaller radius, which
+            # is the same fight with a quieter number. It is dropped for that strand instead, and
+            # counted, so "this chain is not tested against this volume" is a reported fact rather
+            # than a silent omission. The strand is still held by every OTHER volume it can reach.
+            if max(r1, r2) < 40.0:
+                DROPPED.append((names[v.k], ','.join(cl)))
+                continue
+            chains = ','.join(cl)
+            if near == far:
+                out.append('collider %s radius=%.0f tier=%d chains=%s%s'
+                           % (far, max(r1, r2), tier[id(v)], chains, sd))
+            else:
+                out.append('capsule %s %s radius=%.0f radius2=%.0f tier=%d chains=%s%s'
+                           % (near, far, r1, r2, tier[id(v)], chains, sd))
     newchain = {}
     for ch in sec.chains:
         cg = cgeo.get(ch.name)
@@ -866,7 +982,8 @@ def main():
                 break
         pairs = chain_pairs(cgeo, sec.names[0])
         colskips = {c: auto_colskip(cgeo[c], keep, geo) for c in cgeo}
-        gen, newchain = emit_model(sec, geo, keep, cgeo, pairs, colskips)
+        shrink = clearance_shrink(keep, cgeo)
+        gen, newchain = emit_model(sec, geo, keep, cgeo, pairs, colskips, shrink=shrink)
         a = audit_model(geo, keep, cgeo, clouds)
         a.update(model=sec.names[0], aliases=len(sec.names), src=geo['src'],
                  nchain=len(sec.chains), nres=len(cgeo),
@@ -910,6 +1027,8 @@ def main():
         f.write('max hole = %.3f\n' % (max([r['hole'] for r in rows]) if rows else 0))
         f.write('positive control fired on %d/%d models\n' %
                 (sum(1 for r in rows if r['ctrl_ok']), len(rows)))
+        f.write('volume/chain pairs dropped because the strand RESTS inside that volume '
+                '(the model puts it there; see clearance_shrink): %d\n' % len(DROPPED))
         if nogeo:
             f.write('\nNO GEOMETRY (left hand-authored): %s\n' % ', '.join(nogeo))
     print(open(args.report).read())

@@ -225,7 +225,7 @@
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
     "Grecharged-foliage-wind2": 0,
-    "Grecharged-secondary-motion": 0,
+    "Grecharged-secondary-motion": 1,
     "Grecharged-hd-eye-scale": 1
   },
   "fingerprints": {
@@ -946,7 +946,7 @@
     "Grecharged-secondary-motion": 1786059323.8698916,
     "Grecharged-hd-eye-scale": 1786018388.543868
   },
-  "last_update": "2026-08-06T23:35:18.877854+00:00",
+  "last_update": "2026-08-07T01:51:13.637604+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
