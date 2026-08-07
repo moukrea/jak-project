@@ -315,4 +315,16 @@ m=re.search(r'chain[- ]?(?:vs|to|contre)[- ]?chain[^\n]{0,60}?=\s*([0-9]+)',t,re
 sys.exit(0 if m else 1)
 PYCC
 
+
+# ---- CYCLE 7 (owner 07:50): prove the chain actually drives the geometry he is looking at ----
+grep -qiE "(skin|weight|poids)[^\n]{0,80}(joint|os|bone)[^\n]{0,60}([0-9]+ *(vert|sommet)|weight)" "$R" \
+  || fail "AA: no skinning evidence — for each named defect, list the joints that skin the offending geometry and how much weight each carries"
+grep -qiE "shirtLthigh|shirtRthigh" "$R" || fail "AA: Jak's jacket-flap joints not examined by name (shirtLthigh / shirtRthigh)"
+python3 - "$R" <<'PYAA' || fail "AA: the report must state, per named defect, whether the chain actually drives the visible geometry (majority of the skin weight) — a solver tuned on the wrong joint explains 'no difference'"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+hits=len(re.findall(r'(drives|pilote|majority|majorit|dominant)[^\n]{0,80}(skin|weight|poids|vert|sommet)',t,re.I))
+sys.exit(0 if hits>=2 else 1)
+PYAA
+
 echo "[Grecharged-secondary-motion PASS]"

@@ -653,3 +653,40 @@ qui entrent dans sa poitrine, ses mèches qui traversent ses oreilles.
 => Donner à CHAQUE MAILLON son propre volume (rayon par maillon, dérivé lui aussi de l'épaisseur du
    mesh qu'il porte), et activer la collision CHAÎNE ↔ CHAÎNE en plus de CHAÎNE ↔ CORPS.
 => Rapporter un compteur de contacts chaîne-chaîne (avec contrôle positif : il doit savoir monter).
+
+## ============================================================
+## CYCLE 7 — VERDICT OWNER 2026-08-07 ~07:50 sur le build 07:17
+## ============================================================
+« Il n'y a AUCUNE DIFFÉRENCE avec les builds précédents. Seul truc remarqué : la poitrine de Keira
+bouge un peu plus, mais elle est beaucoup plus FLASQUE, [devrait être] plus FERME, et ne bouge PAS
+ASSEZ. Sinon vraiment mes feedbacks précédents sont TOUJOURS VRAIS. »
+
+### AA. DEUXIÈME COMPTEUR RÉFUTÉ — LE SOUPÇON N°1 EST LA CORRESPONDANCE OS <-> MESH
+Le cycle 6 a mesuré le pan gauche de Jak à −47,68 unités dans le volume de la jambe DROITE, a changé
+l'ordre de résolution, et rapporte `xleg=0` avec `xheld=7299`. L'owner ne voit AUCUN changement.
+Comme pour `resid=0`/`push=0` hier, la conclusion la plus probable n'est pas « le correctif est
+faible » mais « on ne pilote pas la géométrie que l'owner regarde ».
+CONSTAT À VÉRIFIER EN PRIORITÉ : sur `jak-hd`, la chaîne `shirtL` ne pilote QU'UN SEUL os,
+`shirtLthigh` (idem `shirtR`/`shirtRthigh`). Si la partie de veste qui pend sur les jambes est
+majoritairement skinnée sur l'os de CUISSE (jambe) et non sur `shirtLthigh`, alors la physique agit
+sur quelques sommets seulement et le pan continue de suivre la jambe — ce qui produit exactement
+« aucune différence ».
+=> EXIGENCE : pour CHAQUE défaut nommé par l'owner, PROUVER la correspondance avant de corriger.
+   Pour la géométrie fautive, lister les JOINTS qui la skinnent et le POIDS que chacun porte
+   (nombre de sommets et poids cumulé). Puis dire si ce ou ces joints sont dans une chaîne.
+   Si la géométrie visible n'est pas majoritairement pilotée par la chaîne, aucun réglage de solveur
+   ne la corrigera : il faut soit étendre la chaîne aux bons joints, soit injecter le joint manquant.
+   À faire pour : le pan de veste de Jak, son col, la boucle du dos, les cheveux de nuque de Keira,
+   ses lunettes, ses mèches de devant.
+=> Ce diagnostic doit apparaître dans le rapport AVANT toute nouvelle valeur de paramètre.
+
+### AB. POITRINE DE KEIRA — LE RÉGLAGE EST PARTI DANS LE MAUVAIS SENS
+Demandé au cycle 6 : « plus de jiggle ET un poil plus de fermeté ». Résultat : plus flasque et
+toujours pas assez de mouvement. Il faut les DEUX ensemble : amplitude nettement plus grande ET
+retour plus franc (fermeté), pas un compromis mou. Rappel de la spec : ronds et FERMES, ils
+s'entre-choquent, peu de droop, peu de déformation, mais ça BOUGE bien.
+
+### AC. TOUS LES AUTRES RETOURS RESTENT VRAIS
+L'owner confirme que ses retours précédents sont inchangés : col dans les épaules, boucle du dos dans
+la lanière, pans croisés, cheveux de nuque dans le cou, lunettes dans la poitrine, mèches dans le
+visage et les oreilles — et le clipping physique-vs-mesh sur QUASIMENT TOUS les personnages.
