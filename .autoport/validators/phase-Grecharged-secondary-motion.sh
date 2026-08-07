@@ -446,4 +446,19 @@ PYAL
 grep -qiE "(rotation|angle)[^\n]{0,90}(anchor|ancre|root|racine)[^\n]{0,60}(length|longueur)[^\n]{0,40}(preserv|conserv|invariant)" "$R" \
   || fail "AL: the report must show the bone length is INVARIANT (min/max over the capture) — the shape must not deform"
 
+
+# BLOCKER-ABS: the owner's rule is absolute — "nothing may pass through its own character's mesh,
+# WHATEVER THE REASON". A report that honestly quotes its own leg failures must not pass on the
+# strength of an aggregate ("resid = 0 on 90 of 101 windows" contains 'resid = 0' and satisfies
+# every partial gate). Any FAIL( line carried in the report fails the phase, full stop.
+python3 - "$R" <<'PYBA' || fail "BLOCKER-ABS: the report still carries FAIL( lines from the device legs — residual penetration is a delivery blocker, not a statistic"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+f=[l.strip() for l in t.splitlines() if re.search(r'\bFAIL\([A-Z0-9-]+\)',l)]
+if f:
+    sys.stderr.write("  %d leg failure(s) still in the report, e.g.:\n" % len(f))
+    for l in f[:4]: sys.stderr.write("    "+l[:150]+"\n")
+sys.exit(1 if f else 0)
+PYBA
+
 echo "[Grecharged-secondary-motion PASS]"
