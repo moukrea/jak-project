@@ -386,4 +386,29 @@ grep -qiE "(release|liberation|handback)[^\n]{0,100}(not|pas|never)[^\n]{0,40}(s
   || fail "AF: authored-authority release must not be armed on the authored channel's SPEED (a static hold reads as 'no animation')"
 grep -qiE "(zoomer|sandover)[^\n]{0,80}(goggle|lunette)" "$R" || fail "AF: the owner's named non-regression case (Sandover Zoomer loop, goggles held to the eyes) not exercised"
 
+
+# AH: firmness floor — never soften Keira's chest below the owner-approved 09:13 values.
+python3 - <<'PYAH' || fail "AH: Keira's chest is softer than the owner-approved baseline (stiffness>=2.60, stretch<=0.05) — firmness comes from stiffness, amplitude from anchor coupling, not from a floppy spring"
+import re,sys
+cur=None
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: cur=m.group(1); continue
+    if cur and 'keira-hd' in cur and ln.startswith('chain chest'):
+        d=dict(re.findall(r'([a-z]+)=([0-9.]+)',ln))
+        st=float(d.get('stiffness',0)); sx=float(d.get('stretch',1))
+        sys.stderr.write(f"  keira chest stiffness={st} stretch={sx}\n")
+        if st < 2.60 or sx > 0.05: sys.exit(1)
+        break
+sys.exit(0)
+PYAH
+# AJ: authored authority must be measured PER CHAIN, and must not dominate during ordinary animation
+grep -qiE "(authored|anim)[^\n]{0,80}(per[- ]chain|par chaine)[^\n]{0,60}(not|jamais|never)?[^\n]{0,40}(actor|global|parent)" "$R" \
+  || fail "AJ: authored-authority detection not shown to be strictly per-chain (unrelated bones moving must not suspend a chain's physics)"
+python3 - "$R" <<'PYAJ' || fail "AJ: report must give, per chain, the share of frames under ANIM authority during ordinary animation — a high share on chains the animation does not drive IS the bug"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+sys.exit(0 if re.search(r'(anim|authored)[^\n]{0,60}(authority|autorite)[^\n]{0,40}([0-9]+(\.[0-9]+)?)\s*%',t,re.I) else 1)
+PYAJ
+
 echo "[Grecharged-secondary-motion PASS]"

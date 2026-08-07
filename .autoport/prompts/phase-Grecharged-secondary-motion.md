@@ -745,3 +745,44 @@ j'ai dit, ses seins sont censés être RONDS ET FERMES, elle est JEUNE ! »
 => Un cran d'amplitude en plus, et surtout MOINS de mollesse : retour plus franc, moins de
    dépassement mou. Fermeté = le mouvement s'arrête net et revient sur la forme du modèle, il ne
    continue pas d'onduler. Ne pas confondre avec « amortir » (l'erreur commise sur Maia).
+
+## ============================================================
+## CYCLE 8 — VERDICT OWNER 2026-08-07 ~11:55 (APK 11:30 + pack 10:13)
+## ============================================================
+### AH. RÉGRESSION : LA POITRINE DE KEIRA EST DEVENUE DE LA GELÉE
+« Plus du tout les seins ronds et fermes qui bougent en gardant leur fermeté, maintenant on dirait
+des POCHES LOSE PLEINES D'EAU, ça n'a aucun sens. »
+HISTORIQUE MESURÉ dans `physics_chains.txt` (chain chestR, keira-hd) :
+  * 09:13 : stiffness=2.60 damping=0.100 stretch=0.05  <- l'owner disait alors « bouge bien, un poil
+            trop jelly » : c'est la MEILLEURE version connue, on repart de LÀ.
+  * 11:30 : stiffness=1.55 stretch=0.11   |  actuel : stiffness=1.60 damping=0.16 stretch=0.11
+  => raideur −40 %, élasticité ×2,2. On a cherché l'amplitude en RAMOLLISSANT le ressort. C'est le
+     mauvais levier et ça produit exactement la poche d'eau.
+=> RÈGLE : la FERMETÉ vient de la RAIDEUR et d'une faible élasticité de chaîne (`stretch`).
+   L'AMPLITUDE vient du COUPLAGE À L'ANCRE (`swing`, réponse à l'accélération du buste) et de la
+   masse — PAS d'un ressort mou. Monter `stiffness` AU-DESSUS de 2.60 et redescendre `stretch` À
+   0.05 ou moins, puis chercher l'amplitude par `swing`/masse.
+   Cible qualitative de l'owner : ronds, fermes, ils BOUGENT bien et s'ENTRE-CHOQUENT, peu de droop,
+   peu de déformation. « Elle est jeune. »
+=> Interdiction de redescendre sous les valeurs de fermeté du 09:13. Gate posé.
+
+### AI. CHEVEUX DE KEIRA <-> SES OREILLES : DEUX ÉLÉMENTS À PHYSIQUE QUI SE TRAVERSENT
+« Ses cheveux clippent ÉNORMÉMENT avec ses oreilles, j'ai l'impression PLUS QU'AVANT. » Et les
+lunettes clippent toujours dans les seins. => La collision CHAÎNE ↔ CHAÎNE n'est pas effective. Les
+mèches, les oreilles, les lunettes et la poitrine sont quatre chaînes du même personnage : elles
+doivent se voir mutuellement. C'est le problème 2 de la cause racine (chaque maillon a besoin de son
+propre volume). Le fait que ce soit PIRE qu'avant doit être expliqué, pas seulement corrigé.
+
+### AJ. HYPOTHÈSE OWNER — LA PHYSIQUE SEMBLE DÉSACTIVÉE PENDANT LES ANIMATIONS (à traiter en premier)
+« J'ai l'impression que la physique est souvent DÉSACTIVÉE sur les animations, comme si des BONES NON
+LIÉS qui bougent stoppaient les bones/éléments avec physique d'avoir la physique activée. »
+=> C'est très probablement le même sous-système que le bug des lunettes (AF) : la détection de
+   priorité à l'animation. Si elle est armée sur le mouvement de l'ACTEUR (ou d'un os parent, ou d'un
+   os voisin sans rapport) au lieu du mouvement des JOINTS DE LA CHAÎNE ELLE-MÊME, alors dès qu'une
+   animation joue — c'est-à-dire presque tout le temps — l'anim prend l'autorité et la physique est
+   suspendue. Ça expliquerait d'un coup : « la physique ne se voit que quand elle s'envole » (Maia),
+   « aucune différence entre les builds », et cette impression de physique éteinte en animation.
+=> À VÉRIFIER EN PRIORITÉ ET À PROUVER : la détection doit être STRICTEMENT PAR CHAÎNE, calculée sur
+   les joints de cette chaîne uniquement. Rapporter, sur une animation courante (Keira au Zoomer,
+   Jak qui marche), le pourcentage de frames où chaque chaîne est sous autorité ANIM plutôt que
+   PHYSIQUE. Si ce pourcentage est élevé sur des chaînes que l'animation ne pilote pas, c'est le bug.
