@@ -1,0 +1,49 @@
+-----------------------------------------------------------------------------------------
+19. TWO ROOT CAUSES FOUND THIS CYCLE AND NOT FIXED IN IT — WITH THE NUMBERS THAT NAME THEM
+-----------------------------------------------------------------------------------------
+The owner has said twice that a build looked identical to the one before it.  Both times the
+reason turned out to be that the counters were measuring something other than what he was looking
+at.  So the two findings below are stated with their numbers even though neither is fixed here:
+they are the first quantitative account of two defects that have survived every cycle, and hiding
+them until they are fixed is how a cycle ends up looking identical again.
+
+(1) THE COLLISION CORRECTION IS BOUNDED BY THE CHAIN'S LENGTH, NOT BY ITS ANGULAR LIMIT.
+The per-correction cap is `maxcorr = max(8, 0.5 * chainlen)`.  On jak-hd, measured on the baked
+model, that gives:
+
+  chain      link length   angular limit   cone travel bound   maxcorr    measured deviation
+  collarL      1220.8 u       12 deg           258.9 u         610.4 u        up to 625.9 u
+  shirtL        811.0 u       12 deg           172.0 u         405.5 u        (opposite-leg site)
+
+The collar's own angular limit permits 258.9 units of travel.  The collision resolve is allowed to
+displace it by 610.4, and on the phone it reached 625.9 — 2.4x past its own limit — because the
+cone clamp runs BEFORE the collider push inside each iteration and is never re-applied after the
+last one.  The chain therefore ends the frame wherever the colliders left it.  That is a
+quantitative account of the owner's site 1 ("le COL clippe avec ses EPAULES") and site 3 (the
+jacket pendants crossing into the opposite leg), and it explains why tuning the collar's stiffness,
+damping and angle across four cycles changed nothing: none of those parameters is what places it.
+On the same run collarL is also the only chain whose clearance crossed the tolerance floor, in 4 of
+14 windows, by at most 16.2 units (3.9 mm at the file's own scale of 1 unit = 0.24 mm).
+
+(2) THE PER-CHAIN RESIDUAL COUNTER `cres` CANNOT REPORT.  It is incremented on a residual frame and
+then zeroed in the `else` branch of the sticking test, which runs on the next clean frame — so with
+2 to 8 residual frames inside a 1500-frame window it is always zero by the time the window prints.
+Every `cres:` array in every log of this phase reads 0, including on the windows that DID hold a
+penetration.  The offending chain had to be identified instead from `cclr`, the minimum-clearance
+accumulator, which is reset only at print time and whose worst entry equals `-residmax` exactly in
+all four failing windows.  This is not a false green — the slot-wide `resid` counter reported the
+penetration correctly and the leg failed the run on it — but the array whose entire purpose is to
+NAME the chain has never worked, which is why four cycles of penetration reports say "somewhere on
+jak-hd" instead of "collarL".
+
+(3) MAIA'S HAIR: THE COLLISION REPRESENTATION HAS GAPS BY CONSTRUCTION.  evilsis-lod0's `backhairM`
+is 5 links spanning 7486.8 units (1.8 m), with link lengths of 572, 1680, 1234, 1919 and 2081
+units, and each link carries a single 260-unit sphere at its joint.  Between two consecutive
+spheres there are therefore up to ~1200 units — 29 cm — of strand that is not tested against
+anything.  `extent=` does not close this: it only moves the LAST link's test point onto the
+rigidly-skinned continuation below the final bone.  On the intro leg backhairM is the one chain of
+her ten whose clearance crossed the floor, and her window carries anchmove = 628129 units and
+maxvel = 864 units per frame — her flight, where the strand is driven 967 units deep before the
+resolve claws it back to 13.5.  Chain-side collision is a point per link; on a strand this long
+that is the same class of hole as the owner's "capsules qui laissent des interstices", moved from
+the body to the hair.

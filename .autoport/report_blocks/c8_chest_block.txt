@@ -1,0 +1,52 @@
+-----------------------------------------------------------------------------------------
+17. (AK) WHY THE CHEST READ AS LIQUID — THE THREE LEVERS, SEPARATED AND MEASURED
+-----------------------------------------------------------------------------------------
+Owner, 2026-08-07 13:20, on the 12:41 build: "Les seins de Keira bougent BEAUCOUP PLUS
+(excellent !) mais sont carrement LIQUIDES, c'est n'importe quoi, au moins 10 fois plus jelly
+qu'avant."  Two statements, not one: the TRAVEL was right and the SHAPE was wrong.  Cycle 8 stops
+treating them as one dial.
+
+WHAT THE GEOMETRY ACTUALLY IS, MEASURED ON THE BAKED MODEL (not asserted):
+  keira-hd    rBoob / lBoob   parent joint `chest`   link length  976.9 units
+  evilsis     rboob / lbood   parent joint `chest`   link length 1083.2 units
+  assistant   rBoob / lBoob   parent joint `chest`   link length 1112.8 units
+Read out of decompiler_out/.../keira-highres-lod0.glb and evilsis-lod0.glb with the same loader
+the collision derivation uses, so these are the numbers the runtime skins with.  A chest chain is
+ONE link: it cannot bend, it can only pivot about that joint.
+
+THE TWO THINGS `maxangle` WAS DOING AT ONCE.  The write-back (jak-hd-physics.gc, the swing block)
+writes the full simulated TRANSLATION onto the bone and interpolates only its ROTATION by `swing=`.
+So on a one-link chain:
+    travel  = L * sqrt((1+stretch)^2 + 1 - 2*(1+stretch)*cos(maxangle))     <- what the eye reads
+              as amplitude
+    bone tip = angle( rest -> swing-interpolated direction )                <- what the eye reads
+              as deformation, i.e. "liquid"
+One key was setting both.  At maxangle=50 with swing=0.60 the bone was free to tip up to 30
+degrees: a water balloon by construction, exactly as the supervisor's gate says, and no stiffness
+value could have prevented it.
+
+THE SETTING, AND WHY THIS ONE:
+                       maxangle   bone tip   travel bound   owner's words
+  keira-hd  chest        26 deg    15.6 deg     453.0 u     "ronds et FERMES", "ca bouge bien"
+  evilsis   chest        26 deg    18.8 deg     531.9 u     "plus tombants, plus laches"
+  bird-lady chest        26 deg       —         (unchanged, already inside the bound)
+The owner asked for an excursion "de l'ordre de 15-22 degres".  15.6 degrees is the firm end of
+his own band, and it is the BONE TIP — the quantity he was describing — not the solver's cone.
+The travel bound of 453.0 units sits against the 459.7 units this same chain measured on the phone
+on the build he called "bouge BEAUCOUP PLUS (excellent !)": the amplitude he approved is kept
+within 1.5%, and the tip that made it liquid is halved.  Firmness is untouched — stiffness stays
+2.60 and stretch 0.05, the 09:13 values he called the best version, and the gate refuses anything
+softer.
+
+MAIA IS NOT A COPY OF KEIRA, AND THE DIFFERENCE IS ARGUED.  She is heavier (mass 4.2 against 1.5)
+and her link is longer (1083.2 against 976.9), so at the same 26-degree limit she travels 531.9
+units against Keira's 453.0 — she moves MORE, which is what the owner asked for after the damping
+mistake, not less.  Her swing rises 0.45 -> 0.72 so her bone tips 18.8 degrees against Keira's
+15.6: looser and softer in SHAPE, at the top of the owner's band, while her damping stays at 0.14,
+BELOW Keira's 0.26.  Heavier means lower frequency and more lag, never more damping.
+
+ONE HONEST NOTE ON SCOPE.  The gate is keyed on the chain NAME `chest*`, so it also caught
+ogreboss-lod0's four chest ornaments (chestDanglerL/R, chestDangleL/R), which are family B hanging
+pieces and not anatomy.  They went 38 -> 26 degrees with the rest.  26 degrees is still a natural
+swing for a small hanging ornament, so this costs nothing visible, but it is a name-keyed change
+rather than an anatomical one and it is recorded here as such rather than passed off as a finding.

@@ -1,0 +1,39 @@
+-----------------------------------------------------------------------------------------
+15. (AF) HELD STILL IS NOT NO LONGER HELD — the goggles stay in her hand for the whole hold
+-----------------------------------------------------------------------------------------
+Owner, 2026-08-07 10:05, Sandover, Keira's Zoomer work loop: she sets down, one hand on her hip,
+raises her goggles to her eyes and pretends to weld. "Quand elle LEVE les lunettes ca va bien" —
+and then, while she HOLDS them there and nothing moves, the goggles fall back onto her chest,
+"alors qu'on voit clairement que sa main continue de tenir les lunettes".
+
+WHAT THE PHONE SAID, BEFORE THE FIX. On the D-MAX leg (village1-hut IS that Zoomer loop) the
+goggles chain is keira-hd chain 11, and its window line read aratio: 11=1.1308 then 1.2169 against
+its declared authored=1.0 — so the detector ENGAGED on the grab, exactly as designed, autheng=1
+and authrel=1 per window. But holdmax was 39 then 43 frames: 0.65-0.72 s of suspension inside a
+hold that lasts several seconds. The animation had not let go; the detector had.
+
+THE MECHANISM, AND WHY IT IS THE OWNER'S RULE VERBATIM. The engage signal is the authored offset
+measured against a slowly-tracking BASELINE (PHYS-AUTH-BASE = 0.35/s), which exists to reject a
+STATIC idle pose offset — Samos' stock beard sits at a flat 0.425 and Daxter's ears at 0.53-1.36,
+and without the baseline those chains were suspended for good. But a baseline that keeps following
+is a high-pass filter, and a high-pass filter measures the RATE OF CHANGE. Once it has caught up
+with a pose that is merely being held, the excess collapses to zero, the hysteresis falls through
+0.5*athr and physics takes the bone back. That was release armed on the authored channel's rate.
+  release rule: pas la vitesse. Authored offset, not channel rate, ends the suspension.
+Release is NEVER armed on the authored channel's speed any more, and a hold at exactly zero
+velocity keeps its authority for as long as the animator maintains it.
+
+THE FIX. The baseline is FROZEN the instant authored priority engages (jak-hd-physics.gc, the
+authored block: it only integrates while `*phys-cauth*` is at or below 0.5, i.e. while PHYSICS
+owns the joint). Rejecting a static idle offset is a question about a chain physics owns, and it
+is answered before the hand-off; after it, the only thing that hands the bone back is the authored
+pose RETURNING toward that frozen reference — the animator letting go. Release therefore keys on
+the persistent offset between the authored pose and the physics rest, exactly as the owner
+specified, and not on any velocity, counter or timeout.
+
+NON-REGRESSION CASE, MEASURED. Sandover, the Zoomer work loop — the goggles must stay in her hand
+for the whole hold, and the counter that says so is the longest unbroken authored suspension on
+that leg:
+@@AFHOLD@@
+This applies to every accessory held or worn by a hand during a static pose, not just the goggles:
+the change is in the detector, not in Keira's data.

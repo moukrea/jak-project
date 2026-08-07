@@ -77,11 +77,16 @@ def main():
            'for a bounded interval once PHYS-AUTH-GRACE expires'))
 
     blocks = []
-    aa = open('/tmp/aa_line.txt').read().rstrip('\n') if os.path.exists('/tmp/aa_line.txt') else None
-    for path, subs in (('/tmp/chest_block.txt', {}),
-                       ('/tmp/af_block.txt', {'@@AFHOLD@@': afhold}),
-                       ('/tmp/aj_block.txt', {'@@AJSHARE@@': ajshare}),
-                       ('/tmp/misc_block.txt', {})):
+    # cycle 8: blocks live in the repo; /tmp is only a fallback. A pipeline whose inputs sit in
+    # /tmp is one tmp sweep away from being unrunnable, and this one already survived by luck.
+    def blk(name):
+        repo = os.path.join('.autoport', 'report_blocks', name)
+        return repo if os.path.exists(repo) else os.path.join('/tmp', name)
+    aa = open(blk('aa_line.txt')).read().rstrip('\n') if os.path.exists(blk('aa_line.txt')) else None
+    for path, subs in ((blk('chest_block.txt'), {}),
+                       (blk('af_block.txt'), {'@@AFHOLD@@': afhold}),
+                       (blk('aj_block.txt'), {'@@AJSHARE@@': ajshare}),
+                       (blk('misc_block.txt'), {})):
         if not os.path.exists(path):
             sys.exit('insert: missing %s' % path)
         b = open(path).read()

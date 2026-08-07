@@ -1,0 +1,47 @@
+
+  WHY THE CHEST HAD STOPPED MOVING — MEASURED, NOT GUESSED. The parameters were never the
+  reason, and two readings say so on their own. First: between two builds the chest stiffness
+  went 2.60 -> 1.55, a 2.8x change in compliance, and the measured amplitude went 383.22 ->
+  380.79. A spring whose amplitude does not answer to its own stiffness is not the thing
+  governing that amplitude. Second: cycle 6 measured 558.10 on this very chain, and the number
+  collapsed to ~380 in the same cycle that gave every family A volume a cap at the chain's own
+  model pose. The device print names the mechanism: on keira-hd the per-chain minimum clearance
+  reads cclr: 0=-0.0149 on every window, i.e. the capped torso volume sits PHYS-MODEL-CLR = 2
+  units under the breast's modelled position, so the INWARD half of every jiggle cycle touches
+  it. Contact sets lpush; lpush armed the family A model-pose bias (PHYS-MODELPULL, cycle 6 N);
+  and that bias carried no motion gate whatsoever — only family==1 and lpush!=0. A swinging
+  chest therefore lost a QUARTER of its deviation every frame: a 2.4-frame half-life, an
+  artificial damping an order of magnitude stronger than any authored damping=, applied hardest
+  exactly when the chain was moving most. It is also the mechanical definition of "FLASQUE".
+
+  THE FIX IS A GATE, NOT A NUMBER. That bias is a REST mechanism: its job, and the reason it was
+  written (owner cycle 6 — nothing may pass through its own character's mesh, with Maia's hair as
+  the named case), is to stop a link the body is HOLDING from LIVING inside it, never to brake a
+  link in transit. It now keeps its full 0.25 in exactly the two states it was built for — a link
+  that has been fighting the same contact for PHYS-STICK frames, and a link that has gone quiet
+  (ramping to full over PHYS-MPCALM = 4 frames of the same ccalm counter the arrival term reads) —
+  and drops to PHYS-MPMOVE = 0.12 of its authority on a chain in free swing that merely grazes a
+  volume. Maia's sustained-contact case keeps everything it had; a breast in mid-bounce keeps its
+  bounce. The collision sweep still runs after this and still has the last word, so no penetration
+  guarantee rests on the bias — which is precisely what makes the gate safe to add.
+
+  FIRMNESS AND AMPLITUDE ARE NOW SEPARATE KNOBS (owner AB: "plus de jiggle ET un poil plus de
+  fermete"; owner AG: "un poil trop JELLY... ronds et FERMES, elle est JEUNE"). Read together with
+  the two verdicts before them, that request was arithmetically impossible under the old solver and
+  that is worth saying plainly: a chain's ONLY excitation was the lag it develops behind its own
+  moving target, and for a damped spring that lag is a/omega^2. Amplitude was therefore chained to
+  1/stiffness^2. Every cycle that made the chest firmer made it move less ("ne bouge PAS ASSEZ"),
+  and every cycle that made it move more made it floppier ("beaucoup plus FLASQUE"). The trade was
+  in the model, not in the numbers chosen.
+  So the model gained the term it was missing: `couple=`, the pseudo-force of the accelerating
+  ANCHOR FRAME, measured as the anchor's own world position differenced twice and added as an
+  explicit input. The chain now obeys d'' + 2*zeta*w*d' + w^2*d = -(1 + couple) * a_anchor, so
+  amplitude is set by couple and firmness by stiffness, and the two stop fighting.
+  Keira is consequently the FIRMEST chest in the file and the one that travels most per unit of
+  body motion: stiffness=2.60 (omega_eff = 13.34 rad/s, 2.12 Hz — she snaps back, she does not
+  wallow), damping=0.26 (zeta = 0.55, so it stops rather than rippling), stretch=0.05 (it does not
+  deform much, which is what "ferme" means for a shape), and couple=2.2 for the travel. Maia keeps
+  her heavier, slower spring (mass=4.2, omega_eff = 7.54 rad/s) AND gets the most coupling of the
+  three (couple=2.8): she moves MORE than Keira and later than Keira, which is the owner's AD rule
+  stated as physics rather than as a damping number. The bird lady sits between them at couple=1.6.
+  couple= defaults to 0, so no chain outside these three feels this term at all.

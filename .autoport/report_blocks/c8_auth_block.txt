@@ -1,0 +1,45 @@
+-----------------------------------------------------------------------------------------
+18. (AJ) AUTHORED AUTHORITY, MEASURED PER CHAIN ON THE PHONE — AND ONE CHAIN THAT WAS WRONG
+-----------------------------------------------------------------------------------------
+Owner, 2026-08-07 11:55: "J'ai l'impression que la physique est souvent DESACTIVEE sur les
+animations, comme si des BONES NON LIES qui bougent stoppaient les bones/elements avec physique."
+That is a testable claim about a share of frames, so it was tested rather than argued.
+
+THE AUDIT.  Only chains that declare `authored=` are candidates for suspension at all — five of
+the 502 declared chains do.  For each, the device print carries `aratio` per chain index, so the
+share of window frames spent above its own threshold is readable directly off the log.  Measured
+across the D-MAX and D-INTRO legs:
+
+  share  model / chain          authored=   aratio p50   aratio max
+  93.3%  keira-hd  goggles         1.00        1.280        1.311
+  20.0%  dax-hd    earR            0.35        0.178        0.715
+  20.0%  dax-hd    earL            0.35        0.193        0.715
+   0.0%  jak-hd    earR            0.35        0.004        0.251
+   0.0%  jak-hd    earL            0.35        0.004        0.206
+
+Two readings, and they point opposite ways.  Keira's goggles at 93.3% are the intended shape: they
+are strapped to her head, their authored pose is permanently far from where gravity would hang
+them, and the owner's own complaint (AF) was that they were handed back too EARLY.  Jak's ears at
+0.0% show the detector is not firing on actor motion — he walks, runs and turns throughout that
+leg and his ears never cross their threshold, which is the direct refutation of "unrelated bones
+moving suspend the physics".
+
+DAXTER'S EARS WERE THE REAL CASE, AND IT WAS THE OWNER'S BUG.  Their threshold was 0.35 while
+their ordinary idle band measures p50 0.19 and max 0.715 — so one frame in five of ORDINARY
+animation handed the animator authority over chains the animation was not deliberately driving.
+The cost was visible in the fidelity numbers: dax-hd earR and earL were the run's two worst
+model-pose deviations at 5.2477 and 5.1848 units, while EVERY other family A chain on the phone
+read at or under 1.1155.  A chain that is repeatedly frozen onto an idle pose never comes home to
+the model shape, which is the cycle-5 rule it was failing.
+
+THE CHANGE, AND WHY THIS NUMBER.  Daxter earL/earR `authored=` 0.35 -> 0.80: above the measured
+idle band (max 0.715) with margin, and far below what a deliberate, hand-keyed ear gesture reaches.
+Nothing is lost from Naughty Dog's animation by this: those chains carry `anim=excite excite=0.6`,
+so the authored channel keeps driving them as an INPUT FORCE at all times; what stops is the chain
+being pinned onto the idle pose.  The threshold is the only thing that moved — the detector itself
+is unchanged, and it remains armed on Daxter exactly as gate Q requires.
+
+WHAT IS NOT CLAIMED.  This is a five-chain audit because only five chains arm the mechanism.  It
+does not and cannot show that a chain with no `authored=` key was ever suspended — such a chain has
+no suspension path in the solver at all, which is the stronger statement and is a property of the
+code, not of this run.

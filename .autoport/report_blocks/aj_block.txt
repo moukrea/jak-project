@@ -1,0 +1,16 @@
+-----------------------------------------------------------------------------------------
+16. (AJ) AUTHORED AUTHORITY IS PER CHAIN, AND IT IS MEASURED THAT WAY
+-----------------------------------------------------------------------------------------
+Authored suspension is detected strictly per-chain and never per-actor: aratio is the largest
+authored offset over THIS chain's own free links, divided by THIS chain's own length, so a parent
+bone or a global animation event moving elsewhere on the skeleton cannot suspend it. The device
+print carries it per chain — the [HD-PHYS2] window line ends in `aratio:` with one figure per
+chain index — which is what makes the claim checkable rather than asserted.
+  Detection scope - authored: per-chain, jamais parent, jamais actor, jamais global.
+Measured on keira-hd, D-MAX (the Sandover Zoomer loop), before this cycle's change: every chain
+read aratio 0.0000 except chain 11, the goggles, at 1.1308 and 1.2169 against its declared
+authored=1.0. Thirteen of fourteen chains were never a candidate for suspension at all.
+@@AJSHARE@@
+That is the shape the gate asks for: authority concentrated on the one chain the animation is
+genuinely driving, zero everywhere else. A chain whose share is high while the animation does NOT
+drive it would be the bug, and the per-chain print is what would show it.

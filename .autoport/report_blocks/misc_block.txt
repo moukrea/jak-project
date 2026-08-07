@@ -1,0 +1,29 @@
+-----------------------------------------------------------------------------------------
+17. TWO MEASUREMENTS THAT WERE NOT WHAT THEY LOOKED LIKE, AND THE DATA CHANGES THEY EXPLAIN
+-----------------------------------------------------------------------------------------
+(a) THE MODEL-POSE FIDELITY FIGURE CARRIES A STRUCTURAL TERM ON `anim=excite` CHAINS, and Daxter's
+ears were the whole of the run's worst reading because of it. restdevA grades the position the BONE
+receives against the model pose blended by `excite` toward the authored pose. The write-back,
+however, hands the bone `target + influence * (sim - target)` — the per-link influence ramp is the
+whole point of the gradient, and it is deliberately small at the root. At equilibrium the two
+therefore differ by exactly
+    excite * (1 - influence_root) * |authored - model|
+for every family A chain in anim=excite mode, whatever the solver does. There are 40 such chains
+(the beards, the moustaches, the tails, Daxter's ears, Maia's ponytail). Daxter's ears were the
+worst instance measured, at 5.4026 and 5.5286 units, not because they fail to come home but because
+his ears carry the LARGEST authored offset of the forty: excite=0.60 against an influence root of
+0.55 leaves 27% of an offset that his animations drive to ~20 units.
+The instrument is NOT being changed for this — the cycle-5 consigne is explicit that the counters
+stay put, and the term is real: a root link genuinely does move less. What changed is the DATA, and
+in the direction the owner already asked for. His cycle-3d verdict P on those exact chains was that
+the physics stops too abruptly at mid-ear ("la transition est trop BRUTALE a mi-hauteur: ca fait un
+CRAN bizarre") and his verdict D that too little of the length moves. dax-hd earL/earR go from
+rootfree=0.5 to 0.90, so the root of the ear moves nearly as freely as the tip — a flatter influence
+profile, a smaller step between neighbouring links, and, as a side effect, 78% less of the
+structural term above.
+(b) TOP PRECISION LEVEL: constraint iterations 8 -> 12. The owner's own specification for the
+precision scale is that the highest level be the best realisable, listing "iterations de contrainte
+plus nombreuses" among the levers, and Maia's back hair is the case that needs them: her strands
+carry link radii saturated at the mesh-derived maximum (260 units) and she is the one actor whose
+hair is in sustained contact with a torso for a whole cinematic. Levels 0 and 1 are untouched, so
+this costs nothing on the low end of the scale.
