@@ -343,4 +343,17 @@ if missing: sys.stderr.write("  no authority/transfer evidence for: "+", ".join(
 sys.exit(1 if missing else 0)
 PYAB
 
+
+# AA-ter: the skin-authority audit is CAST-WIDE, like the no-clipping blocker itself.
+# The owner has said twice that the clipping concerns nearly every actor, not Jak and Keira.
+python3 - "$R" <<'PYAT' || fail "AA-ter: the skin-authority / reskin audit must cover the whole physics cast (60 models), not only the owner-named characters"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+m=re.search(r'(authority|autorite|reskin|skinmap)[^\n]{0,120}?(\d{2,})\s*(?:/|of|sur)\s*60',t,re.I)
+if m: sys.exit(0)
+names=set(re.findall(r'\b([a-z0-9]+(?:-[a-z0-9]+)*-lod0|[a-z0-9]+-hd)\b',t))
+sys.stderr.write(f"  models named in the report: {len(names)}\n")
+sys.exit(0 if len(names)>=40 else 1)
+PYAT
+
 echo "[Grecharged-secondary-motion PASS]"
