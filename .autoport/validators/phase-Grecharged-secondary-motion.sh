@@ -378,4 +378,12 @@ PYAD
 grep -qiE "(stock|lod0)[^\n]{0,120}(authority|autorite|reskin|transfer|not applicable|inapplicable)" "$R" \
   || fail "AE: the ~50 stock -lod0 rigs are outside the reskin table — say measurably whether they need it and what path applies"
 
+
+# AF: authored authority must not be released just because the authored channel stopped MOVING.
+grep -qiE "(held|tenu|hold)[^\n]{0,80}(still|immobile|static|zero speed|vitesse nulle)" "$R" \
+  || fail "AF: 'held still' vs 'no longer held' not addressed — Keira's goggles drop while her hand still holds them"
+grep -qiE "(release|liberation|handback)[^\n]{0,100}(not|pas|never)[^\n]{0,40}(speed|velocity|vitesse)" "$R" \
+  || fail "AF: authored-authority release must not be armed on the authored channel's SPEED (a static hold reads as 'no animation')"
+grep -qiE "(zoomer|sandover)[^\n]{0,80}(goggle|lunette)" "$R" || fail "AF: the owner's named non-regression case (Sandover Zoomer loop, goggles held to the eyes) not exercised"
+
 echo "[Grecharged-secondary-motion PASS]"

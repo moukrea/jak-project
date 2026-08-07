@@ -717,3 +717,31 @@ concerne quasiment tous les acteurs.
    applicable (la géométrie stock vient du fr3 du niveau, pas d'un GLB HD). Si ce n'est pas
    applicable par le même chemin, proposer le chemin qui l'est — ne pas laisser 50 personnages
    hors du correctif sans le dire.
+
+### AF. LES LUNETTES DE KEIRA TOMBENT PENDANT QU'ELLE LES TIENT (owner 10:05, Sandover, boucle Zoomer)
+Contexte exact donné par l'owner : à Sandover, Keira boucle son animation de travail sur le Zoomer.
+Elle se pose, une main sur la hanche, puis PREND SES LUNETTES avec une main et fait semblant de souder
+de l'autre. « Quand elle LÈVE les lunettes ça va bien. Mais pendant qu'elle les TIENT devant ses yeux
+(ça ne bouge pas), les lunettes TOMBENT et reviennent se poser au-dessus de ses seins (avec un peu de
+clipping)... alors qu'on voit clairement que sa main continue de tenir les lunettes. »
+
+CAUSE TRÈS PROBABLE — À VÉRIFIER EN PREMIER : la détection de priorité anim (section A) est ARMÉE SUR
+LA VITESSE. Un commit de cette nuit le dit explicitement : « arrival armed on speed, not on a
+counter ». Donc pendant le geste (les lunettes montent) l'anim gagne, mais dès que la main SE FIGE en
+tenant les lunettes, la vitesse du canal authored tombe à zéro, le détecteur conclut « plus
+d'animation » et rend la main à la physique — qui les fait tomber sur la poitrine.
+=> RÈGLE : « TENU IMMOBILE » N'EST PAS « PLUS TENU ». La libération de l'autorité ne doit PAS dépendre
+   de la VITESSE du canal d'animation. Elle doit dépendre du fait que l'anim PILOTE ENCORE le joint —
+   par exemple l'écart persistant entre la pose authored et la pose de repos physique : tant que
+   l'animateur maintient la chaîne loin de son repos, c'est qu'il la tient, même à vitesse nulle.
+=> Cas de non-régression nommé : Sandover, Keira, boucle de travail sur le Zoomer, phase où elle tient
+   les lunettes devant ses yeux. Les lunettes doivent rester dans sa main pendant toute la tenue, puis
+   redescendre quand l'animation les relâche.
+=> Ce défaut vaut pour TOUT accessoire tenu ou porté par une main pendant une pose statique.
+
+### AG. POITRINE DE KEIRA — PRESQUE BON (owner 10:05)
+« Sa poitrine maintenant bouge bien (mériterait un poil plus), mais c'est un poil trop JELLY. Comme
+j'ai dit, ses seins sont censés être RONDS ET FERMES, elle est JEUNE ! »
+=> Un cran d'amplitude en plus, et surtout MOINS de mollesse : retour plus franc, moins de
+   dépassement mou. Fermeté = le mouvement s'arrête net et revient sur la forme du modèle, il ne
+   continue pas d'onduler. Ne pas confondre avec « amortir » (l'erreur commise sur Maia).
