@@ -690,3 +690,30 @@ s'entre-choquent, peu de droop, peu de déformation, mais ça BOUGE bien.
 L'owner confirme que ses retours précédents sont inchangés : col dans les épaules, boucle du dos dans
 la lanière, pans croisés, cheveux de nuque dans le cou, lunettes dans la poitrine, mèches dans le
 visage et les oreilles — et le clipping physique-vs-mesh sur QUASIMENT TOUS les personnages.
+
+### AD. MAIA — POITRINE INERTE (owner 09:50, run Redmi)
+« Les seins de Maia ne bougent PAS DU TOUT, sauf quand elle s'élève en l'air vue de loin. Ses cheveux
+passent aussi au travers de son corps. Dommage, c'est elle qui a les seins les plus gros ! »
+DIAGNOSTIC MESURÉ dans `physics_chains.txt` :
+  * Maia  (evilsis-lod0) : stiffness=2.46 damping=0.46 mass=4.2
+  * Keira (keira-hd)     : stiffness=1.60 damping=0.14 mass=1.6
+  => Maia a un amortissement **3,3× plus fort** que Keira. « Plus mûre / plus lourde » a été traduit
+     en « plus amortie », ce qui est physiquement faux : une masse plus lourde sur un ressort donne
+     une fréquence PLUS BASSE et une amplitude PLUS GRANDE avec du retard, pas moins de mouvement.
+     Un amortissement à 0.46 tue le mouvement — d'où « ça ne bouge que quand elle s'envole », c'est-
+     à-dire uniquement sous une accélération énorme de l'ancre.
+  => CORRECTION ATTENDUE : garder la masse élevée (elle est juste), RÉDUIRE FORTEMENT l'amortissement
+     pour obtenir de l'ampleur et du retard — le comportement « lourd et lâche » que l'owner décrit —
+     sans repasser en gelée. Elle doit bouger PLUS que Keira, pas moins.
+
+### AE. LE RESKIN NE COUVRE QUE LES MODÈLES HD — LES ~50 PNJ STOCK N'ONT RIEN
+`physics_reskin.txt` ne déclare des transferts que pour : keira-hd, keira3-hd, jak-hd, samos-hd,
+jak2-hd, jakp-hd, jak3-hd, jakm-hd, daxp-hd, ysamos-hd. Aucun modèle `-lod0`.
+Or Maia (`evilsis-lod0`), Gol, les villageois, les créatures sont TOUS des rigs stock. Le défaut
+d'autorité de peau qui explique « la physique ne déplace rien de visible » n'est donc corrigé que
+pour une dizaine de personnages sur 60 — alors que l'owner a répété deux fois que le problème
+concerne quasiment tous les acteurs.
+=> Mesurer l'autorité de peau sur les rigs STOCK aussi, et dire honnêtement si un transfert y est
+   applicable (la géométrie stock vient du fr3 du niveau, pas d'un GLB HD). Si ce n'est pas
+   applicable par le même chemin, proposer le chemin qui l'est — ne pas laisser 50 personnages
+   hors du correctif sans le dire.

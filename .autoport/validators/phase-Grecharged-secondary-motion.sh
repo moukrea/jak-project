@@ -356,4 +356,26 @@ sys.stderr.write(f"  models named in the report: {len(names)}\n")
 sys.exit(0 if len(names)>=40 else 1)
 PYAT
 
+
+# AD: Maia must move MORE than Keira, not less. Checked in the data: heavier must not mean deader.
+python3 - <<'PYAD' || fail "AD: Maia's chest is over-damped relative to Keira's — heavier mass must give MORE amplitude with lag, not less motion"
+import re,sys
+def chest(model):
+    cur=None; out=[]
+    for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+        m=re.match(r'^\[model ([^\]]+)\]',ln)
+        if m: cur=m.group(1); continue
+        if cur and model in cur and ln.startswith('chain chest'):
+            d=dict(re.findall(r'([a-z]+)=([0-9.]+)',ln)); out.append(d)
+    return out
+m=chest('evilsis'); k=chest('keira-hd')
+if not m or not k: sys.exit(0)
+md=float(m[0].get('damping',1)); kd=float(k[0].get('damping',1))
+sys.stderr.write(f"  Maia damping={md} vs Keira damping={kd}\n")
+sys.exit(1 if md > kd*1.5 else 0)
+PYAD
+# AE: the skin-authority fix must not silently stop at the HD models
+grep -qiE "(stock|lod0)[^\n]{0,120}(authority|autorite|reskin|transfer|not applicable|inapplicable)" "$R" \
+  || fail "AE: the ~50 stock -lod0 rigs are outside the reskin table — say measurably whether they need it and what path applies"
+
 echo "[Grecharged-secondary-motion PASS]"
