@@ -114,6 +114,8 @@
 (define-extern pc-physics-collider-param-mi (function string int int int))
 (define-extern pc-physics-collider-is-joint (function string int string int)) ;; 1 if collider i sits on that joint
 (define-extern pc-physics-collider-is-joint2 (function string int string int)) ;; 1 if capsule i ENDS on that joint
+(define-extern pc-physics-chain-link-radius-mi (function string int int int)) ;; milli, 0 = absent
+(define-extern pc-physics-chain-xmask (function string int int))    ;; chain-vs-chain partner bits
 (define-extern pc-physics-generation (function int))    ;; bumped on every params (re)parse
 
 ;; ------------------------------------------------------------------------------------------------
@@ -126,7 +128,20 @@
 (defconstant PHYS-MAXJ 128)      ;; per-slot parent-table / descendant-pass joint ceiling
 (defconstant PHYS-JPS 48)      ;; joints per slot
 (defconstant PHYS-CPS 24)      ;; chains per slot
-(defconstant PHYS-COLS 16)     ;; colliders per slot (cycle 2: a real body volume needs >8)
+;; CYCLE 6. 96, up from 16, and the jump is the owner's blocker made structural rather than a
+;; bigger number for its own sake. The volumes are no longer guessed by hand: they are FITTED to
+;; the skinned merc geometry, one capsule per bone->child span, so that the union of them contains
+;; the mesh (offline audit: fit error 0.000 and hole 0.000 on all 43 sections of the cast). A body
+;; described that honestly needs 60-95 capsules, not 16 — Jak is 89 and Keira 55. The 16-collider
+;; pool was itself part of the defect: it silently TRUNCATED, so a model that declared more simply
+;; lost the rest with no log line.
+;; The per-frame cost does NOT scale with this: PHYS-CCMAX below bounds what the solver walks.
+(defconstant PHYS-COLS 96)     ;; colliders per slot — mesh-derived volumes, see PHYS-CCMAX for cost
+;; What the constraint loop actually iterates, per chain. The old loop walked EVERY collider of the
+;; actor and mask-tested each one; at 96 that is 6x the mask tests for no extra contacts. The bind
+;; pass now resolves, once, the list of colliders that apply to each chain, and the hot loop walks
+;; only that. So raising the POOL is free and this is the only number that costs frame time.
+(defconstant PHYS-CCMAX 24)    ;; colliders walked per chain per iteration
 
 (define *phys-slot-pid* (new 'static 'array int32 24))
 (define *phys-slot-njoints* (new 'static 'array int32 24))
@@ -580,20 +595,43 @@
 
 ;; body collision volumes (idx = slot*PHYS-COLS + i). joint2 < 0 = sphere on joint1, else CAPSULE
 ;; swept between the two animated bones.
-(define *phys-colk* (new 'static 'array int32 384))         ;; jgeo joint index carrying the volume
-(define *phys-colk2* (new 'static 'array int32 384))        ;; capsule far end, -1 = sphere
-(define *phys-colr* (new 'static 'array float 384))
-(define *phys-colr2* (new 'static 'array float 384))        ;; (C) far-end radius: radius != radius2 = a TAPERED (conical) volume
-(define *phys-colmask* (new 'static 'array int64 384))      ;; chain-applicability bits (bit c)
-(define *phys-coltier* (new 'static 'array int32 384))      ;; 1 = core (every level), 2 = extended
-(define *phys-colside* (new 'static 'array int32 384))      ;; (Z) 0 none / 1 L / 2 R — see *phys-cside*
+(define *phys-colk* (new 'static 'array int32 2304))         ;; jgeo joint index carrying the volume
+(define *phys-colk2* (new 'static 'array int32 2304))        ;; capsule far end, -1 = sphere
+(define *phys-colr* (new 'static 'array float 2304))
+(define *phys-colr2* (new 'static 'array float 2304))        ;; (C) far-end radius: radius != radius2 = a TAPERED (conical) volume
+(define *phys-colmask* (new 'static 'array int64 2304))      ;; chain-applicability bits (bit c)
+(define *phys-coltier* (new 'static 'array int32 2304))      ;; 1 = core (every level), 2 = extended
+(define *phys-colside* (new 'static 'array int32 2304))      ;; (Z) 0 none / 1 L / 2 R — see *phys-cside*
 ;; (Y) A COLLIDER THAT RIDES ANOTHER CHAIN'S SIMULATED TIP instead of an animated bone. -1 = a real
 ;; bone (everything before cycle 5). The owner's description of Keira is that her breasts "s'entre-
 ;; choquent" — they collide with EACH OTHER, which no bone-mounted volume can express: both bones
 ;; are animated and neither knows where the other one has actually swung to. Declared as
 ;; `at=<chain>` on a collider line; the anchor joint is still parsed and must exist, so a rig that
 ;; lacks it drops the volume through the normal path rather than silently mis-centring it.
-(define *phys-colchain* (new 'static 'array int32 384))
+(define *phys-colchain* (new 'static 'array int32 2304))
+
+;; ---- cycle 6: what each chain is ACTUALLY tested against, resolved once at bind ----------------
+;; The volumes are mesh-derived now and there are up to 96 of them per actor, but a strand only
+;; ever meets a handful. Walking all 96 and mask-testing each, every link, every iteration, every
+;; substep, would be 6x the work for exactly the same contacts. The applicable list is resolved
+;; here instead, so the hot loop is O(links x PHYS-CCMAX) whatever the pool size is.
+(define *phys-cclist* (new 'static 'array int32 13824))     ;; slot*PHYS-CPS*PHYS-CCMAX + c*PHYS-CCMAX + n
+(define *phys-ccn* (new 'static 'array int32 576))          ;; how many entries of that list are live
+
+;; ---- cycle 6 problem 2: the physics elements get a volume of THEIR OWN ------------------------
+;; Owner 01:45: "les elements ayant de la physique EUX-MEMES n'ont pas de colliders, donc
+;; evidemment si deux entrent en collision ca clip." A chain was a line of dimensionless points: it
+;; could be pushed out of the body, but two chains could not see each other at all — hence the
+;; metal buckle through Jak's own hanging strap, Keira's goggles into her chest and her front
+;; strands through her ears. Each LINK now carries a radius measured from the mesh it drives (the
+;; inner-quartile thickness of its own skinned vertices about the strand axis), and chains named by
+;; xchain= are resolved against each other link by link.
+(define *phys-lrad* (new 'static 'array float 1152))        ;; slot*PHYS-JPS + joint: per-LINK radius
+(define *phys-cxmask* (new 'static 'array int64 576))       ;; chains this chain must be collided with
+(define *phys-cinject* (new 'static 'array float 576))      ;; POSITIVE CONTROL: deliberate penetration, units
+(define *phys-slot-ccc* (new 'static 'array int32 24))      ;; chain-vs-chain contacts resolved (window)
+(define *phys-slot-cccmax* (new 'static 'array float 24))   ;; deepest chain-vs-chain overlap (window)
+(define *phys-slot-injected* (new 'static 'array int32 24)) ;; links deliberately displaced this window
 
 ;; gravity: 9.8 m/s^2 * 4096 units/m
 (defconstant PHYS-GRAV-ACCEL 40140.8)
@@ -901,6 +939,22 @@
           ;; the ones that opt in, and deliberately so: the symmetric bound was never authored, it
           ;; was `stretch=` being read in both directions.
           (set! (-> *phys-ccomp* ci) (fmax 0.0 (fmin 0.9 (* 0.001 (the float (pc-physics-chain-param-mi ag c 25))))))
+          ;; ---- cycle 6: per-LINK radius, chain-vs-chain partners, positive control -------------
+          ;; (Problem 2) Until now a chain had ONE radius for its whole length, so a strand was as
+          ;; thick at the tip as at the root and two strands could not see each other at all. The
+          ;; radii= list is measured off the mesh each link actually drives. A link the data does
+          ;; not describe falls back to the whole-chain radius=, so a file without the key behaves
+          ;; exactly as the build the owner already judged.
+          ;; NOTE, deliberately: the list is indexed in DECLARED joint order. A chain the binder had
+          ;; to re-order from the rig hierarchy logs that fact above; the fallback below keeps such a
+          ;; chain collidable rather than mis-sized, and out-of-range reads return 0 by contract.
+          (set! (-> *phys-cxmask* ci) (pc-physics-chain-xmask ag c))
+          (set! (-> *phys-cinject* ci)
+                (fmax 0.0 (* 0.001 (the float (pc-physics-chain-param-mi ag c 26)))))
+          (dotimes (li len)
+            (let ((mi (pc-physics-chain-link-radius-mi ag c li)))
+              (set! (-> *phys-lrad* (+ (* slot PHYS-JPS) start li))
+                    (if (> mi 0) (* 0.001 (the float mi)) (-> *phys-cradius* ci)))))
           (set! (-> *phys-crestd* ci) 0.0)
           (set! (-> *phys-ccalm* ci) 0)
           (set! (-> *phys-clenr* ci) 1000000.0)
@@ -935,6 +989,12 @@
     ;; body collision volumes: file order, joints resolved by name, per-chain applicability
     ;; mask + tier. A capsule needs BOTH ends present in the rig or it degrades to a sphere on
     ;; its first joint (never silently: the drop is logged).
+    ;; The pool is a hard ceiling and silence about hitting it is not acceptable: before cycle 6
+    ;; the excess was dropped with no log at all, so a model could declare a full body and be given
+    ;; a fraction of it while every counter still read clean.
+    (when (> (pc-physics-num-colliders ag) PHYS-COLS)
+      (format 0 "[HD-PHYS] ag=~S declares ~D colliders > pool ~D — the excess is DROPPED~%"
+              ag (pc-physics-num-colliders ag) PHYS-COLS))
     (let ((ncf (min PHYS-COLS (pc-physics-num-colliders ag))))
       (dotimes (i ncf)
         (let ((found -1)
@@ -981,11 +1041,23 @@
     ;; runs cannot fail — that is what let Maia's hair go through her while the audit read clean.
     ;; Counted here, from the volumes that really bound, not from what the file asked for.
     (dotimes (c nch)
-      (let ((n 0))
+      (let ((n 0)
+            (lb (+ (* slot PHYS-CPS PHYS-CCMAX) (* c PHYS-CCMAX))))
         (dotimes (i ncols)
           (when (logtest? (-> *phys-colmask* (+ (* slot PHYS-COLS) i)) (ash 1 c))
-            (+! n 1)))
-        (set! (-> *phys-cncol* (+ cbase c)) n)))
+            ;; the list the hot loop walks. Overflow is LOUD: a silently truncated collider list is
+            ;; exactly the failure that let a chain pass through a volume the data did declare.
+            (cond
+              ((< n PHYS-CCMAX)
+               (set! (-> *phys-cclist* (+ lb n)) i)
+               (+! n 1))
+              (else
+               (when (= n PHYS-CCMAX)
+                 (format 0 "[HD-PHYS] ag=~S chain ~D has more than ~D colliders — list TRUNCATED~%"
+                         ag c PHYS-CCMAX)
+                 (+! n 1))))))
+        (set! (-> *phys-ccn* (+ cbase c)) (min n PHYS-CCMAX))
+        (set! (-> *phys-cncol* (+ cbase c)) (min n PHYS-CCMAX))))
     (set! (-> *phys-slot-njoints* slot) njoints)
     (set! (-> *phys-slot-nchains* slot) nch)
     (set! (-> *phys-slot-ncols* slot) ncols)
@@ -1732,10 +1804,11 @@
                                                            (vector+! pprb p pprb)
                                                            pprb)
                                                           (else p))))
-                                              (dotimes (s2 (-> *phys-slot-ncols* slot))
-                                                (let ((cb (+ (* slot PHYS-COLS) s2)))
+                                              (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
+                                                (let ((cb (+ (* slot PHYS-COLS)
+                                                             (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
+                                                                                  (* c PHYS-CCMAX) s2)))))
                                                   (when (and (<= (-> *phys-coltier* cb) tier)
-                                                             (logtest? (-> *phys-colmask* cb) (ash 1 c))
                                                              ;; (Y) a volume riding this very chain would be
                                                              ;; the chain colliding with itself.
                                                              (!= (-> *phys-colchain* cb) c))
@@ -1760,7 +1833,7 @@
                                                            ;; and a shoulder actually are, and it is why Jak's jacket hem
                                                            ;; kept clipping through a capsule sized for his thigh.
                                                            (tt (phys-closest-on-seg! cpt ca cbv pt))
-                                                           (rr (+ rad0 radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
+                                                           (rr (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
                                                       (vector-! vtmp pt cpt)
                                                       (let ((dd (vector-length vtmp)))
                                                         ;; (O) DEAD ZONE: a sub-tolerance overlap is
@@ -1898,6 +1971,44 @@
                            (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
                            (vector-float*! vtmp vtmp (-> *phys-infl* (+ start i)))
                            (vector+! (-> *phys-out* (+ start i)) (-> *phys-targ* (+ start i)) vtmp))
+                         ;; ---- (C6) POSITIVE CONTROL: PUT IT WHERE IT MUST NOT BE ---------------
+                         ;; Owner, cycle 6: "avant de rapporter le moindre zero, l'audit doit
+                         ;; PROUVER qu'il sait detecter une penetration. Injecter deliberement une
+                         ;; chaine dans le corps, montrer que le compteur monte, puis retirer
+                         ;; l'injection. Un zero sans controle positif est refuse."
+                         ;; He is right to insist: three separate zeros shipped in one day were
+                         ;; vacuous (resid=0 with push=0, idledrift=0 with idlewin=0, restdevA=0
+                         ;; with restwin=0), each because the measurement never ran. So the audit
+                         ;; carries its own control. `inject=N` on a chain drags each of its
+                         ;; collidable links N units toward the spine of the first volume it is
+                         ;; tested against — INTO the body, by construction, not by luck. It runs
+                         ;; BEFORE the resolve, so an armed run must show push= climb (the resolver
+                         ;; saw it) and resid= climb while the per-frame correction bound walks it
+                         ;; back out; a disarmed run must show injected=0 and resid=0. Default 0,
+                         ;; because a control left armed is a defect shipped.
+                         (when (and (> (-> *phys-cinject* ci) 0.0) (nonzero? collide?)
+                                    (> (-> *phys-ccn* (+ cbase c)) 0))
+                           (let ((cb (+ (* slot PHYS-COLS)
+                                        (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
+                                                             (* c PHYS-CCMAX) 0)))))
+                             (dotimes (i len)
+                               (when (>= i cs)
+                                 (let* ((k2 (-> *phys-colk2* cb))
+                                        (ca (-> skel bones (+ (-> *phys-colk* cb) 1) transform vector 3))
+                                        (cbv (if (>= k2 0)
+                                                 (-> skel bones (+ k2 1) transform vector 3)
+                                                 ca)))
+                                   (phys-closest-on-seg! cpt ca cbv (-> *phys-out* (+ start i)))
+                                   (vector-! vtmp cpt (-> *phys-out* (+ start i)))
+                                   (let ((d (vector-length vtmp)))
+                                     (when (> d 0.0001)
+                                       (vector-float*! vtmp vtmp
+                                                       (/ (fmin (-> *phys-cinject* ci) d) d))
+                                       (vector+! (-> *phys-out* (+ start i))
+                                                 (-> *phys-out* (+ start i)) vtmp)
+                                       (vector+! (-> *phys-pos* (+ start i))
+                                                 (-> *phys-pos* (+ start i)) vtmp)
+                                       (+! (-> *phys-slot-injected* slot) 1))))))))
                          ;; ---- FINAL COLLISION RESOLVE (owner 17:35 bar is resid=0) --------------
                          ;; Inside the constraint loop the colliders are applied ONE AFTER ANOTHER
                          ;; and nothing re-checks: pushing a joint out of volume B can put it back
@@ -1988,10 +2099,11 @@
                                                (vector+! pprb p pprb)
                                                pprb)
                                               (else p))))
-                                   (dotimes (s2 (-> *phys-slot-ncols* slot))
-                                     (let ((cb (+ (* slot PHYS-COLS) s2)))
+                                   (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
+                                     (let ((cb (+ (* slot PHYS-COLS)
+                                                  (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
+                                                                       (* c PHYS-CCMAX) s2)))))
                                        (when (and (<= (-> *phys-coltier* cb) tier)
-                                                  (logtest? (-> *phys-colmask* cb) (ash 1 c))
                                                   (!= (-> *phys-colchain* cb) c))
                                          (let* ((rc (-> *phys-colchain* cb))
                                                 (k2 (-> *phys-colk2* cb))
@@ -2004,7 +2116,7 @@
                                                          ca))
                                                 (r1 (-> *phys-colr* cb))
                                                 (tt (phys-closest-on-seg! cpt ca cbv pt))
-                                                (rr (+ rad0 radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
+                                                (rr (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
                                            (vector-! vtmp pt cpt)
                                            (let ((dd (vector-length vtmp)))
                                              (when (< dd (- rr PHYS-PEN-TOL))
@@ -2088,10 +2200,11 @@
                                  ;; that produces the verdict happens.
                                  (when (nonzero? probe?)
                                    (+! (-> *phys-slot-extprobe* slot) 1))
-                                 (dotimes (s2 (-> *phys-slot-ncols* slot))
-                                   (let ((cb (+ (* slot PHYS-COLS) s2)))
+                                 (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
+                                   (let ((cb (+ (* slot PHYS-COLS)
+                                                (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
+                                                                     (* c PHYS-CCMAX) s2)))))
                                      (when (and (<= (-> *phys-coltier* cb) tier)
-                                                (logtest? (-> *phys-colmask* cb) (ash 1 c))
                                                 (!= (-> *phys-colchain* cb) c))
                                        (let* ((rc (-> *phys-colchain* cb))
                                               (k2 (-> *phys-colk2* cb))
@@ -2106,7 +2219,7 @@
                                               ;; (C) the audit must grade against the SAME cone the constraint
                                               ;; pass pushed out of — same helper, same t, same interpolation.
                                               (tt (phys-closest-on-seg! cpt ca cbv pt))
-                                              (rr (+ rad0 radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
+                                              (rr (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
                                          (vector-! vtmp pt cpt)
                                          (let ((dd (vector-length vtmp)))
                                            ;; (U) CLEARANCE, recorded on EVERY pair whether or not it
@@ -2565,6 +2678,68 @@
                                          (else
                                           (vector-copy! (-> dst vector 3) p)
                                           (set! (-> dst vector 3 w) 1.0))))))))))))))))))
+            ;; ---------------- (C6) CHAIN vs CHAIN — two strands can finally see each other ----
+            ;; Owner, cycle 6: "les elements ayant de la physique EUX-MEMES n'ont pas de colliders,
+            ;; donc evidemment si deux entrent en collision ca clip." Until here a chain was a line
+            ;; of dimensionless points: it could be kept out of the BODY, but nothing at all stopped
+            ;; two chains occupying the same space. That is the metal buckle on Jak's back passing
+            ;; through the very strap that holds it, Keira's goggles sinking into her chest, and her
+            ;; front strands crossing her ears — three of the six sites he named, none of which a
+            ;; body volume could ever have fixed.
+            ;; It runs HERE, after every chain of the actor has been simulated and written, because
+            ;; a pair test needs both strands final; inside the per-chain loop the partner is still
+            ;; a frame stale. Each link carries its own mesh-measured radius (radii=), the pair is
+            ;; separated along the line between them, and — following the owner's cycle-3c rule that
+            ;; a constraint must never re-inject velocity — `prev` takes the same delta, so the
+            ;; separation does not read as speed next frame and the two strands do not buzz against
+            ;; each other. The bone translation is updated with it; the swing was computed from the
+            ;; pre-contact direction, and re-deriving a rotation from a contact push would fight the
+            ;; authored pose for a correction that is, by construction, small.
+            (dotimes (c (-> *phys-slot-nchains* slot))
+              (let* ((ci (+ cbase c))
+                     (xm (-> *phys-cxmask* ci)))
+                (when (and (nonzero? xm) (> (-> *phys-clen* ci) 0))
+                  (let ((sa (+ jbase (-> *phys-cstart* ci)))
+                        (la (-> *phys-clen* ci))
+                        (bnd (fmax 8.0 (* 0.25 (-> *phys-cradius* ci)))))
+                    (dotimes (d (-> *phys-slot-nchains* slot))
+                      (when (and (> d c) (logtest? xm (ash 1 d)) (> (-> *phys-clen* (+ cbase d)) 0))
+                        (let ((sb (+ jbase (-> *phys-cstart* (+ cbase d))))
+                              (lb (-> *phys-clen* (+ cbase d))))
+                          (dotimes (i la)
+                            (dotimes (j lb)
+                              ;; a link with (near) zero influence is rigidly the body's: it is not
+                              ;; ours to move, and shoving it would tear the strand off its anchor.
+                              (let ((fa (if (>= (-> *phys-infl* (+ sa i)) 0.05) 1.0 0.0))
+                                    (fb (if (>= (-> *phys-infl* (+ sb j)) 0.05) 1.0 0.0)))
+                                (when (> (+ fa fb) 0.0)
+                                  (let ((need (+ (-> *phys-lrad* (+ sa i)) (-> *phys-lrad* (+ sb j)))))
+                                    (vector-! vtmp (-> *phys-out* (+ sa i)) (-> *phys-out* (+ sb j)))
+                                    (let ((dd (vector-length vtmp)))
+                                      (when (and (< dd (- need PHYS-PEN-TOL)) (> dd 0.0001))
+                                        (+! (-> *phys-slot-ccc* slot) 1)
+                                        (when (> (- need dd) (-> *phys-slot-cccmax* slot))
+                                          (set! (-> *phys-slot-cccmax* slot) (- need dd)))
+                                        (let ((push (fmin bnd (- need dd))))
+                                          (vector-float*! vtmp vtmp (/ push (* dd (+ fa fb))))
+                                          (when (> fa 0.0)
+                                            (vector+! (-> *phys-out* (+ sa i)) (-> *phys-out* (+ sa i)) vtmp)
+                                            (vector+! (-> *phys-pos* (+ sa i)) (-> *phys-pos* (+ sa i)) vtmp)
+                                            (vector+! (-> *phys-prev* (+ sa i)) (-> *phys-prev* (+ sa i)) vtmp)
+                                            (let ((k (-> *phys-jk* (+ sa i))))
+                                              (when (< (+ k 1) nbones)
+                                                (vector-copy! (-> skel bones (+ k 1) transform vector 3)
+                                                              (-> *phys-out* (+ sa i)))
+                                                (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0))))
+                                          (when (> fb 0.0)
+                                            (vector-! (-> *phys-out* (+ sb j)) (-> *phys-out* (+ sb j)) vtmp)
+                                            (vector-! (-> *phys-pos* (+ sb j)) (-> *phys-pos* (+ sb j)) vtmp)
+                                            (vector-! (-> *phys-prev* (+ sb j)) (-> *phys-prev* (+ sb j)) vtmp)
+                                            (let ((k (-> *phys-jk* (+ sb j))))
+                                              (when (< (+ k 1) nbones)
+                                                (vector-copy! (-> skel bones (+ k 1) transform vector 3)
+                                                              (-> *phys-out* (+ sb j)))
+                                                (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)))))))))))))))))))
             ;; ---------------- rigid descendants of the joints we moved ----------------
             ;; A simulated joint's NON-simulated children are filled by fill-jak-hd-bones! straight
             ;; from the DRIVER and never re-derived, so moving the parent TEARS them off. Keira's
@@ -2910,6 +3085,45 @@
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-clenr* (+ cbase c)))
                 (set! (-> *phys-clenr* (+ cbase c)) 1000000.0))
               (format 0 "~S~%" *phys-line-buf*)
+              ;; ---- CYCLE-6 FIFTH WINDOW LINE ---------------------------------------------------
+              ;; The owner's blocker: "les objets / parties ayant de la physique NE DOIVENT PAS
+              ;; PASSER AU TRAVERS DU MESH DE LEUR PERSONNAGE ! QU'IMPORTE LA RAISON !"
+              ;; Same one-format-call rule as lines 1-4, and no field name here is a substring of a
+              ;; field on any earlier line (`chainvschain`, `ccdepth`, `injected`, `ccnmax` are all
+              ;; new stems) — a nested name silently disarms a line-based gate.
+              ;; chainvschain = strand-vs-strand contacts RESOLVED this window. It is the counter the
+              ;;   positive control has to be able to move: run with inject= armed and it climbs,
+              ;;   run disarmed and injected= is 0.
+              ;; ccnmax = the largest per-chain collider list actually walked. It is the honest
+              ;;   companion to the mesh-derived volumes: if it ever equals PHYS-CCMAX the list was
+              ;;   truncated and some volume this chain should be tested against was dropped.
+              (format (clear *phys-line-buf*)
+                      "[HD-PHYS5] ag=~S chainvschain=~D ccdepth=~f injected=~D ncols=~D ccnmax=~D"
+                      ag
+                      (-> *phys-slot-ccc* slot)
+                      (-> *phys-slot-cccmax* slot)
+                      (-> *phys-slot-injected* slot)
+                      (-> *phys-slot-ncols* slot)
+                      (let ((m 0))
+                        (dotimes (c (-> *phys-slot-nchains* slot))
+                          (when (> (-> *phys-ccn* (+ cbase c)) m)
+                            (set! m (-> *phys-ccn* (+ cbase c)))))
+                        m))
+              ;; per-chain: how many volumes it is tested against, and the radius of its first link.
+              ;; A chain showing ncol=0 has nothing to hit — that is the wave-2 failure mode the
+              ;; aggregate counter could not see — and lrad names the mesh-measured thickness the
+              ;; strand-vs-strand test is using, so a wrong radii= line is read off the log.
+              (format *phys-line-buf* " ccn:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~D" c (-> *phys-ccn* (+ cbase c))))
+              (format *phys-line-buf* " lrad:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c
+                        (-> *phys-lrad* (+ jbase (-> *phys-cstart* (+ cbase c))))))
+              (format 0 "~S~%" *phys-line-buf*)
+              (set! (-> *phys-slot-ccc* slot) 0)
+              (set! (-> *phys-slot-cccmax* slot) 0.0)
+              (set! (-> *phys-slot-injected* slot) 0)
               (set! (-> *phys-slot-fama* slot) 0)
               (set! (-> *phys-slot-famb* slot) 0)
               (set! (-> *phys-slot-unclass* slot) 0)

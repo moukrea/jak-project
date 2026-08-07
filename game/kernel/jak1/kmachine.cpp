@@ -956,7 +956,13 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      is a deliberate behaviour change: `stretch=` used to bound the distance constraint in BOTH
 //      directions, so a chest link could legally lose 22% of its length and Jak's collar could
 //      simply shorten until a contact solved itself. Owner X: "rien ne doit se TASSER".)
-static constexpr int kPhysNumChainParams = 26;
+// CYCLE 6 (owner 2026-08-07) — the audit's OWN positive control:
+//   26 inject(UNITS by which this chain is DELIBERATELY displaced into the body, so the
+//      penetration audit can be shown to FIRE before any zero it reports is believed. Three
+//      vacuous zeros in a single day (resid/push, idledrift/idlewin, restdevA/restwin) are what
+//      this id exists to make impossible: arm it, watch the counter rise, disarm it, watch it fall
+//      back. Default 0 = OFF, and it MUST default off — a control left armed is a defect shipped.)
+static constexpr int kPhysNumChainParams = 27;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -996,8 +1002,15 @@ struct PhysChain {
                                        // L/R) and 0 means the chain has not been classified at all;
                                        // extent/compress are units and 0 means "no allowance", so a
                                        // chain that never declares compress= may not compress.
-                                       0.f, 0.f, 0.f, 0.f};
-  std::vector<std::string> joints;  // ordered root -> tip
+                                       0.f, 0.f, 0.f, 0.f,
+                                       // 26 inject — the penetration audit's POSITIVE CONTROL, and
+                                       // the one param whose default is a safety property rather
+                                       // than a behaviour: a control left armed ships a chain
+                                       // buried in the body. 0 = disarmed.
+                                       0.f};
+  std::vector<std::string> joints;   // ordered root -> tip
+  std::vector<float> link_radius;    // radii= : per-LINK collision radius, mesh-derived
+  std::vector<std::string> xchains;  // xchain= : chains this chain must be collided against
 };
 
 // A body collision volume: a SPHERE on `joint`, or — when `joint2` is set — a CAPSULE (swept
@@ -1384,8 +1397,43 @@ static int pc_physics_parse_file() {
           }
         } else if (k == "extent") {
           ch.params[24] = phys_to_float(v);
-        } else if (k == "compress") {
-          ch.params[25] = phys_to_float(v);
+        } else if (k == "radii") {
+          // Comma-separated, ONE PER LINK, root -> tip. A single whole-chain radius= is the same
+          // number at a shoulder and at a fingertip, which is precisely how a mesh vertex ends up
+          // outside its own collision volume; these come measured off the skinned geometry.
+          // Cleared first so a repeated radii= on one line replaces rather than appends.
+          ch.link_radius.clear();
+          size_t p = 0;
+          while (p <= v.size()) {
+            size_t comma = v.find(',', p);
+            std::string one = (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+            if (!one.empty()) {
+              ch.link_radius.push_back(phys_to_float(one));
+            }
+            if (comma == std::string::npos) {
+              break;
+            }
+            p = comma + 1;
+          }
+        } else if (k == "xchain") {
+          // Comma-separated chain NAMES of this same model. Two chains have never been able to see
+          // each other — which is why Jak's back buckle swings through his own strap — and naming
+          // the partner here is what makes the pair collide.
+          ch.xchains.clear();
+          size_t p = 0;
+          while (p <= v.size()) {
+            size_t comma = v.find(',', p);
+            std::string one = (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+            if (!one.empty()) {
+              ch.xchains.push_back(one);
+            }
+            if (comma == std::string::npos) {
+              break;
+            }
+            p = comma + 1;
+          }
+        } else if (k == "inject") {
+          ch.params[26] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
@@ -1533,6 +1581,53 @@ s64 pc_physics_chain_param_mi(u32 ag_name, s64 chain_index, s64 param_id) {
     return 0;
   }
   return phys_mi(model->chains[chain_index].params[param_id]);
+}
+
+// per-LINK collision radius in milli; 0 when this chain declares no radii= (GOAL then falls back
+// to the whole-chain radius=), so a data file without the key behaves exactly as before.
+s64 pc_physics_chain_link_radius_mi(u32 ag_name, s64 chain, s64 link) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& radii = model->chains[chain].link_radius;
+  if (link < 0 || link >= (s64)radii.size()) {
+    return 0;
+  }
+  return phys_mi(radii[link]);
+}
+
+// bitmask of the chain indices named by xchain=, resolved in this same model — the identical
+// lookup pc_physics_collider_param_mi field 1 does for chains=. 0 = no chain-vs-chain partner,
+// which is every pre-cycle-6 line, so silence in the data keeps the old behaviour.
+s64 pc_physics_chain_xmask(u32 ag_name, s64 chain) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  s64 mask = 0;
+  for (const auto& want : model->chains[chain].xchains) {
+    bool found = false;
+    for (size_t ci = 0; ci < model->chains.size(); ci++) {
+      if (model->chains[ci].name == want) {
+        mask |= ((s64)1 << (s64)ci);
+        found = true;
+      }
+    }
+    if (!found) {
+      // Once per (art-group, unresolved name): the sim reads this every frame, and an xchain= that
+      // resolves to nothing is a PAIR THAT NEVER COLLIDES — a data typo the owner must see, but
+      // once per typo, not once per frame.
+      static std::set<std::string> s_warned_xchain;
+      std::string ag = Ptr<String>(ag_name).c()->data();
+      if (s_warned_xchain.insert(ag + "|" + want).second) {
+        lg::warn("[hd-phys] {}: chain xchain= references unknown chain '{}' (ignored)", ag, want);
+      }
+    }
+  }
+  return mask;
 }
 
 // class bits (primary=1 secondary=2 accessory=4); 0 if unknown.
@@ -3610,6 +3705,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-physics-generation", (void*)pc_physics_generation);
   make_function_symbol_from_c("pc-physics-joint-role", (void*)pc_physics_joint_role);
   make_function_symbol_from_c("pc-physics-chain-param-mi", (void*)pc_physics_chain_param_mi);
+  make_function_symbol_from_c("pc-physics-chain-link-radius-mi",
+                              (void*)pc_physics_chain_link_radius_mi);
+  make_function_symbol_from_c("pc-physics-chain-xmask", (void*)pc_physics_chain_xmask);
   make_function_symbol_from_c("pc-physics-chain-flags", (void*)pc_physics_chain_flags);
   make_function_symbol_from_c("pc-physics-num-chains", (void*)pc_physics_num_chains);
   make_function_symbol_from_c("pc-physics-level-param-mi", (void*)pc_physics_level_param_mi);
