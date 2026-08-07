@@ -411,4 +411,21 @@ t=open(sys.argv[1],errors='ignore').read()
 sys.exit(0 if re.search(r'(anim|authored)[^\n]{0,60}(authority|autorite)[^\n]{0,40}([0-9]+(\.[0-9]+)?)\s*%',t,re.I) else 1)
 PYAJ
 
+
+# AK: a chest bone allowed to swing 50 degrees is a water balloon by construction.
+python3 - <<'PYAK' || fail "AK: a chest chain still allows a huge angular excursion (maxangle) — firmness is small, fast travel, not a wide swing"
+import re,sys
+bad=[]
+cur=None
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: cur=m.group(1); continue
+    if cur and ln.startswith('chain chest'):
+        d=dict(re.findall(r'([a-z]+)=([0-9.]+)',ln))
+        ma=float(d.get('maxangle',0))
+        if ma > 26: bad.append(f"{cur.split()[0]}:{ln.split()[1]}={ma}")
+if bad: sys.stderr.write("  chest maxangle too wide: "+", ".join(bad[:6])+"\n")
+sys.exit(1 if bad else 0)
+PYAK
+
 echo "[Grecharged-secondary-motion PASS]"

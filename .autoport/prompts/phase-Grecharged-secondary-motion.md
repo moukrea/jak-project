@@ -786,3 +786,20 @@ LIÉS qui bougent stoppaient les bones/éléments avec physique d'avoir la physi
    les joints de cette chaîne uniquement. Rapporter, sur une animation courante (Keira au Zoomer,
    Jak qui marche), le pourcentage de frames où chaque chaîne est sous autorité ANIM plutôt que
    PHYSIQUE. Si ce pourcentage est élevé sur des chaînes que l'animation ne pilote pas, c'est le bug.
+
+### AK. « LIQUIDE » = EXCURSION ANGULAIRE, PAS DOSAGE (owner 13:20, build 12:41)
+« Les seins de Keira bougent BEAUCOUP PLUS (excellent !) mais sont carrément LIQUIDES, c'est
+n'importe quoi, au moins 10 fois plus jelly qu'avant. »
+CONSTAT : la chaîne de poitrine est UN SEUL OS (`rBoob` / `lBoob`) — ce n'est donc pas une corde qui
+se déforme. Le paramètre fautif est `maxangle=50` : on autorise l'os à basculer de CINQUANTE DEGRÉS.
+Un sein qui pivote de 50° est une poche d'eau PAR CONSTRUCTION, quelle que soit la raideur.
+=> RÈGLE : l'AMPLITUDE VISIBLE que veut l'owner n'est PAS une grande EXCURSION. Un sein ferme fait un
+   petit débattement, RAPIDE et net, et revient sur la forme du modèle. Réduire fortement `maxangle`
+   (ordre de grandeur 15-22°, à ajuster), garder `stiffness` haut, et obtenir la VIVACITÉ par le
+   couplage à l'ancre (`swing`) plus qu'en ouvrant la butée.
+=> Résumé des trois leviers, à ne plus confondre :
+     * `stiffness` / `stretch` -> FERMETÉ (le retour est net, la forme ne change pas)
+     * `maxangle`              -> DÉBATTEMENT MAX ; trop grand = aspect liquide
+     * `swing` / `mass`        -> RÉACTIVITÉ à l'accélération du buste = ce que l'owner appelle
+                                  « ça bouge bien »
+=> Appliquer le même raisonnement aux autres poitrines (Maia, bird-lady, archéologue) et aux ventres.
