@@ -34,6 +34,13 @@ def main():
         sys.exit('c8-insert: no report at %s' % REP)
     rep = open(REP, errors='ignore').read()
     n = 0
+    # the cycle-8 summary goes FIRST, above the cycle-7 one, so the top of the report describes the
+    # build that is actually on the phone. The cycle-7 text stays underneath: this phase keeps its
+    # own history, and a reader has to be able to see what the previous verdict was answered with.
+    head = os.path.join(BLOCKS, 'c8_head_block.txt')
+    if os.path.exists(head) and 'RESULT (cycle 8)' not in rep:
+        rep = open(head).read().rstrip('\n') + '\n\n' + rep
+        n += 1
     for fn, marker in SECTIONS:
         path = os.path.join(BLOCKS, fn)
         if not os.path.exists(path):
@@ -46,7 +53,8 @@ def main():
         rep = rep.rstrip('\n') + '\n\n' + body
         n += 1
     open(REP, 'w').write(rep)
-    print('c8-insert: %d section(s) appended (%d already present)' % (n, len(SECTIONS) - n))
+    total = len(SECTIONS) + 1          # the sections plus the cycle-8 head
+    print('c8-insert: %d block(s) written, %d already present' % (n, total - n))
     return 0
 
 

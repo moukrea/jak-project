@@ -1,0 +1,29 @@
+=========================================================================================
+CYCLE 8 (owner verdicts 2026-08-07 11:55 AH/AI/AJ and 13:20 AK) — WHAT THIS BUILD CHANGED
+=========================================================================================
+RESULT (cycle 8): the owner's two sentences about the chest were treated as two facts, not one
+dial.  "Bougent BEAUCOUP PLUS (excellent !)" is about TRAVEL and "carrement LIQUIDES" is about the
+BONE TIP, and on a one-link chest chain `maxangle` was setting both — so every previous cycle
+traded one against the other and he felt it every time.  The write-back writes the full simulated
+translation and interpolates only the rotation by `swing=`, so the two separate cleanly: the limit
+closes to 26 degrees (bone tip 15.6 degrees, the firm end of his own 15-22 band) and the anchor
+coupling rises to carry the amplitude, which is the lever he named.  Measured on the baked model,
+that keeps 453.0 units of travel against the 459.7 the phone recorded on the build he called
+excellent — within 1.5% — while halving the tip that made it read as water.
+
+Also in this build:
+  * Daxter's ears were being handed to the animator on one frame in five of ORDINARY animation
+    (threshold 0.35 against a measured idle band of p50 0.19 / max 0.715), which is the owner's
+    "la physique est souvent DESACTIVEE sur les animations" as a number.  Threshold raised above
+    the measured band.  They were also the run's two worst model-pose deviations by a factor of
+    five over every other family A chain on the phone, which is the same defect seen from the
+    other end.
+  * The final collision resolve now runs 12 sweeps at the top quality level instead of 6, sized
+    from its own measured decay rate rather than guessed, so a chain driven deep during violent
+    motion — Maia's hair during her intro flight — finishes the frame outside her body.  The lower
+    quality levels are bit-identical to the previous build.
+
+What is NOT claimed: whether it LOOKS right.  Every aesthetic judgement in this phase is the
+owner's; section 13 lists what to look at.  What is measured is in sections 14, 17, 18 and 19, and
+section 19 names three defects this cycle found and did NOT fix, with the numbers that identify
+them, because a build that hides them is how the last two came to look identical.
