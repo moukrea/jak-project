@@ -136,12 +136,12 @@
 ;; pool was itself part of the defect: it silently TRUNCATED, so a model that declared more simply
 ;; lost the rest with no log line.
 ;; The per-frame cost does NOT scale with this: PHYS-CCMAX below bounds what the solver walks.
-(defconstant PHYS-COLS 96)     ;; colliders per slot — mesh-derived volumes, see PHYS-CCMAX for cost
+(defconstant PHYS-COLS 192)    ;; colliders per slot — mesh-derived volumes, see PHYS-CCMAX for cost
 ;; What the constraint loop actually iterates, per chain. The old loop walked EVERY collider of the
 ;; actor and mask-tested each one; at 96 that is 6x the mask tests for no extra contacts. The bind
 ;; pass now resolves, once, the list of colliders that apply to each chain, and the hot loop walks
 ;; only that. So raising the POOL is free and this is the only number that costs frame time.
-(defconstant PHYS-CCMAX 24)    ;; colliders walked per chain per iteration
+(defconstant PHYS-CCMAX 48)    ;; colliders walked per chain per iteration
 
 (define *phys-slot-pid* (new 'static 'array int32 24))
 (define *phys-slot-njoints* (new 'static 'array int32 24))
@@ -331,8 +331,28 @@
 ;; PHYS-ARRIVE-N is 3 against PHYS-RESTCALM's 10 and both count the SAME quiet frames, so arrival
 ;; always has a seven-frame head start on the measurement by construction, on any chain, at any
 ;; frequency — 0.65^7 of the error is left when the fidelity metric first looks.
-(defconstant PHYS-ARRIVE-N 3)
-(defconstant PHYS-ARRIVE-K 0.35)
+;; CYCLE 6b. Two things were wrong with the arming, and both showed up as a body chain reading
+;; "calm" while sitting a long way from the model pose:
+;;   * arrival demanded that the ANIMATION had also gone quiet (ctmove < PHYS-IDLE-TARG). Samos'
+;;     chain 6 measured 217 units off the model with a clearance of +74 — nothing touching it, in
+;;     free air — precisely because his idle keeps keying the anchor, so arrival never armed while
+;;     the fidelity metric happily sampled the lag. A chain that is not moving is not being driven,
+;;     whatever the animator is doing further up; that, and only that, is the right test.
+;;   * 0.35 leaves 0.65^7 = 4.9% of the error at the tenth calm frame, which on a 217-unit error is
+;;     still 10.6 units. 0.5 leaves 0.39% (0.85 units) with the same seven-frame head start, and it
+;;     is applied only to a chain whose fastest link is under 2 units/frame — 0.5 mm/frame, i.e.
+;;     motion that is not on screen. It shortens no swing the owner can see.
+(defconstant PHYS-ARRIVE-N 2)
+(defconstant PHYS-ARRIVE-K 0.5)
+;; (S) IDLE RING-DOWN. Sleep only ever killed velocity BELOW PHYS-SLEEP-VEL; anything above it rang
+;; on indefinitely, and in the intro that is what the owner calls hysteresis — jak-hd was still
+;; displacing 27.9 units a frame after half a second with nothing moving on the actor at all. Once
+;; the whole actor has been input-free for PHYS-RINGDOWN-N frames the retained velocity is ramped
+;; down instead, every family, until the chain stops. Deliberately NOT armed during the first eight
+;; idle frames: the free swing right after a motion ends is the feature, and it is left untouched.
+(defconstant PHYS-RINGDOWN-N 8)
+(defconstant PHYS-RINGDOWN-RATE 0.06)
+(defconstant PHYS-RINGDOWN-MIN 0.30)
 ;; (S) FREE-SPACE ANTI-RING. The contact rest state (PHYS-STICK) only ever armed on a chain pressed
 ;; against a collider, so it could not touch the defect the owner actually reported: hair, ears, a
 ;; collar and lurker legs ringing in OPEN AIR. A link that reverses direction above the jitter speed
@@ -373,6 +393,9 @@
 ;; (O) contact dead zone. Re-projecting a sub-tolerance penetration every frame is pure chatter and
 ;; is exactly the noise floor the residual audit already refuses to score.
 (defconstant PHYS-PEN-TOL 1.0)
+;; (W/C6b) margin kept between a link's MODEL pose and the surface of any volume it is tested
+;; against. See *phys-ccap*. Small on purpose: this is a floor, not a clearance budget.
+(defconstant PHYS-MODEL-CLR 2.0)
 ;; (O) a single frame may not move a joint more than this fraction of the chain's length to satisfy
 ;; a collider. Deep penetrations (a spawn inside geometry) are walked out over several frames
 ;; instead of being teleported out, which is the other way an energy loop starts.
@@ -595,28 +618,49 @@
 
 ;; body collision volumes (idx = slot*PHYS-COLS + i). joint2 < 0 = sphere on joint1, else CAPSULE
 ;; swept between the two animated bones.
-(define *phys-colk* (new 'static 'array int32 2304))         ;; jgeo joint index carrying the volume
-(define *phys-colk2* (new 'static 'array int32 2304))        ;; capsule far end, -1 = sphere
-(define *phys-colr* (new 'static 'array float 2304))
-(define *phys-colr2* (new 'static 'array float 2304))        ;; (C) far-end radius: radius != radius2 = a TAPERED (conical) volume
-(define *phys-colmask* (new 'static 'array int64 2304))      ;; chain-applicability bits (bit c)
-(define *phys-coltier* (new 'static 'array int32 2304))      ;; 1 = core (every level), 2 = extended
-(define *phys-colside* (new 'static 'array int32 2304))      ;; (Z) 0 none / 1 L / 2 R — see *phys-cside*
+(define *phys-colk* (new 'static 'array int32 4608))         ;; jgeo joint index carrying the volume
+(define *phys-colk2* (new 'static 'array int32 4608))        ;; capsule far end, -1 = sphere
+(define *phys-colr* (new 'static 'array float 4608))
+(define *phys-colr2* (new 'static 'array float 4608))        ;; (C) far-end radius: radius != radius2 = a TAPERED (conical) volume
+(define *phys-colmask* (new 'static 'array int64 4608))      ;; chain-applicability bits (bit c)
+(define *phys-coltier* (new 'static 'array int32 4608))      ;; 1 = core (every level), 2 = extended
+(define *phys-colside* (new 'static 'array int32 4608))      ;; (Z) 0 none / 1 L / 2 R — see *phys-cside*
 ;; (Y) A COLLIDER THAT RIDES ANOTHER CHAIN'S SIMULATED TIP instead of an animated bone. -1 = a real
 ;; bone (everything before cycle 5). The owner's description of Keira is that her breasts "s'entre-
 ;; choquent" — they collide with EACH OTHER, which no bone-mounted volume can express: both bones
 ;; are animated and neither knows where the other one has actually swung to. Declared as
 ;; `at=<chain>` on a collider line; the anchor joint is still parsed and must exist, so a rig that
 ;; lacks it drops the volume through the normal path rather than silently mis-centring it.
-(define *phys-colchain* (new 'static 'array int32 2304))
+(define *phys-colchain* (new 'static 'array int32 4608))
 
 ;; ---- cycle 6: what each chain is ACTUALLY tested against, resolved once at bind ----------------
 ;; The volumes are mesh-derived now and there are up to 96 of them per actor, but a strand only
 ;; ever meets a handful. Walking all 96 and mask-testing each, every link, every iteration, every
 ;; substep, would be 6x the work for exactly the same contacts. The applicable list is resolved
 ;; here instead, so the hot loop is O(links x PHYS-CCMAX) whatever the pool size is.
-(define *phys-cclist* (new 'static 'array int32 13824))     ;; slot*PHYS-CPS*PHYS-CCMAX + c*PHYS-CCMAX + n
+(define *phys-cclist* (new 'static 'array int32 27648))     ;; slot*PHYS-CPS*PHYS-CCMAX + c*PHYS-CCMAX + n
 (define *phys-ccn* (new 'static 'array int32 576))          ;; how many entries of that list are live
+
+;; ---- cycle 6b: THE MODEL POSE IS THE FLOOR OF EVERY COLLISION VOLUME --------------------------
+;; Owner rule W, applied to collision instead of only to the spring: "la position idle devrait etre
+;; celle du modele de base". A volume that CONTAINS the pose Naughty Dog modelled for a strand is
+;; asserting that the character intersects itself, and the only thing it can do is shove that strand
+;; somewhere ND never put it — permanently, because the shove never ends. That is measurable and it
+;; was measured: Maia's two chest chains sat 131 and 180 units off their modelled pose with a
+;; clearance of -0.99 (inside the surface, but under PHYS-PEN-TOL so no push-out was even recorded),
+;; and Keira's chain 5 at -2.79. Both are `at=` volumes, which the offline fitter never clearance-
+;; tested at all (it only shrinks bone capsules), and the same hole exists for every xchain pair.
+;; So the bound is enforced HERE, at runtime, where it cannot be forgotten by a generator: for each
+;; (link, volume) pair the effective radius is capped at the distance from that link's own MODEL
+;; pose to that volume's spine, less a hair of margin. Consequences, in order of importance:
+;;   * a chain at rest is never held off the pose the model gives it -> restdevA is free to reach 0;
+;;   * nothing is allowed any closer to the body than the model itself is, so the anti-clipping
+;;     blocker is untouched (the cap can only ever remove a region the character already occupies);
+;;   * it tracks the ANIMATION: when Jak folds an arm against his chest the cap opens exactly as far
+;;     as the authored pose does, which is the authored-priority rule expressed in geometry.
+;; Computed once per (link, volume) per frame, before the substep loop, so the substep sweep, the
+;; final resolve and the residual audit all grade the identical radius.
+(define *phys-ccap* (new 'static 'array float 2304))        ;; link*PHYS-CCMAX + n, valid for the chain in hand
 
 ;; ---- cycle 6 problem 2: the physics elements get a volume of THEIR OWN ------------------------
 ;; Owner 01:45: "les elements ayant de la physique EUX-MEMES n'ont pas de colliders, donc
@@ -1482,6 +1526,57 @@
                                    (vector+! (-> *phys-targ* (+ start i))
                                              (if (zero? i) anchor (-> *phys-targ* (+ start i -1)))
                                              hdir))))))))
+                       ;; ------ (W/C6b) THE MODEL POSE IS THE FLOOR OF EVERY COLLISION VOLUME -----
+                       ;; See *phys-ccap*. The targets are final at this point (the re-glue is done
+                       ;; and `hang=` has had its say), so this is the last moment at which the
+                       ;; MODEL pose for this frame is known and the first at which every consumer
+                       ;; of it — substep sweep, final resolve, residual audit — still lies ahead.
+                       ;; One closest-point per (link, volume) per frame, against the six the three
+                       ;; sweeps already pay, so the cap costs about a sixth of the contact budget
+                       ;; rather than doubling it.
+                       (when (nonzero? collide?)
+                         (dotimes (i len)
+                           (when (>= i cs)
+                             (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
+                               (let* ((cb (+ (* slot PHYS-COLS)
+                                             (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
+                                                                  (* c PHYS-CCMAX) s2))))
+                                      (rc (-> *phys-colchain* cb))
+                                      (k2 (-> *phys-colk2* cb))
+                                      ;; a volume riding another CHAIN is referenced at that chain's
+                                      ;; own model pose, not at where it has swung to: the question
+                                      ;; being asked is "how far apart did ND model these two", and
+                                      ;; the answer must not move when either of them does.
+                                      (mca (if (>= rc 0)
+                                               (-> *phys-targ* (+ jbase (-> *phys-cstart* (+ cbase rc))
+                                                                 (+ (-> *phys-clen* (+ cbase rc)) -1)))
+                                               (-> skel bones (+ (-> *phys-colk* cb) 1) transform vector 3)))
+                                      (mcb (if (and (< rc 0) (>= k2 0))
+                                               (-> skel bones (+ k2 1) transform vector 3)
+                                               mca)))
+                                 ;; CHAIN-RIDING VOLUMES ONLY, and that restriction is the whole
+                                 ;; point rather than a hedge. A BONE capsule is already clearance-
+                                 ;; shrunk offline against the model, with a measured margin, and
+                                 ;; capping it here as well would be actively harmful: the model
+                                 ;; pose is glued to the chain's own parent and knows nothing about
+                                 ;; the rest of the skeleton, so when Jak swings a thigh up into his
+                                 ;; jacket hem the hem's model pose enters the thigh volume and the
+                                 ;; cap would open exactly when the leg needs to push the cloth —
+                                 ;; the owner's own site, made worse. `at=`/xchain volumes have no
+                                 ;; offline test at all (the fitter only shrinks bone capsules), both
+                                 ;; ends are anchored a few centimetres apart on the same body part
+                                 ;; so their modelled separation does not swing, and they are exactly
+                                 ;; where the defect was measured: Maia's two chest chains at -0.74
+                                 ;; and -0.99 clearance holding 131 and 180 units of rest error, and
+                                 ;; Keira's chain 5 at -2.79, the deepest in the whole capture.
+                                 (cond
+                                   ((>= rc 0)
+                                    (phys-closest-on-seg! cpt mca mcb (-> *phys-targ* (+ start i)))
+                                    (vector-! vtmp (-> *phys-targ* (+ start i)) cpt)
+                                    (set! (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))
+                                          (fmax 0.0 (- (vector-length vtmp) PHYS-MODEL-CLR))))
+                                   (else
+                                    (set! (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2)) 1000000.0))))))))
                        ;; ---------------- (B) SPAWN AND BIG TRANSITIONS ---------------------------
                        ;; Owner: "au SPAWN de tous les acteurs a physique, les chaines partent
                        ;; n'importe ou". A chain cannot tell a 1-frame teleport from a violent
@@ -1833,7 +1928,9 @@
                                                            ;; and a shoulder actually are, and it is why Jak's jacket hem
                                                            ;; kept clipping through a capsule sized for his thigh.
                                                            (tt (phys-closest-on-seg! cpt ca cbv pt))
-                                                           (rr (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
+                                                           (rr (fmin (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))
+                                                                     ;; (W/C6b) never claim a region the MODEL pose already occupies
+                                                                     (+ radx (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))))))
                                                       (vector-! vtmp pt cpt)
                                                       (let ((dd (vector-length vtmp)))
                                                         ;; (O) DEAD ZONE: a sub-tolerance overlap is
@@ -2116,7 +2213,9 @@
                                                          ca))
                                                 (r1 (-> *phys-colr* cb))
                                                 (tt (phys-closest-on-seg! cpt ca cbv pt))
-                                                (rr (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
+                                                (rr (fmin (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))
+                                                          ;; (W/C6b) never claim a region the MODEL pose already occupies
+                                                          (+ radx (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))))))
                                            (vector-! vtmp pt cpt)
                                            (let ((dd (vector-length vtmp)))
                                              (when (< dd (- rr PHYS-PEN-TOL))
@@ -2219,7 +2318,9 @@
                                               ;; (C) the audit must grade against the SAME cone the constraint
                                               ;; pass pushed out of — same helper, same t, same interpolation.
                                               (tt (phys-closest-on-seg! cpt ca cbv pt))
-                                              (rr (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))))
+                                              (rr (fmin (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))
+                                                        ;; (W/C6b) never claim a region the MODEL pose already occupies
+                                                        (+ radx (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))))))
                                          (vector-! vtmp pt cpt)
                                          (let ((dd (vector-length vtmp)))
                                            ;; (U) CLEARANCE, recorded on EVERY pair whether or not it
@@ -2442,26 +2543,38 @@
                            ;; one it orbits: the owner's "rien ne se repose vraiment nulle part", and
                            ;; the mechanism that takes idle drift to zero rather than merely small.
                            ;; A chain still settling in from a spawn is exempt — its ramp IS input.
-                           (when (and (< ctmove PHYS-IDLE-TARG) (<= (-> *phys-csettle* ci) 0))
-                             ;; (W) ...AND ARRIVAL. See PHYS-ARRIVE-K. Sleeping used to stop here,
-                             ;; at "kill the residue", which freezes a chain wherever it happens to
-                             ;; be rather than where the model says it lives. `arv` is non-zero only
-                             ;; on a BODY chain the animator has let go of and that has been quiet
-                             ;; for PHYS-ARRIVE-N frames; it relaxes the state onto the target and
-                             ;; writes `prev` with it, so the chain comes home without carrying one
-                             ;; unit of velocity for having done so.
-                             (let ((arv (if (and (!= 2 (-> *phys-cfam* ci))
-                                                 (>= (-> *phys-ccalm* ci) PHYS-ARRIVE-N)
-                                                 (< tiltf 0.05)
-                                                 (< authw 0.5))
-                                            PHYS-ARRIVE-K
-                                            0.0)))
+                           ;; CYCLE 6b SPLITS THE TWO. Sleep is a statement about the FRAME (nothing
+                           ;; asked this chain for anything, so the residue it still carries is not
+                           ;; motion), and it keeps its `ctmove` gate. Arrival is a statement about
+                           ;; the CHAIN (it has stopped, so it should be where the model says it
+                           ;; lives), and tying it to the animator's silence is what let Samos' beard
+                           ;; sit 217 units off the model pose in free air for a whole cinematic: his
+                           ;; idle keeps keying the anchor, so `ctmove` never fell and arrival never
+                           ;; armed, while the fidelity metric — which only asks whether the CHAIN is
+                           ;; calm — sampled it 3300 times and was right to.
+                           (let ((slp (if (and (< ctmove PHYS-IDLE-TARG)
+                                               (<= (-> *phys-csettle* ci) 0))
+                                          1 0))
+                                 ;; (W) ARRIVAL. See PHYS-ARRIVE-K. Non-zero only on a BODY chain the
+                                 ;; animator has let go of and that has been quiet for
+                                 ;; PHYS-ARRIVE-N frames; it relaxes the state onto the target and
+                                 ;; writes `prev` with it, so the chain comes home without carrying
+                                 ;; one unit of velocity for having done so.
+                                 (arv (if (and (!= 2 (-> *phys-cfam* ci))
+                                               (>= (-> *phys-ccalm* ci) PHYS-ARRIVE-N)
+                                               (< tiltf 0.05)
+                                               (< authw 0.5)
+                                               (<= (-> *phys-csettle* ci) 0))
+                                          PHYS-ARRIVE-K
+                                          0.0)))
+                             (when (or (nonzero? slp) (> arv 0.0))
                                (dotimes (i len)
                                  (when (>= i rl)
-                                   (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
-                                   (when (< (vector-length vtmp) PHYS-SLEEP-VEL)
-                                     (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
-                                     (+! (-> *phys-slot-slept* slot) 1))
+                                   (when (nonzero? slp)
+                                     (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
+                                     (when (< (vector-length vtmp) PHYS-SLEEP-VEL)
+                                       (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
+                                       (+! (-> *phys-slot-slept* slot) 1)))
                                    (when (and (> arv 0.0) (zero? (-> lpush i)))
                                      ;; the point relaxed toward is the chain's OWN equilibrium, not
                                      ;; the raw target. On anim=excite the authored channel is
@@ -2483,7 +2596,30 @@
                                      (vector-! vtmp vtmp2 (-> *phys-pos* (+ start i)))
                                      (vector-float*! vtmp vtmp arv)
                                      (vector+! (-> *phys-pos* (+ start i)) (-> *phys-pos* (+ start i)) vtmp)
-                                     (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))))))))
+                                     (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i))))))))
+                         ;; ---- (S) IDLE RING-DOWN — the tail sleep could never reach -------------
+                         ;; Sleep only ever deletes a residue already below PHYS-SLEEP-VEL. Anything
+                         ;; above it rings on, and in the intro that is exactly what the owner calls
+                         ;; hysteresis: jak-hd was still displacing 27.9 units a frame with nothing
+                         ;; on the actor moving at all, half a second after the last input. So once
+                         ;; the WHOLE ACTOR has been input-free for PHYS-RINGDOWN-N frames the
+                         ;; retained velocity is ramped down, every family, until the chain stops.
+                         ;; The ramp starts well before anything grades it and applies to no chain
+                         ;; during the first eight idle frames — the free swing immediately after a
+                         ;; motion ends is the feature, and it is left completely untouched. Written
+                         ;; through `prev` only: this scales the velocity the verlet integrator
+                         ;; carries, it never moves the chain and never injects one (owner rule O).
+                         (let ((idf (-> *phys-slot-idleframes* slot)))
+                           (when (and (> idf PHYS-RINGDOWN-N) (<= (-> *phys-csettle* ci) 0))
+                             (let ((rd (fmax PHYS-RINGDOWN-MIN
+                                             (- 1.0 (* PHYS-RINGDOWN-RATE
+                                                       (the float (- idf PHYS-RINGDOWN-N)))))))
+                               (dotimes (i len)
+                                 (when (>= i rl)
+                                   (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
+                                   (vector-float*! vtmp vtmp rd)
+                                   (vector-! (-> *phys-prev* (+ start i))
+                                             (-> *phys-pos* (+ start i)) vtmp)))))))
                          (let ((rev 0)
                                ;; (S) FREE-SPACE RINGING — the population the old metric threw away.
                                ;; Cycle 3 restricted `jitter` to reversals WHILE PRESSED against a
