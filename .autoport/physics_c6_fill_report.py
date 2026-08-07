@@ -159,11 +159,18 @@ V['GSAMP'] = fany('gsamp', pick=sum)
 
 # chest: the leg prints the art-group it actually found and the chain index it read from the
 # data file, so a reordering of physics_chains.txt can never silently point this at another chain
+#
+# ...and the claim is "max", so it is the LARGEST reading of the run, not the last leg's. Taking
+# the last one made the report understate its own measurement (147.1 from the intro, where Keira
+# barely moves, while the village leg had recorded 537.1 on the same chain) — the amplitude the
+# owner is asked to judge is the one the chain actually reached.
 V['CHEST'] = NA
 V['CHESTAG'] = 'keira-hd'
+_best = -1.0
 for l in legl:
     m = re.search(r'leg \S+: (\S+) chest chain \(idx \d+\) max deviation on device = ([0-9.]+)', l)
-    if m:
+    if m and float(m.group(2)) > _best:
+        _best = float(m.group(2))
         V['CHESTAG'], V['CHEST'] = m.group(1), m.group(2)
 
 # gravity, straight out of the integrator, as the phone printed it
@@ -174,6 +181,28 @@ V['GLOC'] = logcat_grep('D-MAX', r'(gloc=\([^)]*\))')
 V['PROFILE'] = logcat_grep('D-MAX', r'\[HD-PHYS-INFL\] ag=sidekick-lod0 profile:([^\n]*)')
 if V['PROFILE'] == NA:
     V['PROFILE'] = logcat_grep('D-RIDER', r'\[HD-PHYS-INFL\] ag=sidekick-lod0 profile:([^\n]*)')
+
+# ...and the LONGEST profile anywhere in the run, quoted link by link. Daxter's ears are the
+# owner's named site but they are 2-3 links, which cannot show much of a ramp; the chain with the
+# most links is where a discontinuity would actually be visible, so it is transcribed in full
+# instead of only its worst step.
+V['PROFILE1AG'] = V['PROFILE1C'] = V['PROFILE1'] = V['PROFILE1STEP'] = NA
+_bestw = []
+for _tag in ('D-MAX', 'D-INTRO', 'D-RIDER'):
+    try:
+        _t = open(LOGCAT % _tag, errors='ignore').read()
+    except OSError:
+        continue
+    for _m in re.finditer(r'\[HD-PHYS-INFL\] ag=(\S+) profile:([^\n]*)', _t):
+        for _c in re.finditer(r'c(\d+)((?::[0-9.]+)+)', _m.group(2)):
+            _w = [float(x) for x in _c.group(2).split(':') if x]
+            if len(_w) > len(_bestw):
+                _bestw = _w
+                V['PROFILE1AG'] = _m.group(1)
+                V['PROFILE1C'] = 'c' + _c.group(1)
+if _bestw:
+    V['PROFILE1'] = ' '.join('%.4f' % x for x in _bestw)
+    V['PROFILE1STEP'] = '%.4f' % max(abs(_bestw[i + 1] - _bestw[i]) for i in range(len(_bestw) - 1))
 
 # Jak's hair, per-link motion span: the jdev: field of [HD-PHYS2], chain index read from the data
 V['JAKHAIR'] = logcat_grep('D-MAX', r'\[HD-PHYS2\] ag=jak-hd[^\n]*jdev:[^\n]*?(c0:[0-9. ]+)')

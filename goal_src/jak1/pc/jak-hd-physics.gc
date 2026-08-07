@@ -216,6 +216,10 @@
 ;; (S) chain-frames the sleep rule zeroed a link's velocity: the mechanism behind "rien ne se repose
 ;; vraiment nulle part", visible as a count rather than inferred from the drift being small.
 (define *phys-slot-slept* (new 'static 'array int32 24))
+;; (W/C6b) link-frames on which ARRIVAL actually moved a body chain toward the model pose. The
+;; anti-vacuous-zero counter for restdevA: a small fidelity number next to arrn=0 would mean the
+;; chain merely never left, not that the mechanism that brings it home works.
+(define *phys-slot-arrn* (new 'static 'array int32 24))
 ;; (U) "resid=0" is only meaningful if a collision test actually ran. Maia measured push=0 AND
 ;; resid=0 while her hair visibly went through her: a chain that is tested against nothing scores a
 ;; perfect penetration audit. These two make that impossible to misread ever again.
@@ -1143,6 +1147,7 @@
     (set! (-> *phys-slot-freering* slot) 0)
     (set! (-> *phys-slot-idleobs* slot) 0)
     (set! (-> *phys-slot-slept* slot) 0)
+    (set! (-> *phys-slot-arrn* slot) 0)
     (set! (-> *phys-slot-noncol* slot) 0)
     (set! (-> *phys-slot-nomask* slot) 0)
     (set! (-> *phys-slot-fama* slot) 0)
@@ -2119,7 +2124,13 @@
                          ;; will carry — and mirrors every correction into the sim state and into
                          ;; `prev` by the same delta, so the simulation follows the output out of the
                          ;; body and not one unit of velocity is injected doing it.
-                         (dotimes (cit 4)
+                         ;; 4 -> 6 in cycle 6b: the pool went 96 -> 192 and the per-chain list 24 ->
+                         ;; 48, which is the right fix for the holes the owner sees but also gives a
+                         ;; link more overlapping volumes to be squeezed between, and the residual
+                         ;; count rose with it (9 -> 15 windows on the rider leg). Two more sweeps,
+                         ;; not a bigger correction bound: the bound is what keeps the projection
+                         ;; from reading as velocity (owner rule O).
+                         (dotimes (cit 6)
                            ;; ---- (X) LENGTH RESTORATION, INTERLEAVED WITH THE RESOLVE ------------
                            ;; This used to run ONCE, AFTER the whole collision sweep, and the last
                            ;; thing it did was lengthen links that the sweep had just pushed off a
@@ -2555,17 +2566,38 @@
                            (let ((slp (if (and (< ctmove PHYS-IDLE-TARG)
                                                (<= (-> *phys-csettle* ci) 0))
                                           1 0))
-                                 ;; (W) ARRIVAL. See PHYS-ARRIVE-K. Non-zero only on a BODY chain the
-                                 ;; animator has let go of and that has been quiet for
-                                 ;; PHYS-ARRIVE-N frames; it relaxes the state onto the target and
-                                 ;; writes `prev` with it, so the chain comes home without carrying
-                                 ;; one unit of velocity for having done so.
+                                 ;; (W) ARRIVAL. It relaxes the state onto the target and writes
+                                 ;; `prev` with it, so the chain comes home without carrying one unit
+                                 ;; of velocity for having done so.
+                                 ;;
+                                 ;; CYCLE 6b, SECOND PASS: the arming is a RAMP ON SPEED, not a
+                                 ;; counter. Arming it on `ccalm >= N` should have left 0.5^8 of the
+                                 ;; error by the time the fidelity metric first looked, and it did
+                                 ;; not — Samos' belly stayed at 228 units with nothing touching it,
+                                 ;; which is only possible if the counter and the metric disagreed
+                                 ;; about which frames were quiet. Rather than chase which, the test
+                                 ;; is now the physical quantity both of them are proxies for: this
+                                 ;; chain's own fastest link speed, read here, this frame. At rest it
+                                 ;; is the full PHYS-ARRIVE-K; at PHYS-REST-VEL and above it is zero.
+                                 ;; A real swing spends 99% of its period well above 2 units/frame
+                                 ;; (a chest chain peaks near 100), and the factor is ~0 at the
+                                 ;; crossing, so the bounce the owner asked for is untouched — what
+                                 ;; disappears is the crawl home at 0.6 units a frame that sleep left
+                                 ;; behind. `arrn` counts the link-frames it actually moved: an
+                                 ;; arrival that never fires would otherwise be another silent zero.
                                  (arv (if (and (!= 2 (-> *phys-cfam* ci))
-                                               (>= (-> *phys-ccalm* ci) PHYS-ARRIVE-N)
                                                (< tiltf 0.05)
                                                (< authw 0.5)
                                                (<= (-> *phys-csettle* ci) 0))
-                                          PHYS-ARRIVE-K
+                                          (let ((cv 0.0))
+                                            (dotimes (i len)
+                                              (when (>= i rl)
+                                                (vector-! vtmp (-> *phys-pos* (+ start i))
+                                                          (-> *phys-prev* (+ start i)))
+                                                (let ((v (vector-length vtmp)))
+                                                  (when (> v cv) (set! cv v)))))
+                                            (* PHYS-ARRIVE-K
+                                               (fmax 0.0 (fmin 1.0 (- 1.0 (/ cv PHYS-REST-VEL))))))
                                           0.0)))
                              (when (or (nonzero? slp) (> arv 0.0))
                                (dotimes (i len)
@@ -2596,7 +2628,8 @@
                                      (vector-! vtmp vtmp2 (-> *phys-pos* (+ start i)))
                                      (vector-float*! vtmp vtmp arv)
                                      (vector+! (-> *phys-pos* (+ start i)) (-> *phys-pos* (+ start i)) vtmp)
-                                     (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i))))))))
+                                     (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
+                                     (+! (-> *phys-slot-arrn* slot) 1))))))
                          ;; ---- (S) IDLE RING-DOWN — the tail sleep could never reach -------------
                          ;; Sleep only ever deletes a residue already below PHYS-SLEEP-VEL. Anything
                          ;; above it rings on, and in the intro that is exactly what the owner calls
@@ -3181,9 +3214,10 @@
               ;; idlewin = the frames this window actually scored as input-free, slept = the
               ;; chain-frames the sleep rule zeroed. idledrift=0 with idlewin=0 is an EMPTY zero and
               ;; must be read as "not measured" — the same trap resid=0/push=0 was in cycle 3.
-              (format *phys-line-buf* " idlewin=~D slept=~D"
+              (format *phys-line-buf* " idlewin=~D slept=~D arrn=~D"
                       (-> *phys-slot-idleobs* slot)
-                      (-> *phys-slot-slept* slot))
+                      (-> *phys-slot-slept* slot)
+                      (-> *phys-slot-arrn* slot))
               ;; (R) the gravity the integrator really applied, in WORLD axes and then in the anchor
               ;; bone's axes. gdir must read (0.0000, -1.0000, 0.0000) on every actor at every
               ;; orientation; gloc must NOT, or gravity would be turning with the bone.
@@ -3302,6 +3336,7 @@
               (set! (-> *phys-slot-freering* slot) 0)
               (set! (-> *phys-slot-idleobs* slot) 0)
               (set! (-> *phys-slot-slept* slot) 0)
+              (set! (-> *phys-slot-arrn* slot) 0)
               (set! (-> *phys-slot-authhold* slot) 0)
               (set! (-> *phys-slot-autheng* slot) 0)
               (set! (-> *phys-slot-authrel* slot) 0)

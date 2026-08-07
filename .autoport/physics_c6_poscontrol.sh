@@ -53,7 +53,13 @@ NARM=$(grep -c 'inject=' "$ARMED")
 say "armed $NARM chains with inject=$INJECT units"
 
 run(){ # run <tag> <file>
-  local TAG="$1" FILE="$2" LC="$OUT/poscontrol_$TAG.logcat.log"
+  # NOT one `local` with three assignments: bash expands every word of the builtin's argument
+  # list BEFORE it assigns any of them, so `LC=...$TAG...` reads an unset TAG and `set -u` kills
+  # the subshell the whole run happens in — which is exactly how this control came back with
+  # every field empty and every gate red, having never launched the game once.
+  local TAG="$1"
+  local FILE="$2"
+  local LC="$OUT/poscontrol_$TAG.logcat.log"
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
   $ADB -s "$S" push "$FILE" "$EXT" >/dev/null 2>&1 || die "cannot push $TAG physics_chains.txt"
   $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
