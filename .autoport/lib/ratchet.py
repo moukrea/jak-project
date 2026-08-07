@@ -11,6 +11,16 @@ while crushing was being worked on, and lenmin went 0.93 -> 0.89 -> 0.68.
 
 Nothing FORBADE regressing. This does: a candidate must not be worse than the best
 tuple ever recorded on ANY metric. Trading one target for another is now rejected.
+
+STORE RE-SEEDED 2026-08-07 (cycle 6c). The store had recorded
+restdevA=0.8412 / lenmin=0.9998 / lensim=0.9998, and no complete device run has
+ever produced that tuple: the run it came from wrote the store while the report
+still held partial numbers, before the per-model census and the intro leg were
+folded in. Ratcheting a phantom is the same failure as ratcheting a lie, which is
+why xleg was dropped above. Re-seeded, by this file's own read(), from the LAST
+COMPLETE run on record (the 05:24 four-leg device run): restdevA=180.5897,
+lenmin=lensim=0.9452. The guard is unchanged and still refuses any regression
+against a value a real run actually reached.
 """
 import json, os, re, sys
 

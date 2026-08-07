@@ -346,8 +346,40 @@
 ;;     still 10.6 units. 0.5 leaves 0.39% (0.85 units) with the same seven-frame head start, and it
 ;;     is applied only to a chain whose fastest link is under 2 units/frame — 0.5 mm/frame, i.e.
 ;;     motion that is not on screen. It shortens no swing the owner can see.
-(defconstant PHYS-ARRIVE-N 2)
-(defconstant PHYS-ARRIVE-K 0.5)
+;;
+;; CYCLE 6c — THE 6b ARMING WAS A DIVISION BY THE MEASUREMENT'S OWN THRESHOLD.
+;; 6b replaced the quiet-frame counter with a RAMP ON INSTANTANEOUS SPEED,
+;; arv = K * (1 - cv / PHYS-REST-VEL), and PHYS-REST-VEL is the same 2.0 units/frame the fidelity
+;; metric uses to decide a chain is settled. So the corrective term went to ZERO exactly at the
+;; edge of the band the metric grades, and the steady-state lag it leaves behind,
+;;      e = r / (K * (1 - r / V)),
+;; diverges as the chain's speed r approaches V. That is not a tuning error, it is a pole sitting
+;; on the gate. Solved against the shipped 05:24 leg it reproduces the measurements to the digit:
+;;   jak-hd     restdevA 8.2321  -> r = 1.35 units/frame
+;;   keira-hd   restdevA 79.4384 -> r = 1.90 units/frame
+;; both just under the 2.0 the metric calls "at rest", which is why every one of those readings was
+;; sampled and none of them was ever corrected. The chain was not stuck; it was crawling home with
+;; the brake released only after it had already arrived.
+;; A second defect kept the crawl slow enough to be caught: arrival collapsed `prev` ONTO `pos`
+;; rather than moving it by the same delta. Collapsing deletes the momentum the chain had, which is
+;; strictly more than the "inject no velocity" rule asks for, and it turns a second-order return
+;; (time constant 1/omega, ~8 frames) into a first-order crawl at omega^2*dt^2 per step (~130
+;; frames for Samos' belly at mass=3.2). Worse, it makes (pos - prev) — the very quantity the
+;; fidelity metric reads as "is this chain moving?" — report a chain being dragged across the room
+;; as motionless. The solver was lying to the measurement about its own state.
+;; So, this cycle:
+;;   * arming is the quiet-frame counter again (never the animator's silence, which was the 6a
+;;     mistake, and never a divisor that vanishes on the gate, which was the 6b mistake);
+;;   * the gain RAMPS from zero over PHYS-ARRIVE-RAMP frames, so a chain that dips under the
+;;     threshold at the top of a swing — two frames at most on a real bounce — is never yanked;
+;;   * `prev` moves by the SAME DELTA as `pos`: zero velocity injected, zero destroyed;
+;;   * and it is applied BEFORE the output blend, so the correction reaches the bone on the frame
+;;     it is computed instead of the frame after, and is graded after the length restoration and
+;;     the collision sweep have both had their say.
+;; Head start at the tenth quiet frame with N=3, RAMP=3, K=0.8: (1-.267)(1-.533)(1-.8)^4 = 5.5e-4.
+(defconstant PHYS-ARRIVE-N 3)
+(defconstant PHYS-ARRIVE-RAMP 3.0)
+(defconstant PHYS-ARRIVE-K 0.8)
 ;; (S) IDLE RING-DOWN. Sleep only ever killed velocity BELOW PHYS-SLEEP-VEL; anything above it rang
 ;; on indefinitely, and in the intro that is what the owner calls hysteresis — jak-hd was still
 ;; displacing 27.9 units a frame after half a second with nothing moving on the actor at all. Once
@@ -2055,6 +2087,70 @@
                                (when (> mx (* PHYS-BURST-REL chainlen))
                                  (+! (-> *phys-slot-burst* slot) 1))))
                            (+! (-> *phys-csettle* ci) -1))
+                         ;; ---- (W) ARRIVAL — A CHAIN THAT HAS STOPPED IS WHERE THE MODEL PUTS IT
+                         ;; Owner, cycle 5: "quand ca se calme, en orientation classique, ca REVIENT
+                         ;; a la forme du modele". Deliberately NOT a clamp, a freeze or a pin — the
+                         ;; three words he ruled out in the same breath ("MAIS SUJETS A LA
+                         ;; PHYSIQUE"). The chain is integrated every frame either way; this is a
+                         ;; first-order relaxation of the STATE onto the equilibrium the spring is
+                         ;; already heading for, whose gain ramps in over PHYS-ARRIVE-RAMP frames
+                         ;; once the chain has been quiet for PHYS-ARRIVE-N.
+                         ;; It sits HERE, ahead of the output blend, on purpose: everything below —
+                         ;; the blend, the interleaved length restoration, the final collision
+                         ;; sweep, the residual audit and the fidelity metric — then runs on the
+                         ;; arrived state, so the correction reaches the bone on its own frame and
+                         ;; is graded only after the length and contact projections have had the
+                         ;; last word. Placed after the blend it would have been a per-link lerp
+                         ;; toward the target applied AFTER the length restoration, i.e. exactly the
+                         ;; chord-shortening this cycle's `clenr` exists to catch.
+                         ;; The trigger is the PREVIOUS frame's quiet count. It is read, never
+                         ;; written, here: `ccalm` is updated in the fidelity block below and its
+                         ;; definition, threshold and role are untouched. A one-frame-old arming
+                         ;; signal is immaterial to a condition that already needs three.
+                         ;;   * FAMILY A ONLY. Family B's rest pose belongs to gravity, and relaxing
+                         ;;     a hanging strap onto its modelled pose is the opposite bug.
+                         ;;   * Upright only: a tilted actor is the owner's own exception, where the
+                         ;;     chain is SUPPOSED to leave the modelled pose.
+                         ;;   * Links a collider is holding are skipped — the body is allowed to
+                         ;;     hold a strand off the model pose, and the fidelity metric takes the
+                         ;;     same view of the same links.
+                         ;;   * `prev` takes the SAME DELTA as `pos`: no velocity is injected (owner
+                         ;;     rule O) and none is destroyed either, so the chain keeps the
+                         ;;     momentum that carries it home and (pos - prev) stays a true speed.
+                         (let ((arg (let ((cc (-> *phys-ccalm* ci)))
+                                      (if (> cc PHYS-ARRIVE-N)
+                                          (* PHYS-ARRIVE-K
+                                             (fmin 1.0 (/ (the float (- cc PHYS-ARRIVE-N))
+                                                          PHYS-ARRIVE-RAMP)))
+                                          0.0))))
+                           (when (and (> arg 0.0)
+                                      (!= 2 (-> *phys-cfam* ci))
+                                      (< tiltf 0.05)
+                                      (< authw 0.5)
+                                      (<= (-> *phys-csettle* ci) 0)
+                                      (>= chainlen 1.0))
+                             (dotimes (i len)
+                               (when (and (>= i rl) (zero? (-> lpush i)))
+                                 ;; the point relaxed toward is the chain's OWN equilibrium, not the
+                                 ;; raw target: on anim=excite the authored channel is re-injected
+                                 ;; as a force, so the spring settles at target + excite*(authored -
+                                 ;; target), and that is the same reference the fidelity metric
+                                 ;; grades against. Relaxing onto the bare target would drag
+                                 ;; Daxter's ears and the beards off the pose the animator is
+                                 ;; actively holding, and the metric would then report the arrival
+                                 ;; itself as the failure to return.
+                                 (cond
+                                   ((> exc 0.0)
+                                    (vector-! vtmp2 (-> *phys-anim* (+ start i))
+                                              (-> *phys-targ* (+ start i)))
+                                    (vector-float*! vtmp2 vtmp2 exc)
+                                    (vector+! vtmp2 vtmp2 (-> *phys-targ* (+ start i))))
+                                   (else (vector-copy! vtmp2 (-> *phys-targ* (+ start i)))))
+                                 (vector-! vtmp vtmp2 (-> *phys-pos* (+ start i)))
+                                 (vector-float*! vtmp vtmp arg)
+                                 (vector+! (-> *phys-pos* (+ start i)) (-> *phys-pos* (+ start i)) vtmp)
+                                 (vector+! (-> *phys-prev* (+ start i)) (-> *phys-prev* (+ start i)) vtmp)
+                                 (+! (-> *phys-slot-arrn* slot) 1)))))
                          ;; ---- (P/U) OUTPUT BLEND, MOVED AHEAD OF THE COLLISION RESOLVE ----------
                          ;; out = target + influence * (sim - target). This used to sit at the very
                          ;; end, AFTER the final collision sweep and after the residual audit — which
@@ -2554,82 +2650,31 @@
                            ;; one it orbits: the owner's "rien ne se repose vraiment nulle part", and
                            ;; the mechanism that takes idle drift to zero rather than merely small.
                            ;; A chain still settling in from a spawn is exempt — its ramp IS input.
-                           ;; CYCLE 6b SPLITS THE TWO. Sleep is a statement about the FRAME (nothing
-                           ;; asked this chain for anything, so the residue it still carries is not
-                           ;; motion), and it keeps its `ctmove` gate. Arrival is a statement about
-                           ;; the CHAIN (it has stopped, so it should be where the model says it
-                           ;; lives), and tying it to the animator's silence is what let Samos' beard
-                           ;; sit 217 units off the model pose in free air for a whole cinematic: his
-                           ;; idle keeps keying the anchor, so `ctmove` never fell and arrival never
-                           ;; armed, while the fidelity metric — which only asks whether the CHAIN is
-                           ;; calm — sampled it 3300 times and was right to.
+                           ;; CYCLE 6b SPLIT SLEEP FROM ARRIVAL, AND THAT SPLIT STANDS. Sleep is a
+                           ;; statement about the FRAME (nothing asked this chain for anything, so
+                           ;; the residue it still carries is not motion) and it keeps its `ctmove`
+                           ;; gate. Arrival is a statement about the CHAIN (it has stopped, so it
+                           ;; should be where the model says it lives); tying it to the animator's
+                           ;; silence is what let Samos' beard sit 217 units off the model pose in
+                           ;; free air for a whole cinematic — his idle keeps keying the anchor, so
+                           ;; `ctmove` never fell while the fidelity metric, which only asks whether
+                           ;; the CHAIN is calm, sampled it 3300 times and was right to.
+                           ;; CYCLE 6c MOVES ARRIVAL OUT OF THIS BLOCK ENTIRELY — see the (W) block
+                           ;; ahead of the output blend. What is left here is sleep and only sleep,
+                           ;; and sleep alone may still collapse `prev`: it fires exclusively on a
+                           ;; residue already under PHYS-SLEEP-VEL (1 unit/frame, a quarter of a
+                           ;; millimetre) and exclusively on a frame the animation asked for
+                           ;; nothing, so it deletes a ring-down tail rather than a chain's momentum.
                            (let ((slp (if (and (< ctmove PHYS-IDLE-TARG)
                                                (<= (-> *phys-csettle* ci) 0))
-                                          1 0))
-                                 ;; (W) ARRIVAL. It relaxes the state onto the target and writes
-                                 ;; `prev` with it, so the chain comes home without carrying one unit
-                                 ;; of velocity for having done so.
-                                 ;;
-                                 ;; CYCLE 6b, SECOND PASS: the arming is a RAMP ON SPEED, not a
-                                 ;; counter. Arming it on `ccalm >= N` should have left 0.5^8 of the
-                                 ;; error by the time the fidelity metric first looked, and it did
-                                 ;; not — Samos' belly stayed at 228 units with nothing touching it,
-                                 ;; which is only possible if the counter and the metric disagreed
-                                 ;; about which frames were quiet. Rather than chase which, the test
-                                 ;; is now the physical quantity both of them are proxies for: this
-                                 ;; chain's own fastest link speed, read here, this frame. At rest it
-                                 ;; is the full PHYS-ARRIVE-K; at PHYS-REST-VEL and above it is zero.
-                                 ;; A real swing spends 99% of its period well above 2 units/frame
-                                 ;; (a chest chain peaks near 100), and the factor is ~0 at the
-                                 ;; crossing, so the bounce the owner asked for is untouched — what
-                                 ;; disappears is the crawl home at 0.6 units a frame that sleep left
-                                 ;; behind. `arrn` counts the link-frames it actually moved: an
-                                 ;; arrival that never fires would otherwise be another silent zero.
-                                 (arv (if (and (!= 2 (-> *phys-cfam* ci))
-                                               (< tiltf 0.05)
-                                               (< authw 0.5)
-                                               (<= (-> *phys-csettle* ci) 0))
-                                          (let ((cv 0.0))
-                                            (dotimes (i len)
-                                              (when (>= i rl)
-                                                (vector-! vtmp (-> *phys-pos* (+ start i))
-                                                          (-> *phys-prev* (+ start i)))
-                                                (let ((v (vector-length vtmp)))
-                                                  (when (> v cv) (set! cv v)))))
-                                            (* PHYS-ARRIVE-K
-                                               (fmax 0.0 (fmin 1.0 (- 1.0 (/ cv PHYS-REST-VEL))))))
-                                          0.0)))
-                             (when (or (nonzero? slp) (> arv 0.0))
+                                          1 0)))
+                             (when (nonzero? slp)
                                (dotimes (i len)
                                  (when (>= i rl)
-                                   (when (nonzero? slp)
-                                     (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
-                                     (when (< (vector-length vtmp) PHYS-SLEEP-VEL)
-                                       (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
-                                       (+! (-> *phys-slot-slept* slot) 1)))
-                                   (when (and (> arv 0.0) (zero? (-> lpush i)))
-                                     ;; the point relaxed toward is the chain's OWN equilibrium, not
-                                     ;; the raw target. On anim=excite the authored channel is
-                                     ;; re-injected as a force, so the spring settles at
-                                     ;; target + excite*(authored - target) — that is where the
-                                     ;; solver is heading and it is the same reference the fidelity
-                                     ;; metric grades against. Relaxing onto the bare target instead
-                                     ;; would drag Daxter's ears and the beards OFF the pose the
-                                     ;; animator is actively holding, by up to a chain length, and
-                                     ;; the metric would then report the arrival itself as the
-                                     ;; failure to return.
-                                     (cond
-                                       ((> exc 0.0)
-                                        (vector-! vtmp2 (-> *phys-anim* (+ start i))
-                                                  (-> *phys-targ* (+ start i)))
-                                        (vector-float*! vtmp2 vtmp2 exc)
-                                        (vector+! vtmp2 vtmp2 (-> *phys-targ* (+ start i))))
-                                       (else (vector-copy! vtmp2 (-> *phys-targ* (+ start i)))))
-                                     (vector-! vtmp vtmp2 (-> *phys-pos* (+ start i)))
-                                     (vector-float*! vtmp vtmp arv)
-                                     (vector+! (-> *phys-pos* (+ start i)) (-> *phys-pos* (+ start i)) vtmp)
+                                   (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
+                                   (when (< (vector-length vtmp) PHYS-SLEEP-VEL)
                                      (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-pos* (+ start i)))
-                                     (+! (-> *phys-slot-arrn* slot) 1))))))
+                                     (+! (-> *phys-slot-slept* slot) 1))))))
                          ;; ---- (S) IDLE RING-DOWN — the tail sleep could never reach -------------
                          ;; Sleep only ever deletes a residue already below PHYS-SLEEP-VEL. Anything
                          ;; above it rings on, and in the intro that is exactly what the owner calls
