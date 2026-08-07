@@ -5,6 +5,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+# The HD asset pack is a SEPARATE deliverable: the reskin (skin-authority fix) is baked
+# into the HD models, so it ships in this zip and NOT in the APK. Watching only the APK
+# once shipped an "updated" build whose main change the owner could not possibly see.
+ZIP=out/artifacts/jak1_hd_assets.zip
 DIST=.autoport/dist/app-jak1-HD-recharged.apk
 LOG=.autoport/logs/auto_push_builds.txt
 LAST=""
@@ -28,7 +32,12 @@ while true; do
   if ps -eo comm,args | grep -vE '^claude ' \
        | grep -qE '^(cmake|ninja|cc1plus|java)[^\n]*(--build|assemble|GradleWrapperMain)'; then continue; fi
   cp "$APK" "$DIST" || continue
-  if timeout 1800 gh release upload jak1-rtlight-wip "$DIST" \
+  UP=("$DIST")
+  if [ -f "$ZIP" ]; then
+    zh=$(md5sum "$ZIP" | cut -d' ' -f1)
+    [ "$zh" != "${LASTZIP:-}" ] && { UP+=("$ZIP"); LASTZIP="$zh"; }
+  fi
+  if timeout 1800 gh release upload jak1-rtlight-wip "${UP[@]}" \
        --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then
     LAST="$h"
     echo "$(date +%H:%M:%S) PUSHED ${h:0:8} ($(numfmt --to=iec "$s2" 2>/dev/null || echo "$s2"))" >> "$LOG"
