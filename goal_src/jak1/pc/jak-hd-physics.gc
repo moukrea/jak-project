@@ -376,10 +376,25 @@
 ;;   * and it is applied BEFORE the output blend, so the correction reaches the bone on the frame
 ;;     it is computed instead of the frame after, and is graded after the length restoration and
 ;;     the collision sweep have both had their say.
-;; Head start at the tenth quiet frame with N=3, RAMP=3, K=0.8: (1-.267)(1-.533)(1-.8)^4 = 5.5e-4.
-(defconstant PHYS-ARRIVE-N 3)
-(defconstant PHYS-ARRIVE-RAMP 3.0)
-(defconstant PHYS-ARRIVE-K 0.8)
+;; Head start at the tenth quiet frame with N=2, RAMP=2, K=0.95: (1-.475)(1-.95)^6 = 8.2e-9.
+;; MEASURED, 06:10 leg, K=0.8 and the collapse removed: keira-hd 79.44 -> 11.20, samos-hd 43.67 ->
+;; 15.64, the intro 293.23 -> 30.68, the stock riders 28.41 -> 3.25. What was left was not a
+;; convergence failure but a FIGHT: the chain-vs-chain pass separates a pair by moving `pos` AND
+;; `prev` together, which is invisible to every velocity reading, so a link could be shoved up to
+;; 30 units a frame while reading as perfectly calm, and arrival pulled it straight back. The two
+;; worst readings of that leg were both that fight (Samos' belly against his own beard at ccdepth
+;; 37.2, Maia's hair at 286.3) and it is also what took jak-hd's intro idle drift from 0.0000 to
+;; 5.8190 units a frame. See *phys-lxheld*: a link another chain is holding is now held, exactly as
+;; a link the body is holding is held. K then rises because what remains is genuine settling lag,
+;; and the residual it leaves scales with (1-K).
+(defconstant PHYS-ARRIVE-N 2)
+(defconstant PHYS-ARRIVE-RAMP 2.0)
+(defconstant PHYS-ARRIVE-K 0.95)
+;; (W/C6c) how long a chain-vs-chain contact keeps holding the links it separated. The pass runs
+;; after the per-chain step, so the flag is always read one frame later; 3 frames of hysteresis
+;; means a pair in sustained contact stays exempt instead of flickering in and out of it every
+;; other frame, which would rebuild the oscillation the flag exists to remove.
+(defconstant PHYS-XHOLD 3)
 ;; (S) IDLE RING-DOWN. Sleep only ever killed velocity BELOW PHYS-SLEEP-VEL; anything above it rang
 ;; on indefinitely, and in the intro that is what the owner calls hysteresis — jak-hd was still
 ;; displacing 27.9 units a frame after half a second with nothing moving on the actor at all. Once
@@ -712,6 +727,19 @@
 (define *phys-slot-ccc* (new 'static 'array int32 24))      ;; chain-vs-chain contacts resolved (window)
 (define *phys-slot-cccmax* (new 'static 'array float 24))   ;; deepest chain-vs-chain overlap (window)
 (define *phys-slot-injected* (new 'static 'array int32 24)) ;; links deliberately displaced this window
+;; (W/C6c) A LINK ANOTHER CHAIN IS HOLDING IS HELD, exactly as a link the BODY is holding is held.
+;; The chain-vs-chain pass runs after the per-chain step — it cannot write that step's `lpush`
+;; array — so it leaves a countdown here and the next frame seeds `lpush` from it. Without this the
+;; contact and the arrival relaxation form an energy loop: the pair separates (moving `pos` AND
+;; `prev` by the same delta, so the motion is invisible to every velocity reading), arrival pulls
+;; the link back to the model pose, and the pair separates again, for ever. Measured on the 06:10
+;; leg: jak-hd's idle drift went 0.0000 -> 5.8190 units/frame in the intro the moment arrival
+;; became strong enough to fight back, and Samos' belly (pushed by his own beard, ccdepth 37.2) and
+;; Maia's hair (ccdepth 286.3) carried the two worst fidelity readings of the run. Owner rule O is
+;; explicit that an unsatisfiable constraint must settle rather than oscillate; this is that rule
+;; applied to a collider class that was added in cycle 6, after the exemption was written.
+(define *phys-lxheld* (new 'static 'array int32 1152))      ;; frames left holding this link (chain contact)
+(define *phys-slot-xheld* (new 'static 'array int32 24))    ;; link-frames exempted for that reason (window)
 
 ;; gravity: 9.8 m/s^2 * 4096 units/m
 (defconstant PHYS-GRAV-ACCEL 40140.8)
@@ -1165,6 +1193,7 @@
     (set! (-> *phys-slot-reseed* slot) 0)
     (set! (-> *phys-slot-burst* slot) 0)
     (set! (-> *phys-slot-frozen* slot) 0)
+    (set! (-> *phys-slot-xheld* slot) 0)
     (set! (-> *phys-slot-holdmax* slot) 0)
     (set! (-> *phys-slot-jitter* slot) 0)
     (set! (-> *phys-slot-rested* slot) 0)
@@ -1738,8 +1767,18 @@
                        ;; (B) per-link freedom ramp root->tip. grad=0 -> uniform (pre-cycle-2
                        ;; behaviour). grad=1 -> the first free link keeps 1/nfree of the swing cone
                        ;; and is 1/f times stiffer, the tip keeps the full authored amplitude.
+                       ;; (W/C6c) seed the per-link "a collider is holding this" flag from LAST
+                       ;; frame's chain-vs-chain contacts before anything reads it. PHYS-XHOLD
+                       ;; frames of hysteresis, so a pair that is genuinely in sustained contact
+                       ;; does not flicker in and out of the exemption every other frame — which
+                       ;; would restore the very oscillation the flag exists to stop.
                        (dotimes (i len)
-                         (set! (-> lpush i) 0))
+                         (cond
+                           ((> (-> *phys-lxheld* (+ start i)) 0)
+                            (set! (-> lpush i) 1)
+                            (+! (-> *phys-slot-xheld* slot) 1)
+                            (+! (-> *phys-lxheld* (+ start i)) -1))
+                           (else (set! (-> lpush i) 0))))
                        (dotimes (i len)
                          (let ((f 1.0))
                            (when (and (> nfree 1) (> grad 0.0) (>= i rl))
@@ -2960,6 +2999,7 @@
                                         (let ((push (fmin bnd (- need dd))))
                                           (vector-float*! vtmp vtmp (/ push (* dd (+ fa fb))))
                                           (when (> fa 0.0)
+                                            (set! (-> *phys-lxheld* (+ sa i)) PHYS-XHOLD)
                                             (vector+! (-> *phys-out* (+ sa i)) (-> *phys-out* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-pos* (+ sa i)) (-> *phys-pos* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-prev* (+ sa i)) (-> *phys-prev* (+ sa i)) vtmp)
@@ -2969,6 +3009,7 @@
                                                               (-> *phys-out* (+ sa i)))
                                                 (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0))))
                                           (when (> fb 0.0)
+                                            (set! (-> *phys-lxheld* (+ sb j)) PHYS-XHOLD)
                                             (vector-! (-> *phys-out* (+ sb j)) (-> *phys-out* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-pos* (+ sb j)) (-> *phys-pos* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-prev* (+ sb j)) (-> *phys-prev* (+ sb j)) vtmp)
@@ -3301,9 +3342,13 @@
                       (-> *phys-slot-famb* slot)
                       (-> *phys-slot-unclass* slot)
                       (-> *phys-slot-tilt* slot))
-              (format *phys-line-buf* " restdevA=~f restwin=~D xleg=~D lenmin=~f lensim=~f extprobe=~D"
+              ;; two calls, one line: `format` takes at most 8 parameters, and these all append
+              ;; into the same string buffer, so the window is still emitted as ONE logcat line.
+              (format *phys-line-buf* " restdevA=~f restwin=~D xheld=~D"
                       (-> *phys-slot-restdeva* slot)
                       (-> *phys-slot-restwin* slot)
+                      (-> *phys-slot-xheld* slot))
+              (format *phys-line-buf* " xleg=~D lenmin=~f lensim=~f extprobe=~D"
                       (-> *phys-slot-xleg* slot)
                       (-> *phys-slot-lenmin* slot)
                       (-> *phys-slot-lensim* slot)
@@ -3368,6 +3413,7 @@
               (set! (-> *phys-slot-tilt* slot) 0.0)
               (set! (-> *phys-slot-restdeva* slot) 0.0)
               (set! (-> *phys-slot-restwin* slot) 0)
+              (set! (-> *phys-slot-xheld* slot) 0)
               (set! (-> *phys-slot-xleg* slot) 0)
               (set! (-> *phys-slot-lenmin* slot) 1000000.0)
     (set! (-> *phys-slot-lensim* slot) 1000000.0)

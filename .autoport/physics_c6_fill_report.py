@@ -86,6 +86,7 @@ V['RESTOPEN'] = ('OPEN: ' + ', '.join('on the %s leg it reaches %.1f units over 
                  'each other and the hair chains spend it in sustained contact; a link held off the '
                  'modelled pose BY A COLLIDER is the body doing its job. Carried, not hidden.') \
                 if _ro else 'every leg is at or below the 8-unit bar, cinematic included.'
+V['XHELD'] = fany('xheld', pick=sum)
 V['XLEG'] = fany('xleg', pick=sum)
 V['EXTPROBE'] = fany('extprobe', pick=sum)
 V['LENMIN'] = fany('lenmin', pick=min)
@@ -285,7 +286,7 @@ V['FACTSHEET'] = '\n'.join([
   '  per-link influence profile, weights root to tip: %s' % V['PROFILE'],
   '  ...largest step between neighbouring links = %s, bounded below 0.45, no discontinuity' % V['INFLSTEP'],
   '  Jak hair, per-link motion span: %s' % V['JAKHAIR'],
-  '  frozen / stiff / dead chains = 0 — no declared chain stayed still while its actor moved',
+  '  frozen / stiff / dead chains = 0 on the gameplay legs (one intro window open, listed below)',
   '  spawn and big-transition burst = 0 (reseeds = %s, the detector working)' % V['RESEED'],
   '  ears: 77 rigs covered cast wide — Daxter, Keira, Samos, sages, villagers, Maia, Gol, lurkers',
   '  Maia (evilsis-lod0): 13 capsule volumes cover her whole body, pelvis and legs included',

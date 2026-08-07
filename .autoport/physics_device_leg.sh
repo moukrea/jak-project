@@ -256,13 +256,18 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     RDEV=$(grep -ao 'restdevA=[0-9.]*' "$LC" | sed 's/restdevA=//' | sort -g | tail -1)
     RWIN=$(grep -a 'restwin=' "$LC" | awk '{if (match($0,/restwin=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     XLEG=$(grep -a 'xleg=' "$LC" | awk '{if (match($0,/xleg=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
+    # (W/C6c) link-frames exempted from the fidelity sample because ANOTHER CHAIN was holding them
+    # — the same exemption a body collider has always had. Reported next to restwin so the size of
+    # the exempted population is readable rather than asserted; a restdevA next to xheld with no
+    # restwin would be the empty zero this phase has already shipped three times.
+    XHELD=$(grep -a 'xheld=' "$LC" | awk '{if (match($0,/xheld=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
     # the sentinel (1000000) means "no chain was long enough to measure in this window" — that is
     # not a crush, so it is filtered out rather than graded as a perfect score OR as a failure.
     LMIN=$(grep -ao 'lenmin=[0-9.]*' "$LC" | sed 's/lenmin=//' | awk '{if ($1+0 < 100.0) print}' | sort -g | head -1)
     LSIM=$(grep -ao 'lensim=[0-9.]*' "$LC" | sed 's/lensim=//' | awk '{if ($1+0 < 100.0) print}' | sort -g | head -1)
     EXTP=$(grep -a 'extprobe=' "$LC" | awk '{if (match($0,/extprobe=[0-9]+/)) s+=substr($0,RSTART+9,RLENGTH-9)} END {print s+0}')
     TOTEXT=$((TOTEXT + EXTP))
-    say "leg $TAG: cycle5 famA=$FAMA famB=$FAMB unclass=$UNCL tiltmax=${TILT:-n/a} restdevA=${RDEV:-n/a} restwin=$RWIN xleg=$XLEG lenmin=${LMIN:-n/a} lensim=${LSIM:-n/a} extprobe=$EXTP"
+    say "leg $TAG: cycle5 famA=$FAMA famB=$FAMB unclass=$UNCL tiltmax=${TILT:-n/a} restdevA=${RDEV:-n/a} restwin=$RWIN xheld=$XHELD xleg=$XLEG lenmin=${LMIN:-n/a} lensim=${LSIM:-n/a} extprobe=$EXTP"
     [ "${UNCL:-0}" = 0 ] || { say "FAIL($TAG): $UNCL chain(s) simulating with NO family — the owner's rule is that every chain is classified"; OK=0; }
     TOTREST=$((TOTREST + RWIN))
     awk -v v="${RDEV:-99}" 'BEGIN{exit !(v+0 <= 8.0)}' \
