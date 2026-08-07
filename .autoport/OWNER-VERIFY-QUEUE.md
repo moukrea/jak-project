@@ -442,3 +442,21 @@ MESURES DEVICE SUR CE BUILD EXACT (jambe D-INTRO) :
   * Poitrine Keira : 738,1 unités.
 ⚠️ TAILLE : 1,0 Go au lieu de ~580 Mo — c'est de l'espace mort de packaging Gradle (défaut connu,
 pas du contenu). Le build du cycle 4 sera repacké propre.
+
+### PRÉ-GATE 23:40 [✅ token CYCLE 11 — LE BLOCKER EST LEVÉ] — APK + pack EN LIGNE
+deploy_verify PASS (HEAD 6cab2acb0d), 0 crash, 0 ligne d'échec dans le rapport, cliquet satisfait.
+LE BLOCKER : `resid-bad = 0 sur 109 fenêtres`, avec **28 800 tests pendant-tissu réellement
+exécutés** — et le contrôle positif a bien tiré : run ARMÉ `inject=140` sur chaque chaîne =>
+`injected=15274`, `push=39066`. Le zéro n'est donc pas creux. Pire résidu restant : 1,11 unité,
+soit 27 micromètres sur un personnage de 2,3 m.
+ACQUIS MESURÉS : restdevA 948 -> 5,08 (retour à la forme du modèle) ; lenmin 0,9951 / lensim 0,9998
+(plus aucun écrasement) ; autorité anim qui se rend (engage==release) ; Maia sortie des fautifs.
+⚠️ CE QUI N'EST PAS CORRIGÉ, ET QUE TU VERRAS ENCORE :
+  * la FORME de la poitrine : `couple=3.6` est toujours une déviation POSITIONNELLE, donc la
+    « giga pointe / quasiment plat » persiste. La règle rotation-au-lieu-de-translation est écrite
+    dans le solveur mais pas branchée sur ce paramètre. C'est le premier sujet du prochain cycle.
+  * les lunettes qui tombent pendant que la main les tient (Sandover, boucle Zoomer).
+  * Maia sur-amortie (amortissement 0,14 vs 0,26 chez Keira — inversé par rapport à l'intention).
+À TESTER : ① est-ce que quelque chose traverse encore un corps, sur N'IMPORTE quel personnage ?
+② les pans de veste de Jak restent-ils chacun sur leur jambe ? ③ cheveux de Maia dans son corps ?
+④ toggle physics OFF = tout redevient stock.
