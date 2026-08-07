@@ -428,4 +428,22 @@ if bad: sys.stderr.write("  chest maxangle too wide: "+", ".join(bad[:6])+"\n")
 sys.exit(1 if bad else 0)
 PYAK
 
+
+# AL: a single-bone body part must ROTATE about its anchor, never translate — translation smears
+# the shared skin into a point (or flattens it), which is what the owner sees.
+python3 - <<'PYAL' || fail "AL: chest/belly chains still allow positional stretch — a single-bone body part must rotate about its anchor with its length preserved"
+import re,sys
+bad=[]; cur=None
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: cur=m.group(1); continue
+    if cur and re.match(r'^chain (chest|belly)',ln):
+        d=dict(re.findall(r'([a-z]+)=([0-9.]+)',ln))
+        if float(d.get('stretch',1)) > 0.01: bad.append(f"{cur.split()[0]}:{ln.split()[1]} stretch={d.get('stretch')}")
+if bad: sys.stderr.write("  positional stretch left on: "+", ".join(bad[:6])+"\n")
+sys.exit(1 if bad else 0)
+PYAL
+grep -qiE "(rotation|angle)[^\n]{0,90}(anchor|ancre|root|racine)[^\n]{0,60}(length|longueur)[^\n]{0,40}(preserv|conserv|invariant)" "$R" \
+  || fail "AL: the report must show the bone length is INVARIANT (min/max over the capture) — the shape must not deform"
+
 echo "[Grecharged-secondary-motion PASS]"

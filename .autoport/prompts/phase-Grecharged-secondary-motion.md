@@ -803,3 +803,23 @@ Un sein qui pivote de 50° est une poche d'eau PAR CONSTRUCTION, quelle que soit
      * `swing` / `mass`        -> RÉACTIVITÉ à l'accélération du buste = ce que l'owner appelle
                                   « ça bouge bien »
 => Appliquer le même raisonnement aux autres poitrines (Maia, bird-lady, archéologue) et aux ventres.
+
+### AL. « GIGA POINTE OU QUASIMENT PLAT » = L'OS SE DÉPLACE AU LIEU DE PIVOTER (owner 15:25)
+« Les seins de Keira sont toujours extrêmement liquides et partent en GIGA POINTE TRÈS LONGUE ou
+QUASIMENT PLAT (les deux extrêmes). »
+MÉCANISME IDENTIFIÉ : `couple=3.6` (ajouté pour gagner de l'amplitude sans ramollir) injecte
+l'accélération de l'ancre comme une DÉVIATION POSITIONNELLE — l'équation du solveur est
+`d'' + 2·zeta·w·d' + w²·d = -(1+couple)·a_ancre`, donc `d` est un DÉPLACEMENT de l'os.
+Or les sommets du sein sont PARTAGÉS avec l'os du torse (le reskin a réparti les poids entre `chest`
+et `rBoob`). Un déplacement de `rBoob` par rapport à `chest` ÉTIRE la peau entre les deux : dans un
+sens ça part en pointe, dans l'autre ça s'aplatit. Les deux extrêmes de l'owner sont les deux signes
+du même défaut.
+=> RÈGLE POUR TOUTE PARTIE DU CORPS À UN SEUL OS (poitrines, ventres, fesses) : le mouvement doit
+   être une ROTATION AUTOUR DE L'ANCRE, pas une translation. La déviation calculée par `couple` doit
+   être convertie en ANGLE autour de la racine, avec la longueur de l'os CONSERVÉE — la forme ne
+   change pas, seule l'orientation change. Translation résiduelle ≈ 0.
+=> Corollaire : `stretch` doit être ~0 sur ces chaînes (aucune élasticité de longueur), et la
+   distance racine->pointe doit être rapportée comme invariante (min/max sur la capture).
+=> C'est la traduction correcte de la demande d'origine : « ronds et FERMES, ils bougent bien et
+   s'entre-choquent, PEU DE DÉFORMATION ». Un volume rigide qui oscille sur son ancrage, pas une
+   poche qui se déforme.
