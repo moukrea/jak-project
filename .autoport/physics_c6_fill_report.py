@@ -223,6 +223,63 @@ def actorfield(actor, key, default=NA):
 V['MAIAACT'] = actorfield('evilsis-lod0', 'chains-active')
 V['MAIANEV'] = actorfield('evilsis-lod0', 'never-moved')
 V['MAIAPUSH'] = actorfield('evilsis-lod0', 'push')
+
+# ---- RESIDUAL PENETRATION, MEASURED RATHER THAN ASSERTED -------------------------------------
+# These three lines used to be typed into the report as a flat "resid = 0". The leg log has said
+# otherwise on every run since cycle 5 (windows with a residual, quoted verbatim in OPEN ITEMS),
+# so the factsheet was contradicting the open list two hundred lines further down. A claim that a
+# reader has to cross-check against the exception list is a false green even when the exception
+# list is honest, and this phase has already lost cycles to numbers that turned out to mean
+# nothing. Counted here, out of the leg's own `windows=` and `resid-bad=` fields, so the sentence
+# can only ever say what was measured; the exceptions keep their verbatim entry in OPEN ITEMS.
+_rw_tot, _rb_tot = 0, 0
+for l in legl:
+    m = re.match(r'leg (\S+): params-loaded=\S+ init=\S+ chains-resolving=\S+ windows=([0-9]+)', l)
+    if m:
+        _rw_tot += int(m.group(2))
+    m = re.match(r'leg \S+: rootdev-bad=\S+ resid-bad=([0-9]+)', l)
+    if m:
+        _rb_tot += int(m.group(1))
+V['RESIDWIN'] = str(_rw_tot)
+V['RESIDCLEAN'] = str(_rw_tot - _rb_tot)
+V['RESIDBAD'] = str(_rb_tot)
+# the depth is the number with consequences: a count says how often, this says how far in.
+_rmax = []
+for _t in ('D-MAX', 'D-OFF', 'D-RIDER', 'D-INTRO'):
+    try:
+        _rmax += [float(x) for x in re.findall(
+            r'residmax=([0-9.]+)', open(LOGCAT % _t, errors='ignore').read())]
+    except OSError:
+        pass
+V['RESIDMAXD'] = ('%.4f' % max(_rmax)) if _rmax else NA
+# ...and the same three for Maia alone, because the owner asked for her by name.
+_mw = actorfield('evilsis-lod0', 'windows')
+_mb = actorfield('evilsis-lod0', 'resid-bad')
+V['MAIAWIN'] = _mw
+V['MAIACLEAN'] = str(int(_mw) - int(_mb)) if _mw != NA and _mb != NA else NA
+V['MAIABAD'] = _mb
+_mclr = NA
+for l in legl:
+    if 'evilsis-lod0' in l and 'cclr:' in l:
+        _v = [float(x) for x in re.findall(r'[0-9]+=(-?[0-9.]+)', l.split('cclr:')[1])]
+        _v = [x for x in _v if x < 900000.0]
+        if _v:
+            _mclr = '%.4f' % min(_v)
+V['MAIACLR'] = _mclr
+# The sentence itself is conditional, and that is the point. Phrasing a fully dirty measurement as
+# "resid = 0 on 0 of 1 windows" would be literally true and would read as a pass to anyone
+# skimming — the exact shape of false green this phase keeps producing. A clean claim is only
+# written when the measurement is clean; otherwise the line says so and the gate fails, which is
+# the outcome that gets the solver fixed instead of the report reworded.
+if V['MAIABAD'] not in (NA,) and V['MAIAWIN'] not in (NA,) and int(V['MAIABAD']) == 0:
+    V['MAIARESIDLINE'] = ('Maia (evilsis-lod0): resid = 0 across all %s of her windows, '
+                          'push = %s contacts actually recorded'
+                          % (V['MAIAWIN'], V['MAIAPUSH']))
+else:
+    V['MAIARESIDLINE'] = ('Maia (evilsis-lod0): NOT CLEAN — %s of %s of her windows still hold a '
+                          'residual penetration, push = %s contacts recorded. OPEN, quoted '
+                          'verbatim in OPEN ITEMS.'
+                          % (V['MAIABAD'], V['MAIAWIN'], V['MAIAPUSH']))
 V['GOLACT'] = actorfield('evilbro-lod0', 'chains-active')
 V['GOLNEV'] = actorfield('evilbro-lod0', 'never-moved')
 V['MAIALINE'] = line('D-INTRO', 'evilsis-lod0', 'windows=')
@@ -267,7 +324,11 @@ V['FACTSHEET'] = '\n'.join([
   '  Keira: breast-to-breast contact via a collider riding the other chain simulated tip',
   '  cross-leg (opposite side) xleg = %s residual breaches of the far leg volume' % V['XLEG'],
   '  pendant-cloth collision tests actually run: extprobe = %s (the witness for xleg)' % V['EXTPROBE'],
-  '  tapered (two-radius, r0 -> r1) cone volumes: 54 in the data file; resid = 0 on the shipping legs',
+  '  tapered (two-radius, r0 -> r1) cone volumes: 54 in the data file',
+  '  residual penetration after the final resolve: resid = 0 on %s of %s device windows'
+  % (V['RESIDCLEAN'], V['RESIDWIN']),
+  '  ...the %s that are not are quoted verbatim in OPEN ITEMS; deepest residual anywhere = %s units'
+  % (V['RESIDBAD'], V['RESIDMAXD']),
   '  per-chain collider list + minimum clearance printed every window; nomask = %s, noncol = %s' % (V['NOMASK'], V['NONCOL']),
   '  gravity world space, read out of the integrator: %s' % V['GDIR'],
   '  ...and the same vector in the anchor bone axes, which must rotate: %s' % V['GLOC'],
@@ -290,7 +351,8 @@ V['FACTSHEET'] = '\n'.join([
   '  spawn and big-transition burst = 0 (reseeds = %s, the detector working)' % V['RESEED'],
   '  ears: 77 rigs covered cast wide — Daxter, Keira, Samos, sages, villagers, Maia, Gol, lurkers',
   '  Maia (evilsis-lod0): 13 capsule volumes cover her whole body, pelvis and legs included',
-  '  Maia (evilsis-lod0): resid = 0 with push = %s contacts actually recorded' % V['MAIAPUSH'],
+  '  %s' % V['MAIARESIDLINE'],
+  '  ...deepest clearance she reached against any of her own volumes: %s units' % V['MAIACLR'],
   '  Maia (evilsis-lod0) hair chains: %s active, %s never moved' % (V['MAIAACT'], V['MAIANEV']),
   '  Gol (evilbro-lod0) hair chains: %s active, %s never moved' % (V['GOLACT'], V['GOLNEV']),
   '  %s' % V['MAIACHAIN'],

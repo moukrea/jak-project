@@ -1635,8 +1635,35 @@
                                  ;; where the defect was measured: Maia's two chest chains at -0.74
                                  ;; and -0.99 clearance holding 131 and 180 units of rest error, and
                                  ;; Keira's chain 5 at -2.79, the deepest in the whole capture.
+                                 ;; CYCLE 6d — AND THE SAME FLOOR ON BONE CAPSULES, FOR FAMILY A ONLY.
+                                 ;; The paragraph above is right about family B and it was applied to
+                                 ;; family A as well, which is where it stopped being right. Owner rule
+                                 ;; W, three times: a BODY chain's idle pose IS the pose the model
+                                 ;; gives it, "pas plus haut, pas plus bas". A bone volume that contains
+                                 ;; that pose therefore cannot be obeyed and honoured at the same time:
+                                 ;; obeying it means holding the hair somewhere Naughty Dog never put
+                                 ;; it, every frame, for as long as the pose lasts. Measured on Maia in
+                                 ;; the intro, this run: her two chest chains at clearance -19.1 and
+                                 ;; -11.4 (inside a bone capsule, so no cap applied) while sitting 7.00
+                                 ;; and 7.10 units off the model pose — one defect wearing two counters,
+                                 ;; a residual penetration AND a fidelity error, both produced by the
+                                 ;; same volume claiming a region her own model already occupies.
+                                 ;; The counter-argument above does not carry over: it is about CLOTH,
+                                 ;; and it is about the leg needing to push the cloth when a thigh
+                                 ;; swings into the hem. A family A chain is welded to the body part it
+                                 ;; grows out of, so its model pose travels WITH the skeleton instead of
+                                 ;; against it, and the case where it enters a bone volume is the case
+                                 ;; where ND's own animation put it there — where rule A says the
+                                 ;; authored pose wins anyway. Family B keeps the old behaviour exactly:
+                                 ;; no cap, the body pushes the cloth, which is what section 3.1 is for.
+                                 ;; This cannot open a hole in the blocker. The cap is the distance from
+                                 ;; the chain's OWN MODEL POSE to that volume's spine, less a margin, so
+                                 ;; the chain is still required to stay at least as far off the bone as
+                                 ;; the character's own sculpted shape puts it. It removes a region the
+                                 ;; model already occupies and nothing else; it can never let a strand
+                                 ;; reach anywhere the authored pose does not already reach.
                                  (cond
-                                   ((>= rc 0)
+                                   ((or (>= rc 0) (= 1 (-> *phys-cfam* ci)))
                                     (phys-closest-on-seg! cpt mca mcb (-> *phys-targ* (+ start i)))
                                     (vector-! vtmp (-> *phys-targ* (+ start i)) cpt)
                                     (set! (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))
