@@ -25,7 +25,7 @@ BLOCKS = '.autoport/report_blocks/'
 SECTIONS = [
     ('c8_chest_block.txt', 'WHY THE CHEST READ AS LIQUID'),
     ('c8_auth_block.txt', 'AUTHORED AUTHORITY, MEASURED PER CHAIN ON THE PHONE'),
-    ('c8_open_block.txt', 'TWO ROOT CAUSES FOUND THIS CYCLE'),
+    ('c8_open_block.txt', 'THE PENETRATION BLOCKER — ONE CAUSE FIXED'),
 ]
 
 

@@ -38,6 +38,19 @@ within 1.5%, and the tip that made it liquid is halved.  Firmness is untouched �
 2.60 and stretch 0.05, the 09:13 values he called the best version, and the gate refuses anything
 softer.
 
+AND THE AMPLITUDE IS BOUGHT WHERE THE OWNER SAID TO BUY IT.  "Obtenir la VIVACITE par le couplage
+a l'ancre plus qu'en ouvrant la butee" — so `couple=` goes 2.2 -> 3.6 on Keira and 2.8 -> 4.2 on
+Maia at the same time as the limit closes.  This is not a second dial doing the first one's job:
+anchor coupling is a pseudo-force from the bust's own acceleration, bounded before it is applied
+(no more than 0.35 of the chain's length as a second difference), so it changes how HARD the chest
+is thrown, never how FAR it may go.  The point of raising it is that the travel then reaches its
+limit on ordinary motion instead of depending on how vigorous the scene happens to be: the same
+chain measured 383.2 units at maxangle=40 with no coupling and 459.7 at maxangle=50 with
+couple=2.2, i.e. the drive, not the limit, was setting the amplitude, and a drive that varies with
+the scene is why two builds could measure 80 units apart on the same data.  With the drive above
+the limit the chest stops at 26 degrees and comes back, which is also the owner's own definition
+of firm: "le mouvement s'arrete net et revient sur la forme du modele".
+
 MAIA IS NOT A COPY OF KEIRA, AND THE DIFFERENCE IS ARGUED.  She is heavier (mass 4.2 against 1.5)
 and her link is longer (1083.2 against 976.9), so at the same 26-degree limit she travels 531.9
 units against Keira's 453.0 — she moves MORE, which is what the owner asked for after the damping

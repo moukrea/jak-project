@@ -1,49 +1,61 @@
 -----------------------------------------------------------------------------------------
-19. TWO ROOT CAUSES FOUND THIS CYCLE AND NOT FIXED IN IT — WITH THE NUMBERS THAT NAME THEM
+19. THE PENETRATION BLOCKER — ONE CAUSE FIXED FROM ITS OWN DECAY RATE, THREE NAMED
 -----------------------------------------------------------------------------------------
-The owner has said twice that a build looked identical to the one before it.  Both times the
-reason turned out to be that the counters were measuring something other than what he was looking
-at.  So the two findings below are stated with their numbers even though neither is fixed here:
-they are the first quantitative account of two defects that have survived every cycle, and hiding
-them until they are fixed is how a cycle ends up looking identical again.
+The owner has twice been shown a build that looked identical to the one before it, and both times
+the reason was that a counter measured something other than what he was looking at.  So every
+finding below carries the number that names it, including the ones this cycle does not fix.
 
-(1) THE COLLISION CORRECTION IS BOUNDED BY THE CHAIN'S LENGTH, NOT BY ITS ANGULAR LIMIT.
+(1) THE FINAL RESOLVE DID NOT CONVERGE UNDER VIOLENT MOTION — FIXED, AND THE PHONE SET THE SIZE.
+The resolve is Gauss-Seidel over the volumes, so what is left after n sweeps decays geometrically,
+and the intro leg gives the rate directly.  Maia's `backhairM` was driven 967.1 units into her own
+body during her flight (her window carries anchmove = 628129 units and maxvel = 864 units a frame)
+and six sweeps clawed it back to 13.5 — a factor of 0.53 per sweep.  Six more sweeps take that to
+about a quarter of a unit, i.e. under the 1.0-unit tolerance, which is exactly the difference
+between the leg reporting her clean and reporting her not.  Jak's `collarL` is the same shape at
+16.2 units in 4 of its 14 windows.
+The sweep count is now derived from the level's own `iters` — `max(6, min(12, iters-4))` — instead
+of being a hardcoded 6.  That puts it on the PRECISION SCALE the owner specified rather than
+making everyone pay for it: level 0 (iters 2) and level 1 (iters 6) both still run exactly 6
+sweeps and are bit-identical to the previous build, and only the top level, which is the one meant
+to "coûter beaucoup plus mais être plus précis", goes to 12.  It also stays tunable from the data
+file with no build, like the rest of this system.
+
+(2) THE COLLISION CORRECTION IS BOUNDED BY THE CHAIN'S LENGTH, NOT BY ITS ANGULAR LIMIT — NAMED.
 The per-correction cap is `maxcorr = max(8, 0.5 * chainlen)`.  On jak-hd, measured on the baked
-model, that gives:
+model:
 
   chain      link length   angular limit   cone travel bound   maxcorr    measured deviation
   collarL      1220.8 u       12 deg           258.9 u         610.4 u        up to 625.9 u
   shirtL        811.0 u       12 deg           172.0 u         405.5 u        (opposite-leg site)
 
-The collar's own angular limit permits 258.9 units of travel.  The collision resolve is allowed to
-displace it by 610.4, and on the phone it reached 625.9 — 2.4x past its own limit — because the
-cone clamp runs BEFORE the collider push inside each iteration and is never re-applied after the
-last one.  The chain therefore ends the frame wherever the colliders left it.  That is a
-quantitative account of the owner's site 1 ("le COL clippe avec ses EPAULES") and site 3 (the
-jacket pendants crossing into the opposite leg), and it explains why tuning the collar's stiffness,
-damping and angle across four cycles changed nothing: none of those parameters is what places it.
-On the same run collarL is also the only chain whose clearance crossed the tolerance floor, in 4 of
-14 windows, by at most 16.2 units (3.9 mm at the file's own scale of 1 unit = 0.24 mm).
+The collar's own angular limit permits 258.9 units of travel; the resolve is allowed to displace it
+by 610.4, and on the phone it reached 625.9 — 2.4x past its own limit — because the cone clamp runs
+BEFORE the collider push inside each iteration and is never re-applied after the last one.  The
+chain ends the frame wherever the colliders left it.  That is a quantitative account of the owner's
+site 1 ("le COL clippe avec ses EPAULES") and site 3 (the jacket pendants crossing into the
+opposite leg), and it explains why tuning the collar's stiffness, damping and angle across four
+cycles changed nothing: none of those parameters is what places it.  Not changed here, because
+tightening the cap trades against the very convergence that (1) just bought, and the two must be
+measured one at a time — the method the supervisor imposed after the cycle-5 oscillations.
 
-(2) THE PER-CHAIN RESIDUAL COUNTER `cres` CANNOT REPORT.  It is incremented on a residual frame and
-then zeroed in the `else` branch of the sticking test, which runs on the next clean frame — so with
-2 to 8 residual frames inside a 1500-frame window it is always zero by the time the window prints.
-Every `cres:` array in every log of this phase reads 0, including on the windows that DID hold a
-penetration.  The offending chain had to be identified instead from `cclr`, the minimum-clearance
-accumulator, which is reset only at print time and whose worst entry equals `-residmax` exactly in
-all four failing windows.  This is not a false green — the slot-wide `resid` counter reported the
-penetration correctly and the leg failed the run on it — but the array whose entire purpose is to
-NAME the chain has never worked, which is why four cycles of penetration reports say "somewhere on
-jak-hd" instead of "collarL".
+(3) THE PER-CHAIN RESIDUAL COUNTER `cres` CANNOT REPORT — NAMED.
+It is incremented on a residual frame and then zeroed in the `else` branch of the sticking test,
+which runs on the next clean frame, so with 2 to 8 residual frames inside a 1500-frame window it is
+always zero by the time the window prints.  Every `cres:` array in every log of this phase reads 0,
+including on the windows that DID hold a penetration.  Both offending chains above had to be
+identified instead from `cclr`, the minimum-clearance accumulator, which is reset only at print
+time and whose worst entry equals `-residmax` exactly in all four of jak-hd's failing windows.
+This is not a false green — the slot-wide `resid` counter reported the penetrations correctly and
+the leg failed the run on them — but the array whose entire purpose is to NAME the chain has never
+worked, which is why four cycles of penetration reports say "somewhere on jak-hd" instead of
+"collarL".
 
-(3) MAIA'S HAIR: THE COLLISION REPRESENTATION HAS GAPS BY CONSTRUCTION.  evilsis-lod0's `backhairM`
-is 5 links spanning 7486.8 units (1.8 m), with link lengths of 572, 1680, 1234, 1919 and 2081
-units, and each link carries a single 260-unit sphere at its joint.  Between two consecutive
-spheres there are therefore up to ~1200 units — 29 cm — of strand that is not tested against
-anything.  `extent=` does not close this: it only moves the LAST link's test point onto the
-rigidly-skinned continuation below the final bone.  On the intro leg backhairM is the one chain of
-her ten whose clearance crossed the floor, and her window carries anchmove = 628129 units and
-maxvel = 864 units per frame — her flight, where the strand is driven 967 units deep before the
-resolve claws it back to 13.5.  Chain-side collision is a point per link; on a strand this long
-that is the same class of hole as the owner's "capsules qui laissent des interstices", moved from
-the body to the hair.
+(4) CHAIN-SIDE COLLISION IS A POINT PER LINK, SO A LONG STRAND HAS GAPS — NAMED.
+evilsis-lod0's `backhairM` is 5 links spanning 7486.8 units (1.8 m), with link lengths of 572,
+1680, 1234, 1919 and 2081 units, and each link carries a single 260-unit sphere at its joint.
+Between two consecutive spheres there are therefore up to ~1200 units — 29 cm — of strand tested
+against nothing.  `extent=` does not close this: it only moves the LAST link's test point onto the
+rigidly-skinned continuation below the final bone.  This is the same class of hole as the owner's
+"capsules qui laissent des interstices", moved from the body onto the hair, and closing it means
+testing the SEGMENT between consecutive links rather than the point — a real change to the sweep,
+not a parameter, and therefore not something to land in the same cycle as (1).

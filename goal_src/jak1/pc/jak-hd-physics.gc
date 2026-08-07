@@ -1364,6 +1364,19 @@
              (pbase (* slot PHYS-MAXJ))
              (substeps (max 1 (min 8 (/ (pc-physics-level-param-mi level 0) 1000))))
              (iters (max 1 (min 16 (/ (pc-physics-level-param-mi level 1) 1000))))
+             ;; (C6/N) HOW MANY TIMES THE FINAL RESOLVE SWEEPS THE VOLUMES. Was a hardcoded 6.
+             ;; It is Gauss-Seidel, so what is left after n sweeps decays geometrically, and the
+             ;; phone gives the rate directly: on the intro leg Maia's `backhairM` was driven
+             ;; 967.1 units into her body during her flight (anchmove 628129, maxvel 864 a frame)
+             ;; and the six sweeps clawed it back to 13.5 — a factor of 0.53 per sweep. Six more
+             ;; take that to a quarter of a unit, i.e. under PHYS-PEN-TOL, which is the difference
+             ;; between the leg reporting her clean and reporting her not. Jak's collarL is the
+             ;; same shape at 16.2.
+             ;; It is derived from the level's own `iters` rather than bumped, so it belongs to the
+             ;; PRECISION SCALE the owner specified — the top level pays for the accuracy and the
+             ;; lower ones are bit-identical to before (iters 2 -> 6 sweeps, 6 -> 6, 16 -> 12) —
+             ;; and it stays tunable from the data file with no build, like everything else here.
+             (cits (max 6 (min 12 (- iters 4))))
              ;; cycle 2: `collide` is a TIER now, not a bool — 0 = no collisions, 1 = core volumes
              ;; only, 2 = the full body set. The lowest level still collides (owner 17:35: a level
              ;; may thin the collider set, never let a chain visibly pass through the body).
@@ -2552,7 +2565,7 @@
                          ;; count rose with it (9 -> 15 windows on the rider leg). Two more sweeps,
                          ;; not a bigger correction bound: the bound is what keeps the projection
                          ;; from reading as velocity (owner rule O).
-                         (dotimes (cit 6)
+                         (dotimes (cit cits)
                            ;; ---- (X) LENGTH RESTORATION, INTERLEAVED WITH THE RESOLVE ------------
                            ;; This used to run ONCE, AFTER the whole collision sweep, and the last
                            ;; thing it did was lengthen links that the sweep had just pushed off a
