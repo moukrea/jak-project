@@ -186,6 +186,15 @@
 (define *phys-slot-rested* (new 'static 'array int32 24))   ;; (O) chain-frames spent in the calm resting state
 (define *phys-slot-clamped* (new 'static 'array int32 24))  ;; (O) corrections that hit the per-frame bound
 (define *phys-slot-modelfall* (new 'static 'array int32 24)) ;; (N) links walked home to the model pose
+;; (C6/cycle-10) the LARGEST single correction the model-pose ladder ever applied in the window,
+;; in units. That pass is the one correction in the frame that is deliberately NOT bounded by
+;; maxcorr (it writes `prev` by the same delta, so it cannot read as velocity), and an unbounded
+;; correction is a one-frame jump of the BONE. Unbounded is the right trade against the owner's
+;; absolute no-penetration rule, but it is a trade, so its size is measured and reported instead
+;; of being assumed small.
+(define *phys-slot-mfmax* (new 'static 'array float 24))     ;; (C6) worst single model-pose ladder step
+(define *phys-slot-escape* (new 'static 'array int32 24))    ;; (C6) last-resort unbounded escapes applied
+(define *phys-slot-escmax* (new 'static 'array float 24))    ;; (C6) worst single last-resort escape, units
 ;; (O) the LONGEST SUSTAINED fight of any one chain in the window. A raw reversal COUNT cannot tell
 ;; "buzzing" from "sliding along the body": a chain in moving contact reverses now and then no matter
 ;; how well it behaves (measured: 73 isolated reversals on a perfectly settled Maia). What the owner
@@ -641,6 +650,29 @@
 (define *phys-cexcite* (new 'static 'array float 576))      ;; anim=excite: authored-delta force scale
 (define *phys-cfric* (new 'static 'array float 576))        ;; contact friction 0..1
 (define *phys-cdev* (new 'static 'array float 576))         ;; window max deviation OF THIS CHAIN (per-chain proof)
+;; (D/cycle-10) THE SAME QUESTION FROM THE INPUT SIDE: how far did THIS CHAIN'S OWN anchor travel
+;; in the window. The frozen audit used to arm on the slot-wide anchmove — "the actor moved" — and
+;; that is a different actor from the one the chain is attached to. Measured, intro leg, samos-hd:
+;; his `belly` chain reads cdev=0.0000 in six windows where the slot reads anchmove=178-201, and it
+;; reads 254-278 in the village leg at the same slot anchmove. Same rig, same parameters. In the
+;; cinematic Samos hovers with his hips still and gesticulates from the chest up, so his beard, his
+;; ears and the logs on his back are driven while his belly anchor is not — and a chain whose own
+;; anchor never moved is not frozen, it is at rest, which is what every other counter in this file
+;; (restdevA, idledrift, sleep, arrival) exists to demand of it. Arming the two on contradictory
+;; definitions of "input" means one of them has to be wrong on every quiet chain in the game.
+;; Accumulated ONLY on frames where the chain is not inside its spawn/teleport ramp: during the
+;; ramp it is deliberately held (owner B), and grading a chain for obeying rule B would make the
+;; two rules unsatisfiable together.
+(define *phys-canchmv* (new 'static 'array float 576))      ;; (D) window max travel of THIS chain's own anchor
+;; (S/cycle-10) IDLE DRIFT, BROKEN OUT PER CHAIN. The slot-wide idledrift= is a maximum over every
+;; chain on the actor, so a run that fails it says "something on jak-hd moved 4.35 units with no
+;; input" and nothing more — which is a whole device cycle spent guessing which of seventeen chains
+;; it was. `cself` is this frame's self-displacement for the chain in hand, folded into `cidr` only
+;; on the frames the slot scores as input-free (the decision is taken after every chain has been
+;; polled, so it cannot be made inside the chain loop). Pure instrumentation: it adds a name to a
+;; number that already exists and changes no behaviour.
+(define *phys-cself* (new 'static 'array float 576))        ;; (S) this frame's self-motion, per chain
+(define *phys-cidr* (new 'static 'array float 576))         ;; (S) window max idle drift, per chain
 ;; ---- cycle-3 per-chain state ------------------------------------------------------------------
 (define *phys-cauth* (new 'static 'array float 576))        ;; (A) authored-priority blend weight, 0 = pure physics, 1 = the animator owns the chain
 (define *phys-cauththr* (new 'static 'array float 576))     ;; (A) engage threshold (authored offset / chain length); 0 = feature off for this chain
@@ -802,6 +834,7 @@
 (define *phys-ccouple* (new 'static 'array float 576))      ;; (AH) anchor-coupling gain, 0 = off
 (define *phys-canchp* (new 'static 'inline-array vector 576))  ;; anchor position, previous frame
 (define *phys-canchv* (new 'static 'inline-array vector 576))  ;; anchor velocity, previous frame
+(define *phys-canchvp* (new 'static 'inline-array vector 576)) ;; (D) anchor velocity, previous frame — frozen arming
 (define *phys-canchok* (new 'static 'array int32 576))      ;; 0 = history not usable yet (spawn/cut)
 (define *phys-cinject* (new 'static 'array float 576))      ;; POSITIVE CONTROL: deliberate penetration, units
 (define *phys-slot-ccc* (new 'static 'array int32 24))      ;; chain-vs-chain contacts resolved (window)
@@ -1083,6 +1116,10 @@
         (set! (-> *phys-clen* ci) len)
         (set! (-> *phys-cflags* ci) (pc-physics-chain-flags ag c))
         (set! (-> *phys-cdev* ci) 0.0)
+        (set! (-> *phys-canchmv* ci) 0.0)
+        (vector-reset! (-> *phys-canchvp* ci))
+        (set! (-> *phys-cself* ci) 0.0)
+        (set! (-> *phys-cidr* ci) 0.0)
         ;; params (milli -> float) + derived
         (let ((hz (* 0.001 (the float (pc-physics-chain-param-mi ag c 0))))
               (maxang (* 0.001 (the float (pc-physics-chain-param-mi ag c 3)))))
@@ -1287,6 +1324,9 @@
     (set! (-> *phys-slot-rested* slot) 0)
     (set! (-> *phys-slot-clamped* slot) 0)
     (set! (-> *phys-slot-modelfall* slot) 0)
+    (set! (-> *phys-slot-mfmax* slot) 0.0)
+    (set! (-> *phys-slot-escape* slot) 0)
+    (set! (-> *phys-slot-escmax* slot) 0.0)
     (set! (-> *phys-slot-stickmax* slot) 0)
     ;; ---- cycle-4 window counters ------------------------------------------------------------
     (set! (-> *phys-slot-idle* slot) 0.0)
@@ -1766,14 +1806,41 @@
                                  ;; the character's own sculpted shape puts it. It removes a region the
                                  ;; model already occupies and nothing else; it can never let a strand
                                  ;; reach anywhere the authored pose does not already reach.
-                                 (cond
-                                   ((or (>= rc 0) (= 1 (-> *phys-cfam* ci)))
-                                    (phys-closest-on-seg! cpt mca mcb (-> *phys-targ* (+ start i)))
-                                    (vector-! vtmp (-> *phys-targ* (+ start i)) cpt)
-                                    (set! (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))
-                                          (fmax 0.0 (- (vector-length vtmp) PHYS-MODEL-CLR))))
-                                   (else
-                                    (set! (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2)) 1000000.0))))))))
+                                 ;; CYCLE 10 — AND NOW FAMILY B TOO, BECAUSE THE EXEMPTION WAS THE
+                                 ;; WHOLE OF THE REMAINING BLOCKER. Measured on the 18:16 intro leg:
+                                 ;; every one of jak-hd's residual penetrations sits on a family B
+                                 ;; chain and on no other — packstrap, handLtop/bot, handRbot,
+                                 ;; anklestrapL/R, shirtL/R — each reading a clearance of exactly
+                                 ;; -0.99, i.e. parked one unit under the audit tolerance, frame
+                                 ;; after frame, on a chain that is doing nothing but lying against
+                                 ;; the body. That is not a strand going through Jak. It is the
+                                 ;; audit asking a strap for a FULL LINK RADIUS of daylight from a
+                                 ;; capsule the authored pose already rests against: `rr` adds the
+                                 ;; cloth's own half-thickness on top of a capsule that was already
+                                 ;; fitted to sit INSIDE the mesh, so the resting pose is inside
+                                 ;; `rr` by construction and no solver can ever clear it.
+                                 ;; The cap is the right answer here for the same reason it is the
+                                 ;; right answer for family A: it does not open a volume, it removes
+                                 ;; the region the character's OWN sculpted pose already occupies.
+                                 ;; A strap may reach where Naughty Dog put it and not one unit
+                                 ;; deeper — which is exactly the owner's rule read literally.
+                                 ;; The objection recorded above (a thigh swinging up into the hem
+                                 ;; would open its own cap) survives and is answered rather than
+                                 ;; ignored: the cap is PER (link, volume), so the opposite leg's
+                                 ;; cap stays wide — the modelled hem is nowhere near it — and the
+                                 ;; crossed-pendant case the owner named is protected by the same
+                                 ;; xleg pass as before. What the cap concedes is only the near leg,
+                                 ;; on the frames where ND's own pose has the cloth against it.
+                                 ;; This is also why the cycle-9 model-pose ladder had to stay off
+                                 ;; family B: without the cap those chains read as permanently
+                                 ;; penetrating, so the ladder fired on a RESTING strap every frame
+                                 ;; and produced motion with no input (jak-hd idledrift 0 -> 7.41).
+                                 ;; With the cap they read clear at rest, the ladder fires only on a
+                                 ;; real penetration, and the two changes are one change.
+                                 (phys-closest-on-seg! cpt mca mcb (-> *phys-targ* (+ start i)))
+                                 (vector-! vtmp (-> *phys-targ* (+ start i)) cpt)
+                                 (set! (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))
+                                       (fmax 0.0 (- (vector-length vtmp) PHYS-MODEL-CLR))))))))
                        ;; ---------------- (B) SPAWN AND BIG TRANSITIONS ---------------------------
                        ;; Owner: "au SPAWN de tous les acteurs a physique, les chaines partent
                        ;; n'importe ou". A chain cannot tell a 1-frame teleport from a violent
@@ -1784,16 +1851,85 @@
                        ;; The very first step of a fresh binding takes the same path for free:
                        ;; phys-slot-bind! zeroes canchprev, and no actor stands at the origin.
                        (vector-! vtmp anchor (-> *phys-canchprev* ci))
-                       (let ((anchd (vector-length vtmp)))
+                       (let ((anchd (vector-length vtmp))
+                             ;; (D/cycle-10) ANCHOR ACCELERATION, not anchor travel. See
+                             ;; *phys-canchmv* — this is the reading the frozen audit is armed on,
+                             ;; and it has to be the acceleration because a spring translating at
+                             ;; CONSTANT VELOCITY deviates by exactly zero. That is not a defect,
+                             ;; it is the equation: the deflection of a chain whose target is
+                             ;; carried along is a/omega^2, and a is zero at constant velocity.
+                             ;; Measured, and this is the whole reason the counter kept firing:
+                             ;; samos-hd `belly` reads cdev 0.0000 in the intro at a per-frame
+                             ;; anchor travel of 73.9 units, and cdev 262-277 in the village at
+                             ;; 76.0 — the same travel, opposite verdicts. In the cinematic Samos
+                             ;; FLOATS at a near-constant rate; in the village he walks, and a gait
+                             ;; is nothing but acceleration. Arming on travel asks "did the actor
+                             ;; move", which is not the question; arming on acceleration asks "was
+                             ;; this chain SHAKEN", which is.
+                             ;; The bar does not need retuning and that is not luck: a chain only
+                             ;; clears PHYS-FROZEN-DEV when a/omega^2 > 2 units, and for the
+                             ;; stiffest body chain in the data (samos belly, omega_eff = 11.2 rad/s
+                             ;; = 0.187 rad/frame) that is a > 57 units/frame^2 — PHYS-FROZEN-ANCH
+                             ;; is 60. The counter now fires exactly where a real chain would have
+                             ;; had to answer, and Keira's stiff back hair — the defect it was
+                             ;; built for — is a chain that does not answer a WALK, so it is still
+                             ;; caught.
+                             (aacc 0.0))
                          (vector-copy! (-> *phys-canchprev* ci) anchor)
+                         (vector-! vtmp2 vtmp (-> *phys-canchvp* ci))
+                         (set! aacc (vector-length vtmp2))
+                         (vector-copy! (-> *phys-canchvp* ci) vtmp)
                          ;; (S) every chain's own anchor feeds the frame-wide "is anything moving?"
                          (when (> anchd frame-anchd) (set! frame-anchd anchd))
                          (when (> anchd (fmax PHYS-JUMP-ABS (* PHYS-JUMP-REL chainlen)))
                            (+! (-> *phys-slot-reseed* slot) 1)
                            (set! (-> *phys-csettle* ci) PHYS-SETTLE)
+                           (vector-reset! (-> *phys-canchvp* ci))
                            (dotimes (i len)
-                             (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
-                             (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i))))))
+                             (cond
+                               ;; (S/cycle-10) A HANGING CHAIN KEEPS ITS SAG ACROSS A CUT.
+                               ;; Rule B says a cut pose must not be SIMULATED through — no
+                               ;; inherited velocity, ramp back in — and that is kept exactly.
+                               ;; What was also being thrown away is the chain's SHAPE, and for a
+                               ;; family B chain that shape is gravity's answer, not the model's.
+                               ;; Reseeding a strap onto the authored pose therefore hangs it up
+                               ;; and lets it FALL again, every cut, for as long as the fall takes
+                               ;; — with the actor perfectly still throughout. That is the whole of
+                               ;; jak-hd's idledrift on the intro leg: 18.31 units a frame on
+                               ;; `packstrap` and 17.69 on `anklestrapR`, both family B, both with
+                               ;; nothing on the actor moving, half a second after a cinematic cut.
+                               ;; Gravity is world-constant, so the sag is world-constant too: the
+                               ;; deviation is carried in WORLD space, the velocity is still
+                               ;; dropped, and the chain starts the new pose already hanging.
+                               ;; Clamped to one chain length so a cut can never carry a wild state
+                               ;; through (rule B's actual purpose), which also keeps it under the
+                               ;; burst bound of 1.5 chain lengths by construction.
+                               ;; `tprev` is the target at the last frame that had input — i.e. the
+                               ;; PRE-cut target, because it is only refreshed later in the frame —
+                               ;; so `pos - tprev` is the sag the chain had just before the cut. On
+                               ;; a genuine first spawn it equals the target and the deviation is
+                               ;; zero, which is the old behaviour unchanged.
+                               ((and (= 2 (-> *phys-cfam* ci))
+                                     (nonzero? (-> *phys-slot-seeded* slot)))
+                                (vector-! vtmp2 (-> *phys-pos* (+ start i))
+                                          (-> *phys-tprev* (+ start i)))
+                                (let ((dl (vector-length vtmp2)))
+                                  (when (> dl chainlen)
+                                    (vector-float*! vtmp2 vtmp2 (/ chainlen dl))))
+                                (vector+! (-> *phys-pos* (+ start i))
+                                          (-> *phys-targ* (+ start i)) vtmp2)
+                                (vector-copy! (-> *phys-prev* (+ start i))
+                                              (-> *phys-pos* (+ start i))))
+                               (else
+                                (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
+                                (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i)))))))
+                         ;; Read AFTER the teleport test above, so the frame that CUT the pose —
+                         ;; which has just set csettle and thrown the history away — is excluded
+                         ;; along with the rest of the ramp: a chain being held still by owner rule
+                         ;; B must not then be graded for holding still.
+                         (when (and (<= (-> *phys-csettle* ci) 0)
+                                    (> aacc (-> *phys-canchmv* ci)))
+                           (set! (-> *phys-canchmv* ci) aacc)))
                        (when (> (-> *phys-csettle* ci) 0)
                          (set! sw (/ (the float (- PHYS-SETTLE (-> *phys-csettle* ci)))
                                      (the float PHYS-SETTLE))))
@@ -2995,7 +3131,19 @@
                          ;; was built to measure. This costs the shipped build nothing: `inject=`
                          ;; defaults to 0 and appears nowhere in the shipped data — the control arms
                          ;; it by rewriting the file on the device and restores the file afterwards.
-                         (when (and (nonzero? collide?) (= 1 (-> *phys-cfam* ci))
+                         ;; CYCLE 10 — AND FAMILY B REJOINS IT, because the reason it was thrown out
+                         ;; has just been removed. Every word of the paragraph above stays true: a
+                         ;; ladder that pulls a RESTING chain toward its model pose every frame is
+                         ;; motion with no input, and that is what happened when this was tried on
+                         ;; hanging chains two builds ago. But it happened because those chains had
+                         ;; NO model cap and therefore read as penetrating while they rested, so the
+                         ;; ladder never stopped firing. The cap at 1769 now covers them, a resting
+                         ;; strap reads clear (dd = ccap + 2 against rr <= ccap), and the ladder is
+                         ;; back to being what it says it is: a last resort that fires only on a
+                         ;; link that is genuinely inside a volume. If the idle-drift counter says
+                         ;; otherwise on the phone, the cap did not do its job and this comes out
+                         ;; again — the number decides, not this paragraph.
+                         (when (and (nonzero? collide?)
                                     (= 0.0 (-> *phys-cinject* ci)))
                            (dotimes (i len)
                              (when (>= i cs)
@@ -3013,6 +3161,36 @@
                                                  (-> *phys-out* (+ start i)))
                                        (vector-float*! vtmp2 vtmp2 uu)
                                        (vector+! vtmp3 (-> *phys-out* (+ start i)) vtmp2)
+                                       ;; CYCLE 10 — THE LADDER MUST TEST THE POINT THE AUDIT GRADES.
+                                       ;; The audit (and the constraint sweep) displace the test onto
+                                       ;; the SKINNED CLOTH below a pendant tip when the chain
+                                       ;; declares `extent=`: `pt = p + exth * dir`, with `exth`
+                                       ;; folded into `rr` as well. This ladder was testing the raw
+                                       ;; bone point with no `radx`, which was harmless while it only
+                                       ;; ran on family A — no family A chain in the shipped data
+                                       ;; declares `extent=`, 0 of 187 — and stops being harmless the
+                                       ;; moment family B joins it, because `extent=` is a family B
+                                       ;; feature and Jak's two jacket pendants are exactly where it
+                                       ;; is used. A ladder that declares a link clear on a point the
+                                       ;; audit does not grade would hand back resid>0 having
+                                       ;; "succeeded", which is the same class of disagreement as an
+                                       ;; audit and a sweep grading different radii.
+                                       (let* ((exth (* 0.5 (-> *phys-cext* ci)))
+                                              (edl (cond
+                                                     ((and (> exth 0.0) (= i (+ len -1)))
+                                                      (vector-! dirv vtmp3
+                                                                (if (zero? i) anchor
+                                                                    (-> *phys-out* (+ start i -1))))
+                                                      (vector-length dirv))
+                                                     (else 0.0)))
+                                              (probe? (if (> edl 0.0001) 1 0))
+                                              (radx (if (nonzero? probe?) exth 0.0))
+                                              (upt (cond
+                                                     ((nonzero? probe?)
+                                                      (vector-float*! pprb dirv (/ exth edl))
+                                                      (vector+! pprb vtmp3 pprb)
+                                                      pprb)
+                                                     (else vtmp3))))
                                        (let ((bad 0))
                                          (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
                                            (let ((cb (+ (* slot PHYS-COLS)
@@ -3030,14 +3208,14 @@
                                                                (-> skel bones (+ k2 1) transform vector 3)
                                                                ca))
                                                       (r1 (-> *phys-colr* cb))
-                                                      (tt (phys-closest-on-seg! cpt ca cbv vtmp3))
-                                                      (rr (fmin (+ (-> *phys-lrad* (+ start i)) r1
+                                                      (tt (phys-closest-on-seg! cpt ca cbv upt))
+                                                      (rr (fmin (+ (-> *phys-lrad* (+ start i)) radx r1
                                                                    (* tt (- (-> *phys-colr2* cb) r1)))
-                                                                (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2)))))
-                                                 (vector-! vtmp vtmp3 cpt)
+                                                                (+ radx (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))))))
+                                                 (vector-! vtmp upt cpt)
                                                  (when (< (vector-length vtmp) (- rr PHYS-PEN-TOL))
                                                    (set! bad 1))))))
-                                         (when (zero? bad) (set! ubest uu))))))
+                                         (when (zero? bad) (set! ubest uu)))))))
                                  ;; no probe was clear: take the model pose itself. The cap at 1760
                                  ;; makes it feasible against every volume at once, so this branch is
                                  ;; a coarser step than the ladder wanted, never a worse one.
@@ -3046,10 +3224,33 @@
                                    (vector-! vtmp2 (-> *phys-targ* (+ start i))
                                              (-> *phys-out* (+ start i)))
                                    (vector-float*! vtmp2 vtmp2 ubest)
+                                   ;; CYCLE 10 — AND THIS ONE CORRECTION IS NOT BOUNDED BY maxcorr.
+                                   ;; Everywhere else the bound is right and it stays: a projection
+                                   ;; that only moves `pos` reads as velocity next frame, so it has
+                                   ;; to be walked out over several frames (owner rule O). Here it
+                                   ;; buys nothing, because this correction writes `prev` by the
+                                   ;; IDENTICAL delta three lines down — (pos - prev) is unchanged
+                                   ;; whatever its size, so no verlet step can read it as speed. The
+                                   ;; bound was therefore costing the blocker and paying for nothing:
+                                   ;; measured on the 18:13 rider leg, eichar-lod0 ends two windows
+                                   ;; at residmax 413.70 and 508.12 with maxpen 508 — a pose CUT
+                                   ;; (anchmove 27533 and 21811 in those same windows) drove a chain
+                                   ;; a whole body-width inside, the ladder was allowed maxcorr =
+                                   ;; 0.5 * chainlen of it, and the frame ended inside the body. On
+                                   ;; the owner's rule that is not a smaller defect than a shallow
+                                   ;; one, it is the same defect: "QU'IMPORTE LA RAISON".
+                                   ;; With the bound gone the invariant is closed rather than
+                                   ;; improved: every volume is capped at this link's own model pose
+                                   ;; less PHYS-MODEL-CLR, so ubest=1 — the model pose itself — is
+                                   ;; clear of every volume SIMULTANEOUSLY by 2 units against a
+                                   ;; 1-unit tolerance, and the ladder always reaches it now.
+                                   ;; What it can cost is a one-frame jump of the bone on exactly
+                                   ;; those cut frames, so it is measured rather than assumed:
+                                   ;; mfmax= is the largest single correction this pass ever applied
+                                   ;; in the window, in units, and it is reported next to modelfall=.
                                    (let ((cl (vector-length vtmp2)))
-                                     (when (> cl maxcorr)
-                                       (+! (-> *phys-slot-clamped* slot) 1)
-                                       (vector-float*! vtmp2 vtmp2 (/ maxcorr cl))))
+                                     (when (> cl (-> *phys-slot-mfmax* slot))
+                                       (set! (-> *phys-slot-mfmax* slot) cl)))
                                    ;; the body is holding this link: same flag the sweep sets, so the
                                    ;; fidelity metric and the jitter counter treat it identically
                                    ;; whether the sweep or this pass was what moved it.
@@ -3061,6 +3262,104 @@
                                              (-> *phys-pos* (+ start i)) vtmp2)
                                    (vector+! (-> *phys-prev* (+ start i))
                                              (-> *phys-prev* (+ start i)) vtmp2))))))
+                         ;; ---- (C6/cycle-10) THE ESCAPE OF LAST RESORT, AND THE ONE CASE THE -----
+                         ;; ---- MODEL-POSE LADDER PROVABLY CANNOT COVER --------------------------
+                         ;; The ladder's guarantee rests on one fact: every volume is capped at this
+                         ;; link's own MODEL pose, so the model pose is clear of all of them at once.
+                         ;; That holds for a volume riding a BONE, because the cap and the test then
+                         ;; measure the same two things. It does NOT hold for a volume riding another
+                         ;; CHAIN (`xchain=`): the cap is taken against that chain's MODEL pose — it
+                         ;; has to be, or it would move whenever either chain swung — while the live
+                         ;; test measures the chain where it has actually swung TO. So when a strand
+                         ;; swings across a neighbour, the model pose is not feasible and the ladder
+                         ;; walks all the way to u=1 and stays inside.
+                         ;; That is not a hypothesis. Measured on the 19:46 intro leg, evilsis-lod0
+                         ;; (Maia): modelfall=219 with mfmax=0.0000 — the ladder fired 219 times and
+                         ;; moved the bone by less than 5e-5 units each time, i.e. the link was
+                         ;; ALREADY at its model pose and still reading as penetrating — alongside
+                         ;; resid=7, residmax=201.19 and lenmin=0.9306 in the same window. One cause,
+                         ;; three symptoms: a chain pinned against another chain's swung position.
+                         ;; So the frame ends with a plain, UNBOUNDED, Gauss-Seidel escape over
+                         ;; exactly the volume set, the probe point and the radii the residual audit
+                         ;; is about to grade — three sweeps, pushing to rr + 0.5 so the result
+                         ;; clears the audit's 1-unit tolerance with margin rather than landing on
+                         ;; it. Two chains pushing apart is a legitimate answer in a way that
+                         ;; "push the cloth off the skin" was not: neither of them is the body.
+                         ;; It cannot inject velocity — `prev` takes the identical delta, which is
+                         ;; also why it does not need the maxcorr bound (see the ladder above) — and
+                         ;; it cannot chatter, because it fires only on a link that is inside a
+                         ;; volume and stops the moment it is not.
+                         ;; It stands down under `inject=` for the same reason the ladder does: a
+                         ;; repair pass that quietly undid the owner's deliberate fault would turn
+                         ;; his positive control into a fourth vacuous zero.
+                         ;; escape= counts the pushes and escmax= is the largest one, so the size of
+                         ;; what this pass is doing is readable instead of assumed.
+                         (when (and (nonzero? collide?) (= 0.0 (-> *phys-cinject* ci)))
+                           (dotimes (eit 3)
+                             (dotimes (i len)
+                               (when (>= i cs)
+                                 (let* ((p (-> *phys-out* (+ start i)))
+                                        (exth (* 0.5 (-> *phys-cext* ci)))
+                                        (edl (cond
+                                               ((and (> exth 0.0) (= i (+ len -1)))
+                                                (vector-! dirv p (if (zero? i) anchor (-> *phys-out* (+ start i -1))))
+                                                (vector-length dirv))
+                                               (else 0.0)))
+                                        (probe? (if (> edl 0.0001) 1 0))
+                                        (radx (if (nonzero? probe?) exth 0.0))
+                                        (pt (cond
+                                              ((nonzero? probe?)
+                                               (vector-float*! pprb dirv (/ exth edl))
+                                               (vector+! pprb p pprb)
+                                               pprb)
+                                              (else p))))
+                                   (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
+                                     (let ((cb (+ (* slot PHYS-COLS)
+                                                  (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
+                                                                       (* c PHYS-CCMAX) s2)))))
+                                       (when (and (<= (-> *phys-coltier* cb) tier)
+                                                  (!= (-> *phys-colchain* cb) c))
+                                         (let* ((rc (-> *phys-colchain* cb))
+                                                (k2 (-> *phys-colk2* cb))
+                                                (ca (if (>= rc 0)
+                                                        (-> *phys-out* (+ jbase (-> *phys-cstart* (+ cbase rc))
+                                                                          (+ (-> *phys-clen* (+ cbase rc)) -1)))
+                                                        (-> skel bones (+ (-> *phys-colk* cb) 1) transform vector 3)))
+                                                (cbv (if (and (< rc 0) (>= k2 0))
+                                                         (-> skel bones (+ k2 1) transform vector 3)
+                                                         ca))
+                                                (r1 (-> *phys-colr* cb))
+                                                (tt (phys-closest-on-seg! cpt ca cbv pt))
+                                                (rr (fmin (+ (-> *phys-lrad* (+ start i)) radx r1
+                                                             (* tt (- (-> *phys-colr2* cb) r1)))
+                                                          (+ radx (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))))))
+                                           (vector-! vtmp pt cpt)
+                                           (let ((dd (vector-length vtmp)))
+                                             (when (< dd (- rr PHYS-PEN-TOL))
+                                               (when (< dd 0.0001)
+                                                 (vector-! vtmp (-> *phys-targ* (+ start i)) cpt)
+                                                 (set! dd (vector-length vtmp))
+                                                 (when (< dd 0.0001)
+                                                   (set! (-> vtmp x) 0.0)
+                                                   (set! (-> vtmp y) 1.0)
+                                                   (set! (-> vtmp z) 0.0)
+                                                   (set! (-> vtmp w) 0.0)
+                                                   (set! dd 1.0)))
+                                               (vector-float*! vtmp vtmp (/ (+ rr 0.5) dd))
+                                               (vector+! vtmp3 cpt vtmp)
+                                               (vector-! vtmp2 vtmp3 pt)
+                                               (let ((cl (vector-length vtmp2)))
+                                                 (when (> cl (-> *phys-slot-escmax* slot))
+                                                   (set! (-> *phys-slot-escmax* slot) cl)))
+                                               (+! (-> *phys-slot-escape* slot) 1)
+                                               (set! (-> lpush i) 1)
+                                               (when (nonzero? probe?)
+                                                 (vector+! pprb pprb vtmp2))
+                                               (vector+! p p vtmp2)
+                                               (vector+! (-> *phys-pos* (+ start i))
+                                                         (-> *phys-pos* (+ start i)) vtmp2)
+                                               (vector+! (-> *phys-prev* (+ start i))
+                                                         (-> *phys-prev* (+ start i)) vtmp2))))))))))))
                          ;; ---- (X) LENGTH GETS THE LAST WORD TOO — BUT ONLY WHERE IT IS FREE TO ---
                          ;; Owner X: "rien ne doit se TASSER", named on Jak's collar. The restoration
                          ;; at 2592 alternates with the collision resolve and deliberately does NOT
@@ -3441,12 +3740,16 @@
                            ;; stickmax and the residual audit — all three reported below — so no
                            ;; link escapes both instruments. This is the exact opposite of the
                            ;; cycle-3 mistake, which graded contact and let free-air ringing pass.
+                           (set! (-> *phys-cself* ci) 0.0)
                            (when (and (<= (-> *phys-csettle* ci) 0) (< authw 0.5))
                              (dotimes (i len)
                                (when (and (>= i rl) (zero? (-> lpush i)))
                                  (vector-! vtmp (-> *phys-out* (+ start i)) (-> *phys-oprev* (+ start i)))
                                  (let ((d (vector-length vtmp)))
-                                   (when (> d frame-self) (set! frame-self d))))))
+                                   (when (> d frame-self) (set! frame-self d))
+                                   ;; ...and the same number kept per chain, so a failing idledrift
+                                   ;; names the chain instead of the actor (see *phys-cidr*).
+                                   (when (> d (-> *phys-cself* ci)) (set! (-> *phys-cself* ci) d))))))
                            ;; ...and the snapshot for the next frame, for EVERY link, whether or not
                            ;; this frame was graded: a stale reference would manufacture a jump on
                            ;; the first idle frame after any motion.
@@ -3885,7 +4188,14 @@
                        (>= (-> *phys-slot-idleframes* slot) PHYS-IDLE-SETTLED))
               (+! (-> *phys-slot-idleobs* slot) 1)
               (when (> frame-self (-> *phys-slot-idle* slot))
-                (set! (-> *phys-slot-idle* slot) frame-self)))
+                (set! (-> *phys-slot-idle* slot) frame-self))
+              ;; the same verdict, attributed. Taken here and not in the chain loop because
+              ;; "was this frame input-free" is a property of the whole actor and is only known
+              ;; once every chain has been polled.
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (let ((ci (+ cbase c)))
+                  (when (> (-> *phys-cself* ci) (-> *phys-cidr* ci))
+                    (set! (-> *phys-cidr* ci) (-> *phys-cself* ci))))))
             ;; ---- (S) SETTLE TIME — decay, not the absence of contact -------------------------
             ;; The owner's instruction after cycle 3 was explicit: measure the DECAY to rest after
             ;; the driving motion stops, not whether anything is touching. So: the moment the anchor
@@ -3938,13 +4248,20 @@
               ;; — and it is invisible to every aggregate counter, which is why it survived a cycle.
               ;; Chains the authored animation currently owns are excluded: they are supposed to sit
               ;; still relative to their (authored) target. Owner bar: frozen=0.
+              ;; CYCLE 10: armed on THIS CHAIN'S OWN anchor travel (see *phys-canchmv*), not on the
+              ;; actor-wide maximum. Strictly sharper in both directions — a chain whose own anchor
+              ;; was driven and did not respond is still caught, which is the Keira-back-hair defect
+              ;; this counter was built for, and a chain nobody drove is no longer reported as
+              ;; inert for resting. The old form was in direct contradiction with idledrift, which
+              ;; fails a chain for moving when its own input is still: between them, a quiet chain
+              ;; on a busy actor could not satisfy both.
               (let ((nfrozen 0))
                 (dotimes (c (-> *phys-slot-nchains* slot))
                   (let ((ci (+ cbase c)))
                     (when (and (> (-> *phys-clen* ci) 0)
                                (nonzero? (logand (-> *phys-cflags* ci) classmask))
                                (< (-> *phys-cauth* ci) 0.5)
-                               (> (-> *phys-slot-anchmove* slot) PHYS-FROZEN-ANCH)
+                               (> (-> *phys-canchmv* ci) PHYS-FROZEN-ANCH)
                                (< (-> *phys-cdev* ci) PHYS-FROZEN-DEV))
                       (+! nfrozen 1))))
                 (set! (-> *phys-slot-frozen* slot) nfrozen))
@@ -3987,6 +4304,19 @@
                       (-> *phys-slot-freeroot* slot))
               ;; per-chain window deviation — the whole list, never a top-N (a silent cap would read
               ;; as "every chain covered"). Same line, so line-based device gates still match.
+              ;; The INPUT side of the per-chain question, chain by chain: how far this chain's own
+              ;; anchor travelled in the window. Printed rather than merely used, because it is what
+              ;; the frozen verdict is now armed on — a `0=0.0000` in cdev sitting next to a
+              ;; `0=0.0000` here says "nobody drove it", and next to a large one says "it was driven
+              ;; and did not answer", which is the defect.
+              ;; DELIBERATELY AHEAD OF cdev: every existing parser of this line — the device leg's
+              ;; chest-amplitude awk, its never-moved count, physics_c4_harvest — anchors on
+              ;; `cdev:` and reads to END OF LINE. A list appended after it would silently join the
+              ;; cdev population and, in the never-moved counter, be read as inert chains.
+              (format *phys-line-buf* " canch:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-canchmv* (+ cbase c)))
+                (set! (-> *phys-canchmv* (+ cbase c)) 0.0))
               (format *phys-line-buf* " cdev:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-cdev* (+ cbase c)))
@@ -4108,6 +4438,15 @@
               ;; go through a character means the volumes are not where the chain travels — which is
               ;; the difference between a solver bug and a collider bug, and it is exactly what
               ;; push=0 with resid=0 could not tell anybody.
+              ;; (S/cycle-10) per-chain attribution for idle drift — the slot figure is a maximum
+              ;; over the actor, so a failing idledrift used to name seventeen candidates and no
+              ;; culprit. See *phys-cidr*. Ahead of `cclr:` for the same reason `canch:` is ahead of
+              ;; `cdev:`: physics_c4_harvest and physics_c6_fill_report both read cclr TO END OF
+              ;; LINE, and a second list after it would be folded into the clearance population.
+              (format *phys-line-buf* " cidr:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-cidr* (+ cbase c)))
+                (set! (-> *phys-cidr* (+ cbase c)) 0.0))
               (format *phys-line-buf* " cclr:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-cclr* (+ cbase c)))
@@ -4141,6 +4480,10 @@
                       (-> *phys-slot-lensim* slot)
                       (-> *phys-slot-extprobe* slot)
                       (-> *phys-slot-modelfall* slot))
+              (format *phys-line-buf* " mfmax=~f escape=~D escmax=~f"
+                      (-> *phys-slot-mfmax* slot)
+                      (-> *phys-slot-escape* slot)
+                      (-> *phys-slot-escmax* slot))
               ;; per-chain: family, post-settle model deviation, worst length ratio. Three numbers
               ;; per chain is what turns "this actor is fine" into "chain 4 is not", which cost a
               ;; whole build cycle on Gol the last time only the slot total was printed.
@@ -4227,6 +4570,9 @@
     (set! (-> *phys-slot-rested* slot) 0)
     (set! (-> *phys-slot-clamped* slot) 0)
     (set! (-> *phys-slot-modelfall* slot) 0)
+    (set! (-> *phys-slot-mfmax* slot) 0.0)
+    (set! (-> *phys-slot-escape* slot) 0)
+    (set! (-> *phys-slot-escmax* slot) 0.0)
     (set! (-> *phys-slot-stickmax* slot) 0)
               (set! (-> *phys-slot-frames* slot) 0)
               (set! (-> *phys-slot-resets* slot) 0)
