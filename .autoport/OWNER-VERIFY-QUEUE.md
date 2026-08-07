@@ -9,6 +9,31 @@
 - [EN COURS] = le framework bosse encore dessus
 - [À TESTER] = prêt pour ton verdict
 
+## 0. ⛔ BLOQUANT MATÉRIEL — LE REDMI EST DÉBRANCHÉ (2026-08-07 13:41, toujours absent)
+**Une seule action est demandée : rebrancher le Redmi eae4df44 (ou le rallumer).** Rien d'autre
+n'est bloqué — le build du cycle 8 est fait, vérifié et prêt à partir.
+
+Ce qui s'est passé, à la seconde près (log noyau) :
+```
+août 07 13:41:07 fedora-server kernel: usb 1-6: USB disconnect, device number 22
+```
+Le téléphone a quitté le bus USB **pendant** la jambe D-OFF de la campagne de preuve. Aucune
+reconnexion depuis, aucune erreur de port côté PC (pas d'over-current, pas de xhci) — donc le bus
+du PC va bien, c'est le téléphone qui n'est plus là. Il n'est pas non plus joignable en Wi-Fi : un
+scan complet du /24 ne trouve qu'un seul hôte adb, l'appareil NVIDIA 192.168.1.32, déjà connu et
+non autorisé. Pas de route logicielle possible.
+
+⚠️ **Conséquence à corriger dès le rebranchement :** la jambe interrompue avait déjà poussé
+`physics? = #f` / `quality = 1` et son nettoyage n'a pas pu tourner — **le téléphone est resté avec
+la physique COUPÉE** et ton `settings.ini` non restauré. La sauvegarde exacte est sur le disque et
+sa restauration est l'étape 0 du script ci-dessous : ne juge rien avant de l'avoir lancé, sinon tu
+regarderas un build sans physique.
+
+Une seule commande finit la phase (restaure tes réglages → installe → 4 jambes → rapport → validator) :
+```
+bash .autoport/physics_c8_close.sh
+```
+
 ## 1. Menu overhaul (parké AVANT la nuit — rappel, rien de nouveau)
 - [À TESTER, déjà connu] Structure 5 catégories OK (tu l'avais acceptée) ; esthétique holo/drone
   PARKÉE à ta demande (dégradé violacé plein écran ≠ holo bleuté gauche + drone). On y revient après HD.
