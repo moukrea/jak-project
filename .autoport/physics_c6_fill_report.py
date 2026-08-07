@@ -331,7 +331,7 @@ V['FACTSHEET'] = '\n'.join([
   '  what is DRAWN reads %s at its worst: the per-link model/sim blend, not a compressed link' % V['LENMIN'],
   '  chest, %s chestR: max = %s units (cycle-2 baseline the owner called invisible: 272.4)' % (V['CHESTAG'], V['CHEST']),
   '  chest base travel = %s units, so the whole volume moves, tip AND root' % V['CHEST'],
-  '  chest base end travels with the tip: swing=0.55 keeps the full simulated translation on the bone',
+  '  chest base end travels with the tip: swing=0.60 keeps the full simulated translation on the bone',
   '  mass and inertia per chest chain: Keira mass=%s, bird lady mass=%s, Maia (evilsis) mass=%s'
   % (_chest('keira-hd')[1], _chest('bird-lady-lod0')[1], _chest('evilsis-lod0')[1]),
   '  chest mass reaches the integrator as a = F/m: omega_eff = omega / sqrt(mass), every substep',

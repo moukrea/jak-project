@@ -962,7 +962,17 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      vacuous zeros in a single day (resid/push, idledrift/idlewin, restdevA/restwin) are what
 //      this id exists to make impossible: arm it, watch the counter rise, disarm it, watch it fall
 //      back. Default 0 = OFF, and it MUST default off — a control left armed is a defect shipped.)
-static constexpr int kPhysNumChainParams = 27;
+// CYCLE 7 (owner AB/AG, supervisor gate AH) — amplitude that does not cost firmness:
+//   27 couple(ANCHOR COUPLING GAIN. A chain's only excitation until now was the lag it develops
+//      behind its own moving target, and that lag is g/omega^2 — inversely proportional to the
+//      SQUARE of the stiffness. So "plus de jiggle ET un poil plus de fermete" was literally
+//      unreachable: every notch of firmness bought was paid for out of the travel, which is how
+//      cycle 6 ended up "beaucoup plus FLASQUE" and still "ne bouge PAS ASSEZ". This adds the
+//      pseudo-force of the accelerating anchor frame explicitly, scaled by this gain, so the
+//      deviation equation becomes d'' + 2*zeta*w*d' + w^2*d = -(1 + couple)*a_anchor. Amplitude
+//      is then set by `couple` and firmness by `stiffness`, independently. 0 = OFF and it MUST
+//      default off: every chain that shipped before this cycle keeps its exact behaviour.)
+static constexpr int kPhysNumChainParams = 28;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -1007,6 +1017,11 @@ struct PhysChain {
                                        // the one param whose default is a safety property rather
                                        // than a behaviour: a control left armed ships a chain
                                        // buried in the body. 0 = disarmed.
+                                       0.f,
+                                       // 27 couple — anchor-coupling gain. 0 = the pre-cycle-7
+                                       // excitation exactly (lag behind the moving target and
+                                       // nothing else), so adding this key moves no chain that
+                                       // does not ask for it.
                                        0.f};
   std::vector<std::string> joints;   // ordered root -> tip
   std::vector<float> link_radius;    // radii= : per-LINK collision radius, mesh-derived
@@ -1434,6 +1449,8 @@ static int pc_physics_parse_file() {
           }
         } else if (k == "inject") {
           ch.params[26] = phys_to_float(v);
+        } else if (k == "couple") {
+          ch.params[27] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);

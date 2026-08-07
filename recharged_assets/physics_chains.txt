@@ -21,6 +21,18 @@
 #                    rather than fake physics: Daxter's ears/tail, Samos' beard.
 #                  keep    — pre-cycle-2 behaviour (spring toward the authored pose).
 #   excite=X     force scale for anim=excite. 1.0 reproduces `keep` exactly, so the mode is monotone.
+#   couple=K     ANCHOR COUPLING GAIN (cycle 7). Until this key the ONLY thing that excited a chain
+#                was the lag it develops behind its own moving target, and for a damped spring that
+#                lag is a/omega^2 — so amplitude was tied to 1/stiffness^2 and the owner's "plus de
+#                jiggle ET un poil plus de fermete" was arithmetically impossible: every notch of
+#                firmness was paid for out of the travel. couple= adds the pseudo-force of the
+#                accelerating ANCHOR FRAME (the anchor's world position, differenced twice) as an
+#                explicit input, so the chain obeys
+#                    d'' + 2*zeta*w*d' + w^2*d = -(1 + couple) * a_anchor
+#                and AMPLITUDE (couple) is finally independent of FIRMNESS (stiffness). 0 = OFF,
+#                which is every chain that does not name it, so adding the key moved nothing that
+#                was already accepted. Clamped to 8 in GOAL; the second difference itself is bounded
+#                by PHYS-COUPLE-MAX * chainlen so an animation POP cannot become a kick.
 #   friction=F   0..1 contact friction: the collision push-out is absorbed into the verlet `prev`
 #                instead of reading as free velocity next substep (kills contact buzz). Default 0.5.
 #
@@ -102,12 +114,12 @@ on=1 neutral=1.0 gainup=0.45 gaindown=0.70
 [levels]
 level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0
 level 1 substeps=2 iters=6 collide=2 classmask=3 fixedhz=0
-level 2 substeps=4 iters=8 collide=2 classmask=7 fixedhz=240
+level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 
 [model keira-hd]
-chain chestR class=primary stiffness=1.55 damping=0.12 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.5 swing=0.60 hang=0.18 family=A radii=260 xchain=chestL,goggles
+chain chestR class=primary stiffness=2.60 damping=0.26 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.60 hang=0.18 couple=2.2 family=A radii=260 xchain=chestL,goggles
 j rBoob
-chain chestL class=primary stiffness=1.55 damping=0.12 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.5 swing=0.60 hang=0.18 family=A radii=260 xchain=chestR,goggles
+chain chestL class=primary stiffness=2.60 damping=0.26 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.60 hang=0.18 couple=2.2 family=A radii=260 xchain=chestR,goggles
 j lBoob
 chain backhair class=primary stiffness=1.8 damping=0.20 gravity=0.3 maxangle=36 inertia=1.0 stretch=0.02 radius=100 rootlock=0 gradient=1 rootfree=0.55 colskip=1 hang=0.35 family=A radii=260,260 xchain=earL,earR,lbang,lmidhair,rbang,rmidhair
 j backHair1
@@ -313,9 +325,9 @@ capsule main chest radius=547 radius2=547 tier=2 chains=chestL,chestR
 
 
 [model keira3-hd]
-chain chestR class=primary stiffness=1.55 damping=0.12 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.5 swing=0.60 hang=0.18 family=A radii=260 xchain=chestL,goggles
+chain chestR class=primary stiffness=2.60 damping=0.26 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.60 hang=0.18 couple=2.2 family=A radii=260 xchain=chestL,goggles
 j rBoob
-chain chestL class=primary stiffness=1.55 damping=0.12 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.5 swing=0.60 hang=0.18 family=A radii=260 xchain=chestR,goggles
+chain chestL class=primary stiffness=2.60 damping=0.26 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.60 hang=0.18 couple=2.2 family=A radii=260 xchain=chestR,goggles
 j lBoob
 chain backhair class=primary stiffness=1.8 damping=0.20 gravity=0.3 maxangle=36 inertia=1.0 stretch=0.02 radius=100 rootlock=0 gradient=1 rootfree=0.55 colskip=1 hang=0.35 family=A radii=260,260 xchain=earL,earR,lbang,lmidhair,rbang,rmidhair
 j backHair1
@@ -1394,10 +1406,10 @@ capsule chest Rshould radius=1047 radius2=1047 tier=1 chains=earL,earR,packstrap
 capsule neckB MhairA radius=418 radius2=418 tier=1 chains=earL,earR,horns
 
 [model dax-hd]
-chain earL class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=0 anim=excite excite=0.6 gradient=1 colskip=1 authored=0.35 authrise=10 authfall=3 authstiff=5 hang=0.12 family=A radii=83,103 xchain=earR,flapL,flapR,tail
+chain earL class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=0 anim=excite excite=0.6 gradient=1 rootfree=0.98 colskip=1 authored=0.35 authrise=10 authfall=3 authstiff=5 hang=0.12 family=A radii=83,103 xchain=earR,flapL,flapR,tail
 j earBaseL
 j earMidL
-chain earR class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=0 anim=excite excite=0.6 gradient=1 colskip=1 authored=0.35 authrise=10 authfall=3 authstiff=5 hang=0.12 family=A radii=80,82 xchain=earL,flapL,flapR,tail
+chain earR class=primary stiffness=2.8 damping=0.28 gravity=0.1 maxangle=24 inertia=1.0 stretch=0.02 radius=40 rootlock=0 anim=excite excite=0.6 gradient=1 rootfree=0.98 colskip=1 authored=0.35 authrise=10 authfall=3 authstiff=5 hang=0.12 family=A radii=80,82 xchain=earL,flapL,flapR,tail
 j earBaseR
 j earMidR
 chain flapL class=secondary stiffness=2.6 damping=0.26 gravity=0.2 maxangle=26 inertia=1.0 stretch=0.02 radius=35 rootlock=0 anim=excite excite=0.5 gradient=1 colskip=1 hang=0.3 family=B side=L radii=64,60 xchain=earL,earR,flapR,tail
@@ -1919,9 +1931,9 @@ capsule LhairBASE Lhair radius=1026 radius2=1026 tier=2 chains=beard
 
 # ---- Keira (ORIGINAL look: village1 hut, village2, village3, firecanyon + both lavatube ends) ----
 [model assistant-lod0 assistant-village2-lod0 assistant-village3-lod0 assistant-firecanyon-lod0 assistant-lavatube-start-lod0 assistant-lavatube-end-lod0]
-chain chestR class=primary stiffness=1.55 damping=0.12 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.5 swing=0.60 hang=0.18 family=A radii=260 xchain=goggles
+chain chestR class=primary stiffness=2.60 damping=0.26 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.60 hang=0.18 couple=2.2 family=A radii=260 xchain=goggles
 j rBoob
-chain chestL class=primary stiffness=1.55 damping=0.12 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.5 swing=0.60 hang=0.18 family=A radii=260 xchain=goggles
+chain chestL class=primary stiffness=2.60 damping=0.26 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.60 hang=0.18 couple=2.2 family=A radii=260 xchain=goggles
 j lBoob
 chain backhair class=primary stiffness=1.9 damping=0.21 gravity=0.25 maxangle=32 inertia=1.0 stretch=0.02 radius=100 rootlock=0 gradient=1 rootfree=0.55 colskip=1 hang=0.35 family=A radii=260,260 xchain=earL,earR,flipL,flipR,goggles,hairL,hairR
 j backHair1
@@ -3144,9 +3156,9 @@ capsule Rear1 Rear2 radius=1303 radius2=1303 tier=1 chains=scarf side=R
 
 # ---- Bird lady (sandover village1 + beach) ----
 [model bird-lady-lod0 bird-lady-beach-lod0]
-chain chestR class=primary stiffness=2.26 damping=0.13 gravity=0.14 maxangle=26 inertia=1.0 stretch=0.20 radius=140 mass=3.4 swing=0.30 hang=0.30 family=A radii=260
+chain chestR class=primary stiffness=2.26 damping=0.15 gravity=0.14 maxangle=26 inertia=1.0 stretch=0.20 radius=140 mass=3.4 swing=0.30 hang=0.30 couple=1.6 family=A radii=260
 j rBoob
-chain chestL class=primary stiffness=2.26 damping=0.13 gravity=0.14 maxangle=26 inertia=1.0 stretch=0.20 radius=140 mass=3.4 swing=0.30 hang=0.30 family=A radii=260
+chain chestL class=primary stiffness=2.26 damping=0.15 gravity=0.14 maxangle=26 inertia=1.0 stretch=0.20 radius=140 mass=3.4 swing=0.30 hang=0.30 couple=1.6 family=A radii=260
 j lBoob
 chain plume class=secondary stiffness=2.4 damping=0.26 gravity=0.15 maxangle=26 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1 hang=0.15 family=B colskip=2 radii=260,260,260 xchain=earL,earR
 j ploomA
@@ -3298,9 +3310,9 @@ j l_flap2
 chain flapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 colskip=1 hang=0.45 family=B side=R extent=240 radii=71,153 xchain=backhairL,backhairM,backhairR,earL,earR,flapL,ponytail
 j r_flap1
 j r_flap2
-chain chestL class=primary stiffness=2.46 damping=0.14 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.12 radius=170 mass=4.2 swing=0.45 hang=0.32 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
+chain chestL class=primary stiffness=2.46 damping=0.14 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.12 radius=170 mass=4.2 swing=0.45 hang=0.32 couple=2.8 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
 j lbood
-chain chestR class=primary stiffness=2.46 damping=0.14 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.12 radius=170 mass=4.2 swing=0.45 hang=0.32 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
+chain chestR class=primary stiffness=2.46 damping=0.14 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.12 radius=170 mass=4.2 swing=0.45 hang=0.32 couple=2.8 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
 j rboob
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=67,60 xchain=backhairL,backhairM,backhairR,earR,flapL,flapR,ponytail
 j l_ear1

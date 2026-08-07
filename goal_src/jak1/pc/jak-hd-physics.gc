@@ -479,6 +479,31 @@
 ;; driven deep comes back at a rate set by how deep it is. 0.25 = a contact lasting a fifth of
 ;; a second is essentially home; a glancing one is barely touched.
 (defconstant PHYS-MODELPULL 0.25)
+;; ...and how much of that authority a link that is still MOVING is allowed to feel.
+;; MEASURED DEFECT (cycle 7, owner AB/AG: "plus de jiggle ET un poil plus de fermete", then
+;; "beaucoup plus FLASQUE... ne bouge PAS ASSEZ"). Keira's chest link sits at clearance
+;; cclr[0] = -0.0149 against its own capped torso volume on EVERY device window — the model-pose
+;; cap (PHYS-MODEL-CLR) puts the volume surface 2 units under the breast's modelled position, so
+;; the inward half of every jiggle cycle touches it. Contact sets lpush, lpush arms the bias
+;; above, and the bias then removed a QUARTER of the chain's deviation per frame while it was
+;; swinging: a 2.4-frame half-life, an artificial damping an order of magnitude stronger than any
+;; authored damping=. That is why the chest amplitude did not move when stiffness went 2.60 -> 1.55
+;; (383.22 -> 380.79 on the phone) — the spring was never what governed its decay — and why the
+;; measured amplitude fell from 558.10 (cycle 6) to ~380 the moment volumes gained the model cap.
+;; The bias is a REST mechanism: its job is to stop a link the body is holding from LIVING inside
+;; it. So it now scales with the link's own quiet, exactly like the arrival term: a chain that has
+;; gone still gets the full 0.25 (Maia's hair-through-body case, cycle 6 N, is untouched), a chain
+;; in mid-swing keeps PHYS-MPMOVE of it and is left to the collision sweep — which still runs after
+;; this and still has the last word, so no penetration guarantee depends on it.
+(defconstant PHYS-MPMOVE 0.12)
+(defconstant PHYS-MPCALM 4.0)         ;; frames of quiet at which the bias reaches full authority
+;; (AH) largest anchor SECOND DIFFERENCE, as a fraction of the chain's own length, that is read as
+;; an acceleration rather than as an animation pop. Scale free, so one number covers Daxter's ear
+;; and Gol's cape.
+(defconstant PHYS-COUPLE-MAX 0.35)
+;; (AF) frames of unbroken authored authority the baseline freeze covers. A gesture, not a lifetime:
+;; past it the baseline tracks again so a bone the animation merely PARKED is handed back.
+(defconstant PHYS-AUTH-GRACE 240)
 ;; (O) a single frame may not move a joint more than this fraction of the chain's length to satisfy
 ;; a collider. Deep penetrations (a spawn inside geometry) are walked out over several frames
 ;; instead of being teleported out, which is the other way an energy loop starts.
@@ -755,6 +780,20 @@
 ;; xchain= are resolved against each other link by link.
 (define *phys-lrad* (new 'static 'array float 1152))        ;; slot*PHYS-JPS + joint: per-LINK radius
 (define *phys-cxmask* (new 'static 'array int64 576))       ;; chains this chain must be collided with
+;; ---- cycle-7 (AH): ANCHOR COUPLING -------------------------------------------------------------
+;; The only excitation a chain had was the lag it develops behind its own moving target, and for a
+;; damped spring that lag is a/omega^2 — inversely proportional to the SQUARE of the stiffness. So
+;; "plus de jiggle ET un poil plus de fermete" could not be delivered by tuning: every notch of
+;; firmness was paid for out of the travel. `couple=` adds the pseudo-force of the accelerating
+;; anchor FRAME explicitly, so the deviation obeys d'' + 2*zeta*w*d' + w^2*d = -(1+couple)*a_anchor:
+;; amplitude is set by couple, firmness by stiffness, and the two stop fighting each other.
+;; The anchor's acceleration is measured as the SECOND DIFFERENCE of its own world position, which
+;; needs no frame rate and no assumption about how it is animated. Per CHAIN, not per link: the
+;; anchor is what the whole chain hangs off.
+(define *phys-ccouple* (new 'static 'array float 576))      ;; (AH) anchor-coupling gain, 0 = off
+(define *phys-canchp* (new 'static 'inline-array vector 576))  ;; anchor position, previous frame
+(define *phys-canchv* (new 'static 'inline-array vector 576))  ;; anchor velocity, previous frame
+(define *phys-canchok* (new 'static 'array int32 576))      ;; 0 = history not usable yet (spawn/cut)
 (define *phys-cinject* (new 'static 'array float 576))      ;; POSITIVE CONTROL: deliberate penetration, units
 (define *phys-slot-ccc* (new 'static 'array int32 24))      ;; chain-vs-chain contacts resolved (window)
 (define *phys-slot-cccmax* (new 'static 'array float 24))   ;; deepest chain-vs-chain overlap (window)
@@ -1091,6 +1130,14 @@
           (set! (-> *phys-cxmask* ci) (pc-physics-chain-xmask ag c))
           (set! (-> *phys-cinject* ci)
                 (fmax 0.0 (* 0.001 (the float (pc-physics-chain-param-mi ag c 26)))))
+          ;; (AH) anchor coupling. Clamped rather than trusted: this term is an acceleration the
+          ;; data can dial up without bound, and an unbounded one would be an explosion the NaN
+          ;; guard reports as a reset instead of as a bad number in a file.
+          (set! (-> *phys-ccouple* ci)
+                (fmax 0.0 (fmin 8.0 (* 0.001 (the float (pc-physics-chain-param-mi ag c 27))))))
+          (set! (-> *phys-canchok* ci) 0)
+          (vector-reset! (-> *phys-canchp* ci))
+          (vector-reset! (-> *phys-canchv* ci))
           (dotimes (li len)
             (let ((mi (pc-physics-chain-link-radius-mi ag c li)))
               (set! (-> *phys-lrad* (+ (* slot PHYS-JPS) start li))
@@ -1333,6 +1380,8 @@
              (dirv (new 'stack-no-clear 'vector))
              (dirt (new 'stack-no-clear 'vector))
              (dirs (new 'stack-no-clear 'vector))
+             ;; (AH) anchor coupling: this chain's excitation acceleration for the frame
+             (cacc (new 'stack-no-clear 'vector))
              ;; (R) gravity instrument: the acceleration before the gravity term, and the term itself
              (gpre (new 'stack-no-clear 'vector))
              (gvec (new 'stack-no-clear 'vector))
@@ -1759,9 +1808,46 @@
                          ;; answer the question the owner actually asked: is the animator DOING
                          ;; something right now? A pose that is merely held decays into the baseline
                          ;; in a couple of seconds; a forced action outruns it.
+                         ;; (AF) ...AND THE BASELINE ONLY TRACKS WHILE PHYSICS OWNS THE JOINT.
+                         ;; Owner, 2026-08-07 10:05, Sandover, Keira's Zoomer work loop: she raises
+                         ;; the goggles to her eyes ("quand elle LEVE les lunettes ca va bien") and
+                         ;; then HOLDS them there while she pretends to weld — and it is during the
+                         ;; hold that they fall back onto her chest, "alors qu'on voit clairement que
+                         ;; sa main continue de tenir les lunettes".
+                         ;; A baseline that keeps following the authored offset is a HIGH-PASS
+                         ;; filter: after ~1/PHYS-AUTH-BASE seconds it has caught up with a pose that
+                         ;; is merely being HELD, (aratio - base) collapses to zero, the hysteresis
+                         ;; drops through 0.5*athr and physics takes the bone back. That is release
+                         ;; keyed on the authored channel's RATE OF CHANGE, i.e. on its speed, and
+                         ;; the owner's rule is that HELD STILL IS NOT NO LONGER HELD.
+                         ;; So the baseline is frozen the moment authored priority engages. Its job —
+                         ;; rejecting a STATIC IDLE offset (Samos' stock beard reads a flat 0.425,
+                         ;; Daxter's ears 0.53-1.36) — is a question about a chain PHYSICS owns, and
+                         ;; it is answered before the hand-off. Once the animator has the bone, the
+                         ;; only thing that gives it back is the authored pose RETURNING toward that
+                         ;; frozen reference: the animator letting go. A hold of any length, at any
+                         ;; speed including exactly zero, keeps its authority.
+                         ;; ...AND THE FREEZE IS BOUNDED, because "never handed back" is its own
+                         ;; defect. Measured on the first build of this fix: Daxter's two ear chains
+                         ;; — the very chains the baseline was invented for, sitting at 0.53-1.36 of
+                         ;; their length CONTINUOUSLY — engaged once and then held for 1126 frames
+                         ;; (18.8 s) with autheng=2 authrel=0, which the device leg refuses at
+                         ;; holdmax>=900 and which the owner would see as a dead bone. A pose that is
+                         ;; simply PARKED at a new offset is not a forced action, it is a new idle.
+                         ;; So the freeze covers a gesture, not a lifetime: PHYS-AUTH-GRACE frames of
+                         ;; unbroken authority, after which the baseline resumes its ordinary slow
+                         ;; tracking and the chain hands itself back within a few seconds. The grace
+                         ;; is sized off the owner's own case, not guessed: with the freeze in, the
+                         ;; goggles hold on the Sandover Zoomer loop measured 190 frames at its
+                         ;; longest, so 240 covers it with room and still leaves Daxter's ears well
+                         ;; under the 900-frame bar. Note what this is NOT: the release still keys on
+                         ;; the OFFSET, never on the channel's speed — a hold at zero velocity inside
+                         ;; the grace is untouchable, which is the owner's rule.
                          (let ((base (-> *phys-cauthbase* ci)))
-                           (set! base (+ base (* (- aratio base) PHYS-AUTH-BASE dt)))
-                           (set! (-> *phys-cauthbase* ci) base)
+                           (when (or (<= (-> *phys-cauth* ci) 0.5)
+                                     (> (-> *phys-chold* ci) PHYS-AUTH-GRACE))
+                             (set! base (+ base (* (- aratio base) PHYS-AUTH-BASE dt)))
+                             (set! (-> *phys-cauthbase* ci) base))
                            (set! aratio (fmax 0.0 (- aratio base)))))
                        (let* ((athr (-> *phys-cauththr* ci))
                               (w0 (-> *phys-cauth* ci))
@@ -1782,7 +1868,23 @@
                          ;; failure this counter exists to catch: a chain stuck under the animation
                          ;; would never get its physics back and the owner would see a dead bone.
                          (when (and (> w 0.5) (<= w0 0.5)) (+! (-> *phys-slot-autheng* slot) 1))
-                         (when (and (<= w 0.5) (> w0 0.5)) (+! (-> *phys-slot-authrel* slot) 1))
+                         (when (and (<= w 0.5) (> w0 0.5))
+                           (+! (-> *phys-slot-authrel* slot) 1)
+                           ;; (W) A HAND-BACK IS NOT A SETTLED STATE. `ccalm` counts frames of low
+                           ;; |pos - prev|, and a chain the ANIMATOR was holding still has exactly
+                           ;; that: it tracks a stationary authored pose, so it can be sitting a long
+                           ;; way from its own equilibrium with a velocity of nearly zero. The frame
+                           ;; authority drops, that stale calm count let the fidelity metric grade a
+                           ;; chain that had not begun to come home — which is why Daxter's two ears
+                           ;; were the run's two worst model-pose deviations (5.39 and 5.52 units)
+                           ;; while every other family A chain on the phone read under 1.2. It is the
+                           ;; same measurement bug this file already documents for corrections that
+                           ;; move `pos` and `prev` together: motionless is not settled.
+                           ;; Clearing it here costs the metric PHYS-RESTCALM frames after every
+                           ;; hand-back — said plainly because it removes samples — and buys back the
+                           ;; only thing restdevA was ever meant to state: where the chain comes to
+                           ;; REST once it is the physics' again.
+                           (set! (-> *phys-ccalm* ci) 0))
                          (cond
                            ((> w 0.5)
                             (+! (-> *phys-slot-authhold* slot) 1)
@@ -1868,6 +1970,51 @@
                        ;; or was teleported cannot be kicked by a full-strength gravity step on its
                        ;; first frame — it eases into its own weight instead.
                        (set! exc (* exc sw))
+                       ;; ---------------- (AH) ANCHOR COUPLING --------------------------------
+                       ;; Supervisor gate AH, from the owner's two verdicts read together: firmness
+                       ;; comes from STIFFNESS, amplitude from ANCHOR COUPLING, never from a floppy
+                       ;; spring. Until now the only excitation was the lag behind a moving target,
+                       ;; which is a/omega^2 — so raising stiffness to make the chest FIRM
+                       ;; necessarily made it move LESS, and every cycle since AB has been that
+                       ;; trade being made in one direction or the other.
+                       ;; The anchor's acceleration is its own world position differenced twice.
+                       ;; No frame rate is assumed and no animation channel is read: a bone that is
+                       ;; being carried, thrown or stopped shakes what hangs off it, which is the
+                       ;; physical statement the owner keeps describing.
+                       (vector-reset! cacc)
+                       (let ((cpl (-> *phys-ccouple* ci)))
+                         (when (> cpl 0.0)
+                           (cond
+                             ((or (zero? (-> *phys-canchok* ci))
+                                  (> (-> *phys-csettle* ci) 0)
+                                  (< chainlen 1.0)
+                                  (< dt 0.0001))
+                              ;; no usable history: SEED it and add nothing this frame. A spawn, a
+                              ;; camera cut or an un-posed frame would otherwise hand the integrator
+                              ;; the second difference of a teleport, which is the spawn burst the
+                              ;; owner reported at cycle 3 B and which reads as an explosion here.
+                              (vector-reset! (-> *phys-canchv* ci))
+                              (vector-copy! (-> *phys-canchp* ci) anchor)
+                              (set! (-> *phys-canchok* ci) 1))
+                             (else
+                              (vector-! vtmp anchor (-> *phys-canchp* ci))
+                              (vector-! cacc vtmp (-> *phys-canchv* ci))
+                              (vector-copy! (-> *phys-canchv* ci) vtmp)
+                              (vector-copy! (-> *phys-canchp* ci) anchor)
+                              ;; an animation POP is not an acceleration: the second difference is
+                              ;; bounded by a fraction of the chain's own length, scale-free like
+                              ;; every other bound in this solver, so one bad frame of source
+                              ;; animation cannot become a kick.
+                              (let ((al (vector-length cacc))
+                                    (amax (* PHYS-COUPLE-MAX chainlen)))
+                                (when (> al amax)
+                                  (vector-float*! cacc cacc (/ amax al))))
+                              ;; ...to an acceleration in units/s^2, OPPOSING the anchor's own (this
+                              ;; is the frame pseudo-force, so the chain lags a body that speeds up),
+                              ;; faded in by the spawn ramp and handed over entirely to the animator
+                              ;; while authored priority holds the bone.
+                              (vector-float*! cacc cacc
+                                              (/ (* (- 0.0 cpl) sw (- 1.0 authw)) (* dt dt)))))))
                        ;; (O) REST STATE. A chain that has been unable to satisfy a collider for
                        ;; PHYS-STICK frames is not in transit, it is LYING on the body — Jak's collar
                        ;; against his shoulder and the ground in the intro cinematic. The owner's
@@ -1948,6 +2095,11 @@
                                    (vector-! vtmp3 (-> *phys-anim* (+ start i)) tg)
                                    (vector-float*! vtmp3 vtmp3 (* exc (-> lo2 i)))
                                    (vector+! vtmp vtmp vtmp3))
+                                 ;; (AH) ...and the anchor's own acceleration, as a frame
+                                 ;; pseudo-force on every free link. Zero unless the chain declares
+                                 ;; couple=, so this is arithmetically invisible to every chain the
+                                 ;; owner has already accepted.
+                                 (vector+! vtmp vtmp cacc)
                                  ;; vel = (p - prev)*kd
                                  (vector-! vtmp2 p pv)
                                  (vector-float*! vtmp2 vtmp2 kd)
@@ -2291,7 +2443,24 @@
                          ;; the run's worst model-pose deviation from 1.47 units to 5.52, with his
                          ;; ears as the two worst chains on the phone. The damage outlives the
                          ;; contact, which is why it showed up in a metric that skips held links.
+                         ;; ...and it is a REST bias, not a damper: `mpk` fades it out on a link
+                         ;; that is still moving (PHYS-MPMOVE) and restores it in full once the
+                         ;; link has been quiet for PHYS-MPCALM frames. Same `ccalm` the arrival
+                         ;; term reads, so the two mechanisms agree on what "settled" means, and
+                         ;; the pair covers the whole space: arrival takes the FREE links, this
+                         ;; takes the HELD ones.
                          (when (= 1 (-> *phys-cfam* ci))
+                          (let ((mpk (* PHYS-MODELPULL
+                                        (if (> (-> *phys-cstick* ci) PHYS-STICK)
+                                            ;; a chain that has been FIGHTING the same contact for
+                                            ;; PHYS-STICK frames is being held by the body, which is
+                                            ;; the case this bias was built for (Maia's hair, cycle
+                                            ;; 6 N) — it keeps every bit of its authority.
+                                            1.0
+                                            (+ PHYS-MPMOVE
+                                               (* (- 1.0 PHYS-MPMOVE)
+                                                  (fmin 1.0 (/ (the float (-> *phys-ccalm* ci))
+                                                               PHYS-MPCALM))))))))
                            (dotimes (i len)
                              (when (and (>= i cs) (nonzero? (-> lpush i)))
                                (cond
@@ -2302,12 +2471,12 @@
                                   (vector+! vtmp2 vtmp2 (-> *phys-targ* (+ start i))))
                                  (else (vector-copy! vtmp2 (-> *phys-targ* (+ start i)))))
                                (vector-! vtmp vtmp2 (-> *phys-pos* (+ start i)))
-                               (vector-float*! vtmp vtmp PHYS-MODELPULL)
+                               (vector-float*! vtmp vtmp mpk)
                                (vector+! (-> *phys-pos* (+ start i))
                                          (-> *phys-pos* (+ start i)) vtmp)
                                (vector+! (-> *phys-prev* (+ start i))
                                          (-> *phys-prev* (+ start i)) vtmp)
-                               (+! (-> *phys-slot-modelfall* slot) 1))))
+                               (+! (-> *phys-slot-modelfall* slot) 1)))))
                          ;; ---- (P/U) OUTPUT BLEND, MOVED AHEAD OF THE COLLISION RESOLVE ----------
                          ;; out = target + influence * (sim - target). This used to sit at the very
                          ;; end, AFTER the final collision sweep and after the residual audit — which
