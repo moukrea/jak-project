@@ -56,6 +56,18 @@ for LEG in D-MAX D-OFF D-RIDER D-INTRO; do
 done
 say "leg log carries all four legs — safe to refill"
 cp "$OUT/report.txt" "$OUT/report.pre-refill.bak"
+# RE-RUNNABILITY. Both insert scripts are idempotent BY MARKER: once a block is in the report they
+# skip it, numbers and all. That is right for a single pass and wrong for a second one — a block
+# inserted from an earlier run's logcat would survive a fresh leg and keep quoting the run that is
+# no longer on the phone, which is the exact defect this phase has lost cycles to. So every pass
+# starts from the pristine cycle-7 baseline: the refill then updates its sentences from THIS run's
+# leg log, and the inserts regenerate their blocks from THIS run's logcats.
+if [ -f "$OUT/report.baseline-c8.txt" ]; then
+  cp "$OUT/report.baseline-c8.txt" "$OUT/report.txt"
+  say "report reset to the pristine baseline — every number below comes from this run"
+else
+  say "WARNING: no baseline snapshot; inserted blocks may carry numbers from an earlier run"
+fi
 say "=== report refill + inserts ==="
 python3 .autoport/physics_c7_refill.py || die "refill failed"
 python3 .autoport/physics_c7_insert.py || die "c7 insert failed"
