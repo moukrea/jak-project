@@ -9,27 +9,36 @@
 - [EN COURS] = le framework bosse encore dessus
 - [À TESTER] = prêt pour ton verdict
 
-## 0. ⛔ BLOQUANT MATÉRIEL — LE REDMI EST DÉBRANCHÉ (2026-08-07 13:41, toujours absent)
-**Une seule action est demandée : rebrancher le Redmi eae4df44 (ou le rallumer).** Rien d'autre
-n'est bloqué — le build du cycle 8 est fait, vérifié et prêt à partir.
+## 0. ⛔ BLOQUANT — LE REDMI EST REVENU MAIS IL EST VERROUILLÉ (mis à jour 2026-08-07 15:17)
+**Une seule action est demandée : DÉVERROUILLE le Redmi eae4df44 avec ton code PIN.**
+Le rebranchement est déjà fait, il n'y a plus rien à brancher. Rien d'autre n'est bloqué — le build
+du cycle 8 est fait, vérifié et prêt à partir, et il démarrera TOUT SEUL dès le déverrouillage.
 
-Ce qui s'est passé, à la seconde près (log noyau) :
+Historique, à la seconde près (log noyau puis état du téléphone) :
 ```
-août 07 13:41:07 fedora-server kernel: usb 1-6: USB disconnect, device number 22
+août 07 13:41:07  kernel: usb 1-6: USB disconnect, device number 22   <- il a quitté le bus
+août 07 15:11     eae4df44 réapparaît sur le bus (usb:1-6)            <- il a REDÉMARRÉ
+août 07 15:17     dumpsys user -> State: RUNNING_LOCKED               <- il est au verrou
 ```
-Le téléphone a quitté le bus USB **pendant** la jambe D-OFF de la campagne de preuve. Aucune
-reconnexion depuis, aucune erreur de port côté PC (pas d'over-current, pas de xhci) — donc le bus
-du PC va bien, c'est le téléphone qui n'est plus là. Il n'est pas non plus joignable en Wi-Fi : un
-scan complet du /24 ne trouve qu'un seul hôte adb, l'appareil NVIDIA 192.168.1.32, déjà connu et
-non autorisé. Pas de route logicielle possible.
+Le téléphone n'a pas seulement été débranché : il a **redémarré** (uptime 363 s à 15:13). Après un
+redémarrage, Android garde le stockage chiffré **fermé tant que le PIN n'a pas été saisi une fois** :
+`/storage/emulated/0/OpenGOAL` n'existe littéralement pas pour l'instant. Or c'est là que vivent ton
+`settings.ini`, le pack d'assets et tout ce que la campagne doit lire et écrire. Tant que c'est
+verrouillé, il n'y a rien à faire sur le téléphone — et surtout rien à forcer.
 
-⚠️ **Conséquence à corriger dès le rebranchement :** la jambe interrompue avait déjà poussé
-`physics? = #f` / `quality = 1` et son nettoyage n'a pas pu tourner — **le téléphone est resté avec
-la physique COUPÉE** et ton `settings.ini` non restauré. La sauvegarde exacte est sur le disque et
-sa restauration est l'étape 0 du script ci-dessous : ne juge rien avant de l'avoir lancé, sinon tu
-regarderas un build sans physique.
+⚠️ **Ce que le déverrouillage va réparer :** la jambe interrompue de 13:41 avait déjà poussé
+`physics? = #f` / `quality = 1` et son nettoyage n'a pas pu tourner — **la physique est restée
+COUPÉE** et ton `settings.ini` non restauré. La sauvegarde exacte (2697 octets) est sur le disque et
+sa restauration est l'étape 0 de la campagne : ne juge aucun rendu avant qu'elle ait tourné, sinon
+tu regarderas un build sans physique et tu me diras à juste titre que rien n'a changé.
 
-Une seule commande finit la phase (restaure tes réglages → installe → 4 jambes → rapport → validator) :
+**Tu n'as aucune commande à taper.** Un veilleur tourne déjà et surveille l'état du verrou ; dès que
+le téléphone est déverrouillé il enchaîne tout seul : restauration de tes réglages → installation →
+les 4 jambes de preuve → rapport → validator. Suivi en direct :
+```
+tail -f .autoport/reports/Grecharged-secondary-motion/autoclose.log
+```
+Et si tu préfères la lancer à la main, c'est la même chose en une commande :
 ```
 bash .autoport/physics_c8_close.sh
 ```

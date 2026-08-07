@@ -10,6 +10,16 @@ the 502 declared chains do.  For each, the device print carries `aratio` per cha
 share of window frames spent above its own threshold is readable directly off the log.  Measured
 across the D-MAX and D-INTRO legs:
 
+PROVENANCE — READ THIS BEFORE THE TABLE.  These rows are the measurement that DIAGNOSED the bug,
+so they are the state BEFORE the fix below: the `authored=` column is what was in the data file
+during that run, not what ships now.  Daxter's ears read 0.35 here and are 0.80 in the shipped
+file.  The table is deliberately frozen at the diagnosing run rather than re-transcribed from the
+newest leg, because it is the evidence FOR the change; the post-change reading is a separate line
+at the end of this section.  Every figure below was re-derived from the raw logcats and matches to
+the digit (dax earL p50 0.1924 / max 0.7145 / 20.0% over 20 windows; dax earR 0.1772 / 0.7148 /
+20.0%; keira goggles 1.2800 / 1.3113 / 93.3% over 15; jak earR 0.0043 / 0.2510 and earL 0.0040 /
+0.2061 / 0.0% over 26 windows pooled across the two legs).
+
   share  model / chain          authored=   aratio p50   aratio max
   93.3%  keira-hd  goggles         1.00        1.280        1.311
   20.0%  dax-hd    earR            0.35        0.178        0.715
