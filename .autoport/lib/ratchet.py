@@ -70,11 +70,16 @@ STORE = ".autoport/ratchet-secondary-motion.json"
 #
 # The width is measured, not chosen. `lenmin` is a MIN over ~50 chains x ~130 windows and it is
 # contact-dependent: whether one short NPC hair chain gets pinned in a sampled window decides the
-# whole figure. Across four consecutive runs today of builds that were identical or strictly
-# improving, the intro leg read 0.9306 (before the fix), then 0.9853 / 0.9951 / 0.9885. The spread
-# among the three post-fix runs is 0.0098, so the band is 0.01 — wide enough that the noise cannot
-# trip it, and far narrower than any regression this guard was built for: 0.9306, and the historical
-# 0.93 -> 0.89 -> 0.68 collapse, all still fail against a 0.99 bar with room to spare.
+# whole figure. The intro leg read 0.9306 before the crush was fixed; across the five runs since,
+# of builds that were identical or strictly improving, it read
+#
+#     0.9853   0.9951   0.9885   0.9987   0.9843
+#
+# — a spread of 0.0144 with no trend in it. The band was first set to 0.01 off the first three of
+# those and the fifth run missed it by 0.0008, which is the same mistake in miniature: a band
+# narrower than the measured spread is still a noise detector. 0.02 covers the spread with margin.
+# It stays far narrower than any regression this guard was built for: against the stored 0.9951 the
+# bar is 0.9751, and 0.9306, 0.93, 0.89 and 0.68 all fail it with room to spare.
 #
 # restdevA deliberately keeps a zero band. It is the metric under active work, it moves by orders of
 # magnitude when it moves at all (5.08 -> 0.42 this cycle, 13.64 when a change was wrong), and it has
@@ -82,8 +87,8 @@ STORE = ".autoport/ratchet-secondary-motion.json"
 # opposite of what this file is for.
 METRICS = {
     "restdevA": (False, r"restdevA\s*=\s*([0-9]+\.?[0-9]*)", 0.0),
-    "lenmin":   (True,  r"lenmin\s*=\s*([0-9]+\.?[0-9]*)",   0.01),
-    "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)",   0.01),
+    "lenmin":   (True,  r"lenmin\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
+    "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
 }
 TOL = 1e-6
 
