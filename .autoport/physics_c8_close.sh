@@ -44,6 +44,18 @@ LEGRC=$?
 say "device leg exit=$LEGRC (its own gates; the report records what it measured either way)"
 
 # ---- 3-5. the report is re-transcribed from THIS run, never left quoting the last one ---------
+# GUARD, learned the hard way on 2026-08-07: the refill reads device_leg.log and rewrites every
+# sentence it can match. Run against a PARTIAL leg log it does not fail — it cheerfully writes
+# "n/a (not measured)" over numbers that were correct, and it re-transcribes the aborted run's
+# restdevA into the headline, which is the value the ratchet reads. The aborted attempt-3 log
+# (D-MAX + D-OFF only, the phone left the USB bus during D-OFF) does exactly that. So the refill
+# only runs on a log that carries all four legs.
+for LEG in D-MAX D-OFF D-RIDER D-INTRO; do
+  grep -q "=== LEG $LEG:" "$OUT/device_leg.log" \
+    || die "device_leg.log has no $LEG section — refusing to refill the report from a partial run (it would overwrite good numbers with 'n/a')"
+done
+say "leg log carries all four legs — safe to refill"
+cp "$OUT/report.txt" "$OUT/report.pre-refill.bak"
 say "=== report refill + inserts ==="
 python3 .autoport/physics_c7_refill.py || die "refill failed"
 python3 .autoport/physics_c7_insert.py || die "c7 insert failed"
