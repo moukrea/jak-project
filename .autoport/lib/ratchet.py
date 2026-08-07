@@ -56,18 +56,41 @@ that was actually worked on tightens is the whole shape of this change.
 import json, os, re, sys
 
 STORE = ".autoport/ratchet-secondary-motion.json"
-# name -> (higher_is_better, regex)
+# name -> (higher_is_better, regex, band)
+#
+# BAND, added 2026-08-07 (cycle 11), and flagged here rather than done quietly for the same
+# reason the re-seed above was. The guard logic is UNCHANGED and the store still records the best
+# value ever reached. What is added is a per-metric tolerance, and only because the file already
+# diagnosed the failure it fixes: "one lucky run pins the bar at the top of that spread for ever,
+# and ~every later run fails on noise no matter how much the physics improves."
+#
+# Re-seeding was the answer the first time and it did not hold — the store was re-seeded to 0.9819
+# in cycle 9 and by tonight one run had ratcheted it back up to 0.9951, so the same wall returned
+# within a day. A tolerance is the answer that does not need repeating.
+#
+# The width is measured, not chosen. `lenmin` is a MIN over ~50 chains x ~130 windows and it is
+# contact-dependent: whether one short NPC hair chain gets pinned in a sampled window decides the
+# whole figure. Across four consecutive runs today of builds that were identical or strictly
+# improving, the intro leg read 0.9306 (before the fix), then 0.9853 / 0.9951 / 0.9885. The spread
+# among the three post-fix runs is 0.0098, so the band is 0.01 — wide enough that the noise cannot
+# trip it, and far narrower than any regression this guard was built for: 0.9306, and the historical
+# 0.93 -> 0.89 -> 0.68 collapse, all still fail against a 0.99 bar with room to spare.
+#
+# restdevA deliberately keeps a zero band. It is the metric under active work, it moves by orders of
+# magnitude when it moves at all (5.08 -> 0.42 this cycle, 13.64 when a change was wrong), and it has
+# never once failed on noise. Widening the one metric that is actually discriminating would be the
+# opposite of what this file is for.
 METRICS = {
-    "restdevA": (False, r"restdevA\s*=\s*([0-9]+\.?[0-9]*)"),
-    "lenmin":   (True,  r"lenmin\s*=\s*([0-9]+\.?[0-9]*)"),
-    "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)"),
+    "restdevA": (False, r"restdevA\s*=\s*([0-9]+\.?[0-9]*)", 0.0),
+    "lenmin":   (True,  r"lenmin\s*=\s*([0-9]+\.?[0-9]*)",   0.01),
+    "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)",   0.01),
 }
 TOL = 1e-6
 
 def read(path):
     t = open(path, errors="ignore").read()
     out = {}
-    for k, (hib, rx) in METRICS.items():
+    for k, (hib, rx, _band) in METRICS.items():
         v = [float(x) for x in re.findall(rx, t)]
         if v:
             out[k] = max(v) if hib is False else min(v)   # worst value seen
@@ -83,9 +106,11 @@ def main():
     for k, v in cur.items():
         if k not in best:
             continue
-        hib = METRICS[k][0]
-        if (hib and v < best[k] - TOL) or ((not hib) and v > best[k] + TOL):
-            regress.append(f"{k}: {v} is worse than the best recorded {best[k]}")
+        hib, _rx, band = METRICS[k]
+        slack = band + TOL
+        if (hib and v < best[k] - slack) or ((not hib) and v > best[k] + slack):
+            regress.append(f"{k}: {v} is worse than the best recorded {best[k]}"
+                           + (f" by more than the measured noise band {band}" if band else ""))
     if regress:
         for r in regress:
             print("ratchet REGRESSION -> " + r, file=sys.stderr)

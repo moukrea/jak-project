@@ -2869,7 +2869,22 @@
                          ;; at a value that has already been sampled can only stop it changing, it
                          ;; can never introduce a larger one. It stands down under `inject=`, like
                          ;; every other repair pass, so the owner's positive control still fires.
-                         (when (= 0.0 (-> *phys-cinject* ci))
+                         ;; ...AND IT WAITS FOR ARRIVAL, WHICH THE FIRST BUILD OF IT DID NOT.
+                         ;; Holding the bone where it stands is only right once the chain HAS
+                         ;; stood down. On a family A chain arrival is still walking it home, and
+                         ;; freezing it mid-way pins it off the model pose — which is the one thing
+                         ;; the owner's rule W forbids. Measured, and it is why this clause exists:
+                         ;; the build without it took restdevA from 4.04 to 13.64, and both worst
+                         ;; readings were ear chains (sidekick-human-lod0 13.64, jak-hd 12.02) —
+                         ;; chains that swing long enough for the idle ramp to reach them before
+                         ;; arrival does. So family A is held only once it is CALM by the same
+                         ;; PHYS-RESTCALM test restdevA itself samples on: at that point the chain
+                         ;; is already at the position that metric grades, so the hold can only
+                         ;; keep it there. Family B has no arrival to wait for — its rest is
+                         ;; gravity's, not the model's — and it is the family the creep was on.
+                         (when (and (= 0.0 (-> *phys-cinject* ci))
+                                    (or (= 2 (-> *phys-cfam* ci))
+                                        (>= (-> *phys-ccalm* ci) PHYS-RESTCALM)))
                            (let ((idf (-> *phys-slot-idleframes* slot)))
                              (when (and (> idf PHYS-RINGDOWN-N) (<= (-> *phys-csettle* ci) 0))
                                (let ((rp (fmax 0.0
@@ -3488,7 +3503,21 @@
                                                    (set! (-> vtmp z) 0.0)
                                                    (set! (-> vtmp w) 0.0)
                                                    (set! dd 1.0)))
-                                               (vector-float*! vtmp vtmp (/ (+ rr 0.5) dd))
+                                               ;; CYCLE 11 — 0.5 WAS INSIDE THE AUDIT'S OWN NOISE.
+                                               ;; The audit books a residual at `dd < rr - 1.0`, so
+                                               ;; landing a repaired link at `rr + 0.5` leaves it
+                                               ;; 1.5 units from being booked again, and anything
+                                               ;; that nudges it afterwards on a cut frame spends
+                                               ;; that immediately: measured on evilsis-lod0, one
+                                               ;; window in an `anchmove=3.1e5` cut ends at
+                                               ;; residmax=1.1130, i.e. 0.11 units past a 1.0-unit
+                                               ;; tolerance — 27 micrometres of "penetration" on a
+                                               ;; 2.3 m character. Pushing to `rr + 2.0` puts three
+                                               ;; units between the repair and the verdict for half
+                                               ;; a millimetre of extra clearance, which is below
+                                               ;; anything the owner can see and above anything the
+                                               ;; float noise can manufacture.
+                                               (vector-float*! vtmp vtmp (/ (+ rr 2.0) dd))
                                                (vector+! vtmp3 cpt vtmp)
                                                (vector-! vtmp2 vtmp3 pt)
                                                (let ((cl (vector-length vtmp2)))
@@ -3549,6 +3578,40 @@
                                                              (else 0.05))))
                                                (vector-float*! vtmp3 vtmp2 vv)
                                                (vector+! vtmp3 (-> *phys-out* (+ start i)) vtmp3)
+                                               ;; CYCLE 11 — AND THIS PASS HAS TO TEST THE POINT THE
+                                               ;; AUDIT GRADES, EXACTLY AS THE LADDER DOES.
+                                               ;; Cycle 10 gave the model-pose ladder the `extent=`
+                                               ;; probe and wrote down why: a repair that declares a
+                                               ;; link clear on a point the residual audit does not
+                                               ;; grade hands back resid>0 having "succeeded". This
+                                               ;; pass was left on the raw bone point, and it is the
+                                               ;; LAST thing to touch `out` before the audit runs, so
+                                               ;; it is the one that gets the final word on any chain
+                                               ;; that declares `extent=` and has more than one link.
+                                               ;; That is exactly the failing case: evilsis-lod0
+                                               ;; `flapL`, extent=240, two links, ends a cut window at
+                                               ;; cclr=-1.4882 with escape=0 — the escape found the
+                                               ;; link CLEAR, and this pass then walked it back in on
+                                               ;; a verification that could not see the cloth. Same
+                                               ;; probe, same radx, same capped rr as the audit, so
+                                               ;; the two can no longer disagree about what "clear"
+                                               ;; means.
+                                               (let* ((exth (* 0.5 (-> *phys-cext* ci)))
+                                                      (edl (cond
+                                                             ((and (> exth 0.0) (= i (+ len -1)))
+                                                              (vector-! dirv vtmp3
+                                                                        (if (zero? i) anchor
+                                                                            (-> *phys-out* (+ start i -1))))
+                                                              (vector-length dirv))
+                                                             (else 0.0)))
+                                                      (probe? (if (> edl 0.0001) 1 0))
+                                                      (radx (if (nonzero? probe?) exth 0.0))
+                                                      (vpt (cond
+                                                             ((nonzero? probe?)
+                                                              (vector-float*! pprb dirv (/ exth edl))
+                                                              (vector+! pprb vtmp3 pprb)
+                                                              pprb)
+                                                             (else vtmp3))))
                                                (let ((bad 0))
                                                  (when (and (nonzero? collide?) (>= i cs))
                                                    (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
@@ -3567,14 +3630,14 @@
                                                                          (-> skel bones (+ k2 1) transform vector 3)
                                                                          ca))
                                                                 (r1 (-> *phys-colr* cb))
-                                                                (tt (phys-closest-on-seg! cpt ca cbv vtmp3))
-                                                                (rr (fmin (+ (-> *phys-lrad* (+ start i)) r1
+                                                                (tt (phys-closest-on-seg! cpt ca cbv vpt))
+                                                                (rr (fmin (+ (-> *phys-lrad* (+ start i)) radx r1
                                                                              (* tt (- (-> *phys-colr2* cb) r1)))
-                                                                          (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2)))))
-                                                           (vector-! vtmp vtmp3 cpt)
+                                                                          (+ radx (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))))))
+                                                           (vector-! vtmp vpt cpt)
                                                            (when (< (vector-length vtmp) (- rr PHYS-PEN-TOL))
                                                              (set! bad 1)))))))
-                                                 (when (zero? bad) (set! vbest vv))))))
+                                                 (when (zero? bad) (set! vbest vv)))))))
                                          (when (> vbest 0.0)
                                            (vector-float*! vtmp2 vtmp2 vbest)
                                            (vector+! (-> *phys-out* (+ start i))
