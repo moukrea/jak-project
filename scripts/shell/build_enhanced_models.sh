@@ -221,6 +221,23 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     python3 scripts/shell/prep_hd_actor_glb.py --in "$STAMPED" --out "$PREPPED" >/dev/null 2>&1 \
       || { log "prep of $char-lod0.glb from '$STAMPED' failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
 
+    # ---- secondary-motion cycle 7: WEIGHT TRANSFER onto physics joints ----------------------
+    # A chain only reaches the screen through the vertices its joint is weighted to.  The donor
+    # artists painted some of those joints decoratively (keira-hd rBoob: 90 verts, peak weight
+    # 0.408, dominant on ZERO of them), so the solver moved them correctly and almost nothing
+    # moved on screen.  recharged_assets/physics_reskin.txt rescales the artist's own profile so
+    # the joint actually owns its geometry.  No rule for a model = byte-identical passthrough.
+    RESKIN_LOG="$HD_TMP/$char-reskin.txt"
+    python3 .autoport/physics_c7_reskin.py --model "$char" --in "$PREPPED" --out "$PREPPED.reskin" \
+      --report "$RESKIN_LOG" \
+      || { log "reskin of $char-lod0.glb failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
+    mv -f "$PREPPED.reskin" "$PREPPED"
+    if grep -q '^  !!' "$RESKIN_LOG" 2>/dev/null; then
+      log "RESKIN verification FAILED for $char — a declared transfer did not apply:"; cat "$RESKIN_LOG"
+      rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    grep -qE '^\[reskin\]' "$RESKIN_LOG" 2>/dev/null && sed 's/^/    /' "$RESKIN_LOG" | while read -r l; do log "$l"; done
+
     n_app=$((n_app + 1))
     DST="$HD_TMP/$lvl.step$n_app.fr3"
     SWAP_LOG="$(mktemp)"

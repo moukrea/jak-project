@@ -105,9 +105,9 @@ level 1 substeps=2 iters=6 collide=2 classmask=3 fixedhz=0
 level 2 substeps=4 iters=8 collide=2 classmask=7 fixedhz=240
 
 [model keira-hd]
-chain chestR class=primary stiffness=2.10 damping=0.115 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.6 swing=0.55 hang=0.18 family=A radii=260 xchain=chestL,goggles
+chain chestR class=primary stiffness=2.60 damping=0.100 gravity=0.10 maxangle=40 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.50 hang=0.18 family=A radii=260 xchain=chestL,goggles
 j rBoob
-chain chestL class=primary stiffness=2.10 damping=0.115 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.6 swing=0.55 hang=0.18 family=A radii=260 xchain=chestR,goggles
+chain chestL class=primary stiffness=2.60 damping=0.100 gravity=0.10 maxangle=40 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.50 hang=0.18 family=A radii=260 xchain=chestR,goggles
 j lBoob
 chain backhair class=primary stiffness=1.8 damping=0.20 gravity=0.3 maxangle=36 inertia=1.0 stretch=0.02 radius=100 rootlock=0 gradient=1 rootfree=0.55 colskip=1 hang=0.35 family=A radii=260,260 xchain=earL,earR,lbang,lmidhair,rbang,rmidhair
 j backHair1
@@ -313,9 +313,9 @@ capsule main chest radius=547 radius2=547 tier=2 chains=chestL,chestR
 
 
 [model keira3-hd]
-chain chestR class=primary stiffness=2.10 damping=0.115 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.6 swing=0.55 hang=0.18 family=A radii=260 xchain=chestL,goggles
+chain chestR class=primary stiffness=2.60 damping=0.100 gravity=0.10 maxangle=40 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.50 hang=0.18 family=A radii=260 xchain=chestL,goggles
 j rBoob
-chain chestL class=primary stiffness=2.10 damping=0.115 gravity=0.10 maxangle=50 inertia=1.0 stretch=0.11 radius=150 mass=1.6 swing=0.55 hang=0.18 family=A radii=260 xchain=chestR,goggles
+chain chestL class=primary stiffness=2.60 damping=0.100 gravity=0.10 maxangle=40 inertia=1.0 stretch=0.05 radius=150 mass=1.5 swing=0.50 hang=0.18 family=A radii=260 xchain=chestR,goggles
 j lBoob
 chain backhair class=primary stiffness=1.8 damping=0.20 gravity=0.3 maxangle=36 inertia=1.0 stretch=0.02 radius=100 rootlock=0 gradient=1 rootfree=0.55 colskip=1 hang=0.35 family=A radii=260,260 xchain=earL,earR,lbang,lmidhair,rbang,rmidhair
 j backHair1
@@ -541,7 +541,7 @@ chain logL class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 ine
 j Llog
 chain logR class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 inertia=0.9 stretch=0.01 radius=80 hang=0.15 family=B radii=260 xchain=earL,earR,logL
 j Rlog
-chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.10 radius=120 mass=3.2 swing=0.45 hang=0.2 family=A radii=24 xchain=beard
+chain belly class=secondary stiffness=3.20 damping=0.38 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.05 radius=120 mass=3.2 swing=0.45 hang=0.0 family=A radii=24 xchain=beard
 j belly
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=151,172 xchain=beard,earR,hairL,hairR,logL,logR,ponytail
 j LearBASE
@@ -3298,9 +3298,9 @@ j l_flap2
 chain flapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 colskip=1 hang=0.45 family=B side=R extent=240 radii=71,153 xchain=backhairL,backhairM,backhairR,earL,earR,flapL,ponytail
 j r_flap1
 j r_flap2
-chain chestL class=primary stiffness=2.46 damping=0.44 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.26 radius=170 mass=4.2 swing=0.45 hang=0.32 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
+chain chestL class=primary stiffness=2.46 damping=0.46 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.12 radius=170 mass=4.2 swing=0.45 hang=0.32 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
 j lbood
-chain chestR class=primary stiffness=2.46 damping=0.44 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.26 radius=170 mass=4.2 swing=0.45 hang=0.32 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
+chain chestR class=primary stiffness=2.46 damping=0.46 gravity=0.16 maxangle=44 inertia=1.0 stretch=0.12 radius=170 mass=4.2 swing=0.45 hang=0.32 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail
 j rboob
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=67,60 xchain=backhairL,backhairM,backhairR,earR,flapL,flapR,ponytail
 j l_ear1

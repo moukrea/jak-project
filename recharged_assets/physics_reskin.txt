@@ -1,0 +1,102 @@
+# Grecharged-secondary-motion — CYCLE 7 — WEIGHT TRANSFER onto physics joints.
+#
+# Applied by .autoport/physics_c7_reskin.py, between prep_hd_actor_glb.py and `hd_merc_swap add`
+# in scripts/shell/build_enhanced_models.sh.  It changes SKIN WEIGHTS ONLY — same joints, same
+# joint positions, same triangles, same textures.
+#
+# WHY THIS FILE EXISTS.  A physics chain can only move the screen through the vertices its joint
+# is weighted to.  The cycle-7 audit (.autoport/physics_c7_skinmap.py, report skinmap.txt) found
+# joints that the donor's artist painted DECORATIVELY: present in the rig, weighted at a few
+# percent, dominated everywhere by an animated body bone.  The solver moves them correctly and
+# almost nothing moves on screen — which is exactly the owner's "ca bouge un poil" followed by
+# "aucune difference" after two cycles of tuning the solver.
+#
+# KEYS
+#   transfer <joint> from=<a,b,...>  the joint to strengthen, and the bones to take the weight from
+#   cap=C     weight the STRONGEST vertex of the patch ends up carrying (1.0 = fully detached from
+#             the body; never use 1.0 on a body part — a breast is attached to a chest, and the
+#             blend at the base is what keeps it attached)
+#   shape=S   exponent on the artist's own normalised profile.  1.0 = pure rescale (keeps the
+#             artist's falloff exactly).  <1 widens the shoulder so more of the patch moves
+#             TOGETHER as a volume instead of only the centre — that is the cure for "seuls les
+#             bouts bougent" / "flasque".
+#   grow=U    optional: first extend the patch to any vertex within U game units of it, for a
+#             painted patch too small to be a volume at all.  0 = keep the artist's support.
+#
+# The artist's spatial profile is never replaced, only rescaled: the vertex he weighted most stays
+# the one weighted most.
+
+[model keira-hd]
+# Owner cycle 5 Y: "ronds et FERMES [...] peu de droop, peu de deformation, mais ca BOUGE bien",
+# cycle 7 AB: "plus de jiggle ET un poil plus de fermete".
+# Measured before: 90/94 verts, peak 0.408, mean 0.172/0.193 — ZERO vertices majority-owned.
+# cap=0.90 leaves a real blend into the chest at the rim (attached, not a balloon); shape=0.55
+# lifts the mid-profile hard so the whole cup travels together instead of denting in the middle.
+transfer rBoob from=chest cap=0.90 shape=0.55
+transfer lBoob from=chest cap=0.90 shape=0.55
+
+[model keira3-hd]
+# The J3 look carries the same rig and the SAME defect (rBoob 86 verts, peak 0.408, 0 dominant).
+# Owner 2026-08-05 11:55: the physics applies to every look of the carousel, not just the default.
+transfer rBoob from=chest cap=0.90 shape=0.55
+transfer lBoob from=chest cap=0.90 shape=0.55
+
+[model jak-hd]
+# Owner cycle-3 D: "c'est juste le BOUT DU BOUT de sa coiffe qui bouge". Measured cause: the
+# strand's ROOT half is only weakly his — MhairA holds mean 0.364 over its 245 verts and is
+# dominant on 89 of them, while the tip bone MhairB holds 0.657 and dominates 117. The solver
+# already moves both; the upper half simply does not follow because neckB owns it.
+#
+# NO RULE FOR jak-hd MhairA — DELIBERATELY, and this is worth recording rather than hiding.
+# Two attempts were measured and both were rejected by the inert-rule guard: cap 0.85/shape 0.85
+# moved ownership by +0.028 and cap 0.92/shape 0.90 by +0.039, against a 0.05 bar. The reason is
+# in the distribution, not in the constants: this strand is BIMODAL — p90 is already 0.765 and 89
+# of its 245 verts are already majority-owned, while the rest are the scalp boundary, which is
+# weak BECAUSE IT SHOULD BE. Forcing a cap high enough to move the mean would lift exactly those
+# scalp vertices and detach the coiffe from the skull — trading the owner's cycle-4 acquis ("les
+# cheveux sont mieux animes") for a number. jak-hd's coiffe therefore keeps its current skinning;
+# jak3-hd / jakm-hd, whose same strand really is weak (0.250, 15/262 dominant), are fixed below.
+# Owner cycle-6 site 2: the back buckle clips through its own strap. packStrapTop holds mean 0.159
+# over 13 verts and dominates NONE of them, so the top of the strap stays welded to the chest
+# while the buckle below it (packStrapMid, weight 1.0) swings — which is the two-elements-crossing
+# the owner sees. packStrapMid is already fully owned and is left untouched.
+transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
+
+# ---------------------------------------------------------------------------------------------
+# THE SAME PATHOLOGY ON THE REST OF THE CAROUSEL.  Owner 2026-08-05 11:55: the physics applies to
+# EVERY look, not just the default ones.  The cycle-7 audit measured 95 chains below majority
+# across 502; these are the HD companions, where the bake can fix it.  Every line below is a
+# joint the audit found DOMINANT ON ZERO VERTICES (or nearly), with its donor picked as an
+# ANIMATED body bone — never another physics joint, which would just move the problem.
+# ---------------------------------------------------------------------------------------------
+
+[model keira-hd keira3-hd]
+# The trouser flaps: peak 0.16 over ~45 verts, dominant on none. They were simulated and inert.
+transfer LpantFlap from=Lknee,Lthigh cap=0.90 shape=0.75
+transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
+
+[model samos-hd]
+# Owner named both of these: "le bun/chignon de Samos (sa buche)" and "les ventres des
+# personnages en surpoids". Llog is 407 verts at peak 0.45 / dominant 0 — the whole log was
+# riding the head bone. The belly is deliberately gentler (cap 0.80): a belly is part of the
+# torso and must keep a strong blend into it, it only needs to lag, not to detach.
+transfer Llog from=headLog cap=0.90 shape=0.80
+transfer belly from=chest,hips cap=0.80 shape=0.70
+
+[model jak2-hd jakp-hd]
+transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
+
+[model jak3-hd jakm-hd]
+# Same coiffe defect as jak-hd, measured identically (MhairA 262 verts, peak 0.62, dominant 15).
+transfer MhairA from=neckB cap=0.85 shape=0.85
+
+[model daxp-hd]
+transfer Lpantleg from=Lknee,Lthigh cap=0.90 shape=0.75
+transfer Rpantleg from=Rknee,Rthigh cap=0.90 shape=0.75
+
+[model ysamos-hd]
+# Young Samos' afro — three chains, all dominant on ZERO vertices (92 / 438 / 308 verts).
+# Owner: "cheveux longs, tous personnages concernes", carousel looks included.
+transfer Frofront from=head cap=0.85 shape=0.85
+transfer Fromid   from=head cap=0.85 shape=0.85
+transfer Froback  from=head cap=0.85 shape=0.85
