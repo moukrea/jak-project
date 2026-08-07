@@ -327,4 +327,20 @@ hits=len(re.findall(r'(drives|pilote|majority|majorit|dominant)[^\n]{0,80}(skin|
 sys.exit(0 if hits>=2 else 1)
 PYAA
 
+
+# AA-bis: every site the owner named last night must have its skin AUTHORITY measured, and a
+# transfer declared when the chain joint does not own its geometry. The reskin table currently
+# covers Keira's chest and Jak's pack strap but NOT the collar, the jacket flaps, Keira's neck
+# hair, her goggles or her front bangs — i.e. most of the open list.
+python3 - "$R" <<'PYAB' || fail "AA-bis: an owner-named site has no measured skin authority (and no transfer) — collar / shirt flaps / backhair / goggles / bangs"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+sites={'collar':r'collar','jacket flap':r'shirtL|shirtR|LpantFlap|RpantFlap',
+       'neck hair':r'backhair|backHair','goggles':r'goggle','front bangs':r'bang|midhair'}
+missing=[k for k,rx in sites.items()
+         if not re.search(rx+r'[^\n]{0,120}(authority|autorite|nverts|dominant|weight|poids|transfer)',t,re.I)]
+if missing: sys.stderr.write("  no authority/transfer evidence for: "+", ".join(missing)+"\n")
+sys.exit(1 if missing else 0)
+PYAB
+
 echo "[Grecharged-secondary-motion PASS]"
