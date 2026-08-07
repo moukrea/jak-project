@@ -21,7 +21,12 @@ while true; do
   # Never upload a partially-written artifact. Match an ACTIVE build only:
   # the long-lived Gradle DAEMON must not count (it runs for hours and would
   # block every upload forever - that bug held back the 20:20 APK).
-  if ps -eo args | grep -qE '[c]make --build|[g]radlew|[g]radle-launcher|[g]radle .*assemble'; then continue; fi
+  # Match a real build process only. Two traps already hit: the long-lived Gradle
+  # DAEMON (runs for hours), and the worker's own `claude -p` whose PROMPT TEXT
+  # contains the literal words "cmake --build" — ps sees the prompt, so the watcher
+  # thought a build was running forever and never uploaded anything.
+  if ps -eo comm,args | grep -vE '^claude ' \
+       | grep -qE '^(cmake|ninja|cc1plus|java)[^\n]*(--build|assemble|GradleWrapperMain)'; then continue; fi
   cp "$APK" "$DIST" || continue
   if timeout 1800 gh release upload jak1-rtlight-wip "$DIST" \
        --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then
