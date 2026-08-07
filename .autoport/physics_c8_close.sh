@@ -82,6 +82,7 @@ say "=== report refill + inserts ==="
 python3 .autoport/physics_c7_refill.py || die "refill failed"
 python3 .autoport/physics_c7_insert.py || die "c7 insert failed"
 python3 .autoport/physics_c8_insert.py || die "c8 insert failed"
+python3 .autoport/physics_c9_insert.py || die "c9 insert failed"
 
 # ---- 6. the ground truth -----------------------------------------------------------------------
 say "=== validator ==="
