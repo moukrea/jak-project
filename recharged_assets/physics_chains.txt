@@ -553,7 +553,7 @@ chain logL class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 ine
 j Llog
 chain logR class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 inertia=0.9 stretch=0.01 radius=80 hang=0.15 family=B radii=260 xchain=earL,earR,logL
 j Rlog
-chain belly class=secondary stiffness=3.20 damping=0.38 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 hang=0.0 family=A radii=24 xchain=beard
+chain belly class=secondary stiffness=2.15 damping=0.28 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.0 family=A radii=24 xchain=beard
 j belly
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=151,172 xchain=beard,earR,hairL,hairR,logL,logR,ponytail
 j LearBASE
@@ -1780,7 +1780,7 @@ chain logL class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 ine
 j Llog
 chain logR class=accessory stiffness=5.5 damping=0.45 gravity=0.0 maxangle=7 inertia=0.9 stretch=0.01 radius=80 hang=0.15 family=B radii=260 xchain=beard,earL,earR,logL,ponytail
 j Rlog
-chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 hang=0.2 family=A radii=260 xchain=beard,earL,earR,hairL
+chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.2 family=A radii=260 xchain=beard,earL,earR,hairL
 j belly
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=142,203 xchain=beard,belly,earR,hairL,logL,logR,ponytail
 j LearBASE
@@ -2916,7 +2916,7 @@ chain tieR class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=38 i
 j Rtie1
 j Rtie2
 j Rtie3
-chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 hang=0.2 family=A radii=260 xchain=tieL,tieR
+chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.2 family=A radii=260 xchain=tieL,tieR
 j belly
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=86,162 xchain=earR,stacheL,stacheR,tieL,tieR,tophat
 j Lear1
@@ -3734,7 +3734,7 @@ j sash1
 j sash2
 chain necklace class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=38 inertia=1.0 stretch=0.03 radius=40 gradient=0.6 hang=0.25 family=B radii=76
 j necklace2
-chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 hang=0.2 family=A radii=260
+chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.2 family=A radii=260
 j belly
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=67,72 xchain=bandana,earR
 j Lear1
@@ -3898,7 +3898,7 @@ chain strapTopL class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle
 j lStrapTop
 chain strapTopR class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=38 inertia=1.0 stretch=0.03 radius=40 gradient=0.6 hang=0.25 family=B radii=24 xchain=stacheL,stacheR,strapBotR
 j rStrapTop
-chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 hang=0.2 family=A radii=260 xchain=strapBotL,strapBotR
+chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.2 family=A radii=260 xchain=strapBotL,strapBotR
 j belly
 chain earL class=secondary stiffness=3.2 damping=0.30 gravity=0.05 maxangle=11 inertia=1.0 stretch=0.015 radius=40 rootlock=0 gradient=1 rootfree=0.5 colskip=1 hang=0.12 family=A radii=150,150 xchain=earR,stacheL,stacheR
 j lEar1
@@ -5171,7 +5171,7 @@ chain flapA class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 in
 j flap1
 chain flapB class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=1 gradient=1 hang=0.45 family=B radii=260
 j flap2
-chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 hang=0.2 family=A radii=260
+chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.2 family=A radii=260
 j belly
 chain furL class=accessory stiffness=3.0 damping=0.30 gravity=0.15 maxangle=16 inertia=1.0 stretch=0.02 radius=50 hang=0.50 family=A radii=260
 j lLegFur
@@ -5849,7 +5849,7 @@ j LhairFrontB
 chain hairFrontR class=primary stiffness=2.2 damping=0.24 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=0 gradient=1 colskip=1 hang=0.35 family=A radii=260,260 xchain=hairFrontL
 j RhairFrontA
 j RhairFrontB
-chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 hang=0.2 family=A radii=260
+chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.2 family=A radii=260
 j stomach
 chain shackle class=accessory stiffness=3.2 damping=0.30 gravity=0.50 maxangle=20 inertia=1.0 stretch=0.02 radius=40 family=B hang=0.50 radii=260
 j Lshackle

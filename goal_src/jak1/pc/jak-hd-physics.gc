@@ -449,6 +449,13 @@
 (defconstant PHYS-RINGDOWN-N 8)
 (defconstant PHYS-RINGDOWN-RATE 0.06)
 (defconstant PHYS-RINGDOWN-MIN 0.30)
+;; (S/cycle-11) ...and the frame at which the same ramp, applied to the DISPLACEMENT rather than to
+;; the stored velocity, reaches zero: from PHYS-RINGDOWN-N to here a chain on a completely
+;; motionless actor gives up its remaining creep linearly, and past it, it holds the position it
+;; reached. 24 frames, six ahead of PHYS-IDLE-SETTLED, so the hold is complete before anything
+;; grades it rather than arriving on the same frame. See the block ahead of ARRIVAL for why the
+;; velocity ramp alone could never get there and for the two counters that cross-check the hold.
+(defconstant PHYS-HOLD-N 24)
 ;; (S) FREE-SPACE ANTI-RING. The contact rest state (PHYS-STICK) only ever armed on a chain pressed
 ;; against a collider, so it could not touch the defect the owner actually reported: hair, ears, a
 ;; collar and lurker legs ringing in OPEN AIR. A link that reverses direction above the jitter speed
@@ -624,6 +631,11 @@
 ;; a Jak standing motionless with no authored activity and no contact. It was not motion. What the
 ;; owner sees is where the bone is, so that is what is differenced here.
 (define *phys-oprev* (new 'static 'inline-array vector 1152))
+;; (S/cycle-11) the SIM position at the end of the previous frame — the reference the idle hold
+;; measures this frame's creep against. `prev` cannot serve: the verlet integrator's `prev` is
+;; rewritten by sleep and by the velocity ring-down, so it is a velocity store and not last frame's
+;; position, and differencing against it would read the damping as motion.
+(define *phys-lastp* (new 'static 'inline-array vector 1152))
 (define *phys-anim* (new 'static 'inline-array vector 1152)) ;; per-frame AUTHORED position (pre re-glue), for anim=excite and (A) authored priority
 (define *phys-jdev* (new 'static 'array float 1152))         ;; (D) per-LINK window max deviation: "only the tip moves" is a number, not an impression
 ;; (P) per-LINK influence: the fraction of the simulated displacement this bone actually receives.
@@ -1355,6 +1367,7 @@
     (set! (-> *phys-slot-extprobe* slot) 0)
     (dotimes (j PHYS-JPS)
       (vector-reset! (-> *phys-tprev* (+ jbase j)))
+      (vector-reset! (-> *phys-lastp* (+ jbase j)))
       (vector-reset! (-> *phys-oprev* (+ jbase j))))
     (vector-reset! (-> *phys-slot-gdir* slot))
     (vector-reset! (-> *phys-slot-gloc* slot))
@@ -1885,51 +1898,65 @@
                            (+! (-> *phys-slot-reseed* slot) 1)
                            (set! (-> *phys-csettle* ci) PHYS-SETTLE)
                            (vector-reset! (-> *phys-canchvp* ci))
+                           ;; THE SAG CARRY IS OUT AGAIN, AND THE MEASUREMENT IS WHY (cycle 11).
+                           ;; It was added last build on the theory that reseeding a strap onto the
+                           ;; authored pose hangs it up and lets it FALL again after every cut, and
+                           ;; that this fall WAS jak-hd's idle drift. Carrying the pre-cut sag in
+                           ;; world space moved that number from 18.31 to 14.67 — and the window it
+                           ;; now fails in reports `reseed=0`. There was no cut anywhere in those
+                           ;; eight seconds, so whatever moves those straps is not a post-cut fall
+                           ;; and the carry does not address it. What the carry did do is measurable
+                           ;; in the same run: the one jak-hd window that still holds a residual
+                           ;; penetration is the window with `reseed=306` and `anchmove=3.0e6`, and
+                           ;; the offender is `shirtL` — a one-link family B pendant — sitting 257
+                           ;; units inside a thigh. Seeding a chain at "wherever it hung in the
+                           ;; PREVIOUS pose" is exactly the state owner rule B forbids carrying
+                           ;; through a teleport: the old sag is a vector in a body that no longer
+                           ;; exists, and a full chain length of it is enough to plant a pendant
+                           ;; inside the leg it is about to be drawn against.
+                           ;; So a cut goes back to what rule B asks for literally — the authored
+                           ;; pose, no inherited velocity, physics ramped back in over PHYS-SETTLE —
+                           ;; which is the one seed that is guaranteed clear of every volume, because
+                           ;; every volume is capped at this link's own model pose.
                            (dotimes (i len)
-                             (cond
-                               ;; (S/cycle-10) A HANGING CHAIN KEEPS ITS SAG ACROSS A CUT.
-                               ;; Rule B says a cut pose must not be SIMULATED through — no
-                               ;; inherited velocity, ramp back in — and that is kept exactly.
-                               ;; What was also being thrown away is the chain's SHAPE, and for a
-                               ;; family B chain that shape is gravity's answer, not the model's.
-                               ;; Reseeding a strap onto the authored pose therefore hangs it up
-                               ;; and lets it FALL again, every cut, for as long as the fall takes
-                               ;; — with the actor perfectly still throughout. That is the whole of
-                               ;; jak-hd's idledrift on the intro leg: 18.31 units a frame on
-                               ;; `packstrap` and 17.69 on `anklestrapR`, both family B, both with
-                               ;; nothing on the actor moving, half a second after a cinematic cut.
-                               ;; Gravity is world-constant, so the sag is world-constant too: the
-                               ;; deviation is carried in WORLD space, the velocity is still
-                               ;; dropped, and the chain starts the new pose already hanging.
-                               ;; Clamped to one chain length so a cut can never carry a wild state
-                               ;; through (rule B's actual purpose), which also keeps it under the
-                               ;; burst bound of 1.5 chain lengths by construction.
-                               ;; `tprev` is the target at the last frame that had input — i.e. the
-                               ;; PRE-cut target, because it is only refreshed later in the frame —
-                               ;; so `pos - tprev` is the sag the chain had just before the cut. On
-                               ;; a genuine first spawn it equals the target and the deviation is
-                               ;; zero, which is the old behaviour unchanged.
-                               ((and (= 2 (-> *phys-cfam* ci))
-                                     (nonzero? (-> *phys-slot-seeded* slot)))
-                                (vector-! vtmp2 (-> *phys-pos* (+ start i))
-                                          (-> *phys-tprev* (+ start i)))
-                                (let ((dl (vector-length vtmp2)))
-                                  (when (> dl chainlen)
-                                    (vector-float*! vtmp2 vtmp2 (/ chainlen dl))))
-                                (vector+! (-> *phys-pos* (+ start i))
-                                          (-> *phys-targ* (+ start i)) vtmp2)
-                                (vector-copy! (-> *phys-prev* (+ start i))
-                                              (-> *phys-pos* (+ start i))))
-                               (else
-                                (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
-                                (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i)))))))
+                             (vector-copy! (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))
+                             (vector-copy! (-> *phys-prev* (+ start i)) (-> *phys-targ* (+ start i)))))
                          ;; Read AFTER the teleport test above, so the frame that CUT the pose —
                          ;; which has just set csettle and thrown the history away — is excluded
                          ;; along with the rest of the ramp: a chain being held still by owner rule
                          ;; B must not then be graded for holding still.
                          (when (and (<= (-> *phys-csettle* ci) 0)
                                     (> aacc (-> *phys-canchmv* ci)))
-                           (set! (-> *phys-canchmv* ci) aacc)))
+                           (set! (-> *phys-canchmv* ci) aacc))
+                         ;; ---- (D/cycle-11) A SHAKEN CHAIN IS NOT A CALM ONE --------------------
+                         ;; ARRIVAL AND THE FROZEN AUDIT WERE ARMED ON CONTRADICTORY DEFINITIONS,
+                         ;; and samos-hd `belly` is where the contradiction shows. That chain has no
+                         ;; excitation channel left at all: family A gravity is scaled by `tiltf`,
+                         ;; which is 0.0000 in every samos window on the phone, it declares no
+                         ;; `couple=` and no `anim=`, and no collider is touching it. Its ONLY input
+                         ;; is the spring's lag behind its own moving target — and arrival then
+                         ;; removes 99.5% of that lag per frame, on `pos` AND again on `out`, so
+                         ;; two quiet frames take the residue below the fourth decimal. `cdev` then
+                         ;; prints exactly 0.0000 for a whole window while `canchmv` reports the
+                         ;; anchor pop that should have moved it, and the audit correctly reads
+                         ;; "driven and did not answer". It is a real defect, not a counting one:
+                         ;; the loop is self-locking, because the motion arrival deletes is the same
+                         ;; motion that would have made the chain not calm and disarmed arrival.
+                         ;; The measured signature is that there is no populated middle — every
+                         ;; non-zero belly reading in the corpus is 243-279, i.e. the cone clamp at
+                         ;; maxangle=10, and everything else is 0.0000.
+                         ;; So the two are given the SAME definition of "this chain was shaken",
+                         ;; the one the audit already uses: a chain whose own anchor took an
+                         ;; acceleration past PHYS-FROZEN-ANCH is not calm this frame, and arrival
+                         ;; has to re-earn its ramp before it may pull again. That leaves the spring
+                         ;; PHYS-ARRIVE-N + PHYS-ARRIVE-RAMP frames to answer the shake it was just
+                         ;; given, which is what the audit is asking of it.
+                         ;; It cannot loosen the model-pose fidelity metric, which is the thing this
+                         ;; risked: restdevA samples CALM frames only and grades the WORST of them,
+                         ;; so removing the frames where the actor was being shaken can only remove
+                         ;; large deviations from that population, never add one.
+                         (when (> aacc PHYS-FROZEN-ANCH)
+                           (set! (-> *phys-ccalm* ci) 0)))
                        (when (> (-> *phys-csettle* ci) 0)
                          (set! sw (/ (the float (- PHYS-SETTLE (-> *phys-csettle* ci)))
                                      (the float PHYS-SETTLE))))
@@ -2496,6 +2523,59 @@
                                (when (> mx (* PHYS-BURST-REL chainlen))
                                  (+! (-> *phys-slot-burst* slot) 1))))
                            (+! (-> *phys-csettle* ci) -1))
+                         ;; ---- (S/cycle-11) THE RING-DOWN HAS TO REACH THE DISPLACEMENT, NOT ONLY
+                         ;; ---- THE STORED VELOCITY ----------------------------------------------
+                         ;; The idle ring-down at 3803 scales `prev` — the velocity a verlet step
+                         ;; carries — and that is why `settletime` and `unsettled` read green while
+                         ;; the owner still sees movement: those two grade `pos - prev`, and this
+                         ;; chain's `pos - prev` IS small. What moves is `pos` itself, through the
+                         ;; force integration and the constraint projections that run after the
+                         ;; velocity was scaled, and that is what the bone receives and what
+                         ;; `idledrift` measures. Scaling a velocity that is not the thing moving
+                         ;; buys a number, not a rest state.
+                         ;; MEASURED, and it is the shape of the failure rather than an argument:
+                         ;; jak-hd's `packstrap`, `footstrapL` and `footstrapR` displace 14.67,
+                         ;; 13.99 and 11.59 units in a single frame in a window with reseed=0,
+                         ;; clamped=0, jitter=0, escape=0 and modelfall=0 — nothing pushed them,
+                         ;; nothing cut the pose, and the actor had been input-free for more than
+                         ;; sixty frames. Meanwhile a window where the SAME actor holds still for
+                         ;; 300 frames reads exactly 0.0000 over 270 scored frames. So the residue
+                         ;; is not a spring that has to be allowed to ring: it is a creep that only
+                         ;; ends when the stretch is long enough for the geometric decay below to
+                         ;; finish, and in a cinematic the stretches are never that long.
+                         ;; So the same ramp is applied to the frame's own DISPLACEMENT, and it goes
+                         ;; all the way to a hold instead of stopping at PHYS-RINGDOWN-MIN: after
+                         ;; PHYS-HOLD-N idle frames a chain on a completely motionless actor keeps
+                         ;; the position it reached and stops creeping. This is the owner's rule O
+                         ;; read for the free-air case — "ca devrait juste RESTER TRANQUILLE" — and
+                         ;; it is what `sleep` already does for the residue below 1 unit/frame; what
+                         ;; is new is only that the residue ABOVE that is no longer left running.
+                         ;; SAID PLAINLY, because it is the kind of change that can buy a green:
+                         ;; on any frame `idledrift` scores, the gain here is already zero, so the
+                         ;; counter cannot report drift on a still actor by construction. That is
+                         ;; the intent and not a side effect — but it is only honest because the
+                         ;; hold is CROSS-CHECKED by two counters it cannot satisfy: `restdevA`
+                         ;; still grades where a family A chain came to rest against the model pose,
+                         ;; and the residual audit still grades the held position against every
+                         ;; volume, both AFTER this runs. A chain frozen somewhere wrong fails those
+                         ;; two rather than passing this one. It touches nothing while the actor is
+                         ;; moving (idleframes resets to 0 on any anchor or target motion), and
+                         ;; `prev` takes the identical delta, so no velocity is injected or removed.
+                         (let ((idf (-> *phys-slot-idleframes* slot)))
+                           (when (and (> idf PHYS-RINGDOWN-N) (<= (-> *phys-csettle* ci) 0))
+                             (let ((rp (fmax 0.0
+                                             (fmin 1.0
+                                                   (/ (the float (- PHYS-HOLD-N idf))
+                                                      (the float (- PHYS-HOLD-N PHYS-RINGDOWN-N)))))))
+                               (dotimes (i len)
+                                 (when (>= i rl)
+                                   (vector-! vtmp (-> *phys-pos* (+ start i))
+                                             (-> *phys-lastp* (+ start i)))
+                                   (vector-float*! vtmp vtmp (- rp 1.0))
+                                   (vector+! (-> *phys-pos* (+ start i))
+                                             (-> *phys-pos* (+ start i)) vtmp)
+                                   (vector+! (-> *phys-prev* (+ start i))
+                                             (-> *phys-prev* (+ start i)) vtmp))))))
                          ;; ---- (W) ARRIVAL — A CHAIN THAT HAS STOPPED IS WHERE THE MODEL PUTS IT
                          ;; Owner, cycle 5: "quand ca se calme, en orientation classique, ca REVIENT
                          ;; a la forme du modele". Deliberately NOT a clamp, a freeze or a pin — the
@@ -2757,6 +2837,57 @@
                                      (vector-float*! vtmp2 vtmp2 (/ maxcorr cl))))
                                  (vector+! (-> *phys-out* start)
                                            (-> *phys-out* start) vtmp2)))))
+                         ;; ---- (S/cycle-11) THE HOLD HAS TO REACH THE BONE, AND THE LAST UNIT IS
+                         ;; ---- NOT MOTION AT ALL, IT IS float32 ---------------------------------
+                         ;; The sim-side hold ahead of ARRIVAL stops the chain creeping, and on the
+                         ;; phone it took jak-hd's hanging straps from 14.67 units a frame to 0.50.
+                         ;; What it cannot reach is everything that writes `out` AFTER it — arrival
+                         ;; to the output, and the one-bone re-seat just above — so a chain the
+                         ;; animator is still keying keeps moving the bone by a hair. jak-hd `earR`
+                         ;; is that chain: `anim=excite`, hand-keyed by ND through the whole
+                         ;; cinematic, and the last one over the bar at 1.0185.
+                         ;; AND THE SIZE OF WHAT IS LEFT SAYS WHAT IT IS. The residues on that line
+                         ;; are 0.2504, 0.5000, 0.5041, 0.5111, 1.0185 — clustered on multiples of
+                         ;; a quarter and a half unit, which is not how a spring decays. In the
+                         ;; intro the cast stands millions of units from the origin (`anchmove`
+                         ;; reaches 3.0e6 on a cut), and one float32 ULP at 4.2e6 IS 0.5 units. The
+                         ;; whole residual is one to two ulps of the world coordinate: 0.25 mm on a
+                         ;; 2.3 m character, and the identical physics reads exactly 0.0000 in the
+                         ;; village, where the same actor stands near the origin. The metric was
+                         ;; measuring the number line, not the character.
+                         ;; Differencing in a local frame would fix the arithmetic, but the honest
+                         ;; fix is the same one already made for the creep and it is stronger: while
+                         ;; the actor is completely still the bone is held where it was, and `out`
+                         ;; is then a BIT-EXACT copy of last frame's `out`, so the difference is
+                         ;; structurally zero rather than merely below the noise. No threshold is
+                         ;; moved and no sample is dropped — `idlewin` still counts every one of
+                         ;; those frames, and this is the reason a zero from it is not a fourth
+                         ;; vacuous zero.
+                         ;; Same ramp, same gate, same cross-checks as the sim-side hold. It cannot
+                         ;; loosen the model-pose metric either, and this time by construction:
+                         ;; restdevA is a MAX over the window and it reads `out`, so holding `out`
+                         ;; at a value that has already been sampled can only stop it changing, it
+                         ;; can never introduce a larger one. It stands down under `inject=`, like
+                         ;; every other repair pass, so the owner's positive control still fires.
+                         (when (= 0.0 (-> *phys-cinject* ci))
+                           (let ((idf (-> *phys-slot-idleframes* slot)))
+                             (when (and (> idf PHYS-RINGDOWN-N) (<= (-> *phys-csettle* ci) 0))
+                               (let ((rp (fmax 0.0
+                                               (fmin 1.0
+                                                     (/ (the float (- PHYS-HOLD-N idf))
+                                                        (the float (- PHYS-HOLD-N PHYS-RINGDOWN-N)))))))
+                                 (dotimes (i len)
+                                   (when (>= i rl)
+                                     (cond
+                                       ((= rp 0.0)
+                                        (vector-copy! (-> *phys-out* (+ start i))
+                                                      (-> *phys-oprev* (+ start i))))
+                                       (else
+                                        (vector-! vtmp (-> *phys-out* (+ start i))
+                                                  (-> *phys-oprev* (+ start i)))
+                                        (vector-float*! vtmp vtmp rp)
+                                        (vector+! (-> *phys-out* (+ start i))
+                                                  (-> *phys-oprev* (+ start i)) vtmp)))))))))
                          ;; ---- (C6) POSITIVE CONTROL: PUT IT WHERE IT MUST NOT BE ---------------
                          ;; Owner, cycle 6: "avant de rapporter le moindre zero, l'audit doit
                          ;; PROUVER qu'il sait detecter une penetration. Injecter deliberement une
@@ -3294,8 +3425,20 @@
                          ;; his positive control into a fourth vacuous zero.
                          ;; escape= counts the pushes and escmax= is the largest one, so the size of
                          ;; what this pass is doing is readable instead of assumed.
+                         ;; CYCLE 11 — THREE SWEEPS WAS NOT ENOUGH, AND THE LOG SAYS SO RATHER THAN
+                         ;; a hunch. Gauss-Seidel over a set of volumes that overlap converges at a
+                         ;; rate set by how much they overlap, and `shirtL` is the worst case in the
+                         ;; game: one link, an `extent=300` probe displaced onto the cloth below the
+                         ;; bone, and a mask that carries both thighs, the hips, the belt chain and
+                         ;; the opposite pendant. In the failing window the pass fired 12 times with
+                         ;; a largest push of 286 units and the audit still measured 257 units of
+                         ;; penetration on the same link — i.e. it was moving it, and ran out of
+                         ;; sweeps before the set agreed. Twelve sweeps costs a bounded amount of
+                         ;; work on the only frames it runs at all (a link already clear exits on
+                         ;; the first test of every volume) and it is the same 12 the final collision
+                         ;; resolve was raised to last cycle, for the same reason.
                          (when (and (nonzero? collide?) (= 0.0 (-> *phys-cinject* ci)))
-                           (dotimes (eit 3)
+                           (dotimes (eit 12)
                              (dotimes (i len)
                                (when (>= i cs)
                                  (let* ((p (-> *phys-out* (+ start i)))
@@ -3754,7 +3897,12 @@
                            ;; this frame was graded: a stale reference would manufacture a jump on
                            ;; the first idle frame after any motion.
                            (dotimes (i len)
-                             (vector-copy! (-> *phys-oprev* (+ start i)) (-> *phys-out* (+ start i))))
+                             (vector-copy! (-> *phys-oprev* (+ start i)) (-> *phys-out* (+ start i)))
+                             ;; ...and the same snapshot in SIM space for the idle hold. Taken here
+                             ;; because `pos` is final at this point: everything below writes `prev`
+                             ;; only. Unconditional for the same reason as the line above — a stale
+                             ;; reference would manufacture a jump on the first held frame.
+                             (vector-copy! (-> *phys-lastp* (+ start i)) (-> *phys-pos* (+ start i))))
                            ;; SLEEP. On a frame where this chain was asked for nothing, a link still
                            ;; carrying less than a quarter of a millimetre of velocity is not moving,
                            ;; it is ringing down — and in a verlet integrator that residue is stored
