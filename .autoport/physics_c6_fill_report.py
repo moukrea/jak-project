@@ -156,6 +156,9 @@ V['RESEED'] = fany('reseed', pick=sum)
 V['GBAD'] = fany('gdir-not-world', pick=sum)
 V['INFLSTEP'] = fany('inflstep-max')
 V['GSAMP'] = fany('gsamp', pick=sum)
+# (W/C6b) link-frames on which arrival actually moved a body chain home — the anti-vacuous-zero
+# companion to restdevA, summed over every leg exactly like slept/gsamp.
+V['ARRN'] = fany('arrn', pick=sum)
 
 # chest: the leg prints the art-group it actually found and the chain index it read from the
 # data file, so a reordering of physics_chains.txt can never silently point this at another chain
