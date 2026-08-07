@@ -1,5 +1,5 @@
 -----------------------------------------------------------------------------------------
-19. THE PENETRATION BLOCKER — ONE CAUSE FIXED FROM ITS OWN DECAY RATE, THREE NAMED
+19. THE PENETRATION BLOCKER — TWO CAUSES FIXED, THREE NAMED WITH THE NUMBERS THAT FIND THEM
 -----------------------------------------------------------------------------------------
 The owner has twice been shown a build that looked identical to the one before it, and both times
 the reason was that a counter measured something other than what he was looking at.  So every
@@ -63,3 +63,31 @@ rigidly-skinned continuation below the final bone.  This is the same class of ho
 "capsules qui laissent des interstices", moved from the body onto the hair, and closing it means
 testing the SEGMENT between consecutive links rather than the point — a real change to the sweep,
 not a parameter, and therefore not something to land in the same cycle as (1).
+
+(5) ONE OF THE FOUR CHESTS IS ANCHORED TO THE CHARACTER ROOT — NAMED, AND IT IS A RIG FACT.
+Cycle 5 differentiated four chests by mass, stiffness and damping and argued each one.  Nobody
+checked what they hang off.  Measured on the shipped rigs:
+
+  model            chest joint   its PARENT   lever length
+  keira-hd         rBoob         chest            976.9 u
+  keira3-hd        rBoob         chest            976.9 u
+  assistant-lod0   rBoob         chest           1112.8 u
+  evilsis-lod0     rboob         chest           1083.2 u
+  bird-lady-lod0   rBoob         MAIN            2411.2 u
+
+bird-lady-lod0 HAS a `chest` joint — it is there in her 68-joint rig, right after `main` — but her
+two breast bones are not parented to it.  They hang off `main`, the character root.  Three things
+follow, and none of them is a parameter:
+  * the anchor the sim reads is her ROOT, so the excitation `couple=` feeds on is her whole body's
+    translation as she walks, not her torso's own acceleration.  She is driven by the wrong bone.
+  * the "link" the cone and the stretch limit are measured along is a 2411-unit diagonal from her
+    root out to the breast, so at the same 26 degrees her travel bound is 1282.5 units against
+    Keira's 453.0 — 2.8x — and her `stretch=0.20` alone permits 482 units of length change, more
+    than Keira's entire angular budget.
+  * her tuning is therefore not comparable with the other three, and the cycle-5 table that
+    presents all four side by side is, for her row, describing a different mechanism.
+Not changed here.  There is no `anchor=` key — the anchor is derived from the rig hierarchy — so
+this is either a new key or an injected joint at prep time, which is the same machinery the HD
+chains use and is a piece of work, not a number.  The owner has not reported anything wrong with
+her, so this is a finding, not a regression: it is recorded because the next person to tune her
+chest will otherwise spend the cycle adjusting damping on a chain that is listening to her feet.

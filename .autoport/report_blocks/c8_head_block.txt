@@ -39,6 +39,6 @@ WHAT TO LOOK AT IN THIS BUILD, on top of the standing list in section 13:
      what the extra collision sweeps are for.
 
 What is NOT claimed: whether it LOOKS right.  Every aesthetic judgement in this phase is the
-owner's.  What is measured is in sections 14, 17, 18 and 19, and section 19 names two defects this
+owner's.  What is measured is in sections 14, 17, 18 and 19, and section 19 names three defects this
 cycle found and did NOT fix — with the numbers that identify them — because a build that hides
 them is how the last two came to look identical.
