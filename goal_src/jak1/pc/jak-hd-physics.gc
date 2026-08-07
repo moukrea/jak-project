@@ -2404,6 +2404,109 @@
                                                (vector+! (-> *phys-pos* (+ start i))
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
+                                                         (-> *phys-prev* (+ start i)) vtmp)))))))))))
+                           ;; ---- (Z/C6) THE OPPOSITE SIDE GETS THE LAST WORD ---------------------
+                           ;; The sweep above is Gauss-Seidel: the volumes are resolved one after the
+                           ;; other and only the LAST one touched is left exactly satisfied. That is
+                           ;; enough while they agree and it is not enough when they cannot both be
+                           ;; satisfied — a jacket flap caught between the two thighs is pushed off
+                           ;; the near one straight into the far one and back, and the frame ends
+                           ;; inside whichever happened not to be last. Six alternations do not fix
+                           ;; that; they converge to the compromise, which is the wrong answer here.
+                           ;; MEASURED, intro cinematic, jak-hd chain shirtL: clearance -47.68 units
+                           ;; against a RIGHT-side volume, one link-frame, resid=2 in the same window
+                           ;; and jitter=8 — calm, not oscillating, simply settled somewhere the owner
+                           ;; will not accept. It is the defect he described twice, in those words:
+                           ;; "le pendant gauche finit au travers de la jambe droite et le pendant
+                           ;; droit au travers de la jambe gauche, CROISES".
+                           ;; A compromise between the two legs is not a legitimate outcome, because
+                           ;; the two constraints are not equal in meaning. A flap resting against its
+                           ;; OWN leg is what a jacket flap does; crossing into the other one is the
+                           ;; incoherence, and cycle 6 makes it a blocker rather than a target. So the
+                           ;; cross-side constraints are re-resolved on their own at the end of every
+                           ;; alternation, which puts them last on the last one: the frame can only
+                           ;; end outside the opposite side's volumes, and whatever residual the pinch
+                           ;; still owes is paid on the near leg, where it belongs.
+                           ;; This is a resolution ORDER, not a licence: no volume is opened, no radius
+                           ;; is relaxed, and the projection is the same bounded velocity-neutral one
+                           ;; as every other correction (owner rule O) — clamped to maxcorr and
+                           ;; mirrored into `pos` AND `prev` by the identical delta, so it injects
+                           ;; nothing the next frame can read as speed. Only chains that declare a
+                           ;; side pay for it, and only against volumes that declare the other one:
+                           ;; three volumes per flap on jak-hd, which is why it is affordable at all.
+                           (when (and (nonzero? collide?) (nonzero? (-> *phys-cside* ci)))
+                             (dotimes (i len)
+                               (when (>= i cs)
+                                 (let* ((p (-> *phys-out* (+ start i)))
+                                        (exth (* 0.5 (-> *phys-cext* ci)))
+                                        (edl (cond
+                                               ((and (> exth 0.0) (= i (+ len -1)))
+                                                (vector-! dirv p (if (zero? i) anchor (-> *phys-out* (+ start i -1))))
+                                                (vector-length dirv))
+                                               (else 0.0)))
+                                        (probe? (if (> edl 0.0001) 1 0))
+                                        (radx (if (nonzero? probe?) exth 0.0))
+                                        (pt (cond
+                                              ((nonzero? probe?)
+                                               (vector-float*! pprb dirv (/ exth edl))
+                                               (vector+! pprb p pprb)
+                                               pprb)
+                                              (else p))))
+                                   (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
+                                     (let ((cb (+ (* slot PHYS-COLS)
+                                                  (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
+                                                                       (* c PHYS-CCMAX) s2)))))
+                                       (when (and (<= (-> *phys-coltier* cb) tier)
+                                                  (!= (-> *phys-colchain* cb) c)
+                                                  ;; the cross-side pair, and only it: same test the
+                                                  ;; xleg audit below scores, so the pass and the
+                                                  ;; measurement cannot drift apart.
+                                                  (nonzero? (-> *phys-colside* cb))
+                                                  (!= (-> *phys-cside* ci) (-> *phys-colside* cb)))
+                                         (let* ((rc (-> *phys-colchain* cb))
+                                                (k2 (-> *phys-colk2* cb))
+                                                (ca (if (>= rc 0)
+                                                        (-> *phys-out* (+ jbase (-> *phys-cstart* (+ cbase rc))
+                                                                          (+ (-> *phys-clen* (+ cbase rc)) -1)))
+                                                        (-> skel bones (+ (-> *phys-colk* cb) 1) transform vector 3)))
+                                                (cbv (if (and (< rc 0) (>= k2 0))
+                                                         (-> skel bones (+ k2 1) transform vector 3)
+                                                         ca))
+                                                (r1 (-> *phys-colr* cb))
+                                                (tt (phys-closest-on-seg! cpt ca cbv pt))
+                                                (rr (fmin (+ (-> *phys-lrad* (+ start i)) radx r1 (* tt (- (-> *phys-colr2* cb) r1)))
+                                                          (+ radx (-> *phys-ccap* (+ (* i PHYS-CCMAX) s2))))))
+                                           (vector-! vtmp pt cpt)
+                                           (let ((dd (vector-length vtmp)))
+                                             (when (< dd (- rr PHYS-PEN-TOL))
+                                               (+! (-> *phys-slot-pushouts* slot) 1)
+                                               (+! chpush 1)
+                                               (set! (-> lpush i) 1)
+                                               (let ((pen (- rr dd)))
+                                                 (when (> pen (-> *phys-slot-maxpen* slot))
+                                                   (set! (-> *phys-slot-maxpen* slot) pen)))
+                                               (when (< dd 0.0001)
+                                                 (vector-! vtmp (-> *phys-targ* (+ start i)) cpt)
+                                                 (set! dd (vector-length vtmp))
+                                                 (when (< dd 0.0001)
+                                                   (set! (-> vtmp x) 0.0)
+                                                   (set! (-> vtmp y) 1.0)
+                                                   (set! (-> vtmp z) 0.0)
+                                                   (set! (-> vtmp w) 0.0)
+                                                   (set! dd 1.0)))
+                                               (vector-float*! vtmp vtmp (/ rr dd))
+                                               (vector+! vtmp3 cpt vtmp)
+                                               (vector-! vtmp vtmp3 pt)
+                                               (let ((cl (vector-length vtmp)))
+                                                 (when (> cl maxcorr)
+                                                   (+! (-> *phys-slot-clamped* slot) 1)
+                                                   (vector-float*! vtmp vtmp (/ maxcorr cl))))
+                                               (when (nonzero? probe?)
+                                                 (vector+! pprb pprb vtmp))
+                                               (vector+! p p vtmp)
+                                               (vector+! (-> *phys-pos* (+ start i))
+                                                         (-> *phys-pos* (+ start i)) vtmp)
+                                               (vector+! (-> *phys-prev* (+ start i))
                                                          (-> *phys-prev* (+ start i)) vtmp))))))))))))
                          ;; ---- residual penetration audit (owner 17:35 bar: this must read 0) ----
                          ;; Measured AFTER the last iteration, on the exact point that is about to be
