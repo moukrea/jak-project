@@ -2382,7 +2382,7 @@ phases:
   prompt: prompts/phase-Grecharged-secondary-motion.md
   validator: validators/phase-Grecharged-secondary-motion.sh
   max_turns: 3000
-  max_retries: 6
+  max_retries: 14
   device: true
   device_serial: eae4df44
   owner_verify: true
