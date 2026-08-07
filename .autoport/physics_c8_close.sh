@@ -23,6 +23,16 @@ die(){ echo "[c8-close FAIL] $*" >&2; exit 1; }
 $ADB devices | grep -qE "^${S}[[:space:]]+device$" || die "device $S not on adb"
 
 # ---- 0. the phone must not be left with the aborted leg's settings ---------------------------
+# The phone rebooted while it was away (uptime 363 s when it came back) and sat RUNNING_LOCKED, so
+# /storage/emulated/0/OpenGOAL did not exist at all until the PIN was entered. Refuse to work on a
+# locked phone rather than fail halfway through step 0: every path below is on that volume, and the
+# first arming of the watcher already burned one pass discovering this the hard way.
+UNL=$($ADB -s "$S" shell 'dumpsys user 2>/dev/null | grep -c RUNNING_UNLOCKED' 2>/dev/null | tr -d '\r')
+[ "${UNL:-0}" -ge 1 ] 2>/dev/null \
+  || die "user 0 is not unlocked — after a reboot Android keeps encrypted storage shut until the PIN is entered once. Enter it and re-run; nothing here can proceed without that volume."
+$ADB -s "$S" shell "ls -d $(dirname "$PCS_DEV")" >/dev/null 2>&1 \
+  || die "$(dirname "$PCS_DEV") is missing even though the user is unlocked — do not push into a path that does not exist"
+
 if [ -f "$INI_BAK" ]; then
   CUR=$($ADB -s "$S" shell "grep -c 'physics? *= *#t' $PCS_DEV" 2>/dev/null | tr -d '\r')
   say "owner settings.ini on device before restore: physics?=#t lines = ${CUR:-unreadable}"
