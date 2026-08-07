@@ -3191,8 +3191,24 @@
                               (when (> (-> *phys-cstick* ci) (-> *phys-slot-stickmax* slot))
                                 (set! (-> *phys-slot-stickmax* slot) (-> *phys-cstick* ci))))
                              (else
-                              (set! (-> *phys-cstick* ci) 0)
-          (set! (-> *phys-cres* ci) 0)))
+                              ;; `cstick` counts CONSECUTIVE pressed frames, so a clean frame is
+                              ;; exactly what must reset it. `cres` does not: it is a WINDOW
+                              ;; accumulator ("how many frames of this window ended with a
+                              ;; penetration this chain could not clear") and it is already reset
+                              ;; where every other window counter is, at the print. Clearing it
+                              ;; here too — which is what this branch did, copy-pasted alongside
+                              ;; the line above and even indented like a different block — meant
+                              ;; the next clean frame wiped it before the window ever printed.
+                              ;; With 2 to 8 residual frames inside a ~1500-frame window that is
+                              ;; every time: `cres:` has read 0 in EVERY log of this phase,
+                              ;; including the four jak-hd windows that did hold a penetration.
+                              ;; The slot-wide `resid` was right and the leg failed on it, so no
+                              ;; false green was shipped — but the array whose whole job is to NAME
+                              ;; the chain has never once worked, which is why four cycles of
+                              ;; penetration reports say "somewhere on jak-hd" instead of
+                              ;; "collarL", and why this cycle had to identify both offenders from
+                              ;; `cclr` by hand instead of reading them off the log.
+                              (set! (-> *phys-cstick* ci) 0)))
                            (when (> (-> *phys-cstick* ci) PHYS-STICK)
                              (+! (-> *phys-slot-rested* slot) 1)))
                          ;; ---------------- sanity + write-back ----------------

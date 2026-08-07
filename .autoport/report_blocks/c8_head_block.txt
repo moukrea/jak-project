@@ -23,7 +23,22 @@ Also in this build:
     motion — Maia's hair during her intro flight — finishes the frame outside her body.  The lower
     quality levels are bit-identical to the previous build.
 
+WHAT TO LOOK AT IN THIS BUILD, on top of the standing list in section 13:
+  a. Keira's chest while she moves hard.  It should travel about as far as the last build did — that
+     part he called excellent and it is deliberately kept — but stop and come back instead of
+     wobbling on.  If it now reads as too SMALL rather than too soft, the fix is `maxangle` on her
+     two chest chains and it is a few KB to drop on the phone, not an APK.
+  b. Maia's chest against Keira's.  Hers should travel further and arrive later.  If she reads
+     slower but not BIGGER, that is her coupling, not her damping — the mistake made on her once
+     already.
+  c. Daxter's ears during ordinary idle, on Jak's shoulder.  They should now move continuously
+     instead of locking whenever an animation plays.  This is the change most likely to look
+     WRONG in the other direction — if his ears now ignore an animation that clearly flicks them,
+     the threshold went too far and it is one number.
+  d. Maia's hair at her spawn, seen from far, and Jak's collar in the intro close-up.  These are
+     what the extra collision sweeps are for.
+
 What is NOT claimed: whether it LOOKS right.  Every aesthetic judgement in this phase is the
-owner's; section 13 lists what to look at.  What is measured is in sections 14, 17, 18 and 19, and
-section 19 names three defects this cycle found and did NOT fix, with the numbers that identify
-them, because a build that hides them is how the last two came to look identical.
+owner's.  What is measured is in sections 14, 17, 18 and 19, and section 19 names two defects this
+cycle found and did NOT fix — with the numbers that identify them — because a build that hides
+them is how the last two came to look identical.

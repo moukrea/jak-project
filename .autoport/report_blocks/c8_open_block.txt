@@ -38,17 +38,21 @@ cycles changed nothing: none of those parameters is what places it.  Not changed
 tightening the cap trades against the very convergence that (1) just bought, and the two must be
 measured one at a time — the method the supervisor imposed after the cycle-5 oscillations.
 
-(3) THE PER-CHAIN RESIDUAL COUNTER `cres` CANNOT REPORT — NAMED.
-It is incremented on a residual frame and then zeroed in the `else` branch of the sticking test,
-which runs on the next clean frame, so with 2 to 8 residual frames inside a 1500-frame window it is
-always zero by the time the window prints.  Every `cres:` array in every log of this phase reads 0,
-including on the windows that DID hold a penetration.  Both offending chains above had to be
-identified instead from `cclr`, the minimum-clearance accumulator, which is reset only at print
-time and whose worst entry equals `-residmax` exactly in all four of jak-hd's failing windows.
-This is not a false green — the slot-wide `resid` counter reported the penetrations correctly and
-the leg failed the run on them — but the array whose entire purpose is to NAME the chain has never
+(3) THE PER-CHAIN RESIDUAL COUNTER `cres` COULD NOT REPORT — FIXED.
+It is incremented on a residual frame and was then zeroed in the `else` branch of the sticking
+test, which runs on the next clean frame, so with 2 to 8 residual frames inside a ~1500-frame
+window it was always zero by the time the window printed.  Every `cres:` array in every log of this
+phase reads 0, including on the four jak-hd windows that DID hold a penetration.  `cstick` shares
+that branch and belongs there — it counts CONSECUTIVE pressed frames, so a clean frame is exactly
+what must reset it — but `cres` is a WINDOW accumulator and is already reset where every other
+window counter is, at the print.  The stray line was even indented as if it belonged to a different
+block, which is what it looks like: a copy-paste of the line above it.  Removed.
+No false green was ever shipped on this — the slot-wide `resid` counter was correct and the leg
+failed the run on it — but the array whose entire purpose is to NAME the chain had never once
 worked, which is why four cycles of penetration reports say "somewhere on jak-hd" instead of
-"collarL".
+"collarL", and why both offenders in this report had to be identified by hand from `cclr`, the
+minimum-clearance accumulator, whose worst entry equals `-residmax` exactly in all four of those
+windows.  From this build on, the log names them.
 
 (4) CHAIN-SIDE COLLISION IS A POINT PER LINK, SO A LONG STRAND HAS GAPS — NAMED.
 evilsis-lod0's `backhairM` is 5 links spanning 7486.8 units (1.8 m), with link lengths of 572,
