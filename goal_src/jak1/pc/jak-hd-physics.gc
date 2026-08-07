@@ -185,6 +185,7 @@
 (define *phys-slot-jitter* (new 'static 'array int32 24))   ;; (O) velocity REVERSALS above the noise floor — oscillation, counted
 (define *phys-slot-rested* (new 'static 'array int32 24))   ;; (O) chain-frames spent in the calm resting state
 (define *phys-slot-clamped* (new 'static 'array int32 24))  ;; (O) corrections that hit the per-frame bound
+(define *phys-slot-modelfall* (new 'static 'array int32 24)) ;; (N) links walked home to the model pose
 ;; (O) the LONGEST SUSTAINED fight of any one chain in the window. A raw reversal COUNT cannot tell
 ;; "buzzing" from "sliding along the body": a chain in moving contact reverses now and then no matter
 ;; how well it behaves (measured: 73 isolated reversals on a perfectly settled Maia). What the owner
@@ -376,7 +377,7 @@
 ;;   * and it is applied BEFORE the output blend, so the correction reaches the bone on the frame
 ;;     it is computed instead of the frame after, and is graded after the length restoration and
 ;;     the collision sweep have both had their say.
-;; Head start at the tenth quiet frame with N=2, RAMP=2, K=0.95: (1-.475)(1-.95)^6 = 8.2e-9.
+;; Head start at the tenth quiet frame with N=2, RAMP=2, K=0.99: (1-.495)(1-.99)^6 = 5.1e-13.
 ;; MEASURED, 06:10 leg, K=0.8 and the collapse removed: keira-hd 79.44 -> 11.20, samos-hd 43.67 ->
 ;; 15.64, the intro 293.23 -> 30.68, the stock riders 28.41 -> 3.25. What was left was not a
 ;; convergence failure but a FIGHT: the chain-vs-chain pass separates a pair by moving `pos` AND
@@ -387,9 +388,35 @@
 ;; 5.8190 units a frame. See *phys-lxheld*: a link another chain is holding is now held, exactly as
 ;; a link the body is holding is held. K then rises because what remains is genuine settling lag,
 ;; and the residual it leaves scales with (1-K).
+;; CYCLE 7 — AND (1-K) IS THE WHOLE OF WHAT IS LEFT. The line above is not a figure of speech:
+;; arrival is the LAST thing that touches `pos` before the output blend, and every link the
+;; fidelity metric grades is a link arrival ran on — the two share their gating clause for clause
+;; (family A, upright, not settling, authored below 0.5, i >= rootlock, `lpush` clear), and the
+;; only writers that come after — the collision resolve, the cross-side pass — set `lpush` on
+;; whatever they move, which takes that link out of the sample. So on a graded frame
+;;   restdevA = influence * (1 - K) * |error before arrival|,
+;; exactly, and nothing else in the frame can add to it. That is why the number sat at 5-7 units
+;; across three cycles of solver work that never touched K: at 0.95 the sim was keeping a
+;; twentieth of a displacement the chain-vs-chain pass can legitimately make 100+ units deep, and
+;; a twentieth of that is the entire reading. Measured, 09:06 four-leg run: samos-hd `belly`
+;; 5.8515 (worst of D-MAX, and 5x every other chain on that actor), evilsis chestL/chestR 7.0029
+;; and 6.7711 (worst of D-INTRO) — all three single-joint chains with mass=, i.e. the ones whose
+;; partner chains shove them hardest while reading as calm.
+;; K 0.95 -> 0.99 divides that residual by five, and it can do nothing else: it changes no force,
+;; no limit and no volume. It cannot reach family B at all (arrival is family-A only), so it
+;; cannot move `xleg`, which is family B's counter by construction — side= is declared on hanging
+;; pendants and on nothing else. It cannot open a penetration either: for family A every volume is
+;; capped at the chain's own model pose less PHYS-MODEL-CLR, so the point arrival pulls toward is
+;; outside all of them by construction, and pulling harder toward it can only reduce contact.
+;; What it does change is what the owner asked for three times in different words — "la position
+;; IDLE devrait etre EXACTEMENT celle du modele de base, pas plus haut, pas plus bas". At 0.95 it
+;; was 95% of the way there. There is no visible cost: the correction magnitude moves from 0.95 to
+;; 0.99 of an error the chain only has while its own Verlet velocity is under 2 units/frame
+;; (0.5 mm), so the "pop at the end of the settle" the owner was told to watch for is 4% larger
+;; than the one already shipping, not a new one.
 (defconstant PHYS-ARRIVE-N 2)
 (defconstant PHYS-ARRIVE-RAMP 2.0)
-(defconstant PHYS-ARRIVE-K 0.95)
+(defconstant PHYS-ARRIVE-K 0.99)
 ;; (W/C6c) how long a chain-vs-chain contact keeps holding the links it separated. The pass runs
 ;; after the per-chain step, so the flag is always read one frame later; 3 frames of hysteresis
 ;; means a pair in sustained contact stays exempt instead of flickering in and out of it every
@@ -447,6 +474,11 @@
 ;; (W/C6b) margin kept between a link's MODEL pose and the surface of any volume it is tested
 ;; against. See *phys-ccap*. Small on purpose: this is a floor, not a clearance budget.
 (defconstant PHYS-MODEL-CLR 2.0)
+;; (N) how far a family A link the body is holding is biased back toward its model pose each
+;; frame. It is a fraction, not a distance, so a link already home does not move and a link
+;; driven deep comes back at a rate set by how deep it is. 0.25 = a contact lasting a fifth of
+;; a second is essentially home; a glancing one is barely touched.
+(defconstant PHYS-MODELPULL 0.25)
 ;; (O) a single frame may not move a joint more than this fraction of the chain's length to satisfy
 ;; a collider. Deep penetrations (a spawn inside geometry) are walked out over several frames
 ;; instead of being teleported out, which is the other way an energy loop starts.
@@ -1198,6 +1230,7 @@
     (set! (-> *phys-slot-jitter* slot) 0)
     (set! (-> *phys-slot-rested* slot) 0)
     (set! (-> *phys-slot-clamped* slot) 0)
+    (set! (-> *phys-slot-modelfall* slot) 0)
     (set! (-> *phys-slot-stickmax* slot) 0)
     ;; ---- cycle-4 window counters ------------------------------------------------------------
     (set! (-> *phys-slot-idle* slot) 0.0)
@@ -2217,6 +2250,64 @@
                                  (vector+! (-> *phys-pos* (+ start i)) (-> *phys-pos* (+ start i)) vtmp)
                                  (vector+! (-> *phys-prev* (+ start i)) (-> *phys-prev* (+ start i)) vtmp)
                                  (+! (-> *phys-slot-arrn* slot) 1)))))
+                         ;; ---- (N) SUSTAINED CONTACT BIASES A BODY CHAIN HOME -------------------
+                         ;; Owner, cycle 6, as a delivery condition rather than a target: nothing
+                         ;; with physics may pass through its own character's mesh, "QU'IMPORTE LA
+                         ;; RAISON", and cycle 3c named Maia for it. Measured this run, her
+                         ;; backhairM chain still ends 19.93 units inside a volume for part of one
+                         ;; window, and more iterations of the existing sweep are not the answer:
+                         ;; Gauss-Seidel over volumes that disagree converges to a COMPROMISE, and
+                         ;; the compromise here is a strand inside the body — the one outcome he
+                         ;; ruled out.
+                         ;; What the sweep was not using is that this family has a point KNOWN to
+                         ;; satisfy all of its constraints at once. Since cycle 6d every volume a
+                         ;; family A chain is tested against is capped at that chain's own model
+                         ;; pose less PHYS-MODEL-CLR, so AT the model pose every pair reads
+                         ;; dd = ccap + PHYS-MODEL-CLR against rr <= ccap: feasible by construction,
+                         ;; for every volume simultaneously rather than one at a time, with 2 units
+                         ;; of margin against a 1-unit tolerance. So a link the body is holding is
+                         ;; biased toward that point a quarter of the way per frame; a contact that
+                         ;; lasts collapses onto a pose that cannot penetrate, and one that does not
+                         ;; last is barely touched.
+                         ;; It runs HERE, before the output blend and therefore before the whole
+                         ;; collision sweep, which is the ordering that makes it safe: the sweep
+                         ;; still has the last word, so this can never be the thing that pushes a
+                         ;; link INTO a volume — only the thing that stops it living in one.
+                         ;; FAMILY A ONLY, and that restriction is load-bearing rather than
+                         ;; cautious: family B volumes carry no cap (a jacket flap must be pushed by
+                         ;; a thigh that swings into it), so a hanging chain's model pose is not a
+                         ;; feasible point, and walking a strap back to it would be exactly the
+                         ;; "returns to the modelled pose" bug the owner called the opposite of what
+                         ;; he wants. `prev` takes the same delta as `pos`, so no velocity is
+                         ;; injected or destroyed (owner rule O), and `modelfall=` counts it so the
+                         ;; mechanism cannot be a silent zero.
+                         ;; ...and the point it is biased toward is the chain's OWN equilibrium, not
+                         ;; the bare target — the same reference arrival uses, for the same reason.
+                         ;; On anim=excite the authored channel comes back as a FORCE, so the spring
+                         ;; settles at target + excite*(authored - target), and that blend IS the
+                         ;; model's intent: ND is actively posing the bone. Measured the hard way on
+                         ;; the first build of this mechanism: pulling toward the bare target dragged
+                         ;; Daxter's two ear chains off the pose the animator was holding and took
+                         ;; the run's worst model-pose deviation from 1.47 units to 5.52, with his
+                         ;; ears as the two worst chains on the phone. The damage outlives the
+                         ;; contact, which is why it showed up in a metric that skips held links.
+                         (when (= 1 (-> *phys-cfam* ci))
+                           (dotimes (i len)
+                             (when (and (>= i cs) (nonzero? (-> lpush i)))
+                               (cond
+                                 ((> exc 0.0)
+                                  (vector-! vtmp2 (-> *phys-anim* (+ start i))
+                                            (-> *phys-targ* (+ start i)))
+                                  (vector-float*! vtmp2 vtmp2 exc)
+                                  (vector+! vtmp2 vtmp2 (-> *phys-targ* (+ start i))))
+                                 (else (vector-copy! vtmp2 (-> *phys-targ* (+ start i)))))
+                               (vector-! vtmp vtmp2 (-> *phys-pos* (+ start i)))
+                               (vector-float*! vtmp vtmp PHYS-MODELPULL)
+                               (vector+! (-> *phys-pos* (+ start i))
+                                         (-> *phys-pos* (+ start i)) vtmp)
+                               (vector+! (-> *phys-prev* (+ start i))
+                                         (-> *phys-prev* (+ start i)) vtmp)
+                               (+! (-> *phys-slot-modelfall* slot) 1))))
                          ;; ---- (P/U) OUTPUT BLEND, MOVED AHEAD OF THE COLLISION RESOLVE ----------
                          ;; out = target + influence * (sim - target). This used to sit at the very
                          ;; end, AFTER the final collision sweep and after the residual audit — which
@@ -2535,7 +2626,7 @@
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
                                                          (-> *phys-prev* (+ start i)) vtmp))))))))))))
-                         ;; ---- residual penetration audit (owner 17:35 bar: this must read 0) ----
+;; ---- residual penetration audit (owner 17:35 bar: this must read 0) ----
                          ;; Measured AFTER the last iteration, on the exact point that is about to be
                          ;; written to the bones — a push-out counter alone would happily report
                          ;; thousands of resolutions while the chain still ends the frame inside the
@@ -3478,11 +3569,12 @@
                       (-> *phys-slot-restdeva* slot)
                       (-> *phys-slot-restwin* slot)
                       (-> *phys-slot-xheld* slot))
-              (format *phys-line-buf* " xleg=~D lenmin=~f lensim=~f extprobe=~D"
+              (format *phys-line-buf* " xleg=~D lenmin=~f lensim=~f extprobe=~D modelfall=~D"
                       (-> *phys-slot-xleg* slot)
                       (-> *phys-slot-lenmin* slot)
                       (-> *phys-slot-lensim* slot)
-                      (-> *phys-slot-extprobe* slot))
+                      (-> *phys-slot-extprobe* slot)
+                      (-> *phys-slot-modelfall* slot))
               ;; per-chain: family, post-settle model deviation, worst length ratio. Three numbers
               ;; per chain is what turns "this actor is fine" into "chain 4 is not", which cost a
               ;; whole build cycle on Gol the last time only the slot total was printed.
@@ -3568,6 +3660,7 @@
     (set! (-> *phys-slot-jitter* slot) 0)
     (set! (-> *phys-slot-rested* slot) 0)
     (set! (-> *phys-slot-clamped* slot) 0)
+    (set! (-> *phys-slot-modelfall* slot) 0)
     (set! (-> *phys-slot-stickmax* slot) 0)
               (set! (-> *phys-slot-frames* slot) 0)
               (set! (-> *phys-slot-resets* slot) 0)

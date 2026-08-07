@@ -289,6 +289,24 @@ V['COLLARCASE'] = ('D-INTRO leg, jitter = %s reversals, stickmax = %s frames, re
                    '= %s — the constraint converges instead of oscillating'
                    % (f('D-INTRO', 'jitter-max'), f('D-INTRO', 'stick-max'), f('D-INTRO', 'rested')))
 
+# The four chest rigs, READ OUT OF THE DATA FILE rather than typed here. They were hardcoded and
+# had already drifted away from what ships (the Keira row still said stiffness 1.60 / damping 0.14
+# while physics_chains.txt carried 2.60 / 0.100), which is the same class of defect as a stale
+# device number: a report stating a parameter the build does not have.
+def _chest(model):
+    """(stiffness, mass, damping) of that model's first chest chain, from the data file"""
+    cur = None
+    for l in open('recharged_assets/physics_chains.txt', errors='ignore'):
+        m = re.match(r'^\[model ([^\]]+)\]', l)
+        if m:
+            cur = m.group(1).split()
+            continue
+        if cur and model in cur and l.startswith('chain chest'):
+            g = [re.search(k + r'=([0-9.]+)', l) for k in ('stiffness', 'mass', 'damping')]
+            return tuple(x.group(1) if x else NA for x in g)
+    return (NA, NA, NA)
+
+
 V['HEADLINE'] = ('family A = %s / family B = %s chains simulating with unclass = %s; body chains '
                  'settle %s units from the model pose over %s sampled chain-frames; cross-leg '
                  'penetrations = %s with %s pendant-cloth tests actually run; nothing crushed '
@@ -314,11 +332,12 @@ V['FACTSHEET'] = '\n'.join([
   '  chest, %s chestR: max = %s units (cycle-2 baseline the owner called invisible: 272.4)' % (V['CHESTAG'], V['CHEST']),
   '  chest base travel = %s units, so the whole volume moves, tip AND root' % V['CHEST'],
   '  chest base end travels with the tip: swing=0.55 keeps the full simulated translation on the bone',
-  '  mass and inertia per chest chain: Keira mass=1.6, bird lady mass=3.4, Maia (evilsis) mass=4.2',
+  '  mass and inertia per chest chain: Keira mass=%s, bird lady mass=%s, Maia (evilsis) mass=%s'
+  % (_chest('keira-hd')[1], _chest('bird-lady-lod0')[1], _chest('evilsis-lod0')[1]),
   '  chest mass reaches the integrator as a = F/m: omega_eff = omega / sqrt(mass), every substep',
-  '  chest stiffness = 1.60 mass = 1.6 damping = 0.14 (Keira: young, round, FIRM, least droop)',
-  '  chest stiffness = 2.26 mass = 3.4 damping = 0.36 (bird lady: older, heavier, more damped)',
-  '  chest stiffness = 2.46 mass = 4.2 damping = 0.44 (Maia: heaviest, most damped — mass, not jelly)',
+  '  chest stiffness = %s mass = %s damping = %s (Keira: young, round, FIRM, least droop)' % _chest('keira-hd'),
+  '  chest stiffness = %s mass = %s damping = %s (bird lady: heavier than Keira — lower frequency, more lag)' % _chest('bird-lady-lod0'),
+  '  chest stiffness = %s mass = %s damping = %s (Maia: heaviest — the LOWEST frequency, so the most travel and the most lag; damping cut below Keira so heavy reads as heavy, not as dead)' % _chest('evilsis-lod0'),
   '  the archaeologist (geologist-lod0) has NO breast joint in any of the 458 rigs — see section 4',
   '  three chest rigs, three rows, monotone in mass / damping / stretch — no line is a copy of another',
   '  Keira: breast-to-breast contact via a collider riding the other chain simulated tip',
