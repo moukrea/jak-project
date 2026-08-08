@@ -89,6 +89,10 @@ METRICS = {
     "restdevA": (False, r"restdevA\s*=\s*([0-9]+\.?[0-9]*)", 0.0),
     "lenmin":   (True,  r"lenmin\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
     "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
+    # cycle 14 motion FLOORS: a dead sim maxes every calm metric, so calm may never
+    # again be bought by killing motion (owner: static hair while RUNNING, static chest).
+    "chestrun": (True,  r"chestrun\s*=\s*([0-9]+\.?[0-9]*)", 40.0),
+    "hairrun":  (True,  r"hairrun\s*=\s*([0-9]+\.?[0-9]*)",  15.0),
 }
 TOL = 1e-6
 
