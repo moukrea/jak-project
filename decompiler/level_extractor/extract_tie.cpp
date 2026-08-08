@@ -2820,6 +2820,38 @@ void extract_tie(const level_tools::DrawableTreeInstanceTie* tree,
     emulate_tie_prototype_program(info);
     emulate_tie_instance_program(info, version);
     emulate_kicks(info);
+    // Grecharged-foliage-wind2 AMPLITUDE CENSUS (env-gated, changes no extraction output).
+    // The census above answers "is this proto in the wind set"; this one answers "how big is it",
+    // which is the only way to turn the renderer's DIMENSIONLESS levers into meters:
+    //   * the matrix shear displaces a vertex by  shear * (its height above the instance origin),
+    //   * the frond flutter displaces it by       u_fw_amp * (its own |xz| reach),
+    // both measured in these prototype-local units. Vertex positions only exist after
+    // emulate_kicks(), hence the second block. 4096 local units == 1 m (jak1 GOAL convention).
+    if (geo == 0 && std::getenv("TIE_CENSUS")) {
+      for (const auto& proto : info) {
+        float ylo = 1e30f, yhi = -1e30f, reach_max = 0.f;
+        size_t nvert = 0;
+        for (const auto& frag : proto.frags) {
+          for (const auto& strip : frag.strips) {
+            for (const auto& vert : strip.verts) {
+              ylo = std::min(ylo, vert.pos.y());
+              yhi = std::max(yhi, vert.pos.y());
+              reach_max = std::max(reach_max, std::sqrt(vert.pos.x() * vert.pos.x() +
+                                                        vert.pos.z() * vert.pos.z()));
+              nvert++;
+            }
+          }
+        }
+        if (!nvert) {
+          continue;
+        }
+        fmt::print(
+            "[tie-bbox] level={} proto={} wind={} stiffness={} instances={} verts={} "
+            "ylo={:.1f} yhi={:.1f} height_m={:.2f} reach_max_m={:.2f}\n",
+            debug_name, proto.name, (proto.stiffness != 0.f) ? 1 : 0, proto.stiffness,
+            proto.instances.size(), nvert, ylo, yhi, (yhi - ylo) / 4096.f, reach_max / 4096.f);
+      }
+    }
 
     // debug save to .obj
     if (dump_level) {
