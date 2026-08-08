@@ -292,6 +292,44 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
         END { printf "%.4f", m+0 }')
       say "leg $TAG: $KM chest chain (idx $KIDX) max deviation on device = $CHEST units"
     fi
+    # ---- CYCLE-13 PERIMETER GATES ([HD-PHYS5] line) ------------------------------------------
+    # Owner cycle 12 threw the build out over the PERIMETER, not the counter: 204 of 345 chains
+    # carried colskip= and tested nothing at all, and all 2384 volumes carried a chains= filter, so
+    # a correct residual counter over a perimeter that excluded half the cast produced a zero that
+    # was arithmetically exact and entirely false. Both licences are gone; these three numbers are
+    # what makes their absence checkable on the phone instead of asserted in prose.
+    #   ccnsum   volumes actually tested, summed over every chain of the actor, per window. This is
+    #            the denominator every resid=0 in this file is implicitly divided by: at 0 the
+    #            residual audit is vacuous, exactly as resid=0/push=0 was.
+    #   cctrunc  chain-frames whose reachable-volume list overflowed PHYS-CCMAX. Each one is a
+    #            volume a chain could reach and was not tested against — i.e. a hole. Must be 0.
+    #   ccpairs  strand-vs-strand pairs actually link-tested. The owner's "encore pire" half
+    #            (bangs through ears, goggles through chest, buckle through strap) can only be
+    #            found by a pass that runs, and this says whether it ran.
+    local N5 CCNS CCTR CCPR CCC
+    N5=$(grep -ac '\[HD-PHYS5\] ag=' "$LC" || true)
+    [ "${N5:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS5] line — the perimeter instrument never printed"; OK=0; }
+    CCNS=$(grep -a 'ccnsum=' "$LC" | awk '{if (match($0,/ccnsum=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    CCTR=$(grep -a 'cctrunc=' "$LC" | awk '{if (match($0,/cctrunc=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    CCPR=$(grep -a 'ccpairs=' "$LC" | awk '{if (match($0,/ccpairs=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    CCC=$(grep -a 'chainvschain=' "$LC" | awk '{if (match($0,/chainvschain=[0-9]+/)) s+=substr($0,RSTART+13,RLENGTH-13)} END {print s+0}')
+    say "leg $TAG: cycle13 ccnsum=$CCNS cctrunc=$CCTR ccpairs=$CCPR chainvschain=$CCC nomask-max=${NOMK:-n/a}"
+    TOTCCN=$((TOTCCN + CCNS)); TOTCCP=$((TOTCCP + CCPR)); TOTCCT=$((TOTCCT + CCTR))
+    [ "${CCTR:-0}" = 0 ] || { say "FAIL($TAG): cctrunc=$CCTR — a chain could reach more volumes than PHYS-CCMAX and the excess was DROPPED (that is a hole)"; OK=0; }
+    [ "${CCNS:-0}" -gt 0 ] || { say "FAIL($TAG): ccnsum=0 — no chain was tested against any volume, so every resid=0 in this leg is vacuous"; OK=0; }
+    # nomask changed MEANING this cycle and the gate has to change with it. It used to be "chains no
+    # volume named", a property of the data; it is now "chains that reached NO volume in the whole
+    # window", a property of the geometry AND of the precision level — the perimeter rebuild applies
+    # the tier gate, so at quality 1 only tier-1 volumes exist and a chain whose neighbours are all
+    # tier 2 legitimately reaches none. At quality 2 there is no such excuse and it is a hard fail.
+    # At quality 1 it is reported, never swallowed: it goes in the report as an open item, because
+    # the owner's own rule is that a low level may reduce the collider count but "JAMAIS au point de
+    # laisser traverser visiblement".
+    if [ "$QUAL" = 2 ]; then
+      [ "${NOMK:-0}" = 0 ] || { say "FAIL($TAG): nomask=$NOMK — a live chain reached no volume at all this window at MAX precision"; OK=0; }
+    else
+      [ "${NOMK:-0}" = 0 ] || say "OPEN($TAG): nomask=$NOMK at quality=$QUAL — chain(s) whose only volumes are tier 2, so they have nothing to hit at this precision level"
+    fi
   fi
   case "$MODE" in
     expect-phys)
@@ -376,6 +414,9 @@ FAILED=0
 TOTIDLE=0
 TOTEXT=0
 TOTREST=0
+TOTCCN=0
+TOTCCP=0
+TOTCCT=0
 run_leg "D-MAX" '#t' 2 expect-phys || FAILED=1
 run_leg "D-OFF" '#f' 1 expect-off  || FAILED=1
 run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
@@ -393,5 +434,15 @@ say "run total: post-settle model-fidelity samples across all legs = $TOTREST"
 [ "$TOTREST" -ge 1 ] || { say "FAIL(run): restwin=0 in the whole run — restdevA graded nothing, so it is an empty zero"; FAILED=1; }
 say "run total: pendant-cloth collision tests across all legs = $TOTEXT"
 [ "$TOTEXT" -ge 1 ] || { say "FAIL(run): extprobe=0 in the whole run — the pendant geometry was never tested, so xleg=0 proves nothing"; FAILED=1; }
+# ---- CYCLE-13 RUN TOTALS ---------------------------------------------------------------------
+# The perimeter is the thing the owner's cycle-12 rejection was about, so it gets run-level totals
+# of its own rather than only per-leg ones. A zero here does not mean "clean", it means "nothing
+# was measured", and this phase has already shipped four of those.
+say "run total: volume-tests across all legs (ccnsum) = $TOTCCN"
+[ "$TOTCCN" -ge 1 ] || { say "FAIL(run): ccnsum=0 in the whole run — not one chain was tested against one volume, so every resid=0 is an empty zero"; FAILED=1; }
+say "run total: strand-vs-strand pairs link-tested across all legs (ccpairs) = $TOTCCP"
+[ "$TOTCCP" -ge 1 ] || { say "FAIL(run): ccpairs=0 in the whole run — the chain-vs-chain pass never ran, so the owner's worse half is unmeasured"; FAILED=1; }
+say "run total: truncated perimeters across all legs (cctrunc) = $TOTCCT"
+[ "$TOTCCT" = 0 ] || { say "FAIL(run): cctrunc=$TOTCCT — reachable volumes were dropped for want of list space"; FAILED=1; }
 if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER + D-INTRO green"; else say "[physics device leg FAIL] see legs above"; fi
 exit "$FAILED"

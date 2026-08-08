@@ -727,6 +727,11 @@ def set_kv(line, key, val):
     return line.rstrip() + ' %s=%s' % (key, val)
 
 
+def del_kv(line, key):
+    """Remove a key entirely. `\\s+key=` so a longer key ending in the same letters is untouched."""
+    return re.sub(r'\s+%s=[^\s]*' % re.escape(key), '', line)
+
+
 def clearance_shrink(vols_keep, cgeo):
     """Per (chain, volume): how much that volume must be REDUCED so the chain's own modelled rest
     pose is not already inside it.
@@ -787,10 +792,19 @@ def clearance_shrink(vols_keep, cgeo):
 
 
 DROPPED = []
+SINGLE_STATS = dict(vols=0, tiny=0)
 
 
-def emit_model(sec, geo, vols_keep, cgeo, pairs, colskips, tier1_n=20, shrink=None):
-    """-> (list of generated collider lines, dict chain-line-no -> new chain line)"""
+def emit_model(sec, geo, vols_keep, cgeo, pairs, colskips, tier1_n=20, shrink=None,
+               single=False):
+    """-> (list of generated collider lines, dict chain-line-no -> new chain line)
+
+    single=True is the --single-volume mode (cycle 13): ONE line per volume, carrying its own
+    FITTED radius, with no `chains=` filter and no clearance shrink.  A volume is then a property
+    of the BODY, not of the strand looking at it, so there is exactly one body instead of one
+    private shrunken body per chain.  The per-(link,volume) clearance the offline shrink used to
+    bake in is already recomputed every frame by the runtime solver (*phys-ccap*), so the offline
+    copy was redundant with it — and unlike the runtime cap it needed the private-body licence."""
     names = geo['names']
     nameset = set(names)
     ranked = sorted(vols_keep, key=lambda v: -v.nv)
@@ -809,6 +823,23 @@ def emit_model(sec, geo, vols_keep, cgeo, pairs, colskips, tier1_n=20, shrink=No
         near = names[v.j] if (v.j is not None and 0 <= v.j < len(names)) else far
         s = side_of(far, nameset)
         sd = ' side=%s' % ('L' if s == 1 else 'R') if s else ''
+        if single:
+            # ONE line, the fitted radius, no filter. Nothing is dropped here: the only reasons a
+            # volume does not exist in this mode are the geometric ones already applied upstream
+            # (fewer than MIN_CLOUD skinned vertices, degenerate span, max radius <= 0.5). The
+            # 40-unit floor below is a CLEARANCE floor — it only ever fired on a radius the shrink
+            # had already crushed — so it has no business here; volumes it would have caught are
+            # counted instead.
+            SINGLE_STATS['vols'] += 1
+            if max(v.r1, v.r2) < 40.0:
+                SINGLE_STATS['tiny'] += 1
+            if near == far:
+                out.append('collider %s radius=%.0f tier=%d%s'
+                           % (far, max(v.r1, v.r2), tier[id(v)], sd))
+            else:
+                out.append('capsule %s %s radius=%.0f radius2=%.0f tier=%d%s'
+                           % (near, far, v.r1, v.r2, tier[id(v)], sd))
+            continue
         # chains that need the same clamp share a line; the bucket keeps the file readable instead
         # of emitting one collider per chain.
         buckets = {}
@@ -845,9 +876,16 @@ def emit_model(sec, geo, vols_keep, cgeo, pairs, colskips, tier1_n=20, shrink=No
         xs = sorted(pairs.get(ch.name, ()))
         if xs:
             line = set_kv(line, 'xchain', ','.join(xs))
-        cs = colskips.get(ch.name, 0)
-        if ch.kv('colskip') is None and cs > 0:
-            line = set_kv(line, 'colskip', '%d' % cs)
+        if single:
+            # colskip declared "these leading links start inside a volume on purpose", which was
+            # only ever needed because a volume was a per-chain private body. With one honest body
+            # and the runtime clearance cap, a link that rests inside the skin is handled where it
+            # happens, per frame, instead of being excused from collision for the whole run.
+            line = del_kv(line, 'colskip')
+        else:
+            cs = colskips.get(ch.name, 0)
+            if ch.kv('colskip') is None and cs > 0:
+                line = set_kv(line, 'colskip', '%d' % cs)
         newchain[ch.line_no] = line
     return out, newchain
 
@@ -946,10 +984,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--only', default=None)
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--out', default=None,
+                    help='write the regenerated file HERE instead of over physics_chains.txt')
+    ap.add_argument('--single-volume', action='store_true',
+                    help='one line per volume, fitted radius, no clearance shrink, no chains= '
+                         'filter, no colskip= (cycle 13)')
     ap.add_argument('--report', default=os.path.join(
         REPO, '.autoport', 'reports', 'Grecharged-secondary-motion', 'volumes_fit.txt'))
     args = ap.parse_args()
     only = set(args.only.split(',')) if args.only else None
+    single = args.single_volume
 
     lines, sections = parse_chains_file(CHAINS)
     drop, insert, chainedit, rows, nogeo = set(), {}, {}, [], []
@@ -981,9 +1025,10 @@ def main():
             if audit_model(geo, keep, cgeo, clouds)['hole'] <= 1.0:
                 break
         pairs = chain_pairs(cgeo, sec.names[0])
-        colskips = {c: auto_colskip(cgeo[c], keep, geo) for c in cgeo}
-        shrink = clearance_shrink(keep, cgeo)
-        gen, newchain = emit_model(sec, geo, keep, cgeo, pairs, colskips, shrink=shrink)
+        colskips = {} if single else {c: auto_colskip(cgeo[c], keep, geo) for c in cgeo}
+        shrink = None if single else clearance_shrink(keep, cgeo)
+        gen, newchain = emit_model(sec, geo, keep, cgeo, pairs, colskips, shrink=shrink,
+                                   single=single)
         a = audit_model(geo, keep, cgeo, clouds)
         a.update(model=sec.names[0], aliases=len(sec.names), src=geo['src'],
                  nchain=len(sec.chains), nres=len(cgeo),
@@ -1006,8 +1051,18 @@ def main():
         out.append(ln)
         if i in insert:
             out.extend(insert.pop(i))
+    cs_in = sum(1 for ln in lines if ln.startswith('chain ') and ' colskip=' in ln)
+    if single:
+        # colskip has to reach ZERO in the file, not just on the chains this run rewrote: a section
+        # whose geometry did not resolve is never touched by emit_model and would keep its key.
+        for i, ln in enumerate(out):
+            if ln.startswith('chain ') and ' colskip=' in ln:
+                out[i] = del_kv(ln, 'colskip')
+    cs_out = sum(1 for ln in out if ln.startswith('chain ') and ' colskip=' in ln)
+    dst = args.out or CHAINS
     if not args.dry_run:
-        open(CHAINS, 'w').write('\n'.join(out))
+        os.makedirs(os.path.dirname(os.path.abspath(dst)), exist_ok=True)
+        open(dst, 'w').write('\n'.join(out))
 
     rows.sort(key=lambda r: -r['hole'])
     os.makedirs(os.path.dirname(args.report), exist_ok=True)
@@ -1029,6 +1084,14 @@ def main():
                 (sum(1 for r in rows if r['ctrl_ok']), len(rows)))
         f.write('volume/chain pairs dropped because the strand RESTS inside that volume '
                 '(the model puts it there; see clearance_shrink): %d\n' % len(DROPPED))
+        if single:
+            f.write('\nSINGLE-VOLUME MODE (cycle 13): no clearance shrink, one line per volume,\n')
+            f.write('no chains= filter, no colskip=.\n')
+            f.write('volume lines emitted: %d\n' % SINGLE_STATS['vols'])
+            f.write('  of which fitted max-radius < 40 units (would have been dropped by the old\n'
+                    '  clearance floor): %d\n' % SINGLE_STATS['tiny'])
+            f.write('chain lines carrying colskip=: %d in, %d out\n' % (cs_in, cs_out))
+            f.write('written to: %s\n' % dst)
         if nogeo:
             f.write('\nNO GEOMETRY (left hand-authored): %s\n' % ', '.join(nogeo))
     print(open(args.report).read())
