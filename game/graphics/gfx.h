@@ -381,6 +381,10 @@ struct GfxGlobalSettings {
   // Grecharged-foliage-wind: light wind sway for jak1 palms (TIE) + shrubs. Set from GOAL via
   // pc-set-foliage-wind!. Default OFF => byte-identical stock render (no displacement / mult ×1).
   bool recharged_foliage_wind = false;
+  // Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo)
+  // at NATIVE resolution while the 3D world stays at RENDER SCALE. Set from GOAL via
+  // pc-set-crisp-title-logo!. Default OFF => stock pipeline.
+  bool recharged_crisp_title_logo = false;
   // POLISH#4: Jak's ledge-grab point (GOAL units) pushed via pc-set-jak-ledge! while he
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).

@@ -15,6 +15,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+
+#include "common/log/log.h"
 #include <chrono>
 #include <mutex>
 #include <set>
@@ -23,6 +25,30 @@
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #endif
+// Grecharged-title-logo-fullres: the camera-anchored 3D overlays of the two logo screens.
+// Names are the merc-ctrl names the GOAL side puts in the merc DMA header (the decompiler-only
+// "-jg"/"-mg" suffixes are NOT part of the runtime name); verified against the strings in
+// out/jak1/fr3/title.fr3 and the loader's "merc-load lvl=title model=..." lines.
+//   logo-*   : the JAK AND DAXTER title logo, its volumetric light shafts and its black card
+//   ndi-*    : the Naughty Dog boot logo, the same construction on a black background
+// These are the only merc models in the game that are pinned in front of the camera by a
+// joint-mod every frame, i.e. the only ones for which "draw it after the UI composite" is
+// equivalent to "draw it where it already was", so the list is deliberately explicit rather
+// than a prefix match.
+static bool merc2_is_native_overlay_model(const char* name) {
+  static const char* kNames[] = {
+      "logo-english-lod0",        "logo-japan-lod0", "logo-volumes-english-lod0",
+      "logo-volumes-japan-lod0",  "logo-black-lod0", "logo-cam-lod0",
+      "ndi-lod0",                 "ndi-volumes-lod0", "ndi-cam-lod0",
+  };
+  for (const char* n : kNames) {
+    if (!strcmp(name, n)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool gd3_bones_on() {
   static const bool s_on = [] {
     if (std::getenv("OG_GD3_CENSUS")) {
@@ -238,6 +264,10 @@ Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
     auto& draws = m_level_draw_buckets.emplace_back();
     draws.draws.resize(MAX_DRAWS_PER_LEVEL);
     draws.envmap_draws.resize(MAX_ENVMAP_DRAWS_PER_LEVEL);
+    // Grecharged-title-logo-fullres: native-overlay pools, sized once here so alloc_normal_draw
+    // can hand out raw Draw* into them without any reallocation hazard.
+    draws.native_draws.resize(MAX_NATIVE_DRAWS_PER_LEVEL);
+    draws.native_envmap_draws.resize(MAX_NATIVE_DRAWS_PER_LEVEL);
   }
 
   m_mod_vtx_temp.resize(MAX_MOD_VTX);
@@ -1343,6 +1373,16 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   args.lights = lights;
   args.first_bone = first_bone;
   args.no_texture = render_state->version == GameVersion::Jak3 && model_no_texture;
+  // Grecharged-title-logo-fullres: route the title/ND logo family out of the render-scaled 3D
+  // pass so it can be replayed at native resolution after the UI composite. Every condition must
+  // hold, so the stock path is what runs whenever the feature is off, the master is off, the
+  // split is inactive (RENDER SCALE 100% => begin_2d_ui_pass is nullptr) or the game isn't jak1.
+  // Models that stream vertices per frame (blerc / mod-vtx) are excluded: their vertex buffers
+  // are recycled within the frame, so a deferred replay would read someone else's geometry.
+  args.defer_native = render_state->version == GameVersion::Jak1 &&
+                      render_state->begin_2d_ui_pass && !model_uses_pc_blerc && !model_uses_mod &&
+                      merc2_is_native_overlay_model(name) &&
+                      Gfx::recharged_active(Gfx::g_global_settings.recharged_crisp_title_logo);
 
   // loop over effects, creating draws for each
   int gd3_vis_tris = 0;  // Gd3-jak: tris surviving the enable/debug filter (Jak's visible count)
@@ -1910,7 +1950,15 @@ Merc2::Draw* Merc2::try_alloc_envmap_draw(const tfrag3::MercDraw& mdraw,
     return nullptr;
   }
 
-  Draw* draw = &args.lev_bucket->envmap_draws[args.lev_bucket->next_free_envmap_draw++];
+  // Grecharged-title-logo-fullres: native-overlay models go to their own pool (replayed at native
+  // res after the UI composite); everything else takes the stock pool, unchanged.
+  Draw* draw;
+  if (args.defer_native &&
+      args.lev_bucket->next_free_native_envmap_draw < (u32)MAX_NATIVE_DRAWS_PER_LEVEL) {
+    draw = &args.lev_bucket->native_envmap_draws[args.lev_bucket->next_free_native_envmap_draw++];
+  } else {
+    draw = &args.lev_bucket->envmap_draws[args.lev_bucket->next_free_envmap_draw++];
+  }
   draw->flags = 0;
   draw->first_index = mdraw.first_index;
   draw->index_count = mdraw.index_count;
@@ -1932,7 +1980,16 @@ Merc2::Draw* Merc2::try_alloc_envmap_draw(const tfrag3::MercDraw& mdraw,
 }
 
 Merc2::Draw* Merc2::alloc_normal_draw(const tfrag3::MercDraw& mdraw, const DrawArgs& args) {
-  Draw* draw = &args.lev_bucket->draws[args.lev_bucket->next_free_draw++];
+  // Grecharged-title-logo-fullres: see try_alloc_envmap_draw. Callers dereference the result
+  // unconditionally, so a full native pool falls back to the stock pool (draw stays in the scaled
+  // pass — merely not crisp) instead of returning null.
+  Draw* draw;
+  if (args.defer_native &&
+      args.lev_bucket->next_free_native_draw < (u32)MAX_NATIVE_DRAWS_PER_LEVEL) {
+    draw = &args.lev_bucket->native_draws[args.lev_bucket->next_free_native_draw++];
+  } else {
+    draw = &args.lev_bucket->draws[args.lev_bucket->next_free_draw++];
+  }
   draw->flags = 0;
   draw->first_index = mdraw.first_index;
   draw->index_count = mdraw.index_count;
@@ -2163,12 +2220,171 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
       do_draws(lev_bucket.envmap_draws.data(), lev, lev_bucket.next_free_envmap_draw,
                m_emerc_uniforms, edraws_prof, true, render_state, bones_base);
     }
+
+    // Grecharged-title-logo-fullres: this bucket's native-overlay draws are deliberately NOT
+    // drawn here — keeping them out of the render-scaled scene FBO is the whole point. Snapshot
+    // everything the replay needs that this flush is about to recycle (the bone window is
+    // re-filled from 0 by the next flush, m_lights_buffer likewise, and m_low_memory is rewritten
+    // by the next bucket's setup DMA); the geometry itself stays put in the LEVEL's persistent GL
+    // buffers, so it needs no copy.
+    if (lev_bucket.next_free_native_draw || lev_bucket.next_free_native_envmap_draw) {
+      auto& batch = m_deferred_native.emplace_back();
+      batch.lev = lev;
+      batch.low_memory = m_low_memory;
+      batch.bones.assign(m_shader_bone_vector_buffer,
+                         m_shader_bone_vector_buffer + m_next_free_bone_vector);
+      std::vector<std::pair<u32, u32>> light_map;  // original light_idx -> index in batch.lights
+      auto take = [&](Draw d) {
+        u32 idx = UINT32_MAX;
+        for (const auto& p : light_map) {
+          if (p.first == d.light_idx) {
+            idx = p.second;
+            break;
+          }
+        }
+        if (idx == UINT32_MAX) {
+          idx = (u32)batch.lights.size();
+          batch.lights.push_back(m_lights_buffer[d.light_idx]);
+          light_map.emplace_back(d.light_idx, idx);
+        }
+        d.light_idx = (u16)idx;
+        return d;
+      };
+      for (u32 i = 0; i < lev_bucket.next_free_native_draw; i++) {
+        batch.draws.push_back(take(lev_bucket.native_draws[i]));
+      }
+      for (u32 i = 0; i < lev_bucket.next_free_native_envmap_draw; i++) {
+        batch.envmap_draws.push_back(take(lev_bucket.native_envmap_draws[i]));
+      }
+    }
   }
 
   m_next_free_light = 0;
   m_next_free_bone_vector = 0;
   m_next_free_level_bucket = 0;
   m_next_mod_vtx_buffer = 0;
+}
+
+/*!
+ * Grecharged-title-logo-fullres: replay the stashed title/ND-logo draws at NATIVE resolution.
+ * Called by the frame orchestrator from inside begin_ui_pass(), AFTER the scaled scene has been
+ * upscale-blitted into the native UI FBO and its depth cleared, and BEFORE the 2D HUD/sprite
+ * pass — so the logo lands on top of the (upscaled) flythrough, blends against the real
+ * background, keeps its own self-occlusion via the UI FBO's depth buffer, and is itself overdrawn
+ * by the menu/PRESS START text exactly as in the single-FBO pipeline.
+ *
+ * Nothing here reaches the GPU unless models were stashed, which requires the toggle ON, the
+ * Recharged master ON, jak1, and an active render-scale split.
+ */
+void Merc2::draw_deferred_native_draws(SharedRenderState* render_state) {
+  if (m_deferred_native.empty()) {
+    return;
+  }
+  // begin_ui_pass() is reached from inside Sprite3::render, which keeps issuing location-based
+  // glUniform calls for ITS program after we return: save/restore the caller's program and VAO or
+  // those calls hit the merc program (GL_INVALID_OPERATION flood + corrupted HUD sprites). Same
+  // hazard, same fix as Generic2::draw_deferred_hud_draws.
+  GLint prev_program = 0;
+  GLint prev_vao = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+
+  // do_draws wants a profiler node and this pass sits outside the bucket tree; a local root keeps
+  // its draw-call/tri counters out of the per-bucket breakdown instead of misattributing them.
+  ProfilerNode prof_node("crisp-title-logo");
+  ScopedProfilerNode prof(&prof_node);
+
+  // PERMANENT activity counter, not a capture: the presence of this line IS the proof that the
+  // native replay ran on device, and its absence is the proof that OFF takes the stock path.
+  // Throttled to one line per 300 replayed frames (~10 s at 30 fps), first frame always logged.
+  {
+    static u64 s_replay_frames = 0;
+    if ((s_replay_frames++ % 300) == 0) {
+      size_t nd = 0, ne = 0;
+      for (const auto& b : m_deferred_native) {
+        nd += b.draws.size();
+        ne += b.envmap_draws.size();
+      }
+      lg::info("[crisp-logo] native replay: batches={} draws={} envmap={} fb={}x{} frame={}",
+               m_deferred_native.size(), nd, ne, render_state->render_fb_w,
+               render_state->render_fb_h, s_replay_frames - 1);
+    }
+  }
+
+  const u32 saved_free_light = m_next_free_light;
+
+  for (auto& batch : m_deferred_native) {
+    if (!batch.lev || batch.draws.empty()) {
+      continue;
+    }
+    // Lights: do_draws reads m_lights_buffer[draw.light_idx]. The flush already reset the light
+    // allocator, so write the snapshot back at 0..n — the stashed draws were re-indexed to match.
+    const size_t num_lights = std::min(batch.lights.size(), (size_t)MAX_LIGHTS);
+    for (size_t i = 0; i < num_lights; i++) {
+      m_lights_buffer[i] = batch.lights[i];
+    }
+
+    // Bones: re-upload this batch's window. Use the same ring cursor as flush_draw_buckets when
+    // batching is on, so this upload never lands on a window in-flight draws are still reading.
+    u32 bones_base = 0;
+    if (!batch.bones.empty()) {
+      const u32 n_bone_vec = (u32)batch.bones.size();
+      glBindBuffer(GL_UNIFORM_BUFFER, m_bones_buffer);
+      if (render_state->batch_singledraw) {
+        u32 base = m_bones_ring_base;
+        if (base + n_bone_vec > MAX_SHADER_BONE_VECTORS) {
+          glBufferData(GL_UNIFORM_BUFFER, MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f), nullptr,
+                       GL_DYNAMIC_DRAW);
+          base = 0;
+        }
+        glBufferSubData(GL_UNIFORM_BUFFER, base * sizeof(math::Vector4f),
+                        n_bone_vec * sizeof(math::Vector4f), batch.bones.data());
+        bones_base = base;
+        u32 next = base + n_bone_vec + m_opengl_buffer_alignment - 1;
+        next = next / m_opengl_buffer_alignment * m_opengl_buffer_alignment;
+        m_bones_ring_base = next;
+      } else {
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, n_bone_vec * sizeof(math::Vector4f),
+                        batch.bones.data());
+      }
+      glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, batch.lev->merc_vertices);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, batch.lev->merc_indices);
+    setup_merc_vao();
+    // the shared VAO now points at this level's buffers outside the flush loop's bookkeeping —
+    // invalidate its cache so the next frame's first flush respecifies the attribs.
+    m_vao_vertex_buffer = 0;
+    m_vao_load_id = UINT64_MAX;
+
+    // handle_setup_dma pushes these once per merc bucket; we are outside every bucket now, so
+    // restore the snapshot taken when this batch was stashed.
+    m_low_memory = batch.low_memory;
+    switch_to_merc2(render_state);
+    set_uniform(m_merc_uniforms.hvdf_offset, m_low_memory.hvdf_offset);
+    set_uniform(m_merc_uniforms.fog, m_low_memory.fog);
+    glUniformMatrix4fv(m_merc_uniforms.perspective_matrix, 1, GL_FALSE,
+                       &m_low_memory.perspective[0].x());
+    do_draws(batch.draws.data(), batch.lev, (u32)batch.draws.size(), m_merc_uniforms, prof, false,
+             render_state, bones_base);
+
+    if (!batch.envmap_draws.empty()) {
+      switch_to_emerc(render_state);
+      set_uniform(m_emerc_uniforms.hvdf_offset, m_low_memory.hvdf_offset);
+      set_uniform(m_emerc_uniforms.fog, m_low_memory.fog);
+      glUniformMatrix4fv(m_emerc_uniforms.perspective_matrix, 1, GL_FALSE,
+                         &m_low_memory.perspective[0].x());
+      do_draws(batch.envmap_draws.data(), batch.lev, (u32)batch.envmap_draws.size(),
+               m_emerc_uniforms, prof, true, render_state, bones_base);
+    }
+  }
+
+  m_next_free_light = saved_free_light;
+  m_deferred_native.clear();
+  glBindVertexArray(prev_vao);
+  glUseProgram(prev_program);
 }
 
 #ifdef __ANDROID__

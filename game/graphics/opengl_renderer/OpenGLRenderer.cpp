@@ -1378,6 +1378,10 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   // Grender-split: drop any deferred HUD draws left from a frame where the UI
   // pass never ran (defensive; the DEBUG-bucket fallback normally drains them).
   m_generic2->clear_deferred_hud_draws();
+  // Grecharged-title-logo-fullres: same defensive drain for the deferred title/ND-logo draws.
+  if (m_merc2) {
+    m_merc2->clear_deferred_native_draws();
+  }
   const int native_ui_w = m_render_state.draw_region_w;
   const int native_ui_h = m_render_state.draw_region_h;
   const bool split_active = (settings.game_res_w < native_ui_w ||
@@ -1440,6 +1444,13 @@ void OpenGLRenderer::begin_ui_pass() {
   m_render_state.render_fb_w = ui.width;
   m_render_state.render_fb_h = ui.height;
   m_render_state.stencil_dirty = false;
+
+  // Grecharged-title-logo-fullres: replay the title/ND-logo merc models here, at native res, on
+  // top of the just-upscaled flythrough and BEFORE the HUD/2D pass — so the menu and PRESS START
+  // still overdraw them exactly as in the single-FBO pipeline. No-op unless models were stashed.
+  if (m_merc2) {
+    m_merc2->draw_deferred_native_draws(&m_render_state);
+  }
 
   // Replay the HUD-flagged Generic2 draws (e.g. the Precursor-orb HUD/menu icon)
   // that were deferred out of the scaled 3D pass: they draw here at native res,

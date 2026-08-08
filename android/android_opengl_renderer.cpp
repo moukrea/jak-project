@@ -318,6 +318,7 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
     auto merc2 = std::make_shared<Merc2>(m_render_state.shaders, &s_fg_no_anim_slots);
     auto generic2 = std::make_shared<Generic2>(m_render_state.shaders);
     m_generic2 = generic2;
+    m_merc2 = merc2;  // Grecharged-title-logo-fullres: native-res logo replay in begin_ui_pass
     const std::pair<BucketId, const char*> merc_buckets[] = {
         {BucketId::MERC_TFRAG_TEX_LEVEL0, "l0-tfrag-merc"},
         {BucketId::MERC_TFRAG_TEX_LEVEL1, "l1-tfrag-merc"},
@@ -497,6 +498,7 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   auto merc2 = std::make_shared<Merc2>(m_render_state.shaders, anim_slots);
   auto generic2 = std::make_shared<Generic2>(m_render_state.shaders);
   m_generic2 = generic2;
+  m_merc2 = merc2;  // Grecharged-title-logo-fullres (jak1-gated feature; kept symmetric here)
 
   // Helper: register a renderer AND return its raw pointer (upstream's
   // init_bucket_renderer returns the owned pointer so the Tie3AnotherCategory
@@ -1171,6 +1173,10 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   if (m_generic2) {
     m_generic2->clear_deferred_hud_draws();
   }
+  // Grecharged-title-logo-fullres: same defensive drain for the deferred title/ND-logo draws.
+  if (m_merc2) {
+    m_merc2->clear_deferred_native_draws();
+  }
   const int native_ui_w = m_render_state.draw_region_w;
   const int native_ui_h = m_render_state.draw_region_h;
   const bool split_active =
@@ -1223,6 +1229,13 @@ void AndroidOpenGLRenderer::begin_ui_pass() {
   m_render_state.render_fb_w = ui.width;
   m_render_state.render_fb_h = ui.height;
   m_render_state.stencil_dirty = false;
+
+  // Grecharged-title-logo-fullres: replay the title/ND-logo merc models here, at native res, on
+  // top of the just-upscaled flythrough and BEFORE the HUD/2D pass — so the menu and PRESS START
+  // still overdraw them exactly as in the single-FBO pipeline. No-op unless models were stashed.
+  if (m_merc2) {
+    m_merc2->draw_deferred_native_draws(&m_render_state);
+  }
 
   // Replay the HUD-flagged Generic2 draws (e.g. the Precursor-orb HUD/menu icon)
   // that were deferred out of the scaled 3D pass: they draw here at native res,

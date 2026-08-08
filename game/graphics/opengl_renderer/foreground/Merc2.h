@@ -75,6 +75,19 @@ class Merc2 {
               MercDebugStats* stats);
   static constexpr int kMaxBlerc = 40;
 
+  // Grecharged-title-logo-fullres: the title-screen logo family (the JAK AND DAXTER logo, its
+  // volumetric shafts + black card, and the ND boot logo) are camera-anchored 3D overlays that
+  // the stock pipeline draws into the render-SCALED scene FBO, so a low RENDER SCALE pixelates
+  // them. When the Grender-split UI pass is armed, flush_draw_buckets() stashes those models'
+  // draws instead of drawing them, and the frame orchestrator replays them here at NATIVE
+  // resolution from inside begin_ui_pass() — the same deferral Generic2 already does for the
+  // HUD 3D icons (draw_deferred_hud_draws). Gated by
+  // Gfx::recharged_active(recharged_crisp_title_logo) AND by the split being active, so with the
+  // toggle OFF (or at RENDER SCALE 100%) nothing is ever stashed and the stock path is unchanged.
+  bool has_deferred_native_draws() const { return !m_deferred_native.empty(); }
+  void clear_deferred_native_draws() { m_deferred_native.clear(); }
+  void draw_deferred_native_draws(SharedRenderState* render_state);
+
  private:
   const std::vector<GLuint>* m_anim_slot_array;
   enum MercDataMemory {
@@ -237,19 +250,47 @@ class Merc2 {
     u64 hash;
   };
 
+  // Grecharged-title-logo-fullres: a deferred model contributes at most a handful of draws (the
+  // J&D logo is 3 effects / 5 draws), so a small fixed pool is plenty. Fixed-size (never resized
+  // after construction) because alloc_normal_draw hands out raw Draw* into it, exactly like the
+  // stock draws/envmap_draws pools.
+  static constexpr int MAX_NATIVE_DRAWS_PER_LEVEL = 256;
+
   struct LevelDrawBucket {
     const LevelData* level = nullptr;
     std::vector<Draw> draws;
     std::vector<Draw> envmap_draws;
     u32 next_free_draw = 0;
     u32 next_free_envmap_draw = 0;
+    // Grecharged-title-logo-fullres: draws routed out of the scaled 3D pass for native replay.
+    std::vector<Draw> native_draws;
+    std::vector<Draw> native_envmap_draws;
+    u32 next_free_native_draw = 0;
+    u32 next_free_native_envmap_draw = 0;
 
     void reset() {
       level = nullptr;
       next_free_draw = 0;
       next_free_envmap_draw = 0;
+      next_free_native_draw = 0;
+      next_free_native_envmap_draw = 0;
     }
   };
+
+  // Grecharged-title-logo-fullres: one stashed flush worth of native-overlay draws. The geometry
+  // itself lives in the LEVEL's persistent GL buffers (unlike Generic2, whose vertex buffer is
+  // rebuilt per bucket call), so only the per-flush state has to be snapshotted: the bone window
+  // (m_shader_bone_vector_buffer is re-filled from 0 by every later flush), the lights the draws
+  // index, and the low-memory block holding the perspective/hvdf/fog uniforms.
+  struct DeferredNativeBatch {
+    const LevelData* lev = nullptr;
+    LowMemory low_memory;
+    std::vector<Draw> draws;
+    std::vector<Draw> envmap_draws;
+    std::vector<math::Vector4f> bones;  // snapshot of [0, m_next_free_bone_vector)
+    std::vector<VuLights> lights;       // only the lights the deferred draws reference
+  };
+  std::vector<DeferredNativeBatch> m_deferred_native;
 
   struct DrawArgs {
     LevelDrawBucket* lev_bucket;
@@ -261,6 +302,9 @@ class Merc2 {
     u64 hash;
     u32 lights;
     u32 first_bone;
+    // Grecharged-title-logo-fullres: route this model's draws into the native-overlay pools
+    // instead of the scaled-pass pools. Always false unless the toggle is on AND the split is armed.
+    bool defer_native = false;
   };
 
   Draw* alloc_normal_draw(const tfrag3::MercDraw& mdraw, const DrawArgs& args);

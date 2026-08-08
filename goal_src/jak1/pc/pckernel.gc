@@ -477,6 +477,8 @@
     (("realtime-shadow-strength") (set! (-> obj realtime-shadow-strength) (file-stream-read-float file)))
     (("realtime-shadow-quality") (set! (-> obj realtime-shadow-quality) (file-stream-read-int file)))
     (("recharged-foliage-wind?") (set! (-> obj recharged-foliage-wind?) (file-stream-read-symbol file)))
+    ;; Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo) at NATIVE resolution while the 3D world stays at RENDER SCALE. #f = stock pipeline.
+    (("crisp-title-logo?") (set! (-> obj crisp-title-logo?) (file-stream-read-symbol file)))
     (("ambient-occlusion") (set! (-> obj ambient-occlusion) (file-stream-read-int file)))
     (("ao-quality") (set! (-> obj ao-quality) (file-stream-read-int file)))
     (("ao-strength") (set! (-> obj ao-strength) (file-stream-read-int file)))
@@ -571,6 +573,8 @@
   (format file "realtime-shadow-strength = ~f~%" (-> obj realtime-shadow-strength))
   (format file "realtime-shadow-quality = ~D~%" (-> obj realtime-shadow-quality))
   (format file "recharged-foliage-wind? = ~A~%" (-> obj recharged-foliage-wind?))
+  ;; Grecharged-title-logo-fullres: title-screen JAK AND DAXTER logo (and ND boot logo) at NATIVE resolution while the 3D world stays at RENDER SCALE. #f = stock pipeline.
+  (format file "crisp-title-logo? = ~A~%" (-> obj crisp-title-logo?))
   (format file "ambient-occlusion = ~D~%" (-> obj ambient-occlusion))
   (format file "ao-quality = ~D~%" (-> obj ao-quality))
   (format file "ao-strength = ~D~%" (-> obj ao-strength))

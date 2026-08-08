@@ -836,6 +836,18 @@ void pc_set_foliage_wind(u32 on) {
   Gfx::g_global_settings.recharged_foliage_wind = v;
 }
 
+// Grecharged-title-logo-fullres: push the CRISP TITLE LOGO toggle from GOAL
+// (pc-set-crisp-title-logo!). ON draws the title-screen JAK AND DAXTER logo (and the ND boot logo)
+// at NATIVE resolution while the 3D world stays at RENDER SCALE. 0 = stock pipeline. Logs on
+// CHANGE only (update-to-os pushes this every frame), so a device log proves the GOAL->C++ link.
+void pc_set_crisp_title_logo(u32 on) {
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_crisp_title_logo) {
+    lg::info("[crisp-logo] toggle -> {}", v ? "ON" : "OFF");
+  }
+  Gfx::g_global_settings.recharged_crisp_title_logo = v;
+}
+
 // Grecharged-hd-models: push the "enhanced models" on/off toggle from GOAL
 // (-> *pc-settings* recharged-enhanced-models?). 0 = off (stock low-poly). Applies live to
 // village FR3 (Samos/Keira); the common FR3 (Jak/Daxter) is seeded from persisted settings at
@@ -3668,6 +3680,8 @@ void InitMachine_PCPort() {
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
+  // Grecharged-title-logo-fullres: CRISP TITLE LOGO toggle (native-res title/boot logo draw)
+  make_function_symbol_from_c("pc-set-crisp-title-logo!", (void*)pc_set_crisp_title_logo);
   // Grecharged-mesh-browser: the debug mesh-browser back end (index load + row getters + checker
   // toggle + identifier export). See the block above InitMachine_PCPort.
   make_function_symbol_from_c("pc-mesh-index-load!", (void*)pc_mesh_index_load);

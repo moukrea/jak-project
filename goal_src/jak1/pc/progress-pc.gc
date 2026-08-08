@@ -7461,6 +7461,29 @@
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
        ;; are a resource for PBR/water only. See menu-tree.md §11 [SUPPR] history.
+       ;; Grecharged-title-logo-fullres (owner 2026-07-09): CRISP TITLE LOGO on-off toggle. The
+       ;; title-screen JAK AND DAXTER logo (and the ND boot logo) are 3D merc models drawn into the
+       ;; render-scaled scene FBO, so a low RENDER SCALE pixelates them on weak phones. ON defers
+       ;; those models out of the scaled 3D pass and replays them at NATIVE resolution in the UI
+       ;; pass, exactly like the HUD 3D icons (Grender-split). OFF (default) = stock pipeline.
+       ;; :name is the usual (text-id vsync) placeholder (visible label comes from
+       ;; *crisp-title-logo-label* via name-override). SELF-LOCATION marker is :hint instead — the
+       ;; `hint` field is written by NO other row in this array and READ by nothing in the shipping
+       ;; menu (the hint line belongs to the FLAG_MENU_OVERHAUL half, which does not compile), so it
+       ;; is a unique, side-effect-free key. Do NOT use a distinctive :name for this: a row's `name`
+       ;; is dispatched on elsewhere (e.g. the autosave lock relabels+locks ANY row named
+       ;; disable-auto-save whenever autosave is off), and hand-counted tail offsets are the
+       ;; Gmenu-flag-off / physics-row bug class.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :hint (text-id pc-text-hint-resolution)
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* crisp-title-logo?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
        ;; Grecharged-secondary-motion: PHYSICS on-off toggle. Secondary-motion (chain) physics —
        ;; hair / cloth / straps swing with the animation instead of staying rigid. Real label via
        ;; *physics-label*; value bound to *pc-settings* physics? in init-game-options. Default ON
@@ -7761,6 +7784,10 @@
 ;; English-only, uppercase ASCII for the menu font; shown via name-override, like *grass-overhang-label*.
 (define *foliage-wind-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *foliage-wind-label*) "FOLIAGE WIND")
+;; Grecharged-title-logo-fullres: label for the CRISP TITLE LOGO on-off toggle. Uppercase ASCII
+;; only — the jak1 menu font has no lowercase glyphs.
+(define *crisp-title-logo-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *crisp-title-logo-label*) "CRISP TITLE LOGO")
 ;; Grecharged-grass-poc POLISH#6: label for the "GRASS SETTINGS" nested sub-submenu launcher row inside
 ;; the Recharged Settings submenu (English-only, uppercase ASCII for the menu font; shown via
 ;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
@@ -9907,7 +9934,8 @@
   ;; LOOK), all gated on FLAG_HD_MODELS, so every HD term becomes (* 5 FLAG_HD_MODELS_N): the FULL
   ;; static length grows by 4*hd-N and FOLIAGE WIND (and everything after it) sits 4*hd-N slots later.
   ;; The collapsed branch is unchanged — when the enhanced FR3 set is missing ALL FIVE rows collapse.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  ;; Grecharged-title-logo-fullres: +1 for the new unconditional CRISP TITLE LOGO row (10 -> 11).
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10032,8 +10060,9 @@
       ;; full static length and shift every following row (incl. MESH BROWSER + Back) up one.
       ;; Grecharged-hd-models5: ... and now up FIVE (the whole HD block goes away together — a LOOK
       ;; selector is meaningless without the enhanced FR3 set).
+      ;; Grecharged-title-logo-fullres: +1 for the new unconditional CRISP TITLE LOGO row (10 -> 11).
       (when (= (-> *recharged-options-pc* length)
-               (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+               (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -10051,6 +10080,32 @@
         (set! (-> *recharged-options-pc* (+ hd-idx 3) name-override) *hd-look-keira-label*)
         (set! (-> *recharged-options-pc* (+ hd-idx 4) value-to-modify) (&-> *progress-carousell* int-backup))
         (set! (-> *recharged-options-pc* (+ hd-idx 4) name-override) *hd-look-samos-label*))))
+  ;; Grecharged-title-logo-fullres: wire CRISP TITLE LOGO. SELF-LOCATING by its unique marker
+  ;; :hint (text-id pc-text-hint-resolution) — the only row in *recharged-options-pc* that sets
+  ;; `hint` at all, and a field nothing in the shipping menu reads — so any future insertion
+  ;; anywhere in the array leaves this correct, and a miss fails LOUDLY instead of silently
+  ;; painting the label onto another row (the Gmenu-flag-off bug class). A distinctive :name would
+  ;; NOT be safe here: row names are dispatched on elsewhere in the progress code.
+  ;; Placed LAST of the three wiring blocks (after PHYSICS and after the HD-models collapse) so it
+  ;; self-locates against the FINAL live array: the collapse shifts every row after the HD block up
+  ;; five slots, and this row sits after it.
+  (let ((ctl-idx -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (and (< ctl-idx 0)
+                 (= (the int (-> *recharged-options-pc* i hint))
+                    (the int (text-id pc-text-hint-resolution)))
+                 (= (the int (-> *recharged-options-pc* i option-type))
+                    (the int (game-option-type on-off))))
+        (set! ctl-idx i)))
+    (cond
+      ((< ctl-idx 0)
+       (format 0 "[CRISPLOGO-MENU] FATAL: CRISP TITLE LOGO row not found (len=~D) — row left UNWIRED~%"
+               (-> *recharged-options-pc* length)))
+      (else
+       (set! (-> *recharged-options-pc* ctl-idx value-to-modify) (&-> *pc-settings* crisp-title-logo?))
+       (set! (-> *recharged-options-pc* ctl-idx name-override) *crisp-title-logo-label*)
+       (format 0 "[CRISPLOGO-MENU] row wired: idx=~D len=~D (self-located)~%"
+               ctl-idx (-> *recharged-options-pc* length)))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)

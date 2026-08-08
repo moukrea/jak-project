@@ -24,7 +24,7 @@ Aspect, Résolution (desktop), Dynamic Render Scale (`dynamic-render-scale?`), R
 Min Target FPS (`dyn-target-fps`), FPS Counter, VSync, MSAA, [desktop : Display Mode, Display,
 Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_SUPPORT}`, Back.
 
-## RECHARGED SETTINGS (`*recharged-options-pc`* — 28 lignes livrées avec hd-models+pbr, HUD off)
+## RECHARGED SETTINGS (`*recharged-options-pc`* — 31 lignes livrées avec hd-models+pbr+physics, HUD off)
 
 | idx | ligne | pilote |
 |---|---|---|
@@ -48,10 +48,11 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | **23** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
 | 24 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
 | 25 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
-| **26** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
-| **27** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
-| 28 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
-| 29 | Back | — |
+| **26** | **CRISP TITLE LOGO (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`crisp-title-logo?`** |
+| **27** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
+| **28** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
+| 29 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
+| 30 | Back | — |
 
 ### Grecharged-hd-models5 — LOOK par personnage (idx 6-9)
 
@@ -92,7 +93,36 @@ masque (`jak3-hd`). Même verdict : le 7e look **JAK 3 BAREFOOT** (`jakf-hd`, ta
 **retiré complètement** (buggé + inutile) — option du carousell, entrée du registre, bake merc
 dans le fr3 et art-group du pack. Ne pas le réintroduire ; `#x17bd` est **redevenu libre**.
 
-### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 26-27)
+### Grecharged-title-logo-fullres — CRISP TITLE LOGO (idx 26)
+
+Une ligne **inconditionnelle** (aucun `flag-row` : présente dans tous les builds), insérée
+**juste après PBR ISOLATE et AVANT les lignes PHYSICS** — surtout pas en queue : le câblage
+physics s'auto-localise sur `physics-quality` puis vérifie que la ligne suivante est bien
+MESH BROWSER (`next-is-meshbrowser=1`), invariant qu'une insertion en queue casserait.
+Impact arithmétique : le terme constant des deux gardes de longueur statique passe de `10` à
+`11` (`fw-idx` et le garde de collapse HD).
+
+- **CRISP TITLE LOGO** (`crisp-title-logo?`, symbole, **défaut OFF**) : le logo JAK AND DAXTER de
+  l'écran-titre (et le logo ND du boot) sont des modèles merc 3D dessinés dans le FBO de scène
+  *render-scaled* — un RENDER SCALE bas les pixelise. ON les sort de la passe 3D scalée et les
+  rejoue à la résolution NATIVE dans la passe UI, comme les icônes 3D du HUD (Grender-split).
+  OFF = pipeline stock. Seul grisage : master off (comme FOLIAGE WIND).
+- Plomberie : `pc-set-crisp-title-logo!` (kmachine.cpp) →
+  `Gfx::g_global_settings.recharged_crisp_title_logo`, poussé chaque frame par `update-to-os`
+  (log `[crisp-logo] toggle -> ON/OFF` sur CHANGEMENT seulement) ; persisté dans `settings.ini`.
+- Libellé via `name-override` (`*crisp-title-logo-label*` "CRISP TITLE LOGO", globale runtime,
+  anglais/ASCII majuscule). `:name` reste le placeholder maison `(text-id vsync)`. Le câblage
+  **s'auto-localise** sur un marqueur unique porté par `:hint`
+  (`(text-id pc-text-hint-resolution)`) : `hint` n'est écrit par **aucune** autre ligne du tableau
+  et **lu par rien** dans le menu livré (la ligne de hint appartient à la moitié
+  `FLAG_MENU_OVERHAUL`, non compilée) → clé unique et sans effet de bord. Trace :
+  `[CRISPLOGO-MENU] row wired: idx=N len=M`, sinon échec BRUYANT plutôt que libellé peint sur une
+  autre ligne. **Ne PAS utiliser un `:name` distinctif** pour ce genre de marqueur : le `name`
+  d'une ligne est dispatché ailleurs — p.ex. `progress-pc.gc:11188` relibelle "AUTO SAVE DISABLED"
+  **et verrouille** toute ligne nommée `disable-auto-save` dès que l'auto-save est désactivé, quel
+  que soit son `option-type`.
+
+### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 27-28)
 
 Deux lignes présentes **uniquement dans les builds `--physics`** (`FLAG_PHYSICS`) ; absentes du CGO
 sinon (`flag-row`, filtrage à l'expansion GOOS). Elles sont **ajoutées EN QUEUE de tableau**,

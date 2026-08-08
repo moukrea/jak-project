@@ -1735,6 +1735,9 @@
                                  ((= (-> obj realtime-shadow-quality) 4) 8192)
                                  (else 2048))))
   (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
+  ;; Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo)
+  ;; at NATIVE resolution while the 3D world stays at RENDER SCALE. 0 = stock pipeline.
+  (pc-set-crisp-title-logo! (if (-> obj crisp-title-logo?) 1 0))
   (#when FLAG_HD_MODELS (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0)))
   ;; Grecharged-secondary-motion: push the chain-physics toggle + quality level (0/1 + level index).
   (#when FLAG_PHYSICS (pc-set-physics! (if (-> obj physics?) 1 0) (-> obj physics-quality)))

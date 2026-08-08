@@ -103,6 +103,7 @@
    (realtime-shadow-strength float) ;; Grecharged-realtime-lighting ROUND-5: cast-shadow darkening (0..1). shader residual = 1 - this.
    (realtime-shadow-quality int32)
    (recharged-foliage-wind? symbol) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
+   (crisp-title-logo? symbol) ;; Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo) at NATIVE resolution while the 3D world stays at RENDER SCALE. #f = stock pipeline.
    (ambient-occlusion   int32) ;; Grecharged-ambient-occlusion: 0=off 1=ssao 2=hbao 3=gtao. Default OFF (0).
    (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
    (ao-strength         int32) ;; Grecharged-ambient-occlusion closing round: 0=weaker 1=default 2=stronger. Default DEFAULT (1). Per-mode multiplier on the AO estimator intensity.
@@ -194,6 +195,10 @@
 (define-extern pc-set-ambient-occlusion! (function int int int none))
 ;; Grecharged-foliage-wind: pushes the light wind sway toggle (0/1) to the renderer.
 (define-extern pc-set-foliage-wind! (function int none))
+;; Grecharged-title-logo-fullres: pushes the CRISP TITLE LOGO toggle (0/1) to the renderer. ON draws
+;; the title-screen JAK AND DAXTER logo (and the ND boot logo) at NATIVE resolution while the 3D
+;; world stays at RENDER SCALE. 0 = stock pipeline.
+(define-extern pc-set-crisp-title-logo! (function int none))
 ;; Grecharged-hd-models: pushes the ENHANCED MODELS toggle (0/1) to the loader; queries whether the
 ;; enhanced FR3 set shipped in this build (1 = available, so the menu row is shown).
 ;; Grecharged-buildsys-flags: externs present only with --hd-models (C++ side gated by OG_FEAT_HD_MODELS).
@@ -296,6 +301,7 @@
   (set! (-> obj realtime-shadow-strength) 0.8) ;; Grecharged-realtime-lighting ROUND-5: default cast-shadow darkening (residual 0.2)
   (set! (-> obj realtime-shadow-quality) 2) ;; 0=VLow(512) 1=Low(1024) 2=Med(2048) 3=High(4096) 4=VHigh(8192)
   (set! (-> obj recharged-foliage-wind?) #f) ;; Grecharged-foliage-wind: light wind sway for palms+shrubs. #f = stock.
+  (set! (-> obj crisp-title-logo?) #f) ;; Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo) at NATIVE resolution while the 3D world stays at RENDER SCALE. Default OFF => #f = stock pipeline.
   (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
   (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality
   (set! (-> obj ao-strength) 1) ;; Grecharged-ambient-occlusion closing round: default DEFAULT strength

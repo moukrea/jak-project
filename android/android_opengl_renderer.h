@@ -31,6 +31,7 @@
 #include "game/graphics/opengl_renderer/Fbo.h"
 #include "game/graphics/opengl_renderer/GrassRenderer.h"
 #include "game/graphics/opengl_renderer/foreground/Generic2.h"
+#include "game/graphics/opengl_renderer/foreground/Merc2.h"
 #include "game/graphics/opengl_renderer/Profiler.h"
 #include "game/graphics/opengl_renderer/opengl_utils.h"
 
@@ -136,6 +137,10 @@ class AndroidOpenGLRenderer {
   bool m_ui_pass_active = false;
 
   std::shared_ptr<Generic2> m_generic2;
+  // Grecharged-title-logo-fullres: the shared foreground merc core, kept here (like m_generic2,
+  // and like upstream OpenGLRenderer) so begin_ui_pass can replay the deferred title/ND-logo
+  // draws at native resolution. Ownership is still the bucket renderers'.
+  std::shared_ptr<Merc2> m_merc2;
 
   // Gjak2-render: the jak2 eye renderer. Upstream jak2 stores it outside the
   // bucket table (bucket 0 is VisData, not compiled here) and wires it as
