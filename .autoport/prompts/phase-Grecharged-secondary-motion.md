@@ -875,3 +875,44 @@ Tout le reste est vert (pénétrations 0, nomask 0, xleg 0, longueurs 0,99+).
    solveur : si les 8 unités viennent de frames pré-stabilisation comptées dans la moyenne, c'est
    l'échantillonnage qu'il faut borner (fenêtre post-settle), pas la physique.
 => Puis régénérer le rapport et s'arrêter là.
+
+## ============================================================
+## CYCLE 14 — REJET OWNER 2026-08-08 ~17:30 (build 15:42, cycle 13) : « BIEN CLAQUÉ, RIEN N'EST FIX »
+## ============================================================
+« La physique est massivement TONED DOWN au point où j'en vois limite plus l'intérêt — en courant
+les cheveux de Jak ne bougent PAS. La poitrine de Keira est COMPLÈTEMENT STATIQUE. Un truc tente
+d'empêcher les mèches de clipper dans ses oreilles mais ça fait des trucs BIZARRES plus gênants
+qu'un simple clipping, et EN PLUS ça clippe toujours. Et ça continue de clipper pour plein de PNJ —
+le noeud du Maire au travers de son torse. RIEN N'EST FIX. »
+
+### DIAGNOSTIC SUPERVISEUR — POURQUOI TOUS LES CHIFFRES ÉTAIENT VERTS
+  1. **La sim a été tuée pour satisfaire les cibles de calme.** restdevA→0, idledrift→0, jitter→0,
+     unsettled→0 sont TOUTES à sens unique : une chaîne qui ne bouge plus les maximise. Le correctif
+     « les contacts dépensent la vitesse » a sur-amorti l'ensemble — le calme est devenu parfait
+     parce que le mouvement est mort. IL FAUT DES PLANCHERS DE MOUVEMENT MESURÉS EN LOCOMOTION,
+     tenus SUR LA MÊME EXÉCUTION que les plafonds de calme.
+  2. **L'audit mesure les OS, l'owner voit le MESH.** resid teste des centres de maillons ± un rayon
+     arbitraire contre des volumes ; la géométrie skinnée s'étend BIEN au-delà. Le noeud du Maire :
+     ses maillons sont probablement « dans les clous » pendant que son MESH transperce le ventre.
+     L'audit de pénétration doit être évalué À LA SURFACE DU MESH SKINNÉ (échantillonner les sommets
+     de la géométrie pilotée par la physique contre les volumes du corps), et le rayon PAR MAILLON
+     doit être DÉRIVÉ de l'étendue réelle du mesh qu'il porte — c'est la demande d'origine de
+     l'owner, jamais réellement faite.
+  3. **Une résolution pire que le clip est pire que pas de résolution.** Le traitement mèches/oreilles
+     produit des artefacts « plus gênants qu'un simple clipping ». La correction de collision doit
+     être LISSE : borne de déplacement par frame (resjerk), blend, jamais de saut visible.
+
+### CIBLES CYCLE 14 (toutes sur la MÊME exécution device)
+  A. PLANCHERS DE MOUVEMENT en LOCOMOTION (Jak qui court, Keira au Zoomer) :
+     `hairrun=` span des cheveux de Jak EN COURANT (≥100 unités), `chestrun=` déviation de la
+     poitrine de Keira EN MOUVEMENT (≥350 unités). Rapportés par jambe device, ratchetés.
+  B. AUDIT AU NIVEAU DU MESH : `meshpen=` pénétration max de la surface skinnée pilotée par la
+     physique dans les volumes du corps, avec `meshtested=` sommets réellement échantillonnés > 0
+     et contrôle positif au niveau MESH. Le noeud du Maire nommément : clearance mesh-vs-ventre.
+  C. RAYON PAR MAILLON DÉRIVÉ DU MESH : pour chaque chaîne, le rayon vient de l'étendue réelle des
+     sommets skinnés à ce maillon (rapporter min/max par chaîne, avant/après).
+  D. RÉSOLUTION LISSE : `resjerk=` déplacement max appliqué par la résolution en une frame, borné ;
+     mèches vs oreilles de Keira montrées SANS oscillation ni saut.
+  E. PROFONDEUR DE VÉRIF SUR LES 3 PERSONNAGES QUE L'OWNER TESTE EN PREMIER : Jak, Keira, le Maire —
+     les autres gardent leurs chaînes (pas de descope silencieux), mais la preuve mesh-level et les
+     planchers de locomotion portent d'abord sur ces trois-là.

@@ -481,4 +481,36 @@ PYC12B
 grep -qiE "chain[- ]?(vs|to)[- ]?chain[^\n]{0,80}(bang|ear|goggle|chest|buckle|strap|bow|belly)" "$R" \
   || fail "C12: chain-vs-chain not exercised on the owner's named pairs (bangs vs ears, goggles vs chest, buckle vs strap, mayor's bow vs belly)"
 
+
+# ---- CYCLE 14 (owner 17:30: 'massively toned down, nothing fixed') ----
+# A. motion floors DURING LOCOMOTION — calm may never again be bought by killing motion
+python3 - "$R" <<'PYC14A' || fail "C14-A: no locomotion motion floors (hairrun>=100, chestrun>=350) — a dead sim maxes every calm metric, the owner saw static hair while RUNNING"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+h=[float(x) for x in re.findall(r'hairrun\s*=\s*([0-9.]+)',t)]
+c=[float(x) for x in re.findall(r'chestrun\s*=\s*([0-9.]+)',t)]
+if h: sys.stderr.write(f"  hairrun max={max(h)}\n")
+if c: sys.stderr.write(f"  chestrun max={max(c)}\n")
+sys.exit(0 if h and c and max(h)>=100 and max(c)>=350 else 1)
+PYC14A
+# B. penetration audited at the SKINNED MESH surface, not link centers
+python3 - "$R" <<'PYC14B' || fail "C14-B: no mesh-surface penetration audit (meshpen with meshtested>0 and a mesh-level positive control) — the owner's eyes live on the mesh, resid lived on the bones"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+mt=[int(x) for x in re.findall(r'meshtested\s*=\s*([0-9]+)',t)]
+ok=re.search(r'meshpen\s*=\s*[0-9.]+',t) and mt and max(mt)>0
+sys.exit(0 if ok else 1)
+PYC14B
+grep -qiE "(mayor|maire)[^\n]{0,80}(bow|noeud|n0153ud|ribbon)[^\n]{0,80}[0-9]" "$R" || fail "C14-B: the mayor's bow vs torso not measured at mesh level by name"
+# C. per-link radius derived from the skinned mesh extent
+grep -qiE "(radius|rayon)[^\n]{0,80}(derived|derive)[^\n]{0,60}(mesh|skinned|sommets)" "$R" || fail "C14-C: per-link radius not derived from the actual skinned mesh extent (the owner asked for this from the start)"
+# D. resolution must be smooth — worse-than-clipping artifacts are a failure
+python3 - "$R" <<'PYC14D' || fail "C14-D: no bounded resolution-jerk metric (resjerk) — the bangs-vs-ears fix produced artifacts worse than the clipping it replaced"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+v=[float(x) for x in re.findall(r'resjerk\s*=\s*([0-9.]+)',t)]
+sys.exit(0 if v else 1)
+PYC14D
+grep -qiE "(bang|meche)[^\n]{0,60}(ear|oreille)[^\n]{0,80}(smooth|no oscill|sans oscill|lisse|bounded|borne)" "$R" || fail "C14-D: bangs-vs-ears interaction not shown smooth"
+
 echo "[Grecharged-secondary-motion PASS]"
