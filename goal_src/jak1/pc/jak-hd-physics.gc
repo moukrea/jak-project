@@ -293,6 +293,11 @@
 (define *phys-slot-gloc* (new 'static 'inline-array vector 24))
 ;; (O/S) pre-constraint snapshot, one substep's worth. Scratch, never read across calls.
 (define *phys-psave* (new 'static 'inline-array vector 48))
+;; (S/C13d) net contact correction each link took inside THIS substep's collision sweep — the
+;; direction the body pushed it. Kept so the velocity-consistency pass can also SPEND the approach
+;; velocity the spring pumped into that contact (see the discharge there for the measured case).
+;; Scratch like psave, one substep's worth, never read across calls.
+(define *phys-lpn* (new 'static 'inline-array vector 48))
 
 
 ;; ---- cycle-4 constants --------------------------------------------------------------------------
@@ -2639,7 +2644,8 @@
                            ;; PHYS-PROJFIX and the velocity-consistency pass right after the sweep.
                            (dotimes (i len)
                              (when (>= i rl)
-                               (vector-copy! (-> *phys-psave* i) (-> *phys-pos* (+ start i)))))
+                               (vector-copy! (-> *phys-psave* i) (-> *phys-pos* (+ start i)))
+                               (vector-reset! (-> *phys-lpn* i))))
                            ;; constraint iterations
                            (dotimes (it iters)
                              (dotimes (i len)
@@ -2796,7 +2802,13 @@
                                                           ;; pass below, which also covers the
                                                           ;; distance and cone corrections this used
                                                           ;; to leave untouched.
-                                                          (vector+! p p vtmp))))))))))))))))))
+                                                          (vector+! p p vtmp)
+                                                          ;; ...but the DIRECTION is remembered: the
+                                                          ;; velocity-consistency pass needs to know
+                                                          ;; which way the body pushed to spend the
+                                                          ;; spring's approach velocity (S/C13d).
+                                                          (vector+! (-> *phys-lpn* i)
+                                                                    (-> *phys-lpn* i) vtmp))))))))))))))))))
                            ;; ---- (S) VELOCITY CONSISTENCY — THE HYSTERESIS ROOT CAUSE -------------
                            ;; In a verlet integrator velocity is IMPLIED by (p - prev). Every
                            ;; constraint above moves p and leaves prev where it was, so the next
@@ -2830,7 +2842,32 @@
                                  (when (and (> fric 0.0) (nonzero? (-> lpush i)))
                                    (vector-! vtmp p pv)
                                    (vector-float*! vtmp vtmp fric)
-                                   (vector+! pv pv vtmp))))))
+                                   (vector+! pv pv vtmp))
+                                 ;; ---- (S/C13d) INELASTIC CONTACT — the discharge the pump was
+                                 ;; missing. Rule O preserves the velocity a held link HAD, and
+                                 ;; PROJFIX above keeps every correction out of it — but the SPRING
+                                 ;; re-injects omega^2 * D of fresh approach velocity every substep
+                                 ;; while the body holds the link away from its equilibrium. The
+                                 ;; hold cancels the position change and nothing ever spent the
+                                 ;; velocity, so it STANDS at the injection rate: position static,
+                                 ;; |pos - prev| pinned above the rest bar for as long as the hold
+                                 ;; lasts. Measured on the phone (intro leg, Maia lying in contact):
+                                 ;; idledrift = 0.0000 over 56 idle frames — the bone does not move
+                                 ;; — with the actor-level maxvel still >= 2 at the 60-frame bar,
+                                 ;; which is `unsettled = 1` by definition. Flesh-on-cloth is not
+                                 ;; elastic: the component of velocity INTO the surface is spent,
+                                 ;; not stored. So exactly that component is removed — measured
+                                 ;; along the net push the sweep just applied, only while it points
+                                 ;; INTO the contact — and nothing else: tangential slide and the
+                                 ;; free swing keep every unit they had. Removal only, never a
+                                 ;; kick, so rule O still holds in both directions.
+                                 (let ((nl (vector-length (-> *phys-lpn* i))))
+                                   (when (> nl 0.0001)
+                                     (vector-! vtmp p pv)
+                                     (let ((vn (/ (vector-dot vtmp (-> *phys-lpn* i)) nl)))
+                                       (when (< vn 0.0)
+                                         (vector-float*! vtmp (-> *phys-lpn* i) (/ vn nl))
+                                         (vector+! pv pv vtmp)))))))))
                          ;; ---- (B) SETTLE RAMP + BURST AUDIT -------------------------------------
                          ;; Fading the forces alone is not enough: a cut can leave the chain already
                          ;; displaced. So for PHYS-SETTLE frames the STATE itself is pulled toward
@@ -3478,7 +3515,22 @@
                                                (vector+! (-> *phys-pos* (+ start i))
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
-                                                         (-> *phys-prev* (+ start i)) vtmp)))))))))))
+                                                         (-> *phys-prev* (+ start i)) vtmp)
+                                               ;; (S/C13d) INELASTIC CONTACT, same discharge as the
+                                               ;; substep sweep: the velocity is untouched by the
+                                               ;; joint move above, so what points INTO this contact
+                                               ;; is the spring's own pumping — spent here, never
+                                               ;; stored. Removal only (vn < 0), tangential slide
+                                               ;; untouched, so rule O holds in both directions.
+                                               (let ((cl2 (vector-length vtmp)))
+                                                 (when (> cl2 0.0001)
+                                                   (vector-! vtmp3 (-> *phys-pos* (+ start i))
+                                                             (-> *phys-prev* (+ start i)))
+                                                   (let ((vn (/ (vector-dot vtmp3 vtmp) cl2)))
+                                                     (when (< vn 0.0)
+                                                       (vector-float*! vtmp3 vtmp (/ vn cl2))
+                                                       (vector+! (-> *phys-prev* (+ start i))
+                                                                 (-> *phys-prev* (+ start i)) vtmp3)))))))))))))))
                            ;; ---- (Z/C6) THE OPPOSITE SIDE GETS THE LAST WORD ---------------------
                            ;; The sweep above is Gauss-Seidel: the volumes are resolved one after the
                            ;; other and only the LAST one touched is left exactly satisfied. That is
@@ -3581,7 +3633,19 @@
                                                (vector+! (-> *phys-pos* (+ start i))
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
-                                                         (-> *phys-prev* (+ start i)) vtmp))))))))))))
+                                                         (-> *phys-prev* (+ start i)) vtmp)
+                                               ;; (S/C13d) INELASTIC CONTACT — same discharge as the
+                                               ;; main sweep above; a flap pinched against the
+                                               ;; opposite leg pumps exactly the same way.
+                                               (let ((cl2 (vector-length vtmp)))
+                                                 (when (> cl2 0.0001)
+                                                   (vector-! vtmp3 (-> *phys-pos* (+ start i))
+                                                             (-> *phys-prev* (+ start i)))
+                                                   (let ((vn (/ (vector-dot vtmp3 vtmp) cl2)))
+                                                     (when (< vn 0.0)
+                                                       (vector-float*! vtmp3 vtmp (/ vn cl2))
+                                                       (vector+! (-> *phys-prev* (+ start i))
+                                                                 (-> *phys-prev* (+ start i)) vtmp3))))))))))))))))
                          ;; ---- (C6/N) LAST RESORT: THE MODEL POSE IS FEASIBLE, SO END THERE ------
                          ;; The sweep above is Gauss-Seidel, and cycle 6 already wrote down what that
                          ;; costs: over volumes that disagree it converges to a COMPROMISE, and the
@@ -5002,6 +5066,20 @@
                                             (vector+! (-> *phys-out* (+ sa i)) (-> *phys-out* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-pos* (+ sa i)) (-> *phys-pos* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-prev* (+ sa i)) (-> *phys-prev* (+ sa i)) vtmp)
+                                            ;; (S/C13d) INELASTIC CONTACT between strands: a spring
+                                            ;; holding two strands pressed together pumps approach
+                                            ;; velocity exactly like a body hold (rule O preserves
+                                            ;; it, nothing spends it). Spend the component INTO the
+                                            ;; partner — along the separation just applied, removal
+                                            ;; only — so a resting pair can actually go quiet.
+                                            (let ((cl2 (vector-length vtmp)))
+                                              (when (> cl2 0.0001)
+                                                (vector-! xcand (-> *phys-pos* (+ sa i)) (-> *phys-prev* (+ sa i)))
+                                                (let ((vn (/ (vector-dot xcand vtmp) cl2)))
+                                                  (when (< vn 0.0)
+                                                    (vector-float*! xcand vtmp (/ vn cl2))
+                                                    (vector+! (-> *phys-prev* (+ sa i))
+                                                              (-> *phys-prev* (+ sa i)) xcand)))))
                                             (let ((k (-> *phys-jk* (+ sa i))))
                                               (when (< (+ k 1) nbones)
                                                 (vector-copy! (-> skel bones (+ k 1) transform vector 3)
@@ -5012,6 +5090,17 @@
                                             (vector-! (-> *phys-out* (+ sb j)) (-> *phys-out* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-pos* (+ sb j)) (-> *phys-pos* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-prev* (+ sb j)) (-> *phys-prev* (+ sb j)) vtmp)
+                                            ;; (S/C13d) same discharge for the partner; its push ran
+                                            ;; along -vtmp, so the approaching component is the one
+                                            ;; ALONG +vtmp (vn > 0), removed with the flipped sign.
+                                            (let ((cl2 (vector-length vtmp)))
+                                              (when (> cl2 0.0001)
+                                                (vector-! xcand (-> *phys-pos* (+ sb j)) (-> *phys-prev* (+ sb j)))
+                                                (let ((vn (/ (vector-dot xcand vtmp) cl2)))
+                                                  (when (> vn 0.0)
+                                                    (vector-float*! xcand vtmp (/ vn cl2))
+                                                    (vector+! (-> *phys-prev* (+ sb j))
+                                                              (-> *phys-prev* (+ sb j)) xcand)))))
                                             (let ((k (-> *phys-jk* (+ sb j))))
                                               (when (< (+ k 1) nbones)
                                                 (vector-copy! (-> skel bones (+ k 1) transform vector 3)
