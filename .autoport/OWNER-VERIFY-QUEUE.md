@@ -460,3 +460,56 @@ ACQUIS MESURÉS : restdevA 948 -> 5,08 (retour à la forme du modèle) ; lenmin 
 À TESTER : ① est-ce que quelque chose traverse encore un corps, sur N'IMPORTE quel personnage ?
 ② les pans de veste de Jak restent-ils chacun sur leur jambe ? ③ cheveux de Maia dans son corps ?
 ④ toggle physics OFF = tout redevient stock.
+
+---
+
+## FOLIAGE WIND — ROUND 2 (2026-08-08 03:2x) [À TESTER] — validator PASS, HEAD 25987e18e4
+Ton verdict round 1 : « on voit aucune feuille qui bouge, aucun palmier, nada ! »
+
+**LA CAUSE, mesurée et pas devinée — et ce n'était PAS l'amplitude.** Le vent TIE d'origine de jak1
+n'est pas faible, il est GLACIAL : il courbe déjà la cime d'un palmier d'environ 1,2 m, mais il
+oscille à **0,051 Hz, soit une période de VINGT SECONDES**. Les palmiers n'ont jamais été immobiles :
+ils étaient *penchés*, et dérivaient bien trop lentement pour que l'œil lise ça comme du mouvement.
+Le round 1 ne faisait que multiplier ce même terme par 3 — ce qui multiplie la courbure ET la vitesse
+ensemble, donc ça ne pouvait pas corriger la fréquence, la seule chose qui était cassée. Pire : à x3
+la cime se courbait de 3,3 à 5,3 m (une tempête) sans bouger pour autant.
+
+**CE QUI EST LIVRÉ.** Multiplicateur remis à 1,0 (on laisse le vent du jeu tranquille) et tout le
+mouvement vient d'une brise procédurale qui, elle, oscille vraiment ; spectre recentré sur 0,45 Hz ;
+frémissement des palmes par sommet. Mesuré sur device, même run, même pose, à Sentinel Beach :
+mouvement par image **x6,7 à x7,9 par rapport au jeu d'origine**, période **20 s -> 3,2 s**, et la
+courbure REDESCEND de 0,187-0,300 (round 1) à 0,079-0,101. Plus de mouvement, moins de flexion.
+Village1 confirme (x5,4-5,7). OFF = strictement l'original (ratios exactement 1,000 au runtime).
+
+**À TESTER :**
+① Sentinel Beach : avance vers les palmiers et RESTE IMMOBILE. Les cimes bougent-elles visiblement
+   sur un cycle de ~3 s, et les palmes frémissent-elles au lieu que l'arbre glisse en bloc ?
+② Brise ou tempête ? La cime est maintenant à ~1,5 m de la verticale sur un palmier de 17,5 m (8 %
+   de sa hauteur). Trop ? Pas assez ? Dis juste le sens, j'ai un réglage direct.
+③ Sandover : les 65 palmiers `palm-02` bougent. Les 27 plus GRANDS (`palm-01`) NE bougent pas — voir
+   le trou ci-dessous, ce n'est pas un bug de ce build.
+④ Buissons/arbustes : frémissement plus fin et plus rapide. Dosage ?
+⑤ OFF doit être exactement le jeu d'avant.
+
+**⚠️ TROU DE COUVERTURE CONNU, NON CORRIGÉ, C'EST TON ARBITRAGE.** Recensement complet des 218
+prototypes TIE : `palm-01.mb` porte stiffness 0,1 dans BEA.DGO et 0,0 dans VI1.DGO — le MÊME
+prototype de 23,9 m, animé à la plage et figé au village pour 27 instances. Et la jungle n'a AUCUN
+vent TIE du tout (toute la canopée est statique : 153 + 121 + 74 + 21 instances). C'est une
+incohérence d'auteur dans les données d'origine, pas un bug du moteur : l'appartenance au vent est
+cuite dans les .fr3. La corriger impose de ré-extraire les niveaux, ce qui déplace les comptes de
+draws/sommets et touche l'empreinte du bake PBR .meshweld — donc je ne l'ai pas fait tout seul dans
+une phase dont le défaut annoncé est « rendre la brise visible ». C'est chiffré et prêt en round
+séparé si ça te gêne à l'œil.
+
+**PAS PROUVÉ, dit honnêtement :** le compteur fps est quantifié par pas de 60 images et ne sait pas
+trancher le « <= 0,5 fps » demandé (OFF et ON lisent tous les deux 18,00 dans le même run) ; et le
+gel de la brise quand le jeu est en pause est codé mais jamais testé (paused=0 sur tous les
+échantillons).
+
+**Réglages à chaud, sans rebuild** (`adb shell setprop`, relu en ~2 s) :
+`debug.opengoal.foliage.tie_amp` (force de la brise, 0.12) · `.frond` (frémissement des palmes, 0.14)
+· `.shrub_amp` (buissons, en mètres, 0.16) · `.tie_mult` (amplifie le vent D'ORIGINE ; 1.0 = neutre,
+le round 1 livrait 3.0).
+Clips pour ton œil uniquement (caméra volontairement figée, donc tout ce qui bouge à l'image EST le
+feuillage) : `.autoport/reports/Grecharged-foliage-wind2/device/fw2-beach-{OFF,ON-default}.mp4`,
+`fw2-beach-ON-strong-frond0.22.mp4`, `fw2-village1-ON-default.mp4`.
