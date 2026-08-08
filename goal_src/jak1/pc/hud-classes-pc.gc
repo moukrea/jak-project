@@ -97,43 +97,71 @@
    (:timer (seconds -0.005))
    (:flags (bit3 bit9))))
 
+;; ROUND 5 — owner rounds 3+4 item 1 ("le sprite de Green Eco n'est pas comme celui qui apparaît
+;; ingame: il vacille pas de la même façon, il n'émet pas les petites particules qu'il est sensé
+;; émettre" / "STILL the DEFAULT hud sprite"). He was literally right: round 3 shipped 720 as a
+;; VERBATIM copy of the stock group-part-hud-pickup (75), so the recharged green eco WAS the
+;; stock hud sprite, byte for byte — nothing could have looked different.
+;; The in-world pickup is group-eco-green (id 58, collectables-part.gc:1249, parts 202-208). Its
+;; parts cannot be used directly: they are bit14 (3D world sprites) and carry :func callbacks
+;; ('sparticle-track-root-prim, 'eco-fadeout) that dereference the emitter's collide-shape — a
+;; world-derived clone is exactly what round 3 measured as "spawns but renders NOTHING".
+;; So: keep 75's GROUP topology and 2D vocabulary (sp-item count/binding/flags, bit9 not bit14,
+;; the 0.03/0.065/0.12 z ladder — the part that is proven to render), and port group 58's
+;; EMISSION CHARACTER onto it. The four differences a player actually sees, each taken from 58:
+;;   * density   — world launches 7x(num 6.0) puffs, the hud sprite 1x(1.0)+1x(3.0). -> 2.0/6.0
+;;   * waver     — NOT ported, and the reason is worth recording. World 203/204 chain to a fading
+;;                 launcher (206 :fade-a -0.16, 207 -0.4267) but ALSO carry :func 'eco-fadeout,
+;;                 which keeps pushing :next-time forward for as long as the emitter is not
+;;                 fading out — so in-world the chain effectively never fires and the layers live
+;;                 on their (seconds -0.005) timer. Porting the chain WITHOUT that callback (the
+;;                 callback dereferences the emitter's process state-flags, which a hud process
+;;                 does not carry) made every layer switch to the fading launcher after 0.035 s
+;;                 and die 0.5 s later: x86 A/B showed the stock sparkles GONE, replaced by a bare
+;;                 diffuse glow. Chains dropped; the layers keep the stock persistent timers.
+;;   * sparks    — world 205 falls under accel-y (meters -0.00015) and lives up to 0.997 s; the
+;;                 hud spark used -0.00002 (7.5x weaker) and 0.797 s, so it barely moved. That
+;;                 is "les petites particules qu'il est sensé émettre". -> world values.
+;;   * brightness— world hotdot 204 is :r 64 64 :g 255 :a 64 against the hud sprite's :a 24.
+;; Sizes are NOT touched here: this group replaces the stock hud-pickups sprite in its own slot,
+;; where the stock footprint is the correct one (only the gauge-centre clones are rescaled).
 (defpart 2981
   :init-specs
   ((:texture (bigpuff effects))
-   (:num 1.0)
+   (:num 2.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.03))
-   (:scale-x (meters 2.5))
+   (:scale-x (meters 2) (meters 1))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 32.0 92.0)
    (:g 128.0 128.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.026666667) (meters 0.026666667))
+   (:vel-x (meters 0.0148148155) (meters 0.0044444446))
    (:vel-y (meters 0.0014814815))
    (:vel-z (meters 0))
-   (:rotvel-z (degrees 0.2))
+   (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
    (:timer (seconds -0.005))
    (:flags (bit7 bit9))))
 
 (defpart 2982
   :init-specs
   ((:texture (bigpuff effects))
-   (:num 3.0)
+   (:num 6.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 1.5) (meters 0.4))
+   (:scale-x (meters 1.5) (meters 0.6))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 32.0 92.0)
    (:g 128.0 128.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-x (meters 0.0148148155) (meters 0.0044444446))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
-   (:rotvel-z (degrees -0.4) 1 (degrees 0.8))
+   (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
    (:timer (seconds -0.005))
    (:flags (bit3 bit7 bit9))))
 
@@ -143,13 +171,13 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.4))
+   (:scale-x (meters 0.3) (meters 0.2))
    (:scale-y :copy scale-x)
-   (:r 128.0)
+   (:r 64.0 64.0)
    (:g 255.0)
-   (:a 24.0)
+   (:a 64.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-x (meters 0.053333335) (meters 0.0148148155))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
@@ -159,24 +187,41 @@
   :init-specs
   ((:texture (hotdot effects))
    (:num 0.25)
-   (:scale-x (meters 0.35))
+   (:scale-x (meters 0.3))
    (:scale-y :copy scale-x)
    (:r 255.0)
    (:g 255.0)
    (:b 0.0)
-   (:a 96.0)
-   (:scalevel-x (meters -0.0012500001))
+   (:a 48.0)
+   (:scalevel-x (meters -0.00075757573))
    (:scalevel-y :copy scalevel-x)
-   (:fade-r -2.125)
-   (:accel-y (meters -0.00002))
-   (:timer (seconds 0.1) (seconds 0.797))
+   (:fade-r -2.8333333)
+   (:accel-y (meters -0.00015))
+   (:timer (seconds 0.1) (seconds 0.997))
    (:flags (bit2 bit9))
-   (:next-time (seconds 0.4))
+   (:next-time (seconds 0.3))
    (:next-launcher 2985)))
 
 (defpart 2985
   :init-specs ((:fade-r 0.0)))
 
+;;;; ROUND 5 — owner round-4 addendum #2 item 7 ("l'item [...] fait plutôt la taille entière de
+;;;; la jauge avec la jauge par dessus"): the three GAUGE-CENTRE groups below are shrunk to fit
+;;;; INSIDE the ring's centre hole. Not tuned by eye — measured:
+;;;;   * hud sprite half-width (canvas x units) = scale-x / (2 * 60 * 1.9996) = scale-x / 239.95
+;;;;     (sprite_3d.vert rendermode 2: basis_x.x = -P00, hud_matrix row3 w = 60*f0*pfog0,
+;;;;      f0 = -1.9996*P00, corners +-0.5 — sprite.gc:283,294-297,465,478).
+;;;;     The dominant layer (bigpuff, (meters 2.5)) therefore measured 42.7 units half-width.
+;;;;   * the ring's transparent hole, measured off the alpha channel of recharged_assets/
+;;;;     jak_gauge_empty.png, ends at r = 0.26 of the canvas half-size; the sprite is drawn at
+;;;;     RHUD_GAUGE_HALF = 45, so the hole radius on screen is 0.26 * 45 = 11.7 units.
+;;;; 42.7 units in an 11.7-unit hole = the owner's "full gauge size behind the gauge" exactly.
+;;;; Factor 0.26 applied uniformly to every :scale-x / :scalevel-x / :vel-* / :accel-* below
+;;;; (:z is depth ordering and :y the launch spread — both left alone, they are the stock hud
+;;;; pickup's own values and already read compact). 2.5m -> 0.65m = 11.1 units half-width, i.e.
+;;;; the cloud now sits inside the hole and the gauge no longer draws over it.
+;;;; GREEN (720) is NOT scaled: it replaces the stock hud-pickups sprite at its own slot, where
+;;;; the stock size is correct.
 ;;;; BLUE (id 721) — 75 structure, blue color subs.
 (defpartgroup group-hud-eco-blue
   :id 721
@@ -199,7 +244,7 @@
   :init-specs
   ((:texture (starflash effects))
    (:num 1.0)
-   (:scale-x (meters 0.5))
+   (:scale-x (meters 0.13))
    (:scale-y :copy scale-x)
    (:r 32.0 92.0)
    (:g 128.0 128.0)
@@ -213,7 +258,7 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.03))
-   (:scale-x (meters 2.5))
+   (:scale-x (meters 0.65))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 0.0 32.0)
@@ -221,8 +266,8 @@
    (:b 128.0 128.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.026666667) (meters 0.026666667))
-   (:vel-y (meters 0.0014814815))
+   (:vel-x (meters 0.00693333342) (meters 0.00693333342))
+   (:vel-y (meters 0.00038518519))
    (:vel-z (meters 0))
    (:rotvel-z (degrees 0.2))
    (:timer (seconds -0.005))
@@ -234,7 +279,7 @@
    (:num 3.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 1.5) (meters 0.4))
+   (:scale-x (meters 0.39) (meters 0.104))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 96.0)
@@ -242,7 +287,7 @@
    (:b 192.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-x (meters 0.00462222228) (meters 0.00462222228))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees 269.52002) (degrees 208.99998))
@@ -255,14 +300,14 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.4))
+   (:scale-x (meters 0.104))
    (:scale-y :copy scale-x)
    (:r 32.0)
    (:g 32.0)
    (:b 192.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-x (meters 0.0138666671) (meters 0.0138666671))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
@@ -272,16 +317,16 @@
   :init-specs
   ((:texture (hotdot effects))
    (:num 0.25)
-   (:scale-x (meters 0.35))
+   (:scale-x (meters 0.091))
    (:scale-y :copy scale-x)
    (:r 32.0)
    (:g 32.0)
    (:b 192.0)
    (:a 96.0)
-   (:scalevel-x (meters -0.0012500001))
+   (:scalevel-x (meters -0.000325000026))
    (:scalevel-y :copy scalevel-x)
    (:fade-r -2.125)
-   (:accel-y (meters -0.00002))
+   (:accel-y (meters -0.0000052))
    (:timer (seconds 0.1) (seconds 0.797))
    (:flags (bit2 bit9))
    (:next-time (seconds 0.4))
@@ -312,7 +357,7 @@
   :init-specs
   ((:texture (starflash effects))
    (:num 1.0)
-   (:scale-x (meters 0.5))
+   (:scale-x (meters 0.13))
    (:scale-y :copy scale-x)
    (:r 32.0 92.0)
    (:g 128.0 128.0)
@@ -326,7 +371,7 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.03))
-   (:scale-x (meters 2.5))
+   (:scale-x (meters 0.65))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 128.0)
@@ -334,8 +379,8 @@
    (:b 0.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.026666667) (meters 0.026666667))
-   (:vel-y (meters 0.0014814815))
+   (:vel-x (meters 0.00693333342) (meters 0.00693333342))
+   (:vel-y (meters 0.00038518519))
    (:vel-z (meters 0))
    (:rotvel-z (degrees 0.2))
    (:timer (seconds -0.005))
@@ -347,7 +392,7 @@
    (:num 3.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 1.5) (meters 0.4))
+   (:scale-x (meters 0.39) (meters 0.104))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 128.0)
@@ -355,7 +400,7 @@
    (:b 0.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-x (meters 0.00462222228) (meters 0.00462222228))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees -1.2) (degrees 2.4))
@@ -368,14 +413,14 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.4))
+   (:scale-x (meters 0.104))
    (:scale-y :copy scale-x)
    (:r 128.0)
    (:g 64.0)
    (:b 0.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-x (meters 0.0138666671) (meters 0.0138666671))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
@@ -385,16 +430,16 @@
   :init-specs
   ((:texture (hotdot effects))
    (:num 0.25)
-   (:scale-x (meters 0.35))
+   (:scale-x (meters 0.091))
    (:scale-y :copy scale-x)
    (:r 128.0)
    (:g 64.0)
    (:b 0.0)
    (:a 32.0)
-   (:scalevel-x (meters -0.0012500001))
+   (:scalevel-x (meters -0.000325000026))
    (:scalevel-y :copy scalevel-x)
    (:fade-g -0.4)
-   (:accel-y (meters -0.00002))
+   (:accel-y (meters -0.0000052))
    (:timer (seconds 0.1) (seconds 0.797))
    (:flags (bit2 bit9))
    (:next-time (seconds 0.4))
@@ -425,7 +470,7 @@
   :init-specs
   ((:texture (starflash effects))
    (:num 1.0)
-   (:scale-x (meters 0.5))
+   (:scale-x (meters 0.13))
    (:scale-y :copy scale-x)
    (:r 32.0 92.0)
    (:g 128.0 128.0)
@@ -439,7 +484,7 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.03))
-   (:scale-x (meters 2.5))
+   (:scale-x (meters 0.65))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 128.0)
@@ -447,8 +492,8 @@
    (:b 0.0)
    (:a 16.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.026666667) (meters 0.026666667))
-   (:vel-y (meters 0.0014814815))
+   (:vel-x (meters 0.00693333342) (meters 0.00693333342))
+   (:vel-y (meters 0.00038518519))
    (:vel-z (meters 0))
    (:rotvel-z (degrees 0.2))
    (:timer (seconds -0.005))
@@ -460,7 +505,7 @@
    (:num 3.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 1.5) (meters 0.4))
+   (:scale-x (meters 0.39) (meters 0.104))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 192.0)
@@ -468,7 +513,7 @@
    (:b 0.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-x (meters 0.00462222228) (meters 0.00462222228))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees -0.4) 1 (degrees 0.8))
@@ -481,14 +526,14 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.4))
+   (:scale-x (meters 0.104))
    (:scale-y :copy scale-x)
    (:r 128.0)
    (:g 64.0)
    (:b 0.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-x (meters 0.0138666671) (meters 0.0138666671))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
@@ -498,16 +543,16 @@
   :init-specs
   ((:texture (hotdot effects))
    (:num 0.25)
-   (:scale-x (meters 0.35))
+   (:scale-x (meters 0.091))
    (:scale-y :copy scale-x)
    (:r 128.0)
    (:g 64.0)
    (:b 0.0)
    (:a 32.0)
-   (:scalevel-x (meters -0.0012500001))
+   (:scalevel-x (meters -0.000325000026))
    (:scalevel-y :copy scalevel-x)
    (:fade-g -0.4)
-   (:accel-y (meters -0.00002))
+   (:accel-y (meters -0.0000052))
    (:timer (seconds 0.1) (seconds 0.797))
    (:flags (bit2 bit9))
    (:next-time (seconds 0.4))
@@ -1045,7 +1090,9 @@
    ))
 
 ;; replacement for the stock hud-power (the eco gauge)
-(deftype hud-recharged-power (hud-pc) ()))
+(deftype hud-recharged-power (hud-pc)
+  ((last-eco-idx int32) ;; which per-type gauge-centre launcher spawned last frame (-1 = none yet)
+   )))
 
 ;;;----------------------------------------------
 ;;  direct-renderer draw helpers
@@ -1564,6 +1611,8 @@
     (if (= (-> this particles s5-1 part matrix) -1) (set! (-> this particles s5-1 part matrix) (sprite-allocate-user-hvdf))))
   (set! (-> this x-sgn) 1)
   (set! (-> this y-sgn) 1)
+  ;; ROUND 5: -1 = "no type has spawned yet", so the first draw-hud frame clears the other two
+  (set! (-> this last-eco-idx) -1)
   0
   (none))
 
@@ -1635,6 +1684,18 @@
                              (((pickup-type eco-yellow)) 2)
                              (((pickup-type eco-red)) 1)
                              (else 0))))
+                  ;; ROUND 5 — owner round-4 addendum #2 item 6 ("on dirait les particules de
+                  ;; l'éco verte rendue par dessus l'éco bleu"): the three per-type launchers
+                  ;; share one screen slot and their layers are :timer (seconds -0.005), i.e.
+                  ;; they live until the launch-state is torn down. Nothing killed the PREVIOUS
+                  ;; type's cloud on a type switch (the only teardown is hud-hidden :enter, which
+                  ;; kills all three), so picking up a second eco left the old colour rendering
+                  ;; on top of the new one. Kill the inactive launchers on the switching frame —
+                  ;; kill-particles, not kill-and-free-particles, so the user-hvdf index survives.
+                  (when (!= idx (-> this last-eco-idx))
+                    (dotimes (i (-> this nb-of-particles))
+                      (if (!= i idx) (kill-particles (-> this particles i part))))
+                    (set! (-> this last-eco-idx) idx))
                   (if (< idx (-> this nb-of-particles)) (spawn (-> this particles idx part) *null-vector*))))))))))
   0
   (none))

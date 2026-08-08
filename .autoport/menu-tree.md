@@ -26,6 +26,12 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 
 ## RECHARGED SETTINGS (`*recharged-options-pc`* — 31 lignes livrées avec hd-models+pbr+physics, HUD off)
 
+> Grecharged-hud-jak1 (2026-08-08) : avec `--recharged-hud` la ligne **RECHARGED HUD** s'insère à
+> l'index **1** (juste après RECHARGED MASTER) et **tout le reste glisse de +1** — c'est exactement
+> ce que porte l'arithmétique `FLAG_RECHARGED_HUD_N` de `progress-pc.gc` (fw-idx, collapse HD, etc.).
+> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 31 lignes) ; avec le flag on
+> passe à 32.
+
 | idx | ligne | pilote |
 |---|---|---|
 | 0 | RECHARGED MASTER (on-off) | `recharged-master?` |
