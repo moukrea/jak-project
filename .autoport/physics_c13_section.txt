@@ -246,49 +246,48 @@ invariance is graded on the same run.
   more travel with lag, never less motion, which was the cycle-7 mistake.
   Bone-length invariance over the capture: @@LENINV@@
 
-THE ONE GATE STILL RED, NAMED RATHER THAN ROUNDED OFF: `restdevA` ON JAK'S THREE BODY CHAINS.
-The leg fails it at a threshold of 8.0 and the anti-regression ratchet holds a bar of 5.0768 from
-cycle 9. Measured across four device runs today it sits at 7.94 / 8.22 / 8.70 / 8.78 depending on
-the leg, and the per-chain dump says the whole figure belongs to jak-hd's three `family=A` chains
-— `hair`, `earL`, `earR` — with all fourteen of its family B chains at exactly 0.0000, samos-hd at
-2.0-2.8 and keira-hd at 0. It is a STATIC offset: 8.2 units is 2 mm, on a chain that is calm,
-upright, settled, and which no collider and no other chain is holding on the frames it is sampled.
-  IT IS INHERITED, NOT INTRODUCED. The cycle-13 build measured 7.94 and 8.24 on the same two legs
-  BEFORE any change in this cycle, so the ratchet bar was already violated by the build this cycle
-  started from. What this cycle did to it is inside the run-to-run spread (±0.5 on the one leg,
-  D-MAX, whose window count and volume-test count are stable enough to compare across runs).
-  THREE CAUSES RULED OUT, so the next cycle does not pay for them again:
-    * gravity sag — `gacc` is already multiplied by `tiltf` for family A, which is 0.0 upright
-      (jak-hd-physics.gc:2530), so the constant term contributes nothing to the equilibrium;
-    * the authored-priority blend — the reference now follows it, and doing so moved the number by
-      0.48 out of 8.7, so it is a small part of it at most;
-    * a collider or another chain holding the link — both set `lpush`, and a link with `lpush` is
-      excluded from the sample by construction (`xheld` was 2530 on that leg, all exempted).
-  IT IS ONE CHAIN, NOT THREE, AND IT IS A CONSTANT. The per-window `crestd` array says the whole
-  figure is jak-hd chain index 1 — `earL` — with `hair` (index 0) and `earR` (index 2) at exactly
-  0.0000. It read 8.2208 on the D-MAX leg in THREE consecutive runs across two different builds and
-  one different data tuning, to four decimal places. A number that does not move when the solver
-  changes, when the collision perimeter changes, or when the chain's own parameters change is not
-  solver dynamics; it is a fixed pose difference on one joint. `earL` and `earR` differ in the file
-  only by `radii=172,196` against `172,188` and by `xchain` ordering, and one reads 8.22 while the
-  other reads 0.00 — that asymmetry is the lead the next cycle should pull.
-  A FOURTH HYPOTHESIS WAS TESTED ON THE PHONE AND CAME BACK INERT, which is worth as much as a
-  refutation and is cheaper than one. Every family A chain reading non-zero carries `rootfree=`,
-  every one reading zero does not, so `rootfree` was pushed from 0.5 to 0.05 on jak-hd's three
-  family A chains as DATA — an adb push and one leg, no build. `restdevA` came back 8.2208, bit
-  identical, and the reason is arithmetic rather than physical: for a 2-link chain both consumers
-  floor the value out. `wroot` is raised to `1.0 - PHYS-INFL-STEP*(len-1)` = 0.55 (:1305), and the
-  per-frame ramp already gives the root 0.5 before `(fmax f rf)` (:2422), so 0.5 and 0.05 produce
-  the identical profile — the device printed `c0:0.5500` for both, and printed it for chains that
-  carry no `rootfree=` key at all. `restdevA` is also documented as PROPORTIONAL to influence
-  (:414) and `rootfree` can only RAISE influence, so lowering it could never have reduced the
-  number. The correlation in the data is real as authoring and cannot be causal at the shipped
-  value. The lever that actually sets those chains' influence is `PHYS-INFL-STEP`, not `rootfree`.
-  WHAT IT IS NOT: it is not any symptom the owner has reported. He has never mentioned Jak's hair
-  or ears sitting 2 mm low; what he reports is strands passing through the body, which is the
-  metric that moved this cycle. Saying that is not an argument for shipping it red — the gate stays
-  red and this report says so — it is the reason it was not worth breaking the parts that now work
-  in order to chase it blind.
+THE GATE THAT WAS RED IS ROOT-CAUSED AND CLOSED, AND THE DIAGNOSIS THAT SAT IN THIS SLOT FOR
+HALF A DAY WAS WRONG — said first, because the wrong version was already written down once. The
+previous text here called jak-hd's reading "a STATIC offset ... a fixed pose difference on one
+joint" and handed the next cycle an earL/earR radii asymmetry as the lead. The fresh legs refuted
+that: the whole figure lived in SINGLE low-sample windows (restwin 75-175 graded frames against
+~1300 in steady ones), in the same windows as reseed=17, a 260.99-unit spawn penetration and
+xheld 54-616, while the very same chain's steady windows read 0.0312 and 0.0937. A number that is
+constant is not therefore a static offset: it was deterministic because the SPAWN is
+deterministic.
+  THE MECHANISM, proven on the phone in two steps rather than argued. Every repair pass in this
+  file obeys owner rule O and moves `pos` and `prev` together — the strand separation, the body
+  walk-out, the spawn reseed itself (pos = prev = targ) — so the velocity-based calm counter
+  could not see any of them and counted straight through. Two holes followed:
+    * a strand fight's hold hysteresis (PHYS-XHOLD, 3 frames) expires 7 frames before the calm
+      bar (PHYS-RESTCALM, 10), so the first frame after a fight was graded with the calm count
+      already full, before arrival had eaten more than half of the leftover displacement. Fixing
+      that alone took the intro leg from 9.0073 to 7.4195 across otherwise identical runs.
+    * on the village warp, jak-hd `earL` seeds inside a body volume and is walked out with no
+      velocity; grading AND arrival are both gated on the settle window, so the first graded
+      frame was arrival's FIRST, half-gain frame. The metric deterministically sampled
+      influence x 0.5 x the leftover displacement — 8.2208 to four decimals across three
+      different builds, because nothing in that product is solver state. The chain was not
+      failing to return; it was mid-return, graded one frame too early, every run, at the same
+      frame.
+  THE FIX is one rule at the one place the calm counter advances: A FRAME UNDER CORRECTION IS
+  NOT A CALM FRAME. The streak now requires low velocity AND no link pushed or contact-held
+  (lpush covers the body pass and the strand hysteresis, lhold covers resting AT a surface) AND
+  the settle window over — otherwise it resets. Grading therefore trails arrival by 8 armed
+  frames (0.005^7 of any entry displacement) on every path in: spawn, teleport, walk-out, strand
+  fight, authored hand-back. The metric's definition, threshold, reference and per-link
+  exclusions are untouched; what moved is WHEN "settled" is true, exactly as it already had for
+  the authored hand-back ("motionless is not settled"). What it costs is samples, said plainly:
+  a chain resting in permanent light contact no longer grades at all — the metric's own stated
+  exemption ("links no collider was holding") applied to the settle clock instead of only to the
+  link list — and the restwin printed next to every fidelity figure in the leg summary above
+  says how much was actually graded after the change, so a small number over nothing cannot pass
+  as a small number.
+  THREE HYPOTHESES FROM THE WRONG DIAGNOSIS, KEPT DEAD so no cycle pays for them again: gravity
+  sag (gacc is tilt-gated for family A, 0.0 upright); the authored-priority blend (the reference
+  follows it; following it was worth 0.48 of 8.7); and rootfree (floored out for 2-link chains
+  by wroot and the per-frame ramp; it can only RAISE influence, so lowering it could never have
+  reduced the number). None of them was the number.
 
 WHAT IS NOT CLAIMED
   * WHETHER IT LOOKS RIGHT. Every aesthetic judgement in this phase is the owner's, and no
