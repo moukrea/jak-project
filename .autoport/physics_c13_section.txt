@@ -91,13 +91,23 @@ otherwise be making a promise the code did not keep.
      the model pose is clear of the BODY and says nothing about a partner that has since moved.
      `resid` was therefore unsatisfiable by construction, and it blamed the chain that could not
      fix it. Those five links per window were the whole of D-MAX's residual.
-     FIXED: the body audit and the fallback's feasibility test both grade BODY volumes only.
-     THE JUSTIFICATION MATTERS MORE THAN THE CHANGE, because "a metric stopped counting something"
-     is how four false greens have been shipped in this phase: the contact does not leave the
-     report, it moves to the instrument built for two moving bodies. Since `xchain=` was retired
-     every pair on the actor is strand-tested every frame, so chestR vs chestL is measured by
-     `chainvschain` / `ccdepth`, and by `xunres` / `xunresmax` when a frame cannot separate them.
-     `at=` volumes also still PUSH in the solver — only the body VERDICT stops being theirs.
+     FIXED, IN TWO STEPS, AND THE FIRST ONE WAS WRONG — recorded because that is the whole
+     difference between this and a fifth false green.
+     The first attempt simply stopped grading `at=` volumes here, on the stated argument that the
+     pair would surface in the strand instrument instead: every pair is strand-tested since
+     `xchain=` was retired, so chestR vs chestL would be carried by `chainvschain`/`ccdepth` and by
+     `xunres`/`xunresmax`. THE DEVICE REFUTED THAT ARGUMENT. keira-hd's `xunres` and `xunresmax`
+     read exactly 0 on both legs BEFORE the change and exactly 0 after it — the chest pair never
+     appeared in that instrument and still does not. What rose on the leg totals (`chainvschain`
+     1207 -> 1260, `xunres` 909 -> 973) was entirely jak-hd's, a different actor, and reading a leg
+     total as confirmation without decomposing it per actor is how a false green gets written down.
+     So the first attempt removed a real contact's verdict and handed it to nothing.
+     What ships is the second version, which keeps the half of the argument that survives and drops
+     the half that did not. `at=` volumes are TESTED in the audit exactly as before; what changed is
+     only WHICH counter scores them — `xbres` (count) and `xbresmax` (depth), reported per leg,
+     instead of the body's `resid`. A two-body contact must not be graded as ONE link's body
+     verdict, because that link often cannot fix it; and it must still be counted, under its own
+     name, with its own number. Both of those are now true, and neither depends on the other.
      AND THE UNDERLYING DATA IS STILL WRONG, WHICH IS AN OPEN ITEM AND NOT A FIXED ONE: a
      320-radius sphere riding one breast, on a model that separates them by 260, cannot express
      "these two touch when they swing". The two chest colliders need a radius derived from the mesh
@@ -254,12 +264,26 @@ upright, settled, and which no collider and no other chain is holding on the fra
       0.48 out of 8.7, so it is a small part of it at most;
     * a collider or another chain holding the link — both set `lpush`, and a link with `lpush` is
       excluded from the sample by construction (`xheld` was 2530 on that leg, all exempted).
-  WHAT CORRELATES AND HAS NOT BEEN TESTED: every family A chain reading non-zero carries
-  `rootfree=` (jak-hd hair/earL/earR 0.5, keira backhair 0.55, samos earL/earR 0.5) and every one
-  reading zero does not. `rootfree` sets both the influence-profile floor and the per-link freedom
-  floor `f`, which scales omega and the cone half-angle. That is a hypothesis with a mechanism, not
-  a finding, and it is written down as such. It is also cheap to test: `rootfree` is DATA, so the
-  next cycle can refute it with an adb push and one leg, with no build at all.
+  IT IS ONE CHAIN, NOT THREE, AND IT IS A CONSTANT. The per-window `crestd` array says the whole
+  figure is jak-hd chain index 1 — `earL` — with `hair` (index 0) and `earR` (index 2) at exactly
+  0.0000. It read 8.2208 on the D-MAX leg in THREE consecutive runs across two different builds and
+  one different data tuning, to four decimal places. A number that does not move when the solver
+  changes, when the collision perimeter changes, or when the chain's own parameters change is not
+  solver dynamics; it is a fixed pose difference on one joint. `earL` and `earR` differ in the file
+  only by `radii=172,196` against `172,188` and by `xchain` ordering, and one reads 8.22 while the
+  other reads 0.00 — that asymmetry is the lead the next cycle should pull.
+  A FOURTH HYPOTHESIS WAS TESTED ON THE PHONE AND CAME BACK INERT, which is worth as much as a
+  refutation and is cheaper than one. Every family A chain reading non-zero carries `rootfree=`,
+  every one reading zero does not, so `rootfree` was pushed from 0.5 to 0.05 on jak-hd's three
+  family A chains as DATA — an adb push and one leg, no build. `restdevA` came back 8.2208, bit
+  identical, and the reason is arithmetic rather than physical: for a 2-link chain both consumers
+  floor the value out. `wroot` is raised to `1.0 - PHYS-INFL-STEP*(len-1)` = 0.55 (:1305), and the
+  per-frame ramp already gives the root 0.5 before `(fmax f rf)` (:2422), so 0.5 and 0.05 produce
+  the identical profile — the device printed `c0:0.5500` for both, and printed it for chains that
+  carry no `rootfree=` key at all. `restdevA` is also documented as PROPORTIONAL to influence
+  (:414) and `rootfree` can only RAISE influence, so lowering it could never have reduced the
+  number. The correlation in the data is real as authoring and cannot be causal at the shipped
+  value. The lever that actually sets those chains' influence is `PHYS-INFL-STEP`, not `rootfree`.
   WHAT IT IS NOT: it is not any symptom the owner has reported. He has never mentioned Jak's hair
   or ears sitting 2 mm low; what he reports is strands passing through the body, which is the
   metric that moved this cycle. Saying that is not an argument for shipping it red — the gate stays

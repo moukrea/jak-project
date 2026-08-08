@@ -894,6 +894,11 @@
 ;; `xunres` counts contacts still overlapping after the clamp and the veto, i.e. the strand-vs-strand
 ;; residual this phase never had; `xunresmax` is the deepest of them. A strand-vs-strand pass with no
 ;; residual counter was the same shape of blind spot as a body audit with no perimeter.
+;; (C13b) and the verdict for a volume RIDING another chain — a two-body contact that is neither
+;; the body's residual nor a strand-vs-strand pair. It gets its own count and its own depth so that
+;; taking it out of `resid` can never be a way of not counting it at all.
+(define *phys-slot-xbres* (new 'static 'array int32 24))
+(define *phys-slot-xbresmax* (new 'static 'array float 24))
 (define *phys-slot-xveto* (new 'static 'array int32 24))
 (define *phys-slot-xunres* (new 'static 'array int32 24))
 (define *phys-slot-xunresmax* (new 'static 'array float 24))
@@ -1409,6 +1414,8 @@
     (set! (-> *phys-slot-mfsnap* slot) 0)
     (set! (-> *phys-slot-mfsnapmax* slot) 0.0)
     (set! (-> *phys-slot-mfhard* slot) 0)
+    (set! (-> *phys-slot-xbres* slot) 0)
+    (set! (-> *phys-slot-xbresmax* slot) 0.0)
     (set! (-> *phys-slot-xveto* slot) 0)
     (set! (-> *phys-slot-xunres* slot) 0)
     (set! (-> *phys-slot-xunresmax* slot) 0.0)
@@ -4187,7 +4194,7 @@
                                      ;; it does not leave the report. `at=` volumes still PUSH in the
                                      ;; solver above — only the body verdict stops being theirs.
                                      (when (and (<= (-> *phys-coltier* cb) tier)
-                                                (< (-> *phys-colchain* cb) 0))
+                                                (!= (-> *phys-colchain* cb) c))
                                        (let* ((rc (-> *phys-colchain* cb))
                                               (k2 (-> *phys-colk2* cb))
                                               (ca (if (>= rc 0)
@@ -4220,6 +4227,33 @@
                                            ;; noise floor. 1 unit = 0.24 mm on a 2.3 m character, so
                                            ;; nothing visible can hide under it.
                                            (when (< dd (- rr 1.0))
+                                            (cond
+                                             ;; (C13b, second pass) A VOLUME RIDING ANOTHER CHAIN GETS
+                                             ;; ITS OWN VERDICT — it does not get the BODY's, and it
+                                             ;; does not get NONE.
+                                             ;; The first pass simply skipped these here, on the
+                                             ;; argument that the pair would surface in the strand
+                                             ;; instrument instead. The device refuted that: keira-hd's
+                                             ;; `xunres`/`xunresmax` read exactly 0 both before and
+                                             ;; after, on both legs — the chest pair never appeared
+                                             ;; there and still does not. What the leg totals showed
+                                             ;; rising was jak-hd's, a different actor. So the first
+                                             ;; pass removed a real contact's verdict and handed it to
+                                             ;; nothing, which is precisely the shape of the four
+                                             ;; vacuous zeros this phase has already shipped.
+                                             ;; Both halves of the argument stand on their own and are
+                                             ;; kept separate: a two-body contact must not be graded as
+                                             ;; ONE link's body verdict (the link often cannot fix it —
+                                             ;; keira's chestR could not, at cclr -95.74, because the
+                                             ;; volume was riding chestL), AND it must still be
+                                             ;; counted. So it is counted here, under its own name,
+                                             ;; with its own depth, and the leg reports it.
+                                             ((>= rc 0)
+                                              (+! (-> *phys-slot-xbres* slot) 1)
+                                              (let ((pen (- rr dd)))
+                                                (when (> pen (-> *phys-slot-xbresmax* slot))
+                                                  (set! (-> *phys-slot-xbresmax* slot) pen))))
+                                             (else
                                              (+! (-> *phys-slot-resid* slot) 1)
                                              (set! chresid 1)
                                              ;; (Z) CROSS-SIDE. Not "a penetration" — the specific one
@@ -4236,7 +4270,7 @@
                                                (+! (-> *phys-slot-xleg* slot) 1))
                                              (let ((pen (- rr dd)))
                                                (when (> pen (-> *phys-slot-maxresid* slot))
-                                                 (set! (-> *phys-slot-maxresid* slot) pen)))))))))))))
+                                                 (set! (-> *phys-slot-maxresid* slot) pen)))))))))))))))
                          ;; ---- (W) DID THE BODY COME BACK TO THE MODEL? --------------------------
                          ;; The cycle-5 criterion, and the one place it is easy to write the WRONG
                          ;; test. The owner corrected me on exactly this: the deviation from the
@@ -5337,6 +5371,9 @@
                       (-> *phys-slot-xveto* slot)
                       (-> *phys-slot-xunres* slot)
                       (-> *phys-slot-xunresmax* slot))
+              (format *phys-line-buf* " xbres=~D xbresmax=~f"
+                      (-> *phys-slot-xbres* slot)
+                      (-> *phys-slot-xbresmax* slot))
               ;; per-chain: how many volumes it is tested against, and the radius of its first link.
               ;; A chain showing ncol=0 has nothing to hit — that is the wave-2 failure mode the
               ;; aggregate counter could not see — and lrad names the mesh-measured thickness the
@@ -5358,6 +5395,8 @@
               (set! (-> *phys-slot-mfsnap* slot) 0)
               (set! (-> *phys-slot-mfsnapmax* slot) 0.0)
               (set! (-> *phys-slot-mfhard* slot) 0)
+              (set! (-> *phys-slot-xbres* slot) 0)
+              (set! (-> *phys-slot-xbresmax* slot) 0.0)
               (set! (-> *phys-slot-xveto* slot) 0)
               (set! (-> *phys-slot-xunres* slot) 0)
               (set! (-> *phys-slot-xunresmax* slot) 0.0)

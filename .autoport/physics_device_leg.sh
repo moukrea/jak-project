@@ -38,8 +38,17 @@ set_ini_dev(){ # [music]-trap-aware: existing key in place, new keys top-level a
 
 LCP=0
 cleanup(){
-  $ADB -s "$S" shell setprop debug.opengoal.level.warp '' >/dev/null 2>&1 </dev/null || true
-  $ADB -s "$S" shell setprop debug.opengoal.level.warp.pos '' >/dev/null 2>&1 </dev/null || true
+  # QUOTE-STRIPPING: the local shell ate the '' before adb ever saw it, so this sent
+  # `setprop debug.opengoal.level.warp` with NO value — a no-op. The props survived the run and the
+  # OWNER's next launch went straight into whatever leg ran last (measured: warp=intro-start,
+  # pos=-130.50 34.50 202.41 still set after a clean exit). Quote the whole command so the empty
+  # string reaches the DEVICE shell, and prove it cleared rather than assuming it.
+  $ADB -s "$S" shell "setprop debug.opengoal.level.warp ''" >/dev/null 2>&1 </dev/null || true
+  $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos ''" >/dev/null 2>&1 </dev/null || true
+  local WLEFT
+  WLEFT=$($ADB -s "$S" shell "getprop debug.opengoal.level.warp; getprop debug.opengoal.level.warp.pos" 2>/dev/null | tr -d '\r\n ')
+  [ -z "$WLEFT" ] || say "cleanup WARNING: warp props NOT cleared (left: $WLEFT) — the owner's next launch would warp"
+
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
   if [ -f "$INI_BAK" ]; then
     $ADB -s "$S" push "$INI_BAK" "$PCS_DEV" >/dev/null 2>&1 \
@@ -327,6 +336,13 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     # see two strands still overlapping, and so a future cycle cannot quietly trade one for the other.
     [ "${XU:-0}" = 0 ] || say "OPEN($TAG): xunres=$XU (deepest ${XUX:-0}) — strand-vs-strand contacts left overlapping rather than pushed into the body"
     [ "${XV:-0}" = 0 ] || say "OPEN($TAG): xveto=$XV — strand pushes refused because they would have driven a link deeper into its own character"
+    # (C13b) the verdict for a volume RIDING another chain. It is reported, never silently absent:
+    # the whole reason `at=` volumes left `resid` is that ONE link cannot fix a two-body contact, and
+    # the whole reason that is not a way of hiding it is this line.
+    XB=$(grep -a 'xbres=' "$LC" | awk '{if (match($0,/xbres=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
+    XBX=$(grep -ao 'xbresmax=[0-9.]*' "$LC" | sed 's/xbresmax=//' | sort -g | tail -1)
+    say "leg $TAG: cycle13b xbres=$XB xbresmax=${XBX:-0}"
+    [ "${XB:-0}" = 0 ] || say "OPEN($TAG): xbres=$XB (deepest ${XBX:-0}) — a link ended inside a volume RIDING another chain (two-body contact; see the chest-collider radius open item)"
     # mfhard = the fallback could not find ANY clear point, not even the model pose. The closed-form
     # guarantee does not cover it (an at= volume riding a partner that has swung), so it is reported
     # rather than failed — but it is reported, because an unreported give-up is how this phase
