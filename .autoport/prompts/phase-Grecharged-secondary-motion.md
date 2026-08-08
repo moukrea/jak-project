@@ -864,3 +864,14 @@ d'autres éléments à physique. »
      Keira vs poitrine, col de Jak vs épaules, pans de veste de Jak, noeud du maire vs ventre.
      L'owner précise qu'il a arrêté d'énumérer : ce sont des exemples, pas la liste.
   6. La POITRINE de Keira n'est toujours pas bonne (voir AL : rotation, pas translation).
+
+## CYCLE 12 — CONSIGNE RESSERRÉE (superviseur 14:40)
+IL NE RESTE QU'UN SEUL CRITÈRE ROUGE : `restdevA` = 8,22 (MAX) / 8,75 (INTRO) pour un seuil de 8,0.
+Tout le reste est vert (pénétrations 0, nomask 0, xleg 0, longueurs 0,99+).
+=> NE TOUCHER QU'À ÇA. Instruments GELÉS, aucun rebuild x86, aucune nouvelle jambe.
+=> ~8 unités ≈ 2 mm : chercher un BIAIS constant, pas une instabilité — un offset de re-glue, une
+   référence rest vs targ (cf. feedback_restdev_rest_vs_targ_reference), ou la moyenne qui inclut
+   des frames de settle. Vérifier D'ABORD ce que la moyenne échantillonne avant de retoucher le
+   solveur : si les 8 unités viennent de frames pré-stabilisation comptées dans la moyenne, c'est
+   l'échantillonnage qu'il faut borner (fenêtre post-settle), pas la physique.
+=> Puis régénérer le rapport et s'arrêter là.
