@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# The eco injector MUST never survive this script: a killed run once left
+# debug.opengoal.eco.spawn armed and the owner found Jak endlessly spawning blue
+# eco during his own play session. Clear every driver prop on ANY exit.
+cleanup_props() {
+  for p in debug.opengoal.eco.spawn debug.opengoal.cpad_inject debug.opengoal.level.warp debug.opengoal.level.warp.pos; do
+    adb -s "${S:-eae4df44}" shell setprop "$p" "" >/dev/null 2>&1 || true
+  done
+}
+trap cleanup_props EXIT INT TERM
 # rhud5_device.sh — Grecharged-hud-jak1 ROUND 5, ARM64 DEVICE leg (eae4df44 only).
 #
 # Owner methodology (2026-07-09, FIRM): x86 judges LOOKS, the device judges the
