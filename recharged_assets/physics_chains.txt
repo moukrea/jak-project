@@ -98,18 +98,43 @@
 # jak1 model always keeps jak1's exact channel, so ORIGINAL looks are bit-identical.
 #
 # jak1 changes eye size by scaling the iris/pupil sprite inside the character's 32x32 eye tile, and
-# that scale is ABSOLUTE IN TILE SPACE (scale 1.0 = the sprite covers the whole tile). The HD donor
-# eyeball wraps that same tile around a round eye where jak1's is a small flat patch, so an identical
-# excursion reads far bigger on an HD head. These keys compress the excursion around the neutral;
-# they never remove it.
-#   on=0|1        1 = compress (default). 0 = raw jak1 channel on HD too (the pre-fix behaviour).
-#   neutral=N     the authored rest value of the channel; the curve is an exact identity there, so
-#                 the eye at rest is untouched. 1.0 is ND's own no-data default (eye.gc:952-959).
-#   gainup=G      kept fraction of the ABOVE-neutral excursion — the one that bulges the eye.
-#   gaindown=G    kept fraction of the BELOW-neutral excursion (eye shrinking).
+# that scale is ABSOLUTE IN TILE SPACE — it is not relative to the eye it lands on. MEASURED on the
+# shipped artifacts: the HD eye is NOT bigger (bbox ratio 0.984) and covers the same UVs, but it is
+# far ROUNDER (out-of-plane RMS / span 0.0367 stock -> 0.0645 HD on Daxter = 1.76x, vertex-normal
+# spread 16 -> 36 deg). So the same tile-space zoom paints a flat decal on the stock eye and
+# inflates a bulging ball on the HD one. These keys compress the excursion around the AUTHORED REST
+# value; they never remove it.
+# Only the excursion ABOVE the channel's AUTHORED REST is compressed. Below rest (eyes shrinking,
+# never globuleux) jak1 is left alone, so the curve can only ever SHRINK a sprite relative to jak1 —
+# "HD never more exaggerated than the original" is a property of the curve, not of the tuning.
+#   on=0|1            1 = compress (default). 0 = raw jak1 channel on HD too (pre-fix behaviour).
+#   gainup=G          kept fraction of the above-rest excursion. 0.45 is below the tightest stock/HD
+#                     doming ratio of the four HD characters (Daxter 0.0367/0.0645 = 0.569), so an
+#                     HD eye's bulge under the cartoon zoom stays under the ORIGINAL model's.
+# PER-SLOT (eye_id = (eye-slot << 1) | is_right — jak 0/1, daxter 2/3, samos 4/5, keira 6/7): a line
+# starting with `slot <eye_id>` applies the rest of that line to that eye only.
+#   rest_iris=N rest_pupil=N   the AUTHORED rest of that character's channel. MEASURED over the whole
+#                     game by .autoport/hdeye_anim_scan.py (40 art-groups + 2581 spooled cutscene
+#                     anims), never assumed — the rest is per CHARACTER: Jak 0.8906/0.4375, Daxter
+#                     0.375/0.0 (the ottsel has NO pupil sprite at all), Samos 1.0/1.0, Keira
+#                     1.09375/0.5. The flat 1.0 the first attempt used is only the no-eye-anim-data
+#                     fallback (eye.gc:952-959) and is nobody's rest.
+#   gainup=G          per-slot gain override.
+# The compiled defaults already carry the measured rests, so deleting this block is safe; a slot with
+# no known rest is measured but NEVER rewritten. The legacy keys neutral/neutral_iris/neutral_pupil/
+# gaindown are deliberately IGNORED with a warning (a stale pack must not re-apply a wrong anchor).
+# The heartbeat prints the observed rest= next to the anchor= in use, so a mismatch is visible.
 # ------------------------------------------------------------------------------------------------
 [eyescale]
-on=1 neutral=1.0 gainup=0.45 gaindown=0.70
+on=1 gainup=0.45
+slot 0 rest_iris=0.890625 rest_pupil=0.4375
+slot 1 rest_iris=0.890625 rest_pupil=0.4375
+slot 2 rest_iris=0.375    rest_pupil=0.0
+slot 3 rest_iris=0.375    rest_pupil=0.0
+slot 4 rest_iris=1.0      rest_pupil=1.0
+slot 5 rest_iris=1.0      rest_pupil=1.0
+slot 6 rest_iris=1.09375  rest_pupil=0.5
+slot 7 rest_iris=1.09375  rest_pupil=0.5
 
 [levels]
 level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0

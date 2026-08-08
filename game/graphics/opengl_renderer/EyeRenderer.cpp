@@ -31,40 +31,109 @@ u64 s_hd_blink_frames = 0;
 
 // Grecharged-hd-eye-scale (owner 2026-08-06, "yeux trop globuleux" on exaggerated anims).
 //
-// ROOT CAUSE. jak1's cartoon eye-size channel is ABSOLUTE IN EYE-TILE SPACE, not relative to the
-// model's own eye: render-eyes sizes the iris sprite as half-extent = 256 * iris-scale GS
-// subpixels (eye.gc:163, pupil at eye.gc:309) of a tile that spans 512 subpixels, so scale == 1.0
-// — ND's own neutral, the value merc-eye-anim falls back to at eye.gc:952-959 — paints the sprite
-// over the WHOLE tile. hd_merc_swap repoints every donor eye draw at the DRIVER's jak1 tile
-// (tools/hd_merc_swap/main.cpp:443; jak2/jak3 slot ids are meaningless here), and the donor
-// EYEBALL wraps that whole tile around a spherical eye where jak1's own eye is the small flat
-// patch the cycle-3 lid fix below is built on. One and the same absolute tile-space excursion
-// therefore covers a far larger share of the visible eye on an HD head than on the stock one.
+// THE CHANNEL. jak1 changes eye size by scaling the iris/pupil sprite inside the character's
+// 32x32 eye tile, and that scale is ABSOLUTE IN TILE SPACE: render-eyes sizes the sprite as
+// half-extent = 256 * <scale> GS subpixels (eye.gc:163/214 iris, :309/362 pupil) of a tile that
+// spans 512, so `raw` below IS the GOAL-side iris-scale / pupil-scale.  merc-eye-anim (eye.gc:905)
+// lerps it out of the frame-group's eye-anim-data, one UNSIGNED byte per channel per frame,
+// dequantised by convert-eye-data (eye.gc:886-903, zero-extend then vitof12) as byte/64 — so the
+// authored values are exact multiples of 1/64 in [0, 3.984] and the per-slot histogram below
+// recovers the byte the artist actually keyed.
 //
-// FIX. Compress the excursion AWAY FROM NEUTRAL, on HD-covered slots only. At neutral the HD eye
-// is bit-identical to stock, so the base look is untouched; only the gain of the cartoon effect
-// drops. Params are DATA (see hd_eye_scale_load_once) so a retune is a text push, never a build.
+// ROOT CAUSE — measured, and NOT what the first attempt assumed.  The excursion is absolute in
+// tile space, i.e. it is not relative to the eye it lands on; and the HD eye is NOT bigger at the
+// bind, so nothing rescales it back down.  Measured on the shipped artifacts (plane fit over the
+// eye primitive of decompiler_out/jak1/levels/common/sidekick-lod0.glb vs
+// decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb, the pair carrying the
+// programmer_eye_left/right textures):
+//     bbox largest span   HD/stock = 0.984      (same size)
+//     UV footprint        u=[0.0156,0.9844] on BOTH   (same share of the tile)
+//     out-of-plane RMS / largest span   0.0367 stock -> 0.0645 HD   = 1.76x
+//     vertex-normal spread              16.0 deg    -> 36.1 deg     = 2.25x
+// Same size, same UVs, MUCH rounder surface (13 verts -> 126, and 1.76x more domed even after
+// subsampling the HD cloud back to 13 verts).  So one and the same tile-space zoom paints a flat
+// decal on the stock eye and inflates a bulging ball on the HD one — which is exactly the word the
+// owner used.  Keira is the same way (RMS/L 1.37x, normals 2.12x); Jak's HD eye is measurably
+// FLATTER than stock (0.40x) and Samos is ambiguous, which is why the defect reads on Daxter.
+//
+// FIX. Keep only a fraction of the excursion ABOVE the channel's AUTHORED REST value, on
+// HD-covered slots only — a stock jak1 model always keeps jak1's exact channel, and below rest
+// (eyes shrinking, never globuleux) jak1 is untouched too.  Because the curve can then only ever
+// SHRINK a sprite relative to jak1, "HD <= stock" holds BY CONSTRUCTION, and a mis-specified rest
+// can never inflate an eye.
+//
+// The rest is PER CHARACTER and PER CHANNEL — measured offline over the whole game by
+// .autoport/hdeye_anim_scan.py (40 DGO art-groups + 2581 spooled-cutscene animations; the channel
+// is one unsigned byte per frame, dequantised as byte/64):
+//     Jak      eichar     iris 0.8906 flat        pupil 0.4375  (0.0938 .. 0.6406)
+//     Daxter   sidekick   iris 0.3750 (0.1875 .. 0.6719)        pupil 0.0 in ALL 783 anims
+//     Samos    sage       iris 1.0000 flat        pupil 1.0000  (0.6875 .. 1.0)
+//     Keira    assistant  iris 1.0938 flat        pupil 0.5000  (0.5 .. 1.0)
+// The first attempt anchored everything on a flat 1.0.  That is only the no-eye-anim-data fallback
+// (eye.gc:952-959) and it is nobody's rest: it inflated every HD pupil by 30% at all times, and on
+// Daxter — the character the owner actually reported — it would have pivoted 2.9x above his rest
+// and conjured a pupil sprite onto a model that has none.  Hence: no global anchor, ever.
+//
+// gain_up 0.45 is not a magic number: it is below the tightest stock/HD doming ratio of the four HD
+// characters (Daxter 0.0367/0.0645 = 0.569), so the bulge an HD eye can reach under the cartoon
+// zoom stays under what the ORIGINAL model reaches.  Params are DATA (hd_eye_scale_load_once) so a
+// retune is a text push, never a build.
+constexpr int kEyeScaleSlots = 256;  // one per eye_id = (eye-slot << 1) | is_right
+constexpr int kIris = 0, kPupil = 1;
+
 struct HdEyeScaleParams {
   bool on = true;
-  float neutral = 1.0f;   // authored rest value of iris-scale / pupil-scale
-  float gain_up = 0.45f;  // kept fraction of the ABOVE-neutral excursion (the globuleux one)
-  float gain_dn = 0.70f;  // kept fraction of the BELOW-neutral excursion
+  float gain_up = 0.45f;  // kept fraction of the ABOVE-rest excursion (the globuleux one)
+};
+// Per slot (= per eye_id). rest < 0 means "unknown": such a slot is MEASURED but never rewritten,
+// because compressing towards a rest we do not know is how you shift a character's base look.
+struct HdEyeScaleSlot {
+  float rest[2] = {-1.f, -1.f};
+  float gain_up = -1.f;  // < 0 = inherit the global
+};
+// eye_id -> {iris rest, pupil rest} for the four jak1 drivers every HD look retargets onto
+// (hd_merc_swap --eye-from: jak 0/1, daxter 2/3, samos 4/5, keira 6/7). Compiled defaults, so a
+// missing or stale physics_chains.txt falls back to the MEASURED values rather than to a guess.
+struct HdEyeRestDefault {
+  float iris, pupil;
+};
+constexpr HdEyeRestDefault kEyeRestDefault[8] = {
+    {0.890625f, 0.437500f}, {0.890625f, 0.437500f},  // 0/1 eichar    = Jak
+    {0.375000f, 0.000000f}, {0.375000f, 0.000000f},  // 2/3 sidekick  = Daxter (ottsel: no pupil)
+    {1.000000f, 1.000000f}, {1.000000f, 1.000000f},  // 4/5 sage      = Samos
+    {1.093750f, 0.500000f}, {1.093750f, 0.500000f},  // 6/7 assistant = Keira
 };
 HdEyeScaleParams s_eye_scale;
+HdEyeScaleSlot s_eye_scale_slot[kEyeScaleSlots];
 bool s_eye_scale_loaded = false;
+bool s_eye_scale_warned_unknown[kEyeScaleSlots] = {};
 
-// Per eye slot, per sprite (0 = iris, 1 = pupil), cumulative over the whole run: `raw` is the
-// unmodified jak1 channel — i.e. exactly what the ORIGINAL model applies on those same frames —
-// and `out` is what the HD eye actually gets. Never reset, so the last heartbeat is the run
-// summary. This counter pair IS the phase instrument; there is no measurement by eye anywhere.
+float eye_gain_up_of(u8 slot) {
+  const float o = s_eye_scale_slot[slot].gain_up;
+  return o >= 0.f ? o : s_eye_scale.gain_up;
+}
+
+// Per eye slot, per sprite (kIris / kPupil), cumulative over the whole run; never reset, so the
+// last heartbeat is the run summary. `raw` is the unmodified jak1 channel — exactly what the
+// ORIGINAL model applies — and `cout` is what an HD-covered eye actually gets.
+//
+// raw_* spans EVERY draw (that is the stock measurement, and it is the only one a stock run can
+// produce), while cov_raw_* and cov_out_* span the COVERED draws only, so the stock-vs-HD pair is
+// read off the very same frames. The first attempt tracked out_* over all draws, which silently
+// mixed rewritten and untouched frames and made the comparison meaningless.
+//
+// hist bins round(raw*64), i.e. the exact unsigned byte convert-eye-data dequantised, so the mode
+// recovers the artist's authored REST value per character with no guessing.
 struct HdEyeScaleStats {
   u32 draws = 0;
   u32 covered = 0;
   u32 changed = 0;
   float raw_min = 1e9f, raw_max = -1e9f;
-  float out_min = 1e9f, out_max = -1e9f;
+  float cov_raw_min = 1e9f, cov_raw_max = -1e9f;
+  float cov_out_min = 1e9f, cov_out_max = -1e9f;
+  u32 hist[256] = {};
 };
-HdEyeScaleStats s_eye_scale_stats[2][256];
+HdEyeScaleStats s_eye_scale_stats[2][kEyeScaleSlots];
 u64 s_eye_scale_frames = 0;
 
 float eye_scale_f(const std::string& v) {
@@ -84,6 +153,10 @@ void hd_eye_scale_load_once() {
     return;
   }
   s_eye_scale_loaded = true;
+  for (int s = 0; s < 8; s++) {
+    s_eye_scale_slot[s].rest[kIris] = kEyeRestDefault[s].iris;
+    s_eye_scale_slot[s].rest[kPupil] = kEyeRestDefault[s].pupil;
+  }
   const char* src = "package";
   auto path = file_util::get_recharged_assets_dir() / "physics_chains.txt";
   auto ext_dir = file_util::get_external_recharged_assets_dir();
@@ -107,6 +180,7 @@ void hd_eye_scale_load_once() {
   }
 
   bool in_section = false;
+  int n_slot_lines = 0;
   std::stringstream lines(text);
   std::string raw;
   while (std::getline(lines, raw)) {
@@ -116,42 +190,85 @@ void hd_eye_scale_load_once() {
     }
     std::stringstream toks(raw);
     std::string tok;
+    // A line may open with `slot N` (N = eye_id): the rest of THAT line then overrides only that
+    // slot. Scoping the override to the line keeps the parser order-free, unlike a sticky context.
+    int line_slot = -1;
+    bool first = true;
     while (toks >> tok) {
       if (!tok.empty() && tok[0] == '[') {
         in_section = (tok == "[eyescale]");
+        first = false;
         continue;
       }
       if (!in_section) {
         continue;
       }
+      if (first && tok == "slot") {
+        first = false;
+        std::string idx;
+        if (toks >> idx) {
+          const int s = (int)eye_scale_f(idx);
+          if (s >= 0 && s < kEyeScaleSlots) {
+            line_slot = s;
+            n_slot_lines++;
+          } else {
+            lg::warn("[eyescale] slot {} out of range (line ignored)", idx);
+            break;
+          }
+        }
+        continue;
+      }
+      first = false;
       auto eq = tok.find('=');
       if (eq == std::string::npos) {
         continue;
       }
       const std::string k = tok.substr(0, eq), v = tok.substr(eq + 1);
+      const float f = eye_scale_f(v);
       if (k == "on") {
-        s_eye_scale.on = eye_scale_f(v) != 0.f;
-      } else if (k == "neutral") {
-        s_eye_scale.neutral = eye_scale_f(v);
+        if (line_slot < 0) {
+          s_eye_scale.on = f != 0.f;
+        }
+      } else if (k == "rest_iris") {
+        if (line_slot >= 0) {
+          s_eye_scale_slot[line_slot].rest[kIris] = f;
+        } else {
+          lg::warn("[eyescale] rest_iris is per-slot only (prefix the line with `slot N`)");
+        }
+      } else if (k == "rest_pupil") {
+        if (line_slot >= 0) {
+          s_eye_scale_slot[line_slot].rest[kPupil] = f;
+        } else {
+          lg::warn("[eyescale] rest_pupil is per-slot only (prefix the line with `slot N`)");
+        }
       } else if (k == "gainup") {
-        s_eye_scale.gain_up = eye_scale_f(v);
-      } else if (k == "gaindown") {
-        s_eye_scale.gain_dn = eye_scale_f(v);
+        (line_slot < 0 ? s_eye_scale.gain_up : s_eye_scale_slot[line_slot].gain_up) = f;
+      } else if (k == "neutral" || k == "neutral_iris" || k == "neutral_pupil" || k == "gaindown") {
+        // Deliberately IGNORED, not silently honoured: an owner still holding the first attempt's
+        // external pack would otherwise re-apply `neutral=1.0` — nobody's authored rest — on top of
+        // a fixed binary. Falling back to the compiled measured rests is the safe direction.
+        lg::warn("[eyescale] legacy key '{}' IGNORED (superseded by per-slot rest_iris/rest_pupil)",
+                 k);
       } else {
         lg::warn("[eyescale] unknown key '{}' in the [eyescale] block (skipped)", k);
       }
     }
   }
-  lg::info("[eyescale] PARAMSRC={} on={} neutral={:.3f} gainup={:.3f} gaindown={:.3f} path={}", src,
-           (int)s_eye_scale.on, s_eye_scale.neutral, s_eye_scale.gain_up, s_eye_scale.gain_dn,
-           path.string());
+  lg::info("[eyescale] PARAMSRC={} on={} gainup={:.3f} slot_lines={} path={}", src,
+           (int)s_eye_scale.on, s_eye_scale.gain_up, n_slot_lines, path.string());
+  for (int s = 0; s < 8; s++) {
+    lg::info("[eyescale] anchor slot={} rest_iris={:.5f} rest_pupil={:.5f} gainup={:.3f}", s,
+             s_eye_scale_slot[s].rest[kIris], s_eye_scale_slot[s].rest[kPupil],
+             eye_gain_up_of((u8)s));
+  }
 }
 
-// Monotone, continuous, and an exact identity at neutral — so the effect never pops and never
-// disappears, it only loses gain.
-float hd_eye_scale_curve(float s) {
-  const float n = s_eye_scale.neutral;
-  const float out = (s >= n) ? n + s_eye_scale.gain_up * (s - n) : n + s_eye_scale.gain_dn * (s - n);
+// Monotone, continuous, an EXACT identity at and BELOW the authored rest — so the eye at rest is
+// bit-identical to jak1, the effect never pops, and the result can only ever be <= jak1's own
+// value. "HD never more exaggerated than stock" is therefore a property of the curve, not of a
+// lucky tuning.
+float hd_eye_scale_curve(float s, float rest, float gain_up) {
+  const float out = (s > rest) ? rest + gain_up * (s - rest) : s;
   return out < 0.f ? 0.f : out;
 }
 
@@ -168,43 +285,73 @@ void hd_eye_scale_sprite(EyeRenderer::SpriteInfo& sp, float tile_span, u8 slot, 
   st.draws++;
   st.raw_min = std::min(st.raw_min, raw);
   st.raw_max = std::max(st.raw_max, raw);
-
-  float out = raw;
-  if (covered && s_eye_scale.on) {
-    st.covered++;
-    const float ox = hd_eye_scale_curve(sx), oy = hd_eye_scale_curve(sy);
-    const float cx = 0.5f * ((float)sp.xyz0[0] + (float)sp.xyz1[0]);
-    const float cy = 0.5f * ((float)sp.xyz0[1] + (float)sp.xyz1[1]);
-    const float hx = 0.5f * ox * tile_span, hy = 0.5f * oy * tile_span;
-    sp.xyz0[0] = (u32)std::max(0.f, std::round(cx - hx));
-    sp.xyz1[0] = (u32)std::max(0.f, std::round(cx + hx));
-    sp.xyz0[1] = (u32)std::max(0.f, std::round(cy - hy));
-    sp.xyz1[1] = (u32)std::max(0.f, std::round(cy + hy));
-    out = 0.5f * (ox + oy);
-    if (std::abs(out - raw) > 1e-4f) {
-      st.changed++;
+  {  // the authored byte, exactly as convert-eye-data dequantised it (UNSIGNED, value = byte/64)
+    const int bin = (int)std::lround(raw * 64.f);
+    if (bin >= 0 && bin < 256) {
+      st.hist[bin]++;
     }
   }
-  st.out_min = std::min(st.out_min, out);
-  st.out_max = std::max(st.out_max, out);
+
+  if (!(covered && s_eye_scale.on)) {
+    return;  // stock model: measured, never rewritten, and never mixed into the HD numbers
+  }
+  const float rest = s_eye_scale_slot[slot].rest[which];
+  if (rest < 0.f) {
+    // Fail-safe: an HD-covered slot whose authored rest was never measured is left exactly as jak1
+    // emitted it. Shifting a base look we cannot anchor would be worse than the defect.
+    if (!s_eye_scale_warned_unknown[slot]) {
+      s_eye_scale_warned_unknown[slot] = true;
+      lg::warn("[eyescale] slot={} is HD-covered but has no measured rest — left untouched", slot);
+    }
+    return;
+  }
+  st.covered++;
+  const float gu = eye_gain_up_of(slot);
+  const float ox = hd_eye_scale_curve(sx, rest, gu), oy = hd_eye_scale_curve(sy, rest, gu);
+  const float cx = 0.5f * ((float)sp.xyz0[0] + (float)sp.xyz1[0]);
+  const float cy = 0.5f * ((float)sp.xyz0[1] + (float)sp.xyz1[1]);
+  const float hx = 0.5f * ox * tile_span, hy = 0.5f * oy * tile_span;
+  sp.xyz0[0] = (u32)std::max(0.f, std::round(cx - hx));
+  sp.xyz1[0] = (u32)std::max(0.f, std::round(cx + hx));
+  sp.xyz0[1] = (u32)std::max(0.f, std::round(cy - hy));
+  sp.xyz1[1] = (u32)std::max(0.f, std::round(cy + hy));
+  const float out = 0.5f * (ox + oy);
+  if (std::abs(out - raw) > 1e-4f) {
+    st.changed++;
+  }
+  st.cov_raw_min = std::min(st.cov_raw_min, raw);
+  st.cov_raw_max = std::max(st.cov_raw_max, raw);
+  st.cov_out_min = std::min(st.cov_out_min, out);
+  st.cov_out_max = std::max(st.cov_out_max, out);
 }
 
 void hd_eye_scale_heartbeat() {
   if (++s_eye_scale_frames % 240) {
     return;
   }
-  for (int slot = 0; slot < 256; slot++) {
-    const auto& i = s_eye_scale_stats[0][slot];
-    const auto& p = s_eye_scale_stats[1][slot];
-    if (!i.draws && !p.draws) {
-      continue;
+  static const char* kKindName[2] = {"iris", "pupil"};
+  for (int slot = 0; slot < kEyeScaleSlots; slot++) {
+    for (int which = 0; which < 2; which++) {
+      const auto& st = s_eye_scale_stats[which][slot];
+      if (!st.draws) {
+        continue;
+      }
+      int mode = 0;
+      u32 mode_n = 0;
+      for (int b = 0; b < 256; b++) {
+        if (st.hist[b] > mode_n) {
+          mode_n = st.hist[b];
+          mode = b;
+        }
+      }
+      lg::info(
+          "[eyescale] slot={} kind={} draws={} covered={} changed={} raw_min={:.4f} raw_max={:.4f} "
+          "cov_raw_min={:.4f} cov_raw_max={:.4f} cov_out_min={:.4f} cov_out_max={:.4f} "
+          "rest={:.5f} restshare={:.3f} anchor={:.5f}",
+          slot, kKindName[which], st.draws, st.covered, st.changed, st.raw_min, st.raw_max,
+          st.cov_raw_min, st.cov_raw_max, st.cov_out_min, st.cov_out_max, mode / 64.f,
+          (float)mode_n / (float)st.draws, s_eye_scale_slot[slot].rest[which]);
     }
-    lg::info(
-        "[eyescale] slot={} draws={} covered={} changed={} raw_iris_min={:.3f} raw_iris_max={:.3f} "
-        "out_iris_min={:.3f} out_iris_max={:.3f} raw_pupil_min={:.3f} raw_pupil_max={:.3f} "
-        "out_pupil_min={:.3f} out_pupil_max={:.3f}",
-        slot, i.draws, i.covered, i.changed, i.raw_min, i.raw_max, i.out_min, i.out_max, p.raw_min,
-        p.raw_max, p.out_min, p.out_max);
   }
 }
 }  // namespace
@@ -587,10 +734,11 @@ std::vector<EyeRenderer::SingleEyeDraws> EyeRenderer::get_draws(DmaFollower& dma
     const bool covered = merc2_hd_eye_slot_covered(slot);
     const float tile_span = d.using_64 ? 1024.f : 512.f;
     // .sprite: EyeDraw wraps {SpriteInfo sprite, ScissorInfo scissor} and the rewrite is a sprite
-    // operation. Left as `d.iris` by the hd-eye-scale WIP checkpoint (b687378a82, committed as an
-    // explicitly FAILING checkpoint), which does not compile and blocked every build tree.
-    hd_eye_scale_sprite(d.iris.sprite, tile_span, slot, 0, covered);
-    hd_eye_scale_sprite(d.pupil.sprite, tile_span, slot, 1, covered);
+    // operation. The lid is deliberately NOT rescaled: on a covered slot the stock jak1 lid blit is
+    // already replaced by the donor's own lid texture (cycle-4, run_gpu below), so lid-scale no
+    // longer drives what the HD eye shows.
+    hd_eye_scale_sprite(d.iris.sprite, tile_span, slot, kIris, covered);
+    hd_eye_scale_sprite(d.pupil.sprite, tile_span, slot, kPupil, covered);
   }
   hd_eye_scale_heartbeat();
 #endif
