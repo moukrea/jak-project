@@ -610,3 +610,14 @@ ne peut pas fournir).
 À tester : Graphics Options → Recharged Settings → Recharged HUD (les deux états) ; descendre au
 dernier cran de vie pour le fondu du cœur ; ramasser bleu puis rouge puis jaune à la suite ; ramasser
 de l'éco verte. Rapport complet : `.autoport/reports/Grecharged-hud-jak1/report.txt`.
+
+### PRÉ-GATE 07:40 [✅ token HUD RECHARGED — ROUND 5]
+deploy_verify PASS (HEAD 93b6086b79), 0 crash.
+OÙ : jak1 > Graphics Options > "Recharged Settings" (placé AVANT "Advanced settings") >
+"Recharged HUD" ON/OFF, persisté, **par défaut OFF == HUD stock**. Chaque gate du HUD Recharged est
+ET-é avec le master Recharged.
+CE QU'IL Y A DEDANS : coeur, jauge, mouche-éclaireur et orbe precurseur en VRAIS modèles 3D. Trois
+défauts prouvés par le code corrigés ce round : correspondance in-game de la cellule d'énergie
+(vitesse d'anim + glow + teinte), particule par type d'eco, et échelle/ordre de profondeur du centre.
+À TESTER : ① active "Recharged HUD" et regarde coeur/jauge/mouche/orbe ② OFF rend-il bien le HUD
+stock ? ③ rien de cassé sur le HUD en jeu normal.
