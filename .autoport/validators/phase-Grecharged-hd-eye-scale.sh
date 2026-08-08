@@ -41,4 +41,15 @@ for s2 in eae4df44 AREE026206000788; do
 done
 [ -n "$DEV" ] || fail "no proof device connected"
 bash .autoport/lib/deploy_verify.sh "$DEV" jak1 >/dev/null 2>&1 || fail "deploy_verify FAIL ($DEV)"
+
+# OWNER-REJECT 2026-08-08: the compressed channel was not the one that makes the eye look big.
+# The symptom is measurable: the two eyes TOUCH. Gate on that, not on the iris zoom.
+python3 - "$R" <<'PYEYE' || fail "EYE-GAP: no edge-to-edge distance between Daxter's two eyes, stock vs HD, on an exaggerated animation — the owner's symptom is that they TOUCH, and that is the number that cannot lie"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+sys.exit(0 if re.search(r'(gap|edge[- ]to[- ]edge|inter[- ]?eye|entre les deux yeux)[^\n]{0,60}[0-9]',t,re.I) else 1)
+PYEYE
+grep -qiE "(quad|blerc|blend target|eye bone|scale)[^\n]{0,90}(ruled out|elimin|not the|excluded|is the)" "$R" \
+  || fail "EYE-CHAN: the report must name which channel actually drives the on-screen size and explicitly rule out the others (iris zoom, eye quad scale, blend target, bone scale, eye table)"
+
 echo "[Grecharged-hd-eye-scale PASS]"

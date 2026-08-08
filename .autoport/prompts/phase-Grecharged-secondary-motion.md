@@ -823,3 +823,44 @@ du même défaut.
 => C'est la traduction correcte de la demande d'origine : « ronds et FERMES, ils bougent bien et
    s'entre-choquent, PEU DE DÉFORMATION ». Un volume rigide qui oscille sur son ancrage, pas une
    poche qui se déforme.
+
+## ============================================================
+## CYCLE 12 — REJET OWNER 2026-08-08 08:30 : « ÉCHEC MASSIF, PAS VALIDÉ »
+## ============================================================
+« Les mèches de Keira passent au travers de son crâne et de ses oreilles en mouvement, ses lunettes
+clippent à travers sa poitrine. Le col de Jak passe toujours au travers de ses épaules. Les pans de
+sa veste clippent toujours comme des fous. Le noeud du maire passe au travers de son ventre. Pas
+besoin d'être plus exhaustif, c'est TOUJOURS BROKEN. Et encore plus les éléments à physique avec
+d'autres éléments à physique. »
+
+### LA CAUSE, TROUVÉE DANS LES DONNÉES — ET MON AUDIT NE POUVAIT PAS LA VOIR
+  * **169 chaînes sur 345 portent `colskip=1`** : elles ne testent AUCUNE collision. Parmi elles
+    37 `earL` + 36 `earR` (les oreilles que l'owner voit traversées), 5 `hair`, des `flap`, `tail`,
+    `ponytail`, `hairL`. Une chaîne qui saute la collision ne peut pas produire de pénétration
+    résiduelle : elle sort mécaniquement de l'audit.
+  * **Les 2384 volumes portent TOUS un filtre `chains=`** : chaque volume ne teste que les chaînes
+    explicitement listées. Le reste passe au travers sans être compté.
+  * La `fit-error = 0.000` que j'ai acceptée comme preuve mesurait « est-ce que le volume d'un os
+    contient les sommets de SON PROPRE os » — une question SANS RAPPORT avec « est-ce qu'une chaîne
+    a le droit de traverser ce volume ».
+  * Le contrôle positif valide le COMPTEUR, pas le VOLUME ni le PÉRIMÈTRE. Un compteur juste, appliqué
+    à un périmètre qui exclut la moitié des chaînes, donne un zéro parfaitement exact et parfaitement
+    faux. C'est le 4e faux-vert de cette famille : après resid/push, idledrift/idlewin,
+    restdevA/restwin, voici resid/PÉRIMÈTRE.
+
+### CE QU'IL FAUT FAIRE
+  1. **`colskip` doit disparaître comme échappatoire.** Toute chaîne teste la collision. Si le coût
+     est le problème, c'est le niveau de précision qui l'arbitre — jamais un opt-out par défaut.
+  2. **Le filtre `chains=` est une OPTIMISATION, pas une autorisation.** Par défaut une chaîne teste
+     TOUT volume qu'elle peut physiquement atteindre. Le filtre ne peut qu'exclure ce qui est
+     géométriquement inatteignable, et cette inatteignabilité doit être PROUVÉE (distance max de la
+     chaîne < distance au volume), pas décrétée.
+  3. **CHAÎNE ↔ CHAÎNE obligatoire** : l'owner dit que c'est « encore pire » entre deux éléments à
+     physique. Mèches vs oreilles, lunettes vs poitrine, boucle vs lanière, noeud du maire vs ventre.
+  4. **Nouvelle métrique, la seule qui compte** : pour chaque chaîne, la pénétration dans TOUT volume
+     du personnage — pas seulement ceux qu'on a bien voulu lui associer. Rapportée par chaîne et par
+     personnage, avec le nombre de volumes réellement testés (un `tested=0` est un aveu).
+  5. Cas nommés à vérifier un par un : mèches de Keira vs crâne ET oreilles en MOUVEMENT, lunettes de
+     Keira vs poitrine, col de Jak vs épaules, pans de veste de Jak, noeud du maire vs ventre.
+     L'owner précise qu'il a arrêté d'énumérer : ce sont des exemples, pas la liste.
+  6. La POITRINE de Keira n'est toujours pas bonne (voir AL : rotation, pas translation).

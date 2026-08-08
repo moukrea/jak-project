@@ -22,3 +22,19 @@ Supervisor reproduced it PERSONALLY on the Redmi with the PUBLISHED APK via the 
    supervisor's own script (not grid cells). fps cost still <= 0.5. OFF == stock.
 4. Real install flow (published-APK-equivalent build), force-stop after runs. Report RESULT + honest
    numbers. Max: max_turns 2400, max_retries 5.
+
+## REJET + PRÉCISION OWNER 2026-08-08 08:30 — PAS VALIDÉ
+« Je ne savais pas que certains palmiers avaient une animation de base quand j'ai spécifié cette
+tâche. »  => la demande se reformule en TROIS points :
+  1. **Ceux qui avaient déjà une animation doivent l'avoir VRAIMENT et FONCTIONNELLE, telle que
+     prévue par le jeu d'origine.** Ce n'est pas « amplifier » : c'est restituer l'intention ND.
+  2. **Ceux qui n'en ont pas doivent en recevoir une, PLUS LÉGÈRE que celle des arbres déjà animés
+     dans le jeu d'origine.** Donc la hiérarchie est explicite : stock-animé > ajouté.
+     (Ça répond aussi à l'arbitrage que j'avais posé : oui, on couvre les 27 palmiers gelés de
+     village1 et la jungle — mais en dessous du niveau des arbres déjà animés.)
+  3. **Ce n'est pas que l'arbre entier qui doit osciller.** « Ça serait cool si les FEUILLES
+     bougeaient aussi comme si elles étaient balayées par le vent, et pas que sur les palmiers mais
+     TOUTES LES PLANTES ET LES SHRUBS. Ça doit être SUBTIL et CRÉDIBLE pour un vent naturel. »
+     => deux échelles de mouvement à distinguer : le balancement du tronc/couronne, et le
+     frémissement des feuilles/frondes qui doit exister sur toute la végétation, pas seulement les
+     palmiers.

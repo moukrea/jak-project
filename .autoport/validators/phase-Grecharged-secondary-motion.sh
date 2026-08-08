@@ -461,4 +461,24 @@ if f:
 sys.exit(1 if f else 0)
 PYBA
 
+
+# C12: collision must not be opt-out, and volume scoping must not be a licence to pass through.
+python3 - <<'PYC12' || fail "C12: chains still skip collision (colskip) — a chain that tests nothing cannot report a penetration, which is how resid=0 stayed true while everything clipped"
+import re,sys
+n=t=0
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    if ln.startswith('chain '):
+        t+=1
+        if re.search(r'colskip=[1-9]',ln): n+=1
+if n: sys.stderr.write(f"  {n}/{t} chains carry colskip\n")
+sys.exit(1 if n else 0)
+PYC12
+python3 - "$R" <<'PYC12B' || fail "C12: the report must give, per chain, the number of volumes ACTUALLY tested (tested=0 is a confession) and penetration against ALL of the character's volumes, not only the associated ones"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+sys.exit(0 if re.search(r'tested\s*=\s*[0-9]+',t,re.I) and re.search(r'(all|toutes?)[^\n]{0,60}(volume|capsule)',t,re.I) else 1)
+PYC12B
+grep -qiE "chain[- ]?(vs|to)[- ]?chain[^\n]{0,80}(bang|ear|goggle|chest|buckle|strap|bow|belly)" "$R" \
+  || fail "C12: chain-vs-chain not exercised on the owner's named pairs (bangs vs ears, goggles vs chest, buckle vs strap, mayor's bow vs belly)"
+
 echo "[Grecharged-secondary-motion PASS]"

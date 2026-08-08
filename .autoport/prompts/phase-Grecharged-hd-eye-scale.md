@@ -21,3 +21,25 @@ buggé. »
 Mesurer CÔTÉ CODE le facteur d'échelle effectivement appliqué à l'oeil, min/max sur une animation
 exagérée, en STOCK et en HD, et montrer que HD <= stock après correction. Pas de capture, pas de
 comparaison à l'oeil.
+
+## REJET OWNER 2026-08-08 08:30 — « ABSOLUMENT AUCUNE DIFFÉRENCE »
+« Les yeux de Daxter continuent de DOUBLER DE TAILLE, au point où les deux yeux se TOUCHENT sur
+beaucoup d'animations. Absolument aucune différence. PAS VALIDÉ. »
+
+### CE QUE ÇA PROUVE
+Le rapport mesure `iris stock max=1,0938 -> HD max=0,4922`, « excursion conservée à 45 % », avec les
+paramètres lus depuis le pack livré (`PARAMSRC=package`). Ces chiffres sont probablement exacts —
+et pourtant rien ne change à l'écran. Donc **le canal mesuré n'est PAS celui qui fait grossir l'oeil
+que l'owner voit**. On a comprimé quelque chose de réel qui n'est pas le défaut.
+
+### CE QU'IL FAUT FAIRE, DANS CET ORDRE
+  1. **Identifier ce qui rend l'oeil GROS À L'ÉCRAN sur Daxter**, en jeu, pas en théorie. Le zoom de
+     la sprite d'iris dans la tuile 32x32 n'est qu'un candidat. Autres candidats à éliminer
+     explicitement : l'échelle du QUAD d'oeil lui-même, une cible de blend (blerc) sur les paupières
+     ou le globe, un scale d'os d'oeil dans l'animation, la table d'yeux (`eye.gc` / EyeRenderer)
+     qui redimensionne le sprite selon un index d'anim.
+  2. **Le symptôme donne la mesure** : l'owner dit que les DEUX YEUX SE TOUCHENT. C'est une distance
+     mesurable. Rapporter, sur une animation exagérée de Daxter, la distance bord-à-bord entre les
+     deux yeux, en STOCK et en HD, frame par frame. Si les bords se rejoignent en HD et pas en stock,
+     on tient le défaut et sa mesure. Ce chiffre-là ne peut pas mentir.
+  3. Ne PAS re-livrer une compression sur un canal dont on n'a pas prouvé qu'il pilote CE symptôme.
