@@ -102,7 +102,7 @@ fps "beach-OFF"
 rec "fw2-beach-OFF" 10
 harvest "$DEV/beach-OFF.log" "beach-OFF"
 
-say "LEG 2/4 — beach, toggle ON, COMPILED DEFAULTS (tie_mult=3.0 tie_amp=0.055 frond=0.10 shrub=0.16)"
+say "LEG 2/4 — beach, toggle ON, COMPILED DEFAULTS (tie_mult=1.0 tie_amp=0.12 frond=0.14 shrub=0.16)"
 set_foliage t || exit 1
 set_knobs - - - -
 boot_warp beach-start "$BEACH_POS" "$DEV/beach-ON.log" || { echo "[fw2 FAIL] beach ON boot"; exit 1; }
@@ -120,9 +120,15 @@ say "LEG 3/4 — beach, toggle ON, STRONGER SETTING via live props (NO rebuild)"
 #     "between these two" instead of just yes/no.
 # The hold is 22 s because the audit window is 300 frames (~17 s at the ~18 fps measured here) —
 # a shorter hold would report a window straddling the prop change and mixing both settings.
-set_knobs 3.0 0.12 0.22 0.26
+# tie_mult stays at 1.0. Raising it was round 1's lever and the audit showed exactly why it is the
+# wrong one: it scales the stock wind's BEND and MOTION together, so it cannot fix the 0.05 Hz
+# frequency that made the breeze invisible, and at x3 it bends the crown ~30% of its own height —
+# a storm. The stronger reference varies the FROND flutter instead, which is the per-vertex term
+# that makes leaves read as alive, and which (being GPU-side) does not enter the shear audit at
+# all — so every audited window stays at the shipped bend and the ceiling gate stays unconditional.
+set_knobs 1.0 0.12 0.22 0.26
 sleep 22
-rec "fw2-beach-ON-strong-amp0.12-frond0.22" 10
+rec "fw2-beach-ON-strong-frond0.22" 10
 fps "beach-ON-strong"
 set_knobs - - - -
 sleep 22
