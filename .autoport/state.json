@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 236,
+  "current_phase_idx": 232,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -224,9 +224,9 @@
     "Gtouch-longjump-regression": 2,
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
-    "Grecharged-foliage-wind2": 1,
-    "Grecharged-secondary-motion": 2,
-    "Grecharged-hd-eye-scale": 2,
+    "Grecharged-foliage-wind2": 0,
+    "Grecharged-secondary-motion": 0,
+    "Grecharged-hd-eye-scale": 0,
     "Grecharged-title-logo-fullres": 1
   },
   "fingerprints": {
@@ -502,13 +502,6 @@
       "2f0a15ed30e7",
       "2f0a15ed30e7",
       "2f0a15ed30e7"
-    ],
-    "Grecharged-foliage-wind2": [
-      "83c369880dac",
-      "83c369880dac"
-    ],
-    "Grecharged-hd-eye-scale": [
-      "d41c4e620678"
     ]
   },
   "stuck_reasons": {
@@ -733,10 +726,8 @@
     "Gmenu-flag-off",
     "Grecharged-hd-models5",
     "Grecharged-hd-models4",
-    "Grecharged-secondary-motion",
-    "Grecharged-hd-eye-scale",
-    "Grecharged-foliage-wind2",
-    "Grecharged-title-logo-fullres"
+    "Grecharged-title-logo-fullres",
+    "Grecharged-hud-jak1"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -927,7 +918,7 @@
     "Grecharged-hd-models2": 1784024024.5067194,
     "Grecharged-grass-overhang6": 1784032762.9751992,
     "Grecharged-hd-models3": 1785802791.0360906,
-    "Grecharged-foliage-wind2": 1785977666.5795383,
+    "Grecharged-foliage-wind2": 1786170899.0464356,
     "Grecharged-grass-overhang7": 1784047763.064689,
     "Grecharged-ambient-occlusion": 1784102746.871413,
     "Grecharged-buildsys-flags": 1784240074.3947632,
@@ -948,11 +939,12 @@
     "Gmenu-flag-off": 1785886071.952773,
     "Grecharged-hd-models5": 1785898653.0176275,
     "Grecharged-hd-models4": 1785939731.6130211,
-    "Grecharged-secondary-motion": 1786121017.0894666,
-    "Grecharged-hd-eye-scale": 1786018388.543868,
-    "Grecharged-title-logo-fullres": 1786153395.9536324
+    "Grecharged-secondary-motion": 1786170899.046341,
+    "Grecharged-hd-eye-scale": 1786170899.0463903,
+    "Grecharged-title-logo-fullres": 1786153395.9536324,
+    "Grecharged-materials-modern-parity": 1786167637.0459936
   },
-  "last_update": "2026-08-08T05:31:35.733609+00:00",
+  "last_update": "2026-08-08T05:40:37.045999+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1052,9 +1044,6 @@
     "Gtouch-longjump-regression",
     "Gmenu-flag-off",
     "Grecharged-hd-models5",
-    "Grecharged-secondary-motion",
-    "Grecharged-hd-eye-scale",
-    "Grecharged-foliage-wind2",
     "Grecharged-title-logo-fullres",
     "Grecharged-hud-jak1"
   ],
