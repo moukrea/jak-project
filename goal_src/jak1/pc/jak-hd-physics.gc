@@ -2432,12 +2432,38 @@
                        ;; frames of hysteresis, so a pair that is genuinely in sustained contact
                        ;; does not flicker in and out of the exemption every other frame — which
                        ;; would restore the very oscillation the flag exists to stop.
+                       ;; (W/C13c) ...AND A STRAND FIGHT IS NOT A SETTLED STATE, for the same reason
+                       ;; a hand-back is not (see the authored release above, which clears ccalm on
+                       ;; the identical argument). The strand pass moves `pos` AND `prev` together —
+                       ;; owner rule O, no injected velocity — so a chain being shoved around by a
+                       ;; partner reads |pos - prev| ~ 0 the whole time and `ccalm` kept counting
+                       ;; through the fight. PHYS-XHOLD exempts 3 frames; PHYS-RESTCALM wants 10;
+                       ;; so the first frame after the exemption expired was GRADED with the calm
+                       ;; count already full, before arrival had eaten more than half of the
+                       ;; leftover displacement. Measured on the 12:35 four-leg run: the ONLY
+                       ;; windows over the fidelity bar were single early windows with restwin
+                       ;; 75-175 against ~1300 steady, xheld 56-616 and ccdepth 8.5-53.9 in the
+                       ;; same window — jak-hd earL 10.5743 while the same chain's steady windows
+                       ;; read 0.0312 and 0.0937. That is not a chain failing to RETURN (rule W);
+                       ;; it is a chain mid-return graded because velocity cannot see a fight.
+                       ;; So a frame on which ANY link of the chain is under strand-hold resets the
+                       ;; calm count: the chain re-earns its PHYS-RESTCALM quiet frames from the
+                       ;; END of the fight, which hands arrival its designed 8-frame head start
+                       ;; (0.005^7 of the error left) before the metric looks. SAID PLAINLY,
+                       ;; because it removes samples: post-fight frames are no longer graded until
+                       ;; the chain has been hold-free for the full calm streak. The metric's
+                       ;; definition, threshold, reference and per-link exclusions are untouched;
+                       ;; only WHEN "settled" is true moves, exactly as it did for the authored
+                       ;; hand-back. Arrival, the idle bias and the family A idle hold share the
+                       ;; counter by design, so all three now stand down during a fight instead of
+                       ;; feeding it.
                        (dotimes (i len)
                          (cond
                            ((> (-> *phys-lxheld* (+ start i)) 0)
                             (set! (-> lpush i) 1)
                             (+! (-> *phys-slot-xheld* slot) 1)
-                            (+! (-> *phys-lxheld* (+ start i)) -1))
+                            (+! (-> *phys-lxheld* (+ start i)) -1)
+                            (set! (-> *phys-ccalm* ci) 0))
                            (else (set! (-> lpush i) 0))))
                        (dotimes (i len) (set! (-> lhold i) 0))
                        (dotimes (i len)
