@@ -530,3 +530,30 @@ entiere (canopee, branches, troncs : 0 prototype de vent) et les arbres de fond.
 A TESTER : ① les palmiers de la plage bougent-ils de facon VISIBLE maintenant ? ② le toggle OFF
 rend-il bien le comportement stock ? ③ veux-tu qu'on force le vent sur les 27 palmiers geles et sur
 la jungle (ca demande de re-baker les .fr3) ?
+
+### PRÉ-GATE 04:35 [✅ token LOGO DU TITRE NET]
+deploy_verify + deploy_verify_assets PASS (HEAD 20ce237499), 0 crash, OFF == pipeline stock prouvé.
+
+TU AVAIS RAISON SUR LE MÉCANISME. Les modèles 3D du HUD restent nets parce que jak1 fait passer
+tout modèle merc de HUD par `draw-bones-hud` → generic-merc, et Generic2 SORT ces dessins de la
+passe 3D scalée pour les rejouer en résolution native dans la passe UI. Le logo du titre, lui,
+n'est PAS un modèle de HUD : c'est un merc ordinaire (`logo-english-lod0`, 3 effets / 5 draws /
+7927 tris) envoyé dans merc-pris0/1 — donc il finit dans le FBO scalé et il pixelise avec le
+monde. Le correctif porte exactement le même report de dessin dans Merc2.
+
+CE QUE ÇA DONNE SUR TON REDMI (mesures dans le log, pas à l'œil) : à RENDER SCALE 40, le monde est
+rendu en **320x240** et le logo en **2400x1080** sur la MÊME image — 7,5x en linéaire, 56x en
+pixels. Le sous-titre « the PRECURSOR LEGACY » passe d'illisible à parfaitement net.
+
+RÉGLAGE : nouvelle ligne **CRISP TITLE LOGO** dans RECHARGED SETTINGS (défaut OFF ; grisée
+seulement si le master Recharged est OFF). Je t'ai laissé le téléphone avec la ligne sur ON et TES
+réglages (render-scale 50, game-size 800x600) — tu peux basculer la ligne en direct, sans rebuild.
+
+BONUS ASSUMÉ, C'EST TOI QUI ARBITRES : le logo Naughty Dog du démarrage a exactement le même
+défaut sur exactement la même construction, une seconde plus tôt — je l'ai inclus. Un mot et il
+ressort (c'est une liste de noms dans Merc2.cpp).
+
+À TESTER : ① le logo est-il net à ton render scale habituel ? ② OFF rend-il bien l'ancien
+comportement ? ③ le logo ND au boot, on le garde net ou on le laisse stock ? ④ rien qui traverse
+le logo pendant le survol du village (il est désormais dessiné PAR-DESSUS le monde composité) ?
+Captures : `.autoport/reports/Grecharged-title-logo-fullres/device-{OFF-rs40,ON-rs40}.png`.
