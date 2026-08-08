@@ -81,7 +81,30 @@ otherwise be making a promise the code did not keep.
      parked-spawn frame is one where the chain is not simulated, so it can neither reach a volume
      nor clip through one, and `nopose` still reports those frames in its own field.
 
-  6. AND ONE THAT IS NOT FIXED, STATED RATHER THAN BURIED: the per-chain reach sphere is measured
+  6. THE BODY AUDIT WAS BEING ASKED A TWO-BODY QUESTION IT CANNOT ANSWER (:4155, :4079).
+     `at=` volumes ride a SIMULATED tip rather than an animated bone, so a penetration between one
+     of them and a link is a contact between two MOVING strands. keira-hd is the measured case:
+     `collider chest radius=320 at=chestL` rides the left breast and is tested against the right
+     one, which the model puts ~260 units away — so the sphere contains its partner by construction
+     the moment either swings. The phone read `cclr = -95.74` on `chestR`, and the model-pose
+     fallback reported `mfhard` on every one of those frames, correctly: the closed form guarantees
+     the model pose is clear of the BODY and says nothing about a partner that has since moved.
+     `resid` was therefore unsatisfiable by construction, and it blamed the chain that could not
+     fix it. Those five links per window were the whole of D-MAX's residual.
+     FIXED: the body audit and the fallback's feasibility test both grade BODY volumes only.
+     THE JUSTIFICATION MATTERS MORE THAN THE CHANGE, because "a metric stopped counting something"
+     is how four false greens have been shipped in this phase: the contact does not leave the
+     report, it moves to the instrument built for two moving bodies. Since `xchain=` was retired
+     every pair on the actor is strand-tested every frame, so chestR vs chestL is measured by
+     `chainvschain` / `ccdepth`, and by `xunres` / `xunresmax` when a frame cannot separate them.
+     `at=` volumes also still PUSH in the solver — only the body VERDICT stops being theirs.
+     AND THE UNDERLYING DATA IS STILL WRONG, WHICH IS AN OPEN ITEM AND NOT A FIXED ONE: a
+     320-radius sphere riding one breast, on a model that separates them by 260, cannot express
+     "these two touch when they swing". The two chest colliders need a radius derived from the mesh
+     like every other volume in the file. The owner's "ils s'entre-choquent" is currently carried
+     by the strand pass alone.
+
+  7. AND ONE THAT IS NOT FIXED, STATED RATHER THAN BURIED: the per-chain reach sphere is measured
      from THIS frame's poses plus PHYS-REACH-MARGIN (512 units). A chain whose own collision
      correction can exceed that in one frame — possible for chains longer than 1024 units — could
      reach a volume it was not tested against on that frame. `cctrunc` cannot see it (it counts
@@ -188,6 +211,12 @@ be silently repaired into a fifth empty zero.
   guarantee does not cover). If `mfsnap` were a large fraction of the link-frames, this would be
   physics being overwritten by the model pose — the owner's cycle-8 complaint AJ — and it would
   need to be read as such rather than as a clean audit. Those three are in the per-leg lines below.
+  NAMING TRAP, flagged because it already cost one reader an hour: `modelfall`/`mfmax` on the
+  per-actor line are NOT this pass. They are the cycle-9 idle BIAS — a gentle pull toward the model
+  pose applied to a chain that has gone calm, gain `mpk`, jak-hd-physics.gc:3010 — and a leg can
+  legitimately read `mfsnap = 0` (the closed-form fallback never had to fire) while the same actor
+  reads `modelfall = 1187` (the idle bias ran, as it is meant to). The two counters are not
+  measuring the same thing and their disagreeing is not evidence of a bug in either.
 @@LEGSUMMARY@@
 
 @@PERCHAIN@@
@@ -207,6 +236,36 @@ invariance is graded on the same run.
   more travel with lag, never less motion, which was the cycle-7 mistake.
   Bone-length invariance over the capture: @@LENINV@@
 
+THE ONE GATE STILL RED, NAMED RATHER THAN ROUNDED OFF: `restdevA` ON JAK'S THREE BODY CHAINS.
+The leg fails it at a threshold of 8.0 and the anti-regression ratchet holds a bar of 5.0768 from
+cycle 9. Measured across four device runs today it sits at 7.94 / 8.22 / 8.70 / 8.78 depending on
+the leg, and the per-chain dump says the whole figure belongs to jak-hd's three `family=A` chains
+— `hair`, `earL`, `earR` — with all fourteen of its family B chains at exactly 0.0000, samos-hd at
+2.0-2.8 and keira-hd at 0. It is a STATIC offset: 8.2 units is 2 mm, on a chain that is calm,
+upright, settled, and which no collider and no other chain is holding on the frames it is sampled.
+  IT IS INHERITED, NOT INTRODUCED. The cycle-13 build measured 7.94 and 8.24 on the same two legs
+  BEFORE any change in this cycle, so the ratchet bar was already violated by the build this cycle
+  started from. What this cycle did to it is inside the run-to-run spread (±0.5 on the one leg,
+  D-MAX, whose window count and volume-test count are stable enough to compare across runs).
+  THREE CAUSES RULED OUT, so the next cycle does not pay for them again:
+    * gravity sag — `gacc` is already multiplied by `tiltf` for family A, which is 0.0 upright
+      (jak-hd-physics.gc:2530), so the constant term contributes nothing to the equilibrium;
+    * the authored-priority blend — the reference now follows it, and doing so moved the number by
+      0.48 out of 8.7, so it is a small part of it at most;
+    * a collider or another chain holding the link — both set `lpush`, and a link with `lpush` is
+      excluded from the sample by construction (`xheld` was 2530 on that leg, all exempted).
+  WHAT CORRELATES AND HAS NOT BEEN TESTED: every family A chain reading non-zero carries
+  `rootfree=` (jak-hd hair/earL/earR 0.5, keira backhair 0.55, samos earL/earR 0.5) and every one
+  reading zero does not. `rootfree` sets both the influence-profile floor and the per-link freedom
+  floor `f`, which scales omega and the cone half-angle. That is a hypothesis with a mechanism, not
+  a finding, and it is written down as such. It is also cheap to test: `rootfree` is DATA, so the
+  next cycle can refute it with an adb push and one leg, with no build at all.
+  WHAT IT IS NOT: it is not any symptom the owner has reported. He has never mentioned Jak's hair
+  or ears sitting 2 mm low; what he reports is strands passing through the body, which is the
+  metric that moved this cycle. Saying that is not an argument for shipping it red — the gate stays
+  red and this report says so — it is the reason it was not worth breaking the parts that now work
+  in order to chase it blind.
+
 WHAT IS NOT CLAIMED
   * WHETHER IT LOOKS RIGHT. Every aesthetic judgement in this phase is the owner's, and no
     capture campaign was run — that is a permanent rule of this phase, not an omission. What
@@ -222,11 +281,20 @@ WHAT IS NOT CLAIMED
     delivered, by measurement rather than omission: no rig in the 458 shipped carries a joint
     for either, so both need a bone injected at HD prep plus a weight transfer. That is an
     asset-pipeline job, unchanged by this cycle.
-  * THE STRAND-VS-STRAND RESIDUAL IS NEW AND IS NOT YET ZERO BY DESIGN. `xunres` counts contacts
-    the frame could not clear, and refusing to resolve one INTO the body is a deliberate choice
-    (the owner's blocker outranks strand separation). A nonzero `xunres` is therefore a real
-    reading, not a failure to be tuned away — but it is also the number that says two strands are
-    still overlapping, so it is his to look at.
+  * THE STRAND-VS-STRAND RESIDUAL IS NEW, AND WHAT IT COUNTS NEEDS SAYING EXACTLY OR IT WILL BE
+    MISREAD. `xunres` counts (contact, frame) pairs the frame's BOUNDED correction did not fully
+    separate. Owner rule O forbids a hard re-projection — the correction is clamped per frame on
+    purpose, and it injects no velocity — so under a SUSTAINED contact, where the spring pulls the
+    two strands back together as fast as the clamp pushes them apart, this counter is nonzero by
+    construction and stays nonzero. It is a measure of contact pressure, not of failure. What it
+    is genuinely good for is the depth: `xunresmax` says how far two strands are overlapping
+    relative to the gap Naughty Dog modelled between them, and THAT is the number the owner should
+    weigh, because that overlap is what a strand passing through another strand looks like.
+    It is reported here for the first time in this phase — before this cycle the pass counted only
+    the contacts it had handled, which is the same blind spot as a body audit with no perimeter.
+    `xveto` is separate and is a deliberate refusal: a strand push that would have driven a link
+    deeper into its own character, declined, because the owner's blocker outranks strand
+    separation. A nonzero `xveto` means the guard fired and did its job.
 @@OPENITEMS@@
 
 

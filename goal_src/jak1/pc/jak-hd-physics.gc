@@ -4070,8 +4070,14 @@
                                            (let ((cb (+ (* slot PHYS-COLS)
                                                         (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
                                                                              (* c PHYS-CCMAX) s2)))))
+                                             ;; (C13b) and the feasibility test asks the same question the audit does, so it
+                                             ;; takes the same answer: the model pose is guaranteed clear of the BODY and can
+                                             ;; promise nothing about a volume riding a partner chain that has swung since.
+                                             ;; Requiring it to clear those is what made `mfhard` equal `mfsnap` on every leg
+                                             ;; of three device runs — the fallback declaring failure on a condition that no
+                                             ;; position of THIS link could have satisfied.
                                              (when (and (<= (-> *phys-coltier* cb) tier)
-                                                        (!= (-> *phys-colchain* cb) c))
+                                                        (< (-> *phys-colchain* cb) 0))
                                                (let* ((rc (-> *phys-colchain* cb))
                                                       (k2 (-> *phys-colk2* cb))
                                                       (ca (if (>= rc 0)
@@ -4157,8 +4163,31 @@
                                    (let ((cb (+ (* slot PHYS-COLS)
                                                 (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
                                                                      (* c PHYS-CCMAX) s2)))))
+                                     ;; (C13b) A VOLUME RIDING ANOTHER CHAIN IS NOT THE BODY, AND THIS
+                                     ;; AUDIT IS THE BODY AUDIT. `at=` volumes follow a SIMULATED tip,
+                                     ;; so a penetration between one of them and a link is a contact
+                                     ;; between two moving strands — a two-body problem that the link
+                                     ;; being graded here often cannot fix at all. keira-hd is the
+                                     ;; measured case: `collider chest radius=320 at=chestL` rides the
+                                     ;; left breast and is tested against the right one, which the
+                                     ;; model puts ~260 units away, so the sphere contains its partner
+                                     ;; by construction the moment either swings. The device read
+                                     ;; cclr = -95.74 on chestR and the model-pose fallback reported
+                                     ;; mfhard on every one of those frames — correctly, because the
+                                     ;; closed form guarantees the model pose is clear of the BODY,
+                                     ;; and says nothing about a partner that has since moved.
+                                     ;; Grading that here made `resid` unsatisfiable by construction
+                                     ;; and blamed the chain that was not at fault.
+                                     ;; This is NOT the contact going unmeasured, and that distinction
+                                     ;; is the whole justification: since `xchain=` was retired every
+                                     ;; pair on the actor is strand-tested every frame, so chestR vs
+                                     ;; chestL is measured by `chainvschain` / `ccdepth` and, when a
+                                     ;; frame cannot separate them, by `xunres` / `xunresmax`. The
+                                     ;; contact moves to the instrument built for two moving bodies;
+                                     ;; it does not leave the report. `at=` volumes still PUSH in the
+                                     ;; solver above — only the body verdict stops being theirs.
                                      (when (and (<= (-> *phys-coltier* cb) tier)
-                                                (!= (-> *phys-colchain* cb) c))
+                                                (< (-> *phys-colchain* cb) 0))
                                        (let* ((rc (-> *phys-colchain* cb))
                                               (k2 (-> *phys-colk2* cb))
                                               (ca (if (>= rc 0)
