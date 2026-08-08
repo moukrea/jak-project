@@ -513,3 +513,20 @@ le round 1 livrait 3.0).
 Clips pour ton œil uniquement (caméra volontairement figée, donc tout ce qui bouge à l'image EST le
 feuillage) : `.autoport/reports/Grecharged-foliage-wind2/device/fw2-beach-{OFF,ON-default}.mp4`,
 `fw2-beach-ON-strong-frond0.22.mp4`, `fw2-village1-ON-default.mp4`.
+
+### PRÉ-GATE 03:45 [✅ token VENT SUR LE FEUILLAGE, ROUND 2]
+deploy_verify PASS (HEAD 09034051cf), 0 crash, OFF==stock prouvé.
+LE DIAGNOSTIC, ET IL EST BON : « le vent de jak1 n'a JAMAIS ete faible, il etait GLACIAL ». Le jeu
+d'origine plie deja une couronne de palmier d'environ 1,1 m — mais 55 % du budget d'amplitude
+partait dans un terme a 0,14 Hz, soit une inclinaison de 7 SECONDES. Invisible a l'oeil, pas parce
+que c'est petit, parce que c'est LENT. Le round 1 avait attribue ca a l'amplitude : c'etait la
+PERIODE. Correctif : depenser l'amplitude ou l'oeil la voit (flutter de fronde 0,14 -> 0,22,
+reglable a chaud par propriete debug, sans rebuild).
+⚠️ TROU ASSUME ET ANNONCE, C'EST TOI QUI ARBITRES : dans village1, 27 des palmiers LES PLUS HAUTS
+(palm-01, 23,9 m) sont GELES pendant que les 65 palm-02 a cote d'eux bougent. Le meme prototype
+porte stiffness=0.1 dans BEA.DGO et stiffness=0.0 dans VI1.DGO — incoherence d'auteur du jeu
+d'origine, et l'appartenance au vent est BAKEE dans le .fr3, aucun chemin runtime. Idem la JUNGLE
+entiere (canopee, branches, troncs : 0 prototype de vent) et les arbres de fond.
+A TESTER : ① les palmiers de la plage bougent-ils de facon VISIBLE maintenant ? ② le toggle OFF
+rend-il bien le comportement stock ? ③ veux-tu qu'on force le vent sur les 27 palmiers geles et sur
+la jungle (ca demande de re-baker les .fr3) ?
