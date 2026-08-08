@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 235,
+  "current_phase_idx": 236,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -183,7 +183,7 @@
     "Gjak2-pcmenus": 2,
     "Grecharged-hud-visuals-x86": 1,
     "Gjak2-movement": 1,
-    "Grecharged-hud-jak1": 0,
+    "Grecharged-hud-jak1": 1,
     "Gjak2-polish": 1,
     "Grecharged-grass-poc": 16,
     "Grecharged-grass-precompute-mode": 2,
@@ -735,7 +735,8 @@
     "Grecharged-hd-models4",
     "Grecharged-secondary-motion",
     "Grecharged-hd-eye-scale",
-    "Grecharged-foliage-wind2"
+    "Grecharged-foliage-wind2",
+    "Grecharged-title-logo-fullres"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -951,7 +952,7 @@
     "Grecharged-hd-eye-scale": 1786018388.543868,
     "Grecharged-title-logo-fullres": 1786153395.9536324
   },
-  "last_update": "2026-08-08T02:37:57.697370+00:00",
+  "last_update": "2026-08-08T05:31:35.733609+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1054,7 +1055,8 @@
     "Grecharged-secondary-motion",
     "Grecharged-hd-eye-scale",
     "Grecharged-foliage-wind2",
-    "Grecharged-title-logo-fullres"
+    "Grecharged-title-logo-fullres",
+    "Grecharged-hud-jak1"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
