@@ -567,3 +567,46 @@ Toggle dans les Recharged Settings, **par défaut OFF**, grisé si le master Rec
 même forme que le vent du feuillage. OFF == pipeline stock.
 À TESTER : ① écran-titre avec render scale basse, toggle ON puis OFF ② rien de cassé ailleurs dans
 l'UI (la passe UI est partagée).
+
+## RECHARGED HUD jak1 (Grecharged-hud-jak1) — ROUND 5 [À TESTER] (2026-08-08 ~07:30) — validator PASS, HEAD 1c96cfdc80
+
+**Le HUD Rechargé est de retour dans le build — et il n'y était plus depuis un mois.** La phase
+`Grecharged-buildsys-flags` a mis toute la fonctionnalité derrière le flag de build
+`--recharged-hud`, dont le défaut suivi est OFF : **chaque APK construit depuis le 21/07, y compris
+celui qui était sur ton Redmi ce matin, ne contenait pas une seule ligne du HUD Rechargé.** C'est
+pour ça que tes tests de juillet ne pouvaient plus rien montrer. Ce build est en
+`--hd-models --pbr --physics --recharged-hud` (marker `ogflags:37b4745dfd43`), il est **déjà
+installé sur le Redmi avec `recharged-hud? = #t`**.
+
+Ce qui a été corrigé ce round, chacun sur une preuve de code et pas à l'œil :
+1. **L'item au centre de la jauge rentre enfin dans le trou.** Mesuré, pas deviné : la demi-largeur
+   d'un sprite HUD vaut `scale-x/239.95` unités de canvas, donc la couche dominante à `(meters 2.5)`
+   faisait 42.7 unités face à un trou de rayon 11.7 (0.26 mesuré sur le canal alpha de
+   `jak_gauge_empty.png`). Facteur 0.26 → il tient dedans, et du coup ton problème de "la jauge
+   par-dessus" disparaît avec, puisque plus rien ne déborde.
+2. **Les particules vertes par-dessus l'éco bleu : trouvé et corrigé.** Les trois lanceurs par type
+   partagent le même emplacement et leurs couches vivent jusqu'au teardown ; rien ne tuait le nuage
+   du type précédent quand tu changeais d'éco. Il est tué maintenant, à la frame du changement.
+3. **L'éco verte à côté du cœur était LITTÉRALEMENT le sprite d'origine.** Le round 3 avait livré le
+   groupe 720 comme une copie mot pour mot du groupe HUD de ND — ton "c'est toujours le sprite par
+   défaut" était exact. Il porte maintenant le caractère d'émission de l'éco verte **du monde**
+   (densité, éclat des points, étincelles jaunes qui tombent).
+
+Vérifié sur l'appareil (eae4df44, render-scale 100 forcé, `mCurrentFocus=jak1` sur chaque image,
+0 crash) : cœur, jauge remplie avec la pointe tournée au bon endroit, particule du bon type DANS le
+trou, nuage d'éco verte, mouche-éclaireuse et orbe précurseur en vrais modèles 3D. OFF = HUD stock.
+
+⚠️ **UN TROU, annoncé franchement : la PILE D'ÉNERGIE ne se dessine toujours pas sur ARM64** — on ne
+voit que son halo. Le correctif du round 4 est maintenant **infirmé sur l'appareil**, et l'ancien
+chemin aussi. Ce qu'on a gagné : sur la MÊME image, la mouche et l'orbe s'affichent bien en 3D, donc
+la mécanique d'icône est saine et le défaut est propre à `*fuel-cell-sg*` (son effet envmap). C'est
+la prochaine piste, pas un nouveau tâtonnement de fonctions de dessin.
+
+Deux points à trancher par ton œil : l'éco verte est plus **dense/lumineuse** que le stock (les
+chiffres viennent du groupe du monde — si c'est trop, c'est un seul nombre à baisser), et son
+**vacillement** reste celui du HUD stock (le cycle du monde dépend d'un callback qu'un process HUD
+ne peut pas fournir).
+
+À tester : Graphics Options → Recharged Settings → Recharged HUD (les deux états) ; descendre au
+dernier cran de vie pour le fondu du cœur ; ramasser bleu puis rouge puis jaune à la suite ; ramasser
+de l'éco verte. Rapport complet : `.autoport/reports/Grecharged-hud-jak1/report.txt`.
