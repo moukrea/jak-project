@@ -313,7 +313,25 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     CCTR=$(grep -a 'cctrunc=' "$LC" | awk '{if (match($0,/cctrunc=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     CCPR=$(grep -a 'ccpairs=' "$LC" | awk '{if (match($0,/ccpairs=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     CCC=$(grep -a 'chainvschain=' "$LC" | awk '{if (match($0,/chainvschain=[0-9]+/)) s+=substr($0,RSTART+13,RLENGTH-13)} END {print s+0}')
-    say "leg $TAG: cycle13 ccnsum=$CCNS cctrunc=$CCTR ccpairs=$CCPR chainvschain=$CCC nomask-max=${NOMK:-n/a}"
+    MFS=$(grep -a 'mfsnap=' "$LC" | awk '{if (match($0,/mfsnap=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    MFSX=$(grep -ao 'mfsnapmax=[0-9.]*' "$LC" | sed 's/mfsnapmax=//' | sort -g | tail -1)
+    MFH=$(grep -a 'mfhard=' "$LC" | awk '{if (match($0,/mfhard=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    # (C13b) the strand pass's own residual. Until this cycle it reported only the contacts it had
+    # HANDLED, never the overlap it left — the same blind spot as a body audit with no perimeter.
+    XV=$(grep -a 'xveto=' "$LC" | awk '{if (match($0,/xveto=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
+    XU=$(grep -a 'xunres=' "$LC" | awk '{if (match($0,/xunres=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    XUX=$(grep -ao 'xunresmax=[0-9.]*' "$LC" | sed 's/xunresmax=//' | sort -g | tail -1)
+    say "leg $TAG: cycle13 ccnsum=$CCNS cctrunc=$CCTR ccpairs=$CCPR chainvschain=$CCC nomask-max=${NOMK:-n/a} mfsnap=$MFS mfsnapmax=${MFSX:-0} mfhard=$MFH xveto=$XV xunres=$XU xunresmax=${XUX:-0}"
+    # xveto/xunres are DELIBERATE outcomes, not failures: refusing to resolve a strand contact INTO
+    # the character is the owner's blocker outranking strand separation. They are reported so he can
+    # see two strands still overlapping, and so a future cycle cannot quietly trade one for the other.
+    [ "${XU:-0}" = 0 ] || say "OPEN($TAG): xunres=$XU (deepest ${XUX:-0}) — strand-vs-strand contacts left overlapping rather than pushed into the body"
+    [ "${XV:-0}" = 0 ] || say "OPEN($TAG): xveto=$XV — strand pushes refused because they would have driven a link deeper into its own character"
+    # mfhard = the fallback could not find ANY clear point, not even the model pose. The closed-form
+    # guarantee does not cover it (an at= volume riding a partner that has swung), so it is reported
+    # rather than failed — but it is reported, because an unreported give-up is how this phase
+    # shipped four vacuous zeros.
+    [ "${MFH:-0}" = 0 ] || say "OPEN($TAG): mfhard=$MFH — the model-pose fallback found no clear point (at= volume riding a swung partner)"
     TOTCCN=$((TOTCCN + CCNS)); TOTCCP=$((TOTCCP + CCPR)); TOTCCT=$((TOTCCT + CCTR))
     [ "${CCTR:-0}" = 0 ] || { say "FAIL($TAG): cctrunc=$CCTR — a chain could reach more volumes than PHYS-CCMAX and the excess was DROPPED (that is a hole)"; OK=0; }
     [ "${CCNS:-0}" -gt 0 ] || { say "FAIL($TAG): ccnsum=0 — no chain was tested against any volume, so every resid=0 in this leg is vacuous"; OK=0; }

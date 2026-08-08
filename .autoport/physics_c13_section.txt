@@ -1,0 +1,233 @@
+=========================================================================================
+CYCLE 13 (2026-08-08) — THE PERIMETER, WHICH IS WHAT HE ACTUALLY REJECTED
+Build: --physics (FLAG_PHYSICS) android-arm64, ogflags:435df2141670 (hd-models,pbr,physics)
+Device: Redmi eae4df44. No x86 evidence build (banned for this phase since cycle 4).
+=========================================================================================
+CYCLE 13b — THE THREE LICENCES WERE GONE AND THE PERIMETER STILL HAD HOLES
+--------------------------------------------------------------------------------------
+Before this build was offered to the owner, the cycle-13 solver was read back adversarially
+against its own claim. It did not survive it. Three more ways for a strand to pass through
+its own character UNCOUNTED were found in the code that was supposed to have closed them,
+and all three are fixed here. They are listed first because the cycle-13 text below would
+otherwise be making a promise the code did not keep.
+
+  1. `self?` EXCLUDED BODY VOLUMES, NOT JUST THE STRAND'S OWN (jak-hd-physics.gc:1861).
+     The one exclusion cycle 13 kept was "a volume fitted to this chain's own joints is this
+     chain's own geometry". It was implemented as "EITHER end sits on ANY joint of the chain"
+     — and the offline fitter emits BODY spans that TERMINATE on a chain root: `neckB Learbase`
+     r=1175, `hips shirtLthigh` r=1912, `chest RchestDanglerA` r=13646. Under the either-end
+     rule those are dropped for the ear, the jacket pendant and the chest dangler respectively.
+     Counted over the whole file, twice and independently: 532 (chain, volume) pairs excluded by
+     the either-end rule against 254 by the both-ends rule, so 278 real body volumes come back,
+     across 230 of the 345 chains. A volume that never enters `cclist` is invisible to the solver,
+     to the model-pose fallback AND to the residual audit alike, so `resid` would have read 0 with
+     a strand inside the neck. It sat on exactly the geometry the owner names — ears, jacket
+     flaps, danglers.
+     Scope stated honestly: no chain lost its ENTIRE perimeter to the old rule (the worst case
+     kept 6 of 7 volumes; jak-hd's worst chain kept 78 of 81). So this is a hole in coverage, not
+     a chain with nothing to hit, and it cannot be the whole of what the owner sees.
+     FIXED: own now means BOTH ends are the chain's (or, for a one-bone collider, its single
+     joint). One end on the body makes the volume the BODY's, however it is named. The root link
+     that shares the joint is not shoved out of it — the model-pose floor is per (link, volume)
+     and reads ~0 there — while the TIP, whose model pose is nowhere near, is caught in full.
+
+  2. AN ANIMATOR HOLDING A CHAIN TURNED OFF ITS COLLISION *AND* ITS AUDIT (:2284, deleted).
+     `(when (> authw 0.5) (set! collide? 0))` existed for a real reason — Keira pulling her
+     goggles over her eyes puts them inside the head capsule on purpose — but it removed the
+     whole chain-frame from the residual audit, and it fires on every chain with an authored
+     channel: jak-hd `earL`/`earR` (authored=0.35), keira-hd `goggles` (authored=1.0). Those are
+     three of the six sites the owner listed by name.
+     FIXED: collision stays on always. The authored pose is protected by the model-pose floor
+     instead — the per (link, volume) cap now takes the nearer of the MODELLED and the AUTHORED
+     pose — so the animator is still never fought, and every direction he is not holding stays
+     guarded and stays counted.
+
+  3. THE STRAND-VS-STRAND PASS RAN AFTER THE AUDIT AND WROTE THE BONES (:4650-4790).
+     It executes after the body resolve, after the model-pose fallback and after the residual
+     audit, and it writes `out`, `pos`, `prev` and the bone transform directly. So a link the
+     fallback had just parked clear of every volume could be shoved straight back into the
+     character, with nothing testing or counting it: the "cannot fail" guarantee was void by
+     ordering, not by arithmetic.
+     FIXED: a strand push that would DEEPEN a link's own body penetration is refused for that
+     link (`xveto`) and the separation is taken entirely by the partner; if neither may move the
+     contact is left overlapping and COUNTED (`xunres`, `xunresmax`) instead of being resolved
+     into the character's mesh. The comparison is before-vs-after on the same link and the same
+     volume, so the model-pose cap cancels and a strap RESTING against a capsule is never vetoed.
+     Also: strand-vs-strand had no residual counter at all — only contacts it had handled — which
+     is the same blind spot as a body audit with no perimeter. It has one now.
+
+  4. THE DEFAULT PRECISION LEVEL DROPPED A WHOLE CLASS OF CHAIN (physics_chains.txt [levels]).
+     `level 1` — the default, named FULL — carried `classmask=3`, primary+secondary only, so all
+     43 `class=accessory` chains were declared and permanently inert at the setting the owner
+     plays on: 4 `earL` + 4 `earR`, Samos' `logL`/`logR` (the bun he asked for by name), horns,
+     fur, belts, pouches, the earring, the shackle. "Declared and not running" is the exact
+     failure he called out in cycle 3b. FIXED to `classmask=7`; LIGHT (level 0) keeps
+     `classmask=1`, so the cost escape route stays one notch down where he put it.
+
+  5. `nomask` WAS COUNTING THE WHOLE ACTOR ON EVERY FRESH BINDING (jak-hd-physics.gc:1389).
+     The device run before these fixes failed on `nomask=17` — "a live chain reached no volume at
+     all" — identically in two different scenes, and my first explanation for it was the `self?`
+     bug above. That explanation was WRONG, and it is recorded here rather than quietly dropped
+     because a plausible wrong cause is how a cycle gets spent fixing the wrong thing.
+     The real cause: cycle 13 changed what `cncol` MEANS — from "how many volumes name this chain"
+     (a property of the data, true every frame) to "how many this chain reached" (defined only on
+     frames it was simulatable) — and moved the per-window reset to a -1 "never asked" sentinel,
+     but left the BIND path setting it to 0. So on the first window of every binding each chain
+     read `cncol == 0` and was counted. The evidence is in the same log line: jak-hd `nomask=17` of
+     17 chains, dax-hd `nomask=5` of 5, alongside `nopose=5100` (17 chains x 300 frames un-posed)
+     and `ccnsum=0` — a window in which the perimeter rebuild had not run once, so there was
+     nothing to have reached. Every other window in both legs read `nomask=0`.
+     FIXED to -1. This is a false positive removed, not a metric narrowed to pass: an un-posed
+     parked-spawn frame is one where the chain is not simulated, so it can neither reach a volume
+     nor clip through one, and `nopose` still reports those frames in its own field.
+
+  6. AND ONE THAT IS NOT FIXED, STATED RATHER THAN BURIED: the per-chain reach sphere is measured
+     from THIS frame's poses plus PHYS-REACH-MARGIN (512 units). A chain whose own collision
+     correction can exceed that in one frame — possible for chains longer than 1024 units — could
+     reach a volume it was not tested against on that frame. `cctrunc` cannot see it (it counts
+     list overflow, and the largest model declares 83 volumes against a list of 96, so it can
+     never fire on this data — a green `cctrunc` proves nothing here and is not offered as if it
+     did). This is narrow and it is unmeasured; it is written down so the next cycle starts from
+     it instead of rediscovering it.
+
+RESULT: (cycle 13) the owner's verdict on the cycle-12 build was "c'est TOUJOURS BROKEN",
+and he was right for a reason no amount of tuning could have reached. The residual audit had
+no PERIMETER to be residual over. Three separate licences let a strand pass through a body
+without ever being counted, and all three are gone in this build:
+
+  1. `colskip=` — 202 of the 345 chains carried it, including 37 `earL` and 36 `earR`, the
+     exact geometry he watches strands go through. A link that skips collision cannot register
+     a penetration, so those chains left the audit by construction. `resid = 0` was
+     arithmetically exact and completely false. RETIRED: the key is no longer an exemption,
+     and `cs` is now exactly `rootlock` — the only links exempt are the ones that do not move
+     because they ARE the bone. What colskip was hand-authoring (a link whose MODEL pose is
+     inside a volume must not be shoved out of it) is computed at runtime instead, per
+     (link, volume), every frame, by the model-pose floor, which also tracks the animation
+     instead of being frozen into a data key.
+
+  2. `chains=` — all 2384 volumes carried one, and it was worse than a filter. The offline
+     fitter was emitting a SEPARATE, differently-shrunk copy of each body span PER CHAIN:
+     1004 real spans had become 2374 generated lines, 2.36 variants each, radii spread up to
+     20x on the same span (`assistant-lod0`, span `head flipR1`: 40 / 81 / 564 / 644 / 805).
+     Every chain therefore had its own private body, and where a chain's private copy had been
+     shrunk under the emit floor it had no volume there AT ALL. Counted: 353 of the volumes had
+     a hole in them for at least one chain, and 85 existed for nobody — they were never written
+     to the file. RETIRED: the generator now emits ONE volume per span at its fitted mesh
+     radius (1335 lines, down from 2384), and which chain tests which volume is decided at
+     runtime by REACH — a bounding sphere measured from this frame's poses against every volume
+     of the character. A volume is excluded only when it is out of reach, and the reach is
+     measured, never declared. That is the owner's rule read literally: "le filtre ne peut
+     qu'exclure ce qui est geometriquement INATTEIGNABLE, et cette inatteignabilite doit etre
+     PROUVEE".
+
+  3. `xchain=` — strand-vs-strand ran only between pairs the data had introduced to each other.
+     He called this the worse half ("et encore plus les elements a physique avec d'autres
+     elements a physique") and named four pairs. RETIRED: every pair on the actor is tested
+     unless the two bounding spheres measured this frame cannot touch.
+
+AND THE FIT-ERROR THAT WAS QUOTED AT HIM WAS MEASURED ON THE WRONG OBJECT. The offline audit
+grades the FITTED radii; the file shipped the per-chain SHRUNKEN copies. So "fit error 0.000"
+was true of volumes that were never written to disk. This is the first run in which the audited
+object and the emitted object are the same object: max fit-error = 0.000 and max whole-mesh hole
+= 0.000 across all 43 model sections, on the 1335 volumes that actually ship, with the offline
+positive control firing on 43 of 43 models (injected depths 615-10533 units).
+
+THE ONE EXCLUSION THAT SURVIVED, AND WHY IT IS NOT A LICENCE. `chains=` was also carrying,
+implicitly, "a chain does not collide with its own bones" — the fitter emits a volume per bone
+span, so a chain's own links each get one fitted to their own vertices, and 527 of the 1335
+volumes have a chain joint at one end. That exclusion is kept and made STRUCTURAL rather than
+authored: a volume is skipped for a chain only when one of its two ends IS one of that chain's
+own joints. It cannot be widened by data and it cannot hide another chain's volume or a body
+volume. The model-pose floor alone would not have covered it — it zeroes the volume for the
+link that OWNS it, and says nothing about the strand's other links, which would then have been
+shoved out of their own strand.
+
+THE POSITIVE CONTROL NOW CONTROLS THE PERIMETER, NOT THE COUNTER. This is the precise
+distinction the cycle-12 rejection turned on, and it was a fair hit: the old control dragged
+each link toward `cclist[0]`, the first volume the chain was ALREADY tested against, so it
+could only ever prove that the counter is able to count. A correct counter over a perimeter
+that excludes half the chains yields a zero that is exact and false — the fourth vacuous zero
+of this phase, after resid/push, idledrift/idlewin and restdevA/restwin. The injection now aims
+at the volume of the WHOLE ACTOR nearest to the link, chosen with no reference to the chain's
+perimeter. If the perimeter is complete the link is driven into a volume that is being tested
+and push=/resid= climb with injected=; if there is a hole, injected= climbs ALONE, which names
+the hole instead of hiding it. Measured, deliberate injection, ARMED vs DISARMED:
+@@POSCONTROL@@
+
+`hang=` ON FAMILY A DOES NOT MOVE THE REST POSE, AND THAT IS CODE, NOT PROSE. 157 of the
+family A chains still carry `hang>0` and the owner's rule W says a body part's idle pose is the
+model's, "pas plus haut, pas plus bas". Both are true because the gravity rest-pull is scaled by
+the actor's TILT for family A and only for family A — jak-hd-physics.gc:1765,
+`(hgf (if (= 2 (-> *phys-cfam* ci)) 1.0 tiltf))`: family B takes it at full strength, family A
+takes it multiplied by `tiltf`, which is 0.0 for an upright actor. So on an upright character the
+term contributes nothing to the equilibrium and the chain returns to the pose Naughty Dog
+modelled; it comes back only when the character is tilted, which is the owner's own explicit
+exception ("si tu pends Maia par les pieds, forcement ses seins ne seront pas a la meme
+position"). The measured `tiltmax` per leg is in the run sheet below.
+
+WHAT THE PHONE MEASURED THIS RUN. Every chain is now tested against ALL of the character's
+volumes it can reach, and chain-vs-chain runs on every reachable pair — including the four the
+owner named: bangs vs ears, goggles vs chest, back buckle vs strap, and the mayor's bow vs his
+belly. `ccnsum` is the count of volume-tests that actually ran; a residual of zero over a
+`ccnsum` of zero would be the fifth vacuous zero of this phase and is failed as such by the leg.
+  chain-vs-chain pairs the owner named, each now tested every frame it is reachable: bangs vs
+  ears, goggles vs chest, back buckle vs strap, the mayor's bow vs his belly.
+
+HOW `resid` IS REACHED, SAID PLAINLY, BECAUSE IT CHANGES WHAT IT PROVES. The frame no longer
+ends on an iteration count. After the iterative repair, every free link is walked from where the
+solver left it toward its own MODEL pose and takes the SMALLEST step that clears every volume in
+its perimeter — a point that is clear in closed form, because each volume's effective radius is
+capped at the model pose's own distance to that volume's spine. `pos` and `prev` take the
+identical delta, so it injects exactly zero velocity (owner rule O), and a link that is already
+clear is not moved at all. It stands down under `inject=`, or the owner's positive control would
+be silently repaired into a fifth empty zero.
+  So `resid = 0` no longer says "the solver converged". It says "the fallback held". The numbers
+  that carry the real information are `mfsnap` (how many link-frames needed the fallback at all),
+  `mfsnapmax` (the largest single correction — a per-frame positional jump, so a large one is a
+  visible twitch) and `mfhard` (the times not even the model pose was clear, which the closed-form
+  guarantee does not cover). If `mfsnap` were a large fraction of the link-frames, this would be
+  physics being overwritten by the model pose — the owner's cycle-8 complaint AJ — and it would
+  need to be read as such rather than as a clean audit. Those three are in the per-leg lines below.
+@@LEGSUMMARY@@
+
+@@PERCHAIN@@
+
+KEIRA'S CHEST (cycle-12 item 6, owner AL). The mechanism was settled in cycle 8 and is
+unchanged here: a one-bone body part ROTATES about its anchor with its length preserved, it
+does not translate, because the breast vertices are shared with the torso bone and a
+translation of `rBoob` relative to `chest` stretches the skin between them — into a point in
+one direction and flat in the other, which is exactly the pair of extremes he described. What
+this cycle adds is that the chest chains are now inside the audit rather than beside it: they
+are tested against every volume they can reach, including the goggles, and the length
+invariance is graded on the same run.
+  stiffness 2.60 (>= the owner-approved 09:13 floor), stretch 0.01, maxangle 26 deg,
+  couple 3.6, swing 0.60, mass 1.5 — firmness from stiffness and a near-zero stretch,
+  amplitude from anchor coupling, excursion bounded so it cannot read as liquid.
+  Maia keeps the heavier mass (4.2) at a LOWER damping (0.14 vs Keira 0.26): heavier must mean
+  more travel with lag, never less motion, which was the cycle-7 mistake.
+  Bone-length invariance over the capture: @@LENINV@@
+
+WHAT IS NOT CLAIMED
+  * WHETHER IT LOOKS RIGHT. Every aesthetic judgement in this phase is the owner's, and no
+    capture campaign was run — that is a permanent rule of this phase, not an omission. What
+    changed here is structural: chains that were never tested are now tested. Whether the
+    result reads well on screen is his call, and section 13 lists what to look at.
+  * THE PER-FRAME COST WENT UP AND IS NOT DISGUISED. The inner loop used to walk an authored
+    list of a handful of volumes; it now walks everything the chain can reach, up to the
+    model's full count (83 on the largest, `eichar-lod0`). The precision level still arbitrates
+    it — the tier gate is applied inside the perimeter rebuild, so a lower level tests fewer
+    volumes, which is the owner's own escape route for cost. It is his call whether the top
+    level is too expensive on the phone.
+  * THE METAL RING on Jak's chest-plate and the BUCKLE on his back strap are still not
+    delivered, by measurement rather than omission: no rig in the 458 shipped carries a joint
+    for either, so both need a bone injected at HD prep plus a weight transfer. That is an
+    asset-pipeline job, unchanged by this cycle.
+  * THE STRAND-VS-STRAND RESIDUAL IS NEW AND IS NOT YET ZERO BY DESIGN. `xunres` counts contacts
+    the frame could not clear, and refusing to resolve one INTO the body is a deliberate choice
+    (the owner's blocker outranks strand separation). A nonzero `xunres` is therefore a real
+    reading, not a failure to be tuned away — but it is also the number that says two strands are
+    still overlapping, so it is his to look at.
+@@OPENITEMS@@
+
+
+=== end of the cycle-13 section — everything below is earlier cycles, kept verbatim ===

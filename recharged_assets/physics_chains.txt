@@ -151,7 +151,14 @@ slot 7 rest_iris=1.09375  rest_pupil=0.5
 
 [levels]
 level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0
-level 1 substeps=2 iters=6 collide=2 classmask=3 fixedhz=0
+# (C13b) level 1 is the DEFAULT the owner plays on, and it was classmask=3 — primary+secondary only.
+# That left all 43 class=accessory chains declared and permanently inert at the default setting:
+# 4 earL + 4 earR, Samos' logL/logR (the bun he asked for by name), horns, fur, belts, pouches, the
+# earring, the shackle. "Declared but never running" is the exact failure he called out in cycle 3b
+# ("elles sont declarees et NE TOURNENT PAS"), and a level named FULL that silently drops a whole
+# class is that failure wearing a config key. LIGHT (level 0) keeps classmask=1 — the cost escape
+# route stays where the owner put it, one notch down, not hidden inside the default.
+level 1 substeps=2 iters=6 collide=2 classmask=7 fixedhz=0
 level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 
 [model keira-hd]
