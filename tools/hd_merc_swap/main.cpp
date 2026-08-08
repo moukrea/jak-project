@@ -36,6 +36,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <set>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -679,6 +680,213 @@ int do_blerc_stats(const fs::path& fr3, const std::string& name) {
                  "mean_vec=({:.6g},{:.6g},{:.6g})\n",
                  ei, draw0, t, a.n, a.sum_abs / (double)a.n, a.max_abs, a.sum[0] / (double)a.n,
                  a.sum[1] / (double)a.n, a.sum[2] / (double)a.n);
+    }
+  }
+  return 0;
+}
+
+// Grecharged-hd-eye-scale: which bones drive each EYE draw, how big the eye geometry is at
+// bind, how far apart the two eyes sit, and how large each blerc target's displacement is
+// RELATIVE to the eye span it lands on. The doubling the owner sees must live in one of
+// these numbers — a channel that cannot move an eye vertex cannot be the defect.
+int do_skin_stats(const fs::path& fr3, const std::string& name) {
+  tfrag3::Level lev;
+  load_fr3(fr3, lev);
+  auto it = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                         [&](const auto& m) { return m.name == name; });
+  if (it == lev.merc_data.models.end()) {
+    fmt::print("  model '{}' not in {}\n", name, fr3.string());
+    return 2;
+  }
+  const auto& model = *it;
+  const auto& gidx = lev.merc_data.indices;
+  fmt::print("== SKIN-STATS {} {} ==\n", fr3.string(), model.name);
+
+  struct V3 {
+    float x, y, z;
+  };
+  std::map<int, std::vector<V3>> eye_cloud;                 // eye_id -> unique-ish positions
+  std::map<size_t, std::set<u32>> eye_mod_ids_per_effect;   // effect -> mod-pool vert ids in eye draws
+
+  auto dump_draw = [&](size_t ei, const char* group, const tfrag3::MercDraw& d,
+                       const std::vector<tfrag3::MercVertex>& pool, bool is_mod_pool) {
+    if (d.eye_id == 0xff) {
+      return;
+    }
+    double mn[3] = {1e30, 1e30, 1e30}, mx[3] = {-1e30, -1e30, -1e30};
+    std::map<int, double> bones;  // bone idx -> weight sum
+    size_t n = 0;
+    for (u32 k = 0; k < d.index_count; k++) {
+      size_t ii = (size_t)d.first_index + k;
+      if (ii >= gidx.size()) {
+        break;
+      }
+      u32 vi = gidx[ii];
+      if (vi == UINT32_MAX || vi >= pool.size()) {
+        continue;
+      }
+      const auto& v = pool[vi];
+      n++;
+      for (int a = 0; a < 3; a++) {
+        mn[a] = std::min(mn[a], (double)v.pos[a]);
+        mx[a] = std::max(mx[a], (double)v.pos[a]);
+      }
+      for (int w = 0; w < 3; w++) {
+        if (v.weights[w] > 0.f) {
+          bones[v.mats[w]] += v.weights[w];
+        }
+      }
+      eye_cloud[d.eye_id].push_back({v.pos[0], v.pos[1], v.pos[2]});
+      if (is_mod_pool) {
+        eye_mod_ids_per_effect[ei].insert(vi);
+      }
+    }
+    std::vector<std::pair<double, int>> top;
+    for (auto& [b, w] : bones) {
+      top.push_back({w, b});
+    }
+    std::sort(top.rbegin(), top.rend());
+    std::string bs;
+    for (size_t t = 0; t < top.size() && t < 6; t++) {
+      bs += fmt::format(" b{}:{:.1f}", top[t].second, top[t].first);
+    }
+    s32 id = d.tree_tex_id;
+    std::string tex = (id >= 0 && (size_t)id < lev.textures.size()) ? lev.textures[id].debug_name
+                                                                    : tex_label(lev, id);
+    fmt::print("SKIN-STATS effect={} group={} tex={} eye_id={} idxrefs={} "
+               "span=({:.5g},{:.5g},{:.5g}) center=({:.5g},{:.5g},{:.5g}) bones{}\n",
+               ei, group, tex, d.eye_id, n, mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2],
+               0.5 * (mx[0] + mn[0]), 0.5 * (mx[1] + mn[1]), 0.5 * (mx[2] + mn[2]), bs);
+  };
+
+  for (size_t ei = 0; ei < model.effects.size(); ei++) {
+    const auto& e = model.effects[ei];
+    for (const auto& d : e.all_draws) {
+      dump_draw(ei, "all", d, lev.merc_data.vertices, false);
+    }
+    for (const auto& d : e.mod.fix_draw) {
+      dump_draw(ei, "fix", d, e.mod.vertices, true);
+    }
+    for (const auto& d : e.mod.mod_draw) {
+      dump_draw(ei, "mod", d, e.mod.vertices, true);
+    }
+  }
+
+  // per-eye span + the edge-to-edge gap between the L/R pair at bind
+  std::map<int, double> eye_span;
+  for (auto& [id, c] : eye_cloud) {
+    double mn[3] = {1e30, 1e30, 1e30}, mx[3] = {-1e30, -1e30, -1e30};
+    for (auto& p : c) {
+      const float* q = &p.x;
+      for (int a = 0; a < 3; a++) {
+        mn[a] = std::min(mn[a], (double)q[a]);
+        mx[a] = std::max(mx[a], (double)q[a]);
+      }
+    }
+    eye_span[id] = std::max({mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]});
+  }
+  for (auto& [id, c] : eye_cloud) {
+    if ((id & 1) || !eye_cloud.count(id + 1)) {
+      continue;
+    }
+    const auto& a = c;
+    const auto& b = eye_cloud[id + 1];
+    double gap = 1e30;
+    for (auto& pa : a) {
+      for (auto& pb : b) {
+        double dx = pa.x - pb.x, dy = pa.y - pb.y, dz = pa.z - pb.z;
+        gap = std::min(gap, std::sqrt(dx * dx + dy * dy + dz * dz));
+      }
+    }
+    fmt::print("EYEPAIR ids={}/{} bind_gap={:.5g} span_a={:.5g} span_b={:.5g}\n", id, id + 1, gap,
+               eye_span[id], eye_span[id + 1]);
+  }
+
+  // Blerc displacement per target restricted to EYE vertices. float_data deltas are per WEIGHT
+  // UNIT: a full-on channel is 4096, and jak1's cartoon anims overdrive to (255-64)*64 = 12224.
+  // The size-changing component is the RADIAL one (about each eye's own centre): a radial field
+  // over the whole dome GROWS the eye; a tangential or localized one only reshapes it. grow_full
+  // = mean radial delta at weight 4096 as a fraction of the eye half-span — the per-channel eye
+  // GROWTH RATE, comparable across models of different tessellation and eye size.
+  constexpr double kFullOn = 4096.0;
+  for (auto& [ei, ids] : eye_mod_ids_per_effect) {
+    const auto& b = model.effects[ei].mod.blerc;
+    if (b.int_data.empty()) {
+      continue;
+    }
+    std::vector<BlercVert> bverts;
+    if (!parse_blerc(b, bverts)) {
+      fmt::print("  SKIN-STATS FAIL: effect[{}] blerc data malformed\n", ei);
+      return 2;
+    }
+    const auto& pool = model.effects[ei].mod.vertices;
+    // per eye_id centre for the radial basis
+    std::map<int, std::array<double, 3>> centre;
+    for (auto& [id, c] : eye_cloud) {
+      double mn[3] = {1e30, 1e30, 1e30}, mx[3] = {-1e30, -1e30, -1e30};
+      for (auto& p : c) {
+        const float* q = &p.x;
+        for (int a = 0; a < 3; a++) {
+          mn[a] = std::min(mn[a], (double)q[a]);
+          mx[a] = std::max(mx[a], (double)q[a]);
+        }
+      }
+      centre[id] = {0.5 * (mx[0] + mn[0]), 0.5 * (mx[1] + mn[1]), 0.5 * (mx[2] + mn[2])};
+    }
+    struct TAcc {
+      size_t n = 0;
+      double max_abs = 0, sum_abs = 0, sum_rad = 0;
+    };
+    std::map<u32, TAcc> acc;
+    for (const auto& v : bverts) {
+      if (!ids.count(v.dest) || v.dest >= pool.size()) {
+        continue;
+      }
+      const auto& mv = pool[v.dest];
+      // nearest eye centre = this vertex's own eye
+      double best = 1e30;
+      const std::array<double, 3>* ctr = nullptr;
+      for (auto& [id, c] : centre) {
+        double dx = mv.pos[0] - c[0], dy = mv.pos[1] - c[1], dz = mv.pos[2] - c[2];
+        double d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < best) {
+          best = d2;
+          ctr = &c;
+        }
+      }
+      double rx = 0, ry = 0, rz = 0, rn = 0;
+      if (ctr) {
+        rx = mv.pos[0] - (*ctr)[0];
+        ry = mv.pos[1] - (*ctr)[1];
+        rz = mv.pos[2] - (*ctr)[2];
+        rn = std::sqrt(rx * rx + ry * ry + rz * rz);
+      }
+      for (size_t k = 0; k < v.tgts.size(); k++) {
+        const auto& d = b.float_data[v.float_base + 1 + k];
+        double m =
+            std::sqrt((double)d.v[0] * d.v[0] + (double)d.v[1] * d.v[1] + (double)d.v[2] * d.v[2]);
+        if (m <= 0) {
+          continue;
+        }
+        auto& a = acc[v.tgts[k]];
+        a.n++;
+        a.sum_abs += m;
+        a.max_abs = std::max(a.max_abs, m);
+        if (rn > 1e-9) {
+          a.sum_rad += (d.v[0] * rx + d.v[1] * ry + d.v[2] * rz) / rn;
+        }
+      }
+    }
+    double half_span = 0;
+    for (auto& [id, s] : eye_span) {
+      half_span = std::max(half_span, 0.5 * s);
+    }
+    for (auto& [t, a] : acc) {
+      const double grow_full = half_span > 0 ? (a.sum_rad / (double)a.n) * kFullOn / half_span : 0;
+      fmt::print("BLERC-EYE effect={} target={} eyeverts={} max_abs={:.6g} mean_abs={:.6g} "
+                 "mean_rad={:.6g} grow_full={:+.4f} grow_3x={:+.4f}\n",
+                 ei, t, a.n, a.max_abs, a.sum_abs / (double)a.n, a.sum_rad / (double)a.n,
+                 grow_full, grow_full * 12224.0 / kFullOn);
     }
   }
   return 0;
@@ -1833,6 +2041,10 @@ int main(int argc, char** argv) {
   if (mode == "blerc-stats") {
     if (argc < 4) { fmt::print("blerc-stats needs <fr3> <model-name>\n"); return 2; }
     return do_blerc_stats(argv[2], argv[3]);
+  }
+  if (mode == "skin-stats") {
+    if (argc < 4) { fmt::print("skin-stats needs <fr3> <model-name>\n"); return 2; }
+    return do_skin_stats(argv[2], argv[3]);
   }
   if (mode == "diff") {
     if (argc < 4) { fmt::print("diff needs <stock.fr3> <enhanced.fr3>\n"); return 2; }
