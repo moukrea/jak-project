@@ -1,3 +1,9 @@
+# ⚠️ LA SPEC EST LE CONTRAT — LIRE D'ABORD `.autoport/prompts/SPEC-physique-secondaire.md`
+# Elle synthétise TOUS les retours owner (2026-08-04 → 08-08). Les sections « CYCLE N » ci-dessous
+# sont un JOURNAL historique : utile pour le contexte, mais EN CAS DE CONFLIT LA SPEC GAGNE.
+# Tourner en rond = re-violer un point déjà dans la spec. La checklist §13 mappe chaque plainte
+# owner à son gate : c'est la définition de fini.
+
 # Grecharged-secondary-motion — physique secondaire (jiggle / chaînes) sur les personnages HD
 
 ## LA VISION (owner, 2026-08-04 — assumée et cadrée)
