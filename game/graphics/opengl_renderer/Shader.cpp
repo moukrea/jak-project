@@ -150,6 +150,29 @@ int gl_max_tess_gen_level() {
 namespace {
 constexpr int kMaxIncludeDepth = 4;
 
+// Grecharged-materials-modern-parity — the COMPANION CHUNK table. `extension` is spliced verbatim
+// immediately after `base` wherever `base` is included (see the long rationale at the splice site
+// below). The whole modern material stack lives in these three files and in nothing else:
+//   pbr_modern_uniforms.glsl  -> global scope: the u_mm_* uniforms + tex_PBR_TH
+//   pbr_modern_helpers.glsl   -> global scope: anisotropic GGX, clearcoat, occlusion, tone curve
+//   pbr_modern.glsl           -> inside the fused branch: the shading itself
+// The order matters and is guaranteed by the hosts: uniforms are included first (tfrag3.frag:27 and
+// friends), helpers next (:259), the fused branch last (:476).
+// In a build without --pbr, OG_FEAT_PBR is undefined, the table is empty, and the text is never even
+// spliced — the generated GLSL is byte-for-byte the pre-phase source.
+struct ChunkCompanion {
+  const char* base;
+  const char* extension;
+};
+constexpr ChunkCompanion kChunkCompanions[] = {
+#ifdef OG_FEAT_PBR
+    {"pbr_uniforms.glsl", "pbr_modern_uniforms.glsl"},
+    {"pbr_helpers.glsl", "pbr_modern_helpers.glsl"},
+    {"pbr_fused.glsl", "pbr_modern.glsl"},
+#endif
+    {nullptr, nullptr},  // sentinel: a zero-length array is not valid C++
+};
+
 // Resolve one chunk by file name (e.g. "pbr_fused.glsl"). Returns false when it does not exist.
 bool find_shader_chunk(const std::string& name, std::string* out) {
 #ifdef __ANDROID__
@@ -241,6 +264,31 @@ std::string expand_includes(const std::string& src, int depth = 0) {
       continue;
     }
     out += expand_includes(chunk, depth + 1);
+    // ---- Grecharged-materials-modern-parity: COMPANION CHUNKS ---------------------------------
+    // A companion is spliced in immediately after its base chunk, at the base chunk's own
+    // injection point, so it lands in the same scope with the same locals visible. It is how the
+    // MODERN MATERIAL STACK (subsurface scattering, clearcoat, anisotropy, energy compensation,
+    // specular/horizon occlusion) is added to all four world programs WITHOUT editing one byte of
+    // pbr_uniforms / pbr_helpers / pbr_fused / tfrag3.frag / tfrag3_tess.*.
+    //
+    // WHY NOT JUST EDIT THOSE FILES: they carry the look the owner ACCEPTED. Round 27 of the
+    // fusion phase edited them, the owner's verdict was "beaucoup, beaucoup moins bien qu'avant",
+    // and 4b736aab03 reverted them to fc7b815e34, where they still sit bit-pristine. Extending by
+    // composition instead of by edit buys three things at once: the accepted tree cannot regress,
+    // "modern OFF == stock" is structural rather than measured (with the layer off the companion's
+    // uniform gate is false and nothing it contains writes anything), and the fusion phase can
+    // resume on an untouched tree whenever the owner wants it.
+    //
+    // A missing companion is NOT an error — the table is a static list of optional extensions, and
+    // find_shader_chunk() already logs loudly for a missing REQUIRED include above.
+    for (const auto& comp : kChunkCompanions) {
+      if (comp.base && name == comp.base) {
+        std::string ext;
+        if (find_shader_chunk(comp.extension, &ext)) {
+          out += expand_includes(ext, depth + 1);
+        }
+      }
+    }
   }
   if (missing) {
     return src;

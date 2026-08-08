@@ -481,6 +481,7 @@ const PbrNeutralMaps& pbr_neutral_maps() {
     s.height_tex = make1x1(255, 255, 255);  // surface level -> POM depth 0, zero offset
     s.specular_tex = make1x1(0, 0, 0);      // fusion: F0 map absent (bit32 gates reads)
     s.emissive_tex = make1x1(0, 0, 0);      // fusion: no self-illumination (bit64 gates)
+    s.thickness_tex = make1x1(255, 255, 255);  // modern: unit 19 never incomplete (bit1+32 gate it)
     glActiveTexture(prev_active);
   }
   return s;
@@ -502,6 +503,8 @@ void pbr_park_neutral_maps() {
   glBindTexture(GL_TEXTURE_2D, neutral.specular_tex);
   glActiveTexture(GL_TEXTURE17);
   glBindTexture(GL_TEXTURE_2D, neutral.emissive_tex);
+  glActiveTexture(GL_TEXTURE19);  // modern: subsurface thickness (18 is shrub's wind-anchor LUT)
+  glBindTexture(GL_TEXTURE_2D, neutral.thickness_tex);
   glActiveTexture(GL_TEXTURE0);
 }
 
@@ -732,6 +735,13 @@ static void pbr_cover_publish_gates(float height_scale, int bisect, int debug, i
 // local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
 // the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
 void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
+  // Grecharged-materials-modern-parity: service a pending materials.txt re-read HERE, on the GL
+  // thread. The request comes from the GOAL kernel thread (the MODERN MATERIALS menu row), and the
+  // re-read walks the same material registry a level load writes into — parsing it where the
+  // request arrives would be a two-thread mutation of one std::unordered_map. This is the PBR
+  // path's existing once-per-renderer GL-thread entry point, so it costs an atomic load per call
+  // and nothing else.
+  custom_tex::mm_service_reload();
   m_program = program;
   m_draws = draws;
   m_mode_loc = -2;
@@ -926,6 +936,8 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     glBindTexture(GL_TEXTURE_2D, maps->specular_tex ? maps->specular_tex : neutral.specular_tex);
     glActiveTexture(GL_TEXTURE17);
     glBindTexture(GL_TEXTURE_2D, maps->emissive_tex ? maps->emissive_tex : neutral.emissive_tex);
+    glActiveTexture(GL_TEXTURE19);  // modern: subsurface thickness
+    glBindTexture(GL_TEXTURE_2D, maps->thickness_tex ? maps->thickness_tex : neutral.thickness_tex);
     glActiveTexture(GL_TEXTURE0);
     m_bound_any = true;
   }
@@ -991,6 +1003,49 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     }
     m_cur_lambda = lam;
   }
+  // ===== Grecharged-materials-modern-parity: the MODERN MATERIAL STACK block =====================
+  // mm_flags already carries the master AND the per-material opt-in: mm_apply_params() cleared it
+  // to 0 at load time if either was absent, and re-stamps every registered material when the menu
+  // row is toggled. So there is no second gate to keep in sync here — if it is non-zero, this
+  // material asked for the layer and the owner switched it on.
+  // `want == 0` means this draw resolved no PBR material at all, in which case the modern layer has
+  // nothing to ride on and must be off regardless of what the last draw pushed.
+  const int mm_want = (want != 0 && maps) ? (int)maps->mm_flags : 0;
+  const void* mm_key = (mm_want != 0) ? (const void*)maps : nullptr;
+  if (mm_want != m_cur_mm_flags || mm_key != m_cur_mm_maps) {
+    if (m_mm_flags_loc == -2) {
+      m_mm_flags_loc = glGetUniformLocation(m_program, "u_mm_flags");
+      m_mm_sss_loc = glGetUniformLocation(m_program, "u_mm_sss");
+      m_mm_sss2_loc = glGetUniformLocation(m_program, "u_mm_sss2");
+      m_mm_coat_loc = glGetUniformLocation(m_program, "u_mm_coat");
+      m_mm_aniso_loc = glGetUniformLocation(m_program, "u_mm_aniso");
+    }
+    if (m_mm_flags_loc >= 0) {
+      glUniform1i(m_mm_flags_loc, mm_want);
+      if (mm_want != 0) {
+        // Only pushed for a material that actually opted in. A draw with mm_flags == 0 leaves the
+        // parameter uniforms holding the previous material's values, which is harmless precisely
+        // because the shader chunk never reads them without the gate.
+        if (m_mm_sss_loc >= 0) {
+          glUniform4f(m_mm_sss_loc, maps->sss_color[0], maps->sss_color[1], maps->sss_color[2],
+                      maps->sss_strength);
+        }
+        if (m_mm_sss2_loc >= 0) {
+          glUniform4f(m_mm_sss2_loc, maps->sss_thickness, maps->sss_power, maps->sss_distort,
+                      maps->sss_wrap);
+        }
+        if (m_mm_coat_loc >= 0) {
+          glUniform4f(m_mm_coat_loc, maps->coat_weight, maps->coat_rough, maps->sss_ambient, 0.f);
+        }
+        if (m_mm_aniso_loc >= 0) {
+          glUniform2f(m_mm_aniso_loc, maps->aniso, maps->aniso_angle);
+        }
+      }
+      custom_tex::mm_note_active_draw(mm_want);
+    }
+    m_cur_mm_flags = mm_want;
+    m_cur_mm_maps = mm_key;
+  }
 }
 
 void PbrDrawBinder::finish() {
@@ -1003,6 +1058,19 @@ void PbrDrawBinder::finish() {
       glUniform1i(m_mode_loc, 0);
     }
     m_cur_mode = 0;
+  }
+  // Grecharged-materials-modern-parity: and the modern gate back to 0. The TFRAG3 program is shared
+  // with renderers that never call set(), so leaving a non-zero u_mm_flags behind would let a later
+  // draw enter the modern chunk carrying the last material's scattering colour.
+  if (m_cur_mm_flags != 0) {
+    if (m_mm_flags_loc == -2) {
+      m_mm_flags_loc = glGetUniformLocation(m_program, "u_mm_flags");
+    }
+    if (m_mm_flags_loc >= 0) {
+      glUniform1i(m_mm_flags_loc, 0);
+    }
+    m_cur_mm_flags = 0;
+    m_cur_mm_maps = nullptr;
   }
   if (m_cur_dc[0] != 0.f || m_cur_dc[1] != 0.f) {
     if (m_dc_loc == -2) {
@@ -1822,6 +1890,17 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // guarantees >=32 combined units and the fragment stage uses 14 samplers <= 16).
   glUniform1i(glGetUniformLocation(id, "tex_PBR_S"), 16);
   glUniform1i(glGetUniformLocation(id, "tex_PBR_E"), 17);
+  // Grecharged-materials-modern-parity: subsurface THICKNESS on unit 19. 18 is shrub's wind-anchor
+  // LUT (tex_T18), 20-29 belong to DirectRenderer, so 19 is the only free slot below the auto-bind
+  // range. SAMPLER BUDGET, stated because it is now the binding constraint and not a comfortable
+  // one: the world fragment stage declares tex_T0 + 8 PBR maps + the shadow map + 4 probe sampler3D
+  // + 1 samplerCube = 15, against a GL_MAX_TEXTURE_IMAGE_UNITS floor of 16 on GLES 3.2. ONE slot
+  // left. The next channel that wants a map must pack into an existing one (as _orm does for
+  // occlusion/roughness/metallic) rather than take a unit.
+  glUniform1i(glGetUniformLocation(id, "tex_PBR_TH"), 19);
+  // The modern stack's gate: OFF for every program at setup. The per-draw binder raises it only for
+  // a material that opted in, and lowers it again in finish().
+  glUniform1i(glGetUniformLocation(id, "u_mm_flags"), 0);
   // Round-4 mandate B (shadow map): always advertise the shadow sampler on unit 9 and
   // default u_pbr_shadow_on OFF; pbr_shadow_bind_receiver upgrades it per-renderer. Parking
   // the depth texture on unit 9 here mismatch-proofs every TFRAG3-family user (magenta
@@ -1918,6 +1997,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // Both / Normal-map-only / Parallax-only / Neither at his vantage with no adb. The debug
   // prop/env below still OVERRIDE it for headless supervisor A/B on the full term set.
   int pbr_bisect = gs.recharged_pbr_isolate;
+  // Grecharged-materials-modern-parity. Deliberately NOT new u_pbr_bisect bits: that mask is FULL
+  // (every bit from 1 to 2^30 is allocated, and bit 2 is already double-booked between the green-sun
+  // specular and a normal-convention flip, which silently confounds any A/B run on it). The modern
+  // stack gets its own two knobs instead — an exposure multiplier and a per-channel isolation viz —
+  // so nothing here can collide with an existing killswitch.
+  float mm_exposure = 1.0f;
+  int mm_debug = 0;
   // REOPEN #3 DISPLACEMENT menu carousel (0 Off / 1 Parallax / 2 Tessellation). Menu value
   // from GOAL via pc-set-pbr-displacement!; debug prop overrides for headless A/B.
   int pbr_displacement = gs.recharged_pbr_displacement;
@@ -2002,6 +2088,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.bisect", v) > 0) {
       pbr_bisect = atoi(v);
     }
+    if (__system_property_get("debug.opengoal.mm.exposure", v) > 0) {
+      mm_exposure = atof(v);
+    }
+    if (__system_property_get("debug.opengoal.mm.debug", v) > 0) {
+      mm_debug = atoi(v);
+    }
     if (__system_property_get("debug.opengoal.pbr.displacement", v) > 0) {
       pbr_displacement = atoi(v);
     }
@@ -2061,6 +2153,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
   if (const char* e = getenv("OG_PBR_BISECT")) {
     pbr_bisect = atoi(e);
+  }
+  if (const char* e = getenv("OG_MM_EXPOSURE")) {
+    mm_exposure = atof(e);
+  }
+  if (const char* e = getenv("OG_MM_DEBUG")) {
+    mm_debug = atoi(e);
   }
   if (const char* e = getenv("OG_PBR_DISPLACEMENT")) {
     pbr_displacement = atoi(e);
@@ -2754,6 +2852,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
   glUniform1f(glGetUniformLocation(id, "u_pbr_emissive_str"), emissive_str);
   glUniform1f(glGetUniformLocation(id, "u_pbr_spec_intensity"), spec_intensity);
+  // Grecharged-materials-modern-parity: frame-constant half of the modern stack. Both are the
+  // identity by default (exposure 1.0, viz off), so a program that never sees a non-zero u_mm_flags
+  // is untouched by them.
+  glUniform1f(glGetUniformLocation(id, "u_mm_exposure"), mm_exposure);
+  glUniform1i(glGetUniformLocation(id, "u_mm_debug"), mm_debug);
   glUniform1f(glGetUniformLocation(id, "u_pbr_direct"), pbr_direct);
   glUniform1f(glGetUniformLocation(id, "u_pbr_indirect"), pbr_indirect);
   glUniform1f(glGetUniformLocation(id, "u_pbr_baked_weight"), pbr_baked_weight);

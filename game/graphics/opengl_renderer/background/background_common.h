@@ -165,9 +165,13 @@ struct PbrNeutralMaps {
   // absent" (the shader gates on u_pbr_mode bits 32/64, so these are only Adreno
   // never-unbound safety, like the rest).
   GLuint specular_tex = 0, emissive_tex = 0;
+  // Grecharged-materials-modern-parity: subsurface THICKNESS neutral on unit 19. White = "thin",
+  // but the SSS channel is gated on u_mm_flags bit 1 anyway, so like the two above this exists only
+  // so the unit is never incomplete on Adreno.
+  GLuint thickness_tex = 0;
 };
 const PbrNeutralMaps& pbr_neutral_maps();
-// Bind the neutrals to units 11-17 and restore active unit 0.
+// Bind the neutrals to units 11-17 (+19) and restore active unit 0.
 void pbr_park_neutral_maps();
 
 // Grecharged-pbr-materials round-4 coverage unification: the per-draw PBR material
@@ -253,6 +257,19 @@ class PbrDrawBinder {
   // stat), not from PbrDrawEntry. 0.25 = identity default.
   GLint m_lambda_loc = -2;
   float m_cur_lambda = 0.25f;
+  // Grecharged-materials-modern-parity: the MODERN MATERIAL STACK block. u_mm_flags is the gate the
+  // shading chunk tests, so it is the only one that MUST be right on every draw; the parameter
+  // uniforms are only meaningful when it is non-zero, which is why they are pushed as a group keyed
+  // on the material identity rather than tracked value by value. m_cur_mm_maps is used purely as an
+  // identity token (never dereferenced) — the maps live in the level's PbrDrawList and outlive the
+  // frame.
+  GLint m_mm_flags_loc = -2;
+  GLint m_mm_sss_loc = -2;
+  GLint m_mm_sss2_loc = -2;
+  GLint m_mm_coat_loc = -2;
+  GLint m_mm_aniso_loc = -2;
+  int m_cur_mm_flags = 0;
+  const void* m_cur_mm_maps = nullptr;
   int m_cur_mode = 0;
   bool m_bound_any = false;
   // [cover] ROUND 21 draw context (see set_coverage_context). m_cover_renderer == nullptr means

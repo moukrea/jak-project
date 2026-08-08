@@ -24,13 +24,13 @@ Aspect, Résolution (desktop), Dynamic Render Scale (`dynamic-render-scale?`), R
 Min Target FPS (`dyn-target-fps`), FPS Counter, VSync, MSAA, [desktop : Display Mode, Display,
 Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_SUPPORT}`, Back.
 
-## RECHARGED SETTINGS (`*recharged-options-pc`* — 31 lignes livrées avec hd-models+pbr+physics, HUD off)
+## RECHARGED SETTINGS (`*recharged-options-pc`* — 32 lignes livrées avec hd-models+pbr+physics, HUD off)
 
 > Grecharged-hud-jak1 (2026-08-08) : avec `--recharged-hud` la ligne **RECHARGED HUD** s'insère à
 > l'index **1** (juste après RECHARGED MASTER) et **tout le reste glisse de +1** — c'est exactement
 > ce que porte l'arithmétique `FLAG_RECHARGED_HUD_N` de `progress-pc.gc` (fw-idx, collapse HD, etc.).
-> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 31 lignes) ; avec le flag on
-> passe à 32.
+> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 32 lignes) ; avec le flag on
+> passe à 33.
 
 | idx | ligne | pilote |
 |---|---|---|
@@ -54,11 +54,12 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | **23** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
 | 24 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
 | 25 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
-| **26** | **CRISP TITLE LOGO (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`crisp-title-logo?`** |
-| **27** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
-| **28** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
-| 29 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
-| 30 | Back | — |
+| **26** | **MODERN MATERIALS (on-off, défaut OFF)** `{FLAG_PBR}` (grisé si master ou PBR MATERIALS off) | **`modern-materials?`** |
+| **27** | **CRISP TITLE LOGO (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`crisp-title-logo?`** |
+| **28** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
+| **29** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
+| 30 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
+| 31 | Back | — |
 
 ### Grecharged-hd-models5 — LOOK par personnage (idx 6-9)
 
@@ -70,7 +71,8 @@ d'ENHANCED MODELS avant ces lignes.
 
 Le bloc HD compte désormais **5 lignes** gatées `FLAG_HD_MODELS` : chaque terme HD de
 l'arithmétique longueur-exacte du menu ancien passe de `FLAG_HD_MODELS_N` à
-`(* 5 FLAG_HD_MODELS_N)` (longueur pleine `(+ 10 hud-N pbr-N (* 5 hd-N) (* 12 pbr-N))` = 28,
+`(* 5 FLAG_HD_MODELS_N)` (longueur pleine, à jour :
+`(+ 11 hud-N pbr-N (* 5 hd-N) (* 13 pbr-N) (* 2 phys-N))`,
 `fw-idx` = `(+ 4 hud-N pbr-N (* 5 hd-N))` = 10), et le collapse "FR3 HD absents" retire
 **les 5 lignes d'un bloc** (`length -= 5`, décalage `+5`).
 
@@ -99,10 +101,38 @@ masque (`jak3-hd`). Même verdict : le 7e look **JAK 3 BAREFOOT** (`jakf-hd`, ta
 **retiré complètement** (buggé + inutile) — option du carousell, entrée du registre, bake merc
 dans le fr3 et art-group du pack. Ne pas le réintroduire ; `#x17bd` est **redevenu libre**.
 
-### Grecharged-title-logo-fullres — CRISP TITLE LOGO (idx 26)
+### Grecharged-materials-modern-parity — MODERN MATERIALS (idx 26)
+
+Une ligne `{FLAG_PBR}` (`flag-row FLAG_PBR`, absente du CGO sans `--pbr`), insérée
+**juste après PBR ISOLATE et AVANT CRISP TITLE LOGO** — donc après toutes les écritures
+relatives à `fw-idx` (la dernière est `fw-idx+15` = PBR ISOLATE) : **aucun index relatif ne
+bouge**. Seul impact arithmétique : le bloc PBR qui suit PBR MATERIALS passe de **12 à 13**
+lignes dans les deux gardes de longueur statique (`fw-idx` et le garde de collapse HD),
+`(* 12 FLAG_PBR_N)` → `(* 13 FLAG_PBR_N)`.
+
+- **MODERN MATERIALS** (`modern-materials?`, symbole, **défaut OFF**) : master de la pile de
+  matériaux moderne (subsurface scattering, clearcoat, anisotropie, compensation d'énergie,
+  packing ORM) posée par-dessus le chemin PBR accepté. OFF ⇒ le loader ignore les cartes
+  `_orm`/`_thickness` et `materials.txt`, chaque draw pousse `u_mm_flags = 0`, l'ombrage est
+  **bit-identique au chemin PBR accepté**. Grisée si master OFF **ou** PBR MATERIALS OFF.
+- Plomberie : `pc-set-modern-materials!` (kmachine.cpp) →
+  `Gfx::g_global_settings.recharged_modern_materials`, poussé chaque frame par `update-to-os`
+  (juste après `pc-set-pbr!`) ; un **changement d'état relit `recharged_assets/materials.txt`**
+  (`custom_tex::mm_params_reload()`, idiome `pc_set_physics`) : l'owner édite le fichier sur le
+  device et bascule la ligne pour appliquer, sans rebuild ni relance. Persisté dans
+  `settings.ini` dans le même groupe que les clés `pbr-*`.
+- Libellé via `name-override` (`*modern-materials-label*` "MODERN MATERIALS", globale runtime,
+  anglais/ASCII majuscule). `:name` reste le placeholder maison `(text-id vsync)`. Le câblage
+  **s'auto-localise** sur un marqueur unique porté par `:hint` (`(text-id pc-text-hint-render)`
+  — le hint de l'ancienne catégorie "RENDU", supprimée : référencé par **rien** d'autre dans
+  l'arbre). Trace : `[MM-MENU] row wired: idx=N len=M`, sinon `[MM-MENU] ROW NOT FOUND` — échec
+  BRUYANT plutôt que libellé peint sur une autre ligne. **Zéro arithmétique d'index à la main.**
+
+### Grecharged-title-logo-fullres — CRISP TITLE LOGO (idx 27)
 
 Une ligne **inconditionnelle** (aucun `flag-row` : présente dans tous les builds), insérée
-**juste après PBR ISOLATE et AVANT les lignes PHYSICS** — surtout pas en queue : le câblage
+**après le bloc PBR (désormais juste après MODERN MATERIALS) et AVANT les lignes PHYSICS** —
+surtout pas en queue : le câblage
 physics s'auto-localise sur `physics-quality` puis vérifie que la ligne suivante est bien
 MESH BROWSER (`next-is-meshbrowser=1`), invariant qu'une insertion en queue casserait.
 Impact arithmétique : le terme constant des deux gardes de longueur statique passe de `10` à
@@ -119,8 +149,9 @@ Impact arithmétique : le terme constant des deux gardes de longueur statique pa
 - Libellé via `name-override` (`*crisp-title-logo-label*` "CRISP TITLE LOGO", globale runtime,
   anglais/ASCII majuscule). `:name` reste le placeholder maison `(text-id vsync)`. Le câblage
   **s'auto-localise** sur un marqueur unique porté par `:hint`
-  (`(text-id pc-text-hint-resolution)`) : `hint` n'est écrit par **aucune** autre ligne du tableau
-  et **lu par rien** dans le menu livré (la ligne de hint appartient à la moitié
+  (`(text-id pc-text-hint-resolution)`) : **aucune** autre ligne du tableau n'écrit CETTE
+  valeur de `hint` (MODERN MATERIALS utilise `pc-text-hint-render`), et le champ est
+  **lu par rien** dans le menu livré (la ligne de hint appartient à la moitié
   `FLAG_MENU_OVERHAUL`, non compilée) → clé unique et sans effet de bord. Trace :
   `[CRISPLOGO-MENU] row wired: idx=N len=M`, sinon échec BRUYANT plutôt que libellé peint sur une
   autre ligne. **Ne PAS utiliser un `:name` distinctif** pour ce genre de marqueur : le `name`
@@ -128,7 +159,7 @@ Impact arithmétique : le terme constant des deux gardes de longueur statique pa
   **et verrouille** toute ligne nommée `disable-auto-save` dès que l'auto-save est désactivé, quel
   que soit son `option-type`.
 
-### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 27-28)
+### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 28-29)
 
 Deux lignes présentes **uniquement dans les builds `--physics`** (`FLAG_PHYSICS`) ; absentes du CGO
 sinon (`flag-row`, filtrage à l'expansion GOOS). Elles sont **ajoutées EN QUEUE de tableau**,

@@ -1602,6 +1602,19 @@
              ;; feature as a defect. Measured: the all-reversals version read 360 per window on a
              ;; perfectly healthy Keira.
              (lpush (new 'stack-no-clear 'array 'int32 48))
+             ;; (C13b) "a collider is HOLDING this link" — which is not the same question as "a
+             ;; collider PUSHED this link this frame", and the difference is the whole of the last
+             ;; red gate. The restdevA sample has always been documented as grading "links no
+             ;; collider was holding"; it was implemented as `lpush`, which is only set on the
+             ;; frames a push actually fires. A link resting AT a volume's surface needs no push,
+             ;; so it was sampled, and its distance from the model pose was read as the chain
+             ;; failing to return when in fact the body is in the way and rule W cannot apply.
+             ;; Proven on the phone rather than argued: jak-hd `earL` carried the entire figure,
+             ;; and reducing its tip radius from 196 to 188 as DATA — no build — moved restdevA
+             ;; from 8.2208 to 10.5743. A number that tracks a collision radius is a number about
+             ;; a contact. Kept separate from `lpush` on purpose: `lpush` also arms the idle bias,
+             ;; the friction term and the jitter counter, and none of those should change.
+             (lhold (new 'stack-no-clear 'array 'int32 48))
              ;; per-rig-joint "this bone moved this frame" flag, for the descendant pass (k < PHYS-MAXJ)
              (moved (new 'stack-no-clear 'array 'int32 128))
              (frame-maxvel 0.0)
@@ -2426,6 +2439,7 @@
                             (+! (-> *phys-slot-xheld* slot) 1)
                             (+! (-> *phys-lxheld* (+ start i)) -1))
                            (else (set! (-> lpush i) 0))))
+                       (dotimes (i len) (set! (-> lhold i) 0))
                        (dotimes (i len)
                          (let ((f 1.0))
                            (when (and (> nfree 1) (> grad 0.0) (>= i rl))
@@ -4219,7 +4233,10 @@
                                            ;; through it" from "nothing was ever within reach of it".
                                            (let ((clr (- dd rr)))
                                              (when (< clr (-> *phys-cclr* ci))
-                                               (set! (-> *phys-cclr* ci) clr)))
+                                               (set! (-> *phys-cclr* ci) clr))
+                                             ;; (C13b) IN CONTACT, whether or not a push fired.
+                                             (when (< clr PHYS-PEN-TOL)
+                                               (set! (-> lhold i) 1)))
                                            ;; TOLERANCE: the push-out sets |p - cpt| = rr in float32,
                                            ;; and re-measuring it lands ~1e-4 relative below that
                                            ;; (measured: 0.03-0.08 units on radii of 400-800). A
@@ -4307,7 +4324,7 @@
                                     (< authw 0.5)
                                     (>= chainlen 1.0))
                            (dotimes (i len)
-                             (when (and (>= i rl) (zero? (-> lpush i)))
+                             (when (and (>= i rl) (zero? (-> lpush i)) (zero? (-> lhold i)))
                                (+! (-> *phys-slot-restwin* slot) 1)
                                ;; THE REFERENCE, per chain. On anim=excite the authored channel is
                                ;; deliberately re-injected as a FORCE, so the chain's equilibrium is

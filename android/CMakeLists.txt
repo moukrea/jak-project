@@ -589,9 +589,14 @@ set(GEN_SHADERS_HEADER "${GEN_SHADERS_DIR}/shaders_android_blob.h")
 # Grecharged-pbr-realtime-fusion ROUND 22: `*.glsl` = the SHARED CHUNKS (pbr_uniforms /
 # pbr_helpers / pbr_fused) that tfrag3 / shrub / tie_wind / etie_base all `#include`. They are
 # not shaders (no #version) but they ARE blob inputs, so editing one must regenerate the blob.
-# NOTE: file(GLOB) runs at CONFIGURE time — adding a NEW chunk file needs a cmake re-configure,
-# not just a rebuild.
-file(GLOB SHADER_INPUTS
+# Grecharged-materials-modern-parity: CONFIGURE_DEPENDS added. The note below used to end "adding a
+# NEW chunk file needs a cmake re-configure, not just a rebuild" — and that is a booby trap, because
+# preprocess.py discovers chunks by globbing at RUN time, so a new chunk WOULD have been picked up
+# had the command re-run at all. Without it in DEPENDS, ninja simply never re-runs the command: the
+# blob silently keeps the old chunk list and the new chunk fails to resolve at shader-build time on
+# device only. CONFIGURE_DEPENDS makes cmake re-glob on every build, so the failure mode cannot
+# recur — check the artifact, not the run.
+file(GLOB SHADER_INPUTS CONFIGURE_DEPENDS
      "${SHADERS_SRC_DIR}/*.vert"
      "${SHADERS_SRC_DIR}/*.frag"
      "${SHADERS_SRC_DIR}/*.tesc"

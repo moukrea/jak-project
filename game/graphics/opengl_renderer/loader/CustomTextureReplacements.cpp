@@ -7,8 +7,14 @@
 #include <set>
 #ifdef OG_FEAT_PBR
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <unordered_map>
+#include <vector>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 #endif
 
 #include "common/log/log.h"
@@ -521,6 +527,413 @@ PbrMaterialMaps register_pbr_material(const std::string& tex_debug_name,
 const PbrMaterialMaps* find_pbr_material(const std::string& tex_debug_name) {
   auto it = g_pbr_materials.find(tex_debug_name);
   return it == g_pbr_materials.end() ? nullptr : &it->second;
+}
+
+// ===================================================================================================
+// Grecharged-materials-modern-parity — materials.txt, the AUTHORED half of a material.
+//
+// Every per-material number this pipeline had before today is MEASURED from the PNGs at load
+// (normal DC, height mean/range, feature wavelength, UV density). That works because each of them is
+// a statistic of an image. A scattering colour is not: whether a straw roof glows amber or a leaf
+// glows green when the sun is behind it is an artistic decision about the SURFACE, and no amount of
+// staring at its albedo will produce it. So the modern stack needs the one thing the pipeline never
+// had — a place to author per-material parameters — and it must be a place the owner can edit
+// without a rebuild.
+//
+// That place is recharged_assets/materials.txt in the EXTERNAL asset pack, with the same precedence
+// rule physics_chains.txt established: an external copy beats the packaged one, so tuning costs a
+// kilobyte push instead of a 581 MB APK. Parsing is deliberately the same shape as the physics file
+// (# comments, whitespace tokens, unknown keys skipped and reported) so there is one file format to
+// learn in this fork, not two.
+// ===================================================================================================
+namespace {
+
+struct MmParamSet {
+  u32 authored_flags = 0;  // bits 1/2/4/8/16/64 only — 32 and 128 are texture-derived
+  float sss_color[3] = {1.f, 1.f, 1.f};
+  float sss_strength = 0.f;
+  float sss_thickness = 0.5f;
+  float sss_power = 6.f;
+  float sss_distort = 0.2f;
+  float sss_wrap = 0.f;
+  float sss_ambient = 0.25f;
+  float coat_weight = 0.f;
+  float coat_rough = 0.10f;
+  float aniso = 0.f;
+  float aniso_angle = 0.f;
+};
+
+std::unordered_map<std::string, MmParamSet> g_mm_params;
+MmParamSet g_mm_defaults;
+bool g_mm_has_defaults = false;
+bool g_mm_loaded = false;
+
+// Texture-derived capability bits. The loader owns these (a map is either bound or it is not); the
+// file owns everything else. Keeping them in one named constant is what makes the re-stamp on reload
+// safe: authored bits are recomputed, these are carried over.
+// The texture-derived capability bits, RECOMPUTED from the maps every time rather than carried in
+// mm_flags. See PbrMaterialMaps::orm_packed for why: mm_flags is rebuilt (and zeroed when the master
+// is off) on every re-stamp, so a bit that only lived there would not survive a menu toggle.
+u32 mm_texture_bits(const PbrMaterialMaps& m) {
+  return (m.thickness_tex ? 32u : 0u) | (m.orm_packed ? 128u : 0u);
+}
+
+}  // namespace
+
+bool mm_master_active() {
+  // The OWNER's switch is the menu row; this override exists for the headless harness, which has no
+  // menu to navigate (and for a supervisor A/B on device with one setprop). -1 = no override.
+  //   android: debug.opengoal.mm.on      desktop: OG_MM_ON
+  int ov = -1;
+#ifdef __ANDROID__
+  char v[PROP_VALUE_MAX];
+  if (__system_property_get("debug.opengoal.mm.on", v) > 0) {
+    ov = atoi(v);
+  }
+#else
+  if (const char* e = getenv("OG_MM_ON")) {
+    ov = atoi(e);
+  }
+#endif
+  if (ov >= 0) {
+    return ov != 0;
+  }
+  return Gfx::recharged_active(Gfx::g_global_settings.recharged_modern_materials);
+}
+
+namespace {
+
+std::vector<std::string> mm_tokens(const std::string& line) {
+  std::vector<std::string> out;
+  size_t i = 0;
+  while (i < line.size()) {
+    while (i < line.size() && std::isspace((unsigned char)line[i])) {
+      i++;
+    }
+    size_t start = i;
+    while (i < line.size() && !std::isspace((unsigned char)line[i])) {
+      i++;
+    }
+    if (i > start) {
+      out.push_back(line.substr(start, i - start));
+    }
+  }
+  return out;
+}
+
+float mm_to_float(const std::string& s, float def) {
+  try {
+    return std::stof(s);
+  } catch (...) {
+    return def;
+  }
+}
+
+// Recompute the authored capability bits from the values. A channel is ON exactly when its own
+// parameter says it does something, so a block can never claim a capability it does not use — and
+// an all-zero block is indistinguishable from no block at all, which is the behaviour we want.
+void mm_recompute_flags(MmParamSet* p, bool energy_on, bool specocc_on, bool filmic_on) {
+  u32 f = 0;
+  if (p->sss_strength > 1e-4f) {
+    f |= 1u;
+  }
+  if (p->coat_weight > 1e-4f) {
+    f |= 2u;
+  }
+  if (std::fabs(p->aniso) > 1e-3f) {
+    f |= 4u;
+  }
+  if (energy_on) {
+    f |= 8u;
+  }
+  if (specocc_on) {
+    f |= 16u;
+  }
+  if (filmic_on) {
+    f |= 64u;
+  }
+  p->authored_flags = f;
+}
+
+}  // namespace
+
+namespace {
+std::atomic<bool> g_mm_reload_req{false};
+}  // namespace
+
+void mm_request_params_reload() {
+  g_mm_reload_req.store(true, std::memory_order_release);
+}
+
+void mm_service_reload() {
+  if (g_mm_reload_req.exchange(false, std::memory_order_acq_rel)) {
+    mm_params_reload();
+  }
+}
+
+void mm_params_reload() {
+  g_mm_params.clear();
+  g_mm_defaults = MmParamSet();
+  g_mm_has_defaults = false;
+  g_mm_loaded = true;
+
+  // Same source precedence as physics_chains.txt: an external-pack copy beats the packaged one, so
+  // the owner tunes a text file on the device instead of re-downloading the APK.
+  const char* src_kind = "package";
+  auto path = file_util::get_recharged_assets_dir() / "materials.txt";
+  auto ext_dir = file_util::get_external_recharged_assets_dir();
+  if (ext_dir) {
+    auto ext_path = *ext_dir / "materials.txt";
+    if (file_util::file_exists(ext_path.string())) {
+      path = ext_path;
+      src_kind = "external-override";
+    }
+  }
+  if (!file_util::file_exists(path.string())) {
+    lg::info("[mm] PARAMSRC=none path={} (modern material stack has no authored materials)",
+             path.string());
+    return;
+  }
+  lg::info("[mm] PARAMSRC={} path={}", src_kind, path.string());
+
+  std::string txt;
+  try {
+    txt = file_util::read_text_file(path.string());
+  } catch (...) {
+    lg::warn("[mm] materials.txt unreadable at {} — modern stack stays inert", path.string());
+    return;
+  }
+
+  MmParamSet cur;
+  std::string cur_name;
+  bool cur_is_defaults = false;
+  bool have_block = false;
+  // energy/spec-occlusion default ON inside any block: they are strict quality wins with no artistic
+  // choice attached (they only make the existing specular obey energy conservation and stop it
+  // leaking through the surface), so a minimal three-line block still gets them. `energy 0` /
+  // `specocc 0` turn them back off for an A/B.
+  bool energy_on = true, specocc_on = true, filmic_on = false;
+  int line_no = 0, n_mat = 0, n_unknown = 0;
+
+  auto flush = [&]() {
+    if (!have_block) {
+      return;
+    }
+    mm_recompute_flags(&cur, energy_on, specocc_on, filmic_on);
+    if (cur_is_defaults) {
+      g_mm_defaults = cur;
+      g_mm_has_defaults = true;
+    } else {
+      g_mm_params[cur_name] = cur;
+      n_mat++;
+    }
+  };
+
+  size_t pos = 0;
+  while (pos <= txt.size()) {
+    size_t nl = txt.find('\n', pos);
+    std::string line = txt.substr(pos, (nl == std::string::npos) ? std::string::npos : nl - pos);
+    pos = (nl == std::string::npos) ? txt.size() + 1 : nl + 1;
+    line_no++;
+    if (!line.empty() && line.back() == '\r') {
+      line.pop_back();
+    }
+    auto hash = line.find('#');
+    if (hash != std::string::npos) {
+      line = line.substr(0, hash);
+    }
+    auto tok = mm_tokens(line);
+    if (tok.empty()) {
+      continue;
+    }
+
+    if (tok[0] == "material" || tok[0] == "[defaults]") {
+      flush();
+      cur = MmParamSet();
+      energy_on = true;
+      specocc_on = true;
+      filmic_on = false;
+      cur_is_defaults = (tok[0] == "[defaults]");
+      cur_name = cur_is_defaults ? std::string() : (tok.size() > 1 ? tok[1] : std::string());
+      have_block = cur_is_defaults || !cur_name.empty();
+      if (!have_block) {
+        lg::warn("[mm] materials.txt:{}: `material` with no name — block ignored", line_no);
+      }
+      continue;
+    }
+    if (!have_block) {
+      lg::warn("[mm] materials.txt:{}: `{}` outside any material block — ignored", line_no, tok[0]);
+      continue;
+    }
+
+    const std::string& k = tok[0];
+    const size_t nv = tok.size() - 1;
+    auto v = [&](size_t i, float def) { return (nv > i) ? mm_to_float(tok[i + 1], def) : def; };
+    if (k == "sss" && nv >= 3) {
+      cur.sss_color[0] = v(0, 1.f);
+      cur.sss_color[1] = v(1, 1.f);
+      cur.sss_color[2] = v(2, 1.f);
+    } else if (k == "sss_strength") {
+      cur.sss_strength = v(0, 0.f);
+    } else if (k == "sss_thickness") {
+      cur.sss_thickness = v(0, 0.5f);
+    } else if (k == "sss_power") {
+      cur.sss_power = v(0, 6.f);
+    } else if (k == "sss_distort") {
+      cur.sss_distort = v(0, 0.2f);
+    } else if (k == "sss_wrap") {
+      cur.sss_wrap = v(0, 0.f);
+    } else if (k == "sss_ambient") {
+      cur.sss_ambient = v(0, 0.25f);
+    } else if (k == "clearcoat") {
+      cur.coat_weight = v(0, 0.f);
+    } else if (k == "clearcoat_rough") {
+      cur.coat_rough = v(0, 0.10f);
+    } else if (k == "aniso") {
+      cur.aniso = v(0, 0.f);
+    } else if (k == "aniso_angle") {
+      cur.aniso_angle = v(0, 0.f);
+    } else if (k == "energy") {
+      energy_on = v(0, 1.f) != 0.f;
+    } else if (k == "specocc") {
+      specocc_on = v(0, 1.f) != 0.f;
+    } else if (k == "filmic") {
+      filmic_on = v(0, 0.f) != 0.f;
+    } else {
+      n_unknown++;
+      lg::warn("[mm] materials.txt:{}: unknown key `{}` — skipped", line_no, k);
+    }
+  }
+  flush();
+  lg::info("[mm] materials.txt parsed: {} material blocks, defaults={}, {} unknown keys", n_mat,
+           g_mm_has_defaults ? 1 : 0, n_unknown);
+
+  // Re-stamp everything already registered so a menu toggle applies without a level reload. Texture-
+  // derived bits survive; authored ones are recomputed from the freshly parsed file (or cleared, if
+  // the master went off).
+  for (auto& kv : g_pbr_materials) {
+    mm_apply_params(kv.first, &kv.second);
+  }
+}
+
+void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps) {
+  if (!maps) {
+    return;
+  }
+  // Master off => every authored bit is dropped and the texture-derived ones carry no meaning, so
+  // the draw pushes u_mm_flags = 0 and the shader chunk returns before writing a pixel. This single
+  // line is the whole of "modern OFF == stock".
+  if (!mm_master_active()) {
+    maps->mm_flags = 0;
+    return;
+  }
+  if (!g_mm_loaded) {
+    mm_params_reload();
+  }
+  const MmParamSet* p = nullptr;
+  auto it = g_mm_params.find(tex_debug_name);
+  if (it != g_mm_params.end()) {
+    p = &it->second;
+  } else if (g_mm_has_defaults) {
+    p = &g_mm_defaults;
+  }
+  if (!p) {
+    // Not named, no [defaults] block: this material stays exactly as the accepted PBR path built it.
+    // Per-material opt-in means the un-named case has to be the identity, and it is.
+    maps->mm_flags = 0;
+    return;
+  }
+  maps->sss_color[0] = p->sss_color[0];
+  maps->sss_color[1] = p->sss_color[1];
+  maps->sss_color[2] = p->sss_color[2];
+  maps->sss_strength = p->sss_strength;
+  maps->sss_thickness = p->sss_thickness;
+  maps->sss_power = p->sss_power;
+  maps->sss_distort = p->sss_distort;
+  maps->sss_wrap = p->sss_wrap;
+  maps->sss_ambient = p->sss_ambient;
+  maps->coat_weight = p->coat_weight;
+  maps->coat_rough = p->coat_rough;
+  maps->aniso = p->aniso;
+  maps->aniso_angle = p->aniso_angle;
+  maps->mm_flags = mm_texture_bits(*maps) | p->authored_flags;
+  // A thickness map is only meaningful to the SSS channel.
+  if ((maps->mm_flags & 1u) == 0) {
+    maps->mm_flags &= ~32u;
+  }
+  // NORMALISATION, and it is load-bearing: the shader gates the whole modern chunk on
+  // `u_mm_flags != 0`. Bits 32 and 128 describe how the material was AUTHORED (a thickness map is
+  // bound; the channels came out of a packed _orm) and change no arithmetic on their own. If one of
+  // them could survive alone, the gate would open on a material with no active channel and the
+  // recomposition would rewrite `color` with an arithmetically-equal but not bit-guaranteed value —
+  // "OFF == stock" would become "OFF ~= stock". So: no functional bit, no flags at all.
+  constexpr u32 kMmFunctionalBits = 1u | 2u | 4u | 8u | 16u | 64u;
+  if ((maps->mm_flags & kMmFunctionalBits) == 0) {
+    maps->mm_flags = 0;
+  }
+}
+
+namespace {
+// Per-channel active-draw counters. Written from the GL thread only, read by the diag writer, so
+// relaxed atomics are enough and cost nothing on the hot path.
+std::atomic<u64> g_mm_draws_total{0};
+std::atomic<u64> g_mm_draws_sss{0};
+std::atomic<u64> g_mm_draws_coat{0};
+std::atomic<u64> g_mm_draws_aniso{0};
+std::atomic<u64> g_mm_draws_energy{0};
+std::atomic<u64> g_mm_draws_specocc{0};
+}  // namespace
+
+void mm_note_active_draw(int flags) {
+  if (flags == 0) {
+    return;
+  }
+  g_mm_draws_total.fetch_add(1, std::memory_order_relaxed);
+  if (flags & 1) {
+    g_mm_draws_sss.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (flags & 2) {
+    g_mm_draws_coat.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (flags & 4) {
+    g_mm_draws_aniso.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (flags & 8) {
+    g_mm_draws_energy.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (flags & 16) {
+    g_mm_draws_specocc.fetch_add(1, std::memory_order_relaxed);
+  }
+}
+
+std::string mm_params_diag_section() {
+  std::string out;
+  int n = 0;
+  for (const auto& kv : g_pbr_materials) {
+    if (kv.second.mm_flags == 0) {
+      continue;
+    }
+    const auto& m = kv.second;
+    out += fmt::format(
+        "[mm] {} flags=0x{:x} sss=({:.3f},{:.3f},{:.3f})x{:.2f} th={:.2f}{} pow={:.1f} "
+        "wrap={:.2f} amb={:.2f} coat={:.2f}/{:.2f} aniso={:.2f}@{:.2f}\n",
+        kv.first, m.mm_flags, m.sss_color[0], m.sss_color[1], m.sss_color[2], m.sss_strength,
+        m.sss_thickness, (m.mm_flags & 32u) ? "(map)" : "", m.sss_power, m.sss_wrap, m.sss_ambient,
+        m.coat_weight, m.coat_rough, m.aniso, m.aniso_angle);
+    n++;
+  }
+  const u64 tot = g_mm_draws_total.load(std::memory_order_relaxed);
+  if (n || tot) {
+    out += fmt::format(
+        "[mm] {} material(s) carry the modern stack; ACTIVE DRAWS total={} sss={} coat={} "
+        "aniso={} energy={} specocc={}\n",
+        n, tot, g_mm_draws_sss.load(std::memory_order_relaxed),
+        g_mm_draws_coat.load(std::memory_order_relaxed),
+        g_mm_draws_aniso.load(std::memory_order_relaxed),
+        g_mm_draws_energy.load(std::memory_order_relaxed),
+        g_mm_draws_specocc.load(std::memory_order_relaxed));
+  }
+  return out;
 }
 
 void pbr_pom_diag_note(const std::string& tex_debug_name,

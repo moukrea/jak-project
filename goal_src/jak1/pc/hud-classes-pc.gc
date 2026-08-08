@@ -1753,6 +1753,10 @@
   ;; Grecharged-pbr-materials: push the PBR toggle + the current sun/shadow lighting every frame.
   (#when FLAG_PBR
     (pc-set-pbr! (if (-> obj pbr-materials?) 1 0))
+    ;; Grecharged-materials-modern-parity: push the MODERN MATERIALS master every frame, right
+    ;; next to the PBR master it layers on (same int-FFI 0/1 convention). C++ ANDs it with the
+    ;; Recharged master; a flip also re-reads recharged_assets/materials.txt.
+    (pc-set-modern-materials! (if (-> obj modern-materials?) 1 0))
     (pc-set-pbr-sun! (-> *time-of-day-context* current-shadow)
                      (-> *time-of-day-context* current-sun sun-color)
                      (-> *time-of-day-context* current-sun env-color))

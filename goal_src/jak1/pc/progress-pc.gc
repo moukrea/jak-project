@@ -7457,6 +7457,32 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; Grecharged-materials-modern-parity: MODERN MATERIALS on-off toggle. Master for the modern
+       ;; material stack (subsurface scattering, clearcoat, anisotropy, energy compensation, ORM
+       ;; packing) layered on top of the accepted PBR path. Default OFF => the shading stays
+       ;; bit-identical to the accepted PBR path. Real label via *modern-materials-label*
+       ;; (name-override); the row is SELF-LOCATED in init-game-options by its unique marker
+       ;; :hint (text-id pc-text-hint-render) — the RETIRED "RENDU" category hint: referenced by
+       ;; NOTHING else in the whole tree (the Recharged/Rendering category no longer exists), so it
+       ;; is a unique, side-effect-free marker, and a field nothing in the shipping menu reads. Any
+       ;; future insertion leaves the wiring correct and a miss fails LOUDLY. Do NOT give it a
+       ;; distinctive :name instead: row names are dispatched on elsewhere in the progress code
+       ;; (the autosave relabel+lock). NOT pc-text-hint-pbr: build-graphics-unified! stamps that one
+       ;; onto the shared PBR MATERIALS row object, which would make the marker ambiguous the day
+       ;; FLAG_MENU_OVERHAUL is turned on.
+       ;; :on-change ONLY persists — hud-classes-pc.gc pushes pc-set-modern-materials! every frame.
+       ;; Row present only with --pbr, like PBR MATERIALS itself.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :hint (text-id pc-text-hint-render)
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* modern-materials?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none))))
        ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
@@ -7643,6 +7669,12 @@
 (#when FLAG_PBR
 (define *pbr-materials-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *pbr-materials-label*) "PBR MATERIALS"))
+;; Grecharged-materials-modern-parity: label for the "MODERN MATERIALS" on-off toggle in the
+;; Recharged Settings submenu (uppercase ASCII for the menu font; shown via name-override).
+;; English-only. Present only with --pbr, exactly like *pbr-materials-label* just above.
+(#when FLAG_PBR
+(define *modern-materials-label* (new 'global 'string 32 (the-as string #f)))
+(format (clear *modern-materials-label*) "MODERN MATERIALS"))
 ;; Grecharged-realtime-lighting: labels for the 4 realtime-lighting rows (English-only, uppercase ASCII
 ;; for the menu font; shown via name-override). Present only with --pbr, like *pbr-materials-label*.
 (#when FLAG_PBR
@@ -9935,7 +9967,12 @@
   ;; static length grows by 4*hd-N and FOLIAGE WIND (and everything after it) sits 4*hd-N slots later.
   ;; The collapsed branch is unchanged — when the enhanced FR3 set is missing ALL FIVE rows collapse.
   ;; Grecharged-title-logo-fullres: +1 for the new unconditional CRISP TITLE LOGO row (10 -> 11).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  ;; Grecharged-materials-modern-parity: the new MODERN MATERIALS row is FLAG_PBR-gated and sits
+  ;; AFTER PBR ISOLATE (fw-idx+15), i.e. after every fw-idx-relative arm below — so ONLY the total
+  ;; static length term changes: the PBR block after PBR MATERIALS goes 12 -> 13 rows. Leaving it at
+  ;; 12 would make this guard mis-read a FULL hd-models+pbr array as collapsed and wire FOLIAGE WIND
+  ;; (and every following row) five slots early — the Gmenu-flag-off bug class.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10061,8 +10098,11 @@
       ;; Grecharged-hd-models5: ... and now up FIVE (the whole HD block goes away together — a LOOK
       ;; selector is meaningless without the enhanced FR3 set).
       ;; Grecharged-title-logo-fullres: +1 for the new unconditional CRISP TITLE LOGO row (10 -> 11).
+      ;; Grecharged-materials-modern-parity: the PBR block after PBR MATERIALS is 13 rows now (the
+      ;; new MODERN MATERIALS toggle after PBR ISOLATE) — same full-static-length term as the
+      ;; fw-idx guard above; a stale 12 here would silently disable the HD-collapse.
       (when (= (-> *recharged-options-pc* length)
-               (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 12 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+               (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -10081,8 +10121,9 @@
         (set! (-> *recharged-options-pc* (+ hd-idx 4) value-to-modify) (&-> *progress-carousell* int-backup))
         (set! (-> *recharged-options-pc* (+ hd-idx 4) name-override) *hd-look-samos-label*))))
   ;; Grecharged-title-logo-fullres: wire CRISP TITLE LOGO. SELF-LOCATING by its unique marker
-  ;; :hint (text-id pc-text-hint-resolution) — the only row in *recharged-options-pc* that sets
-  ;; `hint` at all, and a field nothing in the shipping menu reads — so any future insertion
+  ;; :hint (text-id pc-text-hint-resolution) — no other row in *recharged-options-pc* uses THAT
+  ;; hint value (MODERN MATERIALS below uses pc-text-hint-render), and `hint` is a field nothing
+  ;; in the shipping menu reads — so any future insertion
   ;; anywhere in the array leaves this correct, and a miss fails LOUDLY instead of silently
   ;; painting the label onto another row (the Gmenu-flag-off bug class). A distinctive :name would
   ;; NOT be safe here: row names are dispatched on elsewhere in the progress code.
@@ -10106,6 +10147,32 @@
        (set! (-> *recharged-options-pc* ctl-idx name-override) *crisp-title-logo-label*)
        (format 0 "[CRISPLOGO-MENU] row wired: idx=~D len=~D (self-located)~%"
                ctl-idx (-> *recharged-options-pc* length)))))
+  ;; Grecharged-materials-modern-parity: wire MODERN MATERIALS. SELF-LOCATING by its unique marker
+  ;; :hint (text-id pc-text-hint-render) — the retired "RENDU" category hint, referenced by NOTHING
+  ;; else in the tree, and `hint` is read by nothing in the shipping menu. Same contract as CRISP
+  ;; TITLE LOGO above: any future row insertion anywhere leaves this correct, and a miss fails
+  ;; LOUDLY ([MM-MENU] ROW NOT FOUND) instead of silently painting the label onto another row (the
+  ;; Gmenu-flag-off bug class). NO index arithmetic. Guarded by FLAG_PBR because the row itself is
+  ;; a (flag-row FLAG_PBR ...) — without --pbr the row does not exist and the scan would cry wolf.
+  ;; Runs after the HD-models collapse, like CRISP TITLE LOGO, so it sees the FINAL live array.
+  (#when FLAG_PBR
+  (let ((mm-idx -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (and (< mm-idx 0)
+                 (= (the int (-> *recharged-options-pc* i hint))
+                    (the int (text-id pc-text-hint-render)))
+                 (= (the int (-> *recharged-options-pc* i option-type))
+                    (the int (game-option-type on-off))))
+        (set! mm-idx i)))
+    (cond
+      ((< mm-idx 0)
+       (format 0 "[MM-MENU] ROW NOT FOUND: MODERN MATERIALS row absent (len=~D) — row left UNWIRED~%"
+               (-> *recharged-options-pc* length)))
+      (else
+       (set! (-> *recharged-options-pc* mm-idx value-to-modify) (&-> *pc-settings* modern-materials?))
+       (set! (-> *recharged-options-pc* mm-idx name-override) *modern-materials-label*)
+       (format 0 "[MM-MENU] row wired: idx=~D len=~D (self-located)~%"
+               mm-idx (-> *recharged-options-pc* length))))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)

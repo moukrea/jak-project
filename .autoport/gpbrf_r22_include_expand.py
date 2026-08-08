@@ -69,8 +69,31 @@ MAX_DEPTH = 4
 # double-quoted chunk name, nothing else but whitespace on the line.
 _INCLUDE = re.compile(r'^[ \t]*#include[ \t]*"([^"]+)"[ \t]*$')
 
+# Grecharged-materials-modern-parity — COMPANION CHUNKS. Mirror of `kChunkCompanions` in
+# Shader.cpp: each extension is spliced verbatim immediately after its base chunk, at the base
+# chunk's own injection point. That is how the modern material stack reaches all four world
+# programs without editing pbr_uniforms / pbr_helpers / pbr_fused / tfrag3.frag, which carry the
+# owner-accepted look and are bit-pristine at fc7b815e34.
+#
+# ⚠ THIS TABLE AND Shader.cpp's MUST MOVE TOGETHER. A CPU mirror of shader logic drifting out of
+# sync is a documented recurring failure in this phase family (the [pom] amplitude mirror silently
+# under-reported for two rounds). If you add a companion in one, add it in the other in the SAME
+# edit — the glslcheck gate compiles what THIS file produces, so a missing entry here means the
+# gate green-lights text the runtime never builds.
+#
+# Consequence for the round-22 byte-identity proof documented above: expanding tfrag3.frag is no
+# longer identical to the pre-extraction file, because the companions are additional text. That is
+# expected and it is the POINT — the proof that matters now is that the companion text is inert,
+# which is structural (`if (u_mm_flags != 0 ...)`) rather than textual. Pass --no-companions to get
+# the historical expansion back for that older comparison.
+COMPANIONS = {
+    "pbr_uniforms.glsl": "pbr_modern_uniforms.glsl",
+    "pbr_helpers.glsl": "pbr_modern_helpers.glsl",
+    "pbr_fused.glsl": "pbr_modern.glsl",
+}
 
-def expand(src: str, chunk_dir: Path, depth: int = 0) -> str:
+
+def expand(src: str, chunk_dir: Path, depth: int = 0, companions: bool = True) -> str:
     if "#include" not in src:
         return src
     if depth > MAX_DEPTH:
@@ -93,7 +116,13 @@ def expand(src: str, chunk_dir: Path, depth: int = 0) -> str:
             missing = True
             out.append(line)
             continue
-        out.append(expand(path.read_text(encoding="utf-8"), chunk_dir, depth + 1))
+        out.append(expand(path.read_text(encoding="utf-8"), chunk_dir, depth + 1, companions))
+        comp = COMPANIONS.get(name) if companions else None
+        if comp:
+            comp_path = chunk_dir / comp
+            if comp_path.is_file():
+                out.append(
+                    expand(comp_path.read_text(encoding="utf-8"), chunk_dir, depth + 1, companions))
     if missing:
         # Mirrors Shader.cpp: a missing chunk returns the source UNCHANGED so the
         # raw #include survives into the compiler (hard, unmissable error).
@@ -103,6 +132,10 @@ def expand(src: str, chunk_dir: Path, depth: int = 0) -> str:
 
 def main(argv: list[str]) -> int:
     args = [a for a in argv[1:]]
+    companions = True
+    if "--no-companions" in args:
+        args.remove("--no-companions")
+        companions = False
     ref = None
     if "--check" in args:
         i = args.index("--check")
@@ -113,7 +146,7 @@ def main(argv: list[str]) -> int:
         return 2
     src_path = Path(args[0]).resolve()
     chunk_dir = Path(args[1]).resolve() if len(args) > 1 else src_path.parent
-    text = expand(src_path.read_text(encoding="utf-8"), chunk_dir)
+    text = expand(src_path.read_text(encoding="utf-8"), chunk_dir, 0, companions)
     if ref is None:
         sys.stdout.write(text)
         return 0

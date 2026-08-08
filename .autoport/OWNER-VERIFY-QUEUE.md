@@ -621,3 +621,67 @@ défauts prouvés par le code corrigés ce round : correspondance in-game de la 
 (vitesse d'anim + glow + teinte), particule par type d'eco, et échelle/ordre de profondeur du centre.
 À TESTER : ① active "Recharged HUD" et regarde coeur/jauge/mouche/orbe ② OFF rend-il bien le HUD
 stock ? ③ rien de cassé sur le HUD en jeu normal.
+
+## PHYSIQUE SECONDAIRE — CYCLE 13b (2026-08-08 ~12:30) — [À TESTER] — validator ROUGE sur 1 chiffre
+
+**Ne pars pas du principe que c'est réglé : la jambe device sort ROUGE, sur UN seul compteur, et
+c'est dit franchement plus bas. Ce qui a bougé, en revanche, c'est exactement le blocker que tu as
+posé au cycle 12 (« les objets à physique NE DOIVENT PAS PASSER AU TRAVERS DU MESH »).**
+
+### Ce que le téléphone mesure maintenant (4 jambes, Redmi, build 12:11)
+| | avant (build que tu as rejeté) | maintenant |
+|---|---|---|
+| pénétrations résiduelles dans le corps | 7 / 5 / 2 fenêtres | **0 partout** |
+| chaîne dans le volume du côté OPPOSÉ (`xleg`) | 75 et 7 | **0 partout** |
+| chaînes « qui ne touchent rien » (`nomask`) | 17 | **0** |
+| repli modèle qui abandonne (`mfhard`) | 50 / 16 / 4 | **0 partout** |
+| contrôle positif | — | injection délibérée : **resid 9 armé / 0 désarmé** |
+
+Le contrôle positif dit la chose importante : le compteur SAIT monter quand on injecte une
+pénétration exprès, et retombe à zéro exact sans elle. Un `0` sans ça ne vaut rien — on en a
+publié quatre dans cette phase.
+
+### Cinq trous trouvés et bouchés dans le code du cycle 13 (avant de te le donner)
+1. l'exclusion « le volume appartient à la chaîne » virait aussi des volumes de CORPS dès qu'ils
+   se terminaient sur un os de la chaîne — 278 volumes rendus à 230 chaînes (le cou sous l'oreille,
+   les hanches sous le pan de veste, le torse sous le pendentif) ;
+2. quand une animation tenait une chaîne, la collision ET l'audit étaient coupés — ça tombait pile
+   sur les oreilles de Jak et les lunettes de Keira, trois des six sites que tu as cités ;
+3. la passe mèche-contre-mèche tournait APRÈS l'audit et écrivait les os : elle pouvait renfoncer
+   dans le corps ce que la passe corps venait de sortir. Elle a maintenant l'interdiction de le
+   faire, et ce qu'elle n'arrive pas à séparer est compté (`xunres`) au lieu d'être poussé dans le
+   personnage ;
+4. le « repli qui ne peut pas échouer » échouait 100 % du temps là où il tournait ;
+5. les 43 chaînes `accessory` — 4 paires d'oreilles, les bûches de Samos, cornes, fourrure,
+   ceintures, boucle d'oreille — étaient déclarées mais INERTES au niveau de précision par défaut
+   (celui où tu joues). Elles tournent maintenant à FULL.
+
+### ⚠️ CE QUI RESTE ROUGE, ET C'EST DIT
+`restdevA` = 8.22 (seuil 8.0). C'est **l'oreille GAUCHE de Jak uniquement** — ses cheveux et son
+oreille droite lisent 0.0000 — et ça vaut 2 mm, au repos, sur un perso debout et immobile. Le
+chiffre est **identique à la 4e décimale sur quatre exécutions**, à travers deux builds et deux
+réglages différents : ce n'est pas de la dynamique de solveur, c'est un écart de pose fixe sur un
+os. **Il était déjà là (7.94) dans le build que tu as rejeté** — ce cycle ne l'a pas créé. Quatre
+hypothèses ont été testées et éliminées (dont une directement sur ton téléphone, sans build).
+Ce n'est aucun des symptômes que tu as signalés : tu n'as jamais parlé des cheveux ou des oreilles
+de Jak assis 2 mm trop bas. Ça reste à corriger, ce n'est pas rangé sous le tapis.
+
+### Deux compteurs NOUVEAUX, à lire comme des informations, pas comme des pannes
+* `xbres = 31, profondeur 95.8` — c'est la POITRINE de Keira, et c'est une donnée fausse connue :
+  le collider de poitrine est une sphère de rayon 320 alors que le modèle sépare les deux seins
+  de ~260, donc elle contient sa voisine par construction. À refaire depuis le mesh comme tous les
+  autres volumes. C'est écrit dans le rapport comme item ouvert.
+* `xunres = 943, profondeur 47` — deux mèches de Jak qui se chevauchent et que la frame n'arrive
+  pas à séparer d'un coup. La correction est bornée par frame exprès (ta règle O : jamais de
+  projection dure), donc ce compteur n'est pas nul par construction sous contact soutenu.
+
+### CE QUE TU DOIS REGARDER (c'est toi qui juges le rendu, comme toujours)
+1. **Les six sites que tu as nommés au cycle 12** : mèches de Keira contre son crâne ET ses
+   oreilles EN MOUVEMENT, ses lunettes contre sa poitrine, le col de Jak contre ses épaules, les
+   pans de sa veste (croisés ou pas), le noeud du maire contre son ventre.
+2. **Les oreilles de tout le monde** et le chignon/bûche de Samos : ils ne tournaient pas du tout
+   au réglage par défaut avant ce build.
+3. **La poitrine de Keira** : le réglage n'a pas changé ce cycle (fermeté 2.60, débattement 26°) ;
+   si elle est encore trop liquide ou pas assez, c'est le tour d'après.
+4. Si tu vois encore un élément traverser le corps, dis-moi **où** : les compteurs sont désormais
+   par personnage et par chaîne, donc un site nommé se localise directement.

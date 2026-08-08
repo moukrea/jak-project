@@ -94,6 +94,7 @@
    (follow-probe int32) ;; Grecharged-pbr-realtime-fusion: DYNAMIC FOLLOW-PROBE tier carousell (0 OFF, 1 LOW, 2 MID, 3 HIGH; default 1 LOW)
    (pbr-test-preset int32) ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (0 ALL-IN, 1 FUSED, 2 FUSED FLAT, 3 PBR ONLY, 4 RT ONLY, 5 STOCK; default 1 FUSED). Only writes other settings; C++ never reads it.
    (pbr-isolate int32) ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell = in-menu term bisection so the owner isolates the residual grass-facet source at his vantage with no adb (0 BOTH, 1 NORMAL-MAP ONLY, 2 PARALLAX ONLY, 3 NEITHER; default 0 BOTH). Raw index -> u_pbr_bisect mask in pc_set_pbr_isolate.
+   (modern-materials? symbol) ;; Grecharged-materials-modern-parity: MODERN MATERIAL STACK (subsurface, clearcoat, anisotropy, energy compensation, ORM packing). #f = the accepted PBR path, bit-identical. Default OFF.
    (realtime-lighting? symbol) ;; Grecharged-realtime-lighting: SUN-ONLY realtime lighting (one sun, N.L per face, NO ambient). #f = stock/pbr-materials shading.
    (realtime-ambient? symbol)
    (realtime-ambient-strength float)
@@ -152,6 +153,9 @@
 ;; Grecharged-buildsys-flags: externs present only with --pbr (C++ side gated by OG_FEAT_PBR).
 (#when FLAG_PBR
 (define-extern pc-set-pbr! (function int none))
+;; Grecharged-materials-modern-parity: MODERN MATERIALS master (0/1, int-FFI like pc-set-pbr!).
+;; Flipping it C++-side also re-reads recharged_assets/materials.txt (pc_set_physics idiom).
+(define-extern pc-set-modern-materials! (function int none))
 (define-extern pc-set-pbr-sun! (function vector vector vector none))
 ;; Round-4 multi-light: push light-group 0 (soleil + lune verte + fill) to the renderer.
 ;; light-group (engine lights-h.gc) is not resolvable in this early pc compile context, so
@@ -292,6 +296,7 @@
   (set! (-> obj follow-probe) 1) ;; Grecharged-pbr-realtime-fusion shipped default: LOW (0 OFF / 1 LOW / 2 MID / 3 HIGH)
   (set! (-> obj pbr-test-preset) 1) ;; REOPEN #3 (DEBUG): default FUSED (1) = the shipped config; carousell only, applies other settings on confirm
   (set! (-> obj pbr-isolate) 0) ;; REOPEN #10 (DEBUG): default BOTH (0) = full fused path unchanged; owner flips to isolate the facet term
+  (set! (-> obj modern-materials?) #f) ;; Grecharged-materials-modern-parity: default OFF => #f = the accepted PBR shading, bit-identical
   (set! (-> obj realtime-lighting?) #f) ;; Grecharged-realtime-lighting: default OFF (opt-in; flip via settings.ini / debug prop). ON = sun-only lighting.
   (set! (-> obj realtime-ambient?) #t)
   (set! (-> obj realtime-ambient-strength) 0.2)

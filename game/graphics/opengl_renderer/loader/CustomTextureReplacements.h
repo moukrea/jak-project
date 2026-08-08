@@ -88,7 +88,87 @@ struct PbrMaterialMaps {
   // texture). Measured at load from the map's own mip-energy spectrum. x the material's world tile
   // size = the feature's world size, which is what the tessellation amplitude is scaled by.
   float height_lambda_tiles = 0.25f;
+
+  // ===== Grecharged-materials-modern-parity — THE MODERN MATERIAL STACK ============================
+  // Everything below is per-material and OPT-IN. `mm_flags == 0` (the default) means this material
+  // is untouched by the modern layer no matter what the menu says, which is how "OFF == stock"
+  // stays true per material and not just globally.
+  //
+  // The eight fields above are all MEASURED from the PNGs at load. These are AUTHORED: they are
+  // read from `recharged_assets/materials.txt` (see mm_params_reload), because a scattering colour
+  // or a coat weight is an artistic decision about the surface, not a statistic of its texture. The
+  // file lives in the EXTERNAL asset pack, so tuning it costs the owner a kilobyte, never a 581 MB
+  // APK — the same rule physics_chains.txt follows.
+  u32 thickness_tex = 0;  // <tex>_thickness.png — 1 = thin/translucent, 0 = optically thick
+  // TRUE when this material's occlusion/roughness/metallic were unpacked from one _orm.png. Kept as
+  // its own field rather than as a bit inside mm_flags because mm_flags is REBUILT from scratch on
+  // every re-stamp (and cleared to 0 whenever the master is off), so a bit living only there would
+  // be lost the first time the owner toggled the row off and on again. Anything derived from the
+  // TEXTURES has to be recoverable from the textures.
+  bool orm_packed = false;
+  u32 mm_flags = 0;  // capability bits, see pbr_modern_uniforms.glsl (1 sss, 2 coat, 4 aniso,
+                     // 8 energy, 16 spec-occlusion, 32 thickness map, 64 filmic, 128 ORM).
+                     // Derived, never authored directly: mm_apply_params() rebuilds it from the
+                     // materials.txt block ORed with the texture-derived bits it recomputes from
+                     // thickness_tex / orm_packed.
+  float sss_color[3] = {1.f, 1.f, 1.f};  // scattering colour, LINEAR
+  float sss_strength = 0.f;
+  float sss_thickness = 0.5f;  // fallback when no _thickness.png
+  float sss_power = 6.f;       // transmission falloff
+  float sss_distort = 0.2f;    // normal distortion of the transmission vector
+  float sss_wrap = 0.f;        // terminator wrap
+  float sss_ambient = 0.25f;   // share of skylight that also transmits
+  float coat_weight = 0.f;
+  float coat_rough = 0.10f;
+  float aniso = 0.f;        // [-0.95, 0.95]
+  float aniso_angle = 0.f;  // radians
 };
+
+// ===== Grecharged-materials-modern-parity — materials.txt ==========================================
+// Per-material AUTHORED parameters, parsed from `recharged_assets/materials.txt` with the same
+// source precedence physics_chains.txt uses (external pack overrides the packaged copy, so a tuning
+// edit is a file push and never a rebuild). Format, one block per material:
+//
+//     material vil1-sages-strawroof-01
+//       sss 0.92 0.78 0.42        # scattering colour, linear rgb
+//       sss_strength 1.0
+//       clearcoat 0.15
+//
+// `[defaults]` instead of a material name declares a block applied to EVERY material that carries
+// PBR maps and has no explicit block of its own — the one-line way to see the whole stack at once.
+// Unknown keys are reported and skipped, never fatal.
+//
+// mm_params_reload() re-reads the file and bumps the generation counter; it is called at first use
+// and whenever the MODERN MATERIALS menu row is toggled (kmachine's pc_set_modern_materials).
+// Materials already registered are re-stamped in place, so a toggle applies edits without a level
+// reload.
+// True when the MODERN MATERIAL STACK is live: the menu row ANDed with the Recharged master,
+// overridable by debug.opengoal.mm.on / OG_MM_ON for the headless harness (which has no menu to
+// navigate). Every consumer must ask THIS, never the gfx field directly, or the override splits.
+bool mm_master_active();
+// ASK for a re-read. Callable from ANY thread (kmachine's pc_set_modern_materials runs on the GOAL
+// kernel thread when the menu row is toggled) because all it does is set an atomic flag. The actual
+// re-read — which mutates the material registry the renderers walk — is serviced on the GL thread by
+// mm_service_reload(). Doing the parse where the request comes from would race a level load:
+// register_pbr_material() is a GL-thread writer into the same map.
+void mm_request_params_reload();
+// GL THREAD ONLY. Performs a pending re-read, if one was requested. Called once per frame from
+// PbrDrawBinder::begin(), which is already the GL-thread entry point for everything PBR.
+void mm_service_reload();
+// GL THREAD ONLY. Re-read materials.txt and re-stamp every registered material now.
+void mm_params_reload();
+// Stamp the authored parameters (and the [defaults] fallback) onto a freshly-built material. Called
+// by the loader right before register_pbr_material(). No-op when the modern master is off, which is
+// what keeps an un-toggled build bit-identical.
+void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
+// PATH-ACTIVE COUNTER. Called by PbrDrawBinder every time it pushes a non-zero u_mm_flags, i.e.
+// every time a draw really enters the modern chunk. This is the cheap, non-visual proof the phase
+// owes: "the feature is ACTIVE on device" is a number in a log line, not a screenshot somebody has
+// to squint at. Counts are per channel because "SSS ran" and "clearcoat ran" fail independently.
+void mm_note_active_draw(int flags);
+// One line per material with a non-zero mm_flags plus the per-channel active-draw counts, for the
+// pullable diag file. Empty when the stack is off and nothing ever opted in.
+std::string mm_params_diag_section();
 
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by
 // value (all-zero if none) so the caller can glDeleteTextures the old GL ids on a

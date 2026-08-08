@@ -1997,6 +1997,24 @@ void pc_set_jak_ledge(u32 vec) {
   Gfx::g_global_settings.recharged_jak_ledge[3] = 1.0f;
 }
 
+// Grecharged-materials-modern-parity: MODERN MATERIALS master pushed from GOAL every frame
+// (menu row "MODERN MATERIALS", Recharged Settings, default OFF == stock).
+void pc_set_modern_materials(u32 sym) {
+#ifdef OG_FEAT_PBR
+  const bool on = (sym != 0);
+  const bool changed = (Gfx::g_global_settings.recharged_modern_materials != on);
+  Gfx::g_global_settings.recharged_modern_materials = on;
+  if (changed) {
+    // Same idiom as pc_set_physics: flipping the row RE-READS the tuning file, so the owner can
+    // edit recharged_assets/materials.txt on the device and toggle the row to apply it with no
+    // rebuild and no relaunch.
+    custom_tex::mm_request_params_reload();
+  }
+#else
+  (void)sym;
+#endif
+}
+
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: runtime PBR toggle pushed from GOAL.
 void pc_set_pbr(u32 sym) {
@@ -2248,6 +2266,11 @@ void pc_set_pbr_isolate(u32 idx) {
 #ifdef OG_FEAT_PBR
       body += custom_tex::pbr_pom_diag_section();
       body += custom_tex::pbr_coverage_section();
+      // Grecharged-materials-modern-parity: the modern stack's per-material parameters as the
+      // renderer actually resolved them, plus the per-channel ACTIVE-DRAW counters. The Honor
+      // obscures logcat and the owner has no adb, so a pullable file is the only proof channel
+      // that survives both — and a counter answers "did the code path run" without a screenshot.
+      body += custom_tex::mm_params_diag_section();
 #endif
       file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", body);
     } catch (...) {
@@ -3654,6 +3677,8 @@ void InitMachine_PCPort() {
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials: runtime toggle + mood/TOD sun push
   make_function_symbol_from_c("pc-set-pbr!", (void*)pc_set_pbr);
+  // Grecharged-materials-modern-parity: MODERN MATERIALS master (default OFF == stock)
+  make_function_symbol_from_c("pc-set-modern-materials!", (void*)pc_set_modern_materials);
   make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
   make_function_symbol_from_c("pc-set-pbr-sky-sun!", (void*)pc_set_pbr_sky_sun);
   make_function_symbol_from_c("pc-set-pbr-green-sun!", (void*)pc_set_pbr_green_sun);

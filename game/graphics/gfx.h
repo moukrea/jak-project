@@ -432,6 +432,12 @@ struct GfxGlobalSettings {
   // is the dominant/only sun above the horizon, i.e. night) the cast-shadow direction. Zero
   // until the first push (renderer treats a below-horizon / zero green sun as no contribution).
   float recharged_pbr_green_sun[3] = {0.f, 0.f, 0.f};
+  // Grecharged-materials-modern-parity: MODERN MATERIAL STACK master (menu row "MODERN
+  // MATERIALS", Recharged Settings, default OFF == stock). ANDed with the Recharged master by
+  // every consumer via Gfx::recharged_active(). When false the loader ignores _orm/_thickness
+  // maps and materials.txt entirely, and every draw pushes u_mm_flags = 0, so the shading is
+  // bit-identical to the accepted PBR path.
+  bool recharged_modern_materials = false;
   // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting, a clean
   // rewrite separate from the pbr-materials toggle above. recharged_rt_light_enable = master
   // (the tfrag3 sun-only path is taken only when this is on). Set from GOAL via pc-set-rt-light!.

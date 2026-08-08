@@ -1,0 +1,149 @@
+# =====================================================================================
+# RECHARGED — MODERN MATERIALS  (phase Grecharged-materials-modern-parity)
+#
+# The AUTHORED half of a material. Everything else the PBR pipeline knows about a surface
+# is MEASURED from its PNGs at load: the normal map's mean tilt, the height map's mean and
+# range and feature wavelength, the geometry's UV density. That works because each of those
+# is a statistic of an image. A scattering colour is not — whether a straw roof glows amber
+# or a leaf glows green with the sun behind it is a decision about the SURFACE, and no
+# amount of staring at its albedo produces it. This file is where those decisions live.
+#
+# WHERE IT IS READ FROM, in order (first hit wins, same rule as physics_chains.txt):
+#   1. <external pack>/assets/recharged_assets/materials.txt
+#      on the Redmi: /sdcard/OpenGOAL/jak1/assets/recharged_assets/materials.txt
+#   2. the packaged copy shipped inside the app
+# Editing (1) is a kilobyte push, not a 581 MB APK. Toggle Graphics Options > Recharged
+# Settings > MODERN MATERIALS off and on again and the new values apply immediately — no
+# relaunch, no level reload, no rebuild.
+#
+# ONE EXCEPTION, stated so it does not look like a bug: the two MAP-based features (_orm.png
+# and _thickness.png) are only PROBED while the row is on, because an ORM carries an occlusion
+# channel and occlusion changes the shading — probing it with the row off would break
+# "OFF == stock". So if you turn the row on mid-session, the parameters below apply instantly
+# but those two maps only appear after the next level load. Turn it on and re-enter the level
+# (or just leave it on) to see them.
+#
+# NOTHING HERE DOES ANYTHING UNTIL THAT ROW IS ON. The row defaults to OFF, and with it off
+# the loader does not even probe for _orm/_thickness maps and every draw pushes u_mm_flags
+# = 0, so the shading is the accepted PBR path, bit for bit. A material this file does not
+# name is likewise untouched even with the row on — opt-in is per material.
+#
+# ------------------------------- FORMAT ----------------------------------------------
+#   material <texture-name>     start a block. The name is the texture's debug name, the
+#                               same key the _normal/_roughness/_height PNGs are found by.
+#   [defaults]                  start a block applied to every PBR material with no block
+#                               of its own. The one-line way to see the whole stack at once.
+#   # ...                       comment, to end of line.
+#
+# KEYS (all optional; the value shown is what you get if you omit the key)
+#   sss <r> <g> <b>       1 1 1   SCATTERING COLOUR, linear. The colour light takes on after
+#                                 travelling through the surface.
+#   sss_strength  0.0             Master strength of the subsurface channel. 0 = off.
+#   sss_thickness 0.5             Fallback thickness when the material ships no
+#                                 <tex>_thickness.png (1 = thin/translucent, 0 = opaque).
+#   sss_power     6.0             Transmission falloff. High = a tight back-light halo,
+#                                 low = a broad wash.
+#   sss_distort   0.2             How much the surface normal bends the transmission vector,
+#                                 so the glow follows the relief instead of being a flat
+#                                 view-vs-light dot.
+#   sss_wrap      0.0             Light bleeding past the geometric terminator.
+#   sss_ambient   0.25            Share of SKYLIGHT that also transmits — what keeps a leaf
+#                                 glowing in open shade and not only in direct sun.
+#   clearcoat       0.0           Weight of a smooth dielectric film over the base layer
+#                                 (wet stone, lacquer, wax). Adds its own lobe on the SMOOTH
+#                                 normal and takes that energy out of the layer beneath.
+#   clearcoat_rough 0.10          Roughness of that film, independent of the base roughness.
+#   aniso        0.0              Anisotropy, -0.95..0.95. Stretches the specular lobe across
+#                                 (positive) or along (negative) the tangent — grain, brushed
+#                                 metal, straw stalks.
+#   aniso_angle  0.0              Rotation of the tangent frame, radians.
+#   energy   1                    Kulla-Conty multiple-scatter compensation: gives back the
+#                                 energy a single-scatter GGX loses. ON in any block.
+#   specocc  1                    Specular + horizon occlusion on the environment term. Can
+#                                 only ever REDUCE env specular. ON in any block.
+#   filmic   0                    Use an ACES filmic curve instead of the accepted C1 shoulder.
+#                                 Off by default and it should stay off unless you are
+#                                 deliberately re-grading.
+#
+# A channel is active only when its own parameter says so, so an all-zero block is exactly
+# the same as no block at all.
+#
+# ------------------------------- ORM PACKING ------------------------------------------
+# Not configured here — it is a FILE, not a parameter. Drop <tex>_orm.png next to the base
+# texture with occlusion in R, roughness in G, metallic in B (the glTF layout every
+# authoring tool exports) and the loader unpacks it into three GL_R8 planes: one file
+# instead of three, 3 bytes per texel instead of 12. A dedicated _roughness.png (etc.)
+# always wins over the packed channel, so you can migrate a set one file at a time.
+# =====================================================================================
+
+# ---- village1: the seven materials that ship PBR maps today --------------------------
+# Only these seven carry <tex>_normal/_roughness/_height PNGs at all, so only these seven
+# can reach the PBR path — an ASSET fact, not a pipeline limit. Any material you add maps
+# for can be named here the same way.
+
+# STRAW ROOF. The showcase for the whole phase: a roof of dry stalks is thin, and with a low
+# sun behind it the light comes THROUGH — warm amber, not the surface's own reflected brown.
+# Nothing in this renderer could express that before; every previous term was reflection.
+# The stalks also run parallel, which is the one genuinely anisotropic surface in the set,
+# so its highlight stretches across the grain instead of sitting as a round dot.
+material vil1-sages-strawroof-01
+  sss           0.70 0.38 0.10
+  sss_strength  1.0
+  sss_thickness 0.85
+  sss_power     5.0
+  sss_distort   0.25
+  sss_wrap      0.35
+  sss_ambient   0.30
+  aniso         0.40
+  aniso_angle   0.0
+
+# FOLIAGE GROUND. Leaf litter: green transmission, thicker than straw so a tighter falloff
+# and a smaller ambient share. Deliberately restrained — this is a ground plane the owner
+# looks at constantly, and the point is depth, not a light show.
+material vil1-jng-leafyground
+  sss           0.16 0.42 0.09
+  sss_strength  0.60
+  sss_thickness 0.50
+  sss_power     8.0
+  sss_distort   0.20
+  sss_wrap      0.30
+  sss_ambient   0.25
+
+# THATCHED HUT ROOF. Same physics as the sage's roof, weaker: thicker bundles, less light
+# through.
+material vil-hut-roof-tile-01
+  sss           0.55 0.34 0.12
+  sss_strength  0.45
+  sss_thickness 0.60
+  sss_power     6.0
+  sss_distort   0.25
+  sss_wrap      0.25
+  sss_ambient   0.20
+
+# COASTAL STONE. No subsurface — stone is opaque. A thin clearcoat instead: village1 sits on
+# the shore and its stonework is damp, and a damp surface is exactly a smooth film over a
+# rough base. The coat carries its own roughness, so it survives the matte-dielectric
+# envelope that (correctly) kills gloss on the rough stone underneath.
+material vil1-sages-stonewall-01
+  clearcoat       0.10
+  clearcoat_rough 0.25
+
+material vil-beachrock
+  clearcoat       0.15
+  clearcoat_rough 0.20
+
+# PLASTER and SAND: no scattering, no coat. They still opt in, because energy compensation
+# and specular/horizon occlusion default ON in any block and both are strict corrections to
+# the existing specular — nothing added, only what was wrong made right.
+material vil-wallplaster
+
+material vil-beach-01
+
+# ---- [defaults] ----------------------------------------------------------------------
+# Uncomment to apply a block to EVERY PBR material that has no block of its own. Useful to
+# answer "is the layer doing anything at all" in one flip; not shipped enabled, because a
+# scattering colour that is right for straw is wrong for stone and the owner judges by eye.
+#
+# [defaults]
+#   energy  1
+#   specocc 1

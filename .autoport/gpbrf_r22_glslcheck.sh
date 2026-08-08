@@ -67,8 +67,16 @@ ORIG=${TFRAG3_ORIG:-/tmp/tfrag3.frag.orig}
 if [ ! -f "$ORIG" ]; then
   git show HEAD:"$SRC/tfrag3.frag" > "$TMP/tfrag3.head.frag" 2>/dev/null && ORIG="$TMP/tfrag3.head.frag"
 fi
+# Grecharged-materials-modern-parity: --no-companions. This leg's claim is "lifting tfrag3's fused
+# path into chunks changed nothing", and that claim is about the ROUND-22 EXTRACTION only. The
+# modern-material companion chunks are additional text spliced at the same points, so counting them
+# here would turn a still-true acquis into a permanent red — the "one-shot gate that fires on
+# correct work" failure this harness has already been bitten by once. The companions' own inertness
+# is a different claim, proven structurally instead: their whole body sits under
+# `if (u_mm_flags != 0 && u_pbr_debug == 0)`, and u_mm_flags is 0 unless a material opted in AND the
+# menu row is on. Drop the flag to see the full expansion the runtime actually compiles.
 if [ -f "$ORIG" ]; then
-  if python3 "$EXPAND" "$SRC/tfrag3.frag" --check "$ORIG"; then
+  if python3 "$EXPAND" "$SRC/tfrag3.frag" --no-companions --check "$ORIG"; then
     echo "  PASS byte-identity  tfrag3.frag expansion == pre-extraction source"
   else
     echo "  FAIL byte-identity  tfrag3.frag expansion DIFFERS from $ORIG"; FAIL=1
