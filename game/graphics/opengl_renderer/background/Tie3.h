@@ -133,6 +133,13 @@ class Tie3 : public BucketRenderer {
     const tfrag3::BVH* vis = nullptr;
     const u32* index_data = nullptr;
     std::vector<std::array<math::Vector4f, 4>> wind_matrix_cache;
+    // Grecharged-foliage-wind2: last frame's shear per wind instance, 4 floats each
+    // {applied.x, applied.z, stock.x, stock.z}. The shear audit needs this because MAGNITUDE is
+    // not MOTION: a large shear that never changes is a palm frozen at a lean, which is exactly
+    // what "aucune feuille qui bouge" describes, and it reads identically to a violent one in any
+    // peak/RMS statistic. Differencing against the previous frame is what separates the two.
+    std::vector<float> fw_prev_shear;
+    bool fw_prev_valid = false;
     GLuint wind_vertex_index_buffer;
     std::vector<u32> wind_vertex_index_offsets;
     bool has_proto_visibility = false;

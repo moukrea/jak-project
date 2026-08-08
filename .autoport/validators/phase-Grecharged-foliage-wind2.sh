@@ -54,8 +54,9 @@ ok "report present, finished, names the feature"
 [ -f "$CENSUS" ] || fail "no tie-census.txt (the coverage census is a phase deliverable)"
 NBBOX=$(grep -c '\[tie-bbox\]' "$CENSUS" 2>/dev/null || echo 0)
 [ "${NBBOX:-0}" -ge 20 ] || fail "tie-census.txt has only ${NBBOX} [tie-bbox] rows — not a census"
-grep -q 'level=beach' "$CENSUS" || fail "census missing level=beach"
-grep -q 'level=village1' "$CENSUS" || fail "census missing level=village1"
+# the extractor names tie trees "<DGO>-<treeIdx>-tie", so beach is BEA.DGO-* and village1 VI1.DGO-*
+grep -q 'level=BEA' "$CENSUS" || fail "census missing beach (level=BEA.DGO-*-tie)"
+grep -q 'level=VI1' "$CENSUS" || fail "census missing village1 (level=VI1.DGO-*-tie)"
 # the census must actually resolve the coverage question: at least one wind=1 vegetation prototype.
 grep -qE '\[tie-bbox\].*(palm|tree|bush|plant|kelp|fern|leaf).*wind=1' "$CENSUS" \
   || fail "census shows NO vegetation prototype in the wind set — coverage is unproven"
@@ -90,43 +91,61 @@ case "$ALL" in
   *) ok "frond-flutter uniforms all bound in the linked TIE_WIND program" ;;
 esac
 
-# ---- 4. the shear audit: absolute amplitude + OFF==stock identity, both un-fakeable --------------
-# The shear is dimensionless and displaces a vertex by shear * (its height above the instance
-# origin). The floors below are FIXED physical design targets stated up front, NOT a running max
-# ratcheted from whatever this run happened to produce.
-#   applied_peak >= 0.05  == a crown swings at least 5% of the palm's own height (round 1 applied
-#                            ~0.4%, which is what the owner correctly called "nada").
-#   ratio_peak   >= 4.0   == comfortably more than the x3 shear multiplier round 1 shipped.
-#   OFF ratio_peak == 1   == with the toggle off the applied shear IS the stock shear, at runtime.
+# ---- 4. the shear audit: MOTION floor, BEND ceiling, and runtime OFF==stock ----------------------
+# This gate deliberately measures two DIFFERENT things, because round 1 failed by conflating them.
+#   BEND   (applied_rms)  = how far the crown is pushed over, as a fraction of the palm's height.
+#   MOTION (dapplied_rms) = how far the applied shear travels from one frame to the NEXT.
+# A large bend that never changes is a palm frozen at a lean — high on the first number, ~zero on
+# the second — and that is exactly what the owner saw. Measured stock: bend 0.057-0.077 but motion
+# only 0.0011, an oscillation of 0.04-0.06 Hz (a 17-25 SECOND period). Round 1 multiplied that
+# term by 3, which scales bend and motion together and therefore could not fix the frequency; it
+# reached bend 0.187 (3.27 m on a 17.5 m palm, a storm) still moving at 0.11 Hz.
+# Hence a floor on motion AND a ceiling on bend. Both are fixed physical targets stated up front,
+# NOT a running max ratcheted from whatever this run produced:
+#   dratio_rms  >= 3.0   the breeze must move at least 3x more per frame than the stock wind.
+#   applied_rms <= 0.12  the crown may not sit bent more than 12% of its own height on average.
+#                        (Round 1's shipped 0.187 FAILS this gate. That is the point.)
+#   OFF: ratio_peak == dratio_rms == 1.0 — with the toggle off, the applied shear IS the stock
+#                        shear, proven at runtime rather than by reading the source.
 python3 - "$D" <<'PY' || exit 1
 import glob, re, sys
-rx = re.compile(r'\[foliage-wind\] shear-audit .*?\bon=(\d+)\b.*?\bapplied_peak=([0-9.eE+-]+).*?\bratio_peak=([0-9.eE+-]+)')
+def f(line, name):
+    m = re.search(r'\b' + name + r'=(-?[0-9.eE+-]+)', line)
+    return float(m.group(1)) if m else None
 on_rows, off_rows = [], []
 for p in glob.glob(sys.argv[1] + '/*.log'):
     for line in open(p, errors='ignore'):
-        m = rx.search(line)
-        if not m:
+        if '[foliage-wind] shear-audit' not in line:
             continue
-        (on_rows if m.group(1) == '1' else off_rows).append(
-            (float(m.group(2)), float(m.group(3))))
+        on = f(line, 'on')
+        row = {k: f(line, k) for k in
+               ('applied_rms', 'ratio_peak', 'dapplied_rms', 'dstock_rms', 'dratio_rms')}
+        if None in row.values() or on is None:
+            print("[Gfoliage2 FAIL] a shear-audit line is missing the motion fields "
+                  "(stale build?): " + line.strip()[-160:], file=sys.stderr); sys.exit(1)
+        (on_rows if on == 1 else off_rows).append(row)
 if not on_rows:
     print("[Gfoliage2 FAIL] no 'shear-audit ... on=1' line on device", file=sys.stderr); sys.exit(1)
 if not off_rows:
-    print("[Gfoliage2 FAIL] no 'shear-audit ... on=0' line — OFF==stock is unproven at runtime",
+    print("[Gfoliage2 FAIL] no 'shear-audit ... on=0' line — OFF==stock unproven at runtime",
           file=sys.stderr); sys.exit(1)
-ap = max(r[0] for r in on_rows)
-rp = max(r[1] for r in on_rows)
-bad = [r for r in off_rows if abs(r[1] - 1.0) > 1e-4]
-if bad:
-    print(f"[Gfoliage2 FAIL] toggle OFF applied a non-stock shear (ratio_peak={bad[0][1]})",
+for r in off_rows:
+    if abs(r['ratio_peak'] - 1.0) > 1e-4 or abs(r['dratio_rms'] - 1.0) > 1e-4:
+        print(f"[Gfoliage2 FAIL] toggle OFF diverged from stock "
+              f"(ratio_peak={r['ratio_peak']}, dratio_rms={r['dratio_rms']})",
+              file=sys.stderr); sys.exit(1)
+motion = max(r['dratio_rms'] for r in on_rows)
+bend = max(r['applied_rms'] for r in on_rows)
+if motion < 3.0:
+    print(f"[Gfoliage2 FAIL] dratio_rms={motion:.3f} < 3.0 — the breeze barely moves more than "
+          f"the 0.05 Hz stock wind, which is the round-1 defect", file=sys.stderr); sys.exit(1)
+if bend > 0.12:
+    print(f"[Gfoliage2 FAIL] applied_rms={bend:.4f} > 0.12 — the crown is bent over "
+          f"{bend*100:.1f}% of its own height on average. That is a storm, not a breeze.",
           file=sys.stderr); sys.exit(1)
-if ap < 0.05:
-    print(f"[Gfoliage2 FAIL] applied_peak={ap:.5f} < 0.05 — crown sway under 5% of palm height",
-          file=sys.stderr); sys.exit(1)
-if rp < 4.0:
-    print(f"[Gfoliage2 FAIL] ratio_peak={rp:.3f} < 4.0 vs stock", file=sys.stderr); sys.exit(1)
-print(f"[Gfoliage2 ok] shear audit: ON applied_peak={ap:.5f} ratio_peak={rp:.2f}; "
-      f"OFF ratio_peak==1.0 on {len(off_rows)} window(s) => OFF is stock arithmetic at runtime")
+print(f"[Gfoliage2 ok] shear audit: MOTION {motion:.2f}x stock (floor 3.0), BEND {bend:.4f} "
+      f"= {bend*100:.1f}% of palm height (ceiling 12%); OFF identical to stock on "
+      f"{len(off_rows)} window(s) in BOTH bend and motion")
 PY
 
 # ---- 5. no crash on the real route ---------------------------------------------------------------

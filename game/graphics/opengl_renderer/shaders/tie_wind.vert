@@ -66,6 +66,20 @@ void main() {
   vec3 lpos = position_in;
   if (u_fw_amp > 0.0) {
     float reach = length(position_in.xz);   // 0 on the trunk axis, max at the frond tips
+    // The flutter's lever arm. `reach` alone was not safe: the offline prototype census
+    // (tie-census.txt) shows jak1 wind prototypes whose geometry spreads far from their OWN
+    // origin — palm-01.mb reaches 23.00 m — so `reach * amp` alone would have flung vertices
+    // ~3 m sideways instead of fluttering a frond. Two bounded weights fix that:
+    //   * the reach is capped at 4 m, which is a real palm frond and clamps only the outliers;
+    //   * hw ramps in with height above the prototype's own base (both palm protos have
+    //     ylo = 0.0, so position_in.y IS that height), so roots hold still and only the crown
+    //     flutters.
+    // hw also fails SAFE: a prototype whose geometry hangs BELOW its origin (jak1's
+    // vil1-fish-01.mb, ylo = -32192) gets hw = 0 and no flutter at all, which keeps this term
+    // out of geometry it was never designed for. Peak displacement is therefore bounded at
+    // 4 m * u_fw_amp regardless of what the level data contains.
+    float hw = clamp(position_in.y / (8.0 * 4096.0), 0.0, 1.0);
+    float lever = min(reach, 4.0 * 4096.0) * hw;
     float ph = u_fw_phase;
     // two incommensurate rates: a ~0.37 Hz frond bend plus a ~0.59 Hz ripple. The reach term inside
     // the phase makes the wave travel OUT along a frond instead of moving it as a rigid stick.
@@ -73,11 +87,11 @@ void main() {
     float f2 = sin(u_fw_time * 3.71 + ph * 1.7 + 2.1);
     float bend = u_fw_amp * (0.70 * f1 + 0.30 * f2);
     float cross = u_fw_amp * 0.55 * sin(u_fw_time * 2.93 + ph * 1.3 + 1.1);
-    lpos.x += reach * bend;
-    lpos.z += reach * cross;
+    lpos.x += lever * bend;
+    lpos.z += lever * cross;
     // tips dip slightly as they bend (a frond swept sideways also droops) — keeps the crown from
     // reading as a flat disc spinning in place. Always <= 0 so leaves never pop upward.
-    lpos.y -= reach * u_fw_amp * 0.35 * (0.5 + 0.5 * f1);
+    lpos.y -= lever * u_fw_amp * 0.35 * (0.5 + 0.5 * f1);
   }
   vec4 transformed = -camera[3];
   transformed -= camera[0] * lpos.x;

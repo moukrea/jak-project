@@ -29,7 +29,20 @@ namespace {
 // (device-tuned at the village1-hut vantage: palms/trees roughly double their motion-energy vs
 // stock, gentle not stormy; 8.0 bends palms comically), clamped [1.0, 8.0] (1.0 == neutral ==
 // stock arithmetic).
-constexpr float FOLIAGE_WIND_TIE_MULT_DEFAULT = 3.0f;
+// ROUND 2 MEASUREMENT — this default goes back to 1.0 (neutral), and the reason is the whole
+// post-mortem of round 1. The device shear audit says the stock jak1 TIE wind is NOT small:
+// bend_rms 0.057-0.077, i.e. a palm crown already displaced ~1.0-1.35 m. What it is, is GLACIAL —
+// differencing the applied shear frame to frame gives motion_rms 0.0011, so the shear traverses
+// its own magnitude in ~50 frames: an oscillation of 0.04-0.06 Hz, a SEVENTEEN-TO-TWENTY-FIVE
+// SECOND period. The palms were never static; they were bent and drifting too slowly to read as
+// movement, which is exactly "on voit aucune feuille qui bouge".
+// Multiplying that term is therefore the wrong lever twice over: it scales bend and motion
+// together, so the frequency — the thing that was broken — is unchanged, and at x3 it bent the
+// crown 3.27 m RMS (a storm) while still moving at 0.11 Hz. Per unit of bend, the procedural
+// breeze below buys 8.2x more motion than this multiplier does. So: leave the game's own wind
+// alone (x1 == stock arithmetic) and get the movement from the term that actually oscillates.
+// The knob survives for experiments; it is simply no longer the default answer.
+constexpr float FOLIAGE_WIND_TIE_MULT_DEFAULT = 1.0f;
 static float foliage_wind_tie_mult() {
   static float s_cached = FOLIAGE_WIND_TIE_MULT_DEFAULT;
   static int s_throttle = 0;
@@ -80,18 +93,24 @@ static float foliage_wind_tie_mult() {
 // not added at all and the shader takes the `u_fw_amp > 0.0` branch never).
 // Live-tunable with NO rebuild: Android props debug.opengoal.foliage.{tie_amp,frond} / desktop envs
 // FOLIAGE_WIND_{TIE_AMP,FROND}.
-// ROUND 2 FINAL DEFAULTS. Both levers are DIMENSIONLESS (fraction of the object's own size), so
-// these numbers mean the same thing on every prototype and can be reasoned about without a single
-// pixel being measured:
-//   TIE_AMP 0.075 -> peak crown excursion = 7.5% of the palm's height above its base, RMS 3.3%.
-//                    On a 12 m palm that is +-0.90 m peak / +-0.39 m RMS. Round 1 applied roughly
-//                    0.4% (see the shear-audit line: stock shear x3), i.e. this is ~18x round 1 —
-//                    and a palm is a famously flexible tree, so 7.5% still reads as a breeze
-//                    rather than a storm.
-//   FROND   0.14  -> each vertex flutters +-14% of its OWN horizontal reach from the trunk axis,
-//                    so a 3.5 m frond tip sweeps +-0.49 m while the trunk (reach ~ 0) is still.
+// ROUND 2 FINAL DEFAULTS, chosen from the device shear audit rather than from taste. Both levers
+// are DIMENSIONLESS (a fraction of the object's own size), so they mean the same thing on every
+// prototype. Predicted effect on beach's palm-02.mb (17.52 m tall, census-measured), against the
+// stock numbers this build measured on the device:
+//   TIE_AMP 0.12 -> the breeze contributes bend_rms 0.052 at ~0.52 Hz. Summed with the stock wind
+//                   the crown sits at bend_rms 0.081 = 1.42 m, i.e. 8% of the palm's height, which
+//                   a palm does in a breeze; and the aggregate oscillation lands at 0.35 Hz (a
+//                   ~3 s cycle) against stock's 0.05 Hz. Frame-to-frame motion goes 0.00136 ->
+//                   0.0098, SEVEN TIMES the stock wind, while total bend DROPS from round 1's
+//                   x3-boosted 0.187 (3.27 m, a storm) to 0.081. More movement, less bending —
+//                   which is the actual definition of "légère brise" and the opposite of what
+//                   raising a multiplier does.
+//   FROND   0.14 -> each crown vertex flutters +-14% of its own lever arm (capped at 4 m and
+//                   ramped in with height, see tie_wind.vert), so a frond tip sweeps <= +-0.56 m
+//                   at ~0.37/0.59 Hz while the trunk holds still. This is the term that makes
+//                   LEAVES read as alive rather than the whole tree read as leaning.
 // Both remain live-tunable via props/env with no rebuild, and both are 0 when the toggle is OFF.
-constexpr float FOLIAGE_WIND_TIE_AMP_DEFAULT = 0.075f;
+constexpr float FOLIAGE_WIND_TIE_AMP_DEFAULT = 0.12f;
 constexpr float FOLIAGE_WIND_FROND_DEFAULT = 0.14f;
 
 // Shared reader for the round-2 knobs (same cached + (throttle & 63) discipline as the mult above).
@@ -177,6 +196,11 @@ struct FwAudit {
   std::string level;
   double stock_sq = 0.0, appl_sq = 0.0;
   float stock_peak = 0.f, appl_peak = 0.f;
+  // MOTION, i.e. how far the shear travels from one frame to the next. This is the field the owner
+  // is actually complaining about; the peak/RMS above only say how far the palm is BENT.
+  double dstock_sq = 0.0, dappl_sq = 0.0;
+  float dstock_peak = 0.f, dappl_peak = 0.f;
+  u64 dsamples = 0;
   u64 samples = 0;
   u64 frames = 0;
   u64 last_frame = (u64)-1;
@@ -184,18 +208,35 @@ struct FwAudit {
 };
 static FwAudit g_fw_audit;
 
-static void fw_audit_accum(const std::string& level, float stock, float applied) {
+static void fw_audit_accum(const std::string& level,
+                           float stock,
+                           float applied,
+                           bool have_delta,
+                           float dstock,
+                           float dappl) {
   g_fw_audit.level = level;
   g_fw_audit.stock_peak = std::max(g_fw_audit.stock_peak, stock);
   g_fw_audit.appl_peak = std::max(g_fw_audit.appl_peak, applied);
   g_fw_audit.stock_sq += (double)stock * stock;
   g_fw_audit.appl_sq += (double)applied * applied;
   g_fw_audit.samples++;
+  if (have_delta) {
+    g_fw_audit.dstock_peak = std::max(g_fw_audit.dstock_peak, dstock);
+    g_fw_audit.dappl_peak = std::max(g_fw_audit.dappl_peak, dappl);
+    g_fw_audit.dstock_sq += (double)dstock * dstock;
+    g_fw_audit.dappl_sq += (double)dappl * dappl;
+    g_fw_audit.dsamples++;
+  }
 }
 
 // Called once per render_tree_wind. Logs and resets every 300 distinct frames, which is ~10 s on
 // the Redmi — short enough that a level visit always produces at least one line.
-static void fw_audit_tick(u64 frame_idx, bool on, float frond, size_t wind_draws) {
+static void fw_audit_tick(u64 frame_idx,
+                          bool on,
+                          float frond,
+                          size_t wind_draws,
+                          u32 paused,
+                          u32 wind_time) {
   if (frame_idx != g_fw_audit.last_frame) {
     g_fw_audit.last_frame = frame_idx;
     g_fw_audit.frames++;
@@ -205,16 +246,26 @@ static void fw_audit_tick(u64 frame_idx, bool on, float frond, size_t wind_draws
     return;
   }
   const double n = (double)g_fw_audit.samples;
+  const double dn = (double)std::max<u64>(g_fw_audit.dsamples, 1);
   const double s_rms = std::sqrt(g_fw_audit.stock_sq / n);
   const double a_rms = std::sqrt(g_fw_audit.appl_sq / n);
+  const double ds_rms = std::sqrt(g_fw_audit.dstock_sq / dn);
+  const double da_rms = std::sqrt(g_fw_audit.dappl_sq / dn);
+  // BEND (peak/rms) says how far the palm is pushed over. MOTION (dpeak/drms) says how far the
+  // shear travels between consecutive frames — a frozen lean scores high on the first and ~0 on
+  // the second, and only the second is what an eye can see.
   lg::info(
-      "[foliage-wind] shear-audit lev={} on={} frames={} samples={} wind_draws_submitted={} "
-      "frond={:.4f} stock_peak={:.6f} stock_rms={:.6f} applied_peak={:.6f} applied_rms={:.6f} "
-      "ratio_peak={:.3f} ratio_rms={:.3f}",
-      g_fw_audit.level, on ? 1 : 0, g_fw_audit.frames, g_fw_audit.samples, g_fw_audit.draws, frond,
-      g_fw_audit.stock_peak, s_rms, g_fw_audit.appl_peak, a_rms,
+      "[foliage-wind] shear-audit lev={} on={} paused={} wind_time={} frames={} samples={} "
+      "wind_draws_submitted={} frond={:.4f} stock_peak={:.6f} stock_rms={:.6f} "
+      "applied_peak={:.6f} applied_rms={:.6f} ratio_peak={:.3f} ratio_rms={:.3f} "
+      "dstock_peak={:.6f} dstock_rms={:.6f} dapplied_peak={:.6f} dapplied_rms={:.6f} "
+      "dratio_peak={:.3f} dratio_rms={:.3f}",
+      g_fw_audit.level, on ? 1 : 0, paused, wind_time, g_fw_audit.frames, g_fw_audit.samples,
+      g_fw_audit.draws, frond, g_fw_audit.stock_peak, s_rms, g_fw_audit.appl_peak, a_rms,
       g_fw_audit.stock_peak > 0.f ? g_fw_audit.appl_peak / g_fw_audit.stock_peak : -1.f,
-      s_rms > 0.0 ? a_rms / s_rms : -1.0);
+      s_rms > 0.0 ? a_rms / s_rms : -1.0, g_fw_audit.dstock_peak, ds_rms, g_fw_audit.dappl_peak,
+      da_rms, g_fw_audit.dstock_peak > 0.f ? g_fw_audit.dappl_peak / g_fw_audit.dstock_peak : -1.f,
+      ds_rms > 0.0 ? da_rms / ds_rms : -1.0);
   g_fw_audit = FwAudit{};
 }
 }  // namespace
@@ -475,6 +526,9 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       // set up wind
       if (wind_idx_buffer_len > 0) {
         lod_tree[l_tree].wind_matrix_cache.resize(tree.wind_instance_info.size());
+        // Grecharged-foliage-wind2: 4 floats per instance for the motion half of the shear audit.
+        lod_tree[l_tree].fw_prev_shear.assign(tree.wind_instance_info.size() * 4, 0.f);
+        lod_tree[l_tree].fw_prev_valid = false;
         lod_tree[l_tree].wind_vertex_index_buffer =
             loader_data->tie_data[l_geo][l_tree].wind_indices;
         u32 off = 0;
@@ -1830,6 +1884,10 @@ void do_wind_math(u16 wind_idx,
   if (audit_out) {
     audit_out[0] = std::sqrt(vf27.x() * vf27.x() + vf27.z() * vf27.z());
     audit_out[1] = std::sqrt(vf27s.x() * vf27s.x() + vf27s.z() * vf27s.z());
+    audit_out[2] = vf27s.x();
+    audit_out[3] = vf27s.z();
+    audit_out[4] = vf27.x();
+    audit_out[5] = vf27.z();
   }
 
   //
@@ -1851,6 +1909,13 @@ void Tie3::render_tree_wind(int idx,
   // note: this isn't the most efficient because we might compute wind matrices for invisible
   // instances. TODO: add vis ids to the instance info to avoid this
   memset(tree.wind_matrix_cache.data(), 0, sizeof(float) * 16 * tree.wind_matrix_cache.size());
+  // Grecharged-foliage-wind2: belt-and-braces for the audit's per-instance history. update_load
+  // sizes this next to wind_matrix_cache; sizing it here too means no ordering assumption between
+  // the two can turn an instrumentation array into an out-of-bounds write.
+  if (tree.fw_prev_shear.size() < tree.instance_info->size() * 4) {
+    tree.fw_prev_shear.assign(tree.instance_info->size() * 4, 0.f);
+    tree.fw_prev_valid = false;
+  }
   auto& cam_bad = settings.camera.camera;
   std::array<math::Vector4f, 4> cam;
   for (int i = 0; i < 4; i++) {
@@ -1924,11 +1989,22 @@ void Tie3::render_tree_wind(int idx,
       rc_shear_add[1] = rc_amp * (rc_dir_z * sway + rc_dir_x * cross * 0.4f);
       rc_add_ptr = rc_shear_add;
     }
-    // Grecharged-foliage-wind2: audit[0] = stock shear, audit[1] = the shear actually applied.
-    float rc_audit[2] = {0.f, 0.f};
+    // Grecharged-foliage-wind2: [0]/[1] = stock/applied shear magnitude, [2..5] = the signed
+    // components, which is what the frame-to-frame difference below needs.
+    float rc_audit[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
     do_wind_math(info.wind_idx, m_wind_vectors.data(), m_wind_data,
                  info.stiffness * m_wind_multiplier, rc_wind_boost, rc_add_ptr, mat, rc_audit);
-    fw_audit_accum(m_level_name, rc_audit[0], rc_audit[1]);
+    {
+      float* prev = &tree.fw_prev_shear[inst_id * 4];
+      const float dax = rc_audit[2] - prev[0], daz = rc_audit[3] - prev[1];
+      const float dsx = rc_audit[4] - prev[2], dsz = rc_audit[5] - prev[3];
+      fw_audit_accum(m_level_name, rc_audit[0], rc_audit[1], tree.fw_prev_valid,
+                     std::sqrt(dsx * dsx + dsz * dsz), std::sqrt(dax * dax + daz * daz));
+      prev[0] = rc_audit[2];
+      prev[1] = rc_audit[3];
+      prev[2] = rc_audit[4];
+      prev[3] = rc_audit[5];
+    }
 
     // vmulax.xyzw acc, vf20, vf10
     // vmadday.xyzw acc, vf21, vf10
@@ -1983,8 +2059,9 @@ void Tie3::render_tree_wind(int idx,
                fw_amp_loc, fw_time_loc, fw_phase_loc);
     }
   }
+  tree.fw_prev_valid = true;  // the previous-frame shears are now populated for every instance
   fw_audit_tick(render_state->frame_idx, rc_frond > 0.f || rc_amp > 0.f, rc_frond,
-                tree.wind_draws->size());
+                tree.wind_draws->size(), m_wind_data.paused, m_wind_data.wind_time);
 #ifdef OG_FEAT_PBR
   // Round-3 defect A/B: wind-tie foliage receives the sun N.L in-shader; bind the shadow
   // receiver so it also RECEIVES cast shadows. TIE_WIND is the active program here.
