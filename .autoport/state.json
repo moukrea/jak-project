@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 234,
+  "current_phase_idx": 235,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -226,7 +226,8 @@
     "Grecharged-hd-models5": 1,
     "Grecharged-foliage-wind2": 1,
     "Grecharged-secondary-motion": 2,
-    "Grecharged-hd-eye-scale": 2
+    "Grecharged-hd-eye-scale": 2,
+    "Grecharged-title-logo-fullres": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -733,7 +734,8 @@
     "Grecharged-hd-models5",
     "Grecharged-hd-models4",
     "Grecharged-secondary-motion",
-    "Grecharged-hd-eye-scale"
+    "Grecharged-hd-eye-scale",
+    "Grecharged-foliage-wind2"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -946,9 +948,10 @@
     "Grecharged-hd-models5": 1785898653.0176275,
     "Grecharged-hd-models4": 1785939731.6130211,
     "Grecharged-secondary-motion": 1786121017.0894666,
-    "Grecharged-hd-eye-scale": 1786018388.543868
+    "Grecharged-hd-eye-scale": 1786018388.543868,
+    "Grecharged-title-logo-fullres": 1786153395.9536324
   },
-  "last_update": "2026-08-08T01:35:22.890785+00:00",
+  "last_update": "2026-08-08T02:37:57.697370+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1050,7 +1053,8 @@
     "Grecharged-hd-models5",
     "Grecharged-secondary-motion",
     "Grecharged-hd-eye-scale",
-    "Grecharged-foliage-wind2"
+    "Grecharged-foliage-wind2",
+    "Grecharged-title-logo-fullres"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
