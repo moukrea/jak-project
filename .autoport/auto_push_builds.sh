@@ -2,7 +2,8 @@
 # Continuously ship intermediate builds to jak-builds so the owner never waits.
 # Owner 2026-08-06: "n'hésite pas à pousser les builds intermédiaires au fil de l'eau que je teste aussi"
 # Uploads only when the APK's content hash actually changed, and never while a build is mid-write.
-set -uo pipefail
+set +e -o pipefail
+trap 'echo "$(date +%H:%M:%S) trapped err at line $LINENO, continuing" >> .autoport/logs/auto_push_builds.txt' ERR
 cd "$(dirname "$0")/.." || exit 1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 # The HD asset pack is a SEPARATE deliverable: the reskin (skin-authority fix) is baked
