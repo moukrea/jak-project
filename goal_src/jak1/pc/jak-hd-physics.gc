@@ -2456,14 +2456,16 @@
                        ;; only WHEN "settled" is true moves, exactly as it did for the authored
                        ;; hand-back. Arrival, the idle bias and the family A idle hold share the
                        ;; counter by design, so all three now stand down during a fight instead of
-                       ;; feeding it.
+                       ;; feeding it. The reset itself lives at the calm update (the one place
+                       ;; `ccalm` is advanced), where this frame's body-pass and contact flags are
+                       ;; also known — see (W/C13c) there for the full rule, which covers more than
+                       ;; the strand case.
                        (dotimes (i len)
                          (cond
                            ((> (-> *phys-lxheld* (+ start i)) 0)
                             (set! (-> lpush i) 1)
                             (+! (-> *phys-slot-xheld* slot) 1)
-                            (+! (-> *phys-lxheld* (+ start i)) -1)
-                            (set! (-> *phys-ccalm* ci) 0))
+                            (+! (-> *phys-lxheld* (+ start i)) -1))
                            (else (set! (-> lpush i) 0))))
                        (dotimes (i len) (set! (-> lhold i) 0))
                        (dotimes (i len)
@@ -4334,14 +4336,46 @@
                          ;; make it pass — a tilted actor is the owner's own exception, where the
                          ;; chain is SUPPOSED to leave the modelled pose, and scoring it there would
                          ;; grade the exception as the defect.
-                         (let ((chvel 0.0))
+                         (let ((chvel 0.0)
+                               ;; (W/C13c) A FRAME UNDER CORRECTION IS NOT A CALM FRAME. Every
+                               ;; repair pass in this file obeys owner rule O and moves `pos` and
+                               ;; `prev` together — the strand separation, the body walk-out, the
+                               ;; spawn reseed itself (pos = prev = targ) — so |pos - prev| cannot
+                               ;; see any of them and `ccalm` used to count straight through them.
+                               ;; The measured consequence was deterministic and bit-identical
+                               ;; across three builds: on the village warp, jak-hd `earL` seeds
+                               ;; inside a volume (maxpen 260.99 in that window), is walked out
+                               ;; with no velocity, reads calm from frame 1, and the frame
+                               ;; `csettle` expires is BOTH the first graded frame AND arrival's
+                               ;; first (half-gain, ramped) frame — so the metric sampled
+                               ;; influence * 0.5 * the leftover displacement, 8.2208, every run,
+                               ;; whatever the solver did elsewhere. The number was real and said
+                               ;; nothing about failing to return: the chain was mid-return,
+                               ;; graded before arrival's second frame.
+                               ;; So the calm streak now requires, per frame: low velocity AND no
+                               ;; link pushed or contact-held (lpush covers the body pass and the
+                               ;; strand-hold hysteresis, lhold covers resting AT a surface) AND
+                               ;; the settle window over. Grading therefore always trails arrival
+                               ;; by PHYS-RESTCALM - PHYS-ARRIVE-N = 8 armed frames — 0.005^7 of
+                               ;; any entry displacement — on every path in: spawn, teleport,
+                               ;; walk-out, strand fight, authored hand-back. What it costs is
+                               ;; samples, said plainly: a chain resting in permanent light
+                               ;; contact no longer grades at all, which is the metric's own
+                               ;; stated exemption ("links no collider was holding") applied to
+                               ;; the settle clock instead of only to the link list.
+                               (chheld 0))
                            (dotimes (i len)
                              (when (>= i rl)
                                (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
                                (let ((v (vector-length vtmp)))
-                                 (when (> v chvel) (set! chvel v)))))
+                                 (when (> v chvel) (set! chvel v)))
+                               (when (or (nonzero? (-> lpush i)) (nonzero? (-> lhold i)))
+                                 (set! chheld 1))))
                          (cond
-                             ((< chvel PHYS-REST-VEL) (+! (-> *phys-ccalm* ci) 1))
+                             ((and (< chvel PHYS-REST-VEL)
+                                   (zero? chheld)
+                                   (<= (-> *phys-csettle* ci) 0))
+                              (+! (-> *phys-ccalm* ci) 1))
                              (else (set! (-> *phys-ccalm* ci) 0)))
                          (when (and (!= 2 (-> *phys-cfam* ci))
                                     (< tiltf 0.05)
