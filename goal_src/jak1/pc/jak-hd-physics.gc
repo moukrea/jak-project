@@ -4353,23 +4353,32 @@
                                ;; nothing about failing to return: the chain was mid-return,
                                ;; graded before arrival's second frame.
                                ;; So the calm streak now requires, per frame: low velocity AND no
-                               ;; link pushed or contact-held (lpush covers the body pass and the
-                               ;; strand-hold hysteresis, lhold covers resting AT a surface) AND
-                               ;; the settle window over. Grading therefore always trails arrival
-                               ;; by PHYS-RESTCALM - PHYS-ARRIVE-N = 8 armed frames — 0.005^7 of
-                               ;; any entry displacement — on every path in: spawn, teleport,
-                               ;; walk-out, strand fight, authored hand-back. What it costs is
-                               ;; samples, said plainly: a chain resting in permanent light
-                               ;; contact no longer grades at all, which is the metric's own
-                               ;; stated exemption ("links no collider was holding") applied to
-                               ;; the settle clock instead of only to the link list.
+                               ;; link ACTIVELY corrected (lpush — the body pass's push-outs and
+                               ;; the strand-hold hysteresis) AND the settle window over. Grading
+                               ;; therefore always trails arrival by PHYS-RESTCALM -
+                               ;; PHYS-ARRIVE-N = 8 armed frames — 0.005^7 of any entry
+                               ;; displacement — on every path in: spawn, teleport, walk-out,
+                               ;; strand fight, authored hand-back.
+                               ;; `lhold` — PASSIVE contact, a link resting AT a surface with no
+                               ;; push firing — deliberately does NOT gate the streak, and the
+                               ;; first build of this rule is why that is written down: it did,
+                               ;; and Maia's intro leg answered with unsettled=1 / freering=29.
+                               ;; A chain lying lightly on the body then never accumulates calm,
+                               ;; so ARRIVAL never arms, and its ring-down after a scene cut is
+                               ;; left to raw spring damping — the owner's "hysteresis" verbatim.
+                               ;; Resting contact is physics owning the chain, not the chain
+                               ;; being moved: arrival pulling it toward the model pose is safe
+                               ;; by construction (every volume is capped at the chain's own
+                               ;; model pose, so the pull target is outside the body), and the
+                               ;; held links themselves stay out of the fidelity sample through
+                               ;; the per-link lpush/lhold exclusion, as they always were.
                                (chheld 0))
                            (dotimes (i len)
                              (when (>= i rl)
                                (vector-! vtmp (-> *phys-pos* (+ start i)) (-> *phys-prev* (+ start i)))
                                (let ((v (vector-length vtmp)))
                                  (when (> v chvel) (set! chvel v)))
-                               (when (or (nonzero? (-> lpush i)) (nonzero? (-> lhold i)))
+                               (when (nonzero? (-> lpush i))
                                  (set! chheld 1))))
                          (cond
                              ((and (< chvel PHYS-REST-VEL)
