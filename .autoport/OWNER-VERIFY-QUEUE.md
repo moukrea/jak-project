@@ -557,3 +557,13 @@ ressort (c'est une liste de noms dans Merc2.cpp).
 comportement ? ③ le logo ND au boot, on le garde net ou on le laisse stock ? ④ rien qui traverse
 le logo pendant le survol du village (il est désormais dessiné PAR-DESSUS le monde composité) ?
 Captures : `.autoport/reports/Grecharged-title-logo-fullres/device-{OFF-rs40,ON-rs40}.png`.
+
+### PRÉ-GATE 04:40 [✅ token LOGO DU TITRE EN PLEINE RÉSOLUTION]
+deploy_verify PASS (HEAD 1b5f716cd0), 0 crash. Le logo JAK AND DAXTER de l'écran-titre est
+maintenant dessiné à la résolution NATIVE du panneau (2400x1080 sur le Redmi) pendant que le monde
+continue de tourner à 320x240 en render scale basse — c'est-à-dire que tu gardes le gain de perf du
+downscale sans le logo en bouillie.
+Toggle dans les Recharged Settings, **par défaut OFF**, grisé si le master Recharged est off —
+même forme que le vent du feuillage. OFF == pipeline stock.
+À TESTER : ① écran-titre avec render scale basse, toggle ON puis OFF ② rien de cassé ailleurs dans
+l'UI (la passe UI est partagée).
