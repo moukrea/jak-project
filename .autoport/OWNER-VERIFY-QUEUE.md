@@ -685,3 +685,20 @@ de Jak assis 2 mm trop bas. Ça reste à corriger, ce n'est pas rangé sous le t
    si elle est encore trop liquide ou pas assez, c'est le tour d'après.
 4. Si tu vois encore un élément traverser le corps, dis-moi **où** : les compteurs sont désormais
    par personnage et par chaîne, donc un site nommé se localise directement.
+
+### PRÉ-GATE 15:20 [✅ token PHYSIQUE CYCLE 13] — upload APK+pack en cours (arrière-plan)
+deploy_verify PASS (HEAD c8daac1a26), 0 crash, 0 ligne d'échec, cliquet et 60+ gates verts.
+LA CAUSE RACINE DE TON « HYSTÉRÉSIS », ENFIN NOMMÉE : une POMPE À VÉLOCITÉ. Ta règle O (les
+corrections n'injectent aucune vitesse) et la projection étaient justes toutes les deux — mais
+ensemble elles laissaient UN SEUL injecteur actif : le RESSORT ré-injecte omega²·D de vitesse
+d'approche à chaque substep tant qu'un contact tient le maillon à distance D de son équilibre. Le
+contact annule le déplacement, rien ne dépense la vitesse => elle RESTE au taux d'injection. C'est
+ton « ça vibre au lieu de se poser », mesuré : Maia immobile lisait idledrift=0.0000 pendant que la
+vélocité restait épinglée UNE SECONDE PLEINE après la dernière entrée. Corrigé : la règle O tient
+dans les deux sens (les corrections n'injectent rien, et les contacts DÉPENSENT la vitesse).
+CHIFFRES FINAUX : resid=0 partout avec contrôle positif tirant sur 43/43 modèles (profondeurs
+injectées 615-10533 unités) ; restdevA=0.0000 ; lenmin/lensim=0.999 ; xleg=0 ; colskip=0 sur 345
+chaînes ; 0 volume filtré ; tes 4 paires chaîne-chaîne nommées testées (24 mentions).
+À TESTER (les sites exacts de ton rejet d'hier) : ① mèches de Keira vs crâne/oreilles EN MOUVEMENT
+② ses lunettes vs poitrine ③ col de Jak vs épaules ④ pans de veste sur les jambes ⑤ noeud du
+maire vs ventre ⑥ la poitrine de Keira (fermeté restaurée + rotation) ⑦ l'« hystérésis » générale.
