@@ -5361,6 +5361,23 @@
                                 (vector+! apv (-> *phys-targ* jj) wof)
                                 (+! (-> *phys-slot-mtested* slot) 1)
                                 (let ((eff (phys-mesh-pen slot cbase c tier sp apv mdir draw)))
+                                  ;; (AF) THE AUTHORED POSE IS AS LEGITIMATE A FLOOR AS THE
+                                  ;; MODELLED ONE — the identical rule the per-link cap already
+                                  ;; encodes. Keira pulling her goggles over her eyes puts their
+                                  ;; MESH inside the head volume on purpose; a targ-only floor
+                                  ;; would shove them out of her face while her hand holds them.
+                                  ;; The more permissive of the two poses wins, and the floor
+                                  ;; point kept in apv is the one the residual re-audit uses.
+                                  (when (and (> (-> *phys-cauththr* ci) 0.0)
+                                             (> eff PHYS-PEN-TOL))
+                                    (let ((ap2 (new 'stack-no-clear 'vector))
+                                          (md2 (new 'stack-no-clear 'vector)))
+                                      (vector+! ap2 (-> *phys-anim* jj) wof)
+                                      (let ((eff2 (phys-mesh-pen slot cbase c tier sp ap2 md2 draw)))
+                                        (when (< eff2 eff)
+                                          (set! eff eff2)
+                                          (vector-copy! apv ap2)
+                                          (vector-copy! mdir md2)))))
                                   (when (> eff (-> *phys-slot-mraw* slot))
                                     (set! (-> *phys-slot-mraw* slot) eff))
                                   (cond
