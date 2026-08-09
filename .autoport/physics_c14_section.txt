@@ -58,11 +58,54 @@ Three defects, three mechanisms, all three addressed at the mechanism rather tha
    the APK custom pack AND the external override, same owner-retune path as the tuning file).
    Every frame they are carried by the link's CURRENT bone matrix — the identical transform
    the renderer skins those vertices with — and tested against the body volumes with the
-   authored pose as the floor. The result is RESOLVED (bounded, velocity-neutral,
-   discharge-gated, same rule O as every other correction) and what remains after the resolve
-   is the residual the gates read: meshpen, with meshtested proving the audit ran and mraw
+   authored pose as the floor. The result is RESOLVED and what remains after the resolve is
+   the residual the gates read: meshpen, with meshtested proving the audit ran and mraw
    giving the positive control a needle. The mayor's bow is graded BY NAME in its own leg
    (D-MAYOR, parked at his hut at the beach-level actor position) — see the leg summary.
+
+3b. HOW THE RESIDUAL IS CLEARED — REWRITTEN (C14c), because the first shape did not converge.
+   The previous resolve pushed the LINK out along the worst volume's normal, per SAMPLE, up to
+   three times, bounded per push. On the 09:46 device run it bought 5%: jak-hd ended a frame at
+   meshpen=475.15 out of mraw=502.55, and dax-hd sat at 537.5458 in two different legs — the
+   same value twice, i.e. a fixed configuration it could never climb out of. Two structural
+   reasons, neither of them tuning:
+     * a push out of volume A lands the sample inside neighbouring volume B and the next
+       iteration pushes it back into A. The normals disagree; the iteration orbits instead of
+       converging. This is also why meshpen could read HIGHER than mraw (537 > 502): the
+       resolve was making some samples worse, which is precisely "une resolution plus genante
+       que le clipping".
+     * the samples of one link fight each other. Each shoves the shared link origin, so the
+       sample resolved first is silently un-resolved by the one resolved last — and only the
+       last one's residual was ever re-measured.
+   Both disappear if the search is made ONE-DIMENSIONAL and aimed at a known-feasible end. The
+   authored pose is that end: with the link origin at *phys-targ*, every sample's test point
+   and its own authored floor point are THE SAME POINT, so the effective penetration is exactly
+   0 against every body volume simultaneously. The resolve now bisects the segment
+   [authored pose -> simulated pose] (6 steps) for the LARGEST fraction of the physics
+   deviation that is still clear, and commits that, velocity-neutrally (prev travels with the
+   correction, rule O). Properties by construction rather than by hope:
+     * it always terminates and always finds a feasible commit — t=0 is feasible by definition;
+     * it never overshoots into a neighbouring volume, because it only ever moves TOWARD the
+       authored pose and never past it;
+     * it keeps every part of the motion that was not the problem — a chest jiggling outward is
+       untouched, only travel that goes INTO the body is trimmed;
+     * meshpen <= tolerance is therefore a GUARANTEE, not an outcome, which is what "ne doivent
+       pas passer au travers du mesh de leur personnage, QU'IMPORTE LA RAISON" actually asks for.
+   It is also cheaper: 6 probes replace up to 15 push-and-re-audit rounds per link.
+   What this changes about the positive control is stated in its own section below, not hidden.
+
+3c. THE MAYOR: THE WARP POINT WAS THE BUG, NOT HIS PHYSICS. D-MAYOR reported "the mayor never
+   bound/emitted a window" and "meshtested=0" for two cycles, and both were true: he is a BEACH
+   actor (beach-actors.json, etype mayor, trans -116.15 10.90 45.91) while the leg warped to
+   `village1-hut`, whose continue point loads beach with `:disp1 #f` (level-info.gc:151-166).
+   Beach stops at status 'loaded, `birth` never runs over its entity table, so no mayor process
+   ever existed to simulate. The previous run's own log proves it rather than infers it: his ART
+   loaded ("merc-load lvl=beach model=mayor-lod0") while `ag=mayor-lod0` appears zero times and
+   no `[HD-PHYS-RIDER] rig mayor-lod0` line was emitted at all — and that rider line prints even
+   for a rig that resolves chains=0, so this was ABSENCE, not a chain-resolution failure (count
+   of `chain N invalid|DROPPED` in that log: 0). The leg now warps to `beach-start`, which
+   displays BOTH beach and village1 (level-info.gc:295-311); the position override is unchanged
+   and still parks Jak ~7 m from him. His bow is measured or the leg fails — see the summary.
 
 4. RESOLUTION SMOOTHNESS (C14-D). "Un truc tente d'empecher les meches de clipper dans ses
    oreilles mais ca fait des trucs BIZARRES plus genants qu'un simple clipping." A resolution
@@ -71,25 +114,57 @@ Three defects, three mechanisms, all three addressed at the mechanism rather tha
    every correction every pass applied to it that frame (substep sweep, final sweep,
    cross-side, model fallback, strand pass, mesh sweep), reported per window and bounded on
    every leg.
-   INSTRUMENT CHANGE, STATED OPENLY (this metric is new this cycle and was never
-   owner-validated in its first form): the first ledger summed the MAGNITUDE of every
-   correction. The substep sweep applies opposing corrections iters x substeps times per frame
-   while it and the spring argue over a pinned link, so a settled, visually still link read
-   resjerk=100853 on the same device window whose every calm gate was green (jitter=23,
-   freering=29, rested>0, clamped=18 in the whole leg) — the path length of an argument the
-   eye cannot see. What the eye reads as a snap is where the bone ENDED the frame relative to
-   where resolution found it: the net. A real one-frame snap (mfsnap, a deep first-contact
-   push) nets exactly its visible size, so the bound catches precisely what the owner
-   complained about, and nothing else. Keira's bangs vs her ears:
+   INSTRUMENT CHANGE, STATED OPENLY — THE SECOND ONE, and this time the metric is refuted by
+   its own arithmetic rather than by taste. History first, because it matters: the ledger began
+   as a sum of correction MAGNITUDES and a settled, visually still link read resjerk=100853 on
+   a window whose every calm gate was green. That was corrected to a sum of correction VECTORS,
+   on the reasoning that opposing corrections would then cancel. They do not, and the 09:46 run
+   shows why in one line — jak-hd's worst window read
+
+       resjerk = 66389.27   while   maxdev = 1031.47
+
+   a claimed 16-metre single-frame jump by a bone that never left a 25 cm neighbourhood of its
+   own authored pose all window. The vector sum cannot cancel because the force that UNDOES a
+   correction is the SPRING, and the spring never writes to the ledger: the sum only ever sees
+   one side of the argument, so it grows monotonically while the bone goes nowhere. It was also
+   blind in the other direction — the model-pose ladder, the escape pass and the length restore
+   all move out/pos/prev and never touched it at all.
+   The declaration always stated the right definition ("where the bone ENDED the frame relative
+   to where resolution found it"); it was never what the code computed. It is now: resjerk is
+   the worst single-frame change in a link's OFFSET FROM ITS AUTHORED POSE. Differencing
+   against the authored pose divides out the character's own travel — an actor crossing 4032
+   units in a frame carries his hair with him, and that is not a snap — and leaves exactly the
+   artifact the owner described: the physics offset changing discontinuously. A settled link
+   holds its offset and reads ~0; an honest swing reads its own per-frame travel (maxvel, ~117
+   on that same window); a real one-frame jolt reads its full visible size. It is strictly MORE
+   complete than the ledger (it sees every pass, including the three that never wrote to it),
+   and it cannot be satisfied by killing the sim, because the locomotion FLOORS are graded on
+   this same execution. The superseded ledger is still computed and still printed as `respath=`
+   on every window, so the swap is auditable instead of silent; it is not gated.
+   Keira's bangs vs her ears:
 @@BANGSEARS@@
 
 MESH-LEVEL POSITIVE CONTROL (C14-B — the rule that every zero must be shown able to rise)
 -----------------------------------------------------------------------------------------
 inject= (chain param 26) deliberately displaces every chain INTO the body, data-only, external
-override, device file byte-restored. The mesh audit must see the deliberate penetration
-(mraw and mfix CLIMB, meshpen itself reads nonzero because the injection re-displaces faster
-than the bounded correction may push back), and the DISARMED run must return to zero over a
-nonzero meshtested. From .autoport/reports/Grecharged-secondary-motion/poscontrol_c14.log:
+override, device file byte-restored. The mesh audit must see the deliberate penetration: mraw
+(pre-resolve depth beyond the authored floor) must CLIMB, and mfix (clamps committed) must be
+nonzero. The DISARMED run must read meshpen 0 over a nonzero meshtested.
+
+ONE ASSERTION IN THIS CONTROL CHANGED THIS CYCLE, AND IT IS A RELAXATION, SO IT IS FLAGGED
+RATHER THAN SLIPPED IN. It used to also demand meshpen > 0 while ARMED, on the correct
+principle that a counter which can never rise proves nothing when it reads zero. With the
+feasibility clamp of 3b, meshpen CANNOT be nonzero unless the guarantee itself is broken —
+demanding that it rise is now demanding that the fix not work. So meshpen stops being the
+DETECTOR and becomes a CHECKED POSTCONDITION, and the detection sits on the two counters
+either side of the resolve, both still gated and both unchanged: mraw must climb, mfix must
+fire. The anti-vacuous-zero rule is met in its own terms — meshpen=0 is not "nobody looked",
+it is "mfix commits were each re-audited AT the committed point and every one came back
+clear", and mfix is that backing count; a zero with mfix=0 is still an empty zero and still
+fails. What the control can no longer prove is that a BROKEN clamp would be caught by
+injection: it would be caught by the same re-audit that produces meshpen, but not by this
+needle. Stated, not papered over.
+From .autoport/reports/Grecharged-secondary-motion/poscontrol_c14.log:
 @@POSCONTROL14@@
 
 DEVICE LEG SUMMARY (one execution: floors AND ceilings, all five legs)

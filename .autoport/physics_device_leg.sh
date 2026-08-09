@@ -95,6 +95,21 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   else
     $ADB -s "$S" shell setprop debug.opengoal.level.warp.pos '' >/dev/null 2>&1 </dev/null
   fi
+  # (C14c-2) VIS NICKNAME OVERRIDE — why the mayor leg needs one. `beach-start` carries
+  # `:vis-nick 'bea` (level-info.gc:295-311) while the position override parks Jak on village1
+  # ground. level.gc:1269-1273 then sees the vis-nick level (beach) NOT inside its boxes and forces
+  # the other level outside too; with neither inside, level.gc:1278 takes the "outside of bsp"
+  # branch, no vis-info is ever marked in use, cam-update falls through to all-visible?=#t, and
+  # entity.gc:1091-1092 skips actor spawning for that level outright. Measured: in the previous
+  # run the rider list FROZE at the exact frame `Displaying level beach` landed and not one beach
+  # entity ever birthed. Naming village1 as the vis level keeps it inside-boxes, so beach falls to
+  # its village1-adjacency vis string — the vanilla configuration for standing at the hut with
+  # beach displayed — and its actor table resumes.
+  if [ -n "${VIS:-}" ]; then
+    $ADB -s "$S" shell setprop debug.opengoal.want.vis "$VIS" >/dev/null 2>&1 </dev/null
+  else
+    $ADB -s "$S" shell setprop debug.opengoal.want.vis '' >/dev/null 2>&1 </dev/null
+  fi
   $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
   ( $ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I ActivityManager:W '*:S' >> "$LC" ) 2>/dev/null &
   LCP=$!
@@ -403,18 +418,26 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     #   meshtested samples actually tested. A meshpen next to meshtested=0 is the same empty zero
     #              as resid=0/push=0 — failed as such.
     #   mraw/mfix  pre-resolve depth and pushes applied — the positive control's needles.
-    #   resjerk    worst single-frame NET resolution displacement of any link (vector-summed
-    #              corrections, folded to a length at frame end). A resolution the
-    #              eye reads as a jump is worse than the clip it replaced (owner C14-D).
+    #   resjerk    worst single-frame change in a link's offset FROM ITS AUTHORED POSE (C14c). A
+    #              resolution the eye reads as a jump is worse than the clip it replaced (owner
+    #              C14-D), and the offset is what the eye reads: differencing against the authored
+    #              pose divides out the character's own travel, so carrying the hair along while
+    #              Jak runs is not scored as a snap while a genuine one-frame jolt is.
+    #   respath    the SUPERSEDED ledger (sum of the correction vectors each pass applied) kept
+    #              alongside so the change of instrument is visible instead of silent. It read
+    #              66389 on jak-hd in the same window that read maxdev=1031 — a claimed 16 m jump
+    #              by a bone confined to 25 cm — because the spring that undoes a correction never
+    #              wrote to it, so the sum only ever saw one side of the argument. Not gated.
     local N6 MESHP MTEST MRAW MFIX RESJ
     N6=$(grep -ac '\[HD-PHYS6\] ag=' "$LC" || true)
     [ "${N6:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS6] line — the cycle-14 instrument never printed"; OK=0; }
     MESHP=$(grep -ao 'meshpen=[0-9.]*' "$LC" | sed 's/meshpen=//' | sort -g | tail -1)
     MRAW=$(grep -ao 'mraw=[0-9.]*' "$LC" | sed 's/mraw=//' | sort -g | tail -1)
     RESJ=$(grep -ao 'resjerk=[0-9.]*' "$LC" | sed 's/resjerk=//' | sort -g | tail -1)
+    RESP=$(grep -ao 'respath=[0-9.]*' "$LC" | sed 's/respath=//' | sort -g | tail -1)
     MTEST=$(grep -a 'meshtested=' "$LC" | awk '{if (match($0,/meshtested=[0-9]+/)) s+=substr($0,RSTART+11,RLENGTH-11)} END {print s+0}')
     MFIX=$(grep -a 'mfix=' "$LC" | awk '{if (match($0,/mfix=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
-    say "leg $TAG: cycle14 meshpen=${MESHP:-0} mraw=${MRAW:-0} meshtested=$MTEST mfix=$MFIX resjerk=${RESJ:-0}"
+    say "leg $TAG: cycle14 meshpen=${MESHP:-0} mraw=${MRAW:-0} meshtested=$MTEST mfix=$MFIX resjerk=${RESJ:-0} respath=${RESP:-0}"
     [ "${MTEST:-0}" -ge 1 ] || { say "FAIL($TAG): meshtested=0 — the mesh-surface audit never sampled a vertex, so every meshpen in this leg is an empty zero"; OK=0; }
     awk -v v="${MESHP:-0}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
       || { say "FAIL($TAG): meshpen=$MESHP — the skinned mesh surface ended a frame inside a body volume (owner blocker, mesh level)"; OK=0; }
@@ -570,8 +593,26 @@ run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
 # owner cycle-3c N + cycle-4 U: Maia's hair through her body, and the collar close-up while Jak
 # is lying down. Both live in the intro cinematic and nowhere else.
 WATCH=200 run_leg "D-INTRO" '#t' 2 expect-intro intro-start || FAILED=1
-# (C14-B/E) the mayor by name: his bow vs his torso, at mesh level, at his own hut
-WATCH=110 run_leg "D-MAYOR" '#t' 2 expect-mayor village1-hut '-113.00 11.50 40.00' || FAILED=1
+# (C14-B/E) the mayor by name: his bow vs his torso, at mesh level, at his own hut.
+# (C14c) THE WARP POINT WAS THE BUG, NOT THE PHYSICS. This leg ran `village1-hut` for two cycles
+# and reported "the mayor never bound/emitted a window" + "meshtested=0" every time. He is a BEACH
+# actor (decompiler_out/jak1/entities/beach-actors.json: etype mayor, trans -116.15 10.90 45.91),
+# and the village1-hut continue point loads beach with `:disp1 #f` (level-info.gc:151-166): beach
+# stops at status 'loaded, `birth` never runs on its entity table, so no mayor process ever exists.
+# Proof in the last run's own log: his ART loaded ("merc-load lvl=beach model=mayor-lod0") while
+# `ag=mayor-lod0` appears zero times and no `[HD-PHYS-RIDER] rig mayor-lod0` line is emitted at all
+# — and that rider line prints even for a rig that resolves chains=0, so this was absence, not a
+# chain-resolution failure (`chain N invalid|DROPPED` count in that log: 0).
+# `beach-start` (level-info.gc:295-311) displays BOTH beach and village1, so the mayor births; the
+# position override is unchanged and still parks Jak ~7 m from him.
+# (C14c-2) position: his OWN vis volume, not village1 ground 6 m off it. beach-actors.json gives
+# him visvol [[-492119.75,44632.48,171649.78],[-459351.75,61016.48,204417.78]] units =
+# [(-120.1,10.9,41.9),(-112.1,14.9,49.9)] m; the previous override (-113.00 11.50 40.00) sat
+# OUTSIDE that box on z and on village1's side of the boundary, which is why beach never became
+# inside-boxes? and its whole actor table stayed unborn (level.gc:1269-1281 -> all-visible?=#t ->
+# entity.gc:1091-1092 skips actors-update for the level). Standing on his own trans is the
+# smallest change that puts the camera where the vanilla game puts it when he is on screen.
+VIS=vi1 WATCH=110 run_leg "D-MAYOR" '#t' 2 expect-mayor beach-start '-116.15 11.00 45.91' || FAILED=1
 
 say ""
 say "run total: input-free frames sampled across all legs = $TOTIDLE"

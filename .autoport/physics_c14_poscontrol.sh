@@ -89,8 +89,32 @@ FAIL=0
 awk -v a="${R_A:-0}" -v d="${R_D:-0}" 'BEGIN{exit !(a+0 > d+0 && a+0 > 1.0)}' \
   || { say "FAIL: mraw did not CLIMB under a deliberate penetration ($R_A vs $R_D) — the mesh audit cannot see one"; FAIL=1; }
 [ "${F_A:-0}" -gt 0 ] || { say "FAIL: mfix=0 ARMED — the mesh resolve never fired on a deliberate penetration"; FAIL=1; }
-awk -v v="${P_A:-0}" 'BEGIN{exit !(v+0 > 0.0)}' \
-  || { say "FAIL: meshpen=0 ARMED — the blocker counter itself cannot rise, so its zeros prove nothing"; FAIL=1; }
+# (C14c) THIS ASSERTION IS DELIBERATELY CHANGED, AND THE CHANGE IS THE POINT — read before trusting
+# any zero below. It used to demand meshpen>0 under injection, on the correct principle that a
+# counter which can never rise proves nothing when it reads zero. That principle still holds; what
+# changed is WHICH counter carries the detection.
+#
+# The mesh resolve is no longer "push and hope": it bisects the segment [authored pose -> simulated
+# pose] for the largest fraction that is clear, and the authored pose is penetration-free against
+# every body volume by construction (there the sample and its own floor point are the same point).
+# So a feasible commit always exists and meshpen CANNOT be nonzero unless the guarantee itself is
+# broken. Demanding that it rise would now be demanding that the fix not work.
+#
+# meshpen therefore stops being the DETECTOR and becomes a CHECKED POSTCONDITION. The detection
+# moved to the two counters either side of the resolve, and both are gated above, unchanged:
+#   mraw  must CLIMB under injection  — the audit still SEES a deliberate mesh penetration
+#   mfix  must be > 0 under injection — the resolve still FIRES on one
+# and the anti-vacuous-zero rule is satisfied in its own terms: meshpen=0 is not "nobody looked",
+# it is "mfix commits were each re-audited AT the committed point and every one came back clear".
+# mfix is that backing count. A zero with mfix=0 would still be an empty zero and still fails.
+#
+# What this control can no longer prove is that a BROKEN clamp would be caught, and that is stated
+# rather than papered over. The residual it would leave is measured by the same re-audit that
+# produces meshpen, so the counter is falsifiable — it is just not falsifiable by injection.
+[ "${F_A:-0}" -gt 0 ] \
+  || { say "FAIL: mfix=0 ARMED — nothing was committed and re-audited, so meshpen=$P_A is an empty zero"; FAIL=1; }
+awk -v v="${P_A:-0}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
+  || { say "FAIL: meshpen=$P_A ARMED — the feasibility clamp FAILED to find a clear commit under injection"; FAIL=1; }
 [ "${I_D:-0}" -eq 0 ] || { say "FAIL: injected=$I_D DISARMED — the shipped data carries an armed control"; FAIL=1; }
 awk -v v="${P_D:-0}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
   || { say "FAIL: meshpen=$P_D DISARMED — the shipped build leaves mesh-level residual penetration"; FAIL=1; }

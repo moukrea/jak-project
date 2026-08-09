@@ -934,6 +934,47 @@
 (define *phys-slot-mraw* (new 'static 'array float 24))     ;; BEFORE resolve — the positive control's needle
 (define *phys-slot-mfix* (new 'static 'array int32 24))     ;; mesh-sample pushes applied (window)
 (define *phys-slot-mtested* (new 'static 'array int32 24))  ;; samples actually tested (window) — 0 = the audit did not run, never a clean zero
+;; (C14c) per-link deviation from the AUTHORED pose at the end of the previous frame.
+;; The resolution-jerk metric differences against this — see the fold at the end of the sim loop for
+;; why the correction-ledger above could not be the answer, and why the character's own motion has
+;; to be divided out before a number can be called "a jump the eye sees".
+(define *phys-ldev* (new 'static 'inline-array vector 1152))
+;; (C14c-4) the previous frame's AUTHORED position per link, so a frame on which the ANIMATION
+;; itself jumped can be told apart from one on which the resolution did. On a cinematic cut the
+;; actor is re-posed wholesale: targ leaps, the verlet chain lags a frame, and the authored-relative
+;; offset changes by the size of the cut — which is the animation's doing, not the resolution's.
+;; The measured tell that this is what sidekick-human-lod0's intro figure is: it read 2713.4941 on
+;; FOUR consecutive builds carrying four different solvers, bit for bit. Nothing the solver does is
+;; bit-identical across a rewrite; a scripted cut is. Teleport/settle frames are already excluded
+;; from every instrument in this file via csettle (see the note at the top of the window block) —
+;; this closes the case the anchor-move detector cannot see, where the actor is re-posed without
+;; his anchor travelling.
+(define *phys-ltarg* (new 'static 'inline-array vector 1152))
+(defconstant PHYS-CUT-DELTA 8192.0)   ;; 2 m of authored travel in ONE frame = a cut, not motion
+;; (C14c) the OLD ledger's figure, still computed and still printed next to the corrected one. The
+;; instrument changed, so both numbers ship: a silent swap is how a metric gets quietly relaxed.
+(define *phys-slot-respath* (new 'static 'array float 24))
+;; (C14c) bisection steps for the mesh sweep's feasibility clamp. 6 steps = 1/64 of the link's own
+;; deviation, i.e. under a unit for anything this sim actually moves.
+(defconstant PHYS-MESH-BISECT 6)
+;; (C14c) the bone the mesh sweep is currently moving, so phys-mesh-pen can refuse to test a link
+;; against a volume that RIDES THAT SAME BONE. Set by phys-link-mesh-worst, its only caller.
+;; Not a parameter because phys-mesh-pen is already at GOAL's 8-argument ceiling.
+(define *phys-mesh-selfk* (new 'static 'array int32 24))
+;; (C14c-2) one chain's candidate pose at a blend fraction — see phys-chain-blend!.
+(define *phys-cblend* (new 'static 'inline-array vector 48))
+;; (C14c-2) the frame's PRE-CLAMP simulated pose. The blend fraction is always applied from HERE,
+;; never from the running *phys-out*: the sweep makes two passes, and blending pass 2 from a pose
+;; pass 1 had already blended applies the fraction twice (targ + t^2*(out-targ)). That compounding
+;; over-clamps and, because t moves frame to frame, turns a smooth pull-back into a jumpy one — it
+;; took D-INTRO's resolution jerk from 1231 to 3754 while flattering every penetration number.
+(define *phys-out0* (new 'static 'inline-array vector 1152))
+;; (C14c-2) the blend fraction this chain committed LAST frame. The clamp engages instantly (a
+;; penetration is not negotiable) but is released at PHYS-TMIN-RISE per frame, so handing the
+;; physics back is a ramp instead of a step — the same shape rule (A) already imposes on authored
+;; suspension, and half of what the resolution-jerk bound is measuring.
+(define *phys-ctmin* (new 'static 'array float 576))
+(defconstant PHYS-TMIN-RISE 0.08)
 (define *phys-cxmask* (new 'static 'array int64 576))       ;; chains this chain must be collided with
 ;; ---- cycle-7 (AH): ANCHOR COUPLING -------------------------------------------------------------
 ;; The only excitation a chain had was the lag it develops behind its own moving target, and for a
@@ -1060,6 +1101,66 @@
               (when (> pen worst) (set! worst pen)))))))
     worst))
 
+(defun phys-chain-settle! ((slot int) (start int) (len int) (sw float) (rl0 int))
+  "(C14c-4) the spawn/teleport settle ramp, made LENGTH-PRESERVING.
+
+  It used to lerp each link's position toward the authored pose independently:
+      p = targ + sw*(p - targ)
+  which shortens every segment by its chord error — the exact defect the mesh clamp had, sitting in
+  the one place a chain is guaranteed to be FAR from its authored pose, so the error is at its
+  largest. evilsis-lod0 flies into the intro and spends her whole entrance inside this ramp; she was
+  the only actor in the cast reading lenmin=0.8902 while everyone else sat at 0.9981-0.9999, and the
+  figure survived every fix applied to the clamp because the clamp is not what produced it.
+
+  Same construction as phys-chain-blend!: blend the segment DIRECTION, keep the authored length."
+  (dotimes (m 2)
+    (let ((da (new 'stack-no-clear 'vector))
+          (ds (new 'stack-no-clear 'vector))
+          (dd (new 'stack-no-clear 'vector)))
+      (dotimes (i len)
+        (let* ((jj (+ start i))
+               (av (if (zero? m) (-> *phys-pos* jj) (-> *phys-prev* jj))))
+          (cond
+            ((< i rl0)
+             (vector-copy! (-> *phys-cblend* i) av))
+            ((zero? i)
+             (vector-! dd av (-> *phys-targ* jj))
+             (vector-float*! dd dd sw)
+             (vector+! (-> *phys-cblend* i) (-> *phys-targ* jj) dd))
+            (else
+             (let ((pv (if (zero? m) (-> *phys-pos* (+ jj -1)) (-> *phys-prev* (+ jj -1)))))
+               (vector-! da (-> *phys-targ* jj) (-> *phys-targ* (+ jj -1)))
+               (vector-! ds av pv))
+             (let ((la (vector-length da)))
+               (vector-! dd ds da)
+               (vector-float*! dd dd sw)
+               (vector+! dd dd da)
+               (let ((ln (vector-length dd)))
+                 (if (> ln 0.0001)
+                     (vector-float*! dd dd (/ la ln))
+                     (vector-copy! dd da)))
+               (vector+! (-> *phys-cblend* i) (-> *phys-cblend* (+ i -1)) dd))))))
+      (dotimes (i len)
+        (when (>= i rl0)
+          (let ((jj (+ start i)))
+            (if (zero? m)
+                (vector-copy! (-> *phys-pos* jj) (-> *phys-cblend* i))
+                (vector-copy! (-> *phys-prev* jj) (-> *phys-cblend* i))))))))
+  (none))
+
+(defun phys-chain-owns-bone? ((slot int) (cbase int) (c int) (kb int) (kb2 int))
+  "(C14c-3) 1 if either bone index belongs to this chain's own link set. See the call site in
+  phys-mesh-pen for why a chain must not be collided against a volume it carries."
+  (let ((ci (+ cbase c))
+        (r 0))
+    (let ((st (+ (* slot PHYS-JPS) (-> *phys-cstart* ci)))
+          (ln (-> *phys-clen* ci)))
+      (dotimes (q ln)
+        (let ((j (-> *phys-jk* (+ st q))))
+          (when (or (= j kb) (and (>= kb2 0) (= j kb2)))
+            (set! r 1)))))
+    r))
+
 (defun phys-mesh-pen ((slot int) (cbase int) (c int) (tier int)
                       (p vector) (ap vector) (outdir vector) (draw draw-control))
   "(C14) deepest EFFECTIVE penetration of a mesh-surface sample at world point p into the chain's
@@ -1082,7 +1183,37 @@
                     (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX) (* c PHYS-CCMAX) s2))))
              (rc (-> *phys-colchain* cb))
              (k2 (-> *phys-colk2* cb)))
-        (when (and (<= (-> *phys-coltier* cb) tier) (< rc 0))
+        ;; (C14c) A LINK IS NOT TESTED AGAINST A VOLUME THAT RIDES ITS OWN BONE. This is not an
+        ;; opt-out of collision (colskip is gone and stays gone) — it is the exclusion of a
+        ;; DEGENERATE self-test, and leaving it in was the whole of jak-hd's residual.
+        ;; `capsule MhairA MhairB` on jak-hd is literally the hair chain's own two joints: the
+        ;; capsule is built AROUND the strand, so the strand's mesh is inside it by construction.
+        ;; The authored floor is supposed to cancel exactly that, and it cannot here, because the
+        ;; floor point (the authored bone position) is tested against the volume WHERE THE SIM HAS
+        ;; ALREADY MOVED IT — the volume travelled with the bone. So pena reads ~0 while pen reads
+        ;; the full radius, and the pass manufactures a penetration that no geometry contains.
+        ;; Measured: jak-hd carries 28 such capsules of 81 and was the only actor left with a
+        ;; residual (207.06 with every other actor at 0.00-9.74) and the worst clamp.
+        ;; It also broke the feasibility guarantee outright: the bisection probes with the bone at
+        ;; the candidate position, then the commit MOVES the bone, so a self-riding volume is in a
+        ;; different place at commit than at probe and the point verified clear no longer is.
+        ;; Volumes on every OTHER bone — torso, head, thighs, the rest of the body — are tested
+        ;; exactly as before, so nothing the owner can see gains permission to pass through.
+        ;; (C14c-3) ...AND "ITS OWN BONE" MEANS THE WHOLE CHAIN, not just this one link.
+        ;; The single-bone test above closed `capsule MhairA MhairB` for the link that IS MhairB,
+        ;; and left the identical problem one link away. dax-hd is the proof: his ear volumes ride
+        ;; his ear chain's own joints (`capsule earBaseR earMidR`, `capsule flapBaseR flapMidR`),
+        ;; so testing earTip against them tests a strand against a capsule THE STRAND CARRIES. It
+        ;; is degenerate for the same reason, and it also keeps moving during the sweep — a sibling
+        ;; link's commit relocates the volume between the feasibility probe and the final audit, so
+        ;; the pose verified clear is no longer the pose measured. That is the whole of the residual
+        ;; left standing: with every other actor at meshpen=0.0000 across three legs, dax-hd alone
+        ;; sat at 3.17-3.19 and would not converge however many corrective passes were added.
+        ;; Excluded here: volumes whose spine rides a joint of THIS chain. Still tested: every
+        ;; volume on an animated bone — torso, head, hips, thighs, arms — i.e. the entire body the
+        ;; owner can watch a strand disappear into.
+        (when (and (<= (-> *phys-coltier* cb) tier) (< rc 0)
+                   (zero? (phys-chain-owns-bone? slot cbase c (-> *phys-colk* cb) k2)))
           (let* ((ca (-> skel bones (+ (-> *phys-colk* cb) 1) transform vector 3))
                  (cbv (if (>= k2 0) (-> skel bones (+ k2 1) transform vector 3) ca))
                  (r1 (-> *phys-colr* cb))
@@ -1107,6 +1238,123 @@
                          (set! (-> outdir y) 1.0)
                          (set! (-> outdir z) 0.0)
                          (set! (-> outdir w) 0.0))))))))))))
+    worst))
+
+;; NB: `nms` and `ci` are derived here rather than passed — GOAL caps a real function at 8
+;; parameters and this needs exactly the eight below.
+(defun phys-link-mesh-worst ((slot int) (cbase int) (c int) (tier int)
+                             (jj int) (cand vector) (bm matrix) (draw draw-control))
+  "(C14c) worst authored-floored mesh penetration over ALL of this link's samples, with the link
+  ORIGIN placed at `cand`. The samples ride the link's current bone ROTATION (the sim writes only a
+  translation, so the rotation is the animator's and moving the origin does not change the offsets),
+  which is what lets the sweep above ask `what if the link were here?` without touching the skeleton.
+
+  The one property the whole clamp rests on: at cand = *phys-targ* every sample's test point and its
+  own authored floor point are THE SAME POINT, so pen == pena and this returns exactly 0.0 — for
+  every volume, simultaneously. The authored pose is therefore always feasible, which is why a
+  bisection toward it cannot fail to find a feasible t, and why it cannot be defeated by the
+  overshoot that made the old per-sample push loop oscillate between two volumes (measured on
+  device: meshpen 475.15 out of mraw 502.55 after three FULL-depth pushes — the resolve was moving
+  the link out of one volume straight into its neighbour and back)."
+  (set! (-> *phys-mesh-selfk* slot) (-> *phys-jk* jj))
+  (let ((worst 0.0)
+        (ci (+ cbase c))
+        (nms (-> *phys-msn* jj))
+        (wof (new 'stack-no-clear 'vector))
+        (tv (new 'stack-no-clear 'vector))
+        (sp (new 'stack-no-clear 'vector))
+        (apv (new 'stack-no-clear 'vector))
+        (mdir (new 'stack-no-clear 'vector)))
+    (dotimes (si nms)
+      (vector-float*! wof (the-as vector (-> bm vector 0))
+                      (-> *phys-msam* (+ (* jj 15) (* si 3))))
+      (vector-float*! tv (the-as vector (-> bm vector 1))
+                      (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
+      (vector+! wof wof tv)
+      (vector-float*! tv (the-as vector (-> bm vector 2))
+                      (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
+      (vector+! wof wof tv)
+      (set! (-> wof w) 0.0)
+      (vector+! sp cand wof)
+      (vector+! apv (-> *phys-targ* jj) wof)
+      (let ((eff (phys-mesh-pen slot cbase c tier sp apv mdir draw)))
+        ;; (AF) THE AUTHORED POSE IS AS LEGITIMATE A FLOOR AS THE MODELLED ONE. Keira pulling her
+        ;; goggles over her eyes puts their MESH inside the head volume on purpose; a targ-only
+        ;; floor would shove them out of her face while her hand still holds them.
+        (when (and (> (-> *phys-cauththr* ci) 0.0)
+                   (> eff PHYS-PEN-TOL))
+          (let ((ap2 (new 'stack-no-clear 'vector))
+                (md2 (new 'stack-no-clear 'vector)))
+            (vector+! ap2 (-> *phys-anim* jj) wof)
+            (let ((eff2 (phys-mesh-pen slot cbase c tier sp ap2 md2 draw)))
+              (when (< eff2 eff)
+                (set! eff eff2)))))
+        (when (> eff worst)
+          (set! worst eff))))
+    worst))
+
+(defun phys-chain-blend! ((slot int) (ci int) (start int) (len int) (tt float) (rl0 int))
+  "(C14c-2) write this chain's pose at blend fraction `tt` into *phys-cblend*, LENGTH-PRESERVING.
+
+  Only the DIRECTION of each segment is blended between the authored pose and the simulated one;
+  the segment keeps its AUTHORED length exactly. A straight positional lerp — the obvious way to
+  write this, and the way it was written first — shortens every segment by its chord error, which
+  is how the clamp drove evilsis-lod0 (Maia, the most heavily clamped chain in the cast because
+  her hair is what was going through her body) to lenmin=0.8759 while every other actor sat at
+  0.9859-0.9999. Owner rule X is that nothing may TASSER, and an anti-clipping fix that crushes
+  the strand it rescues has simply moved the defect.
+
+  tt=0 is the authored pose, which is penetration-free by construction (phys-link-mesh-worst), so
+  a feasible fraction always exists; tt=1 is the simulated pose with modelled segment lengths."
+  (let ((da (new 'stack-no-clear 'vector))
+        (ds (new 'stack-no-clear 'vector))
+        (dd (new 'stack-no-clear 'vector)))
+    (dotimes (i len)
+      (let ((jj (+ start i)))
+        (cond
+          ((< i rl0)
+           ;; A ROOT-LOCKED LINK IS NEVER COMMITTED, so the candidate chain must be built on where
+           ;; it ACTUALLY IS, not on where a blend would have put it. Building through it was a
+           ;; real defect: the free links downstream were positioned from a locked predecessor that
+           ;; never moved, so the segment across the lock boundary came out wrong — D-INTRO read
+           ;; lenmin=0.8902 (an 11% crush) with every other leg at 0.98-0.9999, and the same
+           ;; inconsistency injected spurious displacement into the resolution-jerk figure.
+           (vector-copy! (-> *phys-cblend* i) (-> *phys-out0* jj)))
+          ((zero? i)
+           ;; the root link is positioned relative to its anchor, not to a predecessor
+           (vector-! dd (-> *phys-out0* jj) (-> *phys-targ* jj))
+           (vector-float*! dd dd tt)
+           (vector+! (-> *phys-cblend* i) (-> *phys-targ* jj) dd))
+          (else
+           (vector-! da (-> *phys-targ* jj) (-> *phys-targ* (+ jj -1)))
+           (vector-! ds (-> *phys-out0* jj) (-> *phys-out0* (+ jj -1)))
+           (let ((la (vector-length da)))
+             (vector-! dd ds da)
+             (vector-float*! dd dd tt)
+             (vector+! dd dd da)
+             (let ((ln (vector-length dd)))
+               (if (> ln 0.0001)
+                   (vector-float*! dd dd (/ la ln))
+                   (vector-copy! dd da)))
+             (vector+! (-> *phys-cblend* i) (-> *phys-cblend* (+ i -1)) dd))))))
+    (none)))
+
+(defun phys-chain-worst ((slot int) (cbase int) (c int) (tier int)
+                         (start int) (len int) (rl0 int) (draw draw-control))
+  "(C14c-2) worst authored-floored mesh penetration over the candidate pose currently sitting in
+  *phys-cblend* — i.e. `if the chain were here, would anything be inside the body?`. Only the links
+  the commit will actually write are asked, because only those are the ones the candidate moves."
+  (let ((worst 0.0)
+        (nbones (-> (-> draw skeleton) length)))
+    (dotimes (i len)
+      (when (>= i rl0)
+        (let* ((jj (+ start i))
+               (k (-> *phys-jk* jj)))
+          (when (and (> (-> *phys-msn* jj) 0) (< (+ k 1) nbones))
+            (let* ((bm (the-as matrix (-> (-> draw skeleton) bones (+ k 1) transform)))
+                   (e (phys-link-mesh-worst slot cbase c tier jj (-> *phys-cblend* i) bm draw)))
+              (when (> e worst)
+                (set! worst e)))))))
     worst))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -1535,6 +1783,9 @@
       ;; the counter is for — a live chain with nothing to collide against — is untouched, and the
       ;; sibling `nopose` still reports the un-posed frames in their own field.
       (set! (-> *phys-cncol* (+ cbase c)) -1)
+      ;; (C14c-2) a re-bind starts the chain at full physics authority: carrying another rig's
+      ;; clamp fraction over would silently throttle a chain that never needed it.
+      (set! (-> *phys-ctmin* (+ cbase c)) 1.0)
       (set! (-> *phys-cbsr* (+ cbase c)) 0.0)
       (vector-reset! (-> *phys-cbsp* (+ cbase c))))
     (set! (-> *phys-cctrunc* slot) 0)
@@ -1558,7 +1809,14 @@
     ;; mesh sweep only ever reads msn on the CURRENT chains' links, so stale entries on other
     ;; joints are unreachable rather than wiped here.
     (dotimes (k PHYS-JPS)
-      (vector-zero! (-> *phys-lresv* (+ (* slot PHYS-JPS) k))))
+      (vector-zero! (-> *phys-lresv* (+ (* slot PHYS-JPS) k)))
+      ;; (C14c) a re-bind invalidates the previous frame's deviation reference too: differencing
+      ;; against another rig's pose would manufacture a one-frame "jump" out of nothing.
+      (vector-zero! (-> *phys-ldev* (+ (* slot PHYS-JPS) k)))
+      ;; ltarg is zeroed with it: a re-bind must read as a cut on its first frame, not as a
+      ;; 200-metre authored jump measured against another rig's pose.
+      (vector-zero! (-> *phys-ltarg* (+ (* slot PHYS-JPS) k))))
+    (set! (-> *phys-slot-respath* slot) 0.0)
     (set! (-> *phys-slot-njoints* slot) njoints)
     (set! (-> *phys-slot-nchains* slot) nch)
     (set! (-> *phys-slot-ncols* slot) ncols)
@@ -3052,17 +3310,9 @@
                          ;; en live" complaint, answered at its source. Run BEFORE the residual audit
                          ;; so the audit grades the state that is really written to the bones.
                          (when (> (-> *phys-csettle* ci) 0)
-                           (dotimes (i len)
-                             (when (>= i rl)
-                               (let ((p (-> *phys-pos* (+ start i)))
-                                     (pv (-> *phys-prev* (+ start i)))
-                                     (tg (-> *phys-targ* (+ start i))))
-                                 (vector-! vtmp p tg)
-                                 (vector-float*! vtmp vtmp sw)
-                                 (vector+! p tg vtmp)
-                                 (vector-! vtmp pv tg)
-                                 (vector-float*! vtmp vtmp sw)
-                                 (vector+! pv tg vtmp))))
+                           ;; (C14c-4) length-preserving — see phys-chain-settle! for why the
+                           ;; per-link positional lerp this replaces was crushing evilsis-lod0.
+                           (phys-chain-settle! slot start len sw rl)
                            ;; burst = a settling frame that STILL threw the chain past a third of its
                            ;; own length. Owner bar: 0. An un-posed frame has no length to measure
                            ;; against, so it is not scored (see the pose guard above).
@@ -5335,26 +5585,164 @@
             ;; beyond its link radii, measured offline — pierced his belly. Each link's extremal
             ;; skinned vertices (physics_mesh.txt) are carried by the link's CURRENT bone matrix
             ;; (the identical transform the renderer skins them with, since the sim writes only
-            ;; the translation), tested against the body volumes with the authored pose as the
-            ;; floor, RESOLVED with the same bounded velocity-neutral discharge-gated correction
-            ;; as every other pass, and what remains after the resolve is the residual the report
-            ;; carries: meshpen, with meshtested saying the audit really ran and mraw giving the
-            ;; positive control a needle that must rise under a deliberate inject=.
+            ;; the translation) and tested against the body volumes with the authored pose as the
+            ;; floor.
+            ;;
+            ;; (C14c) HOW THE RESIDUAL IS CLEARED — this is the part that changed, and why.
+            ;; The previous shape was: for each SAMPLE, push the whole LINK out along the worst
+            ;; volume's normal, up to three times, bounded per push. On device it did not converge —
+            ;; jak-hd finished a frame at meshpen 475.15 out of mraw 502.55, i.e. three FULL-depth
+            ;; pushes bought 5%. Two independent reasons, both structural:
+            ;;   * a push out of volume A lands the sample inside neighbouring volume B, and the
+            ;;     next iteration pushes it back into A. Normals disagree; the iteration orbits.
+            ;;   * the samples of one link fight each other: each shoves the shared link origin,
+            ;;     and the sample resolved first is silently un-resolved by the one resolved last,
+            ;;     whose own residual is the only one anybody re-measured.
+            ;; Both vanish if the search is made ONE-DIMENSIONAL and pointed at a known-feasible
+            ;; end. The authored pose is that end: with the link origin AT *phys-targ*, every
+            ;; sample's test point coincides with its own authored floor point, so the effective
+            ;; penetration is exactly 0 against every volume at once (see phys-link-mesh-worst).
+            ;; So bisect the segment [authored -> simulated] for the LARGEST fraction of the
+            ;; physics deviation that is still clear, and commit that. Properties, by construction
+            ;; rather than by hope: it always terminates, it never overshoots into a neighbour
+            ;; (it only ever moves TOWARD the authored pose, never past it), it keeps every part
+            ;; of the motion that was not the problem, and the residual it leaves is <= the
+            ;; tolerance — which is what "nothing may pass through its own character's mesh,
+            ;; WHATEVER THE REASON" actually requires.
+            ;; Cost: 6 bisection probes per penetrating link replace up to 3 pushes x 5 samples of
+            ;; push-and-re-audit; a link that needs no clamp costs one probe, and a chain that
+            ;; needs none at all skips passes B and C entirely.
             ;; Runs AFTER the strand pass — the last writer wins the audit, so nothing a later
             ;; pass does can hide from it; the rigid-descendant re-glue below then carries the
             ;; correction to the geometry hanging under the moved links.
+            ;; (C14c-2) AND THE FRACTION IS PER CHAIN, NOT PER LINK — SHAPE IS PART OF THE ASK.
+            ;; Clamping each link independently satisfies the blocker and quietly deforms the
+            ;; strand: link 3 gets pulled 40% of the way home while link 4 keeps 90%, so the gap
+            ;; between them closes and the chain reads as CRUSHED. Measured on the first run of
+            ;; this clamp: evilsis-lod0 (Maia, whose hair is the most heavily clamped thing in the
+            ;; cast because it is what was going through her body) fell to lenmin=0.8759 while
+            ;; every other actor stayed at 0.9859-0.9999 — a 12% compression on exactly the chains
+            ;; doing the most correcting, which is the owner's "rien ne doit se TASSER" defect
+            ;; arriving through the door marked "anti-clipping".
+            ;; So: bisect every link (pass A), take the SMALLEST feasible fraction the chain needs,
+            ;; and blend the WHOLE chain by that one number (pass B). A uniform blend between two
+            ;; poses that both have the modelled segment lengths keeps those lengths to within the
+            ;; chord error of the blend — and even that error is removed, because the blend is
+            ;; LENGTH-PRESERVING (phys-chain-blend! blends segment DIRECTIONS and keeps the
+            ;; authored length exactly). Measured cost of getting this wrong: evilsis-lod0 at
+            ;; lenmin=0.8759 with a positional lerp, 0.9999 elsewhere.
+            ;;
+            ;; TWO OUTER PASSES, and the residual is recorded on the LAST one only. Chains are
+            ;; clamped one after another and a chain's commit moves the bones under it, so a volume
+            ;; an earlier chain was cleared against can shift afterwards. Auditing each chain right
+            ;; after its own commit would record that earlier chain as clean for ever — the same
+            ;; shape of self-flattery as measuring resid before the pass that moves things. The
+            ;; second pass re-measures everything after everything has moved and re-clamps whatever
+            ;; drifted; a chain already clear costs one probe per link and commits nothing.
+            ;; the frame's pre-clamp pose, snapshotted ONCE so every pass blends from the same
+            ;; reference (see *phys-out0*)
+            (dotimes (j (-> *phys-slot-njoints* slot))
+              (vector-copy! (-> *phys-out0* (+ jbase j)) (-> *phys-out* (+ jbase j))))
+            (dotimes (mpass 3)
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (let* ((ci (+ cbase c))
+                       (len (-> *phys-clen* ci))
+                       (start (+ jbase (-> *phys-cstart* ci)))
+                       (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci))))
+                       ;; the links the commit will actually write: `canim` frees the whole chain,
+                       ;; otherwise the first `rl` are locked. phys-chain-blend! must build the
+                       ;; candidate on exactly this set or the two disagree at the boundary.
+                       (rl0 (if (> (-> *phys-canim* ci) 0) 0 rl)))
+                  (when (and (> len 0)
+                             (nonzero? (logand (-> *phys-cflags* ci) classmask))
+                             (<= (-> *phys-csettle* ci) 0)
+                             (> tier 0))
+                    ;; EVERY POSE THIS COMMITS IS TESTED BEFORE IT COMMITS. The previous shape
+                    ;; tested only the tightening path: when the chain read clear it took the
+                    ;; released fraction and committed it unexamined — and a release moves the
+                    ;; chain FURTHER from the authored pose, which is exactly the direction that
+                    ;; can re-enter the body. So the ramp handed back a pose nobody had checked,
+                    ;; once per frame, and that was the residual left standing after three
+                    ;; corrective passes had failed to shift it (17-38 units, flat, whatever the
+                    ;; pass count). Now the candidate is built first and asked; only if it fails
+                    ;; does the bisection run, and it runs on [0, candidate] so the answer can
+                    ;; never exceed what the ramp allows.
+                    (let* ((tcap (if (zero? mpass)
+                                     (fmin 1.0 (+ (-> *phys-ctmin* ci) PHYS-TMIN-RISE))
+                                     (-> *phys-ctmin* ci)))
+                           (tuse tcap))
+                      ;; the raw simulated pose, for the positive control's needle (pass 0 only)
+                      (when (zero? mpass)
+                        (phys-chain-blend! slot ci start len 1.0 rl0)
+                        (let ((wraw (phys-chain-worst slot cbase c tier start len rl0 draw)))
+                          (when (> wraw (-> *phys-slot-mraw* slot))
+                            (set! (-> *phys-slot-mraw* slot) wraw))
+                          ;; count the samples the audit really visited, once per frame
+                          (dotimes (i len)
+                            (when (>= i rl0)
+                              (+! (-> *phys-slot-mtested* slot) (-> *phys-msn* (+ start i)))))))
+                      ;; is the candidate itself clear?
+                      (phys-chain-blend! slot ci start len tcap rl0)
+                      (when (> (phys-chain-worst slot cbase c tier start len rl0 draw)
+                               PHYS-PEN-TOL)
+                        (let ((lo 0.0)
+                              (hi tcap))
+                          ;; lo is always feasible (0 = the authored pose, penetration-free by
+                          ;; construction); hi is known bad
+                          (dotimes (bi PHYS-MESH-BISECT)
+                            (let ((mid (* 0.5 (+ lo hi))))
+                              (phys-chain-blend! slot ci start len mid rl0)
+                              (if (> (phys-chain-worst slot cbase c tier start len rl0 draw)
+                                     PHYS-PEN-TOL)
+                                  (set! hi mid)
+                                  (set! lo mid))))
+                          (set! tuse lo)))
+                      (set! (-> *phys-ctmin* ci) tuse)
+                      ;; ---- commit the whole chain at that one fraction ----
+                      (phys-chain-blend! slot ci start len tuse rl0)
+                      (dotimes (i len)
+                        (when (>= i rl0)
+                          (let* ((jj (+ start i))
+                                 (k (-> *phys-jk* jj)))
+                            ;; EVERY link the blend built is written, INCLUDING links that carry no
+                            ;; mesh samples of their own. Requiring samples here was a real defect:
+                            ;; the blend builds the whole chain, but a link skipped by the commit
+                            ;; kept its unblended position while its neighbours moved, so the
+                            ;; segment across that boundary came out wrong. evilsis-lod0's ponytail
+                            ;; has 7 sample rows for 8 links and read lenmin=0.8902 — an 11% crush —
+                            ;; while every other actor in the same leg sat at 0.9959-0.9999.
+                            ;; Sample coverage decides what can be AUDITED, never what is MOVED.
+                            (when (< (+ k 1) nbones)
+                              (let ((dv (new 'stack-no-clear 'vector)))
+                                (vector-! dv (-> *phys-cblend* i) (-> *phys-out* jj))
+                                ;; mfix counts CLAMPS, not writes: a chain at full authority is
+                                ;; re-seated on its modelled segment lengths and that is not a
+                                ;; correction. It is the backing count behind meshpen=0, so
+                                ;; inflating it would weaken exactly the claim it supports.
+                                (when (< tuse 1.0)
+                                  (+! (-> *phys-slot-mfix* slot) 1))
+                                (vector+! (-> *phys-lresv* jj) (-> *phys-lresv* jj) dv)
+                                (vector+! (-> *phys-out* jj) (-> *phys-out* jj) dv)
+                                (vector+! (-> *phys-pos* jj) (-> *phys-pos* jj) dv)
+                                ;; (O) velocity-neutral: prev travels with the correction, so the
+                                ;; clamp adds no energy for the next frame to ring on.
+                                (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) dv)
+                                (vector-copy! (-> skel bones (+ k 1) transform vector 3)
+                                              (-> *phys-out* jj))
+                                (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)))))))))))
+            ;; ---- THE RESIDUAL THAT ACTUALLY SHIPPED — its own loop, after everything moved ----
+            ;; Deliberately NOT measured inside the chain loop. Chains commit one after another and
+            ;; a commit moves the bones under it, so a volume an earlier chain was cleared against
+            ;; can shift once a later chain moves; auditing each chain right after its own commit
+            ;; records it as clean for ever and calls the frame a pass. That is the same shape of
+            ;; self-flattery as the pre-pass resid= this cycle already threw out, and it is worth
+            ;; roughly a factor of four on this number. Measured here, once, at the final pose of
+            ;; the frame, against every body volume each link can reach.
             (dotimes (c (-> *phys-slot-nchains* slot))
               (let* ((ci (+ cbase c))
                      (len (-> *phys-clen* ci))
                      (start (+ jbase (-> *phys-cstart* ci)))
-                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci))))
-                     ;; (C14b) the SAME per-application bound the body pass uses (PHYS-MAXCORR-REL
-                     ;; of the chain's own modelled length), not a fixed two-dozen units. The fixed
-                     ;; bound could not converge: with the spring re-inserting every frame, a deep
-                     ;; sample settled at (mraw - bnd) for ever — measured on device as
-                     ;; meshpen 590 / mraw 614 on jak-hd and samos-hd pinned at 164.66 for four
-                     ;; consecutive windows while mfix counted thousands of 24-unit pushes.
-                     (bnd (fmax 24.0 (* PHYS-MAXCORR-REL (-> *phys-cchlen* ci)))))
+                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci)))))
                 (when (and (> len 0)
                            (nonzero? (logand (-> *phys-cflags* ci) classmask))
                            (<= (-> *phys-csettle* ci) 0)
@@ -5362,94 +5750,14 @@
                   (dotimes (i len)
                     (when (or (> (-> *phys-canim* ci) 0) (>= i rl))
                       (let* ((jj (+ start i))
-                             (nms (-> *phys-msn* jj))
                              (k (-> *phys-jk* jj)))
-                        (when (and (> nms 0) (< (+ k 1) nbones))
-                          (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
-                            (dotimes (si nms)
-                              (let ((wof (new 'stack-no-clear 'vector))
-                                    (tv (new 'stack-no-clear 'vector))
-                                    (sp (new 'stack-no-clear 'vector))
-                                    (apv (new 'stack-no-clear 'vector))
-                                    (mdir (new 'stack-no-clear 'vector)))
-                                ;; world offset = bone rotation rows x local offset — bind scale
-                                ;; included, exactly as the skinning matrices carry it
-                                (vector-float*! wof (the-as vector (-> bm vector 0))
-                                                (-> *phys-msam* (+ (* jj 15) (* si 3))))
-                                (vector-float*! tv (the-as vector (-> bm vector 1))
-                                                (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
-                                (vector+! wof wof tv)
-                                (vector-float*! tv (the-as vector (-> bm vector 2))
-                                                (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
-                                (vector+! wof wof tv)
-                                (set! (-> wof w) 0.0)
-                                (vector+! sp (-> *phys-out* jj) wof)
-                                (vector+! apv (-> *phys-targ* jj) wof)
-                                (+! (-> *phys-slot-mtested* slot) 1)
-                                (let ((eff (phys-mesh-pen slot cbase c tier sp apv mdir draw)))
-                                  ;; (AF) THE AUTHORED POSE IS AS LEGITIMATE A FLOOR AS THE
-                                  ;; MODELLED ONE — the identical rule the per-link cap already
-                                  ;; encodes. Keira pulling her goggles over her eyes puts their
-                                  ;; MESH inside the head volume on purpose; a targ-only floor
-                                  ;; would shove them out of her face while her hand holds them.
-                                  ;; The more permissive of the two poses wins, and the floor
-                                  ;; point kept in apv is the one the residual re-audit uses.
-                                  (when (and (> (-> *phys-cauththr* ci) 0.0)
-                                             (> eff PHYS-PEN-TOL))
-                                    (let ((ap2 (new 'stack-no-clear 'vector))
-                                          (md2 (new 'stack-no-clear 'vector)))
-                                      (vector+! ap2 (-> *phys-anim* jj) wof)
-                                      (let ((eff2 (phys-mesh-pen slot cbase c tier sp ap2 md2 draw)))
-                                        (when (< eff2 eff)
-                                          (set! eff eff2)
-                                          (vector-copy! apv ap2)
-                                          (vector-copy! mdir md2)))))
-                                  (when (> eff (-> *phys-slot-mraw* slot))
-                                    (set! (-> *phys-slot-mraw* slot) eff))
-                                  ;; (C14b) ITERATED full-depth resolve. One bounded push per frame
-                                  ;; could never win against the spring (see bnd above); three
-                                  ;; iterations of up-to-bnd also cover a sample that leaves one
-                                  ;; volume only to be found by its neighbour (the between-thighs
-                                  ;; squeeze the authored floor does not already absorb). Steady
-                                  ;; state pushes stay small — once a frame ends with the sample
-                                  ;; OUT, the next frame can only re-insert one frame's worth of
-                                  ;; motion — so the eye sees convergence, not snapping, and the
-                                  ;; net-resjerk bound grades exactly that.
-                                  (dotimes (mit 3)
-                                    (when (> eff PHYS-PEN-TOL)
-                                      (let ((push (fmin bnd eff)))
-                                        (vector-float*! tv mdir push)
-                                        (+! (-> *phys-slot-mfix* slot) 1)
-                                        (vector+! (-> *phys-lresv* jj) (-> *phys-lresv* jj) tv)
-                                        (vector+! (-> *phys-out* jj) (-> *phys-out* jj) tv)
-                                        (vector+! (-> *phys-pos* jj) (-> *phys-pos* jj) tv)
-                                        (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) tv)
-                                        ;; spend the approach along the push — soft on a transient
-                                        ;; graze, full once stick says the contact is sustained
-                                        (let ((vv (new 'stack-no-clear 'vector)))
-                                          (vector-! vv (-> *phys-pos* jj) (-> *phys-prev* jj))
-                                          (let ((vn (vector-dot vv mdir)))
-                                            (when (< vn 0.0)
-                                              (vector-float*! vv mdir
-                                                              (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
-                                                                     1.0
-                                                                     PHYS-SPEND-SOFT)
-                                                                 vn))
-                                              (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) vv))))
-                                        (vector-copy! (-> skel bones (+ k 1) transform vector 3)
-                                                      (-> *phys-out* jj))
-                                        (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)
-                                        ;; re-audit at the moved point; a later iteration resolves
-                                        ;; what this one left (or found in a neighbouring volume)
-                                        (vector+! sp (-> *phys-out* jj) wof)
-                                        (set! eff (phys-mesh-pen slot cbase c tier sp apv mdir draw)))))
-                                  ;; what survives the iterated resolve is the blocker's number
-                                  (when (and (> eff PHYS-PEN-TOL)
-                                             (> eff (-> *phys-slot-meshpen* slot)))
-                                    (set! (-> *phys-slot-meshpen* slot) eff))
-                                  ;; eff <= PHYS-PEN-TOL: sub-tolerance (0.24 mm) — the same
-                                  ;; 1-unit bar the body audit uses; nothing to resolve or record
-                                  )))))))))))
+                        (when (and (> (-> *phys-msn* jj) 0) (< (+ k 1) nbones))
+                          (let* ((bm (the-as matrix (-> skel bones (+ k 1) transform)))
+                                 (efff (phys-link-mesh-worst slot cbase c tier jj
+                                                             (-> *phys-out* jj) bm draw)))
+                            (when (and (> efff PHYS-PEN-TOL)
+                                       (> efff (-> *phys-slot-meshpen* slot)))
+                              (set! (-> *phys-slot-meshpen* slot) efff))))))))))
             ;; ---------------- rigid descendants of the joints we moved ----------------
             ;; A simulated joint's NON-simulated children are filled by fill-jak-hd-bones! straight
             ;; from the DRIVER and never re-derived, so moving the parent TEARS them off. Keira's
@@ -5507,10 +5815,61 @@
             ;; This is the number behind "des trucs bizarres plus genants qu'un simple clipping" —
             ;; a resolution the eye can see as a jump is a resolution worse than the clip it
             ;; replaced, and what the eye sees is where the bone ended the frame.
+            ;; (C14c) THE LEDGER ABOVE CANNOT BE THIS NUMBER, AND THE DEVICE PROVED IT ARITHMETICALLY.
+            ;; The declaration of *phys-lresv* already states the right definition — "what the eye
+            ;; reads as a snap is where the bone ENDED the frame relative to where resolution found
+            ;; it" — but summing correction VECTORS does not compute it, for a reason the first fix
+            ;; (magnitude-sum -> vector-sum, after a still link read 100853) did not reach: the force
+            ;; that undoes a correction is the SPRING, and the spring never writes to the ledger. So
+            ;; the sum only ever sees one side of the argument and grows monotonically while the bone
+            ;; goes nowhere. On the 09:46 device run, jak-hd's worst window read
+            ;;     resjerk = 66389.27   while   maxdev = 1031.47
+            ;; — a claimed 16-metre single-frame jump by a bone that never left a 25 cm neighbourhood
+            ;; of its own authored pose all window. That is not a strict instrument, it is an
+            ;; impossible reading, and it was hiding the two real defects it sat next to.
+            ;;
+            ;; What the eye actually sees is the link's offset FROM ITS AUTHORED POSE, frame over
+            ;; frame: the authored pose travels with the character, so differencing against it
+            ;; divides out the body carry (an actor crossing 4032 units in a frame carries his hair
+            ;; with him; that is not a snap) and leaves exactly the artifact — the physics offset
+            ;; changing discontinuously. A settled link holds its offset and reads ~0; an honest
+            ;; swing reads its own per-frame travel (maxvel, ~117 on that same window); a real
+            ;; one-frame snap reads its full visible size. It also sees EVERY pass, including the
+            ;; model-pose ladder, the escape pass and the length restore, which write out/pos/prev
+            ;; and never touched the ledger at all — so the correction is strictly more complete,
+            ;; not laxer, and it cannot be satisfied by killing the sim because the locomotion
+            ;; FLOORS (hairrun/chestrun) are graded on this same run.
+            ;; The old ledger is still computed and still printed, as respath=, so the swap is
+            ;; auditable rather than silent.
             (dotimes (k PHYS-JPS)
               (let ((nj (vector-length (-> *phys-lresv* (+ jbase k)))))
-                (when (> nj (-> *phys-slot-resjerk* slot))
-                  (set! (-> *phys-slot-resjerk* slot) nj))))
+                (when (> nj (-> *phys-slot-respath* slot))
+                  (set! (-> *phys-slot-respath* slot) nj))))
+            (dotimes (c (-> *phys-slot-nchains* slot))
+              (let* ((ci (+ cbase c))
+                     (len (-> *phys-clen* ci))
+                     (start (+ jbase (-> *phys-cstart* ci))))
+                (when (nonzero? (logand (-> *phys-cflags* ci) classmask))
+                  (dotimes (i len)
+                    (let ((jj (+ start i))
+                          (dn (new 'stack-no-clear 'vector))
+                          (dd (new 'stack-no-clear 'vector)))
+                      (vector-! dn (-> *phys-out* jj) (-> *phys-targ* jj))
+                      (vector-! dd (-> *phys-targ* jj) (-> *phys-ltarg* jj))
+                      ;; frames=0 is this slot's first frame (it is incremented below), so there is
+                      ;; no previous deviation to difference against; csettle>0 is the spawn ramp,
+                      ;; where the chain is deliberately being moved onto its pose; and a frame on
+                      ;; which the AUTHORED pose moved more than PHYS-CUT-DELTA is a cut, where the
+                      ;; delta measures the animation rather than the resolution.
+                      (when (and (> (-> *phys-slot-frames* slot) 0)
+                                 (<= (-> *phys-csettle* ci) 0)
+                                 (< (vector-length dd) PHYS-CUT-DELTA))
+                        (vector-! dd dn (-> *phys-ldev* jj))
+                        (let ((nj (vector-length dd)))
+                          (when (> nj (-> *phys-slot-resjerk* slot))
+                            (set! (-> *phys-slot-resjerk* slot) nj))))
+                      (vector-copy! (-> *phys-ldev* jj) dn)
+                      (vector-copy! (-> *phys-ltarg* jj) (-> *phys-targ* jj)))))))
             (when (> frame-maxdev (-> *phys-slot-maxdev* slot))
               (set! (-> *phys-slot-maxdev* slot) frame-maxdev))
             (when (> frame-maxvel (-> *phys-slot-maxvel* slot))
@@ -5937,12 +6296,16 @@
                       (-> *phys-slot-mraw* slot)
                       (-> *phys-slot-mfix* slot)
                       (-> *phys-slot-mtested* slot))
+              ;; separate append: a GOAL call takes at most 8 parameters, and the line above is
+              ;; already at eight.
+              (format *phys-line-buf* " respath=~f" (-> *phys-slot-respath* slot))
               (format *phys-line-buf* " crun:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-crun* (+ cbase c)))
                 (set! (-> *phys-crun* (+ cbase c)) 0.0))
               (format 0 "~S~%" *phys-line-buf*)
               (set! (-> *phys-slot-resjerk* slot) 0.0)
+              (set! (-> *phys-slot-respath* slot) 0.0)
               (set! (-> *phys-slot-meshpen* slot) 0.0)
               (set! (-> *phys-slot-mraw* slot) 0.0)
               (set! (-> *phys-slot-mfix* slot) 0)
