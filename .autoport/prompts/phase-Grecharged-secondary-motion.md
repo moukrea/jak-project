@@ -932,3 +932,12 @@ Le Maire échoue sur « warp never landed » : on ne sait rien de sa physique pa
 => Il remplace la navigation in-world comme source des chiffres ; garder 1-2 cas en scène réelle
    comme contrôle de non-régression. Ça débloque le Maire immédiatement et rend atteignable la
    couverture des 60 modèles que la spec exige.
+
+### COUVERTURE — OWNER 2026-08-09 22:30 : « sur tous les acteurs du jeu, seulement deux au-dessus du seuil ? »
+NON, et il a raison de tiquer. `resjerk`/`meshpen` sont rapportés PAR JAMBE (max toutes chaînes de la
+scène), pas par acteur. Un seul modèle (`mayor-lod0`) a une ligne nominative dans le rapport actuel ;
+les 45+ autres ne sont mesurés NULLE PART. Trois scènes ne couvrent pas 60 modèles.
+=> EXIGENCE : un `resjerk` ET un `meshpen` PAR MODÈLE, plus la FRACTION DE COUVERTURE annoncée
+   explicitement (« N / 60 modèles réellement mesurés »). Un maximum de scène ne peut plus passer
+   pour une couverture du cast. Gate C14-COV : minimum 20 modèles nominatifs, sinon échec.
+=> C'est le banc d'essai (SPEC §14) qui rend ça atteignable : spawn par nom + toutes les animations.

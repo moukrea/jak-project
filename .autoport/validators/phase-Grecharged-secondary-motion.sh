@@ -513,4 +513,18 @@ sys.exit(0 if v else 1)
 PYC14D
 grep -qiE "(bang|meche)[^\n]{0,60}(ear|oreille)[^\n]{0,80}(smooth|no oscill|sans oscill|lisse|bounded|borne)" "$R" || fail "C14-D: bangs-vs-ears interaction not shown smooth"
 
+
+# C14-COV: a LEG maximum is not cast coverage. The owner caught this: three scenes contain a
+# handful of actors, and 45+ of the 60 physics models had never been measured at all — while the
+# report read as if the cast were covered. Require PER-MODEL numbers and a stated count.
+python3 - "$R" <<'PYCOV' || fail "C14-COV: fewer than 20 models carry their OWN resjerk/meshpen line — a per-leg maximum hides every actor that scene did not contain (owner 2026-08-09)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+per=set(re.findall(r'\b([a-z][a-z0-9]*(?:-[a-z0-9]+)*-(?:lod0|hd))\b[^\n]{0,120}?resjerk\s*=\s*[0-9.]+',t))
+sys.stderr.write(f"  models with their own resjerk: {len(per)}\n")
+sys.exit(0 if len(per) >= 20 else 1)
+PYCOV
+grep -qiE "(models? (measured|covered)|modeles? mesur)[^\n]{0,40}[0-9]+ */ *[0-9]+" "$R" \
+  || fail "C14-COV: the report must state the coverage fraction explicitly (N of 60 models actually measured)"
+
 echo "[Grecharged-secondary-motion PASS]"
