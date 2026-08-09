@@ -45,6 +45,9 @@ cleanup(){
   # string reaches the DEVICE shell, and prove it cleared rather than assuming it.
   $ADB -s "$S" shell "setprop debug.opengoal.level.warp ''" >/dev/null 2>&1 </dev/null || true
   $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos ''" >/dev/null 2>&1 </dev/null || true
+  # (C14) the locomotion driver must never survive the run — a held stick on the OWNER's next
+  # launch would walk Jak off a cliff on his own phone. Same quote-the-whole-command rule as warp.
+  $ADB -s "$S" shell "setprop debug.opengoal.cpad_inject ''" >/dev/null 2>&1 </dev/null || true
   local WLEFT
   WLEFT=$($ADB -s "$S" shell "getprop debug.opengoal.level.warp; getprop debug.opengoal.level.warp.pos" 2>/dev/null | tr -d '\r\n ')
   [ -z "$WLEFT" ] || say "cleanup WARNING: warp props NOT cleared (left: $WLEFT) — the owner's next launch would warp"
@@ -60,8 +63,8 @@ cleanup(){
 }
 trap cleanup EXIT
 
-run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-off|expect-rider|expect-intro> [warp]
-  local TAG="$1" PHY="$2" QUAL="$3" MODE="$4" WARP="${5:-village1-hut}"
+run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-off|expect-rider|expect-intro|expect-mayor> [warp] [pos]
+  local TAG="$1" PHY="$2" QUAL="$3" MODE="$4" WARP="${5:-village1-hut}" POS="${6:-}"
   local LC="$OUT/device_leg_$TAG.logcat.log"; : > "$LC"
   cp "$INI_BAK" "$INI_TMP"
   set_ini_dev 'recharged-master?' '#t'
@@ -83,7 +86,11 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   $ADB -s "$S" shell setprop debug.opengoal.level.warp "$WARP" >/dev/null 2>&1 </dev/null
   # the village spot is a fixed vantage; the intro cinematic drives its own camera and actors
   # (Maia and Gol exist nowhere else — [[reference_maia_gol_intro_only]]) so it must NOT be posed.
-  if [ "$WARP" = village1-hut ]; then
+  # (C14) a leg may override the vantage: D-MAYOR poses next to the mayor's hut (he lives in the
+  # BEACH level actor table, trans -116.15 10.90 45.91 — nowhere near the default spot).
+  if [ -n "$POS" ]; then
+    $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos '$POS'" >/dev/null 2>&1 </dev/null
+  elif [ "$WARP" = village1-hut ]; then
     $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos '-130.50 34.50 202.41'" >/dev/null 2>&1 </dev/null
   else
     $ADB -s "$S" shell setprop debug.opengoal.level.warp.pos '' >/dev/null 2>&1 </dev/null
@@ -99,7 +106,30 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   done
   [ "$W" = 1 ] || { say "FAIL($TAG): warp never landed"; return 1; }
   say "warp landed ($WARP) — watching ${WATCH}s"
-  sleep "$WATCH"
+  # ---- (C14-A) LOCOMOTION DRIVE — real running, not a slid transform --------------------------
+  # The owner's rejection is "en courant les cheveux de Jak ne bougent PAS": the floor must be
+  # measured while Jak RUNS. debug.opengoal.cpad_inject is real pad input (android_input_audio.cpp
+  # watcher, 25 ms poll): ly=0 holds the stick full-forward and the run ANIMATION plays — unlike
+  # target.drive, which slides the transform in idle. A box path (fwd/left/back/right, 12 s each)
+  # keeps him near the vantage instead of running off into water. Settle first, drive, then leave
+  # the remaining watch idle so the same execution also carries the calm ceilings (the spec's
+  # "sur LA MEME execution device").
+  if [ "$MODE" = expect-phys ]; then
+    sleep 12
+    say "leg $TAG: locomotion drive — cpad_inject box path (4 x 12 s of real running)"
+    local DDIR
+    for DDIR in "ly=0" "lx=0" "ly=255" "lx=255"; do
+      $ADB -s "$S" shell "setprop debug.opengoal.cpad_inject '$DDIR'" >/dev/null 2>&1 </dev/null
+      sleep 12
+    done
+    $ADB -s "$S" shell "setprop debug.opengoal.cpad_inject ''" >/dev/null 2>&1 </dev/null
+    local ILEFT
+    ILEFT=$($ADB -s "$S" shell getprop debug.opengoal.cpad_inject 2>/dev/null | tr -d '\r\n ')
+    [ -z "$ILEFT" ] || say "WARNING($TAG): cpad_inject NOT cleared mid-run (left: $ILEFT)"
+    sleep $(( WATCH > 60 ? WATCH - 60 : 10 ))
+  else
+    sleep "$WATCH"
+  fi
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
   kill "$LCP" 2>/dev/null || true; LCP=0
   local OK=1
@@ -364,6 +394,32 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     else
       [ "${NOMK:-0}" = 0 ] || say "OPEN($TAG): nomask=$NOMK at quality=$QUAL — chain(s) whose only volumes are tier 2, so they have nothing to hit at this precision level"
     fi
+    # ---- CYCLE-14 WINDOW GATES ([HD-PHYS6] line) ---------------------------------------------
+    # The mesh-surface audit and the resolution-jerk bound, graded on the phone:
+    #   meshpen    residual penetration of the SKINNED MESH surface (extremal-vertex samples,
+    #              physics_mesh.txt) into the body volumes AFTER the resolve, authored-floored.
+    #              The owner's blocker measured where his eyes are; bone-level resid= produced
+    #              five refutable zeros. Bar: 0.
+    #   meshtested samples actually tested. A meshpen next to meshtested=0 is the same empty zero
+    #              as resid=0/push=0 — failed as such.
+    #   mraw/mfix  pre-resolve depth and pushes applied — the positive control's needles.
+    #   resjerk    worst single-frame total resolution displacement of any link. A resolution the
+    #              eye reads as a jump is worse than the clip it replaced (owner C14-D).
+    local N6 MESHP MTEST MRAW MFIX RESJ
+    N6=$(grep -ac '\[HD-PHYS6\] ag=' "$LC" || true)
+    [ "${N6:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS6] line — the cycle-14 instrument never printed"; OK=0; }
+    MESHP=$(grep -ao 'meshpen=[0-9.]*' "$LC" | sed 's/meshpen=//' | sort -g | tail -1)
+    MRAW=$(grep -ao 'mraw=[0-9.]*' "$LC" | sed 's/mraw=//' | sort -g | tail -1)
+    RESJ=$(grep -ao 'resjerk=[0-9.]*' "$LC" | sed 's/resjerk=//' | sort -g | tail -1)
+    MTEST=$(grep -a 'meshtested=' "$LC" | awk '{if (match($0,/meshtested=[0-9]+/)) s+=substr($0,RSTART+11,RLENGTH-11)} END {print s+0}')
+    MFIX=$(grep -a 'mfix=' "$LC" | awk '{if (match($0,/mfix=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
+    say "leg $TAG: cycle14 meshpen=${MESHP:-0} mraw=${MRAW:-0} meshtested=$MTEST mfix=$MFIX resjerk=${RESJ:-0}"
+    [ "${MTEST:-0}" -ge 1 ] || { say "FAIL($TAG): meshtested=0 — the mesh-surface audit never sampled a vertex, so every meshpen in this leg is an empty zero"; OK=0; }
+    awk -v v="${MESHP:-0}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
+      || { say "FAIL($TAG): meshpen=$MESHP — the skinned mesh surface ended a frame inside a body volume (owner blocker, mesh level)"; OK=0; }
+    awk -v v="${RESJ:-0}" 'BEGIN{exit !(v+0 < 1000.0)}' \
+      || { say "FAIL($TAG): resjerk=$RESJ — the resolution moved a link a visible jump in one frame"; OK=0; }
+    TOTMTEST=$((TOTMTEST + MTEST))
   fi
   case "$MODE" in
     expect-phys)
@@ -384,6 +440,39 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
         if (am > 1.0 && md > 0.5 && md < 5000.0) n++ } END {print n+0}')
       [ "$NMOVDEV" -ge 1 ] || { say "FAIL($TAG): no MOVING bounded window"; OK=0; }
       say "leg $TAG: bounded-windows=yes moving-bounded-windows=$NMOVDEV"
+      # ---- (C14-A) MOTION FLOORS, measured during the locomotion drive above ------------------
+      # crun is the per-chain window max deviation ON LOCOMOTION FRAMES ONLY (own anchor above
+      # PHYS-RUN-ANCH), so an idle vantage cannot inflate it and a dead sim cannot hide: static
+      # hair while running reads exactly 0. Chain indices come from the data file, never
+      # hardcoded, same rule as the (G) chest gate.
+      local HIDX HRUN KM2 RIDX2 LIDX2 CRUN
+      HIDX=$(awk -v m="jak-hd" -v c=hair '
+        /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
+                      n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
+        /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt)
+      HRUN=$(grep -a "\[HD-PHYS6\] ag=jak-hd " "$LC" | awk -v i="$HIDX" '
+        { s=substr($0, index($0,"crun:"));
+          if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v } }
+        END { printf "%.4f", m+0 }')
+      KM2=keira-hd; grep -aq "\[HD-PHYS6\] ag=keira-hd " "$LC" || KM2=assistant-lod0
+      RIDX2=$(awk -v m="$KM2" -v c=chestR '
+        /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
+                      n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
+        /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt)
+      LIDX2=$(awk -v m="$KM2" -v c=chestL '
+        /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
+                      n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
+        /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt)
+      CRUN=$(grep -a "\[HD-PHYS6\] ag=$KM2 " "$LC" | awk -v i="$RIDX2" -v j="$LIDX2" '
+        { s=substr($0, index($0,"crun:"));
+          if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v }
+          if (match(s, " " j "=[0-9.]+")) { v=substr(s, RSTART+length(j)+2, RLENGTH-length(j)-2)+0; if (v>m) m=v } }
+        END { printf "%.4f", m+0 }')
+      say "leg $TAG: motion floors hairrun=$HRUN (jak-hd chain $HIDX 'hair', locomotion frames only) chestrun=$CRUN ($KM2 chestR/chestL in motion)"
+      awk -v v="$HRUN" 'BEGIN{exit !(v+0 >= 100.0)}' \
+        || { say "FAIL($TAG): hairrun=$HRUN < 100 — Jak's hair does not move while he RUNS (owner C14-A)"; OK=0; }
+      awk -v v="$CRUN" 'BEGIN{exit !(v+0 >= 350.0)}' \
+        || { say "FAIL($TAG): chestrun=$CRUN < 350 — Keira's chest is static in motion (owner C14-A)"; OK=0; }
       ;;
     expect-off)
       [ "$NWIN" = 0 ] || { say "FAIL($TAG): $NWIN window lines with physics?=#f — OFF is not off"; OK=0; }
@@ -439,6 +528,28 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
       # the external override must be the source the phone actually read (owner-facing retune path)
       grep -aq 'PARAMSRC=external-override' "$LC" \
         || { say "FAIL($TAG): device did not read the EXTERNAL physics_chains.txt override"; OK=0; }
+      # (C14) the mesh-sample data must come from the same owner-retunable path
+      grep -aq 'MESHSRC=external-override' "$LC" \
+        || { say "FAIL($TAG): device did not read the EXTERNAL physics_mesh.txt override"; OK=0; }
+      ;;
+    expect-mayor)
+      # (C14-B/E) THE MAYOR, BY NAME. His bow/tie ("le noeud du maire au travers de son torse")
+      # is one of the three actors the owner tests first, and the cycle-14 diagnosis is exactly
+      # him: link centers within tolerance while the skinned ribbon — 3.5-6x wider than its link
+      # radii, measured — pierced his belly. This leg parks Jak at his hut and grades HIS mesh
+      # audit, not an aggregate.
+      local NWM MP6 MT6 MR6
+      NWM=$(grep -ac 'ag=mayor-lod0 .*window: chains=' "$LC" || true)
+      [ "${NWM:-0}" -ge 1 ] || { say "FAIL($TAG): the mayor never bound/emitted a window at his own hut"; OK=0; }
+      grep -a '\[HD-PHYS6\] ag=mayor-lod0' "$LC" | tail -1 \
+        | sed "s/.*\[HD-PHYS6\]/leg $TAG: mayor-lod0 [HD-PHYS6]/" >> "$LOG"
+      MP6=$(grep -a '\[HD-PHYS6\] ag=mayor-lod0' "$LC" | grep -ao 'meshpen=[0-9.]*' | sed 's/meshpen=//' | sort -g | tail -1)
+      MR6=$(grep -a '\[HD-PHYS6\] ag=mayor-lod0' "$LC" | grep -ao 'mraw=[0-9.]*' | sed 's/mraw=//' | sort -g | tail -1)
+      MT6=$(grep -a '\[HD-PHYS6\] ag=mayor-lod0' "$LC" | awk '{if (match($0,/meshtested=[0-9]+/)) s+=substr($0,RSTART+11,RLENGTH-11)} END {print s+0}')
+      say "leg $TAG: mayor bow/tie (chains tieL,tieR) at MESH level: meshpen=${MP6:-n/a} residual vs his torso/belly volumes, mraw=${MR6:-n/a} pre-resolve, over meshtested=$MT6 skinned-vertex samples"
+      [ "${MT6:-0}" -ge 1 ] || { say "FAIL($TAG): mayor meshtested=0 — his bow was never sampled at mesh level"; OK=0; }
+      awk -v v="${MP6:-9}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
+        || { say "FAIL($TAG): mayor meshpen=$MP6 — his bow still ends inside his torso at MESH level"; OK=0; }
       ;;
   esac
   [ "$OK" = 1 ]
@@ -451,12 +562,15 @@ TOTREST=0
 TOTCCN=0
 TOTCCP=0
 TOTCCT=0
+TOTMTEST=0
 run_leg "D-MAX" '#t' 2 expect-phys || FAILED=1
 run_leg "D-OFF" '#f' 1 expect-off  || FAILED=1
 run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
 # owner cycle-3c N + cycle-4 U: Maia's hair through her body, and the collar close-up while Jak
 # is lying down. Both live in the intro cinematic and nowhere else.
 WATCH=200 run_leg "D-INTRO" '#t' 2 expect-intro intro-start || FAILED=1
+# (C14-B/E) the mayor by name: his bow vs his torso, at mesh level, at his own hut
+WATCH=110 run_leg "D-MAYOR" '#t' 2 expect-mayor village1-hut '-113.00 11.50 40.00' || FAILED=1
 
 say ""
 say "run total: input-free frames sampled across all legs = $TOTIDLE"
@@ -478,5 +592,8 @@ say "run total: strand-vs-strand pairs link-tested across all legs (ccpairs) = $
 [ "$TOTCCP" -ge 1 ] || { say "FAIL(run): ccpairs=0 in the whole run — the chain-vs-chain pass never ran, so the owner's worse half is unmeasured"; FAILED=1; }
 say "run total: truncated perimeters across all legs (cctrunc) = $TOTCCT"
 [ "$TOTCCT" = 0 ] || { say "FAIL(run): cctrunc=$TOTCCT — reachable volumes were dropped for want of list space"; FAILED=1; }
-if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER + D-INTRO green"; else say "[physics device leg FAIL] see legs above"; fi
+# (C14) the mesh audit must have RUN somewhere in this execution, or every meshpen above is empty
+say "run total: mesh-surface samples tested across all legs (meshtested) = $TOTMTEST"
+[ "$TOTMTEST" -ge 1 ] || { say "FAIL(run): meshtested=0 in the whole run — the mesh-surface audit never sampled one vertex"; FAILED=1; }
+if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER + D-INTRO + D-MAYOR green"; else say "[physics device leg FAIL] see legs above"; fi
 exit "$FAILED"

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cmath>
 #include <limits>
+#include <array>
 #include <map>
 #include <mutex>
 #include <set>
@@ -1038,6 +1039,12 @@ struct PhysChain {
   std::vector<std::string> joints;   // ordered root -> tip
   std::vector<float> link_radius;    // radii= : per-LINK collision radius, mesh-derived
   std::vector<std::string> xchains;  // xchain= : chains this chain must be collided against
+  // (C14) per-link EXTREMAL skinned-vertex offsets, bone-local bind space, game units, <=5 per
+  // link. This is the geometry the mesh-surface penetration audit samples: the owner's eyes live
+  // on the mesh, and every bone-level counter before this one produced a zero he could refute by
+  // looking. Comes from recharged_assets/physics_mesh.txt (derived data, physics_c14_meshsamples.py),
+  // never hand-tuned. Outer index = link; empty = no sample reaches beyond the link radius.
+  std::vector<std::vector<std::array<float, 3>>> mesh_samples;
 };
 
 // A body collision volume: a SPHERE on `joint`, or — when `joint2` is set — a CAPSULE (swept
@@ -1547,6 +1554,100 @@ static int pc_physics_parse_file() {
     }
   }
 
+  // ---- (C14) physics_mesh.txt: per-link extremal skinned-vertex offsets ------------------------
+  // Parsed AFTER the alias publication so a `model` line can name any alias and still land, and
+  // applied to EVERY name it lists (aliases are value copies by then, not references). Derived
+  // data, same external-override precedence as the tuning file: a re-derivation the owner pulls
+  // down is a few hundred KB, never an APK.
+  {
+    const char* mesh_src = "package";
+    auto mesh_path = file_util::get_recharged_assets_dir() / "physics_mesh.txt";
+    if (ext_dir) {
+      auto ext_mesh = *ext_dir / "physics_mesh.txt";
+      if (file_util::file_exists(ext_mesh.string())) {
+        mesh_path = ext_mesh;
+        mesh_src = "external-override";
+      }
+    }
+    if (!file_util::file_exists(mesh_path.string())) {
+      // Not an error: without samples the mesh audit reports meshtested=0, which the device gate
+      // reads as "not measured" — never as a clean zero. That is the honest failure mode.
+      lg::info("[hd-phys] MESHSRC=none path={} (mesh audit unarmed)", mesh_path.string());
+    } else {
+      std::string mtext;
+      try {
+        mtext = file_util::read_text_file(mesh_path);
+      } catch (...) {
+        mtext.clear();
+        lg::warn("[hd-phys] could not read {}", mesh_path.string());
+      }
+      std::vector<std::string> cur_names;
+      int n_ms = 0, n_ms_dropped = 0;
+      size_t mpos = 0;
+      while (mpos <= mtext.size()) {
+        size_t eol = mtext.find('\n', mpos);
+        std::string raw =
+            mtext.substr(mpos, eol == std::string::npos ? std::string::npos : eol - mpos);
+        mpos = (eol == std::string::npos) ? mtext.size() + 1 : eol + 1;
+        if (!raw.empty() && raw.back() == '\r') {
+          raw.pop_back();
+        }
+        auto hash = raw.find('#');
+        if (hash != std::string::npos) {
+          raw = raw.substr(0, hash);
+        }
+        auto toks = phys_tokens(raw);
+        if (toks.empty()) {
+          continue;
+        }
+        if (toks[0] == "model") {
+          cur_names.assign(toks.begin() + 1, toks.end());
+          continue;
+        }
+        // ms <chainName> <linkIdx> <n> x y z [* n]
+        if (toks[0] == "ms" && toks.size() >= 4) {
+          const std::string& cname = toks[1];
+          int link = atoi(toks[2].c_str());
+          int n = atoi(toks[3].c_str());
+          if (n < 0 || n > 5 || (int)toks.size() < 4 + 3 * n) {
+            n_ms_dropped++;
+            continue;
+          }
+          for (const auto& mn : cur_names) {
+            auto mit = s_phys_models.find(mn);
+            if (mit == s_phys_models.end()) {
+              continue;
+            }
+            for (auto& ch : mit->second.chains) {
+              if (ch.name != cname) {
+                continue;
+              }
+              if (link < 0 || link >= (int)ch.joints.size()) {
+                n_ms_dropped++;
+                break;
+              }
+              if (ch.mesh_samples.size() < ch.joints.size()) {
+                ch.mesh_samples.resize(ch.joints.size());
+              }
+              auto& dst = ch.mesh_samples[link];
+              dst.clear();
+              for (int s = 0; s < n; s++) {
+                dst.push_back({(float)atof(toks[4 + 3 * s].c_str()),
+                               (float)atof(toks[5 + 3 * s].c_str()),
+                               (float)atof(toks[6 + 3 * s].c_str())});
+              }
+              n_ms++;
+              break;
+            }
+          }
+          continue;
+        }
+      }
+      lg::info("[hd-phys] MESHSRC={} path={} links-with-samples={} dropped={}", mesh_src,
+               mesh_path.string(), n_ms, n_ms_dropped);
+    }
+  }
+
   lg::info("[hd-phys] params loaded: {} models, {} chains", (int)s_phys_models.size(), n_chains);
   return n_sections;
 }
@@ -1625,6 +1726,40 @@ s64 pc_physics_chain_link_radius_mi(u32 ag_name, s64 chain, s64 link) {
     return 0;
   }
   return phys_mi(radii[link]);
+}
+
+// (C14) how many mesh samples this link carries (0..5). 0 = the mesh never reaches beyond the
+// link's own radius test, or physics_mesh.txt is absent — either way the GOAL side counts that
+// link out of meshtested=, so a missing file can never read as a clean mesh audit.
+s64 pc_physics_chain_msample_count(u32 ag_name, s64 chain, s64 link) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& ms = model->chains[chain].mesh_samples;
+  if (link < 0 || link >= (s64)ms.size()) {
+    return 0;
+  }
+  return (s64)ms[link].size();
+}
+
+// (C14) one coordinate of one mesh sample, milli game units, bone-local bind space.
+// link_si packs (link << 3) | sample_index; coord 0/1/2 = x/y/z. Packed because the GOAL FFI here
+// carries at most four parameters, same convention as pc-physics-joint-role's (chain<<8)|link.
+s64 pc_physics_chain_msample_mi(u32 ag_name, s64 chain, s64 link_si, s64 coord) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& ms = model->chains[chain].mesh_samples;
+  s64 link = link_si >> 3;
+  s64 si = link_si & 7;
+  if (link < 0 || link >= (s64)ms.size() || si >= (s64)ms[link].size() || coord < 0 || coord > 2) {
+    return 0;
+  }
+  return phys_mi(ms[link][si][(size_t)coord]);
 }
 
 // bitmask of the chain indices named by xchain=, resolved in this same model — the identical
@@ -3763,6 +3898,10 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-physics-chain-param-mi", (void*)pc_physics_chain_param_mi);
   make_function_symbol_from_c("pc-physics-chain-link-radius-mi",
                               (void*)pc_physics_chain_link_radius_mi);
+  // (C14) mesh-surface audit inputs: per-link extremal skinned-vertex offsets
+  make_function_symbol_from_c("pc-physics-chain-msample-count",
+                              (void*)pc_physics_chain_msample_count);
+  make_function_symbol_from_c("pc-physics-chain-msample-mi", (void*)pc_physics_chain_msample_mi);
   make_function_symbol_from_c("pc-physics-chain-xmask", (void*)pc_physics_chain_xmask);
   make_function_symbol_from_c("pc-physics-chain-flags", (void*)pc_physics_chain_flags);
   make_function_symbol_from_c("pc-physics-num-chains", (void*)pc_physics_num_chains);

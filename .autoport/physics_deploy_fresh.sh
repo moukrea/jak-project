@@ -38,6 +38,10 @@ if [ -s "$OUT/.custom.zip" ]; then
   NPC=$(unzip -l "$OUT/.custom.zip" | grep -c 'recharged_assets/physics_chains.txt' || true)
   [ "${NPC:-0}" -ge 1 ] || die "APK custom pack lacks recharged_assets/physics_chains.txt"
   say "APK custom pack ships recharged_assets/physics_chains.txt"
+  # (C14) the mesh-sample data must ship too, or the mesh audit runs unarmed (meshtested=0)
+  NPM=$(unzip -l "$OUT/.custom.zip" | grep -c 'recharged_assets/physics_mesh.txt' || true)
+  [ "${NPM:-0}" -ge 1 ] || die "APK custom pack lacks recharged_assets/physics_mesh.txt (C14 mesh audit would be unarmed)"
+  say "APK custom pack ships recharged_assets/physics_mesh.txt"
 else
   say "note: custom pack zip name differs — physics_chains landing proven on-device below"
 fi
@@ -121,6 +125,13 @@ $ADB -s "$S" push recharged_assets/physics_chains.txt "$EXT_DIR/physics_chains.t
 DE=$($ADB -s "$S" shell md5sum "$EXT_DIR/physics_chains.txt" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
 say "external override physics_chains.txt: md5 local=$LP device=$DE"
 [ "$LP" = "$DE" ] || die "external override physics_chains.txt is STALE — it would beat the fresh APK copy"
+# (C14) same external-override refresh for the mesh-sample data (same precedence rule in kmachine)
+LM=$(md5sum recharged_assets/physics_mesh.txt | cut -d' ' -f1)
+$ADB -s "$S" push recharged_assets/physics_mesh.txt "$EXT_DIR/physics_mesh.txt" >> "$LOG" 2>&1 \
+  || die "cannot push the external physics_mesh.txt override"
+DM=$($ADB -s "$S" shell md5sum "$EXT_DIR/physics_mesh.txt" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+say "external override physics_mesh.txt: md5 local=$LM device=$DM"
+[ "$LM" = "$DM" ] || die "external override physics_mesh.txt is STALE — it would beat the fresh APK copy"
 
 bash .autoport/lib/deploy_verify.sh "$S" jak1 >> "$LOG" 2>&1 || { tail -4 "$LOG"; die "deploy_verify FAILED"; }
 say "$(tail -1 "$LOG")"

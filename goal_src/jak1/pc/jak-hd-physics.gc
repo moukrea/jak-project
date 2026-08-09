@@ -115,6 +115,13 @@
 (define-extern pc-physics-collider-is-joint (function string int string int)) ;; 1 if collider i sits on that joint
 (define-extern pc-physics-collider-is-joint2 (function string int string int)) ;; 1 if capsule i ENDS on that joint
 (define-extern pc-physics-chain-link-radius-mi (function string int int int)) ;; milli, 0 = absent
+;; (C14) mesh-surface audit inputs: per-link EXTREMAL skinned-vertex offsets, bone-local bind
+;; space (physics_mesh.txt, derived offline from the real merc/GLB geometry — never hand-tuned).
+;; count: samples this link carries (0..5). mi: one coordinate in milli units; arg 2 packs
+;; (link << 3) | sample-index, arg 3 is coord 0/1/2 — the FFI here carries at most 4 parameters,
+;; same packing convention as pc-physics-joint-role's (chain<<8)|link.
+(define-extern pc-physics-chain-msample-count (function string int int int))
+(define-extern pc-physics-chain-msample-mi (function string int int int int))
 (define-extern pc-physics-chain-xmask (function string int int))    ;; chain-vs-chain partner bits
 (define-extern pc-physics-generation (function int))    ;; bumped on every params (re)parse
 
@@ -453,6 +460,26 @@
 ;; means a pair in sustained contact stays exempt instead of flickering in and out of it every
 ;; other frame, which would rebuild the oscillation the flag exists to remove.
 (defconstant PHYS-XHOLD 3)
+;; ------------------------------------------------------------------------------------------------
+;; CYCLE 14 — the owner's verdict on the 15:42 build was "massively toned down, nothing fixed", and
+;; the arithmetic behind it is measured: the cycle-13 perimeter rebuild puts a grazing contact on
+;; every inward half-cycle of a chest or hair chain (their volumes are capped AT the model pose, so
+;; the model pose sits ON the surface), and the C13d inelastic discharge then spends the FULL
+;; approach velocity on every one of those grazes. Half the oscillation dies per contact — a sim
+;; that satisfies every one-sided calm ceiling by being dead. The discharge stays (it is what lets
+;; a resting pair go quiet, owner rule O) but it is now SUSTAINED-CONTACT gated: a chain whose
+;; stick counter says it is fighting a collider spends everything, a transient graze spends only
+;; PHYS-SPEND-SOFT of its approach and keeps the swing. Calm cannot regress: the rest state, the
+;; sleep, the ring-down and arrival are all untouched and all idle-gated.
+(defconstant PHYS-SPEND-SOFT 0.35)
+;; (C14-A) LOCOMOTION motion floors. A frame counts toward `crun` only when the chain's OWN anchor
+;; travelled more than this many units in that frame — 60 units/frame ~ 0.9 m/s, which a walk, a
+;; run and Keira's Zoomer-work loop (measured 190+ on the phone) all clear and an idle sway does
+;; not. Teleport/settle frames are excluded by csettle exactly as every other instrument does.
+(defconstant PHYS-RUN-ANCH 60.0)
+;; (C14-B/C) mesh samples per link (data ships <=5: four perpendicular-quadrant extremal vertices
+;; plus one axial-overhang tip vertex, physics_c14_meshsamples.py).
+(defconstant PHYS-MSAM 5)
 ;; (S) IDLE RING-DOWN. Sleep only ever killed velocity BELOW PHYS-SLEEP-VEL; anything above it rang
 ;; on indefinitely, and in the intro that is what the owner calls hysteresis — jak-hd was still
 ;; displacing 27.9 units a frame after half a second with nothing moving on the actor at all. Once
@@ -873,6 +900,30 @@
 ;; inner-quartile thickness of its own skinned vertices about the strand axis), and chains named by
 ;; xchain= are resolved against each other link by link.
 (define *phys-lrad* (new 'static 'array float 1152))        ;; slot*PHYS-JPS + joint: per-LINK radius
+;; (C14) MESH-SURFACE AUDIT STATE. The owner's eyes live on the skinned mesh and every bone-level
+;; counter before this produced a zero he could refute by looking (the mayor's bow links sat within
+;; tolerance while his ribbon pierced his belly — its mesh extends 3.5-6x beyond its link radii,
+;; measured). Each link caches up to PHYS-MSAM extremal skinned-vertex offsets (bone-local bind
+;; space, from physics_mesh.txt); every frame they are carried by the link's CURRENT bone rotation
+;; and audited — and resolved — against the body volumes, with the authored pose as the floor.
+(define *phys-msn* (new 'static 'array int32 1152))         ;; slot*PHYS-JPS + joint: sample count
+(define *phys-msam* (new 'static 'array float 17280))       ;; (slot*PHYS-JPS + joint)*15 + si*3 + coord
+;; (C14-A) per-chain window max deviation ON LOCOMOTION FRAMES ONLY (own anchor > PHYS-RUN-ANCH).
+;; This is the number the hairrun/chestrun floors read: a dead sim maxes every calm ceiling, so
+;; calm may never again be bought by killing motion.
+(define *phys-crun* (new 'static 'array float 576))
+(define *phys-canchd* (new 'static 'array float 576))       ;; per-chain THIS-FRAME own-anchor travel
+;; (C14-D) resolution jerk: per-link TOTAL resolution displacement applied this frame, summed over
+;; every pass that moves a link (substep sweep, final sweep, cross-side, model fallback, strand
+;; pass, mesh sweep). The window keeps the worst single-frame figure — a resolution worse than the
+;; clip is worse than no resolution, and this is the number that says whether one moved a bone
+;; visibly in one frame.
+(define *phys-lresj* (new 'static 'array float 1152))
+(define *phys-slot-resjerk* (new 'static 'array float 24))
+(define *phys-slot-meshpen* (new 'static 'array float 24))  ;; residual mesh-surface penetration AFTER resolve (window max, authored-floored)
+(define *phys-slot-mraw* (new 'static 'array float 24))     ;; BEFORE resolve — the positive control's needle
+(define *phys-slot-mfix* (new 'static 'array int32 24))     ;; mesh-sample pushes applied (window)
+(define *phys-slot-mtested* (new 'static 'array int32 24))  ;; samples actually tested (window) — 0 = the audit did not run, never a clean zero
 (define *phys-cxmask* (new 'static 'array int64 576))       ;; chains this chain must be collided with
 ;; ---- cycle-7 (AH): ANCHOR COUPLING -------------------------------------------------------------
 ;; The only excitation a chain had was the lag it develops behind its own moving target, and for a
@@ -997,6 +1048,55 @@
             (vector-! dv p cpt)
             (let ((pen (- rr (vector-length dv))))
               (when (> pen worst) (set! worst pen)))))))
+    worst))
+
+(defun phys-mesh-pen ((slot int) (cbase int) (c int) (tier int)
+                      (p vector) (ap vector) (outdir vector) (draw draw-control))
+  "(C14) deepest EFFECTIVE penetration of a mesh-surface sample at world point p into the chain's
+  BODY volumes, floored by the authored pose: for each volume the sample's penetration at ap — the
+  SAME offset carried by the authored bone position — is subtracted first, so a region the
+  character's own sculpted/keyed pose already occupies is never reported and never fought (the
+  identical rule the per-link ccap encodes, evaluated at the sample instead of the link).
+  Body volumes only (colchain < 0): a volume riding another chain is a two-body contact and stays
+  in the strand/xbres domain, where one link's push cannot pretend to fix it.
+  The sample IS the surface, so no link radius and no sample radius is added — rr is the volume's
+  own interpolated cone radius, nothing else. Writes the push-out direction (unit, away from the
+  worst volume's spine) into outdir when the return is > 0."
+  (let ((worst 0.0)
+        (cpt (new 'stack-no-clear 'vector))
+        (dv (new 'stack-no-clear 'vector))
+        (av (new 'stack-no-clear 'vector))
+        (skel (-> draw skeleton)))
+    (dotimes (s2 (-> *phys-ccn* (+ cbase c)))
+      (let* ((cb (+ (* slot PHYS-COLS)
+                    (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX) (* c PHYS-CCMAX) s2))))
+             (rc (-> *phys-colchain* cb))
+             (k2 (-> *phys-colk2* cb)))
+        (when (and (<= (-> *phys-coltier* cb) tier) (< rc 0))
+          (let* ((ca (-> skel bones (+ (-> *phys-colk* cb) 1) transform vector 3))
+                 (cbv (if (>= k2 0) (-> skel bones (+ k2 1) transform vector 3) ca))
+                 (r1 (-> *phys-colr* cb))
+                 (tt (phys-closest-on-seg! cpt ca cbv p))
+                 (rr (+ r1 (* tt (- (-> *phys-colr2* cb) r1)))))
+            (vector-! dv p cpt)
+            (let* ((dd (vector-length dv))
+                   (pen (- rr dd)))
+              (when (> pen 0.0)
+                ;; the authored floor, at THIS volume: the same offset on the authored bone
+                (let* ((tta (phys-closest-on-seg! cpt ca cbv ap))
+                       (rra (+ r1 (* tta (- (-> *phys-colr2* cb) r1)))))
+                  (vector-! av ap cpt)
+                  (let* ((pena (fmax 0.0 (- rra (vector-length av))))
+                         (eff (- pen pena)))
+                    (when (> eff worst)
+                      (set! worst eff)
+                      (cond
+                        ((> dd 0.0001) (vector-float*! outdir dv (/ 1.0 dd)))
+                        (else
+                         (set! (-> outdir x) 0.0)
+                         (set! (-> outdir y) 1.0)
+                         (set! (-> outdir z) 0.0)
+                         (set! (-> outdir w) 0.0))))))))))))
     worst))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -1298,7 +1398,21 @@
           (dotimes (li len)
             (let ((mi (pc-physics-chain-link-radius-mi ag c li)))
               (set! (-> *phys-lrad* (+ (* slot PHYS-JPS) start li))
-                    (if (> mi 0) (* 0.001 (the float mi)) (-> *phys-cradius* ci)))))
+                    (if (> mi 0) (* 0.001 (the float mi)) (-> *phys-cradius* ci))))
+            ;; (C14) cache the link's mesh samples: extremal skinned-vertex offsets, bone-local
+            ;; bind space, from physics_mesh.txt. n=0 (no file, no line, nothing beyond the link
+            ;; radius) keeps the link out of meshtested= — an absent file reads as "not measured",
+            ;; never as a clean mesh audit.
+            (let* ((jj (+ (* slot PHYS-JPS) start li))
+                   (n (min PHYS-MSAM (pc-physics-chain-msample-count ag c li))))
+              (set! (-> *phys-msn* jj) n)
+              (dotimes (si n)
+                (dotimes (co 3)
+                  (set! (-> *phys-msam* (+ (* jj 15) (* si 3) co))
+                        (* 0.001 (the float (pc-physics-chain-msample-mi
+                                             ag c (logior (ash li 3) si) co))))))))
+          (set! (-> *phys-crun* ci) 0.0)
+          (set! (-> *phys-canchd* ci) 0.0)
           (set! (-> *phys-crestd* ci) 0.0)
           (set! (-> *phys-ccalm* ci) 0)
           (set! (-> *phys-clenr* ci) 1000000.0)
@@ -1424,6 +1538,17 @@
     (set! (-> *phys-slot-xveto* slot) 0)
     (set! (-> *phys-slot-xunres* slot) 0)
     (set! (-> *phys-slot-xunresmax* slot) 0.0)
+    ;; (C14) a re-bind is a fresh window for the mesh audit and the motion floors too
+    (set! (-> *phys-slot-resjerk* slot) 0.0)
+    (set! (-> *phys-slot-meshpen* slot) 0.0)
+    (set! (-> *phys-slot-mraw* slot) 0.0)
+    (set! (-> *phys-slot-mfix* slot) 0)
+    (set! (-> *phys-slot-mtested* slot) 0)
+    ;; lresj only: msn was just cached by the chain loop above (this reset runs AFTER it), and the
+    ;; mesh sweep only ever reads msn on the CURRENT chains' links, so stale entries on other
+    ;; joints are unreachable rather than wiped here.
+    (dotimes (k PHYS-JPS)
+      (set! (-> *phys-lresj* (+ (* slot PHYS-JPS) k)) 0.0))
     (set! (-> *phys-slot-njoints* slot) njoints)
     (set! (-> *phys-slot-nchains* slot) nch)
     (set! (-> *phys-slot-ncols* slot) ncols)
@@ -1659,6 +1784,11 @@
              (frame-famb 0)
              (frame-unclass 0))
         (when (and (> dt 0.0001) (< dt 0.1))
+          ;; (C14-D) fresh frame, fresh resolution-jerk ledger: lresj accumulates every correction
+          ;; the resolution applies to a link THIS frame, across all passes, and the window keeps
+          ;; the worst single-frame total.
+          (dotimes (k PHYS-JPS)
+            (set! (-> *phys-lresj* (+ jbase k)) 0.0))
           ;; ---------------- (W) HOW FAR FROM UPRIGHT IS THIS CHARACTER? ---------------------------
           ;; Joint 0 is `align`, the actor's own transform, and bone index = joint + 1. Row 1 of that
           ;; matrix is his up axis; `phys-axis-dot` normalises it first, so a rig carrying scale does
@@ -2200,6 +2330,10 @@
                          (vector-! vtmp2 vtmp (-> *phys-canchvp* ci))
                          (set! aacc (vector-length vtmp2))
                          (vector-copy! (-> *phys-canchvp* ci) vtmp)
+                         ;; (C14-A) this frame's own-anchor TRAVEL, kept per chain for the
+                         ;; locomotion gate on `crun`: deviation only counts toward the motion
+                         ;; floor on a frame whose own anchor was really moving.
+                         (set! (-> *phys-canchd* ci) anchd)
                          ;; (S) every chain's own anchor feeds the frame-wide "is anything moving?"
                          (when (> anchd frame-anchd) (set! frame-anchd anchd))
                          (when (> anchd (fmax PHYS-JUMP-ABS (* PHYS-JUMP-REL chainlen)))
@@ -2803,6 +2937,9 @@
                                                           ;; distance and cone corrections this used
                                                           ;; to leave untouched.
                                                           (vector+! p p vtmp)
+                                                          ;; (C14-D) part of the frame's resolution jerk
+                                                          (+! (-> *phys-lresj* (+ start i))
+                                                              (vector-length vtmp))
                                                           ;; ...but the DIRECTION is remembered: the
                                                           ;; velocity-consistency pass needs to know
                                                           ;; which way the body pushed to spend the
@@ -2839,8 +2976,23 @@
                                  ;; against the body it also gives up a fraction of the velocity it
                                  ;; genuinely had, which is what stops a chain sliding along a
                                  ;; surface forever. Applied to links the sweep actually pushed.
+                                 ;; (C14) TANGENTIAL ONLY. This used to scale the WHOLE velocity
+                                 ;; vector, so every contact paid fric of its swing ON TOP of the
+                                 ;; normal discharge below — double-charged — and with the cycle-13
+                                 ;; perimeter putting a graze on every inward half-cycle of a chest
+                                 ;; or hair chain, that arithmetic is the owner's "massively toned
+                                 ;; down". The normal component is the discharge's job; friction's
+                                 ;; own meaning — stop the chain SLIDING along the surface — is the
+                                 ;; tangential part, and that is now the only part it touches.
                                  (when (and (> fric 0.0) (nonzero? (-> lpush i)))
                                    (vector-! vtmp p pv)
+                                   (let ((nl0 (vector-length (-> *phys-lpn* i))))
+                                     (when (> nl0 0.0001)
+                                       (let ((fnrm (new 'stack-no-clear 'vector)))
+                                         (vector-float*! fnrm (-> *phys-lpn* i)
+                                                         (/ (vector-dot vtmp (-> *phys-lpn* i))
+                                                            (* nl0 nl0)))
+                                         (vector-! vtmp vtmp fnrm))))
                                    (vector-float*! vtmp vtmp fric)
                                    (vector+! pv pv vtmp))
                                  ;; ---- (S/C13d) INELASTIC CONTACT — the discharge the pump was
@@ -2861,12 +3013,21 @@
                                  ;; INTO the contact — and nothing else: tangential slide and the
                                  ;; free swing keep every unit they had. Removal only, never a
                                  ;; kick, so rule O still holds in both directions.
+                                 ;; (C14) SUSTAINED-CONTACT GATED: a chain fighting a collider
+                                 ;; (stick armed) spends everything and goes quiet exactly as
+                                 ;; before; a transient graze spends PHYS-SPEND-SOFT of its
+                                 ;; approach and keeps its swing. This is the motion-floor half of
+                                 ;; the rule whose calm half already ships.
                                  (let ((nl (vector-length (-> *phys-lpn* i))))
                                    (when (> nl 0.0001)
                                      (vector-! vtmp p pv)
                                      (let ((vn (/ (vector-dot vtmp (-> *phys-lpn* i)) nl)))
                                        (when (< vn 0.0)
-                                         (vector-float*! vtmp (-> *phys-lpn* i) (/ vn nl))
+                                         (vector-float*! vtmp (-> *phys-lpn* i)
+                                                         (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
+                                                                1.0
+                                                                PHYS-SPEND-SOFT)
+                                                            (/ vn nl)))
                                          (vector+! pv pv vtmp)))))))))
                          ;; ---- (B) SETTLE RAMP + BURST AUDIT -------------------------------------
                          ;; Fading the forces alone is not enough: a cut can leave the chain already
@@ -3502,6 +3663,9 @@
                                                (when (nonzero? probe?)
                                                  (vector+! pprb pprb vtmp))
                                                (vector+! p p vtmp)
+                                               ;; (C14-D) this correction is part of the frame's
+                                               ;; resolution jerk
+                                               (+! (-> *phys-lresj* (+ start i)) (vector-length vtmp))
                                                ;; (O) NO VELOCITY RE-INJECTION, and (U) THE SIM
                                                ;; FOLLOWS. `vtmp` is the correction actually applied
                                                ;; to the OUTPUT after clamping. The sim state takes
@@ -3522,13 +3686,18 @@
                                                ;; is the spring's own pumping — spent here, never
                                                ;; stored. Removal only (vn < 0), tangential slide
                                                ;; untouched, so rule O holds in both directions.
+                                               ;; (C14) sustained-contact gated, like the substep's.
                                                (let ((cl2 (vector-length vtmp)))
                                                  (when (> cl2 0.0001)
                                                    (vector-! vtmp3 (-> *phys-pos* (+ start i))
                                                              (-> *phys-prev* (+ start i)))
                                                    (let ((vn (/ (vector-dot vtmp3 vtmp) cl2)))
                                                      (when (< vn 0.0)
-                                                       (vector-float*! vtmp3 vtmp (/ vn cl2))
+                                                       (vector-float*! vtmp3 vtmp
+                                                                       (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
+                                                                              1.0
+                                                                              PHYS-SPEND-SOFT)
+                                                                          (/ vn cl2)))
                                                        (vector+! (-> *phys-prev* (+ start i))
                                                                  (-> *phys-prev* (+ start i)) vtmp3)))))))))))))))
                            ;; ---- (Z/C6) THE OPPOSITE SIDE GETS THE LAST WORD ---------------------
@@ -3630,6 +3799,7 @@
                                                (when (nonzero? probe?)
                                                  (vector+! pprb pprb vtmp))
                                                (vector+! p p vtmp)
+                                               (+! (-> *phys-lresj* (+ start i)) (vector-length vtmp))
                                                (vector+! (-> *phys-pos* (+ start i))
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
@@ -3637,13 +3807,18 @@
                                                ;; (S/C13d) INELASTIC CONTACT — same discharge as the
                                                ;; main sweep above; a flap pinched against the
                                                ;; opposite leg pumps exactly the same way.
+                                               ;; (C14) sustained-contact gated, like the others.
                                                (let ((cl2 (vector-length vtmp)))
                                                  (when (> cl2 0.0001)
                                                    (vector-! vtmp3 (-> *phys-pos* (+ start i))
                                                              (-> *phys-prev* (+ start i)))
                                                    (let ((vn (/ (vector-dot vtmp3 vtmp) cl2)))
                                                      (when (< vn 0.0)
-                                                       (vector-float*! vtmp3 vtmp (/ vn cl2))
+                                                       (vector-float*! vtmp3 vtmp
+                                                                       (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
+                                                                              1.0
+                                                                              PHYS-SPEND-SOFT)
+                                                                          (/ vn cl2)))
                                                        (vector+! (-> *phys-prev* (+ start i))
                                                                  (-> *phys-prev* (+ start i)) vtmp3))))))))))))))))
                          ;; ---- (C6/N) LAST RESORT: THE MODEL POSE IS FEASIBLE, SO END THERE ------
@@ -4225,7 +4400,9 @@
                                    (+! (-> *phys-slot-mfsnap* slot) 1)
                                    (let ((cl (vector-length vtmp2)))
                                      (when (> cl (-> *phys-slot-mfsnapmax* slot))
-                                       (set! (-> *phys-slot-mfsnapmax* slot) cl)))
+                                       (set! (-> *phys-slot-mfsnapmax* slot) cl))
+                                     ;; (C14-D) the fallback's move is resolution displacement too
+                                     (+! (-> *phys-lresj* (+ start i)) cl))
                                    (vector+! (-> *phys-out* (+ start i))
                                              (-> *phys-out* (+ start i)) vtmp2)
                                    (vector+! (-> *phys-pos* (+ start i))
@@ -4857,6 +5034,15 @@
                                        ;; (defect C was invisible to the aggregate counters).
                                        (when (> dev (-> *phys-cdev* ci))
                                          (set! (-> *phys-cdev* ci) dev))
+                                       ;; (C14-A) the LOCOMOTION motion floor's sample: the same
+                                       ;; deviation, but only on a frame whose OWN anchor moved at
+                                       ;; locomotion speed and outside the spawn/teleport settle
+                                       ;; ramp (csettle covers the cut frame itself: the reseed
+                                       ;; sets it before this point in the same frame).
+                                       (when (and (<= (-> *phys-csettle* ci) 0)
+                                                  (> (-> *phys-canchd* ci) PHYS-RUN-ANCH)
+                                                  (> dev (-> *phys-crun* ci)))
+                                         (set! (-> *phys-crun* ci) dev))
                                        ;; contrast metric for (B): how far an UNLOCKED root drifts.
                                        (when (and (zero? i) (> dev (-> *phys-slot-freeroot* slot)))
                                          (set! (-> *phys-slot-freeroot* slot) dev)))
@@ -5066,18 +5252,28 @@
                                             (vector+! (-> *phys-out* (+ sa i)) (-> *phys-out* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-pos* (+ sa i)) (-> *phys-pos* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-prev* (+ sa i)) (-> *phys-prev* (+ sa i)) vtmp)
+                                            (+! (-> *phys-lresj* (+ sa i)) (vector-length vtmp))
                                             ;; (S/C13d) INELASTIC CONTACT between strands: a spring
                                             ;; holding two strands pressed together pumps approach
                                             ;; velocity exactly like a body hold (rule O preserves
                                             ;; it, nothing spends it). Spend the component INTO the
                                             ;; partner — along the separation just applied, removal
                                             ;; only — so a resting pair can actually go quiet.
+                                            ;; (C14) sustained-contact gated: a transient strand
+                                            ;; bump (the chest-vs-chest "entre-choc" the owner
+                                            ;; asked for) keeps most of its energy and reads as a
+                                            ;; bounce; a pair pressed together arms stick within
+                                            ;; frames and then goes fully quiet, exactly as before.
                                             (let ((cl2 (vector-length vtmp)))
                                               (when (> cl2 0.0001)
                                                 (vector-! xcand (-> *phys-pos* (+ sa i)) (-> *phys-prev* (+ sa i)))
                                                 (let ((vn (/ (vector-dot xcand vtmp) cl2)))
                                                   (when (< vn 0.0)
-                                                    (vector-float*! xcand vtmp (/ vn cl2))
+                                                    (vector-float*! xcand vtmp
+                                                                    (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
+                                                                           1.0
+                                                                           PHYS-SPEND-SOFT)
+                                                                       (/ vn cl2)))
                                                     (vector+! (-> *phys-prev* (+ sa i))
                                                               (-> *phys-prev* (+ sa i)) xcand)))))
                                             (let ((k (-> *phys-jk* (+ sa i))))
@@ -5090,15 +5286,22 @@
                                             (vector-! (-> *phys-out* (+ sb j)) (-> *phys-out* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-pos* (+ sb j)) (-> *phys-pos* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-prev* (+ sb j)) (-> *phys-prev* (+ sb j)) vtmp)
+                                            (+! (-> *phys-lresj* (+ sb j)) (vector-length vtmp))
                                             ;; (S/C13d) same discharge for the partner; its push ran
                                             ;; along -vtmp, so the approaching component is the one
                                             ;; ALONG +vtmp (vn > 0), removed with the flipped sign.
+                                            ;; (C14) same sustained-contact gate, on the PARTNER's
+                                            ;; own stick counter.
                                             (let ((cl2 (vector-length vtmp)))
                                               (when (> cl2 0.0001)
                                                 (vector-! xcand (-> *phys-pos* (+ sb j)) (-> *phys-prev* (+ sb j)))
                                                 (let ((vn (/ (vector-dot xcand vtmp) cl2)))
                                                   (when (> vn 0.0)
-                                                    (vector-float*! xcand vtmp (/ vn cl2))
+                                                    (vector-float*! xcand vtmp
+                                                                    (* (if (> (-> *phys-cstick* (+ cbase d)) PHYS-STICK)
+                                                                           1.0
+                                                                           PHYS-SPEND-SOFT)
+                                                                       (/ vn cl2)))
                                                     (vector+! (-> *phys-prev* (+ sb j))
                                                               (-> *phys-prev* (+ sb j)) xcand)))))
                                             (let ((k (-> *phys-jk* (+ sb j))))
@@ -5106,6 +5309,93 @@
                                                 (vector-copy! (-> skel bones (+ k 1) transform vector 3)
                                                               (-> *phys-out* (+ sb j)))
                                                 (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)))))))))))))))))))
+            ;; ---------------- (C14) MESH-SURFACE SWEEP + AUDIT -------------------------------
+            ;; The owner's blocker lives on the SKINNED MESH and the audit lived on the bones: the
+            ;; mayor's bow links sat within tolerance while his ribbon — whose mesh extends 3.5-6x
+            ;; beyond its link radii, measured offline — pierced his belly. Each link's extremal
+            ;; skinned vertices (physics_mesh.txt) are carried by the link's CURRENT bone matrix
+            ;; (the identical transform the renderer skins them with, since the sim writes only
+            ;; the translation), tested against the body volumes with the authored pose as the
+            ;; floor, RESOLVED with the same bounded velocity-neutral discharge-gated correction
+            ;; as every other pass, and what remains after the resolve is the residual the report
+            ;; carries: meshpen, with meshtested saying the audit really ran and mraw giving the
+            ;; positive control a needle that must rise under a deliberate inject=.
+            ;; Runs AFTER the strand pass — the last writer wins the audit, so nothing a later
+            ;; pass does can hide from it; the rigid-descendant re-glue below then carries the
+            ;; correction to the geometry hanging under the moved links.
+            (dotimes (c (-> *phys-slot-nchains* slot))
+              (let* ((ci (+ cbase c))
+                     (len (-> *phys-clen* ci))
+                     (start (+ jbase (-> *phys-cstart* ci)))
+                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci))))
+                     (bnd (fmax 24.0 (* 0.6 (-> *phys-cradius* ci)))))
+                (when (and (> len 0)
+                           (nonzero? (logand (-> *phys-cflags* ci) classmask))
+                           (<= (-> *phys-csettle* ci) 0)
+                           (> tier 0))
+                  (dotimes (i len)
+                    (when (or (> (-> *phys-canim* ci) 0) (>= i rl))
+                      (let* ((jj (+ start i))
+                             (nms (-> *phys-msn* jj))
+                             (k (-> *phys-jk* jj)))
+                        (when (and (> nms 0) (< (+ k 1) nbones))
+                          (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
+                            (dotimes (si nms)
+                              (let ((wof (new 'stack-no-clear 'vector))
+                                    (tv (new 'stack-no-clear 'vector))
+                                    (sp (new 'stack-no-clear 'vector))
+                                    (apv (new 'stack-no-clear 'vector))
+                                    (mdir (new 'stack-no-clear 'vector)))
+                                ;; world offset = bone rotation rows x local offset — bind scale
+                                ;; included, exactly as the skinning matrices carry it
+                                (vector-float*! wof (the-as vector (-> bm vector 0))
+                                                (-> *phys-msam* (+ (* jj 15) (* si 3))))
+                                (vector-float*! tv (the-as vector (-> bm vector 1))
+                                                (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
+                                (vector+! wof wof tv)
+                                (vector-float*! tv (the-as vector (-> bm vector 2))
+                                                (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
+                                (vector+! wof wof tv)
+                                (set! (-> wof w) 0.0)
+                                (vector+! sp (-> *phys-out* jj) wof)
+                                (vector+! apv (-> *phys-targ* jj) wof)
+                                (+! (-> *phys-slot-mtested* slot) 1)
+                                (let ((eff (phys-mesh-pen slot cbase c tier sp apv mdir draw)))
+                                  (when (> eff (-> *phys-slot-mraw* slot))
+                                    (set! (-> *phys-slot-mraw* slot) eff))
+                                  (cond
+                                    ((> eff PHYS-PEN-TOL)
+                                     (let ((push (fmin bnd eff)))
+                                       (vector-float*! tv mdir push)
+                                       (+! (-> *phys-slot-mfix* slot) 1)
+                                       (+! (-> *phys-lresj* jj) push)
+                                       (vector+! (-> *phys-out* jj) (-> *phys-out* jj) tv)
+                                       (vector+! (-> *phys-pos* jj) (-> *phys-pos* jj) tv)
+                                       (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) tv)
+                                       ;; spend the approach along the push — soft on a transient
+                                       ;; graze, full once stick says the contact is sustained
+                                       (let ((vv (new 'stack-no-clear 'vector)))
+                                         (vector-! vv (-> *phys-pos* jj) (-> *phys-prev* jj))
+                                         (let ((vn (vector-dot vv mdir)))
+                                           (when (< vn 0.0)
+                                             (vector-float*! vv mdir
+                                                             (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
+                                                                    1.0
+                                                                    PHYS-SPEND-SOFT)
+                                                                vn))
+                                             (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) vv))))
+                                       (vector-copy! (-> skel bones (+ k 1) transform vector 3)
+                                                     (-> *phys-out* jj))
+                                       (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)
+                                       ;; the RESIDUAL at the moved point is the blocker's number
+                                       (vector+! sp (-> *phys-out* jj) wof)
+                                       (let ((res (phys-mesh-pen slot cbase c tier sp apv mdir draw)))
+                                         (when (and (> res PHYS-PEN-TOL)
+                                                    (> res (-> *phys-slot-meshpen* slot)))
+                                           (set! (-> *phys-slot-meshpen* slot) res))))))
+                                  ;; eff <= PHYS-PEN-TOL: sub-tolerance (0.24 mm) — the same
+                                  ;; 1-unit bar the body audit uses; nothing to resolve or record
+                                  )))))))))))
             ;; ---------------- rigid descendants of the joints we moved ----------------
             ;; A simulated joint's NON-simulated children are filled by fill-jak-hd-bones! straight
             ;; from the DRIVER and never re-derived, so moving the parent TEARS them off. Keira's
@@ -5157,6 +5447,13 @@
                           (set! more 1)
                           (+! frame-ndesc 1))))))))
             ;; ---------------- windowed proof counters ----------------
+            ;; (C14-D) resolution jerk: the worst single-frame TOTAL resolution displacement any
+            ;; link took, across every pass that moved one. This is the number behind "des trucs
+            ;; bizarres plus genants qu'un simple clipping" — a resolution the eye can see as a
+            ;; jump is a resolution worse than the clip it replaced.
+            (dotimes (k PHYS-JPS)
+              (when (> (-> *phys-lresj* (+ jbase k)) (-> *phys-slot-resjerk* slot))
+                (set! (-> *phys-slot-resjerk* slot) (-> *phys-lresj* (+ jbase k)))))
             (when (> frame-maxdev (-> *phys-slot-maxdev* slot))
               (set! (-> *phys-slot-maxdev* slot) frame-maxdev))
             (when (> frame-maxvel (-> *phys-slot-maxvel* slot))
@@ -5561,6 +5858,38 @@
                 (format *phys-line-buf* " ~D=~f" c
                         (-> *phys-lrad* (+ jbase (-> *phys-cstart* (+ cbase c))))))
               (format 0 "~S~%" *phys-line-buf*)
+              ;; ---- CYCLE-14 SIXTH WINDOW LINE ---------------------------------------------------
+              ;; Same rules as lines 1-5: ONE format 0 call per line, and no field name here is a
+              ;; substring of a field on any earlier line (meshpen/mraw/mfix/meshtested/resjerk and
+              ;; crun: are all new stems — `resid=` cannot match `resjerk=`, `maxpen=` cannot match
+              ;; `meshpen=`, `cres:` cannot match `crun:`).
+              ;;   resjerk    worst single-frame total resolution displacement of any link (C14-D)
+              ;;   meshpen    residual mesh-surface penetration AFTER the resolve, authored-floored
+              ;;              — the owner's blocker measured where his eyes are (C14-B)
+              ;;   mraw       the same figure BEFORE the resolve: the positive control's needle
+              ;;   mfix       mesh-sample pushes applied; meshtested samples tested — 0 = the
+              ;;              audit did not run, and a meshpen next to meshtested=0 is an empty
+              ;;              zero exactly as resid=0/push=0 was
+              ;;   crun:      per-chain window max deviation ON LOCOMOTION FRAMES ONLY — the
+              ;;              hairrun/chestrun floors read this list (C14-A)
+              (format (clear *phys-line-buf*)
+                      "[HD-PHYS6] ag=~S resjerk=~f meshpen=~f mraw=~f mfix=~D meshtested=~D"
+                      ag
+                      (-> *phys-slot-resjerk* slot)
+                      (-> *phys-slot-meshpen* slot)
+                      (-> *phys-slot-mraw* slot)
+                      (-> *phys-slot-mfix* slot)
+                      (-> *phys-slot-mtested* slot))
+              (format *phys-line-buf* " crun:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-crun* (+ cbase c)))
+                (set! (-> *phys-crun* (+ cbase c)) 0.0))
+              (format 0 "~S~%" *phys-line-buf*)
+              (set! (-> *phys-slot-resjerk* slot) 0.0)
+              (set! (-> *phys-slot-meshpen* slot) 0.0)
+              (set! (-> *phys-slot-mraw* slot) 0.0)
+              (set! (-> *phys-slot-mfix* slot) 0)
+              (set! (-> *phys-slot-mtested* slot) 0)
               (set! (-> *phys-slot-ccc* slot) 0)
               (set! (-> *phys-slot-cccmax* slot) 0.0)
               (set! (-> *phys-slot-injected* slot) 0)

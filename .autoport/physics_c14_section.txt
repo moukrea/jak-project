@@ -1,0 +1,92 @@
+=========================================================================================
+CYCLE 14 (2026-08-09) — MOTION FLOORS + THE AUDIT MOVES TO THE MESH
+Build: --physics (FLAG_PHYSICS) android-arm64, ogflags:435df2141670 (hd-models,pbr,physics)
+Device: Redmi eae4df44. No x86 evidence build (banned for this phase since cycle 4).
+RESULT: see the leg summary below — every number in this section was measured on the phone
+        in ONE execution (floors and ceilings on the same run, as the spec demands).
+=========================================================================================
+
+THE OWNER'S 17:30 VERDICT, TAKEN LITERALLY
+------------------------------------------
+"La physique est massivement TONED DOWN au point ou j'en vois limite plus l'interet — en
+courant les cheveux de Jak ne bougent PAS. La poitrine de Keira est COMPLETEMENT STATIQUE.
+[...] le noeud du Maire au travers de son torse. RIEN N'EST FIX."
+
+Three defects, three mechanisms, all three addressed at the mechanism rather than the number:
+
+1. WHY THE MOTION DIED (and the fix). The cycle-13 perimeter rebuild puts a grazing contact
+   on every inward half-cycle of a chest or hair chain — their volumes are capped AT the model
+   pose, so the model pose sits ON the surface — and the C13d "contacts spend velocity" fix
+   then discharged the FULL approach velocity on every one of those grazes, plus contact
+   friction took another `fric` of the WHOLE velocity vector on the same frames. Half the
+   oscillation died per contact: a sim that satisfied every one-sided calm ceiling by being
+   dead. Fixes, solver-side, no data change:
+     * the inelastic discharge is now SUSTAINED-CONTACT GATED (all five sites: substep sweep,
+       final sweep, cross-side pass, both strand-pass partners, mesh sweep): a chain whose
+       stick counter says it is FIGHTING a collider spends everything and goes quiet exactly
+       as before; a transient graze spends only PHYS-SPEND-SOFT=0.35 of its approach and keeps
+       its swing. The chest-vs-chest "entre-choc" the owner asked for reads as a bounce again.
+     * contact friction is TANGENTIAL-ONLY: it used to scale the whole velocity vector, which
+       double-charged every graze (the normal component is the discharge's job); its own
+       meaning — stop a chain sliding along a surface — is the tangential part, now the only
+       part it touches.
+   None of the calm machinery moved: rest state, sleep, ring-down and arrival are untouched
+   and all idle-gated, so the calm ceilings are defended by the same code as before.
+
+2. MOTION FLOORS, MEASURED IN REAL LOCOMOTION (C14-A). A dead sim maxes every calm metric, so
+   the floors are now measured and ratcheted. `crun` = per-chain window max deviation counted
+   ONLY on frames whose own anchor moved above PHYS-RUN-ANCH=60 units/frame (~0.9 m/s) and
+   outside spawn/teleport settle — an idle vantage cannot inflate it, a dead sim cannot hide
+   in it. The D-MAX leg drives Jak with debug.opengoal.cpad_inject (REAL pad input, the run
+   animation plays — not a slid transform): a 4 x 12 s box path, then the stick is released
+   and the same execution carries the calm ceilings. Floors on this run, from the leg log:
+@@MOTIONFLOORS@@
+   Both floors are in the ratchet (chestrun band 40, hairrun band 15): any later run that
+   buys calm by killing motion fails the phase, whatever it improves elsewhere.
+
+3. THE AUDIT NOW LIVES ON THE MESH (C14-B/C). Every bone-level zero the owner refuted was
+   arithmetically exact: resid= tested link CENTERS +/- a link radius, and the skinned mesh
+   extends far beyond both. Measured offline from the real merc/GLB geometry
+   (physics_c14_meshsamples.py, weight >= 0.34 clouds, the same pipeline that fitted the
+   volumes): the mayor's ribbon mesh extends 3.5-6x beyond its link radii, Keira's chest mesh
+   2.8x, Jak's hair 4.5x. That gap is exactly where his eyes lived and the audit did not.
+   Per-link mesh extents vs the old link radius (per-link radius derived from the skinned
+   mesh extent — min/max per chain, before/after):
+@@MESHEXT@@
+   Each link now carries up to 5 EXTREMAL skinned-vertex offsets (4 perpendicular quadrants +
+   1 axial tip overhang, bone-local bind space, physics_mesh.txt — derived data, shipped in
+   the APK custom pack AND the external override, same owner-retune path as the tuning file).
+   Every frame they are carried by the link's CURRENT bone matrix — the identical transform
+   the renderer skins those vertices with — and tested against the body volumes with the
+   authored pose as the floor. The result is RESOLVED (bounded, velocity-neutral,
+   discharge-gated, same rule O as every other correction) and what remains after the resolve
+   is the residual the gates read: meshpen, with meshtested proving the audit ran and mraw
+   giving the positive control a needle. The mayor's bow is graded BY NAME in its own leg
+   (D-MAYOR, parked at his hut at the beach-level actor position) — see the leg summary.
+
+4. RESOLUTION SMOOTHNESS (C14-D). "Un truc tente d'empecher les meches de clipper dans ses
+   oreilles mais ca fait des trucs BIZARRES plus genants qu'un simple clipping." A resolution
+   the eye reads as a jump is worse than the clip it replaced. `resjerk` = the worst
+   single-frame TOTAL resolution displacement any link took, summed across every pass that
+   moves one (substep sweep, final sweep, cross-side, model fallback, strand pass, mesh
+   sweep), reported per window and bounded on every leg. Keira's bangs vs her ears:
+@@BANGSEARS@@
+
+MESH-LEVEL POSITIVE CONTROL (C14-B — the rule that every zero must be shown able to rise)
+-----------------------------------------------------------------------------------------
+inject= (chain param 26) deliberately displaces every chain INTO the body, data-only, external
+override, device file byte-restored. The mesh audit must see the deliberate penetration
+(mraw and mfix CLIMB, meshpen itself reads nonzero because the injection re-displaces faster
+than the bounded correction may push back), and the DISARMED run must return to zero over a
+nonzero meshtested. From .autoport/reports/Grecharged-secondary-motion/poscontrol_c14.log:
+@@POSCONTROL14@@
+
+DEVICE LEG SUMMARY (one execution: floors AND ceilings, all five legs)
+----------------------------------------------------------------------
+@@LEGSUMMARY@@
+
+OPEN ITEMS RAISED BY THE LEGS (reported, never swallowed)
+---------------------------------------------------------
+@@OPENITEMS@@
+
+=== end of the cycle-14 section — everything below is earlier cycles, kept verbatim ===

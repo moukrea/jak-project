@@ -188,6 +188,7 @@ data_freshness_guard(){
     "${FR3_DIR}"$'\t''*.grassbake'$'\t''fr3/'
     "${RHUD_SRC}"$'\t''*.png'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_chains.txt'$'\t''recharged_assets/'
+    "${RHUD_SRC}"$'\t''physics_mesh.txt'$'\t''recharged_assets/'
   )
   local n_cov=0 spec cdir cglob cpfx cbase want
   for spec in "${cov_specs[@]}"; do
@@ -314,6 +315,15 @@ if [ -f "$ROOT/$RHUD_SRC/physics_chains.txt" ]; then
   ln -s "$ROOT/$RHUD_SRC/physics_chains.txt" "$STAGE/recharged_assets/physics_chains.txt"
   MEMBERS+=("recharged_assets/physics_chains.txt")
   echo "[custom-pack] physics chain definition: 1 (delivery ungated; runtime feature flag physics=$F_PHYSICS)"
+fi
+# (C14) MESH-SAMPLE DATA — same delivery rule as physics_chains.txt: derived data of ours, iso-only
+# base pack, so a flag-gated delivery would ship it nowhere. Without it the runtime logs
+# MESHSRC=none and the mesh-surface audit reports meshtested=0 ("not measured", never a clean 0).
+if [ -f "$ROOT/$RHUD_SRC/physics_mesh.txt" ]; then
+  mkdir -p "$STAGE/recharged_assets"
+  ln -s "$ROOT/$RHUD_SRC/physics_mesh.txt" "$STAGE/recharged_assets/physics_mesh.txt"
+  MEMBERS+=("recharged_assets/physics_mesh.txt")
+  echo "[custom-pack] physics mesh samples: 1 (delivery ungated; runtime feature flag physics=$F_PHYSICS)"
 fi
 
 # 1bis. MESH BROWSER INDEX — ALWAYS. DERIVED data (produced by tools/mesh_index from a
