@@ -1126,11 +1126,28 @@ def _progress_fingerprint() -> str:
     except Exception:
         tree = ""
     stamps = []
-    for d in (REPO_ROOT / ".autoport" / "reports").glob("*/report.txt"):
-        try:
-            stamps.append(f"{d}:{d.stat().st_mtime_ns}:{d.stat().st_size}")
-        except OSError:
-            pass
+    # Report files AND device/build work products. The original fingerprint only
+    # watched git status + report.txt, so a legitimate 45+ minute device campaign
+    # (deploy, extraction boot, logcat legs — none of which touch the tree) was
+    # killed mid-flight three times in a row and tripped the STUCK detector.
+    globs = [
+        (REPO_ROOT / ".autoport" / "reports", "*/report.txt"),
+        (REPO_ROOT / ".autoport" / "reports", "*/device/*"),
+        (REPO_ROOT / ".autoport" / "tmp", "*"),
+    ]
+    apk = (REPO_ROOT / "android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk")
+    for base, pat in globs:
+        if not base.exists():
+            continue
+        for d in base.glob(pat):
+            try:
+                stamps.append(f"{d}:{d.stat().st_mtime_ns}:{d.stat().st_size}")
+            except OSError:
+                pass
+    try:
+        stamps.append(f"apk:{apk.stat().st_mtime_ns}")
+    except OSError:
+        pass
     return hashlib.sha1(("".join(sorted(stamps)) + tree).encode()).hexdigest()
 
 
