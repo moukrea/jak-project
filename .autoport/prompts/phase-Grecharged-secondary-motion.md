@@ -922,3 +922,13 @@ le noeud du Maire au travers de son torse. RIEN N'EST FIX. »
   E. PROFONDEUR DE VÉRIF SUR LES 3 PERSONNAGES QUE L'OWNER TESTE EN PREMIER : Jak, Keira, le Maire —
      les autres gardent leurs chaînes (pas de descope silencieux), mais la preuve mesh-level et les
      planchers de locomotion portent d'abord sur ces trois-là.
+
+### CYCLE 14 — IDÉE OWNER 2026-08-09 21:15 : BANC D'ESSAI DES ACTEURS (voir SPEC §14)
+Le Maire échoue sur « warp never landed » : on ne sait rien de sa physique parce qu'on n'arrive pas
+à ALLER LE VOIR. C'est un mode d'échec de la mise en scène du test, pas de la physique.
+=> PRIORITÉ : construire le banc décrit en SPEC §14 — spawn de n'importe quel acteur PAR NOM dans
+   une zone de test, joué à travers TOUTES les animations de son art-group, avec les mesures
+   habituelles par acteur/par chaîne + le NOM DE L'ANIMATION au moment du pire chiffre.
+=> Il remplace la navigation in-world comme source des chiffres ; garder 1-2 cas en scène réelle
+   comme contrôle de non-régression. Ça débloque le Maire immédiatement et rend atteignable la
+   couverture des 60 modèles que la spec exige.

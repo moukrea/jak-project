@@ -154,3 +154,27 @@ couvert par chaîne-vs-chaîne pour la partie qui a des os.
 | « ça pend ça pend » (famille B) | jamais tiré vers le bind ; hang plein | FAM-ter |
 | « le col ne s'écrase pas » | lenmin/lensim ≥ 0.97 | X + ratchet |
 | « Maia bouge plus que Keira, pas moins » | damping(Maia) < 1.5× damping(Keira), amplitude comparée | AD |
+
+## 14. BANC D'ESSAI DES ACTEURS (idée owner 2026-08-09 — approche sanctionnée)
+« Si tu galères à aller vers les personnages, tu peux les téléporter où tu veux, faire une ZONE DE
+SPAWN DÉDIÉE aux tests de tous les acteurs et les tester avec TOUTES LES ANIMATIONS qu'ils ont en
+rayon. Ça faciliterait la validation/itération de la physique de chacun d'entre eux. »
+
+C'EST LA BONNE VOIE, ET ELLE EST PRIORITAIRE SUR LA NAVIGATION IN-WORLD :
+  * Aller chercher un PNJ à sa place dans le monde est le maillon FRAGILE de toute la chaîne de
+    preuve. Le Maire échoue aujourd'hui sur « warp never landed » — donc on ne sait RIEN de sa
+    physique, alors que le solveur va peut-être très bien sur lui. Ce mode d'échec a coûté des
+    heures et il se reproduira sur chaque acteur difficile d'accès.
+  * BANC : une zone/niveau de test où N'IMPORTE QUEL acteur est spawné par NOM, posé devant la
+    caméra, et joué à travers **toutes les animations de son art-group** (pas une pose, pas un
+    walk-cycle : la liste complète — c'est là que la physique est réellement stressée, et c'est ce
+    qui a manqué à toutes les campagnes jusqu'ici).
+  * MESURES : les mêmes qu'ailleurs, par ACTEUR et par CHAÎNE — meshpen/meshtested, resjerk,
+    planchers de locomotion, restdevA/restwin, chaîne↔chaîne — plus le nom de l'animation en cours
+    quand un maximum est atteint. Savoir QUELLE animation casse quoi vaut dix campagnes.
+  * COUVERTURE : le banc rend enfin réaliste la couverture des 60 modèles / ~345 chaînes que la
+    spec exige, au lieu de trois personnages atteignables.
+  * HONNÊTETÉ : le banc est l'outil d'ITÉRATION et de couverture. Il ne remplace pas une passe
+    finale dans une VRAIE scène (contexte, LOD, autres colliders, caméra) — mais il devient la
+    source des chiffres, et la scène réelle sert de contrôle de non-régression sur 1-2 cas.
+  * GRATUIT POUR L'OWNER : gated comme le reste (debug/flag), invisible en jeu normal.
