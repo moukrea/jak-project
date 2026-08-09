@@ -751,8 +751,7 @@
     "Gmenu-pixelmatch",
     "Gecho-pool",
     "Gcollision-replay-diff",
-    "Grecharged-hd-models4",
-    "Grecharged-secondary-motion"
+    "Grecharged-hd-models4"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -943,7 +942,7 @@
     "Gmenu-flag-off": 1785886071.952773,
     "Grecharged-hd-models5": 1785898653.0176275,
     "Grecharged-hd-models4": 1785939731.6130211,
-    "Grecharged-secondary-motion": 1786261233.7228057,
+    "Grecharged-secondary-motion": 1786261305.3165615,
     "Grecharged-hd-eye-scale": 1786170899.0463903,
     "Grecharged-title-logo-fullres": 1786153395.9536324,
     "Grecharged-materials-modern-parity": 1786167637.0459936
