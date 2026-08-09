@@ -913,12 +913,22 @@
 ;; calm may never again be bought by killing motion.
 (define *phys-crun* (new 'static 'array float 576))
 (define *phys-canchd* (new 'static 'array float 576))       ;; per-chain THIS-FRAME own-anchor travel
-;; (C14-D) resolution jerk: per-link TOTAL resolution displacement applied this frame, summed over
-;; every pass that moves a link (substep sweep, final sweep, cross-side, model fallback, strand
-;; pass, mesh sweep). The window keeps the worst single-frame figure — a resolution worse than the
-;; clip is worse than no resolution, and this is the number that says whether one moved a bone
-;; visibly in one frame.
-(define *phys-lresj* (new 'static 'array float 1152))
+;; (C14-D) resolution jerk: per-link NET resolution displacement applied this frame — the VECTOR
+;; sum of every correction any pass applied to the link (substep sweep, final sweep, cross-side,
+;; model fallback, strand pass, mesh sweep), folded to a length at frame end. The window keeps the
+;; worst single-frame figure.
+;; NET, not path length. The first ledger summed the MAGNITUDE of every correction, and the substep
+;; sweep applies opposing corrections iters x substeps times per frame while it and the spring
+;; argue over a pinned link: a settled, visually still link read as a 100853-unit "jump" on the
+;; same device window whose every calm gate was green (jitter=23, freering=29, rested>0,
+;; clamped=18 in the whole leg). What the eye reads as a snap is where the bone ENDED the frame
+;; relative to where resolution found it — the net. A real one-frame snap (mfsnap, a deep
+;; first-contact push) nets exactly its visible size, so the bound still catches it.
+(define *phys-lresv* (new 'static 'inline-array vector 1152))
+;; (C14) per-chain modelled length, written by the sim loop the frame it is computed, read by the
+;; mesh sweep to bound its push exactly as the body pass bounds its own (PHYS-MAXCORR-REL of the
+;; chain's own length — never a fixed hand-picked constant that cannot converge).
+(define *phys-cchlen* (new 'static 'array float 576))
 (define *phys-slot-resjerk* (new 'static 'array float 24))
 (define *phys-slot-meshpen* (new 'static 'array float 24))  ;; residual mesh-surface penetration AFTER resolve (window max, authored-floored)
 (define *phys-slot-mraw* (new 'static 'array float 24))     ;; BEFORE resolve — the positive control's needle
@@ -1544,11 +1554,11 @@
     (set! (-> *phys-slot-mraw* slot) 0.0)
     (set! (-> *phys-slot-mfix* slot) 0)
     (set! (-> *phys-slot-mtested* slot) 0)
-    ;; lresj only: msn was just cached by the chain loop above (this reset runs AFTER it), and the
+    ;; lresv only: msn was just cached by the chain loop above (this reset runs AFTER it), and the
     ;; mesh sweep only ever reads msn on the CURRENT chains' links, so stale entries on other
     ;; joints are unreachable rather than wiped here.
     (dotimes (k PHYS-JPS)
-      (set! (-> *phys-lresj* (+ (* slot PHYS-JPS) k)) 0.0))
+      (vector-zero! (-> *phys-lresv* (+ (* slot PHYS-JPS) k))))
     (set! (-> *phys-slot-njoints* slot) njoints)
     (set! (-> *phys-slot-nchains* slot) nch)
     (set! (-> *phys-slot-ncols* slot) ncols)
@@ -1784,11 +1794,11 @@
              (frame-famb 0)
              (frame-unclass 0))
         (when (and (> dt 0.0001) (< dt 0.1))
-          ;; (C14-D) fresh frame, fresh resolution-jerk ledger: lresj accumulates every correction
-          ;; the resolution applies to a link THIS frame, across all passes, and the window keeps
-          ;; the worst single-frame total.
+          ;; (C14-D) fresh frame, fresh resolution-jerk ledger: lresv accumulates every correction
+          ;; VECTOR the resolution applies to a link THIS frame, across all passes; the fold below
+          ;; takes the length of the NET and the window keeps the worst single-frame figure.
           (dotimes (k PHYS-JPS)
-            (set! (-> *phys-lresj* (+ jbase k)) 0.0))
+            (vector-zero! (-> *phys-lresv* (+ jbase k))))
           ;; ---------------- (W) HOW FAR FROM UPRIGHT IS THIS CHARACTER? ---------------------------
           ;; Joint 0 is `align`, the actor's own transform, and bone index = joint + 1. Row 1 of that
           ;; matrix is his up axis; `phys-axis-dot` normalises it first, so a rig carrying scale does
@@ -1968,6 +1978,9 @@
                             ;; full-depth correction in one frame is a large positional jump, and a
                             ;; large positional jump is what a verlet integrator reads as velocity.
                             (maxcorr (fmax 8.0 (* PHYS-MAXCORR-REL chainlen))))
+                       ;; (C14b) published for the mesh sweep below, which bounds its push off the
+                       ;; same figure the body pass does
+                       (set! (-> *phys-cchlen* ci) chainlen)
                        (when (< chainlen 1.0)
                          (+! frame-nopose 1))
                        ;; ---------------- (R) A REST POSE THAT KNOWS WHICH WAY IS DOWN -------------
@@ -2937,9 +2950,9 @@
                                                           ;; distance and cone corrections this used
                                                           ;; to leave untouched.
                                                           (vector+! p p vtmp)
-                                                          ;; (C14-D) part of the frame's resolution jerk
-                                                          (+! (-> *phys-lresj* (+ start i))
-                                                              (vector-length vtmp))
+                                                          ;; (C14-D) part of the frame's NET resolution jerk
+                                                          (vector+! (-> *phys-lresv* (+ start i))
+                                                                    (-> *phys-lresv* (+ start i)) vtmp)
                                                           ;; ...but the DIRECTION is remembered: the
                                                           ;; velocity-consistency pass needs to know
                                                           ;; which way the body pushed to spend the
@@ -3665,7 +3678,8 @@
                                                (vector+! p p vtmp)
                                                ;; (C14-D) this correction is part of the frame's
                                                ;; resolution jerk
-                                               (+! (-> *phys-lresj* (+ start i)) (vector-length vtmp))
+                                               (vector+! (-> *phys-lresv* (+ start i))
+                                                         (-> *phys-lresv* (+ start i)) vtmp)
                                                ;; (O) NO VELOCITY RE-INJECTION, and (U) THE SIM
                                                ;; FOLLOWS. `vtmp` is the correction actually applied
                                                ;; to the OUTPUT after clamping. The sim state takes
@@ -3799,7 +3813,8 @@
                                                (when (nonzero? probe?)
                                                  (vector+! pprb pprb vtmp))
                                                (vector+! p p vtmp)
-                                               (+! (-> *phys-lresj* (+ start i)) (vector-length vtmp))
+                                               (vector+! (-> *phys-lresv* (+ start i))
+                                                         (-> *phys-lresv* (+ start i)) vtmp)
                                                (vector+! (-> *phys-pos* (+ start i))
                                                          (-> *phys-pos* (+ start i)) vtmp)
                                                (vector+! (-> *phys-prev* (+ start i))
@@ -4402,7 +4417,8 @@
                                      (when (> cl (-> *phys-slot-mfsnapmax* slot))
                                        (set! (-> *phys-slot-mfsnapmax* slot) cl))
                                      ;; (C14-D) the fallback's move is resolution displacement too
-                                     (+! (-> *phys-lresj* (+ start i)) cl))
+                                     (vector+! (-> *phys-lresv* (+ start i))
+                                               (-> *phys-lresv* (+ start i)) vtmp2))
                                    (vector+! (-> *phys-out* (+ start i))
                                              (-> *phys-out* (+ start i)) vtmp2)
                                    (vector+! (-> *phys-pos* (+ start i))
@@ -5252,7 +5268,8 @@
                                             (vector+! (-> *phys-out* (+ sa i)) (-> *phys-out* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-pos* (+ sa i)) (-> *phys-pos* (+ sa i)) vtmp)
                                             (vector+! (-> *phys-prev* (+ sa i)) (-> *phys-prev* (+ sa i)) vtmp)
-                                            (+! (-> *phys-lresj* (+ sa i)) (vector-length vtmp))
+                                            (vector+! (-> *phys-lresv* (+ sa i))
+                                                      (-> *phys-lresv* (+ sa i)) vtmp)
                                             ;; (S/C13d) INELASTIC CONTACT between strands: a spring
                                             ;; holding two strands pressed together pumps approach
                                             ;; velocity exactly like a body hold (rule O preserves
@@ -5286,7 +5303,10 @@
                                             (vector-! (-> *phys-out* (+ sb j)) (-> *phys-out* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-pos* (+ sb j)) (-> *phys-pos* (+ sb j)) vtmp)
                                             (vector-! (-> *phys-prev* (+ sb j)) (-> *phys-prev* (+ sb j)) vtmp)
-                                            (+! (-> *phys-lresj* (+ sb j)) (vector-length vtmp))
+                                            ;; the partner's applied correction is -vtmp, so the
+                                            ;; net ledger takes it with that sign
+                                            (vector-! (-> *phys-lresv* (+ sb j))
+                                                      (-> *phys-lresv* (+ sb j)) vtmp)
                                             ;; (S/C13d) same discharge for the partner; its push ran
                                             ;; along -vtmp, so the approaching component is the one
                                             ;; ALONG +vtmp (vn > 0), removed with the flipped sign.
@@ -5328,7 +5348,13 @@
                      (len (-> *phys-clen* ci))
                      (start (+ jbase (-> *phys-cstart* ci)))
                      (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci))))
-                     (bnd (fmax 24.0 (* 0.6 (-> *phys-cradius* ci)))))
+                     ;; (C14b) the SAME per-application bound the body pass uses (PHYS-MAXCORR-REL
+                     ;; of the chain's own modelled length), not a fixed two-dozen units. The fixed
+                     ;; bound could not converge: with the spring re-inserting every frame, a deep
+                     ;; sample settled at (mraw - bnd) for ever — measured on device as
+                     ;; meshpen 590 / mraw 614 on jak-hd and samos-hd pinned at 164.66 for four
+                     ;; consecutive windows while mfix counted thousands of 24-unit pushes.
+                     (bnd (fmax 24.0 (* PHYS-MAXCORR-REL (-> *phys-cchlen* ci)))))
                 (when (and (> len 0)
                            (nonzero? (logand (-> *phys-cflags* ci) classmask))
                            (<= (-> *phys-csettle* ci) 0)
@@ -5380,36 +5406,47 @@
                                           (vector-copy! mdir md2)))))
                                   (when (> eff (-> *phys-slot-mraw* slot))
                                     (set! (-> *phys-slot-mraw* slot) eff))
-                                  (cond
-                                    ((> eff PHYS-PEN-TOL)
-                                     (let ((push (fmin bnd eff)))
-                                       (vector-float*! tv mdir push)
-                                       (+! (-> *phys-slot-mfix* slot) 1)
-                                       (+! (-> *phys-lresj* jj) push)
-                                       (vector+! (-> *phys-out* jj) (-> *phys-out* jj) tv)
-                                       (vector+! (-> *phys-pos* jj) (-> *phys-pos* jj) tv)
-                                       (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) tv)
-                                       ;; spend the approach along the push — soft on a transient
-                                       ;; graze, full once stick says the contact is sustained
-                                       (let ((vv (new 'stack-no-clear 'vector)))
-                                         (vector-! vv (-> *phys-pos* jj) (-> *phys-prev* jj))
-                                         (let ((vn (vector-dot vv mdir)))
-                                           (when (< vn 0.0)
-                                             (vector-float*! vv mdir
-                                                             (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
-                                                                    1.0
-                                                                    PHYS-SPEND-SOFT)
-                                                                vn))
-                                             (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) vv))))
-                                       (vector-copy! (-> skel bones (+ k 1) transform vector 3)
-                                                     (-> *phys-out* jj))
-                                       (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)
-                                       ;; the RESIDUAL at the moved point is the blocker's number
-                                       (vector+! sp (-> *phys-out* jj) wof)
-                                       (let ((res (phys-mesh-pen slot cbase c tier sp apv mdir draw)))
-                                         (when (and (> res PHYS-PEN-TOL)
-                                                    (> res (-> *phys-slot-meshpen* slot)))
-                                           (set! (-> *phys-slot-meshpen* slot) res))))))
+                                  ;; (C14b) ITERATED full-depth resolve. One bounded push per frame
+                                  ;; could never win against the spring (see bnd above); three
+                                  ;; iterations of up-to-bnd also cover a sample that leaves one
+                                  ;; volume only to be found by its neighbour (the between-thighs
+                                  ;; squeeze the authored floor does not already absorb). Steady
+                                  ;; state pushes stay small — once a frame ends with the sample
+                                  ;; OUT, the next frame can only re-insert one frame's worth of
+                                  ;; motion — so the eye sees convergence, not snapping, and the
+                                  ;; net-resjerk bound grades exactly that.
+                                  (dotimes (mit 3)
+                                    (when (> eff PHYS-PEN-TOL)
+                                      (let ((push (fmin bnd eff)))
+                                        (vector-float*! tv mdir push)
+                                        (+! (-> *phys-slot-mfix* slot) 1)
+                                        (vector+! (-> *phys-lresv* jj) (-> *phys-lresv* jj) tv)
+                                        (vector+! (-> *phys-out* jj) (-> *phys-out* jj) tv)
+                                        (vector+! (-> *phys-pos* jj) (-> *phys-pos* jj) tv)
+                                        (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) tv)
+                                        ;; spend the approach along the push — soft on a transient
+                                        ;; graze, full once stick says the contact is sustained
+                                        (let ((vv (new 'stack-no-clear 'vector)))
+                                          (vector-! vv (-> *phys-pos* jj) (-> *phys-prev* jj))
+                                          (let ((vn (vector-dot vv mdir)))
+                                            (when (< vn 0.0)
+                                              (vector-float*! vv mdir
+                                                              (* (if (> (-> *phys-cstick* ci) PHYS-STICK)
+                                                                     1.0
+                                                                     PHYS-SPEND-SOFT)
+                                                                 vn))
+                                              (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) vv))))
+                                        (vector-copy! (-> skel bones (+ k 1) transform vector 3)
+                                                      (-> *phys-out* jj))
+                                        (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)
+                                        ;; re-audit at the moved point; a later iteration resolves
+                                        ;; what this one left (or found in a neighbouring volume)
+                                        (vector+! sp (-> *phys-out* jj) wof)
+                                        (set! eff (phys-mesh-pen slot cbase c tier sp apv mdir draw)))))
+                                  ;; what survives the iterated resolve is the blocker's number
+                                  (when (and (> eff PHYS-PEN-TOL)
+                                             (> eff (-> *phys-slot-meshpen* slot)))
+                                    (set! (-> *phys-slot-meshpen* slot) eff))
                                   ;; eff <= PHYS-PEN-TOL: sub-tolerance (0.24 mm) — the same
                                   ;; 1-unit bar the body audit uses; nothing to resolve or record
                                   )))))))))))
@@ -5464,13 +5501,16 @@
                           (set! more 1)
                           (+! frame-ndesc 1))))))))
             ;; ---------------- windowed proof counters ----------------
-            ;; (C14-D) resolution jerk: the worst single-frame TOTAL resolution displacement any
-            ;; link took, across every pass that moved one. This is the number behind "des trucs
-            ;; bizarres plus genants qu'un simple clipping" — a resolution the eye can see as a
-            ;; jump is a resolution worse than the clip it replaced.
+            ;; (C14-D) resolution jerk: the worst single-frame NET resolution displacement any
+            ;; link took, across every pass that moved one (the length of the frame's summed
+            ;; correction vectors — see the *phys-lresv* declaration for why net, not path).
+            ;; This is the number behind "des trucs bizarres plus genants qu'un simple clipping" —
+            ;; a resolution the eye can see as a jump is a resolution worse than the clip it
+            ;; replaced, and what the eye sees is where the bone ended the frame.
             (dotimes (k PHYS-JPS)
-              (when (> (-> *phys-lresj* (+ jbase k)) (-> *phys-slot-resjerk* slot))
-                (set! (-> *phys-slot-resjerk* slot) (-> *phys-lresj* (+ jbase k)))))
+              (let ((nj (vector-length (-> *phys-lresv* (+ jbase k)))))
+                (when (> nj (-> *phys-slot-resjerk* slot))
+                  (set! (-> *phys-slot-resjerk* slot) nj))))
             (when (> frame-maxdev (-> *phys-slot-maxdev* slot))
               (set! (-> *phys-slot-maxdev* slot) frame-maxdev))
             (when (> frame-maxvel (-> *phys-slot-maxvel* slot))

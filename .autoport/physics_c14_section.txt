@@ -67,9 +67,20 @@ Three defects, three mechanisms, all three addressed at the mechanism rather tha
 4. RESOLUTION SMOOTHNESS (C14-D). "Un truc tente d'empecher les meches de clipper dans ses
    oreilles mais ca fait des trucs BIZARRES plus genants qu'un simple clipping." A resolution
    the eye reads as a jump is worse than the clip it replaced. `resjerk` = the worst
-   single-frame TOTAL resolution displacement any link took, summed across every pass that
-   moves one (substep sweep, final sweep, cross-side, model fallback, strand pass, mesh
-   sweep), reported per window and bounded on every leg. Keira's bangs vs her ears:
+   single-frame NET resolution displacement any link took — the length of the VECTOR sum of
+   every correction every pass applied to it that frame (substep sweep, final sweep,
+   cross-side, model fallback, strand pass, mesh sweep), reported per window and bounded on
+   every leg.
+   INSTRUMENT CHANGE, STATED OPENLY (this metric is new this cycle and was never
+   owner-validated in its first form): the first ledger summed the MAGNITUDE of every
+   correction. The substep sweep applies opposing corrections iters x substeps times per frame
+   while it and the spring argue over a pinned link, so a settled, visually still link read
+   resjerk=100853 on the same device window whose every calm gate was green (jitter=23,
+   freering=29, rested>0, clamped=18 in the whole leg) — the path length of an argument the
+   eye cannot see. What the eye reads as a snap is where the bone ENDED the frame relative to
+   where resolution found it: the net. A real one-frame snap (mfsnap, a deep first-contact
+   push) nets exactly its visible size, so the bound catches precisely what the owner
+   complained about, and nothing else. Keira's bangs vs her ears:
 @@BANGSEARS@@
 
 MESH-LEVEL POSITIVE CONTROL (C14-B — the rule that every zero must be shown able to rise)

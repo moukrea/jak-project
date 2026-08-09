@@ -10,7 +10,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-$HOME/Android/platform-tools/adb}"
 S="${S:-eae4df44}"; PKG=org.opengoal.gk.jak1
-OUT=.autoport/reports/Grecharged-secondary-motion; mkdir -p "$OUT"
+OUT=.autoport/reports/Grecharged-secondary-motion/probe_c14b; mkdir -p "$OUT"
 LOG="$OUT/device_leg.log"; : > "$LOG"
 PCS_DEV="/storage/emulated/0/OpenGOAL/jak1/settings.ini"
 INI_BAK="$OUT/.settings.ini.owner-backup-phys"
@@ -565,13 +565,13 @@ TOTCCP=0
 TOTCCT=0
 TOTMTEST=0
 run_leg "D-MAX" '#t' 2 expect-phys || FAILED=1
-run_leg "D-OFF" '#f' 1 expect-off  || FAILED=1
-run_leg "D-RIDER" '#t' 1 expect-rider || FAILED=1
+: # probe: D-OFF skipped
+: # probe: D-RIDER skipped
 # owner cycle-3c N + cycle-4 U: Maia's hair through her body, and the collar close-up while Jak
 # is lying down. Both live in the intro cinematic and nowhere else.
-WATCH=200 run_leg "D-INTRO" '#t' 2 expect-intro intro-start || FAILED=1
+: # probe: D-INTRO skipped
 # (C14-B/E) the mayor by name: his bow vs his torso, at mesh level, at his own hut
-WATCH=110 run_leg "D-MAYOR" '#t' 2 expect-mayor village1-hut '-113.00 11.50 40.00' || FAILED=1
+: # probe: D-MAYOR skipped
 
 say ""
 say "run total: input-free frames sampled across all legs = $TOTIDLE"
