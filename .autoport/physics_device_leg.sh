@@ -78,6 +78,12 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   set_ini_dev 'hd-look-daxter' 1
   set_ini_dev 'hd-look-keira' 1
   set_ini_dev 'hd-look-samos' 1
+  # (C14c-4) D-MAYOR only: birth actors by DISTANCE instead of by visibility octree. The mayor is
+  # a beach actor and every continue point that displays beach leaves the camera outside beach's
+  # own BSP boxes, so `all-visible?` stays true and entity.gc skips his level's birth loop
+  # entirely — his art loads and no process is ever created. This is the existing PC
+  # `force-actors?` option, which entity.gc now honours in the birth loop too.
+  [ "$MODE" = expect-mayor ] && set_ini_dev 'force-actors?' '#t'
   set_ini_dev 'physics?' "$PHY"
   set_ini_dev 'physics-quality' "$QUAL"
   $ADB -s "$S" push "$INI_TMP" "$PCS_DEV" >/dev/null 2>&1 || die "cannot push settings.ini"
@@ -620,7 +626,7 @@ say "run total: input-free frames sampled across all legs = $TOTIDLE"
 # Same rule for the cross-leg claim: xleg=0 is only worth something if the CLOTH below the pendant
 # bones was ever the thing being tested. Checked once for the run, not per leg — a village leg with
 # no jacketed actor on screen legitimately reports 0.
-say "run total: post-settle model-fidelity samples across all legs = $TOTREST"
+say "run total: model-fidelity samples across all legs, measured once each chain settles (restwin) = $TOTREST"
 [ "$TOTREST" -ge 1 ] || { say "FAIL(run): restwin=0 in the whole run — restdevA graded nothing, so it is an empty zero"; FAILED=1; }
 say "run total: pendant-cloth collision tests across all legs = $TOTEXT"
 [ "$TOTEXT" -ge 1 ] || { say "FAIL(run): extprobe=0 in the whole run — the pendant geometry was never tested, so xleg=0 proves nothing"; FAILED=1; }

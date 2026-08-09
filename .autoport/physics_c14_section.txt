@@ -116,7 +116,8 @@ Three defects, three mechanisms, all three addressed at the mechanism rather tha
    every leg.
    INSTRUMENT CHANGE, STATED OPENLY — THE SECOND ONE, and this time the metric is refuted by
    its own arithmetic rather than by taste. History first, because it matters: the ledger began
-   as a sum of correction MAGNITUDES and a settled, visually still link read resjerk=100853 on
+   as a sum of correction MAGNITUDES and a link at rest, visually motionless, read a resjerk of
+   100853 on
    a window whose every calm gate was green. That was corrected to a sum of correction VECTORS,
    on the reasoning that opposing corrections would then cancel. They do not, and the 09:46 run
    shows why in one line — jak-hd's worst window read

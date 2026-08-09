@@ -2892,10 +2892,10 @@ j backhair_r2
 j backhair_r3
 j backhair_r4
 j backhair_r5
-chain flapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 hang=0.45 family=B side=L extent=240 radii=104,124 xchain=backhairL,backhairM,backhairR,earL,earR,flapR,ponytail
+chain flapL class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.01 radius=90 rootlock=0 gradient=1 hang=0.45 family=B side=L extent=240 radii=104,124 xchain=backhairL,backhairM,backhairR,earL,earR,flapR,ponytail
 j l_flap1
 j l_flap2
-chain flapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.03 radius=90 rootlock=0 gradient=1 hang=0.45 family=B side=R extent=240 radii=71,153 xchain=backhairL,backhairM,backhairR,earL,earR,flapL,ponytail
+chain flapR class=primary stiffness=1.7 damping=0.20 gravity=0.55 maxangle=34 inertia=1.0 stretch=0.01 radius=90 rootlock=0 gradient=1 hang=0.45 family=B side=R extent=240 radii=71,153 xchain=backhairL,backhairM,backhairR,earL,earR,flapL,ponytail
 j r_flap1
 j r_flap2
 chain chestL class=primary stiffness=2.46 damping=0.14 gravity=0.16 maxangle=26 inertia=1.0 stretch=0.01 radius=170 mass=4.2 swing=0.72 hang=0.32 couple=4.2 family=A radii=260 xchain=backhairL,backhairM,backhairR,ponytail

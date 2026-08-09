@@ -3364,6 +3364,46 @@
                          ;; two rather than passing this one. It touches nothing while the actor is
                          ;; moving (idleframes resets to 0 on any anchor or target motion), and
                          ;; `prev` takes the identical delta, so no velocity is injected or removed.
+                         ;; (C14c-5) THE IDLE HOLD MUST NOT FIRE ON A FRAME THIS CHAIN'S OWN
+                         ;; TARGETS MOVED. `idleframes` is published in the slot epilogue, ~1340
+                         ;; lines below this consumer, so it is ONE FRAME STALE here: on the frame a
+                         ;; cinematic re-orients a character in place the counter still reads idle,
+                         ;; the hold fires, and the chain is pinned at its pre-cut WORLD position
+                         ;; while the authored pose rotates out from under it. Measured on
+                         ;; sidekick-human-lod0 in the intro: an ~88-degree yaw in one frame left his
+                         ;; ear root 1105.93 and his ear tip 3101.997 off the authored pose — 2.5x
+                         ;; the whole ear bone — with maxvel=60.67 and lenmin=lensim=0.9999 proving
+                         ;; nothing swung and nothing stretched. It was displaced bodily. The head
+                         ;; translates less than PHYS-JUMP-ABS so the reseed detector (anchor
+                         ;; TRANSLATION only) never armed, and anchor acceleration stayed small so
+                         ;; the calm counter survived: both existing guards are blind to a rotation
+                         ;; in place. This is also the whole of that leg's resolution-jerk figure,
+                         ;; which is why it read 2713.4941 bit-for-bit across five builds carrying
+                         ;; five different solvers — it was never a solver quantity, it was |d targ|.
+                         ;; The file already states the principle at the epilogue: "the anchor can be
+                         ;; still while every target below it swings (an NPC turning on the spot)".
+                         ;; Evaluated HERE, against the same *phys-tprev* baseline the epilogue uses,
+                         ;; so the veto is in phase with the frame it guards. Strictly conservative:
+                         ;; it can only make the hold fire LESS, so no calm ceiling is loosened.
+                         (let ((tmv 0.0))
+                           (dotimes (i len)
+                             (vector-! vtmp (-> *phys-targ* (+ start i))
+                                       (-> *phys-tprev* (+ start i)))
+                             (let ((d (vector-length vtmp)))
+                               (when (> d tmv) (set! tmv d))))
+                           ;; (C14c-6) threshold is CHAIN-RELATIVE, not the 2-unit idle bar.
+                           ;; PHYS-IDLE-TARG is 2.0 units (half a millimetre): an idle actor's
+                           ;; breathing clears it every frame, so vetoing on it disabled the hold
+                           ;; outright — chains that used to be pinned kept simulating, and the run
+                           ;; paid for it (meshtested 459k -> 172k, restwin 2547 -> 1057, and one
+                           ;; leg's warp missed its 420 s window entirely). The hold is a calm AND a
+                           ;; cost mechanism and it has to keep firing when the actor really is
+                           ;; still. What must veto it is a RE-POSE: the event measured on
+                           ;; sidekick-human moved his targets 2713 units on a chain 2496 long,
+                           ;; i.e. 1.09x its own length, while breathing is a few units. A quarter
+                           ;; of the chain's own length separates the two by a factor of ~100 in
+                           ;; both directions and needs no new tuning constant.
+                           (when (< tmv (fmax 64.0 (* 0.05 chainlen)))
                          (let ((idf (-> *phys-slot-idleframes* slot)))
                            (when (and (> idf PHYS-RINGDOWN-N) (<= (-> *phys-csettle* ci) 0))
                              (let ((rp (fmax 0.0
@@ -3378,7 +3418,7 @@
                                    (vector+! (-> *phys-pos* (+ start i))
                                              (-> *phys-pos* (+ start i)) vtmp)
                                    (vector+! (-> *phys-prev* (+ start i))
-                                             (-> *phys-prev* (+ start i)) vtmp))))))
+                                             (-> *phys-prev* (+ start i)) vtmp))))))))
                          ;; ---- (W) ARRIVAL — A CHAIN THAT HAS STOPPED IS WHERE THE MODEL PUTS IT
                          ;; Owner, cycle 5: "quand ca se calme, en orientation classique, ca REVIENT
                          ;; a la forme du modele". Deliberately NOT a clamp, a freeze or a pin — the
@@ -3688,6 +3728,18 @@
                          (when (and (= 0.0 (-> *phys-cinject* ci))
                                     (or (= 2 (-> *phys-cfam* ci))
                                         (>= (-> *phys-ccalm* ci) PHYS-RESTCALM)))
+                           ;; (C14c-5) same one-frame-stale veto as the sim-side hold above — this
+                           ;; is the site that pinned sidekick-human's ear in WORLD space through a
+                           ;; cinematic yaw. `rp = 0` here REPLACES the output with last frame's
+                           ;; world position and is bounded by nothing: not the cone, not stretch,
+                           ;; not maxcorr. It must not fire on a frame the targets moved.
+                           (let ((tmv 0.0))
+                             (dotimes (i len)
+                               (vector-! vtmp (-> *phys-targ* (+ start i))
+                                         (-> *phys-tprev* (+ start i)))
+                               (let ((d (vector-length vtmp)))
+                                 (when (> d tmv) (set! tmv d))))
+                             (when (< tmv (fmax 64.0 (* 0.05 chainlen)))
                            (let ((idf (-> *phys-slot-idleframes* slot)))
                              (when (and (> idf PHYS-RINGDOWN-N) (<= (-> *phys-csettle* ci) 0))
                                (let ((rp (fmax 0.0
@@ -3705,7 +3757,7 @@
                                                   (-> *phys-oprev* (+ start i)))
                                         (vector-float*! vtmp vtmp rp)
                                         (vector+! (-> *phys-out* (+ start i))
-                                                  (-> *phys-oprev* (+ start i)) vtmp)))))))))
+                                                  (-> *phys-oprev* (+ start i)) vtmp)))))))))))
                          ;; ---- (C6) POSITIVE CONTROL: PUT IT WHERE IT MUST NOT BE ---------------
                          ;; Owner, cycle 6: "avant de rapporter le moindre zero, l'audit doit
                          ;; PROUVER qu'il sait detecter une penetration. Injecter deliberement une

@@ -1074,7 +1074,20 @@
                           (if (>= sv-24 (-> *ACTOR-bank* birth-max)) (return (the-as object #f)))))
                        (else
                         (if (and (-> v1-84 process) (not (logtest? (-> v1-84 perm status) (entity-perm-status bit-3)))) (kill! (-> v1-84 entity)))))))))
-              ((not *vis-actors*)
+              ;; og:preserve-this — `force-actors?` now also reaches the BIRTH loop.
+              ;; The PC option is documented as "show every actor regardless", but it only ever
+              ;; bypassed is-object-visible? (level.gc:713) for actors that had already been
+              ;; birthed. The birth loop itself lives in the *vis-actors* branch below, which is
+              ;; skipped wholesale when the level reports all-visible? — so on a continue point
+              ;; whose vis-nick level is not inside its own BSP boxes, NO actor of that level is
+              ;; ever instantiated and the option cannot show what was never born. Measured: at
+              ;; `beach-start`, beach reaches "Displaying level beach" and mayor-lod0's art loads,
+              ;; while not one beach entity births and the rider list freezes at that exact frame.
+              ;; With the option on, birth falls back to the distance rule above, which is what
+              ;; "regardless" has to mean if it is to mean anything. Off by default; the shipping
+              ;; path is byte-for-byte unchanged.
+              ((or (not *vis-actors*)
+                   (#if PC_PORT (not (-> *pc-settings* ps2-actor-vis?)) #f))
                (let* ((s4-5 (-> s4-2 entity))
                       (s3-4 (-> s4-5 length)))
                  (dotimes (s2-3 s3-4)
