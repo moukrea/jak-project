@@ -178,3 +178,21 @@ C'EST LA BONNE VOIE, ET ELLE EST PRIORITAIRE SUR LA NAVIGATION IN-WORLD :
     finale dans une VRAIE scène (contexte, LOD, autres colliders, caméra) — mais il devient la
     source des chiffres, et la scène réelle sert de contrôle de non-régression sur 1-2 cas.
   * GRATUIT POUR L'OWNER : gated comme le reste (debug/flag), invisible en jeu normal.
+
+## 15. MÉTHODE — GEL DES GATES ET BOUCLE COURTE (superviseur 2026-08-09, après le constat owner)
+CONSTAT : 5 jours, 14 cycles, ~6 verdicts owner seulement. Chaque rejet m'a fait AJOUTER un gate
+(60+ aujourd'hui), et le worker passe désormais son temps à arbitrer entre MES contraintes au lieu
+de rendre le résultat correct à l'oeil. Les proxies (meshpen, resjerk, restdevA, freering,
+idledrift) sont tous mesurables ET tous se sont révélés à côté APRÈS le test de l'owner.
+DÉCISIONS :
+  1. **GEL DES GATES.** Aucun nouveau gate tant qu'un build livré n'a pas été réfuté par l'owner.
+     Le jeu de gates actuel est le contrat ; on le SATISFAIT, on ne l'étend plus.
+  2. **BOUCLE COURTE PAR LES DONNÉES.** `physics_chains.txt` (20 Ko) est RECHARGEABLE À CHAUD sur
+     device (kmachine.cpp:904 — re-parse + bump de version, effet immédiat sur companions ET riders
+     stock, sans respawn). Le fichier sur le téléphone date du 08-06 : cette voie n'a JAMAIS servi à
+     itérer. Tout réglage de paramètre = `adb push` + toggle physics, PAS un build. Minutes, pas heures.
+  3. **UN PERSONNAGE À LA FOIS, JUGÉ PAR L'OEIL.** Viser Keira seule, réglée jusqu'à ce que l'owner
+     la valide, PUIS propager le réglage au cast. Résoudre 60 modèles sous 60 contraintes avant le
+     premier "oui" est la raison du sur-place.
+  4. **LE BANC (§14) SERT D'ABORD À L'OWNER**, pas à moi : son intérêt n°1 est qu'il puisse voir
+     tous les acteurs en 2 minutes, pas qu'il produise plus de chiffres pour mes gates.
