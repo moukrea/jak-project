@@ -702,3 +702,24 @@ chaînes ; 0 volume filtré ; tes 4 paires chaîne-chaîne nommées testées (24
 À TESTER (les sites exacts de ton rejet d'hier) : ① mèches de Keira vs crâne/oreilles EN MOUVEMENT
 ② ses lunettes vs poitrine ③ col de Jak vs épaules ④ pans de veste sur les jambes ⑤ noeud du
 maire vs ventre ⑥ la poitrine de Keira (fermeté restaurée + rotation) ⑦ l'« hystérésis » générale.
+
+### PRÉ-GATE 10:15 [✅ token CYCLE 14 — LE PAN DE VESTE ENFIN MESURÉ] — APK+pack en upload
+deploy_verify PASS (HEAD 2f5495b04a), 0 crash réel (la seule mention "SIGSEGV" est de la prose),
+0 ligne d'échec, 60+ gates verts, cliquet satisfait.
+LA TROUVAILLE QUI DÉBLOQUE TON DÉFAUT LE PLUS ANCIEN : la règle d'exclusion "ce volume appartient à
+la chaîne" était codée "UNE extrémité touche UN joint de la chaîne". Or le fitter émet des volumes
+de CORPS qui TERMINENT sur une racine de chaîne — `hips shirtLthigh` r=1912 est le volume
+HANCHES-CUISSE, et il était JETÉ pour le pan de veste. 532 paires exclues à tort contre 254
+légitimes => 278 vrais volumes de corps reviennent, sur 230 des 345 chaînes. Un volume jeté est
+invisible au solveur ET à l'audit : `resid` pouvait lire 0 avec une mèche dans le cou.
+MAINTENANT MESURÉ NOMMÉMENT : `shirtL tested=23 pen=-0.9893` / `shirtR tested=23 pen=-0.9993`
+(pen NÉGATIF = dégagement, donc en dehors du volume). Idem col, oreilles, cheveux.
+LE MOUVEMENT EST VIVANT (pas de sim muette comme au cycle 13) : hairrun=619,7 (plancher 100),
+chestrun=352,5 (plancher 350), sur la MÊME exécution que meshpen=0.
+CONTRÔLE POSITIF COHÉRENT : armé injected=28236 -> mraw=406,8 contre désarmé 220,2 (x1,8), meshpen=0
+dans les deux => le zéro n'est pas creux.
+COUVERTURE, DITE HONNÊTEMENT : 23 / 60 modèles ont leur ligne mesh propre dans cette exécution. Les
+37 autres sont NON MESURÉS, pas propres. Atteindre 60/60 demande le banc (spawn par nom) = suite.
+À TESTER EN PRIORITÉ : ① les PANS DE VESTE de Jak sur ses jambes (ton défaut jamais réglé)
+② le col vs épaules ③ mèches de Keira vs crâne/oreilles EN MOUVEMENT ④ ses lunettes vs poitrine
+⑤ le nœud du Maire ⑥ et surtout : est-ce que ça BOUGE encore (cheveux en courant, poitrine) ?
