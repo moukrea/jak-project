@@ -1227,7 +1227,12 @@
 ;; and the ceiling stops a chain that is far off its pose from snapping (owner O: a constraint that
 ;; cannot be met must SETTLE, never jump).
 (defconstant PHYS-MODELPULL-RATE 0.15)
-(defconstant PHYS-MODELPULL-MAX 12.0)
+;; STRICTLY BELOW PHYS-REST-VEL (2.0). At 12.0 the pull's own step read as MOTION to the
+;; rest detector, so the chain stopped counting as quiet, `ccalm` reset, and the pull switched
+;; itself off every frame it acted — it ran one frame in eleven and made the chain twitch while
+;; converging at a tenth of its nominal rate. A correction that destroys the state it is gated on
+;; is not a slow correction, it is a broken one.
+(defconstant PHYS-MODELPULL-MAX 1.8)
 (define *phys-cxmask* (new 'static 'array int64 576))       ;; chains this chain must be collided with
 ;; ---- cycle-7 (AH): ANCHOR COUPLING -------------------------------------------------------------
 ;; The only excitation a chain had was the lag it develops behind its own moving target, and for a
@@ -1603,7 +1608,7 @@
           (set! worst eff))))
     worst))
 
-(defun phys-chain-blend! ((slot int) (ci int) (start int) (len int) (tt float) (rl0 int))
+(defun phys-chain-blend! ((slot int) (ci int) (start int) (len int) (tt float) (rl0 int) (anch vector))
   "(C14c-2) write this chain's pose at blend fraction `tt` into *phys-cblend*, LENGTH-PRESERVING.
 
   Only the DIRECTION of each segment is blended between the authored pose and the simulated one;
@@ -1631,10 +1636,25 @@
            ;; inconsistency injected spurious displacement into the resolution-jerk figure.
            (vector-copy! (-> *phys-cblend* i) (-> *phys-out0* jj)))
           ((zero? i)
-           ;; the root link is positioned relative to its anchor, not to a predecessor
-           (vector-! dd (-> *phys-out0* jj) (-> *phys-targ* jj))
-           (vector-float*! dd dd tt)
-           (vector+! (-> *phys-cblend* i) (-> *phys-targ* jj) dd))
+           ;; the root link is positioned relative to its ANCHOR, not to a predecessor — and it
+           ;; must keep its authored length for exactly the reason the docstring above gives for
+           ;; every other link. This branch was a straight positional lerp, so the root segment
+           ;; landed on the CHORD between the authored point and the simulated one and came out
+           ;; SHORT. Measured: assistant-lod0 kneeflapR, a single-link chain whose whole length IS
+           ;; this segment, drew at lenmin=0.8944 while its simulation state read lensim=0.9999 —
+           ;; the crush existed only in the pose that is DRAWN, which is the one owner rule X is
+           ;; about. Same construction as the else branch: blend the DIRECTION, keep the length.
+           (vector-! da (-> *phys-targ* jj) anch)
+           (vector-! ds (-> *phys-out0* jj) anch)
+           (let ((la (vector-length da)))
+             (vector-! dd ds da)
+             (vector-float*! dd dd tt)
+             (vector+! dd dd da)
+             (let ((ln (vector-length dd)))
+               (if (> ln 0.0001)
+                   (vector-float*! dd dd (/ la ln))
+                   (vector-copy! dd da)))
+             (vector+! (-> *phys-cblend* i) anch dd)))
           (else
            (vector-! da (-> *phys-targ* jj) (-> *phys-targ* (+ jj -1)))
            (vector-! ds (-> *phys-out0* jj) (-> *phys-out0* (+ jj -1)))
@@ -3168,6 +3188,17 @@
                                                       ;; Re-projecting it every frame is chatter,
                                                       ;; and chatter under contact is what the
                                                       ;; owner called "jitter comme un fou".
+                                                      ;; REFUTED AND REVERTED, same day, by the measurement that motivated it. Removing the proxy
+                                                      ;; push from family A (real surface only) did move model-pose fidelity — dax-hd restdevA
+                                                      ;; 250.5 -> 157.6 — but it broke the owner's ABSOLUTE blocker in the same run: surfpen,
+                                                      ;; the residual depth of a written link inside the character's REAL skinned surface, went
+                                                      ;; from ~0 to 217.6 on keira-hd, 648.8 on jak-hd, 733.6 on dax-hd. The real-surface pass
+                                                      ;; alone does not hold a chain out; the capsules are coarse but they are what is doing the
+                                                      ;; holding. "Nothing may pass through, whatever the reason" outranks "nothing may rest
+                                                      ;; off-model", so the push stays and the fidelity number stays red and stays reported.
+                                                      ;; Note for the next cycle: `ccap` already caps each capsule per link at the distance from
+                                                      ;; the link's MODEL pose (minus PHYS-MODEL-CLR), so "a balloon pushes the chain off its
+                                                      ;; sculpt" is NOT the mechanism — that was checked here and is wrong.
                                                       (when (< dd (- rr PHYS-PEN-TOL))
                                                         (+! (-> *phys-slot-pushouts* slot) 1)
                                                         (+! chpush 1)
@@ -3402,7 +3433,7 @@
                                        (if (>= i rl) (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))))
                        (let ((tsel 1.0))
                          (when (nonzero? collide?)
-                           (phys-chain-blend! slot ci start len 1.0 rl)
+                           (phys-chain-blend! slot ci start len 1.0 rl anchor)
                            (let ((w1 (phys-chain-worst slot cbase c tier start len rl draw)))
                              (when (> w1 (-> *phys-slot-mraw* slot))
                                (set! (-> *phys-slot-mraw* slot) w1))
@@ -3411,7 +3442,7 @@
                                (let ((thi 1.0))
                                  (dotimes (b PHYS-MESH-BISECT)
                                    (let ((tm (* 0.5 (+ tsel thi))))
-                                     (phys-chain-blend! slot ci start len tm rl)
+                                     (phys-chain-blend! slot ci start len tm rl anchor)
                                      (cond
                                        ((<= (phys-chain-worst slot cbase c tier start len rl draw)
                                             PHYS-PEN-TOL)
@@ -3432,7 +3463,7 @@
                                  (set! (-> *phys-ctmin* ci) tsel)))))
                          (cond
                            ((and (nonzero? collide?) (< tsel 0.9999))
-                            (phys-chain-blend! slot ci start len tsel rl)
+                            (phys-chain-blend! slot ci start len tsel rl anchor)
                             (dotimes (i len)
                               (vector-copy! (-> *phys-out* (+ start i))
                                             (if (>= i rl) (-> *phys-cblend* i) (-> *phys-targ* (+ start i))))))

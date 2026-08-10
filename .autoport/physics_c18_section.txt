@@ -203,6 +203,46 @@ did not contain. Every model below carries its OWN resjerk and meshpen.
 
 @@PERMODEL@@
 
+THE GATE SET IS JOINTLY UNSATISFIABLE UNDER THE PRESENT COLLIDERS — SHOWN, NOT ASSERTED
+----------------------------------------------------------------------------------------
+This is the finding a supervisor needs before setting the next cycle, so it is stated with
+the measurements that establish it rather than as an opinion.
+
+`PHYS-TMIN-FLOOR` is the single parameter that decides how much of a chain's displacement
+the collision clamp is allowed to remove. Two gates read it in OPPOSITE directions:
+
+  * C14-A / the inertness verdict wants the floor HIGH. A chain the clamp pins at the floor
+    every frame keeps only that fraction of its motion. Measured this cycle at floor 0.35:
+    sage-lod0 earL is clamped on 2999 frames of 3000 (ctz=2999) and reads cinr=0.2162
+    against a bar of 0.25 — INERT. Its mirror earR, IDENTICAL in every parameter, is clamped
+    on 1 frame and reads 0.4711 — MOVING. The parameters are not the difference; the clamp is.
+  * W / restdevA wants the floor LOW. restdevA is the distance a settled family-A chain sits
+    from the model pose, and that distance is produced by the collision PUSH. Anything that
+    reduces the push's influence reduces it: at floor 0.35 dax-hd reads 250.5, and with the
+    family-A proxy push removed entirely it read 157.6. At floor 0 — the old behaviour — the
+    written pose IS the authored pose and restdevA is 0 by construction.
+
+So the floor cannot be raised without more chains resting off-model, and cannot be lowered
+without more chains reading INERT; at its limit it reproduces the welded build the owner has
+rejected six times. There is no value of it that satisfies both gates.
+
+WHAT BREAKS THE TIE IS NOT A PARAMETER. Both symptoms come from the same place: the
+collision push is large because the volumes doing it are proxies with a median radius of 975
+units (24 cm) and a maximum of 4546 (1.1 m) on a 2.3 m character. Two candidate mechanisms
+were tested and RULED OUT this cycle rather than assumed:
+  * "the balloons push chains off their sculpt" — WRONG. `ccap` already caps every capsule,
+    per link, at the distance from that link's MODEL pose minus PHYS-MODEL-CLR, so a capsule
+    cannot push a link further from the axis than its own sculpted position. Checked in the
+    code, not guessed.
+  * "family A should collide against the real surface only, per SPEC 18" — REFUTED BY THE
+    OWNER'S OWN BLOCKER. It did improve fidelity (dax-hd restdevA 250.5 -> 157.6) and it
+    broke the thing that outranks it: surfpen, the residual depth of a written link inside
+    the character's REAL skinned surface, went from ~0 to 217.6 on keira-hd, 648.8 on jak-hd
+    and 733.6 on dax-hd in the same run. The real-surface pass measures well but does not
+    HOLD a chain out on its own. Reverted the same day.
+That leaves the actual SPEC 18 work — the real surface RESOLVING, not merely auditing — as
+the thing that closes both gates, and it is a cycle of its own, not a tuning pass.
+
 WHY THIS DOES NOT PASS ITS OWN VALIDATOR, AND WHY IT WAS NOT MADE TO
 ----------------------------------------------------------------------
 Four gates are red, and all four are red for TWO causes, both named and measured above:
