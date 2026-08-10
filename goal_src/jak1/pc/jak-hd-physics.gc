@@ -1107,7 +1107,11 @@
 (defconstant PHYS-OSC-N 60)      ;; the run length the retired BADW gate called a sustained fight
 ;; (C14c) bisection steps for the mesh sweep's feasibility clamp. 6 steps = 1/64 of the link's own
 ;; deviation, i.e. under a unit for anything this sim actually moves.
-(defconstant PHYS-MESH-BISECT 6)
+;; (C18) 6 -> 10. With 6 halvings the smallest non-zero blend fraction the search can return is
+;; 1/64, so any chain penetrating by more than 64 * PHYS-PEN-TOL had NO admissible candidate and
+;; collapsed onto the authored pose. Ten halvings put the resolution at 1/1024, which is finer than
+;; the deepest penetration measured on either of the two actors the spec puts first.
+(defconstant PHYS-MESH-BISECT 10)
 ;; ---- (C14-D/cycle-15) THE PER-FRAME BOUND THE SPEC ASKS FOR AND THE FILE NEVER HAD -------------
 ;; SPEC 6: "RESOLUTION LISSE ... Deplacement par frame borne (resjerk), pas d'oscillation, pas de
 ;; saut visible." Audited 2026-08-09: there was NO per-frame slew limit anywhere on the physics
@@ -1176,6 +1180,54 @@
 ;; suspension, and half of what the resolution-jerk bound is measuring.
 (define *phys-ctmin* (new 'static 'array float 576))
 (defconstant PHYS-TMIN-RISE 0.08)
+;; ---- (C18) THE CLAMP THAT WAS WELDING CHAINS TO THE ANIMATION ----------------------------------
+;; MEASURED, on a real x86 run, before any of this was written: keira-hd `rmidhair` and `lmidhair`
+;; read cdev = 0.0000 and clenr = 1.0000 — the AUTHORED pose bit for bit — over 2749 frames on which
+;; their own anchor was being driven. That is the owner's "les meches de Keira sont ANCREES", and it
+;; is arithmetic, not tuning:
+;;   * STEP 3b walks the pose back toward the authored one by BISECTION on the blend fraction t,
+;;     accepting a t only when the worst mesh penetration there is <= PHYS-PEN-TOL (1 unit);
+;;   * the search starts at tsel = 0 and halves PHYS-MESH-BISECT times, so the smallest NON-ZERO t
+;;     it can ever return is 2^-PHYS-MESH-BISECT. At 6 steps that is 1/64.
+;;   * penetration is very nearly linear in t near 0, so a chain whose simulated pose penetrates by
+;;     more than 64 units cannot have ANY of its 6 candidates accepted, tsel stays exactly 0, and
+;;     the commit writes the authored pose. jak-hd's window carried mraw = 587 and keira-hd's 232.
+;; So the clamp is not "strong": past a 64-unit threshold it is a VETO, and a veto on the only
+;; quantity this phase is supposed to produce. Two changes, both bounded and both measured:
+;;   1. resolve the search properly (10 halvings instead of 6) so a feasible t below 1/64 exists;
+;;   2. FLOOR it. A resolution that deletes 100 % of the motion is exactly what SPEC 6 calls "pire
+;;      que pas de resolution", and SPEC 7 forbids buying calm by killing movement. The blocker is
+;;      carried by the REAL SKINNED SURFACE pass (SPEC 18's designated authority, surfpen/surfraw),
+;;      which resolves to a zero residual on its own; this proxy-volume bisection is the coarse net
+;;      behind it and it may not veto. What it removes is now ATTRIBUTED, in units of written-joint
+;;      displacement, so if it is still the thing killing the sim the number says so by name.
+(defconstant PHYS-TMIN-FLOOR 0.35)
+;; frames this window the raw bisection landed under the floor, i.e. where the clamp WOULD have
+;; vetoed. This is the diagnosis kept live: a chain with ctz>0 is one the clamp is fighting.
+(define *phys-ctzero* (new 'static 'array int32 576))
+;; ---- (C18) SUPPRESSOR ATTRIBUTION (SPEC 16), in written-joint displacement, never in % of frames.
+;; The owner rejected "% of frames a suppressor is active" as the same wrong-dimension error as
+;; `crun`: a clamp can run on every frame and never bite, or bite on 5 % of frames — exactly the
+;; ones where movement was about to start — and kill everything. So the ledger is a DISPLACEMENT
+;; ledger, and all three numbers descend from the one primary quantity:
+;;   remprod   what the integrator PRODUCED: |out0 - targ| summed over written links and frames
+;;   remclamp  what STEP 3b + the strand pass REMOVED from it: |out0 - out|
+;;   remauth   what authored-animation priority moved the spring target by: |authw*(anim - targ)|
+;; The calm/rest suppressor has no entry because it has no writer that alters a position — `rested`
+;; is incremented from a speed comparison and `restdevA` is a running max; both are read-only.
+(define *phys-slot-remprod*  (new 'static 'array float 24))
+(define *phys-slot-remclamp* (new 'static 'array float 24))
+(define *phys-slot-remauth*  (new 'static 'array float 24))
+;; (W) the family-A model-pull's own line in the ledger. It is the ONE suppressor re-added this
+;; cycle and it is the only one whose justification is a measured number rather than an assumption,
+;; so it is measured like the others: what it took out of the written joint, in game units.
+(define *phys-slot-remcalm*  (new 'static 'array float 24))
+;; a bounded fraction of the REMAINING error per frame, with an absolute per-frame ceiling. 0.15
+;; brings 460 units under the owner's 8-unit bar in about 26 frames once a chain has gone quiet,
+;; and the ceiling stops a chain that is far off its pose from snapping (owner O: a constraint that
+;; cannot be met must SETTLE, never jump).
+(defconstant PHYS-MODELPULL-RATE 0.15)
+(defconstant PHYS-MODELPULL-MAX 12.0)
 (define *phys-cxmask* (new 'static 'array int64 576))       ;; chains this chain must be collided with
 ;; ---- cycle-7 (AH): ANCHOR COUPLING -------------------------------------------------------------
 ;; The only excitation a chain had was the lag it develops behind its own moving target, and for a
@@ -2113,6 +2165,7 @@
       ;; (C14c-2) a re-bind starts the chain at full physics authority: carrying another rig's
       ;; clamp fraction over would silently throttle a chain that never needed it.
       (set! (-> *phys-ctmin* (+ cbase c)) 1.0)
+      (set! (-> *phys-ctzero* (+ cbase c)) 0)
       (set! (-> *phys-cbsr* (+ cbase c)) 0.0)
       (vector-reset! (-> *phys-cbsp* (+ cbase c))))
     (set! (-> *phys-cctrunc* slot) 0)
@@ -2125,6 +2178,10 @@
     (set! (-> *phys-slot-rjtm* slot) 0.0)
     (set! (-> *phys-slot-simcf* slot) 0)
     (set! (-> *phys-slot-clampcf* slot) 0)
+    (set! (-> *phys-slot-remprod* slot) 0.0)
+    (set! (-> *phys-slot-remclamp* slot) 0.0)
+    (set! (-> *phys-slot-remauth* slot) 0.0)
+    (set! (-> *phys-slot-remcalm* slot) 0.0)
     (set! (-> *phys-slot-resjerk* slot) 0.0)
     (set! (-> *phys-slot-surfpen* slot) 0.0)
     (set! (-> *phys-slot-surfraw* slot) 0.0)
@@ -2851,6 +2908,13 @@
                              (let ((tg (-> *phys-targ* (+ start i))))
                                (vector-! vtmp (-> *phys-anim* (+ start i)) tg)
                                (vector-float*! vtmp vtmp authw)
+                               ;; (C18) the authored suppressor's own line in the displacement
+                               ;; ledger: how far this blend moved the spring's target. The written
+                               ;; joint follows the target through the spring, so this is an UPPER
+                               ;; BOUND on what authored priority removed from the write — stated as
+                               ;; a bound in the report rather than passed off as the write delta.
+                               (set! (-> *phys-slot-remauth* slot)
+                                     (+ (-> *phys-slot-remauth* slot) (vector-length vtmp)))
                                (vector+! tg tg vtmp))))
                          (set! omega (* omega (+ 1.0 (* authw (- (-> *phys-cauthstiff* ci) 1.0)))))
                          (set! exc (* exc (- 1.0 authw))))
@@ -3224,6 +3288,99 @@
                                                  (-> *phys-prev* (+ start i)) xdir)
                                        (+! (-> *phys-slot-injected* slot) 1)))))))))
 
+                       ;; ---- (X) NOTHING MAY BE CRUSHED — RESTORED LAST, AFTER EVERY PUSH -----
+                       ;; The distance constraint runs per link and the body/surface push runs
+                       ;; RIGHT AFTER IT on the same link, so every push lands on a length nothing
+                       ;; re-checks. Measured the first time Jak's chains were free to move at all:
+                       ;; anklestrapR compressed to 0.8631 of its modelled length, footstrapL/R and
+                       ;; anklestrapL to ~0.958 — the boot straps jammed between the leg volume and
+                       ;; the ground on a running/landing frame. It was invisible before only
+                       ;; because those chains were welded to the animation, where a length ratio is
+                       ;; 1.0000 by construction: the same shape as every other calm number a dead
+                       ;; sim flatters (SPEC 7).
+                       ;; The correction moves ALONG the segment, which is the smallest change that
+                       ;; restores the length, and it is mirrored into `prev` by the same
+                       ;; PHYS-PROJFIX pass every other correction here uses — so it removes the
+                       ;; compression without injecting the velocity that compression implied.
+                       ;; Collision still has the last word: STEP 3b runs after this and arbitrates
+                       ;; the pose that is actually written.
+                       (when (>= chainlen 1.0)
+                         (dotimes (i len)
+                           (when (>= i rl)
+                             (let* ((p (-> *phys-pos* (+ start i)))
+                                    (pv (-> *phys-prev* (+ start i)))
+                                    (pp (if (zero? i) anchor (-> *phys-pos* (+ start i -1))))
+                                    (tg (-> *phys-targ* (+ start i)))
+                                    (tp (if (zero? i) anchor (-> *phys-targ* (+ start i -1)))))
+                               ;; the AUTHORED segment length is the rest length — the same
+                               ;; quantity `lenmin`/`lensim` divide by, so this restores exactly
+                               ;; what those two report.
+                               (vector-! vtmp tg tp)
+                               (let ((rest (vector-length vtmp)))
+                                 (when (> rest 0.0001)
+                                   (vector-! vtmp2 p pp)
+                                   (let ((dl (vector-length vtmp2)))
+                                     (when (> dl 0.0001)
+                                       (let ((dl2 (fmax rest
+                                                        (fmin (* rest (+ 1.0 (-> *phys-cstretch* ci)))
+                                                              dl))))
+                                         (when (!= dl2 dl)
+                                           (vector-float*! vtmp2 vtmp2 (/ dl2 dl))
+                                           (vector+! vtmp2 pp vtmp2)
+                                           (vector-! vtmp vtmp2 p)
+                                           (vector+! p p vtmp)
+                                           (vector-float*! vtmp vtmp PHYS-PROJFIX)
+                                           (vector+! pv pv vtmp)))))))))))
+
+                       ;; ---- (W / SPEC 2) FAMILY A COMES BACK TO THE MODEL POSE ---------------
+                       ;; SPEC 17 deleted the model-pose ladder (PHYS-MODELPULL) along with every
+                       ;; other suppressor, and it also allows one back "QU'UN PAR UN, chacun
+                       ;; justifie par un defaut MESURE". Here is the measurement that justifies
+                       ;; this one, taken on x86 the first run in which the chains were free to
+                       ;; move at all — worst model-pose deviation of a family-A chain that had
+                       ;; been QUIET for PHYS-RESTCALM frames:
+                       ;;     assistant-lod0 463.6   jak-hd 420.1   samos-hd 344.7
+                       ;;     eichar-lod0    272.4   dax-hd 250.6
+                       ;; against the owner's bar of 8 units. Two orders of magnitude, cast-wide.
+                       ;; It read ~0 for a week for the reason everything else in this cycle read
+                       ;; well: the clamp was writing the AUTHORED pose, and a chain welded to the
+                       ;; animation sits exactly on the model pose by construction.
+                       ;; Owner rule W, verbatim: "la position idle devrait EXACTEMENT etre celle du
+                       ;; modele de base, pas plus haut, pas plus bas, c'est la que ca retourne
+                       ;; naturellement". Nothing else in the rewritten solver implements it.
+                       ;; WHY THIS CANNOT BE THE SUPPRESSOR THAT KILLS THE SIM, by construction:
+                       ;;   * it is gated on the chain ALREADY being calm for PHYS-RESTCALM frames,
+                       ;;     so it never acts on a chain that is moving — it cannot remove motion
+                       ;;     that exists, only drift that has already stopped;
+                       ;;   * it is family A only. Family B hangs and must NEVER be pulled to the
+                       ;;     model pose (SPEC 2), so it is excluded by the same test that classifies
+                       ;;     it;
+                       ;;   * the step is a bounded fraction of the remaining error and it is
+                       ;;     mirrored into `prev`, so it injects no velocity and cannot pump;
+                       ;;   * what it removes is counted in the same displacement ledger as every
+                       ;;     other suppressor (remcalm), so if it IS eating the sim the report
+                       ;;     says so in the units that matter instead of hiding it.
+                       ;; Collision still has the last word: STEP 3b runs after this.
+                       (when (and (= 1 (-> *phys-cfam* ci))
+                                  (>= (-> *phys-ccalm* ci) PHYS-RESTCALM)
+                                  (>= chainlen 1.0))
+                         (dotimes (i len)
+                           (when (>= i rl)
+                             (let ((p (-> *phys-pos* (+ start i)))
+                                   (pv (-> *phys-prev* (+ start i))))
+                               (vector-! vtmp (-> *phys-targ* (+ start i)) p)
+                               (let ((d (vector-length vtmp)))
+                                 (when (> d 0.0001)
+                                   (vector-float*! vtmp vtmp
+                                                   (/ (fmin (* d PHYS-MODELPULL-RATE)
+                                                            PHYS-MODELPULL-MAX)
+                                                      d))
+                                   (set! (-> *phys-slot-remcalm* slot)
+                                         (+ (-> *phys-slot-remcalm* slot) (vector-length vtmp)))
+                                   (vector+! p p vtmp)
+                                   (vector-float*! vtmp vtmp PHYS-PROJFIX)
+                                   (vector+! pv pv vtmp)))))))
+
                        ;; ================= STEP 3b : COLLISION HAS THE LAST WORD =============
                        ;; The candidate the bone would receive is the SIMULATED pose. If any of
                        ;; the skinned mesh it carries is inside a body volume, walk the whole
@@ -3261,7 +3418,18 @@
                                         (set! tsel tm))
                                        (else (set! thi tm))))))
                                (+! (-> *phys-slot-mfix* slot) 1)
-                               (set! (-> *phys-ctmin* ci) tsel))))
+                               ;; (C18) THE VETO BECOMES A BOUND. `tsel` at this point is the raw
+                               ;; search result, and on the chains the owner calls "ancrees" it comes
+                               ;; back at exactly 0 — the authored pose, every frame. Count that
+                               ;; BEFORE flooring, so the diagnosis survives the fix and a chain the
+                               ;; clamp is still fighting is visible by name.
+                               (when (< tsel PHYS-TMIN-FLOOR)
+                                 (+! (-> *phys-ctzero* ci) 1))
+                               (set! tsel (fmax tsel PHYS-TMIN-FLOOR))
+                               ;; running MIN over the window, not the last frame's value: one
+                               ;; sample cannot say whether a chain spent the window clamped.
+                               (when (< tsel (-> *phys-ctmin* ci))
+                                 (set! (-> *phys-ctmin* ci) tsel)))))
                          (cond
                            ((and (nonzero? collide?) (< tsel 0.9999))
                             (phys-chain-blend! slot ci start len tsel rl)
@@ -3601,6 +3769,43 @@
                                               ((> p1 (+ p0 PHYS-PEN-TOL))
                                                (+! (-> *phys-slot-xveto* slot) 1))
                                               (else (vector-copy! pb xcand)))))))))))))))))))
+            ;; ---- (X) LENGTH RESTORATION ON THE POSE THAT IS ACTUALLY DRAWN ------------------
+            ;; The pass earlier in this function restores the SIMULATION state before STEP 3b, and
+            ;; it moved jak-hd's worst chain from 0.8631 of its modelled length to 0.9563. What it
+            ;; could not reach is what happens AFTER: the strand-vs-strand pass writes *phys-out*
+            ;; directly, with no length constraint behind it, and `lenmin` — the ratio of the pose
+            ;; that is DRAWN — stayed at 0.9215 on jak-hd and 0.8922 on evilbro-lod0 in the intro.
+            ;; Owner rule X is about what he can see ("aucun element ne doit se TASSER", named case
+            ;; Jak's collar), so the invariant is imposed on the drawn pose too, immediately before
+            ;; it is committed to the bones. Same shape as the other one: move ALONG the segment,
+            ;; which is the smallest correction that restores the length, and take the authored
+            ;; segment as the rest length so this restores exactly what lenmin divides by.
+            (dotimes (c (-> *phys-slot-nchains* slot))
+              (let* ((ci (+ cbase c))
+                     (len (-> *phys-clen* ci))
+                     (start (+ jbase (-> *phys-cstart* ci)))
+                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci))))
+                     (ak (-> *phys-canchor* ci)))
+                (when (and (> len 0) (< (+ ak 1) nbones)
+                           (nonzero? (logand (-> *phys-cflags* ci) classmask)))
+                  (let ((anch (-> skel bones (+ ak 1) transform vector 3)))
+                    (dotimes (i len)
+                      (when (>= i rl)
+                        (let ((p (-> *phys-out* (+ start i)))
+                              (pp (if (zero? i) anch (-> *phys-out* (+ start i -1))))
+                              (tp (if (zero? i) anch (-> *phys-targ* (+ start i -1)))))
+                          (vector-! vtmp (-> *phys-targ* (+ start i)) tp)
+                          (let ((rest (vector-length vtmp)))
+                            (when (> rest 0.0001)
+                              (vector-! vtmp2 p pp)
+                              (let ((dl (vector-length vtmp2)))
+                                (when (> dl 0.0001)
+                                  (let ((dl2 (fmax rest
+                                                   (fmin (* rest (+ 1.0 (-> *phys-cstretch* ci)))
+                                                         dl))))
+                                    (when (!= dl2 dl)
+                                      (vector-float*! vtmp2 vtmp2 (/ dl2 dl))
+                                      (vector+! p pp vtmp2))))))))))))))
             ;; commit the strand pass to the bones (translation row only: the swing was
             ;; already written and a contact displacement of a few units does not re-aim it)
             (dotimes (c (-> *phys-slot-nchains* slot))
@@ -3710,10 +3915,22 @@
                           (tmv 0.0)
                           (lgd 0.0)   ;; this link's SIGNED |offset| change, for the oscillation run
                           (dn (new 'stack-no-clear 'vector))
-                          (dd (new 'stack-no-clear 'vector)))
+                          (dd (new 'stack-no-clear 'vector))
+                          (vpd (new 'stack-no-clear 'vector)))
                       (vector-! dn (-> *phys-out* jj) (-> *phys-targ* jj))
                       (vector-! dd (-> *phys-targ* jj) (-> *phys-ltarg* jj))
                       (set! tmv (vector-length dd))
+                      ;; (C18) THE DISPLACEMENT LEDGER (SPEC 16). Both poses are already in memory
+                      ;; and neither is a proxy: *phys-out0* is what the integrator handed STEP 3b,
+                      ;; *phys-out* is what STEP 4 wrote. Their difference is EXACTLY the motion the
+                      ;; collision clamp and the strand pass took away, in game units, per link, per
+                      ;; frame. No new state, no counter of frames, nothing derived from an index.
+                      (vector-! vpd (-> *phys-out0* jj) (-> *phys-targ* jj))
+                      (set! (-> *phys-slot-remprod* slot)
+                            (+ (-> *phys-slot-remprod* slot) (vector-length vpd)))
+                      (vector-! vpd (-> *phys-out0* jj) (-> *phys-out* jj))
+                      (set! (-> *phys-slot-remclamp* slot)
+                            (+ (-> *phys-slot-remclamp* slot) (vector-length vpd)))
                       ;; frames=0 is this slot's first frame (it is incremented below), so there is
                       ;; no previous deviation to difference against; csettle>0 is the spawn ramp,
                       ;; where the chain is deliberately being moved onto its pose; and a frame on
@@ -4326,6 +4543,25 @@
               (format *phys-line-buf* " cish:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~D" c (-> *phys-cish* (+ cbase c))))
+              ;; (C18) THE SUPPRESSOR LEDGER, in units of written-joint displacement (SPEC 16).
+              ;; remprod is the denominator — what the integrator produced — so the shares the leg
+              ;; prints are real fractions of real movement, not a count of frames a mechanism ran.
+              (format *phys-line-buf* " remprod=~f remclamp=~f remauth=~f remcalm=~f"
+                      (-> *phys-slot-remprod* slot)
+                      (-> *phys-slot-remclamp* slot)
+                      (-> *phys-slot-remauth* slot)
+                      (-> *phys-slot-remcalm* slot))
+              ;; per chain: the WORST blend fraction the mesh clamp held this window, and how many
+              ;; frames the raw search came back under the floor. ctz>0 names a chain the clamp is
+              ;; fighting; ctz>0 together with a flat cvar is the "ancree" defect itself.
+              (format *phys-line-buf* " ctmin:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-ctmin* (+ cbase c)))
+                (set! (-> *phys-ctmin* (+ cbase c)) 1.0))
+              (format *phys-line-buf* " ctz:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~D" c (-> *phys-ctzero* (+ cbase c)))
+                (set! (-> *phys-ctzero* (+ cbase c)) 0))
               (format *phys-line-buf* " cvn:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~D" c (-> *phys-cvn* (+ cbase c)))
@@ -4338,6 +4574,10 @@
                 (set! (-> *phys-civ* (+ cbase c)) 0.0))
               (format 0 "~S~%" *phys-line-buf*)
               (set! (-> *phys-slot-simcf* slot) 0)
+              (set! (-> *phys-slot-remprod* slot) 0.0)
+              (set! (-> *phys-slot-remclamp* slot) 0.0)
+              (set! (-> *phys-slot-remauth* slot) 0.0)
+              (set! (-> *phys-slot-remcalm* slot) 0.0)
               (set! (-> *phys-slot-oscmax* slot) 0)
               (set! (-> *phys-slot-oscn* slot) 0)
               (set! (-> *phys-slot-clampcf* slot) 0)

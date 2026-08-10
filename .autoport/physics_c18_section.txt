@@ -1,0 +1,244 @@
+=========================================================================================
+CYCLE 18 (2026-08-10) — THE CLAMP THAT WAS WELDING THE CHAINS TO THE ANIMATION
+Build: x86 desktop (build/game/gk + out/jak1/iso), GOAL-only rebuild of jak-hd-physics.gc.
+Device: Redmi eae4df44 NOT CONNECTED. Graded on x86 by the owner's own fallback
+        ("au pire teste sur un build PC a defaut", 2026-08-10).
+x86 leg: @@LEGVERDICT@@
+DEVICE PROOF OWED — see the debt section below. x86 does not prove arm64.
+RESULT: @@RESULTLINE@@
+=========================================================================================
+
+WHAT THE DEVICE-ABSENT FALLBACK DOES AND DOES NOT PROVE
+-------------------------------------------------------
+PROVEN HERE, because it is platform-independent and it ran: the solver's behaviour, the
+written-joint instrument, collision against the real skinned surface, the family
+classification, the suppressor ledger, and the C20 anti-synthesis property. All of it is
+the same GOAL code the phone runs, driven through real scenes with real actors.
+
+NOT PROVEN HERE, and the DEVICE PROOF IS STILL OWED for every line of it:
+  * arm64 codegen — this phase has shipped bug classes that exist only on arm64 (FFI
+    register banks, stale icache, FMA contraction). A green x86 solver says nothing
+    about them.
+  * device performance — the precision levels exist to buy quality against a budget this
+    run never measured. The bisection depth changed in this cycle (6 -> 10 halvings), and
+    what that costs on the Redmi is UNMEASURED.
+  * device-only paths — the external-override asset route (PARAMSRC/MESHSRC =
+    external-override), the Android input hook, extraction and freshness on the phone.
+  * arm64 non prouve: rien de ce qui suit n'est une preuve device.
+The moment the Redmi is plugged back in, physics_device_leg.sh runs unchanged and this
+debt is settled or it is not.
+
+THE DEFECT, FOUND AND NAMED — AND IT IS THE OWNER'S OLDEST COMPLAINT
+--------------------------------------------------------------------
+The owner has said the same sentence for a week: "les meches de Keira sont ANCREES", "les
+pans de veste NE BOUGENT PAS DU TOUT", "le col est completement statique", "la poitrine de
+Keira completement statique". This cycle has the mechanism, and it is arithmetic rather
+than tuning.
+
+STEP 3b of the solver walks a chain's pose back toward the AUTHORED pose by bisection on
+the blend fraction t, accepting a candidate only where the worst mesh penetration is under
+PHYS-PEN-TOL (1 unit). The search starts at tsel = 0 and halves PHYS-MESH-BISECT times, so
+the smallest NON-ZERO t it can ever return is 2^-PHYS-MESH-BISECT — at 6 halvings, 1/64.
+Penetration is very nearly linear in t near zero, so a chain whose simulated pose
+penetrates by more than about 64 units has NO admissible candidate: tsel stays exactly 0,
+`phys-chain-blend!` at t = 0 reproduces the authored pose bit for bit, and the bone is
+written with the animator's pose every single frame. The measured windows carried mraw =
+587 on jak-hd and 232 on keira-hd, both far past that threshold.
+
+It was invisible for the usual reason. A chain welded to the authored pose has deviation
+0.0000, length ratio 1.0000, drift 0.0000 and settle time 0 — it maximises every calm
+ceiling in the file, which is SPEC 7's whole lesson restated in a new place.
+
+MEASURED BEFORE THE FIX, on a real x86 run in Sandover with the actor driven:
+  keira-hd rmidhair  cdev = 0.0000  clenr = 1.0000  cvar = 0.0000 over 443 locomotion
+                     frames and 2749 frames on which its own anchor was being driven
+  keira-hd lmidhair  identical
+  keira-hd rbang     cvar = 0.1790, effectively welded
+Those are the meches. The defect is not that they moved too little; it is that the
+collision clamp removed one hundred percent of their motion, every frame.
+
+THE FIX — THE VETO BECOMES A BOUND
+-----------------------------------
+  1. PHYS-MESH-BISECT 6 -> 10, so a feasible blend fraction below 1/64 can actually be
+     found instead of collapsing to zero.
+  2. PHYS-TMIN-FLOOR = 0.35. The clamp may no longer take more than 65 % of a chain's
+     displacement. SPEC 6 is explicit that "une resolution pire que le clip est pire que
+     pas de resolution", and a resolution that deletes all of the motion is that case
+     exactly. The owner's blocker is carried by the REAL SKINNED SURFACE pass — SPEC 18's
+     designated authority — which resolves to a zero residual on its own; this
+     proxy-volume bisection is the coarse net behind it and it may not veto.
+  3. The diagnosis is kept live rather than thrown away with the bug: `ctz` counts, per
+     chain, the frames on which the raw search came back under the floor — i.e. the frames
+     the clamp WOULD have vetoed — and `ctmin` reports the worst blend fraction held. Both
+     are counted BEFORE the floor is applied, so the defect stays visible after its fix.
+
+MEASURED AFTER THE FIX, same scene, same drive:
+@@KEIRAROWS@@
+
+`ctz = 2099` on rmidhair/lmidhair is the fix doing its work: the clamp still wants to veto
+those chains on every frame it is evaluated, and it is now bounded instead. That number is
+the honest cost of this cycle and it is the next thing to work on — the veto pressure comes
+from proxy capsules SPEC 18 already condemned, not from the character's real surface.
+
+TWO MORE DEFECTS THE UN-WELDING EXPOSED, BOTH FIXED IN THE SAME CYCLE
+----------------------------------------------------------------------
+Un-welding the chains turned three calm numbers from "perfect" into "measurable", which is
+the point of SPEC 7 and also the cost of it. Two of them were real defects hiding behind the
+weld, and both are fixed here.
+
+(A) NOTHING MAY BE CRUSHED — the length constraint had no last word.
+The distance constraint runs per link and the body/surface push runs RIGHT AFTER IT on the
+same link, so every push landed on a length nothing re-checked. The first run in which Jak's
+chains could move at all measured anklestrapR at 0.8631 of its modelled length, footstrapL/R
+and anklestrapL at ~0.958 — the boot straps jammed between the leg volume and the ground on
+a landing frame. A length-restoration pass now runs after every push, moving along the
+segment (the smallest correction that restores the length) and mirrored into `prev` by the
+same velocity-neutral rule every other correction here uses. Collision still has the last
+word: STEP 3b runs after it. Owner rule X, Jak's collar, is the named case and it reads
+0.9999.
+
+(B) FAMILY A HAD NOTHING LEFT TO PULL IT BACK TO THE MODEL POSE.
+SPEC 17 deleted every suppressor including the model-pose ladder (PHYS-MODELPULL), and
+nothing in the rewritten solver implements the owner's rule W: "la position idle devrait
+EXACTEMENT etre celle du modele de base, pas plus haut, pas plus bas, c'est la que ca
+retourne naturellement". It read ~0 all week for the same reason as everything else — a
+chain welded to the animation sits exactly on the model pose by construction. Measured once
+they were free: assistant-lod0 463.6, jak-hd 420.1, samos-hd 344.7, eichar-lod0 272.4,
+dax-hd 250.6 units, against a bar of 8. Two orders of magnitude, cast-wide.
+SPEC 17 allows a suppressor back "QU'UN PAR UN, chacun justifie par un defaut MESURE", and
+those numbers are that justification. The model-pull is re-added, family A only, gated on
+the chain having ALREADY been quiet for PHYS-RESTCALM frames — so it can never remove motion
+that exists, only drift that has already stopped — bounded per frame, velocity-neutral, and
+carrying its own line in the displacement ledger so that if it IS eating the sim the report
+says so in units rather than hiding it.
+
+(C) A HYPOTHESIS THAT WAS TESTED AND REFUTED, AND IS THEREFORE NOT IN THIS BUILD.
+`anim=excite` applies a force (anim - targ) * excite — a spring toward the ANIMATOR's
+channel proportional to the STANDING offset — so a constant offset moves the chain's
+EQUILIBRIUM. That is structurally the same thing `hang` is banned from family A for and that
+the validator gates as FAM-bis, and it looked like the explanation for the model-pose
+deviation: Daxter's ears carry excite and settled 4.6 and 6.1 cm off the model pose, while
+his tail, on the same actor and the same frames, sat at 0.1 cm.
+IT WAS MEASURED RATHER THAN ASSUMED, and the measurement said no. Moving all 40 family-A
+excite chains across 18 models to anim=replace changed dax-hd's restdevA from 250.5582 to
+250.5104 — nothing — while it cost sage-lod0's earL and assistant-lod0's chestR enough
+liveliness to drop them under the inertness bar. A change that does not do what it was
+adopted for, and takes motion with it, is exactly the kind this phase has been paying for
+all week, so it has been REVERTED and only the measurement is kept. `rootlock` on Keira's
+bangs, which did what it was adopted for, stays.
+The structural objection to `excite` on family A remains true and is recorded for the next
+cycle with its proper fix, which is code and not data: an excitation should be the
+frame-to-frame CHANGE in (anim - targ), not its level — that excites a chain from ND's
+keyframes without moving where it comes to rest.
+
+(D) KEIRA'S FRONT BANGS, rbang/lbang: rootlock 1 -> 0. Three-link chains with only two free
+links, sitting where the clamp fights hardest (ctz = 2099 frames). Owner item D is this
+exactly: "le degrade doit s'adapter a la LONGUEUR de la chaine — une chaine de 2 maillons
+doit quand meme bouger".
+
+THE PRICE, STATED RATHER THAN BURIED
+-------------------------------------
+@@TRADEOFF@@
+
+THE SUPPRESSOR LEDGER (SPEC 16) — IN DISPLACEMENT, NOT IN FRAMES
+-----------------------------------------------------------------
+The owner rejected "% of frames a suppressor is active" as the same wrong-dimension error
+as `crun`: a clamp can run on every frame and never bite, or bite on 5 % of frames —
+exactly the ones where movement was about to start — and kill everything. He also said the
+20 % threshold was invented, so the displacement ledger below is REPORTED and the 20 % bar
+is applied only to the metric SPEC 17 actually stated it for, the share of chain-frames.
+
+Both numbers descend from the one primary quantity. `remprod` is the displacement the
+integrator produced, |out0 - targ| summed over written links and frames; `remclamp` is what
+STEP 3b and the strand pass took away from it, |out0 - out|; `remauth` is how far authored
+priority moved the spring target. Nothing here counts frames and nothing is derived from a
+chain index.
+
+@@SUPPRESSORS@@
+
+THE PER-NAMED-CHAIN VERDICT — THE CHAINS THE OWNER CALLS STATIC
+----------------------------------------------------------------
+He named them, so they are answered by name. `cvar` is the mean per-frame variation of the
+WRITTEN joint on locomotion frames — a chain welded at a constant offset scores 0 here no
+matter how far from its rest pose it is welded, which is the entire point. `cinr` is the
+same quantity over the frames the chain's OWN anchor was driven, and it is what the verdict
+is taken on (INERT below 0.25 over at least 30 samples). `cvn`/`cish` are the sample counts:
+a zero next to them is UNJUDGED, never clean.
+
+ONE THING THIS RUN CHANGED ABOUT HOW THE NUMBERS ARE TAKEN, because it decides them: the
+device drives Jak with `setprop debug.opengoal.cpad_inject`, and that TU is Android-only.
+The x86 leg synthesizes a pad_replay v2 file instead (4 x 12 s of held stick, two jumps, an
+eight-way turn). It matters more than it sounds: measured here, EVERY jak-hd chain reads
+INERT while he stands still and MOVING once he is driven. An undriven leg would have
+reported the owner's defect on chains that do not have it, and missed it on Keira, who is
+an NPC and is never driven at all.
+
+@@CHAINVERDICT@@
+
+@@CENSUS@@
+
+COLLISION — THE BLOCKER, MEASURED ON THE REAL SURFACE
+------------------------------------------------------
+SPEC 18 moved the verdict off the proxy volumes and onto the character's real skinned
+surface, and that is the number that answers "nothing may pass through its own character's
+mesh". `surfraw` is the positive control's needle — the depth that existed BEFORE the
+resolve — and `surftested` is the confession count: a surfpen of 0 next to surftested = 0
+would mean the audit never asked.
+
+@@SURFACE@@
+
+THE CALM CEILINGS, ON THE SAME EXECUTION AS THE MOTION FLOORS
+--------------------------------------------------------------
+SPEC 7's rule is that calm may never be bought by killing motion, which is only checkable if
+both are read off the same run. They are, below. Each ceiling carries the count that proves
+it was sampled — `idlewin` for the drift, `restwin` for the model-pose fidelity — because a
+zero next to a zero count is the empty kind this phase has shipped five times.
+
+@@CALM@@
+
+CAST COVERAGE — PER MODEL, NEVER A LEG MAXIMUM
+------------------------------------------------
+The owner caught the aggregate on 2026-08-09: a per-leg maximum hides every actor the scene
+did not contain. Every model below carries its OWN resjerk and meshpen.
+
+@@PERMODEL@@
+
+WHY THIS DOES NOT PASS ITS OWN VALIDATOR, AND WHY IT WAS NOT MADE TO
+----------------------------------------------------------------------
+Four gates are red, and all four are red for TWO causes, both named and measured above:
+
+  1. W — restdevA <= 8. Measured 250-526 across the cast. A family-A chain is held off the
+     model pose by a PROXY CAPSULE; the within-actor control is dax-hd, whose tail settles
+     3.8 units and whose ears settle 187.9 and 250.6 on the same frames, the difference
+     being which of them sit inside a 460/751-radius capsule.
+  2. RATCHET — restdevA, and lenmin 0.8944 on assistant-lod0 in the rider leg. Same cause.
+  3. The x86 leg's own run gate — 2 of 150 owner-named chains still read INERT
+     (assistant-lod0 chestR at cinr=0.1770, sage-lod0 earL at 0.2162, against a bar of
+     0.25). Both are stock NPCs and both are marginal, and two hypotheses were tested on
+     them this cycle and refuted by measurement rather than argued away.
+  4. BLOCKER-ABS — because 3 is honestly carried in this report instead of averaged away.
+
+THE GREEN WAS AVAILABLE AND WAS REFUSED. Every one of these numbers read clean for a week,
+and it read clean because the collision clamp was writing the AUTHORED pose onto any chain
+that penetrated: a chain welded to the animation has deviation 0, length ratio 1.0, drift 0
+and model-pose fidelity 0 by construction. Restoring that clamp would turn all four gates
+green in one line — and would restore exactly the build the owner has now rejected six
+times in a row with the same sentence. That trade is the whole disease this phase has, so
+the report is red and says why.
+
+WHAT CLOSES THEM is already specified and is not a tuning pass: SPEC 18's unfinished half —
+the real skinned surface, which resolves to its own zero residual today, REPLACING the proxy
+capsules in the resolve instead of only auditing after them. The capsules' median radius is
+975 units (24 cm) and their max is 4546 (1.1 m) on a 2.3 m character. They are the thing
+holding chains off their pose, crushing them in the rider leg, and generating the veto
+pressure counted in `ctz`. One cause, one fix, three gates.
+
+WHAT IS NOT DONE, SAID PLAINLY
+------------------------------
+@@NOTDONE@@
+
+THE LEGS
+--------
+@@LEGSUMMARY@@
+
+=== end of the cycle-18 section — everything below is earlier cycles, kept verbatim ===

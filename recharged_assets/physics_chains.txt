@@ -186,11 +186,11 @@ j Rmidhairb
 chain lmidhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=80 rootlock=0 gradient=1 hang=0 family=A radii=173,229 xchain=backhair,earL,earR,lbang,rbang,rmidhair
 j Lmidhaira
 j Lmidhairb
-chain rbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1 hang=0 family=A radii=68,59,104 xchain=backhair,earL,earR,lbang,lmidhair,rmidhair
+chain rbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=0 gradient=1 hang=0 family=A radii=68,59,104 xchain=backhair,earL,earR,lbang,lmidhair,rmidhair
 j Rbanga
 j Rbangb
 j Rbangc
-chain lbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1 hang=0 family=A radii=67,64,136 xchain=backhair,earL,earR,lmidhair,rbang,rmidhair
+chain lbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=0 gradient=1 hang=0 family=A radii=67,64,136 xchain=backhair,earL,earR,lmidhair,rbang,rmidhair
 j Lbanga
 j Lbangb
 j Lbangc
@@ -354,11 +354,11 @@ j Rmidhairb
 chain lmidhair class=primary stiffness=2.0 damping=0.22 gravity=0.3 maxangle=30 inertia=1.0 stretch=0.02 radius=80 rootlock=0 gradient=1 hang=0 family=A radii=166,204 xchain=backhair,earL,earR,lbang,rbang,rmidhair
 j Lmidhaira
 j Lmidhairb
-chain rbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1 hang=0 family=A radii=75,79,113 xchain=backhair,earL,earR,lbang,lmidhair,rmidhair
+chain rbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=0 gradient=1 hang=0 family=A radii=75,79,113 xchain=backhair,earL,earR,lbang,lmidhair,rmidhair
 j Rbanga
 j Rbangb
 j Rbangc
-chain lbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=1 gradient=1 hang=0 family=A radii=88,83,113 xchain=backhair,earL,earR,lmidhair,rbang,rmidhair
+chain lbang class=primary stiffness=2.2 damping=0.25 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=0 gradient=1 hang=0 family=A radii=88,83,113 xchain=backhair,earL,earR,lmidhair,rbang,rmidhair
 j Lbanga
 j Lbangb
 j Lbangc
