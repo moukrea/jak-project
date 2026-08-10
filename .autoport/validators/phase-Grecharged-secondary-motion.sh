@@ -27,8 +27,20 @@ DEV=""
 for s2 in eae4df44 AREE026206000788; do
   adb devices 2>/dev/null | grep -qE "^${s2}[[:space:]]+device$" && { DEV="$s2"; break; }
 done
-[ -n "$DEV" ] || fail "no proof device connected"
-bash .autoport/lib/deploy_verify.sh "$DEV" jak1 >/dev/null 2>&1 || fail "deploy_verify FAIL ($DEV)"
+if [ -z "$DEV" ]; then
+  # DEVICE-ABSENT FALLBACK, authorised by the owner 2026-08-10 ("au pire teste sur un build PC a
+  # defaut") while the Redmi is unplugged. x86 proves what is PLATFORM-INDEPENDENT: the solver, the
+  # written-joint instrument, collision against the real surface, and the C20 anti-synthesis check.
+  # It does NOT prove arm64 codegen, device perf, or device-only paths — so the debt is recorded and
+  # the report must say so, and it must still carry real x86 legs (not prose).
+  grep -qiE "x86[^\n]{0,60}(leg|run|smoke)[^\n]{0,40}(PASS|OK)" "$R" \
+    || fail "device absent AND no passing x86 leg in the report — nothing was proven anywhere"
+  grep -qiE "(device proof (owed|pending)|dette de preuve device|arm64 non prouv)" "$R" \
+    || fail "device absent: the report must state explicitly that the DEVICE proof is still owed (x86 does not prove arm64/perf)"
+  echo "[Grecharged-secondary-motion] NOTE: device absent — graded on x86, device proof OWED."
+else
+  bash .autoport/lib/deploy_verify.sh "$DEV" jak1 >/dev/null 2>&1 || fail "deploy_verify FAIL ($DEV)"
+fi
 
 # ---- CYCLE 3 (owner verdict 2026-08-06) — each gate = one owner complaint, code/counter-level only ----
 # A. authored-anim priority: suspension must ENGAGE and RELEASE, with a blend (no snap)

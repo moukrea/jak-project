@@ -953,3 +953,13 @@ les 45+ autres ne sont mesurés NULLE PART. Trois scènes ne couvrent pas 60 mod
    explicitement (« N / 60 modèles réellement mesurés »). Un maximum de scène ne peut plus passer
    pour une couverture du cast. Gate C14-COV : minimum 20 modèles nominatifs, sinon échec.
 => C'est le banc d'essai (SPEC §14) qui rend ça atteignable : spawn par nom + toutes les animations.
+
+### DEVICE ABSENT — REPLI x86 AUTORISÉ (owner 2026-08-10 : « au pire teste sur un build PC à défaut »)
+Le Redmi n'est plus détecté par adb. NE PAS ATTENDRE : prouver sur x86 tout ce qui est indépendant
+de la plateforme — le solveur, l'instrument (variation de la position ÉCRITE, verdict par chaîne),
+la collision contre la surface réelle, et le contrôle anti-synthèse C20. Les jambes x86 doivent être
+de VRAIES exécutions avec les mêmes chiffres par chaîne nommée, pas de la prose.
+CE QUE x86 NE PROUVE PAS, à écrire noir sur blanc dans le rapport : le codegen arm64, la perf
+device, et les chemins device-only. La DETTE DE PREUVE DEVICE doit être déclarée explicitement ; le
+validateur la réclame et refuse un repli silencieux.
+Dès que le device revient : refaire la jambe device et lever la dette.
