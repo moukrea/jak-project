@@ -170,8 +170,10 @@ def notdone():
             "    They read a hard zero every window. SPEC 17 said to delete ALL the old\n"
             "    instrumentation and this cycle deleted the mechanisms but not these tombstones,\n"
             "    so they are named here rather than left to be mistaken for clean measurements.\n"
-            "    Two of them were gated by the device leg, which means those gates could never\n"
-            "    have fired. No number in THIS section descends from any of them."
+            "    Checked rather than assumed: none of them GATES anything in the device leg — three\n"
+            "    (xunres, xbres, mfhard) feed OPEN() reporters, which is milder than a dead gate but\n"
+            "    still means those three lines can never raise, whatever the sim does. No number in\n"
+            "    THIS section descends from any of them."
             % (len(dead), ", ".join(dead)))
     if os.path.exists(MESH):
         n_bs = sum(1 for l in open(MESH, errors='ignore') if l.startswith('bs '))
