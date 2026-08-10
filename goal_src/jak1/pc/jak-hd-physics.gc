@@ -279,22 +279,15 @@
 (define *phys-slot-jitter* (new 'static 'array int32 24))   ;; (O) velocity REVERSALS above the noise floor — oscillation, counted
 (define *phys-slot-rested* (new 'static 'array int32 24))   ;; (O) chain-frames spent in the calm resting state
 (define *phys-slot-clamped* (new 'static 'array int32 24))  ;; (O) corrections that hit the per-frame bound
-(define *phys-slot-modelfall* (new 'static 'array int32 24)) ;; (N) links walked home to the model pose
-;; (C6/cycle-10) the LARGEST single correction the model-pose ladder ever applied in the window,
-;; in units. That pass is the one correction in the frame that is deliberately NOT bounded by
-;; maxcorr (it writes `prev` by the same delta, so it cannot read as velocity), and an unbounded
-;; correction is a one-frame jump of the BONE. Unbounded is the right trade against the owner's
-;; absolute no-penetration rule, but it is a trade, so its size is measured and reported instead
-;; of being assumed small.
-(define *phys-slot-mfmax* (new 'static 'array float 24))     ;; (C6) worst single model-pose ladder step
-(define *phys-slot-escape* (new 'static 'array int32 24))    ;; (C6) last-resort unbounded escapes applied
-(define *phys-slot-escmax* (new 'static 'array float 24))    ;; (C6) worst single last-resort escape, units
-;; (O) the LONGEST SUSTAINED fight of any one chain in the window. A raw reversal COUNT cannot tell
-;; "buzzing" from "sliding along the body": a chain in moving contact reverses now and then no matter
-;; how well it behaves (measured: 73 isolated reversals on a perfectly settled Maia). What the owner
-;; sees as "jitter comme un fou" is a chain reversing under contact frame AFTER frame — this is that
-;; run length, and it is also the counter that arms the rest state.
-(define *phys-slot-stickmax* (new 'static 'array int32 24))
+;; (SPEC 17) TWENTY WINDOW COUNTERS WERE DELETED FROM THIS FILE — from this block and from four
+;; others, together with their resets and their fields on lines 2, 3, 4, 5 and 6. Every one of them
+;; had lost its writer when the solver core was thrown away, and every one of them kept printing:
+;; twenty fields emitting a hard zero on every actor, every window, for ever. A zero that means
+;; "the defect is absent" and a zero that means "nothing can ever add to this" are the same
+;; characters in the log, and this phase has already shipped five vacuous zeros off exactly that
+;; ambiguity. A counter that cannot move is not evidence — it is worse than no counter, because it
+;; occupies the place the evidence should have gone. If one of these mechanisms needs a number
+;; again, the writer ships in the same commit as the print.
 ;; ---- cycle-4 counters (owner 2026-08-06 14:45) -------------------------------------------------
 ;; (S) THE OLD JITTER METRIC MEASURED THE WRONG THING and the owner caught it: it only scored a
 ;; reversal while the link was PRESSED AGAINST A COLLIDER, on the reasoning that a free spring
@@ -317,13 +310,6 @@
 ;; nothing without it: cycle 3 shipped resid=0 on actors whose colliders never fired once, and an
 ;; idledrift=0 measured over zero idle frames would be the identical empty zero. Reported next to it.
 (define *phys-slot-idleobs* (new 'static 'array int32 24))
-;; (S) chain-frames the sleep rule zeroed a link's velocity: the mechanism behind "rien ne se repose
-;; vraiment nulle part", visible as a count rather than inferred from the drift being small.
-(define *phys-slot-slept* (new 'static 'array int32 24))
-;; (W/C6b) link-frames on which ARRIVAL actually moved a body chain toward the model pose. The
-;; anti-vacuous-zero counter for restdevA: a small fidelity number next to arrn=0 would mean the
-;; chain merely never left, not that the mechanism that brings it home works.
-(define *phys-slot-arrn* (new 'static 'array int32 24))
 ;; (U) "resid=0" is only meaningful if a collision test actually ran. Maia measured push=0 AND
 ;; resid=0 while her hair visibly went through her: a chain that is tested against nothing scores a
 ;; perfect penetration audit. These two make that impossible to misread ever again.
@@ -940,14 +926,6 @@
 (define *phys-cctrunc* (new 'static 'array int32 24))       ;; per-slot: chain-frames whose list overflowed
 (define *phys-slot-ccpairs* (new 'static 'array int32 24))  ;; chain pairs link-tested this window
 (define *phys-slot-ccnsum* (new 'static 'array int32 24))   ;; sum of per-chain tested-volume counts
-;; (C13) the guaranteed-feasible fallback's own three numbers. mfsnap = links returned toward their
-;; MODEL pose because the iterative repair had not cleared them; mfsnapmax = the largest such move,
-;; so the size of what the fallback is doing is readable rather than assumed; mfhard = the times not
-;; even the model pose was clear, which the closed-form guarantee does not cover (an `at=` volume
-;; riding a partner chain that has swung). A fallback that had to give up must never go unreported.
-(define *phys-slot-mfsnap* (new 'static 'array int32 24))
-(define *phys-slot-mfsnapmax* (new 'static 'array float 24))
-(define *phys-slot-mfhard* (new 'static 'array int32 24))
 
 ;; ---- cycle 6b: THE MODEL POSE IS THE FLOOR OF EVERY COLLISION VOLUME --------------------------
 ;; Owner rule W, applied to collision instead of only to the spring: "la position idle devrait etre
@@ -1084,25 +1062,13 @@
 ;; (C14c) the OLD ledger's figure, still computed and still printed next to the corrected one. The
 ;; instrument changed, so both numbers ship: a silent swap is how a metric gets quietly relaxed.
 (define *phys-slot-respath* (new 'static 'array float 24))
-;; ---- (C14-D/cycle-15) the slew bound's own counters, and resjerk's ATTRIBUTION -----------------
-;; resjerk is a magnitude; it never said WHICH WAY. These four say it, so the next reading of that
+;; ---- (C14-D/cycle-15) resjerk's ATTRIBUTION ----------------------------------------------------
+;; resjerk is a magnitude; it never said WHICH WAY. These three say it, so the next reading of that
 ;; number is diagnosable from the log instead of from a rebuild:
-;;   jgcut   times the growth cap actually bit (0 = the bound never had to act)
-;;   jtfall  times the mesh clamp had to tighten HARDER than the rate limit because the softened
-;;           fraction still penetrated — the blocker overriding smoothness, counted, never hidden
 ;;   rjup    worst per-frame GROWTH of |out - targ| in the window
 ;;   rjdn    worst per-frame SHRINK of the same
 ;;   rjtm    |targ - ltarg| on the very frame that set resjerk: how much of that "jump" was the
 ;;           AUTHORED pose moving out from under a lagging chain rather than the solver moving it
-(define *phys-slot-jgcut* (new 'static 'array int32 24))
-(define *phys-slot-jtfall* (new 'static 'array int32 24))
-;;   rjpre   the worst per-frame offset change as it stood BEFORE the mesh clamp. resjerk - rjpre
-;;           is therefore the clamp's own share of the jerk, separable in the log.
-;;   jdcut   times the EXCURSION ceiling (PHYS-DEV-MAX) bit
-;;   jdmax   the largest offset it ever had to trim, so "how far out was it really" is a number
-(define *phys-slot-rjpre* (new 'static 'array float 24))
-(define *phys-slot-jdcut* (new 'static 'array int32 24))
-(define *phys-slot-jdmax* (new 'static 'array float 24))
 (define *phys-slot-rjup* (new 'static 'array float 24))
 (define *phys-slot-rjdn* (new 'static 'array float 24))
 (define *phys-slot-rjtm* (new 'static 'array float 24))
@@ -1112,7 +1078,8 @@
 ;; three already had counters; none had a DENOMINATOR, so none could be read as a rate.
 ;;   simcf    chain-frames actually simulated in the window — the denominator for all three
 ;;   clampcf  chain-frames on which the jerk bound or the excursion ceiling actually bit for that
-;;            chain (jgcut/jdcut count LINK events, which cannot be turned into a share of frames)
+;;            chain — a count of LINK events cannot be turned into a share of frames, which is the
+;;            whole reason this one is kept per chain-frame
 ;; The other two divide counters that are already chain-frames: authhold (authored priority owns the
 ;; chain) and rested (the calm rest state holds it). Bar from the spec: anything above ~20 % of
 ;; frames is the culprit and gets loosened.
@@ -1175,8 +1142,10 @@
 ;; ...and the matching bound on the way down: the mesh clamp may not tighten its per-chain fraction
 ;; by more than this in one frame WHEN A CLEAR POSE EXISTS at the softened fraction. It is a rate
 ;; limit, never a licence: if the softened fraction penetrates, the bisection runs on the full
-;; range exactly as before and the blocker still wins — that case is counted (jtfall=) rather than
-;; hidden, because it is the one path by which a one-frame collapse can still happen.
+;; range exactly as before and the blocker still wins. That case has NO counter today: the field
+;; that claimed to count it lost its writer in the SPEC-17 rewrite and printed a zero for weeks, so
+;; it was deleted rather than left standing in as evidence. It is the one path by which a one-frame
+;; collapse can still happen, so it needs a WRITTEN counter before this bound is graded again.
 ;; 0.25 = the chain converges onto a needed clamp in 4 frames instead of 1; the release side
 ;; already had such a limit (PHYS-TMIN-RISE 0.08), only the tightening side did not.
 (defconstant PHYS-TMIN-FALL 0.25)
@@ -1217,21 +1186,11 @@
 (define *phys-cinject* (new 'static 'array float 576))      ;; POSITIVE CONTROL: deliberate penetration, units
 (define *phys-slot-ccc* (new 'static 'array int32 24))      ;; chain-vs-chain contacts resolved (window)
 (define *phys-slot-cccmax* (new 'static 'array float 24))   ;; deepest chain-vs-chain overlap (window)
-;; (C13b) THE STRAND PASS'S OWN THREE NUMBERS. It runs after the body resolve, after the model-pose
+;; (C13b) THE STRAND PASS'S OWN NUMBER. It runs after the body resolve, after the model-pose
 ;; fallback and after the residual audit, and it writes the bone transform directly — so until now
 ;; nothing measured what it left behind. `xveto` counts link-pushes REFUSED because they would have
-;; driven that link deeper into its own character (the owner's blocker outranks strand separation);
-;; `xunres` counts contacts still overlapping after the clamp and the veto, i.e. the strand-vs-strand
-;; residual this phase never had; `xunresmax` is the deepest of them. A strand-vs-strand pass with no
-;; residual counter was the same shape of blind spot as a body audit with no perimeter.
-;; (C13b) and the verdict for a volume RIDING another chain — a two-body contact that is neither
-;; the body's residual nor a strand-vs-strand pair. It gets its own count and its own depth so that
-;; taking it out of `resid` can never be a way of not counting it at all.
-(define *phys-slot-xbres* (new 'static 'array int32 24))
-(define *phys-slot-xbresmax* (new 'static 'array float 24))
+;; driven that link deeper into its own character (the owner's blocker outranks strand separation).
 (define *phys-slot-xveto* (new 'static 'array int32 24))
-(define *phys-slot-xunres* (new 'static 'array int32 24))
-(define *phys-slot-xunresmax* (new 'static 'array float 24))
 (define *phys-slot-injected* (new 'static 'array int32 24)) ;; links deliberately displaced this window
 ;; (W/C6c) A LINK ANOTHER CHAIN IS HOLDING IS HELD, exactly as a link the BODY is holding is held.
 ;; The chain-vs-chain pass runs after the per-chain step — it cannot write that step's `lpush`
@@ -1245,7 +1204,6 @@
 ;; explicit that an unsatisfiable constraint must settle rather than oscillate; this is that rule
 ;; applied to a collider class that was added in cycle 6, after the exemption was written.
 (define *phys-lxheld* (new 'static 'array int32 1152))      ;; frames left holding this link (chain contact)
-(define *phys-slot-xheld* (new 'static 'array int32 24))    ;; link-frames exempted for that reason (window)
 
 ;; gravity: 9.8 m/s^2 * 4096 units/m
 (defconstant PHYS-GRAV-ACCEL 40140.8)
@@ -1460,7 +1418,7 @@
   character's own sculpted/keyed pose already occupies is never reported and never fought (the
   identical rule the per-link ccap encodes, evaluated at the sample instead of the link).
   Body volumes only (colchain < 0): a volume riding another chain is a two-body contact and stays
-  in the strand/xbres domain, where one link's push cannot pretend to fix it.
+  in the strand domain, where one link's push cannot pretend to fix it.
   The sample IS the surface, so no link radius and no sample radius is added — rr is the volume's
   own interpolated cone radius, nothing else. Writes the push-out direction (unit, away from the
   worst volume's spine) into outdir when the return is > 0."
@@ -2149,20 +2107,8 @@
     (set! (-> *phys-cctrunc* slot) 0)
     (set! (-> *phys-slot-ccpairs* slot) 0)
     (set! (-> *phys-slot-ccnsum* slot) 0)
-    (set! (-> *phys-slot-mfsnap* slot) 0)
-    (set! (-> *phys-slot-mfsnapmax* slot) 0.0)
-    (set! (-> *phys-slot-mfhard* slot) 0)
-    (set! (-> *phys-slot-xbres* slot) 0)
-    (set! (-> *phys-slot-xbresmax* slot) 0.0)
     (set! (-> *phys-slot-xveto* slot) 0)
-    (set! (-> *phys-slot-xunres* slot) 0)
-    (set! (-> *phys-slot-xunresmax* slot) 0.0)
     ;; (C14) a re-bind is a fresh window for the mesh audit and the motion floors too
-    (set! (-> *phys-slot-jgcut* slot) 0)
-    (set! (-> *phys-slot-jtfall* slot) 0)
-    (set! (-> *phys-slot-rjpre* slot) 0.0)
-    (set! (-> *phys-slot-jdcut* slot) 0)
-    (set! (-> *phys-slot-jdmax* slot) 0.0)
     (set! (-> *phys-slot-rjup* slot) 0.0)
     (set! (-> *phys-slot-rjdn* slot) 0.0)
     (set! (-> *phys-slot-rjtm* slot) 0.0)
@@ -2216,16 +2162,10 @@
     (set! (-> *phys-slot-reseed* slot) 0)
     (set! (-> *phys-slot-burst* slot) 0)
     (set! (-> *phys-slot-frozen* slot) 0)
-    (set! (-> *phys-slot-xheld* slot) 0)
     (set! (-> *phys-slot-holdmax* slot) 0)
     (set! (-> *phys-slot-jitter* slot) 0)
     (set! (-> *phys-slot-rested* slot) 0)
     (set! (-> *phys-slot-clamped* slot) 0)
-    (set! (-> *phys-slot-modelfall* slot) 0)
-    (set! (-> *phys-slot-mfmax* slot) 0.0)
-    (set! (-> *phys-slot-escape* slot) 0)
-    (set! (-> *phys-slot-escmax* slot) 0.0)
-    (set! (-> *phys-slot-stickmax* slot) 0)
     ;; ---- cycle-4 window counters ------------------------------------------------------------
     (set! (-> *phys-slot-idle* slot) 0.0)
     (set! (-> *phys-slot-idleframes* slot) 0)
@@ -2234,8 +2174,6 @@
     (set! (-> *phys-slot-unsettled* slot) 0)
     (set! (-> *phys-slot-freering* slot) 0)
     (set! (-> *phys-slot-idleobs* slot) 0)
-    (set! (-> *phys-slot-slept* slot) 0)
-    (set! (-> *phys-slot-arrn* slot) 0)
     (set! (-> *phys-slot-noncol* slot) 0)
     (set! (-> *phys-slot-nomask* slot) 0)
     (set! (-> *phys-slot-fama* slot) 0)
@@ -4021,9 +3959,8 @@
                       (-> *phys-slot-autheng* slot)
                       (-> *phys-slot-authrel* slot)
                       (-> *phys-slot-authmax* slot))
-              (format *phys-line-buf* " jitter=~D stickmax=~D rested=~D clamped=~D"
+              (format *phys-line-buf* " jitter=~D rested=~D clamped=~D"
                       (-> *phys-slot-jitter* slot)
-                      (-> *phys-slot-stickmax* slot)
                       (-> *phys-slot-rested* slot)
                       (-> *phys-slot-clamped* slot))
               ;; (P) the profile's worst adjacent step and its lowest root weight, recomputed from
@@ -4098,13 +4035,11 @@
               (format *phys-line-buf* " noncol=~D nomask=~D"
                       (-> *phys-slot-noncol* slot)
                       (-> *phys-slot-nomask* slot))
-              ;; idlewin = the frames this window actually scored as input-free, slept = the
-              ;; chain-frames the sleep rule zeroed. idledrift=0 with idlewin=0 is an EMPTY zero and
-              ;; must be read as "not measured" — the same trap resid=0/push=0 was in cycle 3.
-              (format *phys-line-buf* " idlewin=~D slept=~D arrn=~D"
-                      (-> *phys-slot-idleobs* slot)
-                      (-> *phys-slot-slept* slot)
-                      (-> *phys-slot-arrn* slot))
+              ;; idlewin = the frames this window actually scored as input-free. idledrift=0 with
+              ;; idlewin=0 is an EMPTY zero and must be read as "not measured" — the same trap
+              ;; resid=0/push=0 was in cycle 3.
+              (format *phys-line-buf* " idlewin=~D"
+                      (-> *phys-slot-idleobs* slot))
               ;; (R) the gravity the integrator really applied, in WORLD axes and then in the anchor
               ;; bone's axes. gdir must read (0.0000, -1.0000, 0.0000) on every actor at every
               ;; orientation; gloc must NOT, or gravity would be turning with the bone.
@@ -4154,20 +4089,14 @@
                       (-> *phys-slot-tilt* slot))
               ;; two calls, one line: `format` takes at most 8 parameters, and these all append
               ;; into the same string buffer, so the window is still emitted as ONE logcat line.
-              (format *phys-line-buf* " restdevA=~f restwin=~D xheld=~D"
+              (format *phys-line-buf* " restdevA=~f restwin=~D"
                       (-> *phys-slot-restdeva* slot)
-                      (-> *phys-slot-restwin* slot)
-                      (-> *phys-slot-xheld* slot))
-              (format *phys-line-buf* " xleg=~D lenmin=~f lensim=~f extprobe=~D modelfall=~D"
+                      (-> *phys-slot-restwin* slot))
+              (format *phys-line-buf* " xleg=~D lenmin=~f lensim=~f extprobe=~D"
                       (-> *phys-slot-xleg* slot)
                       (-> *phys-slot-lenmin* slot)
                       (-> *phys-slot-lensim* slot)
-                      (-> *phys-slot-extprobe* slot)
-                      (-> *phys-slot-modelfall* slot))
-              (format *phys-line-buf* " mfmax=~f escape=~D escmax=~f"
-                      (-> *phys-slot-mfmax* slot)
-                      (-> *phys-slot-escape* slot)
-                      (-> *phys-slot-escmax* slot))
+                      (-> *phys-slot-extprobe* slot))
               ;; per-chain: family, post-settle model deviation, worst length ratio. Three numbers
               ;; per chain is what turns "this actor is fine" into "chain 4 is not", which cost a
               ;; whole build cycle on Gol the last time only the slot total was printed.
@@ -4220,21 +4149,11 @@
                       (-> *phys-slot-ccpairs* slot)
                       (-> *phys-cctrunc* slot)
                       (-> *phys-slot-ccnsum* slot))
-              (format *phys-line-buf* " mfsnap=~D mfsnapmax=~f mfhard=~D"
-                      (-> *phys-slot-mfsnap* slot)
-                      (-> *phys-slot-mfsnapmax* slot)
-                      (-> *phys-slot-mfhard* slot))
-              ;; (C13b) the strand pass's own three. xveto = pushes refused because they would have
-              ;; driven a link deeper into its own body; xunres/xunresmax = the strand-vs-strand
-              ;; overlap this frame could NOT clear. Until this cycle the pass reported only the
-              ;; contacts it HANDLED, which is the same blind spot as a body audit with no perimeter.
-              (format *phys-line-buf* " xveto=~D xunres=~D xunresmax=~f"
-                      (-> *phys-slot-xveto* slot)
-                      (-> *phys-slot-xunres* slot)
-                      (-> *phys-slot-xunresmax* slot))
-              (format *phys-line-buf* " xbres=~D xbresmax=~f"
-                      (-> *phys-slot-xbres* slot)
-                      (-> *phys-slot-xbresmax* slot))
+              ;; (C13b) the strand pass's own. xveto = pushes refused because they would have driven
+              ;; a link deeper into its own body — the owner's blocker outranking strand separation,
+              ;; counted rather than assumed rare.
+              (format *phys-line-buf* " xveto=~D"
+                      (-> *phys-slot-xveto* slot))
               ;; per-chain: how many volumes it is tested against, and the radius of its first link.
               ;; A chain showing ncol=0 has nothing to hit — that is the wave-2 failure mode the
               ;; aggregate counter could not see — and lrad names the mesh-measured thickness the
@@ -4294,18 +4213,12 @@
                       (-> *phys-slot-nbsurf* slot)
                       (-> *phys-slot-bstrunc* slot)
                       (-> *phys-slot-bsdens* slot))
-              ;; (cycle-15) the slew bound and resjerk's attribution. New stems, none of them a
-              ;; substring of any field printed above or on lines 1-5: jgcut/jtfall/rjup/rjdn/rjtm.
-              (format *phys-line-buf* " jgcut=~D jtfall=~D rjup=~f rjdn=~f rjtm=~f"
-                      (-> *phys-slot-jgcut* slot)
-                      (-> *phys-slot-jtfall* slot)
+              ;; (cycle-15) resjerk's attribution. New stems, none of them a substring of any field
+              ;; printed above or on lines 1-5: rjup/rjdn/rjtm.
+              (format *phys-line-buf* " rjup=~f rjdn=~f rjtm=~f"
                       (-> *phys-slot-rjup* slot)
                       (-> *phys-slot-rjdn* slot)
                       (-> *phys-slot-rjtm* slot))
-              (format *phys-line-buf* " rjpre=~f jdcut=~D jdmax=~f"
-                      (-> *phys-slot-rjpre* slot)
-                      (-> *phys-slot-jdcut* slot)
-                      (-> *phys-slot-jdmax* slot))
               (format *phys-line-buf* " crun:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-crun* (+ cbase c)))
@@ -4384,11 +4297,6 @@
               (set! (-> *phys-slot-simcf* slot) 0)
               (set! (-> *phys-slot-clampcf* slot) 0)
               (set! (-> *phys-slot-resjerk* slot) 0.0)
-              (set! (-> *phys-slot-jgcut* slot) 0)
-              (set! (-> *phys-slot-jtfall* slot) 0)
-                                  (set! (-> *phys-slot-rjpre* slot) 0.0)
-              (set! (-> *phys-slot-jdcut* slot) 0)
-              (set! (-> *phys-slot-jdmax* slot) 0.0)
               (set! (-> *phys-slot-rjup* slot) 0.0)
               (set! (-> *phys-slot-rjdn* slot) 0.0)
               (set! (-> *phys-slot-rjtm* slot) 0.0)
@@ -4407,14 +4315,7 @@
               (set! (-> *phys-slot-ccpairs* slot) 0)
               (set! (-> *phys-cctrunc* slot) 0)
               (set! (-> *phys-slot-ccnsum* slot) 0)
-              (set! (-> *phys-slot-mfsnap* slot) 0)
-              (set! (-> *phys-slot-mfsnapmax* slot) 0.0)
-              (set! (-> *phys-slot-mfhard* slot) 0)
-              (set! (-> *phys-slot-xbres* slot) 0)
-              (set! (-> *phys-slot-xbresmax* slot) 0.0)
               (set! (-> *phys-slot-xveto* slot) 0)
-              (set! (-> *phys-slot-xunres* slot) 0)
-              (set! (-> *phys-slot-xunresmax* slot) 0.0)
               ;; (C13) the per-chain reachable-volume count is a WINDOW MAX, so it has to be cleared
               ;; with the window: carried over, a chain that reached 30 volumes once would keep
               ;; claiming 30 long after it had stopped reaching anything.
@@ -4434,7 +4335,6 @@
               (set! (-> *phys-slot-tilt* slot) 0.0)
               (set! (-> *phys-slot-restdeva* slot) 0.0)
               (set! (-> *phys-slot-restwin* slot) 0)
-              (set! (-> *phys-slot-xheld* slot) 0)
               (set! (-> *phys-slot-xleg* slot) 0)
               (set! (-> *phys-slot-lenmin* slot) 1000000.0)
     (set! (-> *phys-slot-lensim* slot) 1000000.0)
@@ -4447,8 +4347,6 @@
               (set! (-> *phys-slot-unsettled* slot) 0)
               (set! (-> *phys-slot-freering* slot) 0)
               (set! (-> *phys-slot-idleobs* slot) 0)
-              (set! (-> *phys-slot-slept* slot) 0)
-              (set! (-> *phys-slot-arrn* slot) 0)
               (set! (-> *phys-slot-authhold* slot) 0)
               (set! (-> *phys-slot-autheng* slot) 0)
               (set! (-> *phys-slot-authrel* slot) 0)
@@ -4459,11 +4357,6 @@
     (set! (-> *phys-slot-jitter* slot) 0)
     (set! (-> *phys-slot-rested* slot) 0)
     (set! (-> *phys-slot-clamped* slot) 0)
-    (set! (-> *phys-slot-modelfall* slot) 0)
-    (set! (-> *phys-slot-mfmax* slot) 0.0)
-    (set! (-> *phys-slot-escape* slot) 0)
-    (set! (-> *phys-slot-escmax* slot) 0.0)
-    (set! (-> *phys-slot-stickmax* slot) 0)
               (set! (-> *phys-slot-frames* slot) 0)
               (set! (-> *phys-slot-resets* slot) 0)
               (set! (-> *phys-slot-maxdev* slot) 0.0)

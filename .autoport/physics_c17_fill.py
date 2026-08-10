@@ -202,6 +202,21 @@ def notdone():
                 "    owner's blocker is UNMEASURED rather than clean. The device leg names them\n"
                 "    every run and fails outright for the three actors the spec puts first."
                 % (len(gap), len(cm), ", ".join(gap[:12]) + (" ..." if len(gap) > 12 else "")))
+    leg = os.path.join(REPO, '.autoport', 'physics_device_leg.sh')
+    if os.path.exists(leg) and 'BADW' not in open(leg, errors='ignore').read():
+        items.append(
+            "  * A REAL GATE WAS LOST, AND SAYING SO IS THE POINT. Deleting the writerless counters\n"
+            "    exposed that the leg's sustained-fight FAIL — `BADW`, \"a chain fought a collider for\n"
+            "    >=60 frames AND kept reversing\" — read `stickmax`, whose writer the SPEC-17 rewrite\n"
+            "    removed. It has therefore been PERMANENTLY GREEN since the rewrite: the one gate that\n"
+            "    was watching for the owner's \"jitter comme un fou\" could not fire, whatever the sim\n"
+            "    did. It is deleted rather than left standing as a false green, so the phase currently\n"
+            "    has NO sustained-fight gate. Rebuilding it needs a written run-length counter, and\n"
+            "    that is owed before the oscillation verdict can be claimed again. The jitter\n"
+            "    absurdity bound is live and still stands.\n"
+            "  * The same dead `BADW` gate still sits in .autoport/physics_x86_smoke.sh (twice) and\n"
+            "    .autoport/physics_probe_dmax.sh, which are not on this cycle's path but would report\n"
+            "    the same permanent green if run. Named, not silently left.")
     items.append(
         "  * The real surface currently ARBITRATES (it measures, and it pushes a link back out\n"
         "    along the nearest sample's normal, bounded by the same per-frame limit and undone in\n"

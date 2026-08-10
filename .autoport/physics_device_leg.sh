@@ -310,24 +310,14 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     JITW=$(grep -a 'jitter=' "$LC" | awk '{if (match($0,/jitter=[0-9]+/) && substr($0,RSTART+7,RLENGTH-7)+0 > 60) n++} END {print n+0}')
     RST=$(grep -a 'rested=' "$LC" | awk '{if (match($0,/rested=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
     CLM=$(grep -a 'clamped=' "$LC" | awk '{if (match($0,/clamped=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
-    # THE gate is the SUSTAINED fight, not the reversal count. A chain sliding along a moving body
-    # reverses occasionally however well it behaves (measured: 73 isolated reversals on a Maia whose
-    # rest state never even had to arm); what the owner sees is a chain reversing under contact frame
-    # after frame. stickmax is that run length, it is what arms the rest damping at PHYS-STICK=12,
-    # and 60 frames (1 s) of unbroken fighting is the point where "settling" stops being true.
-    STK=$(grep -a 'stickmax=' "$LC" | awk '{if (match($0,/stickmax=[0-9]+/)) {v=substr($0,RSTART+9,RLENGTH-9)+0; if (v>m) m=v}} END {print m+0}')
-    # PERSISTENCE IS NOT THE SIN, OSCILLATION IS. The owner's rule is "si ca ne se conforme pas...
-    # ca devrait juste RESTER TRANQUILLE tout en essayant TRANQUILLEMENT de se conformer" — a chain
-    # may press against a collider indefinitely, it may not VIBRATE while doing it. So a long run is
-    # only a failure when the same window also shows real reversal activity.
-    BADW=$(grep -a 'stickmax=' "$LC" | awk '{
-        st=0; ji=0;
-        if (match($0,/stickmax=[0-9]+/)) st=substr($0,RSTART+9,RLENGTH-9)+0;
-        if (match($0,/jitter=[0-9]+/))   ji=substr($0,RSTART+7,RLENGTH-7)+0;
-        if (st >= 60 && ji > 30) n++ } END {print n+0}')
-    [ "${BADW:-0}" = 0 ] || { say "FAIL($TAG): $BADW window(s) where a chain fought a collider for >=60 frames AND kept reversing — oscillating, not settling"; OK=0; }
-    # ...and a hard absurdity bound on the raw count, so a genuinely buzzing rig cannot hide behind
-    # a short run length: 2 reversals per frame sustained over a window is not contact, it is noise.
+    # THE SUSTAINED-FIGHT GATE IS DELETED WITH ITS INPUT. It graded stickmax, the unbroken run of
+    # contact reversals, and stickmax lost its writer in the SPEC-17 solver rewrite: the field kept
+    # printing a hard 0, so the awk read 0, so `st >= 60` was false on every window of every leg and
+    # the FAIL could not fire. A gate whose input cannot move is a false green wearing a gate's name,
+    # which is worse than no gate, so it goes rather than stay. The oscillation verdict needs a
+    # WRITTEN run-length counter before it can exist again.
+    # What is left here reads a live field: a hard absurdity bound on the raw reversal count, where
+    # 2 reversals per frame sustained over a window is not contact, it is noise.
     [ "${JIT:-0}" -lt 600 ] || { say "FAIL($TAG): jitter=$JIT in one window — that is not contact, that is buzzing"; OK=0; }
     # (P) the per-link influence profile must have NO step: that discontinuity IS the "cran" the
     # owner sees at mid-ear. Built bounded by the solver, graded here on what it actually built.
@@ -336,7 +326,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
       || { say "FAIL($TAG): influence profile step $ISTEP > 0.45 — the per-link transition is discontinuous (owner P)"; OK=0; }
     NPROF=$(grep -ac '\[HD-PHYS-INFL\] ag=' "$LC" || true)
     [ "${NPROF:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS-INFL] profile line — the per-link influence profile is not reported"; OK=0; }
-    say "leg $TAG: cycle3bcd jitter-max=$JIT stick-max=$STK rested=$RST clamped=$CLM inflstep-max=$ISTEP profile-lines=$NPROF"
+    say "leg $TAG: cycle3bcd jitter-max=$JIT rested=$RST clamped=$CLM inflstep-max=$ISTEP profile-lines=$NPROF"
     # ---- CYCLE-4 WINDOW GATES ([HD-PHYS3] line) --------------------------------------------
     # The owner's 14:45 verdict said the cycle-3 metric measured the wrong thing. These are the
     # replacements, and they are graded here rather than restated in prose:
@@ -347,12 +337,11 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     #   settletime worst frames-from-still-to-rest; unsettled = idle stretches still ringing at 1 s.
     #   freering   velocity reversals with NO contact — the population cycle 3 excluded, which is
     #              exactly where the owner sees "l'hysteresis est HORRIBLE".
-    local N3 IDRIFT IDWIN SLEPT STIME UNSET FRING GBAD NOMK NONC
+    local N3 IDRIFT IDWIN STIME UNSET FRING GBAD NOMK NONC
     N3=$(grep -ac '\[HD-PHYS3\] ag=' "$LC" || true)
     [ "${N3:-0}" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS3] line — the cycle-4 instrument never printed"; OK=0; }
     IDRIFT=$(grep -ao 'idledrift=[0-9.]*' "$LC" | sed 's/idledrift=//' | sort -g | tail -1)
     IDWIN=$(grep -a 'idlewin=' "$LC" | awk '{if (match($0,/idlewin=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
-    SLEPT=$(grep -a 'slept=' "$LC" | awk '{if (match($0,/slept=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
     STIME=$(grep -ao 'settletime=[0-9]*' "$LC" | sed 's/settletime=//' | sort -g | tail -1)
     UNSET=$(grep -a 'unsettled=' "$LC" | awk '{if (match($0,/unsettled=[0-9]+/)) s+=substr($0,RSTART+10,RLENGTH-10)} END {print s+0}')
     FRING=$(grep -ao 'freering=[0-9]*' "$LC" | sed 's/freering=//' | sort -g | tail -1)
@@ -369,7 +358,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     GSAMP=$(grep -a 'gsamp=' "$LC" | awk '{if (match($0,/gsamp=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
     NOMK=$(grep -a 'nomask=' "$LC" | awk '{if (match($0,/nomask=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
     NONC=$(grep -a 'noncol=' "$LC" | awk '{if (match($0,/noncol=[0-9]+/)) {v=substr($0,RSTART+7,RLENGTH-7)+0; if (v>m) m=v}} END {print m+0}')
-    say "leg $TAG: cycle4 idledrift-max=${IDRIFT:-n/a} idle-frames=$IDWIN slept=$SLEPT settletime-max=${STIME:-n/a} unsettled=$UNSET freering-max=${FRING:-n/a} gdir-not-world=$GBAD gsamp=${GSAMP:-0} nomask-max=$NOMK noncol-max=$NONC"
+    say "leg $TAG: cycle4 idledrift-max=${IDRIFT:-n/a} idle-frames=$IDWIN settletime-max=${STIME:-n/a} unsettled=$UNSET freering-max=${FRING:-n/a} gdir-not-world=$GBAD gsamp=${GSAMP:-0} nomask-max=$NOMK noncol-max=$NONC"
     [ "${GBAD:-0}" = 0 ] || { say "FAIL($TAG): $GBAD window(s) where the applied gravity was not world (0,-1,0)"; OK=0; }
     # idle-frames=0 is a property of the SCENE, not a defect: a village of walking NPCs never
     # holds every target still for half a second. It is only a failure if NO leg in the whole run
@@ -405,18 +394,13 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     RDEV=$(grep -ao 'restdevA=[0-9.]*' "$LC" | sed 's/restdevA=//' | sort -g | tail -1)
     RWIN=$(grep -a 'restwin=' "$LC" | awk '{if (match($0,/restwin=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     XLEG=$(grep -a 'xleg=' "$LC" | awk '{if (match($0,/xleg=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
-    # (W/C6c) link-frames exempted from the fidelity sample because ANOTHER CHAIN was holding them
-    # — the same exemption a body collider has always had. Reported next to restwin so the size of
-    # the exempted population is readable rather than asserted; a restdevA next to xheld with no
-    # restwin would be the empty zero this phase has already shipped three times.
-    XHELD=$(grep -a 'xheld=' "$LC" | awk '{if (match($0,/xheld=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
     # the sentinel (1000000) means "no chain was long enough to measure in this window" — that is
     # not a crush, so it is filtered out rather than graded as a perfect score OR as a failure.
     LMIN=$(grep -ao 'lenmin=[0-9.]*' "$LC" | sed 's/lenmin=//' | awk '{if ($1+0 < 100.0) print}' | sort -g | head -1)
     LSIM=$(grep -ao 'lensim=[0-9.]*' "$LC" | sed 's/lensim=//' | awk '{if ($1+0 < 100.0) print}' | sort -g | head -1)
     EXTP=$(grep -a 'extprobe=' "$LC" | awk '{if (match($0,/extprobe=[0-9]+/)) s+=substr($0,RSTART+9,RLENGTH-9)} END {print s+0}')
     TOTEXT=$((TOTEXT + EXTP))
-    say "leg $TAG: cycle5 famA=$FAMA famB=$FAMB unclass=$UNCL tiltmax=${TILT:-n/a} restdevA=${RDEV:-n/a} restwin=$RWIN xheld=$XHELD xleg=$XLEG lenmin=${LMIN:-n/a} lensim=${LSIM:-n/a} extprobe=$EXTP"
+    say "leg $TAG: cycle5 famA=$FAMA famB=$FAMB unclass=$UNCL tiltmax=${TILT:-n/a} restdevA=${RDEV:-n/a} restwin=$RWIN xleg=$XLEG lenmin=${LMIN:-n/a} lensim=${LSIM:-n/a} extprobe=$EXTP"
     [ "${UNCL:-0}" = 0 ] || { say "FAIL($TAG): $UNCL chain(s) simulating with NO family — the owner's rule is that every chain is classified"; OK=0; }
     TOTREST=$((TOTREST + RWIN))
     awk -v v="${RDEV:-99}" 'BEGIN{exit !(v+0 <= 8.0)}' \
@@ -462,32 +446,20 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     CCTR=$(grep -a 'cctrunc=' "$LC" | awk '{if (match($0,/cctrunc=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     CCPR=$(grep -a 'ccpairs=' "$LC" | awk '{if (match($0,/ccpairs=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     CCC=$(grep -a 'chainvschain=' "$LC" | awk '{if (match($0,/chainvschain=[0-9]+/)) s+=substr($0,RSTART+13,RLENGTH-13)} END {print s+0}')
-    MFS=$(grep -a 'mfsnap=' "$LC" | awk '{if (match($0,/mfsnap=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
-    MFSX=$(grep -ao 'mfsnapmax=[0-9.]*' "$LC" | sed 's/mfsnapmax=//' | sort -g | tail -1)
-    MFH=$(grep -a 'mfhard=' "$LC" | awk '{if (match($0,/mfhard=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
-    # (C13b) the strand pass's own residual. Until this cycle it reported only the contacts it had
-    # HANDLED, never the overlap it left — the same blind spot as a body audit with no perimeter.
+    # (C13b) the strand pass's own outcome. xveto is the one field of this group that still has a
+    # writer in the solver.
     XV=$(grep -a 'xveto=' "$LC" | awk '{if (match($0,/xveto=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
-    XU=$(grep -a 'xunres=' "$LC" | awk '{if (match($0,/xunres=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
-    XUX=$(grep -ao 'xunresmax=[0-9.]*' "$LC" | sed 's/xunresmax=//' | sort -g | tail -1)
-    say "leg $TAG: cycle13 ccnsum=$CCNS cctrunc=$CCTR ccpairs=$CCPR chainvschain=$CCC nomask-max=${NOMK:-n/a} mfsnap=$MFS mfsnapmax=${MFSX:-0} mfhard=$MFH xveto=$XV xunres=$XU xunresmax=${XUX:-0}"
-    # xveto/xunres are DELIBERATE outcomes, not failures: refusing to resolve a strand contact INTO
-    # the character is the owner's blocker outranking strand separation. They are reported so he can
-    # see two strands still overlapping, and so a future cycle cannot quietly trade one for the other.
-    [ "${XU:-0}" = 0 ] || say "OPEN($TAG): xunres=$XU (deepest ${XUX:-0}) — strand-vs-strand contacts left overlapping rather than pushed into the body"
+    say "leg $TAG: cycle13 ccnsum=$CCNS cctrunc=$CCTR ccpairs=$CCPR chainvschain=$CCC nomask-max=${NOMK:-n/a} xveto=$XV"
+    # xveto is a DELIBERATE outcome, not a failure: refusing to resolve a strand contact INTO the
+    # character is the owner's blocker outranking strand separation. Reported so a future cycle
+    # cannot quietly trade one for the other.
     [ "${XV:-0}" = 0 ] || say "OPEN($TAG): xveto=$XV — strand pushes refused because they would have driven a link deeper into its own character"
-    # (C13b) the verdict for a volume RIDING another chain. It is reported, never silently absent:
-    # the whole reason `at=` volumes left `resid` is that ONE link cannot fix a two-body contact, and
-    # the whole reason that is not a way of hiding it is this line.
-    XB=$(grep -a 'xbres=' "$LC" | awk '{if (match($0,/xbres=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
-    XBX=$(grep -ao 'xbresmax=[0-9.]*' "$LC" | sed 's/xbresmax=//' | sort -g | tail -1)
-    say "leg $TAG: cycle13b xbres=$XB xbresmax=${XBX:-0}"
-    [ "${XB:-0}" = 0 ] || say "OPEN($TAG): xbres=$XB (deepest ${XBX:-0}) — a link ended inside a volume RIDING another chain (two-body contact; see the chest-collider radius open item)"
-    # mfhard = the fallback could not find ANY clear point, not even the model pose. The closed-form
-    # guarantee does not cover it (an at= volume riding a partner that has swung), so it is reported
-    # rather than failed — but it is reported, because an unreported give-up is how this phase
-    # shipped four vacuous zeros.
-    [ "${MFH:-0}" = 0 ] || say "OPEN($TAG): mfhard=$MFH — the model-pose fallback found no clear point (at= volume riding a swung partner)"
+    # THREE OPEN REPORTERS WERE DELETED HERE — xunres, xbres and mfhard. Every one of them lost its
+    # writer in the SPEC-17 solver rewrite, so all three read a hard 0 out of the log and could never
+    # raise their OPEN line: a leg claiming "no unresolved strand contact, no two-body residual, no
+    # fallback give-up" was reporting the absence of a counter, not the absence of the defect. They
+    # are deleted rather than left reading zero. When the strand residual, the riding-volume residual
+    # and the fallback give-up are counted again, the reporter comes back with the writer.
     TOTCCN=$((TOTCCN + CCNS)); TOTCCP=$((TOTCCP + CCPR)); TOTCCT=$((TOTCCT + CCTR))
     [ "${CCTR:-0}" = 0 ] || { say "FAIL($TAG): cctrunc=$CCTR — a chain could reach more volumes than PHYS-CCMAX and the excess was DROPPED (that is a hole)"; OK=0; }
     [ "${CCNS:-0}" -gt 0 ] || { say "FAIL($TAG): ccnsum=0 — no chain was tested against any volume, so every resid=0 in this leg is vacuous"; OK=0; }
@@ -533,23 +505,20 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     MTEST=$(grep -a 'meshtested=' "$LC" | awk '{if (match($0,/meshtested=[0-9]+/)) s+=substr($0,RSTART+11,RLENGTH-11)} END {print s+0}')
     MFIX=$(grep -a 'mfix=' "$LC" | awk '{if (match($0,/mfix=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
     say "leg $TAG: cycle14 meshpen=${MESHP:-0} mraw=${MRAW:-0} meshtested=$MTEST mfix=$MFIX resjerk=${RESJ:-0} respath=${RESP:-0}"
-    # ---- CYCLE-15: the per-frame slew bound, and resjerk's ATTRIBUTION ------------------------
-    #   jgcut   growth-cap bites; jtfall  feasibility-forced hard tightens of the mesh clamp
+    # ---- CYCLE-15: resjerk's ATTRIBUTION ------------------------------------------------------
     #   rjup    worst per-frame GROWTH of a link's offset; rjdn worst per-frame SHRINK
     #   rjtm    how far the AUTHORED pose travelled on the frame that set resjerk — the share of
     #           that "jump" which is inertia lagging a fast animation, not the solver moving a bone
     # Reported, never gated: resjerk is the gate. These say WHICH WAY it went, so the next reading
     # is diagnosable from the log instead of from a rebuild.
-    local JGC JTF RJU RJD RJT RJP JDC JDM
-    JGC=$(grep -a 'jgcut=' "$LC" | awk '{if (match($0,/jgcut=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
-    JTF=$(grep -a 'jtfall=' "$LC" | awk '{if (match($0,/jtfall=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    # The five slew-bound counters that used to sit on this line (jgcut, jtfall, rjpre, jdcut,
+    # jdmax) had no writer left after the SPEC-17 rewrite and printed a hard 0 every window, so
+    # every "the bound never had to act" this line ever reported was the counter, not the bound.
+    local RJU RJD RJT
     RJU=$(grep -ao 'rjup=[0-9.]*' "$LC" | sed 's/rjup=//' | sort -g | tail -1)
     RJD=$(grep -ao 'rjdn=[0-9.]*' "$LC" | sed 's/rjdn=//' | sort -g | tail -1)
     RJT=$(grep -ao 'rjtm=[0-9.]*' "$LC" | sed 's/rjtm=//' | sort -g | tail -1)
-    RJP=$(grep -ao 'rjpre=[0-9.]*' "$LC" | sed 's/rjpre=//' | sort -g | tail -1)
-    JDC=$(grep -a 'jdcut=' "$LC" | awk '{if (match($0,/jdcut=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
-    JDM=$(grep -ao 'jdmax=[0-9.]*' "$LC" | sed 's/jdmax=//' | sort -g | tail -1)
-    say "leg $TAG: cycle15 jgcut=$JGC jtfall=$JTF rjup=${RJU:-0} rjdn=${RJD:-0} rjtm=${RJT:-0} rjpre=${RJP:-0} jdcut=$JDC jdmax=${JDM:-0}"
+    say "leg $TAG: cycle15 rjup=${RJU:-0} rjdn=${RJD:-0} rjtm=${RJT:-0}"
     # ---- CYCLE-16 ([HD-PHYS7]): THE WRITTEN JOINT, AND THE THREE SUPPRESSORS AS A % OF FRAMES ---
     # Two things the week of false greens proved necessary. (1) A per-NAMED-chain motion verdict:
     # the chains the owner calls static must be the ones proven to move, by name, or the leg fails.
