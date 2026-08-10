@@ -538,6 +538,14 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
       PCLMP=$(awk -v a="$CLMPCF" -v s="$SIMCF" 'BEGIN{printf "%.2f", (s>0? 100.0*a/s : 0)}')
       PREST=$(awk -v a="$RESTCF" -v s="$SIMCF" 'BEGIN{printf "%.2f", (s>0? 100.0*a/s : 0)}')
       say "leg $TAG: suppressors — authored-priority suspension $PAUTH% of chain-frames, collision clamp $PCLMP%, calm freeze $PREST% (simcf=$SIMCF authcf=$AUTHCF clampcf=$CLMPCF restcf=$RESTCF)"
+      # the oscillation run, rebuilt on the written joint after stickmax lost its writer and left
+      # the old sustained-fight FAIL permanently green. REPORTED, NOT GATED this cycle: a threshold
+      # nobody has read a number from is how this phase collected sixty gates. The bar returns next
+      # cycle, set from these readings.
+      local OSCM OSCN
+      OSCM=$(grep -ao 'oscmax=[0-9]*' "$LC" | sed 's/oscmax=//' | sort -n | tail -1)
+      OSCN=$(grep -a 'oscn=' "$LC" | awk '{if (match($0,/oscn=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
+      say "leg $TAG: oscillation (written-joint sign reversals) longest run oscmax=${OSCM:-0} frames, chain-windows reaching 60 oscn=$OSCN — reported, not gated this cycle"
       awk -v v="$PAUTH" 'BEGIN{exit !(v+0 <= 20.0)}' \
         || { say "FAIL($TAG): authored-priority suspension holds $PAUTH% of chain-frames (>20%) — that suppressor is the defect, not the physics"; OK=0; }
       awk -v v="$PCLMP" 'BEGIN{exit !(v+0 <= 20.0)}' \

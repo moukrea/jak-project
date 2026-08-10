@@ -1096,6 +1096,15 @@
 ;; now shipped five times. This flag is set once at the clamp site and consumed once per chain per
 ;; frame, so the share is a real fraction of frames.
 (define *phys-cclampf* (new 'static 'array int32 576))
+;; the oscillation run, rebuilt on the written joint after `stickmax` lost its writer and left the
+;; leg's sustained-fight FAIL permanently green. cgdprev = last frame's SIGNED |offset| change on
+;; the link that moved most; cosc = how many consecutive frames that sign has been alternating.
+(define *phys-cgdprev* (new 'static 'array float 576))
+(define *phys-cosc* (new 'static 'array int32 576))
+(define *phys-slot-oscmax* (new 'static 'array int32 24))  ;; longest such run on any chain (window)
+(define *phys-slot-oscn* (new 'static 'array int32 24))    ;; chains whose run reached PHYS-OSC-N
+(defconstant PHYS-OSC-EPS 0.5)   ;; below this the sign of the change is float noise, not a reversal
+(defconstant PHYS-OSC-N 60)      ;; the run length the retired BADW gate called a sustained fight
 ;; (C14c) bisection steps for the mesh sweep's feasibility clamp. 6 steps = 1/64 of the link's own
 ;; deviation, i.e. under a unit for anything this sim actually moves.
 (defconstant PHYS-MESH-BISECT 6)
@@ -1937,6 +1946,8 @@
           (set! (-> *phys-cstick* ci) 0)
           (set! (-> *phys-cring* ci) 0)
           (set! (-> *phys-cclampf* ci) 0)
+          (set! (-> *phys-cgdprev* ci) 0.0)
+          (set! (-> *phys-cosc* ci) 0)
           (set! (-> *phys-cres* ci) 0)
           ;; (P) build the influence profile. wtip is never lowered — owner D is that too LITTLE of
           ;; the length moves — so continuity is bought by RAISING the root instead.
@@ -3692,10 +3703,12 @@
                     (set! (-> *phys-cclampf* ci) 0))
                   (let ((fvar 0.0)   ;; this frame's worst per-link offset CHANGE on this chain
                         (fdev 0.0)   ;; this frame's worst per-link offset MAGNITUDE
+                        (fgd 0.0)    ;; ...and the SIGNED |offset| change of that same link
                         (fsamp 0))   ;; 1 = at least one link produced a differenced sample
                   (dotimes (i len)
                     (let ((jj (+ start i))
                           (tmv 0.0)
+                          (lgd 0.0)   ;; this link's SIGNED |offset| change, for the oscillation run
                           (dn (new 'stack-no-clear 'vector))
                           (dd (new 'stack-no-clear 'vector)))
                       (vector-! dn (-> *phys-out* jj) (-> *phys-targ* jj))
@@ -3721,7 +3734,8 @@
                           (when (> gd (-> *phys-slot-rjup* slot))
                             (set! (-> *phys-slot-rjup* slot) gd))
                           (when (> (- gd) (-> *phys-slot-rjdn* slot))
-                            (set! (-> *phys-slot-rjdn* slot) (- gd))))
+                            (set! (-> *phys-slot-rjdn* slot) (- gd)))
+                          (set! lgd gd))
                         (vector-! dd dn (-> *phys-ldev* jj))
                         (let ((nj (vector-length dd))
                               (dvl (vector-length dn)))
@@ -3733,7 +3747,7 @@
                           ;; deliberately moved onto its pose, and a cut frame measures the
                           ;; animation rather than the physics.
                           (set! fsamp 1)
-                          (when (> nj fvar) (set! fvar nj))
+                          (when (> nj fvar) (set! fvar nj) (set! fgd lgd))
                           (when (> dvl fdev) (set! fdev dvl))))
                       (vector-copy! (-> *phys-ldev* jj) dn)
                       (vector-copy! (-> *phys-ltarg* jj) (-> *phys-targ* jj))
@@ -3750,6 +3764,31 @@
                              (> (-> *phys-canchd* ci) PHYS-IDLE-ANCH))
                     (set! (-> *phys-civ* ci) (+ (-> *phys-civ* ci) fvar))
                     (+! (-> *phys-cish* ci) 1))
+                  ;; ---- THE OSCILLATION RUN, REBUILT ON THE WRITTEN JOINT ---------------------
+                  ;; The leg used to carry a sustained-fight FAIL (`BADW`: a chain fighting a
+                  ;; collider for >=60 frames while still reversing). It read `stickmax`, whose
+                  ;; writer the rewrite removed, so it has been PERMANENTLY GREEN ever since — the
+                  ;; one check watching the owner's "jitter comme un fou" could not fire whatever
+                  ;; the sim did. It is rebuilt here on the only quantity this file is allowed to
+                  ;; trust: the sign of the frame-to-frame change in the WRITTEN joint's offset,
+                  ;; taken on the link that moved most. Alternating signs = ringing; a run of them
+                  ;; is the owner's hysteresis with a length attached.
+                  ;; REPORTED, NOT GATED, and deliberately so: SPEC 17 allows an instrument back
+                  ;; only once a defect is MEASURED, and re-arming a threshold nobody has read a
+                  ;; number from is how this phase acquired sixty gates it then spent its time
+                  ;; arbitrating between. The bar goes back the cycle after a reading exists.
+                  (when (and (> fsamp 0) (<= (-> *phys-csettle* ci) 0))
+                    (cond
+                      ((and (> (fabs fgd) PHYS-OSC-EPS)
+                            (> (fabs (-> *phys-cgdprev* ci)) PHYS-OSC-EPS)
+                            (< (* fgd (-> *phys-cgdprev* ci)) 0.0))
+                       (+! (-> *phys-cosc* ci) 1)
+                       (when (> (-> *phys-cosc* ci) (-> *phys-slot-oscmax* slot))
+                         (set! (-> *phys-slot-oscmax* slot) (-> *phys-cosc* ci)))
+                       (when (= (-> *phys-cosc* ci) PHYS-OSC-N)
+                         (+! (-> *phys-slot-oscn* slot) 1)))
+                      (else (set! (-> *phys-cosc* ci) 0)))
+                    (set! (-> *phys-cgdprev* ci) fgd))
                   ;; (C16) fold this frame into the chain's window — LOCOMOTION frames only, the
                   ;; identical gate `crun` uses, so the honest floor and the retired magnitude one
                   ;; are graded on exactly the same frames and can be compared side by side.
@@ -4261,6 +4300,10 @@
                       (-> *phys-slot-authhold* slot)
                       (-> *phys-slot-clampcf* slot)
                       (-> *phys-slot-rested* slot))
+              ;; separate call: the 8-parameter cap again (buffer + format string count as two)
+              (format *phys-line-buf* " oscmax=~D oscn=~D"
+                      (-> *phys-slot-oscmax* slot)
+                      (-> *phys-slot-oscn* slot))
               (format *phys-line-buf* " cvar:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c
@@ -4295,6 +4338,8 @@
                 (set! (-> *phys-civ* (+ cbase c)) 0.0))
               (format 0 "~S~%" *phys-line-buf*)
               (set! (-> *phys-slot-simcf* slot) 0)
+              (set! (-> *phys-slot-oscmax* slot) 0)
+              (set! (-> *phys-slot-oscn* slot) 0)
               (set! (-> *phys-slot-clampcf* slot) 0)
               (set! (-> *phys-slot-resjerk* slot) 0.0)
               (set! (-> *phys-slot-rjup* slot) 0.0)
