@@ -19,6 +19,43 @@ WATCH="${WATCH:-150}"
 say(){ echo "$*" | tee -a "$LOG"; }
 die(){ say "[device-leg FAIL] $*"; exit 1; }
 
+# ---- (C16) THE ONLY PRIMARY QUANTITY: THE WRITTEN JOINT POSITION, FRAME BY FRAME ---------------
+# SPEC §16/§17. Everything below derives from `[HD-PHYS7]`, and nothing here reads `crun`, which
+# measured |pos - REST POSE|: a chain welded 352 units off its rest scored 352 while visually
+# soldered, which is why chestrun read the identical 352.4841 for three days and covered a dead sim
+# for a week. The fields consumed here are
+#   cvar  MEAN per-frame |offset(t) - offset(t-1)| on locomotion frames   <- motion, not magnitude
+#   cvmx  the worst single locomotion frame
+#   cdsp  spread (max-min) of the deviation over those frames             <- the inertness verdict
+#   cvn   locomotion frames actually sampled. cvn=0 is a tested=0 confession, NEVER "calm".
+# The floor reported as hairrun/chestrun is the PATH LENGTH the written joint travelled during the
+# locomotion frames (sum over windows of cvar x cvn). A constant offset contributes 0 to it by
+# construction, which is exactly what the old magnitude floor could not do.
+PHYS_INERT_EPS=2.0    # deviation spread below this (0.5 mm) over a driven window = welded
+
+phys_chain_idx(){ # <model> <chain-name> -> chain index in the data file, or empty
+  awk -v m="$1" -v c="$2" '
+    /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
+                  n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
+    /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt
+}
+
+phys_chain_motion(){ # <logcat> <art-group> <chain-idx> -> "meanvar worstframe spread frames totalpath maxwindowpath"
+  grep -a "\[HD-PHYS7\] ag=$2 " "$1" | awk -v i="$3" '
+    function pick(s, stem,   t, r) {
+      t = index(s, stem); if (t == 0) return -1
+      t = substr(s, t + length(stem))
+      if (match(t, "(^| )" i "=-?[0-9.]+")) { r = substr(t, RSTART, RLENGTH); sub("(^| )" i "=", "", r); return r + 0 }
+      return -1
+    }
+    { v = pick($0, " cvar:"); x = pick($0, " cvmx:"); d = pick($0, " cdsp:"); n = pick($0, " cvn:")
+      if (n > 0) { w = v * n; sv += w; sn += n
+                   if (w > wmx) wmx = w
+                   if (x > mx) mx = x; if (d > md) md = d } }
+    END { if (sn > 0) printf "%.4f %.4f %.4f %d %.4f %.4f", sv / sn, mx, md, sn, sv, wmx
+          else printf "0 0 0 0 0 0" }'
+}
+
 say "===== secondary-motion device leg — $(date -Is) ====="
 $ADB devices | grep -qE "^${S}[[:space:]]+device$" || die "device $S not on adb"
 $ADB -s "$S" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
@@ -513,12 +550,103 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     JDC=$(grep -a 'jdcut=' "$LC" | awk '{if (match($0,/jdcut=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
     JDM=$(grep -ao 'jdmax=[0-9.]*' "$LC" | sed 's/jdmax=//' | sort -g | tail -1)
     say "leg $TAG: cycle15 jgcut=$JGC jtfall=$JTF rjup=${RJU:-0} rjdn=${RJD:-0} rjtm=${RJT:-0} rjpre=${RJP:-0} jdcut=$JDC jdmax=${JDM:-0}"
+    # ---- CYCLE-16 ([HD-PHYS7]): THE WRITTEN JOINT, AND THE THREE SUPPRESSORS AS A % OF FRAMES ---
+    # Two things the week of false greens proved necessary. (1) A per-NAMED-chain motion verdict:
+    # the chains the owner calls static must be the ones proven to move, by name, or the leg fails.
+    # (2) Every motion suppressor quantified. SPEC §17 removed them all; if a share is not 0 the
+    # mechanism is back and the report has to say so rather than let a number quietly sag.
+    local N7 AGS7 AG7
+    N7=$(grep -ac '\[HD-PHYS7\] ag=' "$LC" || true)
+    if [ "${N7:-0}" -lt 1 ]; then
+      say "FAIL($TAG): no [HD-PHYS7] line — the cycle-16 written-joint instrument never printed, so no motion claim in this leg is measured"; OK=0
+    else
+      local SIMCF AUTHCF CLMPCF RESTCF PAUTH PCLMP PREST
+      SIMCF=$(grep -a '\[HD-PHYS7\] ' "$LC" | awk '{if (match($0,/simcf=[0-9]+/))  s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
+      AUTHCF=$(grep -a '\[HD-PHYS7\] ' "$LC" | awk '{if (match($0,/authcf=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+      CLMPCF=$(grep -a '\[HD-PHYS7\] ' "$LC" | awk '{if (match($0,/clampcf=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+      RESTCF=$(grep -a '\[HD-PHYS7\] ' "$LC" | awk '{if (match($0,/restcf=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+      PAUTH=$(awk -v a="$AUTHCF" -v s="$SIMCF" 'BEGIN{printf "%.2f", (s>0? 100.0*a/s : 0)}')
+      PCLMP=$(awk -v a="$CLMPCF" -v s="$SIMCF" 'BEGIN{printf "%.2f", (s>0? 100.0*a/s : 0)}')
+      PREST=$(awk -v a="$RESTCF" -v s="$SIMCF" 'BEGIN{printf "%.2f", (s>0? 100.0*a/s : 0)}')
+      say "leg $TAG: suppressors — authored-priority suspension $PAUTH% of chain-frames, collision clamp $PCLMP%, calm freeze $PREST% (simcf=$SIMCF authcf=$AUTHCF clampcf=$CLMPCF restcf=$RESTCF)"
+      awk -v v="$PAUTH" 'BEGIN{exit !(v+0 <= 20.0)}' \
+        || { say "FAIL($TAG): authored-priority suspension holds $PAUTH% of chain-frames (>20%) — that suppressor is the defect, not the physics"; OK=0; }
+      awk -v v="$PCLMP" 'BEGIN{exit !(v+0 <= 20.0)}' \
+        || { say "FAIL($TAG): collision clamp bounds $PCLMP% of chain-frames (>20%)"; OK=0; }
+      # per-NAMED-chain written-joint motion, for every art-group this leg measured
+      AGS7=$(grep -ao '\[HD-PHYS7\] ag=[^ ]*' "$LC" | sed 's/.*ag=//' | sort -u)
+      for AG7 in $AGS7; do
+        local CN CIDX CNAME CM CVAR CVMX CDSP CVN CPATH CVERD NINERT VERBOSE NMOV NUNJ WORST
+        NINERT=0; NMOV=0; NUNJ=0; WORST=""
+        # Chain-by-chain for the actors whose chains the owner names; a one-line census for the
+        # rest, so the cast is still counted but the report stays readable. The INERT verdict is
+        # gated identically either way — this is presentation, not perimeter.
+        case " jak-hd keira-hd keira3-hd mayor-lod0 evilsis-lod0 evilbro-lod0 dax-hd samos-hd " in
+          *" $AG7 "*) VERBOSE=1;; *) VERBOSE=0;;
+        esac
+        CN=$(awk -v m="$AG7" '/^\[model /{cur=0;h=$0;sub(/^\[model /,"",h);sub(/\]$/,"",h);n=split(h,a," ");for(i=1;i<=n;i++) if(a[i]==m) cur=1; next} /^chain /{if(cur) k++} END{print k+0}' recharged_assets/physics_chains.txt)
+        for CIDX in $(seq 0 $((CN - 1))); do
+          CNAME=$(awk -v m="$AG7" -v want="$CIDX" '/^\[model /{cur=0;h=$0;sub(/^\[model /,"",h);sub(/\]$/,"",h);n=split(h,a," ");for(i=1;i<=n;i++) if(a[i]==m) cur=1; if(cur) k=-1; next} /^chain /{if(cur){k++; if(k==want){print $2; exit}}}' recharged_assets/physics_chains.txt)
+          [ -n "$CNAME" ] || continue
+          CM=$(phys_chain_motion "$LC" "$AG7" "$CIDX")
+          CVAR=$(echo "$CM" | cut -d' ' -f1); CVMX=$(echo "$CM" | cut -d' ' -f2)
+          CDSP=$(echo "$CM" | cut -d' ' -f3); CVN=$(echo "$CM"  | cut -d' ' -f4)
+          CPATH=$(echo "$CM" | cut -d' ' -f5)
+          if [ "${CVN:-0}" -eq 0 ]; then
+            CVERD="UNJUDGED(cvn=0 — never sampled on a driven frame, this is a tested=0 confession, not calm)"
+            NUNJ=$((NUNJ + 1))
+          elif awk -v d="$CDSP" -v e="$PHYS_INERT_EPS" 'BEGIN{exit !(d+0 <= e+0)}'; then
+            CVERD="INERT"; NINERT=$((NINERT + 1))
+            WORST="$WORST $CNAME"
+          else
+            CVERD="MOVING"; NMOV=$((NMOV + 1))
+          fi
+          [ "$VERBOSE" = 1 ] && say "leg $TAG: $AG7 chain $CNAME per-frame variation of the WRITTEN joint cvar=$CVAR cvmx=$CVMX spread=$CDSP frames=$CVN path=$CPATH verdict=$CVERD"
+        done
+        [ "$VERBOSE" = 1 ] || say "leg $TAG: $AG7 written-joint motion census — chains=$CN moving=$NMOV inert=$NINERT unjudged=$NUNJ${WORST:+ (inert:$WORST)}"
+        [ "$NINERT" -eq 0 ] || { say "FAIL($TAG): $AG7 has $NINERT chain(s) INERT — the written joint held a constant offset while its own anchor was being driven (owner: 'les meches sont ANCREES')"; OK=0; }
+      done
+    fi
     [ "${MTEST:-0}" -ge 1 ] || { say "FAIL($TAG): meshtested=0 — the mesh-surface audit never sampled a vertex, so every meshpen in this leg is an empty zero"; OK=0; }
     awk -v v="${MESHP:-0}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
       || { say "FAIL($TAG): meshpen=$MESHP — the skinned mesh surface ended a frame inside a body volume (owner blocker, mesh level)"; OK=0; }
     awk -v v="${RESJ:-0}" 'BEGIN{exit !(v+0 < 1000.0)}' \
       || { say "FAIL($TAG): resjerk=$RESJ — the resolution moved a link a visible jump in one frame"; OK=0; }
     TOTMTEST=$((TOTMTEST + MTEST))
+    # ---- (SPEC 18) THE REAL SKINNED SURFACE, AS A SIGNED DISTANCE -----------------------------
+    # The measure that replaces fit-error. fit-error asked whether a volume fitted to a bone's own
+    # vertices contained those vertices — true by construction, 0.000 for a week while volumes
+    # 13646 units across went unseen. surfpen asks the only question that is not self-referential:
+    # how far INSIDE the character's real skinned surface a WRITTEN link ended the frame.
+    #   surftested  point x sample tests actually run. 0 = never asked. Never "clean".
+    #   surfraw     the deepest depth seen BEFORE the resolve — the needle that proves it can move.
+    #   bstrunc     sets/samples dropped for want of pool = a stretch of body with NO surface.
+    local SURFP SURFR STEST SHIT BSTR BSLIST
+    SURFP=$(grep -ao 'surfpen=[0-9.]*' "$LC" | sed 's/surfpen=//' | sort -g | tail -1)
+    SURFR=$(grep -ao 'surfraw=[0-9.]*' "$LC" | sed 's/surfraw=//' | sort -g | tail -1)
+    STEST=$(grep -a 'surftested=' "$LC" | awk '{if (match($0,/surftested=[0-9]+/)) s+=substr($0,RSTART+11,RLENGTH-11)} END {print s+0}')
+    SHIT=$(grep -a 'surfhit=' "$LC" | awk '{if (match($0,/surfhit=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    BSTR=$(grep -a 'bstrunc=' "$LC" | awk '{if (match($0,/bstrunc=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
+    say "leg $TAG: spec18 chain-to-REAL-SKINNED-SURFACE signed distance — surfpen=${SURFP:-0} surfraw=${SURFR:-0} surftested=$STEST surfhit=$SHIT bstrunc=$BSTR"
+    [ "${STEST:-0}" -ge 1 ] || { say "FAIL($TAG): surftested=0 — the real-surface audit never asked a single sample, so surfpen is an empty zero of exactly the family this phase has shipped five times"; OK=0; }
+    awk -v v="${SURFP:-0}" 'BEGIN{exit !(v+0 <= 1.0)}' \
+      || { say "FAIL($TAG): surfpen=$SURFP — a WRITTEN link ended a frame inside its own character's real skinned surface (owner blocker, measured on the surface and not on a proxy)"; OK=0; }
+    [ "${BSTR:-0}" = 0 ] || { say "FAIL($TAG): bstrunc=$BSTR — body-surface sets or samples were DROPPED for want of pool, which is a stretch of body carrying no surface at all"; OK=0; }
+    # per-actor coverage: an art-group with chains and bsurf=0 has no surface to be tested against.
+    # Printed by name in every case (no silent de-scope); a hard fail for the three actors the spec
+    # puts first, an explicit OPEN for the rest of the cast.
+    BSLIST=$(grep -a '\[HD-PHYS6\] ag=' "$LC" | awk '{ag="";bs=-1;
+        if (match($0,/ag=[^ ]+/)) ag=substr($0,RSTART+3,RLENGTH-3);
+        if (match($0,/bsurf=[0-9]+/)) bs=substr($0,RSTART+6,RLENGTH-6)+0;
+        if (ag!="" && bs==0) print ag }' | sort -u | tr '\n' ' ')
+    if [ -n "$BSLIST" ]; then
+      say "leg $TAG: spec18 coverage gap — art-group(s) with chains but NO body-surface set: $BSLIST"
+      for A2 in jak-hd keira-hd mayor-lod0; do
+        case " $BSLIST " in *" $A2 "*) say "FAIL($TAG): $A2 has no real body surface (bsurf=0) — the spec puts this actor first and it cannot be measured on a proxy"; OK=0;; esac
+      done
+    else
+      say "leg $TAG: spec18 coverage — every art-group measured in this leg carries a real body surface"
+    fi
   fi
   case "$MODE" in
     expect-cast|expect-phys)
@@ -561,35 +689,29 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
       say "leg $TAG: cast coverage — art-groups measured at mesh level in this scene: $COVN ($COVL)"
       [ "$COVN" -ge 3 ] || { say "FAIL($TAG): only $COVN art-group(s) measured at mesh level — a coverage leg that measures nothing widens no census"; OK=0; }
       else
-      # ---- (C14-A) MOTION FLOORS, measured during the locomotion drive above ------------------
-      # crun is the per-chain window max deviation ON LOCOMOTION FRAMES ONLY (own anchor above
-      # PHYS-RUN-ANCH), so an idle vantage cannot inflate it and a dead sim cannot hide: static
-      # hair while running reads exactly 0. Chain indices come from the data file, never
-      # hardcoded, same rule as the (G) chest gate.
-      local HIDX HRUN KM2 RIDX2 LIDX2 CRUN
-      HIDX=$(awk -v m="jak-hd" -v c=hair '
-        /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
-                      n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
-        /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt)
-      HRUN=$(grep -a "\[HD-PHYS6\] ag=jak-hd " "$LC" | awk -v i="$HIDX" '
-        { s=substr($0, index($0,"crun:"));
-          if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v } }
-        END { printf "%.4f", m+0 }')
-      KM2=keira-hd; grep -aq "\[HD-PHYS6\] ag=keira-hd " "$LC" || KM2=assistant-lod0
-      RIDX2=$(awk -v m="$KM2" -v c=chestR '
-        /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
-                      n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
-        /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt)
-      LIDX2=$(awk -v m="$KM2" -v c=chestL '
-        /^\[model / { cur=0; h=$0; sub(/^\[model /,"",h); sub(/\]$/,"",h);
-                      n=split(h,a," "); for (i=1;i<=n;i++) if (a[i]==m) cur=1; if (cur) k=-1; next }
-        /^chain /   { if (cur) { k++; if ($2==c) { print k; exit } } }' recharged_assets/physics_chains.txt)
-      CRUN=$(grep -a "\[HD-PHYS6\] ag=$KM2 " "$LC" | awk -v i="$RIDX2" -v j="$LIDX2" '
-        { s=substr($0, index($0,"crun:"));
-          if (match(s, " " i "=[0-9.]+")) { v=substr(s, RSTART+length(i)+2, RLENGTH-length(i)-2)+0; if (v>m) m=v }
-          if (match(s, " " j "=[0-9.]+")) { v=substr(s, RSTART+length(j)+2, RLENGTH-length(j)-2)+0; if (v>m) m=v } }
-        END { printf "%.4f", m+0 }')
-      say "leg $TAG: motion floors hairrun=$HRUN (jak-hd chain $HIDX 'hair', locomotion frames only) chestrun=$CRUN ($KM2 chestR/chestL in motion)"
+      # ---- (C14-A / C16) MOTION FLOORS — REDEFINED, because the old ones covered a dead sim -----
+      # They used to read `crun`, the window MAX DEVIATION on locomotion frames. Deviation is
+      # |pos - REST POSE|: a chain welded at a constant 352-unit offset scores 352 while soldered
+      # in place, which is why chestrun reprinted 352.4841 unchanged for three days while the owner
+      # watched a static chest. Both floors now measure the PATH the WRITTEN joint actually
+      # travelled during the locomotion frames — sum over windows of (mean per-frame |offset(t) -
+      # offset(t-1)|) x (frames sampled). A constant offset contributes exactly 0. Chain indices
+      # still come from the data file, never hardcoded.
+      local HIDX HRUN KM2 RIDX2 LIDX2 CRUN CRR CRL
+      # field 6 = the WORST SINGLE WINDOW's path, not the run total. A total grows with how long the
+      # leg happened to drive, so it would reward a longer run rather than a livelier chain; the
+      # per-window path is a rate and keeps the inherited 100/350 bars comparable to the readings
+      # they were set against.
+      HIDX=$(phys_chain_idx jak-hd hair)
+      HRUN=$(phys_chain_motion "$LC" jak-hd "$HIDX" | cut -d' ' -f6)
+      KM2=keira-hd; grep -aq "\[HD-PHYS7\] ag=keira-hd " "$LC" || KM2=assistant-lod0
+      RIDX2=$(phys_chain_idx "$KM2" chestR)
+      LIDX2=$(phys_chain_idx "$KM2" chestL)
+      CRR=$(phys_chain_motion "$LC" "$KM2" "$RIDX2" | cut -d' ' -f6)
+      CRL=$(phys_chain_motion "$LC" "$KM2" "$LIDX2" | cut -d' ' -f6)
+      HRUN=${HRUN:-0}
+      CRUN=$(awk -v a="${CRR:-0}" -v b="${CRL:-0}" 'BEGIN{printf "%.4f", (a+0>b+0? a+0 : b+0)}')
+      say "leg $TAG: motion floors hairrun=${HRUN:-0} (jak-hd chain $HIDX 'hair', written-joint path over locomotion frames) chestrun=$CRUN ($KM2 chestR=$CRR chestL=$CRL, written-joint path in motion)"
       awk -v v="$HRUN" 'BEGIN{exit !(v+0 >= 100.0)}' \
         || { say "FAIL($TAG): hairrun=$HRUN < 100 — Jak's hair does not move while he RUNS (owner C14-A)"; OK=0; }
       awk -v v="$CRUN" 'BEGIN{exit !(v+0 >= 350.0)}' \

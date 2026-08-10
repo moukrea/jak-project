@@ -1,0 +1,136 @@
+=========================================================================================
+CYCLE 17 (2026-08-10) — THE REWRITE (SPEC 17) AND THE END OF THE PROXY BODY (SPEC 18)
+Build: --physics (FLAG_PHYSICS) android-arm64, ogflags:435df2141670 (hd-models,pbr,physics)
+Device: Redmi eae4df44. No x86 evidence build (banned for this phase since cycle 4).
+RESULT: @@RESULTLINE@@
+=========================================================================================
+
+WHY THIS CYCLE EXISTS
+---------------------
+The owner rejected the 10:12 build in full — "les pans de veste NE BOUGENT PAS DU TOUT, zero
+physique ; le col est completement statique ; les meches de Keira sont ANCREES ; le noeud du
+maire aucune physique ; la poitrine de Keira completement statique" — while this report's own
+floors read hairrun=619.7 and chestrun=352.5. Both were true at once, and the reason is a
+definition, not a tuning:
+
+  `crun` measured `dev` = |pos - REST POSE|. A chain welded at a CONSTANT offset of 352 units
+  scores 352 while visually soldered in place. That is why chestrun printed 352.4841, byte for
+  byte, on every reading for three days: a deterministic constant, not a measurement.
+
+Every calm ceiling in this file is one-sided — a dead chain maximises all of them — so the three
+motion suppressors could kill the simulation to completion without reddening a single gate. The
+whole week of greens rests on that one wrong definition.
+
+Two things follow, and this cycle is both of them.
+
+1. THE SOLVER AND ITS INSTRUMENTS WERE REWRITTEN (SPEC 17)
+----------------------------------------------------------
+`phys-slot-step!` went from 4806 lines to @@STEPLINES@@, restructured into the four steps the spec
+asked for — integrate, constrain, collide, write the bone — and every motion suppressor was
+REMOVED rather than retuned. Verified absent (defined constants with no reader remain only as
+tombstones): sleep (PHYS-SLEEP-VEL), ring-down (PHYS-RINGDOWN-*), arrival/hysteresis
+(PHYS-ARRIVE-*), the jerk cap (PHYS-JERK-CAP), sustained-contact velocity discharge
+(PHYS-SPEND-SOFT, PHYS-STICK), the model-pose ladder (PHYS-MODELPULL) and `colskip`. The calm
+rest state survives ONLY as a measurement — it holds nothing.
+
+ONE suppressor was kept, deliberately and named: authored-animation priority. It is the owner's
+own rule 5 ("les animations originales ont la priorite"), and Keira's goggles held to her eyes at
+the Zoomer are its non-regression case. It is now quantified rather than assumed — see below.
+
+THE ONE PRIMARY QUANTITY IS THE WRITTEN JOINT POSITION, FRAME BY FRAME.
+Everything else derives from it, and nothing in the new instrument descends from anything else:
+  motion  = |pos(t) - pos(t-1)| of the joint this pass WROTE, differenced against the AUTHORED
+            pose so the character's own travel divides out (carrying hair along while Jak runs is
+            not motion of the hair)
+  inertness = the spread of that offset over frames the chain's own anchor was being driven.
+            Near zero while the actor moves = welded, and it fails the leg BY NAME.
+  jerk    = worst |delta pos| in one frame
+  penetration = a written link inside the character's real skinned surface
+
+THE MOTION FLOORS ARE REDEFINED, and their old magnitude form is retired from the ratchet so it
+can never pass again. `hairrun` and `chestrun` are now the PATH the written joint travelled over
+a window's locomotion frames — sum of the per-frame variation, worst window. A constant offset
+contributes exactly 0.
+
+@@MOTIONFLOORS@@
+
+PER-NAMED-CHAIN VERDICT — THE CHAINS THE OWNER CALLS STATIC
+-----------------------------------------------------------
+He named them, so they are answered by name, with the per-frame variation of the WRITTEN joint,
+its spread, and how many driven frames were sampled. `cvn=0` is an UNJUDGED confession, never a
+clean zero.
+
+@@CHAINVERDICT@@
+
+THE THREE SUPPRESSORS, AS A PERCENTAGE OF FRAMES
+------------------------------------------------
+The spec's bar: anything above ~20 % of chain-frames is the culprit and gets loosened. The
+denominator (`simcf`) had a defect of its own this cycle and it is worth recording, because it is
+the same family as everything else here: simcf was incremented at TWO sites over the same set of
+chain-frames, so it read DOUBLE and every share printed at HALF its true value — a suppressor
+holding 30 % of frames would have shown 15 % and passed. And `clampcf` had NO WRITER AT ALL: it
+printed a hard zero meaning "the collision clamp never acts", while the bound that does act
+(`maxcorr`) was incrementing a different counter with no denominator. Both are fixed here; the
+shares below are real fractions of real chain-frames.
+
+@@SUPPRESSORS@@
+
+2. THE "MESH-DERIVED" VOLUMES WERE THROWN AWAY TOO (SPEC 18)
+-------------------------------------------------------------
+The owner questioned the collision volumes and he was right. Measured over the 1335 fitted
+volumes: median radius 967 units, p90 2756, max 13646 — a 3.3 m radius on a 2.3 m character,
+with twelve volumes larger than the character itself.
+
+It was invisible because the quality metric was a TAUTOLOGY. `fit-error` asked whether a volume
+fitted to a bone's own vertices contained those vertices. It does, by construction. It read 0.000
+for a week and never once asked the only question that matters — whether the volume follows the
+SURFACE where other chains actually pass. So "mesh-derived" never meant more than "radius
+computed automatically": the same capsule representation the owner has rejected from day one, and
+a capsule cannot be a shoulder, a jaw, or a flared trouser leg.
+
+THE MEASURE IS RETIRED. Any collider-quality number that compares a volume to itself is banned
+from this report. The historical `fit-error = 0.000` lines in the cycle-6 and cycle-13 sections
+below are superseded and should be read as what they were: true, and meaningless.
+
+WHAT REPLACES IT: COLLISION AGAINST THE REAL SKINNED SURFACE.
+Per body bone, real skinned-mesh sample points with their outward normals are taken offline from
+the same merc geometry that is drawn, stored as an offset from the bone origin in that bone's own
+axes — the identical convention the existing link samples already use — and at runtime each set
+rides its bone's live matrix, so in any pose the samples ARE the body's surface.
+The test is a chain point against the real surface of the skinned mesh — a SIGNED DISTANCE taken
+along the nearest sample's outward normal, negative meaning inside the character. That number
+cannot be true by construction, which is the entire reason for it.
+
+@@SURFACEDATA@@
+
+@@SURFACEMEASURE@@
+
+TWO JUDGEMENTS MADE HERE, STATED RATHER THAN BURIED:
+  * The capsules SURVIVE, demoted to BROAD PHASE — they say which volumes are near, the surface
+    says whether a point is inside the body. That is the role they can actually fill, and it is
+    why their radii now carry a sanity bound instead of a containment guarantee. The fitter's
+    exact-containment LP was replaced by a robust one (trim the far tail, then a hard cap): the
+    9 models that carried oversized volumes were refitted, and no volume anywhere now exceeds
+    @@MAXRADIUS@@ units. The other 51 models are byte-identical.
+  * The LINK RADIUS is deliberately NOT added to the surface test. A nearest-sample signed
+    distance has an error of the order of the sample spacing; asking it to hold a strand a full
+    link radius clear of a coarsely sampled torso would push chains OFF the body, which is the
+    "it floats" failure the owner rejects as firmly as the clipping. The surface answers the
+    question it can answer exactly — is this point inside the character — and the link's own
+    thickness stays with the broad phase, where it already was. Density is the precision level's
+    lever, and unlike a capsule this is an approximation whose error SHRINKS when the level buys
+    more samples.
+
+WHAT IS NOT DONE, SAID PLAINLY
+------------------------------
+@@NOTDONE@@
+
+DEVICE LEGS — EVERY NUMBER ABOVE COMES FROM THESE
+--------------------------------------------------
+@@LEGSUMMARY@@
+
+OPEN ITEMS
+----------
+@@OPENITEMS@@
+
+=== end of the cycle-17 section — everything below is earlier cycles, kept verbatim ===

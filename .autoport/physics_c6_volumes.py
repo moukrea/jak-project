@@ -13,11 +13,21 @@ geometry that is actually drawn:
              shoulder, a jaw or a flared trouser leg: too thin and the mesh sticks out (that
              overhang IS the hole a strand passes through), too fat and the strand floats.
              Here every bone gets a capsule spanning parent(bone) -> bone whose two radii are
-             FITTED so that every vertex skinned to that bone is inside it.  Containment is a
-             property of the fit, not a hope, so the measured `fit error` (how far a mesh vertex
-             sticks OUT of its volume) is 0 by construction and the number that is reported is the
-             one that can still be non-zero: the WHOLE-MESH hole, i.e. the furthest any vertex of
-             the model sits outside the UNION of the emitted volumes.
+             FITTED to the vertices skinned to that bone.
+
+             EXACT CONTAINMENT IS REJECTED AS A QUALITY MEASURE (owner, 2026-08-10).  It used to
+             be the headline of this file — "the measured `fit error` is 0 by construction" — and
+             that is precisely what was wrong with it: a volume fitted to a bone's OWN vertices
+             contains them by construction, so fit-error was a tautology and reported 0.000 on
+             every model while 64 volumes across 9 models carried radii above 4710 units, up to
+             13646 (3.3 m) on a 2.3 m ogre.  A number that cannot fail measures nothing.  The
+             authoritative measure of collision quality is the chain-to-REAL-SURFACE distance
+             (skinned triangles), and these capsules are only a coarse proxy whose one hard
+             requirement is that they stay THE SIZE OF THE BODY PART THEY STAND FOR — hence the
+             robust cloud and the VOL_RADIUS_CAP clamp in fit_capsule_robust().  What is still
+             reported here, because it can still be non-zero, is the WHOLE-MESH hole (the furthest
+             any vertex of the model sits outside the UNION of the emitted volumes), the max
+             emitted radius, and how many vertices the robust trim left outside their own volume.
 
   PROBLEM 2  physics links are dimensionless points.  Each chain link now gets its own radius,
              measured as the thickness of the geometry that link actually carries (perpendicular
@@ -62,6 +72,16 @@ MAX_VOL_PER_MODEL = 96         # must stay <= PHYS-COLS in jak-hd-physics.gc
 MAX_VOL_PER_CHAIN = 24         # per-chain collider list cap (the inner loop the solver walks)
 LINK_RADIUS_PCTL = 25.0        # per-link radius: see link_radius() for why the INNER quartile
 LINK_RADIUS_MIN, LINK_RADIUS_MAX = 24.0, 260.0
+# THE CLOUD MUST BE ROBUST, NOT EXHAUSTIVE.  fit_capsule() is an exact LP for the smallest capsule
+# CONTAINING EVERY vertex the bone dominantly owns, and containing 100% of a cloud is exactly how a
+# single stray vertex — one whose dominant weight landed on a far-away bone, which is common in
+# these stock rigs — inflates a body part to the size of the whole character (ogreboss chest:
+# radius 13646 on a 9420-unit character).  Two earlier outlier classes were already fought here by
+# changing the cloud/spine assignment (see derive_volumes); this is the same class and it is fixed
+# in the same place: trim the far tail of the cloud before fitting, and refuse a proxy that is
+# bigger than any body part can be.
+VOL_CLOUD_PCTL = 98.0          # trim the furthest 2% of a bone's cloud before fitting
+VOL_RADIUS_CAP = 4096.0        # 1 m — a body-part proxy larger than this is not a body part
 REACH_MARGIN = 220.0           # units added to a chain's reach when selecting its colliders
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -211,9 +231,44 @@ def cap_distance(pts, a, b, r1, r2):
     return d - (r1 + (r2 - r1) * t)
 
 
+def fit_capsule_robust(pts, a, b):
+    """fit_capsule, but on a ROBUST cloud.  Exact containment of 100% of a bone's dominant cloud
+    lets a single stray-weighted vertex inflate a volume past the size of the whole character
+    (ogreboss chest: 13646 units).  Trim the far tail, then keep trimming while the fitted radius
+    is still bigger than any body part can be.  Returns (r1, r2, n_dropped)."""
+    if len(pts) == 0:
+        return 0.0, 0.0, 0
+    pctl = VOL_CLOUD_PCTL
+    while True:
+        t, d = seg_td(pts, a, b)
+        thr = float(np.percentile(d, pctl))
+        keep = d <= thr
+        if int(keep.sum()) < MIN_CLOUD:
+            r1, r2 = fit_capsule(pts, a, b)     # nothing left to fit: keep the honest containment
+            break
+        r1, r2 = fit_capsule(pts[keep], a, b)
+        if max(r1, r2) <= VOL_RADIUS_CAP or pctl <= 80.0:
+            break
+        pctl -= 2.0
+    m = max(r1, r2)
+    if m > VOL_RADIUS_CAP:
+        # HARD CLAMP.  A proxy that cannot represent its body part must not be allowed to fling a
+        # strand across the screen; a too-small volume merely fails to stop a strand, a monstrous
+        # one actively throws it.
+        s = VOL_RADIUS_CAP / m
+        r1, r2 = r1 * s, r2 * s
+    n_out = int(np.count_nonzero(cap_distance(pts, a, b, r1, r2) > 1e-6))
+    return r1, r2, n_out
+
+
 # ----------------------------------------------------------------------------------------------
 # per-model volume derivation
 # ----------------------------------------------------------------------------------------------
+# vertices the robust trim left OUTSIDE their own fitted volume, accumulated by derive_volumes()
+# and reported (reset by the caller before each model).
+VOL_TRIM = dict(n=0)
+
+
 class Volume:
     __slots__ = ('j', 'k', 'own', 'a', 'b', 'r1', 'r2', 'nv', 'chains')
 
@@ -329,7 +384,11 @@ def derive_volumes(geo, clouds=None):
         for s, gp in groups:
             if len(gp) < MIN_CLOUD:
                 continue
-            r1, r2 = fit_capsule(gp, s[2], s[3])
+            # FINAL radius: robust cloud + hard cap. (The fit_capsule above, inside the 3-iteration
+            # spine-reassignment loop, stays exact on purpose — there it is a clustering cost, not
+            # a radius, and trimming it would change which spine owns which vertex on every model.)
+            r1, r2, n_out = fit_capsule_robust(gp, s[2], s[3])
+            VOL_TRIM['n'] += n_out
             if max(r1, r2) <= 0.5:
                 continue
             vols.append(Volume(s[0], s[1], s[2], s[3], r1, r2, len(gp), j))
@@ -1009,7 +1068,9 @@ def main():
             nogeo.append(sec.names[0])
             continue
         clouds = bone_clouds(geo)
+        VOL_TRIM['n'] = 0
         vols = derive_volumes(geo, clouds)
+        nout = VOL_TRIM['n']
         cgeo = chain_geometry(sec, geo)
         if not cgeo:
             nogeo.append(sec.names[0] + ' (no chain joint resolved)')
@@ -1030,10 +1091,14 @@ def main():
         gen, newchain = emit_model(sec, geo, keep, cgeo, pairs, colskips, shrink=shrink,
                                    single=single)
         a = audit_model(geo, keep, cgeo, clouds)
+        # the radii as WRITTEN, read back off the emitted lines: in non-single mode the clearance
+        # shrink scales them, so the fitted value is not what the file carries.
+        emitted_r = [float(x) for ln in gen for x in re.findall(r'radius2?=([0-9.]+)', ln)]
         a.update(model=sec.names[0], aliases=len(sec.names), src=geo['src'],
                  nchain=len(sec.chains), nres=len(cgeo),
                  nclamp=sum(1 for c in cgeo.values() for r in c['rad'] if r >= LINK_RADIUS_MAX),
-                 npair=sum(len(v) for v in pairs.values()) // 2, cap=cap_used)
+                 npair=sum(len(v) for v in pairs.values()) // 2, cap=cap_used,
+                 maxr=(max(emitted_r) if emitted_r else 0.0), nout=nout)
         rows.append(a)
         drop |= sec.drop_lines
         insert[sec.insert_at if sec.insert_at is not None else sec.header_line_no] = gen
@@ -1080,6 +1145,11 @@ def main():
         f.write('\nmodels audited: %d\n' % len(rows))
         f.write('max fit-error = %.3f\n' % (max([r['fiterr'] for r in rows]) if rows else 0))
         f.write('max hole = %.3f\n' % (max([r['hole'] for r in rows]) if rows else 0))
+        f.write('max volume radius = %.0f\n' % (max([r['maxr'] for r in rows]) if rows else 0))
+        worst = max(rows, key=lambda r: r['nout']) if rows else None
+        f.write('vertices outside their fitted volume (robust trim) = %d, worst model %s %d\n' %
+                (sum(r['nout'] for r in rows), worst['model'] if worst else '-',
+                 worst['nout'] if worst else 0))
         f.write('positive control fired on %d/%d models\n' %
                 (sum(1 for r in rows if r['ctrl_ok']), len(rows)))
         f.write('volume/chain pairs dropped because the strand RESTS inside that volume '

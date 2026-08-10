@@ -123,6 +123,12 @@
 (define-extern pc-physics-chain-msample-count (function string int int int))
 (define-extern pc-physics-chain-msample-mi (function string int int int int))
 (define-extern pc-physics-chain-xmask (function string int int))    ;; chain-vs-chain partner bits
+;; (SPEC 18) real skinned BODY surface, `bs` records in physics_mesh.txt. Milli-units like every
+;; other numeric return here — never a float, because of the float-return-register trap.
+(define-extern pc-physics-num-bsurf (function string int))                  ;; sets for this art-group
+(define-extern pc-physics-bsurf-is-joint (function string int string int))  ;; 1 if set i sits on that joint
+(define-extern pc-physics-bsurf-count (function string int int))            ;; samples in set i
+(define-extern pc-physics-bsurf-mi (function string int int int int))       ;; comp 0-2 pos, 3-5 normal
 (define-extern pc-physics-generation (function int))    ;; bumped on every params (re)parse
 
 ;; ------------------------------------------------------------------------------------------------
@@ -194,8 +200,63 @@
 ;; Volumes that ride another CHAIN (colchain >= 0, the `at=` volumes: Keira's two breasts meeting
 ;; where they really swung to) are deliberately NOT snapshot — they are read live, because a
 ;; two-body contact is the strand domain's job and not this one's.
-(define *phys-cola* (new 'static 'inline-array vector 4608))
-(define *phys-colb* (new 'static 'inline-array vector 4608))
+;; ---- SPEC 18: THE BODY IS NO LONGER A PROXY ----------------------------------------------------
+;; *phys-cola* / *phys-colb*, the two 4608-vector capsule-endpoint caches that used to live here,
+;; are DELETED. They had been dead for two cycles (defined, never read), and deleting them pays for
+;; the arrays below almost exactly, which is the point: the memory that held the proxy now holds the
+;; real thing.
+;;
+;; WHY. Measured over the 1335 auto-fitted volumes: median radius 967 units, p90 2756, max 13646 —
+;; a 3.3 m radius on a 2.3 m character, twelve volumes bigger than the character itself. The
+;; `fit-error = 0.000` that let that through was a TAUTOLOGY: it asked whether a volume fitted to a
+;; bone's own vertices contained those vertices, which it does by construction. It never once asked
+;; whether the volume follows the SURFACE where other chains actually pass. So "mesh-derived" only
+;; ever meant "radius computed automatically" — the same capsule representation the owner has
+;; rejected since day one, and a capsule cannot be a shoulder, a jaw, or a flared trouser leg.
+;;
+;; WHAT REPLACES IT. Per BODY bone, a set of real skinned-surface sample points with their outward
+;; normals, in bone-local bind space (`bs` records in physics_mesh.txt, generated offline from the
+;; same merc geometry that is drawn). At runtime each set rides its bone's live matrix, so the
+;; samples ARE the character's surface in whatever pose it is in. The test is the one the spec
+;; asks for and the only one that is not self-referential: the SIGNED DISTANCE from a chain point
+;; to that surface, taken along the nearest sample's outward normal. Negative = inside the
+;; character = the defect the owner keeps seeing.
+;;
+;; The capsules SURVIVE, demoted to what they are actually good for: broad phase. They say which
+;; volumes a chain can reach; the surface says whether it is inside the body. That division is why
+;; their radii now have a hard sanity bound instead of a containment guarantee.
+;; SIZED FROM THE DATA, NOT GUESSED: the widest model in physics_mesh.txt is keira3-hd at 63 body
+;; bones (keira-hd 62, fisher/yellowsage 56, samos-hd 53). 72 leaves headroom without pretending a
+;; round number is a measurement. A set that does not fit is a stretch of body with NO surface, so
+;; it is counted and printed rather than dropped quietly — that is `bstrunc`, and it is gated at 0.
+(defconstant PHYS-BSURF-SETS 72)   ;; body-surface bone sets per slot
+;; The generator emits up to 12 samples per bone in FARTHEST-POINT order, so the first k of a bone's
+;; n samples are a valid near-optimal k-point subset. Taking a prefix is therefore a DENSITY choice,
+;; not a truncation, and it is reported separately (`bsdens`) from a dropped set. A future precision
+;; level can raise this to 12 with no regeneration of the data.
+(defconstant PHYS-BSURF-MAX 8)     ;; samples kept per set
+(define *phys-slot-nbsurf* (new 'static 'array int32 24))
+(define *phys-bsk* (new 'static 'array int32 1728))       ;; 24 x 72: rig bone index of each set
+(define *phys-bsn* (new 'static 'array int32 1728))       ;; 24 x 72: samples kept in each set
+;; BROAD PHASE OVER THE SETS. Each set's samples all lie within this distance of their bone's
+;; origin, so a point further than (bsr + margin) from that origin cannot be near this set's
+;; surface and the set is skipped for ONE distance test instead of eight. Without it a body is
+;; ~500 sample tests per query and the query is per link per frame; with it, only the handful of
+;; body parts a strand is actually next to are paid for. This is an EXACT cull, not a heuristic
+;; approximation: it never changes which sample comes out nearest, it only avoids asking sets
+;; that provably cannot win.
+(define *phys-bsr* (new 'static 'array float 1728))       ;; 24 x 72: bounding radius of each set
+(defconstant PHYS-SURF-MARGIN 2048.0)  ;; half a metre — beyond this a point is not inside a body part
+(define *phys-bsp* (new 'static 'inline-array vector 13824))  ;; 24 x 72 x 8: bone-local position
+(define *phys-bsnm* (new 'static 'inline-array vector 13824)) ;; 24 x 72 x 8: bone-local outward normal
+;; the two audit counters. surftested is the tested= confession for this instrument: a surfpen of 0
+;; next to surftested=0 means the surface was never asked, exactly like resid=0/push=0 before it.
+(define *phys-slot-surfpen* (new 'static 'array float 24))   ;; deepest RESIDUAL depth inside the surface (units)
+(define *phys-slot-surfraw* (new 'static 'array float 24))   ;; deepest depth BEFORE the resolve — the positive control's needle
+(define *phys-slot-surftested* (new 'static 'array int32 24));; chain-point x sample tests actually run
+(define *phys-slot-surfhit* (new 'static 'array int32 24))   ;; tests that came back inside the surface
+(define *phys-slot-bstrunc* (new 'static 'array int32 24))   ;; SETS dropped = body with no surface. Gated at 0.
+(define *phys-slot-bsdens* (new 'static 'array int32 24))    ;; samples not used from a bound set — density, not a hole
 (define *phys-slot-pushouts* (new 'static 'array int32 24))  ;; collision push-out events (window)
 (define *phys-slot-maxpen* (new 'static 'array float 24))    ;; max penetration depth resolved (window)
 ;; ---- cycle-2 counters -------------------------------------------------------------------------
@@ -1057,6 +1118,17 @@
 ;; frames is the culprit and gets loosened.
 (define *phys-slot-simcf* (new 'static 'array int32 24))
 (define *phys-slot-clampcf* (new 'static 'array int32 24))
+;; CYCLE 16b — clampcf HAD NO WRITER AT ALL. The bound it was meant to count is the one that
+;; actually survived the rewrite: `maxcorr` (PHYS-MAXCORR-REL of the chain's own length), which
+;; bounds every body-volume push-out and increments `clamped=`. But `clamped` counts LINK x SUBSTEP
+;; x ITERATION events, so it cannot be divided by a count of chain-FRAMES: on a 6-link chain at 2
+;; substeps x 4 iterations one clamped frame can score 48. Dividing it by simcf would have printed a
+;; share above 100 % on a chain that was bounded on a single frame, and — the reason this is a
+;; defect and not a cosmetic — leaving clampcf with no writer at all printed `clampcf=0` for ever,
+;; i.e. "the collision clamp suppresses nothing", which is precisely the empty zero this phase has
+;; now shipped five times. This flag is set once at the clamp site and consumed once per chain per
+;; frame, so the share is a real fraction of frames.
+(define *phys-cclampf* (new 'static 'array int32 576))
 ;; (C14c) bisection steps for the mesh sweep's feasibility clamp. 6 steps = 1/64 of the link's own
 ;; deviation, i.e. under a unit for anything this sim actually moves.
 (defconstant PHYS-MESH-BISECT 6)
@@ -1208,6 +1280,74 @@
   (let* ((a (-> m vector r))
          (l (vector-length a)))
     (if (< l 0.000001) 0.0 (/ (vector-dot a v) l))))
+
+(defun phys-surf-sd ((slot int) (p vector) (draw draw-control) (tier int) (nrm vector))
+  "(SPEC 18) SIGNED DISTANCE from the world point p to the character's REAL SKINNED SURFACE.
+   Positive = outside the body, negative = inside it. `nrm` is filled with the unit outward normal
+   at the nearest surface sample, so the caller can push straight back out along it.
+
+   This is the only collider-quality measure this file is allowed to make. The one it replaces —
+   `fit-error`, which asked whether a volume fitted to a bone's own vertices contained those
+   vertices — was a tautology, true by construction, and it read 0.000 for a week while volumes
+   thirteen thousand units across went unnoticed. A measure that compares a volume to itself says
+   nothing about whether a strand can pass; only the distance to the REAL surface does.
+
+   The surface is the `bs` sample set: per body bone, real skinned-mesh vertices with their outward
+   normals, taken offline from the same merc geometry that is drawn, stored as an offset from the
+   bone origin in that bone's own axes — the identical convention the `ms` link samples already use.
+   Each set rides its bone's live matrix, so in any pose the samples ARE the body's surface.
+
+   Nearest sample, then signed by ITS normal. That is a point-cloud SDF, and its error is bounded by
+   the sample spacing rather than by how well a capsule happens to fit a jaw — which is the whole
+   argument for it. Bone matrices carry rig scale, so the rotated normal is re-normalised (an
+   inverse-transpose would be exact; on the near-uniform scales in these rigs the difference is far
+   under the sample spacing, and unlike the capsules this is an approximation whose error SHRINKS
+   when the precision level buys more samples).
+
+   `tier` is the precision level doing what the owner asked it to do — arbitrating DENSITY. It
+   never buys a chain the right to test nothing: at the low tier the same surface is asked with
+   fewer samples, never skipped."
+  (let ((skel (-> draw skeleton))
+        (bestd2 1000000000000.0)
+        (best 1000000.0)
+        (qw (new 'stack-no-clear 'vector))
+        (nw (new 'stack-no-clear 'vector))
+        (dv (new 'stack-no-clear 'vector))
+        (sb (* slot PHYS-BSURF-SETS)))
+    (set! (-> nrm x) 0.0)
+    (set! (-> nrm y) 1.0)
+    (set! (-> nrm z) 0.0)
+    (set! (-> nrm w) 0.0)
+    (dotimes (s (-> *phys-slot-nbsurf* slot))
+      (let ((k (-> *phys-bsk* (+ sb s))))
+        (when (and (>= k 0) (< k (-> skel length)))
+          (let* ((bm (-> skel bones (+ k 1) transform))
+                 (nall (-> *phys-bsn* (+ sb s)))
+                 (n (if (<= tier 1) (min nall 4) nall)))
+            ;; broad phase: is this body part even near the point?
+            (vector-! dv p (-> bm vector 3))
+            (set! (-> dv w) 0.0)
+            (when (< (vector-length dv) (+ (-> *phys-bsr* (+ sb s)) PHYS-SURF-MARGIN))
+            (dotimes (q n)
+              (let ((qi (+ (* (+ sb s) PHYS-BSURF-MAX) q)))
+                ;; bone origin + R * offset — the ms convention, rotation only then translate
+                (vector-rotate*! qw (-> *phys-bsp* qi) bm)
+                (set! (-> qw w) 0.0)
+                (vector+! qw qw (-> bm vector 3))
+                (vector-! dv p qw)
+                (set! (-> dv w) 0.0)
+                (+! (-> *phys-slot-surftested* slot) 1)
+                (let ((d2 (vector-dot dv dv)))
+                  (when (< d2 bestd2)
+                    (set! bestd2 d2)
+                    (vector-rotate*! nw (-> *phys-bsnm* qi) bm)
+                    (set! (-> nw w) 0.0)
+                    (let ((nl (vector-length nw)))
+                      (when (> nl 0.000001)
+                        (vector-float*! nw nw (/ 1.0 nl))
+                        (vector-copy! nrm nw)
+                        (set! best (vector-dot dv nw)))))))))))))
+    best))
 
 (defun phys-body-pen ((slot int) (cbase int) (jbase int) (c int) (lk int) (tier int)
                       (p vector) (draw draw-control))
@@ -1838,6 +1978,7 @@
           (set! (-> *phys-cauthbase* ci) 0.0)
           (set! (-> *phys-cstick* ci) 0)
           (set! (-> *phys-cring* ci) 0)
+          (set! (-> *phys-cclampf* ci) 0)
           (set! (-> *phys-cres* ci) 0)
           ;; (P) build the influence profile. wtip is never lowered — owner D is that too LITTLE of
           ;; the length moves — so continuity is bought by RAISING the root instead.
@@ -1911,6 +2052,64 @@
                           -1)
                          (else rc)))))
              (+! ncols 1))))))
+    ;; ---- (SPEC 18) BIND THE REAL BODY SURFACE ----------------------------------------------------
+    ;; Resolved exactly like the colliders above — by asking the C++ side, joint name by joint name,
+    ;; which of THIS rig's joints a sample set sits on — so a set naming a bone the rig does not have
+    ;; is dropped here rather than silently indexing whatever the previous occupant of this slot left
+    ;; behind. Truncation is COUNTED and printed: a pool that quietly swallowed sets would be the
+    ;; same class of defect as the collider pool that used to drop its excess with no log at all, and
+    ;; here it would mean a stretch of body with no surface — precisely a hole a strand goes through.
+    (set! (-> *phys-slot-nbsurf* slot) 0)
+    (set! (-> *phys-slot-bstrunc* slot) 0)
+    (set! (-> *phys-slot-bsdens* slot) 0)
+    (let ((nbs (pc-physics-num-bsurf ag)))
+      (when (> nbs PHYS-BSURF-SETS)
+        (+! (-> *phys-slot-bstrunc* slot) (- nbs PHYS-BSURF-SETS))
+        (format 0 "[HD-PHYS] ag=~S declares ~D body-surface sets > pool ~D — the excess is DROPPED~%"
+                ag nbs PHYS-BSURF-SETS))
+      (let ((nb 0)
+            (sb (* slot PHYS-BSURF-SETS)))
+        (dotimes (i (min nbs PHYS-BSURF-SETS))
+          (let ((found -1))
+            (dotimes (k (-> jgeo length))
+              (when (and (< found 0) (> (pc-physics-bsurf-is-joint ag i (-> jgeo data k name)) 0))
+                (set! found k)))
+            ;; a declared set whose bone this rig does not have is surface that never bound — the
+            ;; same class of absence as a set that did not fit, so it is counted the same way
+            (when (< found 0) (+! (-> *phys-slot-bstrunc* slot) 1))
+            (when (>= found 0)
+              (let* ((ns (pc-physics-bsurf-count ag i))
+                     (nk (min ns PHYS-BSURF-MAX)))
+                ;; a PREFIX of a farthest-point ordering is a valid subset, so this is density and
+                ;; is counted apart from a dropped set, which would be an actual hole in the body
+                (when (> ns PHYS-BSURF-MAX)
+                  (+! (-> *phys-slot-bsdens* slot) (- ns PHYS-BSURF-MAX)))
+                (when (> nk 0)
+                  (set! (-> *phys-bsk* (+ sb nb)) found)
+                  (set! (-> *phys-bsn* (+ sb nb)) nk)
+                  (dotimes (q nk)
+                    (let ((pv (-> *phys-bsp* (+ (* (+ sb nb) PHYS-BSURF-MAX) q)))
+                          (nv (-> *phys-bsnm* (+ (* (+ sb nb) PHYS-BSURF-MAX) q))))
+                      (set! (-> pv x) (* 0.001 (the float (pc-physics-bsurf-mi ag i q 0))))
+                      (set! (-> pv y) (* 0.001 (the float (pc-physics-bsurf-mi ag i q 1))))
+                      (set! (-> pv z) (* 0.001 (the float (pc-physics-bsurf-mi ag i q 2))))
+                      (set! (-> pv w) 0.0)
+                      (set! (-> nv x) (* 0.001 (the float (pc-physics-bsurf-mi ag i q 3))))
+                      (set! (-> nv y) (* 0.001 (the float (pc-physics-bsurf-mi ag i q 4))))
+                      (set! (-> nv z) (* 0.001 (the float (pc-physics-bsurf-mi ag i q 5))))
+                      (set! (-> nv w) 0.0)))
+                  ;; the set's bounding radius, for the broad phase in phys-surf-sd. Computed from
+                  ;; the samples that were actually KEPT, never from the count declared, so a
+                  ;; density prefix can only ever shrink it and never claim reach it does not have.
+                  (let ((br 0.0))
+                    (dotimes (q nk)
+                      (let ((l (vector-length (-> *phys-bsp* (+ (* (+ sb nb) PHYS-BSURF-MAX) q)))))
+                        (when (> l br) (set! br l))))
+                    (set! (-> *phys-bsr* (+ sb nb)) br))
+                  (+! nb 1))))))
+        (set! (-> *phys-slot-nbsurf* slot) nb)
+        (format 0 "[HD-PHYS] ag=~S bsurf sets=~D of ~D declared, <=~D samples each, unbound=~D density-skipped=~D~%"
+                ag nb nbs PHYS-BSURF-MAX (-> *phys-slot-bstrunc* slot) (-> *phys-slot-bsdens* slot))))
     ;; ---- (C13) THE PERIMETER IS NOT RESOLVED HERE ANY MORE ---------------------------------------
     ;; This is where a chain's collider list used to be copied, once, out of the `chains=` filter the
     ;; data put on each volume. That filter was the second of the three licences the owner threw the
@@ -1970,6 +2169,10 @@
     (set! (-> *phys-slot-simcf* slot) 0)
     (set! (-> *phys-slot-clampcf* slot) 0)
     (set! (-> *phys-slot-resjerk* slot) 0.0)
+    (set! (-> *phys-slot-surfpen* slot) 0.0)
+    (set! (-> *phys-slot-surfraw* slot) 0.0)
+    (set! (-> *phys-slot-surftested* slot) 0)
+    (set! (-> *phys-slot-surfhit* slot) 0)
     (set! (-> *phys-slot-meshpen* slot) 0.0)
     (set! (-> *phys-slot-mraw* slot) 0.0)
     (set! (-> *phys-slot-mfix* slot) 0)
@@ -2134,6 +2337,7 @@
              (vtmp2 (new 'stack-no-clear 'vector))
              (vtmp3 (new 'stack-no-clear 'vector))
              (cpt (new 'stack-no-clear 'vector))
+             (snrm (new 'stack-no-clear 'vector))   ;; (SPEC 18) outward normal at the nearest surface sample
              (axis (new 'stack-no-clear 'vector))
              (dirv (new 'stack-no-clear 'vector))
              (dirt (new 'stack-no-clear 'vector))
@@ -2865,6 +3069,60 @@
                                                             (+! (-> *phys-slot-extprobe* slot) 1)
                                                             pprb)
                                                            (else p))))
+                                                ;; ---- STEP 3a-bis (SPEC 18): THE REAL SURFACE ----
+                                                ;; The capsules below are the BROAD phase — they say
+                                                ;; which volumes are near. This is the narrow phase,
+                                                ;; and it is the only one that can answer the owner's
+                                                ;; actual question, because it asks the body's real
+                                                ;; skinned geometry rather than a proxy fitted to it.
+                                                ;; Same bounded, velocity-neutral machinery as the
+                                                ;; volume push: the correction shares `maxcorr` and is
+                                                ;; undone in `prev` by the same pass below, so it
+                                                ;; cannot pump energy and cannot produce the jitter
+                                                ;; owner rule O forbids.
+                                                ;; THE LINK RADIUS IS DELIBERATELY NOT ADDED HERE, and
+                                                ;; that is a judgement worth stating rather than
+                                                ;; burying. A nearest-sample SDF has an error of the
+                                                ;; order of the SAMPLE SPACING; asking it to hold a
+                                                ;; strand a full link radius clear of a coarsely
+                                                ;; sampled torso would let that error push chains off
+                                                ;; the body — the "it floats" failure the owner has
+                                                ;; rejected as firmly as the clipping. So the surface
+                                                ;; answers the question it can answer exactly — is
+                                                ;; this point INSIDE the character — and the link's
+                                                ;; own thickness stays the broad phase's job, where it
+                                                ;; already was. Density is the precision level's
+                                                ;; lever: more samples shrink this error, which is the
+                                                ;; opposite of a capsule, where more of anything never
+                                                ;; made a shoulder fit.
+                                                ;; ONCE PER LINK PER FRAME, on the final constraint
+                                                ;; iteration of the final substep — not once per
+                                                ;; iteration. This is a cost decision and it is the
+                                                ;; difference between shipping and not: the surface
+                                                ;; is ~500 sample tests per call, and inside the
+                                                ;; substep x iteration loops one actor would have
+                                                ;; run it ~70 times per chain per frame. Placing it
+                                                ;; last also gives it the last word over the volume
+                                                ;; pushes it follows, which is the order the spec
+                                                ;; asks for.
+                                                (when (and (> (-> *phys-slot-nbsurf* slot) 0)
+                                                           (= st (+ substeps -1))
+                                                           (= it (+ iters -1)))
+                                                  (let* ((sd (phys-surf-sd slot pt draw tier snrm))
+                                                         (need (- 0.0 sd)))
+                                                    (when (> need PHYS-PEN-TOL)
+                                                      (+! (-> *phys-slot-surfhit* slot) 1)
+                                                      (when (> need (-> *phys-slot-surfraw* slot))
+                                                        (set! (-> *phys-slot-surfraw* slot) need))
+                                                      (vector-float*! vtmp snrm need)
+                                                      (let ((cl (vector-length vtmp)))
+                                                        (when (> cl maxcorr)
+                                                          (+! (-> *phys-slot-clamped* slot) 1)
+                                                          (set! (-> *phys-cclampf* ci) 1)
+                                                          (vector-float*! vtmp vtmp (/ maxcorr cl))))
+                                                      (when (nonzero? probe?)
+                                                        (vector+! pprb pprb vtmp))
+                                                      (vector+! p p vtmp))))
                                                 (dotimes (s2 (-> *phys-ccn* ci))
                                                   (let* ((cb (+ (* slot PHYS-COLS)
                                                                 (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
@@ -2924,6 +3182,9 @@
                                                         (let ((cl (vector-length vtmp)))
                                                           (when (> cl maxcorr)
                                                             (+! (-> *phys-slot-clamped* slot) 1)
+                                                            ;; (C16) once per chain-frame, so the
+                                                            ;; suppressor share is a real fraction
+                                                            (set! (-> *phys-cclampf* ci) 1)
                                                             (vector-float*! vtmp vtmp (/ maxcorr cl))))
                                                         (when (nonzero? probe?)
                                                           (vector+! pprb pprb vtmp))
@@ -3208,6 +3469,29 @@
                            (+! (-> *phys-slot-mtested* slot) mt)
                            (when (> mw (-> *phys-slot-meshpen* slot))
                              (set! (-> *phys-slot-meshpen* slot) mw))))
+                       ;; ---- (SPEC 18) THE SURFACE RESIDUAL, TAKEN FROM THE WRITTEN POSE ---------
+                       ;; This is the verdict that replaces `fit-error`. It is measured on the bone
+                       ;; this pass has just WRITTEN — the pose the eye gets — against the body's
+                       ;; real skinned surface, so unlike every collider-quality number this phase
+                       ;; has shipped it cannot be true by construction.
+                       ;; AUTHORED FLOOR, for the same reason meshpen has one: Keira pulling her
+                       ;; goggles over her eyes puts them inside the head surface ON PURPOSE, and an
+                       ;; unfloored audit would call the animator's own pose a defect and shove them
+                       ;; out of her face. Only the depth the SIM added beyond the authored pose is
+                       ;; scored. The second probe is paid for only when the first says there is
+                       ;; something to explain.
+                       (when (> (-> *phys-slot-nbsurf* slot) 0)
+                         (dotimes (i len)
+                           (when (>= i rl)
+                             (let* ((jj (+ start i))
+                                    (sd (phys-surf-sd slot (-> *phys-out* jj) draw tier snrm))
+                                    (dep (- 0.0 sd)))
+                               (when (> dep PHYS-PEN-TOL)
+                                 (let* ((sda (phys-surf-sd slot (-> *phys-targ* jj) draw tier snrm))
+                                        (depa (fmax 0.0 (- 0.0 sda)))
+                                        (eff (- dep depa)))
+                                   (when (> eff (-> *phys-slot-surfpen* slot))
+                                     (set! (-> *phys-slot-surfpen* slot) eff))))))))
                        ;; (X) NOTHING MAY BE CRUSHED. Both ratios: the OUTPUT (what is drawn)
                        ;; and the SIMULATION state. Jak's collar is the owner's named case.
                        (when (>= chainlen 1.0)
@@ -3457,9 +3741,17 @@
                      (len (-> *phys-clen* ci))
                      (start (+ jbase (-> *phys-cstart* ci))))
                 (when (nonzero? (logand (-> *phys-cflags* ci) classmask))
-                  ;; (C16) THE DENOMINATOR for the three suppressor shares. Taken here because this
-                  ;; fold is the one place that runs exactly once per ACTIVE chain per frame.
-                  (+! (-> *phys-slot-simcf* slot) 1)
+                  ;; (C16b) THE DENOMINATOR IS NOT TAKEN HERE, and the increment that used to sit on
+                  ;; this line was a defect: the sim loop ALREADY counts this same chain-frame at the
+                  ;; `else` branch that means "this chain is really simulating". Both run once per
+                  ;; active chain per frame over the same set, so simcf came out DOUBLE and every
+                  ;; suppressor share printed at HALF its true value — a suppressor holding 30 % of
+                  ;; frames would have read 15 % and passed the spec's 20 % bar. The denominator now
+                  ;; lives at exactly one site, next to the branch whose meaning it borrows.
+                  ;; What IS consumed here is the per-chain clamp flag, once per chain per frame.
+                  (when (nonzero? (-> *phys-cclampf* ci))
+                    (+! (-> *phys-slot-clampcf* slot) 1)
+                    (set! (-> *phys-cclampf* ci) 0))
                   (let ((fvar 0.0)   ;; this frame's worst per-link offset CHANGE on this chain
                         (fdev 0.0)   ;; this frame's worst per-link offset MAGNITUDE
                         (fsamp 0))   ;; 1 = at least one link produced a differenced sample
@@ -3980,6 +4272,28 @@
               ;; separate append: a GOAL call takes at most 8 parameters, and the line above is
               ;; already at eight.
               (format *phys-line-buf* " respath=~f" (-> *phys-slot-respath* slot))
+              ;; (SPEC 18) the REAL-SURFACE verdict. Field stems are new and none is a substring of
+              ;; anything printed on lines 1-7 (surfpen/surfraw/surftested/surfhit/bsurf/bstrunc).
+              ;;   surfpen    deepest RESIDUAL depth of a written link inside the character's real
+              ;;              skinned surface, authored-floored. This is the number that replaces
+              ;;              fit-error, and unlike fit-error it can be non-zero.
+              ;;   surfraw    deepest depth seen BEFORE the resolve — the needle that proves the
+              ;;              instrument can move at all.
+              ;;   surftested point x sample tests actually run. surfpen=0 next to surftested=0 is
+              ;;              an empty zero and must be read as "never asked", not as "clean".
+              ;;   bsurf      surface sets bound on this actor; bstrunc = sets or samples DROPPED
+              ;;              for want of pool, i.e. body with no surface. Both must be visible.
+              ;; split at six values for the same reason the lines above are: a GOAL call takes at
+              ;; most 8 parameters, and the format string plus the buffer are two of them
+              (format *phys-line-buf* " surfpen=~f surfraw=~f surftested=~D surfhit=~D"
+                      (-> *phys-slot-surfpen* slot)
+                      (-> *phys-slot-surfraw* slot)
+                      (-> *phys-slot-surftested* slot)
+                      (-> *phys-slot-surfhit* slot))
+              (format *phys-line-buf* " bsurf=~D bstrunc=~D bsdens=~D"
+                      (-> *phys-slot-nbsurf* slot)
+                      (-> *phys-slot-bstrunc* slot)
+                      (-> *phys-slot-bsdens* slot))
               ;; (cycle-15) the slew bound and resjerk's attribution. New stems, none of them a
               ;; substring of any field printed above or on lines 1-5: jgcut/jtfall/rjup/rjdn/rjtm.
               (format *phys-line-buf* " jgcut=~D jtfall=~D rjup=~f rjdn=~f rjtm=~f"
@@ -4008,8 +4322,14 @@
               ;;   clampcf  ...how many a jerk/excursion bound acted on (suppressor 2)
               ;;   restcf   ...how many the chain was MEASURABLY AT REST. Cycle 16: this is a
               ;;            measurement, not a mechanism — the calm rest state that used to hold a
-              ;;            chain still is gone, so nothing here suppresses anything and clampcf
-              ;;            reads 0 because no jerk or excursion bound exists any more.
+              ;;            chain still is gone, so nothing here suppresses anything.
+              ;;            CORRECTED IN 16b: the claim that followed — "clampcf reads 0 because no
+              ;;            jerk or excursion bound exists any more" — was FALSE, and it was the
+              ;;            kind of false that this phase keeps paying for. The jerk cap is indeed
+              ;;            gone (PHYS-JERK-CAP has no reader), but `maxcorr` bounds every
+              ;;            body-volume push-out and is exactly an excursion bound. clampcf simply
+              ;;            had NO WRITER, so it printed a hard zero that read as "this suppressor
+              ;;            never acts". It is now fed from that bound, once per chain per frame.
               ;;   cinr:    per chain, MEAN written motion over the frames its own anchor was
               ;;            DRIVEN (not just locomotion). This is the inertness verdict.
               ;;   cish:    per chain, how many such frames were sampled. cish=0 = UNJUDGED.
@@ -4073,6 +4393,10 @@
               (set! (-> *phys-slot-rjdn* slot) 0.0)
               (set! (-> *phys-slot-rjtm* slot) 0.0)
               (set! (-> *phys-slot-respath* slot) 0.0)
+              (set! (-> *phys-slot-surfpen* slot) 0.0)
+              (set! (-> *phys-slot-surfraw* slot) 0.0)
+              (set! (-> *phys-slot-surftested* slot) 0)
+              (set! (-> *phys-slot-surfhit* slot) 0)
               (set! (-> *phys-slot-meshpen* slot) 0.0)
               (set! (-> *phys-slot-mraw* slot) 0.0)
               (set! (-> *phys-slot-mfix* slot) 0)

@@ -1069,6 +1069,14 @@ struct PhysCollider {
 struct PhysModel {
   std::vector<PhysChain> chains;
   std::vector<PhysCollider> colliders;
+  // bone-local body SURFACE samples with outward normals — the real skinned surface the
+  // chains are tested against (SPEC 18). Capsules stay as broad phase only.
+  // Comes from the `bs` records of recharged_assets/physics_mesh.txt, the same derived file the
+  // per-link `ms` samples above live in, with the same hot-reload and external-override
+  // lifecycle. The two vectors are strictly parallel (one entry each per set); a pack with no
+  // `bs` lines simply leaves them empty, which the FFI reports as zero sets.
+  std::vector<std::string> bsurf_joint;                  // per set: the bone it sits on
+  std::vector<std::vector<std::array<float, 6>>> bsurf;  // per set: {x,y,z,nx,ny,nz}
 };
 
 static std::map<std::string, PhysModel> s_phys_models;
@@ -1583,6 +1591,7 @@ static int pc_physics_parse_file() {
       }
       std::vector<std::string> cur_names;
       int n_ms = 0, n_ms_dropped = 0;
+      int n_bs = 0, n_bs_dropped = 0;
       size_t mpos = 0;
       while (mpos <= mtext.size()) {
         size_t eol = mtext.find('\n', mpos);
@@ -1642,9 +1651,52 @@ static int pc_physics_parse_file() {
           }
           continue;
         }
+        // (SPEC 18) bs <boneName> <n> x y z nx ny nz [* n] — per BODY bone, the skinned SURFACE
+        // the chains are collided against, bone-local bind space, game units. Sits inside the same
+        // `model` sections as the ms lines above, after them, and lands on every name that section
+        // declares (aliases are value copies by now, exactly as for ms).
+        if (toks[0] == "bs" && toks.size() >= 3) {
+          const std::string& bname = toks[1];
+          int n = atoi(toks[2].c_str());
+          // Same malformed-line tolerance as the ms parser: a negative count or a line too short
+          // for the count it declares is DROPPED and counted, never warned per line. Widened to
+          // 64-bit only so a garbage count in a file the owner can edit on device cannot overflow
+          // the comparison itself; there is no invented upper cap on n — the token count is the
+          // cap, so the allocation below is bounded by the length of the line.
+          if (n < 0 || (s64)toks.size() < (s64)3 + 6ll * (s64)n) {
+            n_bs_dropped++;
+            continue;
+          }
+          for (const auto& mn : cur_names) {
+            auto mit = s_phys_models.find(mn);
+            if (mit == s_phys_models.end()) {
+              continue;
+            }
+            auto& pm = mit->second;
+            std::vector<std::array<float, 6>> set;
+            set.reserve((size_t)n);
+            for (int s = 0; s < n; s++) {
+              set.push_back({(float)atof(toks[3 + 6 * s].c_str()),
+                             (float)atof(toks[4 + 6 * s].c_str()),
+                             (float)atof(toks[5 + 6 * s].c_str()),
+                             (float)atof(toks[6 + 6 * s].c_str()),
+                             (float)atof(toks[7 + 6 * s].c_str()),
+                             (float)atof(toks[8 + 6 * s].c_str())});
+            }
+            // Pushed in lockstep so bsurf_joint[i] always describes bsurf[i].
+            pm.bsurf_joint.push_back(bname);
+            pm.bsurf.push_back(std::move(set));
+            n_bs++;
+          }
+          continue;
+        }
       }
       lg::info("[hd-phys] MESHSRC={} path={} links-with-samples={} dropped={}", mesh_src,
                mesh_path.string(), n_ms, n_ms_dropped);
+      // Separate line, once per parse, and INFO even at zero: a pack predating the `bs` records
+      // is a legacy pack, not an error, and it must not warn-spam. sets=0 is the honest report
+      // that the body surface was never delivered — the GOAL side counts that as "not measured".
+      lg::info("[hd-phys] BSURFSRC={} bsets={} dropped={}", mesh_src, n_bs, n_bs_dropped);
     }
   }
 
@@ -1956,6 +2008,57 @@ s64 pc_physics_collider_is_joint2(u32 ag_name, s64 idx, u32 joint_name) {
   }
   std::string joint = Ptr<String>(joint_name).c()->data();
   return model->colliders[idx].joint2 == joint ? 1 : 0;
+}
+
+// ---- (SPEC 18) body SURFACE sets: the real skinned surface, not a proxy volume ----------------
+// Same milli convention as everything else on this boundary: no float ever crosses it (the
+// float-return-register trap on this port), so positions AND normals come back as x1000 ints.
+// Every index is bounds-checked and answers 0 out of range: these are read from a hot GOAL loop
+// with indices derived from a file the owner can edit on device.
+
+// number of body-surface sets for this art-group; 0 if none/unknown (a legacy physics_mesh.txt
+// with no `bs` records answers 0 here, and the audit reads that as "not measured").
+s64 pc_physics_num_bsurf(u32 ag_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  return model ? (s64)model->bsurf.size() : 0;
+}
+
+// 1 if body-surface set idx sits on joint_name (exact match, same comparison
+// pc_physics_collider_is_joint makes), else 0.
+s64 pc_physics_bsurf_is_joint(u32 ag_name, s64 idx, u32 joint_name) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || idx < 0 || idx >= (s64)model->bsurf_joint.size()) {
+    return 0;
+  }
+  std::string joint = Ptr<String>(joint_name).c()->data();
+  return model->bsurf_joint[idx] == joint ? 1 : 0;
+}
+
+// how many surface samples set idx carries; 0 if the set index is out of range.
+s64 pc_physics_bsurf_count(u32 ag_name, s64 idx) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || idx < 0 || idx >= (s64)model->bsurf.size()) {
+    return 0;
+  }
+  return (s64)model->bsurf[idx].size();
+}
+
+// component `comp` of sample `s` of set `idx`, MILLI-units: comp 0..2 = position xyz,
+// comp 3..5 = outward normal xyz. 0 if any index is out of range.
+s64 pc_physics_bsurf_mi(u32 ag_name, s64 idx, s64 s, s64 comp) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || idx < 0 || idx >= (s64)model->bsurf.size()) {
+    return 0;
+  }
+  const auto& set = model->bsurf[idx];
+  if (s < 0 || s >= (s64)set.size() || comp < 0 || comp > 5) {
+    return 0;
+  }
+  return phys_mi(set[s][(size_t)comp]);
 }
 
 // 0 = off (toggle off, or no params loaded); else level + 1.
@@ -3911,6 +4014,11 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-physics-collider-param-mi", (void*)pc_physics_collider_param_mi);
   make_function_symbol_from_c("pc-physics-collider-is-joint", (void*)pc_physics_collider_is_joint);
   make_function_symbol_from_c("pc-physics-collider-is-joint2", (void*)pc_physics_collider_is_joint2);
+  // (SPEC 18) body SURFACE sets — the real skinned surface the chains are tested against
+  make_function_symbol_from_c("pc-physics-num-bsurf", (void*)pc_physics_num_bsurf);
+  make_function_symbol_from_c("pc-physics-bsurf-is-joint", (void*)pc_physics_bsurf_is_joint);
+  make_function_symbol_from_c("pc-physics-bsurf-count", (void*)pc_physics_bsurf_count);
+  make_function_symbol_from_c("pc-physics-bsurf-mi", (void*)pc_physics_bsurf_mi);
   make_function_symbol_from_c("pc-physics-enabled", (void*)pc_physics_enabled);
 #endif
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
