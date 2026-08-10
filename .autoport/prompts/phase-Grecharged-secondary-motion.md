@@ -1,6 +1,9 @@
 # ⚠️⚠️ RÉÉCRITURE ORDONNÉE — LIRE SPEC §17 AVANT TOUTE CHOSE
 # Le solveur accumulé (6984 lignes, 54 commits, 19 défauts silencieux trouvés dedans) est JETÉ.
-# On garde: format de données, volumes dérivés du mesh, tables de reskin, la SPEC.
+# On garde: format de données, tables de reskin, la SPEC.
+# LES VOLUMES "DÉRIVÉS DU MESH" SONT JETÉS AUSSI (SPEC §18): 12 des 1335 sont plus GROS que le
+# personnage (max r=13646 sur un perso de 9420), et ma fit-error était une tautologie. La collision
+# se fait désormais contre le MESH SKINNÉ RÉEL, pas contre des proxys capsules.
 # On réécrit: le coeur du solveur (4 étapes, ZÉRO suppresseur au départ) et TOUTE l'instrumentation
 # (une seule grandeur primaire: la position ÉCRITE du joint, frame par frame).
 # On livre: KEIRA SEULE d'abord, jusqu'au OUI de l'owner. Puis Jak, le Maire, puis le cast.

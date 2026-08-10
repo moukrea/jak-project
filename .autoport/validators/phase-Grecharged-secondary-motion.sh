@@ -545,4 +545,18 @@ PYC16
 grep -qiE "(suspend|authored)[^\n]{0,60}[0-9]+(\.[0-9]+)? *%" "$R" \
   || fail "C16: the three motion suppressors (authored-priority suspension, collision clamp, calm freeze) must each be quantified as a % of frames"
 
+
+# C18: no collider-quality metric may compare a volume to itself (my fit-error was a tautology:
+# a volume fitted to a bone's own vertices contains them by construction). The only admissible
+# measure is chain-to-REAL-SURFACE distance.
+grep -qiE "(real surface|surface reelle|skinned (mesh|triangle)s?)[^\n]{0,80}(distance|signed)" "$R" \
+  || fail "C18: collision must be measured against the REAL skinned surface, not a proxy volume (owner 2026-08-10: 12 of 1335 'mesh-derived' volumes were bigger than the character itself)"
+python3 - <<'PYC18' || fail "C18: proxy volumes with a radius larger than the character still exist in the data (max must stay well under 9420 units)"
+import re,sys
+r=[float(x) for x in re.findall(r'radius=([0-9.]+)', open('recharged_assets/physics_chains.txt',errors='ignore').read())]
+if not r: sys.exit(0)
+sys.stderr.write(f"  radius max={max(r):.0f} median={sorted(r)[len(r)//2]:.0f} n={len(r)}\n")
+sys.exit(1 if max(r) > 4710 else 0)
+PYC18
+
 echo "[Grecharged-secondary-motion PASS]"

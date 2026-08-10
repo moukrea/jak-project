@@ -268,3 +268,30 @@ KEIRA D'ABORD, seule : mèches, cheveux, oreilles, poitrine, lunettes, bretelles
 que l'OWNER dise oui sur elle. Puis Jak (pans de veste, col, oreilles, cheveux), puis le Maire, puis
 le cast via le banc (§14). Résoudre 60 modèles avant le premier « oui » est ce qui a produit six
 jours de faux verts.
+
+## 18. LES VOLUMES « DÉRIVÉS DU MESH » SONT AUSSI À JETER (owner 2026-08-10 : « je remets tout en cause »)
+Il a raison, et la mesure le prouve. Distribution des 1335 volumes prétendument ajustés au mesh :
+médiane r=967 unités (~24 cm), p90 r=2756 (~67 cm), max r=13646 — soit **3,3 m de rayon sur un
+personnage de 2,3 m**. **12 volumes sont plus gros que le personnage entier**, 51 dépassent un
+demi-personnage. Ce ne sont pas des colliders qui épousent un corps, ce sont des ballons.
+POURQUOI C'ÉTAIT INVISIBLE : ma `fit-error = 0.000` testait « le volume d'un os contient-il SES
+PROPRES sommets » — une TAUTOLOGIE. Un volume ajusté sur les sommets d'un os les contient par
+construction. Elle ne testait jamais si le volume SUIT LA SURFACE là où les AUTRES chaînes passent.
+Donc « dérivé du mesh » ne signifiait que « rayon calculé automatiquement » : MÊME représentation en
+capsules, exactement ce que l'owner condamne depuis le premier jour — une capsule ne peut pas
+représenter une épaule, une mâchoire, un torse, un pan de pantalon évasé.
+
+### NOUVELLE REPRÉSENTATION : COLLISIONNER CONTRE LE MESH SKINNÉ LUI-MÊME
+  * Plus de proxys. La collision se fait contre la GÉOMÉTRIE RÉELLE du personnage (triangles du mesh
+    skinné du corps), qui est déjà accessible à l'exécution — on en échantillonne déjà des centaines
+    de milliers de sommets pour `meshpen`, donc la donnée est là.
+  * Coût : grille spatiale / hachage sur les triangles du corps, reconstruite par frame ou par N
+    frames selon le NIVEAU DE PRÉCISION (c'est exactement ce que les niveaux doivent arbitrer —
+    densité de triangles testés, pas « une chaîne qui ne teste rien »).
+  * Le test devient : distance signée d'un point de chaîne (avec son rayon propre, dérivé de
+    l'épaisseur du mesh qu'il porte) à la SURFACE réelle. Pénétration = distance négative.
+  * INTERDIT : toute métrique de qualité de collider qui compare un volume à lui-même. La seule
+    mesure valable est la distance chaîne ↔ SURFACE RÉELLE, jamais chaîne ↔ proxy.
+  * Ce qui survit du pipeline précédent : rien de la géométrie. On garde uniquement l'idée du rayon
+    PAR MAILLON dérivé de l'épaisseur locale du mesh, et le fait que la donnée mesh est lisible au
+    runtime.
