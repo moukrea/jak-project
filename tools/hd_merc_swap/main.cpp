@@ -35,8 +35,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -888,6 +890,342 @@ int do_skin_stats(const fs::path& fr3, const std::string& name) {
                  ei, t, a.n, a.max_abs, a.sum_abs / (double)a.n, a.sum_rad / (double)a.n,
                  grow_full, grow_full * 12224.0 / kFullOn);
     }
+  }
+  return 0;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Grecharged-hd-eye-scale: EYE-GAP — the OFFLINE mirror of the runtime measurement in
+// game/graphics/opengl_renderer/foreground/Merc2.cpp `eye_geom_for` / `eye_blerc_measure_and_damp`.
+//
+// Same geometry: per effect, per side e = (eye_id & 1), all[e] = the mod-pool vertices referenced
+// by that side's eye draws (mod_draw + fix_draw), flex[e] = the subset blerc can actually move
+// (appears as a `dest`), C[e] = centroid of flex[e] at bind, I[e] = sum |p - C[e]|^2, and the
+// dilation mode s[e] = sum(disp_i . (p_i - C[e])) / I[e]. Because blerc is LINEAR in the weights
+// (disp_i = sum_t delta_t(i) * w_t), s[e] = sum_t s_t[e] * w_t with
+//   s_t[e] = sum over flex[e] of delta_t(i) . (p_i - C[e]) / I[e]      (per unit weight)
+// which lets us bound EVERY animation without any animation data: jak1 builds the weight of
+// target t from an authored byte, w = (byte - 64) * 64 with byte in [0,255]
+// (goal_src/jak1/engine/gfx/foreground/bones.gc:891-897), so w in [-4096, +12224] and the
+// most-inflating reachable vector is, per target independently, +12224 where s_t > 0 and -4096
+// where s_t < 0. `unity` repeats that with the +8192 cap (a "full" target is 8192, see
+// decompiler/level_extractor/extract_merc.cpp:1356).
+//
+// The gaps are exact min vertex-to-vertex distances between the two deformed clouds: flex verts
+// move by the pure dilation p -> p + s * (p - C[e]) (that is precisely the mode the runtime damps),
+// non-flex verts of all[e] stay at bind because blerc cannot reach them.
+// ---------------------------------------------------------------------------------------------
+
+constexpr double kEyeGapWMax = 12224.0;   // (255 - 64) * 64
+constexpr double kEyeGapWMin = -4096.0;   // (0 - 64) * 64
+constexpr double kEyeGapWUnity = 8192.0;  // "full" target weight
+
+struct EyeGapGeom {
+  size_t ei = 0;
+  int eye_id[2] = {-1, -1};
+  std::vector<std::array<double, 3>> pos[2];  // bind positions of all[e]
+  std::vector<std::array<double, 3>> rad[2];  // (p - C[e]) for flex verts, {0,0,0} otherwise
+  size_t nflex[2] = {0, 0};
+  double centroid[2][3] = {{0, 0, 0}, {0, 0, 0}};
+  double inertia[2] = {0, 0};
+  std::map<u32, double> s_per_unit[2];  // target -> fractional radius change per unit weight
+  double span = 0, bind_gap = 0;
+};
+
+// exact min vertex-to-vertex distance between the two clouds after dilating each side by s[e].
+double eyegap_gap(const EyeGapGeom& g, double s0, double s1) {
+  const double s[2] = {s0, s1};
+  double best = 1e30;
+  for (size_t i = 0; i < g.pos[0].size(); i++) {
+    const double ax = g.pos[0][i][0] + s[0] * g.rad[0][i][0];
+    const double ay = g.pos[0][i][1] + s[0] * g.rad[0][i][1];
+    const double az = g.pos[0][i][2] + s[0] * g.rad[0][i][2];
+    for (size_t j = 0; j < g.pos[1].size(); j++) {
+      const double dx = ax - (g.pos[1][j][0] + s[1] * g.rad[1][j][0]);
+      const double dy = ay - (g.pos[1][j][1] + s[1] * g.rad[1][j][1]);
+      const double dz = az - (g.pos[1][j][2] + s[1] * g.rad[1][j][2]);
+      const double d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < best) {
+        best = d2;
+      }
+    }
+  }
+  return best >= 1e30 ? 0.0 : std::sqrt(best);
+}
+
+int do_eye_gap(const fs::path& fr3,
+               const std::string& name,
+               double gain,
+               const std::string& weights_file,
+               bool verbose_targets) {
+  tfrag3::Level lev;
+  load_fr3(fr3, lev);
+  auto it = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                         [&](const auto& m) { return m.name == name; });
+  if (it == lev.merc_data.models.end()) {
+    fmt::print("  model '{}' not in {}\n", name, fr3.string());
+    return 2;
+  }
+  const auto& model = *it;
+  const auto& gidx = lev.merc_data.indices;
+
+  // highest blerc target id used ANYWHERE in the model (+1) — the width a weight frame must have.
+  u32 ntargets = 0;
+  // int_data is [tgt..., TERMINATOR, dest]; dest values are VERTEX ids, not targets, so the walk
+  // has to be structured — a raw scan of int_data would count vertex ids as target ids.
+  for (const auto& e : model.effects) {
+    std::vector<BlercVert> bv;
+    if (e.mod.blerc.int_data.empty()) {
+      continue;
+    }
+    if (!parse_blerc(e.mod.blerc, bv)) {
+      fmt::print("  EYE-GAP FAIL: blerc data malformed in model '{}'\n", name);
+      return 2;
+    }
+    for (const auto& v : bv) {
+      for (u32 t : v.tgts) {
+        ntargets = std::max(ntargets, t + 1);
+      }
+    }
+  }
+
+  std::vector<EyeGapGeom> geoms;
+  for (size_t ei = 0; ei < model.effects.size(); ei++) {
+    const auto& eff = model.effects[ei];
+    const auto& pool = eff.mod.vertices;
+    std::set<u32> all[2], flexset[2];
+    auto scan = [&](const std::vector<tfrag3::MercDraw>& draws) {
+      for (const auto& d : draws) {
+        if (d.eye_id == 0xff) {
+          continue;
+        }
+        const int e = d.eye_id & 1;
+        for (u32 k = 0; k < d.index_count; k++) {
+          const size_t ii = (size_t)d.first_index + k;
+          if (ii >= gidx.size()) {
+            break;
+          }
+          const u32 vi = gidx[ii];
+          if (vi == UINT32_MAX || vi >= pool.size()) {
+            continue;
+          }
+          all[e].insert(vi);
+        }
+      }
+    };
+    // record the eye ids even if a side ends up empty
+    int seen_id[2] = {-1, -1};
+    for (const auto* draws : {&eff.mod.mod_draw, &eff.mod.fix_draw}) {
+      for (const auto& d : *draws) {
+        if (d.eye_id != 0xff) {
+          seen_id[d.eye_id & 1] = d.eye_id;
+        }
+      }
+    }
+    scan(eff.mod.mod_draw);
+    scan(eff.mod.fix_draw);
+    if (all[0].empty() || all[1].empty()) {
+      continue;  // not an eye pair on this effect
+    }
+
+    std::vector<BlercVert> bverts;
+    if (!eff.mod.blerc.int_data.empty() && !parse_blerc(eff.mod.blerc, bverts)) {
+      fmt::print("  EYE-GAP FAIL: effect[{}] blerc data malformed\n", ei);
+      return 2;
+    }
+    for (const auto& v : bverts) {
+      for (int e = 0; e < 2; e++) {
+        if (all[e].count(v.dest)) {
+          flexset[e].insert(v.dest);
+        }
+      }
+    }
+
+    EyeGapGeom g;
+    g.ei = ei;
+    g.eye_id[0] = seen_id[0];
+    g.eye_id[1] = seen_id[1];
+    double mn[3] = {1e30, 1e30, 1e30}, mx[3] = {-1e30, -1e30, -1e30};
+    for (int e = 0; e < 2; e++) {
+      g.nflex[e] = flexset[e].size();
+      double c[3] = {0, 0, 0};
+      for (u32 vi : flexset[e]) {
+        for (int a = 0; a < 3; a++) {
+          c[a] += pool[vi].pos[a];
+        }
+      }
+      if (!flexset[e].empty()) {
+        for (int a = 0; a < 3; a++) {
+          g.centroid[e][a] = c[a] / (double)flexset[e].size();
+        }
+      }
+      double in = 0;
+      for (u32 vi : flexset[e]) {
+        for (int a = 0; a < 3; a++) {
+          const double r = pool[vi].pos[a] - g.centroid[e][a];
+          in += r * r;
+        }
+      }
+      g.inertia[e] = in;
+      for (u32 vi : all[e]) {
+        std::array<double, 3> p = {pool[vi].pos[0], pool[vi].pos[1], pool[vi].pos[2]};
+        std::array<double, 3> r = {0, 0, 0};
+        if (flexset[e].count(vi)) {
+          for (int a = 0; a < 3; a++) {
+            r[a] = p[a] - g.centroid[e][a];
+          }
+        }
+        g.pos[e].push_back(p);
+        g.rad[e].push_back(r);
+        for (int a = 0; a < 3; a++) {
+          mn[a] = std::min(mn[a], p[a]);
+          mx[a] = std::max(mx[a], p[a]);
+        }
+      }
+    }
+    g.span = std::max({mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]});
+    g.bind_gap = eyegap_gap(g, 0.0, 0.0);
+
+    // s_t[e]: the fractional radius change PER UNIT WEIGHT of each blerc target, on flex[e] only.
+    for (const auto& v : bverts) {
+      for (int e = 0; e < 2; e++) {
+        if (!flexset[e].count(v.dest) || g.inertia[e] <= 0) {
+          continue;
+        }
+        const auto& mv = pool[v.dest];
+        const double rx = mv.pos[0] - g.centroid[e][0];
+        const double ry = mv.pos[1] - g.centroid[e][1];
+        const double rz = mv.pos[2] - g.centroid[e][2];
+        for (size_t k = 0; k < v.tgts.size(); k++) {
+          const auto& d = eff.mod.blerc.float_data[v.float_base + 1 + k];
+          g.s_per_unit[e][v.tgts[k]] +=
+              ((double)d.v[0] * rx + (double)d.v[1] * ry + (double)d.v[2] * rz) / g.inertia[e];
+        }
+      }
+    }
+    geoms.push_back(std::move(g));
+  }
+
+  if (geoms.empty()) {
+    fmt::print("  model '{}' in {} has no eye draw pair (nothing to measure)\n", name,
+               fr3.string());
+    return 2;
+  }
+
+  for (const auto& g : geoms) {
+    fmt::print("EYEGAP-MODEL fr3={} model={} effect={} span={:.4f} bind_gap={:.4f} nflex={}/{} "
+               "ntargets={}\n",
+               fr3.string(), name, g.ei, g.span, g.bind_gap, g.nflex[0], g.nflex[1], ntargets);
+    if (verbose_targets) {
+      for (int e = 0; e < 2; e++) {
+        for (const auto& [t, s] : g.s_per_unit[e]) {
+          fmt::print("EYEGAP-TARGET model={} side={} eye_id={} target={} s_per_unit={:.8f}\n", name,
+                     e, g.eye_id[e], t, s);
+        }
+      }
+    }
+  }
+
+  // ---- A. analytic worst case over EVERY animation --------------------------------------------
+  double smax[2] = {0, 0}, smax_unity[2] = {0, 0};
+  double raw_gap = 1e30, damped_gap = 1e30, bind_gap = 1e30;
+  for (const auto& g : geoms) {
+    double s_worst[2] = {0, 0};
+    for (int e = 0; e < 2; e++) {
+      double sm = 0, su = 0;
+      for (const auto& [t, s] : g.s_per_unit[e]) {
+        sm += s > 0 ? s * kEyeGapWMax : s * kEyeGapWMin;
+        su += s > 0 ? s * kEyeGapWUnity : s * kEyeGapWMin;
+      }
+      s_worst[e] = sm;
+      smax[e] = std::max(smax[e], sm);
+      smax_unity[e] = std::max(smax_unity[e], su);
+    }
+    raw_gap = std::min(raw_gap, eyegap_gap(g, s_worst[0], s_worst[1]));
+    damped_gap = std::min(damped_gap, eyegap_gap(g, gain * s_worst[0], gain * s_worst[1]));
+    bind_gap = std::min(bind_gap, g.bind_gap);
+  }
+  fmt::print("EYEGAP-WORST model={} gain={:.3f} smax_l={:.5f} smax_r={:.5f} smax_unity_l={:.5f} "
+             "smax_unity_r={:.5f} raw_gap={:.4f} damped_gap={:.4f} bind_gap={:.4f}\n",
+             name, gain, smax[0], smax[1], smax_unity[0], smax_unity[1], raw_gap, damped_gap,
+             bind_gap);
+
+  // ---- B. optional real per-frame weights -----------------------------------------------------
+  if (weights_file.empty()) {
+    return 0;
+  }
+  std::ifstream in(weights_file);
+  if (!in) {
+    fmt::print("  EYE-GAP FAIL: cannot open weights file '{}'\n", weights_file);
+    return 2;
+  }
+  struct AnimAcc {
+    u64 frames = 0;
+    double s_max = -1e30;
+    double raw_min = 1e30, damped_min = 1e30;
+  };
+  std::map<std::string, AnimAcc> anims;
+  std::vector<std::string> anim_order;
+  std::set<std::string> warned;
+  std::string line;
+  while (std::getline(in, line)) {
+    const auto hash = line.find('#');
+    if (hash != std::string::npos) {
+      line = line.substr(0, hash);
+    }
+    std::istringstream ss(line);
+    std::string anim;
+    if (!(ss >> anim)) {
+      continue;
+    }
+    long long frame = 0;
+    if (!(ss >> frame)) {
+      continue;
+    }
+    std::vector<double> w;
+    int byte = 0;
+    while (ss >> byte) {
+      w.push_back(((double)byte - 64.0) * 64.0);
+    }
+    if (w.size() < (size_t)ntargets) {
+      if (warned.insert(anim).second) {
+        fmt::print("EYEGAP-WARN model={} anim={} bytes={} need={} (frames skipped)\n", name, anim,
+                   w.size(), ntargets);
+      }
+      continue;
+    }
+    double s_side[2] = {-1e30, -1e30};
+    double fr_raw = 1e30, fr_damped = 1e30;
+    for (const auto& g : geoms) {
+      double s[2] = {0, 0};
+      for (int e = 0; e < 2; e++) {
+        for (const auto& [t, sp] : g.s_per_unit[e]) {
+          if ((size_t)t < w.size()) {
+            s[e] += sp * w[t];
+          }
+        }
+        s_side[e] = std::max(s_side[e], s[e]);
+      }
+      fr_raw = std::min(fr_raw, eyegap_gap(g, s[0], s[1]));
+      fr_damped = std::min(fr_damped, eyegap_gap(g, gain * s[0], gain * s[1]));
+    }
+    fmt::print("EYEGAP-FRAME model={} anim={} f={} s_l={:.5f} s_r={:.5f} raw_gap={:.4f} "
+               "damped_gap={:.4f}\n",
+               name, anim, frame, s_side[0], s_side[1], fr_raw, fr_damped);
+    if (!anims.count(anim)) {
+      anim_order.push_back(anim);
+    }
+    auto& a = anims[anim];
+    a.frames++;
+    a.s_max = std::max(a.s_max, std::max(s_side[0], s_side[1]));
+    a.raw_min = std::min(a.raw_min, fr_raw);
+    a.damped_min = std::min(a.damped_min, fr_damped);
+  }
+  for (const auto& an : anim_order) {
+    const auto& a = anims[an];
+    fmt::print("EYEGAP-ANIM model={} anim={} frames={} s_max={:.5f} raw_gap_min={:.4f} "
+               "damped_gap_min={:.4f}\n",
+               name, an, a.frames, a.s_max, a.raw_min, a.damped_min);
   }
   return 0;
 }
@@ -2028,7 +2366,12 @@ int main(int argc, char** argv) {
                "        --bake-weight  weight the baked blerc delta is folded at (runtime full-on "
                "channel weight is 4096)\n"
                "  hd_merc_swap stamp <donor.fr3> <donor-model-name> <in.glb> <out.glb>\n"
-               "  hd_merc_swap blerc-stats <fr3> <model-name>\n");
+               "  hd_merc_swap blerc-stats <fr3> <model-name>\n"
+               "  hd_merc_swap eye-gap <fr3> <model-name> [--gain G] [--weights FILE] "
+               "[--verbose-targets]\n"
+               "        analytic worst-case eye dilation over EVERY animation + the resulting "
+               "L/R eye gap, raw and damped by G (default 1.0); --weights replays authored "
+               "per-frame blerc bytes instead\n");
     return 2;
   }
   std::string mode = argv[1];
@@ -2041,6 +2384,30 @@ int main(int argc, char** argv) {
   if (mode == "blerc-stats") {
     if (argc < 4) { fmt::print("blerc-stats needs <fr3> <model-name>\n"); return 2; }
     return do_blerc_stats(argv[2], argv[3]);
+  }
+  if (mode == "eye-gap") {
+    if (argc < 4) {
+      fmt::print("eye-gap needs <fr3> <model-name> [--gain G] [--weights FILE] "
+                 "[--verbose-targets]\n");
+      return 2;
+    }
+    double gain = 1.0;
+    std::string weights;
+    bool verbose_targets = false;
+    for (int i = 4; i < argc; i++) {
+      const std::string a = argv[i];
+      if (a == "--verbose-targets") {
+        verbose_targets = true;
+      } else if (a == "--gain" && i + 1 < argc) {
+        gain = std::atof(argv[++i]);
+      } else if (a == "--weights" && i + 1 < argc) {
+        weights = argv[++i];
+      } else {
+        fmt::print("eye-gap: unknown or incomplete option '{}'\n", a);
+        return 2;
+      }
+    }
+    return do_eye_gap(argv[2], argv[3], gain, weights, verbose_targets);
   }
   if (mode == "skin-stats") {
     if (argc < 4) { fmt::print("skin-stats needs <fr3> <model-name>\n"); return 2; }

@@ -6,6 +6,20 @@
 #include "game/graphics/opengl_renderer/opengl_utils.h"
 #include "game/graphics/pipelines/opengl.h"
 
+#ifdef OG_FEAT_HD_MODELS
+// Grecharged-hd-eye-scale round 2. The [eyescale] block of recharged_assets/physics_chains.txt is
+// parsed here (hd_eye_scale_load_once), but the channel that actually inflates an HD eyeball is
+// blerc, which is applied in Merc2 — so these have to cross the TU boundary. Loads the block on
+// first use; `eye_id` is (eye-slot << 1) | is_right, and a `slot N` line may override any of the
+// three for that eye.
+struct HdEyeBlercCaps {
+  float gain;   // blunt multiplier on the whole eyeball blerc displacement. 1.0 = no blanket cut.
+  float grow;   // ceiling on the eye's fractional radius change
+  float close;  // ceiling on the fraction of the bind inter-eye distance that may be closed
+};
+HdEyeBlercCaps hd_eye_blerc_caps(unsigned char eye_id);
+#endif
+
 constexpr int EYE_BASE_BLOCK_JAK1 = 8160;
 constexpr int EYE_BASE_BLOCK_JAK2 = 3968;
 constexpr int EYE_BASE_BLOCK_JAK3 = 504;

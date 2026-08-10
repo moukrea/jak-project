@@ -84,12 +84,26 @@ constexpr int kIris = 0, kPupil = 1;
 struct HdEyeScaleParams {
   bool on = true;
   float gain_up = 0.45f;  // kept fraction of the ABOVE-rest excursion (the globuleux one)
+  // ROUND 2 (owner 2026-08-08, "aucune différence, les deux yeux se TOUCHENT"): the tile-space
+  // iris zoom above is a real channel but it is NOT the one that makes the eyeball big — see the
+  // long block in Merc2.cpp.  These three bound the blerc displacement of an HD EYEBALL:
+  //   blerc_gain      blunt multiplier on the whole thing (1.0 = no blanket cut)
+  //   blerc_grow_cap  ceiling on the eye's fractional radius change
+  //   blerc_close_cap ceiling on the fraction of the bind inter-eye distance that may be closed
+  // The two caps are jak1's OWN measured worst case for Daxter, so an HD eye is allowed exactly
+  // as much exaggeration as the original model reaches and no more.
+  float blerc_gain = 1.00f;
+  float blerc_grow_cap = 0.2629f;
+  float blerc_close_cap = 0.198f;
 };
 // Per slot (= per eye_id). rest < 0 means "unknown": such a slot is MEASURED but never rewritten,
 // because compressing towards a rest we do not know is how you shift a character's base look.
 struct HdEyeScaleSlot {
   float rest[2] = {-1.f, -1.f};
-  float gain_up = -1.f;  // < 0 = inherit the global
+  float gain_up = -1.f;          // < 0 = inherit the global
+  float blerc_gain = -1.f;       // < 0 = inherit the global
+  float blerc_grow_cap = -1.f;   // < 0 = inherit the global
+  float blerc_close_cap = -1.f;  // < 0 = inherit the global
 };
 // eye_id -> {iris rest, pupil rest} for the four jak1 drivers every HD look retargets onto
 // (hd_merc_swap --eye-from: jak 0/1, daxter 2/3, samos 4/5, keira 6/7). Compiled defaults, so a
@@ -243,6 +257,14 @@ void hd_eye_scale_load_once() {
         }
       } else if (k == "gainup") {
         (line_slot < 0 ? s_eye_scale.gain_up : s_eye_scale_slot[line_slot].gain_up) = f;
+      } else if (k == "blerc_gain") {
+        (line_slot < 0 ? s_eye_scale.blerc_gain : s_eye_scale_slot[line_slot].blerc_gain) = f;
+      } else if (k == "blerc_grow_cap") {
+        (line_slot < 0 ? s_eye_scale.blerc_grow_cap
+                       : s_eye_scale_slot[line_slot].blerc_grow_cap) = f;
+      } else if (k == "blerc_close_cap") {
+        (line_slot < 0 ? s_eye_scale.blerc_close_cap
+                       : s_eye_scale_slot[line_slot].blerc_close_cap) = f;
       } else if (k == "neutral" || k == "neutral_iris" || k == "neutral_pupil" || k == "gaindown") {
         // Deliberately IGNORED, not silently honoured: an owner still holding the first attempt's
         // external pack would otherwise re-apply `neutral=1.0` — nobody's authored rest — on top of
@@ -254,12 +276,17 @@ void hd_eye_scale_load_once() {
       }
     }
   }
-  lg::info("[eyescale] PARAMSRC={} on={} gainup={:.3f} slot_lines={} path={}", src,
-           (int)s_eye_scale.on, s_eye_scale.gain_up, n_slot_lines, path.string());
+  lg::info(
+      "[eyescale] PARAMSRC={} on={} gainup={:.3f} blerc_gain={:.3f} blerc_grow_cap={:.4f} "
+      "blerc_close_cap={:.4f} slot_lines={} path={}",
+      src, (int)s_eye_scale.on, s_eye_scale.gain_up, s_eye_scale.blerc_gain,
+      s_eye_scale.blerc_grow_cap, s_eye_scale.blerc_close_cap, n_slot_lines, path.string());
   for (int s = 0; s < 8; s++) {
-    lg::info("[eyescale] anchor slot={} rest_iris={:.5f} rest_pupil={:.5f} gainup={:.3f}", s,
-             s_eye_scale_slot[s].rest[kIris], s_eye_scale_slot[s].rest[kPupil],
-             eye_gain_up_of((u8)s));
+    const auto c = hd_eye_blerc_caps((u8)s);
+    lg::info("[eyescale] anchor slot={} rest_iris={:.5f} rest_pupil={:.5f} gainup={:.3f} "
+             "blerc_gain={:.3f} blerc_grow_cap={:.4f} blerc_close_cap={:.4f}",
+             s, s_eye_scale_slot[s].rest[kIris], s_eye_scale_slot[s].rest[kPupil],
+             eye_gain_up_of((u8)s), c.gain, c.grow, c.close);
   }
 }
 
@@ -355,6 +382,31 @@ void hd_eye_scale_heartbeat() {
   }
 }
 }  // namespace
+
+// Exported for Merc2 (see EyeRenderer.h). Same [eyescale] block, same load-once, same
+// external-pack-overrides-package precedence — one tuning file for the whole eye feature.
+// `on=0` disables the whole thing: gain 1 with both ceilings effectively infinite = jak1 exactly.
+HdEyeBlercCaps hd_eye_blerc_caps(unsigned char eye_id) {
+  hd_eye_scale_load_once();
+  HdEyeBlercCaps c{1.f, 1e9f, 1e9f};
+  if (!s_eye_scale.on) {
+    return c;
+  }
+  const auto& sl = s_eye_scale_slot[eye_id];
+  c.gain = sl.blerc_gain >= 0.f ? sl.blerc_gain : s_eye_scale.blerc_gain;
+  c.grow = sl.blerc_grow_cap >= 0.f ? sl.blerc_grow_cap : s_eye_scale.blerc_grow_cap;
+  c.close = sl.blerc_close_cap >= 0.f ? sl.blerc_close_cap : s_eye_scale.blerc_close_cap;
+  if (c.gain < 0.f || c.gain > 1.f) {
+    c.gain = 1.f;
+  }
+  if (c.grow < 0.f) {
+    c.grow = 1e9f;
+  }
+  if (c.close < 0.f || c.close > 1.f) {
+    c.close = 1.f;
+  }
+  return c;
+}
 #endif
 
 /////////////////////////

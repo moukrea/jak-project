@@ -18,12 +18,16 @@
 
 #include "common/log/log.h"
 #include <chrono>
+#include <map>
 #include <mutex>
 #include <set>
 #include <unordered_map>
 #include <vector>
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
+#endif
+#ifdef OG_FEAT_HD_MODELS
+#include "game/graphics/opengl_renderer/EyeRenderer.h"  // hd_eye_blerc_gain
 #endif
 // Grecharged-title-logo-fullres: the camera-anchored 3D overlays of the two logo screens.
 // Names are the merc-ctrl names the GOAL side puts in the merc DMA header (the decompiler-only
@@ -380,6 +384,351 @@ namespace {
 float blerc_multiplier = 1.f;
 }
 
+#ifdef OG_FEAT_HD_MODELS
+// ==============================================================================================
+// Grecharged-hd-eye-scale, ROUND 2 — the channel that actually makes an HD eyeball big.
+//
+// Round 1 compressed jak1's cartoon iris ZOOM (the sprite scale inside the 32x32 eye tile) and
+// the owner's verdict on that build was "absolutely no difference: Daxter's eyes still double
+// and the two eyes TOUCH". He is right, and the iris zoom cannot produce that symptom — it is a
+// TEXTURE-space scale bounded by the eye's own UV footprint, so it can darken more of an eyeball
+// but it can never move one eyeball's surface towards the other. A bone scale cannot either:
+// both eye draws of every one of these models are rigidly skinned to ONE bone (Daxter b9, weight
+// 1.0 on all 504 eye index refs, hd_merc_swap skin-stats), and a transform common to both eyes
+// maps gap -> S*gap, i.e. a growing eye moves its partner away by exactly as much.
+//
+// blerc CAN, and does. It is a per-vertex displacement field, so it grows each eyeball about its
+// OWN centre and the two inner surfaces march towards each other. And the HD pipeline hands it a
+// field it was never calibrated for: tools/hd_merc_swap `port_blerc` copies the jak2/jak3 DONOR's
+// authored per-vertex deltas VERBATIM (main.cpp:1434) and only re-indexes the target id onto a
+// jak1 driver channel (main.cpp:1433). Nothing reconciles the donor's delta magnitude — nor its
+// much rounder, much closer-set eyeballs — with jak1's weight curve
+// (w = (byte - 64) * 64, bones.gc:891-897; unity is 8192, so an authored byte of 255 overdrives
+// the donor's delta to 1.49x).
+//
+// WHY IT LANDS HARDER ON HD THAN ON THE ORIGINAL — measured at the bind on the shipped GAME.fr3:
+//     Daxter original  sidekick-lod0 : eye span 583.83, the two eye clouds 404.19 apart
+//     Daxter HD        dax-hd-lod0   : eye span 574.56, the two eye clouds 309.69 apart
+// Same eye SIZE, but the HD pair starts 23% CLOSER together, and its donor deltas grow the eye
+// about 1.7x faster per weight unit. Identical growth therefore closes the HD gap first. The
+// asymmetry is geometric and inherited, not a gain any artist chose.
+//
+// THE FIX — a CEILING set by jak1's own model, not a blanket attenuation. Per frame and per eye
+// pair, the whole eyeball blerc displacement is scaled by one factor k <= 1, chosen as the
+// loosest value that keeps BOTH of the owner's symptoms inside what the ORIGINAL model reaches:
+//     growth  : the eye's fractional radius change stays <= blerc_grow_cap
+//     touching: the two eye clouds stay >= (1 - blerc_close_cap) * their bind distance apart
+// k = 1 on every frame that is already inside both, so ordinary HD facial animation is bit-exact
+// jak1 and only the pathological frames are pulled back. Nothing outside the two eyeball clouds
+// is touched — lids, brows, mouth, the rest of the face and every non-HD model are untouched.
+//
+// The caps are the measured worst case of jak1's OWN Daxter in the same scene (leg legSTOCK,
+// 110 s at village1-hut): growth +0.2629 and 19.8% closure. On the same scene the HD model
+// reached +0.5588 and closed 99.92% of its gap — 0.24 units between the two eyeballs, i.e. they
+// meet, which is exactly what the owner reported.
+//
+// An earlier cut of this damped only the DILATION mode (least-squares uniform scale about each
+// eye's own centroid); the live trace refuted it: removing 70% of the dilation alone still left
+// the two clouds 22.6 apart, because the donor's field TRANSLATES and SHEARS each eyeball inwards
+// as much as it inflates it. The dilation `s` is still computed and reported — it is the eye's
+// fractional radius change, the cross-model-comparable form of "how much bigger did it get".
+// Caps of 0 (or a blerc_gain of 1.0 with both caps huge) restore jak1 exactly, bit for bit.
+//
+// THE INSTRUMENT. Every model that has an eye PAIR in its blerc pool is measured, HD or stock:
+// per frame, the minimum vertex-to-vertex distance between the left and the right eye cloud
+// after blerc, both BEFORE the fix (raw) and AFTER it. The owner's symptom is "the two eyes
+// touch", so that distance is the number, and it is read off the very vertices the GPU is about
+// to draw.
+// ==============================================================================================
+namespace {
+constexpr int kEyeGapInner = 64;  // innermost verts per eye kept for the per-frame gap search
+
+struct EyeGeom {
+  bool ok = false;
+  bool hd = false;
+  // fingerprint: a level unload/reload can put a DIFFERENT MercEffect at the same address, and a
+  // stale vertex-index list would then index a pool it does not belong to.
+  size_t pool_size = 0, blerc_ints = 0;
+  u8 eye_id[2] = {0xff, 0xff};    // [0] = even id (left), [1] = odd id (right)
+  std::vector<u32> flex[2];       // eye verts blerc can move: the dilation basis + the fix set
+  std::vector<u32> inner[2];      // the kEyeGapInner verts closest to the other eye
+  float centroid[2][3] = {};      // centroid of flex[e] at bind
+  float inertia[2] = {0.f, 0.f};  // sum |p - centroid|^2 over flex[e] — the dilation denominator
+  float span = 0.f;               // largest bind bbox span over the two eye clouds
+  float bind_gap = 0.f;           // min vertex-to-vertex distance between the clouds at bind
+};
+
+struct EyeGapStat {
+  bool hd = false;
+  u64 frames = 0, att_frames = 0;
+  float gain = 1.f, k_min = 1.f;
+  float span = 0.f, bind_gap = 0.f;
+  float raw_gap_min = 1e30f, gap_min = 1e30f;
+  double gap_sum = 0.0;
+  float raw_grow_max = 0.f, grow_max = 0.f;
+};
+
+std::unordered_map<const tfrag3::MercEffect*, EyeGeom> s_eye_geom;
+std::map<std::string, EyeGapStat> s_eye_gap;
+u64 s_eye_gap_calls = 0;
+int s_eye_gap_trace = -1;  // -1 = not probed yet
+
+float cloud_gap(const std::vector<u32>& a,
+                const std::vector<u32>& b,
+                const tfrag3::MercVertex* v) {
+  float best = 1e30f;
+  for (u32 ia : a) {
+    const float* pa = v[ia].pos;
+    for (u32 ib : b) {
+      const float* pb = v[ib].pos;
+      const float dx = pa[0] - pb[0], dy = pa[1] - pb[1], dz = pa[2] - pb[2];
+      const float d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < best) {
+        best = d2;
+      }
+    }
+  }
+  return best >= 1e30f ? 0.f : std::sqrt(best);
+}
+
+// Built once per effect. `gidx` is the level's shared merc index array; a mod draw's indices
+// address the effect's OWN mod vertex pool (same convention as hd_merc_swap skin-stats).
+const EyeGeom& eye_geom_for(const std::string& name,
+                            const tfrag3::MercEffect& effect,
+                            const std::vector<u32>& gidx) {
+  auto it = s_eye_geom.find(&effect);
+  if (it != s_eye_geom.end()) {
+    if (it->second.pool_size == effect.mod.vertices.size() &&
+        it->second.blerc_ints == effect.mod.blerc.int_data.size()) {
+      return it->second;
+    }
+    s_eye_geom.erase(it);  // address reused by a different effect after a level swap
+  }
+  if (s_eye_geom.size() > 512) {
+    s_eye_geom.clear();  // bounded: entries are only rebuilt on demand
+  }
+  EyeGeom g;
+  g.hd = name.find("-hd") != std::string::npos;
+  g.pool_size = effect.mod.vertices.size();
+  g.blerc_ints = effect.mod.blerc.int_data.size();
+  const auto& pool = effect.mod.vertices;
+  std::set<u32> all[2], flex[2];
+  auto scan = [&](const std::vector<tfrag3::MercDraw>& draws) {
+    for (const auto& d : draws) {
+      if (d.eye_id == 0xff) {
+        continue;
+      }
+      const int e = d.eye_id & 1;
+      g.eye_id[e] = d.eye_id;
+      for (u32 k = 0; k < d.index_count; k++) {
+        const size_t ii = (size_t)d.first_index + k;
+        if (ii >= gidx.size()) {
+          break;
+        }
+        const u32 vi = gidx[ii];
+        if (vi == UINT32_MAX || vi >= pool.size()) {
+          continue;
+        }
+        all[e].insert(vi);
+      }
+    }
+  };
+  scan(effect.mod.mod_draw);
+  scan(effect.mod.fix_draw);
+  if (all[0].empty() || all[1].empty()) {
+    return s_eye_geom.emplace(&effect, g).first->second;  // not an eye pair: never measured
+  }
+  // Only the vertices blerc can actually reach may be re-fitted, otherwise the correction would
+  // pull STATIC eye vertices inward. int_data is [tgt..., TERMINATOR, dest] per vertex.
+  {
+    const auto& idat = effect.mod.blerc.int_data;
+    size_t i = 0;
+    while (i < idat.size()) {
+      while (i < idat.size() && idat[i] != tfrag3::Blerc::kTargetIdxTerminator) {
+        i++;
+      }
+      i++;
+      if (i < idat.size()) {
+        const u32 dest = idat[i++];
+        for (int e = 0; e < 2; e++) {
+          if (all[e].count(dest)) {
+            flex[e].insert(dest);
+          }
+        }
+      }
+    }
+  }
+  for (int e = 0; e < 2; e++) {
+    g.flex[e].assign(flex[e].begin(), flex[e].end());
+    double c[3] = {0, 0, 0};
+    for (u32 vi : g.flex[e]) {
+      for (int a = 0; a < 3; a++) {
+        c[a] += pool[vi].pos[a];
+      }
+    }
+    if (!g.flex[e].empty()) {
+      for (int a = 0; a < 3; a++) {
+        g.centroid[e][a] = (float)(c[a] / (double)g.flex[e].size());
+      }
+    }
+    double in = 0;
+    for (u32 vi : g.flex[e]) {
+      double d2 = 0;
+      for (int a = 0; a < 3; a++) {
+        const double r = pool[vi].pos[a] - g.centroid[e][a];
+        d2 += r * r;
+      }
+      in += d2;
+    }
+    g.inertia[e] = (float)in;
+    // span is PER EYE (the eyeball's own size), never the pair's combined bbox — the latter
+    // would just re-measure the inter-eye distance.
+    float mn[3] = {1e30f, 1e30f, 1e30f}, mx[3] = {-1e30f, -1e30f, -1e30f};
+    for (u32 vi : all[e]) {
+      for (int a = 0; a < 3; a++) {
+        mn[a] = std::min(mn[a], pool[vi].pos[a]);
+        mx[a] = std::max(mx[a], pool[vi].pos[a]);
+      }
+    }
+    g.span = std::max({g.span, mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]});
+  }
+  // bind gap over the FULL clouds (exact, once), and the inner subsets used per frame
+  std::vector<u32> a0(all[0].begin(), all[0].end()), a1(all[1].begin(), all[1].end());
+  g.bind_gap = cloud_gap(a0, a1, pool.data());
+  for (int e = 0; e < 2; e++) {
+    const float* other = g.centroid[1 - e];
+    std::vector<std::pair<float, u32>> rank;
+    const std::set<u32>& src = all[e];
+    for (u32 vi : src) {
+      float d2 = 0;
+      for (int a = 0; a < 3; a++) {
+        const float d = pool[vi].pos[a] - other[a];
+        d2 += d * d;
+      }
+      rank.push_back({d2, vi});
+    }
+    std::sort(rank.begin(), rank.end());
+    for (size_t k = 0; k < rank.size() && k < (size_t)kEyeGapInner; k++) {
+      g.inner[e].push_back(rank[k].second);
+    }
+  }
+  g.ok = !g.flex[0].empty() && !g.flex[1].empty() && g.inertia[0] > 0.f && g.inertia[1] > 0.f;
+  lg::info("[eyegap] geom model={} hd={} eyes={}/{} flex={}/{} span={:.2f} bind_gap={:.2f} ok={}",
+           name, (int)g.hd, g.eye_id[0], g.eye_id[1], g.flex[0].size(), g.flex[1].size(), g.span,
+           g.bind_gap, (int)g.ok);
+  return s_eye_geom.emplace(&effect, g).first->second;
+}
+
+// Runs on the render thread right after blerc_avx and before the upload, so `out` is exactly
+// what the GPU is about to draw.
+void eye_blerc_measure_and_damp(const std::string& name,
+                                const tfrag3::MercEffect& effect,
+                                const std::vector<u32>& gidx,
+                                tfrag3::MercVertex* out) {
+  const EyeGeom& g = eye_geom_for(name, effect, gidx);
+  if (!g.ok) {
+    return;
+  }
+  if (s_eye_gap_trace < 0) {
+    s_eye_gap_trace = getenv("OG_EYEGAP_TRACE") ? 1 : 0;
+  }
+  const auto& pool = effect.mod.vertices;
+  HdEyeBlercCaps cap{1.f, 1e9f, 1e9f};  // a non-HD model is measured, never touched
+  if (g.hd) {
+    cap = hd_eye_blerc_caps(g.eye_id[0]);
+  }
+
+  // (1) the RAW numbers, off the blerc output exactly as jak1 + the donor produced it
+  const float raw_gap = cloud_gap(g.inner[0], g.inner[1], out);
+  // dilation mode per eye: with the centroid as origin sum(r_i) = 0, so a rigid translation drops
+  // out of the fit and `s` is purely the eye's fractional radius change.
+  float s_eye[2] = {0.f, 0.f};
+  for (int e = 0; e < 2; e++) {
+    double num = 0;
+    for (u32 vi : g.flex[e]) {
+      const float* p = pool[vi].pos;
+      const float* c = out[vi].pos;
+      for (int a = 0; a < 3; a++) {
+        num += (double)(c[a] - p[a]) * (double)(p[a] - g.centroid[e][a]);
+      }
+    }
+    s_eye[e] = (float)(num / (double)g.inertia[e]);
+  }
+  const float raw_grow = std::max(s_eye[0], s_eye[1]);
+
+  // (2) the loosest k <= 1 that puts BOTH symptoms inside jak1's own ceiling.
+  float k = 1.f;
+  if (g.hd) {
+    k = std::min(k, cap.gain);
+    if (raw_grow > cap.grow && raw_grow > 1e-6f) {
+      k = std::min(k, cap.grow / raw_grow);
+    }
+    const float floor_gap = g.bind_gap * (1.f - cap.close);
+    if (raw_gap < floor_gap && g.bind_gap > raw_gap + 1e-4f) {
+      // distance is convex in k, so this linear solve is the conservative side of exact
+      k = std::min(k, (g.bind_gap - floor_gap) / (g.bind_gap - raw_gap));
+    }
+    if (k < 0.f) {
+      k = 0.f;
+    }
+  }
+  const bool damped = k < 0.9999f;
+  if (damped) {
+    for (int e = 0; e < 2; e++) {
+      for (u32 vi : g.flex[e]) {
+        const float* p = pool[vi].pos;
+        float* c = out[vi].pos;
+        for (int a = 0; a < 3; a++) {
+          c[a] = p[a] + k * (c[a] - p[a]);
+        }
+      }
+    }
+  }
+  const float out_grow = k * raw_grow;
+
+  // (3) the gap the GPU will actually get
+  const float out_gap = damped ? cloud_gap(g.inner[0], g.inner[1], out) : raw_gap;
+
+  auto& st = s_eye_gap[name];
+  st.hd = g.hd;
+  st.gain = g.hd ? cap.gain : 1.f;
+  st.span = g.span;
+  st.bind_gap = g.bind_gap;
+  st.frames++;
+  st.att_frames += damped ? 1 : 0;
+  st.k_min = std::min(st.k_min, k);
+  st.raw_gap_min = std::min(st.raw_gap_min, raw_gap);
+  st.gap_min = std::min(st.gap_min, out_gap);
+  st.gap_sum += out_gap;
+  st.raw_grow_max = std::max(st.raw_grow_max, raw_grow);
+  st.grow_max = std::max(st.grow_max, out_grow);
+  if (s_eye_gap_trace) {
+    lg::info("[eyegap-f] n={} model={} raw_gap={:.2f} gap={:.2f} raw_grow={:.4f} grow={:.4f} k={:.4f}",
+             s_eye_gap_calls, name, raw_gap, out_gap, raw_grow, out_grow, k);
+  }
+}
+
+void eye_blerc_heartbeat() {
+  if (++s_eye_gap_calls % 600) {
+    return;
+  }
+  for (const auto& [nm, st] : s_eye_gap) {
+    if (!st.frames) {
+      continue;
+    }
+    lg::info(
+        "[eyegap] model={} hd={} gain={:.3f} frames={} damped={} span={:.2f} bind_gap={:.2f} "
+        "raw_gap_min={:.2f} gap_min={:.2f} gap_mean={:.2f} raw_grow_max={:.4f} grow_max={:.4f} "
+        "raw_close={:.4f} close={:.4f}",
+        nm, (int)st.hd, st.gain, st.frames, st.att_frames, st.span, st.bind_gap, st.raw_gap_min,
+        st.gap_min, st.gap_sum / (double)st.frames, st.raw_grow_max, st.grow_max,
+        st.bind_gap > 0.f ? 1.f - st.raw_gap_min / st.bind_gap : 0.f,
+        st.bind_gap > 0.f ? 1.f - st.gap_min / st.bind_gap : 0.f);
+  }
+}
+}  // namespace
+#endif
+
 void Merc2::model_mod_blerc_draws(int num_effects,
                                   const tfrag3::MercModel* model,
                                   const LevelData* lev,
@@ -415,6 +764,13 @@ void Merc2::model_mod_blerc_draws(int num_effects,
     const u32* i_data_end = i_data + effect.mod.blerc.int_data.size();
     blerc_avx(i_data, i_data_end, f_data, blerc_weights, m_mod_vtx_temp.data(), blerc_multiplier);
 
+#ifdef OG_FEAT_HD_MODELS
+    // Grecharged-hd-eye-scale round 2: measure the two eyes' edge-to-edge distance on the
+    // vertices that are about to be uploaded, and damp the DILATION mode on HD eyes only.
+    eye_blerc_measure_and_damp(model->name, effect, lev->level->merc_data.indices,
+                               m_mod_vtx_temp.data());
+#endif
+
     // and upload to GPU
     stats->num_uploads++;
     stats->num_upload_bytes += effect.mod.vertices.size() * sizeof(tfrag3::MercVertex);
@@ -424,6 +780,9 @@ void Merc2::model_mod_blerc_draws(int num_effects,
                    m_mod_vtx_temp.data(), GL_DYNAMIC_DRAW);
     }
   }
+#ifdef OG_FEAT_HD_MODELS
+  eye_blerc_heartbeat();
+#endif
 }
 
 // We can run into a problem where adding a PC model would overflow the

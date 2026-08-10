@@ -913,6 +913,39 @@
 ;; calm may never again be bought by killing motion.
 (define *phys-crun* (new 'static 'array float 576))
 (define *phys-canchd* (new 'static 'array float 576))       ;; per-chain THIS-FRAME own-anchor travel
+;; ---- (C16) THE FLOOR crun WAS NOT ---------------------------------------------------------------
+;; Owner 2026-08-10, on a build whose floors read hairrun=619.7 / chestrun=352.5: "les pans de veste
+;; NE BOUGENT PAS DU TOUT ; les meches de Keira sont ANCREES ; la poitrine de Keira completement
+;; statique." Both statements are true at once, and the arithmetic says why: `crun` above is a MAX of
+;; `dev` = |out - targ|, the deviation MAGNITUDE. A chain held at a CONSTANT offset of 352 units
+;; scores 352 while welded to the animation — which is precisely what "ancrees" describes. The tell
+;; was in the log the whole time and I read past it: chestrun printed 352.4841, the same digits, on
+;; every leg for three days. A measurement of a live oscillation does not repeat to four decimals; a
+;; deterministic constant does.
+;; Consequence, and it is the whole week: the three motion suppressors stacked in this file (calm
+;; ceilings, authored-priority suspension, collision clamps) could drive the sim to zero without
+;; reddening a single gate, because every calm ceiling is one-sided in the same direction and the
+;; only floor was blind to motion by construction.
+;; THE QUANTITY BELOW is the one my own memory already prescribes (magnitude-is-not-motion, and
+;; drift-metric-attribution rule 5): difference the WRITTEN OUTPUT frame to frame. Not the raw world
+;; position — a chain rigidly welded to a running character sweeps metres of world space per second
+;; and would score high while visually dead, the same false green wearing the opposite hat — but the
+;; PHYSICS OFFSET (out - targ), which divides the body carry out. A constant offset scores exactly 0.
+;; An oscillation scores its own per-frame travel. It cannot be maximised by holding still and it
+;; cannot be maximised by being carried.
+;;   cvsum/cvn = MEAN per-frame |offset(t) - offset(t-1)| over locomotion frames  -> `tvar`
+;;   cvmax     = the worst single frame, so a mean flattened by a long window is still readable
+;;   cdmax-cdmin = the SPREAD of the deviation over the same frames -> `dspan`, the dispersion the
+;;               spec asks for as "variance". The range, not the second moment, deliberately: E[d^2]
+;;               and E[d]^2 are both ~3.6e5 here and cancel to a small difference in 32-bit float
+;;               over thousands of frames, which is a precision trap on a metric whose entire job is
+;;               to distinguish "small" from "zero". The range has no such cancellation and detects a
+;;               constant exactly.
+(define *phys-cvsum* (new 'static 'array float 576))
+(define *phys-cvn*   (new 'static 'array int32 576))
+(define *phys-cvmax* (new 'static 'array float 576))
+(define *phys-cdmin* (new 'static 'array float 576))
+(define *phys-cdmax* (new 'static 'array float 576))
 ;; (C14-D) resolution jerk: per-link NET resolution displacement applied this frame — the VECTOR
 ;; sum of every correction any pass applied to the link (substep sweep, final sweep, cross-side,
 ;; model fallback, strand pass, mesh sweep), folded to a length at frame end. The window keeps the
@@ -976,6 +1009,18 @@
 (define *phys-slot-rjup* (new 'static 'array float 24))
 (define *phys-slot-rjdn* (new 'static 'array float 24))
 (define *phys-slot-rjtm* (new 'static 'array float 24))
+;; ---- (C16) THE THREE MOTION SUPPRESSORS, EACH AS A SHARE OF FRAMES ------------------------------
+;; The spec's last requirement, and the one that turns "the sim is dead" from a verdict into an
+;; address: each mechanism that can stop a chain moving must say how often it actually did. All
+;; three already had counters; none had a DENOMINATOR, so none could be read as a rate.
+;;   simcf    chain-frames actually simulated in the window — the denominator for all three
+;;   clampcf  chain-frames on which the jerk bound or the excursion ceiling actually bit for that
+;;            chain (jgcut/jdcut count LINK events, which cannot be turned into a share of frames)
+;; The other two divide counters that are already chain-frames: authhold (authored priority owns the
+;; chain) and rested (the calm rest state holds it). Bar from the spec: anything above ~20 % of
+;; frames is the culprit and gets loosened.
+(define *phys-slot-simcf* (new 'static 'array int32 24))
+(define *phys-slot-clampcf* (new 'static 'array int32 24))
 ;; (C14c) bisection steps for the mesh sweep's feasibility clamp. 6 steps = 1/64 of the link's own
 ;; deviation, i.e. under a unit for anything this sim actually moves.
 (defconstant PHYS-MESH-BISECT 6)
@@ -1741,6 +1786,12 @@
                                              ag c (logior (ash li 3) si) co))))))))
           (set! (-> *phys-crun* ci) 0.0)
           (set! (-> *phys-canchd* ci) 0.0)
+          ;; (C16) a re-bind is a fresh window for the temporal-variation floor too
+          (set! (-> *phys-cvsum* ci) 0.0)
+          (set! (-> *phys-cvn* ci) 0)
+          (set! (-> *phys-cvmax* ci) 0.0)
+          (set! (-> *phys-cdmin* ci) 0.0)
+          (set! (-> *phys-cdmax* ci) 0.0)
           (set! (-> *phys-crestd* ci) 0.0)
           (set! (-> *phys-ccalm* ci) 0)
           (set! (-> *phys-clenr* ci) 1000000.0)
@@ -1878,6 +1929,8 @@
     (set! (-> *phys-slot-rjup* slot) 0.0)
     (set! (-> *phys-slot-rjdn* slot) 0.0)
     (set! (-> *phys-slot-rjtm* slot) 0.0)
+    (set! (-> *phys-slot-simcf* slot) 0)
+    (set! (-> *phys-slot-clampcf* slot) 0)
     (set! (-> *phys-slot-resjerk* slot) 0.0)
     (set! (-> *phys-slot-meshpen* slot) 0.0)
     (set! (-> *phys-slot-mraw* slot) 0.0)
@@ -5806,7 +5859,11 @@
               (let* ((ci (+ cbase c))
                      (len (-> *phys-clen* ci))
                      (start (+ jbase (-> *phys-cstart* ci)))
-                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci)))))
+                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci))))
+                     ;; (C16) 1 = one of the two bounds below actually bit somewhere on this chain
+                     ;; this frame. jgcut/jdcut count LINK events and a chain has up to 24 links, so
+                     ;; they can exceed the frame count and cannot be read as a share of frames.
+                     (chit 0))
                 (when (and (> len 0)
                            (nonzero? (logand (-> *phys-cflags* ci) classmask))
                            (> (-> *phys-slot-frames* slot) 0))
@@ -5824,6 +5881,7 @@
                           ;; measured leak, not a preference — see the note at its own site.
                           (when (and (> gr PHYS-JERK-CAP) (<= (-> *phys-csettle* ci) 0))
                             (+! (-> *phys-slot-jgcut* slot) 1)
+                            (set! chit 1)
                             ;; scale the frame's offset CHANGE back to the cap. The corrected point
                             ;; slides along [out -> targ + ldev]: the zero-jerk carry position, i.e.
                             ;; where the link would be if it simply travelled with the animation.
@@ -5855,6 +5913,7 @@
                         (let ((dl (vector-length dn)))
                           (when (> dl PHYS-DEV-MAX)
                             (+! (-> *phys-slot-jdcut* slot) 1)
+                            (set! chit 1)
                             (when (> dl (-> *phys-slot-jdmax* slot))
                               (set! (-> *phys-slot-jdmax* slot) dl))
                             (vector-float*! dq dn (- (/ PHYS-DEV-MAX dl) 1.0))
@@ -5878,7 +5937,11 @@
                           (vector-! dq dn (-> *phys-ldev* jj))
                           (let ((gr (vector-length dq)))
                             (when (> gr (-> *phys-slot-rjpre* slot))
-                              (set! (-> *phys-slot-rjpre* slot) gr))))))))))
+                              (set! (-> *phys-slot-rjpre* slot) gr)))))))
+                  ;; (C16) one count per chain per frame on which a bound actually acted, which is
+                  ;; the only form of this number that divides into simcf to give a % of frames.
+                  (when (> chit 0)
+                    (+! (-> *phys-slot-clampcf* slot) 1)))))
             ;; the frame's pre-clamp pose, snapshotted ONCE so every pass blends from the same
             ;; reference (see *phys-out0*)
             (dotimes (j (-> *phys-slot-njoints* slot))
@@ -6128,6 +6191,12 @@
                      (len (-> *phys-clen* ci))
                      (start (+ jbase (-> *phys-cstart* ci))))
                 (when (nonzero? (logand (-> *phys-cflags* ci) classmask))
+                  ;; (C16) THE DENOMINATOR for the three suppressor shares. Taken here because this
+                  ;; fold is the one place that runs exactly once per ACTIVE chain per frame.
+                  (+! (-> *phys-slot-simcf* slot) 1)
+                  (let ((fvar 0.0)   ;; this frame's worst per-link offset CHANGE on this chain
+                        (fdev 0.0)   ;; this frame's worst per-link offset MAGNITUDE
+                        (fsamp 0))   ;; 1 = at least one link produced a differenced sample
                   (dotimes (i len)
                     (let ((jj (+ start i))
                           (tmv 0.0)
@@ -6158,12 +6227,34 @@
                           (when (> (- gd) (-> *phys-slot-rjdn* slot))
                             (set! (-> *phys-slot-rjdn* slot) (- gd))))
                         (vector-! dd dn (-> *phys-ldev* jj))
-                        (let ((nj (vector-length dd)))
+                        (let ((nj (vector-length dd))
+                              (dvl (vector-length dn)))
                           (when (> nj (-> *phys-slot-resjerk* slot))
                             (set! (-> *phys-slot-resjerk* slot) nj)
-                            (set! (-> *phys-slot-rjtm* slot) tmv))))
+                            (set! (-> *phys-slot-rjtm* slot) tmv))
+                          ;; (C16) the honest floor's per-frame sample, under the SAME guard as
+                          ;; resjerk on purpose: frame 0 has no predecessor, a settle ramp is being
+                          ;; deliberately moved onto its pose, and a cut frame measures the
+                          ;; animation rather than the physics.
+                          (set! fsamp 1)
+                          (when (> nj fvar) (set! fvar nj))
+                          (when (> dvl fdev) (set! fdev dvl))))
                       (vector-copy! (-> *phys-ldev* jj) dn)
-                      (vector-copy! (-> *phys-ltarg* jj) (-> *phys-targ* jj)))))))
+                      (vector-copy! (-> *phys-ltarg* jj) (-> *phys-targ* jj))))
+                  ;; (C16) fold this frame into the chain's window — LOCOMOTION frames only, the
+                  ;; identical gate `crun` uses, so the honest floor and the retired magnitude one
+                  ;; are graded on exactly the same frames and can be compared side by side.
+                  (when (and (> fsamp 0)
+                             (<= (-> *phys-csettle* ci) 0)
+                             (> (-> *phys-canchd* ci) PHYS-RUN-ANCH))
+                    (set! (-> *phys-cvsum* ci) (+ (-> *phys-cvsum* ci) fvar))
+                    (+! (-> *phys-cvn* ci) 1)
+                    (when (> fvar (-> *phys-cvmax* ci)) (set! (-> *phys-cvmax* ci) fvar))
+                    (when (> fdev (-> *phys-cdmax* ci)) (set! (-> *phys-cdmax* ci) fdev))
+                    ;; cvn was just incremented, so ==1 is this window's first sample: it seeds the
+                    ;; minimum without needing a sentinel value that a real reading could collide with.
+                    (when (or (= (-> *phys-cvn* ci) 1) (< fdev (-> *phys-cdmin* ci)))
+                      (set! (-> *phys-cdmin* ci) fdev)))))))
             (when (> frame-maxdev (-> *phys-slot-maxdev* slot))
               (set! (-> *phys-slot-maxdev* slot) frame-maxdev))
             (when (> frame-maxvel (-> *phys-slot-maxvel* slot))
@@ -6610,6 +6701,55 @@
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-crun* (+ cbase c)))
                 (set! (-> *phys-crun* (+ cbase c)) 0.0))
               (format 0 "~S~%" *phys-line-buf*)
+              ;; ---- CYCLE-16 SEVENTH WINDOW LINE -------------------------------------------------
+              ;; Its own line rather than more fields on line 6, for two reasons that are not style:
+              ;; *phys-line-buf* is 2048 chars and line 6 already carries a 24-entry list, and the
+              ;; leg script reads a per-chain list by taking the substring from its stem to the end
+              ;; of the line — so every list added after `crun:` lengthens what that scan walks.
+              ;; Field stems here are new and none is a substring of any field on lines 1-6:
+              ;;   simcf    chain-frames simulated this window = the DENOMINATOR of the three shares
+              ;;   authcf   of those, how many the AUTHORED animation owned (suppressor 1)
+              ;;   clampcf  ...how many a jerk/excursion bound acted on (suppressor 2)
+              ;;   restcf   ...how many the calm rest state held (suppressor 3)
+              ;;   cvar:    per chain, MEAN per-frame |offset(t)-offset(t-1)| on locomotion frames.
+              ;;            THIS is the motion floor. A welded chain reads 0 here no matter how far
+              ;;            from its rest pose it is welded — which is the entire point of the line.
+              ;;   cvmx:    per chain, the worst single locomotion frame
+              ;;   cdsp:    per chain, spread (max-min) of the deviation over the same frames — the
+              ;;            dispersion the spec calls variance; 0 with cvn>0 = a constant = INERT
+              ;;   cvn:     locomotion frames sampled per chain. cvn=0 means NOT MEASURED HERE, and
+              ;;            it must never be read as calm: it is this line's tested=0 confession.
+              (format (clear *phys-line-buf*)
+                      "[HD-PHYS7] ag=~S simcf=~D authcf=~D clampcf=~D restcf=~D"
+                      ag
+                      (-> *phys-slot-simcf* slot)
+                      (-> *phys-slot-authhold* slot)
+                      (-> *phys-slot-clampcf* slot)
+                      (-> *phys-slot-rested* slot))
+              (format *phys-line-buf* " cvar:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c
+                        (if (> (-> *phys-cvn* (+ cbase c)) 0)
+                            (/ (-> *phys-cvsum* (+ cbase c)) (the float (-> *phys-cvn* (+ cbase c))))
+                            0.0)))
+              (format *phys-line-buf* " cvmx:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-cvmax* (+ cbase c))))
+              (format *phys-line-buf* " cdsp:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c
+                        (- (-> *phys-cdmax* (+ cbase c)) (-> *phys-cdmin* (+ cbase c)))))
+              (format *phys-line-buf* " cvn:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~D" c (-> *phys-cvn* (+ cbase c)))
+                (set! (-> *phys-cvsum* (+ cbase c)) 0.0)
+                (set! (-> *phys-cvn* (+ cbase c)) 0)
+                (set! (-> *phys-cvmax* (+ cbase c)) 0.0)
+                (set! (-> *phys-cdmin* (+ cbase c)) 0.0)
+                (set! (-> *phys-cdmax* (+ cbase c)) 0.0))
+              (format 0 "~S~%" *phys-line-buf*)
+              (set! (-> *phys-slot-simcf* slot) 0)
+              (set! (-> *phys-slot-clampcf* slot) 0)
               (set! (-> *phys-slot-resjerk* slot) 0.0)
               (set! (-> *phys-slot-jgcut* slot) 0)
               (set! (-> *phys-slot-jtfall* slot) 0)
