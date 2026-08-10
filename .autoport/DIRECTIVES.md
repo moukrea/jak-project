@@ -24,6 +24,17 @@ SCOPE-SERIAL: 1
   un hors-périmètre, sauf dans la section explicite des dettes différées.
 * **ÉTAPE 1 BLOQUANTE** : la salle de test (`SPEC` §11). Facilité `phys-room` dans
   `goal_src/jak1/pc/*.gc` + tableau `.autoport/reports/Grecharged-secondary-motion/keira-room-table.txt`.
+* **ZONE VIDE, PAS UN NIVEAU PEUPLÉ** (owner 2026-08-11, en regardant tourner le build x86 :
+  « je le vois spawn dans la hutte du Sage près de Keira et tourner en rond, lancer une nouvelle
+  partie… je comprends pas pourquoi vu qu'on est sur une salle dédiée »). La salle spawne bien
+  Keira **par nom** (aucune entité, aucun déplacement vers un PNJ), mais elle le fait dans
+  `village1-hut` : le décor, la vraie Keira du monde et la caméra de jeu sont là, ce qui rend le
+  test indiscernable d'une validation à l'aveugle. Héberger la salle dans une zone **vide** —
+  aucun autre acteur, caméra fixe sur le sujet — et l'annoncer dans le tableau (`host=`).
+* **CONTRÔLE POSITIF = LE COMPTEUR MONTE.** `inject=600` a donné `meshpen` 0,4986 armé contre
+  306,70 désarmé : le défaut a fait *baisser* le chiffre qu'il devait faire monter. Tant que
+  l'injection ne fait pas monter la pénétration d'un facteur ≥3, tout zéro de cet instrument est
+  vide (gate ROOM).
   Tant qu'elle n'existe pas, **aucun autre travail n'est autorisé** : ni remplissage de
   paramètres, ni gates existantes, ni réglage de style. Le validateur échoue en première ligne.
 * Substrat : **x86 d'abord** (REPL, itération en secondes). Le device Redmi `eae4df44` sert à
