@@ -228,3 +228,43 @@ un seul gate. Toute la semaine de « verts » repose sur cette erreur de défini
   * ET LES TROIS SUPPRESSEURS DOIVENT ÊTRE QUANTIFIÉS : % de frames où la physique est suspendue par
     la priorité anim, % où le clamp de collision a borné le déplacement, % où le gel de calme est
     actif. Si l'un dépasse ~20 % des frames, c'est lui le coupable et il faut le desserrer.
+
+## 17. DIRECTIVE DE RÉÉCRITURE (superviseur 2026-08-10, sur ordre owner « fais le putain de travail
+## quoi qu'il en coûte »)
+CONSTAT CHIFFRÉ, l'owner a raison : `jak-hd-physics.gc` fait **6984 lignes** après **54 commits** en
+six jours, et le rapport de cette semaine documente **19 défauts silencieux trouvés DANS le code
+censé être déjà correct** (règle either-end qui jetait 532 volumes, masques miroirs sur 7 modèles,
+compteur `cres` qui n'a jamais fonctionné, double-blend qui écrasait `meshpen`, `crun` qui mesurait
+la magnitude au lieu du mouvement, `colskip` sur 202 chaînes, filtres `chains=` sur 2384 volumes...).
+Ce n'est plus un problème de réglage : chaque cycle a empilé une compensation sur le défaut du cycle
+précédent, et les corrections interfèrent entre elles. On arrête de rapiécer.
+
+### ON JETTE : le CŒUR DU SOLVEUR et TOUTE l'instrumentation.
+### ON GARDE (validé indépendamment, ne pas retoucher) :
+  * le format de données `physics_chains.txt` (chaînes, familles A/B, params) — bon et rechargeable
+    à chaud (20 Ko, `adb push` + toggle = boucle en minutes) ;
+  * le pipeline de VOLUMES DÉRIVÉS DU MESH (fitter offline, rayons par maillon depuis l'étendue
+    réelle des sommets skinnés) — c'est la seule partie neuve et réellement mesurée ;
+  * les tables de reskin / autorité de peau ;
+  * cette SPEC (§1-§16) comme unique source d'exigences.
+
+### RÉÉCRITURE — UN SEUL PASSAGE, LISIBLE, DANS CET ORDRE
+  1. intégrer (ressort + gravité selon la famille) ;
+  2. contraindre (longueur invariante, cône) ;
+  3. collisionner (corps dérivé du mesh + chaîne↔chaîne, la collision a le DERNIER MOT) ;
+  4. écrire le bone.
+AUCUN suppresseur de mouvement au départ : priorité anim, gel de calme, clamp de jerk, sommeil,
+hystérésis — TOUS ABSENTS. On ne les rajoute QU'UN PAR UN, chacun justifié par un défaut MESURÉ, et
+chacun accompagné de son % de frames actives. Un suppresseur qui dépasse ~20 % des frames est refusé.
+
+### INSTRUMENTATION — REFAITE, UNE SEULE GRANDEUR PRIMAIRE
+La position ÉCRITE du joint, frame par frame. Tout le reste en dérive :
+mouvement = |pos(t) − pos(t−1)| ; inertie = variance ~0 pendant que l'acteur bouge ;
+pénétration = surface skinnée dans un volume ; jerk = pire |Δpos| en une frame.
+Rien d'autre. Pas de `dev`, pas de proxy, pas de compteur qui ne descende pas d'une position écrite.
+
+### ORDRE DE LIVRAISON — UN PERSONNAGE, JUGÉ PAR L'OWNER
+KEIRA D'ABORD, seule : mèches, cheveux, oreilles, poitrine, lunettes, bretelles. Réglée jusqu'à ce
+que l'OWNER dise oui sur elle. Puis Jak (pans de veste, col, oreilles, cheveux), puis le Maire, puis
+le cast via le banc (§14). Résoudre 60 modèles avant le premier « oui » est ce qui a produit six
+jours de faux verts.

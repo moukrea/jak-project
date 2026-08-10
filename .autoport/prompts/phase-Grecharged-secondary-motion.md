@@ -1,3 +1,12 @@
+# ⚠️⚠️ RÉÉCRITURE ORDONNÉE — LIRE SPEC §17 AVANT TOUTE CHOSE
+# Le solveur accumulé (6984 lignes, 54 commits, 19 défauts silencieux trouvés dedans) est JETÉ.
+# On garde: format de données, volumes dérivés du mesh, tables de reskin, la SPEC.
+# On réécrit: le coeur du solveur (4 étapes, ZÉRO suppresseur au départ) et TOUTE l'instrumentation
+# (une seule grandeur primaire: la position ÉCRITE du joint, frame par frame).
+# On livre: KEIRA SEULE d'abord, jusqu'au OUI de l'owner. Puis Jak, le Maire, puis le cast.
+# Le journal des cycles ci-dessous est de l'HISTOIRE — il documente ce qui a échoué, pas ce qu'il
+# faut refaire.
+
 # ⚠️ LA SPEC EST LE CONTRAT — LIRE D'ABORD `.autoport/prompts/SPEC-physique-secondaire.md`
 # Elle synthétise TOUS les retours owner (2026-08-04 → 08-08). Les sections « CYCLE N » ci-dessous
 # sont un JOURNAL historique : utile pour le contexte, mais EN CAS DE CONFLIT LA SPEC GAGNE.
