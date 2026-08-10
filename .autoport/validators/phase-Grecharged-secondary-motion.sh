@@ -142,9 +142,23 @@ for k in ('tipvar','rootdev','meshpen','jump'):
 # a chaque chiffre extreme") -- that is what tells us which anim breaks what
 w={m.group(1) for m in re.finditer(r'^worst\s+chain=(\S+).*\banim=\S+',t,re.M)}
 if len(w) < 10: die("%d chains carry a worst-case line naming the animation (>=10)" % len(w))
-# every zero needs a control that FIRED (owner, permanent)
-if not re.search(r'^ROOM-POSCONTROL:\s*fired\b.*[1-9]',t,re.M):
-    die("no 'ROOM-POSCONTROL: fired <nonzero>' -- a penetration counter that never fired is a vacuous zero")
+# every zero needs a control that FIRED (owner, permanent). "fired" means the
+# COUNTER ROSE, not that injections were attempted: the first run reported
+# 10080 injections with meshpen 0.4986 armed vs 306.6996 disarmed -- the defect
+# LOWERED the number it was meant to raise, which proves nothing at all. This
+# gate demanded the wrong thing and is repaired here, not relaxed.
+mpc=re.search(r'^ROOM-POSCONTROL:\s*fired\s+(\d+)\s+injections,\s*meshpen\s+([0-9.]+)\s+armed'
+              r'\s+vs\s+([0-9.]+)\s+disarmed,\s*rows\s+(\d+)',t,re.M)
+if not mpc: die("no parseable 'ROOM-POSCONTROL: fired N injections, meshpen A armed vs B disarmed, rows R'")
+inj,arm,dis,prows=int(mpc.group(1)),float(mpc.group(2)),float(mpc.group(3)),int(mpc.group(4))
+if inj <= 0: die("the control injected nothing")
+if prows < 100: die("the control leg produced %d rows: it did not run to completion, so its"
+                    " numbers describe a truncated run" % prows)
+if arm <= dis * 3.0:
+    die("the injected defect did NOT raise the penetration counter: %.4f armed vs %.4f disarmed"
+        " (need armed >= 3x disarmed). Either the injection does not create penetration, or the"
+        " counter does not see it -- both mean every zero this instrument reports is vacuous."
+        % (arm,dis))
 # the room must be a real facility in the tree, not a hand-written text file
 src=[f for f in glob.glob('goal_src/jak1/pc/*.gc') if 'phys-room' in open(f,errors='ignore').read()]
 if not src: die("no goal_src/jak1/pc/*.gc carries a 'phys-room' facility -- the table has no room behind it")
