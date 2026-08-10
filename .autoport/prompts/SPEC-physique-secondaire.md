@@ -304,3 +304,21 @@ représenter une épaule, une mâchoire, un torse, un pan de pantalon évasé.
   * Ce qui survit du pipeline précédent : rien de la géométrie. On garde uniquement l'idée du rayon
     PAR MAILLON dérivé de l'épaisseur locale du mesh, et le fait que la donnée mesh est lisible au
     runtime.
+
+## 19. LA RÈGLE QUI AURAIT ÉVITÉ LA SEMAINE (owner 2026-08-10 : « ça devrait être inné »)
+AVANT d'ajouter le moindre instrument, se poser UNE question :
+  « Si ce chiffre est VERT et que l'owner voit ENCORE le défaut, qu'est-ce qui l'expliquerait ? »
+Si une explication existe, LA MÉTRIQUE EST INADMISSIBLE. Un vert doit LOGIQUEMENT EXCLURE la plainte,
+sinon il ne mesure pas la plainte.
+Tous les instruments qui ont coûté la semaine échouaient à ce test, et c'était vérifiable AVANT
+livraison :
+  * `crun` vert + chaîne soudée      -> compatibles (décalage constant)              => inadmissible
+  * `fit-error` vert + mèche dans l'épaule -> compatibles (volume contient ses propres sommets)
+  * `resid=0` + ça traverse          -> compatibles (`push=0`, rien de testé)
+  * `xleg=0` + pans croisés          -> compatibles (paires non testées)
+  * `% frames actives` + sim morte   -> compatibles (mord rarement mais au bon moment)
+  * `meshpen=0` os-niveau + mesh qui traverse -> compatibles (mesure les os, pas la surface)
+COROLLAIRE : ne pas répondre à un rejet par un instrument de plus. Répondre en montrant que
+l'instrument EXISTANT excluait le défaut — ou en le remplaçant parce qu'il ne l'excluait pas.
+Le gel de §15 s'applique à MOI aussi : j'ai ajouté C16 et C18 après l'avoir décrété. Un nouveau gate
+ne se justifie que s'il remplace un instrument RÉFUTÉ, jamais s'il en rajoute une couche.
