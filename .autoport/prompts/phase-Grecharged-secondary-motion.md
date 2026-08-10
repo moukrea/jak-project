@@ -35,3 +35,10 @@ validée par l'owner.
 CONSÉQUENCE : les 59 autres modèles n'ont plus de physique pour l'instant. C'EST VOULU et l'owner
 l'a autorisé. Ne pas les réintroduire. Travailler uniquement sur Keira, avec un fichier assez petit
 pour être poussé à chaud sur device en quelques secondes.
+
+### ÉTAPE 1 BLOQUANTE : LA SALLE DE TEST (SPEC §11) — x86, MAINTENANT
+Ne pas chercher à valider Keira en jouant. Construire d'abord la salle de test décrite en SPEC §11 :
+spawn par nom, pilotage (accélérations/arrêts brutaux), cycle de TOUTES ses animations avec le nom
+attaché aux pires chiffres, changement d'INCLINAISON (l'exception de gravité famille A n'a jamais été
+testée), et rechargement à chaud des 32 chaînes.
+Substrat : **x86**, immédiatement — le device absent n'est PAS une raison d'attendre.

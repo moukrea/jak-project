@@ -942,12 +942,12 @@
     "Gmenu-flag-off": 1785886071.952773,
     "Grecharged-hd-models5": 1785898653.0176275,
     "Grecharged-hd-models4": 1785939731.6130211,
-    "Grecharged-secondary-motion": 1786383596.5370586,
+    "Grecharged-secondary-motion": 1786396455.30025,
     "Grecharged-hd-eye-scale": 1786170899.0463903,
     "Grecharged-title-logo-fullres": 1786153395.9536324,
     "Grecharged-materials-modern-parity": 1786167637.0459936
   },
-  "last_update": "2026-08-10T16:05:50.409889+00:00",
+  "last_update": "2026-08-10T18:36:38.559813+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -967,7 +967,7 @@
     "Grecharged-hd-models3": 2,
     "Grecharged-hd-models4": 1,
     "Grecharged-hd-eye-scale": 2,
-    "Grecharged-secondary-motion": 15
+    "Grecharged-secondary-motion": 16
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",

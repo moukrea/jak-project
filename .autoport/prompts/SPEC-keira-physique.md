@@ -80,3 +80,30 @@ de preuve device déclarée**. Une exécution unique doit montrer, **par chaîne
 racine ancrée + pointe mobile + zéro pénétration de surface (contrôle positif tiré) + pas de saut
 visible. Ensuite seulement : APK + pack sur jak-builds, et l'owner juge de ses yeux.
 Toggle menu + niveaux de précision inchangés (OFF ≡ stock).
+
+---
+## 11. LA SALLE DE TEST — ÉTAPE 1, BLOQUANTE (owner 2026-08-10 : « je vois pas comment tu peux
+## valider Keira en tapant à l'aveugle dans le jeu… un vrai test de physique quoi ! »)
+Valider une physique en marchant vers un PNJ dans le monde est absurde et c'est ce qui nous a coûté
+la semaine. AVANT tout verdict sur Keira, construire la salle de test et prouver la physique DEDANS.
+
+### CE QU'ELLE DOIT PERMETTRE
+  1. **SPAWN par nom** de l'acteur (`keira-hd`) dans une zone vide, devant la caméra.
+  2. **LE PILOTER** : translations, arrêts nets, marche/course, **accélérations et décélérations
+     brutales**, changements de direction — c'est ce qui excite les chaînes.
+  3. **CYCLER TOUTES SES ANIMATIONS** (liste complète de son art-group, pas un cycle de marche), avec
+     le NOM DE L'ANIMATION attaché à chaque chiffre extrême. C'est là qu'on voit quelle anim casse quoi.
+  4. **CHANGER SON INCLINAISON** : la pencher, la mettre tête en bas — c'est le seul moyen de tester
+     l'exception de gravité de la famille A (§2), qui n'a JAMAIS été exercée.
+  5. **RELIRE À CHAUD** ses paramètres (le fichier de chaînes ne fait plus que 32 chaînes) : régler,
+     re-pousser, re-mesurer en secondes.
+
+### SUBSTRAT : x86 D'ABORD, TOUT DE SUITE
+Le device n'est pas nécessaire pour ça et ne doit plus servir d'excuse : la salle de test tourne sur
+le build **x86** (REPL disponible, itération en secondes). Le device servira à confirmer, pas à
+découvrir. Dette de preuve device déclarée comme d'habitude.
+
+### CE QU'ELLE PRODUIT
+Par chaîne de Keira ET par animation : variation du joint écrit (mouvement), déviation de racine
+(ancrage), pénétration de surface, pire saut d'une frame — plus le nom de l'animation au pire cas.
+C'est ce tableau, et lui seul, qui autorise à dire « Keira est prête à être jugée ».
