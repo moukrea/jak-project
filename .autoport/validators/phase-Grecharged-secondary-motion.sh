@@ -483,15 +483,24 @@ grep -qiE "chain[- ]?(vs|to)[- ]?chain[^\n]{0,80}(bang|ear|goggle|chest|buckle|s
 
 
 # ---- CYCLE 14 (owner 17:30: 'massively toned down, nothing fixed') ----
-# A. motion floors DURING LOCOMOTION — calm may never again be bought by killing motion
-python3 - "$R" <<'PYC14A' || fail "C14-A: no locomotion motion floors (hairrun>=100, chestrun>=350) — a dead sim maxes every calm metric, the owner saw static hair while RUNNING"
+# A. MOTION FLOOR — REPLACED 2026-08-10. The old clause demanded hairrun>=100 / chestrun>=350,
+# which measured |pos - rest| (a welded chain maxes it while motionless) and was REFUTED by the
+# owner. Per SPEC 19 a refuted instrument is replaced, not kept. The new floor is the per-frame
+# variation of the WRITTEN joint plus an explicit verdict, and NO invented numeric threshold:
+# the gate requires every chain the owner named as static to be reported MOVING, not INERT.
+# A green here is logically incompatible with "les meches sont ancrees / poitrine statique".
+python3 - "$R" <<'PYC14A' || fail "C14-A: an owner-named chain is INERT (or has no written-joint variation verdict at all) — he reported bangs anchored, chest static, ears and collar frozen"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-h=[float(x) for x in re.findall(r'hairrun\s*=\s*([0-9.]+)',t)]
-c=[float(x) for x in re.findall(r'chestrun\s*=\s*([0-9.]+)',t)]
-if h: sys.stderr.write(f"  hairrun max={max(h)}\n")
-if c: sys.stderr.write(f"  chestrun max={max(c)}\n")
-sys.exit(0 if h and c and max(h)>=100 and max(c)>=350 else 1)
+named=['chestR','chestL','shirtL','shirtR','collarL','earL','bang','midhair','backhair']
+missing=[]; inert=[]
+for n in named:
+    m=re.search(n+r'[^\n]{0,160}?verdict\s*=\s*([A-Z]+)',t,re.I)
+    if not m: missing.append(n)
+    elif m.group(1).upper().startswith('INERT'): inert.append(n)
+if missing: sys.stderr.write("  no written-joint verdict for: "+", ".join(missing)+"\n")
+if inert:   sys.stderr.write("  INERT chains: "+", ".join(inert)+"\n")
+sys.exit(1 if (missing or inert) else 0)
 PYC14A
 # B. penetration audited at the SKINNED MESH surface, not link centers
 python3 - "$R" <<'PYC14B' || fail "C14-B: no mesh-surface penetration audit (meshpen with meshtested>0 and a mesh-level positive control) — the owner's eyes live on the mesh, resid lived on the bones"
