@@ -25,7 +25,12 @@ EXT=/storage/emulated/0/OpenGOAL/jak1/assets/recharged_assets/physics_chains.txt
 OUT=.autoport/reports/Grecharged-secondary-motion; mkdir -p "$OUT"
 LOG="$OUT/poscontrol_c14.log"; : > "$LOG"
 WATCH="${WATCH:-70}"
-INJECT="${INJECT:-140}"
+# (cycle 15) 140 -> 600. The cycle-15 per-frame bound and excursion ceiling run between the
+# injection and the mesh probe, so they also bound the DELIBERATE defect: at 140 the armed leg
+# read mraw=195.56 against a disarmed 220.21, i.e. the needle stopped separating. At 600 it
+# separates cleanly (451.48 vs 220.21) and the control fires as designed. Raising the injection
+# is the honest move here -- the alternative was to keep a needle that no longer moves.
+INJECT="${INJECT:-600}"
 say(){ echo "$*" | tee -a "$LOG"; }
 die(){ say "[poscontrol-c14 FAIL] $*"; exit 1; }
 
@@ -35,10 +40,43 @@ if $ADB -s "$S" shell dumpsys trust 2>/dev/null | grep -a '(current)' | grep -q 
   die "device PIN-LOCKED — wait for owner"
 fi
 
+PCS_DEV=/storage/emulated/0/OpenGOAL/jak1/settings.ini
+INI_BAK=$(mktemp); INI_TMP=$(mktemp)
 BAK=$(mktemp); ARMED=$(mktemp)
 $ADB -s "$S" pull "$EXT" "$BAK" >/dev/null 2>&1 || die "cannot pull the device's physics_chains.txt"
 say "device physics_chains.txt backed up ($(stat -c%s "$BAK") bytes)"
+# (cycle 15) THE CONTROL WAS RUNNING UNARMED, AND ITS OWN NUMBERS SAID SO: windows6=2,
+# injected=0, mraw=0, mfix=0, IDENTICAL on the armed and disarmed legs. It never set physics?
+# or physics-quality (so it ran on whatever the owner had left, tier could be 0 and the whole
+# mesh block is skipped at tier 0), it launched via `monkey` = MainActivity (which bypasses pack
+# extraction) and it never warped, so it watched a title screen where no chain is near a body
+# volume. A control that never fires proves exactly nothing -- the failure this very file exists
+# to prevent. It now stages itself the same way the device legs do.
+$ADB -s "$S" pull "$PCS_DEV" "$INI_BAK" >/dev/null 2>&1 || die "cannot pull owner settings.ini"
+say "owner settings.ini backed up ($(stat -c%s "$INI_BAK") bytes)"
+set_ini_pc(){ # [music]-trap-aware: existing key in place, new keys after recharged-enhanced-models?
+  local key="$1" val="$2"
+  if grep -q "^$key = " "$INI_TMP"; then sed -i "s|^$key = .*|$key = $val|" "$INI_TMP"
+  else sed -i "/^recharged-enhanced-models? = /a $key = $val" "$INI_TMP"
+       grep -q "^$key = $val$" "$INI_TMP" || die "could not insert $key"
+  fi
+}
+cp "$INI_BAK" "$INI_TMP"
+set_ini_pc 'recharged-master?' '#t'
+set_ini_pc 'recharged-enhanced-models?' '#t'
+set_ini_pc 'physics?' '#t'
+set_ini_pc 'physics-quality' 2
+$ADB -s "$S" push "$INI_TMP" "$PCS_DEV" >/dev/null 2>&1 || die "cannot push settings.ini"
+say "control staged: physics?=#t quality=2, village1-hut warp, LoaderActivity boot"
 cleanup(){
+  $ADB -s "$S" shell "setprop debug.opengoal.level.warp ''" >/dev/null 2>&1 </dev/null || true
+  $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos ''" >/dev/null 2>&1 </dev/null || true
+  if [ -s "$INI_BAK" ]; then
+    $ADB -s "$S" push "$INI_BAK" "$PCS_DEV" >/dev/null 2>&1 \
+      && say "cleanup: owner settings.ini byte-restored" \
+      || say "cleanup WARNING: could not restore owner settings.ini"
+  fi
+  rm -f "$INI_BAK" "$INI_TMP" 2>/dev/null || true
   $ADB -s "$S" push "$BAK" "$EXT" >/dev/null 2>&1 \
     && say "cleanup: device physics_chains.txt byte-restored" \
     || say "cleanup WARNING: could not restore the device physics_chains.txt"
@@ -57,9 +95,18 @@ run(){ # run <tag> <file>
   local LC="$OUT/poscontrol_c14_$TAG.logcat.log"
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
   $ADB -s "$S" push "$FILE" "$EXT" >/dev/null 2>&1 || die "cannot push $TAG physics_chains.txt"
+  $ADB -s "$S" shell setprop debug.opengoal.level.warp 'village1-hut' >/dev/null 2>&1 </dev/null
+  $ADB -s "$S" shell "setprop debug.opengoal.level.warp.pos '-130.50 34.50 202.41'" >/dev/null 2>&1 </dev/null
   $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
-  $ADB -s "$S" shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-  ( $ADB -s "$S" logcat -v brief > "$LC" 2>/dev/null ) & local LP=$!
+  # LoaderActivity, not `monkey` (MainActivity bypasses pack extraction); reader NOT in a
+  # subshell, so the kill below actually reaches it.
+  $ADB -s "$S" logcat -v brief > "$LC" 2>/dev/null & local LP=$!
+  $ADB -s "$S" shell am start -W -n "$PKG/.LoaderActivity" >/dev/null 2>&1 || true
+  local T0; T0=$(date +%s)
+  while [ $(( $(date +%s)-T0 )) -lt 420 ]; do
+    grep -aq 'LEVEL-WARP-SPAWN' "$LC" 2>/dev/null && break
+    sleep 8
+  done
   sleep "$WATCH"
   kill "$LP" 2>/dev/null || true; wait "$LP" 2>/dev/null || true
   local WIN INJ MRAW MFIX MESHP MTEST

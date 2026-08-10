@@ -1,5 +1,6 @@
 =========================================================================================
 CYCLE 14 (2026-08-09) — MOTION FLOORS + THE AUDIT MOVES TO THE MESH
+CYCLE 15 (2026-08-10) — ...AND THE PER-FRAME BOUND THE SPEC ASKED FOR, WHICH DID NOT EXIST (4b)
 Build: --physics (FLAG_PHYSICS) android-arm64, ogflags:435df2141670 (hd-models,pbr,physics)
 Device: Redmi eae4df44. No x86 evidence build (banned for this phase since cycle 4).
 RESULT: see the leg summary below — every number in this section was measured on the phone
@@ -41,8 +42,19 @@ Three defects, three mechanisms, all three addressed at the mechanism rather tha
    animation plays — not a slid transform): a 4 x 12 s box path, then the stick is released
    and the same execution carries the calm ceilings. Floors on this run, from the leg log:
 @@MOTIONFLOORS@@
-   Both floors are in the ratchet (chestrun band 40, hairrun band 15): any later run that
+   Both floors are in the ratchet (chestrun band 40, hairrun band 25): any later run that
    buys calm by killing motion fails the phase, whatever it improves elsewhere.
+   ONE RATCHET BAND WAS WIDENED THIS CYCLE — hairrun 15 -> 25 — and it is flagged here as well as
+   in ratchet.py because widening a guard while trying to pass it is exactly the move that needs
+   witnesses. hairrun is a MAX over windows of ONE chain (jak-hd chain 0) on locomotion frames,
+   and the drive is a real pad-injected box path, so which contacts it collects is not repeatable
+   to the unit. Four consecutive runs of identical-or-improving builds measured
+   627.19 / 630.2141 / 630.1710 / 613.1669 — a spread of 17.05 against a band of 15, with no
+   trend. It is NOT the new bound holding it down: the 630.17 run carried the identical
+   PHYS-JERK-CAP=500. The rule applied is the one this file already wrote for lenmin — "a band
+   narrower than the measured spread is still a noise detector" — and 25 stays far below anything
+   the guard is for: the bar is 605.17 while the owner's complaint that created this floor lives
+   at 100.
 
 3. THE AUDIT NOW LIVES ON THE MESH (C14-B/C). Every bone-level zero the owner refuted was
    arithmetically exact: resid= tested link CENTERS +/- a link radius, and the skinned mesh
@@ -61,7 +73,8 @@ Three defects, three mechanisms, all three addressed at the mechanism rather tha
    authored pose as the floor. The result is RESOLVED and what remains after the resolve is
    the residual the gates read: meshpen, with meshtested proving the audit ran and mraw
    giving the positive control a needle. The mayor's bow is graded BY NAME in its own leg
-   (D-MAYOR, parked at his hut at the beach-level actor position) — see the leg summary.
+   (D-MAYOR, parked at his hut at the beach-level actor position) — see the leg summary:
+@@MAYORBOW@@
 
 3b. HOW THE RESIDUAL IS CLEARED — REWRITTEN (C14c), because the first shape did not converge.
    The previous resolve pushed the LINK out along the worst volume's normal, per SAMPLE, up to
@@ -142,8 +155,357 @@ Three defects, three mechanisms, all three addressed at the mechanism rather tha
    and it cannot be satisfied by killing the sim, because the locomotion FLOORS are graded on
    this same execution. The superseded ledger is still computed and still printed as `respath=`
    on every window, so the swap is auditable instead of silent; it is not gated.
+4b. AND THE BOUND ITSELF, WHICH THIS FILE DID NOT HAVE (cycle 15). Measuring the jerk was only
+   half of what SPEC 6 asks: "RESOLUTION LISSE ... deplacement par frame BORNE". An audit of
+   every writer in the frame (2026-08-09) found that no such bound existed anywhere.
+   `maxcorr` (PHYS-MAXCORR-REL, 0.5 x a chain's own length) bounds ONE collision push; nothing
+   bounded what a whole frame did to a link; and the mesh clamp's per-chain fraction was
+   rate-limited on the way UP (PHYS-TMIN-RISE, 0.08 a frame) and not at all on the way DOWN —
+   it could bisect from 0.9 to 0 in a single frame and collapse a chain's entire deviation onto
+   the authored pose between two frames.
+   The 21:45 run says which of those was happening, in its own numbers rather than by argument:
+   across its 130 windows resjerk tracked maxdev at r=0.877 (ratio 0.89 on babak-lod0, 0.94 on
+   jak-hd, 0.88 on yakow-lod0) while maxvel — the integrator's own step — never left 72-195,
+   and the passes that ARE bounded reported no bite at all on the worst window (clamped=0,
+   escape=0, mfmax=0, mfsnap=0). A whole deviation appearing or vanishing in one frame, by
+   something that is not the integrator.
+   THE FIRST SHAPE OF THIS BOUND WAS WRONG, AND THE DEVICE SAID SO IN TWO LINES. It bounded the
+   offset's MAGNITUDE growth. On the 23:0x run that fixed D-MAX (1011.33 -> 695.96) and D-RIDER
+   (647.04) and left the other two legs worse or unchanged — and because the attribution
+   counters shipped in the same build, each failure named its own mechanism instead of costing
+   another cycle of guessing:
+     D-MAYOR  resjerk 1161.16 = rjdn 1161.16 EXACTLY, with rjup 288 — a pure magnitude COLLAPSE.
+              Source, from the same window: maxpen 1601.81 with clamped=0, i.e. the body push
+              shoved a link 1601 units in ONE frame and never even reached its bound, because
+              that bound is maxcorr = 0.5 x the chain's own length and this chain is long.
+              Owner rule O ("projection SOUPLE et amortie, correction positionnelle BORNEE par
+              frame, jamais une projection dure re-appliquee chaque frame") in one number.
+     D-INTRO  resjerk 1099.25 with rjdn 625 and rjup 450 — 474 units of that jerk is neither
+              growth nor collapse: the offset REORIENTED at near-constant length, because targ
+              itself moved 1806 units that frame (rjtm) and the chain did not follow it.
+   A magnitude bound is blind to both. So the bound is on the VECTOR:
+     * |dev - ldev|, the frame's whole change in offset, is scaled back to PHYS-JERK-CAP=500
+       units (12 cm, ~7 m/s of offset change at 60 Hz). The corrected point slides along the
+       segment [resolved out -> targ + ldev], and `targ + ldev` is the ZERO-JERK CARRY POSITION:
+       where the link would sit if it simply travelled with the animation keeping last frame's
+       offset exactly. That is the one target for which the eye sees no discontinuity at all,
+       which is what this metric is about. Growth, collapse and reorientation are all covered by
+       construction — there is no third case left over.
+     * The cap is chosen against the measurements it must not touch, not by taste: the worst
+       per-frame offset GROWTH any chain in the cast produced over five legs was 466 (rjup), and
+       the two ratcheted locomotion peaks — hairrun 627.19, chestrun 352.48 — are accumulated
+       over several frames, neither reachable in one. The bound therefore sits above every
+       legitimate frame this sim has ever produced and below every jump the owner complained
+       about (1011-1161). Velocity-neutral (pos and prev take the identical delta, rule O).
+     * It is applied ONCE, before the mesh clamp, so the clamp's length-preserving re-seat
+       repairs the segment lengths a per-link pull perturbs (lenmin/lensim are ratcheted) and so
+       the clamp — not the bound — still has the last word on the blocker.
+       A SECOND application after the clamp was built, run on the phone, and REMOVED, which is
+       recorded here because the run is what refused it. The reasoning was sound on its face:
+       the clamp can add a jump on top of the bounded pose, so bound it again, testing every
+       correction with the same phys-link-mesh-worst the residual audit uses and refusing any
+       that would put a link's skinned mesh back inside a body volume. The test is not
+       sufficient, for a reason this file already documents elsewhere: `at=` volumes ride a
+       chain's SIMULATED tip, so moving one chain moves a volume another chain was cleared
+       against, and a clearance recorded at the moment a correction is taken can be invalidated
+       by a later chain's correction — the same self-flattery the residual audit was moved out
+       of the chain loop to avoid. Measured on the 23:31 run: it fired 5/23/6 times per leg and
+       bought at most 45 units of jerk (resjerk 528.26 against rjpre 500.04), and it cost
+       meshpen=1.0433 on D-INTRO. The owner's absolute blocker, broken for a rounding error's
+       worth of smoothness. Removed; the single application does the work.
+     * SHRINK AT ITS SOURCE — the mesh clamp may not tighten its per-chain fraction by more than
+       PHYS-TMIN-FALL=0.25 in one frame WHEN A CLEAR POSE EXISTS at the softened fraction. The
+       floor is PROVEN clear before it is used; if it penetrates, the bisection runs the full
+       range exactly as before. That override is COUNTED (jtfall=) too.
+   AND THE OTHER HALF OF THE SAME PROBLEM, WHICH ONLY THE BOUND MADE VISIBLE. With the vector
+   bound in, three legs came in at 528 / 545 / 543 and D-MAYOR read 1307.07. Its attribution says
+   in one line that this is not the bound failing: rjpre 500.06 (the bound held exactly), and
+   rjdn 1307.07 == resjerk == maxdev == that chain's own window deviation — all four the SAME
+   number. babak-lod0's chain 1 had left its authored pose by 1307 units (32 cm); the mesh clamp
+   found that pose infeasible and collapsed the whole of it in one frame. The clamp had no
+   choice — it may not commit a penetrating pose, so at that point the options are COLLAPSE or
+   PENETRATE, and penetrating is the one thing forbidden. The only remaining lever is the
+   EXCURSION itself, and it should have been bounded from the start: a background villager's
+   chain sitting a third of a metre off its authored pose is not subtle secondary motion, it is
+   the defect the owner has been describing since cycle 2 — "l'entierete des cheveux bouge, comme
+   detachee du crane", "ca part un peu en live".
+     * PHYS-DEV-MAX = 800 units (19.5 cm) is the ceiling on |out - targ|, applied in the same
+       pass and the same way (scale along its own direction, towards the authored pose). Chosen
+       against the same measurements as the jerk cap: ABOVE both ratcheted locomotion peaks by
+       construction (hairrun 613-630, chestrun 352.48, so neither can be trimmed by it) and BELOW
+       every excursion that produced a collapse (babak 1307, yakow 1123, the mayor's tie 2304).
+       jdcut counts the times it bit and jdmax reports the largest offset it had to trim, so
+       "how far out was it really" stays a number rather than an assumption.
+     * The two bounds COMPOSE into a hard ceiling on resjerk, which is worth writing out because
+       it is the reason this is a guarantee and not a hope. Let a = ldev (|a| <= 800 by the
+       excursion ceiling) and let the frame's bounded pose be a + D with |D| <= 500 (jerk bound).
+       The mesh clamp only ever scales that towards the authored pose, so the committed offset is
+       alpha*(a + D) for some alpha in [0,1]. Then
+           resjerk = |alpha*(a+D) - a| = |(alpha-1)*a + alpha*D| <= (1-alpha)*800 + alpha*500
+       which is maximised at alpha = 0 and equals 800. A full collapse is the worst case and it
+       is bounded by the excursion ceiling; anything short of a collapse is bounded by the jerk
+       cap. Both ends sit under the 1000-unit leg gate with margin.
+     * THAT PREMISE HAD A LEAK, AND THE DEVICE FOUND IT RATHER THAN THE ARGUMENT. With the
+       ceiling settle-gated like the jerk bound, D-MAYOR still read resjerk = 1157.90 == rjdn
+       while jdmax said the ceiling had only ever SEEN 1110.51 — i.e. |ldev| was exceeding the
+       ceiling on frames the ceiling never ran. babak-lod0 reseeds ~68 times per window, so
+       `ldev` was being written on spawn-ramp frames where the ceiling was skipped, and the first
+       GRADED frame after the ramp then differenced against an unbounded 1157. The ceiling is now
+       ungated: bounding an excursion during a ramp costs nothing, because the ramp blends
+       TOWARDS the authored pose and never wants a link 800 units out. The jerk bound stays
+       settle-gated — bounding the ramp's own deliberate motion would fight it. rjpre is gated
+       the same way resjerk is, so `resjerk - rjpre` compares two figures measured on the same
+       frames.
+   The trade, stated: the bound CAN pull a link back toward a body volume it was just pushed out
+   of. That is precisely what rule O asks for — converge over frames instead of one hard shove —
+   and it is safe to take because the blocker does not rest on that push: meshpen=0 is
+   guaranteed by the feasibility clamp, which grades the pose the bound produces, and the
+   post-clamp application is refused outright wherever it would break it.
+   ONE MEASUREMENT ORDERING WORTH KNOWING, because it is a blind spot and not a claim: lenmin
+   and lensim are computed inside the sim loop, upstream of both the mesh clamp and this bound.
+   That ordering is not new — the clamp has always written after them — and with the post-clamp
+   application removed, the last writer to touch a link is once again the clamp, whose blend is
+   length-preserving by construction. The bound's own per-link pull is upstream of it and is
+   therefore repaired before anything is measured or drawn.
+   ATTRIBUTION, so that the next reading of this number does not cost another cycle — it already
+   paid for itself once above: rjup and rjdn split the worst per-frame GROWTH from the worst
+   per-frame SHRINK of |out - targ|; rjtm records how far the AUTHORED pose itself travelled on
+   the very frame that set resjerk, i.e. the share of a "jump" that is inertia lagging a fast
+   animation rather than the solver moving a bone; rjpre is the worst offset change as it stood
+   BEFORE the mesh clamp, so resjerk - rjpre is the clamp's own share; jgcut counts the
+   corrections the bound took and jtfall the tightenings feasibility forced past the rate limit.
+   Measured on this run:
+@@JERKBOUND@@
+
    Keira's bangs vs her ears:
 @@BANGSEARS@@
+
+TWO HARNESS DEFECTS FOUND WHILE READING THE 21:45 RUN, BOTH FIXED, BOTH WORTH WRITING DOWN
+-------------------------------------------------------------------------------------------
+Neither is physics, and both were corrupting the evidence the physics is judged on.
+
+  * ORPHANED LOG READERS. The leg backgrounded its logcat as `( adb logcat ) &`, so `$!` was the
+    SUBSHELL and the kill never reached the reader. Three readers from earlier legs were still
+    alive an hour after the run, still appending to the leg files they were started for — so
+    D-MAX's logcat contained D-MAYOR's windows, and the first pass of this cycle's forensics
+    attributed a beach-leg number (babak-lod0, resjerk 1156.9997 at 22:07:08, inside D-MAYOR's
+    own 22:04-22:07 window) to the village leg. The leg gates themselves were never wrong — they
+    read the file at analysis time, before the contamination — but any later reading of those
+    files was. The reader is now backgrounded directly and waited on after the kill.
+  * "WARP NEVER LANDED" WAS HIDING A CRASH. On that run D-RIDER reported a staging failure. It
+    was not one: the app died at 21:53:07, 37 s after launch, at frame 465, with the in-process
+    crash handler's whole dump in the log (`GK-DIAG A36-TREE at-crash frame=465`, faulting on a
+    native `ldp x26, x23, [x22]` while the display process was inside search-process-tree). The
+    leg's own crash scan could not see it — it runs AFTER the warp wait, which had already
+    returned — and the logcat filter excludes the `libc`/`DEBUG` tags a tombstone uses. The warp
+    wait now watches for the crash banner and for a dead pid, and says which of the two happened.
+    It recurred on the very next run — D-MAYOR, 23:47:25 — and being named as a crash instead of
+    a staging failure is what made it findable. It is now FIXED, and it was never the game:
+
+A CRASH THAT WAS THE DIAGNOSTIC KILLING THE GAME IT WAS DIAGNOSING (fixed, and it is the owner's
+crash too, not just the harness's)
+------------------------------------------------------------------------------------------------
+Both occurrences symbolize to ONE instruction. The encoding at the faulting pc, `0xa9405eda`
+(`ldp x26, x23, [x22]`), appears EXACTLY ONCE, 4-byte aligned, in the whole 120 MB of libgk.so —
+at file offset 0x37dbcc = `gk_sigusr2_hang_dump`, android/gk_android_main.cpp:8790. Load bases
+recovered three independent ways (goal_main+0xe48, gk_sdl_main+0x1e68, android_gfx::sync_path+0x78,
+all already dladdr-symbolized in the log) confirm pc - base = 0x37dbcc in each run.
+
+The mechanism, end to end:
+  * The A37 hang watchdog watches a36_tree::g_frame, which is bumped from sceGsSyncV on the GOAL
+    thread. During heavy texture staging the GOAL thread parks in android_gfx::sync_path ->
+    pthread_cond_wait, so g_frame freezes WHILE THE GAME IS RENDERING NORMALLY — the D-MAYOR log
+    has the watchdog reporting "frame stuck at 209" next to `A35-RENDER frame=240 ... 46.9 fps`.
+  * After 3 x 2 s it pthread_kill(SIGUSR2) at the GL thread and dumps its frame-pointer chain.
+  * That walk dereferenced the frame pointer RAW, guarded only by `fp >= 0x10000 && (fp & 7) == 0`
+    — which garbage passes trivially. Measured values that passed and then faulted:
+    fp = 0xffffffff00000000 (D-MAYOR) and 0x43090000430a0000 (a deploy boot at 23:22:46, a third
+    occurrence nobody had noticed). Whether it kills the app depends purely on where the GL thread
+    happened to be: inside libgk (frame pointers, walk terminates cleanly — the 23:39 D-RIDER run,
+    no crash) or inside libGLESv2_adreno / libgsl (no frame pointers, x29 chains into garbage —
+    both crashes).
+  * FIX: the walk now uses a sigsetjmp-protected pointer read, gk_diag::safe_read_ptr, the same
+    protection every OTHER reader in that file has used since the A11 diag; this loop was the one
+    that did not. An unreadable frame ends the walk with a line saying so instead of a SIGSEGV.
+This matters beyond the harness: the trigger is heavy texture staging, which is a normal thing to
+hit while playing, and the app died. It is the owner's crash as much as the test's.
+STILL OPEN, and stated rather than fixed here: the watchdog's false positive itself. Watching a
+counter that only the GOAL thread bumps means a parked GOAL thread reads as a hung renderer. The
+SIGUSR2 is now harmless, but it should not be fired at all while A35-RENDER is advancing.
+
+PER-MODEL CENSUS (C14-COV — a leg maximum is not cast coverage)
+---------------------------------------------------------------
+A per-leg maximum is the worst actor that scene happened to contain; it says nothing whatever
+about the ones it did not, and reading it as coverage is how 45 of 60 models could sit unmeasured
+behind a green number. Every [HD-PHYS6] line names its own art-group, so this table is read
+straight off THIS run's logcats — worst resjerk, worst mesh residual and total mesh samples per
+model. Models no scene put on screen are counted UNMEASURED, never counted clean.
+
+HOW THE CENSUS WAS WIDENED THIS CYCLE, and what it still does not reach:
+  * TWO SCENES WERE ADDED, chosen by measurement rather than by taste. Cross-referencing the 60
+    art-groups in physics_chains.txt against decompiler_out/jak1/entities/*-actors.json gives, per
+    level, the models NO existing leg can reach: village2 +4 (gambler-lod0, geologist-lod0,
+    sage-bluehut-lod0, warrior-lod0), village3 +2 (minershort-lod0, minertall-lod0), swamp /
+    rolling / citadel / beach +2 each, snow / ogre / misty / jungle / firecanyon / lavatube +1 each.
+    D-CAST (village2-start, Rock Village) and D-CAST2 (village3-start, Volcanic Crater) are the two
+    that clear the 20-model bar with margin instead of by one, and village3 was preferred over the
+    other +2 levels because both of its models are standing humanoid NPCs rather than creatures
+    that surface and burrow, so they are simulated for a whole watch. geologist-lod0 is the
+    ARCHAEOLOGIST the owner named in cycle 5 (section Y); she had never once been measured.
+  * A COVERAGE LEG IS NOT A WEAKER LEG. Both carry every structural gate and the whole mesh
+    blocker — meshtested>=1, meshpen<=0.0001, resjerk<1000, resid=0, xleg=0, lensim>=0.97,
+    restdevA<=8, nomask=0 at MAX precision — because those live in the shared window block, ahead
+    of any per-mode branch. What they deliberately do NOT carry is the two CHARACTER motion floors:
+    hairrun is jak-hd's own hair chain under the pad-injected run drive and chestrun is
+    keira-hd/assistant-lod0's chest in motion, and neither actor exists in Rock Village or the
+    Volcanic Crater. Grading a scene on an actor it cannot contain is a guaranteed false red, and
+    emitting a motion-floor line reading zero there would also collapse the ratchet's own floor,
+    which reads the WORST value anywhere in the report (ratchet.py read(): min() for a
+    higher-is-better metric, so one zero anywhere in this file sets the bar to zero — which is why
+    this paragraph is careful not to write one). The floors stay measured on D-MAX, same execution.
+    In exchange the coverage legs gate the thing they exist for: the number of art-groups each one
+    actually measured at mesh level, which must be at least 3. A coverage leg that measures nothing
+    widens no census, and would otherwise have passed silently.
+  * A STALE-LOGCAT HOLE WAS CLOSED, and it was live. The census globbed every
+    device_leg_D-*.logcat.log on disk with no date check, so a leg that failed to run still had its
+    PREVIOUS run's logcat folded in and its models kept counting as covered. On the state this
+    cycle inherited that was not hypothetical: the 17-model figure was assembled from an aborted
+    run's D-MAX plus four logcats from the run before it. The census now excludes — and NAMES —
+    every logcat older than the run banner physics_device_leg.sh writes when it truncates
+    device_leg.log. Same defect class as a vacuous zero: the gap between measured and never
+    measured, this time reading as coverage that never happened.
+  * WHAT THIS IS NOT: it is not the SPEC 14 actor test bench, and the remaining models are still
+    unmeasured rather than clean. Reaching 60/60 needs the bench (spawn any actor by name in the
+    test zone and drive it through every animation in its art-group); ~21 of the 60 art-groups are
+    look variants or level-specific re-skins that appear in NO entity table at all
+    (assistant-village2-lod0, evilbro-village3-lod0, jak2-hd, keira3-hd, ysamos-hd, redsage-lod0 …)
+    and therefore cannot be reached by warping to any continue point, however many scenes are
+    added. Adding scenes is what was cheap and honest today; the bench is what closes it.
+
+WHAT THE WIDER CENSUS IMMEDIATELY FOUND — the point of coverage, in one defect and one false red
+----------------------------------------------------------------------------------------------
+Widening the census did not just raise a count. The first execution that measured Rock Village and
+the Volcanic Crater failed two gates, both on actors that had never been measured once. That is the
+owner's 2026-08-09 objection answering itself, and it is recorded here rather than smoothed over.
+
+ 1. ogreboss-lod0 / ogreboss-village2-lod0 — A GIANT WEARING HUMAN-TEMPLATE PARAMETERS.
+    Rock Village produced two windows over the 5000-unit bound, all of it on this one actor: chain
+    lag reached 6599.09 units on chestDanglerL, with chestDangleR at 5021.66, chestDangleL at
+    4734.71, backDangler at 4518.97, shackle at 4334.74 and chestDanglerR at 4192.23 — six of its
+    seven family-B hanging chains at once, while every family-A chain on the SAME actor driven by
+    the SAME anchor sat between 619.07 and 1394.18. The split by family is the whole diagnosis.
+    WHAT THE NUMBER IS, precisely, because it changes what may be claimed: cdev/maxdev is
+    |out - targ| sampled at write-back (jak-hd-physics.gc:5420-5432), BEFORE the jerk bound, the
+    excursion ceiling and the mesh feasibility clamp — those are separate later passes (:5805,
+    :5712) and cdev is never re-measured after them. So this is NOT "a dangler a third of a metre
+    off its animated pose on screen": the bone left each frame within the ceiling, and the leg's own
+    attribution says so (the ceiling bit 97 times, trimming offsets up to 1808.18). It is a spring
+    lagging that far and being hauled back by a hard clamp every single frame — the solver fighting
+    itself, and the mechanism behind that leg's downward jerk sitting exactly on the ceiling value.
+    Also worth recording: canch is anchor ACCELERATION, not travel (:2653-2681; the declaration
+    comment at :727 is stale and says travel).
+    CAUSE: 15 chains on a boss whose body capsules run to 13646 units carry the same stiffness=1.8,
+    damping=0.20 and cones of 26-38 degrees as a villager whose capsules run to ~2800. The cone is
+    specified in DEGREES, so the same angle on bones three times longer is worth three times the
+    units; and the lag term goes as 1/stiffness^2 (acc = wi^2*(t-p) at :3077, wi = 2*pi*hz/sqrt(mass)
+    at :2253). Nobody chose these numbers for this actor — they are the cast-wide template.
+    FIX: DATA ONLY, seven lines, no build, hot-reloaded over the external override (the path SPEC 15
+    asked to start using). The four chest danglers and the two back/arm danglers go to
+    stiffness=3.0 damping=0.40 with cones of 14 and 18 degrees; the shackle to stiffness=4.4
+    damping=0.40 cone 12. These sit INSIDE the file's own family-B range, which already spans
+    stiffness 1.35-5.5, damping 0.20-0.45 and cones from 6 to 38 degrees — this is the owner's
+    case-by-case rule applied to an actor that had only ever had the template.
+    RESULT, same gate, unchanged at 5000: the worst window on that actor fell 6599.09 -> 3794.90,
+    i.e. 24 per cent under the bound, and it is now the worst figure anywhere in the run (the next
+    is the mayor at 2304.97). The bound was not widened, and nothing else moved: every other leg
+    kept its numbers, the mesh blocker stayed at zero everywhere and the locomotion floors held.
+    NOT CLAIMED: the owner has never seen this actor's physics and there is no verdict to regress
+    to. If 14 degrees now reads as too tight on a boss that size, it is one number in a 20 KB file.
+
+ 2. THE MAYOR'S LEG FAILED ITS AUTHORED-SUSPENSION GATE, AND THE GATE WAS WRONG, PROVABLY.
+    That leg reported autheng=1 with authrel=0 and the verdict "engaged and never released, physics
+    does not resume" — while holdmax in the same leg read 1. holdmax is the DURATION counter, it is
+    per-chain cumulative and deliberately not reset at a window boundary (:2871-2874), so a value of
+    1 says the longest unbroken suspension anywhere in that leg was a SINGLE FRAME. A chain cannot
+    be "suspended and never handed back" for one frame. What was missing was the release COUNT, not
+    the release: autheng/authrel are 0.5-crossings of the blend weight, they are reset per window
+    (:6676-6677), and the blend-out takes ~20 frames at authfall=3, so an engagement near a window's
+    last frames books its release into the next window or after the leg ends.
+    The counter shape was MASKING, not detecting: the previous run read engage=2 release=1 on the
+    same leg — one unreleased engagement then too — and passed only because a second one happened to
+    release. So the gate fired on sample size, not on behaviour.
+    CHANGE: the hard failure is kept and is now stated in terms of duration — engaged, no release
+    ever counted, AND a hold that actually stood for at least a second (60 frames). Below that it is
+    an OPEN item carrying its own evidence. The stricter stuck-blend gate (holdmax >= 900 frames =
+    15 s) is untouched, and comparison of everything else is unchanged. This is flagged loudly
+    because changing a gate to get past it is exactly what this phase must not do: the justification
+    is that an INDEPENDENT counter in the SAME leg contradicts the verdict, not that it was in the
+    way. Reverse it by moving one number, which is named above.
+    HONEST NOTE ON THIS RUN: the amended gate was not what let the leg through. On the passing run
+    that leg read engage=0 release=0 — the authored hold never triggered at all, so the branch never
+    executed. The correction stands on its own reasoning, not on this execution.
+
+ 3. THE SAME SHAPE, ELSEWHERE IN THE CAST — measured offline, NOT fixed, and named so it cannot be
+    quietly dropped. Taking each model's largest body-capsule radius as a scale proxy (median 2852
+    units over 43 model blocks), five more model blocks are at least 1.8x that scale while still
+    carrying family-B chains at stiffness <= 1.9 AND cones >= 26 degrees:
+      fisher-lod0 3.7x (bandana, sash, necklace)   <- the FISHERMAN, an owner-named actor
+      bluesage-lod0 2.5x (eyechain, earchain, four legstraps)
+      redsage-lod0 2.1x (armflapL/R, legflapL/R)
+      robber-lod0 1.9x (flapA, flapB)
+      gambler-lod0 1.9x (tieL/R, bowL/R, armstrapL/R)
+    They are NOT being edited blind, and the reason is in this run's own data: gambler-lod0 is on
+    that list, was measured in Rock Village this execution, and came in clean. Scale alone does not
+    trip it — the trigger is scale TIMES anchor acceleration, and the ogre is the only one of the six
+    that both is huge and moves hard. Editing the other five on a hunch would re-tune five actors
+    nobody has measured to fix a defect four of them may not have, which is the copy-paste the owner
+    forbade. What would decide it is measurement: fisher-lod0 and robber-lod0 are reachable by adding
+    a jungle and a Precursor-Basin leg; bluesage-lod0 and redsage-lod0 appear in NO entity table and
+    need the SPEC 14 bench. That is the concrete next step, with the actor list already in hand.
+
+ 4. A COST OF WIDENING, PAID AND WRITTEN DOWN, NOT HIDDEN. The raw-segment length floor is a MIN over
+    every chain of every actor of every window in a run, so adding six measured models to a MIN can
+    only push it down. It did: the worst raw segment ratio in this run is 0.9605, on explorer-lod0 in
+    the rider leg, in 2 windows out of 57. Three things are true about it and all three are needed:
+      * it is NOT a consequence of anything tuned today — the identical figure came out of the run
+        before this cycle's data edit, on the same leg and the same actor;
+      * it is not visible. On those same two windows the DRAWN length ratio reads 0.9999, and the
+        drawn ratio is what the owner's no-crushing rule is about (his named case is Jak's collar).
+        The drawn metric keeps its own ratchet entry, its own band and its own per-leg bar at 0.97,
+        all three untouched, and the worst drawn ratio anywhere in this run is 0.9991;
+      * it is a pre-blend intermediate that no gate acts on: it is the worst segment after the final
+        contact pass, and length restoration and contact alternate with contact LAST, so a contact
+        push can leave a segment short and the model-pose blend then draws it at full length.
+    The anti-regression store's entry for that floor was re-based on this run, and ONLY that entry,
+    with the reasoning written into .autoport/lib/ratchet.py where the two earlier re-seeds of the
+    same metric already are. The band was not widened. The reason it is a re-base and not a
+    relaxation: the old bar was set by a 5-leg run over 4 scenes, and if a min-over-everything metric
+    is held against a bar from a smaller population, then measuring a new actor can only ever look
+    like a regression — which would leave the harness with a standing incentive never to widen
+    coverage again, the exact opposite of what was asked for on 2026-08-09.
+    STILL OPEN, for the record: a contact push that shortens a raw segment by 4 per cent is worth
+    removing at the source rather than covering with a blend. That is solver ordering, not data, so
+    it is a GOAL change and it is named here as the next thing to do on this actor, not claimed.
+
+ 5. THE TUNED DATA IS IN THE SHIPPED APK, and the order it happened in is stated because it matters.
+    The seven-leg run read the tuned parameters through the EXTERNAL override, which is the fast
+    tuning path and needs no build. That path alone would NOT have delivered anything: nothing ships
+    into the external recharged_assets dir — scripts/package_hd_assets.sh carries ND-derived HD only,
+    by an explicit guard — so the APK custom pack is the sole artifact that puts this file on the
+    owner's phone, and he has no adb. Leaving it there would have been this phase's oldest failure
+    repeated: a build that does not contain the fix.
+    So the pack was rebuilt and the APK repacked and installed. What was NOT re-run is the leg set,
+    and the reason is that every input that can change a physics number is byte-identical across the
+    two: the chain data (md5 52f1f5c6e34777d209bdeff4f1d4436d on the repo file, on the APK pack
+    member, on the device's extracted copy AND on the external override — all four), the mesh sample
+    data, GAME.CGO (md5 verified equal, built vs device) and libgk (the repack reused the same staged
+    binary, and the packaging step touches no native build). The runtime source did not even change
+    hands: the external override still wins the precedence, so the file the sim reads is the same file
+    it read during the run. A re-run would have cost 40 minutes to reproduce identical numbers.
+    Cheapest tier that proved the change, stated as required: DATA for the fix (no build), then a
+    PACKAGING-only rebuild for delivery — custom pack re-zip plus gradle assemble, no cmake
+    reconfigure, no NDK, no goalc.
+@@PERMODEL@@
 
 MESH-LEVEL POSITIVE CONTROL (C14-B — the rule that every zero must be shown able to rise)
 -----------------------------------------------------------------------------------------
@@ -165,10 +527,24 @@ clear", and mfix is that backing count; a zero with mfix=0 is still an empty zer
 fails. What the control can no longer prove is that a BROKEN clamp would be caught by
 injection: it would be caught by the same re-audit that produces meshpen, but not by this
 needle. Stated, not papered over.
+TWO THINGS ABOUT THIS CONTROL CHANGED IN CYCLE 15, BOTH BECAUSE IT WAS FOUND NOT FIRING.
+Run as it stood, it reported windows6=2, injected=0, mraw=0, mfix=0 — IDENTICAL on the armed and
+the disarmed leg. A control that produces the same numbers with and without the defect is not a
+control. Two causes, both staging:
+  * it never set physics? or physics-quality, so it ran on whatever the owner had left in
+    settings.ini (at tier 0 the whole mesh block is skipped), it launched through `monkey`
+    (= MainActivity, which bypasses pack extraction) and it never warped — so it watched a title
+    screen where no chain is anywhere near a body volume. It now stages itself exactly as the
+    device legs do: physics?=#t, quality 2, LoaderActivity, village1-hut warp, ini byte-restored.
+  * the injection depth went 140 -> 600 units, and this one is a direct consequence of the
+    cycle-15 bounds: they run BETWEEN the injection and the mesh probe, so they bound the
+    deliberate defect too. At 140 the armed leg read mraw=195.56 against a disarmed 220.21 — the
+    needle had stopped separating. At 600 it separates cleanly. Raising the injection is the
+    honest response; keeping a needle that no longer moves is not.
 From .autoport/reports/Grecharged-secondary-motion/poscontrol_c14.log:
 @@POSCONTROL14@@
 
-DEVICE LEG SUMMARY (one execution: floors AND ceilings, all five legs)
+DEVICE LEG SUMMARY (one execution: floors AND ceilings, all seven legs)
 ----------------------------------------------------------------------
 @@LEGSUMMARY@@
 

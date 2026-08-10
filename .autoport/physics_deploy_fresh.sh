@@ -84,9 +84,12 @@ say "HD pack pushed + md5-verified (all files device==pack)"
 # ---- LoaderActivity boot -> extraction -> title --------------------------------------------
 $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
 LC="$OUT/deploy_fresh.logcat.log"; : > "$LC"
-( $ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I '*:S' >> "$LC" ) 2>/dev/null &
+# NOT in a subshell — see the same note in physics_device_leg.sh: `( adb logcat ) &` makes $! the
+# subshell, the reader survives the kill, and orphaned readers then keep appending to files later
+# runs are still reading. Three of them were found alive an hour after the 21:45 run.
+$ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I '*:S' >> "$LC" 2>/dev/null &
 LCP=$!
-trap 'kill $LCP 2>/dev/null || true' EXIT
+trap 'kill $LCP 2>/dev/null || true; wait $LCP 2>/dev/null || true' EXIT
 $ADB -s "$S" shell am start -W -n "$PKG/.LoaderActivity" >/dev/null 2>&1 || true
 T0=$(date +%s); RF=0
 while [ $(( $(date +%s)-T0 )) -lt 600 ]; do

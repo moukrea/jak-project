@@ -1877,6 +1877,33 @@ bool safe_read_u32(uintptr_t addr, uint32_t* out) {
   return ok;
 }
 
+// Same protection, pointer-width, for the A37 hang watchdog's frame-pointer walk.
+// That walk was the ONE reader in this file that dereferenced raw (see
+// gk_sigusr2_hang_dump), and it killed the app twice on 2026-08-09: the watchdog
+// SIGUSR2s the GL thread, and when that thread is inside libGLESv2_adreno /
+// libgsl -- neither of which is built with frame pointers -- the x29 chain leads
+// straight into garbage. Measured values that passed its two guards (>= 0x10000,
+// 8-aligned) and then faulted: fp = 0xffffffff00000000 and 0x43090000430a0000.
+// A diagnostic that kills the process it is diagnosing is worse than no
+// diagnostic; a failed read now just ends the walk.
+bool safe_read_ptr(uintptr_t addr, uintptr_t* out) {
+  struct sigaction old_segv{}, old_bus{}, sa{};
+  sa.sa_sigaction = &safe_read_handler;
+  sa.sa_flags = SA_SIGINFO | SA_NODEFER;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGSEGV, &sa, &old_segv);
+  sigaction(SIGBUS, &sa, &old_bus);
+  bool ok = false;
+  if (sigsetjmp(safe_read_env, 1) == 0) {
+    safe_read_jumped = 0;
+    memcpy(out, reinterpret_cast<const void*>(addr), sizeof(uintptr_t));
+    ok = !safe_read_jumped;
+  }
+  sigaction(SIGSEGV, &old_segv, nullptr);
+  sigaction(SIGBUS, &old_bus, nullptr);
+  return ok;
+}
+
 // A11-DIAG: identify the sym whose value slot the failing BLR loaded
 // from. Mirrors linux_arm64_main.cpp::gk_diag::dump_sym_name_at_slot —
 // both handlers share the same `texture-sym-zero` line shape so the
@@ -8786,8 +8813,20 @@ void gk_sigusr2_hang_dump(int /*sig*/, siginfo_t* /*info*/, void* ucontext) {
   // blocking futex (run-20: GOAL thread parked in a futex syscall).
   uintptr_t fp = uc->uc_mcontext.regs[29];
   for (int d = 0; d < 24 && fp >= 0x10000 && (fp & 7) == 0; d++) {
-    uintptr_t next_fp = *reinterpret_cast<const uintptr_t*>(fp);
-    uintptr_t ret = *reinterpret_cast<const uintptr_t*>(fp + 8);
+    // SAFE READ, not a raw dereference. `fp >= 0x10000 && (fp & 7) == 0` is not a
+    // validity test -- 0xffffffff00000000 satisfies both -- and this loop killed the
+    // app twice on 2026-08-09 (D-MAYOR 23:47:25 and a deploy boot at 23:22:46, same
+    // pc, the only `ldp x26, x23, [x22]` in the whole of libgk.so). It fires whenever
+    // the SIGUSR2 lands on the GL thread while that thread is inside the Adreno
+    // driver, which has no frame pointers to chain through.
+    uintptr_t next_fp = 0, ret = 0;
+    if (!gk_diag::safe_read_ptr(fp, &next_fp) || !gk_diag::safe_read_ptr(fp + 8, &ret)) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-HANG-FP[%d] fp=0x%lx UNREADABLE — walk ends here "
+                          "(frame belongs to a module built without frame pointers)",
+                          d, (unsigned long)fp);
+      break;
+    }
     Dl_info di{};
     const char* nm = "?";
     const char* so = "?";

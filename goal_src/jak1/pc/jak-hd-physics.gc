@@ -954,9 +954,79 @@
 ;; (C14c) the OLD ledger's figure, still computed and still printed next to the corrected one. The
 ;; instrument changed, so both numbers ship: a silent swap is how a metric gets quietly relaxed.
 (define *phys-slot-respath* (new 'static 'array float 24))
+;; ---- (C14-D/cycle-15) the slew bound's own counters, and resjerk's ATTRIBUTION -----------------
+;; resjerk is a magnitude; it never said WHICH WAY. These four say it, so the next reading of that
+;; number is diagnosable from the log instead of from a rebuild:
+;;   jgcut   times the growth cap actually bit (0 = the bound never had to act)
+;;   jtfall  times the mesh clamp had to tighten HARDER than the rate limit because the softened
+;;           fraction still penetrated — the blocker overriding smoothness, counted, never hidden
+;;   rjup    worst per-frame GROWTH of |out - targ| in the window
+;;   rjdn    worst per-frame SHRINK of the same
+;;   rjtm    |targ - ltarg| on the very frame that set resjerk: how much of that "jump" was the
+;;           AUTHORED pose moving out from under a lagging chain rather than the solver moving it
+(define *phys-slot-jgcut* (new 'static 'array int32 24))
+(define *phys-slot-jtfall* (new 'static 'array int32 24))
+;;   rjpre   the worst per-frame offset change as it stood BEFORE the mesh clamp. resjerk - rjpre
+;;           is therefore the clamp's own share of the jerk, separable in the log.
+;;   jdcut   times the EXCURSION ceiling (PHYS-DEV-MAX) bit
+;;   jdmax   the largest offset it ever had to trim, so "how far out was it really" is a number
+(define *phys-slot-rjpre* (new 'static 'array float 24))
+(define *phys-slot-jdcut* (new 'static 'array int32 24))
+(define *phys-slot-jdmax* (new 'static 'array float 24))
+(define *phys-slot-rjup* (new 'static 'array float 24))
+(define *phys-slot-rjdn* (new 'static 'array float 24))
+(define *phys-slot-rjtm* (new 'static 'array float 24))
 ;; (C14c) bisection steps for the mesh sweep's feasibility clamp. 6 steps = 1/64 of the link's own
 ;; deviation, i.e. under a unit for anything this sim actually moves.
 (defconstant PHYS-MESH-BISECT 6)
+;; ---- (C14-D/cycle-15) THE PER-FRAME BOUND THE SPEC ASKS FOR AND THE FILE NEVER HAD -------------
+;; SPEC 6: "RESOLUTION LISSE ... Deplacement par frame borne (resjerk), pas d'oscillation, pas de
+;; saut visible." Audited 2026-08-09: there was NO per-frame slew limit anywhere on the physics
+;; OFFSET (out - targ). `maxcorr` (PHYS-MAXCORR-REL, 0.5 x the chain's own length) bounds ONE
+;; collision push; nothing bounded what a whole frame did to a link, and nothing at all bounded the
+;; mesh clamp's fraction on the way DOWN — it may bisect from tcap to 0 in a single frame, which
+;; collapses the entire deviation onto the authored pose between two frames. Both directions were
+;; live in the measurement: across the 130 windows of the 21:45 device run, resjerk tracked
+;; maxdev at r=0.877 (resjerk/maxdev = 0.89 babak, 0.94 jak-hd, 0.88 yakow) while maxvel — the
+;; integrator's own step — stayed at 72-195. A whole deviation appearing or vanishing in one frame,
+;; by something that is not the integrator: that is the owner's "des trucs BIZARRES plus genants
+;; qu'un simple clipping".
+;; PHYS-JERK-CAP is that bound, in units: how much a link's offset from its authored pose may
+;; CHANGE — as a vector, so it covers growth, collapse and reorientation alike — in one frame.
+;; 500 units = 12 cm, i.e. ~7 m/s of offset change at 60 Hz. The number is chosen against the
+;; measurements it must not touch, not by taste: the worst per-frame offset GROWTH any chain in
+;; the cast produced across the 23:0x device run was 466 (rjup, over five legs), and the two
+;; ratcheted locomotion peaks are hairrun 627.19 and chestrun 352.48 — both accumulated over
+;; several frames, neither reachable in one. So the bound sits above every legitimate frame this
+;; sim has ever produced and below every jump the owner has complained about (1011-1161).
+(defconstant PHYS-JERK-CAP 500.0)
+;; ...and the ceiling on the offset ITSELF, which is the other half of the same problem and was
+;; only forced into the open once the jerk bound existed. With the bound in, three legs came in at
+;; 528-629 and D-MAYOR read 1307.07 — and its attribution said, in one line, that this was not the
+;; bound failing: rjpre 500.06 (the bound held), rjdn 1307.07 == resjerk == maxdev == that chain's
+;; own window deviation, all four the SAME number. babak-lod0's chain 1 had left its authored pose
+;; by 1307 units (32 cm), the mesh clamp found that pose infeasible, and collapsed the whole of it
+;; onto the authored pose in one frame. The clamp had no choice: it may not commit a penetrating
+;; pose, so at that point it is COLLAPSE OR PENETRATE, and penetrating is the one thing forbidden.
+;; The only remaining lever is therefore the EXCURSION, and it should have been bounded anyway — a
+;; background villager's chain sitting a third of a metre off its authored pose is not "subtle
+;; secondary motion", it is the thing the owner has described from the start as "l'entierete des
+;; cheveux bouge, comme detachee du crane" and "ca part un peu en live".
+;; 800 units = 19.5 cm. Chosen against the same measurements as the jerk cap: it is ABOVE both
+;; ratcheted locomotion peaks by construction (hairrun 613-630, chestrun 352.48, so neither can be
+;; trimmed by it) and BELOW every excursion that produced a collapse (babak 1307, yakow 1123,
+;; mayor's tie 2304). Applied by scaling the offset along its own direction, i.e. towards the
+;; authored pose, which is the direction that can only reduce penetration; the clamp's
+;; length-preserving re-seat runs after it, as with the jerk cap.
+(defconstant PHYS-DEV-MAX 800.0)
+;; ...and the matching bound on the way down: the mesh clamp may not tighten its per-chain fraction
+;; by more than this in one frame WHEN A CLEAR POSE EXISTS at the softened fraction. It is a rate
+;; limit, never a licence: if the softened fraction penetrates, the bisection runs on the full
+;; range exactly as before and the blocker still wins — that case is counted (jtfall=) rather than
+;; hidden, because it is the one path by which a one-frame collapse can still happen.
+;; 0.25 = the chain converges onto a needed clamp in 4 frames instead of 1; the release side
+;; already had such a limit (PHYS-TMIN-RISE 0.08), only the tightening side did not.
+(defconstant PHYS-TMIN-FALL 0.25)
 ;; (C14c) the bone the mesh sweep is currently moving, so phys-mesh-pen can refuse to test a link
 ;; against a volume that RIDES THAT SAME BONE. Set by phys-link-mesh-worst, its only caller.
 ;; Not a parameter because phys-mesh-pen is already at GOAL's 8-argument ceiling.
@@ -1800,6 +1870,14 @@
     (set! (-> *phys-slot-xunres* slot) 0)
     (set! (-> *phys-slot-xunresmax* slot) 0.0)
     ;; (C14) a re-bind is a fresh window for the mesh audit and the motion floors too
+    (set! (-> *phys-slot-jgcut* slot) 0)
+    (set! (-> *phys-slot-jtfall* slot) 0)
+    (set! (-> *phys-slot-rjpre* slot) 0.0)
+    (set! (-> *phys-slot-jdcut* slot) 0)
+    (set! (-> *phys-slot-jdmax* slot) 0.0)
+    (set! (-> *phys-slot-rjup* slot) 0.0)
+    (set! (-> *phys-slot-rjdn* slot) 0.0)
+    (set! (-> *phys-slot-rjtm* slot) 0.0)
     (set! (-> *phys-slot-resjerk* slot) 0.0)
     (set! (-> *phys-slot-meshpen* slot) 0.0)
     (set! (-> *phys-slot-mraw* slot) 0.0)
@@ -5691,6 +5769,116 @@
             ;; shape of self-flattery as measuring resid before the pass that moves things. The
             ;; second pass re-measures everything after everything has moved and re-clamps whatever
             ;; drifted; a chain already clear costs one probe per link and commits nothing.
+            ;; ---- (C14-D/cycle-15) PER-FRAME OFFSET SLEW BOUND --------------------------------
+            ;; Runs HERE, immediately before the mesh clamp snapshots its reference pose:
+            ;;   * after EVERY writer that can fling a link (spring, cone/distance projection,
+            ;;     body push, cross-side, ladder, escape, length restore, strand), so nothing
+            ;;     upstream can smuggle a jump past it;
+            ;;   * BEFORE the mesh clamp, so the blocker still gets the last word. The clamp only
+            ;;     ever moves a link TOWARDS the authored pose and re-seats the chain on its
+            ;;     modelled segment lengths, so it both preserves meshpen=0 and repairs the segment
+            ;;     lengths a per-link pull perturbs (lenmin/lensim are ratcheted).
+            ;; WHAT IS BOUNDED, and why the first shape of this bound was wrong. It began as a
+            ;; bound on the offset's MAGNITUDE growth. The device answered with the two legs it did
+            ;; not cover, and the attribution counters said so in one line each:
+            ;;     D-MAYOR  resjerk 1161.16 = rjdn 1161.16 EXACTLY, rjup 288  -> a pure magnitude
+            ;;              COLLAPSE. Source: the body push, bounded only by maxcorr = 0.5 x the
+            ;;              chain's own length, which on that chain is over 1600 units — maxpen
+            ;;              read 1601.81 and `clamped` read 0, i.e. a 1601-unit shove in ONE frame
+            ;;              that never even reached its bound. Owner rule O in one number.
+            ;;     D-INTRO  resjerk 1099.25 with rjdn 625 and rjup 450 -> 474 units of the jerk is
+            ;;              neither: the offset REORIENTED at near-constant length, because targ
+            ;;              itself moved 1806 that frame and the chain did not follow it.
+            ;; A magnitude bound is blind to both. So the bound is on the VECTOR: the frame's
+            ;; change in offset, |dev - ldev|, is scaled back to PHYS-JERK-CAP. The corrected point
+            ;; slides along the segment [resolved out -> targ + ldev], and `targ + ldev` is the
+            ;; ZERO-JERK CARRY POSITION — where the link would sit if it simply travelled with the
+            ;; animation, keeping last frame's offset exactly. That is the one target for which the
+            ;; eye sees no discontinuity at all, which is what this metric is about.
+            ;; Velocity-neutral (owner rule O): pos and prev take the identical delta, so the bound
+            ;; removes displacement without either injecting or storing energy.
+            ;; It CAN pull a link back toward a body volume it was just pushed out of — that is the
+            ;; trade, and it is the trade the owner asked for in rule O ("correction positionnelle
+            ;; BORNEE par frame", converge over frames instead of one hard shove). It is safe to
+            ;; take because the blocker does not rest on that push: meshpen=0 is guaranteed by the
+            ;; feasibility clamp below, which runs after this and grades the pose this produces.
+            (dotimes (c (-> *phys-slot-nchains* slot))
+              (let* ((ci (+ cbase c))
+                     (len (-> *phys-clen* ci))
+                     (start (+ jbase (-> *phys-cstart* ci)))
+                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci)))))
+                (when (and (> len 0)
+                           (nonzero? (logand (-> *phys-cflags* ci) classmask))
+                           (> (-> *phys-slot-frames* slot) 0))
+                  (dotimes (i len)
+                    (when (or (> (-> *phys-canim* ci) 0) (>= i rl))
+                      (let* ((jj (+ start i))
+                             (dn (new 'stack-no-clear 'vector))
+                             (dq (new 'stack-no-clear 'vector)))
+                        (vector-! dn (-> *phys-out* jj) (-> *phys-targ* jj))
+                        (vector-! dq dn (-> *phys-ldev* jj))
+                        (let ((gr (vector-length dq)))
+                          ;; THE JERK BOUND is settle-gated: during a spawn/teleport ramp the chain
+                          ;; is deliberately being moved onto its pose and bounding that would fight
+                          ;; the ramp. The EXCURSION CEILING below is NOT, and the difference is a
+                          ;; measured leak, not a preference — see the note at its own site.
+                          (when (and (> gr PHYS-JERK-CAP) (<= (-> *phys-csettle* ci) 0))
+                            (+! (-> *phys-slot-jgcut* slot) 1)
+                            ;; scale the frame's offset CHANGE back to the cap. The corrected point
+                            ;; slides along [out -> targ + ldev]: the zero-jerk carry position, i.e.
+                            ;; where the link would be if it simply travelled with the animation.
+                            (vector-float*! dq dq (- (/ PHYS-JERK-CAP gr) 1.0))
+                            (vector+! (-> *phys-out* jj) (-> *phys-out* jj) dq)
+                            (vector+! (-> *phys-pos* jj) (-> *phys-pos* jj) dq)
+                            (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) dq)
+                            (vector+! (-> *phys-lresv* jj) (-> *phys-lresv* jj) dq)
+                            (let ((k (-> *phys-jk* jj)))
+                              (when (< (+ k 1) nbones)
+                                (vector-copy! (-> skel bones (+ k 1) transform vector 3)
+                                              (-> *phys-out* jj))
+                                (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)))))
+                        ;; ---- and the EXCURSION ceiling (see PHYS-DEV-MAX) ----------------------
+                        ;; Runs after the jerk bound and in the same pass, because it is the same
+                        ;; correction: scale the offset back along its own direction, towards the
+                        ;; authored pose. It is what stops the clamp from ever being handed a pose
+                        ;; so far out that clearing it is a one-frame collapse.
+                        ;; DELIBERATELY NOT SETTLE-GATED, and the device is why. With it gated like
+                        ;; the jerk bound, D-MAYOR still read resjerk=1157.90 == rjdn while jdmax
+                        ;; said the ceiling had only ever SEEN 1110.51: babak-lod0 reseeds ~68 times
+                        ;; a window, so ldev was being written on settle frames where the ceiling
+                        ;; did not run, and the first graded frame after the ramp then differenced
+                        ;; against an unbounded 1157. Bounding the excursion during a ramp costs
+                        ;; nothing — the ramp blends TOWARDS the authored pose, so it never wants a
+                        ;; link 800 units out — and it is what makes |ldev| <= PHYS-DEV-MAX true on
+                        ;; every frame, which is the premise the resjerk ceiling rests on.
+                        (vector-! dn (-> *phys-out* jj) (-> *phys-targ* jj))
+                        (let ((dl (vector-length dn)))
+                          (when (> dl PHYS-DEV-MAX)
+                            (+! (-> *phys-slot-jdcut* slot) 1)
+                            (when (> dl (-> *phys-slot-jdmax* slot))
+                              (set! (-> *phys-slot-jdmax* slot) dl))
+                            (vector-float*! dq dn (- (/ PHYS-DEV-MAX dl) 1.0))
+                            (vector+! (-> *phys-out* jj) (-> *phys-out* jj) dq)
+                            (vector+! (-> *phys-pos* jj) (-> *phys-pos* jj) dq)
+                            (vector+! (-> *phys-prev* jj) (-> *phys-prev* jj) dq)
+                            (vector+! (-> *phys-lresv* jj) (-> *phys-lresv* jj) dq)
+                            (let ((k (-> *phys-jk* jj)))
+                              (when (< (+ k 1) nbones)
+                                (vector-copy! (-> skel bones (+ k 1) transform vector 3)
+                                              (-> *phys-out* jj))
+                                (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)))))
+                        ;; attribution: what the bound actually delivered BEFORE the mesh clamp gets
+                        ;; its say. resjerk - rjpre is the clamp's own contribution, so the two
+                        ;; halves of this frame's jerk are separable in the log.
+                        ;; settle-gated exactly like resjerk, so the two are comparable and
+                        ;; resjerk - rjpre really is the clamp's share and not a frame the one
+                        ;; measured and the other did not.
+                        (when (<= (-> *phys-csettle* ci) 0)
+                          (vector-! dn (-> *phys-out* jj) (-> *phys-targ* jj))
+                          (vector-! dq dn (-> *phys-ldev* jj))
+                          (let ((gr (vector-length dq)))
+                            (when (> gr (-> *phys-slot-rjpre* slot))
+                              (set! (-> *phys-slot-rjpre* slot) gr))))))))))
             ;; the frame's pre-clamp pose, snapshotted ONCE so every pass blends from the same
             ;; reference (see *phys-out0*)
             (dotimes (j (-> *phys-slot-njoints* slot))
@@ -5739,8 +5927,30 @@
                                PHYS-PEN-TOL)
                         (let ((lo 0.0)
                               (hi tcap))
+                          ;; ---- (C14-D/cycle-15) TIGHTENING IS RATE-LIMITED TOO ---------------
+                          ;; The release side has been rate-limited since the clamp was written
+                          ;; (PHYS-TMIN-RISE, 0.08 a frame). The tightening side never was: `lo`
+                          ;; started at 0, so a chain sitting at tcap=0.9 could be bisected down to
+                          ;; 0 in ONE frame and its whole deviation would vanish onto the authored
+                          ;; pose between two frames. That is a resjerk of the chain's entire
+                          ;; deviation with the integrator standing still — the exact signature
+                          ;; measured on the phone (resjerk/maxdev 0.88-0.94 at maxvel 72-195).
+                          ;; So the bisection starts from a floor one PHYS-TMIN-FALL below where
+                          ;; the chain already is — but ONLY after that floor has been PROVEN
+                          ;; clear. If it penetrates, the floor is dropped and the full range is
+                          ;; searched exactly as before: the blocker outranks smoothness, always.
+                          ;; That override is counted (jtfall=), so "the clamp had to snap" is a
+                          ;; number in the log and not an assumption.
+                          (let ((tf (fmax 0.0 (- (-> *phys-ctmin* ci)
+                                                 (if (zero? mpass) PHYS-TMIN-FALL 0.0)))))
+                            (when (> tf 0.0)
+                              (phys-chain-blend! slot ci start len tf rl0)
+                              (if (> (phys-chain-worst slot cbase c tier start len rl0 draw)
+                                     PHYS-PEN-TOL)
+                                  (+! (-> *phys-slot-jtfall* slot) 1)
+                                  (set! lo tf))))
                           ;; lo is always feasible (0 = the authored pose, penetration-free by
-                          ;; construction); hi is known bad
+                          ;; construction, or the proven-clear rate-limit floor above); hi is known bad
                           (dotimes (bi PHYS-MESH-BISECT)
                             (let ((mid (* 0.5 (+ lo hi))))
                               (phys-chain-blend! slot ci start len mid rl0)
@@ -5782,6 +5992,22 @@
                                 (vector-copy! (-> skel bones (+ k 1) transform vector 3)
                                               (-> *phys-out* jj))
                                 (set! (-> skel bones (+ k 1) transform vector 3 w) 1.0)))))))))))
+            ;; ---- (C14-D/cycle-15) WHY THERE IS NO SECOND APPLICATION OF THE BOUND HERE -------
+            ;; There was one, for exactly one device run, and the run refused it. The idea was that
+            ;; the clamp can add a jump of its own on top of the bounded pose, so the bound should
+            ;; also get the last word — with every correction tested by phys-link-mesh-worst first
+            ;; and refused wherever it would put a link's skinned mesh back inside a body volume.
+            ;; The test is not sufficient, and the reason is written three paragraphs below in this
+            ;; very file: `at=` volumes ride a chain's SIMULATED tip, so moving one chain moves a
+            ;; volume that another chain was cleared against. Testing each correction at the moment
+            ;; it is taken records a clearance that a later chain's correction then invalidates —
+            ;; the same self-flattery the residual audit was moved out of the chain loop to avoid.
+            ;; Measured, on the 23:31 run: it fired 5/23/6 times per leg and bought at most 45 units
+            ;; of jerk (resjerk 528.26 vs rjpre 500.04), and it cost meshpen=1.0433 on D-INTRO —
+            ;; the owner's absolute blocker, broken for a rounding-error's worth of smoothness.
+            ;; Removed. The single application before the clamp does the work (rjpre pins at the cap
+            ;; on every leg) and cannot break the blocker, because the clamp runs after it and
+            ;; grades the pose it produces.
             ;; ---- THE RESIDUAL THAT ACTUALLY SHIPPED — its own loop, after everything moved ----
             ;; Deliberately NOT measured inside the chain loop. Chains commit one after another and
             ;; a commit moves the bones under it, so a volume an earlier chain was cleared against
@@ -5904,10 +6130,12 @@
                 (when (nonzero? (logand (-> *phys-cflags* ci) classmask))
                   (dotimes (i len)
                     (let ((jj (+ start i))
+                          (tmv 0.0)
                           (dn (new 'stack-no-clear 'vector))
                           (dd (new 'stack-no-clear 'vector)))
                       (vector-! dn (-> *phys-out* jj) (-> *phys-targ* jj))
                       (vector-! dd (-> *phys-targ* jj) (-> *phys-ltarg* jj))
+                      (set! tmv (vector-length dd))
                       ;; frames=0 is this slot's first frame (it is incremented below), so there is
                       ;; no previous deviation to difference against; csettle>0 is the spawn ramp,
                       ;; where the chain is deliberately being moved onto its pose; and a frame on
@@ -5915,11 +6143,25 @@
                       ;; delta measures the animation rather than the resolution.
                       (when (and (> (-> *phys-slot-frames* slot) 0)
                                  (<= (-> *phys-csettle* ci) 0)
-                                 (< (vector-length dd) PHYS-CUT-DELTA))
+                                 (< tmv PHYS-CUT-DELTA))
+                        ;; (cycle-15) ATTRIBUTION. resjerk is a magnitude and magnitudes do not say
+                        ;; which way; three cycles were spent guessing at this number's sign. The
+                        ;; signed change in |offset| separates a link being FLUNG (rjup) from a
+                        ;; link whose whole deviation was collapsed onto the authored pose in one
+                        ;; frame (rjdn) — they have different causes and different fixes — and
+                        ;; rjtm records how far the AUTHORED pose itself travelled on the frame
+                        ;; that set the maximum, which is the share of the "jump" that is inertia
+                        ;; lagging a fast animation rather than the solver moving anything.
+                        (let ((gd (- (vector-length dn) (vector-length (-> *phys-ldev* jj)))))
+                          (when (> gd (-> *phys-slot-rjup* slot))
+                            (set! (-> *phys-slot-rjup* slot) gd))
+                          (when (> (- gd) (-> *phys-slot-rjdn* slot))
+                            (set! (-> *phys-slot-rjdn* slot) (- gd))))
                         (vector-! dd dn (-> *phys-ldev* jj))
                         (let ((nj (vector-length dd)))
                           (when (> nj (-> *phys-slot-resjerk* slot))
-                            (set! (-> *phys-slot-resjerk* slot) nj))))
+                            (set! (-> *phys-slot-resjerk* slot) nj)
+                            (set! (-> *phys-slot-rjtm* slot) tmv))))
                       (vector-copy! (-> *phys-ldev* jj) dn)
                       (vector-copy! (-> *phys-ltarg* jj) (-> *phys-targ* jj)))))))
             (when (> frame-maxdev (-> *phys-slot-maxdev* slot))
@@ -6351,12 +6593,32 @@
               ;; separate append: a GOAL call takes at most 8 parameters, and the line above is
               ;; already at eight.
               (format *phys-line-buf* " respath=~f" (-> *phys-slot-respath* slot))
+              ;; (cycle-15) the slew bound and resjerk's attribution. New stems, none of them a
+              ;; substring of any field printed above or on lines 1-5: jgcut/jtfall/rjup/rjdn/rjtm.
+              (format *phys-line-buf* " jgcut=~D jtfall=~D rjup=~f rjdn=~f rjtm=~f"
+                      (-> *phys-slot-jgcut* slot)
+                      (-> *phys-slot-jtfall* slot)
+                      (-> *phys-slot-rjup* slot)
+                      (-> *phys-slot-rjdn* slot)
+                      (-> *phys-slot-rjtm* slot))
+              (format *phys-line-buf* " rjpre=~f jdcut=~D jdmax=~f"
+                      (-> *phys-slot-rjpre* slot)
+                      (-> *phys-slot-jdcut* slot)
+                      (-> *phys-slot-jdmax* slot))
               (format *phys-line-buf* " crun:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-crun* (+ cbase c)))
                 (set! (-> *phys-crun* (+ cbase c)) 0.0))
               (format 0 "~S~%" *phys-line-buf*)
               (set! (-> *phys-slot-resjerk* slot) 0.0)
+              (set! (-> *phys-slot-jgcut* slot) 0)
+              (set! (-> *phys-slot-jtfall* slot) 0)
+                                  (set! (-> *phys-slot-rjpre* slot) 0.0)
+              (set! (-> *phys-slot-jdcut* slot) 0)
+              (set! (-> *phys-slot-jdmax* slot) 0.0)
+              (set! (-> *phys-slot-rjup* slot) 0.0)
+              (set! (-> *phys-slot-rjdn* slot) 0.0)
+              (set! (-> *phys-slot-rjtm* slot) 0.0)
               (set! (-> *phys-slot-respath* slot) 0.0)
               (set! (-> *phys-slot-meshpen* slot) 0.0)
               (set! (-> *phys-slot-mraw* slot) 0.0)

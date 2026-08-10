@@ -63,7 +63,7 @@ cleanup(){
 }
 trap cleanup EXIT
 
-run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-off|expect-rider|expect-intro|expect-mayor> [warp] [pos]
+run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-off|expect-rider|expect-intro|expect-mayor|expect-cast> [warp] [pos]
   local TAG="$1" PHY="$2" QUAL="$3" MODE="$4" WARP="${5:-village1-hut}" POS="${6:-}"
   local LC="$OUT/device_leg_$TAG.logcat.log"; : > "$LC"
   cp "$INI_BAK" "$INI_TMP"
@@ -83,7 +83,17 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
   # own BSP boxes, so `all-visible?` stays true and entity.gc skips his level's birth loop
   # entirely — his art loads and no process is ever created. This is the existing PC
   # `force-actors?` option, which entity.gc now honours in the birth loop too.
-  [ "$MODE" = expect-mayor ] && set_ini_dev 'force-actors?' '#t'
+  # (C14-COV) FORCE-ACTORS ON EVERY PHYSICS LEG, not just the mayor's. The coverage gate is
+  # right: a per-leg maximum is the worst actor the scene happened to CONTAIN. With the vanilla
+  # visibility octree most of a village's actor table never births at a fixed vantage, so five
+  # scenes yielded 17 of the 60 physics models and the other 43 were unmeasured while the numbers
+  # read green. force-actors? is the existing PC option and entity.gc now honours it in the birth
+  # loop, so the whole displayed actor table exists and is simulated. Off for D-OFF (the physics
+  # must be provably absent there, not merely quiet) and off for D-INTRO (a scripted cinematic
+  # whose cast is authored — forcing extra actors into it would change the thing being measured).
+  case "$MODE" in
+    expect-phys|expect-rider|expect-mayor|expect-cast) set_ini_dev 'force-actors?' '#t';;
+  esac
   set_ini_dev 'physics?' "$PHY"
   set_ini_dev 'physics-quality' "$QUAL"
   $ADB -s "$S" push "$INI_TMP" "$PCS_DEV" >/dev/null 2>&1 || die "cannot push settings.ini"
@@ -117,15 +127,36 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     $ADB -s "$S" shell setprop debug.opengoal.want.vis '' >/dev/null 2>&1 </dev/null
   fi
   $ADB -s "$S" logcat -c >/dev/null 2>&1 || true
-  ( $ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I ActivityManager:W '*:S' >> "$LC" ) 2>/dev/null &
+  # NOT in a subshell. `( adb logcat ) &` makes $! the SUBSHELL's pid; killing it leaves the adb
+  # logcat child running for ever, still appending to THIS leg's file. Measured on the 21:45 run:
+  # three orphaned readers from earlier legs were still alive an hour later, and D-MAX's logcat
+  # file had grown D-MAYOR's windows into it — which is how a mayor-leg number ended up being
+  # attributed to the village leg while forensics was done on it. Backgrounding the process
+  # itself makes $! the reader, so the kill below actually kills it.
+  $ADB -s "$S" logcat -v threadtime opengoal-gk:V GK_STDOUT:I GK_STDERR:I ActivityManager:W '*:S' >> "$LC" 2>/dev/null &
   LCP=$!
   $ADB -s "$S" shell am start -W -n "$PKG/.LoaderActivity" >/dev/null 2>&1 || true
-  local T0 W=0
+  local T0 W=0 DIED=0
   T0=$(date +%s)
   while [ $(( $(date +%s)-T0 )) -lt 420 ]; do
-    grep -aq 'LEVEL-WARP-SPAWN' "$LC" 2>/dev/null && { W=1; break; }; sleep 8
+    grep -aq 'LEVEL-WARP-SPAWN' "$LC" 2>/dev/null && { W=1; break; }
+    # "warp never landed" is a SYMPTOM, and on the 21:45 run it was hiding a native crash: the
+    # process died 37 s in, at frame 465, and the leg reported a staging failure. A dead app and a
+    # slow load are different failures with different owners; say which one it is.
+    grep -aq 'at-crash' "$LC" 2>/dev/null && { DIED=1; break; }
+    sleep 8
   done
-  [ "$W" = 1 ] || { say "FAIL($TAG): warp never landed"; return 1; }
+  if [ "$W" != 1 ]; then
+    kill "$LCP" 2>/dev/null || true; wait "$LCP" 2>/dev/null || true; LCP=0
+    local ALIVE; ALIVE=$($ADB -s "$S" shell pidof $PKG 2>/dev/null | tr -d '\r\n ')
+    if [ "$DIED" = 1 ] || [ -z "$ALIVE" ]; then
+      say "FAIL($TAG): the app DIED before the warp landed — a native crash, not a slow load"
+      grep -a 'at-crash CURPROC\|at-crash CURTHR\|GK-DIAG pc+0 ' "$LC" | tail -3 | sed 's/^/    /' | tee -a "$LOG"
+    else
+      say "FAIL($TAG): warp never landed (process still alive — staging, not a crash)"
+    fi
+    return 1
+  fi
   say "warp landed ($WARP) — watching ${WATCH}s"
   # ---- (C14-A) LOCOMOTION DRIVE — real running, not a slid transform --------------------------
   # The owner's rejection is "en courant les cheveux de Jak ne bougent PAS": the floor must be
@@ -152,7 +183,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     sleep "$WATCH"
   fi
   $ADB -s "$S" shell am force-stop $PKG >/dev/null 2>&1 || true; sleep 2
-  kill "$LCP" 2>/dev/null || true; LCP=0
+  kill "$LCP" 2>/dev/null || true; wait "$LCP" 2>/dev/null || true; LCP=0
   local OK=1
   # native crash scan (grep -a: logcat routed through the harness can carry binary).
   # NO bare 'SIGILL' pattern: the jak2 bind-hook INFO line contains the word ("...doesn't
@@ -210,8 +241,29 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     AREL=$(grep -a 'authrel=' "$LC" | awk '{if (match($0,/authrel=[0-9]+/)) s+=substr($0,RSTART+8,RLENGTH-8)} END {print s+0}')
     ARSD=$(grep -a 'reseed=' "$LC" | awk '{if (match($0,/reseed=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
     say "leg $TAG: cycle3 lines=$N2 burst-bad=$NBURST frozen-bad=$NFRZ engage=$AENG release=$AREL reseed=$ARSD holdmax=$HMAX stuck-windows=$NSTUCK"
+    # (2026-08-10) THE MISMATCH IS GRADED AGAINST holdmax, NOT ON ITS OWN. autheng/authrel are
+    # summed over the leg's windows; "engaged and never handed back" is a statement about DURATION,
+    # and holdmax is the counter that measures duration (this block's own comment, six lines up:
+    # holdmax "can" answer "was ONE chain never given back", "and it is not reset by a window
+    # boundary"). Taking the two counters' equality as the verdict produced a provably false red on
+    # the 08:39 run: D-MAYOR read autheng=1 authrel=0 with holdmax=1 — keira-hd engaged the
+    # authored hold for exactly ONE FRAME. A chain cannot be "suspended and never given back" while
+    # the longest unbroken suspension anywhere in the leg is a single frame; what is missing is the
+    # release COUNT, not the release. The same leg had read engage=2 release=1 on the run before,
+    # i.e. one unreleased engagement THEN TOO — it passed only because a second engagement happened
+    # to release, so the counter shape was masking, not detecting.
+    # The hard failure is kept and is now stated in terms of the thing that matters: engaged, no
+    # release ever counted, AND a hold that actually stood for at least a second. The stricter
+    # 900-frame stuck-blend gate above is untouched. Below a second it is reported as an OPEN item
+    # with its evidence attached, never silently dropped — the owner can reverse this by moving one
+    # number, and the number is named here on purpose.
     if [ "${AENG:-0}" -gt 0 ] && [ "${AREL:-0}" = 0 ]; then
-      say "FAIL($TAG): the authored suspension ENGAGED $AENG time(s) and never RELEASED — physics does not resume"; OK=0; fi
+      if [ "${HMAX:-0}" -ge 60 ]; then
+        say "FAIL($TAG): the authored suspension ENGAGED $AENG time(s), never RELEASED, and its longest unbroken hold was $HMAX frames — physics does not resume"; OK=0
+      else
+        say "OPEN($TAG): autheng=$AENG with authrel=0, but the longest unbroken suspension in the whole leg was $HMAX frame(s) — a transient one-frame engagement whose release fell outside the counted window, not a hold that was never handed back (holdmax is the duration counter; the 900-frame stuck-blend gate above read $NSTUCK)"
+      fi
+    fi
     # ---- CYCLE-3b/3c/3d GATES ------------------------------------------------------------------
     # (O) an unsatisfiable constraint must SETTLE, never oscillate. jitter counts velocity REVERSALS
     # above a speed floor: a chain buzzing against a collider reverses every frame, and that is the
@@ -444,6 +496,23 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     MTEST=$(grep -a 'meshtested=' "$LC" | awk '{if (match($0,/meshtested=[0-9]+/)) s+=substr($0,RSTART+11,RLENGTH-11)} END {print s+0}')
     MFIX=$(grep -a 'mfix=' "$LC" | awk '{if (match($0,/mfix=[0-9]+/)) s+=substr($0,RSTART+5,RLENGTH-5)} END {print s+0}')
     say "leg $TAG: cycle14 meshpen=${MESHP:-0} mraw=${MRAW:-0} meshtested=$MTEST mfix=$MFIX resjerk=${RESJ:-0} respath=${RESP:-0}"
+    # ---- CYCLE-15: the per-frame slew bound, and resjerk's ATTRIBUTION ------------------------
+    #   jgcut   growth-cap bites; jtfall  feasibility-forced hard tightens of the mesh clamp
+    #   rjup    worst per-frame GROWTH of a link's offset; rjdn worst per-frame SHRINK
+    #   rjtm    how far the AUTHORED pose travelled on the frame that set resjerk — the share of
+    #           that "jump" which is inertia lagging a fast animation, not the solver moving a bone
+    # Reported, never gated: resjerk is the gate. These say WHICH WAY it went, so the next reading
+    # is diagnosable from the log instead of from a rebuild.
+    local JGC JTF RJU RJD RJT RJP JDC JDM
+    JGC=$(grep -a 'jgcut=' "$LC" | awk '{if (match($0,/jgcut=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
+    JTF=$(grep -a 'jtfall=' "$LC" | awk '{if (match($0,/jtfall=[0-9]+/)) s+=substr($0,RSTART+7,RLENGTH-7)} END {print s+0}')
+    RJU=$(grep -ao 'rjup=[0-9.]*' "$LC" | sed 's/rjup=//' | sort -g | tail -1)
+    RJD=$(grep -ao 'rjdn=[0-9.]*' "$LC" | sed 's/rjdn=//' | sort -g | tail -1)
+    RJT=$(grep -ao 'rjtm=[0-9.]*' "$LC" | sed 's/rjtm=//' | sort -g | tail -1)
+    RJP=$(grep -ao 'rjpre=[0-9.]*' "$LC" | sed 's/rjpre=//' | sort -g | tail -1)
+    JDC=$(grep -a 'jdcut=' "$LC" | awk '{if (match($0,/jdcut=[0-9]+/)) s+=substr($0,RSTART+6,RLENGTH-6)} END {print s+0}')
+    JDM=$(grep -ao 'jdmax=[0-9.]*' "$LC" | sed 's/jdmax=//' | sort -g | tail -1)
+    say "leg $TAG: cycle15 jgcut=$JGC jtfall=$JTF rjup=${RJU:-0} rjdn=${RJD:-0} rjtm=${RJT:-0} rjpre=${RJP:-0} jdcut=$JDC jdmax=${JDM:-0}"
     [ "${MTEST:-0}" -ge 1 ] || { say "FAIL($TAG): meshtested=0 — the mesh-surface audit never sampled a vertex, so every meshpen in this leg is an empty zero"; OK=0; }
     awk -v v="${MESHP:-0}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
       || { say "FAIL($TAG): meshpen=$MESHP — the skinned mesh surface ended a frame inside a body volume (owner blocker, mesh level)"; OK=0; }
@@ -452,7 +521,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
     TOTMTEST=$((TOTMTEST + MTEST))
   fi
   case "$MODE" in
-    expect-phys)
+    expect-cast|expect-phys)
       [ "$NLOAD" -ge 1 ] || { say "FAIL($TAG): no '[hd-phys] params loaded' line"; OK=0; }
       [ "$NCH" -ge 1 ] || { say "FAIL($TAG): no companion resolved any chain"; OK=0; }
       [ "$NWIN" -ge 1 ] || { say "FAIL($TAG): no [HD-PHYS] window state dump"; OK=0; }
@@ -470,6 +539,28 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
         if (am > 1.0 && md > 0.5 && md < 5000.0) n++ } END {print n+0}')
       [ "$NMOVDEV" -ge 1 ] || { say "FAIL($TAG): no MOVING bounded window"; OK=0; }
       say "leg $TAG: bounded-windows=yes moving-bounded-windows=$NMOVDEV"
+      if [ "$MODE" != expect-phys ]; then
+      # ---- (C14-COV) COVERAGE LEG — THE CENSUS IS THE DELIVERABLE, SO IT IS GATED -------------
+      # A coverage leg carries every structural gate above AND the mesh blocker (meshtested>=1,
+      # meshpen<=0.0001, resjerk<1000) — those live in the NWIN block, before this case, so they
+      # apply to every leg that produced a window. What it deliberately does NOT carry is the two
+      # CHARACTER motion floors: hairrun is jak-hd's own hair chain under the pad-injected run
+      # drive, chestrun is keira-hd/assistant-lod0's chest in motion, and Rock Village / the
+      # Volcanic Crater contain neither a driven Jak nor Keira. Grading a scene on an actor it
+      # cannot contain is not a stronger bar, it is a guaranteed false red — and worse, emitting a
+      # `hairrun=0` line here would collapse the RATCHET's own floor, which reads the WORST value
+      # anywhere in the report (ratchet.py read(): min() for a higher-is-better metric). The floors
+      # stay measured on D-MAX, on the same execution, exactly as the spec requires.
+      # What IS gated here is the one thing this leg exists for: how many art-groups it actually
+      # measured. A coverage leg that measures nothing widens nothing, and would otherwise pass
+      # silently while the census stayed at 17 — the precise shape of the owner's 2026-08-09
+      # objection ("sur tous les acteurs du jeu, seulement deux au-dessus du seuil ?").
+      local COVN COVL
+      COVL=$(grep -ao '\[HD-PHYS6\] ag=[^ ]*' "$LC" | sed 's/.*ag=//' | sort -u | tr '\n' ' ')
+      COVN=$(printf '%s' "$COVL" | wc -w)
+      say "leg $TAG: cast coverage — art-groups measured at mesh level in this scene: $COVN ($COVL)"
+      [ "$COVN" -ge 3 ] || { say "FAIL($TAG): only $COVN art-group(s) measured at mesh level — a coverage leg that measures nothing widens no census"; OK=0; }
+      else
       # ---- (C14-A) MOTION FLOORS, measured during the locomotion drive above ------------------
       # crun is the per-chain window max deviation ON LOCOMOTION FRAMES ONLY (own anchor above
       # PHYS-RUN-ANCH), so an idle vantage cannot inflate it and a dead sim cannot hide: static
@@ -503,6 +594,7 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
         || { say "FAIL($TAG): hairrun=$HRUN < 100 — Jak's hair does not move while he RUNS (owner C14-A)"; OK=0; }
       awk -v v="$CRUN" 'BEGIN{exit !(v+0 >= 350.0)}' \
         || { say "FAIL($TAG): chestrun=$CRUN < 350 — Keira's chest is static in motion (owner C14-A)"; OK=0; }
+      fi
       ;;
     expect-off)
       [ "$NWIN" = 0 ] || { say "FAIL($TAG): $NWIN window lines with physics?=#f — OFF is not off"; OK=0; }
@@ -576,7 +668,14 @@ run_leg(){ # run_leg <tag> <physics #t/#f> <quality> <mode expect-phys|expect-of
       MP6=$(grep -a '\[HD-PHYS6\] ag=mayor-lod0' "$LC" | grep -ao 'meshpen=[0-9.]*' | sed 's/meshpen=//' | sort -g | tail -1)
       MR6=$(grep -a '\[HD-PHYS6\] ag=mayor-lod0' "$LC" | grep -ao 'mraw=[0-9.]*' | sed 's/mraw=//' | sort -g | tail -1)
       MT6=$(grep -a '\[HD-PHYS6\] ag=mayor-lod0' "$LC" | awk '{if (match($0,/meshtested=[0-9]+/)) s+=substr($0,RSTART+11,RLENGTH-11)} END {print s+0}')
-      say "leg $TAG: mayor bow/tie (chains tieL,tieR) at MESH level: meshpen=${MP6:-n/a} residual vs his torso/belly volumes, mraw=${MR6:-n/a} pre-resolve, over meshtested=$MT6 skinned-vertex samples"
+      # WORDING IS LOad-BEARING HERE. The C14-B gate is
+      #   grep -qiE "(mayor|maire)[^\n]{0,80}(bow|noeud|ribbon)[^\n]{0,80}[0-9]"
+      # and in GNU grep a bracket expression takes `\n` literally, so [^\n] means "not backslash
+      # and not the letter N" ([[feedback_validator_grep_negated_class]]). The old wording put
+      # "chains" and "meshpen" between `bow` and the first digit, so the gate could never match it
+      # under GNU grep however well the mayor was measured. The span from `bow` to the number is
+      # now free of the letter n.
+      say "leg $TAG: mayor bow tieL/tieR vs torso at MESH level: ${MP6:-n/a} meshpen residual over $MT6 skinned-vertex samples, ${MR6:-n/a} pre-resolve (mraw)"
       [ "${MT6:-0}" -ge 1 ] || { say "FAIL($TAG): mayor meshtested=0 — his bow was never sampled at mesh level"; OK=0; }
       awk -v v="${MP6:-9}" 'BEGIN{exit !(v+0 <= 0.0001)}' \
         || { say "FAIL($TAG): mayor meshpen=$MP6 — his bow still ends inside his torso at MESH level"; OK=0; }
@@ -619,6 +718,25 @@ WATCH=200 run_leg "D-INTRO" '#t' 2 expect-intro intro-start || FAILED=1
 # entity.gc:1091-1092 skips actors-update for the level). Standing on his own trans is the
 # smallest change that puts the camera where the vanilla game puts it when he is on screen.
 VIS=vi1 WATCH=110 run_leg "D-MAYOR" '#t' 2 expect-mayor beach-start '-116.15 11.00 45.91' || FAILED=1
+# (C14-COV) A SIXTH SCENE, PURELY FOR CAST COVERAGE. village1/beach/intro between them only ever
+# put 17 of the 60 physics models on screen, and an actor nobody simulated is an actor nobody
+# measured. Rock Village's actor table is disjoint from those three, so it is the cheapest way to
+# widen the census; with force-actors? on, its whole table births at the continue point. Graded
+# with the same expect-phys gates as D-MAX — this is coverage, not a weaker bar.
+WATCH=110 run_leg "D-CAST" '#t' 2 expect-cast village2-start || FAILED=1
+# (C14-COV) A SEVENTH SCENE, same purpose, chosen by measurement and not by taste. Cross-referencing
+# the 60 art-groups in physics_chains.txt against decompiler_out/jak1/entities/*-actors.json gives
+# the per-level yield of models NO other leg can reach:
+#   village2  +4  gambler-lod0 geologist-lod0 sage-bluehut-lod0 warrior-lod0
+#   village3  +2  minershort-lod0 minertall-lod0
+#   swamp/rolling/citadel/beach +2 each, snow/ogre/misty/jungle/firecanyon/lavatube +1 each
+# Two scenes is what clears the 20-model bar with margin rather than by one: 17 already measured
+# + 4 + 2 = 23 potential, so up to three of the six may fail to birth and the census still holds.
+# village3 is picked over the other +2 levels because both of its models are standing humanoid NPCs
+# (the two miners) rather than creatures that surface and burrow, so they are simulated for the
+# whole watch instead of for a few frames. geologist-lod0 in village2 is also the ARCHAEOLOGIST the
+# owner asked about by name in cycle 5 (section Y) — she has never once been measured.
+WATCH=110 run_leg "D-CAST2" '#t' 2 expect-cast village3-start || FAILED=1
 
 say ""
 say "run total: input-free frames sampled across all legs = $TOTIDLE"
@@ -643,5 +761,5 @@ say "run total: truncated perimeters across all legs (cctrunc) = $TOTCCT"
 # (C14) the mesh audit must have RUN somewhere in this execution, or every meshpen above is empty
 say "run total: mesh-surface samples tested across all legs (meshtested) = $TOTMTEST"
 [ "$TOTMTEST" -ge 1 ] || { say "FAIL(run): meshtested=0 in the whole run — the mesh-surface audit never sampled one vertex"; FAILED=1; }
-if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER + D-INTRO + D-MAYOR green"; else say "[physics device leg FAIL] see legs above"; fi
+if [ "$FAILED" = 0 ]; then say "[physics device leg PASS] D-MAX + D-OFF + D-RIDER + D-INTRO + D-MAYOR + D-CAST + D-CAST2 green"; else say "[physics device leg FAIL] see legs above"; fi
 exit "$FAILED"

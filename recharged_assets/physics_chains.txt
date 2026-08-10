@@ -5065,22 +5065,22 @@ chain beardC class=primary stiffness=2.2 damping=0.24 gravity=0.30 maxangle=22 i
 j beardC
 chain beardD class=primary stiffness=2.2 damping=0.24 gravity=0.30 maxangle=22 inertia=1.0 stretch=0.02 radius=70 anim=excite excite=0.5 hang=0.35 family=A radii=260
 j beardD
-chain chestDanglerL class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=26 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=24,24,24
+chain chestDanglerL class=secondary stiffness=3.0 damping=0.40 gravity=0.60 maxangle=14 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=24,24,24
 j LchestDanglerA
 j LchestDanglerB
 j LchestDanglerC
-chain chestDanglerR class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=26 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=24,24,24
+chain chestDanglerR class=secondary stiffness=3.0 damping=0.40 gravity=0.60 maxangle=14 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=24,24,24
 j RchestDanglerA
 j RchestDanglerB
 j RchestDanglerC
-chain chestDangleL class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=26 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=260
+chain chestDangleL class=secondary stiffness=3.0 damping=0.40 gravity=0.60 maxangle=14 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=260
 j LchestDangleA
-chain chestDangleR class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=26 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=260
+chain chestDangleR class=secondary stiffness=3.0 damping=0.40 gravity=0.60 maxangle=14 inertia=1.0 stretch=0.01 radius=40 gradient=0.6 hang=0.25 family=B radii=260
 j RchestDangleA
-chain backDangler class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=38 inertia=1.0 stretch=0.03 radius=40 gradient=0.6 family=B hang=0.50 radii=24,24
+chain backDangler class=secondary stiffness=3.0 damping=0.40 gravity=0.60 maxangle=18 inertia=1.0 stretch=0.03 radius=40 gradient=0.6 family=B hang=0.50 radii=24,24
 j backDanglerA
 j backDanglerB
-chain armDangler class=secondary stiffness=1.8 damping=0.20 gravity=0.60 maxangle=38 inertia=1.0 stretch=0.03 radius=40 gradient=0.6 family=B hang=0.50 radii=24,24
+chain armDangler class=secondary stiffness=3.0 damping=0.40 gravity=0.60 maxangle=18 inertia=1.0 stretch=0.03 radius=40 gradient=0.6 family=B hang=0.50 radii=24,24
 j RarmDangler
 j RarmDanglerToo
 chain hairFrontL class=primary stiffness=2.2 damping=0.24 gravity=0.25 maxangle=24 inertia=1.0 stretch=0.02 radius=60 rootlock=0 gradient=1 hang=0.35 family=A radii=260,260 xchain=hairFrontR
@@ -5091,7 +5091,7 @@ j RhairFrontA
 j RhairFrontB
 chain belly class=secondary stiffness=2.15 damping=0.30 gravity=0.05 maxangle=10 inertia=1.0 stretch=0.01 radius=120 mass=3.2 swing=0.45 couple=2.6 hang=0.2 family=A radii=260
 j stomach
-chain shackle class=accessory stiffness=3.2 damping=0.30 gravity=0.50 maxangle=20 inertia=1.0 stretch=0.02 radius=40 family=B hang=0.50 radii=260
+chain shackle class=accessory stiffness=4.4 damping=0.40 gravity=0.50 maxangle=12 inertia=1.0 stretch=0.02 radius=40 family=B hang=0.50 radii=260
 j Lshackle
 chain fur class=accessory stiffness=3.0 damping=0.30 gravity=0.15 maxangle=16 inertia=1.0 stretch=0.02 radius=50 family=A radii=260
 j Lfur
