@@ -542,8 +542,16 @@ missing=[n for n in need if not re.search(n+r'[^\n]{0,120}(var|delta|inert|motio
 if missing: sys.stderr.write("  no motion/inertness figure for: "+", ".join(missing)+"\n")
 sys.exit(1 if missing else 0)
 PYC16
-grep -qiE "(suspend|authored)[^\n]{0,60}[0-9]+(\.[0-9]+)? *%" "$R" \
-  || fail "C16: the three motion suppressors (authored-priority suspension, collision clamp, calm freeze) must each be quantified as a % of frames"
+# Corrected 2026-08-10 (owner objection): "% of frames active" measures how often a mechanism RUNS,
+# not how much motion it REMOVED — same wrong-dimension error as crun. Require attribution of the
+# REMOVED DISPLACEMENT of the written bone, per suppressor.
+python3 - "$R" <<'PYSUP' || fail "C16: each motion suppressor must be attributed a share of the REMOVED written-bone displacement (not a % of frames it was active) — that is what names the culprit of a dead sim"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+ok = re.search(r'(removed|retir|supprim)[^\n]{0,80}(motion|mouvement|displacement|deplacement)[^\n]{0,40}[0-9]',t,re.I) \
+     and re.search(r'(authored|anim)[^\n]{0,60}[0-9]+(\.[0-9]+)? *%',t,re.I)
+sys.exit(0 if ok else 1)
+PYSUP
 
 
 # C18: no collider-quality metric may compare a volume to itself (my fit-error was a tautology:

@@ -225,9 +225,18 @@ un seul gate. Toute la semaine de « verts » repose sur cette erreur de défini
     chaînes que l'owner cite comme statiques doivent être celles qu'on prouve en mouvement.
   * Le cliquet doit ratcheter CETTE grandeur, et les anciens planchers (magnitude) sont RETIRÉS —
     ils ont servi de couverture à une sim morte, ils ne doivent plus jamais pouvoir passer.
-  * ET LES TROIS SUPPRESSEURS DOIVENT ÊTRE QUANTIFIÉS : % de frames où la physique est suspendue par
-    la priorité anim, % où le clamp de collision a borné le déplacement, % où le gel de calme est
-    actif. Si l'un dépasse ~20 % des frames, c'est lui le coupable et il faut le desserrer.
+  * ATTRIBUTION DES SUPPRESSEURS — CORRIGÉE le 2026-08-10 après une objection de l'owner. La
+    première version demandait le « % de frames où chaque suppresseur est actif » : METRIQUE
+    INUTILE, et de la MÊME famille d'erreur que `crun` (mesurer la mauvaise dimension). Un clamp
+    peut être évalué sur 100 % des frames sans jamais mordre ; un autre peut n'agir que sur 5 % des
+    frames — exactement celles où le mouvement allait naître — et tout tuer. Le seuil de 20 % était
+    inventé.
+    LA BONNE MESURE : **combien de MOUVEMENT chaque suppresseur a RETIRÉ**, dans l'unité qui compte
+    (déplacement du bone ÉCRIT). Par frame et par chaîne, enregistrer le déplacement que la chaîne
+    AURAIT eu avant l'intervention et celui qu'elle a gardé après ; la différence est imputée au
+    suppresseur qui l'a causée. Rapporter la répartition : « priorité anim a retiré X % du
+    mouvement total, clamp de collision Y %, gel de calme Z % ». C'est ce qui NOMME le coupable de
+    la sim morte, et c'est dérivé de la seule grandeur primaire (§17), pas d'un proxy de plus.
 
 ## 17. DIRECTIVE DE RÉÉCRITURE (superviseur 2026-08-10, sur ordre owner « fais le putain de travail
 ## quoi qu'il en coûte »)
