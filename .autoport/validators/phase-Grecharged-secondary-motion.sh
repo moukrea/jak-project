@@ -72,6 +72,60 @@ for m in $DECL_MODELS; do
   esac
 done
 
+# ---------------------------------------------------------------------------
+# ROOM (owner 2026-08-10, SPEC 11) -- LA SALLE DE TEST EST L'ETAPE 1 BLOQUANTE.
+# "je vois pas comment tu peux valider Keira en tapant a l'aveugle dans le jeu...
+#  un vrai test de physique quoi !"  No verdict on Keira exists without the room's
+# per-chain x per-animation table. This is not a new metric (gates stay frozen):
+# it is the owner-ordered DELIVERABLE, and it fails the phase when absent.
+TBL=".autoport/reports/Grecharged-secondary-motion/keira-room-table.txt"
+if [ ! -s "$TBL" ]; then
+  echo "[Grecharged-secondary-motion FAIL] ROOM: $TBL absent -- SPEC 11 makes the test"
+  echo "  room step 1 BLOQUANTE. Build it (spawn keira-hd by name in an empty zone, drive"
+  echo "  it with hard stops and brutal accelerations, cycle EVERY anim of its art-group,"
+  echo "  TILT it, hot-reload its chains) on x86 and emit the table. Nothing else counts."
+  exit 1
+fi
+python3 - "$TBL" <<'PYROOM' || exit 1
+import re,sys,os,glob,collections
+t=open(sys.argv[1],errors='ignore').read(); L=t.split('\n')
+def die(m): print("[Grecharged-secondary-motion FAIL] ROOM: "+m); sys.exit(1)
+rows=[]
+for ln in L:
+    if not ln.startswith('row '): continue
+    d=dict(re.findall(r'(\w+)=([^\s]+)',ln))
+    if not {'chain','anim','tipvar','rootdev','meshpen','jump'} <= set(d):
+        die("a row lacks one of chain/anim/tipvar/rootdev/meshpen/jump: %s" % ln[:110])
+    rows.append(d)
+if len(rows) < 120: die("%d rows -- the owner asked for TOUTES ses animations, not a sample (>=120)" % len(rows))
+ch={r['chain'] for r in rows}; an={r['anim'] for r in rows}
+if len(ch) < 20: die("%d distinct chains measured of the 47 generated (>=20)" % len(ch))
+if len(an) < 12: die("%d distinct animations cycled (>=12) -- 'cycler TOUTES ses animations'" % len(an))
+# the four drive modes SPEC 11.2/11.4 names; tilt is the never-once-exercised one
+for mode,why in (("hardstop","arrets nets"),("accel","accelerations brutales"),
+                 ("tilt","l'exception de gravite de la famille A, JAMAIS exercee")):
+    if not re.search(r'^drive=%s\b' % mode, t, re.M): die("no drive=%s line (%s)" % (mode,why))
+# a column that never varies is a synthesized column (same trap as C20)
+for k in ('tipvar','rootdev','meshpen','jump'):
+    try: v={float(r[k]) for r in rows}
+    except ValueError: die("non-numeric %s" % k)
+    if len(v) < 5: die("%s takes only %d distinct values over %d rows -- synthesized, not measured"
+                       % (k,len(v),len(rows)))
+# the worst case must carry the animation's NAME (SPEC 11: "le NOM DE L'ANIMATION attache
+# a chaque chiffre extreme") -- that is what tells us which anim breaks what
+w={m.group(1) for m in re.finditer(r'^worst\s+chain=(\S+).*\banim=\S+',t,re.M)}
+if len(w) < 10: die("%d chains carry a worst-case line naming the animation (>=10)" % len(w))
+# every zero needs a control that FIRED (owner, permanent)
+if not re.search(r'^ROOM-POSCONTROL:\s*fired\b.*[1-9]',t,re.M):
+    die("no 'ROOM-POSCONTROL: fired <nonzero>' -- a penetration counter that never fired is a vacuous zero")
+# the room must be a real facility in the tree, not a hand-written text file
+src=[f for f in glob.glob('goal_src/jak1/pc/*.gc') if 'phys-room' in open(f,errors='ignore').read()]
+if not src: die("no goal_src/jak1/pc/*.gc carries a 'phys-room' facility -- the table has no room behind it")
+print("[ROOM] %d rows, %d chains x %d anims, drive modes hardstop/accel/tilt present, %d worst-case"
+      " attributions, facility in %s" % (len(rows),len(ch),len(an),len(w),os.path.basename(src[0])))
+PYROOM
+
+
 DEV=""
 for s2 in eae4df44 AREE026206000788; do
   adb devices 2>/dev/null | grep -qE "^${s2}[[:space:]]+device$" && { DEV="$s2"; break; }
@@ -893,5 +947,4 @@ for ln in open(BAK,errors='ignore') if os.path.exists(BAK) else []:
 print("[DEFERRED] %d unlocked hair/beard roots in the ARCHIVE -- they must not survive the"
       " regeneration" % n)
 PYDEF
-
 echo "[Grecharged-secondary-motion PASS]"
