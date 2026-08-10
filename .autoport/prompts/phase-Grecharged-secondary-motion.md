@@ -963,3 +963,12 @@ CE QUE x86 NE PROUVE PAS, à écrire noir sur blanc dans le rapport : le codegen
 device, et les chemins device-only. La DETTE DE PREUVE DEVICE doit être déclarée explicitement ; le
 validateur la réclame et refuse un repli silencieux.
 Dès que le device revient : refaire la jambe device et lever la dette.
+
+### LEVÉE DE CONTRADICTION (superviseur 2026-08-10 16:10)
+Le prompt contient encore ma consigne du cycle 4 : « le build x86 de preuve est INTERDIT pour ce
+cycle ». Elle visait un cas précis — gaspiller une heure de rebuild x86 alors que le livrable était
+Android ET que le device était disponible. Ce n'est plus le cas : **le Redmi est absent, x86 est le
+SEUL substrat de preuve disponible**. L'interdiction du cycle 4 est donc SUSPENDUE tant qu'aucun
+device n'est connecté, et le repli x86 autorisé par l'owner prime.
+Elle redevient active dès que le device revient (le device redevient alors la preuve, et x86 ne sert
+plus à rien de plus).
