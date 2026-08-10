@@ -972,3 +972,12 @@ SEUL substrat de preuve disponible**. L'interdiction du cycle 4 est donc SUSPEND
 device n'est connecté, et le repli x86 autorisé par l'owner prime.
 Elle redevient active dès que le device revient (le device redevient alors la preuve, et x86 ne sert
 plus à rien de plus).
+
+### RECADRAGE PÉRIMÈTRE (superviseur 2026-08-10 17:45, owner a relevé la contradiction)
+J'avais écrit « KEIRA SEULE jusqu'au oui de l'owner » (SPEC §17) puis posé un gate C21 qui échoue sur
+TOUTES les chaînes de cheveux/barbe des 60 modèles — donc qui force le cast-wide. Contradiction de
+mon fait. CORRIGÉ : C21 ne bloque plus que sur KEIRA (10 racines libres chez elle : backhair,
+rmidhair, lmidhair, rbang, lbang, + keira3-hd). Les 19 racines libres ailleurs (jak-hd, jak2-hd,
+jakp-hd, eichar, assistant, bluesage, billy, ogreboss...) sont RAPPORTÉES à chaque run mais NON
+BLOQUANTES — elles redeviennent bloquantes dès que l'owner valide Keira. Rien n'est oublié, rien
+n'est fait avant l'heure.

@@ -633,17 +633,34 @@ sys.exit(0 if max(v) <= 2.0 else 1)
 PYC21
 grep -qiE "(tip|pointe)[^\n]{0,80}(motion|variation|cvar|moving)" "$R" \
   || fail "C21: the MOVING/INERT verdict must be judged on the free links and the TIP, never on the anchored root"
-python3 - <<'PYC21B' || fail "C21: bang/hair chains still have UNLOCKED roots in the data — reverse the root unlocking, it was a regression introduced to satisfy a badly-posed gate"
+python3 - <<'PYC21B' || fail "C21: KEIRA still has unlocked hair/bang roots — reverse the root unlocking on HER first (SPEC 17 delivery order: Keira alone until the owner validates her)"
 import re,sys
-bad=[]
+cur=None; bad=[]
 for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
-    if not ln.startswith('chain '): continue
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: cur=m.group(1); continue
+    if not ln.startswith('chain ') or not cur or 'keira' not in cur: continue
     n=ln.split()[1]
-    if re.search(r'bang|hair|stache|beard',n,re.I):
-        m=re.search(r'rootlock=([0-9]+)',ln)
-        if m and int(m.group(1))==0: bad.append(n)
-if bad: sys.stderr.write("  unlocked roots on: "+", ".join(sorted(set(bad))[:8])+"\n")
+    if not re.search(r'bang|hair|stache|beard',n,re.I): continue
+    rl=re.search(r'rootlock=([0-9]+)',ln)
+    if rl and int(rl.group(1))==0: bad.append(f"{cur.split()[0]}:{n}")
+if bad: sys.stderr.write("  Keira unlocked roots: "+", ".join(bad[:8])+"\n")
 sys.exit(1 if bad else 0)
 PYC21B
+# The cast-wide root audit is DEFERRED, not dropped: it becomes blocking once the owner validates
+# Keira (SPEC 17). Reported here so it is never forgotten, but it does not fail the phase yet.
+python3 - <<'PYC21C'
+import re
+cur=None; n=0
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: cur=m.group(1); continue
+    if not ln.startswith('chain ') or not cur or 'keira' in cur: continue
+    nm=ln.split()[1]
+    if re.search(r'bang|hair|stache|beard',nm,re.I):
+        rl=re.search(r'rootlock=([0-9]+)',ln)
+        if rl and int(rl.group(1))==0: n+=1
+print(f"[C21 deferred] {n} unlocked hair/beard roots OUTSIDE Keira — owed after her validation")
+PYC21C
 
 echo "[Grecharged-secondary-motion PASS]"
