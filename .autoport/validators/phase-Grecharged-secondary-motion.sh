@@ -616,4 +616,34 @@ for b in bad: sys.stderr.write("  "+b+"\n")
 sys.exit(1 if bad else 0)
 PYC20
 
+
+# C21: ROOT ANCHORED + TIP MOVING — both halves, or the verdict is meaningless. My inertness gate
+# did not say WHERE the motion had to appear, so the worker unlocked 4 of Keira's bang ROOTS to
+# satisfy it, which detaches hair from the skull. A green must be incompatible with BOTH "les meches
+# sont ancrees" (tip frozen) AND "cheveux decolles du crane" (root drifting).
+grep -qiE "rootdev[^\n]{0,60}=[^\n]{0,20}[0-9]" "$R" \
+  || fail "C21: no per-chain root deviation (rootdev) — the root must follow the skull bone rigidly, and a drifting root is as much a defect as a frozen tip"
+python3 - "$R" <<'PYC21' || fail "C21: a chain root is drifting (rootdev far from 0) — roots must stay anchored; motion belongs to the free links and the TIP"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+v=[float(x) for x in re.findall(r'rootdev[a-z-]*\s*=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+if not v: sys.exit(1)
+sys.stderr.write(f"  rootdev max={max(v)}\n")
+sys.exit(0 if max(v) <= 2.0 else 1)
+PYC21
+grep -qiE "(tip|pointe)[^\n]{0,80}(motion|variation|cvar|moving)" "$R" \
+  || fail "C21: the MOVING/INERT verdict must be judged on the free links and the TIP, never on the anchored root"
+python3 - <<'PYC21B' || fail "C21: bang/hair chains still have UNLOCKED roots in the data — reverse the root unlocking, it was a regression introduced to satisfy a badly-posed gate"
+import re,sys
+bad=[]
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    if not ln.startswith('chain '): continue
+    n=ln.split()[1]
+    if re.search(r'bang|hair|stache|beard',n,re.I):
+        m=re.search(r'rootlock=([0-9]+)',ln)
+        if m and int(m.group(1))==0: bad.append(n)
+if bad: sys.stderr.write("  unlocked roots on: "+", ".join(sorted(set(bad))[:8])+"\n")
+sys.exit(1 if bad else 0)
+PYC21B
+
 echo "[Grecharged-secondary-motion PASS]"

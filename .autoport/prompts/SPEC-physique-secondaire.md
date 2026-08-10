@@ -335,3 +335,22 @@ chaînes — poitrine, lunettes, oreilles et pans de pantalon confondus. Pour ma
    arithmétique de l'index. Gate C20 le refuse automatiquement (identité ou rampe constante).
 => Et la leçon de fond : la réécriture ne vaut rien si l'instrumentation est re-fabriquée. La valeur
    doit provenir de la position ÉCRITE lue frame par frame, jamais d'un calcul sur l'index.
+
+## 21. RACINE ANCRÉE, POINTE MOBILE (owner 2026-08-10 : « les mèches doivent bouger MAIS être ancrées
+## au crâne, la racine doit pas bouger »)
+DÉFAUT DE MON PROPRE GATE, à corriger immédiatement : le verdict d'inertie §16/§20 ne disait pas OÙ
+le mouvement devait apparaître. Le worker a donc « DÉVERROUILLÉ 4 RACINES de mèches de Keira » pour
+le satisfaire — ce qui décolle les cheveux du crâne. Incitation perverse créée par moi.
+
+LA RÈGLE, en deux moitiés inséparables :
+  * **RACINE ANCRÉE** : le premier maillon suit RIGIDEMENT l'os animé du crâne (ou du torse pour une
+    poitrine, du chapeau pour une plume...). Sa déviation propre doit être ~0. Une racine qui dérive
+    est un DÉFAUT, au même titre qu'une pointe immobile.
+  * **POINTE MOBILE** : le mouvement croît de la racine vers la pointe. Le verdict MOVING/INERT se
+    juge sur les maillons LIBRES et surtout sur la POINTE — jamais sur la racine.
+  * Donc deux mesures obligatoires par chaîne : `rootdev` (déviation de la racine, doit être ~0) ET
+    la variation du joint écrit de la POINTE (doit être franchement non nulle en mouvement).
+  * Un vert exige LES DEUX. « Racine fixe + pointe mobile » est incompatible à la fois avec « mèches
+    ancrées/immobiles » ET avec « cheveux décollés du crâne » — c'est-à-dire admissible au sens §19.
+  * ANNULER le déverrouillage des 4 racines de mèches de Keira : ce n'était pas une correction, c'est
+    une régression introduite pour satisfaire un critère mal posé.
