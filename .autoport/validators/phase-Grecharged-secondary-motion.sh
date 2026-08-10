@@ -80,14 +80,19 @@ done
 # three invalidates an in-flight attempt at validation time -- one failed
 # validation instead of hours spent on an abandoned scope.
 DV=$(python3 .autoport/lib/directives.py version Grecharged-secondary-motion 2>/dev/null)
+# accepted = every version issued under the CURRENT scope serial. A prose fix must
+# never kill a healthy attempt; only a deliberate serial bump does.
+DVOK=$(python3 .autoport/lib/directives.py accepted 2>/dev/null)
 if [ -z "$DV" ]; then
   echo "[Grecharged-secondary-motion FAIL] SYNC: cannot compute the directives version"
   exit 1
 fi
-if ! grep -qF "DIRECTIVES $DV" "$R"; then
+_sync_ok=0
+for _v in $DVOK; do grep -qF "DIRECTIVES $_v" "$R" && _sync_ok=1; done
+if [ "$_sync_ok" -eq 0 ]; then
   GOT=$(grep -oE "DIRECTIVES v[0-9a-f]{6,}" "$R" | head -1)
   echo "[Grecharged-secondary-motion FAIL] SYNC: report carries ${GOT:-no directives line},"
-  echo "  current contract is DIRECTIVES $DV. The scope, the SPEC or the phase prompt changed"
+  echo "  the scope serial was bumped; current contract is DIRECTIVES $DV (accepted: $DVOK)."
   echo "  while this attempt ran: re-read .autoport/DIRECTIVES.md (it overrides your task"
   echo "  prompt), relaunch any subagent still working on the old scope, and echo the line."
   exit 1
@@ -150,7 +155,10 @@ PYROOM
 
 DEV=""
 for s2 in eae4df44 AREE026206000788; do
-  adb devices 2>/dev/null | grep -qE "^${s2}[[:space:]]+device$" && { DEV="$s2"; break; }
+  # no pipe into grep -q: under pipefail the early exit SIGPIPEs adb and the
+  # status of the whole pipeline flips (preflight PIPEFAIL-GREPQ).
+  _adb_out=$(adb devices 2>/dev/null || true)
+  case "$_adb_out" in *"$s2"*device*) DEV="$s2"; break ;; esac
 done
 if [ -z "$DEV" ]; then
   # DEVICE-ABSENT FALLBACK, authorised by the owner 2026-08-10 ("au pire teste sur un build PC a
@@ -158,7 +166,7 @@ if [ -z "$DEV" ]; then
   # written-joint instrument, collision against the real surface, and the C20 anti-synthesis check.
   # It does NOT prove arm64 codegen, device perf, or device-only paths — so the debt is recorded and
   # the report must say so, and it must still carry real x86 legs (not prose).
-  grep -qiE "x86[^\n]{0,60}(leg|run|smoke)[^\n]{0,40}(PASS|OK)" "$R" \
+  grep -qiE "x86.{0,60}(leg|run|smoke).{0,40}(PASS|OK)" "$R" \
     || fail "device absent AND no passing x86 leg in the report — nothing was proven anywhere"
   grep -qiE "(device proof (owed|pending)|dette de preuve device|arm64 non prouv)" "$R" \
     || fail "device absent: the report must state explicitly that the DEVICE proof is still owed (x86 does not prove arm64/perf)"
@@ -182,7 +190,7 @@ grep -qiE "(stiff|frozen|dead).{0,30}chains?.{0,20}=.{0,6}0\b" "$R" || fail "D: 
 # D-scope: RE-SCOPED to Keira. The clause demanded a per-link motion span for JAK's hair; Jak has no
 # chains this cycle. The defect it was written for ("only the very tip moved") is a property of the
 # root->tip freedom ramp, and Keira's 3-link bangs and 2-link midhair exercise exactly that ramp.
-grep -qiE "(keira|assistant)[^\n]{0,40}(bang|hair|meche|midhair)[^\n]{0,60}(link|maillon|span|profile|profil)[^\n]{0,30}[0-9]" "$R" \
+grep -qiE "(keira|assistant).{0,40}(bang|hair|meche|midhair).{0,60}(link|maillon|span|profile|profil).{0,30}[0-9]" "$R" \
   || fail "D: no per-link motion span/profile for Keira's bangs or midhair (the 'only the tip moves' defect lives in the freedom ramp)"
 # E. chains that were missing — RE-SCOPED. Jak's chest-plate ring and his ears are out of scope this
 # cycle (documented in the [DEFERRED] block below); Keira's ears are in scope and are hers by name.
@@ -216,7 +224,7 @@ PYG
 grep -qiE "\bearL\b" "$R" || fail "J: earL not reported by name"
 grep -qiE "\bearR\b" "$R" || fail "J: earR not reported by name"
 # K. mass/inertia model — a chest must not be jelly. Unchanged (it always accepted chest/poitrine).
-grep -qiE "(inertia|mass|masse)[^\n]{0,60}(maia|evilsis|chest|poitrine)" "$R" || fail "K: no per-chain mass/inertia evidence for chests (Maia jelly)"
+grep -qiE "(inertia|mass|masse).{0,60}(maia|evilsis|chest|poitrine)" "$R" || fail "K: no per-chain mass/inertia evidence for chests (Maia jelly)"
 # M. REPLACED: per-chain activity was gated on Maia and Gol BY NAME. Neither has physics data this
 # cycle, so the clause could only be met by writing numbers for actors nobody measured. The property
 # it was protecting — "every chain of every actor in scope reports its own activity, no actor hidden
@@ -255,10 +263,10 @@ if missing: sys.stderr.write("  models with no penetration figure: %s\n" % missi
 sys.exit(1 if missing else 0)
 PYN2
 # O. SOLVER STABILITY: an unsatisfiable constraint must settle, never oscillate
-grep -qiE "(jitter|oscillat|chatter)[^\n]{0,60}(=|:)[^\n]{0,12}[0-9]" "$R" || fail "O: no jitter/oscillation metric under sustained constraint"
-grep -qiE "(damped|soft|bounded|clamped)[^\n]{0,50}(projection|correction)" "$R" || fail "O: no damped/bounded constraint projection (hard re-projection each frame is the jitter source)"
-grep -qiE "(no|zero|kill|remove)[^\n]{0,40}(velocity|vitesse)[^\n]{0,40}(inject|added|from .{0,20}projection)" "$R" || fail "O: projection must not re-inject velocity"
-grep -qiE "(intro|cinemat)[^\n]{0,90}(leg|exercis|lying|allong|tilt|penche)" "$R" || fail "O: the intro-cinematic leg (non-upright actors, where the gravity-resumes path is the only place it can fire) not exercised"
+grep -qiE "(jitter|oscillat|chatter).{0,60}(=|:).{0,12}[0-9]" "$R" || fail "O: no jitter/oscillation metric under sustained constraint"
+grep -qiE "(damped|soft|bounded|clamped).{0,50}(projection|correction)" "$R" || fail "O: no damped/bounded constraint projection (hard re-projection each frame is the jitter source)"
+grep -qiE "(no|zero|kill|remove).{0,40}(velocity|vitesse).{0,40}(inject|added|from .{0,20}projection)" "$R" || fail "O: projection must not re-inject velocity"
+grep -qiE "(intro|cinemat).{0,90}(leg|exercis|lying|allong|tilt|penche)" "$R" || fail "O: the intro-cinematic leg (non-upright actors, where the gravity-resumes path is the only place it can fire) not exercised"
 python3 - "$R" <<'PYO' || fail "O: oscillation must DECAY under sustained penetration (report must show a decreasing series or explicit settle)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
@@ -270,8 +278,8 @@ PYO
 
 
 # ---- CYCLE 3d (owner 09:20): no step in the per-link influence profile ----
-grep -qiE "(ear|oreille)[^\n]{0,80}(light|leger|physique|authored|anim)" "$R" || fail "P: ears not addressed as the light-physics/authored-priority case the owner described"
-grep -qiE "(profile|profil|per.?link|par maillon)[^\n]{0,80}(weight|influence|poids)" "$R" || fail "P: no per-link influence profile reported"
+grep -qiE "(ear|oreille).{0,80}(light|leger|physique|authored|anim)" "$R" || fail "P: ears not addressed as the light-physics/authored-priority case the owner described"
+grep -qiE "(profile|profil|per.?link|par maillon).{0,80}(weight|influence|poids)" "$R" || fail "P: no per-link influence profile reported"
 python3 - "$R" <<'PYP' || fail "P: per-link influence profile shows a STEP (adjacent-link jump too large) or is unreadable — the transition must be continuous"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
@@ -289,7 +297,7 @@ if not best: sys.exit(1)
 d=[abs(best[i+1]-best[i]) for i in range(len(best)-1)]
 sys.exit(0 if max(d)<=0.45 else 1)
 PYP
-grep -qiE "(goggle|lunette)[^\n]{0,90}(authored|anim.{0,12}priorit|priorit)" "$R" || fail "Q: authored-anim priority not proven on the in-scope authored chain (Keira goggles)"
+grep -qiE "(goggle|lunette).{0,90}(authored|anim.{0,12}priorit|priorit)" "$R" || fail "Q: authored-anim priority not proven on the in-scope authored chain (Keira goggles)"
 
 
 # O-bis: the intro cinematic (owner's named collar case, close-up) must actually be CALM.
@@ -310,9 +318,9 @@ PYR
 
 # ---- CYCLE 4 (owner 14:45): the metric lied; anchor it to things that cannot ----
 # R. gravity must be proven WORLD-space, and mass must be proven to reach the integrator
-grep -qiE "gravity[^\n]{0,80}(world|monde)[^\n]{0,60}(space|repere|frame)" "$R" || fail "R: gravity not proven to be applied in WORLD space (Gol's sleeve points forward)"
+grep -qiE "gravity.{0,80}(world|monde).{0,60}(space|repere|frame)" "$R" || fail "R: gravity not proven to be applied in WORLD space (Gol's sleeve points forward)"
 grep -qiE "(0[.,]?0*,\s*-1|0,-1,0|\(0 -1 0\))" "$R" || fail "R: no measured gravity direction on a rotated actor / horizontal bone"
-grep -qiE "mass[^\n]{0,80}(a ?= ?F/m|divided by|integrat|accel)" "$R" || fail "R: mass not proven to participate in integration (may be a dead data key)"
+grep -qiE "mass.{0,80}(a ?= ?F/m|divided by|integrat|accel)" "$R" || fail "R: mass not proven to participate in integration (may be a dead data key)"
 # S. idle drift must be ~0 and settling must be measured by DECAY, not by absence of contact
 python3 - "$R" <<'PYS' || fail "S: no idle-drift measurement at ~0 (a chain that moves with no input is the Maia defect)"
 import re,sys
@@ -320,16 +328,16 @@ t=open(sys.argv[1],errors='ignore').read()
 v=[float(x) for x in re.findall(r'(?:idle[- ]?drift|derive[- ]?a[- ]?vide|drift)[^\n]{0,40}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
 sys.exit(0 if v and max(v)<=1.0 else 1)
 PYS
-grep -qiE "(settl|stabilis)[a-z]*[- ]?time[^\n]{0,40}=[^\n]{0,20}[0-9]" "$R" || fail "S: no settle-time measurement (decay to rest after the driving motion stops)"
-grep -qiE "(free|libre)[- ]?(space|air)[^\n]{0,60}(ring|oscillat)" "$R" || fail "S: free-space ringing not measured — restricting the metric to contact reversals is what hid the defect"
+grep -qiE "(settl|stabilis)[a-z]*[- ]?time.{0,40}=.{0,20}[0-9]" "$R" || fail "S: no settle-time measurement (decay to rest after the driving motion stops)"
+grep -qiE "(free|libre)[- ]?(space|air).{0,60}(ring|oscillat)" "$R" || fail "S: free-space ringing not measured — restricting the metric to contact reversals is what hid the defect"
 # T. chest must move as a volume, not only at the tip
-grep -qiE "(chest|poitrine)[^\n]{0,90}(root|base)[^\n]{0,40}[0-9]" "$R" || fail "T: no root-end motion for chest chains (owner: only the tips move)"
+grep -qiE "(chest|poitrine).{0,90}(root|base).{0,40}[0-9]" "$R" || fail "T: no root-end motion for chest chains (owner: only the tips move)"
 # U. Maia penetration: say WHICH of the three causes, and make the audit representative
-grep -qiE "(keira|assistant)[^\n]{0,140}(capsule|coverage|not tested|pose|sampl)" "$R" || fail "U: hair-through-body not diagnosed for the model in scope (volume coverage / chain not tested / pose not sampled)"
+grep -qiE "(keira|assistant).{0,140}(capsule|coverage|not tested|pose|sampl)" "$R" || fail "U: hair-through-body not diagnosed for the model in scope (volume coverage / chain not tested / pose not sampled)"
 # V. still-open cycle-3 items
-grep -qiE "(flap|pan|hem)[^\n]{0,90}(trouser|pant|leg|jambe|flar|evas|clip)" "$R" || fail "V: hanging-flap-over-leg clipping unaddressed (Keira kneeflap/pantflap are the in-scope instance of the jacket-hem defect)"
-grep -qiE "(freering|free[- ]space)[^\n]{0,80}(ring|oscillat|hyster)" "$R" || fail "V: free-space ringing (the mechanism behind the lurker-legs hysteresis site) not addressed"
-grep -qiE "(keira|assistant)[^\n]{0,80}(neck|nuque)" "$R" || fail "V: behind-Keira's-neck (new hysteresis site) not addressed"
+grep -qiE "(flap|pan|hem).{0,90}(trouser|pant|leg|jambe|flar|evas|clip)" "$R" || fail "V: hanging-flap-over-leg clipping unaddressed (Keira kneeflap/pantflap are the in-scope instance of the jacket-hem defect)"
+grep -qiE "(freering|free[- ]space).{0,80}(ring|oscillat|hyster)" "$R" || fail "V: free-space ringing (the mechanism behind the lurker-legs hysteresis site) not addressed"
+grep -qiE "(keira|assistant).{0,80}(neck|nuque)" "$R" || fail "V: behind-Keira's-neck (new hysteresis site) not addressed"
 
 
 # U-bis: a penetration audit of resid=0 is VACUOUS unless the collider actually fired.
@@ -376,12 +384,12 @@ if not (v and max(v)<=8.0): sys.exit(1)
 if re.search(r'(clamp|freeze|pinned)[^\n]{0,40}(bind|model)\s*pose',t,re.I) and not re.search(r'not\s+(clamped|frozen|pinned)',t,re.I): sys.exit(1)
 sys.exit(0)
 PYW
-grep -qiE "(hang|gravity)[^\n]{0,90}(removed|neutral|off|exclu|not applied)[^\n]{0,60}(hair|chest|ear|body|cheveu|poitrine|oreille)" "$R" \
+grep -qiE "(hang|gravity).{0,90}(removed|neutral|off|exclu|not applied).{0,60}(hair|chest|ear|body|cheveu|poitrine|oreille)" "$R" \
   || fail "W: gravity rest-pull not shown to be removed from BODY chains (cycle 4 wrongly applied it to 84 ears / 28 hair / 14 chests)"
-grep -qiE "(tilt|orientation|upside|penche|angle)[^\n]{0,80}(gravity|resume|reprend|restore)" "$R" \
+grep -qiE "(tilt|orientation|upside|penche|angle).{0,80}(gravity|resume|reprend|restore)" "$R" \
   || fail "W: the owner's exception (non-upright orientation -> gravity applies again) not implemented"
 # X. nothing may compress: Jak's collar is the named case
-grep -qiE "(collar|col)[^\n]{0,90}(length|compress|tass|ecras|volume)[^\n]{0,30}[0-9]" "$R" || fail "X: no collar compression measurement (it must not be crushed)"
+grep -qiE "(collar|col).{0,90}(length|compress|tass|ecras|volume).{0,30}[0-9]" "$R" || fail "X: no collar compression measurement (it must not be crushed)"
 # Y. four chests must be DIFFERENTIATED, not copy-pasted
 # Y. RE-SCOPED. The clause required four chests (Keira / Maia / bird-lady / archaeologist) to carry
 # distinct parameters; three of those four actors have no physics data this cycle. What survives is
@@ -397,17 +405,17 @@ missing=[k for k in need if not re.search(k+r'\s*=\s*[0-9]',t)]
 if missing: sys.stderr.write("  chest params not quoted: %s\n" % missing)
 sys.exit(1 if missing else 0)
 PYY
-grep -qiE "(keira)[^\n]{0,120}(collide|contact|entre-?choc|against each other)" "$R" || fail "Y: Keira's breasts must collide with EACH OTHER (owner's explicit description)"
+grep -qiE "(keira).{0,120}(collide|contact|entre-?choc|against each other)" "$R" || fail "Y: Keira's breasts must collide with EACH OTHER (owner's explicit description)"
 # Z. scoping is an optimisation, never a licence to pass through
-grep -qiE "(cross|croise|opposite)[^\n]{0,60}(leg|jambe)[^\n]{0,40}(=|:)\s*0\b" "$R" || fail "Z: no cross-leg penetration counter at 0 (jacket flaps went through the opposite leg)"
-grep -qiE "(keira|assistant)[^\n]{0,110}(lower body|bassin|pelvis|leg|hip|whole body|corps entier)" "$R" || fail "Z: the in-scope model's chains not tested against her LOWER body (scoping must not become a licence to pass through)"
-grep -qiE "(collider|capsule)[^\n]{0,60}(list|set|per[- ]chain|par chaine)" "$R" || fail "Z: no per-chain list of the colliders actually tested"
+grep -qiE "(cross|croise|opposite).{0,60}(leg|jambe).{0,40}(=|:)\s*0\b" "$R" || fail "Z: no cross-leg penetration counter at 0 (jacket flaps went through the opposite leg)"
+grep -qiE "(keira|assistant).{0,110}(lower body|bassin|pelvis|leg|hip|whole body|corps entier)" "$R" || fail "Z: the in-scope model's chains not tested against her LOWER body (scoping must not become a licence to pass through)"
+grep -qiE "(collider|capsule).{0,60}(list|set|per[- ]chain|par chaine)" "$R" || fail "Z: no per-chain list of the colliders actually tested"
 
 
 # ---- CYCLE 5 families (owner, third repetition): A=body returns to the model, B=hangs and stays hung
-grep -qiE "(family|famille|class)[^\n]{0,40}\bA\b[^\n]{0,80}(body|corps|hair|chest|ear)" "$R" || fail "FAM: chains are not classified into family A (body: returns to the model pose)"
-grep -qiE "(family|famille|class)[^\n]{0,40}\bB\b[^\n]{0,80}(hang|pend|strap|accessor|lani)" "$R" || fail "FAM: chains are not classified into family B (hangs: gravity rules, never returns to the model pose)"
-grep -qiE "(family|famille)[^\n]{0,20}B[^\n]{0,120}(not|jamais|never|no)[^\n]{0,40}(return|regagn|model|modele)" "$R" \
+grep -qiE "(family|famille|class).{0,40}\bA\b.{0,80}(body|corps|hair|chest|ear)" "$R" || fail "FAM: chains are not classified into family A (body: returns to the model pose)"
+grep -qiE "(family|famille|class).{0,40}\bB\b.{0,80}(hang|pend|strap|accessor|lani)" "$R" || fail "FAM: chains are not classified into family B (hangs: gravity rules, never returns to the model pose)"
+grep -qiE "(family|famille).{0,20}B.{0,120}(not|jamais|never|no).{0,40}(return|regagn|model|modele)" "$R" \
   || fail "FAM: family B must be shown NOT to be pulled back to the model pose — hanging things hang"
 python3 - "$R" <<'PYF' || fail "FAM: the post-settle model-fidelity criterion must be reported for family A ONLY (applying it to hanging chains is the opposite bug)"
 import re,sys
@@ -460,7 +468,7 @@ python3 .autoport/lib/ratchet.py "$R" || fail "RATCHET: this run regressed a tar
 
 
 # ---- CYCLE 6 (owner 01:20): nothing may pass through its own character's mesh ----
-grep -qiE "(positive control|controle positif)[^\n]{0,120}(penetrat|clip|inject)" "$R" \
+grep -qiE "(positive control|controle positif).{0,120}(penetrat|clip|inject)" "$R" \
   || fail "C6: no POSITIVE CONTROL for the penetration audit — a zero from an audit never shown to fire is worthless (resid/idledrift/restdevA were all vacuous zeros today)"
 python3 - "$R" <<'PYC' || fail "C6: the positive control must show the counter RISING on a deliberate penetration and returning to zero after"
 import re,sys
@@ -477,7 +485,7 @@ for site in "strap.{0,60}(chest|bust|poitrine|buste)|bretelle.{0,60}(poitrine|bu
 done
 grep -qiE "chain.{0,20}(vs|against|contre).{0,20}chain|chaine.{0,20}chaine" "$R" \
   || fail "C6: chain-vs-chain collision not covered (Jak's back buckle clips into his own hanging strap)"
-grep -qiE "(mesh|surface)[^\n]{0,80}(volume|approx|hull|envelope)" "$R" \
+grep -qiE "(mesh|surface).{0,80}(volume|approx|hull|envelope)" "$R" \
   || fail "C6: the collision volume must be shown to approximate the character MESH, not a capsule set with gaps"
 
 
@@ -538,7 +546,7 @@ sys.exit(0 if max(v) <= 1.0 else 1)
 PYFIT
 grep -qiE "(derived|derive|from the mesh|skinned vert|convex|hull|oriented box)" "$R" || fail "C6-fit: collision volumes not shown to be derived from the merc geometry (hand-written capsules cannot follow a shoulder or a jaw)"
 # C6-self: physics elements need their own volume, and chain-chain contact must be live
-grep -qiE "(per[- ]link|par maillon)[^\n]{0,60}(radius|volume|rayon)" "$R" || fail "C6-self: physics links have no volume of their own — two chains cannot see each other"
+grep -qiE "(per[- ]link|par maillon).{0,60}(radius|volume|rayon)" "$R" || fail "C6-self: physics links have no volume of their own — two chains cannot see each other"
 python3 - "$R" <<'PYCC' || fail "C6-self: no chain-vs-chain contact counter with a positive control (Jak's buckle through his own strap, Keira's goggles into her chest)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
@@ -548,7 +556,7 @@ PYCC
 
 
 # ---- CYCLE 7 (owner 07:50): prove the chain actually drives the geometry he is looking at ----
-grep -qiE "(skin|weight|poids)[^\n]{0,80}(joint|os|bone)[^\n]{0,60}([0-9]+ *(vert|sommet)|weight)" "$R" \
+grep -qiE "(skin|weight|poids).{0,80}(joint|os|bone).{0,60}([0-9]+ *(vert|sommet)|weight)" "$R" \
   || fail "AA: no skinning evidence — for each named defect, list the joints that skin the offending geometry and how much weight each carries"
 grep -qiE "LpantFlap|RpantFlap|lKneeFlap|rKneeFlap" "$R" || fail "AA: the in-scope hanging-flap joints not examined by name (LpantFlap/RpantFlap/lKneeFlap/rKneeFlap)"
 python3 - "$R" <<'PYAA' || fail "AA: the report must state, per named defect, whether the chain actually drives the visible geometry (majority of the skin weight) — a solver tuned on the wrong joint explains 'no difference'"
@@ -616,16 +624,16 @@ sys.stderr.write(f"  Maia damping={md} vs Keira damping={kd}\n")
 sys.exit(1 if md > kd*1.5 else 0)
 PYAD
 # AE: the skin-authority fix must not silently stop at the HD models
-grep -qiE "(stock|lod0)[^\n]{0,120}(authority|autorite|reskin|transfer|not applicable|inapplicable)" "$R" \
+grep -qiE "(stock|lod0).{0,120}(authority|autorite|reskin|transfer|not applicable|inapplicable)" "$R" \
   || fail "AE: the ~50 stock -lod0 rigs are outside the reskin table — say measurably whether they need it and what path applies"
 
 
 # AF: authored authority must not be released just because the authored channel stopped MOVING.
-grep -qiE "(held|tenu|hold)[^\n]{0,80}(still|immobile|static|zero speed|vitesse nulle)" "$R" \
+grep -qiE "(held|tenu|hold).{0,80}(still|immobile|static|zero speed|vitesse nulle)" "$R" \
   || fail "AF: 'held still' vs 'no longer held' not addressed — Keira's goggles drop while her hand still holds them"
-grep -qiE "(release|liberation|handback)[^\n]{0,100}(not|pas|never)[^\n]{0,40}(speed|velocity|vitesse)" "$R" \
+grep -qiE "(release|liberation|handback).{0,100}(not|pas|never).{0,40}(speed|velocity|vitesse)" "$R" \
   || fail "AF: authored-authority release must not be armed on the authored channel's SPEED (a static hold reads as 'no animation')"
-grep -qiE "(zoomer|sandover)[^\n]{0,80}(goggle|lunette)" "$R" || fail "AF: the owner's named non-regression case (Sandover Zoomer loop, goggles held to the eyes) not exercised"
+grep -qiE "(zoomer|sandover).{0,80}(goggle|lunette)" "$R" || fail "AF: the owner's named non-regression case (Sandover Zoomer loop, goggles held to the eyes) not exercised"
 
 
 # AH: firmness floor — never soften Keira's chest below the owner-approved 09:13 values.
@@ -644,7 +652,7 @@ for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
 sys.exit(0)
 PYAH
 # AJ: authored authority must be measured PER CHAIN, and must not dominate during ordinary animation
-grep -qiE "(authored|anim)[^\n]{0,80}(per[- ]chain|par chaine)[^\n]{0,60}(not|jamais|never)?[^\n]{0,40}(actor|global|parent)" "$R" \
+grep -qiE "(authored|anim).{0,80}(per[- ]chain|par chaine).{0,60}(not|jamais|never)?.{0,40}(actor|global|parent)" "$R" \
   || fail "AJ: authored-authority detection not shown to be strictly per-chain (unrelated bones moving must not suspend a chain's physics)"
 python3 - "$R" <<'PYAJ' || fail "AJ: report must give, per chain, the share of frames under ANIM authority during ordinary animation — a high share on chains the animation does not drive IS the bug"
 import re,sys
@@ -684,7 +692,7 @@ for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
 if bad: sys.stderr.write("  positional stretch left on: "+", ".join(bad[:6])+"\n")
 sys.exit(1 if bad else 0)
 PYAL
-grep -qiE "(rotation|angle)[^\n]{0,90}(anchor|ancre|root|racine)[^\n]{0,60}(length|longueur)[^\n]{0,40}(preserv|conserv|invariant)" "$R" \
+grep -qiE "(rotation|angle).{0,90}(anchor|ancre|root|racine).{0,60}(length|longueur).{0,40}(preserv|conserv|invariant)" "$R" \
   || fail "AL: the report must show the bone length is INVARIANT (min/max over the capture) — the shape must not deform"
 
 
@@ -719,7 +727,7 @@ import re,sys
 t=open(sys.argv[1],errors='ignore').read()
 sys.exit(0 if re.search(r'tested\s*=\s*[0-9]+',t,re.I) and re.search(r'(all|toutes?)[^\n]{0,60}(volume|capsule)',t,re.I) else 1)
 PYC12B
-grep -qiE "chain[- ]?(vs|to)[- ]?chain[^\n]{0,80}(bang|ear|goggle|chest|buckle|strap|bow|belly)" "$R" \
+grep -qiE "chain[- ]?(vs|to)[- ]?chain.{0,80}(bang|ear|goggle|chest|buckle|strap|bow|belly)" "$R" \
   || fail "C12: chain-vs-chain not exercised on the owner's named pairs (bangs vs ears, goggles vs chest, buckle vs strap, mayor's bow vs belly)"
 
 
@@ -759,9 +767,9 @@ mt=[int(x) for x in re.findall(r'meshtested\s*=\s*([0-9]+)',t)]
 ok=re.search(r'meshpen\s*=\s*[0-9.]+',t) and mt and max(mt)>0
 sys.exit(0 if ok else 1)
 PYC14B
-grep -qiE "(goggle|lunette)[^\n]{0,80}(chest|poitrine|torso)[^\n]{0,80}[0-9]" "$R" || fail "C14-B: the in-scope accessory-vs-torso site (Keira goggles vs chest, the owner's own words) not measured at mesh level by name"
+grep -qiE "(goggle|lunette).{0,80}(chest|poitrine|torso).{0,80}[0-9]" "$R" || fail "C14-B: the in-scope accessory-vs-torso site (Keira goggles vs chest, the owner's own words) not measured at mesh level by name"
 # C. per-link radius derived from the skinned mesh extent
-grep -qiE "(radius|rayon)[^\n]{0,80}(derived|derive)[^\n]{0,60}(mesh|skinned|sommets)" "$R" || fail "C14-C: per-link radius not derived from the actual skinned mesh extent (the owner asked for this from the start)"
+grep -qiE "(radius|rayon).{0,80}(derived|derive).{0,60}(mesh|skinned|sommets)" "$R" || fail "C14-C: per-link radius not derived from the actual skinned mesh extent (the owner asked for this from the start)"
 # D. resolution must be smooth — worse-than-clipping artifacts are a failure
 python3 - "$R" <<'PYC14D' || fail "C14-D: no bounded resolution-jerk metric (resjerk) — the bangs-vs-ears fix produced artifacts worse than the clipping it replaced"
 import re,sys
@@ -769,7 +777,7 @@ t=open(sys.argv[1],errors='ignore').read()
 v=[float(x) for x in re.findall(r'resjerk\s*=\s*([0-9.]+)',t)]
 sys.exit(0 if v else 1)
 PYC14D
-grep -qiE "(bang|meche)[^\n]{0,60}(ear|oreille)[^\n]{0,80}(smooth|no oscill|sans oscill|lisse|bounded|borne)" "$R" || fail "C14-D: bangs-vs-ears interaction not shown smooth"
+grep -qiE "(bang|meche).{0,60}(ear|oreille).{0,80}(smooth|no oscill|sans oscill|lisse|bounded|borne)" "$R" || fail "C14-D: bangs-vs-ears interaction not shown smooth"
 
 
 # C14-COV: a LEG maximum is not cast coverage. The owner caught this: three scenes contain a
@@ -792,7 +800,7 @@ missing=[m for m in sorted(mods)
 if missing: sys.stderr.write("  declared models with no resjerk of their own: %s\n" % missing)
 sys.exit(1 if missing else 0)
 PYCOV
-grep -qiE "(models? (measured|covered)|modeles? mesur)[^\n]{0,40}[0-9]+ */ *[0-9]+" "$R" \
+grep -qiE "(models? (measured|covered)|modeles? mesur).{0,40}[0-9]+ */ *[0-9]+" "$R" \
   || fail "C14-COV: the report must state the coverage fraction explicitly (N of the DECLARED models actually measured)"
 
 
@@ -800,7 +808,7 @@ grep -qiE "(models? (measured|covered)|modeles? mesur)[^\n]{0,40}[0-9]+ */ *[0-9
 # standing still (owner 2026-08-10: "les meches sont ANCREES" while chestrun read 352.48 for three
 # days straight — a deterministic constant, not a measurement). Require TEMPORAL VARIATION and an
 # explicit inertness verdict per NAMED chain.
-grep -qiE "(temporal|variation|delta|per[- ]frame)[^\n]{0,80}(written|ecrit|bone|joint)" "$R" \
+grep -qiE "(temporal|variation|delta|per[- ]frame).{0,80}(written|ecrit|bone|joint)" "$R" \
   || fail "C16: the motion floor must measure the FRAME-TO-FRAME variation of the WRITTEN bone, not |pos-rest| (a constant offset scores high while the chain is welded)"
 python3 - "$R" <<'PYC16' || fail "C16: no per-chain inertness verdict for the chains the owner names as static (shirtL/R, collarL/R, Keira bangs/midhair/backhair, Jak earL/R, chestR/L, mayor tieL/R)"
 import re,sys
@@ -829,7 +837,7 @@ PYSUP
 # C18: no collider-quality metric may compare a volume to itself (my fit-error was a tautology:
 # a volume fitted to a bone's own vertices contains them by construction). The only admissible
 # measure is chain-to-REAL-SURFACE distance.
-grep -qiE "(real surface|surface reelle|skinned (mesh|triangle)s?)[^\n]{0,80}(distance|signed)" "$R" \
+grep -qiE "(real surface|surface reelle|skinned (mesh|triangle)s?).{0,80}(distance|signed)" "$R" \
   || fail "C18: collision must be measured against the REAL skinned surface, not a proxy volume (owner 2026-08-10: 12 of 1335 'mesh-derived' volumes were bigger than the character itself)"
 python3 - <<'PYC18' || fail "C18: proxy volumes with a radius larger than the character still exist in the data (max must stay well under 9420 units)"
 import re,sys
@@ -872,7 +880,7 @@ PYC20
 # did not say WHERE the motion had to appear, so the worker unlocked 4 of Keira's bang ROOTS to
 # satisfy it, which detaches hair from the skull. A green must be incompatible with BOTH "les meches
 # sont ancrees" (tip frozen) AND "cheveux decolles du crane" (root drifting).
-grep -qiE "rootdev[^\n]{0,60}=[^\n]{0,20}[0-9]" "$R" \
+grep -qiE "rootdev.{0,60}=.{0,20}[0-9]" "$R" \
   || fail "C21: no per-chain root deviation (rootdev) — the root must follow the skull bone rigidly, and a drifting root is as much a defect as a frozen tip"
 python3 - "$R" <<'PYC21' || fail "C21: a chain root is drifting (rootdev far from 0) — roots must stay anchored; motion belongs to the free links and the TIP"
 import re,sys
@@ -885,7 +893,7 @@ if not v: sys.exit(1)
 sys.stderr.write(f"  rootdev max={max(v)}\n")
 sys.exit(0 if max(v) <= 2.0 else 1)
 PYC21
-grep -qiE "(tip|pointe)[^\n]{0,80}(motion|variation|cvar|moving)" "$R" \
+grep -qiE "(tip|pointe).{0,80}(motion|variation|cvar|moving)" "$R" \
   || fail "C21: the MOVING/INERT verdict must be judged on the free links and the TIP, never on the anchored root"
 python3 - <<'PYC21B' || fail "C21: KEIRA still has unlocked hair/bang roots — reverse the root unlocking on HER first (SPEC 17 delivery order: Keira alone until the owner validates her)"
 import re,sys

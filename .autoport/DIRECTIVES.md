@@ -12,6 +12,11 @@ périmètre qu'il désigne ci-dessous.
 
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
+SCOPE-SERIAL: 1
+<!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
+     immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
+     reformuler ne doit jamais coûter une tentative. -->
+
 * Phase : `Grecharged-secondary-motion` — physique secondaire.
 * Contrat de périmètre : **`.autoport/prompts/SPEC-keira-physique.md`** — à lire en entier.
 * Périmètre : **KEIRA SEULE**, code et données. Les 59 autres modèles ne sont **pas** touchés.

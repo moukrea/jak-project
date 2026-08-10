@@ -1274,7 +1274,27 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     except Exception as _e:            # never let transmission break the run
         console.print(f"[yellow]· directives block unavailable: {_e}[/yellow]")
 
-    instructions = ("ultrathink\n\n" + _dblock + delegation_preamble
+    # PREFLIGHT (owner 2026-08-11: "le but etant d'avoir un cercle vertueux, pas
+    # un frein"). Known traps are checked automatically before every attempt and
+    # the WORKER-owned findings are injected into its prompt, so the framework
+    # warns it before it steps in a trap that already cost us once. Findings the
+    # worker is not allowed to fix (validator/harness) go to this log, for the
+    # supervisor -- never into the prompt.
+    _pblock = ""
+    try:
+        import preflight as _pf
+        importlib.reload(_pf)
+        _pblock = _pf.prompt_block(pid)
+        _w, _sup = _pf.split(pid)
+        if _w:
+            console.print(f"[dim]· preflight: {len(_w)} finding(s) injected into the "
+                          f"worker prompt[/dim]")
+        for _sev, _code, _msg in _sup:
+            console.print(f"[yellow]· preflight/SUPERVISOR [{_code}] {_msg}[/yellow]")
+    except Exception as _e:
+        console.print(f"[yellow]· preflight unavailable: {_e}[/yellow]")
+
+    instructions = ("ultrathink\n\n" + _dblock + _pblock + delegation_preamble
                     + prompt_path.read_text())
     if attempt > 1:
         prev_validator = log_dir / f"validator-{attempt - 1:02d}.txt"
