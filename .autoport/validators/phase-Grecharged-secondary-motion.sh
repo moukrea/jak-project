@@ -527,4 +527,22 @@ PYCOV
 grep -qiE "(models? (measured|covered)|modeles? mesur)[^\n]{0,40}[0-9]+ */ *[0-9]+" "$R" \
   || fail "C14-COV: the report must state the coverage fraction explicitly (N of 60 models actually measured)"
 
+
+# C16: the old motion floors measured DEVIATION MAGNITUDE, which a welded chain maximises while
+# standing still (owner 2026-08-10: "les meches sont ANCREES" while chestrun read 352.48 for three
+# days straight — a deterministic constant, not a measurement). Require TEMPORAL VARIATION and an
+# explicit inertness verdict per NAMED chain.
+grep -qiE "(temporal|variation|delta|per[- ]frame)[^\n]{0,80}(written|ecrit|bone|joint)" "$R" \
+  || fail "C16: the motion floor must measure the FRAME-TO-FRAME variation of the WRITTEN bone, not |pos-rest| (a constant offset scores high while the chain is welded)"
+python3 - "$R" <<'PYC16' || fail "C16: no per-chain inertness verdict for the chains the owner names as static (shirtL/R, collarL/R, Keira bangs/midhair/backhair, Jak earL/R, chestR/L, mayor tieL/R)"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+need=['shirtL','collarL','chestR','earL','tie']
+missing=[n for n in need if not re.search(n+r'[^\n]{0,120}(var|delta|inert|motion)',t,re.I)]
+if missing: sys.stderr.write("  no motion/inertness figure for: "+", ".join(missing)+"\n")
+sys.exit(1 if missing else 0)
+PYC16
+grep -qiE "(suspend|authored)[^\n]{0,60}[0-9]+(\.[0-9]+)? *%" "$R" \
+  || fail "C16: the three motion suppressors (authored-priority suspension, collision clamp, calm freeze) must each be quantified as a % of frames"
+
 echo "[Grecharged-secondary-motion PASS]"

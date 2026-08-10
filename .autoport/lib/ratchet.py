@@ -91,7 +91,9 @@ METRICS = {
     "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
     # cycle 14 motion FLOORS: a dead sim maxes every calm metric, so calm may never
     # again be bought by killing motion (owner: static hair while RUNNING, static chest).
-    "chestrun": (True,  r"chestrun\s*=\s*([0-9]+\.?[0-9]*)", 40.0),
+    # RETIRED 2026-08-10: chestrun/hairrun measured deviation MAGNITUDE, which a welded
+    # chain maximises while motionless. They covered a dead sim for a week.
+    # "chestrun": (True,  r"chestrun\s*=\s*([0-9]+\.?[0-9]*)", 40.0),
     # hairrun band 15 -> 25 on 2026-08-10 (cycle 15), flagged here rather than done quietly, for
     # the SAME measured reason the lenmin band exists and by the same rule the note above states:
     # "a band narrower than the measured spread is still a noise detector".
@@ -111,7 +113,7 @@ METRICS = {
     # against the stored 630.17 the bar is 605.17, while the owner's complaint that created this
     # floor ("en courant les cheveux de Jak ne bougent PAS") and the validator's own C14-A gate
     # live at 100.
-    "hairrun":  (True,  r"hairrun\s*=\s*([0-9]+\.?[0-9]*)",  25.0),
+    # "hairrun":  (True,  r"hairrun\s*=\s*([0-9]+\.?[0-9]*)",  25.0),
 }
 # lenmin RE-SEEDED 2026-08-10 (cycle 16) to 0.9605, and this one is NOT the usual noise argument —
 # the population the metric minimises over CHANGED, so the old bar and the new value are not

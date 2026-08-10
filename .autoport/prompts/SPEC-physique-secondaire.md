@@ -196,3 +196,35 @@ DÉCISIONS :
      premier "oui" est la raison du sur-place.
   4. **LE BANC (§14) SERT D'ABORD À L'OWNER**, pas à moi : son intérêt n°1 est qu'il puisse voir
      tous les acteurs en 2 minutes, pas qu'il produise plus de chiffres pour mes gates.
+
+## 16. LA CAUSE RACINE DES FAUX VERTS DE LA SEMAINE (2026-08-10, rejet total de l'owner)
+Owner sur le build 10:12 : « les pans de veste NE BOUGENT PAS DU TOUT, zéro physique ; le col est
+complètement statique ; les mèches de Keira sont ANCRÉES ; ses cheveux et oreilles complètement
+statiques ; le nœud du maire aucune physique ; la poitrine de Keira complètement statique. »
+Et mes planchers annonçaient hairrun=619,7 / chestrun=352,5. LES DEUX SONT VRAIS EN MÊME TEMPS :
+
+**`crun` (le plancher) mesure `dev` = l'ÉCART À LA POSE DE REPOS, pas le MOUVEMENT.**
+(jak-hd-physics.gc:5440 — « the same deviation, but only on a frame whose own anchor moved »)
+Une chaîne maintenue à un décalage CONSTANT de 352 unités score 352 en étant visuellement SOUDÉE.
+D'où `chestrun=352.4841` IDENTIQUE à chaque relevé pendant trois jours : c'est une constante
+déterministe, pas une mesure. J'avais pourtant la règle en mémoire : « magnitude n'est pas mouvement ».
+
+CONSÉQUENCE : les trois suppresseurs de mouvement empilés — plafonds de calme (jitter/idledrift/
+freering), priorité aux animations d'auteur (qui suspend la physique presque tout le temps), et
+clamps de collision (resjerk borné) — pouvaient tuer la sim JUSQU'AU BOUT sans jamais faire rougir
+un seul gate. Toute la semaine de « verts » repose sur cette erreur de définition.
+
+### LE PLANCHER CORRECT : LA VARIATION TEMPORELLE DU BONE ÉCRIT
+  * `crun` doit devenir la variation de la position ÉCRITE du joint entre frames consécutives :
+    somme ou moyenne de |pos(t) − pos(t−1)| sur la fenêtre de locomotion, PAS |pos − rest|.
+  * Un décalage constant doit scorer ~0. Une chaîne qui oscille doit scorer haut.
+  * AJOUTER un détecteur d'inertie explicite : une chaîne dont la déviation a une VARIANCE quasi
+    nulle pendant que son acteur bouge est INERTE et fait ÉCHOUER la phase, par chaîne et par nom.
+  * Rapporter, PAR CHAÎNE NOMMÉE (shirtL/shirtR, collarL/collarR, bangs/midhair/backhair de Keira,
+    earL/earR de Jak, chestR/chestL, tieL/tieR du maire) : variation temporelle ET variance. Les
+    chaînes que l'owner cite comme statiques doivent être celles qu'on prouve en mouvement.
+  * Le cliquet doit ratcheter CETTE grandeur, et les anciens planchers (magnitude) sont RETIRÉS —
+    ils ont servi de couverture à une sim morte, ils ne doivent plus jamais pouvoir passer.
+  * ET LES TROIS SUPPRESSEURS DOIVENT ÊTRE QUANTIFIÉS : % de frames où la physique est suspendue par
+    la priorité anim, % où le clamp de collision a borné le déplacement, % où le gel de calme est
+    actif. Si l'un dépasse ~20 % des frames, c'est lui le coupable et il faut le desserrer.
