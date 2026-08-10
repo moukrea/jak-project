@@ -85,10 +85,18 @@ STORE = ".autoport/ratchet-secondary-motion.json"
 # magnitude when it moves at all (5.08 -> 0.42 this cycle, 13.64 when a change was wrong), and it has
 # never once failed on noise. Widening the one metric that is actually discriminating would be the
 # opposite of what this file is for.
+# ANCHORING, added 2026-08-10 (cycle 20). These patterns were unanchored, so `name\s*=` matched
+# ANYWHERE in a line — including inside a longer key that merely ends with the same letters. Cycle 20
+# starts emitting the intermediate-pose values of these same three metrics alongside the admissible
+# post-commit ones, and an unanchored `restdevA\s*=` would happily read the intermediate number and
+# ratchet against it. The suffix form `restdevA_pre=` was chosen partly to break this, but the reader
+# is anchored too: a guard that depends on nobody ever coining a key with an unlucky prefix is not a
+# guard. `(?<![A-Za-z0-9_])` refuses a match that starts mid-identifier; `(?!_)` refuses one that
+# continues into a suffixed variant.
 METRICS = {
-    "restdevA": (False, r"restdevA\s*=\s*([0-9]+\.?[0-9]*)", 0.0),
-    "lenmin":   (True,  r"lenmin\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
-    "lensim":   (True,  r"lensim\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
+    "restdevA": (False, r"(?<![A-Za-z0-9_])restdevA(?!_)\s*=\s*([0-9]+\.?[0-9]*)", 0.0),
+    "lenmin":   (True,  r"(?<![A-Za-z0-9_])lenmin(?!_)\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
+    "lensim":   (True,  r"(?<![A-Za-z0-9_])lensim(?!_)\s*=\s*([0-9]+\.?[0-9]*)",   0.02),
     # cycle 14 motion FLOORS: a dead sim maxes every calm metric, so calm may never
     # again be bought by killing motion (owner: static hair while RUNNING, static chest).
     # RETIRED 2026-08-10: chestrun/hairrun measured deviation MAGNITUDE, which a welded

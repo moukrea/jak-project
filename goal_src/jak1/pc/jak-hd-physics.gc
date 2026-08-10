@@ -254,7 +254,11 @@
 (define *phys-slot-surfpen* (new 'static 'array float 24))   ;; deepest RESIDUAL depth inside the surface (units)
 (define *phys-slot-surfraw* (new 'static 'array float 24))   ;; deepest depth BEFORE the resolve — the positive control's needle
 (define *phys-slot-surftested* (new 'static 'array int32 24));; chain-point x sample tests actually run
-(define *phys-slot-surfhit* (new 'static 'array int32 24))   ;; tests that came back inside the surface
+;; (C20/C6) links whose COMMITTED pose still reads inside the real surface past the tolerance — "how
+;; often the surface actually had something to say". Its previous writer was the in-loop surface push
+;; C6 deletes; re-fed from the post-commit audit rather than left to become a structural zero, which
+;; is what its own empty-zero gate in physics_x86_grade.py exists to catch.
+(define *phys-slot-surfhit* (new 'static 'array int32 24))
 (define *phys-slot-bstrunc* (new 'static 'array int32 24))   ;; SETS dropped = body with no surface. Gated at 0.
 (define *phys-slot-bsdens* (new 'static 'array int32 24))    ;; samples not used from a bound set — density, not a hole
 (define *phys-slot-pushouts* (new 'static 'array int32 24))  ;; collision push-out events (window)
@@ -363,6 +367,23 @@
 (define *phys-slot-gsamp* (new 'static 'array int32 24))
 (define *phys-slot-gdir* (new 'static 'inline-array vector 24))
 (define *phys-slot-gloc* (new 'static 'inline-array vector 24))
+;; (C20/C3) THE POSITIVE EVIDENCE THAT FAMILY A HAS A DRIVER AT ALL, which is the defect C3 answers.
+;; Measured on x86 at 19:10-19:25, ag=keira-hd, `cinr` (mean written motion over the frames the
+;; chain's own anchor really moved) against the phase's inert bar of 0.25:
+;;     family A: rbang..lbang 0.144  rmidhair 0.132  lmidhair 0.0097  earL 0.0138  earR 0.114
+;;               chestL 0.0397                                                       -> INERT
+;;     family B: goggles 26.05  kneeflapL 1.29  kneeflapR 0.558  pantflapR 1.52
+;;               topstrapL 6.26  topstrapR 4.64                                       -> MOVING
+;; Same actor, same frames, same skeleton: the ONLY difference in the integrator was that family A's
+;; gravity term is multiplied by `tiltf`, which is exactly 0 for an upright actor. So for family A
+;; upright, gacc was identically zero and the chains were inert BY CONSTRUCTION — which is why
+;; fourteen cycles of tuning never moved them.
+;; gresid = max over family-A chains of |g_eff| / |g_world|: 0.0 when the anchor is exactly at the
+;; orientation the chain captured (the carried component cancels the whole of gravity, so the
+;; equilibrium is untouched and rule W is preserved by construction) and 1.0 when gravity has fully
+;; resumed. A gresid of 0 EVERYWHERE would mean the new term is dead, so this is the field that says
+;; whether C3 fires; it is not a quality bar.
+(define *phys-slot-gresid* (new 'static 'array float 24))
 ;; (O/S) pre-constraint snapshot, one substep's worth. Scratch, never read across calls.
 (define *phys-psave* (new 'static 'inline-array vector 48))
 ;; (S/C13d) net contact correction each link took inside THIS substep's collision sweep — the
@@ -681,6 +702,19 @@
 ;; message has always used, and is observed on the phone every single run.
 (defconstant PHYS-RESTCALM 10)
 
+;; (C20/C3) ...AND THE OTHER HALF OF THE SAME CONDITION, which only became necessary this cycle.
+;; SPEC 2, verbatim: "La gravite agit sur la dynamique, pas sur le point d'equilibre : AU REPOS, EN
+;; POSITION NORMALE, ca regagne exactement la forme du modele." In position normale. C3 gives family
+;; A a real gravity force the moment its anchor bone has rotated away from the orientation the chain
+;; was captured at, so a calm Keira with her head tilted has gravity LEGITIMATELY holding her hair
+;; off the model pose — and the post-commit model-fidelity audit would score that as a fidelity
+;; failure against the owner's 8-unit bar, a false red on exactly the behaviour C3 exists to create.
+;; So the audit samples only where this chain's own gravity residual |g_eff|/|g_world| (the same
+;; ratio gresid= reports) is negligible. 0.02 = the anchor is within ~1.1 degrees of where it was
+;; captured. DO NOT REMOVE THIS CONDITION: without it rule W and C3 contradict each other and one of
+;; the two has to be switched off.
+(defconstant PHYS-REST-GREF 0.02)
+
 ;; (W) THE UPRIGHT WINDOW. Cosine of the angle between the actor's own up axis and world up.
 ;; Above COS-UP the character is standing/walking/running normally and gravity has NO say in where a
 ;; FAMILY A chain rests — the model pose is the target, full stop. Below COS-TILT it is genuinely
@@ -697,6 +731,42 @@
 ;; filled either from the companion's k->e table or, for a stock rider, from the live jgeo
 ;; (joint.parent). 255 = root / out of range.
 (define *phys-par* (new 'static 'array uint8 3072))     ;; PHYS-SLOTS * PHYS-MAXJ
+;; (SPEC-KEIRA 5) per slot, per rig bone: 1 = the physics can MOVE this bone, i.e. it is a chain
+;; joint or it hangs below one. Built once at bind time and read only there. What it is for: the
+;; body SURFACE must be the ANIMATED body. A `bs` sample set sitting on a bone a chain drives — or
+;; on a bone re-glued underneath one, like Keira's two goggle lenses under gogglesMid — is not body
+;; geometry, it is the strand's own surface, and it MOVES between the frame's feasibility probe and
+;; its audit. That is measurable: with the surface as the resolve's objective, keira-hd's residual
+;; sat at 4.99-8.78 units instead of at the 1.0 tolerance the bisection guarantees, and the gap is
+;; exactly this — a pose verified clear against a surface that then moved. Same exclusion, same
+;; reason, as the capsule perimeter's: chain-versus-chain is the strand pass's job, with per-link
+;; radii, and the body's job is the body.
+(define *phys-bdrv* (new 'static 'array int32 3072))    ;; PHYS-SLOTS * PHYS-MAXJ
+
+;; ---- (SPEC-KEIRA 4) VIVACITE: THE REST FRAME THAT ACCELERATES IS THE LINK'S, NOT THE ANCHOR'S ----
+;; `couple` used to difference the ANCHOR's world position twice and hand every link of the chain the
+;; same pseudo-force. For a rod whose length is rigid that force only does work through its component
+;; PERPENDICULAR to the strand: the distance constraint eats the rest. So a strand whose axis happens
+;; to lie along the drive gets nothing, and its mirror on the other side of the body — same
+;; parameters, same anchor, same frame — swings. That is not a metaphor, it is this run:
+;;   keira-hd  lmidhair cinr=0.0098   vs  rmidhair 0.2226
+;;             earL     cinr=0.0126   vs  earR     0.1440
+;;             chestL   cinr=0.0372   vs  chestR   1.1393
+;;   and `earL` came back INERT on assistant-lod0, explorer-lod0 and sidekick-lod0 as well, with
+;;   `earR` alive on all three — one named chain, four unrelated rigs, one side of the body.
+;; Two hypotheses were tested and REFUTED before this one was adopted, because guessing is what this
+;; phase has been paying for: (a) the surface normals are mirrored on one side — measured over every
+;; `bs` sample of four models, 83-88 % outward on BOTH sides, symmetric to within 5 points; (b) the
+;; `side=` key makes the solver treat left differently — grepped, it feeds the xleg COUNTER and
+;; nothing else.
+;; What a strand actually feels at its root is the acceleration of ITS OWN rest frame, which carries
+;; the anchor's translation AND the anchor's rotation about it. Differencing the link's own retargeted
+;; TARGET twice is exactly that quantity, per link, and it cannot be parallel to every strand at once
+;; the way one shared translation can. It is also strictly more general: when the anchor only
+;; translates, every link's target translates with it and this reduces to the old term.
+(define *phys-ltp* (new 'static 'inline-array vector 1152))  ;; per joint: last frame's target
+(define *phys-ltv* (new 'static 'inline-array vector 1152))  ;; ...and its last first difference
+(define *phys-lcacc* (new 'static 'inline-array vector 48))  ;; per link, this chain, this frame
 (define *phys-slot-rider* (new 'static 'array int32 24)) ;; 1 = stock-model rider slot
 (define *phys-slot-stamp* (new 'static 'array int32 24)) ;; frame this slot last stepped (rider GC +
                                                          ;; once-per-frame guard)
@@ -880,6 +950,30 @@
 ;; The measurement the owner's rule actually needs: not "how far is it from the model right now"
 ;; (that would forbid the bounce he explicitly wants) but "once it has stopped, did it come back".
 (define *phys-crestd* (new 'static 'array float 576))
+;; ---- (C20/C1) THE POST-COMMIT AUDIT'S OWN PER-CHAIN VERDICTS -----------------------------------
+;; SPEC 10 asks for the verdict PER NAMED CHAIN, and a per-slot maximum cannot give it: `surfpen` on
+;; X-MAX read 0.9977 for the whole actor, which names nobody. These two are the same quantities the
+;; new STEP 5b pass folds into *phys-slot-wsurf* / *phys-slot-wroot*, kept per chain so the report
+;; can say WHICH of Keira's sixteen chains is inside her and WHICH locked root the descendant
+;; re-glue moved. Window MAXIMA, printed as csurf: / crtd: and cleared with the window.
+(define *phys-csurf* (new 'static 'array float 576))
+(define *phys-crootd* (new 'static 'array float 576))
+;; ---- (C20/C3) THE WORLD DOWN DIRECTION IN THE ANCHOR BONE'S OWN AXES, CAPTURED ONCE ------------
+;; C3 gives family A the full world gravity and then cancels exactly the part of it the ACTOR IS
+;; CARRYING, so the equilibrium — "au repos, en position normale, ca regagne exactement la forme du
+;; modele" — is untouched while the DYNAMICS get a real driver. The part being carried is defined by
+;; where the anchor bone WAS when the chain was captured, expressed in that bone's own basis, so it
+;; rides the bone: g_eff = g_world - (1 - tiltf) * |g_world| * (R_anchor_now . gref).
+;; Captured ONCE per binding, and only on a frame whose anchor basis is non-degenerate: an un-posed
+;; frame has every bone at the origin (the parked title-screen spawn, the frame a warp cuts the pose)
+;; and capturing there would poison the chain for the whole binding. cgrefok is that latch and it is
+;; cleared on rebind, so a params push or a look switch re-captures against the new rig.
+(define *phys-cgref* (new 'static 'inline-array vector 576))
+(define *phys-cgrefok* (new 'static 'array int32 576))
+;; ...and this frame's ratio |g_eff| / |g_world| for THIS chain. Written by the integrator's gravity
+;; block, read by the post-commit model-fidelity audit (see PHYS-REST-GREF): a chain gravity is
+;; legitimately holding off its model pose may not be scored as failing to return to it.
+(define *phys-cgres* (new 'static 'array float 576))
 ;; (X) worst ratio of simulated chain length to authored chain length seen in the window. 1.0 = the
 ;; chain is exactly as long as the model says. Below 1 it is being crushed.
 (define *phys-clenr* (new 'static 'array float 576))
@@ -1001,6 +1095,13 @@
 (define *phys-cvsum* (new 'static 'array float 576))
 (define *phys-cvn*   (new 'static 'array int32 576))
 (define *phys-cvmax* (new 'static 'array float 576))
+;; (C20/C5b) THE SAME WORST SINGLE FRAME, WITH THE AUTHORED TAKEOVER EXCLUDED — because a jump caused
+;; by the ANIMATION is not a resolution artifact and naming it one names the wrong culprit. Measured
+;; on X-MAX: resjerk = 516.42 is numerically identical to cvmx of chain 9 = `goggles` = 516.4174, and
+;; goggles carries authored=1.00 authrise=10. That is the authored channel pulling the goggles onto
+;; her eyes, which SPEC 6 says the animation is SUPPOSED to win. cvms is folded only on frames where
+;; the chain was NOT owned by the animator (cauth < 0.5), so it is the SIM's own worst jump.
+(define *phys-cvmxs* (new 'static 'array float 576))
 (define *phys-cdmin* (new 'static 'array float 576))
 (define *phys-cdmax* (new 'static 'array float 576))
 ;; (C16) THE EXPLICIT INERTNESS DETECTOR, per chain, which SPEC 16 requires by name.
@@ -1021,18 +1122,14 @@
 (defconstant PHYS-INERT-BAR 0.25)
 ;; ...and how many driven frames must be observed before the verdict means anything.
 (defconstant PHYS-INERT-N 30)
-;; (C14-D) resolution jerk: per-link NET resolution displacement applied this frame — the VECTOR
-;; sum of every correction any pass applied to the link (substep sweep, final sweep, cross-side,
-;; model fallback, strand pass, mesh sweep), folded to a length at frame end. The window keeps the
-;; worst single-frame figure.
-;; NET, not path length. The first ledger summed the MAGNITUDE of every correction, and the substep
-;; sweep applies opposing corrections iters x substeps times per frame while it and the spring
-;; argue over a pinned link: a settled, visually still link read as a 100853-unit "jump" on the
-;; same device window whose every calm gate was green (jitter=23, freering=29, rested>0,
-;; clamped=18 in the whole leg). What the eye reads as a snap is where the bone ENDED the frame
-;; relative to where resolution found it — the net. A real one-frame snap (mfsnap, a deep
-;; first-contact push) nets exactly its visible size, so the bound still catches it.
-(define *phys-lresv* (new 'static 'inline-array vector 1152))
+;; (C20/C4) DELETED: *phys-lresv*, the per-link correction-vector ledger, and the `respath=` figure
+;; it fed. It was zeroed on the bind path and once per frame and NEVER ACCUMULATED ANYWHERE — no
+;; `vector+!` into it existed after the SPEC-17 rewrite removed the eleven corrective passes that
+;; used to write it — so *phys-slot-respath* was the length of a vector that is always (0,0,0) and
+;; `respath=` printed a hard 0.0000 for ever. That is the twenty-first counter this file deletes for
+;; exactly that reason (see the note at the head of the cycle-4 block): a field that cannot move is
+;; not evidence, it is a place a reader stops looking. Not replaced — the corrected instrument it was
+;; kept next to for comparison (resjerk, differenced against *phys-ldev*) is the one that ships.
 ;; (C14) per-chain modelled length, written by the sim loop the frame it is computed, read by the
 ;; mesh sweep to bound its push exactly as the body pass bounds its own (PHYS-MAXCORR-REL of the
 ;; chain's own length — never a fixed hand-picked constant that cannot converge).
@@ -1042,6 +1139,28 @@
 (define *phys-slot-mraw* (new 'static 'array float 24))     ;; BEFORE resolve — the positive control's needle
 (define *phys-slot-mfix* (new 'static 'array int32 24))     ;; mesh-sample pushes applied (window)
 (define *phys-slot-mtested* (new 'static 'array int32 24))  ;; samples actually tested (window) — 0 = the audit did not run, never a clean zero
+;; ---- (C20/C1) THE AUDITS MUST MEASURE THE POSE THAT IS WRITTEN ---------------------------------
+;; THE DEFECT, and it invalidated six numbers at once. surfpen, meshpen, resid, rootdev, lenmin and
+;; restdevA were all computed inside the per-chain loop (STEP 5a), and AFTER that loop closes the
+;; pose still changes three more times: STEP 3c strand-vs-strand writes *phys-out* directly with NO
+;; surface re-check, the drawn-pose length restore moves it again, and the descendant re-glue
+;; overwrites bone transforms INCLUDING root-locked ones.
+;; Apply SPEC 8's admissibility test to the X-MAX reading `surfpen = 0.9977`: if this number is green
+;; and the owner still sees the defect, what would explain it? Answer: the strand pass moved the
+;; joint after the measurement. There IS an answer, so the number was worth nothing. Same for
+;; rootdev, which was read back BEFORE the re-glue that is the only thing able to move a locked root.
+;; So STEP 5b re-asks all six on the COMMITTED pose, and these `w*` counters carry the ADMISSIBLE
+;; value that the canonical field names now print. The pre-strand figures are kept and printed under
+;; the `_pre` suffix — not deleted, because knowing WHICH pass introduced a residual is the whole
+;; diagnosis, and not renamed to a prefix because `prerootdev=` CONTAINS `rootdev=` and every
+;; numeric gate that reads these logs matches the field name unanchored.
+(define *phys-slot-wsurf* (new 'static 'array float 24))      ;; post-commit authored-floored real-surface depth (window max)
+(define *phys-slot-wsurftested* (new 'static 'array int32 24)) ;; surface QUERIES this pass made — 0 = never asked, never a clean zero
+(define *phys-slot-wmesh* (new 'static 'array float 24))       ;; post-commit authored-floored mesh-sample penetration (window max)
+(define *phys-slot-wmtested* (new 'static 'array int32 24))    ;; mesh samples this pass asked for
+(define *phys-slot-wroot* (new 'static 'array float 24))       ;; post-RE-GLUE drift of a LOCKED link, read back from the bone
+(define *phys-slot-wlen* (new 'static 'array float 24))        ;; committed / authored chain length (window MIN — starts at +inf)
+(define *phys-slot-wrest* (new 'static 'array float 24))       ;; post-commit family-A model-pose deviation, gravity-quiet frames only
 ;; (C14c) per-link deviation from the AUTHORED pose at the end of the previous frame.
 ;; The resolution-jerk metric differences against this — see the fold at the end of the sim loop for
 ;; why the correction-ledger above could not be the answer, and why the character's own motion has
@@ -1059,9 +1178,6 @@
 ;; his anchor travelling.
 (define *phys-ltarg* (new 'static 'inline-array vector 1152))
 (defconstant PHYS-CUT-DELTA 8192.0)   ;; 2 m of authored travel in ONE frame = a cut, not motion
-;; (C14c) the OLD ledger's figure, still computed and still printed next to the corrected one. The
-;; instrument changed, so both numbers ship: a silent swap is how a metric gets quietly relaxed.
-(define *phys-slot-respath* (new 'static 'array float 24))
 ;; ---- (C14-D/cycle-15) resjerk's ATTRIBUTION ----------------------------------------------------
 ;; resjerk is a magnitude; it never said WHICH WAY. These three say it, so the next reading of that
 ;; number is diagnosable from the log instead of from a rebuild:
@@ -1112,6 +1228,13 @@
 ;; collapsed onto the authored pose. Ten halvings put the resolution at 1/1024, which is finer than
 ;; the deepest penetration measured on either of the two actors the spec puts first.
 (defconstant PHYS-MESH-BISECT 10)
+;; (C20/C2) halvings for the PER-SEGMENT retreat. Six resolve the direction blend of one segment to
+;; 1/64, which is finer than the 1-unit tolerance (PHYS-PEN-TOL) can distinguish on a segment that is
+;; at most a few hundred units long — and unlike the whole-chain search this one is paid once per
+;; SEGMENT, so it is deliberately the cheaper of the two. It does not need PHYS-MESH-BISECT's ten:
+;; the reason ten were needed there was that ONE scalar had to serve a whole chain, so the smallest
+;; non-zero fraction it could return had to be tiny or the search collapsed to the authored pose.
+(defconstant PHYS-SEG-BISECT 6)
 ;; ---- (C14-D/cycle-15) THE PER-FRAME BOUND THE SPEC ASKS FOR AND THE FILE NEVER HAD -------------
 ;; SPEC 6: "RESOLUTION LISSE ... Deplacement par frame borne (resjerk), pas d'oscillation, pas de
 ;; saut visible." Audited 2026-08-09: there was NO per-frame slew limit anywhere on the physics
@@ -1168,12 +1291,42 @@
 (define *phys-mesh-selfk* (new 'static 'array int32 24))
 ;; (C14c-2) one chain's candidate pose at a blend fraction — see phys-chain-blend!.
 (define *phys-cblend* (new 'static 'inline-array vector 48))
+;; (C20/C2) ...and the PER-SEGMENT blend fraction that candidate was built from, one entry per link.
+;; THE MEASUREMENT THAT JUSTIFIES A PER-SEGMENT t. X-MAX, ag=keira-hd: remprod = 118267.86 units of
+;; displacement produced by the solver against remclamp = 82640.27 removed by the resolve — 70 % of
+;; every unit the sim produced is taken back by STEP 3b. And `ctmin` names the chains it is taken
+;; from: backhair 0.0000 (ctz = 125 frames), kneeflapL 0.0000 (ctz = 154), pantflapL 0.0244,
+;; pantflapR 0.0205, topstrapL 0.0732, rbang 0.0263. tsel = 0 IS the authored pose, so those chains
+;; are welded to the animation on those frames — "les meches sont ANCREES" as arithmetic.
+;; The mechanism was that STEP 3b bisected ONE scalar for the WHOLE chain against the WORST point on
+;; it, and forced 0.0 outright when the exact verification failed: one offending link deleted the
+;; motion of every link in the chain. A per-segment fraction is LENGTH-PRESERVING BY THE SAME
+;; CONSTRUCTION that made the scalar one safe — phys-chain-blend-lt! blends only the DIRECTION of
+;; each segment and keeps its AUTHORED length exactly — which is what makes this change admissible
+;; at all. And every t_i = 0 reproduces the old whole-chain veto exactly, so it can only ever REDUCE
+;; clamping. Scratch, one chain's worth, never read across chains.
+(define *phys-ltsel* (new 'static 'array float 48))
+;; (SPEC-KEIRA 5) the AUTHORED pose's own depth inside the real skinned surface, one entry per
+;; written link (offset 0) and per skinned sample that link carries (offsets 1..PHYS-MSAM). Scratch,
+;; one chain's worth, rebuilt at the top of STEP 3b and never read across chains: the authored pose
+;; is fixed for the frame, so paying for it once instead of once per bisection probe is the whole
+;; cost difference, and SUBTRACTING it is what makes the authored pose feasible by construction.
+(define *phys-authdep* (new 'static 'array float 288))
 ;; (C14c-2) the frame's PRE-CLAMP simulated pose. The blend fraction is always applied from HERE,
 ;; never from the running *phys-out*: the sweep makes two passes, and blending pass 2 from a pose
 ;; pass 1 had already blended applies the fraction twice (targ + t^2*(out-targ)). That compounding
 ;; over-clamps and, because t moves frame to frame, turns a smooth pull-back into a jumpy one — it
 ;; took D-INTRO's resolution jerk from 1231 to 3754 while flattering every penetration number.
 (define *phys-out0* (new 'static 'inline-array vector 1152))
+;; (C20/C5a) the pose STEP 4 committed to the bones, snapshotted at the end of the per-chain body —
+;; i.e. after the resolve and BEFORE the strand pass and the drawn-length restore, both of which
+;; write *phys-out* directly afterwards. Without it the displacement ledger cannot separate the two:
+;; `remclamp` was |out0 - out| with `out` read after both, so a cycle could not tell whether STEP 3b
+;; or STEP 3c removed the 70 % of produced motion X-MAX measured. remclamp is now |out0 - out1| (the
+;; resolve alone) and remstrand is |out1 - out| (the strand pass + the length restore). No bind-time
+;; init, exactly like *phys-out0*: both are filled every frame, for every chain the ledger reads,
+;; under the same classmask guard the ledger itself uses.
+(define *phys-out1* (new 'static 'inline-array vector 1152))
 ;; (C14c-2) the blend fraction this chain committed LAST frame. The clamp engages instantly (a
 ;; penetration is not negotiable) but is released at PHYS-TMIN-RISE per frame, so handing the
 ;; physics back is a ramp instead of a step — the same shape rule (A) already imposes on authored
@@ -1201,7 +1354,32 @@
 ;;      which resolves to a zero residual on its own; this proxy-volume bisection is the coarse net
 ;;      behind it and it may not veto. What it removes is now ATTRIBUTED, in units of written-joint
 ;;      displacement, so if it is still the thing killing the sim the number says so by name.
-(defconstant PHYS-TMIN-FLOOR 0.35)
+;; (SPEC-KEIRA 5) 0.35 -> 0.0, AND THE REASON IS A MEASUREMENT, not a preference.
+;; The floor was the right answer to the wrong objective. While STEP 3b bisected on the PROXY
+;; capsules it was vetoing chains over penetrations no geometry contained — Keira's midhair at
+;; ctz = 2699 of 2699 frames — and a bound was the only thing standing between her hair and the
+;; animation. The objective is now the character's REAL SKINNED SURFACE, and with the fake veto
+;; pressure gone the floor changes sides: it stops being a guard against a false positive and
+;; becomes a licence for a true one. Measured, this cycle, on the first x86 leg after the objective
+;; changed and with the floor still in place:
+;;     keira-hd surfpen = 506.12 units — 12 cm of her written mesh inside her own body,
+;; on exactly the frames the search reported NO feasible blend (ctz > 0: rbang 325, topstrapL 491).
+;; The bisection had found the pose infeasible and the floor admitted it anyway. That is the owner's
+;; one absolute rule broken by a constant: "rien ne traverse Keira, QUELLE QUE SOIT LA RAISON."
+;; At 0.0 the guarantee is structural again: the accepted t is a t the surface test passed, the
+;; authored pose is feasible by construction (phys-chain-surf-floor!), so the search always
+;; terminates on a clear pose and surfpen <= PHYS-PEN-TOL follows from the algorithm rather than
+;; from tuning. What it costs is real and is not hidden: on a frame where the simulated pose is
+;; genuinely inside her, the chain is walked back toward the animation and that frame's motion is
+;; removed. SPEC 5 calls that the right trade in as many words — "une contrainte impossible se pose
+;; calmement" — and the diagnosis stays live: `ctz` still counts, per chain, the frames the raw
+;; search came back under 0.35, so a chain the resolve is fighting is still visible by name and
+;; still comparable with cycle 18's numbers.
+(defconstant PHYS-TMIN-FLOOR 0.0)
+;; the value `ctz` is counted against, so the diagnosis keeps its meaning and stays comparable with
+;; cycle 18's numbers however the floor moves. A diagnostic threshold and a behavioural bound are
+;; two different things and this file paid a build for conflating them.
+(defconstant PHYS-TMIN-DIAG 0.35)
 ;; frames this window the raw bisection landed under the floor, i.e. where the clamp WOULD have
 ;; vetoed. This is the diagnosis kept live: a chain with ctz>0 is one the clamp is fighting.
 (define *phys-ctzero* (new 'static 'array int32 576))
@@ -1217,6 +1395,12 @@
 ;; is incremented from a speed comparison and `restdevA` is a running max; both are read-only.
 (define *phys-slot-remprod*  (new 'static 'array float 24))
 (define *phys-slot-remclamp* (new 'static 'array float 24))
+;; (C20/C5a) ...and the other half of what remclamp used to be, split out because the two have
+;; different causes and different fixes: |out1 - out|, i.e. what the strand-vs-strand pass and the
+;; drawn-pose length restore moved AFTER the resolve had committed. Without this split there is no way
+;; to tell whether C2's per-segment retreat worked — a remclamp that does not fall could equally mean
+;; the strand pass is now doing the removing.
+(define *phys-slot-remstrand* (new 'static 'array float 24))
 (define *phys-slot-remauth*  (new 'static 'array float 24))
 ;; (W) the family-A model-pull's own line in the ledger. It is the ONE suppressor re-added this
 ;; cycle and it is the only one whose justification is a measured number rather than an assumption,
@@ -1608,24 +1792,23 @@
           (set! worst eff))))
     worst))
 
-(defun phys-chain-blend! ((slot int) (ci int) (start int) (len int) (tt float) (rl0 int) (anch vector))
-  "(C14c-2) write this chain's pose at blend fraction `tt` into *phys-cblend*, LENGTH-PRESERVING.
+(defun phys-chain-blend-lt! ((slot int) (ci int) (start int) (len int) (rl0 int) (anch vector))
+  "(C20/C2) write this chain's pose into *phys-cblend* at the PER-SEGMENT blend fractions sitting in
+  *phys-ltsel*, LENGTH-PRESERVING. Identical in every other respect to phys-chain-blend!, which is
+  now a wrapper over this: the scalar version fills *phys-ltsel* with one value and calls in here, so
+  the whole-chain path is bit-identical to what it was rather than a re-derivation of it.
 
-  Only the DIRECTION of each segment is blended between the authored pose and the simulated one;
-  the segment keeps its AUTHORED length exactly. A straight positional lerp — the obvious way to
-  write this, and the way it was written first — shortens every segment by its chord error, which
-  is how the clamp drove evilsis-lod0 (Maia, the most heavily clamped chain in the cast because
-  her hair is what was going through her body) to lenmin=0.8759 while every other actor sat at
-  0.9859-0.9999. Owner rule X is that nothing may TASSER, and an anti-clipping fix that crushes
-  the strand it rescues has simply moved the defect.
-
-  tt=0 is the authored pose, which is penetration-free by construction (phys-link-mesh-worst), so
-  a feasible fraction always exists; tt=1 is the simulated pose with modelled segment lengths."
+  WHY A PER-SEGMENT FRACTION IS SAFE, and it is the same argument that made the scalar one safe: only
+  the DIRECTION of segment i is blended and its AUTHORED length is kept exactly, so reducing t_i
+  cannot shorten anything — it rotates segment i toward the animator's direction and carries links
+  i..len-1 along rigidly. Nothing about the length invariant is per-chain, so nothing about it breaks
+  when the fraction stops being per-chain."
   (let ((da (new 'stack-no-clear 'vector))
         (ds (new 'stack-no-clear 'vector))
         (dd (new 'stack-no-clear 'vector)))
     (dotimes (i len)
-      (let ((jj (+ start i)))
+      (let ((jj (+ start i))
+            (tt (-> *phys-ltsel* i)))
         (cond
           ((< i rl0)
            ;; A ROOT-LOCKED LINK IS NEVER COMMITTED, so the candidate chain must be built on where
@@ -1669,6 +1852,29 @@
              (vector+! (-> *phys-cblend* i) (-> *phys-cblend* (+ i -1)) dd))))))
     (none)))
 
+(defun phys-chain-blend! ((slot int) (ci int) (start int) (len int) (tt float) (rl0 int) (anch vector))
+  "(C14c-2) write this chain's pose at blend fraction `tt` into *phys-cblend*, LENGTH-PRESERVING.
+
+  Only the DIRECTION of each segment is blended between the authored pose and the simulated one;
+  the segment keeps its AUTHORED length exactly. A straight positional lerp — the obvious way to
+  write this, and the way it was written first — shortens every segment by its chord error, which
+  is how the clamp drove evilsis-lod0 (Maia, the most heavily clamped chain in the cast because
+  her hair is what was going through her body) to lenmin=0.8759 while every other actor sat at
+  0.9859-0.9999. Owner rule X is that nothing may TASSER, and an anti-clipping fix that crushes
+  the strand it rescues has simply moved the defect.
+
+  tt=0 is the authored pose, which is penetration-free by construction (phys-link-mesh-worst), so
+  a feasible fraction always exists; tt=1 is the simulated pose with modelled segment lengths.
+
+  (C20/C2) IMPLEMENTED AS THE PER-SEGMENT VERSION WITH EVERY FRACTION SET TO `tt`, deliberately: it
+  is the same arithmetic on the same inputs in the same order, so the whole-chain path this function
+  has always provided stays bit-identical instead of becoming a second copy that can drift from
+  phys-chain-blend-lt! the first time either is touched."
+  (dotimes (i len)
+    (set! (-> *phys-ltsel* i) tt))
+  (phys-chain-blend-lt! slot ci start len rl0 anch)
+  (none))
+
 (defun phys-chain-worst ((slot int) (cbase int) (c int) (tier int)
                          (start int) (len int) (rl0 int) (draw draw-control))
   "(C14c-2) worst authored-floored mesh penetration over the candidate pose currently sitting in
@@ -1685,6 +1891,330 @@
                    (e (phys-link-mesh-worst slot cbase c tier jj (-> *phys-cblend* i) bm draw)))
               (when (> e worst)
                 (set! worst e)))))))
+    worst))
+
+;; ------------------------------------------------------------------------------------------------
+;; (SPEC-KEIRA 5) THE REAL SURFACE IS THE ADMISSIBILITY TEST, NOT A PROXY VOLUME.
+;; "La collision se fait contre la surface skinnee reelle (distance signee a la surface), pas contre
+;; des volumes proxy." STEP 3b bisected on phys-chain-worst, i.e. on the link's skinned samples
+;; against the auto-fitted CAPSULES, and that objective is wrong in both directions at once:
+;;   * it FIRES WHERE THERE IS NO DEFECT. Keira carries `capsule head Rmidhaira radius=1306`,
+;;     `capsule rEara rEarb radius=1241`, `capsule maskstrap mask radius=1958` — balloons far larger
+;;     than the geometry they were fitted to (SPEC 18 measured the population: median 967 units, max
+;;     13646, twelve volumes bigger than the character). Her own hair sits inside them permanently,
+;;     so the search asked for a walk-back on EVERY frame: measured, cycle 18, rmidhair/lmidhair/
+;;     rbang/lbang ctz = 2699 of 2699 evaluated frames, ctmin pinned at the floor. That is the whole
+;;     of "les meches de Keira sont ANCREES" — 65 % of their displacement removed by a clamp
+;;     answering a penetration no geometry contains.
+;;   * and it MISSES THE REAL ONE. The same cycle measured keira-hd surfpen = 281.09 units (6.9 cm)
+;;     of her written mesh inside her own real surface while the proxy objective was satisfied.
+;; Bounding the veto (PHYS-TMIN-FLOOR) split the difference between those two errors instead of
+;; removing either. So the objective changes: the same bisection, the same continuity, the same
+;; termination guarantee — evaluated on the SIGNED DISTANCE to the body's real skinned surface.
+;; It costs more per probe than the capsule walk and buys three things that pay for it: the fake
+;; veto pressure disappears, the residual the audit reads is bisected against directly (the audit's
+;; population is a SUBSET of this objective, so surfpen <= PHYS-PEN-TOL now follows by construction
+;; rather than by hope), and the proxy capsules are left with only the broad-phase job SPEC 18
+;; already demoted them to. Models with no `bs` surface data fall back to the proxy objective, so a
+;; rig this data does not describe behaves exactly as the build the owner already judged.
+;; ------------------------------------------------------------------------------------------------
+
+(defun phys-chain-surf-floor! ((slot int) (start int) (len int) (rl0 int)
+                               (draw draw-control) (tier int))
+  "(SPEC-KEIRA 5) cache the AUTHORED pose's own depth inside the real skinned surface for every point
+  STEP 3b is about to judge: the link ORIGIN and each skinned sample the link carries. Depth, not
+  signed distance — positive is inside the character.
+  Two reasons this is a separate pass rather than a term inside the objective. It is CONSTANT while
+  the bisection runs, so it is paid once per chain-frame instead of once per probe. And subtracting
+  it is exactly what makes t=0 feasible BY CONSTRUCTION: at the authored pose every candidate point
+  IS its own floor point, the objective is 0.0 identically, and the search can therefore never fail
+  to find a clear pose. It is also the owner's own exception (SPEC 5): a region the animator's pose
+  already occupies — Keira's goggles pulled over her eyes — is not a penetration and is not fought."
+  (let ((skel (-> draw skeleton))
+        (snrm (new 'stack-no-clear 'vector))
+        (wof (new 'stack-no-clear 'vector))
+        (tv (new 'stack-no-clear 'vector))
+        (sp (new 'stack-no-clear 'vector)))
+    (dotimes (i len)
+      (when (>= i rl0)
+        (let* ((jj (+ start i))
+               (k (-> *phys-jk* jj))
+               (b (* i 6)))
+          (set! (-> *phys-authdep* b)
+                (fmax 0.0 (- 0.0 (phys-surf-sd slot (-> *phys-targ* jj) draw tier snrm))))
+          (when (< (+ k 1) (-> skel length))
+            (let ((bm (the-as matrix (-> skel bones (+ k 1) transform)))
+                  (nms (-> *phys-msn* jj)))
+              (dotimes (si nms)
+                (vector-float*! wof (the-as vector (-> bm vector 0))
+                                (-> *phys-msam* (+ (* jj 15) (* si 3))))
+                (vector-float*! tv (the-as vector (-> bm vector 1))
+                                (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
+                (vector+! wof wof tv)
+                (vector-float*! tv (the-as vector (-> bm vector 2))
+                                (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
+                (vector+! wof wof tv)
+                (set! (-> wof w) 0.0)
+                (vector+! sp (-> *phys-targ* jj) wof)
+                (set! (-> *phys-authdep* (+ b si 1))
+                      (fmax 0.0 (- 0.0 (phys-surf-sd slot sp draw tier snrm))))))))))
+    (none)))
+
+;; which point of the candidate pose is DEEPEST, recorded by phys-chain-surf-raw so the bisection can
+;; probe the binding constraint alone instead of re-sweeping the whole chain at every halving.
+;; Per slot, scratch, never read across chains.
+(define *phys-swl* (new 'static 'array int32 24))   ;; deepest point's link index
+(define *phys-sws* (new 'static 'array int32 24))   ;; ...and its sample index, -1 = the link origin
+
+(defun phys-chain-surf-raw ((slot int) (start int) (len int) (rl0 int)
+                            (draw draw-control) (tier int))
+  "RAW depth of the candidate pose inside the real surface — no authored floor — and WHICH point is
+  deepest, into *phys-swl* / *phys-sws*.
+
+  This is the cheap gate in front of everything else, and it is exact rather than heuristic: the
+  floored objective is raw MINUS a non-negative floor, so raw <= PHYS-PEN-TOL proves the pose
+  feasible without the authored-floor pass ever being computed. That is the common case — every frame
+  on which no chain of the actor is inside her — and it is what makes the surface affordable as an
+  objective instead of only as an audit."
+  (let ((worst 0.0)
+        (skel (-> draw skeleton))
+        (snrm (new 'stack-no-clear 'vector))
+        (wof (new 'stack-no-clear 'vector))
+        (tv (new 'stack-no-clear 'vector))
+        (sp (new 'stack-no-clear 'vector)))
+    (set! (-> *phys-swl* slot) rl0)
+    (set! (-> *phys-sws* slot) -1)
+    (dotimes (i len)
+      (when (>= i rl0)
+        (let* ((jj (+ start i))
+               (k (-> *phys-jk* jj))
+               (cand (-> *phys-cblend* i)))
+          (let ((d (- 0.0 (phys-surf-sd slot cand draw tier snrm))))
+            (when (> d worst)
+              (set! worst d)
+              (set! (-> *phys-swl* slot) i)
+              (set! (-> *phys-sws* slot) -1)))
+          (when (< (+ k 1) (-> skel length))
+            (let ((bm (the-as matrix (-> skel bones (+ k 1) transform)))
+                  (nms (-> *phys-msn* jj)))
+              (dotimes (si nms)
+                (vector-float*! wof (the-as vector (-> bm vector 0))
+                                (-> *phys-msam* (+ (* jj 15) (* si 3))))
+                (vector-float*! tv (the-as vector (-> bm vector 1))
+                                (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
+                (vector+! wof wof tv)
+                (vector-float*! tv (the-as vector (-> bm vector 2))
+                                (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
+                (vector+! wof wof tv)
+                (set! (-> wof w) 0.0)
+                (vector+! sp cand wof)
+                (let ((d (- 0.0 (phys-surf-sd slot sp draw tier snrm))))
+                  (when (> d worst)
+                    (set! worst d)
+                    (set! (-> *phys-swl* slot) i)
+                    (set! (-> *phys-sws* slot) si)))))))))
+    worst))
+
+(defun phys-link-surf-pen ((slot int) (jj int) (p vector) (draw draw-control) (tier int))
+  "(C20/C6b) worst AUTHORED-FLOORED depth of link jj's OWN SKINNED SURFACE inside the body's real
+  skinned surface, with the link origin placed at `p`. The surface twin of phys-body-pen, and it exists
+  for the same one reason that one does: the strand-vs-strand pass runs AFTER the body resolve and
+  writes both *phys-out* and the bone, so a link the resolve had parked clear can be shoved straight
+  back into the character by a strand contact. That veto was asking the CAPSULES while STEP 3b, the
+  residual audit and the post-commit audit all ask the real surface — so the pass with the last word
+  was the only one measuring something else.
+
+  MEASURED, NOT PUSHED, and that distinction is the whole safety argument after C6: this is only ever
+  used to compare the SAME link before and after a candidate push and to refuse one that goes deeper.
+  The authored floor therefore cancels out of the comparison, which is the point — a strand RESTING
+  against the surface reads the same depth on both sides and is never vetoed, while one being driven
+  further in is. Monotonicity, not absolute clearance. Nothing here moves a position, so it cannot
+  become the one-sided wall the deleted in-loop push was.
+
+  Origin AND samples, floored point by point against the authored pose's own depth at the same offset
+  — the identical convention phys-chain-surf-worst and the residual audits use."
+  (let ((worst 0.0)
+        (skel (-> draw skeleton))
+        (n2 (new 'stack-no-clear 'vector))
+        (wof (new 'stack-no-clear 'vector))
+        (tv (new 'stack-no-clear 'vector))
+        (sp (new 'stack-no-clear 'vector))
+        (ap (new 'stack-no-clear 'vector))
+        (k (-> *phys-jk* jj)))
+    (let ((d (- 0.0 (phys-surf-sd slot p draw tier n2))))
+      (when (> d PHYS-PEN-TOL)
+        (let ((eff (- d (fmax 0.0 (- 0.0 (phys-surf-sd slot (-> *phys-targ* jj) draw tier n2))))))
+          (when (> eff worst)
+            (set! worst eff)))))
+    (when (< (+ k 1) (-> skel length))
+      (let ((bm (the-as matrix (-> skel bones (+ k 1) transform)))
+            (nms (-> *phys-msn* jj)))
+        (dotimes (si nms)
+          (vector-float*! wof (the-as vector (-> bm vector 0))
+                          (-> *phys-msam* (+ (* jj 15) (* si 3))))
+          (vector-float*! tv (the-as vector (-> bm vector 1))
+                          (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
+          (vector+! wof wof tv)
+          (vector-float*! tv (the-as vector (-> bm vector 2))
+                          (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
+          (vector+! wof wof tv)
+          (set! (-> wof w) 0.0)
+          (vector+! sp p wof)
+          (let ((d (- 0.0 (phys-surf-sd slot sp draw tier n2))))
+            (when (> d PHYS-PEN-TOL)
+              (vector+! ap (-> *phys-targ* jj) wof)
+              (let ((eff (- d (fmax 0.0 (- 0.0 (phys-surf-sd slot ap draw tier n2))))))
+                (when (> eff worst)
+                  (set! worst eff))))))))
+    worst))
+
+;; (C20/C6) DELETED: phys-link-surf-push, the in-loop real-surface resolve. Its call site in STEP
+;; 3a-bis carries the measurement — of Keira's three L/R head pairs exactly one member of each was
+;; frozen holding a constant offset (cdev 58.5/45.9/90.2 against cdsp 0.0625/0.0312/0.0312) because
+;; this function's authored floor put a ONE-SIDED wall exactly at the authored pose, and for a link
+;; whose authored pose the point-cloud SDF already reads as inside that is a ratchet. STEP 3b now
+;; enforces the same objective, with the same floor, as a bounded continuous retreat on the pose that
+;; is actually committed — so this had no remaining job that was not already done better. Its only
+;; caller went with it, and so did `snrm2`, the second normal declared for it (whose comment described
+;; a clobber fix that was in fact never applied here). Nothing else referenced either.
+
+(defun phys-chain-surf-point ((slot int) (start int) (i int) (si int)
+                              (draw draw-control) (tier int))
+  "authored-floored depth of ONE point of the candidate pose: link i, sample si, si < 0 = the link
+  origin. What the bisection actually halves on.
+
+  Bisecting the BINDING constraint rather than the whole pose is a cost decision and it changes no
+  guarantee, because the pose that gets committed is verified in full afterwards and falls back to
+  the authored pose if that verification fails. Measured: the full sweep per halving ran the x86
+  frame rate down by a factor of five, which would have made both the proof leg and the phone
+  useless."
+  (let ((jj (+ start i))
+        (snrm (new 'stack-no-clear 'vector))
+        (wof (new 'stack-no-clear 'vector))
+        (tv (new 'stack-no-clear 'vector))
+        (sp (new 'stack-no-clear 'vector))
+        (skel (-> draw skeleton)))
+    (cond
+      ((< si 0)
+       (- (- 0.0 (phys-surf-sd slot (-> *phys-cblend* i) draw tier snrm))
+          (-> *phys-authdep* (* i 6))))
+      ((>= (+ (-> *phys-jk* jj) 1) (-> skel length)) 0.0)
+      (else
+       (let ((bm (the-as matrix (-> skel bones (+ (-> *phys-jk* jj) 1) transform))))
+         (vector-float*! wof (the-as vector (-> bm vector 0))
+                         (-> *phys-msam* (+ (* jj 15) (* si 3))))
+         (vector-float*! tv (the-as vector (-> bm vector 1))
+                         (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
+         (vector+! wof wof tv)
+         (vector-float*! tv (the-as vector (-> bm vector 2))
+                         (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
+         (vector+! wof wof tv)
+         (set! (-> wof w) 0.0)
+         (vector+! sp (-> *phys-cblend* i) wof)
+         (- (- 0.0 (phys-surf-sd slot sp draw tier snrm))
+            (-> *phys-authdep* (+ (* i 6) si 1))))))))
+
+(defun phys-chain-surf-link ((slot int) (start int) (i int) (draw draw-control) (tier int)
+                             (bail float))
+  "(C20/C2) worst AUTHORED-FLOORED depth of ONE LINK of the candidate pose in *phys-cblend* inside the
+  character's real skinned surface: the link ORIGIN plus every skinned sample the link carries. This
+  is what the per-segment retreat halves on — the constraint that segment i itself violates, not the
+  worst point anywhere on the chain, which is the whole reason the scalar search vetoed innocent links.
+
+  It asks phys-chain-surf-point for each of the link's points rather than re-deriving them. That is
+  deliberate and it is not laziness: the bone-local sample transform and the authored-floor index
+  (i*6, then i*6+si+1) exist in exactly ONE place in this file, and a second copy of either is how the
+  resolve and the audit that grades it drift apart — which this phase has already paid for once.
+
+  `bail` short-circuits the sweep exactly as phys-chain-surf-worst's does, and for the same reason:
+  every caller only ever asks whether this link is feasible (`<= PHYS-PEN-TOL`), so once the worst is
+  past the tolerance no further surface query can change the answer. The cost matters here — the
+  retreat asks this once per segment per halving, where the scalar search asked one point per
+  halving — and phys-chain-surf-point's own docstring records that a full sweep per halving ran the
+  x86 frame rate down by a factor of five."
+  (let ((worst (phys-chain-surf-point slot start i -1 draw tier))
+        (jj (+ start i)))
+    (when (<= worst bail)
+      (let ((nms (-> *phys-msn* jj)))
+        (dotimes (si nms)
+          (when (<= worst bail)
+            (let ((e (phys-chain-surf-point slot start i si draw tier)))
+              (when (> e worst)
+                (set! worst e)))))))
+    worst))
+
+(defun phys-chain-link-pen ((slot int) (cbase int) (c int) (tier int)
+                            (start int) (i int) (draw draw-control) (sauth? int))
+  "(C20/C2) the per-segment retreat's objective for link i, under whichever authority applies to this
+  rig — the SAME dispatch the whole-chain search has always made and it may not be dropped: an actor
+  with no `bs` surface data keeps the proxy-volume objective so it behaves exactly as the build the
+  owner already judged, instead of silently losing its collision (phys-surf-sd on a slot with zero
+  surface sets returns its no-sample sentinel, so a surface objective there is not conservative, it is
+  garbage).
+  With surface data: the authored-floored real-surface depth of this link (phys-chain-surf-link).
+  Without: phys-link-mesh-worst on the same link — which is precisely the per-link term
+  phys-chain-worst maximises over, so the proxy objective is unchanged in kind, only in scope.
+  A link with no mesh samples or no bone contributes nothing to either objective, exactly as
+  phys-chain-worst treats it."
+  (cond
+    ((nonzero? sauth?)
+     (phys-chain-surf-link slot start i draw tier PHYS-PEN-TOL))
+    (else
+     (let* ((jj (+ start i))
+            (k (-> *phys-jk* jj))
+            (skel (-> draw skeleton)))
+       (cond
+         ((and (> (-> *phys-msn* jj) 0) (< (+ k 1) (-> skel length)))
+          (phys-link-mesh-worst slot cbase c tier jj (-> *phys-cblend* i)
+                                (the-as matrix (-> skel bones (+ k 1) transform)) draw))
+         (else 0.0))))))
+
+(defun phys-chain-surf-worst ((slot int) (start int) (len int) (rl0 int)
+                              (draw draw-control) (tier int) (bail float))
+  "(SPEC-KEIRA 5) worst AUTHORED-FLOORED depth of the candidate pose sitting in *phys-cblend* inside
+  the character's REAL skinned surface — `if the chain were here, would any of it be inside her?`.
+  Asked at the link ORIGIN, which is the exact point the residual audit reads, and at every skinned
+  sample the link carries, which is where the owner's eyes are. The audit's population is therefore
+  a SUBSET of this objective's, which is the property that turns surfpen into a construction result.
+  `bail` short-circuits the sweep: the bisection only ever asks whether a pose is feasible, so once
+  the worst is past the tolerance no further surface query can change the answer. The one caller
+  that wants the true maximum (the raw pre-resolve depth, reported as mraw) passes a bail nothing
+  can reach."
+  (let ((worst 0.0)
+        (skel (-> draw skeleton))
+        (snrm (new 'stack-no-clear 'vector))
+        (wof (new 'stack-no-clear 'vector))
+        (tv (new 'stack-no-clear 'vector))
+        (sp (new 'stack-no-clear 'vector)))
+    (dotimes (i len)
+      (when (and (>= i rl0) (<= worst bail))
+        (let* ((jj (+ start i))
+               (k (-> *phys-jk* jj))
+               (b (* i 6))
+               (cand (-> *phys-cblend* i)))
+          (let ((eff (- (- 0.0 (phys-surf-sd slot cand draw tier snrm))
+                        (-> *phys-authdep* b))))
+            (when (> eff worst)
+              (set! worst eff)))
+          (when (and (<= worst bail) (< (+ k 1) (-> skel length)))
+            (let ((bm (the-as matrix (-> skel bones (+ k 1) transform)))
+                  (nms (-> *phys-msn* jj)))
+              (dotimes (si nms)
+                (when (<= worst bail)
+                  (vector-float*! wof (the-as vector (-> bm vector 0))
+                                  (-> *phys-msam* (+ (* jj 15) (* si 3))))
+                  (vector-float*! tv (the-as vector (-> bm vector 1))
+                                  (-> *phys-msam* (+ (* jj 15) (* si 3) 1)))
+                  (vector+! wof wof tv)
+                  (vector-float*! tv (the-as vector (-> bm vector 2))
+                                  (-> *phys-msam* (+ (* jj 15) (* si 3) 2)))
+                  (vector+! wof wof tv)
+                  (set! (-> wof w) 0.0)
+                  (vector+! sp cand wof)
+                  (let ((eff (- (- 0.0 (phys-surf-sd slot sp draw tier snrm))
+                                (-> *phys-authdep* (+ b si 1)))))
+                    (when (> eff worst)
+                      (set! worst eff))))))))))
     worst))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -2007,9 +2537,19 @@
           (set! (-> *phys-cvsum* ci) 0.0)
           (set! (-> *phys-cvn* ci) 0)
           (set! (-> *phys-cvmax* ci) 0.0)
+          (set! (-> *phys-cvmxs* ci) 0.0)
           (set! (-> *phys-cdmin* ci) 0.0)
           (set! (-> *phys-cdmax* ci) 0.0)
           (set! (-> *phys-crestd* ci) 0.0)
+          ;; (C20/C1) a re-bind is a fresh window for the post-commit per-chain verdicts too
+          (set! (-> *phys-csurf* ci) 0.0)
+          (set! (-> *phys-crootd* ci) 0.0)
+          ;; (C20/C3) ...and it INVALIDATES the captured gravity reference: the anchor bone of the new
+          ;; binding is a different bone in a different rig, and carrying the old chain's reference over
+          ;; would hand this one a permanent phantom tilt it never had.
+          (set! (-> *phys-cgrefok* ci) 0)
+          (set! (-> *phys-cgres* ci) 0.0)
+          (vector-reset! (-> *phys-cgref* ci))
           (set! (-> *phys-ccalm* ci) 0)
           (set! (-> *phys-clenr* ci) 1000000.0)
           (set! (-> *phys-cclr* ci) 1000000.0)
@@ -2108,7 +2648,26 @@
         (+! (-> *phys-slot-bstrunc* slot) (- nbs PHYS-BSURF-SETS))
         (format 0 "[HD-PHYS] ag=~S declares ~D body-surface sets > pool ~D — the excess is DROPPED~%"
                 ag nbs PHYS-BSURF-SETS))
+      ;; (SPEC-KEIRA 5) mark every bone the physics can move: the chain joints, and everything
+      ;; hanging below them. jgeo data is in parent-before-child order (it is what make-nodes-from-jg
+      ;; walks), so a single forward pass closes the set.
+      (let ((pb (* slot PHYS-MAXJ))
+            (jb (* slot PHYS-JPS)))
+        (dotimes (k PHYS-MAXJ)
+          (set! (-> *phys-bdrv* (+ pb k)) 0))
+        (dotimes (q (min njoints PHYS-JPS))
+          (let ((k (-> *phys-jk* (+ jb q))))
+            (when (and (>= k 0) (< k PHYS-MAXJ))
+              (set! (-> *phys-bdrv* (+ pb k)) 1))))
+        (dotimes (k (min PHYS-MAXJ (-> jgeo length)))
+          (let ((j (-> jgeo data k)))
+            (when (-> j parent)
+              (let ((pn (-> j parent number)))
+                (when (and (>= pn 0) (< pn PHYS-MAXJ)
+                           (nonzero? (-> *phys-bdrv* (+ pb pn))))
+                  (set! (-> *phys-bdrv* (+ pb k)) 1)))))))
       (let ((nb 0)
+            (ndrv 0)
             (sb (* slot PHYS-BSURF-SETS)))
         (dotimes (i (min nbs PHYS-BSURF-SETS))
           (let ((found -1))
@@ -2118,6 +2677,12 @@
             ;; a declared set whose bone this rig does not have is surface that never bound — the
             ;; same class of absence as a set that did not fit, so it is counted the same way
             (when (< found 0) (+! (-> *phys-slot-bstrunc* slot) 1))
+            ;; ...and a set on a bone the PHYSICS drives is not absence at all: it is the strand's
+            ;; own surface, deliberately not part of the body. Counted apart from bstrunc, which is
+            ;; gated at 0 because it means a hole in the body — this is the opposite of a hole.
+            (when (and (>= found 0) (nonzero? (-> *phys-bdrv* (+ (* slot PHYS-MAXJ) found))))
+              (+! ndrv 1)
+              (set! found -1))
             (when (>= found 0)
               (let* ((ns (pc-physics-bsurf-count ag i))
                      (nk (min ns PHYS-BSURF-MAX)))
@@ -2149,8 +2714,10 @@
                     (set! (-> *phys-bsr* (+ sb nb)) br))
                   (+! nb 1))))))
         (set! (-> *phys-slot-nbsurf* slot) nb)
-        (format 0 "[HD-PHYS] ag=~S bsurf sets=~D of ~D declared, <=~D samples each, unbound=~D density-skipped=~D~%"
-                ag nb nbs PHYS-BSURF-MAX (-> *phys-slot-bstrunc* slot) (-> *phys-slot-bsdens* slot))))
+        ;; PHYS-BSURF-MAX is spelled into the text rather than passed: GOAL caps a call at eight
+        ;; parameters and this line is at the ceiling.
+        (format 0 "[HD-PHYS] ag=~S bsurf sets=~D of ~D declared, <=8 samples each, unbound=~D density-skipped=~D physics-driven-skipped=~D~%"
+                ag nb nbs (-> *phys-slot-bstrunc* slot) (-> *phys-slot-bsdens* slot) ndrv)))
     ;; ---- (C13) THE PERIMETER IS NOT RESOLVED HERE ANY MORE ---------------------------------------
     ;; This is where a chain's collider list used to be copied, once, out of the `chains=` filter the
     ;; data put on each volume. That filter was the second of the three licences the owner threw the
@@ -2200,6 +2767,7 @@
     (set! (-> *phys-slot-clampcf* slot) 0)
     (set! (-> *phys-slot-remprod* slot) 0.0)
     (set! (-> *phys-slot-remclamp* slot) 0.0)
+    (set! (-> *phys-slot-remstrand* slot) 0.0)
     (set! (-> *phys-slot-remauth* slot) 0.0)
     (set! (-> *phys-slot-remcalm* slot) 0.0)
     (set! (-> *phys-slot-resjerk* slot) 0.0)
@@ -2211,18 +2779,24 @@
     (set! (-> *phys-slot-mraw* slot) 0.0)
     (set! (-> *phys-slot-mfix* slot) 0)
     (set! (-> *phys-slot-mtested* slot) 0)
-    ;; lresv only: msn was just cached by the chain loop above (this reset runs AFTER it), and the
-    ;; mesh sweep only ever reads msn on the CURRENT chains' links, so stale entries on other
-    ;; joints are unreachable rather than wiped here.
+    ;; (C20/C1) the post-commit audit's window is reset with everything else it is printed next to.
+    ;; wlen is a MINIMUM and starts at +inf for the same reason lenmin does below: zeroed here it
+    ;; would print as a fully crushed chain on the first window of every binding.
+    (set! (-> *phys-slot-wsurf* slot) 0.0)
+    (set! (-> *phys-slot-wsurftested* slot) 0)
+    (set! (-> *phys-slot-wmesh* slot) 0.0)
+    (set! (-> *phys-slot-wmtested* slot) 0)
+    (set! (-> *phys-slot-wroot* slot) 0.0)
+    (set! (-> *phys-slot-wlen* slot) 1000000.0)
+    (set! (-> *phys-slot-wrest* slot) 0.0)
+    (set! (-> *phys-slot-gresid* slot) 0.0)
     (dotimes (k PHYS-JPS)
-      (vector-zero! (-> *phys-lresv* (+ (* slot PHYS-JPS) k)))
-      ;; (C14c) a re-bind invalidates the previous frame's deviation reference too: differencing
+      ;; (C14c) a re-bind invalidates the previous frame's deviation reference: differencing
       ;; against another rig's pose would manufacture a one-frame "jump" out of nothing.
       (vector-zero! (-> *phys-ldev* (+ (* slot PHYS-JPS) k)))
       ;; ltarg is zeroed with it: a re-bind must read as a cut on its first frame, not as a
       ;; 200-metre authored jump measured against another rig's pose.
       (vector-zero! (-> *phys-ltarg* (+ (* slot PHYS-JPS) k))))
-    (set! (-> *phys-slot-respath* slot) 0.0)
     (set! (-> *phys-slot-njoints* slot) njoints)
     (set! (-> *phys-slot-nchains* slot) nch)
     (set! (-> *phys-slot-ncols* slot) ncols)
@@ -2364,6 +2938,10 @@
              (vtmp3 (new 'stack-no-clear 'vector))
              (cpt (new 'stack-no-clear 'vector))
              (snrm (new 'stack-no-clear 'vector))   ;; (SPEC 18) outward normal at the nearest surface sample
+             ;; (C20/C6) `snrm2` stood here, declared "a second normal, so probing the AUTHORED pose's
+             ;; own depth cannot clobber the push direction taken at the candidate point". The fix that
+             ;; comment describes was never applied in the function that needed it, so it has had no
+             ;; reader since the day it was written; it is deleted with the push itself.
              (axis (new 'stack-no-clear 'vector))
              (dirv (new 'stack-no-clear 'vector))
              (dirt (new 'stack-no-clear 'vector))
@@ -2373,6 +2951,12 @@
              ;; (R) gravity instrument: the acceleration before the gravity term, and the term itself
              (gpre (new 'stack-no-clear 'vector))
              (gvec (new 'stack-no-clear 'vector))
+             ;; (C20/C3) family A's gravity residual for the chain in hand, and the world direction
+             ;; the actor is CARRYING (the captured reference re-expressed through the anchor bone's
+             ;; live basis). `gres` has to outlive the substep loop, so it cannot be one of the shared
+             ;; vtmp scratches: those are rewritten inside the integrator on every link.
+             (gres (new 'stack-no-clear 'vector))
+             (gcar (new 'stack-no-clear 'vector))
              ;; (R) hang: the world DOWN axis and the rebuilt rest direction of one link
              (down (new 'stack-no-clear 'vector))
              (hdir (new 'stack-no-clear 'vector))
@@ -2451,11 +3035,9 @@
              (frame-famb 0)
              (frame-unclass 0))
         (when (and (> dt 0.0001) (< dt 0.1))
-          ;; (C14-D) fresh frame, fresh resolution-jerk ledger: lresv accumulates every correction
-          ;; VECTOR the resolution applies to a link THIS frame, across all passes; the fold below
-          ;; takes the length of the NET and the window keeps the worst single-frame figure.
-          (dotimes (k PHYS-JPS)
-            (vector-zero! (-> *phys-lresv* (+ jbase k))))
+          ;; (C20/C4) the per-frame clear of *phys-lresv* stood here. It cleared a ledger nothing wrote
+          ;; to — see the deleted declaration — so the frame's only effect was to zero 48 vectors and
+          ;; print their length as respath=0.0000. Deleted with the field.
           ;; ---------------- (W) HOW FAR FROM UPRIGHT IS THIS CHARACTER? ---------------------------
           ;; Joint 0 is `align`, the actor's own transform, and bone index = joint + 1. Row 1 of that
           ;; matrix is his up axis; `phys-axis-dot` normalises it first, so a rig carrying scale does
@@ -2755,17 +3337,43 @@
                                       (k2 (-> *phys-colk2* cb)))
                                  (when (and (<= (-> *phys-coltier* cb) tier) (!= rc c))
                                    (let ((self? 0)
-                                         (owna 0)
-                                         (ownb 0)
                                          (ck (-> *phys-colk* cb)))
-                                     (dotimes (i2 len)
-                                       (let ((jk (-> *phys-jk* (+ start i2))))
-                                         (when (= jk ck) (set! owna 1))
-                                         (when (and (>= k2 0) (= jk k2)) (set! ownb 1))))
-                                     (when (and (< rc 0)
-                                                (nonzero? owna)
-                                                (or (< k2 0) (nonzero? ownb)))
-                                       (set! self? 1))
+                                     ;; ---- (SPEC-KEIRA 5) A VOLUME BUILT ON A PHYSICS JOINT IS NOT
+                                     ;; THE BODY. It is the chain's own geometry wearing a body
+                                     ;; volume's clothes, and testing a strand against it is the
+                                     ;; degenerate self-test C14c already removed from the mesh pass
+                                     ;; — for the same reason, one step short of far enough. The old
+                                     ;; test asked whether BOTH ends sat on joints of THIS chain, so
+                                     ;; it caught `capsule Rmidhaira Rmidhairb` for rmidhair and
+                                     ;; missed every one of these, which are Keira's whole defect:
+                                     ;;   capsule head Rmidhaira   radius=1306   (0.32 m)
+                                     ;;   capsule Rmidhaira Rmidhairb radius=1164
+                                     ;;   capsule rEara rEarb      radius=1241
+                                     ;;   capsule maskstrap mask   radius=1958   (0.48 m)
+                                     ;;   capsule chest lBoob / chest gogglesBase / Lknee LpantFlap
+                                     ;; Each is an auto-fitted balloon built AROUND a strand she
+                                     ;; carries, so her bangs live inside her midhair's volume, her
+                                     ;; goggles inside her breast's, permanently and by
+                                     ;; construction. The push then shoves them out every frame —
+                                     ;; that is the measured 250-525 units of model-pose infidelity
+                                     ;; cast-wide (dax-hd's ears 250.6 against his tail's 3.8, and
+                                     ;; the difference between those two chains is exactly that the
+                                     ;; tail sits inside nothing) — and the bisection walks the pose
+                                     ;; back toward the animation to escape a penetration no geometry
+                                     ;; contains, which is "les meches de Keira sont ANCREES".
+                                     ;; NOTHING LOSES ITS COLLISION. The body is carried by the REAL
+                                     ;; SKINNED SURFACE (SPEC 5's designated authority, `bs` sets on
+                                     ;; the animated bones — head, chest, thighs, arms: all still
+                                     ;; there, all still tested), a chain against another chain is
+                                     ;; the strand pass with its per-link radii ("ses chaines se
+                                     ;; voient entre elles"), and the two breasts meeting each other
+                                     ;; are the `at=` colliders, which ride a chain deliberately
+                                     ;; (rc >= 0) and are NOT touched by this.
+                                     (when (< rc 0)
+                                       (dotimes (i2 (-> *phys-slot-njoints* slot))
+                                         (let ((jk (-> *phys-jk* (+ jbase i2))))
+                                           (when (or (= jk ck) (and (>= k2 0) (= jk k2)))
+                                             (set! self? 1)))))
                                      (when (zero? self?)
                                        (let* ((ca (if (>= rc 0)
                                                       (-> *phys-out* (+ jbase (-> *phys-cstart* (+ cbase rc))
@@ -2961,6 +3569,20 @@
                        ;; moving target, which is a/omega^2 — so every notch of firmness was
                        ;; paid for out of the travel and "plus de jiggle ET plus de fermete" was
                        ;; arithmetically impossible.
+                       ;; (SPEC-KEIRA 4) A HYPOTHESIS THAT WAS TESTED AND REFUTED, AND IS THEREFORE
+                       ;; NOT IN THIS BUILD. The four hard-dead chains of this run are all on one
+                       ;; side of the body (see *phys-ltp*), and a rod whose length is rigid only
+                       ;; does work through the component of a pseudo-force PERPENDICULAR to itself,
+                       ;; so "one shared anchor translation cannot excite two strands whose axes
+                       ;; differ" was a good explanation. The fix for it is also clear and more
+                       ;; general than what ships here: difference the LINK's own retargeted target
+                       ;; twice instead of the anchor's position, which carries the anchor's rotation
+                       ;; about the link as well and reduces to this term when the anchor only
+                       ;; translates. IT WAS IMPLEMENTED AND MEASURED, and the measurement said no:
+                       ;; the dead set came back IDENTICAL (lmidhair, earL, earR, chestL, pantflapL),
+                       ;; with the same surfpen and the same restdevA to three decimals. A change
+                       ;; that does not do what it was adopted for does not ship — that rule is
+                       ;; cycle 18's and it cost a build to learn — so only the refutation is kept.
                        (vector-reset! cacc)
                        (let ((cpl (-> *phys-ccouple* ci)))
                          (when (> cpl 0.0)
@@ -2993,7 +3615,112 @@
                              ;; gravity on the DYNAMICS. Family B always; family A only once the
                              ;; character is no longer upright (the owner's own exception).
                              (gacc (* (-> *phys-cgrav* ci) PHYS-GRAV-ACCEL (- 1.0 authw) sw
-                                      (if (= 2 (-> *phys-cfam* ci)) 1.0 tiltf))))
+                                      (if (= 2 (-> *phys-cfam* ci)) 1.0 tiltf)))
+                             ;; (C20/C3) the FULL world magnitude of this chain's gravity, i.e. the
+                             ;; same product WITHOUT the family/tilt factor. Computed as its own
+                             ;; expression and never folded into the line above so that line stays
+                             ;; textually identical: family B and the upright family-A case must be
+                             ;; bit-identical to the build the owner has already judged.
+                             (gmag (* (-> *phys-cgrav* ci) PHYS-GRAV-ACCEL (- 1.0 authw) sw))
+                             ;; 1 = a residual gravity vector is armed for this chain this frame
+                             (gres? 0)
+                             ;; (C20/C3) ...and whether the gdir/gloc instrument may sample this
+                             ;; chain. It exists to prove gravity is applied in WORLD space, and
+                             ;; physics_x86_grade.py FAILS the leg if gx^2+gz^2 > 1e-4 or gy > -0.999.
+                             ;; For family A the applied vector is now DELIBERATELY a residual, so it
+                             ;; is sampled only where the applied vector IS the full world gravity:
+                             ;; family B always, family A once tiltf has ramped out. Keira carries
+                             ;; seven family-B chains, so the sample is never empty.
+                             (gsamp? (if (or (= 2 (-> *phys-cfam* ci)) (> tiltf 0.999)) 1 0)))
+                         ;; ---- (C20/C3) GRAVITY ON THE DYNAMICS, WITHOUT MOVING THE EQUILIBRIUM ----
+                         ;; SPEC 2: "La gravite agit sur la DYNAMIQUE, pas sur le point d'equilibre :
+                         ;; au repos, en position normale, ca regagne exactement la forme du modele."
+                         ;; Multiplying the whole term by tiltf satisfies the equilibrium half and
+                         ;; throws the dynamics half away — that is why the family-A chains measured
+                         ;; INERT while family B moved on the same skeleton in the same frames.
+                         ;; So family A now gets the FULL world gravity minus exactly the part of it
+                         ;; the ACTOR IS CARRYING:
+                         ;;     g_eff = g_world - (1 - tiltf) * |g_world| * carried
+                         ;; with `carried` the captured reference direction (cgref) re-expressed
+                         ;; through the anchor bone's LIVE basis. The scalar line above already
+                         ;; applies g_world*tiltf, so what is left to add is the difference,
+                         ;;     (1 - tiltf) * |g_world| * (down - carried),
+                         ;; which is IDENTICALLY ZERO while the anchor sits where it was captured.
+                         ;; That is the whole safety argument: rule W ("la position idle devrait
+                         ;; EXACTEMENT etre celle du modele de base") is preserved BY CONSTRUCTION and
+                         ;; not by tuning, and the term becomes non-zero only as the anchor rotates
+                         ;; away from its reference — she nods, leans, is knocked over — which is
+                         ;; precisely SPEC 2's stated exception, now continuous instead of a step.
+                         (set! (-> *phys-cgres* ci) 0.0)
+                         (vector-reset! gres)
+                         ;; `!= 2` and not `= 1`: an UNCLASSIFIED chain is treated as family A
+                         ;; everywhere else in this file (see the census above), and the gacc factor
+                         ;; it complements is itself `(if (= 2 fam) 1.0 tiltf)`. Using `= 1` here
+                         ;; would leave family 0 with the old dead term and no way to notice.
+                         (when (and (!= 2 (-> *phys-cfam* ci))
+                                    (> gmag 0.0)
+                                    (< (+ anchor-k 1) nbones))
+                           (let* ((abm (the-as matrix (-> skel bones (+ anchor-k 1) transform)))
+                                  (ax0 (vector-length (-> abm vector 0)))
+                                  (ax1 (vector-length (-> abm vector 1)))
+                                  (ax2 (vector-length (-> abm vector 2))))
+                             ;; DEGENERATE BASIS = UN-POSED FRAME (every bone at the origin: the
+                             ;; parked title-screen spawn, the frame a warp cuts the pose). The same
+                             ;; guard the tilt measurement uses, and for a stronger reason here: a
+                             ;; reference captured on such a frame is kept for the whole binding and
+                             ;; would give the chain a permanent phantom tilt.
+                             (when (and (> ax0 0.000001) (> ax1 0.000001) (> ax2 0.000001))
+                               ;; CAPTURE, exactly once per binding. phys-axis-dot normalises the row
+                               ;; it projects onto, so each component is a true direction cosine; the
+                               ;; triple is renormalised anyway because three normalised rows are only
+                               ;; an orthonormal basis if the rig has no shear.
+                               (when (zero? (-> *phys-cgrefok* ci))
+                                 (set! (-> *phys-cgref* ci x) (phys-axis-dot abm 0 down))
+                                 (set! (-> *phys-cgref* ci y) (phys-axis-dot abm 1 down))
+                                 (set! (-> *phys-cgref* ci z) (phys-axis-dot abm 2 down))
+                                 (set! (-> *phys-cgref* ci w) 0.0)
+                                 (let ((gl (vector-length (-> *phys-cgref* ci))))
+                                   (cond
+                                     ((> gl 0.000001)
+                                      (vector-float*! (-> *phys-cgref* ci) (-> *phys-cgref* ci)
+                                                      (/ 1.0 gl))
+                                      (set! (-> *phys-cgrefok* ci) 1))
+                                     (else
+                                      (vector-reset! (-> *phys-cgref* ci))))))
+                               (when (nonzero? (-> *phys-cgrefok* ci))
+                                 ;; carried = R_anchor_now . gref, rebuilt on the NORMALISED rows so a
+                                 ;; rig carrying scale cannot lengthen the direction it reports.
+                                 (vector-float*! gcar (the-as vector (-> abm vector 0))
+                                                 (/ (-> *phys-cgref* ci x) ax0))
+                                 (vector-float*! vtmp (the-as vector (-> abm vector 1))
+                                                 (/ (-> *phys-cgref* ci y) ax1))
+                                 (vector+! gcar gcar vtmp)
+                                 (vector-float*! vtmp (the-as vector (-> abm vector 2))
+                                                 (/ (-> *phys-cgref* ci z) ax2))
+                                 (vector+! gcar gcar vtmp)
+                                 (set! (-> gcar w) 0.0)
+                                 (let ((cl (vector-length gcar)))
+                                   (when (> cl 0.000001)
+                                     (vector-float*! gcar gcar (/ 1.0 cl))
+                                     ;; |g_eff| / |g_world| = |down - (1-tiltf)*carried|, independent
+                                     ;; of the magnitude. 0 = perfectly upright and aligned (the term
+                                     ;; is dormant), 1 = gravity fully resumed.
+                                     (vector-float*! vtmp gcar (- 1.0 tiltf))
+                                     (vector-! vtmp2 down vtmp)
+                                     (let ((rr (vector-length vtmp2)))
+                                       (set! (-> *phys-cgres* ci) rr)
+                                       (when (> rr (-> *phys-slot-gresid* slot))
+                                         (set! (-> *phys-slot-gresid* slot) rr)))
+                                     ;; the residual itself, and a DEADBAND on the direction so that an
+                                     ;; anchor which has not rotated since capture executes today's
+                                     ;; arithmetic and not today's arithmetic plus a reconstruction
+                                     ;; rounding error. Same 0.000001 the degenerate-row guards use,
+                                     ;; applied to a difference of unit vectors.
+                                     (vector-! vtmp2 down gcar)
+                                     (when (> (vector-length vtmp2) 0.000001)
+                                       (vector-float*! gres vtmp2 (* (- 1.0 tiltf) gmag))
+                                       (set! (-> gres w) 0.0)
+                                       (set! gres? 1))))))))
                          (dotimes (st substeps)
                            ;; ---- STEP 1: verlet integrate every FREE link ----
                            (dotimes (i len)
@@ -3010,10 +3737,16 @@
                                  ;; space it must stay (0,-1,0) however the actor is turned;
                                  ;; gloc is the same vector in the anchor bone's own axes and
                                  ;; must SWING. The pair is the proof, not either alone.
-                                 (when (and (zero? gcap) (> gacc 0.0) (= i rl))
+                                 (when (and (zero? gcap) (nonzero? gsamp?) (> gacc 0.0) (= i rl))
                                    (vector-copy! gpre vtmp))
                                  (set! (-> vtmp y) (- (-> vtmp y) gacc))
-                                 (when (and (zero? gcap) (> gacc 0.0) (= i rl))
+                                 ;; (C20/C3) ...and family A's residual, the term that gives it a
+                                 ;; driver at all. Zero — and not even applied — while the anchor is
+                                 ;; at its captured orientation, so the upright case and every family
+                                 ;; B chain run exactly the instruction stream they ran before.
+                                 (when (nonzero? gres?)
+                                   (vector+! vtmp vtmp gres))
+                                 (when (and (zero? gcap) (nonzero? gsamp?) (> gacc 0.0) (= i rl))
                                    (set! gcap 1)
                                    (+! (-> *phys-slot-gsamp* slot) 1)
                                    (vector-! gvec vtmp gpre)
@@ -3102,60 +3835,67 @@
                                                             (+! (-> *phys-slot-extprobe* slot) 1)
                                                             pprb)
                                                            (else p))))
-                                                ;; ---- STEP 3a-bis (SPEC 18): THE REAL SURFACE ----
-                                                ;; The capsules below are the BROAD phase — they say
-                                                ;; which volumes are near. This is the narrow phase,
-                                                ;; and it is the only one that can answer the owner's
-                                                ;; actual question, because it asks the body's real
-                                                ;; skinned geometry rather than a proxy fitted to it.
-                                                ;; Same bounded, velocity-neutral machinery as the
-                                                ;; volume push: the correction shares `maxcorr` and is
-                                                ;; undone in `prev` by the same pass below, so it
-                                                ;; cannot pump energy and cannot produce the jitter
-                                                ;; owner rule O forbids.
-                                                ;; THE LINK RADIUS IS DELIBERATELY NOT ADDED HERE, and
-                                                ;; that is a judgement worth stating rather than
-                                                ;; burying. A nearest-sample SDF has an error of the
-                                                ;; order of the SAMPLE SPACING; asking it to hold a
-                                                ;; strand a full link radius clear of a coarsely
-                                                ;; sampled torso would let that error push chains off
-                                                ;; the body — the "it floats" failure the owner has
-                                                ;; rejected as firmly as the clipping. So the surface
-                                                ;; answers the question it can answer exactly — is
-                                                ;; this point INSIDE the character — and the link's
-                                                ;; own thickness stays the broad phase's job, where it
-                                                ;; already was. Density is the precision level's
-                                                ;; lever: more samples shrink this error, which is the
-                                                ;; opposite of a capsule, where more of anything never
-                                                ;; made a shoulder fit.
-                                                ;; ONCE PER LINK PER FRAME, on the final constraint
-                                                ;; iteration of the final substep — not once per
-                                                ;; iteration. This is a cost decision and it is the
-                                                ;; difference between shipping and not: the surface
-                                                ;; is ~500 sample tests per call, and inside the
-                                                ;; substep x iteration loops one actor would have
-                                                ;; run it ~70 times per chain per frame. Placing it
-                                                ;; last also gives it the last word over the volume
-                                                ;; pushes it follows, which is the order the spec
-                                                ;; asks for.
-                                                (when (and (> (-> *phys-slot-nbsurf* slot) 0)
-                                                           (= st (+ substeps -1))
-                                                           (= it (+ iters -1)))
-                                                  (let* ((sd (phys-surf-sd slot pt draw tier snrm))
-                                                         (need (- 0.0 sd)))
-                                                    (when (> need PHYS-PEN-TOL)
-                                                      (+! (-> *phys-slot-surfhit* slot) 1)
-                                                      (when (> need (-> *phys-slot-surfraw* slot))
-                                                        (set! (-> *phys-slot-surfraw* slot) need))
-                                                      (vector-float*! vtmp snrm need)
-                                                      (let ((cl (vector-length vtmp)))
-                                                        (when (> cl maxcorr)
-                                                          (+! (-> *phys-slot-clamped* slot) 1)
-                                                          (set! (-> *phys-cclampf* ci) 1)
-                                                          (vector-float*! vtmp vtmp (/ maxcorr cl))))
-                                                      (when (nonzero? probe?)
-                                                        (vector+! pprb pprb vtmp))
-                                                      (vector+! p p vtmp))))
+                                                ;; ---- STEP 3a-bis: THE IN-LOOP REAL-SURFACE PUSH ----
+                                                ;; (C20/C6) DELETED, WITH phys-link-surf-push AND
+                                                ;; snrm2, AND THIS IS THE CHANGE THAT EXPLAINS THE
+                                                ;; DEAD CHAINS. Of Keira's three left/right head pairs
+                                                ;; exactly ONE member of each was frozen, on IDENTICAL
+                                                ;; data parameters, and not by the STEP 3b clamp —
+                                                ;; ctmin read 0.999-1.0 on the dead ones. They held a
+                                                ;; LARGE CONSTANT offset with one float ULP of
+                                                ;; per-frame movement: cdev 58.5 / 45.9 / 90.2 against
+                                                ;; cdsp 0.0625 / 0.0312 / 0.0312.
+                                                ;; The mechanism was here. This push resolved
+                                                ;;     eff = depth(p) - max(0, depth(authored))
+                                                ;; so subtracting the authored floor put the wall
+                                                ;; EXACTLY at the authored pose and made it ONE-SIDED:
+                                                ;; outward motion free, inward motion beyond one unit
+                                                ;; DELETED — and PHYS-PROJFIX = 1.0 mirrors every
+                                                ;; correction into `prev`, so the velocity died with
+                                                ;; the position. For a link whose authored pose the
+                                                ;; point-cloud SDF already reads as INSIDE, that is
+                                                ;; not a constraint, it is a RATCHET: the chain walks
+                                                ;; outward until it rests on the wall and stops.
+                                                ;; Whether a link reads "inside" is a rig CONSTANT
+                                                ;; (STEP 0a re-glues every physics joint to its
+                                                ;; bind-pose local every frame), and it is
+                                                ;; ASYMMETRIC because `bs head` ships 12 samples while
+                                                ;; PHYS-BSURF-MAX keeps the first 8 in file order and
+                                                ;; those 8 contain no mirror pair. Replayed at each
+                                                ;; free link's authored pose: Rbangb +66.7 INSIDE
+                                                ;; (dead) vs Lbangb -1.4 (alive); Lmidhairb +55.0
+                                                ;; INSIDE (dead) vs Rmidhairb -227.2 (alive); lEarb
+                                                ;; +242.7 INSIDE (dead) vs rEarb -188.1 (alive). Six
+                                                ;; predictions, six hits, on the sign alone.
+                                                ;; Two aggravations in the same call: the correction
+                                                ;; was applied to the link ORIGIN but SIZED by the
+                                                ;; worst depth over ms samples sitting 250-1674 units
+                                                ;; away, bounded only by maxcorr — which is where 48-90
+                                                ;; units of static offset came from — and surfhit was
+                                                ;; per-slot, so no per-chain counter could ever have
+                                                ;; shown it.
+                                                ;; IT IS REDUNDANT, WHICH IS WHY DELETING IT IS SAFE:
+                                                ;; STEP 3b enforces the SAME objective — the same
+                                                ;; phys-surf-sd, the same authored floor — but as a
+                                                ;; bounded, continuous retreat evaluated on the pose
+                                                ;; that will actually be COMMITTED, with t=0 feasible
+                                                ;; by construction so it always terminates on a clear
+                                                ;; pose, and since C2 the retreat is per SEGMENT so its
+                                                ;; cost is local. Two authorities fighting over one
+                                                ;; objective is what froze the chains.
+                                                ;; AND THIS IS NOT THE REVERTED EXPERIMENT. The note in
+                                                ;; the capsule block below records that removing the
+                                                ;; PROXY-CAPSULE push was tried and reverted because
+                                                ;; surfpen went to 217-733. That was when STEP 3b
+                                                ;; bisected on CAPSULES; it now bisects on the SURFACE,
+                                                ;; so the surface pre-conditioner is redundant in a way
+                                                ;; the capsule one is not. The capsule push below is
+                                                ;; therefore untouched, byte for byte.
+                                                ;; surfhit= keeps its name and its meaning ("how often
+                                                ;; the surface had something to say") and is now fed
+                                                ;; from the post-commit audit in STEP 5b, so it does
+                                                ;; not become the structural zero its own empty-zero
+                                                ;; gate exists to catch.
                                                 (dotimes (s2 (-> *phys-ccn* ci))
                                                   (let* ((cb (+ (* slot PHYS-COLS)
                                                                 (-> *phys-cclist* (+ (* slot PHYS-CPS PHYS-CCMAX)
@@ -3431,43 +4171,148 @@
                        (dotimes (i len)
                          (vector-copy! (-> *phys-out0* (+ start i))
                                        (if (>= i rl) (-> *phys-pos* (+ start i)) (-> *phys-targ* (+ start i)))))
-                       (let ((tsel 1.0))
+                       ;; (C20/C2) ...AND IT RETREATS PER SEGMENT, NOT PER CHAIN. See *phys-ltsel*
+                       ;; for the measurement: 70 % of every unit the solver produced was being taken
+                       ;; back here, and `ctmin` named the chains it was taken from — backhair 0.0000
+                       ;; over 125 frames, kneeflapL 0.0000 over 154. One offending link was deleting
+                       ;; the motion of every link in its chain. `tmn` below is the WORST segment
+                       ;; fraction, which is what ctmin/ctz now report: same names, same meaning ("was
+                       ;; this chain fought by the resolve"), measured on the worst segment instead of
+                       ;; on the only one there used to be.
+                       (let ((tmn 1.0)
+                             ;; (SPEC-KEIRA 5) the real surface is the objective wherever the actor
+                             ;; HAS one. A rig with no `bs` data keeps the proxy objective, so it
+                             ;; behaves exactly as the build already judged rather than losing its
+                             ;; collision altogether.
+                             ;; INT, never a boolean: this is now PASSED to phys-chain-link-pen and in
+                             ;; GOAL a plain 0 is TRUTHY.
+                             (sauth? (if (> (-> *phys-slot-nbsurf* slot) 0) 1 0)))
                          (when (nonzero? collide?)
                            (phys-chain-blend! slot ci start len 1.0 rl anchor)
-                           (let ((w1 (phys-chain-worst slot cbase c tier start len rl draw)))
+                           ;; THE CHEAP GATE. eff = raw - floor and the floor is never negative, so a
+                           ;; raw depth inside the tolerance proves the pose feasible and nothing
+                           ;; below this line is paid for. On a clear frame that is the whole cost of
+                           ;; collision: one surface query per written point.
+                           (let ((w1 (if (nonzero? sauth?)
+                                         (phys-chain-surf-raw slot start len rl draw tier)
+                                         (phys-chain-worst slot cbase c tier start len rl draw))))
                              (when (> w1 (-> *phys-slot-mraw* slot))
                                (set! (-> *phys-slot-mraw* slot) w1))
+                             ;; (C20/C6) surfraw's ONLY writer was the in-loop surface push this cycle
+                             ;; deletes, so it would have become a structural zero — the one thing this
+                             ;; file deletes counters for. It keeps its documented meaning ("deepest
+                             ;; depth seen BEFORE the resolve — the needle that proves the instrument
+                             ;; can move at all") fed from the objective's own cheap gate, which is
+                             ;; exactly the raw, unfloored surface depth of the pre-resolve pose. Only
+                             ;; where the surface IS the authority: on a rig with no `bs` data w1 is a
+                             ;; capsule depth and belongs to mraw alone.
+                             (when (and (nonzero? sauth?) (> w1 (-> *phys-slot-surfraw* slot)))
+                               (set! (-> *phys-slot-surfraw* slot) w1))
                              (when (> w1 PHYS-PEN-TOL)
-                               (set! tsel 0.0)
-                               (let ((thi 1.0))
-                                 (dotimes (b PHYS-MESH-BISECT)
-                                   (let ((tm (* 0.5 (+ tsel thi))))
-                                     (phys-chain-blend! slot ci start len tm rl anchor)
-                                     (cond
-                                       ((<= (phys-chain-worst slot cbase c tier start len rl draw)
+                               (when (nonzero? sauth?)
+                                 (phys-chain-surf-floor! slot start len rl draw tier))
+                               ;; PER-SEGMENT RETREAT, ROOT -> TIP. Reducing segment i moves links
+                               ;; i..len-1 and never moves 0..i-1, so one root->tip sweep leaves every
+                               ;; link it has already visited clear: this is Gauss-Seidel on the only
+                               ;; coupling a chain has. The candidate is rebuilt before every probe
+                               ;; because an earlier segment's retreat has already moved this one.
+                               (dotimes (i len)
+                                 (set! (-> *phys-ltsel* i) 1.0))
+                               (dotimes (i len)
+                                 (when (>= i rl)
+                                   (phys-chain-blend-lt! slot ci start len rl anchor)
+                                   ;; a segment that is already clear at full physics authority keeps
+                                   ;; t_i = 1.0 and is not searched at all — which is the entire point
+                                   ;; of the change: it can no longer be walked back for a penetration
+                                   ;; that belongs to a different link.
+                                   (when (> (phys-chain-link-pen slot cbase c tier start i draw sauth?)
                                             PHYS-PEN-TOL)
-                                        (set! tsel tm))
-                                       (else (set! thi tm))))))
+                                     (let ((tlo 0.0)
+                                           (thi 1.0))
+                                       (dotimes (b PHYS-SEG-BISECT)
+                                         (let ((tm (* 0.5 (+ tlo thi))))
+                                           (set! (-> *phys-ltsel* i) tm)
+                                           (phys-chain-blend-lt! slot ci start len rl anchor)
+                                           (cond
+                                             ((<= (phys-chain-link-pen slot cbase c tier start i draw
+                                                                       sauth?)
+                                                  PHYS-PEN-TOL)
+                                              (set! tlo tm))
+                                             (else (set! thi tm)))))
+                                       ;; tlo is the last fraction that PASSED, so the pose left in
+                                       ;; *phys-cblend* for the next segment is a feasible one.
+                                       (set! (-> *phys-ltsel* i) tlo)
+                                       (phys-chain-blend-lt! slot ci start len rl anchor)))))
+                               ;; EXACT VERIFICATION of the pose that will actually be committed.
+                               ;; The sweep above judged each segment against its own constraint; this
+                               ;; asks the whole chain, and on failure walks EVERY segment further
+                               ;; toward the authored pose — which is feasible by construction, so the
+                               ;; fallback always terminates on a clear pose. This is what keeps "rien
+                               ;; ne traverse Keira, quelle que soit la raison" a property of the
+                               ;; algorithm and not of the tuning.
+                               (when (nonzero? sauth?)
+                                 (let ((ok 0))
+                                   (dotimes (v 4)
+                                     (when (zero? ok)
+                                       (phys-chain-blend-lt! slot ci start len rl anchor)
+                                       (cond
+                                         ((<= (phys-chain-surf-worst slot start len rl draw tier
+                                                                     PHYS-PEN-TOL)
+                                              PHYS-PEN-TOL)
+                                          (set! ok 1))
+                                         (else
+                                          (dotimes (i len)
+                                            (when (>= i rl)
+                                              (set! (-> *phys-ltsel* i)
+                                                    (* 0.5 (-> *phys-ltsel* i)))))))))
+                                   (when (zero? ok)
+                                     (+! (-> *phys-slot-clamped* slot) 1)
+                                     ;; every t_i = 0 IS the old whole-chain veto, exactly. That is
+                                     ;; the worst case of this change and it is the previous
+                                     ;; behaviour, which is what makes it shippable.
+                                     (dotimes (i len)
+                                       (when (>= i rl)
+                                         (set! (-> *phys-ltsel* i) 0.0))))))
                                (+! (-> *phys-slot-mfix* slot) 1)
-                               ;; (C18) THE VETO BECOMES A BOUND. `tsel` at this point is the raw
-                               ;; search result, and on the chains the owner calls "ancrees" it comes
-                               ;; back at exactly 0 — the authored pose, every frame. Count that
-                               ;; BEFORE flooring, so the diagnosis survives the fix and a chain the
-                               ;; clamp is still fighting is visible by name.
-                               (when (< tsel PHYS-TMIN-FLOOR)
+                               ;; (C18) THE VETO BECOMES A BOUND. `tmn` at this point is the raw
+                               ;; search result on the worst segment, and on the chains the owner calls
+                               ;; "ancrees" it came back at exactly 0 — the authored pose, every frame.
+                               ;; Count that BEFORE flooring, so the diagnosis survives the fix and a
+                               ;; chain the clamp is still fighting is visible by name.
+                               ;; ctz compares against a FIXED diagnostic value, not against the
+                               ;; floor. Taking the floor for it was a self-inflicted blind spot in
+                               ;; the first build of this cycle: with PHYS-TMIN-FLOOR at 0.0 the
+                               ;; test `tmn < floor` is unsatisfiable, so the counter that names a
+                               ;; chain the resolve is fighting read a structural 0 — the exact
+                               ;; "counter that cannot move" this file spent twenty deletions on.
+                               (dotimes (i len)
+                                 (when (and (>= i rl) (< (-> *phys-ltsel* i) tmn))
+                                   (set! tmn (-> *phys-ltsel* i))))
+                               (when (< tmn PHYS-TMIN-DIAG)
                                  (+! (-> *phys-ctzero* ci) 1))
-                               (set! tsel (fmax tsel PHYS-TMIN-FLOOR))
+                               ;; the floor is applied to EVERY segment, where the scalar version
+                               ;; applied it to the one fraction there was — same semantics per
+                               ;; segment, and tmn is re-floored with them so ctmin still reports the
+                               ;; fraction that was actually committed.
+                               (dotimes (i len)
+                                 (when (>= i rl)
+                                   (set! (-> *phys-ltsel* i)
+                                         (fmax (-> *phys-ltsel* i) PHYS-TMIN-FLOOR))))
+                               (set! tmn (fmax tmn PHYS-TMIN-FLOOR))
                                ;; running MIN over the window, not the last frame's value: one
                                ;; sample cannot say whether a chain spent the window clamped.
-                               (when (< tsel (-> *phys-ctmin* ci))
-                                 (set! (-> *phys-ctmin* ci) tsel)))))
+                               (when (< tmn (-> *phys-ctmin* ci))
+                                 (set! (-> *phys-ctmin* ci) tmn)))))
                          (cond
-                           ((and (nonzero? collide?) (< tsel 0.9999))
-                            (phys-chain-blend! slot ci start len tsel rl anchor)
+                           ((and (nonzero? collide?) (< tmn 0.9999))
+                            (phys-chain-blend-lt! slot ci start len rl anchor)
                             (dotimes (i len)
                               (vector-copy! (-> *phys-out* (+ start i))
                                             (if (>= i rl) (-> *phys-cblend* i) (-> *phys-targ* (+ start i))))))
                            (else
+                            ;; the NON-COLLIDE path, bit-identical: tmn is still its initial 1.0
+                            ;; whenever the resolve did not run or found nothing to resolve, so the
+                            ;; integrator's own pose is copied through untouched exactly as before.
                             (dotimes (i len)
                               (vector-copy! (-> *phys-out* (+ start i)) (-> *phys-out0* (+ start i)))))))
 
@@ -3669,12 +4514,17 @@
                        ;; A body chain has to come back to the shape ND sculpted once it is
                        ;; calm — and the instantaneous deviation is NOT the criterion, because
                        ;; that would forbid the bounce the owner explicitly wants. So this is
-                       ;; sampled only after the chain has been quiet for PHYS-RESTCALM frames,
-                       ;; and restwin counts the samples so the figure can never be an empty
-                       ;; zero. Nothing clamps the chain onto that pose: with hang=0 on family A
+                       ;; sampled only after the chain has been quiet for PHYS-RESTCALM frames.
+                       ;; Nothing clamps the chain onto that pose: with hang=0 on family A
                        ;; the spring's own equilibrium IS the model pose, so it arrives there by
                        ;; being a spring. (The pass that used to WALK it there — arrival — is
                        ;; what welded the chains and produced a week of false greens.)
+                       ;; (C20/C1) THIS IS NOW THE PRE-STRAND FIGURE, printed as restdevA_pre=, and
+                       ;; its condition is deliberately left exactly as it was so the two are
+                       ;; comparable. The graded one is taken again on the COMMITTED pose in STEP 5b,
+                       ;; where the strand pass and the length restore have had their say — and
+                       ;; `restwin`, the anti-empty-zero witness, counts THAT pass's samples, because
+                       ;; a sample count belongs to the figure it certifies.
                        (let ((quiet (if (and (< (-> *phys-canchd* ci) PHYS-IDLE-ANCH)
                                              (<= (-> *phys-csettle* ci) 0))
                                         1 0)))
@@ -3690,7 +4540,6 @@
                                  (vector-! vtmp (-> *phys-out* (+ start i)) (-> *phys-targ* (+ start i)))
                                  (let ((d (vector-length vtmp)))
                                    (when (> d worst) (set! worst d)))))
-                             (+! (-> *phys-slot-restwin* slot) 1)
                              (when (> worst (-> *phys-slot-restdeva* slot))
                                (set! (-> *phys-slot-restdeva* slot) worst))
                              (when (> worst (-> *phys-crestd* ci))
@@ -3737,6 +4586,17 @@
                                     (< authw 0.5)
                                     (> chspeed frame-self))
                            (set! frame-self chspeed)))
+                       ;; ---- (C20/C5a) SNAPSHOT THE POSE STEP 4 COMMITTED ----------------------
+                       ;; The last thing the per-chain body does, and it must be the last: everything
+                       ;; that moves *phys-out* after this point (STEP 3c strand-vs-strand, the
+                       ;; drawn-pose length restore) belongs to the OTHER half of the ledger.
+                       ;; remclamp = |out0 - out1| is then the resolve alone and remstrand =
+                       ;; |out1 - out| the passes after it, which is the only way to tell whether the
+                       ;; per-segment retreat (C2) actually reduced what collision removes: on X-MAX
+                       ;; the single figure read remclamp = 82640.27 of remprod = 118267.86 with no way
+                       ;; to say which pass owned it.
+                       (dotimes (i len)
+                         (vector-copy! (-> *phys-out1* (+ start i)) (-> *phys-out* (+ start i))))
                        ))))))) ;; close let(kd/gacc) / let* / else / cond / when / let* / dotimes
 
             ;; ================= STEP 3c : STRAND vs STRAND ================================
@@ -3782,9 +4642,26 @@
                                         (let ((half (* 0.5 (- rr d))))
                                           (vector-float*! xdir xdir (/ half d))
                                           ;; veto: never deeper into the character's own body
+                                          ;; (C20/C6b) ...ASKED OF THE SAME AUTHORITY AS EVERYTHING
+                                          ;; ELSE. This veto was the last pass to touch the pose and
+                                          ;; the only one still measuring the CAPSULES, while STEP 3b
+                                          ;; bisects on the real surface and the post-commit audit
+                                          ;; grades on it — so a push this veto allowed could put a
+                                          ;; strand inside the surface with nothing left to object,
+                                          ;; and C1's post-commit surfpen is exactly the instrument
+                                          ;; that would now report it. Same `sauth?` test STEP 3b uses:
+                                          ;; the surface where the model HAS one, phys-body-pen where
+                                          ;; it does not, so a rig without `bs` data behaves exactly as
+                                          ;; the build the owner already judged. The veto's SHAPE is
+                                          ;; unchanged — a push that makes the depth worse by more than
+                                          ;; PHYS-PEN-TOL is refused and counted in xveto.
                                           (vector+! xcand pa xdir)
-                                          (let ((p0 (phys-body-pen slot cbase jbase a (+ sa i) tier pa draw))
-                                                (p1 (phys-body-pen slot cbase jbase a (+ sa i) tier xcand draw)))
+                                          (let ((p0 (if (> (-> *phys-slot-nbsurf* slot) 0)
+                                                        (phys-link-surf-pen slot (+ sa i) pa draw tier)
+                                                        (phys-body-pen slot cbase jbase a (+ sa i) tier pa draw)))
+                                                (p1 (if (> (-> *phys-slot-nbsurf* slot) 0)
+                                                        (phys-link-surf-pen slot (+ sa i) xcand draw tier)
+                                                        (phys-body-pen slot cbase jbase a (+ sa i) tier xcand draw))))
                                             (cond
                                               ((> p1 (+ p0 PHYS-PEN-TOL))
                                                (+! (-> *phys-slot-xveto* slot) 1))
@@ -3794,8 +4671,12 @@
                                                (when (> (- rr d) (-> *phys-slot-cccmax* slot))
                                                  (set! (-> *phys-slot-cccmax* slot) (- rr d))))))
                                           (vector-! xcand pb xdir)
-                                          (let ((p0 (phys-body-pen slot cbase jbase b (+ sb j) tier pb draw))
-                                                (p1 (phys-body-pen slot cbase jbase b (+ sb j) tier xcand draw)))
+                                          (let ((p0 (if (> (-> *phys-slot-nbsurf* slot) 0)
+                                                        (phys-link-surf-pen slot (+ sb j) pb draw tier)
+                                                        (phys-body-pen slot cbase jbase b (+ sb j) tier pb draw)))
+                                                (p1 (if (> (-> *phys-slot-nbsurf* slot) 0)
+                                                        (phys-link-surf-pen slot (+ sb j) xcand draw tier)
+                                                        (phys-body-pen slot cbase jbase b (+ sb j) tier xcand draw))))
                                             (cond
                                               ((> p1 (+ p0 PHYS-PEN-TOL))
                                                (+! (-> *phys-slot-xveto* slot) 1))
@@ -3884,17 +4765,147 @@
                           (set! (-> moved k) 1)
                           (set! more 1)
                           (+! frame-ndesc 1))))))))
+
+            ;; ================= STEP 5b : THE AUDIT ON THE COMMITTED POSE =====================
+            ;; (C20/C1) EVERY NUMBER THAT GRADES THIS FEATURE IS TAKEN HERE, and the reason is an
+            ;; admissibility test, not tidiness. STEP 5a measures inside the per-chain loop, and after
+            ;; that loop closes the pose still changes three more times: STEP 3c writes *phys-out*
+            ;; directly with no surface re-check, the drawn-pose length restore moves it again, and the
+            ;; descendant re-glue above overwrites bone transforms INCLUDING root-locked ones.
+            ;; Apply SPEC 8 to X-MAX's `surfpen = 0.9977`: if that number is green and the owner still
+            ;; sees the defect, what would explain it? "The strand pass moved the joint after the
+            ;; measurement." There is an answer, so the number was worth nothing — and `rootdev` was
+            ;; worse, read back at STEP 4 where the only pass able to move a locked root had not run
+            ;; yet.
+            ;; It is a SEPARATE pass and it CHANGES NOTHING ABOVE, deliberately: the pre-strand figures
+            ;; keep their code and their values and are printed under the `_pre` suffix, so what each
+            ;; pass contributes stays readable and this cycle carries zero regression risk on the
+            ;; existing instrument. Iterated exactly like the bone-commit loop, with the anchor taken
+            ;; exactly as the length-restore pass takes it.
+            (dotimes (c (-> *phys-slot-nchains* slot))
+              (let* ((ci (+ cbase c))
+                     (len (-> *phys-clen* ci))
+                     (start (+ jbase (-> *phys-cstart* ci)))
+                     (rl (max 0 (min (+ len -1) (-> *phys-crootlock* ci))))
+                     (ak (-> *phys-canchor* ci)))
+                (when (and (> len 0) (< (+ ak 1) nbones)
+                           (nonzero? (logand (-> *phys-cflags* ci) classmask)))
+                  (let ((anch (-> skel bones (+ ak 1) transform vector 3))
+                        ;; `collide?` is a per-chain local of the sim loop and is not in scope here, so
+                        ;; it is rebuilt from the same two facts it is built from there — the tier and
+                        ;; the chain's own modelled length, which the sim loop published in cchlen.
+                        (coll? (if (and (> tier 0) (>= (-> *phys-cchlen* ci) 1.0)) 1 0)))
+                    (dotimes (i len)
+                      (when (>= i rl)
+                        (let* ((jj (+ start i))
+                               (k (-> *phys-jk* jj)))
+                          ;; the REAL-SURFACE residual, computed exactly as STEP 5a computes it:
+                          ;; depth of the written point minus the AUTHORED pose's own depth floored at
+                          ;; 0, because Keira pulling her goggles over her eyes puts them inside the
+                          ;; head surface ON PURPOSE and only what the sim ADDED is a defect. The
+                          ;; second probe is paid for only when the first says there is something to
+                          ;; explain. Gated on the actor HAVING a surface, never on collide?, again
+                          ;; exactly as 5a is.
+                          (when (> (-> *phys-slot-nbsurf* slot) 0)
+                            (+! (-> *phys-slot-wsurftested* slot) 1)
+                            (let ((dep (- 0.0 (phys-surf-sd slot (-> *phys-out* jj) draw tier snrm))))
+                              (when (> dep PHYS-PEN-TOL)
+                                (+! (-> *phys-slot-wsurftested* slot) 1)
+                                (let* ((sda (phys-surf-sd slot (-> *phys-targ* jj) draw tier snrm))
+                                       (depa (fmax 0.0 (- 0.0 sda)))
+                                       (eff (- dep depa)))
+                                  ;; (C20/C6) surfhit's ONLY writer was the in-loop surface push that
+                                  ;; C6 deletes. It keeps its name and its meaning — "how often the
+                                  ;; surface actually had something to say" — counted here on the
+                                  ;; COMMITTED pose: links whose authored-floored depth still exceeds
+                                  ;; the tolerance after everything has written. That is a strictly
+                                  ;; harder question than the one it used to answer, and it is the one
+                                  ;; the empty-zero gate in physics_x86_grade.py is really asking.
+                                  (when (> eff PHYS-PEN-TOL)
+                                    (+! (-> *phys-slot-surfhit* slot) 1))
+                                  (when (> eff (-> *phys-slot-wsurf* slot))
+                                    (set! (-> *phys-slot-wsurf* slot) eff))
+                                  ;; SPEC 10 wants the verdict per NAMED chain: a slot maximum names
+                                  ;; the actor and nobody in it.
+                                  (when (> eff (-> *phys-csurf* ci))
+                                    (set! (-> *phys-csurf* ci) eff))))))
+                          ;; ...and the mesh-sample residual, as STEP 5a computes it, under the same
+                          ;; collide? guard 5a uses.
+                          (when (and (nonzero? coll?)
+                                     (> (-> *phys-msn* jj) 0)
+                                     (< (+ k 1) nbones))
+                            (+! (-> *phys-slot-wmtested* slot) (-> *phys-msn* jj))
+                            (let* ((bm (the-as matrix (-> skel bones (+ k 1) transform)))
+                                   (e (phys-link-mesh-worst slot cbase c tier jj
+                                                            (-> *phys-out* jj) bm draw)))
+                              (when (> e (-> *phys-slot-wmesh* slot))
+                                (set! (-> *phys-slot-wmesh* slot) e)))))))
+                    ;; THE LOCKED LINKS, READ BACK FROM THE BONE — and here that is not a formality.
+                    ;; This is the same formula STEP 4 uses, but it runs AFTER the descendant re-glue,
+                    ;; which rewrites bone transforms from their parents' and does not know that some
+                    ;; of them are root-locked. That pass is the only thing in the frame that can move
+                    ;; a locked root, and until now it ran after the only counter watching for it.
+                    (dotimes (i rl)
+                      (let ((k (-> *phys-jk* (+ start i))))
+                        (when (< (+ k 1) nbones)
+                          (vector-! vtmp (-> skel bones (+ k 1) transform vector 3)
+                                    (-> *phys-targ* (+ start i)))
+                          (let ((d (vector-length vtmp)))
+                            (when (> d (-> *phys-slot-wroot* slot))
+                              (set! (-> *phys-slot-wroot* slot) d))
+                            (when (> d (-> *phys-crootd* ci))
+                              (set! (-> *phys-crootd* ci) d))))))
+                    ;; (X) NOTHING MAY BE CRUSHED, on the pose that is DRAWN. Same ratio `ro` STEP 5a
+                    ;; computes, over the committed segments: the length restore runs between the two,
+                    ;; so this is the number owner rule X is actually about.
+                    (when (>= (-> *phys-cchlen* ci) 1.0)
+                      (let ((lo 0.0)
+                            (la 0.0))
+                        (dotimes (i len)
+                          (vector-! vtmp (-> *phys-targ* (+ start i))
+                                    (if (zero? i) anch (-> *phys-targ* (+ start i -1))))
+                          (set! la (+ la (vector-length vtmp)))
+                          (vector-! vtmp (-> *phys-out* (+ start i))
+                                    (if (zero? i) anch (-> *phys-out* (+ start i -1))))
+                          (set! lo (+ lo (vector-length vtmp))))
+                        (when (> la 0.0001)
+                          (let ((ro (/ lo la)))
+                            (when (< ro (-> *phys-slot-wlen* slot))
+                              (set! (-> *phys-slot-wlen* slot) ro))))))
+                    ;; (W) MODEL-POSE FIDELITY on the committed pose. Same condition as STEP 5a — family
+                    ;; A, calm for PHYS-RESTCALM frames — reusing the ccalm STEP 5a has ALREADY updated
+                    ;; this frame, so it is read and never incremented again here.
+                    ;; ...plus the condition C3 makes necessary. SPEC 2 grants the return-to-the-model
+                    ;; rule "au repos, EN POSITION NORMALE": with C3 in, a calm actor whose anchor has
+                    ;; rotated away from its captured orientation has gravity LEGITIMATELY holding the
+                    ;; chain off its model pose, and scoring that against the owner's 8-unit bar would
+                    ;; fail exactly the behaviour C3 was added to produce. See PHYS-REST-GREF.
+                    ;; restwin counts THESE samples and only these, so restdevA can still never be an
+                    ;; empty zero — and a restwin of 0 is a real confession (never measured), which is
+                    ;; how this file has treated every witness counter since cycle 3.
+                    (when (and (= 1 (-> *phys-cfam* ci))
+                               (>= (-> *phys-ccalm* ci) PHYS-RESTCALM)
+                               (>= (-> *phys-cchlen* ci) 1.0)
+                               (< (-> *phys-cgres* ci) PHYS-REST-GREF))
+                      (let ((worst 0.0))
+                        (dotimes (i len)
+                          (when (>= i rl)
+                            (vector-! vtmp (-> *phys-out* (+ start i)) (-> *phys-targ* (+ start i)))
+                            (let ((d (vector-length vtmp)))
+                              (when (> d worst) (set! worst d)))))
+                        (+! (-> *phys-slot-restwin* slot) 1)
+                        (when (> worst (-> *phys-slot-wrest* slot))
+                          (set! (-> *phys-slot-wrest* slot) worst))))))))
             ;; ---------------- windowed proof counters ----------------
             ;; (C14-D) resolution jerk: the worst single-frame NET resolution displacement any
-            ;; link took, across every pass that moved one (the length of the frame's summed
-            ;; correction vectors — see the *phys-lresv* declaration for why net, not path).
+            ;; link took, across every pass that moved one.
             ;; This is the number behind "des trucs bizarres plus genants qu'un simple clipping" —
             ;; a resolution the eye can see as a jump is a resolution worse than the clip it
             ;; replaced, and what the eye sees is where the bone ended the frame.
-            ;; (C14c) THE LEDGER ABOVE CANNOT BE THIS NUMBER, AND THE DEVICE PROVED IT ARITHMETICALLY.
-            ;; The declaration of *phys-lresv* already states the right definition — "what the eye
-            ;; reads as a snap is where the bone ENDED the frame relative to where resolution found
-            ;; it" — but summing correction VECTORS does not compute it, for a reason the first fix
+            ;; (C14c) A CORRECTION-VECTOR LEDGER CANNOT BE THIS NUMBER, AND THE DEVICE PROVED IT
+            ;; ARITHMETICALLY. The right definition — "what the eye reads as a snap is where the bone
+            ;; ENDED the frame relative to where resolution found it" — is not computed by summing
+            ;; correction VECTORS, for a reason the first fix
             ;; (magnitude-sum -> vector-sum, after a still link read 100853) did not reach: the force
             ;; that undoes a correction is the SPRING, and the spring never writes to the ledger. So
             ;; the sum only ever sees one side of the argument and grows monotonically while the bone
@@ -3915,12 +4926,10 @@
             ;; and never touched the ledger at all — so the correction is strictly more complete,
             ;; not laxer, and it cannot be satisfied by killing the sim because the locomotion
             ;; FLOORS (hairrun/chestrun) are graded on this same run.
-            ;; The old ledger is still computed and still printed, as respath=, so the swap is
-            ;; auditable rather than silent.
-            (dotimes (k PHYS-JPS)
-              (let ((nj (vector-length (-> *phys-lresv* (+ jbase k)))))
-                (when (> nj (-> *phys-slot-respath* slot))
-                  (set! (-> *phys-slot-respath* slot) nj))))
+            ;; (C20/C4) the old ledger was kept next to this one, as respath=, so the swap would be
+            ;; auditable rather than silent. It has now printed a structural 0.0000 for every window
+            ;; since the SPEC-17 rewrite removed its writers, so it audits nothing and is deleted —
+            ;; declaration, fold and field together.
             (dotimes (c (-> *phys-slot-nchains* slot))
               (let* ((ci (+ cbase c))
                      (len (-> *phys-clen* ci))
@@ -3959,9 +4968,18 @@
                       (vector-! vpd (-> *phys-out0* jj) (-> *phys-targ* jj))
                       (set! (-> *phys-slot-remprod* slot)
                             (+ (-> *phys-slot-remprod* slot) (vector-length vpd)))
-                      (vector-! vpd (-> *phys-out0* jj) (-> *phys-out* jj))
+                      ;; (C20/C5a) SPLIT AT THE COMMIT. *phys-out1* is the pose STEP 4 wrote, so
+                      ;; |out0 - out1| is what the RESOLVE removed and |out1 - out| is what the strand
+                      ;; pass and the drawn-length restore removed after it. The single figure could
+                      ;; not tell them apart — X-MAX read remclamp = 82640.27 against remprod =
+                      ;; 118267.86 and named no pass — and without the split there is no way to say
+                      ;; whether the per-segment retreat (C2) worked.
+                      (vector-! vpd (-> *phys-out0* jj) (-> *phys-out1* jj))
                       (set! (-> *phys-slot-remclamp* slot)
                             (+ (-> *phys-slot-remclamp* slot) (vector-length vpd)))
+                      (vector-! vpd (-> *phys-out1* jj) (-> *phys-out* jj))
+                      (set! (-> *phys-slot-remstrand* slot)
+                            (+ (-> *phys-slot-remstrand* slot) (vector-length vpd)))
                       ;; frames=0 is this slot's first frame (it is incremented below), so there is
                       ;; no previous deviation to difference against; csettle>0 is the spawn ramp,
                       ;; where the chain is deliberately being moved onto its pose; and a frame on
@@ -4000,6 +5018,19 @@
                       (vector-copy! (-> *phys-ldev* jj) dn)
                       (vector-copy! (-> *phys-ltarg* jj) (-> *phys-targ* jj))
                       (when (> tmv frame-tmove) (set! frame-tmove tmv))))
+                  ;; (C20/C5b) ATTRIBUTE THE ONE-FRAME JUMP. `fvar` is this frame's worst written
+                  ;; displacement on this chain — the same quantity resjerk and cvmx are folded from.
+                  ;; On X-MAX resjerk = 516.42 was numerically identical to cvmx of chain 9 =
+                  ;; `goggles` = 516.4174, and goggles carries authored=1.00 authrise=10: that jump is
+                  ;; the AUTHORED channel pulling the goggles onto her eyes, which SPEC 6 says the
+                  ;; animation is supposed to win. Reporting it as resolution jerk names the wrong
+                  ;; culprit, so cvms folds the same figure over frames the animator did NOT own
+                  ;; (cauth < 0.5 — the identical test the inertness detector below uses) and is the
+                  ;; SIM's own worst jump. Deliberately NOT gated on locomotion the way cvmx is: it has
+                  ;; to be comparable with resjerk, which has no locomotion gate either.
+                  (when (and (< (-> *phys-cauth* ci) 0.5)
+                             (> fvar (-> *phys-cvmxs* ci)))
+                    (set! (-> *phys-cvmxs* ci) fvar))
                   ;; (C16) THE INERTNESS DETECTOR. Armed on any frame this chain's own anchor
                   ;; actually moved — a jolt, a step, a turn — not only on locomotion, because
                   ;; a standing villager whose head snaps round drives his hair without ever
@@ -4208,9 +5239,23 @@
                       (-> *phys-slot-reglue* slot)
                       (-> *phys-slot-desc* slot)
                       (-> *phys-slot-nopose* slot))
-              (format *phys-line-buf* " rootdev=~f freeroot=~f"
-                      (-> *phys-slot-rootdev* slot)
-                      (-> *phys-slot-freeroot* slot))
+              ;; (C20/C1) rootdev= is the POST-RE-GLUE reading (STEP 5b). The pre-commit one is kept
+              ;; next to it as rootdev_pre=, and the suffix is load-bearing for the same reason the
+              ;; note above is: a `pre` PREFIX would leave `rootdev=` intact as a substring, and the
+              ;; gates that read this log match the field name UNANCHORED — `prerootdev=743.2`
+              ;; contains `rootdev=743.2`, so the pre-strand value would be folded into the maximum
+              ;; being graded. An underscore breaks every one of those patterns, in both directions.
+              (format *phys-line-buf* " rootdev=~f freeroot=~f rootdev_pre=~f"
+                      (-> *phys-slot-wroot* slot)
+                      (-> *phys-slot-freeroot* slot)
+                      (-> *phys-slot-rootdev* slot))
+              ;; (C20/C1) per-chain post-commit root deviation. AHEAD OF canch: AND cdev: for the
+              ;; reason stated below — physics_c4_harvest reads `cdev:` to END OF LINE, so any list
+              ;; appended after it silently joins the cdev population and gets read as a chain
+              ;; deviation. First list on the line is the only position that is safe from both.
+              (format *phys-line-buf* " crtd:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-crootd* (+ cbase c))))
               ;; per-chain window deviation — the whole list, never a top-N (a silent cap would read
               ;; as "every chain covered"). Same line, so line-based device gates still match.
               ;; The INPUT side of the per-chain question, chain by chain: how far this chain's own
@@ -4339,6 +5384,15 @@
                       (-> *phys-slot-gloc* slot x)
                       (-> *phys-slot-gloc* slot y)
                       (-> *phys-slot-gloc* slot z))
+              ;; (C20/C3) the family-A gravity residual, max over the actor's family-A chains:
+              ;; |g_eff| / |g_world|. 0 = the carried component cancels gravity exactly (the anchor is
+              ;; where the chain captured it, so the equilibrium is untouched and rule W holds by
+              ;; construction); 1 = gravity has fully resumed. This is the POSITIVE EVIDENCE that C3
+              ;; fires at all — a gresid of 0 on every leg would mean the new term is dead — and it is
+              ;; reported, never gated. New stem: `gresid` is not a substring of any field on lines
+              ;; 1-7 and `resid=` (line 1) cannot match inside it under a word-boundary read, but note
+              ;; that this is why the field is `gresid=` and not `residg=`.
+              (format *phys-line-buf* " gresid=~f" (-> *phys-slot-gresid* slot))
               ;; (U) per-chain minimum CLEARANCE to the body volumes that apply to it. Negative =
               ;; ended a frame inside the body. A large positive number on a chain the owner watches
               ;; go through a character means the volumes are not where the chain travels — which is
@@ -4376,14 +5430,25 @@
                       (-> *phys-slot-tilt* slot))
               ;; two calls, one line: `format` takes at most 8 parameters, and these all append
               ;; into the same string buffer, so the window is still emitted as ONE logcat line.
+              ;; (C20/C1) restdevA= and lenmin= are the POST-COMMIT readings (STEP 5b): the strand pass
+              ;; and the drawn-pose length restore both move the joint after STEP 5a measured it, and
+              ;; lenmin is explicitly about the pose that is DRAWN. restwin counts the post-commit
+              ;; samples, which are the ones restdevA is a maximum over. The pre-commit figures follow
+              ;; as restdevA_pre= / lenmin_pre= — underscore SUFFIX, because a `pre` prefix leaves the
+              ;; graded name intact as a substring and .autoport/lib/ratchet.py matches `lenmin\s*=`
+              ;; and `restdevA\s*=` unanchored.
+              ;; lensim= is the SIMULATION state by definition and is untouched.
               (format *phys-line-buf* " restdevA=~f restwin=~D"
-                      (-> *phys-slot-restdeva* slot)
+                      (-> *phys-slot-wrest* slot)
                       (-> *phys-slot-restwin* slot))
               (format *phys-line-buf* " xleg=~D lenmin=~f lensim=~f extprobe=~D"
                       (-> *phys-slot-xleg* slot)
-                      (-> *phys-slot-lenmin* slot)
+                      (-> *phys-slot-wlen* slot)
                       (-> *phys-slot-lensim* slot)
                       (-> *phys-slot-extprobe* slot))
+              (format *phys-line-buf* " lenmin_pre=~f restdevA_pre=~f"
+                      (-> *phys-slot-lenmin* slot)
+                      (-> *phys-slot-restdeva* slot))
               ;; per-chain: family, post-settle model deviation, worst length ratio. Three numbers
               ;; per chain is what turns "this actor is fine" into "chain 4 is not", which cost a
               ;; whole build cycle on Gol the last time only the slot total was printed.
@@ -4467,17 +5532,18 @@
               ;;              zero exactly as resid=0/push=0 was
               ;;   crun:      per-chain window max deviation ON LOCOMOTION FRAMES ONLY — the
               ;;              hairrun/chestrun floors read this list (C14-A)
+              ;; (C20/C1) meshpen= / meshtested= / surfpen= / surftested= now carry the POST-COMMIT
+              ;; values (STEP 5b) — the pose the eye gets, measured after the strand pass and the
+              ;; length restore instead of before them. mraw= / surfraw= / mfix= are PRE-RESOLVE BY
+              ;; DEFINITION and are untouched. The pre-strand residuals follow as *_pre=.
               (format (clear *phys-line-buf*)
                       "[HD-PHYS6] ag=~S resjerk=~f meshpen=~f mraw=~f mfix=~D meshtested=~D"
                       ag
                       (-> *phys-slot-resjerk* slot)
-                      (-> *phys-slot-meshpen* slot)
+                      (-> *phys-slot-wmesh* slot)
                       (-> *phys-slot-mraw* slot)
                       (-> *phys-slot-mfix* slot)
-                      (-> *phys-slot-mtested* slot))
-              ;; separate append: a GOAL call takes at most 8 parameters, and the line above is
-              ;; already at eight.
-              (format *phys-line-buf* " respath=~f" (-> *phys-slot-respath* slot))
+                      (-> *phys-slot-wmtested* slot))
               ;; (SPEC 18) the REAL-SURFACE verdict. Field stems are new and none is a substring of
               ;; anything printed on lines 1-7 (surfpen/surfraw/surftested/surfhit/bsurf/bstrunc).
               ;;   surfpen    deepest RESIDUAL depth of a written link inside the character's real
@@ -4492,10 +5558,22 @@
               ;; split at six values for the same reason the lines above are: a GOAL call takes at
               ;; most 8 parameters, and the format string plus the buffer are two of them
               (format *phys-line-buf* " surfpen=~f surfraw=~f surftested=~D surfhit=~D"
-                      (-> *phys-slot-surfpen* slot)
+                      (-> *phys-slot-wsurf* slot)
                       (-> *phys-slot-surfraw* slot)
-                      (-> *phys-slot-surftested* slot)
+                      (-> *phys-slot-wsurftested* slot)
                       (-> *phys-slot-surfhit* slot))
+              ;; (C20/C1) the same four residuals as the per-chain loop measured them, BEFORE the
+              ;; strand pass and the length restore moved the joint. Kept because knowing WHICH pass
+              ;; introduced a residual is the whole diagnosis: a clean *_pre next to a dirty canonical
+              ;; value says the strand pass did it, the reverse says the resolve did and 3c undid it.
+              ;; surftested_pre= is the cumulative SAMPLE count phys-surf-sd racks up over every pass
+              ;; in the window, while surftested= counts the QUERIES STEP 5b itself made — both are
+              ;; anti-empty-zero witnesses for their own figure and neither can be read as the other.
+              (format *phys-line-buf* " meshpen_pre=~f surfpen_pre=~f meshtested_pre=~D surftested_pre=~D"
+                      (-> *phys-slot-meshpen* slot)
+                      (-> *phys-slot-surfpen* slot)
+                      (-> *phys-slot-mtested* slot)
+                      (-> *phys-slot-surftested* slot))
               (format *phys-line-buf* " bsurf=~D bstrunc=~D bsdens=~D"
                       (-> *phys-slot-nbsurf* slot)
                       (-> *phys-slot-bstrunc* slot)
@@ -4506,6 +5584,14 @@
                       (-> *phys-slot-rjup* slot)
                       (-> *phys-slot-rjdn* slot)
                       (-> *phys-slot-rjtm* slot))
+              ;; (C20/C1) per-chain post-commit surface depth — SPEC 10 wants the verdict per NAMED
+              ;; chain, and surfpen= is a maximum over the actor that names nobody in it.
+              ;; DELIBERATELY AHEAD OF crun:, which physics_probe_dmax reads with
+              ;; `substr($0, index($0,"crun:"))` — i.e. to END OF LINE. A list appended after it would
+              ;; be folded into the locomotion-motion population and read as chain motion.
+              (format *phys-line-buf* " csurf:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-csurf* (+ cbase c))))
               (format *phys-line-buf* " crun:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-crun* (+ cbase c)))
@@ -4561,6 +5647,16 @@
               (format *phys-line-buf* " cvmx:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c (-> *phys-cvmax* (+ cbase c))))
+              ;; (C20/C5b) the same worst frame with the AUTHORED takeover excluded. On X-MAX
+              ;; resjerk=516.42 WAS cvmx of chain 9 (goggles, authored=1.00) to four decimals — the
+              ;; animation moving the goggles onto her eyes, which SPEC 6 says it is entitled to do.
+              ;; cvms is the SIM's own worst jump, so the two side by side say which one a big resjerk
+              ;; belongs to. Placed immediately after its sibling: every parser of this line is
+              ;; stem-bounded (physics_x86_grade.sublist stops at the first token that is not `N=V`),
+              ;; and no list on line 7 is read to end of line by anything.
+              (format *phys-line-buf* " cvms:")
+              (dotimes (c (-> *phys-slot-nchains* slot))
+                (format *phys-line-buf* " ~D=~f" c (-> *phys-cvmxs* (+ cbase c))))
               (format *phys-line-buf* " cdsp:")
               (dotimes (c (-> *phys-slot-nchains* slot))
                 (format *phys-line-buf* " ~D=~f" c
@@ -4582,6 +5678,11 @@
                       (-> *phys-slot-remclamp* slot)
                       (-> *phys-slot-remauth* slot)
                       (-> *phys-slot-remcalm* slot))
+              ;; (C20/C5a) remclamp is now the RESOLVE alone and this is everything after it — the
+              ;; strand-vs-strand pass and the drawn-pose length restore. Its own field because the two
+              ;; have different causes and different fixes, and because a remclamp that does not fall
+              ;; after C2 could otherwise equally mean the strand pass took over the removing.
+              (format *phys-line-buf* " remstrand=~f" (-> *phys-slot-remstrand* slot))
               ;; per chain: the WORST blend fraction the mesh clamp held this window, and how many
               ;; frames the raw search came back under the floor. ctz>0 names a chain the clamp is
               ;; fighting; ctz>0 together with a flat cvar is the "ancree" defect itself.
@@ -4602,11 +5703,21 @@
                 (set! (-> *phys-cdmin* (+ cbase c)) 0.0)
                 (set! (-> *phys-cdmax* (+ cbase c)) 0.0)
                 (set! (-> *phys-cish* (+ cbase c)) 0)
-                (set! (-> *phys-civ* (+ cbase c)) 0.0))
+                (set! (-> *phys-civ* (+ cbase c)) 0.0)
+                ;; (C20) the three per-chain window MAXIMA this cycle adds are cleared HERE, in the
+                ;; one loop that closes the window, rather than each at its own print site: csurf and
+                ;; crtd are printed on lines 6 and 1, cvms on this line, and all three are read before
+                ;; this point in the same window block. Carried over instead, every one of them would
+                ;; keep claiming a residual, a root drift or a jump long after the frame that produced
+                ;; it — which is the bug the per-chain reachable-volume count had for a cycle.
+                (set! (-> *phys-csurf* (+ cbase c)) 0.0)
+                (set! (-> *phys-crootd* (+ cbase c)) 0.0)
+                (set! (-> *phys-cvmxs* (+ cbase c)) 0.0))
               (format 0 "~S~%" *phys-line-buf*)
               (set! (-> *phys-slot-simcf* slot) 0)
               (set! (-> *phys-slot-remprod* slot) 0.0)
               (set! (-> *phys-slot-remclamp* slot) 0.0)
+              (set! (-> *phys-slot-remstrand* slot) 0.0)
               (set! (-> *phys-slot-remauth* slot) 0.0)
               (set! (-> *phys-slot-remcalm* slot) 0.0)
               (set! (-> *phys-slot-oscmax* slot) 0)
@@ -4616,7 +5727,6 @@
               (set! (-> *phys-slot-rjup* slot) 0.0)
               (set! (-> *phys-slot-rjdn* slot) 0.0)
               (set! (-> *phys-slot-rjtm* slot) 0.0)
-              (set! (-> *phys-slot-respath* slot) 0.0)
               (set! (-> *phys-slot-surfpen* slot) 0.0)
               (set! (-> *phys-slot-surfraw* slot) 0.0)
               (set! (-> *phys-slot-surftested* slot) 0)
@@ -4625,6 +5735,17 @@
               (set! (-> *phys-slot-mraw* slot) 0.0)
               (set! (-> *phys-slot-mfix* slot) 0)
               (set! (-> *phys-slot-mtested* slot) 0)
+              ;; (C20/C1) the post-commit audit's window closes with the rest of them. wlen is a
+              ;; MINIMUM and goes back to +inf, not 0: cleared to zero it would print as a fully
+              ;; crushed chain on the first frame of every window.
+              (set! (-> *phys-slot-wsurf* slot) 0.0)
+              (set! (-> *phys-slot-wsurftested* slot) 0)
+              (set! (-> *phys-slot-wmesh* slot) 0.0)
+              (set! (-> *phys-slot-wmtested* slot) 0)
+              (set! (-> *phys-slot-wroot* slot) 0.0)
+              (set! (-> *phys-slot-wlen* slot) 1000000.0)
+              (set! (-> *phys-slot-wrest* slot) 0.0)
+              (set! (-> *phys-slot-gresid* slot) 0.0)
               (set! (-> *phys-slot-ccc* slot) 0)
               (set! (-> *phys-slot-cccmax* slot) 0.0)
               (set! (-> *phys-slot-injected* slot) 0)

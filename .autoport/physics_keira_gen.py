@@ -1,0 +1,967 @@
+#!/usr/bin/env python3
+"""physics_keira_gen.py — GENERATE Keira's secondary-motion chains from her rig and the SPEC rules.
+
+SPEC-keira-physique.md section 7: "Les chaines de Keira sont PRODUITES depuis son rig et ces regles:
+famille DERIVEE, racine VERROUILLEE PAR CONSTRUCTION sur la famille A, rayon par maillon DERIVE de
+l'epaisseur du mesh.  Aucun flag de derogation (pas de colskip, pas de filtre de volumes, pas de
+masque).  Les seuls reglages exposes sont des parametres de STYLE (raideur, debattement, masse) —
+jamais des exceptions aux regles."
+
+So this file is the contract, executable.  Nothing about Keira's chains is hand-written any more:
+
+  * THE CHAIN SET is discovered in the rig, and SHE HAS TWO RIGS.  The HD cutscene rigs
+    (keira-hd, keira3-hd) take their joint order from recharged_assets/hd_anim/<model>-k2e.json
+    (`rows`, in HD rig order, each row carrying hd_name + hd_parent), the same sidecar the
+    retargeter uses.  The STOCK jak1 rig — `assistant-lod0` and its five level variants — is the
+    one she actually wears in GAMEPLAY (measured: the x86 rider leg binds ag=assistant-lod0 and no
+    HD model at all), and it takes its hierarchy from the shipped glb's own skin, cross-checked
+    joint for joint against the RUNTIME joint order in
+    decompiler/config/jak1/ntsc_v1/joint-node-info.min.json.  A STYLE table below says how each
+    KIND of thing on her body behaves; a per-rig table says which joint NAME starts which chain;
+    the joints after the first are read off the hierarchy by walking children.  So a chain can
+    never disagree with the rig it runs on, and the same kind behaves the same on both her rigs.
+  * THE FAMILY IS DERIVED from the kind, not declared per chain: what she IS (hair, bangs, back
+    hair, ears, chest) is family A, what she WEARS (goggles, knee flaps, trouser flaps, shoulder
+    straps, belt) is family B.  There is no way to write a hair chain into family B in this file,
+    and the family/hang invariant is CHECKED rather than asserted in a comment: family A must
+    carry hang == 0 and family B hang > 0, verified over the style table at startup and again on
+    the value emit() actually writes.  A mismatch is a hard error, not a stale comment.
+  * THE ROOT IS LOCKED BY CONSTRUCTION: every chain of two joints or more is emitted with
+    rootlock=1, so its first link rides the carrier bone rigidly.  `rootlock=0` on a strand is not
+    expressible here — that is the point.  It is what SPEC 3 means by "la racine suit RIGIDEMENT
+    l'os porteur, elle ne derive pas", and the defect it removes is the one the owner saw when the
+    previous cycle unlocked four bang roots to satisfy a motion gate: "cheveux decolles du crane".
+  * THE PER-LINK RADIUS IS MEASURED off the skinned mesh, with physics_c6_volumes.link_radius —
+    the inner quartile of the perpendicular spread of the vertices that link actually owns — and
+    measured on the POST-RESKIN weights, i.e. on what the bake really draws.  That last word
+    matters: the shipped file measured the DONOR, where LpantFlap is dominant on zero vertices, so
+    the fallback fired and her trouser flaps shipped with radii=24 (0.6 cm) against a real
+    half-thickness of ~362.  A tenfold error, and an invisible one, because a link with no
+    thickness cannot be seen by another chain and cannot be held off a surface.
+  * NO DEROGATION KEY IS EMITTED.  Not colskip (retired in cycle 13), not chains= (the volume
+    filter the owner refused: "le filtre chains= est une OPTIMISATION, pas une AUTORISATION"), not
+    xchain= (a chain-vs-chain mask — and, checked in the solver, a key with no reader at all: the
+    strand pass already pairs every chain of an actor geometrically), not rootfree= (a partial
+    derogation from the root lock).  Removing a key that has no reader changes no behaviour; it
+    removes the false impression that the data is allowed to grant exceptions.
+  * WHAT IS LEFT IS STYLE, and it is the three levers SPEC 4 separates, never mixed:
+    fermete = stiffness (+ a near-zero stretch), debattement = maxangle, vivacite = couple + mass.
+
+  * THE TWO CHEST `at=` VOLUMES ARE GENERATED TOO.  They are the only volumes in the file that ride
+    another CHAIN's simulated tip instead of an animated bone, and they are what makes the owner's
+    "les deux seins s'entrechoquent" expressible at all — so they were exactly the wrong two lines
+    to leave hand-written under a "DO NOT HAND-EDIT" header.  Their radius is DERIVED so that the
+    two volumes meet when the two REAL skinned surfaces meet (see chest_at_radius), which replaces
+    the magic 320 that had been typed in by hand.
+
+WHAT THIS SCRIPT DOES NOT TOUCH, deliberately and by name:
+  * the capsule block.  SPEC 5 makes the real skinned surface the collision authority and SPEC 18
+    had already demoted the capsules to broad phase; they are carried through verbatim so that this
+    cycle changes ONE thing about her collision and not two.  They are generated by
+    physics_c6_volumes.py --single-volume --only <model>, which is also how the stock section's
+    volumes were produced.  (The repeated generated-header comment is collapsed to a single copy —
+    physics_c6_volumes.py re-prepends it on every run, and Keira's section carried thirteen
+    identical copies.  Everything above the collision block is now this script's to write, so a
+    hand-edit fragment cannot survive there either.  Comment text, no behaviour.)
+  * every other model in the file.  The owner's scope for this cycle is KEIRA ALONE, code and data,
+    until he has validated her with his own eyes.  This script refuses to write anything outside her
+    three sections (`keira-hd`, `keira3-hd`, `assistant-*-lod0`), and prints the byte counts of the
+    regions it did not touch so that claim is checkable rather than asserted.  assistant-lod0 IS
+    Keira: it is not an extension of the scope, it is the half of it that gameplay actually sees.
+
+usage:  python3 .autoport/physics_keira_gen.py [--dry-run] [--out FILE]
+"""
+import argparse
+import json
+import os
+import re
+import sys
+
+import numpy as np
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(REPO, '.autoport'))
+sys.path.insert(0, os.path.join(REPO, 'scripts', 'shell'))
+
+import physics_c6_volumes as c6                                    # noqa: E402
+import physics_c7_reskin as c7                                     # noqa: E402
+from retarget_hd_models import read_glb, consolidate_buffers        # noqa: E402
+
+CHAINS = os.path.join(REPO, 'recharged_assets', 'physics_chains.txt')
+HD_ANIM = os.path.join(REPO, 'recharged_assets', 'hd_anim')
+JNI = os.path.join(REPO, 'decompiler', 'config', 'jak1', 'ntsc_v1', 'joint-node-info.min.json')
+
+# HER THREE SECTIONS.  The first name of a section is the key used everywhere below; the rest are
+# ALIASES — art groups that share one rig, so they share one physics block.
+STOCK = 'assistant-lod0'
+STOCK_ALIASES = ['assistant-lod0', 'assistant-village2-lod0', 'assistant-village3-lod0',
+                 'assistant-firecanyon-lod0', 'assistant-lavatube-start-lod0',
+                 'assistant-lavatube-end-lod0']
+MODELS = ['keira-hd', 'keira3-hd', STOCK]
+
+# ------------------------------------------------------------------------------------------------
+# THE KINDS.  One row per KIND of thing on her body — not per chain, and NOT PER RIG: the family the
+# kind belongs to (never a per-chain choice) and its style.  Everything geometric — the joints after
+# the first, the per-link radius, the extent — is measured from the rig and does not appear here.
+#
+# ONE STYLE TABLE FOR BOTH HER RIGS, and that is the whole reason it is a table of kinds instead of
+# a table of chains: `chestR` on the HD cutscene rig and `chestR` on the stock gameplay rig are the
+# SAME breast, and two lists of numbers for one body part is how the two halves of a character drift
+# apart.  The per-rig tables further down carry only what actually differs between her rigs — the
+# joint NAMES (the HD rig calls her front hair Rbanga/Lbanga and her side hair Rmidhaira/Lmidhaira;
+# the stock rig calls those same two pairs flipR1-3/flipL1-3 and Rhair1-2/Lhair1-2) and which kinds
+# exist there at all.
+#
+# STYLE, and only style.  Read SPEC 4 alongside this table:
+#   stiffness  FERMETE.  Raideur.  Firmness is this and a near-zero stretch, never the damping
+#              ("amortir = tuer").
+#   maxangle   DEBATTEMENT.  The swing cone.  Too wide reads as liquid — a breast is "petit,
+#              rapide, net", so 26 degrees, which is also the validator's standing ceiling.
+#   couple     VIVACITE.  The pseudo-force of the accelerating anchor frame, i.e. "ca bouge bien".
+#              This is the key that makes an ANCHORED root compatible with a MOVING tip: with the
+#              root welded to the skull, the only other excitation a chain has is the lag it
+#              develops behind its own target, which for a damped spring is a/omega^2 — so
+#              amplitude was tied to 1/stiffness^2 and firmness was paid for out of the travel.
+#              Until now only the four chest chains of the cast declared it.  Her hair never did,
+#              and "les meches de Keira sont ANCREES" is partly that arithmetic.
+#   mass       the other half of vivacite: a late start and a follow-through (omega/sqrt(mass)).
+#   hang       family B only, and it is CHECKED, not asserted in a comment: check_style() rejects a
+#              family-A kind carrying hang>0 and a family-B kind carrying hang==0, and emit() checks
+#              the value it is about to write for every chain.  What she WEARS hangs and stays hung;
+#              what she IS regains the model shape at rest (SPEC 2), and the validator's FAM-bis /
+#              FAM-ter gates read exactly this key out of the emitted file.
+#   authored   SPEC 6.  The animator wins while he is driving the chain.  Her goggles are the named
+#              case ("quand l'animation les SAISIT pour les mettre devant les yeux"), and SPEC 1
+#              asks for the same on her ears ("l'animation d'auteur passe devant quand elle les
+#              pilote").  The threshold is a fraction of the chain's own length, so only a
+#              deliberate authored excursion reaches it; an idle that does not touch the joint
+#              never engages it and costs nothing.
+# ------------------------------------------------------------------------------------------------
+BODY = 'A'      # what she IS   — returns to the model shape at rest, gravity acts on the dynamics
+WORN = 'B'      # what she WEARS — hangs, and stays hung
+
+STYLE = {
+    # VIVACITE, measured rather than guessed.  The first x86 leg of this cycle, with the fake veto
+    # removed and couple at 2.4-3.2 on the hair, still read three of her seven family-A strands
+    # INERT — lbang 0.18, rmidhair 0.18, earR 0.16 against a bar of 0.25 — while her chest, the one
+    # chain of the cast that has ever declared couple at 4.6, read cinr 6.7-6.8 and cvar 25-40 on
+    # the same frames of the same actor.  That is the arithmetic in `couple`'s own docstring: with
+    # the root welded to the skull the only other excitation a strand has is the lag behind its own
+    # target, a/omega^2, so at 2.0-3.2 Hz there is almost nothing there.  Raising it is the owner's
+    # oldest request ("les meches sont ANCREES") and it does NOT widen the excursion: maxangle is
+    # untouched, so the cone still bounds where a strand can go and the result is the "petit, rapide,
+    # net" he asked for on the chest, applied to the hair.  Ears stay the lightest of the set —
+    # SPEC 1 says "physique LEGERE" for them in as many words.
+    # kind         fam   class        stiff damp grav ang  iner  stretch mass couple hang  authored
+    'bang':       (BODY, 'primary',   2.2,  0.25, 0.25, 24, 1.0,  0.02,  1.0,  5.0,   0.0,  None),
+    'midhair':    (BODY, 'primary',   2.0,  0.22, 0.30, 30, 1.0,  0.02,  1.0,  5.5,   0.0,  None),
+    'backhair':   (BODY, 'primary',   1.8,  0.20, 0.30, 36, 1.0,  0.02,  1.0,  6.0,   0.0,  None),
+    # NO `authored=` ON THE EARS, and it is a deletion rather than an omission: this generator's
+    # first build put it there on the strength of SPEC 1's "l'animation d'auteur passe devant quand
+    # elle les pilote", and SPEC 9 is the rule that overrides it — "suspension d'anim: absente au
+    # depart, on en rajoute une SEULEMENT si un defaut mesure l'exige".  There is no measured defect
+    # on Keira's ears; her goggles have one and keep theirs.  Adding a suppressor because a sentence
+    # allowed it is how this phase acquired the pile it is being cleaned out of.
+    'ear':        (BODY, 'secondary', 3.2,  0.30, 0.05, 11, 1.0,  0.015, 1.0,  3.0,   0.0,  None),
+    'chest':      (BODY, 'primary',   2.60, 0.26, 0.10, 26, 1.0,  0.01,  1.5,  4.6,   0.0,  None),
+    'goggles':    (WORN, 'primary',   5.0,  0.35, 0.08,  6, 0.9,  0.015, 1.0,  0.0,   0.10, 1.00),
+    'kneeflap':   (WORN, 'secondary', 2.2,  0.25, 0.50, 32, 1.0,  0.03,  1.0,  0.0,   0.30, None),
+    'pantflap':   (WORN, 'secondary', 2.2,  0.25, 0.50, 32, 1.0,  0.03,  1.0,  0.0,   0.30, None),
+    # THE BELT exists on the stock rig only (the HD rigs have the joint but no chain has ever been
+    # declared on it, and adding one is a change to the HD sections this cycle's scope does not
+    # authorise).  It is the one kind with no HD counterpart to copy, so its style is the style the
+    # stock section shipped with before it was archived out: stiff, tiny cone, no gravity of its own,
+    # hung like everything else she wears.  A belt on hips is a hoop, not a pendant — the small cone
+    # is what stops it sliding around her waist.
+    'belt':       (WORN, 'accessory', 5.5,  0.45, 0.00,  7, 0.9,  0.01,  1.0,  0.0,   0.10, None),
+    # SPEC 1, "Bretelles: suivent la forme du buste, pas d'angles casses, ne traversent pas la
+    # poitrine."  These four bones had their physics REVERTED in cycle 3 — the owner: "c'est bien,
+    # bien PIRE qu'avant, elles clippent au travers de la poitrine et font des ANGLES TRES ARRETES
+    # au lieu de suivre la forme de son corps" — and the revert note said in as many words what was
+    # missing: "following the bust needs a SURFACE CONSTRAINT and angle smoothing this solver does
+    # not have; revisit with a real surface constraint, not with tuning."  Both halves of that now
+    # exist and neither is tuning: the real skinned surface is the collision authority (SPEC 5), and
+    # the broken angle had a mechanism — lTopStrap carries 0.02 of total skin weight and a peak of
+    # 0.016, i.e. it drives NOTHING, so with a free root the solver was swinging an invisible bone
+    # and the visible strap below it followed in a crease.  Root-locked, the top of the strap rides
+    # the shoulder and only lTopStrap2 (20 owned vertices) moves.  Small cone, stiff, so it follows
+    # the bust instead of hinging off it.  ON THE HD RIGS ONLY: see STOCK_CHAINS for why the same
+    # four bones stay unsimulated on the rig she wears in gameplay.
+    'topstrap':   (WORN, 'secondary', 4.0,  0.30, 0.35,  8, 1.0,  0.01,  1.0,  0.0,   0.15, None),
+}
+
+# ------------------------------------------------------------------------------------------------
+# WHICH CHAINS EACH RIG HAS: (chain name in the data file, joint NAME that starts it, kind).
+#
+# THE CHAIN NAME IS DATA-FACING AND FIXED.  recharged_assets/physics_mesh.txt keys her per-link
+# real-surface samples on it (`ms <chain> <link> ...`), and physics_c14_meshsamples.py is the only
+# thing that writes that file, cast-wide, off THIS file — so renaming a chain here does not rename
+# its samples, it ORPHANS them, and the chain silently loses the surface data SPEC 5 makes its
+# collision authority.  The names below are the ones that file already carries; main() cross-checks
+# them against it in both directions and reports every orphan rather than trusting this comment.
+# ------------------------------------------------------------------------------------------------
+HD_CHAINS = [
+    ('rbang',     'Rbanga',      'bang'),
+    ('lbang',     'Lbanga',      'bang'),
+    ('rmidhair',  'Rmidhaira',   'midhair'),
+    ('lmidhair',  'Lmidhaira',   'midhair'),
+    ('backhair',  'backHair1',   'backhair'),
+    ('earL',      'lEara',       'ear'),
+    ('earR',      'rEara',       'ear'),
+    ('chestR',    'rBoob',       'chest'),
+    ('chestL',    'lBoob',       'chest'),
+    ('goggles',   'gogglesMid',  'goggles'),
+    ('kneeflapL', 'lKneeFlap',   'kneeflap'),
+    ('kneeflapR', 'rKneeFlap',   'kneeflap'),
+    ('pantflapL', 'LpantFlap',   'pantflap'),
+    ('pantflapR', 'RpantFlap',   'pantflap'),
+    ('topstrapL', 'lTopStrap',   'topstrap'),
+    ('topstrapR', 'rTopStrap',   'topstrap'),
+]
+
+# THE STOCK RIG — assistant-lod0, the one GAMEPLAY Keira is spawned with, and therefore the one the
+# owner will be looking at when he walks up to her in the village.  Same character, same kinds, its
+# own joint names: her front hair is flipR1-3 / flipL1-3 here and her side hair Rhair1-2 / Lhair1-2,
+# the goggles chain starts one joint higher (gogglesBase -> gogglesMid; on the HD rig gogglesBase
+# forks, so the chain there starts at gogglesMid), and she has a belt bone the HD rigs never used.
+#
+# THE SHOULDER AND HIP STRAPS ARE DELIBERATELY ABSENT HERE, and the absence is a decision, not an
+# oversight: the owner had topstrapL/R + botstrapL/R REVERTED in cycle 3 on this very rig ("c'est
+# bien, bien PIRE qu'avant, elles clippent au travers de la poitrine et font des ANGLES TRES
+# ARRETES"), and that verdict stands until he has looked at the rest of her.  The HD rigs keep their
+# two top straps because they were re-armed there with the root lock and the real-surface
+# constraint; extending that to the rig he will actually see is a change he gets to accept or refuse
+# on its own, not something to slip in with a port.
+STOCK_CHAINS = [
+    ('chestR',    'rBoob',       'chest'),
+    ('chestL',    'lBoob',       'chest'),
+    ('backhair',  'backHair1',   'backhair'),
+    ('hairL',     'Lhair1',      'midhair'),
+    ('hairR',     'Rhair1',      'midhair'),
+    ('flipL',     'flipL1',      'bang'),
+    ('flipR',     'flipR1',      'bang'),
+    ('earL',      'lEar1',       'ear'),
+    ('earR',      'rEar1',       'ear'),
+    ('goggles',   'gogglesBase', 'goggles'),
+    ('kneeflapL', 'lKneeFlap',   'kneeflap'),
+    ('kneeflapR', 'rKneeFlap',   'kneeflap'),
+    ('pantflapL', 'LpantFlap',   'pantflap'),
+    ('pantflapR', 'RpantFlap',   'pantflap'),
+    ('belt',      'belt',        'belt'),
+]
+
+RIGS = {'keira-hd': HD_CHAINS, 'keira3-hd': HD_CHAINS, STOCK: STOCK_CHAINS}
+
+# per-rig notes carried into the generated header, so the file states its own deliberate omissions
+RIG_NOTES = {
+    STOCK: ["the shoulder/hip straps (topstrapL/R, botstrapL/R) are DELIBERATELY not simulated on "
+            "this rig —",
+            "the owner had their physics reverted in cycle 3 (\"elles clippent au travers de la "
+            "poitrine et font",
+            "des ANGLES TRES ARRETES\") and that decision stands here until he has validated the "
+            "rest of her."],
+}
+
+
+def check_style():
+    """the family/hang invariant, verified over the table instead of promised in a comment.
+
+    The generated header used to claim `hang=0 by construction` for family A while emit() wrote
+    whatever the table said — a comment that could go stale silently, on the exact key the
+    validator's FAM-bis / FAM-ter gates read.  Now the claim is this function."""
+    bad = []
+    for kind, row in STYLE.items():
+        fam, hang = row[0], row[10]
+        if fam == BODY and hang != 0.0:
+            bad.append("%s: family A (what she IS) with hang=%.2f — a body part must regain the "
+                       "model shape at rest, so nothing may pull its rest pose down" % (kind, hang))
+        if fam == WORN and not hang > 0.0:
+            bad.append("%s: family B (what she WEARS) with hang=%.2f — a worn pendant that does not "
+                       "hang is a body part" % (kind, hang))
+    for model, rows in RIGS.items():
+        for cname, root, kind in rows:
+            if kind not in STYLE:
+                bad.append("%s: chain %s names kind %r, which is not in STYLE" % (model, cname, kind))
+    if bad:
+        raise SystemExit("STYLE table violates the family/hang invariant:\n  " + "\n  ".join(bad))
+
+
+check_style()
+
+# authored-priority shaping, shared: engage/release rates and the stiffness multiplier while the
+# animator owns the joint.  Not per chain, because nothing about Keira asks for it to be.
+AUTHRISE, AUTHFALL, AUTHSTIFF = 10, 2.5, 5
+
+# `extent=`: how far the skinned geometry continues PAST the tip joint, so the collision tests are
+# displaced onto the continuation instead of stopping at the last bone.  Family B only — the worn
+# pendants are the pieces whose card keeps going past their last joint — and derived, never chosen.
+# For family A the same continuation is already carried into the surface objective by the link's
+# own `ms` samples (physics_c14_meshsamples emits an axial-overhang tip vertex for exactly this).
+EXTENT_PCTL = 90.0
+EXTENT_MIN = 40.0        # under a centimetre of overhang is not a pendant, it is a rounding edge
+
+
+def rig_rows(model):
+    """-> (names in rig order, parent index per joint) from the retarget sidecar."""
+    p = os.path.join(HD_ANIM, model + '-k2e.json')
+    meta = json.load(open(p))
+    rows = meta['rows']
+    n = max(r['k'] for r in rows) + 1
+    names = [None] * n
+    parent = [-1] * n
+    for r in rows:
+        names[r['k']] = r['hd_name']
+        parent[r['k']] = int(r.get('hd_parent', -1))
+    return names, parent, os.path.relpath(p, REPO)
+
+
+def jni_rows(model):
+    """-> (joint names in RUNTIME order, source string) for a SHIPPED jak1 rig.
+
+    decompiler/config/jak1/ntsc_v1/joint-node-info.min.json carries all 458 shipped rigs as
+    [joint-index, name] pairs, 1-based, in the order the runtime walks them.  It carries NO parent
+    link, which is why it cannot be the hierarchy source on its own — it is used here for what it
+    IS authoritative about, the runtime's joint ORDER and joint NAMES, and the hierarchy comes from
+    the same glb the radii are measured on.  The key there is the jgeo element name, i.e. the model
+    name plus `-jg`; that suffix exists only in the decompiler dumps and never at runtime, so the
+    conversion is explicit and stated (feedback: keying data on a name the runtime never produces
+    fails SILENTLY)."""
+    d = json.load(open(JNI))
+    k = model + '-jg'
+    if k not in d:
+        raise SystemExit("%s: no rig %s in %s" % (model, k, os.path.relpath(JNI, REPO)))
+    return [n for _i, n in sorted(d[k])], os.path.relpath(JNI, REPO) + ' [' + k + ']'
+
+
+def stock_aliases_agree(needed):
+    """every art group that shares the stock section must actually have every joint we drive.
+
+    A `[model a b c]` header is a claim that one physics block fits three rigs.  Keira's six stock
+    art groups are not identical — assistant-village2-lod0 permutes 60 joint INDICES relative to
+    assistant-lod0, and the three late-game ones (firecanyon, both lavatube ends) drop `torch` and
+    `torchTIP` entirely, 94 joints instead of 96 — so the claim has to be checked rather than
+    assumed.  It holds because the physics data is keyed by joint NAME (`j <name>`), which the index
+    permutation cannot touch, and because none of the joints we drive is one of the missing two.
+    `needed` is every joint the generated block actually names — the chains' joints plus the anchor
+    joint of the `at=` volumes.
+    -> list of report lines; raises if any alias is missing one of them."""
+    d = json.load(open(JNI))
+    shipped = sorted(k[:-3] for k in d if k.startswith('assistant') and k.endswith('-jg'))
+    extra = [m for m in shipped if m not in STOCK_ALIASES]
+    out, bad = [], []
+    ref = None
+    for m in STOCK_ALIASES:
+        k = m + '-jg'
+        if k not in d:
+            bad.append("%s: not a shipped art group" % m)
+            continue
+        names = set(n for _i, n in d[k])
+        miss = sorted(set(needed) - names)
+        if miss:
+            bad.append("%s: rig lacks the joint(s) %s" % (m, ",".join(miss)))
+        if ref is None:
+            ref = names
+            out.append("  alias %-30s %3d joints (reference)" % (m, len(names)))
+        else:
+            out.append("  alias %-30s %3d joints  %s" % (m, len(names),
+                       "same joint set" if names == ref else
+                       "differs: only-ref=%s only-here=%s"
+                       % (sorted(ref - names) or '-', sorted(names - ref) or '-')))
+    if extra:
+        bad.append("shipped assistant rigs NOT in STOCK_ALIASES: %s" % ",".join(extra))
+    if bad:
+        raise SystemExit("stock section aliases do not all fit one physics block:\n  "
+                         + "\n  ".join(bad))
+    return out
+
+
+def reskin_rule(names, V, J, W, r):
+    """physics_c7_reskin.apply_model's math, one rule, on arrays instead of on glb accessors.
+
+    The math is copied clause for clause from that file — the same p90 reference, the same
+    cap*s**shape profile, the same donor-proportional withdrawal, the same slot steal, the same
+    renormalisation — because the numbers have to be the BAKE's numbers and not a second opinion.
+    What differs is the vertex POOL, and it has to: the rip's glb POSITION accessor spans the whole
+    level's merc pool (fr3_to_gltf.cpp), while the bake runs on a PREPPED PER-ACTOR glb, so
+    applying the rule to the raw donor lets another actor's vertex set the p90 reference.  Measured
+    on keira-hd it does exactly that — the reference reads 1.000 instead of 0.408 and the transfer
+    reports itself inert (+0.047) — so the pool here is the model's own vertices, which is the pool
+    the bake sees."""
+    idx = {n: i for i, n in enumerate(names)}
+    t = idx.get(r['target'])
+    if t is None:
+        return "  !! target joint %s not in rig — skipped" % r['target']
+    wt = np.zeros(len(W))
+    for c in range(J.shape[1]):
+        wt += np.where(J[:, c] == t, W[:, c], 0.0)
+    sup = wt > 0
+    if not sup.any():
+        return "  !! %s: no vertex carries this joint" % r['target']
+    if r['grow'] > 0:
+        S = V[sup]
+        for vi in np.nonzero(~sup)[0]:
+            d = S - V[vi]
+            if float((d * d).sum(axis=1).min()) <= r['grow'] ** 2:
+                wt[vi] = 1e-6
+        sup = wt > 0
+    wmax = float(np.quantile(wt[sup], 0.90))
+    if wmax <= 1e-6:
+        wmax = float(wt.max())
+    s = np.clip(wt / wmax, 0.0, 1.0)
+    new = np.where(sup, r['cap'] * s ** r['shape'], 0.0)
+    gain = np.maximum(new - wt, 0.0)
+    if not (gain > 0).any():
+        return "  -- %s: already at or above the target profile" % r['target']
+    slot = np.full(len(W), -1, dtype=np.int64)
+    for c in range(J.shape[1]):
+        slot = np.where((J[:, c] == t) & (slot < 0), c, slot)
+    need = (gain > 0) & (slot < 0)
+    if need.any():
+        lightest = np.argmin(W, axis=1)
+        for vi in np.nonzero(need)[0]:
+            c = int(lightest[vi])
+            J[vi, c] = t
+            W[vi, c] = 0.0
+            slot[vi] = c
+    don = [idx[d] for d in r['donors'] if d in idx]
+    took = np.zeros(len(W))
+    for vi in np.nonzero(gain > 0)[0]:
+        avail = [(c, W[vi, c]) for c in range(J.shape[1]) if J[vi, c] in don and W[vi, c] > 0]
+        pool = sum(w for _, w in avail)
+        g = min(gain[vi], pool)
+        if g <= 0:
+            continue
+        for c, w in avail:
+            W[vi, c] -= g * (w / pool)
+        W[vi, slot[vi]] += g
+        took[vi] = g
+    tot = W.sum(axis=1, keepdims=True)
+    W[:] = np.where(tot > 0, W / np.maximum(tot, 1e-12), W)
+    after = W[np.arange(len(W)), np.maximum(slot, 0)]
+    m0, m1 = float(wt[sup].mean()), float(after[sup].mean())
+    return ("  %-10s verts=%d p90 %.3f mean %.3f->%.3f dominant %d->%d weight moved off %s = %.1f"
+            % (r['target'], int(sup.sum()), wmax, m0, m1, int((wt >= 0.5).sum()),
+               int((after * sup >= 0.5).sum()), ",".join(r['donors']), took.sum()))
+
+
+def load_reskinned(model):
+    """c6.load_geometry, except the skin weights are the ones the BAKE produces.
+
+    scripts/shell/build_enhanced_models.sh runs physics_c7_reskin.py on the prepped glb before the
+    merc swap, so the donor's weights are NOT what is drawn.  Measuring the donor is how the shipped
+    radii= came to describe a mesh nobody sees: on the donor, rBoob/lBoob/LpantFlap/RpantFlap are
+    dominant on ZERO vertices, so link_radius' three-vertex floor fired and her trouser flaps
+    shipped at radii=24 against a real half-thickness of ~362.
+    """
+    geo = c6.load_geometry(model)
+    if geo is None:
+        raise SystemExit("%s: no geometry" % model)
+    rules = c7.load_cfg().get(model, [])
+    rep = [reskin_rule(geo['names'], geo['V'], geo['J'], geo['W'], r) for r in rules]
+    geo['reskin'] = [l for l in rep if l and l.strip()]
+    geo['nrules'] = len(rules)
+    return geo
+
+
+def chain_joints(root, names, parent):
+    """the joints of the chain that starts at `root`, read off the RIG.
+
+    A strand is a path: from the root joint, follow the single child that is itself a strand joint
+    (a joint whose only child chain continues away from the body).  The test is structural — a child
+    is part of the same strand if it has exactly this joint as parent and the parent has exactly one
+    such child — so the data cannot disagree with the hierarchy, and a rig that gains or loses a
+    joint changes the chain without anyone editing a file."""
+    if root not in names:
+        return None
+    kids = {}
+    for j, p in enumerate(parent):
+        if 0 <= p:
+            kids.setdefault(p, []).append(j)
+    i = names.index(root)
+    out = [i]
+    while True:
+        ch = kids.get(out[-1], [])
+        if len(ch) != 1:
+            break
+        out.append(ch[0])
+    return out
+
+
+def owned(geo, j):
+    """the vertices link `j` owns: exactly the selection link_radius measures, so a radius, an
+    overhang and a surface gap are never computed over three different meshes."""
+    V, J, W = geo['V'], geo['J'], geo['W']
+    sel = np.zeros(len(V), dtype=bool)
+    for c in range(J.shape[1]):
+        sel |= (J[:, c] == j) & (W[:, c] >= c6.WMIN)
+    return V[sel]
+
+
+def axial_overhang(geo, j, a, dirv):
+    """how far this link's own skinned geometry continues past the joint, along the strand."""
+    pts = owned(geo, j)
+    n = float(np.linalg.norm(dirv))
+    if len(pts) < 3 or n < 1e-6:
+        return 0.0
+    u = dirv / n
+    d = (pts - a) @ u
+    return max(0.0, float(np.percentile(d, EXTENT_PCTL)))
+
+
+def surface_gap(geo, ja, jb):
+    """closest distance, in the bind pose, between the two joints' OWN skinned vertices.
+
+    i.e. how far apart the two real surfaces are before anything moves.  -> None if either side has
+    too little geometry to have a surface."""
+    A, B = owned(geo, ja), owned(geo, jb)
+    if len(A) < 3 or len(B) < 3:
+        return None
+    return float(np.linalg.norm(A[:, None, :] - B[None, :, :], axis=2).min())
+
+
+def rig_hierarchy(model, geo):
+    """-> (names in RUNTIME joint order, parent index per joint, source string).
+
+    The hierarchy always comes from the glb skin (`geo`), because that is the only source that has
+    parents AND is the same mesh the radii are measured on.  What differs per rig is the reference
+    the ORDER is checked against, and both checks are the same statement: the order the runtime
+    walks must be the order this file's indices mean.
+      HD rigs   -> recharged_assets/hd_anim/<model>-k2e.json, the retarget sidecar the runtime
+                   retargeter itself uses.
+      stock rig -> decompiler/config/jak1/ntsc_v1/joint-node-info.min.json, the shipped rig dump.
+    A disagreement is fatal rather than papered over: every vertex selection below is by joint
+    INDEX, so a rig read in the wrong order measures another bone's mesh and reports a number."""
+    gnames = geo['names']
+    if os.path.exists(os.path.join(HD_ANIM, model + '-k2e.json')):
+        names, parent, src = rig_rows(model)
+        if gnames != names:
+            n = sum(1 for a, b in zip(gnames, names) if a != b)
+            raise SystemExit("%s: k2e rig order disagrees with the glb skin on %d joints"
+                             % (model, n))
+        return names, parent, src
+    names, src = jni_rows(model)
+    if gnames != names:
+        n = sum(1 for a, b in zip(gnames, names) if a != b) + abs(len(gnames) - len(names))
+        raise SystemExit("%s: joint-node-info runtime order disagrees with the glb skin on %d "
+                         "joint(s)" % (model, n))
+    return gnames, geo['parent'], src
+
+
+def build(model):
+    geo = load_reskinned(model)
+    names, parent, rig_path = rig_hierarchy(model, geo)
+    P = geo['P']
+
+    chains, notes = [], []
+    for (cname, root, kind) in RIGS[model]:
+        (fam, cls, stiff, damp, grav, ang, iner, stretch, mass, couple, hang,
+         authored) = STYLE[kind]
+        idx = chain_joints(root, names, parent)
+        if not idx:
+            notes.append("  %-10s DROPPED: root joint %s is not in this rig" % (cname, root))
+            continue
+        pos = [P[i] for i in idx]
+        rad, clamped = [], []
+        for n, i in enumerate(idx):
+            a = pos[n]
+            if n + 1 < len(idx):
+                dirv = pos[n + 1] - a
+            elif n:
+                dirv = a - pos[n - 1]
+            else:
+                p = parent[i]
+                dirv = (a - P[p]) if p >= 0 else np.zeros(3)
+            r = c6.link_radius(geo, i, a, dirv)
+            if r is None:
+                # measured on nothing: say so by name rather than let a fallback pass for a
+                # measurement.  This is the case that shipped radii=24 on the trouser flaps.
+                notes.append("  %-10s link %d (%s): fewer than 3 vertices at weight >= %.2f — "
+                             "radius NOT MEASURED, falling back to %.0f"
+                             % (cname, n, names[i], c6.WMIN, c6.LINK_RADIUS_MIN))
+                r = c6.LINK_RADIUS_MIN
+            elif r >= c6.LINK_RADIUS_MAX - 0.5:
+                clamped.append(n)
+            rad.append(r)
+        # extent: the pendant's continuation past its last joint
+        ext = 0.0
+        if fam == WORN:
+            n = len(idx) - 1
+            a = pos[n]
+            if n:
+                dirv = a - pos[n - 1]
+            else:
+                p = parent[idx[n]]
+                dirv = (a - P[p]) if p >= 0 else np.zeros(3)
+            o = axial_overhang(geo, idx[n], a, dirv)
+            if o >= EXTENT_MIN:
+                ext = o
+        span = sum(float(np.linalg.norm(pos[i + 1] - pos[i])) for i in range(len(pos) - 1))
+        chains.append(dict(name=cname, joints=[names[i] for i in idx], idx=idx, fam=fam, cls=cls,
+                           stiff=stiff, damp=damp, grav=grav, ang=ang, iner=iner, stretch=stretch,
+                           mass=mass, couple=couple, hang=hang, authored=authored,
+                           rad=rad, clamped=clamped, ext=ext, span=span, pos=pos))
+        if clamped:
+            notes.append("  %-10s link(s) %s measured at or above the %.0f-unit sanity ceiling and "
+                         "are reported clamped (a very large card must not become a floating "
+                         "balloon; its reach along the strand is carried by the mesh samples)"
+                         % (cname, ",".join(str(c) for c in clamped), c6.LINK_RADIUS_MAX))
+    return geo, chains, notes, rig_path
+
+
+CHEST_AT_TIER = 1        # a body part meeting a body part is core collision, at every level
+
+
+def chest_at_radius(geo, chains):
+    """-> (radius, measured dict, report lines) for the two `collider chest ... at=chest[RL]`
+    volumes, DERIVED.
+
+    These two are the only volumes in the file that ride another CHAIN's simulated tip instead of an
+    animated bone, and they exist because of one owner sentence: "les deux seins s'entrechoquent".
+    No bone-mounted volume can express it — both bones are animated and neither knows where the
+    other one actually swung to — so the volume has to follow the simulated tip, which is what
+    `at=` means (*phys-colchain* in jak-hd-physics.gc).
+
+    The RADIUS used to be a hand-typed 320 sitting under a DO-NOT-HAND-EDIT header, which is exactly
+    the kind of line SPEC 7 exists to delete.  It is derived now, from the same mesh the radii are,
+    and the rule is a statement about the character rather than a number: THE TWO VOLUMES MEET WHEN
+    THE TWO REAL SURFACES MEET.  With
+        d  the two tips' separation in the bind pose,
+        G  the closest distance between the two cups' OWN skinned vertices (their real surfaces),
+        r  the partner chain's own tip half-thickness, i.e. the radius the solver gives that link,
+    the volume test fires at |tip-tip| = R + r while the surfaces touch at |tip-tip| = d - G, so
+        R = d - G - r.
+    Two consequences worth stating.  It cannot fire while she stands still (R + r = d - G < d by
+    construction, G > 0), which is the defect this cycle exists to remove — a volume that pushed at
+    rest would hold both cups off the pose the model gives them.  And it absorbs the LINK_RADIUS_MAX
+    clamp: r is capped at 260 while the cup's measured half-thickness is ~536-560 units, and R takes
+    up exactly the slack, so the clamp changes where the volume's centre is, never where its surface
+    is.  (The runtime caps every (link, volume) pair at the link's own model-pose distance anyway —
+    *phys-ccap* — so this can only ever be the tighter of the two bounds.)"""
+    cr = next((c for c in chains if c['name'] == 'chestR'), None)
+    cl = next((c for c in chains if c['name'] == 'chestL'), None)
+    if not (cr and cl):
+        return None, {}, []
+    d = float(np.linalg.norm(cr['pos'][-1] - cl['pos'][-1]))
+    g = surface_gap(geo, cr['idx'][-1], cl['idx'][-1])
+    r = max(cr['rad'][-1], cl['rad'][-1])
+    if g is None:
+        return None, {}, ["  chest pair: one of the two cups has no measurable surface (fewer than "
+                          "3 owned vertices) — the `at=` volumes are NOT emitted rather than guessed"]
+    R = d - g - r
+    m = dict(d=d, g=g, r=r)
+    rep = ["  chest pair: tip separation d=%.1f  real-surface gap G=%.1f  partner link r=%.0f  "
+           "-> at= radius R = d-G-r = %.1f" % (d, g, r, R),
+           "              contact at |tip-tip| = %.0f, i.e. %.0f units of approach per cup; "
+           "clearance at rest %.0f" % (R + r, (d - (R + r)) / 2.0, d - (R + r))]
+    if R < c6.LINK_RADIUS_MIN:
+        rep.append("              REFUSED: the derived radius is below the %.0f-unit floor — the "
+                   "two cups already touch in the bind pose, so a volume here would push at rest"
+                   % c6.LINK_RADIUS_MIN)
+        return None, m, rep
+    if R > c6.VOL_RADIUS_CAP:
+        rep.append("              CLAMPED to the %.0f-unit body-part ceiling (was %.1f)"
+                   % (c6.VOL_RADIUS_CAP, R))
+        R = c6.VOL_RADIUS_CAP
+    m['R'] = R
+    return R, m, rep
+
+
+def emit(model, geo, chains, rig_path, keep_lines, header):
+    """the model's block: generated chain lines, the generated `at=` volumes, then the capsule
+    block carried through verbatim.
+
+    `header` is the section's FULL name list, not the model key: one block serves every art group
+    that shares the rig (Keira's stock section covers six), and rebuilding the header from the first
+    name alone would silently drop the other five and with them the physics of every level she
+    appears in but village1."""
+    out = ["[model %s]" % header]
+    out.append("# ---- GENERATED by .autoport/physics_keira_gen.py from the RIG + the SPEC rules — "
+               "DO NOT HAND-EDIT ----")
+    out.append("# rig:   %s   (runtime joint order; hierarchy from the glb skin)" % rig_path)
+    out.append("# mesh:  %s   (%s)"
+               % (geo['src'], "skin weights POST-reskin, %d rule(s) from physics_reskin.txt"
+                  % geo['nrules'] if geo['nrules'] else
+                  "skin weights AS SHIPPED — no reskin rule applies to a stock jak1 rig"))
+    out.append("# family A = what she IS (returns to the model shape at rest, gravity on the "
+               "dynamics only), family B = what she WEARS (hangs and stays hung).")
+    out.append("# hang= is CHECKED, not promised: family A must be 0.00 and family B > 0, verified "
+               "over the style table at")
+    out.append("#        startup and again on every value written below — a mismatch aborts this "
+               "generator instead of shipping.")
+    out.append("# rootlock=1 on every chain of 2+ joints: the root rides the carrier bone RIGIDLY. "
+               "rootlock=0 is not expressible here.")
+    out.append("# radii=  per-link half-thickness, inner quartile of the perpendicular spread of "
+               "the vertices that link owns.")
+    for n, l in enumerate(RIG_NOTES.get(model, [])):
+        out.append(("# NOTE: " if n == 0 else "#       ") + l)
+    for c in chains:
+        kv = ["class=%s" % c['cls'],
+              "stiffness=%.2f" % c['stiff'],
+              "damping=%.2f" % c['damp'],
+              "gravity=%.2f" % c['grav'],
+              "maxangle=%d" % c['ang'],
+              "inertia=%.1f" % c['iner'],
+              "stretch=%.3f" % c['stretch'],
+              "radius=%d" % int(round(min(c['rad']))),
+              "mass=%.1f" % c['mass']]
+        if len(c['joints']) > 1:
+            kv.append("rootlock=1")
+            kv.append("gradient=1")
+        if c['couple'] > 0:
+            kv.append("couple=%.1f" % c['couple'])
+        # the family/hang invariant, on the VALUE ABOUT TO BE WRITTEN.  check_style() already
+        # verified the table; this verifies the line, because the file is what the runtime and the
+        # FAM-bis / FAM-ter gates read, and "by construction" has to mean a construction that ran.
+        if (c['fam'] == BODY) != (c['hang'] == 0.0):
+            raise SystemExit("%s chain %s: family=%s with hang=%.2f — family A must regain the model "
+                             "shape at rest (hang=0) and family B must hang (hang>0)"
+                             % (model, c['name'], c['fam'], c['hang']))
+        kv.append("hang=%.2f" % c['hang'])
+        kv.append("family=%s" % c['fam'])
+        if c['authored'] is not None:
+            kv += ["authored=%.2f" % c['authored'], "authrise=%d" % AUTHRISE,
+                   "authfall=%.1f" % AUTHFALL, "authstiff=%d" % AUTHSTIFF]
+        if c['ext'] > 0:
+            kv.append("extent=%d" % int(round(c['ext'])))
+        if c['name'].startswith('chest'):
+            # a single-bone body part ROTATES about its anchor: the written rotation is interpolated
+            # toward the simulated direction so the cup travels as a volume instead of the tip
+            # smearing the shared skin into a point.  SPEC 1: "rotation autour de l'ancre, longueur
+            # invariante: ni pointe, ni aplatissement."
+            kv.append("swing=0.70")
+        kv.append("radii=%s" % ",".join("%d" % int(round(r)) for r in c['rad']))
+        out.append("chain %s %s" % (c['name'], " ".join(kv)))
+        for j in c['joints']:
+            out.append("j %s" % j)
+
+    # the two chest `at=` volumes, GENERATED (see chest_at_radius for the derivation)
+    R, m, _rep = chest_at_radius(geo, chains)
+    if R is not None:
+        anchor = 'chest'
+        if anchor not in geo['names']:
+            raise SystemExit("%s: no `%s` joint to anchor the chest `at=` volumes on"
+                             % (model, anchor))
+        out.append("")
+        out.append("# The two volumes that ride a CHAIN instead of a bone (owner: \"les deux seins "
+                   "s'entrechoquent\" — they")
+        out.append("# collide with EACH OTHER, and no bone-mounted volume can say that: both bones "
+                   "are animated and")
+        out.append("# neither knows where the other one swung to).  The radius is DERIVED, not "
+                   "chosen: the two volumes")
+        out.append("# meet exactly when the two REAL skinned surfaces meet, R = d - G - r = tip "
+                   "separation, minus the")
+        out.append("# closest distance between the two cups' own skinned vertices, minus the "
+                   "partner link's half-thickness.")
+        out.append("#   d=%.0f  G=%.0f  r=%.0f  ->  R=%.0f ; first contact after %.0f units of "
+                   "approach per cup, so nothing"
+                   % (m['d'], m['g'], m['r'], R, (m['d'] - (R + m['r'])) / 2.0))
+        out.append("#   pushes while she stands still — the clearance is measured, and the runtime "
+                   "model-pose cap bounds it again.")
+        for cn in ('chestR', 'chestL'):
+            out.append("collider %s radius=%d tier=%d at=%s"
+                       % (anchor, int(round(R)), CHEST_AT_TIER, cn))
+    out.append("")
+    out += keep_lines
+    return out
+
+
+def spans_of(lines):
+    """-> {model header names: (start_idx, end_idx)}, model header line inclusive."""
+    marks = [(i, m.group(1)) for i, l in enumerate(lines)
+             for m in [re.match(r'^\[model ([^\]]+)\]', l)] if m]
+    spans = {}
+    for n, (i, names) in enumerate(marks):
+        end = marks[n + 1][0] if n + 1 < len(marks) else len(lines)
+        spans[names] = (i, end)
+    return spans
+
+
+def read_sections(path):
+    """-> (lines, spans) over the raw file."""
+    lines = open(path, errors='ignore').read().split('\n')
+    return lines, spans_of(lines)
+
+
+def keep_of(block):
+    """everything in a model's block that is NOT this script's to write, carried through verbatim.
+
+    OURS, and therefore dropped and regenerated: the `chain` / `j` lines, the `at=` collider lines
+    (PART 2: they used to be hand-written under a DO-NOT-HAND-EDIT header), and EVERY comment above
+    the collision block.  That last rule is structural on purpose.  Two defects came out of treating
+    comments as somebody else's property: physics_c6_volumes.py re-prepends its own 5-line header on
+    every run and Keira's section had accumulated thirteen copies, and this script's own 7-line
+    header was being carried through and re-prepended, one more copy per run.  Worse, the section
+    carried two mid-sentence fragments — "# poitrine et font des ANGLES TRES ARRETES ..." and
+    "# not have; a chest collider alone ..." — the tail ends of a note whose first lines a hand-edit
+    had removed, kept alive by a regex that matched the deleted lines and not these.  A per-line
+    denylist can always miss a line; owning the region cannot.
+    THEIRS, and carried verbatim: the capsule block and anything after it (physics_c6_volumes.py's
+    header — one copy — its capsules, and the notes that sit with them)."""
+    keep, seen_block = [], False
+    i = 0
+    while i < len(block):
+        l = block[i]
+        if re.match(r'^\[model ', l):
+            i += 1
+            continue
+        if re.match(r'^\s*(chain|j)\s', l):
+            i += 1
+            continue
+        if re.match(r'^\s*collider\s.*\bat=', l):
+            i += 1
+            continue
+        if l.startswith('# ---- MESH-DERIVED COLLISION VOLUMES'):
+            if seen_block:
+                i += 5                                  # a repeat of the 5-line c6 header
+                continue
+            seen_block = True
+            keep.append(l)
+            i += 1
+            continue
+        if not seen_block:
+            if l.strip().startswith('#') or not l.strip():
+                i += 1                                  # ours; emit() writes this region
+                continue
+            seen_block = True                           # a capsule, or anything else theirs
+        keep.append(l)
+        i += 1
+    while keep and not keep[0].strip():
+        keep.pop(0)
+    return keep
+
+
+MESH = os.path.join(REPO, 'recharged_assets', 'physics_mesh.txt')
+
+
+def mesh_sample_crosscheck(model, chains):
+    """the per-link surface samples are keyed by CHAIN NAME — check both directions and say so.
+
+    recharged_assets/physics_mesh.txt carries `ms <chain> <link> ...`, the extremal skinned-vertex
+    offsets each link collides with, for the whole cast.  It is written ONLY by
+    physics_c14_meshsamples.py, which has no --only flag and rebuilds the file from
+    physics_chains.txt — so running it from here would truncate 43 models of surface data down to
+    Keira.  This script therefore never writes it, and instead reports:
+      * ms records naming a chain that no longer exists  -> ORPHANED samples;
+      * generated chains with no ms records              -> the chain has no surface samples yet.
+    Neither is fixed here.  Both are stated, by name, so nobody has to trust that they were checked.
+    """
+    if not os.path.exists(MESH):
+        return ["  mesh samples: %s is missing" % os.path.relpath(MESH, REPO)]
+    cur, have = None, {}
+    for ln in open(MESH, errors='ignore'):
+        w = ln.split()
+        if not w:
+            continue
+        if w[0] == 'model':
+            cur = w[1:]
+            continue
+        if w[0] == 'ms' and cur and cur[0] == model and len(w) >= 3:
+            have.setdefault(w[1], set()).add(int(w[2]))
+    gen = {c['name']: len(c['joints']) for c in chains}
+    out = ["  mesh samples: %d chain(s) with `ms` records in %s"
+           % (len(have), os.path.relpath(MESH, REPO))]
+    orphan = sorted(set(have) - set(gen))
+    if orphan:
+        out.append("    ORPHANED (samples for a chain this rig no longer declares): %s"
+                   % ",".join(orphan))
+    nosamp = sorted(set(gen) - set(have))
+    if nosamp:
+        out.append("    no samples (link owns fewer vertices than c14's floor; collision falls back "
+                   "to the link radius): %s" % ",".join(nosamp))
+    short = ["%s %d/%d links" % (n, len(have[n]), gen[n]) for n in sorted(have)
+             if n in gen and len(have[n]) != gen[n]]
+    if short:
+        out.append("    link-count mismatch: %s" % "; ".join(short))
+    if not (orphan or nosamp or short):
+        out.append("    every generated chain has samples and every sample has a chain")
+    return out
+
+
+def ensure_section(lines, model, aliases):
+    """append an empty `[model ...]` section for a model the file does not carry yet.
+
+    Keira's stock section was archived out of this file wholesale, which left GAMEPLAY Keira — the
+    rig the owner walks up to in the village — with no physics at all while the two HD cutscene rigs
+    had a full block.  Creating it here rather than pasting the archived block back is the point of
+    SPEC 7: the block is REGENERATED from the rig and the rules, and the archive is only ever read to
+    find out which joints exist."""
+    header = "[model %s]" % " ".join(aliases)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    lines += ["", header, ""]
+    return lines
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--out', default=None)
+    args = ap.parse_args()
+
+    lines, spans = read_sections(CHAINS)
+    created = []
+    for model in MODELS:
+        if model not in {k.split()[0] for k in spans}:
+            lines = ensure_section(lines, model, STOCK_ALIASES if model == STOCK else [model])
+            spans = spans_of(lines)
+            created.append(model)
+    key = {k.split()[0]: k for k in spans}
+    newfile = list(lines)
+    untouched = len('\n'.join(lines))
+    report = []
+    # splice back-to-front so earlier spans keep their indices
+    for model in sorted(MODELS, key=lambda m: -spans[key[m]][0]):
+        sk = key[model]
+        s, e = spans[sk]
+        keep = keep_of(lines[s:e])
+        untouched -= len('\n'.join(lines[s:e]))
+        geo, chains, notes, rig_path = build(model)
+        blk = emit(model, geo, chains, rig_path, keep, sk)
+        newfile[s:e] = blk
+        report.append((model, geo, chains, notes, keep))
+
+    text = '\n'.join(newfile)
+    dst = args.out or CHAINS
+    if not args.dry_run:
+        open(dst, 'w').write(text)
+
+    for model, geo, chains, notes, keep in sorted(report, key=lambda r: MODELS.index(r[0])):
+        print("[%s]%s rig=%s  %d chains generated  (%d reskin rule(s) applied to the weights)"
+              % (model, " CREATED" if model in created else "", geo['src'], len(chains),
+                 geo['nrules']))
+        for l in geo['reskin']:
+            print("   reskin%s" % l)
+        for c in chains:
+            print("  %-10s fam=%s joints=%-34s rootlock=%d span=%7.1f radii=%-18s extent=%d"
+                  % (c['name'], c['fam'], ",".join(c['joints']),
+                     1 if len(c['joints']) > 1 else 0, c['span'],
+                     ",".join("%d" % round(r) for r in c['rad']), round(c['ext'])))
+        for l in notes:
+            print(l)
+        # the `at=` chest volumes: what they were derived from, printed, because "derived" is only
+        # worth something if the numbers it came from are on the record.
+        for l in chest_at_radius(geo, chains)[2]:
+            print(l)
+        nvol = sum(1 for l in keep if re.match(r'^\s*(capsule|collider)\s', l))
+        print("  collision: %d capsule/collider line(s) carried through verbatim%s"
+              % (nvol, "" if nvol else "  <-- NONE: run physics_c6_volumes.py --single-volume "
+                                      "--only %s" % model))
+        if model == STOCK:
+            need = sorted({j for c in chains for j in c['joints']} | {'chest'})
+            for l in stock_aliases_agree(need):
+                print(l)
+            print("  the %d art groups above share ONE physics block; the data is keyed by joint "
+                  "NAME (`j <name>`)," % len(STOCK_ALIASES))
+            print("  which is what makes that legal across a rig that permutes joint indices.")
+        # the surface samples the chains collide against are keyed by CHAIN NAME, in a file this
+        # script must not rewrite (physics_c14_meshsamples.py has no --only and is driven off this
+        # file, so running it here would truncate the cast's surface data to Keira).  Cross-check
+        # both directions instead and name every orphan.
+        for l in mesh_sample_crosscheck(model, chains):
+            print(l)
+    print("%s: %d bytes%s  (%d bytes outside her sections, untouched)"
+          % (dst, len(text), " (dry run, nothing written)" if args.dry_run else "", untouched))
+    return 0
+
+
+sys.exit(main())

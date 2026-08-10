@@ -66,15 +66,43 @@ cleanup(){ [ "${GKPID:-0}" -gt 0 ] && kill "$GKPID" 2>/dev/null; wait 2>/dev/nul
            cp "$OUT/.settings.ini.pre-x86leg" "$INI"; }
 trap cleanup EXIT
 
-# run_leg <tag> <physics> <quality> <mode> <warp> <pos> <vis> <watch> <drive:1|0>
+# ---- WHICH ART-GROUPS ACTUALLY HAVE PHYSICS DATA RIGHT NOW -------------------------------------
+# (C20) The scope is KEIRA ALONE, owner-authorised 2026-08-10, and the other 59 models' chains are
+# archived to physics_chains.FULL-CAST.bak until he validates her. Three of the seven legs below
+# (X-CAST, X-CAST2, X-MAYOR) contain no Keira window at all — measured: of their art-groups only
+# keira-hd appears in X-MAYOR and it emitted 0 window lines. Running them would produce
+# "FAIL: no [HD-PHYS] window state dump" for a DATA-SCOPE reason and say nothing about physics.
+# So each leg now declares the art-groups it is known to contain, and a leg none of whose
+# art-groups is DECLARED in physics_chains.txt is SKIPPED with a loud reason instead of failing or,
+# worse, passing vacuously. The gate is DERIVED from the data file, so the moment the cast is
+# regenerated these legs come back on their own — this is a scope skip, not a deletion.
+DECLARED="$(python3 - <<'PY'
+import re
+out=set()
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: out.update(m.group(1).split())
+print(",".join(sorted(out)))
+PY
+)"
+say "art-groups with declared physics data: ${DECLARED:-NONE}"
+[ -n "$DECLARED" ] || { say "FAIL(scope): physics_chains.txt declares no model at all"; exit 1; }
+
+# run_leg <tag> <physics> <quality> <mode> <warp> <pos> <vis> <watch> <drive:1|0> <keira-look> <expect-ags>
 run_leg(){
   local TAG="$1" PHY="$2" QUAL="$3" MODE="$4" WARP="$5" WPOS="$6" VIS="$7" WATCH="$8" DRV="$9"
+  local KLOOK="${10:-1}" EXPECT="${11:-}"
+  if [ -n "$EXPECT" ]; then
+    local hit=0 ag
+    for ag in ${EXPECT//,/ }; do case ",$DECLARED," in *",$ag,"*) hit=1;; esac; done
+    [ "$hit" = 1 ] || { say ""; say "SKIP($TAG): none of its art-groups ($EXPECT) has declared physics data — out of scope this cycle (Keira only). NOT a pass, NOT a failure: nothing to measure."; return 0; }
+  fi
   local GKLOG="$OUT/x86_leg_$TAG.log"; : > "$GKLOG"
   local ENH='#t'; [ "$MODE" = rider ] && ENH='#f'
   set_ini 'recharged-enhanced-models?' "$ENH"
   set_ini 'physics?' "$PHY"; set_ini 'physics-quality' "$QUAL"
   set_ini 'hd-look-jak' 1; set_ini 'hd-look-daxter' 1
-  set_ini 'hd-look-keira' 1; set_ini 'hd-look-samos' 1
+  set_ini 'hd-look-keira' "$KLOOK"; set_ini 'hd-look-samos' 1
   say ""
   say "=== LEG $TAG: physics?=$PHY quality=$QUAL mode=$MODE warp=${WARP:-none} vis=${VIS:-none} drive=$DRV watch=${WATCH}s ==="
   local envs=()
@@ -114,19 +142,28 @@ run_leg(){
 # village1 = Sandover: Jak + Daxter (companions) and Keira at the Zoomer. The only leg that DRIVES,
 # because it is the only one where the player character exists and the owner's locomotion
 # complaints ("en courant les cheveux de Jak ne bougent pas") live.
-run_leg "X-MAX"   '#t' 2 phys  "village1-hut"   "-130.5 34.5 202.4" ""    170 1 || FAILED=1
+run_leg "X-MAX"   '#t' 2 phys  "village1-hut"   "-130.5 34.5 202.4" ""    170 1 1 "keira-hd" || FAILED=1
 # the owner's named non-regression case: the intro cinematic, Jak lying down, collar in close-up —
-# and the only place Maia and Gol exist at all.
-run_leg "X-INTRO" '#t' 2 intro "intro-start"    ""                  ""    200 0 || FAILED=1
+# and the only place Maia and Gol exist at all. Keira is there too (49 lines last run), and it is
+# the one leg where actors are NOT upright, so it is where C3's tilt path (gresid) can fire.
+run_leg "X-INTRO" '#t' 2 intro "intro-start"    ""                  ""    200 0 1 "keira-hd" || FAILED=1
 # OFF must be OFF: not one window line. This is the toggle proof.
-run_leg "X-OFF"   '#f' 1 off   "village1-hut"   "-130.5 34.5 202.4" ""    90  0 || FAILED=1
-# the stock-actor rider path with the HD companions deliberately disabled — the ~50 -lod0 rigs.
-run_leg "X-RIDER" '#t' 1 rider "village1-hut"   "-130.5 34.5 202.4" ""    120 0 || FAILED=1
-# cast coverage: two villages full of stock NPCs.
-run_leg "X-CAST"  '#t' 2 cast  "village2-start" ""                  ""    130 0 || FAILED=1
-run_leg "X-CAST2" '#t' 2 cast  "village3-start" ""                  ""    130 0 || FAILED=1
+run_leg "X-OFF"   '#f' 1 off   "village1-hut"   "-130.5 34.5 202.4" ""    90  0 1 "" || FAILED=1
+# (C20) KEIRA'S THIRD LOOK. hd-look-keira: 0=ORIGINAL 1=HD 2=JAK 3 (jak-hd.gc:411 maps look 2 to
+# art-group entry 7 = keira3-hd). Nothing in this harness had ever set look 2, so `keira3-hd`
+# appears ZERO times in every leg log ever recorded while its 16 chains sat in the data file as an
+# unmeasured claim. One short leg makes the section real; without it the honest report would have to
+# say the whole model is unproven.
+run_leg "X-K3"    '#t' 2 phys  "village1-hut"   "-130.5 34.5 202.4" ""    100 1 2 "keira3-hd" || FAILED=1
+# the stock-actor rider path with the HD companions deliberately disabled — this is where Keira is
+# `assistant-lod0`, her GAMEPLAY rig, and it is the owner's named goggles non-regression case
+# (Sandover Zoomer loop, goggles held to the eyes). Auto-skips if her stock section is absent.
+run_leg "X-RIDER" '#t' 1 rider "village1-hut"   "-130.5 34.5 202.4" ""    120 0 1 "assistant-lod0" || FAILED=1
+# cast coverage: two villages full of stock NPCs. Data-gated — archived with the cast.
+run_leg "X-CAST"  '#t' 2 cast  "village2-start" ""                  ""    130 0 1 "jak-hd,dax-hd" || FAILED=1
+run_leg "X-CAST2" '#t' 2 cast  "village3-start" ""                  ""    130 0 1 "jak-hd,dax-hd" || FAILED=1
 # the mayor, whom in-world navigation never reached: his bow vs his belly is an owner-named site.
-run_leg "X-MAYOR" '#t' 2 cast  "beach-start"    "-116.15 11.00 45.91" "vi1" 120 0 || FAILED=1
+run_leg "X-MAYOR" '#t' 2 cast  "beach-start"    "-116.15 11.00 45.91" "vi1" 120 0 1 "mayor-lod0,explorer-lod0,farmer-lod0,sculptor-lod0" || FAILED=1
 
 say ""
 python3 .autoport/physics_x86_grade.py --run "$OUT" 2>&1 | tee -a "$LOG"

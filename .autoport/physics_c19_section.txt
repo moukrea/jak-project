@@ -1,0 +1,382 @@
+=========================================================================================
+CYCLE 19 (2026-08-10) — KEIRA, CLEAN START: THE REAL SURFACE BECOMES THE COLLISION, AND
+                        HER CHAINS ARE GENERATED FROM HER RIG
+Contract: .autoport/prompts/SPEC-keira-physique.md (10 sections). Scope: KEIRA ALONE, code
+          and data. The other 59 models keep their data untouched — verified, not asserted:
+          only the two `[model keira-hd]` / `[model keira3-hd]` sections of
+          physics_chains.txt and of physics_mesh.txt differ from the pre-cycle snapshot.
+Build: x86 desktop (build/game/gk + out/jak1/iso), GOAL-only rebuild of jak-hd-physics.gc.
+Device: Redmi eae4df44 NOT CONNECTED. Graded on x86 by the owner's own fallback
+        ("au pire teste sur un build PC a defaut", 2026-08-10).
+x86 leg: @@LEGVERDICT@@
+DEVICE PROOF OWED — see the debt section. x86 does not prove arm64.
+RESULT: @@RESULTLINE@@
+=========================================================================================
+
+WHAT THE DEVICE-ABSENT FALLBACK DOES AND DOES NOT PROVE
+-------------------------------------------------------
+PROVEN HERE, because it is platform-independent and it ran: the solver's behaviour, the
+written-joint instrument, collision against the real skinned surface, the family
+classification, the suppressor ledger, and the C20 anti-synthesis property. All of it is
+the same GOAL code the phone runs, driven through real scenes with real actors.
+
+NOT PROVEN HERE, and the DEVICE PROOF IS STILL OWED for every line of it:
+  * arm64 codegen — this phase has shipped bug classes that exist only on arm64 (FFI
+    register banks, stale icache, FMA contraction). A green x86 solver says nothing
+    about them.
+  * device performance — and this cycle moved it in both directions, so the debt is
+    concrete rather than formal. Making the surface the resolve's objective cost a factor
+    of five in frame rate on the first build of the cycle (measured on x86: 300 simulated
+    frames in 170 s against 1200 before it); the cheap raw gate and the binding-point
+    bisection described below took it back past where it started (3000 frames in 170 s).
+    What any of that is on the Redmi is UNMEASURED. The precision levels are the lever and
+    they are unchanged.
+  * device-only paths — the external-override asset route (PARAMSRC/MESHSRC =
+    external-override), the Android input hook, extraction and freshness on the phone.
+  * arm64 non prouve: rien de ce qui suit n'est une preuve device.
+The moment the Redmi is plugged back in, physics_device_leg.sh runs unchanged and this
+debt is settled or it is not.
+
+WHAT THIS CYCLE CHANGED — FOUR THINGS, ALL OF THEM SPEC 5 OR SPEC 7
+--------------------------------------------------------------------
+Cycle 18 ended by naming its own successor: "SPEC 18's unfinished half — the real skinned
+surface, which resolves to its own zero residual today, REPLACING the proxy capsules in the
+resolve instead of only auditing after them. One cause, one fix, three gates." That is what
+this is, plus the data regeneration SPEC 7 asks for.
+
+  1. STEP 3b's ADMISSIBILITY TEST IS NOW THE REAL SKINNED SURFACE (signed distance to the
+     `bs` sample sets), not the link's mesh samples against the auto-fitted capsules. The
+     proxy objective was wrong in both directions at once, and both were measured:
+       * it FIRED WHERE THERE WAS NO DEFECT. `capsule head Rmidhaira radius=1306`,
+         `capsule rEara rEarb radius=1241`, `capsule maskstrap mask radius=1958` are
+         balloons far larger than the geometry they were fitted to, so Keira's own hair sat
+         inside them permanently and the resolve asked for a walk-back on EVERY frame:
+         cycle 18 measured rmidhair/lmidhair/rbang/lbang at ctz = 2699 of 2699 evaluated
+         frames with ctmin pinned at the floor. Sixty-five percent of their displacement
+         removed by a clamp answering a penetration no geometry contains. That is "les
+         meches de Keira sont ANCREES", in units.
+       * and it MISSED THE REAL ONE: keira-hd surfpen = 281.09 units of her written mesh
+         inside her own real surface, on the same run, with the proxy objective satisfied.
+     Same bisection, same continuity, same termination guarantee — right objective. The
+     authored pose stays feasible BY CONSTRUCTION (phys-chain-surf-floor! subtracts the
+     depth the sculpt itself occupies, so the objective is exactly 0 at t = 0), which is
+     what makes the search unable to fail and makes surfpen <= PHYS-PEN-TOL a property of
+     the algorithm rather than of tuning.
+  2. PHYS-TMIN-FLOOR 0.35 -> 0.0, because with the right objective the floor changed sides.
+     It had been the only thing standing between her hair and the animation while the veto
+     was spurious; with a true positive it becomes a licence to pass through. Measured, this
+     cycle, with the new objective and the floor still in: keira-hd surfpen = 506.12 units,
+     on exactly the frames the search had reported NO feasible blend. The bisection had
+     found the pose infeasible and a constant admitted it anyway. `ctz` is now counted
+     against a fixed diagnostic (PHYS-TMIN-DIAG = 0.35) instead of against the floor, so the
+     number stays comparable with cycle 18's and does not become a structural zero.
+  3. A VOLUME BUILT ON A PHYSICS JOINT IS NOT THE BODY, in the capsule perimeter and in the
+     surface sets alike. The old test asked whether BOTH ends of a capsule sat on joints of
+     THIS chain, which caught `capsule Rmidhaira Rmidhairb` for rmidhair and missed every
+     balloon listed above. A `bs` surface set on a bone the physics can move — Keira's two
+     goggle lenses, re-glued under gogglesMid — is the same thing one level further: it is
+     the strand's own surface, and it MOVES between the frame's feasibility probe and its
+     audit. Nothing loses its collision: the body is the animated body's real surface (head,
+     chest, thighs, arms, all still tested), chain-versus-chain is the strand pass with its
+     per-link radii, and the two breasts meeting each other are the `at=` colliders, which
+     ride a chain deliberately and are untouched.
+  4. THE SURFACE PUSH IS AUTHORED-FLOORED AND ASKS THE SAME QUESTION AS THE BISECTION.
+     It was the one penetration test in the file with no authored floor, and a
+     nearest-sample SDF over 8 samples per bone reads a strand whose SCULPTED pose lies
+     against the scalp as inside the head. An unfloored push shoves it out of a penetration
+     ND authored, every frame, and holds it there — hair standing off the skull, and
+     measured: keira-hd restdevA = 85.15 units off the shape ND sculpted (owner rule W).
+     With the floor it reads @@RESTDEVKEIRA@@. It also now tests the link's skinned SAMPLES
+     and not only its origin, because the bisection judges the samples: while the surgical
+     pass (a bounded slide along the surface normal, which costs a strand nothing
+     tangentially) answered a different question from the blunt one (walk the whole chain
+     back toward the animation, which costs it everything), the blunt one carried the entire
+     load — mfix = 36512 in one leg, seven of sixteen chains INERT, ctmin down to 0.14.
+
+THE DATA IS GENERATED, NOT PATCHED (SPEC 7)
+--------------------------------------------
+Keira's chains are no longer hand-written anywhere. `.autoport/physics_keira_gen.py` is the
+contract made executable, and it is the file to read rather than the data:
+
+  * THE CHAIN SET is discovered in her RIG. Joint order and hierarchy come from
+    recharged_assets/hd_anim/<model>-k2e.json (`rows`, HD rig order, each row carrying
+    hd_name + hd_parent — the same sidecar the retargeter uses); a KIND table names which
+    joint STARTS a chain and the rest of the chain is read off the hierarchy by walking
+    children, so a chain cannot disagree with the rig it runs on.
+  * THE FAMILY IS DERIVED from the kind. What she IS — bangs, mid hair, back hair, ears,
+    chest — is family A: physics live at all times, gravity on the DYNAMICS only, and hang=0
+    by construction, so the spring's own equilibrium is the model pose and it returns there
+    by being a spring. What she WEARS — goggles, knee flaps, trouser flaps, shoulder straps
+    — is family B: it hangs, hang>0 by construction, and it is NEVER pulled back to the
+    model pose. There is no way to write a hair chain into family B in that file.
+  * THE ROOT IS LOCKED BY CONSTRUCTION: every chain of two joints or more is emitted
+    rootlock=1, so its first link rides the carrier bone rigidly. `rootlock=0` on a strand is
+    not expressible. That is SPEC 3 — "la racine suit RIGIDEMENT l'os porteur, elle ne derive
+    pas" — and it reverses by construction what the previous cycle did by hand when it
+    unlocked four bang roots to satisfy a motion gate and detached her hair from her skull.
+  * THE PER-LINK RADIUS IS MEASURED off the skinned mesh — the inner quartile of the
+    perpendicular spread of the vertices each link owns, derived from the merc geometry and
+    never hand-tuned — and measured POST-RESKIN, on the weights the bake actually draws.
+    That last word was a real defect: on the donor, LpantFlap/RpantFlap and rBoob/lBoob are
+    dominant on ZERO vertices, so the three-vertex floor fired and her trouser flaps shipped
+    at radii=24 — 0.6 cm against a real half-thickness of ~362. A link with no thickness
+    cannot be seen by another chain and cannot be held off a surface.
+  * NO DEROGATION KEY IS EMITTED: no colskip, no chains= volume filter, no xchain= mask, no
+    rootfree=. Two of those were already dead code in the solver (checked, not assumed:
+    nothing reads *phys-cxmask* or *phys-colmask*, so the strand pass already pairs every
+    chain of an actor geometrically and every volume is already tested against every chain
+    it can reach). Removing a key with no reader changes no behaviour; it removes the false
+    impression that the data may grant exceptions.
+  * WHAT IS LEFT IS STYLE, and it is SPEC 4's three levers kept apart: fermete = stiffness
+    with a near-zero stretch (never the damping — "amortir = tuer"), debattement = maxangle,
+    vivacite = couple + mass.
+
+@@GENERATED@@
+
+WHAT THE GENERATOR DELIBERATELY DOES NOT TOUCH, said rather than left to be discovered:
+the capsule/collider block is carried through verbatim. SPEC 5 makes the real surface the
+collision authority and SPEC 18 had already demoted the capsules to broad phase, so this
+cycle changes ONE thing about her collision and not two. Their radii are absurd and the
+report says so; they no longer decide anything.
+
+KEIRA, PER NAMED CHAIN — THE FOUR-PART VERDICT SPEC 10 ASKS FOR
+----------------------------------------------------------------
+The delivery condition is one execution showing, per named chain: root ANCHORED + tip
+MOVING + ZERO surface penetration with a positive control that fired + no visible jump.
+All four are read off the same run, and all four descend from the one primary quantity SPEC
+8 allows — the position WRITTEN to the bone, frame by frame.
+  ROOT ANCHORED   rootdev, the drift of a root-locked link read BACK out of the bone matrix
+                  after everything else in the frame has run. Must be ~0.
+  TIP MOVING      cvar / cinr, the per-frame variation of the WRITTEN joint on the free
+                  links and the TIP — never on the anchored root, and never |pos - rest|,
+                  which a welded chain maximises while standing still.
+  NO PENETRATION  surfpen, the residual depth of the written mesh inside her REAL skinned
+                  surface, with surftested as the confession count and a positive control.
+  NO JUMP         resjerk, the worst single-frame resolution correction.
+
+@@KEIRAVERDICT@@
+
+@@KEIRAROWS@@
+
+COLLISION — AGAINST THE REAL SURFACE, WITH THE POSITIVE CONTROL THAT FIRED
+--------------------------------------------------------------------------
+SPEC 5: the collision is against the real skinned surface (signed distance to the surface),
+not against proxy volumes; SPEC 18's `bs` sets are that surface — real skinned-mesh vertices
+with their outward normals, per body bone, taken offline from the same merc geometry that is
+drawn, riding their bone's live matrix so that in any pose the samples ARE her surface. That
+is a mesh-derived envelope, not a capsule set with gaps: the collision volume approximates
+the character MESH because it is sampled from it. The retired measure it replaces,
+`fit-error`, asked whether a volume fitted to a bone's own vertices contained those vertices
+— true by construction, a tautology — so the only admissible collider-quality number is the
+chain-to-REAL-SURFACE signed distance, and it is what is reported here. Read `fit-error`
+below as that quantity, which is what it was replaced by.
+
+@@SURFACE@@
+
+@@POSCONTROL@@
+
+THE SUPPRESSOR LEDGER (SPEC 9) — IN DISPLACEMENT, NEVER IN FRAMES
+------------------------------------------------------------------
+SPEC 9 starts every motion suppressor OFF and admits one back only if a MEASURED defect
+requires it, with a report of how much motion it REMOVED — not how many frames it ran on,
+which is the wrong dimension. Checked in the solver rather than assumed, the suppressors
+SPEC 9 names are already absent: PHYS-SLEEP-VEL, PHYS-RINGDOWN-*, PHYS-RING/-DAMP,
+PHYS-ARRIVE-*, PHYS-HOLD-N, PHYS-XHOLD, PHYS-STICK*, PHYS-JERK-CAP and PHYS-MPMOVE are all
+constants with NO READER anywhere in the file. The calm/rest state is a MEASUREMENT and
+holds nothing. Four mechanisms are live, each required by the spec by name:
+  * the collision resolve (SPEC 5) — bounded per frame, and its correction is mirrored into
+    `prev` so the projection injects zero velocity, which is the owner's rule O and is what
+    gives a chain a rest pose it can reach instead of a ring it cannot leave. A damped,
+    bounded projection, never a hard re-projection each frame.
+  * authored-anim priority (SPEC 6) — opt-in, and on Keira it is declared on exactly ONE
+    chain, her goggles.
+  * the family-A model pull (SPEC 2) — armed only after the chain has ALREADY been quiet for
+    PHYS-RESTCALM frames, so it can remove drift that has stopped and never motion that
+    exists, bounded per frame and velocity-neutral.
+  * the spawn / big-transition settle ramp — burst is its bar and the bar is 0.
+`remprod` is the displacement the integrator produced, |out0 - targ| over written links and
+frames; `remclamp` is what the resolve took away, |out0 - out|; `remauth` is how far
+authored priority moved the spring target; `remcalm` is the model pull's own step. Nothing
+here counts frames and nothing is derived from a chain index.
+
+@@SUPPRESSORS@@
+
+AUTHORED ANIMATION HAS PRIORITY, PER CHAIN, AND GIVES THE JOINT BACK (SPEC 6)
+-----------------------------------------------------------------------------
+Detection is strictly PER CHAIN and is taken on that chain's own authored offset as a
+fraction of its own length — never on the actor, never on a global or parent signal, so
+unrelated bones moving cannot suspend a chain's physics. Above the threshold a blend weight
+ramps IN at authrise per second, the target becomes the authored pose and the chain stops
+colliding; when the authored motion stops the weight ramps OUT at authfall per second and
+the physics RESUMES progressively from where it is, the target sliding back to the calm rest
+pose, so there is no snap by construction — a blend back in, not a switch.
+HELD STILL IS NOT NO LONGER HELD, and this is armed so that it cannot be confused: the
+signal is the LEVEL of the authored offset, with hysteresis at half the threshold, so a hand
+that holds the goggles motionless at her eyes keeps them, and the release is NOT armed on the
+authored channel's SPEED — a static hold does not read as "no animation". The owner's named
+non-regression case is the Sandover Zoomer loop with the goggles held to the eyes, and it is
+the X-MAX leg below: Keira at the Zoomer in village1, her goggles the only chain of hers
+declaring authored=. Her ears do NOT declare it any more — this cycle's first build gave
+them authored=0.40 on the strength of SPEC 1, and SPEC 9 overrides that: no measured defect,
+no suppressor. Daxter's ears keep theirs, which is authored-anim priority proven on the
+actor ND actually hand-keys, and his authored share is the rule working rather than a defect.
+Legitimate exception, stated because it is not a penetration: when the animation puts the
+goggles in front of her eyes their mesh IS inside the head volume on purpose, and the
+authored floor is exactly what stops the resolve from shoving them out of her face.
+
+@@AUTHORITY@@
+
+THE OWNER-NAMED CLIPPING SITES, ONE BY ONE
+-------------------------------------------
+"Rien ne traverse Keira, quelle que soit la raison." Each site he named, with what now
+carries it. All of them are measured on the real surface, per model, in @@PERMODELREF@@.
+  * BANGS vs FACE / EARS / SKULL (bang and meche vs visage, oreille, crane) — the bisection
+    tests each bang link's skinned samples against her real head surface and walks the pose
+    back until they are clear; the interaction is smooth and bounded rather than a push loop
+    that overshoots between two volumes, which is what made the previous fix worse than the
+    clipping it replaced (no oscillation: a bisection has no overshoot to have, and resjerk
+    below is the bound on it).
+  * NECK HAIR (backhair vs neck, cheveux vs nuque) — the same, against her neck and chest
+    sets; her back hair is family A with a locked root, so it moves at the tip and stays
+    welded at the scalp.
+  * GOGGLES vs CHEST (lunette vs poitrine) — chain vs chain, both directions, with per-link
+    radii; her goggles and her two chest chains each carry their own measured half-thickness,
+    which is what lets two chains of one actor see each other at all.
+  * THE TWO BREASTS AGAINST EACH OTHER — the owner's "elles s'entre-choquent". No
+    bone-mounted volume can express it, because both bones are animated and neither knows
+    where the other actually swung to, so the two `at=` colliders ride the OTHER chain's
+    simulated tip. Measured clearance at rest 192.3 units with link radii 260 + 260 against a
+    712.3-unit separation, so they are clear while she stands still — a volume that fired at
+    rest would push both cups off the modelled pose — and they meet when the pair swings
+    together.
+  * BRETELLES / SHOULDER STRAPS (topstrapL/R) — REVERTED in cycle 3 as worse than nothing
+    ("elles clippent au travers de la poitrine et font des ANGLES TRES ARRETES au lieu de
+    suivre la forme de son corps") and RE-ENABLED here, deliberately, because the revert note
+    named exactly what was missing: "following the bust needs a SURFACE CONSTRAINT and angle
+    smoothing this solver does not have; revisit with a real surface constraint, not with
+    tuning." Both halves now exist and neither is tuning. The broken angle also had a
+    mechanism, measured: lTopStrap carries 0.02 of total skin weight and a peak of 0.016 —
+    it drives NOTHING — so with a free root the solver was swinging an invisible bone and the
+    visible strap below it followed in a crease. Root-locked, the top of the strap rides the
+    shoulder and only lTopStrap2 (20 owned vertices) moves, inside an 8-degree cone. THIS IS
+    THE ONE ITEM IN THIS BUILD THAT THE OWNER HAS PREVIOUSLY REJECTED: it is named here so he
+    looks at it first, and it is two data lines to remove if it is still wrong.
+  * TROUSER / KNEE FLAPS vs THE LEGS AND THE OPPOSITE LEG (jacket and hem vs trouser, flared
+    leg, cross-leg clip) — family B, hanging, with `extent=` measured from the axial overhang
+    of their own skinned card so the collision is tested on the continuation past the last
+    bone rather than stopping at it, and the cross-side counter is below.
+  * BUCKLE vs STRAP (boucle vs laniere) — chain vs chain again; the pair that named the
+    problem is Jak's back buckle into his own hanging strap and it is covered by the same
+    pass, on every actor, with no mask able to exclude a pair.
+  * COLLAR vs SHOULDER (col vs epaule), and the intro cinematic with Jak LYING DOWN in
+    close-up, which is the owner's named calm case — the X-INTRO leg below. Nothing may be
+    crushed there: lensim is the simulated/authored length ratio and lenmin the drawn one,
+    both reported per model, and the collar's own volume and length are in that table.
+  * LURKER LEGS (lurker legs / pattes) and BEHIND KEIRA'S NECK — the two hysteresis sites he
+    added on 2026-08-06. Both are covered by the same three numbers as everything else,
+    freering (reversals in FREE SPACE, no contact — the population the old jitter metric threw
+    away, which is what he calls hysteresis), settletime and idledrift; per model below.
+
+@@SITES@@
+
+THE CALM CEILINGS, ON THE SAME EXECUTION AS THE MOTION FLOORS
+--------------------------------------------------------------
+SPEC 9's rule is that calm may never be bought by killing motion, which is only checkable if
+both are read off the same run. They are, below. Each ceiling carries the count that proves
+it was sampled — `idlewin` for the drift, `restwin` for the model-pose fidelity, `restcf`
+for the rest-state frames — because a zero next to a zero count is the empty kind this phase
+has shipped five times. An unsatisfiable constraint must SETTLE and never oscillate: an idle
+stretch still ringing after PHYS-SETTLE-BAR frames is counted as `unsettled`, the oscillation
+count `oscn` / `oscmax` is taken on the WRITTEN bone, and the decay is what `settletime`
+measures — frames from "the driving motion stopped" to "the chain is at rest", which no
+re-scoping can hide because it measures DECAY rather than the absence of contact.
+GRAVITY IS WORLD-SPACE, and it is measured rather than restated from the constant: `gdir` is
+the vector the integrator actually applied, obtained as the difference between the
+acceleration with and without the gravity term, and it must read (0, -1, 0) however the actor
+is turned; `gloc` is the same vector in the anchor bone's own basis and must rotate, which is
+what proves the first one is genuinely world and not local. `gsamp` is the count: family A
+gates its gravity to zero on an upright actor, so gsamp = 0 means NOT MEASURED and is read
+as such, never as a defect. MASS reaches the integrator — omega is divided by sqrt(mass), so
+a heavier chain integrates at a lower frequency with a late start and a follow-through; it is
+not a dead data key. The gravity rest-pull is REMOVED from BODY chains: hang is 0 on every
+family A chain of hers by construction (hair, chest, ears), so gravity never moves their
+equilibrium, only their dynamics. The owner's exception is implemented and is not silently
+always on: `tiltmax` is how far from upright the actor got, and gravity's authority over a
+family A rest pose is that number — hang and the gravity term are both scaled by it, so when
+she is no longer upright gravity resumes.
+
+@@CALM@@
+
+CAST COVERAGE — PER MODEL, NEVER A LEG MAXIMUM
+------------------------------------------------
+The owner caught the aggregate on 2026-08-09: a per-leg maximum hides every actor the scene
+did not contain. Every model below carries its OWN resjerk, meshpen, surfpen, rootdev, push
+and resid, and the fraction actually measured is stated. Every collider a chain was tested
+against is rebuilt from geometry every frame — a per-chain list, no data key, no family and
+no chains= filter able to remove one — and `tested` is the count of volumes each chain
+actually asked, against ALL of the character's volumes rather than only the associated ones.
+
+@@PERMODEL@@
+
+@@COVERAGE@@
+
+SKIN AUTHORITY — DOES THE CHAIN ACTUALLY DRIVE THE GEOMETRY HE IS LOOKING AT
+-----------------------------------------------------------------------------
+A solver tuned on a joint that does not own its geometry explains "no difference" perfectly,
+so for each named site the joints that skin the offending geometry are listed with how much
+weight each carries, and a transfer is declared where the chain joint does not own its
+geometry. The transfers are BUILD-TIME weight moves (recharged_assets/physics_reskin.txt,
+applied by the bake), never a runtime fudge, and this cycle's generator measures the radii
+AFTER them so the data describes the drawn mesh.
+
+@@SKINMAP@@
+
+THE OWNER-NAMED CHAINS, ANSWERED BY NAME
+-----------------------------------------
+`cvar` is the mean per-frame variation of the WRITTEN joint on locomotion frames — a chain
+welded at a constant offset scores 0 here no matter how far from its rest pose it is welded,
+which is the entire point, and it is the temporal variation of the written bone rather than
+|pos - rest|. `cinr` is the same quantity over the frames the chain's OWN anchor was driven
+and is what the verdict is taken on (INERT below 0.25 over at least 30 samples). `cvn` /
+`cish` are the sample counts: a zero next to them is UNJUDGED, never clean. `ctmin` is the
+worst blend fraction the resolve held over the window and `ctz` the frames it would have
+vetoed outright — the diagnosis kept live after its fix.
+
+ONE THING ABOUT HOW THE NUMBERS ARE TAKEN, because it decides them: the device drives Jak
+with `setprop debug.opengoal.cpad_inject`, and that TU is Android-only. The x86 leg
+synthesizes a pad_replay v2 file instead (4 x 12 s of held stick, two jumps, an eight-way
+turn). It matters more than it sounds: EVERY jak-hd chain reads INERT while he stands still
+and MOVING once he is driven, so an undriven leg would have reported the owner's defect on
+chains that do not have it — and missed it on Keira, who is an NPC and is never driven at
+all. Her excitation is her own idle and her Zoomer work loop.
+
+@@CHAINVERDICT@@
+
+@@CENSUS@@
+
+WHAT IS NOT DONE, SAID PLAINLY
+------------------------------
+@@NOTDONE@@
+
+WHAT THE OWNER SHOULD LOOK AT, IN ORDER
+----------------------------------------
+Quality is his call and nothing above claims the physics looks right; it says what was
+measured. In Sandover, at the Zoomer, with physics ON at the default precision level (the
+menu row is FLAG_PHYSICS, "PHYSIQUE", with the PHYSICS DETAIL carousel next to it at three
+levels, and OFF is bit-exact stock — proven by the X-OFF leg below emitting not one window
+line):
+  1. HER HAIR AT THE SCALP. The roots are welded now (rootlock=1 by construction on all
+     five hair chains); what he rejected last time was hair floating off the skull.
+  2. HER BANGS AND MID HAIR IN MOTION, and whether the LEFT and RIGHT of each pair look the
+     same. They do not measure the same, and that asymmetry is the top open item below.
+  3. HER CHEST. Firmer parameters are untouched from the values he approved (stiffness 2.60,
+     stretch 0.01, maxangle 26, mass 1.5, couple 4.6); what changed is that the resolve no
+     longer removes most of the travel.
+  4. THE SHOULDER STRAPS, which he rejected once. Two data lines to remove.
+  5. HER GOGGLES when the animation grabs them.
+
+THE LEGS
+--------
+@@LEGSUMMARY@@
+
+=== end of the cycle-19 section — everything below is earlier cycles, kept verbatim ===

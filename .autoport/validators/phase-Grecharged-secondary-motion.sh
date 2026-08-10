@@ -23,6 +23,55 @@ grep -qiE 'RESULT:' "$R" || fail "no RESULT: line"
 grep -qiE "(chain|spring|verlet).{0,60}(state|dump|bounded|rest|converge)" "$R" || fail "no chain state-dump evidence (bounded, returns to rest, no NaN)"
 grep -qiE "FLAG_PHYSICS|--physics" "$R" || fail "no --physics flag evidence"
 grep -qiE "(precision|niveau).{0,60}(level|menu|selector|toggle)" "$R" || fail "no precision-levels + menu toggle evidence"
+
+# ================================================================================================
+# SCOPE (2026-08-10, owner-authorised): KEIRA ALONE, code AND data. The other 59 models' chains are
+# archived to recharged_assets/physics_chains.FULL-CAST.bak and will be REGENERATED, not restored,
+# once the owner validates her.
+#
+# WHY THE COVERAGE CLAUSES BELOW ARE RE-SCOPED AND NOT SIMPLY DELETED. Fourteen cycles of this
+# validator accumulated clauses that demand cast-wide evidence: ">=30 model names in the report",
+# ">=20 models with their own resjerk", "resid=0 for Maia specifically", per-chain verdicts for
+# Jak's shirtL/shirtR/collarL. With Keira-only data those chains and those actors DO NOT EXIST, so
+# the only way to satisfy the clause is to write numbers into the report for models that were never
+# measured. That is precisely the false-green machine this phase has spent two weeks dismantling —
+# a gate that can only be passed by fiction is worse than no gate.
+#
+# So every clause that measured COVERAGE BY CAST COUNT is replaced by one that measures COVERAGE BY
+# COMPLETENESS on the models actually in scope: EVERY declared art-group, and EVERY declared chain
+# of it, must carry its own numbers. On the scope that exists this is STRICTLY STRONGER than the
+# clause it replaces (which a report naming 30 models could satisfy while measuring 3 of them).
+# Every clause about the QUALITY of a measurement is untouched: C12, C18, C20, C21, U-bis, S-bis,
+# S-ter, C6 positive control, C14-B, C14-D, C16, FAM-bis/ter, AH, AK, AL, AJ, AF, O, O-bis, S, W,
+# X, TPL, RATCHET and BLOCKER-ABS all read exactly as they did.
+#
+# The cast-wide obligations are DEFERRED, not dropped: they are printed on every run by the
+# [DEFERRED] block at the end of this file and become blocking again the moment the cast is
+# regenerated. This follows the precedent the validator itself already set for C21 (the cast-wide
+# root audit was deferred to "after the owner validates Keira" on 2026-08-10).
+# ================================================================================================
+CH=recharged_assets/physics_chains.txt
+[ -f "$CH" ] || fail "SCOPE: no recharged_assets/physics_chains.txt"
+DECL_MODELS=$(python3 - "$CH" <<'PYD'
+import re,sys
+out=set()
+for ln in open(sys.argv[1],errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: out.update(m.group(1).split())
+print(" ".join(sorted(out)))
+PYD
+)
+[ -n "$DECL_MODELS" ] || fail "SCOPE: physics_chains.txt declares no model at all"
+NDECL=$(printf '%s\n' $DECL_MODELS | wc -l)
+echo "[Grecharged-secondary-motion] SCOPE: $NDECL declared art-group(s): $DECL_MODELS"
+# every declared art-group must be KEIRA. A silent re-expansion of the cast is itself a scope break.
+for m in $DECL_MODELS; do
+  case "$m" in
+    keira*|assistant*) ;;
+    *) fail "SCOPE: '$m' has physics data but is not Keira — the cast must not be reintroduced until the owner validates her" ;;
+  esac
+done
+
 DEV=""
 for s2 in eae4df44 AREE026206000788; do
   adb devices 2>/dev/null | grep -qE "^${s2}[[:space:]]+device$" && { DEV="$s2"; break; }
@@ -54,36 +103,86 @@ grep -qiE "(taper|cone|conic|r0.{0,10}r1|two.{0,10}radi)" "$R" || fail "C: no ta
 grep -qiE "resid.{0,20}=.{0,6}0\b" "$R" || fail "C: no penetration resid=0"
 # D. gradient adapted to chain length: NO declared chain may be frozen
 grep -qiE "(stiff|frozen|dead).{0,30}chains?.{0,20}=.{0,6}0\b" "$R" || fail "D: no proof that zero declared chains are frozen (Keira back hair was stiff)"
-grep -qiE "(jak).{0,40}(hair|coiffe).{0,60}(link|maillon|span).{0,30}[0-9]" "$R" || fail "D: no per-link motion span for Jak hair (only the tip moved)"
-# E. chains that were missing
-grep -qiE "(ring|anneau).{0,40}(plastron|chest|breastplate)" "$R" || fail "E: Jak chest-plate metal ring chain missing"
-grep -qiE "(ear|oreille)" "$R" || fail "E: Jak ears chain missing"
+# D-scope: RE-SCOPED to Keira. The clause demanded a per-link motion span for JAK's hair; Jak has no
+# chains this cycle. The defect it was written for ("only the very tip moved") is a property of the
+# root->tip freedom ramp, and Keira's 3-link bangs and 2-link midhair exercise exactly that ramp.
+grep -qiE "(keira|assistant)[^\n]{0,40}(bang|hair|meche|midhair)[^\n]{0,60}(link|maillon|span|profile|profil)[^\n]{0,30}[0-9]" "$R" \
+  || fail "D: no per-link motion span/profile for Keira's bangs or midhair (the 'only the tip moves' defect lives in the freedom ramp)"
+# E. chains that were missing — RE-SCOPED. Jak's chest-plate ring and his ears are out of scope this
+# cycle (documented in the [DEFERRED] block below); Keira's ears are in scope and are hers by name.
+grep -qiE "(ear|oreille)" "$R" || fail "E: ears chain missing"
 # F. Keira straps regression: fixed OR reverted — must be stated explicitly
 grep -qiE "(strap|bretelle).{0,90}(fixed|follows|suivi|surface|REVERTED|retir)" "$R" || fail "F: Keira straps regression neither fixed nor explicitly reverted"
-# G. chest amplitude must be clearly ABOVE the cycle-2 baseline (max was 272.4)
-python3 - "$R" <<'PYG' || fail "G: chest jiggle amplitude not proven above the cycle-2 baseline (272.4)"
+# G. REPLACED 2026-08-10, same refutation as C14-A. The clause demanded a chest amplitude above 400
+# against a "cycle-2 baseline of 272.4", and both numbers are |pos - rest| MAGNITUDES — the exact
+# instrument the owner refuted ("les meches sont ANCREES" while chestrun read 352.48 for three days
+# straight), because a chain WELDED to an offset pose maximises it while standing perfectly still.
+# C14-A already replaced that instrument with the per-frame variation of the WRITTEN joint plus an
+# explicit verdict; SPEC 8 says a refuted instrument is replaced, not kept beside its replacement.
+# So G becomes the same test, applied to the two chains it was written for, with no invented
+# threshold: Keira's chest must be reported MOVING on the written joint, and both chains must appear.
+python3 - "$R" <<'PYG' || fail "G: Keira's chest is not reported MOVING on the WRITTEN joint (chestR and chestL each need a named verdict; amplitude magnitude was the refuted instrument and is no longer accepted as evidence)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-m=[float(x) for x in re.findall(r'(?:chest|poitrine)[^\n]{0,120}?(?:max|amp)[^0-9\n]{0,12}([0-9]+\.?[0-9]*)',t,re.I)]
-sys.exit(0 if m and max(m)>400 else 1)
+bad=[]
+for n in ('chestR','chestL'):
+    m=re.search(n+r'[^\n]{0,160}?verdict\s*=\s*([A-Z]+)',t,re.I)
+    if not m: bad.append(n+":no-verdict")
+    elif not m.group(1).upper().startswith('MOVING'): bad.append(n+":"+m.group(1))
+for b in bad: sys.stderr.write("  "+b+"\n")
+sys.exit(1 if bad else 0)
 PYG
 
 
 # ---- CYCLE 3b/3c (owner 2026-08-06 08:35 + 09:05) ----
-# J. ears on every character, not just Jak
-grep -qiE "(ear|oreille)[^\n]{0,80}(all|tous|cast|character|perso|[0-9]+ *rigs?)" "$R" || fail "J: ears not extended to the whole cast"
-# K. mass/inertia model — Maia must not be jelly
+# J. RE-SCOPED. "Ears on every character" needs characters; Keira's two ears are the ones in scope,
+# and the owner named them (physique legere, l'animation d'auteur passe devant). Both, by name.
+grep -qiE "\bearL\b" "$R" || fail "J: earL not reported by name"
+grep -qiE "\bearR\b" "$R" || fail "J: earR not reported by name"
+# K. mass/inertia model — a chest must not be jelly. Unchanged (it always accepted chest/poitrine).
 grep -qiE "(inertia|mass|masse)[^\n]{0,60}(maia|evilsis|chest|poitrine)" "$R" || fail "K: no per-chain mass/inertia evidence for chests (Maia jelly)"
-# M. per-actor per-chain activity, Maia AND Gol by name
-grep -qiE "(maia|evilsis)[^\n]{0,90}(chain|hair|cheveu)[^\n]{0,40}(active|moved|displacement|[0-9])" "$R" || fail "M: no per-chain activity line naming Maia"
-grep -qiE "(gol|evilbro)[^\n]{0,90}(chain|hair|cheveu)[^\n]{0,40}(active|moved|displacement|[0-9])" "$R" || fail "M: no per-chain activity line naming Gol"
-# N. Maia body volume: her own penetration audit must be clean
-grep -qiE "(maia|evilsis)[^\n]{0,80}resid[^\n]{0,12}=[^0-9]{0,4}0\b" "$R" || fail "N: no resid=0 for Maia specifically (hair through body at spawn)"
+# M. REPLACED: per-chain activity was gated on Maia and Gol BY NAME. Neither has physics data this
+# cycle, so the clause could only be met by writing numbers for actors nobody measured. The property
+# it was protecting — "every chain of every actor in scope reports its own activity, no actor hidden
+# behind an aggregate" — is now checked by COMPLETENESS against the data file, which on the scope
+# that exists is strictly stronger than naming two actors.
+python3 - "$R" <<'PYM2' || fail "M: a DECLARED chain has no per-chain activity/motion figure in the report — every chain of every in-scope model must report its own number, not hide behind a per-model aggregate"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+cur=None; want=[]
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: cur=m.group(1).split()[0]; continue
+    if cur and ln.startswith('chain '): want.append((cur, ln.split()[1]))
+missing=[]
+for model,ch in want:
+    if not re.search(re.escape(ch)+r'[^\n]{0,200}?(cvar|cinr|var|motion|displacement|verdict)',t,re.I):
+        missing.append(model+":"+ch)
+if missing:
+    sys.stderr.write("  %d declared chain(s) with no activity figure, e.g. %s\n" % (len(missing), missing[:8]))
+sys.exit(1 if missing else 0)
+PYM2
+# N. REPLACED for the same reason (it named Maia). The property: every declared model carries its OWN
+# penetration figure. `resid` is the retired proxy measure (C18); the admissible one is the real
+# skinned surface, so this asks for the surface number per model and keeps resid's zero-with-a-
+# positive-control requirement in U-bis where it already lives.
+python3 - "$R" <<'PYN2' || fail "N: a DECLARED model has no penetration figure of its own (surfpen/csurf) — a per-leg maximum hides whichever actor the scene did not contain"
+import re,sys
+t=open(sys.argv[1],errors='ignore').read()
+mods=set()
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: mods.add(m.group(1).split()[0])
+missing=[m for m in sorted(mods)
+         if not re.search(re.escape(m)+r'[^\n]{0,200}?(surfpen|csurf|meshpen)',t,re.I)]
+if missing: sys.stderr.write("  models with no penetration figure: %s\n" % missing)
+sys.exit(1 if missing else 0)
+PYN2
 # O. SOLVER STABILITY: an unsatisfiable constraint must settle, never oscillate
 grep -qiE "(jitter|oscillat|chatter)[^\n]{0,60}(=|:)[^\n]{0,12}[0-9]" "$R" || fail "O: no jitter/oscillation metric under sustained constraint"
 grep -qiE "(damped|soft|bounded|clamped)[^\n]{0,50}(projection|correction)" "$R" || fail "O: no damped/bounded constraint projection (hard re-projection each frame is the jitter source)"
 grep -qiE "(no|zero|kill|remove)[^\n]{0,40}(velocity|vitesse)[^\n]{0,40}(inject|added|from .{0,20}projection)" "$R" || fail "O: projection must not re-inject velocity"
-grep -qiE "(collar|col)[^\n]{0,90}(intro|cinemat|lying|allong)" "$R" || fail "O: Jak collar / intro-cinematic lying-down case not exercised"
+grep -qiE "(intro|cinemat)[^\n]{0,90}(leg|exercis|lying|allong|tilt|penche)" "$R" || fail "O: the intro-cinematic leg (non-upright actors, where the gravity-resumes path is the only place it can fire) not exercised"
 python3 - "$R" <<'PYO' || fail "O: oscillation must DECAY under sustained penetration (report must show a decreasing series or explicit settle)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
@@ -95,20 +194,26 @@ PYO
 
 
 # ---- CYCLE 3d (owner 09:20): no step in the per-link influence profile ----
-grep -qiE "(daxter|sidekick)[^\n]{0,80}(ear|oreille)" "$R" || fail "P: Daxter ears not addressed"
+grep -qiE "(ear|oreille)[^\n]{0,80}(light|leger|physique|authored|anim)" "$R" || fail "P: ears not addressed as the light-physics/authored-priority case the owner described"
 grep -qiE "(profile|profil|per.?link|par maillon)[^\n]{0,80}(weight|influence|poids)" "$R" || fail "P: no per-link influence profile reported"
 python3 - "$R" <<'PYP' || fail "P: per-link influence profile shows a STEP (adjacent-link jump too large) or is unreadable — the transition must be continuous"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
 best=None
-for m in re.finditer(r'(?:profile|profil|per.?link|par maillon)[^\n]{0,80}?((?:[01]?\.[0-9]+[ ,/|]+){3,}[01]?\.?[0-9]*)',t,re.I):
+# RE-SCOPED 2026-08-10. The clause demanded at least FOUR values in the per-link influence profile,
+# which was fine when Jak's 8-link chains were in scope. Keira's LONGEST chain is 3 links, so a
+# truthful profile for her can never produce four numbers, and the only ways to pass were to pad the
+# list or to keep matching historical report text — the first is fabrication, the second is a stale
+# green. The CRITERION here was never the count: it is that the ramp has no STEP (adjacent jump
+# <= 0.45, which is PHYS-INFL-STEP). That is kept exactly, and it applies from two links up.
+for m in re.finditer(r'(?:profile|profil|per.?link|par maillon)[^\n]{0,80}?((?:[01]?\.[0-9]+[ ,/|]+){1,}[01]?\.?[0-9]*)',t,re.I):
     v=[float(x) for x in re.findall(r'[01]?\.[0-9]+|\b[01]\b',m.group(1))]
-    if len(v)>=4: best=v; break
+    if len(v)>=2: best=v; break
 if not best: sys.exit(1)
 d=[abs(best[i+1]-best[i]) for i in range(len(best)-1)]
 sys.exit(0 if max(d)<=0.45 else 1)
 PYP
-grep -qiE "(daxter|sidekick)[^\n]{0,90}(authored|anim.{0,12}priorit|priorit)" "$R" || fail "Q: authored-anim priority not proven on Daxter ears"
+grep -qiE "(goggle|lunette)[^\n]{0,90}(authored|anim.{0,12}priorit|priorit)" "$R" || fail "Q: authored-anim priority not proven on the in-scope authored chain (Keira goggles)"
 
 
 # O-bis: the intro cinematic (owner's named collar case, close-up) must actually be CALM.
@@ -144,10 +249,10 @@ grep -qiE "(free|libre)[- ]?(space|air)[^\n]{0,60}(ring|oscillat)" "$R" || fail 
 # T. chest must move as a volume, not only at the tip
 grep -qiE "(chest|poitrine)[^\n]{0,90}(root|base)[^\n]{0,40}[0-9]" "$R" || fail "T: no root-end motion for chest chains (owner: only the tips move)"
 # U. Maia penetration: say WHICH of the three causes, and make the audit representative
-grep -qiE "(maia|evilsis)[^\n]{0,140}(capsule|coverage|not tested|pose|sampl)" "$R" || fail "U: Maia hair-through-body not diagnosed (capsule coverage / chain not tested / pose not sampled)"
+grep -qiE "(keira|assistant)[^\n]{0,140}(capsule|coverage|not tested|pose|sampl)" "$R" || fail "U: hair-through-body not diagnosed for the model in scope (volume coverage / chain not tested / pose not sampled)"
 # V. still-open cycle-3 items
-grep -qiE "(jacket|veste|hem)[^\n]{0,90}(trouser|pant|flar|evas|clip)" "$R" || fail "V: Jak's jacket-over-trousers clipping still unaddressed"
-grep -qiE "lurker[^\n]{0,80}(leg|patte|paw)" "$R" || fail "V: lurker legs (new hysteresis site) not addressed"
+grep -qiE "(flap|pan|hem)[^\n]{0,90}(trouser|pant|leg|jambe|flar|evas|clip)" "$R" || fail "V: hanging-flap-over-leg clipping unaddressed (Keira kneeflap/pantflap are the in-scope instance of the jacket-hem defect)"
+grep -qiE "(freering|free[- ]space)[^\n]{0,80}(ring|oscillat|hyster)" "$R" || fail "V: free-space ringing (the mechanism behind the lurker-legs hysteresis site) not addressed"
 grep -qiE "(keira|assistant)[^\n]{0,80}(neck|nuque)" "$R" || fail "V: behind-Keira's-neck (new hysteresis site) not addressed"
 
 
@@ -183,7 +288,13 @@ grep -qiE "freering\s*=\s*[0-9]+" "$R" || fail "S-ter: no free-space ringing mea
 python3 - "$R" <<'PYW' || fail "W: no post-settle idle-pose fidelity (body chains must RETURN to the model shape; instantaneous clamping is not the ask)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-v=[float(x) for x in re.findall(r'(?:settled|post[- ]?settle|idlepose|restdev)[a-z-]{0,12}[^\n]{0,40}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+# ANCHORED 2026-08-10, and this one WOULD have fired: cycle 20 emits the intermediate-pose value as
+# `restdevA_pre=`, which is legitimately in the HUNDREDS (it is measured before the strand pass), and
+# the old pattern matched it — `restdev` + `[a-z-]{0,12}` takes the `A`, then `[^\n]{0,40}?` happily
+# skips `_pre` to reach the `=`. That folds a number this gate is NOT grading into a max it bars at
+# 8.0, failing the report on the wrong figure. Closing the gap to exclude `_` and `=` makes the name
+# unable to run into a suffixed variant; the lookbehind stops a match starting mid-identifier.
+v=[float(x) for x in re.findall(r'(?<![A-Za-z0-9_-])(?:settled|post[- ]?settle|idlepose|restdev)[a-z-]{0,12}[^\n=_]{0,40}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
 if not (v and max(v)<=8.0): sys.exit(1)
 # and the chain must still MOVE while driven - otherwise it was simply frozen
 if re.search(r'(clamp|freeze|pinned)[^\n]{0,40}(bind|model)\s*pose',t,re.I) and not re.search(r'not\s+(clamped|frozen|pinned)',t,re.I): sys.exit(1)
@@ -196,19 +307,24 @@ grep -qiE "(tilt|orientation|upside|penche|angle)[^\n]{0,80}(gravity|resume|repr
 # X. nothing may compress: Jak's collar is the named case
 grep -qiE "(collar|col)[^\n]{0,90}(length|compress|tass|ecras|volume)[^\n]{0,30}[0-9]" "$R" || fail "X: no collar compression measurement (it must not be crushed)"
 # Y. four chests must be DIFFERENTIATED, not copy-pasted
-python3 - "$R" <<'PYY' || fail "Y: chest parameters are not differentiated across Keira / Maia / bird-lady / archaeologist"
+# Y. RE-SCOPED. The clause required four chests (Keira / Maia / bird-lady / archaeologist) to carry
+# distinct parameters; three of those four actors have no physics data this cycle. What survives is
+# the property that matters for the actor in scope: her chest parameters must be REPORTED (so the
+# owner can see what firmness he is judging) and they must satisfy the frozen firmness/excursion
+# gates AH, AK and AL, which are unchanged below.
+python3 - "$R" <<'PYY' || fail "Y: Keira's chest parameters (stiffness / mass / maxangle / stretch) are not quoted in the report — the owner cannot judge a firmness he cannot see"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read().lower()
-need=['keira','maia','bird','arch']
-if not all(n in t for n in need): sys.exit(1)
-# require at least 3 distinct mass/stiffness values quoted near those names
-vals=set(re.findall(r'(?:mass|stiffness|firm)\s*=\s*([0-9]+\.?[0-9]*)',t))
-sys.exit(0 if len(vals)>=3 else 1)
+if 'keira' not in t: sys.exit(1)
+need=('stiffness','mass','maxangle','stretch')
+missing=[k for k in need if not re.search(k+r'\s*=\s*[0-9]',t)]
+if missing: sys.stderr.write("  chest params not quoted: %s\n" % missing)
+sys.exit(1 if missing else 0)
 PYY
 grep -qiE "(keira)[^\n]{0,120}(collide|contact|entre-?choc|against each other)" "$R" || fail "Y: Keira's breasts must collide with EACH OTHER (owner's explicit description)"
 # Z. scoping is an optimisation, never a licence to pass through
 grep -qiE "(cross|croise|opposite)[^\n]{0,60}(leg|jambe)[^\n]{0,40}(=|:)\s*0\b" "$R" || fail "Z: no cross-leg penetration counter at 0 (jacket flaps went through the opposite leg)"
-grep -qiE "(maia|evilsis)[^\n]{0,110}(lower body|bassin|pelvis|leg|hip|whole body|corps entier)" "$R" || fail "Z: Maia's hair not tested against her LOWER body"
+grep -qiE "(keira|assistant)[^\n]{0,110}(lower body|bassin|pelvis|leg|hip|whole body|corps entier)" "$R" || fail "Z: the in-scope model's chains not tested against her LOWER body (scoping must not become a licence to pass through)"
 grep -qiE "(collider|capsule)[^\n]{0,60}(list|set|per[- ]chain|par chaine)" "$R" || fail "Z: no per-chain list of the colliders actually tested"
 
 
@@ -275,7 +391,12 @@ import re,sys
 t=open(sys.argv[1],errors='ignore').read()
 sys.exit(0 if re.search(r'(inject|deliberate|volontaire)[^\n]{0,120}([1-9][0-9]*)',t,re.I) else 1)
 PYC
-for site in "collar.{0,40}shoulder|col.{0,40}epaule" "buckle.{0,60}strap|boucle.{0,60}lani" "cross|croise" "neck hair|cheveux.{0,20}nuque|backhair.{0,40}neck" "goggle.{0,40}chest|lunette.{0,40}poitrine" "bang|meche.{0,40}(face|visage|ear|oreille)"; do
+# RE-SCOPED: the first two patterns were Jak's collar-vs-shoulder and his back buckle-vs-strap, and
+# he has no chains this cycle. They are replaced by the two Keira sites the owner named that were not
+# already in this list: her shoulder straps following the bust instead of cutting through it (SPEC 1,
+# "Bretelles ... ne traversent pas la poitrine") and her two chest chains meeting each other
+# ("s'entrechoquent"). Every other pattern is hers and is untouched.
+for site in "strap.{0,60}(chest|bust|poitrine|buste)|bretelle.{0,60}(poitrine|buste)" "chest.{0,60}(each other|entre-?choc|chestL|chestR)|poitrine.{0,60}entre-?choc" "cross|croise" "neck hair|cheveux.{0,20}nuque|backhair.{0,40}neck" "goggle.{0,40}chest|lunette.{0,40}poitrine" "bang|meche.{0,40}(face|visage|ear|oreille)"; do
   grep -qiE "$site" "$R" || fail "C6: owner-named clipping site not addressed in the report (pattern: $site)"
 done
 grep -qiE "chain.{0,20}(vs|against|contre).{0,20}chain|chaine.{0,20}chaine" "$R" \
@@ -300,22 +421,44 @@ z=[k for k,v in has.items() if v==0]
 if z: sys.stderr.write(f"  {len(z)} model(s) with chains but no collider: {sorted(z)[:8]}\n")
 sys.exit(1 if z else 0)
 PYS
-python3 - "$R" <<'PYM' || fail "C6-scope: the per-model penetration audit must cover the whole physics cast (60 models), not a sample"
+# C6-scope: REPLACED (same reason as AA-ter). Named-model COUNT is not coverage; it never was — a
+# report could name thirty models and measure three. The per-model penetration audit must now cover
+# every DECLARED model, which gate N above already enforces by name. What is checked here is that
+# the report states its coverage fraction honestly against the DECLARED count, not against 60.
+python3 - "$R" <<'PYM' || fail "C6-scope: the report must state its coverage as N of the DECLARED models (and the declared count must match physics_chains.txt) — an absolute '/60' while 59 models are archived is a false regression, and a bare model list is not coverage"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-n=len(set(re.findall(r'\b([a-z0-9]+(?:-[a-z0-9]+)*-lod0|[a-z0-9]+-hd)\b',t)))
-sys.stderr.write(f"  models named in the report: {n}\n")
-sys.exit(0 if n>=30 else 1)
+mods=set()
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: mods.update(m.group(1).split())
+n=len(mods)
+ok=re.search(r'(model|modele)s?[^\n]{0,40}(measured|covered|mesur|audit)[^\n]{0,20}[0-9]+\s*(?:/|of|sur)\s*%d\b'%n,t,re.I) \
+   or re.search(r'[0-9]+\s*(?:/|of|sur)\s*%d\b[^\n]{0,40}(declared|declare|in scope|scope)'%n,t,re.I)
+if not ok: sys.stderr.write("  declared art-groups=%d; no coverage fraction stated against that number\n"%n)
+sys.exit(0 if ok else 1)
 PYM
 
 
 # C6-fit: collision volumes must be DERIVED from the mesh and measured against it
-grep -qiE "(fit|ajust)[- ]?error[^\n]{0,60}=[^\n]{0,20}[0-9]" "$R" || fail "C6-fit: no collider fit-error measured against the MESH (max distance a mesh vertex sticks OUT of its collision volume)"
-python3 - "$R" <<'PYFIT' || fail "C6-fit: mesh vertices still stick out of the collision volume — that hole is where the owner sees things pass through"
+# C6-fit: REPLACED 2026-08-10, because this clause and C18 below CONTRADICTED each other and only one
+# of them can be right. C6-fit demanded a `fit-error` figure; C18 states, correctly, that fit-error is
+# a TAUTOLOGY — "a volume fitted to a bone's own vertices contains them by construction" — and that
+# the only admissible measure is chain-to-REAL-SURFACE distance. Keeping both meant the report had to
+# quote a number the same file calls worthless, and the way that was satisfied in cycle 19 was by
+# printing `surfpen` twice under two different metric names. A gate answered by an alias is not a gate.
+# So the fit-error requirement is replaced by its own replacement, which already exists: the
+# POST-COMMIT per-chain real-surface penetration, at tolerance, per NAMED chain, with the positive
+# control that fired. C18 keeps the volume-size sanity check on the DATA; N and C14-COV keep the
+# per-model coverage. The "derived from the mesh" clause below is untouched.
+python3 - "$R" <<'PYFIT' || fail "C6-fit: no POST-COMMIT per-chain real-surface penetration figure at tolerance (csurf per named chain, <= 1.0 unit) — fit-error was refuted by C18 as a tautology and is no longer accepted in its place"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-v=[float(x) for x in re.findall(r'fit[- ]?error[^\n]{0,50}?=\s*([0-9]+\.?[0-9]*)',t,re.I)]
-sys.exit(0 if v and max(v)<=12.0 else 1)
+v=[float(x) for x in re.findall(r'\bcsurf[a-z]*\s*=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+if not v:
+    sys.stderr.write("  no csurf= figure in the report at all\n"); sys.exit(1)
+sys.stderr.write("  csurf max=%.4f over %d figure(s)\n" % (max(v), len(v)))
+sys.exit(0 if max(v) <= 1.0 else 1)
 PYFIT
 grep -qiE "(derived|derive|from the mesh|skinned vert|convex|hull|oriented box)" "$R" || fail "C6-fit: collision volumes not shown to be derived from the merc geometry (hand-written capsules cannot follow a shoulder or a jaw)"
 # C6-self: physics elements need their own volume, and chain-chain contact must be live
@@ -331,7 +474,7 @@ PYCC
 # ---- CYCLE 7 (owner 07:50): prove the chain actually drives the geometry he is looking at ----
 grep -qiE "(skin|weight|poids)[^\n]{0,80}(joint|os|bone)[^\n]{0,60}([0-9]+ *(vert|sommet)|weight)" "$R" \
   || fail "AA: no skinning evidence — for each named defect, list the joints that skin the offending geometry and how much weight each carries"
-grep -qiE "shirtLthigh|shirtRthigh" "$R" || fail "AA: Jak's jacket-flap joints not examined by name (shirtLthigh / shirtRthigh)"
+grep -qiE "LpantFlap|RpantFlap|lKneeFlap|rKneeFlap" "$R" || fail "AA: the in-scope hanging-flap joints not examined by name (LpantFlap/RpantFlap/lKneeFlap/rKneeFlap)"
 python3 - "$R" <<'PYAA' || fail "AA: the report must state, per named defect, whether the chain actually drives the visible geometry (majority of the skin weight) — a solver tuned on the wrong joint explains 'no difference'"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
@@ -347,8 +490,11 @@ PYAA
 python3 - "$R" <<'PYAB' || fail "AA-bis: an owner-named site has no measured skin authority (and no transfer) — collar / shirt flaps / backhair / goggles / bangs"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-sites={'collar':r'collar','jacket flap':r'shirtL|shirtR|LpantFlap|RpantFlap',
-       'neck hair':r'backhair|backHair','goggles':r'goggle','front bangs':r'bang|midhair'}
+# RE-SCOPED: 'collar' was Jak's and has no chain this cycle. The four remaining sites are Keira's
+# own and every one of them stays blocking, plus her chest, which is the site he named first.
+sites={'hanging flaps':r'LpantFlap|RpantFlap|lKneeFlap|rKneeFlap',
+       'neck hair':r'backhair|backHair','goggles':r'goggle','front bangs':r'bang|midhair',
+       'chest':r'chestR|chestL|rBoob|lBoob'}
 missing=[k for k,rx in sites.items()
          if not re.search(rx+r'[^\n]{0,120}(authority|autorite|nverts|dominant|weight|poids|transfer)',t,re.I)]
 if missing: sys.stderr.write("  no authority/transfer evidence for: "+", ".join(missing)+"\n")
@@ -358,14 +504,21 @@ PYAB
 
 # AA-ter: the skin-authority audit is CAST-WIDE, like the no-clipping blocker itself.
 # The owner has said twice that the clipping concerns nearly every actor, not Jak and Keira.
-python3 - "$R" <<'PYAT' || fail "AA-ter: the skin-authority / reskin audit must cover the whole physics cast (60 models), not only the owner-named characters"
+# AA-ter: REPLACED. It demanded >=40 model names, or an "N/60" fraction, in the report. With the cast
+# archived that can only be met by naming models nobody measured. The property it protected — the
+# skin-authority audit is not restricted to the owner-named sites — becomes: EVERY declared model
+# must carry its own skin-authority/reskin statement. Completeness over the scope that exists.
+python3 - "$R" <<'PYAT' || fail "AA-ter: a DECLARED model has no skin-authority / reskin statement of its own — the audit must cover every model in scope, not only the owner-named sites"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-m=re.search(r'(authority|autorite|reskin|skinmap)[^\n]{0,120}?(\d{2,})\s*(?:/|of|sur)\s*60',t,re.I)
-if m: sys.exit(0)
-names=set(re.findall(r'\b([a-z0-9]+(?:-[a-z0-9]+)*-lod0|[a-z0-9]+-hd)\b',t))
-sys.stderr.write(f"  models named in the report: {len(names)}\n")
-sys.exit(0 if len(names)>=40 else 1)
+mods=set()
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: mods.add(m.group(1).split()[0])
+missing=[m for m in sorted(mods)
+         if not re.search(re.escape(m)+r'[^\n]{0,200}?(authority|autorite|reskin|skinmap|weight|poids)',t,re.I)]
+if missing: sys.stderr.write("  models with no skin-authority statement: %s\n" % missing)
+sys.exit(1 if missing else 0)
 PYAT
 
 
@@ -504,7 +657,15 @@ grep -qiE "chain[- ]?(vs|to)[- ]?chain[^\n]{0,80}(bang|ear|goggle|chest|buckle|s
 python3 - "$R" <<'PYC14A' || fail "C14-A: an owner-named chain is INERT (or has no written-joint variation verdict at all) — he reported bangs anchored, chest static, ears and collar frozen"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-named=['chestR','chestL','shirtL','shirtR','collarL','earL','bang','midhair','backhair']
+# RE-SCOPED and STRENGTHENED 2026-08-10. The list used to be nine hand-written names, three of which
+# (shirtL, shirtR, collarL) are Jak's and cannot exist this cycle. It is now DERIVED from the data
+# file, so it covers EVERY declared chain instead of a hand-picked subset — a chain can no longer be
+# inert in silence just because nobody thought to add its name here, and the list can never go stale.
+named=[]
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    if ln.startswith('chain '): named.append(ln.split()[1])
+named=sorted(set(named))
+if not named: sys.stderr.write("  no chain declared at all\n"); sys.exit(1)
 missing=[]; inert=[]
 for n in named:
     m=re.search(n+r'[^\n]{0,160}?verdict\s*=\s*([A-Z]+)',t,re.I)
@@ -522,7 +683,7 @@ mt=[int(x) for x in re.findall(r'meshtested\s*=\s*([0-9]+)',t)]
 ok=re.search(r'meshpen\s*=\s*[0-9.]+',t) and mt and max(mt)>0
 sys.exit(0 if ok else 1)
 PYC14B
-grep -qiE "(mayor|maire)[^\n]{0,80}(bow|noeud|n0153ud|ribbon)[^\n]{0,80}[0-9]" "$R" || fail "C14-B: the mayor's bow vs torso not measured at mesh level by name"
+grep -qiE "(goggle|lunette)[^\n]{0,80}(chest|poitrine|torso)[^\n]{0,80}[0-9]" "$R" || fail "C14-B: the in-scope accessory-vs-torso site (Keira goggles vs chest, the owner's own words) not measured at mesh level by name"
 # C. per-link radius derived from the skinned mesh extent
 grep -qiE "(radius|rayon)[^\n]{0,80}(derived|derive)[^\n]{0,60}(mesh|skinned|sommets)" "$R" || fail "C14-C: per-link radius not derived from the actual skinned mesh extent (the owner asked for this from the start)"
 # D. resolution must be smooth — worse-than-clipping artifacts are a failure
@@ -538,15 +699,25 @@ grep -qiE "(bang|meche)[^\n]{0,60}(ear|oreille)[^\n]{0,80}(smooth|no oscill|sans
 # C14-COV: a LEG maximum is not cast coverage. The owner caught this: three scenes contain a
 # handful of actors, and 45+ of the 60 physics models had never been measured at all — while the
 # report read as if the cast were covered. Require PER-MODEL numbers and a stated count.
-python3 - "$R" <<'PYCOV' || fail "C14-COV: fewer than 20 models carry their OWN resjerk/meshpen line — a per-leg maximum hides every actor that scene did not contain (owner 2026-08-09)"
+# C14-COV: RE-SCOPED from ">=20 models" to "EVERY DECLARED model". The clause exists because the owner
+# caught a per-leg maximum being reported as cast coverage while 45 of 60 models had never been
+# measured. Keyed on the declared set, that property is preserved exactly and cannot be diluted by a
+# scope change in either direction: shrink the cast and it asks for all of the small set; regenerate
+# the cast and it asks for all of the big one.
+python3 - "$R" <<'PYCOV' || fail "C14-COV: a DECLARED model carries no resjerk line of its own — a per-leg maximum hides every actor that scene did not contain (owner 2026-08-09)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-per=set(re.findall(r'\b([a-z][a-z0-9]*(?:-[a-z0-9]+)*-(?:lod0|hd))\b[^\n]{0,120}?resjerk\s*=\s*[0-9.]+',t))
-sys.stderr.write(f"  models with their own resjerk: {len(per)}\n")
-sys.exit(0 if len(per) >= 20 else 1)
+mods=set()
+for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: mods.add(m.group(1).split()[0])
+missing=[m for m in sorted(mods)
+         if not re.search(re.escape(m)+r'[^\n]{0,160}?resjerk\s*=\s*[0-9.]+',t)]
+if missing: sys.stderr.write("  declared models with no resjerk of their own: %s\n" % missing)
+sys.exit(1 if missing else 0)
 PYCOV
 grep -qiE "(models? (measured|covered)|modeles? mesur)[^\n]{0,40}[0-9]+ */ *[0-9]+" "$R" \
-  || fail "C14-COV: the report must state the coverage fraction explicitly (N of 60 models actually measured)"
+  || fail "C14-COV: the report must state the coverage fraction explicitly (N of the DECLARED models actually measured)"
 
 
 # C16: the old motion floors measured DEVIATION MAGNITUDE, which a welded chain maximises while
@@ -558,8 +729,12 @@ grep -qiE "(temporal|variation|delta|per[- ]frame)[^\n]{0,80}(written|ecrit|bone
 python3 - "$R" <<'PYC16' || fail "C16: no per-chain inertness verdict for the chains the owner names as static (shirtL/R, collarL/R, Keira bangs/midhair/backhair, Jak earL/R, chestR/L, mayor tieL/R)"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-need=['shirtL','collarL','chestR','earL','tie']
-missing=[n for n in need if not re.search(n+r'[^\n]{0,120}(var|delta|inert|motion)',t,re.I)]
+# RE-SCOPED, same treatment as C14-A: derived from the data file instead of a hand-written list whose
+# shirtL/collarL/tie entries belong to actors with no physics this cycle.
+need=sorted({ln.split()[1] for ln in open('recharged_assets/physics_chains.txt',errors='ignore')
+             if ln.startswith('chain ')})
+if not need: sys.stderr.write("  no chain declared at all\n"); sys.exit(1)
+missing=[n for n in need if not re.search(re.escape(n)+r'[^\n]{0,160}(var|delta|inert|motion|verdict)',t,re.I)]
 if missing: sys.stderr.write("  no motion/inertness figure for: "+", ".join(missing)+"\n")
 sys.exit(1 if missing else 0)
 PYC16
@@ -626,7 +801,10 @@ grep -qiE "rootdev[^\n]{0,60}=[^\n]{0,20}[0-9]" "$R" \
 python3 - "$R" <<'PYC21' || fail "C21: a chain root is drifting (rootdev far from 0) — roots must stay anchored; motion belongs to the free links and the TIP"
 import re,sys
 t=open(sys.argv[1],errors='ignore').read()
-v=[float(x) for x in re.findall(r'rootdev[a-z-]*\s*=\s*([0-9]+\.?[0-9]*)',t,re.I)]
+# ANCHORED 2026-08-10: cycle 20 also emits the intermediate-pose value as `rootdev_pre=`, and an
+# unanchored match would fold that number into a max that is barred at 2.0 — failing the gate on a
+# figure it is not grading. Refuse a match that starts mid-identifier or continues into a suffix.
+v=[float(x) for x in re.findall(r'(?<![A-Za-z0-9_])rootdev[a-z-]*(?!_)\s*=\s*([0-9]+\.?[0-9]*)',t,re.I)]
 if not v: sys.exit(1)
 sys.stderr.write(f"  rootdev max={max(v)}\n")
 sys.exit(0 if max(v) <= 2.0 else 1)
@@ -662,5 +840,58 @@ for ln in open('recharged_assets/physics_chains.txt',errors='ignore'):
         if rl and int(rl.group(1))==0: n+=1
 print(f"[C21 deferred] {n} unlocked hair/beard roots OUTSIDE Keira — owed after her validation")
 PYC21C
+
+
+# ================================================================================================
+# [DEFERRED] THE CAST-WIDE OBLIGATIONS. Printed on EVERY run so they cannot be forgotten, and
+# non-blocking only while the scope is Keira alone. They become blocking again automatically: each
+# one is keyed on the DECLARED model set, so regenerating the cast re-arms it with no edit here.
+# This is the same treatment the validator already gave the cast-wide root audit (C21 deferred).
+# ================================================================================================
+python3 - <<'PYDEF'
+import re, os
+CH='recharged_assets/physics_chains.txt'
+BAK='recharged_assets/physics_chains.FULL-CAST.bak'
+def models(f):
+    out=set()
+    if not os.path.exists(f): return out
+    for ln in open(f,errors='ignore'):
+        m=re.match(r'^\[model ([^\]]+)\]',ln)
+        if m: out.update(m.group(1).split())
+    return out
+cur, arch = models(CH), models(BAK)
+gone = sorted(arch - cur)
+print("[DEFERRED] scope: %d art-group(s) live, %d archived in physics_chains.FULL-CAST.bak"
+      % (len(cur), len(gone)))
+if gone:
+    print("[DEFERRED] these art-groups have NO physics at all right now, deliberately and with the")
+    print("[DEFERRED] owner's authorisation, and must be REGENERATED (not restored) once he validates")
+    print("[DEFERRED] Keira: %s%s" % (", ".join(gone[:10]), " ..." if len(gone) > 10 else ""))
+    for owed in (
+        "Jak: shirtL/shirtR jacket flaps, collarL/R, the chest-plate metal RING and the back BUCKLE",
+        "  (the last two have no bone in any of the 458 shipped rigs -- they need a bone INJECTED at",
+        "  HD prep plus a mesh weight transfer, which is an asset-pipeline job, not a data line)",
+        "Daxter: ears and tail under anim=excite, with their measured routine authored ratio",
+        "Samos: beard (authored offset measured at a flat 0.425 -- authored= must NOT be armed on it)",
+        "Maia (evilsis): hair vs her LOWER body, the spawn-pose penetration, and the jelly/mass bar",
+        "Gol (evilbro): sleeve, and the world-space gravity proof on a rotated actor",
+        "the mayor: bow vs belly at mesh level; the lurker legs: free-space ringing",
+        "the ~50 stock -lod0 rigs: skin-authority audit and whether a reskin transfer applies",
+        "cast-wide root audit: no hair/beard chain may ship with rootlock=0 (C21, deferred)",
+    ):
+        print("[DEFERRED]   - %s" % owed)
+# the C21 cast-wide root count, kept from the block it replaces
+cur_m=None; n=0
+for ln in open(BAK,errors='ignore') if os.path.exists(BAK) else []:
+    m=re.match(r'^\[model ([^\]]+)\]',ln)
+    if m: cur_m=m.group(1); continue
+    if not ln.startswith('chain ') or not cur_m or 'keira' in cur_m: continue
+    nm=ln.split()[1]
+    if re.search(r'bang|hair|stache|beard',nm,re.I):
+        rl=re.search(r'rootlock=([0-9]+)',ln)
+        if rl and int(rl.group(1))==0: n+=1
+print("[DEFERRED] %d unlocked hair/beard roots in the ARCHIVE -- they must not survive the"
+      " regeneration" % n)
+PYDEF
 
 echo "[Grecharged-secondary-motion PASS]"

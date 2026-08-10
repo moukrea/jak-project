@@ -1,0 +1,192 @@
+=========================================================================================
+CYCLE 20 (2026-08-10) — KEIRA ALONE: SIX MECHANISMS, EACH NAMED BY A MEASUREMENT
+Contract: .autoport/prompts/SPEC-keira-physique.md (10 sections). Scope: KEIRA ALONE, code
+AND data, owner-authorised. The other 59 models are archived and have NO physics right now.
+=========================================================================================
+
+WHY THIS CYCLE IS DIFFERENT FROM THE FOURTEEN BEFORE IT
+-------------------------------------------------------
+Every previous cycle tuned parameters. This one found that three of the owner's oldest
+complaints were arithmetic, not taste, and that the numbers used to check them were
+measuring a pose the game never draws. Six changes, each one attached to a figure taken off
+the run of 19:07-19:25 today, which is the BASELINE this cycle is compared against.
+
+  C1  the penetration / anchoring / crush audits now measure the pose that is WRITTEN
+  C2  the collision retreat is PER SEGMENT instead of welding the whole chain
+  C3  family A gets gravity on its DYNAMICS, with the equilibrium preserved exactly
+  C4  a counter that could never be non-zero is deleted
+  C5  the suppressor ledger is split, and a jump caused by the ANIMATION is attributed to it
+  C6  ONE surface authority instead of two fighting over the same objective
+
+THE THREE FINDINGS THAT MATTER, IN THE ORDER THEY EXPLAIN THINGS
+----------------------------------------------------------------
+
+1. FAMILY A HAD NO DRIVING FORCE AT ALL. `tiltmax = 0.0000` on every window of every leg —
+   Keira is always upright — and the integrator multiplied family A's gravity by exactly
+   that value:
+       gacc = cgrav * PHYS-GRAV-ACCEL * (1-authw) * sw * (if (= 2 cfam) 1.0 tiltf)
+   So on 100 % of measured frames, all nine of her hair / ear / chest chains had a gravity
+   term of exactly zero, and their only excitation was the anchor pseudo-force. Standing and
+   talking, that is almost nothing. Measured, against the phase's own inert bar of 0.25:
+   family A cinr 0.004 - 0.14 (INERT) while family B on the same actor in the same frames
+   read 0.56 - 31.5 (MOVING). Fourteen cycles of tuning could not move a term that was being
+   multiplied by zero. That is "les meches de Keira sont ANCREES" as arithmetic.
+   => C3 gives family A the world gravity and cancels only the component the actor is
+   CARRYING, in the anchor bone's own frame. At the reference orientation the two cancel
+   IDENTICALLY, so the idle pose is bit-identical to today and owner rule W ("la position
+   idle devrait EXACTEMENT etre celle du modele de base") cannot be broken by this change.
+   A nod, a lean or being knocked over restores a real force, continuously, which is the
+   owner's own stated exception in SPEC 2.
+
+2. ONE OF EACH LEFT/RIGHT PAIR WAS FROZEN BY A RATCHET, AND THE SIDE WAS DECIDED BY A
+   TRUNCATED SAMPLE LIST. Of Keira's three head pairs, exactly one member of each was dead,
+   with IDENTICAL parameters, and NOT by the collision clamp (`ctmin` 0.999-1.0 on the dead
+   ones). The dead chains held a large CONSTANT offset with one float ULP of movement:
+   `cdev` 58.5 / 45.9 / 90.2 against `cdsp` 0.0625 / 0.0312 / 0.0312.
+   The real-surface push subtracted the authored pose's own depth, which put the wall EXACTLY
+   at the authored pose and made it ONE-SIDED, and PHYS-PROJFIX mirrored the correction into
+   the verlet `prev` so the velocity died with it. For a link the surface estimate already
+   called "inside", that is not a constraint but a ratchet: the chain walks outward until it
+   rests on the wall, then stops.
+   Whether a link reads "inside" is a RIG CONSTANT, and it is asymmetric because the signed
+   distance is a point-cloud: `bs head` ships 12 samples, PHYS-BSURF-MAX keeps the first 8 in
+   file order, and those 8 contain no mirror pair (the two that would have restored symmetry
+   are the dropped #8 and #10). Replayed at each free link's authored pose:
+       Rbangb +66.7 INSIDE (dead)   vs  Lbangb   -1.4   (alive)
+       Lmidhairb +55.0 INSIDE (dead) vs  Rmidhairb -227.2 (alive)
+       lEarb  +242.7 INSIDE (dead)  vs  rEarb    -188.1 (alive)
+   Three pairs, six chains, six correct predictions. The joints themselves are exact mirrors
+   (residual 0.0) and all 95 bind matrices have determinant +1.0, so nothing is reflected —
+   the mirror hypothesis is refuted with numbers, as are shared scratch buffers, anchor
+   selection (all seven head chains print the same `canch` to four decimals), the per-link
+   radii, and `side=` (set once, read once, only to increment xleg, which is 0 everywhere).
+   => C6 deletes the in-loop surface push. STEP 3b already enforces the same objective, with
+   the same authored floor, but as a bounded continuous retreat evaluated on the pose that
+   will actually be committed. Two authorities fighting over one objective is what produced
+   a frozen chain no tuning could reach. NOT the experiment that was reverted earlier: that
+   one removed the proxy-CAPSULE push while STEP 3b still bisected on capsules. The capsule
+   push is left exactly as it is.
+
+3. THE NUMBERS WERE MEASURING A POSE THE GAME NEVER DRAWS. `surfpen`, `meshpen`, `resid`,
+   `rootdev`, `lenmin` and `restdevA` were all computed inside the per-chain loop. After that
+   loop the pose changes three more times: the strand-vs-strand pass writes the position with
+   NO surface re-check, the drawn-pose length restore moves it again, the translations are
+   committed, and the descendant re-glue overwrites bone transforms including root-locked
+   ones. Apply SPEC 8's admissibility test to `surfpen = 0.9977` — "if this number is green
+   and the owner still sees the defect, what would explain it?" — and the answer is: the
+   strand pass moved the joint after the measurement. There is an answer, so the number was
+   worth nothing. `lenmin` is worse than that: the pass added specifically to fix it runs
+   AFTER the number that grades it.
+   => C1 adds a post-commit audit. The canonical names now carry the admissible values; the
+   intermediate ones are kept as `*_pre=` for diagnosis rather than deleted. New PER-CHAIN
+   `csurf:` and `crtd:`, because SPEC 10 wants the verdict per NAMED chain and a per-slot
+   maximum cannot give one.
+
+TWO MORE, SMALLER
+-----------------
+C4: `respath=` printed a hard 0.0000 for ever — `*phys-lresv*` was zeroed in two places and
+accumulated in none. Deleted, like the twenty counters before it.
+C5: `remclamp` summed the collision resolve and the strand pass and could attribute neither;
+it is now split into `remclamp` (the resolve) and `remstrand` (the strand pass plus the
+length restore). And `resjerk = 516.42` was numerically identical to the `goggles` chain's
+own worst frame — the animation GRABBING them and putting them over her eyes, which SPEC 6
+says the animation is supposed to win. Blaming the resolve for the animator's motion names
+the wrong culprit, so per-chain `cvms:` now reports the sim's own worst frame with the
+authored takeover excluded.
+
+WHAT IS ONLY PARTLY EXPLAINED, SAID PLAINLY
+-------------------------------------------
+The chest pair and pantflapL-vs-R are NOT explained by finding 2. Their nearest surface sets
+are `chest` and `Lknee`/`Rknee`, and the knee sets ARE exact mirrors, so `chestL` reading
+0.004-0.05 while `chestR` reads 0.87-1.38 on identical parameters still has no named cause.
+It is recorded as open rather than folded into a six-of-six claim.
+
+THE SCOPE, AND WHAT IT COSTS
+----------------------------
+KEIRA ALONE. Her three rigs are in scope because they are all her: `keira-hd` (cutscenes),
+`keira3-hd` (her JAK 3 look), and `assistant-lod0` plus its five level variants, which is
+what she IS in gameplay — walk into her hut and that is the rig you are looking at. Her stock
+section had been archived with the cast, which would have left gameplay Keira with no physics
+at all; it is GENERATED from her stock rig and the spec rules, not restored from the archive.
+The other 59 models have NO physics right now. That is deliberate, authorised, and listed in
+full by the validator's [DEFERRED] block on every run.
+
+THREE HARNESS FAULTS THAT DECIDED WHAT GOT MEASURED
+---------------------------------------------------
+* Three of the six proof legs contained no Keira window at all (X-CAST and X-CAST2 hold only
+  jak-hd and dax-hd; X-MAYOR spawns her but emitted zero window lines). With the cast
+  archived they could only produce "no window state dump" — a failure for a data-scope reason
+  that says nothing about physics. Each leg now declares the art-groups it contains and SKIPS
+  loudly when none of them has declared data. The gate is derived from the data file, so the
+  legs re-arm themselves the moment the cast is regenerated.
+* `keira3-hd` had NEVER been measured, once, ever. `hd-look-keira` selects
+  0=ORIGINAL/1=HD/2=JAK 3 and nothing in the harness had ever set look 2, so the model appears
+  zero times in every leg log on record while its 16 chains sat in the data file as an
+  unmeasured claim. Leg X-K3 exists now for exactly that.
+* A field-name substring trap, caught before it fired. The intermediate metrics were first
+  going to be named `presurfpen=` / `prerootdev=`; a `pre` PREFIX leaves the canonical name as
+  a substring, and the consumers match `<name>\s*=` anywhere in the line, so the C21 gate's
+  `rootdev[a-z-]*\s*=` would have read `prerootdev=743.2` as a 743-unit root deviation and
+  failed a 2.0-unit bar on a number it was not grading. Renamed to a `_pre` SUFFIX, and the
+  readers in ratchet.py and the C21 gate were anchored as well.
+
+THE VALIDATOR WAS RE-SCOPED, AND HERE IS EXACTLY WHAT CHANGED AND WHY
+--------------------------------------------------------------------
+Fourteen cycles had accumulated clauses demanding cast-wide evidence: ">=30 model names in the
+report", ">=20 models carrying their own resjerk", "resid=0 for Maia specifically", per-chain
+verdicts for Jak's shirtL / shirtR / collarL. Under the Keira-only scope those actors and
+chains do not exist, so the ONLY way to satisfy them was to write numbers into the report for
+models nobody measured. A gate that can only be passed by fiction is worse than no gate, and
+that fiction is the exact failure this phase has spent two weeks dismantling.
+
+Every such clause was re-keyed from COVERAGE BY CAST COUNT to COVERAGE BY COMPLETENESS over
+the DECLARED set: every declared art-group, and every declared chain of it, must carry its own
+numbers. On the scope that exists that is STRICTLY STRONGER — a report naming thirty models
+could satisfy the old form while measuring three. Two hand-written chain-name lists (C14-A,
+C16) were replaced by lists DERIVED from the data file, so a chain can no longer be inert in
+silence because nobody thought to add its name.
+
+Two clauses were REPLACED because they had been REFUTED, which is the one move the frozen-gate
+rule allows:
+* G demanded a chest amplitude above 400 against a "cycle-2 baseline of 272.4". Both are
+  |pos - rest| MAGNITUDES — the instrument the owner refuted, because a chain WELDED to an
+  offset pose maximises it while standing perfectly still. C14-A had already replaced that
+  instrument with the per-frame variation of the WRITTEN joint; G now uses the same one.
+* C6-fit demanded a `fit-error` figure while C18, in the same file, calls fit-error a
+  TAUTOLOGY ("a volume fitted to a bone's own vertices contains them by construction"). Two
+  clauses contradicting each other, and the way that was resolved in cycle 19 was by printing
+  `surfpen` twice under two different metric names. A gate answered by an alias is not a gate.
+  C6-fit now requires the post-commit per-chain real-surface penetration instead.
+
+No gate was deleted. A label census against the previous version shows all 57 original gate
+labels still present, plus one new SCOPE gate that FAILS if any non-Keira model reappears in
+the data — so a silent re-expansion of the cast is itself now a scope break.
+
+THE RATCHET, STATED AS A PROBLEM AND NOT AS A RESULT
+----------------------------------------------------
+The anti-regression ratchet reds on the previous report: restdevA 525.8508 against a stored
+best of 5.0768, and lenmin 0.8944 against 0.9605. Both offending numbers belong to
+OUT-OF-SCOPE models in legs that are now skipped — 525.85 is explorer-lod0 in X-MAYOR, and the
+other large readings are farmer-lod0 360.72 and jak-hd 419.55 in the same leg.
+
+So this cycle's run will not produce them, and that is NOT an improvement: the population the
+metric ranges over SHRANK, by an owner-authorised scope reduction. It has to be said in the
+direction that is uncomfortable — shrinking the population makes the ratchet easier, and
+shrinking a population to get past a red is precisely the move this phase must never make. The
+figures in this report are Keira-only and are NOT comparable with the stored cast-wide bars.
+The cast figures are owed, they are listed in [DEFERRED], and they will be RE-MEASURED, never
+re-seeded, when the cast is regenerated.
+
+For the same record: the stored restdevA = 5.0768 was itself produced by a build in which the
+chains did not move. The solver's own comment says why — "the clamp was writing the AUTHORED
+pose, and a chain welded to the animation sits exactly on the model pose by construction". It
+is a phantom of the weld. What actually protects owner rule W is the W gate's independent
+8.0-unit bar, which is untouched.
+
+ONE DECLARED DEVIATION FROM THE SPEC, DELIBERATE
+------------------------------------------------
+SPEC 2 asks that gravity act on the dynamics of family A, and C3 implements that. What C3 does
+NOT do is give the equilibrium any gravity-derived sag: the cancellation is exact at the
+reference orientation, BY CONSTRUCTION, precisely so that rule W cannot be broken by this
+change. If the owner wants hair that hangs slightly lower at rest than the sculpt, that is a
+deliberate decision about the ART, not a physics fix, and it needs his word first.
