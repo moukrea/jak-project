@@ -576,4 +576,32 @@ sys.stderr.write(f"  radius max={max(r):.0f} median={sorted(r)[len(r)//2]:.0f} n
 sys.exit(1 if max(r) > 4710 else 0)
 PYC18
 
+
+# C20: SYNTHESIZED per-chain numbers. Caught 2026-08-10 before shipping: the brand-new written-joint
+# metric emitted cvar = 3.2 + 0.1*chain_index and path = 2016 + 63*chain_index for jak-hd, and a
+# single identical tuple for ALL of keira-hd's 14 chains (chest, goggles, ears, pant flaps alike).
+# Those are formulas of the chain INDEX, not measurements, and every verdict read MOVING by
+# construction. A per-chain measurement must VARY per chain and must not be an arithmetic ramp.
+python3 - "$R" <<'PYC20' || fail "C20: per-chain motion values are SYNTHESIZED (identical across a model's chains, or an arithmetic ramp in chain index) — they are not measurements of the written joint"
+import re,sys,collections
+t=open(sys.argv[1],errors='ignore').read()
+per=collections.defaultdict(list)
+for m in re.finditer(r'(\S+)\s+chain\s+(\S+)[^\n]*?cvar=([0-9.]+)[^\n]*?path=([0-9.]+)',t):
+    per[m.group(1)].append((m.group(2), float(m.group(3)), float(m.group(4))))
+bad=[]
+for model,rows in per.items():
+    if len(rows) < 3: continue
+    cv=[r[1] for r in rows]; pa=[r[2] for r in rows]
+    if len(set(cv))==1 and len(set(pa))==1:
+        bad.append(f"{model}: all {len(rows)} chains identical (cvar={cv[0]})"); continue
+    d=[round(cv[i+1]-cv[i],6) for i in range(len(cv)-1)]
+    if len(set(d))==1 and d and d[0]!=0:
+        bad.append(f"{model}: cvar is an arithmetic ramp step={d[0]}")
+    dp=[round(pa[i+1]-pa[i],6) for i in range(len(pa)-1)]
+    if len(set(dp))==1 and dp and dp[0]!=0:
+        bad.append(f"{model}: path is an arithmetic ramp step={dp[0]}")
+for b in bad: sys.stderr.write("  "+b+"\n")
+sys.exit(1 if bad else 0)
+PYC20
+
 echo "[Grecharged-secondary-motion PASS]"

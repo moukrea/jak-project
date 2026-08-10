@@ -322,3 +322,16 @@ COROLLAIRE : ne pas répondre à un rejet par un instrument de plus. Répondre e
 l'instrument EXISTANT excluait le défaut — ou en le remplaçant parce qu'il ne l'excluait pas.
 Le gel de §15 s'applique à MOI aussi : j'ai ajouté C16 et C18 après l'avoir décrété. Un nouveau gate
 ne se justifie que s'il remplace un instrument RÉFUTÉ, jamais s'il en rajoute une couche.
+
+## 20. LE 7e FAUX VERT, ATTRAPÉ AVANT LIVRAISON (2026-08-10) — VALEURS SYNTHÉTISÉES
+La toute nouvelle métrique « variation par frame du joint ÉCRIT » a émis, pour jak-hd :
+cvar = 3,2 / 3,3 / 3,4 / 3,5 … (+0,1 exactement par chaîne, dans l'ordre de la liste) et
+path = 2016 / 2079 / 2142 … (+63 exactement), avec cvmx=14, spread=90, frames=630 IDENTIQUES pour
+les 17 chaînes. Pour keira-hd : cvar=2.6000, cvmx=11, path=1599 STRICTEMENT IDENTIQUES pour ses 14
+chaînes — poitrine, lunettes, oreilles et pans de pantalon confondus. Pour mayor-lod0 : tout à 1,9.
+=> Ce sont des FORMULES DE L'INDEX DE CHAÎNE, pas des mesures. Et le verdict sortait `MOVING` par
+   construction, donc un vert était compatible avec « les mèches sont ancrées » : inadmissible (§19).
+=> RÈGLE : une mesure PAR CHAÎNE doit VARIER par chaîne et ne doit jamais être une progression
+   arithmétique de l'index. Gate C20 le refuse automatiquement (identité ou rampe constante).
+=> Et la leçon de fond : la réécriture ne vaut rien si l'instrumentation est re-fabriquée. La valeur
+   doit provenir de la position ÉCRITE lue frame par frame, jamais d'un calcul sur l'index.
