@@ -73,6 +73,28 @@ for m in $DECL_MODELS; do
 done
 
 # ---------------------------------------------------------------------------
+# SYNC (owner 2026-08-11: "t'arrives pas a faire descendre a tes agents les
+# changements et ca gaspille des heures a ne pas le faire"). The report must
+# echo the CURRENT directives version. Recomputed here from DIRECTIVES.md + the
+# SPEC it designates + this phase's prompt, so any supervisor edit to any of the
+# three invalidates an in-flight attempt at validation time -- one failed
+# validation instead of hours spent on an abandoned scope.
+DV=$(python3 .autoport/lib/directives.py version Grecharged-secondary-motion 2>/dev/null)
+if [ -z "$DV" ]; then
+  echo "[Grecharged-secondary-motion FAIL] SYNC: cannot compute the directives version"
+  exit 1
+fi
+if ! grep -qF "DIRECTIVES $DV" "$R"; then
+  GOT=$(grep -oE "DIRECTIVES v[0-9a-f]{6,}" "$R" | head -1)
+  echo "[Grecharged-secondary-motion FAIL] SYNC: report carries ${GOT:-no directives line},"
+  echo "  current contract is DIRECTIVES $DV. The scope, the SPEC or the phase prompt changed"
+  echo "  while this attempt ran: re-read .autoport/DIRECTIVES.md (it overrides your task"
+  echo "  prompt), relaunch any subagent still working on the old scope, and echo the line."
+  exit 1
+fi
+echo "[SYNC] report on the current contract, DIRECTIVES $DV"
+
+# ---------------------------------------------------------------------------
 # ROOM (owner 2026-08-10, SPEC 11) -- LA SALLE DE TEST EST L'ETAPE 1 BLOQUANTE.
 # "je vois pas comment tu peux valider Keira en tapant a l'aveugle dans le jeu...
 #  un vrai test de physique quoi !"  No verdict on Keira exists without the room's

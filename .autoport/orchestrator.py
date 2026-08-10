@@ -1217,7 +1217,12 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         "VERIFYING subagent claims (read their diffs/logs yourself — trust but\n"
         "verify). Never delegate understanding: subagent prompts must contain\n"
         "exact file paths, line numbers, commands, and expected outputs.\n"
-        "Parallelize independent subagent runs in one message.\n\n"
+        "Parallelize independent subagent runs in one message.\n"
+        "MANDATORY: every subagent prompt STARTS with the active scope and the\n"
+        "`DIRECTIVES <version>` line from the block above. Their agent definitions\n"
+        "make them re-read .autoport/DIRECTIVES.md before acting, which overrides\n"
+        "your task text on conflict. If the scope changes mid-attempt, RELAUNCH\n"
+        "them — never let a subagent finish on the abandoned scope.\n\n"
         "## BUILD & DELIVERY EFFICIENCY (owner standing order 2026-08-06)\n"
         "The owner: 'c'est pas possible sur une journee d'avoir quasi la moitie du\n"
         "temps gaspillee en builds'. ALWAYS pick the CHEAPEST path that proves the\n"
@@ -1252,7 +1257,25 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         "than the fix, ship with an honest 'not proven: X' line instead of\n"
         "burning the cycle on instrumentation.\n\n"
     )
-    instructions = "ultrathink\n\n" + delegation_preamble + prompt_path.read_text()
+    # DIRECTIVE TRANSMISSION (owner 2026-08-11: "t'arrives pas a faire
+    # descendre a tes agents les changements et ca gaspille des heures").
+    # The contract is INLINED, not referenced by path: measured on attempt 2 of
+    # Grecharged-secondary-motion, the worker spawned 6 subagents and 0 of them
+    # carried the scope. A path the worker may or may not open is not a channel.
+    _dblock = ""
+    try:
+        sys.path.insert(0, str(REPO_ROOT / ".autoport" / "lib"))
+        import directives as _dv
+        import importlib
+        importlib.reload(_dv)          # picked up fresh each attempt, never cached
+        _dblock = _dv.block(pid)
+        console.print(f"[dim]· directives {_dv.version(pid)} inlined into the worker "
+                      f"prompt ({len(_dblock)} chars)[/dim]")
+    except Exception as _e:            # never let transmission break the run
+        console.print(f"[yellow]· directives block unavailable: {_e}[/yellow]")
+
+    instructions = ("ultrathink\n\n" + _dblock + delegation_preamble
+                    + prompt_path.read_text())
     if attempt > 1:
         prev_validator = log_dir / f"validator-{attempt - 1:02d}.txt"
         if prev_validator.exists():
