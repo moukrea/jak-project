@@ -1,3 +1,9 @@
+# ⚠️⚠️⚠️ SPEC §22 — LES DONNÉES AUSSI SONT À RÉGÉNÉRER, PAS À RUSTINER.
+# physics_chains.txt est le cumul de 14 cycles (rootlock à la main, masques miroirs, filtres,
+# familles collées après coup). On le PRODUIT depuis le rig + les règles de la spec. Famille
+# dérivée, racine verrouillée par construction sur la famille A, rayon dérivé du mesh, ZÉRO flag
+# de dérogation. PÉRIMÈTRE: KEIRA SEULE, données comprises. GEL DES GATES: aucun nouveau gate.
+
 # ⚠️⚠️ RÉÉCRITURE ORDONNÉE — LIRE SPEC §17 AVANT TOUTE CHOSE
 # Le solveur accumulé (6984 lignes, 54 commits, 19 défauts silencieux trouvés dedans) est JETÉ.
 # On garde: format de données, tables de reskin, la SPEC.

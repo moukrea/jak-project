@@ -354,3 +354,28 @@ LA RÈGLE, en deux moitiés inséparables :
     ancrées/immobiles » ET avec « cheveux décollés du crâne » — c'est-à-dire admissible au sens §19.
   * ANNULER le déverrouillage des 4 racines de mèches de Keira : ce n'était pas une correction, c'est
     une régression introduite pour satisfaire un critère mal posé.
+
+## 22. LA RÉÉCRITURE N'ÉTAIT PAS PROPRE — LES DONNÉES SONT LE CUMUL (owner 2026-08-10 18:00)
+Ma faute, relevée par l'owner : §17 a réécrit le SOLVEUR et a explicitement GARDÉ
+`physics_chains.txt`. Or c'est LÀ que vit tout le cumul — 345 chaînes accumulées sur 14 cycles, des
+`rootlock=` posés à la main, les masques miroirs, les familles collées après coup, les 2384 filtres
+`chains=`, les rayons absurdes. J'ai donc passé la journée à RUSTINER le cumul que j'étais censé
+jeter, et à ajouter des gates (C16, C18, C20, C21) après avoir décrété leur gel en §15. Deux fois la
+même faute, et c'est l'owner qui a dû me le dire.
+
+### CE QUI EST ORDONNÉ MAINTENANT
+  1. **GEL DES GATES, POUR DE BON.** Zéro nouveau gate. Si un critère manque, il REMPLACE un gate
+     réfuté ou il n'existe pas. Je m'y tiens sans qu'on me le rappelle.
+  2. **LES DONNÉES SE RÉGÉNÈRENT, ELLES NE SE RUSTINENT PAS.** `physics_chains.txt` doit être
+     PRODUIT depuis le rig + les règles de la spec, jamais édité à la main :
+       - famille A/B : DÉRIVÉE du nom/nature (§2), pas écrite ;
+       - racine : VERROUILLÉE par construction pour toute chaîne de famille A (§21) — il ne doit
+         même pas exister de `rootlock=0` possible sur un cheveu ;
+       - rayon par maillon : DÉRIVÉ de l'épaisseur locale du mesh (§18) ;
+       - aucun flag héritable à la main (`colskip`, filtres `chains=`, masques) : ils n'existent plus.
+     Si un réglage doit être exposé, il l'est comme paramètre de STYLE par personnage (raideur,
+     débattement, masse), pas comme dérogation à une règle.
+  3. **PÉRIMÈTRE RÉEL : KEIRA SEULE, DONNÉES COMPRISES.** On génère SES chaînes, on ne touche pas
+     aux 59 autres modèles. Le fichier peut ne contenir qu'elle le temps de la valider.
+  4. Ordre : générer ses données -> jambe x86 (device absent) -> son verdict par chaîne (racine
+     ancrée + pointe mobile + surface réelle) -> livraison à l'owner. Rien d'autre.
