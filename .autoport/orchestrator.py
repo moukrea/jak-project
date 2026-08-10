@@ -1108,6 +1108,22 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
 # Phase execution
 # ============================================================
 
+SCOPE_STAMP = REPO_ROOT / ".autoport" / ".scope_stamp"   # bumped by the supervisor on a scope change
+
+
+def _scope_changed(seen: str | None) -> str | None:
+    """A scope change must kill the running attempt IMMEDIATELY.
+
+    The owner lost hours twice because an attempt kept grinding the OLD scope
+    after I narrowed it. Touching .autoport/.scope_stamp now aborts the attempt
+    on the next tick instead of waiting for the 45-minute progress watchdog.
+    """
+    try:
+        return f"{SCOPE_STAMP.stat().st_mtime_ns}"
+    except OSError:
+        return seen
+
+
 NO_PROGRESS_SEC = 45 * 60  # abort an attempt whose artifacts stop changing
 
 
@@ -1326,6 +1342,7 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         # one attempt burned 3h15 with a frozen diff. Watch the ARTIFACT instead.
         last_progress_at = time.monotonic()
         last_progress_fp = _progress_fingerprint()
+        scope_seen = _scope_changed(None)
         try:
             stdout_fd = proc.stdout
             while True:
@@ -1363,6 +1380,16 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
                     # NO_PROGRESS_SEC while the child is still chatting: the
                     # attempt is going nowhere. Kill it and let the retry restart
                     # with the tree (and any WIP checkpoint) preserved.
+                    _sc = _scope_changed(scope_seen)
+                    if _sc != scope_seen:
+                        console.print("[red]· SCOPE CHANGED — aborting the attempt now[/red]")
+                        stall_forced = True
+                        try:
+                            os.killpg(proc.pid, signal.SIGTERM)
+                        except (ProcessLookupError, PermissionError):
+                            pass
+                        break
+
                     if time.monotonic() - last_progress_at >= NO_PROGRESS_SEC:
                         fp_now = _progress_fingerprint()
                         if fp_now != last_progress_fp:
