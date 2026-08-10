@@ -42,6 +42,14 @@ SCOPE-SERIAL: 1
 
 ## RÈGLES QUI NE SE NÉGOCIENT JAMAIS (owner)
 
+0. **UN COMMENTAIRE N'EST PAS UNE PREUVE.** Owner 2026-08-11 : « me raconte pas de conneries, je
+   sais ce que je vois ». Toute affirmation sur ce que le programme FAIT doit citer une trace
+   d'exécution (ligne de log, compteur, nombre mesuré) — jamais un commentaire, un docstring ou
+   une intention écrite dans le source. Exemple de la faute : `phys-room.gc:429` affirme « the
+   player is asleep, nothing else is in it » ; aucune trace ne le confirme, et l'owner voit Jak
+   jouer normalement dans la hutte du Sage pendant la mesure. Cette règle vaut pour le worker,
+   les sous-agents ET le superviseur.
+
 1. **Aucun faux vert.** Un chiffre vert dont l'owner voit encore le défaut est une mesure sans
    valeur : elle est retirée, pas défendue. Tout zéro exige un **contrôle positif qui a tiré**
    (injecter le défaut, voir le compteur monter, l'enlever).

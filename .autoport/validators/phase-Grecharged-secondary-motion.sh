@@ -159,6 +159,21 @@ if arm <= dis * 3.0:
         " (need armed >= 3x disarmed). Either the injection does not create penetration, or the"
         " counter does not see it -- both mean every zero this instrument reports is vacuous."
         % (arm,dis))
+# ISOLATION, PROVEN AT RUNTIME (owner 2026-08-11, watching the x86 build: "c'est Jak
+# qui tourne en rond dans la hutte du Sage, son spawn defaut au debut du jeu, rien a
+# voir avec une salle de test"). The room spawned its 6 art-groups correctly -- but
+# INSIDE a live gameplay session at village1-hut, with the player alive. A source
+# comment claiming "the player is asleep" is not evidence; a log line is.
+if not re.search(r'^host=\S+',t,re.M):
+    die("no 'host=<zone>' line: the table must name the zone it ran in")
+m=re.search(r'^ROOM-ISOLATION:\s*player=(\w+)\s+world-actors=(\d+)',t,re.M)
+if not m:
+    die("no 'ROOM-ISOLATION: player=<state> world-actors=<n>' line proving, FROM THE RUN's own"
+        " log, that the player is asleep and no world actor shares the zone. The measurements are"
+        " contaminated otherwise: the owner watched Jak play during the last one.")
+if m.group(1) not in ('asleep','dead','absent') or int(m.group(2)) != 0:
+    die("the room ran with player=%s and %s world actor(s) in the zone: that is the game, not a"
+        " test room" % (m.group(1),m.group(2)))
 # the room must be a real facility in the tree, not a hand-written text file
 src=[f for f in glob.glob('goal_src/jak1/pc/*.gc') if 'phys-room' in open(f,errors='ignore').read()]
 if not src: die("no goal_src/jak1/pc/*.gc carries a 'phys-room' facility -- the table has no room behind it")
