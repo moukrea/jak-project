@@ -24,3 +24,14 @@ ORDRE DE TRAVAIL — quatre étapes, rien d'autre :
   3. verdict PAR CHAÎNE NOMMÉE : racine ancrée + pointe mobile + zéro pénétration de surface avec
      contrôle positif + pas de saut visible ;
   4. build + rapport, puis l'owner juge.
+
+### PÉRIMÈTRE APPLIQUÉ PAR LE SUPERVISEUR (2026-08-10 19:45)
+Le worker a passé 1h28 à retravailler les 349 chaînes des 43 modèles au lieu de se limiter à Keira,
+et le rapport est resté figé 2h. J'ai donc RÉDUIT le fichier moi-même :
+`recharged_assets/physics_chains.txt` ne contient plus QUE les blocs de Keira (+ les sections
+globales `[levels]`/`[eyescale]`). Le cast complet est archivé dans
+`recharged_assets/physics_chains.FULL-CAST.bak` — il sera RÉGÉNÉRÉ (pas restauré) une fois Keira
+validée par l'owner.
+CONSÉQUENCE : les 59 autres modèles n'ont plus de physique pour l'instant. C'EST VOULU et l'owner
+l'a autorisé. Ne pas les réintroduire. Travailler uniquement sur Keira, avec un fichier assez petit
+pour être poussé à chaud sur device en quelques secondes.
