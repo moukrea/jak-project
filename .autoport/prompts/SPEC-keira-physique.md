@@ -52,6 +52,12 @@ Les cheveux **restent ancrés à la racine**. La racine suit rigidement l'os por
 le mouvement croît vers la pointe, et c'est **sur la pointe** qu'on juge s'il y a du mouvement. Une
 racine qui dérive = cheveux décollés = défaut. Les deux moitiés sont indissociables : ancré ET mobile.
 
+**L'atténuation des angles extrêmes ne concerne QUE les cheveux.** Owner 2026-08-11 : « c'est juste
+sur les mèches, pas le reste, encore moins les seins ». Le défaut corrigé est un pli trop serré
+entre deux maillons, que la peau à faible densité de polygones ne peut pas encaisser — il n'existe
+donc que sur une chaîne à plusieurs maillons. Une chaîne à un seul maillon (la poitrine) n'a aucun
+angle inter-maillon : y appliquer une atténuation ne corrige rien et **retire du mouvement**.
+
 **Le gradient est monotone, et ce n'est pas négociable.** Owner 2026-08-11 : « faut pas que le milieu
 des petites mèches bouge plus que les pointes, c'est juste logique ». Le mouvement de chaque maillon,
 **mesuré relativement à son parent**, doit être ≥ celui du maillon précédent. Un milieu plus agité

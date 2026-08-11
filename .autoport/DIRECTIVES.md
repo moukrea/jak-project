@@ -669,9 +669,17 @@ la fois, chacun mesuré contre le plancher `motion-floor.txt` avant d'être cons
 5. *Étirement et effet gelée sur les mouvements brusques.* L'os ne s'allonge pas (`STRETCH ≤ 3 %`,
    déjà atteint à 1.43 %) ; la **chair se déforme**, bornée à ~15 %, corrélée au stimulus et
    récupérée à l'arrêt. Ce n'est pas la suppression de la déformation, c'est son cadrage.
-6. *Angles extrêmes qui révèlent le manque de polygones.* Atténuation **progressive** et **locale**
-   aux maillons concernés, jamais globale. C'est cette atténuation, appliquée partout, qui a
-   divisé le mouvement des mèches par huit.
+6. *Angles extrêmes qui révèlent le manque de polygones.* **UNIQUEMENT SUR LES CHEVEUX**, précision
+   de l'owner (22:35) : « l'atténuation pour éviter la géométrie extrême c'est juste sur les mèches,
+   pas le reste, encore moins les seins ».
+   Périmètre exact : `lbang`, `rbang`, `lmidhair`, `rmidhair`, `backhair`. Rien d'autre.
+   **Et c'est mécaniquement évident une fois posé** : le défaut est un pli trop serré *entre deux
+   maillons* d'une mèche, que la peau à faible densité de polygones ne peut pas encaisser. Une
+   chaîne à **un seul maillon** — `chestL`, `chestR` — n'a aucun angle inter-maillon : y appliquer
+   une atténuation ne peut rien corriger et ne fait que **retirer du mouvement**. C'est
+   exactement ce qui s'est produit, et c'est une partie de l'effondrement x8.
+   L'atténuation reste par ailleurs **progressive** (un clamp brut ferait un à-coup) et **locale au
+   maillon fautif**, pas appliquée à toute la chaîne.
 
 **RÈGLE DE CONSERVATION** : après chaque point, la course de la salle doit montrer que **aucune
 chaîne** n'est passée sous 60 % de son plancher. Si le plancher casse, le point est retiré — pas
