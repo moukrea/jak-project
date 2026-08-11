@@ -188,6 +188,12 @@ void KernelCheckAndDispatch() {
     want_display_maybe();
     want_vis_maybe();
 
+    // PHYS-ROOM (Grecharged-secondary-motion, SPEC §6 étape 1) — gated (env
+    // OG_PHYS_ROOM / prop debug.opengoal.phys.room), OFF by default. Calls the GOAL
+    // `phys-room-start` to open the player-less physics test room (subject spawned
+    // alone, Jak absent). Same in-context dispatch point as the want-* hooks.
+    phys_room_maybe();
+
     // TARGET-DRIVE (Gcrash-swamp-load debug-only) — march *target* across the swamp
     // load boundary from its real position; gated debug.opengoal.target.drive, OFF
     // by default.

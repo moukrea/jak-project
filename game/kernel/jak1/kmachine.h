@@ -23,6 +23,15 @@ int ShutdownMachine();
 
 void InitMachineScheme();
 
+/*!
+ * PHYS-ROOM (Grecharged-secondary-motion, SPEC §6 étape 1) — env OG_PHYS_ROOM / prop
+ * debug.opengoal.phys.room, OFF by default. Once armed (any value but "" and "0"), it
+ * calls the GOAL function `phys-room-start` through the *listener-function* trampoline
+ * after OG_PHYS_ROOM_DELAY ticks (default 600), from the title screen — no game session
+ * required — to open the player-less physics test room. Never armed in production.
+ */
+void phys_room_maybe();
+
 struct DiscordInfo {
   u32 fuel;
   u32 money_total;

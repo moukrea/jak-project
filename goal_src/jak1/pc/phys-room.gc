@@ -1,0 +1,471 @@
+;;-*-Lisp-*-
+(in-package goal)
+
+;; phys-room.gc — LA SALLE DE TEST DE KEIRA, SANS JOUEUR (SPEC-keira-physique.md section 6).
+;;
+;; C'est l'ETAPE 1 du contrat, avant toute physique : sans elle il n'y a pas de mesure, et sans
+;; mesure il n'y a rien a dire. Ce que l'owner a demande, mot pour mot :
+;;
+;;   « il serait bon d'avoir une test room dans laquelle ON NE SPAWN PAS LE PLAYER mais le
+;;     personnage a tester, qu'on deplace in game de haut en bas, de gauche a droite, avec
+;;     diverses accelerations, a coups, animations (toutes celles concernant ledit PNJ) »
+;;
+;; La tentative precedente mesurait dans une partie normale a village1-hut avec Jak jouable a
+;; l'ecran ; l'owner l'a vu. Ici :
+;;
+;;   * `phys-room-start` appelle `(stop 'debug)` (logic-target.gc:1268) qui TUE le target et remet
+;;     *target* a #f, puis coupe la naissance d'entites (*spawn-actors*). A CHAQUE FRAME de mesure
+;;     la salle recompte les target vivants ; le compteur `viol` est publie tel quel. Le tableau ne
+;;     peut declarer « joueur absent » que si ce compteur vaut zero — REGLE 0 : la ligne du tableau
+;;     est ecrite par le script depuis la trace, pas par une promesse dans ce commentaire.
+;;   * le sujet est spawne PAR NOM : l'art-group `assistant` (la Keira stock de jak1) est charge a
+;;     la main (loado -> login -> set-loaded-art), exactement comme jak-hd.gc:691-701 charge le
+;;     sien. AUCUN NIVEAU N'EST CHARGE : le squelette vit sur level-default. La zone contient le
+;;     sujet, sa peau HD, et la camera.
+;;   * le compagnon HD `keira-hd` se greffe tout seul (maybe-spawn-jak-hd!, jak-hd.gc:794) parce
+;;     que le mgeo du sujet s'appelle `assistant-lod0` — le seul nom que hd-char-for-mgeo mappe
+;;     sur Keira (jak-hd.gc:294-297). C'est LUI qui porte les chaines : le rig HD a des os
+;;     (Rbanga, Lmidhaira, mask...) que le rig stock n'a pas.
+;;   * le sujet est DEPLACE par integration d'une acceleration imposee : haut/bas, gauche/droite,
+;;     accelerations croissantes, et a-coups (vitesse posee d'un coup, arrets brutaux).
+;;   * TOUTES les animations de son art-group sont jouees, une fenetre de mesure par
+;;     (animation x pilotage), et chaque fenetre publie une ligne par chaine.
+;;
+;; Ce fichier ne calcule AUCUNE physique et n'invente AUCUN instrument : il fenetre, il lit les
+;; accumulateurs de jak-hd-physics.gc (qui sont remplis la ou la position ecrite est connue), et
+;; il imprime. Les lignes brutes commencent toutes par PHYS* et sont converties en tableau par
+;; .autoport/physics_room_table.py.
+
+(#when FLAG_PHYSICS
+
+;; ------------------------------------------------------------------------------------------------
+;; le sujet. `assistant` = le nom jak1 de Keira ; `assistant-lod0` est le mgeo que le compagnon HD
+;; reconnait. :texture-level 2 fait passer initialize-skeleton par *level* level-default
+;; (process-drawable.gc:343) : pas d'entite, pas de niveau.
+;; ------------------------------------------------------------------------------------------------
+(defskelgroup *phys-subject-sg* assistant
+  assistant-lod0-jg
+  assistant-idle-leaning-right-ja
+  ((assistant-lod0-mg (meters 999999)))
+  :bounds (static-spherem 0 0 0 2)
+  :texture-level 2)
+
+(defconstant PHYSROOM-MAXANIM 32)   ;; capacite de la table d'animations
+(defconstant PHYSROOM-DRIVES  4)    ;; updown / leftright / accel / jerk
+(defconstant PHYSROOM-WIN     110)  ;; frames par fenetre de mesure
+(defconstant PHYSROOM-SETTLE  120)  ;; frames d'amorcage avant la premiere mesure
+(defconstant PHYSROOM-IDLES   150)  ;; frames de calme AVANT de mesurer le repos
+(defconstant PHYSROOM-IDLEM   120)  ;; frames de mesure du repos
+(defconstant PHYSROOM-PCW     90)   ;; frames par branche du controle positif
+(defconstant PHYSROOM-LIMIT   12288.0) ;; +/- 3 m autour du point de depart
+
+;; phases
+(defconstant PHYSROOM-PH-SETTLE 0)
+(defconstant PHYSROOM-PH-MEAS   1)
+(defconstant PHYSROOM-PH-IDLE   2)
+(defconstant PHYSROOM-PH-PCOFF  3)
+(defconstant PHYSROOM-PH-PCON   4)
+(defconstant PHYSROOM-PH-REPORT 5)
+(defconstant PHYSROOM-PH-DONE   6)
+
+(deftype phys-subject (process-drawable)
+  ((phase   int32)
+   (pframe  int32)
+   (ai      int32)     ;; index dans *physroom-anim*
+   (drive   int32)
+   (nanim   int32)
+   (slot    int32)     ;; slot de simulation du compagnon
+   (nchain  int32)
+   (hdpid   int32)
+   (fnum    float)     ;; frame courante de l'animation
+   (nframe  float)     ;; nombre de frames de l'animation courante
+   (viol    int32)     ;; frames de mesure ou un target existait (doit rester 0)
+   (nactor  int32)     ;; pire nombre d'acteurs etrangers vus dans la zone
+   (killed  int32)     ;; acteurs etrangers deactives
+   (dis     float)     ;; controle positif : penetration max, defaut DESARME
+   (arm     float)     ;; controle positif : penetration max, defaut ARME
+   (injn    int32)     ;; poussees reellement injectees
+   (vel     vector :inline)
+   (home    vector :inline))
+  (:states phys-subject-run))
+
+(define *physroom-anim* (new 'global 'array 'int32 PHYSROOM-MAXANIM))
+(define *physroom-proc* (the-as (pointer phys-subject) #f))
+
+;; --- balayage de la zone (deux phases : on collecte, PUIS on tue — jamais muter l'arbre pendant
+;; --- qu'on le parcourt, meme piege que hd-scan-visit).
+(define *physroom-self*    (the-as process #f))
+(define *physroom-hd*      (the-as process #f))
+(define *physroom-nactor*  0)
+(define *physroom-ntarget* 0)
+(define *physroom-kill*    (new 'static 'array process-drawable 32))
+(define *physroom-nkill*   0)
+
+(defun physroom-visit ((proc process))
+  (when (= (-> proc type) target) (+! *physroom-ntarget* 1))
+  (when (and (type-type? (-> proc type) process-drawable)
+             (!= proc *physroom-self*)
+             (!= proc *physroom-hd*))
+    (+! *physroom-nactor* 1)
+    (when (< *physroom-nkill* 32)
+      (set! (-> *physroom-kill* *physroom-nkill*) (the-as process-drawable proc))
+      (+! *physroom-nkill* 1)))
+  #t)
+
+;; ------------------------------------------------------------------------------------------------
+;; VIDER LA ZONE, et le prouver. Retourne le nombre d'acteurs ETRANGERS trouves cette frame (0 =
+;; la zone ne contient plus que le sujet et sa peau HD). Les target trouves sont tues sur place et
+;; comptes : la salle ne peut pas se contenter de les endormir (SPEC : « ni endormi, ni hors
+;; champ : absent »).
+;; ------------------------------------------------------------------------------------------------
+(defbehavior physroom-sweep phys-subject ((kill? symbol))
+  (set! *physroom-self* (the-as process self))
+  (set! *physroom-hd* (if (-> self child) (the-as process (-> self child 0)) (the-as process #f)))
+  (set! *physroom-nactor* 0)
+  (set! *physroom-ntarget* 0)
+  (set! *physroom-nkill* 0)
+  (iterate-process-tree *active-pool* physroom-visit *null-kernel-context*)
+  (when (> *physroom-ntarget* 0)
+    ;; un target est reapparu (cycle d'attract) : on le tue immediatement et on le compte. Cette
+    ;; frame de mesure est contaminee, et le compteur le dira.
+    (kill-by-name 'target *active-pool*)
+    (set! *target* #f))
+  (when kill?
+    (dotimes (i *physroom-nkill*)
+      (deactivate (-> *physroom-kill* i))
+      (+! (-> self killed) 1)))
+  *physroom-nactor*)
+
+;; ------------------------------------------------------------------------------------------------
+;; LE PILOTAGE. Tout passe par une acceleration imposee puis integree : c'est la seule chose que la
+;; chaine ressent (la pseudo-force de repere accelere de jak-hd-physics.gc). Les quatre modes sont
+;; ceux que l'owner a nommes.
+;;   0 updown     acceleration verticale, signe alterne, trois magnitudes
+;;   1 leftright  idem, horizontal
+;;   2 accel      MEME axe, magnitude qui monte de x1 a x15 sur la fenetre — « diverses accelerations »
+;;   3 jerk       vitesse POSEE d'un coup et arrets brutaux — « a-coups »
+;; Les unites sont des unites de jeu par frame^2 (4096 u = 1 m, 60 Hz).
+;; ------------------------------------------------------------------------------------------------
+(defbehavior physroom-drive phys-subject ((mode int) (f int))
+  (let ((ax 0.0) (ay 0.0) (az 0.0)
+        (seg (/ f 15)))
+    (cond
+      ((zero? mode)
+       (set! ay (* (if (zero? (mod seg 2)) 1.0 -1.0)
+                   (case (mod seg 6) ((0 1) 10.0) ((2 3) 26.0) (else 52.0)))))
+      ((= mode 1)
+       (set! ax (* (if (zero? (mod seg 2)) 1.0 -1.0)
+                   (case (mod seg 6) ((0 1) 10.0) ((2 3) 26.0) (else 52.0)))))
+      ((= mode 2)
+       ;; rampe continue : la meme trajectoire subie a des accelerations de plus en plus fortes.
+       (let ((g (* 4.0 (+ 1.0 (* 14.0 (/ (the float f) (the float PHYSROOM-WIN)))))))
+         (set! ax (* g (if (zero? (mod (/ f 25) 2)) 1.0 -1.0)))
+         (set! az (* 0.5 g (if (zero? (mod (/ f 25) 2)) -1.0 1.0)))))
+      (else
+       ;; a-coups : toutes les 10 frames la vitesse est ECRASEE, pas accumulee. Un segment sur
+       ;; trois est un arret net (vitesse exactement nulle) : c'est le pire cas pour une chaine.
+       (when (zero? (mod f 10))
+         (let ((s (mod (/ f 10) 6)))
+           (case s
+             ((0) (set-vector! (-> self vel) 0.0 0.0 0.0 1.0))
+             ((1) (set-vector! (-> self vel) 210.0 0.0 0.0 1.0))
+             ((2) (set-vector! (-> self vel) 0.0 -260.0 0.0 1.0))
+             ((3) (set-vector! (-> self vel) 0.0 0.0 0.0 1.0))
+             ((4) (set-vector! (-> self vel) -240.0 0.0 190.0 1.0))
+             (else (set-vector! (-> self vel) 0.0 300.0 0.0 1.0)))))))
+    (when (< mode 3)
+      (set! (-> self vel x) (+ (-> self vel x) ax))
+      (set! (-> self vel y) (+ (-> self vel y) ay))
+      (set! (-> self vel z) (+ (-> self vel z) az))))
+  ;; integration + garde-fou : sortir de +/-3 m arrete net (encore un a-coup, pas un filtre).
+  (set! (-> self root trans x) (+ (-> self root trans x) (-> self vel x)))
+  (set! (-> self root trans y) (+ (-> self root trans y) (-> self vel y)))
+  (set! (-> self root trans z) (+ (-> self root trans z) (-> self vel z)))
+  (when (> (fabs (- (-> self root trans x) (-> self home x))) PHYSROOM-LIMIT)
+    (set! (-> self root trans x) (+ (-> self home x) (* PHYSROOM-LIMIT (if (> (-> self vel x) 0.0) 1.0 -1.0))))
+    (set! (-> self vel x) 0.0))
+  (when (> (fabs (- (-> self root trans y) (-> self home y))) PHYSROOM-LIMIT)
+    (set! (-> self root trans y) (+ (-> self home y) (* PHYSROOM-LIMIT (if (> (-> self vel y) 0.0) 1.0 -1.0))))
+    (set! (-> self vel y) 0.0))
+  (when (> (fabs (- (-> self root trans z) (-> self home z))) PHYSROOM-LIMIT)
+    (set! (-> self root trans z) (+ (-> self home z) (* PHYSROOM-LIMIT (if (> (-> self vel z) 0.0) 1.0 -1.0))))
+    (set! (-> self vel z) 0.0))
+  (none))
+
+(defbehavior physroom-hold phys-subject ()
+  "immobile, pile sur le point de depart : c'est l'etat de repos de SPEC section 4."
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; ANIMATION. On pose le groupe de frames du channel 0 a la main et on avance frame-num nous-memes
+;; (num-func-identity) : c'est exactement ce que fait initialize-skeleton (process-drawable.gc:405)
+;; et ca nous laisse maitre du temps, donc de la reproductibilite des fenetres.
+;; ------------------------------------------------------------------------------------------------
+(defbehavior physroom-set-anim phys-subject ((ai int))
+  (let* ((ag  (-> self draw art-group))
+         (idx (-> *physroom-anim* ai))
+         (an  (the-as art-joint-anim (-> ag data idx))))
+    (ja-channel-set! 1)
+    (let ((ch (-> self skel root-channel 0)))
+      (joint-control-channel-group-eval! ch an num-func-identity)
+      (set! (-> ch frame-num) 0.0))
+    (set! (-> self fnum) 0.0)
+    (set! (-> self nframe) (the float (-> an data 0 length))))
+  (none))
+
+(defbehavior physroom-advance-anim phys-subject ((step float))
+  (when (nonzero? (-> self skel))
+    (set! (-> self fnum) (+ (-> self fnum) step))
+    (when (>= (-> self fnum) (- (-> self nframe) 1.0)) (set! (-> self fnum) 0.0))
+    (set! (-> self skel root-channel 0 frame-num) (-> self fnum)))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; PUBLICATION D'UNE FENETRE. Une ligne par chaine. La cle `k` encode (chaine, animation,
+;; pilotage) : format cape a 8 parametres (destination + format + 6), et on veut les quatre
+;; colonnes sur la meme ligne pour qu'elles ne puissent pas etre reassemblees de travers.
+;; ------------------------------------------------------------------------------------------------
+(defbehavior physroom-emit-window phys-subject ()
+  (dotimes (c (-> self nchain))
+    (let* ((ns (phys-stat (-> self slot) c 0))
+           (tv (if (> ns 0.5) (/ (phys-stat (-> self slot) c 1) ns) 0.0)))
+      (format 0 "PHYSROW k=~D tip=~f root=~f pen=~f jump=~f~%"
+              (+ (* (+ (* c PHYSROOM-MAXANIM) (-> self ai)) 8) (-> self drive))
+              tv
+              (phys-stat (-> self slot) c 3)
+              (phys-stat (-> self slot) c 4)
+              (phys-stat (-> self slot) c 2))))
+  (none))
+
+(defbehavior physroom-max-pen phys-subject ()
+  (let ((m 0.0))
+    (dotimes (c (-> self nchain))
+      (let ((p (phys-stat (-> self slot) c 4)))
+        (when (> p m) (set! m p))))
+    m))
+
+;; ------------------------------------------------------------------------------------------------
+;; LE RAPPORT BRUT. Aucune conclusion ici : des nombres, et le script en fait un tableau. S'il
+;; manque une preuve (un target apparu pendant la mesure), le nombre le dit et le script refuse
+;; d'ecrire « joueur absent ».
+;; ------------------------------------------------------------------------------------------------
+(defbehavior physroom-report phys-subject ()
+  (format 0 "PHYSNOPLAY viol=~D actors=~D killed=~D~%"
+          (-> self viol) (-> self nactor) (-> self killed))
+  (format 0 "PHYSCOUNTS anims=~D chains=~D drives=~D slot=~D hdpid=~D~%"
+          (-> self nanim) (-> self nchain) PHYSROOM-DRIVES (-> self slot) (-> self hdpid))
+  (format 0 "PHYSPC injections=~D armed=~f disarmed=~f~%"
+          (-> self injn) (-> self arm) (-> self dis))
+  (dotimes (c (-> self nchain))
+    (format 0 "PHYSAUTH c=~D hit=~f ok=~f fam=~D~%"
+            c
+            (phys-auth (-> self slot) c 0)
+            (phys-auth (-> self slot) c 1)
+            (phys-chain-family (-> self slot) c)))
+  (format 0 "PHYSEND~%")
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; LA MACHINE A ETATS. Une frame = un pas.
+;; ------------------------------------------------------------------------------------------------
+(defbehavior physroom-tick phys-subject ()
+  ;; la zone reste vide a chaque frame, et on compte ce qu'on y trouve.
+  (let ((n (physroom-sweep (< (-> self phase) PHYSROOM-PH-REPORT))))
+    (when (> n (-> self nactor)) (set! (-> self nactor) n))
+    ;; une frame de MESURE contaminee par un target vivant est une violation. Les phases
+    ;; d'amorcage ne comptent pas : c'est la qu'on nettoie.
+    (when (and (> *physroom-ntarget* 0) (> (-> self phase) PHYSROOM-PH-SETTLE))
+      (+! (-> self viol) 1)))
+
+  (+! (-> self pframe) 1)
+
+  (cond
+    ;; ---- 0. AMORCAGE : attendre le compagnon HD et ses chaines -------------------------------
+    ((= (-> self phase) PHYSROOM-PH-SETTLE)
+     (physroom-hold)
+     (physroom-advance-anim 1.0)
+     (when (< (-> self slot) 0)
+       (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+         (when (and hd (= (-> hd type) jak-hd))
+           (set! (-> self hdpid) (the int (-> hd pid)))
+           (set! (-> self slot) (phys-slot-of (the int (-> hd pid))))
+           (when (>= (-> self slot) 0)
+             (set! (-> self nchain) (phys-slot-chains (-> self slot)))
+             ;; la topologie REELLEMENT resolue par le moteur, pas celle que le fichier promet.
+             (dotimes (c (-> self nchain))
+               (let ((j0 (phys-chain-joint (-> self slot) c 0)))
+                 (format 0 "PHYSCHAIN c=~D links=~D fam=~D j0=~S~%"
+                         c
+                         (phys-chain-links (-> self slot) c)
+                         (phys-chain-family (-> self slot) c)
+                         (if (and (>= j0 0) (nonzero? (-> hd draw)) (nonzero? (-> hd draw jgeo)))
+                           (-> hd draw jgeo data j0 name)
+                           "?"))))))))
+     (when (and (>= (-> self pframe) PHYSROOM-SETTLE) (> (-> self nchain) 0))
+       (phys-auth-reset!)
+       (set! (-> self phase) PHYSROOM-PH-MEAS)
+       (set! (-> self pframe) 0)
+       (set! (-> self ai) 0)
+       (set! (-> self drive) 0)
+       (physroom-set-anim 0)
+       (phys-stats-reset!)))
+
+    ;; ---- 1. MESURE : toutes les animations x les quatre pilotages -----------------------------
+    ((= (-> self phase) PHYSROOM-PH-MEAS)
+     (physroom-drive (-> self drive) (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-WIN)
+       (physroom-emit-window)
+       (set! (-> self pframe) 0)
+       (+! (-> self drive) 1)
+       (when (>= (-> self drive) PHYSROOM-DRIVES)
+         (set! (-> self drive) 0)
+         (+! (-> self ai) 1)
+         (when (< (-> self ai) (-> self nanim)) (physroom-set-anim (-> self ai))))
+       (cond
+         ((>= (-> self ai) (-> self nanim))
+          (set! (-> self phase) PHYSROOM-PH-IDLE)
+          (physroom-set-anim 0)
+          (phys-stats-reset!))
+         (else
+          (phys-stats-reset!)))))
+
+    ;; ---- 2. LE REPOS : immobile, animation figee. La cible du ressort ne bouge plus, donc au
+    ;; ---- repos l'ecart a la pose du modele doit tendre vers zero (SPEC section 4).
+    ((= (-> self phase) PHYSROOM-PH-IDLE)
+     (physroom-hold)
+     ;; frame-num CONSTANTE : la pose d'auteur est immobile, c'est ca « la pose du modele ».
+     (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
+     (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
+       (dotimes (c (-> self nchain))
+         (format 0 "PHYSIDLE c=~D dev=~f fam=~D tip=~f~%"
+                 c
+                 (phys-stat (-> self slot) c 5)
+                 (phys-chain-family (-> self slot) c)
+                 (let ((ns (phys-stat (-> self slot) c 0)))
+                   (if (> ns 0.5) (/ (phys-stat (-> self slot) c 1) ns) 0.0))))
+       (set! (-> self phase) PHYSROOM-PH-PCOFF)
+       (set! (-> self pframe) 0)
+       (phys-inject-set! 0.0)
+       (phys-inject-count-reset!)
+       (phys-stats-reset!)))
+
+    ;; ---- 3. CONTROLE POSITIF, branche DESARMEE : la penetration telle qu'elle est ------------
+    ((= (-> self phase) PHYSROOM-PH-PCOFF)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self dis) (physroom-max-pen))
+       (set! (-> self phase) PHYSROOM-PH-PCON)
+       (set! (-> self pframe) 0)
+       (phys-inject-count-reset!)
+       (phys-stats-reset!)
+       ;; on POSE le defaut : chaque lien libre est pousse de 400 unites (~10 cm) vers l'interieur
+       ;; du corps APRES resolution. Si le compteur de penetration ne monte pas, il ne mesure rien.
+       (phys-inject-set! 400.0)))
+
+    ;; ---- 4. CONTROLE POSITIF, branche ARMEE --------------------------------------------------
+    ((= (-> self phase) PHYSROOM-PH-PCON)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self arm) (physroom-max-pen))
+       (set! (-> self injn) (phys-inject-count))
+       (phys-inject-set! 0.0)
+       (set! (-> self phase) PHYSROOM-PH-REPORT)
+       (set! (-> self pframe) 0)))
+
+    ;; ---- 5. RAPPORT --------------------------------------------------------------------------
+    ((= (-> self phase) PHYSROOM-PH-REPORT)
+     (physroom-report)
+     (set! (-> self phase) PHYSROOM-PH-DONE)
+     (set! (-> self pframe) 0))
+
+    (else
+     (physroom-hold)))
+  (none))
+
+(defstate phys-subject-run (phys-subject)
+  :code (behavior () (loop (suspend)))
+  :trans (behavior () (physroom-tick))
+  :post (behavior () (ja-post)))
+
+;; ------------------------------------------------------------------------------------------------
+;; NAISSANCE DU SUJET
+;; ------------------------------------------------------------------------------------------------
+(defbehavior init-phys-subject phys-subject ()
+  (set! (-> self phase) PHYSROOM-PH-SETTLE)
+  (set! (-> self pframe) 0)
+  (set! (-> self ai) 0)
+  (set! (-> self drive) 0)
+  (set! (-> self slot) -1)
+  (set! (-> self nchain) 0)
+  (set! (-> self viol) 0)
+  (set! (-> self nactor) 0)
+  (set! (-> self killed) 0)
+  (set! (-> self dis) 0.0)
+  (set! (-> self arm) 0.0)
+  (set! (-> self injn) 0)
+  (set! (-> self fnum) 0.0)
+  (set! (-> self nframe) 1.0)
+  (set! (-> self root) (new 'process 'trsqv))
+  (vector-identity! (-> self root scale))
+  (quaternion-identity! (-> self root quat))
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (position-in-front-of-camera! (-> self root trans) 40960.0 4096.0)
+  (vector-copy! (-> self home) (-> self root trans))
+  ;; l'art-group du sujet, charge PAR NOM et sans niveau : loado -> login -> set-loaded-art, puis
+  ;; initialize-skeleton le trouve deja resident (meme recette que jak-hd.gc:691-701).
+  (let ((ag (the-as art-group (loado (make-file-name (file-kind art-group) "assistant" 6 #f) global))))
+    (cond
+      ((and (nonzero? (the-as int ag)) (type-type? (-> ag type) art-group))
+       (login ag)
+       (set-loaded-art (-> *level* level-default art-group) ag)
+       (initialize-skeleton self *phys-subject-sg* '())
+       (logclear! (-> self draw status) (draw-status no-skeleton-update))
+       ;; la table des animations, lue dans l'art-group lui-meme : « toutes celles concernant
+       ;; ledit acteur » veut dire toutes celles que son art-group contient, pas un echantillon.
+       (set! (-> self nanim) 0)
+       (dotimes (i (-> ag length))
+         (let ((e (-> ag data i)))
+           (when (and (nonzero? (the-as int e)) (= (-> e type) art-joint-anim)
+                      (< (-> self nanim) PHYSROOM-MAXANIM))
+             (set! (-> *physroom-anim* (-> self nanim)) i)
+             (format 0 "PHYSANIM a=~D idx=~D name=~S~%" (-> self nanim) i (-> e name))
+             (+! (-> self nanim) 1))))
+       (format 0 "PHYSSUBJECT ag=~S elems=~D anims=~D bones=~D mgeo=~S~%"
+               (-> ag name)
+               (-> ag length)
+               (-> self nanim)
+               (if (nonzero? (-> self draw skeleton)) (-> self draw skeleton length) -1)
+               (if (nonzero? (-> self draw mgeo)) (-> self draw mgeo name) "?"))
+       (physroom-set-anim 0)
+       (go phys-subject-run))
+      (else
+       (format 0 "PHYSFAIL reason=art-group-assistant-not-loadable~%")
+       (deactivate self))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; L'ENTREE. Appelee depuis C++ (kmachine.cpp, env OG_PHYS_ROOM) via *listener-function*, donc avec
+;; un `pp` valide. Trois gestes, dans cet ordre : tuer le joueur, couper la naissance d'entites,
+;; spawner le sujet.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-room-start ()
+  (format 0 "PHYSROOM-START target-before=~A~%" *target*)
+  (stop 'debug)                     ;; logic-target.gc:1268 — kill-by-name 'target + *target* = #f
+  (set! *spawn-actors* #f)          ;; entity.gc:1029 — plus aucune entite ne nait
+  (set! (-> *pc-settings* recharged-enhanced-models?) #t)
+  (set! (-> *pc-settings* hd-look-keira) 1)   ;; 1 = keira-hd (entry 2)
+  (set! (-> *pc-settings* physics?) #t)
+  (#when FLAG_HD_MODELS (pc-set-recharged-enhanced-models! 1))
+  (pc-set-physics! 1 (-> *pc-settings* physics-quality))
+  (set! *physroom-proc*
+        (the-as (pointer phys-subject)
+                (process-spawn phys-subject :init init-phys-subject :from *pc-dead-pool* :to *default-pool*)))
+  (format 0 "PHYSROOM-START target-after=~A spawned=~D~%" *target* (if (nonzero? (the-as int *physroom-proc*)) 1 0))
+  (none))
+
+)

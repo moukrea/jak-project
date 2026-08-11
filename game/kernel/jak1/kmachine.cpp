@@ -4925,6 +4925,91 @@ void want_vis_maybe() {
                   &s_ticks, "WANT-VIS");
 }
 
+// ─── PHYS-ROOM (Grecharged-secondary-motion — SPEC §6, étape 1) ─────────────────
+// Arms the GOAL entry point `phys-room-start`: the player-less physics test room in
+// which the subject (Keira) is spawned alone and driven, so her secondary motion can
+// be measured in a zone where Jak is NOT spawned. DEBUG-ONLY: with no env var and no
+// Android prop set this code does nothing at all, so it is never armed in production.
+static char s_phys_room_spec[96];
+
+// Deliberately NOT want_prop_requested(): that helper requires at least one LETTER in
+// the value, so the obvious `OG_PHYS_ROOM=1` would silently never arm (the trap that
+// would cost a whole run). Here any non-empty value other than "0" arms the hook.
+static bool phys_room_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+  out[0] = 0;
+  if (const char* e = std::getenv(env)) {
+    std::strncpy(out, e, out_sz - 1);
+    out[out_sz - 1] = 0;
+  }
+#if defined(__ANDROID__)
+  if (!out[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(prop, pbuf) > 0 && pbuf[0]) {
+      std::strncpy(out, pbuf, out_sz - 1);
+      out[out_sz - 1] = 0;
+    }
+  }
+#endif
+  return out[0] != 0 && std::strcmp(out, "0") != 0;
+}
+
+static u64 phys_room_run() {
+  u32 fn = intern_from_c("phys-room-start")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    // The GOAL side may not be linked yet: fail loudly, never crash.
+    printf("PHYS-ROOM-FAIL reason=phys-room-start-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  u64 args[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp, (u64)s7.offset,
+                                  g_ee_main_mem);
+  printf("PHYS-ROOM started -> #x%x\n", (u32)r);
+  fflush(stdout);
+  return 0;
+}
+
+void phys_room_maybe() {
+  static bool s_done = false;
+  static int s_ticks = 0;
+  if (s_done) {
+    return;
+  }
+  if (!phys_room_requested("OG_PHYS_ROOM", "debug.opengoal.phys.room", s_phys_room_spec,
+                           sizeof(s_phys_room_spec))) {
+    return;
+  }
+  // Same guards as want_hook_maybe() EXCEPT the *game-info* / *load-state* readiness
+  // gate: the room must start from the TITLE SCREEN, with no game session running.
+  int delay = 600;
+  if (const char* d = std::getenv("OG_PHYS_ROOM_DELAY")) {
+    delay = atoi(d);
+  }
+#if defined(__ANDROID__)
+  {
+    // prop-settable delay, like want_hook_maybe(): debug.opengoal.phys.room.delay
+    char dbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.phys.room.delay", dbuf) > 0 && dbuf[0] &&
+        atoi(dbuf) > 0) {
+      delay = atoi(dbuf);
+    }
+  }
+#endif
+  if (s_ticks++ < delay) {
+    return;
+  }
+  // don't clobber a pending listener function armed by another hook this tick
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  s_done = true;
+  Ptr<Function> f = make_function_from_c((void*)phys_room_run, false);
+  ListenerFunction->value = f.offset;
+  lg::info("[PHYS-ROOM] armed *listener-function* = #x{:x} spec '{}' delay {}", f.offset,
+           s_phys_room_spec, delay);
+}
+
 // ─── GRV-CANARY (Gcrash-rockvillage debug-only forensic) ────────────────────────
 // Watches the TOP 64 bytes of *target*'s main-thread stack (*kernel-dram-stack*
 // band) once per kernel dispatch. enter-state branch-3 (gstate.gc:373-380) resets

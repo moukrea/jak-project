@@ -1,51 +1,806 @@
 ;;-*-Lisp-*-
 (in-package goal)
 
-;; jak-hd-physics.gc — PHYSIQUE SECONDAIRE, DÉPART PROPRE (2026-08-11)
+;; jak-hd-physics.gc — PHYSIQUE SECONDAIRE DE KEIRA, MOTEUR REECRIT (depart propre 2026-08-11).
 ;;
-;; L'owner, 2026-08-11 : « pour ce qui est de la physique, tu devrais parker tous les commits
-;; propres à la physique sur une branche dédiée et repartir propre en ne faisant un focus que sur
-;; Keira comme on a dit ».
+;; L'ancien moteur (6000 lignes) est parke sur `physics-attic-2026-08-11`. Il n'est PAS une base de
+;; travail : la cause MESUREE de son echec est l'empilement de suppresseurs (1940 -> 6000 lignes,
+;; clamps 9 -> 84, detection d'anim 45 -> 172) jusqu'a ce que 42 % des mesures soient a zero.
+;; Celui-ci implemente `.autoport/prompts/SPEC-keira-physique.md`, section par section, et RIEN
+;; d'autre. Aucun gel de calme, aucun sommeil, aucune hysteresis, aucun clamp de vitesse, aucun
+;; masque ni filtre de volume : ce qui limite une chaine est soit la longueur d'un os, soit un
+;; collider, soit la pose du modele.
 ;;
-;; L'ancien moteur (6000 lignes) est parké sur la branche `physics-attic-2026-08-11`. Il n'est PAS
-;; une base de travail : la cause mesurée de son échec est l'empilement de suppresseurs — il est
-;; passé de 1940 à 6000 lignes, les clamps de 9 à 84 occurrences, la détection d'animation d'auteur
-;; de 45 à 172 — jusqu'à ce que 42 % des mesures soient à mouvement nul et que les mèches et les
-;; oreilles de Keira ne bougent plus du tout (earL 0.0092). On ne le rustine pas, on le réécrit.
+;;   SPEC 1  ce qui a de la physique  -> les chaines viennent du fichier de donnees, genere depuis
+;;                                       le rig (oreilles, cheveux, meches, seins, lunettes, ce qui
+;;                                       pend). Le moteur ne connait aucun nom en dur.
+;;   SPEC 2  la racine ne bouge pas   -> `rootlock` liens rigides en tete de chaine : ils ne sont
+;;                                       jamais integres NI ecrits, la pose du retarget reste.
+;;   SPEC 3  collisions propres       -> projection contre les colliders ajustes sur le mesh, avec
+;;                                       le PLANCHER DE POSE MODELE : un lien deja dans un volume
+;;                                       au repos a le droit d'y etre, il n'a pas le droit d'aller
+;;                                       PLUS PROFOND. C'est ce qui remplace le `colskip` retire.
+;;   SPEC 4  le repos = le modele     -> la cible du ressort est la pose ecrite par le retarget.
+;;                                       Famille A : gravite nulle => au repos l'ecart tend vers 0.
+;;                                       Famille B : gravite => ca pend et ca reste pendu.
+;;   SPEC 5  l'animation d'auteur     -> detection PAR CHAINE, sur le MOUVEMENT de la pose ecrite
+;;                                       (pas sur un offset statique : c'est ce piege qui a fige
+;;                                       les chaines de l'ancien moteur). Quand l'anim bouge la
+;;                                       chaine, la physique lui rend la main.
+;;   SPEC 7  ce qui fait foi          -> la position ECRITE du joint, relue dans le squelette.
 ;;
-;; CE FICHIER EST LE SQUELETTE. Il fournit exactement les 5 prises que le reste du jeu attend, et
-;; rien d'autre. La physique se construit dedans, en suivant `.autoport/prompts/SPEC-keira-physique.md`
-;; et dans cet ordre :
-;;
-;;   ÉTAPE 1 — LA SALLE DE TEST, SANS JOUEUR. Jak n'est pas spawné (ni endormi, ni hors champ :
-;;             absent). Le sujet est spawné par nom, seul dans la zone, déplacé haut/bas,
-;;             gauche/droite, avec diverses accélérations et à-coups, et TOUTES ses animations
-;;             jouées, chaque chiffre extrême portant le nom de l'animation.
-;;   ÉTAPE 2 — les chaînes de Keira, GÉNÉRÉES depuis son rig : oreilles, cheveux (racine ancrée),
-;;             mèches, seins, lunettes, ce qui pend. Rien d'autre.
-;;   ÉTAPE 3 — les collisions de la liste exacte de la SPEC §3, avec de vrais colliders qui suivent
-;;             la forme du personnage.
-;;   ÉTAPE 4 — repos = pose du modèle (sauf ce qui pend), et priorité à l'intention d'animation ND.
-;;
-;; RÈGLES QUI NE SE RENÉGOCIENT PAS : un commentaire n'est pas une preuve (toute affirmation cite
-;; une trace d'exécution) ; tout zéro exige un contrôle positif qui a fait MONTER le compteur ;
-;; aucun suppresseur par défaut, et tout suppresseur ajouté chiffre le mouvement qu'il retire.
+;; REGLE 0 (owner) : un commentaire n'est pas une preuve. Tout ce que ce fichier PRETEND faire est
+;; mesure par la salle de test (phys-room.gc) et publie dans keira-room-table.txt.
 
 (#when FLAG_PHYSICS
 
-  ;; ---- les 5 prises attendues par le reste du jeu -----------------------------------------------
-  ;; jak-hd.gc appelle init/step/release sur chaque compagnon HD ; process-drawable.gc appelle
-  ;; phys-rider-post! sur les acteurs stock ; progress-pc.gc audite le menu depuis init.
-  ;; Elles sont inertes tant que l'étape 1 n'a pas produit de mesure : une physique non mesurée
-  ;; n'est pas livrable, et une prise vide est honnête là où un moteur non prouvé ne l'est pas.
+;; ------------------------------------------------------------------------------------------------
+;; PONT C++ — le magasin de parametres vit dans game/kernel/jak1/kmachine.cpp (parse de
+;; recharged_assets/physics_chains.txt). Aucune valeur flottante ne traverse la frontiere : tout
+;; arrive en MILLI-unites (kmachine.cpp:884-887, phys_mi:1721).
+;; ------------------------------------------------------------------------------------------------
+(define-extern pc-physics-enabled              (function int))
+(define-extern pc-physics-num-chains           (function string int))
+(define-extern pc-physics-joint-role           (function string string int))
+(define-extern pc-physics-chain-param-mi       (function string int int int))
+(define-extern pc-physics-chain-link-radius-mi (function string int int int))
+(define-extern pc-physics-num-colliders        (function string int))
+(define-extern pc-physics-collider-param-mi    (function string int int int))
+(define-extern pc-physics-collider-is-joint    (function string int string int))
+(define-extern pc-physics-collider-is-joint2   (function string int string int))
 
-  (defun jak-hd-physics-init ((obj jak-hd)) (none))
+;; parametres de chaine (ids: kmachine.cpp:998-1038)
+(defconstant PHYS-P-STIFF   0)
+(defconstant PHYS-P-DAMP    1)
+(defconstant PHYS-P-GRAV    2)
+(defconstant PHYS-P-RADIUS  6)
+(defconstant PHYS-P-ROOTLK  7)
+(defconstant PHYS-P-MASS   19)
+(defconstant PHYS-P-HANG   20)
+(defconstant PHYS-P-FAMILY 22)
+(defconstant PHYS-P-COUPLE 27)
 
-  (defun jak-hd-physics-step ((obj jak-hd)) (none))
+;; champs de collider (kmachine.cpp:1920-1986)
+(defconstant PHYS-C-RADIUS 0)
+(defconstant PHYS-C-SHAPE  3)
+(defconstant PHYS-C-RADIUS2 4)
 
-  (defun jak-hd-physics-release ((obj jak-hd)) (none))
+;; ------------------------------------------------------------------------------------------------
+;; TAILLES. Un slot = un compagnon HD vivant. Keira seule aujourd'hui, mais le jeu peut porter
+;; quatre compagnons (jak/daxter/keira/samos) et le moteur ne doit pas se marcher dessus.
+;; ------------------------------------------------------------------------------------------------
+(defconstant PHYS-SLOTS  4)
+(defconstant PHYS-CHAINS 28)
+(defconstant PHYS-LINKS  4)
+(defconstant PHYS-COLS   96)
+(defconstant PHYS-JOINTS 128)
 
-  (defun phys-note-covered! ((n int)) (none))
+(defconstant PHYS-SC   (* PHYS-SLOTS PHYS-CHAINS))
+(defconstant PHYS-SCL  (* PHYS-SLOTS PHYS-CHAINS PHYS-LINKS))
+(defconstant PHYS-SCO  (* PHYS-SLOTS PHYS-COLS))
 
-  (defun phys-rider-post! ((obj process-drawable)) (none))
-  )
+;; identite du slot
+(define *phys-slot-pid*  (new 'global 'array 'int32 PHYS-SLOTS))
+(define *phys-slot-nch*  (new 'global 'array 'int32 PHYS-SLOTS))
+(define *phys-slot-nco*  (new 'global 'array 'int32 PHYS-SLOTS))
+
+;; topologie des chaines
+(define *phys-nlink*  (new 'global 'array 'int32 PHYS-SC))
+(define *phys-anchor* (new 'global 'array 'int32 PHYS-SC))   ;; joint porteur (parent rig du lien 0)
+(define *phys-joint*  (new 'global 'array 'int32 PHYS-SCL))  ;; index de joint HD par lien
+
+;; parametres resolus une fois a l'init
+(define *phys-stiff*  (new 'global 'array 'float PHYS-SC))
+(define *phys-damp*   (new 'global 'array 'float PHYS-SC))
+(define *phys-grav*   (new 'global 'array 'float PHYS-SC))
+(define *phys-mass*   (new 'global 'array 'float PHYS-SC))
+(define *phys-hang*   (new 'global 'array 'float PHYS-SC))
+(define *phys-couple* (new 'global 'array 'float PHYS-SC))
+(define *phys-fam*    (new 'global 'array 'int32 PHYS-SC))   ;; 1 = A, 2 = B
+(define *phys-rootlk* (new 'global 'array 'int32 PHYS-SC))
+(define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
+
+;; etat verlet (positions monde, 3 flottants par lien)
+(define *phys-px*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-py*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-pz*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-qx*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-qy*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-qz*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-warm* (new 'global 'array 'int32 PHYS-SC))     ;; 0 = pas encore amorce
+
+;; historique de l'ancre (pour la pseudo-force de repere accelere)
+(define *phys-a1x* (new 'global 'array 'float PHYS-SC))
+(define *phys-a1y* (new 'global 'array 'float PHYS-SC))
+(define *phys-a1z* (new 'global 'array 'float PHYS-SC))
+(define *phys-a2x* (new 'global 'array 'float PHYS-SC))
+(define *phys-a2y* (new 'global 'array 'float PHYS-SC))
+(define *phys-a2z* (new 'global 'array 'float PHYS-SC))
+
+;; colliders resolus (index de joint, -1 = absent)
+(define *phys-cj*  (new 'global 'array 'int32 PHYS-SCO))
+(define *phys-cj2* (new 'global 'array 'int32 PHYS-SCO))
+(define *phys-cr*  (new 'global 'array 'float PHYS-SCO))
+(define *phys-cr2* (new 'global 'array 'float PHYS-SCO))
+
+;; ------------------------------------------------------------------------------------------------
+;; MESURE (SPEC 7). Les quatre colonnes du tableau de la salle, accumulees ici parce que c'est ici
+;; que la position ecrite est connue. La salle remet a zero au debut de chaque fenetre et relit a
+;; la fin. Rien n'est calcule ailleurs : aucun instrument invente par-dessus.
+;;   0 nsamp   nombre de frames de la fenetre
+;;   1 sumtip  somme des deplacements de pointe (repere de l'ancre)
+;;   2 maxjump pire deplacement de pointe sur UNE frame
+;;   3 maxroot pire residu de longueur du lien racine apres commit
+;;   4 maxpen  pire penetration RESIDUELLE (au-dela du plancher de pose modele) apres commit
+;;   5 maxidle pire ecart a la pose ecrite par le retarget (repos)
+;;   6 authhit nombre de frames ou l'anim d'auteur pilotait la chaine
+;;   7 authok  nombre de ces frames ou la pose commitee a suivi l'anim
+;; ------------------------------------------------------------------------------------------------
+(defconstant PHYS-ST 8)
+(define *phys-st*  (new 'global 'array 'float (* PHYS-SC PHYS-ST)))
+(define *phys-tx*  (new 'global 'array 'float PHYS-SC))   ;; pointe precedente, repere ancre
+(define *phys-ty*  (new 'global 'array 'float PHYS-SC))
+(define *phys-tz*  (new 'global 'array 'float PHYS-SC))
+(define *phys-thas* (new 'global 'array 'int32 PHYS-SC))
+
+;; SPEC 5 — l'animation d'auteur. Meme pointe, mais dans la pose ECRITE PAR LE RETARGET : c'est
+;; l'intention de Naughty Dog. Quand elle bouge d'une frame a l'autre au-dela du seuil, la frame
+;; compte comme PILOTEE PAR L'ANIM ; elle est RESPECTEE si la pose commitee est partie du meme
+;; cote (produit scalaire >= 0), c.-a-d. que la physique a SUIVI l'anim au lieu de la combattre.
+;; Ces deux compteurs ne sont PAS remis a zero par les fenetres : on veut le bilan de la course.
+(define *phys-rtx*  (new 'global 'array 'float PHYS-SC))
+(define *phys-rty*  (new 'global 'array 'float PHYS-SC))
+(define *phys-rtz*  (new 'global 'array 'float PHYS-SC))
+(define *phys-rhas* (new 'global 'array 'int32 PHYS-SC))
+(define *phys-ahit* (new 'global 'array 'float PHYS-SC))
+(define *phys-aok*  (new 'global 'array 'float PHYS-SC))
+;; Le comptage par frame du signe est brutal : au moment ou l'anim inverse son sens, un suiveur a
+;; ressort part encore dans l'ancien, et la frame compte comme non respectee alors que la chaine
+;; SUIT l'animation. On accumule donc aussi la projection : somme(commit . auteur) et
+;; somme(|auteur|^2). Leur rapport est la FRACTION du deplacement d'auteur que la pose commitee
+;; reproduit dans la direction de l'auteur — insensible au dephasage, et c'est ce que « l'animation
+;; a la priorite » veut dire concretement.
+(define *phys-adot* (new 'global 'array 'float PHYS-SC))
+(define *phys-anrm* (new 'global 'array 'float PHYS-SC))
+;; seuil de detection, en unites de jeu par frame (4096 u = 1 m). Un os que l'anim ne touche pas
+;; ne bouge PAS du tout dans la pose retargetee : le seuil separe le mouvement d'auteur du bruit
+;; numerique de la cascade de matrices, il ne le "filtre" pas.
+(defconstant PHYS-AUTH-EPS 1.0)
+
+;; injection de defaut pour le CONTROLE POSITIF (SPEC 7 : tout zero exige un controle qui a fait
+;; MONTER le compteur). 0 = desarme. > 0 = chaque lien libre est pousse de N unites vers l'interieur
+;; du corps APRES la resolution : la penetration residuelle doit alors exploser. La salle arme,
+;; mesure, desarme.
+(define *phys-inject* 0.0)
+;; combien de poussees ont REELLEMENT eu lieu. Un controle positif qui n'a rien injecte ne prouve
+;; rien : c'est ce compteur, pas la valeur armee, qui dit que le defaut a ete pose.
+(define *phys-injn* 0)
+
+;; nombre de joints du rig courant (relu a chaque step, pas de cache douteux)
+(define *phys-njoint* 0)
+
+;; deltas de propagation aux descendants non simules (les lunettes gauche/droite pendent sous
+;; gogglesMid : si on bouge le milieu sans elles, les verres se decrochent).
+(define *phys-dmat* (new 'global 'inline-array 'matrix PHYS-JOINTS))
+(define *phys-dhas* (new 'global 'array 'int32 PHYS-JOINTS))
+
+;; ------------------------------------------------------------------------------------------------
+;; petits utilitaires
+;; ------------------------------------------------------------------------------------------------
+(defun phys-mi->f ((v int))
+  "milli-unites du magasin C++ -> flottant."
+  (/ (the float v) 1000.0))
+
+(defun phys-slot-for-pid ((pid int))
+  "slot deja alloue a ce pid, -1 sinon."
+  (let ((r -1))
+    (dotimes (i PHYS-SLOTS)
+      (when (and (< r 0) (= (-> *phys-slot-pid* i) pid)) (set! r i)))
+    r))
+
+(defun phys-slot-alloc ((pid int))
+  "premier slot libre, -1 si plein."
+  (let ((r -1))
+    (dotimes (i PHYS-SLOTS)
+      (when (and (< r 0) (zero? (-> *phys-slot-pid* i))) (set! r i)))
+    (when (>= r 0) (set! (-> *phys-slot-pid* r) pid))
+    r))
+
+;; ------------------------------------------------------------------------------------------------
+;; INIT — resolution des chaines DEPUIS LE RIG. Le moteur ne porte aucun nom de joint : il parcourt
+;; les joints du squelette HD, demande au magasin C++ le role de chaque NOM, et se construit ses
+;; chaines. Une chaine absente du fichier de donnees n'existe pas ; un joint absent du rig non plus.
+;; ------------------------------------------------------------------------------------------------
+(defun jak-hd-physics-init ((obj jak-hd))
+  (when (and (nonzero? (-> obj draw)) (nonzero? (-> obj draw jgeo)))
+    (let* ((agname (-> *hd-ag-names* (-> obj entry)))
+           (nch    (pc-physics-num-chains agname)))
+      (cond
+        ((<= nch 0)
+         (format 0 "[HD-PHYS] no chain data for ~S — physics inert for this model~%" agname))
+        (else
+         (let ((slot (phys-slot-alloc (the int (-> obj pid)))))
+           (cond
+             ((< slot 0)
+              (format 0 "[HD-PHYS] no free sim slot — physics inert for ~S~%" agname))
+             (else
+              (let ((njoint (-> obj draw jgeo length))
+                    (nc     (min nch PHYS-CHAINS)))
+                (set! (-> *phys-slot-nch* slot) nc)
+                ;; remise a zero de la topologie du slot
+                (dotimes (c PHYS-CHAINS)
+                  (let ((sc (+ (* slot PHYS-CHAINS) c)))
+                    (set! (-> *phys-nlink* sc) 0)
+                    (set! (-> *phys-anchor* sc) -1)
+                    (set! (-> *phys-warm* sc) 0)
+                    (set! (-> *phys-thas* sc) 0)))
+                ;; --- 1. les joints portent les chaines : on lit le rig, pas une liste en dur ---
+                (dotimes (k njoint)
+                  (let* ((jn   (-> obj draw jgeo data k name))
+                         (role (if jn (pc-physics-joint-role agname jn) -1)))
+                    (when (>= role 0)
+                      (let ((c    (shr role 8))
+                            (link (logand role 255)))
+                        (when (and (< c nc) (< link PHYS-LINKS))
+                          (let ((sc (+ (* slot PHYS-CHAINS) c)))
+                            (set! (-> *phys-joint* (+ (* sc PHYS-LINKS) link)) k)
+                            (when (>= (+ link 1) (-> *phys-nlink* sc))
+                              (set! (-> *phys-nlink* sc) (+ link 1)))
+                            ;; l'ancre est le parent RIG du lien 0 (255 = racine -> pas d'ancre)
+                            (when (zero? link)
+                              (let ((p (the int (-> (-> obj khd-par) k))))
+                                (set! (-> *phys-anchor* sc) (if (= p 255) -1 p))))))))))
+                ;; --- 2. les parametres, une fois, depuis le fichier de donnees ---
+                (let ((armed 0) (links 0))
+                  (dotimes (c nc)
+                    (let ((sc (+ (* slot PHYS-CHAINS) c)))
+                      (set! (-> *phys-stiff* sc)  (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-STIFF)))
+                      (set! (-> *phys-damp* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-DAMP)))
+                      (set! (-> *phys-grav* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRAV)))
+                      (set! (-> *phys-couple* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-COUPLE)))
+                      (set! (-> *phys-hang* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-HANG)))
+                      (let ((m (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MASS))))
+                        (set! (-> *phys-mass* sc) (if (< m 0.01) 1.0 m)))
+                      (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY))))
+                      (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
+                      ;; rayons par lien : `radii=` s'il existe, sinon le `radius=` de la chaine
+                      (let ((base (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-RADIUS))))
+                        (dotimes (l PHYS-LINKS)
+                          (let ((r (phys-mi->f (pc-physics-chain-link-radius-mi agname c l))))
+                            (set! (-> *phys-rad* (+ (* sc PHYS-LINKS) l)) (if (< r 0.01) base r)))))
+                      (when (> (-> *phys-nlink* sc) 0)
+                        (+! armed 1)
+                        (+! links (-> *phys-nlink* sc)))))
+                  ;; --- 3. les colliders, ajustes sur le mesh, resolus vers des index de joint ---
+                  (let ((nco (min (pc-physics-num-colliders agname) PHYS-COLS)))
+                    (set! (-> *phys-slot-nco* slot) nco)
+                    (dotimes (ci nco)
+                      (let ((sco (+ (* slot PHYS-COLS) ci)))
+                        (set! (-> *phys-cj* sco) -1)
+                        (set! (-> *phys-cj2* sco) -1)
+                        (set! (-> *phys-cr* sco)  (phys-mi->f (pc-physics-collider-param-mi agname ci PHYS-C-RADIUS)))
+                        (let ((r2 (phys-mi->f (pc-physics-collider-param-mi agname ci PHYS-C-RADIUS2))))
+                          (set! (-> *phys-cr2* sco) (if (< r2 0.01) (-> *phys-cr* sco) r2)))
+                        (dotimes (k njoint)
+                          (let ((jn (-> obj draw jgeo data k name)))
+                            (when jn
+                              (when (and (< (-> *phys-cj* sco) 0)
+                                         (nonzero? (pc-physics-collider-is-joint agname ci jn)))
+                                (set! (-> *phys-cj* sco) k))
+                              (when (and (< (-> *phys-cj2* sco) 0)
+                                         (nonzero? (pc-physics-collider-is-joint2 agname ci jn)))
+                                (set! (-> *phys-cj2* sco) k)))))))
+                    ;; PREUVE D'EXECUTION (regle 0) : ce que le moteur a REELLEMENT resolu, pas ce
+                    ;; que le fichier promet. Le validateur et la salle s'ancrent sur cette ligne.
+                    (format 0 "[HD-PHYS] init ~S slot=~D chains=~D links=~D colliders=~D joints=~D~%"
+                            agname slot armed links nco njoint)))))))))))
+  (none))
+
+(defun jak-hd-physics-release ((obj jak-hd))
+  (let ((slot (phys-slot-for-pid (the int (-> obj pid)))))
+    (when (>= slot 0)
+      (set! (-> *phys-slot-pid* slot) 0)
+      (set! (-> *phys-slot-nch* slot) 0)
+      (set! (-> *phys-slot-nco* slot) 0)))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; GEOMETRIE — un lien contre un collider. Le collider est une SPHERE (joint2 < 0) ou une CAPSULE
+;; (segment joint..joint2, rayon interpole). Les deux suivent la forme reelle du personnage : leurs
+;; rayons sont ajustes sur les sommets skinnes du mesh par le generateur, pas poses a la main.
+;; Retourne la profondeur de penetration (0 si dehors) et ecrit la normale de sortie dans `nrm`.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-collide-depth ((pt vector) (rlink float) (ca vector) (cb vector)
+                           (ra float) (rb float) (capsule? symbol) (nrm vector))
+  (let ((cx 0.0) (cy 0.0) (cz 0.0) (rr ra))
+    (cond
+      ((not capsule?)
+       (set! cx (-> ca x)) (set! cy (-> ca y)) (set! cz (-> ca z)))
+      (else
+       ;; projection sur le segment, parametre borne a [0,1]
+       (let* ((ax (- (-> cb x) (-> ca x)))
+              (ay (- (-> cb y) (-> ca y)))
+              (az (- (-> cb z) (-> ca z)))
+              (dd (+ (* ax ax) (* ay ay) (* az az)))
+              (t0 (if (< dd 0.000001)
+                    0.0
+                    (/ (+ (* (- (-> pt x) (-> ca x)) ax)
+                          (* (- (-> pt y) (-> ca y)) ay)
+                          (* (- (-> pt z) (-> ca z)) az))
+                       dd))))
+         (when (< t0 0.0) (set! t0 0.0))
+         (when (> t0 1.0) (set! t0 1.0))
+         (set! cx (+ (-> ca x) (* ax t0)))
+         (set! cy (+ (-> ca y) (* ay t0)))
+         (set! cz (+ (-> ca z) (* az t0)))
+         (set! rr (+ ra (* (- rb ra) t0))))))
+    (let* ((dx (- (-> pt x) cx))
+           (dy (- (-> pt y) cy))
+           (dz (- (-> pt z) cz))
+           (d2 (+ (* dx dx) (* dy dy) (* dz dz)))
+           (d  (sqrtf d2))
+           (want (+ rr rlink)))
+      (cond
+        ((>= d want)
+         (set! (-> nrm x) 0.0) (set! (-> nrm y) 1.0) (set! (-> nrm z) 0.0)
+         0.0)
+        ((< d 0.001)
+         ;; centre exactement sur l'axe : direction arbitraire mais stable
+         (set! (-> nrm x) 0.0) (set! (-> nrm y) 1.0) (set! (-> nrm z) 0.0)
+         want)
+        (else
+         (set! (-> nrm x) (/ dx d)) (set! (-> nrm y) (/ dy d)) (set! (-> nrm z) (/ dz d))
+         (- want d))))))
+
+;; ------------------------------------------------------------------------------------------------
+;; LE PAS — appele depuis do-joint-math! de jak-hd, APRES fill-jak-hd-bones!. A cet instant le
+;; squelette porte la pose retargetee complete en espace MONDE (jak-hd.gc:551-556), et rien ne l'a
+;; encore lue : bones-mtx-calc-execute (drawable.gc:895) vient bien plus tard dans la frame.
+;; ------------------------------------------------------------------------------------------------
+(defun jak-hd-physics-step ((obj jak-hd))
+  (let ((slot (phys-slot-for-pid (the int (-> obj pid)))))
+    (when (and (>= slot 0)
+               (nonzero? (pc-physics-enabled))
+               (nonzero? (-> obj draw))
+               (nonzero? (-> obj draw skeleton))
+               (nonzero? (-> obj draw jgeo)))
+      (let* ((skel   (-> obj draw skeleton))
+             (nbone  (-> skel length))
+             (njoint (min (-> obj draw jgeo length) PHYS-JOINTS))
+             (nch    (-> *phys-slot-nch* slot))
+             (nco    (-> *phys-slot-nco* slot))
+             (dt     0.0166667)
+             ;; 9.81 m/s^2 exprimes dans les unites de l'integrateur : 9.81 * 4096 u/m / 3600
+             ;; frames^2/s^2 = 11.16 unites/frame^2. L'ancienne valeur (-160, ENCORE multipliee par
+             ;; dt^2 plus bas) donnait 0.044 u/frame^2, soit 250 fois trop faible : la famille B ne
+             ;; pendait pas du tout. C'est une erreur d'unites, pas un reglage.
+             (gy     -11.16))
+        (set! *phys-njoint* njoint)
+        ;; --- deltas de propagation : rien de moved pour l'instant ---
+        (dotimes (k njoint) (set! (-> *phys-dhas* k) 0))
+        (let ((tgt (new 'stack-no-clear 'vector))
+              (anc (new 'stack-no-clear 'vector))
+              (pt  (new 'stack-no-clear 'vector))
+              (ca  (new 'stack-no-clear 'vector))
+              (cb  (new 'stack-no-clear 'vector))
+              (nrm (new 'stack-no-clear 'vector))
+              (rest (new 'stack-no-clear 'vector))
+              (pre (new 'stack-no-clear 'matrix))
+              (inv (new 'stack-no-clear 'matrix))
+              (rot (new 'stack-no-clear 'matrix))
+              (tmp (new 'stack-no-clear 'matrix)))
+          (dotimes (c nch)
+            (let* ((sc  (+ (* slot PHYS-CHAINS) c))
+                   (n   (-> *phys-nlink* sc))
+                   (an  (-> *phys-anchor* sc))
+                   (rlk (max 0 (min (-> *phys-rootlk* sc) (max 0 (- n 1))))))
+              (when (and (> n 0) (>= an 0) (< (+ an 1) nbone))
+                ;; ---- ancre du repere ----
+                (vector-copy! anc (the-as vector (-> skel bones (+ an 1) transform vector 3)))
+                ;; ---- amorcage / accumulation : positions cibles ecrites par le retarget ----
+                (let ((warm (-> *phys-warm* sc)))
+                  ;; acceleration du repere ancre (difference seconde), la seule chose qui EXCITE
+                  ;; une chaine dont la cible ne bouge pas
+                  (let ((accx 0.0) (accy 0.0) (accz 0.0))
+                    (when (> warm 1)
+                      (set! accx (+ (- (-> anc x) (* 2.0 (-> *phys-a1x* sc))) (-> *phys-a2x* sc)))
+                      (set! accy (+ (- (-> anc y) (* 2.0 (-> *phys-a1y* sc))) (-> *phys-a2y* sc)))
+                      (set! accz (+ (- (-> anc z) (* 2.0 (-> *phys-a1z* sc))) (-> *phys-a2z* sc))))
+                    (set! (-> *phys-a2x* sc) (-> *phys-a1x* sc))
+                    (set! (-> *phys-a2y* sc) (-> *phys-a1y* sc))
+                    (set! (-> *phys-a2z* sc) (-> *phys-a1z* sc))
+                    (set! (-> *phys-a1x* sc) (-> anc x))
+                    (set! (-> *phys-a1y* sc) (-> anc y))
+                    (set! (-> *phys-a1z* sc) (-> anc z))
+                    (set! (-> *phys-warm* sc) (min 3 (+ warm 1)))
+
+                    ;; ---- INTEGRATION, lien par lien ----
+                    ;; omega_eff = omega / sqrt(masse) : une piece lourde oscille plus lentement a
+                    ;; raideur egale. `mass` etait lu a l'init et jamais utilise — un parametre
+                    ;; emis dans les donnees et ignore par le moteur est une donnee qui ment.
+                    (let ((w   (/ (* 6.2831853 (-> *phys-stiff* sc))
+                                  (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
+                          (dmp (-> *phys-damp* sc))
+                          (gsc (-> *phys-grav* sc))
+                          (cpl (-> *phys-couple* sc))
+                          (fam (-> *phys-fam* sc)))
+                      (dotimes (l n)
+                        (let* ((k    (-> *phys-joint* (+ (* sc PHYS-LINKS) l)))
+                               (scl  (+ (* sc PHYS-LINKS) l)))
+                          (when (< (+ k 1) nbone)
+                            (vector-copy! tgt (the-as vector (-> skel bones (+ k 1) transform vector 3)))
+                            (cond
+                              ((or (< warm 1) (< l rlk))
+                               ;; lien rigide (SPEC 2) ou premiere frame : on colle a la pose ecrite
+                               (set! (-> *phys-px* scl) (-> tgt x))
+                               (set! (-> *phys-py* scl) (-> tgt y))
+                               (set! (-> *phys-pz* scl) (-> tgt z))
+                               (set! (-> *phys-qx* scl) (-> tgt x))
+                               (set! (-> *phys-qy* scl) (-> tgt y))
+                               (set! (-> *phys-qz* scl) (-> tgt z)))
+                              (else
+                               (let* ((px (-> *phys-px* scl)) (py (-> *phys-py* scl)) (pz (-> *phys-pz* scl))
+                                      (vx (* (- px (-> *phys-qx* scl)) (- 1.0 dmp)))
+                                      (vy (* (- py (-> *phys-qy* scl)) (- 1.0 dmp)))
+                                      (vz (* (- pz (-> *phys-qz* scl)) (- 1.0 dmp)))
+                                      (k2 (* w w dt dt))
+                                      (ax (- (* k2 (- (-> tgt x) px)) (* cpl accx)))
+                                      (ay (+ (- (* k2 (- (-> tgt y) py)) (* cpl accy)) (* gsc gy)))
+                                      (az (- (* k2 (- (-> tgt z) pz)) (* cpl accz))))
+                                 (set! (-> *phys-qx* scl) px) (set! (-> *phys-qy* scl) py) (set! (-> *phys-qz* scl) pz)
+                                 (set! (-> *phys-px* scl) (+ px vx ax))
+                                 (set! (-> *phys-py* scl) (+ py vy ay))
+                                 (set! (-> *phys-pz* scl) (+ pz vz az))))))))
+
+                      ;; ---- CONTRAINTES : longueur d'os puis collision, plusieurs passes ----
+                      ;; La derniere passe decide qui est exact : pour les familles que l'owner a
+                      ;; nommees (SPEC 3) c'est la COLLISION, donc leur penetration residuelle est
+                      ;; nulle et c'est la longueur qui porte le residu (colonne rootdev).
+                      ;; 10 passes et non 4 : mesure du 2026-08-11, la penetration residuelle
+                      ;; atteignait 674 unites et le residu de longueur 2401 apres 4 passes. Un
+                      ;; solveur de Gauss-Seidel qui n'a pas converge n'est pas un reglage doux,
+                      ;; c'est une chaine qui se decroche.
+                      (dotimes (it 10)
+                        ;; longueur : chaque lien retrouve la distance que le modele lui donne
+                        (let ((lo (max 1 rlk)))
+                          (dotimes (l n)
+                            (when (>= l (max 1 rlk))
+                              (let* ((scl  (+ (* sc PHYS-LINKS) l))
+                                     (sclp (+ (* sc PHYS-LINKS) (- l 1)))
+                                     (kk   (-> *phys-joint* scl))
+                                     (kp   (-> *phys-joint* sclp)))
+                                (when (and (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+                                  (let* ((rl (vector-vector-distance
+                                               (the-as vector (-> skel bones (+ kk 1) transform vector 3))
+                                               (the-as vector (-> skel bones (+ kp 1) transform vector 3))))
+                                         (dx (- (-> *phys-px* scl) (-> *phys-px* sclp)))
+                                         (dy (- (-> *phys-py* scl) (-> *phys-py* sclp)))
+                                         (dz (- (-> *phys-pz* scl) (-> *phys-pz* sclp)))
+                                         (d  (sqrtf (+ (* dx dx) (* dy dy) (* dz dz)))))
+                                    (when (> d 0.0001)
+                                      (let ((s (/ rl d)))
+                                        (set! (-> *phys-px* scl) (+ (-> *phys-px* sclp) (* dx s)))
+                                        (set! (-> *phys-py* scl) (+ (-> *phys-py* sclp) (* dy s)))
+                                        (set! (-> *phys-pz* scl) (+ (-> *phys-pz* sclp) (* dz s)))))))))))
+                        ;; collision avec PLANCHER DE POSE MODELE : un lien qui est deja dans un
+                        ;; volume au repos a le droit d'y etre (les racines de cheveux sont sous le
+                        ;; cuir chevelu), il n'a pas le droit d'aller PLUS PROFOND. C'est calcule a
+                        ;; chaque frame, par (lien, volume) — ce n'est pas un masque de donnees.
+                        (dotimes (l n)
+                          (when (>= l rlk)
+                            (let* ((scl (+ (* sc PHYS-LINKS) l))
+                                   (kk  (-> *phys-joint* scl))
+                                   (rl  (-> *phys-rad* scl)))
+                              (when (< (+ kk 1) nbone)
+                                (vector-copy! rest (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
+                                (set! (-> pt x) (-> *phys-px* scl))
+                                (set! (-> pt y) (-> *phys-py* scl))
+                                (set! (-> pt z) (-> *phys-pz* scl))
+                                ;; trois balayages du jeu de volumes, pas un : sortir d'un volume
+                                ;; peut faire entrer dans le voisin (hanche/cuisse, crane/oreille),
+                                ;; et un balayage unique laisse ce residu-la sur la table.
+                                (dotimes (sub 3)
+                                 (dotimes (ci nco)
+                                  (let* ((sco (+ (* slot PHYS-COLS) ci))
+                                         (cj  (-> *phys-cj* sco))
+                                         (cj2 (-> *phys-cj2* sco)))
+                                    ;; une chaine ne se cogne pas dans son propre volume
+                                    (let ((own #f))
+                                      (dotimes (l2 n)
+                                        (let ((k2j (-> *phys-joint* (+ (* sc PHYS-LINKS) l2))))
+                                          (when (or (= cj k2j) (= cj2 k2j)) (set! own #t))))
+                                      (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
+                                        (vector-copy! ca (the-as vector (-> skel bones (+ cj 1) transform vector 3)))
+                                        (if (and (>= cj2 0) (< (+ cj2 1) nbone))
+                                          (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
+                                          (vector-copy! cb ca))
+                                        (let* ((cap? (and (>= cj2 0) (< (+ cj2 1) nbone)))
+                                               (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                                           (-> *phys-cr2* sco) cap? nrm))
+                                               (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
+                                                                           (-> *phys-cr2* sco) cap? nrm)))
+                                          (when (> dep floor0)
+                                            (let ((push (- dep floor0)))
+                                              (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
+                                              (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
+                                              (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))))))))
+                                (set! (-> *phys-px* scl) (-> pt x))
+                                (set! (-> *phys-py* scl) (-> pt y))
+                                (set! (-> *phys-pz* scl) (-> pt z))))))) ;; fin des passes
+
+                      ;; ---- INJECTION DE DEFAUT (controle positif). Desarmee = 0.0. ----
+                      (when (> *phys-inject* 0.01)
+                        (dotimes (l n)
+                          (when (>= l rlk)
+                            (let* ((scl (+ (* sc PHYS-LINKS) l))
+                                   (dx (- (-> anc x) (-> *phys-px* scl)))
+                                   (dy (- (-> anc y) (-> *phys-py* scl)))
+                                   (dz (- (-> anc z) (-> *phys-pz* scl)))
+                                   (d  (sqrtf (+ (* dx dx) (* dy dy) (* dz dz)))))
+                              (when (> d 0.01)
+                                (let ((s (/ *phys-inject* d)))
+                                  (set! *phys-injn* (+ *phys-injn* 1))
+                                  (set! (-> *phys-px* scl) (+ (-> *phys-px* scl) (* dx s)))
+                                  (set! (-> *phys-py* scl) (+ (-> *phys-py* scl) (* dy s)))
+                                  (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) (* dz s)))))))))
+
+                      ;; ------------------------------------------------------------------------
+                      ;; MESURE (SPEC 7). ELLE SE FAIT ICI, AVANT L'ECRITURE, et c'est structurel :
+                      ;; une fois le squelette ecrit, `skel bones` porte la position SIMULEE et la
+                      ;; pose d'auteur a disparu. La mesurer apres l'ecriture donnait un rootdev
+                      ;; identiquement nul (want == got par construction) — une colonne fabriquee.
+                      ;; Ce qui est compare ici : *phys-p** = la pose COMMITEE (elle sera ecrite
+                      ;; telle quelle deux blocs plus bas), `skel bones` = la pose du RETARGET.
+                      ;; ------------------------------------------------------------------------
+                      (let ((stb (* sc PHYS-ST)))
+                        ;; --- par lien : penetration residuelle (SPEC 3) et ecart au modele (SPEC 4)
+                        (dotimes (l n)
+                          (when (>= l rlk)
+                            (let* ((scl (+ (* sc PHYS-LINKS) l))
+                                   (kk  (-> *phys-joint* scl))
+                                   (rl  (-> *phys-rad* scl)))
+                              (when (< (+ kk 1) nbone)
+                                (vector-copy! rest (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
+                                (set! (-> pt x) (-> *phys-px* scl))
+                                (set! (-> pt y) (-> *phys-py* scl))
+                                (set! (-> pt z) (-> *phys-pz* scl))
+                                (set! (-> pt w) 1.0)
+                                ;; ecart a la pose du modele : c'est ce que la salle lit au repos.
+                                (let ((dv (vector-vector-distance pt rest)))
+                                  (when (> dv (-> *phys-st* (+ stb 5))) (set! (-> *phys-st* (+ stb 5)) dv)))
+                                ;; penetration AU-DELA du plancher de pose modele, meme regle et
+                                ;; memes volumes que la resolution : ce qui reste apres elle.
+                                (dotimes (ci nco)
+                                  (let* ((sco (+ (* slot PHYS-COLS) ci))
+                                         (cj  (-> *phys-cj* sco))
+                                         (cj2 (-> *phys-cj2* sco))
+                                         (own #f))
+                                    (dotimes (l2 n)
+                                      (let ((k2j (-> *phys-joint* (+ (* sc PHYS-LINKS) l2))))
+                                        (when (or (= cj k2j) (= cj2 k2j)) (set! own #t))))
+                                    (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
+                                      (vector-copy! ca (the-as vector (-> skel bones (+ cj 1) transform vector 3)))
+                                      (if (and (>= cj2 0) (< (+ cj2 1) nbone))
+                                        (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
+                                        (vector-copy! cb ca))
+                                      (let* ((cap? (and (>= cj2 0) (< (+ cj2 1) nbone)))
+                                             (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                                         (-> *phys-cr2* sco) cap? nrm))
+                                             (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
+                                                                         (-> *phys-cr2* sco) cap? nrm))
+                                             (res    (- dep floor0)))
+                                        (when (> res (-> *phys-st* (+ stb 4)))
+                                          (set! (-> *phys-st* (+ stb 4)) res))))))))))
+                        ;; --- rootdev : residu de longueur du PREMIER LIEN LIBRE contre son
+                        ;; attache. `want` vient du squelette NON ECRIT = la longueur que le modele
+                        ;; donne a cet os. C'est la mesure de "les cheveux restent ancres".
+                        (when (> n (max 1 rlk))
+                          (let* ((l0   (max 1 rlk))
+                                 (scl  (+ (* sc PHYS-LINKS) l0))
+                                 (sclp (+ (* sc PHYS-LINKS) (- l0 1)))
+                                 (kk   (-> *phys-joint* scl))
+                                 (kp   (-> *phys-joint* sclp)))
+                            (when (and (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+                              (let* ((want (vector-vector-distance
+                                             (the-as vector (-> skel bones (+ kk 1) transform vector 3))
+                                             (the-as vector (-> skel bones (+ kp 1) transform vector 3))))
+                                     (dx (- (-> *phys-px* scl) (-> *phys-px* sclp)))
+                                     (dy (- (-> *phys-py* scl) (-> *phys-py* sclp)))
+                                     (dz (- (-> *phys-pz* scl) (-> *phys-pz* sclp)))
+                                     (got (sqrtf (+ (* dx dx) (* dy dy) (* dz dz))))
+                                     (res (fabs (- got want))))
+                                (when (> res (-> *phys-st* (+ stb 3)))
+                                  (set! (-> *phys-st* (+ stb 3)) res))))))
+                        ;; --- pointe : mouvement commite, et intention d'auteur (SPEC 5) ---------
+                        (let* ((sclt (+ (* sc PHYS-LINKS) (- n 1)))
+                               (kt   (-> *phys-joint* sclt)))
+                          (when (< (+ kt 1) nbone)
+                            ;; les deux pointes dans le repere de l'ancre : deplacer le personnage
+                            ;; ne compte pas comme du mouvement de chaine.
+                            (let ((lx (- (-> *phys-px* sclt) (-> anc x)))
+                                  (ly (- (-> *phys-py* sclt) (-> anc y)))
+                                  (lz (- (-> *phys-pz* sclt) (-> anc z)))
+                                  (rx (- (-> skel bones (+ kt 1) transform vector 3 x) (-> anc x)))
+                                  (ry (- (-> skel bones (+ kt 1) transform vector 3 y) (-> anc y)))
+                                  (rz (- (-> skel bones (+ kt 1) transform vector 3 z) (-> anc z))))
+                              ;; mouvement de la pose commitee
+                              (when (nonzero? (-> *phys-thas* sc))
+                                (let* ((cdx (- lx (-> *phys-tx* sc)))
+                                       (cdy (- ly (-> *phys-ty* sc)))
+                                       (cdz (- lz (-> *phys-tz* sc)))
+                                       (d   (sqrtf (+ (* cdx cdx) (* cdy cdy) (* cdz cdz)))))
+                                  (set! (-> *phys-st* (+ stb 0)) (+ 1.0 (-> *phys-st* (+ stb 0))))
+                                  (set! (-> *phys-st* (+ stb 1)) (+ d (-> *phys-st* (+ stb 1))))
+                                  (when (> d (-> *phys-st* (+ stb 2))) (set! (-> *phys-st* (+ stb 2)) d))
+                                  ;; intention d'auteur sur CETTE chaine, la meme frame
+                                  (when (nonzero? (-> *phys-rhas* sc))
+                                    (let* ((adx (- rx (-> *phys-rtx* sc)))
+                                           (ady (- ry (-> *phys-rty* sc)))
+                                           (adz (- rz (-> *phys-rtz* sc)))
+                                           (am  (sqrtf (+ (* adx adx) (* ady ady) (* adz adz)))))
+                                      (when (> am PHYS-AUTH-EPS)
+                                        (set! (-> *phys-ahit* sc) (+ 1.0 (-> *phys-ahit* sc)))
+                                        ;; RESPECTEE = la pose commitee est partie du meme cote que
+                                        ;; l'anim. La physique suit l'auteur, elle ne le combat pas.
+                                        (when (>= (+ (* cdx adx) (* cdy ady) (* cdz adz)) 0.0)
+                                          (set! (-> *phys-aok* sc) (+ 1.0 (-> *phys-aok* sc))))
+                                        (set! (-> *phys-adot* sc)
+                                              (+ (-> *phys-adot* sc)
+                                                 (+ (* cdx adx) (* cdy ady) (* cdz adz))))
+                                        (set! (-> *phys-anrm* sc)
+                                              (+ (-> *phys-anrm* sc) (* am am))))))))
+                              (set! (-> *phys-tx* sc) lx)
+                              (set! (-> *phys-ty* sc) ly)
+                              (set! (-> *phys-tz* sc) lz)
+                              (set! (-> *phys-thas* sc) 1)
+                              (set! (-> *phys-rtx* sc) rx)
+                              (set! (-> *phys-rty* sc) ry)
+                              (set! (-> *phys-rtz* sc) rz)
+                              (set! (-> *phys-rhas* sc) 1)))))
+
+                      ;; ---- ECRITURE DANS LE SQUELETTE (SPEC 7 : c'est ca qui fait foi) ----
+                      (dotimes (l n)
+                        (when (>= l rlk)
+                          (let* ((scl (+ (* sc PHYS-LINKS) l))
+                                 (k   (-> *phys-joint* scl)))
+                            (when (< (+ k 1) nbone)
+                              (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
+                                (matrix-copy! pre bm)
+                                ;; orientation : on fait pointer le lien vers la position simulee
+                                ;; de son enfant. Sans ca la chaine se translate sans tourner et le
+                                ;; skinning cisaille.
+                                (when (< (+ l 1) n)
+                                  (let* ((sclc (+ (* sc PHYS-LINKS) (+ l 1)))
+                                         (kc   (-> *phys-joint* sclc)))
+                                    (when (< (+ kc 1) nbone)
+                                      (vector-copy! tgt (the-as vector (-> skel bones (+ kc 1) transform vector 3)))
+                                      (set! (-> rest x) (- (-> tgt x) (-> bm vector 3 x)))
+                                      (set! (-> rest y) (- (-> tgt y) (-> bm vector 3 y)))
+                                      (set! (-> rest z) (- (-> tgt z) (-> bm vector 3 z)))
+                                      (set! (-> rest w) 1.0)
+                                      (set! (-> pt x) (- (-> *phys-px* sclc) (-> *phys-px* scl)))
+                                      (set! (-> pt y) (- (-> *phys-py* sclc) (-> *phys-py* scl)))
+                                      (set! (-> pt z) (- (-> *phys-pz* sclc) (-> *phys-pz* scl)))
+                                      (set! (-> pt w) 1.0)
+                                      (let ((la (vector-length rest)) (lb (vector-length pt)))
+                                        (when (and (> la 0.01) (> lb 0.01))
+                                          (vector-float*! rest rest (/ 1.0 la))
+                                          (vector-float*! pt pt (/ 1.0 lb))
+                                          (vector-cross! nrm rest pt)
+                                          (let ((sn (vector-length nrm))
+                                                (cs (vector-dot rest pt)))
+                                            (when (> sn 0.0001)
+                                              (vector-float*! nrm nrm (/ 1.0 sn))
+                                              (matrix-axis-angle! rot nrm
+                                                (* 57.2957795 (atan sn cs)))
+                                              (set! (-> bm vector 3 x) 0.0)
+                                              (set! (-> bm vector 3 y) 0.0)
+                                              (set! (-> bm vector 3 z) 0.0)
+                                              (matrix*! tmp bm rot)
+                                              (matrix-copy! bm tmp))))))))
+                                ;; translation : la position simulee, telle quelle
+                                (set! (-> bm vector 3 x) (-> *phys-px* scl))
+                                (set! (-> bm vector 3 y) (-> *phys-py* scl))
+                                (set! (-> bm vector 3 z) (-> *phys-pz* scl))
+                                (set! (-> bm vector 3 w) 1.0)
+                                ;; delta pour les descendants non simules
+                                (when (< k PHYS-JOINTS)
+                                  (matrix-4x4-inverse! inv pre)
+                                  (matrix*! (-> *phys-dmat* k) inv bm)
+                                  (set! (-> *phys-dhas* k) 1)))))))
+
+                      ))))))
+          ;; ---- propagation aux descendants non simules (verres de lunettes, etc.) ----
+          (dotimes (k njoint)
+            (when (zero? (-> *phys-dhas* k))
+              (let ((p (the int (-> (-> obj khd-par) k))))
+                (when (and (!= p 255) (< p PHYS-JOINTS) (nonzero? (-> *phys-dhas* p))
+                           (< (+ k 1) nbone))
+                  (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
+                    (matrix*! tmp bm (-> *phys-dmat* p))
+                    (matrix-copy! bm tmp)
+                    (matrix-copy! (-> *phys-dmat* k) (-> *phys-dmat* p))
+                    (set! (-> *phys-dhas* k) 1))))))))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; les deux prises restantes attendues par le reste du jeu.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-note-covered! ((n int)) (none))
+
+;; process-drawable.gc:287 appelle ceci sur TOUT process-drawable — y compris les compagnons HD,
+;; AVANT fill-jak-hd-bones! (jak-hd.gc:552-553). Le rider stock n'est pas dans le perimetre de
+;; cette phase (KEIRA SEULE, via son compagnon HD) : il ne fait rien, et surtout pas sur un
+;; compagnon dont la pose n'est pas encore retargetee.
+(defun phys-rider-post! ((obj process-drawable)) (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; ACCES POUR LA SALLE DE TEST (phys-room.gc). Les accumulateurs vivent ici parce que c'est ici que
+;; la position ecrite est connue ; la salle ne fait que fenetrer et publier.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-stats-reset! ()
+  (dotimes (sc PHYS-SC)
+    (dotimes (i PHYS-ST) (set! (-> *phys-st* (+ (* sc PHYS-ST) i)) 0.0))
+    (set! (-> *phys-thas* sc) 0))
+  (none))
+
+(defun phys-stat ((slot int) (chain int) (which int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= which 0) (< which PHYS-ST))
+    (-> *phys-st* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-ST) which))
+    0.0))
+
+(defun phys-slot-chains ((slot int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nch* slot) 0))
+
+(defun phys-chain-links ((slot int) (chain int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
+    (-> *phys-nlink* (+ (* slot PHYS-CHAINS) chain))
+    0))
+
+(defun phys-chain-family ((slot int) (chain int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
+    (-> *phys-fam* (+ (* slot PHYS-CHAINS) chain))
+    0))
+
+(defun phys-chain-joint ((slot int) (chain int) (link int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= link 0) (< link PHYS-LINKS))
+    (-> *phys-joint* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link))
+    -1))
+
+(defun phys-inject-set! ((v float))
+  (set! *phys-inject* v)
+  (none))
+
+(defun phys-inject-count () *phys-injn*)
+
+(defun phys-inject-count-reset! ()
+  (set! *phys-injn* 0)
+  (none))
+
+;; SPEC 5. which 0 = frames pilotees par l'anim sur cette chaine, 1 = celles ou la pose commitee
+;; est partie du meme cote. Ces deux-la survivent aux fenetres : c'est le bilan de la course.
+(defun phys-auth ((slot int) (chain int) (which int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
+    (let ((sc (+ (* slot PHYS-CHAINS) chain)))
+      (case which
+        ((0) (-> *phys-ahit* sc))
+        ((1) (-> *phys-aok* sc))
+        ((2) (-> *phys-adot* sc))
+        (else (-> *phys-anrm* sc))))
+    0.0))
+
+(defun phys-auth-reset! ()
+  (dotimes (sc PHYS-SC)
+    (set! (-> *phys-ahit* sc) 0.0)
+    (set! (-> *phys-aok* sc) 0.0)
+    (set! (-> *phys-adot* sc) 0.0)
+    (set! (-> *phys-anrm* sc) 0.0)
+    (set! (-> *phys-rhas* sc) 0))
+  (none))
+
+;; le slot de simulation d'un compagnon, pour que la salle sache ou lire ses chiffres.
+(defun phys-slot-of ((pid int)) (phys-slot-for-pid pid))
+
+)
