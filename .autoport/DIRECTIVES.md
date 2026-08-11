@@ -98,3 +98,30 @@ l'animation sur chaque extrême, et les lignes `ROOM-NOPLAYER:`, `ROOM-ACTORS:`,
 
 Le moteur (806 lignes) et la salle (471 lignes) **compilent** : 551 cibles en 41 s. Pas de temps à
 passer sur la compilation.
+
+## VERDICT DE L'OWNER SUR L'APK DU 2026-08-11 11:24 (il a vu Keira lui-même)
+
+> « Alors c'est pas dégueu. Ses seins pourraient bouger un peu plus mais à défaut ça rend pas mal
+> quand même. Les mèches les plus fines sur le devant par contre sont folles, et les plus grosses un
+> peu trop statiques. Ses bretelles passent au travers de son torse sur le devant (au niveau du dos
+> ça a l'air ok). »
+
+**Premier retour globalement positif de la série.** Ce qui en découle, déjà appliqué par le
+superviseur côté DONNÉES (inutile de le refaire) :
+* `lbang`/`rbang` « folles » : raideur 2.60 → 3.30, couple 1.00 → 0.70, masse 0.70 → 0.88.
+  L'amortissement n'a PAS été touché (amortir = tuer, c'est ce qui avait tué Maia).
+* `lmidhair`/`rmidhair` « trop statiques » : raideur 2.00 → 1.50, couple 1.00 → 1.40, masse → 0.72.
+* `chestL`/`chestR` « pourraient bouger un peu plus » : couple 1.00 → 1.45, amortissement 0.35 →
+  0.26, **raideur inchangée** (ferme = raideur, et un grand angle donnerait un ballon d'eau).
+
+**CE QUI RESTE À FAIRE, ET C'EST STRUCTUREL** : les bretelles ne traversaient pas le torse par
+mauvais réglage — **il n'existait aucun collider de buste**. Les 9 colliders étaient `main` (549),
+les deux oreilles, les quatre mèches et les deux seins. J'ai ajouté `chest→hips` et `neck→chest`
+depuis les joints réels du rig (`chest`, `neck`, `hips` existent dans `assistant-ag.go`), mais **les
+rayons sont une estimation** : à vérifier et à ajuster contre la vraie épaisseur du mesh, et à
+mesurer par la salle (la pénétration des bretelles doit tomber à zéro avec un contrôle positif qui
+monte). C'est exactement la cause racine que l'owner désigne depuis le début : *les colliders ne
+suivent pas la forme du personnage*.
+
+Asymétrie à expliquer aussi : `chestL` mesuré à 0,66 contre `chestR` à 1,04 pour des paramètres
+quasi identiques (656 vs 660).

@@ -88,28 +88,28 @@ chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.00 radius=366
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
-chain lbang class=primary stiffness=2.60 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.70 hang=0.00 family=A couple=1.00 radii=112,104,180
+chain lbang class=primary stiffness=3.30 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.88 hang=0.00 family=A couple=0.70 radii=112,104,180
 j Lbanga
 j Lbangb
 j Lbangc
 # rbang [A] Rbanga verts=106 wsum=86.63 r=118 | Rbangb verts=146 wsum=29.97 r=102 | Rbangc verts=55 wsum=40.98 r=178
-chain rbang class=primary stiffness=2.60 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.70 hang=0.00 family=A couple=1.00 radii=118,102,178
+chain rbang class=primary stiffness=3.30 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.88 hang=0.00 family=A couple=0.70 radii=118,102,178
 j Rbanga
 j Rbangb
 j Rbangc
 # lmidhair [A] Lmidhaira verts=212 wsum=72.75 r=222 | Lmidhairb verts=171 wsum=99.73 r=335
-chain lmidhair class=primary stiffness=2.00 damping=0.20 gravity=0.00 radius=278 rootlock=1 mass=0.80 hang=0.00 family=A couple=1.00 radii=222,335
+chain lmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.00 radius=278 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=222,335
 j Lmidhaira
 j Lmidhairb
 # rmidhair [A] Rmidhaira verts=219 wsum=71.00 r=228 | Rmidhairb verts=176 wsum=106.17 r=337
-chain rmidhair class=primary stiffness=2.00 damping=0.20 gravity=0.00 radius=282 rootlock=1 mass=0.80 hang=0.00 family=A couple=1.00 radii=228,337
+chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.00 radius=282 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=228,337
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.80 damping=0.35 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.00 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=2.80 damping=0.26 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.45 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.80 damping=0.35 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.00 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=2.80 damping=0.26 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.45 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
 chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,79
@@ -230,3 +230,7 @@ collider Rmidhaira radius=228
 collider lBoob radius=656
 # sphere rBoob [chestR]  25v @w>0.25
 collider rBoob radius=660
+collider chest radius=430 to=hips radius2=470   # tronc avant/arriere -- ABSENT jusqu'ici,
+                                                #   c'est pourquoi les bretelles passaient
+                                                #   au travers du torse par devant (owner 2026-08-11)
+collider neck radius=250 to=chest radius2=430   # haut du buste / base du cou
