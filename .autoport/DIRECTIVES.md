@@ -125,3 +125,29 @@ suivent pas la forme du personnage*.
 
 Asymétrie à expliquer aussi : `chestL` mesuré à 0,66 contre `chestR` à 1,04 pour des paramètres
 quasi identiques (656 vs 660).
+
+## DEUXIÈME PASSE DE L'OWNER (2026-08-11, même APK)
+
+> « les bretelles des fois sont OK, des fois non. Ses seins, j'ai vu un coup où un des seins était
+> retourné vers l'intérieur… la même animation relancée et c'était nickel. Les lunettes (leur
+> physique) marchent bien, mais clipent à peine un poil avec ses seins, faudrait ajuster d'un petit
+> chouilla. »
+
+* **Lunettes vs seins** : traité côté données par le superviseur — colliders `lBoob` 656→676 et
+  `rBoob` 660→680. Ne pas refaire.
+* **Bretelles intermittentes** : cohérent avec l'absence totale de collider de buste, corrigée
+  depuis (`chest→hips`, `neck→chest`). À confirmer sur le prochain retour ; si ça persiste, les
+  rayons estimés sont à mesurer contre le mesh.
+* **UN SEIN RETOURNÉ VERS L'INTÉRIEUR, par intermittence, sur la même animation** — c'est un
+  défaut de SOLVEUR, à corriger dans le moteur, pas un réglage :
+  `phys-length-chain` saute la contrainte quand la distance à l'ancre passe sous `0.0001`
+  (`(when (> d 0.0001) …)`). La direction devient indéfinie et le lien peut se restabiliser **du
+  mauvais côté de son ancre** — un équilibre stable mais faux, puisque le ressort est symétrique
+  autour de l'ancre. D'où l'intermittence et la disparition en relançant.
+  Correction attendue : une chaîne à un seul os de famille A doit rester **du côté de la pose du
+  modèle**. Si le produit scalaire entre la direction courante et la direction de la pose devient
+  négatif, on réfléchit le lien au lieu de laisser filer ; et le cas dégénéré (d ≈ 0) doit repartir
+  de la direction de la pose, jamais être ignoré. C'est la règle « rotation autour de l'ancre,
+  longueur invariante » — le même défaut de fond que le « giga pointe ou quasiment plat ».
+  **À mesurer** : la salle doit compter les inversions (produit scalaire négatif) et le compteur
+  doit tomber à zéro avec un contrôle positif qui l'a fait monter.

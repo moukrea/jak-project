@@ -227,9 +227,9 @@ collider Lmidhaira radius=222
 # sphere Rmidhaira [rmidhair]  58v @w>0.5
 collider Rmidhaira radius=228
 # sphere lBoob [chestL]  34v @w>0.25
-collider lBoob radius=656
+collider lBoob radius=676
 # sphere rBoob [chestR]  25v @w>0.25
-collider rBoob radius=660
+collider rBoob radius=680
 collider chest radius=430 to=hips radius2=470   # tronc avant/arriere -- ABSENT jusqu'ici,
                                                 #   c'est pourquoi les bretelles passaient
                                                 #   au travers du torse par devant (owner 2026-08-11)
