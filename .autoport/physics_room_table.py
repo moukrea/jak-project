@@ -36,7 +36,10 @@ UNITS = 4096.0   # unites de jeu par metre
 # valeur mesuree de CHAQUE chaine est publiee dans le tableau, personne n'a a croire ce seuil.
 TRANSMISSION_MIN = 0.90
 
-DRIVE_NAMES = ('updown', 'leftright', 'accel', 'jerk')
+# 'tilt' est arrive avec la 6e passe de l'owner : les quatre premiers TRANSLATENT le sujet, donc
+# ils ne changent jamais l'orientation de l'ancre et ne peuvent PAS voir une gravite exprimee
+# dans le repere de l'ancre. Le cinquieme l'INCLINE.
+DRIVE_NAMES = ('updown', 'leftright', 'accel', 'jerk', 'tilt')
 
 REPDIR = '.autoport/reports/Grecharged-secondary-motion'
 DEFAULT_LOG = os.path.join(REPDIR, 'keira-room-x86.log')
@@ -195,6 +198,32 @@ def main():
                                      amp=float(m.group(4)) / UNITS, fam=int(m.group(5)))
     if not idle:
         die('aucune ligne PHYSIDLE : le repos n\'a pas ete mesure')
+
+    # ---- l'inclinaison statique (6e passe : la gravite existe-t-elle ?) -------------------------
+    tilt = {}
+    for m in re.finditer(r'^PHYSTILT c=(\d+) deg=([-\d.e+]+) dev=([-\d.e+]+) amp=([-\d.e+]+)'
+                         r' fam=(\d+)', txt, re.M):
+        tilt[int(m.group(1))] = dict(deg=float(m.group(2)), dev=float(m.group(3)) / UNITS,
+                                     amp=float(m.group(4)) / UNITS, fam=int(m.group(5)))
+
+    # ---- la courbe de reponse (6e passe : « trop statique / trop hysterique ») ------------------
+    resp = {}
+    for m in re.finditer(r'^PHYSRESP c=(\d+) lvl=(\d+) exc=([-\d.e+]+) amp=([-\d.e+]+)'
+                         r' jump=([-\d.e+]+)', txt, re.M):
+        resp.setdefault(int(m.group(1)), []).append(
+            dict(lvl=int(m.group(2)), exc=float(m.group(3)),
+                 amp=float(m.group(4)) / UNITS, jump=float(m.group(5)) / UNITS))
+
+    # ---- le diagnostic par chaine --------------------------------------------------------------
+    diag = {}
+    for m in re.finditer(r'^PHYSDIAG tag=(\S+) c=(\d+) selfcol=([-\d.e+]+) retreat=([-\d.e+]+)'
+                         r' flip=([-\d.e+]+)', txt, re.M):
+        diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
+            selfcol=float(m.group(3)), retreat=float(m.group(4)), flip=float(m.group(5)))
+    for m in re.finditer(r'^PHYSDIAG2 tag=(\S+) c=(\d+) inv=([-\d.e+]+) invres=([-\d.e+]+)'
+                         r' elong=([-\d.e+]+)', txt, re.M):
+        diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
+            inv=float(m.group(3)), invres=float(m.group(4)), elong=float(m.group(5)))
 
     # ---- le controle positif -------------------------------------------------------------------
     pc = re.search(r'^PHYSPC injections=(\d+) armed=([-\d.e+]+) disarmed=([-\d.e+]+)', txt, re.M)
@@ -505,6 +534,86 @@ def main():
         A('   %-12s -> %s' % (names[c],
                               ', '.join('%s(idx %d)' % (nm, idx)
                                         for _, idx, nm in sorted(written.get(c, [])))))
+    A('')
+    A('-- 6e PASSE DE L\'OWNER, DEFAUT 1 : L\'AUTO-COLLISION DES MECHES -----------------------------')
+    A('   « Les meches fines jittent like crazy des que la tete bouge (peu importe si c\'est la tete')
+    A('   qui bouge ou si elle est deplacee dans l\'espace par le reste du squelette). »')
+    A('   Les colliders Lbanga / Rbanga / Lmidhaira / lBoob sont les JOINTS-RACINES des chaines')
+    A('   elles-memes, et les capsules Lbangb->Lbanga sont leurs MAILLONS. Une chaine ne doit donc')
+    A('   jamais entrer en collision avec ses propres volumes. `selfcol` compte les corrections qui')
+    A('   en viennent : ZERO exige, et la branche ARMEE leve l\'exclusion pour prouver que le')
+    A('   compteur voit quelque chose.')
+    dr_run, dr_off, dr_on = diag.get('run', {}), diag.get('self-disarmed', {}), diag.get('self-armed', {})
+    if not dr_run or not dr_on:
+        die('trace incomplete : PHYSDIAG (run / self-armed) manquant — le defaut 1 de la 6e passe'
+            ' n\'est pas mesure')
+    s_run = sum(v.get('selfcol', 0.0) for v in dr_run.values())
+    s_off = sum(v.get('selfcol', 0.0) for v in dr_off.values())
+    s_on = sum(v.get('selfcol', 0.0) for v in dr_on.values())
+    A('ROOM-SELFCOL: run=%d disarmed=%d armed=%d' % (s_run, s_off, s_on))
+    if s_on <= s_off:
+        A('   ATTENTION : le controle positif n\'a PAS fait monter le compteur — il ne mesure rien,')
+        A('   et le zero de la course ne prouve donc rien.')
+    for c in sorted(chains):
+        A('   selfcol %-12s run=%-8d armed=%-8d  (retreat=%-7d flip=%-8d inv=%-6d invres=%-6d'
+          ' elong=%.4f)'
+          % (names[c], int(dr_run.get(c, {}).get('selfcol', 0)),
+             int(dr_on.get(c, {}).get('selfcol', 0)),
+             int(dr_run.get(c, {}).get('retreat', 0)),
+             int(dr_run.get(c, {}).get('flip', 0)),
+             int(dr_run.get(c, {}).get('inv', 0)),
+             int(dr_run.get(c, {}).get('invres', 0)),
+             dr_run.get(c, {}).get('elong', 0.0)))
+    A('')
+    A('-- 6e PASSE, DEFAUT 2 : LA COURBE DE REPONSE ------------------------------------------------')
+    A('   « Les meches les plus grosses sont trop statiques sur les mouvements faibles, trop')
+    A('   hysteriques sur les mouvements brusques. » Une reponse non lineaire, c\'est un seuil. Meme')
+    A('   animation figee, meme chaine, meme fenetre : la SEULE chose qui change d\'un niveau au')
+    A('   suivant est l\'amplitude de l\'excitation (unites de jeu par frame^2). `gain` = amplitude')
+    A('   de pointe / excitation, normalise sur le premier niveau : une droite a 1.00 est une')
+    A('   reponse LINEAIRE, une marche designe le seuil coupable.')
+    if not resp:
+        die('trace incomplete : aucune ligne PHYSRESP — le defaut 2 de la 6e passe n\'est pas mesure')
+    lv = sorted({d['lvl'] for v in resp.values() for d in v})
+    A('   %-12s %s' % ('chain', ' '.join('exc=%-7.1f' % next(d['exc'] for d in resp[next(iter(resp))]
+                                                             if d['lvl'] == i) for i in lv)))
+    for c in sorted(chains):
+        pts = {d['lvl']: d for d in resp.get(c, [])}
+        if not pts:
+            continue
+        base = None
+        cells = []
+        for i in lv:
+            d = pts.get(i)
+            if d is None or d['exc'] <= 0:
+                cells.append('   -    ')
+                continue
+            g = d['amp'] / d['exc']
+            if base is None and g > 0:
+                base = g
+            cells.append('%7.3f ' % (g / base if base else 0.0))
+        A('   resp %-12s %s   amp: %s'
+          % (names[c], ' '.join('%-11s' % x.strip() for x in cells),
+             ' '.join(fnum(pts[i]['amp']) for i in lv if i in pts)))
+    A('')
+    A('-- 6e PASSE, DEFAUT 3 : LA GRAVITE EXISTE-T-ELLE QUAND ELLE SE PENCHE ? ---------------------')
+    A('   « Les seins n\'ont pas l\'air d\'etre soumis a la gravite, aucun mouvement quand elle se')
+    A('   penche en avant pour souder, pas coherent du tout. » Meme chaine, meme animation figee,')
+    A('   meme duree que le repos : la SEULE difference est l\'inclinaison du tronc. La famille A')
+    A('   porte une gravite exprimee dans le repere de l\'ancre — nulle quand elle est droite')
+    A('   (l\'equilibre reste la pose du modele), non nulle des qu\'elle penche. `dev` doit donc')
+    A('   MONTER de la colonne droite a la colonne penchee, et pour elles seules.')
+    if not tilt:
+        die('trace incomplete : aucune ligne PHYSTILT — le defaut 3 de la 6e passe n\'est pas mesure')
+    deg = next(iter(tilt.values()))['deg']
+    A('ROOM-TILT: deg=%.0f chains=%d' % (deg, len(tilt)))
+    for c in sorted(chains):
+        u = idle.get(c, {})
+        v = tilt.get(c, {})
+        A('   tilt %-12s fam=%s  dev_droite=%-9s dev_penchee=%-9s  ratio=%s'
+          % (names[c], 'A' if chains[c]['fam'] == 1 else 'B',
+             fnum(u.get('dev', 0.0)), fnum(v.get('dev', 0.0)),
+             ('%.1fx' % (v.get('dev', 0.0) / u['dev'])) if u.get('dev', 0.0) > 1e-6 else 'n/a'))
     A('')
     A('-- LES MESURES, UNE LIGNE PAR (CHAINE x ANIMATION x PILOTAGE) ------------------------------')
     for r in sorted(rows, key=lambda r: (r['c'], r['ai'], r['dr'])):

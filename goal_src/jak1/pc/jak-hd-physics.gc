@@ -74,6 +74,14 @@
 (defconstant PHYS-C-RADIUS 0)
 (defconstant PHYS-C-SHAPE  3)
 (defconstant PHYS-C-RADIUS2 4)
+;; 6e passe de l'owner : « lBoob et rBoob sont des spheres NUES posees sur le joint-racine, alors
+;; que tout le reste du corps est en capsules derivees. Une sphere au joint ne peut pas epouser un
+;; sein. » Le centre de la sphere est desormais le CENTROIDE MESURE de la geometrie du joint, dans
+;; l'espace bind de ce joint ; le moteur le transforme par la matrice de l'os, donc il suit
+;; l'animation. Absent des donnees = 0,0,0 = le centre reste le joint (comportement d'avant).
+(defconstant PHYS-C-OFFX   7)
+(defconstant PHYS-C-OFFY   8)
+(defconstant PHYS-C-OFFZ   9)
 
 ;; ------------------------------------------------------------------------------------------------
 ;; TAILLES. Un slot = un compagnon HD vivant. Keira seule aujourd'hui, mais le jeu peut porter
@@ -136,6 +144,10 @@
 (define *phys-cj2* (new 'global 'array 'int32 PHYS-SCO))
 (define *phys-cr*  (new 'global 'array 'float PHYS-SCO))
 (define *phys-cr2* (new 'global 'array 'float PHYS-SCO))
+;; centre de la sphere dans l'espace bind de son joint (0,0,0 = sur le joint)
+(define *phys-cox* (new 'global 'array 'float PHYS-SCO))
+(define *phys-coy* (new 'global 'array 'float PHYS-SCO))
+(define *phys-coz* (new 'global 'array 'float PHYS-SCO))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; MESURE (SPEC 7). Les colonnes du tableau de la salle sont accumulees ICI parce que c'est ici que
@@ -266,6 +278,32 @@
 ;; fichier au lieu d'etre REPAREE ».
 (define *phys-reseat-n* 0)
 
+;; ------------------------------------------------------------------------------------------------
+;; DIAGNOSTIC PAR CHAINE (6e passe de l'owner). Les trois defauts qu'il decrit se decident chaine
+;; par chaine, donc les compteurs qui les mesurent sont PAR CHAINE — un total global ne dit pas si
+;; ce sont les meches fines qui jittent ou les sangles de cheville.
+;;   0 selfcol  corrections venues d'un volume porte par les PROPRES joints de la chaine. « Une
+;;              meche est en collision permanente avec elle-meme » : doit valoir ZERO, et le
+;;              controle positif (*phys-self-inject*) desarme l'exclusion pour le faire monter.
+;;   1 retreat  reculs vers la pose du modele (le limiteur violent : il saute)
+;;   2 flip     (lien, volume) qui ont CHANGE d'etat de contrainte d'une frame a l'autre. C'etait un
+;;              interrupteur binaire evalue chaque frame sur la pose du modele : quand il bascule,
+;;              la position du lien saute. C'est la mesure du defaut « jitter » lui-meme.
+;;   3 inv      inversions corrigees (le lien etait passe du mauvais cote de son attache)
+;;   4 invres   inversions RESIDUELLES apres tout le solveur : doit valoir ZERO
+;;   5 elong    pire allongement RELATIF du premier lien libre (|l/l0 - 1|) : « les seins
+;;              s'allongent sur les changements brusques de direction » — doit rester sous 3 %.
+(defconstant PHYS-DG 6)
+(define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
+;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
+;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
+(defconstant PHYS-FLIPW 3)
+(define *phys-fl* (new 'global 'array 'int32 (* PHYS-SCL PHYS-FLIPW)))
+(define *phys-flhas* (new 'global 'array 'int32 PHYS-SCL))
+;; CONTROLE POSITIF de l'auto-collision : arme, l'exclusion chaine<->ses propres volumes est levee.
+;; Le compteur `selfcol` doit alors monter — sinon il ne mesure rien.
+(define *phys-self-inject* 0)
+
 ;; nombre de joints du rig courant (relu a chaque step, pas de cache douteux)
 (define *phys-njoint* 0)
 
@@ -372,6 +410,9 @@
                         (set! (-> *phys-cr* sco)  (phys-mi->f (pc-physics-collider-param-mi agname ci PHYS-C-RADIUS)))
                         (let ((r2 (phys-mi->f (pc-physics-collider-param-mi agname ci PHYS-C-RADIUS2))))
                           (set! (-> *phys-cr2* sco) (if (< r2 0.01) (-> *phys-cr* sco) r2)))
+                        (set! (-> *phys-cox* sco) (phys-mi->f (pc-physics-collider-param-mi agname ci PHYS-C-OFFX)))
+                        (set! (-> *phys-coy* sco) (phys-mi->f (pc-physics-collider-param-mi agname ci PHYS-C-OFFY)))
+                        (set! (-> *phys-coz* sco) (phys-mi->f (pc-physics-collider-param-mi agname ci PHYS-C-OFFZ)))
                         (dotimes (k njoint)
                           (let ((jn (-> obj draw jgeo data k name)))
                             (when jn
@@ -407,12 +448,33 @@
 ;; modele et la chaine etait MORTE (amplitude 0.0062 m, quand le plancher de la SPEC est 0.05).
 ;;
 ;; Le critere est donc geometrique, calcule a chaque frame sur la pose du modele, et identique dans
-;; la resolution ET dans la mesure : un volume V contraint un lien L si et seulement si la sphere de
-;; L n'est pas entierement dans V au repos, c.-a-d. profondeur_repos < 2 * rayon(L). Aucun flag,
-;; aucun masque, aucune liste (DIRECTIVES 4) — et le nombre de paires (lien, volume) ainsi ecartees
-;; est publie par la salle.
-(defun phys-vol-is-surface? ((floor0 float) (rl float))
-  (< floor0 (* 2.0 rl)))
+;; la resolution ET dans la mesure : un volume V contraint un lien L d'autant moins qu'il l'enfouit
+;; profondement au repos. Aucun flag, aucun masque, aucune liste (DIRECTIVES 4).
+;;
+;; POURQUOI CE N'EST PLUS UN INTERRUPTEUR. Il l'a ete : « V contraint L si et seulement si
+;; profondeur_repos < 2*rayon(L) ». Or `profondeur_repos` est recalculee A CHAQUE FRAME sur la pose
+;; d'auteur, donc elle traverse ce seuil en cours d'animation — et le jour ou elle le traverse, le
+;; lien passe SANS TRANSITION de « contraint » a « libre » et saute. C'est un des deux seuils que la
+;; 6e passe de l'owner designe : « les meches fines jittent like crazy des que la tete bouge » et
+;; « les grosses meches : rien sur les petits mouvements, hysteriques sur les brusques ». Une
+;; reponse non lineaire, c'est un seuil, et celui-ci etait binaire.
+;;
+;; La forme continue garde EXACTEMENT les deux extremes et interpole entre eux : plus le lien est
+;; deja enfoui au repos, plus on lui laisse de mou, et le mou part a l'infini pile quand il est
+;; entierement dedans.
+;;      w = clamp01((2*rl - floor0) / rl)        w=1 des que floor0 <= rl, w=0 a floor0 = 2*rl
+;;      plancher effectif = floor0 / w           = floor0 quand w=1, -> +inf quand w -> 0
+;; Aucun nombre nouveau : les deux memes grandeurs (floor0, rl) qu'avant.
+(defconstant PHYS-VOL-FREE 1000000000.0)
+
+(defun phys-vol-floor ((floor0 float) (rl float))
+  "profondeur maximale que cette paire (lien, volume) tolere. PHYS-VOL-FREE = aucune surface
+   devant le lien, donc rien a traverser."
+  (let ((w (/ (- (* 2.0 rl) floor0) (fmax 0.0001 rl))))
+    (cond
+      ((>= w 1.0) floor0)
+      ((<= w 0.0) PHYS-VOL-FREE)
+      (else (/ floor0 w)))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; GEOMETRIE — un lien contre un collider. Le collider est une SPHERE (joint2 < 0) ou une CAPSULE
@@ -466,100 +528,184 @@
 ;; CONTRAINTE 1 — CE QUE LA GEOMETRIE DU PERSONNAGE AUTORISE. Deux cas, et un seul des deux est une
 ;; longueur d'os :
 ;;
-;;   * un lien qui A UN PARENT SIMULE garde EXACTEMENT la longueur que le modele donne a son os.
-;;     `want` est relu dans le squelette NON ECRIT a chaque frame, ce n'est pas un cache.
-;;   * un lien SEUL (chaine d'un seul lien : un sein, un pan de tissu, une sangle de cheville) n'a
-;;     pas d'os a lui : son parent de rig peut etre n'importe ou. Le borner sur sa distance a ce
-;;     parent est faux dans les deux sens, et c'etait mesure le 2026-08-11 : `LpantFlap` est presque
-;;     confondu avec le sien, la contrainte le figeait (amplitude 0.0137 m, chaine morte), tandis que
-;;     `Lanklestrap` en est a 47 cm, ce qui l'autorisait a partir de 0.95 m. Ce qui borne un tel
-;;     lien, c'est SA PROPRE TAILLE : le rayon que le generateur a ajuste sur les sommets skinnes
-;;     qu'il possede. Meme famille de limiteur que la longueur d'os — le rig et le mesh, rien de
-;;     choisi a la main.
+;;   * TOUT lien libre garde EXACTEMENT la longueur que le modele donne a son os, autour de son
+;;     attache : le lien precedent quand il y en a un, l'ANCRE quand le lien est seul. `want` est
+;;     relu dans le squelette NON ECRIT a chaque frame, ce n'est pas un cache.
+;;   * le seul cas particulier restant est l'os qui N'EXISTE PAS dans le modele (le joint est
+;;     confondu avec son attache : `LpantFlap` l'etait). La sphere de rotation s'y reduit a un
+;;     point et epinglerait le lien ; ce lien-la garde donc pour seul plafond SA PROPRE TAILLE,
+;;     le rayon que le generateur a ajuste sur les sommets skinnes qu'il possede.
 ;; ------------------------------------------------------------------------------------------------
-(defun phys-closest-on-seg ((pt vector) (ca vector) (cb vector) (out vector))
-  "le point du segment ca..cb le plus proche de pt (parametre borne a [0,1]), dans `out`."
-  (let* ((ax (- (-> cb x) (-> ca x)))
-         (ay (- (-> cb y) (-> ca y)))
-         (az (- (-> cb z) (-> ca z)))
-         (dd (+ (* ax ax) (* ay ay) (* az az)))
-         (t0 (if (< dd 0.000001)
-               0.0
-               (/ (+ (* (- (-> pt x) (-> ca x)) ax)
-                     (* (- (-> pt y) (-> ca y)) ay)
-                     (* (- (-> pt z) (-> ca z)) az))
-                  dd))))
-    (when (< t0 0.0) (set! t0 0.0))
-    (when (> t0 1.0) (set! t0 1.0))
-    (set! (-> out x) (+ (-> ca x) (* ax t0)))
-    (set! (-> out y) (+ (-> ca y) (* ay t0)))
-    (set! (-> out z) (+ (-> ca z) (* az t0)))
-    (set! (-> out w) 1.0))
-  (none))
-
 (defun phys-length-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
+  "LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN.
+
+   Owner, 5e passe : « les changements brusques de direction causent un truc chelou au niveau des
+   seins, ils s'allongent, c'est un peu debile » — « une chaine a un seul os doit TOURNER AUTOUR DE
+   SON ANCRE A LONGUEUR INVARIANTE, jamais se translater ni s'allonger ». Ce que faisait l'ancienne
+   version pour un lien SEUL : elle bornait |p - pose_du_lien| par le rayon du lien. C'est un
+   plafond de POSITION, pas une longueur — sous forte acceleration le lien s'ecartait de son ancre
+   et la distance ancre->lien changeait, donc il S'ALLONGEAIT. Desormais un lien seul est traite
+   exactement comme un lien de chaine, son attache etant l'ANCRE au lieu du lien precedent :
+   projection sur la sphere de rayon `want`, ou `want` est la longueur que LE MODELE donne a cet os,
+   relue chaque frame. Une egalite, pas un plafond : ca tourne, ca ne s'etire pas.
+
+   Owner, 2e/3e/4e passes (trois fois) : « j'ai encore vu un de ses seins retourne vers l'interieur,
+   la meme animation relancee et c'etait nickel ». Le ressort est symetrique autour de l'attache,
+   donc le cote oppose est un equilibre STABLE mais FAUX. Le test de cote est donc ici, contre la
+   DIRECTION DU MODELE — et plus contre l'axe d'un volume, ou il ne voulait rien dire (un volume est
+   une coquille symetrique, son axe ne designe aucun « bon cote »)."
   (dotimes (l n)
     (when (>= l rlk)
       (let* ((scl (+ (* sc PHYS-LINKS) l))
-             (kk  (-> *phys-joint* scl)))
-        (when (and (>= kk 0) (< (+ kk 1) nbone))
-          (cond
-            ((> l 0)
-             ;; longueur d'os contre le lien precedent
-             (let ((kp (-> *phys-joint* (- scl 1))))
-               (when (and (>= kp 0) (< (+ kp 1) nbone))
-                 (let* ((want (vector-vector-distance
-                                (the-as vector (-> skel bones (+ kk 1) transform vector 3))
-                                (the-as vector (-> skel bones (+ kp 1) transform vector 3))))
-                        (bx (-> *phys-px* (- scl 1)))
-                        (by (-> *phys-py* (- scl 1)))
-                        (bz (-> *phys-pz* (- scl 1)))
-                        (dx (- (-> *phys-px* scl) bx))
-                        (dy (- (-> *phys-py* scl) by))
-                        (dz (- (-> *phys-pz* scl) bz))
-                        (d  (sqrtf (+ (* dx dx) (* dy dy) (* dz dz)))))
-                   (cond
-                     ((<= d 0.0001)
-                      ;; CAS DEGENERE : le lien est confondu avec son parent, la direction n'existe
-                      ;; plus. Se taire ici laissait le lien se restabiliser n'importe ou — on
-                      ;; REPART de la direction que le modele donne a cet os.
-                      (set! *phys-invfix* (+ *phys-invfix* 1))
-                      (set! (-> *phys-px* scl) (+ bx (- (-> skel bones (+ kk 1) transform vector 3 x)
-                                                        (-> skel bones (+ kp 1) transform vector 3 x))))
-                      (set! (-> *phys-py* scl) (+ by (- (-> skel bones (+ kk 1) transform vector 3 y)
-                                                        (-> skel bones (+ kp 1) transform vector 3 y))))
-                      (set! (-> *phys-pz* scl) (+ bz (- (-> skel bones (+ kk 1) transform vector 3 z)
-                                                        (-> skel bones (+ kp 1) transform vector 3 z)))))
-                     (else
-                      (when (> d 0.0001)
-                        (let ((s (/ want d)))
-                          (set! (-> *phys-px* scl) (+ bx (* dx s)))
-                          (set! (-> *phys-py* scl) (+ by (* dy s)))
-                          (set! (-> *phys-pz* scl) (+ bz (* dz s)))))))))))
-            (else
-             ;; lien seul : il ne s'ecarte pas de sa place de plus que sa propre taille
-             (let* ((rmax (-> *phys-rad* scl))
-                    (bx (-> skel bones (+ kk 1) transform vector 3 x))
-                    (by (-> skel bones (+ kk 1) transform vector 3 y))
-                    (bz (-> skel bones (+ kk 1) transform vector 3 z))
-                    (dx (- (-> *phys-px* scl) bx))
-                    (dy (- (-> *phys-py* scl) by))
-                    (dz (- (-> *phys-pz* scl) bz))
-                    (d  (sqrtf (+ (* dx dx) (* dy dy) (* dz dz)))))
-               (when (and (> d rmax) (> d 0.0001))
-                 (let ((s (/ rmax d)))
-                   (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
-                   (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- d rmax)))
-                   (set! (-> *phys-px* scl) (+ bx (* dx s)))
-                   (set! (-> *phys-py* scl) (+ by (* dy s)))
-                   (set! (-> *phys-pz* scl) (+ bz (* dz s))))))))))))
+             (kk  (-> *phys-joint* scl))
+             (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+        (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+          (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
+                 (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
+                 (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
+                 (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
+                        (-> skel bones (+ kp 1) transform vector 3 x)))
+                 (my (- (-> skel bones (+ kk 1) transform vector 3 y)
+                        (-> skel bones (+ kp 1) transform vector 3 y)))
+                 (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
+                        (-> skel bones (+ kp 1) transform vector 3 z)))
+                 (want (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
+                 (dx (- (-> *phys-px* scl) bx))
+                 (dy (- (-> *phys-py* scl) by))
+                 (dz (- (-> *phys-pz* scl) bz))
+                 (d  (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))
+            (cond
+              ((< want 0.01)
+               ;; L'OS N'EXISTE PAS DANS LE MODELE : le joint est confondu avec son attache, donc
+               ;; « tourner autour d'elle a longueur invariante » n'a pas de sens — la sphere est un
+               ;; point et le lien serait EPINGLE. C'est exactement ce qui avait tue LpantFlap.
+               ;; Ce lien-la garde le seul plafond que la geometrie lui donne : SA PROPRE TAILLE,
+               ;; le rayon que le mesh lui mesure. Compte et publie comme le limiteur qu'il est.
+               (let* ((rmax (-> *phys-rad* scl))
+                      (tx (-> skel bones (+ kk 1) transform vector 3 x))
+                      (ty (-> skel bones (+ kk 1) transform vector 3 y))
+                      (tz (-> skel bones (+ kk 1) transform vector 3 z))
+                      (ex (- (-> *phys-px* scl) tx))
+                      (ey (- (-> *phys-py* scl) ty))
+                      (ez (- (-> *phys-pz* scl) tz))
+                      (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))))
+                 (when (and (> e rmax) (> e 0.0001))
+                   (let ((s (/ rmax e)))
+                     (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
+                     (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e rmax)))
+                     (set! (-> *phys-px* scl) (+ tx (* ex s)))
+                     (set! (-> *phys-py* scl) (+ ty (* ey s)))
+                     (set! (-> *phys-pz* scl) (+ tz (* ez s)))))))
+              (else
+               ;; CAS DEGENERE : le lien s'est confondu avec son attache, la direction n'existe
+               ;; plus. Se taire ici laissait le lien se restabiliser n'importe ou, y compris du
+               ;; mauvais cote — on REPART de la direction du modele.
+               (when (<= d 0.0001)
+                 (set! *phys-invfix* (+ *phys-invfix* 1))
+                 (set! dx mx) (set! dy my) (set! dz mz) (set! d want))
+               ;; LE COTE, ET SEULEMENT SUR LE LIEN ATTACHE A L'ANCRE. C'est exactement ce que
+               ;; l'owner a demande : « une chaine A UN SEUL OS de famille A doit rester du cote de
+               ;; la pose du modele ». Sur un lien profond, ce test serait une butee d'articulation
+               ;; a 90 degres que personne n'a demandee : la mesure du 2026-08-11 lui fait corriger
+               ;; 600 a 2000 fois par course des chaines dont l'owner n'a jamais signale qu'elles se
+               ;; repliaient. « Pas de suppresseur par defaut » (SPEC 7) — on ne le garde que la ou
+               ;; un defaut mesure l'exige.
+               ;; On REFLECHIT la composante le long de la direction du modele, ce qui remet le lien
+               ;; de son cote SANS changer sa longueur. La zone morte evite le miroitement sans fin
+               ;; quand le lien frole le plan perpendiculaire, ou le signe du produit scalaire se
+               ;; decide sur l'arrondi.
+               (let* ((m2  (+ (* mx mx) (+ (* my my) (* mz mz))))
+                      (u2  (+ (* dx dx) (+ (* dy dy) (* dz dz))))
+                      (dot (+ (* dx mx) (+ (* dy my) (* dz mz)))))
+                 (when (and (= l 0) (< dot 0.0) (> m2 0.0)
+                            (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
+                   (set! *phys-invn* (+ *phys-invn* 1))
+                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 3))
+                         (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 3))))
+                   (let ((kr (/ (* 2.0 dot) m2)))
+                     (set! dx (- dx (* kr mx)))
+                     (set! dy (- dy (* kr my)))
+                     (set! dz (- dz (* kr mz))))))
+               ;; LONGUEUR INVARIANTE : projection sur la sphere de rayon `want` centree sur
+               ;; l'attache.
+               (let ((dd (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))
+                 (when (> dd 0.0001)
+                   (let ((s (/ want dd)))
+                     (set! (-> *phys-px* scl) (+ bx (* dx s)))
+                     (set! (-> *phys-py* scl) (+ by (* dy s)))
+                     (set! (-> *phys-pz* scl) (+ bz (* dz s))))))
+               ;; ET L'EXCURSION D'UN LIEN SEUL RESTE BORNEE PAR SA PROPRE TAILLE. C'est le meme
+               ;; limiteur qu'avant (le rayon que le mesh mesure pour ce lien), la TRANSLATION en
+               ;; moins : on raccourcit la corde jusqu'a ce rayon puis on revient sur la sphere,
+               ;; donc la longueur reste invariante et le lien ne fait que tourner moins loin.
+               ;; Sans lui, `anklestrapL` — dont l'ancre est a 47 cm — part a 1,49 m de pointe et
+               ;; 0,77 m de racine sous les a-coups de la salle (mesure du 2026-08-11).
+               (when (= l 0)
+                 (let* ((rmax (-> *phys-rad* scl))
+                        (tx (-> skel bones (+ kk 1) transform vector 3 x))
+                        (ty (-> skel bones (+ kk 1) transform vector 3 y))
+                        (tz (-> skel bones (+ kk 1) transform vector 3 z))
+                        (ex (- (-> *phys-px* scl) tx))
+                        (ey (- (-> *phys-py* scl) ty))
+                        (ez (- (-> *phys-pz* scl) tz))
+                        (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))))
+                   (when (and (> e rmax) (> e 0.0001))
+                     (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
+                     (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e rmax)))
+                     (let* ((f  (/ rmax e))
+                            (qx (- (+ tx (* ex f)) bx))
+                            (qy (- (+ ty (* ey f)) by))
+                            (qz (- (+ tz (* ez f)) bz))
+                            (ql (sqrtf (+ (* qx qx) (+ (* qy qy) (* qz qz))))))
+                       (when (> ql 0.0001)
+                         (let ((s2 (/ want ql)))
+                           (set! (-> *phys-px* scl) (+ bx (* qx s2)))
+                           (set! (-> *phys-py* scl) (+ by (* qy s2)))
+                           (set! (-> *phys-pz* scl) (+ bz (* qz s2))))))))))))))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
+;; OU EST LE CENTRE D'UN VOLUME. Une sphere n'est pas forcement centree sur son joint : la 6e passe
+;; de l'owner dit « une sphere au joint ne peut pas epouser un sein ». Son centre est le CENTROIDE
+;; MESURE de la geometrie que ce joint porte, ecrit dans les donnees en espace bind du joint, et
+;; ramene ici dans le monde par la matrice de l'os — donc il suit l'animation comme le joint. Un
+;; offset absent vaut (0,0,0) et le centre redevient le joint, au bit pres.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-col-centre ((skel skeleton) (sco int) (cj int) (out vector))
+  (let ((ox (-> *phys-cox* sco))
+        (oy (-> *phys-coy* sco))
+        (oz (-> *phys-coz* sco)))
+    (cond
+      ((and (= ox 0.0) (= oy 0.0) (= oz 0.0))
+       (vector-copy! out (the-as vector (-> skel bones (+ cj 1) transform vector 3))))
+      (else
+       (set-vector! out ox oy oz 1.0)
+       (vector-matrix*! out out (the-as matrix (-> skel bones (+ cj 1) transform))))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; UNE CHAINE SE COGNE-T-ELLE DANS SON PROPRE VOLUME ? Owner, 4e et 6e passes : « les pointes et
+;; racines sont ancrees avec l'entre-deux qui bouge enormement », « les meches fines jittent like
+;; crazy des que la tete bouge ». Les colliders `Lbanga`, `Lmidhaira`, `lBoob`... sont les
+;; JOINTS-RACINES des chaines elles-memes, et les capsules `Lbangb->Lbanga` sont des MAILLONS de la
+;; meche : sans exclusion, une meche est poussee hors de sa propre sphere de racine et de ses
+;; propres maillons, en permanence.
+;; L'exclusion est STRUCTURELLE (chaine <-> elle-meme), pas un `colskip` : elle ne lit aucune
+;; donnee, elle compare des index de joints deja resolus.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-col-own? ((sc int) (n int) (cj int) (cj2 int))
+  (let ((own #f))
+    (dotimes (l2 n)
+      (let ((k2j (-> *phys-joint* (+ (* sc PHYS-LINKS) l2))))
+        (when (and (>= k2j 0) (or (= cj k2j) (= cj2 k2j))) (set! own #t))))
+    own))
+
+;; ------------------------------------------------------------------------------------------------
 ;; CONTRAINTE 2 — LES COLLIDERS, avec le PLANCHER DE POSE MODELE. `floor0` est la profondeur du
-;; MEME lien a sa place d'auteur dans le MEME volume : ce qui est deja dedans au repos y reste, ce
-;; qui va plus profond est repousse. Calcule a chaque frame, par (lien, volume) — ce n'est ni un
-;; masque de donnees ni un filtre de volumes (DIRECTIVES 4).
+;; MEME lien a sa place d'auteur dans le MEME volume ; le plancher EFFECTIF en derive de facon
+;; CONTINUE (phys-vol-floor) : ce qui est deja dedans au repos y reste, ce qui va plus profond est
+;; repousse, et un lien deja entierement dedans n'a aucune surface devant lui. Calcule a chaque
+;; frame, par (lien, volume) — ce n'est ni un masque de donnees ni un filtre de volumes.
 ;; `sweeps` > 1 parce que sortir d'un volume peut faire entrer dans le voisin (hanche/cuisse,
 ;; crane/oreille) : un balayage unique laisse ce residu-la sur la table.
 ;; ------------------------------------------------------------------------------------------------
@@ -570,8 +716,6 @@
         (rest (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
-        (cr   (new 'stack-no-clear 'vector))
-        (cp   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (dotimes (l n)
       (when (>= l rlk)
@@ -589,56 +733,97 @@
                 (let* ((sco (+ (* slot PHYS-COLS) ci))
                        (cj  (-> *phys-cj* sco))
                        (cj2 (-> *phys-cj2* sco))
-                       (own #f))
-                  ;; une chaine ne se cogne pas dans son propre volume
-                  (dotimes (l2 n)
-                    (let ((k2j (-> *phys-joint* (+ (* sc PHYS-LINKS) l2))))
-                      (when (or (= cj k2j) (= cj2 k2j)) (set! own #t))))
+                       (own (phys-col-own? sc n cj cj2)))
+                  ;; ARME, le controle positif LEVE l'exclusion : le compteur `selfcol` doit alors
+                  ;; monter. Un zero que rien ne peut faire monter ne prouve rien.
+                  (when (and own (nonzero? *phys-self-inject*)) (set! own #f))
                   (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
-                    (vector-copy! ca (the-as vector (-> skel bones (+ cj 1) transform vector 3)))
+                    (phys-col-centre skel sco cj ca)
                     (if (and (>= cj2 0) (< (+ cj2 1) nbone))
                       (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
                       (vector-copy! cb ca))
                     (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
                            (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm))
+                           (feff   (phys-vol-floor floor0 rl))
                            (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm)))
-                      ;; L'INVERSION EST ICI, PAS SUR L'ANCRE. Owner 2026-08-11, deux fois : « un
-                      ;; de ses seins retourne vers l'interieur, la meme animation relancee et
-                      ;; c'etait nickel ». Un volume est une coquille SYMETRIQUE autour de son axe :
-                      ;; les deux cotes sont admissibles, donc un lien pousse au travers de l'axe s'y
-                      ;; retrouve tenu DU MAUVAIS COTE, stable et faux, et la poussee suivante l'y
-                      ;; enfonce au lieu de l'en sortir. On ne teste que les volumes dans lesquels le
-                      ;; lien est DEJA a sa pose de modele (floor0 > 0) : ailleurs le cote n'a pas de
-                      ;; sens. Le miroir a travers le point d'axe conserve la profondeur, donc il ne
-                      ;; cree pas de penetration ; il ne fait que remettre le lien de son cote.
-                      (when (and (> floor0 0.0) (phys-vol-is-surface? floor0 rl))
-                        (phys-closest-on-seg rest ca cb cr)
-                        (phys-closest-on-seg pt ca cb cp)
-                        (let* ((ux (- (-> pt x) (-> cp x)))
-                               (uy (- (-> pt y) (-> cp y)))
-                               (uz (- (-> pt z) (-> cp z)))
-                               (mx (- (-> rest x) (-> cr x)))
-                               (my (- (-> rest y) (-> cr y)))
-                               (mz (- (-> rest z) (-> cr z)))
-                               (u2 (+ (* ux ux) (* uy uy) (* uz uz)))
-                               (m2 (+ (* mx mx) (* my my) (* mz mz)))
-                               (dot (+ (* ux mx) (* uy my) (* uz mz))))
-                          (when (and (< dot 0.0)
-                                     (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
-                            (set! *phys-invn* (+ *phys-invn* 1))
-                            (set! (-> pt x) (- (* 2.0 (-> cp x)) (-> pt x)))
-                            (set! (-> pt y) (- (* 2.0 (-> cp y)) (-> pt y)))
-                            (set! (-> pt z) (- (* 2.0 (-> cp z)) (-> pt z))))))
-                      (when (and (> dep floor0) (phys-vol-is-surface? floor0 rl))
-                        (let ((push (+ (- dep floor0) margin)))
+                      (when (> dep feff)
+                        (let ((push (+ (- dep feff) margin)))
+                          ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
+                          ;; arriver que sous controle positif, et c'est ce compteur qui le dit.
+                          (when (nonzero? *phys-self-inject*)
+                            (when (phys-col-own? sc n cj cj2)
+                              (set! (-> *phys-dg* (* sc PHYS-DG))
+                                    (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
                           (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
                           (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
                           (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push))))))))))
             (set! (-> *phys-px* scl) (-> pt x))
             (set! (-> *phys-py* scl) (-> pt y))
             (set! (-> *phys-pz* scl) (-> pt z)))))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; COMBIEN DE PAIRES (LIEN, VOLUME) ONT BASCULE D'ETAT DEPUIS LA FRAME PRECEDENTE. C'est la mesure
+;; du defaut que la 6e passe designe : un interrupteur binaire evalue chaque frame sur la pose du
+;; modele saute quand il bascule, et le lien saute avec lui. On mesure l'etat CONTRAINT / LIBRE
+;; (plancher effectif fini ou non) par paire, on le compare a celui de la frame precedente, et on
+;; publie le nombre de bascules par chaine. La forme continue doit le faire tomber.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-popcount ((v int))
+  "nombre de bits a 1 dans les 32 bits bas de v."
+  (let ((c 0) (x (logand v #xffffffff)))
+    (while (nonzero? x)
+      (+! c (the int (logand x 1)))
+      (set! x (shr x 1)))
+    c))
+
+(defun phys-flip-count ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
+  (let ((slot (/ sc PHYS-CHAINS))
+        (rest (new 'stack-no-clear 'vector))
+        (ca   (new 'stack-no-clear 'vector))
+        (cb   (new 'stack-no-clear 'vector))
+        (nrm  (new 'stack-no-clear 'vector)))
+    (dotimes (l n)
+      (when (>= l rlk)
+        (let* ((scl (+ (* sc PHYS-LINKS) l))
+               (kk  (-> *phys-joint* scl))
+               (rl  (-> *phys-rad* scl)))
+          (when (and (>= kk 0) (< (+ kk 1) nbone))
+            (vector-copy! rest (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
+            (let ((w0 0) (w1 0) (w2 0))
+              (dotimes (ci (min nco (* 32 PHYS-FLIPW)))
+                (let* ((sco (+ (* slot PHYS-COLS) ci))
+                       (cj  (-> *phys-cj* sco))
+                       (cj2 (-> *phys-cj2* sco))
+                       (bit 0))
+                  (when (and (not (phys-col-own? sc n cj cj2)) (>= cj 0) (< (+ cj 1) nbone))
+                    (phys-col-centre skel sco cj ca)
+                    (if (and (>= cj2 0) (< (+ cj2 1) nbone))
+                      (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
+                      (vector-copy! cb ca))
+                    (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
+                           (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                       (-> *phys-cr2* sco) cap? nrm)))
+                      (when (< (phys-vol-floor floor0 rl) PHYS-VOL-FREE) (set! bit 1))))
+                  (when (nonzero? bit)
+                    (cond
+                      ((< ci 32)  (set! w0 (logior w0 (ash 1 ci))))
+                      ((< ci 64)  (set! w1 (logior w1 (ash 1 (- ci 32)))))
+                      (else       (set! w2 (logior w2 (ash 1 (- ci 64)))))))))
+              (let ((fb (* scl PHYS-FLIPW)))
+                (when (nonzero? (-> *phys-flhas* scl))
+                  (let ((ch (+ (phys-popcount (logxor w0 (-> *phys-fl* fb)))
+                               (+ (phys-popcount (logxor w1 (-> *phys-fl* (+ fb 1))))
+                                  (phys-popcount (logxor w2 (-> *phys-fl* (+ fb 2))))))))
+                    (when (> ch 0)
+                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 2))
+                            (+ (the float ch) (-> *phys-dg* (+ (* sc PHYS-DG) 2)))))))
+                (set! (-> *phys-fl* fb) w0)
+                (set! (-> *phys-fl* (+ fb 1)) w1)
+                (set! (-> *phys-fl* (+ fb 2)) w2)
+                (set! (-> *phys-flhas* scl) 1))))))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -653,8 +838,6 @@
         (rest (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
-        (cr   (new 'stack-no-clear 'vector))
-        (cp   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (let* ((scl (+ (* sc PHYS-LINKS) l))
            (kk  (-> *phys-joint* scl))
@@ -665,23 +848,22 @@
           (let* ((sco (+ (* slot PHYS-COLS) ci))
                  (cj  (-> *phys-cj* sco))
                  (cj2 (-> *phys-cj2* sco))
-                 (own #f))
-            (dotimes (l2 n)
-              (let ((k2j (-> *phys-joint* (+ (* sc PHYS-LINKS) l2))))
-                (when (or (= cj k2j) (= cj2 k2j)) (set! own #t))))
+                 (own (phys-col-own? sc n cj cj2)))
+            (when (and own (nonzero? *phys-self-inject*)) (set! own #f))
             (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
-              (vector-copy! ca (the-as vector (-> skel bones (+ cj 1) transform vector 3)))
+              (phys-col-centre skel sco cj ca)
               (if (and (>= cj2 0) (< (+ cj2 1) nbone))
                 (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
                 (vector-copy! cb ca))
               (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
                      (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
+                     (feff   (phys-vol-floor floor0 rl))
                      (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
-                     (res    (- dep floor0)))
+                     (res    (- dep feff)))
                 (cond
-                  ((not (phys-vol-is-surface? floor0 rl))
+                  ((>= feff PHYS-VOL-FREE)
                    ;; le lien est entierement dans ce volume a sa pose de modele : il n'y a pas de
                    ;; surface devant lui. Compte, pour que le nombre soit dans le tableau.
                    (set! *phys-buried-n* (+ *phys-buried-n* 1)))
@@ -690,26 +872,7 @@
                   ;; un contact : la compter rendrait le residu identiquement nul et la colonne
                   ;; deviendrait un zero constant, c.-a-d. indistinguable d'une colonne fabriquee.
                   ((and (or (> floor0 0.0) (> dep 0.0)) (> res worst))
-                   (set! worst res)))
-                ;; INVERSION RESIDUELLE : le lien est-il reste du MAUVAIS COTE de l'axe de ce volume,
-                ;; apres tout le solveur ? Meme predicat, meme volume, meme plancher que la
-                ;; resolution — et c'est CE nombre qui doit valoir zero. Le compteur de corrections,
-                ;; lui, a le droit d'etre grand : c'est le solveur qui travaille.
-                (when (and (> floor0 0.0) (phys-vol-is-surface? floor0 rl))
-                  (phys-closest-on-seg rest ca cb cr)
-                  (phys-closest-on-seg pt ca cb cp)
-                  (let* ((ux (- (-> pt x) (-> cp x)))
-                         (uy (- (-> pt y) (-> cp y)))
-                         (uz (- (-> pt z) (-> cp z)))
-                         (mx (- (-> rest x) (-> cr x)))
-                         (my (- (-> rest y) (-> cr y)))
-                         (mz (- (-> rest z) (-> cr z)))
-                         (u2 (+ (* ux ux) (* uy uy) (* uz uz)))
-                         (m2 (+ (* mx mx) (* my my) (* mz mz)))
-                         (dot (+ (* ux mx) (* uy my) (* uz mz))))
-                    (when (and (< dot 0.0)
-                               (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
-                      (set! *phys-invres* (+ *phys-invres* 1)))))))))))
+                   (set! worst res)))))))))
     worst))
 
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
@@ -740,9 +903,19 @@
 ;;
 ;; Or il existe TOUJOURS un point admissible : la pose du modele elle-meme, ou la profondeur EST le
 ;; plancher pour chaque volume (meme calcul, memes entrees, donc egalite exacte). Le lien recule
-;; donc en ligne droite vers sa pose de modele jusqu'a redevenir admissible — recherche par
-;; dichotomie, 12 pas, qui aboutit par construction. Ce que ce recul retire de mouvement est
-;; compte et publie ; il ne se declenche que quand la projection a echoue.
+;; donc vers sa pose de modele jusqu'a redevenir admissible — recherche par dichotomie, 12 pas, qui
+;; aboutit par construction. Ce que ce recul retire de mouvement est compte et publie ; il ne se
+;; declenche que quand la projection a echoue.
+;;
+;; IL RECULE SUR LA SPHERE, PAS EN LIGNE DROITE. Owner, 5e passe : « les changements brusques de
+;; direction causent un truc chelou au niveau des seins, ils s'allongent, c'est un peu debile. »
+;; Reculer en ligne droite vers la pose du modele traverse l'interieur de la sphere : la distance a
+;; l'attache diminue, donc l'os RACCOURCIT — et c'est le dernier geste de la frame, donc c'est
+;; exactement ce que l'owner voit. Mesure du 2026-08-11 : avec le recul rectiligne, l'allongement
+;; relatif atteint 7,5 % sur chestL et 83 % sur botstrapL. La pose du modele est SUR la sphere par
+;; construction (|T_lien - T_attache| = want), donc tout le chemin peut y rester : on interpole la
+;; DIRECTION puis on la renormalise a `want`. Meme dichotomie, meme point d'arrivee, longueur
+;; invariante d'un bout a l'autre.
 ;; ------------------------------------------------------------------------------------------------
 (defun phys-retreat-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
   (let ((pt (new 'stack-no-clear 'vector))
@@ -750,7 +923,8 @@
     (dotimes (l n)
       (when (>= l rlk)
         (let* ((scl (+ (* sc PHYS-LINKS) l))
-               (kk  (-> *phys-joint* scl)))
+               (kk  (-> *phys-joint* scl))
+               (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) (-> *phys-anchor* sc))))
           (when (and (>= kk 0) (< (+ kk 1) nbone))
             (set! (-> pt x) (-> *phys-px* scl))
             (set! (-> pt y) (-> *phys-py* scl))
@@ -760,6 +934,23 @@
               (let* ((tx (-> skel bones (+ kk 1) transform vector 3 x))
                      (ty (-> skel bones (+ kk 1) transform vector 3 y))
                      (tz (-> skel bones (+ kk 1) transform vector 3 z))
+                     ;; l'attache et le rayon de la sphere sur laquelle ce lien vit
+                     (ok? (and (>= kp 0) (< (+ kp 1) nbone)))
+                     (bx (if (not ok?) 0.0
+                           (if (> l 0) (-> *phys-px* (- scl 1))
+                             (-> skel bones (+ kp 1) transform vector 3 x))))
+                     (by (if (not ok?) 0.0
+                           (if (> l 0) (-> *phys-py* (- scl 1))
+                             (-> skel bones (+ kp 1) transform vector 3 y))))
+                     (bz (if (not ok?) 0.0
+                           (if (> l 0) (-> *phys-pz* (- scl 1))
+                             (-> skel bones (+ kp 1) transform vector 3 z))))
+                     (wx (- tx bx)) (wy (- ty by)) (wz (- tz bz))
+                     (want (sqrtf (+ (* wx wx) (+ (* wy wy) (* wz wz)))))
+                     ;; la sphere n'existe que si l'os existe ; sinon on recule en ligne droite,
+                     ;; comme avant, et c'est publie par le meme compteur.
+                     (sphere? (and ok? (> want 0.01)))
+                     (ux (- (-> pt x) bx)) (uy (- (-> pt y) by)) (uz (- (-> pt z) bz))
                      (dx (- (-> pt x) tx))
                      (dy (- (-> pt y) ty))
                      (dz (- (-> pt z) tz))
@@ -767,9 +958,26 @@
                      (hi 1.0))    ;; inadmissible, on vient de le mesurer
                 (dotimes (it 12)
                   (let ((mid (* 0.5 (+ lo hi))))
-                    (set! (-> bs x) (+ tx (* dx mid)))
-                    (set! (-> bs y) (+ ty (* dy mid)))
-                    (set! (-> bs z) (+ tz (* dz mid)))
+                    (cond
+                      (sphere?
+                       ;; direction interpolee entre la pose du modele et la position courante,
+                       ;; renormalisee a `want` : on ne quitte jamais la sphere.
+                       (let* ((vx (+ wx (* mid (- ux wx))))
+                              (vy (+ wy (* mid (- uy wy))))
+                              (vz (+ wz (* mid (- uz wz))))
+                              (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
+                         (cond
+                           ((> vl 0.0001)
+                            (let ((s (/ want vl)))
+                              (set! (-> bs x) (+ bx (* vx s)))
+                              (set! (-> bs y) (+ by (* vy s)))
+                              (set! (-> bs z) (+ bz (* vz s)))))
+                           (else
+                            (set! (-> bs x) tx) (set! (-> bs y) ty) (set! (-> bs z) tz)))))
+                      (else
+                       (set! (-> bs x) (+ tx (* dx mid)))
+                       (set! (-> bs y) (+ ty (* dy mid)))
+                       (set! (-> bs z) (+ tz (* dz mid)))))
                     (set! (-> bs w) 1.0)
                     (if (> (phys-link-pen skel sc n nbone nco l bs) 0.0)
                       (set! hi mid)
@@ -778,9 +986,26 @@
                 (set! *phys-retreat-sum*
                       (+ *phys-retreat-sum*
                          (* (- 1.0 lo) (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))))
-                (set! (-> *phys-px* scl) (+ tx (* dx lo)))
-                (set! (-> *phys-py* scl) (+ ty (* dy lo)))
-                (set! (-> *phys-pz* scl) (+ tz (* dz lo))))))))))
+                (cond
+                  (sphere?
+                   (let* ((vx (+ wx (* lo (- ux wx))))
+                          (vy (+ wy (* lo (- uy wy))))
+                          (vz (+ wz (* lo (- uz wz))))
+                          (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
+                     (cond
+                       ((> vl 0.0001)
+                        (let ((s (/ want vl)))
+                          (set! (-> *phys-px* scl) (+ bx (* vx s)))
+                          (set! (-> *phys-py* scl) (+ by (* vy s)))
+                          (set! (-> *phys-pz* scl) (+ bz (* vz s)))))
+                       (else
+                        (set! (-> *phys-px* scl) tx)
+                        (set! (-> *phys-py* scl) ty)
+                        (set! (-> *phys-pz* scl) tz)))))
+                  (else
+                   (set! (-> *phys-px* scl) (+ tx (* dx lo)))
+                   (set! (-> *phys-py* scl) (+ ty (* dy lo)))
+                   (set! (-> *phys-pz* scl) (+ tz (* dz lo))))))))))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -889,6 +1114,7 @@
               (acc  (new 'stack-no-clear 'vector))
               (fl   (new 'stack-no-clear 'vector))
               (gl   (new 'stack-no-clear 'vector))
+              (gref (new 'stack-no-clear 'vector))
               (ov   (new 'stack-no-clear 'vector))
               (uv   (new 'stack-no-clear 'vector))
               (uv2  (new 'stack-no-clear 'vector))
@@ -913,9 +1139,44 @@
                 (let ((am (the-as matrix (-> skel bones (+ an 1) transform))))
                   (vector-copy! anc (the-as vector (-> am vector 3)))
                   (matrix-4x4-inverse! w2l am)
-                  ;; gravite du monde, vue depuis le repere de l'ancre
+                  ;; ---------------------------------------------------------------------------
+                  ;; LA GRAVITE, VUE DEPUIS LE REPERE DE L'ANCRE. Owner, 6e passe : « les seins
+                  ;; n'ont pas l'air d'etre soumis a la gravite, aucun mouvement quand elle se
+                  ;; penche en avant pour souder, pas coherent du tout. »
+                  ;;
+                  ;; Famille B (ce qui PEND) : gravite absolue. Elle deplace l'equilibre, ca pend
+                  ;; et ca reste pendu — c'est l'exception de SPEC 4.
+                  ;;
+                  ;; Famille A (ce qu'elle EST) : SPEC 4 exige qu'au repos on retrouve EXACTEMENT
+                  ;; la pose du modele, donc une gravite absolue est interdite — elle affaisserait
+                  ;; la poitrine en permanence. Mais la pose du modele est deja une pose SOUS
+                  ;; gravite : le sculpteur l'a modelee debout. Ce qui doit agir, c'est donc l'ECART
+                  ;; entre la gravite d'aujourd'hui et celle de la pose de reference, tous deux
+                  ;; exprimes dans le repere de l'ancre :
+                  ;;
+                  ;;     g_effective = R_ancre^-1 . g_monde  -  R_bind^-1 . g_monde
+                  ;;
+                  ;; Le second terme est CONSTANT (la bind-pose du rig porte l'inverse-bind, donc sa
+                  ;; rotation EST R_bind^-1). Buste droit -> les deux termes s'annulent, l'equilibre
+                  ;; reste la pose du modele au bit pres. Buste incline -> l'ecart apparait et la
+                  ;; poitrine tombe. Rotation autour de l'axe de la gravite -> invariante, donc un
+                  ;; simple demi-tour n'invente aucune force.
+                  ;; La bind-pose peut porter une echelle : on renormalise, sinon l'amplitude de la
+                  ;; reference ne serait pas celle de la gravite.
+                  ;; ---------------------------------------------------------------------------
                   (set-vector! gl 0.0 gy 0.0 0.0)
                   (vector-rotate*! gl gl w2l)
+                  (when (and (= (-> *phys-fam* sc) 1)
+                             (nonzero? (-> obj draw jgeo))
+                             (< an (-> obj draw jgeo length)))
+                    (set-vector! gref 0.0 gy 0.0 0.0)
+                    (vector-rotate*! gref gref (-> obj draw jgeo data an bind-pose))
+                    (let ((gn (vector-length gref)))
+                      (when (> gn 0.0001)
+                        (vector-float*! gref gref (/ (fabs gy) gn))
+                        (set! (-> gl x) (- (-> gl x) (-> gref x)))
+                        (set! (-> gl y) (- (-> gl y) (-> gref y)))
+                        (set! (-> gl z) (- (-> gl z) (-> gref z))))))
                   (let* ((warm (-> *phys-warm* sc))
                          (w    (/ (* 6.2831853 (-> *phys-stiff* sc))
                                   (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
@@ -999,17 +1260,33 @@
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
-                    ;; FINITION, trois tours de (cote + collision + recul). Les trois se tiennent :
-                    ;;  * le miroir de cote (dans phys-collide-chain) conserve la distance a l'axe,
-                    ;;    donc il ne cree pas de penetration dans SON volume ;
-                    ;;  * la poussee de collision est radiale, donc elle ne change pas le cote ;
-                    ;;  * le recul va vers la pose du modele, qui est du BON cote par construction,
-                    ;;    donc il ne peut pas re-inverser (le demi-espace est convexe).
-                    ;; Un seul tour laissait 653 inversions residuelles sur la course : un volume
-                    ;; voisin peut faire retraverser l'axe d'un autre.
+                    ;; FINITION, trois tours de (collision + recul), puis UN DERNIER passage de
+                    ;; longueur : c'est lui qui a le dernier mot sur le cote et sur la longueur, et
+                    ;; c'est la forme du resultat que l'owner voit. Les trois se tiennent :
+                    ;;  * la poussee de collision est radiale a un volume, elle ne change pas le
+                    ;;    cote par rapport a l'ATTACHE ;
+                    ;;  * le recul va vers la pose du modele, qui est du BON cote par construction ;
+                    ;;  * le passage de longueur final ne fait que tourner autour de l'attache, donc
+                    ;;    il ne peut pas creer de penetration a l'echelle du residu mesure ensuite.
+                    ;; La longueur entre DANS la boucle de finition, mais la sequence se termine
+                    ;; toujours sur (collision, recul) : le recul va vers la pose du modele, qui est
+                    ;; admissible par construction, donc la derniere operation de la frame garantit
+                    ;; « rien ne traverse » (regle 6 de l'owner, non negociable). Terminer par la
+                    ;; longueur a fait remonter la penetration a +0.07 m sur rbang et +0.06 m sur
+                    ;; les lunettes (mesure du 2026-08-11) : une rotation apres coup peut reposer le
+                    ;; lien dans un volume dont il venait de sortir.
                     (dotimes (it 3)
+                      (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
-                      (phys-retreat-chain skel sc n rlk nbone nco))
+                      (let ((r0 *phys-retreat-n*))
+                        (phys-retreat-chain skel sc n rlk nbone nco)
+                        (when (> *phys-retreat-n* r0)
+                          (set! (-> *phys-dg* (+ (* sc PHYS-DG) 1))
+                                (+ (the float (- *phys-retreat-n* r0))
+                                   (-> *phys-dg* (+ (* sc PHYS-DG) 1)))))))
+                    ;; combien de paires (lien, volume) ont bascule d'etat de contrainte depuis la
+                    ;; frame precedente : la mesure du defaut « jitter » lui-meme.
+                    (phys-flip-count skel sc n rlk nbone nco)
 
                     ;; ---- 3bis. CONTROLE POSITIF DES INVERSIONS. Arme, chaque lien libre est
                     ;; ---- MIROITE a travers son attache : c'est exactement le defaut que l'owner a
@@ -1147,6 +1424,48 @@
                               (when (> res rd) (set! rd res)))))
                         (when (> rd (-> *phys-st* (+ stb 3)))
                           (set! (-> *phys-st* (+ stb 3)) rd)))
+                      ;; --- ALLONGEMENT RELATIF et INVERSION RESIDUELLE, sur la position ECRITE et
+                      ;; --- APRES tout le solveur. Ce sont les deux nombres que la 5e et la 2e/3e/4e
+                      ;; --- passe de l'owner exigent : « ils s'allongent, c'est un peu debile » et
+                      ;; --- « un de ses seins retourne vers l'interieur ». Meme attache, meme
+                      ;; --- direction de modele que la contrainte : l'instrument de mesure est
+                      ;; --- l'instrument de decision.
+                      (dotimes (l n)
+                        (when (>= l rlk)
+                          (let* ((scl (+ (* sc PHYS-LINKS) l))
+                                 (kk  (-> *phys-joint* scl))
+                                 (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+                            (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+                              (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
+                                     (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
+                                     (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
+                                     (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
+                                            (-> skel bones (+ kp 1) transform vector 3 x)))
+                                     (my (- (-> skel bones (+ kk 1) transform vector 3 y)
+                                            (-> skel bones (+ kp 1) transform vector 3 y)))
+                                     (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
+                                            (-> skel bones (+ kp 1) transform vector 3 z)))
+                                     (ux (- (-> *phys-px* scl) bx))
+                                     (uy (- (-> *phys-py* scl) by))
+                                     (uz (- (-> *phys-pz* scl) bz))
+                                     (m2 (+ (* mx mx) (+ (* my my) (* mz mz))))
+                                     (u2 (+ (* ux ux) (+ (* uy uy) (* uz uz))))
+                                     (dot (+ (* ux mx) (+ (* uy my) (* uz mz)))))
+                                (when (> m2 0.0001)
+                                  (let ((el (fabs (- (/ (sqrtf u2) (sqrtf m2)) 1.0))))
+                                    (when (> el (-> *phys-dg* (+ (* sc PHYS-DG) 5)))
+                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 5)) el)))
+                                  ;; L'INSTRUMENT DE MESURE EST L'INSTRUMENT DE DECISION : le
+                                  ;; solveur ne corrige le cote QUE sur le lien attache a l'ancre
+                                  ;; (c'est ce que l'owner a demande), donc la mesure ne le compte
+                                  ;; que la. Compter les liens profonds donnait 24 117 « inversions
+                                  ;; residuelles » que rien ne corrigeait et que rien n'avait
+                                  ;; demande de corriger — un chiffre sans decision derriere.
+                                  (when (and (= l 0) (< dot 0.0)
+                                             (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
+                                    (set! *phys-invres* (+ *phys-invres* 1))
+                                    (set! (-> *phys-dg* (+ (* sc PHYS-DG) 4))
+                                          (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 4)))))))))))
                       ;; --- la pointe : amplitude de l'ecart (physique seule) et intention
                       ;; --- d'auteur sur CETTE chaine, la meme frame (SPEC 5).
                       (let* ((sclt (+ (* sc PHYS-LINKS) (- n 1)))
@@ -1441,6 +1760,30 @@
 
 (defun phys-inv-inject-set! ((v int))
   (set! *phys-inv-inject* v)
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; DIAGNOSTIC PAR CHAINE — les quatre defauts de la 6e passe se lisent ici, chaine par chaine.
+;; which : 0 selfcol  1 retreat  2 flip  3 inv  4 invres  5 elong (allongement relatif max)
+;; ------------------------------------------------------------------------------------------------
+(defun phys-diag ((slot int) (chain int) (which int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= which 0) (< which PHYS-DG))
+    (-> *phys-dg* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-DG) which))
+    0.0))
+
+(defun phys-diag-reset! ()
+  (dotimes (i (* PHYS-SC PHYS-DG)) (set! (-> *phys-dg* i) 0.0))
+  ;; l'etat de contrainte de la frame precedente est oublie aussi : sinon la premiere frame de la
+  ;; fenetre suivante compterait une bascule qui n'a pas eu lieu dans cette fenetre.
+  (dotimes (i PHYS-SCL) (set! (-> *phys-flhas* i) 0))
+  (none))
+
+;; CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE.
+;; Le compteur `selfcol` doit alors monter. Un zero structurel que rien ne peut faire monter ne
+;; prouve rien — c'est la regle « tout zero exige un controle positif qui a tire ».
+(defun phys-self-inject-set! ((v int))
+  (set! *phys-self-inject* v)
   (none))
 
 (defun phys-inversions-reset! ()

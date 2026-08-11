@@ -76,40 +76,40 @@ level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 # ---- Keira, and only Keira: 22 chains, 33 volumes.
 [model keira-hd]
 # earL [A] lEara verts=82 wsum=25.41 r=148 | lEarb verts=76 wsum=46.64 r=79
-chain earL class=primary stiffness=3.20 damping=0.30 gravity=0.00 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
+chain earL class=primary stiffness=3.20 damping=0.30 gravity=0.45 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
 j lEara
 j lEarb
 # earR [A] rEara verts=81 wsum=25.09 r=148 | rEarb verts=77 wsum=46.89 r=79
-chain earR class=primary stiffness=3.20 damping=0.30 gravity=0.00 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
+chain earR class=primary stiffness=3.20 damping=0.30 gravity=0.45 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
 j rEara
 j rEarb
 # backhair [A] backHair1 verts=167 wsum=67.65 r=358 | backHair2 verts=153 wsum=55.21 r=374
-chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.00 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=1.00 radii=358,374
+chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.45 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=1.00 radii=358,374
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
-chain lbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=112,104,180
+chain lbang class=primary stiffness=1.65 damping=0.24 gravity=0.45 radius=112 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=112,104,180
 j Lbanga
 j Lbangb
 j Lbangc
 # rbang [A] Rbanga verts=106 wsum=86.63 r=118 | Rbangb verts=146 wsum=29.97 r=102 | Rbangc verts=55 wsum=40.98 r=178
-chain rbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=118,102,178
+chain rbang class=primary stiffness=1.65 damping=0.24 gravity=0.45 radius=118 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=118,102,178
 j Rbanga
 j Rbangb
 j Rbangc
 # lmidhair [A] Lmidhaira verts=212 wsum=72.75 r=222 | Lmidhairb verts=171 wsum=99.73 r=335
-chain lmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.00 radius=278 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=222,335
+chain lmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=278 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=222,335
 j Lmidhaira
 j Lmidhairb
 # rmidhair [A] Rmidhaira verts=219 wsum=71.00 r=228 | Rmidhairb verts=176 wsum=106.17 r=337
-chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.00 radius=282 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=228,337
+chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=282 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=228,337
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.20 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.45 radius=656 mass=1.20 hang=0.00 family=A couple=1.20 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.20 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.45 radius=660 mass=1.20 hang=0.00 family=A couple=1.20 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
 chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,150
@@ -200,33 +200,33 @@ capsule Rankle Rknee radius=398 radius2=326
 capsule lEarb lEara radius=79 radius2=148
 # capsule rEarb->rEara [earR]  rEarb: 50v @w>0.5   rEara: 14v @w>0.5
 capsule rEarb rEara radius=79 radius2=148
-# capsule Lbangb->Lbanga [lbang]  Lbangb: 18v @w>0.5   Lbanga: 103v @w>0.5
-capsule Lbangb Lbanga radius=558 radius2=112
+# capsule Lbangb->Lbanga [lbang]  Lbangb: 18v @w>0.5   Lbanga: 103v @w>0.5   ONE-JOINT-ONE-THICKNESS: Lbangb 558->104 (own-bone thickness)
+capsule Lbangb Lbanga radius=104 radius2=112
 # capsule Lbangc->Lbangb [lbang]  Lbangc: 46v @w>0.5   Lbangb: 18v @w>0.5
 capsule Lbangc Lbangb radius=180 radius2=104
-# capsule Rbangb->Rbanga [rbang]  Rbangb: 22v @w>0.5   Rbanga: 106v @w>0.5
-capsule Rbangb Rbanga radius=559 radius2=118
+# capsule Rbangb->Rbanga [rbang]  Rbangb: 22v @w>0.5   Rbanga: 106v @w>0.5   ONE-JOINT-ONE-THICKNESS: Rbangb 559->102 (own-bone thickness)
+capsule Rbangb Rbanga radius=102 radius2=118
 # capsule Rbangc->Rbangb [rbang]  Rbangc: 33v @w>0.5   Rbangb: 22v @w>0.5
 capsule Rbangc Rbangb radius=178 radius2=102
 # capsule Lmidhairb->Lmidhaira [lmidhair]  Lmidhairb: 99v @w>0.5   Lmidhaira: 65v @w>0.5
 capsule Lmidhairb Lmidhaira radius=335 radius2=222
 # capsule Rmidhairb->Rmidhaira [rmidhair]  Rmidhairb: 107v @w>0.5   Rmidhaira: 58v @w>0.5
 capsule Rmidhairb Rmidhaira radius=337 radius2=228
-# sphere main [body]  43v @w>0.25
-collider main radius=549
-# sphere lEara [earL]  14v @w>0.5
-collider lEara radius=148
-# sphere rEara [earR]  14v @w>0.5
-collider rEara radius=148
-# sphere Lbanga [lbang]  103v @w>0.5
-collider Lbanga radius=112
-# sphere Rbanga [rbang]  106v @w>0.5
-collider Rbanga radius=118
-# sphere Lmidhaira [lmidhair]  65v @w>0.5
-collider Lmidhaira radius=222
-# sphere Rmidhaira [rmidhair]  58v @w>0.5
-collider Rmidhaira radius=228
-# sphere lBoob [chestL]  34v @w>0.25
-collider lBoob radius=708
-# sphere rBoob [chestR]  25v @w>0.25
-collider rBoob radius=712
+# sphere main [body]  43v @w>0.25   centre = measured centroid of the geometry this joint owns, 481u off the joint, in its bind space
+collider main radius=560 offset=-17,-473,83
+# sphere lEara [earL]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space
+collider lEara radius=194 offset=7,446,66
+# sphere rEara [earR]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space
+collider rEara radius=194 offset=-7,-446,-66
+# sphere Lbanga [lbang]  103v @w>0.5   centre = measured centroid of the geometry this joint owns, 293u off the joint, in its bind space
+collider Lbanga radius=199 offset=293,-10,4
+# sphere Rbanga [rbang]  106v @w>0.5   centre = measured centroid of the geometry this joint owns, 281u off the joint, in its bind space
+collider Rbanga radius=213 offset=-280,17,2
+# sphere Lmidhaira [lmidhair]  65v @w>0.5   centre = measured centroid of the geometry this joint owns, 652u off the joint, in its bind space
+collider Lmidhaira radius=374 offset=583,39,290
+# sphere Rmidhaira [rmidhair]  58v @w>0.5   centre = measured centroid of the geometry this joint owns, 751u off the joint, in its bind space
+collider Rmidhaira radius=382 offset=-673,-77,-325
+# sphere lBoob [chestL]  34v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space
+collider lBoob radius=183 offset=-1,655,94
+# sphere rBoob [chestR]  25v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space
+collider rBoob radius=188 offset=4,-657,-84

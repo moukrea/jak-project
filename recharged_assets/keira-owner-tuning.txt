@@ -37,8 +37,20 @@ chain chestL stiffness=2.20 damping=0.33   # couple: voir 5e passe (1.20)
 chain chestR stiffness=2.20 damping=0.33   # couple: voir 5e passe (1.20)
 
 ## 2026-08-11 — « ses lunettes clipent encore un chouille sur les seins »
-collider lBoob radius=708
-collider rBoob radius=712
+## PERIME PAR LA 6e PASSE, le 2026-08-11 : « les lunettes clipent toujours legerement dessus, et
+## meme en idle — donc c'est pas juste les capsules de collision qui bougent pas, mais plutot mes
+## capsules de collision qui sont pas bonnes. »
+## Il a raison, et la mesure le confirme : le CENTROIDE de la geometrie du sein est a 662 unites
+## (16 cm) du joint lBoob. La sphere etait donc posee a cote du sein, et je l'ai elargie deux fois
+## pour essayer de le rattraper — 656 -> 708 -> et il fallait continuer. Une sphere assez grosse
+## pour englober le sein depuis 16 cm de distance englobe AUSSI la position de repos des lunettes,
+## et le plancher de pose modele leur accorde alors toute la profondeur ou elles sont deja : le
+## volume ne les repousse plus jamais. Elargir AGGRAVAIT le clipping.
+## Le generateur derive desormais le centre ET le rayon depuis le mesh (offset= + radius=), donc
+## ces deux valeurs elargies a la main n'ont plus d'objet. On ne les remplace par rien : la
+## correction est dans la GENERATION.
+# collider lBoob radius=708
+# collider rBoob radius=712
 
 ## 2026-08-11 — « ses bretelles passent au travers de son torse sur le devant » et
 ## « le bout du pantacourt glitche au travers de son mollet »

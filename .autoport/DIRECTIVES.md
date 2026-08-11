@@ -371,3 +371,47 @@ Ce qu'il faut mesurer avant de trancher, sur Keira et sur le device :
 Livrer les quatre nombres avant de choisir. Si le mesh gagne en fidélité pour un coût device
 acceptable, c'est lui qui répond à son blocage historique (« les colliders ne suivent pas les formes
 du mesh ») — mieux que n'importe quel réglage de rayon.
+
+## DÉCISIONS PRISES PAR LE SUPERVISEUR (2026-08-11 16:00) — elles ne remontent PAS à l'owner
+
+L'owner : « règle les problèmes ! Tu devrais les régler tout seul au lieu de les enterrer ou de
+mettre un pansement dessus… t'es censé être assez smart pour savoir quand il faut régler des
+soucis, c'est ton rôle. » Il a raison : deux questions que j'avais fait remonter étaient les
+miennes à trancher. Elles sont tranchées, avec la mesure qui les ferme.
+
+**DÉCISION 1 — Volumes qui se recouvrent : PRIORITÉ, pas solveur conjoint.**
+Le résidu d'inversion (180) vient de deux volumes qui se renvoient le lien de l'un à l'autre. Un
+solveur conjoint est la réponse théorique, mais c'est une refonte du cœur pour un défaut qui a une
+cause simple. On impose donc un **ordre déterministe** : quand un lien est contraint par plusieurs
+volumes dans la même frame, le volume du **corps** l'emporte sur celui d'une chaîne, et entre deux
+volumes de corps, le **parent dans le rig** l'emporte. Un seul volume décide par frame et par lien,
+les autres sont ignorés — pas moyennés, ignorés.
+→ **Cible : `ROOM-INVERSIONS residual = 0`**, contrôle positif toujours ≥ 4× le résidu. Si la
+priorité ne suffit pas, on le dit avec le nombre au lieu de le laisser à 180.
+
+**DÉCISION 2 — Poitrine : on remonte la vivacité, et l'allongement se tient par la contrainte.**
+J'avais baissé le couplage de 1.45 à 1.20 pour tuer l'allongement sur les à-coups, et le mouvement
+est tombé de 0.66–1.04 à 0.38–0.39 : j'ai payé le défaut avec la qualité que l'owner venait
+d'apprécier. C'est un pansement. La vraie règle est la sienne, ancienne : **rotation autour de
+l'ancre à longueur invariante**.
+→ La contrainte de longueur devient **dure** : projection itérée jusqu'à ce que l'écart relatif de
+chaque maillon soit ≤ 1 %, plafonnée à un nombre d'itérations fixe, et l'écart résiduel est publié.
+→ **Une fois cette contrainte en place**, le couplage de la poitrine remonte à **1.45** et
+l'allongement doit rester ≤ 3 % sur les pilotages `jerk` et `accel`.
+→ **Mesure exigée** : `ROOM-STRETCH: max=<r> chain=<nom> drive=<mode>` par course. Au-dessus de
+3 %, c'est la contrainte qui est en cause, pas le couplage — on ne rebaisse pas le couplage.
+
+**DÉCISION 3 — Réponse non linéaire des grosses mèches : on chasse le seuil, on ne règle pas autour.**
+« Trop statiques sur les mouvements faibles, trop hystériques sur les brusques » = il y a une marche
+dans la courbe de réponse. Le moteur contient au moins deux seuils (détection d'intention, zone
+morte du test de côté).
+→ **Mesure exigée** : `ROOM-RESPONSE: chain=<nom> in=<amplitude d'excitation> out=<amplitude de
+pointe>` sur au moins 6 amplitudes croissantes par chaîne. La courbe doit être **monotone et sans
+marche** ; toute marche > 2× entre deux points voisins désigne le seuil, qui est alors soit retiré,
+soit remplacé par une transition continue.
+
+**CE QUE LE SUPERVISEUR A DÉJÀ FAIT LUI-MÊME :** retiré ses quatre capsules estimées à la main
+(le rig en génère 24, mesurées), retiré son override de rayon de poitrine (le générateur produit
+désormais des volumes **placés** — rayon 183 avec offset, au lieu d'une sphère de 708 sur le joint),
+posé la gate `TUNING`, déplacé la réapplication des réglages dans le producteur, et remis la
+livraison en marche (patience bornée + respawn des deux maillons).

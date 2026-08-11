@@ -76,24 +76,42 @@
   "assistant-lavatube-end-lod0"))
 
 (defconstant PHYSROOM-MAXANIM 48)   ;; capacite de la table d'animations
-(defconstant PHYSROOM-DRIVES  4)    ;; updown / leftright / accel / jerk
+;; updown / leftright / accel / jerk / TILT. Le cinquieme est arrive avec la 6e passe de l'owner :
+;; « les seins n'ont pas l'air d'etre soumis a la gravite, aucun mouvement quand elle se penche en
+;; avant pour souder ». Les quatre premiers TRANSLATENT le sujet, donc ils ne changent jamais
+;; l'orientation de l'ancre, donc ils ne peuvent PAS voir une gravite exprimee dans le repere de
+;; l'ancre. Il fallait un pilotage qui l'INCLINE.
+(defconstant PHYSROOM-DRIVES  5)
 (defconstant PHYSROOM-WIN     90)   ;; frames par fenetre de mesure (6 segments de pilotage)
 (defconstant PHYSROOM-SETTLE  120)  ;; frames d'amorcage avant la premiere mesure
 (defconstant PHYSROOM-IDLES   150)  ;; frames de calme AVANT de mesurer le repos
 (defconstant PHYSROOM-IDLEM   120)  ;; frames de mesure du repos
 (defconstant PHYSROOM-PCW     90)   ;; frames par branche du controle positif
 (defconstant PHYSROOM-LIMIT   12288.0) ;; +/- 3 m autour du point de depart
+;; COURBE DE REPONSE (6e passe : « les grosses meches sont trop statiques sur les mouvements
+;; faibles, trop hysteriques sur les mouvements brusques »). Une reponse non lineaire, c'est un
+;; seuil ; on mesure donc l'amplitude de pointe en fonction de l'amplitude d'EXCITATION, sur une
+;; echelle geometrique. Une marche dans la courbe designe le seuil coupable.
+(defconstant PHYSROOM-RESPL   6)    ;; niveaux d'excitation
+(defconstant PHYSROOM-RESPW   72)   ;; frames par niveau
+;; INCLINAISON STATIQUE : elle se penche, et on tient la pose. L'excitation d'acceleration retombe
+;; a zero, donc ce qui reste dans l'ecart a la pose du modele n'est plus que la gravite.
+(defconstant PHYSROOM-TILTDEG 60.0)
 
 ;; phases
 (defconstant PHYSROOM-PH-SETTLE 0)
 (defconstant PHYSROOM-PH-MEAS   1)
-(defconstant PHYSROOM-PH-IDLE   2)
-(defconstant PHYSROOM-PH-PCOFF  3)
-(defconstant PHYSROOM-PH-PCON   4)
-(defconstant PHYSROOM-PH-AUTHPC 5)
-(defconstant PHYSROOM-PH-INVPC  6)
-(defconstant PHYSROOM-PH-REPORT 7)
-(defconstant PHYSROOM-PH-DONE   8)
+(defconstant PHYSROOM-PH-RESP   2)
+(defconstant PHYSROOM-PH-IDLE   3)
+(defconstant PHYSROOM-PH-TILT   4)
+(defconstant PHYSROOM-PH-PCOFF  5)
+(defconstant PHYSROOM-PH-PCON   6)
+(defconstant PHYSROOM-PH-AUTHPC 7)
+(defconstant PHYSROOM-PH-INVPC  8)
+(defconstant PHYSROOM-PH-SELFOFF 9)
+(defconstant PHYSROOM-PH-SELFON 10)
+(defconstant PHYSROOM-PH-REPORT 11)
+(defconstant PHYSROOM-PH-DONE   12)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -114,6 +132,7 @@
    (dis     float)     ;; controle positif : penetration max, defaut DESARME
    (arm     float)     ;; controle positif : penetration max, defaut ARME
    (injn    int32)     ;; poussees reellement injectees
+   (lvl     int32)     ;; niveau d'excitation courant de la courbe de reponse
    (vel     vector :inline)
    (home    vector :inline))
   (:states phys-subject-run))
@@ -191,7 +210,7 @@
        (let ((g (* 4.0 (+ 1.0 (* 14.0 (/ (the float f) (the float PHYSROOM-WIN)))))))
          (set! ax (* g (if (zero? (mod (/ f 25) 2)) 1.0 -1.0)))
          (set! az (* 0.5 g (if (zero? (mod (/ f 25) 2)) -1.0 1.0)))))
-      (else
+      ((= mode 3)
        ;; a-coups : toutes les 10 frames la vitesse est ECRASEE, pas accumulee. Un segment sur
        ;; trois est un arret net (vitesse exactement nulle) : c'est le pire cas pour une chaine.
        (when (zero? (mod f 10))
@@ -202,31 +221,87 @@
              ((2) (set-vector! (-> self vel) 0.0 -260.0 0.0 1.0))
              ((3) (set-vector! (-> self vel) 0.0 0.0 0.0 1.0))
              ((4) (set-vector! (-> self vel) -240.0 0.0 190.0 1.0))
-             (else (set-vector! (-> self vel) 0.0 300.0 0.0 1.0)))))))
+             (else (set-vector! (-> self vel) 0.0 300.0 0.0 1.0))))))
+      (else
+       ;; TILT : on ne la deplace pas, on l'INCLINE. Elle reste sur son point de depart et son
+       ;; tronc bascule — tangage sur la premiere moitie de la fenetre, roulis sur la seconde.
+       ;; C'est le seul pilotage qui change l'ORIENTATION de l'ancre, donc le seul que puisse voir
+       ;; une gravite exprimee dans le repere de l'ancre.
+       (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+       (vector-copy! (-> self root trans) (-> self home))
+       (let* ((half (/ PHYSROOM-WIN 2))
+              (pitch? (< f half))
+              (u (if pitch? (the float f) (the float (- f half))))
+              (a (* PHYSROOM-TILTDEG (sin (* 65536.0 (/ u (the float half)))))))
+         (if pitch?
+           (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees a))
+           (quaternion-axis-angle! (-> self root quat) 0.0 0.0 1.0 (degrees a))))))
     (when (< mode 3)
       (set! (-> self vel x) (+ (-> self vel x) ax))
       (set! (-> self vel y) (+ (-> self vel y) ay))
       (set! (-> self vel z) (+ (-> self vel z) az))))
   ;; integration + garde-fou : sortir de +/-3 m arrete net (encore un a-coup, pas un filtre).
-  (set! (-> self root trans x) (+ (-> self root trans x) (-> self vel x)))
-  (set! (-> self root trans y) (+ (-> self root trans y) (-> self vel y)))
-  (set! (-> self root trans z) (+ (-> self root trans z) (-> self vel z)))
-  (when (> (fabs (- (-> self root trans x) (-> self home x))) PHYSROOM-LIMIT)
-    (set! (-> self root trans x) (+ (-> self home x) (* PHYSROOM-LIMIT (if (> (-> self vel x) 0.0) 1.0 -1.0))))
-    (set! (-> self vel x) 0.0))
-  (when (> (fabs (- (-> self root trans y) (-> self home y))) PHYSROOM-LIMIT)
-    (set! (-> self root trans y) (+ (-> self home y) (* PHYSROOM-LIMIT (if (> (-> self vel y) 0.0) 1.0 -1.0))))
-    (set! (-> self vel y) 0.0))
-  (when (> (fabs (- (-> self root trans z) (-> self home z))) PHYSROOM-LIMIT)
-    (set! (-> self root trans z) (+ (-> self home z) (* PHYSROOM-LIMIT (if (> (-> self vel z) 0.0) 1.0 -1.0))))
-    (set! (-> self vel z) 0.0))
+  ;; Le tilt n'integre rien : il tient la position et ne fait tourner que l'orientation.
+  (when (< mode 4)
+    (set! (-> self root trans x) (+ (-> self root trans x) (-> self vel x)))
+    (set! (-> self root trans y) (+ (-> self root trans y) (-> self vel y)))
+    (set! (-> self root trans z) (+ (-> self root trans z) (-> self vel z)))
+    (when (> (fabs (- (-> self root trans x) (-> self home x))) PHYSROOM-LIMIT)
+      (set! (-> self root trans x) (+ (-> self home x) (* PHYSROOM-LIMIT (if (> (-> self vel x) 0.0) 1.0 -1.0))))
+      (set! (-> self vel x) 0.0))
+    (when (> (fabs (- (-> self root trans y) (-> self home y))) PHYSROOM-LIMIT)
+      (set! (-> self root trans y) (+ (-> self home y) (* PHYSROOM-LIMIT (if (> (-> self vel y) 0.0) 1.0 -1.0))))
+      (set! (-> self vel y) 0.0))
+    (when (> (fabs (- (-> self root trans z) (-> self home z))) PHYSROOM-LIMIT)
+      (set! (-> self root trans z) (+ (-> self home z) (* PHYSROOM-LIMIT (if (> (-> self vel z) 0.0) 1.0 -1.0))))
+      (set! (-> self vel z) 0.0)))
+  ;; les quatre pilotages de translation laissent le sujet DROIT : sans ca l'inclinaison de la
+  ;; fenetre precedente resterait en place et contaminerait la suivante.
+  (when (< mode 4) (quaternion-identity! (-> self root quat)))
   (none))
 
 (defbehavior physroom-hold phys-subject ()
-  "immobile, pile sur le point de depart : c'est l'etat de repos de SPEC section 4."
+  "immobile, pile sur le point de depart ET DROITE : c'est l'etat de repos de SPEC section 4."
   (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
   (vector-copy! (-> self root trans) (-> self home))
+  (quaternion-identity! (-> self root quat))
   (none))
+
+(defbehavior physroom-lean phys-subject ((deg float))
+  "immobile mais PENCHEE de `deg` degres vers l'avant. L'excitation d'acceleration retombe a zero,
+   donc ce qui reste dans l'ecart a la pose du modele n'est plus que la gravite. C'est la mesure
+   que reclame la 6e passe de l'owner : « aucun mouvement quand elle se penche en avant pour
+   souder, pas coherent du tout »."
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees deg))
+  (none))
+
+;; EXCITATION CALIBREE : une acceleration d'amplitude CONNUE, alternee, sur un seul axe. C'est
+;; l'entree de la courbe de reponse — l'amplitude de pointe en sortie se lit dans la meme fenetre.
+(defbehavior physroom-drive-exc phys-subject ((f int) (mag float))
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (quaternion-identity! (-> self root quat))
+  ;; deplacement sinusoidal pur : |acceleration| = mag, sans discontinuite qui melangerait la
+  ;; reponse au seuil qu'on cherche.
+  (let* ((w  (/ 65536.0 24.0))
+         (ph (* w (the float f)))
+         (amp (/ mag (* (/ 6.2831853 24.0) (/ 6.2831853 24.0)))))
+    (set! (-> self root trans x) (+ (-> self home x) (* amp (sin ph))))
+    (set! (-> self root trans y) (+ (-> self home y) (* 0.4 amp (sin (* 2.0 ph))))))
+  (none))
+
+;; les six niveaux d'excitation, en unites de jeu par frame^2 (4096 u = 1 m, 60 Hz). Echelle
+;; geometrique : chaque niveau vaut ~2.3x le precedent, du frisson au coup sec.
+(defun physroom-exc-level ((i int))
+  (case i
+    ((0) 1.5)
+    ((1) 3.5)
+    ((2) 8.0)
+    ((3) 18.0)
+    ((4) 42.0)
+    (else 96.0)))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; ANIMATION. On pose le groupe de frames du channel 0 a la main et on avance frame-num nous-memes
@@ -275,6 +350,29 @@
             (phys-pen-col (-> self slot) c)
             (phys-stat (-> self slot) c 2)
             (phys-stat (-> self slot) c 0))))
+  (none))
+
+(defbehavior physroom-emit-diag phys-subject ((tag string))
+  "LES QUATRE DEFAUTS DE LA 6e PASSE, CHAINE PAR CHAINE. Un total global ne dit pas si ce sont les
+   meches fines qui jittent ou les sangles de cheville : ces compteurs-la sont par chaine.
+     selfcol  corrections venues d'un volume porte par les PROPRES joints de la chaine — ZERO
+     retreat  reculs vers la pose du modele (le limiteur qui saute)
+     flip     paires (lien, volume) ayant change d'etat de contrainte d'une frame a l'autre : la
+              mesure du jitter lui-meme
+     inv      inversions corrigees / invres inversions RESIDUELLES — ZERO
+     elong    pire allongement RELATIF d'un lien (|l/l0 - 1|) — « les seins s'allongent »"
+  (dotimes (c (-> self nchain))
+    (when (> (phys-chain-links (-> self slot) c) 0)
+      (format 0 "PHYSDIAG tag=~S c=~D selfcol=~f retreat=~f flip=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 0)
+              (phys-diag (-> self slot) c 1)
+              (phys-diag (-> self slot) c 2))
+      (format 0 "PHYSDIAG2 tag=~S c=~D inv=~f invres=~f elong=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 3)
+              (phys-diag (-> self slot) c 4)
+              (phys-diag (-> self slot) c 5))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
@@ -392,6 +490,7 @@
        (phys-auth-reset!)
        (phys-limiter-reset!)
        (phys-inversions-reset!)
+       (phys-diag-reset!)
        (set! (-> self phase) PHYSROOM-PH-MEAS)
        (set! (-> self pframe) 0)
        (set! (-> self ai) 0)
@@ -413,13 +512,41 @@
          (when (< (-> self ai) (-> self nanim)) (physroom-set-anim (-> self ai))))
        (cond
          ((>= (-> self ai) (-> self nanim))
-          (set! (-> self phase) PHYSROOM-PH-IDLE)
+          ;; le bilan par chaine de TOUTE la course de mesure, avant que les phases de controle
+          ;; ne viennent s'y ajouter.
+          (physroom-emit-diag "run")
+          (phys-diag-reset!)
+          (set! (-> self phase) PHYSROOM-PH-RESP)
+          (set! (-> self lvl) 0)
           (physroom-set-anim 0)
           (phys-stats-reset!))
          (else
           (phys-stats-reset!)))))
 
-    ;; ---- 2. LE REPOS : immobile, animation figee. La cible de l'ecart ne bouge plus, donc au
+    ;; ---- 2. LA COURBE DE REPONSE (6e passe : « trop statiques sur les mouvements faibles, trop
+    ;; ---- hysteriques sur les brusques »). Meme animation figee, meme chaine, meme fenetre : la
+    ;; ---- SEULE chose qui change d'un niveau au suivant est l'amplitude de l'excitation. Une
+    ;; ---- marche dans la courbe designe un seuil ; une droite dit qu'il n'y en a pas.
+    ((= (-> self phase) PHYSROOM-PH-RESP)
+     (physroom-drive-exc (-> self pframe) (physroom-exc-level (-> self lvl)))
+     ;; la premiere moitie du niveau est un ETABLISSEMENT, pas une mesure : sans elle le niveau 0
+     ;; lisait la fin d'oscillation de la phase precedente (amplitude 0.62 m pour une excitation de
+     ;; 1.5 u/frame^2, soit un gain de reference faux, donc une courbe fausse).
+     (when (= (-> self pframe) (/ PHYSROOM-RESPW 2)) (phys-stats-reset!))
+     (when (>= (-> self pframe) PHYSROOM-RESPW)
+       (dotimes (c (-> self nchain))
+         (when (> (phys-chain-links (-> self slot) c) 0)
+           (format 0 "PHYSRESP c=~D lvl=~D exc=~f amp=~f jump=~f~%"
+                   c (-> self lvl) (physroom-exc-level (-> self lvl))
+                   (phys-tip-amp (-> self slot) c)
+                   (phys-stat (-> self slot) c 2))))
+       (set! (-> self pframe) 0)
+       (+! (-> self lvl) 1)
+       (phys-stats-reset!)
+       (when (>= (-> self lvl) PHYSROOM-RESPL)
+         (set! (-> self phase) PHYSROOM-PH-IDLE))))
+
+    ;; ---- 3. LE REPOS : immobile, animation figee. La cible de l'ecart ne bouge plus, donc au
     ;; ---- repos l'ecart a la pose du modele doit tendre vers zero (SPEC section 4), sauf pour ce
     ;; ---- qui doit pendre (hang > 0), compte a part.
     ((= (-> self phase) PHYSROOM-PH-IDLE)
@@ -435,13 +562,33 @@
                  (phys-chain-hang (-> self slot) c)
                  (phys-tip-amp (-> self slot) c)
                  (phys-chain-family (-> self slot) c))))
+       (set! (-> self phase) PHYSROOM-PH-TILT)
+       (set! (-> self pframe) 0)
+       (phys-stats-reset!)))
+
+    ;; ---- 4. ELLE SE PENCHE, ET ON TIENT LA POSE. Meme animation figee, meme chaine, meme duree
+    ;; ---- que le repos : la SEULE difference est l'inclinaison du tronc. Une gravite exprimee dans
+    ;; ---- le repere de l'ancre ne deplace rien quand elle est droite et agit des qu'elle penche,
+    ;; ---- donc l'ecart a la pose du modele doit MONTER ici et nulle part ailleurs. C'est la mesure
+    ;; ---- que reclame la 6e passe : « aucun mouvement quand elle se penche en avant pour souder ».
+    ((= (-> self phase) PHYSROOM-PH-TILT)
+     (physroom-lean PHYSROOM-TILTDEG)
+     (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
+     (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (format 0 "PHYSTILT c=~D deg=~f dev=~f amp=~f fam=~D~%"
+                 c PHYSROOM-TILTDEG
+                 (phys-stat (-> self slot) c 5)
+                 (phys-tip-amp (-> self slot) c)
+                 (phys-chain-family (-> self slot) c))))
        (set! (-> self phase) PHYSROOM-PH-PCOFF)
        (set! (-> self pframe) 0)
        (phys-inject-set! 0.0)
        (phys-inject-count-reset!)
        (phys-stats-reset!)))
 
-    ;; ---- 3. CONTROLE POSITIF, branche DESARMEE : la penetration telle qu'elle est ------------
+    ;; ---- 5. CONTROLE POSITIF, branche DESARMEE : la penetration telle qu'elle est ------------
     ((= (-> self phase) PHYSROOM-PH-PCOFF)
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
@@ -455,7 +602,7 @@
        ;; du corps APRES resolution. Si le compteur de penetration ne monte pas, il ne mesure rien.
        (phys-inject-set! 400.0)))
 
-    ;; ---- 4. CONTROLE POSITIF, branche ARMEE --------------------------------------------------
+    ;; ---- 6. CONTROLE POSITIF, branche ARMEE --------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-PCON)
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
@@ -466,7 +613,7 @@
        (set! (-> self phase) PHYSROOM-PH-AUTHPC)
        (set! (-> self pframe) 0)))
 
-    ;; ---- 5. L'ANIMATION D'AUTEUR (SPEC 5) : d'abord le bilan de la course, ensuite un CONTROLE
+    ;; ---- 7. L'ANIMATION D'AUTEUR (SPEC 5) : d'abord le bilan de la course, ensuite un CONTROLE
     ;; ---- POSITIF. Le controle retarde l'animation d'une frame dans la position ecrite — le defaut
     ;; ---- exact que la SPEC interdit — et le compteur d'identite doit s'effondrer. Un compteur qui
     ;; ---- ne bouge pas sous le defaut ne mesure rien, et le zero qu'il annonce ne vaut rien.
@@ -501,7 +648,7 @@
        (set! (-> self phase) PHYSROOM-PH-INVPC)
        (set! (-> self pframe) 0)))
 
-    ;; ---- 6. LES INVERSIONS (verdict owner : « un de ses seins retourne vers l'interieur »).
+    ;; ---- 8. LES INVERSIONS (verdict owner : « un de ses seins retourne vers l'interieur »).
     ;; ---- D'abord le compte de la course, puis un CONTROLE POSITIF qui miroite chaque lien libre a
     ;; ---- travers son attache : le compteur doit monter. Un compteur d'inversions a zero qui ne
     ;; ---- bouge pas sous le defaut ne prouve rien.
@@ -517,10 +664,36 @@
        (phys-inv-inject-set! 0)
        (format 0 "PHYSINV phase=control flips=~f degen=~f reseat=~f residual=~f~%"
                (phys-inversions 0) (phys-inversions 1) (phys-inversions 2) (phys-inversions 3))
+       (set! (-> self phase) PHYSROOM-PH-SELFOFF)
+       (set! (-> self pframe) 0)
+       (phys-diag-reset!)))
+
+    ;; ---- 8/9. L'AUTO-COLLISION (6e passe, defaut 1 : « les meches fines jittent like crazy des
+    ;; ---- que la tete bouge »). Les colliders `Lbanga`, `Lmidhaira`, `lBoob` sont les JOINTS-RACINES
+    ;; ---- des chaines elles-memes et les capsules `Lbangb->Lbanga` sont leurs MAILLONS : sans
+    ;; ---- exclusion, une meche est poussee hors de son propre volume en permanence. L'exclusion est
+    ;; ---- structurelle, donc le compteur est structurellement nul — et un zero que rien ne peut
+    ;; ---- faire monter ne prouve rien. La branche ARMEE leve l'exclusion : il DOIT monter.
+    ((= (-> self phase) PHYSROOM-PH-SELFOFF)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (physroom-emit-diag "self-disarmed")
+       (phys-diag-reset!)
+       (phys-self-inject-set! 1)
+       (set! (-> self phase) PHYSROOM-PH-SELFON)
+       (set! (-> self pframe) 0)))
+
+    ((= (-> self phase) PHYSROOM-PH-SELFON)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (physroom-emit-diag "self-armed")
+       (phys-self-inject-set! 0)
        (set! (-> self phase) PHYSROOM-PH-REPORT)
        (set! (-> self pframe) 0)))
 
-    ;; ---- 7. RAPPORT --------------------------------------------------------------------------
+    ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
      (physroom-report)
      (set! (-> self phase) PHYSROOM-PH-DONE)
@@ -594,6 +767,7 @@
   (set! (-> self dis) 0.0)
   (set! (-> self arm) 0.0)
   (set! (-> self injn) 0)
+  (set! (-> self lvl) 0)
   (set! (-> self fnum) 0.0)
   (set! (-> self nframe) 1.0)
   (set! (-> self root) (new 'process 'trsqv))

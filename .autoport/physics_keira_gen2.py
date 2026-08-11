@@ -34,6 +34,7 @@ import os
 import re
 import sys
 
+import math
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -98,16 +99,26 @@ IQ_LO, IQ_HI = 25.0, 75.0       # inner quartile of the perpendicular spread.
 #   pantflap  a wide soft cloth flap: slowest of the worn pieces, hangs the most.
 #   toestrap  tiny and taut.
 #   anklestrap tiny and taut, a notch looser than the toe one.
+# GRAVITE DE LA FAMILLE A (6e passe de l'owner : « les seins n'ont pas l'air d'etre soumis a la
+# gravite, aucun mouvement quand elle se penche en avant pour souder, pas coherent du tout »).
+# Elle etait a 0.00 pour respecter SPEC 4 (« au repos on retrouve EXACTEMENT la pose du modele ») et
+# c'etait la bonne conclusion tiree de la mauvaise premisse : une gravite ABSOLUE affaisserait la
+# poitrine en permanence, mais la pose du modele est deja une pose SOUS gravite — le sculpteur l'a
+# modelee debout. Le moteur applique donc a la famille A la gravite RELATIVE au repere de l'ancre
+# dans sa pose de bind : nulle quand le buste est droit (l'equilibre reste la pose du modele au bit
+# pres), non nulle des qu'il s'incline. C'est un nombre choisi a la main, comme la raideur.
+A_GRAVITY = 0.45
+
 TUNING = {
-    'ear':        dict(klass='primary',   family='A', stiffness=3.20, damping=0.30, gravity=0.00,
+    'ear':        dict(klass='primary',   family='A', stiffness=3.20, damping=0.30, gravity=A_GRAVITY,
                        mass=0.60, couple=1.00, hang=0.00),
-    'backhair':   dict(klass='primary',   family='A', stiffness=1.80, damping=0.18, gravity=0.00,
+    'backhair':   dict(klass='primary',   family='A', stiffness=1.80, damping=0.18, gravity=A_GRAVITY,
                        mass=0.90, couple=1.00, hang=0.00),
-    'bang':       dict(klass='primary',   family='A', stiffness=2.60, damping=0.24, gravity=0.00,
+    'bang':       dict(klass='primary',   family='A', stiffness=2.60, damping=0.24, gravity=A_GRAVITY,
                        mass=0.70, couple=1.00, hang=0.00),
-    'midhair':    dict(klass='primary',   family='A', stiffness=2.00, damping=0.20, gravity=0.00,
+    'midhair':    dict(klass='primary',   family='A', stiffness=2.00, damping=0.20, gravity=A_GRAVITY,
                        mass=0.80, couple=1.00, hang=0.00),
-    'chest':      dict(klass='primary',   family='A', stiffness=2.80, damping=0.35, gravity=0.00,
+    'chest':      dict(klass='primary',   family='A', stiffness=2.80, damping=0.35, gravity=A_GRAVITY,
                        mass=1.20, couple=1.00, hang=0.00),
     'goggles':    dict(klass='primary',   family='B', stiffness=2.40, damping=0.30, gravity=0.35,
                        mass=1.40, couple=1.00, hang=1.00),
@@ -256,6 +267,39 @@ def iq_perp_radius(geo, j, a_world, b_world, thr):
     if inner.size == 0:
         inner = d
     return float(inner.mean()), len(idx)
+
+
+def blob_centre_radius(geo, j):
+    """CENTRE et RAYON de la geometrie qu'un joint porte, dans SON espace bind, en unites de jeu.
+
+    Owner, 6e passe : « lBoob et rBoob sont des spheres NUES posees sur le joint-racine, alors que
+    tout le reste du corps est en capsules derivees. Une sphere au joint ne peut pas epouser un
+    sein. » Il a raison et c'est mecanique : une sphere de collision est un BLOB, pas un os. Son
+    centre n'a aucune raison d'etre le joint — un sein PEND de son joint — et son rayon n'est pas
+    une epaisseur autour d'un axe mais l'etendue autour de ce centre.
+    Consequence mesurable de l'erreur : une sphere trop grosse posee au mauvais endroit ENGLOBE la
+    position de repos des lunettes ; le plancher de pose modele leur accorde alors toute la
+    profondeur ou elles sont deja, et le volume ne les repousse plus JAMAIS. C'est pourquoi deux
+    elargissements successifs n'ont rien change au clipping — ils l'aggravaient.
+
+    Meme convention de robustesse que les rayons de lien : moyenne inter-quartile, meme echelle de
+    seuils de poids."""
+    idx, thr = None, None
+    for cand in FIT_STEPS:
+        _n, _w, i2 = influence(geo, j, cand)
+        idx, thr = i2, cand
+        if len(i2) >= FIT_MIN_VERTS:
+            break
+    if idx is None or len(idx) == 0:
+        return None, None, 0, None
+    pts = to_bone_local(geo['ibms'][j], geo['V'][idx])
+    c = pts.mean(axis=0)
+    d = np.linalg.norm(pts - c, axis=1)
+    lo, hi = np.percentile(d, [IQ_LO, IQ_HI])
+    inner = d[(d >= lo) & (d <= hi)]
+    if inner.size == 0:
+        inner = d
+    return c, float(inner.mean()), len(idx), thr
 
 
 def fit_radius(geo, j, a_world, b_world):
@@ -540,6 +584,26 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
             if jn not in capped:
                 spheres.append((jn, pname))
 
+    # UN JOINT, UNE EPAISSEUR. `link_radius` porte, par nom de joint, l'epaisseur deja mesuree pour
+    # ce joint comme LIEN DE CHAINE : perpendiculairement a SON PROPRE os (joint -> son enfant),
+    # c.-a-d. a l'axe le long duquel sa geometrie est allongee.
+    #
+    # Pourquoi ce n'est pas un doublon mais une CORRECTION. Un bout de capsule mesurait le meme
+    # joint perpendiculairement a l'axe joint -> son PARENT. Quand la chaine fait un coude, cet axe
+    # n'est plus celui de la geometrie et la LONGUEUR de la meche fuit dans sa largeur — le fichier
+    # livre annoncait alors deux epaisseurs differentes pour un seul joint :
+    #     Lbangb  104 comme lien de chaine,  558 comme bout de capsule  (5,4x)
+    #     Rbangb  102                        559
+    # 558 unites = 13,6 cm de rayon sur une MECHE FINE, en obstacle permanent devant l'autre meche,
+    # les oreilles, les cheveux et les lunettes. C'est le defaut n.1 de la 6e passe de l'owner :
+    # « les meches fines jittent like crazy des que la tete bouge ». Les six autres capsules de
+    # chaine respectaient deja la regle au chiffre pres (lEarb 79, Lbangc 180, Lmidhairb 335...) :
+    # elle ne change donc que les deux valeurs qui se contredisaient elles-memes.
+    link_radius = {}
+    for cname, _cat, _fam, _kl, _nl, _rep, radii in chain_report:
+        for jn2, r2v in zip(groups[cname], radii):
+            link_radius[jn2] = r2v
+
     col_block, col_report = [], []
     for jn, pn, pname in capsules:
         j, p = idx_of[jn], idx_of[pn]
@@ -550,19 +614,36 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
             log(f"DROPPED collider capsule {jn}->{pn}: fitted from 0 vertices "
                 f"({jn}={n1}v {pn}={n2}v)")
             continue
+        fix = []
+        if jn in link_radius and link_radius[jn] != r1:
+            fix.append(f'{jn} {r1}->{link_radius[jn]} (own-bone thickness)')
+            r1 = link_radius[jn]
+        if pn in link_radius and link_radius[pn] != r2:
+            fix.append(f'{pn} {r2}->{link_radius[pn]} (own-bone thickness)')
+            r2 = link_radius[pn]
+        if fix:
+            log(f"ONE-JOINT-ONE-THICKNESS capsule {jn}->{pn}: " + '; '.join(fix))
         col_block.append(f'# capsule {jn}->{pn} [{pname}]  {jn}: {n1}v @w>{t1}   '
-                         f'{pn}: {n2}v @w>{t2}')
+                         f'{pn}: {n2}v @w>{t2}'
+                         + ('   ONE-JOINT-ONE-THICKNESS: ' + '; '.join(fix) if fix else ''))
         col_block.append(f'capsule {jn} {pn} radius={r1} radius2={r2}')
         col_report.append(('capsule', f'{jn}->{pn}', r1, r2, n1, n2))
     for jn, pname in spheres:
         j = idx_of[jn]
-        a, b = bone_axis_world(geo, names, parent, j)
-        r, t, n = fit_radius(geo, j, a, b)
+        c, r, n, t = blob_centre_radius(geo, j)
         if r is None or n == 0:
             log(f"DROPPED collider sphere {jn}: fitted from 0 vertices")
             continue
-        col_block.append(f'# sphere {jn} [{pname}]  {n}v @w>{t}')
-        col_block.append(f'collider {jn} radius={r}')
+        a, b = bone_axis_world(geo, names, parent, j)
+        r_old, t_old, _n_old = fit_radius(geo, j, a, b)
+        cx, cy, cz = (int(round(float(v))) for v in c)
+        r = int(round(r))
+        off = math.sqrt(cx * cx + cy * cy + cz * cz)
+        log(f"sphere {jn}: centre ({cx},{cy},{cz}) |{off:.0f}u| radius {r} "
+            f"(was: centred on the joint, radius {r_old} fitted around its bone axis)")
+        col_block.append(f'# sphere {jn} [{pname}]  {n}v @w>{t}   centre = measured centroid of the '
+                         f'geometry this joint owns, {off:.0f}u off the joint, in its bind space')
+        col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
         col_report.append(('sphere', jn, r, None, n, None))
 
     # ---- verbatim blocks from the .bak ---------------------------------------------------------
@@ -693,17 +774,20 @@ def self_checks(text, info, rig_names, bak_path, log):
     ck(not bad and not unknown, 'every chain has >=1 j line, every j exists in the rig',
        f'empty={bad} unknown={unknown}')
 
-    # 3. family A: gravity == 0 and hang == 0; family B: both > 0
+    # 3. family A: hang == 0 (it returns to the model pose) and gravity == A_GRAVITY (relative to
+    #    the anchor's bind frame, so it moves NOTHING while she is upright); family B: both > 0
+    #    (absolute gravity: what hangs, hangs, and stays hung).
     prob = []
     for c in chains:
         g, h, f = float(c['kv'].get('gravity', -1)), float(c['kv'].get('hang', -1)), c['kv'].get('family')
-        if f == 'A' and not (g == 0.0 and h == 0.0):
+        if f == 'A' and not (abs(g - A_GRAVITY) < 1e-6 and h == 0.0):
             prob.append((c['name'], 'A', g, h))
         if f == 'B' and not (g > 0.0 and h > 0.0):
             prob.append((c['name'], 'B', g, h))
         if f not in ('A', 'B'):
             prob.append((c['name'], f, g, h))
-    ck(not prob, 'family A gravity=0.00 hang=0.00, family B both > 0', str(prob))
+    ck(not prob, f'family A gravity={A_GRAVITY:.2f} (anchor-relative) hang=0.00, family B both > 0',
+       str(prob))
 
     # 4. len(radii) == number of j lines
     prob = [(c['name'], len(c['kv'].get('radii', '').split(',')), len(c['joints']))

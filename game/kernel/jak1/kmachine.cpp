@@ -1064,6 +1064,14 @@ struct PhysCollider {
   int tier = 1;  // 1 = core (on at every precision level with collisions), 2 = extended
   int side = 0;             // 0 = none, 1 = L, 2 = R (cross-side penetration accounting)
   std::string chainref;     // non-empty: centre this sphere on the SIMULATED TIP of that chain
+  // CYCLE 7 (owner, 6e passe 2026-08-11): « lBoob et rBoob sont des spheres nues posees sur le
+  // joint-racine, alors que tout le reste du corps est en capsules derivees. Une sphere au joint
+  // ne peut pas epouser un sein. » Le centre d'une sphere n'a aucune raison d'etre le joint : la
+  // geometrie qu'elle represente a un CENTRE, mesure sur le mesh (centroide des sommets skinnes du
+  // joint, exprime dans l'espace bind du joint, en unites de jeu). Le moteur le transforme par la
+  // matrice de l'os, donc le volume suit l'animation comme le joint lui-meme.
+  // Absent des donnees = 0,0,0 = le comportement d'avant, au bit pres.
+  float ox = 0.f, oy = 0.f, oz = 0.f;
 };
 
 struct PhysModel {
@@ -1166,6 +1174,32 @@ static bool phys_collider_kv(PhysCollider& col, const std::string& k, const std:
     }
   } else if (k == "at") {
     col.chainref = v;
+  } else if (k == "offset") {
+    // offset=x,y,z — centre de la geometrie du joint dans SON espace bind, en unites de jeu.
+    // Trois nombres exactement ; toute autre forme laisse l'offset a zero et sera signalee par le
+    // "unknown key" du dessus si la cle elle-meme est fausse.
+    float xyz[3] = {0.f, 0.f, 0.f};
+    size_t p = 0;
+    int n = 0;
+    while (p <= v.size() && n < 3) {
+      size_t comma = v.find(',', p);
+      std::string one = (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+      if (!one.empty()) {
+        xyz[n++] = phys_to_float(one);
+      }
+      if (comma == std::string::npos) {
+        break;
+      }
+      p = comma + 1;
+    }
+    if (n == 3) {
+      col.ox = xyz[0];
+      col.oy = xyz[1];
+      col.oz = xyz[2];
+    } else {
+      lg::warn("[hd-phys] collider {} offset= wants three numbers 'x,y,z' (got '{}', ignored)",
+               col.joint, v);
+    }
   } else {
     return false;
   }
@@ -1980,6 +2014,17 @@ s64 pc_physics_collider_param_mi(u32 ag_name, s64 idx, s64 field) {
                col.chainref);
     }
     return -1;
+  }
+  // 7/8/9 — le CENTRE de la sphere dans l'espace bind de son joint (offset=), en milli-unites
+  // comme tout ce qui traverse la frontiere. Zero = centre sur le joint, l'ancien comportement.
+  if (field == 7) {
+    return phys_mi(col.ox);
+  }
+  if (field == 8) {
+    return phys_mi(col.oy);
+  }
+  if (field == 9) {
+    return phys_mi(col.oz);
   }
   return 0;
 }
