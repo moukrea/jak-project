@@ -644,3 +644,35 @@ doit être zéro.
 **5. BRETELLES vs ÉLASTIQUE ORANGE du bas du crop top**, et **6. LUNETTES vs SEINS** : les deux
 survivent. Ce sont des volumes manquants ou trop petits sur des pièces précises du vêtement, pas des
 réglages de chaîne. Les dériver comme le reste du corps.
+
+## PLAN DE REPRISE DEPUIS LE BUILD 19h53 (owner 2026-08-11 22:30)
+
+> « Bon bah à partir du build de 19h53 tu peux appliquer mon feedback sur ce build justement ! »
+
+Les cinq retours ont été traités **ensemble** la première fois, et le mouvement s'est effondré d'un
+facteur 8 à 14. On reprend depuis `613218dfa3`, **dans l'ordre du risque de muselage**, un point à
+la fois, chacun mesuré contre le plancher `motion-floor.txt` avant d'être conservé.
+
+**GROUPE A — aucun risque de museler la physique. À faire en premier, ensemble.**
+1. *Sangles de genoux imperceptibles.* Traité côté données par le superviseur : couplage 1.00→1.60,
+   masse 0.60→0.85, raideur 2.00→1.60. Elles bougeaient (0.1298) mais deux fois moins que les
+   chevilles ; il fallait de la vivacité, pas une résurrection.
+2. *Bretelles vs élastique orange du bas du crop top.* Volume manquant sur une pièce précise du
+   vêtement. À **dériver** comme le reste du corps — surtout pas une capsule estimée à la main.
+3. *Lunettes vs seins.* Idem : les volumes de poitrine sont des sphères décalées, pas des volumes
+   dérivés. Les dériver, sans jamais gonfler un rayon pour compenser.
+4. *Bas du pantacourt avalé par les mollets.* La résolution pousse le pan **vers l'intérieur** :
+   c'est un défaut de signe ou un départ déjà dans le volume, pas un manque de force. Mesurer
+   `ROOM-SIDE: inside_frames = 0`. Corriger un signe n'enlève aucun mouvement.
+
+**GROUPE B — peut museler. UN SEUL À LA FOIS, et on garde seulement si le plancher tient.**
+5. *Étirement et effet gelée sur les mouvements brusques.* L'os ne s'allonge pas (`STRETCH ≤ 3 %`,
+   déjà atteint à 1.43 %) ; la **chair se déforme**, bornée à ~15 %, corrélée au stimulus et
+   récupérée à l'arrêt. Ce n'est pas la suppression de la déformation, c'est son cadrage.
+6. *Angles extrêmes qui révèlent le manque de polygones.* Atténuation **progressive** et **locale**
+   aux maillons concernés, jamais globale. C'est cette atténuation, appliquée partout, qui a
+   divisé le mouvement des mèches par huit.
+
+**RÈGLE DE CONSERVATION** : après chaque point, la course de la salle doit montrer que **aucune
+chaîne** n'est passée sous 60 % de son plancher. Si le plancher casse, le point est retiré — pas
+adouci, retiré — et repris autrement.

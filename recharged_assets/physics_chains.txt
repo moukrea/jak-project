@@ -132,10 +132,10 @@ chain botstrapR class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=
 j rBotStrap
 j rBotStrap2
 # kneeflapL [B] lKneeFlap verts=24 wsum=17.58 r=244
-chain kneeflapL class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
+chain kneeflapL class=secondary stiffness=1.60 damping=0.30 gravity=0.30 radius=244 mass=0.85 hang=0.90 family=B couple=1.60 radii=244
 j lKneeFlap
 # kneeflapR [B] rKneeFlap verts=24 wsum=17.58 r=244
-chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
+chain kneeflapR class=secondary stiffness=1.60 damping=0.30 gravity=0.30 radius=244 mass=0.85 hang=0.90 family=B couple=1.60 radii=244
 j rKneeFlap
 # pantflapL [B] LpantFlap verts=49 wsum=5.37 r=429
 chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=429 mass=0.60 hang=0.95 family=B couple=1.00 radii=429   # radii notes (fitted below w>0.5, or inherited): LpantFlap@w>0.05(49v)

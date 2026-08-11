@@ -113,3 +113,16 @@ chain chestR gravity=0.65 stiffness=1.45 mass=1.45
 # peu d'amortissement — ici c'est légitime, le défaut est un EXCÈS, pas une absence.
 chain lbang stiffness=1.05 mass=1.35 damping=0.36
 chain rbang stiffness=1.05 mass=1.35 damping=0.36
+
+## 2026-08-11 22:30 — REPRISE DU FEEDBACK SUR LE BUILD 19h53, UN POINT A LA FOIS
+#
+# Les cinq retours ont ete traites ENSEMBLE la premiere fois et le mouvement s'est effondre
+# (x8 a x14). On reprend depuis 19h53, dans l'ordre du RISQUE : d'abord ce qui ne peut pas
+# museler la physique, ensuite ce qui le peut, isole et mesure contre le plancher.
+#
+# POINT 6 — « les sangles a ses genoux, j'ai vu bouger mais c'est tres tres light ».
+# Verifie : elles bougent (0.1298 / 0.0979) mais deux fois moins que les sangles de cheville
+# (0.1426). Elles ne sont pas mortes, elles sont imperceptibles. On monte la vivacite
+# (couplage + masse) et on assouplit un peu, sans toucher a ce qui les tient.
+chain kneeflapL couple=1.60 mass=0.85 stiffness=1.60
+chain kneeflapR couple=1.60 mass=0.85 stiffness=1.60
