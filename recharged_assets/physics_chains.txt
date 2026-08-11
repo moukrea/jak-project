@@ -50,7 +50,7 @@
 #                                                                      (jak1 Daxter measured 0.198)
 #   blerc_gain      blunt multiplier on top, 1.0 = no blanket cut
 # All three take a per-slot override on a `slot N` line. Raise the caps to loosen, lower to calm.
-on=1 gainup=1.0 blerc_gain=1.0 blerc_grow_cap=0.2629 blerc_close_cap=0.198
+on=1 gainup=1.0 blerc_gain=1.0 blerc_grow_cap=0.2629 blerc_close_cap=0.1978
 slot 0 rest_iris=0.890625 rest_pupil=0.4375
 slot 1 rest_iris=0.890625 rest_pupil=0.4375
 slot 2 rest_iris=0.375    rest_pupil=0.0

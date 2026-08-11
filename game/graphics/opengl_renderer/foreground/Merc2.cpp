@@ -460,13 +460,20 @@ struct EyeGeom {
 
 struct EyeGapStat {
   bool hd = false;
-  u64 frames = 0, att_frames = 0;
+  u64 frames = 0, att_frames = 0, bisect_frames = 0;
   float gain = 1.f, k_min = 1.f;
   float span = 0.f, bind_gap = 0.f;
   float raw_gap_min = 1e30f, gap_min = 1e30f;
   double gap_sum = 0.0;
   float raw_grow_max = 0.f, grow_max = 0.f;
 };
+
+// Scratch for the iterative close solve: the RAW blerc displacement of the flex verts, saved so a
+// second candidate k can be applied from the original field instead of from an already-damped one.
+// Render thread only, same single-threaded contract as s_eye_geom above; never shrinks, so the
+// steady state is allocation-free.
+std::vector<float> s_eye_raw;
+constexpr int kCloseIters = 12;  // 2^-12 of k — far finer than the 0.01 unit the gap is printed at
 
 std::unordered_map<const tfrag3::MercEffect*, EyeGeom> s_eye_geom;
 std::map<std::string, EyeGapStat> s_eye_gap;
@@ -657,31 +664,77 @@ void eye_blerc_measure_and_damp(const std::string& name,
   const float raw_grow = std::max(s_eye[0], s_eye[1]);
 
   // (2) the loosest k <= 1 that puts BOTH symptoms inside jak1's own ceiling.
+  const float floor_gap = g.bind_gap * (1.f - cap.close);
   float k = 1.f;
+  bool solve_close = false;
   if (g.hd) {
     k = std::min(k, cap.gain);
+    // GROWTH is exactly linear in k: the dilation fit is linear in the displacement, so scaling
+    // the field by k scales `s` by k. One division is the exact answer, no iteration needed.
     if (raw_grow > cap.grow && raw_grow > 1e-6f) {
       k = std::min(k, cap.grow / raw_grow);
     }
-    const float floor_gap = g.bind_gap * (1.f - cap.close);
+    // DISTANCE is not. The gap is a MINIMUM over vertex pairs, and the pair that realises it
+    // changes as the field is scaled, so the closed form below is only a first guess — it was
+    // the whole solve until 2026-08-11, when the x86 leg measured what it actually delivers:
+    // ceiling asked for 19.80% closure, Daxter HD came out at 25.38%, i.e. 28% past a number
+    // that is supposed to be a ceiling. A bound that is only approximately held is not a bound,
+    // and this is the owner's headline symptom ("les deux yeux se TOUCHENT"), so it is solved
+    // exactly below instead of being traded against a looser cap in the data.
     if (raw_gap < floor_gap && g.bind_gap > raw_gap + 1e-4f) {
-      // distance is convex in k, so this linear solve is the conservative side of exact
       k = std::min(k, (g.bind_gap - floor_gap) / (g.bind_gap - raw_gap));
+      solve_close = true;
     }
     if (k < 0.f) {
       k = 0.f;
     }
   }
   const bool damped = k < 0.9999f;
+  // Any candidate k must be applied to the RAW field, not to an already-damped one, so snapshot
+  // it before the first write.
   if (damped) {
+    s_eye_raw.clear();
+    for (int e = 0; e < 2; e++) {
+      for (u32 vi : g.flex[e]) {
+        for (int a = 0; a < 3; a++) {
+          s_eye_raw.push_back(out[vi].pos[a]);
+        }
+      }
+    }
+  }
+  auto apply_k = [&](float kk) {
+    size_t j = 0;
     for (int e = 0; e < 2; e++) {
       for (u32 vi : g.flex[e]) {
         const float* p = pool[vi].pos;
         float* c = out[vi].pos;
-        for (int a = 0; a < 3; a++) {
-          c[a] = p[a] + k * (c[a] - p[a]);
+        for (int a = 0; a < 3; a++, j++) {
+          c[a] = p[a] + kk * (s_eye_raw[j] - p[a]);
         }
       }
+    }
+  };
+  int bisect_used = 0;
+  if (damped) {
+    apply_k(k);
+    // Bisect on the REAL distance. The bracket is valid by construction: inner[] is a SUBSET of
+    // the cloud bind_gap was minimised over, so gap(0) >= bind_gap >= floor_gap — k=0 is always
+    // admissible — while the guess above is the only candidate that can violate. Each halving is
+    // one 64x64 distance search on the <=41 frames per thousand that need it at all.
+    if (solve_close && cloud_gap(g.inner[0], g.inner[1], out) < floor_gap) {
+      float lo = 0.f, hi = k;
+      for (int it = 0; it < kCloseIters; it++) {
+        const float mid = 0.5f * (lo + hi);
+        apply_k(mid);
+        if (cloud_gap(g.inner[0], g.inner[1], out) >= floor_gap) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+        bisect_used++;
+      }
+      k = lo;
+      apply_k(k);
     }
   }
   const float out_grow = k * raw_grow;
@@ -696,6 +749,7 @@ void eye_blerc_measure_and_damp(const std::string& name,
   st.bind_gap = g.bind_gap;
   st.frames++;
   st.att_frames += damped ? 1 : 0;
+  st.bisect_frames += bisect_used ? 1 : 0;
   st.k_min = std::min(st.k_min, k);
   st.raw_gap_min = std::min(st.raw_gap_min, raw_gap);
   st.gap_min = std::min(st.gap_min, out_gap);
@@ -703,8 +757,10 @@ void eye_blerc_measure_and_damp(const std::string& name,
   st.raw_grow_max = std::max(st.raw_grow_max, raw_grow);
   st.grow_max = std::max(st.grow_max, out_grow);
   if (s_eye_gap_trace) {
-    lg::info("[eyegap-f] n={} model={} raw_gap={:.2f} gap={:.2f} raw_grow={:.4f} grow={:.4f} k={:.4f}",
-             s_eye_gap_calls, name, raw_gap, out_gap, raw_grow, out_grow, k);
+    lg::info(
+        "[eyegap-f] n={} model={} raw_gap={:.2f} gap={:.2f} raw_grow={:.4f} grow={:.4f} k={:.4f} "
+        "bis={}",
+        s_eye_gap_calls, name, raw_gap, out_gap, raw_grow, out_grow, k, bisect_used);
   }
 }
 
@@ -717,11 +773,11 @@ void eye_blerc_heartbeat() {
       continue;
     }
     lg::info(
-        "[eyegap] model={} hd={} gain={:.3f} frames={} damped={} span={:.2f} bind_gap={:.2f} "
-        "raw_gap_min={:.2f} gap_min={:.2f} gap_mean={:.2f} raw_grow_max={:.4f} grow_max={:.4f} "
-        "raw_close={:.4f} close={:.4f}",
-        nm, (int)st.hd, st.gain, st.frames, st.att_frames, st.span, st.bind_gap, st.raw_gap_min,
-        st.gap_min, st.gap_sum / (double)st.frames, st.raw_grow_max, st.grow_max,
+        "[eyegap] model={} hd={} gain={:.3f} frames={} damped={} bisect={} span={:.2f} "
+        "bind_gap={:.2f} raw_gap_min={:.2f} gap_min={:.2f} gap_mean={:.2f} raw_grow_max={:.4f} "
+        "grow_max={:.4f} raw_close={:.4f} close={:.4f}",
+        nm, (int)st.hd, st.gain, st.frames, st.att_frames, st.bisect_frames, st.span, st.bind_gap,
+        st.raw_gap_min, st.gap_min, st.gap_sum / (double)st.frames, st.raw_grow_max, st.grow_max,
         st.bind_gap > 0.f ? 1.f - st.raw_gap_min / st.bind_gap : 0.f,
         st.bind_gap > 0.f ? 1.f - st.gap_min / st.bind_gap : 0.f);
   }
