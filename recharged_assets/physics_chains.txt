@@ -76,84 +76,84 @@ level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 # ---- Keira, and only Keira: 22 chains, 33 volumes.
 [model keira-hd]
 # earL [A] lEara verts=82 wsum=25.41 r=148 | lEarb verts=76 wsum=46.64 r=79
-chain earL class=primary stiffness=3.20 damping=0.30 gravity=0.00 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=3.00 radii=148,79
+chain earL class=primary stiffness=3.20 damping=0.30 gravity=0.00 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
 j lEara
 j lEarb
 # earR [A] rEara verts=81 wsum=25.09 r=148 | rEarb verts=77 wsum=46.89 r=79
-chain earR class=primary stiffness=3.20 damping=0.30 gravity=0.00 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=3.00 radii=148,79
+chain earR class=primary stiffness=3.20 damping=0.30 gravity=0.00 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
 j rEara
 j rEarb
 # backhair [A] backHair1 verts=167 wsum=67.65 r=358 | backHair2 verts=153 wsum=55.21 r=374
-chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.00 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=6.00 radii=358,374
+chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.00 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=1.00 radii=358,374
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
-chain lbang class=primary stiffness=2.60 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.70 hang=0.00 family=A couple=4.00 radii=112,104,180
+chain lbang class=primary stiffness=2.60 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.70 hang=0.00 family=A couple=1.00 radii=112,104,180
 j Lbanga
 j Lbangb
 j Lbangc
 # rbang [A] Rbanga verts=106 wsum=86.63 r=118 | Rbangb verts=146 wsum=29.97 r=102 | Rbangc verts=55 wsum=40.98 r=178
-chain rbang class=primary stiffness=2.60 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.70 hang=0.00 family=A couple=4.00 radii=118,102,178
+chain rbang class=primary stiffness=2.60 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.70 hang=0.00 family=A couple=1.00 radii=118,102,178
 j Rbanga
 j Rbangb
 j Rbangc
 # lmidhair [A] Lmidhaira verts=212 wsum=72.75 r=222 | Lmidhairb verts=171 wsum=99.73 r=335
-chain lmidhair class=primary stiffness=2.00 damping=0.20 gravity=0.00 radius=278 rootlock=1 mass=0.80 hang=0.00 family=A couple=5.50 radii=222,335
+chain lmidhair class=primary stiffness=2.00 damping=0.20 gravity=0.00 radius=278 rootlock=1 mass=0.80 hang=0.00 family=A couple=1.00 radii=222,335
 j Lmidhaira
 j Lmidhairb
 # rmidhair [A] Rmidhaira verts=219 wsum=71.00 r=228 | Rmidhairb verts=176 wsum=106.17 r=337
-chain rmidhair class=primary stiffness=2.00 damping=0.20 gravity=0.00 radius=282 rootlock=1 mass=0.80 hang=0.00 family=A couple=5.50 radii=228,337
+chain rmidhair class=primary stiffness=2.00 damping=0.20 gravity=0.00 radius=282 rootlock=1 mass=0.80 hang=0.00 family=A couple=1.00 radii=228,337
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.80 damping=0.35 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=3.50 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=2.80 damping=0.35 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.00 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.80 damping=0.35 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=3.50 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=2.80 damping=0.35 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.00 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
-chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=5.00 radii=196,79
+chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,79
 j gogglesBase
 j gogglesMid
 # topstrapL [B] lTopStrap verts=0 wsum=0.00 r=1518 | lTopStrap2 verts=31 wsum=13.27 r=1518
-chain topstrapL class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1518 rootlock=1 mass=0.70 hang=0.80 family=B couple=4.50 radii=1518,1518   # radii notes (fitted below w>0.5, or inherited): lTopStrap r=1518 FALLBACK-FROM=lTopStrap2
+chain topstrapL class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1518 rootlock=1 mass=0.70 hang=0.80 family=B couple=1.00 radii=1518,1518   # radii notes (fitted below w>0.5, or inherited): lTopStrap r=1518 FALLBACK-FROM=lTopStrap2
 j lTopStrap
 j lTopStrap2
 # topstrapR [B] rTopStrap verts=0 wsum=0.00 r=1521 | rTopStrap2 verts=30 wsum=13.18 r=1521
-chain topstrapR class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1521 rootlock=1 mass=0.70 hang=0.80 family=B couple=4.50 radii=1521,1521   # radii notes (fitted below w>0.5, or inherited): rTopStrap r=1521 FALLBACK-FROM=rTopStrap2
+chain topstrapR class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1521 rootlock=1 mass=0.70 hang=0.80 family=B couple=1.00 radii=1521,1521   # radii notes (fitted below w>0.5, or inherited): rTopStrap r=1521 FALLBACK-FROM=rTopStrap2
 j rTopStrap
 j rTopStrap2
 # botstrapL [B] lBotStrap verts=15 wsum=3.67 r=92 | lBotStrap2 verts=25 wsum=9.76 r=901
-chain botstrapL class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=496 rootlock=1 mass=0.70 hang=0.85 family=B couple=4.50 radii=92,901   # radii notes (fitted below w>0.5, or inherited): lBotStrap@w>0.05(15v) lBotStrap2@w>0.25(25v)
+chain botstrapL class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=496 rootlock=1 mass=0.70 hang=0.85 family=B couple=1.00 radii=92,901   # radii notes (fitted below w>0.5, or inherited): lBotStrap@w>0.05(15v) lBotStrap2@w>0.25(25v)
 j lBotStrap
 j lBotStrap2
 # botstrapR [B] rBotStrap verts=16 wsum=3.99 r=93 | rBotStrap2 verts=26 wsum=10.44 r=926
-chain botstrapR class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=510 rootlock=1 mass=0.70 hang=0.85 family=B couple=4.50 radii=93,926   # radii notes (fitted below w>0.5, or inherited): rBotStrap@w>0.05(16v) rBotStrap2@w>0.25(26v)
+chain botstrapR class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=510 rootlock=1 mass=0.70 hang=0.85 family=B couple=1.00 radii=93,926   # radii notes (fitted below w>0.5, or inherited): rBotStrap@w>0.05(16v) rBotStrap2@w>0.25(26v)
 j rBotStrap
 j rBotStrap2
 # kneeflapL [B] lKneeFlap verts=24 wsum=17.58 r=244
-chain kneeflapL class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=5.00 radii=244
+chain kneeflapL class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
 j lKneeFlap
 # kneeflapR [B] rKneeFlap verts=24 wsum=17.58 r=244
-chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=5.00 radii=244
+chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
 j rKneeFlap
 # pantflapL [B] LpantFlap verts=49 wsum=5.37 r=429
-chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=429 mass=0.60 hang=0.95 family=B couple=5.00 radii=429   # radii notes (fitted below w>0.5, or inherited): LpantFlap@w>0.05(49v)
+chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=429 mass=0.60 hang=0.95 family=B couple=1.00 radii=429   # radii notes (fitted below w>0.5, or inherited): LpantFlap@w>0.05(49v)
 j LpantFlap
 # pantflapR [B] RpantFlap verts=41 wsum=4.63 r=443
-chain pantflapR class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=5.00 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
+chain pantflapR class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
 j RpantFlap
 # toestrapL [B] LtoeStrap verts=20 wsum=10.40 r=188
-chain toestrapL class=secondary stiffness=2.60 damping=0.26 gravity=0.25 radius=188 mass=0.50 hang=0.70 family=B couple=3.00 radii=188
+chain toestrapL class=secondary stiffness=2.60 damping=0.26 gravity=0.25 radius=188 mass=0.50 hang=0.70 family=B couple=1.00 radii=188
 j LtoeStrap
 # toestrapR [B] RtoeStrap verts=20 wsum=10.40 r=188
-chain toestrapR class=secondary stiffness=2.60 damping=0.26 gravity=0.25 radius=188 mass=0.50 hang=0.70 family=B couple=3.00 radii=188
+chain toestrapR class=secondary stiffness=2.60 damping=0.26 gravity=0.25 radius=188 mass=0.50 hang=0.70 family=B couple=1.00 radii=188
 j RtoeStrap
 # anklestrapL [B] Lanklestrap verts=16 wsum=7.55 r=225
-chain anklestrapL class=secondary stiffness=2.40 damping=0.26 gravity=0.25 radius=225 mass=0.50 hang=0.70 family=B couple=3.00 radii=225
+chain anklestrapL class=secondary stiffness=2.40 damping=0.26 gravity=0.25 radius=225 mass=0.50 hang=0.70 family=B couple=1.00 radii=225
 j Lanklestrap
 # anklestrapR [B] Ranklestrap verts=16 wsum=7.55 r=225
-chain anklestrapR class=secondary stiffness=2.40 damping=0.26 gravity=0.25 radius=225 mass=0.50 hang=0.70 family=B couple=3.00 radii=225
+chain anklestrapR class=secondary stiffness=2.40 damping=0.26 gravity=0.25 radius=225 mass=0.50 hang=0.70 family=B couple=1.00 radii=225
 j Ranklestrap
 
 # ---- COLLIDERS, fitted from the same mesh. One capsule per obstacle bone segment,

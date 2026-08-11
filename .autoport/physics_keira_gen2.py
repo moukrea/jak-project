@@ -63,7 +63,15 @@ IQ_LO, IQ_HI = 25.0, 75.0       # inner quartile of the perpendicular spread.
 # ---- TUNING CONSTANTS — one row per category, the ONLY hand-chosen numbers in the file ---------
 # stiffness is a natural frequency in Hz: short and stiff pieces oscillate fast, long and loose ones
 # slow.  damping is 0..1 (fraction of critical).  mass scales the inertia of a link.  couple is the
-# anchor-acceleration gain: how hard the carrier bone's acceleration throws the chain.
+# anchor-acceleration gain on the pseudo-force of the accelerated frame.  It is 1.00 EVERYWHERE and
+# that is not laziness: in the additive form the simulated quantity is the offset to the author pose
+# in the carrier's own frame, where the pseudo-force per unit mass IS the carrier's acceleration, so
+# a gain of 1.00 is the exact physics and anything else is an invented exaggeration.  The 3.00..6.00
+# gains this file carried until 2026-08-11 propped up a world-space spring that barely moved without
+# them; measured on the same rig they threw a 148-unit ear bone 4800 units off its place, i.e. the
+# length constraint held the chain permanently taut.  How much a piece moves is set by its
+# stiffness (a long loose lock at 1.8 Hz answers ~25x more than a stiff 3.2 Hz ear cartilage to the
+# same acceleration), which is where it belongs.  The owner raises it here if he wants more.
 # gravity/hang are NOT free: SPEC section 4 says rest == the model pose for family A (so family A
 # carries NO static sag: gravity=0, hang=0) and "what hangs stays hung" for family B (gravity>0,
 # hang>0).  The generator asserts both, per chain, before writing.
@@ -84,31 +92,31 @@ IQ_LO, IQ_HI = 25.0, 75.0       # inner quartile of the perpendicular spread.
 #   anklestrap tiny and taut, a notch looser than the toe one.
 TUNING = {
     'ear':        dict(klass='primary',   family='A', stiffness=3.20, damping=0.30, gravity=0.00,
-                       mass=0.60, couple=3.00, hang=0.00),
+                       mass=0.60, couple=1.00, hang=0.00),
     'backhair':   dict(klass='primary',   family='A', stiffness=1.80, damping=0.18, gravity=0.00,
-                       mass=0.90, couple=6.00, hang=0.00),
+                       mass=0.90, couple=1.00, hang=0.00),
     'bang':       dict(klass='primary',   family='A', stiffness=2.60, damping=0.24, gravity=0.00,
-                       mass=0.70, couple=4.00, hang=0.00),
+                       mass=0.70, couple=1.00, hang=0.00),
     'midhair':    dict(klass='primary',   family='A', stiffness=2.00, damping=0.20, gravity=0.00,
-                       mass=0.80, couple=5.50, hang=0.00),
+                       mass=0.80, couple=1.00, hang=0.00),
     'chest':      dict(klass='primary',   family='A', stiffness=2.80, damping=0.35, gravity=0.00,
-                       mass=1.20, couple=3.50, hang=0.00),
+                       mass=1.20, couple=1.00, hang=0.00),
     'goggles':    dict(klass='primary',   family='B', stiffness=2.40, damping=0.30, gravity=0.35,
-                       mass=1.40, couple=5.00, hang=1.00),
+                       mass=1.40, couple=1.00, hang=1.00),
     'topstrap':   dict(klass='secondary', family='B', stiffness=2.20, damping=0.28, gravity=0.30,
-                       mass=0.70, couple=4.50, hang=0.80),
+                       mass=0.70, couple=1.00, hang=0.80),
     'botstrap':   dict(klass='secondary', family='B', stiffness=1.80, damping=0.28, gravity=0.32,
-                       mass=0.70, couple=4.50, hang=0.85),
+                       mass=0.70, couple=1.00, hang=0.85),
     'belt':       dict(klass='secondary', family='B', stiffness=1.60, damping=0.32, gravity=0.35,
-                       mass=1.00, couple=4.00, hang=1.00),
+                       mass=1.00, couple=1.00, hang=1.00),
     'kneeflap':   dict(klass='secondary', family='B', stiffness=2.00, damping=0.30, gravity=0.30,
-                       mass=0.60, couple=5.00, hang=0.90),
+                       mass=0.60, couple=1.00, hang=0.90),
     'pantflap':   dict(klass='secondary', family='B', stiffness=1.60, damping=0.34, gravity=0.40,
-                       mass=0.60, couple=5.00, hang=0.95),
+                       mass=0.60, couple=1.00, hang=0.95),
     'toestrap':   dict(klass='secondary', family='B', stiffness=2.60, damping=0.26, gravity=0.25,
-                       mass=0.50, couple=3.00, hang=0.70),
+                       mass=0.50, couple=1.00, hang=0.70),
     'anklestrap': dict(klass='secondary', family='B', stiffness=2.40, damping=0.26, gravity=0.25,
-                       mass=0.50, couple=3.00, hang=0.70),
+                       mass=0.50, couple=1.00, hang=0.70),
 }
 
 # ---- CATEGORY RULES — regex over the rig's own joint names, plus the chain-name template --------
