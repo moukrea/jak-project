@@ -13,5 +13,16 @@ while true; do
     echo "$(date +%H:%M:%S) constructeur d'APK mort — respawn" >> .autoport/logs/auto_build_apk.txt
     setsid bash .autoport/auto_build_apk.sh </dev/null >/dev/null 2>&1 &
   fi
+  # Ne jamais empiler : si plusieurs instances survivent a un cycle kill/respawn, on ne garde
+  # que la plus ancienne. Le verrou du constructeur rend deja le doublon inoffensif; ceci nettoie
+  # le cas du publieur, qui n'en a pas.
+  for prog in auto_push_builds auto_build_apk; do
+    pids=$(ps -eo pid,etime,args | grep "[${prog:0:1}]${prog:1}\.sh" | sort -k2 -r | awk '{print $1}')
+    n=$(echo "$pids" | grep -c .)
+    if [ "$n" -gt 1 ]; then
+      echo "$(date +%H:%M:%S) $n instances de $prog — doublons tues" >> .autoport/logs/auto_build_apk.txt
+      echo "$pids" | tail -n +2 | while read -r p; do kill -9 "$p" 2>/dev/null; done
+    fi
+  done
   sleep 120
 done

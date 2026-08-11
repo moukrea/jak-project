@@ -31,7 +31,15 @@ WATCH=(goal_src/jak1/pc/jak-hd-physics.gc
        recharged_assets/keira-owner-tuning.txt)
 
 say(){ echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
-say "auto-builder démarré (branche $(git branch --show-current))"
+# VERROU D'INSTANCE UNIQUE. Le 2026-08-11 trois instances tournaient en meme temps apres un
+# cycle kill/respawn : chacune lancait son propre build arm64 sur le meme arbre. Le verrou rend
+# le doublon impossible au lieu de le nettoyer a la main.
+exec 9>.autoport/.auto_build_apk.lock
+if ! flock -n 9; then
+  echo "$(date +%H:%M:%S) une autre instance detient le verrou — sortie" >> "$LOG"
+  exit 0
+fi
+say "auto-builder démarré (branche $(git branch --show-current), verrou pris)"
 
 while true; do
   sleep 240
