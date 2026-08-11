@@ -105,13 +105,14 @@ def main():
                                        hang=float(m.group(4)), j0=m.group(5))
     if not chains:
         die('aucune ligne PHYSCHAIN : le moteur n\'a resolu aucune chaine')
-    # une chaine que le moteur a ECARTEE a l'execution (links=0) : sa pose de modele met un lien
-    # hors de portee de son porteur. Elle n'a pas de mesure, et publier des zeros pour elle serait
-    # un chiffre invente. Elle est sortie du tableau et annoncee, avec ses nombres, dans son propre
-    # bloc — ce n'est pas un retrait silencieux.
+    # Une chaine a links=0 serait une chaine que le moteur a ecartee. Ce n'est plus une option :
+    # superviseur du 2026-08-11, « une chaine se REPARE, elle ne se retire pas », et le moteur
+    # re-assied desormais sur son porteur un lien que le retarget a envoye ailleurs. Si une chaine
+    # arrive encore ici a zero lien, c'est une regression et le tableau refuse de l'ecrire.
     dropped = sorted(c for c, d in chains.items() if d['links'] == 0)
-    for c in dropped:
-        del chains[c]
+    if dropped:
+        die('chaine(s) a zero lien : %s — le moteur les a ecartees au lieu de les reparer.'
+            % ', '.join(str(c) for c in dropped))
     pose = []
     for m in re.finditer(r'\[HD-PHYS\] pose c=(\d+) l=(\d+) dist=([-\d.e+]+) rad=([-\d.e+]+)'
                          r' ratio=([-\d.e+]+)', txt):
@@ -252,6 +253,33 @@ def main():
     radr_n, radr_s = int(float(lim.group(3))), float(lim.group(4)) / UNITS
     buried_n = int(float(lim.group(5)))
 
+    # LES VOLUMES QUE LE MOTEUR A RESOLUS. meshpen mesure l'entree dans un collider DECLARE, pas la
+    # traversee du corps : sans la liste des volumes, un zero ne dit pas contre QUOI il est zero.
+    cols = []
+    for m in re.finditer(r'^PHYSCOL ci=(\d+) j=(\S+) j2=(\S+)', txt, re.M):
+        cols.append((int(m.group(1)), m.group(2), m.group(3)))
+    if not cols:
+        die('aucune ligne PHYSCOL : sans la liste des volumes resolus, un zero de penetration ne'
+            ' prouve rien (superviseur 2026-08-11)')
+    covered = sorted({j for _, j, _ in cols} | {j for _, _, j in cols} - {'-', '?'})
+
+    # LES JOINTS QUE CHAQUE CHAINE ECRIT REELLEMENT (verdict owner : semelle, languettes de genou)
+    written = {}
+    for m in re.finditer(r'^PHYSJOINT c=(\d+) l=(\d+) idx=(-?\d+) name=(\S+)', txt, re.M):
+        written.setdefault(int(m.group(1)), []).append((int(m.group(2)), int(m.group(3)),
+                                                        m.group(4)))
+
+    # LES INVERSIONS : le compte de la course, puis celui de la fenetre ou le defaut est injecte.
+    inv = {}
+    for m in re.finditer(r'^PHYSINV phase=(\w+) flips=([-\d.e+]+) degen=([-\d.e+]+)'
+                         r' reseat=([-\d.e+]+) residual=([-\d.e+]+)', txt, re.M):
+        inv[m.group(1)] = (int(float(m.group(2))), int(float(m.group(3))),
+                           int(float(m.group(4))), int(float(m.group(5))))
+    if 'run' not in inv or 'control' not in inv:
+        die('lignes PHYSINV manquantes : le compteur d\'inversions doit etre publie pour la course'
+            ' ET pour la fenetre de controle positif (verdict owner du 2026-08-11 : un sein'
+            ' retourne vers l\'interieur)')
+
     # qui peut porter la physique : la reponse de la fonction du jeu, appelee a l'execution
     mgeo = []
     for m in re.finditer(r'^PHYSMGEO ag=(\S+) mgeo=(\S+) entry=(-?\d+)', txt, re.M):
@@ -329,6 +357,26 @@ def main():
           % (mg, e, 'compagnon HD keira-hd' if e >= 0 else 'AUCUN compagnon, donc aucune chaine'))
     A('   Les %d refusees : %s'
       % (len(skipped), ', '.join('%s(%s vs %s j)' % (s[1], s[2], s[3]) for s in skipped)))
+    A('ROOM-COLLIDER-COVERAGE: %s' % ' '.join(covered))
+    A('   %d volumes resolus par le moteur, sur les joints ci-dessus. meshpen mesure l\'entree dans'
+      % len(cols))
+    A('   un collider DECLARE, pas la traversee du corps : un zero contre un ensemble qui ne couvre')
+    A('   pas le corps ne prouve rien, et c\'est pour ca que la liste est ici et pas dans un')
+    A('   commentaire.')
+    A('ROOM-INVERSIONS: residual=%d corrected=%d degenerate=%d control_residual=%d reseated=%d'
+      % (inv['run'][3], inv['run'][0], inv['run'][1], inv['control'][3], inv['run'][2]))
+    A('   Owner, deux fois : « j\'ai vu un coup ou un des seins etait retourne vers l\'interieur ».')
+    A('   Un volume est une coquille SYMETRIQUE autour de son axe : les deux cotes sont admissibles,')
+    A('   donc un lien pousse au travers de l\'axe s\'y retrouve tenu du MAUVAIS cote — stable et')
+    A('   faux — et la poussee suivante l\'y enfonce au lieu de l\'en sortir. D\'ou l\'intermittence.')
+    A('   `residual` = liens restes du mauvais cote APRES tout le solveur : c\'est CE nombre qui doit')
+    A('   valoir zero, mesure avec le meme predicat et les memes volumes que la penetration.')
+    A('   `corrected` = fois ou le solveur a remis un lien de son cote ; ce nombre a le DROIT d\'etre')
+    A('   grand, c\'est le solveur qui travaille (le pilotage de la salle est brutal).')
+    A('   CONTROLE POSITIF : miroiter chaque lien libre a travers son attache APRES la resolution')
+    A('   fait passer le residu de %d a %d.' % (inv['run'][3], inv['control'][3]))
+    A('   `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le')
+    A('   moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).')
     A('ROOM-POSCONTROL: injections=%d armed=%s disarmed=%s' % (inj, fnum(armed), fnum(disarmed)))
     A('   le defaut injecte pousse chaque lien libre de 400 u (~10 cm) vers l\'interieur du corps')
     A('   APRES resolution ; le compteur de penetration doit MONTER. %d poussees reelles.' % inj)
@@ -448,6 +496,15 @@ def main():
           % (names[c], d['links'], 'A' if d['fam'] == 1 else 'B', d['hang'],
              auth.get(c, {}).get('contact', 0), ','.join(joints_of[c]),
              ','.join('%.4f' % (bl[l] / UNITS) for l in sorted(bl))))
+    A('')
+    A('-- LES JOINTS QUE CHAQUE CHAINE ECRIT REELLEMENT --------------------------------------------')
+    A('   Verdict owner du 2026-08-11 : « un polygone de la semelle de la chaussure gauche se fait')
+    A('   la malle » et « les languettes des bandes de genoux ne bougent pas du tout ». Les deux se')
+    A('   decident sur cette liste — ce que la chaine ECRIT — et pas sur ce que son nom suggere.')
+    for c in sorted(chains):
+        A('   %-12s -> %s' % (names[c],
+                              ', '.join('%s(idx %d)' % (nm, idx)
+                                        for _, idx, nm in sorted(written.get(c, [])))))
     A('')
     A('-- LES MESURES, UNE LIGNE PAR (CHAINE x ANIMATION x PILOTAGE) ------------------------------')
     for r in sorted(rows, key=lambda r: (r['c'], r['ai'], r['dr'])):

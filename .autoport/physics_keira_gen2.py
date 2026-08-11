@@ -54,6 +54,14 @@ OUT_REL = 'recharged_assets/physics_chains.txt'
 
 UNITS = 4096.0          # game units per metre — every emitted length is in GAME UNITS.
 
+# ---- POSE IMPLAUSIBLE : LE GENERATEUR N'EN RETIRE PAS LA CHAINE --------------------------------
+# Le retarget peut envoyer un joint ailleurs (mesure du 2026-08-11 : LpantFlap a 259 m de Lknee,
+# 2473 fois son rayon ajuste, quand la pire chaine SAINE est a 18.6 fois).  Ce generateur a
+# brievement retire la chaine des donnees pour cela : REFUSE par le superviseur le meme jour — « une
+# chaine se REPARE, elle ne se retire pas », et ne pas mesurer n'est pas reussir.  La reparation vit
+# dans le moteur (jak-hd-physics.gc, PHYS-POSE-RATIO + phys-pose-repair), qui re-assied le lien sur
+# son porteur, le compte et le publie.  Ici, la chaine est emise comme les autres.
+
 # ---- measurement thresholds (these are MEASUREMENT rules, not tuning) --------------------------
 INFL_GATE = 0.05        # a joint "has geometry" if some vertex holds more than this on it.
 FIT_STEPS = (0.5, 0.25, 0.05)   # weight thresholds tried, in order, when fitting a radius.
@@ -423,6 +431,8 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     dropped = []
     kept = []
     infl = {}
+    # la mesure d'execution de la pose du modele, indexee par (chaine, lien) dans l'ordre
+    # d'emission de CE fichier — le meme ordre que le magasin C++ sert au moteur.
     for cat, cname in order:
         joints = groups[cname]
         zero = []

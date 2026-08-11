@@ -91,8 +91,9 @@
 (defconstant PHYSROOM-PH-PCOFF  3)
 (defconstant PHYSROOM-PH-PCON   4)
 (defconstant PHYSROOM-PH-AUTHPC 5)
-(defconstant PHYSROOM-PH-REPORT 6)
-(defconstant PHYSROOM-PH-DONE   7)
+(defconstant PHYSROOM-PH-INVPC  6)
+(defconstant PHYSROOM-PH-REPORT 7)
+(defconstant PHYSROOM-PH-DONE   8)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -347,9 +348,33 @@
                          "?")))
              (dotimes (l (phys-chain-links (-> self slot) c))
                (format 0 "PHYSBONE c=~D l=~D len=~f~%"
-                       c l (phys-chain-bone hd (-> self slot) c l))))))
+                       c l (phys-chain-bone hd (-> self slot) c l))
+               ;; QUELS JOINTS CETTE CHAINE ECRIT REELLEMENT. Verdict owner du 2026-08-11 : « un
+               ;; polygone de la semelle de la chaussure gauche se fait la malle » et « les
+               ;; languettes des bandes de genoux ne bougent pas du tout » — les deux se decident
+               ;; sur la liste des joints ECRITS, pas sur une intention dans les donnees.
+               (let ((j (phys-chain-joint (-> self slot) c l)))
+                 (format 0 "PHYSJOINT c=~D l=~D idx=~D name=~S~%"
+                         c l j
+                         (if (and (>= j 0) (nonzero? (-> hd draw)) (nonzero? (-> hd draw jgeo)))
+                           (-> hd draw jgeo data j name)
+                           "?"))))
+             ;; LES VOLUMES QUE LE MOTEUR A RESOLUS, par nom de joint : sans eux un zero de
+             ;; penetration ne prouve rien (le tableau annoncait zero alors qu'aucun collider de
+             ;; buste n'existait et que l'owner voyait les bretelles traverser le torse).
+             (when (zero? c)
+               (dotimes (ci (phys-slot-colliders (-> self slot)))
+                 (let ((j  (phys-collider-field (-> self slot) ci 0))
+                       (j2 (phys-collider-field (-> self slot) ci 1)))
+                   (format 0 "PHYSCOL ci=~D j=~S j2=~S~%"
+                           ci
+                           (if (and (>= j 0) (nonzero? (-> hd draw jgeo)))
+                             (-> hd draw jgeo data j name) "?")
+                           (if (and (>= j2 0) (nonzero? (-> hd draw jgeo)))
+                             (-> hd draw jgeo data j2 name) "-"))))))))
        (phys-auth-reset!)
        (phys-limiter-reset!)
+       (phys-inversions-reset!)
        (set! (-> self phase) PHYSROOM-PH-MEAS)
        (set! (-> self pframe) 0)
        (set! (-> self ai) 0)
@@ -456,10 +481,29 @@
          (when (> (phys-chain-links (-> self slot) c) 0)
            (format 0 "PHYSAUTHPC c=~D hit=~f ok=~f~%"
                    c (phys-auth (-> self slot) c 0) (phys-auth (-> self slot) c 1))))
+       (set! (-> self phase) PHYSROOM-PH-INVPC)
+       (set! (-> self pframe) 0)))
+
+    ;; ---- 6. LES INVERSIONS (verdict owner : « un de ses seins retourne vers l'interieur »).
+    ;; ---- D'abord le compte de la course, puis un CONTROLE POSITIF qui miroite chaque lien libre a
+    ;; ---- travers son attache : le compteur doit monter. Un compteur d'inversions a zero qui ne
+    ;; ---- bouge pas sous le defaut ne prouve rien.
+    ((= (-> self phase) PHYSROOM-PH-INVPC)
+     (when (= (-> self pframe) 1)
+       (format 0 "PHYSINV phase=run flips=~f degen=~f reseat=~f residual=~f~%"
+               (phys-inversions 0) (phys-inversions 1) (phys-inversions 2) (phys-inversions 3))
+       (phys-inversions-reset!)
+       (phys-inv-inject-set! 1))
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (phys-inv-inject-set! 0)
+       (format 0 "PHYSINV phase=control flips=~f degen=~f reseat=~f residual=~f~%"
+               (phys-inversions 0) (phys-inversions 1) (phys-inversions 2) (phys-inversions 3))
        (set! (-> self phase) PHYSROOM-PH-REPORT)
        (set! (-> self pframe) 0)))
 
-    ;; ---- 5. RAPPORT --------------------------------------------------------------------------
+    ;; ---- 7. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
      (physroom-report)
      (set! (-> self phase) PHYSROOM-PH-DONE)
@@ -475,18 +519,44 @@
   :post (behavior () (ja-post)))
 
 ;; ------------------------------------------------------------------------------------------------
-;; CHARGEMENT D'UN ART-GROUP DE KEIRA, par nom, sans niveau : meme recette que jak-hd.gc:691-701.
+;; UN ART-GROUP DE KEIRA, PAR NOM. Deux sources, dans cet ordre, et la source utilisee est publiee :
+;;
+;;   1. DEJA RESIDENT dans le repertoire d'art d'un niveau charge. C'est le cas sur le DEVICE, ou la
+;;      salle s'ouvre depuis une partie vivante : `assistant` est deja dans le repertoire de
+;;      village1. Il faut alors le re-declarer dans celui de level-default, parce que c'est la que
+;;      initialize-skeleton va le chercher pour un sujet sans entite (process-drawable.gc:343).
+;;   2. CHARGE depuis un .go isole (`loado`), le cas x86 ou la salle part de l'ecran titre et ou
+;;      aucun niveau n'est charge.
+;;
+;; Mesure du 2026-08-11 qui a impose ce chemin : sur le device, `files/out/jak1/obj/assistant-ag.go`
+;; n'existe pas (seul le jeu de CGO/DGO y est extrait), `loado` a echoue — et le test de nullite
+;; etait FAUX : `loado` rend le SYMBOLE #f, dont l'offset n'est pas zero, donc
+;; `(nonzero? (the-as int ag))` etait VRAI et la salle continuait sur un art-group inexistant au lieu
+;; d'echouer bruyamment. C'est le piege s7 : la nullite d'un basic se teste contre #f, pas contre 0
+;; (et 0 est truthy, donc il faut LES DEUX tests).
 ;; ------------------------------------------------------------------------------------------------
 (defun physroom-load-ag ((name string))
-  (let ((ag (the-as art-group (loado (make-file-name (file-kind art-group) name 6 #f) global))))
+  ;; `art-group-get-by-name` est la methode du jeu lui-meme (level.gc:892) : elle balaie les trois
+  ;; emplacements de niveau (level0, level1, level-default) et compare le nom que l'art-group porte.
+  ;; On ne reimplemente pas la recherche, on appelle celle qui fait foi.
+  (let ((res (art-group-get-by-name *level* name)))
     (cond
-      ((and (nonzero? (the-as int ag)) (type-type? (-> ag type) art-group))
-       (login ag)
-       (set-loaded-art (-> *level* level-default art-group) ag)
-       ag)
+      ((and res (nonzero? (the-as int res)))
+       ;; deja en memoire : on le re-declare dans level-default et on ne recharge rien
+       (set-loaded-art (-> *level* level-default art-group) res)
+       (format 0 "PHYSAG name=~S source=resident~%" name)
+       res)
       (else
-       (format 0 "PHYSAGFAIL name=~S~%" name)
-       (the-as art-group #f)))))
+       (let ((ag (the-as art-group (loado (make-file-name (file-kind art-group) name 6 #f) global))))
+         (cond
+           ((and ag (nonzero? (the-as int ag)) (type-type? (-> ag type) art-group))
+            (login ag)
+            (set-loaded-art (-> *level* level-default art-group) ag)
+            (format 0 "PHYSAG name=~S source=loado~%" name)
+            ag)
+           (else
+            (format 0 "PHYSAGFAIL name=~S~%" name)
+            (the-as art-group #f))))))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; NAISSANCE DU SUJET
@@ -518,7 +588,7 @@
   ;; l'art-group du sujet, charge PAR NOM et sans niveau, puis le squelette dessus.
   (let ((ag0 (physroom-load-ag (-> *physroom-ag-names* 0))))
     (cond
-      ((nonzero? (the-as int ag0))
+      ((and ag0 (nonzero? (the-as int ag0)))
        (+! (-> self nag) 1)
        (initialize-skeleton self *phys-subject-sg* '())
        (logclear! (-> self draw status) (draw-status no-skeleton-update))
@@ -533,7 +603,7 @@
          ;; si son nombre de joints est celui du rig du sujet ; sinon elle est publiee REFUSEE.
          (dotimes (g (-> *physroom-ag-names* length))
            (let ((ag (if (zero? g) ag0 (physroom-load-ag (-> *physroom-ag-names* g)))))
-             (when (nonzero? (the-as int ag))
+             (when (and ag (nonzero? (the-as int ag)))
                (when (nonzero? g) (+! (-> self nag) 1))
                (dotimes (i (-> ag length))
                  (let ((e (-> ag data i)))

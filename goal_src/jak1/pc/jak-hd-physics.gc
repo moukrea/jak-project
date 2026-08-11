@@ -239,6 +239,19 @@
 ;; paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de
 ;; surface devant lui, donc rien a traverser. Comptees a chaque mesure, publiees par la salle.
 (define *phys-buried-n*    0)
+;; INVERSIONS. Owner 2026-08-11 : « j'ai encore vu un de ses seins retourne vers l'interieur ».
+;; Cause : le ressort est symetrique autour de l'ancre, donc le cote oppose est un equilibre STABLE
+;; mais FAUX, et la contrainte de longueur se taisait dans le cas degenere (distance sous 1e-4), ce
+;; qui laissait la porte ouverte. Comptees ici, remises a zero par la salle, et un controle positif
+;; les provoque expres pour prouver que le compteur voit quelque chose.
+(define *phys-invn*    0)      ;; corrections appliquees (le solveur a remis un lien de son cote)
+(define *phys-invres*  0)      ;; INVERSIONS RESIDUELLES apres tout le solveur : doit valoir ZERO
+(define *phys-invfix*  0)
+(define *phys-inv-inject* 0)
+;; RE-ASSISES : liens dont la pose du modele est hors de portee de leur porteur et que le moteur
+;; replace sur lui. Owner/superviseur 2026-08-11 : « pantflapL retablie — elle avait ete supprimee du
+;; fichier au lieu d'etre REPAREE ».
+(define *phys-reseat-n* 0)
 
 ;; nombre de joints du rig courant (relu a chaque step, pas de cache douteux)
 (define *phys-njoint* 0)
@@ -451,6 +464,26 @@
 ;;     qu'il possede. Meme famille de limiteur que la longueur d'os — le rig et le mesh, rien de
 ;;     choisi a la main.
 ;; ------------------------------------------------------------------------------------------------
+(defun phys-closest-on-seg ((pt vector) (ca vector) (cb vector) (out vector))
+  "le point du segment ca..cb le plus proche de pt (parametre borne a [0,1]), dans `out`."
+  (let* ((ax (- (-> cb x) (-> ca x)))
+         (ay (- (-> cb y) (-> ca y)))
+         (az (- (-> cb z) (-> ca z)))
+         (dd (+ (* ax ax) (* ay ay) (* az az)))
+         (t0 (if (< dd 0.000001)
+               0.0
+               (/ (+ (* (- (-> pt x) (-> ca x)) ax)
+                     (* (- (-> pt y) (-> ca y)) ay)
+                     (* (- (-> pt z) (-> ca z)) az))
+                  dd))))
+    (when (< t0 0.0) (set! t0 0.0))
+    (when (> t0 1.0) (set! t0 1.0))
+    (set! (-> out x) (+ (-> ca x) (* ax t0)))
+    (set! (-> out y) (+ (-> ca y) (* ay t0)))
+    (set! (-> out z) (+ (-> ca z) (* az t0)))
+    (set! (-> out w) 1.0))
+  (none))
+
 (defun phys-length-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
   (dotimes (l n)
     (when (>= l rlk)
@@ -472,11 +505,24 @@
                         (dy (- (-> *phys-py* scl) by))
                         (dz (- (-> *phys-pz* scl) bz))
                         (d  (sqrtf (+ (* dx dx) (* dy dy) (* dz dz)))))
-                   (when (> d 0.0001)
-                     (let ((s (/ want d)))
-                       (set! (-> *phys-px* scl) (+ bx (* dx s)))
-                       (set! (-> *phys-py* scl) (+ by (* dy s)))
-                       (set! (-> *phys-pz* scl) (+ bz (* dz s)))))))))
+                   (cond
+                     ((<= d 0.0001)
+                      ;; CAS DEGENERE : le lien est confondu avec son parent, la direction n'existe
+                      ;; plus. Se taire ici laissait le lien se restabiliser n'importe ou — on
+                      ;; REPART de la direction que le modele donne a cet os.
+                      (set! *phys-invfix* (+ *phys-invfix* 1))
+                      (set! (-> *phys-px* scl) (+ bx (- (-> skel bones (+ kk 1) transform vector 3 x)
+                                                        (-> skel bones (+ kp 1) transform vector 3 x))))
+                      (set! (-> *phys-py* scl) (+ by (- (-> skel bones (+ kk 1) transform vector 3 y)
+                                                        (-> skel bones (+ kp 1) transform vector 3 y))))
+                      (set! (-> *phys-pz* scl) (+ bz (- (-> skel bones (+ kk 1) transform vector 3 z)
+                                                        (-> skel bones (+ kp 1) transform vector 3 z)))))
+                     (else
+                      (when (> d 0.0001)
+                        (let ((s (/ want d)))
+                          (set! (-> *phys-px* scl) (+ bx (* dx s)))
+                          (set! (-> *phys-py* scl) (+ by (* dy s)))
+                          (set! (-> *phys-pz* scl) (+ bz (* dz s)))))))))))
             (else
              ;; lien seul : il ne s'ecarte pas de sa place de plus que sa propre taille
              (let* ((rmax (-> *phys-rad* scl))
@@ -511,6 +557,8 @@
         (rest (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
+        (cr   (new 'stack-no-clear 'vector))
+        (cp   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (dotimes (l n)
       (when (>= l rlk)
@@ -543,6 +591,26 @@
                                                        (-> *phys-cr2* sco) cap? nrm))
                            (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm)))
+                      ;; L'INVERSION EST ICI, PAS SUR L'ANCRE. Owner 2026-08-11, deux fois : « un
+                      ;; de ses seins retourne vers l'interieur, la meme animation relancee et
+                      ;; c'etait nickel ». Un volume est une coquille SYMETRIQUE autour de son axe :
+                      ;; les deux cotes sont admissibles, donc un lien pousse au travers de l'axe s'y
+                      ;; retrouve tenu DU MAUVAIS COTE, stable et faux, et la poussee suivante l'y
+                      ;; enfonce au lieu de l'en sortir. On ne teste que les volumes dans lesquels le
+                      ;; lien est DEJA a sa pose de modele (floor0 > 0) : ailleurs le cote n'a pas de
+                      ;; sens. Le miroir a travers le point d'axe conserve la profondeur, donc il ne
+                      ;; cree pas de penetration ; il ne fait que remettre le lien de son cote.
+                      (when (and (> floor0 0.0) (phys-vol-is-surface? floor0 rl))
+                        (phys-closest-on-seg rest ca cb cr)
+                        (phys-closest-on-seg pt ca cb cp)
+                        (let ((dot (+ (* (- (-> pt x) (-> cp x)) (- (-> rest x) (-> cr x)))
+                                     (* (- (-> pt y) (-> cp y)) (- (-> rest y) (-> cr y)))
+                                     (* (- (-> pt z) (-> cp z)) (- (-> rest z) (-> cr z))))))
+                          (when (< dot 0.0)
+                            (set! *phys-invn* (+ *phys-invn* 1))
+                            (set! (-> pt x) (- (* 2.0 (-> cp x)) (-> pt x)))
+                            (set! (-> pt y) (- (* 2.0 (-> cp y)) (-> pt y)))
+                            (set! (-> pt z) (- (* 2.0 (-> cp z)) (-> pt z))))))
                       (when (and (> dep floor0) (phys-vol-is-surface? floor0 rl))
                         (let ((push (+ (- dep floor0) margin)))
                           (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
@@ -565,6 +633,8 @@
         (rest (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
+        (cr   (new 'stack-no-clear 'vector))
+        (cp   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (let* ((scl (+ (* sc PHYS-LINKS) l))
            (kk  (-> *phys-joint* scl))
@@ -600,7 +670,19 @@
                   ;; un contact : la compter rendrait le residu identiquement nul et la colonne
                   ;; deviendrait un zero constant, c.-a-d. indistinguable d'une colonne fabriquee.
                   ((and (or (> floor0 0.0) (> dep 0.0)) (> res worst))
-                   (set! worst res)))))))))
+                   (set! worst res)))
+                ;; INVERSION RESIDUELLE : le lien est-il reste du MAUVAIS COTE de l'axe de ce volume,
+                ;; apres tout le solveur ? Meme predicat, meme volume, meme plancher que la
+                ;; resolution — et c'est CE nombre qui doit valoir zero. Le compteur de corrections,
+                ;; lui, a le droit d'etre grand : c'est le solveur qui travaille.
+                (when (and (> floor0 0.0) (phys-vol-is-surface? floor0 rl))
+                  (phys-closest-on-seg rest ca cb cr)
+                  (phys-closest-on-seg pt ca cb cp)
+                  (when (< (+ (* (- (-> pt x) (-> cp x)) (- (-> rest x) (-> cr x)))
+                              (* (- (-> pt y) (-> cp y)) (- (-> rest y) (-> cr y)))
+                              (* (- (-> pt z) (-> cp z)) (- (-> rest z) (-> cr z))))
+                           0.0)
+                    (set! *phys-invres* (+ *phys-invres* 1))))))))))
     worst))
 
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
@@ -691,8 +773,17 @@
 ;; une mesure faite sur la pose retargetee a l'execution, et la chaine est ecartee AVEC son chiffre.
 (defconstant PHYS-POSE-RATIO 50.0)
 
-(defun phys-pose-plausible? ((skel skeleton) (sc int) (n int) (an int) (nbone int))
-  (let ((ok #t))
+(defun phys-pose-repair ((obj jak-hd) (skel skeleton) (sc int) (n int) (an int) (nbone int)
+                        (report symbol))
+  "RE-ASSEOIR un lien que le retarget a envoye ailleurs, au lieu de le simuler autour d'une position
+   fausse ET au lieu de le supprimer des donnees. Owner/superviseur du 2026-08-11 : une chaine se
+   REPARE, elle ne se retire pas. La position de secours est derivee du rig et de rien d'autre : le
+   porteur, prolonge le long de SON os (de son parent vers lui), a la distance que le mesh mesure
+   pour ce lien (son rayon ajuste). Elle est ecrite dans le squelette AVANT la physique, donc la
+   geometrie du lien suit, et la reparation est comptee et publiee. C'est un defaut de MODELE
+   corrige au dernier moment possible, pas une physique inventee."
+  (let ((seat (new 'stack-no-clear 'vector))
+        (dir  (new 'stack-no-clear 'vector)))
     (dotimes (l n)
       (let* ((scl (+ (* sc PHYS-LINKS) l))
              (kk  (-> *phys-joint* scl))
@@ -702,11 +793,39 @@
           (let ((d (vector-vector-distance
                      (the-as vector (-> skel bones (+ kk 1) transform vector 3))
                      (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))
-            (format 0 "[HD-PHYS] pose c=~D l=~D dist=~f rad=~f ratio=~f~%"
-                    (mod sc PHYS-CHAINS) l d rl (/ d rl))
+            (when report
+              (format 0 "[HD-PHYS] pose c=~D l=~D dist=~f rad=~f ratio=~f~%"
+                      (mod sc PHYS-CHAINS) l d rl (/ d rl)))
             (when (> d (* PHYS-POSE-RATIO rl))
-              (set! ok #f))))))
-    ok))
+              ;; direction de l'os du porteur : de SON parent vers lui. A defaut (porteur racine),
+              ;; la verticale du monde vers le bas — ce qui pend, pend.
+              (let ((gp (the int (-> (-> obj khd-par) kp))))
+                (cond
+                  ((and (!= gp 255) (< (+ gp 1) nbone))
+                   (set! (-> dir x) (- (-> skel bones (+ kp 1) transform vector 3 x)
+                                       (-> skel bones (+ gp 1) transform vector 3 x)))
+                   (set! (-> dir y) (- (-> skel bones (+ kp 1) transform vector 3 y)
+                                       (-> skel bones (+ gp 1) transform vector 3 y)))
+                   (set! (-> dir z) (- (-> skel bones (+ kp 1) transform vector 3 z)
+                                       (-> skel bones (+ gp 1) transform vector 3 z)))
+                   (set! (-> dir w) 0.0))
+                  (else (set-vector! dir 0.0 -1.0 0.0 0.0))))
+              (let ((dl (vector-length dir)))
+                (if (> dl 0.01)
+                  (vector-float*! dir dir (/ rl dl))
+                  (set-vector! dir 0.0 (- 0.0 rl) 0.0 0.0)))
+              (set! (-> seat x) (+ (-> skel bones (+ kp 1) transform vector 3 x) (-> dir x)))
+              (set! (-> seat y) (+ (-> skel bones (+ kp 1) transform vector 3 y) (-> dir y)))
+              (set! (-> seat z) (+ (-> skel bones (+ kp 1) transform vector 3 z) (-> dir z)))
+              (when report
+                (format 0 "[HD-PHYS] reseat c=~D l=~D dist=~f rad=~f ratio=~f -> on its carrier~%"
+                        (mod sc PHYS-CHAINS) l d rl (/ d rl)))
+              (set! *phys-reseat-n* (+ *phys-reseat-n* 1))
+              (set! (-> skel bones (+ kk 1) transform vector 3 x) (-> seat x))
+              (set! (-> skel bones (+ kk 1) transform vector 3 y) (-> seat y))
+              (set! (-> skel bones (+ kk 1) transform vector 3 z) (-> seat z))
+              (set! (-> skel bones (+ kk 1) transform vector 3 w) 1.0)))))))
+  (none))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; LE PAS — appele depuis do-joint-math! de jak-hd, APRES fill-jak-hd-bones!. A cet instant le
@@ -758,11 +877,9 @@
               ;; le squelette porte enfin la pose retargetee. Une chaine ecartee passe a zero lien et
               ;; tout ce qui suit la saute — y compris son bloc de mesure, sinon elle publierait des
               ;; chiffres pris sur le joint d'a cote.
-              (when (and (zero? (-> *phys-warm* sc)) (> (-> *phys-nlink* sc) 0)
-                         (>= an 0) (< (+ an 1) nbone)
-                         (not (phys-pose-plausible? skel sc (-> *phys-nlink* sc) an nbone)))
-                (format 0 "[HD-PHYS] drop c=~D reason=implausible-model-pose~%" c)
-                (set! (-> *phys-nlink* sc) 0))
+              (when (and (> (-> *phys-nlink* sc) 0) (>= an 0) (< (+ an 1) nbone))
+                (phys-pose-repair obj skel sc (-> *phys-nlink* sc) an nbone
+                                  (zero? (-> *phys-warm* sc))))
               (let* ((n   (-> *phys-nlink* sc))
                      (rlk (max 0 (min (-> *phys-rootlk* sc) (max 0 (- n 1))))))
               (when (and (> n 0) (>= an 0) (< (+ an 1) nbone))
@@ -855,11 +972,29 @@
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
-                    (dotimes (it 4)
-                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
-                    ;; et s'il reste un residu, le lien recule vers sa pose de modele : rien ne
-                    ;; traverse, jamais, meme quand la projection tourne en rond.
-                    (phys-retreat-chain skel sc n rlk nbone nco)
+                    ;; FINITION, trois tours de (cote + collision + recul). Les trois se tiennent :
+                    ;;  * le miroir de cote (dans phys-collide-chain) conserve la distance a l'axe,
+                    ;;    donc il ne cree pas de penetration dans SON volume ;
+                    ;;  * la poussee de collision est radiale, donc elle ne change pas le cote ;
+                    ;;  * le recul va vers la pose du modele, qui est du BON cote par construction,
+                    ;;    donc il ne peut pas re-inverser (le demi-espace est convexe).
+                    ;; Un seul tour laissait 653 inversions residuelles sur la course : un volume
+                    ;; voisin peut faire retraverser l'axe d'un autre.
+                    (dotimes (it 3)
+                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
+                      (phys-retreat-chain skel sc n rlk nbone nco))
+
+                    ;; ---- 3bis. CONTROLE POSITIF DES INVERSIONS. Arme, chaque lien libre est
+                    ;; ---- MIROITE a travers son attache : c'est exactement le defaut que l'owner a
+                    ;; ---- vu deux fois. Le compteur d'inversions doit alors monter — la correction
+                    ;; ---- s'applique a la frame suivante, quand la contrainte revoit le cote.
+                    (when (nonzero? *phys-inv-inject*)
+                      (dotimes (l n)
+                        (when (>= l rlk)
+                          (let ((scl (+ (* sc PHYS-LINKS) l)))
+                            (set! (-> *phys-px* scl) (- (* 2.0 (-> anc x)) (-> *phys-px* scl)))
+                            (set! (-> *phys-py* scl) (- (* 2.0 (-> anc y)) (-> *phys-py* scl)))
+                            (set! (-> *phys-pz* scl) (- (* 2.0 (-> anc z)) (-> *phys-pz* scl)))))))
 
                     ;; ---- 3. INJECTION DE DEFAUT (controle positif). Desarmee = 0.0. ----
                     (when (> *phys-inject* 0.01)
@@ -1268,6 +1403,38 @@
     ((2) (the float *phys-raddrop-n*))
     ((3) *phys-raddrop-sum*)
     (else (the float *phys-buried-n*))))
+
+;; INVERSIONS (SPEC 5 / verdict owner) : which 0 = bascules corrigees, 1 = cas degeneres rattrapes.
+(defun phys-inversions ((which int))
+  (case which
+    ((0) (the float *phys-invn*))
+    ((1) (the float *phys-invfix*))
+    ((2) (the float *phys-reseat-n*))
+    (else (the float *phys-invres*))))
+
+(defun phys-inv-inject-set! ((v int))
+  (set! *phys-inv-inject* v)
+  (none))
+
+(defun phys-inversions-reset! ()
+  (set! *phys-invn* 0)
+  (set! *phys-invres* 0)
+  (set! *phys-invfix* 0)
+  (none))
+
+;; le collider resolu numero ci : son joint, son second joint (-1 = sphere), ses deux rayons. Publie
+;; par la salle pour que le tableau puisse dire QUELLES PARTIES DU CORPS sont couvertes — un zero de
+;; penetration contre un ensemble qui ne couvre pas le corps ne prouve rien.
+(defun phys-collider-field ((slot int) (ci int) (which int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= ci 0) (< ci (-> *phys-slot-nco* slot)))
+    (let ((sco (+ (* slot PHYS-COLS) ci)))
+      (case which
+        ((0) (-> *phys-cj* sco))
+        (else (-> *phys-cj2* sco))))
+    -1))
+
+(defun phys-slot-colliders ((slot int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nco* slot) 0))
 
 (defun phys-limiter-reset! ()
   (set! *phys-retreat-n* 0)

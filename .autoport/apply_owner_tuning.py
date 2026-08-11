@@ -38,10 +38,25 @@ def main():
         if ln.startswith("+collider "):
             body = ln[len("+collider "):]
             name = body.split()[0]
-            if re.search(r"^collider %s\b" % re.escape(name), s, re.M):
+            # `to=<joint>` est la syntaxe LISIBLE de ce fichier pour « volume balayé de <name> vers
+            # <joint> ». Le moteur, lui, ne connaît que la forme `capsule <A> <B> ...` : `to=` y est
+            # une clé INCONNUE, ignorée avec un simple warning, et la ligne devenait une SPHÈRE.
+            # Mesuré le 2026-08-11 : les colliders de tronc et de mollet demandés par l'owner
+            # (« ses bretelles passent au travers de son torse », « le bout du pantacourt glitche au
+            # travers de son mollet ») étaient posés en sphères sur chest/Lknee/Rknee — donc son
+            # défaut ne pouvait pas être corrigé. La traduction se fait ici, une fois.
+            mto = re.search(r"\bto=(\S+)", body)
+            if mto:
+                body = "capsule %s %s %s" % (name, mto.group(1),
+                                             re.sub(r"\s*\bto=\S+", "", body[len(name):]).strip())
+                ln = "+" + body
+                if re.search(r"^capsule %s %s\b" % (re.escape(name), re.escape(mto.group(1))),
+                             s, re.M):
+                    continue                  # déjà présent (idempotence)
+            elif re.search(r"^collider %s\b" % re.escape(name), s, re.M):
                 continue                      # déjà présent (idempotence)
             last = None
-            for last in re.finditer(r"^collider .*$", s, re.M):
+            for last in re.finditer(r"^(collider|capsule) .*$", s, re.M):
                 pass
             if last is None:
                 s += "\n" + ln[1:] + "\n"
