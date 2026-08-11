@@ -168,3 +168,8 @@ pbr_tan_diag.txt
 # ND-derived HD character assets (Jak2/Jak3 IP) — generated locally from the user dumps, NEVER committed/shipped in the binary
 recharged_assets/hd_models/
 recharged_assets/hd_anim/
+
+# verrou de deploiement TRANSITOIRE : ne doit jamais etre suivi par git.
+# Commite par accident le 2026-08-11, il a ete restaure par un git checkout avec un mtime
+# neuf et aurait fait patienter le publieur une heure de plus, en silence.
+.autoport/.deploy-in-progress
