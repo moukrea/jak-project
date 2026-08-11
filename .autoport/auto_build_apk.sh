@@ -42,8 +42,34 @@ while true; do
 
   # ne jamais démarrer par-dessus un build en cours (goalc, cmake, gradle) ni pendant qu'un
   # gk tourne : le worker mesure peut-être en ce moment.
-  if ps -eo comm,args | grep -vE '^claude ' \
-       | grep -qE '^(cmake|ninja|cc1plus|java|goalc|gk)([^n]|$)'; then continue; fi
+  # grep -c, JAMAIS grep -q (piege maison, deja documente dans lib/deploy_verify.sh) : `-q`
+  # sort a la premiere correspondance et SIGPIPE le `grep -v` en amont ; sous `-o pipefail` le
+  # pipeline rend alors 141, l'`if` lit faux, et le verrou s'ouvre alors qu'un build tourne.
+  # C'est ce qui s'est produit le 2026-08-11 a 13:14:29 : le demon gradle (java, PID 3811425,
+  # demarre a 11:58:52) etait bien vivant, ce verrou aurait du bloquer, et il a quand meme
+  # lance une passe arm64 par-dessus celle du worker. Les deux ont ecrit dans out/jak1/iso et
+  # le jeu « arm64 » mis en scene est ressorti avec des octets x86 — rattrape de justesse par
+  # la garde de build_cgo_pack.sh (« staged KERNEL.CGO == x86 oracle »). `-c` lit toute
+  # l'entree, donc le tuyau ne se ferme jamais tot. `|| true` : grep -c sort 1 quand le compte
+  # est 0, ce qui n'est pas une erreur ici.
+  busy=$(ps -eo comm,args | grep -vE '^claude ' \
+           | grep -cE '^(cmake|ninja|cc1plus|java|goalc|gk)([^n]|$)' || true)
+  if [ "${busy:-0}" -gt 0 ]; then continue; fi
+
+  # ...et le verrou ci-dessus ne voit QUE des compilateurs. Or un cycle de livraison passe
+  # plusieurs minutes en `adb install` + boot LoaderActivity, ou aucun compilateur ne tourne :
+  # c'est precisement la fenetre ou demarrer un build arm64 reecrit GAME.CGO sous les pieds du
+  # deploiement en cours. Le worker pose ce fichier pendant toute sa livraison. Borne a 60 min
+  # pour qu'un worker mort ne bloque pas la publication indefiniment (l'owner attend ses APK).
+  LOCK=.autoport/.deploy-in-progress
+  if [ -f "$LOCK" ]; then
+    age=$(( $(date +%s) - $(stat -c %Y "$LOCK" 2>/dev/null || echo 0) ))
+    if [ "$age" -lt 3600 ]; then
+      say "livraison en cours ($(cat "$LOCK" 2>/dev/null), ${age}s) — on ne rebatit pas par-dessus"
+      continue
+    fi
+    say "verrou de livraison perime (${age}s > 3600) — ignore"
+  fi
 
   say "sources changées ($h) → build arm64 cohérent"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then
