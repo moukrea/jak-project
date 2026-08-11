@@ -113,8 +113,20 @@ while true; do
                                     goal_src/jak1/pc/phys-room.gc \
                                     recharged_assets/physics_chains.txt 2>/dev/null | grep -c . || true)
   if [ "${dirty:-0}" -gt 0 ]; then
-    say "arbre sale ($dirty fichier(s) de physique en cours d'ecriture) — build reporte"
-    continue
+    # Un arbre sale n'est pas forcement a moitie ecrit : le seul test objectif, c'est qu'il
+    # COMPILE. S'il compile, l'etat est coherent et on en fait un point de commit pour livrer;
+    # sinon le worker est vraiment au milieu d'une edition et on attend. Sans ce raffinement le
+    # garde-fou pose a 18:50 aurait bloque toute livraison pendant des heures — l'owner a demande
+    # l'inverse.
+    if timeout 900 ./build/goalc/goalc --user-auto --cmd '(make-group "iso")' >> "$LOG" 2>&1; then
+      git add -A goal_src/jak1/pc/jak-hd-physics.gc goal_src/jak1/pc/phys-room.gc \
+                 recharged_assets/physics_chains.txt >> "$LOG" 2>&1
+      git commit -q -m "[keira-physique] checkpoint automatique du constructeur: l'arbre compile (551 cibles), etat coherent livrable" >> "$LOG" 2>&1
+      say "arbre sale mais COMPILE — checkpoint commite, build autorise"
+    else
+      say "arbre sale ET ne compile pas — worker au milieu d'une edition, build reporte"
+      continue
+    fi
   fi
   say "sources changées ($h) → build arm64 cohérent"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then

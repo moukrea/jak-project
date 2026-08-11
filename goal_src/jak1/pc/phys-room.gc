@@ -524,10 +524,28 @@
     ;; LE GRADIENT, MAILLON PAR MAILLON (7e passe : « entre la racine et les pointes c'est zone de
     ;; guerre et les pointes bougent quasi pas »). Une ligne par maillon : c'est la seule forme qui
     ;; puisse porter un degrade, la ou un scalaire par chaine n'en montre rien.
+    ;; DEUX GRANDEURS PAR MAILLON, ET LEUR ECART EST LE SUJET. 10e passe : « le milieu bouge
+    ;; beaucoup plus que les pointes » alors que `amp` publiait une suite croissante.
+    ;;   amp = ecart a la pose d'auteur — il CUMULE le long de la chaine, donc une pointe soudee a
+    ;;         son parent herite du chiffre de son parent et parait mobile ;
+    ;;   ang = deviation ANGULAIRE par rapport a l'attache, en degres — le mouvement PROPRE du
+    ;;         maillon, nul pour un maillon qui suit rigidement son parent.
+    ;; C'est `ang` que SPEC 2 exige croissante ; `amp` reste publiee pour que l'ecart entre les deux
+    ;; soit lisible au lieu d'etre affirme.
     (dotimes (l (phys-chain-links (-> self slot) c))
-      (format 0 "PHYSGRAD c=~D a=~D d=~D l=~D amp=~f~%"
+      (format 0 "PHYSGRAD c=~D a=~D d=~D l=~D amp=~f ang=~f~%"
               c (-> self ai) (-> self drive) l
-              (phys-link-amp (-> self slot) c l)))))
+              (phys-link-amp (-> self slot) c l)
+              (phys-link-ang (-> self slot) c l)))
+    ;; L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE DE CETTE FENETRE. Par fenetre, donc attribuables a un
+    ;; PILOTAGE : « ils s'allongent sur les mouvements brusques » ne se verifie pas sur un total de
+    ;; course. `gn` = |g_effective|/|g| vu par l'ancre, `tf` = la part TANGENTIELLE de cette gravite,
+    ;; seule capable de faire tourner le lien — le reste est annule par la contrainte de longueur.
+    (format 0 "PHYSSTR c=~D a=~D d=~D el=~f gn=~f tf=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-stat (-> self slot) c 17)
+            (phys-stat (-> self slot) c 18)
+            (phys-stat (-> self slot) c 19))))
   (none))
 
 ;; POSITION MOYENNE de la pointe dans le repere de l'ancre, axe par axe. Une ligne a part parce que
@@ -539,7 +557,15 @@
               tag c
               (phys-tip-mean (-> self slot) c 0)
               (phys-tip-mean (-> self slot) c 1)
-              (phys-tip-mean (-> self slot) c 2))))
+              (phys-tip-mean (-> self slot) c 2))
+      ;; LE STIMULUS GRAVITAIRE DE LA MEME FENETRE, a cote de la reponse. Un affaissement nul avec
+      ;; gn=0 dit « la gravite n'est pas arrivee » ; avec gn=1.0 et tf~0 il dit « elle est arrivee et
+      ;; la geometrie de l'os l'annule » ; avec gn=1.0 et tf~1 il dit « la chaine n'y repond pas ».
+      ;; Trois diagnostics differents que le seul `sag` confondait.
+      (format 0 "PHYSGRAV tag=~S c=~D gn=~f tf=~f~%"
+              tag c
+              (phys-stat (-> self slot) c 18)
+              (phys-stat (-> self slot) c 19))))
   (none))
 
 (defbehavior physroom-emit-diag phys-subject ((tag string))
@@ -558,11 +584,12 @@
               (phys-diag (-> self slot) c 0)
               (phys-diag (-> self slot) c 1)
               (phys-diag (-> self slot) c 2))
-      (format 0 "PHYSDIAG2 tag=~S c=~D inv=~f invres=~f elong=~f~%"
+      (format 0 "PHYSDIAG2 tag=~S c=~D inv=~f invres=~f elong=~f rad=~f~%"
               tag c
               (phys-diag (-> self slot) c 3)
               (phys-diag (-> self slot) c 4)
-              (phys-diag (-> self slot) c 5))))
+              (phys-diag (-> self slot) c 5)
+              (phys-diag (-> self slot) c 6))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
@@ -844,6 +871,9 @@
        (format 0 "PHYSLIM retreat_n=~f retreat_sum=~f raddrop_n=~f raddrop_sum=~f buried=~f~%"
                (phys-limiter 0) (phys-limiter 1) (phys-limiter 2) (phys-limiter 3)
                (phys-limiter 4))
+       ;; REPLIS DU RECUL : chacun laisse un residu d'allongement sur son lien. Publie a part parce
+       ;; que c'est le seul chemin qui reste vers un allongement non nul.
+       (format 0 "PHYSLIM2 retreat_fallback=~f~%" (phys-limiter 5))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
          (format 0 "PHYSAUTH c=~D hit=~f ok=~f dot=~f nrm=~f dsum=~f~%"
