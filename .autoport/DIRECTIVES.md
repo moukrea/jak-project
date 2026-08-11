@@ -280,3 +280,46 @@ ce sont des volumes, pas seulement des chaînes ») et qui n'existe visiblement 
 `chestR`, pas contre une sphère statique. Même chose pour cheveux ↔ oreilles.
 → **À mesurer** : nombre de corrections chaîne↔chaîne effectivement appliquées, par paire. Zéro
 correction sur une paire déclarée = la collision chaîne↔chaîne n'est pas branchée.
+
+## SIXIÈME PASSE DE L'OWNER (2026-08-11, APK de 13:48) — quatre points, tous ouverts
+
+> « Les mèches fines continuent de jitter like crazy dès que la tête bouge (peu importe si c'est la
+> tête qui bouge ou si elle est déplacée dans l'espace par le reste du squelette) et les mèches les
+> plus grosses sont trop statiques sur les mouvements faibles, trop hystériques sur les mouvements
+> brusques. Les seins n'ont pas l'air d'être soumis à la gravité, aucun mouvement quand elle se
+> penche en avant pour souder par exemple, pas cohérent du tout. Et les lunettes clipent toujours
+> légèrement dessus, et même en idle — donc c'est pas juste les capsules de collision qui bougent
+> pas, mais plutôt mes capsules de collision qui sont pas bonnes. Le bas de son pantacourt clipe au
+> travers de ses deux mollets maintenant, pas seulement le droit. »
+
+**CE QUE LE SUPERVISEUR A CORRIGÉ (ne pas refaire) :** mes quatre capsules estimées à la main
+(`chest→hips`, `neck→chest`, `Rknee→Rankle`, `Lknee→Lankle`) sont **retirées**. Le rig en génère 24,
+mesurées, et les miennes se posaient sur les mêmes segments avec des rayons plus fins
+(`Rknee→Rankle` 300/205 contre 398/326 mesurée). Une gate `TUNING` vérifie désormais que tous ses
+réglages sont dans le fichier livré — la régénération les avait effacés deux fois.
+
+**LES QUATRE DÉFAUTS, PAR ORDRE :**
+
+1. **MÈCHES FINES, jitter dès que la tête bouge, quelle que soit l'origine du mouvement.** Troisième
+   signalement identique, aucun réglage ne l'a jamais changé — donc ce n'est pas un réglage. Piste
+   restée sans réponse : les colliders `Lbanga`/`Rbanga`/`Lmidhaira`/`Rmidhaira` sont **les
+   joints-racines des chaînes elles-mêmes**, et les capsules `Lbangb→Lbanga` (rayon 558 !) sont des
+   maillons de la mèche. Une mèche est donc en collision permanente avec elle-même. **À mesurer :
+   par chaîne, le nombre de corrections issues de son propre collider ou d'une capsule portée par
+   ses propres joints. Doit être zéro, contrôle positif à l'appui.**
+2. **GROSSES MÈCHES : rien sur les petits mouvements, hystériques sur les brusques.** Réponse
+   non linéaire = il y a un seuil quelque part. Le moteur en contient au moins deux (seuil de
+   détection d'intention, zone morte du test de côté). **Mesurer la réponse : amplitude de pointe en
+   fonction de l'amplitude d'excitation, sur les quatre pilotages. Une marche dans la courbe désigne
+   le seuil coupable.**
+3. **SEINS SANS GRAVITÉ.** `chestL`/`chestR` ont `gravity=0.00` : c'était voulu (famille A, le repos
+   doit être la pose du modèle), mais la SPEC dit que la gravité agit sur la **dynamique** et que
+   l'exception s'applique **quand elle n'est plus debout**. Elle se penche pour souder, rien ne
+   tombe. **Il faut une gravité exprimée dans le repère de l'ancre** : elle ne déplace pas le point
+   d'équilibre quand le buste est droit, elle agit dès qu'il s'incline. Le pilotage `tilt` de la
+   salle doit le mesurer et il ne le voit pas aujourd'hui.
+4. **LUNETTES QUI CLIPENT MÊME EN IDLE.** Son diagnostic est juste et il est mécanique : `lBoob` et
+   `rBoob` sont des **sphères nues posées sur le joint-racine** (708/712), alors que tout le reste du
+   corps est en capsules dérivées. Une sphère au joint ne peut pas épouser un sein. **Il faut des
+   volumes de poitrine dérivés comme les autres**, et arrêter d'en gonfler le rayon : au troisième
+   élargissement les lunettes finiront par flotter loin du corps.
