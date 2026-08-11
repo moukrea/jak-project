@@ -575,3 +575,55 @@ Conséquence corrigée : l'auto-constructeur différait une installation « parc
 peut-être en train de tester », en se fondant sur l'app au premier plan **du Redmi**. Raisonnement
 faux — c'était une mesure du superviseur. Aucune décision ne se déduit de l'activité de l'owner :
 elle n'est pas observable.
+
+## ONZIÈME PASSE — LE MEILLEUR RETOUR DE LA JOURNÉE (build 19:53, 2026-08-11 21:15)
+
+> « Les seins c'est maintenant quasiment parfait sur les mouvements subtils, bon sag, ça bouge de
+> façon cohérente. Mais lors de mouvements brusques il y a un effet d'étirement et un peu gelée où
+> ça change de taille (plus petit, plus gros, plus long, plus court, écrasé), c'est pas cohérent !
+> Mais c'est vraiment 100x mieux qu'avant. Pour les mèches fines c'est vraiment pas mal, mais
+> certains maillons mériteraient un traitement pour éviter de créer des angles extrêmes qui mettent
+> en lumière le lack of géométrie — soit une subdivision intelligente, soit une atténuation sur les
+> angles extrêmes. Pour les grosses mèches, idem. Ses bretelles c'est vraiment pas mal du tout mais
+> ça clipe toujours avec l'élastique orange du bas de son débardeur crop top rose. Les lanières à
+> ses genoux n'ont plus l'air d'avoir de physique du tout (je suis sûr d'en avoir vu par le passé)
+> et le bas de son pantacourt clipe toujours à l'intérieur de ses mollets au lieu d'être visible,
+> comme si son pantacourt s'arrêtait aux genoux. Ses lunettes clipent toujours légèrement avec ses
+> seins. Mais c'est déjà beaucoup mieux, on se rapproche du but ! »
+
+**ACQUIS À NE PAS CASSER : la poitrine sur les mouvements subtils, et le sag.** Toute modification
+qui les dégrade est un échec, même si elle corrige autre chose. À protéger par un plancher mesuré.
+
+**1. « ÉTIREMENT ET EFFET GELÉE, ÇA CHANGE DE TAILLE » sur les mouvements brusques.** L'allongement
+mesuré est tombé de 21,5 % à 4,07 % — il reste donc, et son œil le voit. Mais « plus petit, plus
+gros, écrasé » dit plus que de l'allongement : **le volume n'est pas conservé**. Une chaîne à un os
+doit tourner autour de son ancre à longueur ET section invariantes. Vérifier qu'aucune échelle
+n'arrive dans la matrice écrite (une correction appliquée en position sur un joint dont l'enfant est
+recollé produit exactement une variation de taille visible).
+→ Cible : `ROOM-STRETCH ≤ 3 %` **et** une mesure d'échelle : `ROOM-SCALE: max=<écart relatif du
+déterminant de la matrice écrite>` ≤ 2 %.
+
+**2. ANGLES EXTRÊMES QUI CASSENT LE MESH — son idée est la bonne.** Le modèle n'a pas assez de
+polygones pour encaisser un pli serré entre deux maillons. Deux réponses possibles, il propose les
+deux : subdivision intelligente, ou **atténuation des angles extrêmes**. La seconde est bien moins
+coûteuse et suffit : **limiter l'angle entre maillons consécutifs**, avec une transition douce (pas
+un clamp brutal qui ferait un à-coup). L'angle limite se dérive du rig : au-delà, la peau se plie
+au-delà de ce que ses arêtes permettent.
+→ `ROOM-BEND: chain=<nom> max=<angle> link=<i> anim=<nom>` par chaîne, et un plafond par chaîne.
+
+**3. RÉGRESSION APPARENTE SUR LES LANIÈRES DE GENOUX — vérifié, ce n'en est pas une.** `kneeflapL`
+et `kneeflapR` existent, sont simulées et bougent (0,1298 et 0,0979 de mouvement de pointe). Mais
+c'est **deux fois moins** que les sangles de cheville (0,1426) et il ne les voit plus. Leur
+amplitude est trop faible pour être perçue : monter leur vivacité (couplage/masse), pas les
+recréer.
+
+**4. BAS DU PANTACOURT À L'INTÉRIEUR DES MOLLETS — « comme s'il s'arrêtait aux genoux ».** C'est le
+plus grave visuellement : le pan est *avalé* par la jambe. `pantflapL/R` bougent (0,1196 / 0,1530)
+mais finissent du mauvais côté de la capsule de mollet. Piste : la résolution de collision les
+pousse **vers l'intérieur** au lieu de l'extérieur — un signe de normale inversée ou de point de
+départ déjà à l'intérieur du volume. Mesurer le **côté** : `ROOM-SIDE: chain=<nom> inside_frames=<n>`,
+doit être zéro.
+
+**5. BRETELLES vs ÉLASTIQUE ORANGE du bas du crop top**, et **6. LUNETTES vs SEINS** : les deux
+survivent. Ce sont des volumes manquants ou trop petits sur des pièces précises du vêtement, pas des
+réglages de chaîne. Les dériver comme le reste du corps.
