@@ -64,7 +64,13 @@ while true; do
            | grep -cE '^(cmake|ninja|cc1plus|java|goalc)([^n]|$)' || true)
   now=$(date +%s); : "${blocked_since:=$now}"
   if [ "${busy:-0}" -gt 0 ]; then
-    if [ "${hard:-0}" -eq 0 ] && [ $(( now - blocked_since )) -gt 1500 ]; then
+    # MESURE du 2026-08-11 16:40 : 6 sondages sur 6 montrent un compilateur actif — le worker
+    # compile en permanence. Exiger `hard == 0` rendait la patience aussi inutile que la garde
+    # d'origine, et l'owner ne recevait toujours rien. Sa consigne est explicite et repetee :
+    # livrer au fil de l'eau prime. Passe le delai on construit MALGRE le worker ; au pire sa
+    # compilation en cours echoue et il la relance, ce qui coute une minute — contre une
+    # livraison qui n'arrive jamais.
+    if [ $(( now - blocked_since )) -gt 1500 ]; then
       say "patience depassee (25 min sans fenetre) — build lance pendant un gk"
       blocked_since=$now
     else
