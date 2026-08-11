@@ -34,7 +34,7 @@ Traduction en exigences, chacune vérifiable :
 
 | Ce qu'il décrit | Ce que ça impose | Ce qui le mesure |
 |---|---|---|
-| **fermes, jeunes** | pas d'allongement du tout : la longueur de l'os est invariante, contrainte **dure** | `ROOM-STRETCH ≤ 3 %` sur `jerk`/`accel` |
+| **fermes, jeunes** | l'**os** ne s'allonge pas (contrainte dure), mais la **chair** se déforme : elle s'écrase et se comprime sous un mouvement fort, puis revient. Ce ne sont pas des ballons durs (owner 21:20) | `ROOM-STRETCH ≤ 3 %` sur l'os · `ROOM-SHAPE ≤ 15 %` sur la forme, corrélée au stimulus et récupérée à l'arrêt |
 | **pas petits → bougent pas mal** | amplitude franche et visible, pas un frémissement | réponse ≥ celle des autres chaînes de famille A à stimulus égal |
 | **perky, pas pendouillant** | retour rapide vers la référence : sous-amorti, une ou deux oscillations nettes, pas un affaissement mou | temps de retour court, dépassement présent |
 | **la référence = debout** | au repos debout, exactement la pose du modèle — c'est ainsi qu'il a été sculpté | `ROOM-IDLE` ≈ 0 |
