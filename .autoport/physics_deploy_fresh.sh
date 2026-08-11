@@ -38,10 +38,16 @@ if [ -s "$OUT/.custom.zip" ]; then
   NPC=$(unzip -l "$OUT/.custom.zip" | grep -c 'recharged_assets/physics_chains.txt' || true)
   [ "${NPC:-0}" -ge 1 ] || die "APK custom pack lacks recharged_assets/physics_chains.txt"
   say "APK custom pack ships recharged_assets/physics_chains.txt"
-  # (C14) the mesh-sample data must ship too, or the mesh audit runs unarmed (meshtested=0)
-  NPM=$(unzip -l "$OUT/.custom.zip" | grep -c 'recharged_assets/physics_mesh.txt' || true)
-  [ "${NPM:-0}" -ge 1 ] || die "APK custom pack lacks recharged_assets/physics_mesh.txt (C14 mesh audit would be unarmed)"
-  say "APK custom pack ships recharged_assets/physics_mesh.txt"
+  # (C14) the mesh-sample data. DEPART PROPRE 2026-08-11 : le moteur reecrit ne lit plus ce fichier
+  # derive (kmachine le traite en optionnel) et la table rase l'a supprime. Il n'est exige que s'il
+  # existe encore localement — sinon la gate garderait un fichier que plus rien ne produit.
+  if [ -f recharged_assets/physics_mesh.txt ]; then
+    NPM=$(unzip -l "$OUT/.custom.zip" | grep -c 'recharged_assets/physics_mesh.txt' || true)
+    [ "${NPM:-0}" -ge 1 ] || die "APK custom pack lacks recharged_assets/physics_mesh.txt"
+    say "APK custom pack ships recharged_assets/physics_mesh.txt"
+  else
+    say "note: recharged_assets/physics_mesh.txt n'existe plus (depart propre) — gate sautee"
+  fi
 else
   say "note: custom pack zip name differs — physics_chains landing proven on-device below"
 fi
@@ -128,13 +134,22 @@ $ADB -s "$S" push recharged_assets/physics_chains.txt "$EXT_DIR/physics_chains.t
 DE=$($ADB -s "$S" shell md5sum "$EXT_DIR/physics_chains.txt" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
 say "external override physics_chains.txt: md5 local=$LP device=$DE"
 [ "$LP" = "$DE" ] || die "external override physics_chains.txt is STALE — it would beat the fresh APK copy"
-# (C14) same external-override refresh for the mesh-sample data (same precedence rule in kmachine)
-LM=$(md5sum recharged_assets/physics_mesh.txt | cut -d' ' -f1)
-$ADB -s "$S" push recharged_assets/physics_mesh.txt "$EXT_DIR/physics_mesh.txt" >> "$LOG" 2>&1 \
-  || die "cannot push the external physics_mesh.txt override"
-DM=$($ADB -s "$S" shell md5sum "$EXT_DIR/physics_mesh.txt" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
-say "external override physics_mesh.txt: md5 local=$LM device=$DM"
-[ "$LM" = "$DM" ] || die "external override physics_mesh.txt is STALE — it would beat the fresh APK copy"
+# (C14) same external-override refresh for the mesh-sample data, SI il existe encore. Depart propre
+# du 2026-08-11 : il n'existe plus. En revanche une COPIE PERIMEE sur le telephone battrait l'APK
+# frais (get_recharged_assets_dir donne la precedence a l'externe), donc si le fichier n'existe plus
+# localement il faut le RETIRER du telephone, pas l'ignorer.
+if [ -f recharged_assets/physics_mesh.txt ]; then
+  LM=$(md5sum recharged_assets/physics_mesh.txt | cut -d' ' -f1)
+  $ADB -s "$S" push recharged_assets/physics_mesh.txt "$EXT_DIR/physics_mesh.txt" >> "$LOG" 2>&1 \
+    || die "cannot push the external physics_mesh.txt override"
+  DM=$($ADB -s "$S" shell md5sum "$EXT_DIR/physics_mesh.txt" 2>/dev/null | cut -d' ' -f1 | tr -d '\r')
+  say "external override physics_mesh.txt: md5 local=$LM device=$DM"
+  [ "$LM" = "$DM" ] || die "external override physics_mesh.txt is STALE — it would beat the fresh APK copy"
+else
+  $ADB -s "$S" shell rm -f "$EXT_DIR/physics_mesh.txt" >/dev/null 2>&1 || true
+  LEFT=$($ADB -s "$S" shell ls "$EXT_DIR/physics_mesh.txt" 2>&1 | grep -c 'physics_mesh.txt' || true)
+  say "external override physics_mesh.txt RETIRE du telephone (depart propre) — reste=$LEFT"
+fi
 
 bash .autoport/lib/deploy_verify.sh "$S" jak1 >> "$LOG" 2>&1 || { tail -4 "$LOG"; die "deploy_verify FAILED"; }
 say "$(tail -1 "$LOG")"

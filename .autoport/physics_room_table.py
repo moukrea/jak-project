@@ -60,7 +60,11 @@ def fnum(v):
 
 
 def main():
+    global OUT
     log = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_LOG
+    if len(sys.argv) > 2:
+        # une course DEVICE ne doit pas ecraser le tableau x86 : le validateur lit celui-la.
+        OUT = sys.argv[2]
     if not os.path.exists(log):
         die('log de course absent : %s' % log)
     txt = open(log, errors='ignore').read()
@@ -345,10 +349,12 @@ def main():
     A('   RESPECTEE = sur chaque frame pilotee par l\'animation, la position ECRITE valait la pose')
     A('   d\'auteur PLUS l\'ecart simule, a 0.05 u pres (12 micrometres) : le deplacement d\'auteur')
     A('   arrive au joint a coefficient 1, jamais mis a l\'echelle, mixe ni retarde.')
-    A('   CONTROLE POSITIF : l\'animation retardee d\'une frame dans la position ecrite (le defaut')
-    A('   exact que la SPEC 5 interdit) fait tomber ce compteur de %d/%d a %d/%d.'
-      % (int(sum(auth[c]['hit'] for c in a_driven)), int(sum(auth[c]['hit'] for c in a_driven)),
-         int(apc_ok), int(apc_hit)))
+    A('   CONTROLE POSITIF : l\'animation retardee d\'une frame dans la position ecrite — le defaut')
+    A('   exact que la SPEC 5 interdit. Desarme, sur la course entiere, l\'identite tient %d fois'
+      % int(sum(auth[c]['ok'] for c in a_driven)))
+    A('   sur %d frames pilotees. Arme, sur sa propre fenetre, elle tient %d fois sur %d : le'
+      % (int(sum(auth[c]['hit'] for c in a_driven)), int(apc_ok), int(apc_hit)))
+    A('   compteur s\'effondre completement, donc il mesure bien ce qu\'il pretend mesurer.')
     A('   La colonne `transmission` est PUBLIEE MAIS NON GATEE : c\'est la correlation du')
     A('   deplacement ecrit avec celui d\'auteur, et le rapport |delta ecart| / |delta auteur| dit')
     A('   pourquoi elle est bruitee — sous un a-coup la physique deplace la pointe des dizaines de')
