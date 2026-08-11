@@ -525,3 +525,37 @@ SCALAIRE.** Un nombre par chaîne ne peut pas décrire un dégradé le long de l
 qu'une variance ne pouvait décrire un affaissement sous gravité. Avant d'ajouter une mesure, se
 demander de quelle nature est le défaut décrit — amplitude, forme, ou déplacement soutenu — et
 mesurer cette nature-là.
+
+## DIXIÈME PASSE — BUILD 5f49ca-c7ff53, LE PREMIER QU'IL AIT VRAIMENT TESTÉ (2026-08-11 18:00)
+
+> « Les seins s'allongent de nouveau sur les mouvements brusques et le sag est invisible sur
+> l'inclinaison toujours. Les mèches c'est mieux, mais c'est toujours un peu hystérique, le milieu
+> est plus hystérique (bouge beaucoup plus) que les pointes, c'est pas censé ! »
+
+**1. L'ALLONGEMENT EST REVENU — c'était le test, et il tranche.** J'avais écrit dans le BUILD-INFO :
+« si l'étirement revient, c'est la contrainte de longueur qui cède, et je ne rebaisserai PAS le
+couplage ». Il est revenu avec `couple=1.55`. **La contrainte de longueur n'est donc pas dure.**
+→ Projection itérée jusqu'à ce que l'écart relatif de chaque maillon soit ≤ 1 %, plafond fixe
+d'itérations, écart résiduel publié : `ROOM-STRETCH: max=<r> chain=<nom> drive=<mode>`, cible ≤ 3 %
+sur `jerk` et `accel`. **Le couplage reste à 1.55** : c'est le symptôme qu'on corrige, pas la
+qualité qu'il apprécie.
+
+**2. LE SAG RESTE INVISIBLE ALORS QUE LA GRAVITÉ A ÉTÉ TRIPLÉE (0.45 → 1.30).** Ce n'est donc plus
+un réglage : la gravité de la famille A n'atteint pas la poitrine. Le chiffre le disait déjà —
+`chestL` 0.0156 contre `backhair` 0.1149, sept fois moins — et tripler l'entrée n'a rien changé de
+perceptible. Piste : la poitrine est une chaîne à **UN SEUL maillon**, donc son affaissement passe
+entièrement par une rotation autour de l'ancre, bornée par l'angle max et par la raideur. Vérifier
+(a) que le terme de gravité est bien appliqué aux chaînes à un maillon, (b) qu'aucun angle max ne le
+plafonne, (c) que `ROOM-GRAVSAG` est exprimé dans une unité comparable entre une chaîne d'un maillon
+et une chaîne de trois — sinon on compare deux choses différentes.
+
+**3. « LE MILIEU BOUGE BEAUCOUP PLUS QUE LES POINTES » — MA MESURE DIT LE CONTRAIRE.** `ROOM-GRADIENT`
+donne link0=0.0000 · link1=0.2240 · link2=0.3846, donc croissant. Son œil dit l'inverse. **C'est ma
+mesure qui est fausse, et je vois pourquoi** : elle mesure le déplacement de chaque maillon dans le
+repère du MONDE. Un maillon hérite alors de tout le mouvement de son parent — une pointe accrochée à
+un milieu qui part en vrille affiche un grand chiffre **sans bouger d'un pouce par rapport à son
+parent**. C'est la même faute que « différencier la position au lieu de la sortie ».
+→ **Le gradient doit être mesuré RELATIVEMENT AU PARENT** : déviation angulaire de chaque maillon par
+rapport à son parent, ou déplacement exprimé dans le repère de l'ancre. C'est cette suite-là qui doit
+croître de la racine vers la pointe. Republier `ROOM-GRADIENT` sur cette base, et la comparer à
+l'ancienne dans le rapport — l'écart entre les deux est la mesure de mon erreur.
