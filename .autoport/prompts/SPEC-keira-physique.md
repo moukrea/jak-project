@@ -20,11 +20,42 @@ Oreilles · cheveux · mèches · seins · lunettes · les trucs qui pendent.
 Rien d'autre. Chaque élément de cette liste doit bouger de façon perceptible — un élément déclaré
 mais inerte est un échec, pas une prudence.
 
+## 1 bis. LA POITRINE — DESCRIPTION DE L'OWNER (2026-08-11), MOT POUR MOT ET TRADUITE
+
+> « Ses seins sont fermes, elle est jeune. Mais comme ils ne sont pas non plus petits, ils doivent
+> bouger pas mal, mais plus perky et pas des trucs qui pendouillent. Ils doivent aussi évidemment
+> être influencés par la gravité : elle s'incline d'un côté, ils s'y conforment… Mais ils sont
+> fermes, donc pas des trucs qui s'allongent non plus. Elle se penche en avant pour souder, idem !
+> Ils ont une masse, le point de référence c'est quand elle est debout (position naturelle des seins
+> du coup, car c'est comme ça que le modèle est fait), mais ils suivent la gravité ! Les mouvements :
+> ils bougent, bouncent, s'entrechoquent sur les mouvements brusques… comme des vrais seins fermes ! »
+
+Traduction en exigences, chacune vérifiable :
+
+| Ce qu'il décrit | Ce que ça impose | Ce qui le mesure |
+|---|---|---|
+| **fermes, jeunes** | pas d'allongement du tout : la longueur de l'os est invariante, contrainte **dure** | `ROOM-STRETCH ≤ 3 %` sur `jerk`/`accel` |
+| **pas petits → bougent pas mal** | amplitude franche et visible, pas un frémissement | réponse ≥ celle des autres chaînes de famille A à stimulus égal |
+| **perky, pas pendouillant** | retour rapide vers la référence : sous-amorti, une ou deux oscillations nettes, pas un affaissement mou | temps de retour court, dépassement présent |
+| **la référence = debout** | au repos debout, exactement la pose du modèle — c'est ainsi qu'il a été sculpté | `ROOM-IDLE` ≈ 0 |
+| **elle s'incline, ils s'y conforment** | la gravité déplace l'**équilibre** selon l'orientation, pas seulement la dynamique | `ROOM-GRAVSAG` franc, du même ordre que les autres chaînes de famille A |
+| **ils ont une masse** | l'inertie retarde la réponse sur un départ brusque : ils restent en arrière puis rattrapent | déphasage mesurable entre l'ancre et la pointe |
+| **ils s'entrechoquent** | collision **chaîne↔chaîne** entre `chestL` et `chestR`, avec rebond | nombre de contacts `chestL`↔`chestR` > 0 sur `jerk`, et pénétration nulle |
+
+Les trois derniers points n'ont **jamais** été satisfaits : le sag est resté sept fois plus petit que
+celui des cheveux, aucun contact `chestL`↔`chestR` n'a jamais été compté, et l'allongement revient
+dès que le couplage monte. Ce sont les trois défauts à fermer, dans cet ordre.
+
 ## 2. LA RACINE NE BOUGE PAS
 
 Les cheveux **restent ancrés à la racine**. La racine suit rigidement l'os porteur (crâne, torse) ;
 le mouvement croît vers la pointe, et c'est **sur la pointe** qu'on juge s'il y a du mouvement. Une
 racine qui dérive = cheveux décollés = défaut. Les deux moitiés sont indissociables : ancré ET mobile.
+
+**Le gradient est monotone, et ce n'est pas négociable.** Owner 2026-08-11 : « faut pas que le milieu
+des petites mèches bouge plus que les pointes, c'est juste logique ». Le mouvement de chaque maillon,
+**mesuré relativement à son parent**, doit être ≥ celui du maillon précédent. Un milieu plus agité
+que la pointe est un échec, quelle que soit l'amplitude globale.
 
 ## 3. COLLISIONS PROPRES — LA LISTE EXACTE
 
