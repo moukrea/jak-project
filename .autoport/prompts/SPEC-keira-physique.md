@@ -1,109 +1,95 @@
-# SPEC — PHYSIQUE DE KEIRA (contrat propre, 2026-08-10)
+# SPEC — PHYSIQUE DE KEIRA (contrat, réécrit le 2026-08-11 depuis la consigne de l'owner)
 
-Ce document remplace `SPEC-physique-secondaire.md` comme contrat de travail. L'ancien est conservé
-comme archive (il documente ce qui a échoué, il ne dit pas quoi faire).
-PÉRIMÈTRE : **KEIRA SEULE**, code ET données. Les 59 autres modèles ne sont pas touchés. On étend
-seulement après que l'owner ait validé Keira de ses yeux.
+Ce document remplace toutes les versions précédentes. Il est écrit à partir du message de l'owner
+du 2026-08-11, qui est la seule source d'exigences. Tout ce qui n'y est pas n'est pas demandé.
+
+**Départ propre.** Toute la physique accumulée est parkée sur `physics-attic-2026-08-11` (rien n'est
+perdu, rien n'est repris). Le travail se fait sur `physics-keira-clean`. Le moteur est réécrit à
+neuf derrière les 5 mêmes prises (`jak-hd-physics-init/step/release`, `phys-note-covered!`,
+`phys-rider-post!`) pour que rien d'autre dans le jeu ne bouge.
+
+**Périmètre : KEIRA SEULE.** « On ne passera à un autre personnage que quand Keira sera 100 %
+validé. » Aucun autre modèle n'a de données de chaînes tant que l'owner n'a pas validé Keira.
 
 ---
-## 1. CE QU'ON VEUT VOIR SUR KEIRA
 
-| Élément | Comportement attendu |
+## 1. CE QUI A DE LA PHYSIQUE
+
+Oreilles · cheveux · mèches · seins · lunettes · les trucs qui pendent.
+
+Rien d'autre. Chaque élément de cette liste doit bouger de façon perceptible — un élément déclaré
+mais inerte est un échec, pas une prudence.
+
+## 2. LA RACINE NE BOUGE PAS
+
+Les cheveux **restent ancrés à la racine**. La racine suit rigidement l'os porteur (crâne, torse) ;
+le mouvement croît vers la pointe, et c'est **sur la pointe** qu'on juge s'il y a du mouvement. Une
+racine qui dérive = cheveux décollés = défaut. Les deux moitiés sont indissociables : ancré ET mobile.
+
+## 3. COLLISIONS PROPRES — LA LISTE EXACTE
+
+Aucun de ces contacts ne doit se produire :
+
+| Ce qui bouge | Ne doit jamais traverser |
 |---|---|
-| **Mèches avant** (`rbang`, `lbang`) | Racine soudée au crâne. La mèche bouge et retombe. Ne traverse jamais visage, oreilles, crâne. |
-| **Mèches milieu** (`rmidhair`, `lmidhair`) | Idem, débattement plus ample vers la pointe. |
-| **Cheveux arrière** (`backhair`) | Bougent aussi — c'était le défaut « l'arrière est complètement stiff ». Ne traversent pas la nuque ni le cou. |
-| **Oreilles** (`earL`, `earR`) | Physique **légère**. L'animation d'auteur passe devant quand elle les pilote. |
-| **Poitrine** (`chestR`, `chestL`) | Ronde et **ferme** — « jeune et fraîche ». Bouge **bien** et visiblement, les deux seins **s'entrechoquent**, peu de droop, **peu de déformation**. Rotation autour de l'ancre, longueur invariante : ni pointe, ni aplatissement. |
-| **Lunettes** (`goggles`) | Pendent sur les épaules (elles sont *portées*). Ne traversent jamais la poitrine. Quand l'animation les **saisit** pour les mettre devant les yeux, l'animation gagne et les garde en main tant qu'elle les tient — même immobile. |
-| **Bretelles** | Suivent la forme du buste, pas d'angles cassés, ne traversent pas la poitrine. |
-| **Pans de pantalon** (`kneeflapL/R`, `pantflapL/R`) | Pendent, suivent la gravité, ne traversent pas les jambes ni la jambe opposée. |
+| cheveux, mèches | crâne, visage, épaules, **oreilles** |
+| lunettes | le corps de Keira, **ses seins** |
+| oreilles | les mèches |
 
-## 2. LES DEUX FAMILLES (elles décident du comportement au repos)
-* **A — ce qui EST elle** : mèches, cheveux, oreilles, poitrine. Simulées en permanence. La gravité
-  agit sur la **dynamique**, pas sur le point d'équilibre : au repos, en position normale, ça
-  **regagne exactement la forme du modèle** — ni plus haut, ni plus bas, ni plus écrasé. Bounce et
-  élasticité voulus. Exception : si elle n'est plus debout (penchée, tête en bas), la gravité reprend.
-* **B — ce qu'elle PORTE** : lunettes, bretelles, pans. **Ça pend, ça reste pendu.** Ne regagne
-  jamais la pose du modèle. Mais rien ne se tasse ni ne s'écrase.
+**Les oreilles ont de la physique elles aussi** — elles sont donc à la fois un objet simulé et un
+obstacle. Idem pour les mèches et les seins : ce sont des volumes, pas seulement des chaînes.
+Il faut de **bons colliders** : qui suivent la forme réelle du personnage, pas des approximations
+posées à la main à côté de la plaque.
 
-## 3. RACINE ANCRÉE, POINTE MOBILE (indissociable)
-La racine suit **rigidement** l'os porteur (crâne, torse). Elle ne dérive pas — une racine qui
-flotte = cheveux décollés = défaut. Le mouvement croît de la racine vers la pointe, et c'est **sur
-la pointe** qu'on juge s'il y a du mouvement.
+## 4. LE REPOS, C'EST LE MODÈLE
 
-## 4. LES TROIS LEVIERS — NE PAS LES CONFONDRE
-* **fermeté** = raideur + élasticité de chaîne quasi nulle. **Pas** l'amortissement (amortir = tuer).
-* **débattement** = angle max. Trop grand = aspect liquide (une poitrine : petit, rapide, net).
-* **vivacité** = couplage à l'accélération du buste + masse. C'est le « ça bouge bien ».
+Au repos (idle), chaque élément doit **retrouver exactement la pose du modèle de base** — pas plus
+bas, pas plus écrasé. Exception : **ce qui doit pendre** (les lunettes) pend et reste pendu ; ça ne
+retourne pas à la pose du modèle.
 
-## 5. COLLISION
-Rien ne traverse Keira, **quelle que soit la raison**. La collision se fait contre la **surface
-skinnée réelle** (distance signée à la surface), pas contre des volumes proxy. Ses chaînes se voient
-**entre elles** (lunettes vs poitrine, mèches vs oreilles). Une résolution **pire que le clip** est
-pire que rien : correction bornée par frame, pas de saut visible, pas d'oscillation. Une contrainte
-impossible **se pose calmement** au lieu de vibrer.
-Exception légitime : quand l'animation met les lunettes devant ses yeux, elles sont *censées* être
-dans le volume de la tête — ce n'est pas une pénétration.
+## 5. L'ANIMATION D'AUTEUR A LA PRIORITÉ
 
-## 6. ANIMATIONS D'AUTEUR
-Quand l'animation pilote délibérément une chaîne, elle gagne, puis la physique **reprend en blend**.
-Détection **par chaîne** (des os sans rapport ne suspendent rien). **« Tenu immobile » ≠ « plus
-tenu »** : la libération ne dépend pas de la vitesse du canal.
+Si un os bouge sur une **intention d'animation**, l'animation gagne : c'est voulu par l'animation
+originale de Naughty Dog. La physique reprend ensuite. La détection se fait **par chaîne** — un os
+sans rapport ne suspend rien.
 
-## 7. DONNÉES — GÉNÉRÉES, JAMAIS RUSTINÉES
-Les chaînes de Keira sont **produites** depuis son rig et ces règles : famille **dérivée**, racine
-**verrouillée par construction** sur la famille A, rayon par maillon **dérivé de l'épaisseur du
-mesh**. Aucun flag de dérogation (pas de `colskip`, pas de filtre de volumes, pas de masque). Les
-seuls réglages exposés sont des **paramètres de style** (raideur, débattement, masse) — jamais des
-exceptions aux règles.
+## 6. LA SALLE DE TEST — ÉTAPE 1, AVANT TOUTE PHYSIQUE
 
-## 8. MESURES ADMISSIBLES — UNE SEULE GRANDEUR PRIMAIRE
-La **position écrite du joint**, frame par frame. Tout en dérive :
-* mouvement = |pos(t) − pos(t−1)| ; **inertie** = variance ~0 pendant qu'elle bouge ;
-* ancrage = déviation de la racine (~0) ;
-* pénétration = surface skinnée sous la surface du corps ;
-* saut = pire |Δpos| en une frame.
-**Test d'admissibilité, avant d'ajouter quoi que ce soit** : « si ce chiffre est vert et que l'owner
-voit encore le défaut, qu'est-ce qui l'expliquerait ? » S'il y a une réponse, la mesure ne vaut rien.
-Tout zéro exige un **contrôle positif qui a tiré** (injecter le défaut, voir le compteur monter).
-Une mesure par chaîne doit **varier** par chaîne — jamais une constante partagée ni une rampe d'index.
+> « il serait bon d'avoir une test room dans laquelle **on ne spawn pas le player** mais le
+> personnage à tester, qu'on déplace in game de haut en bas, de gauche à droite, avec diverses
+> accélérations, à coups, animations (toutes celles concernant ledit PNJ/Actor/Enemy, ici Keira)
+> histoire de pouvoir tester pour de vrai la physique pour ledit personnage. »
 
-## 9. AUCUN SUPPRESSEUR PAR DÉFAUT
-Gel de calme, suspension d'anim, clamp de saut, sommeil, hystérésis : **absents au départ**. On en
-rajoute un **seulement** si un défaut mesuré l'exige, et on rapporte **combien de mouvement il a
-retiré** (pas sur combien de frames il tourne).
+Exigences, chacune vérifiable :
 
-## 10. LIVRAISON
-Substrat de preuve : device Redmi si connecté, sinon **x86** (autorisé par l'owner), avec la **dette
-de preuve device déclarée**. Une exécution unique doit montrer, **par chaîne nommée de Keira** :
-racine ancrée + pointe mobile + zéro pénétration de surface (contrôle positif tiré) + pas de saut
-visible. Ensuite seulement : APK + pack sur jak-builds, et l'owner juge de ses yeux.
-Toggle menu + niveaux de précision inchangés (OFF ≡ stock).
+1. **PAS DE JOUEUR.** Jak n'est pas spawné, pas endormi, pas hors champ : **absent**. La tentative
+   précédente hébergeait la mesure dans une partie normale à `village1-hut` avec Jak jouable —
+   l'owner l'a vu à l'écran. Ça ne se reproduit pas. Zone vide : le sujet, la caméra, rien d'autre.
+2. **LE SUJET EST SPAWNÉ PAR NOM** (Keira) et c'est le seul acteur de la zone.
+3. **ON LE DÉPLACE** : haut/bas, gauche/droite, **diverses accélérations**, **à-coups** (départs et
+   arrêts brutaux).
+4. **TOUTES SES ANIMATIONS** sont jouées — la liste complète de son art-group, pas un cycle choisi.
+5. Chaque chiffre extrême porte le **nom de l'animation** où il s'est produit.
 
----
-## 11. LA SALLE DE TEST — ÉTAPE 1, BLOQUANTE (owner 2026-08-10 : « je vois pas comment tu peux
-## valider Keira en tapant à l'aveugle dans le jeu… un vrai test de physique quoi ! »)
-Valider une physique en marchant vers un PNJ dans le monde est absurde et c'est ce qui nous a coûté
-la semaine. AVANT tout verdict sur Keira, construire la salle de test et prouver la physique DEDANS.
+## 7. CE QUI FAIT FOI
 
-### CE QU'ELLE DOIT PERMETTRE
-  1. **SPAWN par nom** de l'acteur (`keira-hd`) dans une zone vide, devant la caméra.
-  2. **LE PILOTER** : translations, arrêts nets, marche/course, **accélérations et décélérations
-     brutales**, changements de direction — c'est ce qui excite les chaînes.
-  3. **CYCLER TOUTES SES ANIMATIONS** (liste complète de son art-group, pas un cycle de marche), avec
-     le NOM DE L'ANIMATION attaché à chaque chiffre extrême. C'est là qu'on voit quelle anim casse quoi.
-  4. **CHANGER SON INCLINAISON** : la pencher, la mettre tête en bas — c'est le seul moyen de tester
-     l'exception de gravité de la famille A (§2), qui n'a JAMAIS été exercée.
-  5. **RELIRE À CHAUD** ses paramètres (le fichier de chaînes ne fait plus que 32 chaînes) : régler,
-     re-pousser, re-mesurer en secondes.
+La **position écrite du joint**, frame par frame, telle que le moteur l'écrit dans le squelette.
+Tout en dérive : mouvement de pointe, déviation de racine, pénétration d'une surface, pire saut
+d'une frame. Aucun instrument inventé par-dessus.
 
-### SUBSTRAT : x86 D'ABORD, TOUT DE SUITE
-Le device n'est pas nécessaire pour ça et ne doit plus servir d'excuse : la salle de test tourne sur
-le build **x86** (REPL disponible, itération en secondes). Le device servira à confirmer, pas à
-découvrir. Dette de preuve device déclarée comme d'habitude.
+Trois règles qui ont coûté une semaine et qui ne se renégocient pas :
 
-### CE QU'ELLE PRODUIT
-Par chaîne de Keira ET par animation : variation du joint écrit (mouvement), déviation de racine
-(ancrage), pénétration de surface, pire saut d'une frame — plus le nom de l'animation au pire cas.
-C'est ce tableau, et lui seul, qui autorise à dire « Keira est prête à être jugée ».
+* **Un commentaire n'est pas une preuve.** Toute affirmation sur ce que le programme fait cite une
+  trace d'exécution. Jamais un docstring, jamais une intention écrite dans le source.
+* **Tout zéro exige un contrôle positif qui a tiré** : on injecte le défaut, on voit le compteur
+  **monter**, on l'enlève. Un contrôle qui fait *baisser* le compteur est un contrôle cassé.
+* **Pas de suppresseur par défaut.** Gel de calme, clamp, hystérésis, sommeil : absents. La cause
+  mesurée de l'échec précédent est leur empilement (le moteur est passé de 1 940 à 6 000 lignes,
+  clamps 9 → 84, détection d'anim 45 → 172) jusqu'à ce que 42 % des mesures soient à zéro. On en
+  ajoute un uniquement si un défaut mesuré l'exige, et on chiffre **combien de mouvement il retire**.
+
+## 8. QUAND C'EST FINI
+
+Keira validée **par l'owner, de ses yeux**, sur un build livré en **paire cohérente** (APK + pack de
+données du même commit — une paire dépareillée donne du comportement aléatoire). Alors, et seulement
+alors, on passe au personnage suivant.
