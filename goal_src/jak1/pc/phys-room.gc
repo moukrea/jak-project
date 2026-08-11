@@ -589,7 +589,25 @@
               (phys-diag (-> self slot) c 3)
               (phys-diag (-> self slot) c 4)
               (phys-diag (-> self slot) c 5)
-              (phys-diag (-> self slot) c 6))))
+              (phys-diag (-> self slot) c 6))
+      ;; LES TROIS DEFAUTS DE LA 11e PASSE, chaine par chaine, chacun avec sa NATURE ecrite a cote
+      ;; de lui parce qu'un chiffre sans nature est ce qui a produit les faux verts de la veille :
+      ;;   bendcut  DEGRES retires par l'attenuation d'angle des CHEVEUX (un suppresseur, donc il
+      ;;            se chiffre). Repere : l'attache du maillon. Zero quand la meche ne se replie
+      ;;            jamais au-dela de la limite que le rig lui donne.
+      ;;   shape    |p - T| / longueur de l'os, SANS DIMENSION : l'echelle de la deformation que le
+      ;;            skinning lineaire impose a la chair. C'est « ca change de taille, plus petit,
+      ;;            plus gros, ecrase ». Zero quand le maillon est a sa pose de modele.
+      ;;   buried   paires (lien, volume) ou le lien est ENTIEREMENT dans un volume A SA POSE DE
+      ;;            MODELE, comptees une fois par frame : un pan dont la pose est DANS la jambe n'a
+      ;;            aucune surface a traverser, donc meshpen reste a zero pendant que l'owner le
+      ;;            voit disparaitre (« comme si son pantacourt s'arretait aux genoux »). Zero
+      ;;            quand la piece est dehors, la ou elle se voit.
+      (format 0 "PHYSDIAG3 tag=~S c=~D bendcut=~f shape=~f buried=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 7)
+              (phys-diag (-> self slot) c 8)
+              (phys-diag (-> self slot) c 9))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
@@ -925,6 +943,10 @@
     ;; ---- bouge pas sous le defaut ne prouve rien.
     ((= (-> self phase) PHYSROOM-PH-INVPC)
      (when (= (-> self pframe) 1)
+       ;; `reseatfb` = re-assises retombees sur l'ancienne heuristique (rayon le long de l'os du
+       ;; porteur) au lieu de la place que le rig donne. Doit valoir ZERO : c'est cette heuristique
+       ;; qui posait le pan du pantacourt a 429 u du genou la ou le rig le met a 1349.
+       (format 0 "PHYSRESEAT n=~f fallback=~f~%" (phys-inversions 2) (phys-inversions 4))
        (format 0 "PHYSINV phase=run flips=~f degen=~f reseat=~f residual=~f~%"
                (phys-inversions 0) (phys-inversions 1) (phys-inversions 2) (phys-inversions 3))
        (phys-inversions-reset!)

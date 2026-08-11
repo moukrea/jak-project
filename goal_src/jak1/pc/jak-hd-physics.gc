@@ -402,6 +402,13 @@
 ;; paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de
 ;; surface devant lui, donc rien a traverser. Comptees a chaque mesure, publiees par la salle.
 (define *phys-buried-n*    0)
+;; ... et le MEME compte, mais PAR CHAINE et UNE SEULE FOIS PAR FRAME. Le compteur global ci-dessus
+;; est incremente par chaque appel de `phys-link-pen`, y compris les douze pas de dichotomie du
+;; recul : son total (369 876) est un nombre d'evaluations, pas un nombre de paires enfouies, et il
+;; ne dit pas QUELLE chaine est enfouie. Or c'est exactement la question que pose « le bas du
+;; pantacourt est avale a l'interieur des mollets ». Ce drapeau n'est leve que pendant la passe de
+;; MESURE (phys-pen-chain), donc le compte par chaine est un compte de frames x paires.
+(define *phys-buried-tally* 0)
 ;; INVERSIONS. Owner 2026-08-11 : « j'ai encore vu un de ses seins retourne vers l'interieur ».
 ;; Cause : le ressort est symetrique autour de l'ancre, donc le cote oppose est un equilibre STABLE
 ;; mais FAUX, et la contrainte de longueur se taisait dans le cas degenere (distance sous 1e-4), ce
@@ -415,6 +422,10 @@
 ;; replace sur lui. Owner/superviseur 2026-08-11 : « pantflapL retablie — elle avait ete supprimee du
 ;; fichier au lieu d'etre REPAREE ».
 (define *phys-reseat-n* 0)
+;; ... et combien de ces re-assises ont du retomber sur l'ancienne heuristique (rayon le long de
+;; l'os du porteur) faute de bind-pose lisible. Doit valoir ZERO : un secours silencieux est un
+;; defaut qui attend, et c'est celui-la qui posait le pan du pantacourt dans le mollet.
+(define *phys-reseat-fb* 0)
 ;; REPLIS DU RECUL : fois ou le point de depart de sa recherche, pris sur la sphere du MODELE,
 ;; n'etait pas admissible et ou il a fallu repartir de la pose d'auteur exacte. Chacun laisse un
 ;; residu d'allongement sur ce lien-la : le chiffre dit combien, au lieu de le laisser deviner.
@@ -438,7 +449,26 @@
 ;;   6 raddrop  fois ou le PLAFOND D'EXCURSION d'un lien seul (son propre rayon mesure) a mordu.
 ;;              C'est un suppresseur, donc SPEC 7 exige qu'il chiffre ce qu'il retire, PAR CHAINE :
 ;;              un affaissement gravitaire ecrete par ce plafond se lit ici et nulle part ailleurs.
-(defconstant PHYS-DG 7)
+;;   7 bendcut  DEGRES retires par l'attenuation d'angle des CHEVEUX, cumules sur la fenetre.
+;;              NATURE : un angle cumule, donc un SUPPRESSEUR chiffre (SPEC 7). REPERE : celui de
+;;              l'attache du maillon, comme la mesure d'angle elle-meme. LECTURE QUAND LE DEFAUT EST
+;;              ABSENT : 0 — une meche qui ne se replie jamais au-dela de sa limite geometrique ne
+;;              paie rien, et c'est le cas de lmidhair (116 deg mesures pour une limite de 141.6).
+;;   8 shape    pire ECART RELATIF du maillon a sa pose de modele, |p - T| / longueur de son os.
+;;              NATURE : un rapport sans dimension — la DEFORMATION que le skinning lineaire impose
+;;              a la chair, pas une amplitude : deux sommets voisins dont les poids different d'un
+;;              dixieme s'ecartent d'un dixieme de ce nombre. C'est la grandeur de « ca change de
+;;              taille, plus petit plus gros ecrase » (owner, 11e passe), que ni tipvar (une
+;;              variance) ni elong (la longueur de l'OS, qui ne bouge pas) ne pouvaient decrire.
+;;              REPERE : aucun, c'est une longueur sur une longueur mesuree depuis l'attache.
+;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0 (le maillon est a sa pose de modele).
+;;   9 buried   paires (lien, volume) ou le lien est ENTIEREMENT dans un volume A SA POSE DE MODELE,
+;;              donc sans surface devant lui — le compteur global existait deja, il est ici PAR
+;;              CHAINE. C'est la mesure du « bas du pantacourt avale a l'interieur des mollets,
+;;              comme s'il s'arretait aux genoux » : un pan dont la pose de modele est dans la
+;;              jambe n'a rien a traverser, donc meshpen reste a zero pendant que l'owner le voit
+;;              disparaitre. NATURE : un compte de paires. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
+(defconstant PHYS-DG 10)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -677,10 +707,27 @@
 ;; « quasiment parfait » n'est pas touche), meme plafond a l'infini (aucune amplitude gagnee sur
 ;; un defaut), STRICTEMENT CROISSANT partout (la sortie suit l'entree, donc la deformation redevient
 ;; correlee au stimulus) et derivable partout (plus de bascule d'une frame a l'autre).
+;; ------------------------------------------------------------------------------------------------
+;; IL NE S'APPLIQUE QU'UNE FOIS PAR FRAME, ET CE N'EST PAS UN DETAIL D'IMPLEMENTATION.
+;;
+;; Un plafond dur est IDEMPOTENT : min(min(e,c),c) = min(e,c). On peut donc l'appeler autant de fois
+;; qu'on veut dans une boucle de Gauss-Seidel, il ne retire rien de plus. Ce min doux ne l'est PAS :
+;; f(e) < e pour TOUT e > 0, meme tres en dessous du plafond, donc l'appeler onze fois par frame
+;; (8 + 3 iterations de contraintes) compose : f^11(c) = 0.841^11 = 0.15 c.
+;;
+;; CE N'EST PAS UNE DEDUCTION, C'EST UNE MESURE. Premiere version posee DANS la boucle de
+;; contraintes, course x86 du 2026-08-12 : onze chaines sous 60 % de leur plancher —
+;;     chestL 0.3866 -> 0.1987 (-49 %)   chestR 0.3789 -> 0.1846 (-51 %)
+;;     kneeflapL 0.1680 -> 0.0840 (-50 %)  toestrapL 0.1279 -> 0.0654 (-49 %)
+;; soit exactement le « tout est muted as heck » que la gate FLOOR existe pour empecher, et que
+;; l'owner a deja vu une fois. La gate l'a arrete avant l'APK ; le plafond dur est retabli la ou il
+;; tourne en boucle, et ce min doux ne sert plus qu'aux passes APPELEES UNE SEULE FOIS PAR FRAME.
+;;
+;; REGLE GENERALE, parce que le piege se representera : un limiteur pose dans une boucle de solveur
+;; DOIT etre idempotent. S'il ne l'est pas, il n'a rien a y faire — il se pose en dehors, une fois.
 (defun phys-softmin ((v float) (cap float))
   "min DOUX de v et cap : identite loin en dessous, asymptote a cap loin au-dessus, croissant et
-   derivable partout. Remplace un `min` dur dont la derivee discontinue faisait sauter la position
-   ecrite d'une frame a l'autre."
+   derivable partout. NON IDEMPOTENT : ne jamais l'appeler dans une boucle de contraintes."
   (if (or (<= cap 0.0) (<= v 0.0))
     v
     (let* ((r  (/ v cap))
@@ -809,8 +856,10 @@
                       (ey (- (-> *phys-py* scl) ty))
                       (ez (- (-> *phys-pz* scl) tz))
                       (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
-                      (e2 (phys-softmin e rmax)))
-                 (when (and (> e 0.0001) (< e2 (- e 0.0001)))
+                      ;; PLAFOND DUR, ET IL DOIT LE RESTER : voir la note d'IDEMPOTENCE au-dessus
+                      ;; de `phys-softmin`. Ce bloc tourne onze fois par frame.
+                      (e2 rmax))
+                 (when (and (> e rmax) (> e 0.0001))
                    (let ((s (/ e2 e)))
                      (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
                      (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e e2)))
@@ -871,13 +920,15 @@
                         (ex (- (-> *phys-px* scl) tx))
                         (ey (- (-> *phys-py* scl) ty))
                         (ez (- (-> *phys-pz* scl) tz))
-                        (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))))
+                        (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
+                        ;; PLAFOND DUR, ET IL DOIT LE RESTER (idempotence, cf. `phys-softmin`).
+                        (e2 rmax))
                    (when (and (> e rmax) (> e 0.0001))
                      (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
-                     (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e rmax)))
+                     (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e e2)))
                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 6))
                            (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 6))))
-                     (let* ((f  (/ rmax e))
+                     (let* ((f  (/ e2 e))
                             (qx (- (+ tx (* ex f)) bx))
                             (qy (- (+ ty (* ey f)) by))
                             (qz (- (+ tz (* ez f)) bz))
@@ -887,6 +938,77 @@
                            (set! (-> *phys-px* scl) (+ bx (* qx s2)))
                            (set! (-> *phys-py* scl) (+ by (* qy s2)))
                            (set! (-> *phys-pz* scl) (+ bz (* qz s2))))))))))))))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; L'ANGLE QUE LA PEAU PEUT ENCAISSER — CHEVEUX SEULEMENT (`maxangle` > 0 dans les donnees, derive
+;; du rig par le generateur, absent partout ailleurs).
+;;
+;; Owner, 11e passe (2026-08-11 21:15) : « certains maillons meriteraient un traitement pour eviter
+;; de creer des angles extremes qui mettent en lumiere le lack of geometrie — soit une subdivision
+;; intelligente, soit une ATTENUATION sur les angles extremes ». Puis le perimetre, ferme a 22:35 :
+;; « c'est juste sur les meches, pas le reste, encore moins les seins ».
+;; Mesure du 2026-08-11 (ROOM-GRADIENT) : lbang link1 = 178.57 deg, rbang 176.20, backhair 176.95.
+;; 178 degres, c'est une epingle a cheveux : la meche se replie sur elle-meme et la peau, qui n'a
+;; pas les aretes pour ca, se croise.
+;;
+;; TROIS PROPRIETES, et chacune repond a un mot de sa phrase :
+;;   * « attenuation », pas clamp : min DOUX (phys-softmin), donc pas d'a-coup au passage du seuil ;
+;;   * « certains maillons » : chaque maillon est teste separement, seul le fautif paie ;
+;;   * longueur invariante : on ne fait que ramener la direction vers celle du modele SUR LE MEME
+;;     ARC, donc l'os ne change pas de taille et `elong` n'en voit rien.
+;;
+;; APPELE UNE SEULE FOIS PAR FRAME, entre la boucle de contraintes et la finition — voir la note
+;; d'idempotence de `phys-softmin` : pose DANS la boucle, il coutait la moitie du mouvement de onze
+;; chaines. La finition qui suit (collision puis recul) garde donc le dernier mot sur « rien ne
+;; traverse », et le passage de longueur qu'elle contient le dernier mot sur la longueur.
+;; ------------------------------------------------------------------------------------------------
+(defun phys-bend-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
+  (let ((amax (-> *phys-maxang* sc)))
+    (when (> amax 0.0)
+      (dotimes (l n)
+        (when (>= l rlk)
+          (let* ((scl (+ (* sc PHYS-LINKS) l))
+                 (kk  (-> *phys-joint* scl))
+                 (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+            (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+              (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
+                     (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
+                     (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
+                     (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
+                            (-> skel bones (+ kp 1) transform vector 3 x)))
+                     (my (- (-> skel bones (+ kk 1) transform vector 3 y)
+                            (-> skel bones (+ kp 1) transform vector 3 y)))
+                     (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
+                            (-> skel bones (+ kp 1) transform vector 3 z)))
+                     (dx (- (-> *phys-px* scl) bx))
+                     (dy (- (-> *phys-py* scl) by))
+                     (dz (- (-> *phys-pz* scl) bz))
+                     (m2 (+ (* mx mx) (+ (* my my) (* mz mz))))
+                     (d2 (+ (* dx dx) (+ (* dy dy) (* dz dz)))))
+                (when (and (> m2 0.000001) (> d2 0.000001))
+                  (let* ((ml (sqrtf m2))
+                         (dl (sqrtf d2))
+                         (ux (/ mx ml)) (uy (/ my ml)) (uz (/ mz ml))
+                         (vx (/ dx dl)) (vy (/ dy dl)) (vz (/ dz dl))
+                         (cs (+ (* ux vx) (+ (* uy vy) (* uz vz))))
+                         (px (- vx (* cs ux))) (py (- vy (* cs uy))) (pz (- vz (* cs uz)))
+                         (pl (sqrtf (+ (* px px) (+ (* py py) (* pz pz)))))
+                         ;; `atan` de GOAL rend des UNITES DE ROTATION (65536 = un tour) ;
+                         ;; 360/65536 = 0.0054931641 les convertit en degres, et 182.04444
+                         ;; revient aux unites que `sin`/`cos` attendent.
+                         (adeg (* 0.0054931641 (atan pl cs)))
+                         (adg2 (phys-softmin adeg amax)))
+                    (when (and (> pl 0.0001) (< adg2 (- adeg 0.01)))
+                      (let* ((au (* 182.04444 adg2))
+                             (cc (cos au))
+                             (ss (sin au))
+                             (qx (/ px pl)) (qy (/ py pl)) (qz (/ pz pl)))
+                        (set! (-> *phys-dg* (+ (* sc PHYS-DG) 7))
+                              (+ (- adeg adg2) (-> *phys-dg* (+ (* sc PHYS-DG) 7))))
+                        (set! (-> *phys-px* scl) (+ bx (* dl (+ (* cc ux) (* ss qx)))))
+                        (set! (-> *phys-py* scl) (+ by (* dl (+ (* cc uy) (* ss qy)))))
+                        (set! (-> *phys-pz* scl) (+ bz (* dl (+ (* cc uz) (* ss qz))))))))))))))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -1191,7 +1313,10 @@
                   ((>= feff PHYS-VOL-FREE)
                    ;; le lien est entierement dans ce volume a sa pose de modele : il n'y a pas de
                    ;; surface devant lui. Compte, pour que le nombre soit dans le tableau.
-                   (set! *phys-buried-n* (+ *phys-buried-n* 1)))
+                   (set! *phys-buried-n* (+ *phys-buried-n* 1))
+                   (when (nonzero? *phys-buried-tally*)
+                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 9))
+                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 9))))))
                   ;; EN CONTACT = dedans a sa pose de modele, ou dedans maintenant. Une paire dont
                   ;; les deux profondeurs sont nulles (un volume a l'autre bout du corps) n'est pas
                   ;; un contact : la compter rendrait le residu identiquement nul et la colonne
@@ -1203,6 +1328,8 @@
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
   (let ((worst PHYS-NOCONTACT)
         (pt (new 'stack-no-clear 'vector)))
+    ;; SEULE passe de la frame ou l'enfouissement est compte par chaine (voir *phys-buried-tally*).
+    (set! *phys-buried-tally* 1)
     (dotimes (l n)
       (when (>= l rlk)
         (let ((scl (+ (* sc PHYS-LINKS) l)))
@@ -1212,6 +1339,7 @@
           (set! (-> pt w) 1.0)
           (let ((r (phys-link-pen skel sc n nbone nco l pt)))
             (when (> r worst) (set! worst r))))))
+    (set! *phys-buried-tally* 0)
     ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,
     ;; et c'est l'appelant qui compte les deux separement. Confondre les deux, c'est annoncer un
     ;; zero mesure la ou rien n'a ete mesure.
@@ -1391,7 +1519,9 @@
    geometrie du lien suit, et la reparation est comptee et publiee. C'est un defaut de MODELE
    corrige au dernier moment possible, pas une physique inventee."
   (let ((seat (new 'stack-no-clear 'vector))
-        (dir  (new 'stack-no-clear 'vector)))
+        (dir  (new 'stack-no-clear 'vector))
+        (ib   (new 'stack-no-clear 'matrix))
+        (lk   (new 'stack-no-clear 'matrix)))
     (dotimes (l n)
       (let* ((scl (+ (* sc PHYS-LINKS) l))
              (kk  (-> *phys-joint* scl))
@@ -1405,29 +1535,75 @@
               (format 0 "[HD-PHYS] pose c=~D l=~D dist=~f rad=~f ratio=~f~%"
                       (mod sc PHYS-CHAINS) l d rl (/ d rl)))
             (when (> d (* PHYS-POSE-RATIO rl))
-              ;; direction de l'os du porteur : de SON parent vers lui. A defaut (porteur racine),
-              ;; la verticale du monde vers le bas — ce qui pend, pend.
-              (let ((gp (the int (-> (-> obj khd-par) kp))))
-                (cond
-                  ((and (!= gp 255) (< (+ gp 1) nbone))
-                   (set! (-> dir x) (- (-> skel bones (+ kp 1) transform vector 3 x)
-                                       (-> skel bones (+ gp 1) transform vector 3 x)))
-                   (set! (-> dir y) (- (-> skel bones (+ kp 1) transform vector 3 y)
-                                       (-> skel bones (+ gp 1) transform vector 3 y)))
-                   (set! (-> dir z) (- (-> skel bones (+ kp 1) transform vector 3 z)
-                                       (-> skel bones (+ gp 1) transform vector 3 z)))
-                   (set! (-> dir w) 0.0))
-                  (else (set-vector! dir 0.0 -1.0 0.0 0.0))))
-              (let ((dl (vector-length dir)))
-                (if (> dl 0.01)
-                  (vector-float*! dir dir (/ rl dl))
-                  (set-vector! dir 0.0 (- 0.0 rl) 0.0 0.0)))
-              (set! (-> seat x) (+ (-> skel bones (+ kp 1) transform vector 3 x) (-> dir x)))
-              (set! (-> seat y) (+ (-> skel bones (+ kp 1) transform vector 3 y) (-> dir y)))
-              (set! (-> seat z) (+ (-> skel bones (+ kp 1) transform vector 3 z) (-> dir z)))
+              ;; ------------------------------------------------------------------------------
+              ;; LA PLACE DE SECOURS EST CELLE QUE LE RIG DONNE, PAS UNE DISTANCE INVENTEE.
+              ;;
+              ;; Owner, 11e passe (2026-08-11 21:15) : « le bas de son pantacourt clipe toujours a
+              ;; l'interieur de ses mollets au lieu d'etre visible, COMME SI SON PANTACOURT
+              ;; S'ARRETAIT AUX GENOUX ». C'est litteralement ce que la re-assise faisait.
+              ;;
+              ;; MESURE (.autoport/probe_keira_volumes.py, 2026-08-12, sur le rig et le mesh) :
+              ;;     LpantFlap est a 1349 u de Lknee dans la pose BIND — une pose parfaitement
+              ;;     saine. C'est le RETARGET qui l'envoie a 1 061 104 u (259 m) a l'execution.
+              ;;     La re-assise le replacait a `rl` = 429 u du genou : 3.1 fois trop pres,
+              ;;     c.-a-d. juste sous le genou au lieu de la mi-mollet. Le pan de tissu etait
+              ;;     donc dessine dans la jambe, et son enfouissement dans la capsule du mollet
+              ;;     rendait tout volume inoperant devant lui (phys-vol-floor le declare libre).
+              ;;     Elle est re-assise 18 101 fois par course : le defaut est permanent.
+              ;;
+              ;; `rl` est un RAYON — l'epaisseur du morceau de geometrie — et rien n'autorisait a
+              ;; s'en servir comme d'une LONGUEUR D'OS. Le rig porte la vraie valeur et le moteur
+              ;; y a acces : la bind-pose d'un joint EST son inverse-bind (jak-hd.gc:461), donc
+              ;;     L = inv(bind-pose[kk]) . bind-pose[kp]
+              ;; a pour translation la position bind de kk DANS LE REPERE BIND DE kp — exactement
+              ;; la meme construction que `L'_k` du retarget (jak-hd.gc:500-502). Portee par la
+              ;; matrice courante du porteur, elle rend la place que le modele lui donne, direction
+              ;; ET distance, sans une seule constante inventee.
+              ;; A defaut (jgeo hors de portee), on retombe sur l'ancienne heuristique, et ce repli
+              ;; est COMPTE a part : un secours silencieux est un defaut qui attend.
+              ;; ------------------------------------------------------------------------------
+              (let ((done #f))
+                (when (and (nonzero? (-> obj draw jgeo))
+                           (< kk (-> obj draw jgeo length))
+                           (< kp (-> obj draw jgeo length)))
+                  (matrix-4x4-inverse! ib (-> obj draw jgeo data kk bind-pose))
+                  (matrix*! lk ib (-> obj draw jgeo data kp bind-pose))
+                  (set-vector! seat (-> lk vector 3 x) (-> lk vector 3 y) (-> lk vector 3 z) 1.0)
+                  (when (> (+ (fabs (-> seat x)) (+ (fabs (-> seat y)) (fabs (-> seat z)))) 0.01)
+                    (vector-matrix*! seat seat (the-as matrix (-> skel bones (+ kp 1) transform)))
+                    (set! done #t)))
+                (when (not done)
+                  (set! *phys-reseat-fb* (+ *phys-reseat-fb* 1))
+                  ;; direction de l'os du porteur : de SON parent vers lui. A defaut (porteur
+                  ;; racine), la verticale du monde vers le bas — ce qui pend, pend.
+                  (let ((gp (the int (-> (-> obj khd-par) kp))))
+                    (cond
+                      ((and (!= gp 255) (< (+ gp 1) nbone))
+                       (set! (-> dir x) (- (-> skel bones (+ kp 1) transform vector 3 x)
+                                           (-> skel bones (+ gp 1) transform vector 3 x)))
+                       (set! (-> dir y) (- (-> skel bones (+ kp 1) transform vector 3 y)
+                                           (-> skel bones (+ gp 1) transform vector 3 y)))
+                       (set! (-> dir z) (- (-> skel bones (+ kp 1) transform vector 3 z)
+                                           (-> skel bones (+ gp 1) transform vector 3 z)))
+                       (set! (-> dir w) 0.0))
+                      (else (set-vector! dir 0.0 -1.0 0.0 0.0))))
+                  (let ((dl (vector-length dir)))
+                    (if (> dl 0.01)
+                      (vector-float*! dir dir (/ rl dl))
+                      (set-vector! dir 0.0 (- 0.0 rl) 0.0 0.0)))
+                  (set! (-> seat x) (+ (-> skel bones (+ kp 1) transform vector 3 x) (-> dir x)))
+                  (set! (-> seat y) (+ (-> skel bones (+ kp 1) transform vector 3 y) (-> dir y)))
+                  (set! (-> seat z) (+ (-> skel bones (+ kp 1) transform vector 3 z) (-> dir z)))))
               (when report
-                (format 0 "[HD-PHYS] reseat c=~D l=~D dist=~f rad=~f ratio=~f -> on its carrier~%"
-                        (mod sc PHYS-CHAINS) l d rl (/ d rl)))
+                (format 0 "[HD-PHYS] reseat c=~D l=~D dist=~f rad=~f ratio=~f~%"
+                        (mod sc PHYS-CHAINS) l d rl (/ d rl))
+                ;; LA PREUVE QUE LA PLACE A CHANGE, et de combien : la distance au porteur que le
+                ;; rig donne, contre celle que l'ancienne heuristique donnait (le rayon `rl`).
+                (format 0 "[HD-PHYS] reseat-at c=~D l=~D bind=~f oldheur=~f~%"
+                        (mod sc PHYS-CHAINS) l
+                        (vector-vector-distance
+                          seat (the-as vector (-> skel bones (+ kp 1) transform vector 3)))
+                        rl))
               (set! *phys-reseat-n* (+ *phys-reseat-n* 1))
               (set! (-> skel bones (+ kk 1) transform vector 3 x) (-> seat x))
               (set! (-> skel bones (+ kk 1) transform vector 3 y) (-> seat y))
@@ -1695,6 +1871,11 @@
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
+                    ;; L'ATTENUATION D'ANGLE DES CHEVEUX, UNE SEULE FOIS (cf. phys-bend-chain et la
+                    ;; note d'idempotence de phys-softmin). Elle se pose ICI, pas apres la finition :
+                    ;; la sequence doit toujours se terminer sur (collision, recul) pour que « rien
+                    ;; ne traverse » soit vrai a la derniere operation de la frame.
+                    (phys-bend-chain skel sc n rlk an nbone)
                     ;; FINITION, trois tours de (collision + recul), puis UN DERNIER passage de
                     ;; longueur : c'est lui qui a le dernier mot sur le cote et sur la longueur, et
                     ;; c'est la forme du resultat que l'owner voit. Les trois se tiennent :
@@ -1902,6 +2083,26 @@
                                      (u2 (+ (* ux ux) (+ (* uy uy) (* uz uz))))
                                      (dot (+ (* ux mx) (+ (* uy my) (* uz mz)))))
                                 (when (> m2 0.0001)
+                                  ;; LA DEFORMATION QUE LA CHAIR SUBIT, et ce n'est ni tipvar ni
+                                  ;; elong. Owner, 11e passe : « ca change de taille, plus petit,
+                                  ;; plus gros, plus long, plus court, ecrase ». Le skinning est
+                                  ;; LINEAIRE : deux sommets voisins dont les poids sur ce joint
+                                  ;; different de w se separent de w x |p - T|. Rapporte a la
+                                  ;; longueur de l'os — la distance sur laquelle les poids passent
+                                  ;; de 1 a 0 — ce quotient EST l'echelle de la deformation locale.
+                                  ;; `elong` ne peut pas la voir : elle mesure la longueur de l'OS,
+                                  ;; qui est justement invariante par construction, et `tipvar` est
+                                  ;; une variance, pas une forme.
+                                  (let* ((wx (- (-> *phys-px* scl)
+                                                (-> skel bones (+ kk 1) transform vector 3 x)))
+                                         (wy (- (-> *phys-py* scl)
+                                                (-> skel bones (+ kk 1) transform vector 3 y)))
+                                         (wz (- (-> *phys-pz* scl)
+                                                (-> skel bones (+ kk 1) transform vector 3 z)))
+                                         (sh (/ (sqrtf (+ (* wx wx) (+ (* wy wy) (* wz wz))))
+                                                (sqrtf m2))))
+                                    (when (> sh (-> *phys-dg* (+ (* sc PHYS-DG) 8)))
+                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 8)) sh)))
                                   (let ((el (fabs (- (/ (sqrtf u2) (sqrtf m2)) 1.0))))
                                     (when (> el (-> *phys-dg* (+ (* sc PHYS-DG) 5)))
                                       (set! (-> *phys-dg* (+ (* sc PHYS-DG) 5)) el))
@@ -2313,6 +2514,8 @@
     ((0) (the float *phys-invn*))
     ((1) (the float *phys-invfix*))
     ((2) (the float *phys-reseat-n*))
+    ;; 4 = re-assises retombees sur l'ancienne heuristique. Doit valoir ZERO.
+    ((4) (the float *phys-reseat-fb*))
     (else (the float *phys-invres*))))
 
 (defun phys-inv-inject-set! ((v int))

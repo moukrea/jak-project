@@ -69,6 +69,31 @@ FIT_STEPS = (0.5, 0.25, 0.05)   # weight thresholds tried, in order, when fittin
 FIT_MIN_VERTS = 8       # below this many vertices a fit is noise -> step down to the next threshold.
 IQ_LO, IQ_HI = 25.0, 75.0       # inner quartile of the perpendicular spread.
 
+# ---- UN OBSTACLE DOIT CONTENIR LA GEOMETRIE QU'IL REPRESENTE -----------------------------------
+# MESURE du 2026-08-11 (.autoport/probe_keira_capsules.py, meme selection de sommets que le
+# generateur) : chacun des 33 volumes livres laisse ~50 % de sa propre geometrie DEHORS.
+#
+#     volume            rayon livre   sommets dehors
+#     lBoob                     183              53 %
+#     main                      560              51 %
+#     chest->main               671              51 %
+#     head->neck                915              51 %          (... et ainsi de suite, 33 fois)
+#
+# Ce n'est pas un reglage rate, c'est la STATISTIQUE : le rayon est une MOYENNE INTER-QUARTILE de
+# la distance des sommets. Une moyenne est une tendance CENTRALE — par construction la moitie de la
+# surface est au-dela. Pour l'epaisseur d'un LIEN (« quelle est mon epaisseur ») c'est la bonne
+# mesure et elle ne change pas ici. Pour un OBSTACLE (« ou rien ne doit entrer ») c'est la mauvaise,
+# et c'est la cause racine du contresens qui a tenu toute la journee du 2026-08-11 : `meshpen = 0`
+# pendant que l'owner voit les lunettes traverser les seins et les bretelles traverser l'elastique
+# du crop top. Le zero etait vrai — mesure contre des volumes qui ne contiennent que la moitie
+# d'elle.
+#
+# COVER_PCT = 95 : le volume contient 95 % de la geometrie du joint au lieu de 50 %. Pas 100 :
+# `Rmidhaira` passe de 766 (p95) a 1349 (p100) sur UN sommet isole, et gonfler un volume sur une
+# valeur aberrante fabrique une resolution « pire que le clip » que la regle 6 interdit. La
+# fraction reellement laissee dehors est ecrite a cote de chaque volume, donc le choix se verifie.
+COVER_PCT = 95.0
+
 # ---- TUNING CONSTANTS — one row per category, the ONLY hand-chosen numbers in the file ---------
 # stiffness is a natural frequency in Hz: short and stiff pieces oscillate fast, long and loose ones
 # slow.  damping is 0..1 (fraction of critical).  mass scales the inertia of a link.  couple is the
@@ -197,6 +222,27 @@ BODY_PART = ['main', 'hips', 'chest', 'neck', 'head',
 # derived groups, so a rig change moves both at once.
 OBSTACLE_CHAIN_CATS = ('ear', 'bang', 'midhair', 'chest')
 
+# ---- L'ANGLE QUE LA PEAU PEUT ENCAISSER — CHEVEUX SEULEMENT -------------------------------------
+# Owner, 2026-08-11 21:15 : « certains maillons meriteraient un traitement pour eviter de creer des
+# angles extremes qui mettent en lumiere le lack of geometrie — soit une subdivision intelligente,
+# soit une attenuation sur les angles extremes ».  Puis, 22:35, le PERIMETRE, et il est ferme :
+# « l'attenuation pour eviter la geometrie extreme c'est juste sur les meches, pas le reste, encore
+# moins les seins ».
+#
+# Mesure du 2026-08-11 (ROOM-GRADIENT, deviation angulaire d'un maillon PAR RAPPORT A SON ATTACHE) :
+#     lbang link1 = 178.57 deg    rbang link1 = 176.20 deg    backhair link1 = 176.95 deg
+# 178 degres, c'est une epingle a cheveux : la meche se replie sur elle-meme et la peau, qui n'a pas
+# les aretes pour ca, se croise. C'est exactement ce qu'il decrit.
+#
+# LA LIMITE SE DERIVE DU RIG, elle n'est pas choisie. Deux segments cylindriques de rayon r joints
+# avec une deviation theta : leurs surfaces INTERIEURES se rencontrent a r*tan(theta/2) du joint le
+# long de chaque axe. Le pli reste representable tant que chaque segment adjacent est au moins aussi
+# long, d'ou
+#         theta_max = 2 * atan( min(L_entrant, L_sortant) / r )
+# Rien d'invente : L et r sortent du rig et du mesh. Sur les meches de Keira ca donne ~130 a ~150
+# degres, donc la limite ne mord QUE sur les epingles — ce qui est precisement la demande.
+HAIR_CATS = ('backhair', 'bang', 'midhair')
+
 
 # ================================================================================================
 # rig + mesh
@@ -282,8 +328,13 @@ def blob_centre_radius(geo, j):
     profondeur ou elles sont deja, et le volume ne les repousse plus JAMAIS. C'est pourquoi deux
     elargissements successifs n'ont rien change au clipping — ils l'aggravaient.
 
-    Meme convention de robustesse que les rayons de lien : moyenne inter-quartile, meme echelle de
-    seuils de poids."""
+    LE RAYON EST UNE COUVERTURE, PAS UNE MOYENNE (2026-08-11, cf. COVER_PCT). La version precedente
+    rendait la moyenne inter-quartile de la distance au centroide : mesure au probe, elle laissait
+    53 % des sommets du sein DEHORS de la sphere censee le representer, et c'est pour ca que les
+    lunettes pouvaient traverser le sein visible en restant hors du volume declare. L'echantillon de
+    sommets ne change pas — seule la statistique change, de tendance centrale a couverture.
+
+    Rend (centre, rayon_de_couverture, nverts, seuil, fraction_dehors_a_l_ancien_rayon)."""
     idx, thr = None, None
     for cand in FIT_STEPS:
         _n, _w, i2 = influence(geo, j, cand)
@@ -291,7 +342,7 @@ def blob_centre_radius(geo, j):
         if len(i2) >= FIT_MIN_VERTS:
             break
     if idx is None or len(idx) == 0:
-        return None, None, 0, None
+        return None, None, 0, None, None
     pts = to_bone_local(geo['ibms'][j], geo['V'][idx])
     c = pts.mean(axis=0)
     d = np.linalg.norm(pts - c, axis=1)
@@ -299,7 +350,10 @@ def blob_centre_radius(geo, j):
     inner = d[(d >= lo) & (d <= hi)]
     if inner.size == 0:
         inner = d
-    return c, float(inner.mean()), len(idx), thr
+    r_iq = float(inner.mean())
+    r_cov = float(np.percentile(d, COVER_PCT))
+    was_out = float((d > r_iq).mean())
+    return c, r_cov, len(idx), thr, (r_iq, was_out, float((d > r_cov).mean()))
 
 
 def fit_radius(geo, j, a_world, b_world):
@@ -546,11 +600,33 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         parts += [f'mass={fnum(t["mass"])}',
                   f'hang={fnum(t["hang"])}',
                   f'family={t["family"]}',
-                  f'couple={fnum(t["couple"])}',
-                  'radii=' + ','.join(str(r) for r in radii)]
+                  f'couple={fnum(t["couple"])}']
+        # L'ANGLE QUE LA PEAU PEUT ENCAISSER — CHEVEUX SEULEMENT (cf. HAIR_CATS).  Derive du rig, un
+        # maillon a la fois, et la chaine porte le PLUS SERRE de ses maillons libres : le moteur n'a
+        # qu'un scalaire par chaine et prendre le plus large laisserait passer le maillon fautif.
+        bendnote = ''
+        if cat in HAIR_CATS and len(joints) >= 2:
+            lim = []
+            for i in range(1, len(joints)):          # rootlock=1 -> le maillon 0 ne bouge pas
+                att = idx_of[joints[i - 1]]
+                gp = parent[att]
+                l_out = float(np.linalg.norm(geo['P'][idx_of[joints[i]]] - geo['P'][att]))
+                l_in = float(np.linalg.norm(geo['P'][att] - geo['P'][gp])) if gp >= 0 else l_out
+                rr = float(max(1.0, radii[i]))
+                lim.append((math.degrees(2.0 * math.atan(min(l_in, l_out) / rr)), joints[i],
+                            min(l_in, l_out), rr))
+            deg, who, lmin, rr = min(lim)
+            parts.append(f'maxangle={deg:.2f}')
+            bendnote = ('   # maxangle DERIVE du rig (pli representable par la peau, cheveux '
+                        f'seulement) : le plus serre est {who}, 2*atan({lmin:.0f}/{rr:.0f}) = '
+                        f'{deg:.1f} deg' +
+                        ''.join(f' | {w} {d:.1f}' for d, w, _l, _r in lim if w != who))
+        parts.append('radii=' + ','.join(str(r) for r in radii))
         line = ' '.join(parts)
         if fitnotes:
             line += '   # radii notes (fitted below w>0.5, or inherited): ' + ' '.join(fitnotes)
+        if bendnote:
+            line += bendnote
         meas = ' | '.join(f'{jn} verts={infl[jn][0]} wsum={infl[jn][1]:.2f} r={radii[i]}'
                           for i, jn in enumerate(joints))
         chain_block.append(f'# {cname} [{t["family"]}] {meas}')
@@ -630,19 +706,21 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         col_report.append(('capsule', f'{jn}->{pn}', r1, r2, n1, n2))
     for jn, pname in spheres:
         j = idx_of[jn]
-        c, r, n, t = blob_centre_radius(geo, j)
+        c, r, n, t, cov = blob_centre_radius(geo, j)
         if r is None or n == 0:
             log(f"DROPPED collider sphere {jn}: fitted from 0 vertices")
             continue
-        a, b = bone_axis_world(geo, names, parent, j)
-        r_old, t_old, _n_old = fit_radius(geo, j, a, b)
         cx, cy, cz = (int(round(float(v))) for v in c)
         r = int(round(r))
+        r_iq, was_out, now_out = cov
         off = math.sqrt(cx * cx + cy * cy + cz * cz)
         log(f"sphere {jn}: centre ({cx},{cy},{cz}) |{off:.0f}u| radius {r} "
-            f"(was: centred on the joint, radius {r_old} fitted around its bone axis)")
+            f"(couverture p{COVER_PCT:.0f}: {100*now_out:.0f}% des sommets dehors — "
+            f"la moyenne inter-quartile donnait {r_iq:.0f} et en laissait {100*was_out:.0f}%)")
         col_block.append(f'# sphere {jn} [{pname}]  {n}v @w>{t}   centre = measured centroid of the '
-                         f'geometry this joint owns, {off:.0f}u off the joint, in its bind space')
+                         f'geometry this joint owns, {off:.0f}u off the joint, in its bind space'
+                         f'   COVER p{COVER_PCT:.0f}: {100*now_out:.0f}% of its vertices outside'
+                         f' (inner-quartile mean {r_iq:.0f} left {100*was_out:.0f}% outside)')
         col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
         col_report.append(('sphere', jn, r, None, n, None))
 
@@ -722,13 +800,29 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     L.append('')
     text = '\n'.join(L)
     return text, dict(chains=chain_report, dropped=dropped, colliders=col_report,
-                      eyescale=eyescale, levels=levels, groups=groups)
+                      eyescale=eyescale, levels=levels, groups=groups,
+                      # la geometrie brute du rig, pour que le controle 9 puisse RECALCULER
+                      # `maxangle=` depuis le fichier emis au lieu de croire le generateur.
+                      P=geo['P'], parent=parent, idx_of=idx_of)
 
 
 # ================================================================================================
 # self-checks
 # ================================================================================================
-FORBIDDEN_KEYS = ('colskip', 'chains', 'at', 'maxangle', 'authored')
+# DEROGATIONS INTERDITES (DIRECTIVES regle 4 : « aucun flag de derogation — colskip, filtres de
+# volumes, masques »).  Ces quatre-la EXEMPTENT du travail : `colskip` retire des liens de la
+# collision, `chains=`/`at=` restreignent un volume a une liste, `authored` coupe la physique sous
+# un seuil.  Aucun ne se derive de quoi que ce soit : ce sont des decisions ecrites a la main.
+#
+# `maxangle` EST SORTI DE CETTE LISTE LE 2026-08-11, et voici pourquoi ce n'est pas un
+# assouplissement.  Il y figurait comme reglage a la main de l'ancien moteur (un cone d'ouverture
+# choisi a l'oeil, chaine par chaine).  Il est desormais EMIS PAR CE GENERATEUR, DERIVE DU RIG :
+# 2*atan(min(L_entrant, L_sortant)/r), l'angle au-dela duquel les deux tubes de peau se croisent,
+# sur les seules chaines de cheveux (HAIR_CATS) parce que l'owner a ferme le perimetre a « juste
+# les meches ».  La regle 4 interdit les donnees RUSTINEES, pas les donnees DERIVEES — et une
+# valeur ecrite a la main sur cette cle serait toujours refusee par le controle de derivation
+# ci-dessous, qui la recalcule.
+FORBIDDEN_KEYS = ('colskip', 'chains', 'at', 'authored')
 # A real key, on a real (non-comment) line.  Prose is not a key: the collider block explains
 # "NO chains= / at= filter on any of them", and matching that sentence made the generator refuse
 # its own documentation of the ABSENCE of those keys.
@@ -812,7 +906,37 @@ def self_checks(text, info, rig_names, bak_path, log):
         m = FORBIDDEN_RX.search(ln)
         if m:
             hits.append((m.group(1), i, ln.strip()[:60]))
-    ck(not hits, 'no colskip= / chains= / at= / maxangle= / authored= anywhere', str(hits[:4]))
+    ck(not hits, 'no colskip= / chains= / at= / authored= anywhere', str(hits[:4]))
+
+    # 6b. TOUT `maxangle=` EMIS EST RECALCULABLE DEPUIS LE RIG.  C'est ce qui separe une donnee
+    # DERIVEE d'une rustine : la valeur est relue DANS LE FICHIER, recalculee depuis les positions
+    # bind du rig et les `radii=` que le fichier declare lui-meme, et les deux doivent coincider.
+    # Une valeur ecrite a la main echoue ici.  Le perimetre est verifie aussi : une chaine hors
+    # HAIR_CATS qui porterait la cle est refusee (owner : « juste les meches »).
+    P, par, idx_of = info['P'], info['parent'], info['idx_of']
+    cat_of = {cn: ct for cn, ct, _f, _k, _nl, _r, _ra in info['chains']}
+    bad = []
+    for c in chains:
+        has = 'maxangle' in c['kv']
+        hair = cat_of.get(c['name']) in HAIR_CATS and len(c['joints']) >= 2
+        if has != hair:
+            bad.append((c['name'], 'hors perimetre' if has else 'manquant'))
+            continue
+        if not has:
+            continue
+        radii = [int(x) for x in c['kv']['radii'].split(',')]
+        lim = []
+        for i in range(1, len(c['joints'])):
+            att = idx_of[c['joints'][i - 1]]
+            gp = par[att]
+            l_out = float(np.linalg.norm(P[idx_of[c['joints'][i]]] - P[att]))
+            l_in = float(np.linalg.norm(P[att] - P[gp])) if gp >= 0 else l_out
+            lim.append(math.degrees(2.0 * math.atan(min(l_in, l_out) / float(max(1, radii[i])))))
+        want = min(lim)
+        if abs(float(c['kv']['maxangle']) - want) > 0.01:
+            bad.append((c['name'], f"{c['kv']['maxangle']} != {want:.2f} recalcule"))
+    ck(not bad, 'chaque maxangle= est recalculable depuis le rig, et seules les meches en portent',
+       str(bad[:4]))
 
     # 7. [eyescale] block byte-identical to the .bak's
     mine = extract_section(text, '[eyescale]')
