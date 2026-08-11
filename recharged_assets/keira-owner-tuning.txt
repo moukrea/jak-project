@@ -48,3 +48,8 @@ collider rBoob radius=712
 # Aucun collider de jambe n'existait. Le rig porte Lknee/Rknee et Lankle/Rankle.
 +collider Rknee radius=300 to=Rankle radius2=205
 +collider Lknee radius=300 to=Lankle radius2=205
+
+## 2026-08-11 (4e passe) — « les lunettes clipent encore un peu avec les seins »
+# On arrête d'enfler la poitrine (ça finirait par décoller les lunettes du corps) : ce sont les
+# LUNETTES qui manquent de volume propre. Leur second maillon était à 79, très fin.
+chain goggles radii=196,150

@@ -219,3 +219,32 @@ varie, (b) si la chaîne a été suspendue, et (c) combien de frames. Une chaîn
 son canal local est constant est un défaut, et le compteur correspondant doit être à zéro avec un
 contrôle positif qui l'a fait monter (animation qui pilote réellement la chaîne → suspension
 attendue).
+
+## QUATRIÈME PASSE DE L'OWNER (2026-08-11, APK de 12:05)
+
+> « Pour les mèches fines, j'ai l'impression que les pointes et racines sont un peu ancrées avec
+> l'entre-deux qui bouge énormément, très bizarre. J'ai encore vu un sein retourné vers l'intérieur
+> et les lunettes clipent encore un peu avec les seins. »
+
+**1. MÈCHES FINES — racine ET pointe fixes, milieu qui gonfle. Hypothèse à vérifier EN PREMIER,
+elle est structurelle :** les colliders déclarés sont **les joints-racines des chaînes elles-mêmes**
+(`Lbanga`, `Rbanga`, `Lmidhaira`, `Rmidhaira`, `lEara`, `rEara`, `lBoob`, `rBoob`). Une mèche est
+donc poussée hors de **sa propre sphère de racine** : le maillon 0 est verrouillé par `rootlock`, le
+maillon du milieu est éjecté par le collider de sa propre racine, et la pointe reste près de la pose.
+Signature exacte de ce que l'owner décrit.
+→ **Une chaîne ne doit jamais entrer en collision avec ses propres maillons ni avec le collider
+porté par son propre joint-racine.** Ce n'est pas un `colskip` (interdit) : c'est une exclusion
+structurelle chaîne↔elle-même, comme la collision chaîne↔chaîne est structurellement autorisée.
+→ **À mesurer** : par chaîne, le nombre de corrections de collision provenant de son propre
+collider. Doit être **zéro**, avec un contrôle positif qui l'a fait monter.
+→ Vérifier aussi que le **dernier maillon est bien simulé et écrit** : une pointe qui reste sur la
+pose de l'animation donne la même silhouette.
+
+**2. SEIN RETOURNÉ, TOUJOURS** — troisième signalement. Reste le défaut de `phys-length-chain`
+(contrainte sautée sous `d < 0.0001`, le lien se restabilise du mauvais côté de son ancre). Une
+chaîne à un os de famille A doit rester du côté de la pose du modèle ; compteur d'inversions à zéro
+avec contrôle positif. **C'est le défaut le plus visible qui reste, il passe devant le reste.**
+
+**3. LUNETTES vs SEINS** — traité côté données : on cesse d'enfler la poitrine (ça finirait par
+décoller les lunettes du corps), ce sont les lunettes qui manquaient de volume propre. Leur second
+maillon passe de 79 à 150.
