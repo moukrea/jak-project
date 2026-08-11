@@ -20,6 +20,7 @@ Sortie : .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
 Usage  : python3 .autoport/physics_room_table.py [chemin-du-log]
 """
 
+import math
 import os
 import re
 import sys
@@ -936,11 +937,24 @@ def main():
     A('            SUPPRESSEUR qui se chiffre (SPEC 7). REPERE : l\'attache du maillon. ABSENT : 0 —')
     A('            et il DOIT valoir 0 hors des cheveux, l\'owner ayant ferme le perimetre a')
     A('            « juste les meches, pas le reste, encore moins les seins ».')
-    A('   shape    |p - T| / longueur de l\'os, SANS DIMENSION. NATURE : l\'echelle de la deformation')
-    A('            que le skinning LINEAIRE impose a la chair — deux sommets voisins dont les poids')
-    A('            different de w se separent de w x |p - T|, et la longueur de l\'os est la distance')
-    A('            sur laquelle les poids passent de 1 a 0. REPERE : aucun, une longueur sur une')
-    A('            longueur. ABSENT : 0 (le maillon est a sa pose de modele).')
+    A('   shape    |p - T| / longueur de l\'os, SANS DIMENSION. NATURE, CORRIGEE LE 2026-08-12 : ce')
+    A('            n\'est PAS l\'echelle de la deformation imposee a la chair, c\'est la CORDE de la')
+    A('            rotation du lien autour de son attache. La contrainte de longueur etant dure,')
+    A('            |p - attache| et |T - attache| valent tous deux la longueur de l\'os, donc')
+    A('            |p - T| = 2 L sin(tiprot/2) : shape = 2 sin(tiprot/2), la grandeur deja publiee')
+    A('            dans la colonne voisine. VERIFIE sur ce tableau, sur les 17 chaines sans')
+    A('            attenuation d\'angle (bendcut = 0) : ecart maximal 0.072 % — earL 1.9572 contre')
+    A('            1.9572, chestL 0.6727 contre 0.6727, goggles 1.9986 contre 1.9987, anklestrapL')
+    A('            0.1039 contre 0.1040. Les 5 chaines de cheveux portent une attenuation d\'angle,')
+    A('            qui s\'applique ENTRE les deux releves : deux d\'entre elles s\'en ecartent nettement')
+    A('            (lbang 29.6 %, rbang 27.1 %), les trois autres restent a 0.0 %.')
+    A('            CONSEQUENCE (test d\'admissibilite SPEC 7) : shape lit son MAXIMUM precisement')
+    A('            quand le moteur fait ce que la SPEC exige — une rotation rigide autour de l\'ancre,')
+    A('            a longueur invariante. Elle ne peut donc pas distinguer le defaut de son absence,')
+    A('            et TOUT CE QUI EN A ETE CONCLU SUR `flesh-jelly` EST RETIRE. La colonne reste')
+    A('            publiee : c\'est la mesure honnete de l\'excursion angulaire, rien de plus.')
+    A('            REPERE : aucun, une longueur sur une longueur. ABSENT : 0 (le maillon est a sa')
+    A('            pose de modele) — et c\'est bien la le probleme, 0 = immobile, pas 0 = sain.')
     A('   buried   paires (lien, volume) ou le lien est ENTIEREMENT dans un volume A SA POSE DE')
     A('            MODELE, comptees une fois par frame. NATURE : un compte. ABSENT : 0. Un pan dont')
     A('            la pose est DANS la jambe n\'a aucune surface a traverser : meshpen reste a zero')
@@ -987,6 +1001,119 @@ def main():
         A('   long de l\'os du porteur). Le second DOIT etre zero. La preuve n\'est pas ce drapeau mais')
         A('   la DISTANCE publiee par la course (`reseat-at ... bind=...`) : elle ne peut sortir que du')
         A('   chemin qui lit la bind-pose du rig, l\'ancien rendant exactement le rayon du lien.')
+    A('')
+
+    # ---- L'EFFET GELEE : UNE DISCONTINUITE, PAS UNE AMPLITUDE (11e passe, instrument du 2026-08-12)
+    # `shape` ci-dessus ne discrimine pas (elle est la corde de la rotation exigee par la SPEC). La
+    # grandeur qui voit le defaut decrit par l'owner etait deja dans la trace et n'avait jamais ete
+    # lue comme un RAPPORT : jump / tipvar, par (chaine, pilotage).
+    A('-- 11e PASSE : L\'EFFET GELEE EST UNE DISCONTINUITE — ROOM-JELLY ----------------------------')
+    A('   « Lors de mouvements brusques il y a un effet d\'etirement et un peu gelee ou ca change de')
+    A('   taille, c\'est pas coherent ! » ... « c\'est pourtant nickel sur le reste des animations plus')
+    A('   subtiles. » Le defaut est donc une INCOHERENCE TEMPORELLE, pas une amplitude — et c\'est')
+    A('   pour ca qu\'aucune colonne d\'amplitude ne pouvait le voir.')
+    A('')
+    A('   LES TROIS QUESTIONS DE LA SPEC 7, AVANT LE CHIFFRE :')
+    A('   NATURE  : un rapport SANS DIMENSION — la fraction de l\'amplitude de fenetre parcourue en')
+    A('             UNE frame. C\'est une mesure de DISCONTINUITE (donc une frequence), pas une')
+    A('             amplitude. Une amplitude ne pouvait pas decrire « ca change de taille sans etre')
+    A('             coherent », de la meme facon qu\'une variance ne pouvait pas decrire un')
+    A('             affaissement sous gravite.')
+    A('   REPERE  : celui de l\'ANCRE, applique a l\'ecart `o` = position ecrite moins pose d\'auteur du')
+    A('             MEME joint (jak-hd-physics.gc:1950-1958, vector-rotate*! par w2l, donc rotation')
+    A('             seule). Ni le repere monde, ni un ecart brut : les deux a la fois. Numerateur =')
+    A('             norme euclidienne de l\'increment d\'UNE frame (jak-hd-physics.gc:2201) ;')
+    A('             denominateur = diagonale de la boite englobante du MEME vecteur, du MEME maillon,')
+    A('             sur la MEME fenetre (jak-hd-physics.gc:2458-2463). Meme grandeur, meme repere,')
+    A('             meme fenetre — c\'est pour ca que le rapport se calcule PAR FENETRE puis se prend')
+    A('             au maximum, et jamais comme max(jump)/max(tipvar), qui melangerait deux fenetres')
+    A('             differentes (sur chestL/jerk ce melange lit 0.4300 la ou la pire fenetre reelle')
+    A('             lit 0.7811 : il DILUE le defaut au lieu de le montrer).')
+    A('   ABSENT  : sin(pi/T) pour une oscillation de periode T ; ~0.16 a 3 Hz, ~0.31 a 6 Hz. Mesure')
+    A('             sur chestL sous les pilotages doux : 0.175.')
+    A('   RESERVE : le denominateur est une DIAGONALE de boite englobante ; pour un mouvement')
+    A('             isotrope elle surestime l\'etendue le long d\'un axe d\'un facteur allant jusqu\'a')
+    A('             racine de 3. Le ratio publie est donc une BORNE INFERIEURE de la discontinuite')
+    A('             reelle.')
+    A('')
+    A('   LA BORNE SE DERIVE, ELLE N\'EST PAS CHOISIE. Pour une oscillation de periode T frames,')
+    A('   l\'increment maximal par frame rapporte a l\'etendue crete-a-crete vaut sin(pi/T). Donc')
+    A('   ratio = sin(pi/T), soit T = pi / asin(ratio). Lecture (a 60 images/s) :')
+    A('     T = 20 frames (3 Hz)    -> ratio 0.156      T = 10 frames (6 Hz)  -> ratio 0.309')
+    A('     T =  6 frames (10 Hz)   -> ratio 0.500      T =  4 frames (15 Hz) -> ratio 0.707')
+    A('     T =  3.5 frames (17 Hz) -> ratio 0.781   <- ce que chestL mesure sous jerk')
+    A('   (la note de cadrage ecrivait « 3.3 frames (18 Hz) -> 0.781 » : pi/asin(0.781) = 3.51, et')
+    A('   3.3 frames correspond a 0.814. Le pas de la lecture est corrige ici, pas le chiffre mesure.)')
+    A('   La SPEC 1bis exige que la poitrine ait une MASSE : « l\'inertie retarde la reponse sur un')
+    A('   depart brusque : ils restent en arriere puis rattrapent — dephasage mesurable entre l\'ancre')
+    A('   et la pointe ». Une chair qui oscille a 17 Hz n\'a pas d\'inertie, c\'est du broutement')
+    A('   numerique. PLAFOND : ratio <= 0.5 (T >= 6 frames, 10 Hz). Le `baseline` mesure de chestL')
+    A('   (0.175, soit T = 18 frames = 3.3 Hz) est ce a quoi ressemble de la chair.')
+    A('')
+    A('   baseline = le MINIMUM des ratio de la MEME chaine sur les trois pilotages DOUX (updown,')
+    A('   leftright, tilt) : la lecture de la meme chaine quand le defaut est ABSENT, exactement la')
+    A('   comparaison que l\'owner fait lui-meme entre « brusque » et « subtil ». excess = ratio -')
+    A('   baseline. Un ratio n\'est calcule que si tipvar > 0.02 m : un rapport sur un denominateur')
+    A('   nul ne veut rien dire, et dans ce cas la ligne porte ratio=- et n\'autorise aucune')
+    A('   conclusion.')
+    A('')
+    SOFT = ('updown', 'leftright', 'tilt')
+    jelly = {}          # (c, dr) -> dict(ratio, jump, tip, ai)
+    for c in sorted(chains):
+        for dr in range(len(DRIVE_NAMES)):
+            best = None
+            for r in rows:
+                if r['c'] != c or r['dr'] != dr or r['amp'] <= 0.02:
+                    continue
+                q = r['jump'] / r['amp']
+                if best is None or q > best['ratio']:
+                    best = dict(ratio=q, jump=r['jump'], tip=r['amp'], ai=r['ai'])
+            if best is not None:
+                jelly[(c, dr)] = best
+
+    def _period(rt):
+        if rt is None or rt <= 0.0:
+            return None
+        return math.pi / math.asin(min(rt, 1.0))
+
+    j_worst = None
+    j_over = 0
+    for c in sorted(chains):
+        soft = [jelly[(c, dr)]['ratio'] for dr, nm in enumerate(DRIVE_NAMES)
+                if nm in SOFT and (c, dr) in jelly]
+        bl = min(soft) if soft else None
+        for dr, nm in enumerate(DRIVE_NAMES):
+            e = jelly.get((c, dr))
+            rt = e['ratio'] if e else None
+            T = _period(rt)
+            if rt is not None and rt > 0.5:
+                j_over += 1
+            if rt is not None and (j_worst is None or rt > j_worst[0]):
+                j_worst = (rt, c, dr, T)
+            A('ROOM-JELLY: chain=%-12s drive=%-10s jump=%-9s tipvar=%-9s ratio=%-8s baseline=%-8s'
+              ' excess=%-8s period=%s'
+              % (names[c], nm,
+                 fnum(e['jump']) if e else '-', fnum(e['tip']) if e else '-',
+                 '%.4f' % rt if rt is not None else '-',
+                 '%.4f' % bl if bl is not None else '-',
+                 '%.4f' % (rt - bl) if (rt is not None and bl is not None) else '-',
+                 '%.2f' % T if T is not None else '-'))
+    if j_worst is None:
+        die('aucun couple (chaine, pilotage) ne porte un tipvar > 0.02 m : ROOM-JELLY n\'a aucun'
+            ' denominateur admissible, et le defaut « gelee » reste donc non mesure')
+    A('ROOM-JELLY-WORST: chain=%s drive=%s ratio=%.4f period=%.2f over=%d'
+      % (names[j_worst[1]], DRIVE_NAMES[j_worst[2]], j_worst[0], j_worst[3], j_over))
+    A('   `over` = nombre de couples (chaine, pilotage) au-dessus du plafond derive de 0.5, soit une')
+    A('   oscillation plus rapide que 6 frames / 10 Hz : de la chair n\'oscille pas la.')
+    A('   Le ratio est pris PAR FENETRE puis au MAXIMUM sur les fenetres (numerateur et denominateur')
+    A('   viennent donc de la MEME fenetre) ; le nom de l\'animation de la pire fenetre est celui du')
+    A('   bloc `row` correspondant.')
+    A('   PLAFOND STRUCTUREL : les deux extremites d\'un increment d\'une frame sont dans la boite de')
+    A('   la fenetre, donc jump <= diagonale et le ratio ne peut pas depasser 1.0000. Un ratio a')
+    A('   1.0000 exactement (period=2.00, la limite de Nyquist) n\'est donc pas une saturation')
+    A('   d\'instrument : il dit que TOUTE l\'excursion de la fenetre s\'est faite en UNE frame — une')
+    A('   marche, pas une oscillation. C\'est la lecture la plus severe que cette grandeur puisse')
+    A('   rendre, et elle est atteinte.')
     A('')
     A('-- 6e PASSE, DEFAUT 2 : LA COURBE DE REPONSE ------------------------------------------------')
     A('   « Les meches les plus grosses sont trop statiques sur les mouvements faibles, trop')
