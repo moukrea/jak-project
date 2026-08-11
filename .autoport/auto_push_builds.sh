@@ -34,6 +34,10 @@ while true; do
        | grep -qE '^(cmake|ninja|cc1plus|java)[^\n]*(--build|assemble|GradleWrapperMain)'; then continue; fi
   cp "$APK" "$DIST" || continue
   UP=("$DIST")
+  # Owner 2026-08-11: on publie meme quand ce n'est PAS vert, pour qu'il puisse tester et
+  # renvoyer des retours. BUILD-INFO.txt part avec, pour qu'il sache exactement ce qu'il a
+  # entre les mains (commit, branche, ce qui est rouge) au lieu de deviner.
+  [ -f out/artifacts/BUILD-INFO.txt ] && UP+=("out/artifacts/BUILD-INFO.txt")
   if [ -f "$ZIP" ]; then
     zh=$(md5sum "$ZIP" | cut -d' ' -f1)
     [ "$zh" != "${LASTZIP:-}" ] && { UP+=("$ZIP"); LASTZIP="$zh"; }
