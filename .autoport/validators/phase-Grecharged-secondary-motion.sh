@@ -134,6 +134,21 @@ for k in ('tipvar', 'rootdev', 'meshpen', 'jump'):
 tip = {}
 for r in rows:
     tip[r['chain']] = max(tip.get(r['chain'], 0.0), float(r['tipvar']))
+# On compare aux chaines DECLAREES, pas a celles qui ont bien voulu apparaitre : pantflapL, mesuree
+# inerte a 0.0137, a disparu du tableau et la gate est passee au vert. Ne pas mesurer n'est pas
+# reussir (cf. 'declared but never selected').
+declared = set()
+try:
+    for ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
+        if ln.startswith('chain '):
+            declared.add(ln.split()[1])
+except Exception:
+    pass
+missing = sorted(declared - set(tip))
+if missing:
+    die("MOVE: %d chaine(s) DECLAREE(S) mais absente(s) des mesures : %s\n"
+        "  Une chaine qui disparait du tableau n'est pas conforme, elle est non mesuree."
+        % (len(missing), ", ".join(missing)))
 inert = sorted(c for c, v in tip.items() if v < 0.05)
 if inert:
     die("MOVE: %d chaîne(s) déclarée(s) mais inerte(s) (tipvar max < 0.05) : %s\n"
@@ -170,6 +185,24 @@ for label, pat in pairs:
         die("COLLIDE: « %s » traverse encore, pénétration max %.3f.\n"
             "  « Collisions propres » — et une résolution pire que le clip est pire que rien."
             % (label, worst))
+
+cov_c = re.search(r'^ROOM-COLLIDER-COVERAGE:\s*(.+)$', t, re.M)
+if not cov_c:
+    die("COLLIDE: pas de ligne 'ROOM-COLLIDER-COVERAGE: <parties du corps couvertes>'.\n"
+        "  meshpen mesure l'entree dans un COLLIDER DECLARE, pas la traversee du corps : un zero\n"
+        "  contre un ensemble qui ne couvre pas le corps ne prouve rien. Le tableau du 11:19\n"
+        "  annoncait zero penetration alors qu'AUCUN collider de buste n'existait et que l'owner\n"
+        "  voyait les bretelles traverser le torse par devant.")
+have = cov_c.group(1).lower()
+for part, pats in (("le torse", ("chest", "torso", "spine", "hips")),
+                   ("la tete/le crane", ("head", "skull", "neck")),
+                   ("les epaules", ("shoulder", "clav", "arm")),
+                   ("les oreilles", ("ear",)),
+                   ("la poitrine", ("boob", "breast", "chestl", "chestr"))):
+    if not any(x in have for x in pats):
+        die("COLLIDE: aucun collider ne couvre %s. SPEC 3 interdit que les cheveux traversent\n"
+            "  crane, visage, EPAULES et oreilles, et que les lunettes traversent le corps et les\n"
+            "  seins : ces obstacles doivent exister avant qu'un zero ait un sens." % part)
 
 pc = re.search(r'^ROOM-POSCONTROL:\s*injections=(\d+)\s+armed=([0-9.]+)\s+disarmed=([0-9.]+)', t, re.M)
 if not pc:
