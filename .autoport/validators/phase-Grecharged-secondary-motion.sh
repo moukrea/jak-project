@@ -141,6 +141,17 @@ if not cov:
     die("ROOM: 'ROOM-ANIMS: joue/total raw=<total brut de l'art-group> skipped=<n>' est exige.\n"
         "  Un total egal au nombre d'animations que la salle a decide de retenir ne prouve rien.")
 raw, skipped = int(cov.group(3)), int(cov.group(4))
+# Owner 2026-08-11 : « faut tester VRAIMENT TOUTES les animations qu'utilise le perso tout au long
+# du jeu, pas quelques unes ! ». Les 13 ecartees appartenaient a ses variantes (Fire Canyon, Lava
+# Tube, Village 2 et 3) dont le rig porte 94 joints contre 96 : un obstacle technique, pas une
+# raison de ne pas tester. Une raison ecrite ne transforme pas un de-scope en couverture.
+if skipped > 0:
+    print("[Grecharged-secondary-motion FAIL] ROOM: %d animation(s) ecartee(s) sur %d."
+          " L'owner exige TOUTES les animations que le personnage utilise dans le jeu." % (skipped, raw))
+    print("  Le rig d'une variante a 94 joints la ou le porteur de physique en a 96 : la salle doit")
+    print("  jouer chaque animation SUR SON PROPRE art-group (elle en spawne deja six), pas les")
+    print("  filtrer contre un seul rig. Une raison ecrite ne transforme pas un de-scope en couverture.")
+    sys.exit(1)
 if raw < int(cov.group(2)):
     die("ROOM: raw=%d < total=%s : le total brut ne peut pas etre inferieur au total joue"
         % (raw, cov.group(2)))
