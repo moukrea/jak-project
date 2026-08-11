@@ -106,13 +106,13 @@ chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.00 radius=282
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.45 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.20 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.45 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.20 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
-chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,150,79
+chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,150,150,150,79
 j gogglesBase
 j gogglesMid
 # topstrapL [B] lTopStrap verts=0 wsum=0.00 r=1518 | lTopStrap2 verts=31 wsum=13.27 r=1518
@@ -230,7 +230,6 @@ collider Rmidhaira radius=228
 collider lBoob radius=708
 # sphere rBoob [chestR]  25v @w>0.25
 collider rBoob radius=712
-collider chest radius=430 to=hips radius2=545
-collider neck radius=250 to=chest radius2=430
-collider Rknee radius=300 to=Rankle radius2=205
-collider Lknee radius=300 to=Lankle radius2=205
+capsule chest hips radius=430 radius2=545
+capsule Rknee Rankle radius=300 radius2=205
+capsule Lknee Lankle radius=300 radius2=205

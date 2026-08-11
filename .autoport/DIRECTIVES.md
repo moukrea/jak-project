@@ -248,3 +248,35 @@ avec contrôle positif. **C'est le défaut le plus visible qui reste, il passe d
 **3. LUNETTES vs SEINS** — traité côté données : on cesse d'enfler la poitrine (ça finirait par
 décoller les lunettes du corps), ce sont les lunettes qui manquaient de volume propre. Leur second
 maillon passe de 79 à 150.
+
+## CINQUIÈME PASSE DE L'OWNER (2026-08-11, APK de 12:20)
+
+> « Les mèches fines sont toujours en crazy jitter, ça n'a pas changé. Les seins ne bougent toujours
+> pas quand elle soude, pourtant son torse se déplace donc logiquement la physique devrait opérer.
+> Ses lunettes clipent toujours un peu sur ses seins. Les changements brusques de direction causent
+> un truc chelou au niveau des seins, ils s'allongent, c'est un peu débile — c'est pourtant nickel
+> sur le reste des animations plus subtiles. »
+
+Rien de surprenant sur les deux premiers : les corrections sont **moteur**, elles ne sont pas dans
+ce build. Ils restent en tête de file. Mais deux choses nouvelles :
+
+**1. LES SEINS S'ALLONGENT sur les changements brusques de direction.** C'est un défaut de solveur,
+et mon réglage l'a rendu visible : j'avais monté `couple` de 1.00 à 1.45, or le couplage est une
+déviation **positionnelle** — sous forte accélération il **étire** au lieu de faire tourner. Ramené
+à 1.20 côté données, mais **le vrai correctif est dans le moteur** :
+→ une chaîne à un seul os doit **tourner autour de son ancre à longueur invariante**, jamais se
+translater ni s'allonger. La contrainte de longueur doit être **dure** (projection appliquée jusqu'à
+convergence sur la frame), pas un ressort qui cède quand l'impulsion est forte.
+→ **À mesurer** : allongement relatif max du maillon (|longueur courante / longueur de repos − 1|)
+par chaîne et par animation, sur les pilotages `jerk` et `accel` en particulier. Doit rester sous
+3 %, avec un contrôle positif qui l'a fait monter.
+
+**2. LES LUNETTES CLIPENT ENCORE malgré deux élargissements.** Hypothèse : le collider de poitrine
+est une sphère posée sur le **joint-racine** du sein, alors que le sein **est simulé et se déplace**.
+Les lunettes évitent donc la position de repos de la poitrine, pas sa position réelle. C'est la
+collision **chaîne↔chaîne** que la SPEC §3 exige (« les oreilles ont de la physique elles aussi…
+ce sont des volumes, pas seulement des chaînes ») et qui n'existe visiblement pas.
+→ Les lunettes doivent collisionner contre la position **courante simulée** des chaînes `chestL`/
+`chestR`, pas contre une sphère statique. Même chose pour cheveux ↔ oreilles.
+→ **À mesurer** : nombre de corrections chaîne↔chaîne effectivement appliquées, par paire. Zéro
+correction sur une paire déclarée = la collision chaîne↔chaîne n'est pas branchée.

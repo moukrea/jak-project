@@ -53,3 +53,12 @@ collider rBoob radius=712
 # On arrête d'enfler la poitrine (ça finirait par décoller les lunettes du corps) : ce sont les
 # LUNETTES qui manquent de volume propre. Leur second maillon était à 79, très fin.
 chain goggles radii=196,150
+
+## 2026-08-11 (5e passe) — « les changements brusques de direction causent un truc chelou au niveau
+## des seins, ils s'allongent c'est un peu débile, c'est pourtant nickel sur le reste des animations »
+# C'est MON réglage : j'avais monté couple 1.00 -> 1.45 pour lui donner plus de mouvement, et le
+# couplage est une déviation POSITIONNELLE — sous forte accélération il étire au lieu de faire
+# tourner. On redescend à 1.20 : on garde l'essentiel du gain d'amplitude, on limite l'étirement
+# visible. Le vrai correctif est dans le moteur (longueur invariante, rotation autour de l'ancre).
+chain chestL couple=1.20
+chain chestR couple=1.20
