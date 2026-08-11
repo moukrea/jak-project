@@ -415,3 +415,53 @@ soit remplacé par une transition continue.
 désormais des volumes **placés** — rayon 183 avec offset, au lieu d'une sphère de 708 sur le joint),
 posé la gate `TUNING`, déplacé la réapplication des réglages dans le producteur, et remis la
 livraison en marche (patience bornée + respawn des deux maillons).
+
+## LE VERDICT DU 2026-08-11 16:15 — MES MESURES SONT VERTES, SON ÉCRAN NE BOUGE PAS
+
+> « Les petites mèches fines sont toujours complètement hystériques dès que ça bouge. Les seins
+> s'étirent sur les mouvements brusques et ne bougent pas assez sur les mouvements soft. Aucun
+> mouvement en fonction de l'inclinaison (quand elle se penche en avant pour souder), zéro gravité
+> sur ses seins du coup. Honnêtement je vois pas d'amélioration. C'est vraiment très décevant. »
+
+**Vérifié d'abord : le build CONTIENT bien les corrections.** Données livrées `gravity=0.45` sur la
+poitrine, marqueur d'auto-collision présent dans le CGO arm64 bâti à 15:44, versions des deux packs
+qui changent à chaque build donc l'extraction se fait. Ce n'est pas un problème de livraison.
+
+**Donc c'est la mesure qui ne vaut rien, et voici pourquoi.** Le test d'admissibilité de la SPEC §7
+dit : « si ce chiffre est vert et que l'owner voit encore le défaut, qu'est-ce qui l'expliquerait ?
+S'il y a une réponse, la mesure ne vaut rien. » La réponse est là, dans le tableau :
+
+    seins, mouvement de pointe par pilotage
+      accel 0.3490 · jerk 0.3614 · leftright 0.3606 · updown 0.3535 · tilt 0.3889
+
+Cinq pilotages violents — translations, à-coups, inclinaison à 60° — et **la réponse est plate à
+0.35 partout**. Un système physique correct répond DIFFÉREMMENT à une secousse et à une inclinaison
+soutenue. Une réponse identique quel que soit le stimulus veut dire que **ce qu'on mesure n'est pas
+piloté par le stimulus** : c'est le bruit de l'animation qui domine, et la salle le compte comme du
+mouvement. Le `tilt` à 0.3889 n'est pas une réaction à la gravité, c'est la même valeur que les
+autres.
+
+**Ce que ça implique, et c'est la seule chose à faire ensuite :**
+
+1. **La salle doit mesurer la RÉPONSE, pas l'agitation.** Pour chaque pilotage, publier l'amplitude
+   de pointe **rapportée à l'amplitude du stimulus**, et la valeur **sous animation seule** (aucun
+   pilotage) comme ligne de base à soustraire. Un pilotage dont la réponse ne dépasse pas la ligne
+   de base n'a rien excité. `ROOM-RESPONSE: drive=<mode> stimulus=<a> tip=<b> baseline=<c> gain=<b-c/a>`
+2. **L'inclinaison doit produire un DÉPLACEMENT SOUTENU, pas une variance.** Mesurer la position
+   moyenne de la pointe à 0° et à 60°, dans le repère de l'ancre : l'écart entre les deux EST la
+   réponse gravitaire. Aujourd'hui rien ne le mesure, et c'est exactement ce que l'owner regarde
+   quand elle se penche pour souder. `ROOM-GRAVSAG: chain=<nom> at0=<p> at60=<p> sag=<d>` — un
+   `sag` nul sur une chaîne de famille A avec `gravity>0` est un échec.
+3. **La raideur vers la pose du modèle écrase la gravité.** C'est l'explication mécanique de « zéro
+   gravité » : le ressort qui ramène à la pose du modèle est un rappel POSITIONNEL permanent, la
+   gravité une force constante bien plus faible. Pour la famille A, la SPEC dit que la gravité agit
+   sur la dynamique **et reprend quand elle n'est plus debout** : la cible du ressort doit donc
+   **s'incliner avec l'ancre**, de sorte qu'à 60° l'équilibre lui-même soit déplacé. Sans ça, aucun
+   réglage de `gravity=` ne produira jamais quoi que ce soit.
+4. **Mèches fines hystériques malgré `SELFCOL run=0`** : le compteur est honnête mais il ne mesure
+   qu'une cause. Mesurer la réponse (point 1) sur `lbang`/`rbang` : si le gain est très supérieur à
+   celui des autres chaînes aux mêmes stimuli, la cause est le rapport raideur/masse, pas la
+   collision — et se corrige alors par la courbe de réponse, pas par une correction de collision.
+
+**Aucun APK ne repart tant que `ROOM-GRAVSAG` n'est pas non nul sur la poitrine.** C'est la première
+chose qu'il regarde, et c'est la seule qui n'a jamais été mesurée.
