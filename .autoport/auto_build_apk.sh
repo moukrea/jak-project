@@ -103,6 +103,19 @@ while true; do
     say "verrou de livraison perime (${age}s > 3600) — ignore"
   fi
 
+  # NE JAMAIS CONSTRUIRE DEPUIS UN ARBRE SALE (2026-08-11 18:50). Le build de 18:28 a ete
+  # fabrique pendant que le worker ecrivait le moteur : 366 lignes ajoutees et 52 retirees non
+  # commitees. L'owner a donc teste un moteur a MOITIE reecrit et l'a trouve pire — "des petits
+  # flickers qui font plus glitch qu'intentionnels". Un build livrable se fait depuis un etat
+  # COMMITE, donc auto-coherent. On attend simplement le prochain point de commit du worker :
+  # il en fait regulierement, la livraison continue, mais plus jamais a moitie.
+  dirty=$(git status --porcelain -- goal_src/jak1/pc/jak-hd-physics.gc \
+                                    goal_src/jak1/pc/phys-room.gc \
+                                    recharged_assets/physics_chains.txt 2>/dev/null | grep -c . || true)
+  if [ "${dirty:-0}" -gt 0 ]; then
+    say "arbre sale ($dirty fichier(s) de physique en cours d'ecriture) — build reporte"
+    continue
+  fi
   say "sources changées ($h) → build arm64 cohérent"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then
     say "build arm64 ÉCHOUÉ — rien à publier, on retentera au prochain changement"
