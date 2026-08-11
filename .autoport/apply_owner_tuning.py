@@ -34,6 +34,12 @@ def main():
         ln = raw.strip()
         if not ln or ln.startswith("#"):
             continue
+        # commentaire de fin de ligne : la gate TUNING les ignore, l'applicateur doit faire pareil
+        # (sinon `chain chestL stiffness=2.20  # couple: voir 5e passe` le fait planter).
+        if "#" in ln:
+            ln = ln.split("#", 1)[0].strip()
+            if not ln:
+                continue
 
         if ln.startswith("+collider "):
             body = ln[len("+collider "):]
