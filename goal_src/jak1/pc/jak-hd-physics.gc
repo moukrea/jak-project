@@ -462,13 +462,20 @@
 ;;              variance) ni elong (la longueur de l'OS, qui ne bouge pas) ne pouvaient decrire.
 ;;              REPERE : aucun, c'est une longueur sur une longueur mesuree depuis l'attache.
 ;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0 (le maillon est a sa pose de modele).
+;;  10 tiprot   pire ROTATION D'OS effectivement ECRITE dans la matrice du DERNIER maillon, en
+;;              degres. NATURE : un angle. REPERE : celui de l'attache du maillon. LECTURE QUAND LE
+;;              DEFAUT EST PRESENT : ZERO — c'est le defaut, le dernier maillon ne recevait qu'une
+;;              translation, donc sa peau etait cisaillee de toute la rotation manquante. C'est donc
+;;              une mesure a l'envers des autres : un NON-ZERO est la preuve d'execution du chemin
+;;              neuf, et il doit valoir la deviation angulaire que ROOM-GRADIENT publie pour ce meme
+;;              maillon (chestL 39.29 deg, earL 35.95, toestrapL 15.39 sur la course du 2026-08-12).
 ;;   9 buried   paires (lien, volume) ou le lien est ENTIEREMENT dans un volume A SA POSE DE MODELE,
 ;;              donc sans surface devant lui — le compteur global existait deja, il est ici PAR
 ;;              CHAINE. C'est la mesure du « bas du pantacourt avale a l'interieur des mollets,
 ;;              comme s'il s'arretait aux genoux » : un pan dont la pose de modele est dans la
 ;;              jambe n'a rien a traverser, donc meshpen reste a zero pendant que l'owner le voit
 ;;              disparaitre. NATURE : un compte de paires. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
-(defconstant PHYS-DG 10)
+(defconstant PHYS-DG 11)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -2246,22 +2253,85 @@
                           (when (and (>= k 0) (< (+ k 1) nbone))
                             (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
                               (matrix-copy! pre bm)
-                              ;; orientation : on fait pointer le lien vers la position simulee de
-                              ;; son enfant. Sans ca la chaine se translate sans tourner et le
-                              ;; skinning cisaille.
-                              (when (< (+ l 1) n)
-                                (let* ((sclc (+ (* sc PHYS-LINKS) (+ l 1)))
-                                       (kc   (-> *phys-joint* sclc)))
-                                  (when (and (>= kc 0) (< (+ kc 1) nbone))
-                                    (vector-copy! tgt (the-as vector (-> skel bones (+ kc 1) transform vector 3)))
-                                    (set! (-> rest x) (- (-> tgt x) (-> bm vector 3 x)))
-                                    (set! (-> rest y) (- (-> tgt y) (-> bm vector 3 y)))
-                                    (set! (-> rest z) (- (-> tgt z) (-> bm vector 3 z)))
-                                    (set! (-> rest w) 1.0)
-                                    (set! (-> pt x) (- (-> *phys-px* sclc) (-> *phys-px* scl)))
-                                    (set! (-> pt y) (- (-> *phys-py* sclc) (-> *phys-py* scl)))
-                                    (set! (-> pt z) (- (-> *phys-pz* sclc) (-> *phys-pz* scl)))
-                                    (set! (-> pt w) 1.0)
+                              ;; ------------------------------------------------------------
+                              ;; ORIENTATION. « Sans ca la chaine se translate sans tourner et le
+                              ;; SKINNING CISAILLE » — la phrase etait deja la, et elle designait
+                              ;; un defaut qui n'etait traite qu'a MOITIE.
+                              ;;
+                              ;; Le bloc ne tournait le lien que s'il avait un ENFANT SIMULE a
+                              ;; viser : `(when (< (+ l 1) n))`. Le DERNIER maillon de chaque
+                              ;; chaine n'en a pas, donc il ne recevait qu'une translation, sa
+                              ;; matrice 3x3 restant celle de la pose d'auteur. Or `chestL` et
+                              ;; `chestR` sont des chaines a UN SEUL maillon : leur unique maillon
+                              ;; EST le dernier, donc le sein n'a JAMAIS tourne — il GLISSAIT, avec
+                              ;; son orientation figee, jusqu'a 656 unites (16 cm) de cote.
+                              ;;
+                              ;; C'est mot pour mot ce que l'owner decrit (11e passe) : « lors de
+                              ;; mouvements brusques il y a un effet d'etirement et un peu gelee ou
+                              ;; ca change de taille — plus petit, plus gros, plus long, plus court,
+                              ;; ECRASE ». Un os qui se deplace sans tourner cisaille sa peau
+                              ;; exactement de la rotation qu'il n'a pas appliquee : les sommets
+                              ;; ponderes sur lui suivent la translation, ceux ponderes sur le
+                              ;; porteur ne bougent pas, et la chair entre les deux s'etire.
+                              ;;
+                              ;; Le dernier maillon vise donc SA PROPRE DIRECTION D'OS : de son
+                              ;; attache vers lui, pose du modele -> position simulee. C'est la
+                              ;; meme rotation que la contrainte de longueur lui fait deja subir
+                              ;; (elle ne l'autorise qu'a tourner autour de son attache), donc on
+                              ;; n'invente rien : on ECRIT enfin dans la matrice la rotation que le
+                              ;; solveur avait deja decidee.
+                              ;;
+                              ;; CA NE COUTE AUCUNE AMPLITUDE : la position ecrite ne change pas
+                              ;; d'un bit, seule la 3x3 change. Le plancher est donc invariant par
+                              ;; construction, et ce n'est pas un pari — `tipvar` est calcule sur
+                              ;; l'ecart AVANT ce bloc.
+                              ;;
+                              ;; La pose d'AUTEUR de l'attache doit venir de `*phys-t1*` et non du
+                              ;; squelette : le maillon precedent a deja ete ECRASE par sa position
+                              ;; simulee quelques lignes plus haut (la boucle ecrit dans l'ordre).
+                              ;; Pour le maillon 0 l'attache est l'ANCRE, que cette chaine n'ecrit
+                              ;; jamais, donc le squelette y porte encore la pose d'auteur.
+                              ;; ------------------------------------------------------------
+                              (let ((have #f))
+                                (cond
+                                  ((< (+ l 1) n)
+                                   (let* ((sclc (+ (* sc PHYS-LINKS) (+ l 1)))
+                                          (kc   (-> *phys-joint* sclc)))
+                                     (when (and (>= kc 0) (< (+ kc 1) nbone))
+                                       (vector-copy! tgt (the-as vector (-> skel bones (+ kc 1) transform vector 3)))
+                                       (set! (-> rest x) (- (-> tgt x) (-> bm vector 3 x)))
+                                       (set! (-> rest y) (- (-> tgt y) (-> bm vector 3 y)))
+                                       (set! (-> rest z) (- (-> tgt z) (-> bm vector 3 z)))
+                                       (set! (-> pt x) (- (-> *phys-px* sclc) (-> *phys-px* scl)))
+                                       (set! (-> pt y) (- (-> *phys-py* sclc) (-> *phys-py* scl)))
+                                       (set! (-> pt z) (- (-> *phys-pz* sclc) (-> *phys-pz* scl)))
+                                       (set! have #t))))
+                                  (else
+                                   (let ((kp (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+                                     (when (and (>= kp 0) (< (+ kp 1) nbone))
+                                       (let ((ax (if (> l 0) (-> *phys-t1x* (- scl 1))
+                                                   (-> skel bones (+ kp 1) transform vector 3 x)))
+                                             (ay (if (> l 0) (-> *phys-t1y* (- scl 1))
+                                                   (-> skel bones (+ kp 1) transform vector 3 y)))
+                                             (az (if (> l 0) (-> *phys-t1z* (- scl 1))
+                                                   (-> skel bones (+ kp 1) transform vector 3 z)))
+                                             (bx2 (if (> l 0) (-> *phys-px* (- scl 1))
+                                                    (-> skel bones (+ kp 1) transform vector 3 x)))
+                                             (by2 (if (> l 0) (-> *phys-py* (- scl 1))
+                                                    (-> skel bones (+ kp 1) transform vector 3 y)))
+                                             (bz2 (if (> l 0) (-> *phys-pz* (- scl 1))
+                                                    (-> skel bones (+ kp 1) transform vector 3 z))))
+                                         (set! (-> rest x) (- (-> bm vector 3 x) ax))
+                                         (set! (-> rest y) (- (-> bm vector 3 y) ay))
+                                         (set! (-> rest z) (- (-> bm vector 3 z) az))
+                                         (set! (-> pt x) (- (-> *phys-px* scl) bx2))
+                                         (set! (-> pt y) (- (-> *phys-py* scl) by2))
+                                         (set! (-> pt z) (- (-> *phys-pz* scl) bz2))
+                                         (set! have #t))))))
+                                (when have
+                                  (set! (-> rest w) 1.0)
+                                  (set! (-> pt w) 1.0)
+                                  (begin
                                     (let ((la (vector-length rest)) (lb (vector-length pt)))
                                       (when (and (> la 0.01) (> lb 0.01))
                                         (vector-float*! rest rest (/ 1.0 la))
@@ -2287,6 +2357,13 @@
                                             ;; passe. La position, elle, etait juste : seule
                                             ;; l'orientation partait, donc rien dans les chiffres de
                                             ;; position ne pouvait le voir.
+                                            ;; PREUVE D'EXECUTION du chemin neuf : l'angle
+                                            ;; REELLEMENT ecrit dans la 3x3 du dernier maillon.
+                                            ;; Avant ce cycle il valait structurellement zero.
+                                            (when (>= (+ l 1) n)
+                                              (let ((ad (* 0.0054931641 (atan sn cs))))
+                                                (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 10)))
+                                                  (set! (-> *phys-dg* (+ (* sc PHYS-DG) 10)) ad))))
                                             (matrix-axis-angle! rot nrm (atan sn cs))
                                             (set! (-> bm vector 3 x) 0.0)
                                             (set! (-> bm vector 3 y) 0.0)

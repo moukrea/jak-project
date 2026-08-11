@@ -296,9 +296,10 @@ def main():
             inv=float(m.group(3)), invres=float(m.group(4)), elong=float(m.group(5)),
             rad=float(m.group(6)) if m.group(6) is not None else 0.0)
     for m in re.finditer(r'^PHYSDIAG3 tag=(\S+) c=(\d+) bendcut=([-\d.e+]+) shape=([-\d.e+]+)'
-                         r' buried=([-\d.e+]+)', txt, re.M):
+                         r' buried=([-\d.e+]+)(?: tiprot=([-\d.e+]+))?', txt, re.M):
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
-            bendcut=float(m.group(3)), shape=float(m.group(4)), buried=float(m.group(5)))
+            bendcut=float(m.group(3)), shape=float(m.group(4)), buried=float(m.group(5)),
+            tiprot=float(m.group(6)) if m.group(6) is not None else 0.0)
     # la re-assise : combien de liens le moteur a replaces, et combien ont du retomber sur
     # l'ancienne heuristique (rayon le long de l'os du porteur) au lieu de la place du rig.
     global RESEAT_FB
@@ -945,7 +946,19 @@ def main():
     A('            la pose est DANS la jambe n\'a aucune surface a traverser : meshpen reste a zero')
     A('            pendant que l\'owner le voit disparaitre. C\'est la mesure de ce defaut-la.')
     A('')
-    A('   %-12s %9s %9s %9s   %s' % ('chaine', 'bendcut', 'shape', 'buried', 'limite d\'angle'))
+    A('   tiprot   ROTATION D\'OS effectivement ECRITE dans la matrice du DERNIER maillon, en degres.')
+    A('            NATURE : un angle. Elle se lit A L\'ENVERS des autres : jusqu\'au 2026-08-12 elle')
+    A('            valait STRUCTURELLEMENT ZERO. Le bloc d\'ecriture ne tournait un maillon que s\'il')
+    A('            avait un enfant SIMULE a viser, donc le DERNIER maillon de chaque chaine ne')
+    A('            recevait qu\'une TRANSLATION. `chestL`/`chestR` n\'ayant qu\'UN SEUL maillon, le sein')
+    A('            n\'avait JAMAIS tourne : il GLISSAIT de 16 cm, orientation figee — et un os qui se')
+    A('            deplace sans tourner cisaille sa peau exactement de la rotation qu\'il n\'a pas')
+    A('            appliquee. C\'est « ca change de taille, plus long, plus court, ECRASE ».')
+    A('            Un NON-ZERO est donc la preuve d\'execution du chemin neuf, et il doit EGALER la')
+    A('            deviation du meme maillon dans ROOM-GRADIENT : deux instruments independants.')
+    A('')
+    A('   %-12s %9s %9s %9s %9s   %s'
+      % ('chaine', 'bendcut', 'shape', 'buried', 'tiprot', 'limite d\'angle'))
     _lim = {}
     try:
         for _ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
@@ -957,9 +970,9 @@ def main():
     for c in sorted(chains):
         _d = dr_run.get(c, {})
         _l = _lim.get(names[c], 0.0)
-        A('   %-12s %9.1f %9.4f %9d   %s'
+        A('   %-12s %9.1f %9.4f %9d %9.2f   %s'
           % (names[c], _d.get('bendcut', 0.0), _d.get('shape', 0.0), int(_d.get('buried', 0)),
-             ('%.2f deg (CHEVEUX)' % _l) if _l > 0 else '-'))
+             _d.get('tiprot', 0.0), ('%.2f deg (CHEVEUX)' % _l) if _l > 0 else '-'))
     _hair = [names[c] for c in chains if _lim.get(names[c], 0.0) > 0]
     _out = [names[c] for c in chains
             if _lim.get(names[c], 0.0) <= 0 and dr_run.get(c, {}).get('bendcut', 0.0) > 0]

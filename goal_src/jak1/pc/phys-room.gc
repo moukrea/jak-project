@@ -603,11 +603,12 @@
       ;;            aucune surface a traverser, donc meshpen reste a zero pendant que l'owner le
       ;;            voit disparaitre (« comme si son pantacourt s'arretait aux genoux »). Zero
       ;;            quand la piece est dehors, la ou elle se voit.
-      (format 0 "PHYSDIAG3 tag=~S c=~D bendcut=~f shape=~f buried=~f~%"
+      (format 0 "PHYSDIAG3 tag=~S c=~D bendcut=~f shape=~f buried=~f tiprot=~f~%"
               tag c
               (phys-diag (-> self slot) c 7)
               (phys-diag (-> self slot) c 8)
-              (phys-diag (-> self slot) c 9))))
+              (phys-diag (-> self slot) c 9)
+              (phys-diag (-> self slot) c 10))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
