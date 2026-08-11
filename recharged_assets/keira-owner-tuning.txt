@@ -11,6 +11,11 @@
 #   +collider <ligne complète>           ajoute un collider absent du rig-derive
 #
 # Chaque bloc cite la phrase de l'owner qui l'a motivé. Ne pas modifier sans un nouveau retour.
+#
+# UNE SEULE DIRECTIVE ACTIVE par (cible, paramètre). Ce fichier s'écrit par ajout, donc quand un
+# retour plus récent remplace un réglage, l'ancien est COMMENTÉ, pas laissé là : sinon la gate
+# TUNING signale à juste titre un réglage « absent du fichier livré » alors qu'il est simplement
+# périmé.
 
 ## 2026-08-11 — « les mèches les plus fines sur le devant jitter comme des folles constamment »
 # Première tentative : raideur 2.60 -> 3.30 pour les calmer. MAUVAISE DIRECTION — une raideur
@@ -28,26 +33,22 @@ chain rmidhair stiffness=1.50 couple=1.40 mass=0.72
 # On garde le couplage (l'amplitude lui plaît), on calme le solveur : raideur en baisse et
 # l'amortissement que j'avais trop retiré revient en partie. La fermeté vient de la raideur, pas
 # du débattement — un grand angle donnerait un ballon d'eau.
-chain chestL stiffness=2.20 damping=0.33 couple=1.45
-chain chestR stiffness=2.20 damping=0.33 couple=1.45
+chain chestL stiffness=2.20 damping=0.33   # couple: voir 5e passe (1.20)
+chain chestR stiffness=2.20 damping=0.33   # couple: voir 5e passe (1.20)
 
 ## 2026-08-11 — « ses lunettes clipent encore un chouille sur les seins »
 collider lBoob radius=708
 collider rBoob radius=712
 
-## 2026-08-11 — « ses bretelles passent au travers de son torse sur le devant »
-# Il n'existait AUCUN collider de buste : les 9 colliders étaient la hanche, deux oreilles, quatre
-# mèches et deux seins. C'est la cause racine qu'il désigne depuis le début.
-+collider chest radius=430 to=hips radius2=545
-+collider neck radius=250 to=chest radius2=430
-
-## 2026-08-11 — « elle clip avec le bas de son débardeur, l'élastique orange en bas »
-# Traité par l'extrémité basse du collider de tronc ci-dessus (radius2 470 -> 545).
-
-## 2026-08-11 — « le bout du pantacourt de sa jambe droite glitch au travers de son mollet »
-# Aucun collider de jambe n'existait. Le rig porte Lknee/Rknee et Lankle/Rankle.
-+collider Rknee radius=300 to=Rankle radius2=205
-+collider Lknee radius=300 to=Lankle radius2=205
+## 2026-08-11 — « ses bretelles passent au travers de son torse sur le devant » et
+## « le bout du pantacourt glitche au travers de son mollet »
+# MES CAPSULES ONT ÉTÉ RETIRÉES le 2026-08-11 14:30. J'avais ajouté à la main chest→hips,
+# neck→chest, Rknee→Rankle et Lknee→Lankle avec des rayons ESTIMÉS. Le moteur génère depuis le rig
+# un corps complet de capsules mesurées (hanches, buste, cou, tête, épaules, coudes, mains, cuisses,
+# genoux, chevilles) — et les miennes se posaient sur les mêmes segments avec des rayons PLUS FINS
+# (Rknee→Rankle 300/205 contre 398/326 mesurée). C'étaient exactement les « capsules écrites à la
+# main qui ne suivent pas le mesh » que l'owner condamne depuis le début. On ne remet pas de capsule
+# estimée : si un volume manque ou est trop petit, il se corrige dans la GÉNÉRATION.
 
 ## 2026-08-11 (4e passe) — « les lunettes clipent encore un peu avec les seins »
 # On arrête d'enfler la poitrine (ça finirait par décoller les lunettes du corps) : ce sont les

@@ -230,6 +230,3 @@ collider Rmidhaira radius=228
 collider lBoob radius=708
 # sphere rBoob [chestR]  25v @w>0.25
 collider rBoob radius=712
-capsule chest hips radius=430 radius2=545
-capsule Rknee Rankle radius=300 radius2=205
-capsule Lknee Lankle radius=300 radius2=205

@@ -45,6 +45,45 @@ if [ -f goal_src/jak1/pc/jak-hd-physics.gc ]; then
 fi
 
 # --------------------------------------------------------------------------------------------
+# TUNING — les réglages issus de l'œil de l'owner doivent être PRÉSENTS dans le fichier livré.
+# physics_chains.txt est régénéré depuis le rig ; deux fois le 2026-08-11 la régénération a effacé
+# ses corrections (colliders de torse, de cou et de mollets) et il a testé un build sans elles.
+python3 - <<'PYTUNE' || exit 1
+import re, sys
+tun = "recharged_assets/keira-owner-tuning.txt"
+ch  = "recharged_assets/physics_chains.txt"
+try:
+    T = open(tun, errors="ignore").read(); C = open(ch, errors="ignore").read()
+except Exception as e:
+    print("[Grecharged-secondary-motion FAIL] TUNING: %s" % e); sys.exit(1)
+manquant = []
+for ln in T.split("\n"):
+    ln = ln.strip()
+    if ln.startswith("+collider "):
+        nom = ln.split()[1]
+        if not re.search(r"^collider %s\b" % re.escape(nom), C, re.M):
+            manquant.append("collider %s" % nom)
+    elif ln.startswith(("chain ", "collider ")):
+        kind, nom = ln.split()[0], ln.split()[1]
+        m = re.search(r"^%s %s\b.*$" % (kind, re.escape(nom)), C, re.M)
+        if not m:
+            manquant.append("%s %s (absent)" % (kind, nom)); continue
+        for kv in ln.split()[2:]:
+            if "=" not in kv or kv.startswith("#"): continue
+            k, v = kv.split("=", 1)
+            if not re.search(r"\b%s=%s(\s|$)" % (re.escape(k), re.escape(v)), m.group(0)):
+                manquant.append("%s %s %s" % (kind, nom, kv))
+if manquant:
+    print("[Grecharged-secondary-motion FAIL] TUNING: %d réglage(s) de l'owner absent(s) du"
+          " fichier livré :" % len(manquant))
+    for x in manquant[:10]:
+        print("  - %s" % x)
+    print("  Relance python3 .autoport/apply_owner_tuning.py après toute régénération : sinon il")
+    print("  teste un build dont ses corrections ont disparu.")
+    sys.exit(1)
+print("[TUNING] tous les réglages de l'owner sont dans le fichier livré")
+PYTUNE
+# --------------------------------------------------------------------------------------------
 # ROOM — SPEC §6, étape 1. La salle existe, et surtout : PAS DE JOUEUR.
 [ -s "$T" ] || fail "ROOM: $T absent. La salle de test est l'étape 1 : sujet spawné par nom, seul
   dans la zone, déplacé haut/bas et gauche/droite avec accélérations et à-coups, TOUTES ses
