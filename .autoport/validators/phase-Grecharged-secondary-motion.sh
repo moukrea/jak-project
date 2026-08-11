@@ -93,10 +93,21 @@ if len(rows) < 60:
         % len(rows))
 chains = {r['chain'] for r in rows}
 anims = {r['anim'] for r in rows}
-cov = re.search(r'^ROOM-ANIMS:\s*(\d+)\s*/\s*(\d+)', t, re.M)
+# Le denominateur doit etre le total BRUT de l'art-group, pas le sous-ensemble retenu par un
+# filtre du programme : la salle a d'abord rapporte 18/31 puis 18/18 en changeant le total pour
+# le nombre d'animations qu'elle avait decide de garder (nanim = "animations RETENUES"). C'est la
+# meme tautologie que le fit-error d'aout : un chiffre qui se compare a lui-meme.
+cov = re.search(r'^ROOM-ANIMS:\s*(\d+)\s*/\s*(\d+)\s+raw=(\d+)\s+skipped=(\d+)', t, re.M)
 if not cov:
-    die("ROOM: pas de ligne 'ROOM-ANIMS: <jouées>/<total de l'art-group>' : sans le total, on ne\n"
-        "  peut pas dire que toutes ses animations ont été jouées")
+    die("ROOM: 'ROOM-ANIMS: joue/total raw=<total brut de l'art-group> skipped=<n>' est exige.\n"
+        "  Un total egal au nombre d'animations que la salle a decide de retenir ne prouve rien.")
+raw, skipped = int(cov.group(3)), int(cov.group(4))
+if raw < int(cov.group(2)):
+    die("ROOM: raw=%d < total=%s : le total brut ne peut pas etre inferieur au total joue"
+        % (raw, cov.group(2)))
+if skipped and not re.search(r'^ROOM-ANIM-SKIPPED:', t, re.M):
+    die("ROOM: %d animation(s) ecartee(s) sans une seule ligne 'ROOM-ANIM-SKIPPED: <nom> <raison>'.\n"
+        "  Ecarter est peut-etre legitime, le taire ne l'est pas." % skipped)
 played, total = int(cov.group(1)), int(cov.group(2))
 if total <= 0 or played < total:
     die("ROOM: %d animations jouées sur %d de son art-group. La SPEC dit TOUTES."
