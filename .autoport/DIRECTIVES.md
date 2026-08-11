@@ -12,33 +12,31 @@ périmètre qu'il désigne ci-dessous.
 
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
-SCOPE-SERIAL: 1
+SCOPE-SERIAL: 3
 <!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
      immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
      reformuler ne doit jamais coûter une tentative. -->
 
-* Phase : `Grecharged-secondary-motion` — physique secondaire.
-* Contrat de périmètre : **`.autoport/prompts/SPEC-keira-physique.md`** — à lire en entier.
-* Périmètre : **KEIRA SEULE**, code et données. Les 59 autres modèles ne sont **pas** touchés.
-  Parler d'un autre personnage (barbe de Samos, col de Jak, nœud du maire…) dans le rapport est
-  un hors-périmètre, sauf dans la section explicite des dettes différées.
-* **ÉTAPE 1 BLOQUANTE** : la salle de test (`SPEC` §11). Facilité `phys-room` dans
-  `goal_src/jak1/pc/*.gc` + tableau `.autoport/reports/Grecharged-secondary-motion/keira-room-table.txt`.
-* **ZONE VIDE, PAS UN NIVEAU PEUPLÉ** (owner 2026-08-11, en regardant tourner le build x86 :
-  « je le vois spawn dans la hutte du Sage près de Keira et tourner en rond, lancer une nouvelle
-  partie… je comprends pas pourquoi vu qu'on est sur une salle dédiée »). La salle spawne bien
-  Keira **par nom** (aucune entité, aucun déplacement vers un PNJ), mais elle le fait dans
-  `village1-hut` : le décor, la vraie Keira du monde et la caméra de jeu sont là, ce qui rend le
-  test indiscernable d'une validation à l'aveugle. Héberger la salle dans une zone **vide** —
-  aucun autre acteur, caméra fixe sur le sujet — et l'annoncer dans le tableau (`host=`).
-* **CONTRÔLE POSITIF = LE COMPTEUR MONTE.** `inject=600` a donné `meshpen` 0,4986 armé contre
-  306,70 désarmé : le défaut a fait *baisser* le chiffre qu'il devait faire monter. Tant que
-  l'injection ne fait pas monter la pénétration d'un facteur ≥3, tout zéro de cet instrument est
-  vide (gate ROOM).
-  Tant qu'elle n'existe pas, **aucun autre travail n'est autorisé** : ni remplissage de
-  paramètres, ni gates existantes, ni réglage de style. Le validateur échoue en première ligne.
-* Substrat : **x86 d'abord** (REPL, itération en secondes). Le device Redmi `eae4df44` sert à
-  **confirmer**, pas à découvrir.
+* Phase : `Grecharged-secondary-motion` — physique secondaire. Branche : **`physics-keira-clean`**.
+* **DÉPART PROPRE, ACTÉ LE 2026-08-11.** Owner : « parke tous les commits propres à la physique sur
+  une branche dédiée et repars propre en ne faisant un focus que sur Keira comme on a dit ». Toute
+  la physique accumulée est sur `physics-attic-2026-08-11` : **elle n'est pas une base de travail**,
+  on ne la consulte pas pour « récupérer » du code. Le moteur est un squelette de 5 prises et le
+  fichier de chaînes est **vide**.
+* **CONTRAT UNIQUE : `.autoport/prompts/SPEC-keira-physique.md`**, réécrit depuis son message. Il
+  dit ce qui a de la physique (oreilles, cheveux à racine ancrée, mèches, seins, lunettes, ce qui
+  pend), la liste exacte des collisions interdites, le repos = pose du modèle sauf ce qui pend, et
+  la priorité à l'intention d'animation de Naughty Dog.
+* **ÉTAPE 1, AVANT TOUTE PHYSIQUE : LA SALLE DE TEST SANS JOUEUR.** Jak n'est **pas spawné** — ni
+  endormi, ni hors champ : absent. Le sujet est spawné par nom, seul dans la zone, déplacé
+  haut/bas, gauche/droite, avec diverses accélérations et à-coups, et **toutes** ses animations
+  jouées, chaque chiffre extrême portant le nom de l'animation. La tentative précédente mesurait
+  dans une partie normale à `village1-hut` avec Jak jouable à l'écran : l'owner l'a vu, ça ne se
+  reproduit pas.
+* **KEIRA SEULE.** « On ne passera à un autre personnage que quand Keira sera 100 % validé. » Aucun
+  autre modèle ne reçoit de données.
+* Livraison par **paire cohérente** APK + pack du même commit. Substrat x86 pour découvrir, Redmi
+  `eae4df44` pour confirmer.
 
 ## RÈGLES QUI NE SE NÉGOCIENT JAMAIS (owner)
 
