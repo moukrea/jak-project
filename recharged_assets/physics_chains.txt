@@ -84,25 +84,25 @@ chain earR class=primary stiffness=3.20 damping=0.30 gravity=0.45 radius=114 roo
 j rEara
 j rEarb
 # backhair [A] backHair1 verts=167 wsum=67.65 r=358 | backHair2 verts=153 wsum=55.21 r=374
-chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.45 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=1.00 radii=358,374
+chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.45 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=1.00 maxangle=98.28 radii=358,374   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est backHair2, 2*atan(432/374) = 98.3 deg
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
-chain lbang class=primary stiffness=1.05 damping=0.36 gravity=0.45 radius=112 rootlock=1 mass=1.35 hang=0.00 family=A couple=0.70 radii=112,104,180
+chain lbang class=primary stiffness=1.05 damping=0.36 gravity=0.45 radius=112 rootlock=1 mass=1.35 hang=0.00 family=A couple=0.70 maxangle=130.88 radii=112,104,180   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Lbangc, 2*atan(394/180) = 130.9 deg | Lbangb 150.4
 j Lbanga
 j Lbangb
 j Lbangc
 # rbang [A] Rbanga verts=106 wsum=86.63 r=118 | Rbangb verts=146 wsum=29.97 r=102 | Rbangc verts=55 wsum=40.98 r=178
-chain rbang class=primary stiffness=1.05 damping=0.36 gravity=0.45 radius=118 rootlock=1 mass=1.35 hang=0.00 family=A couple=0.70 radii=118,102,178
+chain rbang class=primary stiffness=1.05 damping=0.36 gravity=0.45 radius=118 rootlock=1 mass=1.35 hang=0.00 family=A couple=0.70 maxangle=131.36 radii=118,102,178   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Rbangc, 2*atan(394/178) = 131.4 deg | Rbangb 151.0
 j Rbanga
 j Rbangb
 j Rbangc
 # lmidhair [A] Lmidhaira verts=212 wsum=72.75 r=222 | Lmidhairb verts=171 wsum=99.73 r=335
-chain lmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=278 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=222,335
+chain lmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=278 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 maxangle=141.61 radii=222,335   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Lmidhairb, 2*atan(962/335) = 141.6 deg
 j Lmidhaira
 j Lmidhairb
 # rmidhair [A] Rmidhaira verts=219 wsum=71.00 r=228 | Rmidhairb verts=176 wsum=106.17 r=337
-chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=282 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 radii=228,337
+chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=282 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 maxangle=141.40 radii=228,337   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Rmidhairb, 2*atan(962/337) = 141.4 deg
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
@@ -212,21 +212,21 @@ capsule Rbangc Rbangb radius=178 radius2=102
 capsule Lmidhairb Lmidhaira radius=335 radius2=222
 # capsule Rmidhairb->Rmidhaira [rmidhair]  Rmidhairb: 107v @w>0.5   Rmidhaira: 58v @w>0.5
 capsule Rmidhairb Rmidhaira radius=337 radius2=228
-# sphere main [body]  43v @w>0.25   centre = measured centroid of the geometry this joint owns, 481u off the joint, in its bind space
-collider main radius=560 offset=-17,-473,83
-# sphere lEara [earL]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space
-collider lEara radius=194 offset=7,446,66
-# sphere rEara [earR]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space
-collider rEara radius=194 offset=-7,-446,-66
-# sphere Lbanga [lbang]  103v @w>0.5   centre = measured centroid of the geometry this joint owns, 293u off the joint, in its bind space
-collider Lbanga radius=199 offset=293,-10,4
-# sphere Rbanga [rbang]  106v @w>0.5   centre = measured centroid of the geometry this joint owns, 281u off the joint, in its bind space
-collider Rbanga radius=213 offset=-280,17,2
-# sphere Lmidhaira [lmidhair]  65v @w>0.5   centre = measured centroid of the geometry this joint owns, 652u off the joint, in its bind space
-collider Lmidhaira radius=374 offset=583,39,290
-# sphere Rmidhaira [rmidhair]  58v @w>0.5   centre = measured centroid of the geometry this joint owns, 751u off the joint, in its bind space
-collider Rmidhaira radius=382 offset=-673,-77,-325
-# sphere lBoob [chestL]  34v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space
-collider lBoob radius=183 offset=-1,655,94
-# sphere rBoob [chestR]  25v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space
-collider rBoob radius=188 offset=4,-657,-84
+# sphere main [body]  43v @w>0.25   centre = measured centroid of the geometry this joint owns, 481u off the joint, in its bind space   COVER p95: 7% of its vertices outside (inner-quartile mean 560 left 51% outside)
+collider main radius=671 offset=-17,-473,83
+# sphere lEara [earL]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)
+collider lEara radius=333 offset=7,446,66
+# sphere rEara [earR]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)
+collider rEara radius=333 offset=-7,-446,-66
+# sphere Lbanga [lbang]  103v @w>0.5   centre = measured centroid of the geometry this joint owns, 293u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 199 left 51% outside)
+collider Lbanga radius=361 offset=293,-10,4
+# sphere Rbanga [rbang]  106v @w>0.5   centre = measured centroid of the geometry this joint owns, 281u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 213 left 46% outside)
+collider Rbanga radius=347 offset=-280,17,2
+# sphere Lmidhaira [lmidhair]  65v @w>0.5   centre = measured centroid of the geometry this joint owns, 652u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 374 left 49% outside)
+collider Lmidhaira radius=610 offset=583,39,290
+# sphere Rmidhaira [rmidhair]  58v @w>0.5   centre = measured centroid of the geometry this joint owns, 751u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 382 left 50% outside)
+collider Rmidhaira radius=766 offset=-673,-77,-325
+# sphere lBoob [chestL]  34v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 183 left 53% outside)
+collider lBoob radius=322 offset=-1,655,94
+# sphere rBoob [chestR]  25v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 8% of its vertices outside (inner-quartile mean 188 left 56% outside)
+collider rBoob radius=311 offset=4,-657,-84

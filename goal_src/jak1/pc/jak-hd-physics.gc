@@ -69,6 +69,13 @@
 (defconstant PHYS-P-HANG   20)
 (defconstant PHYS-P-FAMILY 22)
 (defconstant PHYS-P-COUPLE 27)
+;; L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite.
+;; Owner 2026-08-11 21:15 : « certains maillons meriteraient un traitement pour eviter de creer des
+;; angles extremes qui mettent en lumiere le lack of geometrie » ; 22:35, le perimetre : « juste sur
+;; les meches, pas le reste, encore moins les seins ». La valeur est DERIVEE DU RIG par le
+;; generateur (2*atan(min(L_entrant,L_sortant)/rayon), l'angle ou les deux tubes de peau se
+;; croisent) et recalculee par son controle 6b : le moteur ne connait toujours aucun nom de joint.
+(defconstant PHYS-P-MAXANG  3)
 
 ;; champs de collider (kmachine.cpp:1920-1986)
 (defconstant PHYS-C-RADIUS 0)
@@ -116,6 +123,7 @@
 (define *phys-couple* (new 'global 'array 'float PHYS-SC))
 (define *phys-fam*    (new 'global 'array 'int32 PHYS-SC))   ;; 1 = A, 2 = B
 (define *phys-rootlk* (new 'global 'array 'int32 PHYS-SC))
+(define *phys-maxang* (new 'global 'array 'float PHYS-SC))   ;; degres, 0 = aucune limite d'angle
 (define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
 ;; ------------------------------------------------------------------------------------------------
 ;; LE VOLUME QU'UN LIEN PORTE QUAND IL BOUGE — et c'est LE MEME que celui qu'il presente quand il
@@ -529,6 +537,7 @@
                         (set! (-> *phys-mass* sc) (if (< m 0.01) 1.0 m)))
                       (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY))))
                       (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
+                      (set! (-> *phys-maxang* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MAXANG)))
                       ;; rayons par lien : `radii=` s'il existe, sinon le `radius=` de la chaine
                       (let ((base (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-RADIUS))))
                         (dotimes (l PHYS-LINKS)
@@ -629,6 +638,54 @@
 ;;      plancher effectif = floor0 / w           = floor0 quand w=1, -> +inf quand w -> 0
 ;; Aucun nombre nouveau : les deux memes grandeurs (floor0, rl) qu'avant.
 (defconstant PHYS-VOL-FREE 1000000000.0)
+
+;; ------------------------------------------------------------------------------------------------
+;; UN PLAFOND QUI NE SE COLLE PAS — et c'est le correctif de « l'effet gelee ».
+;;
+;; Owner, 11e passe (2026-08-11 21:15) : « lors de mouvements brusques il y a un effet d'etirement
+;; et un peu gelee ou ca change de taille (plus petit, plus gros, plus long, plus court, ecrase),
+;; c'est PAS COHERENT ». Le mot qui compte est « pas coherent » : ce n'est pas l'amplitude qui le
+;; gene, c'est qu'elle ne suive pas le mouvement. Precision du 21:20 : « c'est pas des ballons durs
+;; non plus, c'est naturel que ca change un peu de forme ».
+;;
+;; MESURE, et elle est sans appel. Deviation angulaire du maillon, sous QUATRE pilotages
+;; radicalement differents (ROOM-GRADIENT, course du 2026-08-11 23:07) :
+;;     chestL      39.2379  39.2540  39.2541  39.2460
+;;     pantflapL   59.9995  60.0121  60.0465  60.0049
+;;     kneeflapL   43.7184  43.7257  43.7179  ...
+;;     toestrapL   15.3923  15.3932  15.3926  15.3929
+;; La meme valeur a quatre decimales sous une secousse, une translation et une inclinaison a 60
+;; degres : la signature d'un plafond EPINGLE. Toutes les chaines a un maillon sont collees a leur
+;; plafond d'excursion (leur propre rayon ajuste) sur la totalite du pilotage.
+;;
+;; Un plafond dur `min(e, cap)` fait deux degats, et les deux sont dans son retour :
+;;   * la sortie ne depend plus de l'entree — d'ou « ne bouge pas assez sur les mouvements soft,
+;;     et ca bouge sur les brusques » : la reponse est plate au-dessus du seuil et proportionnelle
+;;     en dessous, c'est-a-dire une MARCHE, exactement ce que la DECISION 3 du superviseur exige
+;;     de supprimer ;
+;;   * sa derivee est discontinue au seuil. Quand l'excitation oscille autour du plafond, la
+;;     position ecrite alterne entre « ecretee » et « libre » a chaque frame, la peau suit en
+;;     cisaillement lineaire, et ca donne un changement de taille qui n'est correle a rien. C'est
+;;     la definition meme de « gelee ».
+;;
+;; LA FORME UTILISEE ICI est le min DOUX de norme p (p = 4) :
+;;     e' = e / (1 + (e/cap)^4)^(1/4)
+;; C'est un REMPLACEMENT du plafond dur, pas un suppresseur de plus (SPEC 7) :
+;;   e = 0.25 cap -> 99.9 % conserve      e = 0.50 cap -> 98.5 %      e = cap -> 84.1 %
+;;   e = 2 cap    -> 0.985 cap            e -> inf     -> cap
+;; Donc : identique en dessous de la moitie du plafond (le mouvement subtil que l'owner juge
+;; « quasiment parfait » n'est pas touche), meme plafond a l'infini (aucune amplitude gagnee sur
+;; un defaut), STRICTEMENT CROISSANT partout (la sortie suit l'entree, donc la deformation redevient
+;; correlee au stimulus) et derivable partout (plus de bascule d'une frame a l'autre).
+(defun phys-softmin ((v float) (cap float))
+  "min DOUX de v et cap : identite loin en dessous, asymptote a cap loin au-dessus, croissant et
+   derivable partout. Remplace un `min` dur dont la derivee discontinue faisait sauter la position
+   ecrite d'une frame a l'autre."
+  (if (or (<= cap 0.0) (<= v 0.0))
+    v
+    (let* ((r  (/ v cap))
+           (r2 (* r r)))
+      (/ v (sqrtf (sqrtf (+ 1.0 (* r2 r2))))))))
 
 (defun phys-vol-floor ((floor0 float) (rl float))
   "profondeur maximale que cette paire (lien, volume) tolere. PHYS-VOL-FREE = aucune surface
@@ -751,11 +808,12 @@
                       (ex (- (-> *phys-px* scl) tx))
                       (ey (- (-> *phys-py* scl) ty))
                       (ez (- (-> *phys-pz* scl) tz))
-                      (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))))
-                 (when (and (> e rmax) (> e 0.0001))
-                   (let ((s (/ rmax e)))
+                      (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
+                      (e2 (phys-softmin e rmax)))
+                 (when (and (> e 0.0001) (< e2 (- e 0.0001)))
+                   (let ((s (/ e2 e)))
                      (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
-                     (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e rmax)))
+                     (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e e2)))
                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 6))
                            (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 6))))
                      (set! (-> *phys-px* scl) (+ tx (* ex s)))
