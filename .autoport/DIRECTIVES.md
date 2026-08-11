@@ -485,3 +485,43 @@ explicitement retiré : il veut le build **même quand ce n'est pas vert**, pour
 renvoyer des retours — c'est la boucle la plus rapide qu'on ait, et elle a produit tous les vrais
 diagnostics de la journée. **Aucune condition de qualité ne retient un build.** Le seul motif de
 non-publication reste technique : APK anormalement gros (espace mort) ou build échoué.
+
+## SEPTIÈME PASSE — LE GRADIENT EST INVERSÉ, ET L'INSTRUMENT NE PEUT PAS LE VOIR (2026-08-11 16:30)
+
+> « Les mèches fines sont toujours hystériques, par contre on dirait qu'entre la racine et les
+> pointes c'est zone de guerre et les pointes bougent quasi pas, au lieu d'un dégradé progressif des
+> racines aux pointes (idem sur le reste des cheveux). Les seins sont encore plus immobiles sur les
+> mouvements faibles, du coup c'est d'autant plus bizarre sur les mouvements brusques parce que là
+> ça bouge. Toujours rien sur la gravité quand elle se penche. (Pas sûr que ça ait une valeur mais
+> je te fais le feedback quand même.) »
+
+**Ce retour a la plus grande valeur de la journée**, et il décrit quelque chose que le tableau est
+structurellement incapable de mesurer.
+
+**1. LE GRADIENT EST INVERSÉ.** La SPEC §2 exige : racine soudée, mouvement qui **croît vers la
+pointe**. Il observe l'inverse — les deux extrémités tenues et le milieu qui part en vrille. Or
+l'instrument publie **UN SEUL nombre par chaîne** (`tipvar`). Une chaîne dont le milieu s'agite et
+dont la pointe est figée produit exactement le même `tipvar` qu'une chaîne saine : c'est une
+deuxième mesure non discriminante, de la même famille que celle rejetée ce matin.
+→ **`ROOM-GRADIENT: chain=<nom> anim=<nom> link0=<v> link1=<v> … linkN=<v>` par chaîne.** La suite
+doit être **croissante** de la racine vers la pointe. Toute chaîne dont un maillon intermédiaire
+dépasse la pointe est un échec, quel que soit son `tipvar`. Chercher d'abord si le **dernier maillon
+est intégré ET écrit** : une pointe recollée sur la pose de l'animation donne exactement cette
+silhouette.
+
+**2. LES SEINS : ENCORE PLUS IMMOBILES SUR LES MOUVEMENTS FAIBLES, MOBILES SUR LES BRUSQUES.** C'est
+la confirmation du seuil, et il s'est **aggravé**. Une réponse qui démarre à partir d'un certain
+niveau d'excitation est un seuil, pas un réglage. La courbe `ROOM-RESPONSE` (6 amplitudes
+croissantes) doit être monotone **et partir de zéro sans marche**.
+
+**3. GRAVITÉ : la formulation écrite dans le moteur est la bonne** — `g_eff = R_ancre⁻¹·g − R_bind⁻¹·g`,
+soit l'écart entre la gravité d'aujourd'hui et celle de la pose de référence (la pose du modèle est
+déjà une pose sous gravité, sculptée debout). Buste droit : les deux termes s'annulent, l'équilibre
+reste la pose du modèle. Buste incliné : l'écart apparaît. **Elle n'était pas dans le build qu'il a
+testé** — elle doit l'être dans le suivant, et `ROOM-GRAVSAG` doit le prouver.
+
+**Le motif de fond, pour la troisième fois aujourd'hui : il décrit une FORME et je publie un
+SCALAIRE.** Un nombre par chaîne ne peut pas décrire un dégradé le long de la chaîne, pas plus
+qu'une variance ne pouvait décrire un affaissement sous gravité. Avant d'ajouter une mesure, se
+demander de quelle nature est le défaut décrit — amplitude, forme, ou déplacement soutenu — et
+mesurer cette nature-là.
