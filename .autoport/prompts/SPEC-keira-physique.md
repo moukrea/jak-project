@@ -95,6 +95,12 @@ Trois règles qui ont coûté une semaine et qui ne se renégocient pas :
   trace d'exécution. Jamais un docstring, jamais une intention écrite dans le source.
 * **Tout zéro exige un contrôle positif qui a tiré** : on injecte le défaut, on voit le compteur
   **monter**, on l'enlève. Un contrôle qui fait *baisser* le compteur est un contrôle cassé.
+* **Une mesure doit DISCRIMINER.** Une grandeur publiée par stimulus doit varier quand le stimulus
+  change du tout au tout. Mesuré le 2026-08-11 : 16 chaînes sur 22 rendaient la même amplitude sous
+  une secousse, une translation et une inclinaison à 60° (`backhair` : 3 % d'écart). Une réponse
+  plate veut dire qu'on mesure le bruit de l'animation, pas la physique — et c'est ainsi qu'un
+  chiffre vert coexiste avec un défaut que l'owner voit. Seuil : moins de 25 % d'écart relatif entre
+  le plus fort et le plus faible stimulus = mesure non discriminante, rejetée.
 * **Pas de suppresseur par défaut.** Gel de calme, clamp, hystérésis, sommeil : absents. La cause
   mesurée de l'échec précédent est leur empilement (le moteur est passé de 1 940 à 6 000 lignes,
   clamps 9 → 84, détection d'anim 45 → 172) jusqu'à ce que 42 % des mesures soient à zéro. On en

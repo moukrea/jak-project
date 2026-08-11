@@ -299,4 +299,72 @@ print("[IDLE] écart max au modèle %.3f  [ANIM] %s chaînes pilotées, toutes r
       % (float(idle.group(1)), an.group(1)))
 PYROOM
 
+# --------------------------------------------------------------------------------------------
+# DISCRIMINANT — gate GÉNÉRIQUE, pas un correctif de plus.
+#
+# Le motif d'échec qui s'est reproduit HUIT fois : une mesure verte pendant que l'owner voit le
+# défaut. Chaque fois j'ai corrigé le cas ; jamais la classe. La classe, c'est : « une mesure qui
+# ne sait pas distinguer le défaut de son absence ».
+#
+# Le cas du 2026-08-11 le montre en une ligne. Mouvement de la poitrine par pilotage :
+#   accel 0.3490 · jerk 0.3614 · leftright 0.3606 · updown 0.3535 · tilt 0.3889
+# Cinq stimuli radicalement différents — secousses, translations, inclinaison à 60° — et une
+# réponse plate à 11 % d'écart. Un système physique ne répond pas pareil à une secousse et à une
+# inclinaison soutenue : si le chiffre ne bouge pas quand le stimulus change du tout au tout, il
+# ne mesure pas le stimulus. Il mesurait le bruit de l'animation, et je l'ai présenté comme un
+# progrès.
+#
+# RÈGLE : toute grandeur publiée par pilotage doit VARIER d'un pilotage à l'autre. En dessous de
+# 25 % d'écart relatif entre le plus grand et le plus petit, la mesure est déclarée non
+# discriminante et la phase échoue — avant qu'un build ne parte sur sa foi.
+python3 - "$T" <<'PYDISC' || exit 1
+import re, sys
+t = open(sys.argv[1], errors='ignore').read()
+def die(m):
+    print("[Grecharged-secondary-motion FAIL] DISCRIMINANT: " + m); sys.exit(1)
+
+rows = []
+for ln in t.split('\n'):
+    if not ln.startswith('row '):
+        continue
+    d = dict(re.findall(r'(\w+)=([^\s]+)', ln))
+    if {'chain', 'drive', 'tipvar'} <= set(d):
+        rows.append(d)
+if not rows:
+    sys.exit(0)                      # rien à juger ici, d'autres gates s'en chargent
+
+drives = sorted({r['drive'] for r in rows})
+if len(drives) < 3:
+    sys.exit(0)                      # pas assez de stimuli distincts pour conclure
+
+suspects = []
+for ch in sorted({r['chain'] for r in rows}):
+    per = {}
+    for d in drives:
+        v = [float(r['tipvar']) for r in rows if r['chain'] == ch and r['drive'] == d]
+        if v:
+            per[d] = max(v)
+    if len(per) < 3:
+        continue
+    hi, lo = max(per.values()), min(per.values())
+    if hi <= 0:
+        continue
+    spread = (hi - lo) / hi
+    if spread < 0.25:
+        suspects.append((ch, spread, per))
+
+if suspects:
+    print("[Grecharged-secondary-motion FAIL] DISCRIMINANT: %d chaîne(s) répondent PAREIL à des"
+          " stimuli radicalement différents — la mesure ne mesure pas le stimulus." % len(suspects))
+    for ch, sp, per in suspects[:6]:
+        detail = " · ".join("%s %.4f" % (d, v) for d, v in sorted(per.items()))
+        print("  %-12s écart %.0f%%  (%s)" % (ch, sp * 100, detail))
+    print("  Un système physique ne répond pas pareil à une secousse et à une inclinaison soutenue.")
+    print("  Publier une amplitude brute par pilotage ne suffit pas : il faut le GAIN (pointe")
+    print("  rapportée au stimulus, moins la ligne de base sous animation seule) et, pour")
+    print("  l'inclinaison, un DÉPLACEMENT SOUTENU (ROOM-GRAVSAG), pas une variance.")
+    sys.exit(1)
+print("[DISCRIMINANT] chaque chaîne distingue les %d pilotages" % len(drives))
+PYDISC
+
 echo "[Grecharged-secondary-motion PASS]"
