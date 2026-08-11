@@ -76,3 +76,25 @@ DIRECTIVES <version>
 
 Elle prouve que tu as travaillé sur le contrat courant. Une version périmée fait échouer la
 tentative immédiatement, au lieu de gaspiller des heures sur un périmètre abandonné.
+
+## ÉTAT MESURÉ PAR LE SUPERVISEUR (2026-08-11 10:00, course x86 réelle)
+
+J'ai lancé la salle moi-même pendant le blocage de quota. Ce qui est **acquis, prouvé par le log** :
+
+```
+PHYSROOM-START target-before=#<target ... suspended ...>
+PHYSROOM-START target-after=#f spawned=1
+```
+
+→ l'exigence n°1 est remplie : le joueur existait, la salle le supprime, le sujet est spawné à sa
+place. **Ne la refais pas, ne la « répare » pas.**
+
+Ce qui **manque**, et c'est tout ce qui reste de l'étape 1 : la course n'a produit que **2 lignes
+`PHYSROOM`**. Aucun pilotage, aucune animation, aucune mesure n'est sortie. Il faut donc :
+`drive=updown|leftright|accel|jerk`, **toutes** les animations de son art-group avec
+`ROOM-ANIMS: joué/total`, une ligne `row` par (chaîne, animation) avec les six colonnes, le nom de
+l'animation sur chaque extrême, et les lignes `ROOM-NOPLAYER:`, `ROOM-ACTORS:`, `ROOM-POSCONTROL:`,
+`ROOM-IDLE:`, `ROOM-AUTHORED:` que le validateur lit.
+
+Le moteur (806 lignes) et la salle (471 lignes) **compilent** : 551 cibles en 41 s. Pas de temps à
+passer sur la compilation.
