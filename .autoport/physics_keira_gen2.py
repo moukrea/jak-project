@@ -814,6 +814,21 @@ def main():
     if not args.dry_run:
         with open(args.out, 'w') as f:
             f.write(text)
+        # Les reglages issus de l'oeil de l'owner survivent a la generation. Ils ont ete effaces
+        # DEUX FOIS le 2026-08-11 et il a teste des builds sans ses propres corrections; le
+        # corriger apres coup a chaque fois n'a pas empeche la recurrence, donc la reapplication
+        # est faite ICI, dans le producteur, et pas dans un appelant qu'on peut oublier.
+        try:
+            import subprocess as _sp, os as _os
+            _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+            _r = _sp.run(['python3', _os.path.join(_root, '.autoport', 'apply_owner_tuning.py')],
+                         capture_output=True, text=True, timeout=120)
+            print((_r.stdout or _r.stderr).strip())
+            if _r.returncode not in (0,):
+                print('[gen] ATTENTION: la reapplication des reglages owner a echoue (%d)'
+                      % _r.returncode)
+        except Exception as _e:
+            print('[gen] ATTENTION: reglages owner NON reappliques: %s' % _e)
         log('')
         log(f'wrote {args.out}  ({len(text)} bytes, '
             f'sha256={hashlib.sha256(text.encode()).hexdigest()})')
