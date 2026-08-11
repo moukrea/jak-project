@@ -151,3 +151,46 @@ quasi identiques (656 vs 660).
   longueur invariante » — le même défaut de fond que le « giga pointe ou quasiment plat ».
   **À mesurer** : la salle doit compter les inversions (produit scalaire négatif) et le compteur
   doit tomber à zéro avec un contrôle positif qui l'a fait monter.
+
+## TROISIÈME PASSE DE L'OWNER (2026-08-11, APK de 11:40) — et un incident de process
+
+> « les mouvements de ses seins sont plus prononcés c'est cool, mais des fois ça saute d'une frame
+> à l'autre comme un mini jitter. Quand elle fait l'animation de soudure sur le Zoomer ses seins
+> ont aucune physique. Ses mèches les plus fines sur le front jittent comme des folles constamment.
+> Les plus grosses maintenant bougent bien mais ça fait des petits bugs de géométrie. Ses lunettes
+> clipent encore un chouille sur les seins. **Les bretelles c'est vraiment beaucoup, beaucoup
+> mieux !** Mais ça clipe avec le bas de son débardeur, l'élastique orange. J'ai encore vu un de
+> ses seins retourné vers l'intérieur. Les petites languettes sur les bandes autour de ses genoux
+> ne bougent pas du tout. Le bout du pantacourt de sa jambe droite glitche au travers de son
+> mollet. Sa chaussure gauche donne l'impression qu'un polygone de la semelle se fait la malle. »
+
+**INCIDENT DE PROCESS — à ne pas reproduire.** `physics_chains.txt` est régénéré depuis le rig, et
+la régénération a **effacé deux fois** les réglages issus de ses retours : il a testé un APK dont
+les corrections qu'il avait demandées avaient disparu. Corrigé structurellement :
+`recharged_assets/keira-owner-tuning.txt` porte les réglages validés par son œil,
+`.autoport/apply_owner_tuning.py` les réapplique après génération, et `android/build_custom_pack.sh`
+l'appelle à chaque empaquetage. **Toute régénération doit passer par là.** Une directive sans cible
+est signalée, jamais avalée en silence.
+
+**Traité côté données (ne pas refaire) :** mèches fines `stiffness 3.30 → 1.65` — ma correction
+précédente allait dans le mauvais sens, une raideur élevée dans un intégrateur explicite à pas fixe
+produit de l'oscillation numérique, pas de la fermeté, et le « folles » initial venait déjà de là ;
+seins `stiffness 2.80 → 2.20, damping 0.26 → 0.33`, couplage conservé (l'amplitude lui plaît) ;
+`lBoob/rBoob → 708/712` ; extrémité basse du collider de tronc `470 → 545` (élastique du débardeur) ;
+**colliders de mollet ajoutés** `Rknee→Rankle` et `Lknee→Lankle` (il n'existait aucun collider de
+jambe) ; `pantflapL` **rétablie** — elle avait été supprimée du fichier au lieu d'être réparée.
+
+**À FAIRE DANS LE MOTEUR — ce sont des défauts, pas des réglages :**
+1. **Les seins n'ont aucune physique pendant l'animation de soudure sur le Zoomer.** La détection
+   d'animation d'auteur suspend la poitrine alors que l'animation ne pilote pas ces os. La règle est
+   « détection PAR CHAÎNE » : un os sans rapport ne suspend rien. À mesurer : la salle doit rapporter,
+   par animation, quelles chaînes ont été suspendues et pourquoi.
+2. **Un sein retourné vers l'intérieur, toujours** (déjà décrit : `phys-length-chain` saute la
+   contrainte sous `d < 0.0001`). Compteur d'inversions exigé, à zéro, avec contrôle positif.
+3. **« Petits bugs de géométrie » sur les grosses mèches** et **un polygone de la semelle de la
+   chaussure gauche qui se fait la malle** : une chaîne écrit des joints qui entraînent de la
+   géométrie qu'elle ne devrait pas toucher. Vérifier quels joints chaque chaîne écrit réellement,
+   et que `LtoeStrap`/`LfootFlaps` ne tirent pas la semelle.
+4. **Les languettes des bandes de genoux ne bougent pas du tout.** `kneeflapL/R` mesurent pourtant
+   0,66 et 0,25 : soit la chaîne pilote le mauvais joint, soit les languettes sont une pièce
+   distincte (`LfootFlaps`/`RfootFlaps` existent dans le rig et ne sont chaînées par rien).

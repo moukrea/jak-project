@@ -1,0 +1,50 @@
+# keira-owner-tuning.txt — RÉGLAGES ISSUS DE L'ŒIL DE L'OWNER, appliqués APRÈS la génération.
+#
+# Pourquoi ce fichier existe : physics_chains.txt est GÉNÉRÉ depuis le rig. Chaque régénération
+# effaçait les corrections faites à partir des retours de l'owner — deux fois le 2026-08-11. Un
+# réglage qu'il a validé de ses yeux vaut plus qu'une valeur dérivée d'une règle, donc il survit
+# à la génération au lieu d'être écrasé par elle.
+#
+# Format : une directive par ligne.
+#   chain <nom> <param>=<valeur> ...     remplace des paramètres d'une chaîne générée
+#   collider <nom> <champ>=<valeur> ...  remplace/ajoute un collider
+#   +collider <ligne complète>           ajoute un collider absent du rig-derive
+#
+# Chaque bloc cite la phrase de l'owner qui l'a motivé. Ne pas modifier sans un nouveau retour.
+
+## 2026-08-11 — « les mèches les plus fines sur le devant jitter comme des folles constamment »
+# Première tentative : raideur 2.60 -> 3.30 pour les calmer. MAUVAISE DIRECTION — une raideur
+# élevée dans un intégrateur explicite à pas fixe produit de l'oscillation numérique, pas de la
+# fermeté. Le « folles » initial venait déjà de là. On assouplit et on alourdit.
+chain lbang stiffness=1.65 couple=0.70 mass=0.95
+chain rbang stiffness=1.65 couple=0.70 mass=0.95
+
+## 2026-08-11 — « les plus grosses maintenant bougent bien »  → on ne touche plus
+chain lmidhair stiffness=1.50 couple=1.40 mass=0.72
+chain rmidhair stiffness=1.50 couple=1.40 mass=0.72
+
+## 2026-08-11 — « les mouvements de ses seins sont plus prononcés c'est cool, mais des fois ça
+## saute d'une frame à l'autre comme un mini jitter »
+# On garde le couplage (l'amplitude lui plaît), on calme le solveur : raideur en baisse et
+# l'amortissement que j'avais trop retiré revient en partie. La fermeté vient de la raideur, pas
+# du débattement — un grand angle donnerait un ballon d'eau.
+chain chestL stiffness=2.20 damping=0.33 couple=1.45
+chain chestR stiffness=2.20 damping=0.33 couple=1.45
+
+## 2026-08-11 — « ses lunettes clipent encore un chouille sur les seins »
+collider lBoob radius=708
+collider rBoob radius=712
+
+## 2026-08-11 — « ses bretelles passent au travers de son torse sur le devant »
+# Il n'existait AUCUN collider de buste : les 9 colliders étaient la hanche, deux oreilles, quatre
+# mèches et deux seins. C'est la cause racine qu'il désigne depuis le début.
++collider chest radius=430 to=hips radius2=545
++collider neck radius=250 to=chest radius2=430
+
+## 2026-08-11 — « elle clip avec le bas de son débardeur, l'élastique orange en bas »
+# Traité par l'extrémité basse du collider de tronc ci-dessus (radius2 470 -> 545).
+
+## 2026-08-11 — « le bout du pantacourt de sa jambe droite glitch au travers de son mollet »
+# Aucun collider de jambe n'existait. Le rig porte Lknee/Rknee et Lankle/Rankle.
++collider Rknee radius=300 to=Rankle radius2=205
++collider Lknee radius=300 to=Lankle radius2=205

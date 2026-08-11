@@ -31,6 +31,7 @@
 # radius from the next link, else the previous one, else the chain median, written on
 # the chain line as FALLBACK-FROM=<source>. Every zero-vertex joint, both cases:
 #   DROPPED belt: all 1 joint(s) (belt) have 0 skinned vertices
+#   ABANDONED pantflapL: mesure d'execution de la pose du modele, lien 0 (LpantFlap) a 1061103.6 unites (259.0585 m) de son porteur pour un rayon ajuste de 429.0, soit 2473.4 fois sa taille (seuil 50). Le retarget envoie ce joint ailleurs : defaut du MODELE HD, escalade a hd-models.
 #   FALLBACK topstrapL.lTopStrap: 0 skinned vertices, radius from lTopStrap2
 #   FALLBACK topstrapR.rTopStrap: 0 skinned vertices, radius from rTopStrap2
 
@@ -73,7 +74,7 @@ level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0
 level 1 substeps=2 iters=6 collide=2 classmask=7 fixedhz=0
 level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 
-# ---- Keira, and only Keira: 22 chains, 33 volumes.
+# ---- Keira, and only Keira: 21 chains, 33 volumes.
 [model keira-hd]
 # earL [A] lEara verts=82 wsum=25.41 r=148 | lEarb verts=76 wsum=46.64 r=79
 chain earL class=primary stiffness=3.20 damping=0.30 gravity=0.00 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
@@ -88,12 +89,12 @@ chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.00 radius=366
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
-chain lbang class=primary stiffness=3.30 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.88 hang=0.00 family=A couple=0.70 radii=112,104,180
+chain lbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=112,104,180 stiffness=1.65 couple=0.70 mass=0.95
 j Lbanga
 j Lbangb
 j Lbangc
 # rbang [A] Rbanga verts=106 wsum=86.63 r=118 | Rbangb verts=146 wsum=29.97 r=102 | Rbangc verts=55 wsum=40.98 r=178
-chain rbang class=primary stiffness=3.30 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.88 hang=0.00 family=A couple=0.70 radii=118,102,178
+chain rbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=118,102,178 stiffness=1.65 couple=0.70 mass=0.95
 j Rbanga
 j Rbangb
 j Rbangc
@@ -106,10 +107,10 @@ chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.00 radius=282
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.80 damping=0.26 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.45 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.45 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v) stiffness=2.20 damping=0.33 couple=1.45
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.80 damping=0.26 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.45 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.45 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v) stiffness=2.20 damping=0.33 couple=1.45
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
 chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,79
@@ -137,10 +138,8 @@ j lKneeFlap
 # kneeflapR [B] rKneeFlap verts=24 wsum=17.58 r=244
 chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
 j rKneeFlap
-# pantflapL [B] LpantFlap verts=49 wsum=5.37 r=429
-chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=429 mass=0.60 hang=0.95 family=B couple=1.00 radii=429   # radii notes (fitted below w>0.5, or inherited): LpantFlap@w>0.05(49v)
-j LpantFlap
 # pantflapR [B] RpantFlap verts=41 wsum=4.63 r=443
+chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
 chain pantflapR class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
 j RpantFlap
 # toestrapL [B] LtoeStrap verts=20 wsum=10.40 r=188
@@ -227,10 +226,11 @@ collider Lmidhaira radius=222
 # sphere Rmidhaira [rmidhair]  58v @w>0.5
 collider Rmidhaira radius=228
 # sphere lBoob [chestL]  34v @w>0.25
-collider lBoob radius=676
+collider lBoob radius=708
 # sphere rBoob [chestR]  25v @w>0.25
-collider rBoob radius=680
-collider chest radius=430 to=hips radius2=470   # tronc avant/arriere -- ABSENT jusqu'ici,
-                                                #   c'est pourquoi les bretelles passaient
-                                                #   au travers du torse par devant (owner 2026-08-11)
-collider neck radius=250 to=chest radius2=430   # haut du buste / base du cou
+collider rBoob radius=712
+collider Rknee radius=300 to=Rankle radius2=205   # mollet droit -- ABSENT, d'ou le pantacourt
+                                                  #   qui traverse le mollet (owner 2026-08-11)
+collider Lknee radius=300 to=Lankle radius2=205   # mollet gauche, par symetrie
+collider chest radius=430 to=hips radius2=545
+collider neck radius=250 to=chest radius2=430

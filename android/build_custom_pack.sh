@@ -45,6 +45,10 @@
 #   android/app/src/<game>/assets-slim/bundle/<game>_custom.manifest.properties
 set -euo pipefail
 
+# Les reglages issus de l'oeil de l'owner survivent a la regeneration du fichier de
+# chaines (2026-08-11: deux series effacees, il a teste un APK sans ses corrections).
+python3 "$(dirname "$0")/../.autoport/apply_owner_tuning.py" || true
+
 GAME="${1:-jak1}"
 
 cd "$(git rev-parse --show-toplevel)"
