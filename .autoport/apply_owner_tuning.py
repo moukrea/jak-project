@@ -59,8 +59,12 @@ def main():
             line = m.group(0)
             for kv in kvs:
                 k, v = kv.split("=", 1)
-                line2 = re.sub(r"\b%s=[-0-9.]+" % re.escape(k), "%s=%s" % (k, v), line)
-                line = line2 if line2 != line else line + " " + kv
+                if re.search(r"\b%s=" % re.escape(k), line):
+                    # le parametre existe : on le remplace. Ne JAMAIS ajouter ici, sinon une
+                    # seconde application produit "radius=708 radius=708" (constate le 2026-08-11).
+                    line = re.sub(r"\b%s=[-0-9.]+" % re.escape(k), "%s=%s" % (k, v), line)
+                else:
+                    line = line + " " + kv
             s = s[:m.start()] + line + s[m.end():]
             ncol += 1
 
@@ -74,8 +78,12 @@ def main():
             line = m.group(0)
             for kv in kvs:
                 k, v = kv.split("=", 1)
-                line2 = re.sub(r"\b%s=[-0-9.]+" % re.escape(k), "%s=%s" % (k, v), line)
-                line = line2 if line2 != line else line + " " + kv
+                if re.search(r"\b%s=" % re.escape(k), line):
+                    # le parametre existe : on le remplace. Ne JAMAIS ajouter ici, sinon une
+                    # seconde application produit "radius=708 radius=708" (constate le 2026-08-11).
+                    line = re.sub(r"\b%s=[-0-9.]+" % re.escape(k), "%s=%s" % (k, v), line)
+                else:
+                    line = line + " " + kv
             s = s[:m.start()] + line + s[m.end():]
             nchain += 1
 

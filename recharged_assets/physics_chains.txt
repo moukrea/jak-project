@@ -89,12 +89,12 @@ chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.00 radius=366
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
-chain lbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=112,104,180 stiffness=1.65 couple=0.70 mass=0.95
+chain lbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=112 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=112,104,180
 j Lbanga
 j Lbangb
 j Lbangc
 # rbang [A] Rbanga verts=106 wsum=86.63 r=118 | Rbangb verts=146 wsum=29.97 r=102 | Rbangc verts=55 wsum=40.98 r=178
-chain rbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=118,102,178 stiffness=1.65 couple=0.70 mass=0.95
+chain rbang class=primary stiffness=1.65 damping=0.24 gravity=0.00 radius=118 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=118,102,178
 j Rbanga
 j Rbangb
 j Rbangc
@@ -107,29 +107,29 @@ chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.00 radius=282
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.45 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v) stiffness=2.20 damping=0.33 couple=1.45
+chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=656 mass=1.20 hang=0.00 family=A couple=1.45 radii=656 # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.45 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v) stiffness=2.20 damping=0.33 couple=1.45
+chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.00 radius=660 mass=1.20 hang=0.00 family=A couple=1.45 radii=660 # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
 chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,79
 j gogglesBase
 j gogglesMid
 # topstrapL [B] lTopStrap verts=0 wsum=0.00 r=1518 | lTopStrap2 verts=31 wsum=13.27 r=1518
-chain topstrapL class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1518 rootlock=1 mass=0.70 hang=0.80 family=B couple=1.00 radii=1518,1518   # radii notes (fitted below w>0.5, or inherited): lTopStrap r=1518 FALLBACK-FROM=lTopStrap2
+chain topstrapL class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1518 rootlock=1 mass=0.70 hang=0.80 family=B couple=1.00 radii=1518,1518 # radii notes (fitted below w>0.5, or inherited): lTopStrap r=1518 FALLBACK-FROM=lTopStrap2
 j lTopStrap
 j lTopStrap2
 # topstrapR [B] rTopStrap verts=0 wsum=0.00 r=1521 | rTopStrap2 verts=30 wsum=13.18 r=1521
-chain topstrapR class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1521 rootlock=1 mass=0.70 hang=0.80 family=B couple=1.00 radii=1521,1521   # radii notes (fitted below w>0.5, or inherited): rTopStrap r=1521 FALLBACK-FROM=rTopStrap2
+chain topstrapR class=secondary stiffness=2.20 damping=0.28 gravity=0.30 radius=1521 rootlock=1 mass=0.70 hang=0.80 family=B couple=1.00 radii=1521,1521 # radii notes (fitted below w>0.5, or inherited): rTopStrap r=1521 FALLBACK-FROM=rTopStrap2
 j rTopStrap
 j rTopStrap2
 # botstrapL [B] lBotStrap verts=15 wsum=3.67 r=92 | lBotStrap2 verts=25 wsum=9.76 r=901
-chain botstrapL class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=496 rootlock=1 mass=0.70 hang=0.85 family=B couple=1.00 radii=92,901   # radii notes (fitted below w>0.5, or inherited): lBotStrap@w>0.05(15v) lBotStrap2@w>0.25(25v)
+chain botstrapL class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=496 rootlock=1 mass=0.70 hang=0.85 family=B couple=1.00 radii=92,901 # radii notes (fitted below w>0.5, or inherited): lBotStrap@w>0.05(15v) lBotStrap2@w>0.25(25v)
 j lBotStrap
 j lBotStrap2
 # botstrapR [B] rBotStrap verts=16 wsum=3.99 r=93 | rBotStrap2 verts=26 wsum=10.44 r=926
-chain botstrapR class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=510 rootlock=1 mass=0.70 hang=0.85 family=B couple=1.00 radii=93,926   # radii notes (fitted below w>0.5, or inherited): rBotStrap@w>0.05(16v) rBotStrap2@w>0.25(26v)
+chain botstrapR class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=510 rootlock=1 mass=0.70 hang=0.85 family=B couple=1.00 radii=93,926 # radii notes (fitted below w>0.5, or inherited): rBotStrap@w>0.05(16v) rBotStrap2@w>0.25(26v)
 j rBotStrap
 j rBotStrap2
 # kneeflapL [B] lKneeFlap verts=24 wsum=17.58 r=244
@@ -139,8 +139,8 @@ j lKneeFlap
 chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
 j rKneeFlap
 # pantflapR [B] RpantFlap verts=41 wsum=4.63 r=443
-chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
-chain pantflapR class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
+chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443 # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
+chain pantflapR class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443 # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
 j RpantFlap
 # toestrapL [B] LtoeStrap verts=20 wsum=10.40 r=188
 chain toestrapL class=secondary stiffness=2.60 damping=0.26 gravity=0.25 radius=188 mass=0.50 hang=0.70 family=B couple=1.00 radii=188
@@ -229,8 +229,8 @@ collider Rmidhaira radius=228
 collider lBoob radius=708
 # sphere rBoob [chestR]  25v @w>0.25
 collider rBoob radius=712
-collider Rknee radius=300 to=Rankle radius2=205   # mollet droit -- ABSENT, d'ou le pantacourt
+collider Rknee radius=300 to=Rankle radius2=205 # mollet droit -- ABSENT, d'ou le pantacourt
                                                   #   qui traverse le mollet (owner 2026-08-11)
-collider Lknee radius=300 to=Lankle radius2=205   # mollet gauche, par symetrie
+collider Lknee radius=300 to=Lankle radius2=205 # mollet gauche, par symetrie
 collider chest radius=430 to=hips radius2=545
 collider neck radius=250 to=chest radius2=430

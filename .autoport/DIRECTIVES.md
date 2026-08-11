@@ -194,3 +194,28 @@ jambe) ; `pantflapL` **rétablie** — elle avait été supprimée du fichier au
 4. **Les languettes des bandes de genoux ne bougent pas du tout.** `kneeflapL/R` mesurent pourtant
    0,66 et 0,25 : soit la chaîne pilote le mauvais joint, soit les languettes sont une pièce
    distincte (`LfootFlaps`/`RfootFlaps` existent dans le rig et ne sont chaînées par rien).
+
+## PRÉCISION DE L'OWNER SUR LA PRIORITÉ D'ANIMATION (2026-08-11) — RÈGLE, PAS NUANCE
+
+> « Lors des animations, les bones qui ne sont pas explicitement animés (juste ils suivent leur
+> ancrage au reste mais ne sont pas ajustés par l'animation) devraient donc rester en physique,
+> histoire de ne pas muter la physique pour rien. L'animation a la priorité sur la physique
+> uniquement pour ce qui est **explicitement manipulé** par l'animation. »
+
+**Traduction technique, et c'est le cœur du bug des seins pendant la soudure sur le Zoomer :**
+un os qui bouge dans le monde *parce que son parent bouge* n'est PAS piloté par l'animation. Le
+test actuel confond « ce joint s'est déplacé » et « l'animation pilote ce joint ». Le seul test
+valable porte sur la transformation **LOCALE** du joint par rapport à son parent, telle qu'elle
+sort des données d'animation :
+
+* l'animation manipule le joint ⟺ son canal **local** varie dans l'animation (rotation/translation
+  propre) ;
+* si le canal local est constant et que seul le parent bouge, **la physique garde la main** ;
+* corollaire : suspendre une chaîne parce que le buste bouge est toujours faux. Pendant la soudure,
+  le torse s'agite, les os de poitrine n'ont aucun canal propre → la physique doit tourner.
+
+**Mesure attendue dans la salle** : par animation et par chaîne, rapporter (a) si le canal local
+varie, (b) si la chaîne a été suspendue, et (c) combien de frames. Une chaîne suspendue alors que
+son canal local est constant est un défaut, et le compteur correspondant doit être à zéro avec un
+contrôle positif qui l'a fait monter (animation qui pilote réellement la chaîne → suspension
+attendue).

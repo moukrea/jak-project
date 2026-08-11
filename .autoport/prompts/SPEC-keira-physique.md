@@ -47,11 +47,23 @@ Au repos (idle), chaque élément doit **retrouver exactement la pose du modèle
 bas, pas plus écrasé. Exception : **ce qui doit pendre** (les lunettes) pend et reste pendu ; ça ne
 retourne pas à la pose du modèle.
 
-## 5. L'ANIMATION D'AUTEUR A LA PRIORITÉ
+## 5. L'ANIMATION D'AUTEUR A LA PRIORITÉ — MAIS SEULEMENT SUR CE QU'ELLE MANIPULE
 
 Si un os bouge sur une **intention d'animation**, l'animation gagne : c'est voulu par l'animation
 originale de Naughty Dog. La physique reprend ensuite. La détection se fait **par chaîne** — un os
 sans rapport ne suspend rien.
+
+Précision de l'owner (2026-08-11), qui est une règle et pas une nuance : « les bones qui ne sont pas
+explicitement animés (juste ils suivent leur ancrage au reste mais ne sont pas ajustés par
+l'animation) devraient rester en physique, histoire de ne pas muter la physique pour rien ».
+
+Donc le test porte sur le canal **LOCAL** du joint dans les données d'animation, jamais sur son
+déplacement dans le monde :
+* canal local qui varie ⟹ l'animation manipule le joint ⟹ elle gagne ;
+* canal local constant et seul le parent qui bouge ⟹ **la physique garde la main**.
+
+Suspendre une chaîne parce que le buste s'agite est toujours faux. C'est ce qui rendait la poitrine
+inerte pendant l'animation de soudure sur le Zoomer.
 
 ## 6. LA SALLE DE TEST — ÉTAPE 1, AVANT TOUTE PHYSIQUE
 
