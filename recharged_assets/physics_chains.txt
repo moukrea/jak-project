@@ -88,12 +88,12 @@ chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.45 radius=366
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
-chain lbang class=primary stiffness=1.65 damping=0.24 gravity=0.45 radius=112 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=112,104,180
+chain lbang class=primary stiffness=1.05 damping=0.36 gravity=0.45 radius=112 rootlock=1 mass=1.35 hang=0.00 family=A couple=0.70 radii=112,104,180
 j Lbanga
 j Lbangb
 j Lbangc
 # rbang [A] Rbanga verts=106 wsum=86.63 r=118 | Rbangb verts=146 wsum=29.97 r=102 | Rbangc verts=55 wsum=40.98 r=178
-chain rbang class=primary stiffness=1.65 damping=0.24 gravity=0.45 radius=118 rootlock=1 mass=0.95 hang=0.00 family=A couple=0.70 radii=118,102,178
+chain rbang class=primary stiffness=1.05 damping=0.36 gravity=0.45 radius=118 rootlock=1 mass=1.35 hang=0.00 family=A couple=0.70 radii=118,102,178
 j Rbanga
 j Rbangb
 j Rbangc
@@ -106,10 +106,10 @@ chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=282
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.20 damping=0.33 gravity=0.45 radius=656 mass=1.20 hang=0.00 family=A couple=1.20 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=1.45 damping=0.33 gravity=1.30 radius=656 mass=1.45 hang=0.00 family=A couple=1.55 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.20 damping=0.33 gravity=0.45 radius=660 mass=1.20 hang=0.00 family=A couple=1.20 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=1.45 damping=0.33 gravity=1.30 radius=660 mass=1.45 hang=0.00 family=A couple=1.55 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
 chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,150
