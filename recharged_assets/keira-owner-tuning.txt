@@ -124,5 +124,23 @@ chain rbang stiffness=1.05 mass=1.35 damping=0.36
 # Verifie : elles bougent (0.1298 / 0.0979) mais deux fois moins que les sangles de cheville
 # (0.1426). Elles ne sont pas mortes, elles sont imperceptibles. On monte la vivacite
 # (couplage + masse) et on assouplit un peu, sans toucher a ce qui les tient.
-chain kneeflapL couple=1.60 mass=0.85 stiffness=1.60
-chain kneeflapR couple=1.60 mass=0.85 stiffness=1.60
+#
+# RETIRE LE 2026-08-11 SUR MESURE, PAS SUR AVIS — et retire, pas adouci, comme la regle de
+# conservation l'exige. Ce reglage a fait ce qu'on lui demandait (0.0979 -> 0.1243 a droite,
+# 0.1298 -> 0.1681 a gauche) et il a coute la MESURE : `kneeflapR` est tombe a 21 % d'ecart
+# entre les cinq pilotages (gate DISCRIMINANT, seuil 25 %), c'est-a-dire qu'il rendait la meme
+# amplitude sous une secousse, une translation et une inclinaison a 60 degres.
+#
+# La cause est geometrique et elle est publiee par la salle : `bones_m=0.0800` a gauche,
+# `0.0802` a droite. Le plafond absolu d'amplitude d'un maillon vaut deux fois sa longueur d'os,
+# soit 0.160 m. A 1.60 de couplage les deux sangles mesuraient 0.1681 et 0.1243, soit 105 % et
+# 78 % de ce plafond : collees a leur butee, donc insensibles au stimulus. C'est la signature du
+# limiteur sature, la meme qui avait fige `chestL` a 39.25 degres sous quatre pilotages.
+#
+# CE QU'IL FAUT RETENIR POUR LA REPRENDRE AUTREMENT : ces sangles ne peuvent PAS etre rendues
+# plus perceptibles par un reglage. Leur os fait 8 cm, leur amplitude ne peut pas depasser 16 cm,
+# et elles y sont deja. Les rendre visibles demande de la GEOMETRIE (un os plus long, ou la
+# languette traitee comme une piece distincte — `LfootFlaps`/`RfootFlaps` existent dans le rig et
+# ne sont chainees par rien), pas du couplage.
+# chain kneeflapL couple=1.60 mass=0.85 stiffness=1.60
+# chain kneeflapR couple=1.60 mass=0.85 stiffness=1.60
