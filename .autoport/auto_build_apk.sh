@@ -140,4 +140,62 @@ while true; do
   fi
   echo "$h" > "$STAMP"
   say "APK prêt pour le commit $sha — le publieur prendra le relais"
+
+  # LE TELEPHONE NE DOIT JAMAIS RESTER EN ARRIERE DU BUILD.
+  # La tentative 5 (2026-08-11) a echoue sa close-gate pour cette seule raison : l'APK etait
+  # bati ET publie, mais personne ne l'avait installe. deploy_verify voyait donc un pack de
+  # donnees perime sur le Redmi (« stamp c77cb1e9e4f94 != version c2cb64c15cf50 ») et la phase
+  # ne pouvait pas fermer, alors que le travail lui-meme etait bon. Chaque build qui n'est pas
+  # suivi d'une installation RECREE cet ecart : le constructeur avance, le telephone reste.
+  # Constater l'ecart au point de controle arrive toujours trop tard (regle de non-destruction
+  # de l'owner) ; on le rend impossible ici, au point de PRODUCTION, en installant ce qu'on
+  # vient de produire. Deux garde-fous, et un echec ici n'interrompt jamais la publication
+  # (le publieur est un autre processus, il a deja de quoi travailler) :
+  #   - le telephone doit etre la (sinon on ne fait rien, ce n'est pas une erreur) ;
+  #   - l'application ne doit PAS etre au premier plan : l'owner est peut-etre en train de
+  #     tester, et un `install -r` tuerait sa session en cours.
+  # `grep -c` et JAMAIS `grep -q` : sous `-o pipefail`, `-q` sort a la premiere correspondance,
+  # SIGPIPE le producteur en amont, le pipeline rend 141 et le test se lit a l'envers. Piege
+  # maison, deja documente deux fois dans ce fichier.
+  ADBX="${ADB:-/home/emeric/Android/platform-tools/adb}"
+  SERX=eae4df44
+  PKGX=org.opengoal.gk.jak1
+  APKX=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+  here=$("$ADBX" devices 2>/dev/null | grep -cE "^${SERX}[[:space:]]+device$" || true)
+  if [ "${here:-0}" -eq 0 ]; then
+    say "device: $SERX absent — installation sautee (le build reste publie)"
+  else
+    fg=$("$ADBX" -s "$SERX" shell dumpsys window 2>/dev/null \
+           | grep -a 'mCurrentFocus' | grep -ac "$PKGX" || true)
+    if [ "${fg:-0}" -gt 0 ]; then
+      say "device: $PKGX au premier plan (owner en test) — installation differee, on ne coupe pas sa session"
+    elif timeout 900 "$ADBX" -s "$SERX" install -r "$APKX" >> "$LOG" 2>&1; then
+      # Lancement par l'activite RESOLUE (LoaderActivity), JAMAIS MainActivity : c'est
+      # LoaderActivity, et elle seule, qui reextrait les packs et ecrit les tampons
+      # .cgo_pack_stamp_jak1 / .custom_pack_stamp_jak1 que deploy_verify relit. Un lancement
+      # direct de MainActivity installe l'APK sans jamais deballer les donnees.
+      compx=$("$ADBX" -s "$SERX" shell cmd package resolve-activity --brief "$PKGX" 2>/dev/null \
+                | tr -d '\r' | grep "^${PKGX}/" | head -1)
+      [ -n "$compx" ] || compx="${PKGX}/org.opengoal.gk.LoaderActivity"
+      "$ADBX" -s "$SERX" shell am force-stop "$PKGX" >/dev/null 2>&1
+      "$ADBX" -s "$SERX" shell am start -n "$compx" >/dev/null 2>&1
+      # Laisser LoaderActivity deballer, puis CITER LE TAMPON RELU SUR LE TELEPHONE : une
+      # affirmation sur ce que le programme a fait cite une trace, jamais une intention.
+      want=$(grep -E '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties 2>/dev/null | cut -d= -f2)
+      got=""
+      for _i in $(seq 1 30); do
+        sleep 10
+        got=$("$ADBX" -s "$SERX" exec-out run-as "$PKGX" cat files/.custom_pack_stamp_jak1 2>/dev/null | tr -d '\r\n')
+        [ "$got" = "$want" ] && break
+      done
+      "$ADBX" -s "$SERX" shell am force-stop "$PKGX" >/dev/null 2>&1
+      if [ "$got" = "$want" ]; then
+        say "device: installe et deballe — tampon du pack custom '$got' == version batie"
+      else
+        say "device: installe mais pack NON deballe (tampon '$got' != '$want') — deploy_verify le refusera"
+      fi
+    else
+      say "device: adb install a echoue — voir plus haut dans ce log (build publie quand meme)"
+    fi
+  fi
 done
