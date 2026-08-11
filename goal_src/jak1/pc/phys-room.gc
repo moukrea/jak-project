@@ -632,6 +632,18 @@
           PHYSROOM-MAXANIM PHYSROOM-DRIVES (-> self slot) (-> self hdpid) PHYSROOM-WIN)
   (format 0 "PHYSPC injections=~D armed=~f disarmed=~f~%"
           (-> self injn) (-> self arm) (-> self dis))
+  ;; L'UNITE DE `atan`, MESUREE A L'EXECUTION ET PAS DEDUITE D'UNE LECTURE DE SOURCE (regle 0).
+  ;; L'ecriture d'orientation du moteur passait `(* 57.2957795 (atan sin cos))` a
+  ;; `matrix-axis-angle!` — une conversion radians->degres. Si `atan` rend des UNITES DE ROTATION,
+  ;; cette multiplication fait tourner l'os 57 fois trop et `sin` replie ensuite modulo un tour :
+  ;; toute chaine qui flechit ecrit alors une orientation fausse, sans qu'aucun chiffre de POSITION
+  ;; puisse le voir. Les trois nombres tranchent, et ils se lisent sans rien savoir du moteur :
+  ;;   atan45   = (atan 1 1). 8192 => 65536 unites par tour ; 0.7854 => des radians.
+  ;;   sinq     = (sin 8192). 0.7071 => 8192 vaut bien 45 degres dans l'unite qu'accepte `sin`,
+  ;;              donc dans celle qu'accepte `matrix-axis-angle!`, qui l'appelle.
+  ;;   bad      = ce que l'ancienne ligne aurait passe pour ce meme angle de 45 degres.
+  (format 0 "PHYSUNITS atan45=~f sinq=~f bad=~f~%"
+          (atan 1.0 1.0) (sin 8192.0) (* 57.2957795 (atan 1.0 1.0)))
   (format 0 "PHYSEND~%")
   (none))
 

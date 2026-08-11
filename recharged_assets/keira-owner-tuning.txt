@@ -88,8 +88,24 @@ chain chestR couple=1.55
 # environ gravité x masse / raideur : on triple la gravité et on assouplit. La raideur reste au-dessus
 # de 1 pour garder la fermeté (« jeune et fraîche ») — c'est le débattement qui donnerait le ballon
 # d'eau, pas la gravité.
-chain chestL gravity=1.30 stiffness=1.45 mass=1.45
-chain chestR gravity=1.30 stiffness=1.45 mass=1.45
+# REMPLACÉ le 2026-08-11 (11e passe) SUR MESURE, PAS SUR AVIS — la raideur et la masse ne bougent
+# pas, seule la gravité change, et voici pourquoi. `gravity=1.30` avait été calibré contre un
+# mécanisme qui ne transmettait presque rien : la gravité de la famille A était une CIBLE plafonnée
+# à 0.33 x longueur d'os, écrasée par la contrainte de longueur dès qu'elle pointait le long de
+# l'os — d'où « tripler la gravité n'a rien changé, sag figé à 0.0156 ». Le mécanisme est corrigé
+# (la gravité est une force, comme pour la famille B que l'owner a validée sur les bretelles), et
+# le MEME 1.30 donne maintenant, mesuré dans la salle le 2026-08-11 :
+#     penchée à 60° : sag = 0.1239 m sur un os de 0.2386 m, soit 52 % de la longueur de l'os ;
+#     DEBOUT        : 0.0467 m d'affaissement PERMANENT (l'ancre est à 21 % de la gravité même
+#                     debout, parce que la pose d'attente n'est pas la pose de bind).
+# 52 % de débattement, c'est le ballon d'eau contre lequel le réglage précédent mettait en garde,
+# et 4.7 cm en permanence, c'est « plus bas que le modèle », que la SPEC §4 interdit. On divise donc
+# par deux : ~6 cm penchée (quatre fois ce qu'il a jugé invisible) et ~2.3 cm debout.
+# `gravity=` est désormais un réglage LINÉAIRE : ce nombre se déplace sans aucun build.
+# chain chestL gravity=1.30 stiffness=1.45 mass=1.45
+# chain chestR gravity=1.30 stiffness=1.45 mass=1.45
+chain chestL gravity=0.65 stiffness=1.45 mass=1.45
+chain chestR gravity=0.65 stiffness=1.45 mass=1.45
 #
 # MÈCHES FINES. Le gradient est désormais correct (racine 0.0000, milieu 0.2240, pointe 0.3846) donc
 # ce n'est plus la forme : c'est la FRÉQUENCE. Une mèche fine, légère et raide oscille vite = l'effet

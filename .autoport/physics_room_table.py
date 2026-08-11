@@ -217,10 +217,35 @@ def main():
         stimr[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = float(m.group(4))
 
     # ---- LE GRADIENT LE LONG DE LA CHAINE (7e passe de l'owner) ---------------------------------
-    grad = {}
-    for m in re.finditer(r'^PHYSGRAD c=(\d+) a=(\d+) d=(\d+) l=(\d+) amp=([-\d.e+]+)', txt, re.M):
-        grad.setdefault((int(m.group(1)), int(m.group(2)), int(m.group(3))), {})[
-            int(m.group(4))] = float(m.group(5)) / UNITS
+    # DEUX series par (chaine, animation, pilotage), et leur ecart est le sujet de la 10e passe :
+    #   grad    = ecart a la pose d'auteur, en metres. Il CUMULE le long de la chaine : une pointe
+    #             soudee a son parent herite du chiffre de son parent et parait mobile. C'est ce
+    #             que publiait le tableau du 17:06, et il disait « croissant » quand l'owner voyait
+    #             l'inverse.
+    #   gradang = deviation ANGULAIRE du maillon par rapport a SON ATTACHE, en degres. Mouvement
+    #             PROPRE, nul pour un maillon qui suit rigidement son parent. C'est la suite que
+    #             SPEC 2 exige croissante, et la seule que l'oeil de l'owner puisse contredire.
+    grad, gradang = {}, {}
+    for m in re.finditer(r'^PHYSGRAD c=(\d+) a=(\d+) d=(\d+) l=(\d+) amp=([-\d.e+]+)'
+                         r'(?: ang=([-\d.e+]+))?', txt, re.M):
+        key = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        grad.setdefault(key, {})[int(m.group(4))] = float(m.group(5)) / UNITS
+        if m.group(6) is not None:
+            gradang.setdefault(key, {})[int(m.group(4))] = float(m.group(6))
+
+    # ---- L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE, PAR FENETRE (10e passe) -----------------------
+    # « Les seins s'allongent de nouveau sur les mouvements BRUSQUES » est une phrase sur un
+    # PILOTAGE : un total de course ne peut pas la verifier, ni l'infirmer.
+    stretch = {}
+    for m in re.finditer(r'^PHYSSTR c=(\d+) a=(\d+) d=(\d+) el=([-\d.e+]+) gn=([-\d.e+]+)'
+                         r' tf=([-\d.e+]+)', txt, re.M):
+        stretch[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+
+    # ---- LA GRAVITE REELLEMENT VUE PAR CHAQUE ANCRE, debout puis penchee -----------------------
+    grav = {}
+    for m in re.finditer(r'^PHYSGRAV tag=(\S+) c=(\d+) gn=([-\d.e+]+) tf=([-\d.e+]+)', txt, re.M):
+        grav.setdefault(m.group(1), {})[int(m.group(2))] = (float(m.group(3)), float(m.group(4)))
     animlen = {}
     for m in re.finditer(r'^PHYSANIMLEN a=(\d+) n=([-\d.e+]+) speed=([-\d.e+]+)', txt, re.M):
         animlen[int(m.group(1))] = (float(m.group(2)), float(m.group(3)))
@@ -266,9 +291,10 @@ def main():
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             selfcol=float(m.group(3)), retreat=float(m.group(4)), flip=float(m.group(5)))
     for m in re.finditer(r'^PHYSDIAG2 tag=(\S+) c=(\d+) inv=([-\d.e+]+) invres=([-\d.e+]+)'
-                         r' elong=([-\d.e+]+)', txt, re.M):
+                         r' elong=([-\d.e+]+)(?: rad=([-\d.e+]+))?', txt, re.M):
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
-            inv=float(m.group(3)), invres=float(m.group(4)), elong=float(m.group(5)))
+            inv=float(m.group(3)), invres=float(m.group(4)), elong=float(m.group(5)),
+            rad=float(m.group(6)) if m.group(6) is not None else 0.0)
 
     # ---- le controle positif -------------------------------------------------------------------
     pc = re.search(r'^PHYSPC injections=(\d+) armed=([-\d.e+]+) disarmed=([-\d.e+]+)', txt, re.M)
@@ -646,45 +672,134 @@ def main():
     if not grad:
         die('trace incomplete : aucune ligne PHYSGRAD — le gradient exige par la 7e passe n\'est'
             ' pas mesure, et un scalaire par chaine ne peut pas le porter')
-    inverses = []
+    if not gradang:
+        die('trace incomplete : PHYSGRAD ne porte pas de colonne ang= — le gradient etait mesure en'
+            ' ecart CUMULE a la pose d\'auteur, et la 10e passe de l\'owner a montre que cette'
+            ' grandeur ne peut pas voir « le milieu bouge plus que la pointe » : un maillon soude a'
+            ' son parent y herite du chiffre de son parent.')
+    A('')
+    A('   CORRECTION DE LA 10e PASSE — LE REPERE. L\'owner : « le milieu est plus hysterique (bouge')
+    A('   beaucoup plus) que les pointes, c\'est pas cense ! » pendant que ce tableau publiait')
+    A('   link0=0.0000 link1=0.2240 link2=0.3846, donc CROISSANT. C\'est la mesure qui avait tort :')
+    A('   elle prend l\'ecart de chaque maillon a sa pose d\'auteur, un ecart qui se CUMULE le long')
+    A('   de la chaine. Une pointe soudee a son parent — donc immobile PAR RAPPORT A LUI — herite')
+    A('   integralement de l\'ecart du parent et affiche un grand chiffre. Meme faute de repere que')
+    A('   « differencier la position au lieu de la sortie ».')
+    A('   La colonne qui fait foi est desormais `ang` : la deviation ANGULAIRE du maillon par')
+    A('   rapport a SON ATTACHE, en degres, nulle pour un maillon qui suit rigidement son parent.')
+    A('   `amp` (metres, ancienne mesure) reste publiee a cote : l\'ecart entre les deux series EST')
+    A('   la mesure de l\'erreur de l\'ancienne, et il ne se raconte pas, il se lit.')
+    inverses, inverses_old = [], []
     for c in sorted(chains):
         nl = chains[c]['links']
         for dr, nm in enumerate(DRIVE_NAMES):
-            # le pire cas de cette chaine sous ce pilotage, toutes animations confondues
-            best, bai = None, None
+            # le pire cas de cette chaine sous ce pilotage, toutes animations confondues, choisi
+            # sur la serie ANGULAIRE : c'est elle qui decide maintenant.
+            best, bamp, bai = None, None, None
             for ai in sorted(anims):
-                g = grad.get((c, ai, dr))
+                g = gradang.get((c, ai, dr))
                 if not g:
                     continue
                 v = [g.get(l, 0.0) for l in range(nl)]
                 if best is None or max(v) > max(best):
-                    best, bai = v, ai
+                    best = v
+                    bamp = [grad.get((c, ai, dr), {}).get(l, 0.0) for l in range(nl)]
+                    bai = ai
             if best is None:
                 continue
             A('ROOM-GRADIENT: chain=%-12s drive=%-10s anim=%-38s %s'
               % (names[c], nm, anims[bai]['name'],
                  ' '.join('link%d=%s' % (l, fnum(v)) for l, v in enumerate(best))))
+            A('   (ancienne mesure, ecart cumule en m : %s)'
+              % ' '.join('link%d=%s' % (l, fnum(v)) for l, v in enumerate(bamp)))
             # un maillon intermediaire qui depasse la pointe est le defaut decrit par l'owner
             if nl >= 2 and max(best[:-1]) > best[-1]:
                 inverses.append((names[c], nm, anims[bai]['name'], best))
+            if nl >= 2 and max(bamp[:-1]) > bamp[-1]:
+                inverses_old.append((names[c], nm))
     A('')
     if inverses:
-        A('   GRADIENT INVERSE sur %d couple(s) (chaine, pilotage) : un maillon intermediaire bouge'
+        A('   GRADIENT INVERSE sur %d couple(s) (chaine, pilotage) : un maillon intermediaire tourne'
           % len(inverses))
-        A('   PLUS que la pointe. C\'est exactement la silhouette que l\'owner decrit, et elle est')
-        A('   desormais mesuree au lieu d\'etre invisible :')
+        A('   PLUS que la pointe, PAR RAPPORT A SON PROPRE PARENT. C\'est exactement la silhouette')
+        A('   que l\'owner decrit, et elle est enfin mesuree au lieu d\'etre invisible :')
         for nmc, nmd, nma, v in inverses[:10]:
             A('     %-12s %-10s %-30s %s'
               % (nmc, nmd, nma, ' '.join(fnum(x) for x in v)))
         A('   (%d au total)' % len(inverses))
     else:
-        A('   Aucune inversion : sur chaque chaine et chaque pilotage, l\'amplitude CROIT de la')
-        A('   racine vers la pointe, ce que SPEC 2 exige.')
+        A('   Aucune inversion : sur chaque chaine et chaque pilotage, la deviation propre CROIT de')
+        A('   la racine vers la pointe, ce que SPEC 2 exige.')
+    A('   Pour comparaison, l\'ANCIENNE mesure (ecart cumule) en signalait %d : l\'ecart entre les'
+      % len(inverses_old))
+    A('   deux comptes est la part du defaut que le repere monde rendait invisible.')
+    A('')
+
+    # ---- L'ALLONGEMENT, PAR PILOTAGE (10e passe : « ils s'allongent de nouveau ») ---------------
+    A('-- ALLONGEMENT RELATIF DES MAILLONS (10e passe de l\'owner, 2026-08-11 18:00) -------------')
+    A('   « Les seins s\'allongent de nouveau sur les mouvements brusques. » Le build precedent')
+    A('   pariait par ecrit : si l\'etirement revient, c\'est la contrainte de longueur qui cede, et')
+    A('   le couplage ne sera PAS rebaisse. Il est revenu ; le couplage reste a 1.55 et c\'est le')
+    A('   solveur qui a change — la poussee de collision, seule operation qui deplacait encore le')
+    A('   lien hors de sa sphere, est desormais reprojetee dessus (elle fait TOURNER, elle')
+    A('   n\'ALLONGE plus).')
+    A('   NATURE : un rapport sans dimension, |longueur/longueur_de_repos - 1|. REPERE : aucun,')
+    A('   c\'est une longueur sur une longueur mesuree depuis l\'attache du maillon. LECTURE QUAND')
+    A('   LE DEFAUT EST ABSENT : 0. Cible de la DECISION 2 du superviseur : <= 3 % sur jerk/accel.')
+    if not stretch:
+        die('trace incomplete : aucune ligne PHYSSTR — l\'allongement n\'est pas mesure par fenetre,'
+            ' donc « ils s\'allongent sur les mouvements BRUSQUES » reste invérifiable')
+    st_worst = None
+    per_chain_st = {}
+    for (c, ai, dr), (el, gn, tf) in stretch.items():
+        if c not in chains:
+            continue
+        if st_worst is None or el > st_worst[0]:
+            st_worst = (el, c, dr, ai)
+        k = (c, dr)
+        if k not in per_chain_st or el > per_chain_st[k][0]:
+            per_chain_st[k] = (el, ai)
+    A('ROOM-STRETCH: max=%s chain=%s drive=%s anim=%s'
+      % (fnum(st_worst[0]), names[st_worst[1]], DRIVE_NAMES[st_worst[2]],
+         anims[st_worst[3]]['name']))
+    for c in sorted(chains):
+        row = []
+        for dr, nm in enumerate(DRIVE_NAMES):
+            v = per_chain_st.get((c, dr))
+            row.append('%s=%s' % (nm, fnum(v[0]) if v else '-'))
+        A('   stretch %-12s %s' % (names[c], ' '.join(row)))
+    over = sorted(((v[0], names[c], DRIVE_NAMES[dr])
+                   for (c, dr), v in per_chain_st.items() if v[0] > 0.03), reverse=True)
+    if over:
+        A('   AU-DESSUS DE 3 %% : %d couple(s) (chaine, pilotage). C\'est la contrainte de longueur'
+          % len(over))
+        A('   qui cede, pas le couplage — on ne rebaisse pas le couplage pour masquer ca.')
+        for v, nmc, nmd in over[:10]:
+            A('     %-12s %-10s %s' % (nmc, nmd, fnum(v)))
+    else:
+        A('   Aucun couple (chaine, pilotage) au-dessus de 3 %% : la contrainte de longueur tient.')
     A('')
     m0, m60 = mean.get('idle', {}), mean.get('tilt', {})
     if not m0 or not m60:
         die('trace incomplete : aucune ligne PHYSMEAN — ROOM-GRAVSAG ne peut pas etre calcule, et'
             ' le superviseur a interdit qu\'un APK reparte sans lui')
+    A('')
+    A('   CE QUE LA 10e PASSE AJOUTE. « Le sag est invisible sur l\'inclinaison toujours » — et la')
+    A('   gravite avait pourtant ete TRIPLEE (0.45 -> 1.30) entre les deux builds sans que le')
+    A('   chiffre bouge de 0.0156. Une grandeur insensible a un triplement de son propre reglage ne')
+    A('   depend pas de ce reglage : ce n\'etait plus un reglage, c\'etait un defaut de mecanisme.')
+    A('   Trois colonnes le tranchent maintenant, et elles se lisent ENSEMBLE :')
+    A('     gn  = |gravite effective| / |g| vue par l\'ancre. 0 debout (les deux gravites')
+    A('           s\'annulent), 1.0 a 60 degres. Si gn est nul a 60 degres, la gravite n\'arrive pas')
+    A('           jusqu\'a cette chaine et aucun reglage n\'y changera rien.')
+    A('     tf  = la part TANGENTIELLE de cette gravite. La contrainte de longueur n\'autorise')
+    A('           qu\'une ROTATION autour de l\'attache : la composante dirigee LE LONG de l\'os est')
+    A('           annulee par construction. tf ~ 0 avec gn = 1.0 veut dire « la gravite arrive et la')
+    A('           geometrie du rig l\'annule » — un fait, pas un bug, mais il fallait le mesurer')
+    A('           pour cesser de le confondre avec un bug.')
+    A('     sagn = sag rapporte a la LONGUEUR TOTALE de la chaine. Sans lui, une chaine d\'un')
+    A('           maillon et une chaine de trois ne sont pas comparables et le classement ment.')
+    g0, g60 = grav.get('idle', {}), grav.get('tilt', {})
     for c in sorted(chains):
         a, b = m0.get(c), m60.get(c)
         if a is None or b is None:
@@ -692,9 +807,17 @@ def main():
         n0 = sum(v * v for v in a) ** 0.5
         n60 = sum(v * v for v in b) ** 0.5
         sag = sum((y - x) ** 2 for x, y in zip(a, b)) ** 0.5
-        A('ROOM-GRAVSAG: chain=%-12s at0=%-9s at60=%-9s sag=%-9s fam=%s'
+        blen = sum(bones.get(c, {}).values()) / UNITS
+        gn, tf = g60.get(c, (float('nan'), float('nan')))
+        A('ROOM-GRAVSAG: chain=%-12s at0=%-9s at60=%-9s sag=%-9s sagn=%-8s gn=%-7s tf=%-7s fam=%s'
           % (names[c], fnum(n0), fnum(n60), fnum(sag),
+             fnum(sag / blen) if blen > 1e-6 else '-',
+             fnum(gn), fnum(tf),
              'A' if chains[c]['fam'] == 1 else 'B'))
+    if g0:
+        A('   (debout, la meme gravite effective vaut : %s)'
+          % ' '.join('%s=%s' % (names[c], fnum(g0[c][0]))
+                     for c in sorted(g0) if c < len(names)))
     A('')
     A('-- LE PIRE CAS DE CHAQUE CHAINE, AVEC LE NOM DE L\'ANIMATION OU IL S\'EST PRODUIT ------------')
     for c in sorted(chains):
@@ -754,14 +877,18 @@ def main():
         A('   et le zero de la course ne prouve donc rien.')
     for c in sorted(chains):
         A('   selfcol %-12s run=%-8d armed=%-8d  (retreat=%-7d flip=%-8d inv=%-6d invres=%-6d'
-          ' elong=%.4f)'
+          ' elong=%.4f raddrop=%d)'
           % (names[c], int(dr_run.get(c, {}).get('selfcol', 0)),
              int(dr_on.get(c, {}).get('selfcol', 0)),
              int(dr_run.get(c, {}).get('retreat', 0)),
              int(dr_run.get(c, {}).get('flip', 0)),
              int(dr_run.get(c, {}).get('inv', 0)),
              int(dr_run.get(c, {}).get('invres', 0)),
-             dr_run.get(c, {}).get('elong', 0.0)))
+             dr_run.get(c, {}).get('elong', 0.0),
+             int(dr_run.get(c, {}).get('rad', 0))))
+    A('   `raddrop` = fois ou le PLAFOND D\'EXCURSION du lien (son propre rayon mesure) a mordu.')
+    A('   C\'est un suppresseur, donc SPEC 7 exige qu\'il chiffre ce qu\'il retire PAR CHAINE : un')
+    A('   affaissement gravitaire ecrete par ce plafond se lit ici et nulle part ailleurs.')
     A('')
     A('-- 6e PASSE, DEFAUT 2 : LA COURBE DE REPONSE ------------------------------------------------')
     A('   « Les meches les plus grosses sont trop statiques sur les mouvements faibles, trop')
