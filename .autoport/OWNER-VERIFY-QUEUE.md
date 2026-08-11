@@ -1,24 +1,30 @@
-# À TESTER — build intermédiaire, PAS validé (publié sur ta consigne du 2026-08-11)
+# À TESTER — Keira, cycle complet (validateur + close-gate PASSÉS, ton œil est la dernière porte)
 
-Branche `physics-keira-clean` — départ propre : moteur de physique réécrit (6000 → ~1276 lignes),
-**Keira seule**, 22 chaînes générées depuis son rig.
+Branche `physics-keira-clean`, commit 13d1c71d — moteur réécrit, 22 chaînes, 13 colliders.
 
-## Ce qui a changé
-* Nouveau moteur, aucun suppresseur par défaut (c'est leur empilement qui avait tué le mouvement).
-* Chaînes : oreilles, cheveux (racine ancrée), mèches, seins, lunettes, bretelles, pans, sangles.
-* Salle de test interne : le joueur n'est plus spawné du tout (prouvé par le log).
-* **Les 59 autres personnages n'ont plus de physique** — c'est voulu, on ne les régénère qu'après
-  ta validation de Keira.
+## CE QUI EST MESURÉ COMME CORRIGÉ
+* **Pénétration nulle sur tes trois paires**, sur 1584 mesures — contre 0,0270 (lunettes) et
+  0,0839 (sangle) au cycle précédent :
+  cheveux/mèches vs crâne-visage-épaules-oreilles · lunettes vs corps et seins · oreilles vs mèches.
+* **Sein retourné : corrigé.** La cause n'était PAS l'ancre (mon hypothèse) mais **l'axe du volume** :
+  une capsule est une coquille symétrique, les deux côtés sont admissibles, donc un lien poussé au
+  travers s'y retrouve tenu du mauvais côté — équilibre stable et faux.
+  Compteur : 7313 corrections, **résidu 595** (pas zéro, voir plus bas). Contrôle positif ×9,1.
 
-## Ce que JE sais déjà rouge (ne perds pas de temps dessus, sauf si tu vois autre chose)
-* 18 animations mesurées sur 31 — la couverture n'est pas complète.
-* Priorité à l'animation d'auteur : 8 chaînes concernées, **1 seule** respecte l'animation.
-* `pantflapL` inerte (0,0137) alors que `pantflapR` bouge (0,77) — asymétrie.
-* Contrôle de pénétration incohérent : je ne conclus rien sur les collisions pour l'instant.
+## CE QUI N'EST PAS RÉGLÉ, ET POURQUOI — DEUX DÉCISIONS SONT À TOI
+1. **Les seins pendant la soudure.** Mon hypothèse (l'animation suspend la physique) est **réfutée
+   par la mesure** : ce moteur ne suspend rien, et la poitrine n'est pas dans les 8 chaînes que
+   l'animation pilote. La vraie cause : l'animation de soudure bouge son torse **2,5 à 4 fois moins**
+   que les autres (0,077 m contre 0,20–0,295 m). Il n'y a presque rien à exciter, et debout immobile
+   l'animation est la seule excitation. → Veux-tu (a) plus de couplage/moins de raideur sur la
+   poitrine, quitte à la rendre plus mobile partout, ou (b) une excitation de respiration ?
+2. **Résidu d'inversion 595, pas zéro.** Deux volumes qui se recouvrent se renvoient le lien d'un
+   côté à l'autre. Il faut soit un solveur conjoint sur les volumes, soit une priorité entre eux —
+   décision de conception que le worker n'a pas prise seul.
 
-## Ce sur quoi ton œil est utile
-1. Keira : ses **mèches** et ses **oreilles** bougent-elles visiblement ? (mesuré 0,69–0,88)
-2. Sa **poitrine** : ferme et vivante, ou molle / écrasée ? (mesuré 0,66–1,04)
-3. Ses **lunettes** : elles pendent et restent pendues ? traversent-elles encore ?
-4. Au repos, elle retrouve bien sa silhouette normale ? (mesuré : écart 0,0003 au modèle)
-5. Le clipping : où, sur quoi, et est-ce pire ou moins pire qu'avant ?
+## CE SUR QUOI TON ŒIL SERT
+1. Le sein qui se retournait : le vois-tu encore ? (résidu non nul, donc c'est possible)
+2. Les mèches fines : toujours en jitter, ou calmées ?
+3. Les lunettes : clipent-elles encore sur les seins ?
+4. Les bretelles et le pantacourt : le torse et les mollets ont des colliders maintenant.
+5. L'allongement des seins sur les changements brusques de direction.
