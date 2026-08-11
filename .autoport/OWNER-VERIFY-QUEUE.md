@@ -1,30 +1,49 @@
-# À TESTER — Keira, cycle complet (validateur + close-gate PASSÉS, ton œil est la dernière porte)
+# À TESTER — Keira, réponse à ton retour de 18:00 (les seins s'allongent / pas de sag / le milieu bouge plus que les pointes)
 
-Branche `physics-keira-clean`, commit 13d1c71d — moteur réécrit, 22 chaînes, 13 colliders.
+Branche `physics-keira-clean`, commit `613218dfa3`, tag de build **613218-ceb901**.
+(Le tag est aussi lisible sur le device : si ce n'est pas celui-là, tu testes un vieux build.)
 
-## CE QUI EST MESURÉ COMME CORRIGÉ
-* **Pénétration nulle sur tes trois paires**, sur 1584 mesures — contre 0,0270 (lunettes) et
-  0,0839 (sangle) au cycle précédent :
-  cheveux/mèches vs crâne-visage-épaules-oreilles · lunettes vs corps et seins · oreilles vs mèches.
-* **Sein retourné : corrigé.** La cause n'était PAS l'ancre (mon hypothèse) mais **l'axe du volume** :
-  une capsule est une coquille symétrique, les deux côtés sont admissibles, donc un lien poussé au
-  travers s'y retrouve tenu du mauvais côté — équilibre stable et faux.
-  Compteur : 7313 corrections, **résidu 595** (pas zéro, voir plus bas). Contrôle positif ×9,1.
+## TES TROIS PHRASES, ET CE QUI A CHANGÉ
 
-## CE QUI N'EST PAS RÉGLÉ, ET POURQUOI — DEUX DÉCISIONS SONT À TOI
-1. **Les seins pendant la soudure.** Mon hypothèse (l'animation suspend la physique) est **réfutée
-   par la mesure** : ce moteur ne suspend rien, et la poitrine n'est pas dans les 8 chaînes que
-   l'animation pilote. La vraie cause : l'animation de soudure bouge son torse **2,5 à 4 fois moins**
-   que les autres (0,077 m contre 0,20–0,295 m). Il n'y a presque rien à exciter, et debout immobile
-   l'animation est la seule excitation. → Veux-tu (a) plus de couplage/moins de raideur sur la
-   poitrine, quitte à la rendre plus mobile partout, ou (b) une excitation de respiration ?
-2. **Résidu d'inversion 595, pas zéro.** Deux volumes qui se recouvrent se renvoient le lien d'un
-   côté à l'autre. Il faut soit un solveur conjoint sur les volumes, soit une priorité entre eux —
-   décision de conception que le worker n'a pas prise seul.
+1. **« Les seins s'allongent de nouveau sur les mouvements brusques. »**
+   C'était la contrainte de longueur qui cédait — pas au ressort, à la **collision** : sa poussée
+   est une translation, et quand elle est dirigée dans l'axe de l'ancre (un sein poussé par la
+   capsule du buste) elle ne fait rien d'autre qu'allonger. Elle est maintenant reprojetée sur la
+   sphère de l'attache : ça **tourne** au lieu de s'étirer. Le couplage n'a PAS été rebaissé,
+   comme annoncé dans le build précédent.
+   Mesuré : allongement de la poitrine **0,070 → 0,0000** sur les cinq pilotages.
 
-## CE SUR QUOI TON ŒIL SERT
-1. Le sein qui se retournait : le vois-tu encore ? (résidu non nul, donc c'est possible)
-2. Les mèches fines : toujours en jitter, ou calmées ?
-3. Les lunettes : clipent-elles encore sur les seins ?
-4. Les bretelles et le pantacourt : le torse et les mollets ont des colliders maintenant.
-5. L'allongement des seins sur les changements brusques de direction.
+2. **« Le sag est invisible sur l'inclinaison toujours. »**
+   Deux causes, les deux réparées. (a) la gravité de la poitrine n'était pas une **force** mais un
+   déplacement de cible plafonné, annulé par la contrainte de longueur — d'où « tripler `gravity=`
+   ne change rien », ce que le chiffre disait déjà et que personne n'avait lu. (b) le moteur croyait
+   **deux volumes du même sein** : une petite sphère bien placée quand on le heurte, une grosse
+   sphère de 16 cm posée sur l'os quand il bouge. C'est la grosse qui décidait, et elle le renvoyait
+   8653 fois par course.
+   Mesuré : affaissement penchée à 60° **0,0156 m → 0,0725 et 0,1036 m**.
+   ⚠️ **Regarde aussi DEBOUT** : il reste ~2,3 cm d'affaissement permanent. Si c'est trop bas,
+   dis-le — `gravity=` est devenu un réglage linéaire, ça se baisse sans aucun build.
+
+3. **« Le milieu est plus hystérique que les pointes. »**
+   Tu avais raison contre mon instrument, pour la troisième fois de la journée : je mesurais
+   l'écart à la pose d'animation, qui **s'additionne** le long de la chaîne, donc une pointe soudée
+   à son parent affichait le chiffre de son parent. Le gradient est maintenant l'angle de chaque
+   maillon **par rapport à son propre parent**. Il trouve **7** cas de milieu-plus-mobile-que-la-pointe
+   là où l'ancienne mesure en voyait **0**. C'est instrumenté, ce n'est pas encore corrigé — je veux
+   savoir si ce que tu vois correspond.
+
+## EN PRIME, TROUVÉ EN VÉRIFIANT MES PROPRES UNITÉS
+L'orientation écrite dans le squelette était **fausse depuis le début** : `atan` rend des unités de
+rotation (65536 = un tour) et le code la traitait comme des radians. Un fléchissement de 1° faisait
+tourner l'os de 57°, et au-delà ça repliait modulo un tour. La **position** était juste, donc aucun
+de mes chiffres ne pouvait le voir. Candidat direct pour deux défauts que tu avais signalés et que
+je n'expliquais pas : les **« petits bugs de géométrie » sur les grosses mèches** et le **polygone de
+la semelle de la chaussure gauche qui se fait la malle**. C'est le seul point de ce build que je ne
+peux pas chiffrer — ton œil tranche.
+
+## CE QUI N'EST PAS RÉGLÉ, ET JE LE DIS
+* `rbang`/`lbang` s'allongent encore jusqu'à 21 % sur les à-coups (216 frames sur la course).
+  Quand « rien ne traverse » et « longueur invariante » se contredisent, c'est le premier qui gagne.
+* Résidu d'inversion **181** (l'ordre de priorité entre volumes qui se recouvrent n'est pas fait).
+* Ta suggestion des colliders dérivés du **mesh** décimé plutôt que du rig : pas évaluée, elle
+  demande son propre cycle. La correction (2b) ci-dessus en est un acompte, pas un remplacement.
