@@ -156,6 +156,9 @@ def main():
     for m in re.finditer(r'^PHYSANIM a=(\d+) ag=(\S+) name=(\S+) joints=(\d+)', txt, re.M):
         anims[int(m.group(1))] = dict(ag=m.group(2), name=m.group(3))
     skipped = re.findall(r'^PHYSANIMSKIP ag=(\S+) name=(\S+) joints=(\d+) want=(\d+)', txt, re.M)
+    # les animations dont le rig de variante n'a pas le meme nombre de joints que le porteur de
+    # physique : elles sont JOUEES (owner : « toutes les animations »), et nommees ici.
+    variants = re.findall(r'^PHYSANIMRIG ag=(\S+) name=(\S+) joints=(\d+) porteur=(\d+)', txt, re.M)
     acc = re.search(r'^PHYSANIMS accepted=(\d+) enumerated=(\d+) ags=(\d+)', txt, re.M)
     if not acc:
         die('trace incomplete : PHYSANIMS accepted/enumerated manquant')
@@ -189,6 +192,48 @@ def main():
     if not rows:
         die('aucune ligne PHYSROW dans la trace')
     played = len({r['ai'] for r in rows})
+
+    # ---- LA LIGNE DE BASE : meme animation, meme duree, AUCUN pilotage -------------------------
+    # Superviseur 2026-08-11 16:15 : « publier la valeur sous animation seule comme ligne de base a
+    # soustraire ; un pilotage dont la reponse ne depasse pas la ligne de base n'a rien excite ».
+    base = {}
+    for m in re.finditer(r'^PHYSBASE c=(\d+) a=(\d+) amp=([-\d.e+]+) jump=([-\d.e+]+)'
+                         r' ns=([-\d.e+]+)', txt, re.M):
+        base[(int(m.group(1)), int(m.group(2)))] = float(m.group(3)) / UNITS
+
+    # ---- L'AMPLITUDE COMMANDEE de chaque pilotage (denominateur du gain) ------------------------
+    stim = {}
+    for m in re.finditer(r'^PHYSSTIM dr=(\d+) mag=([-\d.e+]+)', txt, re.M):
+        stim[int(m.group(1))] = float(m.group(2))
+
+    # ---- LE STIMULUS REELLEMENT RECU par chaque chaine, fenetre par fenetre ---------------------
+    # Un pilotage commande ne vaut que si rien d'autre ne le domine. C'est ce chiffre qui a designe
+    # la cause racine : sous animation seule, les chaines recevaient des accelerations superieures
+    # a tout ce que la salle commandait, parce que la lecture d'animation reculait `frame-num` a 0
+    # d'un coup et TELEPORTAIT le squelette a chaque fin d'animation.
+    stimr = {}
+    for m in re.finditer(r'^PHYSACC c=(\d+) a=(\d+) d=(\d+) acc=([-\d.e+]+) wraps=(\d+)',
+                         txt, re.M):
+        stimr[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = float(m.group(4))
+
+    # ---- LE GRADIENT LE LONG DE LA CHAINE (7e passe de l'owner) ---------------------------------
+    grad = {}
+    for m in re.finditer(r'^PHYSGRAD c=(\d+) a=(\d+) d=(\d+) l=(\d+) amp=([-\d.e+]+)', txt, re.M):
+        grad.setdefault((int(m.group(1)), int(m.group(2)), int(m.group(3))), {})[
+            int(m.group(4))] = float(m.group(5)) / UNITS
+    animlen = {}
+    for m in re.finditer(r'^PHYSANIMLEN a=(\d+) n=([-\d.e+]+) speed=([-\d.e+]+)', txt, re.M):
+        animlen[int(m.group(1))] = (float(m.group(2)), float(m.group(3)))
+
+    # ---- LA POSITION MOYENNE de la pointe, debout puis penchee a 60 degres ----------------------
+    # C'est un DEPLACEMENT SOUTENU. La boite englobante (colonne tipvar) ne retient que la variance
+    # et vaut structurellement zero sous une pose tenue : elle ne pouvait pas voir la gravite, et
+    # elle ne l'a jamais vue.
+    mean = {}
+    for m in re.finditer(r'^PHYSMEAN tag=(\S+) c=(\d+) x=([-\d.e+]+) y=([-\d.e+]+) z=([-\d.e+]+)',
+                         txt, re.M):
+        mean.setdefault(m.group(1), {})[int(m.group(2))] = (
+            float(m.group(3)) / UNITS, float(m.group(4)) / UNITS, float(m.group(5)) / UNITS)
 
     # ---- le repos ------------------------------------------------------------------------------
     idle = {}
@@ -339,6 +384,10 @@ def main():
     A('          diagonale de la boite englobante de l\'ecart pointe-vs-pose-d\'auteur, dans le')
     A('          repere de l\'os porteur. Le mouvement de l\'animation n\'y compte pas d\'un micron :')
     A('          une chaine qui se contente de suivre son os anime mesure ZERO ici.')
+    A('          C\'est une VARIANCE : elle mesure ce qui bouge, jamais ou ca s\'est pose. Sous une')
+    A('          pose TENUE (drive=tilt) elle vaut donc presque zero, et c\'est correct — le')
+    A('          deplacement soutenu que produit la gravite se lit dans ROOM-GRAVSAG. Confondre les')
+    A('          deux est ce qui a fait coexister un chiffre vert et « zero gravite sur ses seins ».')
     A('  rootdev residu d\'ANCRAGE de la racine : le pire de (a) l\'ecart entre la racine ECRITE et')
     A('          la racine du modele, (b) l\'ecart de longueur du premier lien libre a son attache.')
     A('  meshpen RESIDU SIGNE de penetration au-dela du plancher de pose modele, apres tout le')
@@ -365,27 +414,36 @@ def main():
     A('   le compagnon HD qui porte les chaines : %s, %s chaines / %s liens / %s volumes resolus'
       % (subject_name, hd.group(3), hd.group(4), hd.group(5)))
     A('ROOM-ANIMS: %d/%d raw=%d skipped=%d' % (played, accepted, enumerated, len(skipped)))
-    A('   `raw` est le total BRUT enumere dans les art-groups de Keira, sans aucun filtre du')
-    A('   programme ; `total` est ce que le rig qui porte la physique peut jouer ; chaque animation')
-    A('   ecartee est nommee ci-dessous avec sa raison, une ligne chacune.')
+    A('   `raw` est le total BRUT enumere dans les six art-groups de Keira, sans aucun filtre du')
+    A('   programme. Owner 2026-08-11 16:15 : « faut tester vraiment TOUTES les animations qu\'utilise')
+    A('   le perso tout au long du jeu, pas quelques unes ! » — donc joue = raw, et skipped = 0.')
     for ag, nm, nj, want in skipped:
         A('ROOM-ANIM-SKIPPED: %s rig-%s-joints-vs-%s-du-porteur-de-physique (art-group %s)'
           % (nm, nj, want, ag))
-    A('   TOTAL = les animations de Keira que peut jouer LE RIG QUI PORTE SA PHYSIQUE. Detail, et')
-    A('   rien n\'est ecarte en silence : %d animations sont enumerees dans ses %d art-groups.'
-      % (enumerated, nag))
-    A('   %d tiennent sur le rig a %s joints du sujet et sont TOUTES jouees et mesurees.'
-      % (accepted, subj.group(4)))
-    A('   %d vivent sur un rig a 94 joints (firecanyon, lavatube-start, lavatube-end). Ce rig-la ne'
-      % len(skipped))
-    A('   peut pas porter la physique du tout : la physique de Keira vit sur son compagnon HD, et')
-    A('   le jeu decide de le greffer avec hd-desired-entry-for-mgeo. Appelee A L\'EXECUTION sur les')
-    A('   six mgeo de Keira, elle rend :')
+    A('   %d animations enumerees dans ses %d art-groups, %d jouees et mesurees.'
+      % (enumerated, nag, accepted))
+    if variants:
+        A('   %d d\'entre elles vivent sur un rig de VARIANTE (Fire Canyon, Lava Tubes) a %s joints la'
+          % (len(variants), variants[0][2]))
+        A('   ou le porteur de physique en a %s. Elles sont jouees SUR LEUR PROPRE art-group : le'
+          % subj.group(4))
+        A('   nombre de joints ecrits est porte par le bloc compresse de l\'ANIMATION')
+        A('   (joint.gc:940-955), pas par le squelette, donc une animation a %s joints en pilote %s'
+          % (variants[0][2], variants[0][2]))
+        A('   et les joints propres au rig du village 1 gardent leur pose. Ce n\'est pas une')
+        A('   supposition : si un joint porteur de chaine n\'etait pas pilote, l\'ancrage de cette')
+        A('   chaine partirait et la gate ROOT le refuserait. rootdev max mesure = %s m.'
+          % fnum(max((r['root'] for r in rows), default=0.0)))
+        A('   Les %d concernees : %s'
+          % (len(variants), ', '.join(v[1] for v in variants[:6])
+             + (' ...' if len(variants) > 6 else '')))
+    A('   La physique elle-meme ne vit que sur le compagnon HD du mgeo du village 1 :')
     for ag, mg, e in mgeo:
         A('     PHYSMGEO %-30s entry=%-3d %s'
-          % (mg, e, 'compagnon HD keira-hd' if e >= 0 else 'AUCUN compagnon, donc aucune chaine'))
-    A('   Les %d refusees : %s'
-      % (len(skipped), ', '.join('%s(%s vs %s j)' % (s[1], s[2], s[3]) for s in skipped)))
+          % (mg, e, 'compagnon HD keira-hd' if e >= 0 else 'AUCUN compagnon HD sur ce mgeo'))
+    A('   C\'est pour ca que le SUJET reste celui du village 1 et que ce sont les ANIMATIONS qui')
+    A('   viennent a lui, et non l\'inverse : un sujet spawne sur un mgeo de variante n\'aurait')
+    A('   aucune chaine, donc rien a mesurer.')
     A('ROOM-COLLIDER-COVERAGE: %s' % ' '.join(covered))
     A('   %d volumes resolus par le moteur, sur les joints ci-dessus. meshpen mesure l\'entree dans'
       % len(cols))
@@ -497,6 +555,146 @@ def main():
              fnum(max(r['root'] for r in sel)), fnum(max(r['pen'] for r in sel)),
              fnum(max(r['jump'] for r in sel))))
     A('   fenetre de mesure = %d frames par (animation x pilotage).' % win)
+    A('   `tilt` n\'est pas une secousse : elle se penche a 60 degres sur 24 frames puis TIENT LA')
+    A('   POSE, et la mesure ne demarre qu\'a la frame 54 — 30 frames de tenue apres la fin de la')
+    A('   rampe. Son amplitude est donc PETITE par construction, et c\'est la reponse correcte :')
+    A('   une pose tenue ne fait pas vibrer une chaine, elle la DEPLACE. Ce deplacement se lit dans')
+    A('   ROOM-GRAVSAG plus bas, pas ici.')
+    A('')
+    A('-- LA REPONSE, ET NON L\'AGITATION (superviseur 2026-08-11 16:15) ---------------------------')
+    A('   « publier l\'amplitude de pointe rapportee a l\'amplitude du stimulus, et la valeur sous')
+    A('   animation seule comme ligne de base a soustraire. Un pilotage dont la reponse ne depasse')
+    A('   pas la ligne de base n\'a rien excite. »')
+    A('   stimulus  acceleration COMMANDEE par la salle, en m/s^2 (pour `tilt`, plus aucune')
+    A('             acceleration de repere : le stimulus EST la gravite, 9.81 m/s^2).')
+    A('   baseline  amplitude de pointe de la MEME chaine sous la MEME animation SANS aucun')
+    A('             pilotage. C\'est ce que l\'animation faisait de toute facon.')
+    A('   gain      (tip - baseline) / stimulus, en metres par m/s^2. Un gain qui s\'effondre quand')
+    A('             le stimulus monte est une SATURATION : la chaine est collee a son plafond')
+    A('             geometrique et ne mesure plus le stimulus. C\'est ce qui rendait 16 chaines sur')
+    A('             22 identiques sous cinq stimuli differents.')
+    if not stim:
+        die('trace incomplete : aucune ligne PHYSSTIM — le gain n\'a pas de denominateur')
+    if not base:
+        die('trace incomplete : aucune ligne PHYSBASE — la ligne de base n\'a pas ete mesuree')
+    for c in sorted(chains):
+        bl = max((v for (cc, _ai), v in base.items() if cc == c), default=0.0)
+        for dr, nm in enumerate(DRIVE_NAMES):
+            sel = [r['amp'] for r in rows if r['c'] == c and r['dr'] == dr]
+            if not sel:
+                continue
+            tip = max(sel)
+            mag = stim.get(dr, 0.0) * 3600.0 / UNITS      # u/frame^2 -> m/s^2
+            got = max((v for (cc, _a, dd), v in stimr.items() if cc == c and dd == dr), default=0.0)
+            g = (tip - bl) / mag if mag > 0.0 else 0.0
+            A('ROOM-RESPONSE: chain=%-12s drive=%-10s stimulus=%-9s tip=%-9s baseline=%-9s'
+              ' gain=%-11s recu=%s'
+              % (names[c], nm, '%.2f' % mag, fnum(tip), fnum(bl), '%.6f' % g,
+                 '%.2f' % (got * 3600.0 / UNITS)))
+    A('')
+    A('-- LE STIMULUS COMMANDE CONTRE LE STIMULUS RECU (la cause racine, en un tableau) ------------')
+    A('   `recu` ci-dessus est le pire module de l\'acceleration de la pose d\'auteur de la pointe,')
+    A('   mesure dans le moteur : c\'est ce que la chaine a VRAIMENT subi, d\'ou que ca vienne. La')
+    A('   colonne sans aucun pilotage (ligne de base) est la preuve du defaut d\'instrument :')
+    if animlen:
+        loops = sorted(animlen.items())
+        A('   longueur x vitesse de lecture des animations (les six premieres) : %s'
+          % ', '.join('%s=%.0ff@%.3f' % (anims[a]['name'], n, sp)
+                      for a, (n, sp) in loops[:6]))
+        # une passe complete dure (n-1)/speed frames ; sur une fenetre de `win` frames le nombre de
+        # demi-tours de lecture vaut win*speed/(n-1).
+        def turns(n, sp):
+            return win * sp / max(1.0, n - 1.0)
+        cur = [turns(n, sp) for _a, (n, sp) in loops]
+        old = [turns(n, 1.0) for _a, (n, sp) in loops]
+        A('   A la vitesse du jeu, une fenetre de %d frames contient %.1f a %.1f demi-tours de'
+          % (win, min(cur), max(cur)))
+        A('   lecture. La salle avancait `frame-num` de 1.0 par frame en ignorant `speed` : elle en')
+        A('   contenait alors %.1f a %.1f, et chacun etait un RETOUR BRUTAL a la frame 0 — une'
+          % (min(old), max(old)))
+        A('   teleportation du squelette entier en une frame. L\'acceleration croissant comme le')
+        A('   carre du facteur de vitesse, les animations les plus lentes (speed %.3f) etaient'
+          % min(sp for _a, (n, sp) in loops))
+        A('   jouees %.0f fois trop vite, soit %.0f fois trop d\'acceleration.'
+          % (1.0 / min(sp for _a, (n, sp) in loops),
+             (1.0 / min(sp for _a, (n, sp) in loops)) ** 2))
+    basacc = [max((v for (cc, _a, dd), v in stimr.items() if cc == c and dd >= len(DRIVE_NAMES)),
+                  default=0.0) for c in sorted(chains)]
+    if basacc:
+        A('   pire acceleration recue SANS AUCUN PILOTAGE, toutes chaines : %.2f m/s^2'
+          % (max(basacc) * 3600.0 / UNITS))
+        A('   la plus forte acceleration COMMANDEE par la salle : %.2f m/s^2'
+          % (max(stim.values()) * 3600.0 / UNITS if stim else 0.0))
+    A('')
+    A('-- LA GRAVITE : UN DEPLACEMENT SOUTENU, PAS UNE VARIANCE ------------------------------------')
+    A('   Owner, trois fois : « les seins n\'ont pas l\'air d\'etre soumis a la gravite, aucun')
+    A('   mouvement quand elle se penche en avant pour souder ». Aucune colonne ne mesurait ca :')
+    A('   toutes mesuraient de la VARIANCE, et une pose tenue n\'en produit aucune (PHYSTILT')
+    A('   amp=0.0000 sur 19 chaines sur 22 — le chiffre etait la, il disait juste autre chose).')
+    A('   at0/at60 = position MOYENNE de la pointe dans le repere de l\'ancre, debout puis penchee')
+    A('   a 60 degres, meme animation figee, meme duree. sag = la distance entre les deux, et c\'est')
+    A('   EXACTEMENT la reponse a la gravite. Un sag nul sur une chaine de famille A avec')
+    A('   gravity>0 est un echec.')
+    A('-- LE GRADIENT LE LONG DE LA CHAINE (7e passe de l\'owner, 2026-08-11 16:30) ----------------')
+    A('   « Entre la racine et les pointes c\'est zone de guerre et les pointes bougent quasi pas, au')
+    A('   lieu d\'un degrade progressif des racines aux pointes. »')
+    A('   Il decrit une FORME ; le tableau ne publiait qu\'un SCALAIRE par chaine (`tipvar`, pris sur')
+    A('   la POINTE). Une chaine dont le maillon du milieu part en vrille pendant que la pointe reste')
+    A('   collee a la pose d\'auteur rendait exactement le meme `tipvar` qu\'une chaine saine : aucune')
+    A('   mesure ne pouvait voir ce defaut. Voici donc un chiffre PAR MAILLON, meme instrument que')
+    A('   `tipvar`. SPEC 2 exige la suite CROISSANTE de la racine (link0) vers la pointe.')
+    if not grad:
+        die('trace incomplete : aucune ligne PHYSGRAD — le gradient exige par la 7e passe n\'est'
+            ' pas mesure, et un scalaire par chaine ne peut pas le porter')
+    inverses = []
+    for c in sorted(chains):
+        nl = chains[c]['links']
+        for dr, nm in enumerate(DRIVE_NAMES):
+            # le pire cas de cette chaine sous ce pilotage, toutes animations confondues
+            best, bai = None, None
+            for ai in sorted(anims):
+                g = grad.get((c, ai, dr))
+                if not g:
+                    continue
+                v = [g.get(l, 0.0) for l in range(nl)]
+                if best is None or max(v) > max(best):
+                    best, bai = v, ai
+            if best is None:
+                continue
+            A('ROOM-GRADIENT: chain=%-12s drive=%-10s anim=%-38s %s'
+              % (names[c], nm, anims[bai]['name'],
+                 ' '.join('link%d=%s' % (l, fnum(v)) for l, v in enumerate(best))))
+            # un maillon intermediaire qui depasse la pointe est le defaut decrit par l'owner
+            if nl >= 2 and max(best[:-1]) > best[-1]:
+                inverses.append((names[c], nm, anims[bai]['name'], best))
+    A('')
+    if inverses:
+        A('   GRADIENT INVERSE sur %d couple(s) (chaine, pilotage) : un maillon intermediaire bouge'
+          % len(inverses))
+        A('   PLUS que la pointe. C\'est exactement la silhouette que l\'owner decrit, et elle est')
+        A('   desormais mesuree au lieu d\'etre invisible :')
+        for nmc, nmd, nma, v in inverses[:10]:
+            A('     %-12s %-10s %-30s %s'
+              % (nmc, nmd, nma, ' '.join(fnum(x) for x in v)))
+        A('   (%d au total)' % len(inverses))
+    else:
+        A('   Aucune inversion : sur chaque chaine et chaque pilotage, l\'amplitude CROIT de la')
+        A('   racine vers la pointe, ce que SPEC 2 exige.')
+    A('')
+    m0, m60 = mean.get('idle', {}), mean.get('tilt', {})
+    if not m0 or not m60:
+        die('trace incomplete : aucune ligne PHYSMEAN — ROOM-GRAVSAG ne peut pas etre calcule, et'
+            ' le superviseur a interdit qu\'un APK reparte sans lui')
+    for c in sorted(chains):
+        a, b = m0.get(c), m60.get(c)
+        if a is None or b is None:
+            continue
+        n0 = sum(v * v for v in a) ** 0.5
+        n60 = sum(v * v for v in b) ** 0.5
+        sag = sum((y - x) ** 2 for x, y in zip(a, b)) ** 0.5
+        A('ROOM-GRAVSAG: chain=%-12s at0=%-9s at60=%-9s sag=%-9s fam=%s'
+          % (names[c], fnum(n0), fnum(n60), fnum(sag),
+             'A' if chains[c]['fam'] == 1 else 'B'))
     A('')
     A('-- LE PIRE CAS DE CHAQUE CHAINE, AVEC LE NOM DE L\'ANIMATION OU IL S\'EST PRODUIT ------------')
     for c in sorted(chains):

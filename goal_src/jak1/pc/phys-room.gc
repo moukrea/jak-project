@@ -82,7 +82,50 @@
 ;; l'orientation de l'ancre, donc ils ne peuvent PAS voir une gravite exprimee dans le repere de
 ;; l'ancre. Il fallait un pilotage qui l'INCLINE.
 (defconstant PHYSROOM-DRIVES  5)
+;; SOUS-FENETRES par animation : les cinq pilotages, PLUS une fenetre SANS AUCUN PILOTAGE. Cette
+;; derniere est la LIGNE DE BASE que reclame le superviseur (2026-08-11 16:15) : « publier la valeur
+;; sous animation seule comme ligne de base a soustraire ; un pilotage dont la reponse ne depasse pas
+;; la ligne de base n'a rien excite ». Sans elle, une amplitude par pilotage melange ce que le
+;; pilotage a provoque et ce que l'animation faisait de toute facon, et on ne peut pas les separer.
+(defconstant PHYSROOM-SUBW    6)
 (defconstant PHYSROOM-WIN     90)   ;; frames par fenetre de mesure (6 segments de pilotage)
+;; L'INCLINAISON EST UNE POSE TENUE, PAS UNE SECOUSSE DE PLUS. Elle monte a 60 degres sur les 24
+;; premieres frames (rampe en demi-cosinus : depart et arrivee a vitesse nulle, donc aucun a-coup
+;; parasite), puis NE BOUGE PLUS.
+(defconstant PHYSROOM-TILTRAMP 24)
+;; PERIODE des trois pilotages continus, et le carre de sa pulsation. Une trajectoire A sin(w f) a
+;; une acceleration de module EXACTEMENT A w^2 : c'est ce qui permet de commander une acceleration
+;; au lieu de l'esperer. 36 frames = un cycle complet dans les 36 frames effectivement mesurees.
+;; w = 2 pi / 36 = 0.174533 rad/frame, w^2 = 0.0304617.
+(defconstant PHYSROOM-PERIOD  36)
+(defconstant PHYSROOM-W2      0.0304617)
+;; UNE FENETRE DE MESURE NE COMMENCE JAMAIS SUR UNE DISCONTINUITE — et c'est la seconde moitie de
+;; la cause racine de l'echec « DISCRIMINANT ».
+;;
+;; Ce que la salle faisait, mesure par le compteur `acc` (pire acceleration de la pose d'auteur
+;; REELLEMENT recue par la pointe, en u/frame^2) sur la course du 2026-08-11 :
+;;
+;;     pilotage        updown  leftright  accel   jerk   tilt   AUCUN (ligne de base)
+;;     acc recu         38964      2555    2570   2569   2543          32991
+;;     acc COMMANDE        18        52      96    434  11.16              0
+;;
+;; Une ligne de base SANS AUCUN PILOTAGE recevait 32991 u/frame^2, soit 76 fois le plus violent des
+;; pilotages. Le chiffre ne venait pas de la physique : il venait de la salle. Chaque sous-fenetre
+;; s'ouvrait sur une TELEPORTATION du squelette entier, et le compteur repartait de zero juste a
+;; temps pour la compter :
+;;   * changement d'animation (avant `updown`) : `frame-num` et l'art-group changent d'un coup ;
+;;   * retour a la verticale (avant la ligne de base) : `physroom-hold` repose le quaternion a
+;;     l'identite, donc 60 degres rendus en UNE frame apres le pilotage `tilt` ;
+;;   * retour au point de depart (avant `tilt`) : jusqu'a 3 m rendus en une frame apres `jerk`.
+;; La chaine repondait a ce coup-la, pas au pilotage, et elle y repondait PAREIL sous les cinq :
+;; c'est exactement « la mesure ne mesure pas le stimulus ».
+;;
+;; La mesure demarre donc a la frame 54 de chaque sous-fenetre, identique pour les six, et les 36
+;; dernieres frames sont les seules comptees. 54 frames de decroissance avec l'amortissement le plus
+;; faible du fichier (0.24) laissent 0.76^54 = 6e-8 du transitoire. Ce n'est pas un filtre : rien
+;; n'est retire au signal, on a seulement cesse de mesurer pendant que l'instrument frappait le
+;; sujet. Les fenetres restent egales entre elles, donc les amplitudes restent comparables.
+(defconstant PHYSROOM-MEASAT  54)
 (defconstant PHYSROOM-SETTLE  120)  ;; frames d'amorcage avant la premiere mesure
 (defconstant PHYSROOM-IDLES   150)  ;; frames de calme AVANT de mesurer le repos
 (defconstant PHYSROOM-IDLEM   120)  ;; frames de mesure du repos
@@ -126,6 +169,9 @@
    (nag     int32)     ;; art-groups de Keira effectivement charges
    (fnum    float)     ;; frame courante de l'animation
    (nframe  float)     ;; nombre de frames de l'animation courante
+   (adir    float)     ;; sens de lecture (+1 aller, -1 retour) — jamais de saut de frame-num
+   (aspeed  float)     ;; vitesse de lecture de l'animation courante, celle du jeu
+   (wraps   int32)     ;; demi-tours de lecture, publies : personne n'a a deviner combien
    (viol    int32)     ;; frames de mesure ou un target existait (doit rester 0)
    (nactor  int32)     ;; pire nombre d'acteurs etrangers vus dans la zone
    (killed  int32)     ;; acteurs etrangers deactives
@@ -187,29 +233,67 @@
 
 ;; ------------------------------------------------------------------------------------------------
 ;; LE PILOTAGE. Tout passe par une acceleration imposee puis integree : c'est la seule chose que la
-;; chaine ressent (la pseudo-force de repere accelere de jak-hd-physics.gc). Les quatre modes sont
-;; ceux que l'owner a nommes.
-;;   0 updown     acceleration verticale, signe alterne, trois magnitudes
-;;   1 leftright  idem, horizontal
-;;   2 accel      MEME axe, magnitude qui monte de x1 a x15 sur la fenetre — « diverses accelerations »
+;; chaine ressent (la pseudo-force de repere accelere de jak-hd-physics.gc).
+;;
+;; POURQUOI LES MAGNITUDES ONT CHANGE LE 2026-08-11 (et c'est la cause racine de l'echec DISCRIMINANT,
+;; pas un reglage) : les quatre pilotages de translation tapaient tous entre 10 et 300 u/frame^2,
+;; c'est-a-dire tous DERRIERE le coude de saturation des chaines. La courbe de reponse mesuree par
+;; la salle elle-meme (PHYSRESP, six niveaux d'excitation) le dit sans ambiguite — gain amp/exc :
+;;
+;;     exc      1.5    3.5    8.0   18.0   42.0   96.0
+;;     lBoob   25.2   21.0   19.3   19.6   15.8    7.5
+;;     LtoeStrap 29.7 28.7   28.3   26.8   12.4    5.5
+;;
+;; le gain est CONSTANT jusqu'a 18, puis s'effondre d'un facteur 3 a 5. Au-dela du coude la chaine
+;; est collee a son plafond geometrique et rend la meme amplitude quoi qu'on lui fasse : 16 chaines
+;; sur 22 rendaient donc le meme chiffre sous une secousse, une translation et une inclinaison
+;; (backhair : 3 % d'ecart). Ce n'etait pas la physique qui etait plate, c'etait le stimulus qui
+;; etait partout le meme — sature. « Diverses accelerations » veut dire un EVENTAIL, et updown et
+;; leftright, qui portaient les magnitudes IDENTIQUES sur deux axes, n'etaient pas deux stimuli
+;; differents : c'etait le meme, tourne.
+;;
+;;   0 updown     vertical, 18 u/frame^2 — DANS LA BANDE LINEAIRE, la reponse y est proportionnelle
+;;   1 leftright  horizontal, 52 u/frame^2 — la secousse franche
+;;   2 accel      trajectoire plane, magnitude qui balaie 2 -> 96, donc qui TRAVERSE le coude
 ;;   3 jerk       vitesse POSEE d'un coup et arrets brutaux — « a-coups »
+;;   4 tilt       elle SE PENCHE ET TIENT LA POSE : le seul pilotage qui n'est pas une secousse
+;;   5 (aucun)    la ligne de base, traitee par l'appelant (physroom-hold)
 ;; Les unites sont des unites de jeu par frame^2 (4096 u = 1 m, 60 Hz).
 ;; ------------------------------------------------------------------------------------------------
 (defbehavior physroom-drive phys-subject ((mode int) (f int))
   (let ((ax 0.0) (ay 0.0) (az 0.0)
         (seg (/ f 15)))
     (cond
-      ((zero? mode)
-       (set! ay (* (if (zero? (mod seg 2)) 1.0 -1.0)
-                   (case (mod seg 6) ((0 1) 10.0) ((2 3) 26.0) (else 52.0)))))
-      ((= mode 1)
-       (set! ax (* (if (zero? (mod seg 2)) 1.0 -1.0)
-                   (case (mod seg 6) ((0 1) 10.0) ((2 3) 26.0) (else 52.0)))))
-      ((= mode 2)
-       ;; rampe continue : la meme trajectoire subie a des accelerations de plus en plus fortes.
-       (let ((g (* 4.0 (+ 1.0 (* 14.0 (/ (the float f) (the float PHYSROOM-WIN)))))))
-         (set! ax (* g (if (zero? (mod (/ f 25) 2)) 1.0 -1.0)))
-         (set! az (* 0.5 g (if (zero? (mod (/ f 25) 2)) -1.0 1.0)))))
+      ;; --- LES TROIS PILOTAGES CONTINUS SONT IMPOSES EN POSITION, PAS EN ACCELERATION ----------
+      ;; Mesure du 2026-08-11 : `updown` commandait 18 u/frame^2 et la chaine en recevait 173.
+      ;; L'ecart venait du garde-fou : la vitesse etait INTEGREE, la position derivait jusqu'aux
+      ;; +/- 3 m, et la butee remettait la vitesse a zero D'UN COUP — un a-coup de plusieurs
+      ;; centaines d'unites au milieu de la fenetre de mesure. Les trois pilotages « doux » etaient
+      ;; donc, en pratique, le meme choc que `jerk`, et c'est une deuxieme facon dont la salle
+      ;; rendait cinq colonnes identiques.
+      ;; Une trajectoire sinusoidale POSEE a une acceleration exactement connue (A w^2) et ne
+      ;; s'approche jamais du garde-fou : le stimulus publie par PHYSSTIM est alors celui que la
+      ;; chaine recoit vraiment, et le gain de ROOM-RESPONSE a enfin un denominateur honnete.
+      ;; Periode 36 frames (w = 0.1745 rad/frame, w^2 = 0.03046) : exactement un cycle complet
+      ;; dans les 36 frames effectivement mesurees.
+      ((< mode 3)
+       (let* ((mag (cond
+                     ((zero? mode) 18.0)
+                     ((= mode 1)   52.0)
+                     ;; « diverses accelerations » : la meme trajectoire subie de 2 a 96
+                     ;; u/frame^2, donc de part et d'autre du coude de saturation (18 a 42).
+                     (else (+ 2.0 (* 94.0 (/ (the float f) (the float PHYSROOM-WIN)))))))
+              (amp (/ mag PHYSROOM-W2))
+              (ph  (* 65536.0 (/ (the float f) (the float PHYSROOM-PERIOD))))
+              (s   (sin ph)))
+         (vector-copy! (-> self root trans) (-> self home))
+         (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+         (cond
+           ((zero? mode) (set! (-> self root trans y) (+ (-> self home y) (* amp s))))
+           ((= mode 1)   (set! (-> self root trans x) (+ (-> self home x) (* amp s))))
+           (else
+            (set! (-> self root trans x) (+ (-> self home x) (* amp s)))
+            (set! (-> self root trans z) (+ (-> self home z) (* 0.5 amp (cos ph))))))))
       ((= mode 3)
        ;; a-coups : toutes les 10 frames la vitesse est ECRASEE, pas accumulee. Un segment sur
        ;; trois est un arret net (vitesse exactement nulle) : c'est le pire cas pour une chaine.
@@ -223,26 +307,38 @@
              ((4) (set-vector! (-> self vel) -240.0 0.0 190.0 1.0))
              (else (set-vector! (-> self vel) 0.0 300.0 0.0 1.0))))))
       (else
-       ;; TILT : on ne la deplace pas, on l'INCLINE. Elle reste sur son point de depart et son
-       ;; tronc bascule — tangage sur la premiere moitie de la fenetre, roulis sur la seconde.
-       ;; C'est le seul pilotage qui change l'ORIENTATION de l'ancre, donc le seul que puisse voir
-       ;; une gravite exprimee dans le repere de l'ancre.
+       ;; TILT : ELLE SE PENCHE EN AVANT ET ELLE TIENT LA POSE.
+       ;;
+       ;; Ce que ce mode faisait AVANT, et pourquoi il ne pouvait rien mesurer : il balayait
+       ;; +/- 60 degres en sinus sur 45 frames, tangage puis roulis. A hauteur de tete (~7000 u de
+       ;; l'axe) ca fait 1.047 rad x (2 pi / 45)^2 x 7000 = 143 u/frame^2 — la PLUS VIOLENTE des
+       ;; cinq secousses, alors qu'elle porte le nom de l'inclinaison. Le pilotage cense mesurer la
+       ;; gravite mesurait donc la meme chose que les quatre autres, et rendait le meme chiffre :
+       ;; c'est exactement le « chestL tilt 0.3889 contre accel 0.3490 » que le superviseur a
+       ;; reproche a ce tableau.
+       ;;
+       ;; Maintenant : rampe en demi-cosinus jusqu'a 60 degres sur PHYSROOM-TILTRAMP frames, puis
+       ;; POSE TENUE. Pendant la tenue l'acceleration de translation est nulle et l'orientation ne
+       ;; change plus : la seule chose qui agisse encore sur la chaine est la gravite exprimee dans
+       ;; le repere de l'ancre. C'est le stimulus que l'owner decrit — « quand elle se penche en
+       ;; avant pour souder » — et c'est le seul des cinq qui ne soit pas une agitation.
        (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
        (vector-copy! (-> self root trans) (-> self home))
-       (let* ((half (/ PHYSROOM-WIN 2))
-              (pitch? (< f half))
-              (u (if pitch? (the float f) (the float (- f half))))
-              (a (* PHYSROOM-TILTDEG (sin (* 65536.0 (/ u (the float half)))))))
-         (if pitch?
-           (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees a))
-           (quaternion-axis-angle! (-> self root quat) 0.0 0.0 1.0 (degrees a))))))
-    (when (< mode 3)
+       (let* ((u (if (< f PHYSROOM-TILTRAMP)
+                   (/ (the float f) (the float PHYSROOM-TILTRAMP))
+                   1.0))
+              (a (* PHYSROOM-TILTDEG 0.5 (- 1.0 (cos (* 32768.0 u))))))
+         (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees a)))))
+    ;; `ax/ay/az` ne servent plus qu'a `jerk`, qui pose sa vitesse lui-meme : les trois pilotages
+    ;; continus imposent desormais leur POSITION et n'integrent rien.
+    (when (and (= mode 3) (or (!= ax 0.0) (!= ay 0.0) (!= az 0.0)))
       (set! (-> self vel x) (+ (-> self vel x) ax))
       (set! (-> self vel y) (+ (-> self vel y) ay))
       (set! (-> self vel z) (+ (-> self vel z) az))))
-  ;; integration + garde-fou : sortir de +/-3 m arrete net (encore un a-coup, pas un filtre).
-  ;; Le tilt n'integre rien : il tient la position et ne fait tourner que l'orientation.
-  (when (< mode 4)
+  ;; INTEGRATION + GARDE-FOU, ET SEULEMENT POUR `jerk`. La butee des +/- 3 m remet la vitesse a zero
+  ;; d'un coup : c'est un a-coup de plus, ce qui est exactement le propos de `jerk` et exactement le
+  ;; contraire du propos des trois autres. C'est pour ca qu'ils n'integrent plus.
+  (when (= mode 3)
     (set! (-> self root trans x) (+ (-> self root trans x) (-> self vel x)))
     (set! (-> self root trans y) (+ (-> self root trans y) (-> self vel y)))
     (set! (-> self root trans z) (+ (-> self root trans z) (-> self vel z)))
@@ -319,13 +415,70 @@
       (joint-control-channel-group-eval! ch an num-func-identity)
       (set! (-> ch frame-num) 0.0))
     (set! (-> self fnum) 0.0)
-    (set! (-> self nframe) (the float (-> an data 0 length))))
+    (set! (-> self adir) 1.0)
+    ;; LE NOMBRE DE FRAMES DE L'ANIMATION, tel que le lit le jeu lui-meme. La salle utilisait
+    ;; `(-> an data 0 length)` — la taille du premier bloc de donnees compressees, PAS une duree.
+    ;; Le moteur d'animation, lui, borne `frame-num` a `(-> frame-group frames num-frames)`
+    ;; (joint.gc:948). Les deux ne coincident pas, et la salle rejouait donc une fraction arbitraire
+    ;; de chaque animation en croyant les jouer entieres.
+    (set! (-> self nframe) (the float (-> an frames num-frames)))
+    ;; LA VITESSE DE LECTURE DU JEU, et c'est LA cause racine de « la salle mesure l'agitation ».
+    ;;
+    ;; La salle avancait `frame-num` de 1.0 par frame de jeu. Le jeu, lui, l'avance de
+    ;; `inc * (-> frame-group speed) * time-adjust-ratio` (process-drawable-h.gc:46,
+    ;; `num-func-loop!`) : la vitesse propre de l'animation est un FACTEUR, et les animations de
+    ;; jak1 ont des keyframes espacees justement parce qu'elles sont interpolees entre deux.
+    ;; Avancer d'une keyframe ENTIERE par frame joue l'animation plusieurs fois trop vite, et
+    ;; l'acceleration croit comme le CARRE du facteur de vitesse.
+    ;;
+    ;; Ce que ca donnait, mesure (`acc` = pire acceleration de la pose d'auteur REELLEMENT recue par
+    ;; la pointe, en u/frame^2) : backHair1 recevait 2447 u/frame^2 SANS AUCUN PILOTAGE — 2150 m/s^2,
+    ;; 219 g, sur une animation d'attente. Les cinq pilotages commandaient 18, 52, 96, 434 et 11
+    ;; u/frame^2 : ils etaient noyes d'un facteur 25 a 130, et les cinq colonnes rendaient donc le
+    ;; meme chiffre. La salle ne mesurait pas la physique de Keira, elle mesurait la Keira qu'elle
+    ;; secouait — celle que l'owner ne voit jamais, puisque le jeu ne joue pas ses animations comme
+    ;; ca.
+    (set! (-> self aspeed) (fmax 0.01 (-> an speed)))
+    ;; LA LONGUEUR ET LA VITESSE REELLES, publiees : personne n'a a les deviner, et c'est le
+    ;; chiffre qui prouve a quelle vitesse la salle joue reellement l'animation.
+    (format 0 "PHYSANIMLEN a=~D n=~f speed=~f~%" ai (-> self nframe) (-> self aspeed)))
   (none))
 
+;; LECTURE CONTINUE : ALLER-RETOUR, JAMAIS DE RETOUR BRUTAL A LA FRAME 0.
+;;
+;; C'EST LA CAUSE RACINE DE L'ECHEC « DISCRIMINANT », ET C'ETAIT UN DEFAUT DE L'INSTRUMENT, PAS DE
+;; LA PHYSIQUE. L'ancienne version faisait `(when (>= fnum (- nframe 1.0)) (set! fnum 0.0))` : en UNE
+;; frame, le squelette entier sautait de la derniere pose de l'animation a la premiere. Sur une
+;; animation qui BOUCLE (les idle) les deux poses se ressemblent et le saut est petit ; sur une
+;; TRANSITION (`assistant-idle-transition-right-to-left`, `assistant-idle-transition-to-welding`,
+;; `assistant-village2-idle-hut-stop-welding`) elles n'ont rien a voir, et le personnage se
+;; TELEPORTAIT d'une pose a l'autre. La difference seconde de cette teleportation est une
+;; acceleration de plusieurs centaines d'unites par frame^2 — bien au-dela des 18 a 96 u/frame^2 que
+;; la salle commande, et bien au-dela du coude de saturation mesure par PHYSRESP (18 a 42).
+;;
+;; Consequence exacte de ce que la gate reproche : la gate prend le MAXIMUM sur les animations, donc
+;; pour chaque pilotage elle tombait sur une animation de transition, et y lisait la reponse au coup
+;; de teleportation — la meme sous les cinq pilotages, puisqu'elle ne doit rien au pilotage. Les
+;; chaines les plus courtes y etaient collees a leur plafond geometrique (lKneeFlap : os de 8 cm,
+;; excursion de pointe 14,4 cm SOUS ANIMATION SEULE). On ne mesurait pas la physique de Keira, on
+;; mesurait le rebond de la salle qui la secouait 20 fois par seconde.
+;;
+;; La lecture aller-retour visite EXACTEMENT les memes poses (SPEC 6 : « toutes ses animations »),
+;; dans les deux sens, sans aucune discontinuite de position. Ce n'est pas un filtre et ca ne retire
+;; aucun mouvement : ca retire une teleportation que le jeu ne fait pas non plus (en jeu, les
+;; animations sont enchainees par un fondu, jamais par un saut de frame-num).
 (defbehavior physroom-advance-anim phys-subject ((step float))
   (when (nonzero? (-> self skel))
-    (set! (-> self fnum) (+ (-> self fnum) step))
-    (when (>= (-> self fnum) (- (-> self nframe) 1.0)) (set! (-> self fnum) 0.0))
+    (let ((last (fmax 1.0 (- (-> self nframe) 1.0))))
+      (set! (-> self fnum) (+ (-> self fnum) (* (-> self adir) (* step (-> self aspeed)))))
+      (when (>= (-> self fnum) last)
+        (set! (-> self fnum) last)
+        (set! (-> self adir) -1.0)
+        (+! (-> self wraps) 1))
+      (when (<= (-> self fnum) 0.0)
+        (set! (-> self fnum) 0.0)
+        (set! (-> self adir) 1.0)
+        (+! (-> self wraps) 1)))
     (set! (-> self skel root-channel 0 frame-num) (-> self fnum)))
   (none))
 
@@ -343,13 +496,50 @@
    ;; une chaine que le moteur a ecartee (pose de modele hors de portee de son porteur) n'a pas de
    ;; mesure a publier : publier des zeros pour elle serait un chiffre invente.
    (when (> (phys-chain-links (-> self slot) c) 0)
-    (format 0 "PHYSROW k=~D amp=~f root=~f pen=~f jump=~f ns=~f~%"
-            (+ (* (+ (* c PHYSROOM-MAXANIM) (-> self ai)) PHYSROOM-DRIVES) (-> self drive))
-            (phys-tip-amp (-> self slot) c)
-            (phys-stat (-> self slot) c 3)
-            (phys-pen-col (-> self slot) c)
-            (phys-stat (-> self slot) c 2)
-            (phys-stat (-> self slot) c 0))))
+    (cond
+      ;; LIGNE DE BASE : meme animation, meme duree de fenetre, AUCUN pilotage. Publiee sur sa
+      ;; propre ligne et jamais comme une mesure de pilotage : elle sert a soustraire, pas a
+      ;; compter. La confondre avec un `row` donnerait a chaque chaine un pilotage artificiellement
+      ;; faible, et ferait passer la gate DISCRIMINANT sans rien mesurer de plus.
+      ((>= (-> self drive) PHYSROOM-DRIVES)
+       (format 0 "PHYSBASE c=~D a=~D amp=~f jump=~f ns=~f~%"
+               c (-> self ai)
+               (phys-tip-amp (-> self slot) c)
+               (phys-stat (-> self slot) c 2)
+               (phys-stat (-> self slot) c 0)))
+      (else
+       (format 0 "PHYSROW k=~D amp=~f root=~f pen=~f jump=~f ns=~f~%"
+               (+ (* (+ (* c PHYSROOM-MAXANIM) (-> self ai)) PHYSROOM-DRIVES) (-> self drive))
+               (phys-tip-amp (-> self slot) c)
+               (phys-stat (-> self slot) c 3)
+               (phys-pen-col (-> self slot) c)
+               (phys-stat (-> self slot) c 2)
+               (phys-stat (-> self slot) c 0))))
+    ;; LE STIMULUS REELLEMENT RECU, pour CHAQUE fenetre y compris la ligne de base. Compare a
+    ;; l'amplitude commandee (PHYSSTIM), il dit si le pilotage a domine ou s'il a ete noye.
+    (format 0 "PHYSACC c=~D a=~D d=~D acc=~f wraps=~D~%"
+            c (-> self ai) (-> self drive)
+            (phys-tip-stim (-> self slot) c)
+            (-> self wraps))
+    ;; LE GRADIENT, MAILLON PAR MAILLON (7e passe : « entre la racine et les pointes c'est zone de
+    ;; guerre et les pointes bougent quasi pas »). Une ligne par maillon : c'est la seule forme qui
+    ;; puisse porter un degrade, la ou un scalaire par chaine n'en montre rien.
+    (dotimes (l (phys-chain-links (-> self slot) c))
+      (format 0 "PHYSGRAD c=~D a=~D d=~D l=~D amp=~f~%"
+              c (-> self ai) (-> self drive) l
+              (phys-link-amp (-> self slot) c l)))))
+  (none))
+
+;; POSITION MOYENNE de la pointe dans le repere de l'ancre, axe par axe. Une ligne a part parce que
+;; `format` est cape a six parametres et que ces trois-la doivent rester solidaires du tag.
+(defbehavior physroom-emit-mean phys-subject ((tag string))
+  (dotimes (c (-> self nchain))
+    (when (> (phys-chain-links (-> self slot) c) 0)
+      (format 0 "PHYSMEAN tag=~S c=~D x=~f y=~f z=~f~%"
+              tag c
+              (phys-tip-mean (-> self slot) c 0)
+              (phys-tip-mean (-> self slot) c 1)
+              (phys-tip-mean (-> self slot) c 2))))
   (none))
 
 (defbehavior physroom-emit-diag phys-subject ((tag string))
@@ -388,7 +578,25 @@
 ;; manque une preuve (un target apparu pendant la mesure), le nombre le dit et le script refuse
 ;; d'ecrire « joueur absent ».
 ;; ------------------------------------------------------------------------------------------------
+;; L'AMPLITUDE DU STIMULUS de chaque pilotage, en unites de jeu par frame^2. C'est ce que la salle
+;; COMMANDE, pas ce qu'elle observe : c'est le denominateur du gain de ROOM-RESPONSE. Sans lui,
+;; comparer deux amplitudes de pointe obtenues sous deux stimuli differents ne veut rien dire — et
+;; c'est precisement ce que faisait le tableau precedent.
+;;   jerk    la vitesse est POSEE, pas accumulee : le stimulus est le pire saut de vitesse d'une
+;;           frame a l'autre, (-240,0,190) -> (0,300,0), soit 434 u/frame^2.
+;;   tilt    pose TENUE : plus aucune acceleration de repere. Le stimulus est la gravite elle-meme
+;;           vue depuis l'ancre, 2 |g| sin(30 deg) = 11.16 u/frame^2 a 60 degres.
+(defun physroom-stim-mag ((mode int))
+  (case mode
+    ((0) 18.0)
+    ((1) 52.0)
+    ((2) 96.0)
+    ((3) 434.0)
+    (else 11.16)))
+
 (defbehavior physroom-report phys-subject ()
+  (dotimes (d PHYSROOM-DRIVES)
+    (format 0 "PHYSSTIM dr=~D mag=~f~%" d (physroom-stim-mag d)))
   (format 0 "PHYSNOPLAY viol=~D actors=~D killed=~D~%"
           (-> self viol) (-> self nactor) (-> self killed))
   (format 0 "PHYSCOUNTS anims=~D enum=~D chains=~D drives=~D ags=~D~%"
@@ -500,13 +708,20 @@
 
     ;; ---- 1. MESURE : toutes les animations x les quatre pilotages -----------------------------
     ((= (-> self phase) PHYSROOM-PH-MEAS)
-     (physroom-drive (-> self drive) (-> self pframe))
+     (if (>= (-> self drive) PHYSROOM-DRIVES)
+       (physroom-hold)                                  ;; sous-fenetre de LIGNE DE BASE
+       (physroom-drive (-> self drive) (-> self pframe)))
      (physroom-advance-anim 1.0)
+     ;; AUCUNE FENETRE NE COMMENCE SUR UNE DISCONTINUITE (voir PHYSROOM-MEASAT). Les 54 premieres
+     ;; frames absorbent le saut d'entree — changement d'animation, retour a la verticale, retour au
+     ;; point de depart — et pour `tilt` elles contiennent en plus la rampe qui l'amene a 60 degres.
+     ;; Meme regle pour les six sous-fenetres : les amplitudes restent comparables entre elles.
+     (when (= (-> self pframe) PHYSROOM-MEASAT) (phys-stats-reset!))
      (when (>= (-> self pframe) PHYSROOM-WIN)
        (physroom-emit-window)
        (set! (-> self pframe) 0)
        (+! (-> self drive) 1)
-       (when (>= (-> self drive) PHYSROOM-DRIVES)
+       (when (>= (-> self drive) PHYSROOM-SUBW)
          (set! (-> self drive) 0)
          (+! (-> self ai) 1)
          (when (< (-> self ai) (-> self nanim)) (physroom-set-anim (-> self ai))))
@@ -562,6 +777,8 @@
                  (phys-chain-hang (-> self slot) c)
                  (phys-tip-amp (-> self slot) c)
                  (phys-chain-family (-> self slot) c))))
+       ;; la POSITION MOYENNE debout : c'est le terme `at0` de ROOM-GRAVSAG.
+       (physroom-emit-mean "idle")
        (set! (-> self phase) PHYSROOM-PH-TILT)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)))
@@ -582,6 +799,11 @@
                  (phys-stat (-> self slot) c 5)
                  (phys-tip-amp (-> self slot) c)
                  (phys-chain-family (-> self slot) c))))
+       ;; la POSITION MOYENNE penchee a 60 degres : c'est le terme `at60` de ROOM-GRAVSAG, et
+       ;; l'ecart avec `at0` EST la reponse a la gravite. Rien d'autre n'a change entre les deux
+       ;; phases : meme animation figee, meme position, meme duree, meme amortissement — seule
+       ;; l'orientation de l'ancre differe.
+       (physroom-emit-mean "tilt")
        (set! (-> self phase) PHYSROOM-PH-PCOFF)
        (set! (-> self pframe) 0)
        (phys-inject-set! 0.0)
@@ -769,6 +991,9 @@
   (set! (-> self injn) 0)
   (set! (-> self lvl) 0)
   (set! (-> self fnum) 0.0)
+  (set! (-> self adir) 1.0)
+  (set! (-> self aspeed) 1.0)
+  (set! (-> self wraps) 0)
   (set! (-> self nframe) 1.0)
   (set! (-> self root) (new 'process 'trsqv))
   (vector-identity! (-> self root scale))
@@ -800,13 +1025,34 @@
                  (let ((e (-> ag data i)))
                    (when (and (nonzero? (the-as int e)) (= (-> e type) art-joint-anim))
                      (+! (-> self nenum) 1)
+                     ;; TOUTES LES ANIMATIONS, Y COMPRIS CELLES DES VARIANTES (owner 2026-08-11
+                     ;; 16:15 : « faut tester vraiment toutes les animations qu'utilise le perso
+                     ;; tout au long du jeu, pas quelques unes ! »).
+                     ;;
+                     ;; Les 13 ecartees vivent sur les art-groups de Fire Canyon et des Lava Tubes,
+                     ;; dont le rig porte 94 joints la ou celui du village 1 en porte 96. L'ancienne
+                     ;; regle `(= nj njoint)` les refusait — un de-scope avec une raison ecrite
+                     ;; a cote, ce qui n'est pas une couverture.
+                     ;;
+                     ;; Pourquoi les jouer sur CE rig est correct, et non un contournement : le
+                     ;; nombre de joints ecrits est porte par le bloc compresse de l'ANIMATION
+                     ;; (`frame-group frames`, joint.gc:940-955), pas par le squelette. Une
+                     ;; animation a 94 joints en pilote 94 ; les joints 94 et 95, qui n'existent que
+                     ;; sur le rig du village 1, gardent leur pose precedente. La salle publie donc
+                     ;; le compte de chaque animation (`joints=`) ET la liste des joints propres au
+                     ;; rig porteur, pour que personne n'ait a supposer lesquels ne sont pas pilotes.
+                     ;; Si un de ces joints portait une chaine, la mesure le dirait : le compteur
+                     ;; d'ancrage `rootdev` de cette chaine partirait, et la gate ROOT le refuserait.
                      (let ((nj (-> e length)))
                        (cond
-                         ((and (= nj njoint) (< (-> self nanim) PHYSROOM-MAXANIM))
+                         ((< (-> self nanim) PHYSROOM-MAXANIM)
                           (set! (-> *physroom-anim-ag* (-> self nanim)) ag)
                           (set! (-> *physroom-anim-ix* (-> self nanim)) i)
                           (format 0 "PHYSANIM a=~D ag=~S name=~S joints=~D~%"
                                   (-> self nanim) (-> ag name) (-> e name) nj)
+                          (when (!= nj njoint)
+                            (format 0 "PHYSANIMRIG ag=~S name=~S joints=~D porteur=~D~%"
+                                    (-> ag name) (-> e name) nj njoint))
                           (+! (-> self nanim) 1))
                          (else
                           (format 0 "PHYSANIMSKIP ag=~S name=~S joints=~D want=~D~%"

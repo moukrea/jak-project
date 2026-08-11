@@ -163,9 +163,39 @@
 ;;         diagonale est l'AMPLITUDE de mouvement de la pointe due a la physique seule. L'animation
 ;;         d'auteur n'y contribue pas d'un micron : une chaine qui ne fait que suivre son os
 ;;         anime mesure zero. C'est volontairement le test le plus severe de « ca bouge ».
+;; 12..15 SOMME de l'ecart de pointe et NOMBRE de frames : leur quotient est la POSITION MOYENNE de
+;;         la pointe dans le repere de l'ancre. C'est un DEPLACEMENT SOUTENU, pas une variance, et
+;;         c'est la seule chose qui puisse mesurer la gravite. Verdict de l'owner du 2026-08-11
+;;         16:15 : « aucun mouvement en fonction de l'inclinaison quand elle se penche en avant pour
+;;         souder, zero gravite sur ses seins ». Une inclinaison tenue ne produit AUCUNE variance —
+;;         la chaine se pose sur un nouvel equilibre et ne bouge plus — donc la boite englobante
+;;         (6..11) y mesure zero et l'a toujours mesure. La reponse gravitaire est l'ecart entre la
+;;         moyenne a 0 degre et la moyenne a 60 degres : c'est ROOM-GRAVSAG, et rien ne le mesurait.
+;;    16 pire |acceleration MONDE de la pose d'auteur| de la POINTE sur la fenetre, en u/frame^2.
+;;         C'est LE STIMULUS QUE LA CHAINE A REELLEMENT RECU, quelle qu'en soit la source. Sans lui
+;;         on ne peut pas distinguer « la chaine ne repond pas au pilotage » de « le pilotage est
+;;         noye sous autre chose », et c'est cette confusion qui a fait publier des amplitudes
+;;         identiques sous cinq stimuli differents.
 ;; ------------------------------------------------------------------------------------------------
-(defconstant PHYS-ST 12)
+(defconstant PHYS-ST 17)
 (define *phys-st*  (new 'global 'array 'float (* PHYS-SC PHYS-ST)))
+;; ------------------------------------------------------------------------------------------------
+;; LE GRADIENT LE LONG DE LA CHAINE (7e passe de l'owner, 2026-08-11 16:30) : « entre la racine et
+;; les pointes c'est zone de guerre et les pointes bougent quasi pas, au lieu d'un degrade
+;; progressif des racines aux pointes ».
+;;
+;; Il decrit une FORME et le tableau publiait un SCALAIRE. `tipvar` ne regarde que la POINTE : une
+;; chaine dont le maillon du milieu part en vrille pendant que la pointe reste collee a la pose
+;; d'auteur rend exactement le meme `tipvar` qu'une chaine saine. Aucune mesure ne pouvait donc voir
+;; le defaut qu'il decrit, et c'est la meme famille d'aveuglement que la reponse plate du matin.
+;;
+;; On garde donc la boite englobante de l'ecart POUR CHAQUE MAILLON, pas seulement pour la pointe.
+;; SPEC 2 exige que la suite soit CROISSANTE de la racine vers la pointe ; toute chaine dont un
+;; maillon intermediaire depasse sa pointe est un echec, quel que soit son `tipvar`.
+;; 6 valeurs par maillon : oxmin oxmax oymin oymax ozmin ozmax.
+(defconstant PHYS-LB 6)
+(define *phys-lb* (new 'global 'array 'float (* PHYS-SCL PHYS-LB)))
+
 (define *phys-tx*  (new 'global 'array 'float PHYS-SC))   ;; ecart de pointe, frame precedente
 (define *phys-ty*  (new 'global 'array 'float PHYS-SC))
 (define *phys-tz*  (new 'global 'array 'float PHYS-SC))
@@ -214,6 +244,35 @@
 ;; aleatoire de l'ordre de 1e-3 u, et « penetration nulle » devient « penetration nulle une fois
 ;; sur deux ». Elle retire 0.12 mm d'amplitude a la chaine, chiffre dans le rapport.
 (defconstant PHYS-COL-MARGIN 0.5)
+
+;; ------------------------------------------------------------------------------------------------
+;; LA GRAVITE DE LA FAMILLE A DEPLACE LA CIBLE DU RESSORT, ELLE NE LUTTE PLUS CONTRE LUI.
+;;
+;; Superviseur, 2026-08-11 16:15, apres le troisieme « zero gravite sur ses seins » : « le ressort
+;; qui ramene a la pose du modele est un rappel POSITIONNEL permanent, la gravite une force
+;; constante bien plus faible. La cible du ressort doit s'incliner avec l'ancre, de sorte qu'a 60
+;; degres l'equilibre lui-meme soit deplace. Sans ca, aucun reglage de gravity= ne produira jamais
+;; quoi que ce soit. »
+;;
+;; C'est de l'arithmetique, pas une opinion. Avec la gravite en FORCE, l'equilibre statique vaut
+;; g_eff/k2, donc il est divise par le carre de la raideur : chestL (stiffness 2.20, mass 1.20)
+;; donne k2 = 0.0442, et les 0.45 x 11.16 u/frame^2 de la 6e passe se sont affaisses en 7.7 mm de
+;; deplacement soutenu a 60 degres (mesure : PHYSIDLE dev=18.2 u contre PHYSTILT dev=49.96 u).
+;; L'owner ne voit pas 7.7 mm, et il a raison de dire qu'il n'y a rien. Pire : monter la raideur
+;; pour calmer un jitter SUPPRIMAIT la gravite du meme coup — les deux reglages se combattaient.
+;;
+;; Avec la gravite en CIBLE, le deplacement d'equilibre ne depend plus que de la longueur de l'os :
+;;
+;;     o_cible = gravity x PHYS-GRAV-SAG x longueur_d_os x (g_ancre - g_bind) / |g|
+;;
+;; La raideur ne decide plus que de la VITESSE d'arrivee et de l'oscillation ; la gravite decide
+;; SEULE de la distance. Debout, (g_ancre - g_bind) est nul et la cible est la pose du modele au bit
+;; pres (SPEC 4). A 60 degres le facteur vaut 2 sin(30) = 1, donc chestL (os de 979.7 u) tombe de
+;; 0.45 x 0.33 x 979.7 = 145 u = 3.6 cm au lieu de 7.7 mm.
+;; La contrainte de longueur transforme ensuite ce deplacement en ROTATION autour de l'ancre a
+;; longueur invariante : c'est la regle de l'owner, et elle s'applique sans exception ici aussi.
+;; ------------------------------------------------------------------------------------------------
+(defconstant PHYS-GRAV-SAG 0.33)
 
 ;; SENTINELLE « aucun contact ». Un residu de penetration reel ne depasse jamais quelques milliers
 ;; d'unites, donc -1e9 ne peut pas etre confondu avec une mesure ; le SEUIL de reconnaissance est en
@@ -1114,6 +1173,7 @@
               (acc  (new 'stack-no-clear 'vector))
               (fl   (new 'stack-no-clear 'vector))
               (gl   (new 'stack-no-clear 'vector))
+              (gt   (new 'stack-no-clear 'vector))
               (gref (new 'stack-no-clear 'vector))
               (ov   (new 'stack-no-clear 'vector))
               (uv   (new 'stack-no-clear 'vector))
@@ -1202,6 +1262,17 @@
                           (set! (-> *phys-t2x* scl) (-> *phys-t1x* scl))
                           (set! (-> *phys-t2y* scl) (-> *phys-t1y* scl))
                           (set! (-> *phys-t2z* scl) (-> *phys-t1z* scl))
+                          ;; LE STIMULUS REELLEMENT RECU PAR LA POINTE, quelle qu'en soit la
+                          ;; source (pilotage de la salle, rotation du porteur, animation). Mesure
+                          ;; ici parce que c'est ici, et seulement ici, que l'acceleration de la
+                          ;; pose d'auteur est connue.
+                          (when (and (> warm 1) (= l (- n 1)))
+                            (let ((aa (sqrtf (+ (* (-> acc x) (-> acc x))
+                                                (+ (* (-> acc y) (-> acc y))
+                                                   (* (-> acc z) (-> acc z))))))
+                                  (stb (* sc PHYS-ST)))
+                              (when (> aa (-> *phys-st* (+ stb 16)))
+                                (set! (-> *phys-st* (+ stb 16)) aa))))
                           (when (and (> warm 0) (= l (- n 1)))
                             ;; deplacement monde de la pose d'auteur de la POINTE, cumule
                             (let ((mx (- (-> tw x) (-> *phys-t1x* scl)))
@@ -1232,15 +1303,37 @@
                                              (* -1.0 cpl (-> acc y))
                                              (* -1.0 cpl (-> acc z)) 0.0)
                              (vector-rotate*! fl fl w2l)
+                             ;; LA CIBLE DU RESSORT. Famille A : elle s'incline avec l'ancre, d'une
+                             ;; distance qui ne depend QUE de la longueur de l'os (voir
+                             ;; PHYS-GRAV-SAG). Famille B (ce qui PEND) garde la gravite en force :
+                             ;; son equilibre est deja un ecart statique assume par SPEC 4, il n'y a
+                             ;; aucun rappel a combattre, et l'owner vient de valider les bretelles.
+                             (set-vector! gt 0.0 0.0 0.0 0.0)
+                             (when (= (-> *phys-fam* sc) 1)
+                               (let* ((kp (if (> l 0) (-> *phys-joint* (- scl 1)) an))
+                                      (blen (if (and (>= kp 0) (< (+ kp 1) nbone))
+                                              (let ((qx (- (-> tw x) (-> skel bones (+ kp 1) transform vector 3 x)))
+                                                    (qy (- (-> tw y) (-> skel bones (+ kp 1) transform vector 3 y)))
+                                                    (qz (- (-> tw z) (-> skel bones (+ kp 1) transform vector 3 z))))
+                                                (sqrtf (+ (* qx qx) (+ (* qy qy) (* qz qz)))))
+                                              0.0))
+                                      (s (/ (* gsc (* PHYS-GRAV-SAG blen)) (fabs gy))))
+                                 (set! (-> gt x) (* s (-> gl x)))
+                                 (set! (-> gt y) (* s (-> gl y)))
+                                 (set! (-> gt z) (* s (-> gl z)))))
                              (let* ((ox (-> *phys-ox* scl))
                                     (oy (-> *phys-oy* scl))
                                     (oz (-> *phys-oz* scl))
+                                    (fam-a? (= (-> *phys-fam* sc) 1))
                                     (vx (* (- ox (-> *phys-o1x* scl)) (- 1.0 dmp)))
                                     (vy (* (- oy (-> *phys-o1y* scl)) (- 1.0 dmp)))
                                     (vz (* (- oz (-> *phys-o1z* scl)) (- 1.0 dmp)))
-                                    (ax (+ (* (- 0.0 k2) ox) (-> fl x) (* gsc (-> gl x))))
-                                    (ay (+ (* (- 0.0 k2) oy) (-> fl y) (* gsc (-> gl y))))
-                                    (az (+ (* (- 0.0 k2) oz) (-> fl z) (* gsc (-> gl z)))))
+                                    (ax (+ (* (- 0.0 k2) (- ox (-> gt x))) (-> fl x)
+                                           (if fam-a? 0.0 (* gsc (-> gl x)))))
+                                    (ay (+ (* (- 0.0 k2) (- oy (-> gt y))) (-> fl y)
+                                           (if fam-a? 0.0 (* gsc (-> gl y)))))
+                                    (az (+ (* (- 0.0 k2) (- oz (-> gt z))) (-> fl z)
+                                           (if fam-a? 0.0 (* gsc (-> gl z))))))
                                (set! (-> *phys-o1x* scl) ox)
                                (set! (-> *phys-o1y* scl) oy)
                                (set! (-> *phys-o1z* scl) oz)
@@ -1365,6 +1458,21 @@
                     ;; sera ecrite telle quelle au bloc suivant), `skel bones` = le RETARGET.
                     ;; ------------------------------------------------------------------------
                     (let ((stb (* sc PHYS-ST)))
+                      ;; --- LE GRADIENT : la boite englobante de l'ecart POUR CHAQUE MAILLON.
+                      ;; Un maillon rootlock a un ecart identiquement nul et mesure donc zero, ce
+                      ;; qui est exactement ce que SPEC 2 demande de la racine.
+                      (dotimes (l n)
+                        (let* ((scl (+ (* sc PHYS-LINKS) l))
+                               (lb  (* scl PHYS-LB))
+                               (ox  (-> *phys-ox* scl))
+                               (oy  (-> *phys-oy* scl))
+                               (oz  (-> *phys-oz* scl)))
+                          (when (< ox (-> *phys-lb* (+ lb 0))) (set! (-> *phys-lb* (+ lb 0)) ox))
+                          (when (> ox (-> *phys-lb* (+ lb 1))) (set! (-> *phys-lb* (+ lb 1)) ox))
+                          (when (< oy (-> *phys-lb* (+ lb 2))) (set! (-> *phys-lb* (+ lb 2)) oy))
+                          (when (> oy (-> *phys-lb* (+ lb 3))) (set! (-> *phys-lb* (+ lb 3)) oy))
+                          (when (< oz (-> *phys-lb* (+ lb 4))) (set! (-> *phys-lb* (+ lb 4)) oz))
+                          (when (> oz (-> *phys-lb* (+ lb 5))) (set! (-> *phys-lb* (+ lb 5)) oz))))
                       ;; --- ecart a la pose du modele, par lien libre (SPEC 4, lu au repos) ---
                       (dotimes (l n)
                         (when (>= l rlk)
@@ -1488,6 +1596,16 @@
                             (when (> oy (-> *phys-st* (+ stb 9)))  (set! (-> *phys-st* (+ stb 9)) oy))
                             (when (< oz (-> *phys-st* (+ stb 10))) (set! (-> *phys-st* (+ stb 10)) oz))
                             (when (> oz (-> *phys-st* (+ stb 11))) (set! (-> *phys-st* (+ stb 11)) oz))
+                            ;; POSITION MOYENNE de la pointe dans le repere de l'ancre. La boite
+                            ;; ci-dessus ne retient que la VARIANCE : sous une inclinaison TENUE la
+                            ;; chaine se pose sur un nouvel equilibre et ne bouge plus, donc la
+                            ;; boite y mesure zero et l'a toujours mesure (PHYSTILT amp=0.0000 sur
+                            ;; 19 chaines sur 22). La gravite ne se lit que dans le DEPLACEMENT
+                            ;; SOUTENU, c'est-a-dire ici.
+                            (set! (-> *phys-st* (+ stb 12)) (+ ox (-> *phys-st* (+ stb 12))))
+                            (set! (-> *phys-st* (+ stb 13)) (+ oy (-> *phys-st* (+ stb 13))))
+                            (set! (-> *phys-st* (+ stb 14)) (+ oz (-> *phys-st* (+ stb 14))))
+                            (set! (-> *phys-st* (+ stb 15)) (+ 1.0 (-> *phys-st* (+ stb 15))))
                             ;; L'IDENTITE DU CANAL D'AUTEUR, EN REPERE MONDE. `sv` recoit le
                             ;; deplacement ecrit-moins-auteur, `uv` l'ecart simule remis dans le
                             ;; monde ; leur difference doit etre nulle. Mesure EN MONDE et non en
@@ -1638,6 +1756,8 @@
   (dotimes (sc PHYS-SC)
     (let ((stb (* sc PHYS-ST)))
       (dotimes (i 6) (set! (-> *phys-st* (+ stb i)) 0.0))
+      ;; somme et compte de la position moyenne de la pointe (12..15), pire stimulus recu (16)
+      (dotimes (i 5) (set! (-> *phys-st* (+ stb (+ 12 i))) 0.0))
       ;; le residu signe de penetration est un maximum qui a le droit d'etre negatif
       (set! (-> *phys-st* (+ stb 4)) PHYS-NOCONTACT)
       ;; la boite englobante part vide : un min a 0 la forcerait a contenir l'origine et
@@ -1648,6 +1768,12 @@
       (set! (-> *phys-st* (+ stb 9))  -1000000000.0)
       (set! (-> *phys-st* (+ stb 10))  1000000000.0)
       (set! (-> *phys-st* (+ stb 11)) -1000000000.0))
+    ;; la boite de CHAQUE maillon part vide, comme celle de la pointe.
+    (dotimes (l PHYS-LINKS)
+      (let ((lb (* (+ (* sc PHYS-LINKS) l) PHYS-LB)))
+        (dotimes (i 3)
+          (set! (-> *phys-lb* (+ lb (* 2 i)))        1000000000.0)
+          (set! (-> *phys-lb* (+ lb (+ (* 2 i) 1))) -1000000000.0))))
     (set! (-> *phys-thas* sc) 0))
   (none))
 
@@ -1671,6 +1797,39 @@
     (let ((dx (- (phys-stat slot chain 7) (phys-stat slot chain 6)))
           (dy (- (phys-stat slot chain 9) (phys-stat slot chain 8)))
           (dz (- (phys-stat slot chain 11) (phys-stat slot chain 10))))
+      (if (or (< dx 0.0) (< dy 0.0) (< dz 0.0))
+        0.0
+        (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))))
+
+;; POSITION MOYENNE de la pointe sur la fenetre, dans le repere de l'ancre, axe par axe (0=x 1=y
+;; 2=z). C'est le DEPLACEMENT SOUTENU dont la salle fait ROOM-GRAVSAG : la difference entre la
+;; moyenne debout et la moyenne penchee a 60 degres EST la reponse a la gravite. Zero si la fenetre
+;; n'a pas de frame — jamais une valeur inventee.
+(defun phys-tip-mean ((slot int) (chain int) (axis int))
+  (let ((n (phys-stat slot chain 15)))
+    (if (or (< n 0.5) (< axis 0) (> axis 2))
+      0.0
+      (/ (phys-stat slot chain (+ 12 axis)) n))))
+
+;; LE STIMULUS QUE LA POINTE A REELLEMENT RECU sur la fenetre, en u/frame^2 : le pire module de
+;; l'acceleration de sa pose d'auteur. C'est le denominateur honnete du gain — celui que la salle
+;; COMMANDE ne vaut que si rien d'autre ne le domine, et c'est ce chiffre-la qui le dit.
+(defun phys-tip-stim ((slot int) (chain int))
+  (phys-stat slot chain 16))
+
+;; AMPLITUDE DE MOUVEMENT D'UN MAILLON DONNE, meme instrument que `phys-tip-amp` mais pris sur le
+;; maillon `link` au lieu de la pointe. C'est la suite que SPEC 2 exige croissante de la racine vers
+;; la pointe, et la seule mesure capable de voir « le milieu part en vrille et la pointe ne bouge
+;; pas » — que `tipvar`, qui ne regarde que la pointe, rendait indistinguable d'une chaine saine.
+(defun phys-link-amp ((slot int) (chain int) (link int))
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< link 0) (>= link PHYS-LINKS)
+          (< (phys-stat slot chain 0) 0.5))
+    0.0
+    (let* ((lb (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) PHYS-LB))
+           (dx (- (-> *phys-lb* (+ lb 1)) (-> *phys-lb* (+ lb 0))))
+           (dy (- (-> *phys-lb* (+ lb 3)) (-> *phys-lb* (+ lb 2))))
+           (dz (- (-> *phys-lb* (+ lb 5)) (-> *phys-lb* (+ lb 4)))))
       (if (or (< dx 0.0) (< dy 0.0) (< dz 0.0))
         0.0
         (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))))
