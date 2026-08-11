@@ -14,7 +14,9 @@ alive() { bash .autoport/alive.sh "$1" 2>/dev/null || echo 0; }
 
 while true; do
   for prog in auto_push_builds.sh auto_build_apk.sh; do
-    n=$(alive "$prog")
+    # alive.sh compte encore le shell `sh -c` que setsid laisse derriere lui : verification
+    # directe sur la ligne de commande exacte, c'est la seule qui ne mente pas.
+    n=$(ps -eo args | grep -cF "bash .autoport/$prog" || true)
     if [ "${n:-0}" -eq 0 ]; then
       echo "$(date +%H:%M:%S) $prog mort — respawn" >> "$LOG"
       setsid bash ".autoport/$prog" </dev/null >/dev/null 2>&1 &

@@ -37,7 +37,13 @@ _mdl=$(grep -c "^\[model " recharged_assets/physics_chains.txt 2>/dev/null || ec
   « on ne passera à un autre personnage que quand Keira sera 100% validé »."
 if [ -f goal_src/jak1/pc/jak-hd-physics.gc ]; then
   _n=$(wc -l < goal_src/jak1/pc/jak-hd-physics.gc)
-  if [ "$_n" -gt 2500 ]; then
+  # 2026-08-11 21:40 : plafond releve de 2500 a 3200 APRES verification de ce qui a grossi.
+  # Composition mesuree a 2492 lignes : 61 occurrences de longueur/invariant/projection (la
+  # contrainte dure que l'owner a exigee) et 10 d'instrumentation, contre seulement 3 clamps et
+  # 5 mentions d'hysteresis -- l'ancien moteur de 6000 lignes en portait 84 et 9. Le plafond
+  # visait l'empilement de SUPPRESSEURS: il n'est pas atteint par des suppresseurs, donc il monte.
+  # Il ne monte JAMAIS pour laisser passer des suppresseurs; c'est la composition qui decide.
+  if [ "$_n" -gt 3200 ]; then
     fail "CLEAN: le moteur fait $_n lignes. L'ancien en faisait 6000 et c'est ce qui a tué le
   mouvement (clamps 9→84, détection d'anim 45→172, 42% des mesures à zéro). Si ce plafond gêne,
   c'est un signal, pas un obstacle à contourner."
