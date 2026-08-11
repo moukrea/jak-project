@@ -220,6 +220,59 @@ for part, pats in (("oreilles", ("ear",)), ("cheveux", ("hair",)), ("mèches", (
         die("MOVE: aucune chaîne pour « %s », que l'owner a nommée explicitement" % part)
 
 # --------------------------------------------------------------------------------------------
+# FLOOR — PLANCHER DE MOUVEMENT, gate d'anti-regression.
+#
+# Le 2026-08-11 a 22:15 l'owner a decrit un build ou « tout est muted as heck, faut vraiment
+# chercher la physique pour la voir ». La mesure le confirmait : meches 0.9038 -> 0.1095,
+# lunettes 1.8988 -> 0.1305, soit 8 a 14 fois moins de mouvement qu'une heure plus tot. Trois
+# ajouts legitimes pris ensemble (attenuation d'angles, bornage de forme, contrainte durcie)
+# avaient sur-contraint le systeme -- le meme empilement de suppresseurs que celui qui avait tue
+# la version precedente, sous un autre nom.
+#
+# La reference est stockee et ne bouge que vers le HAUT : une chaine qui perd plus de 40 % de son
+# mouvement par rapport a son meilleur etat connu fait echouer la phase, quel que soit le progres
+# obtenu ailleurs. On ne paie plus une correction avec le mouvement.
+REF=.autoport/reports/Grecharged-secondary-motion/motion-floor.txt
+python3 - "$T" "$REF" <<'PYFLOOR' || exit 1
+import os, re, sys
+tbl, ref = sys.argv[1], sys.argv[2]
+cur = {}
+for ln in open(tbl, errors='ignore'):
+    if not ln.startswith('row '):
+        continue
+    d = dict(re.findall(r'(\w+)=([^\s]+)', ln))
+    if 'chain' in d and 'tipvar' in d:
+        v = float(d['tipvar'])
+        if v > cur.get(d['chain'], 0.0):
+            cur[d['chain']] = v
+if not cur:
+    sys.exit(0)
+old = {}
+if os.path.exists(ref):
+    for ln in open(ref, errors='ignore'):
+        p = ln.split()
+        if len(p) == 2:
+            old[p[0]] = float(p[1])
+regress = [(c, old[c], cur[c]) for c in cur if c in old and cur[c] < old[c] * 0.60]
+if regress:
+    print("[Grecharged-secondary-motion FAIL] FLOOR: %d chaine(s) ont perdu plus de 40%% de leur"
+          " mouvement par rapport au meilleur etat connu." % len(regress))
+    for c, o, n in sorted(regress, key=lambda x: x[2] / x[1])[:8]:
+        print("  %-12s %.4f -> %.4f  (%.0f%% de perte)" % (c, o, n, 100 * (1 - n / o)))
+    print("  L'owner a deja vu ce film : « tout est muted as heck, faut chercher la physique pour")
+    print("  la voir ». Une correction qui se paie avec le mouvement n'est pas une correction.")
+    sys.exit(1)
+# la reference ne monte jamais toute seule vers le bas
+merged = dict(old)
+for c, v in cur.items():
+    if v > merged.get(c, 0.0):
+        merged[c] = v
+with open(ref, 'w') as f:
+    for c in sorted(merged):
+        f.write("%s %.6f\n" % (c, merged[c]))
+print("[FLOOR] %d chaines au-dessus de leur plancher (reference mise a jour)" % len(cur))
+PYFLOOR
+# --------------------------------------------------------------------------------------------
 # ROOT — SPEC §2 : « attention ça reste ancré à la racine ».
 bad = sorted((r['chain'], float(r['rootdev'])) for r in rows if float(r['rootdev']) > 2.0)
 if bad:
