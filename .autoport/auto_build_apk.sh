@@ -315,8 +315,30 @@ while true; do
     echo "$h" > "$STAMP"
     continue
   fi
+  # BUILD-INFO ECRIT A CHAQUE BUILD AUTOMATIQUE (2026-08-11 23:30). Sans ca, le publieur poussait
+  # l'APK et laissait a cote une description vieille de 45 minutes decrivant un AUTRE build :
+  # l'owner n'avait aucun moyen de savoir qu'un build etait arrive, ni ce qu'il contenait.
+  # « Mais zero build pousse what the fuck » -- il y en avait un, invisible faute d'etiquette.
+  TAGX=$(bash .autoport/build_tag.sh 2>/dev/null)
+  TBLX=.autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
+  {
+    echo "TAG: $TAGX      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)"
+    echo "date: $(date -Is)     commit: $sha     build AUTOMATIQUE (etat commite et compile)"
+    echo
+    echo "MOUVEMENT MESURE PAR CHAINE sur ce build (amplitude de pointe, max des 5 pilotages) :"
+    if [ -f "$TBLX" ]; then
+      awk '/^row /{ch="";tv=0;for(i=1;i<=NF;i++){if($i~/^chain=/){split($i,x,"=");ch=x[2]}
+           if($i~/^tipvar=/){split($i,y,"=");tv=y[2]}}if(tv>m[ch])m[ch]=tv}
+           END{n=0;for(k in m){printf "  %-13s %.4f\n",k,m[k];n++}}' "$TBLX" | sort
+    else
+      echo "  (pas de tableau de mesures disponible pour ce build)"
+    fi
+    echo
+    echo "Ce fichier est ecrit AUTOMATIQUEMENT a chaque build, il decrit donc toujours l'APK"
+    echo "qui est a cote de lui. Si les deux dates divergent, dis-le moi."
+  } > out/artifacts/BUILD-INFO.txt
   echo "$h" > "$STAMP"
-  say "APK prêt pour le commit $sha — le publieur prendra le relais"
+  say "APK + BUILD-INFO prets pour le commit $sha — le publieur prendra le relais"
 
   # On installe TOUT DE SUITE ce qu'on vient de produire, sans attendre le tour suivant.
   # Et si ce passage-ci reporte (mesure en cours, telephone absent, install ratee), le
