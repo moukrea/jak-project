@@ -79,6 +79,10 @@ while true; do
   fi
 
   say "APK gradle"
+  # Espace mort de Gradle : un assemble incremental repete gonfle l'APK (588 Mo -> 1019 Mo
+  # constate le 2026-08-11, il aurait double le telechargement de l'owner sans que personne
+  # ne le voie). On nettoie le module avant chaque APK publiable.
+  ( cd android && timeout 900 ./gradlew :app:clean >> "../$LOG" 2>&1 )
   if ! ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
     say "gradle ÉCHOUÉ"
     echo "$h" > "$STAMP"
@@ -96,6 +100,12 @@ while true; do
     [ -f .autoport/OWNER-VERIFY-QUEUE.md ] && sed -n '1,40p' .autoport/OWNER-VERIFY-QUEUE.md
   } > out/artifacts/BUILD-INFO.txt
 
+  _sz=$(stat -c %s android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk 2>/dev/null || echo 0)
+  if [ "$_sz" -gt 700000000 ]; then
+    say "APK anormalement gros ($_sz octets) — espace mort, NON publie"
+    echo "$h" > "$STAMP"
+    continue
+  fi
   echo "$h" > "$STAMP"
   say "APK prêt pour le commit $sha — le publieur prendra le relais"
 done
