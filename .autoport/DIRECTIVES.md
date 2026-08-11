@@ -600,8 +600,25 @@ gros, écrasé » dit plus que de l'allongement : **le volume n'est pas conserv�
 doit tourner autour de son ancre à longueur ET section invariantes. Vérifier qu'aucune échelle
 n'arrive dans la matrice écrite (une correction appliquée en position sur un joint dont l'enfant est
 recollé produit exactement une variation de taille visible).
-→ Cible : `ROOM-STRETCH ≤ 3 %` **et** une mesure d'échelle : `ROOM-SCALE: max=<écart relatif du
-déterminant de la matrice écrite>` ≤ 2 %.
+→ **CORRECTION IMPORTANTE (owner, 21:20)** : « attention sur le fait qu'ils doivent conserver leur
+volume — c'est pas des ballons durs non plus, c'est naturel que ça change un peu de forme, d'autant
+plus que sur des mouvements forts ça s'écrase, se compresse, se tire. C'est juste beaucoup trop en
+l'état du build de 19h53. »
+
+La déformation n'est donc **pas** à supprimer : elle est à **borner**, et elle doit être une
+RÉPONSE, pas un tremblement. Une contrainte à 2 % aurait produit les ballons durs qu'il refuse.
+Trois exigences, pas une :
+  1. **Amplitude bornée** : `ROOM-SHAPE: max=<écart relatif d'échelle> chain=<nom> drive=<mode>`,
+     plafond ≈ **15 %** sous stimulus fort — assez pour qu'on voie la chair travailler, pas assez
+     pour la gelée. Le chiffre exact se cale sur son œil, pas sur une théorie.
+  2. **Corrélée au stimulus** : la déformation doit croître avec la force du mouvement. Une
+     déformation présente à stimulus faible est un défaut ; elle doit être quasi nulle sur les
+     mouvements subtils — qu'il juge déjà « quasiment parfaits », donc à ne pas toucher.
+  3. **Elle revient** : à l'arrêt, retour à la forme du modèle. `ROOM-SHAPE-RECOVER: <frames>` court,
+     et pas d'oscillation d'échelle entre deux frames (c'est ça, l'effet « gelée » : un changement de
+     taille qui n'est corrélé à rien).
+L'allongement de longueur d'os (`ROOM-STRETCH`) reste borné à 3 % : **un os ne s'allonge pas**, c'est
+la CHAIR qui se déforme. Ce sont deux choses distinctes et il ne faut pas les confondre.
 
 **2. ANGLES EXTRÊMES QUI CASSENT LE MESH — son idée est la bonne.** Le modèle n'a pas assez de
 polygones pour encaisser un pli serré entre deux maillons. Deux réponses possibles, il propose les
