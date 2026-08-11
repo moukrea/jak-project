@@ -295,6 +295,15 @@ def main():
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             inv=float(m.group(3)), invres=float(m.group(4)), elong=float(m.group(5)),
             rad=float(m.group(6)) if m.group(6) is not None else 0.0)
+    for m in re.finditer(r'^PHYSDIAG3 tag=(\S+) c=(\d+) bendcut=([-\d.e+]+) shape=([-\d.e+]+)'
+                         r' buried=([-\d.e+]+)', txt, re.M):
+        diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
+            bendcut=float(m.group(3)), shape=float(m.group(4)), buried=float(m.group(5)))
+    # la re-assise : combien de liens le moteur a replaces, et combien ont du retomber sur
+    # l'ancienne heuristique (rayon le long de l'os du porteur) au lieu de la place du rig.
+    global RESEAT_FB
+    _rs = re.search(r'^PHYSRESEAT n=([-\d.e+]+) fallback=([-\d.e+]+)', txt, re.M)
+    RESEAT_FB = (float(_rs.group(1)), float(_rs.group(2))) if _rs else None
 
     # ---- le controle positif -------------------------------------------------------------------
     pc = re.search(r'^PHYSPC injections=(\d+) armed=([-\d.e+]+) disarmed=([-\d.e+]+)', txt, re.M)
@@ -911,6 +920,60 @@ def main():
     A('   `raddrop` = fois ou le PLAFOND D\'EXCURSION du lien (son propre rayon mesure) a mordu.')
     A('   C\'est un suppresseur, donc SPEC 7 exige qu\'il chiffre ce qu\'il retire PAR CHAINE : un')
     A('   affaissement gravitaire ecrete par ce plafond se lit ici et nulle part ailleurs.')
+    A('')
+    A('-- 11e PASSE DE L\'OWNER : LA FORME, PAS L\'AMPLITUDE ----------------------------------------')
+    A('   « Lors de mouvements brusques il y a un effet d\'etirement et un peu gelee ou ca change de')
+    A('   taille (plus petit, plus gros, plus long, plus court, ecrase), c\'est pas coherent ! » ...')
+    A('   « certains maillons meriteraient un traitement pour eviter de creer des angles extremes qui')
+    A('   mettent en lumiere le lack of geometrie » ... « le bas de son pantacourt clipe toujours a')
+    A('   l\'interieur de ses mollets, comme si son pantacourt s\'arretait aux genoux ».')
+    A('   Trois defauts de FORME, que ni tipvar (une variance) ni elong (la longueur de l\'OS, qui')
+    A('   est invariante par construction) ne pouvaient decrire. Trois grandeurs, chacune avec sa')
+    A('   NATURE, son REPERE et sa lecture quand le defaut est ABSENT :')
+    A('')
+    A('   bendcut  DEGRES retires par l\'attenuation d\'angle. NATURE : un angle cumule, donc un')
+    A('            SUPPRESSEUR qui se chiffre (SPEC 7). REPERE : l\'attache du maillon. ABSENT : 0 —')
+    A('            et il DOIT valoir 0 hors des cheveux, l\'owner ayant ferme le perimetre a')
+    A('            « juste les meches, pas le reste, encore moins les seins ».')
+    A('   shape    |p - T| / longueur de l\'os, SANS DIMENSION. NATURE : l\'echelle de la deformation')
+    A('            que le skinning LINEAIRE impose a la chair — deux sommets voisins dont les poids')
+    A('            different de w se separent de w x |p - T|, et la longueur de l\'os est la distance')
+    A('            sur laquelle les poids passent de 1 a 0. REPERE : aucun, une longueur sur une')
+    A('            longueur. ABSENT : 0 (le maillon est a sa pose de modele).')
+    A('   buried   paires (lien, volume) ou le lien est ENTIEREMENT dans un volume A SA POSE DE')
+    A('            MODELE, comptees une fois par frame. NATURE : un compte. ABSENT : 0. Un pan dont')
+    A('            la pose est DANS la jambe n\'a aucune surface a traverser : meshpen reste a zero')
+    A('            pendant que l\'owner le voit disparaitre. C\'est la mesure de ce defaut-la.')
+    A('')
+    A('   %-12s %9s %9s %9s   %s' % ('chaine', 'bendcut', 'shape', 'buried', 'limite d\'angle'))
+    _lim = {}
+    try:
+        for _ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
+            if _ln.startswith('chain '):
+                _mm = re.search(r'\bmaxangle=([\d.]+)', _ln)
+                _lim[_ln.split()[1]] = float(_mm.group(1)) if _mm else 0.0
+    except Exception:
+        pass
+    for c in sorted(chains):
+        _d = dr_run.get(c, {})
+        _l = _lim.get(names[c], 0.0)
+        A('   %-12s %9.1f %9.4f %9d   %s'
+          % (names[c], _d.get('bendcut', 0.0), _d.get('shape', 0.0), int(_d.get('buried', 0)),
+             ('%.2f deg (CHEVEUX)' % _l) if _l > 0 else '-'))
+    _hair = [names[c] for c in chains if _lim.get(names[c], 0.0) > 0]
+    _out = [names[c] for c in chains
+            if _lim.get(names[c], 0.0) <= 0 and dr_run.get(c, {}).get('bendcut', 0.0) > 0]
+    A('   PERIMETRE : %d chaine(s) portent une limite d\'angle (%s) et %d chaine(s) hors perimetre'
+      % (len(_hair), ', '.join(_hair), len(_out)))
+    A('   ont paye de l\'attenuation. Le second nombre DOIT etre zero : c\'est la phrase de l\'owner')
+    A('   « juste sur les meches » rendue verifiable. Le premier n\'est pas un zero structurel — les')
+    A('   memes compteurs sont non nuls sur les cheveux dans la MEME course, donc ils tirent.')
+    if RESEAT_FB is not None:
+        A('   RE-ASSISE : %d liens replaces, dont %d retombes sur l\'ancienne heuristique (rayon le'
+          % (int(RESEAT_FB[0]), int(RESEAT_FB[1])))
+        A('   long de l\'os du porteur). Le second DOIT etre zero. La preuve n\'est pas ce drapeau mais')
+        A('   la DISTANCE publiee par la course (`reseat-at ... bind=...`) : elle ne peut sortir que du')
+        A('   chemin qui lit la bind-pose du rig, l\'ancien rendant exactement le rayon du lien.')
     A('')
     A('-- 6e PASSE, DEFAUT 2 : LA COURBE DE REPONSE ------------------------------------------------')
     A('   « Les meches les plus grosses sont trop statiques sur les mouvements faibles, trop')
