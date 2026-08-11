@@ -54,7 +54,25 @@ while true; do
   # est 0, ce qui n'est pas une erreur ici.
   busy=$(ps -eo comm,args | grep -vE '^claude ' \
            | grep -cE '^(cmake|ninja|cc1plus|java|goalc|gk)([^n]|$)' || true)
-  if [ "${busy:-0}" -gt 0 ]; then continue; fi
+  # PATIENCE BORNEE. Mesure du 2026-08-11 15:10 : pendant que le worker travaille, ce verrou est
+  # ferme EN PERMANENCE -- 0 fenetre libre sur 10 sondages en 100 s. L'owner ne recevait donc plus
+  # aucun APK, alors qu'il a explicitement demande a etre livre meme quand ce n'est pas vert.
+  # Passe 25 minutes d'attente avec des changements en attente, on n'exige plus que l'absence de
+  # COMPILATEUR : un `gk` de mesure peut etre relance par le worker, une compilation ecrasee est
+  # du travail perdu.
+  hard=$(ps -eo comm,args | grep -vE '^claude ' \
+           | grep -cE '^(cmake|ninja|cc1plus|java|goalc)([^n]|$)' || true)
+  now=$(date +%s); : "${blocked_since:=$now}"
+  if [ "${busy:-0}" -gt 0 ]; then
+    if [ "${hard:-0}" -eq 0 ] && [ $(( now - blocked_since )) -gt 1500 ]; then
+      say "patience depassee (25 min sans fenetre) — build lance pendant un gk"
+      blocked_since=$now
+    else
+      continue
+    fi
+  else
+    blocked_since=$now
+  fi
 
   # ...et le verrou ci-dessus ne voit QUE des compilateurs. Or un cycle de livraison passe
   # plusieurs minutes en `adb install` + boot LoaderActivity, ou aucun compilateur ne tourne :
