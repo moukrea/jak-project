@@ -19,10 +19,16 @@ set +e -o pipefail
 cd "$(dirname "$0")/.." || exit 1
 LOG=.autoport/logs/auto_build_apk.txt
 STAMP=.autoport/.last_apk_build_sha
+# NE PAS surveiller physics_chains.txt : build_custom_pack.sh le REECRIT a l'empaquetage (il y
+# applique les reglages de l'owner), donc chaque cycle declenchait le suivant en boucle. Resultat
+# constate le 2026-08-11 : deux APK publies sous le MEME commit avec des donnees de physique
+# differentes -- exactement la paire depareillee qui donne du comportement aleatoire. On surveille
+# les SOURCES (moteur, salle, retargeting) et le fichier de reglages de l'owner, jamais l'artefact
+# genere.
 WATCH=(goal_src/jak1/pc/jak-hd-physics.gc
        goal_src/jak1/pc/phys-room.gc
        goal_src/jak1/pc/jak-hd.gc
-       recharged_assets/physics_chains.txt)
+       recharged_assets/keira-owner-tuning.txt)
 
 say(){ echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
 say "auto-builder démarré (branche $(git branch --show-current))"
@@ -31,7 +37,7 @@ while true; do
   sleep 240
 
   # empreinte du contenu surveillé : on rebâtit sur le CONTENU, pas sur la mtime
-  h=$(cat "${WATCH[@]}" 2>/dev/null | md5sum | cut -d' ' -f1)
+  h=$( { git rev-parse HEAD; cat "${WATCH[@]}"; } 2>/dev/null | md5sum | cut -d' ' -f1)
   [ "$h" = "$(cat "$STAMP" 2>/dev/null)" ] && continue
 
   # ne jamais démarrer par-dessus un build en cours (goalc, cmake, gradle) ni pendant qu'un
