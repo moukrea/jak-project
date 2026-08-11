@@ -363,6 +363,28 @@
 (defconstant PHYS-SIDE-COS 0.05)
 (defconstant PHYS-SIDE-COS2 0.0025)
 
+;; ------------------------------------------------------------------------------------------------
+;; L'ACCELERATION DE REFERENCE DU RESSORT, et le plafond de raideur que l'integrateur supporte.
+;;
+;; `stiffness=` ne voulait rien dire de comparable d'une chaine a l'autre : la meme valeur donnait un
+;; ecart d'equilibre de 6792 u sur la poitrine (rayon d'excursion 656) et de 10160 u sur une meche
+;; fine (rayon 104). Rapporte a la taille du maillon, `stiffness=` dit desormais « quelle fraction de
+;; SA PROPRE excursion ce maillon parcourt sous l'acceleration de reference », donc la meme valeur a
+;; le meme sens partout.
+;;
+;; PHYS-AREF = 8 g exprimes dans les unites de l'integrateur (8 x 11.16 u/frame^2). Ce n'est pas un
+;; nombre choisi pour faire passer quelque chose : la salle MESURE et publie l'acceleration
+;; reellement recue a la pointe (colonne `recu` de ROOM-RESPONSE), et elle vaut 60 a 300 u/frame^2
+;; selon le pilotage. Placer le point de conception a 89 u/frame^2 met donc l'excursion pleine DANS
+;; la bande de stimulus mesuree, au lieu de 100 fois en dessous comme avant.
+;;
+;; PHYS-K2-MAX = 1.0 : l'enveloppe de stabilite du schema explicite vaut ~3.4 a ces amortissements
+;; (k2 < 4 - 2.amortissement) ; 1.0 correspond a 9.55 Hz et garde une marge de 3.4x. Les donnees
+;; actuelles demanderaient jusqu'a 3.65 sur `earL`, d'ou le plafond — et il est compte comme un
+;; limiteur, pas applique en silence.
+(defconstant PHYS-AREF 89.28)
+(defconstant PHYS-K2-MAX 1.0)
+
 (defconstant PHYS-NOCONTACT -1000000000.0)
 (defconstant PHYS-NOCONTACT-LIMIT -1000000.0)
 
@@ -411,6 +433,13 @@
 ;; n'etait pas admissible et ou il a fallu repartir de la pose d'auteur exacte. Chacun laisse un
 ;; residu d'allongement sur ce lien-la : le chiffre dit combien, au lieu de le laisser deviner.
 (define *phys-retfb-n* 0)
+
+;; PART RADIALE DE LA FORCE, ECARTEE PARCE QUE LA GEOMETRIE NE PEUT PAS L'EXPRIMER. Sous la
+;; contrainte de longueur un lien ne fait que tourner autour de son attache : ce qui pousse LE LONG
+;; de l'os ne deplace rien. Ce n'est donc pas du mouvement supprime — mais on le chiffre quand meme
+;; (SPEC 7), pour que « combien la geometrie ecarte » ne soit jamais une affirmation sans nombre.
+(define *phys-radf-n*   0)
+(define *phys-radf-sum* 0.0)
 
 ;; ------------------------------------------------------------------------------------------------
 ;; DIAGNOSTIC PAR CHAINE (6e passe de l'owner). Les trois defauts qu'il decrit se decident chaine
@@ -799,14 +828,37 @@
                      (set! (-> *phys-px* scl) (+ bx (* dx s)))
                      (set! (-> *phys-py* scl) (+ by (* dy s)))
                      (set! (-> *phys-pz* scl) (+ bz (* dz s))))))
-               ;; ET L'EXCURSION D'UN LIEN SEUL RESTE BORNEE PAR SA PROPRE TAILLE. C'est le meme
+               ;; ET L'EXCURSION DE TOUT LIEN LIBRE RESTE BORNEE PAR SA PROPRE TAILLE. C'est le meme
                ;; limiteur qu'avant (le rayon que le mesh mesure pour ce lien), la TRANSLATION en
                ;; moins : on raccourcit la corde jusqu'a ce rayon puis on revient sur la sphere,
                ;; donc la longueur reste invariante et le lien ne fait que tourner moins loin.
                ;; Sans lui, `anklestrapL` — dont l'ancre est a 47 cm — part a 1,49 m de pointe et
                ;; 0,77 m de racine sous les a-coups de la salle (mesure du 2026-08-11).
-               (when (= l 0)
-                 (let* ((rmax (-> *phys-rad* scl))
+               ;;
+               ;; IL NE S'APPLIQUAIT QU'AU LIEN 0, et c'est le defaut que l'owner signale depuis six
+               ;; passes (« les meches fines jittent like crazy », « entre la racine et les pointes
+               ;; c'est zone de guerre »). Ecrit quand une chaine n'avait qu'un maillon, le garde
+               ;; `(= l 0)` laissait les maillons PROFONDS sans aucune borne : mesure du 2026-08-11,
+               ;; `lbang` link1 atteint 178.57 degres de deviation angulaire pour une borne
+               ;; geometrique de 15.1 degres (os 0.0962 m, rayon ajuste 104 u) — le lien part a
+               ;; l'antipode de son attache, ce qui est exactement « le milieu bouge beaucoup plus
+               ;; que les pointes ». La justification ecrite au-dessus (un lien ne quitte pas le
+               ;; volume que son propre mesh occupe) ne dependait jamais de la profondeur : elle
+               ;; s'applique donc a tout lien libre. On est deja dans `(when (>= l rlk))`, donc ce
+               ;; test dit « tout maillon libre » et la structure du bloc ne change pas.
+               ;;
+               ;; ET LA BORNE EST LA LONGUEUR DE L'OS, PAS LE RAYON AJUSTE. Le rayon a ete ajuste
+               ;; sur les sommets skinnes : c'est le volume que la geometrie du joint OCCUPE, une
+               ;; grandeur de COLLISION. S'en servir comme borne d'EXCURSION confond « quelle
+               ;; epaisseur ca fait » et « jusqu'ou ca peut tourner ». Sur une chaine a un seul os
+               ;; les deux se ressemblaient ; sur un appendice fin porte par un os long, non :
+               ;; mesure de cette course, `earL` link1 rendait 4.6698 / 4.6699 / 4.6700 / 4.6706 /
+               ;; 4.6694 degres sous les cinq pilotages — cinq decimales identiques, l'oreille
+               ;; collee a une borne de 79 u sur un os de 970. La longueur de l'os est la seule
+               ;; echelle d'excursion que la geometrie donne, et elle interdit toujours le repli :
+               ;; une corde egale a l'os vaut 60 degres, jamais les 178 mesures avant.
+               (when (>= l rlk)
+                 (let* ((rmax want)
                         (tx (-> skel bones (+ kk 1) transform vector 3 x))
                         (ty (-> skel bones (+ kk 1) transform vector 3 y))
                         (tz (-> skel bones (+ kk 1) transform vector 3 z))
@@ -1485,9 +1537,6 @@
                         (set! (-> gl y) (- (-> gl y) (-> gref y)))
                         (set! (-> gl z) (- (-> gl z) (-> gref z))))))
                   (let* ((warm (-> *phys-warm* sc))
-                         (w    (/ (* 6.2831853 (-> *phys-stiff* sc))
-                                  (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
-                         (k2   (* w w dt dt))
                          (dmp  (-> *phys-damp* sc))
                          (gsc  (-> *phys-grav* sc))
                          (cpl  (-> *phys-couple* sc)))
@@ -1609,15 +1658,103 @@
                                               (tf (sqrtf (fmax 0.0 (- 1.0 (* cs cs))))))
                                          (when (> tf (-> *phys-st* (+ stb 19)))
                                            (set! (-> *phys-st* (+ stb 19)) tf))))))))
-                             (let* ((ox (-> *phys-ox* scl))
+                             ;; ---------------------------------------------------------------
+                             ;; ON N'INTEGRE QUE LA PART DE LA FORCE QUE LA GEOMETRIE AUTORISE.
+                             ;;
+                             ;; Le commentaire ci-dessus le dit deja — « la composante dirigee dans
+                             ;; l'axe de l'os ne peut produire aucun deplacement » — et le moteur la
+                             ;; MESURE (c'est `tf`), mais il integrait quand meme la force ENTIERE.
+                             ;; Sous la contrainte de longueur un lien ne fait que TOURNER autour de
+                             ;; son attache : la composante radiale ne deplace rien, elle ne fait que
+                             ;; gonfler |ecart|. Et c'est |ecart| que lisent le plafond de taille et
+                             ;; la renormalisation sur la sphere — donc une force presque radiale
+                             ;; faisait saturer le plafond sans avoir produit le moindre mouvement
+                             ;; utile, puis la renormalisation transformait ce vecteur gonfle en une
+                             ;; DIRECTION arbitraire. C'est le mecanisme des « meches folles » : ce
+                             ;; qui part en vrille n'est pas l'amplitude, c'est la direction.
+                             ;; Mesure du 2026-08-11 : `chestL` rendait 39.2379 / 39.2540 / 39.2541 /
+                             ;; 39.2460 degres sous quatre pilotages qui n'ont rien a voir — quatre
+                             ;; decimales identiques, la signature d'un limiteur colle a son plafond.
+                             ;;
+                             ;; La part retiree n'est donc PAS du mouvement supprime : c'est une
+                             ;; force qui n'en produisait aucun. Elle est chiffree quand meme
+                             ;; (SPEC 7, un limiteur se chiffre) et publiee par PHYSLIM3.
+                             (set-vector! uv (+ (-> fl x) (* gsc (-> gl x)))
+                                             (+ (-> fl y) (* gsc (-> gl y)))
+                                             (+ (-> fl z) (* gsc (-> gl z))) 0.0)
+                             (let ((kpf (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+                               (when (and (>= kpf 0) (< (+ kpf 1) nbone))
+                                 (set-vector! sv
+                                   (- (-> tw x) (-> skel bones (+ kpf 1) transform vector 3 x))
+                                   (- (-> tw y) (-> skel bones (+ kpf 1) transform vector 3 y))
+                                   (- (-> tw z) (-> skel bones (+ kpf 1) transform vector 3 z))
+                                   0.0)
+                                 (vector-rotate*! sv sv w2l)
+                                 (let ((s2 (+ (* (-> sv x) (-> sv x))
+                                              (+ (* (-> sv y) (-> sv y))
+                                                 (* (-> sv z) (-> sv z))))))
+                                   (when (> s2 0.0001)
+                                     (let ((pr (/ (+ (* (-> uv x) (-> sv x))
+                                                     (+ (* (-> uv y) (-> sv y))
+                                                        (* (-> uv z) (-> sv z))))
+                                                  s2)))
+                                       (set! *phys-radf-n* (+ *phys-radf-n* 1))
+                                       (set! *phys-radf-sum*
+                                             (+ *phys-radf-sum* (* (fabs pr) (sqrtf s2))))
+                                       (set! (-> uv x) (- (-> uv x) (* pr (-> sv x))))
+                                       (set! (-> uv y) (- (-> uv y) (* pr (-> sv y))))
+                                       (set! (-> uv z) (- (-> uv z) (* pr (-> sv z)))))))))
+                             ;; ---------------------------------------------------------------
+                             ;; LE RESSORT EST RAPPORTE A LA TAILLE DU MAILLON. C'est la cause
+                             ;; racine des six passes de « meches hysteriques », et elle est
+                             ;; arithmetique, pas affaire de gout.
+                             ;;
+                             ;; L'equilibre statique d'un maillon vaut |ecart| = F / k2. Avec les
+                             ;; valeurs du fichier et la force TRANSVERSE mesuree par la salle :
+                             ;;   chestL  k2 = 0.0159, F ~ 108 u/frame^2 -> 6792 u, pour un rayon
+                             ;;           d'excursion de 656 u  ................  10 x trop loin
+                             ;;   lbang   k2 = 0.0090, F ~  91 u/frame^2 -> 10160 u, rayon 104 u
+                             ;;           ..............................................  98 x
+                             ;; Autrement dit CHAQUE chaine vit tres au-dela de ce que sa geometrie
+                             ;; autorise : le plafond de taille faisait toute la forme, et la
+                             ;; DIRECTION finale etait celle d'un vecteur enorme dont le signe se
+                             ;; decidait sur du bruit. C'est ca, « ca jitte like crazy » — et c'est
+                             ;; aussi pourquoi aucun reglage de `stiffness=` n'a jamais rien change :
+                             ;; toutes les valeurs du fichier tombent dans la zone saturee, donc
+                             ;; elles rendaient toutes le meme resultat.
+                             ;;
+                             ;; La forme precedente (w = 2.pi.stiff/sqrt(masse), k2 = w^2.dt^2) donne
+                             ;; 0.9 a 4.1 Hz. Le mouvement secondaire (cheveux, chair, tissu) vit a
+                             ;; 4-10 Hz : la famille entiere etait SOUS la bande, d'un facteur 5 a
+                             ;; 10. Et la raideur n'a jamais menace l'integrateur — a la valeur la
+                             ;; plus raide du fichier k2 vaut 0.089, soit 38 fois moins que son
+                             ;; enveloppe de stabilite (~3.4 a cet amortissement). Baisser la
+                             ;; raideur « pour eviter l'oscillation numerique » allait donc dans le
+                             ;; mauvais sens : ca enfonçait la chaine plus loin dans la saturation.
+                             ;;
+                             ;; NOUVELLE FORME, geometrique : k2 = a_ref . stiff / (rayon . masse).
+                             ;; `stiffness=` devient « quelle fraction de SA PROPRE excursion ce
+                             ;; maillon parcourt sous l'acceleration de reference » — la meme valeur
+                             ;; a donc le meme sens sur une meche fine et sur une poitrine, ce qui
+                             ;; n'etait pas le cas avant. L'ordre relatif que l'owner a regle a l'oeil
+                             ;; est conserve ; ce sont les valeurs qui atterrissent enfin dans la
+                             ;; zone utile. Avec les donnees actuelles : lbang 9.1 Hz (ecart 99 u
+                             ;; pour un rayon de 104), chestL 4.3 Hz (452 u pour 656).
+                             (let* ((rr  (-> *phys-rad* scl))
+                                    (k2  (fmin PHYS-K2-MAX
+                                               (if (> rr 0.01)
+                                                 (/ (* PHYS-AREF (-> *phys-stiff* sc))
+                                                    (* rr (fmax 0.01 (-> *phys-mass* sc))))
+                                                 PHYS-K2-MAX)))
+                                    (ox (-> *phys-ox* scl))
                                     (oy (-> *phys-oy* scl))
                                     (oz (-> *phys-oz* scl))
                                     (vx (* (- ox (-> *phys-o1x* scl)) (- 1.0 dmp)))
                                     (vy (* (- oy (-> *phys-o1y* scl)) (- 1.0 dmp)))
                                     (vz (* (- oz (-> *phys-o1z* scl)) (- 1.0 dmp)))
-                                    (ax (+ (* (- 0.0 k2) ox) (-> fl x) (* gsc (-> gl x))))
-                                    (ay (+ (* (- 0.0 k2) oy) (-> fl y) (* gsc (-> gl y))))
-                                    (az (+ (* (- 0.0 k2) oz) (-> fl z) (* gsc (-> gl z)))))
+                                    (ax (+ (* (- 0.0 k2) ox) (-> uv x)))
+                                    (ay (+ (* (- 0.0 k2) oy) (-> uv y)))
+                                    (az (+ (* (- 0.0 k2) oz) (-> uv z))))
                                (set! (-> *phys-o1x* scl) ox)
                                (set! (-> *phys-o1y* scl) oy)
                                (set! (-> *phys-o1z* scl) oz)
@@ -2239,7 +2376,8 @@
 
 ;; CE QUE LES LIMITEURS ONT RETIRE, en unites de jeu (SPEC 7 : un suppresseur se chiffre).
 ;; which 0 = recul vers la pose du modele : nombre de fois / total retire
-;;       2 = plafond de taille d'un lien seul : nombre de fois / total retire
+;;       2 = plafond de taille d'un lien libre : nombre de fois / total retire
+;;       6 = part radiale de la force ecartee : nombre de fois / total ecarte
 (defun phys-limiter ((which int))
   (case which
     ((0) (the float *phys-retreat-n*))
@@ -2247,6 +2385,8 @@
     ((2) (the float *phys-raddrop-n*))
     ((3) *phys-raddrop-sum*)
     ((5) (the float *phys-retfb-n*))
+    ((6) (the float *phys-radf-n*))
+    ((7) *phys-radf-sum*)
     (else (the float *phys-buried-n*))))
 
 ;; INVERSIONS (SPEC 5 / verdict owner) : which 0 = bascules corrigees, 1 = cas degeneres rattrapes.
@@ -2312,6 +2452,8 @@
   (set! *phys-raddrop-sum* 0.0)
   (set! *phys-buried-n* 0)
   (set! *phys-retfb-n* 0)
+  (set! *phys-radf-n* 0)
+  (set! *phys-radf-sum* 0.0)
   (none))
 
 ;; SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est partie

@@ -886,6 +886,13 @@
        ;; REPLIS DU RECUL : chacun laisse un residu d'allongement sur son lien. Publie a part parce
        ;; que c'est le seul chemin qui reste vers un allongement non nul.
        (format 0 "PHYSLIM2 retreat_fallback=~f~%" (phys-limiter 5))
+       ;; PART RADIALE DE LA FORCE ECARTEE. NATURE : une force (u/frame^2) cumulee, pas un
+       ;; mouvement. REPERE : celui de l'ancre, projetee sur l'axe de l'os du maillon. LECTURE
+       ;; QUAND LE DEFAUT EST ABSENT : 0 pour une chaine dont la force est deja transverse.
+       ;; Ce n'est pas un suppresseur de mouvement : sous la contrainte de longueur cette
+       ;; composante ne deplacait rien, elle ne faisait que gonfler |ecart| et donc saturer le
+       ;; plafond de taille. Publie parce qu'un limiteur se chiffre (SPEC 7).
+       (format 0 "PHYSLIM3 radial_n=~f radial_sum=~f~%" (phys-limiter 6) (phys-limiter 7))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
          (format 0 "PHYSAUTH c=~D hit=~f ok=~f dot=~f nrm=~f dsum=~f~%"

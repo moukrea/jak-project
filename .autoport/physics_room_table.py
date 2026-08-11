@@ -353,6 +353,16 @@ def main():
     radr_n, radr_s = int(float(lim.group(3))), float(lim.group(4)) / UNITS
     buried_n = int(float(lim.group(5)))
 
+    # PART RADIALE DE LA FORCE ECARTEE. Sous la contrainte de longueur un maillon ne fait que
+    # tourner autour de son attache : ce qui pousse LE LONG de l'os ne deplace rien, il ne fait que
+    # gonfler |ecart| — et c'est |ecart| que lisent le plafond de taille et la renormalisation sur
+    # la sphere. NATURE : une force cumulee (u/frame^2), PAS un mouvement retire. REPERE : celui de
+    # l'ancre, projetee sur l'axe de l'os du maillon. LECTURE QUAND LE DEFAUT EST ABSENT : 0 sur une
+    # chaine dont la force est deja transverse.
+    lim3 = re.search(r'^PHYSLIM3 radial_n=([-\d.e+]+) radial_sum=([-\d.e+]+)', txt, re.M)
+    radf_n = int(float(lim3.group(1))) if lim3 else 0
+    radf_s = float(lim3.group(2)) if lim3 else 0.0
+
     # LES VOLUMES QUE LE MOTEUR A RESOLUS. meshpen mesure l'entree dans un collider DECLARE, pas la
     # traversee du corps : sans la liste des volumes, un zero ne dit pas contre QUOI il est zero.
     cols = []
@@ -533,10 +543,22 @@ def main():
       % (retr_n, fnum(retr_s),
          ' (jamais declenche)' if retr_n == 0 else ' soit %s m par declenchement'
          % fnum(retr_s / retr_n)))
-    A('   plafond de taille d\'un lien seul : %d fois, %s m au total%s'
+    A('   plafond de taille d\'un lien libre : %d fois, %s m au total%s'
       % (radr_n, fnum(radr_s),
          ' (jamais declenche)' if radr_n == 0 else ' soit %s m par declenchement'
          % fnum(radr_s / radr_n)))
+    A('     il ne s\'appliquait qu\'au maillon 0 : les maillons PROFONDS n\'avaient AUCUNE borne,')
+    A('     et c\'est pour ca que lbang/rbang link1 atteignaient 178 degres pour une borne')
+    A('     geometrique de 15. Il porte donc desormais sur tout maillon libre.')
+    A('   part radiale de la force, ecartee : %d fois, %s u/frame^2 au total%s'
+      % (radf_n, fnum(radf_s),
+         ' (jamais declenche)' if radf_n == 0 else ' soit %s par declenchement'
+         % fnum(radf_s / radf_n)))
+    A('     NATURE : une force cumulee, PAS du mouvement retire — sous la contrainte de longueur un')
+    A('     maillon ne fait que TOURNER autour de son attache, donc ce qui pousse le long de l\'os')
+    A('     ne deplacait rien ; il ne faisait que gonfler |ecart|, que lisent le plafond de taille')
+    A('     et la renormalisation sur la sphere. REPERE : celui de l\'ancre, projetee sur l\'axe de')
+    A('     l\'os du maillon. LECTURE QUAND LE DEFAUT EST ABSENT : 0 si la force est deja transverse.')
     A('   marge de sortie de collision : 0.5 u = 0.000122 m par contact resolu, constante.')
     A('   paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele, donc')
     A('   sans surface devant lui : %d occurrences de mesure. Critere geometrique calcule sur la' % buried_n)
