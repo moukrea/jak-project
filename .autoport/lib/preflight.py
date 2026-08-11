@@ -209,6 +209,44 @@ def check_report_not_stale(phase_id=None):
                % (len(newer), ", ".join(newer[:3]), " ..." if len(newer) > 3 else ""))
 
 
+
+# --------------------------------------------------------------------------
+# TRAP 7 — une mesure exprimée dans le mauvais REPÈRE, ou de la mauvaise NATURE.
+# Racine commune aux trois erreurs du 2026-08-11, toutes trouvées par l'œil de
+# l'owner et non par l'instrument :
+#   * affaissement sous gravité mesuré par une VARIANCE (une variance ne peut pas
+#     décrire un déplacement soutenu) ;
+#   * dégradé le long d'une chaîne mesuré par un SCALAIRE unique (un nombre ne peut
+#     pas décrire une forme) ;
+#   * déplacement par maillon mesuré en repère MONDE (un maillon hérite du mouvement
+#     de son parent, donc une pointe immobile par rapport à son parent affiche un
+#     grand chiffre).
+# Le check ne prétend pas juger la physique : il exige que le code de mesure DÉCLARE
+# le repère et la nature de chaque grandeur publiée, pour que l'erreur soit visible
+# à la lecture au lieu d'être découverte trois heures plus tard.
+def check_metric_frame_declared():
+    import re as _re
+    for rel in ("goal_src/jak1/pc/phys-room.gc", ".autoport/physics_room_table.py"):
+        txt = _read(rel)
+        if not txt:
+            continue
+        emitted = set(_re.findall(r"ROOM-([A-Z][A-Z0-9-]+)", txt))
+        for name in sorted(emitted):
+            # une grandeur est "déclarée" si son nom apparaît à moins de 400 caractères
+            # d'un mot de repère ou de nature
+            for m in _re.finditer(r"ROOM-" + _re.escape(name), txt):
+                ctx = txt[max(0, m.start() - 400):m.start() + 400].lower()
+                if any(k in ctx for k in ("repere", "repère", "frame", "relatif", "relative",
+                                          "monde", "world", "ancre", "anchor", "parent",
+                                          "soutenu", "variance", "moyenne", "nature")):
+                    break
+            else:
+                yield ("WARN", "METRIC-FRAME",
+                       "%s publie ROOM-%s sans declarer son REPERE ni sa NATURE dans le code "
+                       "alentour. Les trois faux verts du 2026-08-11 viennent de la : variance "
+                       "pour un deplacement soutenu, scalaire pour une forme, repere monde pour "
+                       "un mouvement relatif au parent." % (rel.split('/')[-1], name))
+
 CHECKS = [
     check_goal_objects_linked,
     check_self_matching_kills,
@@ -216,6 +254,7 @@ CHECKS = [
     check_validator_pipefail_grepq,
     check_validator_negated_class,
     check_report_not_stale,
+    check_metric_frame_declared,
 ]
 
 

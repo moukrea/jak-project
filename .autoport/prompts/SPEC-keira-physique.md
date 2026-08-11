@@ -95,6 +95,17 @@ Trois règles qui ont coûté une semaine et qui ne se renégocient pas :
   trace d'exécution. Jamais un docstring, jamais une intention écrite dans le source.
 * **Tout zéro exige un contrôle positif qui a tiré** : on injecte le défaut, on voit le compteur
   **monter**, on l'enlève. Un contrôle qui fait *baisser* le compteur est un contrôle cassé.
+* **AVANT D'ÉCRIRE UNE MESURE, RÉPONDRE À TROIS QUESTIONS.** Les trois faux verts du 2026-08-11 ont
+  la même racine : la grandeur mesurée ne correspondait pas au défaut décrit.
+  1. **De quelle NATURE est le défaut ?** Une amplitude, une **forme**, un **déplacement soutenu**,
+     ou une fréquence ? Une variance ne peut pas décrire un affaissement sous gravité ; un scalaire
+     unique ne peut pas décrire un dégradé le long d'une chaîne.
+  2. **Dans quel REPÈRE ?** Un maillon hérite du mouvement de son parent : mesuré en repère monde,
+     une pointe parfaitement immobile par rapport à son parent affiche un grand chiffre. Le mouvement
+     propre se mesure **relativement au parent** ou dans le repère de l'ancre.
+  3. **Que lit-elle quand le défaut est ABSENT ?** Sans cette ligne de base, un chiffre n'a pas
+     d'échelle et le contrôle positif n'a rien à comparer.
+  Une mesure publiée sans ces trois réponses écrites à côté d'elle est provisoire, pas acquise.
 * **Une mesure doit DISCRIMINER.** Une grandeur publiée par stimulus doit varier quand le stimulus
   change du tout au tout. Mesuré le 2026-08-11 : 16 chaînes sur 22 rendaient la même amplitude sous
   une secousse, une translation et une inclinaison à 60° (`backhair` : 3 % d'écart). Une réponse
