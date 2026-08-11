@@ -152,8 +152,14 @@ while true; do
   # vient de produire. Deux garde-fous, et un echec ici n'interrompt jamais la publication
   # (le publieur est un autre processus, il a deja de quoi travailler) :
   #   - le telephone doit etre la (sinon on ne fait rien, ce n'est pas une erreur) ;
-  #   - l'application ne doit PAS etre au premier plan : l'owner est peut-etre en train de
-  #     tester, et un `install -r` tuerait sa session en cours.
+  #   - l'application ne doit PAS etre au premier plan : une mesure du superviseur tourne
+  #     peut-etre, et un `install -r` la couperait.
+  #
+  # NE PAS CONFONDRE LES DEUX APPAREILS (owner, 2026-08-11) : le Redmi eae4df44 est
+  # L'INSTRUMENT DU SUPERVISEUR. L'owner teste sur SON Honor, que nous ne voyons pas du tout —
+  # il recupere les builds depuis jak-builds. Rien de ce qui se passe sur le Redmi ne dit quoi
+  # que ce soit de son activite, et aucune decision ne doit etre prise « parce que l'owner est
+  # peut-etre en train de tester » a partir de ce que montre le Redmi.
   # `grep -c` et JAMAIS `grep -q` : sous `-o pipefail`, `-q` sort a la premiere correspondance,
   # SIGPIPE le producteur en amont, le pipeline rend 141 et le test se lit a l'envers. Piege
   # maison, deja documente deux fois dans ce fichier.
@@ -168,7 +174,7 @@ while true; do
     fg=$("$ADBX" -s "$SERX" shell dumpsys window 2>/dev/null \
            | grep -a 'mCurrentFocus' | grep -ac "$PKGX" || true)
     if [ "${fg:-0}" -gt 0 ]; then
-      say "device: $PKGX au premier plan (owner en test) — installation differee, on ne coupe pas sa session"
+      say "device: $PKGX au premier plan sur le Redmi (mesure du superviseur) — installation differee"
     elif timeout 900 "$ADBX" -s "$SERX" install -r "$APKX" >> "$LOG" 2>&1; then
       # Lancement par l'activite RESOLUE (LoaderActivity), JAMAIS MainActivity : c'est
       # LoaderActivity, et elle seule, qui reextrait les packs et ecrit les tampons

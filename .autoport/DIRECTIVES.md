@@ -559,3 +559,19 @@ parent**. C'est la même faute que « différencier la position au lieu de la so
 rapport à son parent, ou déplacement exprimé dans le repère de l'ancre. C'est cette suite-là qui doit
 croître de la racine vers la pointe. Republier `ROOM-GRADIENT` sur cette base, et la comparer à
 l'ancienne dans le rapport — l'écart entre les deux est la mesure de mon erreur.
+
+## DEUX APPAREILS, À NE JAMAIS CONFONDRE (owner 2026-08-11)
+
+> « Mélange pas le build qui run sur le Redmi qui est à ta disposition, et moi sur mon Honor que tu
+> vois pas du tout, qui teste les builds sur jak-builds. »
+
+* **Redmi `eae4df44`** = l'instrument du superviseur. On y installe, on y mesure, on y prouve. Ce
+  qu'il affiche ne dit **rien** de l'owner.
+* **Honor de l'owner** = invisible. Il récupère les builds publiés sur jak-builds et les teste
+  lui-même. Aucune trace, aucune télémétrie, aucun moyen de savoir ce qu'il fait ni quel build il a —
+  d'où le tag `<commit6>-<pack6>` qu'il peut lire dans `files/.custom_pack_stamp_jak1`.
+
+Conséquence corrigée : l'auto-constructeur différait une installation « parce que l'owner est
+peut-être en train de tester », en se fondant sur l'app au premier plan **du Redmi**. Raisonnement
+faux — c'était une mesure du superviseur. Aucune décision ne se déduit de l'activité de l'owner :
+elle n'est pas observable.
