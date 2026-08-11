@@ -323,3 +323,51 @@ réglages sont dans le fichier livré — la régénération les avait effacés 
    corps est en capsules dérivées. Une sphère au joint ne peut pas épouser un sein. **Il faut des
    volumes de poitrine dérivés comme les autres**, et arrêter d'en gonfler le rayon : au troisième
    élargissement les lunettes finiront par flotter loin du corps.
+
+## RÈGLE DE REPRISE (owner 2026-08-11) — SON RETOUR EST LE VERDICT
+
+> « Qu'est-ce que tu racontes sur la porte humaine ? T'as eu mon feedback, tu dois t'assurer que ça
+> reprenne. »
+
+Un retour de l'owner qui décrit des défauts **est** un verdict de non-validation. La phase se rouvre
+**immédiatement** — on ne l'annonce pas comme bloquée, on ne l'attend pas au point de supervision
+suivant. Le superviseur retire la phase de `validator_passed` et relance ; le jeton
+`.autoport/owner-ok/<phase>` reste **exclusivement** le geste de l'owner et n'est jamais créé à sa
+place. Une porte humaine ne se signale que lorsqu'il n'a rien dit.
+
+## RÈGLE DE NON-DESTRUCTION (owner 2026-08-11)
+
+> « T'assurer que ton travail n'est pas systématiquement détruit, c'est chelou comme comportement,
+> tu peux pas juste dire "ah oups", corriger et laisser reproduire en boucle ! »
+
+Ses réglages ont été effacés deux fois par la régénération. Corriger après coup, deux fois, en
+accrochant la réapplication à l'**empaquetage** — un appelant parmi d'autres — n'a pas empêché la
+récurrence. La réapplication est maintenant faite **par le producteur lui-même**, à la fin de
+l'écriture de `physics_chains.txt` : il n'existe plus de chemin qui régénère sans réappliquer.
+Règle générale : **quand une perte se répète, on la rend impossible au point de production, pas
+détectable au point de contrôle.** Une gate qui constate la perte arrive toujours trop tard.
+
+## SUGGESTION TECHNIQUE DE L'OWNER — COLLIDERS DÉRIVÉS DU MESH, PAS DU RIG
+
+> « Pourquoi dériver du rig et pas du mesh en suivant ses déformations avec plus ou moins
+> d'accuracy en fonction de la précision demandée (réduire les tris du mesh collider en fonction du
+> niveau de précision) plutôt que des capsules ? Je sais pas si c'est mieux, c'est une suggestion. »
+
+**À évaluer sérieusement, avec des nombres, pas un avis.** Les 24 capsules actuelles sont dérivées
+du RIG (segment os→os + rayon), donc elles ne peuvent pas épouser une forme : c'est précisément
+pourquoi une poitrine reste une sphère et pourquoi les lunettes clipent même à l'arrêt. Un collider
+issu du **mesh skinné décimé** suit la vraie silhouette et se déforme avec elle, et le niveau de
+précision déjà présent dans le menu donne naturellement le budget de triangles.
+
+Ce qu'il faut mesurer avant de trancher, sur Keira et sur le device :
+1. **Fidélité** : distance max d'un sommet du mesh à l'extérieur du volume, capsules vs mesh décimé,
+   à budgets égaux. C'est le chiffre qui dit si la forme est mieux épousée.
+2. **Coût par frame** : les capsules sont un test analytique ; un mesh décimé demande une structure
+   d'accélération et un test point↔triangle. Mesurer sur le Redmi, pas sur x86.
+3. **Déformation** : le mesh décimé doit être **skinné**, donc re-transformé chaque frame — c'est là
+   que se joue le coût réel, et c'est aussi ce qui le rend supérieur.
+4. **Niveaux** : bas = capsules actuelles, moyen = mesh très décimé, haut = décimation fine. Le
+   toggle existe déjà.
+Livrer les quatre nombres avant de choisir. Si le mesh gagne en fidélité pour un coût device
+acceptable, c'est lui qui répond à son blocage historique (« les colliders ne suivent pas les formes
+du mesh ») — mieux que n'importe quel réglage de rayon.
