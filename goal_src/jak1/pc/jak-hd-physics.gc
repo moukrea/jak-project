@@ -208,6 +208,19 @@
 ;; revanche a -1e6 et pas a -999999999.0, parce que ce dernier s'arrondit a -1e9 EXACTEMENT en
 ;; flottant 32 bits : la comparaison devenait fausse et la sentinelle traversait jusque dans le
 ;; tableau (-244140 m sur earL, mesure du 2026-08-11). Meme piege qu'un 0 truthy.
+;; ZONE MORTE du test de cote, en cosinus. Le test « le lien est-il du mauvais cote de l'axe ? » est
+;; un SIGNE de produit scalaire : quand le lien frole le plan de l'axe, le vrai produit vaut ~0 et
+;; son signe se decide sur l'arrondi, donc le solveur peut miroiter puis se re-miroiter sans fin.
+;; On n'agit donc que quand le lien est FRANCHEMENT de l'autre cote : cos < -0.05. Comparaison au
+;; carre, sans racine, parce que ce test est dans la boucle chaude.
+;; CE QUI EST MESURE, et rien de plus : sur x86 la zone morte fait passer les corrections de 8338 a
+;; 7313 par course et le residu de 638 a 595, sans rien changer aux amplitudes. Une course device a
+;; bien rapporte 85 396 420 corrections, mais SON squelette n'etait pas pose (toutes les mesures a
+;; zero, 13 millions de paires « lien entierement dans le volume ») : ce chiffre-la ne dit rien sur
+;; arm64, il dit que la course etait degeneree. Ne pas le citer comme une divergence de backend.
+(defconstant PHYS-SIDE-COS 0.05)
+(defconstant PHYS-SIDE-COS2 0.0025)
+
 (defconstant PHYS-NOCONTACT -1000000000.0)
 (defconstant PHYS-NOCONTACT-LIMIT -1000000.0)
 
@@ -603,10 +616,17 @@
                       (when (and (> floor0 0.0) (phys-vol-is-surface? floor0 rl))
                         (phys-closest-on-seg rest ca cb cr)
                         (phys-closest-on-seg pt ca cb cp)
-                        (let ((dot (+ (* (- (-> pt x) (-> cp x)) (- (-> rest x) (-> cr x)))
-                                     (* (- (-> pt y) (-> cp y)) (- (-> rest y) (-> cr y)))
-                                     (* (- (-> pt z) (-> cp z)) (- (-> rest z) (-> cr z))))))
-                          (when (< dot 0.0)
+                        (let* ((ux (- (-> pt x) (-> cp x)))
+                               (uy (- (-> pt y) (-> cp y)))
+                               (uz (- (-> pt z) (-> cp z)))
+                               (mx (- (-> rest x) (-> cr x)))
+                               (my (- (-> rest y) (-> cr y)))
+                               (mz (- (-> rest z) (-> cr z)))
+                               (u2 (+ (* ux ux) (* uy uy) (* uz uz)))
+                               (m2 (+ (* mx mx) (* my my) (* mz mz)))
+                               (dot (+ (* ux mx) (* uy my) (* uz mz))))
+                          (when (and (< dot 0.0)
+                                     (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
                             (set! *phys-invn* (+ *phys-invn* 1))
                             (set! (-> pt x) (- (* 2.0 (-> cp x)) (-> pt x)))
                             (set! (-> pt y) (- (* 2.0 (-> cp y)) (-> pt y)))
@@ -678,11 +698,18 @@
                 (when (and (> floor0 0.0) (phys-vol-is-surface? floor0 rl))
                   (phys-closest-on-seg rest ca cb cr)
                   (phys-closest-on-seg pt ca cb cp)
-                  (when (< (+ (* (- (-> pt x) (-> cp x)) (- (-> rest x) (-> cr x)))
-                              (* (- (-> pt y) (-> cp y)) (- (-> rest y) (-> cr y)))
-                              (* (- (-> pt z) (-> cp z)) (- (-> rest z) (-> cr z))))
-                           0.0)
-                    (set! *phys-invres* (+ *phys-invres* 1))))))))))
+                  (let* ((ux (- (-> pt x) (-> cp x)))
+                         (uy (- (-> pt y) (-> cp y)))
+                         (uz (- (-> pt z) (-> cp z)))
+                         (mx (- (-> rest x) (-> cr x)))
+                         (my (- (-> rest y) (-> cr y)))
+                         (mz (- (-> rest z) (-> cr z)))
+                         (u2 (+ (* ux ux) (* uy uy) (* uz uz)))
+                         (m2 (+ (* mx mx) (* my my) (* mz mz)))
+                         (dot (+ (* ux mx) (* uy my) (* uz mz))))
+                    (when (and (< dot 0.0)
+                               (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
+                      (set! *phys-invres* (+ *phys-invres* 1)))))))))))
     worst))
 
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))

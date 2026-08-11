@@ -372,6 +372,23 @@
                              (-> hd draw jgeo data j name) "?")
                            (if (and (>= j2 0) (nonzero? (-> hd draw jgeo)))
                              (-> hd draw jgeo data j2 name) "-"))))))))
+       ;; LE SQUELETTE EST-IL SEULEMENT POSE ? Une course device du 2026-08-11 a publie 1584
+       ;; lignes a ZERO partout avec 13 millions de paires « lien entierement dans le volume » :
+       ;; les os du compagnon etaient restes a l'ORIGINE (il n'avait jamais ete rendu, donc son
+       ;; do-joint-math! n'avait jamais tourne). Des zeros pris sur un squelette non pose ne
+       ;; mesurent rien, et un tableau qui les publie est un faux vert. On refuse de mesurer.
+       (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+         (when (and hd (= (-> hd type) jak-hd) (nonzero? (-> hd draw))
+                    (nonzero? (-> hd draw skeleton)))
+           (let* ((skel (-> hd draw skeleton))
+                  (a (phys-chain-joint (-> self slot) 0 0))
+                  (d (if (and (>= a 0) (< (+ a 1) (-> skel length)))
+                       (vector-length (the-as vector (-> skel bones (+ a 1) transform vector 3)))
+                       0.0)))
+             (format 0 "PHYSPOSED joint0=~D dist-from-origin=~f~%" a d)
+             (when (< d 1.0)
+               (format 0 "PHYSFAIL reason=skeleton-not-posed-bones-at-origin~%")
+               (set! (-> self phase) PHYSROOM-PH-DONE)))))
        (phys-auth-reset!)
        (phys-limiter-reset!)
        (phys-inversions-reset!)

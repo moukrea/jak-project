@@ -49,6 +49,11 @@ for n in assistant assistant-village2 assistant-village3 assistant-firecanyon \
   $ADB -s "$S" shell rm -f "/data/local/tmp/$n-ag.go" >/dev/null 2>&1 || true
 done
 say "art-groups stages et md5-verifies: $STAGED/6 (echecs: $STAGEFAIL)"
+# Ce compte DOIT arreter la course : le 2026-08-11 il valait 0/6 (un build concurrent venait de
+# vider out/jak1/obj) et le script a continue quand meme — le jeu a alors utilise des art-groups
+# laisses la par un cycle precedent, donc une course de 30 minutes dont on ne peut rien dire.
+[ "$STAGEFAIL" = 0 ] || die "$STAGEFAIL art-group(s) non stages : la course mesurerait des données non prouvees"
+[ "$STAGED" = 6 ]    || die "seulement $STAGED/6 art-groups stages"
 
 $ADB -s "$S" shell setprop debug.opengoal.phys.room 1 || die "setprop failed"
 $ADB -s "$S" shell setprop debug.opengoal.phys.room.delay "${ROOM_DELAY:-900}" >/dev/null 2>&1 || true

@@ -77,7 +77,7 @@ def main():
                 if re.search(r"\b%s=" % re.escape(k), line):
                     # le parametre existe : on le remplace. Ne JAMAIS ajouter ici, sinon une
                     # seconde application produit "radius=708 radius=708" (constate le 2026-08-11).
-                    line = re.sub(r"\b%s=[-0-9.]+" % re.escape(k), "%s=%s" % (k, v), line)
+                    line = re.sub(r"\b%s=[-0-9.,]+" % re.escape(k), "%s=%s" % (k, v), line)
                 else:
                     line = line + " " + kv
             s = s[:m.start()] + line + s[m.end():]
@@ -96,7 +96,7 @@ def main():
                 if re.search(r"\b%s=" % re.escape(k), line):
                     # le parametre existe : on le remplace. Ne JAMAIS ajouter ici, sinon une
                     # seconde application produit "radius=708 radius=708" (constate le 2026-08-11).
-                    line = re.sub(r"\b%s=[-0-9.]+" % re.escape(k), "%s=%s" % (k, v), line)
+                    line = re.sub(r"\b%s=[-0-9.,]+" % re.escape(k), "%s=%s" % (k, v), line)
                 else:
                     line = line + " " + kv
             s = s[:m.start()] + line + s[m.end():]
