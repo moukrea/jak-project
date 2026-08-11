@@ -1,27 +1,29 @@
 #!/usr/bin/env bash
-# Garde en vie les DEUX maillons de la livraison. Le publieur est mort trois fois (tempête d'API,
-# variable non liée, cause inconnue) ; le constructeur d'APK est mort le 2026-08-11 à 15:15 parce
-# que le superviseur a ÉDITÉ le script pendant qu'il tournait — bash relit le fichier au fil de
-# l'exécution, donc toute édition en vol tue l'instance. Le respawn rend l'incident sans effet.
+# Garde en vie les deux maillons de la livraison, et RIEN d'autre.
+#
+# Historique des ratages de ce fichier, tous corriges ici :
+#   * le publieur est mort trois fois (tempete d'API, variable non liee, cause inconnue) ;
+#   * le constructeur est mort parce que le superviseur a edite son script en vol ;
+#   * mon tueur de doublons comptait mal et TUAIT le publieur legitime toutes les 2 minutes
+#     (« 2 instances de auto_push_builds » alors qu'il n'y en avait qu'une).
+# Les comptages passent donc tous par .autoport/alive.sh, qui exclut soi-meme et ses ancetres.
 cd "$(dirname "$0")/.." || exit 1
+LOG=.autoport/logs/auto_build_apk.txt
+
+alive() { bash .autoport/alive.sh "$1" 2>/dev/null || echo 0; }
+
 while true; do
-  if ! ps -eo args | grep -q '[a]uto_push_builds.sh'; then
-    echo "$(date +%H:%M:%S) publieur mort — respawn" >> .autoport/logs/auto_push_builds.txt
-    setsid bash .autoport/auto_push_builds.sh </dev/null >/dev/null 2>&1 &
-  fi
-  if ! ps -eo args | grep -q '[a]uto_build_apk.sh'; then
-    echo "$(date +%H:%M:%S) constructeur d'APK mort — respawn" >> .autoport/logs/auto_build_apk.txt
-    setsid bash .autoport/auto_build_apk.sh </dev/null >/dev/null 2>&1 &
-  fi
-  # Ne jamais empiler : si plusieurs instances survivent a un cycle kill/respawn, on ne garde
-  # que la plus ancienne. Le verrou du constructeur rend deja le doublon inoffensif; ceci nettoie
-  # le cas du publieur, qui n'en a pas.
-  for prog in auto_push_builds auto_build_apk; do
-    pids=$(ps -eo pid,etime,args | grep "[${prog:0:1}]${prog:1}\.sh" | sort -k2 -r | awk '{print $1}')
-    n=$(echo "$pids" | grep -c .)
-    if [ "$n" -gt 1 ]; then
-      echo "$(date +%H:%M:%S) $n instances de $prog — doublons tues" >> .autoport/logs/auto_build_apk.txt
-      echo "$pids" | tail -n +2 | while read -r p; do kill -9 "$p" 2>/dev/null; done
+  for prog in auto_push_builds.sh auto_build_apk.sh; do
+    n=$(alive "$prog")
+    if [ "${n:-0}" -eq 0 ]; then
+      echo "$(date +%H:%M:%S) $prog mort — respawn" >> "$LOG"
+      setsid bash ".autoport/$prog" </dev/null >/dev/null 2>&1 &
+      sleep 3
+    elif [ "${n:-0}" -gt 1 ]; then
+      # on ne garde que la plus ancienne ; le constructeur a de toute facon un flock
+      echo "$(date +%H:%M:%S) $n instances de $prog — doublons tues" >> "$LOG"
+      ps -eo pid,etime,args | grep -F "bash .autoport/$prog" | grep -v grep \
+        | sort -k2 -r | awk 'NR>1{print $1}' | while read -r p; do kill -9 "$p" 2>/dev/null; done
     fi
   done
   sleep 120
