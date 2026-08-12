@@ -785,7 +785,8 @@
 ;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0. La pose du modele rend exactement 0.
 ;;              MESUREE MEME QUAND LE CONTROLE EST ARME : c'est ce qui permet au chiffre de MONTER
 ;;              sous le defaut au lieu de disparaitre avec la contrainte qui le corrige.
-(defconstant PHYS-DG 14)
+;; 14 = `rootrot`, l'angle ecrit dans la 3x3 du maillon `rootlock` (voir le bloc d'ecriture).
+(defconstant PHYS-DG 15)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -3579,8 +3580,61 @@
                             (set! (-> *phys-rhas* sc) 1)))))
 
                     ;; ---- 6. ECRITURE DANS LE SQUELETTE (SPEC 7 : c'est ca qui fait foi) ----
+                    ;; ------------------------------------------------------------------------
+                    ;; LE MAILLON `rootlock` EST ECRIT LUI AUSSI — MAIS SEULE SA 3x3 CHANGE.
+                    ;; Residu de `hair-gradient` (PRIORITE 1), owner du 2026-08-12 14:10 : « on
+                    ;; dirait qu'elles sont ancrees (les pointes) au meme titre que les racines, et
+                    ;; que c'est ce qu'il y a entre les pointes et les racines qui bouge vraiment ».
+                    ;;
+                    ;; CE QUI ETAIT ECRIT ICI, et que la garde `(>= l rlk)` interdisait : RIEN. Sur
+                    ;; les onze chaines rootlockees le maillon 0 n'est ni integre ni ecrit, donc le
+                    ;; PREMIER SEGMENT de chaque meche est fige a 0 degre en permanence — pas petit,
+                    ;; pas amorti : structurellement nul. La geometrie ainsi soudee au crane, comptee
+                    ;; sur le mesh skinne (commentaires de `physics_chains.txt`) :
+                    ;;   earL 82/158 · earR 81/158 · backhair 167/320 · lbang 103/324 ·
+                    ;;   rbang 106/307 · lmidhair 212/383 · rmidhair 219/395   -> ~50 % des cheveux.
+                    ;; Une chaine a 2 joints (oreilles, backhair, midhair) se reduisait donc a UN
+                    ;; segment rigide articule EN SON MILIEU : la moitie haute clouee au crane, la
+                    ;; moitie basse qui bat autour du pli. C'est mot pour mot la silhouette decrite.
+                    ;;
+                    ;; POURQUOI CE N'EST PAS UNE DERIVE DE RACINE (SPEC 2, « une racine qui derive =
+                    ;; cheveux decolles = defaut »). Pour `l < rlk` le solveur force `o = 0` et
+                    ;; `p = pose d'auteur` A CHAQUE FRAME (voir le `cond` de l'integration, branche
+                    ;; `(or (< warm 1) (< l rlk))`). La translation ecrite ci-dessous vaut donc
+                    ;; `*phys-px*` = `tw` = exactement ce que le squelette portait deja : elle est un
+                    ;; NO-OP AU BIT PRES, et l'ancrage est preserve par CONSTRUCTION, pas par
+                    ;; reglage. Le residu d'ancrage mesure (`*phys-st*` 3) est releve AVANT ce bloc
+                    ;; et ne peut pas bouger non plus. SPEC 2 demande « ancre ET mobile » : la
+                    ;; POSITION reste ancree, l'ORIENTATION devient mobile.
+                    ;;
+                    ;; CE QUE CA CHANGE. Le joint 0 vise desormais la position SIMULEE de son enfant,
+                    ;; exactement comme tout autre maillon (branche `(< (+ l 1) n)` inchangee) : le
+                    ;; premier segment suit le pli de la meche au lieu de le subir. Sur lbang/rbang
+                    ;; les trois segments deviennent libres et le degrade peut exister ; sur les
+                    ;; chaines a 2 joints le pli quitte le milieu de la meche pour aller au cuir
+                    ;; chevelu, ou il est anatomique.
+                    ;;
+                    ;; CE QUE CA COUTE, ET LA PREMIERE VERSION DE CE COMMENTAIRE SE TROMPAIT.
+                    ;; J'avais ecrit ici « aucune position simulee ne change, le plancher est
+                    ;; invariant PAR CONSTRUCTION ». C'est faux, et le code le dit : ce bloc tourne
+                    ;; APRES le solveur, donc DANS la frame aucune position ne bouge — mais
+                    ;; `phys-snapshot-sim!` releve ensuite la place de tout volume porte par un joint
+                    ;; simule, et `phys-col-centre` place un volume a offset non nul en le passant
+                    ;; par la MATRICE COMPLETE du joint (`vector-matrix*!`), pas par sa seule
+                    ;; position. Un volume porte par un joint rootlock — il en existe, la course
+                    ;; d'avant ce cycle compte `sphere:Lmidhaira` parmi les obstacles de `lbang` —
+                    ;; se deplace donc avec l'orientation neuve, et la collision chaine<->chaine de
+                    ;; la frame SUIVANTE le lit. Le retour existe, decale d'une frame.
+                    ;; Le plancher est donc MESURE par l'A/B contre `motion-floor.txt`, pas garanti
+                    ;; par un raisonnement. Un commentaire n'est pas une preuve — y compris le mien.
+                    ;; MESURE : `rootrot` (`*phys-dg*` 14), l'angle REELLEMENT ecrit dans la 3x3 du
+                    ;; maillon rootlock. NATURE : un angle, en degres. REPERE : la direction d'os du
+                    ;; joint, pose du modele -> simulee, prise depuis son ancre. LECTURE QUAND LE
+                    ;; DEFAUT EST PRESENT : 0.0000 exactement, structurellement (le bloc etait saute)
+                    ;; — c'est le controle positif de ce correctif, et il se lit sur la course d'A/B.
+                    ;; ------------------------------------------------------------------------
                     (dotimes (l n)
-                      (when (>= l rlk)
+                      (when (>= l 0)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
                                (k   (-> *phys-joint* scl)))
                           (when (and (>= k 0) (< (+ k 1) nbone))
@@ -3697,6 +3751,16 @@
                                               (let ((ad (* 0.0054931641 (atan sn cs))))
                                                 (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 10)))
                                                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 10)) ad))))
+                                            ;; PREUVE D'EXECUTION du maillon rootlock : l'angle
+                                            ;; reellement ecrit dans SA 3x3. Il valait 0.0000
+                                            ;; structurellement avant ce cycle (le bloc entier etait
+                                            ;; saute par `(>= l rlk)`), donc toute valeur non nulle
+                                            ;; ici prouve que le chemin neuf tourne — et le remettre
+                                            ;; a `(>= l rlk)` le ramene a zero : c'est l'A/B.
+                                            (when (< l rlk)
+                                              (let ((ad (* 0.0054931641 (atan sn cs))))
+                                                (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 14)))
+                                                  (set! (-> *phys-dg* (+ (* sc PHYS-DG) 14)) ad))))
                                             (matrix-axis-angle! rot nrm (atan sn cs))
                                             (set! (-> bm vector 3 x) 0.0)
                                             (set! (-> bm vector 3 y) 0.0)

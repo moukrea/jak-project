@@ -676,7 +676,24 @@
       (format 0 "PHYSDIAG5 tag=~S c=~D volprio=~f shellrad=~f~%"
               tag c
               (phys-diag (-> self slot) c 12)
-              (phys-diag (-> self slot) c 13))))
+              (phys-diag (-> self slot) c 13))
+      ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
+      ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000
+      ;;            structurellement jusqu'a ce cycle : la boucle d'ecriture du moteur sautait tout
+      ;;            `l < rlk`, donc ~50 % de la geometrie des cheveux (earL 82/158, backhair
+      ;;            167/320, lmidhair 212/383 ...) etait soudee au crane et une meche a 2 joints se
+      ;;            reduisait a un segment rigide articule EN SON MILIEU. C'est le residu de
+      ;;            `hair-gradient` que ROOM-GRADIENT ne pouvait pas voir : sur une chaine a 2
+      ;;            maillons la suite publiee est [0, x], et une suite de deux termes dont le
+      ;;            premier est nul ne peut JAMAIS echouer a un test de croissance — la gate y etait
+      ;;            vide de sens, sur 5 des 7 chaines de cheveux.
+      ;;            NATURE : un angle (une ORIENTATION ecrite, pas une amplitude ni une variance).
+      ;;            REPERE : la direction d'os du joint, pose du modele -> position simulee de son
+      ;;            enfant, prise depuis SON ANCRE — donc son mouvement PROPRE, pas celui herite du
+      ;;            crane. LECTURE QUAND LE DEFAUT EST PRESENT : 0.0000 exactement.
+      (format 0 "PHYSDIAG6 tag=~S c=~D rootrot=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 14))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
