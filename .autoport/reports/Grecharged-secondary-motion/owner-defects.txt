@@ -8,6 +8,38 @@
 #   - mèches fines : « vraiment pas mal, même si ça pourrait être mieux »
 #
 OPEN flesh-jelly     effet gelee sur les seins, UNIQUEMENT sur mouvements brusques (subtils et penche = OK)
+#  --- 21e PASSE (2026-08-12) : LA GELEE A UNE PERIODE, ET ELLE EST DE DEUX FRAMES. ---
+#  Rien n'a ete corrige ce cycle sur ce defaut ; ce qui suit est une MESURE, prise dans le tableau
+#  deja livre et que personne n'avait depouillee.
+#      ROOM-JELLY  chestR   periode  2.06 / 2.07 / 2.08 / 2.15 frames   sur quatre pilotages
+#                  chestL   periode  3.94 / 3.98 / 4.26 / 4.69
+#  Une periode de 2.06 frames, c'est le pas de temps lui-meme : la deviation change de signe A
+#  CHAQUE FRAME. Ce n'est pas une oscillation physique, c'est un basculement. Et le ressort n'en
+#  est pas la cause : sa periode propre vaut 2*pi/sqrt(k) = 49.8 frames avec les valeurs livrees
+#  (stiffness 1.45, mass 1.45). Vingt-quatre fois plus lente que ce qu'on mesure.
+#  CE QUI BASCULE — correlation, pas preuve, et je la donne comme telle. `phys-retreat-chain` est
+#  un retour DUR vers la pose du modele ; sur les 22 chaines :
+#      les QUATRE periodes les plus courtes (2.06 chestR, 2.21 kneeflapR, 2.35 botstrapR,
+#      2.44 kneeflapL) ont toutes retreat >= 1803 ;
+#      les SIX chaines a retreat = 0 ont toutes une periode >= 3.31.
+#      mediane des periodes minimales : 2.95 frames au-dessus de 1000 reculs, 4.37 en dessous.
+#  ET L'ASYMETRIE EST DANS LA BOUCLE, PAS DANS LES DONNEES : chestR recule 6466 fois, chestL 104,
+#  pour des parametres identiques et un rig miroir. Le moteur resout les chaines l'une apres
+#  l'autre en ecrivant dans le squelette au fur et a mesure, donc chestR voit un volume chestL
+#  DEJA SIMULE quand chestL n'a vu que la pose d'auteur. `phys-col-now!` le dit dans son propre
+#  docstring (« sinon la reponse d'une chaine depend de son rang dans le fichier »), et le chemin
+#  de Jacobi qui l'annule EXISTE et est desarme (`*phys-jacobi-off*` = 1).
+#  POURQUOI IL EST DESARME, ET C'EST DEJA MESURE (note de jak-hd-physics.gc:318) : l'armer corrige
+#  la gelee (-71 % d'ecart de periode, du mouvement APPARU sur chestR) mais fait passer
+#  ROOM-STRETCH a 0.4896, soit 49 % d'allongement d'os, parce que le repli du recul ABANDONNE la
+#  longueur. Le prealable est donc le RECUL, pas la gelee — et le recul est aussi ce que la
+#  correlation ci-dessus designe. Les deux moities pointent au meme endroit.
+#  LE PROCHAIN PAS, NOMME ET NON FAIT : quand la pose du modele penetre, le recul n'explore que
+#  l'ARC entre la direction du modele et la direction courante. Si les deux bouts penetrent, tout
+#  l'arc peut penetrer alors qu'une AUTRE direction de la meme sphere est libre — et n'importe
+#  quelle direction de cette sphere respecte la longueur d'os. Chercher sur la sphere entiere au
+#  lieu de l'arc leverait la contradiction entre « un os ne s'allonge pas » et « rien ne traverse »
+#  sans arbitrer entre elles. Non mesure : je ne le presente pas comme acquis.
 OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
 #  CAUSE RACINE MESUREE LE 2026-08-12, et elle n avait jamais ete regardee : la chaine `goggles`
 #  ne simule que 27 des 515 sommets des lunettes.
@@ -90,6 +122,45 @@ OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerem
 #  manquant sur une piece precise du vetement, et aucun volume n a ete ajoute ce cycle (l ajout
 #  a ete mesure puis retire, voir `knee-tabs`).
 OPEN hair-gradient   PRIORITE 1: le gradient est INVERSE -- le milieu bouge 1.7x a 2.7x la pointe
+#  --- 21e PASSE (2026-08-12 17:30) : LA CAUSE EST UNE FREQUENCE PROPRE, ET ELLE EST CORRIGEE. ---
+#  CE QUE LE CYCLE PRECEDENT AVAIT CONCLU, ET QUI ETAIT FAUX : « la seule voie est de re-articuler
+#  les meches (joints intermediaires injectes au prep), rien d'autre ne le fera ». Le calcul qui
+#  fondait cette conclusion demandait des maillons de LONGUEURS EGALES. Il est incomplet : a
+#  longueurs egales le rapport theta2/theta1 vaut |H(f)|, qui est > 1 sous la resonance et < 1
+#  au-dessus. Ce qui gouverne la monotonie n'est donc PAS l'egalite des longueurs, c'est la
+#  position de la resonance PAR RAPPORT A L'EXCITATION. Aucune re-articulation n'etait necessaire.
+#  LA MESURE. f_l = (stiffness/sqrt(mass)) * (lmean/bl_l), avec les os publies par le moteur :
+#      lbang livre    f_milieu 1.351 Hz (zeta 1.27)     f_pointe 0.679 Hz (zeta 2.53)
+#      pilotage de la salle   1.667 Hz   (PHYSROOM-PERIOD = 36 frames)
+#  Les deux maillons etaient AU-DESSUS de leur resonance, la pointe 2.5x plus haut que le milieu ;
+#  au-dessus de la resonance la reponse chute en 1/(f/fn)^2, donc la pointe etait etouffee 13 fois
+#  plus fort que le milieu. C'est « le milieu bouge, les pointes sont ancrees », au chiffre pres.
+#  LA PREUVE QUE C'EST BIEN CE MECANISME, et elle est independante du resultat : a `gravity`
+#  inchangee, l'affaissement a chute EXACTEMENT en 1/s^2, comme une reponse quasi-statique doit le
+#  faire — lmidhair 0.0357 -> 0.0124 (rapport 2.88) contre s^2 = 2.8798 predit. Prediction et
+#  mesure coincident a trois chiffres, sur une grandeur que le correctif ne visait pas.
+#  LE CORRECTIF (donnees seules, AUCUNE compilation) : la resonance de la POINTE est remontee a
+#  3.00 Hz (1.8x le pilotage), zeta tenu a 0.35, `mass` et `couple` inchanges, `gravity` 0.45 ->
+#  2.00 pour tenir la reponse au plus faible stimulus. Perimetre : `lbang` et `rbang` SEULES.
+#      couples de gradient INVERSES        8/10  ->  1/10   (reste `lbang updown`, 15.29 / 13.23)
+#      lbang jerk  link1/link2  83.20/34.41 -> 35.57/60.67    rbang  84.53/57.29 -> 24.44/59.98
+#      angle max AU MILIEU 86.41 -> 35.57 deg   ·  a la POINTE 62.75 -> 63.85 deg
+#      ROOM-STRETCH 0.0210 -> 0.0003   ·   ROOM-IDLE 0.0413 -> 0.0231   ·   ROOM-SIDE 0 -> 0
+#      sag lbang 0.1182 -> 0.0544  rbang 0.1623 -> 0.0527 : l'ecart gauche/droite de 37 % sur des
+#          parametres identiques tombe a 3 %. C'etait de l'amplification resonante, pas du sag.
+#      FLOOR-WEAK vert sur les 22 chaines (lbang x2.02, rbang x1.64 contre la reference stockee).
+#  COUT DECLARE : amplitude de pointe `rbang` -28 %, `lbang` -18 % (planchers a -32 % et -17 %,
+#  tous deux au-dessus du seuil de -40 %). Ce qui disparait est le battement resonant du maillon du
+#  MILIEU — c'est-a-dire le defaut lui-meme.
+#  DEUX ESSAIS FAITS, MESURES, RETIRES, avec leurs nombres :
+#    * les cinq chaines de cheveux au lieu de deux : FLOOR-WEAK casse a 0.62 (backhair) et 0.50
+#      (lmidhair). Ces trois chaines n'ont QU'UN maillon libre — aucun gradient n'y est
+#      representable — donc rien a y corriger et tout a y perdre.
+#    * `gravity` multiplie par le s^2 exact (0.45 -> 8.79), qui tient l'affaissement au bit pres :
+#      ROOM-STRETCH 0.0190 -> 0.0558, soit 5.6 % d'allongement d'os contre un plafond de 3 %.
+#  C'EST L'OEIL DE L'OWNER QUI FERME LA LIGNE, pas ces chiffres : la salle mesure a 1.667 Hz et
+#  lui regarde des animations de jeu. Ce qu'il doit voir : la pointe des deux meches fines de
+#  devant bouge-t-elle enfin PLUS que leur milieu ?
 #  --- 20e PASSE (2026-08-12) : L'INVERSION EST UN EFFET DE FREQUENCE, ET LA MESURE LE DIT SEULE. ---
 #  Sur les 5 pilotages x 2 chaines a trois maillons, les couples inverses sont EXACTEMENT les 8
 #  pilotages RAPIDES. Sous `tilt` — la seule excitation quasi-statique (rampe soutenue a 60 deg) —

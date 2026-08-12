@@ -115,8 +115,62 @@ chain chestR gravity=0.65 stiffness=1.45 mass=1.45
 # ce n'est plus la forme : c'est la FRÉQUENCE. Une mèche fine, légère et raide oscille vite = l'effet
 # « hystérique ». On baisse la fréquence propre (raideur en baisse, masse en hausse) et on ajoute un
 # peu d'amortissement — ici c'est légitime, le défaut est un EXCÈS, pas une absence.
-chain lbang stiffness=1.05 mass=1.35 damping=0.36
-chain rbang stiffness=1.05 mass=1.35 damping=0.36
+# REMPLACÉ par le bloc du 2026-08-12 17:30 ci-dessous. Le raisonnement était le bon — c'est bien
+# une affaire de fréquence — mais il allait dans le MAUVAIS SENS, et la mesure de la fréquence
+# propre le démontre : cette ligne a descendu la pointe de `lbang` à 0.679 Hz, SOUS le pilotage,
+# et c'est là que le gradient s'inverse. Elle s'appuyait par ailleurs sur un gradient « correct »
+# (0.2240 / 0.3846) qui a depuis été RETIRÉ : il était mesuré en repère MONDE.
+# chain lbang stiffness=1.05 mass=1.35 damping=0.36
+# chain rbang stiffness=1.05 mass=1.35 damping=0.36
+
+## 2026-08-12 17:30 — « les mèches ne suivent pas l'inclinaison, on dirait qu'elles sont ancrées
+## (les pointes) au même titre que les racines, et que c'est ce qu'il y a entre les pointes et les
+## racines qui bouge vraiment »   (défaut `hair-gradient`, PRIORITÉ 1)
+#
+# LA CAUSE EST UNE FRÉQUENCE PROPRE, ET ELLE SE CALCULE — elle ne s'estime pas. Le moteur pose
+# w = 2*pi*stiffness/sqrt(mass), k = (w*dt)^2 puis k_l = k*(lmean/bl_l)^2, donc la fréquence propre
+# du maillon l vaut f_l = (stiffness/sqrt(mass)) * (lmean/bl_l). Avec les os que le moteur publie
+# lui-même (`bones_m=0.4124,0.0962,0.1914`, maillon 0 verrouillé) et les valeurs ci-dessus :
+#     lbang   f_milieu = 1.351 Hz  (zeta 1.27)      f_pointe = 0.679 Hz  (zeta 2.53)
+# Le pilotage de la salle vaut 1.667 Hz (PHYSROOM-PERIOD = 36 frames). LES DEUX MAILLONS ÉTAIENT
+# DONC AU-DESSUS DE LEUR RÉSONANCE, la pointe deux fois et demie plus haut que le milieu. Or
+# au-dessus de la résonance la réponse chute en 1/(f/fn)^2 : la pointe était étouffée 13 fois plus
+# fort que le milieu, ce qui EST « le milieu bouge, les pointes sont ancrées ».
+#
+# LE CORRECTIF EST UN SEUL DEGRÉ DE LIBERTÉ : on remonte la résonance de la POINTE au-dessus du
+# pilotage (3.00 Hz, soit 1.8x), et `damping` est recalculée pour tenir un amortissement réduit
+# constant à cette nouvelle fréquence (zeta = 0.35) — sinon changer la raideur changerait aussi
+# l'amortissement et on ne saurait plus lequel a agi. `mass` et `couple` ne bougent pas.
+#   reproduire : python3 .autoport/physics_hair_freq.py --ftip 3.0 --zeta 0.35 --gravity 2.00 \
+#                       --chains lbang,rbang
+#
+# `gravity` : 0.45 -> 2.00. La réponse gravitaire est QUASI-STATIQUE (sag = gravity*|g|/k), donc
+# elle tombe en 1/s^2 quand on déplace la résonance — mesuré, pas supposé : à `gravity` inchangée
+# le sag de `lbang` passait de 0.1182 à 0.0098 m, et la gate FLOOR-WEAK (qui lit la réponse au plus
+# faible stimulus, et le plus faible stimulus EST la gravité) tombait à 0.24 sur `rbang`. Le s^2
+# EXACT (0.45 -> 8.79) tient bien le sag mais fait CÉDER la contrainte de longueur :
+# ROOM-STRETCH 0.0190 -> 0.0558, soit 5.6 % d'allongement d'os contre un plafond de 3 %. 2.00 est
+# donc une constante CHOISIE entre deux invariants durs, et ses deux marges sont publiées :
+# ROOM-STRETCH 0.0003 (1 % du plafond) et FLOOR-WEAK `rbang` x1.64, `lbang` x2.02.
+#
+# CE QUE LA COURSE MESURE (5 pilotages x 31 animations, cette substitution pour seule variable) :
+#     couples de gradient INVERSÉS   8/10 -> 1/10     (reste `lbang updown`, 15.29 contre 13.23)
+#     lbang jerk   link1/link2  83.20/34.41 -> 35.57/60.67       rbang  84.53/57.29 -> 24.44/59.98
+#     angle max AU MILIEU  86.41 -> 35.57 deg   ·  à la POINTE  62.75 -> 63.85 deg
+#          le pli serré quitte le milieu (là où l'owner le voit casser la géométrie) et se place
+#          à la pointe, où il est normal. Le max GLOBAL passe de 86.41 à 63.85 deg. Ceci ne ferme
+#          PAS `hair-big-angles` : ce défaut porte sur les GROSSES mèches (backhair, lmidhair,
+#          rmidhair), qui ne sont pas touchées par ce bloc.
+#     ROOM-STRETCH  0.0210 -> 0.0003        ROOM-IDLE 0.0413 -> 0.0231     ROOM-SIDE 0 -> 0
+#     sag  lbang 0.1182 -> 0.0544   rbang 0.1623 -> 0.0527   (l'écart gauche/droite de 37 % sur
+#          des paramètres identiques tombe à 3 % : c'était de l'amplification résonante, pas du sag)
+# COÛT DÉCLARÉ : amplitude de pointe `rbang` -28 %, `lbang` -18 % — c'est le battement résonant du
+# maillon du MILIEU qui disparaît, et c'est précisément ce que l'owner voyait. Les trois autres
+# chaînes de cheveux ne sont PAS touchées (backhair, lmidhair, rmidhair n'ont qu'un maillon libre :
+# aucun gradient n'y est représentable, donc rien à y corriger — essayé, mesuré, retiré : leur
+# déplacer la résonance cassait FLOOR-WEAK à 0.62 et 0.50 sans rien fermer).
+chain lbang stiffness=4.6395 mass=1.35 damping=0.2199 gravity=2.0000
+chain rbang stiffness=4.6395 mass=1.35 damping=0.2199 gravity=2.0000
 
 ## 2026-08-11 22:30 — REPRISE DU FEEDBACK SUR LE BUILD 19h53, UN POINT A LA FOIS
 #
