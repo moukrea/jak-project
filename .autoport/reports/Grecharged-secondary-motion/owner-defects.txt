@@ -190,6 +190,35 @@ OPEN hair-gradient   PRIORITE 1: le gradient est INVERSE -- le milieu bouge 1.7x
 #                    (lbang 50.77 contre 29.76, rbang 73.39 contre 26.87). Les pointes sont ancrees
 #                    comme les racines. Mesure relative au parent, confirmee par l oeil de l owner.
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
+#  --- 21e PASSE (2026-08-12) : LE MECANISME QUI A FERME `hair-gradient` NE TRANSFERE PAS ICI. ---
+#  ESSAI FAIT, MESURE, RETIRE — et le negatif vaut d'etre garde, il economise le prochain cycle.
+#  `backhair` est la SEULE des cinq chaines de cheveux qui amplifie au pilotage de la salle :
+#      backhair  f=1.897 Hz  r=0.878  zeta=0.453  |H|=1.208    pic de resonance a r=0.768
+#      lmidhair / rmidhair   r=0.943  zeta=0.540  |H|=0.976    (pas d'amplification)
+#  Et il est JUSTE AU-DELA de son pic : monter sa frequence ferait DESCENDRE r de 0.878 vers 0.768,
+#  c'est-a-dire droit SUR le pic. C'est pourquoi les essais de raidissement l'ont empire (FLOOR-WEAK
+#  0.62) la ou ils corrigeaient les meches fines. Le seul levier selectif restant etait donc
+#  l'amortissement, qui ecrase le pic sans toucher la reponse quasi-statique : damping 0.18 -> 0.35
+#  predit |H| 1.208 -> 0.639, soit la MOITIE.
+#  CE QUE LA COURSE COMPLETE RENVOIE : RIEN. L'angle du maillon ne bouge pas.
+#      angle link1 par pilotage   80.15 79.83 72.82 71.05 64.90   contre   80.15 79.65 77.66 75.29
+#                                                                          69.62 avant
+#      (le pire cas passe de 80.15 a 80.07 degres, soit 0.1 %)
+#      et FLOOR-WEAK casse a 0.63 au passage.
+#  CE QUE CA ETABLIT : l'angle de `backhair` N'EST PAS GOUVERNE PAR SON RESSORT. Un facteur 1.89
+#  sur la reponse du ressort produit 0.1 % sur la grandeur que l'owner voit. Le tableau dit ou il
+#  est gouverne — `contact_frames = 17893/17893`, soit 100 % des frames en contact, contre 25 pour
+#  `earL` et 609 pour `lmidhair`. C'est la RESOLUTION DE COLLISION qui pose cet angle, pas la
+#  dynamique. Aucun reglage de raideur, d'amortissement ou de gravite ne le changera.
+#  ET IL Y A UN PROBLEME D'INSTRUMENT, que je signale sans y toucher (regle 5) : les deux gates qui
+#  gardent `backhair` (FLOOR et FLOOR-WEAK) lisent une amplitude de pointe qui CHUTE des qu'on
+#  contraint quoi que ce soit, pendant que le pli de 80 degres que l'owner voit ne bouge pas d'un
+#  dixieme. La mesure qui protege cette chaine ne voit pas le defaut de cette chaine — c'est le test
+#  d'admissibilite de la SPEC 7, et il echoue ici.
+#  LA VOIE RESTANTE EST DONC LA GEOMETRIE DU VOLUME, pas un parametre : pourquoi une chaine de
+#  cheveux est-elle en contact 100 % du temps ? Meme famille que les 50.4 % de sommets hors de
+#  l'union des volumes deja mesures, et meme reponse pressentie que pour `pant-calf` et
+#  `goggles-bottom` — la suggestion de l'owner (deriver du MESH, pas du rig).
 OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
 #  --- 20e PASSE (2026-08-12) : LA CAUSE EST TROUVEE, MESUREE, ET CORRIGEE COTE DONNEES. ---
 #  LA COURBE DE REPONSE (DECISION 3, jamais depouillee) : sur les 22 chaines, UNE SEULE est non

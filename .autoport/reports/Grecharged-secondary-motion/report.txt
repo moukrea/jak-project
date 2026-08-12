@@ -229,6 +229,47 @@ precedent concluait qu'il fallait « une troisieme voie » sans la nommer. Non
 mesure : je ne le presente pas comme acquis, je le laisse ecrit pour le suivant.
 
 ================================================================================
+2bis. hair-big-angles — LE MEME MECANISME NE TRANSFERE PAS, ET C'EST MESURE
+================================================================================
+
+J'ai essaye d'appliquer aux GROSSES meches le mecanisme qui vient de fermer les
+fines. ESSAI FAIT, MESURE, RETIRE — et le negatif vaut d'etre garde.
+
+`backhair` est la SEULE des cinq chaines de cheveux qui AMPLIFIE au pilotage :
+
+    backhair   f=1.897 Hz  r=0.878  zeta=0.453  |H|=1.208   pic a r=0.768
+    lmidhair   f=1.768 Hz  r=0.943  zeta=0.540  |H|=0.976   (pas d'amplification)
+
+Et il est JUSTE AU-DELA de son pic : monter sa frequence ferait DESCENDRE r de
+0.878 vers 0.768, c'est-a-dire droit SUR le pic. Ca explique apres coup pourquoi
+les jambes B et C, qui corrigeaient les meches fines, EMPIRAIENT `backhair`
+(FLOOR-WEAK 0.62). Le seul levier selectif restait l'amortissement, qui ecrase le
+pic sans toucher la reponse quasi-statique : damping 0.18 -> 0.35 predit
+|H| 1.208 -> 0.639, la moitie.
+
+LA COURSE COMPLETE RENVOIE : RIEN.
+
+    angle link1, pire cas   80.15 -> 80.07 degres      (0.1 %)
+    FLOOR-WEAK backhair     0.0788 -> 0.0500  (0.63)   <- casse au passage
+
+CE QUE CA ETABLIT, ET C'EST PLUS UTILE QUE L'ESSAI : l'angle de `backhair` N'EST
+PAS GOUVERNE PAR SON RESSORT. Un facteur 1.89 sur la reponse du ressort produit
+0.1 % sur la grandeur que l'owner voit. Le tableau dit ou il est gouverne —
+`contact_frames = 17893/17893`, soit 100 % des frames en contact, contre 25 pour
+`earL` et 609 pour `lmidhair`. C'est la RESOLUTION DE COLLISION qui pose cet
+angle. Aucun reglage de raideur, d'amortissement ou de gravite ne le changera, et
+deux cycles peuvent maintenant l'eviter.
+
+ET UN PROBLEME D'INSTRUMENT, QUE JE SIGNALE SANS Y TOUCHER (regle 5) : les deux
+gates qui gardent `backhair` lisent une amplitude de pointe qui CHUTE des qu'on
+contraint quoi que ce soit, pendant que le pli de 80 degres que l'owner voit ne
+bouge pas d'un dixieme. La mesure qui protege cette chaine ne voit pas le defaut
+de cette chaine. C'est le test d'admissibilite de la SPEC 7, et il echoue ici.
+
+Retire : `physics_chains.txt` est revenu au md5 a7200f7f80abcabd88f6874482209adb,
+celui de la jambe D et du pack livre.
+
+================================================================================
 3. LE COUT EN BUILDS : ZERO
 ================================================================================
 
@@ -280,12 +321,13 @@ appartient a l'owner.
                    pointe SOUS le pilotage ; remontee a 3.00 Hz, zeta tenu.
                    Inversions 8/10 -> 1/10, angle du milieu 86.41 -> 35.57 deg,
                    ROOM-STRETCH 0.0210 -> 0.0003. Attend son oeil.
-  hair-big-angles  Rien ce cycle, ET JE LE DIS PLUTOT QUE DE LAISSER CROIRE LE
-                   CONTRAIRE : ce defaut porte sur les GROSSES meches (backhair,
-                   lmidhair, rmidhair), qui ne sont PAS touchees par le correctif
-                   — leur deplacer la resonance a ete essaye et retire (FLOOR-WEAK
-                   0.62 et 0.50). Les angles qui ont baisse sont ceux des meches
-                   FINES.
+  hair-big-angles  NON FERME, et le mecanisme qui a ferme les meches fines NE
+                   TRANSFERE PAS : demontre par la mesure, pas suppose (section
+                   2bis). L'angle de `backhair` est pose par la COLLISION (100 %
+                   des frames en contact), pas par son ressort — un facteur 1.89
+                   sur la reponse du ressort deplace l'angle de 0.1 %. Trois
+                   essais retires avec leurs nombres. La voie restante est la
+                   geometrie du volume.
   flesh-jelly      Rien de corrige. Mais la gelee est desormais CHIFFREE (periode
                    de 2.06 frames = un basculement par frame, contre 49.8 frames
                    pour le ressort) et le prealable est nomme avec sa mesure
