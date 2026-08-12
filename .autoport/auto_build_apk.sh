@@ -383,6 +383,21 @@ while true; do
     else
       echo "  (pas de tableau de mesures disponible pour ce build)"
     fi
+    # ------------------------------------------------------------------------------------------
+    # LE PACK HD SE RE-TELECHARGE A LA MAIN, ET SANS CETTE LIGNE PERSONNE NE LE SAIT.
+    # Les poids de peau du mesh HD ne voyagent JAMAIS dans l'APK (IP Naughty Dog) : ils partent
+    # dans jak1_hd_assets.zip, que l'owner choisit et extrait lui-meme. Le 2026-08-13 le correctif
+    # PRIORITE 1 des cheveux etait ENTIEREMENT dans ce pack : reprendre le seul APK n'aurait
+    # montre STRICTEMENT AUCUNE difference, et le retour aurait ete « aucune amelioration » sur un
+    # correctif jamais recu. La version est derivee du CONTENU, donc elle ne change que quand le
+    # mesh change : il sait ainsi s'il doit le reprendre ou non, au lieu de le deviner.
+    if [ -f out/artifacts/jak1_hd_assets.manifest.txt ]; then
+      echo
+      echo "PACK HD EXTERNE : $(grep -m1 '^version=' out/artifacts/jak1_hd_assets.manifest.txt | cut -d= -f2)"
+      echo "  Si cette version a change depuis ton dernier test, RE-TELECHARGE jak1_hd_assets.zip"
+      echo "  et RE-EXTRAIS-LE. Les modeles HD ne sont PAS dans l'APK (ils n'y seront jamais) :"
+      echo "  tout correctif portant sur la GEOMETRIE ou les POIDS DE PEAU voyage uniquement la."
+    fi
     echo
     echo "Ce fichier est ecrit AUTOMATIQUEMENT a chaque build, il decrit donc toujours l'APK"
     echo "qui est a cote de lui. Si les deux dates divergent, dis-le moi."
