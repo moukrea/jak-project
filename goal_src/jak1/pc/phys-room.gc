@@ -979,6 +979,16 @@
        ;; la course. REPERE : sans objet (ce n'est pas une grandeur geometrique). LECTURE QUAND LE
        ;; DEFAUT EST ABSENT : zero des deux cotes — la pose du modele est admissible et l'arc suffit.
        (format 0 "PHYSLIM3 sphere_n=~f~%" (phys-limiter 8))
+       ;; QUEL VOLUME CONTRAINT QUELLE CHAINE, sur toute la course. Une ligne par paire non nulle :
+       ;; c'est la question que trois cycles ont posee sans instrument (« lbang est en contact
+       ;; 17893 frames sur 17893 avec un AUTRE volume, non identifie »). Le nom du volume est deja
+       ;; publie par `PHYSCOL ci= j= j2=`, on n'imprime donc que l'index et le compte.
+       (dotimes (c (-> self nchain))
+         (when (> (phys-chain-links (-> self slot) c) 0)
+           (dotimes (ci (phys-slot-colliders (-> self slot)))
+             (let ((n (phys-chain-vol (-> self slot) c ci)))
+               (when (> n 0)
+                 (format 0 "PHYSCVOL c=~D ci=~D n=~D~%" c ci n))))))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
          (format 0 "PHYSAUTH c=~D hit=~f ok=~f dot=~f nrm=~f dsum=~f~%"

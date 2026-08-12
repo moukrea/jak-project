@@ -686,6 +686,24 @@
 ;; dit combien de ces cas la sphere sauve. Un `retfb` non nul avec `sphere` nul dirait que le
 ;; balayage ne trouve jamais rien, donc qu'il ne sert a rien.
 (define *phys-sphere-n* 0)
+;; ------------------------------------------------------------------------------------------------
+;; QUEL VOLUME CONTRAINT QUELLE CHAINE — l'instrument que trois cycles de suite ont nomme comme
+;; manquant, sans jamais le poser.
+;;
+;; CE QU'IL MANQUAIT, mot pour mot dans le rapport du cycle 21 : « il faudrait la penetration par
+;; (lien, VOLUME), toujours pas instrumentee ». La course sait dire qu'une chaine est en contact
+;; 17893 frames sur 17893 ; elle ne sait pas dire CONTRE QUOI. Sans ce nom, `lbang` en contact
+;; permanent reste une enigme, `chestR` qui recule 6466 fois contre `chestL` 104 reste une
+;; asymetrie sans cause, et chaque cycle repart en devinant.
+;;
+;; NATURE : un COMPTE d'evenements (frames x liens), par (chaine, volume). REPERE : sans objet,
+;; ce n'est pas une grandeur geometrique. LECTURE QUAND LE DEFAUT EST ABSENT : zero — une chaine
+;; qu'aucun volume ne contraint n'a aucune ligne.
+;;
+;; Il ne compte QUE pendant la passe de MESURE (le meme drapeau que `buried`, arme une fois par
+;; frame par `phys-pen-chain`) : les trois reculs et leurs treize pas de dichotomie ne comptent pas,
+;; sinon le chiffre mesurerait l'effort du solveur au lieu de l'obstacle.
+(define *phys-cvh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; DIAGNOSTIC PAR CHAINE (6e passe de l'owner). Les trois defauts qu'il decrit se decident chaine
@@ -2212,7 +2230,14 @@
                 ;; interdit (le tissu qui rentre dans la chair) est exactement ce que l'ecart radial
                 ;; mesure. Le veto de cote reste entier pour toutes les autres paires.
                 (when (and (not skip) (or sleevec (> floor0 0.0) (> dep 0.0)) (> res worst))
-                  (set! worst res))))))))
+                  (set! worst res))
+                ;; QUEL VOLUME CONTRAINT CETTE CHAINE. Compte les paires (lien, volume) en
+                ;; VIOLATION, pas en contact : `res > 0` veut dire que ce volume-ci demande une
+                ;; correction cette frame. Un contact a profondeur nulle n'est pas une contrainte,
+                ;; et le compter rendrait la colonne aveugle a la difference entre les deux.
+                (when (and (nonzero? *phys-buried-tally*) (> res 0.0))
+                  (let ((h (+ (* sc PHYS-COLS) ci)))
+                    (set! (-> *phys-cvh* h) (+ 1 (-> *phys-cvh* h)))))))))))
     worst))
 
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
@@ -3954,6 +3979,14 @@
 (defun phys-slot-colliders ((slot int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nco* slot) 0))
 
+;; COMBIEN DE FOIS LE VOLUME `ci` A CONTRAINT LA CHAINE `chain` sur la course. La salle boucle
+;; dessus et ne publie que les non nuls ; le nom du volume, elle l'a deja (`PHYSCOL ci= j= j2=`).
+(defun phys-chain-vol ((slot int) (chain int) (ci int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= ci 0) (< ci PHYS-COLS))
+    (-> *phys-cvh* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-COLS) ci))
+    0))
+
 (defun phys-limiter-reset! ()
   (set! *phys-retreat-n* 0)
   (set! *phys-retreat-sum* 0.0)
@@ -3962,6 +3995,7 @@
   (set! *phys-buried-n* 0)
   (set! *phys-retfb-n* 0)
   (set! *phys-sphere-n* 0)
+  (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cvh* i) 0))
   (none))
 
 ;; SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est partie
