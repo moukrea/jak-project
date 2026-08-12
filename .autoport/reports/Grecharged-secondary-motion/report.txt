@@ -474,7 +474,95 @@ cycle ; je n'y ai pas touche et je n'ai pas eu besoin de la marge : le cycle fin
 a 4000 pile).
 
 ================================================================================
-9. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
+9. LES QUATRE CHIFFRES QU'IL AVAIT DEMANDES — MESH DECIME CONTRE CAPSULES
+================================================================================
+
+Sa question, telle qu'il l'a posee : « Pourquoi deriver du rig et pas du mesh en
+suivant ses deformations avec plus ou moins d'accuracy en fonction de la precision
+demandee plutot que des capsules ? » Les DIRECTIVES demandent QUATRE CHIFFRES
+avant de trancher. Ils n'avaient jamais ete produits. Les voici.
+
+    .autoport/probe_mesh_vs_capsule_fidelity.py
+    sortie : reports/Grecharged-secondary-motion/mesh-vs-capsule-fidelity.txt
+
+CONTROLES, en deux etages, parce que le premier seul ne prouverait rien :
+  ETAGE 1 — des points SUR la surface doivent rendre 0 : sommets, points
+    barycentriques INTERIEURS aux triangles, milieux d'aretes. Max 5e-12 u.
+  ETAGE 2 — une routine qui rendrait TOUJOURS zero passerait l'etage 1. On lui
+    donne donc des points a distance CONNUE (137 u) d'un triangle donne, un dans
+    chacune des trois regions de Voronoi — face, arete, sommet. Max 2.9e-12 u.
+  BORNE HAUTE — une seule sphere englobante enfouit la surface de 1.64 m, soit
+    1.05 fois la demi-hauteur du personnage : c'est l'echelle contre laquelle lire
+    les 48 volumes.
+Rejoue par moi apres coup : exit 0, memes chiffres a la decimale. (Mon premier
+rejeu avait attrape une version intermediaire du script, dont une gate d'egalite
+tirait a tort sur les pieces MINCES a double face — verre de lunettes, bretelles,
+pans de tissu — ou 137 u traversent de part en part et la surface la plus proche
+est l'autre face. C'est la gate qui etait fausse, pas la routine, et c'est elle
+qui a fait trouver le cas.)
+
+1. FIDELITE — c'est le chiffre qui repond a son blocage historique.
+
+    representation                      prim.  ecart_max  ecart_p95  ecart_p50
+    48 volumes livres (aujourd'hui)        48     0.6064     0.2176     0.0440
+    mesh decime  48 triangles              48     1.3278     1.2128     0.0810
+    mesh decime 200 triangles             200     0.2384     0.1039     0.0417
+    mesh decime 497 triangles             497     0.1828     0.0681     0.0216
+    mesh decime 998 triangles             998     0.0974     0.0410     0.0135
+    mesh decime 1999 triangles           1999     0.0889     0.0256     0.0078
+
+   A NOMBRE DE PRIMITIVES EGAL, LES CAPSULES GAGNENT (48 volumes contre 48
+   triangles : 0.61 m contre 1.33 m) — une capsule couvre un membre entier. Mais
+   des 200 TRIANGLES le mesh passe devant : p95 deux fois moindre, ecart max deux
+   fois et demie moindre. Et l'union des 48 volumes livres laisse 50,8 % des
+   sommets DEHORS, avec un depassement max de 0.6064 m. Le chiffre deja cite dans
+   les DIRECTIVES (50,4 %) est retrouve a 0,4 point pres sur un jeu de volumes
+   different : les deux mesures se recoupent.
+
+   OU L'APPROXIMATION COUTE LE PLUS (part des sommets hors de l'union) :
+     masque-torche 93,2 %  ·  mollet-pied 89,0 %  ·  bras 83,9 %  ·  lunettes
+     73,3 %  ·  oreilles 68,4 %  ·  tete 57,6 %  ·  cheveux 26,1 %
+   Ce sont, une a une, les pieces sur lesquelles il signale des defauts.
+
+2. COUT PAR FRAME — ESTIMATION ARITHMETIQUE, NON MESUREE SUR DEVICE, et je ne
+   maquille pas ce manque. Le compte d'operations actuel est tire du source et du
+   fichier de donnees : 42 359 evaluations de volume par frame (dont 8 % pour le
+   recul, a un taux de declenchement mesure de 1,70 recul/frame). En force brute
+   le mesh coute 12x (497 tris) a 50x (1999 tris). Avec une grille uniforme dont
+   le nombre de candidats est MESURE sur les vrais points de requete : 1,2x a
+   2,2x. UN RAPPORT D'OPERATIONS N'EST PAS UN RAPPORT DE TEMPS — le chiffre qui
+   manque est une course sur le Redmi, et il demande une implementation.
+
+3. DEFORMATION — mesuree sur le mesh, pas supposee : 1,82 influence osseuse par
+   sommet (2729 sommets a 1 os, 3928 a 2, 1306 a 3). A 497 triangles il faut
+   re-transformer 218 sommets par frame, contre 96 extremites de volume
+   aujourd'hui.
+
+4. NIVEAUX — sur les chiffres de fidelite seuls (le cout device n'etant pas
+   mesure), et le personnage mesure 2.7269 m :
+     bas   = les 48 volumes d'aujourd'hui   ecart max 606 mm  (22,2 % de sa taille)
+     moyen = 497 triangles                  ecart max 183 mm  ( 6,7 %)
+     haut  = 1999 triangles                 ecart max  89 mm  ( 3,3 %)
+   Repere : le rayon de lien des lunettes vaut 48 mm et celui du pan de pantacourt
+   105 mm. Un ecart de collider superieur a ces rayons ne peut pas etre rattrape
+   par un reglage de rayon — il se voit. Aujourd'hui il vaut 606 mm.
+
+CE QUI MANQUE ET QUI NE SE CALCULE PAS HORS LIGNE, dit en clair : (a) le temps par
+frame sur le Redmi, (b) LA FIDELITE HORS POSE DE BIND — c'est-a-dire son argument
+central, « en suivant ses deformations » : de combien l'ecart des capsules se
+degrade quand elle se penche, et de combien celui du mesh skinne ne se degrade
+pas. Les deux demandent une implementation, pas un calcul.
+
+UN DEFAUT DU MOTEUR TROUVE EN CHEMIN, que je signale sans y toucher : le solide
+que la ligne de donnees DESIGNE et l'ensemble que `phys-collide-depth` TESTE ne
+sont pas le meme — 186 sommets sur 7963 changent de cote, avec un ecart max de
+0.0974 m. Les 24 capsules livrees sont toutes coniques (deux rayons differents),
+et le predicat interpole le rayon sur le parametre serre au lieu de mesurer la
+distance au vrai cone. Neuf centimetres sur un personnage de deux metres soixante-
+dix, sur des pieces ou l'owner voit des clips.
+
+================================================================================
+10. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ================================================================================
 
   * RIEN DE NOUVEAU N'EST CENSE ETRE VISIBLE, et c'est la question a poser au

@@ -1,0 +1,333 @@
+# mesh-vs-capsule-fidelity — les quatre chiffres exiges avant de trancher la suggestion
+# de l'owner : « deriver du mesh en suivant ses deformations plutot que des capsules ».
+# rig    : recharged_assets/hd_anim/keira-hd-k2e.json (95 joints, pose de bind)
+# mesh   : decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb (7963 sommets, 10802 triangles, 6 d'aire nulle retires)
+# donnees: recharged_assets/physics_chains.txt (22 chaines, 48 volumes = 24 capsules + 24 spheres)
+# unite  : unite de jeu. Toute longueur imprimee en metres est cette unite / 4096.
+# TAILLE MESUREE DU PERSONNAGE (pose de bind, axe Y) : 2.7269 m corps seul, 3.1364 m avec le
+#          masque et la torche (deux accessoires portes par `mask`/`maskstrap`/`torch`).
+#          Envergure X 2.8950 m, epaisseur Z 0.6927 m — la pose de bind a les bras ecartes.
+
+-- CHECK 0 : DANS QUEL REPERE LES `offset=` SONT-ILS ECRITS ? -----------------------
+   Discriminant : le generateur a ecrit chaque `offset` comme le CENTROIDE mesure de la
+   geometrie du joint. On compare le centre recalcule au centroide mesure, sous les deux
+   conventions possibles. Quatre joints de bretelle portent une echelle de 9.68 dans leur
+   matrice inverse-bind : la convention se lit donc dans le chiffre, elle ne se choisit pas.
+   convention NORMALISEE (echelle d'os retiree, celle de `to_bone_local`) : pire ecart 0.69 u (rKneeFlap)
+   convention BRUTE      (inverse de l'IBM telle quelle)                  : pire ecart 464.58 u (lTopStrap2)
+   -> tout le reste du script utilise la NORMALISEE : elle retombe sur les centroides
+      mesures a moins d'une unite, l'autre a plusieurs centaines.
+
+== CONTROLE NEGATIF (borne basse) : LE MESH COMPLET COMME COLLIDER DOIT RENDRE 0 =====
+   Il ne suffit pas de le tester sur les SOMMETS : un sommet est un coin de ses propres
+   triangles, sa distance est nulle par construction et ne prouverait rien de la routine.
+   Deux etages, donc.
+
+   ETAGE 1 — DES POINTS SUR LA SURFACE, distance a TOUT le mesh, doit valoir 0.
+   sommets du mesh                                      n=  7963  max|d| = 0.000e+00 u   OK
+   points barycentriques INTERIEURS (0.25/0.35/0.40)    n= 10802  max|d| = 4.983e-12 u   OK
+   milieux d'aretes (1 sur 3)                           n= 10802  max|d| = 0.000e+00 u   OK
+
+   ETAGE 2 — DES POINTS A DISTANCE CONNUE D'UN TRIANGLE DONNE. Un zero ne prouve pas
+   qu'une distance est juste : une routine qui rendrait toujours 0 passerait l'etage 1.
+   On construit donc, pour CHAQUE triangle, trois points dont la distance A CE TRIANGLE
+   vaut exactement 137 u par construction geometrique, un dans chacune des trois
+   familles de regions de Voronoi, et on compare a la routine, triangle par triangle :
+     FACE   : centroide + 137 u le long de la normale — la projection tombe dans le
+              triangle, le point le plus proche est le centroide.
+     ARETE  : milieu de AB + 137 u dans le PLAN, perpendiculaire a AB, du cote oppose
+              a C — le pied de la perpendiculaire est le milieu, il est dans le segment.
+     SOMMET : A + 137 u le long de la bissectrice sortante en A. Ce point verifie
+              (p-A).(B-A) <= 0 et (p-A).(C-A) <= 0 pour TOUT triangle non degenere,
+              donc son point le plus proche est A exactement.
+   region FACE                                          n= 10802  max|d-137| = 2.871e-12 u   OK
+   region ARETE (AB)                                    n= 10802  max|d-137| = 1.108e-12 u   OK
+   region SOMMET (A)                                    n= 10802  max|d-137| = 8.811e-13 u   OK
+
+   OBSERVATION, PAS UNE GATE : les memes points de FACE, mesures contre TOUT le mesh,
+   rendent min 0.08 / median 99.06 / max 137.00 u au lieu de 137. C'est correct et c'est
+   attendu : Keira porte des pieces MINCES a double face (verre de lunettes, bretelles,
+   pans de tissu) ou 137 u traversent de part en part et la surface la plus proche est
+   l'autre face. En faire une gate d'egalite serait une gate fausse — elle a d'ailleurs
+   ete ecrite ainsi d'abord, elle a tire, et c'est ce qui a fait trouver le cas.
+
+== CONTROLE POSITIF (borne haute) : UNE SEULE SPHERE ENGLOBANT TOUT LE PERSONNAGE ====
+   sphere : centre = milieu de la boite englobante, rayon = 1.7083 m (le plus loin des
+            7963 sommets). Elle englobe donc tout par construction.
+   inside_max = 1.6426 m   fraction dehors = 0.0 %
+   demi-hauteur du personnage = 1.5682 m  ->  inside_max / demi-hauteur = 1.05   OK
+   C'EST L'ECHELLE CONTRE LAQUELLE LIRE LES 48 VOLUMES : un obstacle qui ignore
+   completement la forme enfouit la surface d'environ une demi-hauteur de personnage.
+
+== CHIFFRE 1 / FIDELITE — LES 48 VOLUMES LIVRES, PRIS EN UNION ========================
+   Deux lectures, publiees toutes les deux parce qu'elles ne disent pas la meme chose :
+     GEOMETRIQUE — distance euclidienne exacte au solide « enveloppe convexe des deux
+                   spheres », c'est-a-dire au volume que la ligne de donnees designe.
+     MOTEUR      — le predicat de `phys-collide-depth` a la lettre (rayon interpole sur
+                   le parametre serre) : l'ensemble que le moteur traite comme dedans.
+   Pour une capsule a rayons EGAUX les deux coincident ; les 24 capsules livrees sont
+   TOUTES coniques, donc l'ecart existe et il est chiffre plus bas.
+
+   lecture         out_max    out_p95    out_p50       in_max     in_p95     in_p50      dehors
+   GEOMETRIQUE      0.6064     0.2176     0.0013       0.2113     0.1255     0.0000       50.8 %
+   MOTEUR           0.6064     0.2176     0.0044       0.2009     0.1058     0.0000       53.2 %
+   (metres. Les percentiles portent sur TOUS les 7963 sommets, la part « dedans » comptant
+    0 dans la colonne `out` et reciproquement — meme convention que probe_union_cover.py,
+    sans quoi les chiffres ne seraient pas comparables a la mesure anterieure.)
+   moyenne du depassement sur les seuls sommets DEHORS : 0.0854 m (GEOMETRIQUE)
+   ecart entre les deux lectures : max |geo - moteur| = 398.9 u (0.0974 m) ; 186 sommets sur
+   7963 changent de cote entre les deux. Le solide et ce que le moteur en teste ne sont
+   donc PAS le meme ensemble — c'est une propriete du moteur, pas une approximation de
+   ce script, et elle est signalee sans etre corrigee ici (aucun `.gc` n'est touche).
+
+   CONFRONTATION AVEC L'ORDRE DE GRANDEUR DEJA MESURE. Les DIRECTIVES citent 50,4 % de
+   sommets dehors (p95 0.2176 m, max 0.6064 m), releve sur 33 volumes par
+   `probe_union_cover.py`. Ce script, sur les 48 volumes livres aujourd'hui, lit
+   50.8 % dehors, p95 0.2176 m, max 0.6064 m. Meme grandeur, meme repere, meme mesh : les
+   deux se recoupent. Rien a chercher de ce cote.
+
+   -- OU L'APPROXIMATION COUTE : PARTITION PAR JOINT DOMINANT (aucun double comptage) --
+   partie                 nv   dehors    out_max    out_p95     in_max     in_p95
+   masque-torche         234    93.2 %     0.6064     0.5374     0.0576     0.0218
+   bras                 1580    83.9 %     0.2984     0.2671     0.1035     0.0251
+   mollet-pied           544    89.0 %     0.2477     0.2140     0.0273     0.0088
+   tete                 1699    57.6 %     0.1798     0.0778     0.1615     0.1054
+   oreilles              152    68.4 %     0.1395     0.1341     0.0756     0.0458
+   genou                 485    32.2 %     0.0936     0.0444     0.0612     0.0416
+   lunettes              531    73.3 %     0.0823     0.0639     0.0852     0.0407
+   cheveux               819    26.1 %     0.0564     0.0366     0.1634     0.1168
+   torse                 926    15.1 %     0.0465     0.0247     0.1248     0.1021
+   cuisse                271     9.6 %     0.0327     0.0210     0.1770     0.1554
+   languette-genou        48    29.2 %     0.0152     0.0152     0.0179     0.0160
+   bassin                525     0.0 %     0.0000     0.0000     0.2113     0.1880
+   bretelle-bas           11     0.0 %     0.0000     0.0000     0.0192     0.0188
+   bretelle-haut          40     0.0 %     0.0000     0.0000     0.0586     0.0514
+   cou                    50     0.0 %     0.0000     0.0000     0.1565     0.1522
+   sangle-cheville        24     0.0 %     0.0000     0.0000     0.0274     0.0274
+   sangle-orteil          24     0.0 %     0.0000     0.0000     0.0173     0.0173
+
+   -- LES PIECES QUE LA PARTITION NE PEUT PAS VOIR, MESUREES PAR SELECTION DE POIDS ----
+   Aucun sommet du mesh n'a `lBoob`, `rBoob`, `LpantFlap` ni `RpantFlap` pour joint
+   DOMINANT : le sein est domine par `chest`, le pan de pantacourt par le genou. Une
+   partition par joint dominant est donc structurellement aveugle a exactement les deux
+   pieces dont l'owner parle depuis six passes. Ces selections-la se RECOUVRENT entre
+   elles et avec le tableau ci-dessus ; c'est assume, elles ne servent pas a totaliser.
+   piece (selection)                  nv   dehors    out_max    out_p95     in_max
+   poitrine G  (w>0.25 lBoob)         34     5.9 %     0.0043     0.0015     0.0675
+   poitrine D  (w>0.25 rBoob)         25     8.0 %     0.0083     0.0018     0.0634
+   pantacourt G (w>0.05)              49    81.6 %     0.0917     0.0755     0.0158
+   pantacourt D (w>0.05)              41    85.4 %     0.0936     0.0867     0.0145
+   languette-genou G (w>0.05)         24    29.2 %     0.0152     0.0148     0.0179
+   languette-genou D (w>0.05)         24    29.2 %     0.0152     0.0148     0.0179
+   bretelle-haut (w>0.05)             61     0.0 %     0.0000     0.0000     0.0596
+   bretelle-bas (w>0.05)              51     0.0 %     0.0000     0.0000     0.0816
+   lunettes (w>0.05)                 531    73.3 %     0.0823     0.0639     0.0852
+
+== CHIFFRE 1 bis / FIDELITE — UN COLLIDER ISSU DU MESH DECIME =========================
+   Decimation ecrite dans ce fichier : groupement des sommets sur une grille reguliere,
+   representant = moyenne de la cellule. Deterministe, aucun tirage, aucune dependance.
+   Le pas de grille est cherche par bisection pour tenir dans le budget ; c'est le
+   NOMBRE DE TRIANGLES REELLEMENT OBTENU qui est publie, jamais le budget vise.
+
+   budget    tris   sommets   pas_mm utilises    ecart_max  ecart_p95  ecart_p50
+       48      48        33    471.9       26       1.3278     1.2128     0.0810
+      200     200        93    284.5       89       0.2384     0.1039     0.0417
+      500     497       224    182.8      218       0.1828     0.0681     0.0216
+     1000     998       438    127.5      433       0.0974     0.0410     0.0135
+     2000    1999       869     86.8      868       0.0889     0.0256     0.0078
+   (ecart = distance point->triangle du sommet de la VRAIE surface au triangle le plus
+    proche de la surface DECIMEE, en metres. `sommets` = cellules non vides ; `utilises`
+    = celles qu'un triangle survivant reference — ce sont elles qu'il faudrait skinner.)
+
+   SENS INVERSE (centroide de chaque triangle decime -> vraie surface). Il attrape ce que
+   le sens direct ne voit pas : une surface decimee qui bouche un creux ou deborde.
+   budget    rev_max    rev_p95    rev_p50
+       48     0.1387     0.1116     0.0269
+      200     0.0997     0.0796     0.0253
+      500     0.0775     0.0531     0.0168
+     1000     0.0439     0.0305     0.0095
+     2000     0.0322     0.0178     0.0047
+
+== A BUDGET COMPARABLE : LAQUELLE LAISSE LE MOINS D'ECART A LA VRAIE SURFACE ? ========
+   La grandeur commune est « de combien la surface du collider s'ecarte de la vraie
+   surface, mesuree aux sommets de celle-ci ». Pour les capsules c'est |distance signee|
+   a l'union ; pour le mesh decime, la distance au triangle le plus proche. Meme repere,
+   memes points de mesure, meme unite.
+   RESERVE, et elle joue CONTRE le mesh : |distance signee| est EXACTE pour un sommet
+   dehors, et une BORNE INFERIEURE pour un sommet dedans (la distance au bord de l'union
+   est au moins celle au bord du volume le plus profond). Le chiffre des capsules est
+   donc, si quoi que ce soit, sous-estime.
+
+   representation                        prim.  ecart_max  ecart_p95  ecart_p50
+   48 volumes livres (capsules+spheres)       48     0.6064     0.2176     0.0440
+   mesh decime, budget 48                   48     1.3278     1.2128     0.0810
+   mesh decime, budget 200                 200     0.2384     0.1039     0.0417
+   mesh decime, budget 500                 497     0.1828     0.0681     0.0216
+   mesh decime, budget 1000                998     0.0974     0.0410     0.0135
+   mesh decime, budget 2000               1999     0.0889     0.0256     0.0078
+
+   LECTURE, EN NOMBRES ET SANS AVIS :
+   * A NOMBRE DE PRIMITIVES EGAL (48 volumes contre 48 triangles), les capsules gagnent :
+     ecart max 0.6064 m contre 1.3278 m, p95 0.2176 contre 1.2128. Une capsule couvre un membre
+     entier, 48 triangles ne couvrent pas un corps.
+   * LE PREMIER BUDGET OU LE MESH PASSE DEVANT SUR p95 est 200 triangles : p95 0.1039 m
+     contre 0.2176 m pour les 48 volumes, soit 2.1 fois moins d'ecart.
+   * ET SUR LE MAX (le chiffre qui decide d'un clip visible) des 200 triangles :
+     0.2384 m contre 0.6064 m, soit 2.5 fois moins.
+
+== CHIFFRE 2 / COUT PAR FRAME — ESTIMATION ARITHMETIQUE, NON MESUREE SUR DEVICE =======
+   AUCUN DEVICE N'EST DANS LA BOUCLE DE CE SCRIPT ET AUCUN COLLIDER MESH N'EXISTE. Ce
+   qui suit est un COMPTE D'OPERATIONS tire du fichier de donnees et de la structure de
+   boucle du moteur, chaque facteur portant sa reference de ligne. Ce n'est pas un temps,
+   ce n'est pas une extrapolation de temps, et ca ne remplace pas une course sur le Redmi.
+
+   Tire du fichier de donnees, sans aucune valeur en dur :
+     chaines = 22   liens declares = 36   liens SIMULES (l >= rootlock, :1786) = 24
+     volumes = 48
+     -> tests volume<->lien par PASSE = 24 x 48 = 1152
+     -> apres l'exclusion structurelle chaine<->ses propres volumes (`phys-col-own?`,
+        :1735-1740) : 1115 paires reellement evaluees par passe.
+
+   COMBIEN DE PASSES PAR FRAME (structure de boucle relevee, pas supposee) :
+     phys-collide-chain appelee 11 fois par chaine et par frame  (:3116-3118 et :3144-3146)
+     chaque appel : 1 passe de SELECTION sur les 48 volumes (:1827) + 3 balayages (:1856)
+     chaque volume evalue geometriquement = 3 appels a phys-collide-depth (:1925-1931)
+     -> visites de la boucle (lien, volume) par frame : 49060
+     -> appels phys-collide-depth par frame : 36795 (selection) + 2376 (balayages, le seul
+        volume decideur travaille — DECISION 1, :1861-1866) = 39171
+
+   LE RECUL, ET SON TAUX DE DECLENCHEMENT EST MESURE, PAS SUPPOSE :
+     source : .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
+     30471 reculs sur 17893 frames de course = 1.70 recul/frame (toutes chaines confondues).
+     Chaque recul = 13 pas de dichotomie (:2439), chaque pas = 1 phys-link-pen qui
+     reparcourt les 48 volumes (:2116) a 3 appels de profondeur : 1872 appels par recul.
+     -> 3188 appels phys-collide-depth par frame imputables au recul, soit 8 % du
+        cout de collision hors recul. (Le compteur `retreat=` est celui du moteur.)
+
+   AUJOURD'HUI, TOTAL : 42359 evaluations de volume par frame.
+
+   MESH DECIME, EN FORCE BRUTE : (liens simules) x (triangles), 1 test point->triangle
+   par paire. Meme nombre de passes par frame que ci-dessus, puisque la boucle du solveur
+   ne change pas.
+   budget    tris    tests/passe    tests/frame  x vs auj.
+       48      48           1152          50688        1.2
+      200     200           4800         211200        5.0
+      500     497          11928         524832       12.4
+     1000     998          23952        1053888       24.9
+     2000    1999          47976        2110944       49.8
+
+   MESH DECIME, AVEC UNE STRUCTURE D'ACCELERATION. L'hypothese est declaree : une GRILLE
+   UNIFORME de pas egal au pas de decimation, chaque triangle insere dans les cellules
+   que sa boite englobante recouvre. Le facteur n'est PAS prete : il est MESURE en
+   comptant, pour les 24 points de requete REELS (le centre du volume que chaque lien
+   simule porte a la pose de bind) et son rayon de lien, combien de triangles la phase
+   large rendrait. C'est la seule partie de ce chiffre qui soit une mesure.
+   budget    tris    pas_mm     cand_moy     cand_max  tests/frame  x vs auj.
+       48      48     663.2         16.5           34        17424        0.4
+      200     200     562.8         54.3          100        57376        1.4
+      500     497     370.7         46.5          114        49104        1.2
+     1000     998     264.2         67.7          250        71500        1.7
+     2000    1999     193.4         89.7          237        94732        2.2
+   (cand_moy = triangles candidats par lien et par requete. `tests/frame` = somme des
+    candidats sur les 24 liens x 44 passes. Le cout de la phase large elle-meme — les
+    lectures de cellule — n'est PAS compte : il est petit devant, mais il n'est pas nul,
+    et le pretendre serait une invention.)
+
+   CE QUE CE CHIFFRE NE DIT PAS, ET IL FAUT LE DIRE : un test point->triangle et un test
+   point->capsule n'ont pas le meme cout unitaire, un acces a une grille n'a pas le meme
+   cout qu'un acces a un tableau contigu de 48 volumes, et le Redmi n'a pas le meme
+   comportement de cache qu'un x86. LE RAPPORT DE TEMPS NE SE DEDUIT PAS DE CE RAPPORT
+   D'OPERATIONS. Il demande une implementation et une course sur le device : ni l'une
+   ni l'autre n'existe, et c'est le chiffre 2 qui MANQUE.
+
+== CHIFFRE 3 / DEFORMATION — CE QU'IL FAUT RE-TRANSFORMER A CHAQUE FRAME ==============
+   MESURE SUR LE MESH (pas supposee) : influences osseuses par sommet, sur 7963 sommets.
+     moyenne = 1.8213   repartition : 1 os 2729 sommets, 2 os 3928, 3 os 1306, 4 os 0
+     (le GLB porte 4 canaux JOINTS_0/WEIGHTS_0 ; la somme des poids vaut 1 a 4.5e-08 pres.)
+
+   COTE CAPSULES, AUJOURD'HUI. Les extremites d'une capsule SONT des joints du rig :
+   le squelette les a deja transformees, la physique ne paie que la lecture. Le seul
+   travail propre est le report du decalage des volumes qui en ont un
+   (`phys-col-centre`, :1634-1643 — un produit vecteur-matrice quand l'offset est non nul),
+   fait une fois par frame par `phys-snapshot-colliders!` (:1646, appelee :2671).
+     volumes a decalage non nul : 24 spheres + 0 capsules = 24 produits vecteur-matrice
+     points a re-transformer proprement : 96 (2 extremites x 48 volumes) — mais ils sont
+     LUS dans le squelette, pas recalcules. Le cout marginal de la representation actuelle
+     est donc de 24 produits vecteur-matrice par frame.
+
+   COTE MESH DECIME. Chaque sommet du collider doit etre SKINNE a chaque frame : une
+   combinaison de ses matrices osseuses. Le nombre d'os par cellule est MESURE sur les
+   sommets qu'elle regroupe (union de leurs os a poids non nul).
+   budget   sommets   utilises     os_moyen       os_max produits/frame   x capsules
+       48        33         26         6.77           17            176          7.3
+      200        93         89         4.47           12            398         16.6
+      500       224        218         3.14           14            684         28.5
+     1000       438        433         2.83           11           1224         51.0
+     2000       869        868         2.47           10           2146         89.4
+   (produits/frame = somme des os influents sur les cellules utilisees : le cout exact
+    d'un skinning lineaire sans troncature. Un moteur qui tronque a 4 influences comme
+    le GLB paierait au plus 4 par sommet ; les deux bornes sont donnees pour que le
+    choix se lise dans le chiffre, pas dans une preference.)
+     budget    48 : borne tronquee a 4 influences = 96 produits/frame (4.0 x capsules)
+     budget   200 : borne tronquee a 4 influences = 273 produits/frame (11.4 x capsules)
+     budget   500 : borne tronquee a 4 influences = 593 produits/frame (24.7 x capsules)
+     budget  1000 : borne tronquee a 4 influences = 1099 produits/frame (45.8 x capsules)
+     budget  2000 : borne tronquee a 4 influences = 2028 produits/frame (84.5 x capsules)
+
+   ET C'EST LA QUE SE JOUE LA SUPERIORITE QUE L'OWNER DECRIT : un mesh skinne SUIT la
+   deformation, une capsule ne le peut pas. Ce que ce script ne peut PAS chiffrer, faute
+   d'implementation : de combien l'ecart mesure ci-dessus se degrade sur une pose
+   EXTREME (bras leve, buste plie). A la pose de bind les deux representations sont a
+   leur meilleur ; hors bind, la capsule se degrade et le mesh skinne, par construction,
+   non. Ce chiffre-la MANQUE, et il faut une course pour l'avoir.
+
+== CHIFFRE 4 / NIVEAUX — LE CURSEUR DE PRECISION QUI EXISTE DEJA =====================
+   Le fichier de donnees porte trois niveaux (`[levels]` : level 0 / 1 / 2, le 1 etant
+   celui que l'owner joue). La correspondance ci-dessous est proposee UNIQUEMENT sur les
+   chiffres du CHIFFRE 1 ; elle ne prejuge pas du cout device, qui n'est pas mesure.
+   Reference d'echelle : le personnage mesure 2.7269 m (corps seul, pose de bind).
+
+   niveau   representation                ecart_max  ecart_p95       max_mm       p95_mm
+   bas      48 volumes (aujourd'hui)         0.6064     0.2176        606.4        217.6
+   moyen    mesh decime, 497 triangles       0.1828     0.0681        182.8         68.1
+   haut     mesh decime, 1999 triangles      0.0889     0.0256         88.9         25.6
+
+   CE QUE L'ECART RESIDUEL VAUT A L'ECHELLE DU PERSONNAGE (2.73 m) :
+     bas   : 606.4 mm au pire, soit 22.2 % de sa taille
+     moyen : 182.8 mm au pire, soit 6.7 % de sa taille
+     haut  : 88.9 mm au pire, soit 3.3 % de sa taille
+   Repere utile : le rayon de lien des lunettes est 196 u (47.9 mm) et celui du pan de
+   pantacourt 429 u (104.7 mm) — un ecart de collider superieur a ces rayons ne peut pas
+   etre rattrape par le rayon du lien, il se voit.
+
+== CE QUE J'AI SUPPOSE, ET CE QUI MANQUE =============================================
+   SUPPOSITIONS, toutes declarees :
+   1. Tout est mesure a la POSE DE BIND. C'est le seul repere ou le fichier de donnees
+      est directement lisible, et c'est le meilleur cas des deux representations.
+   2. La decimation est un groupement sur grille avec representant = moyenne. C'est le
+      decimateur le plus simple ; un QEM ferait mieux a budget egal, donc les chiffres du
+      mesh sont une borne SUPERIEURE de son ecart.
+   3. La structure d'acceleration supposee est une grille uniforme au pas de decimation.
+      Le nombre de candidats qu'elle rend est MESURE sur les points de requete reels ; le
+      cout des lectures de cellule n'est pas compte.
+   4. Le nombre de passes du solveur par frame est lu dans le source (11 appels x
+      (1 selection + 3 balayages)) et suppose INCHANGE si le collider changeait de nature.
+   5. Le taux de declenchement du recul vient de la derniere course de la salle ; il
+      depend des animations jouees et n'est pas une constante du moteur.
+   6. Les 6 triangles d'aire nulle du GLB sont retires : ils n'ont pas de surface et
+      casseraient la distance point->triangle.
+
+   CE QUI MANQUE, ET QUI NE SE CALCULE PAS HORS LIGNE :
+   a. LE COUT PAR FRAME EN TEMPS, sur le Redmi. Il demande une implementation du collider
+      mesh ; elle n'existe pas et ce script ne l'ecrit pas. Le rapport d'operations
+      publie ici n'est PAS un rapport de temps.
+   b. LA FIDELITE HORS POSE DE BIND. C'est l'argument central de l'owner (« en suivant
+      ses deformations ») et il ne se mesure qu'en jouant les animations : de combien
+      l'ecart des capsules se degrade quand elle se penche, et de combien celui du mesh
+      skinne ne se degrade pas.
+   c. LE COUT DE CONSTRUCTION/MISE A JOUR de la grille d'acceleration quand le collider
+      bouge (il bouge a chaque frame, puisqu'il est skinne). C'est un cout par frame que
+      ce script ne modelise pas du tout.
+   d. L'EFFET SUR LES DEFAUTS QUE L'OWNER VOIT. Un meilleur collider est une hypothese de
+      correction, pas une correction : seule une course, puis son oeil, le disent.
+
