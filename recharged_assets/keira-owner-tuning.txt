@@ -144,3 +144,12 @@ chain rbang stiffness=1.05 mass=1.35 damping=0.36
 # ne sont chainees par rien), pas du couplage.
 # chain kneeflapL couple=1.60 mass=0.85 stiffness=1.60
 # chain kneeflapR couple=1.60 mass=0.85 stiffness=1.60
+
+## 2026-08-12 07:45 — « les languettes au niveau des genoux ne bougent pas » (2e signalement)
+# Trouve : LfootFlaps et RfootFlaps sont des os du RIG qui ne portaient AUCUNE chaine — zero
+# occurrence dans les donnees. Les bandes (lKneeFlap/rKneeFlap) en ont une et bougent ; les
+# languettes n'en avaient jamais eu. Ce n'etait donc pas un reglage trop faible : il n'y avait
+# rien du tout. Famille B (ca pend), parametres alignes sur les sangles de cheville qui, elles,
+# se voient bien.
++chain footflapL class=secondary stiffness=2.20 damping=0.28 gravity=0.28 radius=190 rootlock=1 mass=0.55 hang=0.75 family=B couple=1.30 radii=190 joints=LfootFlaps
++chain footflapR class=secondary stiffness=2.20 damping=0.28 gravity=0.28 radius=190 rootlock=1 mass=0.55 hang=0.75 family=B couple=1.30 radii=190 joints=RfootFlaps

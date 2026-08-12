@@ -41,6 +41,22 @@ def main():
             if not ln:
                 continue
 
+        if ln.startswith("+chain "):
+            # Ajout d'une CHAINE demandee par l'owner sur un os que la generation avait ignore.
+            # 2026-08-12 : LfootFlaps / RfootFlaps ne portaient aucune chaine — ce sont les
+            # « languettes au niveau des genoux » qu'il voit immobiles depuis deux jours.
+            body = ln[len("+chain "):]
+            name = body.split()[0]
+            if re.search(r"^chain %s\b" % re.escape(name), s, re.M):
+                continue
+            last = None
+            for last in re.finditer(r"^chain .*$", s, re.M):
+                pass
+            ins = "chain " + body
+            s = (s[:last.end()] + "\n" + ins + s[last.end():]) if last else (s + "\n" + ins + "\n")
+            nadd += 1
+            continue
+
         if ln.startswith("+collider "):
             body = ln[len("+collider "):]
             name = body.split()[0]

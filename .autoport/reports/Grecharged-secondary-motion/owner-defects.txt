@@ -1,0 +1,16 @@
+# DÉFAUTS OUVERTS, RAPPORTÉS PAR L'OWNER — la phase ne peut pas passer tant qu'il en reste.
+# Une ligne se retire UNIQUEMENT quand l'owner dit que c'est bon, jamais parce qu'une mesure
+# est verte : c'est son œil qui ferme un défaut.
+#
+# ACQUIS AU 2026-08-12 07:45, à ne pas casser (plancher de mouvement + son jugement) :
+#   - poitrine sur mouvements SUBTILS : « nickel »
+#   - poitrine quand elle se PENCHE EN AVANT : « nickel »
+#   - mèches fines : « vraiment pas mal, même si ça pourrait être mieux »
+#
+OPEN flesh-jelly     effet gelee sur les seins, UNIQUEMENT sur mouvements brusques (subtils et penche = OK)
+OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
+OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos
+OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
+OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
+OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
+OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
