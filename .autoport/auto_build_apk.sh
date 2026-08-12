@@ -17,6 +17,13 @@
 
 set +e -o pipefail
 cd "$(dirname "$0")/.." || exit 1
+
+# PID FILE — le superviseur teste l'EXISTENCE du processus, jamais une correspondance de
+# motif : `ps | grep motif` compte le grep lui-meme, piege tombe quatre fois en 24h et qui a
+# fait tuer la chaine de livraison toute la nuit du 2026-08-11.
+PIDFILE=".autoport/.auto_build_apk.pid"
+echo $$ > "$PIDFILE"
+trap 'rm -f "$PIDFILE"' EXIT
 LOG=.autoport/logs/auto_build_apk.txt
 STAMP=.autoport/.last_apk_build_sha
 # NE PAS surveiller physics_chains.txt : build_custom_pack.sh le REECRIT a l'empaquetage (il y

@@ -5,6 +5,13 @@
 set +e -o pipefail
 trap 'echo "$(date +%H:%M:%S) trapped err at line $LINENO, continuing" >> .autoport/logs/auto_push_builds.txt' ERR
 cd "$(dirname "$0")/.." || exit 1
+
+# PID FILE — le superviseur teste l'EXISTENCE du processus, jamais une correspondance de
+# motif : `ps | grep motif` compte le grep lui-meme, piege tombe quatre fois en 24h et qui a
+# fait tuer la chaine de livraison toute la nuit du 2026-08-11.
+PIDFILE=".autoport/.auto_push_builds.pid"
+echo $$ > "$PIDFILE"
+trap 'rm -f "$PIDFILE"' EXIT
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 # The HD asset pack is a SEPARATE deliverable: the reskin (skin-authority fix) is baked
 # into the HD models, so it ships in this zip and NOT in the APK. Watching only the APK
