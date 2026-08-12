@@ -154,8 +154,6 @@ chain anklestrapL class=secondary stiffness=2.40 damping=0.26 gravity=0.25 radiu
 j Lanklestrap
 # anklestrapR [B] Ranklestrap verts=16 wsum=7.55 r=225
 chain anklestrapR class=secondary stiffness=2.40 damping=0.26 gravity=0.25 radius=225 mass=0.50 hang=0.70 family=B couple=1.00 radii=225
-chain footflapL class=secondary stiffness=2.20 damping=0.28 gravity=0.28 radius=190 rootlock=1 mass=0.55 hang=0.75 family=B couple=1.30 radii=190 joints=LfootFlaps
-chain footflapR class=secondary stiffness=2.20 damping=0.28 gravity=0.28 radius=190 rootlock=1 mass=0.55 hang=0.75 family=B couple=1.30 radii=190 joints=RfootFlaps
 j Ranklestrap
 
 # ---- COLLIDERS, fitted from the same mesh. One capsule per obstacle bone segment,
@@ -292,3 +290,19 @@ collider RtoeStrap radius=158 offset=-178,41,50
 collider Lanklestrap radius=138 offset=236,-4,28
 # sphere Ranklestrap [anklestrapR]  8v @w>0.5   centre = measured centroid of the geometry this joint owns, 238u off the joint, in its bind space   COVER p95: 12% of its vertices outside (inner-quartile mean 125 left 50% outside)
 collider Ranklestrap radius=138 offset=-236,4,-28
+
+# ---- DIRECTIVE OWNER SANS CIBLE DANS LE RIG — NON APPLIQUÉE, ET DITE ICI.
+#   +chain footflapL : joint(s) LfootFlaps absent(s) de recharged_assets/hd_anim/keira-hd-k2e.json
+#   +chain footflapR : joint(s) RfootFlaps absent(s) de recharged_assets/hd_anim/keira-hd-k2e.json
+#   Le rig HD que Keira utilise porte 95 joints ; les seuls en -Flap sont
+#   lKneeFlap, rKneeFlap, LpantFlap, RpantFlap. Une chaîne posée sur un joint
+#   inexistant aurait ZÉRO lien : déclarée et inerte, ce que la gate MOVE
+#   refuse à juste titre. La directive doit être re-visée sur un joint réel.
+
+# ---- DIRECTIVE OWNER SANS CIBLE DANS LE RIG — NON APPLIQUÉE, ET DITE ICI.
+#   +chain footflapL : joint(s) LfootFlaps absent(s) de recharged_assets/hd_anim/keira-hd-k2e.json
+#   +chain footflapR : joint(s) RfootFlaps absent(s) de recharged_assets/hd_anim/keira-hd-k2e.json
+#   Le rig HD que Keira utilise porte 95 joints ; les seuls en -Flap sont
+#   lKneeFlap, rKneeFlap, LpantFlap, RpantFlap. Une chaîne posée sur un joint
+#   inexistant aurait ZÉRO lien : déclarée et inerte, ce que la gate MOVE
+#   refuse à juste titre. La directive doit être re-visée sur un joint réel.

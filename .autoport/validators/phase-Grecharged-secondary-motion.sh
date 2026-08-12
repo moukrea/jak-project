@@ -86,7 +86,14 @@ except Exception as e:
 manquant = []
 for ln in T.split("\n"):
     ln = ln.strip()
-    if ln.startswith("+collider "):
+    if ln.startswith("+chain "):
+        # 2026-08-12 : deux chaines ajoutees sur demande de l'owner (languettes de genoux) ont
+        # ete effacees par une regeneration sans que la gate le voie -- elle ne connaissait que
+        # +collider. Toute directive de l'owner est surveillee, quelle que soit sa forme.
+        nom = ln.split()[1]
+        if not re.search(r"^chain %s\b" % re.escape(nom), C, re.M):
+            manquant.append("chain %s (ajout owner disparu)" % nom)
+    elif ln.startswith("+collider "):
         nom = ln.split()[1]
         if not re.search(r"^collider %s\b" % re.escape(nom), C, re.M):
             manquant.append("collider %s" % nom)
