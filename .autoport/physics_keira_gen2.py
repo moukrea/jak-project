@@ -979,6 +979,9 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     chain_block = []
     chain_entries = []
     chain_report = []
+    # candidats au recentrage du volume de lien (voir le bloc RECENTRAGE plus bas) : collectes ici
+    # parce que c'est le seul endroit ou le rayon LIVRE de chaque lien est connu.
+    recentre_cand = []
     for cat, cname in kept:
         joints = groups[cname]
         t = TUNING[cat]
@@ -1018,6 +1021,16 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
             log(note)
             dropped.append(note)
         rep = int(round(float(np.median(radii))))       # representative half-thickness of the chain
+        # OU EST REELLEMENT LA GEOMETRIE DE CHAQUE LIEN, par rapport a son joint. Mesure ici et
+        # jugee plus bas (bloc RECENTRAGE) ; les cheveux en sont exclus, leur essai est fait.
+        if cat not in HAIR_CATS:
+            for i, jn in enumerate(joints):
+                c, _rcov, nv, _thr, _cov = blob_centre_radius(geo, idx_of[jn])
+                if c is None or nv == 0:
+                    continue
+                cen = tuple(int(round(float(v))) for v in c)
+                off = math.sqrt(sum(float(v) * float(v) for v in cen))
+                recentre_cand.append((jn, cname, radii[i], cen, off, nv))
         parts = [f'chain {cname}',
                  f'class={t["klass"]}',
                  f'stiffness={fnum(t["stiffness"])}',
@@ -1277,6 +1290,62 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
                          f' (inner-quartile mean {r_iq:.0f} left {100*was_out:.0f}% outside)')
         col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
         col_report.append(('sphere', jn, r, None, n, None))
+
+    # ---------------------------------------------------------------------------------------------
+    # LE VOLUME D'UN LIEN EST POSE SUR SON JOINT — MEME QUAND SA GEOMETRIE EST AILLEURS.
+    #
+    # Sans ligne `collider <joint>`, `phys-link-off!` rend un decalage NUL et le moteur pose la
+    # sphere du lien SUR le joint. Pour une languette de genou, le joint est sur l'axe de la jambe
+    # et la geometrie qu'il porte est a 716 u (p50) de cet axe : la sphere de collision du lien est
+    # donc DANS la cuisse, en contact permanent avec `Rknee->Rthigh` et `Rankle->Rknee` qui se
+    # recouvrent — sortir de l'une enfonce dans l'autre, la projection echoue, et le RECUL prend la
+    # main. Mesure de la course : `kneeflapR` recule 15 913 fois sur 17 893 frames (89 %), et les
+    # languettes sont les DEUX SEULES chaines sur 22 dont la courbe de reponse s'effondre aux
+    # faibles excitations (0.36 et 0.21 au niveau 0 contre 28 a 158 pour les vingt autres).
+    #
+    # LA REGLE, ET SON DECLENCHEUR EST MESURE, PAS CHOISI : un lien dont le CENTROIDE de sa propre
+    # geometrie est plus loin de son joint que son propre rayon porte un volume qui ne contient meme
+    # pas le centre de ce qu'il represente. Celui-la est recentre ; les autres ne le sont pas, et
+    # les deux listes sont journalisees avec leurs nombres.
+    #
+    # PERIMETRE : PAS LES CHEVEUX. Le recentrage y a ete pose, mesure et retire DEUX FOIS
+    # (backhair -41 %, midhair -42/-43 %, 35 a 46 % d'allongement d'os sur `lbang`), une fois en
+    # changeant la taille et une fois a taille identique au bit pres. L'hypothese laissee ouverte
+    # par ce cycle-la — « les trois chaines qui cassent sont les trois chaines de cheveux, toutes
+    # groupees sur le crane ; les chaines qui gagnent sont les spatialement isolees » — n'a jamais
+    # ete testee, et son propre A/B portait deja `kneeflapR x1.40` a son credit. C'est cette
+    # course-la, et elle est enfin faite.
+    #
+    # LA TAILLE NE BOUGE PAS D'UN BIT : `radius` est le rayon de lien deja livre, donc `*phys-lcr*`
+    # est inchange (jak-hd-physics.gc:933 contre :942) et la SEULE variable est le centre.
+    # SECOND EFFET, DECLARE PARCE QU'IL EST INSEPARABLE : le moteur lit cette meme ligne comme un
+    # OBSTACLE pour les autres chaines. Un lien recentre devient donc un volume que les autres
+    # voient, ce qu'il n'etait pas. C'est la SPEC 3 (« ce sont des volumes, pas seulement des
+    # chaines ») et non un effet de bord subi, mais c'est une deuxieme variable et la course doit
+    # etre lue en le sachant.
+    already = {jn for jn, _p in spheres} | {jn for jn, _c, _a in carried_spheres}
+    log('')
+    log('  RECENTRAGE DES VOLUMES DE LIEN (chaines hors cheveux) : centroide contre rayon du lien')
+    for jn, cname, rlink, cen, off, nv in recentre_cand:
+        if jn in already:
+            log(f'  {cname + "/" + jn:<26} deja un volume declare — inchange')
+            continue
+        if off <= rlink:
+            log(f'  {cname + "/" + jn:<26} centroide a {off:>5.0f} u <= rayon {rlink:>4} — inchange')
+            continue
+        cx, cy, cz = cen
+        log(f'  {cname + "/" + jn:<26} centroide a {off:>5.0f} u  > rayon {rlink:>4} — RECENTRE '
+            f'({cx},{cy},{cz}), {nv} sommets')
+        # LE RAYON N'EST PAS AFFIRME ICI. `apply_owner_tuning.py` resynchronise le rayon d'un volume
+        # RECENTREE sur le rayon de lien LIVRE (il peut avoir ete retune par l'owner : gogglesMid
+        # 79 -> 150). Ecrire un nombre dans ce commentaire le rendrait faux des la premiere retouche
+        # de l'owner — c'est la ligne `collider` en dessous qui fait foi, pas ce texte.
+        col_block.append(f'# sphere {jn} [{cname}] RECENTREE  {nv}v   le volume de ce lien etait pose'
+                         f' sur son joint alors que sa geometrie est a {off:.0f} u de la : la TAILLE'
+                         f' ne change pas (le rayon de lien livre, resynchronise par le tuning),'
+                         f' seul le CENTRE bouge (centroide mesure, espace bind)')
+        col_block.append(f'collider {jn} radius={rlink} offset={cx},{cy},{cz}')
+        col_report.append(('sphere', jn, rlink, None, nv, None))
 
     for jn, cname, acc in carried_spheres:
         j = idx_of[jn]

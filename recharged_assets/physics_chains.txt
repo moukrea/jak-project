@@ -73,7 +73,7 @@ level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0
 level 1 substeps=2 iters=6 collide=2 classmask=7 fixedhz=0
 level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 
-# ---- Keira, and only Keira: 22 chains, 33 volumes.
+# ---- Keira, and only Keira: 22 chains, 48 volumes.
 [model keira-hd]
 # earL [A] lEara verts=82 wsum=25.41 r=148 | lEarb verts=76 wsum=46.64 r=79
 chain earL class=primary stiffness=3.20 damping=0.30 gravity=0.45 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
@@ -256,3 +256,33 @@ collider Rmidhaira radius=766 offset=-673,-77,-325
 collider lBoob radius=322 offset=-1,655,94
 # sphere rBoob [chestR]  25v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 8% of its vertices outside (inner-quartile mean 188 left 56% outside)
 collider rBoob radius=311 offset=4,-657,-84
+# sphere lEarb [earL] RECENTREE  50v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 592 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider lEarb radius=79 offset=-41,569,157
+# sphere rEarb [earR] RECENTREE  50v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 592 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider rEarb radius=79 offset=41,-569,-157
+# sphere gogglesMid [goggles] RECENTREE  11v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 123 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider gogglesMid radius=150 offset=0,-66,104
+# sphere lTopStrap2 [topstrapL] RECENTREE  10v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 519 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider lTopStrap2 radius=157 offset=24,514,-64
+# sphere rTopStrap2 [topstrapR] RECENTREE  10v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 518 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider rTopStrap2 radius=157 offset=-22,514,-63
+# sphere lBotStrap [botstrapL] RECENTREE  15v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 1509 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider lBotStrap radius=92 offset=236,1458,-310
+# sphere lBotStrap2 [botstrapL] RECENTREE  25v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 357 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider lBotStrap2 radius=93 offset=-115,-317,118
+# sphere rBotStrap [botstrapR] RECENTREE  16v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 1489 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider rBotStrap radius=93 offset=-229,-1440,304
+# sphere rBotStrap2 [botstrapR] RECENTREE  26v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 356 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider rBotStrap2 radius=96 offset=119,-314,118
+# sphere lKneeFlap [kneeflapL] RECENTREE  24v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 380 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider lKneeFlap radius=244 offset=-20,332,183
+# sphere rKneeFlap [kneeflapR] RECENTREE  24v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 380 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider rKneeFlap radius=244 offset=20,-332,-183
+# sphere LtoeStrap [toestrapL] RECENTREE  12v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 189 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider LtoeStrap radius=188 offset=178,-41,-50
+# sphere RtoeStrap [toestrapR] RECENTREE  12v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 189 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider RtoeStrap radius=188 offset=-178,41,50
+# sphere Lanklestrap [anklestrapL] RECENTREE  8v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 238 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider Lanklestrap radius=225 offset=236,-4,28
+# sphere Ranklestrap [anklestrapR] RECENTREE  8v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 238 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider Ranklestrap radius=225 offset=-236,4,-28
