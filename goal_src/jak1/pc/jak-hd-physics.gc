@@ -532,6 +532,9 @@
 ;; CONTROLE POSITIF de l'auto-collision : arme, l'exclusion chaine<->ses propres volumes est levee.
 ;; Le compteur `selfcol` doit alors monter — sinon il ne mesure rien.
 (define *phys-self-inject* 0)
+;; ARME, LA CONTRAINTE DE COTE EST LEVEE et son compteur doit MONTER. Un compteur tombe a zero
+;; est soit une correction, soit un predicat devenu inevaluable — le piege de `(= l 0)`.
+(define *phys-side-off* 0)
 
 ;; nombre de joints du rig courant (relu a chaque step, pas de cache douteux)
 (define *phys-njoint* 0)
@@ -1607,8 +1610,8 @@
                   (when (nonzero? *phys-buried-tally*)
                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))
-                  ;; CONTROLE POSITIF (temporaire) : la contrainte est retiree, le compteur reste.
-                  #t)
+                  (when (zero? *phys-side-off*)
+                    (when (> (-> ub w) worst) (set! worst (-> ub w)))))
                 ;; `buried` = le lien est entierement dans ce volume A SA POSE DE MODELE. Depuis le
                 ;; 2026-08-12 c'est une MESURE et plus une DECISION : elle ne dispense plus la paire
                 ;; d'etre contrainte (cf. phys-vol-floor, branche FREE retiree). Le nombre reste
@@ -3085,6 +3088,10 @@
 ;; prouve rien — c'est la regle « tout zero exige un controle positif qui a tire ».
 (defun phys-self-inject-set! ((v int))
   (set! *phys-self-inject* v)
+  (none))
+
+(defun phys-side-off-set! ((v int))
+  (set! *phys-side-off* v)
   (none))
 
 (defun phys-inversions-reset! ()

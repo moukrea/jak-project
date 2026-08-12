@@ -148,6 +148,59 @@ def main():
             s = s[:m.start()] + line + s[m.end():]
             nchain += 1
 
+    # ---- UN VOLUME DÉRIVÉ NE PEUT PAS ANNULER UN RÉGLAGE DE L'OWNER --------------------------
+    # Le générateur émet, pour chaque joint de chaîne, une sphère RECENTRÉE dont le rayon EST le
+    # rayon de lien : elle corrige la position du volume, jamais sa taille. Mais le générateur
+    # calcule ce rayon depuis le mesh, AVANT que ce fichier-ci n'applique les `radii=` de l'owner.
+    # Mesuré le 2026-08-12 : `chain goggles radii=196,150` (son réglage) contre
+    # `collider gogglesMid radius=79` (le rayon dérivé) — et le moteur prend le collider
+    # (jak-hd-physics.gc, étape 3b). Le volume des lunettes serait passé de 150 à 79 sans que
+    # personne ne l'ait demandé. C'est la récurrence que la règle de non-destruction interdit, et
+    # on la rend impossible ICI, au dernier écrivain, pas détectable plus loin.
+    lines = s.split("\n")
+    jl = {}                                   # joint -> (index de ligne `chain`, numéro de lien)
+    cur, nlink = None, 0
+    for i, ln in enumerate(lines):
+        if ln.startswith("chain "):
+            cur, nlink = i, 0
+        elif ln.startswith("j ") and cur is not None:
+            jl[ln.split()[1]] = (cur, nlink)
+            nlink += 1
+    nsync = 0
+    orphan = []
+    for i, ln in enumerate(lines):
+        if not ln.startswith("collider ") or i == 0 or "RECENTRE" not in lines[i - 1]:
+            continue
+        joint = ln.split()[1]
+        if joint not in jl:
+            orphan.append(joint)
+            continue
+        ci, li = jl[joint]
+        mr = re.search(r"\bradii=([-0-9.,]+)", lines[ci])
+        want = None
+        if mr:
+            vals = mr.group(1).split(",")
+            if li < len(vals):
+                want = vals[li]
+        if want is None:
+            mb = re.search(r"\bradius=([-0-9.]+)", lines[ci])
+            want = mb.group(1) if mb else None
+        if want is None:
+            continue
+        new = re.sub(r"\bradius=[-0-9.]+", "radius=%s" % want, ln)
+        if new != ln:
+            print("[tuning] volume recentré %s : radius %s -> %s (le rayon de lien livré)"
+                  % (joint, re.search(r"\bradius=([-0-9.]+)", ln).group(1), want))
+            lines[i] = new
+            nsync += 1
+    if nsync or orphan:
+        s = "\n".join(lines)
+    if orphan:
+        # Un volume RECENTRÉ dont le joint n'appartient à aucune chaîne n'a pas de rayon de lien à
+        # suivre : la règle qui l'a produit ne s'applique plus, et le taire laisserait un volume
+        # dont personne ne sait d'où vient la taille.
+        missing.append("collider RECENTRE sans chaîne porteuse : " + ", ".join(sorted(orphan)))
+
     if skipped:
         # La trace reste DANS le fichier livré : c'est le seul endroit que personne ne peut
         # oublier de lire, et ça empêche qu'une directive disparaisse entre deux régénérations.

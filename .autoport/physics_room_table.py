@@ -1009,8 +1009,15 @@ def main():
     #             lien, comparee entre la pose du modele et maintenant. Ni monde, ni ancre.
     #   LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste du cote ou l'auteur l'a pose
     #             ne compte jamais, quelle que soit son amplitude.
-    # Ce compteur est NON NUL sur cette course : il n'a donc pas besoin d'un controle positif
-    # pour etre credible (la regle « tout zero exige un controle qui a tire » vise les zeros).
+    # CONTROLE POSITIF (2026-08-12) : depuis que la contrainte de cote existe, ce compteur peut
+    # tomber a ZERO — et un zero est soit une correction, soit un predicat devenu inevaluable.
+    # La salle roule donc deux fenetres IDENTIQUES (meme pilotage `jerk`, meme duree) :
+    # `self-disarmed`, contrainte EN PLACE, et `side-armed`, contrainte LEVEE et rien d'autre.
+    dr_sidearm = diag.get('side-armed', {})
+    side_dis = sum(v.get('side', 0.0) for v in dr_off.values())
+    side_arm = sum(v.get('side', 0.0) for v in dr_sidearm.values())
+    if dr_sidearm:
+        A('ROOM-SIDE-CONTROL: armed=%d disarmed=%d' % (side_arm, side_dis))
     side_run = {c: v.get('side', 0.0) for c, v in dr_run.items()}
     nz = sorted(((v, c) for c, v in side_run.items() if v > 0), reverse=True)
     A('ROOM-SIDE: chains=%d/%d crossing=%d' % (len(nz), len(names), int(sum(v for v, _ in nz))))

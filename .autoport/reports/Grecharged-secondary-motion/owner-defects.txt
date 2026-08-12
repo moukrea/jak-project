@@ -52,7 +52,26 @@ OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
 #  exactement la suggestion de l owner (« pourquoi deriver du rig et pas du mesh ? ») qui devient
 #  la seule voie mesuree restante.
 OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos
+#  --- 19e PASSE (2026-08-12) : LA CAUSE EST MESUREE ET LA CONTRAINTE EST POSEE. ---
+#  La profondeur de penetration est MAXIMALE sur l axe d un volume et REDESCEND quand le lien
+#  ressort de l autre cote : un lien qui traverse le buste de part en part rend donc une
+#  profondeur FAIBLE, indistinguable d un lien sagement dehors. C est pour ca que `meshpen`
+#  lisait 0.0000 pendant que l owner voyait les lunettes se poser dans le dos.
+#  Le compteur `ROOM-SIDE` le voyait, lui, et personne ne l interdisait : goggles 4092
+#  franchissements sur la course. Depuis ce cycle, franchir l axe d un volume dans lequel la
+#  POSE DU MODELE se trouve EST une penetration, et le recul l annule.
+#      ROOM-SIDE goggles  4092 -> 0        course entiere 11446 -> 0
+#      controle positif   ROOM-SIDE-CONTROL: armed=43 disarmed=0 (meme fenetre, contrainte levee)
+#      cout mesure sur goggles : mouvement de pointe 0.5107 -> 0.5107, soit AUCUN.
+#  A CONFIRMER PAR L OWNER EN CINEMATIQUE — c est son oeil qui ferme la ligne.
 OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
+#  --- 19e PASSE (2026-08-12) : LA MOITIE DE CE DEFAUT EST FERMEE, L AUTRE NON. ---
+#  Le FRANCHISSEMENT du torse par les bretelles est ferme par la contrainte de cote :
+#      botstrapR 927 + botstrapL 787 + topstrapR 291 + topstrapL 291  ->  0
+#      cout : botstrapL -7.8 %, topstrapL -2.0 %, les deux autres inchangees.
+#  Le CLIPPING contre l ELASTIQUE ORANGE du bas du crop top n est PAS traite : c est un volume
+#  manquant sur une piece precise du vetement, et aucun volume n a ete ajoute ce cycle (l ajout
+#  a ete mesure puis retire, voir `knee-tabs`).
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
 OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
 #  CAUSE PRECEDEMMENT ECRITE ICI, ET ELLE EST FAUSSE : « les os LfootFlaps/RfootFlaps n existent pas
@@ -118,3 +137,43 @@ OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
 #  CE QU IL FAUT est un volume qui soit une COQUE (le tissu entoure le membre, il ne peut pas en
 #  « sortir ») : ni une sphere, ni une capsule. Troisieme mesure independante qui designe le mesh
 #  decime de l owner comme la seule voie restante.
+
+# =========================================================================================
+# 19e PASSE (2026-08-12) — CE QUI A ETE POSE, MESURE ET RETIRE, ET CE QU IL FAUT EN RETENIR
+# =========================================================================================
+# CORRECTION D UNE CAUSE RACINE ECRITE PLUS HAUT, ET ELLE ETAIT FAUSSE.
+# Il est ecrit dans le generateur que faire declarer a chaque joint de chaine sa propre sphere
+# a coute 43 % du mouvement de `backhair` PARCE QUE la sphere de couverture (624 u) faisait le
+# double du rayon de lien (358 u) — donc que la cause etait la TAILLE du volume.
+# J ai refait l essai en gardant la TAILLE AU BIT PRES (radius = le rayon de lien livre) et en
+# ne bougeant que le CENTRE (centroide mesure de la geometrie du joint). Course complete :
+#     backhair  0.3062 -> 0.1804  (-41 %)   rmidhair -43 %   lmidhair -42 %
+#     ROOM-STRETCH max 0.0272 -> 0.3508 = 35 % d allongement d os sur `rbang`
+# La taille n y est donc pour rien. LA CAUSE EST LE DECALAGE : `phys-link-off!` fait tourner le
+# decalage du volume par la matrice de l os ANIMEE, jamais par l orientation SIMULEE du lien.
+# Tant que le decalage vaut 0,0,0 l erreur est invisible ; a 500-700 u le volume est pose la ou
+# le lien n est pas, la poussee s applique au mauvais point avec un bras de levier de 700 u, et
+# l erreur croit avec l angle parcouru. Les trois chaines cassees sont les trois qui parcourent
+# le plus d angle (tiprot 80 a 122 deg) avec les plus grands decalages.
+#   => CORRECTIF A FAIRE EN PREMIER : le volume qu un lien porte doit suivre l orientation
+#      SIMULEE du lien. ~15 lignes. Il debloque `knee-tabs` ET la remise des bretelles.
+#
+# CE QUE L ESSAI RETIRE A PROUVE AU PASSAGE (a reprendre une fois le correctif ci-dessus pose) :
+#     kneeflapR retreat 15913 -> 5141   kneeflapL 4138 -> 2446   (l epinglage cede)
+#     topstrapL x1.78  botstrapR x1.51  botstrapL x1.42  topstrapR x1.28  (les bretelles vivent)
+#
+# LE MESH DECIME N EST PAS LA VOIE POUR `pant-calf`, ET C EST MESURE.
+# Le canal existe et ne demande AUCUNE modification C++ : `physics_mesh.txt` (`ms`, <= 5
+# echantillons par lien) est parse par kmachine.cpp et expose par `pc-physics-chain-msample-*`,
+# et `.autoport/physics_c14_meshsamples.py` produit ce format. Rejoue sur le rig et le mesh
+# actuels il rend 30 lignes `ms` / 100 echantillons sur 36 liens — et ZERO echantillon pour
+# `LpantFlap` et `RpantFlap` : le rayon de lien 429/443 avale deja tous leurs extremes. Cette
+# voie-la n aurait donc rien corrige sur le pan de pantacourt.
+# Cout s il etait active : 39 204 tests point-volume/frame aujourd hui -> 148 104 (x3,8) avec les
+# 100 echantillons mesures, 235 224 (x6,0) au pire cas declare. A mesurer sur le Redmi.
+#
+# FIDELITE DES VOLUMES, premier des quatre nombres que l owner a demandes (probe_union_cover) :
+# sur ses 7963 sommets en pose bind, 50.4 % sont HORS de l union des 33 volumes (p95 0.2176 m,
+# max 0.6064 m). Passer a 59 volumes ne recupere que 4,5 points (54.9 -> 50.4). La raison est
+# mesuree ailleurs : les capsules sont livrees au rayon inter-quartile (42 a 58 % des sommets
+# dehors), les spheres au p95 (0 a 8 %).

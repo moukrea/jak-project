@@ -153,8 +153,9 @@
 (defconstant PHYSROOM-PH-INVPC  8)
 (defconstant PHYSROOM-PH-SELFOFF 9)
 (defconstant PHYSROOM-PH-SELFON 10)
-(defconstant PHYSROOM-PH-REPORT 11)
-(defconstant PHYSROOM-PH-DONE   12)
+(defconstant PHYSROOM-PH-SIDEON 11)
+(defconstant PHYSROOM-PH-REPORT 12)
+(defconstant PHYSROOM-PH-DONE   13)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -997,6 +998,22 @@
      (when (>= (-> self pframe) PHYSROOM-PCW)
        (physroom-emit-diag "self-armed")
        (phys-self-inject-set! 0)
+       (phys-diag-reset!)
+       (phys-side-off-set! 1)
+       (set! (-> self phase) PHYSROOM-PH-SIDEON)
+       (set! (-> self pframe) 0)))
+
+    ;; ---- 9bis. CONTROLE POSITIF DE LA CONTRAINTE DE COTE. `side` est tombe de 11446 a 0 quand la
+    ;; ---- contrainte est arrivee ; un compteur qui s'effondre est soit une correction, soit un
+    ;; ---- predicat devenu inevaluable — le piege de `(= l 0)`, trouve le matin meme. ARME, la
+    ;; ---- contrainte est levee et RIEN d'autre ne change : le compteur DOIT remonter. La fenetre
+    ;; ---- DESARMEE est `self-disarmed` (meme pilotage, meme duree, contrainte en place).
+    ((= (-> self phase) PHYSROOM-PH-SIDEON)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (physroom-emit-diag "side-armed")
+       (phys-side-off-set! 0)
        (set! (-> self phase) PHYSROOM-PH-REPORT)
        (set! (-> self pframe) 0)))
 
