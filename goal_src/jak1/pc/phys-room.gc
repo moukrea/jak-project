@@ -175,8 +175,17 @@
 ;; sa sphere de poussee d'avant : l'ecart radial DOIT remonter.
 (defconstant PHYSROOM-PH-SHELLOFF 13)
 (defconstant PHYSROOM-PH-SHELLON  14)
-(defconstant PHYSROOM-PH-REPORT 15)
-(defconstant PHYSROOM-PH-DONE   16)
+;; CONTROLE POSITIF DU PREDICAT CONIQUE. Les 24 capsules livrees sont TOUTES coniques, et le moteur
+;; testait jusqu'ici le rayon interpole au parametre de PROJECTION au lieu du solide que la donnee
+;; designe — un ensemble strictement plus PETIT, donc un solveur qui cesse de pousser trop tot.
+;; ARMEE (`phys-cone-off-set! 1`), la penetration residuelle DOIT remonter : la mesure, elle, garde
+;; le solide exact des deux cotes (`phys-pen-chain` force l'exactitude), sinon le compteur
+;; tomberait sous le defaut au lieu de monter. Les deux branches balayent les MEMES animations —
+;; c'est la lecon du controle de cote qui rendait 0 contre 0 sur une fenetre trop etroite.
+(defconstant PHYSROOM-PH-CONEOFF  15)
+(defconstant PHYSROOM-PH-CONEON   16)
+(defconstant PHYSROOM-PH-REPORT 17)
+(defconstant PHYSROOM-PH-DONE   18)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -199,6 +208,8 @@
    (killed  int32)     ;; acteurs etrangers deactives
    (dis     float)     ;; controle positif : penetration max, defaut DESARME
    (arm     float)     ;; controle positif : penetration max, defaut ARME
+   (condis  float)     ;; predicat conique CORRIGE   : penetration max residuelle
+   (conarm  float)     ;; predicat conique D'AVANT   : la meme, elle doit MONTER
    (injn    int32)     ;; poussees reellement injectees
    (lvl     int32)     ;; niveau d'excitation courant de la courbe de reponse
    (vel     vector :inline)
@@ -1135,8 +1146,54 @@
        (format 0 "PHYSSHELL tag=shell-armed corrections=~f~%" (phys-shell-count))
        (physroom-emit-diag "shell-armed")
        (phys-shell-off-set! 0)
-       (set! (-> self phase) PHYSROOM-PH-REPORT)
+       (phys-diag-reset!)
+       (phys-stats-reset!)
+       (set! (-> self ai) 0)
+       (physroom-set-anim 0)
+       (set! (-> self phase) PHYSROOM-PH-CONEOFF)
        (set! (-> self pframe) 0)))
+
+    ;; ---- 9quater. CONTROLE POSITIF DU PREDICAT CONIQUE, DEUX BRANCHES A EXPOSITION EGALE.
+    ;; ---- DESARMEE = le predicat corrige (le solide que la donnee designe). ARMEE = le rayon
+    ;; ---- interpole sur le parametre de projection, c'est-a-dire l'ensemble plus PETIT d'avant :
+    ;; ---- le solveur y cesse de pousser plus tot, donc la penetration residuelle DOIT monter.
+    ((= (-> self phase) PHYSROOM-PH-CONEOFF)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (set! (-> self condis) (physroom-max-pen))
+          (format 0 "PHYSCONE tag=cone-disarmed maxpen=~f~%" (-> self condis))
+          (physroom-emit-diag "cone-disarmed")
+          (phys-diag-reset!)
+          (phys-stats-reset!)
+          (phys-cone-off-set! 1)
+          (set! (-> self ai) 0)
+          (physroom-set-anim 0)
+          (set! (-> self phase) PHYSROOM-PH-CONEON)))))
+
+    ((= (-> self phase) PHYSROOM-PH-CONEON)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (set! (-> self conarm) (physroom-max-pen))
+          (format 0 "PHYSCONE tag=cone-armed maxpen=~f~%" (-> self conarm))
+          (physroom-emit-diag "cone-armed")
+          (phys-cone-off-set! 0)
+          (phys-diag-reset!)
+          (phys-stats-reset!)
+          (set! (-> self phase) PHYSROOM-PH-REPORT)))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)

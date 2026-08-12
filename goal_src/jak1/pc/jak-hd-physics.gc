@@ -1159,30 +1159,83 @@
          (set-vector! out (/ dx d) (/ dy d) (/ dz d) d)
          #t)))))
 
+;; CONTROLE POSITIF DU PREDICAT CONIQUE : 1 = on REMET le rayon interpole sur le parametre de
+;; projection, c'est-a-dire le predicat faux d'avant. Ce qu'il rend au systeme est la difference
+;; exacte entre le solide que la ligne de donnees DESIGNE et l'ensemble que le moteur TESTAIT.
+(define *phys-cone-off* 0)
+
 (defun phys-collide-depth ((pt vector) (rlink float) (ca vector) (cb vector)
                            (ra float) (rb float) (capsule? symbol) (nrm vector))
+  "DISTANCE AU SOLIDE QUE LA LIGNE DE DONNEES DESIGNE — l'enveloppe convexe des deux spheres.
+
+   CE QUI ETAIT FAUX, ET C'EST MESURE (rapport du cycle 22, section 9, probe
+   `.autoport/probe_mesh_vs_capsule_fidelity.py` : `sd_round_cone` contre `sd_engine`) : le code
+   projetait le point sur le segment, bornait le parametre, PUIS interpolait le rayon a ce
+   parametre-la. C'est evaluer f(t) = |p - C(t)| - r(t) au parametre de PROJECTION au lieu de la
+   MINIMISER sur [0,1]. Pour une capsule a rayons egaux les deux coincident ; les 24 capsules
+   livrees sont TOUTES coniques (`physics_chains.txt` lignes 171-240), donc l'ecart existait sur
+   chacune : 186 sommets sur 7963 changeaient de cote, ecart max 0.0974 m — neuf centimetres sur
+   des pieces ou l'owner voit des clips, et plus que le rayon propre des lunettes (48 mm).
+
+   LE PARAMETRE EXACT. Avec x la coordonnee axiale de p, y sa distance a l'axe, L la longueur de
+   l'axe et dr = rb - ra, f est CONVEXE en t (racine d'un quadratique moins une affine), donc son
+   minimum sur [0,1] est son minimum libre borne. f'(t) = 0 donne
+       t* = ( x + dr*y / sqrt(L^2 - dr^2) ) / L
+   et dr = 0 le ramene a x/L, c'est-a-dire exactement l'ancien code : la correction ne touche que
+   les capsules coniques. Quand L^2 <= dr^2 une sphere contient l'autre et le solide EST la plus
+   grosse — le cas ou l'ancien predicat se trompait le plus, puisqu'il faisait descendre le rayon
+   jusqu'au petit bout d'un cone qui n'existe pas.
+
+   LA NORMALE EST CORRIGEE PAR LA MEME OPERATION, et ce n'est pas un bonus : au parametre optimal,
+   la direction de C(t*) vers p EST le gradient de la distance signee, donc la vraie normale
+   sortante du tronc de cone. A un parametre quelconque elle ne l'est pas.
+
+   CE QUE CETTE CORRECTION NE FAIT PAS : deplacer la ligne de base. La franchise accordee a chaque
+   paire (`floors`/`floorc`, lignes 1855-1858, 1943-1946, 2052) est calculee par CETTE fonction sur
+   la pose du modele : elle se corrige donc du meme coup. Ce qui change est la FORME de la surface,
+   pas de combien on a le droit d'y entrer."
   (let ((cx 0.0) (cy 0.0) (cz 0.0) (rr ra))
     (cond
       ((not capsule?)
        (set! cx (-> ca x)) (set! cy (-> ca y)) (set! cz (-> ca z)))
       (else
-       ;; projection sur le segment, parametre borne a [0,1]
        (let* ((ax (- (-> cb x) (-> ca x)))
               (ay (- (-> cb y) (-> ca y)))
               (az (- (-> cb z) (-> ca z)))
               (dd (+ (* ax ax) (* ay ay) (* az az)))
-              (t0 (if (< dd 0.000001)
-                    0.0
-                    (/ (+ (* (- (-> pt x) (-> ca x)) ax)
-                          (* (- (-> pt y) (-> ca y)) ay)
-                          (* (- (-> pt z) (-> ca z)) az))
-                       dd))))
-         (when (< t0 0.0) (set! t0 0.0))
-         (when (> t0 1.0) (set! t0 1.0))
-         (set! cx (+ (-> ca x) (* ax t0)))
-         (set! cy (+ (-> ca y) (* ay t0)))
-         (set! cz (+ (-> ca z) (* az t0)))
-         (set! rr (+ ra (* (- rb ra) t0))))))
+              (dr (- rb ra))
+              (a2 (- dd (* dr dr))))
+         (cond
+           ((< dd 0.000001)
+            ;; segment degenere : les deux spheres sont concentriques, la plus grosse les contient
+            (set! cx (-> ca x)) (set! cy (-> ca y)) (set! cz (-> ca z))
+            (set! rr (if (> rb ra) rb ra)))
+           ((and (<= a2 0.000001) (zero? *phys-cone-off*))
+            ;; UNE SPHERE CONTIENT L'AUTRE : aucun tronc de cone n'existe, le solide est la grosse
+            (cond
+              ((>= ra rb) (set! cx (-> ca x)) (set! cy (-> ca y)) (set! cz (-> ca z)) (set! rr ra))
+              (else       (set! cx (-> cb x)) (set! cy (-> cb y)) (set! cz (-> cb z)) (set! rr rb))))
+           (else
+            (let* ((px (- (-> pt x) (-> ca x)))
+                   (py (- (-> pt y) (-> ca y)))
+                   (pz (- (-> pt z) (-> ca z)))
+                   (dot (+ (* px ax) (* py ay) (* pz az)))
+                   (t0  (/ dot dd)))
+              ;; part radiale prise sur le VECTEUR perpendiculaire, pas par |p|^2 - x^2 : la
+              ;; soustraction de deux grands nombres presque egaux perd ses chiffres quand le
+              ;; point est pres de l'axe, c'est-a-dire exactement le cas qui decide.
+              (when (and (> a2 0.000001) (zero? *phys-cone-off*) (!= dr 0.0))
+                (let* ((qx (- px (* ax t0)))
+                       (qy (- py (* ay t0)))
+                       (qz (- pz (* az t0)))
+                       (yy (sqrtf (+ (* qx qx) (+ (* qy qy) (* qz qz))))))
+                  (set! t0 (+ t0 (/ (* dr yy) (* (sqrtf dd) (sqrtf a2)))))))
+              (when (< t0 0.0) (set! t0 0.0))
+              (when (> t0 1.0) (set! t0 1.0))
+              (set! cx (+ (-> ca x) (* ax t0)))
+              (set! cy (+ (-> ca y) (* ay t0)))
+              (set! cz (+ (-> ca z) (* az t0)))
+              (set! rr (+ ra (* dr t0)))))))))
     (let* ((dx (- (-> pt x) cx))
            (dy (- (-> pt y) cy))
            (dz (- (-> pt z) cz))
@@ -2241,8 +2294,16 @@
     worst))
 
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
+  "L'INSTRUMENT MESURE TOUJOURS CONTRE LE SOLIDE QUE LA DONNEE DESIGNE, quel que soit le predicat
+   que le SOLVEUR utilise. Sans ca le controle de `*phys-cone-off*` serait casse dans le sens que
+   les DIRECTIVES sanctionnent : arme, le solveur cesserait de pousser ET la mesure cesserait de
+   regarder, donc le compteur TOMBERAIT sous le defaut au lieu de MONTER. Ici il monte, parce que
+   le solveur laisse le lien dans un solide que la mesure, elle, continue de voir en entier.
+   `prio` = 0 n'a que CE seul appelant (le solveur passe 1) : la restauration est donc totale."
   (let ((worst PHYS-NOCONTACT)
+        (coneprev *phys-cone-off*)
         (pt (new 'stack-no-clear 'vector)))
+    (set! *phys-cone-off* 0)
     ;; SEULE passe de la frame ou l'enfouissement est compte par chaine (voir *phys-buried-tally*).
     (set! *phys-buried-tally* 1)
     (dotimes (l n)
@@ -2255,6 +2316,7 @@
           (let ((r (phys-link-pen skel sc n nbone nco l pt 0)))
             (when (> r worst) (set! worst r))))))
     (set! *phys-buried-tally* 0)
+    (set! *phys-cone-off* coneprev)
     ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,
     ;; et c'est l'appelant qui compte les deux separement. Confondre les deux, c'est annoncer un
     ;; zero mesure la ou rien n'a ete mesure.
@@ -3929,6 +3991,14 @@
   "1 = tous les volumes poussent, comme avant la DECISION 1. `retreat` et les inversions
    residuelles doivent alors REMONTER."
   (set! *phys-prio-off* v)
+  (none))
+
+(defun phys-cone-off-set! ((v int))
+  "1 = le rayon redevient interpole sur le parametre de PROJECTION, c'est-a-dire le predicat faux
+   d'avant. La penetration residuelle mesuree contre les 24 capsules — toutes coniques — doit alors
+   REMONTER : desarme, le moteur teste le solide que la donnee designe ; arme, il teste un ensemble
+   plus PETIT, donc il laisse entrer ce qu'il devrait refuser."
+  (set! *phys-cone-off* v)
   (none))
 
 (defun phys-prio ((which int))

@@ -407,6 +407,20 @@ def main():
     lim2 = re.search(r'^PHYSLIM2 retreat_fallback=([-\d.e+]+)', txt, re.M)
     retfb_n = int(float(lim2.group(1))) if lim2 else -1
 
+    # CONTROLE POSITIF DU PREDICAT CONIQUE.
+    # NATURE : une PROFONDEUR de penetration residuelle, en metres, prise en fin de fenetre.
+    # REPERE : monde, et surtout — le solide contre lequel elle est mesuree est le MEME des deux
+    #          cotes (l'enveloppe convexe des deux spheres, `phys-pen-chain` force l'exactitude).
+    #          C'est ce qui rend le controle capable de MONTER : si la mesure suivait le predicat
+    #          du solveur, armee elle regarderait le meme ensemble retreci et tomberait a zero.
+    # LECTURE QUAND LE DEFAUT EST ABSENT : desarme, la valeur de la course ; armee, elle MONTE,
+    #          parce que le solveur cesse de pousser des que le lien sort d'un ensemble plus petit
+    #          que le solide reel, et l'y laisse.
+    conoff = re.search(r'^PHYSCONE tag=cone-disarmed maxpen=([-\d.e+]+)', txt, re.M)
+    conon  = re.search(r'^PHYSCONE tag=cone-armed maxpen=([-\d.e+]+)', txt, re.M)
+    cone_dis = float(conoff.group(1)) if conoff else None
+    cone_arm = float(conon.group(1)) if conon else None
+
     # LES VOLUMES QUE LE MOTEUR A RESOLUS. meshpen mesure l'entree dans un collider DECLARE, pas la
     # traversee du corps : sans la liste des volumes, un zero ne dit pas contre QUOI il est zero.
     cols = []
@@ -1179,6 +1193,21 @@ def main():
         sd = sum((dr_shoff.get(c, {}).get('shellrad') or 0.0) for c in chains)
         sa = sum((dr_shon.get(c, {}).get('shellrad') or 0.0) for c in chains)
         A('ROOM-SHELL-CONTROL: armed=%.4f disarmed=%.4f' % (sa, sd))
+    if cone_dis is not None and cone_arm is not None:
+        A('')
+        A('-- LE PREDICAT CONIQUE : LE SOLIDE TESTE EST ENFIN CELUI QUE LA DONNEE DESIGNE ----------')
+        A('   Les 24 capsules livrees sont TOUTES coniques (radius != radius2). Le moteur testait le')
+        A('   rayon interpole au parametre de PROJECTION, c\'est-a-dire f(t) evaluee au mauvais t au')
+        A('   lieu d\'etre MINIMISEE sur [0,1] : un ensemble strictement plus PETIT que l\'enveloppe')
+        A('   convexe des deux spheres. Le solveur cessait donc de pousser avant la vraie surface.')
+        A('   NATURE : une profondeur (m). REPERE : monde, MEME solide exact des deux cotes.')
+        A('   LECTURE HORS DEFAUT : desarme = la course ; arme, elle doit MONTER.')
+        A('ROOM-CONE: disarmed=%.4f armed=%.4f' % (cone_dis, cone_arm))
+        if cone_arm <= cone_dis * 3.0:
+            A('   ATTENTION : le controle du predicat conique n\'a PAS fait monter la penetration')
+            A('   (arme %.4f contre desarme %.4f, il faut arme >= 3x desarme). Ce qui est mesure ne'
+              % (cone_arm, cone_dis))
+            A('   soutient donc PAS que la correction change le comportement du solveur -- SPEC 7.')
         if sa <= sd * 3.0:
             A('   ATTENTION : le controle du fourreau n\'a PAS fait monter l\'ecart radial')
             A('   (arme %.4f contre desarme %.4f, il faut arme >= 3x desarme). Le zero de la'
