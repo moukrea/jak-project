@@ -154,6 +154,34 @@
 (define *phys-shell* (new 'global 'array 'float PHYS-SC))    ;; rayon interne, 0 = pas un fourreau
 (define *phys-shell-n* 0)     ;; corrections de concentricite appliquees, sur la fenetre
 (define *phys-shell-off* 0)   ;; CONTROLE POSITIF : 1 = fourreau traite comme avant (poussee)
+;; ------------------------------------------------------------------------------------------------
+;; LA LONGUEUR DE L'AXE DU MEMBRE QU'UN FOURREAU ENTOURE. 0 = pas encore vue.
+;;
+;; POURQUOI ELLE EXISTE, ET C'EST LA PHRASE CI-DESSUS QUI ETAIT FAUSSE. Le commentaire de
+;; `*phys-shell*` affirme : « tourner autour du membre et glisser le long restent ENTIEREMENT
+;; libres — la contrainte ne borne que l'excursion RADIALE ». C'est vrai de la contrainte de
+;; concentricite, et FAUX du systeme : le pan de pantacourt a un os DEGENERE dans le modele (son
+;; joint est confondu avec son attache), donc `phys-length-chain` lui applique a la place un mur de
+;; POSITION `|p - T| <= radius`. Ce mur borne les trois directions, y compris les deux que la
+;; concentricite declare libres. Regle 0 : un commentaire n'est pas une preuve, et celui-la etait
+;; dementi par `raddrop` = 5120 impacts par course sur `pantflapL`.
+;;
+;; ET LE NOMBRE UTILISE ETAIT LE MAUVAIS. `radius` vaut 429 (gauche) / 443 (droite) : c'est le rayon
+;; du FOURREAU, la distance du tissu a l'axe de la jambe — la seule grandeur que la concentricite
+;; borne deja. Servir de plafond d'excursion en plus, c'est le meme symbole pour deux grandeurs sans
+;; rapport, exactement la faute que le generateur corrige ailleurs sous le nom
+;; ONE-JOINT-ONE-THICKNESS (`Lbangb` 558 -> 104).
+;;
+;; CE QUI LE REMPLACE, DERIVE ET NON INVENTE : les deux mouvements qu'un fourreau peut faire sont
+;; GLISSER le long du membre et TOURNER autour. Le budget geometrique du glissement est la longueur
+;; du segment de membre qu'il entoure — `|cb - ca|` du volume que `phys-shell-pair?` a deja
+;; apparie —, pas la demi-epaisseur du tissu. Aucune constante n'entre : la valeur est relue sur le
+;; squelette anime, et une chaine qui n'est pas un fourreau garde son mur d'avant AU BIT PRES.
+;;
+;; DETERMINISME : plusieurs paires (lien, volume) peuvent etre des fourreaux dans la meme frame ;
+;; l'ordre des volumes est fixe, donc la derniere ecriture est reproductible. Sur le rig de Keira le
+;; generateur n'en retient qu'une par chaine.
+(define *phys-shellax* (new 'global 'array 'float PHYS-SC))
 (define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
 ;; ------------------------------------------------------------------------------------------------
 ;; LA LONGUEUR D'OS DE CHAQUE MAILLON, ET LA MOYENNE SUR LES MAILLONS LIBRES DE SA CHAINE.
@@ -1246,7 +1274,13 @@
                ;; point et le lien serait EPINGLE. C'est exactement ce qui avait tue LpantFlap.
                ;; Ce lien-la garde le seul plafond que la geometrie lui donne : SA PROPRE TAILLE,
                ;; le rayon que le mesh lui mesure. Compte et publie comme le limiteur qu'il est.
-               (let* ((rmax (-> *phys-rad* scl))
+               ;; UN FOURREAU N'EST PAS BORNE PAR SA PROPRE EPAISSEUR. Voir `*phys-shellax*` : la
+               ;; concentricite tient deja la seule direction qui enfonce le tissu dans la chair,
+               ;; et le budget des deux autres (glisser, tourner) est la longueur du membre
+               ;; entoure. Une chaine qui n'est pas un fourreau, ou dont le volume n'a pas encore
+               ;; ete apparie, garde le mur d'avant AU BIT PRES.
+               (let* ((shax (if (> (-> *phys-shell* sc) 0.0) (-> *phys-shellax* sc) 0.0))
+                      (rmax (if (> shax 0.01) shax (-> *phys-rad* scl)))
                       (tx (-> skel bones (+ kk 1) transform vector 3 x))
                       (ty (-> skel bones (+ kk 1) transform vector 3 y))
                       (tz (-> skel bones (+ kk 1) transform vector 3 z))
@@ -1345,8 +1379,17 @@
                ;;   soit 39.2 degres) et la butee reste plausible.
                ;; Ce qui borne le repliement d'un maillon libre profond est donc le test de COTE
                ;; ci-dessus (une demi-sphere autour de la direction du modele), pas ce rayon.
+               ;; SAUF POUR UN FOURREAU, ET C'EST LE MEME ARGUMENT QUE CI-DESSUS (`*phys-shellax*`) :
+               ;; `rmax` y vaut le rayon du TUBE (429 / 443 u), c'est-a-dire la seule direction que
+               ;; la concentricite borne DEJA. Le servir en plus comme budget d'excursion borne les
+               ;; deux directions que le fourreau a le droit de parcourir — glisser le long du membre
+               ;; et tourner autour —, celles-la memes que le commentaire de `*phys-shell*` declare
+               ;; « entierement libres ». Le budget du glissement est la longueur du segment de membre
+               ;; entoure, relue sur le squelette anime. Une chaine qui n'est pas un fourreau garde
+               ;; ce mur AU BIT PRES.
                (when (= l 0)
-                 (let* ((rmax (-> *phys-rad* scl))
+                 (let* ((shax (if (> (-> *phys-shell* sc) 0.0) (-> *phys-shellax* sc) 0.0))
+                        (rmax (if (> shax 0.01) shax (-> *phys-rad* scl)))
                         (tx (-> skel bones (+ kk 1) transform vector 3 x))
                         (ty (-> skel bones (+ kk 1) transform vector 3 y))
                         (tz (-> skel bones (+ kk 1) transform vector 3 z))
@@ -1847,6 +1890,10 @@
                         ;; retombe dans la branche `else`, le pan est de nouveau ejecte, et l'ecart
                         ;; radial mesure plus bas DOIT remonter.
                         ((and sleeve (zero? *phys-shell-off*))
+                         ;; le budget de GLISSEMENT du fourreau, releve sur le volume qu'il entoure
+                         ;; (voir `*phys-shellax*`). Ecrit ici parce que c'est le seul endroit ou
+                         ;; l'appariement fourreau<->volume est etabli.
+                         (set! (-> *phys-shellax* sc) (vector-vector-distance ca cb))
                          (let ((rad (phys-shell-res rest pt ca cb nrm)))
                            (when (> rad 0.0)
                              (set! *phys-shell-n* (+ *phys-shell-n* 1))
