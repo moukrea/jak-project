@@ -72,6 +72,9 @@ OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerem
 #  Le CLIPPING contre l ELASTIQUE ORANGE du bas du crop top n est PAS traite : c est un volume
 #  manquant sur une piece precise du vetement, et aucun volume n a ete ajoute ce cycle (l ajout
 #  a ete mesure puis retire, voir `knee-tabs`).
+OPEN hair-gradient   PRIORITE 1: le gradient est INVERSE -- le milieu bouge 1.7x a 2.7x la pointe
+#                    (lbang 50.77 contre 29.76, rbang 73.39 contre 26.87). Les pointes sont ancrees
+#                    comme les racines. Mesure relative au parent, confirmee par l oeil de l owner.
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
 OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
 #  CAUSE PRECEDEMMENT ECRITE ICI, ET ELLE EST FAUSSE : « les os LfootFlaps/RfootFlaps n existent pas

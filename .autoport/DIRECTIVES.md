@@ -717,3 +717,34 @@ franchissement, et seulement sur son retour, pas sur un chiffre.
 **4. Inchangés et attendus** : lanières de genoux (l'os n'existe pas dans le rig HD — reprise
 d'asset), déformations extrêmes des grosses mèches (l'atténuation n'a jamais été appliquée),
 ballons d'eau sur mouvements brusques (le bornage de la chair n'est pas fait).
+
+## PRIORITÉ ABSOLUE — LE GRADIENT EST INVERSÉ, ET MON INSTRUMENT LE CONFIRME (2026-08-12 14:10)
+
+> « On dirait que les mèches ne suivent pas l'inclinaison, on dirait qu'elles sont ancrées (les
+> pointes) au même titre que les racines, et que c'est ce qu'il y a entre les pointes et les racines
+> qui bouge vraiment… Franchement ça commence à faire longtemps qu'on est sur Keira et que tu
+> progresses pas vraiment. »
+
+**Il a raison sur les deux points, et le second est mérité.** Sur le premier, `ROOM-GRADIENT`
+mesuré relativement au parent dit maintenant exactement ce qu'il voit :
+
+    lbang     link0=0.0000  link1=50.77  link2=29.76      <- le MILIEU bouge 1.7x la POINTE
+    rbang     link0=0.0000  link1=73.39  link2=26.87      <- 2.7x
+    backhair  link0=0.0000  link1=75.29
+    lmidhair  link0=0.0000  link1=49.36
+
+La SPEC §2 exige une suite **croissante** de la racine vers la pointe. Elle est **décroissante**.
+Hier je publiais 0.0000 / 0.2240 / 0.3846 — croissant — parce que la mesure était en repère MONDE :
+la pointe héritait du mouvement de son parent et paraissait la plus mobile. En repère parent, la
+vérité apparaît : **la pointe ne bouge presque pas d'elle-même**.
+
+**C'EST LE DÉFAUT QUI EXPLIQUE LE PLUS DE CE QU'IL VOIT** — mèches qui « pètent un plomb » au
+milieu, pointes qui ne suivent pas l'inclinaison, silhouette qui casse la géométrie. Il passe
+devant tout le reste, y compris les collisions.
+
+**Piste à vérifier EN PREMIER, elle est mécanique** : le dernier maillon d'une chaîne est-il
+intégré ET écrit comme les autres ? Le moteur a déjà eu ce défaut exact sur la ROTATION (« il ne
+tournait un maillon que s'il avait un enfant simulé à viser, donc jamais le dernier »). La même
+condition `(< (+ l 1) n)` peut exister sur d'autres traitements — force, contrainte, écriture.
+**Chercher toute condition qui exclut le dernier maillon**, et mesurer après correction que la
+suite `link0 < link1 < link2` est bien croissante sur les cinq chaînes de cheveux.
