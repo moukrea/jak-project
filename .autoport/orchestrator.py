@@ -1924,7 +1924,14 @@ def main(argv: list[str] | None = None) -> int:
                 border_style="red",
                 title="HONEST STOP",
             ))
-            state.setdefault("stuck_reasons", {})[pid] = reason
+            # stuck_reasons a ete ecrit en LISTE par une version anterieure et le code l'utilise
+            # en DICT : la ligne suivante levait TypeError et tuait l'orchestrateur au moment
+            # precis ou une phase se bloquait -- donc exactement quand on en avait besoin.
+            # (2026-08-12 : plantage constate, meme classe que phase_started_at en aout.)
+            _sr = state.get("stuck_reasons")
+            if not isinstance(_sr, dict):
+                state["stuck_reasons"] = {k: "" for k in (_sr or [])}
+            state["stuck_reasons"][pid] = reason
             state["blocked"].append(pid)
             save_state(state)
             short_lines = "\n".join(key_lines[-5:]) if key_lines else "(no error lines extracted)"
