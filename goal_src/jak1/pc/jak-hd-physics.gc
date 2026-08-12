@@ -1457,65 +1457,58 @@
                      (set! (-> *phys-px* scl) (+ bx (* dx s)))
                      (set! (-> *phys-py* scl) (+ by (* dy s)))
                      (set! (-> *phys-pz* scl) (+ bz (* dz s))))))
-               ;; ET L'EXCURSION D'UN LIEN SEUL RESTE BORNEE PAR SA PROPRE TAILLE. C'est le meme
-               ;; limiteur qu'avant (le rayon que le mesh mesure pour ce lien), la TRANSLATION en
-               ;; moins : on raccourcit la corde jusqu'a ce rayon puis on revient sur la sphere,
-               ;; donc la longueur reste invariante et le lien ne fait que tourner moins loin.
-               ;; Sans lui, `anklestrapL` — dont l'ancre est a 47 cm — part a 1,49 m de pointe et
-               ;; 0,77 m de racine sous les a-coups de la salle (mesure du 2026-08-11).
+               ;; LE MUR D'EXCURSION EST RETIRE ICI, ET IL RESTE DANS L'AUTRE BRANCHE.
                ;;
-               ;; IL NE PORTE QUE SUR LE MAILLON 0, DONC QUE SUR LES CHAINES SANS `rootlock`, ET
-               ;; C'EST DELIBERE — le tableau de la salle a longtemps affirme le contraire (« il
-               ;; porte desormais sur tout maillon libre ») pendant que le code lisait `l = 0` : la
-               ;; colonne `raddrop` de la course le demontrait deja, 15 000 a 25 000 declenchements
-               ;; sur chacune des onze chaines a un os et EXACTEMENT ZERO sur chacune des onze
-               ;; chaines rootlockees. Le texte est corrige avec ce commit ; le code ne l'est pas,
-               ;; et voici le chiffre qui l'interdit :
-               ;;   `rmax` est la DEMI-EPAISSEUR du morceau de geometrie, pas un budget de course.
-               ;;   Etendu au maillon libre d'une bretelle, il vaudrait 157 u sur un os de 1366 u,
-               ;;   soit une butee a 2*asin(157/2732) = 6.6 degres : la bretelle serait morte.
-               ;;   Sur un os seul, `rmax` et l'os sont du meme ordre (lBoob 656 contre 977 u,
-               ;;   soit 39.2 degres) et la butee reste plausible.
-               ;; Ce qui borne le repliement d'un maillon libre profond est donc le test de COTE
-               ;; ci-dessus (une demi-sphere autour de la direction du modele), pas ce rayon.
-               ;; SAUF POUR UN FOURREAU, ET C'EST LE MEME ARGUMENT QUE CI-DESSUS (`*phys-shellax*`) :
-               ;; `rmax` y vaut le rayon du TUBE (429 / 443 u), c'est-a-dire la seule direction que
-               ;; la concentricite borne DEJA. Le servir en plus comme budget d'excursion borne les
-               ;; deux directions que le fourreau a le droit de parcourir — glisser le long du membre
-               ;; et tourner autour —, celles-la memes que le commentaire de `*phys-shell*` declare
-               ;; « entierement libres ». Le budget du glissement est la longueur du segment de membre
-               ;; entoure, relue sur le squelette anime. Une chaine qui n'est pas un fourreau garde
-               ;; ce mur AU BIT PRES.
-               (when (= l 0)
-                 (let* ((shax (if (> (-> *phys-shell* sc) 0.0) (-> *phys-shellax* sc) 0.0))
-                        (rmax (if (> shax 0.01) shax (-> *phys-rad* scl)))
-                        (tx (-> skel bones (+ kk 1) transform vector 3 x))
-                        (ty (-> skel bones (+ kk 1) transform vector 3 y))
-                        (tz (-> skel bones (+ kk 1) transform vector 3 z))
-                        (ex (- (-> *phys-px* scl) tx))
-                        (ey (- (-> *phys-py* scl) ty))
-                        (ez (- (-> *phys-pz* scl) tz))
-                        (e  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
-                        ;; PLAFOND DUR, ET IL DOIT LE RESTER (idempotence, cf. `phys-softmin`).
-                        (e2 rmax))
-                   (when (and (> e rmax) (> e 0.0001))
-                     (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
-                     (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e e2)))
-                     ;; meme prix, meme slot, deuxieme site du mur (voir la note du premier).
-                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 15))
-                           (+ (- e e2) (-> *phys-dg* (+ (* sc PHYS-DG) 15))))
-                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 6))
-                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 6))))
-                     (let* ((f  (/ e2 e))
-                            (qx (- (+ tx (* ex f)) bx))
-                            (qy (- (+ ty (* ey f)) by))
-                            (qz (- (+ tz (* ez f)) bz))
-                            (ql (sqrtf (+ (* qx qx) (+ (* qy qy) (* qz qz))))))
-                       (when (> ql 0.0001)
-                         (let ((s2 (/ want ql)))
-                           (set! (-> *phys-px* scl) (+ bx (* qx s2)))
-                           (set! (-> *phys-py* scl) (+ by (* qy s2)))
-                           (set! (-> *phys-pz* scl) (+ bz (* qz s2))))))))))))))))
+               ;; CE QU'IL FAISAIT, MESURE. Il bornait |p - pose animee du lien| par `rmax`, le
+               ;; rayon que le mesh mesure pour ce lien. Mais dans CETTE branche la contrainte de
+               ;; longueur vient de forcer |p - attache| = `want` exactement : le lien est deja sur
+               ;; une sphere. Un plafond de corde sur une sphere N'EST PAS un budget de course,
+               ;; c'est une BUTEE ANGULAIRE, de valeur 2*asin(rmax / (2*want)) — et cette valeur est
+               ;; le rapport entre la DEMI-EPAISSEUR d'un morceau de geometrie et la LONGUEUR de son
+               ;; os, cote a cote par accident de proportions :
+               ;;     anklestrapL/R   225 / 2160 u  ->   5.96 deg      kneeflapL/R  244 / 328 u -> 43.7
+               ;;     toestrapL/R     188 /  700 u  ->  15.39 deg      chestL/R     656 / 977 u -> 39.2
+               ;; Trois instruments independants lisaient cette butee et pas de la physique :
+               ;; `tiprot` (l'angle REELLEMENT ecrit dans la 3x3) vaut son plafond a 0.03 deg pres
+               ;; sur les huit chaines, `shape` en est l'image exacte (`shape` = 2*sin(tiprot/2),
+               ;; verifie sur les 22 chaines) et `rootdev` vaut `rmax` a moins de 0.6 mm.
+               ;; PRIX, impute par chaine (`*phys-dg*` 15) sur la course complete : 293.66 m
+               ;; d'excursion retires, dont 167.9 m sur `kneeflapL` seule, en 4531 morsures de 9 mm
+               ;; chacune pour un plafond de 59.6 mm — un cinquieme de la course autorisee, des
+               ;; milliers de fois. Ce n'est pas un garde-fou, c'est le regime.
+               ;;
+               ;; POURQUOI IL DOIT PARTIR, ET CE N'EST PAS UN ARBITRAGE DE CONFORT. C'est un
+               ;; LIMITEUR D'ANGLE non declare, applique a des chaines qui ne sont pas des cheveux.
+               ;; L'owner a ferme ce perimetre lui-meme le 2026-08-11 a 22:35 : « l'attenuation pour
+               ;; eviter la geometrie extreme c'est juste sur les meches, pas le reste, ENCORE MOINS
+               ;; LES SEINS ». Le limiteur d'angle du moteur, c'est `phys-cap-ang!`, et il ne tire
+               ;; que sur `maxangle > 0`, c'est-a-dire les cheveux. Celui-ci tirait sur la poitrine,
+               ;; les languettes de genou et les sangles, sans etre declare nulle part.
+               ;; Il explique mot pour mot un defaut OUVERT : « les LANGUETTES au niveau des genoux
+               ;; ne bougent pas » — et le cycle precedent avait monte leur couplage (1.00 -> 1.60)
+               ;; et leur masse (0.60 -> 0.85) sans le moindre effet, ce qui est MECANIQUEMENT
+               ;; NORMAL : aucun reglage de ressort ne deplace un lien plaque contre une butee dure.
+               ;; La signature visuelle d'un limiteur sature est l'immobilite, pas une amplitude
+               ;; reduite. (Et la note des DIRECTIVES qui rangeait `knee-tabs` en « reprise d'asset,
+               ;; l'os n'existe pas dans le rig HD » est INFIRMEE : `lKneeFlap` k=88 et `rKneeFlap`
+               ;; k=92 existent, portent 24 sommets skinnes chacun (wsum 17.58) et sont chaines.)
+               ;;
+               ;; CE QUI BORNE LE LIEN MAINTENANT, ET C'EST DEJA ECRIT AU-DESSUS :
+               ;;   1. la contrainte de longueur, DURE — |p - attache| = `want`, donc il tourne sans
+               ;;      s'allonger et ne peut pas partir a l'infini ;
+               ;;   2. le test de COTE — il ne se replie pas au-dela de son propre point d'attache ;
+               ;;   3. la collision et le recul, qui gardent le dernier mot sur « rien ne traverse ».
+               ;; Le defaut que le mur avait ete pose pour eteindre (`anklestrapL` a 1.49 m de pointe,
+               ;; mesure le 2026-08-11) est anterieur a la contrainte de longueur dure : c'etait une
+               ;; excursion NON BORNEE, elle ne l'est plus. Le mur repondait a un defaut qui n'existe
+               ;; plus, sur un plafond qu'aucune mesure ne justifie.
+               ;;
+               ;; IL RESTE INTACT DANS LA BRANCHE `(< want 0.01)` : la, l'os n'existe pas, la sphere
+               ;; est un point, la contrainte de longueur EPINGLERAIT le lien, et le rayon du mesh
+               ;; est le seul plafond que la geometrie donne. C'est le cas qui avait tue `LpantFlap`.
+               ;; Cette branche-la garde donc le mur AU BIT PRES, et `pantflapL/R` ne sont pas
+               ;; touchees par ce commit (leur compteur de morsures vaut deja 0).
+               )))))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -2219,12 +2212,32 @@
                      ;; qui est exactement le contraire de ce qu'il faut. Voir `phys-shell-res`.
                      (sleeve (phys-shell-pair? rest (-> *phys-shell* sc) ra rb cap?))
                      (sleevec (and sleeve (zero? *phys-shell-off*)))
-                     (floors (if sleevec 0.0
-                               (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
-                                                   (-> *phys-cr2* sco) cap? nrm)))
-                     (floorc (if sleevec 0.0
-                               (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
-                                                   (-> *phys-cr2* sco) cap? nrm)))
+                     ;; `floor0` EST LE PREDICAT D'ACTIVATION DU COMPTEUR DE FRANCHISSEMENT, ET LE
+                     ;; FOURREAU LE METTAIT A ZERO — donc le compteur ne pouvait PAS etre non nul sur
+                     ;; les deux seules chaines dont il decrit le defaut.
+                     ;;
+                     ;; Le `(if sleevec 0.0 ...)` portait sur les QUATRE grandeurs a la fois. Sur une
+                     ;; paire fourreau, `floors` et `floorc` valaient donc 0, donc `floor0` = 0, donc
+                     ;; la garde `(> floor0 0.0)` du test de cote (ligne ~2270) etait STRUCTURELLEMENT
+                     ;; fausse. `ROOM-SIDE: chains=0/22 crossing=0` n'etait pas une correction : le
+                     ;; commentaire trente lignes plus bas garde la trace de ce que ce meme compteur
+                     ;; lisait avant que le fourreau existe — `pantflapR 1901 / pantflapL 1792`,
+                     ;; attribues mot pour mot a « le bas du pantacourt est a l'interieur des
+                     ;; mollets ». Le chiffre n'est pas tombe a zero, il a cesse d'etre evaluable.
+                     ;; C'est le piege que la gate SIDE-CONTROL vise, et son controle ne l'a pas vu
+                     ;; parce qu'il tire sur les AUTRES chaines (goggles 554, kneeflapL 426...) :
+                     ;; `pantflapL/R` n'apparaissent dans AUCUNE ligne `ROOM-SIDE-CONTROL`.
+                     ;;
+                     ;; CE BLOC NE CHANGE QUE LA MESURE. `feff` et `dep` gardent leur garde
+                     ;; `sleevec`, donc `res` reste l'ecart radial pour un fourreau, au bit pres ; et
+                     ;; la contribution a `worst` — la seule valeur que cette fonction RENDE au
+                     ;; solveur — est explicitement refusee aux paires fourreau plus bas. La
+                     ;; contrainte appliquee est donc inchangee : ce commit publie un nombre, il ne
+                     ;; corrige pas encore le defaut.
+                     (floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                                                 (-> *phys-cr2* sco) cap? nrm))
+                     (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                 (-> *phys-cr2* sco) cap? nrm))
                      (floor0 (if (> floorc floors) floorc floors))
                      (feff   (if sleevec 0.0 (phys-vol-floor floor0 rl)))
                      (dep    (if sleevec 0.0
@@ -2268,7 +2281,14 @@
                   (when (nonzero? *phys-buried-tally*)
                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))
-                  (when (zero? *phys-side-off*)
+                  ;; LA PAIRE FOURREAU COMPTE, MAIS NE DECIDE PAS ENCORE. `worst` est la seule
+                  ;; valeur que cette fonction rende au solveur : l'en exclure garde la contrainte
+                  ;; appliquee identique au bit pres a celle d'avant ce commit, pendant que le
+                  ;; compteur ci-dessus redevient evaluable. On mesure d'abord l'ampleur reelle du
+                  ;; franchissement sur `pantflapL/R`, on decide ensuite — l'inverse (contraindre
+                  ;; sur un chiffre qu'on n'a jamais lu) est ce qui a coute 49 % du mouvement des
+                  ;; deux pans a 14h39 sans fermer `pant-calf`.
+                  (when (and (zero? *phys-side-off*) (not sleevec))
                     (when (> (-> ub w) worst) (set! worst (-> ub w)))))
                 ;; `buried` = le lien est entierement dans ce volume A SA POSE DE MODELE. Depuis le
                 ;; 2026-08-12 c'est une MESURE et plus une DECISION : elle ne dispense plus la paire
