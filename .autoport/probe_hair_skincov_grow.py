@@ -73,7 +73,7 @@ for cn, jl in CHAINS.items():
     axes[cn] = (a, ax / L, L)
 
 for grow in (0, 25, 50, 100, 200):
-    cfg_path = os.path.join(HERE, 'cand_grow.txt')
+    cfg_path = os.path.join(HERE, '.cand_grow.txt')   # dotfile: ne pollue pas l'arbre
     open(cfg_path, 'w').write(
         "[model keira-hd]\n"
         "transfer Rmidhaira from=head cap=0.85 shape=0.85 grow=%d\n"
