@@ -18,6 +18,36 @@ CHAINS = ROOT / "recharged_assets" / "physics_chains.txt"
 TUNING = ROOT / "recharged_assets" / "keira-owner-tuning.txt"
 
 
+def _apply_kvs(line, kvs):
+    """Applique des `cle=valeur` a UNE ligne de physics_chains.txt, sans jamais ecrire dans son
+    commentaire.
+
+    POURQUOI CETTE FONCTION EXISTE — un piege mesure le 2026-08-13, et il ne se voit pas a l'oeil.
+    L'ancienne version faisait `line = line + " " + kv` pour une cle absente. Or la plupart des
+    lignes de chaines portent un commentaire en fin de ligne (`... radii=222,335   # maxangle DERIVE
+    du rig ...`). La cle neuve atterrissait donc APRES le `#`, c'est-a-dire DANS le commentaire :
+    le parseur C++ ne la voyait jamais, le moteur lisait la valeur par defaut, et la course
+    mesurait un correctif INERTE. On aurait conclu « ce correctif ne fait rien » alors qu'il
+    n'avait tout simplement pas ete livre — la pire des issues, parce qu'elle ferme une piste
+    juste sur une mesure fausse.
+    Constate sur les cinq chaines de cheveux : `gradient=0.152` ecrit derriere le `#`.
+
+    Le meme decoupage protege le chemin de REMPLACEMENT : `re.sub` sans `count` remplace TOUTES les
+    occurrences, donc une cle qui apparaitrait aussi dans le texte du commentaire y serait
+    reecrite. On ne touche que la partie CODE, et on recolle le commentaire tel quel.
+    """
+    head, sep, tail = line.partition("#")
+    for kv in kvs:
+        k, v = kv.split("=", 1)
+        if re.search(r"\b%s=" % re.escape(k), head):
+            # le parametre existe : on le remplace. Ne JAMAIS ajouter ici, sinon une
+            # seconde application produit "radius=708 radius=708" (constate le 2026-08-11).
+            head = re.sub(r"\b%s=[-0-9.,]+" % re.escape(k), "%s=%s" % (k, v), head)
+        else:
+            head = head.rstrip() + " " + kv + ("   " if sep else "")
+    return head + sep + tail
+
+
 def main():
     if not TUNING.exists():
         print("[tuning] aucun fichier de réglages owner — rien à appliquer")
@@ -117,15 +147,7 @@ def main():
             if not m:
                 missing.append(ln[:60])
                 continue
-            line = m.group(0)
-            for kv in kvs:
-                k, v = kv.split("=", 1)
-                if re.search(r"\b%s=" % re.escape(k), line):
-                    # le parametre existe : on le remplace. Ne JAMAIS ajouter ici, sinon une
-                    # seconde application produit "radius=708 radius=708" (constate le 2026-08-11).
-                    line = re.sub(r"\b%s=[-0-9.,]+" % re.escape(k), "%s=%s" % (k, v), line)
-                else:
-                    line = line + " " + kv
+            line = _apply_kvs(m.group(0), kvs)
             s = s[:m.start()] + line + s[m.end():]
             ncol += 1
 
@@ -136,15 +158,7 @@ def main():
             if not m:
                 missing.append(ln[:60])
                 continue
-            line = m.group(0)
-            for kv in kvs:
-                k, v = kv.split("=", 1)
-                if re.search(r"\b%s=" % re.escape(k), line):
-                    # le parametre existe : on le remplace. Ne JAMAIS ajouter ici, sinon une
-                    # seconde application produit "radius=708 radius=708" (constate le 2026-08-11).
-                    line = re.sub(r"\b%s=[-0-9.,]+" % re.escape(k), "%s=%s" % (k, v), line)
-                else:
-                    line = line + " " + kv
+            line = _apply_kvs(m.group(0), kvs)
             s = s[:m.start()] + line + s[m.end():]
             nchain += 1
 

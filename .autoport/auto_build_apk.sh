@@ -18,6 +18,30 @@
 set +e -o pipefail
 cd "$(dirname "$0")/.." || exit 1
 
+# ------------------------------------------------------------------------------------------------
+# `/tmp` EST UN TMPFS A QUOTA PAR UTILISATEUR, ET IL A TUE LA LIVRAISON DEUX CYCLES DE SUITE.
+# Mesure du 2026-08-13 00:46 : `quota -s` donne 6311M sur une limite de 6311M — SATURE. Toute
+# ecriture y rend un fichier de 0 octet ou un EDQUOT, et `df` ment (il annonce 1,6 G libres :
+# la limite est un quota utilisateur, pas le remplissage du tmpfs).
+#   - cycle du 12 aout : `mktemp -d` du bake -> `hd_merc_swap stamp` annonce « STAMPED 24 prims »
+#     avec rc=0 en ecrivant 0 octet, et le bake meurt trois etapes plus loin ;
+#   - cycle du 13 aout 00:44 : `:app:packageJak1Debug` meurt sur
+#     « java.io.IOException: Débordement du quota d'espace disque ». AUCUN APK produit, donc
+#     AUCUN build pousse — le correctif PRIORITE 1 des cheveux, bake a 23:53, n'a jamais atteint
+#     l'owner. La livraison au fil de l'eau etait rompue sans que rien ne le signale.
+#
+# La regle de l'owner (« quand une perte se repete, on la rend impossible au POINT DE PRODUCTION,
+# pas detectable au point de controle ») s'applique : on ne retente pas, on retire la dependance.
+#
+# LES DEUX VARIABLES SONT NECESSAIRES, ET C'EST LE PIEGE. `TMPDIR` couvre `mktemp` et les outils
+# POSIX (le bake, package_hd_assets.sh:76), mais la JVM lit `java.io.tmpdir`, dont le defaut est
+# `/tmp` INDEPENDAMMENT de `TMPDIR` : poser `TMPDIR` seul aurait laisse gradle mourir exactement
+# au meme endroit, en donnant l'impression que le correctif ne marche pas.
+export TMPDIR=/home/emeric/.autoport-tmp
+mkdir -p "$TMPDIR"
+export GRADLE_OPTS="${GRADLE_OPTS:+$GRADLE_OPTS }-Djava.io.tmpdir=$TMPDIR"
+# ------------------------------------------------------------------------------------------------
+
 # PID FILE — le superviseur teste l'EXISTENCE du processus, jamais une correspondance de
 # motif : `ps | grep motif` compte le grep lui-meme, piege tombe quatre fois en 24h et qui a
 # fait tuer la chaine de livraison toute la nuit du 2026-08-11.
@@ -304,6 +328,25 @@ while true; do
     echo "$h" > "$STAMP"
     continue
   fi
+
+  # ----------------------------------------------------------------------------------------------
+  # LE PACK HD EXTERNE — LE SEUL VEHICULE DU MESH, ET AUCUNE ETAPE NE LE REFABRIQUAIT.
+  # Mesure du 2026-08-13 00:47 : le bake avait reecrit `out/jak1/fr3/enhanced/GAME.fr3` a 23:53
+  # (correctif PRIORITE 1 des cheveux, aretes dechirees 82/19/10/10/26/24 -> 0), le publieur
+  # surveillait bien `out/artifacts/jak1_hd_assets.zip`... que PERSONNE ne reconstruisait. Le
+  # correctif est donc reste sur le disque, invisible pour l'owner, sans qu'aucune gate ne le voie.
+  #
+  # Les poids de peau HD ne voyagent JAMAIS dans l'APK (IP Naughty Dog) : ce zip est leur unique
+  # chemin. Un APK frais a cote d'un pack perime, c'est precisement la paire depareillee que ce
+  # script existe pour empecher. On le refabrique donc a CHAQUE build publiable, sans condition :
+  # sa version est derivee du contenu, donc si rien n'a change le zip est identique et le publieur
+  # (qui compare des md5) ne le renvoie pas. Ca ne coute rien et ca ne peut plus etre oublie.
+  if ! timeout 900 bash scripts/package_hd_assets.sh jak1 >> "$LOG" 2>&1; then
+    say "pack HD ÉCHOUÉ — l'APK partirait avec un mesh perime, on ne publie pas"
+    echo "$h" > "$STAMP"
+    continue
+  fi
+  # ----------------------------------------------------------------------------------------------
 
   # la paire doit être traçable : même commit pour l'APK et pour le pack
   sha=$(git rev-parse --short HEAD)

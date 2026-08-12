@@ -316,3 +316,88 @@ chain chestR couple=1.85 damping=0.26
 chain backhair maxangle=0
 chain lmidhair maxangle=0
 chain rmidhair maxangle=0
+
+## 2026-08-13 — `hair-gradient` : LA RACINE DEVIENT GRADUEE AU LIEU D'ETRE EPINGLEE
+##
+## Owner, 7 passes sur les meches, la plus nette le 2026-08-12 14:10 : « on dirait qu'elles sont
+## ancrees (les pointes) au meme titre que les racines, et que c'est ce qu'il y a entre les pointes
+## et les racines qui bouge vraiment ».
+##
+## LA CAUSE EST UN DEGRE DE LIBERTE ABSENT, pas un reglage : avec `rootlock=1`, une chaine de DEUX
+## joints n'a qu'UN maillon libre. Aucun degrade racine->pointe n'y est representable. Le fichier
+## le disait deja quatre blocs plus haut : « le vrai chemin est de donner un SECOND MAILLON LIBRE a
+## ces trois chaines ».
+##
+## POURQUOI `rootlock=0` TOUT SEUL EST EXCLU, et ce n'est pas une prudence : l'owner l'a DEJA vu et
+## rejete (« cheveux decolles du crane »), et l'arithmetique dit pourquoi. La raideur angulaire vaut
+## k2a = k2*(lmean/bl)^2 : l'os de racine est le PLUS LONG des trois (0.4124 m contre 0.0962 et
+## 0.1914), donc une racine liberee est le maillon le PLUS MOU de la chaine. On ne libere pas une
+## racine, on la GRADUE.
+##
+## `gradient=g` : le maillon 0 est simule, mais sa raideur angulaire est multipliee par 1/g^2.
+## g=0 (defaut du parseur) = comportement d'avant, au bit pres. g=1 = racine libre = l'etat rejete.
+##
+## D'OU VIENNENT CES CINQ NOMBRES — ils sont DERIVES, pas choisis (regle 4). On fixe la corde de
+## deviation de racine toleree a 1 cm, on la convertit en angle par chord = 2*L0*sin(theta/2) avec
+## les longueurs d'os que le MOTEUR publie lui-meme (`bones_m`), et on prend g = sqrt(theta/theta_libre).
+##   reproduire : la derivation est dans le rapport de cycle, section `hair-gradient`.
+## HYPOTHESE ASSUMEE ET SIGNALEE : `theta_libre` est pris a 60 deg, l'ordre de grandeur des angles
+## que les maillons LIBRES atteignent deja dans la course. Ce n'est pas une mesure de la racine
+## elle-meme -- elle n'en a jamais eu, puisqu'elle etait epinglee. C'est donc un POINT DE DEPART a
+## corriger sur la premiere course qui publie `ROOM-GRADIENT link0`, et le rapport le dit.
+## MARGE DE STABILITE PUBLIEE (l'integrateur est explicite a pas fixe, k2a doit rester sous 1) :
+##   lbang/rbang k2a 0.1168 · lmidhair/rmidhair 0.4139 · backhair 0.3881 — la plus serree est a 2.4x
+##   de marge. Une raideur trop haute ici ne donnerait pas de la fermete mais du jitter numerique.
+##
+## ESSAYE, MESURE, RETIRE — course du 2026-08-13 01:18, ce bloc pour seule variable, 31/31
+## animations, 3410 mesures, 0 PHYSFAIL. Les deux chiffres comptent autant, et les voici.
+##
+## LE MECANISME MARCHE DE BOUT EN BOUT, c'est acquis et prouve par l'execution : cinq lignes
+## `[HD-PHYS] rootgrade c=N g=...` dans le log (g rendus a 0.2879/0.1519/0.1519/0.1410/0.1410 apres
+## l'aller-retour en milli-unites), `ROOM-GRADIENT link0` cesse d'etre structurellement nul, et le
+## changement est CHIRURGICAL : les 17 chaines non-cheveux rendent +0.0 % au bit pres.
+## LE PLANCHER TIENT, ET MEME IL MONTE : backhair +48.0 %, rmidhair +31.4 %, lmidhair +26.0 %,
+## rbang +0.6 %, lbang -0.0 %. Aucune chaine ne perd de mouvement — c'etait attendu (on remplace
+## une raideur INFINIE par une raideur finie, donc on ne peut qu'ajouter de la liberte).
+##
+## MAIS IL NE FERME PAS SA CIBLE, ET IL EN OUVRE UNE PIRE.
+##   1. COUPLES DE GRADIENT INVERSES : 3/25 -> 3/25. Aucune amelioration. Les paires changent
+##      (rbang tilt se redresse, lbang jerk et rbang jerk s'inversent), le compte ne bouge pas.
+##      C'etait la seule raison de faire ce changement.
+##   2. LA RACINE DECOLLE, et c'est mesure : corde de deviation de racine
+##        lmidhair 9.63 cm · backhair 9.09 cm · rmidhair 9.42 cm · rbang 3.61 · lbang 3.47
+##      contre 1 cm vise. C'est « cheveux decolles du crane » — l'etat que l'owner a DEJA rejete.
+##   3. lmidhair/rmidhair partent en EPINGLE A CHEVEUX : link1 atteint 176.41 et 169.85 deg, la ou
+##      le rig chiffre a 141.6 le pli que leur peau peut encaisser. Geometrie cassee.
+##
+## ET LA RAISON EST ARITHMETIQUE, DONC ELLE NE SE REGLE PAS. La deviation quasi-statique varie en
+## 1/k, donc le grade qui tiendrait la racine a 1 cm se calcule depuis ce qu'on vient de mesurer :
+##      chaine     g mesure  link0 mesure   g requis   k2a(g requis)
+##      lbang        0.1519      4.82 deg     0.0816       0.407   STABLE
+##      rbang        0.1519      5.02 deg     0.0799       0.424   STABLE
+##      lmidhair     0.1410     11.55 deg     0.0454       4.008   IMPOSSIBLE
+##      rmidhair     0.1410     11.30 deg     0.0459       3.924   IMPOSSIBLE
+##      backhair     0.2879     46.41 deg     0.0942       3.622   IMPOSSIBLE
+## L'integrateur est EXPLICITE A PAS FIXE : `k2a` au-dessus de 1 n'est pas « plus ferme », c'est
+## divergent — et bien avant, c'est le jitter numerique que l'owner a signale trois fois. Sur les
+## trois chaines a DEUX joints, tenir la racine demanderait k2a ~ 3.6 a 4.0. Il n'existe donc
+## AUCUN grade admissible pour elles : ou la racine tient et le solveur explose, ou le solveur
+## tient et la racine decolle de 9 cm.
+##
+## CE QUE CA DEMONTRE, ET C'EST LE VRAI RESULTAT DU CYCLE : le degrade manquant des chaines a deux
+## joints n'est pas un probleme de PHYSIQUE, c'est un manque de GEOMETRIE. Deux joints ne peuvent
+## pas porter un degrade racine->pointe : soit la racine est epinglee et il n'y a qu'un maillon
+## libre, soit elle est libre et la meche se decolle. Le degre de liberte qui manque est un OS,
+## pas un reglage. Meme classe que `knee-tabs` (LfootFlaps absent du rig HD) : c'est une reprise
+## d'ASSET — injecter un joint intermediaire dans les chaines de deux et transferer les poids.
+## Sur `lbang`/`rbang`, qui ont TROIS joints, un grade stable existe (g ~ 0.08) — mais il n'apporte
+## rien de mesurable sur la cible (inversions inchangees), donc il ne se garde pas non plus.
+##
+## Le mecanisme reste dans le moteur, INERTE (`gradient=` absent des donnees => 0 => comportement
+## d'avant au bit pres) et desormais PROUVE de bout en bout : le jour ou ces chaines auront un
+## troisieme os, le levier est la et il n'y aura pas a le re-deriver.
+# chain lbang gradient=0.152
+# chain rbang gradient=0.152
+# chain lmidhair gradient=0.141
+# chain rmidhair gradient=0.141
+# chain backhair gradient=0.288
