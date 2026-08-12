@@ -127,6 +127,51 @@ comparables, deux os inegaux rendent donc des angles inverses au rapport de leur
 longueurs — un os court tourne plus qu'un os long. Le rapport mesure theta1/theta2
 vaut 1.70 sur lbang/updown a l'etage 0.
 
+MAIS AVANT CA, UN FAIT QUI CHANGE LE PERIMETRE DU DEFAUT, ET QUI N'AVAIT JAMAIS ETE
+REGARDE : SUR 22 CHAINES, VINGT N'ONT QU'UN SEUL MAILLON LIBRE.
+
+    maillons libres = 1  ->  20 chaines
+    maillons libres = 2  ->  2 chaines seulement : lbang et rbang
+
+    earL/earR    lEara,lEarb            rootlock=1  ->  1 libre
+    backhair     backHair1,backHair2    rootlock=1  ->  1 libre
+    lmidhair     Lmidhaira,Lmidhairb    rootlock=1  ->  1 libre
+    rmidhair     Rmidhaira,Rmidhairb    rootlock=1  ->  1 libre
+    goggles, topstrap*, botstrap*                   ->  1 libre
+    chestL/R, kneeflap*, pantflap*, toestrap*, anklestrap*  -> 1 seul joint
+
+UNE CHAINE A UN MAILLON LIBRE EST UNE TIGE RIGIDE SUR UNE SEULE CHARNIERE. Elle n'a
+pas d'interieur : aucun degrade racine->pointe n'y est REPRESENTABLE, quelle que
+soit la qualite du solveur. La pointe y est, litteralement, portee rigidement par le
+seul joint qui tourne. C'est exactement la description de l'owner — « les pointes
+sont ancrees au meme titre que les racines, et c'est ce qu'il y a entre les deux qui
+bouge » — et pour ces vingt chaines ce n'est PAS un defaut de solveur.
+
+ET LE GENERATEUR N'Y EST POUR RIEN : j'ai verifie la liste des joints du rig HD
+lui-meme (`strings recharged_assets/hd_anim/keira-hd-ag.go`). Les seuls joints de
+cheveux qui existent sont `backHair1, backHair2`, `Lmidhaira, Lmidhairb`,
+`Rmidhaira, Rmidhairb`, et `Lbanga, Lbangb, Lbangc` / `Rbanga, Rbangb, Rbangc`. Rien
+n'a ete laisse de cote a une fourche comme pour les verres de lunettes : le rig est
+profond de DEUX joints sur les grosses meches, et de trois sur les seules meches
+fines.
+
+CONSEQUENCE, ET ELLE EST STRUCTURANTE POUR LA SUITE : quand l'owner ecrit « idem sur
+le reste des cheveux », il decrit une limite du RIG, pas du moteur. Fermer
+`hair-gradient` sur `backhair`, `lmidhair` et `rmidhair` demande des JOINTS
+INTERMEDIAIRES INJECTES au prep — ce que le cahier de phase prevoyait des le depart
+(« os de physique injectables au prep si le donor n'en a pas ») — et aucun reglage,
+aucun taper et aucun correctif de solveur ne pourra s'y substituer. Je ne l'ai pas
+fait ce cycle et je ne le maquille pas : c'est le prochain gros morceau, et il est
+d'une autre nature que tout ce qui a ete tente jusqu'ici.
+
+OBSERVATION AU PASSAGE, NON TRAITEE : le rig porte aussi `maskstrap`, `gogglesLeft`
+et `gogglesRight`, qu'AUCUNE chaine ne couvre. Les deux verres sont deja documentes
+(defaut `goggles-bottom`) ; `maskstrap` n'a jamais ete mentionne nulle part et
+ressemble a un « truc qui pend » au sens de SPEC 1. A verifier avant de conclure.
+
+--------------------------------------------------------------------------------
+LA PREDICTION SUR LES DEUX CHAINES QUI ONT, ELLES, UN INTERIEUR (lbang, rbang)
+--------------------------------------------------------------------------------
 C'est une PREDICTION, elle est falsifiable, et elle est en cours de verification
 contre les longueurs reelles du rig. Elle n'a pas produit une seule ligne de code et
 n'en produira pas avant d'etre confirmee avec ses nombres. Si elle tient, le levier
@@ -144,12 +189,20 @@ TIER DE BUILD UTILISE : GOAL seul. Le correctif est dans goal_src/jak1/pc/
 jak-hd-physics.gc, donc `(mi)` (551 cibles, 38 s) — aucun rebuild NDK/libgk, aucun
 `cmake -B`. Deux courses de salle x86 (~6 min chacune) pour l'A/B.
 
-LIVRAISON AU FIL DE L'EAU : le constructeur continu (auto_build_apk.sh, pid vivant)
-surveille jak-hd-physics.gc ; il a repris le correctif et refait un jeu arm64
-coherent puis l'APK, et auto_push_builds.sh publie sur jak-builds sans condition de
-qualite (7 publications aujourd'hui, la derniere a 15:00). Aucune condition de
-qualite ne retient un build — c'est la consigne de l'owner du 2026-08-11 et je ne
-la reinstalle pas.
+LIVRAISON AU FIL DE L'EAU — FAITE, ET VERIFIEE COHERENTE :
+
+    TAG: aa5732-cdbc00      (a lire sur le telephone : files/.custom_pack_stamp_jak1)
+    commit aa57322692 · APK+pack bati a 15:22:41 · PUSHED b678ab11 a 15:27:22
+
+Le constructeur continu (auto_build_apk.sh) surveille jak-hd-physics.gc ; il a repris
+le correctif a 15:18:07, refait un jeu arm64 COHERENT puis l'APK, et
+auto_push_builds.sh l'a publie sur jak-builds. Aucune condition de qualite ne retient
+un build — c'est la consigne de l'owner du 2026-08-11 et je ne la reinstalle pas.
+
+LA PAIRE EST LA BONNE, ET C'EST VERIFIE PAR SON PROPRE CONTENU : le BUILD-INFO livre
+avec l'APK publie le tableau de mouvement de ce build, et il porte lbang 0.4204 et
+rbang 0.5129 — exactement les valeurs de ma jambe B. L'APK que l'owner telecharge est
+donc bien celui que j'ai mesure, pas un voisin.
 
 NOTE DE TRACABILITE, ET C'EST UN DEFAUT DE MON PROCESS : le constructeur continu a
 COMMITE mon correctif sous son message generique (`aa57322692 [keira-physique]
