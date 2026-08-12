@@ -113,9 +113,16 @@ PLANCHERS (les deux gates d'anti-regression, calculees sur les tables A et B) :
 Aucune chaine ne paie ce correctif.
 
 AUTRES GATES SUR LA COURSE B : meshpen max 0.0000 · rootdev max 0.1611 (plafond 2.0)
-· IDLE 0.0309 (plafond 1.0) · ROOM-ANIMS 31/31 raw=31 skipped=0 · ANIM 7 chaines
-pilotees, 7 respectees, perchain=yes · DISCRIMINANT : les 22 chaines distinguent les
-5 pilotages.
+· ROOM-ANIMS 31/31 raw=31 skipped=0 · ANIM 7 chaines pilotees, 7 respectees,
+perchain=yes · DISCRIMINANT : les 22 chaines distinguent les 5 pilotages.
+
+LE SEUL COUT MESURE DE CE CORRECTIF, ET JE LE DECLARE PLUTOT QUE DE LE LAISSER
+TROUVER : l'ecart au repos monte de 0.0239 a 0.0309 (+29 %), pour un plafond IDLE de
+1.0 — donc a 3 % du plafond. C'est attendu et c'est le revers exact du mecanisme :
+une chaine dont chaque maillon attend son parent se RANGE plus lentement qu'une
+chaine dont tous les maillons rentrent en parallele. SPEC 4 demande de retrouver
+EXACTEMENT la pose du modele au repos ; 0.031 n'est pas zero, et si l'owner voit les
+meches fines mettre un instant de trop a se reposer, c'est la qu'il faut regarder.
 
 --------------------------------------------------------------------------------
 CE QUI RESTE OUVERT SUR CE DEFAUT — MESURE, PAS SUPPOSE
