@@ -1,7 +1,7 @@
 DIRECTIVES v4e8d7808e6
 
 PHASE Grecharged-secondary-motion — PHYSIQUE DE KEIRA
-CYCLE 21 DU 2026-08-12 (soir). Branche physics-keira-clean.
+CYCLE 22 DU 2026-08-12 (soir). Branche physics-keira-clean.
 Contrat : .autoport/prompts/SPEC-keira-physique.md
 
 ================================================================================
@@ -9,396 +9,371 @@ CE QU'IL FAUT LIRE EN PREMIER
 ================================================================================
 
 LE VALIDATEUR ECHOUE, ET IL DOIT ECHOUER. La gate OPEN-DEFECTS liste 8 defauts
-rapportes par l'owner et une ligne ne se retire que sur SA parole. Aucun travail
-de ce cycle ne peut la faire passer, et je ne cherche pas a la contourner.
+rapportes par l'owner ; une ligne ne se retire que sur SA parole. Aucun travail
+de ce cycle ne peut la faire passer et je ne cherche pas a la contourner.
 
-LE DEFAUT PRIORITE 1 EST CORRIGE, ET SANS UNE SEULE COMPILATION.
+CE CYCLE A FAIT TROIS CHOSES, ET UNE SEULE EST UN GAIN DE COMPORTEMENT :
 
-    couples de gradient INVERSES        8/10   ->   1/10
+  1. UN NOEUD DE SOLVEUR DEFAIT — le recul ne renonce plus a la longueur d'os.
+     Les replis qui l'abandonnaient passent de 268 a 23 par course, sans rien
+     coûter ailleurs (section 1).
+  2. UNE HYPOTHESE TUEE PAR LA MESURE — l'ordre de resolution des chaines n'est
+     PAS la cause de l'effet gelee. Armee, mesuree, retiree, avec ses nombres
+     (section 2). C'est un negatif, et c'est le resultat le plus utile du cycle :
+     il ferme une piste sur laquelle deux essais ont deja ete depenses.
+  3. UNE MESURE FABRIQUEE RETIREE DU TABLEAU — la ligne « part radiale de la
+     force ecartee » publiait le compteur d'enfouissement sous un autre nom
+     (section 3). Elle etait la depuis des jours.
 
-`hair-gradient` — « on dirait qu'elles sont ancrees (les pointes) au meme titre
-que les racines, et que c'est ce qu'il y a entre les pointes et les racines qui
-bouge vraiment ». La cause est une FREQUENCE PROPRE mal placee, elle se calcule
-depuis les parametres livres, et le correctif est un changement de DONNEES pur :
-`physics_chains.txt` est relu au runtime, donc ZERO build. Section 1.
-
-ET LA CONCLUSION DU CYCLE PRECEDENT ETAIT FAUSSE — je la corrige ici plutot que
-de construire dessus. Elle disait : « la seule voie est de re-articuler les
-meches (joints intermediaires injectes au prep) ; rien d'autre ne le fera ».
-Non : ce qui gouverne la monotonie n'est pas l'egalite des longueurs de maillons,
-c'est la position de la resonance par rapport a l'excitation. Section 1bis.
+JE LE DIS SANS L'HABILLER : L'OWNER NE VERRA PROBABLEMENT RIEN DE DIFFERENT SUR
+CE BUILD. Le mouvement de pointe est inchange sur 22 chaines sur 22 (ecart max
++0.1 %), ce qui est exactement ce qu'un correctif de correction doit faire. Ce
+cycle rend le solveur juste la ou il cedait, et ferme une piste ; il ne corrige
+aucun des 8 defauts qu'il voit.
 
 ETAT REEL, GATE PAR GATE (rejoue sur une COPIE du validateur dans /tmp, en ne
 neutralisant que la sortie de OPEN-DEFECTS ; le validateur du depot n'est pas
 touche — regle 5 — et la reference de plancher est sauvegardee puis restauree,
-md5 dc8525e8... des deux cotes) :
+md5 dc8525e8b15f068c5d575fe323dd0f42 des deux cotes, verifie) :
 
     PASS   TUNING · ROOM · MOVE · COLLIDE · IDLE · ANIM · SIDE-CONTROL
            FLOOR-WEAK (22/22) · DISCRIMINANT
     FAIL   OPEN-DEFECTS   8 defauts ouverts (porte de l'owner, par dessein)
-    FAIL   FLOOR          pantflapL/R — INCHANGE, cycle precedent, section 4
+    FAIL   FLOOR          pantflapL/R — INCHANGE depuis deux cycles, section 5
 
 Aucune gate verte n'est passee au rouge. Les deux rouges sont exactement les deux
 rouges d'hier, aux memes chiffres (pantflapR 0.1269, pantflapL 0.1270).
 
+LIVRAISON : TAG 47734c-c2ee87, paire coherente APK + pack du meme commit,
+publiee a 18:34 par l'auto-constructeur et installee sur le Redmi a 18:35. Le
+tableau de mouvement grave dans son BUILD-INFO est celui de la course de ce
+cycle, chaine par chaine — donc ce qui est livre est ce qui a ete mesure, et non
+un build voisin.
+
 ================================================================================
-1. hair-gradient (PRIORITE 1) — LA RESONANCE ETAIT DU MAUVAIS COTE DU PILOTAGE
+1. LE RECUL BALAYE LA SPHERE AU LIEU DU SEUL ARC — LE NOEUD EST DEFAIT
 ================================================================================
 
-LE CALCUL, AVEC LES NOMBRES QUE LE MOTEUR PUBLIE LUI-MEME. Il pose
-w = 2*pi*stiffness/sqrt(mass), k2 = (w*dt)^2 (jak-hd-physics.gc:2691-2693) puis
-k_l = k2*(lmean/bl_l)^2 (3016-3019). La frequence propre du maillon l vaut donc
+CE QUE LE CYCLE PRECEDENT AVAIT NOMME SANS LE FAIRE, ecrit noir sur blanc dans
+son rapport : « Quand la pose du modele penetre, le recul n'explore que l'ARC
+entre la direction du modele et la direction courante. Si les deux bouts
+penetrent, tout l'arc peut penetrer alors qu'une AUTRE direction de la meme
+sphere est libre — et n'importe quelle direction de cette sphere respecte la
+longueur d'os au bit pres. »
 
-    f_l = (stiffness / sqrt(mass)) * (lmean / bl_l)
+C'ETAIT LE NOEUD DE DEUX REGLES DURES, et il bloquait deux choses a la fois :
 
-Avec les os que le moteur mesure et publie (`bones_m=0.4124,0.0962,0.1914`,
-maillon 0 verrouille par rootlock) et les valeurs LIVREES (stiffness 1.05,
-mass 1.35, damping 0.36) :
+    ceder la sphere du modele (le repli d'origine)   ROOM-STRETCH 0.0272 -> 0.4896
+                                                     49 % d'allongement d'os
+    la garder, se poser sur le moins mauvais de l'arc STRETCH 0.0003 mais
+                                                     meshpen 0 -> 0.0976, SIDE 0 -> 260
 
-    lbang / rbang    f_milieu = 1.351 Hz  (zeta 1.27)
-                     f_pointe = 0.679 Hz  (zeta 2.53)
-    pilotage de la salle       1.667 Hz   (PHYSROOM-PERIOD = 36 frames)
+Les deux etaient inacceptables, donc le repli restait, donc `*phys-jacobi-off*`
+restait desarme « en attente du prealable ». Le prealable, c'etait ca.
 
-LES DEUX MAILLONS ETAIENT AU-DESSUS DE LEUR RESONANCE, la pointe deux fois et
-demie plus haut que le milieu. Au-dessus de la resonance la reponse d'un
-oscillateur chute en 1/(f/fn)^2 : la pointe etait donc etouffee TREIZE fois plus
-fort que le milieu. C'est « le milieu bouge, les pointes sont ancrees », au
-chiffre pres — et c'est aussi pourquoi `tilt`, la seule excitation quasi-statique
-de la salle, etait deja MONOTONE des deux cotes dans le tableau d'hier.
+LE CORRECTIF (jak-hd-physics.gc, `phys-retreat-chain`) : quand le point de depart
+du modele penetre, on balaye la SPHERE du modele — 7 ouvertures croissantes
+(14, 18, 27, 45, 90, 135, 153 degres) x 8 azimuts, PREMIER admissible retenu,
+donc le plus proche de la pose d'auteur. La direction trouvee devient le `lo` de
+la dichotomie existante : l'invariant « lo est admissible » est RESTAURE au lieu
+d'etre suppose, et l'arc reprend son travail a partir de la. Quand la sphere
+entiere est fermee, on retombe sur le repli d'origine, compte.
 
-LA PREUVE QUE C'EST BIEN CE MECANISME, ET ELLE EST INDEPENDANTE DU RESULTAT.
-Premiere course d'essai, resonance deplacee et `gravity` laissee telle quelle :
-l'affaissement gravitaire a chute EXACTEMENT en 1/s^2, comme une reponse
-quasi-statique doit le faire.
-
-    chaine      sag mesure          rapport mesure     s^2 predit
-    lmidhair    0.0357 -> 0.0124        2.88             2.8798
-    backhair    0.0317 -> 0.0111        2.86             2.4998
-    lbang       0.1182 -> 0.0098       12.1             19.53
-
-Prediction et mesure coincident a trois chiffres sur `lmidhair`, sur une grandeur
-que le correctif ne visait pas et qui n'entrait dans aucun raisonnement. C'est ce
-qui transforme l'hypothese en mecanisme.
-
-LE CORRECTIF, ET C'EST UN SEUL DEGRE DE LIBERTE. On remonte la resonance de la
-POINTE au-dessus du pilotage (3.00 Hz, soit 1.8x), et `damping` est recalculee
-pour tenir un amortissement reduit CONSTANT a cette nouvelle frequence
-(zeta = 0.35) — sinon changer la raideur changerait aussi l'amortissement et on
-ne saurait plus lequel des deux a agi. `mass` et `couple` ne bougent pas.
-
-    reproduire : python3 .autoport/physics_hair_freq.py --ftip 3.0 --zeta 0.35 \
-                        --gravity 2.00 --chains lbang,rbang
-
-    lbang / rbang   stiffness 1.05 -> 4.6395   damping 0.36 -> 0.2199
-                    gravity   0.45 -> 2.0000   (mass 1.35, couple 0.70 inchanges)
-                    f_maillons : milieu 5.97 Hz, pointe 3.00 Hz
+DEUX PROPRIETES QUI COMPTENT, ET ELLES SONT DANS LA CONSTRUCTION :
+  * toute direction de cette sphere a la longueur d'os exacte, donc le balayage
+    ne peut pas allonger — c'est pourquoi il resout le noeud au lieu d'arbitrer ;
+  * l'ordre du balayage ne depend QUE de la pose du modele et des obstacles,
+    jamais de l'etat simule : a configuration inchangee il rend la MEME direction
+    a chaque frame. C'est ce qui manquait a l'essai « moins mauvais point du
+    chemin » du cycle precedent, qui dependait de la position courante et
+    ressortait a 8 lignes de penetration positive sur 3410 au lieu de 1.
 
 CE QUE LA COURSE MESURE — 5 pilotages x 31 animations x 22 chaines, 3410 mesures,
-cette substitution pour SEULE variable :
+ce balayage pour SEULE variable (`physics_chains.txt` inchange, md5
+a7200f7f80abcabd88f6874482209adb, verifie avant et apres) :
 
-    ROOM-GRADIENT (deviation angulaire RELATIVE AU PARENT, degres ; doit croitre)
-                        AVANT              APRES
-      lbang accel      77.55 / 62.75  INV  14.19 / 57.46  ok
-      lbang jerk       83.20 / 34.41  INV  35.57 / 60.67  ok
-      lbang leftright  74.24 / 45.22  INV  18.24 / 40.22  ok
-      lbang tilt       34.84 / 50.58  ok   12.67 / 26.75  ok
-      lbang updown     45.36 / 37.21  INV  15.29 / 13.23  INV  <- le seul restant
-      rbang accel      86.41 / 55.67  INV  27.74 / 63.85  ok
-      rbang jerk       84.53 / 57.29  INV  24.44 / 59.98  ok
-      rbang leftright  74.36 / 43.74  INV  13.49 / 58.79  ok
-      rbang tilt       41.07 / 61.64  ok   11.33 / 34.37  ok
-      rbang updown     67.91 / 44.88  INV  11.46 / 19.54  ok
-      ---------------------------------------------------------------
-      couples inverses      8 / 10          1 / 10
+    ROOM-RETREAT-ANCHOR fallback     268  ->  23        -91 %
+    ROOM-RETREAT-SPHERE rescued       --  ->  204       204 sauvetages sur 227
+    ROOM-STRETCH max               0.0003 -> 0.0003     inchange (1 % du plafond)
+    ROOM-SIDE crossing                  0 ->  0         inchange
+    penetration (meshpen)          0.0000 -> 0.0000     inchange, 3 paires vertes
+    ROOM-IDLE maxdev               0.0231 -> 0.0231     inchange
+    ROOM-POSCONTROL                0.1715 arme contre 0.0000 desarme, inchange
+    mouvement de pointe            22 chaines sur 22 inchangees (ecart max +0.1 %)
 
-    angle max AU MILIEU   86.41 -> 35.57 deg      a la POINTE  62.75 -> 63.85
-      Le pli serre QUITTE le milieu — la ou l'owner le voit casser la geometrie —
-      et se place a la pointe, ou un pli est normal. Max global 86.41 -> 63.85.
-
-    ROOM-STRETCH  0.0210 -> 0.0003     soixante-dix fois mieux, 1 % du plafond
-    ROOM-IDLE     0.0413 -> 0.0231     ROOM-SIDE  0 -> 0   penetration 0.0000
-    sag  lbang 0.1182 -> 0.0544   rbang 0.1623 -> 0.0527
-      L'ECART GAUCHE/DROITE DE 37 % SUR DES PARAMETRES IDENTIQUES TOMBE A 3 %.
-      Ce n'etait donc pas du sag, c'etait de l'amplification resonante — une
-      asymetrie signalee depuis la premiere passe et jamais expliquee.
-    FLOOR-WEAK   vert sur les 22 chaines contre la reference STOCKEE
-                 (lbang x2.02, rbang x1.64, aucune chaine sous 0.73)
-
-CE QUE CA COUTE, ET JE LE DECLARE AVANT QU'ON LE TROUVE :
-
-    amplitude de pointe   rbang -28 %   lbang -18 %
-    contre leur plancher stocke : rbang 0.68, lbang 0.83 (seuil 0.60)
-
-Ce qui disparait est le battement resonant du maillon du MILIEU, c'est-a-dire le
-defaut lui-meme. Mais c'est du mouvement en moins sur un compteur, et si l'oeil
-de l'owner juge que les meches fines sont devenues trop sages, le point se retire
-en une regeneration — ou se rejoue a `--ftip 2.4` au lieu de 3.0.
-
-DEUX ESSAIS FAITS, MESURES, RETIRES, avec leurs nombres :
-  * LES CINQ CHAINES DE CHEVEUX au lieu de deux. FLOOR-WEAK casse a 0.62
-    (backhair) et 0.50 (lmidhair). Et c'etait previsible : ces trois chaines
-    n'ont QU'UN maillon libre, aucun gradient n'y est representable, donc il n'y
-    avait rien a y corriger et tout a y perdre. Perimetre ramene aux deux seules
-    chaines qui portent le defaut.
-  * `gravity` MULTIPLIE PAR LE s^2 EXACT (0.45 -> 8.79), qui tient l'affaissement
-    au bit pres. Il fait CEDER la contrainte de longueur : ROOM-STRETCH
-    0.0190 -> 0.0558, soit 5.6 % d'allongement d'os contre un plafond de 3 %.
-    Retire, pas adouci. 2.00 est donc une constante CHOISIE entre deux invariants
-    durs, et ses deux marges sont publiees ci-dessus (STRETCH a 1 % du plafond,
-    FLOOR-WEAK a x1.64 du plancher).
+LE SEUL COUT MESURE, ET JE LE DECLARE AVANT QU'ON LE TROUVE : `rmidhair` perd
+22 % de sa reponse au PLUS FAIBLE stimulus (0.2633 -> 0.2043 ; son plancher
+stocke vaut 0.2019, elle passe donc a x1.01, la marge la plus mince des 22).
+C'est la seule chaine dont un chiffre bouge, et c'est precisement celle que la
+signature du repli designait : le moteur note qu'elle est resolue en sixieme, une
+fois que `lmidhair`, `lbang`, `rbang`, `earL` et `earR` ont deja ecrit les joints
+qui portent les spheres qu'elle heurte — c'est chez elle que la pose du modele se
+fait avaler, et c'est donc chez elle que le balayage change quelque chose. Je
+n'en dis pas plus : la correlation est exacte, je ne l'appelle pas une preuve.
 
 ================================================================================
-1bis. LA CONCLUSION DU CYCLE PRECEDENT ETAIT FAUSSE
+2. JACOBI : LE PREALABLE LEVE, LE DRAPEAU ARME, LA MESURE L'A REFUSE
 ================================================================================
 
-Elle est ecrite noir sur blanc dans owner-defects.txt et dans le rapport d'hier :
-« CE QUE CA DESIGNE COMME SEULE VOIE : des maillons de LONGUEURS EGALES […]
-c'est-a-dire des JOINTS INTERMEDIAIRES INJECTES AU PREP […] Re-articuler regle
-les deux. Rien d'autre ne le fera. »
+C'EST LE RESULTAT LE PLUS UTILE DU CYCLE, ET C'EST UN NEGATIF.
 
-Le calcul qui la fondait est incomplet. A longueurs egales, k1 = k2 et le rapport
-des deviations relatives vaut |H(f)| — la fonction de reponse — et non 1 :
+Le moteur portait ceci depuis des jours, comme un cout chiffre en attente :
+« l'armer corrige la gelee (-71 % d'ecart de periode, du mouvement APPARU sur
+chestR) mais porte ROOM-STRETCH a 0.4896 [...] Le prealable, c'est le repli du
+recul — pas la gelee. » Le prealable etant leve (section 1), j'ai arme.
 
-    theta2/theta1 = (L2/L1) * H2 (1 + r1^2 H1) / H1
+COURSE COMPLETE, ce drapeau pour SEULE variable, meme salle, memes 31 animations :
 
-|H| est > 1 sous la resonance et < 1 au-dessus. Des maillons de longueurs egales
-sont donc INVERSES eux aussi des qu'on les excite au-dessus de leur resonance :
-l'egalite des longueurs n'est ni necessaire ni suffisante. Ce qui gouverne la
-monotonie est la position de la resonance par rapport a l'excitation, et c'est
-une grandeur qu'on deplace avec un nombre dans un fichier de donnees.
+    ROOM-RETREAT-ANCHOR fallback      23  ->  30       (le balayage encaisse)
+    ROOM-RETREAT-SPHERE rescued      204  ->  377
+    ROOM-STRETCH max               0.0003 -> 0.0933    9,3 % d'allongement d'os
+                                                       sur `lbang`, TROIS fois le
+                                                       plafond de 3 % du contrat
+    ROOM-JELLY chestR  jerk    0.9990 / 2.06 frames -> 0.9990 / 2.06 frames
+    ROOM-JELLY chestR  autres pilotages            -> identiques au centieme
+    ROOM-JELLY chestL  jerk    0.7153 / 3.94       -> 0.9083 / 2.76   EMPIRE
 
-CE QUE CA ECONOMISE : la re-articulation etait un morceau d'asset (injection de
-joints au prep + transfert des poids de peau), estime a plusieurs cycles. Il
-n'est pas necessaire pour ce defaut-la.
+DEUX CHOSES QUE CA ETABLIT, ET AUCUNE N'ETAIT PREVUE :
 
-C'est la deuxieme fois en deux jours qu'une « seule voie restante » se revele ne
-pas etre la seule. La lecon a garder : une impossibilite demontree sur un modele
-ne vaut que ce que vaut le modele, et un modele qui ne contient pas la frequence
-ne peut rien conclure sur un defaut qui n'apparait qu'a certaines frequences.
+  1. L'ALLONGEMENT QU'IL PROVOQUE NE PASSE PAS PAR LE REPLI DU RECUL. Trente
+     replis ne peuvent pas produire 9,3 % : il vient de la POUSSEE elle-meme, qui
+     resout contre un obstacle d'une frame plus vieux et sort de la sphere plus
+     qu'une iteration ne rattrape. Le diagnostic ecrit dans le moteur (« les deux
+     chiffres sont le meme evenement ») etait faux, et c'est mesure.
 
-================================================================================
-2. flesh-jelly — LA GELEE A UNE PERIODE, ET ELLE EST DE DEUX FRAMES
-================================================================================
+  2. LE GAIN ANNONCE NE SE REPRODUIT PLUS. L'asymetrie chestL/chestR ne
+     s'effondre pas, la periode de 2.06 frames ne bouge pas d'un centieme, aucun
+     mouvement n'apparait. Cette mesure de -71 % datait d'un moteur qui n'avait ni
+     la contrainte de cote ni le balayage ; elle ne vaut plus rien aujourd'hui.
+     Une mesure ancienne n'est pas un acquis.
 
-RIEN N'A ETE CORRIGE SUR CE DEFAUT CE CYCLE. Ce qui suit est une mesure, prise
-dans le tableau deja livre et que personne n'avait depouillee.
-
-    ROOM-JELLY   chestR   periode  2.06 / 2.07 / 2.08 / 2.15 frames
-                 chestL   periode  3.94 / 3.98 / 4.26 / 4.69
-
-Une periode de 2.06 frames, c'est le pas de temps lui-meme : la deviation change
-de signe A CHAQUE FRAME. Ce n'est pas une oscillation physique, c'est un
-basculement — et « ca change de taille d'une frame a l'autre » en est la
-description exacte. LE RESSORT N'EN EST PAS LA CAUSE : sa periode propre vaut
-2*pi/sqrt(k2) = 49.8 frames avec les valeurs livrees. Vingt-quatre fois plus
-lente que ce qu'on mesure.
-
-CE QUI BASCULE — CORRELATION, PAS PREUVE, et je la donne comme telle.
-`phys-retreat-chain` est un retour DUR vers la pose du modele. Sur les 22 chaines :
-
-    les QUATRE periodes les plus courtes ont toutes retreat >= 1803
-      chestR 2.06 (retreat 6466) · kneeflapR 2.21 (4001) · botstrapR 2.35 (2565)
-      · kneeflapL 2.44 (1803)
-    les SIX chaines a retreat = 0 ont toutes une periode >= 3.31
-    mediane des periodes minimales : 2.95 frames au-dessus de 1000 reculs,
-                                     4.37 en dessous
-
-ET L'ASYMETRIE EST DANS LA BOUCLE, PAS DANS LES DONNEES. chestR recule 6466 fois,
-chestL 104 — soixante-deux fois moins — pour des parametres identiques et un rig
-miroir. Le moteur resout les chaines l'une apres l'autre EN ECRIVANT dans le
-squelette au fur et a mesure : chestR voit un volume chestL deja SIMULE quand
-chestL n'a vu que la pose d'auteur. `phys-col-now!` le dit dans son propre
-docstring (« sinon la reponse d'une chaine depend de son rang dans le fichier »),
-et le chemin de Jacobi qui l'annule EXISTE et est desarme (`*phys-jacobi-off*`).
-
-POURQUOI IL EST DESARME, ET C'EST DEJA MESURE (note de jak-hd-physics.gc:318) :
-l'armer corrige la gelee (-71 % d'ecart de periode, du mouvement APPARU sur
-chestR) mais porte ROOM-STRETCH a 0.4896, soit 49 % d'allongement d'os, parce que
-le repli du recul ABANDONNE la longueur. Le prealable est donc le RECUL — et le
-recul est aussi ce que la correlation ci-dessus designe. Les deux moities de ce
-defaut pointent au meme endroit.
-
-LE PROCHAIN PAS, NOMME ET NON FAIT. Quand la pose du modele penetre, le recul
-n'explore que l'ARC entre la direction du modele et la direction courante
-(jak-hd-physics.gc:2378-2390). Si les deux bouts penetrent, tout l'arc peut
-penetrer alors qu'une AUTRE direction de la meme sphere est libre — et n'importe
-quelle direction de cette sphere respecte la longueur d'os au bit pres. Chercher
-sur la SPHERE ENTIERE au lieu de l'arc leverait la contradiction entre « un os ne
-s'allonge pas » et « rien ne traverse » sans arbitrer entre elles, la ou le cycle
-precedent concluait qu'il fallait « une troisieme voie » sans la nommer. Non
-mesure : je ne le presente pas comme acquis, je le laisse ecrit pour le suivant.
+CE QUE CA FERME, ET C'EST LA VALEUR DU NEGATIF : l'effet gelee n'est PAS un
+defaut d'ordre de resolution des chaines. Deux essais y ont deja ete depenses
+(celui-ci et celui de la note du moteur) ; un troisieme serait du gaspillage. Le
+drapeau est revenu a 1, la note du moteur porte desormais les chiffres qui le
+refusent au lieu de ceux qui le promettaient.
 
 ================================================================================
-2bis. hair-big-angles — LE MEME MECANISME NE TRANSFERE PAS, ET C'EST MESURE
+3. UNE MESURE FABRIQUEE, PUBLIEE DEPUIS DES JOURS, RETIREE
 ================================================================================
 
-J'ai essaye d'appliquer aux GROSSES meches le mecanisme qui vient de fermer les
-fines. ESSAI FAIT, MESURE, RETIRE — et le negatif vaut d'etre garde.
+Le tableau publiait a chaque course :
 
-`backhair` est la SEULE des cinq chaines de cheveux qui AMPLIFIE au pilotage :
+    part radiale de la force, ecartee : 987623 fois, 987623.0000 u/frame^2 au
+    total soit 1.0000 par declenchement
 
-    backhair   f=1.897 Hz  r=0.878  zeta=0.453  |H|=1.208   pic a r=0.768
-    lmidhair   f=1.768 Hz  r=0.943  zeta=0.540  |H|=0.976   (pas d'amplification)
+Le ratio de 1.0000 etait la signature, et personne ne l'avait lue : c'est un
+compteur divise par lui-meme. La salle lisait `(phys-limiter 6)` et
+`(phys-limiter 7)` sous les noms `radial_n` et `radial_sum` ; le moteur n'a AUCUN
+compteur radial, ces deux index tombent dans la branche `else` de `phys-limiter`
+et rendaient tous les deux `*phys-buried-n*`. La course le dit au chiffre pres :
 
-Et il est JUSTE AU-DELA de son pic : monter sa frequence ferait DESCENDRE r de
-0.878 vers 0.768, c'est-a-dire droit SUR le pic. Ca explique apres coup pourquoi
-les jambes B et C, qui corrigeaient les meches fines, EMPIRAIENT `backhair`
-(FLOOR-WEAK 0.62). Le seul levier selectif restait l'amortissement, qui ecrase le
-pic sans toucher la reponse quasi-statique : damping 0.18 -> 0.35 predit
-|H| 1.208 -> 0.639, la moitie.
+    PHYSLIM  buried=987636        PHYSLIM3  radial_n=987636  radial_sum=987636
 
-LA COURSE COMPLETE RENVOIE : RIEN.
+Trois etiquettes pour une seule grandeur, dont deux mensongeres — et la grandeur
+que ces deux-la nommaient (« la part radiale de la force que le solveur ecarte »)
+n'a jamais ete mesuree par quoi que ce soit.
 
-    angle link1, pire cas   80.15 -> 80.07 degres      (0.1 %)
-    FLOOR-WEAK backhair     0.0788 -> 0.0500  (0.63)   <- casse au passage
+La ligne est retiree, et l'index libere publie une grandeur qui existe :
+`ROOM-RETREAT-SPHERE: rescued=<n>`, le pendant exact de `fallback` (meme
+evenement declencheur, l'un compte les sauvetages, l'autre les renoncements).
+NATURE : un compte d'evenements sur la course. LECTURE QUAND LE DEFAUT EST
+ABSENT : zero des deux cotes.
 
-CE QUE CA ETABLIT, ET C'EST PLUS UTILE QUE L'ESSAI : l'angle de `backhair` N'EST
-PAS GOUVERNE PAR SON RESSORT. Un facteur 1.89 sur la reponse du ressort produit
-0.1 % sur la grandeur que l'owner voit. Le tableau dit ou il est gouverne —
-`contact_frames = 17893/17893`, soit 100 % des frames en contact, contre 25 pour
-`earL` et 609 pour `lmidhair`. C'est la RESOLUTION DE COLLISION qui pose cet
-angle. Aucun reglage de raideur, d'amortissement ou de gravite ne le changera, et
-deux cycles peuvent maintenant l'eviter.
-
-ET UN PROBLEME D'INSTRUMENT, QUE JE SIGNALE SANS Y TOUCHER (regle 5) : les deux
-gates qui gardent `backhair` lisent une amplitude de pointe qui CHUTE des qu'on
-contraint quoi que ce soit, pendant que le pli de 80 degres que l'owner voit ne
-bouge pas d'un dixieme. La mesure qui protege cette chaine ne voit pas le defaut
-de cette chaine. C'est le test d'admissibilite de la SPEC 7, et il echoue ici.
-
-Retire : `physics_chains.txt` est revenu au md5 a7200f7f80abcabd88f6874482209adb,
-celui de la jambe D et du pack livre.
-
-ET LA CAUSE, ELLE, EST TROUVEE — EN FORME CLOSE, SANS COURSE NI BUILD.
-`.autoport/probe_head_volume_selfinclusion.py`, sur le rig et le mesh skinne :
-
-    PORTEE : la pointe peut-elle seulement SORTIR de la capsule `head->neck` (rayon 915) ?
-      backHair1   racine  393 u + os  426 u = portee  820 u   ->  NE SORT JAMAIS
-      Lbanga      racine  982 u + os 1178 u = portee 2160 u   ->  sort
-      Lmidhaira   racine  760 u + os  962 u = portee 1723 u   ->  sort
-
-Le maillon 0 de `backhair` est verrouille (rootlock) et sa racine est a 393 u de
-l'axe, donc 522 u DANS un volume de rayon 915. Son maillon libre pivote autour de
-cette racine : la distance a l'axe qu'il peut atteindre vaut au plus 393 + 426 =
-820 u. IL EST GEOMETRIQUEMENT IMPOSSIBLE QUE LA POINTE DE `backhair` SORTE DE LA
-CAPSULE DE TETE. Elle passe donc 100 % de ses frames en resolution de collision,
-et c'est exactement ce que `contact_frames = 17893/17893` disait.
-
-Et la correlation est parfaite sur les trois : celle qui ne peut pas sortir est en
-contact 17893 frames, les deux qui peuvent le sont 609 et 25 fois.
-
-CE QUE CA FERME COMME PISTE : tout reglage de `backhair`. Raideur, amortissement,
-gravite, couplage — aucun ne change une inegalite entre deux longueurs. Deux
-essais y ont ete depenses ce cycle, un troisieme serait du gaspillage.
-
-UNE HYPOTHESE TESTEE ET REFUTEE AU PASSAGE, parce qu'elle etait seduisante : le
-volume de tete serait-il ajuste SUR les cheveux qu'il doit repousser ? Non — en
-retirant les 107 sommets a poids de cheveux (6 % des 1699), le rayon ajuste passe
-de 915 a 922, soit -1 %. Le volume de tete est ajuste sur la peau, il est
-simplement plus grand que la portee de cette chaine-la.
-
-CE QUI RESTE OUVERT ET QUE JE NE SUPPOSE PAS : `lbang` est AUSSI en contact
-17893/17893 alors que sa portee (2160 u) lui permet largement de sortir de la
-tete. Son contact permanent est donc avec un AUTRE volume, que ce probe
-n'identifie pas. Il faudrait la penetration par (lien, VOLUME), qui n'est
-toujours pas instrumentee — c'est le meme manque que le cycle precedent avait
-nomme pour les languettes de genoux.
+C'EST LA TROISIEME FOIS QUE CE MOTIF SORT : une grandeur publiee sous un nom qui
+n'est pas le sien. Les deux precedentes ont coute un cycle chacune.
 
 ================================================================================
-3. LE COUT EN BUILDS : ZERO
+4. LA CARTE DES ENFERMEMENTS — EN FORME CLOSE, SANS COURSE NI BUILD
 ================================================================================
 
-Palier utilise : DONNEES SEULES. `physics_chains.txt` est relu au runtime
-(kmachine.cpp), donc aucune compilation goalc, aucun NDK, aucun gradle pour
-DECOUVRIR. Quatre courses de salle x86 completes (A baseline, B, C, D), sept
-minutes chacune, aucune n'a demande un build.
+Le cycle precedent avait prouve `backhair` a la main : sa pointe a une portee de
+820 u contre une capsule de 915 u de rayon, donc elle ne peut PAS en sortir, donc
+sa position est posee par la resolution de collision et non par sa dynamique — ce
+que la course confirmait (multiplier par 1.89 la reponse de son ressort deplace
+son angle de 0.1 %). Cette preuve est maintenant faite pour les 22 chaines contre
+les 48 volumes, en forme close :
 
-CE QUI PART A L'OWNER : la paire coherente APK + pack est produite par
-l'auto-constructeur, qui surveille `keira-owner-tuning.txt` — c'est exactement le
-fichier modifie, donc la livraison se declenche sur le commit sans intervention.
+    .autoport/probe_chain_volume_capture.py
+    sortie : reports/Grecharged-secondary-motion/chain-volume-capture.txt
 
-LA NON-DESTRUCTION EST VERIFIEE, PAS ESPEREE. Le fichier livre a ete regenere par
-le producteur APRES l'ecriture du reglage, et il est BYTE-IDENTIQUE a celui sur
-lequel la jambe D a ete mesuree :
+CE QU'IL CALCULE, exactement : un maillon tourne autour de son attache a longueur
+d'os invariante (contrainte dure de la SPEC), et le volume qu'il porte tourne avec
+lui — donc l'ensemble atteignable par le centre de ce volume est une SPHERE. Pour
+chaque obstacle, le probe prend le MAXIMUM sur cette sphere de la marge de sortie
+(distance au volume moins les deux rayons). Marge < 0 = il n'existe AUCUNE
+position, dans tout l'espace des mouvements possibles, ou ce maillon soit
+entierement hors de ce volume.
 
-    md5 a7200f7f80abcabd88f6874482209adb   avant et apres regeneration
-    sha256 025fbba7361eeecf98a8c0222b8c6363a6f5a41b9a023ac6e7e6280842807aca
+LES DEUX CONTROLES ONT TIRE, et sans eux le resultat ne vaudrait rien :
+    CONTROLE POSITIF   backhair / head->neck  = CAPTURE   (attendu CAPTURE)
+    CONTROLE NEGATIF   earL                   = LIBRE     (attendu LIBRE)
+Le probe reproduit donc la seule capture deja demontree et laisse libre la chaine
+que la course mesure a 25 frames de contact sur 17893.
 
-Ce n'est donc pas seulement « le reglage survit » : c'est « ce qui a ete mesure
-est exactement ce qui est livre ».
+LES CAPTURES, marge croissante :
+
+    topstrapL  link0  Lshoulder->chest   marge  -757 u  (-18.5 cm)   [rootlock]
+    topstrapR  link0  Rshoulder->chest   marge  -699 u  (-17.1 cm)   [rootlock]
+    backhair   link0  head->neck         marge  -528 u  (-12.9 cm)   [rootlock]
+    topstrapL  link0  Lelbow->Lshoulder  marge  -402 u   (-9.8 cm)   [rootlock]
+    topstrapR  link0  Relbow->Rshoulder  marge  -401 u   (-9.8 cm)   [rootlock]
+    backhair   link1  head->neck         marge  -382 u   (-9.3 cm)   <- LIBRE, compte
+    kneeflapL  link0  Lknee->Lthigh      marge   -38 u   (-0.9 cm)   <- LIBRE, compte
+    kneeflapR  link0  Rknee->Rthigh      marge   -34 u   (-0.8 cm)   <- LIBRE, compte
+
+CINQ DES HUIT SONT INERTES, et je le dis plutot que de gonfler la liste : elles
+portent sur le maillon 0 d'une chaine `rootlock=1`, c'est-a-dire un maillon
+VERROUILLE sur son porteur, qui ne bouge pas de toute facon. Restent trois
+captures qui portent sur un maillon reellement simule : `backhair` (deja connue,
+deja prouvee, deja documentee) et LES DEUX LANGUETTES DE GENOU.
+
+`knee-tabs` EST UN DEFAUT OUVERT DE L'OWNER, signale trois fois (« les lanieres a
+ses genoux n'ont plus l'air d'avoir de physique du tout »), et voila sa geometrie :
+la sphere de la languette (rayon 244 u, recentree sur le centroide mesure de sa
+geometrie) ne peut jamais quitter la capsule de cuisse — il lui manque 34 a 38 u,
+soit HUIT MILLIMETRES sur un personnage de deux metres. C'est la premiere fois que
+ce defaut a une cause geometrique chiffree.
+
+CE QUE CETTE MESURE NE DIT PAS, ET IL FAUT LE LIRE AVANT D'AGIR : « capture » ne
+veut pas dire « epinglee ». Le moteur accorde a chaque paire la profondeur de sa
+POSE DE MODELE comme franchise (`phys-vol-floor`) : un maillon dont le modele
+chevauche deja son obstacle a le droit de garder ce chevauchement, seul
+l'approfondissement est refuse. Une capture dit donc « cette chaine est toujours
+dans le regime de contact », pas « cette chaine est bloquee ». Sur `backhair` les
+deux coincidaient — la mesure l'a montre. Sur les languettes, ce n'est pas encore
+etabli, et je ne le suppose pas.
+
+ET J'AI FERME UNE PISTE QUE J'AVAIS OUVERTE UNE HEURE PLUS TOT, dans ce meme
+cycle : j'avais ecrit que `chestL`/`chestR`, en contact 17893/17893, portaient la
+signature de `backhair` et que la piste etait la geometrie du volume qui les
+retient. Le probe le refuse — marge +257 u et +263 u, soit six centimetres de
+liberte. `contact_frames = 100 %` ne veut pas dire « enferme » : le predicat de
+contact est vrai des que la pose du modele chevauche un volume, ce qui est une
+propriete STATIQUE. Une signature partagee n'est pas une cause partagee.
+
+CE QUE JE N'AI PAS FAIT, ET POURQUOI. Retrecir la sphere des languettes libere la
+capture en une ligne de generateur, et je ne l'ai pas livre : le volume d'une
+languette approxime une piece PLATE par une sphere, la retrecir la laisse
+s'enfoncer d'autant dans la jambe, et la regle 6 dit qu'une resolution pire que le
+clip est pire que rien. C'est la troisieme mesure independante qui designe la
+meme reponse structurelle — un volume qui epouse la forme, c'est-a-dire le mesh
+decime que l'owner a lui-meme suggere.
 
 ================================================================================
-4. FLOOR — pantflapL/R, INCHANGE, ET JE NE BAISSE TOUJOURS PAS LE PLANCHER
+5. FLOOR — pantflapL/R, INCHANGE, ET JE NE BAISSE TOUJOURS PAS LE PLANCHER
 ================================================================================
 
     pantflapR  0.3017 -> 0.1269   (-58 %)
     pantflapL  0.2922 -> 0.1270   (-57 %)      plafond de la gate : -40 %
 
-Ce sont les chiffres du cycle precedent, au dix-millieme pres : ce cycle n'a pas
-touche a ces chaines et n'a rien change pour elles. La demonstration reste celle
-de la section 4 d'hier — le generateur derive le rayon interne du fourreau comme
-`r_int = off + rr`, donc la contrainte du moteur est exactement « la paroi
-interne du fourreau ne rentre pas dans la chair », et le pan n'a AUCUNE liberte
-radiale par la mesure du mesh lui-meme. Les 0.29-0.30 enregistres comme plancher
-ont ete mesures pendant une ejection laterale que la geometrie interdit.
+Ce sont les chiffres du cycle precedent au dix-millieme pres : ce cycle n'a pas
+touche a ces chaines. La demonstration reste la meme — le generateur derive le
+rayon interne du fourreau comme `r_int = off + rr`, donc la contrainte du moteur
+est exactement « la paroi interne du fourreau ne rentre pas dans la chair », et
+le pan n'a AUCUNE liberte radiale par la mesure du mesh lui-meme. Les 0.29-0.30
+enregistres comme plancher ont ete mesures pendant une ejection laterale que la
+geometrie interdit : c'est une semence contaminee, par arithmetique et non par
+argument.
 
-Je ne baisse pas la reference : l'abaisser pour se faire passer est le faux vert
+Je ne baisse pas la reference — l'abaisser pour se faire passer est le faux vert
 que l'owner refuse, et ce serait assouplir une gate gelee (regle 5). La gate
-reste ROUGE, le fait est ecrit, rien n'est enterre. L'arbitrage — retirer le
-fourreau et rendre l'ejection, ou acter la contamination de la semence —
-appartient a l'owner.
+reste ROUGE et le fait est ecrit.
 
 ================================================================================
-5. ETAT DES 8 DEFAUTS DE L'OWNER
+6. UNE GATE QUI NE PEUT PAS TIRER — JE LA SIGNALE, JE N'Y TOUCHE PAS (REGLE 5)
 ================================================================================
 
-  hair-gradient    CAUSE TROUVEE ET CORRIGEE (section 1). Frequence propre de la
-                   pointe SOUS le pilotage ; remontee a 3.00 Hz, zeta tenu.
-                   Inversions 8/10 -> 1/10, angle du milieu 86.41 -> 35.57 deg,
-                   ROOM-STRETCH 0.0210 -> 0.0003. Attend son oeil.
-  hair-big-angles  NON FERME, et le mecanisme qui a ferme les meches fines NE
-                   TRANSFERE PAS : demontre par la mesure, pas suppose (section
-                   2bis). L'angle de `backhair` est pose par la COLLISION (100 %
-                   des frames en contact), pas par son ressort — un facteur 1.89
-                   sur la reponse du ressort deplace l'angle de 0.1 %. Trois
-                   essais retires avec leurs nombres. La voie restante est la
-                   geometrie du volume.
-  flesh-jelly      Rien de corrige. Mais la gelee est desormais CHIFFREE (periode
-                   de 2.06 frames = un basculement par frame, contre 49.8 frames
-                   pour le ressort) et le prealable est nomme avec sa mesure
-                   (section 2).
-  knee-tabs        Inchange depuis le cycle precedent : le recentrage des volumes
-                   de lien est livre et attend son oeil.
-  goggles-tunnel   Inchange : garde par un controle qui tire (goggles 266 armee
-                   contre 0 desarmee). Attend son oeil en cinematique.
-  straps-elastic   Inchange : moitie franchissement prouvee, moitie CLIPPING
+Le 2026-08-12 a 12:20, apres le controle qui produisait 43 evenements la ou le
+phenomene reel en produisait 11446, une regle d'ECHELLE a ete ajoutee au
+validateur : un controle doit atteindre au moins 20 % de la ligne de base du
+phenomene, sinon il est declare non concluant. Elle lit `ROOM-SIDE-BASELINE`.
+
+    validateur ligne 379   _base = re.search(r'^ROOM-SIDE-BASELINE:\s*(\d+)', t)
+    physics_room_table.py  0 occurrence — la ligne n'est ECRITE nulle part
+    keira-room-table.txt   0 occurrence — elle n'a jamais existe dans une table
+
+Le test est garde par `if c and _base`, donc son absence est silencieuse : LA
+REGLE DES 20 % NE S'APPLIQUE JAMAIS. La gate qui devait empecher un controle
+sous-dimensionne de cautionner un zero est inerte depuis le jour de sa creation.
+
+JE NE LA CORRIGE PAS, ET C'EST DELIBERE. Ecrire moi-meme la ligne que la gate
+attend reviendrait a choisir la valeur contre laquelle elle me juge : la seule
+grandeur dont je dispose sur la meme fenetre d'exposition est `armed` lui-meme,
+et publier `baseline = armed` rendrait le rapport egal a 1 par construction —
+exactement le chiffre qui se compare a lui-meme que ce cadre rejette. Les 11446
+historiques, eux, ont ete mesures sur une exposition differente (course entiere,
+contrainte absente partout) et ne sont pas comparables aux 1602 du controle.
+L'arbitrage appartient au superviseur : soit la gate lit autre chose, soit la
+salle produit une vraie ligne de base sur la meme fenetre.
+
+================================================================================
+7. LE COUT EN BUILDS
+================================================================================
+
+Palier utilise : GOAL SEUL — `(mi)` trois fois (551, 1073 et 551 cibles, 40 a
+58 s). Aucun NDK, aucun cmake, aucun gradle lance a la main pour DECOUVRIR ; la
+paire APK + pack est produite par l'auto-constructeur,
+qui surveille `jak-hd-physics.gc` et `phys-room.gc` — exactement les fichiers
+modifies — et l'a publiee sans intervention (tag 47734c-c2ee87, 18:34).
+
+Trois courses de salle x86 completes (A deja acquise, B, C), 6 a 8 minutes
+chacune. La premiere de la jambe B a ete tuee par le plafond de patience du
+script — `ROOM_TIMEOUT` vaut 420 s par defaut et PHYSEND n'etait pas atteint,
+la charge du build APK concurrent ayant allonge la course (la reference du depot
+est 345 s). Relancee a 900 s, elle a rendu les MEMES chiffres au bit pres
+(fallback 23, rescued 204, retreat_n 31272) : la course est deterministe, et les
+mesures des deux exemplaires sont interchangeables.
+
+================================================================================
+8. ETAT DES 8 DEFAUTS DE L'OWNER
+================================================================================
+
+  flesh-jelly      PISTE FERMEE, pas le defaut. L'ordre de resolution n'en est
+                   pas la cause (section 2, chiffres a l'appui). Ce que la mesure
+                   designe maintenant : `chestL`/`chestR` sont en contact
+                   17893 frames sur 17893 — 100 %, la meme signature que
+                   `backhair`, dont il est PROUVE que sa pointe ne peut pas
+                   sortir du volume qui la contient. Section 4.
+  hair-gradient    Inchange : corrige cote donnees au cycle 21 (inversions 8/10
+                   -> 1/10), attend son oeil.
+  hair-big-angles  Inchange. La voie reste la geometrie du volume.
+  knee-tabs        CAUSE GEOMETRIQUE TROUVEE ET CHIFFREE (section 4), rien de
+                   corrige. La sphere de chaque languette ne peut JAMAIS quitter
+                   la capsule de cuisse : il lui manque 38 u a gauche et 34 a
+                   droite, soit huit millimetres. C'est la premiere cause chiffree
+                   de ce defaut. Le correctif evident (retrecir la sphere) est
+                   refuse par la regle 6 et la voie est la meme que pour les trois
+                   autres defauts de volume.
+  goggles-tunnel   Inchange : garde par un controle qui tire.
+  straps-elastic   Inchange : moitie franchissement fermee, moitie clipping
                    contre l'elastique orange non traitee.
   goggles-bottom   Rien ce cycle.
-  pant-calf        Rien ce cycle (section 4).
+  pant-calf        Rien ce cycle (section 5).
 
 ================================================================================
 SUPPRESSORS: 0
 ================================================================================
-Aucun suppresseur ajoute, et aucune ligne de moteur modifiee : le seul changement
-de ce cycle est la valeur de trois parametres sur deux chaines. Aucune constante
-nouvelle dans le code, aucun clamp, aucun seuil, aucune hysteresis, aucun gel.
-Le moteur fait 3934 lignes, inchange.
+Aucun suppresseur ajoute. Le balayage de sphere n'en est pas un : il ne borne
+aucune amplitude, il CHERCHE une position admissible la ou le code renoncait, et
+la mesure le confirme — 22 chaines sur 22 gardent leur amplitude a 0.1 % pres.
+Aucun clamp, aucun seuil, aucune hysteresis, aucun gel n'a ete ajoute.
+Le moteur fait 4000 lignes (plafond porte a 4800 par le superviseur pendant ce
+cycle ; je n'y ai pas touche et je n'ai pas eu besoin de la marge : le cycle finit
+a 4000 pile).
 
 ================================================================================
-6. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
+9. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ================================================================================
 
-  * LES DEUX MECHES FINES DE DEVANT, ET RIEN D'AUTRE. C'est le seul changement du
-    cycle. La question exacte, celle qu'il a posee : la POINTE bouge-t-elle enfin
-    plus que le MILIEU ? Le milieu ne doit plus partir en vrille pendant que la
-    pointe reste collee.
-  * ELLES SONT PLUS SAGES, ET C'EST MESURE : -28 % d'amplitude a droite, -18 % a
-    gauche. Si c'est trop calme, ca se rattrape en une regeneration (--ftip 2.4
-    au lieu de 3.0) sans rien casser d'autre.
-  * QUAND ELLE SE PENCHE. L'affaissement des meches fines passe de 12-16 cm a
-    5.3-5.4 cm — moins, mais desormais SYMETRIQUE (3 % d'ecart gauche/droite
-    contre 37 % avant). Est-ce que ca tombe encore assez ?
-  * TOUT LE RESTE EST INCHANGE, et c'est mesure, pas espere : les trois autres
-    chaines de cheveux, la poitrine, les lunettes, les bretelles, les pans de
-    pantacourt, les languettes de genoux, les sangles. Si quoi que ce soit a
-    bouge ailleurs, c'est un defaut de ma part.
+  * RIEN DE NOUVEAU N'EST CENSE ETRE VISIBLE, et c'est la question a poser au
+    build : est-ce que quelque chose a CHANGE malgre tout ? Le mouvement mesure
+    est identique a 0.1 % pres sur les 22 chaines. Si son oeil voit une
+    difference — en mieux ou en pire — alors ma mesure ne voit pas ce qu'il voit,
+    et c'est cela qu'il faut me dire.
+  * LES DEUX MECHES FINES DE DEVANT (`lbang`/`rbang`) portent toujours la
+    correction du cycle 21 qu'il n'a pas encore jugee : la POINTE bouge-t-elle
+    enfin plus que le MILIEU ?
+  * LES MECHES DU MILIEU (`rmidhair` surtout) : c'est la seule chaine dont un
+    chiffre a baisse ce cycle (-22 % sur les plus petits mouvements). Est-ce
+    qu'elle est devenue trop sage ?

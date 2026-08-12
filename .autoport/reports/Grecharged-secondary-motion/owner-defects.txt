@@ -8,6 +8,33 @@
 #   - mèches fines : « vraiment pas mal, même si ça pourrait être mieux »
 #
 OPEN flesh-jelly     effet gelee sur les seins, UNIQUEMENT sur mouvements brusques (subtils et penche = OK)
+#  --- 22e PASSE (2026-08-12 soir) : LA PISTE « ORDRE DE RESOLUTION » EST FERMEE PAR LA MESURE. ---
+#  Le cycle precedent laissait ceci ecrit : la gelee viendrait de l'ordre de resolution des chaines
+#  (chestR voit chestL deja simulee, chestL ne voit que la pose d'auteur), le chemin de Jacobi qui
+#  l'annule EXISTE, il est desarme, et son prealable est le repli du recul. LE PREALABLE A ETE LEVE
+#  CE CYCLE (balayage de sphere : replis 268 -> 23, 204 sauvetages), JACOBI A ETE ARME, ET LA COURSE
+#  COMPLETE LE REFUSE :
+#      ROOM-STRETCH        0.0003 -> 0.0933      9,3 % d'allongement d'os, TROIS fois le plafond
+#      ROOM-JELLY chestR   0.9990 / 2.06 frames  ->  0.9990 / 2.06 frames   INCHANGE au centieme
+#      ROOM-JELLY chestL jerk  0.7153 / 3.94  ->  0.9083 / 2.76             EMPIRE
+#  Le gain annonce par la note du moteur (« -71 % d'ecart de ratio, -69 % d'ecart de periode, du
+#  mouvement APPARU sur chestR ») NE SE REPRODUIT PLUS : il datait d'un moteur sans contrainte de
+#  cote ni balayage. Une mesure ancienne n'est pas un acquis, et celle-la ne valait plus.
+#  CE QUE CA FERME : la gelee n'est PAS un defaut d'ordre de resolution. Deux essais y ont ete
+#  depenses (celui-ci et celui de la note), un troisieme serait du gaspillage.
+#  UNE PISTE QUE J'AI OUVERTE PUIS FERMEE MOI-MEME DANS LE MEME CYCLE, ET LE NEGATIF COMPTE :
+#  j'avais ecrit ici que `chestL`/`chestR`, en contact 17893 frames sur 17893 (100 %), portaient la
+#  meme signature que `backhair` — dont il est PROUVE que sa pointe ne peut pas sortir du volume qui
+#  la contient — et que la piste etait donc la geometrie du volume qui les retient. LE CALCUL EN
+#  FORME CLOSE LE REFUSE (.autoport/probe_chain_volume_capture.py, controles positif et negatif
+#  passes) :
+#      chestL  volume le plus serre Rshoulder->chest   marge +257 u  (+6.3 cm)   LIBRE
+#      chestR  idem                                    marge +263 u  (+6.4 cm)   LIBRE
+#  Les deux peuvent sortir de tout volume declare. `contact_frames = 17893/17893` ne veut donc PAS
+#  dire « enferme » : le predicat de contact est vrai des que la POSE DU MODELE chevauche un volume,
+#  ce qui est une propriete STATIQUE, vraie a chaque frame sans qu'aucune dynamique soit en cause.
+#  Sur `backhair` les deux coincidaient ; ici non. Une signature partagee n'est pas une cause
+#  partagee, et j'ai failli livrer l'inverse.
 #  --- 21e PASSE (2026-08-12) : LA GELEE A UNE PERIODE, ET ELLE EST DE DEUX FRAMES. ---
 #  Rien n'a ete corrige ce cycle sur ce defaut ; ce qui suit est une MESURE, prise dans le tableau
 #  deja livre et que personne n'avait depouillee.
@@ -239,6 +266,26 @@ OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements,
 #  sommets hors de l'union des volumes, et meme reponse pressentie que pour `pant-calf` et
 #  `goggles-bottom` — la suggestion de l'owner (deriver du MESH, pas du rig).
 OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
+#  --- 22e PASSE (2026-08-12 soir) : UNE CAUSE GEOMETRIQUE, CHIFFREE, EN FORME CLOSE. ---
+#  .autoport/probe_chain_volume_capture.py generalise a TOUTES les chaines contre TOUS les volumes
+#  la preuve deja faite a la main sur `backhair`. Un maillon tourne autour de son attache a longueur
+#  d'os invariante et son volume tourne avec lui : l'ensemble atteignable est une SPHERE, donc la
+#  question « ce maillon peut-il seulement SORTIR de ce volume ? » a une reponse en forme close.
+#  Les deux controles tirent : backhair/head->neck CAPTURE (attendu), earL LIBRE (attendu).
+#      kneeflapL  link0  vs capsule Lknee->Lthigh   marge  -38 u  (-0.93 cm)
+#      kneeflapR  link0  vs capsule Rknee->Rthigh   marge  -34 u  (-0.82 cm)
+#  La sphere de la languette (rayon 244 u, recentree sur le centroide mesure de sa geometrie) ne
+#  peut JAMAIS quitter la capsule de cuisse : il lui manque HUIT MILLIMETRES. C'est la premiere
+#  cause geometrique chiffree de ce defaut, et elle est independante de tout reglage.
+#  CE QUE CA NE DIT PAS : « capture » n'est pas « epinglee ». Le moteur accorde a chaque paire la
+#  profondeur de sa POSE DE MODELE comme franchise (`phys-vol-floor`), donc un chevauchement de
+#  repos est permis ; ce qui est refuse est de s'enfoncer plus loin. Sur `backhair` capture et
+#  epinglage coincidaient (mesure : son angle ne repond plus a son ressort) ; ici ce n'est pas
+#  etabli et je ne le suppose pas.
+#  CE QUE JE N'AI PAS LIVRE, ET POURQUOI : retrecir la sphere libere la capture en une ligne de
+#  generateur, mais elle approxime une piece PLATE ; la retrecir la laisse s'enfoncer d'autant dans
+#  la jambe, et une resolution pire que le clip est pire que rien (regle 6). Troisieme mesure
+#  independante qui designe le volume qui epouse la forme — le mesh decime suggere par l'owner.
 #  --- 20e PASSE (2026-08-12) : LA CAUSE EST TROUVEE, MESUREE, ET CORRIGEE COTE DONNEES. ---
 #  LA COURBE DE REPONSE (DECISION 3, jamais depouillee) : sur les 22 chaines, UNE SEULE est non
 #  monotone -- `kneeflapL`, qui CHUTE d'un facteur 26 (x0.04) entre les niveaux d'excitation 1 et 2,
