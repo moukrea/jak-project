@@ -177,3 +177,35 @@ OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
 # max 0.6064 m). Passer a 59 volumes ne recupere que 4,5 points (54.9 -> 50.4). La raison est
 # mesuree ailleurs : les capsules sont livrees au rayon inter-quartile (42 a 58 % des sommets
 # dehors), les spheres au p95 (0 a 8 %).
+
+# =========================================================================================
+# 19e PASSE, DEUXIEME MOITIE (2026-08-12) — L'ORIENTATION DU VOLUME
+# =========================================================================================
+# POSE ET GARDE : le volume qu un lien porte suit desormais l orientation SIMULEE du lien
+# (`phys-link-off-sim!`, deux reflexions R = S_h o S_m avec h = m + u), et non la matrice de
+# l os ANIMEE. `phys-link-pen` la prend sur le point EVALUE, sinon la dichotomie du recul
+# chercherait contre un obstacle fige sur l animation.
+#     chestL +8.5 %   botstrapL +5.6 %   chestR +1.1 %   goggles +0.5 %   topstrapL -1.8 %
+#     les 18 autres inchangees ; aucune chaine sous son plancher.
+#   Sur la jambe ANIMATION SEULE (la seule que l owner voie), avec le reglage de poitrine du
+#   superviseur : chestL 0.1164 -> 0.1506 (+29 %), chestR 0.0993 -> 0.1316 (+33 %).
+#
+# ET L HYPOTHESE QU IL DEVAIT VALIDER EST FAUSSE. Avec ce correctif en place, le recentrage
+# des volumes de lien casse ENCORE : rmidhair 0.58 du plancher, backhair 0.53, ROOM-STRETCH
+# 0.3406 (34 % d allongement d os sur rbang), 4 lignes de penetration sur 3410. Retire une
+# seconde fois. Ce n est donc ni la TAILLE (essai 1) ni le seul DECALAGE MAL ORIENTE (essai 2).
+#   Au credit du recentrage, et c est ce qui vaut d etre repris autrement :
+#       kneeflapR x1.40 (0.0872 -> 0.1224)   lbang x1.13   goggles x1.05
+#   HYPOTHESE NON MESUREE, donnee comme telle : les trois chaines qui cassent sont les trois
+#   chaines de CHEVEUX, toutes groupees sur le crane. `phys-col-own?` exclut une chaine de ses
+#   PROPRES volumes, pas de ceux de ses voisines ; recentrer y ajoute huit spheres decalees de
+#   300 a 760 u dans le meme petit volume d espace. Les chaines qui GAGNENT sont les
+#   spatialement isolees. CE QUI LE TRANCHERAIT : une course avec le recentrage applique aux
+#   SEULES chaines non-cheveux. Elle n a pas ete faite.
+#
+# DEFAUT DE COHERENCE CORRIGE DANS `keira-owner-tuning.txt` : la remontee de poitrine du
+# 12/08 12:35 (couple 1.55 -> 1.85, amortissement 0.33 -> 0.26) avait commente les anciennes
+# lignes `couple=1.55` mais pas les anciennes `damping=0.33`, restees actives plus haut. La
+# valeur LIVREE etait juste (l applicateur prend la derniere) mais la gate TUNING, qui exige
+# que CHAQUE directive soit presente, echouait. Les deux lignes perimees sont commentees avec
+# le meme marqueur. Le fichier livre est BYTE-IDENTIQUE avant et apres (sha256 3b43f67f...).

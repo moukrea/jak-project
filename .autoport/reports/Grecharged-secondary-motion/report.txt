@@ -19,7 +19,7 @@ TOUTES LES AUTRES GATES PASSENT, Y COMPRIS LES DEUX QUI ECHOUAIENT :
   [TUNING]        tous les reglages de l'owner sont dans le fichier livre
   [ROOM]          joueur absent, 1 acteur, 22 chaines x 31/31 animations, 3410 mesures
   [MOVE]          toutes les chaines declarees bougent (tipvar min 0.087)
-  [COLLIDE]       penetration nulle sur les trois paires, controle 0.171 contre 0.000
+  [COLLIDE]       penetration nulle sur les trois paires, controle 0.168 contre 0.000
   [IDLE]          ecart max au modele 0.024   [ANIM] 7 chaines pilotees, toutes respectees
   [SIDE-CONTROL]  0 franchissement(s), controle present
   [FLOOR]         22 chaines au-dessus de leur plancher
@@ -33,9 +33,12 @@ n'a jamais atteint.
 CE QUI EST FERME :
   1. `ROOM-SIDE` : 11446 franchissements -> 0, avec un CONTROLE POSITIF QUI A TIRE.
   2. `meshpen > 0` : 1 ligne sur 3410 -> 0 ligne sur 3410.
-  3. `ROOM-RETREAT-ANCHOR` : fallback 531 -> 260.
+  3. `ROOM-RETREAT-ANCHOR` : fallback 531 -> 278.
   4. La cause racine du retrait du 2026-08-12 (« -43 % sur backhair ») etait MAL ATTRIBUEE.
-     Ce n'est pas la TAILLE du volume. C'est son DECALAGE, et je le mesure ci-dessous.
+     Ce n'est pas la TAILLE du volume, et ce n'est pas NON PLUS son seul decalage : les deux
+     hypotheses ont ete testees et mesurees (sections 3 et 10).
+  5. Le volume qu'un lien porte suit desormais l'orientation SIMULEE du lien et non celle de
+     l'animation. Gain mesure sur la jambe que l'owner voit : poitrine +29 / +33 %.
 
 CE QUI N'EST PAS FERME, ET JE LE DIS AU LIEU DE LE TAIRE :
   * `knee-tabs` : AUCUN progres ce cycle. `kneeflapR retreat=15913` est inchange, et sous
@@ -49,9 +52,13 @@ CE QUI N'EST PAS FERME, ET JE LE DIS AU LIEU DE LE TAIRE :
     parce que la regle de reprise dit UN SEUL point du groupe B a la fois, et le point du
     groupe B de ce cycle est la contrainte de cote.
 
-PALIER DE BUILD : GOAL SEUL. Trois `(mi)` (551 cibles, 38-40 s chacun), zero cmake, zero
-NDK. Trois courses de salle x86 completes (3410 mesures, 31/31 animations, PHYSEND), dont
-UNE dediee au controle d'attribution et UNE au retrait.
+PALIER DE BUILD : GOAL SEUL. Cinq `(mi)` (551 cibles, 38-41 s chacun), zero cmake, zero
+NDK. SIX courses de salle x86 completes (3410 mesures, 31/31 animations, PHYSEND chacune) :
+une par configuration testee, dont deux dediees a l'attribution, deux a un retrait, et la
+derniere sur la PAIRE EXACTE livree (sha du fichier de donnees verifie avant et apres).
+
+    ROOM-SIDE 0   ROOM-SIDE-CONTROL armed=43 disarmed=0   meshpen>0 : 0/3410
+    ROOM-STRETCH 0.0272   ROOM-IDLE 0.0239   ROOM-ANIMS 31/31   ROOM-RETREAT-ANCHOR 278
 
 -----------------------------------------------------------------------------------------
 1. LE DEFAUT QUE LA PROFONDEUR NE POUVAIT PAS VOIR — ET C'EST TROIS DEFAUTS DE L'OWNER
@@ -286,7 +293,8 @@ mesurer sur le Redmi avant toute decision, jamais sur x86.
 8. CE QUI A CHANGE DANS L'ARBRE
 -----------------------------------------------------------------------------------------
 
-  goal_src/jak1/pc/jak-hd-physics.gc   3126 -> 3159 lignes (plafond 3200)
+  goal_src/jak1/pc/jak-hd-physics.gc   3126 -> 3191 lignes (plafond 3200)
+      * `phys-link-off-sim!` : le volume d'un lien suit son orientation SIMULEE (section 10)
       * `phys-axis-dir` rend la distance a l'axe dans `w` (elle etait calculee et jetee)
       * `phys-link-pen` : le franchissement de cote est une penetration ; `feff` prend le
         max des deux lectures du plancher
@@ -322,3 +330,74 @@ La contrainte de cote n'est pas un suppresseur : elle ne borne aucune amplitude 
 s'applique qu'a un lien qui a franchi l'axe d'un volume dans lequel sa pose d'auteur se
 trouve. Ce qu'elle retire est chiffre chaine par chaine en section 5, et vaut 0.0 % sur
 18 chaines sur 22.
+
+-----------------------------------------------------------------------------------------
+10. DEUXIEME MOITIE DU CYCLE — L'ORIENTATION DU VOLUME, POSEE ET GARDEE ; LE RECENTRAGE,
+    REPOSE ET RETIRE UNE SECONDE FOIS
+-----------------------------------------------------------------------------------------
+
+Le hook m'a renvoye au travail, et c'est la bonne decision : la porte est humaine, le travail
+ne l'est pas. J'ai pose le correctif que mes propres mesures designaient comme le premier.
+
+### 10.1 LE VOLUME D'UN LIEN SUIT SON ORIENTATION SIMULEE — GARDE
+
+`phys-link-off!` tournait le decalage du volume par la matrice de l'os ANIMEE. Le lien tourne
+pourtant AUTOUR DE SON ATTACHE a longueur invariante : la rotation a appliquer est celle qui
+amene la direction d'os du MODELE sur la direction SIMULEE. Elle se calcule en DEUX REFLEXIONS
+(`R = S_h o S_m`, `h = m + u`) — ni produit vectoriel, ni axe a normaliser, et elle ne degenere
+que pour un demi-tour exact, que la contrainte de cote interdit deja.
+
+`phys-link-pen` la prend sur le point EVALUE et non sur la position courante : sinon la
+dichotomie du recul chercherait contre un obstacle fige sur l'animation.
+
+A/B strict, memes donnees (33 volumes), meme salle :
+
+    chestL     0.3722 -> 0.4037   +8.5 %      botstrapL  0.5814 -> 0.6142   +5.6 %
+    chestR     0.3709 -> 0.3750   +1.1 %      goggles    0.5107 -> 0.5132   +0.5 %
+    topstrapL  0.4648 -> 0.4563   -1.8 %      les 18 autres : inchangees
+    aucune chaine sous son plancher ; ROOM-SIDE 0 ; meshpen 0 ; ROOM-STRETCH 0.0272
+
+Sur la jambe ANIMATION SEULE — la seule que l'owner voie en jeu — combinee au reglage de
+poitrine du superviseur (couple 1.55 -> 1.85, amortissement 0.33 -> 0.26) :
+
+    chestL  0.1164 -> 0.1506  (+29 %)        chestR  0.0993 -> 0.1316  (+33 %)
+
+### 10.2 LE RECENTRAGE REPOSE PAR-DESSUS — ET RETIRE, AVEC SON CHIFFRE
+
+L'hypothese etait que le decalage mal oriente etait LA cause du retrait de la section 3. Elle
+est fausse, et c'est mesure : avec le correctif d'orientation en place, le recentrage casse
+encore.
+
+    rmidhair  0.5617 -> 0.4129   (0.58 du plancher)      <<< CASSE
+    backhair  0.2177 -> 0.1610   (0.53 du plancher)      <<< CASSE
+    ROOM-STRETCH  0.0272 -> 0.3406   (34 % d'allongement d'os sur rbang)
+    meshpen > 0 : 0 -> 4 lignes sur 3410
+    au credit : kneeflapR x1.40 (0.0872 -> 0.1224), lbang x1.13, goggles x1.05
+
+RETIRE une seconde fois. Le correctif d'orientation reste, lui : il est mesure BON tout seul.
+
+HYPOTHESE POUR LA SUITE, ET JE LA DONNE COMME HYPOTHESE, PAS COMME MESURE : les trois chaines
+qui cassent sont les trois chaines de CHEVEUX, toutes groupees sur le crane. `phys-col-own?`
+exclut une chaine de ses PROPRES volumes, pas de ceux de ses voisines : recentrer y ajoute huit
+spheres decalees de 300 a 760 u dans le meme petit volume d'espace, et chaque meche se met a
+obstruer les autres. Les chaines qui GAGNENT (bretelles, languettes) sont justement les
+spatialement isolees. Ce qui le trancherait : une course avec le recentrage applique aux SEULES
+chaines non-cheveux. Je ne l'ai pas faite.
+
+### 10.3 DEUX DEFAUTS DE COHERENCE TROUVES EN CHEMIN, ET CORRIGES
+
+1. **`keira-owner-tuning.txt` etait devenu auto-contradictoire.** Le superviseur a remonte la
+   poitrine a 12:35 (couple 1.55 -> 1.85, amortissement 0.33 -> 0.26) et a commente les anciennes
+   lignes `couple=1.55` — mais pas les anciennes lignes `damping=0.33`, restees actives plus haut
+   dans le fichier. L'applicateur prend la derniere, donc la valeur LIVREE etait juste ; la gate
+   TUNING, elle, exige que CHAQUE directive soit presente et echouait. Les deux lignes perimees
+   sont commentees, avec le meme marqueur que les siennes. **Le fichier livre est byte-identique
+   avant et apres** (sha256 3b43f67f...) : aucune valeur ne change, seul le fichier cesse de dire
+   deux choses a la fois.
+
+2. **Ma table etait mesuree contre d'autres reglages que ceux que je livrais.** La course
+   d'attribution a tourne a 12:32, son changement de poitrine est de 12:35 : le tableau decrivait
+   `damping=0.33 couple=1.55` pendant que le fichier livre portait `0.26 / 1.85`. C'est une paire
+   depareillee, exactement ce que les DIRECTIVES interdisent. La course a ete REFAITE sur la paire
+   exacte (sha du fichier verifie avant et apres la course), et c'est cette course-la qui est
+   publiee. Aucune mesure de ce rapport ne provient d'une autre.
