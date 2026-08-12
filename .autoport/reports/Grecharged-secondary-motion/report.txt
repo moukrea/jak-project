@@ -402,3 +402,48 @@ CAVEAT D'HONNETETE SUR LES CHIFFRES DE L'ATTIC : ses spans par maillon sont mesu
 MONDE, celui-la meme que la 10e passe a declare non discriminant. Ils attestent que le PROFIL etait
 bati, pas que le gradient relatif au parent etait croissant. Ce qui est solide dans l'attic est le
 MECANISME (la limite de cone, elle, est bien parent-relative), pas le chiffre.
+
+-------------------------------------------------------------------------------------------------
+8 bis. LA CHAINE CAUSALE EST COMPLETE, ET LE VERROU TIENT EN UNE LIGNE
+-------------------------------------------------------------------------------------------------
+
+Verifie dans l'arbre courant, pas deduit :
+
+  1. l'EXCLUSION STRUCTURELLE chaine<->son propre volume EXISTE DEJA dans le moteur propre —
+     `jak-hd-physics.gc:1809` : « L'exclusion est STRUCTURELLE (chaine <-> elle-meme), pas un
+     `colskip` : elle ne lit aucune donnee ». Elle a son compteur (`selfcol`, index 0) et son
+     controle positif (`self-inject`, lignes 1941-1946) qui LEVE l'exclusion pour faire monter le
+     compteur. C'est exactement le mecanisme dont l'attic avait besoin et qu'il obtenait, lui, avec
+     le flag `colskip=` aujourd'hui interdit ;
+  2. le seul verrou restant est UNE LIGNE DE GENERATEUR — `.autoport/physics_keira_gen.py:708`,
+     `kv.append("rootlock=1")`, applique a TOUTE chaine de 2 joints ou plus, avec en commentaire
+     (lignes 691-692, et 30) l'affirmation « `rootlock=0` is not expressible here ».
+
+Cette affirmation est un COMMENTAIRE, et le cycle 3 de l'attic (`63285fbfb4`) la dement : les memes
+chaines y tournaient avec `rootlock=0`. Ce qui la rendait vraie a l'epoque, c'est qu'une racine
+simulee entrait en collision avec son propre volume — et c'est precisement ce que le point 1
+resout desormais, structurellement et sans flag.
+
+CONSEQUENCE, ET C'EST LA REPONSE AU DEFAUT LE PLUS SIGNALE DE LA PHASE : avec `rootlock=1`, une
+chaine de DEUX joints (`backhair`, `lmidhair`, `rmidhair`, `earL`, `earR`) n'a qu'UN SEUL maillon
+libre. Un degrade racine->pointe n'y est pas REPRESENTABLE — ce n'est pas un mauvais reglage, c'est
+un degre de liberte absent. Le tableau le dit deja et je ne l'avais pas lu ainsi :
+
+    backhair  link0=0.0000  link1=75.29        <- un seul maillon libre : rien a graduer
+    lmidhair  link0=0.0000  link1=49.36        <- idem
+
+Les franges ont trois joints, donc deux maillons libres, et c'est la que la rampe a deux etages du
+cycle 3 (cone + raideur par maillon, puis profil d'influence en sortie) devient necessaire :
+
+    lbang     link0=0.0000  link1=50.77  link2=29.76     <- 2 libres, mais milieu > pointe
+
+LE PAS SUIVANT, chiffre et ordonne (a faire APRES la verification de la contrainte de cote en
+cours, un seul changement a la fois — regle du GROUPE B) :
+  a. retirer le `rootlock=1` inconditionnel du generateur pour les chaines de CHEVEUX, en
+     s'appuyant sur l'exclusion structurelle deja en place, et verifier que `selfcol` reste a 0
+     avec son controle positif qui tire ;
+  b. remplacer le verrou binaire par une marche d'influence bornee (l'attic mesurait 0.45) qui
+     RELEVE la racine au lieu d'abaisser la pointe ;
+  c. mesurer `ROOM-GRADIENT` EN REPERE PARENT : la suite doit devenir croissante sur les cinq
+     chaines. C'est la seule preuve qui compte, et c'est celle que l'attic n'avait pas.
+Aucune de ces trois etapes n'est faite dans ce cycle, et je ne les presente pas comme faites.
