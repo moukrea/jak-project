@@ -19,6 +19,40 @@ if [ ! -f "$STATE" ] || [ ! -f "$PLAN" ]; then
     exit 0
 fi
 
+# ---------------------------------------------------------------------------------------------
+# UN SEUL WORKER PAR PHASE. Le 2026-08-12 deux orchestrateurs ont lance deux workers sur la
+# meme phase et le meme arbre, pour la DEUXIEME fois : le premier detenait 117 lignes non
+# commitees du moteur pendant que le second arrivait sur les memes fichiers. La correction du
+# matin (`flock` dans orchestrator.py) n'a pas pu l'empecher, et la raison etait ecrite dans le
+# rapport : un Python deja lance ne relit pas son propre source, donc la garde ne prenait effet
+# qu'au prochain demarrage — un futur qui n'arrivait pas.
+# Ce hook, lui, est RE-EXECUTE a chaque lancement de worker, par n'importe quel orchestrateur,
+# deja lance ou non. C'est le point de production du doublon, donc c'est ici que ca se ferme.
+# On ne tue rien : le doublon est informe qu'il n'a pas la main, avant d'avoir touche un fichier.
+# ---------------------------------------------------------------------------------------------
+CLAIM_RC=0
+HOLDER=$(bash "$CLAUDE_PROJECT_DIR/.autoport/phase_claim.sh" claim "$AUTOPORT_PHASE_ID") \
+    || CLAIM_RC=$?
+if [ "$CLAIM_RC" -ne 0 ]; then
+    if [ "$CLAIM_RC" -eq 3 ]; then
+        cat <<EOF
+## ARRET IMMEDIAT — UN AUTRE WORKER TIENT DEJA CETTE PHASE
+
+Un worker VIVANT travaille deja sur **$AUTOPORT_PHASE_ID** dans cet arbre de travail
+($HOLDER). Tu es un doublon : deux orchestrateurs tournent sur ce depot.
+
+Ne touche **aucun** fichier. Deux workers sur le meme arbre se detruisent mutuellement — c'est
+deja arrive deux fois, et l'owner l'a explicitement interdit : « t'assurer que ton travail
+n'est pas systematiquement detruit, c'est chelou comme comportement ».
+
+Ce que tu fais, et rien d'autre :
+1. Tu n'edites rien, tu ne compiles rien, tu ne lances aucune course.
+2. Tu rapportes en une phrase que la phase est tenue par le worker ci-dessus, et tu t'arretes.
+EOF
+        exit 0
+    fi
+fi
+
 IDX=$(jq -r '.current_phase_idx // 0' "$STATE")
 PHASE_ID=$(yq -r ".phases[$IDX].id" "$PLAN")
 PHASE_NAME=$(yq -r ".phases[$IDX].name" "$PLAN")

@@ -823,12 +823,36 @@
    a cette pose la profondeur vaut exactement `floor0`, donc exactement `feff`, et le test de
    penetration est STRICT (`dep > feff`). L'egalite est exacte et non approchee — les deux appels
    passent par cette fonction avec les memes entrees. Le recul par dichotomie garde donc son point
-   d'arrivee, et « rien ne traverse » reste vrai a la derniere operation de la frame."
-  (let ((w (/ (- (* 2.0 rl) floor0) (fmax 0.0001 rl))))
-    (cond
-      ((>= w 1.0) floor0)
-      ((<= w 0.0) PHYS-VOL-FREE)
-      (else floor0))))
+   d'arrivee, et « rien ne traverse » reste vrai a la derniere operation de la frame.
+
+   2026-08-12 — LA BRANCHE « ENTIEREMENT DEDANS = PLUS AUCUNE CONTRAINTE » EST RETIREE, et c'est
+   la cause racine de `goggles-tunnel`.
+
+   Elle rendait PHYS-VOL-FREE des que `floor0 >= 2 rl`, c'est-a-dire : « ce lien est deja tout
+   entier dans ce volume a sa pose d'auteur, donc il n'a aucune surface devant lui ». Le
+   raisonnement est juste sur la SURFACE et faux sur la DECISION : n'avoir aucune surface devant
+   soi n'autorise pas a s'enfoncer plus loin. Une fois FREE, la paire n'est plus contrainte DU
+   TOUT et le lien peut traverser la piece de part en part.
+   MESURE de la course du 2026-08-12 (colonne `buried`, PAR CHAINE, memes volumes) :
+       goggles   50642 paires (lien, volume) declarees FREE      tiprot 175.81 deg
+       botstrapR 37603                                           tiprot 177.89 deg
+       rbang     16740                                           topstrapL 7019, kneeflapL 7019
+   50 642 fois par course, les lunettes n'avaient plus AUCUN volume devant elles. C'est
+   exactement « en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos » :
+   il suffit qu'une pose d'auteur les enfonce de 165 u de plus (mesure : `gogglesBase` est a 227 u
+   dedans pour 2 rl = 392 u) pour que le buste cesse d'exister pour elles.
+
+   LA REGLE DEVIENT UNIFORME, ET C'EST LA PHRASE DE LA SPEC SANS EXCEPTION : la franchise
+   accordee a une paire EST sa profondeur d'auteur. `feff = floor0`, toujours.
+
+   ET ELLE SE DEGRADE TOUTE SEULE DANS LE CAS QUI AVAIT MOTIVE LA BRANCHE. `dep` est maximale sur
+   l'AXE du volume et vaut alors `rr + rl` : un lien dont la pose d'auteur est SUR l'axe a
+   `floor0 = rr + rl`, le maximum atteignable, donc `dep > floor0` est impossible et la paire est
+   libre — sans branche, par arithmetique. Et pour un lien enfoui MAIS excentre (le pan de
+   pantacourt, a 95 u de l'axe du mollet), la contrainte se lit « ne t'approche pas de l'axe plus
+   que l'auteur ne t'y a mis » : elle laisse toute la rotation autour de la jambe et interdit la
+   seule chose que l'owner voit, l'enfoncement. C'est ce que la branche FREE lui accordait."
+  floor0)
 
 ;; ------------------------------------------------------------------------------------------------
 ;; GEOMETRIE — un lien contre un collider. Le collider est une SPHERE (joint2 < 0) ou une CAPSULE
@@ -992,13 +1016,33 @@
                (when (<= d 0.0001)
                  (set! *phys-invfix* (+ *phys-invfix* 1))
                  (set! dx mx) (set! dy my) (set! dz mz) (set! d want))
-               ;; LE COTE, ET SEULEMENT SUR LE LIEN ATTACHE A L'ANCRE. C'est exactement ce que
-               ;; l'owner a demande : « une chaine A UN SEUL OS de famille A doit rester du cote de
-               ;; la pose du modele ». Sur un lien profond, ce test serait une butee d'articulation
-               ;; a 90 degres que personne n'a demandee : la mesure du 2026-08-11 lui fait corriger
-               ;; 600 a 2000 fois par course des chaines dont l'owner n'a jamais signale qu'elles se
-               ;; repliaient. « Pas de suppresseur par defaut » (SPEC 7) — on ne le garde que la ou
-               ;; un defaut mesure l'exige.
+               ;; LE COTE, ET SEULEMENT SUR LE PREMIER LIEN LIBRE — celui dont l'attache est RIGIDE.
+               ;; C'est exactement ce que l'owner a demande : « une chaine A UN SEUL OS de famille A
+               ;; doit rester du cote de la pose du modele ». Sur un lien PROFOND (dont l'attache est
+               ;; elle-meme simulee), ce test serait une butee d'articulation a 90 degres que
+               ;; personne n'a demandee.
+               ;;
+               ;; 2026-08-12 — LE PREDICAT ETAIT `l = 0`, ET IL NE POUVAIT PAS TIRER. La boucle
+               ;; au-dessus saute deja tout `l < rlk` : sur une chaine `rootlock=1` le maillon 0
+               ;; n'est jamais visite, donc `l = 0` n'y est JAMAIS vrai. Le test ne tournait donc que
+               ;; sur les 11 chaines a un seul os, et etait structurellement mort sur les 11 autres —
+               ;; oreilles, cheveux, meches, lunettes, bretelles. La colonne `inv` de la course le
+               ;; dit sans ambiguite : 27 a 93 corrections sur chaque chaine a un os, ZERO sur
+               ;; chacune des onze chaines rootlockees.
+               ;;
+               ;; Or le premier maillon LIBRE d'une chaine rootlockee est dans la meme situation
+               ;; geometrique qu'un os seul : son attache est le maillon rigide, qui porte la pose du
+               ;; modele au bit pres. Ce n'est pas un lien profond, c'est LE lien attache a du rigide.
+               ;; `l = rlk` est donc la lecture fidele de l'intention ecrite ci-dessus, et `l = 0`
+               ;; n'y coincidait que par accident quand `rootlock` valait 0.
+               ;;
+               ;; CE QUE CA CORRIGE, MESURE (colonne `tiprot`, course du 2026-08-12) : les onze
+               ;; chaines sans test de cote repliaient leur maillon libre jusqu'a
+               ;;     topstrapL 179.06   botstrapR 177.89   topstrapR 176.75   goggles 175.81
+               ;;     botstrapL 174.55   earR 161.36        earL 156.25        lmidhair 125.76
+               ;; 179 degres, c'est une bretelle retournee bout pour bout : elle repart vers le
+               ;; torse, et c'est « la bretelle clipe au travers de l'elastique orange ». Un tissu
+               ;; cousu a l'epaule ne peut pas se replier au-dela de son propre point d'attache.
                ;; On REFLECHIT la composante le long de la direction du modele, ce qui remet le lien
                ;; de son cote SANS changer sa longueur. La zone morte evite le miroitement sans fin
                ;; quand le lien frole le plan perpendiculaire, ou le signe du produit scalaire se
@@ -1006,7 +1050,7 @@
                (let* ((m2  (+ (* mx mx) (+ (* my my) (* mz mz))))
                       (u2  (+ (* dx dx) (+ (* dy dy) (* dz dz))))
                       (dot (+ (* dx mx) (+ (* dy my) (* dz mz)))))
-                 (when (and (= l 0) (< dot 0.0) (> m2 0.0)
+                 (when (and (= l rlk) (< dot 0.0) (> m2 0.0)
                             (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
                    (set! *phys-invn* (+ *phys-invn* 1))
                    (set! (-> *phys-dg* (+ (* sc PHYS-DG) 3))
@@ -1029,6 +1073,21 @@
                ;; donc la longueur reste invariante et le lien ne fait que tourner moins loin.
                ;; Sans lui, `anklestrapL` — dont l'ancre est a 47 cm — part a 1,49 m de pointe et
                ;; 0,77 m de racine sous les a-coups de la salle (mesure du 2026-08-11).
+               ;;
+               ;; IL NE PORTE QUE SUR LE MAILLON 0, DONC QUE SUR LES CHAINES SANS `rootlock`, ET
+               ;; C'EST DELIBERE — le tableau de la salle a longtemps affirme le contraire (« il
+               ;; porte desormais sur tout maillon libre ») pendant que le code lisait `l = 0` : la
+               ;; colonne `raddrop` de la course le demontrait deja, 15 000 a 25 000 declenchements
+               ;; sur chacune des onze chaines a un os et EXACTEMENT ZERO sur chacune des onze
+               ;; chaines rootlockees. Le texte est corrige avec ce commit ; le code ne l'est pas,
+               ;; et voici le chiffre qui l'interdit :
+               ;;   `rmax` est la DEMI-EPAISSEUR du morceau de geometrie, pas un budget de course.
+               ;;   Etendu au maillon libre d'une bretelle, il vaudrait 157 u sur un os de 1366 u,
+               ;;   soit une butee a 2*asin(157/2732) = 6.6 degres : la bretelle serait morte.
+               ;;   Sur un os seul, `rmax` et l'os sont du meme ordre (lBoob 656 contre 977 u,
+               ;;   soit 39.2 degres) et la butee reste plausible.
+               ;; Ce qui borne le repliement d'un maillon libre profond est donc le test de COTE
+               ;; ci-dessus (une demi-sphere autour de la direction du modele), pas ce rayon.
                (when (= l 0)
                  (let* ((rmax (-> *phys-rad* scl))
                         (tx (-> skel bones (+ kk 1) transform vector 3 x))
@@ -1373,6 +1432,7 @@
 (defun phys-flip-count ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
   (let ((slot (/ sc PHYS-CHAINS))
         (rest (new 'stack-no-clear 'vector))
+        (cur  (new 'stack-no-clear 'vector))
         (off  (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
@@ -1390,6 +1450,10 @@
             (set! (-> rest x) (+ (-> rest x) (-> off x)))
             (set! (-> rest y) (+ (-> rest y) (-> off y)))
             (set! (-> rest z) (+ (-> rest z) (-> off z)))
+            (set! (-> cur x) (+ (-> *phys-px* scl) (-> off x)))
+            (set! (-> cur y) (+ (-> *phys-py* scl) (-> off y)))
+            (set! (-> cur z) (+ (-> *phys-pz* scl) (-> off z)))
+            (set! (-> cur w) 1.0)
             (let ((w0 0) (w1 0) (w2 0))
               (dotimes (ci (min nco (* 32 PHYS-FLIPW)))
                 (let* ((sco (+ (* slot PHYS-COLS) ci))
@@ -1403,10 +1467,18 @@
                       (vector-copy! cb ca))
                     (when (not (phys-col-rest! sco ra rb))
                       (vector-copy! ra ca) (vector-copy! rb cb))
+                    ;; L'ETAT SUIVI EST « EN CONTACT », plus « contraint ou libre ». Depuis que la
+                    ;; branche PHYS-VOL-FREE est retiree, toute paire est contrainte : garder
+                    ;; l'ancien predicat aurait rendu ce bit constamment 1, donc le compteur de
+                    ;; bascules identiquement nul — un instrument mort qui affiche du vert. Le
+                    ;; predicat de contact est celui de `phys-link-pen`, donc les deux passes
+                    ;; parlent de la meme chose : dedans a la pose du modele, ou dedans maintenant.
                     (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
                            (floor0 (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                                                       (-> *phys-cr2* sco) cap? nrm))
+                           (dep    (phys-collide-depth cur rl ca cb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm)))
-                      (when (< (phys-vol-floor floor0 rl) PHYS-VOL-FREE) (set! bit 1))))
+                      (when (or (> floor0 0.0) (> dep 0.0)) (set! bit 1))))
                   (when (nonzero? bit)
                     (cond
                       ((< ci 32)  (set! w0 (logior w0 (ash 1 ci))))
@@ -1493,20 +1565,22 @@
                              0.0)
                       (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
                             (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))))
-                (cond
-                  ((>= feff PHYS-VOL-FREE)
-                   ;; le lien est entierement dans ce volume a sa pose de modele : il n'y a pas de
-                   ;; surface devant lui. Compte, pour que le nombre soit dans le tableau.
-                   (set! *phys-buried-n* (+ *phys-buried-n* 1))
-                   (when (nonzero? *phys-buried-tally*)
-                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 9))
-                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 9))))))
-                  ;; EN CONTACT = dedans a sa pose de modele, ou dedans maintenant. Une paire dont
-                  ;; les deux profondeurs sont nulles (un volume a l'autre bout du corps) n'est pas
-                  ;; un contact : la compter rendrait le residu identiquement nul et la colonne
-                  ;; deviendrait un zero constant, c.-a-d. indistinguable d'une colonne fabriquee.
-                  ((and (or (> floor0 0.0) (> dep 0.0)) (> res worst))
-                   (set! worst res)))))))))
+                ;; `buried` = le lien est entierement dans ce volume A SA POSE DE MODELE. Depuis le
+                ;; 2026-08-12 c'est une MESURE et plus une DECISION : elle ne dispense plus la paire
+                ;; d'etre contrainte (cf. phys-vol-floor, branche FREE retiree). Le nombre reste
+                ;; publie parce que c'est lui qui a designe `goggles-tunnel` — mais il ne commande
+                ;; plus rien, et l'instrument de mesure cesse d'etre l'instrument de derogation.
+                (when (>= floor0 (* 2.0 rl))
+                  (set! *phys-buried-n* (+ *phys-buried-n* 1))
+                  (when (nonzero? *phys-buried-tally*)
+                    (set! (-> *phys-dg* (+ (* sc PHYS-DG) 9))
+                          (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 9))))))
+                ;; EN CONTACT = dedans a sa pose de modele, ou dedans maintenant. Une paire dont
+                ;; les deux profondeurs sont nulles (un volume a l'autre bout du corps) n'est pas
+                ;; un contact : la compter rendrait le residu identiquement nul et la colonne
+                ;; deviendrait un zero constant, c.-a-d. indistinguable d'une colonne fabriquee.
+                (when (and (or (> floor0 0.0) (> dep 0.0)) (> res worst))
+                  (set! worst res))))))))
     worst))
 
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
@@ -2031,15 +2105,75 @@
                                               (tf (sqrtf (fmax 0.0 (- 1.0 (* cs cs))))))
                                          (when (> tf (-> *phys-st* (+ stb 19)))
                                            (set! (-> *phys-st* (+ stb 19)) tf))))))))
+                             ;; --------------------------------------------------------------
+                             ;; UNE BARRIERE DEVANT LE MUR — le correctif de `flesh-jelly`.
+                             ;;
+                             ;; Owner, 11e passe : « lors de mouvements brusques il y a un effet
+                             ;; d'etirement et un peu gelee ou ca change de taille, c'est PAS
+                             ;; COHERENT ! » ; 21:20 : « c'est pas des ballons durs non plus, c'est
+                             ;; naturel que ca change un peu de forme... c'est juste beaucoup trop ».
+                             ;;
+                             ;; CE QUE LA COURSE DU 2026-08-12 MESURE, et c'est sans ambiguite :
+                             ;;   `tiprot` chestL = 39.2376 / 39.2525 / 39.2890 / 39.2449 degres
+                             ;;   sous updown / leftright / accel / jerk — LA MEME VALEUR A TROIS
+                             ;;   DECIMALES sous une translation, une acceleration et un a-coup de
+                             ;;   39 g. C'est la signature d'un plafond EPINGLE, pas d'une reponse.
+                             ;;   Elle se recalcule a la main : le mur borne |p - T| par `rmax` =
+                             ;;   656 u sur un os de 977 u, soit 2*asin(656/1954) = 39.24 degres.
+                             ;;   `raddrop` = 18 894 declenchements sur chestL, 15 434 sur chestR.
+                             ;;
+                             ;; POURQUOI CA FAIT DE LA GELEE. Le gain statique de l'integrateur vaut
+                             ;; 1/k2 = 1/0.0159 = 62.9 : sous le pilotage `accel` la force du repere
+                             ;; (couple 1.55 x 122.9 u/frame^2) demande un ecart de ~11 950 u pour
+                             ;; un budget de 656. Le systeme est donc SATURE en permanence, la
+                             ;; position ecrite ne depend plus de l'AMPLITUDE de la force mais
+                             ;; seulement de sa DIRECTION — et sous un a-coup cette direction change
+                             ;; de signe d'une frame a l'autre. Mesure : `jump` = 0.1604 m sur une
+                             ;; seule frame, soit 657 u, c'est-a-dire exactement le plafond traverse
+                             ;; de part en part. Un plafond dur a une derivee discontinue ; « ca
+                             ;; change de taille et ce n'est correle a rien » en est la definition.
+                             ;;
+                             ;; LA FORME POSEE ICI est une raideur qui MONTE quand on approche du
+                             ;; plafond, au lieu d'un mur qu'on percute :
+                             ;;      k_eff = k2 / (1 - (|o|/cap)^6)     plafonnee a 1.0
+                             ;; C'est une FORCE, dans l'integrateur, appelee UNE FOIS par frame :
+                             ;; le piege d'idempotence de `phys-softmin` ne s'y applique pas, et le
+                             ;; mur reste en place derriere elle comme garantie (`raddrop` dit s'il
+                             ;; sert encore).
+                             ;; L'EXPOSANT 6 N'EST PAS UN REGLAGE, c'est ce qui protege les deux
+                             ;; acquis que l'owner a valides :
+                             ;;   |o| = 0.50 cap -> k_eff = 1.016 k2  (mouvement subtil : intact)
+                             ;;   |o| = 0.58 cap -> k_eff = 1.038 k2  (c'est l'equilibre gravitaire
+                             ;;                    mesure : 379 u pour un cap de 656 — le « bon sag »
+                             ;;                    perd 0.5 %, pas 33 % comme le ferait un exposant 2)
+                             ;;   |o| = 0.95 cap -> k_eff = 3.77 k2   (la butee se sent enfin venir)
+                             ;;   |o| -> cap     -> k_eff -> plafond  (on n'y arrive plus jamais)
+                             ;; STABILITE : le plafond de 1.0 est verifie, pas suppose. Le polynome
+                             ;; caracteristique du schema est z^2 - (2 - dmp - k)z + (1 - dmp) ; avec
+                             ;; le plus petit amortissement des chaines concernees (0.26) et k = 1.0
+                             ;; le discriminant est negatif et le module des racines vaut
+                             ;; sqrt(1 - 0.26) = 0.86 < 1. La divergence n'apparait qu'au-dela de
+                             ;; k = 3.3.
+                             ;; PERIMETRE : exactement celui du mur — le maillon 0 d'une chaine sans
+                             ;; `rootlock`. Un maillon qui n'a pas de mur n'a pas de barriere, sinon
+                             ;; ce serait un suppresseur de plus et non le remplacement d'un existant.
+                             ;; --------------------------------------------------------------
                              (let* ((ox (-> *phys-ox* scl))
                                     (oy (-> *phys-oy* scl))
                                     (oz (-> *phys-oz* scl))
+                                    (bcap (if (= l 0) (-> *phys-rad* scl) 0.0))
+                                    (kb (if (> bcap 0.01)
+                                          (let* ((r2 (/ (+ (* ox ox) (+ (* oy oy) (* oz oz)))
+                                                        (* bcap bcap)))
+                                                 (r6 (fmin 0.98 (* r2 (* r2 r2)))))
+                                            (fmin 1.0 (/ k2 (- 1.0 r6))))
+                                          k2))
                                     (vx (* (- ox (-> *phys-o1x* scl)) (- 1.0 dmp)))
                                     (vy (* (- oy (-> *phys-o1y* scl)) (- 1.0 dmp)))
                                     (vz (* (- oz (-> *phys-o1z* scl)) (- 1.0 dmp)))
-                                    (ax (+ (* (- 0.0 k2) ox) (-> fl x) (* gsc (-> gl x))))
-                                    (ay (+ (* (- 0.0 k2) oy) (-> fl y) (* gsc (-> gl y))))
-                                    (az (+ (* (- 0.0 k2) oz) (-> fl z) (* gsc (-> gl z)))))
+                                    (ax (+ (* (- 0.0 kb) ox) (-> fl x) (* gsc (-> gl x))))
+                                    (ay (+ (* (- 0.0 kb) oy) (-> fl y) (* gsc (-> gl y))))
+                                    (az (+ (* (- 0.0 kb) oz) (-> fl z) (* gsc (-> gl z)))))
                                (set! (-> *phys-o1x* scl) ox)
                                (set! (-> *phys-o1y* scl) oy)
                                (set! (-> *phys-o1z* scl) oz)
@@ -2316,12 +2450,15 @@
                                       (when (> ang (-> *phys-la* scl))
                                         (set! (-> *phys-la* scl) ang))))
                                   ;; L'INSTRUMENT DE MESURE EST L'INSTRUMENT DE DECISION : le
-                                  ;; solveur ne corrige le cote QUE sur le lien attache a l'ancre
-                                  ;; (c'est ce que l'owner a demande), donc la mesure ne le compte
-                                  ;; que la. Compter les liens profonds donnait 24 117 « inversions
+                                  ;; solveur ne corrige le cote QUE sur le PREMIER LIEN LIBRE, celui
+                                  ;; dont l'attache est rigide, donc la mesure ne le compte que la.
+                                  ;; Compter les liens profonds donnait 24 117 « inversions
                                   ;; residuelles » que rien ne corrigeait et que rien n'avait
                                   ;; demande de corriger — un chiffre sans decision derriere.
-                                  (when (and (= l 0) (< dot 0.0)
+                                  ;; Le predicat suit celui du solveur (`l = rlk`, corrige le
+                                  ;; 2026-08-12) : sur les chaines rootlockees `l = 0` n'etait
+                                  ;; jamais visite, donc les deux lisaient zero par construction.
+                                  (when (and (= l rlk) (< dot 0.0)
                                              (> (* dot dot) (* PHYS-SIDE-COS2 (* u2 m2))))
                                     (set! *phys-invres* (+ *phys-invres* 1))
                                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 4))

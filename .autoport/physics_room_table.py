@@ -561,9 +561,16 @@ def main():
       % (radr_n, fnum(radr_s),
          ' (jamais declenche)' if radr_n == 0 else ' soit %s m par declenchement'
          % fnum(radr_s / radr_n)))
-    A('     il ne s\'appliquait qu\'au maillon 0 : les maillons PROFONDS n\'avaient AUCUNE borne,')
-    A('     et c\'est pour ca que lbang/rbang link1 atteignaient 178 degres pour une borne')
-    A('     geometrique de 15. Il porte donc desormais sur tout maillon libre.')
+    A('     PERIMETRE REEL, corrige le 2026-08-12 : il ne porte QUE sur le maillon 0, donc que sur')
+    A('     les chaines SANS rootlock. Le texte affirmait ici « il porte desormais sur tout maillon')
+    A('     libre » ; le code lisait `l = 0` (jak-hd-physics.gc), et la colonne `raddrop` ci-dessous')
+    A('     le demontrait deja : 15 000 a 25 000 declenchements sur chaque chaine a un seul os,')
+    A('     EXACTEMENT ZERO sur chacune des onze chaines rootlockees. Un commentaire n\'est pas une')
+    A('     preuve, y compris dans ce tableau.')
+    A('     ET IL NE DOIT PAS L\'ETRE : ce plafond est la DEMI-EPAISSEUR du morceau de geometrie.')
+    A('     Etendu au maillon libre d\'une bretelle il vaudrait 157 u sur un os de 1366 u, soit une')
+    A('     butee a 6.6 degres — la bretelle serait morte. Ce qui borne un maillon libre profond est')
+    A('     le test de COTE (demi-sphere autour de la direction du modele), pas ce rayon.')
     A('   part radiale de la force, ecartee : %d fois, %s u/frame^2 au total%s'
       % (radf_n, fnum(radf_s),
          ' (jamais declenche)' if radf_n == 0 else ' soit %s par declenchement'
@@ -574,9 +581,16 @@ def main():
     A('     et la renormalisation sur la sphere. REPERE : celui de l\'ancre, projetee sur l\'axe de')
     A('     l\'os du maillon. LECTURE QUAND LE DEFAUT EST ABSENT : 0 si la force est deja transverse.')
     A('   marge de sortie de collision : 0.5 u = 0.000122 m par contact resolu, constante.')
-    A('   paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele, donc')
-    A('   sans surface devant lui : %d occurrences de mesure. Critere geometrique calcule sur la' % buried_n)
-    A('   pose du modele (profondeur_repos >= 2 x rayon du lien), pas une liste ni un masque.')
+    A('   paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele :')
+    A('   %d occurrences de mesure. Critere geometrique calcule sur la pose du modele' % buried_n)
+    A('   (profondeur_repos >= 2 x rayon du lien), pas une liste ni un masque.')
+    A('   CE N\'EST PLUS UN LIMITEUR depuis le 2026-08-12 : cet etat dispensait la paire de TOUTE')
+    A('   contrainte (`phys-vol-floor` rendait PHYS-VOL-FREE), au motif qu\'un lien deja entierement')
+    A('   dedans n\'a pas de surface devant lui. Vrai sur la surface, faux sur la decision : ne pas')
+    A('   avoir de surface devant soi n\'autorise pas a s\'enfoncer plus loin. 50 642 fois par')
+    A('   course, les lunettes n\'avaient plus AUCUN volume devant elles — c\'est `goggles-tunnel`.')
+    A('   La franchise accordee est desormais la profondeur d\'auteur, sans exception ; le nombre')
+    A('   reste publie parce que c\'est lui qui a designe le defaut, mais il ne commande plus rien.')
     A('')
     A('-- CE QUE LE MOTEUR A ECARTE, ET AVEC QUELS CHIFFRES ---------------------------------------')
     if not dropped:

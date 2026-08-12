@@ -6,6 +6,14 @@ set -euo pipefail
 TS=$(date -u +%Y%m%dT%H%M%SZ)
 LOG="$CLAUDE_PROJECT_DIR/.autoport/logs/session-end.log"
 
+# Rend le jeton de phase pris au demarrage (cf. .autoport/phase_claim.sh). Le `release` ne
+# retire QUE notre propre jeton : un worker qui meurt sans passer ici laisse un jeton perime,
+# que le prochain `claim` detecte mort par (pid, heure de demarrage, nom du programme) et
+# remplace. Aucun verrou ne peut donc rester coince sur un processus disparu.
+if [ -n "${AUTOPORT_PHASE_ID:-}" ]; then
+    bash "$CLAUDE_PROJECT_DIR/.autoport/phase_claim.sh" release "$AUTOPORT_PHASE_ID" || true
+fi
+
 {
     echo "=== Session end $TS ==="
     echo "--- Recent commits ---"
