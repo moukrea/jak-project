@@ -65,6 +65,19 @@
 (defconstant PHYS-P-GRAV    2)
 (defconstant PHYS-P-RADIUS  6)
 (defconstant PHYS-P-ROOTLK  7)
+;; 8 = `gradient`, documente par le parseur C++ comme « root->tip freedom exponent »
+;; (kmachine.cpp:912). Il etait PARSE et JAMAIS LU : le moteur propre n'a aucun profil d'influence
+;; (`grep -n infl` ne rend rien), et le fichier de donnees livre n'en porte aucune occurrence.
+;;
+;; POURQUOI CET INDICE ET PAS `rootfree` (16), QUI DECRIT LE MEME CONCEPT. `rootfree` vaut
+;; **0.3 PAR DEFAUT** dans le parseur (kmachine.cpp:1028, « rootfree DEFAULTS to 0.3 — cast-wide by
+;; construction »). Le lire ici aurait donc arme un maillon 0 gradue sur LES 22 CHAINES d'un coup,
+;; sans qu'une seule ligne de donnees le demande — et le constructeur automatique aurait publie ca
+;; a l'owner avant qu'aucune course ne l'ait mesure. L'indice 8 vaut **0 par defaut** (le tableau
+;; d'initialisation kmachine.cpp:1010 rend params[8] = 0), donc tant qu'aucune chaine ne l'ecrit,
+;; ce moteur se comporte AU BIT PRES comme avant ce cycle. C'est la propriete qui rend le
+;; changement livrable sans l'avoir encore juge.
+(defconstant PHYS-P-GRADIENT 8)
 (defconstant PHYS-P-MASS   19)
 (defconstant PHYS-P-HANG   20)
 (defconstant PHYS-P-FAMILY 22)
@@ -128,6 +141,12 @@
 (define *phys-couple* (new 'global 'array 'float PHYS-SC))
 (define *phys-fam*    (new 'global 'array 'int32 PHYS-SC))   ;; 1 = A, 2 = B
 (define *phys-rootlk* (new 'global 'array 'int32 PHYS-SC))
+;; LIBERTE GRADUEE DE LA RACINE, 0 = aucune (le maillon 0 reste epingle, comportement d'avant ce
+;; cycle au bit pres). Une valeur g dans ]0,1] rend le maillon 0 SIMULE, mais avec sa raideur
+;; angulaire multipliee par 1/g^2 : sa deviation d'equilibre est donc de l'ordre de g fois celle
+;; d'une racine libre. g=1 = racine entierement libre, et c'est l'etat que l'owner a DEJA rejete
+;; (« cheveux decolles du crane »). Ce parametre n'existe pas pour etre mis a 1.
+(define *phys-rootgr* (new 'global 'array 'float PHYS-SC))
 (define *phys-maxang* (new 'global 'array 'float PHYS-SC))   ;; degres, 0 = aucune limite d'angle
 ;; ------------------------------------------------------------------------------------------------
 ;; LE FOURREAU. Owner, plusieurs passes : « le bas du pantacourt est toujours a l'interieur des
@@ -890,6 +909,16 @@
                         (set! (-> *phys-mass* sc) (if (< m 0.01) 1.0 m)))
                       (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY))))
                       (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
+                      (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT)))
+                      ;; PREUVE D'EXECUTION (regle 0), meme forme que `shell=` juste en dessous, et
+                      ;; pour la meme raison : `gradient=` traverse le fichier de donnees, le parseur
+                      ;; C++ et la garde `param_id < kPhysNumChainParams` avant d'arriver ici, et un
+                      ;; zero silencieux a n'importe laquelle de ces couches rendrait la racine
+                      ;; graduee INERTE sans qu'aucun chiffre ne le dise -- on croirait avoir mesure
+                      ;; le correctif alors qu'on aurait mesure son absence. La ligne ne s'imprime
+                      ;; que pour les chaines qui le declarent, donc son ABSENCE est aussi une mesure.
+                      (when (> (-> *phys-rootgr* sc) 0.0)
+                        (format 0 "[HD-PHYS] rootgrade c=~D g=~f~%" c (-> *phys-rootgr* sc)))
                       (set! (-> *phys-maxang* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MAXANG)))
                       (set! (-> *phys-shell* sc)  (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-SHELL)))
                       ;; PREUVE D'EXECUTION (regle 0). `shell=` a traverse trois couches avant
@@ -2862,8 +2891,23 @@
               (when (and (> (-> *phys-nlink* sc) 0) (>= an 0) (< (+ an 1) nbone))
                 (phys-pose-repair obj skel sc (-> *phys-nlink* sc) an nbone
                                   (zero? (-> *phys-warm* sc))))
-              (let* ((n   (-> *phys-nlink* sc))
-                     (rlk (max 0 (min (-> *phys-rootlk* sc) (max 0 (- n 1))))))
+              ;; DEUX JEUX D'INDICES LA OU IL N'Y EN AVAIT QU'UN, ET LA DISTINCTION EST LE CŒUR DU
+              ;; CORRECTIF. `rootlock` portait DEUX roles a la fois :
+              ;;   (1) « quels maillons sont epingles » — ce que toutes les gardes `(>= l rlk)`
+              ;;       lisent (contrainte de longueur, collision, recul, angles, mesures) ;
+              ;;   (2) « sur quels maillons se calcule `*phys-lmean*` », la longueur d'os de
+              ;;       reference du ressort ANGULAIRE (voir la note de `k2a`).
+              ;; Les confondre est un piege chiffre : liberer la racine ferait entrer son os dans la
+              ;; moyenne, et `lmean` passerait de 0.1438 a 0.2333 m sur `lbang` — donc la frequence
+              ;; propre de la POINTE sauterait de 1.070 a 1.736 Hz. Or 1.07 Hz est la SEULE valeur
+              ;; que l'oeil de l'owner ait jamais qualifiee positivement (« vraiment pas mal »), et
+              ;; elle a coute deux cycles a retrouver. Un changement cense corriger le degrade aurait
+              ;; ainsi detruit `hair-fine-dead` en silence, sans qu'aucune ligne de donnees ne bouge.
+              ;; `rlk0` garde donc le role (2), intact ; `rlk` porte le role (1) et lui seul.
+              (let* ((n    (-> *phys-nlink* sc))
+                     (rlk0 (max 0 (min (-> *phys-rootlk* sc) (max 0 (- n 1)))))
+                     (rgr  (-> *phys-rootgr* sc))
+                     (rlk  (if (> rgr 0.0) 0 rlk0)))
               (when (and (> n 0) (>= an 0) (< (+ an 1) nbone))
                 (let ((am (the-as matrix (-> skel bones (+ an 1) transform))))
                   (vector-copy! anc (the-as vector (-> am vector 3)))
@@ -2945,7 +2989,10 @@
                                         (the-as vector (-> skel bones (+ kk 1) transform vector 3))
                                         (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))
                               (set! (-> *phys-blen* scl) bl)
-                              (when (>= l rlk)
+                              ;; `rlk0`, PAS `rlk` : la reference du ressort angulaire ne doit pas
+                              ;; bouger quand la racine devient graduee, sinon la frequence de la
+                              ;; pointe se deplace toute seule (voir la note du `let*` ci-dessus).
+                              (when (>= l rlk0)
                                 (set! lsum (+ lsum bl))
                                 (set! lcnt (+ lcnt 1)))))))
                       (set! *phys-lmean* (if (> lcnt 0) (/ lsum (the float lcnt)) 0.0)))
@@ -3242,9 +3289,45 @@
                                     ;; si ce correctif fait ce qu'il annonce.
                                     ;; ------------------------------------------------------
                                     (bl  (-> *phys-blen* scl))
-                                    (k2a (if (and (> bl 0.01) (> *phys-lmean* 0.01))
+                                    (k2b (if (and (> bl 0.01) (> *phys-lmean* 0.01))
                                            (let ((q (/ *phys-lmean* bl))) (* k2 (* q q)))
                                            k2))
+                                    ;; ------------------------------------------------------
+                                    ;; LA RACINE GRADUEE. Elle n'est plus epinglee, elle est
+                                    ;; RAIDE : sa raideur angulaire est multipliee par 1/g^2, donc
+                                    ;; sa deviation d'equilibre vaut de l'ordre de g fois celle
+                                    ;; d'une racine libre.
+                                    ;;
+                                    ;; POURQUOI LA RAIDEUR ET NON UNE PONDERATION DE L'ECRITURE —
+                                    ;; c'est la question qui decide, et elle a une reponse dans le
+                                    ;; code, pas une preference. Il n'existe qu'UN SEUL jeu de
+                                    ;; tableaux de position, `*phys-p**` : le solveur le lit et
+                                    ;; l'ecrit (contrainte de longueur, collision, recul), la
+                                    ;; MESURE de penetration `phys-pen-chain` le lit, et le bloc
+                                    ;; d'ecriture le copie tel quel dans le squelette. Ponderer a
+                                    ;; l'ECRITURE ferait donc diverger ce qui est DESSINE de ce qui
+                                    ;; est MESURE : `meshpen` continuerait d'annoncer zero sur des
+                                    ;; positions que personne ne voit, pendant que l'owner verrait
+                                    ;; la meche traverser. C'est la definition meme du faux vert que
+                                    ;; ce contrat interdit, et ca a deja coute huit cycles.
+                                    ;; En passant par la raideur, le simule EST l'ecrit : la
+                                    ;; collision, la longueur et la mesure portent toutes sur la
+                                    ;; position que l'owner a sous les yeux.
+                                    ;;
+                                    ;; MARGE DE STABILITE, chiffree et non supposee : l'integrateur
+                                    ;; est explicite a pas fixe, donc `k2a` doit rester bien sous 1.
+                                    ;; Sur `lbang` (stiffness 1.6548, mass 1.35) k2 = 0.02224, et le
+                                    ;; facteur d'os de la racine vaut (0.1438/0.4124)^2 = 0.1216,
+                                    ;; d'ou k2a(racine libre) = 0.002705. Le budget avant k2a = 1
+                                    ;; est donc un facteur 370, soit g >= 0.052. C'est cette marge
+                                    ;; qui rend le reglage possible ; une raideur trop haute dans ce
+                                    ;; type d'integrateur ne donne pas de la fermete mais de
+                                    ;; l'oscillation numerique -- le « jitter » que l'owner a
+                                    ;; signale trois fois.
+                                    ;; ------------------------------------------------------
+                                    (k2a (if (and (> rgr 0.0) (< l rlk0))
+                                           (/ k2b (* rgr rgr))
+                                           k2b))
                                     (bcap (if (= l 0) (-> *phys-rad* scl) 0.0))
                                     (kb (if (> bcap 0.01)
                                           (let* ((r2 (/ (+ (* rx rx) (+ (* ry ry) (* rz rz)))
@@ -3833,7 +3916,11 @@
                                             ;; saute par `(>= l rlk)`), donc toute valeur non nulle
                                             ;; ici prouve que le chemin neuf tourne — et le remettre
                                             ;; a `(>= l rlk)` le ramene a zero : c'est l'A/B.
-                                            (when (< l rlk)
+                                            ;; `rlk0` : ce diagnostic porte sur le maillon que les
+                                            ;; DONNEES declarent epingle. Sur une racine graduee il
+                                            ;; continue donc de publier l'angle ecrit dans sa 3x3,
+                                            ;; au lieu de disparaitre parce que `rlk` est tombe a 0.
+                                            (when (< l rlk0)
                                               (let ((ad (* 0.0054931641 (atan sn cs))))
                                                 (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 14)))
                                                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 14)) ad))))
