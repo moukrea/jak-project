@@ -1,276 +1,289 @@
 DIRECTIVES v4e8d7808e6
 
 PHASE Grecharged-secondary-motion — PHYSIQUE DE KEIRA
-CYCLE DU 2026-08-12 (apres-midi). Branche physics-keira-clean.
+CYCLE DU 2026-08-12 (fin d'apres-midi). Branche physics-keira-clean.
 Contrat : .autoport/prompts/SPEC-keira-physique.md
 
 ================================================================================
 CE QU'IL FAUT LIRE EN PREMIER
 ================================================================================
 
-Ce cycle a produit UNE attribution qui manquait depuis trois passes, UNE correction
-gardee, et DEUX corrections que la mesure a rejetees — les miennes. Les trois
-rejets sont ecrits ici avec leurs chiffres, pas enterres.
+Ce cycle ferme la MOITIE STRUCTURELLE de `hair-gradient` (PRIORITE 1), avec une
+cause racine prouvee par l'algebre autant que par la mesure, et un A/B complet qui
+ne coute de mouvement a AUCUNE chaine. Il ne ferme pas le defaut : le gradient
+reste inverse sur 9 couples (chaine, pilotage) sur 10, et la moitie restante est
+d'une autre nature. Elle est nommee ici, chiffree, et non traitee.
 
-Le validateur ECHOUE, et c'est conforme : la gate OPEN-DEFECTS liste 8 defauts
-rapportes par l'owner, et une ligne ne se retire que sur SA parole. Aucune gate
-situee apres elle n'a donc ete executee (fail() sort en exit 1) ; ce que j'ai pu
-evaluer en rejouant leur logique en lecture seule est dit plus bas, y compris ce
-qui aurait echoue.
+LE VALIDATEUR ECHOUE, et il doit echouer : la gate OPEN-DEFECTS liste 8 defauts
+rapportes par l'owner, et une ligne ne se retire que sur SA parole. Comme fail()
+sort en exit 1, aucune gate suivante n'est executee par la course reelle. J'ai donc
+rejoue leur logique sur une COPIE du validateur dans /tmp, en ne neutralisant que
+la sortie OPEN-DEFECTS — le validateur du depot n'est pas touche (regle 5), et la
+reference de plancher a ete sauvegardee puis restauree pour que ce diagnostic
+n'ecrive rien. Etat reel, gate par gate :
 
-================================================================================
-1. hair-gradient (PRIORITE 1) — ATTRIBUE POUR LA PREMIERE FOIS
-================================================================================
+    PASS   TUNING · ROOM · MOVE · COLLIDE · IDLE · ANIM · FLOOR-WEAK · DISCRIMINANT
+    FAIL   OPEN-DEFECTS   8 defauts ouverts (porte de l'owner, par dessein)
+    FAIL   SIDE-CONTROL   le controle positif ne tire plus (0 arme contre 0 desarme)
+    FAIL   FLOOR          pantflapL/R -57 % / -58 % contre leur plancher
 
-L'owner, deux fois : « le milieu est plus hysterique (bouge beaucoup plus) que les
-pointes, c'est pas cense ! ». SPEC 2 exige la suite CROISSANTE de la racine vers la
-pointe. Elle DECROIT : lbang link1 = 50,8 a 92,3 deg contre link2 = 19,8 a 61,4.
-
-CE QUI BLOQUAIT, ET CE N'ETAIT PAS UNE HYPOTHESE MANQUANTE MAIS UNE MESURE MANQUANTE.
-ROOM-GRADIENT ne publiait que l'angle TEL QU'ECRIT, en fin de frame. Or la frame a
-trois etages qui peuvent chacun aplatir la pointe : l'integration, la boucle de
-contraintes (longueur x8, collision x8, attenuation d'angle) et la finition
-(longueur + collision + recul, x3). Un seul chiffre en sortie ne peut nommer aucun
-des trois. C'est le meme motif que les trois faux verts du 2026-08-11 : la grandeur
-publiee ne correspondait pas a la nature du defaut.
-
-Le meme angle est desormais releve aux trois etages (phys-cap-ang!, PHYSGRADS,
-ROOM-GRADIENT etendu). Resultat, sur les 9 couples (chaine, pilotage) inverses :
-
-    inversion deja presente a s0 : 9/9   ·  a s1 : 9/9  ·  a la fin : 9/9
-
-    lbang  leftright  s0= 0.0000 92.3374 30.6021   s1= 0.0000 87.3641 35.7979   fin= 0.0000 87.3641 35.8610
-    lbang  jerk       s0= 0.0000 82.6795 29.6648   s1= 0.0000 79.6796 29.4931   fin= 0.0000 79.6796 22.7661
-    rbang  updown     s0= 0.0000 75.3041 32.2404   s1= 0.0000 73.3939 31.1893   fin= 0.0000 73.3939 31.1893
-
-LA SUITE EST DEJA INVERSEE A LA SORTIE DE L'INTEGRATION, avant que la moindre
-contrainte n'ait touche le maillon. Aucune contrainte n'en est responsable : ni la
-longueur, ni la collision, ni le recul, ni l'attenuation d'angle. C'EST LE MODELE
-DE RESSORT LUI-MEME.
-
-Deux pistes poursuivies jusqu'ici sont donc CLOSES, et il faut cesser d'y revenir :
-  * « l'attenuation d'angle ecrase la pointe » — exclue AUSSI par l'arithmetique :
-    bendcut cumule 7006 deg sur lbang, soit 0,2 deg par (lien, frame) sur 17893
-    frames. Elle ne retire rien a cette echelle.
-  * « le dernier maillon n'est pas integre ni ecrit » — exclue : il porte un angle
-    non nul a s0, donc il est bien integre.
-
-CE QUE LA MESURE DESIGNE, comme hypothese a tester ENSUITE et donnee comme telle
-(non mesuree) : chaque maillon est integre INDEPENDAMMENT contre sa propre cible
-ANIMEE, puis rattache par la contrainte de longueur. Le retard est donc COMMUN a
-toute la chaine (tous les maillons pendent du meme crane et prennent le meme retard
-monde) au lieu de S'ACCUMULER vers la pointe. L'angle relatif au parent mesure le
-retard DIFFERENTIEL, et un retard commun rend un differentiel plat ou decroissant.
-Un vrai cheveu accumule : chaque articulation ajoute son retard a celui de son
-parent. La cible du ressort d'un maillon profond devrait donc etre definie par
-rapport a la position SIMULEE de son parent, pas a sa propre position animee monde.
+Les deux derniers ne sont PAS causes par ce cycle : mon A/B les mesure a 0.0 % de
+variation. Ils sont herites du cycle precedent (le fourreau). Ils sont documentes
+en section 3 et 4 avec ce qu'il faut pour les trancher — je ne les enterre pas et
+je ne les contourne pas.
 
 ================================================================================
-2. LE FOURREAU (pant-calf) — GARDE, AVEC SON CONTROLE POSITIF QUI TIRE
+1. hair-gradient (PRIORITE 1) — LA CAUSE RACINE, ET ELLE SE DEMONTRE
 ================================================================================
 
-Owner : « le bas du pantacourt est toujours a l'interieur des mollets, comme si son
-pantacourt s'arretait aux genoux ».
+L'owner, trois fois : « le milieu bouge beaucoup plus que les pointes, c'est pas
+cense », « on dirait que les pointes sont ancrees au meme titre que les racines, et
+que c'est ce qu'il y a entre les deux qui bouge vraiment ». SPEC 2 exige la suite
+CROISSANTE de la racine vers la pointe.
 
-Le pan est une COQUE FERMEE autour du mollet, et son rayon livre (429/443) est le
-rayon du FOURREAU, pas l'epaisseur du tissu (p90 = 13-16 u). Le moteur s'en servait
-comme rayon d'une SPHERE DE POUSSEE centree sur un lien dont le centroide est a 95 u
-de l'axe — c'est-a-dire SUR l'axe. Il lisait donc ~700 u de penetration et ejectait
-le pan lateralement a chaque frame, ce qui enfonce la moitie du tissu dans la jambe.
-Pousser un fourreau « hors » du membre qu'il entoure n'a pas de sens geometrique.
+Le cycle precedent avait localise le defaut a l'ETAGE 0 — le gradient est deja
+inverse a la sortie de l'integration seule, 9 chaines sur 9 — donc ni la contrainte
+de longueur, ni la collision, ni l'attenuation d'angle, ni le recul n'en sont
+responsables. Il n'avait pas nomme la cause. La voici.
 
-LA REGLE DE DETECTION EST MESUREE, ET LA PREMIERE FORMULATION ETAIT FAUSSE.
-La couverture angulaire autour de l'axe DU JOINT LUI-MEME ne discrimine pas : une
-meche est un tube autour de son propre os exactement comme un fourreau (Lbanga
-12/12 secteurs, backHair1 10/12, lEarb 10/12, comme LpantFlap 10/12). Le repli PCA
-est pire : il fait passer lKneeFlap — la languette plate, controle negatif de
-l'owner — de 5/12 a 10/12.
-LA SEULE REGLE QUI DISCRIMINE est la couverture autour de l'axe d'un volume
-ETRANGER (aucun de ses deux joints n'appartient a la chaine testee) :
+LES PARAMETRES SONT DECLARES PAR CHAINE. Raideur, masse, amortissement et couplage
+sont les memes pour tous les maillons d'une chaine (recharged_assets/
+physics_chains.txt : une ligne `chain`, puis des lignes `j <joint>` sans parametres).
+Et chaque maillon integrait son ecart contre SA PROPRE pose animee. Sous une
+excitation commune — la tete tourne, le buste part — tous les maillons recevaient
+donc la meme force, avec la meme raideur et la meme masse, et rendaient le MEME
+ecart. La chaine se translatait EN BLOC.
 
-    seuils : secteurs >= 10/12  ET  ecart max <= 60 deg
-    LpantFlap -> Lankle->Lknee   10/12,  60 deg   COQUE
-    RpantFlap -> Rankle->Rknee   10/12,  60 deg   COQUE
-    meilleur non-pan : Rmidhairb 8/12 150 deg, lBoob et rBoob 8/12 120 deg
-    lKneeFlap (controle negatif) : 2/12, 330 deg
-    CONTROLE POSITIF : appliquee a la PEAU, qui est litteralement un fourreau, elle
-    classe coque Lknee 12/12, Rknee 12/12, Lthigh, chest, head, main, Lelbow 11/12.
+Or l'angle du maillon se mesure depuis l'attache SIMULEE (phys-cap-ang!,
+jak-hd-physics.gc:1389-1425). A ecarts egaux :
 
-shell = |c-axe| + rr(c) = 452 u a gauche, 448 a droite : le seul nombre qui rende la
-pose du modele ADMISSIBLE (min, p05 et p10 passent SOUS le rayon du mollet ; p25 ne
-laisse que 9 u de jeu quand le pan est deja decale de 95).
+    p2 - p1  =  (T2 + o) - (T1 + o)  =  T2 - T1        <- la pose animee, au bit pres
 
-PIEGE ENCODE PLUTOT QUE DOCUMENTE. La classification n'est PAS invariante au seuil
-de poids du skinning : evaluee a w>0.05 pour tout le monde, elle classerait coques
-Lmidhaira, Rmidhaira, lBoob et rBoob — LA POITRINE DEVIENDRAIT UN FOURREAU. La
-self-check du generateur ECHOUE si la regle derive (controle positif joue : avec
-FIT_STEPS=(0.05,), la generation refuse d'ecrire).
+L'angle de la POINTE est donc IDENTIQUEMENT NUL a l'etage 0. Pas petit : nul, par
+construction. Les 29,76 deg que la pointe affichait etaient du residu de contrainte.
+Une chaine dont la racine est clouee (rootlock) et qui se translate en bloc met tout
+son angle dans son PREMIER segment libre et rien dans les suivants — c'est mot pour
+mot la forme que l'owner decrit.
 
-PREUVES D'EXECUTION (regle 0) :
-  * avant reconstruction du parseur : « [hd-phys] unknown key 'shell' … (skipped) »,
-    donc la course d'isolement etait bien inerte ;
-  * apres : ce warning a DISPARU (0 occurrence), donc la cle est lue ;
-  * CONTROLE POSITIF DU FOURREAU, sur la course :
-        ROOM-SHELL: chain=pantflapR  run=0.0000  disarmed=0.0000  armed=0.1011
-    Desarme (contrainte en place) l'ecart radial est nul ; ARME (le pan retrouve sa
-    sphere de poussee) il monte a 0,1011 m. Le compteur MONTE sous le defaut.
+CE QUI A ETE CHANGE (jak-hd-physics.gc, bloc d'integration, ~15 lignes) : le rappel
+porte desormais sur l'ecart RELATIF AU PARENT (o - o_parent), c'est-a-dire sur la
+deviation du maillon vue depuis le repere SIMULE de son attache. Une translation
+commune cesse d'etre un equilibre gratuit ; chaque maillon doit gagner son propre
+retard sur celui qui le porte, et les retards s'ADDITIONNENT vers la pointe. Le
+parent est lu a son etat de DEBUT de frame (tableau o1, pose par le tour precedent
+de la meme boucle), donc l'integration reste explicite.
 
-COUT MESURE, ET JE NE LE MAQUILLE PAS : pantflapL et pantflapR perdent 49 % de leur
-mouvement de pointe (0.2505 -> 0.1270 et 0.2530 -> 0.1269), donc sous le plancher de
--40 %. Le mouvement retire est EXACTEMENT l'ejection laterale de 10 cm que le
-controle ci-dessus chiffre : ce n'etait pas du mouvement du tissu, c'etait le defaut.
-C'est a l'owner de juger de ses yeux — c'est la seule mesure qui compte ici.
+A/B COMPLET — DEUX COURSES DE SALLE DE 3410 MESURES CHACUNE, CE CORRECTIF POUR
+SEULE VARIABLE. Tables conservees :
+    A  keira-room-table.A-BASELINE-cascade.txt
+    B  keira-room-table.B-CASCADE.txt
 
-COURSE DE CONFIRMATION DE L'ETAT LIVRE (fourreau seul, les deux autres desarmes) :
+  mouvement PROPRE de la pointe (ROOM-GRADIENT link2, relatif au parent, degres) :
 
-    [HD-PHYS] shell c=16 r=452.0000        preuve d'execution : la cle arrive au moteur
-    [HD-PHYS] shell c=17 r=448.0000
-    ROOM-SHELL: chain=pantflapL  run=0.0000  disarmed=0.0000  armed=0.0999
-    ROOM-SHELL: chain=pantflapR  run=0.0000  disarmed=0.0000  armed=0.1011
-    ROOM-SHELL-CONTROL: armed=0.2010 disarmed=0.0000      le controle TIRE
-    meshpen max global      0.000000        regle 6 tenue sur les 22 chaines
-    ROOM-STRETCH            0.0272          identique a la reference
-    ROOM-INVERSIONS         residual=379    identique a la reference
-    ROOM-RETREAT-ANCHOR     fallback=278    identique a la reference
-    ROOM-SIDE               crossing=0      identique a la reference
-    ROOM-IDLE / ROOM-AUTHORED / ROOM-ANIMS  identiques
-    SEULES chaines dont le mouvement bouge de plus de 1 % : pantflapL et pantflapR.
-    Les vingt autres sont identiques a la reference — l'isolement est verifie, pas
-    affirme.
+      chaine  pilotage      A        B      variation
+      lbang   updown     29.76 -> 30.39      +2.1 %
+      lbang   leftright  31.30 -> 39.09     +24.9 %
+      lbang   accel      58.31 -> 63.05      +8.1 %
+      lbang   jerk       19.84 -> 23.95     +20.7 %
+      lbang   tilt       33.25 -> 35.75      +7.5 %
+      rbang   updown     26.87 -> 37.69     +40.3 %
+      rbang   leftright  27.14 -> 36.97     +36.2 %
+      rbang   accel      48.54 -> 53.12      +9.4 %
+      rbang   jerk       36.48 -> 41.97     +15.0 %
+      rbang   tilt       22.07 -> 60.62    +174.7 %   <- et la, link2 (60.62) DEPASSE
+                                                         link1 (41.53) : MONOTONE.
 
-UNE REGRESSION QUE JE SIGNALE PLUTOT QUE DE LA LAISSER PASSER :
-    ROOM-SIDE-CONTROL: armed=0 disarmed=0     (il valait armed=43 avant ce cycle)
-Le controle de la contrainte de COTE ne tire plus. C'est coherent — la fenetre de
-controle produisait ses franchissements surtout sur le pan, qui ne s'ejecte plus —
-mais la consequence est nette et elle est dans les DIRECTIVES : un ROOM-SIDE a zero
-dont le controle ne monte pas NE PROUVE PLUS RIEN. La gate SIDE-CONTROL echouerait
-si elle etait atteinte (elle ne l'est pas : OPEN-DEFECTS sort avant). Il faut une
-fenetre de controle qui exerce le franchissement a son echelle sur une autre chaine
-que le pan — c'est le meme travail que le ROOM-SIDE-BASELINE reclame par la 12e
-passe, et il reste a faire.
+  reponse au STIMULUS FAIBLE (ROOM-RESPONSE au plus petit stimulus), c'est-a-dire
+  la ou l'owner regarde et ou il a dit « mute » :
+      lbang  0.0871 -> 0.1194   +37.1 %
+      rbang  0.1185 -> 0.2827  +138.6 %
+  Ce sont exactement les deux chaines qu'il decrit comme « hysteriques » depuis six
+  passes, et dont il vient de dire qu'elles « bougent peut-etre plus assez ».
 
-================================================================================
-3. DECISION 1 (un seul volume decide) — POSEE, MESUREE, REJETEE
-================================================================================
+ATTRIBUTION, ET C'EST LA PREUVE QUE LE CORRECTIF FAIT CE QU'IL DIT ET RIEN D'AUTRE :
+`link1` est BIT-IDENTIQUE sur les dix couples (50.7742 · 76.7393 · 86.9366 ·
+85.3996 · 47.9679 ...). C'est attendu et c'est le test : le parent de link1 est le
+maillon rootlock, dont l'ecart vaut zero, donc son equation est inchangee. Pour la
+meme raison, les DIX-HUIT chaines a deux maillons sont inchangees a 0.0 %. Seules
+les deux chaines a trois maillons bougent. Aucun effet de bord.
 
-Ordre du superviseur, jamais implemente jusqu'ici. Implemente exactement comme
-ecrit (corps avant chaine, puis parent dans le rig), avec un departage que la regle
-n'avait pas : trois volumes de corps sont a egalite de profondeur 1, donc l'index
-rig du joint porteur tranche (les 33 sont deux a deux distincts).
+PLANCHERS (les deux gates d'anti-regression, calculees sur les tables A et B) :
+    FLOOR       pire cas -1.7 % (rbang)      plafond -40 %
+    FLOOR-WEAK  pire cas  0.0 %              plafond -30 %
+Aucune chaine ne paie ce correctif.
 
-TROIS CHIFFRES LA CONDAMNENT, course complete, elle pour seule variable :
+AUTRES GATES SUR LA COURSE B : meshpen max 0.0000 · rootdev max 0.1611 (plafond 2.0)
+· IDLE 0.0309 (plafond 1.0) · ROOM-ANIMS 31/31 raw=31 skipped=0 · ANIM 7 chaines
+pilotees, 7 respectees, perchain=yes · DISCRIMINANT : les 22 chaines distinguent les
+5 pilotages.
 
-  * PENETRATION : meshpen passe de 0.0000 a POSITIF sur SEIZE chaines — rbang
-    0.0589 m, goggles 0.0297, lbang 0.0261, chestR 0.0195, topstrapR 0.0092,
-    rmidhair 0.0089, backhair 0.0081... Regle 6, qui ne se negocie pas.
-  * ALLONGEMENT : ROOM-STRETCH 0.0272 -> 0.4746.
-  * ELLE RATE SA PROPRE CIBLE : ecrite pour desepingler kneeflapR (defaut
-    knee-tabs), elle porte son recul de 15913 a 21229 frames sur 17893 — elle
-    EMPIRE le defaut qu'elle devait corriger. Et ROOM-INVERSIONS residual reste a
-    381 quand la cible etait 0.
+--------------------------------------------------------------------------------
+CE QUI RESTE OUVERT SUR CE DEFAUT — MESURE, PAS SUPPOSE
+--------------------------------------------------------------------------------
+Le gradient reste inverse sur 9 couples sur 10. La moitie qui reste n'est pas de
+meme nature, et l'algebre la designe : a l'equilibre l'angle d'un maillon vaut
+approximativement sa deviation divisee par la LONGUEUR DE SON OS. A deviations
+comparables, deux os inegaux rendent donc des angles inverses au rapport de leurs
+longueurs — un os court tourne plus qu'un os long. Le rapport mesure theta1/theta2
+vaut 1.70 sur lbang/updown a l'etage 0.
 
-POURQUOI, et c'est ce qu'il faut retenir : ecarter un volume ne resout pas le
-conflit, il le DEPLACE. Le lien sort du volume prioritaire, entre dans celui qu'on a
-ignore, et le recul — a qui l'on a retire le meme volume — n'a plus de quoi l'en
-sortir. La preuve croisee est que la reintroduction des volumes ramene meshpen a
-0.0000 sur les 22 chaines et residual a 379, sa valeur de reference.
-
-DESARMEE PAR DEFAUT, CODE ET COMPTEUR CONSERVES. L'acquis est le compteur :
-ROOM-VOLPRIO est le premier chiffre qui dise OU les volumes se contredisent, PAR
-CHAINE — 346 055 paires sur 18 chaines, goggles 99 758, chestR 85 301 contre
-chestL 2 453. ROOM-INVERSIONS residual etait un scalaire global qu'aucune chaine ne
-portait. La piste qui reste est la frontiere de l'UNION des volumes, pas le choix
-de l'un d'entre eux.
+C'est une PREDICTION, elle est falsifiable, et elle est en cours de verification
+contre les longueurs reelles du rig. Elle n'a pas produit une seule ligne de code et
+n'en produira pas avant d'etre confirmee avec ses nombres. Si elle tient, le levier
+est un taper (raideur ou masse decroissante vers la pointe) qui doit etre DERIVE du
+rig — le fichier de chaines porte deja, par maillon, un nombre de sommets et une
+somme de poids de skinning (`Rbanga verts=106 wsum=86.63 | Rbangb verts=146
+wsum=29.97 | Rbangc verts=55 wsum=40.98`) — et surtout pas une constante inventee,
+que SPEC 7 interdit.
 
 ================================================================================
-4. L'INSTANTANE DE JACOBI — CORRIGE LA GELEE, COUTE TROP CHER, DESARME
+2. CE QUI A ETE LIVRE, ET COMMENT
 ================================================================================
 
-DEFAUT REEL ET STRUCTUREL. Les chaines sont resolues en sequence et chacune ECRIT
-ses joints dans le squelette avant que la suivante ne calcule ses collisions ;
-phys-col-centre lit le squelette COURANT. chestL est la chaine 7 et chestR la 8 :
-chestL voyait rBoob a sa pose ANIMEE, chestR voyait lBoob DEJA SIMULEE. Pour deux
-chaines identiques a 0,6 % pres, sur un rig miroir exact a 0.0020 u :
+TIER DE BUILD UTILISE : GOAL seul. Le correctif est dans goal_src/jak1/pc/
+jak-hd-physics.gc, donc `(mi)` (551 cibles, 38 s) — aucun rebuild NDK/libgk, aucun
+`cmake -B`. Deux courses de salle x86 (~6 min chacune) pour l'A/B.
 
-    chestR  ratio 0.9923 / 0.9975 / 0.9927 / 0.9990   periode 2.17 / 2.09 / 2.17 / 2.06 f
-    chestL  ratio 0.6212 / 0.6729 / 0.7092 / 0.6983   periode 4.69 / 4.26 / 3.98 / 4.06 f
+LIVRAISON AU FIL DE L'EAU : le constructeur continu (auto_build_apk.sh, pid vivant)
+surveille jak-hd-physics.gc ; il a repris le correctif et refait un jeu arm64
+coherent puis l'APK, et auto_push_builds.sh publie sur jak-builds sans condition de
+qualite (7 publications aujourd'hui, la derniere a 15:00). Aucune condition de
+qualite ne retient un build — c'est la consigne de l'owner du 2026-08-11 et je ne
+la reinstalle pas.
 
-Une periode de 2,06 frames avec un saut valant 99,9 % de l'amplitude est un cycle
-limite a la frequence de Nyquist. C'est « des fois ca saute d'une frame a l'autre
-comme un mini jitter » — et aucun reglage ne pouvait l'oter, puisque ce n'est pas
-un reglage mais le rang de la chaine dans le fichier.
-
-CE QU'IL CORRIGE : ecart de ratio entre les deux chaines 0.3200 -> 0.0916 (-71 %),
-ecart de periode 2.12 -> 0.65 frame (-69 %). Et c'est du mouvement APPARU, pas un
-lissage de compteur : chestR passe de 0.0236/0.0832/0.1144/0.0367 a
-0.1780/0.1704/0.2679/0.0886 dans la fenetre JELLY, du meme ordre que chestL.
-
-CE QU'IL COUTE, mesure en isolement : ROOM-STRETCH 0.0272 -> 0.4896, soit 49 %
-d'allongement d'os sur lbang, SEIZE fois le plafond de 3 % ; ROOM-RETREAT-ANCHOR
-fallback 278 -> 933. Les deux chiffres sont le meme evenement.
-
-ET LA CORRECTION EVIDENTE DE CE COUT EST AUSSI REJETEE, MESUREE. Le repli du recul
-abandonne la sphere du MODELE quand son point de depart penetre, donc abandonne la
-longueur de l'os. Le supprimer rend la longueur invariante — ROOM-STRETCH 0.4896 ->
-0.0003, quatre-vingt-dix fois mieux que la reference — mais le recul se pose alors
-sur le moins mauvais point d'une sphere ou aucun n'est admissible, et ce point
-TRAVERSE : meshpen 0.0976 sur lbang et 0.1013 sur rbang (dix centimetres),
-ROOM-SIDE 0 -> 260 franchissements, et le controle de cote s'inverse (arme 2 contre
-desarme 5). Deux regles dures se contredisent ; la regle 6 tranche.
-
-DESARME PAR DEFAUT. Ce n'est pas un abandon : c'est un cout chiffre en attente de
-son prealable, et le prealable est le repli du recul, pas la gelee.
+NOTE DE TRACABILITE, ET C'EST UN DEFAUT DE MON PROCESS : le constructeur continu a
+COMMITE mon correctif sous son message generique (`aa57322692 [keira-physique]
+checkpoint automatique du constructeur`) pendant que j'ecrivais le mien. Le contenu
+est bon, le message ne dit rien du correctif. Je n'ai PAS reecrit l'historique : le
+constructeur avait deja enregistre ce sha comme celui de l'APK en cours, et amender
+aurait depareille l'APK de son commit — exactement la paire depareillee qui donne du
+comportement aleatoire. Le raisonnement complet est donc porte par le commit de ce
+rapport. A corriger a la racine : le constructeur ne devrait pas committer des
+sources qu'un worker est en train d'editer.
 
 ================================================================================
-5. CE QUE JE N'AI PAS TOUCHE — dit explicitement, pas laisse croire couvert
+3. SIDE-CONTROL — LE CONTROLE POSITIF NE TIRE PLUS, ET J'AI SA CAUSE
 ================================================================================
 
-  goggles-bottom   La chaine `goggles` ne simule que 27 des 515 sommets. Les 488
-                   autres (94 %, LES VERRES) sont deux BRANCHES de gogglesMid,
-                   laissees hors chaine par la regle du generateur, sans aucun
-                   volume. Deux corrections ont deja ete mesurees puis retirees
-                   (sphere r=809 sur gogglesMid : -55 % de mouvement ; une chaine
-                   par branche : le verre se decolle de son cerclage). La voie
-                   restante, non tentee : un lien qui porte PLUSIEURS lobes, une
-                   sphere par verre a x = +/-461, chacune poussant le lien. Le
-                   moteur n'a aujourd'hui qu'un volume par lien.
-  straps-elastic   Le franchissement du torse est ferme ; le clipping contre
-                   l'elastique orange ne l'est pas — volume manquant sur une piece
-                   precise du vetement. Rien fait ce cycle.
-  hair-big-angles  Rien fait ce cycle. A relire a la lumiere du point 1 : si le
-                   defaut nait dans l'integration, l'attenuation d'angle n'est pas
-                   le bon levier.
-  knee-tabs        La seule piste tentee (DECISION 1) est rejetee, et elle EMPIRE
-                   le defaut. Sans correctif.
-  goggles-tunnel   Ferme par la contrainte de cote au cycle precedent, preservee
-                   ici (le veto de cote est explicitement exclu de la priorite :
-                   deux volumes ne peuvent pas s'y contredire). Attend l'oeil de
-                   l'owner.
-  flesh-jelly      Cause attribuee (point 4), correction desarmee faute d'un
-                   prealable. La signature « gelee a 2 frames » migre alors sur
-                   `goggles` (ratio 0.9972, periode 2.10) : meme forme, autre chaine.
+    ROOM-SIDE: chains=0/22 crossing=0
+    ROOM-SIDE-CONTROL: armed=0 disarmed=0        -> la gate exige armed >= 3x disarmed
+
+Un zero de franchissement sans controle qui a tire ne prouve rien (regle 1). Ce zero
+ne vaut donc rien aujourd'hui, et les deux defauts qu'il est cense garder
+(`goggles-tunnel`, `pant-calf`) restent ouverts a l'oeil de l'owner. Diagnostic
+trace, pas suppose :
+
+  a) LA FENETRE DE CONTROLE : phase PHYSROOM-PH-SIDEON, phys-room.gc:1039-1048,
+     ouverte a 1030 et fermee a 1044. Elle dure 90 frames (PHYSROOM-PCW,
+     phys-room.gc:132), sur UN SEUL pilotage (mode 3 = jerk, ligne 1040) et UNE
+     SEULE animation (index 0, `assistant-idle-leaning-right`, posee a
+     phys-room.gc:836 et jamais changee ensuite).
+
+  b) LES PAIRES DE FOURREAU SONT STRUCTURELLEMENT INCOMPTABLES DANS CETTE FENETRE.
+     jak-hd-physics.gc:2061-2069 force `floor0` a 0.0 pour une paire de fourreau
+     tant que `*phys-shell-off*` vaut 0 ; or le predicat de cote (ligne 2101) exige
+     `(> floor0 0.0)`. Pendant `side-armed`, `*phys-shell-off*` est encore 0 (il
+     n'est leve que deux phases plus loin, phys-room.gc:1066). Les deux pans de
+     pantacourt — 3693 des 8222 franchissements de la course de reference, soit
+     45 % — ne peuvent donc plus etre comptes du tout.
+
+  c) UNE CORRECTION A UNE DIRECTIVE ECRITE, ET ELLE CHANGE LA CONCLUSION. Il est
+     ecrit (DIRECTIVES, 12e passe ; validateur lignes 371-375) que le controle
+     « produit 43 evenements la ou le phenomene reel en produisait 11446, soit
+     0,4 % ». Les deux nombres n'ont pas la meme EXPOSITION : 43 sur 90 frames
+     contre le total d'une course de 16 740 frames (31 anims x 6 sous-fenetres x 90).
+     Ramenes au meme denominateur, la course de reference donne 0,491
+     franchissement/frame, soit 44,2 attendus en 90 frames — le controle en
+     produisait 43 puis 45, c'est-a-dire 97 a 102 % du phenomene, pas 0,4 %. Le
+     controle d'alors etait BON ; c'est le rapprochement de deux expositions
+     differentes qui etait faux. Je ne touche pas la gate (regle 5), je signale.
+
+  d) LA GATE D'ECHELLE EST DU CODE MORT : elle ne s'applique que si
+     `ROOM-SIDE-BASELINE:` est publiee, et RIEN ne la publie (une seule occurrence
+     dans tout l'arbre : la regex du validateur elle-meme, ligne 376).
+
+  e) CE QUE JE NE SAIS PAS, ET JE NE LE COMBLE PAS PAR UNE HYPOTHESE : retirer les
+     pans devrait laisser ~24 evenements attendus en 90 frames ; on en observe 0 a 2.
+     Ce residu n'est pas explique. Deux variables ont bouge dans le meme pas
+     (activation du fourreau ET desactivation de la priorite entre volumes, defaut
+     *phys-prio-off* = 1) et aucune course ne les isole.
+
+POURQUOI JE NE L'AI PAS RAPIECE CE CYCLE : le correctif evident (lever aussi le
+fourreau dans la fenetre) ferait compter 3693 evenements qui sont eux-memes un
+ARTEFACT — un fourreau est cense entourer l'axe, « franchir l'axe » n'a pas de sens
+pour lui, et c'est precisement pourquoi floor0 y est mis a zero. Je restaurerais un
+compteur vert sur un phenomene faux. Le prealable est la course isolante nommee en
+(e), pas un patch.
+
+================================================================================
+4. FLOOR — pantflapL/R SOUS LEUR PLANCHER, ET CE N'EST PAS CE CYCLE
+================================================================================
+
+    pantflapR  0.3017 -> 0.1269   (-58 %)
+    pantflapL  0.2922 -> 0.1270   (-57 %)      plafond de la gate : -40 %
+
+Mon A/B mesure ces deux chaines a 0.0 % de variation entre A et B : ce cycle n'y est
+pour rien. La perte vient du FOURREAU pose au cycle precedent, qui l'avait chiffree
+(-49 %) et argumentee : le mouvement retire serait l'ejection laterale de 10 cm qui
+enfoncait le tissu dans la jambe.
+
+LE CONFLIT EST REEL ET JE NE LE TRANCHE PAS TOUT SEUL. La regle de conservation dit
+« si le plancher casse, le point est retire — pas adouci, retire ». La contre-mesure
+dit que le plancher de ces deux chaines (0,29-0,30) a ete enregistre PENDANT que
+l'ejection defectueuse avait lieu : ce serait une semence contaminee, la classe
+exacte que le depot connait deja (motion-floor.CONTAMINATED-SEED.txt existe).
+Je n'ai PAS baisse la reference : abaisser un plancher pour faire passer une gate
+est le faux vert que l'owner refuse. La gate reste rouge, le fait est ecrit ici, et
+c'est au superviseur de trancher entre « retirer le fourreau » et « la reference de
+ces deux chaines est contaminee ».
+
+================================================================================
+5. ETAT DES 8 DEFAUTS DE L'OWNER
+================================================================================
+
+  hair-gradient    MOITIE STRUCTURELLE FERMEE. La pointe a maintenant une dynamique
+                   propre (+2 % a +175 %), la reponse aux petits mouvements gagne
+                   37 % et 139 % sur les deux meches fines. Le gradient reste inverse
+                   sur 9/10 : la moitie restante est nommee, chiffree, et sa
+                   verification est en cours. PAS ferme.
+  hair-big-angles  Non traite directement, mais concerne : les angles du maillon du
+                   milieu (50 a 93 deg a l'etage 0) sont le meme phenomene que le
+                   gradient inverse — un pli unique concentre sur un seul joint. A
+                   relire apres la seconde moitie.
+  flesh-jelly      Rien ce cycle (chaine a UN maillon : le correctif de cascade ne
+                   la touche pas, par construction).
+  goggles-bottom   Rien ce cycle.
+  goggles-tunnel   Inchange ; attend l'oeil de l'owner en cinematique. Mais son
+                   gardien (ROOM-SIDE) n'a plus de controle qui tire — section 3.
+  straps-elastic   Rien ce cycle.
+  knee-tabs        Rien ce cycle.
+  pant-calf        Inchange ; voir le conflit de plancher en section 4.
 
 ================================================================================
 6. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ================================================================================
 
-Le seul changement de comportement livre est LE FOURREAU, sur les deux pans de
-pantacourt. Tout le reste est identique au build precedent AU BIT PRES (les deux
-autres corrections sont desarmees, et desarmees elles ne touchent rien).
+Le SEUL changement de comportement livre concerne les chaines a TROIS maillons,
+c'est-a-dire les deux meches fines du devant : `lbang` et `rbang`. Tout le reste est
+inchange au bit pres, et c'est mesure, pas espere (18 chaines a 0.0 %).
 
-  * Le bas du pantacourt : est-il encore AVALE par les mollets, ou se voit-il ?
-    Il bougera MOINS qu'avant — c'est voulu, le mouvement retire etait l'ejection
-    laterale de 10 cm qui l'enfoncait dans la jambe. La question est s'il est
-    VISIBLE, pas s'il bouge beaucoup.
-  * Tout le reste (poitrine, meches, lunettes, bretelles, languettes de genoux) doit
-    etre INCHANGE. Si quelque chose a bouge ailleurs, c'est un defaut de ma part et
-    il faut me le dire.
+  * LES MECHES FINES DU FRONT : leur POINTE a-t-elle enfin un mouvement propre, ou
+    reste-t-elle accrochee au milieu ? C'est la question de ce build, et c'est la
+    seule.
+  * Bougent-elles PLUS sur les petits mouvements ? Il a dit « elles bougent peut-etre
+    plus assez » ; la reponse au plus faible stimulus monte de 37 % (gauche) et
+    139 % (droite).
+  * Le milieu reste-t-il plus agite que la pointe ? Si oui, c'est attendu : la
+    seconde moitie du defaut n'est pas corrigee, et je sais maintenant ou elle est.
+  * TOUT LE RESTE — poitrine, grosses meches, lunettes, bretelles, languettes,
+    pantacourt — doit etre STRICTEMENT identique au build precedent. Si quoi que ce
+    soit a bouge ailleurs, c'est un defaut de ma part et il faut me le dire.
 
 ================================================================================
 SUPPRESSORS: 0
 ================================================================================
-Aucun suppresseur ajoute ce cycle. Les deux mecanismes ajoutes puis desarmes
-(priorite entre volumes, instantane de Jacobi) ne retirent rien quand ils sont
-desarmes : `*phys-lwin*` reste a -1 et `phys-col-now!` rend le squelette courant,
-tous deux au bit pres. Le fourreau REMPLACE une poussee par une contrainte de
-concentricite ; il ne s'empile pas dessus, et son cout est chiffre au point 2.
+Aucun suppresseur ajoute ce cycle. Le correctif REMPLACE le terme de rappel par le
+meme terme mesure contre une autre reference (le parent au lieu de la pose animee du
+maillon) : il ne s'empile sur rien, n'introduit ni clamp, ni seuil, ni hysteresis,
+ni gel, et le A/B le chiffre a -1.7 % dans son pire cas et a +174.7 % dans son
+meilleur. Aucune constante n'a ete introduite.
