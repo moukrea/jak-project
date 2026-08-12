@@ -774,12 +774,45 @@
 
 (defun phys-vol-floor ((floor0 float) (rl float))
   "profondeur maximale que cette paire (lien, volume) tolere. PHYS-VOL-FREE = aucune surface
-   devant le lien, donc rien a traverser."
+   devant le lien, donc rien a traverser.
+
+   LA TOLERANCE EST LA PROFONDEUR DE REPOS, PAS UN MULTIPLE DE CELLE-CI. C'est la correction du
+   2026-08-12, et c'est le mecanisme de `pant-calf`.
+
+   La regle voulue est celle de la SPEC : « ce qui est deja dedans au repos y reste » — donc la
+   franchise accordee a une paire EST sa profondeur d'auteur, ni plus ni moins. L'ancienne forme
+   accordait `floor0 / w` avec `w = (2 rl - floor0) / rl`, c'est-a-dire `floor0 * rl / (2 rl -
+   floor0)` : une fonction qui DIVERGE quand `floor0` approche `2 rl`. Elle ne disait plus « reste
+   ou tu es », elle disait « enfonce-toi encore, de plus en plus, a mesure que tu es deja
+   enfonce ».
+
+   MESURE, sur le pan de pantacourt gauche (`LpantFlap`, rl = 429, capsule de mollet
+   `Lankle->Lknee`), pose du modele :
+       profondeur au repos  floor0 = 614.4 u
+       tolerance ACCORDEE   feff   = 1082.0 u      = 1.76 x la profondeur de repos
+       soit 467.6 u = 11.4 cm de penetration EN PLUS de la pose que l'auteur a sculptee,
+       avant que le moindre volume ne le repousse.
+   Onze centimetres, c'est la moitie d'un mollet : c'est litteralement « le bas de son pantacourt
+   est a l'interieur de ses mollets, comme s'il s'arretait aux genoux » (owner, 11e passe, puis
+   2e signalement le 2026-08-12). Le defaut n'etait ni un rayon trop petit ni une chaine trop
+   molle : la collision AUTORISAIT le pan a s'enfoncer.
+
+   CE QUI EST GARDE, ET POURQUOI. La branche PHYS-VOL-FREE reste : un lien entierement contenu
+   dans un volume (`floor0 >= 2 rl`) n'a effectivement aucune surface devant lui, et c'est aussi
+   l'etat que `phys-flip-count` (ligne 1330) lit pour compter les bascules de contrainte —
+   supprimer la branche aurait rendu ce compteur structurellement muet. Seule la zone
+   intermediaire change, et elle change vers la seule valeur que la SPEC nomme.
+
+   LA POSE DU MODELE RESTE ADMISSIBLE, ce qui est l'invariant dont depend `phys-retreat-chain` :
+   a cette pose la profondeur vaut exactement `floor0`, donc exactement `feff`, et le test de
+   penetration est STRICT (`dep > feff`). L'egalite est exacte et non approchee — les deux appels
+   passent par cette fonction avec les memes entrees. Le recul par dichotomie garde donc son point
+   d'arrivee, et « rien ne traverse » reste vrai a la derniere operation de la frame."
   (let ((w (/ (- (* 2.0 rl) floor0) (fmax 0.0001 rl))))
     (cond
       ((>= w 1.0) floor0)
       ((<= w 0.0) PHYS-VOL-FREE)
-      (else (/ floor0 w)))))
+      (else floor0))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; GEOMETRIE — un lien contre un collider. Le collider est une SPHERE (joint2 < 0) ou une CAPSULE
