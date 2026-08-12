@@ -127,6 +127,36 @@ qu'elles sont la ; et a la regeneration suivante les deux chaines ont DISPARU du
 donc la gate TUNING (etendue aux `+chain` ce matin) echouera sur leur absence.
 
 -----------------------------------------------------------------------------------------
+2ter-bis. `knee-tabs` — LE JOINT DEMANDE N'EXISTE PAS, ET LA GATE TUNING EST DESORMAIS ROUGE
+-----------------------------------------------------------------------------------------
+
+Suite de la section 2ter. Le chemin « chaine a zero maillon » a ete ferme entre-temps :
+`apply_owner_tuning.py` valide maintenant `joints=` contre le rig et ECARTE la directive au lieu
+de produire une chaine vide. Mais la cause de fond apparait, et elle est plus dure :
+
+    joints du rig HD contenant « Flap » :  LpantFlap, RpantFlap, lKneeFlap, rKneeFlap
+    joints demandes par la directive    :  LfootFlaps, RfootFlaps  ->  ABSENTS
+
+`LfootFlaps`/`RfootFlaps` n'existent PAS dans le rig HD de Keira. Les languettes ne peuvent donc
+pas recevoir leur propre chaine : elles sont de la geometrie portee par un joint deja present.
+Tant que la question « quel joint possede les sommets des languettes ? » n'est pas tranchee sur
+le mesh, `knee-tabs` ne peut pas se fermer — et si la reponse est `lKneeFlap`, alors elles
+BOUGENT deja (tipvar 0.1680) et ce que l'owner voit immobile est autre chose.
+
+CONSEQUENCE IMMEDIATE, PROUVEE EN REJOUANT LA PORTION EXACTE DU VALIDATEUR :
+
+    GATE TUNING : ECHOUE — 2 directive(s) de l'owner absente(s) du fichier livre
+       - chain footflapL (ajout owner disparu)
+       - chain footflapR (ajout owner disparu)
+
+Deux mecanismes corrects se contredisent sur une directive INSATISFIABLE : « une directive sans
+cible est signalee, jamais avalee en silence » (l'applicateur l'ecarte) contre « toute directive
+de l'owner doit etre PRESENTE dans le fichier livre » (la gate). La phase est donc bloquee a
+TUNING en plus d'OPEN-DEFECTS, et personne ne le voit puisque OPEN-DEFECTS echoue avant. Je le
+signale plutot que de le laisser surgir au prochain cycle : c'est un arbitrage de superviseur
+(soit la directive est retiree/commentee tant qu'elle n'a pas de cible, soit la gate distingue
+« absente » de « impossible »), pas quelque chose que je tranche en editant sa liste.
+-----------------------------------------------------------------------------------------
 2quater. `straps-elastic` — LA CAUSE S'EST INVERSEE PENDANT LE CYCLE
 -----------------------------------------------------------------------------------------
 
@@ -468,7 +498,8 @@ capsules, plancher contre la pose d'auteur). S'il part, ce qu'il faut regarder e
 * `straps-elastic` : cause etablie et chiffree (section 6), correction en cours par l'autre
   worker, controle calcule (34 % -> 0 %), reserve `SPAN-EMPTY` sur 12 bouts de capsule.
 * `pant-calf` : mecanisme CORRIGE et MESURE (section 2bis). Attend son oeil.
-* `knee-tabs` : la correction en place ne fonctionne pas, prouve par la course (section 2ter).
+* `knee-tabs` : la correction en place ne peut pas fonctionner — le joint demande n'existe pas
+  dans le rig (section 2ter-bis), et la gate TUNING en est rouge.
 * `chestR` : residu de penetration de 3,1 mm introduit par ma correction, non resolu.
 * `hair-big-angles` : diagnostic complet (section 2quinquies), aucune correction appliquee.
 * Les trois autres nombres de l'evaluation « colliders derives du mesh » (cout par frame sur
