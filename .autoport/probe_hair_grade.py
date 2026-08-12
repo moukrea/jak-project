@@ -9,6 +9,7 @@ for detaching a coiffe from the skull:
 """
 import os
 import sys
+import tempfile
 
 os.chdir(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 sys.path.insert(0, os.path.abspath('.autoport'))
@@ -19,7 +20,10 @@ from retarget_hd_models import read_glb, consolidate_buffers, write_glb, gc_glb,
 import physics_c6_volumes as C6
 
 SRC = 'decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb'
-CFG = '.autoport/.grade_cand.txt'
+# HORS DE L'ARBRE. Une sonde ecrit un fichier CANDIDAT, pas une recette : le laisser dans l'arbre
+# le fait passer pour une entree du bake et il finit commite par accident (deja arrive avec la
+# sonde `grow`, corrige par 081c3528d2). On rend la recurrence impossible au point de production.
+CFG = os.path.join(tempfile.gettempdir(), 'autoport-grade-cand.txt')
 CHAINS = {'rmidhair': ['Rmidhaira', 'Rmidhairb'], 'lmidhair': ['Lmidhaira', 'Lmidhairb'],
           'lbang': ['Lbanga', 'Lbangb', 'Lbangc'], 'rbang': ['Rbanga', 'Rbangb', 'Rbangc'],
           'backhair': ['backHair1', 'backHair2'], 'earL': ['lEara', 'lEarb'],
