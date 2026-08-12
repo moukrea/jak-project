@@ -84,7 +84,7 @@ chain earR class=primary stiffness=3.20 damping=0.30 gravity=0.45 radius=114 roo
 j rEara
 j rEarb
 # backhair [A] backHair1 verts=167 wsum=67.65 r=358 | backHair2 verts=153 wsum=55.21 r=374
-chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.45 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=1.00 maxangle=98.28 radii=358,374   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est backHair2, 2*atan(432/374) = 98.3 deg
+chain backhair class=primary stiffness=1.80 damping=0.18 gravity=0.45 radius=366 rootlock=1 mass=0.90 hang=0.00 family=A couple=1.00 maxangle=0 radii=358,374   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est backHair2, 2*atan(432/374) = 98.3 deg
 j backHair1
 j backHair2
 # lbang [A] Lbanga verts=103 wsum=84.89 r=112 | Lbangb verts=157 wsum=28.98 r=104 | Lbangc verts=64 wsum=51.03 r=180
@@ -98,11 +98,11 @@ j Rbanga
 j Rbangb
 j Rbangc
 # lmidhair [A] Lmidhaira verts=212 wsum=72.75 r=222 | Lmidhairb verts=171 wsum=99.73 r=335
-chain lmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=278 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 maxangle=141.61 radii=222,335   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Lmidhairb, 2*atan(962/335) = 141.6 deg
+chain lmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=278 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 maxangle=0 radii=222,335   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Lmidhairb, 2*atan(962/335) = 141.6 deg
 j Lmidhaira
 j Lmidhairb
 # rmidhair [A] Rmidhaira verts=219 wsum=71.00 r=228 | Rmidhairb verts=176 wsum=106.17 r=337
-chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=282 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 maxangle=141.40 radii=228,337   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Rmidhairb, 2*atan(962/337) = 141.4 deg
+chain rmidhair class=primary stiffness=1.50 damping=0.20 gravity=0.45 radius=282 rootlock=1 mass=0.72 hang=0.00 family=A couple=1.40 maxangle=0 radii=228,337   # maxangle DERIVE du rig (pli representable par la peau, cheveux seulement) : le plus serre est Rmidhairb, 2*atan(962/337) = 141.4 deg
 j Rmidhaira
 j Rmidhairb
 # chestL [A] lBoob verts=76 wsum=17.69 r=656

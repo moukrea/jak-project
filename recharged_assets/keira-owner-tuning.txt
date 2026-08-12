@@ -279,3 +279,40 @@ chain rbang stiffness=1.6548 mass=1.35 damping=0.0784 gravity=0.2544
 # allege un peu l'amortissement, qui ecrase surtout les faibles amplitudes.
 chain chestL couple=1.85 damping=0.26
 chain chestR couple=1.85 damping=0.26
+
+## 2026-08-13 — `hair-fine-dead` / « les cheveux entiers sont nuls a chier »
+## L'ATTENUATION D'ANGLE EST UN SUPPRESSEUR PUR SUR TROIS DES CINQ CHAINES DE CHEVEUX
+#
+# L'attenuation corrige un PLI TROP SERRE ENTRE DEUX MAILLONS — c'est la raison pour laquelle
+# l'owner l'a demandee, et il en a enonce lui-meme la mecanique : « une chaine a un seul maillon
+# n'a aucun angle inter-maillon : y appliquer une attenuation ne peut rien corriger et ne fait que
+# RETIRER DU MOUVEMENT ». Il ecrivait ca de la poitrine. La mesure montre que TROIS chaines de
+# cheveux sont exactement dans ce cas :
+#     backhair / lmidhair / rmidhair   2 joints, rootlock=1 -> UN SEUL maillon libre
+#     lbang / rbang                    3 joints, rootlock=1 -> deux maillons libres, le pli existe
+# Sur les trois premieres, `phys-bend-chain` ne mesure aucun pli : il mesure la deviation par
+# rapport a la pose. C'est donc un PLAFOND D'AMPLITUDE deguise en attenuation de pli.
+#
+# CE QUE CA LEUR COUTE, mesure dans la course (colonne `bendcut`, degres retires) :
+#     backhair 15855.7   rmidhair 3701.9   lmidhair 3356.2
+# `backhair` est celle qui PAIE LE PLUS pour un angle qui ne peut pas exister — et c'est
+# precisement « les cheveux entiers » dont il dit qu'ils sont nuls. `lbang`/`rbang` gardent la
+# leur (14259.3 et 12527.6) : chez elles le pli est reel et l'attenuation fait son travail.
+#
+# `maxangle=0` DESACTIVE l'attenuation, ce n'est pas un angle de zero degre : le moteur teste
+# `(when (> amax 0.0) ...)` au premier geste de `phys-bend-chain` et saute toute la passe.
+#
+# ECART ASSUME PAR RAPPORT A SA LISTE LITTERALE, signale et non avale (regle 3) : il avait nomme
+# les CINQ chaines (« lbang, rbang, lmidhair, rmidhair, backhair »), en les croyant toutes
+# multi-maillons. Trois ne le sont pas. C'est sa REGLE MECANIQUE qui tranche contre sa LISTE,
+# parce que la regle est ce qu'il a explique et que la liste en decoulait. S'il veut l'attenuation
+# sur les cinq, le vrai chemin n'est pas de la remettre ici : c'est de donner un SECOND maillon
+# libre a ces trois chaines, et alors ces trois lignes se retirent d'elles-memes.
+#
+# RISQUE : nul dans le sens du muselage. On RETIRE un plafond, donc le mouvement ne peut que
+# monter — les planchers FLOOR et FLOOR-WEAK ne peuvent pas casser par ce changement. Ce qu'il
+# faut surveiller a la place, c'est l'inverse : que la geometrie ne recasse pas sur les grosses
+# meches (`hair-big-angles`). C'est son oeil qui le dira, et c'est reversible en une ligne.
+chain backhair maxangle=0
+chain lmidhair maxangle=0
+chain rmidhair maxangle=0
