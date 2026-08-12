@@ -211,6 +211,73 @@
 (define *phys-crok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = instantane pris cette frame
 
 ;; ------------------------------------------------------------------------------------------------
+;; L'OBSTACLE NE DOIT PAS DEPENDRE DE L'ORDRE DE RESOLUTION DES CHAINES (instantane de JACOBI).
+;;
+;; NATURE de ce que ces tableaux portent : une POSITION MONDE (unites de jeu), pas une variance et
+;; pas une amplitude. REPERE : monde. CE QU'ILS VALENT QUAND LE DEFAUT EST ABSENT : exactement la
+;; position que le squelette porte, au bit pres, pour les 24 volumes qu'aucune chaine ne simule.
+;;
+;; LE DEFAUT QU'ILS CORRIGENT, ET IL EST MESURE. Les chaines sont resolues en sequence
+;; (jak-hd-physics-step, `dotimes (c nch)`) et CHACUNE ECRIT SES JOINTS DANS LE SQUELETTE avant que
+;; la suivante ne calcule ses collisions. Or `phys-col-centre` lit le squelette COURANT : la chaine
+;; n^k voit donc les volumes des chaines 0..k-1 a leur position SIMULEE de cette frame, et ceux des
+;; chaines k+1..N a leur pose ANIMEE. La reponse d'une chaine depend alors de son RANG dans le
+;; fichier, ce qui n'est pas une propriete physique.
+;; La trace : `chestL` est la chaine 7, `chestR` la chaine 8, parametres identiques au centieme et
+;; rig miroir exact a 0.0020 u (18e passe). ROOM-JELLY les separe pourtant du tout au tout —
+;;     chestR  ratio 0.9923 / 0.9975 / 0.9927 / 0.9990   periode 2.17 / 2.09 / 2.17 / 2.06 frames
+;;     chestL  ratio 0.6212 / 0.6729 / 0.7092 / 0.6983   periode 4.69 / 4.26 / 3.98 / 4.06 frames
+;; Une periode de 2.06 frames avec un saut qui vaut 99.9 % de l'amplitude, c'est un cycle limite a
+;; la frequence de Nyquist : chestR poursuit `lBoob` DEJA DEPLACEE cette frame pendant que chestL
+;; poursuit `rBoob` restee sur l'animation. C'est « des fois ça saute d'une frame a l'autre comme un
+;; mini jitter » et « un effet gelee ou ca change de taille », et aucun reglage ne pouvait l'oter.
+;; La correction : tout volume porte par un joint SIMULE est lu par TOUTES les chaines a sa position
+;; de FIN DE FRAME PRECEDENTE. Symetrique par construction, une frame de retard a 60 Hz, et la
+;; collision chaine<->chaine que la SPEC 1bis exige (« ils s'entrechoquent ») reste entiere.
+(define *phys-csim* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = volume porte par un joint SIMULE
+(define *phys-cdep* (new 'global 'array 'int32 PHYS-SCO))   ;; profondeur rig, pour la priorite
+(define *phys-csax* (new 'global 'array 'float PHYS-SCO))   ;; extremite A, fin de frame precedente
+(define *phys-csay* (new 'global 'array 'float PHYS-SCO))
+(define *phys-csaz* (new 'global 'array 'float PHYS-SCO))
+(define *phys-csbx* (new 'global 'array 'float PHYS-SCO))   ;; extremite B, idem
+(define *phys-csby* (new 'global 'array 'float PHYS-SCO))
+(define *phys-csbz* (new 'global 'array 'float PHYS-SCO))
+(define *phys-csok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = un instantane existe
+;; CONTROLE POSITIF : 1 remet l'ordre de resolution dans la boucle (Gauss-Seidel), donc reinjecte
+;; le defaut. Le compteur de saut doit alors REMONTER sur la chaine la plus tardive.
+(define *phys-jacobi-off* 0)
+
+;; ------------------------------------------------------------------------------------------------
+;; DECISION 1 DU SUPERVISEUR — UN SEUL VOLUME DECIDE PAR LIEN ET PAR FRAME.
+;;
+;; « quand un lien est contraint par plusieurs volumes dans la meme frame, le volume du CORPS
+;; l'emporte sur celui d'une CHAINE, et entre deux volumes de corps, le PARENT DANS LE RIG
+;; l'emporte. Un seul volume decide par frame et par lien, les autres sont ignores — pas moyennes,
+;; ignores. »
+;;
+;; CE QUE CA CORRIGE, MESURE PAR LA COURSE : `kneeflapR` vit dans DEUX capsules qui se recouvrent
+;; (Rknee->Rthigh et Rankle->Rknee) ; sortir de l'une enfonce dans l'autre, aucune position ne les
+;; satisfait toutes deux, et le recul epingle donc la languette sur la pose du modele
+;; 15913 frames sur 17893 — 89 % du temps. C'est la definition exacte de « les languettes au niveau
+;; des genoux ne bougent pas », et ce n'est ni un defaut de donnees ni une reprise d'asset.
+;;     kneeflapR  retreat=15913  contact 17893/17893 frames (100 %)
+;;     kneeflapL  retreat=4138   contact 12493/17893 frames (69.8 %)
+;; L'autre trace du meme defaut est ROOM-INVERSIONS residual=379 : deux volumes qui se renvoient le
+;; lien de l'un a l'autre.
+;;
+;; LA DECISION VAUT POUR LE SOLVEUR ENTIER — poussee ET recul. Ne l'appliquer qu'a la poussee
+;; laisserait le recul re-epingler sur le volume ignore, donc ne changerait rien au defaut.
+;; ELLE NE VAUT PAS POUR LA MESURE : `phys-pen-chain` continue de regarder TOUS les volumes, sinon
+;; le chiffre deviendrait aveugle a ce que la decision laisse passer — c'est le piege du « zero
+;; vert pendant que l'owner voit le defaut », et il n'est pas question de le reconstruire ici.
+(define *phys-lwin* (new 'global 'array 'int32 PHYS-SCL))   ;; volume decideur du lien, -1 = aucun
+;; CONTROLE POSITIF : 1 desarme la priorite (tous les volumes poussent, comportement d'avant), donc
+;; reinjecte le defaut. `retreat` et les inversions doivent alors REMONTER.
+(define *phys-prio-off* 0)
+(define *phys-prio-n* 0)      ;; paires (lien, volume) ignorees par la priorite, sur la fenetre
+(define *phys-prio-multi* 0)  ;; liens contraints par plus d'un volume dans la meme frame
+
+;; ------------------------------------------------------------------------------------------------
 ;; MESURE (SPEC 7). Les colonnes du tableau de la salle sont accumulees ICI parce que c'est ici que
 ;; la position ecrite est connue. La salle remet a zero au debut de chaque fenetre et relit a la
 ;; fin ; elle n'invente aucun instrument par-dessus.
@@ -522,7 +589,17 @@
 ;;              le volume qui a deux cotes.
 ;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste du cote ou l'auteur l'a
 ;;              pose ne compte jamais, quelle que soit son amplitude.
-(defconstant PHYS-DG 12)
+;;   12 volprio  paires (lien, volume) que la DECISION 1 a ECARTEES, parce qu'un autre volume
+;;              decidait deja pour ce lien cette frame. C'est le seul chiffre qui dise OU les
+;;              volumes se contredisent, et il manquait : sans lui, `ROOM-INVERSIONS residual=379`
+;;              n'est attribuable a rien et retombe dans « un scalaire pour une forme ».
+;;              NATURE : un COMPTE de paires sur la fenetre, pas une profondeur.
+;;              REPERE : sans objet — c'est un compte d'evenements de decision.
+;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0, et c'est le cas courant — un lien qui n'est
+;;              en conflit avec aucun volume n'ecarte personne. Une chaine dont ce compteur est
+;;              GRAND est une chaine que des volumes se disputaient, donc une chaine que le recul
+;;              epinglait (kneeflapR : retreat 15913 sur 17893 frames).
+(defconstant PHYS-DG 13)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -655,6 +732,38 @@
                               (when (and (< (-> *phys-cj2* sco) 0)
                                          (nonzero? (pc-physics-collider-is-joint2 agname ci jn)))
                                 (set! (-> *phys-cj2* sco) k)))))))
+                    ;; --- 3a bis. CE QUE CHAQUE VOLUME EST, pour l'instantane de Jacobi et pour la
+                    ;; --- priorite (DECISION 1). Deux proprietes STRUCTURELLES, lues sur le rig et
+                    ;; --- sur les chaines deja chargees : aucune donnee nouvelle, aucun flag.
+                    ;; ---   csim : ce volume est-il porte par un joint qu'une chaine SIMULE ?
+                    ;; ---   cdep : la profondeur RIG du plus proche de la racine de ses deux joints.
+                    (dotimes (ci nco)
+                      (let ((sco (+ (* slot PHYS-COLS) ci)))
+                        (set! (-> *phys-csim* sco) 0)
+                        (set! (-> *phys-csok* sco) 0)
+                        (set! (-> *phys-cdep* sco) 999)
+                        (let ((cj  (-> *phys-cj* sco))
+                              (cj2 (-> *phys-cj2* sco)))
+                          ;; porte par un joint simule ?
+                          (dotimes (c2 nc)
+                            (let ((sc2 (+ (* slot PHYS-CHAINS) c2)))
+                              (dotimes (l2 (-> *phys-nlink* sc2))
+                                (let ((kj (-> *phys-joint* (+ (* sc2 PHYS-LINKS) l2))))
+                                  (when (and (>= kj 0) (or (= cj kj) (= cj2 kj)))
+                                    (set! (-> *phys-csim* sco) 1))))))
+                          ;; profondeur rig : on remonte `khd-par` jusqu'a la racine (255)
+                          (dotimes (which 2)
+                            (let ((k0 (if (zero? which) cj cj2)))
+                              (when (and (>= k0 0) (< k0 njoint))
+                                (let ((d 0) (k k0) (guard 0))
+                                  (while (and (>= k 0) (< k PHYS-JOINTS) (< guard 128))
+                                    (let ((p (the int (-> (-> obj khd-par) k))))
+                                      (cond
+                                        ((or (= p 255) (>= p PHYS-JOINTS)) (set! k -1))
+                                        (else (set! k p) (+! d 1))))
+                                    (+! guard 1))
+                                  (when (< d (-> *phys-cdep* sco))
+                                    (set! (-> *phys-cdep* sco) d)))))))))
                     ;; --- 3b. LE VOLUME QUE CHAQUE LIEN PORTE. Par defaut sa demi-epaisseur,
                     ;; --- centree sur le joint (comportement precedent). Si ce joint declare deja
                     ;; --- une SPHERE ajustee sur le mesh, c'est ELLE — centre et rayon — parce que
@@ -1271,6 +1380,66 @@
      (set-vector! rb (-> *phys-crbx* sco) (-> *phys-crby* sco) (-> *phys-crbz* sco) 1.0)
      #t)))
 
+(defun phys-col-now! ((skel skeleton) (sco int) (cj int) (cj2 int) (nbone int)
+                      (ca vector) (cb vector))
+  "LES DEUX EXTREMITES DU VOLUME TELLES QUE TOUTES LES CHAINES DOIVENT LES VOIR CETTE FRAME.
+   NATURE : une position monde, en unites de jeu. REPERE : monde.
+   CE QU'ELLE REND QUAND LE DEFAUT EST ABSENT : le squelette courant, au bit pres — c'est le cas
+   des 24 volumes qu'aucune chaine ne simule, et du premier pas de chaque acteur.
+
+   Un volume porte par un joint SIMULE est lu dans l'instantane de FIN DE FRAME PRECEDENTE. Sinon
+   la reponse d'une chaine depend de son rang dans le fichier : voir la note de `*phys-csim*`."
+  (cond
+    ((and (zero? *phys-jacobi-off*)
+          (nonzero? (-> *phys-csim* sco))
+          (nonzero? (-> *phys-csok* sco)))
+     (set-vector! ca (-> *phys-csax* sco) (-> *phys-csay* sco) (-> *phys-csaz* sco) 1.0)
+     (set-vector! cb (-> *phys-csbx* sco) (-> *phys-csby* sco) (-> *phys-csbz* sco) 1.0))
+    (else
+     (phys-col-centre skel sco cj ca)
+     (if (and (>= cj2 0) (< (+ cj2 1) nbone))
+       (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
+       (vector-copy! cb ca))))
+  (none))
+
+(defun phys-snapshot-sim! ((skel skeleton) (slot int) (nco int) (nbone int))
+  "L'instantane de JACOBI : la position de FIN DE FRAME de tout volume porte par un joint simule.
+   Appelee une seule fois, apres que toutes les chaines ont ecrit. C'est ce que la frame SUIVANTE
+   lira, pour toutes les chaines a la fois."
+  (let ((ca (new 'stack-no-clear 'vector)))
+    (dotimes (ci nco)
+      (let* ((sco (+ (* slot PHYS-COLS) ci))
+             (cj  (-> *phys-cj* sco))
+             (cj2 (-> *phys-cj2* sco)))
+        (when (and (nonzero? (-> *phys-csim* sco)) (>= cj 0) (< (+ cj 1) nbone))
+          (phys-col-centre skel sco cj ca)
+          (set! (-> *phys-csax* sco) (-> ca x))
+          (set! (-> *phys-csay* sco) (-> ca y))
+          (set! (-> *phys-csaz* sco) (-> ca z))
+          (cond
+            ((and (>= cj2 0) (< (+ cj2 1) nbone))
+             (set! (-> *phys-csbx* sco) (-> skel bones (+ cj2 1) transform vector 3 x))
+             (set! (-> *phys-csby* sco) (-> skel bones (+ cj2 1) transform vector 3 y))
+             (set! (-> *phys-csbz* sco) (-> skel bones (+ cj2 1) transform vector 3 z)))
+            (else
+             (set! (-> *phys-csbx* sco) (-> ca x))
+             (set! (-> *phys-csby* sco) (-> ca y))
+             (set! (-> *phys-csbz* sco) (-> ca z))))
+          (set! (-> *phys-csok* sco) 1)))))
+  (none))
+
+(defun phys-col-key ((sco int) (cj int))
+  "LA CLE DE PRIORITE D'UN VOLUME, exactement la DECISION 1 du superviseur : le volume du CORPS
+   l'emporte sur celui d'une CHAINE, puis le PARENT DANS LE RIG l'emporte. Plus petit = prioritaire.
+
+   LA REGLE ECRITE N'EST PAS TOTALISANTE, ET C'EST MESURE : trois volumes de corps sont a egalite
+   de profondeur minimale 1 (`hips->main`, `chest->main`, la sphere `main`). Sans departage le
+   decideur dependrait de l'ordre de parcours, c'est-a-dire du fichier — la meme faute que celle
+   qu'on corrige. Le departage est l'index rig du joint porteur : les 33 `cj` sont deux a deux
+   distincts (verifie sur le rig), donc la cle est TOTALE et deux frames identiques designent
+   toujours le meme decideur."
+  (+ (* 1000000 (-> *phys-csim* sco)) (+ (* 1000 (-> *phys-cdep* sco)) cj)))
+
 ;; ------------------------------------------------------------------------------------------------
 ;; UNE CHAINE SE COGNE-T-ELLE DANS SON PROPRE VOLUME ? Owner, 4e et 6e passes : « les pointes et
 ;; racines sont ancrees avec l'entre-deux qui bouge enormement », « les meches fines jittent like
@@ -1363,12 +1532,58 @@
             (set! (-> pt y) (+ (-> *phys-py* scl) (-> offs y)))
             (set! (-> pt z) (+ (-> *phys-pz* scl) (-> offs z)))
             (set! (-> pt w) 1.0)
+            ;; ---- DECISION 1 : QUI DECIDE POUR CE LIEN, CETTE FRAME ----------------------------
+            ;; Une passe de SELECTION, sur la position d'entree du lien, avant toute poussee : elle
+            ;; ne deplace rien, elle designe. Le round-robin qu'elle remplace faisait sortir le lien
+            ;; d'un volume pour l'enfoncer dans le voisin a l'iteration suivante, et le recul
+            ;; finissait par l'epingler sur la pose du modele (kneeflapR, 15913 frames sur 17893).
+            (set! (-> *phys-lwin* scl) -1)
+            (when (zero? *phys-prio-off*)
+              (let ((best 2000000000) (nviol 0))
+                (dotimes (ci nco)
+                  (let* ((sco (+ (* slot PHYS-COLS) ci))
+                         (cj  (-> *phys-cj* sco))
+                         (cj2 (-> *phys-cj2* sco))
+                         (own (phys-col-own? sc n cj cj2))
+                         (selfpair (and own (nonzero? *phys-self-inject*))))
+                    (when selfpair (set! own #f))
+                    (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
+                      (phys-col-now! skel sco cj cj2 nbone ca cb)
+                      (when (not (phys-col-rest! sco ra rb))
+                        (vector-copy! ra ca) (vector-copy! rb cb))
+                      (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
+                             (floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                                                         (-> *phys-cr2* sco) cap? nrm))
+                             (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                         (-> *phys-cr2* sco) cap? nrm))
+                             (floor0 (if (> floorc floors) floorc floors))
+                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
+                             (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
+                                                         (-> *phys-cr2* sco) cap? nrm)))
+                        (when (> dep feff)
+                          (+! nviol 1)
+                          (let ((key (phys-col-key sco cj)))
+                            (when (< key best)
+                              (set! best key)
+                              (set! (-> *phys-lwin* scl) sco))))))))
+                (when (> nviol 1)
+                  (set! *phys-prio-multi* (+ *phys-prio-multi* 1))
+                  (set! *phys-prio-n* (+ *phys-prio-n* (- nviol 1)))
+                  (set! (-> *phys-dg* (+ (* sc PHYS-DG) 12))
+                        (+ (the float (- nviol 1)) (-> *phys-dg* (+ (* sc PHYS-DG) 12)))))))
             (dotimes (sub sweeps)
               (dotimes (ci nco)
                 (let* ((sco (+ (* slot PHYS-COLS) ci))
                        (cj  (-> *phys-cj* sco))
                        (cj2 (-> *phys-cj2* sco))
-                       (own (phys-col-own? sc n cj cj2)))
+                       (own (phys-col-own? sc n cj cj2))
+                       ;; DECISION 1 : les volumes que la priorite a ecartes sont IGNORES, pas
+                       ;; moyennes. Distinct de `own` a dessein — `own` est l'exclusion
+                       ;; structurelle chaine<->elle-meme, que le controle positif `self-inject`
+                       ;; leve ; celle-ci ne se leve que par `prio-off`, son propre controle.
+                       (skip (and (zero? *phys-prio-off*)
+                                  (>= (-> *phys-lwin* scl) 0)
+                                  (!= sco (-> *phys-lwin* scl)))))
                   ;; ARME, le controle positif LEVE l'exclusion : le compteur `selfcol` doit alors
                   ;; monter. Un zero que rien ne peut faire monter ne prouve rien — et c'est
                   ;; exactement ce qui vient d'arriver. Depuis qu'un lien porte LE MEME volume que
@@ -1381,11 +1596,8 @@
                   ;; passe a zero.
                   (let ((selfpair (and own (nonzero? *phys-self-inject*))))
                   (when selfpair (set! own #f))
-                  (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
-                    (phys-col-centre skel sco cj ca)
-                    (if (and (>= cj2 0) (< (+ cj2 1) nbone))
-                      (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
-                      (vector-copy! cb ca))
+                  (when (and (not own) (not skip) (>= cj 0) (< (+ cj 1) nbone))
+                    (phys-col-now! skel sco cj cj2 nbone ca cb)
                     ;; `floor0` contre le volume A SA POSE D'AUTEUR, `dep` contre sa position
                     ;; COURANTE : le plancher de pose modele est une propriete de la pose du
                     ;; modele des DEUX cotes (cf. phys-snapshot-colliders!).
@@ -1506,10 +1718,7 @@
                        (cj2 (-> *phys-cj2* sco))
                        (bit 0))
                   (when (and (not (phys-col-own? sc n cj cj2)) (>= cj 0) (< (+ cj 1) nbone))
-                    (phys-col-centre skel sco cj ca)
-                    (if (and (>= cj2 0) (< (+ cj2 1) nbone))
-                      (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
-                      (vector-copy! cb ca))
+                    (phys-col-now! skel sco cj cj2 nbone ca cb)
                     (when (not (phys-col-rest! sco ra rb))
                       (vector-copy! ra ca) (vector-copy! rb cb))
                     ;; L'ETAT SUIVI EST « EN CONTACT », plus « contraint ou libre ». Depuis que la
@@ -1549,7 +1758,20 @@
 ;; definition de « ca traverse » du moteur, et elle sert aux trois usages (resoudre, reculer,
 ;; mesurer) — il n'y a donc pas d'instrument de mesure different de l'instrument de decision.
 ;; ------------------------------------------------------------------------------------------------
-(defun phys-link-pen ((skel skeleton) (sc int) (n int) (nbone int) (nco int) (l int) (pt vector))
+(defun phys-link-pen ((skel skeleton) (sc int) (n int) (nbone int) (nco int) (l int) (pt vector)
+                      (prio int))
+  "LA PENETRATION DU LIEN `l` SI SON JOINT ETAIT EN `pt`.
+   NATURE : une profondeur, en metres. REPERE : monde. LECTURE HORS DEFAUT : PHYS-NOCONTACT.
+
+   `prio` = 1 quand l'appel SERT LE SOLVEUR (le recul) : la DECISION 1 s'applique, seul le volume
+   decideur du lien compte pour la PROFONDEUR. `prio` = 0 quand l'appel MESURE : tous les volumes
+   comptent, sinon le chiffre deviendrait aveugle a ce que la decision laisse passer.
+
+   LE FRANCHISSEMENT D'AXE N'EST JAMAIS SOUMIS A LA PRIORITE, ET CE N'EST PAS UNE EXCEPTION DE
+   CONFORT : deux volumes ne peuvent pas se contredire dessus. La pose du modele est du BON cote de
+   CHAQUE axe par construction, donc reculer vers elle les satisfait tous a la fois — il n'y a
+   aucun conflit a arbitrer. Le soumettre a la priorite rouvrirait `goggles-tunnel` (les lunettes
+   qui traversent le buste pour se poser dans le dos), que ce veto est precisement ce qui ferme."
   (let ((slot (/ sc PHYS-CHAINS))
         (worst PHYS-NOCONTACT)
         (rest (new 'stack-no-clear 'vector))
@@ -1592,13 +1814,16 @@
           (let* ((sco (+ (* slot PHYS-COLS) ci))
                  (cj  (-> *phys-cj* sco))
                  (cj2 (-> *phys-cj2* sco))
-                 (own (phys-col-own? sc n cj cj2)))
+                 (own (phys-col-own? sc n cj cj2))
+                 ;; DECISION 1, cote SOLVEUR uniquement : la profondeur du volume ecarte ne
+                 ;; participe pas au recul. La MESURE (`prio` = 0) continue de la voir.
+                 (skip (and (nonzero? prio)
+                            (zero? *phys-prio-off*)
+                            (>= (-> *phys-lwin* scl) 0)
+                            (!= sco (-> *phys-lwin* scl)))))
             (when (and own (nonzero? *phys-self-inject*)) (set! own #f))
             (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
-              (phys-col-centre skel sco cj ca)
-              (if (and (>= cj2 0) (< (+ cj2 1) nbone))
-                (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
-                (vector-copy! cb ca))
+              (phys-col-now! skel sco cj cj2 nbone ca cb)
               (when (not (phys-col-rest! sco ra rb))
                 (vector-copy! ra ca) (vector-copy! rb cb))
               (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
@@ -1658,7 +1883,9 @@
                 ;; les deux profondeurs sont nulles (un volume a l'autre bout du corps) n'est pas
                 ;; un contact : la compter rendrait le residu identiquement nul et la colonne
                 ;; deviendrait un zero constant, c.-a-d. indistinguable d'une colonne fabriquee.
-                (when (and (or (> floor0 0.0) (> dep 0.0)) (> res worst))
+                ;; `skip` ne porte QUE sur la profondeur : c'est la seule grandeur sur laquelle
+                ;; deux volumes qui se recouvrent peuvent se contredire.
+                (when (and (not skip) (or (> floor0 0.0) (> dep 0.0)) (> res worst))
                   (set! worst res))))))))
     worst))
 
@@ -1674,7 +1901,7 @@
           (set! (-> pt y) (-> *phys-py* scl))
           (set! (-> pt z) (-> *phys-pz* scl))
           (set! (-> pt w) 1.0)
-          (let ((r (phys-link-pen skel sc n nbone nco l pt)))
+          (let ((r (phys-link-pen skel sc n nbone nco l pt 0)))
             (when (> r worst) (set! worst r))))))
     (set! *phys-buried-tally* 0)
     ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,
@@ -1720,7 +1947,7 @@
             (set! (-> pt y) (-> *phys-py* scl))
             (set! (-> pt z) (-> *phys-pz* scl))
             (set! (-> pt w) 1.0)
-            (when (> (phys-link-pen skel sc n nbone nco l pt) 0.0)
+            (when (> (phys-link-pen skel sc n nbone nco l pt 1) 0.0)
               (let* ((tx (-> skel bones (+ kk 1) transform vector 3 x))
                      (ty (-> skel bones (+ kk 1) transform vector 3 y))
                      (tz (-> skel bones (+ kk 1) transform vector 3 z))
@@ -1776,7 +2003,7 @@
                   (set! (-> bs z) (+ bz mz))
                   (set! (-> bs w) 1.0)
                   (cond
-                    ((> (phys-link-pen skel sc n nbone nco l bs) 0.0)
+                    ((> (phys-link-pen skel sc n nbone nco l bs 1) 0.0)
                      (set! *phys-retfb-n* (+ *phys-retfb-n* 1)))
                     (else
                      (set! wx mx) (set! wy my) (set! wz mz) (set! want ml))))
@@ -1829,7 +2056,7 @@
                        (set! (-> bs y) (+ ty (* dy mid)))
                        (set! (-> bs z) (+ tz (* dz mid)))))
                     (set! (-> bs w) 1.0)
-                    (let ((p (phys-link-pen skel sc n nbone nco l bs)))
+                    (let ((p (phys-link-pen skel sc n nbone nco l bs 1)))
                       (when (< p bestp)
                         (set! bestp p))
                       ;; L'EVALUATION it = 0 MESURE, ELLE NE DECIDE PAS. Elle teste `mid = 0`, la
@@ -2890,7 +3117,13 @@
                     (matrix*! tmp bm (-> *phys-dmat* p))
                     (matrix-copy! bm tmp)
                     (matrix-copy! (-> *phys-dmat* k) (-> *phys-dmat* p))
-                    (set! (-> *phys-dhas* k) 1))))))))))
+                    (set! (-> *phys-dhas* k) 1))))))
+          ;; ---- L'INSTANTANE QUE LA FRAME SUIVANTE LIRA -------------------------------------
+          ;; Ici, et nulle part ailleurs : toutes les chaines ont ecrit, la propagation aux
+          ;; descendants non simules est faite, donc le squelette porte l'etat FINAL de la frame.
+          ;; C'est cet etat-la que les 22 chaines liront toutes ensemble la frame prochaine, au
+          ;; lieu de lire chacune un etat different selon son rang.
+          (phys-snapshot-sim! skel slot nco nbone)))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -3124,6 +3357,31 @@
 
 (defun phys-side-off-set! ((v int))
   (set! *phys-side-off* v)
+  (none))
+
+;; --- LES DEUX CONTROLES DE CE CYCLE. Chacun REINJECTE son defaut quand on l'arme : c'est ce que
+;; --- « tout zero exige un controle positif qui a fait MONTER le compteur » demande.
+(defun phys-jacobi-off-set! ((v int))
+  "1 = les chaines relisent l'obstacle dans le squelette courant, donc chacune selon son rang
+   (Gauss-Seidel). Le saut d'une frame a l'autre doit alors REMONTER sur la chaine la plus tardive."
+  (set! *phys-jacobi-off* v)
+  (none))
+
+(defun phys-prio-off-set! ((v int))
+  "1 = tous les volumes poussent, comme avant la DECISION 1. `retreat` et les inversions
+   residuelles doivent alors REMONTER."
+  (set! *phys-prio-off* v)
+  (none))
+
+(defun phys-prio ((which int))
+  "0 = paires (lien, volume) ecartees par la priorite ; 1 = liens contraints par plus d'un volume.
+   NATURE : un COMPTE d'evenements sur la fenetre, pas une amplitude. REPERE : sans objet.
+   LECTURE QUAND LE DEFAUT EST ABSENT : 0 pour les deux — aucun lien n'est en conflit."
+  (the float (cond ((= which 0) *phys-prio-n*) (else *phys-prio-multi*))))
+
+(defun phys-prio-reset! ()
+  (set! *phys-prio-n* 0)
+  (set! *phys-prio-multi* 0)
   (none))
 
 (defun phys-inversions-reset! ()
