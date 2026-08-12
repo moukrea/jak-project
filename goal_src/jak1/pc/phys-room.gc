@@ -691,9 +691,21 @@
       ;;            REPERE : la direction d'os du joint, pose du modele -> position simulee de son
       ;;            enfant, prise depuis SON ANCRE — donc son mouvement PROPRE, pas celui herite du
       ;;            crane. LECTURE QUAND LE DEFAUT EST PRESENT : 0.0000 exactement.
-      (format 0 "PHYSDIAG6 tag=~S c=~D rootrot=~f~%"
+      ;;   raddropm LE PRIX DU MUR DUR D'EXCURSION, en unites de jeu cumulees sur la fenetre :
+      ;;            l'excursion que le plafond `rmax` a RETIREE a cette chaine. Le compte
+      ;;            (`raddrop`, colonne voisine) disait combien de fois le mur mordait ; il ne
+      ;;            disait pas ce qu'il coutait, et SPEC 7 l'exige de tout suppresseur (« on
+      ;;            chiffre combien de mouvement il retire »). La somme existait deja dans le
+      ;;            moteur mais GLOBALE, donc imputable a aucune chaine.
+      ;;            NATURE : une longueur CUMULEE (une somme d'ecarts retires), surtout pas une
+      ;;            amplitude — elle croit avec la duree de la fenetre et ne se compare qu'entre
+      ;;            chaines d'une MEME course. REPERE : ecart a la pose ANIMEE du lien, le meme
+      ;;            que celui que le mur plafonne. LECTURE QUAND LE DEFAUT EST ABSENT : 0, et le
+      ;;            mur n'a alors jamais mordu.
+      (format 0 "PHYSDIAG6 tag=~S c=~D rootrot=~f raddropm=~f~%"
               tag c
-              (phys-diag (-> self slot) c 14))))
+              (phys-diag (-> self slot) c 14)
+              (phys-diag (-> self slot) c 15))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()

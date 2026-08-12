@@ -786,7 +786,9 @@
 ;;              MESUREE MEME QUAND LE CONTROLE EST ARME : c'est ce qui permet au chiffre de MONTER
 ;;              sous le defaut au lieu de disparaitre avec la contrainte qui le corrige.
 ;; 14 = `rootrot`, l'angle ecrit dans la 3x3 du maillon `rootlock` (voir le bloc d'ecriture).
-(defconstant PHYS-DG 15)
+;; 15 = `raddrop-m`, le PRIX du mur dur d'excursion : somme, par chaine, de l'excursion qu'il a
+;;      retiree. Le compte (slot 6) disait combien de fois il mordait, jamais combien il coutait.
+(defconstant PHYS-DG 16)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -1385,6 +1387,13 @@
                    (let ((s (/ e2 e)))
                      (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
                      (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e e2)))
+                     ;; LE PRIX DU SUPPRESSEUR, PAR CHAINE. SPEC 7 : « on en ajoute un uniquement
+                     ;; si un defaut mesure l'exige, et on chiffre COMBIEN DE MOUVEMENT IL
+                     ;; RETIRE ». La somme existait deja mais GLOBALE (`*phys-raddrop-sum*`) :
+                     ;; elle ne pouvait donc designer aucune chaine, et le prix du mur n'a jamais
+                     ;; pu etre mis en face du mouvement qu'il coute.
+                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 15))
+                           (+ (- e e2) (-> *phys-dg* (+ (* sc PHYS-DG) 15))))
                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 6))
                            (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 6))))
                      (set! (-> *phys-px* scl) (+ tx (* ex s)))
@@ -1492,6 +1501,9 @@
                    (when (and (> e rmax) (> e 0.0001))
                      (set! *phys-raddrop-n* (+ *phys-raddrop-n* 1))
                      (set! *phys-raddrop-sum* (+ *phys-raddrop-sum* (- e e2)))
+                     ;; meme prix, meme slot, deuxieme site du mur (voir la note du premier).
+                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 15))
+                           (+ (- e e2) (-> *phys-dg* (+ (* sc PHYS-DG) 15))))
                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 6))
                            (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 6))))
                      (let* ((f  (/ e2 e))
