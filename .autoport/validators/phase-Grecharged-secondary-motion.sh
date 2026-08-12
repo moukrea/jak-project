@@ -345,6 +345,32 @@ print("[IDLE] écart max au modèle %.3f  [ANIM] %s chaînes pilotées, toutes r
 PYROOM
 
 # --------------------------------------------------------------------------------------------
+# SIDE-CONTROL — un zero de franchissement sans controle positif ne prouve rien.
+# ROOM-SIDE est passe de 11446 a 0 le 2026-08-12. C'est peut-etre une vraie correction, ou le
+# predicat qui a cesse d'etre evaluable -- exactement le piege trouve ce matin (« (= l 0) ne
+# pouvait jamais etre vrai sur onze chaines »). SELFCOL et POSCONTROL publient leur controle;
+# SIDE doit faire pareil.
+python3 - "$T" <<'PYSIDE' || exit 1
+import re, sys
+t = open(sys.argv[1], errors='ignore').read()
+m = re.search(r'^ROOM-SIDE:\s*chains=(\d+)/(\d+)\s+crossing=(\d+)', t, re.M)
+if not m:
+    sys.exit(0)
+cross = int(m.group(3))
+c = re.search(r'^ROOM-SIDE-CONTROL:\s*armed=(\d+)\s+disarmed=(\d+)', t, re.M)
+if cross == 0 and not c:
+    print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: ROOM-SIDE annonce ZERO franchissement")
+    print("  sans ligne 'ROOM-SIDE-CONTROL: armed=<n> disarmed=<n>'. Un compteur qui tombe de 11446")
+    print("  a 0 est soit une vraie correction, soit un predicat devenu ineevaluable -- le piege")
+    print("  trouve ce matin meme. Injecter le defaut, voir le compteur MONTER, l'enlever.")
+    sys.exit(1)
+if c and int(c.group(1)) <= int(c.group(2)) * 3:
+    print("[Grecharged-secondary-monotion FAIL] SIDE-CONTROL: le controle ne tire pas (%s arme contre"
+          " %s desarme, il faut >= 3x)" % (c.group(1), c.group(2)))
+    sys.exit(1)
+print("[SIDE-CONTROL] %d franchissement(s), controle present" % cross)
+PYSIDE
+# --------------------------------------------------------------------------------------------
 # FLOOR — PLANCHER DE MOUVEMENT, gate d'anti-regression.
 #
 # Le 2026-08-11 a 22:15 l'owner a decrit un build ou « tout est muted as heck, faut vraiment
