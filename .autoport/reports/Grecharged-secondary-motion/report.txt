@@ -1,4 +1,11 @@
 DIRECTIVES v4e8d7808e6
+DIRECTIVES v0a88eb98b6
+
+(Le contrat a ete revise PENDANT ce cycle : `v0a88eb98b6` s'ajoute a la liste acceptee, SCOPE-SERIAL
+reste 3 — donc pas d'invalidation de la tentative. La revision porte une consigne nouvelle et je
+l'applique : `physics-attic-2026-08-11` se MINE comme reference — parcourir son HISTORIQUE pour
+retrouver les etats ou les cheveux fonctionnaient, en tirer la LECON, la reimplementer a la main
+avec sa mesure. Aucun `git checkout`, aucun cherry-pick, aucun copier-coller. Voir section 8.)
 
 =================================================================================================
 CYCLE — `hair-skinning` (PRIORITE 1) : LA JONCTION QUI DECHIRE EST FERMEE, MESUREE A ZERO
@@ -319,3 +326,79 @@ A REGARDER, une fois le pack livre :
   2. les oreilles : meme question, elles portaient 26 et 24 aretes dechirees ;
   3. si la geometrie ne casse plus mais que les meches lui paraissent trop calmes, c'est un
      reglage separe (`hair-fine-dead`) et pas un retour en arriere sur celui-ci.
+
+=================================================================================================
+8. CE QUE L'ATTIC A APPRIS — consigne du 2026-08-12, avec les hash consultes
+=================================================================================================
+
+L'owner : « dans l'historique de ce qu'on a parké il y a des commits où la physique des cheveux de
+Keira fonctionnait bien ». Mine faite en LECTURE SEULE (`git show <sha>:<path>`, `git log -p`) :
+aucun `checkout`, aucun cherry-pick, aucun copier-coller. Branche inchangee.
+
+LA TROUVAILLE QUI RENVERSE UNE DECISION QUE J'AVAIS PRISE — `63285fbfb4` (cycle 3, 2026-08-06).
+Les chaines de cheveux y portaient **`rootlock=0` avec `colskip=1`** : racine SIMULEE mais exclue
+de la collision. C'est ce qui donnait DEUX maillons libres a une meche de deux joints.
+Le 2026-08-12, `42d4e5a9e8` (branche propre) a ferme cette porte au motif que « `colskip` est
+exactement le flag de derogation que la regle 4 interdit ». Le raisonnement confondait deux choses,
+et le contrat lui-meme le dit : 4e passe — « Une chaine ne doit jamais entrer en collision avec ses
+propres maillons ni avec le collider porte par son propre joint-racine. **Ce n'est pas un `colskip`
+(interdit) : c'est une exclusion structurelle chaine<->elle-meme** ». Le FLAG est interdit ; la
+REGLE est exigee. `rootlock=0` a donc ete ecarte sans etre essaye, sur un motif qui ne tient pas.
+
+ET C'EST LA CAUSE MECANIQUE DU GRADIENT INVERSE. `d072cc68e8` (branche propre, 08-12) a mesure que
+**20 chaines sur 22 n'ont qu'UN SEUL maillon libre**. Une chaine de deux joints dont la racine est
+epinglee n'a qu'un degre de liberte : AUCUN degrade n'y est representable, quel que soit le
+reglage. C'est exactement ce que l'owner decrit depuis quatre passes (« les pointes sont ancrees au
+meme titre que les racines, et c'est l'entre-deux qui bouge »).
+
+LES AUTRES LECONS, chacune avec son hash :
+* `63285fbfb4` — LE GRADIENT EST UNE RAMPE A DEUX ETAGES, construite au bind, pas un reglage :
+  (a) cone + raideur PAR MAILLON, `f = 1 - grad*(1 - (i-rl+1)/nfree)`, le cone etant applique a
+  l'angle entre le segment et sa direction de REPOS — donc une limite RELATIVE AU PARENT, la nature
+  exacte que la 10e passe exige ; (b) profil d'influence en sortie,
+  `infl_i = wroot + (1-wroot)*i/(len-1)` : la simulation garde son amplitude pleine, seule la PART
+  ECRITE croit vers la pointe.
+* `26b26029d9` / `ec554ed6f7` — UN `rootlock` BINAIRE EST UN SAUT DE 1.0 DANS LE PROFIL sur un seul
+  joint : derivee discontinue, donc un cran visible et tout le mouvement concentre sur un maillon.
+  La parade mesuree est de borner chaque marche adjacente (`inflstep` 0.45) en RELEVANT la racine,
+  jamais en abaissant la pointe. Chiffre du rapport de l'epoque : oreilles de Daxter 0.55 puis 1.00
+  la ou c'etait 0.00 puis 1.00 ; franges de Keira 0.15 / 0.58 / 1.00.
+* `63285fbfb4` — PLANCHER `rootfree` : la rampe brute donne au maillon le plus raide `1/nfree` du
+  cone, correct sur huit maillons, absurde sur deux. Tout denominateur en longueur de chaine doit
+  etre plancherise, sinon les chaines courtes sont punies par leur longueur. Le grief owner
+  correspondant (« Jak hair too tip-only », `8cc02cd86d`) ne reapparait dans AUCUN verdict suivant.
+* `63285fbfb4` — ORDRE D'ECRITURE : la sortie melangee se calcule pour TOUTE la chaine d'abord,
+  parce que la rotation d'un maillon lit la position de SORTIE de son enfant. Ecrire et tourner dans
+  la meme boucle fait viser la position brute.
+* `63285fbfb4` — RE-COLLAGE DES DESCENDANTS NON SIMULES, en trois passes (les art-files stock ne
+  garantissent pas parent < enfant). Cas cite dans le code : la chaine pilotait `gogglesMid` pendant
+  que `gogglesLeft/Right` — ~87 % de la geometrie des lunettes — suivaient encore la tete. **C'est
+  une piste directe pour `ROOM-SKINCOV` et probablement pour `goggles-tunnel`** : une part de la
+  couverture de peau ne se gagne pas en allongeant la chaine, mais en recollant les descendants du
+  dernier joint pilote.
+
+CE QUE J'AI ECARTE, ET POURQUOI :
+* couverture des joints par chaine — RIEN A PRENDRE : `git show 63285fbfb4:...physics_chains.txt`
+  donne exactement les memes joints de cheveux qu'aujourd'hui. L'attic n'en a jamais pilote plus,
+  et `d072cc68e8` confirme que ce sont les seuls qui existent dans le rig ;
+* `fa9a5dd12a` (SPEC 21) et `f0f87f9714` (SPEC 22) — ANTI-LECONS : ils REINTRODUISENT l'epinglage
+  rigide de racine sur toute la famille A et l'inscrivent dans le generateur. C'est l'ancetre direct
+  du defaut ouvert, et ils contredisent le cycle 3 — c'est le cycle 3 qui porte le chiffre ;
+* la pointe de l'attic (`eff959badb`, `4fbbdecdae`, `204cf07a9c`) — ne fait que RESTAURER le moteur
+  du cycle 3 ; la source utile est `63285fbfb4` elle-meme ;
+* le FLAG `colskip=` par chaine reste interdit (regle 4) : il avait fini sur 169 chaines sur 345
+  (`ecdf64b118`). Ce qui se reimplemente, c'est la regle structurelle derivee du rig, sans cle.
+
+UNE CORRECTION A LA PREMISSE, ET ELLE COMPTE. Le meilleur retour jamais obtenu sur les cheveux
+n'est PAS dans l'attic : c'est `613218dfa3`, sur la branche de travail (2026-08-11 19:26, build
+19h53) — « pour les meches fines c'est vraiment pas mal… on se rapproche du but ! ». L'attic
+s'arrete a `eff959badb` (2026-08-11 02:27) et ne contient pas ce commit. Le moteur y faisait 2350
+lignes contre 4200 aujourd'hui, ~60 commits d'ecart. Si l'owner se souvient d'un etat ou les
+cheveux marchaient, c'est le candidat le plus probable — et le geste le plus rentable qui reste est
+`git diff 613218dfa3..HEAD -- goal_src/jak1/pc/jak-hd-physics.gc`, qui ne demande aucun acces a
+l'attic. A faire au prochain cycle.
+
+CAVEAT D'HONNETETE SUR LES CHIFFRES DE L'ATTIC : ses spans par maillon sont mesures en repere
+MONDE, celui-la meme que la 10e passe a declare non discriminant. Ils attestent que le PROFIL etait
+bati, pas que le gradient relatif au parent etait croissant. Ce qui est solide dans l'attic est le
+MECANISME (la limite de cone, elle, est bien parent-relative), pas le chiffre.
