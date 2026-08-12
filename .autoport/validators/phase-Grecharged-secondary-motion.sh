@@ -401,6 +401,39 @@ PYSIDE
 # La reference ne bouge que vers le HAUT : une chaine qui perd plus de 40 % de son
 # mouvement par rapport a son meilleur etat connu fait echouer la phase, quel que soit le progres
 # obtenu ailleurs. On ne paie plus une correction avec le mouvement.
+# PLANCHER FAIBLE-STIMULUS (2026-08-12 12:30). Le plancher d'origine protege l'amplitude MAXIMALE
+# sur cinq pilotages. Or l'owner juge la poitrine « un peu mutee sur les mouvements SUBTILS » —
+# la reponse aux petits stimuli — et le plancher ne l'a pas vue baisser. C'est la ou il regarde.
+REFW=.autoport/reports/Grecharged-secondary-motion/motion-floor-weak.txt
+python3 - "$T" "$REFW" <<'PYWEAK' || exit 1
+import os, re, sys
+tbl, ref = sys.argv[1], sys.argv[2]
+cur = {}
+for ln in open(tbl, errors='ignore'):
+    if not ln.startswith('ROOM-RESPONSE'):
+        continue
+    d = dict(re.findall(r'(\w+)=([^\s]+)', ln))
+    if {'chain','stimulus','tip'} <= set(d):
+        c, st, tp = d['chain'], float(d['stimulus']), float(d['tip'])
+        if c not in cur or st < cur[c][0]:
+            cur[c] = (st, tp)
+if not cur or not os.path.exists(ref):
+    sys.exit(0)
+old = {}
+for ln in open(ref, errors='ignore'):
+    p = ln.split()
+    if len(p) == 2:
+        old[p[0]] = float(p[1])
+bad = [(c, old[c], cur[c][1]) for c in cur if c in old and cur[c][1] < old[c] * 0.70]
+if bad:
+    print("[Grecharged-secondary-motion FAIL] FLOOR-WEAK: %d chaine(s) ont perdu plus de 30%% de"
+          " leur reponse aux PETITS mouvements -- c'est la que l'owner regarde." % len(bad))
+    for c, o, n in sorted(bad, key=lambda x: x[2]/x[1])[:6]:
+        print("  %-12s %.4f -> %.4f  (%.0f%% de perte sur stimulus faible)" % (c, o, n, 100*(1-n/o)))
+    sys.exit(1)
+print("[FLOOR-WEAK] %d chaines gardent leur reponse aux petits mouvements" % len(cur))
+PYWEAK
+
 REF=.autoport/reports/Grecharged-secondary-motion/motion-floor.txt
 python3 - "$T" "$REF" <<'PYFLOOR' || exit 1
 import os, re, sys
