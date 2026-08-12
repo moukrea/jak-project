@@ -321,6 +321,14 @@ def main():
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             volprio=float(m.group(3)),
             shellrad=(float(m.group(4)) / UNITS) if m.group(4) is not None else None)
+    # rootrot : l'angle ECRIT dans la 3x3 du maillon `rootlock` -- le premier segment de la meche,
+    #           celui qui part du cuir chevelu. ABSENT des courses d'avant ce cycle, et valant zero
+    #           STRUCTURELLEMENT avant le correctif (la boucle d'ecriture sautait tout `l < rlk`) :
+    #           le `.get(..., None)` distingue « pas mesure » de « mesure a zero », et c'est cette
+    #           distinction qui fait du zero un controle positif au lieu d'un trou.
+    for m in re.finditer(r'^PHYSDIAG6 tag=(\S+) c=(\d+) rootrot=([-\d.e+]+)', txt, re.M):
+        diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
+            rootrot=float(m.group(3)))
     # la re-assise : combien de liens le moteur a replaces, et combien ont du retomber sur
     # l'ancienne heuristique (rayon le long de l'os du porteur) au lieu de la place du rig.
     global RESEAT_FB
@@ -1158,6 +1166,57 @@ def main():
              int(dr_run.get(c, {}).get('invres', 0)),
              dr_run.get(c, {}).get('elong', 0.0),
              int(dr_run.get(c, {}).get('rad', 0))))
+    # ---- LE PREMIER SEGMENT DE LA MECHE (residu de `hair-gradient`, PRIORITE 1) ---------------
+    # Owner 2026-08-12 14:10 : « on dirait qu'elles sont ancrees (les pointes) au meme titre que les
+    # racines, et que c'est ce qu'il y a entre les pointes et les racines qui bouge vraiment. »
+    #
+    # POURQUOI ROOM-GRADIENT NE POUVAIT PAS LE VOIR, et c'est un defaut d'INSTRUMENT, pas de mesure.
+    # Toutes les chaines de cheveux portent `rootlock=1`, et le moteur sautait tout `l < rlk` a
+    # l'ecriture : le maillon 0 n'etait ni integre ni ecrit. Sa deviation vaut donc EXACTEMENT 0, et
+    # ROOM-GRADIENT publie [0, x] sur une chaine a 2 maillons. Une suite de deux termes dont le
+    # premier est nul ne peut JAMAIS echouer au test de croissance `max(v[:-1]) > v[-1]` : la gate
+    # etait VIDE DE SENS sur 5 des 7 chaines de cheveux (earL, earR, backhair, lmidhair, rmidhair),
+    # et sur les 2 autres elle ne jugeait que 2 segments sur 3. Le zero n'y etait pas une reussite,
+    # il etait l'empreinte du defaut.
+    #
+    # rootrot est l'angle REELLEMENT ecrit dans la 3x3 de ce maillon. NATURE : un angle en degres.
+    # REPERE : la direction d'os du joint, pose du modele -> position simulee de son enfant, prise
+    # depuis SON ANCRE (donc son mouvement PROPRE, pas celui herite du crane). LECTURE QUAND LE
+    # DEFAUT EST PRESENT : 0.0000 exactement, structurellement.
+    rr = {c: dr_run.get(c, {}).get('rootrot') for c in sorted(chains)}
+    if all(v is None for v in rr.values()):
+        A('-- PREMIER SEGMENT (rootrot) : NON MESURE par cette course ------------------------------')
+        A('   La trace ne porte aucune ligne PHYSDIAG6. Le residu de `hair-gradient` — le premier')
+        A('   segment de chaque meche fige a 0 degre — reste donc invisible, et ROOM-GRADIENT ne')
+        A('   peut pas le voir a sa place : sur une chaine a 2 maillons il publie [0, x].')
+    else:
+        A('-- LE PREMIER SEGMENT DE LA MECHE (rootrot) ---------------------------------------------')
+        A('   L\'angle ecrit dans la 3x3 du maillon `rootlock`. Il valait 0.0000 STRUCTURELLEMENT')
+        A('   avant ce cycle : la boucle d\'ecriture du moteur sautait tout `l < rlk`, donc ~50 % de')
+        A('   la geometrie des cheveux etait soudee au crane et une meche a 2 joints se reduisait a')
+        A('   un segment rigide articule EN SON MILIEU. Zero ici = le defaut est present.')
+        mute = []
+        for c in sorted(chains):
+            v, nl = rr.get(c), chains[c]['links']
+            if v is None:
+                continue
+            A('   rootrot %-12s %8.4f deg   (maillons=%d)' % (names[c], v, nl))
+            # une chaine a 1 maillon n'a PAS de lien rootlock : son zero est une definition, pas un
+            # defaut. Ne sont fautives que les chaines a 2+ maillons, celles que le generateur
+            # rootlocke.
+            if nl >= 2 and v <= 0.0:
+                mute.append(names[c])
+        if mute:
+            A('   MUET sur %d chaine(s) a 2+ maillons : %s' % (len(mute), ' '.join(mute)))
+            A('   Leur premier segment ne tourne pas d\'un degre : le defaut que l\'owner decrit est')
+            A('   encore la, et il est STRUCTUREL, pas un reglage.')
+        else:
+            A('   Toutes les chaines a 2+ maillons ecrivent une rotation non nulle sur leur premier')
+            A('   segment : le cuir chevelu est devenu une charniere au lieu d\'une soudure. Le')
+            A('   controle positif est la version precedente du moteur, ou ce meme chiffre valait')
+            A('   0.0000 sur TOUTES ces chaines — un zero structurel, pas un zero mesure.')
+        A('')
+
     # ---- LA DECISION 1 ET LE FOURREAU (cycle 2026-08-12) --------------------------------------
     # volprio : NATURE un COMPTE de paires (lien, volume) sur la fenetre, REPERE sans objet,
     #           LECTURE HORS DEFAUT 0 -- un lien qu'aucun conflit de volumes ne concerne n'ecarte
