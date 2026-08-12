@@ -232,6 +232,64 @@ enfonce dans l'autre. C'est le cas d'application exact de la DECISION 1 du super
 jamais ete implementee — `ROOM-INVERSIONS residual=380` en est l'autre trace.
 
 -----------------------------------------------------------------------------------------
+4bis. DEUX HYPOTHESES A MOI, TESTEES ET REFUTEES — ET UNE FAUSSE PHRASE DANS LE FICHIER
+-----------------------------------------------------------------------------------------
+
+HYPOTHESE 1, REFUTEE. « La languette est epinglee parce que son JOINT est enfoui dans la
+jambe alors que sa geometrie est dehors ; il suffit de poser son volume sur sa geometrie. »
+Le moteur sait le faire (`phys-link-off!`, un offset par lien), et c'est deja ce que font
+les neuf spheres d'obstacle. Mesure, pose bind, profondeur du volume du lien dans les
+volumes du CORPS (les volumes de sa propre chaine exclus comme le fait `phys-col-own?`) :
+
+    lKneeFlap   volume sur le JOINT  +400 u dans Lknee->Lthigh
+                volume sur la GEOMETRIE  +40 u dans Lknee->Lthigh   -> toujours DEDANS
+    rKneeFlap                        +395 u        ->        +35 u  -> toujours DEDANS
+
+Le deplacement divise la profondeur par dix mais ne sort pas la languette du volume, et la
+contrainte porte sur `dep > floor0` — un ecart RELATIF a la profondeur de repos. Deplacer le
+volume ne rend donc aucune marge de manoeuvre. L'hypothese ne tient pas, et le critere
+general que j'en avais tire ne selectionne que cinq liens (oreille et cheveux), aucun des
+defauts ouverts. C'est aussi ce qui interdit de la generaliser : 29 liens sur 34 ont leur
+joint hors de leur propre geometrie, et c'est exactement le changement large qui avait coute
+43 % du mouvement de `backhair`.
+
+CONTROLE CROISE UTILE : le meme calcul sur les pans donne 614 -> 692 et 620 -> 698, donc
+PIRE. Un fourreau ne sort pas du membre qu'il entoure, quel que soit l'endroit ou on pose son
+centre. C'est la section 3 confirmee par un chemin independant.
+
+HYPOTHESE 2, REFUTEE PAR LECTURE DU CODE. J'ai d'abord cru que les 24 capsules etaient toutes
+mal ajustees, parce que le fichier livre porte sur CHACUNE d'elles la phrase « SPAN-EMPTY :
+aucun sommet ne se projette dans le segment ». C'est FAUX, et c'est ecrit en dur : le
+generateur posait `s1 = s2 = 0` sans jamais mesurer. Il y a en realite 73 a 802 sommets dans
+chaque segment. J'ai raisonne sur cette phrase avant de lire le code qui l'ecrit — c'est le
+cout qu'elle fera payer au suivant, donc elle est corrigee.
+
+L'annotation publie desormais ce qu'elle mesure : le nombre de sommets DANS le segment, la
+couverture p95, et l'ECART avec le rayon livre. Ce chiffre n'existait nulle part, et il dit
+quelque chose de net — les obstacles du corps SOUS-couvrent systematiquement leur propre
+geometrie :
+
+    Lshoulder->chest  cote chest  livre  769  contre p95 1290   x0.60
+    neck->chest       cote chest  livre  671  contre p95 1001   x0.67
+    head->neck        cote neck   livre  249  contre p95  360   x0.69
+    hips->main        cote hips   livre  810  contre p95 1035   x0.78
+    deux extremites descendent a x0.27
+
+Les rayons ne changent PAS d'un bit — `fit_radius` reste la source, et le choix de ne pas
+livrer la couverture est deja A/B-teste et documente (trop grand, la bretelle est declaree
+enterree et traverse tout ; trop petit, la peau sort du volume). Ce qui change, c'est que
+l'ecart est maintenant CHIFFRE PAR EXTREMITE, donc le prochain cycle peut viser les deux ou
+trois bouts fautifs au lieu de tout monter d'un bloc. `Lshoulder->chest` a x0.60 est
+exactement la ou l'owner voit la bretelle passer.
+
+Et l'annotation DISCRIMINE : `main`, `neck` et `Lshoulder` ressortent reellement SPAN-EMPTY,
+les autres non. Une phrase qui etait constante sur 24 volumes devient une mesure qui varie.
+
+VERIFICATION : les lignes de DONNEES du fichier sont byte-identiques a HEAD (seuls les
+commentaires changent, et le runtime ne les lit pas). Aucune course n'est donc necessaire et
+le plancher de mouvement ne peut pas bouger.
+
+-----------------------------------------------------------------------------------------
 5. LA CONCLUSION STRUCTURELLE — TROIS MESURES INDEPENDANTES, LE MEME MUR
 -----------------------------------------------------------------------------------------
 

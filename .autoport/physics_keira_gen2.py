@@ -986,21 +986,45 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         # et n'est PAS livree : elle echangeait un defaut visible contre un defaut invisible.
         r1, t1, n1 = fit_radius(geo, j, a, b)
         r2, t2, n2 = fit_radius(geo, p, b, a)
-        s1 = s2 = 0
-        w1 = w2 = None
+        # LA COUVERTURE EST MESUREE, PAS SUPPOSEE (2026-08-12).
+        #
+        # `s1 = s2 = 0` etait ECRIT EN DUR ici, et l'annotation qui en decoule — « SPAN-EMPTY :
+        # aucun sommet ne se projette dans le segment » — etait donc imprimee sur les VINGT-QUATRE
+        # capsules sans qu'aucune mesure ne l'ait jamais soutenue. C'est faux, et mesurable en une
+        # ligne : 73 a 802 sommets se projettent dans chaque segment.
+        #     Lthigh->hips     204 sommets dans le segment, p95 = 940   (livre 1321)
+        #     Lshoulder->chest 802                          p95 = 1290  (livre  612)
+        #     Lankle->Lknee    260                          p95 =  568  (livre  411)
+        #     head->neck       214                          p95 = 1005  (livre  915)
+        # Le fichier livre affirmait donc quelque chose que le generateur n'avait pas mesure, dans
+        # l'artefact meme qui sert a juger les volumes — regle 0, appliquee a ma propre sortie.
+        # J'ai perdu une partie de ce cycle a raisonner sur cette phrase avant de lire le code qui
+        # l'ecrit ; c'est exactement le cout qu'elle fera payer au prochain qui la lira.
+        #
+        # LES RAYONS NE CHANGENT PAS D'UN BIT : `fit_radius` reste la source (le choix est
+        # documente et A/B-teste juste au-dessus). Seule l'annotation devient vraie, et elle publie
+        # desormais l'ECART entre le rayon livre et la couverture p95 du segment — c'est ce chiffre
+        # qui dit si un volume est trop gros ou trop petit, et il n'existait nulle part.
+        cov1 = cover_perp_radius(geo, j, a, b, t1)
+        cov2 = cover_perp_radius(geo, p, b, a, t2)
+        s1, s2 = cov1[2], cov2[2]
+        w1, w2 = cov1[0], cov2[0]
         if r1 is None or n1 == 0 or r2 is None or n2 == 0:
             log(f"DROPPED collider capsule {jn}->{pn}: fitted from 0 vertices "
                 f"({jn}={n1}v {pn}={n2}v)")
             continue
         cov = []
-        for who, nspan, was in ((jn, s1, w1), (pn, s2, w2)):
+        for who, nspan, pcov, rlivre in ((jn, s1, w1, r1), (pn, s2, w2, r2)):
             if nspan == 0:
                 cov.append(f'{who} SPAN-EMPTY (aucun sommet ne se projette dans le segment: '
                            f'la distance perpendiculaire y mesure une autre partie, rayon '
                            f'inter-quartile conserve)')
+            elif pcov is None:
+                cov.append(f'{who} couverture non mesurable')
             else:
-                cov.append(f'{who} p{COVER_PCT:.0f} sur {nspan}v du segment '
-                           f'(l\'inter-quartile en laissait {100 * was:.0f}% dehors)')
+                ratio = rlivre / pcov if pcov > 1e-6 else 0.0
+                cov.append(f'{who} {nspan}v dans le segment, couverture p{COVER_PCT:.0f}='
+                           f'{pcov:.0f} contre {rlivre} livre (x{ratio:.2f})')
         fix = []
         if jn in link_radius and link_radius[jn] != r1:
             fix.append(f'{jn} {r1}->{link_radius[jn]} (own-bone thickness)')

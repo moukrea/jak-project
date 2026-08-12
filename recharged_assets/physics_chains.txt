@@ -165,76 +165,76 @@ j Ranklestrap
 # applies to every chain and the engine decides geometrically what touches what.
 # Each volume carries the vertex count and weight threshold it was fitted from.
 # capsule hips->main [body]  hips: 479v @w>0.5   main: 43v @w>0.25
-#   COUVERTURE: hips SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | main SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: hips 115v dans le segment, couverture p95=1035 contre 810 livre (x0.78) | main SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
 capsule hips main radius=810 radius2=549
 # capsule chest->main [body]  chest: 887v @w>0.5   main: 43v @w>0.25
-#   COUVERTURE: chest SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | main SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: chest 30v dans le segment, couverture p95=601 contre 671 livre (x1.12) | main 43v dans le segment, couverture p95=676 contre 549 livre (x0.81)
 capsule chest main radius=671 radius2=549
 # capsule neck->chest [body]  neck: 37v @w>0.5   chest: 887v @w>0.5
-#   COUVERTURE: neck SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: neck SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 782v dans le segment, couverture p95=1001 contre 671 livre (x0.67)
 capsule neck chest radius=246 radius2=671
 # capsule head->neck [body]  head: 1699v @w>0.5   neck: 37v @w>0.5
-#   COUVERTURE: head SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | neck SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: head 177v dans le segment, couverture p95=1005 contre 915 livre (x0.91) | neck 37v dans le segment, couverture p95=360 contre 249 livre (x0.69)
 capsule head neck radius=915 radius2=249
 # capsule Lshoulder->chest [body]  Lshoulder: 43v @w>0.5   chest: 887v @w>0.5
-#   COUVERTURE: Lshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 796v dans le segment, couverture p95=1290 contre 769 livre (x0.60)
 capsule Lshoulder chest radius=612 radius2=769
 # capsule Lelbow->Lshoulder [body]  Lelbow: 131v @w>0.5   Lshoulder: 43v @w>0.5
-#   COUVERTURE: Lelbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lelbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lshoulder 33v dans le segment, couverture p95=292 contre 257 livre (x0.88)
 capsule Lelbow Lshoulder radius=265 radius2=257
 # capsule Lhand->Lelbow [body]  Lhand: 126v @w>0.5   Lelbow: 131v @w>0.5
-#   COUVERTURE: Lhand SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lelbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lhand 8v dans le segment, couverture p95=286 contre 229 livre (x0.80) | Lelbow 129v dans le segment, couverture p95=358 contre 242 livre (x0.68)
 capsule Lhand Lelbow radius=229 radius2=242
 # capsule Rshoulder->chest [body]  Rshoulder: 47v @w>0.5   chest: 887v @w>0.5
-#   COUVERTURE: Rshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 799v dans le segment, couverture p95=1316 contre 782 livre (x0.59)
 capsule Rshoulder chest radius=554 radius2=782
 # capsule Relbow->Rshoulder [body]  Relbow: 175v @w>0.5   Rshoulder: 47v @w>0.5
-#   COUVERTURE: Relbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Relbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rshoulder 35v dans le segment, couverture p95=305 contre 256 livre (x0.84)
 capsule Relbow Rshoulder radius=308 radius2=256
 # capsule Rhand->Relbow [body]  Rhand: 131v @w>0.5   Relbow: 175v @w>0.5
-#   COUVERTURE: Rhand SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Relbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rhand 8v dans le segment, couverture p95=286 contre 228 livre (x0.80) | Relbow 173v dans le segment, couverture p95=695 contre 279 livre (x0.40)
 capsule Rhand Relbow radius=228 radius2=279
 # capsule Lthigh->hips [body]  Lthigh: 130v @w>0.5   hips: 479v @w>0.5
-#   COUVERTURE: Lthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips 204v dans le segment, couverture p95=940 contre 699 livre (x0.74)
 capsule Lthigh hips radius=1321 radius2=699
 # capsule Lknee->Lthigh [body]  Lknee: 246v @w>0.5   Lthigh: 130v @w>0.5
-#   COUVERTURE: Lknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lthigh 116v dans le segment, couverture p95=643 contre 362 livre (x0.56)
 capsule Lknee Lthigh radius=485 radius2=362
 # capsule Lankle->Lknee [body]  Lankle: 172v @w>0.5   Lknee: 246v @w>0.5
-#   COUVERTURE: Lankle SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lankle 26v dans le segment, couverture p95=861 contre 411 livre (x0.48) | Lknee 234v dans le segment, couverture p95=538 contre 329 livre (x0.61)
 capsule Lankle Lknee radius=411 radius2=329
 # capsule Rthigh->hips [body]  Rthigh: 132v @w>0.5   hips: 479v @w>0.5
-#   COUVERTURE: Rthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips 207v dans le segment, couverture p95=923 contre 702 livre (x0.76)
 capsule Rthigh hips radius=1276 radius2=702
 # capsule Rknee->Rthigh [body]  Rknee: 231v @w>0.5   Rthigh: 132v @w>0.5
-#   COUVERTURE: Rknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rthigh 118v dans le segment, couverture p95=673 contre 381 livre (x0.57)
 capsule Rknee Rthigh radius=480 radius2=381
 # capsule Rankle->Rknee [body]  Rankle: 172v @w>0.5   Rknee: 231v @w>0.5
-#   COUVERTURE: Rankle SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rankle 24v dans le segment, couverture p95=864 contre 398 livre (x0.46) | Rknee 219v dans le segment, couverture p95=538 contre 326 livre (x0.61)
 capsule Rankle Rknee radius=398 radius2=326
 # capsule lEarb->lEara [earL]  lEarb: 50v @w>0.5   lEara: 14v @w>0.5
-#   COUVERTURE: lEarb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | lEara SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: lEarb 17v dans le segment, couverture p95=290 contre 79 livre (x0.27) | lEara 14v dans le segment, couverture p95=259 contre 148 livre (x0.57)
 capsule lEarb lEara radius=79 radius2=148
 # capsule rEarb->rEara [earR]  rEarb: 50v @w>0.5   rEara: 14v @w>0.5
-#   COUVERTURE: rEarb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | rEara SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: rEarb 17v dans le segment, couverture p95=290 contre 79 livre (x0.27) | rEara 14v dans le segment, couverture p95=259 contre 148 livre (x0.57)
 capsule rEarb rEara radius=79 radius2=148
 # capsule Lbangb->Lbanga [lbang]  Lbangb: 18v @w>0.5   Lbanga: 103v @w>0.5   ONE-JOINT-ONE-THICKNESS: Lbangb 558->104 (own-bone thickness)
-#   COUVERTURE: Lbangb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lbanga SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lbangb 18v dans le segment, couverture p95=597 contre 558 livre (x0.94) | Lbanga 68v dans le segment, couverture p95=256 contre 112 livre (x0.44)
 capsule Lbangb Lbanga radius=104 radius2=112
 # capsule Lbangc->Lbangb [lbang]  Lbangc: 46v @w>0.5   Lbangb: 18v @w>0.5
-#   COUVERTURE: Lbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lbangb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lbangb 18v dans le segment, couverture p95=148 contre 104 livre (x0.70)
 capsule Lbangc Lbangb radius=180 radius2=104
 # capsule Rbangb->Rbanga [rbang]  Rbangb: 22v @w>0.5   Rbanga: 106v @w>0.5   ONE-JOINT-ONE-THICKNESS: Rbangb 559->102 (own-bone thickness)
-#   COUVERTURE: Rbangb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rbanga SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rbangb 22v dans le segment, couverture p95=596 contre 559 livre (x0.94) | Rbanga 70v dans le segment, couverture p95=275 contre 118 livre (x0.43)
 capsule Rbangb Rbanga radius=102 radius2=118
 # capsule Rbangc->Rbangb [rbang]  Rbangc: 33v @w>0.5   Rbangb: 22v @w>0.5
-#   COUVERTURE: Rbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rbangb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rbangb 22v dans le segment, couverture p95=148 contre 102 livre (x0.69)
 capsule Rbangc Rbangb radius=178 radius2=102
 # capsule Lmidhairb->Lmidhaira [lmidhair]  Lmidhairb: 99v @w>0.5   Lmidhaira: 65v @w>0.5
-#   COUVERTURE: Lmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lmidhaira SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Lmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lmidhaira 50v dans le segment, couverture p95=279 contre 222 livre (x0.79)
 capsule Lmidhairb Lmidhaira radius=335 radius2=222
 # capsule Rmidhairb->Rmidhaira [rmidhair]  Rmidhairb: 107v @w>0.5   Rmidhaira: 58v @w>0.5
-#   COUVERTURE: Rmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rmidhaira SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
+#   COUVERTURE: Rmidhairb 12v dans le segment, couverture p95=368 contre 337 livre (x0.92) | Rmidhaira 37v dans le segment, couverture p95=279 contre 228 livre (x0.82)
 capsule Rmidhairb Rmidhaira radius=337 radius2=228
 # sphere main [body]  43v @w>0.25   centre = measured centroid of the geometry this joint owns, 481u off the joint, in its bind space   COVER p95: 7% of its vertices outside (inner-quartile mean 560 left 51% outside)
 collider main radius=671 offset=-17,-473,83
