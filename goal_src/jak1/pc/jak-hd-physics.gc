@@ -2303,12 +2303,37 @@
                   ;; Le pan revient donc du bon cote de l'axe par pas bornes, au lieu d'y etre
                   ;; teleporte ou d'y rester. Une chaine qui n'est pas un fourreau garde sa
                   ;; contrainte AU BIT PRES : la borne ne s'applique que si `sleevec`.
-                  (when (zero? *phys-side-off*)
-                    (let ((sw (-> ub w)))
-                      (when sleevec
-                        (let ((cap (-> *phys-shell* sc)))
-                          (when (and (> cap 0.0) (> sw cap)) (set! sw cap))))
-                      (when (> sw worst) (set! worst sw)))))
+                  ;; ESSAYE, MESURE, RETIRE — LE PLANCHER A CASSE (2026-08-13).
+                  ;; La contrainte a bien ete etendue aux fourreaux, bornee a leur `shell`. Elle
+                  ;; FERME sa cible, c'est mesure sur une course complete (31/31 animations) :
+                  ;;     ROOM-SIDE            crossing 5643 -> 0   (chains 2/22 -> 0/22)
+                  ;;     ROOM-SIDE-CONTROL    disarmed 1011 -> 0,  arme inchange a 2715
+                  ;;     gate SIDE-CONTROL    FAIL -> PASS
+                  ;; et son perimetre est propre : 233 lignes `row` changent, TOUTES pantflapL/R ;
+                  ;; les 20 autres chaines sont identiques au bit pres.
+                  ;; MAIS elle se paie avec le mouvement, la ou l'owner regarde :
+                  ;;     pantflapL/R tipvar   -20.9 %
+                  ;;     pantflapL au stimulus le PLUS FAIBLE  0.0840 -> 0.0544  (-35 %)
+                  ;;     gate FLOOR-WEAK      PASS -> FAIL   (seuil 30 %) — regression NOUVELLE
+                  ;;     courbe de reponse    dernier bac -26 % (L) et -43.6 % (R) : signature de
+                  ;;                          limiteur qui sature, pas d'amortissement
+                  ;; La regle de conservation ne se negocie pas : « si le plancher casse, le point
+                  ;; est retire — pas adouci, retire — et repris autrement ». Donc retire.
+                  ;;
+                  ;; CE QU'IL FAUT SAVOIR POUR LE REPRENDRE, et ce n'est pas une nuance : le
+                  ;; plafond utilise ici etait `shell` (452 / 448 u). Le contrat, lui, chiffre le
+                  ;; budget de glissement a 67-75 u — DIX FOIS plus serre. Un plafond large laisse
+                  ;; le rappel ramener le pan de toute sa distance en une frame, et c'est ce
+                  ;; rappel-la qui ecrase la reponse aux petits stimuli. La reprise se fait avec le
+                  ;; budget mesure, pas avec `shell`, et elle doit republier FLOOR-WEAK.
+                  ;; A CONNAITRE AUSSI : sur `pantflapL` la ligne de base sous animation seule
+                  ;; tombait de 0.0878 a 0.0437 et les GAINS devenaient positifs la ou ils etaient
+                  ;; negatifs — une part de ce que `tipvar` comptait sur ce pan est du BRUIT
+                  ;; d'animation, pas de la reponse. Le plancher est donc en partie un plancher sur
+                  ;; du bruit ; c'est a verifier avant de conclure que la reprise a « coute » ce
+                  ;; que le chiffre annonce.
+                  (when (and (zero? *phys-side-off*) (not sleevec))
+                    (when (> (-> ub w) worst) (set! worst (-> ub w)))))
                 ;; `buried` = le lien est entierement dans ce volume A SA POSE DE MODELE. Depuis le
                 ;; 2026-08-12 c'est une MESURE et plus une DECISION : elle ne dispense plus la paire
                 ;; d'etre contrainte (cf. phys-vol-floor, branche FREE retiree). Le nombre reste
