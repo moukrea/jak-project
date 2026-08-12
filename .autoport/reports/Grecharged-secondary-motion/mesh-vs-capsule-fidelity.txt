@@ -51,6 +51,17 @@
    l'autre face. En faire une gate d'egalite serait une gate fausse — elle a d'ailleurs
    ete ecrite ainsi d'abord, elle a tire, et c'est ce qui a fait trouver le cas.
 
+== ARMEMENT DES CONTROLES : ILS DOIVENT POUVOIR ECHOUER =============================
+   Un controle qu'aucun defaut ne fait monter ne prouve rien. On INJECTE donc trois
+   defauts, en memoire, sans toucher au code livre, et on verifie que le compteur monte.
+
+   ARME  routine qui rend TOUJOURS 0                                ecart max =   137.00 u
+         l'etage 2 monte a l'ecart maximal possible : la distance FACE est lue 0 au lieu de 137
+   ARME  projection sur le PLAN seule, lue sur la region ARETE      ecart max =   137.00 u
+         la faute classique : JUSTE sur la face (1.5e-12 u d'ecart) et fausse partout ailleurs
+   ARME  projection sur le PLAN seule, lue sur la region SOMMET     ecart max =   137.00 u
+   -> 3/3 defauts injectes font MONTER le controle negatif. Il discrimine.
+
 == CONTROLE POSITIF (borne haute) : UNE SEULE SPHERE ENGLOBANT TOUT LE PERSONNAGE ====
    sphere : centre = milieu de la boite englobante, rayon = 1.7083 m (le plus loin des
             7963 sommets). Elle englobe donc tout par construction.
@@ -58,6 +69,10 @@
    demi-hauteur du personnage = 1.5682 m  ->  inside_max / demi-hauteur = 1.05   OK
    C'EST L'ECHELLE CONTRE LAQUELLE LIRE LES 48 VOLUMES : un obstacle qui ignore
    completement la forme enfouit la surface d'environ une demi-hauteur de personnage.
+   ET LA FENETRE DISCRIMINE : la meme grandeur, calculee sur les 48 volumes livres, vaut
+   0.2113 m, soit 0.13 de demi-hauteur — 8 fois moins, tres au-dessous de la borne 0.5.
+   La fenetre [0.5, 1.5] n'accepte donc pas n'importe quel collider : elle separe
+   « une sphere qui ignore la forme » de « 48 volumes qui la suivent grossierement ».
 
 == CHIFFRE 1 / FIDELITE — LES 48 VOLUMES LIVRES, PRIS EN UNION ========================
    Deux lectures, publiees toutes les deux parce qu'elles ne disent pas la meme chose :
@@ -122,6 +137,16 @@
    bretelle-haut (w>0.05)             61     0.0 %     0.0000     0.0000     0.0596
    bretelle-bas (w>0.05)              51     0.0 %     0.0000     0.0000     0.0816
    lunettes (w>0.05)                 531    73.3 %     0.0823     0.0639     0.0852
+
+   CE QUE CES TROIS LIGNES DISENT DES TROIS DEFAUTS QUE L'OWNER SIGNALE — des nombres,
+   pas une interpretation, et chacun se rattache a une phrase datee des DIRECTIVES :
+   * LUNETTES (« elles clipent avec ses seins, et meme en idle », 6e passe) : 73 % de
+     leur geometrie est HORS de l'union des 48 volumes, jusqu'a 0.0823 m (82 mm) dehors.
+   * PANTACOURT (« le bas clipe a l'interieur de ses mollets », 11e passe) : 83 % de sa
+     geometrie est dehors, jusqu'a 94 mm — aucun volume ne se trouve devant elle.
+   * POITRINE (« une sphere au joint ne peut pas epouser un sein », 6e passe) : le defaut
+     est de l'autre signe — seulement 7 % dehors, mais AVALEE jusqu'a 68 mm sous la
+     surface de l'union. Un lien qui vise cette surface s'arrete 68 mm trop tot.
 
 == CHIFFRE 1 bis / FIDELITE — UN COLLIDER ISSU DU MESH DECIME =========================
    Decimation ecrite dans ce fichier : groupement des sommets sur une grille reguliere,
@@ -188,33 +213,41 @@
      -> apres l'exclusion structurelle chaine<->ses propres volumes (`phys-col-own?`,
         :1735-1740) : 1115 paires reellement evaluees par passe.
 
+   L'UNITE EST LE TEST PRIMITIF : « un lien contre UNE primitive », que la primitive soit
+   un volume ou un triangle. C'est la seule unite dans laquelle les deux representations
+   se comparent sans arbitrage. Le cout UNITAIRE, lui, differe et il est donne a part.
+
    COMBIEN DE PASSES PAR FRAME (structure de boucle relevee, pas supposee) :
      phys-collide-chain appelee 11 fois par chaine et par frame  (:3116-3118 et :3144-3146)
-     chaque appel : 1 passe de SELECTION sur les 48 volumes (:1827) + 3 balayages (:1856)
-     chaque volume evalue geometriquement = 3 appels a phys-collide-depth (:1925-1931)
-     -> visites de la boucle (lien, volume) par frame : 49060
-     -> appels phys-collide-depth par frame : 36795 (selection) + 2376 (balayages, le seul
-        volume decideur travaille — DECISION 1, :1861-1866) = 39171
+     chaque appel : 1 passe de SELECTION sur toutes les primitives (:1827), puis 3
+       balayages (:1856) ou SEULE la primitive decideuse travaille (DECISION 1, :1861-1866)
+     -> tests primitifs par frame = 11 x [ 1115 (selection) + 24 x 3 (balayages) ]
+        = 13057 tests primitifs par frame, hors recul.
 
    LE RECUL, ET SON TAUX DE DECLENCHEMENT EST MESURE, PAS SUPPOSE :
      source : .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
      30471 reculs sur 17893 frames de course = 1.70 recul/frame (toutes chaines confondues).
-     Chaque recul = 13 pas de dichotomie (:2439), chaque pas = 1 phys-link-pen qui
-     reparcourt les 48 volumes (:2116) a 3 appels de profondeur : 1872 appels par recul.
-     -> 3188 appels phys-collide-depth par frame imputables au recul, soit 8 % du
-        cout de collision hors recul. (Le compteur `retreat=` est celui du moteur.)
+     Chaque recul = 13 pas de dichotomie (:2439) ; chaque pas est un phys-link-pen qui
+     reparcourt les 48 primitives (:2116) : 624 tests primitifs par recul.
+     -> 1063 tests primitifs par frame imputables au recul, soit 8 % du reste.
 
-   AUJOURD'HUI, TOTAL : 42359 evaluations de volume par frame.
+   AUJOURD'HUI, TOTAL : 14120 TESTS PRIMITIFS PAR FRAME.
+   Cout unitaire, pour ne pas confondre un test et un test : dans le moteur actuel un
+   test primitif coute 3 appels a `phys-collide-depth` (floors + floorc + dep,
+   :1925-1931), soit 42359 appels par frame. Un test point->triangle coute une evaluation
+   de distance point-triangle. Ces deux couts unitaires ne sont PAS egaux et ce script ne
+   pretend pas savoir leur rapport sur ARM : c'est la mesure device qui manque.
 
-   MESH DECIME, EN FORCE BRUTE : (liens simules) x (triangles), 1 test point->triangle
-   par paire. Meme nombre de passes par frame que ci-dessus, puisque la boucle du solveur
-   ne change pas.
-   budget    tris    tests/passe    tests/frame  x vs auj.
-       48      48           1152          50688        1.2
-      200     200           4800         211200        5.0
-      500     497          11928         524832       12.4
-     1000     998          23952        1053888       24.9
-     2000    1999          47976        2110944       49.8
+   MESH DECIME, EN FORCE BRUTE, MEME STRUCTURE DE BOUCLE : la passe de selection parcourt
+   les triangles au lieu des volumes, les balayages ne travaillent que sur le triangle
+   decideur. Le recul n'est PAS compte ici (il dependrait de l'implementation) — c'est
+   dit, et ca joue en faveur du mesh.
+   budget    tris      tests/frame          vs auj.           x
+       48      48            13464            14120         1.0
+      200     200            53592            14120         3.8
+      500     497           132000            14120         9.3
+     1000     998           264264            14120        18.7
+     2000    1999           528528            14120        37.4
 
    MESH DECIME, AVEC UNE STRUCTURE D'ACCELERATION. L'hypothese est declaree : une GRILLE
    UNIFORME de pas egal au pas de decimation, chaque triangle insere dans les cellules
@@ -223,15 +256,25 @@
    simule porte a la pose de bind) et son rayon de lien, combien de triangles la phase
    large rendrait. C'est la seule partie de ce chiffre qui soit une mesure.
    budget    tris    pas_mm     cand_moy     cand_max  tests/frame  x vs auj.
-       48      48     663.2         16.5           34        17424        0.4
-      200     200     562.8         54.3          100        57376        1.4
-      500     497     370.7         46.5          114        49104        1.2
-     1000     998     264.2         67.7          250        71500        1.7
-     2000    1999     193.4         89.7          237        94732        2.2
-   (cand_moy = triangles candidats par lien et par requete. `tests/frame` = somme des
-    candidats sur les 24 liens x 44 passes. Le cout de la phase large elle-meme — les
-    lectures de cellule — n'est PAS compte : il est petit devant, mais il n'est pas nul,
-    et le pretendre serait une invention.)
+       48      48     663.2         16.5           34         5148        0.4
+      200     200     562.8         54.3          100        15136        1.1
+      500     497     370.7         46.5          114        13068        0.9
+     1000     998     264.2         67.7          250        18667        1.3
+     2000    1999     193.4         89.7          237        24475        1.7
+   (cand_moy = triangles candidats par lien et par requete de phase large. `tests/frame`
+    applique la MEME structure de boucle que ci-dessus : 11 appels x [ candidats + 24 x 3 ].
+    Le cout de la phase large elle-meme — les lectures de cellule — n'est PAS compte : il
+    est petit devant, mais il n'est pas nul, et le pretendre serait une invention.)
+   Les liens les plus couteux a 1999 triangles (rayon de lien x candidats) :
+     backhair/link1     rayon de lien   374 u  ->   237 triangles candidats
+     rmidhair/link1     rayon de lien   337 u  ->   171 triangles candidats
+     pantflapR/link0    rayon de lien   443 u  ->   169 triangles candidats
+     botstrapL/link1    rayon de lien    93 u  ->   126 triangles candidats
+   `cand_moy` N'EST PAS MONOTONE en fonction du budget, et ce n'est pas du bruit : le pas
+   de la grille suit la taille des triangles, donc un mesh grossier a des cellules ENORMES
+   et une requete y ramene une grosse FRACTION d'un petit ensemble. Le pas de grille est
+   un parametre libre qu'on n'a pas optimise ; l'optimiser ferait baisser ces chiffres,
+   pas monter. Ils sont donc a lire comme un plafond de cette hypothese-la.
 
    CE QUE CE CHIFFRE NE DIT PAS, ET IL FAUT LE DIRE : un test point->triangle et un test
    point->capsule n'ont pas le meme cout unitaire, un acces a une grille n'a pas le meme
@@ -299,6 +342,20 @@
    Repere utile : le rayon de lien des lunettes est 196 u (47.9 mm) et celui du pan de
    pantacourt 429 u (104.7 mm) — un ecart de collider superieur a ces rayons ne peut pas
    etre rattrape par le rayon du lien, il se voit.
+
+== LES QUATRE CHIFFRES, EN UNE LIGNE CHACUN ==========================================
+   1 FIDELITE   48 volumes : 50.8 % des 7963 sommets DEHORS de l'union, depassement max
+                0.6064 m / p95 0.2176 m ; enfouissement max 0.2113 m / p95 0.1255 m.
+                Mesh decime : 497 tris -> ecart max 0.1828 / p95 0.0681 ; 1999 tris -> 0.0889 / 0.0256.
+                A 48 primitives contre 48, les CAPSULES gagnent (0.6064 contre 1.3278 de max).
+                Des 200 triangles, le MESH gagne (0.2384 contre 0.6064 de max, 2.5 x moins).
+   2 COUT       14120 tests primitifs/frame aujourd'hui. Mesh en force brute : x9.3 a 497
+                triangles, x37.4 a 1999. Avec grille uniforme mesuree : x0.9 et x1.7.
+                ESTIMATION ARITHMETIQUE, NON MESUREE SUR DEVICE.
+   3 DEFORMATION 1.8213 influence osseuse par sommet (mesuree). Capsules : 24 produits
+                vecteur-matrice/frame. Mesh : 218 sommets a skinner a 497 tris, 868 a 1999 tris.
+   4 NIVEAUX    bas = 48 volumes, ecart max 606 mm ; moyen = 497 tris, 183 mm ; haut =
+                1999 tris, 89 mm. Personnage mesure : 2.73 m.
 
 == CE QUE J'AI SUPPOSE, ET CE QUI MANQUE =============================================
    SUPPOSITIONS, toutes declarees :

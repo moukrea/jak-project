@@ -654,16 +654,15 @@ def main():
          float(np.abs(np.zeros(len(F)) - NORMAL_PROBE).max()),
          'l\'etage 2 monte a l\'ecart maximal possible : la distance FACE est lue 0 au lieu de %.0f'
          % NORMAL_PROBE),
-        ('routine reduite a la PROJECTION SUR LE PLAN (region face seulement), lue sur la '
-         'region ARETE',
+        ('projection sur le PLAN seule, lue sur la region ARETE',
          float(np.abs(np.abs(((Pe - a3) * nrm).sum(1)) - NORMAL_PROBE).max()),
-         'la faute classique : elle est JUSTE sur la face (ecart %.1e u ci-contre) et fausse '
-         'partout ailleurs' % float(np.abs(dplane - NORMAL_PROBE).max())),
-        ('meme routine, lue sur la region SOMMET',
+         'la faute classique : JUSTE sur la face (%.1e u d\'ecart) et fausse partout ailleurs'
+         % float(np.abs(dplane - NORMAL_PROBE).max())),
+        ('projection sur le PLAN seule, lue sur la region SOMMET',
          float(np.abs(np.abs(((Pv - a3) * nrm).sum(1)) - NORMAL_PROBE).max()), ''),
     ]
     for lab, err, note in armed:
-        emit('   ARME  %-62s ecart max = %8.2f u' % (lab[:62], err))
+        emit('   ARME  %-58s ecart max = %8.2f u' % (lab, err))
         if note:
             emit('         %s' % note)
     n_rise = sum(1 for _l, e, _n in armed if e > 1e-3 * NORMAL_PROBE)
@@ -791,6 +790,26 @@ def main():
         emit('   %-30s %6d %7.1f %% %10.4f %10.4f %10.4f'
              % (lab, len(sel), 100.0 * float((sd > 0).mean()), float(o.max()) / UNITS,
                 float(np.percentile(o, 95)) / UNITS, float(i.max()) / UNITS))
+    wsel = {lab: weight_select(geo, js_, idx_of, thr) for lab, js_, thr in WEIGHT_PARTS}
+    emit('')
+    emit('   CE QUE CES TROIS LIGNES DISENT DES TROIS DEFAUTS QUE L\'OWNER SIGNALE — des nombres,')
+    emit('   pas une interpretation, et chacun se rattache a une phrase datee des DIRECTIVES :')
+    sg = wsel['lunettes (w>0.05)']
+    emit('   * LUNETTES (« elles clipent avec ses seins, et meme en idle », 6e passe) : %.0f %% de'
+         % (100.0 * float((sd_cone[sg] > 0).mean())))
+    emit('     leur geometrie est HORS de l\'union des %d volumes, jusqu\'a %.4f m (%.0f mm) dehors.'
+         % (len(vols), float(outc[sg].max()) / UNITS, 1000.0 * float(outc[sg].max()) / UNITS))
+    sp = np.union1d(wsel['pantacourt G (w>0.05)'], wsel['pantacourt D (w>0.05)'])
+    emit('   * PANTACOURT (« le bas clipe a l\'interieur de ses mollets », 11e passe) : %.0f %% de sa'
+         % (100.0 * float((sd_cone[sp] > 0).mean())))
+    emit('     geometrie est dehors, jusqu\'a %.0f mm — aucun volume ne se trouve devant elle.'
+         % (1000.0 * float(outc[sp].max()) / UNITS))
+    sb = np.union1d(wsel['poitrine G  (w>0.25 lBoob)'], wsel['poitrine D  (w>0.25 rBoob)'])
+    emit('   * POITRINE (« une sphere au joint ne peut pas epouser un sein », 6e passe) : le defaut')
+    emit('     est de l\'autre signe — seulement %.0f %% dehors, mais AVALEE jusqu\'a %.0f mm sous la'
+         % (100.0 * float((sd_cone[sb] > 0).mean()), 1000.0 * float(inc[sb].max()) / UNITS))
+    emit('     surface de l\'union. Un lien qui vise cette surface s\'arrete %.0f mm trop tot.'
+         % (1000.0 * float(inc[sb].max()) / UNITS))
     emit('')
 
     # ==============================================================================================
@@ -924,59 +943,62 @@ def main():
     emit('     -> apres l\'exclusion structurelle chaine<->ses propres volumes (`phys-col-own?`,')
     emit('        :1735-1740) : %d paires reellement evaluees par passe.' % pairs_own)
     emit('')
+    emit('   L\'UNITE EST LE TEST PRIMITIF : « un lien contre UNE primitive », que la primitive soit')
+    emit('   un volume ou un triangle. C\'est la seule unite dans laquelle les deux representations')
+    emit('   se comparent sans arbitrage. Le cout UNITAIRE, lui, differe et il est donne a part.')
+    emit('')
     emit('   COMBIEN DE PASSES PAR FRAME (structure de boucle relevee, pas supposee) :')
     emit('     phys-collide-chain appelee %d fois par chaine et par frame  (:3116-3118 et :3144-3146)'
          % LOOP_COLLIDE_CALLS)
-    emit('     chaque appel : 1 passe de SELECTION sur les %d volumes (:1827) + %d balayages (:1856)'
-         % (len(vols), LOOP_SWEEPS))
-    emit('     chaque volume evalue geometriquement = %d appels a phys-collide-depth (:1925-1931)'
-         % DEPTH_PER_VOLUME)
-    visits = pairs_own * LOOP_COLLIDE_CALLS * (1 + LOOP_SWEEPS)
-    depths_sel = pairs_own * LOOP_COLLIDE_CALLS * DEPTH_PER_VOLUME
-    depths_sweep = nlink_sim * LOOP_COLLIDE_CALLS * LOOP_SWEEPS * DEPTH_PER_VOLUME
-    emit('     -> visites de la boucle (lien, volume) par frame : %d' % visits)
-    emit('     -> appels phys-collide-depth par frame : %d (selection) + %d (balayages, le seul'
-         % (depths_sel, depths_sweep))
-    emit('        volume decideur travaille — DECISION 1, :1861-1866) = %d'
-         % (depths_sel + depths_sweep))
+    emit('     chaque appel : 1 passe de SELECTION sur toutes les primitives (:1827), puis %d'
+         % LOOP_SWEEPS)
+    emit('       balayages (:1856) ou SEULE la primitive decideuse travaille (DECISION 1, :1861-1866)')
+    emit('     -> tests primitifs par frame = %d x [ %d (selection) + %d x %d (balayages) ]'
+         % (LOOP_COLLIDE_CALLS, pairs_own, nlink_sim, LOOP_SWEEPS))
+    prim_today = LOOP_COLLIDE_CALLS * (pairs_own + nlink_sim * LOOP_SWEEPS)
+    emit('        = %d tests primitifs par frame, hors recul.' % prim_today)
     emit('')
     room_path, retreat, frames = parse_room(os.path.join(repo, ROOM_REL))
+    ret_prim = 0.0
     if room_path and frames > 0:
         tot_ret = sum(retreat.values())
         rate = tot_ret / float(frames)
+        ret_prim = rate * RETREAT_STEPS * len(vols)
         emit('   LE RECUL, ET SON TAUX DE DECLENCHEMENT EST MESURE, PAS SUPPOSE :')
         emit('     source : %s' % os.path.relpath(room_path, repo))
         emit('     %d reculs sur %d frames de course = %.2f recul/frame (toutes chaines confondues).'
              % (tot_ret, frames, rate))
-        emit('     Chaque recul = %d pas de dichotomie (:2439), chaque pas = 1 phys-link-pen qui'
+        emit('     Chaque recul = %d pas de dichotomie (:2439) ; chaque pas est un phys-link-pen qui'
              % RETREAT_STEPS)
-        emit('     reparcourt les %d volumes (:2116) a %d appels de profondeur : %d appels par recul.'
-             % (len(vols), DEPTH_PER_VOLUME, RETREAT_STEPS * len(vols) * DEPTH_PER_VOLUME))
-        emit('     -> %.0f appels phys-collide-depth par frame imputables au recul, soit %.0f %% du'
-             % (rate * RETREAT_STEPS * len(vols) * DEPTH_PER_VOLUME,
-                100.0 * rate * RETREAT_STEPS * len(vols) * DEPTH_PER_VOLUME
-                / max(1.0, depths_sel + depths_sweep)))
-        emit('        cout de collision hors recul. (Le compteur `retreat=` est celui du moteur.)')
-        ret_depth = rate * RETREAT_STEPS * len(vols) * DEPTH_PER_VOLUME
+        emit('     reparcourt les %d primitives (:2116) : %d tests primitifs par recul.'
+             % (len(vols), RETREAT_STEPS * len(vols)))
+        emit('     -> %.0f tests primitifs par frame imputables au recul, soit %.0f %% du reste.'
+             % (ret_prim, 100.0 * ret_prim / max(1.0, prim_today)))
     else:
-        ret_depth = 0.0
         emit('   LE RECUL : aucune table de salle lisible, le taux de declenchement n\'est pas')
         emit('   disponible. Le compte ci-dessus EXCLUT donc le recul — c\'est dit, pas avale.')
-    total_today = depths_sel + depths_sweep + ret_depth
+    total_today = prim_today + ret_prim
     emit('')
-    emit('   AUJOURD\'HUI, TOTAL : %.0f evaluations de volume par frame.' % total_today)
+    emit('   AUJOURD\'HUI, TOTAL : %.0f TESTS PRIMITIFS PAR FRAME.' % total_today)
+    emit('   Cout unitaire, pour ne pas confondre un test et un test : dans le moteur actuel un')
+    emit('   test primitif coute %d appels a `phys-collide-depth` (floors + floorc + dep,'
+         % DEPTH_PER_VOLUME)
+    emit('   :1925-1931), soit %.0f appels par frame. Un test point->triangle coute une evaluation'
+         % (total_today * DEPTH_PER_VOLUME))
+    emit('   de distance point-triangle. Ces deux couts unitaires ne sont PAS egaux et ce script ne')
+    emit('   pretend pas savoir leur rapport sur ARM : c\'est la mesure device qui manque.')
     emit('')
-    emit('   MESH DECIME, EN FORCE BRUTE : (liens simules) x (triangles), 1 test point->triangle')
-    emit('   par paire. Meme nombre de passes par frame que ci-dessus, puisque la boucle du solveur')
-    emit('   ne change pas.')
-    emit('   %6s %7s %14s %14s %10s'
-         % ('budget', 'tris', 'tests/passe', 'tests/frame', 'x vs auj.'))
-    passes = LOOP_COLLIDE_CALLS * (1 + LOOP_SWEEPS)
+    emit('   MESH DECIME, EN FORCE BRUTE, MEME STRUCTURE DE BOUCLE : la passe de selection parcourt')
+    emit('   les triangles au lieu des volumes, les balayages ne travaillent que sur le triangle')
+    emit('   decideur. Le recul n\'est PAS compte ici (il dependrait de l\'implementation) — c\'est')
+    emit('   dit, et ca joue en faveur du mesh.')
+    emit('   %6s %7s %16s %16s %11s'
+         % ('budget', 'tris', 'tests/frame', 'vs auj.', 'x'))
     for budget in BUDGETS:
         nt = len(dec[budget]['F'])
-        emit('   %6d %7d %14d %14d %10.1f'
-             % (budget, nt, nlink_sim * nt, nlink_sim * nt * passes,
-                (nlink_sim * nt * passes) / max(1.0, total_today)))
+        tf = LOOP_COLLIDE_CALLS * (nlink_sim * nt + nlink_sim * LOOP_SWEEPS)
+        emit('   %6d %7d %16d %16.0f %11.1f'
+             % (budget, nt, tf, total_today, tf / max(1.0, total_today)))
     emit('')
     emit('   MESH DECIME, AVEC UNE STRUCTURE D\'ACCELERATION. L\'hypothese est declaree : une GRILLE')
     emit('   UNIFORME de pas egal au pas de decimation, chaque triangle insere dans les cellules')
@@ -1010,16 +1032,29 @@ def main():
     for budget in BUDGETS:
         gd = dec[budget]['grid']
         cand = np.array([gd.candidates(qpts[i], qrad[i]) for i in range(len(qpts))], dtype=float)
-        tf = float(cand.sum()) * passes
+        tf = LOOP_COLLIDE_CALLS * (float(cand.sum()) + nlink_sim * LOOP_SWEEPS)
         accel[budget] = (float(cand.mean()), float(cand.max()), tf)
         emit('   %6d %7d %9.1f %12.1f %12d %12.0f %10.1f'
              % (budget, len(dec[budget]['F']), gd.h / UNITS * 1000.0, cand.mean(), int(cand.max()),
                 tf, tf / max(1.0, total_today)))
-    emit('   (cand_moy = triangles candidats par lien et par requete. `tests/frame` = somme des')
-    emit('    candidats sur les %d liens x %d passes. Le cout de la phase large elle-meme — les'
-         % (nlink_sim, passes))
-    emit('    lectures de cellule — n\'est PAS compte : il est petit devant, mais il n\'est pas nul,')
-    emit('    et le pretendre serait une invention.)')
+    emit('   (cand_moy = triangles candidats par lien et par requete de phase large. `tests/frame`')
+    emit('    applique la MEME structure de boucle que ci-dessus : %d appels x [ candidats + %d x %d ].'
+         % (LOOP_COLLIDE_CALLS, nlink_sim, LOOP_SWEEPS))
+    emit('    Le cout de la phase large elle-meme — les lectures de cellule — n\'est PAS compte : il')
+    emit('    est petit devant, mais il n\'est pas nul, et le pretendre serait une invention.)')
+    gd = dec[BUDGETS[-1]]['grid']
+    cand = np.array([gd.candidates(qpts[i], qrad[i]) for i in range(len(qpts))], dtype=float)
+    order = np.argsort(-cand)[:4]
+    emit('   Les liens les plus couteux a %d triangles (rayon de lien x candidats) :'
+         % len(dec[BUDGETS[-1]]['F']))
+    for i in order:
+        emit('     %-18s rayon de lien %5.0f u  ->  %4d triangles candidats'
+             % (qlab[i], qrad[i], int(cand[i])))
+    emit('   `cand_moy` N\'EST PAS MONOTONE en fonction du budget, et ce n\'est pas du bruit : le pas')
+    emit('   de la grille suit la taille des triangles, donc un mesh grossier a des cellules ENORMES')
+    emit('   et une requete y ramene une grosse FRACTION d\'un petit ensemble. Le pas de grille est')
+    emit('   un parametre libre qu\'on n\'a pas optimise ; l\'optimiser ferait baisser ces chiffres,')
+    emit('   pas monter. Ils sont donc a lire comme un plafond de cette hypothese-la.')
     emit('')
     emit('   CE QUE CE CHIFFRE NE DIT PAS, ET IL FAUT LE DIRE : un test point->triangle et un test')
     emit('   point->capsule n\'ont pas le meme cout unitaire, un acces a une grille n\'a pas le meme')
@@ -1139,6 +1174,42 @@ def main():
     emit('')
 
     # ==============================================================================================
+    emit('== LES QUATRE CHIFFRES, EN UNE LIGNE CHACUN ==========================================')
+    b500, b2000 = dec[500], dec[2000]
+    emit('   1 FIDELITE   48 volumes : %.1f %% des %d sommets DEHORS de l\'union, depassement max'
+         % (100.0 * float((sd_cone > 0).mean()), len(V)))
+    emit('                %.4f m / p95 %.4f m ; enfouissement max %.4f m / p95 %.4f m.'
+         % (float(outc.max()) / UNITS, float(np.percentile(outc, 95)) / UNITS,
+            float(inc.max()) / UNITS, float(np.percentile(inc, 95)) / UNITS))
+    emit('                Mesh decime : %d tris -> ecart max %.4f / p95 %.4f ; %d tris -> %.4f / %.4f.'
+         % (len(b500['F']), float(b500['d'].max()) / UNITS,
+            float(np.percentile(b500['d'], 95)) / UNITS, len(b2000['F']),
+            float(b2000['d'].max()) / UNITS, float(np.percentile(b2000['d'], 95)) / UNITS))
+    emit('                A 48 primitives contre 48, les CAPSULES gagnent (%.4f contre %.4f de max).'
+         % (float(absc.max()) / UNITS, float(dec[48]['d'].max()) / UNITS))
+    emit('                Des %d triangles, le MESH gagne (%.4f contre %.4f de max, %.1f x moins).'
+         % (len(dec[200]['F']), float(dec[200]['d'].max()) / UNITS, float(absc.max()) / UNITS,
+            float(absc.max()) / max(1e-9, float(dec[200]['d'].max()))))
+    emit('   2 COUT       %.0f tests primitifs/frame aujourd\'hui. Mesh en force brute : x%.1f a %d'
+         % (total_today, LOOP_COLLIDE_CALLS * (nlink_sim * len(b500['F'])
+                                               + nlink_sim * LOOP_SWEEPS) / total_today,
+            len(b500['F'])))
+    emit('                triangles, x%.1f a %d. Avec grille uniforme mesuree : x%.1f et x%.1f.'
+         % (LOOP_COLLIDE_CALLS * (nlink_sim * len(b2000['F']) + nlink_sim * LOOP_SWEEPS)
+            / total_today, len(b2000['F']), accel[500][2] / total_today,
+            accel[2000][2] / total_today))
+    emit('                ESTIMATION ARITHMETIQUE, NON MESUREE SUR DEVICE.')
+    emit('   3 DEFORMATION %.4f influence osseuse par sommet (mesuree). Capsules : %d produits'
+         % (float(nnz.mean()), nsph_off + ncap_off))
+    emit('                vecteur-matrice/frame. Mesh : %d sommets a skinner a %d tris, %d a %d tris.'
+         % (len(b500['used']), len(b500['F']), len(b2000['used']), len(b2000['F'])))
+    emit('   4 NIVEAUX    bas = %d volumes, ecart max %.0f mm ; moyen = %d tris, %.0f mm ; haut ='
+         % (len(vols), 1000.0 * float(absc.max()) / UNITS, len(b500['F']),
+            1000.0 * float(b500['d'].max()) / UNITS))
+    emit('                %d tris, %.0f mm. Personnage mesure : %.2f m.'
+         % (len(b2000['F']), 1000.0 * float(b2000['d'].max()) / UNITS, height_body / UNITS))
+    emit('')
+
     emit('== CE QUE J\'AI SUPPOSE, ET CE QUI MANQUE =============================================')
     emit('   SUPPOSITIONS, toutes declarees :')
     emit('   1. Tout est mesure a la POSE DE BIND. C\'est le seul repere ou le fichier de donnees')
