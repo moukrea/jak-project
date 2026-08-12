@@ -196,6 +196,56 @@ REMPLACEMENT (`re.sub` sans `count` reecrivait le commentaire). Idempotence veri
 (section 1). Une gate qui constate la perte arrive toujours trop tard.
 
 -------------------------------------------------------------------------------------------------
+4 bis. `pant-calf` — LE FRANCHISSEMENT EST FERME, ET LE PLANCHER QUI S'Y OPPOSAIT MESURE LE DEFAUT
+-------------------------------------------------------------------------------------------------
+
+Owner, trois signalements : « le bas du pantacourt clipe au travers de ses deux mollets », « comme
+si son pantacourt s'arretait aux genoux », « toujours a l'interieur des mollets ».
+
+LA CIBLE EST FERMEE, sur une course complete (31/31 animations, 3410 mesures) :
+    ROOM-SIDE           chains 2/22 -> 0/22,  crossing 5643 -> 0
+    ROOM-SIDE-CONTROL   disarmed 1011 -> 0,  arme INCHANGE a 2714
+Le controle positif tire toujours a pleine echelle : 2714 evenements armes contre une ligne de base
+de 5643, soit 48 % — bien au-dessus des 20 % que la gate exige depuis le controle a 0,4 % du
+2026-08-12. PERIMETRE CHIRURGICAL : 2 chaines sur 22 changent, `pantflapL` et `pantflapR`, les
+20 autres au bit pres.
+
+LE PLAFOND N'EST PAS CELUI QUE LA NOTE PRECEDENTE PRESCRIVAIT, ET JE LE DIS. Elle demandait de
+reprendre « avec le budget de glissement de 67-75 u » plutot qu'avec `shell`. J'ai cherche ce
+chiffre : il n'existe ni dans le contrat, ni dans les mesures, ni dans les rapports. Le reprendre
+aurait ete taper une constante a la main en la presentant comme mesuree (regle 4). Le plafond reste
+donc `shell`, qui est mesure ET par chaine (452 / 448 u).
+
+LA GATE `FLOOR-WEAK` ECHOUE, ET C'EST ELLE QUI EST EN CAUSE. Le fait, d'abord, sans habillage :
+    FLOOR-WEAK  pantflapL  0.0840 -> 0.0544  (-35 %, seuil 30 %)  ->  FAIL
+Mais la gate lit la ligne au stimulus le PLUS FAIBLE, et voici ce que la course publiait A LA
+VALEUR DE REFERENCE, avant tout changement :
+    pantflapL  drive=tilt    stimulus=9.81   tip=0.0797  baseline=0.0878  gain=NEGATIF
+    pantflapL  drive=updown  stimulus=15.82  tip=0.0860  baseline=0.0878  gain=NEGATIF
+La pointe bougeait MOINS que sous animation SEULE. Ce que le plancher defendait n'etait donc pas
+une reponse physique : c'etait le pan TRAINE PAR L'ANIMATION A TRAVERS LE MOLLET — le defaut
+lui-meme. Apres la correction, sur les cinq pilotages :
+    pantflapL  ligne de base sous animation seule  0.0878 -> 0.0437   (elle est DIVISEE PAR DEUX)
+    pantflapL  tilt   0.0544 / 0.0437  gain POSITIF      updown  0.0663 / 0.0437  gain POSITIF
+Le pan passe de « il bouge parce qu'il traverse la jambe » a « il repond au stimulus sur les cinq
+pilotages ». La baisse de `tipvar` (-20.9 %) est en grande partie ce bruit-la qui disparait.
+
+POURQUOI JE LE GARDE, ET C'EST LA REGLE DE CONSERVATION ELLE-MEME QUI LE DIT. Son calibrage est
+ecrit noir sur blanc dans le validateur : « la reference est l'etat que l'OWNER A APPROUVE, pas le
+plus grand chiffre jamais mesure ». Or 0.0840 n'a JAMAIS ete approuve : a cette valeur, l'owner
+decrivait le pan comme casse, trois fois. Un plancher cale sur un etat qu'il a rejete protege le
+defaut au lieu de l'acquis, et le retirer une seconde fois sur ce chiffre — le cycle precedent l'a
+deja fait — serait jeter une correction mesuree sur une grandeur dont je viens de montrer qu'elle
+ne discrimine pas.
+
+CE QUE JE NE FAIS PAS : toucher a la gate ou a `motion-floor-weak.txt` (regle 5 — les gates sont
+gelees, une gate qui semble fausse se RAPPORTE). Elle echoue, c'est ecrit, et c'est au superviseur
+de trancher si sa reference doit etre recalee sur un etat que l'owner a approuve.
+RESERVE HONNETE, ET ELLE EST DANS LE CODE : si son oeil trouve le pan devenu trop raide, la reprise
+se fait par un rappel BORNE EN VITESSE, pas par le retrait de la contrainte — le franchissement,
+lui, est ferme et mesure a zero avec son controle.
+
+-------------------------------------------------------------------------------------------------
 5. CE QUI RESTE OUVERT — AUCUN DE-SCOPE SILENCIEUX
 -------------------------------------------------------------------------------------------------
 
@@ -209,8 +259,10 @@ Les 9 lignes de `owner-defects.txt` restent OPEN. Je n'en retire aucune.
                    crane ET nuque ; la pointe a 820 u de portee contre 915 de rayon).
   ears-physics     non traite.
   knee-tabs        non traite. Impossible en l'etat (`LfootFlaps`/`RfootFlaps` absents du rig HD).
-  pant-calf        non traite ce cycle. La contrainte de cote fermait sa cible mais cassait le
-                   plancher faible : retiree au cycle precedent, a reprendre avec le budget mesure.
+  pant-calf        FRANCHISSEMENT FERME ce cycle (section 4 bis) : ROOM-SIDE 5643 -> 0, controle
+                   a pleine echelle, perimetre 2 chaines sur 22. FLOOR-WEAK echoue sur `pantflapL`
+                   et je garde quand meme, parce que sa reference (0.0840) est un etat que l'owner
+                   a rejete trois fois et dont le gain etait NEGATIF. Attend son oeil.
   goggles-bottom   non traite.
   goggles-tunnel   non traite, et HORS PORTEE DE MESURE : la salle ne joue aucune cinematique.
   flesh-jelly      non traite (bornage de la chair, `ROOM-SHAPE` <= 15 %, non fait).
