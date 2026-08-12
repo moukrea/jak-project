@@ -224,9 +224,25 @@ ferme pas un defaut, seul l'oeil de l'owner le ferme. Ce cycle apporte le chiffr
                    0), mais la question posee est autre : la physique s'applique-t-elle quand
                    l'animation ne pilote pas l'oreille ?
   knee-tabs        non traite.
-  pant-calf        non traite. Travail identifie et chiffre au cycle precedent : la gate
-                   SIDE-CONTROL echoue a 2715 contre 1011 (2.69x pour un seuil de 3x), et
-                   `disarmed` vaut `pantflapR 520 + pantflapL 491` exactement.
+  pant-calf        LOCALISE ce cycle, pas corrige. La ligne responsable est
+                   `jak-hd-physics.gc:2291` :
+                       (when (and (zero? *phys-side-off*) (not sleevec))
+                         (when (> (-> ub w) worst) (set! worst (-> ub w))))
+                   `(not sleevec)` EXCLUT les paires fourreau de la contrainte de cote. C'est
+                   delibere et le commentaire au-dessus le dit : « la paire fourreau COMPTE, mais
+                   ne decide pas encore ». Le compteur les voit, le solveur les ignore.
+                   C'est l'explication exacte du chiffre qui restait inexplique : `disarmed` vaut
+                   `pantflapR 520 + pantflapL 491` et zero ailleurs, parce que ces deux chaines
+                   sont les SEULES paires fourreau (`shell=452` / `shell=448`) et qu'elles
+                   franchissent que le controle soit arme ou non — il ne s'applique pas a elles.
+                   Le controle n'est donc pas casse, il est HORS SUJET pour ce defaut.
+                   Le pas suivant est d'inclure les paires fourreau dans la contrainte, borne par
+                   le budget de glissement MESURE (67-75 u) et non par la borne de 184 u. Je ne
+                   l'ai PAS fait ce cycle et c'est deliberé : le code porte la trace d'un essai
+                   anterieur qui a coute 49 % du mouvement des deux pans sans fermer le defaut, et
+                   une contrainte posee sans course de salle pour la verifier serait « une
+                   resolution pire que le clip » (regle 6). Ca se fait avec la mesure sous les
+                   yeux, pas en fin de cycle.
   goggles-bottom   non traite.
   goggles-tunnel   non traite.
   flesh-jelly      non traite. Le bornage de la chair (`ROOM-SHAPE` <= 15 %, correle au stimulus,
