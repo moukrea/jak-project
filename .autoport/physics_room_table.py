@@ -198,9 +198,11 @@ def main():
     # Superviseur 2026-08-11 16:15 : « publier la valeur sous animation seule comme ligne de base a
     # soustraire ; un pilotage dont la reponse ne depasse pas la ligne de base n'a rien excite ».
     base = {}
+    basej = {}
     for m in re.finditer(r'^PHYSBASE c=(\d+) a=(\d+) amp=([-\d.e+]+) jump=([-\d.e+]+)'
                          r' ns=([-\d.e+]+)', txt, re.M):
         base[(int(m.group(1)), int(m.group(2)))] = float(m.group(3)) / UNITS
+        basej[(int(m.group(1)), int(m.group(2)))] = float(m.group(4)) / UNITS
 
     # ---- L'AMPLITUDE COMMANDEE de chaque pilotage (denominateur du gain) ------------------------
     stim = {}
@@ -817,10 +819,28 @@ def main():
     if not stretch:
         die('trace incomplete : aucune ligne PHYSSTR — l\'allongement n\'est pas mesure par fenetre,'
             ' donc « ils s\'allongent sur les mouvements BRUSQUES » reste invérifiable')
+    # LA SIXIEME JAMBE DE LA COURSE EST `d=5` : LA MEME ANIMATION SANS AUCUN PILOTAGE.
+    #
+    # Elle etait mangee ici en silence. `stretch` porte 6 indices de pilotage (682 lignes chacun,
+    # 22 chaines x 31 animations), `DRIVE_NAMES` n'en nomme que 5, et cette boucle les fusionnait
+    # tous : le tableau « par pilotage » melangeait donc une jambe pilotee et une jambe non
+    # pilotee, et `DRIVE_NAMES[5]` levait IndexError des qu'un allongement de la jambe non pilotee
+    # depassait 3 % — un plantage qui n'attendait qu'un chiffre pour sortir.
+    #
+    # ELLE EST SEPAREE, PAS SUPPRIMEE, et c'est le point de methode du cycle : `d=5` est la SEULE
+    # jambe qui mesure ce que l'owner voit en jeu. `jerk` commande 381 m/s^2, soit 39 g ; aucune
+    # animation de Keira ne fait ca. Une grandeur publiee sous `jerk` decrit un stimulus qui
+    # n'existe pas devant son ecran, et c'est la troisieme fois de la phase qu'un chiffre vert
+    # coexiste avec un defaut qu'il voit (cf. SPEC 7, question 2 : « dans quel REPERE ? »).
     st_worst = None
     per_chain_st = {}
+    anim_st = {}
     for (c, ai, dr), (el, gn, tf) in stretch.items():
         if c not in chains:
+            continue
+        if dr >= len(DRIVE_NAMES):
+            if c not in anim_st or el > anim_st[c][0]:
+                anim_st[c] = (el, ai)
             continue
         if st_worst is None or el > st_worst[0]:
             st_worst = (el, c, dr, ai)
@@ -846,6 +866,39 @@ def main():
             A('     %-12s %-10s %s' % (nmc, nmd, fnum(v)))
     else:
         A('   Aucun couple (chaine, pilotage) au-dessus de 3 %% : la contrainte de longueur tient.')
+    A('')
+    A('-- ANIMATION SEULE — LA SEULE JAMBE QUE L\'OWNER VOIE EN JEU (18e passe) ---------------------')
+    A('   NATURE   trois grandeurs distinctes de la MEME jambe non pilotee : une amplitude (tip),')
+    A('            une DISCONTINUITE (jump = pire ecart d\'une frame a la suivante) et un')
+    A('            allongement d\'os relatif (elong).')
+    A('   REPERE   ecart a la pose d\'AUTEUR, dans le repere de l\'ancre — le meme que `row`. La')
+    A('            chaine n\'herite donc pas du mouvement de son porteur.')
+    A('   A DEFAUT ABSENT une chaine qui suit exactement l\'animation lit tip=0, jump=0, elong=0 :')
+    A('            c\'est la lecture de `kneeflapR` a 0.0093 m, et c\'est bien ce que l\'owner')
+    A('            decrit (« les languettes ne bougent pas »).')
+    A('   POURQUOI CETTE SECTION EXISTE : les cinq pilotages commandent 15.8 / 45.7 / 84.4 /')
+    A('   381.4 / 9.8 m/s^2. `jerk` vaut 39 g. Aucune animation de Keira n\'approche ca, donc un')
+    A('   ratio publie sous `jerk` decrit un stimulus qui n\'est jamais devant son ecran. Le')
+    A('   `baseline` de ROOM-JELLY est le minimum des trois pilotages DOUX, pas cette jambe-ci :')
+    A('   il n\'a jamais mesure ce qu\'il voit.')
+    if base:
+        A('   %-12s %9s %9s %9s %9s %9s' % ('chain', 'tip_max', 'tip_med', 'jump_max',
+                                            'ratio', 'elong'))
+        for c in sorted(chains):
+            amps = sorted(v for (cc, _a), v in base.items() if cc == c)
+            jmps = sorted(v for (cc, _a), v in basej.items() if cc == c)
+            if not amps:
+                continue
+            # ratio = pire discontinuite RAPPORTEE a l'amplitude de la MEME animation : un saut de
+            # 3 cm sur une excursion de 3 cm est une teleportation, le meme saut sur 30 cm ne l'est
+            # pas. Calcule par animation puis maximise, jamais max/max (qui melangerait deux
+            # animations et fabriquerait un ratio que personne n'a mesure).
+            rr = max((basej[(c, a)] / base[(c, a)]
+                      for (cc, a) in base if cc == c and base[(cc, a)] > 0.02), default=0.0)
+            st = anim_st.get(c)
+            A('   %-12s %9s %9s %9s %9s %9s'
+              % (names[c], fnum(amps[-1]), fnum(amps[len(amps) // 2]), fnum(jmps[-1]),
+                 '%.4f' % rr, fnum(st[0]) if st else '-'))
     A('')
     m0, m60 = mean.get('idle', {}), mean.get('tilt', {})
     if not m0 or not m60:

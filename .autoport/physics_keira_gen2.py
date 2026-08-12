@@ -384,6 +384,73 @@ def blob_centre_radius(geo, j):
     return c, r_cov, len(idx), thr, (r_iq, was_out, float((d > r_cov).mean()))
 
 
+def carried_descendants(names, parent, groups):
+    """Par joint de chaine, les joints que le rig lui fait porter RIGIDEMENT.
+
+    Un joint descendant qui n'appartient a AUCUNE chaine n'est jamais simule : le moteur le
+    deplace par propagation de delta depuis son porteur. Sa geometrie suit donc le lien au bit
+    pres — mais elle n'est confrontee a RIEN, parce que le volume du lien (`*phys-lcr*`) est
+    ajuste sur les seuls sommets du joint lui-meme.
+
+    MESURE DU 2026-08-12 QUI CREE CETTE REGLE (defaut owner `goggles-bottom`, « le BAS des
+    lunettes clipe dans les seins ») : la chaine `goggles` s'arrete a la fourche `gogglesMid`,
+    et les deux verres — `gogglesLeft` 244 sommets, `gogglesRight` 244, soit 94 % des lunettes,
+    portes jusqu'a 603 u de leur joint — sont hors chaine. Le volume teste est une sphere de
+    rayon 150 sur `gogglesMid` : en pose bind elle laisse 250 u de course libre avant le moindre
+    contact, pendant que 28 sommets de verre sont deja 129 u DANS la sphere `lBoob`.
+
+    La regle est donc : LE VOLUME D'UN LIEN COUVRE CE QU'IL PORTE, pas seulement ce qu'il possede.
+    Elle est derivee du rig et ne nomme rien a la main (DIRECTIVES 4) ; sur le rig de Keira elle
+    ne designe qu'un seul lien, et le generateur ECRIT lequel."""
+    idx_of = {n: i for i, n in enumerate(names)}
+    in_chain = set()
+    for js in groups.values():
+        in_chain.update(js)
+    kids = {}
+    for i, p in enumerate(parent):
+        if p >= 0:
+            kids.setdefault(p, []).append(i)
+    out = {}
+    for cname, js in groups.items():
+        for jn in js:
+            acc, stack = [], list(kids.get(idx_of[jn], []))
+            while stack:
+                k = stack.pop()
+                if names[k] in in_chain:      # une chaine a elle : elle porte son propre volume
+                    continue
+                acc.append(k)
+                stack.extend(kids.get(k, []))
+            if acc:
+                out[jn] = (cname, acc)
+    return out
+
+
+def carried_centre_radius(geo, j, carried):
+    """CENTRE et RAYON de couverture sur l'union {geometrie du joint} u {geometrie qu'il porte},
+    dans l'espace bind du joint. Meme statistique que `blob_centre_radius` (COVER_PCT), meme
+    echelle d'unites : seul l'echantillon de sommets change.
+
+    Rend (centre, rayon, n_total, n_portes, fraction_dehors)."""
+    def pick(jj):
+        for cand in FIT_STEPS:
+            _n, _w, i2 = influence(geo, jj, cand)
+            if len(i2) >= FIT_MIN_VERTS:
+                return i2
+        return i2
+    own = list(pick(j))
+    carr = []
+    for k in carried:
+        carr.extend(pick(k))
+    ids = np.array(sorted(set(own) | set(carr)), dtype=int)
+    if ids.size == 0:
+        return None, None, 0, 0, None
+    pts = to_bone_local(geo['ibms'][j], geo['V'][ids])
+    c = pts.mean(axis=0)
+    d = np.linalg.norm(pts - c, axis=1)
+    r = float(np.percentile(d, COVER_PCT))
+    return c, r, int(ids.size), len(set(carr)), float((d > r).mean())
+
+
 def cover_perp_radius(geo, j, a_world, b_world, thr):
     """RAYON DE COUVERTURE d'un bout de CAPSULE : le percentile COVER_PCT de la distance
     perpendiculaire, restreint aux sommets qui se projettent DANS le segment a->b.
@@ -812,6 +879,44 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
             if jn not in capped:
                 spheres.append((jn, pname))
 
+    # LE VOLUME D'UN LIEN COUVRE CE QU'IL PORTE (cf. `carried_descendants`). Le moteur prend
+    # DEJA le rayon ET le centre d'une sphere posee sur le joint d'un lien comme volume de ce
+    # lien (jak-hd-physics.gc:667-680) : il n'y a donc rien a changer dans le moteur, la sphere
+    # emise ici est lue des deux cotes — volume du lien, et obstacle pour les autres chaines
+    # (SPEC 3 : « les lunettes... ce sont des volumes, pas seulement des chaines »).
+    # `phys-col-own?` (jak-hd-physics.gc:1271) exclut deja un volume porte par un joint de la
+    # chaine elle-meme, donc aucune auto-collision n'est creee.
+    # POSE, MESURE, ET RETIRE LE 2026-08-12 — LE CHIFFRE QUI LE RETIRE.
+    #
+    # Course de salle complete, cette sphere pour SEULE variable (3410 mesures, 31/31 animations) :
+    #     goggles   mouvement de pointe 0.5107 -> 0.2281   = -55 %   (plancher FLOOR casse a -40 %)
+    #     ROOM-STRETCH max            0.0272 -> 0.3937   = 39 % d'allongement d'os sur `rbang`,
+    #                                 treize fois le plafond de 3 %
+    #     botstrapR   -17.7 %   chestR   -7.8 %
+    #     (au credit : ROOM-SIDE 11446 -> 8222, -28 %)
+    # DIRECTIVES, regle de conservation : « si le plancher casse, le point est retire — pas
+    # adouci, retire ». Il est retire, et l'owner l'avait annonce : « gonfler un volume finirait
+    # par decoller les lunettes du corps ».
+    #
+    # POURQUOI, ET CE N'EST PAS UN RAYON A REGLER. Les deux verres sont deux paquets separes a
+    # x = +/-461 dans l'espace bind de `gogglesMid`. Toute SPHERE qui les couvre tous les deux est
+    # centree ENTRE eux, c'est-a-dire sur le visage : mesure en pose bind, r=809 s'enfonce de
+    # 206 u dans la capsule `head->neck` et de 397 u dans `neck->chest`. Le volume est donc fait
+    # d'air a l'endroit ou se trouve la tete, et il s'appuie en permanence dessus. Une sphere par
+    # verre (r=478) ne pousserait rien : `gogglesLeft`/`gogglesRight` ne sont pas des maillons,
+    # un volume pose la n'est un obstacle que pour les AUTRES chaines.
+    #
+    # C'EST LA DEUXIEME MESURE INDEPENDANTE QUI TOMBE AU MEME ENDROIT — la premiere est la
+    # bretelle contre le torse, plus haut dans ce fichier (« un TORSE N'EST PAS UN CYLINDRE :
+    # aucune valeur intermediaire ne satisfait les deux »). Le jeu de primitives sphere+capsule
+    # est epuise pour ces deux defauts, et c'est exactement la suggestion de l'owner (« pourquoi
+    # deriver du rig et pas du mesh ? ») qui devient la seule voie mesuree qui reste.
+    #
+    # La regle et sa mesure restent ecrites (`carried_descendants` ci-dessus) parce que le FAIT
+    # qu'elle etablit ne change pas : sur le rig de Keira, UN SEUL lien porte de la geometrie hors
+    # chaine — `gogglesMid`, 488 sommets sur 499, soit 94 % des lunettes, confrontees a RIEN.
+    carried_spheres = []
+
     # ---------------------------------------------------------------------------------------------
     # POINT RETIRE, ET LE CHIFFRE QUI L'A RETIRE (2026-08-12).
     #
@@ -930,6 +1035,25 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
                          f' (inner-quartile mean {r_iq:.0f} left {100*was_out:.0f}% outside)')
         col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
         col_report.append(('sphere', jn, r, None, n, None))
+
+    for jn, cname, acc in carried_spheres:
+        j = idx_of[jn]
+        c, r, ntot, ncarr, out = carried_centre_radius(geo, j, acc)
+        if r is None:
+            log(f"DROPPED carried sphere {jn}: fitted from 0 vertices")
+            continue
+        cx, cy, cz = (int(round(float(v))) for v in c)
+        r = int(round(r))
+        off = math.sqrt(cx * cx + cy * cy + cz * cz)
+        borne = ', '.join(f'{names[k]}({len(influence(geo, k, 0.25)[2])}v)' for k in acc)
+        log(f"CARRIED sphere {jn} [{cname}]: {ntot}v dont {ncarr} portes ({borne}) -> "
+            f"centre ({cx},{cy},{cz}) |{off:.0f}u| radius {r} ({100*out:.0f}% dehors)")
+        col_block.append(f'# sphere {jn} [{cname}] CARRIED  {ntot}v dont {ncarr} portes par des '
+                         f'joints HORS CHAINE ({borne}) : le moteur les deplace rigidement et ne '
+                         f'les confrontait a RIEN. Le volume du lien couvre desormais ce qu\'il '
+                         f'porte.   COVER p{COVER_PCT:.0f}: {100*out:.0f}% des sommets dehors')
+        col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
+        col_report.append(('sphere', jn, r, None, ntot, None))
 
     # ---- verbatim blocks from the .bak ---------------------------------------------------------
     bak = open(bak_path).read()
