@@ -202,9 +202,24 @@ ferme pas un defaut, seul l'oeil de l'owner le ferme. Ce cycle apporte le chiffr
   hair-fine-dead   non traite ce cycle. Demande un plancher ABSOLU de visibilite calibre sur ce
                    qu'il a approuve, pas un plancher relatif — les deux planchers actuels sont
                    verts pendant qu'il les voit mortes.
-  hair-nape        non traite. Preuve arithmetique deja etablie : la pointe a 820 u de portee
-                   contre 915 de rayon de capsule de tete, elle ne peut pas en sortir. C'est le
-                   VOLUME qui doit retrecir, la chaine ne peut rien.
+  hair-nape        MESURE ce cycle, pas corrige (`.autoport/probe_head_capsule.py`). La pointe a
+                   820 u de portee contre `capsule head neck radius=915` : elle ne peut pas sortir
+                   du volume, aucun reglage de chaine n'y peut rien.
+                   J'ai teste l'hypothese evidente — la capsule serait gonflee PAR les cheveux
+                   qu'elle emprisonne ensuite — et elle est VRAIE MAIS INSUFFISANTE, ce qui est le
+                   resultat utile : les 12 sommets les plus eloignes de l'axe sont tous des cheveux
+                   (poids de meche 0.149 a 0.475, dominants `head`), donc ils tirent bien le fit
+                   vers le haut ; mais les retirer du nuage ne fait passer le p95 que de 1812 a
+                   1724 u, tres loin des 820. Exclure les cheveux est donc NECESSAIRE ET NON
+                   SUFFISANT.
+                   La cause de fond est ailleurs et elle est structurelle : une seule capsule
+                   `head neck` couvre a la fois le crane et la nuque, la ou le corps a besoin de
+                   deux volumes distincts. C'est un changement de GENERATEUR, pas un rayon a
+                   retoucher a la main (regle 4 : donnees generees, jamais rustinees).
+                   NOTE DE METHODE : la premiere version de cette sonde mesurait la distance au
+                   JOINT et la comparait au rayon d'une capsule fitee autour d'un AXE — deux
+                   grandeurs differentes, 2082 contre 915. Corrigee avant publication ; c'est la
+                   faute « mauvais repere » de la SPEC 7, et elle se reproduit vite.
   ears-physics     non traite. La mesure leur donne un chiffre (tear earL 26 / earR 24, desormais
                    0), mais la question posee est autre : la physique s'applique-t-elle quand
                    l'animation ne pilote pas l'oreille ?
