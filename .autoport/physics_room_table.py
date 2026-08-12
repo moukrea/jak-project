@@ -301,6 +301,9 @@ def main():
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             bendcut=float(m.group(3)), shape=float(m.group(4)), buried=float(m.group(5)),
             tiprot=float(m.group(6)) if m.group(6) is not None else 0.0)
+    for m in re.finditer(r'^PHYSDIAG4 tag=(\S+) c=(\d+) side=([-\d.e+]+)', txt, re.M):
+        diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
+            side=float(m.group(3)))
     # la re-assise : combien de liens le moteur a replaces, et combien ont du retomber sur
     # l'ancienne heuristique (rayon le long de l'os du porteur) au lieu de la place du rig.
     global RESEAT_FB
@@ -905,6 +908,32 @@ def main():
     s_off = sum(v.get('selfcol', 0.0) for v in dr_off.values())
     s_on = sum(v.get('selfcol', 0.0) for v in dr_on.values())
     A('ROOM-SELFCOL: run=%d disarmed=%d armed=%d' % (s_run, s_off, s_on))
+    # ---- ROOM-SIDE : de quel COTE du volume le lien a-t-il fini ? -------------------------
+    # Reclamee par les DIRECTIVES depuis la 11e passe (« Mesurer le COTE : ROOM-SIDE:
+    # chain=<nom> inside_frames=<n>, doit etre zero ») et jamais ecrite jusqu'au 2026-08-12.
+    # AUCUNE autre colonne ne peut voir ce defaut : la profondeur de penetration est MAXIMALE
+    # sur l'axe du volume et REDESCEND quand le lien ressort de l'autre cote, donc un lien qui
+    # a traverse une jambe de part en part rend une profondeur FAIBLE — indistinguable d'un
+    # lien sagement dehors. C'est ainsi que « le bas du pantacourt est a l'interieur des
+    # mollets » et « en cinematique les lunettes traversent le buste pour aller se poser dans
+    # le dos » coexistaient avec meshpen = 0.0000.
+    #   NATURE  : un COMPTE de paires (lien, volume). Un changement de cote est DISCRET ; une
+    #             distance ne peut pas le decrire, et c'est pour ca que les mesures de
+    #             profondeur n'ont jamais vu ces deux defauts.
+    #   REPERE  : celui du VOLUME — direction allant du point le plus proche de son AXE vers le
+    #             lien, comparee entre la pose du modele et maintenant. Ni monde, ni ancre.
+    #   LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste du cote ou l'auteur l'a pose
+    #             ne compte jamais, quelle que soit son amplitude.
+    # Ce compteur est NON NUL sur cette course : il n'a donc pas besoin d'un controle positif
+    # pour etre credible (la regle « tout zero exige un controle qui a tire » vise les zeros).
+    side_run = {c: v.get('side', 0.0) for c, v in dr_run.items()}
+    nz = sorted(((v, c) for c, v in side_run.items() if v > 0), reverse=True)
+    A('ROOM-SIDE: chains=%d/%d crossing=%d' % (len(nz), len(names), int(sum(v for v, _ in nz))))
+    for v, c in nz:
+        A('ROOM-SIDE: chain=%-12s inside_frames=%d' % (names[c] if c < len(names) else c, int(v)))
+    if not nz:
+        A('   ATTENTION : zero partout — ce zero exige un controle positif qui l\'a fait MONTER')
+        A('   avant d\'etre cru (SPEC 7). Il n\'en existe pas encore.')
     if s_on <= s_off:
         A('   ATTENTION : le controle positif n\'a PAS fait monter le compteur — il ne mesure rien,')
         A('   et le zero de la course ne prouve donc rien.')
