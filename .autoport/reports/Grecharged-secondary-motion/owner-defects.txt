@@ -12,5 +12,7 @@ OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
 OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos
 OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
-OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
+OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas -- CAUSE: les os LfootFlaps/RfootFlaps
+#                    n existent PAS dans le rig HD (seulement dans le stock). Reprise d ASSET requise:
+#                    injecter les deux os dans le rig HD + transfert de poids. Pas un reglage de physique.
 OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets

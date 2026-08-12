@@ -151,5 +151,12 @@ chain rbang stiffness=1.05 mass=1.35 damping=0.36
 # languettes n'en avaient jamais eu. Ce n'etait donc pas un reglage trop faible : il n'y avait
 # rien du tout. Famille B (ca pend), parametres alignes sur les sangles de cheville qui, elles,
 # se voient bien.
-+chain footflapL class=secondary stiffness=2.20 damping=0.28 gravity=0.28 radius=190 rootlock=1 mass=0.55 hang=0.75 family=B couple=1.30 radii=190 joints=LfootFlaps
-+chain footflapR class=secondary stiffness=2.20 damping=0.28 gravity=0.28 radius=190 rootlock=1 mass=0.55 hang=0.75 family=B couple=1.30 radii=190 joints=RfootFlaps
+# IMPOSSIBLE EN L'ETAT, constate le 2026-08-12 08:10 : `LfootFlaps` et `RfootFlaps` existent dans
+# le rig STOCK mais PAS dans le rig HD de Keira (son retargeting ne porte que KneeFlap et pantFlap).
+# Une chaine ne peut pas s'accrocher a un os absent. Ce n'est donc pas un reglage de physique mais
+# une reprise d'ASSET : il faut injecter ces deux os dans le rig HD et transferer les poids de peau,
+# comme l'anneau du plastron de Jak et la boucle de son dos (memes cas, deja documentes).
+# Les directives sont desactivees pour ne pas bloquer la phase sur un impossible ; le defaut reste
+# OUVERT dans owner-defects.txt, parce que l'owner le voit et qu'il a raison de le voir.
+# +chain footflapL ... joints=LfootFlaps
+# +chain footflapR ... joints=RfootFlaps
