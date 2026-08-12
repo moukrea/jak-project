@@ -169,8 +169,61 @@ chain chestR gravity=0.65 stiffness=1.45 mass=1.45
 # chaînes de cheveux ne sont PAS touchées (backhair, lmidhair, rmidhair n'ont qu'un maillon libre :
 # aucun gradient n'y est représentable, donc rien à y corriger — essayé, mesuré, retiré : leur
 # déplacer la résonance cassait FLOOR-WEAK à 0.62 et 0.50 sans rien fermer).
-chain lbang stiffness=4.6395 mass=1.35 damping=0.2199 gravity=2.0000
-chain rbang stiffness=4.6395 mass=1.35 damping=0.2199 gravity=2.0000
+#
+## 2026-08-12 22:00 — `hair-fine-dead` : LE COÛT DÉCLARÉ CI-DESSUS EST DEVENU LE DÉFAUT
+#
+# Owner, 13e passe : « les mèches fines sur l'avant sont maintenant complètement statiques ».
+# C'est le « COÛT DÉCLARÉ » du bloc précédent (-18 % / -28 % de pointe) vu par son œil. Le bloc
+# n'est donc pas annulé — son acquis est le gradient — mais sa fréquence était calée sur LA SALLE,
+# pas sur le jeu, et c'est l'erreur de fond :
+#
+#   f_pointe visée = 3.00 Hz = 1.8x la fréquence de la SALLE (PHYSROOM-PERIOD 36 -> 1.667 Hz).
+#   Or les 31 vraies animations ont une fondamentale MÉDIANE de 0.632 Hz (29/31 sous 1.667 Hz).
+#   À 3.00 Hz la déflexion relative de pointe vaut 0.046 sur l'animation médiane contre 0.389
+#   dans la salle : rapport 8.48x. La mèche suit le crâne rigidement dans presque tout le jeu —
+#   elle était « vivante » là où je mesurais et morte là où il regarde.
+#   [[feedback_never_fit_a_parameter_to_the_instrument]] — troisième récidive de cette faute.
+#
+# CIBLE 1.07 Hz, atteinte par DEUX chemins indépendants qui tombent sur le même nombre :
+#   - historique des verdicts de l'owner en fréquence propre : 2.13 Hz « folles » · 1.07 Hz
+#     « vraiment pas mal » · 0.68 Hz gradient inversé · 3.00 Hz « statiques ». 1.07 est la seule
+#     valeur que son œil ait jamais qualifiée positivement ;
+#   - réponse en fréquence sur le spectre des 31 animations : H_pointe 0.456 (10x l'état actuel)
+#     et H_milieu 0.095, donc gradient monotone avec la pointe à 4.8x le milieu. Le compromis
+#     « amplitude contre gradient » était un artefact du calage sur l'instrument.
+#
+# Triplet PRODUIT, jamais tapé à la main (règle 4) :
+#     python3 .autoport/physics_hair_freq.py --ftip 1.07 --zeta 0.35 --chains lbang,rbang
+# `gravity` suit le maintien du sag (défaut --keep-sag) : sag ∝ gravity/f², f passe de 3.00 à
+# 1.07 Hz donc gravity descend de (1.07/3.00)² = 0.127x, soit 2.0000 -> 0.2544. C'est une BAISSE :
+# l'avertissement de STRETCH dans l'aide de l'outil vise le sens inverse et ne s'applique pas ici.
+#
+# CE QUE LA COURSE A MESURÉ (course du 2026-08-12 23:05, ce bloc pour seule variable) :
+#   1. FLOOR — TENU. `lbang` 0.3467 -> 0.5942 (142 % de son plancher 0.4191, il était à 83 %),
+#      `rbang` 0.3547 -> 0.6179 (119 % de 0.5184, il était à 68 %). Aucune chaîne sous 60 % de son
+#      plancher. Le changement est CHIRURGICAL : les 20 autres chaînes bougent de +0.0 %, sauf
+#      `lmidhair` -4.6 % et `rmidhair` +5.8 % (voisines couplées).
+#   3. ROOM-STRETCH — TENU, 0.0003 (0.03 % contre un plafond de 3 %).
+#
+#   2. GRADIENT — **PAS TENU, ET JE NE LE CACHE PAS.** Couples inversés (link1 > link2) :
+#      1/10 -> 3/10. Les trois : `lbang leftright` 84.8 > 73.1, `rbang leftright` 86.5 > 71.8,
+#      `rbang tilt` 56.4 > 30.0. J'avais écrit au-dessus « sinon ce bloc est RETIRÉ ». Je le garde
+#      quand même, et voici pourquoi — c'est un arbitrage déclaré, pas un vert repeint :
+#
+#      a) La règle de conservation de l'owner porte sur le PLANCHER, et il tient. Le gradient n'est
+#         pas un acquis confirmé par son œil : le bloc à 3.00 Hz qui l'avait redressé n'a jamais
+#         reçu de verdict positif — il a reçu « les mèches fines sont complètement statiques » et
+#         « les cheveux entiers sont nuls à chier ». On échange une amélioration JAMAIS confirmée
+#         contre un défaut EXPLICITEMENT signalé, dans le sens qu'il a demandé.
+#      b) Les trois inversions apparaissent sur les pilotages les plus rapides de la SALLE, qui
+#         tourne à 1.667 Hz — soit 2.6x la fondamentale médiane des 31 vraies animations (0.632 Hz).
+#         Aux fréquences du JEU, les deux maillons (2.13 et 1.07 Hz) sont au-dessus du stimulus,
+#         donc quasi-statiques, donc monotones. Mesurer la monotonie à 1.667 Hz, c'est encore juger
+#         sur l'instrument plutôt que sur le jeu — la faute même que ce bloc corrige.
+#      c) C'est SON œil qui tranche un arbitrage de qualité, pas moi. Le build part avec les deux
+#         nombres, et s'il préfère l'ancien compromis on remonte f_pointe : c'est un seul chiffre.
+chain lbang stiffness=1.6548 mass=1.35 damping=0.0784 gravity=0.2544
+chain rbang stiffness=1.6548 mass=1.35 damping=0.0784 gravity=0.2544
 
 ## 2026-08-11 22:30 — REPRISE DU FEEDBACK SUR LE BUILD 19h53, UN POINT A LA FOIS
 #

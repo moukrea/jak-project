@@ -57,8 +57,18 @@ UNITS = 4096.0
 
 
 def load_cfg(path=CFG):
-    """-> {model: [dict(target, donors, cap, shape, grow)]}"""
+    """-> {model: [dict(target, donors, cap, shape, grow)]}
+
+    PAS DE FICHIER = PAS DE REGLE, et c'est un etat legitime : le depart propre du 2026-08-11
+    (`f86d919800`, TABLE RASE) a supprime `recharged_assets/physics_reskin.txt`. `main()` sait
+    deja traiter « aucune regle » — il recopie l'entree telle quelle (« no rule — passthrough »).
+    Or l'ouverture etait INCONDITIONNELLE et levait FileNotFoundError avant tout filtrage, donc
+    exit != 0, donc `scripts/shell/build_enhanced_models.sh:233` tuait TOUT le bake HD. Le mesh
+    livre ne pouvait plus etre reconstruit depuis l'arbre : la paire livree n'etait pas
+    reproductible, et aucune correction de ponderation n'aurait pu devenir visible."""
     out, cur = {}, []
+    if not os.path.exists(path):
+        return out
     for ln in open(path, errors='ignore'):
         ln = ln.split('#')[0].strip()
         if not ln:

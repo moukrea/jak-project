@@ -1,0 +1,70 @@
+# Grecharged-secondary-motion — WEIGHT TRANSFER onto physics joints.
+#
+# Applied by .autoport/physics_c7_reskin.py, between prep_hd_actor_glb.py and `hd_merc_swap add`
+# in scripts/shell/build_enhanced_models.sh.  It changes SKIN WEIGHTS ONLY — same joints, same
+# joint positions, same triangles, same textures.
+#
+# WHY THIS FILE EXISTS.  A physics chain can only move the screen through the vertices its joint
+# is weighted to.  The cycle-7 audit (.autoport/physics_c7_skinmap.py, report skinmap.txt) found
+# joints that the donor's artist painted DECORATIVELY: present in the rig, weighted at a few
+# percent, dominated everywhere by an animated body bone.  The solver moves them correctly and
+# almost nothing moves on screen — which is exactly the owner's "ca bouge un poil" followed by
+# "aucune difference" after two cycles of tuning the solver.
+#
+# KEYS
+#   transfer <joint> from=<a,b,...>  the joint to strengthen, and the bones to take the weight from
+#   cap=C     weight the STRONGEST vertex of the patch ends up carrying (1.0 = fully detached from
+#             the body; never use 1.0 on a body part — a breast is attached to a chest, and the
+#             blend at the base is what keeps it attached)
+#   shape=S   exponent on the artist's own normalised profile.  1.0 = pure rescale (keeps the
+#             artist's falloff exactly).  <1 widens the shoulder so more of the patch moves
+#             TOGETHER as a volume instead of only the centre — that is the cure for "seuls les
+#             bouts bougent" / "flasque".
+#   grow=U    optional: first extend the patch to any vertex within U game units of it, for a
+#             painted patch too small to be a volume at all.  0 = keep the artist's support.
+#
+# The artist's spatial profile is never replaced, only rescaled: the vertex he weighted most stays
+# the one weighted most.
+#
+# =============================================================================================
+# RESTAURATION DU 2026-08-12 — CE FICHIER AVAIT ETE SUPPRIME, ET LE MESH LIVRE EN DEPEND
+#
+# `f86d919800` (« TABLE RASE sur branche dediee ») a supprime ce fichier le 2026-08-11 a 02:28.
+# Le dernier bake HD reussi date de 02:06 — 22 minutes AVANT. Consequences mesurees, pas supposees :
+#
+#  1. `load_cfg()` ouvrait ce chemin INCONDITIONNELLEMENT -> FileNotFoundError -> exit != 0 ->
+#     `build_enhanced_models.sh:233` tuait tout le bake -> `build.sh:366` `die`. Depuis le
+#     2026-08-11 02:28, le mesh HD ne pouvait PLUS ETRE REGENERE. `out/jak1/fr3/enhanced/GAME.fr3`
+#     est fige au 11 aout 02:06 et c'est celui que l'owner a en main.
+#  2. Donc le mesh livre porte ENCORE ces transferts, alors que la recette n'existait plus dans
+#     l'arbre. Rendre simplement `load_cfg()` tolerant a l'absence du fichier aurait rendu le bake
+#     a nouveau possible... en produisant un mesh SANS ces transferts : `rBoob`/`lBoob` auraient
+#     reperdu leur geometrie, et l'acquis confirme par l'owner (« les seins, les mouvements
+#     subtils sont toujours OK ») aurait ete detruit au premier bake, sans que rien ne le signale.
+#
+# C'est exactement la regle de non-destruction de l'owner : « quand une perte se repete, on la rend
+# impossible au point de production ». La recette est donc remise a cote de l'artefact qu'elle
+# produit. PERIMETRE : Keira seule (SCOPE-SERIAL 3) — les regles des autres personnages
+# (jak-hd, samos-hd, jak2-hd, jakp-hd, jak3-hd, jakm-hd, daxp-hd, ysamos-hd) ne sont PAS
+# restaurees ; elles reviendront avec leur personnage, quand Keira sera validee.
+# =============================================================================================
+
+[model keira-hd]
+# Owner cycle 5 Y: "ronds et FERMES [...] peu de droop, peu de deformation, mais ca BOUGE bien",
+# cycle 7 AB: "plus de jiggle ET un poil plus de fermete".
+# Measured before: 90/94 verts, peak 0.408, mean 0.172/0.193 — ZERO vertices majority-owned.
+# cap=0.90 leaves a real blend into the chest at the rim (attached, not a balloon); shape=0.55
+# lifts the mid-profile hard so the whole cup travels together instead of denting in the middle.
+transfer rBoob from=chest cap=0.90 shape=0.55
+transfer lBoob from=chest cap=0.90 shape=0.55
+
+[model keira3-hd]
+# The J3 look carries the same rig and the SAME defect (rBoob 86 verts, peak 0.408, 0 dominant).
+# Owner 2026-08-05 11:55: the physics applies to every look of the carousel, not just the default.
+transfer rBoob from=chest cap=0.90 shape=0.55
+transfer lBoob from=chest cap=0.90 shape=0.55
+
+[model keira-hd keira3-hd]
+# The trouser flaps: peak 0.16 over ~45 verts, dominant on none. They were simulated and inert.
+transfer LpantFlap from=Lknee,Lthigh cap=0.90 shape=0.75
+transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75

@@ -97,9 +97,17 @@ def _gather_model_vertices(js, binc):
     """The rip writes ONE glb per merc model but its POSITION accessor spans the whole level's
     merc vertex pool (fr3_to_gltf.cpp make_position_buffer_accessor).  Only the vertices actually
     indexed by this file's primitives belong to the model — using the pool would make every bbox,
-    every radius and every fit number meaningless."""
+    every radius and every fit number meaningless.
+
+    Rend AUSSI la liste des triangles, remappee dans l'espace d'indices COMPACTE (meme regle
+    `sorted(used)` que les sommets, celle que physics_c14_meshsamples recalcule a l'identique).
+    Sans elle, la mesure du defaut PRIORITE 1 `hair-skinning` — « des polygones qui bougent et des
+    polygones voisins parfaitement statiques » — n'a pas d'ARETES a regarder : `ROOM-SKINCOV`
+    calculait son `tear` sur un ensemble vide et rendait 0 sur les 22 chaines, un zero qui voulait
+    dire « je n'ai pas regarde » et qui etait indistinguable de « pas de cassure »."""
     pos = jts = wts = None
     used = set()
+    tris = []
     for mesh in js.get('meshes', []):
         for pr in mesh.get('primitives', []):
             at = pr['attributes']
@@ -108,15 +116,25 @@ def _gather_model_vertices(js, binc):
                 jts = read_accessor(js, binc, at['JOINTS_0']).astype(np.int32)
                 wts = read_accessor(js, binc, at['WEIGHTS_0']).astype(np.float64)
             if 'indices' in pr:
-                used.update(read_accessor(js, binc, pr['indices']).reshape(-1).tolist())
+                ind = np.asarray(read_accessor(js, binc, pr['indices']).reshape(-1), dtype=np.int64)
+                used.update(ind.tolist())
+                # mode 4 = TRIANGLES (defaut glTF). Le rip merc ne produit pas d'autre topologie ;
+                # une topologie inconnue n'est pas DEVINEE, elle reste hors de la liste.
+                if int(pr.get('mode', 4)) == 4 and len(ind) >= 3:
+                    tris.append(ind[:(len(ind) // 3) * 3].reshape(-1, 3))
     if pos is None or not used:
         return None
     idx = np.fromiter(sorted(used), dtype=np.int64)
-    return pos[idx] * UNITS, jts[idx], wts[idx]
+    remap = np.full(int(idx.max()) + 1, -1, dtype=np.int64)
+    remap[idx] = np.arange(len(idx), dtype=np.int64)
+    F = remap[np.concatenate(tris)] if tris else np.zeros((0, 3), dtype=np.int64)
+    return pos[idx] * UNITS, jts[idx], wts[idx], F
 
 
 def load_geometry(model):
-    """-> dict(names, parent, P (bind positions, game units), V, J, W) or None."""
+    """-> dict(names, parent, P (bind positions, game units), V, J, W, F) or None.
+
+    F = triangles, indices dans l'espace COMPACTE de V (voir _gather_model_vertices)."""
     k2e = os.path.join(HD_ANIM, model + '-k2e.json')
     if os.path.exists(k2e):
         meta = json.load(open(k2e))
@@ -136,7 +154,7 @@ def load_geometry(model):
     got = _gather_model_vertices(js, binc)
     if got is None:
         return None
-    V, J, W = got
+    V, J, W, F = got
     # bind-pose bone placement: inverse of the inverse-bind matrix, translation column.
     P = np.zeros((len(names), 3))
     for i, m in enumerate(ibms):
@@ -144,7 +162,7 @@ def load_geometry(model):
             P[i] = np.linalg.inv(m)[:3, 3] * UNITS
         except np.linalg.LinAlgError:
             P[i] = np.nan
-    return dict(names=names, parent=parent, P=P, V=V, J=J, W=W, src=src, path=path)
+    return dict(names=names, parent=parent, P=P, V=V, J=J, W=W, F=F, src=src, path=path)
 
 
 # ----------------------------------------------------------------------------------------------
