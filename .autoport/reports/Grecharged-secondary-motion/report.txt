@@ -209,7 +209,24 @@ LES DEUX CONTROLES ONT TIRE, et sans eux le resultat ne vaudrait rien :
     CONTROLE POSITIF   backhair / head->neck  = CAPTURE   (attendu CAPTURE)
     CONTROLE NEGATIF   earL                   = LIBRE     (attendu LIBRE)
 Le probe reproduit donc la seule capture deja demontree et laisse libre la chaine
-que la course mesure a 25 frames de contact sur 17893.
+que la course mesure a 25 frames de contact sur 17893. Les deux controles ont ete
+verifies NON VACANTS par injection dans un processus jetable : marges forcees a
++1e9, le controle positif tombe ; forcees a -1e9, le negatif tombe.
+
+ET IL PORTE SES PROPRES TEMOINS, ce qui est neuf pour un calcul geometrique :
+    CHECK repere-decalage      pire ecart 0.69 u entre le centre calcule et le
+                               centroide MESURE des 24 spheres — le repere du
+                               decalage est verifie, pas suppose ;
+    CHECK longueur-d-os        34 des 36 liens sont a moins de 3 % des longueurs
+                               que le MOTEUR publie en course (`bones_m`) ; les
+                               deux ecarts restants sont rejoues a la longueur
+                               mesuree et leur verdict ne change pas ;
+    CHECK fibonacci-vs-exact   pire ecart 2.88 u entre l'echantillonnage (16384
+                               points) et une reduction exacte par axisymetrie
+                               (200001 pas) ; le verdict prend le plus grand des
+                               deux, donc une capture n'est jamais un artefact de
+                               grille.
+Je l'ai rejoue moi-meme apres coup : memes huit captures, exit 0.
 
 LES CAPTURES, marge croissante :
 

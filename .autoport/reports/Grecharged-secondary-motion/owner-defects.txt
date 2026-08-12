@@ -137,6 +137,19 @@ OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour a
 #      cout mesure sur goggles : mouvement de pointe 0.5107 -> 0.5107, soit AUCUN.
 #  A CONFIRMER PAR L OWNER EN CINEMATIQUE — c est son oeil qui ferme la ligne.
 OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
+#  --- 22e PASSE (2026-08-12 soir) : UNE ASYMETRIE REELLE, TROUVEE EN PASSANT, NON EXPLIQUEE. ---
+#  Le temoin de longueur d'os du probe de capture compare les os de la POSE DE BIND aux longueurs
+#  que le moteur publie en COURSE (`bones_m`). 34 des 36 liens sont a moins de 3 %. Les deux qui
+#  sortent sont les deux bretelles BASSES, et elles ne sortent pas du meme cote :
+#      rBotStrap2   0.3618 m au bind   ->  0.2621 m mesuree en course   (-38 %)
+#      lBotStrap2   0.3618 m au bind   ->  0.4034 m mesuree en course   (+10 %)
+#  Le rig et le mesh sont MIROIR EXACTS sur ce segment (mesure du 2026-08-12, plan sagittal a 5.1 u
+#  pres) : c'est donc le RETARGET qui deforme ces deux os, dans deux directions opposees. Une
+#  bretelle plus courte de 38 % d'un cote et plus longue de 10 % de l'autre ne peut pas tomber au
+#  meme endroit des deux cotes.
+#  CE N'EST PAS ENCORE UNE CAUSE, et je ne l'appelle pas comme ca : le lien avec le clipping contre
+#  l'elastique orange n'est pas etabli. C'est une anomalie chiffree sur exactement les chaines que
+#  l'owner signale, et elle n'avait jamais ete regardee.
 #  --- 20e PASSE (2026-08-12) : la moitie FRANCHISSEMENT est maintenant prouvee par un controle
 #  qui tire, a exposition egale sur les 31 animations :
 #      botstrapR 185 · botstrapL 55 · topstrapL 42 · topstrapR 14   (armee)   contre 0 (desarmee)

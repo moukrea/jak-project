@@ -59,7 +59,9 @@ Ce script ne modifie rien, ne construit rien, ne joue aucune course. Il imprime 
 
 Rejeu :  python3 .autoport/probe_chain_volume_capture.py
 """
+import glob
 import os
+import re
 import sys
 
 import numpy as np
@@ -71,12 +73,14 @@ UNITS = 4096.0                            # unites de jeu par metre
 MODEL_SECTION = '[model keira-hd]'
 CHAINS_REL = 'recharged_assets/physics_chains.txt'
 OUT_REL = '.autoport/reports/Grecharged-secondary-motion/chain-volume-capture.txt'
+ROOM_GLOB = '.autoport/reports/Grecharged-secondary-motion/keira-room-table*.txt'
 
 # Echantillonnage de la sphere atteignable, comme la spec l'exige (spirale de Fibonacci,
 # >= 4096 points). Le verdict n'en depend pas : il est double par une reduction EXACTE
 # (axisymetrie, voir `capsule_margin_exact`) et les deux sont compares, ecart publie.
 NFIB = 16384
 NSCAN = 200001
+BONE_TOL = 0.03          # au-dela, la longueur d'os bind et celle mesuree par le moteur divergent
 
 
 # ==================================================================================================
@@ -144,6 +148,31 @@ def parse_chains(path):
 
 def vol_label(v):
     return ('%s->%s' % (v['ja'], v['jb'])) if v['kind'] == 'capsule' else ('sphere:' + v['ja'])
+
+
+ROOM_RX = re.compile(r'^\s*chain\s+(\S+)\s+links=(\d+).*?contact_frames=(\d+).*?'
+                     r'bones_m=([0-9.,]+)\s*$')
+
+
+def parse_room(repo):
+    """LA COURSE QUI A POSE LA QUESTION, relue telle qu'elle a ete imprimee.
+
+    Deux choses en sortent, et aucune n'est un commentaire : `contact_frames` — le nombre de
+    frames ou la chaine avait au moins une paire (lien, volume) en contact, c'est CE chiffre a
+    17893/17893 qui a motive ce probe — et `bones_m`, la longueur d'os que le MOTEUR a mesuree
+    sur le squelette retargete. Cette seconde sert de temoin externe a la geometrie lue ici,
+    qui vient de la pose de bind du GLB : deux sources independantes de la meme longueur."""
+    cands = sorted(glob.glob(os.path.join(repo, ROOM_GLOB)), key=os.path.getmtime)
+    if not cands:
+        return None, {}
+    path = cands[-1]
+    rows = {}
+    for line in open(path, encoding='utf-8', errors='replace'):
+        m = ROOM_RX.match(line)
+        if m:
+            rows[m.group(1)] = dict(links=int(m.group(2)), contact=int(m.group(3)),
+                                    bones=[float(x) for x in m.group(4).split(',')])
+    return os.path.relpath(path, repo), rows
 
 
 # ==================================================================================================
@@ -321,10 +350,13 @@ def main():
         cb = P[cj2] if cj2 >= 0 else ca
         vg.append(dict(v=v, cj=cj, cj2=cj2, ca=ca, cb=cb, label=vol_label(v)))
 
+    room_path, room = parse_room(repo)
     cap_rows, free_rows, sum_rows, note_rows, shell_rows = [], [], [], [], []
-    comp_rows, diff_rows = [], []
+    comp_rows, diff_rows, conf_rows, bone_rows = [], [], [], []
     captured_of = {}
     worst_gap = [0.0, '-']
+    worst_bone = [0.0, '-']
+    nbone = [0]
 
     def margins(A, R, rl, jidx, where):
         """(marge, label) contre chaque volume que le moteur testerait pour cette chaine."""
@@ -382,6 +414,31 @@ def main():
             offw = world_off(ibms, kk, off)
             C = P[kk] + offw
             Rc = float(np.linalg.norm((P[kk] - A) + offw))
+            # temoin externe : la meme longueur d'os, mesuree par le moteur sur le squelette
+            # retargete pendant la course de la salle.
+            bl = float(np.linalg.norm(P[kk] - A))
+            rr = room.get(ch['name'])
+            if rr and l < len(rr['bones']) and rr['bones'][l] > 0.001:
+                dev = abs(bl / UNITS - rr['bones'][l]) / rr['bones'][l]
+                nbone[0] += 1
+                if dev > worst_bone[0]:
+                    worst_bone[0] = dev
+                    worst_bone[1] = '%s/link%d' % (ch['name'], l)
+                if dev > BONE_TOL:
+                    # ON NE LAISSE PAS LA RESERVE EN L'ETAT : le verdict est REJOUE a la longueur
+                    # que le moteur a mesuree, et c'est ce rejeu qui est publie.
+                    ralt = Rc * rr['bones'][l] / (bl / UNITS)
+                    alt = [(m, lab) for m, lab, _x in
+                           margins(A, ralt, rl, jidx, '%s/link%d-alt' % (ch['name'], l))
+                           if m < 0.0]
+                    bone_rows.append('BONEDEV chain=%s link=%d joint=%s bind=%.4f m '
+                                     'mesuree-par-le-moteur=%.4f m ecart=%.1f %% — portee %.0f u '
+                                     'ici, %.0f u a la longueur mesuree ; verdict rejoue a cette '
+                                     'longueur : %s'
+                                     % (ch['name'], l, jn, bl / UNITS, rr['bones'][l],
+                                        100.0 * dev, Rc, ralt,
+                                        ('CAPTURE par ' + ','.join(lab for _m, lab in alt))
+                                        if alt else 'LIBRE, inchange'))
             pinned = (l < rlk)
             tag = '  [fige rootlock]' if pinned else ''
             if l == rlk:
@@ -436,6 +493,13 @@ def main():
         sum_rows.append('SUMMARY chain=%s links=%d captured=%d volumes=%s'
                         % (ch['name'], n, len(caps_here),
                            ','.join(caps_here) if caps_here else '-'))
+        rr = room.get(ch['name'])
+        if rr:
+            conf_rows.append('CONFRONT chain=%-12s contact_frames=%-6d captured=%d/%d  -> %s'
+                             % (ch['name'], rr['contact'], len(caps_here), n,
+                                'le contact permanent est GEOMETRIQUE' if caps_here else
+                                ('contact permanent SANS capture geometrique : la cause est '
+                                 'ailleurs' if rr['contact'] >= 17000 else 'contact episodique')))
         note_rows.append('NOTE    chain=%s rootlock=%d volumes-propres-exclus(phys-col-own?)=%s'
                          % (ch['name'], ch['rootlock'], ','.join(excluded) if excluded else '-'))
 
@@ -476,8 +540,23 @@ def main():
     for s in note_rows:
         emit(s)
     emit('')
+    if conf_rows:
+        emit('-- CONFRONTATION AVEC LA COURSE QUI A POSE LA QUESTION -----------------------------')
+        emit('   source : %s' % room_path)
+        for s in conf_rows:
+            emit(s)
+        emit('')
     emit('CHECK fibonacci-vs-exact: pire ecart %.2f u sur %s (les deux minorent le vrai maximum ; '
          'le verdict prend le plus grand des deux)' % (worst_gap[0], worst_gap[1]))
+    if room_path:
+        emit('CHECK longueur-d-os bind vs mesuree par le moteur: %d/%d liens sous %.0f %%, pire '
+             'ecart %.1f %% (%s)'
+             % (nbone[0] - len(bone_rows), nbone[0], 100.0 * BONE_TOL,
+                100.0 * worst_bone[0], worst_bone[1]))
+        for s in bone_rows:
+            emit(s)
+    else:
+        emit('CHECK longueur-d-os : aucune table de salle trouvee, temoin externe indisponible')
     emit('')
 
     # ---- LES DEUX CONTROLES -------------------------------------------------------------------
