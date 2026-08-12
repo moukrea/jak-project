@@ -153,15 +153,30 @@
 (defconstant PHYSROOM-PH-INVPC  8)
 (defconstant PHYSROOM-PH-SELFOFF 9)
 (defconstant PHYSROOM-PH-SELFON 10)
-(defconstant PHYSROOM-PH-SIDEON 11)
+;; CONTROLE POSITIF DE LA CONTRAINTE DE COTE — DEUX BRANCHES QUI BALAYENT LES ANIMATIONS.
+;;
+;; Ce que faisait la version precedente, et pourquoi elle a rendu `armed=0 disarmed=0` : la branche
+;; armee tenait 90 frames sur UNE SEULE animation (index 0, `assistant-idle-leaning-right`) et un
+;; seul pilotage, pendant que le phenomene qu'elle pretend exercer — les lunettes qui traversent le
+;; buste, le pan qui passe dans le mollet — se produit sur des animations PRECISES que cette
+;; fenetre-la ne joue jamais. Un controle qui n'expose pas le defaut ne prouve pas qu'il a disparu :
+;; il prouve qu'on ne l'a pas regarde. Mesure de la course du 2026-08-12 15:46 : side=0.0 sur les
+;; SIX fenetres de diagnostic, y compris armee.
+;;
+;; Les deux branches balayent donc les MEMES `nanim` animations, `PHYSROOM-PCW` frames chacune, meme
+;; pilotage : exposition identique de part et d'autre, ce qui est la seule facon de comparer deux
+;; comptes. C'est aussi la correction que le cycle precedent avait ecrite sans la poser : comparer
+;; 43 evenements sur 90 frames a 11446 sur 16740 rapprochait deux expositions differentes.
+(defconstant PHYSROOM-PH-SIDEOFF 11)   ;; contrainte EN PLACE   — la reference
+(defconstant PHYSROOM-PH-SIDEON  12)   ;; contrainte LEVEE      — le compteur DOIT monter
 ;; CONTROLE POSITIF DU FOURREAU (defaut ouvert `pant-calf`). La contrainte de concentricite
 ;; remplace l'ejection laterale du pan de pantacourt hors du mollet ; son residu doit tomber a zero,
 ;; et un zero que rien ne peut faire monter ne prouve rien. ARMEE, `phys-shell-off-set!` rend au pan
 ;; sa sphere de poussee d'avant : l'ecart radial DOIT remonter.
-(defconstant PHYSROOM-PH-SHELLOFF 12)
-(defconstant PHYSROOM-PH-SHELLON  13)
-(defconstant PHYSROOM-PH-REPORT 14)
-(defconstant PHYSROOM-PH-DONE   15)
+(defconstant PHYSROOM-PH-SHELLOFF 13)
+(defconstant PHYSROOM-PH-SHELLON  14)
+(defconstant PHYSROOM-PH-REPORT 15)
+(defconstant PHYSROOM-PH-DONE   16)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -1027,25 +1042,51 @@
        (physroom-emit-diag "self-armed")
        (phys-self-inject-set! 0)
        (phys-diag-reset!)
-       (phys-side-off-set! 1)
-       (set! (-> self phase) PHYSROOM-PH-SIDEON)
+       (set! (-> self ai) 0)
+       (physroom-set-anim 0)
+       (set! (-> self phase) PHYSROOM-PH-SIDEOFF)
        (set! (-> self pframe) 0)))
 
-    ;; ---- 9bis. CONTROLE POSITIF DE LA CONTRAINTE DE COTE. `side` est tombe de 11446 a 0 quand la
-    ;; ---- contrainte est arrivee ; un compteur qui s'effondre est soit une correction, soit un
-    ;; ---- predicat devenu inevaluable — le piege de `(= l 0)`, trouve le matin meme. ARME, la
-    ;; ---- contrainte est levee et RIEN d'autre ne change : le compteur DOIT remonter. La fenetre
-    ;; ---- DESARMEE est `self-disarmed` (meme pilotage, meme duree, contrainte en place).
+    ;; ---- 9bis. CONTROLE POSITIF DE LA CONTRAINTE DE COTE, DEUX BRANCHES A EXPOSITION EGALE.
+    ;; ---- `side` est tombe de 11446 a 0 quand la contrainte est arrivee ; un compteur qui
+    ;; ---- s'effondre est soit une correction, soit un predicat devenu inevaluable. La branche
+    ;; ---- DESARMEE (contrainte en place) et la branche ARMEE (contrainte levee, rien d'autre)
+    ;; ---- jouent TOUTES LES ANIMATIONS, PHYSROOM-PCW frames chacune, meme pilotage : c'est la
+    ;; ---- seule facon de comparer deux comptes, et c'est ce qui manquait quand les deux
+    ;; ---- rendaient zero (la fenetre de 90 frames sur l'animation 0 ne joue simplement pas les
+    ;; ---- animations ou les lunettes traversent le buste).
+    ((= (-> self phase) PHYSROOM-PH-SIDEOFF)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (physroom-emit-diag "side-disarmed")
+          (phys-diag-reset!)
+          (phys-side-off-set! 1)
+          (set! (-> self ai) 0)
+          (physroom-set-anim 0)
+          (set! (-> self phase) PHYSROOM-PH-SIDEON)))))
+
     ((= (-> self phase) PHYSROOM-PH-SIDEON)
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
-       (physroom-emit-diag "side-armed")
-       (phys-side-off-set! 0)
-       (phys-diag-reset!)
-       (phys-shell-reset!)
-       (set! (-> self phase) PHYSROOM-PH-SHELLOFF)
-       (set! (-> self pframe) 0)))
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (physroom-emit-diag "side-armed")
+          (phys-side-off-set! 0)
+          (phys-diag-reset!)
+          (phys-shell-reset!)
+          (set! (-> self phase) PHYSROOM-PH-SHELLOFF)))))
 
     ;; ---- 9ter. CONTROLE POSITIF DU FOURREAU (`pant-calf`). Le pan de pantacourt est une COQUE
     ;; ---- autour du mollet : le pousser « dehors » l'ejecte lateralement de ~700 u et enfonce la
