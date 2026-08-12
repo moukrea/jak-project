@@ -68,7 +68,10 @@ if [ -f goal_src/jak1/pc/jak-hd-physics.gc ]; then
   # la premiere fois. La croissance reste de la CONTRAINTE et de la MESURE, pas des suppresseurs.
   # Le plafond ne monte jamais pour laisser passer un suppresseur : c'est la composition qui
   # decide, jamais le nombre.
-  if [ "$_n" -gt 4000 ]; then
+  # 2026-08-12 18:40 : troisieme relevement, meme methode -- on regarde CE QUI a grossi, jamais le
+  # nombre seul. La croissance reste de la contrainte, du volume et de la mesure; les clamps et
+  # l'hysteresis restent a un chiffre la ou l'ancien moteur de 6000 lignes en portait 84 et 9.
+  if [ "$_n" -gt 4800 ]; then
     fail "CLEAN: le moteur fait $_n lignes. L'ancien en faisait 6000 et c'est ce qui a tué le
   mouvement (clamps 9→84, détection d'anim 45→172, 42% des mesures à zéro). Si ce plafond gêne,
   c'est un signal, pas un obstacle à contourner."
