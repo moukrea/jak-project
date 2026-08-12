@@ -269,6 +269,41 @@ de cette chaine. C'est le test d'admissibilite de la SPEC 7, et il echoue ici.
 Retire : `physics_chains.txt` est revenu au md5 a7200f7f80abcabd88f6874482209adb,
 celui de la jambe D et du pack livre.
 
+ET LA CAUSE, ELLE, EST TROUVEE — EN FORME CLOSE, SANS COURSE NI BUILD.
+`.autoport/probe_head_volume_selfinclusion.py`, sur le rig et le mesh skinne :
+
+    PORTEE : la pointe peut-elle seulement SORTIR de la capsule `head->neck` (rayon 915) ?
+      backHair1   racine  393 u + os  426 u = portee  820 u   ->  NE SORT JAMAIS
+      Lbanga      racine  982 u + os 1178 u = portee 2160 u   ->  sort
+      Lmidhaira   racine  760 u + os  962 u = portee 1723 u   ->  sort
+
+Le maillon 0 de `backhair` est verrouille (rootlock) et sa racine est a 393 u de
+l'axe, donc 522 u DANS un volume de rayon 915. Son maillon libre pivote autour de
+cette racine : la distance a l'axe qu'il peut atteindre vaut au plus 393 + 426 =
+820 u. IL EST GEOMETRIQUEMENT IMPOSSIBLE QUE LA POINTE DE `backhair` SORTE DE LA
+CAPSULE DE TETE. Elle passe donc 100 % de ses frames en resolution de collision,
+et c'est exactement ce que `contact_frames = 17893/17893` disait.
+
+Et la correlation est parfaite sur les trois : celle qui ne peut pas sortir est en
+contact 17893 frames, les deux qui peuvent le sont 609 et 25 fois.
+
+CE QUE CA FERME COMME PISTE : tout reglage de `backhair`. Raideur, amortissement,
+gravite, couplage — aucun ne change une inegalite entre deux longueurs. Deux
+essais y ont ete depenses ce cycle, un troisieme serait du gaspillage.
+
+UNE HYPOTHESE TESTEE ET REFUTEE AU PASSAGE, parce qu'elle etait seduisante : le
+volume de tete serait-il ajuste SUR les cheveux qu'il doit repousser ? Non — en
+retirant les 107 sommets a poids de cheveux (6 % des 1699), le rayon ajuste passe
+de 915 a 922, soit -1 %. Le volume de tete est ajuste sur la peau, il est
+simplement plus grand que la portee de cette chaine-la.
+
+CE QUI RESTE OUVERT ET QUE JE NE SUPPOSE PAS : `lbang` est AUSSI en contact
+17893/17893 alors que sa portee (2160 u) lui permet largement de sortir de la
+tete. Son contact permanent est donc avec un AUTRE volume, que ce probe
+n'identifie pas. Il faudrait la penetration par (lien, VOLUME), qui n'est
+toujours pas instrumentee — c'est le meme manque que le cycle precedent avait
+nomme pour les languettes de genoux.
+
 ================================================================================
 3. LE COUT EN BUILDS : ZERO
 ================================================================================

@@ -215,9 +215,28 @@ OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements,
 #  contraint quoi que ce soit, pendant que le pli de 80 degres que l'owner voit ne bouge pas d'un
 #  dixieme. La mesure qui protege cette chaine ne voit pas le defaut de cette chaine — c'est le test
 #  d'admissibilite de la SPEC 7, et il echoue ici.
-#  LA VOIE RESTANTE EST DONC LA GEOMETRIE DU VOLUME, pas un parametre : pourquoi une chaine de
-#  cheveux est-elle en contact 100 % du temps ? Meme famille que les 50.4 % de sommets hors de
-#  l'union des volumes deja mesures, et meme reponse pressentie que pour `pant-calf` et
+#  LA CAUSE EST TROUVEE, EN FORME CLOSE, SANS COURSE NI BUILD
+#  (.autoport/probe_head_volume_selfinclusion.py, sur le rig et le mesh skinne) :
+#      PORTEE — la pointe peut-elle SORTIR de la capsule `head->neck` (rayon 915 u) ?
+#        backHair1   racine 393 u + os 426 u = portee  820 u   ->  NE SORT JAMAIS
+#        Lbanga      racine 982 u + os 1178 u = portee 2160 u  ->  sort
+#        Lmidhaira   racine 760 u + os  962 u = portee 1723 u  ->  sort
+#  Le maillon 0 est verrouille et la racine de `backhair` est 522 u DANS le volume ; son maillon
+#  libre pivote autour d'elle, donc il atteint au plus 393+426 = 820 u contre un rayon de 915.
+#  IL EST GEOMETRIQUEMENT IMPOSSIBLE QUE SA POINTE SORTE DE LA CAPSULE DE TETE — elle passe donc
+#  100 % de ses frames en resolution de collision. La correlation est parfaite sur les trois :
+#  celle qui ne peut pas sortir est en contact 17893 frames, les deux qui peuvent, 609 et 25.
+#  CE QUE CA FERME : tout reglage de `backhair`. Raideur, amortissement, gravite, couplage — aucun
+#  ne change une inegalite entre deux longueurs.
+#  HYPOTHESE TESTEE ET REFUTEE au passage : le volume de tete serait ajuste SUR les cheveux qu'il
+#  doit repousser ? Non — en retirant les 107 sommets a poids de cheveux (6 % de 1699), le rayon
+#  ajuste passe de 915 a 922, soit -1 %. Il est ajuste sur la peau ; il est juste plus grand que
+#  la portee de cette chaine.
+#  RESTE OUVERT, ET JE NE LE SUPPOSE PAS : `lbang` est AUSSI en contact 17893/17893 alors que sa
+#  portee (2160 u) lui permet de sortir de la tete. Son contact permanent est avec un AUTRE volume,
+#  non identifie — il faudrait la penetration par (lien, VOLUME), toujours pas instrumentee.
+#  LA VOIE EST DONC LA GEOMETRIE DU VOLUME, pas un parametre. Meme famille que les 50.4 % de
+#  sommets hors de l'union des volumes, et meme reponse pressentie que pour `pant-calf` et
 #  `goggles-bottom` — la suggestion de l'owner (deriver du MESH, pas du rig).
 OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
 #  --- 20e PASSE (2026-08-12) : LA CAUSE EST TROUVEE, MESUREE, ET CORRIGEE COTE DONNEES. ---
