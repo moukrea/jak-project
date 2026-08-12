@@ -68,3 +68,39 @@ transfer lBoob from=chest cap=0.90 shape=0.55
 # The trouser flaps: peak 0.16 over ~45 verts, dominant on none. They were simulated and inert.
 transfer LpantFlap from=Lknee,Lthigh cap=0.90 shape=0.75
 transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
+
+# =============================================================================================
+# GRADUATION DE JONCTION — defaut PRIORITE 1 `hair-skinning`, diagnostic de l'owner (2026-08-12)
+#
+#   « La physique ne s'applique pas a toute la geometrie de ces deux meches mais a seulement une
+#     partie, donc on a des polygones qui bougent et des polygones voisins parfaitement statiques,
+#     causant la geometrie qui casse. Faudrait que la meche entiere soit prise en compte ! »
+#
+# Le defaut n'est PAS une meche mal pesee : c'est la BORDURE d'ancrage cuir chevelu / meche, ou un
+# sommet a 100 % meche touche un sommet a 100 % `head` sans bande de melange. Des que la meche
+# tourne, ces deux sommets partent dans des directions opposees et le triangle entre eux se dechire.
+#
+# MESURE (`.autoport/probe_hair_grade.py`, sur la vraie geometrie du donneur) — aretes dont le poids
+# SOMME de la chaine saute de plus de 0.5 entre deux sommets voisins, avant -> apres :
+#     rmidhair 82 -> 0     lmidhair 19 -> 0     lbang 10 -> 0     rbang 10 -> 0
+#     earL     26 -> 0     earR     24 -> 0     backhair 0 -> 0
+# ANCRAGE tenu partout (SPEC 2) : aucun sommet ne bascule en majorite vers la meche (0 partout), et
+# `head` garde 0.61 a 0.71 sur la rangee remontee. Propriete rendue aux donneurs : 1.85 (rmidhair),
+# 0.10 (lmidhair), 0.00 ailleurs — chiffree, pas silencieuse.
+#
+# CONTROLE : `backhair` est la jonction qui NE casse pas, marche max 0.451 mesuree. L'operateur ne
+# la bouge que de 0.001 — la reference saine reste saine, ce qui prouve qu'il corrige le defaut et
+# ne repond pas au hasard. Et la colonne « avant » (82, 19, 10, 10, 26, 24) est le controle positif :
+# le meme instrument, dans la meme course, compte non nul sur l'entree non graduee.
+#
+# `step=0.45` et pas 0.50 : le compteur declenche des que la marche DEPASSE 0.50, et viser 0.50 pile
+# laissait la renormalisation repasser au-dessus du seuil (mesure : 59 aretes restantes, toutes a
+# 0.500). 0.45 est aussi la marche de `backhair` — on se cale sur la sante mesuree, pas sur le seuil.
+# =============================================================================================
+grade Rmidhaira chain=Rmidhaira,Rmidhairb from=head step=0.45
+grade Lmidhaira chain=Lmidhaira,Lmidhairb from=head step=0.45
+grade Lbanga    chain=Lbanga,Lbangb,Lbangc from=head step=0.45
+grade Rbanga    chain=Rbanga,Rbangb,Rbangc from=head step=0.45
+grade backHair1 chain=backHair1,backHair2  from=head step=0.45
+grade lEara     chain=lEara,lEarb          from=head step=0.45
+grade rEara     chain=rEara,rEarb          from=head step=0.45

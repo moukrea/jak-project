@@ -59,12 +59,13 @@ binc0 = consolidate_buffers(js0, b0)
 n0, V0, Wd0, E0 = snapshot(js0, binc0)
 T0 = tears(n0, Wd0, E0)
 
-open(CFG, 'w').write("""[model keira-hd]
-grade Rmidhaira from=head step=0.5
-grade Rmidhairb from=head step=0.5
-grade Lmidhaira from=head step=0.5
-grade Lmidhairb from=head step=0.5
-""")
+# UNE regle par CHAINE, pas par joint : `tear` se mesure sur le poids SOMME de la chaine, donc
+# c'est cette somme qu'il faut graduer.  Grader joint par joint bornait la marche de `Rmidhaira`
+# pendant que celle de `Rmidhaira + Rmidhairb` restait a 1.0 — mesure du 2026-08-12 : 82 -> 68.
+STEP = float(os.environ.get('GRADE_STEP', '0.45'))
+open(CFG, 'w').write("[model keira-hd]\n" + "".join(
+    "grade %s chain=%s from=head step=%s\n" % (jl[0], ",".join(jl), STEP)
+    for jl in CHAINS.values()))
 cfg = RS.load_cfg(CFG)
 js, bufs = read_glb(SRC)
 binc = consolidate_buffers(js, bufs)
@@ -83,11 +84,44 @@ for cn in CHAINS:
             flag = "   <-- WORSE"
         print("%-10s %8d %8d%s" % (cn, T0[cn][0], T1[cn][0], flag))
 
+# ---------------------------------------------------------------------------------------------
+# DE QUELLE NATURE EST CE QUI RESTE ?  `_grade` rapporte une marche max de 0.500 alors que `tear`
+# en compte encore : les deux ne peuvent donc pas regarder le meme jeu d'aretes.  On tranche ici,
+# avec des nombres, au lieu de supposer.  Deux causes possibles et elles n'ont pas le meme remede :
+#   - SEAM : les deux extremites occupent la MEME position 3D (duplicata de couture UV/normale).
+#     Aucune arete ne les relie, donc aucun lissage ne peut les rapprocher — le remede est
+#     l'invariant de soudure : des sommets coincidents portent des poids identiques.
+#   - EDGE : une vraie arete que le lissage n'a pas vue (primitive differente, ou pas convergee).
+ji1 = {n: i for i, n in enumerate(n1)}
+pos = {}
+for i in range(len(V1)):
+    pos.setdefault((round(float(V1[i][0]), 3), round(float(V1[i][1]), 3),
+                    round(float(V1[i][2]), 3)), []).append(i)
+coinc = {i: g for g in pos.values() if len(g) > 1 for i in g}
+print()
+print("NATURE DE CE QUI RESTE (seam = duplicata coincident, edge = vraie arete) :")
+for cn, jl in CHAINS.items():
+    cols = [ji1[j] for j in jl if j in ji1]
+    if not cols:
+        continue
+    ws = Wd1[:, cols].sum(1)
+    own = set(int(x) for x in np.where(ws > 0.0)[0])
+    torn = [(u, v) for (u, v) in E1 if (u in own or v in own) and abs(ws[u] - ws[v]) > 0.5]
+    if not torn:
+        print("  %-9s aucune arete dechiree" % cn)
+        continue
+    seam = sum(1 for (u, v) in torn
+               if (round(float(V1[u][0]), 3), round(float(V1[u][1]), 3), round(float(V1[u][2]), 3))
+               == (round(float(V1[v][0]), 3), round(float(V1[v][1]), 3), round(float(V1[v][2]), 3)))
+    dup = sum(1 for (u, v) in torn if (u in coinc) or (v in coinc))
+    print("  %-9s reste=%-4d  marche max=%.3f  extremites coincidentes=%d  touche un duplicata=%d"
+          % (cn, len(torn), max(abs(ws[u] - ws[v]) for (u, v) in torn), seam, dup))
+
 ji = {n: i for i, n in enumerate(n1)}
 hd = ji['head']
 print()
 print("ANCHORING of the ring that was lifted (must stay roughly half-held by `head`):")
-for cn, jl in (('rmidhair', ['Rmidhaira', 'Rmidhairb']), ('lmidhair', ['Lmidhaira', 'Lmidhairb'])):
+for cn, jl in CHAINS.items():
     cols = [ji[j] for j in jl]
     a = Wd0[:, cols].sum(1)
     b = Wd1[:, cols].sum(1)
