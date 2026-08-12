@@ -18,11 +18,42 @@ SCOPE-SERIAL: 3
      reformuler ne doit jamais coûter une tentative. -->
 
 * Phase : `Grecharged-secondary-motion` — physique secondaire. Branche : **`physics-keira-clean`**.
-* **DÉPART PROPRE, ACTÉ LE 2026-08-11.** Owner : « parke tous les commits propres à la physique sur
-  une branche dédiée et repars propre en ne faisant un focus que sur Keira comme on a dit ». Toute
-  la physique accumulée est sur `physics-attic-2026-08-11` : **elle n'est pas une base de travail**,
-  on ne la consulte pas pour « récupérer » du code. Le moteur est un squelette de 5 prises et le
-  fichier de chaînes est **vide**.
+* **DÉPART PROPRE, ACTÉ LE 2026-08-11 — MAIS RÉVISÉ LE 2026-08-12 (INVENTAIRE AVANT DE RASER).**
+  Owner : « parke tous les commits propres à la physique sur une branche dédiée et repars propre ».
+  J'ai alors écrit « `physics-attic-2026-08-11` n'est pas une base de travail, on ne la consulte
+  pas ». **C'était une erreur, et l'owner l'a relevée le 2026-08-12** :
+
+  > « Ce qui me troue sur ton travail actuel sur Keira (les cheveux), c'est que dans l'historique de
+  > ce qu'on a parké il y a des commits où la physique des cheveux de Keira fonctionnait bien. Je
+  > comprends pas pourquoi tu t'en sors pas alors que tu travailles UNIQUEMENT sur Keira et
+  > UNIQUEMENT sur le modèle HD, alors que sur cette branche on traitait tous les personnages. »
+
+  Il a raison. Repartir propre voulait dire **jeter l'empilement de suppresseurs**, pas jeter les
+  **solutions acquises sur des semaines**. En réduisant le moteur à 51 lignes et en tout
+  re-dérivant, j'ai perdu du travail qui marchait — et j'ai passé trois jours à redécouvrir à la
+  main des choses probablement déjà résolues là-bas (rotation du dernier maillon, couverture de
+  peau, dimensionnement des volumes).
+
+  **NOUVELLE CONSIGNE : `physics-attic-2026-08-11` SE MINE — COMME RÉFÉRENCE, JAMAIS COMME SOURCE.**
+  Précision de l'owner (2026-08-12) : « attention, faudra t'assurer que le travail de la branche
+  parkée ne te pollue pas, et parcourir son **historique** ! La branche est là à des fins de
+  référence et d'investigation, autant en profiter. »
+
+  Méthode, dans cet ordre :
+  1. **Parcourir l'HISTORIQUE, pas seulement la pointe.** Les commits où les cheveux fonctionnaient
+     sont *dans* l'historique, avant que l'empilement de suppresseurs ne les étouffe. `git log -p`
+     sur les fichiers de chaînes de cheveux, en cherchant les états intermédiaires, pas l'état final.
+  2. **Lire, comprendre, formuler la LEÇON** — ordre d'écriture des joints, verrouillage de racine,
+     couverture des joints par chaîne, traitement du premier et du dernier maillon.
+  3. **Réimplémenter dans le moteur propre**, à la main, avec la mesure qui l'atteste et le plancher
+     qui la protège. **Aucun `git checkout`, aucun cherry-pick, aucun copier-coller de bloc.** Un
+     morceau importé sans être compris ramènerait avec lui le contexte qui l'entourait — et c'est ce
+     contexte-là (clamps, hystérésis, gels) qui avait tué le mouvement.
+  4. **Rapporter ce qui a été trouvé et ce qui a été écarté**, avec le hash du commit consulté. Une
+     leçon tirée de l'attic se cite comme n'importe quelle autre preuve.
+
+  Autrement dit : la branche parkée est un **carnet de laboratoire**, pas un dépôt de pièces
+  détachées. On y cherche *pourquoi ça marchait*, on ne récupère pas *le code qui marchait*.
 * **CONTRAT UNIQUE : `.autoport/prompts/SPEC-keira-physique.md`**, réécrit depuis son message. Il
   dit ce qui a de la physique (oreilles, cheveux à racine ancrée, mèches, seins, lunettes, ce qui
   pend), la liste exacte des collisions interdites, le repos = pose du modèle sauf ce qui pend, et

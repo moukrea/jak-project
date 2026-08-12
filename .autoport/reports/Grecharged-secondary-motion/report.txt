@@ -468,3 +468,19 @@ cours, un seul changement a la fois — regle du GROUPE B) :
   c. mesurer `ROOM-GRADIENT` EN REPERE PARENT : la suite doit devenir croissante sur les cinq
      chaines. C'est la seule preuve qui compte, et c'est celle que l'attic n'avait pas.
 Aucune de ces trois etapes n'est faite dans ce cycle, et je ne les presente pas comme faites.
+
+ET (a) NE SE FAIT PAS SANS (b) — VERIFIE DANS L'ARBRE, C'EST LA CONTRAINTE QUI ORDONNE LE TRAVAIL.
+Le moteur propre ne contient AUCUN profil d'influence : `grep -n 'infl\|influence'` sur
+`jak-hd-physics.gc` ne rend RIEN. `rootlock` y est donc purement binaire — ligne 21 : « o = 0 sur
+les liens `rootlock` : ils ne sont ni integres ni ecrits ». C'est exactement la discontinuite que
+l'attic avait diagnostiquee et corrigee (`26b26029d9`), et elle est revenue avec la table rase.
+Consequence pratique : passer `rootlock=0` SEUL ferait deriver la racine — donc `rootdev` au-dessus
+du seuil de 2.0 de la gate ROOT, et a l'ecran des « cheveux decolles », c'est-a-dire un defaut PIRE
+que celui qu'on corrige (regle 6 : « une resolution pire que le clip est pire que rien »). Les deux
+moities sont indissociables, comme la SPEC 2 le dit depuis le debut : ancre ET mobile.
+Le profil est donc a ECRIRE, pas a rebrancher : ~une soixantaine de lignes (rampe
+`infl_i = wroot + (1-wroot)*i/(len-1)`, marche adjacente bornee, plancher de liberte pour les
+chaines courtes), et il ne produit aucun effet mesurable tant que `rootlock` reste a 1 — donc il ne
+se verifie qu'avec (a), en un seul changement logique et une seule course.
+C'est le premier point du prochain cycle, et c'est celui qui a le plus de retours de l'owner
+derriere lui (7 passes sur les meches).

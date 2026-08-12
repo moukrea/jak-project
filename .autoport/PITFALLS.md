@@ -85,3 +85,16 @@ GUARD hand-capsules recharged_assets/keira-owner-tuning.txt MES CAPSULES ONT
 fines que celles que le rig génère, posées sur les mêmes segments — exactement ce que l'owner
 condamne depuis le début. Verrou : si un volume manque ou est trop petit, ça se corrige dans la
 **génération**, jamais par un rayon deviné.
+
+GUARD tabula-rasa-inventory .autoport/DIRECTIVES.md INVENTAIRE AVANT DE RASER
+**Une table rase jette aussi ce qui marchait.** Owner, 2026-08-12 : « la branche parkée contient des
+commits où la physique des cheveux de Keira fonctionnait bien, je comprends pas pourquoi tu t'en
+sors pas alors que tu travailles UNIQUEMENT sur Keira et UNIQUEMENT sur le modèle HD, alors que
+là-bas on traitait tous les personnages ». Il a raison. En « repartant propre » j'ai réduit le
+moteur à 51 lignes et tout re-dérivé de zéro : j'ai jeté l'empilement de suppresseurs (le mal) **et
+les solutions acquises sur des semaines** (le bien), puis j'ai passé trois jours à redécouvrir à la
+main des choses probablement déjà résolues — rotation du dernier maillon, couverture de peau,
+dimensionnement des volumes. **Repartir propre ne veut pas dire repartir vide.**
+Verrou : avant toute table rase, produire l'**inventaire des acquis** de l'état parké — ce qui
+fonctionnait, avec la mesure qui l'atteste — et porter ces acquis un par un, mesurés contre le
+plancher, au lieu de tout réécrire à l'aveugle. Un état parké se **mine**, il ne s'oublie pas.
