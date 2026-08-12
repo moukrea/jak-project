@@ -116,9 +116,20 @@ Date exacte, lue sur les tableaux horodates de la phase :
 
 `pantflapL`/`pantflapR` sont **les deux seules chaines du fichier a porter un `shell=`**
 (452 / 448). Le traitement de fourreau, pose pour corriger `pant-calf`, a coute la moitie du
-mouvement des pans — et `ROOM-SHELL` dit `run=0.0000` pour les deux : dans la course normale la
-correction de fourreau ne produit RIEN, alors que son controle positif tire a 0.0851 / 0.0764.
-Le prix a ete paye, le service n'est pas rendu.
+mouvement des pans.
+
+CORRECTION DE MA PROPRE LECTURE, ET ELLE CHANGE LA CONCLUSION. J'avais d'abord ecrit ici que le
+fourreau « ne produit RIEN » parce que `ROOM-SHELL` donne `run=0.0000`. C'est l'inverse :
+`phys-shell-res` documente « LECTURE QUAND LE DEFAUT EST ABSENT : <= 0 », et `armed` designe le
+CONTROLE arme — c'est-a-dire le fourreau DESACTIVE par `phys-shell-off-set!`, ce que confirme la
+docstring de `phys-shell-count` (« c'est `phys-shell-off-set!` qui doit le faire monter »).
+Donc : `run=0.0000` = AUCUN ecart radial residuel = **le fourreau fait exactement son travail**,
+et `armed=0.0851/0.0764` est le defaut reapparaissant quand on l'eteint. Le controle tire.
+
+Le fourreau n'est donc PAS a retirer sur la foi de ce chiffre. Ce qui reste vrai et non resolu,
+c'est le PRIX : -49 % de mouvement sur les deux pans, sous le seuil de 40 % de la gate FLOOR.
+C'est un ARBITRAGE mesure (contenir le tissu contre le mouvement qu'il lui reste), pas un bug —
+et il se tranche devant l'oeil de l'owner, pas par moi. La question a lui poser est au point 6.
 
 C'est exactement la « regle de conservation » des DIRECTIVES (« aucune chaine ne passe sous 60 %
 de son plancher, sinon le point est RETIRE ») — violee depuis 14h39 sans que rien ne le voie.
@@ -141,6 +152,12 @@ qui a perdu la moitie de son mouvement reste range dans le mollet.
 4. Les lunettes et les bretelles bougent aussi (elles sont rootlockees) mais sur tres peu de
    geometrie : 40 sommets pour la base des lunettes, 15 et 16 pour les bretelles basses, ZERO
    pour les bretelles hautes. Un changement visible de ce cote serait une surprise a signaler.
+5. LE BAS DU PANTACOURT — une question, pas une correction. Depuis 14h39 les deux pans ont perdu
+   la moitie de leur mouvement (point 5.b) au profit d'une contrainte de concentricite qui, elle,
+   fonctionne (ecart radial residuel nul, controle qui tire). Autrement dit : le tissu ne rentre
+   plus dans le mollet, mais il est devenu raide. Est-ce que tu le vois maintenant SORTI de la
+   jambe — et si oui, est-ce qu'il te parait trop fige ? Ta reponse decide si on garde
+   l'arbitrage tel quel ou si on cherche a rendre le mouvement sans reperdre la containment.
 
 
 7. CE QUI RESTE OUVERT, SANS RIEN TAIRE
@@ -155,3 +172,52 @@ Non prouve, et je le dis plutot que de le laisser croire :
   * la salle ne joue AUCUNE cinematique, donc `goggles-tunnel` reste hors de portee de mesure ;
   * `rootrot` prouve l'execution, pas la qualite ;
   * le rendu du pli au cuir chevelu n'est mesure par rien (point 6.3).
+
+
+8. AJOUT — HUIT CHAINES N'ONT PAS L'AMPLITUDE QUE LA PHYSIQUE LEUR DONNE, MAIS CELLE D'UN CLAMP
+================================================================================================
+Trouve en poursuivant `knee-tabs`. Le moteur porte un MUR DUR d'excursion (`jak-hd-physics.gc`
+l.1479-1497) : pour `l = 0` uniquement, l'ecart du lien a sa pose ANIMEE est plafonne net a
+`rmax = *phys-rad*[l]`, le propre rayon mesure du lien. Le compteur `raddrop` compte ses morsures.
+
+Il ne mord QUE sur les chaines sans `rootlock` (les chaines a 1 maillon) — zero sur les 13
+rootlockees. Et sur ces huit-la, le pic d'excursion mesure vaut EXACTEMENT le rayon du mur :
+
+    chaine        radius   radius/4096   rootdev (pic mesure)   raddrop   ecart
+    chestL          656       0.1602           0.1602             7798    < 0.6 mm
+    chestR          660       0.1611           0.1611             3257    < 0.6 mm
+    kneeflapL       244       0.0596           0.0596             4531    < 0.6 mm
+    kneeflapR       244       0.0596           0.0596             3569    < 0.6 mm
+    toestrapL       188       0.0459           0.0459             7522    < 0.6 mm
+    toestrapR       188       0.0459           0.0459             7057    < 0.6 mm
+    anklestrapL     225       0.0549           0.0549             5484    < 0.6 mm
+    anklestrapR     225       0.0549           0.0549             5186    < 0.6 mm
+    ---- temoin, la ou le mur ne mord jamais ----
+    pantflapL       429       0.1047           0.0900                0    14.7 mm SOUS le plafond
+    pantflapR       443       0.1082           0.0900                0    18.2 mm SOUS le plafond
+
+LECTURE : sur ces huit chaines l'amplitude de pointe n'est pas produite par la physique, elle est
+POSEE PAR UN CLAMP. Les deux chaines temoins, elles, s'arretent d'elles-memes sous leur plafond —
+c'est la preuve que la coincidence a 0.6 mm n'est pas une propriete de la mesure.
+
+CE QUE CA EXPLIQUE, ET C'EST DEUX DEFAUTS OUVERTS :
+  * `knee-tabs` — « les languettes ne bougent pas du tout ». Le cycle precedent a monte leur
+    couplage (1.00 -> 1.60) et leur masse (0.60 -> 0.85) sans aucun effet visible. C'est
+    MECANIQUEMENT NORMAL : aucun reglage de raideur, de masse ou de couplage ne peut deplacer un
+    lien plaque contre un plafond dur. On reglait un ressort derriere une butee.
+  * la poitrine « un peu mutee sur les mouvements subtils » : `chestL` mord 7798 fois.
+Un lien qui sature un clamp ne vibre pas, il se pose dessus — la signature visuelle d'un limiteur
+sature est precisement l'immobilite, pas une amplitude reduite.
+
+CE QUE SPEC 7 EN DIT : « Pas de suppresseur par defaut... on en ajoute un uniquement si un defaut
+mesure l'exige, et on chiffre COMBIEN DE MOUVEMENT IL RETIRE. » Ce chiffre existe dans le moteur —
+`*phys-raddrop-sum*` accumule `(e - e2)`, l.1387 et 1494 — mais il est GLOBAL et n'est jamais
+publie par chaine. Le nombre qui donnerait son prix au suppresseur est calcule puis jete.
+
+Je ne touche pas au mur dans ce cycle : c'est un changement de GROUPE B et j'en ai deja livre un.
+Ce qu'il faut d'abord, et c'est peu couteux : publier `raddrop-sum` PAR CHAINE, pour que la
+decision de le garder, de le relever ou de le retirer se prenne sur un nombre. La question qui la
+tranche est mecanique : l'os de `lKneeFlap` existe-t-il dans le rig ? S'il existe, la contrainte
+de longueur borne deja le lien et le mur est un SECOND plafond, plus serre, donc redondant ; s'il
+est degenere (joint confondu avec son attache, comme `LpantFlap` l'etait), le mur est le seul
+plafond et il faut le derive.
