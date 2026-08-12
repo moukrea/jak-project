@@ -2848,12 +2848,50 @@
                              ;; `rootlock`. Un maillon qui n'a pas de mur n'a pas de barriere, sinon
                              ;; ce serait un suppresseur de plus et non le remplacement d'un existant.
                              ;; --------------------------------------------------------------
+                             ;; --------------------------------------------------------------
+                             ;; LE RESSORT TIRE VERS LE PARENT SIMULE, PAS VERS LA POSE ANIMEE DU
+                             ;; MAILLON. C'est la cause racine de `hair-gradient` (PRIORITE 1).
+                             ;;
+                             ;; CE QUE LA MESURE DIT, et elle est deja acquise : le gradient est
+                             ;; inverse DES LA SORTIE DE L'INTEGRATION (etage 0 de phys-cap-ang!,
+                             ;; 9 chaines sur 9), donc aucune contrainte, aucune attenuation et
+                             ;; aucun recul n'en est responsable. Le defaut est dans ces lignes.
+                             ;;
+                             ;; CE QU'ELLES FAISAIENT. Chaque maillon integrait son ecart contre SA
+                             ;; PROPRE pose animee, avec la meme raideur, la meme masse et le meme
+                             ;; couplage que ses voisins — les parametres sont declares PAR CHAINE.
+                             ;; Sous une excitation commune (la tete tourne, le buste part), tous
+                             ;; les maillons recoivent donc la meme force et rendent le MEME ecart :
+                             ;; la chaine se translate en BLOC. Un bloc dont la racine est clouee
+                             ;; (rootlock) met tout son angle dans le premier segment et rien dans
+                             ;; les suivants — « les pointes sont ancrees au meme titre que les
+                             ;; racines, et c'est ce qu'il y a entre les deux qui bouge ». C'est
+                             ;; exactement la forme mesuree : lbang 0 / 50.77 / 29.76 degres,
+                             ;; rbang 0 / 73.39 / 26.87.
+                             ;;
+                             ;; CE QU'ELLES FONT MAINTENANT. Le rappel porte sur l'ecart RELATIF au
+                             ;; parent (o - o_parent), c'est-a-dire sur la deviation du maillon vu
+                             ;; depuis le repere SIMULE de son attache. Un ecart commun ne coute
+                             ;; alors plus rien au ressort : une translation en bloc n'est plus un
+                             ;; etat d'equilibre gratuit, chaque maillon doit gagner son propre
+                             ;; retard sur celui qui le porte, et les retards s'ADDITIONNENT vers
+                             ;; la pointe au lieu d'etre communs. Le parent est lu a son etat de
+                             ;; DEBUT de frame (o1, pose par le tour precedent de cette boucle),
+                             ;; donc l'integration reste explicite et l'information descend d'un
+                             ;; maillon par frame : c'est le fouet, et c'est ce que SPEC 2 demande.
+                             ;; Le maillon 0 garde l'ancre pour parent, son ecart relatif EST son
+                             ;; ecart absolu, et la barriere de butee ne change donc pas de sens.
+                             ;; --------------------------------------------------------------
                              (let* ((ox (-> *phys-ox* scl))
                                     (oy (-> *phys-oy* scl))
                                     (oz (-> *phys-oz* scl))
+                                    (pj  (if (> l 0) (-> *phys-joint* (- scl 1)) -1))
+                                    (rx (- ox (if (>= pj 0) (-> *phys-o1x* (- scl 1)) 0.0)))
+                                    (ry (- oy (if (>= pj 0) (-> *phys-o1y* (- scl 1)) 0.0)))
+                                    (rz (- oz (if (>= pj 0) (-> *phys-o1z* (- scl 1)) 0.0)))
                                     (bcap (if (= l 0) (-> *phys-rad* scl) 0.0))
                                     (kb (if (> bcap 0.01)
-                                          (let* ((r2 (/ (+ (* ox ox) (+ (* oy oy) (* oz oz)))
+                                          (let* ((r2 (/ (+ (* rx rx) (+ (* ry ry) (* rz rz)))
                                                         (* bcap bcap)))
                                                  (r6 (fmin 0.98 (* r2 (* r2 r2)))))
                                             (fmin 1.0 (/ k2 (- 1.0 r6))))
@@ -2861,9 +2899,9 @@
                                     (vx (* (- ox (-> *phys-o1x* scl)) (- 1.0 dmp)))
                                     (vy (* (- oy (-> *phys-o1y* scl)) (- 1.0 dmp)))
                                     (vz (* (- oz (-> *phys-o1z* scl)) (- 1.0 dmp)))
-                                    (ax (+ (* (- 0.0 kb) ox) (-> fl x) (* gsc (-> gl x))))
-                                    (ay (+ (* (- 0.0 kb) oy) (-> fl y) (* gsc (-> gl y))))
-                                    (az (+ (* (- 0.0 kb) oz) (-> fl z) (* gsc (-> gl z)))))
+                                    (ax (+ (* (- 0.0 kb) rx) (-> fl x) (* gsc (-> gl x))))
+                                    (ay (+ (* (- 0.0 kb) ry) (-> fl y) (* gsc (-> gl y))))
+                                    (az (+ (* (- 0.0 kb) rz) (-> fl z) (* gsc (-> gl z)))))
                                (set! (-> *phys-o1x* scl) ox)
                                (set! (-> *phys-o1y* scl) oy)
                                (set! (-> *phys-o1z* scl) oz)
