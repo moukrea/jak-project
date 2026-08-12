@@ -15,7 +15,7 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-os.chdir(os.path.join(HERE, '..', '..'))
+os.chdir(os.path.abspath(os.path.join(HERE, '..')))
 sys.path.insert(0, os.path.abspath('.autoport'))
 sys.path.insert(0, os.path.abspath('scripts/shell'))
 import numpy as np
