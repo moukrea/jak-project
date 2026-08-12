@@ -164,6 +164,25 @@ aucun taper et aucun correctif de solveur ne pourra s'y substituer. Je ne l'ai p
 fait ce cycle et je ne le maquille pas : c'est le prochain gros morceau, et il est
 d'une autre nature que tout ce qui a ete tente jusqu'ici.
 
+L'ECHAPPATOIRE EVIDENTE EST UNE IMPASSE, ET C'EST DEJA DOCUMENTE. Sur une chaine a
+deux joints, on pourrait esperer un degrade en liberant AUSSI le maillon 0
+(`rootlock=0`) : deux segments libres au lieu d'un, sans toucher au rig, et c'est un
+changement de DONNEES qui ne demande aucun build (`rootlock` est lu au runtime,
+game/kernel/jak1/kmachine.cpp:1434). Je ne l'ai pas tente, et voici pourquoi —
+en signalant que c'est une trace ECRITE de l'ancien moteur parke, donc une
+indication a re-mesurer, pas une preuve sur le moteur actuel (kmachine.cpp:927-932) :
+
+    « freeing a hair root to move would also have started colliding it with the
+      skull it is glued to: a permanent penetration no tuning could clear »
+
+L'attache d'une chaine est DANS le volume du corps par construction. L'ancien moteur
+s'en sortait avec `colskip`, un flag de derogation que la regle 4 de l'owner interdit
+desormais explicitement (« Aucun flag de derogation (colskip, filtres de volumes,
+masques) »). Liberer la racine echangerait donc un defaut de degrade contre une
+penetration permanente du crane — regle 6, « une resolution pire que le clip est pire
+que rien ». C'est une raison de plus pour laquelle la vraie reponse est d'ajouter de
+l'articulation AU MILIEU de la meche, loin du corps, et non d'en liberer la base.
+
 OBSERVATION AU PASSAGE, NON TRAITEE : le rig porte aussi `maskstrap`, `gogglesLeft`
 et `gogglesRight`, qu'AUCUNE chaine ne couvre. Les deux verres sont deja documentes
 (defaut `goggles-bottom`) ; `maskstrap` n'a jamais ete mentionne nulle part et
