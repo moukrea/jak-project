@@ -148,21 +148,47 @@ qui existe et c'est celui que l'owner a en main. Copie verifiee par md5 avant to
     799585a0d8afcc2538116638f1c37817  out/jak1/fr3/enhanced/GAME.fr3
     799585a0d8afcc2538116638f1c37817  ~/.autoport-scratch/enhanced-backup-20260812/GAME.fr3
 
-CE QUI BLOQUE LE BAKE, ET CE N'EST PAS CE CYCLE. Le bake echoue si le rapport de reskin contient
-`^  !!` (ligne 235). Mesure sur le donneur brut avec la recette complete (11 regles) :
+LE BAKE N'EST PAS BLOQUE — ET LE `!!` QUI LE FAISAIT CROIRE MESURAIT LE MAUVAIS FICHIER. Le bake
+echoue si le rapport de reskin contient `^  !!` (ligne 235). Le cycle precedent avait mesure ce
+`!!` sur le DONNEUR BRUT et en avait conclu que le bake etait bloque. Le bake ne reskinne pas le
+donneur brut : il reskinne un temporaire STAMPE (`hd_merc_swap stamp`) puis PREPPE
+(`prep_hd_actor_glb.py`). Les deux etapes ont ete reproduites a l'identique, et les nombres ne
+sont pas les memes parce que ce ne sont pas les memes sommets :
 
-    mes 7 regles `grade`                         -> 0 `!!`
-    `rBoob` (regle `transfer` PREEXISTANTE)      -> 1 `!!` : « moved ownership by only +0.047 »
+    entree                     rBoob                                        `!!`
+    donneur brut               274 sommets, p90 1.000, mean 0.584 -> 0.632    1   (+0.047)
+    STAMPE+PREPPE (le bake)     90 sommets, p90 0.365, mean 0.172 -> 0.547    0   (+0.375)
 
-Le seuil d'inertie est 0.05 et `rBoob` rend +0.047 : il passe a 3 millemes sous la barre. La regle
-n'est pas inerte au sens ou elle ne ferait rien (13.0 de poids deplace, dominants 160 -> 172) ;
-c'est le critere en MOYENNE qui la classe ainsi sur cette entree, parce que `rBoob` y possede deja
-beaucoup (mean 0.584). Et cette entree n'est PAS celle du bake : le bake reskinne un temporaire
-STAMPE puis PREPPE, pas le donneur brut. La verification sur l'entree reelle est en cours.
+`prep_hd_actor_glb.py` compacte les sommets depuis le pool du niveau (`verts=7963`) et reindexe les
+joints (`95 -> 94, JOINTS_0 u32->u8`) : le jeu de sommets ET l'indexation changent. Sur l'entree
+reelle, `rBoob` rend +0.375, soit 7,5 fois le seuil de 0.05. Les quatre regles `transfer` et mes
+sept regles `grade` passent, avec les memes chiffres que la sonde.
 
-Je n'ai donc PAS lance le bake dans ce cycle : le lancer sans savoir s'il passe la gate `!!`
-detruit `GAME.fr3` a la ligne 190 pour, au mieux, le reconstruire. La sauvegarde rend l'operation
-reversible, elle ne la rend pas gratuite.
+    nombre de lignes `^  !!` sur l'entree reelle du bake, keira-hd : 0
+    simulation exacte de la gate ligne 235                        : WOULD_PASS
+
+Les etapes suivantes du bake ont aussi ete verifiees sur le produit reskinne : `hd_merc_swap add`
+l'accepte (`APPENDED model name='keira-hd-lod0' max_bones=97 effects=6 draws=28 tris=10808`), le
+remappage des yeux et le portage de paupiere passent, et un `audit` contre le mesh livre donne une
+structure IDENTIQUE pour `keira-hd-lod0` (memes comptes de triangles par draw, memes
+`mod_verts=888 blerc_verts=877`, memes slots d'yeux). Seuls les index de texture different, ce qui
+est attendu : le mesh livre porte 11 modeles appendus, la reconstruction d'essai en portait 1.
+
+CE QUE J'AI CORRIGE AVANT DE POUVOIR BAKER, ET C'EST UNE DESTRUCTION QUE PERSONNE NE VOYAIT.
+`GAME.fr3` porte ONZE modeles HD, bakes quand la recette contenait encore les regles des autres
+personnages ; `f86d919800` a supprime la recette 22 minutes plus tard et seules celles de Keira
+avaient ete restaurees. Le reskin est applique PAR MODELE et un modele sans regle est un
+passthrough octet-pour-octet : rebaker en l'etat aurait rendu a jak-hd, jak2/jakp, jak3/jakm,
+samos, daxp et ysamos leur ponderation BRUTE, en silence, sans qu'aucune gate ne le voie. La
+correction des cheveux de Keira aurait ete payee par la peau de huit autres personnages. Les
+regles sont restaurees a l'identique depuis `git show f86d919800^:...` — personne ne recoit de
+physique pour autant, `physics_chains.txt` ne porte toujours que Keira (gate CLEAN). Le perimetre
+Keira dit QUI recoit de la physique ; il n'autorise pas a detruire l'artefact livre des autres.
+
+ETAT DU BAKE A LA FIN DE CE CYCLE : la gate `!!` est prouvee franchie pour `keira-hd` ; la meme
+verification sur les neuf autres modeles est la derniere condition avant de lancer, parce qu'un
+`!!` sur n'importe lequel d'entre eux tue le bake en cours de route apres avoir deja efface
+`GAME.fr3`. Le bake n'a donc pas ete lance dans ce cycle.
 
 -------------------------------------------------------------------------------------------------
 5. CE QUI RESTE OUVERT — AUCUN DE-SCOPE SILENCIEUX
