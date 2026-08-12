@@ -544,10 +544,14 @@
       ;; apres contraintes + attenuation). `ang` reste la valeur ECRITE. C'est la comparaison des
       ;; trois qui designe l'etage qui aplatit la pointe -- defaut `hair-gradient`, PRIORITE 1 :
       ;; un seul chiffre en sortie ne pouvait pas le dire, et trois passes ont bute dessus.
-      (format 0 "PHYSGRAD c=~D a=~D d=~D l=~D amp=~f ang=~f a0=~f a1=~f~%"
+      (format 0 "PHYSGRAD c=~D a=~D d=~D l=~D amp=~f ang=~f~%"
               c (-> self ai) (-> self drive) l
               (phys-link-amp (-> self slot) c l)
-              (phys-link-ang (-> self slot) c l)
+              (phys-link-ang (-> self slot) c l))
+      ;; LIGNE SEPAREE, et ce n'est pas un choix de style : `format` de GOAL n'accepte pas plus de
+      ;; huit parametres, destination et chaine comprises.
+      (format 0 "PHYSGRADS c=~D a=~D d=~D l=~D a0=~f a1=~f~%"
+              c (-> self ai) (-> self drive) l
               (phys-link-ang-stage (-> self slot) c l 0)
               (phys-link-ang-stage (-> self slot) c l 1)))
     ;; L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE DE CETTE FENETRE. Par fenetre, donc attribuables a un

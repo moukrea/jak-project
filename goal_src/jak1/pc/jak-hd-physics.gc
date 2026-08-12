@@ -273,9 +273,29 @@
 (define *phys-csby* (new 'global 'array 'float PHYS-SCO))
 (define *phys-csbz* (new 'global 'array 'float PHYS-SCO))
 (define *phys-csok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = un instantane existe
-;; CONTROLE POSITIF : 1 remet l'ordre de resolution dans la boucle (Gauss-Seidel), donc reinjecte
-;; le defaut. Le compteur de saut doit alors REMONTER sur la chaine la plus tardive.
-(define *phys-jacobi-off* 0)
+;; ------------------------------------------------------------------------------------------------
+;; DESARME PAR DEFAUT — IL CORRIGE CE QU'IL VISE, ET IL COUTE PLUS CHER AILLEURS.
+;;
+;; CE QU'IL CORRIGE, et c'est reel : l'asymetrie chestL/chestR s'effondre. Ecart de `ratio` entre
+;; les deux chaines, moyenne sur les quatre translations, 0.3200 -> 0.0916 (-71 %) ; ecart de
+;; periode 2.12 -> 0.65 frame (-69 %). Et ce n'est pas un lissage de compteur : `chestR` rendait
+;; 0.0236 / 0.0832 / 0.1144 / 0.0367 de mouvement de pointe dans la fenetre JELLY, elle rend
+;; 0.1780 / 0.1704 / 0.2679 / 0.0886 — du mouvement APPARU, du meme ordre que `chestL`.
+;;
+;; CE QU'IL COUTE, mesure par la course d'isolement (priorite desarmee, lui seul arme) :
+;;     ROOM-STRETCH  0.0272 -> 0.4896   soit 49 % d'allongement d'os sur `lbang`, SEIZE fois le
+;;                                      plafond de 3 % du contrat
+;;     ROOM-RETREAT-ANCHOR fallback  278 -> 933
+;; Les deux chiffres sont le meme evenement : en rendant l'obstacle une frame plus vieux, il fait
+;; echouer plus souvent le point de depart du recul sur la sphere du modele, et ce repli-la ABANDONNE
+;; la longueur de l'os. Supprimer le repli rend bien la longueur invariante (0.0003) mais fait
+;; TRAVERSER de dix centimetres — voir la note dans `phys-retreat-chain`. Les deux regles dures se
+;; contredisent, et tant que ce noeud n'est pas defait, la correction de la gelee se paie en
+;; allongement : elle ne part donc pas.
+;;
+;; L'ORDRE RESTE UN DEFAUT REEL ET MESURE. Ce n'est pas un abandon : c'est un cout chiffre en
+;; attente du prealable. Le prealable, c'est le repli du recul — pas la gelee.
+(define *phys-jacobi-off* 1)
 
 ;; ------------------------------------------------------------------------------------------------
 ;; DECISION 1 DU SUPERVISEUR — UN SEUL VOLUME DECIDE PAR LIEN ET PAR FRAME.
@@ -795,6 +815,13 @@
                       (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
                       (set! (-> *phys-maxang* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MAXANG)))
                       (set! (-> *phys-shell* sc)  (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-SHELL)))
+                      ;; PREUVE D'EXECUTION (regle 0). `shell=` a traverse trois couches avant
+                      ;; d'arriver ici — le fichier de donnees, le parseur C++, le garde
+                      ;; `param_id < kPhysNumChainParams` — et un zero silencieux a chacune rendrait
+                      ;; le fourreau INERTE sans qu'aucun chiffre ne le dise. La ligne ne s'imprime
+                      ;; que pour les chaines concernees, donc son ABSENCE est aussi une mesure.
+                      (when (> (-> *phys-shell* sc) 0.0)
+                        (format 0 "[HD-PHYS] shell c=~D r=~f~%" c (-> *phys-shell* sc)))
                       ;; rayons par lien : `radii=` s'il existe, sinon le `radius=` de la chaine
                       (let ((base (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-RADIUS))))
                         (dotimes (l PHYS-LINKS)
@@ -2226,6 +2253,37 @@
                   (set! (-> bs y) (+ by my))
                   (set! (-> bs z) (+ bz mz))
                   (set! (-> bs w) 1.0)
+                  ;; LA LONGUEUR DE L'OS EST INVARIANTE, Y COMPRIS QUAND LE POINT DE DEPART N'EST
+                  ;; PAS ADMISSIBLE — ET C'EST UNE CORRECTION, MESUREE.
+                  ;;
+                  ;; Ce repli ABANDONNAIT la sphere du modele des que son point de depart penetrait :
+                  ;; `want` restait |auteur(kk) - attache COURANTE|, qui n'est pas la longueur que le
+                  ;; modele donne a l'os. Le recul cherchait alors sur une AUTRE sphere et le lien
+                  ;; sortait plus long qu'il n'est.
+                  ;; MESURE, course du 2026-08-12 : `ROOM-RETREAT-ANCHOR fallback` 278 -> 900 (x3,2)
+                  ;; et `ROOM-STRETCH` 0.0272 -> 0.4896, soit 49 % d'allongement sur `lbang`, SEIZE
+                  ;; fois le plafond de 3 %. Les deux chiffres bougent ensemble parce que c'est le
+                  ;; meme evenement.
+                  ;; La sortie n'est pas de choisir entre « rien ne traverse » et « un os ne
+                  ;; s'allonge pas » : les deux sont des regles dures. On garde donc TOUJOURS la
+                  ;; sphere du modele, et quand aucun point admissible n'existe dessus la dichotomie
+                  ;; se pose sur le MOINS MAUVAIS (`bestp`, deja la). C'est exactement ce que la SPEC
+                  ;; demande — « rotation autour de l'ancre, longueur invariante » — et le repli
+                  ;; redevient ce qu'il aurait toujours du etre : un CHIFFRE RAPPORTE, pas une
+                  ;; dispense de contrainte.
+                  ;; ESSAI FAIT, MESURE, RETIRE — et le chiffre vaut d'etre garde.
+                  ;; Garder TOUJOURS la sphere du modele rend bien la longueur invariante :
+                  ;; `ROOM-STRETCH` 0.4896 -> 0.0003, quatre-vingt-dix fois mieux que la reference.
+                  ;; Mais le recul se pose alors sur le MOINS MAUVAIS point d'une sphere ou aucun
+                  ;; n'est admissible, et ce point TRAVERSE : `meshpen` 0.0000 -> 0.0976 sur `lbang`
+                  ;; et 0.1013 sur `rbang` (dix centimetres), `ROOM-SIDE` 0 -> 260 franchissements,
+                  ;; et le controle de cote s'inverse (arme 2 contre desarme 5).
+                  ;; Deux regles dures s'opposent — « un os ne s'allonge pas » et « rien ne traverse
+                  ;; le mesh » — et la regle 6 tranche : une resolution pire que le clip est pire que
+                  ;; rien. Le repli reste donc, et l'allongement qu'il laisse est un defaut OUVERT,
+                  ;; pas un detail : il faudra une troisieme voie (reculer vers la pose d'auteur
+                  ;; elle-meme, au prix d'une rupture de chaine a mesurer) plutot qu'un arbitrage
+                  ;; entre les deux.
                   (cond
                     ((> (phys-link-pen skel sc n nbone nco l bs 1) 0.0)
                      (set! *phys-retfb-n* (+ *phys-retfb-n* 1)))
