@@ -2382,7 +2382,10 @@ phases:
   prompt: prompts/phase-Grecharged-secondary-motion.md
   validator: validators/phase-Grecharged-secondary-motion.sh
   max_turns: 3000
-  max_retries: 14
+  max_retries: 400   # 2026-08-12: la gate OPEN-DEFECTS echoue par CONSTRUCTION tant que
+                     # l'owner voit un defaut -- seuls ses yeux la ferment. Elle a donc epuise les
+                     # 14 tentatives et bloque la phase alors que le travail avance. Cette phase est
+                     # iterative et pilotee par ses retours: elle tourne jusqu'a ce qu'il la ferme.
   device: true
   device_serial: eae4df44
   owner_verify: false   # 2026-08-11: l'owner a redit trois fois de NE PAS attendre apres lui.
