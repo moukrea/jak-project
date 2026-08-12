@@ -561,3 +561,48 @@ COLLIDE echoue a 0.002 m sur les cheveux ; FLOOR echoue sur `kneeflapR` (0.1435 
 un chiffre instable d'une course a l'autre (0.1243 / 0.1435 / 0.1391 / 0.0832) sur une
 chaine deja etablie comme collee a son plafond geometrique — non explique, et signale
 comme tel plutot que maquille.
+
+-----------------------------------------------------------------------------------------
+ADDENDUM (2026-08-12, second worker) — UNE CORRECTION DE MON PROPRE CHIFFRE, ET `ROOM-SIDE`
+-----------------------------------------------------------------------------------------
+
+DIRECTIVES v4e8d7808e6
+
+1. CORRECTION D'UN CHIFFRE QUE J'AI PUBLIE PLUS HAUT. J'avais ecrit que `gogglesBase` est
+   « a 227 u dedans, pour 2 x rl = 392 u : il manque 165 u pour que la paire soit declaree
+   LIBRE ». C'etait une distance JOINT->surface, sans le rayon du lien, alors que
+   `phys-collide-depth` mesure (rayon_volume + rayon_lien) - distance_a_l_axe. Recalcule
+   correctement, a la pose du modele : `floor0 = 321` contre un seuil de 392 — la paire est
+   BORNEE, pas a 165 u d'etre libre. AUCUN lien des lunettes n'est LIBRE a la pose du
+   modele. Je n'ai donc PAS de mecanisme prouve pour `goggles-tunnel`, et la phrase
+   ci-dessus ne doit pas servir de point de depart au cycle suivant.
+
+2. CE QUE J'AI FAIT A LA PLACE : construire la mesure qui manquait. Les DIRECTIVES
+   reclament `ROOM-SIDE: chain=<nom> inside_frames=<n>` depuis la 11e passe ; il n'existait
+   pas. Et AUCUNE colonne existante ne pouvait le remplacer, pour une raison arithmetique :
+   la profondeur de penetration vaut (rayon + rayon_lien) - distance_a_l_axe, donc elle est
+   MAXIMALE sur l'axe du volume et REDESCEND quand le lien ressort de l'autre cote. Un lien
+   qui a traverse une jambe de part en part rend une profondeur FAIBLE, indistinguable d'un
+   lien sagement dehors. C'est ainsi que « le pantacourt est a l'interieur des mollets » et
+   « les lunettes traversent le buste pour se poser dans le dos » coexistaient avec
+   meshpen = 0.0000.
+
+   NATURE : un COMPTE de paires (un changement de cote est DISCRET). REPERE : celui du
+   VOLUME — direction du point le plus proche de son AXE vers le lien, entre la pose du
+   modele et maintenant. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
+
+   PREMIERE COURSE — 11 chaines sur 22 traversent, et le classement tombe tout seul sur les
+   defauts rapportes :
+
+       goggles     4911     <- `goggles-tunnel`
+       botstrapR   3454     <- `straps-elastic`
+       pantflapL   2912     <- `pant-calf`
+       pantflapR   2804     <- `pant-calf`
+       topstrapL   2402     <- `straps-elastic`
+       botstrapL 868   kneeflapL 771   topstrapR 559   lbang 452   rbang 295   chestL 2
+
+   Le compteur est NON NUL : il n'a pas besoin d'un controle positif pour etre cru (la regle
+   vise les zeros). Le generateur de tableau ecrit l'avertissement si une course le rend nul.
+
+   Trois defauts ouverts ont donc, pour la premiere fois, un instrument qui les voit et qui
+   les classe. C'est ce que le cycle suivant doit faire baisser.
