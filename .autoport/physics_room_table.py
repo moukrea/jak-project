@@ -530,6 +530,29 @@ def main():
     A('   un collider DECLARE, pas la traversee du corps : un zero contre un ensemble qui ne couvre')
     A('   pas le corps ne prouve rien, et c\'est pour ca que la liste est ici et pas dans un')
     A('   commentaire.')
+    # QUEL VOLUME CONTRAINT QUELLE CHAINE. NATURE : un COMPTE d'evenements (frames x liens) ou ce
+    # volume-la demandait une correction (res > 0). REPERE : sans objet, ce n'est pas une grandeur
+    # geometrique. LECTURE QUAND LE DEFAUT EST ABSENT : aucune ligne pour cette chaine.
+    # Trois cycles ont bute sur l'absence de ce nom : « lbang est en contact 17893 frames sur 17893
+    # avec un AUTRE volume, non identifie ; il faudrait la penetration par (lien, VOLUME) ».
+    colname = {}
+    for ci, j, j2 in cols:
+        colname[ci] = ('%s->%s' % (j, j2)) if j2 not in ('-', '?') else ('sphere:%s' % j)
+    cvol = {}
+    for m in re.finditer(r'^PHYSCVOL c=(\d+) ci=(\d+) n=(\d+)', txt, re.M):
+        cvol.setdefault(int(m.group(1)), []).append((int(m.group(3)), int(m.group(2))))
+    if not cvol:
+        A('ROOM-CONTACT-VOL: non publie par la course')
+    else:
+        A('ROOM-CONTACT-VOL: %d chaine(s) contraintes par au moins un volume' % len(cvol))
+        A('   par chaine, les volumes qui ont demande une correction, du plus frequent au moins')
+        A('   frequent. Un contact a profondeur nulle n\'est PAS compte : seule une violation l\'est.')
+        for ci_chain in sorted(cvol):
+            nm = names[ci_chain] if ci_chain < len(names) else 'c%d' % ci_chain
+            tot = sum(n for n, _ in cvol[ci_chain])
+            det = ' · '.join('%s %d' % (colname.get(k, 'ci%d' % k), n)
+                             for n, k in sorted(cvol[ci_chain], reverse=True)[:6])
+            A('ROOM-CONTACT-VOL: chain=%-12s total=%-8d %s' % (nm, tot, det))
     A('ROOM-INVERSIONS: residual=%d corrected=%d degenerate=%d control_residual=%d reseated=%d'
       % (inv['run'][3], inv['run'][0], inv['run'][1], inv['control'][3], inv['run'][2]))
     A('   Owner, deux fois : « j\'ai vu un coup ou un des seins etait retourne vers l\'interieur ».')

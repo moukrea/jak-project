@@ -68,6 +68,17 @@ OPEN flesh-jelly     effet gelee sur les seins, UNIQUEMENT sur mouvements brusqu
 #  lieu de l'arc leverait la contradiction entre « un os ne s'allonge pas » et « rien ne traverse »
 #  sans arbitrer entre elles. Non mesure : je ne le presente pas comme acquis.
 OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
+#  --- 22e PASSE (2026-08-12 soir) : LE COMPTEUR LE VOIT ENFIN, ET IL DIT CONTRE QUOI. ---
+#  Jusqu'ici ce defaut opposait son oeil (« ca clipe ») a un `meshpen` qui affichait zero. Le
+#  nouvel instrument d'attribution (`ROOM-CONTACT-VOL`, moteur *phys-cvh*) compte les violations
+#  RESIDUELLES de fin de frame, par (chaine, volume) :
+#      goggles   Rshoulder->chest 89 · Lshoulder->chest 87 · neck->chest 87 · chest->main 84
+#                · sphere:rBoob 20 · sphere:lBoob 11
+#  31 violations residuelles contre les DEUX spheres de poitrine. Ce n'est plus un desaccord entre
+#  son oeil et un zero : la mesure le voit aussi, et elle nomme les volumes.
+#  A NOTER, parce que ca oriente le correctif : les lunettes violent quatre fois plus souvent les
+#  capsules d'EPAULE et de COU que les spheres de poitrine. Gonfler encore un rayon de poitrine
+#  (trois fois deja) ne touchera pas la cause principale.
 #  CAUSE RACINE MESUREE LE 2026-08-12, et elle n avait jamais ete regardee : la chaine `goggles`
 #  ne simule que 27 des 515 sommets des lunettes.
 #      gogglesBase 16 sommets   gogglesMid 11   gogglesLeft 244   gogglesRight 244

@@ -278,6 +278,69 @@ meme reponse structurelle — un volume qui epouse la forme, c'est-a-dire le mes
 decime que l'owner a lui-meme suggere.
 
 ================================================================================
+4bis. QUEL VOLUME CONTRAINT QUELLE CHAINE — L'INSTRUMENT MANQUANT EST POSE
+================================================================================
+
+Trois cycles de suite ont bute sur la meme phrase, ecrite puis recopiee sans etre
+faite : « il faudrait la penetration par (lien, VOLUME), toujours pas
+instrumentee ». La course savait dire qu'une chaine etait en contact 17893 frames
+sur 17893 ; elle ne savait pas dire CONTRE QUOI. C'est fait :
+
+    moteur   *phys-cvh*, un compte par (chaine, volume), incremente UNIQUEMENT
+             pendant la passe de mesure et UNIQUEMENT quand `res > 0` — donc une
+             VIOLATION residuelle en fin de frame, pas un simple contact ;
+    salle    `PHYSCVOL c= ci= n=`   ·   tableau   `ROOM-CONTACT-VOL:`
+
+NATURE : un compte d'evenements (frames x liens). REPERE : sans objet. LECTURE
+QUAND LE DEFAUT EST ABSENT : aucune ligne — une chaine que le solveur laisse
+propre n'apparait pas.
+
+IL EST INERTE, ET C'EST PROUVE PAR IDENTITE, pas affirme : la course refaite avec
+l'instrument rend EXACTEMENT les memes nombres que sans lui — `retreat_n` 31272,
+`retreat_sum` 2243081.75, `fallback` 23, `rescued` 204, `STRETCH` 0.0003, `SIDE`
+0, `IDLE` 0.0231, `INVERSIONS` 341, et l'amplitude de pointe des 22 chaines
+identique au bit pres (0 chaine differente).
+
+CE QU'IL DIT, ET IL FERME TROIS QUESTIONS OUVERTES DU MEME COUP :
+
+    lbang      head->neck 90 · sphere:Lmidhaira 86
+    rbang      sphere:Rmidhaira 90 · head->neck 90
+      LA QUESTION LAISSEE OUVERTE PAR LE CYCLE 21 EST FERMEE. Elle etait ecrite
+      ainsi : « `lbang` est en contact 17893/17893 alors que sa portee lui permet
+      de sortir de la tete ; son contact permanent est avec un AUTRE volume, non
+      identifie ». C'est la SPHERE DE RACINE DE LA MECHE VOISINE.
+
+    goggles    Rshoulder->chest 89 · Lshoulder->chest 87 · neck->chest 87 ·
+               chest->main 84 · sphere:rBoob 20 · sphere:lBoob 11
+      `goggles-bottom` (« le BAS des lunettes clipe encore legerement dans les
+      seins ») a maintenant sa mesure : 31 violations residuelles contre les deux
+      spheres de poitrine. Ce n'est plus « il voit un clip » contre « meshpen dit
+      zero » : le compteur le voit aussi.
+
+    kneeflapL  Lankle->Lknee 90 · Lknee->Lthigh 90
+    kneeflapR  Rankle->Rknee 90 · Rknee->Rthigh 90
+      L'HYPOTHESE DU CYCLE 18 EST CONFIRMEE PAR LA MESURE : « la languette vit
+      dans DEUX capsules qui se recouvrent ; sortir de l'une enfonce dans
+      l'autre ». Les deux capsules apparaissent avec le MEME compte, 90 contre 90,
+      des deux cotes. Avec la capture geometrique de la section 4 (-38 u et
+      -34 u), `knee-tabs` a desormais sa cause complete : un volume dont elle ne
+      peut pas sortir, et deux volumes qui se la renvoient.
+
+    chestL     Rshoulder->chest 90 · Lshoulder->chest 90 · neck->chest 41
+    chestR     Lshoulder->chest 97 · Rshoulder->chest 95 · neck->chest 45
+      ET UNE DECOUVERTE QUE JE N'ATTENDAIS PAS : ce qui contraint la poitrine, ce
+      n'est ni le torse ni l'autre sein, ce sont LES DEUX CAPSULES D'EPAULE. Une
+      capsule epaule->buste qui redescend sur la poitrine est exactement « un
+      collider qui ne suit pas la forme du personnage ». C'est la piste de
+      `flesh-jelly` apres l'echec de l'ordre de resolution (section 2), et elle
+      est mesuree, pas supposee.
+
+UNE REGULARITE QUE JE SIGNALE SANS L'INTERPRETER : beaucoup de comptes valent
+exactement 90, la longueur d'une fenetre de mesure. Une violation qui dure une
+fenetre entiere n'est pas un accident sporadique, c'est un etat tenu pendant
+toute une animation ; mais je n'ai pas mesure LAQUELLE, et je ne le suppose pas.
+
+================================================================================
 5. FLOOR — pantflapL/R, INCHANGE, ET JE NE BAISSE TOUJOURS PAS LE PLANCHER
 ================================================================================
 
@@ -285,13 +348,31 @@ decime que l'owner a lui-meme suggere.
     pantflapL  0.2922 -> 0.1270   (-57 %)      plafond de la gate : -40 %
 
 Ce sont les chiffres du cycle precedent au dix-millieme pres : ce cycle n'a pas
-touche a ces chaines. La demonstration reste la meme — le generateur derive le
-rayon interne du fourreau comme `r_int = off + rr`, donc la contrainte du moteur
-est exactement « la paroi interne du fourreau ne rentre pas dans la chair », et
-le pan n'a AUCUNE liberte radiale par la mesure du mesh lui-meme. Les 0.29-0.30
-enregistres comme plancher ont ete mesures pendant une ejection laterale que la
-geometrie interdit : c'est une semence contaminee, par arithmetique et non par
-argument.
+touche a ces chaines. Mais la demonstration, elle, change de nature : jusqu'ici
+elle reposait sur une lecture du generateur, et LA COURSE PORTE LE CONTROLE QUI
+LA MESURE — il etait publie a chaque course et personne ne l'avait depouille.
+
+    ROOM-SHELL  chain=pantflapR   run=0.0000  desarme=0.0000  ARME=0.0765
+    ROOM-SHELL  chain=pantflapL   run=0.0000  desarme=0.0000  ARME=0.0851
+
+Lecture : contrainte active, l'ecart radial du pan a l'axe du mollet vaut ZERO —
+il ne s'ecarte jamais. Contrainte levee, il s'ecarte de 7,6 a 8,5 CENTIMETRES.
+Le pan de pantacourt est donc un FOURREAU tenu concentrique : il garde le droit
+de tourner autour du mollet et de glisser le long, et il n'a AUCUNE liberte
+radiale — par construction, pas par reglage.
+
+Les 0.2922 et 0.3017 enregistres comme plancher ont donc ete mesures dans l'etat
+que ce controle reproduit quand on l'arme : une excursion radiale que le modele
+courant interdit deliberement. La semence est contaminee, et ce n'est plus une
+deduction : c'est ce controle, avec ses deux nombres.
+
+JE NE BAISSE TOUJOURS PAS LA REFERENCE. Mais je nomme ce qui est en jeu, parce
+que c'est un arbitrage et pas un detail : un fourreau concentrique rigide n'est
+pas ce que fait un bas de pantacourt — un tissu s'evase. Les deux modeles
+disponibles sont faux tous les deux, et leurs deux erreurs sont mesurees : le
+fourreau retire 8,5 cm d'excursion (ci-dessus), la sphere poussee hors de la
+capsule ejecte le pan lateralement la ou la geometrie l'interdit (cycle 18). La
+sortie n'est ni l'un ni l'autre, c'est un volume qui epouse un TUBE — section 4.
 
 Je ne baisse pas la reference — l'abaisser pour se faire passer est le faux vert
 que l'owner refuse, et ce serait assouplir une gate gelee (regle 5). La gate
@@ -369,12 +450,25 @@ mesures des deux exemplaires sont interchangeables.
   pant-calf        Rien ce cycle (section 5).
 
 ================================================================================
-SUPPRESSORS: 0
+SUPPRESSORS: 1
+SUPPRESSOR: fourreau-concentrique removed-motion=0.0851
 ================================================================================
-Aucun suppresseur ajoute. Le balayage de sphere n'en est pas un : il ne borne
-aucune amplitude, il CHERCHE une position admissible la ou le code renoncait, et
-la mesure le confirme — 22 chaines sur 22 gardent leur amplitude a 0.1 % pres.
-Aucun clamp, aucun seuil, aucune hysteresis, aucun gel n'a ete ajoute.
+AUCUN SUPPRESSEUR AJOUTE CE CYCLE. Le balayage de sphere n'en est pas un : il ne
+borne aucune amplitude, il CHERCHE une position admissible la ou le code
+renoncait, et la mesure le confirme — 22 chaines sur 22 gardent leur amplitude a
+0.1 % pres. Aucun clamp, aucun seuil, aucune hysteresis, aucun gel.
+
+MAIS J'EN DECLARE UN QUI EXISTAIT DEJA ET QUI N'ETAIT PAS CHIFFRE ICI, parce que
+la SPEC 7 l'exige et que le chiffre etait publie a chaque course sans etre lu :
+la contrainte de CONCENTRICITE DU FOURREAU retire 0.0851 m d'excursion radiale a
+`pantflapL` et 0.0765 m a `pantflapR` (`ROOM-SHELL`, controle arme contre
+desarme, meme course). C'est le seul suppresseur du moteur dont le cout en
+mouvement soit mesure par un controle de la salle elle-meme.
+
+Le cout des deux autres n'est pas re-mesure ce cycle et je ne l'invente pas : la
+contrainte de COTE avait ete chiffree au cycle 19 (goggles 0.5107 -> 0.5107, soit
+zero ; botstrapL -7,8 % ; topstrapL -2,0 %), et le recul publie un cumul
+(`retreat_sum` 2 243 081 u sur la course) qui n'est pas une amplitude par chaine.
 Le moteur fait 4000 lignes (plafond porte a 4800 par le superviseur pendant ce
 cycle ; je n'y ai pas touche et je n'ai pas eu besoin de la marge : le cycle finit
 a 4000 pile).
