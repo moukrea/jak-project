@@ -77,8 +77,8 @@ chain goggles radii=196,150
 # couplage est une déviation POSITIONNELLE — sous forte accélération il étire au lieu de faire
 # tourner. On redescend à 1.20 : on garde l'essentiel du gain d'amplitude, on limite l'étirement
 # visible. Le vrai correctif est dans le moteur (longueur invariante, rotation autour de l'ancre).
-chain chestL couple=1.55
-chain chestR couple=1.55
+# REMPLACE le 12/08 12:35 : chain chestL couple=1.55
+# REMPLACE le 12/08 12:35 : chain chestR couple=1.55
 
 ## 2026-08-11 17:40 (8e passe) — « mouvements des seins toujours imperceptibles quand elle se penche
 ## en avant, et ses mèches fines sont toujours hystériques »
@@ -160,3 +160,11 @@ chain rbang stiffness=1.05 mass=1.35 damping=0.36
 # OUVERT dans owner-defects.txt, parce que l'owner le voit et qu'il a raison de le voir.
 # +chain footflapL ... joints=LfootFlaps
 # +chain footflapR ... joints=RfootFlaps
+
+## 2026-08-12 12:35 — « les seins en mouvements subtils on dirait qu'ils ont ete un peu mutes »
+# Mesure : reponse au stimulus le plus faible, chestL 0.0955 et chestR 0.1457 — chestL est sous la
+# moitie de chestR pour des parametres identiques, et l'owner voit la baisse. Le levier du PETIT
+# mouvement est le couplage a l'acceleration du buste, pas l'amplitude max. On le remonte et on
+# allege un peu l'amortissement, qui ecrase surtout les faibles amplitudes.
+chain chestL couple=1.85 damping=0.26
+chain chestR couple=1.85 damping=0.26
