@@ -156,6 +156,16 @@
 (define *phys-shell-off* 0)   ;; CONTROLE POSITIF : 1 = fourreau traite comme avant (poussee)
 (define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
 ;; ------------------------------------------------------------------------------------------------
+;; LA LONGUEUR D'OS DE CHAQUE MAILLON, ET LA MOYENNE SUR LES MAILLONS LIBRES DE SA CHAINE.
+;; Relevees sur la pose ANIMEE a chaque frame (elles sont quasi constantes, mais les lire evite de
+;; supposer que le retarget n'a pas change une longueur). Elles servent a une seule chose : rendre
+;; le ressort ANGULAIRE — voir la note au point d'usage dans l'integrateur. La normalisation par la
+;; moyenne est ce qui garantit qu'une chaine a UN SEUL maillon libre rend exactement 1.0, donc reste
+;; inchangee AU BIT PRES : c'est vrai pour 20 des 22 chaines de Keira.
+;; ------------------------------------------------------------------------------------------------
+(define *phys-blen*  (new 'global 'array 'float PHYS-SCL))   ;; longueur d'os du maillon
+(define *phys-lmean* 0.0)                                    ;; leur moyenne, chaine courante
+;; ------------------------------------------------------------------------------------------------
 ;; LE VOLUME QU'UN LIEN PORTE QUAND IL BOUGE — et c'est LE MEME que celui qu'il presente quand il
 ;; est un OBSTACLE. Owner, 6e passe : « c'est pas juste les capsules de collision qui bougent pas,
 ;; mais plutot mes capsules de collision qui sont pas bonnes ».
@@ -2645,6 +2655,25 @@
                     (let* ((stb (* sc PHYS-ST))
                            (gm  (/ (vector-length gl) (fabs gy))))
                       (when (> gm (-> *phys-st* (+ stb 18))) (set! (-> *phys-st* (+ stb 18)) gm)))
+                    ;; ---- 0. LES LONGUEURS D'OS, avant d'integrer quoi que ce soit. -------------
+                    ;; Relevees sur la pose animee ; la moyenne ne porte que sur les maillons
+                    ;; LIBRES, de sorte qu'une chaine qui n'en a qu'un rende exactement 1.0 et
+                    ;; reste inchangee au bit pres.
+                    (let ((lsum 0.0) (lcnt 0))
+                      (dotimes (l n)
+                        (let* ((scl (+ (* sc PHYS-LINKS) l))
+                               (kk  (-> *phys-joint* scl))
+                               (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+                          (set! (-> *phys-blen* scl) 0.0)
+                          (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+                            (let ((bl (vector-vector-distance
+                                        (the-as vector (-> skel bones (+ kk 1) transform vector 3))
+                                        (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))
+                              (set! (-> *phys-blen* scl) bl)
+                              (when (>= l rlk)
+                                (set! lsum (+ lsum bl))
+                                (set! lcnt (+ lcnt 1)))))))
+                      (set! *phys-lmean* (if (> lcnt 0) (/ lsum (the float lcnt)) 0.0)))
                     ;; ---- 1. INTEGRATION DE L'ECART, lien par lien, dans le repere de l'ancre ----
                     (dotimes (l n)
                       (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -2889,13 +2918,65 @@
                                     (rx (- ox (if (>= pj 0) (-> *phys-o1x* (- scl 1)) 0.0)))
                                     (ry (- oy (if (>= pj 0) (-> *phys-o1y* (- scl 1)) 0.0)))
                                     (rz (- oz (if (>= pj 0) (-> *phys-o1z* (- scl 1)) 0.0)))
+                                    ;; ------------------------------------------------------
+                                    ;; LE RESSORT EST ANGULAIRE, PAS LINEAIRE. Seconde moitie de
+                                    ;; `hair-gradient`, et c'est la source du 1/L qui inverse la
+                                    ;; suite.
+                                    ;;
+                                    ;; MESURE : les os de lbang/rbang valent 393.88 u puis
+                                    ;; 783.85 u, soit L2/L1 = 1.9901 (verifie deux fois — sonde
+                                    ;; sur le rig, et `bones_m=0.4124,0.0962,0.1914` publie par
+                                    ;; le moteur lui-meme). Or les parametres sont declares PAR
+                                    ;; CHAINE : a l'equilibre |o - o_parent| = |F|/k2 est donc
+                                    ;; le MEME pour tous les maillons. Un ressort LINEAIRE rend
+                                    ;; ainsi des deviations egales, et l'angle vaut deviation
+                                    ;; divisee par la longueur d'os : theta ~ D/L. A D egal, un
+                                    ;; os deux fois plus court tourne deux fois plus, et
+                                    ;; l'inversion est FORCEE par la geometrie, pas subie.
+                                    ;;
+                                    ;; CE QUI EST EXCLU, ET CHIFFRE PLUTOT QUE SUPPOSE. Il
+                                    ;; faudrait D2/D1 >= 1.9901 pour redresser la suite ; le
+                                    ;; maximum mesure sur les dix couples est 1.45. Aucun
+                                    ;; reglage des parametres actuels ne peut y arriver : ils
+                                    ;; sont par chaine, donc ils s'annulent dans le rapport. Un
+                                    ;; taper de masse derive du rig a ete evalue et il ECHOUE :
+                                    ;; le rayon d'un joint est ajuste autour du segment
+                                    ;; joint->enfant (physics_keira_gen2.py:847-857), donc l'os
+                                    ;; du maillon l porte le rayon du joint PRECEDENT, et
+                                    ;; r^2*L rend 1.715 a gauche et 1.487 a droite — sous le
+                                    ;; seuil. Il ne « marchait » qu'avec l'appariement faux
+                                    ;; (5.961), c'est-a-dire en choisissant l'index qui donne la
+                                    ;; reponse voulue. Ecarte.
+                                    ;;
+                                    ;; LA CAUSE EST DONC LE RESSORT LUI-MEME. Une chaine d'os se
+                                    ;; modelise par un ressort ANGULAIRE : un couple de rappel
+                                    ;; tau = -kappa * phi, avec phi ~ |r|/L l'angle du maillon.
+                                    ;; La force tangentielle sur la masse, au rayon L, vaut donc
+                                    ;; tau/L = -kappa*|r|/L^2 : la raideur LINEAIRE equivalente
+                                    ;; varie en 1/L^2. C'est exactement ce facteur qui manquait,
+                                    ;; et il fait disparaitre la longueur d'os du resultat :
+                                    ;; D ~ L^2 donne theta ~ L, donc croissant avec la longueur
+                                    ;; de l'os au lieu d'inverse. Sur lbang, theta2/theta1 passe
+                                    ;; de 1/1.99 a 1.99.
+                                    ;;
+                                    ;; AUCUNE CONSTANTE N'EST INTRODUITE : la reference est la
+                                    ;; MOYENNE des longueurs des maillons libres de la chaine
+                                    ;; elle-meme. Une chaine a un seul maillon libre rend donc
+                                    ;; exactement 1.0 et reste inchangee au bit pres — c'est le
+                                    ;; cas de 20 chaines sur 22, et c'est aussi le test qui dira
+                                    ;; si ce correctif fait ce qu'il annonce.
+                                    ;; ------------------------------------------------------
+                                    (bl  (-> *phys-blen* scl))
+                                    (k2a (if (and (> bl 0.01) (> *phys-lmean* 0.01))
+                                           (let ((q (/ *phys-lmean* bl))) (* k2 (* q q)))
+                                           k2))
                                     (bcap (if (= l 0) (-> *phys-rad* scl) 0.0))
                                     (kb (if (> bcap 0.01)
                                           (let* ((r2 (/ (+ (* rx rx) (+ (* ry ry) (* rz rz)))
                                                         (* bcap bcap)))
                                                  (r6 (fmin 0.98 (* r2 (* r2 r2)))))
-                                            (fmin 1.0 (/ k2 (- 1.0 r6))))
-                                          k2))
+                                            (fmin 1.0 (/ k2a (- 1.0 r6))))
+                                          k2a))
                                     (vx (* (- ox (-> *phys-o1x* scl)) (- 1.0 dmp)))
                                     (vy (* (- oy (-> *phys-o1y* scl)) (- 1.0 dmp)))
                                     (vz (* (- oz (-> *phys-o1z* scl)) (- 1.0 dmp)))
