@@ -2281,15 +2281,34 @@
                   (when (nonzero? *phys-buried-tally*)
                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))
-                  ;; LA PAIRE FOURREAU COMPTE, MAIS NE DECIDE PAS ENCORE. `worst` est la seule
-                  ;; valeur que cette fonction rende au solveur : l'en exclure garde la contrainte
-                  ;; appliquee identique au bit pres a celle d'avant ce commit, pendant que le
-                  ;; compteur ci-dessus redevient evaluable. On mesure d'abord l'ampleur reelle du
-                  ;; franchissement sur `pantflapL/R`, on decide ensuite — l'inverse (contraindre
-                  ;; sur un chiffre qu'on n'a jamais lu) est ce qui a coute 49 % du mouvement des
-                  ;; deux pans a 14h39 sans fermer `pant-calf`.
-                  (when (and (zero? *phys-side-off*) (not sleevec))
-                    (when (> (-> ub w) worst) (set! worst (-> ub w)))))
+                  ;; LA PAIRE FOURREAU DECIDE MAINTENANT, ET LE CHIFFRE QUI MANQUAIT A ETE LU.
+                  ;; La version precedente portait `(not sleevec)` : les fourreaux comptaient sans
+                  ;; contraindre, en attendant qu'on mesure l'ampleur reelle du franchissement.
+                  ;; C'est fait, et c'est sans ambiguite — `ROOM-SIDE-CONTROL` desarme vaut 1011,
+                  ;; dont `pantflapR 520 + pantflapL 491` = 1011 EXACTEMENT, zero ailleurs. Les
+                  ;; deux pans sont les seules paires fourreau du modele, et ils franchissaient que
+                  ;; le controle soit arme ou non : la contrainte ne s'appliquait tout simplement
+                  ;; pas a eux. C'est la cause de `pant-calf` (« le bas du pantacourt est a
+                  ;; l'interieur des mollets, comme s'il s'arretait aux genoux »).
+                  ;;
+                  ;; POURQUOI UNE BORNE, ET POURQUOI CELLE-CI. Inclure les fourreaux sans borner a
+                  ;; deja ete essaye et a coute 49 % du mouvement des deux pans sans fermer le
+                  ;; defaut : un pan qui a tunnele se voit rappeler de TOUTE sa distance a l'axe en
+                  ;; une frame, et ce rappel-la ecrase le mouvement au lieu de le corriger. On
+                  ;; borne donc le rappel au budget radial PROPRE du fourreau, `shell` — une
+                  ;; grandeur MESUREE et PAR CHAINE (452 pour `pantflapL`, 448 pour `pantflapR`),
+                  ;; pas une constante choisie a la main (regle 4). Meme unite que `ub w` : c'est
+                  ;; deja a `shell` que `phys-shell-pair?` compare une distance (voir sa derniere
+                  ;; ligne).
+                  ;; Le pan revient donc du bon cote de l'axe par pas bornes, au lieu d'y etre
+                  ;; teleporte ou d'y rester. Une chaine qui n'est pas un fourreau garde sa
+                  ;; contrainte AU BIT PRES : la borne ne s'applique que si `sleevec`.
+                  (when (zero? *phys-side-off*)
+                    (let ((sw (-> ub w)))
+                      (when sleevec
+                        (let ((cap (-> *phys-shell* sc)))
+                          (when (and (> cap 0.0) (> sw cap)) (set! sw cap))))
+                      (when (> sw worst) (set! worst sw)))))
                 ;; `buried` = le lien est entierement dans ce volume A SA POSE DE MODELE. Depuis le
                 ;; 2026-08-12 c'est une MESURE et plus une DECISION : elle ne dispense plus la paire
                 ;; d'etre contrainte (cf. phys-vol-floor, branche FREE retiree). Le nombre reste
