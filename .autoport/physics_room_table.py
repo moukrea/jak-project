@@ -20,6 +20,7 @@ Sortie : .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
 Usage  : python3 .autoport/physics_room_table.py [chemin-du-log]
 """
 
+import json
 import math
 import os
 import re
@@ -580,6 +581,146 @@ def main():
             det = ' · '.join('%s %d' % (colname.get(k, 'ci%d' % k), n)
                              for n, k in sorted(cvol[ci_chain], reverse=True)[:6])
             A('ROOM-CONTACT-VOL: chain=%-12s total=%-8d %s' % (nm, tot, det))
+    # ---- ROOM-SKINCOV : LA PHYSIQUE COUVRE-T-ELLE TOUTE LA GEOMETRIE DE LA MECHE ? -----------
+    # Defaut PRIORITE 1 `hair-skinning`, owner du 2026-08-12 : « des polygones qui bougent et des
+    # polygones voisins parfaitement statiques, causant la geometrie qui casse — faudrait que la
+    # meche entiere soit prise en compte ».
+    #
+    # AUCUNE mesure existante ne pouvait le voir : toutes regardent la position des JOINTS, et le
+    # defaut est sur les SOMMETS. Une chaine pilote des joints ; la peau, elle, est pesee sur des
+    # joints qui ne sont pas tous simules.
+    #   NATURE  : une FRACTION DE POIDS DE PEAU, sans dimension. Ce n'est ni une amplitude ni une
+    #             distance — c'est « quelle part de ce sommet la physique tient-elle ».
+    #   REPERE  : sans objet (un rapport de poids). La pose est la pose de BIND, donc la mesure est
+    #             statique : elle ne depend d'aucune frame et ne bouge pas d'une course a l'autre.
+    #   LECTURE QUAND LE DEFAUT EST ABSENT : `cov` = 1.0000 et `tear` = 0.
+    #
+    # DEUX PIEGES QUE CETTE MESURE EVITE, ET QUI ONT CHACUN COUTE UNE CONCLUSION FAUSSE :
+    #  1. UN POIDS SUR UN DESCENDANT NON SIMULE EST QUAND MEME PILOTE. Le moteur propage sa matrice
+    #     aux descendants non simules (jak-hd-physics.gc, « propagation aux descendants non
+    #     simules »). Compter `gogglesLeft`/`gogglesRight` comme non pilotes donnait 44.1 % de
+    #     couverture aux lunettes alors qu'elles sont entrainees par `gogglesMid`, leur parent
+    #     simule. Seul le poids qui part sur un ANCETRE (ou sur une branche etrangere) est
+    #     reellement fige. C'est pourquoi `driven` se calcule par fermeture descendante.
+    #  2. UNE COUVERTURE < 1 PRES DE LA RACINE N'EST PAS UN DEFAUT, C'EST L'ANCRAGE. SPEC 2 : « la
+    #     racine suit rigidement l'os porteur ; le mouvement croit vers la pointe ». Le gradient de
+    #     `backhair` vaut 0.39 / 0.63 / 0.76 / 0.94 / 0.98 de la racine a la pointe : condamner
+    #     toute fraction < 100 % condamnerait l'ancrage lui-meme. La grandeur fidele a la phrase de
+    #     l'owner (« des polygones VOISINS ») est donc `tear` : le nombre d'aretes du mesh dont les
+    #     deux extremites ont des pilotes discordants (|delta cov| > 0.5), et `weld` : les sommets
+    #     COINCIDENTS (meme position) a pilotes discordants — ceux-la ouvrent le maillage par
+    #     construction, a chaque frame, quel que soit le reglage.
+    try:
+        import numpy as _np
+        _sys_path_added = os.path.dirname(os.path.abspath(__file__))
+        if _sys_path_added not in sys.path:
+            sys.path.insert(0, _sys_path_added)
+        from physics_c6_volumes import load_geometry as _lg
+        _g = _lg('keira-hd')
+        _V = _g['V'] if 'V' in _g else _g['verts']
+        _jn = _g['joint_names'] if 'joint_names' in _g else _g['names']
+        _W = _g['W'] if 'W' in _g else _g['weights']
+        _F = _g.get('F', _g.get('tris', None))
+        _ji = {n: i for i, n in enumerate(_jn)}
+        if _W.ndim == 2 and _W.shape[1] == len(_jn):
+            _Wd = _W
+        else:
+            _J = _g['J'] if 'J' in _g else _g['joints_idx']
+            _Wd = _np.zeros((len(_V), len(_jn)), dtype=_np.float32)
+            for _k in range(_W.shape[1]):
+                _np.add.at(_Wd, (_np.arange(len(_V)), _J[:, _k]), _W[:, _k])
+        # parents, pour la fermeture descendante (piege 1)
+        _par = {}
+        try:
+            _k2e = json.load(open('recharged_assets/hd_anim/keira-hd-k2e.json', errors='ignore'))
+            _rows = _k2e['rows'] if isinstance(_k2e, dict) and 'rows' in _k2e else _k2e
+            if isinstance(_rows, dict):
+                _rows = list(_rows.values())
+            for _r in _rows:
+                if isinstance(_r, dict) and 'hd_name' in _r:
+                    _par[_r['hd_name']] = None
+            _byk = {_r['k']: _r for _r in _rows if isinstance(_r, dict) and 'k' in _r}
+            for _r in _rows:
+                if isinstance(_r, dict) and 'hd_name' in _r:
+                    _p = _byk.get(_r.get('hd_parent'))
+                    _par[_r['hd_name']] = _p['hd_name'] if _p else None
+        except Exception as _pe:
+            # SANS LA PARENTE, la fermeture descendante ne peut pas se faire et la couverture est
+            # SOUS-ESTIMEE (piege 1). Ca ne se tait pas : la ligne le dit, sinon on relit un
+            # chiffre faux en croyant lire le bon.
+            _par = {}
+            A('ROOM-SKINCOV: AVERTISSEMENT parente HD illisible (%s) — pas de fermeture'
+              ' descendante, `cov` est un MINORANT' % type(_pe).__name__)
+        # chaines et leurs joints simules, lus du fichier livre
+        _cj, _cur = {}, None
+        for _ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
+            if _ln.startswith('chain '):
+                _cur = _ln.split()[1]; _cj[_cur] = []
+            elif _ln.startswith('j ') and _cur:
+                _cj[_cur].append(_ln.split()[1])
+        # aretes uniques
+        _edges = set()
+        if _F is not None:
+            for _t in _F:
+                _a, _b, _c2 = int(_t[0]), int(_t[1]), int(_t[2])
+                for _u, _v in ((_a, _b), (_b, _c2), (_a, _c2)):
+                    _edges.add((_u, _v) if _u < _v else (_v, _u))
+        if not _edges:
+            # SANS ARETES, `tear` vaudrait 0 PARTOUT — et un zero qui veut dire « je n'ai pas
+            # regarde » est indistinguable d'un zero qui veut dire « pas de cassure ». C'est
+            # exactement le faux vert que ce cycle a passe sa journee a debusquer : on le dit.
+            A('ROOM-SKINCOV: AVERTISSEMENT liste de triangles illisible — `tear` NON MESURE,'
+              ' ne pas lire ses zeros comme une absence de cassure')
+        # sommets coincidents
+        _pos = {}
+        for _i in range(len(_V)):
+            _pos.setdefault((round(float(_V[_i][0]), 3), round(float(_V[_i][1]), 3),
+                             round(float(_V[_i][2]), 3)), []).append(_i)
+        A('ROOM-SKINCOV: couverture de peau par chaine — quelle part de la geometrie la physique tient')
+        A('   cov = poids moyen porte par des joints PILOTES (simules ou descendants d\'un simule).')
+        A('   tear = aretes dont les deux bouts different de plus de 0.5. weld = sommets COINCIDENTS')
+        A('   a pilotes discordants : ceux-la ouvrent le maillage par construction.')
+        for _cn in sorted(_cj):
+            _sim = [_j for _j in _cj[_cn] if _j in _ji]
+            if not _sim:
+                continue
+            _drv = set(_sim)                      # fermeture descendante (piege 1)
+            _chg = True
+            while _chg and _par:
+                _chg = False
+                for _j, _p in _par.items():
+                    if _p in _drv and _j not in _drv and _j in _ji:
+                        _drv.add(_j); _chg = True
+            _cols = [_ji[_j] for _j in _drv if _j in _ji]
+            _ws = _Wd[:, _cols].sum(1)
+            _own = _np.where(_ws > 0.0)[0]
+            if len(_own) == 0:
+                continue
+            _cov = float(_ws[_own].mean())
+            _lost = {}
+            for _v in _own:
+                for _c3 in _np.where(_Wd[_v] > 0)[0]:
+                    if _c3 not in _cols:
+                        _lost[_jn[_c3]] = _lost.get(_jn[_c3], 0.0) + float(_Wd[_v][_c3])
+            _top = sorted(_lost.items(), key=lambda x: -x[1])[:3]
+            _ownset = set(int(x) for x in _own)
+            _tear = sum(1 for (_u, _v) in _edges
+                        if (_u in _ownset or _v in _ownset) and abs(_ws[_u] - _ws[_v]) > 0.5)
+            _weld = 0
+            for _grp in _pos.values():
+                if len(_grp) > 1 and any(_i in _ownset for _i in _grp):
+                    _vals = [_ws[_i] for _i in _grp]
+                    if max(_vals) - min(_vals) > 0.5:
+                        _weld += 1
+            A('ROOM-SKINCOV: chain=%-12s cov=%.4f n=%-5d tear=%-4s weld=%-3d lost=%s'
+              % (_cn, _cov, len(_own), (str(_tear) if _edges else '?'), _weld,
+                 ' · '.join('%s %.0f%%' % (_k, 100.0 * _v / max(sum(_lost.values()), 1e-9))
+                            for _k, _v in _top) or '-'))
+    except Exception as _e:
+        # une mesure qui n'a pas pu etre prise se DIT ; elle ne fait pas tomber le tableau, et elle
+        # ne se remplace pas par une estimation.
+        A('ROOM-SKINCOV: non mesure (%s: %s)' % (type(_e).__name__, str(_e)[:120]))
+
     A('ROOM-INVERSIONS: residual=%d corrected=%d degenerate=%d control_residual=%d reseated=%d'
       % (inv['run'][3], inv['run'][0], inv['run'][1], inv['control'][3], inv['run'][2]))
     A('   Owner, deux fois : « j\'ai vu un coup ou un des seins etait retourne vers l\'interieur ».')
