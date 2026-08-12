@@ -69,6 +69,11 @@
 (defconstant PHYS-P-HANG   20)
 (defconstant PHYS-P-FAMILY 22)
 (defconstant PHYS-P-COUPLE 27)
+;; RAYON INTERNE DU FOURREAU que ce lien forme autour d'un membre, en unites. 0 = ce lien n'est pas
+;; un fourreau, et c'est le cas de toutes les chaines sauf `pantflapL`/`pantflapR`. Derive du mesh
+;; par le generateur (couverture angulaire des sommets du joint autour de l'axe d'un volume
+;; ETRANGER : >= 10 secteurs sur 12 et ecart <= 60 degres), jamais ecrit a la main.
+(defconstant PHYS-P-SHELL  28)
 ;; L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite.
 ;; Owner 2026-08-11 21:15 : « certains maillons meriteraient un traitement pour eviter de creer des
 ;; angles extremes qui mettent en lumiere le lack of geometrie » ; 22:35, le perimetre : « juste sur
@@ -124,6 +129,31 @@
 (define *phys-fam*    (new 'global 'array 'int32 PHYS-SC))   ;; 1 = A, 2 = B
 (define *phys-rootlk* (new 'global 'array 'int32 PHYS-SC))
 (define *phys-maxang* (new 'global 'array 'float PHYS-SC))   ;; degres, 0 = aucune limite d'angle
+;; ------------------------------------------------------------------------------------------------
+;; LE FOURREAU. Owner, plusieurs passes : « le bas du pantacourt est toujours a l'interieur des
+;; mollets, comme si son pantacourt s'arretait aux genoux ».
+;;
+;; Le pan de pantacourt n'est pas un pendentif, c'est une COQUE FERMEE autour du mollet : ses
+;; sommets occupent 10 secteurs angulaires sur 12 autour de l'axe de la capsule `Lankle->Lknee`,
+;; ecart max 60 degres — exactement le profil de la PEAU de la jambe, et tout autre que celui d'une
+;; languette plate (`lKneeFlap` : 5 secteurs, ecart 210). Son centroide est a 95 u de l'axe du
+;; mollet, c'est-a-dire SUR l'axe.
+;;
+;; POUSSER UN FOURREAU « HORS » DU MEMBRE QU'IL ENTOURE N'A PAS DE SENS GEOMETRIQUE. Le moteur
+;; calculait pourtant `dep = (rayon_lien 429 + rayon_mollet 358) - 95 = 692 u` de penetration et
+;; ejectait le pan lateralement de presque 700 u a chaque frame ; la moitie du tissu se retrouvait
+;; alors enfoncee dans la jambe. C'est le defaut que l'owner decrit, et ce n'est ni un rayon a
+;; regler ni un manque de force : c'est la NATURE de la contrainte qui etait fausse.
+;;
+;; CE QUI LA REMPLACE : la CONCENTRICITE. Le membre doit rester dans la coque, donc le lien ne peut
+;; pas s'ecarter de l'axe plus que la pose du modele ne l'ecarte. Tourner autour du membre et
+;; glisser le long restent entierement libres — la contrainte ne borne que l'excursion RADIALE, la
+;; seule qui fasse rentrer le tissu dans la chair. Comme partout ailleurs dans ce moteur, la pose du
+;; modele est le plancher : elle satisfait la contrainte par construction, donc le recul garde son
+;; point d'arrivee.
+(define *phys-shell* (new 'global 'array 'float PHYS-SC))    ;; rayon interne, 0 = pas un fourreau
+(define *phys-shell-n* 0)     ;; corrections de concentricite appliquees, sur la fenetre
+(define *phys-shell-off* 0)   ;; CONTROLE POSITIF : 1 = fourreau traite comme avant (poussee)
 (define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
 ;; ------------------------------------------------------------------------------------------------
 ;; LE VOLUME QU'UN LIEN PORTE QUAND IL BOUGE — et c'est LE MEME que celui qu'il presente quand il
@@ -599,7 +629,17 @@
 ;;              en conflit avec aucun volume n'ecarte personne. Une chaine dont ce compteur est
 ;;              GRAND est une chaine que des volumes se disputaient, donc une chaine que le recul
 ;;              epinglait (kneeflapR : retreat 15913 sur 17893 frames).
-(defconstant PHYS-DG 13)
+;;   13 shellrad ECART RADIAL MAXIMUM d'un lien-fourreau a l'axe du membre qu'il entoure, au-dela
+;;              de ce que sa pose de modele donne, en unites de jeu.
+;;              NATURE : une DISTANCE radiale. Surtout pas une profondeur de penetration : celle-ci
+;;              est MAXIMALE quand le lien est sur l'axe, c'est-a-dire exactement la ou un fourreau
+;;              est CORRECT, et c'est pour ca que `meshpen` lisait 0.0000 pendant que l'owner
+;;              voyait le pan de pantacourt disparaitre dans le mollet.
+;;              REPERE : celui du volume — distance a son axe, segment borne.
+;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0. La pose du modele rend exactement 0.
+;;              MESUREE MEME QUAND LE CONTROLE EST ARME : c'est ce qui permet au chiffre de MONTER
+;;              sous le defaut au lieu de disparaitre avec la contrainte qui le corrige.
+(defconstant PHYS-DG 14)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -702,6 +742,7 @@
                       (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY))))
                       (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
                       (set! (-> *phys-maxang* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MAXANG)))
+                      (set! (-> *phys-shell* sc)  (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-SHELL)))
                       ;; rayons par lien : `radii=` s'il existe, sinon le `radius=` de la chaine
                       (let ((base (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-RADIUS))))
                         (dotimes (l PHYS-LINKS)
@@ -1006,6 +1047,58 @@
         (else
          (set! (-> nrm x) (/ dx d)) (set! (-> nrm y) (/ dy d)) (set! (-> nrm z) (/ dz d))
          (- want d))))))
+
+(defun phys-shell-pair? ((rest vector) (shell float) (ca vector) (cb vector) (capsule? symbol))
+  "CE LIEN EST-IL UN FOURREAU AUTOUR DE CE VOLUME-CI ?
+
+   Evalue A LA POSE DU MODELE, donc stable d'une frame a l'autre et independant de ce que la
+   simulation fait : la reponse ne peut pas osciller.
+
+   LES DEUX MOITIES SONT NECESSAIRES. Le generateur declare qu'un lien EST un fourreau (`shell` >
+   0, derive du mesh : >= 10 secteurs angulaires sur 12 autour de l'axe d'un volume etranger) mais
+   il ne dit pas AUTOUR DE QUOI, et la reponse depend de la pose. C'est la geometrie qui la donne :
+   l'axe du volume passe-t-il a l'interieur de la coque ? Le pan de pantacourt entoure le mollet et
+   RIEN D'AUTRE — contre le buste, le bras ou l'autre jambe il reste un obstacle ordinaire, repousse
+   comme avant.
+
+   CE PREDICAT NE CONSULTE PAS LE CONTROLE `*phys-shell-off*`, ET C'EST DELIBERE : il enonce un
+   FAIT GEOMETRIQUE, pas une politique. La mesure de l'ecart radial doit rester disponible quand le
+   controle est arme — sinon le compteur TOMBERAIT a zero sous le defaut au lieu de MONTER, et ce
+   serait un controle casse, exactement celui que les DIRECTIVES sanctionnent."
+  (cond
+    ((or (not capsule?) (<= shell 0.0)) #f)
+    (else
+     (let ((d (new 'stack-no-clear 'vector)))
+       (cond
+         ;; le lien est EXACTEMENT sur l'axe : il l'entoure par definition
+         ((not (phys-axis-dir rest ca cb d)) #t)
+         (else (< (-> d w) shell)))))))
+
+(defun phys-shell-res ((rest vector) (q vector) (ca vector) (cb vector) (nrm vector))
+  "DE COMBIEN LE FOURREAU S'EST ECARTE DE L'AXE AU-DELA DE SA POSE DE MODELE.
+
+   NATURE : une distance RADIALE, en unites de jeu. Ce n'est PAS une profondeur de penetration, et
+   la distinction est le fond du defaut : une profondeur est MAXIMALE quand le lien est sur l'axe,
+   c'est-a-dire exactement la ou un fourreau est CORRECT. La grandeur qui decrit « le tissu rentre
+   dans la chair » est l'ecart a la concentricite, et rien d'autre.
+   REPERE : celui du volume — distance a son axe, segment borne comme dans `phys-collide-depth`.
+   LECTURE QUAND LE DEFAUT EST ABSENT : <= 0. La pose du modele rend exactement 0 par construction,
+   donc elle reste admissible et le recul garde son point d'arrivee.
+
+   Remplit `nrm` avec la direction du retour : VERS l'axe. Le fourreau revient a sa distance de pose
+   modele ; il n'est jamais ecarte, et il garde toute sa liberte de tourner autour du membre et de
+   glisser le long — les deux mouvements qui ne peuvent pas enfoncer le tissu dans la jambe."
+  (let ((ua (new 'stack-no-clear 'vector))
+        (ub (new 'stack-no-clear 'vector)))
+    (cond
+      ((not (phys-axis-dir q ca cb ub)) 0.0)
+      (else
+       (set! (-> nrm x) (- 0.0 (-> ub x)))
+       (set! (-> nrm y) (- 0.0 (-> ub y)))
+       (set! (-> nrm z) (- 0.0 (-> ub z)))
+       (if (phys-axis-dir rest ca cb ua)
+         (- (-> ub w) (-> ua w))
+         (-> ub w))))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; CONTRAINTE 1 — CE QUE LA GEOMETRIE DU PERSONNAGE AUTORISE. Deux cas, et un seul des deux est une
@@ -1619,25 +1712,42 @@
                     ;; exactement `dep` evalue en `rest` — sans jamais RESSERRER une paire par
                     ;; rapport a aujourd'hui, donc sans pouvoir retirer du mouvement.
                     (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                           (floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
-                                                       (-> *phys-cr2* sco) cap? nrm))
-                           (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
-                                                       (-> *phys-cr2* sco) cap? nrm))
-                           (floor0 (if (> floorc floors) floorc floors))
-                           (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
-                           (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
-                                                       (-> *phys-cr2* sco) cap? nrm)))
-                      (when (> dep feff)
-                        (let ((push (+ (- dep feff) margin)))
-                          ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
-                          ;; arriver que sous controle positif, et c'est ce compteur qui le dit.
-                          (when (nonzero? *phys-self-inject*)
-                            (when (phys-col-own? sc n cj cj2)
-                              (set! (-> *phys-dg* (* sc PHYS-DG))
-                                    (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
-                          (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
-                          (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
-                          (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))))))))
+                           (sleeve (phys-shell-pair? rest (-> *phys-shell* sc) ra rb cap?)))
+                      (cond
+                        ;; ---- LE FOURREAU : concentricite, pas ejection. Voir `*phys-shell*`. ----
+                        ;; ARME, le controle rend au fourreau sa sphere de poussee d'avant : on
+                        ;; retombe dans la branche `else`, le pan est de nouveau ejecte, et l'ecart
+                        ;; radial mesure plus bas DOIT remonter.
+                        ((and sleeve (zero? *phys-shell-off*))
+                         (let ((rad (phys-shell-res rest pt ca cb nrm)))
+                           (when (> rad 0.0)
+                             (set! *phys-shell-n* (+ *phys-shell-n* 1))
+                             (let ((push (+ rad margin)))
+                               ;; `nrm` sort de `phys-shell-res` dirigee VERS l'axe : le lien
+                               ;; revient a sa distance de pose modele, il n'est pas ecarte.
+                               (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
+                               (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
+                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))))
+                        (else
+                         (let* ((floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                                                            (-> *phys-cr2* sco) cap? nrm))
+                                (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                            (-> *phys-cr2* sco) cap? nrm))
+                                (floor0 (if (> floorc floors) floorc floors))
+                                (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
+                                (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
+                                                            (-> *phys-cr2* sco) cap? nrm)))
+                           (when (> dep feff)
+                             (let ((push (+ (- dep feff) margin)))
+                               ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
+                               ;; arriver que sous controle positif, et c'est ce compteur qui le dit.
+                               (when (nonzero? *phys-self-inject*)
+                                 (when (phys-col-own? sc n cj cj2)
+                                   (set! (-> *phys-dg* (* sc PHYS-DG))
+                                         (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
+                               (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
+                               (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
+                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push))))))))))))))
             ;; retour aux coordonnees du JOINT : le solveur, la contrainte de longueur et l'ecriture
             ;; dans le squelette raisonnent tous sur le joint, jamais sur le centre du volume.
             (set! (-> pt x) (- (-> pt x) (-> offs x)))
@@ -1827,15 +1937,29 @@
               (when (not (phys-col-rest! sco ra rb))
                 (vector-copy! ra ca) (vector-copy! rb cb))
               (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                     (floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
-                                                 (-> *phys-cr2* sco) cap? nrm))
-                     (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
-                                                 (-> *phys-cr2* sco) cap? nrm))
+                     ;; LE FOURREAU EST JUGE SUR SON ECART RADIAL, PAS SUR UNE PROFONDEUR — sans
+                     ;; quoi le recul le tirerait vers l'axe pour « reduire la penetration », ce
+                     ;; qui est exactement le contraire de ce qu'il faut. Voir `phys-shell-res`.
+                     (sleeve (phys-shell-pair? rest (-> *phys-shell* sc) ra rb cap?))
+                     (sleevec (and sleeve (zero? *phys-shell-off*)))
+                     (floors (if sleevec 0.0
+                               (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                                                   (-> *phys-cr2* sco) cap? nrm)))
+                     (floorc (if sleevec 0.0
+                               (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                   (-> *phys-cr2* sco) cap? nrm)))
                      (floor0 (if (> floorc floors) floorc floors))
-                     (feff   (phys-vol-floor floor0 rl))
-                     (dep    (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
-                                                 (-> *phys-cr2* sco) cap? nrm))
-                     (res    (- dep feff)))
+                     (feff   (if sleevec 0.0 (phys-vol-floor floor0 rl)))
+                     (dep    (if sleevec 0.0
+                               (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
+                                                   (-> *phys-cr2* sco) cap? nrm)))
+                     (res    (if sleevec (phys-shell-res rest q ca cb nrm) (- dep feff))))
+                ;; L'ECART RADIAL DU FOURREAU, MESURE QUE LA CONTRAINTE SOIT ACTIVE OU NON. C'est
+                ;; le chiffre du defaut `pant-calf`, et il doit rester lisible sous controle arme.
+                (when (and sleeve (nonzero? *phys-buried-tally*))
+                  (let ((rr2 (phys-shell-res rest q ca cb nrm)))
+                    (when (> rr2 (-> *phys-dg* (+ (* sc PHYS-DG) 13)))
+                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 13)) rr2))))
                 ;; CHANGER DE COTE EST UNE PENETRATION, ET C'EST LA SEULE QUE LA PROFONDEUR NE PEUT
                 ;; PAS VOIR. Elle est maximale SUR l'axe et redescend en ressortant : un lien qui
                 ;; traverse la piece de part en part repasse donc sous son propre plancher et
@@ -1885,7 +2009,16 @@
                 ;; deviendrait un zero constant, c.-a-d. indistinguable d'une colonne fabriquee.
                 ;; `skip` ne porte QUE sur la profondeur : c'est la seule grandeur sur laquelle
                 ;; deux volumes qui se recouvrent peuvent se contredire.
-                (when (and (not skip) (or (> floor0 0.0) (> dep 0.0)) (> res worst))
+                ;;
+                ;; LE FOURREAU EST UN CONTACT PERMANENT PAR NATURE — le membre est DANS la coque,
+                ;; donc `floor0` et `dep` y valent zero et le predicat de contact ordinaire ne le
+                ;; verrait jamais. Son residu est publie sur son propre critere.
+                ;; Il n'est pas non plus soumis au veto de COTE, et ce n'est pas une derogation :
+                ;; « changer de cote de l'axe » n'a aucun sens pour une piece qui ENTOURE cet axe —
+                ;; tourner autour du mollet est un mouvement legitime du tissu, et ce qui doit etre
+                ;; interdit (le tissu qui rentre dans la chair) est exactement ce que l'ecart radial
+                ;; mesure. Le veto de cote reste entier pour toutes les autres paires.
+                (when (and (not skip) (or sleevec (> floor0 0.0) (> dep 0.0)) (> res worst))
                   (set! worst res))))))))
     worst))
 
@@ -3382,6 +3515,23 @@
 (defun phys-prio-reset! ()
   (set! *phys-prio-n* 0)
   (set! *phys-prio-multi* 0)
+  (none))
+
+(defun phys-shell-off-set! ((v int))
+  "1 = le fourreau redevient une sphere de poussee ordinaire, comme avant ce cycle. C'est le
+   controle positif du `pant-calf` : arme, le pan est de nouveau ejecte lateralement du mollet et
+   son ecart radial doit REMONTER."
+  (set! *phys-shell-off* v)
+  (none))
+
+(defun phys-shell-count ()
+  "Corrections de concentricite appliquees sur la fenetre.
+   NATURE : un COMPTE d'evenements. LECTURE QUAND LE DEFAUT EST ABSENT : 0 — et un zero ici ne
+   prouve rien tout seul, c'est `phys-shell-off-set!` qui doit le faire monter."
+  (the float *phys-shell-n*))
+
+(defun phys-shell-reset! ()
+  (set! *phys-shell-n* 0)
   (none))
 
 (defun phys-inversions-reset! ()

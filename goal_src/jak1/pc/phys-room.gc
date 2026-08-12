@@ -154,8 +154,14 @@
 (defconstant PHYSROOM-PH-SELFOFF 9)
 (defconstant PHYSROOM-PH-SELFON 10)
 (defconstant PHYSROOM-PH-SIDEON 11)
-(defconstant PHYSROOM-PH-REPORT 12)
-(defconstant PHYSROOM-PH-DONE   13)
+;; CONTROLE POSITIF DU FOURREAU (defaut ouvert `pant-calf`). La contrainte de concentricite
+;; remplace l'ejection laterale du pan de pantacourt hors du mollet ; son residu doit tomber a zero,
+;; et un zero que rien ne peut faire monter ne prouve rien. ARMEE, `phys-shell-off-set!` rend au pan
+;; sa sphere de poussee d'avant : l'ecart radial DOIT remonter.
+(defconstant PHYSROOM-PH-SHELLOFF 12)
+(defconstant PHYSROOM-PH-SHELLON  13)
+(defconstant PHYSROOM-PH-REPORT 14)
+(defconstant PHYSROOM-PH-DONE   15)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -622,7 +628,19 @@
       ;;            maintenant. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
       (format 0 "PHYSDIAG4 tag=~S c=~D side=~f~%"
               tag c
-              (phys-diag (-> self slot) c 11))))
+              (phys-diag (-> self slot) c 11))
+      ;;   volprio  paires (lien, volume) que la DECISION 1 a ECARTEES parce qu'un autre volume
+      ;;            decidait deja pour ce lien cette frame. C'est le seul chiffre qui dise OU les
+      ;;            volumes se contredisent, et il manquait : `ROOM-INVERSIONS residual=379`
+      ;;            n'etait attribuable a aucune chaine. Une chaine dont ce compte est GRAND est
+      ;;            une chaine que des volumes se disputaient, donc que le recul epinglait
+      ;;            (kneeflapR : retreat 15913 frames sur 17893).
+      ;;            NATURE : un compte de paires sur la fenetre. REPERE : sans objet.
+      ;;            LECTURE QUAND LE DEFAUT EST ABSENT : 0 — aucun conflit, personne n'est ecarte.
+      (format 0 "PHYSDIAG5 tag=~S c=~D volprio=~f shellrad=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 12)
+              (phys-diag (-> self slot) c 13))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
@@ -1014,6 +1032,38 @@
      (when (>= (-> self pframe) PHYSROOM-PCW)
        (physroom-emit-diag "side-armed")
        (phys-side-off-set! 0)
+       (phys-diag-reset!)
+       (phys-shell-reset!)
+       (set! (-> self phase) PHYSROOM-PH-SHELLOFF)
+       (set! (-> self pframe) 0)))
+
+    ;; ---- 9ter. CONTROLE POSITIF DU FOURREAU (`pant-calf`). Le pan de pantacourt est une COQUE
+    ;; ---- autour du mollet : le pousser « dehors » l'ejecte lateralement de ~700 u et enfonce la
+    ;; ---- moitie du tissu dans la jambe. La contrainte est desormais la CONCENTRICITE, et son
+    ;; ---- residu doit valoir zero. DESARMEE d'abord (contrainte en place), ARMEE ensuite
+    ;; ---- (`phys-shell-off-set! 1` rend au pan sa sphere de poussee) : le compteur DOIT monter.
+    ((= (-> self phase) PHYSROOM-PH-SHELLOFF)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (format 0 "PHYSSHELL tag=shell-disarmed corrections=~f~%" (phys-shell-count))
+       ;; l'ecart radial par chaine sort dans PHYSDIAG5 ci-dessous : c'est LUI qui doit monter
+       ;; quand le controle est arme. `corrections` ne le peut pas -- armee, la contrainte ne
+       ;; tourne plus, donc son compteur tombe a zero. Les deux sont publies, jamais confondus.
+       (physroom-emit-diag "shell-disarmed")
+       (phys-diag-reset!)
+       (phys-shell-reset!)
+       (phys-shell-off-set! 1)
+       (set! (-> self phase) PHYSROOM-PH-SHELLON)
+       (set! (-> self pframe) 0)))
+
+    ((= (-> self phase) PHYSROOM-PH-SHELLON)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (format 0 "PHYSSHELL tag=shell-armed corrections=~f~%" (phys-shell-count))
+       (physroom-emit-diag "shell-armed")
+       (phys-shell-off-set! 0)
        (set! (-> self phase) PHYSROOM-PH-REPORT)
        (set! (-> self pframe) 0)))
 
