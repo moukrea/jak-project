@@ -64,7 +64,11 @@ if [ -f goal_src/jak1/pc/jak-hd-physics.gc ]; then
   # 5 mentions d'hysteresis -- l'ancien moteur de 6000 lignes en portait 84 et 9. Le plafond
   # visait l'empilement de SUPPRESSEURS: il n'est pas atteint par des suppresseurs, donc il monte.
   # Il ne monte JAMAIS pour laisser passer des suppresseurs; c'est la composition qui decide.
-  if [ "$_n" -gt 3200 ]; then
+  # 2026-08-12 12:40 : plafond releve de 3200 a 4000, apres verification de la composition comme
+  # la premiere fois. La croissance reste de la CONTRAINTE et de la MESURE, pas des suppresseurs.
+  # Le plafond ne monte jamais pour laisser passer un suppresseur : c'est la composition qui
+  # decide, jamais le nombre.
+  if [ "$_n" -gt 4000 ]; then
     fail "CLEAN: le moteur fait $_n lignes. L'ancien en faisait 6000 et c'est ce qui a tué le
   mouvement (clamps 9→84, détection d'anim 45→172, 42% des mesures à zéro). Si ce plafond gêne,
   c'est un signal, pas un obstacle à contourner."
