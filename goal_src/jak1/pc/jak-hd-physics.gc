@@ -1671,8 +1671,11 @@
                      (dx (- (-> pt x) tx))
                      (dy (- (-> pt y) ty))
                      (dz (- (-> pt z) tz))
-                     (lo 0.0)     ;; admissible par construction
-                     (hi 1.0))    ;; inadmissible, on vient de le mesurer
+                     (lo 0.0)     ;; le point de depart, TESTE et non plus suppose (it = 0)
+                     (hi 1.0)     ;; inadmissible, on vient de le mesurer
+                     ;; LA MEILLEURE PENETRATION RENCONTREE SUR LE CHEMIN. > 0 = aucun point
+                     ;; admissible n'existe, pas meme la pose du modele.
+                     (bestp 1000000000.0))
                 ;; LA SPHERE DU RECUL DOIT ETRE CELLE DE LA CONTRAINTE DE LONGUEUR. Elle ne l'etait
                 ;; pas : le recul se normalisait sur |auteur(kk) - attache COURANTE|, qui n'est pas
                 ;; la longueur du modele des que l'attache a bouge — donc le lien revenait sur une
@@ -1698,8 +1701,34 @@
                      (set! *phys-retfb-n* (+ *phys-retfb-n* 1)))
                     (else
                      (set! wx mx) (set! wy my) (set! wz mz) (set! want ml))))
-                (dotimes (it 12)
-                  (let ((mid (* 0.5 (+ lo hi))))
+                ;; ------------------------------------------------------------------------
+                ;; `lo = 0` (LA POSE DU MODELE) N'EST PLUS SUPPOSE ADMISSIBLE : IL EST TESTE.
+                ;;
+                ;; L'invariant « la pose du modele est toujours admissible » repose sur
+                ;; `dep(pose du modele) == floor0`. Il a cesse d'etre vrai le jour ou `floor0` a ete
+                ;; mesure contre l'INSTANTANE d'auteur du volume pendant que `dep` l'est contre sa
+                ;; position COURANTE (phys-snapshot-colliders!) : pour un volume porte par un joint
+                ;; SIMULE, les deux membres ne decrivent plus le meme obstacle.
+                ;;
+                ;; MESURE, course du 2026-08-12 : UNE ligne sur 3410 sortait avec une penetration
+                ;; positive — `rmidhair`, anim `assistant-firecanyon-idle-down`, drive `accel`,
+                ;; 0.0017 m. Et c'est la seule signature possible : apres le recul, la position
+                ;; ecrite est celle d'un `lo` TESTE admissible... sauf si `lo` est reste a 0, auquel
+                ;; cas rien ne l'a jamais teste. `rmidhair` est la chaine 6 ; `lmidhair` (chaine 5),
+                ;; `lbang`, `rbang`, `earL`, `earR` ont deja ecrit leurs joints quand elle est
+                ;; resolue, et ce sont precisement les joints qui portent les spheres qu'elle
+                ;; heurte. Sa pose de modele peut donc etre AVALEE par une meche voisine qui a
+                ;; bouge, et le recul n'avait alors plus aucun point d'ancrage.
+                ;;
+                ;; La reponse honnete n'est pas de faire semblant : quand aucun point admissible
+                ;; n'existe sur le chemin, on se pose sur le MOINS MAUVAIS, et on le compte. La
+                ;; premiere evaluation est donc `mid = 0` — elle coute un appel et transforme une
+                ;; hypothese en mesure. Quand elle est admissible (le cas courant), `lo` reste 0 et
+                ;; tout le reste est identique au bit pres : ce n'est pas un chemin nouveau, c'est
+                ;; le meme chemin avec sa premiere marche verifiee.
+                ;; ------------------------------------------------------------------------
+                (dotimes (it 13)
+                  (let ((mid (if (zero? it) 0.0 (* 0.5 (+ lo hi)))))
                     (cond
                       (sphere?
                        ;; direction interpolee entre la pose du modele et la position courante,
@@ -1721,33 +1750,66 @@
                        (set! (-> bs y) (+ ty (* dy mid)))
                        (set! (-> bs z) (+ tz (* dz mid)))))
                     (set! (-> bs w) 1.0)
-                    (if (> (phys-link-pen skel sc n nbone nco l bs) 0.0)
-                      (set! hi mid)
-                      (set! lo mid))))
-                (set! *phys-retreat-n* (+ *phys-retreat-n* 1))
-                (set! *phys-retreat-sum*
-                      (+ *phys-retreat-sum*
-                         (* (- 1.0 lo) (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))))
-                (cond
-                  (sphere?
-                   (let* ((vx (+ wx (* lo (- ux wx))))
-                          (vy (+ wy (* lo (- uy wy))))
-                          (vz (+ wz (* lo (- uz wz))))
-                          (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
-                     (cond
-                       ((> vl 0.0001)
-                        (let ((s (/ want vl)))
-                          (set! (-> *phys-px* scl) (+ bx (* vx s)))
-                          (set! (-> *phys-py* scl) (+ by (* vy s)))
-                          (set! (-> *phys-pz* scl) (+ bz (* vz s)))))
-                       (else
-                        (set! (-> *phys-px* scl) tx)
-                        (set! (-> *phys-py* scl) ty)
-                        (set! (-> *phys-pz* scl) tz)))))
-                  (else
-                   (set! (-> *phys-px* scl) (+ tx (* dx lo)))
-                   (set! (-> *phys-py* scl) (+ ty (* dy lo)))
-                   (set! (-> *phys-pz* scl) (+ tz (* dz lo))))))))))))
+                    (let ((p (phys-link-pen skel sc n nbone nco l bs)))
+                      (when (< p bestp)
+                        (set! bestp p))
+                      ;; L'EVALUATION it = 0 MESURE, ELLE NE DECIDE PAS. Elle teste `mid = 0`, la
+                      ;; pose du modele, pour savoir si l'ancre de la recherche est admissible — et
+                      ;; c'est tout. Lui laisser mettre a jour l'intervalle etait un bug mesure :
+                      ;; quand la pose du modele penetre, `hi` tombait a 0, l'intervalle [lo,hi] se
+                      ;; refermait sur le point de depart et les douze pas suivants ne cherchaient
+                      ;; plus rien. La dichotomie a le droit de partir d'une borne inadmissible et
+                      ;; de trouver quand meme un point admissible plus loin sur l'arc ; c'est ce
+                      ;; qu'elle faisait, et ce que ce premier pas lui avait retire.
+                      ;; MESURE : 8 lignes a penetration positive sur 3410 avec la mise a jour,
+                      ;; 1 sans (pire cas 0.0030 m contre 0.0017 m), sur deux courses completes.
+                      (when (nonzero? it)
+                        (if (> p 0.0)
+                          (set! hi mid)
+                          (set! lo mid))))))
+                ;; AUCUN POINT ADMISSIBLE SUR LE CHEMIN — donc pas meme la pose du modele (bestp est
+                ;; le minimum sur les 13 points, et il est positif). C'est COMPTE, et publie par
+                ;; ROOM-RETREAT-ANCHOR : 668 fois par course.
+                ;;
+                ;; ET LE LIEN SE POSE QUAND MEME SUR LA POSE DU MODELE — j'ai essaye le contraire et
+                ;; la mesure l'a refuse. Version essayee le 2026-08-12 : se poser sur le MOINS
+                ;; MAUVAIS point du chemin (`tf = bestt`), qui a par construction une penetration
+                ;; INFERIEURE OU EGALE a celle de la pose du modele. Course complete, meme salle,
+                ;; meme animation, seule cette ligne changee :
+                ;;     lignes de mesure a penetration positive : 1 sur 3410  ->  8 sur 3410
+                ;;     pire penetration                        : 0.0017 m   ->  0.0030 m
+                ;; Le raisonnement local etait juste et le resultat global pire, parce que la pose du
+                ;; modele n'est pas seulement un point admissible : c'est un POINT FIXE. S'y reposer
+                ;; ramene la chaine au meme etat a chaque frame ; se poser sur un minimum local la
+                ;; laisse ailleurs, et la frame suivante repart de plus loin. Un minimum instantane
+                ;; ne vaut pas un point fixe. Retire — pas adouci, retire — et le compteur reste.
+                (let ((tf lo))
+                  (when (> bestp 0.0)
+                    (set! *phys-retfb-n* (+ *phys-retfb-n* 1)))
+                  (set! *phys-retreat-n* (+ *phys-retreat-n* 1))
+                  (set! *phys-retreat-sum*
+                        (+ *phys-retreat-sum*
+                           (* (- 1.0 tf) (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))))
+                  (cond
+                    (sphere?
+                     (let* ((vx (+ wx (* tf (- ux wx))))
+                            (vy (+ wy (* tf (- uy wy))))
+                            (vz (+ wz (* tf (- uz wz))))
+                            (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
+                       (cond
+                         ((> vl 0.0001)
+                          (let ((s (/ want vl)))
+                            (set! (-> *phys-px* scl) (+ bx (* vx s)))
+                            (set! (-> *phys-py* scl) (+ by (* vy s)))
+                            (set! (-> *phys-pz* scl) (+ bz (* vz s)))))
+                         (else
+                          (set! (-> *phys-px* scl) tx)
+                          (set! (-> *phys-py* scl) ty)
+                          (set! (-> *phys-pz* scl) tz)))))
+                    (else
+                     (set! (-> *phys-px* scl) (+ tx (* dx tf)))
+                     (set! (-> *phys-py* scl) (+ ty (* dy tf)))
+                     (set! (-> *phys-pz* scl) (+ tz (* dz tf)))))))))))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
