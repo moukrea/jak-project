@@ -221,3 +221,110 @@ tranche est mecanique : l'os de `lKneeFlap` existe-t-il dans le rig ? S'il exist
 de longueur borne deja le lien et le mur est un SECOND plafond, plus serre, donc redondant ; s'il
 est degenere (joint confondu avec son attache, comme `LpantFlap` l'etait), le mur est le seul
 plafond et il faut le derive.
+
+
+9. LE MUR EST CHIFFRE — 293.66 m d'excursion retires sur la course
+==================================================================
+Instrumentation posee ce cycle (`*phys-dg*` 15, colonne `raddropm` de `PHYSDIAG6`) : la somme
+existait dans le moteur mais globale, elle est desormais imputee PAR CHAINE.
+
+    chaine        morsures      prix        par morsure     plafond de la chaine
+    anklestrapL      5484      59.734 m       10.9 mm            54.9 mm
+    anklestrapR      5186      57.461 m       11.1 mm            54.9 mm
+    kneeflapL        4531      40.987 m        9.0 mm            59.6 mm
+    chestL           7798      37.741 m        4.8 mm           160.2 mm
+    toestrapL        7522      32.052 m        4.3 mm            45.9 mm
+    toestrapR        7057      30.478 m        4.3 mm            45.9 mm
+    chestR           3257      22.160 m        6.8 mm           161.1 mm
+    kneeflapR        3569      13.047 m        3.7 mm            59.6 mm
+    ------------------------------------------------ TOTAL      293.661 m
+
+Sur `anklestrap`, chaque morsure retire 11 mm pour un plafond de 55 mm : le mur reprend un
+CINQUIEME de l'excursion autorisee, 5 484 fois. Ce n'est pas un garde-fou, c'est le regime.
+
+ET L'IDENTITE QUI FERME LE SUJET. Le plafond d'excursion se traduit en plafond ANGULAIRE par
+`2*asin(rmax / (2*longueur d'os))`. Compare a `tiprot`, l'angle REELLEMENT ecrit dans la matrice :
+
+    chaine        plafond calcule    tiprot mesure      shape calcule / mesure
+    kneeflapL         43.72 deg         43.73 deg         0.7446 / 0.7448
+    kneeflapR         43.60 deg         43.63 deg         0.7428 / 0.7432
+    chestL            39.22 deg         39.29 deg
+    chestR            39.47 deg         39.85 deg
+    toestrapL/R       15.39 deg         15.39 deg
+    anklestrapL/R      5.96 deg          5.96 deg
+
+Trois instruments independants (`tiprot`, `shape`, `rootdev`) lisent tous la valeur du mur, sur
+les HUIT chaines a un os. L'orientation visible de ces chaines n'est pas produite par la
+physique : elle est la traduction geometrique d'un rayon de clamp. `anklestrap` est bornee a
+6 DEGRES.
+
+Le mur n'est pourtant PAS necessaire ici : il existe pour le cas degenere ou l'os n'existe pas
+(le joint confondu avec son attache). Or `kneeflapL/R` prennent la branche `else` de la
+contrainte de longueur — leur os mesure 328.5 u, tres au-dessus du seuil de 0.01 — donc la
+contrainte de longueur les borne DEJA (rotation a longueur invariante autour de l'ancre). Le mur
+est un SECOND plafond, plus serre, et redondant sur toute chaine dont l'os existe.
+
+Je ne le retire pas dans ce cycle : c'est GROUPE B, j'en ai deja livre un, et il touche la
+poitrine que l'owner vient de juger « quasiment parfaite sur les mouvements subtils ». Le
+controle qui tranche est ecrit et peu couteux : desarmer le mur pour `kneeflapL/R` seules
+(l'idiome existe deja : `*phys-side-off*`, `*phys-cone-off*`, `*phys-shell-off*`) et re-courir.
+Il doit faire passer `tiprot` au-dessus de 43.7 deg. S'il n'y arrive pas, la cause est en amont
+et c'est le point 10.
+
+
+10. L'ASYMETRIE GAUCHE/DROITE N'EST PAS DE LA PHYSIQUE : C'EST LE MODE DE RETARGET
+==================================================================================
+Le rig est un miroir PARFAIT : `lKneeFlap` (638.483, 3291.056, 71.947) contre `rKneeFlap`
+(-638.484, 3291.058, 71.947), a 2e-6 u pres ; meme longueur d'os (328.5 u), meme rayon (244),
+offsets de volume exactement miroir. Les capsules de jambe ne different que de 4 %. Rien la
+n'explique un facteur 2.15 sur `retreat` ni 11.8 sur le controle `SIDE`.
+
+La difference est dans `recharged_assets/hd_anim/keira-hd-k2e.json` :
+
+    k=88  lKneeFlap  mode=1  drv_parent=20    chain-class, pivot_err=0.0221
+    k=92  rKneeFlap  mode=3  drv_parent=255   orient-copy: rot_mismatch=179.71 deg
+
+`rKneeFlap` est DEMOTE en mode 3 (orient-copy) par `scripts/shell/retarget_fill_table.py:197`
+(`if rm > 1.0`), parce que le rig HD lui donne un repere de bind retourne de 180 degres. Et
+`jak-hd.gc:506-530` montre ce que le mode 3 fait : la TRANSLATION du joint vient du produit
+glue, pas du driver d'animation — le joint est rigidement colle a `Rknee` a son offset de bind,
+seules les rangees de rotation viennent de l'animation.
+
+PREUVE D'EXECUTION, et elle est nette : dans `ROOM-AUTHORED`, `kneeflapL` a une ligne
+(frames=4) ; `kneeflapR` n'en a AUCUNE — zero frame reconnue comme pilotee par un canal
+d'auteur, quand les autres chaines en comptent 2 000 a 7 000.
+
+ET C'EST PLUS GRAVE QUE LES LANGUETTES : `RpantFlap` (k=93) subit EXACTEMENT le meme demotage.
+C'est la jambe DROITE — celle que l'owner a nommee en premier : « le bout du pantacourt de sa
+jambe droite glitche au travers de son mollet ». `pant-calf` et `knee-tabs` partagent donc une
+cause commune, et elle n'est ni dans le solveur ni dans les volumes : elle est dans la table de
+retargeting.
+
+CORRECTION D'UN CHIFFRE QUE JE TRAINAIS. Je repetais « 0.0780 m a gauche contre 0.0093 a droite,
+asymetrie 8x ». Ce couple vient des courses de la mi-journee et ne decrit plus l'etat actuel :
+la course courante lit 0.0640 / 0.0432 (1.48x), et en MEDIANE sous animation seule l'ordre est
+INVERSE (0.0019 L / 0.0126 R). Le texte perime qui gravait 0.0093 dans le generateur est retire
+avec ce commit — un nombre grave dans un commentaire cesse d'etre une mesure des que la course
+change.
+
+
+11. LA POSE DE MODELE DES LANGUETTES N'EST PAS ENTERREE — le titre d'un commit etait faux
+==========================================================================================
+`dbdb4ca5da` affirmait « les languettes de genou ne peuvent PAS sortir de la capsule de cuisse :
+il leur manque 8 mm ». Mesure en pose bind (`.autoport/probe_knee_flap_burial.py`, ecrit ce
+cycle, qui retranscrit `phys-link-off!`, `phys-collide-depth` et le predicat `buried`) :
+
+    lKneeFlap vs Lknee->Lthigh   profondeur +39.2 u  (+9.58 mm)   buried: NON
+    rKneeFlap vs Rknee->Rthigh   profondeur +34.2 u  (+8.36 mm)   buried: NON
+    les deux vs la capsule de mollet et de cuisse haute : DEHORS (-26 mm et -225 mm)
+
+Le « 8 mm » est numeriquement exact (c'est le cote droit). Le TITRE, lui, est faux : `buried`
+exige `floor0 >= 2*rl = 488 u`, on est a 39 u — **8 % du seuil**. Le volume du lien depasse de
+205 u a gauche. Toute la rotation autour de la jambe reste libre. Le corps du commit disait
+d'ailleurs « LIBRE, compte » ; c'est son titre qui a surinterprete, et c'est ce titre qui allait
+envoyer le cycle suivant refaire de l'asset pour rien.
+
+Reserve honnete : ce calcul est en pose BIND. Le compteur `buried` de la course, lui, est pris
+sur la pose ANIMEE et fait foi (SPEC 7) : il vaut 7019 a gauche et 1935 a droite, donc certaines
+animations enfoncent reellement la languette au-dela du seuil. Lesquelles : non identifie, la
+course ne publie pas `buried` par animation.

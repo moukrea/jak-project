@@ -326,9 +326,11 @@ def main():
     #           STRUCTURELLEMENT avant le correctif (la boucle d'ecriture sautait tout `l < rlk`) :
     #           le `.get(..., None)` distingue « pas mesure » de « mesure a zero », et c'est cette
     #           distinction qui fait du zero un controle positif au lieu d'un trou.
-    for m in re.finditer(r'^PHYSDIAG6 tag=(\S+) c=(\d+) rootrot=([-\d.e+]+)', txt, re.M):
+    for m in re.finditer(r'^PHYSDIAG6 tag=(\S+) c=(\d+) rootrot=([-\d.e+]+)'
+                         r'(?: raddropm=([-\d.e+]+))?', txt, re.M):
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
-            rootrot=float(m.group(3)))
+            rootrot=float(m.group(3)),
+            raddropm=(float(m.group(4)) / UNITS) if m.group(4) is not None else None)
     # la re-assise : combien de liens le moteur a replaces, et combien ont du retomber sur
     # l'ancienne heuristique (rayon le long de l'os du porteur) au lieu de la place du rig.
     global RESEAT_FB
@@ -986,9 +988,13 @@ def main():
     A('            allongement d\'os relatif (elong).')
     A('   REPERE   ecart a la pose d\'AUTEUR, dans le repere de l\'ancre — le meme que `row`. La')
     A('            chaine n\'herite donc pas du mouvement de son porteur.')
-    A('   A DEFAUT ABSENT une chaine qui suit exactement l\'animation lit tip=0, jump=0, elong=0 :')
-    A('            c\'est la lecture de `kneeflapR` a 0.0093 m, et c\'est bien ce que l\'owner')
-    A('            decrit (« les languettes ne bougent pas »).')
+    A('   A DEFAUT ABSENT une chaine qui suit exactement l\'animation lit tip=0, jump=0, elong=0.')
+    A('   TEXTE PERIME RETIRE (2026-08-12) : cette ligne citait « kneeflapR a 0.0093 m » comme')
+    A('            lecture de reference. Ce chiffre venait des courses de la mi-journee et il ne')
+    A('            correspond plus a rien — la course courante lit 0.0640 (L) / 0.0432 (R), et en')
+    A('            MEDIANE sous animation seule l\'ordre est meme INVERSE (0.0019 L / 0.0126 R).')
+    A('            Un nombre grave dans un commentaire cesse d\'etre une mesure des que la course')
+    A('            change : il n\'y en aura plus ici, seulement des grandeurs relues du tableau.')
     A('   POURQUOI CETTE SECTION EXISTE : les cinq pilotages commandent 15.8 / 45.7 / 84.4 /')
     A('   381.4 / 9.8 m/s^2. `jerk` vaut 39 g. Aucune animation de Keira n\'approche ca, donc un')
     A('   ratio publie sous `jerk` decrit un stimulus qui n\'est jamais devant son ecran. Le')
@@ -1215,6 +1221,36 @@ def main():
             A('   segment : le cuir chevelu est devenu une charniere au lieu d\'une soudure. Le')
             A('   controle positif est la version precedente du moteur, ou ce meme chiffre valait')
             A('   0.0000 sur TOUTES ces chaines — un zero structurel, pas un zero mesure.')
+        A('')
+
+    # ---- LE PRIX DU MUR DUR D'EXCURSION (cycle 2026-08-12, en poursuivant `knee-tabs`) --------
+    # Le mur (`jak-hd-physics.gc` l.1384 et l.1492) plafonne NET l'ecart d'un lien `l = 0` a sa
+    # pose animee, a son propre rayon mesure. Constat qui a ouvert le sujet : sur les 8 chaines ou
+    # il mord, le PIC d'excursion (`rootdev`) vaut EXACTEMENT le plafond, a moins de 0.6 mm --
+    # l'amplitude de ces chaines est donc posee par un clamp, pas produite par la physique. Les
+    # deux chaines temoins (pantflapL/R, mur jamais mordu) s'arretent 14.7 et 18.2 mm SOUS le leur.
+    # SPEC 7 : « on chiffre COMBIEN DE MOUVEMENT il retire ». Voici ce chiffre, par chaine.
+    rdm = {c: dr_run.get(c, {}).get('raddropm') for c in sorted(chains)}
+    if any(v is not None for v in rdm.values()):
+        A('-- LE PRIX DU MUR DUR D\'EXCURSION (raddrop) --------------------------------------------')
+        A('   NATURE : une longueur CUMULEE sur la fenetre (somme des ecarts retires), pas une')
+        A('   amplitude — elle ne se compare qu\'entre chaines d\'une MEME course. REPERE : ecart a')
+        A('   la pose animee du lien. LECTURE QUAND LE MUR NE MORD PAS : 0.')
+        tot = 0.0
+        for c in sorted(chains, key=lambda x: -(rdm.get(x) or 0.0)):
+            v, n = rdm.get(c), dr_run.get(c, {}).get('rad', 0)
+            if v is None:
+                continue
+            tot += v
+            if v > 0 or n:
+                A('   raddrop %-12s morsures=%-7d prix=%8.3f m   (%.4f m par morsure)'
+                  % (names[c], int(n), v, (v / n) if n else 0.0))
+        A('   prix total du mur sur la course : %.3f m' % tot)
+        A('   Un mur qui mord des milliers de fois n\'est pas un garde-fou, c\'est le regime de')
+        A('   fonctionnement : aucun reglage de raideur, de masse ou de couplage ne deplace un lien')
+        A('   plaque contre une butee dure. C\'est la lecture mecanique de `knee-tabs` (couplage')
+        A('   monte de 1.00 a 1.60 au cycle precedent, sans effet visible) et de la poitrine')
+        A('   « un peu mutee sur les mouvements subtils ».')
         A('')
 
     # ---- LA DECISION 1 ET LE FOURREAU (cycle 2026-08-12) --------------------------------------
