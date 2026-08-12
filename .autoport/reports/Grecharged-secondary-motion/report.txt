@@ -280,13 +280,34 @@ ferme pas un defaut, seul l'oeil de l'owner le ferme. Ce cycle apporte le chiffr
                    sont les SEULES paires fourreau (`shell=452` / `shell=448`) et qu'elles
                    franchissent que le controle soit arme ou non — il ne s'applique pas a elles.
                    Le controle n'est donc pas casse, il est HORS SUJET pour ce defaut.
-                   Le pas suivant est d'inclure les paires fourreau dans la contrainte, borne par
-                   le budget de glissement MESURE (67-75 u) et non par la borne de 184 u. Je ne
-                   l'ai PAS fait ce cycle et c'est deliberé : le code porte la trace d'un essai
-                   anterieur qui a coute 49 % du mouvement des deux pans sans fermer le defaut, et
-                   une contrainte posee sans course de salle pour la verifier serait « une
-                   resolution pire que le clip » (regle 6). Ca se fait avec la mesure sous les
-                   yeux, pas en fin de cycle.
+                   ESSAYE, MESURE, RETIRE — et les deux chiffres comptent autant.
+                   J'ai inclus les paires fourreau, en bornant leur rappel a leur propre `shell`.
+                   Course complete (31/31 animations, 3410 mesures, 0 PHYSFAIL).
+                   CIBLE FERMEE : `ROOM-SIDE` crossing 5643 -> 0 (chains 2/22 -> 0/22),
+                   `ROOM-SIDE-CONTROL` desarme 1011 -> 0 avec l'arme inchange a 2715, gate
+                   SIDE-CONTROL FAIL -> PASS. Perimetre propre : 233 lignes `row` changent, TOUTES
+                   `pantflapL/R` ; les 20 autres chaines sont identiques AU BIT PRES.
+                   PRIX PAYE, LA OU L'OWNER REGARDE : `pantflapL/R` tipvar -20.9 %, et surtout
+                   `pantflapL` au stimulus le plus FAIBLE 0.0840 -> 0.0544 (-35 %), donc la gate
+                   FLOOR-WEAK passe de PASS a FAIL — une regression NOUVELLE, causee par ce
+                   changement. La courbe de reponse sature sur les stimuli forts (dernier bac
+                   -26 % a gauche, -43.6 % a droite) : signature d'un limiteur, pas d'un
+                   amortissement.
+                   DONC RETIRE. « Si le plancher casse, le point est retire — pas adouci, retire —
+                   et repris autrement. » Je ne me suis pas autorise a garder une correction qui
+                   se paie avec le mouvement, meme si elle ferme la seule gate de mesure qui
+                   echouait : c'est exactement le marche que l'owner a refuse cinq fois.
+                   CE QU'IL FAUT POUR LA REPRISE, et c'est chiffre : le plafond utilise etait
+                   `shell` (452 / 448 u) alors que le contrat chiffre le budget de glissement a
+                   67-75 u — DIX FOIS plus serre. Un plafond large ramene le pan de toute sa
+                   distance en une seule frame, et c'est ce rappel-la qui ecrase la reponse aux
+                   petits stimuli. La reprise se fait avec le budget mesure et republie FLOOR-WEAK.
+                   A VERIFIER AVANT DE CONCLURE QUE LA REPRISE « COUTE » : sur `pantflapL` la ligne
+                   de base sous animation SEULE tombait de 0.0878 a 0.0437 et les GAINS devenaient
+                   positifs la ou ils etaient negatifs. Une part de ce que `tipvar` compte sur ce
+                   pan est du BRUIT d'animation, pas de la reponse — le plancher est donc en partie
+                   un plancher sur du bruit. Ca ne justifie pas de garder le changement, ca dit ou
+                   regarder au prochain essai.
   goggles-bottom   non traite.
   goggles-tunnel   non traite.
   flesh-jelly      non traite. Le bornage de la chair (`ROOM-SHAPE` <= 15 %, correle au stimulus,
