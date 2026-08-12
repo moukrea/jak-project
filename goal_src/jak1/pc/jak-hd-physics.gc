@@ -2168,7 +2168,47 @@
                                          (when (> tf (-> *phys-st* (+ stb 19)))
                                            (set! (-> *phys-st* (+ stb 19)) tf))))))))
                              ;; --------------------------------------------------------------
-                             ;; UNE BARRIERE DEVANT LE MUR — le correctif de `flesh-jelly`.
+                             ;; UNE BARRIERE DEVANT LE MUR.
+                             ;;
+                             ;; ELLE A ETE ECRITE POUR `flesh-jelly` ET ELLE NE LE CORRIGE PAS —
+                             ;; c'est un A/B complet qui le dit, et je l'ecris ici plutot que de
+                             ;; laisser le commentaire promettre ce que la mesure refuse. Deux
+                             ;; courses de salle completes (3410 mesures chacune), cette barriere
+                             ;; pour SEULE variable, `ROOM-JELLY excess` (la seule grandeur qui
+                             ;; nomme le defaut) :
+                             ;;   chestL accel  0.5510 -> 0.4348   chestL jerk  0.6055 -> 0.5510
+                             ;;   chestL leftright 0.0543 -> 0.5061   chestL tilt 0.1743 -> 0.3342
+                             ;;   chestR accel  0.1261 -> 0.1225   chestR jerk  0.3258 -> 0.4023
+                             ;; Mieux sur les deux pilotages brusques a gauche, PIRE ailleurs et
+                             ;; pire sur `jerk` a droite. Ce n'est pas une correction, c'est un
+                             ;; deplacement. `flesh-jelly` reste OUVERT et cette barriere n'a pas
+                             ;; le droit d'etre citee comme sa reponse.
+                             ;;
+                             ;; CE QU'ELLE FAIT VRAIMENT, et c'est pour ca qu'elle est gardee :
+                             ;;   impacts du mur dur (`raddrop`), les dix chaines a un os :
+                             ;;     chestL 18894->5099  chestR 15434->4365  kneeflapL 20061->5665
+                             ;;     pantflapL 19011->5120  toestrapR 24918->7572  anklestrapR 24039->5572
+                             ;;     soit -69 % a -77 % partout ;
+                             ;;   traversees d'axe (`ROOM-SIDE`) : 13344 -> 11446, -14 % ;
+                             ;;   lignes de mesure a penetration positive : 2 -> 1 sur 3410.
+                             ;; PRIX, mesure et non estime : amplitude de pointe -0.4 % a -4.9 %
+                             ;; (pire cas pantflapR), et affaissement gravitaire INCHANGE —
+                             ;; `ROOM-GRAVSAG` chestL 0.0725 contre 0.0725, chestR 0.1039 contre
+                             ;; 0.1022. L'acquis que l'owner a nomme (« quand elle se penche :
+                             ;; nickel ») n'est donc pas touche, et aucune chaine n'approche son
+                             ;; plancher.
+                             ;;
+                             ;; LE DIAGNOSTIC QUI RESTE OUVERT, pour que le prochain cycle ne le
+                             ;; redecouvre pas : sous pilotage, l'ecart demande par la force du
+                             ;; repere vaut ~11 950 u (gain statique 1/k2 = 62.9 x une force de
+                             ;; 190 u/frame^2) pour un budget d'excursion de 656. Le systeme est
+                             ;; sature d'un facteur 18, donc la position ecrite ne depend plus de
+                             ;; l'AMPLITUDE de la force mais seulement de sa DIRECTION — et sous
+                             ;; un a-coup cette direction change de signe d'une frame a l'autre.
+                             ;; Adoucir le mur ne change rien a ca : il faut soit desaturer (donc
+                             ;; toucher raideur/couplage, c'est-a-dire l'amplitude que l'owner a
+                             ;; approuvee), soit sous-echantillonner le pas. Les deux se decident
+                             ;; devant son oeil, pas ici.
                              ;;
                              ;; Owner, 11e passe : « lors de mouvements brusques il y a un effet
                              ;; d'etirement et un peu gelee ou ca change de taille, c'est PAS

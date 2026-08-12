@@ -1,608 +1,235 @@
 =========================================================================================
-KEIRA — PHYSIQUE SECONDAIRE. 16e PASSE : LE PANTACOURT AVAIT 11 CM DE FRANCHISE POUR
-S'ENFONCER DANS LE MOLLET, ET DEUX WORKERS TRAVAILLAIENT SUR CETTE PHASE EN MEME TEMPS.
+KEIRA — PHYSIQUE SECONDAIRE. 17e PASSE : DEUX REGLES DU MOTEUR NE POUVAIENT PAS S'APPLIQUER
+LA OU L'OWNER VOIT LES DEFAUTS, ET LEURS PROPRES COLONNES LE DISAIENT DEPUIS DES JOURS.
 Cycle du 2026-08-12, branche `physics-keira-clean`.
 =========================================================================================
 
 DIRECTIVES v4e8d7808e6
 
-Le detail complet, avec les tableaux, est dans
-`.autoport/reports/Grecharged-secondary-motion/attempt13-findings.md`. Ce fichier-ci porte
-le resume et les conclusions. Les deux existent parce que `report.txt` a eu DEUX auteurs
-concurrents aujourd'hui (section 1) : un rapport depose ici n'est pas garanti de survivre.
+Detail complet, tableaux et A/B :
+`.autoport/reports/Grecharged-secondary-motion/attempt15-findings.md`
 
 -----------------------------------------------------------------------------------------
 0. CE QUE CETTE TENTATIVE PEUT ET NE PEUT PAS FERMER
 -----------------------------------------------------------------------------------------
 
-Le validateur echoue sur OPEN-DEFECTS, et c'est VOULU : l'owner a rendu un NOUVEAU verdict a
-07:45 (SEPT defauts ouverts, la liste a change en cours de cycle), et elle ne se vide que sur
-SA parole. Je n'y ai pas touche. C'est une porte humaine, pas un echec technique.
+Le validateur echoue sur OPEN-DEFECTS : sept defauts de l'owner sont ouverts et cette liste
+ne se vide QUE sur sa parole. Je n'ai retire aucune ligne `OPEN`. En mode sans humain dans la
+boucle, cette gate ne peut pas passer : c'est une porte humaine, pas un echec technique, et
+la signaler est la seule conduite correcte.
 
-ACQUIS QU'IL VIENT DE NOMMER, et que rien de ce cycle ne casse (verifie section 2bis) :
-    poitrine sur mouvements SUBTILS  « nickel »   |   poitrine quand elle se PENCHE  « nickel »
-    meches fines  « vraiment pas mal »
+TOUTES LES AUTRES GATES PASSENT SAUF UNE : COLLIDE, sur UNE ligne de mesure sur 3410
+(section 4). Verifie en rejouant le code du validateur lui-meme, byte-identique, le seul bloc
+OPEN-DEFECTS saute — et en RESTAURANT ensuite motion-floor.txt, pour qu'un run de diagnostic
+ne remonte pas le cliquet d'anti-regression que le vrai validateur n'a jamais atteint.
 
-Ce que ce cycle apporte : il ELIMINE des causes avec des nombres, il en DESIGNE d'autres,
-il CORRIGE la cause systemique qui detruisait du travail, et il ARRETE une regression qui
-allait rendre un defaut ouvert definitivement irreparable.
+ACQUIS QUE RIEN DE CE CYCLE NE CASSE, verifie chiffre en main :
+  poitrine sur mouvements subtils  -> amplitude a 96 % / 98 % de son meilleur etat connu
+  poitrine quand elle se penche    -> ROOM-GRAVSAG chestL 0.0725, INCHANGE au dix-millieme
+  meches fines                     -> lbang / rbang a 97 % et 102 %
 
-PALIERS DE BUILD : **DONNEES SEULES** pour l'A/B de la section 2 (aucune compilation) ;
-**GOAL SEUL** pour la correction livree (un seul fichier `.gc`, `(mi)`). Aucun NDK, aucun
-cmake, aucune reconfiguration. Quatre courses de salle x86, toutes completes (3410 mesures,
-31/31 animations, PHYSEND).
-
------------------------------------------------------------------------------------------
-1. INCIDENT DE HARNAIS — DEUX WORKERS IDENTIQUES SUR CETTE PHASE, ET DEUX ORCHESTRATEURS
------------------------------------------------------------------------------------------
-
-    PID 922762   demarre  mer. aout 12 06:59:09 2026
-    PID 925937   demarre  mer. aout 12 06:59:25 2026
-    lignes de commande IDENTIQUES au caractere pres, meme phase, meme arbre de travail
-
-Cause, en amont : **deux orchestrateurs** tournent sur ce depot (PID 705057 et 924374).
-
-Ce que ca produit, date pendant cette tentative : les deux workers partagent le meme
-fichier de trace (`keira-room-x86.log`), le meme tableau, le meme `report.txt` et la meme
-branche. A 07:11 je lancais une course ; a 07:14 l'autre worker regenerait le fichier de
-parametres ; a 07:18 il modifiait le moteur et recompilait. Un `report.txt` n'a qu'un seul
-auteur : le dernier qui ecrit, l'autre travail disparait.
-
-L'owner, 2026-08-11 : « t'assurer que ton travail n'est pas systematiquement detruit, c'est
-chelou comme comportement, tu peux pas juste dire "ah oups", corriger et laisser reproduire
-en boucle ! » — EN VOICI UN MECANISME, et il est dans le harnais, pas dans la physique.
-
-CORRIGE, AU POINT DE PRODUCTION : `.autoport/orchestrator.py` prend un verrou exclusif
-`flock` sur `.autoport/.orchestrator.lock` avant toute lecture d'etat ; une seconde
-instance refuse de demarrer en nommant le PID qui tient le depot. Controle positif execute :
-
-    premiere instance : RESULT ACQUIRED
-    seconde instance  : « Un orchestrateur tourne deja sur ce depot (PID 1053344) »
-                        RESULT BUSY
-    GATE premier=ACQUIRED, second=BUSY -> True
-
-`flock` et pas un fichier de PID : le noyau relache a la mort du processus, donc pas de
-verrou perime qui bloquerait tout. Les deux orchestrateurs en cours ne sont pas affectes
-(Python lit le fichier a l'import) : la correction prend effet au prochain demarrage.
-
-CE QUE JE N'AI PAS FAIT, ET POURQUOI : je n'ai tue aucun processus. L'autre worker porte du
-travail NON COMMITE qui est bon (couverture des capsules, plancher contre la pose d'auteur)
-et le tuer l'aurait detruit — ce serait la faute meme que je signale. Je me suis retire de
-ses trois fichiers (`physics_keira_gen2.py`, `jak-hd-physics.gc`, `physics_chains.txt`),
-j'en ai pris une copie de surete dans `/tmp/keira_concurrent_snapshot/`, et je n'ai pas
-relance `gk` apres avoir constate qu'il mesurait.
+PALIER DE BUILD : GOAL SEUL (`(mi)`, 551 cibles, ~40 s). Un fichier .gc, un script python.
+Aucun NDK, aucun cmake, aucune reconfiguration. Six courses de salle x86 completes (3410
+mesures, 31/31 animations, PHYSEND), dont DEUX dediees a un A/B et UNE a un retrait.
 
 -----------------------------------------------------------------------------------------
-2bis. `pant-calf` — CORRIGE ET MESURE. LA COLLISION AUTORISAIT LE PAN A S'ENFONCER DE 11 CM
+1. LA METHODE — LIRE LE CODE CONTRE SES PROPRES CHIFFRES PUBLIES
 -----------------------------------------------------------------------------------------
 
-`phys-vol-floor` accordait a chaque paire (lien, volume) non pas sa profondeur de repos mais
-`floor0 * rl / (2 rl - floor0)` — une fonction qui DIVERGE a mesure que le lien est deja
-enfonce. La regle de la SPEC est « ce qui est deja dedans au repos y reste » ; celle-la disait
-« enfonce-toi encore, de plus en plus ».
+Les deux causes racines n'ont demande aucune instrumentation nouvelle. Elles etaient visibles
+en confrontant une ligne de code a une colonne que la salle publie depuis des jours :
 
-    pan de pantacourt gauche (rl = 429) contre la capsule de mollet, pose du modele :
-        profondeur de repos   floor0 = 614.4 u
-        tolerance accordee    feff   = 1082.0 u   = 1.76 x
-        soit 467.6 u = 11.4 cm de penetration EN PLUS de la pose sculptee par l'auteur
+  `raddrop` = 0 sur les 11 chaines rootlock=1, 15 000-25 000 sur les 11 autres
+  `inv`     = 0 sur les 11 memes chaines,      27-93 sur les autres
+  `buried`  = 50 642 sur `goggles`
 
-Onze centimetres, c'est la moitie d'un mollet. Ce n'etait ni un rayon trop petit ni une chaine
-trop molle : la collision l'AUTORISAIT.
-
-A/B MESURE — MEME JEU DE DONNEES, SEUL LE MOTEUR CHANGE, deux courses completes :
-
-    penetration REELLE supprimee      botstrapL 0.0097 -> 0.0000   rmidhair 0.0017 -> 0.0000
-    franchise consommee, ramenee a la pose d'auteur :
-        pantflapL  -0.0727 -> 0.0000   pantflapR  -0.0565 -> 0.0000   lbang -0.1124 -> -0.0000
-    gate FLOOR   AUCUNE chaine sous 60 % de sa reference
-        pertes    kneeflapR 0.69  backhair 0.81  botstrapR 0.82  chestL 0.83  rbang 0.84
-        gains     topstrapL 1.49  goggles 1.05  botstrapL 1.03
-    gate COLLIDE cheveux / meches / lunettes / oreilles tous a meshpen <= 0
-
-L'ACQUIS DE L'OWNER TIENT : `chestL` 0.83 et `chestR` 0.99 de leur baseline.
-
-NON RESOLU, PUBLIE COMME TEL : `chestR` fait apparaitre un residu de 0.0031 (3,1 mm) la ou il
-etait a zero. Hors du perimetre des trois paires de la gate COLLIDE, mais c'est une penetration
-reelle : signalee, pas tue.
-
-La branche PHYS-VOL-FREE est CONSERVEE (un lien entierement contenu n'a effectivement aucune
-surface devant lui, et c'est l'etat que `phys-flip-count` lit). Effet secondaire mesure : ce
-compteur REVIT — topstrapR 135, botstrapL 174, botstrapR 150, backhair 32, contre ~0 avant.
+REGLE GENERALISABLE : quand une colonne vaut EXACTEMENT zero sur un sous-ensemble entier de
+chaines, ce n'est pas un resultat, c'est un predicat.
 
 -----------------------------------------------------------------------------------------
-2ter. `knee-tabs` — PREUVE D'EXECUTION : LES CHAINES AJOUTEES NAISSENT AVEC ZERO MAILLON
+2. CAUSE RACINE 1 — `l = 0` NE POUVAIT JAMAIS ETRE VRAI SUR ONZE CHAINES SUR VINGT-DEUX
 -----------------------------------------------------------------------------------------
 
-La directive ajoutee pour les languettes est `+chain footflapL ... joints=LfootFlaps`. Or le
-moteur ne connait pas de cle `joints=` : la liste s'ecrit en lignes `j <nom>` APRES la ligne
-`chain`. Ma course le prouve — ce n'est pas une lecture de source :
+Le test de cote (« une chaine de famille A doit rester du cote de la pose du modele » — sa
+reponse au sein retourne vers l'interieur) etait garde par `(= l 0)`, sous une boucle qui
+commence par `(when (>= l rlk))`. Sur une chaine `rootlock=1` le maillon 0 n'est jamais
+visite : le test etait STRUCTURELLEMENT MORT sur oreilles, cheveux, meches, lunettes et les
+quatre bretelles.
 
-    [hd-phys] unknown key 'joints' in physics_chains.txt (skipped)
-    PHYSCHAIN c=21 links=0 fam=2 hang=0.7000 j0=align
-    PHYSCHAIN c=22 links=0 fam=2 hang=0.7500 j0=align
+Ce que ca produisait, mesure par `tiprot` (rotation d'os REELLEMENT ecrite dans la matrice) :
 
-Trois consequences : les languettes ne bougent toujours pas ; `physics_room_table.py` REFUSE
-d'ecrire un tableau (« chaine(s) a zero lien : 21, 22 »), donc la gate ROOM est bloquee tant
-qu'elles sont la ; et a la regeneration suivante les deux chaines ont DISPARU du fichier livre,
-donc la gate TUNING (etendue aux `+chain` ce matin) echouera sur leur absence.
+    topstrapL 179.06 deg -> 92.86      botstrapR 177.89 -> 92.86
+    topstrapR 176.75     -> 92.85      goggles   175.81 -> 92.76
+    botstrapL 174.55     -> 92.86      earR/earL 161.36/156.25 -> 91.26/92.02
+    lmidhair  125.76     -> 88.99      rmidhair  123.38 -> 88.97
 
------------------------------------------------------------------------------------------
-2ter-bis. `knee-tabs` — LE JOINT DEMANDE N'EXISTE PAS, ET LA GATE TUNING EST DESORMAIS ROUGE
------------------------------------------------------------------------------------------
+179 degres, c'est un tissu cousu a l'epaule qui repart vers le torse. C'est `straps-elastic`,
+et aucun reglage ne pouvait l'atteindre.
 
-Suite de la section 2ter. Le chemin « chaine a zero maillon » a ete ferme entre-temps :
-`apply_owner_tuning.py` valide maintenant `joints=` contre le rig et ECARTE la directive au lieu
-de produire une chaine vide. Mais la cause de fond apparait, et elle est plus dure :
+CORRECTION : `(= l rlk)` — le premier lien LIBRE, celui dont l'attache est rigide. C'est la
+lecture fidele de l'intention deja ecrite dans le commentaire ; `l = 0` n'y coincidait que par
+accident quand `rootlock` valait 0. Applique aux TROIS sites (solveur, mesure, compteur).
+PREUVE D'EXECUTION : `inv` passe de 0 a 320 / 467 / 628 / 206 sur des chaines ou il valait
+exactement zero.
 
-    joints du rig HD contenant « Flap » :  LpantFlap, RpantFlap, lKneeFlap, rKneeFlap
-    joints demandes par la directive    :  LfootFlaps, RfootFlaps  ->  ABSENTS
-
-`LfootFlaps`/`RfootFlaps` n'existent PAS dans le rig HD de Keira. Les languettes ne peuvent donc
-pas recevoir leur propre chaine : elles sont de la geometrie portee par un joint deja present.
-Tant que la question « quel joint possede les sommets des languettes ? » n'est pas tranchee sur
-le mesh, `knee-tabs` ne peut pas se fermer — et si la reponse est `lKneeFlap`, alors elles
-BOUGENT deja (tipvar 0.1680) et ce que l'owner voit immobile est autre chose.
-
-CONSEQUENCE IMMEDIATE, PROUVEE EN REJOUANT LA PORTION EXACTE DU VALIDATEUR :
-
-    GATE TUNING : ECHOUE — 2 directive(s) de l'owner absente(s) du fichier livre
-       - chain footflapL (ajout owner disparu)
-       - chain footflapR (ajout owner disparu)
-
-Deux mecanismes corrects se contredisent sur une directive INSATISFIABLE : « une directive sans
-cible est signalee, jamais avalee en silence » (l'applicateur l'ecarte) contre « toute directive
-de l'owner doit etre PRESENTE dans le fichier livre » (la gate). La phase est donc bloquee a
-TUNING en plus d'OPEN-DEFECTS, et personne ne le voit puisque OPEN-DEFECTS echoue avant. Je le
-signale plutot que de le laisser surgir au prochain cycle : c'est un arbitrage de superviseur
-(soit la directive est retiree/commentee tant qu'elle n'a pas de cible, soit la gate distingue
-« absente » de « impossible »), pas quelque chose que je tranche en editant sa liste.
------------------------------------------------------------------------------------------
-2quater. `straps-elastic` — LA CAUSE S'EST INVERSEE PENDANT LE CYCLE
------------------------------------------------------------------------------------------
-
-Cause initiale (corrigee par l'autre worker) : les 24 capsules etaient ajustees a la MOYENNE
-inter-quartile, donc 50 a 85 % des sommets DEHORS, et 34 % de l'elastique hors de TOUS les
-volumes. Sa couverture p95 ramene ce dernier chiffre a 0 %.
-
-Mais la meme regeneration a effondre les rayons de LIEN (echelle 9.68 corrigee : 1518 -> 150)
-et donne une sphere a 18 joints de chaine. Or l'enfouissement s'ecrit `rr - d >= rl` : **un
-rayon de lien PLUS PETIT rend l'enfouissement PLUS FACILE**.
-
-    chaine        avant couverture   apres couverture   MAINTENANT
-    topstrapL/R         0 avalants         0 avalants   **4** (2 epaules + 2 spheres de bretelle)
-    anklestrapL/R       0                  1 (mollet)   1 (mollet)
-    pantflapL/R         0                  1 (mollet)   0 (re-armee par sa nouvelle sphere)
-
-`topstrapL/R` ne conserve qu'UN volume contraignant (`neck->chest`, 262 u ≈ 6,4 cm de franchise)
-et plus rien cote epaules ni buste. **C'est exactement le defaut ouvert.** Ma correction de la
-section 2bis supprime la franchise mais PAS l'enfouissement, qui est une bascule binaire.
-
-    BORNES DE NON-REGRESSION, DERIVEES (bisection sur `phys-collide-depth`) :
-        Lshoulder->chest radius2  1290 -> <= 882.6      Rshoulder->chest radius2 1316 -> <= 1035.0
-        Lankle->Lknee    radius    861 -> <= 715.7  (sangles de cheville)
-
-INVARIANT MANQUANT : **un volume d'obstacle ne doit jamais avaler entierement un lien simule a
-la pose du modele.** Aucune gate ne le voit (un lien libere bouge PLUS, donc FLOOR se tait, et
-`meshpen` lit zero).
+CE QUE JE N'AI PAS ETENDU : le plafond d'excursion garde `(= l 0)`. `rmax` est la
+demi-epaisseur de la geometrie, pas un budget de course : sur un os seul les deux sont du meme
+ordre (lBoob 656 u contre 977 u d'os = 39.2 deg), sur une bretelle non (157 u contre 1364 u
+= 6.6 deg, la bretelle serait morte). Le tableau de la salle AFFIRMAIT « il porte desormais
+sur tout maillon libre » pendant que le code lisait `l = 0` et que sa propre colonne `raddrop`
+le dementait : corrige dans physics_room_table.py. Un commentaire n'est pas une preuve, y
+compris dans le tableau qui sert a les produire.
 
 -----------------------------------------------------------------------------------------
-2quinquies. `hair-big-angles` — L'ATTENUATION BORNE LE MAUVAIS ANGLE, ET EST DEFAITE APRES
+3. CAUSE RACINE 2 — « ENTIEREMENT DEDANS » VOULAIT DIRE « PLUS AUCUNE CONTRAINTE »
 -----------------------------------------------------------------------------------------
 
-(a) LE PLAFOND N'EST JAMAIS ATTEINT : backhair 83.83/98.28, lbang 88.08/130.88, rbang
-    89.30/131.36, lmidhair 90.99/141.61, rmidhair 87.32/141.40 — pire ratio 0.85. Ce qui est
-    retire n'est que la queue du min doux : 3.3 % a 10.1 %.
-(b) CE N'EST PAS L'ANGLE DU DEFAUT : `ang` mesure la deviation par rapport a la pose ANIMEE ;
-    l'angle ENTRE DEUX MAILLONS SIMULES, celui qui casse la peau, n'est calcule NULLE PART. Sur
-    lbang/rbang la somme `ang1+ang2` atteint **146.3** et **159.7 deg** de pli pendant que chaque
-    maillon reste sous 131.
-(c) `maxangle` EST FAUX D'UN ORDRE DE GRANDEUR : la formule mesure le croisement depuis
-    l'ALIGNEMENT DROIT, le moteur la compare a une deviation depuis la POSE D'AUTEUR. Or la pose
-    de bind porte deja backHair2 112.90 deg (seuil 98.28 : budget NEGATIF), Lmidhairb 134.71
-    (seuil 141.61 : budget reel **6.9 deg**), Lbangc 103.54 (budget 27.3). Et `L` est la longueur
-    COMPLETE de l'os alors que le croisement se produit au premier anneau de sommets : le mesh
-    donne 26-36 deg sur le crease le plus serre contre 130.88 publie.
-(d) LES PASSES SUIVANTES LA DEFONT : 3 x (longueur + collision + recul) apres l'attenuation, et
-    sur un maillon profond la longueur reprojette sur une sphere centree sur le maillon
-    PRECEDENT, qui a bouge.
-MESURE MANQUANTE, dite comme telle : aucune course avec l'attenuation DESARMEE, donc son cout
-n'est que borne analytiquement (<= 10 % backhair, <= 5 % ailleurs).
+`phys-vol-floor` rendait PHYS-VOL-FREE des que `floor0 >= 2 rl`. Le raisonnement est juste sur
+la SURFACE et faux sur la DECISION : n'avoir aucune surface devant soi n'autorise pas a
+s'enfoncer plus loin. Une fois FREE, la paire n'etait plus contrainte DU TOUT.
+
+    goggles 50 642 paires   botstrapR 37 603   rbang 16 740   topstrapL 7 019
+    kneeflapL 7 019         backhair 5 400     botstrapL 2 567
+
+50 642 fois par course, les lunettes n'avaient plus aucun volume devant elles. C'est
+`goggles-tunnel`.
+
+CORRECTION : `feff = floor0`, sans exception — la phrase de la SPEC, litteralement. Et elle se
+degrade toute seule dans le cas qui avait motive la branche : `dep` est maximale sur l'axe,
+donc un lien dont la pose d'auteur est SUR l'axe a `floor0` = maximum atteignable et la
+contrainte devient vide PAR ARITHMETIQUE, sans branche. `buried` reste MESURE et cesse de
+DECIDER. `phys-flip-count` est re-cle sur le predicat de contact, sans quoi son bit serait
+devenu constant et le compteur de bascules serait mort en silence en affichant du vert.
+
+RESULTAT :
+    ROOM-SIDE traversees d'axe   19 430 -> 11 446   (-41 %)
+      dont topstrapL              2 402 ->    291   (-88 %)
+      dont botstrapR              3 454 ->    927   (-73 %)
+      dont pantflapL / R    2 912/2 804 -> 1 792/1 901 (-38 % / -32 %)
+    ROOM-STRETCH max            0.0561 -> 0.0272   SOUS LE PLAFOND DE 3 % POUR LA 1re FOIS
+    ROOM-SELFCOL                run=0, controle positif 4 004 (il tire)
+
+PLANCHER DE MOUVEMENT : ZERO chaine sous 60 %, et quatre chaines AU-DESSUS de leur meilleur
+etat connu — topstrapL +80 %, botstrapR +85 %, botstrapL +42 %, topstrapR +28 %. Rendre une
+bretelle incapable de se retourner lui REND du mouvement au lieu de lui en prendre.
 
 -----------------------------------------------------------------------------------------
-2sexies. `goggles-bottom` / `goggles-tunnel` — LE VOLUME NE CONTIENT PAS LES LUNETTES
+4. CE QUI RESTE ROUGE — L'INVARIANT DU RECUL A CEDE, ET C'EST MAINTENANT MESURE
 -----------------------------------------------------------------------------------------
 
-    sphere gogglesBase r=196 :  98 % des sommets de lunettes DEHORS, max 1458 u (0.356 m)
-    sphere gogglesMid  r=150 :  93 % dehors,                        max 1302 u (0.318 m)
+COLLIDE echoue sur UNE ligne sur 3410 : `rmidhair`, `assistant-firecanyon-idle-down`, drive
+`accel`, 0.0017 m. La gate a raison de la refuser.
 
-Et **47 sommets de lunettes sont DEJA dans les spheres de sein a la pose bind** (lBoob 28, max
-129 u ; rBoob 19, max 108 u). Le solveur tient hors des seins une bille de 150 u pendant que les
-verres, huit fois plus loin, traversent librement — c'est `goggles-bottom`, et `meshpen` lit
-zero honnetement contre un volume qui ne represente pas l'objet.
+Le recul garantissait « rien ne traverse » parce qu'il existe TOUJOURS un point admissible :
+la pose du modele. Cet invariant a cede le jour ou `floor0` a ete mesure contre l'INSTANTANE
+d'auteur du volume pendant que `dep` l'est contre sa position COURANTE : pour un volume porte
+par un joint SIMULE, les deux membres ne decrivent plus le meme obstacle.
 
-`goggles-tunnel` a sa signature dans le tableau : **`goggles tiprot = 175.81 deg`, `shape =
-1.9986`** — la chaine se replie a presque exactement 180 deg autour de son ancre. Rien ne l'en
-empeche : pas de `maxangle` (reserve aux cheveux) et un volume qui passe entre les capsules.
-Meme signature sur topstrapL (176.01), botstrapL (169.85), earR (161.36) : toute une classe de
-chaines se replie completement.
+Ce n'etait PAS mesure. Ca l'est : ROOM-RETREAT-ANCHOR: fallback=531. Le compteur existait dans
+le moteur, la salle l'emettait (PHYSLIM2), et LE TABLEAU NE L'A JAMAIS LU. Un instrument emis
+et jamais publie est un instrument muet.
 
------------------------------------------------------------------------------------------
-3. `flesh-jelly` — LE PLAFOND D'EXCURSION N'EST PAS LA CAUSE. A/B MESURE, HYPOTHESE REFUTEE
------------------------------------------------------------------------------------------
-
-Le plafond d'excursion (`raddrop`, jak-hd-physics.gc:922-947) etait le suspect n°1 : mesure
-SATURE a la 15e passe (18 894 morsures sur ~19 000 frames, `shape` fige a 656/977 au
-dix-milieme pres). Une butee saturee rend la meme valeur quel que soit le stimulus — la
-signature exacte de « ca change de taille sans que ce soit coherent ».
-
-Deux etats, rien d'autre ne change, aucune compilation :
-
-    CAP ON   radii=656/660   preuve : chestL raddrop=18894, chestR=14613
-    CAP OFF  radii=4000      preuve : chestL raddrop=0,     chestR raddrop=0
-             (md5 4dd207d747abc26cf2384aaba3bac7bd = HEAD)
-
-`raddrop=0` n'est pas une promesse, c'est arithmetique : apres la projection de longueur
-|p-ancre| = |T-ancre| = want = 977 u, donc |p-T| <= 1954 u, sous 4000. Les deux courses ont
-atteint PHYSEND, 3410 mesures, 31/31 animations.
-
-ROOM-JELLY (fraction de l'etendue parcourue en UNE frame ; plafond derive 0.5) :
-
-    chaine   pilotage    CAP ON   CAP OFF
-    chestL   accel       0.7264   0.8275   EMPIRE
-    chestL   jerk        0.7809   0.3969   ameliore
-    chestL   tilt        0.3498   0.4016   EMPIRE
-    chestR   jerk        0.7636   0.9711   EMPIRE
-    chestR   leftright   0.5114   0.7455   EMPIRE
-    chestR   accel       0.5473   0.6568   EMPIRE
-    chestR   updown      0.4819   0.3832   ameliore
-
-Le pire du fichier est INCHANGE (`botstrapL` jerk = 1.0000, periode 2.00 frames dans les
-DEUX etats). Couples au-dessus du plafond derive : 40 -> 38 sur 110, du bruit.
-
-CONCLUSION : retirer entierement le plafond ne supprime pas le broutement ; sur les stimuli
-les plus forts il l'AGGRAVE. Le plafond n'est pas le mecanisme de `flesh-jelly`.
-
-ET IL COUTE CHER EN ECHANGE : chestL +63 % d'amplitude, chestR +40 %, botstrapL +73 %,
-goggles +13 %, les 18 autres chaines identiques a 1e-4. +63 % sur une poitrine que l'owner
-juge « quasiment parfaite » pour un broutement au mieux inchange : ce n'est pas un
-arbitrage, c'est une perte seche. **656/660 est le bon etat.**
-
-LA MEME MESURE ELIMINE AUSSI L'AUTRE BRANCHE DE L'ARBITRAGE QUE LA 15e PASSE AVAIT REMONTE
-A L'OWNER — et par le calcul, sans lui : jak-hd-physics.gc:1729-1731 donne
-w = 2*pi*1.45/sqrt(1.45) = 7.567 rad/s et k2 = w^2*dt^2 = 0.0159, donc cos(omega) = 0.99205
-et une **periode propre de 49.8 frames (1.2 Hz)**. Le broutement mesure est a 3.2-3.9 frames
-(15-19 Hz), TREIZE fois la frequence propre. Ce n'est pas le ressort. Il ne faut donc NI
-alourdir NI amortir la poitrine : l'amplitude que l'owner apprecie n'a pas a etre payee.
-
-CE QUI RESTE, ET N'A JAMAIS ETE TESTE : la poitrine est en contact avec un volume du corps
-**a peu pres toutes les frames** (`contact_frames = 17893` sur ~19 000) alors que `flip = 0`
-— elle n'entre ni ne sort, elle est POSEE en permanence sur la surface. Sa position ecrite
-est donc dictee frame par frame par la capsule du buste ANIMEE, pas par le ressort. C'est le
-seul mecanisme restant qui tourne a la frequence de la frame. C'est le prochain a mesurer.
+UN CORRECTIF ESSAYE, MESURE ET RETIRE : faire atterrir le recul sur le MOINS MAUVAIS point de
+son chemin. Course complete : 1 -> 8 lignes a penetration positive, 0.0017 -> 0.0030 m. La
+pose du modele n'est pas seulement admissible, c'est un POINT FIXE ; un minimum instantane ne
+vaut pas un point fixe. Retire, pas adouci. Une troisieme course a montre que le vrai coupable
+etait le premier pas force a `mid = 0` qui refermait l'intervalle de dichotomie : corrige,
+`it = 0` mesure et ne decide pas, `fallback` retombe de 668 a 531.
 
 -----------------------------------------------------------------------------------------
-3. DANGER SIGNALE — CETTE COURSE PEUT EMPOISONNER LA GATE FLOOR
+5. `flesh-jelly` — UNE BARRIERE ECRITE POUR LUI, UN A/B QUI DIT NON
 -----------------------------------------------------------------------------------------
 
-La reference de `motion-floor.txt` ne descend jamais. Un validateur lance sur le tableau
-CAP OFF ferait passer `chestL` de 0.3809 a 0.6219 — une valeur que le moteur au plafond 656
-NE PEUT PLUS ATTEINDRE. La gate bloquerait alors tous les builds corrects suivants.
+La signature est arithmetiquement fermee : `tiprot` de chestL vaut 39.2376 / 39.2525 / 39.2890
+/ 39.2449 deg sous quatre pilotages radicalement differents — un plafond EPINGLE, qui se
+recalcule a la main a partir de deux nombres publies :
+    2*asin(656 / (2*977))            = 39.24 deg   (mesure 39.2376)
+    2*asin(244 / (2*0.0800*4096))    = 43.7169     (kneeflapL, mesure 43.72)
+Le gain statique de l'integrateur vaut 1/k2 = 62.9 : sous `accel` la force du repere demande
+un ecart de ~11 950 u pour un budget de 656. Sature d'un facteur 18, la position ecrite ne
+depend plus de l'AMPLITUDE de la force mais seulement de sa DIRECTION — et sous un a-coup
+cette direction change de signe d'une frame a l'autre.
 
-Je n'ai donc PAS lance le validateur sur la course CAP OFF, et les deux tableaux sont
-ecrits hors du chemin que la gate lit :
-    keira-room-table.CAP656.txt    l'etat livrable
-    keira-room-table.CAP4000.txt   l'experience
+A/B COMPLET, cette barriere pour SEULE variable, deux courses de 3410 mesures :
+    ROOM-JELLY excess chestL accel      armee 0.4348   desarmee 0.5510   (mieux)
+    ROOM-JELLY excess chestL jerk             0.5510            0.6055   (mieux)
+    ROOM-JELLY excess chestL leftright        0.5061            0.0543   (PIRE)
+    ROOM-JELLY excess chestL tilt             0.3342            0.1743   (PIRE)
+    ROOM-JELLY excess chestR jerk             0.4023            0.3258   (PIRE)
+    raddrop, 10 chaines a un os        1 578-7 572     5 089-25 043      (-69 a -77 %)
+    ROOM-SIDE traversees                    11 446            13 344
+    lignes a penetration positive                1                 2
+    ROOM-GRAVSAG chestL / chestR      0.0725/0.1022    0.0725/0.1039
+    amplitude de pointe                -0.4 a -4.9 %       reference
 
------------------------------------------------------------------------------------------
-4. PREUVE OBTENUE GRATUITEMENT — LA COLLISION CHAINE<->CHAINE EST BRANCHEE
------------------------------------------------------------------------------------------
+VERDICT, ECRIT DANS LE CODE A COTE DE LA BARRIERE : elle NE CORRIGE PAS `flesh-jelly`. Ce
+n'est pas une correction, c'est un deplacement, et le defaut reste OUVERT. Elle est GARDEE
+pour ce qu'elle fait reellement et qui est mesure : -72 % d'impacts sur le mur dur, -14 % de
+traversees d'axe, une ligne de penetration au lieu de deux, pour 5 % d'amplitude au pire et un
+affaissement gravitaire INCHANGE.
 
-Les DIRECTIVES exigeaient un compteur par paire. Aucun n'existe (la poussee de collision,
-jak-hd-physics.gc:1168-1170, n'incremente rien). L'A/B le prouve sans compteur : je n'ai
-change QUE le plafond de `chestL`/`chestR`, et ont bouge `chestL` (+63 %), `chestR` (+40 %),
-`botstrapL` (+73 %) et `goggles` (+13 %) — **les 18 autres chaines sont identiques a 1e-4**.
-
-`botstrapL` et `goggles` ne partagent aucun parametre avec la poitrine. Le seul chemin est
-la collision contre les spheres `lBoob`/`rBoob` portees par les joints SIMULES, et l'ordre
-le permet : chestL=7, chestR=8, goggles=9, botstrapL=12, l'ecriture dans `skel bones` etant
-DANS la boucle par chaine (1665 ouvre, 2383 ferme, ecriture 2249-2382).
-
-RESERVE, ET ELLE COMPTE : `chestL` (7) est resolue AVANT `chestR` (8), donc `chestL` teste
-contre le `rBoob` D'AUTEUR pendant que `chestR` teste contre le `lBoob` SIMULE. Les deux
-seins ne sont pas dans le meme etat — candidat direct pour l'asymetrie gauche/droite suivie
-depuis le debut (`baseline` ROOM-JELLY 0.1754 a gauche contre 0.4281 a droite, facteur 2.4,
-pour des parametres identiques).
-
------------------------------------------------------------------------------------------
-5. `goggles-chest` — LE VOLUME PROPRE DES LUNETTES NE CONTIENT PAS LES LUNETTES
------------------------------------------------------------------------------------------
-
-Mesure sur le mesh (531 sommets de `keira-lens-large` + `keira-glasses` + `keira-gogglestrap`)
-contre les volumes que la chaine porte reellement (`radii=196,150`) :
-
-    sphere gogglesBase r=196 :  98 % des sommets DEHORS, depassement max 1458 u (0.356 m)
-    sphere gogglesMid  r=150 :  93 % dehors,             max 1302 u (0.318 m)
-
-Et **47 sommets de lunettes sont DEJA dans les spheres de sein a la pose bind** (`lBoob` 28,
-profondeur max 129 u ; `rBoob` 19, max 108 u).
-
-Le mecanisme est complet : le solveur maintient hors des seins une bille de 150 u posee sur
-`gogglesMid`, pendant que les verres — huit fois plus loin du joint — traversent librement.
-`meshpen` lit zero, honnetement, contre un volume qui ne represente pas l'objet.
-
-C'est la meme faute que les capsules inter-quartiles, sur le LIEN au lieu de l'OBSTACLE : un
-rayon d'EPAISSEUR sert de volume de COLLISION. Elargir la sphere aggrave (l'owner l'a deja
-vecu, 708 -> 712) : au-dela d'un certain rayon `phys-vol-floor` declare tout libre. Il faut
-une CAPSULE ajustee par couverture le long de la monture — une correction de GENERATION.
-Verifie independamment : `goggles` a 0 volume actif avant comme apres la regeneration en
-cours, donc ce defaut n'est PAS un probleme de plancher.
+Pour fermer `flesh-jelly` il faudra DESATURER : toucher raideur/couplage (donc l'amplitude
+qu'il a approuvee) ou sous-echantillonner le pas. Les deux se decident devant son oeil.
 
 -----------------------------------------------------------------------------------------
-6. `straps-elastic` — LES CAPSULES DU CORPS ETAIENT DES MOYENNES, PAS DES COUVERTURES
+6. `knee-tabs` — LA CAUSE ECRITE DANS LE FICHIER ETAIT FAUSSE
 -----------------------------------------------------------------------------------------
 
-Sur les 24 capsules LIVREES, geometrie identique a `phys-collide-depth`, pose bind :
+`owner-defects.txt` portait « les os LfootFlaps/RfootFlaps n'existent pas dans le rig HD,
+reprise d'ASSET requise ». Le fait est vrai, la conclusion non — et elle allait envoyer le
+prochain cycle faire du travail d'asset inutile.
 
-    capsules livrees : rayon == moyenne inter-quartile -> 50 % a 85 % des sommets DEHORS
-    spheres livrees  : rayon == p95 de couverture      ->  0 % a  8 % dehors
+MESURE (.autoport/probe_knee_tabs.py, ecrit ce cycle, sur le mesh skinne et le rig) :
+    lKneeFlap / rKneeFlap possedent 24 sommets chacun, a p50=716 u et max=888 u de l'AXE DE LA
+    JAMBE, quand la PEAU de la jambe (Lknee, Lthigh) est a 322..486 u du meme axe. Aucun autre
+    os ne possede de geometrie dans ce voisinage a une distance comparable.
+Ce qui depasse de 17 a 22 cm de la jambe EST la geometrie de lKneeFlap : les languettes. Elles
+ont une chaine et elle tourne (tiprot 43.72 deg, ecrit dans la matrice).
 
-Aucune capsule ne descend sous 50 %. Sur l'elastique du bas du crop top (98 sommets, tous
-possedes par `chest`) : `neck->chest` est trop mince de +167 u en moyenne et +481 u au pire
-(0.117 m), 92 % de l'elastique dehors ; **34 % de l'elastique est hors de TOUS les volumes**.
-Une bretelle qui passe la ne traverse rien au sens du moteur : `meshpen = 0` est vrai et ne
-prouve rien.
+LA VRAIE CAUSE, jamais regardee : sous pilotage elles bougent (0.167 / 0.087 m), mais SOUS
+ANIMATION SEULE — la seule chose que l'owner voie en jeu — la ligne de base vaut 0.0780 m a
+gauche et 0.0093 m A DROITE. Neuf millimetres. Et kneeflapR est en contact 17 893 frames contre
+5 473 a gauche : c'est la collision qui l'ecrase, pas l'absence d'os.
 
-L'autre worker corrige exactement ca (p95 restreint au segment). Controle calcule sur son
-fichier : l'elastique passe de 34 % hors de tout a **0 %**. La correction porte. Reserve :
-12 des 48 bouts de capsule n'ont pas assez de sommets dans leur segment (`SPAN-EMPTY`) et
-gardent leur rayon inter-quartile — dont `neck`, les deux epaules, `hips` sur les cuisses.
-
------------------------------------------------------------------------------------------
-6bis. ALERTE — CETTE CORRECTION, EN L'ETAT, REGRESSE LE DEFAUT OUVERT `pant-calf`
------------------------------------------------------------------------------------------
-
-**Elle ne doit pas partir en build telle quelle, et AUCUNE GATE NE L'ARRETERAIT** (un lien
-declare libre bouge PLUS, donc FLOOR ne voit rien, et `meshpen` lit zero).
-
-`phys-vol-floor` declare un volume LIBRE pour un lien des que `floor0 >= 2*rl` : il ne sera
-**plus jamais repousse**. Capsules de mollet 411/329 -> 861/538 :
-
-    lien            rl    2*rl   volume           floor0 AVANT  APRES
-    pantflapL.0    429     858   Lankle->Lknee          614.4   943.0   AVALE
-    pantflapR.0    443     886   Rankle->Rknee          620.4   958.4   AVALE
-    anklestrapL.0  225     450   Lankle->Lknee          298.9   699.4   AVALE
-    anklestrapR.0  225     450   Rankle->Rknee          287.9   701.7   AVALE
-    toestrapL.0    188     376   Lankle->Lknee            0.0   346.9   a 29 u
-    kneeflapL.0    244     488   Lankle->Lknee          246.3   457.7   a 30 u
-
-`pantflapL/R` sont EXACTEMENT le defaut ouvert « le bas du pantacourt avale a l'interieur
-des mollets, comme s'il s'arretait aux genoux » : il passerait d'ouvert a structurellement
-irreparable.
-
-    CONDITION DE NON-REGRESSION, DERIVEE (floor0 = rr + rl - d, d = 184.3, t = 0.504) :
-        capsule Lankle Lknee radius <= 689   preserve le pantacourt
-        capsule Lankle Lknee radius <= 547   preserve AUSSI les sangles de cheville
-        propose dans l'arbre : 861      valeur d'avant : 411
-    547 reste +33 % de couverture par rapport a 411 : l'essentiel du gain est conserve sans
-    qu'aucun lien simule ne devienne invisible.
-
-INVARIANT MANQUANT, ET C'EST LA VRAIE LECON : **un volume d'obstacle ne doit jamais avaler
-entierement un lien simule a la pose du modele.** Le generateur connait les deux cotes, il
-peut le verifier ; c'est de la meme famille que l'exclusion chaine<->elle-meme. Tant qu'il
-n'est pas pose, chaque elargissement d'obstacle peut eteindre silencieusement une chaine.
-
-NON TOUCHE, verifie aussi : `chestL`/`chestR` (marge 348 u sur 644) et `goggles` (0 volume
-actif). L'acquis « quasiment parfait » de la poitrine ne bouge pas.
-
-POURQUOI JE N'AI PAS APPLIQUE LA BORNE MOI-MEME : elle vit dans `physics_keira_gen2.py`,
-tenu par l'autre worker, qui mesurait au moment ou j'ai eu le chiffre. Y ecrire aurait
-detruit son travail ou dechire sa course — la faute meme que la section 1 denonce. La borne
-est derivee, ecrite, et s'applique en une ligne.
+CONSEQUENCE DE METHODE, signalee sans toucher a la gate (regle 5) : la gate MOVE lit le maximum
+sous un pilotage a 39 g, pas ce que l'owner voit. Une chaine peut passer MOVE a 0.167 et etre
+invisible en jeu a 0.009.
 
 -----------------------------------------------------------------------------------------
-7. `pant-calf` — L'INSTRUMENT N'EXISTE PAS, ET LE MECANISME EST IDENTIFIE
+7. ETAT DES SEPT DEFAUTS
 -----------------------------------------------------------------------------------------
 
-`ROOM-SIDE` (exige par les DIRECTIVES, 11e passe point 4) **n'existe nulle part** : deux
-occurrences dans tout le depot, toutes deux dans `.autoport/DIRECTIVES.md` (641 et 666).
-Les deux compteurs voisins sont AVEUGLES a ce defaut :
-  * `buried` lit **pantflapL = 0 et pantflapR = 0** — il mesure la pose d'AUTEUR ;
-  * `meshpen` lit `-0.0565` sur `pantflapR` : c'est la sentinelle « aucun contact », pas une
-    penetration nulle. Le pan ne touche jamais aucune capsule de jambe de toute la course.
+  straps-elastic    cause racine corrigee (179 deg -> 92.9), et +28 a +85 % de mouvement.
+  goggles-tunnel    cause racine corrigee (50 642 paires sans contrainte supprimees). NON
+                    PROUVE autrement : la salle ne joue AUCUNE cinematique, et c'est la qu'il
+                    l'a vu.
+  goggles-bottom    ROOM-SIDE -17 %, le moins ameliore des trois. Aucune mesure ne separe
+                    encore le BAS des lunettes du reste de la chaine.
+  pant-calf         ROOM-SIDE -38 % / -32 %, 1 792 / 1 901 traversees subsistent. NON FERME,
+                    cause identifiee : le volume que le pan presente est une SPHERE de 429 u
+                    centree sur son joint, lequel est a 95 u de l'axe du mollet — la sphere
+                    CONTIENT la jambe. Un fourreau ne peut pas etre une sphere posee sur l'axe
+                    qu'il entoure.
+  flesh-jelly       NON FERME, diagnostic complet + A/B publie (section 5).
+  hair-big-angles   partiel : premier maillon libre 125.8 -> 89.0 deg, `bendcut` -44 % ; mais
+                    le maillon PROFOND de lbang/rbang reste a 122 deg, borne par rien.
+  knee-tabs         la cause ecrite etait fausse (section 6) ; la vraie est mesuree.
 
-MAIS LE MECANISME EST MAINTENANT CHIFFRE, ET IL VAUT POUR L'ETAT LIVRE (mollet 411) :
-
-    pantflapL contre Lankle->Lknee :  floor0 = 614.4 u = 15,0 cm     2*rl = 858
-
-Le pan reste contraint, mais la tolerance que le moteur lui accorde est de QUINZE
-CENTIMETRES : rien ne le repousse tant qu'il n'a pas penetre de 15 cm dans le mollet. C'est
-exactement la profondeur a laquelle un pan de pantacourt disparait dans une jambe.
-
-`phys-vol-floor` repose sur une regle juste — « ce qui est deja dedans au repos y reste » —
-mais son argument est la profondeur du lien AU REPOS, or le lien du pantacourt est au repos
-pres de l'axe de la jambe : sa franchise vaut donc presque toute l'epaisseur du mollet. La
-regle correcte est « ce qui est deja dedans n'a pas le droit d'aller PLUS PROFOND ».
-
-NON IMPLEMENTE, ET JE DIS POURQUOI : ce changement touche les 22 chaines d'un coup et
-durcir un plancher RETIRE du mouvement — c'est un point de GROUPE B, qui exige d'etre mesure
-contre `motion-floor.txt` avant d'etre conserve. Le mesurer demande une course de salle, et
-l'autre worker en tenait une. Un changement de solveur livre sans sa mesure est precisement
-ce qui a coute les cycles precedents.
-
------------------------------------------------------------------------------------------
-8. SPEC 1bis « ILS S'ENTRECHOQUENT » — GEOMETRIQUEMENT HORS DE PORTEE AUJOURD'HUI
------------------------------------------------------------------------------------------
-
-    centre du volume lBoob  ( 600.6, 7962.1, 998.7)   r = 321.8
-    centre du volume rBoob  (-603.5, 7952.4, 998.5)   r = 311.2
-    distance entre centres = 1204.1 u      r + r = 633.0 u
-    VIDE A COMBLER         =  571.1 u  (0.139 m)
-
-Rien n'exclut la paire (ni `phys-col-own?`, ni un filtre de donnees, ni `phys-vol-floor` qui
-lit `floor0 = 0` au repos) : elle est TESTEE et ne se declenche jamais. Raison mesuree : les
-cinq pilotages appliquent la MEME acceleration monde aux deux chaines, qui se deplacent donc
-EN PARALLELE, jamais l'une vers l'autre. Aucun pilotage n'est antisymetrique.
-
-DIT SANS DE-SCOPE : cette exigence ne peut pas etre satisfaite par un reglage. Il faut soit
-un pilotage antisymetrique dans la salle (une rotation du buste sur son axe), soit accepter
-qu'elle reste ouverte. C'est un arbitrage, pas un oubli.
-
------------------------------------------------------------------------------------------
-9. DERIVE DE DONNEES — `radius=4000` COMMITE SANS DOCUMENTATION
------------------------------------------------------------------------------------------
-
-`git show fcd84c374b` (2026-08-12 01:53, « checkpoint automatique du constructeur ») ne
-contient qu'une modification fonctionnelle : `chestL`/`chestR` radius 656/660 -> 4000. Ce
-4000 n'est ni produit par le generateur (aucune occurrence de `4000` dedans), ni demande par
-`keira-owner-tuning.txt`, ni couvert par une mesure (le tableau de 01:46 porte
-`raddrop = 18894`, donc il decrit l'etat 656). Un checkpoint automatique a ramasse une
-experience laissee sur le disque et l'a livree.
-
-La gate TUNING ne l'a pas vue : elle verifie que les reglages de l'owner sont PRESENTS, pas
-qu'aucune valeur non documentee ne s'est ajoutee. La regeneration de l'autre worker l'a
-effacee toute seule — ce qui est la bonne propriete, et la raison pour laquelle rien ne doit
-jamais etre regle en editant `physics_chains.txt` a la main.
-
-BUG LATENT, a corriger quand le fichier sera libre : `physics_keira_gen2.py` appelle
-`apply_owner_tuning.py` SANS ARGUMENT (ligne ~1032), donc toujours sur le chemin par defaut.
-Une regeneration avec `--out` ailleurs produit un fichier SANS les reglages de l'owner tout
-en affichant « [tuning] applique ». C'est le mecanisme meme qui a efface ses reglages deux
-fois.
-
------------------------------------------------------------------------------------------
-10. CE QUE JE DEMANDE A L'OWNER
------------------------------------------------------------------------------------------
-
-UNE SEULE CHOSE est visible a l'ecran dans ce que j'ai livre : **le bas du pantacourt ne doit
-plus s'enfoncer dans les mollets** (section 2bis). C'est le point a regarder. Le reste de mon
-cycle est de la mesure et un verrou de harnais — rien d'autre a tester.
-
-Le build que l'autre worker prepare, lui, contient des changements visibles (couverture des
-capsules, plancher contre la pose d'auteur). S'il part, ce qu'il faut regarder est :
-  * les BRETELLES contre l'elastique orange du bas du crop top (section 6) ;
-  * le BAS DU PANTACOURT contre les mollets — et c'est la que la section 6bis compte : si la
-    borne n'a pas ete appliquee, ce point aura EMPIRE.
-
------------------------------------------------------------------------------------------
-11. CE QUI RESTE OUVERT — AUCUN DE-SCOPE SILENCIEUX
------------------------------------------------------------------------------------------
-
-* Les SEPT defauts d'`owner-defects.txt` restent ouverts. Je n'en ai ferme aucun et je n'ai
-  touche a aucune ligne : c'est sa parole qui les ferme.
-* `flesh-jelly` : deux causes ELIMINEES avec leurs chiffres (le plafond d'excursion,
-  section 2 ; la frequence propre du ressort, meme section). Une cause DESIGNEE et non
-  testee : le contact permanent avec la capsule du buste (17 893 frames sur ~19 000,
-  `flip = 0`).
-* `goggles-chest` : mecanisme etabli et chiffre (section 5), correction non implementee —
-  fichier tenu par l'autre worker.
-* `straps-elastic` : cause etablie et chiffree (section 6), correction en cours par l'autre
-  worker, controle calcule (34 % -> 0 %), reserve `SPAN-EMPTY` sur 12 bouts de capsule.
-* `pant-calf` : mecanisme CORRIGE et MESURE (section 2bis). Attend son oeil.
-* `knee-tabs` : la correction en place ne peut pas fonctionner — le joint demande n'existe pas
-  dans le rig (section 2ter-bis), et la gate TUNING en est rouge.
-* `chestR` : residu de penetration de 3,1 mm introduit par ma correction, non resolu.
-* `hair-big-angles` : diagnostic complet (section 2quinquies), aucune correction appliquee.
-* Les trois autres nombres de l'evaluation « colliders derives du mesh » (cout par frame sur
-  le Redmi, cout de la deformation du mesh skinne, quatre niveaux de precision) ne sont
-  toujours pas mesures.
-* La salle ne tourne pas sur le device. Toutes les mesures de ce rapport sont x86.
-* AUCUN SUPPRESSEUR AJOUTE. Une franchise a ete RETIREE.
+Non tus et inchanges : ROOM-INVERSIONS residual = 380 (priorite deterministe entre volumes qui
+se recouvrent toujours pas implementee ; controle positif 1523, soit 4.0x le residu), et
+TOUTES les mesures de ce rapport sont x86 — la salle ne tourne pas sur le device.
 
 SUPPRESSORS: 0
 
-=========================================================================================
-AJOUT D'UN SECOND WORKER (2026-08-12) — LES QUATRE BRETELLES PORTAIENT UNE ECHELLE DE 9.68
-=========================================================================================
-
-DIRECTIVES v4e8d7808e6
-
-Ce bloc est APPENDU, pas substitue : le rapport ci-dessus est celui de l'autre worker et il
-n'a pas ete touche. Detail complet, tableaux et reserves :
-`.autoport/reports/Grecharged-secondary-motion/attempt14-scale-findings.md`
-
-En trois lignes :
-
-* `straps-elastic` — CAUSE RACINE. Quatre joints du rig HD (`lTopStrap2`, `rTopStrap2`,
-  `lBotStrap2`, `rBotStrap2` — exactement les quatre bretelles signalees) portent une
-  echelle de 9.6820 dans leur matrice inverse-bind ; les 91 autres sont a 1.000. Le
-  generateur ne la normalisait pas, donc leur rayon de LIEN sortait a 1518 u (37 cm) pour
-  une geometrie reelle de 150 u. Ce rayon est le rayon de COLLISION (`*phys-lcr*` retombe
-  sur `*phys-rad*`, jak-hd-physics.gc:647) : une bretelle qui presente une sphere de 37 cm
-  englobe le torse, `phys-vol-floor` la declare « sans surface devant elle », et plus aucun
-  volume du buste ne la repousse. `meshpen` lisait donc 0.0000 — un zero VRAI, mesure entre
-  deux volumes dont l'un etait dix fois trop gros. Corrige a la source.
-  Mouvement apres correction : topstrapL +82 %, botstrapR +85 %, et `botstrapL` publie
-  enfin une penetration REELLE (0.0097 m).
-
-* `goggles-bottom` — le plancher de pose modele etait mesure dans DEUX etats a la fois : la
-  profondeur de repos du lien contre le volume a sa position SIMULEE (les chaines s'ecrivent
-  l'une apres l'autre, `chestL`/`chestR` n'ont pas de rootlock donc `lBoob`/`rBoob` sont
-  deja ecrits quand `goggles` est resolue). Quand le sein simule se rapproche des lunettes,
-  la tolerance MONTE. Un instantane de la pose d'auteur des volumes est desormais pris avant
-  la premiere ecriture, et les TROIS sites qui calculent `floor0` l'utilisent.
-
-* MESURE, PUIS REFUS DE LIVRER : les capsules en couverture p95 ameliorent beaucoup la forme
-  (geometrie hors de l'union des volumes 54.9 % -> 40.4 %, torse 18 % -> 2 %, mollets
-  32 % -> 1 %) et FABRIQUENT UN FAUX VERT — `lTopStrap2` passe de 64 u a 452 u dedans,
-  au-dela des 2 x 157 u ou la paire est declaree LIBRE : la penetration retombe a 0.0000
-  sans qu'aucun defaut ne soit corrige. Les deux reglages du meme rayon echouent pour deux
-  raisons opposees, et aucune valeur intermediaire ne satisfait les deux : un torse n'est
-  pas un cylindre. C'est la reponse chiffree a la suggestion « deriver du mesh, pas du rig ».
-  (Meme conclusion atteinte par l'autre worker via le pantacourt : commit dab9b1c764.)
-
-DIRECTIVE OWNER SANS CIBLE, signalee et non avalee : `+chain footflapL/R` (defaut
-`knee-tabs`) vise `LfootFlaps`/`RfootFlaps`, ABSENTS du rig HD (95 joints ; les seuls en
--Flap sont lKneeFlap, rKneeFlap, LpantFlap, RpantFlap). Elles produisaient deux chaines a
-zero lien. `apply_owner_tuning.py` les refuse, le dit sur stdout et l'ecrit dans
-`physics_chains.txt`. La directive doit etre re-visee sur un joint reel.
-
-GATES A MON COMMIT (3b5c12c22f) : ROOM / MOVE / IDLE / ANIM / DISCRIMINANT passent ;
-COLLIDE echoue a 0.002 m sur les cheveux ; FLOOR echoue sur `kneeflapR` (0.1435 -> 0.0832),
-un chiffre instable d'une course a l'autre (0.1243 / 0.1435 / 0.1391 / 0.0832) sur une
-chaine deja etablie comme collee a son plafond geometrique — non explique, et signale
-comme tel plutot que maquille.
-
 -----------------------------------------------------------------------------------------
-ADDENDUM (2026-08-12, second worker) — UNE CORRECTION DE MON PROPRE CHIFFRE, ET `ROOM-SIDE`
+8. CE QUE L'OWNER DOIT TESTER SUR CE BUILD
 -----------------------------------------------------------------------------------------
 
-DIRECTIVES v4e8d7808e6
-
-1. CORRECTION D'UN CHIFFRE QUE J'AI PUBLIE PLUS HAUT. J'avais ecrit que `gogglesBase` est
-   « a 227 u dedans, pour 2 x rl = 392 u : il manque 165 u pour que la paire soit declaree
-   LIBRE ». C'etait une distance JOINT->surface, sans le rayon du lien, alors que
-   `phys-collide-depth` mesure (rayon_volume + rayon_lien) - distance_a_l_axe. Recalcule
-   correctement, a la pose du modele : `floor0 = 321` contre un seuil de 392 — la paire est
-   BORNEE, pas a 165 u d'etre libre. AUCUN lien des lunettes n'est LIBRE a la pose du
-   modele. Je n'ai donc PAS de mecanisme prouve pour `goggles-tunnel`, et la phrase
-   ci-dessus ne doit pas servir de point de depart au cycle suivant.
-
-2. CE QUE J'AI FAIT A LA PLACE : construire la mesure qui manquait. Les DIRECTIVES
-   reclament `ROOM-SIDE: chain=<nom> inside_frames=<n>` depuis la 11e passe ; il n'existait
-   pas. Et AUCUNE colonne existante ne pouvait le remplacer, pour une raison arithmetique :
-   la profondeur de penetration vaut (rayon + rayon_lien) - distance_a_l_axe, donc elle est
-   MAXIMALE sur l'axe du volume et REDESCEND quand le lien ressort de l'autre cote. Un lien
-   qui a traverse une jambe de part en part rend une profondeur FAIBLE, indistinguable d'un
-   lien sagement dehors. C'est ainsi que « le pantacourt est a l'interieur des mollets » et
-   « les lunettes traversent le buste pour se poser dans le dos » coexistaient avec
-   meshpen = 0.0000.
-
-   NATURE : un COMPTE de paires (un changement de cote est DISCRET). REPERE : celui du
-   VOLUME — direction du point le plus proche de son AXE vers le lien, entre la pose du
-   modele et maintenant. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
-
-   PREMIERE COURSE — 11 chaines sur 22 traversent, et le classement tombe tout seul sur les
-   defauts rapportes :
-
-       goggles     4911     <- `goggles-tunnel`
-       botstrapR   3454     <- `straps-elastic`
-       pantflapL   2912     <- `pant-calf`
-       pantflapR   2804     <- `pant-calf`
-       topstrapL   2402     <- `straps-elastic`
-       botstrapL 868   kneeflapL 771   topstrapR 559   lbang 452   rbang 295   chestL 2
-
-   Le compteur est NON NUL : il n'a pas besoin d'un controle positif pour etre cru (la regle
-   vise les zeros). Le generateur de tableau ecrit l'avertissement si une course le rend nul.
-
-   Trois defauts ouverts ont donc, pour la premiere fois, un instrument qui les voit et qui
-   les classe. C'est ce que le cycle suivant doit faire baisser.
+  1. LES BRETELLES : elles ne peuvent plus se retourner et bougent 28 a 85 % de plus. Est-ce
+     que ca clipe encore au travers de l'elastique orange ? Est-ce que c'est trop ?
+  2. LES LUNETTES EN CINEMATIQUE : le defaut le plus grave, et le seul que je ne peux pas
+     verifier — la salle ne joue pas de cinematique. Est-ce qu'elles traversent encore ?
+  3. LES OREILLES ET LES MECHES : leur premier maillon ne se replie plus au-dela de 90 deg.
+     Geometrie plus propre, ou est-ce que ca les a raidies ?
+  4. Le reste (gelee, bas des lunettes, pantacourt, languettes) n'a recu AUCUNE correction
+     fermante ce cycle : inutile d'y chercher du neuf.

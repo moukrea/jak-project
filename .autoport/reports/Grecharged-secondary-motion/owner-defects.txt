@@ -12,7 +12,21 @@ OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
 OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos
 OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
-OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas -- CAUSE: les os LfootFlaps/RfootFlaps
-#                    n existent PAS dans le rig HD (seulement dans le stock). Reprise d ASSET requise:
-#                    injecter les deux os dans le rig HD + transfert de poids. Pas un reglage de physique.
+OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
+#  CAUSE PRECEDEMMENT ECRITE ICI, ET ELLE EST FAUSSE : « les os LfootFlaps/RfootFlaps n existent pas
+#  dans le rig HD, reprise d ASSET requise ». LfootFlaps/RfootFlaps sont bien absents du rig HD, mais
+#  ils ne servent a rien : ce ne sont pas eux qui portent les languettes.
+#  MESURE (.autoport/probe_knee_tabs.py, 2026-08-12, sur le mesh skinne et le rig) :
+#    lKneeFlap et rKneeFlap possedent 24 sommets chacun, dont la distance a l axe de la jambe vaut
+#    p50=716 u et max=888 u, quand la PEAU de la jambe (Lknee, Lthigh) est a 322..486 u du meme axe.
+#    Aucun autre os ne possede de geometrie dans ce voisinage a une distance comparable de l axe.
+#    => les languettes SONT la geometrie de lKneeFlap/rKneeFlap. Elles ont une chaine, et elle tourne.
+#  CE QUI RESTE VRAI, ET C EST LA VRAIE CAUSE : sous le pilotage de la salle elles bougent (tipvar
+#    0.167 / 0.087 m), mais SOUS ANIMATION SEULE — la seule chose que l owner voie en jeu — la
+#    ligne de base vaut 0.0780 m a gauche et 0.0093 m a DROITE, soit 9 mm. Et la droite est en
+#    contact 17893 frames contre 5473 a gauche : c est la collision qui l ecrase, pas l absence
+#    d os. Le plafond geometrique est reel (os de 8.0 cm, plafond d excursion 244 u => 43.72 deg,
+#    verifie: 2*asin(244/(2*0.0800*4096)) = 43.7169 contre 43.72 mesure).
+#  => ce n est PAS une reprise d asset. C est une amplitude, et l asymetrie gauche/droite est un
+#     defaut a part entiere qui n avait jamais ete regarde.
 OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets

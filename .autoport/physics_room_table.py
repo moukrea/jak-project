@@ -377,6 +377,14 @@ def main():
     radf_n = int(float(lim3.group(1))) if lim3 else 0
     radf_s = float(lim3.group(2)) if lim3 else 0.0
 
+    # REPLIS DU RECUL. La salle emet `PHYSLIM2 retreat_fallback=` depuis toujours et ce tableau ne
+    # l'a JAMAIS lu : un instrument emis et jamais publie est un instrument muet. Il compte les fois
+    # ou le recul n'a trouve AUCUN point admissible sur son chemin — donc pas meme la pose du
+    # modele — et s'est pose sur le moins mauvais. C'est le seul chemin qui reste vers une
+    # penetration residuelle positive, et c'est celui par lequel `rmidhair` sortait a 0.0017 m.
+    lim2 = re.search(r'^PHYSLIM2 retreat_fallback=([-\d.e+]+)', txt, re.M)
+    retfb_n = int(float(lim2.group(1))) if lim2 else -1
+
     # LES VOLUMES QUE LE MOTEUR A RESOLUS. meshpen mesure l'entree dans un collider DECLARE, pas la
     # traversee du corps : sans la liste des volumes, un zero ne dit pas contre QUOI il est zero.
     cols = []
@@ -581,6 +589,16 @@ def main():
     A('     et la renormalisation sur la sphere. REPERE : celui de l\'ancre, projetee sur l\'axe de')
     A('     l\'os du maillon. LECTURE QUAND LE DEFAUT EST ABSENT : 0 si la force est deja transverse.')
     A('   marge de sortie de collision : 0.5 u = 0.000122 m par contact resolu, constante.')
+    A('ROOM-RETREAT-ANCHOR: fallback=%s' % ('non publie par la course' if retfb_n < 0 else retfb_n))
+    A('   fois ou le recul n\'a trouve AUCUN point admissible sur son chemin — pas meme la pose du')
+    A('   modele — et s\'est pose sur le MOINS MAUVAIS. NATURE : un compte. LECTURE QUAND LE DEFAUT')
+    A('   EST ABSENT : 0. Ce n\'est pas un limiteur de plus : c\'est l\'aveu que l\'invariant « la pose')
+    A('   du modele est admissible » a cede. Il cede parce que `floor0` est mesure contre')
+    A('   l\'INSTANTANE d\'auteur du volume et `dep` contre sa position COURANTE : pour un volume')
+    A('   porte par un joint SIMULE (une meche voisine, un sein), les deux membres ne decrivent plus')
+    A('   le meme obstacle. C\'est par la que `rmidhair` sortait a 0.0017 m de penetration — la')
+    A('   SEULE ligne positive sur 3410. Le compteur etait emis par la salle et n\'etait lu par')
+    A('   personne ; il l\'est desormais.')
     A('   paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele :')
     A('   %d occurrences de mesure. Critere geometrique calcule sur la pose du modele' % buried_n)
     A('   (profondeur_repos >= 2 x rayon du lien), pas une liste ni un masque.')
