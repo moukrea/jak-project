@@ -364,6 +364,18 @@ if cross == 0 and not c:
     print("  a 0 est soit une vraie correction, soit un predicat devenu ineevaluable -- le piege")
     print("  trouve ce matin meme. Injecter le defaut, voir le compteur MONTER, l'enlever.")
     sys.exit(1)
+# ECHELLE DU CONTROLE (2026-08-12 12:20). Le controle a produit 43 evenements la ou le phenomene
+# reel en produisait 11446 -- soit 0.4 %. Un controle qui n'exerce pas le defaut A SON ECHELLE ne
+# prouve pas qu'on l'a corrige : il prouve seulement que le compteur sait compter. L'owner voit
+# toujours les lunettes finir dans son dos et le pantacourt dans les mollets pendant que le
+# compteur affiche zero, avec ce controle-la comme caution.
+_base = re.search(r'^ROOM-SIDE-BASELINE:\s*(\d+)', t, re.M)
+if c and _base and int(c.group(1)) < int(_base.group(1)) * 0.20:
+    print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: le controle produit %s evenements la ou"
+          " le phenomene reel en produisait %s (%.1f %%). Il faut REPRODUIRE le defaut a son"
+          " echelle, pas seulement rendre le compteur non nul."
+          % (c.group(1), _base.group(1), 100.0*int(c.group(1))/int(_base.group(1))))
+    sys.exit(1)
 if c and int(c.group(1)) <= int(c.group(2)) * 3:
     print("[Grecharged-secondary-monotion FAIL] SIDE-CONTROL: le controle ne tire pas (%s arme contre"
           " %s desarme, il faut >= 3x)" % (c.group(1), c.group(2)))

@@ -684,3 +684,36 @@ la fois, chacun mesuré contre le plancher `motion-floor.txt` avant d'être cons
 **RÈGLE DE CONSERVATION** : après chaque point, la course de la salle doit montrer que **aucune
 chaîne** n'est passée sous 60 % de son plancher. Si le plancher casse, le point est retiré — pas
 adouci, retiré — et repris autrement.
+
+## DOUZIÈME PASSE — LE ZÉRO EST DÉMENTI PAR SON ŒIL (2026-08-12 12:20)
+
+> « Les seins en mouvements subtils on dirait qu'ils ont été un peu mutés, sur les mouvements
+> brusques c'est toujours des ballons d'eau qui font n'importe quoi. Les lunettes clipent toujours
+> un peu à travers des seins et sur certaines animations se retrouvent derrière son dos. Les grosses
+> mèches ont toujours des déformations extrêmes sur de très gros mouvements qui cassent leur
+> géométrie, les petites bougent peut-être plus assez. Les lanières des genoux bougent toujours pas
+> et le bas du pantacourt est toujours dans les mollets. Bof ! »
+
+**1. `ROOM-SIDE = 0` EST DÉMENTI PAR SON ŒIL, ET LE CONTRÔLE EST LA CAUSE.** Il produit **43**
+événements là où le phénomène réel en produisait **11 446** — soit **0,4 %**. Un contrôle qui
+n'exerce pas le défaut **à son échelle** ne prouve pas qu'on l'a corrigé : il prouve seulement que
+le compteur sait compter. Règle ajoutée à la gate : un contrôle doit atteindre **au moins 20 % de
+la ligne de base** du phénomène, sinon il est déclaré non concluant.
+→ Et donc : **le franchissement n'est pas corrigé**. Les lunettes finissent toujours dans son dos,
+le pantacourt reste dans les mollets. Chercher ce que la mesure ne couvre pas — très probablement
+les **intervalles entre capsules** (une chaîne passe entre deux volumes sans jamais être « dedans »)
+et le **tunneling** en une frame.
+
+**2. RÉGRESSION SUR LES MOUVEMENTS SUBTILS DE LA POITRINE, et mon plancher ne l'a pas vue.** Il
+protège l'amplitude **maximale** sur cinq pilotages ; or ce qu'il juge « muté » est la réponse aux
+**petits** stimuli. `chestL` : stimulus 15,82 → 0,2208 aujourd'hui. Le plancher doit porter sur le
+pilotage **le plus faible**, pas sur le maximum — c'est là qu'il regarde, et c'est ce qu'il avait
+qualifié de « nickel ».
+
+**3. « Les petites mèches bougent peut-être plus assez »** : même famille. Elles avaient été
+calmées à sa demande ; le curseur est peut-être passé de l'autre côté. À traiter APRÈS le
+franchissement, et seulement sur son retour, pas sur un chiffre.
+
+**4. Inchangés et attendus** : lanières de genoux (l'os n'existe pas dans le rig HD — reprise
+d'asset), déformations extrêmes des grosses mèches (l'atténuation n'a jamais été appliquée),
+ballons d'eau sur mouvements brusques (le bornage de la chair n'est pas fait).
