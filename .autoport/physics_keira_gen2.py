@@ -356,8 +356,81 @@ def blob_centre_radius(geo, j):
     return c, r_cov, len(idx), thr, (r_iq, was_out, float((d > r_cov).mean()))
 
 
+def cover_perp_radius(geo, j, a_world, b_world, thr):
+    """RAYON DE COUVERTURE d'un bout de CAPSULE : le percentile COVER_PCT de la distance
+    perpendiculaire, restreint aux sommets qui se projettent DANS le segment a->b.
+
+    Deux differences avec `iq_perp_radius`, et une seule des deux est la statistique.
+
+    1. COUVERTURE, PAS TENDANCE CENTRALE. C'est la regle deja ecrite en tete de ce fichier
+       (COVER_PCT) et deja appliquee aux SPHERES par `blob_centre_radius` ; elle n'avait jamais ete
+       branchee sur les capsules. Mesure du 2026-08-12 (.autoport/probe_capsule_cover.py, meme
+       echantillon de sommets que ce generateur) sur les 24 capsules LIVREES :
+           capsules : rayon livre == iq,  42 a 58 % des sommets de leur propre joint DEHORS
+           spheres  : rayon livre == p95,  0 a  8 % dehors
+       Une moitie de surface hors du volume est exactement ce qui laisse une bretelle passer sous
+       l'elastique du crop top pendant que `meshpen` lit zero : le zero est vrai, il est mesure
+       contre un volume qui ne contient que la moitie d'elle.
+
+    2. RESTREINT AU SEGMENT, et ce n'est pas un detail. `iq_perp_radius` prend la distance
+       perpendiculaire de TOUS les sommets du joint, y compris ceux qui se projettent hors du
+       segment : le pied deborde de l'axe du tibia, le buste deborde de l'axe epaule->buste. Le
+       percentile y mesure alors la LONGUEUR d'une autre partie, pas une epaisseur. Mesure, meme
+       course : `Lshoulder->chest` passerait de 612 a 1477 et `Lthigh->hips` de 1321 a 1858 —
+       des ballons, pas des obstacles. Restreint au segment, les memes volumes restent des
+       epaisseurs.
+
+    Quand AUCUN sommet ne se projette dans le segment, la distance perpendiculaire ne mesure pas
+    l'epaisseur de ce bout : on ne ballonne pas sur une grandeur qui mesure autre chose, la valeur
+    inter-quartile est conservee et l'appelant l'ecrit `SPAN-EMPTY` dans le fichier.
+
+    Rend (rayon, nverts, nverts_dans_le_segment, fraction_dehors_a_l_ancien_rayon)."""
+    _n, _w, idx = influence(geo, j, thr)
+    if len(idx) == 0:
+        return None, 0, 0, None
+    ibm = geo['ibms'][j]
+    pts = to_bone_local(ibm, geo['V'][idx])
+    a = to_bone_local(ibm, a_world[None, :])[0]
+    b = to_bone_local(ibm, b_world[None, :])[0]
+    axis = b - a
+    n = float(np.linalg.norm(axis))
+    if n < 1e-6:
+        raise SystemExit(f"zero-length bone axis for joint index {j}")
+    u = axis / n
+    rel = pts - a
+    t = (rel @ u) / n
+    d = np.linalg.norm(rel - np.outer(rel @ u, u), axis=1)
+    lo, hi = np.percentile(d, [IQ_LO, IQ_HI])
+    inner = d[(d >= lo) & (d <= hi)]
+    if inner.size == 0:
+        inner = d
+    r_iq = float(inner.mean())
+    span = (t >= 0.0) & (t <= 1.0)
+    if int(span.sum()) < FIT_MIN_VERTS:
+        return r_iq, len(idx), 0, float((d > r_iq).mean())
+    r_cov = float(np.percentile(d[span], COVER_PCT))
+    return r_cov, len(idx), int(span.sum()), float((d > r_iq).mean())
+
+
+def fit_cover_radius(geo, j, a_world, b_world):
+    """cover_perp_radius with the same threshold ladder as fit_radius.
+    -> (radius_int, thr_used, nverts, nverts_in_span, was_outside_at_iq)."""
+    for thr in FIT_STEPS:
+        r, n, nspan, was = cover_perp_radius(geo, j, a_world, b_world, thr)
+        if r is not None and n >= FIT_MIN_VERTS:
+            return int(round(r)), thr, n, nspan, was
+    for thr in reversed(FIT_STEPS):
+        r, n, nspan, was = cover_perp_radius(geo, j, a_world, b_world, thr)
+        if r is not None and n > 0:
+            return int(round(r)), thr, n, nspan, was
+    return None, None, 0, 0, None
+
+
 def fit_radius(geo, j, a_world, b_world):
-    """iq_perp_radius with the documented threshold ladder.  -> (radius_int, thr_used, nverts)."""
+    """iq_perp_radius with the documented threshold ladder.  -> (radius_int, thr_used, nverts).
+
+    Reste la mesure de l'EPAISSEUR D'UN LIEN (« quelle est mon epaisseur »), ou une tendance
+    centrale est la bonne statistique. Les OBSTACLES passent par `fit_cover_radius`."""
     for thr in FIT_STEPS:
         r, n = iq_perp_radius(geo, j, a_world, b_world, thr)
         if r is not None and n >= FIT_MIN_VERTS:
@@ -684,12 +757,21 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     for jn, pn, pname in capsules:
         j, p = idx_of[jn], idx_of[pn]
         a, b = geo['P'][j], geo['P'][p]
-        r1, t1, n1 = fit_radius(geo, j, a, b)
-        r2, t2, n2 = fit_radius(geo, p, b, a)
+        r1, t1, n1, s1, w1 = fit_cover_radius(geo, j, a, b)
+        r2, t2, n2, s2, w2 = fit_cover_radius(geo, p, b, a)
         if r1 is None or n1 == 0 or r2 is None or n2 == 0:
             log(f"DROPPED collider capsule {jn}->{pn}: fitted from 0 vertices "
                 f"({jn}={n1}v {pn}={n2}v)")
             continue
+        cov = []
+        for who, nspan, was in ((jn, s1, w1), (pn, s2, w2)):
+            if nspan == 0:
+                cov.append(f'{who} SPAN-EMPTY (aucun sommet ne se projette dans le segment: '
+                           f'la distance perpendiculaire y mesure une autre partie, rayon '
+                           f'inter-quartile conserve)')
+            else:
+                cov.append(f'{who} p{COVER_PCT:.0f} sur {nspan}v du segment '
+                           f'(l\'inter-quartile en laissait {100 * was:.0f}% dehors)')
         fix = []
         if jn in link_radius and link_radius[jn] != r1:
             fix.append(f'{jn} {r1}->{link_radius[jn]} (own-bone thickness)')
@@ -702,6 +784,7 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         col_block.append(f'# capsule {jn}->{pn} [{pname}]  {jn}: {n1}v @w>{t1}   '
                          f'{pn}: {n2}v @w>{t2}'
                          + ('   ONE-JOINT-ONE-THICKNESS: ' + '; '.join(fix) if fix else ''))
+        col_block.append(f'#   COUVERTURE: ' + ' | '.join(cov))
         col_block.append(f'capsule {jn} {pn} radius={r1} radius2={r2}')
         col_report.append(('capsule', f'{jn}->{pn}', r1, r2, n1, n2))
     for jn, pname in spheres:

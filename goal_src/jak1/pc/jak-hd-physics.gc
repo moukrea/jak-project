@@ -180,6 +180,37 @@
 (define *phys-coz* (new 'global 'array 'float PHYS-SCO))
 
 ;; ------------------------------------------------------------------------------------------------
+;; LA POSE D'AUTEUR DE CHAQUE VOLUME, PRISE UNE FOIS PAR FRAME AVANT QUE QUOI QUE CE SOIT N'ECRIVE.
+;;
+;; Le plancher de pose modele (`floor0`) repond a UNE question : « a quelle profondeur ce lien
+;; est-il deja, DANS LA POSE QUE L'AUTEUR A SCULPTEE ? » — ce qui est deja dedans au repos y reste.
+;; C'est une propriete de la POSE DU MODELE, des deux cotes : le lien ET le volume.
+;;
+;; Or les chaines sont resolues l'une apres l'autre et chacune ECRIT son joint dans le squelette
+;; avant que la suivante ne commence. Un volume porte par un joint simule (`lBoob`, `rBoob` : la
+;; poitrine n'a pas de rootlock, donc son lien 0 est ecrit) presentait donc sa position SIMULEE au
+;; calcul de `floor0`, pendant que le lien y etait pris a sa pose d'auteur. Les deux membres
+;; n'etaient pas dans le meme etat, et le sens de l'erreur est exactement celui du defaut que
+;; l'owner decrit : quand le sein simule se rapproche des lunettes, `floor0` MONTE, donc la
+;; tolerance monte, donc la poussee qui devrait naitre a ce moment precis n'existe pas.
+;; Algebre, sur les nombres du fichier de donnees : `gogglesMid` rl=150, sphere `lBoob` r=322 ->
+;; `floor0 = 472 - d`, et `floor0 >= 2*rl = 300` des que d <= 172 u : la paire est declaree LIBRE
+;; et ne sera plus jamais repoussee. C'est « les lunettes clipent legerement avec les seins, et
+;; meme en idle ».
+;;
+;; La correction ne change pas la regle, elle la rend coherente : `floor0` est desormais mesure
+;; contre le volume A SA POSE D'AUTEUR (ce tableau), et la penetration courante `dep` contre le
+;; volume a sa position COURANTE. Pour les 31 volumes qui ne sont portes par aucun joint simule les
+;; deux sont identiques au bit pres, donc rien d'autre ne bouge.
+(define *phys-crax* (new 'global 'array 'float PHYS-SCO))   ;; extremite A, monde, pose d'auteur
+(define *phys-cray* (new 'global 'array 'float PHYS-SCO))
+(define *phys-craz* (new 'global 'array 'float PHYS-SCO))
+(define *phys-crbx* (new 'global 'array 'float PHYS-SCO))   ;; extremite B (capsule), idem
+(define *phys-crby* (new 'global 'array 'float PHYS-SCO))
+(define *phys-crbz* (new 'global 'array 'float PHYS-SCO))
+(define *phys-crok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = instantane pris cette frame
+
+;; ------------------------------------------------------------------------------------------------
 ;; MESURE (SPEC 7). Les colonnes du tableau de la salle sont accumulees ICI parce que c'est ici que
 ;; la position ecrite est connue. La salle remet a zero au debut de chaque fenetre et relit a la
 ;; fin ; elle n'invente aucun instrument par-dessus.
@@ -1052,6 +1083,43 @@
        (vector-matrix*! out out (the-as matrix (-> skel bones (+ cj 1) transform))))))
   (none))
 
+(defun phys-snapshot-colliders! ((skel skeleton) (slot int) (nco int) (nbone int))
+  "Releve la position d'auteur des deux extremites de chaque volume, AVANT que la premiere chaine
+   n'ecrive quoi que ce soit dans le squelette. Appele une fois par frame, en tete du pas."
+  (let ((ca (new 'stack-no-clear 'vector)))
+    (dotimes (ci nco)
+      (let* ((sco (+ (* slot PHYS-COLS) ci))
+             (cj  (-> *phys-cj* sco))
+             (cj2 (-> *phys-cj2* sco)))
+        (cond
+          ((and (>= cj 0) (< (+ cj 1) nbone))
+           (phys-col-centre skel sco cj ca)
+           (set! (-> *phys-crax* sco) (-> ca x))
+           (set! (-> *phys-cray* sco) (-> ca y))
+           (set! (-> *phys-craz* sco) (-> ca z))
+           (cond
+             ((and (>= cj2 0) (< (+ cj2 1) nbone))
+              (set! (-> *phys-crbx* sco) (-> skel bones (+ cj2 1) transform vector 3 x))
+              (set! (-> *phys-crby* sco) (-> skel bones (+ cj2 1) transform vector 3 y))
+              (set! (-> *phys-crbz* sco) (-> skel bones (+ cj2 1) transform vector 3 z)))
+             (else
+              (set! (-> *phys-crbx* sco) (-> ca x))
+              (set! (-> *phys-crby* sco) (-> ca y))
+              (set! (-> *phys-crbz* sco) (-> ca z))))
+           (set! (-> *phys-crok* sco) 1))
+          (else (set! (-> *phys-crok* sco) 0))))))
+  (none))
+
+(defun phys-col-rest! ((sco int) (ra vector) (rb vector))
+  "Les deux extremites du volume `sco` a leur pose d'auteur de cette frame (instantane ci-dessus).
+   Rend #f quand aucun instantane n'a ete pris : l'appelant retombe alors sur le squelette."
+  (cond
+    ((zero? (-> *phys-crok* sco)) #f)
+    (else
+     (set-vector! ra (-> *phys-crax* sco) (-> *phys-cray* sco) (-> *phys-craz* sco) 1.0)
+     (set-vector! rb (-> *phys-crbx* sco) (-> *phys-crby* sco) (-> *phys-crbz* sco) 1.0)
+     #t)))
+
 ;; ------------------------------------------------------------------------------------------------
 ;; UNE CHAINE SE COGNE-T-ELLE DANS SON PROPRE VOLUME ? Owner, 4e et 6e passes : « les pointes et
 ;; racines sont ancrees avec l'entre-deux qui bouge enormement », « les meches fines jittent like
@@ -1107,6 +1175,8 @@
         (off  (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
+        (ra   (new 'stack-no-clear 'vector))
+        (rb   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (dotimes (l n)
       (when (>= l rlk)
@@ -1151,8 +1221,13 @@
                     (if (and (>= cj2 0) (< (+ cj2 1) nbone))
                       (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
                       (vector-copy! cb ca))
+                    ;; `floor0` contre le volume A SA POSE D'AUTEUR, `dep` contre sa position
+                    ;; COURANTE : le plancher de pose modele est une propriete de la pose du
+                    ;; modele des DEUX cotes (cf. phys-snapshot-colliders!).
+                    (when (not (phys-col-rest! sco ra rb))
+                      (vector-copy! ra ca) (vector-copy! rb cb))
                     (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                           (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                           (floor0 (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm))
                            (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
                            (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
@@ -1222,6 +1297,8 @@
         (off  (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
+        (ra   (new 'stack-no-clear 'vector))
+        (rb   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (dotimes (l n)
       (when (>= l rlk)
@@ -1245,8 +1322,10 @@
                     (if (and (>= cj2 0) (< (+ cj2 1) nbone))
                       (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
                       (vector-copy! cb ca))
+                    (when (not (phys-col-rest! sco ra rb))
+                      (vector-copy! ra ca) (vector-copy! rb cb))
                     (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                           (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                           (floor0 (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm)))
                       (when (< (phys-vol-floor floor0 rl) PHYS-VOL-FREE) (set! bit 1))))
                   (when (nonzero? bit)
@@ -1282,6 +1361,8 @@
         (q    (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
+        (ra   (new 'stack-no-clear 'vector))
+        (rb   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (let* ((scl (+ (* sc PHYS-LINKS) l))
            (kk  (-> *phys-joint* scl))
@@ -1309,8 +1390,10 @@
               (if (and (>= cj2 0) (< (+ cj2 1) nbone))
                 (vector-copy! cb (the-as vector (-> skel bones (+ cj2 1) transform vector 3)))
                 (vector-copy! cb ca))
+              (when (not (phys-col-rest! sco ra rb))
+                (vector-copy! ra ca) (vector-copy! rb cb))
               (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                     (floor0 (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                     (floor0 (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (feff   (phys-vol-floor floor0 rl))
                      (dep    (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
@@ -1643,6 +1726,10 @@
              (gy     -11.16))
         (set! *phys-njoint* njoint)
         (dotimes (k njoint) (set! (-> *phys-dhas* k) 0))
+        ;; LA POSE D'AUTEUR DES VOLUMES, AVANT QUE LA PREMIERE CHAINE N'ECRIVE. Les chaines sont
+        ;; resolues l'une apres l'autre et chacune ecrit son joint dans le squelette : passe ce
+        ;; point, `skel bones` ne porte plus la pose d'auteur pour les joints deja traites.
+        (phys-snapshot-colliders! skel slot nco nbone)
         (let ((w2l  (new 'stack-no-clear 'matrix))
               (pre  (new 'stack-no-clear 'matrix))
               (inv  (new 'stack-no-clear 'matrix))
