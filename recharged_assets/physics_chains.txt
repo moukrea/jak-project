@@ -73,7 +73,7 @@ level 0 substeps=1 iters=2 collide=1 classmask=1 fixedhz=0
 level 1 substeps=2 iters=6 collide=2 classmask=7 fixedhz=0
 level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 
-# ---- Keira, and only Keira: 22 chains, 59 volumes.
+# ---- Keira, and only Keira: 22 chains, 33 volumes.
 [model keira-hd]
 # earL [A] lEara verts=82 wsum=25.41 r=148 | lEarb verts=76 wsum=46.64 r=79
 chain earL class=primary stiffness=3.20 damping=0.30 gravity=0.45 radius=114 rootlock=1 mass=0.60 hang=0.00 family=A couple=1.00 radii=148,79
@@ -254,55 +254,3 @@ collider Rmidhaira radius=766 offset=-673,-77,-325
 collider lBoob radius=322 offset=-1,655,94
 # sphere rBoob [chestR]  25v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 8% of its vertices outside (inner-quartile mean 188 left 56% outside)
 collider rBoob radius=311 offset=4,-657,-84
-# sphere lEarb [earL] RECENTRE  50v @w>0.5   rayon de lien INCHANGE (79), centre = centroide mesure de sa geometrie, 592u du joint, en espace bind
-collider lEarb radius=79 offset=-41,569,157
-# sphere rEarb [earR] RECENTRE  50v @w>0.5   rayon de lien INCHANGE (79), centre = centroide mesure de sa geometrie, 592u du joint, en espace bind
-collider rEarb radius=79 offset=41,-569,-157
-# sphere backHair1 [backhair] RECENTRE  74v @w>0.5   rayon de lien INCHANGE (358), centre = centroide mesure de sa geometrie, 763u du joint, en espace bind
-collider backHair1 radius=358 offset=11,-698,-309
-# sphere backHair2 [backhair] RECENTRE  29v @w>0.5   rayon de lien INCHANGE (374), centre = centroide mesure de sa geometrie, 305u du joint, en espace bind
-collider backHair2 radius=374 offset=-31,-257,-162
-# sphere Lbangb [lbang] RECENTRE  18v @w>0.5   rayon de lien INCHANGE (104), centre = centroide mesure de sa geometrie, 565u du joint, en espace bind
-collider Lbangb radius=104 offset=533,-39,184
-# sphere Lbangc [lbang] RECENTRE  46v @w>0.5   rayon de lien INCHANGE (180), centre = centroide mesure de sa geometrie, 489u du joint, en espace bind
-collider Lbangc radius=180 offset=479,20,95
-# sphere Rbangb [rbang] RECENTRE  22v @w>0.5   rayon de lien INCHANGE (102), centre = centroide mesure de sa geometrie, 566u du joint, en espace bind
-collider Rbangb radius=102 offset=-534,40,-182
-# sphere Rbangc [rbang] RECENTRE  33v @w>0.5   rayon de lien INCHANGE (178), centre = centroide mesure de sa geometrie, 431u du joint, en espace bind
-collider Rbangc radius=178 offset=-426,-20,-65
-# sphere Lmidhairb [lmidhair] RECENTRE  99v @w>0.5   rayon de lien INCHANGE (335), centre = centroide mesure de sa geometrie, 696u du joint, en espace bind
-collider Lmidhairb radius=335 offset=508,83,468
-# sphere Rmidhairb [rmidhair] RECENTRE  107v @w>0.5   rayon de lien INCHANGE (337), centre = centroide mesure de sa geometrie, 566u du joint, en espace bind
-collider Rmidhairb radius=337 offset=-401,-91,-389
-# sphere gogglesBase [goggles] RECENTRE  16v @w>0.5   rayon de lien INCHANGE (196), centre = centroide mesure de sa geometrie, 181u du joint, en espace bind
-collider gogglesBase radius=196 offset=-170,62,0
-# sphere gogglesMid [goggles] RECENTRE  11v @w>0.5   rayon de lien INCHANGE (79), centre = centroide mesure de sa geometrie, 123u du joint, en espace bind
-collider gogglesMid radius=150 offset=0,-66,104
-# sphere lTopStrap2 [topstrapL] RECENTRE  10v @w>0.5   rayon de lien INCHANGE (157), centre = centroide mesure de sa geometrie, 519u du joint, en espace bind
-collider lTopStrap2 radius=157 offset=24,514,-64
-# sphere rTopStrap2 [topstrapR] RECENTRE  10v @w>0.5   rayon de lien INCHANGE (157), centre = centroide mesure de sa geometrie, 518u du joint, en espace bind
-collider rTopStrap2 radius=157 offset=-22,514,-63
-# sphere lBotStrap [botstrapL] RECENTRE  15v @w>0.05   rayon de lien INCHANGE (92), centre = centroide mesure de sa geometrie, 1509u du joint, en espace bind
-collider lBotStrap radius=92 offset=236,1458,-310
-# sphere lBotStrap2 [botstrapL] RECENTRE  25v @w>0.25   rayon de lien INCHANGE (93), centre = centroide mesure de sa geometrie, 357u du joint, en espace bind
-collider lBotStrap2 radius=93 offset=-115,-317,118
-# sphere rBotStrap [botstrapR] RECENTRE  16v @w>0.05   rayon de lien INCHANGE (93), centre = centroide mesure de sa geometrie, 1489u du joint, en espace bind
-collider rBotStrap radius=93 offset=-229,-1440,304
-# sphere rBotStrap2 [botstrapR] RECENTRE  26v @w>0.25   rayon de lien INCHANGE (96), centre = centroide mesure de sa geometrie, 356u du joint, en espace bind
-collider rBotStrap2 radius=96 offset=119,-314,118
-# sphere lKneeFlap [kneeflapL] RECENTRE  24v @w>0.5   rayon de lien INCHANGE (244), centre = centroide mesure de sa geometrie, 380u du joint, en espace bind
-collider lKneeFlap radius=244 offset=-20,332,183
-# sphere rKneeFlap [kneeflapR] RECENTRE  24v @w>0.5   rayon de lien INCHANGE (244), centre = centroide mesure de sa geometrie, 380u du joint, en espace bind
-collider rKneeFlap radius=244 offset=20,-332,-183
-# sphere LpantFlap [pantflapL] RECENTRE  49v @w>0.05   rayon de lien INCHANGE (429), centre = centroide mesure de sa geometrie, 401u du joint, en espace bind
-collider LpantFlap radius=429 offset=0,376,138
-# sphere RpantFlap [pantflapR] RECENTRE  41v @w>0.05   rayon de lien INCHANGE (443), centre = centroide mesure de sa geometrie, 388u du joint, en espace bind
-collider RpantFlap radius=443 offset=-55,-353,-151
-# sphere LtoeStrap [toestrapL] RECENTRE  12v @w>0.5   rayon de lien INCHANGE (188), centre = centroide mesure de sa geometrie, 189u du joint, en espace bind
-collider LtoeStrap radius=188 offset=178,-41,-50
-# sphere RtoeStrap [toestrapR] RECENTRE  12v @w>0.5   rayon de lien INCHANGE (188), centre = centroide mesure de sa geometrie, 189u du joint, en espace bind
-collider RtoeStrap radius=188 offset=-178,41,50
-# sphere Lanklestrap [anklestrapL] RECENTRE  8v @w>0.5   rayon de lien INCHANGE (225), centre = centroide mesure de sa geometrie, 238u du joint, en espace bind
-collider Lanklestrap radius=225 offset=236,-4,28
-# sphere Ranklestrap [anklestrapR] RECENTRE  8v @w>0.5   rayon de lien INCHANGE (225), centre = centroide mesure de sa geometrie, 238u du joint, en espace bind
-collider Ranklestrap radius=225 offset=-236,4,-28

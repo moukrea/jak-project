@@ -36,9 +36,13 @@ chain rmidhair stiffness=1.50 couple=1.40 mass=0.72
 # l'amortissement que j'avais trop retiré revient en partie. La fermeté vient de la raideur, pas
 # du débattement — un grand angle donnerait un ballon d'eau.
 # REMPLACÉ par la 8e passe (raideur 1.45) :
-chain chestL damping=0.33   # couple: voir 5e passe (1.20)
+# REMPLACE le 12/08 12:35 par `chain chestL couple=1.85 damping=0.26` plus bas (la ligne
+# `couple=1.55` a bien ete commentee ce jour-la, celle-ci a ete oubliee) :
+# chain chestL damping=0.33
 # REMPLACÉ par la 8e passe (raideur 1.45) :
-chain chestR damping=0.33   # couple: voir 5e passe (1.20)
+# REMPLACE le 12/08 12:35 par `chain chestR couple=1.85 damping=0.26` plus bas (la ligne
+# `couple=1.55` a bien ete commentee ce jour-la, celle-ci a ete oubliee) :
+# chain chestR damping=0.33
 
 ## 2026-08-11 — « ses lunettes clipent encore un chouille sur les seins »
 ## PERIME PAR LA 6e PASSE, le 2026-08-11 : « les lunettes clipent toujours legerement dessus, et
