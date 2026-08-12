@@ -302,3 +302,45 @@ tourne pas sur le device.
 4. Le reste (gelee, bas des lunettes, pantacourt, languettes) n'a recu **aucune correction
    fermante** ce cycle : inutile d'y chercher du neuf, mais leurs causes sont maintenant
    chiffrees.
+
+---
+
+## 10. `goggles-bottom` — 94 % DES LUNETTES N'ETAIENT TESTEES CONTRE RIEN (ajout, meme cycle)
+
+Le point le mieux ferme de ce cycle, et il ne demandait aucun build : `physics_chains.txt` est
+lu a l'execution.
+
+La chaine `goggles` est `gogglesBase -> gogglesMid`. Le generateur s'y arrete parce que
+`gogglesMid` **fourche**, et son propre docstring le documentait comme voulu (« which is why
+the goggles chain stops at gogglesMid »). Personne n'avait mesure ce que la fourche coute :
+
+    gogglesBase  16 sommets      gogglesMid   11 sommets
+    gogglesLeft 244 sommets      gogglesRight 244 sommets
+
+**27 sommets sur 515 sont simules. Les 488 autres — 94 %, les VERRES — n'ont aucune chaine,
+donc aucun volume de collision, et ne sont testes contre RIEN.** Le moteur les deplace
+rigidement par propagation de delta. Le seul volume teste est une sphere de rayon 150 posee sur
+`gogglesMid`, et `gogglesMid` est a **932 u** de `lBoob`/`rBoob` en pose bind pour une geometrie
+de verre qui porte a **603 u** de son joint : les verres atteignent l'interieur des spheres de
+poitrine, le volume teste non. C'est `goggles-bottom`, au complet.
+
+**L'AMPLITUDE, mesuree.** J'ai change la regle (« une fourche ouvre une chaine par branche »),
+regenere, et lance la salle : les verres deviennent `gogglesleft` / `gogglesright` (os de
+0.107 / 0.099 m) et la course rapporte immediatement **11 318 et 9 018 frames de CONTACT** avec
+les volumes du corps, et jusqu'a **0.0838 m de penetration reelle** sous `jerk`. Le defaut
+existait a l'identique avant : il n'etait simplement mesure par rien. Ce n'est pas
+« legerement ».
+
+**ET C'EST RETIRE.** `gogglesLeft` / `gogglesRight` sont les deux coquilles d'une monture
+**rigide**. Leur donner un ressort propre les fait osciller par rapport a la monture et la
+resolution de collision les pousse hors du corps INDEPENDAMMENT d'elle : le verre se decolle de
+son cerclage. Regle 6 de l'owner — « une resolution pire que le clip est pire que rien » — et il
+a par ailleurs valide la physique des lunettes telle quelle (« leur physique marche bien ») : le
+defaut est un CLIPPING, pas un manque de mouvement. Le generateur est revenu a la regle
+precedente, `physics_chains.txt` est **identique** a l'etat livre (22 chaines), et la note
+mesuree est ecrite dans le generateur pour que la prochaine passe parte de la.
+
+**CE QU'IL FAUT** : un volume ajuste sur `gogglesMid` qui **couvre les verres en les laissant
+rigides** (`*phys-lcr*`), pas une chaine de plus. Non pose ici : ca demande son propre A/B — la
+meme idee appliquee aux cheveux a coute 43 % du mouvement de `backhair`, et l'owner a prevenu
+que gonfler un volume finirait par « decoller les lunettes du corps ».

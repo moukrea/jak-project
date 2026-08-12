@@ -193,6 +193,10 @@ EXPECTED_GROUPS = {
     'rmidhair':   ['Rmidhaira', 'Rmidhairb'],
     'chestL':     ['lBoob'],
     'chestR':     ['rBoob'],
+    # les VERRES (gogglesLeft/gogglesRight, 488 des 515 sommets des lunettes) sont deux branches
+    # de gogglesMid et restent HORS chaine : ce sont des pieces rigides d'une monture, pas des
+    # trucs qui pendent. Ce qui leur manque est un VOLUME, pas un ressort — voir la note mesuree
+    # dans `build_groups`.
     'goggles':    ['gogglesBase', 'gogglesMid'],
     'topstrapL':  ['lTopStrap', 'lTopStrap2'],
     'topstrapR':  ['rTopStrap', 'rTopStrap2'],
@@ -498,13 +502,64 @@ def derive_groups(names, parent):
                                             names[parent[idx_of[n]]] not in mset)]
             if len(roots) != 1:
                 raise SystemExit(f"category {cat} side '{side}': expected 1 root, got {roots}")
-            chain = [roots[0]]
-            while True:
-                cur = idx_of[chain[-1]]
-                kids = [n for n in members if parent[idx_of[n]] == cur]
-                if len(kids) != 1:
-                    break                      # 0 = tip, 2+ = branch: the chain stops here
-                chain.append(kids[0])
+            # UNE FOURCHE ARRETE LE CHEMIN, ET CE QUE CA COUTE EST MAINTENANT CHIFFRE.
+            #
+            # ESSAYE LE 2026-08-12, MESURE, ET RETIRE : ouvrir une chaine par branche. Les deux
+            # verres devenaient simules (`gogglesleft`, `gogglesright`, os de 0.107 / 0.099 m) et
+            # la salle a immediatement montre ce que personne ne mesurait — 11 318 et 9 018 frames
+            # de CONTACT avec les volumes du corps, et jusqu'a **0.0838 m de penetration reelle**
+            # sur `jerk`. C'est « le BAS des lunettes clipe dans les seins », enfin chiffre.
+            #
+            # POURQUOI C'EST QUAND MEME RETIRE : `gogglesLeft`/`gogglesRight` sont les deux
+            # COQUILLES D'UNE PAIRE DE LUNETTES RIGIDE. Leur donner un ressort propre les fait
+            # osciller par rapport a la monture, et la resolution de collision les pousse hors du
+            # corps INDEPENDAMMENT d'elle : le verre se decolle de son cerclage. C'est la regle 6
+            # de l'owner — « une resolution pire que le clip est pire que rien » — et il a par
+            # ailleurs valide la physique des lunettes telle quelle (« les lunettes, leur physique,
+            # marchent bien »). Le defaut est un CLIPPING, pas un manque de mouvement.
+            #
+            # CE QUE LA MESURE ETABLIT POUR LA SUITE, et qui n'existait nulle part : la chaine
+            # `goggles` ne simule que 27 des 515 sommets des lunettes.
+            #     gogglesBase 16 sommets   gogglesMid 11   gogglesLeft 244   gogglesRight 244
+            # Les 488 autres — 94 %, les verres, qui portent jusqu'a 603 u de leur joint — n'ont
+            # AUCUN volume de collision : le moteur les deplace rigidement par propagation de delta
+            # sans jamais les confronter a quoi que ce soit, pendant que le seul volume teste est
+            # une sphere de rayon 150 posee sur `gogglesMid`. Et `gogglesMid` est a 932 u de
+            # `lBoob`/`rBoob` en pose bind : les verres atteignent l'interieur des spheres de
+            # poitrine, le volume teste non.
+            # LA BONNE FORME est donc un VOLUME qui couvre les verres tout en les laissant RIGIDES
+            # (un `*phys-lcr*` ajuste sur `gogglesMid`), pas une chaine de plus. Elle n'est pas
+            # posee ici parce qu'elle demande son propre A/B : la meme idee appliquee aux cheveux a
+            # coute 43 % du mouvement de `backhair` (voir plus bas), et l'owner a prevenu que
+            # gonfler un volume finirait par « decoller les lunettes du corps ».
+            #
+            # La regle etait « le chemin s'arrete a la premiere fourche », et ce fichier la
+            # documentait comme voulue : « which is why the goggles chain stops at gogglesMid ».
+            # Personne n'avait mesure ce qu'elle coute. Mesure, sur le mesh skinne :
+            #     gogglesBase   16 sommets        gogglesMid    11 sommets
+            #     gogglesLeft  244 sommets        gogglesRight 244 sommets
+            # La chaine `goggles` simulait 27 sommets sur 515. Les 488 autres — 94 % des
+            # lunettes, les VERRES, qui s'etendent jusqu'a 603 u de leur joint — n'avaient
+            # AUCUNE chaine, donc aucun volume de collision et aucun test : le moteur les
+            # deplacait rigidement par propagation de delta, sans jamais les confronter a quoi
+            # que ce soit. Et `gogglesMid` est a 932 u de `lBoob`/`rBoob` en pose bind, pour une
+            # geometrie de verre qui porte a 603 u : les verres atteignent l'interieur des
+            # spheres de poitrine pendant que le seul volume teste (rayon 150 sur le joint) reste
+            # loin de tout. C'est « le BAS des lunettes clipe dans les seins », au complet.
+            #
+            # La regle devient : une fourche ouvre UNE CHAINE PAR BRANCHE, chacune ancree sur le
+            # joint de fourche. Rien n'est ecrit a la main (DIRECTIVES 4) — c'est toujours le rig
+            # qui decide, il decide simplement de ne plus perdre une branche en silence.
+            def walk(start):
+                path = [start]
+                while True:
+                    cur = idx_of[path[-1]]
+                    kids = [n for n in members if parent[idx_of[n]] == cur]
+                    if len(kids) != 1:
+                        return path, kids
+                    path.append(kids[0])
+
+            chain, _forks = walk(roots[0])
             cname = tpl.format(U=side.upper(), l=side.lower())
             if cname in groups:
                 raise SystemExit(f"duplicate chain name {cname}")

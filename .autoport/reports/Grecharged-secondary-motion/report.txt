@@ -203,8 +203,14 @@ invisible en jeu a 0.009.
   goggles-tunnel    cause racine corrigee (50 642 paires sans contrainte supprimees). NON
                     PROUVE autrement : la salle ne joue AUCUNE cinematique, et c'est la qu'il
                     l'a vu.
-  goggles-bottom    ROOM-SIDE -17 %, le moins ameliore des trois. Aucune mesure ne separe
-                    encore le BAS des lunettes du reste de la chaine.
+  goggles-bottom    CAUSE RACINE TROUVEE ET CHIFFREE, correctif NON pose (section 9). La
+                    chaine `goggles` ne simule que 27 des 515 sommets des lunettes : les 488
+                    autres (94 %, LES VERRES) sont deux branches de gogglesMid que la regle
+                    « le chemin s'arrete a la fourche » laisse hors chaine — aucun volume de
+                    collision, testes contre RIEN. Mesure en les simulant le temps d'une
+                    course : 11 318 / 9 018 frames de CONTACT et jusqu'a 0.0838 m de
+                    penetration reelle. Essai RETIRE (des verres a ressort propre se
+                    decollent de leur monture rigide : pire que le clip).
   pant-calf         ROOM-SIDE -38 % / -32 %, 1 792 / 1 901 traversees subsistent. NON FERME,
                     cause identifiee : le volume que le pan presente est une SPHERE de 429 u
                     centree sur son joint, lequel est a 95 u de l'axe du mollet — la sphere
@@ -218,6 +224,28 @@ invisible en jeu a 0.009.
 Non tus et inchanges : ROOM-INVERSIONS residual = 380 (priorite deterministe entre volumes qui
 se recouvrent toujours pas implementee ; controle positif 1523, soit 4.0x le residu), et
 TOUTES les mesures de ce rapport sont x86 — la salle ne tourne pas sur le device.
+
+-----------------------------------------------------------------------------------------
+9. `goggles-bottom` — 94 % DES LUNETTES N'ETAIENT TESTEES CONTRE RIEN
+-----------------------------------------------------------------------------------------
+
+    gogglesBase 16 sommets   gogglesMid 11   gogglesLeft 244   gogglesRight 244
+
+27 sommets sur 515 sont simules. Les 488 autres — les VERRES, qui portent jusqu'a 603 u de
+leur joint — sont deux BRANCHES de gogglesMid, et le generateur s'arrete a la fourche. Ils
+n'ont aucun volume de collision et ne sont testes contre RIEN : le moteur les deplace
+rigidement par propagation de delta. Le seul volume teste est une sphere de rayon 150 sur
+gogglesMid, qui est a 932 u de lBoob/rBoob en pose bind. Les verres atteignent l'interieur des
+spheres de poitrine, le volume teste non.
+
+AMPLITUDE MESUREE en les simulant le temps d'une course : 11 318 et 9 018 frames de CONTACT,
+jusqu'a 0.0838 m de penetration reelle sous `jerk`. Le defaut existait a l'identique avant, il
+n'etait mesure par rien.
+
+RETIRE : ce sont les deux coquilles d'une monture RIGIDE ; un ressort propre les decolle de
+leur cerclage (regle 6). `physics_chains.txt` est revenu a l'identique (22 chaines) et la note
+mesuree est dans le generateur. CE QU'IL FAUT est un VOLUME sur gogglesMid couvrant les verres
+en les laissant rigides, pas une chaine — et ca demande son propre A/B.
 
 SUPPRESSORS: 0
 

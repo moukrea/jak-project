@@ -9,6 +9,27 @@
 #
 OPEN flesh-jelly     effet gelee sur les seins, UNIQUEMENT sur mouvements brusques (subtils et penche = OK)
 OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
+#  CAUSE RACINE MESUREE LE 2026-08-12, et elle n avait jamais ete regardee : la chaine `goggles`
+#  ne simule que 27 des 515 sommets des lunettes.
+#      gogglesBase 16 sommets   gogglesMid 11   gogglesLeft 244   gogglesRight 244
+#  Les 488 autres -- 94 %, LES VERRES, qui portent jusqu a 603 u de leur joint -- sont deux
+#  BRANCHES de gogglesMid. La regle du generateur (« le chemin s arrete a la premiere fourche »)
+#  les laisse hors chaine : ils n ont AUCUN volume de collision et ne sont testes contre RIEN.
+#  Le moteur les deplace rigidement par propagation de delta. Le seul volume teste est une sphere
+#  de rayon 150 posee sur gogglesMid -- et gogglesMid est a 932 u de lBoob/rBoob en pose bind,
+#  donc les verres atteignent l interieur des spheres de poitrine pendant que le volume teste
+#  reste loin de tout. C est exactement « le BAS des lunettes clipe dans les seins ».
+#  L AMPLITUDE DU DEFAUT, mesuree en rendant les verres simules le temps d une course (essai
+#  retire ensuite, voir plus bas) : 11 318 et 9 018 frames de CONTACT avec les volumes du corps,
+#  et jusqu a 0.0838 m de penetration reelle sous `jerk`. Ce n est pas « legerement ».
+#  ESSAI RETIRE, ET POURQUOI : ouvrir une chaine par branche rend les verres simules mais leur
+#  donne un ressort PROPRE, alors que ce sont les deux coquilles d une monture RIGIDE -- le verre
+#  se decolle de son cerclage. Regle 6 : une resolution pire que le clip est pire que rien. Et
+#  l owner a valide la physique des lunettes telle quelle (« leur physique marche bien ») : le
+#  defaut est un CLIPPING, pas un manque de mouvement.
+#  CE QU IL FAUT : un VOLUME ajuste sur gogglesMid qui couvre les verres en les laissant rigides
+#  (`*phys-lcr*`), pas une chaine de plus. Non pose : demande son propre A/B, la meme idee
+#  appliquee aux cheveux ayant coute 43 % du mouvement de backhair.
 OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos
 OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
