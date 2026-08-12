@@ -68,6 +68,14 @@ OPEN flesh-jelly     effet gelee sur les seins, UNIQUEMENT sur mouvements brusqu
 #  lieu de l'arc leverait la contradiction entre « un os ne s'allonge pas » et « rien ne traverse »
 #  sans arbitrer entre elles. Non mesure : je ne le presente pas comme acquis.
 OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
+#  --- 23e PASSE (2026-08-12) : NEGATIF STRUCTUREL — LE PREDICAT N'EST PAS EN CAUSE ICI. ---
+#  `lBoob` et `rBoob` sont des SPHERES (ra = rb). La correction conique livree ce cycle ne les
+#  touche pas PAR CONSTRUCTION : sur une sphere les deux predicats sont la meme formule, et le
+#  controle negatif le verifie (capsules rendues cylindriques -> ecart 1.8e-12 u). Les 24 volumes
+#  spheres des 48 sont donc hors d'atteinte de ce correctif.
+#  => le clip lunettes <-> seins ne vient PAS de la geometrie du predicat. Il reste ce que le cycle
+#  22 avait mesure : 31 violations residuelles des lunettes contre les deux spheres de poitrine
+#  (`ROOM-CONTACT-VOL`), et des spheres qui ne peuvent pas epouser un sein.
 #  --- 22e PASSE (2026-08-12 soir) : LE COMPTEUR LE VOIT ENFIN, ET IL DIT CONTRE QUOI. ---
 #  Jusqu'ici ce defaut opposait son oeil (« ca clipe ») a un `meshpen` qui affichait zero. Le
 #  nouvel instrument d'attribution (`ROOM-CONTACT-VOL`, moteur *phys-cvh*) compte les violations
@@ -148,6 +156,18 @@ OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour a
 #      cout mesure sur goggles : mouvement de pointe 0.5107 -> 0.5107, soit AUCUN.
 #  A CONFIRMER PAR L OWNER EN CINEMATIQUE — c est son oeil qui ferme la ligne.
 OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
+#  --- 23e PASSE (2026-08-12) : C'EST LE DEFAUT QUE LA CORRECTION CONIQUE SERT LE PLUS. ---
+#  Les deux bretelles BASSES — la piece meme que l'owner cite, le bas du crop top — sont les
+#  chaines qui gagnent le plus apres `backhair`, et contre les capsules de hanche :
+#      botstrapL  vs Lthigh->hips   65.46 mm a 30 deg de la pose   (0.69 mm au repos)
+#      botstrapR  vs Rthigh->hips   53.58 mm a 30 deg              (1.45 mm au repos)
+#      topstrapL/R vs neck->chest    4.6 mm a 30 deg               (0.5 / 1.0 mm au repos)
+#  `Lthigh->hips` (1321/699) portait le 2e plus gros ecart du fichier : 140.00 mm, 141 sommets qui
+#  changent de cote. Le moteur testait donc, sous le crop top, un solide nettement plus petit que
+#  celui que la donnee designe — et c'est la que le tissu passait.
+#  CE QUE CA NE FERME PAS : le clipping contre l'ELASTIQUE ORANGE lui-meme reste un volume MANQUANT
+#  sur une piece precise du vetement. Un solide mieux mesure n'ajoute pas un volume qui n'existe pas.
+#  A CONFIRMER PAR SON OEIL.
 #  --- 22e PASSE (2026-08-12 soir) : UNE ASYMETRIE REELLE, TROUVEE EN PASSANT, NON EXPLIQUEE. ---
 #  Le temoin de longueur d'os du probe de capture compare les os de la POSE DE BIND aux longueurs
 #  que le moteur publie en COURSE (`bones_m`). 34 des 36 liens sont a moins de 3 %. Les deux qui
@@ -173,6 +193,17 @@ OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerem
 #  manquant sur une piece precise du vetement, et aucun volume n a ete ajoute ce cycle (l ajout
 #  a ete mesure puis retire, voir `knee-tabs`).
 OPEN hair-gradient   PRIORITE 1: le gradient est INVERSE -- le milieu bouge 1.7x a 2.7x la pointe
+#  --- 23e PASSE (2026-08-12) : LE PREDICAT CONIQUE NE TOUCHE PAS CE DEFAUT-CI, ET JE LE DIS. ---
+#  La correction de `phys-collide-depth` livree ce cycle (le solide teste est enfin l'enveloppe
+#  convexe des deux spheres, pas un rayon interpole au parametre de projection) porte SUR LES
+#  CAPSULES. Mesure par chaine, 7963 sommets x 24 capsules :
+#      backhair  link1 vs head->neck    40.54 mm de solide que le moteur ne voyait pas, AU REPOS
+#      lbang     link2 vs Lmidhairb->…   0.83 mm      rbang  link2 vs Rmidhairb->…   0.77 mm
+#  `backhair` n'a qu'UN maillon libre (rootlock=1, 2 joints) : aucun gradient n'y est representable,
+#  donc ce gain ne repond pas au defaut. Et les deux meches qui PORTENT le defaut — `lbang`/`rbang`,
+#  seules chaines a deux maillons libres — bougent de moins d'un millimetre. LE GRADIENT RESTE
+#  ENTIER APRES CE CYCLE ; il reste tenu par la correction de resonance du cycle 21 (inversions
+#  8/10 -> 1/10), qui attend toujours son oeil. Ne pas confondre les deux.
 #  --- 21e PASSE (2026-08-12 17:30) : LA CAUSE EST UNE FREQUENCE PROPRE, ET ELLE EST CORRIGEE. ---
 #  CE QUE LE CYCLE PRECEDENT AVAIT CONCLU, ET QUI ETAIT FAUX : « la seule voie est de re-articuler
 #  les meches (joints intermediaires injectes au prep), rien d'autre ne le fera ». Le calcul qui
@@ -290,6 +321,22 @@ OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements,
 #  sommets hors de l'union des volumes, et meme reponse pressentie que pour `pant-calf` et
 #  `goggles-bottom` — la suggestion de l'owner (deriver du MESH, pas du rig).
 OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
+#  --- 23e PASSE (2026-08-12) : J'AI ECRIT UN NEGATIF, LA COURSE L'A DEMENTI. LE CHIFFRE GAGNE. ---
+#  CE QUE J'AVAIS ECRIT ICI IL Y A UNE HEURE, sur la foi du calcul hors ligne seul : « la correction
+#  conique ne peut pas aider — `Lknee->Lthigh` et `Rknee->Rthigh` sont quasi cylindriques, 0.23 mm
+#  au maximum ». La COURSE dit le contraire, sur le pilotage le plus faible (`tilt`) :
+#      kneeflapR  tilt  pointe 0.0358 -> 0.0640   (+79 %)   gain 0.000263 -> 0.002116  (x8.0)
+#      plancher faible-stimulus  x1.01 -> x3.68 contre la reference stockee
+#  POURQUOI JE M'ETAIS TROMPE, et c'est une lecon d'instrument : mon tableau hors ligne ne publiait
+#  que la PIRE capsule par chaine. Les capsules de genou sont bien quasi cylindriques, mais la
+#  languette vit aussi dans le voisinage de `Lthigh->hips` (1321/699) — le DEUXIEME plus gros ecart
+#  du fichier, 140.00 mm. Une chaine ne se resume pas a son pire volume quand elle vit dans le
+#  recouvrement de plusieurs, ce que le cycle 18 avait justement etabli pour cette chaine-la.
+#  CE QUE CA NE FERME PAS : l'amplitude MAXIMALE ne bouge pas (0.1224 -> 0.1222), et c'est
+#  l'amplitude que l'owner regarde en jeu. La capture geometrique du cycle 22 (-38 u / -34 u) est
+#  intacte : elle est dans la GEOMETRIE DECLAREE, pas dans le predicat. La voie reste un volume qui
+#  epouse la forme. Mais la languette repond desormais huit fois mieux a l'inclinaison, et c'est
+#  SON OEIL qui dira si ca se voit.
 #  --- 22e PASSE (2026-08-12 soir) : UNE CAUSE GEOMETRIQUE, CHIFFREE, EN FORME CLOSE. ---
 #  .autoport/probe_chain_volume_capture.py generalise a TOUTES les chaines contre TOUS les volumes
 #  la preuve deja faite a la main sur `backhair`. Un maillon tourne autour de son attache a longueur
@@ -368,6 +415,17 @@ OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les san
 #  (« un seul volume decide par frame et par lien, le parent dans le rig l emporte »), qui n a
 #  jamais ete implementee — ROOM-INVERSIONS residual=380 en est l autre trace.
 OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
+#  --- 23e PASSE (2026-08-12) : NEGATIF MESURE — LA CORRECTION CONIQUE NE TOUCHE PAS CE DEFAUT. ---
+#  Les capsules coupables sont `Lankle->Lknee` (411/329 sur 2694 u) et `Rankle->Rknee` (398/326) :
+#  presque cylindriques, donc ecart entre solide reel et ancien predicat de 0.19 et 0.14 mm sur
+#  TOUT le mesh, et 0.02 mm au repos / 0.09 mm a 60 deg sur le pan de pantacourt. Zero sommet ne
+#  change de cote. Ce cycle ne fait rien pour ce defaut et il ne faut pas l'attendre du build.
+#  CE QUE LA MESURE DE FIDELITE DESIGNE A LA PLACE, et c'est la piste vive : la region mollet-pied
+#  est celle ou l'union des 48 volumes laisse le plus de mesh dehors — 89,0 % des sommets. Un pan
+#  tenu « hors de la capsule » peut donc etre encore DANS la jambe : la capsule ne couvre pas la
+#  peau. C'est la premiere explication mecanique qui colle a « comme si son pantacourt s'arretait
+#  aux genoux », et elle se verifie en comparant le rayon de la capsule au rayon reel de la peau
+#  le long de l'axe.
 #  --- 20e PASSE (2026-08-12) : CE DEFAUT N'EST PAS COUVERT PAR LE CONTROLE DE COTE, ET JE LE DIS
 #  PLUTOT QUE DE LAISSER CROIRE LE CONTRAIRE. Le compteur de franchissement exige `floor0 > 0`, et
 #  `floor0` est force a 0 pour une paire de fourreau (jak-hd-physics.gc, branche `sleevec`) : les

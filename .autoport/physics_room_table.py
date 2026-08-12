@@ -418,8 +418,11 @@ def main():
     #          que le solide reel, et l'y laisse.
     conoff = re.search(r'^PHYSCONE tag=cone-disarmed maxpen=([-\d.e+]+)', txt, re.M)
     conon  = re.search(r'^PHYSCONE tag=cone-armed maxpen=([-\d.e+]+)', txt, re.M)
-    cone_dis = float(conoff.group(1)) if conoff else None
-    cone_arm = float(conon.group(1)) if conon else None
+    # LE MOTEUR EMET EN UNITES DE JEU, comme `PHYSROW pen=` (converti ligne 190). Publier ce
+    # nombre brut sous une etiquette « profondeur (m) » serait une grandeur publiee sous un nom qui
+    # n'est pas le sien -- le motif exact qui a coute deux cycles (`radial_n`/`radial_sum`).
+    cone_dis = float(conoff.group(1)) / UNITS if conoff else None
+    cone_arm = float(conon.group(1)) / UNITS if conon else None
 
     # LES VOLUMES QUE LE MOTEUR A RESOLUS. meshpen mesure l'entree dans un collider DECLARE, pas la
     # traversee du corps : sans la liste des volumes, un zero ne dit pas contre QUOI il est zero.
@@ -1202,7 +1205,8 @@ def main():
         A('   convexe des deux spheres. Le solveur cessait donc de pousser avant la vraie surface.')
         A('   NATURE : une profondeur (m). REPERE : monde, MEME solide exact des deux cotes.')
         A('   LECTURE HORS DEFAUT : desarme = la course ; arme, elle doit MONTER.')
-        A('ROOM-CONE: disarmed=%.4f armed=%.4f' % (cone_dis, cone_arm))
+        A('ROOM-CONE: disarmed=%s armed=%s   (metres, converties depuis les unites de jeu)'
+          % (fnum(cone_dis), fnum(cone_arm)))
         if cone_arm <= cone_dis * 3.0:
             A('   ATTENTION : le controle du predicat conique n\'a PAS fait monter la penetration')
             A('   (arme %.4f contre desarme %.4f, il faut arme >= 3x desarme). Ce qui est mesure ne'
