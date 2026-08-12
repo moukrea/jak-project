@@ -792,69 +792,29 @@
       (/ v (sqrtf (sqrtf (+ 1.0 (* r2 r2))))))))
 
 (defun phys-vol-floor ((floor0 float) (rl float))
-  "profondeur maximale que cette paire (lien, volume) tolere. PHYS-VOL-FREE = aucune surface
-   devant le lien, donc rien a traverser.
+  "Profondeur maximale que cette paire (lien, volume) tolere : SA PROFONDEUR D'AUTEUR, ni plus ni
+   moins. C'est la phrase de la SPEC sans exception — « ce qui est deja dedans au repos y reste ».
 
-   LA TOLERANCE EST LA PROFONDEUR DE REPOS, PAS UN MULTIPLE DE CELLE-CI. C'est la correction du
-   2026-08-12, et c'est le mecanisme de `pant-calf`.
+   DEUX FORMES ONT ETE ESSAYEES ET RETIREES, chacune sur une mesure :
+   1. `floor0 / w` avec `w = (2 rl - floor0) / rl` : une fonction qui DIVERGE quand `floor0`
+      approche `2 rl`. Elle ne disait plus « reste ou tu es » mais « enfonce-toi de plus en plus a
+      mesure que tu es deja enfonce ». Mesure sur `LpantFlap` (rl = 429, capsule de mollet) :
+      profondeur au repos 614 u, tolerance accordee 1082 u = 468 u de penetration EN PLUS de la
+      pose sculptee, soit la moitie d'un mollet. C'est `pant-calf`, mot pour mot.
+   2. La branche PHYS-VOL-FREE (`floor0 >= 2 rl` => plus AUCUNE contrainte) : n'avoir aucune
+      surface devant soi n'autorise pas a s'enfoncer plus loin. Colonne `buried` : les lunettes
+      etaient declarees libres 50 642 fois par course, et c'est `goggles-tunnel`.
 
-   La regle voulue est celle de la SPEC : « ce qui est deja dedans au repos y reste » — donc la
-   franchise accordee a une paire EST sa profondeur d'auteur, ni plus ni moins. L'ancienne forme
-   accordait `floor0 / w` avec `w = (2 rl - floor0) / rl`, c'est-a-dire `floor0 * rl / (2 rl -
-   floor0)` : une fonction qui DIVERGE quand `floor0` approche `2 rl`. Elle ne disait plus « reste
-   ou tu es », elle disait « enfonce-toi encore, de plus en plus, a mesure que tu es deja
-   enfonce ».
+   LA FORME UNIFORME SE DEGRADE TOUTE SEULE DANS LE CAS QUI AVAIT MOTIVE LA BRANCHE : `dep` est
+   maximale sur l'AXE et vaut alors `rr + rl`, donc un lien dont la pose d'auteur est SUR l'axe a
+   `floor0` au maximum atteignable et `dep > floor0` devient impossible — libre par arithmetique,
+   sans branche. Pour un lien enfoui mais EXCENTRE (le pan de pantacourt, a 95 u de l'axe du
+   mollet) elle se lit « ne t'approche pas de l'axe plus que l'auteur ne t'y a mis » : toute la
+   rotation autour de la jambe reste libre, seul l'enfoncement est refuse.
 
-   MESURE, sur le pan de pantacourt gauche (`LpantFlap`, rl = 429, capsule de mollet
-   `Lankle->Lknee`), pose du modele :
-       profondeur au repos  floor0 = 614.4 u
-       tolerance ACCORDEE   feff   = 1082.0 u      = 1.76 x la profondeur de repos
-       soit 467.6 u = 11.4 cm de penetration EN PLUS de la pose que l'auteur a sculptee,
-       avant que le moindre volume ne le repousse.
-   Onze centimetres, c'est la moitie d'un mollet : c'est litteralement « le bas de son pantacourt
-   est a l'interieur de ses mollets, comme s'il s'arretait aux genoux » (owner, 11e passe, puis
-   2e signalement le 2026-08-12). Le defaut n'etait ni un rayon trop petit ni une chaine trop
-   molle : la collision AUTORISAIT le pan a s'enfoncer.
-
-   CE QUI EST GARDE, ET POURQUOI. La branche PHYS-VOL-FREE reste : un lien entierement contenu
-   dans un volume (`floor0 >= 2 rl`) n'a effectivement aucune surface devant lui, et c'est aussi
-   l'etat que `phys-flip-count` (ligne 1330) lit pour compter les bascules de contrainte —
-   supprimer la branche aurait rendu ce compteur structurellement muet. Seule la zone
-   intermediaire change, et elle change vers la seule valeur que la SPEC nomme.
-
-   LA POSE DU MODELE RESTE ADMISSIBLE, ce qui est l'invariant dont depend `phys-retreat-chain` :
-   a cette pose la profondeur vaut exactement `floor0`, donc exactement `feff`, et le test de
-   penetration est STRICT (`dep > feff`). L'egalite est exacte et non approchee — les deux appels
-   passent par cette fonction avec les memes entrees. Le recul par dichotomie garde donc son point
-   d'arrivee, et « rien ne traverse » reste vrai a la derniere operation de la frame.
-
-   2026-08-12 — LA BRANCHE « ENTIEREMENT DEDANS = PLUS AUCUNE CONTRAINTE » EST RETIREE, et c'est
-   la cause racine de `goggles-tunnel`.
-
-   Elle rendait PHYS-VOL-FREE des que `floor0 >= 2 rl`, c'est-a-dire : « ce lien est deja tout
-   entier dans ce volume a sa pose d'auteur, donc il n'a aucune surface devant lui ». Le
-   raisonnement est juste sur la SURFACE et faux sur la DECISION : n'avoir aucune surface devant
-   soi n'autorise pas a s'enfoncer plus loin. Une fois FREE, la paire n'est plus contrainte DU
-   TOUT et le lien peut traverser la piece de part en part.
-   MESURE de la course du 2026-08-12 (colonne `buried`, PAR CHAINE, memes volumes) :
-       goggles   50642 paires (lien, volume) declarees FREE      tiprot 175.81 deg
-       botstrapR 37603                                           tiprot 177.89 deg
-       rbang     16740                                           topstrapL 7019, kneeflapL 7019
-   50 642 fois par course, les lunettes n'avaient plus AUCUN volume devant elles. C'est
-   exactement « en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos » :
-   il suffit qu'une pose d'auteur les enfonce de 165 u de plus (mesure : `gogglesBase` est a 227 u
-   dedans pour 2 rl = 392 u) pour que le buste cesse d'exister pour elles.
-
-   LA REGLE DEVIENT UNIFORME, ET C'EST LA PHRASE DE LA SPEC SANS EXCEPTION : la franchise
-   accordee a une paire EST sa profondeur d'auteur. `feff = floor0`, toujours.
-
-   ET ELLE SE DEGRADE TOUTE SEULE DANS LE CAS QUI AVAIT MOTIVE LA BRANCHE. `dep` est maximale sur
-   l'AXE du volume et vaut alors `rr + rl` : un lien dont la pose d'auteur est SUR l'axe a
-   `floor0 = rr + rl`, le maximum atteignable, donc `dep > floor0` est impossible et la paire est
-   libre — sans branche, par arithmetique. Et pour un lien enfoui MAIS excentre (le pan de
-   pantacourt, a 95 u de l'axe du mollet), la contrainte se lit « ne t'approche pas de l'axe plus
-   que l'auteur ne t'y a mis » : elle laisse toute la rotation autour de la jambe et interdit la
-   seule chose que l'owner voit, l'enfoncement. C'est ce que la branche FREE lui accordait."
+   LA POSE DU MODELE RESTE ADMISSIBLE — l'invariant dont depend `phys-retreat-chain` : a cette pose
+   `dep` vaut exactement `floor0`, donc exactement `feff`, et le test est STRICT (`dep > feff`).
+   L'egalite est exacte : les deux appels passent par cette fonction avec les memes entrees."
   floor0)
 
 ;; ------------------------------------------------------------------------------------------------
@@ -1215,6 +1175,53 @@
        (vector-rotate*! out out (the-as matrix (-> skel bones (+ kk 1) transform))))))
   (none))
 
+;; LE MEME DECALAGE, MAIS PORTE PAR L'ORIENTATION *SIMULEE* DU LIEN.
+;;
+;; `phys-link-off!` tourne le decalage par la matrice de l'os ANIMEE. Tant qu'il vaut 0,0,0 la
+;; difference n'existe pas ; des qu'il vaut quelques centaines d'unites, le volume est pose la ou le
+;; lien N'EST PAS, la poussee de collision s'applique au mauvais point avec ce bras de levier, et
+;; l'erreur croit avec l'angle parcouru. MESURE, deux fois : recentrer les volumes sur le centroide
+;; de leur geometrie cassait backhair (-41 %) et midhair (-42/-43 %) et sortait 46 % d'allongement
+;; d'os sur lbang. La premiere fois la cause avait ete attribuee a la TAILLE du volume ; en gardant
+;; la taille AU BIT PRES et en ne bougeant que le centre, la casse est identique. Ce n'est donc pas
+;; la taille : c'est ce decalage-ci.
+;;
+;; Le lien tourne AUTOUR DE SON ATTACHE a longueur invariante (c'est la contrainte dure de la SPEC).
+;; La rotation cherchee est donc la rotation minimale qui amene la direction d'os du MODELE sur la
+;; direction SIMULEE, et on l'applique au decalage. Elle se calcule en DEUX REFLEXIONS — pas de
+;; produit vectoriel, pas d'axe a normaliser :
+;;     R = S_h o S_m   avec   S_n v = v - 2(n.v)n   et   h = m + u
+;; (S_m envoie m sur -m, S_h renvoie -m sur u ; verifiable en une ligne avec |m+u|^2 = 2(1+m.u)).
+;; Elle degenere seulement pour u = -m, un demi-tour exact, que la contrainte de cote interdit deja.
+;; `b` = l'attache du lien, `p` = sa position SIMULEE (ou la position CANDIDATE que le recul teste :
+;; le volume doit suivre le point qu'on evalue, sinon la dichotomie cherche avec un obstacle fige).
+(defun phys-link-off-sim! ((skel skeleton) (scl int) (kk int) (kp int) (nbone int)
+                           (b vector) (p vector) (out vector))
+  (phys-link-off! skel scl kk out)
+  (when (and (>= kp 0) (< (+ kp 1) nbone)
+             (or (!= (-> out x) 0.0) (!= (-> out y) 0.0) (!= (-> out z) 0.0)))
+    (let* ((mx (- (-> skel bones (+ kk 1) transform vector 3 x) (-> skel bones (+ kp 1) transform vector 3 x)))
+           (my (- (-> skel bones (+ kk 1) transform vector 3 y) (-> skel bones (+ kp 1) transform vector 3 y)))
+           (mz (- (-> skel bones (+ kk 1) transform vector 3 z) (-> skel bones (+ kp 1) transform vector 3 z)))
+           (ml (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
+           (ux (- (-> p x) (-> b x))) (uy (- (-> p y) (-> b y))) (uz (- (-> p z) (-> b z)))
+           (ul (sqrtf (+ (* ux ux) (+ (* uy uy) (* uz uz))))))
+      (when (and (> ml 0.01) (> ul 0.01))
+        (set! mx (/ mx ml)) (set! my (/ my ml)) (set! mz (/ mz ml))
+        (set! ux (/ ux ul)) (set! uy (/ uy ul)) (set! uz (/ uz ul))
+        (let ((d (* 2.0 (+ (* mx (-> out x)) (+ (* my (-> out y)) (* mz (-> out z)))))))
+          (set! (-> out x) (- (-> out x) (* d mx)))
+          (set! (-> out y) (- (-> out y) (* d my)))
+          (set! (-> out z) (- (-> out z) (* d mz))))
+        (let* ((hx (+ mx ux)) (hy (+ my uy)) (hz (+ mz uz))
+               (hh (+ (* hx hx) (+ (* hy hy) (* hz hz)))))
+          (when (> hh 0.000001)
+            (let ((d (/ (* 2.0 (+ (* hx (-> out x)) (+ (* hy (-> out y)) (* hz (-> out z))))) hh)))
+              (set! (-> out x) (- (-> out x) (* d hx)))
+              (set! (-> out y) (- (-> out y) (* d hy)))
+              (set! (-> out z) (- (-> out z) (* d hz)))))))))
+  (none))
+
 (defun phys-col-centre ((skel skeleton) (sco int) (cj int) (out vector))
   (let ((ox (-> *phys-cox* sco))
         (oy (-> *phys-coy* sco))
@@ -1317,6 +1324,9 @@
         (pt   (new 'stack-no-clear 'vector))
         (rest (new 'stack-no-clear 'vector))
         (off  (new 'stack-no-clear 'vector))
+        (offs (new 'stack-no-clear 'vector))
+        (bv   (new 'stack-no-clear 'vector))
+        (pv   (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
         (ra   (new 'stack-no-clear 'vector))
@@ -1333,14 +1343,25 @@
             ;; volume que le generateur a mesure sur le mesh, le meme que ce lien presente aux
             ;; autres chaines. Le decalage est rigide, donc la poussee se reporte telle quelle sur
             ;; le joint a la sortie.
+            ;; DEUX decalages, pas un : la pose du MODELE porte son volume par la matrice ANIMEE,
+            ;; la position SIMULEE le porte par l'orientation SIMULEE du lien. Les confondre posait
+            ;; le volume la ou le lien n'est pas des que le decalage n'etait plus nul.
             (phys-link-off! skel scl kk off)
+            (if (> l 0)
+              (set-vector! bv (-> *phys-px* (- scl 1)) (-> *phys-py* (- scl 1))
+                              (-> *phys-pz* (- scl 1)) 1.0)
+              (if (and (>= kp 0) (< (+ kp 1) nbone))
+                (vector-copy! bv (the-as vector (-> skel bones (+ kp 1) transform vector 3)))
+                (set-vector! bv 0.0 0.0 0.0 1.0)))
+            (set-vector! pv (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0)
+            (phys-link-off-sim! skel scl kk kp nbone bv pv offs)
             (vector-copy! rest (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
             (set! (-> rest x) (+ (-> rest x) (-> off x)))
             (set! (-> rest y) (+ (-> rest y) (-> off y)))
             (set! (-> rest z) (+ (-> rest z) (-> off z)))
-            (set! (-> pt x) (+ (-> *phys-px* scl) (-> off x)))
-            (set! (-> pt y) (+ (-> *phys-py* scl) (-> off y)))
-            (set! (-> pt z) (+ (-> *phys-pz* scl) (-> off z)))
+            (set! (-> pt x) (+ (-> *phys-px* scl) (-> offs x)))
+            (set! (-> pt y) (+ (-> *phys-py* scl) (-> offs y)))
+            (set! (-> pt z) (+ (-> *phys-pz* scl) (-> offs z)))
             (set! (-> pt w) 1.0)
             (dotimes (sub sweeps)
               (dotimes (ci nco)
@@ -1407,9 +1428,9 @@
                           (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))))))))
             ;; retour aux coordonnees du JOINT : le solveur, la contrainte de longueur et l'ecriture
             ;; dans le squelette raisonnent tous sur le joint, jamais sur le centre du volume.
-            (set! (-> pt x) (- (-> pt x) (-> off x)))
-            (set! (-> pt y) (- (-> pt y) (-> off y)))
-            (set! (-> pt z) (- (-> pt z) (-> off z)))
+            (set! (-> pt x) (- (-> pt x) (-> offs x)))
+            (set! (-> pt y) (- (-> pt y) (-> offs y)))
+            (set! (-> pt z) (- (-> pt z) (-> offs z)))
             ;; ROTATION, PAS TRANSLATION : la poussee est ramenee sur la sphere de l'attache. Un os
             ;; que le modele ne donne pas (`want` ~ 0) n'a pas de sphere : il garde le comportement
             ;; en translation, borne ailleurs par son propre rayon.
@@ -1533,6 +1554,8 @@
         (worst PHYS-NOCONTACT)
         (rest (new 'stack-no-clear 'vector))
         (off  (new 'stack-no-clear 'vector))
+        (offs (new 'stack-no-clear 'vector))
+        (bv   (new 'stack-no-clear 'vector))
         (q    (new 'stack-no-clear 'vector))
         (ca   (new 'stack-no-clear 'vector))
         (cb   (new 'stack-no-clear 'vector))
@@ -1543,18 +1566,27 @@
         (nrm  (new 'stack-no-clear 'vector)))
     (let* ((scl (+ (* sc PHYS-LINKS) l))
            (kk  (-> *phys-joint* scl))
-           (rl  (-> *phys-lcr* scl)))
+           (rl  (-> *phys-lcr* scl))
+           (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) (-> *phys-anchor* sc))))
       (when (and (>= kk 0) (< (+ kk 1) nbone))
         ;; `pt` arrive en coordonnees de JOINT (c'est ce que manipulent le solveur et le recul) :
-        ;; on le porte sur le centre du volume, comme la resolution.
+        ;; on le porte sur le centre du volume, comme la resolution. La pose du MODELE porte son
+        ;; volume par la matrice ANIMEE, le point EVALUE le porte par SA direction : sans ca la
+        ;; dichotomie du recul chercherait avec un obstacle fige sur l'animation.
         (phys-link-off! skel scl kk off)
+        (if (> l 0)
+          (set-vector! bv (-> *phys-px* (- scl 1)) (-> *phys-py* (- scl 1)) (-> *phys-pz* (- scl 1)) 1.0)
+          (if (and (>= kp 0) (< (+ kp 1) nbone))
+            (vector-copy! bv (the-as vector (-> skel bones (+ kp 1) transform vector 3)))
+            (set-vector! bv 0.0 0.0 0.0 1.0)))
+        (phys-link-off-sim! skel scl kk kp nbone bv pt offs)
         (vector-copy! rest (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
         (set! (-> rest x) (+ (-> rest x) (-> off x)))
         (set! (-> rest y) (+ (-> rest y) (-> off y)))
         (set! (-> rest z) (+ (-> rest z) (-> off z)))
-        (set! (-> q x) (+ (-> pt x) (-> off x)))
-        (set! (-> q y) (+ (-> pt y) (-> off y)))
-        (set! (-> q z) (+ (-> pt z) (-> off z)))
+        (set! (-> q x) (+ (-> pt x) (-> offs x)))
+        (set! (-> q y) (+ (-> pt y) (-> offs y)))
+        (set! (-> q z) (+ (-> pt z) (-> offs z)))
         (set! (-> q w) 1.0)
         (dotimes (ci nco)
           (let* ((sco (+ (* slot PHYS-COLS) ci))
