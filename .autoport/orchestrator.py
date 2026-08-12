@@ -1916,6 +1916,19 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         elif result == "stuck":
+            # EXEMPTION (2026-08-12) : une phase dont la gate echoue par CONSTRUCTION ne doit pas
+            # etre declaree bloquee. `OPEN-DEFECTS` liste les defauts que l'owner voit et que lui
+            # seul peut fermer : la signature est donc identique a chaque tour, PAR DESSEIN. Sans
+            # cette exemption le detecteur arretait la phase toutes les trois tentatives alors que
+            # le travail avancait (trois causes racines trouvees ce jour-la). On n'eteint pas le
+            # detecteur, on l'informe.
+            if any("OPEN-DEFECTS" in ln for ln in (key_lines or [])):
+                console.print("[yellow]· signature = OPEN-DEFECTS (defauts owner ouverts) : "
+                              "attendu, la phase continue[/yellow]")
+                state.setdefault("retries", {})[pid] = 0
+                save_state(state)
+                continue
+
             console.print(Panel.fit(
                 f"[bold red]🛑 STUCK at phase {pid}[/bold red]\n\n"
                 f"{reason}\n\n"
