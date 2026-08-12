@@ -608,7 +608,20 @@
               (phys-diag (-> self slot) c 7)
               (phys-diag (-> self slot) c 8)
               (phys-diag (-> self slot) c 9)
-              (phys-diag (-> self slot) c 10))))
+              (phys-diag (-> self slot) c 10))
+      ;;   side     paires (lien, volume) ou le lien est passe du COTE OPPOSE de l'axe du volume
+      ;;            dans lequel sa pose de modele se trouvait. C'est ROOM-SIDE, reclame par les
+      ;;            DIRECTIVES depuis la 11e passe et jamais ecrit jusqu'ici. Aucune autre colonne
+      ;;            ne peut voir ce defaut : la profondeur de penetration est MAXIMALE sur l'axe et
+      ;;            REDESCEND quand le lien ressort de l'autre cote, donc un lien qui a traverse de
+      ;;            part en part rend une profondeur faible, indistinguable d'un lien sagement
+      ;;            dehors. NATURE : un compte de paires (un changement de COTE est discret, une
+      ;;            distance ne peut pas le decrire). REPERE : celui du VOLUME — direction du point
+      ;;            le plus proche de son axe vers le lien, comparee entre la pose du modele et
+      ;;            maintenant. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
+      (format 0 "PHYSDIAG4 tag=~S c=~D side=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 11))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()

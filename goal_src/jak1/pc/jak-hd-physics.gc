@@ -506,7 +506,23 @@
 ;;              comme s'il s'arretait aux genoux » : un pan dont la pose de modele est dans la
 ;;              jambe n'a rien a traverser, donc meshpen reste a zero pendant que l'owner le voit
 ;;              disparaitre. NATURE : un compte de paires. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
-(defconstant PHYS-DG 11)
+;;   11 side     paires (lien, volume) ou le lien a TRAVERSE l'axe du volume dans lequel sa pose de
+;;              modele se trouvait : il est du COTE OPPOSE a celui que l'auteur lui donne.
+;;              C'est la mesure que les DIRECTIVES reclament depuis la 11e passe (`ROOM-SIDE`), et
+;;              elle existe parce qu'aucune des autres ne peut voir ce defaut-la : une profondeur
+;;              de penetration est MAXIMALE sur l'axe et REDESCEND quand le lien ressort de
+;;              l'autre cote, donc un lien qui a traverse de part en part rend une profondeur
+;;              faible — indistinguable d'un lien sagement dehors. C'est pour ca que « le bas du
+;;              pantacourt est a l'interieur des mollets » et « en cinematique les lunettes
+;;              traversent le buste pour aller se poser dans le dos » coexistent avec meshpen=0.
+;;              NATURE : un COMPTE de paires, pas une distance — le defaut est un changement de
+;;              COTE, une grandeur discrete, et une distance ne peut pas le decrire.
+;;              REPERE : celui du volume — direction allant du point le plus proche de son AXE vers
+;;              le lien, comparee entre la pose du modele et maintenant. Ni monde, ni ancre : c'est
+;;              le volume qui a deux cotes.
+;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste du cote ou l'auteur l'a
+;;              pose ne compte jamais, quelle que soit son amplitude.
+(defconstant PHYS-DG 12)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -820,6 +836,36 @@
 ;; rayons sont ajustes sur les sommets skinnes du mesh par le generateur, pas poses a la main.
 ;; Retourne la profondeur de penetration (0 si dehors) et ecrit la normale de sortie dans `nrm`.
 ;; ------------------------------------------------------------------------------------------------
+(defun phys-axis-dir ((pt vector) (ca vector) (cb vector) (out vector))
+  "Direction unitaire allant du point le plus proche de l'AXE du volume vers `pt`, que `pt` soit
+   dedans ou dehors. `phys-collide-depth` ne peut pas servir a ca : elle ecrit une normale
+   arbitraire (0,1,0) des que le point est hors du volume, ce qui est correct pour une poussee et
+   faux pour un COTE. Rend #f quand le point est sur l'axe, ou aucun cote n'existe."
+  (let ((cx (-> ca x)) (cy (-> ca y)) (cz (-> ca z)))
+    (let* ((ax (- (-> cb x) (-> ca x)))
+           (ay (- (-> cb y) (-> ca y)))
+           (az (- (-> cb z) (-> ca z)))
+           (dd (+ (* ax ax) (+ (* ay ay) (* az az)))))
+      (when (>= dd 0.000001)
+        (let ((t0 (/ (+ (* (- (-> pt x) (-> ca x)) ax)
+                        (+ (* (- (-> pt y) (-> ca y)) ay)
+                           (* (- (-> pt z) (-> ca z)) az)))
+                     dd)))
+          (when (< t0 0.0) (set! t0 0.0))
+          (when (> t0 1.0) (set! t0 1.0))
+          (set! cx (+ (-> ca x) (* ax t0)))
+          (set! cy (+ (-> ca y) (* ay t0)))
+          (set! cz (+ (-> ca z) (* az t0))))))
+    (let* ((dx (- (-> pt x) cx))
+           (dy (- (-> pt y) cy))
+           (dz (- (-> pt z) cz))
+           (d  (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))
+      (cond
+        ((< d 0.001) #f)
+        (else
+         (set-vector! out (/ dx d) (/ dy d) (/ dz d) 0.0)
+         #t)))))
+
 (defun phys-collide-depth ((pt vector) (rlink float) (ca vector) (cb vector)
                            (ra float) (rb float) (capsule? symbol) (nrm vector))
   (let ((cx 0.0) (cy 0.0) (cz 0.0) (rr ra))
@@ -1396,6 +1442,8 @@
         (cb   (new 'stack-no-clear 'vector))
         (ra   (new 'stack-no-clear 'vector))
         (rb   (new 'stack-no-clear 'vector))
+        (ua   (new 'stack-no-clear 'vector))
+        (ub   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (let* ((scl (+ (* sc PHYS-LINKS) l))
            (kk  (-> *phys-joint* scl))
@@ -1432,6 +1480,19 @@
                      (dep    (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (res    (- dep feff)))
+                ;; DE QUEL COTE DU VOLUME EST-ON ? Compte une fois par frame (le meme drapeau que
+                ;; `buried` : `phys-pen-chain` l'arme, le recul ne l'arme pas, donc les 3 reculs et
+                ;; leurs 12 pas de dichotomie ne comptent pas). Un lien dont la pose de modele est
+                ;; DANS le volume et qui se retrouve du cote oppose de l'axe a traverse la piece
+                ;; de part en part — et la profondeur ne peut pas le voir, puisqu'elle est
+                ;; maximale sur l'axe et redescend en ressortant.
+                (when (and (nonzero? *phys-buried-tally*) (> floor0 0.0))
+                  (when (and (phys-axis-dir rest ra rb ua) (phys-axis-dir q ca cb ub))
+                    (when (< (+ (* (-> ua x) (-> ub x))
+                                (+ (* (-> ua y) (-> ub y)) (* (-> ua z) (-> ub z))))
+                             0.0)
+                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
+                            (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))))
                 (cond
                   ((>= feff PHYS-VOL-FREE)
                    ;; le lien est entierement dans ce volume a sa pose de modele : il n'y a pas de
