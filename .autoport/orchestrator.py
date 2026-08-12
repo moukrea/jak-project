@@ -1694,6 +1694,61 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
 # Main loop
 # ============================================================
 
+def acquire_single_instance_lock() -> Any:
+    """UN SEUL ORCHESTRATEUR PAR DEPOT. Rend le verrou (a garder vivant), ou quitte.
+
+    Mesure du 2026-08-12 07:20 : DEUX orchestrateurs tournaient sur ce depot (PID 705057 et
+    924374), et chacun a lance son worker sur la MEME phase, a seize secondes d'ecart :
+
+        PID 922762  demarre  06:59:09     PID 925937  demarre  06:59:25
+        lignes de commande identiques au caractere pres
+
+    Les deux workers ont alors partage le meme arbre de travail, le meme fichier de trace
+    (`keira-room-x86.log`), le meme tableau (`keira-room-table.txt`), le meme `report.txt` et la
+    meme branche. Constate dans la meme heure : un worker regenerait `physics_chains.txt` a 07:14
+    pendant que l'autre mesurait une course lancee a 07:11 sur les parametres d'avant — la mesure
+    decrit alors un etat que personne n'a choisi. Et `report.txt` n'a qu'un seul auteur : le
+    dernier qui ecrit, l'autre travail est perdu.
+
+    L'owner, 2026-08-11 : « t'assurer que ton travail n'est pas systematiquement detruit, c'est
+    chelou comme comportement, tu peux pas juste dire "ah oups", corriger et laisser reproduire en
+    boucle ! » — la regle qu'il en tire est de rendre la perte impossible AU POINT DE PRODUCTION,
+    pas detectable au point de controle. Le point de production de cette perte-la est ici : c'est
+    le lanceur de workers. Un verrou exclusif sur le depot, pris avant toute lecture d'etat.
+
+    `flock` et pas un fichier de PID : le noyau relache le verrou a la mort du processus, donc un
+    orchestrateur tue laisse le depot libre sans qu'aucun nettoyage ne soit necessaire — un verrou
+    perime qui bloque tout serait un defaut pire que celui qu'on corrige.
+    """
+    try:
+        import fcntl
+    except ImportError:                      # pragma: no cover - plateformes sans fcntl
+        console.print("[yellow]· pas de fcntl : verrou d'instance unique indisponible[/yellow]")
+        return None
+    lock_path = AUTOPORT_DIR / ".orchestrator.lock"
+    fh = open(lock_path, "a+")
+    try:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fh.seek(0)
+        holder = fh.read().strip() or "inconnu"
+        fh.close()
+        console.print(
+            f"[red]Un orchestrateur tourne deja sur ce depot (PID {holder}).[/red]\n"
+            f"[red]Verrou : {lock_path}[/red]\n"
+            "Deux orchestrateurs lancent deux workers sur la MEME phase : ils partagent l'arbre,\n"
+            "la trace de course, le tableau et report.txt, et le dernier qui ecrit efface l'autre.\n"
+            "Arrete l'instance en cours (PID exact, jamais de kill par motif) avant d'en lancer\n"
+            "une autre."
+        )
+        return "BUSY"
+    fh.seek(0)
+    fh.truncate()
+    fh.write(f"{os.getpid()}\n")
+    fh.flush()
+    return fh                                # garde le descripteur ouvert = garde le verrou
+
+
 def main(argv: list[str] | None = None) -> int:
     global QUIET
     parser = argparse.ArgumentParser(description="Autoport orchestrator")
@@ -1703,6 +1758,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     QUIET = bool(args.quiet)
+
+    _lock = acquire_single_instance_lock()
+    if _lock == "BUSY":
+        return 1
 
     if not MILESTONES_PATH.exists():
         console.print(f"[red]Missing {MILESTONES_PATH}[/red]")
