@@ -748,3 +748,40 @@ tournait un maillon que s'il avait un enfant simulé à viser, donc jamais le de
 condition `(< (+ l 1) n)` peut exister sur d'autres traitements — force, contrainte, écriture.
 **Chercher toute condition qui exclut le dernier maillon**, et mesurer après correction que la
 suite `link0 < link1 < link2` est bien croissante sur les cinq chaînes de cheveux.
+
+## TREIZIÈME PASSE — SON DIAGNOSTIC SUR LES MÈCHES EST LE BON (2026-08-12 22:00)
+
+> « La physique ne s'applique pas à toute la géométrie de ces deux mèches mais à seulement une
+> partie, donc on a des polygones qui bougent et des polygones voisins parfaitement statiques,
+> causant la géométrie qui casse. Faudrait que la mèche entière soit prise en compte ! […] Les
+> mèches fines sur l'avant sont maintenant complètement statiques. […] Les cheveux entiers sont
+> nuls à chier. Les seins, les mouvements subtils sont toujours OK. »
+
+**1. COUVERTURE DE PEAU — PRIORITÉ 1, et c'est son diagnostic, pas le mien.** Une chaîne pilote des
+JOINTS ; le mesh, lui, est pesé sur des joints qui ne sont pas tous simulés. Les sommets pesés sur
+un joint non simulé restent à la pose d'auteur pendant que leurs voisins bougent — **d'où des
+polygones mobiles collés à des polygones figés, et la géométrie qui casse**. C'est exactement ce
+qu'il décrit, et aucune de mes mesures ne le voyait : elles regardent la position des JOINTS, pas
+celle des SOMMETS.
+→ **Mesure exigée** : `ROOM-SKINCOV: chain=<nom> verts=<n> driven=<n> frac=<%>` — la fraction des
+sommets pesés sur la mèche qui est réellement pilotée par un joint simulé. **Toute fraction < 100 %
+est le défaut**, et la correction est d'étendre la chaîne aux joints manquants (ou de re-peser),
+pas de régler une raideur.
+
+**2. RÉGRESSION SUR LES MÈCHES FINES, ET MES DEUX PLANCHERS L'ONT LAISSÉE PASSER.** `lbang` : 0.3467
+contre un plancher de 0.4191 (−17 %, sous le seuil de 40 %) et 0.0838 au stimulus faible contre un
+plancher de 0.0871 (−4 %, sous le seuil de 30 %). **Les deux gates sont vertes et il les voit
+mortes.** Cause : un plancher relatif protège contre une chute brutale, il ne dit rien sur la
+**visibilité**. Il faut un **plancher ABSOLU**, calibré sur ce qu'il a approuvé — la poitrine
+subtile qu'il juge « OK » donne l'ordre de grandeur.
+
+**3. NUQUE** : clipe dans le cou et ne bouge pas ou mal. À rapprocher de la preuve arithmétique du
+jour : la pointe a 820 u de portée contre 915 de rayon de capsule de tête — **elle ne peut pas en
+sortir**. Le volume doit rétrécir, la chaîne ne peut rien.
+
+**4. OREILLES** : « je ne sais pas si c'est la physique ou les animations d'origine ». Exigence :
+**quand l'animation ne pilote pas une oreille, la physique doit s'y appliquer**. Mesurer, par
+animation, la part de frames où l'oreille est pilotée par l'anim et la part où la physique agit —
+si la seconde est nulle, la physique ne s'applique jamais.
+
+**5. ACQUIS CONFIRMÉ** : poitrine sur mouvements subtils « toujours OK ». À protéger.
