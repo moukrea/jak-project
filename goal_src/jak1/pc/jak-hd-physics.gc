@@ -887,7 +887,10 @@
       (cond
         ((< d 0.001) #f)
         (else
-         (set-vector! out (/ dx d) (/ dy d) (/ dz d) 0.0)
+         ;; `w` porte la DISTANCE a l'axe. Elle est deja calculee ici ; la jeter obligeait
+         ;; l'appelant a la recalculer ou a se rabattre sur une constante. C'est elle qui chiffre
+         ;; « de combien le lien est passe du mauvais cote », en metres, sans terme invente.
+         (set-vector! out (/ dx d) (/ dy d) (/ dz d) d)
          #t)))))
 
 (defun phys-collide-depth ((pt vector) (rlink float) (ca vector) (cb vector)
@@ -1364,9 +1367,27 @@
                     ;; modele des DEUX cotes (cf. phys-snapshot-colliders!).
                     (when (not (phys-col-rest! sco ra rb))
                       (vector-copy! ra ca) (vector-copy! rb cb))
+                    ;; LE PLANCHER SE MESURE CONTRE LES DEUX POSES DU VOLUME, ET ON GARDE LA PLUS
+                    ;; PERMISSIVE. L'invariant dont depend tout le recul est « la pose du modele est
+                    ;; ADMISSIBLE » : dep(pose du modele) <= feff. Il tenait tant que `floor0` et
+                    ;; `dep` regardaient le meme obstacle. Il a cesse de tenir le jour ou `floor0` a
+                    ;; ete mesure contre l'INSTANTANE d'auteur (ra/rb) pendant que `dep` l'est contre
+                    ;; la position COURANTE (ca/cb) : pour un volume porte par un joint SIMULE — les
+                    ;; spheres lEara/Lbanga/Lmidhaira/lBoob — les deux membres decrivent deux
+                    ;; obstacles differents des que la meche voisine a bouge. La pose du modele
+                    ;; pouvait alors etre AVALEE par un volume deplace, et le recul n'avait plus
+                    ;; aucun point d'ancrage : ROOM-RETREAT-ANCHOR fallback=531, et la seule ligne de
+                    ;; mesure a penetration positive sur 3410 (rmidhair, chaine 6, dont les voisines
+                    ;; 1..5 ont deja ecrit leurs joints quand elle est resolue).
+                    ;; Prendre le MAX des deux restaure l'invariant par construction — `floorc` est
+                    ;; exactement `dep` evalue en `rest` — sans jamais RESSERRER une paire par
+                    ;; rapport a aujourd'hui, donc sans pouvoir retirer du mouvement.
                     (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                           (floor0 (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                           (floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm))
+                           (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                       (-> *phys-cr2* sco) cap? nrm))
+                           (floor0 (if (> floorc floors) floorc floors))
                            (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
                            (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm)))
@@ -1546,25 +1567,48 @@
               (when (not (phys-col-rest! sco ra rb))
                 (vector-copy! ra ca) (vector-copy! rb cb))
               (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                     (floor0 (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                     (floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
+                     (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                 (-> *phys-cr2* sco) cap? nrm))
+                     (floor0 (if (> floorc floors) floorc floors))
                      (feff   (phys-vol-floor floor0 rl))
                      (dep    (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (res    (- dep feff)))
-                ;; DE QUEL COTE DU VOLUME EST-ON ? Compte une fois par frame (le meme drapeau que
-                ;; `buried` : `phys-pen-chain` l'arme, le recul ne l'arme pas, donc les 3 reculs et
-                ;; leurs 12 pas de dichotomie ne comptent pas). Un lien dont la pose de modele est
-                ;; DANS le volume et qui se retrouve du cote oppose de l'axe a traverse la piece
-                ;; de part en part — et la profondeur ne peut pas le voir, puisqu'elle est
-                ;; maximale sur l'axe et redescend en ressortant.
-                (when (and (nonzero? *phys-buried-tally*) (> floor0 0.0))
-                  (when (and (phys-axis-dir rest ra rb ua) (phys-axis-dir q ca cb ub))
-                    (when (< (+ (* (-> ua x) (-> ub x))
-                                (+ (* (-> ua y) (-> ub y)) (* (-> ua z) (-> ub z))))
-                             0.0)
-                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
-                            (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))))
+                ;; CHANGER DE COTE EST UNE PENETRATION, ET C'EST LA SEULE QUE LA PROFONDEUR NE PEUT
+                ;; PAS VOIR. Elle est maximale SUR l'axe et redescend en ressortant : un lien qui
+                ;; traverse la piece de part en part repasse donc sous son propre plancher et
+                ;; ressort « admissible » de l'autre cote. Le compteur existait depuis des jours et
+                ;; disait 11446 ; rien ne l'interdisait.
+                ;;   goggles 4092  — « en cinematique les lunettes TRAVERSENT le buste pour aller
+                ;;                    se poser dans le dos »
+                ;;   pantflapR 1901 / pantflapL 1792 — « le bas du pantacourt est a l'interieur des
+                ;;                    mollets, comme s'il s'arretait aux genoux »
+                ;;   botstrapR 927 / botstrapL 787 / topstrap 291+291 — la bretelle et l'elastique
+                ;; La regle est donc : un lien dont la POSE DU MODELE est dans un volume reste du
+                ;; COTE DE L'AXE ou l'auteur l'a mis. Elle ne borne aucune amplitude — tourner
+                ;; autour du membre reste entierement libre, seul le passage a travers l'axe est
+                ;; refuse — et la pose du modele la satisfait par construction (produit scalaire
+                ;; = 1), donc le recul garde son point d'arrivee.
+                ;; Le residu publie est la distance a l'axe DU MAUVAIS COTE, en metres : ce que le
+                ;; lien doit parcourir pour revenir, pas une constante choisie.
+                ;; Les deux directions se lisent contre la position COURANTE du volume, comme
+                ;; `dep` : les comparer a deux poses differentes de l'obstacle etait la meme faute
+                ;; que celle corrigee sur `floor0`.
+                (when (and (> floor0 0.0)
+                           (phys-axis-dir rest ca cb ua) (phys-axis-dir q ca cb ub)
+                           (< (+ (* (-> ua x) (-> ub x))
+                                 (+ (* (-> ua y) (-> ub y)) (* (-> ua z) (-> ub z))))
+                              0.0))
+                  ;; compte une fois par frame (le meme drapeau que `buried` : `phys-pen-chain`
+                  ;; l'arme, le recul ne l'arme pas, donc les 3 reculs et leurs 13 pas de
+                  ;; dichotomie ne comptent pas).
+                  (when (nonzero? *phys-buried-tally*)
+                    (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
+                          (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))
+                  ;; CONTROLE POSITIF (temporaire) : la contrainte est retiree, le compteur reste.
+                  #t)
                 ;; `buried` = le lien est entierement dans ce volume A SA POSE DE MODELE. Depuis le
                 ;; 2026-08-12 c'est une MESURE et plus une DECISION : elle ne dispense plus la paire
                 ;; d'etre contrainte (cf. phys-vol-floor, branche FREE retiree). Le nombre reste
