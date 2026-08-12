@@ -247,6 +247,36 @@ def check_metric_frame_declared():
                        "pour un deplacement soutenu, scalaire pour une forme, repere monde pour "
                        "un mouvement relatif au parent." % (rel.split('/')[-1], name))
 
+
+# --------------------------------------------------------------------------
+# TRAP 8 — un verrou qui rouille. Chaque piege rencontre est inscrit dans
+# .autoport/PITFALLS.md avec le fichier et le marqueur de son verrou ; ce check
+# verifie a chaque tentative que le verrou est TOUJOURS LA. Sans lui, un verrou
+# supprime par une refonte ne se voit qu'a la prochaine occurrence du piege --
+# c'est-a-dire trop tard, ce qui est exactement le probleme qu'on essaie de
+# supprimer (owner 2026-08-12 : « fais en sorte que tes soucis recurrents ne se
+# reproduisent plus, ca fait partie de l'amelioration continue »).
+def check_guards_still_installed():
+    reg = _read(".autoport/PITFALLS.md")
+    if not reg:
+        yield ("WARN", "GUARD-REGISTRY",
+               "PITFALLS.md absent : le registre des pieges rencontres et de leurs verrous "
+               "n'existe plus, donc plus rien ne verifie qu'un verrou n'a pas ete supprime.")
+        return
+    import re as _re
+    for m in _re.finditer(r"^GUARD (\S+) (\S+) (.+)$", reg, _re.M):
+        gid, path, marker = m.group(1), m.group(2), m.group(3).strip()
+        body = _read(path)
+        if not body:
+            yield ("BLOCKER", "GUARD-GONE",
+                   "verrou '%s' : son fichier %s a disparu. Le piege qu'il empechait peut "
+                   "revenir sans que rien ne le signale." % (gid, path))
+        elif marker not in body:
+            yield ("BLOCKER", "GUARD-GONE",
+                   "verrou '%s' : le marqueur \"%s\" n'est plus dans %s. Il a ete retire ou "
+                   "renomme par une refonte -- le piege correspondant n'est plus couvert."
+                   % (gid, marker[:40], path))
+
 CHECKS = [
     check_goal_objects_linked,
     check_self_matching_kills,
@@ -255,6 +285,7 @@ CHECKS = [
     check_validator_negated_class,
     check_report_not_stale,
     check_metric_frame_declared,
+    check_guards_still_installed,
 ]
 
 
