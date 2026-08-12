@@ -97,6 +97,49 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 # laissait la renormalisation repasser au-dessus du seuil (mesure : 59 aretes restantes, toutes a
 # 0.500). 0.45 est aussi la marche de `backhair` — on se cale sur la sante mesuree, pas sur le seuil.
 # =============================================================================================
+# =============================================================================================
+# LES AUTRES PERSONNAGES — RESTAURES POUR NE PAS DETRUIRE LE MESH LIVRE (2026-08-12)
+#
+# Ce ne sont PAS de nouvelles donnees et personne ne recoit de physique ici : `physics_chains.txt`
+# ne porte que Keira (la gate CLEAN le verifie, <= 2 modeles). Ces regles ne font que RECONSTITUER
+# le mesh que l'owner a deja en main.
+#
+# Le raisonnement, mesure : `out/jak1/fr3/enhanced/GAME.fr3` (11 aout 02:06) porte ONZE modeles HD,
+# bakes quand la recette contenait encore ces regles. `f86d919800` a supprime la recette 22 minutes
+# plus tard. Le reskin est applique PAR MODELE (`--model "$char"`) et un modele sans regle est un
+# passthrough octet-pour-octet : rebaker avec la recette Keira-seule aurait donc rendu a huit
+# personnages leur ponderation BRUTE, en silence, sans qu'aucune gate ne le voie — pendant que je
+# corrigeais les cheveux de Keira.
+#
+# C'est exactement la regle de non-destruction de l'owner (« t'assurer que ton travail n'est pas
+# systematiquement detruit »). Le perimetre Keira porte sur QUI recoit de la physique, pas sur le
+# droit de detruire l'artefact livre des autres. Restaurer est l'option non destructive ; ne pas
+# restaurer aurait fait payer la correction des cheveux par la peau de huit autres personnages.
+# Source : `git show f86d919800^:recharged_assets/physics_reskin.txt`.
+# =============================================================================================
+[model jak-hd]
+transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
+
+[model jak2-hd jakp-hd]
+transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
+
+[model jak3-hd jakm-hd]
+transfer MhairA from=neckB cap=0.85 shape=0.85
+
+[model samos-hd]
+transfer Llog from=headLog cap=0.90 shape=0.80
+transfer belly from=chest,hips cap=0.80 shape=0.70
+
+[model daxp-hd]
+transfer Lpantleg from=Lknee,Lthigh cap=0.90 shape=0.75
+transfer Rpantleg from=Rknee,Rthigh cap=0.90 shape=0.75
+
+[model ysamos-hd]
+transfer Frofront from=head cap=0.85 shape=0.85
+transfer Fromid   from=head cap=0.85 shape=0.85
+transfer Froback  from=head cap=0.85 shape=0.85
+
+[model keira-hd keira3-hd]
 grade Rmidhaira chain=Rmidhaira,Rmidhairb from=head step=0.45
 grade Lmidhaira chain=Lmidhaira,Lmidhairb from=head step=0.45
 grade Lbanga    chain=Lbanga,Lbangb,Lbangc from=head step=0.45
