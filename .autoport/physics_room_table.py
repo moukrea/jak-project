@@ -384,15 +384,20 @@ def main():
     radr_n, radr_s = int(float(lim.group(3))), float(lim.group(4)) / UNITS
     buried_n = int(float(lim.group(5)))
 
-    # PART RADIALE DE LA FORCE ECARTEE. Sous la contrainte de longueur un maillon ne fait que
-    # tourner autour de son attache : ce qui pousse LE LONG de l'os ne deplace rien, il ne fait que
-    # gonfler |ecart| — et c'est |ecart| que lisent le plafond de taille et la renormalisation sur
-    # la sphere. NATURE : une force cumulee (u/frame^2), PAS un mouvement retire. REPERE : celui de
-    # l'ancre, projetee sur l'axe de l'os du maillon. LECTURE QUAND LE DEFAUT EST ABSENT : 0 sur une
-    # chaine dont la force est deja transverse.
-    lim3 = re.search(r'^PHYSLIM3 radial_n=([-\d.e+]+) radial_sum=([-\d.e+]+)', txt, re.M)
-    radf_n = int(float(lim3.group(1))) if lim3 else 0
-    radf_s = float(lim3.group(2)) if lim3 else 0.0
+    # BALAYAGE DE SPHERE DU RECUL. NATURE : un compte d'evenements sur la course. LECTURE QUAND LE
+    # DEFAUT EST ABSENT : 0 — la pose du modele est admissible, l'arc suffit, rien a balayer.
+    #
+    # CE QUE CETTE LIGNE PUBLIAIT AVANT, ET POURQUOI ELLE NE LE PUBLIE PLUS : `PHYSLIM3` portait
+    # `radial_n` / `radial_sum`, lus par la salle via `(phys-limiter 6)` et `(phys-limiter 7)`. Le
+    # moteur n'a AUCUN compteur radial : ces deux index tombent dans la branche `else` de
+    # `phys-limiter` et rendaient tous les deux `*phys-buried-n*`. Course du 2026-08-12 :
+    #     PHYSLIM buried=987636   PHYSLIM3 radial_n=987636 radial_sum=987636
+    # et ce tableau en tirait « part radiale de la force, ecartee : 987623 fois, 987623.0000
+    # u/frame^2 au total soit 1.0000 par declenchement ». Le ratio de 1.0000 etait la signature : un
+    # compteur divise par lui-meme. Une grandeur publiee sous un nom qui n'est pas le sien est un
+    # faux vert en attente, et celui-la a survecu des jours.
+    lim3 = re.search(r'^PHYSLIM3 sphere_n=([-\d.e+]+)', txt, re.M)
+    sphere_n = int(float(lim3.group(1))) if lim3 else -1
 
     # REPLIS DU RECUL. La salle emet `PHYSLIM2 retreat_fallback=` depuis toujours et ce tableau ne
     # l'a JAMAIS lu : un instrument emis et jamais publie est un instrument muet. Il compte les fois
@@ -596,16 +601,13 @@ def main():
     A('     Etendu au maillon libre d\'une bretelle il vaudrait 157 u sur un os de 1366 u, soit une')
     A('     butee a 6.6 degres — la bretelle serait morte. Ce qui borne un maillon libre profond est')
     A('     le test de COTE (demi-sphere autour de la direction du modele), pas ce rayon.')
-    A('   part radiale de la force, ecartee : %d fois, %s u/frame^2 au total%s'
-      % (radf_n, fnum(radf_s),
-         ' (jamais declenche)' if radf_n == 0 else ' soit %s par declenchement'
-         % fnum(radf_s / radf_n)))
-    A('     NATURE : une force cumulee, PAS du mouvement retire — sous la contrainte de longueur un')
-    A('     maillon ne fait que TOURNER autour de son attache, donc ce qui pousse le long de l\'os')
-    A('     ne deplacait rien ; il ne faisait que gonfler |ecart|, que lisent le plafond de taille')
-    A('     et la renormalisation sur la sphere. REPERE : celui de l\'ancre, projetee sur l\'axe de')
-    A('     l\'os du maillon. LECTURE QUAND LE DEFAUT EST ABSENT : 0 si la force est deja transverse.')
     A('   marge de sortie de collision : 0.5 u = 0.000122 m par contact resolu, constante.')
+    A('   LIGNE RETIREE ICI, ET C\'EST UNE CORRECTION D\'INSTRUMENT : « part radiale de la force,')
+    A('     ecartee : N fois, N u/frame^2 » lisait `(phys-limiter 6)` et `(phys-limiter 7)`, deux')
+    A('     index qui n\'existent pas dans le moteur et tombent dans sa branche `else` — donc les')
+    A('     deux rendaient `*phys-buried-n*`. Course du 2026-08-12 : buried=987636 et radial_n =')
+    A('     radial_sum = 987636, ratio 1.0000, un compteur divise par lui-meme. La grandeur qu\'elle')
+    A('     nommait n\'a jamais ete mesuree ; ce qui la remplace (ROOM-RETREAT-SPHERE) l\'est.')
     A('ROOM-RETREAT-ANCHOR: fallback=%s' % ('non publie par la course' if retfb_n < 0 else retfb_n))
     A('   fois ou le recul n\'a trouve AUCUN point admissible sur son chemin — pas meme la pose du')
     A('   modele — et s\'est pose sur le MOINS MAUVAIS. NATURE : un compte. LECTURE QUAND LE DEFAUT')
@@ -616,6 +618,16 @@ def main():
     A('   le meme obstacle. C\'est par la que `rmidhair` sortait a 0.0017 m de penetration — la')
     A('   SEULE ligne positive sur 3410. Le compteur etait emis par la salle et n\'etait lu par')
     A('   personne ; il l\'est desormais.')
+    A('ROOM-RETREAT-SPHERE: rescued=%s' % ('non publie par la course' if sphere_n < 0
+                                           else sphere_n))
+    A('   fois ou le recul, son point de depart du modele etant inadmissible, a trouve une direction')
+    A('   ADMISSIBLE ailleurs sur la MEME sphere — celle que l\'arc [pose du modele -> position')
+    A('   courante] ne pouvait pas atteindre. NATURE : un compte d\'evenements. LECTURE QUAND LE')
+    A('   DEFAUT EST ABSENT : 0, comme `fallback` : les deux repondent au MEME evenement declencheur,')
+    A('   l\'un le sauve, l\'autre y renonce. Leur SOMME est le nombre de fois ou l\'arc etait aveugle,')
+    A('   et c\'est la seule lecture qui ait un sens : `rescued` grand avec `fallback` a zero dit que')
+    A('   la longueur d\'os est tenue sans rien laisser traverser ; `rescued` a zero avec `fallback`')
+    A('   non nul dirait que le balayage ne trouve jamais rien et ne sert donc a rien.')
     A('   paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele :')
     A('   %d occurrences de mesure. Critere geometrique calcule sur la pose du modele' % buried_n)
     A('   (profondeur_repos >= 2 x rayon du lien), pas une liste ni un masque.')

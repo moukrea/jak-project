@@ -326,13 +326,25 @@
 ;;     ROOM-RETREAT-ANCHOR fallback  278 -> 933
 ;; Les deux chiffres sont le meme evenement : en rendant l'obstacle une frame plus vieux, il fait
 ;; echouer plus souvent le point de depart du recul sur la sphere du modele, et ce repli-la ABANDONNE
-;; la longueur de l'os. Supprimer le repli rend bien la longueur invariante (0.0003) mais fait
-;; TRAVERSER de dix centimetres — voir la note dans `phys-retreat-chain`. Les deux regles dures se
-;; contredisent, et tant que ce noeud n'est pas defait, la correction de la gelee se paie en
-;; allongement : elle ne part donc pas.
+;; la longueur de l'os.
 ;;
-;; L'ORDRE RESTE UN DEFAUT REEL ET MESURE. Ce n'est pas un abandon : c'est un cout chiffre en
-;; attente du prealable. Le prealable, c'est le repli du recul — pas la gelee.
+;; LE PREALABLE A ETE LEVE, LE DRAPEAU A ETE ARME, ET LA COURSE L'A REFUSE. Essai fait, mesure,
+;; retire — le negatif est le resultat, et il economise le prochain cycle.
+;; Le repli du recul n'abandonne plus la longueur (le balayage de sphere de `phys-retreat-chain` le
+;; sauve 204 fois sur 227), donc l'objection de la note ci-dessus ne tient plus. Arme sur cette base,
+;; course complete du 2026-08-12, ce drapeau pour SEULE variable :
+;;     ROOM-RETREAT-ANCHOR fallback  23 -> 30      ROOM-RETREAT-SPHERE rescued  204 -> 377
+;;     ROOM-STRETCH  0.0003 -> 0.0933              9,3 % d'allongement d'os sur `lbang`, TROIS fois
+;;                                                 le plafond de 3 % du contrat
+;;     ROOM-JELLY chestR  ratio 0.9990 period 2.06  ->  ratio 0.9990 period 2.06 : INCHANGE
+;;     ROOM-JELLY chestL jerk  ratio 0.7153 period 3.94  ->  0.9083 / 2.76 : EMPIRE
+;; DEUX CHOSES QUE CA ETABLIT. (1) L'allongement ne passe PAS que par le repli du recul — 30 replis
+;; ne peuvent pas produire 9,3 % : il vient de la poussee, qui resout contre un obstacle d'une frame
+;; plus vieux et sort de la sphere plus qu'une iteration ne rattrape. (2) LE GAIN ANNONCE PAR LA
+;; NOTE CI-DESSUS NE SE REPRODUIT PLUS : l'asymetrie ne s'effondre pas, la periode de 2.06 frames ne
+;; bouge pas d'un centieme. Cette mesure datait d'un moteur sans contrainte de cote ni balayage.
+;; La gelee n'est donc PAS un defaut d'ordre de resolution, et le prochain cycle n'a plus a depenser
+;; un essai ici.
 (define *phys-jacobi-off* 1)
 
 ;; ------------------------------------------------------------------------------------------------
